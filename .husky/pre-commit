@@ -1,0 +1,8 @@
+cd frontend && npx lint-staged
+
+cd ../backend
+python -m ruff check --fix .
+python -m ruff format .
+
+cd ..
+git diff --name-only | grep '\.py$' | xargs git add 2>/dev/null || true
