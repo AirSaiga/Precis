@@ -1,0 +1,89 @@
+.component-tile {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  gap: 12px;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1px solid rgba(220, 215, 208, 0.5);
+  border-radius: var(--ui-radius-md);
+  cursor: grab;
+  transition: all var(--ui-transition-fast);
+  box-shadow: 0 2px 6px rgba(45, 42, 38, 0.04);
+}
+
+.component-tile:hover {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 6px 12px rgba(45, 42, 38, 0.08);
+  transform: translateY(-2px);
+  border-color: rgba(200, 192, 182, 0.6);
+}
+
+.component-tile:active {
+  cursor: grabbing;
+  transform: scale(0.98);
+}
+
+.tile-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--ui-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.tile-icon-blue {
+  background-color: var(--ui-bg-accent);
+  color: var(--ui-accent);
+}
+
+.tile-icon-purple {
+  background-color: var(--ui-bg-accent);
+  color: var(--ui-accent);
+}
+
+.tile-icon-amber {
+  background-color: var(--ui-bg-warning);
+  color: var(--ui-warning-strong);
+}
+
+.tile-icon-green {
+  background-color: var(--ui-bg-success);
+  color: var(--ui-success-strong);
+}
+
+.tile-icon-sky {
+  background-color: var(--ui-info-weak);
+  color: var(--ui-info-strong);
+}
+
+.tile-icon-pink {
+  background-color: rgba(236, 72, 153, 0.12);
+  color: #db2777;
+}
+
+.tile-label {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ui-text-primary);
+}
+
+.tile-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tile-action :deep(svg) {
+  color: var(--ui-text-tertiary);
+  opacity: 0;
+  transition: opacity var(--ui-transition-fast);
+  cursor: pointer;
+}
+
+.component-tile:hover .tile-action :deep(svg) {
+  opacity: 1;
+  color: var(--ui-accent);
+}

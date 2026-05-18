@@ -1,0 +1,3 @@
+.graph-node-frame {
+  width: var(--graph-node-width, var(--node-width-default, 280px));
+}

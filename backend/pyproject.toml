@@ -1,0 +1,156 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "precis"
+version = "0.1.0"
+description = "Precis - 超早期原型 / 可配置数据校验工具（测试覆盖不足，不建议生产使用）"
+readme = "README.md"
+license = {text = "Apache-2.0"}
+requires-python = ">=3.9,<3.14"
+authors = [
+    {name = "Precis Team"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+]
+dependencies = [
+    # Web 框架 (支持 Python 3.13)
+    "fastapi>=0.135.0",
+    "uvicorn>=0.42.0",
+    # 数据验证与序列化
+    "pydantic>=2.12.0",
+    "email-validator>=2.3.0",
+    # 数据处理
+    "pandas>=3.0.0",
+    "openpyxl>=3.1.5",
+    # 数据库与 SQL
+    "SQLAlchemy>=2.0.48",
+    # YAML 解析
+    "pyyaml>=6.0.3",
+    "ruamel.yaml>=0.19.0",
+    # HTTP 工具
+    "uritemplate>=4.2.0",
+    "python-multipart>=0.0.26",
+    # CLI 交互
+    "readchar>=4.2.0",
+    # 安全
+    "cryptography>=46.0.7",
+    # 安全表达式求值 (替代 eval)
+    "simpleeval>=1.0.0",
+]
+
+[project.optional-dependencies]
+# AI/LLM 功能 (可选)
+ai = [
+    "openai>=1.6.0",
+    "aiohttp>=3.9.0",
+    "psutil>=5.9.6",
+]
+# 完整安装 (包含所有功能)
+full = [
+    "openai>=1.6.0",
+    "aiohttp>=3.9.0",
+    "psutil>=5.9.6",
+]
+# 开发依赖 (可选)
+dev = [
+    "ruff>=0.4.0",
+    "mypy>=1.10.0",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=0.23.0",
+]
+
+[project.scripts]
+precis = "app.cli.shell.main:main"
+
+[project.urls]
+Homepage = "https://github.com/AirSaiga/Precis"
+Repository = "https://github.com/AirSaiga/Precis"
+Documentation = "https://github.com/AirSaiga/Precis/tree/main/docs"
+"Bug Tracker" = "https://github.com/AirSaiga/Precis/issues"
+"Discussions" = "https://github.com/AirSaiga/Precis/discussions"
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.setuptools.package-data]
+app = ["providers.yaml"]
+
+# ============================================================================
+# 代码质量与测试工具配置
+# ============================================================================
+
+[tool.ruff]
+target-version = "py39"
+line-length = 120
+exclude = [
+    ".venv",
+    "__pycache__",
+    "*.egg-info",
+    ".git",
+    "build",
+    "dist",
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "F",   # Pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "W",   # pycodestyle warnings
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by formatter or tolerated)
+    "E402",  # module import not at top (project uses sys.path injection pattern)
+    "N815",  # mixedCase variable in class scope (Pydantic API model fields match frontend JSON)
+]
+
+[tool.ruff.lint.per-file-ignores]
+# 测试文件中允许 mock patch 使用大写变量名（unittest.mock 惯例）
+"tests/**" = ["N806"]
+"tests/**/test_*.py" = ["N806"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+explicit_package_bases = true
+exclude = [
+    ".venv",
+    "build",
+    "dist",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_classes = "Test*"
+python_functions = "test_*"

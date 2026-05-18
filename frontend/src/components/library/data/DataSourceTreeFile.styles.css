@@ -1,0 +1,136 @@
+.file-item-pro {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  background: transparent;
+  border-radius: 6px;
+  border: none;
+  transition: all 0.15s ease;
+  cursor: grab;
+  position: relative;
+}
+
+.file-item-pro:active {
+  cursor: grabbing;
+}
+
+.file-item-pro:hover {
+  background-color: var(--ui-bg-hover);
+}
+
+.file-item-pro.active {
+  background-color: var(--ui-bg-active);
+}
+
+/* 左侧图标区域 */
+.file-icon-wrapper {
+  width: 32px;
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  margin-right: 10px;
+}
+
+.file-icon-wrapper.excel {
+  background-color: var(--ui-bg-panel);
+  color: var(--ui-text-tertiary);
+}
+
+.file-icon-wrapper.csv {
+  background-color: var(--ui-bg-panel);
+  color: var(--ui-text-tertiary);
+}
+
+/* 文本信息 */
+.file-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.file-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ui-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-meta {
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  color: var(--ui-text-tertiary);
+  margin-top: 2px;
+}
+
+.meta-tag {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.meta-divider {
+  margin: 0 4px;
+  opacity: 0.5;
+}
+
+/* 右侧操作区域 */
+.file-actions {
+  margin-left: 8px;
+  min-width: 24px;
+  flex-shrink: 0;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.action-group {
+  display: flex;
+  gap: 4px;
+}
+
+.icon-btn {
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  border: none;
+  background-color: transparent;
+  color: var(--ui-text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  padding: 0;
+}
+
+.icon-btn:hover {
+  background-color: var(--ui-bg-elevated);
+  color: var(--ui-text-secondary);
+}
+
+.remove-btn:hover {
+  background-color: var(--ui-danger-weak);
+  color: var(--ui-danger);
+}
+
+.open-btn:hover {
+  background-color: var(--ui-accent-weak);
+  color: var(--ui-accent);
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}

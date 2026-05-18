@@ -1,0 +1,242 @@
+.node-shell {
+  --shell-accent: var(--node-theme-primary, var(--ui-accent));
+  --shell-accent-weak: var(--node-theme-primary-weak, var(--ui-accent-weak));
+  position: relative;
+  background: var(--node-bg, var(--ui-bg-elevated));
+  border: 1px solid var(--node-border, var(--ui-border-subtle));
+  border-radius: var(--node-border-radius, var(--ui-radius-lg));
+  box-shadow: var(--node-shadow);
+  transition:
+    box-shadow var(--node-transition-fast, var(--ui-transition-fast)),
+    transform var(--node-transition-fast, var(--ui-transition-fast)),
+    border-color var(--node-transition-fast, var(--ui-transition-fast)),
+    background var(--node-transition-fast, var(--ui-transition-fast));
+  min-width: var(--node-min-width, 200px);
+  overflow: visible;
+}
+
+.node-shell:hover {
+  box-shadow: var(--node-shadow-hover);
+  border-color: var(--node-border-hover, var(--ui-border-light));
+  transform: var(--node-transform-hover, translateY(-2px));
+}
+
+.node-shell.is-selected {
+  border-color: var(--node-border-selected, var(--ui-accent));
+  border-width: var(--node-border-selected-width, 2px);
+  box-shadow: var(--node-shadow-selected);
+}
+
+.node-shell.has-error {
+  border-color: var(--node-border-error, var(--ui-danger));
+  box-shadow: var(--node-shadow-error);
+}
+
+.node-shell.is-dragging {
+  box-shadow: var(--node-shadow-dragging);
+  transform: scale(1.02);
+  opacity: 0.95;
+}
+
+.node-shell.theme-primary {
+  --shell-accent: var(--node-theme-primary, var(--ui-accent));
+  --shell-accent-weak: var(--node-theme-primary-weak, var(--ui-accent-weak));
+}
+
+.node-shell.theme-success {
+  --shell-accent: var(--node-theme-success, var(--ui-success));
+  --shell-accent-weak: var(--node-theme-success-weak, var(--ui-success-weak));
+}
+
+.node-shell.theme-warning {
+  --shell-accent: var(--node-theme-warning, var(--ui-warning));
+  --shell-accent-weak: var(--node-theme-warning-weak, var(--ui-warning-weak));
+}
+
+.node-shell.theme-danger {
+  --shell-accent: var(--node-theme-danger, var(--ui-danger));
+  --shell-accent-weak: var(--node-theme-danger-weak, var(--ui-danger-weak));
+}
+
+.node-shell.theme-info {
+  --shell-accent: var(--node-theme-info, var(--ui-info));
+  --shell-accent-weak: var(--node-theme-info-weak, var(--ui-info-weak));
+}
+
+.node-shell.theme-purple {
+  --shell-accent: var(--theme-purple);
+  --shell-accent-weak: var(--theme-purple-weak);
+}
+
+.node-shell.theme-orange {
+  --shell-accent: var(--theme-orange);
+  --shell-accent-weak: var(--theme-orange-weak);
+}
+
+.node-shell.theme-sky {
+  --shell-accent: var(--theme-sky);
+  --shell-accent-weak: var(--theme-sky-weak);
+}
+
+.node-shell.theme-pink {
+  --shell-accent: var(--theme-pink);
+  --shell-accent-weak: var(--theme-pink-weak);
+}
+
+.node-shell.theme-script {
+  --shell-accent: var(--theme-script);
+  --shell-accent-weak: var(--theme-script-weak);
+}
+
+.node-shell.theme-secondary {
+  --shell-accent: var(--ui-text-secondary);
+  --shell-accent-weak: var(--ui-bg-subtle);
+}
+
+.node-shell.state-selected {
+  border-color: color-mix(
+    in srgb,
+    var(--shell-accent) 56%,
+    var(--node-border-selected, var(--ui-accent))
+  );
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--shell-accent) 20%, transparent),
+    var(--node-shadow-selected);
+}
+
+.node-shell.state-success {
+  border-color: color-mix(
+    in srgb,
+    var(--node-border-success, var(--ui-success)) 56%,
+    var(--node-border)
+  );
+  box-shadow: var(--node-shadow-success);
+}
+
+.node-shell.state-warning {
+  border-color: color-mix(
+    in srgb,
+    var(--node-status-warning, var(--ui-warning)) 44%,
+    var(--node-border)
+  );
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--node-status-warning, var(--ui-warning)) 14%, transparent),
+    var(--node-shadow);
+}
+
+.node-shell.state-disabled {
+  opacity: var(--node-opacity-disabled, 0.5);
+  box-shadow: none;
+  filter: grayscale(0.1);
+}
+
+.node-shell__header {
+  display: block;
+}
+
+.node-shell__content {
+  display: block;
+}
+
+.node-shell__footer {
+  display: block;
+}
+
+.node-shell__delete-btn {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  z-index: 30;
+
+  width: var(--node-btn-size-sm, 24px);
+  height: var(--node-btn-size-sm, 24px);
+  border-radius: var(--node-btn-radius-sm, var(--ui-radius-md));
+  background: var(--node-btn-bg, var(--ui-bg-elevated));
+  border: 1px solid
+    color-mix(in srgb, var(--shell-accent) 16%, var(--node-btn-border, var(--ui-border)));
+  box-shadow: var(--node-shadow-sm);
+
+  color: var(--node-btn-text, var(--ui-text-secondary));
+  font-size: 14px;
+  font-weight: var(--ui-font-weight-bold, 700);
+
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--node-transition-fast, var(--ui-transition-fast)),
+    background var(--node-transition-fast, var(--ui-transition-fast)),
+    border-color var(--node-transition-fast, var(--ui-transition-fast)),
+    color var(--node-transition-fast, var(--ui-transition-fast));
+}
+
+.node-shell:hover .node-shell__delete-btn,
+.node-shell.is-selected .node-shell__delete-btn {
+  opacity: 1;
+  visibility: visible;
+}
+
+.node-shell__delete-btn:hover {
+  background: var(--node-btn-bg-hover, var(--ui-bg-hover));
+  border-color: var(--shell-accent);
+  color: var(--shell-accent);
+}
+
+.node-shell__error-badge {
+  position: absolute;
+  top: -10px;
+  left: -10px;
+  z-index: 30;
+}
+
+.node-shell__error-badge:hover {
+  transform: scale(1.1);
+}
+
+.node-shell__save-btn {
+  position: absolute;
+  top: -10px;
+  right: 20px;
+  z-index: 30;
+
+  height: 24px;
+  padding: 0 10px;
+  border-radius: var(--node-btn-radius-sm, var(--ui-radius-md));
+  background: var(--shell-accent);
+  border: 1px solid transparent;
+  box-shadow: var(--node-shadow-sm);
+
+  color: var(--ui-text-on-accent);
+  font-size: var(--ui-font-size-xs, 11px);
+  font-weight: var(--ui-font-weight-semibold, 600);
+
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity var(--node-transition-fast, var(--ui-transition-fast)),
+    background var(--node-transition-fast, var(--ui-transition-fast));
+}
+
+.node-shell:hover .node-shell__save-btn,
+.node-shell.is-selected .node-shell__save-btn {
+  opacity: 1;
+  visibility: visible;
+}
+
+.node-shell__save-btn:hover {
+  background: color-mix(in srgb, var(--shell-accent) 88%, #000 12%);
+}
+
+.node-shell__save-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}

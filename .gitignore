@@ -1,0 +1,215 @@
+# ============================================================================
+# Precis - Git Ignore Configuration
+# ============================================================================
+# 项目结构:
+#   - frontend/   : Vue3 + TypeScript 前端
+#   - backend/    : Python FastAPI 后端
+#   - electron/   : Electron 桌面壳
+#   - scripts/    : CLI 启动脚本
+#   - docs/       : 项目文档
+# ============================================================================
+
+
+# ============================================================================
+# 1. 编辑器 / IDE
+# ============================================================================
+
+# JetBrains (WebStorm, PyCharm, DataGrip)
+/.idea/
+
+# VS Code - 保留共享配置，忽略个人设置
+/.vscode/
+# 注意：如果需要保留 launch.json 和 tasks.json，取消下面两行的注释
+# !/.vscode/launch.json
+# !/.vscode/tasks.json
+*.code-workspace
+
+# Trae AI Editor - 个人 AI 配置
+/.trae/
+
+# Qoder AI - 会话产物与临时 spec
+/.qoder/
+
+# Vim
+*.swp
+*.swo
+*~
+
+# 通用 AI Skill 目录（编辑器无关，团队共享）
+# 注意：.ai/skills/ 用于存放各编辑器共用的 skill 规则
+!/.ai/
+!/.ai/skills/
+!/.ai/skills/**/*.md
+!/.ai/README.md
+
+
+# ============================================================================
+# 2. Python 后端
+# ============================================================================
+
+# 缓存文件
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# 虚拟环境
+/backend/venv/
+/backend/.venv/
+venv/
+.venv/
+ENV/
+env/
+
+# Python 工具缓存
+.ruff_cache/
+.mypy_cache/
+.pytest_cache/
+
+# 测试和覆盖率
+/backend/.pytest_cache/
+/backend/.coverage
+/backend/htmlcov/
+/backend/.tox/
+/backend/*.egg-info/
+
+# 构建产物
+/backend/build/
+/backend/dist/
+/backend/*.egg
+
+
+# ============================================================================
+# 3. Node.js / 前端
+# ============================================================================
+
+# 依赖目录
+/node_modules/
+/frontend/node_modules/
+/electron/node_modules/
+
+# 构建输出
+/frontend/dist/
+/frontend/.vite/
+
+# 日志
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# 类型检查
+/frontend/*.tsbuildinfo
+/frontend/coverage/
+
+# 根级工具缓存
+/.pytest_cache/
+/.mypy_cache/
+/.ruff_cache/
+
+
+# ============================================================================
+# 4. Electron 桌面
+# ============================================================================
+
+# 构建输出
+/electron/out/
+/electron/dist/
+/electron/release/
+
+# Electron Forge
+/electron/out-make/
+
+# 本地配置与生成物
+/electron/.precis/
+/electron/local-updates/
+/backend/coverage_report.txt
+
+
+# ============================================================================
+# 5. 环境配置与密钥
+# ============================================================================
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# 加密密钥和敏感配置
+*.key
+*.pem
+.precis_encryption_key
+
+
+# ============================================================================
+# 6. 操作系统文件
+# ============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+.fuse_hidden*
+.directory
+.Trash-*
+
+
+# ============================================================================
+# 7. 测试与 QA 数据目录
+# ============================================================================
+# 这些目录包含测试数据文件，不应提交到版本控制
+/qa_v3_complex/
+
+# ============================================================================
+# 8. 数据文件（项目特定）
+# ============================================================================
+# 注意: 项目使用 YAML 作为配置格式，因此 *.yaml 不应全局忽略
+# 只忽略特定位置的数据文件
+
+# CSV 数据文件（测试/示例数据）
+*.csv
+
+# Excel 文件
+*.xlsx
+*.xls
+
+# 压缩包
+*.zip
+*.tar.gz
+*.rar
+*.7z
+
+
+# ============================================================================
+# 9. 项目配置（保留示例，忽略实际配置）
+# ============================================================================
+# 实际配置文件存储用户特定设置，不应提交到版本控制
+# 示例文件 (*.example.yaml) 应提交
+
+# Precis 项目级配置（用户特定）
+/.precis/data_sources.yaml
+/.precis/ai_providers.yaml
+/.precis/electron_launch.yaml
+/.precis/.precis-allowed-paths
+/backend/.precis/
+
+.python-version
+
+
+
+# ============================================================================
+# 10. 日志文件
+# ============================================================================
+*.log
+logs/

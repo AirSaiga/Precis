@@ -1,0 +1,30 @@
+.allowed-values-constraint-node {
+  /* 仅保留特有的覆盖，其余通过 theme prop 自动由 NodeShell 处理 */
+  --constraint-node-width: var(--node-width-default, 280px);
+}
+
+.allowed-values-constraint-node:hover {
+  box-shadow: var(--node-shadow-hover);
+}
+
+/* 预览区标签样式 - 消费全局令牌 */
+.preview-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--constraint-gap-xs);
+}
+
+.preview-tag {
+  background: var(--ui-bg-subtle);
+  color: var(--ui-text-secondary);
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--constraint-radius-sm);
+  padding: 2px 8px;
+  font-size: var(--constraint-font-xs);
+}
+
+.preview-tag.more {
+  background: transparent;
+  color: var(--constraint-text-muted);
+  border-style: dashed;
+}

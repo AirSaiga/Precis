@@ -1,0 +1,271 @@
+/* 基础变量与重置 */
+.data-library {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--ui-bg-panel);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  color: var(--ui-text);
+  min-width: 0;
+}
+
+/* === 头部样式优化 === */
+.data-view-header {
+  padding: 12px 16px;
+  background-color: var(--ui-bg-elevated);
+  border-bottom: 1px solid var(--ui-border-subtle);
+}
+
+.header-content-wrapper {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.header-title-section {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-title-section h2 {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ui-text-primary);
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.data-source-count {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ui-text-tertiary);
+}
+
+.trash-button {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--ui-text-tertiary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.trash-button:hover:not(:disabled) {
+  background-color: var(--ui-bg-hover);
+  color: var(--ui-text-secondary);
+}
+
+.trash-button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* === 数据列表容器 === */
+.data-sources-section-new {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background-color: transparent;
+  min-height: 0;
+}
+
+/* === 实用工具类 === */
+.px-4 {
+  padding-left: 16px;
+  padding-right: 16px;
+}
+
+/* === 编辑文件对话框样式（保留供动态使用） === */
+.edit-file-dialog-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--ui-overlay-backdrop-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: dialogOverlayFadeIn 0.2s ease-out;
+}
+
+@keyframes dialogOverlayFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.edit-file-dialog {
+  background: var(--ui-bg-elevated);
+  border-radius: 12px;
+  width: 450px;
+  max-width: 90vw;
+  box-shadow: var(--ui-shadow-lg);
+  animation: dialogSlideIn 0.2s ease-out;
+}
+
+@keyframes dialogSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.edit-file-dialog .dialog-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--ui-border);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ui-text);
+}
+
+.edit-file-dialog .dialog-content {
+  padding: 20px;
+}
+
+.edit-file-dialog .file-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ui-text);
+  margin-bottom: 12px;
+}
+
+.edit-file-dialog .path-display {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.edit-file-dialog .path-display input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 6px;
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--ui-text-muted);
+  background: var(--ui-bg-panel);
+}
+
+.edit-file-dialog .path-display input:focus {
+  outline: none;
+  border-color: var(--ui-accent);
+  background: var(--ui-bg-elevated);
+}
+
+.edit-file-dialog .path-display button {
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border-strong);
+  border-radius: 6px;
+  background: var(--ui-bg-panel);
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s;
+}
+
+.edit-file-dialog .path-display button:hover {
+  background: var(--ui-bg-hover);
+}
+
+.edit-file-dialog .hint {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  margin: 0;
+}
+
+.edit-file-dialog .dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--ui-border);
+  background: var(--ui-bg-panel);
+  border-radius: 0 0 12px 12px;
+}
+
+.edit-file-dialog .dialog-actions button {
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.edit-file-dialog .dialog-actions #open-folder-btn {
+  background: var(--ui-accent);
+  color: var(--ui-text-on-accent);
+  border: none;
+}
+
+.edit-file-dialog .dialog-actions #open-folder-btn:hover {
+  background: var(--ui-accent-hover);
+}
+
+.edit-file-dialog .dialog-actions #close-dialog-btn {
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text);
+  border: 1px solid var(--ui-border-strong);
+}
+
+.edit-file-dialog .dialog-actions #close-dialog-btn:hover {
+  background: var(--ui-bg-hover);
+}
+
+.drag-handle {
+  opacity: 0.3;
+  cursor: grab;
+  padding: 4px;
+}
+
+@media (max-width: 480px) {
+  .header-content-wrapper {
+    gap: 10px;
+  }
+
+  .header-title-section h2 {
+    font-size: 16px;
+  }
+
+  .action-button {
+    padding: 6px 8px;
+    font-size: 12px;
+  }
+
+  .file-item-pro {
+    padding: 10px;
+  }
+
+  .file-icon-box {
+    width: 36px;
+    height: 36px;
+    font-size: 18px;
+  }
+
+  .file-name {
+    font-size: 13px;
+  }
+
+  .file-meta {
+    font-size: 11px;
+  }
+}

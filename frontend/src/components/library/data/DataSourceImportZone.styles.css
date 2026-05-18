@@ -1,0 +1,38 @@
+.import-section {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+.import-dropzone {
+  height: 52px;
+  border: 1px dashed var(--ui-border-light);
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  background-color: transparent;
+}
+
+.import-dropzone:hover,
+.import-dropzone.is-drag-over {
+  border-color: var(--ui-border);
+  background-color: var(--ui-bg-hover);
+}
+
+.dropzone-icon {
+  color: var(--ui-text-tertiary);
+}
+
+.dropzone-text {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ui-text-secondary);
+}
+
+.px-4 {
+  padding-left: 16px;
+  padding-right: 16px;
+}

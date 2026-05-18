@@ -1,0 +1,21 @@
+.scripted-constraint-node {
+  /* 仅保留特有的覆盖，其余通过 theme prop 自动由 NodeShell 处理 */
+  --constraint-node-width: var(--node-width-default, 300px);
+}
+
+.scripted-constraint-node:hover {
+  box-shadow: var(--node-shadow-hover);
+}
+
+.script-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: var(--constraint-font-xs);
+  font-weight: var(--ui-font-weight-bold);
+  border-radius: var(--constraint-radius-sm);
+  white-space: nowrap;
+  background: var(--ui-accent-weak);
+  color: var(--ui-accent);
+  border: 1px solid var(--ui-accent-ring);
+}

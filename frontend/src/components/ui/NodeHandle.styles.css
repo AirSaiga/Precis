@@ -1,0 +1,149 @@
+.node-handle {
+  width: var(--node-handle-size-md, 10px) !important;
+  height: var(--node-handle-size-md, 10px) !important;
+  border-radius: 50% !important;
+  background: var(--node-handle-bg, var(--ui-bg-elevated)) !important;
+  border: 2px solid var(--handle-accent, var(--node-handle-border, var(--ui-border-strong))) !important;
+  box-shadow: var(--node-shadow-sm) !important;
+  transition:
+    transform var(--node-transition-fast, var(--ui-transition-fast)) !important,
+    box-shadow var(--node-transition-fast, var(--ui-transition-fast)) !important,
+    border-color var(--node-transition-fast, var(--ui-transition-fast)) !important,
+    opacity var(--node-transition-fast, var(--ui-transition-fast)) !important;
+  z-index: 15;
+  opacity: var(--node-handle-opacity, 0.9);
+}
+
+.node-handle--sm {
+  width: var(--node-handle-size-sm, 6px) !important;
+  height: var(--node-handle-size-sm, 6px) !important;
+}
+
+.node-handle--lg {
+  width: var(--node-handle-size-lg, 12px) !important;
+  height: var(--node-handle-size-lg, 12px) !important;
+}
+
+.node-handle--target {
+  left: var(--node-handle-offset-left, -6px) !important;
+}
+
+.node-handle--source {
+  right: var(--node-handle-offset-right, -6px) !important;
+}
+
+.node-handle--primary {
+  --handle-accent: var(--node-theme-primary, var(--ui-accent));
+  --handle-ring: var(--ui-accent-ring);
+}
+
+.node-handle--success {
+  --handle-accent: var(--node-theme-success, var(--ui-success));
+  --handle-ring: var(--ui-success-ring);
+}
+
+.node-handle--warning {
+  --handle-accent: var(--node-theme-warning, var(--ui-warning));
+  --handle-ring: color-mix(in srgb, var(--node-theme-warning, var(--ui-warning)) 22%, transparent);
+}
+
+.node-handle--danger {
+  --handle-accent: var(--node-theme-danger, var(--ui-danger));
+  --handle-ring: var(--ui-danger-ring);
+}
+
+.node-handle--info {
+  --handle-accent: var(--node-theme-info, var(--ui-info));
+  --handle-ring: color-mix(in srgb, var(--node-theme-info, var(--ui-info)) 24%, transparent);
+}
+
+.node-handle--purple {
+  --handle-accent: var(--theme-purple);
+  --handle-ring: color-mix(in srgb, var(--theme-purple) 24%, transparent);
+}
+
+.node-handle--orange {
+  --handle-accent: var(--theme-orange);
+  --handle-ring: color-mix(in srgb, var(--theme-orange) 24%, transparent);
+}
+
+.node-handle--sky {
+  --handle-accent: var(--theme-sky);
+  --handle-ring: color-mix(in srgb, var(--theme-sky) 24%, transparent);
+}
+
+.node-handle--pink {
+  --handle-accent: var(--theme-pink);
+  --handle-ring: color-mix(in srgb, var(--theme-pink) 24%, transparent);
+}
+
+.node-handle--script {
+  --handle-accent: var(--theme-script);
+  --handle-ring: color-mix(in srgb, var(--theme-script) 24%, transparent);
+}
+
+.node-handle--secondary {
+  --handle-accent: var(--ui-text-secondary);
+  --handle-ring: color-mix(in srgb, var(--ui-text-secondary) 22%, transparent);
+}
+
+.node-handle.is-connected {
+  border-color: var(--node-handle-connected, var(--handle-accent, var(--ui-success))) !important;
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    0 0 0 4px color-mix(in srgb, var(--handle-accent, var(--ui-success)) 18%, transparent) !important;
+}
+
+.node-handle:hover,
+.node-handle.is-snapping {
+  border-color: var(--handle-accent, var(--node-handle-hover, var(--ui-accent))) !important;
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.12),
+    0 0 0 4px var(--handle-ring, var(--ui-accent-ring)) !important;
+  transform: scale(1.25) !important;
+  opacity: var(--node-handle-opacity-hover, 1);
+}
+
+.node-handle.is-connected:hover,
+.node-handle.is-snapping.is-connected {
+  border-color: var(--node-handle-connected, var(--handle-accent, var(--ui-success))) !important;
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.12),
+    0 0 0 4px color-mix(in srgb, var(--handle-accent, var(--ui-success)) 24%, transparent) !important;
+}
+
+.node-handle.is-disabled {
+  opacity: var(--node-opacity-disabled, 0.5);
+  pointer-events: none;
+}
+
+.node-handle.is-snapping {
+  animation: node-handle-snap 0.42s ease-out;
+}
+
+@keyframes node-handle-snap {
+  0% {
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 0 var(--handle-ring, var(--ui-accent-ring));
+    transform: scale(1);
+  }
+  45% {
+    box-shadow:
+      0 2px 6px rgba(0, 0, 0, 0.12),
+      0 0 0 8px var(--handle-ring, var(--ui-accent-ring));
+    transform: scale(1.35);
+  }
+  100% {
+    box-shadow:
+      0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 14px var(--handle-ring, var(--ui-accent-ring));
+    transform: scale(1.05);
+  }
+}
+
+.node-handle::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}

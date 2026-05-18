@@ -1,0 +1,64 @@
+.multi-select-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(200, 192, 182, 0.5);
+  border-radius: var(--ui-radius-md);
+  margin: 8px 12px;
+  flex-shrink: 0;
+  box-shadow: 0 4px 12px rgba(45, 42, 38, 0.05);
+}
+
+.selected-count {
+  font-size: 12px;
+  color: var(--ui-text-secondary);
+  font-weight: 500;
+}
+
+.toolbar-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.toolbar-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid rgba(200, 192, 182, 0.5);
+  border-radius: var(--ui-radius-md);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--ui-text-primary);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all var(--ui-transition-fast);
+  box-shadow: 0 2px 6px rgba(45, 42, 38, 0.04);
+}
+
+.toolbar-btn:hover {
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: var(--ui-shadow-md);
+}
+
+.toolbar-btn-danger {
+  color: var(--ui-danger-strong);
+  background: var(--ui-bg-danger);
+}
+
+.toolbar-btn-danger:hover {
+  background: var(--ui-bg-danger);
+  opacity: 0.9;
+}
+
+.toolbar-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.toolbar-btn-ghost:hover {
+  background: var(--ui-bg-sidebar);
+}

@@ -1,0 +1,67 @@
+.inspector-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  min-width: 0;
+  overflow: hidden;
+}
+
+.stat-icon {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ui-radius-sm);
+  flex-shrink: 0;
+}
+
+.icon-bg-default {
+  background: #f1f5f9;
+}
+
+.icon-bg-success {
+  background: #dcfce7;
+}
+
+.icon-bg-warning {
+  background: #fef3c7;
+}
+
+.icon-bg-error {
+  background: #fee2e2;
+}
+
+.icon-emoji {
+  font-size: 14px;
+}
+
+.stat-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ui-text-strong);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--ui-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

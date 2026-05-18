@@ -1,0 +1,128 @@
+.page-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-md);
+}
+
+.page-actions-right {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+}
+
+.rules-count {
+  color: var(--ui-text-muted);
+  font-size: 14px;
+}
+
+.rules-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-md);
+}
+
+.rule-card {
+  overflow: hidden;
+}
+
+.rule-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-sm);
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  background: var(--ui-bg-subtle);
+  cursor: pointer;
+  transition: background var(--ui-transition-fast);
+  flex-wrap: wrap;
+}
+
+.rule-header:hover {
+  background: var(--ui-bg-muted);
+}
+
+.rule-info {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+  flex-wrap: wrap;
+}
+
+.rule-name {
+  font-weight: 600;
+  color: var(--ui-text-strong);
+}
+
+.rule-id {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  font-family: monospace;
+}
+
+.rule-header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+  min-width: 0;
+}
+
+.rule-arrows {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+  font-size: 12px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.arrow-source,
+.arrow-target {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.arrow-source {
+  color: var(--ui-accent);
+}
+
+.arrow-icon {
+  color: var(--ui-text-muted);
+}
+
+.arrow-target {
+  color: var(--ui-success);
+}
+
+.expand-icon {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  transition: transform var(--ui-transition-fast);
+}
+
+.expand-icon.is-expanded {
+  transform: rotate(180deg);
+}
+
+.rule-body {
+  padding: var(--ui-space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-sm);
+}
+
+.endpoint-section,
+.config-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-sm);
+  padding-top: var(--ui-space-sm);
+  border-top: 1px dashed var(--ui-border);
+}
+
+.checkbox-grid {
+  row-gap: var(--ui-space-xs);
+  column-gap: var(--ui-space-sm);
+}

@@ -1,0 +1,204 @@
+.dropdown-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2147483646;
+  background: transparent;
+  cursor: default;
+}
+
+.fixed-dropdown {
+  position: fixed;
+  z-index: 2147483647;
+}
+
+.constraint-dropdown {
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--node-special-menu-shadow);
+  z-index: 2147483647;
+  width: 160px;
+  overflow: hidden;
+  padding: 4px 0;
+}
+
+.constraint-menu-header {
+  padding: 8px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ui-text-muted);
+  border-bottom: 1px solid var(--ui-bg-subtle);
+  margin-bottom: 4px;
+}
+
+.constraint-menu-item {
+  padding: 8px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ui-text);
+  transition: background 0.15s;
+}
+
+.constraint-menu-item:hover {
+  background: var(--ui-bg-subtle);
+}
+
+.constraint-menu-item.active {
+  background: var(--ui-accent-weak);
+  color: var(--ui-accent);
+}
+
+.constraint-menu-item.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.constraint-menu-item.disabled:hover {
+  background: transparent;
+}
+
+.constraint-menu-item.remove-option {
+  color: var(--ui-danger);
+}
+
+.constraint-menu-item.remove-option:hover {
+  background: var(--ui-danger-bg);
+}
+
+.constraint-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 10px;
+}
+
+.not-null-icon {
+  background: var(--ui-danger-weak);
+  color: var(--ui-danger);
+}
+
+.unique-icon {
+  background: var(--ui-success-weak);
+  color: var(--ui-success);
+}
+
+.constraint-label {
+  flex: 1;
+}
+
+.check-icon {
+  font-size: 10px;
+  color: var(--ui-accent);
+}
+
+.constraint-menu-divider {
+  height: 1px;
+  background: var(--ui-bg-subtle);
+  margin: 4px 0;
+}
+
+.type-dropdown {
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--node-special-menu-shadow);
+  z-index: 2147483647;
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-height: calc(100vh - 16px);
+  padding: 6px;
+  min-width: 96px;
+  max-width: 140px;
+}
+
+.type-option-row {
+  padding: 2px;
+}
+
+.type-option-pill {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 0.15s,
+    box-shadow 0.15s,
+    transform 0.15s;
+}
+
+.type-option-pill:hover {
+  transform: translateY(-1px);
+}
+
+.type-option-pill.selected {
+  outline: 2px solid var(--ui-accent-ring);
+  outline-offset: 0;
+}
+
+.type-option-pill.type-string {
+  background: var(--ui-bg-accent);
+  border-color: var(--ui-accent-light);
+  color: var(--ui-accent);
+}
+
+.type-option-pill.type-string:hover {
+  background: var(--ui-accent-weak);
+}
+
+.type-option-pill.type-integer {
+  background: var(--theme-orange-bg);
+  border-color: color-mix(in srgb, var(--theme-orange) 24%, transparent);
+  color: var(--theme-orange-strong);
+}
+
+.type-option-pill.type-integer:hover {
+  background: color-mix(in srgb, var(--theme-orange) 16%, var(--theme-orange-bg));
+}
+
+.type-option-pill.type-float {
+  background: var(--ui-success-bg);
+  border-color: color-mix(in srgb, var(--ui-success) 24%, transparent);
+  color: var(--ui-success);
+}
+
+.type-option-pill.type-float:hover {
+  background: color-mix(in srgb, var(--ui-success) 16%, var(--ui-success-bg));
+}
+
+.type-option-pill.type-date {
+  background: color-mix(in srgb, var(--theme-pink) 10%, var(--ui-bg-elevated));
+  border-color: color-mix(in srgb, var(--theme-pink) 24%, transparent);
+  color: var(--theme-pink);
+}
+
+.type-option-pill.type-date:hover {
+  background: color-mix(in srgb, var(--theme-pink) 16%, var(--ui-bg-elevated));
+}
+
+.type-option-pill.type-expression {
+  background: var(--theme-purple-bg);
+  border-color: color-mix(in srgb, var(--theme-purple) 24%, transparent);
+  color: var(--theme-purple-strong);
+}
+
+.type-option-pill.type-expression:hover {
+  background: color-mix(in srgb, var(--theme-purple) 16%, var(--theme-purple-bg));
+}

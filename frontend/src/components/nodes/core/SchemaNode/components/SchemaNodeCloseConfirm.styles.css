@@ -1,0 +1,124 @@
+.close-confirm-overlay {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--ui-overlay-backdrop-strong, rgba(0, 0, 0, 0.5));
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10001;
+}
+
+.close-confirm-popover {
+  background: var(--ui-bg-elevated, #ffffff);
+  border-radius: var(--ui-radius-lg, 12px);
+  box-shadow: var(--ui-shadow-lg, 0 10px 40px rgba(0, 0, 0, 0.2));
+  border: 1px solid var(--ui-border, #e5e7eb);
+  min-width: 360px;
+  max-width: 90%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: modal-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes modal-slide-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95) translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+.confirm-header {
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--ui-border, #e5e7eb);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.confirm-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ui-text, #4a453f);
+}
+
+.confirm-content {
+  padding: 20px;
+}
+
+.confirm-message {
+  margin: 0;
+  color: var(--ui-text-muted, #8a847c);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.confirm-actions {
+  padding: 12px 20px;
+  background-color: var(--ui-bg-panel, #f5f3ef);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  border-top: 1px solid var(--ui-border, #e5e7eb);
+}
+
+.confirm-btn {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--ui-radius-sm, 6px);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: 1px solid var(--ui-border, #e5e7eb);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.confirm-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--ui-focus-ring, 0 0 0 2px rgba(90, 155, 199, 0.5));
+}
+
+.save-close-btn {
+  background: var(--ui-accent, #5a9bc7);
+  color: var(--ui-text-on-accent, #ffffff);
+  border-color: var(--ui-accent-border, #4a8ab8);
+}
+
+.save-close-btn:hover {
+  background: var(--ui-accent-hover, #4a8ab8);
+  border-color: var(--ui-accent-border-strong, #3d7aa8);
+}
+
+.discard-btn {
+  background: var(--ui-danger, #ef4444);
+  color: var(--ui-text-on-accent, #ffffff);
+  border-color: var(--ui-danger-border, #dc2626);
+}
+
+.discard-btn:hover {
+  background: var(--ui-danger-strong, #dc2626);
+  border-color: var(--ui-danger-border, #b91c1c);
+}
+
+.cancel-btn {
+  background: var(--ui-bg-elevated, #ffffff);
+  color: var(--ui-text, #4a453f);
+  border-color: var(--ui-border-strong, #d4cfc4);
+}
+
+.cancel-btn:hover {
+  background: var(--ui-bg-hover, #f0ede8);
+  border-color: var(--ui-border-strong, #b8b2a8);
+}

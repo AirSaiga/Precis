@@ -1,0 +1,46 @@
+.pattern-toolbox-node {
+  --graph-node-width: 260px;
+  --node-accent: var(--node-type-pattern);
+  --node-accent-soft: var(--theme-sky-bg);
+  --node-accent-light: var(--theme-sky-bg);
+}
+
+.content-body {
+  padding: var(--node-content-padding-y) var(--node-content-padding-x);
+}
+
+.empty {
+  font-size: var(--node-muted-size);
+  color: var(--node-muted-color);
+  text-align: center;
+  padding: 10px 0;
+}
+
+.pattern-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--node-padding-xs);
+}
+
+.pattern-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--node-padding-sm);
+  border: 1px solid var(--node-border);
+  border-radius: var(--node-radius-md);
+  padding: var(--node-padding-sm) 10px;
+  background: var(--node-bg);
+  transition: all var(--node-transition-fast);
+  min-height: 42px;
+}
+
+.pattern-name {
+  font-size: var(--node-text-size);
+  color: var(--node-title-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}

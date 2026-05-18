@@ -1,0 +1,445 @@
+/**
+ * @file validationRegistry.ts
+ * @description 约束验证注册表 - 管理所有数据质量约束类型的验证处理器
+ *
+ * ====================================================================
+ * 功能概述
+ * ====================================================================
+ * 该模块是约束验证系统的核心注册中心，负责：
+ * 1. 注册和管理所有约束类型的验证处理器
+ * 2. 提供约束类型元数据查询接口
+ * 3. 构建验证上下文并执行验证
+ * 4. 处理连接断开时的状态重置
+ *
+ * ====================================================================
+ * 支持的约束类型
+ * ====================================================================
+ * | 类型 | V2类型 | 说明 | 是否需要输入连接 |
+ * |------|--------|------|-----------------|
+ * | notNullConstraint | NotNull | 非空约束 | 否 |
+ * | uniqueConstraint | Unique | 唯一性约束 | 否 |
+ * | foreignKeyConstraint | ForeignKey | 外键约束 | 是 |
+ * | allowedValuesConstraint | AllowedValues | 允许值约束 | 是 |
+ * | rangeConstraint | Range | 区间约束 | 是 |
+ * | conditionalConstraint | Conditional | 条件约束 | 否 |
+ * | scriptedConstraint | Scripted | 脚本约束 | 是 |
+ * | charsetConstraint | Charset | 字符集约束 | 是 |
+ * | dateLogicConstraint | DateLogic | 日期逻辑约束 | 是 |
+ *
+ * ====================================================================
+ * 架构设计
+ * ====================================================================
+ * - 采用注册表模式，新增约束类型只需调用 register() 方法
+ * - 使用 Map 存储处理器，按 kind 作为 key
+ * - 使用 typeToMeta 和 kindToMeta 两个 Map 提供快速查询
+ * - 所有验证逻辑通过 handlers.get(kind).validate() 统一调用
+ *
+ * ====================================================================
+ * 验证流程
+ * ====================================================================
+ * 1. validateConstraintNode: 验证单个约束节点
+ *    - buildValidationContext: 构建验证上下文（列信息、文件路径等）
+ *    - 获取对应的处理器
+ *    - 调用 handler.validate(ctx) 执行验证
+ *    - 更新节点数据（状态、错误信息、统计数据）
+ *
+ * 2. validateConstraintNodesForSchema: 验证 Schema 的所有关联约束
+ *    - 查找所有从 Schema 出发的边
+ *    - 过滤出约束节点
+ *    - 逐个调用 validateConstraintNode
+ *
+ * ====================================================================
+ * buildValidationContext 关键逻辑
+ * ====================================================================
+ * - 从 edge.sourceHandle 提取列 ID（格式: 'source-right-{columnId}'）
+ * - 从 schemaNode 查找对应的列定义
+ * - 提取数据源信息：文件路径、工作表名、表头行号
+ * - 返回完整的验证上下文供处理器使用
+ *
+ * ====================================================================
+ * 验证上下文（ConstraintValidationContext）
+ * ====================================================================
+ * 包含验证所需的所有信息：
+ * - nodes: 画布节点列表（用于查找关联节点）
+ * - schemaNode: Schema 节点（数据源）
+ * - constraintNode: 约束节点（配置信息）
+ * - edge: 连接边（列标识）
+ * - columnId/columnName: 列信息
+ * - sourceFilePath/sourceFile: 数据源路径
+ * - sheetName/headerRow: 工作表信息
+ *
+ * ====================================================================
+ * 处理器注册模式
+ * ====================================================================
+ * 每种约束类型都注册一个 handler，包含：
+ * - kind: 约束类型标识
+ * - validate: 异步验证函数
+ * - resetOnDisconnect: 断开连接时的重置函数
+ *
+ * validate 函数返回 ConstraintValidationResult：
+ * - status: 状态（pass/error/missing/idle）
+ * - validationErrors: 错误信息数组
+ * - lastValidation: 统计数据（totalRows/errorCount/matchCount）
+ *
+ * ====================================================================
+ * requireSource 防护检查
+ * ====================================================================
+ * 所有处理器首先调用 requireSource 检查数据源：
+ * - 如果缺少 sourceFile 或 sourceFilePath，返回 missing 状态
+ * - 避免在无数据源时执行无效的 API 调用
+ *
+ * ====================================================================
+ * getTargetValues 辅助函数
+ * ====================================================================
+ * 用于外键约束，获取目标表的所有值：
+ * - 查找目标 Schema 节点
+ * - 提取指定列的所有非空值
+ * - 去重后返回，用于参照完整性检查
+ *
+ * ====================================================================
+ * resetOnDisconnect 默认行为
+ * ====================================================================
+ * 断开连接时重置节点状态：
+ * - validationStatus → 'idle'
+ * - validationErrors → []
+ * - lastValidation → undefined
+ *
+ * 特殊约束可自定义重置逻辑（如 ForeignKey 需要清理 targetRef）。
+ *
+ * ====================================================================
+ * 关键设计决策
+ * ====================================================================
+ * 1. 【注册表模式】新增约束类型只需注册，无需修改调度代码
+ * 2. 【类型映射】nodeType ↔ kind ↔ v2Type 三向映射
+ * 3. 【异步验证】所有验证都是异步的，调用后端 API
+ * 4. 【上下文构建】验证所需的上下文通过 edge 和 node 构建，而非从节点存储读取
+ *
+ * ====================================================================
+ * 依赖说明
+ * ====================================================================
+ * - @vue-flow/core: 节点和边的类型定义
+ * - @/api/validationApi: 后端验证 API
+ * - @/composables/nodes/constraints: 部分约束的本地验证函数
+ * - ./types: 约束相关的类型定义
+ *
+ * ====================================================================
+ * 副作用说明
+ * ====================================================================
+ * - 验证会更新节点的 validationStatus、validationErrors、lastValidation
+ * - 验证可能触发多次 API 调用
+ * - validateConstraintNode 会通过 updateNodeData 触发响应式更新
+ *
+ * @module core/constraints
+ */
+
+import type { Edge, Node } from '@vue-flow/core'
+import {
+  validateAllowedValues,
+  validateCharset,
+  validateConditional,
+  validateForeignKey,
+  validateRange,
+  validateScripted,
+} from '@/api/validationApi'
+import { validateNotNull } from '@/composables/nodes/constraints/useNotNull'
+import { validateUnique } from '@/composables/nodes/constraints/useUnique'
+import { getApiBaseUrl } from '@/core/services/httpClient'
+import type {
+  ConstraintKind,
+  ConstraintNodeType,
+  ConstraintTypeMeta,
+  ConstraintValidationContext,
+  ConstraintValidationHandler,
+  ConstraintValidationResult,
+} from './types'
+
+export const CONSTRAINT_TYPES: ConstraintTypeMeta[] = [
+  { nodeType: 'notNullConstraint', kind: 'notNull', v2Type: 'NotNull', requireInputHandle: false },
+  { nodeType: 'uniqueConstraint', kind: 'unique', v2Type: 'Unique', requireInputHandle: false },
+  {
+    nodeType: 'foreignKeyConstraint',
+    kind: 'foreignKey',
+    v2Type: 'ForeignKey',
+    requireInputHandle: true,
+  },
+  {
+    nodeType: 'allowedValuesConstraint',
+    kind: 'allowedValues',
+    v2Type: 'AllowedValues',
+    requireInputHandle: true,
+  },
+  { nodeType: 'rangeConstraint', kind: 'range', v2Type: 'Range', requireInputHandle: true },
+  {
+    nodeType: 'conditionalConstraint',
+    kind: 'conditional',
+    v2Type: 'Conditional',
+    requireInputHandle: false,
+  },
+  {
+    nodeType: 'scriptedConstraint',
+    kind: 'scripted',
+    v2Type: 'Scripted',
+    requireInputHandle: true,
+  },
+  { nodeType: 'charsetConstraint', kind: 'charset', v2Type: 'Charset', requireInputHandle: true },
+  {
+    nodeType: 'dateLogicConstraint',
+    kind: 'dateLogic',
+    v2Type: 'DateLogic',
+    requireInputHandle: true,
+  },
+  {
+    nodeType: 'compositeConstraint',
+    kind: 'composite',
+    v2Type: 'Composite',
+    requireInputHandle: true,
+  },
+]
+
+export const typeToMeta = new Map(CONSTRAINT_TYPES.map((x) => [x.nodeType, x]))
+export const kindToMeta = new Map(CONSTRAINT_TYPES.map((x) => [x.kind, x]))
+
+export const handlers = new Map<ConstraintKind, ConstraintValidationHandler>()
+
+export const defaultReset = (nodeData: Record<string, unknown>) => ({
+  ...nodeData,
+  validationStatus: 'idle',
+  validationErrors: [],
+  lastValidation: undefined,
+})
+
+export const toResult = (
+  errorRows: unknown[] | undefined,
+  totalRows: number,
+  fallbackMessage: string
+): ConstraintValidationResult => {
+  const rows = Array.isArray(errorRows) ? errorRows : []
+  const errorCount = rows.length
+  const messages = rows.map((err) => {
+    const errRec = err as Record<string, unknown>
+    const row = typeof errRec?.row_index === 'number' ? (errRec.row_index as number) + 1 : '-'
+    const msg = (errRec?.error_message as string) || fallbackMessage
+    return `第 ${row} 行: ${msg}`
+  })
+  return {
+    status: errorCount > 0 ? 'error' : 'pass',
+    validationErrors: messages,
+    lastValidation: {
+      totalRows,
+      errorCount,
+      matchCount: Math.max(0, totalRows - errorCount),
+    },
+  }
+}
+
+export const requireSource = (
+  ctx: ConstraintValidationContext
+): ConstraintValidationResult | null => {
+  if (!ctx.sourceFile || !ctx.sourceFilePath) {
+    return { status: 'missing', validationErrors: ['源表未连接数据源'], lastValidation: undefined }
+  }
+  return null
+}
+
+export const getTargetValues = (
+  targetSchemaNode: Node | undefined,
+  targetColumnName: string
+): string[] => {
+  if (!targetSchemaNode || targetSchemaNode.type !== 'schema') return []
+  const targetSchemaData = (targetSchemaNode.data || {}) as Record<string, unknown>
+  const rows =
+    (targetSchemaData?.originalData as unknown[]) || (targetSchemaData?.data as unknown[]) || []
+  if (!Array.isArray(rows) || rows.length === 0) return []
+  const headerRowIndex =
+    typeof targetSchemaData?.headerRow === 'number' ? (targetSchemaData.headerRow as number) : 0
+  const header = (rows[headerRowIndex] as unknown[]) || []
+  const colIndex = Array.isArray(header)
+    ? header.findIndex((h) => String(h ?? '').trim() === targetColumnName)
+    : -1
+  if (colIndex < 0) return []
+  const values = rows
+    .slice(headerRowIndex + 1)
+    .map((r) => (Array.isArray(r) ? (r as unknown[])[colIndex] : undefined))
+    .filter((v) => v !== null && v !== undefined && String(v).trim() !== '')
+    .map((v) => String(v))
+  return Array.from(new Set(values))
+}
+
+export function register(handler: ConstraintValidationHandler) {
+  handlers.set(handler.kind, handler)
+}
+
+export function getConstraintNodeTypes(): ConstraintNodeType[] {
+  return CONSTRAINT_TYPES.map((x) => x.nodeType)
+}
+
+export function getConstraintKinds(): ConstraintKind[] {
+  return CONSTRAINT_TYPES.map((x) => x.kind)
+}
+
+export function isConstraintNodeType(type: string | undefined): type is ConstraintNodeType {
+  if (!type) return false
+  return typeToMeta.has(type as ConstraintNodeType)
+}
+
+export function getConstraintKindByNodeType(type: string | undefined): ConstraintKind | '' {
+  if (!type) return ''
+  return typeToMeta.get(type as ConstraintNodeType)?.kind || ''
+}
+
+export function requiresInputHandle(nodeType: string | undefined): boolean {
+  if (!nodeType) return false
+  return typeToMeta.get(nodeType as ConstraintNodeType)?.requireInputHandle || false
+}
+
+export function getHandlerByNodeType(type: string | undefined): ConstraintValidationHandler | null {
+  const kind = getConstraintKindByNodeType(type)
+  if (!kind) return null
+  return handlers.get(kind) || null
+}
+
+export function getHandlerByKind(kind: ConstraintKind): ConstraintValidationHandler | null {
+  return handlers.get(kind) || null
+}
+
+export function buildValidationContext(params: {
+  schemaNode: Node
+  constraintNode: Node
+  edge: Edge
+  nodes: Node[]
+}): ConstraintValidationContext | null {
+  const { schemaNode, constraintNode, edge } = params
+  const sourceHandle = edge.sourceHandle || ''
+  if (!sourceHandle.startsWith('source-right-')) return null
+  const columnId = sourceHandle.replace('source-right-', '')
+  const schemaData = (schemaNode.data || {}) as Record<string, unknown>
+  const column = ((schemaData.columns || []) as unknown[]).find(
+    (c) => (c as Record<string, unknown>).id === columnId
+  ) as Record<string, unknown> | undefined
+  if (!column) return null
+  return {
+    nodes: params.nodes,
+    schemaNode,
+    constraintNode,
+    edge,
+    columnId,
+    columnName: column.columnName as string,
+    sourceFilePath: (schemaData.localPath || schemaData.sourceFilePath) as string,
+    sourceFile: schemaData.sourceFile as string,
+    sheetName: schemaData.sheetName as string,
+    headerRow: typeof schemaData.headerRow === 'number' ? schemaData.headerRow : 0,
+  }
+}
+
+export async function validateConstraintNode(params: {
+  schemaNode: Node
+  constraintNode: Node
+  edge: Edge
+  nodes: Node[]
+  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
+}): Promise<void> {
+  const { schemaNode, constraintNode, edge, nodes, updateNodeData } = params
+  const handler = getHandlerByNodeType(constraintNode.type)
+  if (!handler) return
+  const ctx = buildValidationContext({ schemaNode, constraintNode, edge, nodes })
+  if (!ctx) return
+  const result = await handler.validate(ctx)
+  updateNodeData(constraintNode.id, {
+    ...(constraintNode.data as Record<string, unknown>),
+    table: ((schemaNode.data || {}) as Record<string, unknown>)?.tableName as string,
+    column: ctx.columnName,
+    sourceRef: { nodeId: schemaNode.id, columnId: ctx.columnId },
+    validationStatus: result.status,
+    validationErrors: result.validationErrors,
+    lastValidation: result.lastValidation,
+  })
+}
+
+export async function validateConstraintNodesForSchema(params: {
+  schemaNodeId: string
+  nodes: Node[]
+  edges: Edge[]
+  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
+}): Promise<void> {
+  const { schemaNodeId, nodes, edges, updateNodeData } = params
+  const schemaNode = nodes.find((n) => n.id === schemaNodeId && n.type === 'schema')
+  if (!schemaNode) return
+  const schemaEdges = edges.filter((e) => e.source === schemaNodeId)
+  for (const edge of schemaEdges) {
+    const constraintNode = nodes.find((n) => n.id === edge.target)
+    if (!constraintNode || !isConstraintNodeType(constraintNode.type)) continue
+    await validateConstraintNode({ schemaNode, constraintNode, edge, nodes, updateNodeData })
+  }
+}
+
+export function buildDisconnectReset(
+  nodeType: string | undefined,
+  nodeData: Record<string, unknown>
+): Record<string, unknown> {
+  const kind = getConstraintKindByNodeType(nodeType)
+  if (!kind) return defaultReset(nodeData)
+  const handler = handlers.get(kind)
+  if (!handler) return defaultReset(nodeData)
+  return handler.resetOnDisconnect(nodeData)
+}
+
+export function getConstraintMetaByKind(kind: ConstraintKind): ConstraintTypeMeta | null {
+  return kindToMeta.get(kind) || null
+}
+
+export function getV2ConstraintTypeByKind(kind: ConstraintKind): ConstraintTypeMeta['v2Type'] | '' {
+  return kindToMeta.get(kind)?.v2Type || ''
+}
+
+export function getV2ConstraintTypeByNodeType(
+  nodeType: string | undefined
+): ConstraintTypeMeta['v2Type'] | '' {
+  if (!nodeType) return ''
+  return typeToMeta.get(nodeType as ConstraintNodeType)?.v2Type || ''
+}
+
+/**
+ * 低层约束执行器 —— 不依赖 Vue Flow 节点对象
+ *
+ * 为 System B 的 batch / inline 场景提供纯数据驱动的验证入口，
+ * 内部构造最小 mock 上下文以满足现有 handler 的接口要求。
+ */
+export async function executeConstraintValidation(params: {
+  kind: ConstraintKind
+  columnName: string
+  sourceFilePath: string
+  sourceFile: string
+  sheetName: string
+  headerRow: number
+  constraintData: Record<string, unknown>
+  nodes?: Node[]
+  schemaColumns?: unknown[]
+}): Promise<ConstraintValidationResult> {
+  const handler = getHandlerByKind(params.kind)
+  if (!handler) {
+    return {
+      status: 'idle',
+      validationErrors: [`未知约束类型: ${params.kind}`],
+      lastValidation: undefined,
+    }
+  }
+
+  const mockEdge = {} as Edge
+  const mockConstraintNode = { data: params.constraintData } as Node
+  const mockSchemaNode = { data: { columns: params.schemaColumns || [] } } as Node
+
+  const ctx: ConstraintValidationContext = {
+    nodes: params.nodes || [],
+    schemaNode: mockSchemaNode,
+    constraintNode: mockConstraintNode,
+    edge: mockEdge,
+    columnId: '',
+    columnName: params.columnName,
+    sourceFilePath: params.sourceFilePath,
+    sourceFile: params.sourceFile,
+    sheetName: params.sheetName,
+    headerRow: params.headerRow,
+  }
+
+  return handler.validate(ctx)
+}

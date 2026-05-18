@@ -1,0 +1,227 @@
+/**
+ * @file SchemaNode.styles.css
+ * @description Schema节点统一样式文件
+ *
+ * 使用 node-tokens.css 中定义的设计令牌变量
+ */
+
+.schema-node {
+  background: var(--node-glass-bg);
+  border: var(--node-border-width, 1px) var(--node-border-style, solid) var(--node-border);
+  border-radius: var(--node-border-radius);
+  min-width: var(--node-min-width, 300px);
+  min-height: 200px;
+  font-family: var(--ui-font-family);
+  box-shadow: var(--node-shadow);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  transition:
+    box-shadow var(--node-transition-normal),
+    border-color var(--node-transition-normal);
+}
+
+.schema-node:hover {
+  background: var(--node-glass-bg-hover);
+  box-shadow: var(--node-shadow-hover);
+  border-color: var(--node-border-hover);
+}
+
+.schema-node.is-selected {
+  background: var(--node-glass-bg-selected);
+  border-color: var(--node-border-selected);
+  box-shadow: var(--node-shadow-selected);
+}
+
+.schema-node.is-drag-over {
+  border-color: var(--ui-success);
+  box-shadow: var(--node-special-outline-success);
+}
+
+.schema-node.has-error {
+  border-color: var(--node-border-error);
+  box-shadow: var(--node-shadow-error);
+}
+
+.columns-header {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr) auto auto 36px;
+  gap: 8px;
+  padding: var(--node-content-padding-y) var(--node-content-padding-x);
+  background: var(--ui-bg-subtle);
+  border-bottom: var(--node-divider-width) var(--node-divider-style) var(--node-divider-color);
+  font-size: var(--node-label-size);
+  font-weight: var(--node-label-weight);
+  text-transform: uppercase;
+  color: var(--node-muted-color);
+  letter-spacing: 0.5px;
+}
+
+.col-header-num {
+  text-align: center;
+}
+
+.col-header-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.col-header-type {
+  min-width: 70px;
+}
+
+.col-header-constraints {
+  min-width: 20px;
+}
+
+.col-header-actions {
+  min-width: 16px;
+}
+
+.columns-section-wrapper {
+  padding: 6px 0;
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.resize-handle {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  width: 10px;
+  height: 10px;
+  cursor: nwse-resize;
+  z-index: var(--node-z-hover);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--node-transition-fast);
+  pointer-events: auto;
+}
+
+.schema-node:hover .resize-handle {
+  opacity: 1;
+}
+
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 5px;
+  height: 5px;
+  border-right: 2px solid var(--ui-text-muted);
+  border-bottom: 2px solid var(--ui-text-muted);
+}
+
+.columns-section-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.virtual-anchor-layer {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  pointer-events: none;
+  z-index: var(--node-z-overlay);
+}
+
+.virtual-anchor {
+  width: 8px !important;
+  height: 8px !important;
+  border-radius: 50% !important;
+  background: var(--node-type-schema) !important;
+  border: 1px solid color-mix(in srgb, var(--ui-bg-elevated) 80%, transparent) !important;
+  z-index: calc(var(--node-z-overlay) + 1);
+  pointer-events: all;
+}
+
+.virtual-anchor-top {
+  position: absolute !important;
+  top: 4px !important;
+  right: 2px !important;
+}
+
+.virtual-anchor-bottom {
+  position: absolute !important;
+  bottom: 4px !important;
+  right: 2px !important;
+}
+
+.footer-section {
+  border-top: var(--node-divider-width) var(--node-divider-style) var(--node-divider-color);
+  padding: var(--node-content-padding-y) var(--node-content-padding-x);
+  margin-top: auto;
+  background: var(--ui-bg-subtle);
+  border-bottom-left-radius: var(--node-border-radius);
+  border-bottom-right-radius: var(--node-border-radius);
+}
+
+.add-column-btn {
+  width: 100%;
+  padding: var(--node-padding-sm);
+  background: var(--node-btn-bg);
+  border: 1px dashed var(--node-btn-border);
+  border-radius: var(--node-btn-radius-sm);
+  color: var(--node-btn-text);
+  font-size: var(--node-text-size);
+  font-weight: var(--node-label-weight);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--node-padding-xs);
+  transition: all var(--node-transition-fast);
+}
+
+.add-column-btn:hover {
+  border-color: var(--node-theme-primary);
+  background: var(--node-theme-primary-weak);
+  color: var(--node-theme-primary);
+}
+
+.binding-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: color-mix(in srgb, var(--ui-success) 5%, transparent);
+  border: 1px dashed var(--ui-success);
+  border-radius: var(--node-radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: var(--node-z-hover);
+}
+
+.binding-prompt {
+  background: var(--ui-bg-elevated);
+  padding: 4px 10px;
+  border-radius: var(--node-badge-radius-full);
+  color: var(--ui-success);
+  font-weight: var(--node-label-weight);
+  font-size: var(--node-muted-size);
+}
+
+.target-handle {
+  left: var(--node-handle-offset-left) !important;
+  top: 44px !important;
+  width: var(--node-handle-size-md) !important;
+  height: var(--node-handle-size-md) !important;
+  border-radius: 50% !important;
+  background: var(--node-type-schema) !important;
+  border: 2px solid var(--node-handle-bg) !important;
+  z-index: var(--node-z-hover);
+}

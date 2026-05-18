@@ -1,0 +1,94 @@
+.constraint-dashboard-node {
+  width: 320px;
+  --node-accent: var(--theme-sky);
+  --node-accent-soft: rgba(14, 165, 233, 0.12);
+  --node-accent-light: rgba(14, 165, 233, 0.08);
+}
+
+.header {
+  background: var(--node-header-gradient-primary);
+  padding: var(--node-header-padding-y) var(--node-header-padding-x);
+  display: flex;
+  align-items: center;
+  gap: var(--node-padding-sm);
+  border-bottom: 1px solid var(--node-divider-color);
+}
+
+.icon {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--node-radius-md);
+  background: var(--node-btn-bg);
+  border: 1px solid rgba(14, 165, 233, 0.2);
+}
+
+.title {
+  font-weight: var(--node-title-weight);
+  font-size: var(--node-title-size);
+  color: var(--node-title-color);
+  flex: 1;
+}
+
+.count {
+  font-size: var(--node-badge-font-size-sm);
+  font-weight: var(--node-badge-font-weight);
+  color: var(--node-muted-color);
+  border: 1px solid var(--node-border);
+  background: var(--node-bg);
+  border-radius: var(--node-badge-radius-full);
+  padding: 2px 8px;
+}
+
+.content-body {
+  padding: var(--node-content-padding-y) var(--node-content-padding-x);
+}
+
+.empty {
+  font-size: var(--node-muted-size);
+  color: var(--node-muted-color);
+  text-align: center;
+  padding: 10px 0;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--node-padding-xs);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--node-border);
+  border-radius: var(--node-radius-md);
+  padding: var(--node-padding-sm) 10px;
+  background: var(--node-bg);
+  cursor: pointer;
+  text-align: left;
+  transition: all var(--node-transition-fast);
+}
+
+.row:hover {
+  box-shadow: var(--node-shadow-sm);
+}
+
+.name {
+  font-size: var(--node-text-size);
+  color: var(--node-title-color);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.type {
+  font-size: var(--node-muted-size);
+  color: var(--node-muted-color);
+  flex-shrink: 0;
+}

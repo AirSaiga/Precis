@@ -1,0 +1,22 @@
+/* AssetLibrary 容器组件样式 - Fluid Architect */
+.asset-library {
+  width: 100%;
+  height: 100%;
+  background: var(--ui-bg-sidebar);
+  border-right: 1px solid var(--ui-border-light);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* 视图切换动画 */
+.view-transition {
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+}
+
+/* 确保子组件填满容器 */
+.project-library,
+.data-library {
+  height: 100%;
+  width: 100%;
+}

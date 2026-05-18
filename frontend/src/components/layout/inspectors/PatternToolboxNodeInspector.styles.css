@@ -1,0 +1,128 @@
+/**
+ * 整个属性检查器容器样式
+ * 垂直弹性布局，子元素间距 16px
+ */
+.pattern-toolbox-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/**
+ * 表单组样式
+ * 垂直弹性布局，标签和输入框之间的间距
+ */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/**
+ * 表单标签样式
+ * 字体粗细、大小、颜色
+ */
+.form-group label {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--ui-text);
+}
+
+/**
+ * 只读值样式
+ * 用于显示不可编辑的数据
+ */
+.readonly-value {
+  padding: 10px 12px;
+  background: var(--ui-bg-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text);
+  font-size: 14px;
+  word-break: break-word;
+  min-height: 20px;
+  backdrop-filter: blur(5px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/**
+ * 类型徽章样式
+ */
+.type-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/**
+ * atomic类型徽章样式
+ * 蓝色主题
+ */
+.type-badge.type-atomic {
+  background: #eff6ff;
+  color: #1e40af;
+  border: 1px solid rgba(30, 64, 175, 0.25);
+}
+
+/**
+ * patterns类型徽章样式
+ * 紫色主题
+ */
+.type-badge.type-patterns {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border: 1px solid rgba(109, 40, 217, 0.25);
+}
+
+/**
+ * 未知类型徽章样式
+ * 灰色主题
+ */
+.type-badge.type-unknown {
+  background: rgba(100, 116, 139, 0.12);
+  color: var(--ui-text-muted);
+  border: 1px solid rgba(100, 116, 139, 0.22);
+}
+
+/**
+ * 统计数值样式
+ */
+.stat-number {
+  font-weight: 600;
+  font-size: 16px;
+  color: var(--ui-text);
+}
+
+/**
+ * 统计单位样式
+ */
+.stat-unit {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+}
+
+/**
+ * 总计值样式
+ * 使用强调色
+ */
+.readonly-value.total-value {
+  background: var(--ui-accent-weak);
+  border-color: rgba(37, 99, 235, 0.25);
+}
+
+.readonly-value.total-value .stat-number {
+  color: var(--ui-accent);
+}
+
+/**
+ * 文件路径样式
+ */
+.readonly-value.file-path {
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 13px;
+}

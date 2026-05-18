@@ -1,0 +1,20 @@
+.datelogic-constraint-node {
+  /* 仅保留特有的覆盖，其余通过 theme prop 自动由 NodeShell 处理 */
+  --constraint-node-width: var(--node-width-default, 300px);
+}
+
+.datelogic-constraint-node:hover {
+  box-shadow: var(--node-shadow-hover);
+}
+
+.config-badge {
+  display: inline-flex;
+  align-items: center;
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-primary);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-full);
+  padding: 2px 10px;
+  font-size: var(--constraint-font-xs);
+  white-space: nowrap;
+}

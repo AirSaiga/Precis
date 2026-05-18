@@ -1,0 +1,16 @@
+.unique-constraint-node {
+  /* 仅保留特有的覆盖，其余通过 theme prop 自动由 NodeShell 处理 */
+  --constraint-node-width: var(--node-width-default, 280px);
+}
+
+.unique-constraint-node:hover {
+  box-shadow: var(--node-shadow-hover);
+}
+
+.details-more {
+  font-size: var(--constraint-font-xs);
+  color: var(--constraint-text-muted);
+  text-align: center;
+  padding: var(--constraint-padding-xs);
+  font-style: italic;
+}

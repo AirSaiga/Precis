@@ -1,0 +1,57 @@
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--ui-text-secondary);
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.select {
+  padding: 10px 12px;
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text);
+  font-size: 14px;
+  outline: none;
+  transition:
+    border-color var(--ui-transition-fast),
+    box-shadow var(--ui-transition-fast);
+  backdrop-filter: blur(5px);
+  cursor: pointer;
+}
+
+.select:focus {
+  border-color: var(--ui-border-focus);
+  box-shadow: var(--ui-focus-ring);
+}
+
+.select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.readonly-value {
+  padding: 10px 12px;
+  background: var(--ui-bg-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text);
+  font-size: 14px;
+  word-break: break-word;
+  min-height: 20px;
+  backdrop-filter: blur(5px);
+}
+
+.help {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  user-select: text;
+  -webkit-user-select: text;
+}

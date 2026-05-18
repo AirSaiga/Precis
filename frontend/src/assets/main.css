@@ -1,0 +1,10 @@
+@layer reset, vendor, tokens, ui, graph;
+
+@import '@vue-flow/core/dist/style.css' layer(vendor);
+@import '@vue-flow/core/dist/theme-default.css' layer(vendor);
+@import './base.css' layer(reset);
+@import './theme.css' layer(tokens);
+@import './tokens/node-tokens.css' layer(tokens);
+@import './ui.css' layer(ui);
+@import './app-shell.css' layer(ui);
+@import './graph-node.css' layer(graph);

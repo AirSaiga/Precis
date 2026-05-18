@@ -1,0 +1,161 @@
+#!/bin/bash
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+cd "${PROJECT_ROOT}"
+
+echo "============================================"
+echo "      Precis Desktop"
+echo "============================================"
+echo ""
+
+# 检查环�?
+echo -e "${BLUE}[INFO]${NC} 检查环�?.."
+echo ""
+
+if ! command -v node &> /dev/null; then
+    echo -e "${RED}[错误] 未找�?Node.js${NC}"
+    echo "按回车键退�?.."
+    read
+    exit 1
+fi
+echo -e "${GREEN}[OK]${NC} Node.js: $(node --version)"
+
+if command -v python3 &> /dev/null; then
+    PYTHON_CMD="python3"
+elif command -v python &> /dev/null; then
+    PYTHON_CMD="python"
+else
+    echo -e "${RED}[错误] 未找�?Python${NC}"
+    echo "按回车键退�?.."
+    read
+    exit 1
+fi
+echo -e "${GREEN}[OK]${NC} Python: $($PYTHON_CMD --version)"
+
+if ! command -v npm &> /dev/null; then
+    echo -e "${RED}[错误] 未找�?npm${NC}"
+    echo "按回车键退�?.."
+    read
+    exit 1
+fi
+echo -e "${GREEN}[OK]${NC} npm: v$(npm --version)"
+
+echo ""
+echo -e "${GREEN}[OK]${NC} 环境检查通过"
+echo ""
+
+# 检查依�?
+echo -e "${BLUE}[INFO]${NC} 检查依�?.."
+echo ""
+
+if [ ! -d "node_modules" ]; then
+    echo -e "${YELLOW}[INFO]${NC} 安装根目录依�?.."
+    npm install || exit 1
+    echo -e "${GREEN}[OK]${NC} 根目录依赖安装完�?
+else
+    echo -e "${GREEN}[OK]${NC} 根目录依赖已安装"
+fi
+
+if [ ! -d "frontend/node_modules" ]; then
+    echo -e "${YELLOW}[INFO]${NC} 安装前端依赖..."
+    cd "frontend" && npm install || exit 1
+    cd "${PROJECT_ROOT}"
+    echo -e "${GREEN}[OK]${NC} 前端依赖安装完成"
+else
+    echo -e "${GREEN}[OK]${NC} 前端依赖已安�?
+fi
+
+if [ ! -d "electron/node_modules" ]; then
+    echo -e "${YELLOW}[INFO]${NC} 安装 Electron 依赖..."
+    cd "electron" && npm install || exit 1
+    cd "${PROJECT_ROOT}"
+    echo -e "${GREEN}[OK]${NC} Electron 依赖安装完成"
+else
+    echo -e "${GREEN}[OK]${NC} Electron 依赖已安�?
+fi
+
+cd "${PROJECT_ROOT}/backend"
+if ! $PYTHON_CMD -c "import fastapi, uvicorn, pydantic, pandas" 2>/dev/null; then
+    echo -e "${YELLOW}[INFO]${NC} 安装后端依赖..."
+    pip3 install -r requirements.txt 2>/dev/null || pip install -r requirements.txt || exit 1
+    echo -e "${GREEN}[OK]${NC} 后端依赖安装完成"
+else
+    echo -e "${GREEN}[OK]${NC} 后端依赖已安�?
+fi
+cd "${PROJECT_ROOT}"
+
+echo ""
+echo -e "${GREEN}[OK]${NC} 所有依赖检查通过"
+echo ""
+
+# 编译 Electron
+echo -e "${BLUE}[INFO]${NC} 编译 Electron TypeScript..."
+cd "electron"
+npm run build:electron 2>/dev/null
+if [ $? -ne 0 ]; then
+    echo -e "${YELLOW}[警告] Electron 编译失败，将使用 ts-node 直接运行${NC}"
+    USE_TS_NODE=1
+fi
+cd "${PROJECT_ROOT}"
+[ -z "$USE_TS_NODE" ] && echo -e "${GREEN}[OK]${NC} Electron 编译完成"
+echo ""
+
+# 启动应用
+echo ""
+echo "============================================"
+echo -e "${BLUE}[INFO]${NC} 正在启动 Precis Desktop..."
+echo "============================================"
+echo ""
+echo "启动顺序:"
+echo "  1. Python 后端服务 (端口 18000)"
+echo "  2. Vite 前端开发服务器 (端口 5173)"
+echo "  3. Electron 桌面应用 (等待前后端就绪后启动)"
+echo ""
+echo "提示: 首次启动可能需要几秒钟加载"
+echo "      �?Ctrl+C 可以停止所有服�?
+echo ""
+
+if ! npx concurrently --version &> /dev/null; then
+    echo -e "${RED}[错误] 未找�?concurrently，请运行: npm install${NC}"
+    exit 1
+fi
+
+if [ "$USE_TS_NODE" = "1" ]; then
+    # 使用 ts-node 启动
+    npx concurrently --kill-others \
+        --names "BACKEND,FRONTEND,ELECTRON" \
+        --prefix-colors "cyan,green,magenta" \
+        "cd backend && $PYTHON_CMD -m uvicorn app.api.main:app --reload --port 18000" \
+        "cd frontend && npm run dev" \
+        "npx wait-on http://127.0.0.1:18000/docs http://localhost:5173 && cd electron && npx electron-forge start"
+else
+    # 使用编译后的代码启动
+    npx concurrently --kill-others \
+        --names "BACKEND,FRONTEND,ELECTRON" \
+        --prefix-colors "cyan,green,magenta" \
+        "cd backend && $PYTHON_CMD -m uvicorn app.api.main:app --reload --port 18000" \
+        "cd frontend && npm run dev" \
+        "npx wait-on http://127.0.0.1:18000/docs http://localhost:5173 && cd electron && npm start"
+fi
+
+EXIT_CODE=$?
+
+echo ""
+echo "============================================"
+echo -e "${BLUE}[INFO]${NC} 所有服务已停止"
+echo "============================================"
+
+if [ $EXIT_CODE -ne 0 ]; then
+    echo -e "${YELLOW}[警告]${NC} 异常退出，代码: $EXIT_CODE"
+fi
+
+echo "按回车键退�?.."
+read
+exit $EXIT_CODE

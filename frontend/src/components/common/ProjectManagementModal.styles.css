@@ -1,0 +1,161 @@
+.project-management-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: var(--ui-overlay-backdrop-strong);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+  backdrop-filter: blur(4px);
+}
+
+.project-management-modal {
+  width: min(520px, 92vw);
+  max-height: 85vh;
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--ui-shadow-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.project-management-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--ui-space-md) var(--ui-space-lg);
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.project-management-close {
+  font-size: 24px;
+  color: var(--ui-text-subtle);
+  line-height: 1;
+}
+
+.project-management-close:hover {
+  color: var(--ui-text);
+}
+
+.project-management-content {
+  padding: var(--ui-space-lg);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-lg);
+}
+
+.project-management-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-md);
+}
+
+.section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ui-text-strong);
+}
+
+.create-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-md);
+}
+
+.form-input {
+  width: 100%;
+}
+
+.path-input-group {
+  display: flex;
+  gap: var(--ui-space-sm);
+}
+
+.path-input-group .form-input {
+  flex: 1;
+}
+
+.empty-state {
+  padding: var(--ui-space-lg);
+  text-align: center;
+  color: var(--ui-text-muted);
+  font-size: 13px;
+}
+
+.recent-projects-section {
+  max-height: 240px;
+}
+
+.recent-projects-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-xs);
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.recent-project-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-md);
+  cursor: pointer;
+  transition: all var(--ui-transition-fast);
+}
+
+.recent-project-item:hover {
+  background: var(--ui-bg-hover);
+  border-color: var(--ui-border);
+}
+
+.project-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.project-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ui-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-path {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.delete-btn:hover {
+  color: var(--ui-danger-strong);
+}
+
+.current-project-info {
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-md);
+}
+
+.modal-fade-enter-active,
+.modal-fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.modal-fade-enter-from,
+.modal-fade-leave-to {
+  opacity: 0;
+}

@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "nodeType": "rangeConstraint",
+  "sections": [
+    {
+      "id": "basic",
+      "titleKey": "inspector.constraint.range.title",
+      "fields": [
+        {
+          "id": "configName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.range.configName",
+          "placeholderKey": "inspector.constraint.range.configNamePlaceholder",
+          "source": { "source": "data", "path": ["configName"] }
+        },
+        {
+          "id": "constraintName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.range.constraintName",
+          "placeholderKey": "inspector.constraint.range.constraintNamePlaceholder",
+          "source": { "source": "data", "path": ["constraintName"] }
+        },
+        {
+          "id": "minValue",
+          "kind": "number",
+          "labelKey": "inspector.constraint.range.minValue",
+          "source": { "source": "data", "path": ["minValue"] }
+        },
+        {
+          "id": "maxValue",
+          "kind": "number",
+          "labelKey": "inspector.constraint.range.maxValue",
+          "source": { "source": "data", "path": ["maxValue"] }
+        },
+        {
+          "id": "boundaryMode",
+          "kind": "select",
+          "labelKey": "inspector.constraint.range.boundaryMode",
+          "source": { "source": "data", "path": ["boundaryMode"] },
+          "options": {
+            "type": "static",
+            "options": [
+              { "labelKey": "inspector.constraint.range.inclusive", "value": "inclusive" },
+              { "labelKey": "inspector.constraint.range.exclusive", "value": "exclusive" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "target",
+      "titleKey": "inspector.constraint.range.targetColumn",
+      "fields": [
+        {
+          "id": "table",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.range.table",
+          "source": { "source": "data", "path": ["table"] }
+        },
+        {
+          "id": "column",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.range.column",
+          "source": { "source": "data", "path": ["column"] }
+        }
+      ]
+    },
+    {
+      "id": "connection",
+      "titleKey": "inspector.constraint.range.sourceConnection",
+      "fields": [
+        {
+          "id": "sourceNodeId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.range.sourceNodeId",
+          "source": { "source": "data", "path": ["sourceRef", "nodeId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "nodeId"] } }
+        },
+        {
+          "id": "sourceColumnId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.range.sourceColumnId",
+          "source": { "source": "data", "path": ["sourceRef", "columnId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "columnId"] } }
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "titleKey": "inspector.constraint.range.validationStatus",
+      "fields": [
+        {
+          "id": "validationStatus",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.range.status",
+          "source": { "source": "data", "path": ["validationStatus"] }
+        },
+        {
+          "id": "lastValidation",
+          "kind": "json",
+          "labelKey": "inspector.constraint.range.validationStatus",
+          "source": { "source": "data", "path": ["lastValidation"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } },
+          "readonly": true
+        },
+        {
+          "id": "validationErrors",
+          "kind": "json",
+          "labelKey": "inspector.constraint.range.errorCount",
+          "source": { "source": "data", "path": ["validationErrors"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },
+          "readonly": true
+        }
+      ]
+    }
+  ]
+}

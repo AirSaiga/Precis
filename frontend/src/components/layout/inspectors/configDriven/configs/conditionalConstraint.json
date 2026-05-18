@@ -1,0 +1,164 @@
+{
+  "version": 1,
+  "nodeType": "conditionalConstraint",
+  "sections": [
+    {
+      "id": "basic",
+      "titleKey": "inspector.constraint.conditional.title",
+      "fields": [
+        {
+          "id": "configName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.conditional.configName",
+          "placeholderKey": "inspector.constraint.conditional.configNamePlaceholder",
+          "source": { "source": "data", "path": ["configName"] }
+        },
+        {
+          "id": "constraintName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.conditional.constraintName",
+          "placeholderKey": "inspector.constraint.conditional.constraintNamePlaceholder",
+          "source": { "source": "data", "path": ["constraintName"] }
+        }
+      ]
+    },
+    {
+      "id": "target",
+      "titleKey": "inspector.constraint.conditional.targetColumns",
+      "fields": [
+        {
+          "id": "table",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.conditional.table",
+          "source": { "source": "data", "path": ["table"] }
+        },
+        {
+          "id": "ifColumn",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.conditional.ifColumn",
+          "source": { "source": "data", "path": ["ifColumn"] }
+        },
+        {
+          "id": "thenColumn",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.conditional.thenColumn",
+          "source": { "source": "data", "path": ["thenColumn"] }
+        }
+      ]
+    },
+    {
+      "id": "ifMode",
+      "titleKey": "inspector.constraint.conditional.ifModeTitle",
+      "fields": [
+        {
+          "id": "skipIfCondition",
+          "kind": "boolean",
+          "labelKey": "inspector.constraint.conditional.skipIfCondition",
+          "helpKey": "inspector.constraint.conditional.skipIfConditionHelp",
+          "source": { "source": "data", "path": ["skipIfCondition"] }
+        },
+        {
+          "id": "ifLogic",
+          "kind": "select",
+          "labelKey": "inspector.constraint.conditional.ifLogic",
+          "source": { "source": "data", "path": ["ifLogic"] },
+          "options": {
+            "type": "static",
+            "options": [
+              { "labelKey": "inspector.constraint.conditional.logicAnd", "value": "and" },
+              { "labelKey": "inspector.constraint.conditional.logicOr", "value": "or" }
+            ]
+          },
+          "when": {
+            "op": "not",
+            "expr": { "op": "exists", "source": { "source": "data", "path": ["skipIfCondition"] } }
+          }
+        }
+      ]
+    },
+    {
+      "id": "thenCondition",
+      "titleKey": "inspector.constraint.conditional.thenConditionTitle",
+      "fields": [
+        {
+          "id": "thenOperator",
+          "kind": "select",
+          "labelKey": "inspector.constraint.conditional.thenOperator",
+          "source": { "source": "data", "path": ["thenConditionConfig", "operator"] },
+          "options": {
+            "type": "static",
+            "options": [
+              { "labelKey": "inspector.constraint.conditional.opNotNull", "value": "not_null" },
+              { "labelKey": "inspector.constraint.conditional.opEq", "value": "eq" },
+              { "labelKey": "inspector.constraint.conditional.opNe", "value": "ne" },
+              { "labelKey": "inspector.constraint.conditional.opGt", "value": "gt" },
+              { "labelKey": "inspector.constraint.conditional.opGte", "value": "gte" },
+              { "labelKey": "inspector.constraint.conditional.opLt", "value": "lt" },
+              { "labelKey": "inspector.constraint.conditional.opLte", "value": "lte" }
+            ]
+          }
+        },
+        {
+          "id": "thenValue",
+          "kind": "text",
+          "labelKey": "inspector.constraint.conditional.thenValue",
+          "placeholderKey": "inspector.constraint.conditional.thenValuePlaceholder",
+          "helpKey": "inspector.constraint.conditional.thenValueHelp",
+          "source": { "source": "data", "path": ["thenConditionConfig", "value"] },
+          "when": {
+            "op": "not",
+            "expr": {
+              "op": "equals",
+              "source": { "source": "data", "path": ["thenConditionConfig", "operator"] },
+              "value": "not_null"
+            }
+          }
+        },
+        {
+          "id": "thenRefColumn",
+          "kind": "text",
+          "labelKey": "inspector.constraint.conditional.thenRefColumn",
+          "placeholderKey": "inspector.constraint.conditional.thenRefColumnPlaceholder",
+          "helpKey": "inspector.constraint.conditional.thenRefColumnHelp",
+          "source": { "source": "data", "path": ["thenConditionConfig", "ref_column"] },
+          "when": {
+            "op": "not",
+            "expr": {
+              "op": "equals",
+              "source": { "source": "data", "path": ["thenConditionConfig", "operator"] },
+              "value": "not_null"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "titleKey": "inspector.constraint.conditional.validationStatus",
+      "fields": [
+        {
+          "id": "validationStatus",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.conditional.status",
+          "source": { "source": "data", "path": ["validationStatus"] }
+        },
+        {
+          "id": "lastValidation",
+          "kind": "json",
+          "labelKey": "inspector.constraint.conditional.validationStatus",
+          "source": { "source": "data", "path": ["lastValidation"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } },
+          "readonly": true
+        },
+        {
+          "id": "validationErrors",
+          "kind": "json",
+          "labelKey": "inspector.constraint.conditional.errorMessages",
+          "source": { "source": "data", "path": ["validationErrors"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },
+          "readonly": true
+        }
+      ]
+    }
+  ]
+}

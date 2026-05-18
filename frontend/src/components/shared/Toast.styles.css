@@ -1,0 +1,142 @@
+.toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 12000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-width: 400px;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--ui-shadow-md);
+  cursor: pointer;
+  pointer-events: auto;
+  min-width: 300px;
+  max-width: 400px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text);
+  border-left: 4px solid var(--toast-accent, var(--ui-accent));
+}
+
+.toast--success {
+  --toast-accent: var(--ui-success);
+  background-color: var(--ui-success-weak);
+}
+
+.toast--error {
+  --toast-accent: var(--ui-danger);
+  background-color: var(--ui-danger-weak);
+}
+
+.toast--warning {
+  --toast-accent: var(--ui-warning); /* was #f59e0b */
+  background-color: var(--ui-warning-weak); /* was rgba(245,158,11,0.12) */
+}
+
+.toast--info {
+  --toast-accent: var(--ui-info); /* was #0ea5e9 */
+  background-color: var(--ui-info-weak); /* was rgba(14,165,233,0.12) */
+}
+
+.toast__icon {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
+
+.toast__icon .icon-check {
+  color: var(--ui-success);
+}
+
+.toast__icon .icon-error {
+  color: var(--ui-danger);
+}
+
+.toast__icon .icon-warning {
+  color: var(--ui-warning); /* was #f59e0b */
+}
+
+.toast__icon .icon-info {
+  color: var(--ui-info); /* was #0ea5e9 */
+}
+
+.toast__content {
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.toast__title {
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.4;
+  margin-bottom: 2px;
+}
+
+.toast__message {
+  font-size: 13px;
+  line-height: 1.4;
+  opacity: 0.9;
+}
+
+.toast__close {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  opacity: 0.7;
+  transition: opacity 0.2s ease;
+}
+
+.toast__close:hover {
+  opacity: 1;
+}
+
+.toast__close .icon-close {
+  width: 16px;
+  height: 16px;
+}
+
+/* 动画效果 */
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(100%);
+}
+
+.toast-move {
+  transition: transform 0.3s ease;
+}
+
+@media (max-width: 480px) {
+  .toast-container {
+    left: 10px;
+    right: 10px;
+    max-width: none;
+  }
+
+  .toast {
+    min-width: auto;
+    max-width: none;
+  }
+}

@@ -1,0 +1,222 @@
+.json-schema-node {
+  min-width: 460px;
+  min-height: 250px;
+  background: var(--node-glass-bg);
+  border: var(--node-border-width, 1px) var(--node-border-style, solid) var(--node-border);
+  border-radius: var(--node-border-radius);
+  box-shadow: var(--node-shadow);
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: visible;
+  transition:
+    box-shadow var(--node-transition-normal),
+    border-color var(--node-transition-normal),
+    background var(--node-transition-fast);
+  --json-accent: var(--node-type-schema);
+  --json-accent-weak: var(--node-type-schema-bg);
+}
+
+.json-schema-node:hover {
+  background: var(--node-glass-bg-hover);
+  box-shadow: var(--node-shadow-hover);
+  border-color: var(--node-border-hover);
+}
+
+.json-schema-node.is-selected {
+  background: var(--node-glass-bg-selected);
+  border-color: var(--node-border-selected);
+  box-shadow: var(--node-shadow-selected);
+}
+
+.target-handle {
+  left: var(--node-handle-offset-left) !important;
+  top: 44px !important;
+  width: var(--node-handle-size-md) !important;
+  height: var(--node-handle-size-md) !important;
+  background: var(--json-accent) !important;
+  border: 2px solid var(--node-bg) !important;
+  border-radius: 50% !important;
+  z-index: 100 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: none !important;
+  transform: none !important;
+}
+
+.target-handle:hover {
+  transform: none !important;
+  border-color: var(--node-bg) !important;
+}
+
+.source-status-badge {
+  position: absolute;
+  left: 8px;
+  top: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  cursor: default;
+  z-index: 5;
+  pointer-events: none;
+}
+
+.source-status-badge .status-icon {
+  font-size: 12px;
+  line-height: 1;
+  transition: color var(--node-transition-fast);
+}
+
+.source-status-badge .status-icon.connected {
+  color: var(--node-theme-success);
+}
+
+.source-status-badge .status-icon.disconnected {
+  color: var(--node-muted-color);
+}
+
+.source-status-badge.is-connected .status-icon.connected {
+  color: var(--node-theme-success);
+}
+
+.json-schema-node .node-header {
+  background: var(--node-header-bg);
+  border-bottom: var(--node-divider-width) var(--node-divider-style) var(--node-divider-color);
+  padding: 0 var(--node-header-padding-x);
+  border-top-left-radius: var(--node-border-radius);
+  border-top-right-radius: var(--node-border-radius);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: var(--node-header-height);
+  position: relative;
+  overflow: hidden;
+}
+
+.json-schema-node .header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--node-padding-sm);
+  flex: 1;
+  min-width: 0;
+}
+
+.json-schema-node .json-icon {
+  width: var(--node-icon-size, 24px);
+  height: var(--node-icon-size, 24px);
+  background: var(--json-accent-weak);
+  color: var(--json-accent);
+  border-radius: var(--node-radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--node-mono-family);
+  flex-shrink: 0;
+}
+
+.json-schema-node .table-name {
+  font-weight: var(--node-title-weight);
+  font-size: var(--node-title-size);
+  color: var(--node-title-color);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.json-schema-node .source-tag {
+  font-size: var(--node-muted-size);
+  color: var(--node-muted-color);
+  background: var(--ui-bg-subtle);
+  padding: 3px 8px;
+  border-radius: 10px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--node-label-weight);
+  border: 1px solid var(--ui-border-subtle);
+  flex-shrink: 0;
+}
+
+.json-schema-node .btn-close {
+  width: 26px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--node-muted-color);
+  font-size: 18px;
+  cursor: pointer;
+  border-radius: var(--node-btn-radius-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--node-transition-fast), color var(--node-transition-fast);
+  flex-shrink: 0;
+}
+
+.json-schema-node .btn-close:hover {
+  background: var(--node-theme-danger-weak);
+  color: var(--node-theme-danger);
+}
+
+.json-schema-node .columns-header {
+  display: grid;
+  grid-template-columns: 28px minmax(70px, auto) minmax(0, 1fr) 1fr 40px;
+  gap: 8px;
+  padding: var(--node-content-padding-y) var(--node-content-padding-x);
+  background: var(--json-accent-weak);
+  border-bottom: var(--node-divider-width) var(--node-divider-style) var(--node-divider-color);
+  font-size: var(--node-label-size);
+  font-weight: var(--node-label-weight);
+  text-transform: uppercase;
+  color: var(--json-accent);
+  letter-spacing: 0.5px;
+}
+
+.json-schema-node .col-h-expand { width: 16px; }
+.json-schema-node .col-h-type { min-width: 80px; }
+.json-schema-node .col-h-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.json-schema-node .col-h-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.json-schema-node .node-footer {
+  padding: var(--node-content-padding-y) var(--node-content-padding-x);
+  background: var(--ui-bg-subtle);
+  border-top: var(--node-divider-width) var(--node-divider-style) var(--node-divider-color);
+  margin-top: auto;
+  border-bottom-left-radius: var(--node-border-radius);
+  border-bottom-right-radius: var(--node-border-radius);
+}
+
+.json-schema-node .btn-add {
+  width: 100%;
+  padding: var(--node-padding-sm);
+  background: var(--node-btn-bg);
+  border: 1px dashed var(--node-btn-border);
+  border-radius: var(--node-btn-radius-sm);
+  color: var(--node-btn-text);
+  font-size: var(--node-text-size);
+  font-weight: var(--node-label-weight);
+  cursor: pointer;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: var(--node-padding-xs);
+  transition: all var(--node-transition-fast);
+}
+
+.json-schema-node .btn-add:hover {
+  border-color: var(--json-accent);
+  background: var(--json-accent-weak);
+  color: var(--json-accent);
+}
+
+.json-schema-node .plus-icon {
+  font-size: 14px;
+  font-weight: 600;
+}

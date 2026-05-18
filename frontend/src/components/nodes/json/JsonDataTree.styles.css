@@ -1,0 +1,180 @@
+.json-data-tree {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--ui-bg-elevated, #ffffff);
+}
+
+/* 面包屑导航 */
+.breadcrumb-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 12px;
+  background: var(--ui-bg-canvas, #f5f3ef);
+  border-bottom: 1px solid var(--ui-border, #e8e4dc);
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+}
+
+.breadcrumb-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.breadcrumb-root,
+.breadcrumb-text {
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--ui-text-secondary, #6b655d);
+  transition: all 0.15s;
+}
+
+.breadcrumb-root:hover,
+.breadcrumb-text:hover {
+  background: var(--ui-bg-subtle, #f0ede8);
+  color: var(--ui-text, #4a453f);
+}
+
+.breadcrumb-root.active,
+.breadcrumb-text.active {
+  color: var(--ui-accent, #5a9bc7);
+  font-weight: 500;
+}
+
+.breadcrumb-separator {
+  color: var(--ui-text-muted, #8a847c);
+  padding: 0 2px;
+}
+
+/* 树内容区 */
+.tree-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 4px 0;
+}
+
+.level-view {
+  font-family: var(--node-mono-family, 'Fira Code', monospace);
+  font-size: 12px;
+}
+
+.tree-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 12px;
+  height: 32px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.tree-row:hover {
+  background-color: var(--ui-bg-subtle, #f0ede8);
+}
+
+.tree-row.selected {
+  background-color: var(--ui-accent-weak, rgba(90, 155, 199, 0.1));
+}
+
+.primitive-row {
+  cursor: default;
+}
+
+.expand-btn,
+.expand-placeholder {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.expand-btn {
+  cursor: pointer;
+  color: var(--ui-text-muted, #94a3b8);
+  transition: color 0.15s;
+}
+
+.expand-btn:hover {
+  color: var(--ui-text-secondary, #64748b);
+}
+
+.expand-btn svg,
+.expand-placeholder svg {
+  width: 10px;
+  height: 10px;
+  stroke-width: 2;
+  fill: none;
+  stroke: currentColor;
+}
+
+.key-name {
+  color: var(--ui-text-body, #4a453f);
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.key-separator {
+  color: var(--ui-text-muted, #8a847c);
+  margin-right: 4px;
+}
+
+.value-text {
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 类型颜色 */
+.type-string {
+  color: var(--ui-accent, #5a9bc7);
+}
+.type-number {
+  color: #059669;
+}
+.type-boolean {
+  color: #c2410c;
+}
+.type-null {
+  color: var(--ui-text-muted, #8a847c);
+  font-style: italic;
+}
+.type-object {
+  color: #7c3aed;
+}
+.type-array {
+  color: #db2777;
+}
+
+/* 返回按钮 */
+.back-button {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  background: var(--ui-bg-canvas, #f5f3ef);
+  border-top: 1px solid var(--ui-border, #e8e4dc);
+  border-left: none;
+  border-right: none;
+  border-bottom: none;
+  color: var(--ui-text-secondary, #6b655d);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.back-button:hover {
+  background: var(--ui-bg-subtle, #f0ede8);
+  color: var(--ui-text, #4a453f);
+}
+
+.back-button svg {
+  stroke: currentColor;
+}

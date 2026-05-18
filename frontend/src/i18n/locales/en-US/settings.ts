@@ -1,0 +1,348 @@
+/**
+ * @file settings.ts
+ * @description 国际化语言包子模块（由 index.ts 拆分生成）
+ */
+
+const settings = {
+  title: 'Settings Center',
+  subtitle:
+    'Manage project context, runtime defaults, file policies, and system capabilities in one place.',
+  saveError: 'Failed to save settings, please try again later',
+  saving: 'Saving...',
+  saved: 'Saved',
+  searchPlaceholder: 'Search settings...',
+  workspace: {
+    badge: 'Workspace',
+    currentContext: 'Current Context',
+    projectActive: 'Project is active',
+    noProject: 'No active project',
+    groups: {
+      workspace: 'Workspace',
+      project: 'Project',
+      system: 'System',
+    },
+  },
+  startupLoading: {
+    label: 'Show startup loading card',
+    desc: 'Show a centered loading card during Electron startup (can be disabled)',
+  },
+  general: {
+    tab: 'General',
+    title: 'General Settings',
+    description:
+      'Manage language, theme, and startup behavior for a consistent workspace experience.',
+    startup: {
+      title: 'Startup Behavior',
+      loadRecent: {
+        label: 'Load recent project on startup',
+        desc: 'Automatically load the most recently opened project when the app starts',
+      },
+    },
+    appearance: {
+      title: 'Appearance',
+      language: {
+        label: 'Language',
+        desc: 'Select the interface display language',
+        zhCN: '简体中文',
+        enUS: 'English',
+      },
+      theme: {
+        label: 'Theme',
+        desc: 'Select the interface theme style',
+        light: 'Light',
+        dark: 'Dark',
+        system: 'System',
+      },
+    },
+  },
+  projectInfo: {
+    tab: 'Project Info',
+    title: 'Project Information',
+    noProject: 'No project is currently open',
+    description:
+      'Manage project name, config path, resource metrics, and data sources from one overview panel.',
+    heroBadge: 'Project Overview',
+    heroDesc:
+      'Keep the project name, workspace path, and resource context aligned so validation always runs against the right project.',
+    emptyDesc: 'Select a project directory first, then manage your Precis workspace from here.',
+    currentPath: 'Config Path',
+    pathHint: 'Current working directory and configuration entry',
+    resourceSummary: 'Tracked Resources',
+    resourceSummaryDesc: 'A total view across schemas, constraints, and regex assets.',
+    currentState: 'Current State',
+    currentStateDesc: 'Reflects whether the project is active and whether pending changes exist.',
+    statusInactive: 'Project not opened',
+    statusPending: 'Pending changes',
+    statusReady: 'Synced with current project',
+    stats: 'Resource Overview',
+    statsDesc: 'Quickly understand the current project scale and resource organization.',
+    schemaDetail: 'Counts manifest and unlisted assets together',
+    constraintDetail: 'Standalone {standalone} · Inline {inline}',
+    regexDetail: 'Shows manifest and unlisted expressions together',
+    dataSourcesHeadline: 'Data Source Workspace',
+    dataSourcesDesc:
+      'Maintain the directories available to the current project for batch validation and asset resolution.',
+    dataSourcesSummaryDesc: 'Organize both internal and external project directories here.',
+    noDataSourcesDesc:
+      'No data source is configured yet. The project directory will be used by default.',
+    basicInfo: 'Basic Information',
+    name: 'Project Name',
+    namePlaceholder: 'Enter project name',
+    path: 'Project Path',
+    configPath: 'Config Path',
+    dataPath: 'Data Directory',
+    pathPlaceholder: 'Select project path',
+    dataPathPlaceholder: 'Select data directory (optional, defaults to config path)',
+    createdAt: 'Created At',
+    lastModified: 'Last Modified',
+    resources: 'Project Resources',
+    schemas: 'Schemas',
+    constraints: 'Constraints',
+    regexes: 'Regex',
+    browse: 'Browse',
+    selectConfigPath: 'Select Project Config Directory',
+    selectDataPath: 'Select Data Directory',
+    selectButton: 'Select',
+    directorySelectionUnavailable:
+      'Directory selection is unavailable, please ensure the application is running correctly',
+    apply: 'Apply Changes',
+    applying: 'Applying...',
+    appliedTitle: 'Applied',
+    appliedDesc: 'Project paths have been updated',
+    openedTitle: 'Opened',
+    openedDesc: 'Project has been opened successfully',
+    applyFailed: 'Failed to apply changes',
+    loadFailed: 'Failed to load project',
+    missingConfigPath: 'Please set the config path first',
+  },
+  project: {
+    tab: 'Project Settings',
+    title: 'Project Validation Settings',
+    description:
+      'Maintain default runtime parameters for task-based validation without affecting node-level instant checks.',
+    defaultRunParamsSectionTitle: 'Default Validation Parameters',
+    defaultRunParamsHint:
+      'These parameters only affect task-based validation such as full/table/file runs. They do not affect instant validation on canvas nodes.',
+    validation: {
+      title: 'Validation Behavior',
+    },
+    autoValidate: {
+      label: 'Auto Validate',
+      desc: 'Automatically run validation when connections or configurations change',
+    },
+    strictMode: {
+      label: 'Strict Mode',
+      desc: 'Mark validation as failed if any error is found',
+    },
+    errorHandling: {
+      label: 'Error Handling',
+      desc: 'How to handle validation errors',
+      stop: 'Stop on first error',
+      continue: 'Continue validating others',
+      report: 'Record errors and continue',
+    },
+    timeout: {
+      label: 'Validation Timeout',
+      desc: 'Maximum execution time for a single validation (seconds)',
+    },
+    batchLimit: {
+      label: 'Batch Limit',
+      desc: 'Maximum number of files for batch validation',
+    },
+  },
+  file: {
+    tab: 'File Processing',
+    title: 'File Processing Settings',
+    description:
+      'Maintain project-level strategies for encoding, delimiters, null handling, and date parsing.',
+    encoding: {
+      title: 'Encoding Settings',
+      label: 'Default Encoding',
+      desc: 'Character encoding for reading files',
+      auto: 'Auto-detect',
+    },
+    delimiter: {
+      label: 'CSV Delimiter',
+      desc: 'Field delimiter for CSV files',
+      comma: 'Comma',
+      semicolon: 'Semicolon',
+      tab: 'Tab',
+      custom: 'Custom',
+      customLabel: 'Custom delimiter',
+    },
+    nullStrategy: {
+      label: 'Null Value Handling',
+      desc: 'How to handle null values in data',
+      empty: 'Empty string',
+      default: 'Default value',
+    },
+    dateFormat: {
+      label: 'Date Format',
+      desc: 'Parsing format for date data (e.g., %Y-%m-%d)',
+    },
+  },
+  script: {
+    tab: 'Script Settings',
+    description: 'Manage script capability enablement and the safety boundaries around execution.',
+    warning: {
+      title: 'Security Warning',
+      text: 'Script functionality allows executing custom code and may pose security risks. Only execute scripts from trusted sources.',
+    },
+    enabled: {
+      groupTitle: 'Script Capability',
+      label: 'Enable Script Functionality',
+      desc: 'Allow using script definitions in constraints',
+    },
+    hint: 'Script functionality can be used to implement complex validation logic, but please be aware of security risks.',
+    security: {
+      title: 'Security Options',
+    },
+    allowEval: {
+      label: 'Allow eval',
+      desc: 'Allow executing Python eval() function',
+    },
+    allowExec: {
+      label: 'Allow exec',
+      desc: 'Allow executing Python exec() function',
+    },
+    sandbox: {
+      label: 'Sandbox Mode',
+      desc: 'Execute scripts in a restricted environment',
+    },
+    timeout: {
+      label: 'Execution Timeout',
+      desc: 'Maximum execution time for a single script (seconds)',
+    },
+  },
+  update: {
+    tab: 'Check for Updates',
+    description: 'View version state and configure update checks and download behavior.',
+    versionInfo: 'Version Information',
+    preferences: 'Update Preferences',
+    actions: 'Actions',
+    currentVersion: 'Current Version',
+    status: 'Status',
+    autoCheck: {
+      label: 'Auto Check Updates',
+      desc: 'Automatically check for new versions when app starts',
+    },
+    autoDownload: {
+      label: 'Auto Download Updates',
+      desc: 'Automatically download update packages when new version is available',
+    },
+    sourceType: {
+      label: 'Update Source Type',
+      desc: 'Choose the update server source',
+      local: 'Local (for testing)',
+      github: 'GitHub Releases',
+      custom: 'Custom Server',
+    },
+    sourceUrl: {
+      label: 'Custom Server URL',
+      desc: 'Enter custom update server URL',
+      placeholder: 'https://updates.example.com',
+    },
+    checkNow: 'Check for Updates',
+    checking: 'Checking...',
+    newVersion: 'New Version',
+    releaseDate: 'Release Date',
+    download: 'Download',
+    downloading: 'Downloading...',
+    install: 'Install & Restart',
+    statusIdle: 'Idle',
+    statusChecking: 'Checking',
+    statusAvailable: 'Update Available',
+    statusNotAvailable: 'Up to Date',
+    statusDownloading: 'Downloading',
+    statusDownloaded: 'Downloaded',
+    statusError: 'Error',
+  },
+  aiAssistant: {
+    tab: 'Model Settings',
+    title: 'AI Model Configuration Help',
+    description:
+      'AI Provider configuration is fully controlled by the local ai_providers.json file.',
+    // Help documentation
+    helpTitle: 'How to Configure AI Provider',
+    helpIntro:
+      'The application loads AI Providers from a local JSON configuration file. No settings are required in the UI.',
+    helpStep1Title: '1. Create the Configuration File',
+    helpStep1Desc: 'Create ai_providers.json at one of the following locations, in priority order:',
+    helpStep1Project: 'Project: {path}',
+    helpStep1User: 'User: {path}',
+    helpStep1System: 'System: /etc/precis/ai_providers.json (Unix only)',
+    helpStep2Title: '2. Fill in the Configuration',
+    helpStep2Desc:
+      'The configuration file is in JSON format, containing a providers array and a defaults object.',
+    helpStep3Title: '3. Supported Provider Types',
+    helpStep3Desc: 'The "type" field supports the following values:',
+    helpStep3Types: 'openai, azure_openai, anthropic, google, aliyun, ollama',
+    helpStep4Title: '4. Environment Variable Substitution',
+    helpStep4Desc:
+      'The api_key field supports ${ENV_VAR} syntax to reference environment variables, avoiding hardcoded secrets.',
+    helpStep5Title: '5. Local Ollama Deployment',
+    helpStep5Desc: 'For local Ollama, set api_key to null and base_url to http://localhost:11434.',
+    helpStep6Title: '6. How to Apply Changes',
+    helpStep6Desc:
+      'Save the configuration file and restart the application. No rebuild is required.',
+    // Current provider
+    currentModel: 'Current Model',
+    configured: 'Configured',
+    noApiKey: 'No API Key',
+    // Provider list
+    configuredProviders: 'Configured Providers',
+    // Config file
+    configPath: 'Config File Path',
+    openConfigFile: 'Open Config File',
+    restartRequired: 'Restart the application after modifying the config file.',
+    configTemplate: 'Config Template',
+    copied: 'Copied',
+    // No provider
+    noProvider: 'No AI Provider Configured',
+    noProviderHint: 'Please edit the ai_providers.json configuration file to add a Provider.',
+    // Field descriptions
+    fieldId: 'Unique identifier',
+    fieldName: 'Display name',
+    fieldType: 'Provider type',
+    fieldBaseUrl: 'API base URL',
+    fieldApiKey: 'API key (supports ${ENV} variables)',
+    fieldModel: 'Model name',
+    fieldDefaults: 'Default provider ID',
+  },
+  dataSources: {
+    tab: 'Data Sources',
+    title: 'Data Source Configuration',
+    desc: 'Configure data source directories for the project, supporting multiple data source paths.',
+    empty: 'No data sources',
+    emptyHint: 'Click the button below to add a data source directory',
+    add: 'Add Data Source',
+    edit: 'Edit Data Source',
+    remove: 'Remove',
+    save: 'Save',
+    cancel: 'Cancel',
+    id: 'Identifier',
+    idPlaceholder: 'Enter a unique identifier',
+    path: 'Path',
+    pathPlaceholder: 'Select or enter path',
+    mode: 'Path Mode',
+    modeRelative: 'Relative Path',
+    modeAbsolute: 'Absolute Path',
+    description: 'Description',
+    descriptionPlaceholder: 'Enter description (optional)',
+    browse: 'Browse',
+    selectPath: 'Select Directory',
+    validation: {
+      idRequired: 'Please enter an identifier',
+      idExists: 'Identifier already exists',
+      pathRequired: 'Please enter a path',
+    },
+  },
+  shortcuts: {
+    description: 'Review workspace shortcuts to improve modeling and configuration efficiency.',
+  },
+  connectionRules: {
+    description: 'Manage node connection rules and graph modeling constraints.',
+  },
+}
+
+export { settings }

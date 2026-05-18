@@ -1,0 +1,297 @@
+.project-root-node {
+  width: 340px;
+  --node-accent: var(--node-special-project-accent);
+  --node-accent-soft: var(--node-special-project-accent-weak);
+  --node-accent-light: color-mix(in srgb, var(--node-special-project-accent) 10%, transparent);
+  background: color-mix(
+    in srgb,
+    var(--node-special-project-accent-bg) 20%,
+    var(--node-glass-bg-selected)
+  );
+  border: 1px solid color-mix(in srgb, var(--node-special-project-accent) 24%, var(--node-border));
+  border-radius: var(--ui-radius-lg);
+  box-shadow:
+    var(--node-shadow),
+    0 0 0 1px color-mix(in srgb, var(--node-special-project-accent) 12%, rgba(255, 255, 255, 0.7))
+      inset;
+  position: relative;
+  overflow: hidden;
+}
+
+.project-root-node::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--node-special-project-accent) 64%, transparent) 0%,
+    color-mix(in srgb, var(--node-special-project-accent) 44%, transparent) 50%,
+    color-mix(in srgb, var(--node-special-project-accent) 64%, transparent) 100%
+  );
+  z-index: 10;
+}
+
+.root-badge {
+  position: absolute;
+  top: -10px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ui-bg-elevated) 96%, white) 0%,
+    color-mix(in srgb, var(--node-special-project-accent-bg) 70%, var(--ui-bg-elevated)) 100%
+  );
+  color: var(--node-special-project-accent-strong);
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 14px;
+  border-radius: 20px;
+  white-space: nowrap;
+  box-shadow:
+    0 2px 8px color-mix(in srgb, var(--node-special-project-accent) 20%, transparent),
+    0 0 0 1px color-mix(in srgb, var(--node-special-project-accent) 14%, transparent) inset;
+  border: 1px solid color-mix(in srgb, var(--node-special-project-accent) 20%, transparent);
+  z-index: 5;
+}
+
+.header {
+  background: var(--node-header-gradient-project);
+  color: var(--ui-text-strong);
+  padding: 14px 16px 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--node-special-project-accent) 14%, var(--ui-border-subtle));
+  position: relative;
+}
+
+.icon {
+  font-size: 18px;
+  background: var(--ui-bg-elevated);
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--ui-radius-md);
+  border: 1px solid color-mix(in srgb, var(--node-special-project-accent) 20%, var(--ui-border));
+}
+
+.header-text {
+  min-width: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.title {
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--ui-text-strong);
+}
+
+.subtitle {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.status-indicators {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.status-indicator {
+  font-size: 12px;
+}
+
+.status-indicator.loading {
+  animation: pulse 1.5s infinite;
+}
+
+.status-indicator.unsaved {
+  color: var(--ui-danger);
+  font-size: 10px;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.content-body {
+  padding: 14px 16px 16px;
+}
+
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.metric {
+  border: 1px solid var(--ui-border-subtle);
+  background: var(--ui-bg);
+  border-radius: var(--ui-radius-md);
+  padding: 10px;
+}
+
+.metric-wide {
+  grid-column: span 3;
+}
+
+.metric-label {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+  margin-bottom: 6px;
+}
+
+.metric-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ui-text-strong);
+}
+
+.metric-sub {
+  font-size: 10px;
+  color: var(--ui-text-muted);
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0.8;
+}
+
+.divider {
+  color: var(--ui-border-light);
+}
+
+.pass-rate {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.rate-value {
+  font-size: 18px;
+  color: var(--ui-success);
+}
+
+.rate-detail {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+}
+
+.created-time {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--ui-text-muted);
+  margin-bottom: 12px;
+  padding: 6px 10px;
+  background: var(--ui-bg);
+  border-radius: var(--ui-radius-sm);
+}
+
+.created-time .label {
+  font-weight: 500;
+}
+
+.created-time .time {
+  color: var(--ui-text-body);
+}
+
+.actions {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.btn {
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-strong);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all var(--ui-transition-fast);
+}
+
+.btn:hover {
+  border-color: var(--ui-border);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+.btn-danger {
+  color: var(--ui-danger);
+}
+
+.btn-danger:hover {
+  background: var(--ui-danger);
+  color: var(--ui-text-on-danger);
+  border-color: var(--ui-danger);
+}
+
+.context-menu {
+  position: absolute;
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--ui-shadow-lg);
+  min-width: 180px;
+  z-index: 100;
+  padding: 4px 0;
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--ui-text-body);
+  cursor: pointer;
+  transition: background var(--ui-transition-fast);
+}
+
+.context-menu-item:hover {
+  background: var(--ui-bg-hover);
+}
+
+.context-menu-item.danger {
+  color: var(--ui-danger);
+}
+
+.context-menu-item.danger:hover {
+  background: var(--ui-danger-weak);
+}
+
+.menu-icon {
+  width: 16px;
+  text-align: center;
+}
+
+.context-menu-divider {
+  height: 1px;
+  background: var(--ui-border);
+  margin: 4px 0;
+}

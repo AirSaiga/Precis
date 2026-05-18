@@ -1,0 +1,165 @@
+.unique-constraint-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.form-group label {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--ui-text);
+}
+
+.readonly-value {
+  padding: 10px 12px;
+  background: var(--ui-bg-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text);
+  font-size: 14px;
+  word-break: break-word;
+  min-height: 20px;
+  backdrop-filter: blur(5px);
+}
+
+.editable-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text);
+  font-size: 14px;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(5px);
+}
+
+.editable-input:focus {
+  outline: none;
+  border-color: rgba(37, 99, 235, 0.55);
+  background: var(--ui-bg-elevated);
+  box-shadow: var(--ui-focus-ring);
+}
+
+.columns-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--ui-bg-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+}
+
+.column-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.column-index {
+  color: var(--ui-text-subtle);
+  font-size: 11px;
+  min-width: 20px;
+}
+
+.column-name {
+  font-weight: 500;
+  color: var(--ui-text);
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.status-indicator.connected {
+  background: var(--ui-success-weak);
+  color: var(--ui-success);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+}
+
+.status-indicator.not-connected {
+  background: rgba(100, 116, 139, 0.12);
+  color: var(--ui-text-muted);
+  border: 1px solid rgba(100, 116, 139, 0.22);
+}
+
+.status-icon {
+  font-size: 14px;
+}
+
+.status-text {
+  font-size: 14px;
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.status-badge.status-pass {
+  background: var(--ui-success-weak);
+  color: var(--ui-success);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+}
+
+.status-badge.status-error {
+  background: var(--ui-danger-weak);
+  color: var(--ui-danger);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.error-count {
+  color: var(--ui-danger);
+  font-weight: 600;
+}
+
+.validation-errors {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.error-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--ui-danger-weak);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+  border-radius: var(--ui-radius-sm);
+}
+
+.error-item {
+  font-size: 12px;
+  color: var(--ui-danger);
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 4px;
+}
+
+.error-more {
+  font-size: 11px;
+  color: var(--ui-danger);
+  text-align: center;
+  padding-top: 4px;
+}

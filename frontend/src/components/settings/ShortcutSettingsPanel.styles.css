@@ -1,0 +1,114 @@
+.global-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-md);
+}
+
+.toggle-card {
+  flex: 1 1 240px;
+  padding: var(--ui-space-md);
+}
+
+.search-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+}
+
+.search-bar .ui-input {
+  max-width: 320px;
+}
+
+.category-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-lg);
+}
+
+.shortcut-table {
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-md);
+  overflow-x: auto;
+  min-width: 0;
+}
+
+.shortcut-row {
+  display: grid;
+  grid-template-columns: minmax(160px, 1.6fr) minmax(130px, 1fr) minmax(220px, 1.4fr);
+  gap: var(--ui-space-sm);
+  padding: 10px 12px;
+  align-items: center;
+  border-bottom: 1px solid var(--ui-border-light);
+  background: var(--ui-bg-elevated);
+  min-width: 520px;
+}
+
+.shortcut-row:last-child {
+  border-bottom: none;
+}
+
+.shortcut-row-header {
+  background: var(--ui-bg-subtle);
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.command-name {
+  font-size: 13px;
+  color: var(--ui-text);
+  font-weight: 500;
+}
+
+.command-meta {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--ui-text-muted);
+}
+
+.shortcut-display {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ui-badge.is-disabled {
+  opacity: 0.55;
+}
+
+.category-card {
+  padding: var(--ui-space-md);
+}
+
+.capture-editor {
+  margin-top: 8px;
+  padding: var(--ui-space-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-sm);
+}
+
+.capture-warning {
+  font-size: 12px;
+  color: var(--ui-danger);
+}
+
+.editor-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.col-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.switch-label {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+}

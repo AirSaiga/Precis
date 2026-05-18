@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "nodeType": "uniqueConstraint",
+  "sections": [
+    {
+      "id": "basic",
+      "titleKey": "inspector.constraint.unique.title",
+      "fields": [
+        {
+          "id": "configName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.unique.configName",
+          "placeholderKey": "inspector.constraint.unique.configNamePlaceholder",
+          "source": { "source": "data", "path": ["configName"] }
+        },
+        {
+          "id": "constraintName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.unique.constraintName",
+          "placeholderKey": "inspector.constraint.unique.constraintNamePlaceholder",
+          "source": { "source": "data", "path": ["constraintName"] }
+        }
+      ]
+    },
+    {
+      "id": "target",
+      "titleKey": "inspector.constraint.unique.targetColumn",
+      "fields": [
+        {
+          "id": "table",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.unique.table",
+          "source": { "source": "data", "path": ["table"] }
+        },
+        {
+          "id": "column",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.unique.column",
+          "source": { "source": "data", "path": ["column"] }
+        }
+      ]
+    },
+    {
+      "id": "connection",
+      "titleKey": "inspector.constraint.unique.sourceConnection",
+      "fields": [
+        {
+          "id": "sourceNodeId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.unique.sourceNodeId",
+          "source": { "source": "data", "path": ["sourceRef", "nodeId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "nodeId"] } }
+        },
+        {
+          "id": "sourceColumnId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.unique.sourceColumnId",
+          "source": { "source": "data", "path": ["sourceRef", "columnId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "columnId"] } }
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "titleKey": "inspector.constraint.unique.validationStatus",
+      "fields": [
+        {
+          "id": "validationErrors",
+          "kind": "json",
+          "labelKey": "inspector.constraint.unique.errorMessages",
+          "source": { "source": "data", "path": ["validationErrors"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },
+          "readonly": true
+        }
+      ]
+    }
+  ]
+}
+

@@ -1,0 +1,78 @@
+.empty-state-container {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding-top: 40px;
+}
+
+.empty-drop-zone {
+  width: 100%;
+  padding: 24px;
+  background-color: transparent;
+  border: 1px dashed var(--ui-border-light);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.empty-drop-zone:hover,
+.empty-drop-zone.is-drag-over {
+  border-color: var(--ui-border);
+  background-color: var(--ui-bg-hover);
+}
+
+.empty-icon-box {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background-color: var(--ui-bg-panel);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 12px;
+}
+
+.empty-illustration {
+  color: var(--ui-text-tertiary);
+}
+
+.empty-text-group {
+  margin-bottom: 0;
+}
+
+.empty-desc {
+  font-size: 13px;
+  color: var(--ui-text-tertiary);
+  margin: 0;
+}
+
+.empty-subtext {
+  font-size: 11px;
+  color: var(--ui-text-quaternary);
+  margin: 4px 0 0 0;
+}
+
+.support-types {
+  margin-top: 12px;
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.support-types span {
+  font-size: 11px;
+  color: var(--ui-text-tertiary);
+  background-color: var(--ui-bg-panel);
+  padding: 3px 6px;
+  border-radius: 4px;
+}
+
+.px-4 {
+  padding-left: 16px;
+  padding-right: 16px;
+}

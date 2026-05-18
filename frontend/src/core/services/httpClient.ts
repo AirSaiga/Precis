@@ -1,0 +1,409 @@
+// src/services/api.ts
+/**
+ * @fileoverview API 客户端配置模块
+ *
+ * 功能概述:
+ * - 创建和配置 Axios HTTP 客户端实例
+ * - 动态确定后端 API 地址（支持开发/生产/桌面环境）
+ * - 支持 Electron 环境下的动态端口获取
+ * - 自动注入项目相关的请求头信息
+ *
+ * 架构设计:
+ * - 单例模式: 导出一个共享的 apiClient 实例
+ * - 环境感知: 根据运行环境和平台动态选择 API 地址
+ * - 动态端口: Electron 环境下从主进程获取实际端口号
+ * - 请求拦截: 在每个请求中注入项目上下文
+ *
+ * 环境适配策略:
+ * 1. 开发环境 (import.meta.env.DEV): 使用 localhost:18000
+ * 2. Electron 桌面环境: 从主进程动态获取端口
+ * 3. 其他生产环境: 回退到 localhost:18000
+ */
+
+import { logger } from '@/core/utils/logger'
+import { normalizeConfigDir } from '@/core/utils/pathUtils'
+import axios, { type AxiosInstance, type AxiosError } from 'axios'
+
+/**
+ * 默认后端端口
+ * 可通过环境变量 VITE_BACKEND_PORT 覆盖
+ */
+const DEFAULT_BACKEND_PORT = import.meta.env.VITE_BACKEND_PORT || '18000'
+
+/**
+ * 当前使用的 API 基础地址
+ * 在 Electron 环境下会被动态更新
+ */
+let currentApiBaseUrl: string = ''
+
+/**
+ * 动态获取 API 基础地址
+ *
+ * 业务逻辑:
+ * 根据当前的运行环境，智能选择合适的后端 API 地址
+ *
+ * [环境判断逻辑]
+ * 1. 开发环境 (Vite): 使用 localhost:{VITE_BACKEND_PORT}，便于热重载调试
+ * 2. Electron 桌面应用: 使用 127.0.0.1:{VITE_BACKEND_PORT}（初始值）
+ *    - 实际端口会在应用启动后从主进程获取
+ *    - 为什么不用 localhost?
+ *    - 某些系统配置下 localhost 解析可能有问题
+ *    - 127.0.0.1 是更底层的 IP 地址，更可靠
+ * 3. 其他情况: 默认使用 localhost:{VITE_BACKEND_PORT}
+ *
+ * [Electron 集成关键点]
+ * - window.electronAPI 由 preload 脚本注入
+ * - 检测该对象是否存在可判断是否运行在 Electron 环境中
+ * - platform 属性提供操作系统信息（本函数未使用但可用于其他适配）
+ *
+ * @returns {string} API 服务器的基础地址
+ */
+const getBaseURL = (): string => {
+  // 如果已经设置了动态地址，直接返回
+  if (currentApiBaseUrl) {
+    return currentApiBaseUrl
+  }
+
+  // 开发环境：Vite 开发服务器
+  // [Vite] import.meta.env.DEV 是 Vite 注入的环境变量
+  if (import.meta.env.DEV) {
+    return `http://localhost:${DEFAULT_BACKEND_PORT}`
+  }
+
+  // Electron 桌面环境检测
+  // [Electron] window.electronAPI 在 preload 脚本中注入
+  if (window.electronAPI && window.electronAPI.platform) {
+    // 初始使用默认端口，稍后会通过 IPC 获取实际端口
+    return `http://127.0.0.1:${DEFAULT_BACKEND_PORT}`
+  }
+
+  // 其他情况：默认使用 localhost
+  return `http://localhost:${DEFAULT_BACKEND_PORT}`
+}
+
+/**
+ * 更新 API 基础地址
+ *
+ * 业务用途:
+ * - Electron 环境下，从主进程获取实际端口后更新地址
+ * - 支持动态端口分配场景
+ *
+ * @param port - 后端服务器实际监听的端口号
+ */
+export const updateApiBaseUrl = (port: number): void => {
+  currentApiBaseUrl = `http://127.0.0.1:${port}`
+  // 更新 axios 实例的 baseURL
+  apiClient.defaults.baseURL = currentApiBaseUrl
+  logger.debug(`[API] 已更新后端地址: ${currentApiBaseUrl}`)
+}
+
+/**
+ * 异步初始化 API 地址
+ *
+ * 业务用途:
+ * - Electron 环境下，从主进程获取实际端口
+ * - 在应用启动时调用，确保使用正确的端口
+ *
+ * @returns Promise<string> - 实际使用的 API 基础地址
+ */
+export const initApiBaseUrl = async (): Promise<string> => {
+  // 开发环境直接使用默认地址
+  if (import.meta.env.DEV) {
+    currentApiBaseUrl = `http://localhost:${DEFAULT_BACKEND_PORT}`
+    return currentApiBaseUrl
+  }
+
+  // Electron 环境下从主进程获取端口
+  if (window.electronAPI && window.electronAPI.getServerStatus) {
+    try {
+      const status = await window.electronAPI.getServerStatus()
+      if (status && status.port) {
+        updateApiBaseUrl(status.port)
+        return currentApiBaseUrl
+      }
+    } catch (error) {
+      logger.error('[API] 获取服务器状态失败:', error)
+    }
+  }
+
+  // 回退到默认地址
+  currentApiBaseUrl = `http://127.0.0.1:${DEFAULT_BACKEND_PORT}`
+  return currentApiBaseUrl
+}
+
+/**
+ * API 基础地址常量
+ *
+ * [初始化时机]
+ * - 在模块加载时执行一次 getBaseURL()
+ * - Electron 环境下会在应用启动后通过 initApiBaseUrl 更新
+ *
+ * [动态更新]
+ * - Electron 环境下，端口可能动态分配
+ * - 使用 initApiBaseUrl() 获取实际端口
+ */
+export function getApiBaseUrl(): string {
+  return currentApiBaseUrl || getBaseURL()
+}
+
+export const API_BASE_URL = getApiBaseUrl()
+
+/**
+ * Axios HTTP 客户端实例
+ *
+ * [配置说明]
+ * - baseURL: API 请求的基础路径
+ * - 其他配置（如超时、拦截器）可根据需要添加
+ *
+ * [为什么使用 axios 而非 fetch]
+ * - 自动转换 JSON
+ * - 请求/响应拦截器更易用
+ * - 更成熟的错误处理机制
+ * - 更广泛的生态系统
+ */
+/**
+ * 请求重试配置
+ *
+ * 业务场景:
+ * - 应用启动时后端可能尚未完全就绪
+ * - 网络瞬时故障需要自动恢复
+ * - 避免用户看到不必要的错误提示
+ */
+interface RetryConfig {
+  maxRetries: number // 最大重试次数
+  retryDelay: number // 重试间隔（毫秒）
+  shouldRetry: (error: AxiosError) => boolean // 判断是否应该重试
+}
+
+const defaultRetryConfig: RetryConfig = {
+  maxRetries: 3,
+  retryDelay: 1000,
+  shouldRetry: (error: AxiosError) => {
+    // 只对网络错误（后端未就绪）进行重试
+    // 不 retry 4xx 客户端错误
+    if (!error.response) {
+      return true // 网络错误（ECONNREFUSED 等）
+    }
+    // 5xx 服务器错误也可以重试
+    if (error.response.status >= 500) {
+      return true
+    }
+    return false
+  },
+}
+
+const apiClient: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000, // 30秒超时
+})
+
+/**
+ * 请求拦截器
+ *
+ * 业务功能:
+ * 在每个请求发出前，自动注入项目相关的 HTTP 头
+ *
+ * [注入的请求头]
+ * - X-Project-Config-Path: 当前激活项目的配置文件路径
+ *   用途: 后端据此定位项目配置目录
+ *   来源: Pinia store (useProjectStore)
+ *
+ * [设计决策]
+ * - 使用拦截器而非在每个调用处手动添加
+ *   1. 代码更 DRY（Don't Repeat Yourself）
+ *   2. 统一管理，易于维护
+ *   3. 减少遗漏的可能性
+ *
+ * [条件注入]
+ * - 仅当有激活项目时才注入头信息
+ * - 避免在项目选择界面发出无效的 X-Project-Config-Path
+ */
+/**
+ * 带重试的请求包装函数
+ *
+ * @param config - Axios 请求配置
+ * @param retryConfig - 重试配置
+ * @returns Promise
+ */
+const requestWithRetry = async <T = unknown>(
+  config: Parameters<AxiosInstance['request']>[0],
+  retryConfig: RetryConfig = defaultRetryConfig
+): Promise<T> => {
+  let lastError: AxiosError | undefined
+
+  for (let attempt = 0; attempt <= retryConfig.maxRetries; attempt++) {
+    try {
+      const response = await apiClient.request<T>(config)
+      return response.data
+    } catch (error) {
+      lastError = error as AxiosError
+
+      // 检查是否应该重试
+      if (attempt < retryConfig.maxRetries && retryConfig.shouldRetry(lastError)) {
+        const delay = retryConfig.retryDelay * Math.pow(2, attempt) // 指数退避
+        logger.debug(
+          `[API] 请求失败，${delay}ms 后重试 (${attempt + 1}/${retryConfig.maxRetries})...`
+        )
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        continue
+      }
+
+      // 不重试，抛出错误
+      throw error
+    }
+  }
+
+  throw lastError
+}
+
+apiClient.interceptors.request.use(
+  (config) => {
+    let configPath: string | undefined
+    try {
+      const stored = localStorage.getItem('activeProjectPaths')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        configPath = parsed?.configPath
+      }
+    } catch {
+      configPath = undefined
+    }
+    const normalized = normalizeConfigDir(configPath)
+    if (normalized) {
+      config.headers['X-Project-Config-Path'] = normalized
+    }
+
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+/**
+ * 响应拦截器 - 添加重试逻辑
+ *
+ * 业务场景:
+ * - 处理后端未就绪时的连接拒绝错误
+ * - 自动重试 GET 请求（幂等操作）
+ */
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const config = error.config
+
+    if (!config) {
+      return Promise.reject(error)
+    }
+
+    // 初始化重试计数
+    const retryCount = (config as { retryCount?: number }).retryCount || 0
+    const maxRetries = 3
+
+    // 判断是否应该重试
+    const shouldRetry = !error.response && retryCount < maxRetries
+
+    if (shouldRetry) {
+      ;(config as { retryCount?: number }).retryCount = retryCount + 1
+      const delay = 1000 * Math.pow(2, retryCount) // 指数退避: 1s, 2s, 4s
+
+      logger.debug(`[API] 连接失败，${delay}ms 后重试 (${retryCount + 1}/${maxRetries})...`)
+
+      await new Promise((resolve) => setTimeout(resolve, delay))
+      return apiClient.request(config)
+    }
+
+    return Promise.reject(error)
+  }
+)
+
+/**
+ * 导出配置好的 Axios 实例
+ *
+ * 使用示例:
+ * ```typescript
+ * import apiClient from '@/core/services/httpClient';
+ *
+ * // 发起 GET 请求
+ * const response = await apiClient.get('/workspace');
+ *
+ * // 发起 POST 请求
+ * const response = await apiClient.post('/validation', data);
+ * ```
+ */
+export default apiClient
+
+/**
+ * AI Chat 接口
+ *
+ * 提供与后端 /ai/chat 端点通信的类型定义和发送函数。
+ */
+
+/** AI 聊天请求体 */
+export interface AiChatRequest {
+  /** 用户输入的消息内容 */
+  message: string
+  /** 上下文信息（包含选中节点状态） */
+  context: {
+    hasContext: boolean
+    selectedNodes: Array<{
+      id: string
+      type: string
+      data: Record<string, unknown>
+      label?: string
+    }>
+  }
+  /** 历史消息记录（可选） */
+  history?: ChatHistoryMessage[]
+}
+
+/** AI 聊天响应体 */
+export interface AiChatResponse {
+  /** 响应状态 */
+  status: string
+  /** AI 回复文本 */
+  reply: string
+  /** 后端建议的操作列表 */
+  actions: unknown[]
+  /** 前端渲染指令列表 */
+  frontend_instructions: unknown[]
+  /** 错误信息（如有） */
+  error?: string
+}
+
+/** 聊天历史消息项 */
+export interface ChatHistoryMessage {
+  /** 消息角色 */
+  role: 'user' | 'assistant'
+  /** 消息内容 */
+  content: string
+}
+
+/**
+ * 发送 AI 聊天消息
+ *
+ * @param message - 用户输入的消息
+ * @param context - 当前上下文（含选中节点）
+ * @param history - 历史消息记录（可选）
+ * @returns AI 响应结果
+ */
+export const sendAiChatMessage = async (
+  message: string,
+  context: {
+    hasContext: boolean
+    selectedNodes: Array<{
+      id: string
+      type: string
+      data: Record<string, unknown>
+    }>
+  },
+  history?: ChatHistoryMessage[]
+): Promise<AiChatResponse> => {
+  const request: AiChatRequest = {
+    message,
+    context,
+    history: history || [],
+  }
+  const response = await apiClient.post<AiChatResponse>('/ai/chat', request)
+  return response.data
+}

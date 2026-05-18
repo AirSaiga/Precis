@@ -1,0 +1,40 @@
+.table-set-root-node {
+  --graph-node-width: 300px;
+  --node-accent: var(--node-theme-info);
+}
+
+.preview-body {
+  padding: var(--node-padding-xl);
+}
+
+.description {
+  font-size: var(--node-muted-size);
+  color: var(--node-muted-color);
+  margin-bottom: var(--node-padding-md);
+  text-align: center;
+}
+
+.handle-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--node-padding-sm);
+}
+
+.handle-label {
+  font-size: var(--node-label-size);
+  color: var(--node-text-color);
+  font-weight: var(--node-label-weight);
+  text-align: center;
+}
+
+.handle-info {
+  font-size: 9px;
+  color: var(--node-muted-color);
+  text-align: center;
+  transition: all var(--node-transition-fast);
+}
+
+.handle-section:hover .handle-info {
+  color: var(--node-text-color);
+  font-weight: var(--node-label-weight);
+}

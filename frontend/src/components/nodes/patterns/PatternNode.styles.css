@@ -1,0 +1,46 @@
+.pattern-node {
+  --graph-node-width: 220px;
+}
+
+.content-body {
+  padding: var(--node-content-padding-y, var(--node-padding-sm, 8px))
+    var(--node-content-padding-x, var(--node-padding-md, 12px));
+}
+
+.pattern-preview {
+  background: var(--node-type-pattern-bg, var(--theme-sky-bg));
+  border: 1px solid
+    color-mix(
+      in srgb,
+      var(--node-type-pattern, var(--theme-sky)) 20%,
+      var(--node-divider-color, var(--ui-border-subtle))
+    );
+  border-radius: var(--node-radius-md, var(--ui-radius-md));
+  padding: var(--node-padding-sm, 8px);
+  margin-bottom: var(--node-padding-sm, 8px);
+}
+
+.pattern-text {
+  font-size: var(--node-muted-size, var(--ui-font-size-xs));
+  color: var(--node-text-color, var(--ui-text));
+  font-family: var(--node-mono-family, monospace);
+  word-break: break-all;
+}
+
+.meta-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.registry-badge {
+  font-size: var(--node-badge-font-size-xs, 10px);
+  padding: 2px 6px;
+  border-radius: var(--node-radius-sm, var(--ui-radius-sm));
+  font-weight: var(--node-badge-font-weight, 600);
+}
+
+.registry-badge.patterns {
+  background: var(--node-type-pattern-bg, var(--theme-sky-bg));
+  color: var(--node-type-pattern, var(--theme-sky));
+}

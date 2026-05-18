@@ -1,0 +1,50 @@
+.zone-group-node {
+  position: absolute;
+  pointer-events: none; /* 允许点击穿透到底层节点 */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  z-index: -1; /* 确保在普通节点下方 */
+}
+
+/* 即使容器 pointer-events: none，我们也希望标题栏和按钮可以交互（如果需要拖动整个组或折叠） */
+.zone-group-header {
+  pointer-events: auto;
+  position: relative;
+}
+
+.zone-group-title {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 600;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  /* 标题文字需要完全不透明，覆盖在 header 背景上 */
+  z-index: 1;
+}
+
+/* 修正：header 背景色通过 opacity 实现，但文字不能透明 */
+/* 这里我们通过伪元素或单独的背景层来实现透明度比较麻烦，
+   目前的 headerStyle 直接设置了 opacity，这会影响文字。
+   应该只对背景色使用 rgba。
+*/
+
+.zone-group-collapse-btn {
+  margin-left: auto;
+  width: 20px;
+  height: 16px;
+  background-color: #666;
+  color: white;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  cursor: pointer;
+  z-index: 2;
+}
+
+.zone-group-collapse-btn:hover {
+  background-color: #333;
+}

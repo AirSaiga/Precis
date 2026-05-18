@@ -1,0 +1,106 @@
+{
+  "version": 1,
+  "nodeType": "charsetConstraint",
+  "sections": [
+    {
+      "id": "basic",
+      "titleKey": "inspector.constraint.charset.title",
+      "fields": [
+        {
+          "id": "configName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.charset.configName",
+          "placeholderKey": "inspector.constraint.charset.configNamePlaceholder",
+          "source": { "source": "data", "path": ["configName"] }
+        },
+        {
+          "id": "constraintName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.charset.constraintName",
+          "placeholderKey": "inspector.constraint.charset.constraintNamePlaceholder",
+          "source": { "source": "data", "path": ["constraintName"] }
+        },
+        {
+          "id": "charsetMode",
+          "kind": "select",
+          "labelKey": "inspector.constraint.charset.charsetMode",
+          "source": { "source": "data", "path": ["charsetMode"] },
+          "options": {
+            "type": "static",
+            "options": [
+              { "labelKey": "inspector.constraint.charset.ascii", "value": "ascii" },
+              { "labelKey": "inspector.constraint.charset.chinese", "value": "chinese" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "target",
+      "titleKey": "inspector.constraint.charset.targetColumn",
+      "fields": [
+        {
+          "id": "table",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.charset.table",
+          "source": { "source": "data", "path": ["table"] }
+        },
+        {
+          "id": "column",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.charset.column",
+          "source": { "source": "data", "path": ["column"] }
+        }
+      ]
+    },
+    {
+      "id": "connection",
+      "titleKey": "inspector.constraint.charset.sourceConnection",
+      "fields": [
+        {
+          "id": "sourceNodeId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.charset.sourceNodeId",
+          "source": { "source": "data", "path": ["sourceRef", "nodeId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "nodeId"] } }
+        },
+        {
+          "id": "sourceColumnId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.charset.sourceColumnId",
+          "source": { "source": "data", "path": ["sourceRef", "columnId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "columnId"] } }
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "titleKey": "inspector.constraint.charset.validationResult",
+      "fields": [
+        {
+          "id": "validationStatus",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.charset.status",
+          "source": { "source": "data", "path": ["validationStatus"] }
+        },
+        {
+          "id": "lastValidation",
+          "kind": "json",
+          "labelKey": "inspector.constraint.charset.validationResult",
+          "source": { "source": "data", "path": ["lastValidation"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } },
+          "readonly": true
+        },
+        {
+          "id": "validationErrors",
+          "kind": "json",
+          "labelKey": "inspector.constraint.charset.errors",
+          "source": { "source": "data", "path": ["validationErrors"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },
+          "readonly": true
+        }
+      ]
+    }
+  ]
+}
+

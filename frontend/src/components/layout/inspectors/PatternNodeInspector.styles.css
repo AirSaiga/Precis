@@ -1,0 +1,185 @@
+/**
+ * 整个属性检查器容器样式
+ * 垂直弹性布局，子元素间距 16px
+ */
+.pattern-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/**
+ * 表单组样式
+ * 垂直弹性布局，标签和输入框之间的间距
+ */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/**
+ * 表单标签样式
+ * 字体粗细、大小、颜色
+ */
+.form-group label {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--ui-text);
+}
+
+/**
+ * 只读值样式
+ * 用于显示不可编辑的数据
+ */
+.readonly-value {
+  padding: 10px 12px;
+  background: var(--ui-bg-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text);
+  font-size: 14px;
+  word-break: break-word;
+  min-height: 20px;
+  backdrop-filter: blur(5px);
+}
+
+/**
+ * 描述值样式
+ */
+.readonly-value.description-value {
+  color: var(--ui-text-subtle);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/**
+ * 成功状态的值样式
+ * 绿色主题，用于显示匹配数量
+ */
+.readonly-value.success-value {
+  background: var(--ui-success-weak);
+  color: var(--ui-success);
+  border-color: rgba(22, 163, 74, 0.25);
+  font-weight: 600;
+}
+
+/**
+ * 来源文件值样式
+ */
+.readonly-value.source-file-value {
+  font-size: 13px;
+  color: var(--ui-text-subtle);
+}
+
+/**
+ * 模式类型徽章样式
+ */
+.pattern-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  width: fit-content;
+}
+
+.pattern-type-badge.type-atomic {
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+}
+
+.pattern-type-badge.type-combination {
+  background: rgba(59, 130, 246, 0.12);
+  color: #2563eb;
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.type-icon {
+  font-size: 14px;
+}
+
+.type-text {
+  font-weight: 600;
+}
+
+/**
+ * 正则表达式预览区域样式
+ */
+.regex-preview {
+  padding: 12px;
+  background: var(--ui-bg-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  overflow-x: auto;
+}
+
+.regex-text {
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 13px;
+  color: var(--ui-text);
+  word-break: break-all;
+  white-space: pre-wrap;
+}
+
+/**
+ * 注册表徽章样式
+ */
+.registry-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  background: rgba(139, 92, 246, 0.12);
+  color: #7c3aed;
+  border: 1px solid rgba(139, 92, 246, 0.25);
+  width: fit-content;
+}
+
+.badge-icon {
+  font-size: 12px;
+}
+
+/**
+ * 状态指示器样式
+ */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.status-indicator.pass {
+  background: var(--ui-success-weak);
+  color: var(--ui-success);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+}
+
+.status-indicator.error {
+  background: var(--ui-danger-weak);
+  color: var(--ui-danger);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.status-indicator.idle {
+  background: rgba(100, 116, 139, 0.12);
+  color: var(--ui-text-muted);
+  border: 1px solid rgba(100, 116, 139, 0.22);
+}
+
+.status-icon {
+  font-size: 14px;
+}
+
+.status-text {
+  font-size: 14px;
+}

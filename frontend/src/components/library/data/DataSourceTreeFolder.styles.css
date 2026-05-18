@@ -1,0 +1,52 @@
+.folder-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.folder-item:hover {
+  background-color: var(--ui-bg-hover);
+}
+
+.folder-toggle {
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 4px;
+  flex-shrink: 0;
+}
+
+.folder-toggle svg {
+  color: var(--ui-text-tertiary);
+  transition: transform 0.15s ease;
+}
+
+.folder-toggle svg.rotate-90 {
+  transform: rotate(90deg);
+}
+
+.folder-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  flex-shrink: 0;
+  color: var(--ui-text-tertiary);
+}
+
+.folder-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ui-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

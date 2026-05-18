@@ -1,0 +1,178 @@
+{
+  "version": 1,
+  "nodeType": "projectRoot",
+  "sections": [
+    {
+      "id": "basic",
+      "titleKey": "inspector.projectRoot.groups.basicInfo",
+      "fields": [
+        {
+          "id": "projectName",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.labels.projectName",
+          "source": { "source": "data", "path": ["projectName"] }
+        },
+        {
+          "id": "projectPath",
+          "kind": "path",
+          "labelKey": "inspector.projectRoot.labels.projectPath",
+          "source": { "source": "data", "path": ["projectPath"] },
+          "readonly": true
+        },
+        {
+          "id": "configPath",
+          "kind": "path",
+          "labelKey": "inspector.projectRoot.labels.configPath",
+          "source": { "source": "data", "path": ["configPath"] },
+          "readonly": true
+        },
+        {
+          "id": "createdAt",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.labels.lastOpenTime",
+          "source": { "source": "data", "path": ["createdAt"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["createdAt"] } }
+        },
+        {
+          "id": "updatedAt",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.labels.lastUpdateTime",
+          "source": { "source": "data", "path": ["updatedAt"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["updatedAt"] } }
+        }
+      ]
+    },
+    {
+      "id": "validation_settings",
+      "titleKey": "inspector.projectRoot.groups.settings",
+      "when": {
+        "op": "or",
+        "exprs": [
+          { "op": "exists", "source": { "source": "data", "path": ["projectSettings", "validation"] } },
+          { "op": "exists", "source": { "source": "data", "path": ["projectSettings", "file_processing"] } },
+          { "op": "exists", "source": { "source": "data", "path": ["projectSettings", "script_security"] } }
+        ]
+      },
+      "fields": [
+        {
+          "id": "autoValidate",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.labels.autoValidate",
+          "source": { "source": "data", "path": ["projectSettings", "validation", "auto_validate"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["projectSettings", "validation", "auto_validate"] } }
+        },
+        {
+          "id": "strictMode",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.labels.strictMode",
+          "source": { "source": "data", "path": ["projectSettings", "validation", "strict_mode"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["projectSettings", "validation", "strict_mode"] } }
+        },
+        {
+          "id": "errorHandling",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.labels.errorHandling",
+          "source": { "source": "data", "path": ["projectSettings", "validation", "error_handling"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["projectSettings", "validation", "error_handling"] } }
+        },
+        {
+          "id": "timeoutSeconds",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.labels.timeoutSeconds",
+          "source": { "source": "data", "path": ["projectSettings", "validation", "timeout_seconds"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["projectSettings", "validation", "timeout_seconds"] } }
+        },
+        {
+          "id": "batchMaxFiles",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.labels.batchMaxFiles",
+          "source": { "source": "data", "path": ["projectSettings", "validation", "batch_max_files"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["projectSettings", "validation", "batch_max_files"] } }
+        },
+        {
+          "id": "defaultEncoding",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.labels.defaultEncoding",
+          "source": { "source": "data", "path": ["projectSettings", "file_processing", "default_encoding"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["projectSettings", "file_processing", "default_encoding"] } }
+        },
+        {
+          "id": "csvDelimiter",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.labels.csvDelimiter",
+          "source": { "source": "data", "path": ["projectSettings", "file_processing", "csv_delimiter"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["projectSettings", "file_processing", "csv_delimiter"] } }
+        },
+        {
+          "id": "allowEval",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.labels.allowEval",
+          "source": { "source": "data", "path": ["projectSettings", "script_security", "allow_eval"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["projectSettings", "script_security", "allow_eval"] } }
+        },
+        {
+          "id": "sandboxMode",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.labels.sandboxMode",
+          "source": { "source": "data", "path": ["projectSettings", "script_security", "sandbox_mode"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["projectSettings", "script_security", "sandbox_mode"] } }
+        }
+      ]
+    },
+    {
+      "id": "statistics",
+      "titleKey": "inspector.projectRoot.groups.statistics",
+      "fields": [
+        {
+          "id": "schemaCount",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.stats.schemaCount",
+          "source": { "source": "data", "path": ["schemaCount"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["schemaCount"] } }
+        },
+        {
+          "id": "constraintCount",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.stats.constraintCount",
+          "source": { "source": "data", "path": ["constraintCount"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["constraintCount"] } }
+        },
+        {
+          "id": "regexCount",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.stats.regexCount",
+          "source": { "source": "data", "path": ["regexCount"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["regexCount"] } }
+        },
+        {
+          "id": "totalAssets",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.stats.totalAssets",
+          "source": { "source": "data", "path": ["totalAssets"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["totalAssets"] } }
+        }
+      ]
+    },
+    {
+      "id": "validation_stats",
+      "titleKey": "inspector.projectRoot.groups.validation",
+      "fields": [
+        {
+          "id": "passRate",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.validation.passRate",
+          "source": { "source": "data", "path": ["passRate"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["passRate"] } }
+        },
+        {
+          "id": "errorCount",
+          "kind": "readonly",
+          "labelKey": "inspector.projectRoot.validation.errorCount",
+          "source": { "source": "data", "path": ["errorCount"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["errorCount"] } }
+        }
+      ]
+    }
+  ]
+}
+

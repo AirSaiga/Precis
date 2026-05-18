@@ -1,0 +1,189 @@
+.source-dropdown-menu {
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--node-special-menu-shadow);
+  min-width: 280px;
+  max-width: 360px;
+  max-height: 400px;
+  z-index: 2147483647;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.dropdown-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 2147483646;
+  background: transparent;
+  cursor: default;
+}
+
+.fixed-dropdown {
+  position: fixed;
+}
+
+.dropdown-header {
+  padding: 8px 12px;
+  background: var(--ui-bg-subtle);
+  border-bottom: 1px solid var(--ui-border);
+  flex-shrink: 0;
+}
+
+.header-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ui-text-secondary);
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.dropdown-item:hover {
+  background: var(--ui-bg-subtle);
+}
+
+.dropdown-item.current-connection {
+  background: var(--ui-bg-accent);
+  cursor: default;
+}
+
+.dropdown-item.disabled {
+  cursor: not-allowed;
+  color: var(--ui-text-subtle);
+}
+
+.dropdown-item.disabled:hover {
+  background: transparent;
+}
+
+.item-icon {
+  font-size: 14px;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.item-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.item-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ui-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.item-subtitle {
+  font-size: 10px;
+  color: var(--ui-text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: 2px;
+}
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--ui-border);
+  margin: 4px 0;
+  flex-shrink: 0;
+}
+
+/* 树状结构样式 */
+.tree-container {
+  overflow-y: auto;
+  max-height: 250px;
+  padding: 4px 0;
+}
+
+.tree-folder {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.tree-folder:hover {
+  background: var(--ui-bg-subtle);
+}
+
+.folder-toggle-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s;
+  color: var(--ui-text-muted);
+}
+
+.folder-toggle-icon.is-collapsed {
+  transform: rotate(-90deg);
+}
+
+.folder-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.folder-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ui-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-file {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  user-select: none;
+}
+
+.tree-file:hover {
+  background: var(--ui-bg-accent);
+}
+
+.tree-file.is-current {
+  background: color-mix(in srgb, var(--ui-accent) 18%, var(--ui-bg-elevated));
+  cursor: default;
+}
+
+.file-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.file-name {
+  font-size: 12px;
+  color: var(--ui-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-file.is-current .file-name {
+  font-weight: 500;
+  color: var(--ui-accent);
+}

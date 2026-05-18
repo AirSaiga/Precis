@@ -1,0 +1,115 @@
+.date-logic-constraint-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.form-group {
+  margin-bottom: 12px;
+}
+
+.form-group label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ui-text-muted);
+  margin-bottom: 4px;
+}
+
+.editable-input {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: 4px;
+  font-size: 13px;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+}
+
+.editable-input:focus {
+  outline: none;
+  border-color: var(--ui-primary);
+  box-shadow: 0 0 0 2px var(--ui-primary-alpha-20);
+}
+
+.editable-select {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: 4px;
+  font-size: 13px;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+}
+
+.readonly-value {
+  padding: 6px 8px;
+  background: var(--ui-bg-subtle);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--ui-text);
+  word-break: break-all;
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  font-size: 13px;
+}
+
+.status-indicator.connected {
+  background: var(--ui-success-bg);
+  color: var(--ui-success);
+}
+
+.status-indicator.not-connected {
+  background: var(--ui-warning-bg);
+  color: var(--ui-warning);
+}
+
+.status-indicator.pass {
+  background: var(--ui-success-bg);
+  color: var(--ui-success);
+}
+
+.status-indicator.error {
+  background: var(--ui-error-bg);
+  color: var(--ui-error);
+}
+
+.status-indicator.missing {
+  background: var(--ui-warning-bg);
+  color: var(--ui-warning);
+}
+
+.status-icon {
+  font-weight: bold;
+}
+
+.error-list {
+  max-height: 150px;
+  overflow-y: auto;
+  background: var(--ui-error-bg);
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.error-item {
+  font-size: 12px;
+  color: var(--ui-error);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+.error-item:last-child {
+  border-bottom: none;
+}
+
+.error-more {
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  padding-top: 4px;
+}

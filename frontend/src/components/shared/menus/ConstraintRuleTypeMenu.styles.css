@@ -1,0 +1,122 @@
+.constraint-rule-type-menu-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  background-color: rgba(0, 0, 0, 0.12);
+}
+
+.constraint-rule-type-menu {
+  position: absolute;
+  width: 240px;
+  max-width: 90vw;
+  background: var(--ui-bg-elevated, #ffffff);
+  border-radius: var(--ui-radius-md, 6px);
+  box-shadow: var(--ui-shadow-lg, 0 4px 12px rgba(0, 0, 0, 0.15));
+  border: 1px solid var(--ui-border, #e2e8f0);
+  padding: 0;
+}
+
+.menu-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ui-text, #1e293b);
+  border-bottom: 1px solid var(--ui-border, #e2e8f0);
+  background: var(--ui-bg-panel, #f8fafc);
+}
+
+.menu-title {
+  font-weight: 500;
+}
+
+.menu-close {
+  cursor: pointer;
+  font-size: 16px;
+  color: var(--ui-text-muted, #64748b);
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+}
+
+.menu-close:hover {
+  background-color: rgba(0, 0, 0, 0.06);
+}
+
+.menu-content {
+  padding: 6px 0;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.category-section {
+  margin-bottom: 6px;
+}
+
+.category-title {
+  padding: 6px 12px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ui-text-muted, #64748b);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.constraint-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 0 8px;
+}
+
+.constraint-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  cursor: pointer;
+  border-radius: 4px;
+  border: 1px solid var(--ui-border, #e2e8f0);
+  background: var(--ui-bg-elevated, #ffffff);
+}
+
+.constraint-item:hover {
+  background: var(--ui-bg-subtle, #f1f5f9);
+  border-color: var(--ui-border-strong, #cbd5e1);
+}
+
+.constraint-item.is-disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.constraint-item.is-disabled:hover {
+  background: var(--ui-bg-elevated, #ffffff);
+  border-color: var(--ui-border, #e2e8f0);
+}
+
+.constraint-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  color: var(--ui-text-muted, #64748b);
+}
+
+.constraint-name {
+  font-size: 12px;
+  color: var(--ui-text, #1e293b);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

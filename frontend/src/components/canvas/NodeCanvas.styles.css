@@ -1,0 +1,84 @@
+/**
+ * 画布容器样式
+ * 
+ * 画布组件的最外层容器，包含整个画布区域
+ * 
+ * 布局特性：
+ * - 使用 flex 布局，垂直排列子元素
+ * - 高度和宽度占满父容器
+ * - 相对定位，为内部绝对定位元素提供参照
+ */
+.canvas-wrapper {
+  height: 100%;
+  width: 100%;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  overflow: hidden;
+}
+
+.zone-groups-overlay-host {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+@keyframes canvasDashMove {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+:deep(.vue-flow__connectionline path) {
+  stroke-dasharray: 6 8;
+  animation: canvasDashMove 0.9s linear infinite;
+}
+
+:deep(.vue-flow__edge.fk-display-edge) {
+  /**
+   * 外键“展示边”不应该拦截鼠标事件：
+   * - 避免覆盖节点/handle 的交互（选中、拖拽、连线等）
+   * - 该边仅用于视觉提示，不承载任何可操作语义
+   */
+  pointer-events: none;
+}
+
+:deep(.vue-flow__edge.fk-display-edge path) {
+  /**
+   * 外键"展示边"的识别度设计：
+   * - dash 流动：提示这是"引用关系/指向关系"，而非真实数据流
+   * - pulse 呼吸：营造"若隐若现"的存在感，弱化对画布主线的干扰
+   * - 轻微外发光：在复杂连线背景下仍可快速定位
+   *
+   * 注意：这里使用 :deep 是为了在 scoped CSS 下仍能影响 VueFlow 内部渲染出来的 SVG path。
+   */
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  animation:
+    fkDisplayDash 6s linear infinite,
+    fkDisplayPulse 2.8s ease-in-out infinite;
+  filter: drop-shadow(0 0 4px rgba(34, 211, 238, 0.35));
+}
+
+@keyframes fkDisplayDash {
+  /* 通过改变 stroke-dashoffset 让虚线“向前流动”，增强可识别性但不抢眼 */
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -64;
+  }
+}
+
+@keyframes fkDisplayPulse {
+  /* 通过透明度周期变化制造"若隐若现"的呼吸感 */
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}

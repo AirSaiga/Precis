@@ -1,0 +1,222 @@
+.sidebar {
+  width: 320px;
+  background: var(--ui-bg-sidebar);
+  border-right: 1px solid var(--ui-border-subtle);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-tools {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-bottom: 1px solid var(--ui-border-subtle);
+}
+
+.search-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  color: var(--ui-text-placeholder);
+}
+
+.search-input {
+  width: 100%;
+  padding: 10px 12px 10px 36px;
+  border: 1px solid var(--ui-border-light);
+  border-radius: 8px;
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-primary);
+  font-size: 13px;
+  outline: none;
+  transition: all 0.2s;
+}
+
+.search-input:focus {
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 3px var(--ui-accent-dim);
+}
+
+.search-input::placeholder {
+  color: var(--ui-text-placeholder);
+}
+
+.filter-row {
+  display: flex;
+}
+
+.filter-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border-light);
+  border-radius: 8px;
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-primary);
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+}
+
+.batch-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.btn-batch {
+  border: 1px solid var(--ui-border-light);
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-secondary);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.2s;
+}
+
+.btn-batch:hover {
+  background: var(--ui-bg-hover);
+  color: var(--ui-text-primary);
+  border-color: var(--ui-accent);
+}
+
+.btn-batch.active {
+  background: var(--ui-accent-dim);
+  color: var(--ui-accent-strong);
+  border-color: var(--ui-accent);
+}
+
+.batch-icon {
+  font-size: 12px;
+}
+
+.sidebar-sections {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+}
+
+.sidebar-section {
+  margin-bottom: 16px;
+}
+
+.section-header h4 {
+  margin: 0 0 8px 0;
+  font-size: 11px;
+  color: var(--ui-text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: 600;
+}
+
+.item-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.list-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+  gap: 10px;
+  border: 1px solid transparent;
+}
+
+.list-item:hover {
+  background: var(--ui-bg-hover);
+}
+
+.list-item.active {
+  background: var(--ui-bg-accent);
+  border-color: var(--ui-accent);
+}
+
+.list-item.added {
+  border-left: 3px solid var(--ui-success-strong);
+}
+.list-item.modified {
+  border-left: 3px solid var(--ui-warning-strong);
+}
+.list-item.deleted {
+  border-left: 3px solid var(--ui-danger-strong);
+}
+
+.item-status {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.item-status.added {
+  background: var(--ui-success-dim);
+  color: var(--ui-success-strong);
+}
+.item-status.modified {
+  background: var(--ui-warning-dim);
+  color: var(--ui-warning-strong);
+}
+.item-status.deleted {
+  background: var(--ui-danger-dim);
+  color: var(--ui-danger-strong);
+}
+
+.item-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+  color: var(--ui-text-primary);
+}
+
+.item-action {
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+.item-action.original {
+  background: var(--ui-bg-hover);
+  color: var(--ui-text-secondary);
+}
+
+.item-action.generated {
+  background: var(--ui-accent-dim);
+  color: var(--ui-accent-strong);
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  color: var(--ui-text-tertiary);
+  gap: 12px;
+}
+
+.empty-state svg {
+  opacity: 0.5;
+}

@@ -1,0 +1,174 @@
+{
+  "version": 1,
+  "nodeType": "dateLogicConstraint",
+  "sections": [
+    {
+      "id": "basic",
+      "titleKey": "inspector.constraint.dateLogic.title",
+      "fields": [
+        {
+          "id": "configName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.dateLogic.configName",
+          "placeholderKey": "inspector.constraint.dateLogic.configNamePlaceholder",
+          "source": { "source": "data", "path": ["configName"] }
+        },
+        {
+          "id": "constraintName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.dateLogic.constraintName",
+          "placeholderKey": "inspector.constraint.dateLogic.constraintNamePlaceholder",
+          "source": { "source": "data", "path": ["constraintName"] }
+        },
+        {
+          "id": "logicMode",
+          "kind": "select",
+          "labelKey": "inspector.constraint.dateLogic.logicMode",
+          "source": { "source": "data", "path": ["logicMode"] },
+          "options": {
+            "type": "static",
+            "options": [
+              { "labelKey": "inspector.constraint.dateLogic.compareMode", "value": "compare" },
+              { "labelKey": "inspector.constraint.dateLogic.calculationMode", "value": "calculation" }
+            ]
+          }
+        },
+        {
+          "id": "compareOp",
+          "kind": "select",
+          "labelKey": "inspector.constraint.dateLogic.compareOp",
+          "source": { "source": "data", "path": ["compareOp"] },
+          "when": {
+            "op": "or",
+            "exprs": [
+              { "op": "equals", "source": { "source": "data", "path": ["logicMode"] }, "value": "compare" },
+              { "op": "not", "expr": { "op": "exists", "source": { "source": "data", "path": ["logicMode"] } } }
+            ]
+          },
+          "options": {
+            "type": "static",
+            "options": [
+              { "labelKey": "inspector.constraint.dateLogic.gt", "value": "gt" },
+              { "labelKey": "inspector.constraint.dateLogic.lt", "value": "lt" },
+              { "labelKey": "inspector.constraint.dateLogic.eq", "value": "eq" },
+              { "labelKey": "inspector.constraint.dateLogic.gte", "value": "gte" },
+              { "labelKey": "inspector.constraint.dateLogic.lte", "value": "lte" }
+            ]
+          }
+        },
+        {
+          "id": "calculationType",
+          "kind": "select",
+          "labelKey": "inspector.constraint.dateLogic.calculationType",
+          "source": { "source": "data", "path": ["calculationType"] },
+          "when": { "op": "equals", "source": { "source": "data", "path": ["logicMode"] }, "value": "calculation" },
+          "options": {
+            "type": "static",
+            "options": [
+              { "labelKey": "inspector.constraint.dateLogic.age", "value": "age" },
+              { "labelKey": "inspector.constraint.dateLogic.daysDiff", "value": "days_diff" }
+            ]
+          }
+        },
+        {
+          "id": "referenceType",
+          "kind": "dateReferenceType",
+          "labelKey": "inspector.constraint.dateLogic.referenceType",
+          "referenceDatePath": ["referenceDate"],
+          "referenceColumnPath": ["referenceColumn"],
+          "optionDateLabelKey": "inspector.constraint.dateLogic.fixedDate",
+          "optionColumnLabelKey": "inspector.constraint.dateLogic.referenceColumn"
+        },
+        {
+          "id": "referenceDate",
+          "kind": "date",
+          "labelKey": "inspector.constraint.dateLogic.referenceDate",
+          "source": { "source": "data", "path": ["referenceDate"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["referenceDate"] } }
+        },
+        {
+          "id": "referenceColumn",
+          "kind": "text",
+          "labelKey": "inspector.constraint.dateLogic.referenceColumn",
+          "placeholderKey": "inspector.constraint.dateLogic.referenceColumnPlaceholder",
+          "source": { "source": "data", "path": ["referenceColumn"] },
+          "when": { "op": "not", "expr": { "op": "exists", "source": { "source": "data", "path": ["referenceDate"] } } }
+        },
+        {
+          "id": "targetValue",
+          "kind": "text",
+          "labelKey": "inspector.constraint.dateLogic.targetValue",
+          "placeholderKey": "inspector.constraint.dateLogic.targetValuePlaceholder",
+          "source": { "source": "data", "path": ["targetValue"] }
+        }
+      ]
+    },
+    {
+      "id": "target",
+      "titleKey": "inspector.constraint.dateLogic.targetColumn",
+      "fields": [
+        {
+          "id": "table",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.dateLogic.table",
+          "source": { "source": "data", "path": ["table"] }
+        },
+        {
+          "id": "column",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.dateLogic.column",
+          "source": { "source": "data", "path": ["column"] }
+        }
+      ]
+    },
+    {
+      "id": "connection",
+      "titleKey": "inspector.constraint.dateLogic.sourceConnection",
+      "fields": [
+        {
+          "id": "sourceNodeId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.dateLogic.sourceNodeId",
+          "source": { "source": "data", "path": ["sourceRef", "nodeId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "nodeId"] } }
+        },
+        {
+          "id": "sourceColumnId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.dateLogic.sourceColumnId",
+          "source": { "source": "data", "path": ["sourceRef", "columnId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "columnId"] } }
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "titleKey": "inspector.constraint.dateLogic.validationResult",
+      "fields": [
+        {
+          "id": "validationStatus",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.dateLogic.status",
+          "source": { "source": "data", "path": ["validationStatus"] }
+        },
+        {
+          "id": "lastValidation",
+          "kind": "json",
+          "labelKey": "inspector.constraint.dateLogic.validationResult",
+          "source": { "source": "data", "path": ["lastValidation"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } },
+          "readonly": true
+        },
+        {
+          "id": "validationErrors",
+          "kind": "json",
+          "labelKey": "inspector.constraint.dateLogic.errors",
+          "source": { "source": "data", "path": ["validationErrors"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },
+          "readonly": true
+        }
+      ]
+    }
+  ]
+}
+

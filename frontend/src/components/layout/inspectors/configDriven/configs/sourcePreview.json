@@ -1,0 +1,90 @@
+{
+  "version": 1,
+  "nodeType": "sourcePreview",
+  "sections": [
+    {
+      "id": "basic",
+      "titleKey": "inspector.sourcePreview.groups.basicInfo",
+      "fields": [
+        {
+          "id": "sourceId",
+          "kind": "readonly",
+          "labelKey": "inspector.sourcePreview.labels.sourceId",
+          "source": { "source": "data", "path": ["id"] }
+        },
+        {
+          "id": "sourceName",
+          "kind": "readonly",
+          "labelKey": "inspector.sourcePreview.labels.sourceName",
+          "source": { "source": "data", "path": ["sourceName"] }
+        },
+        {
+          "id": "filePath",
+          "kind": "path",
+          "labelKey": "inspector.sourcePreview.labels.filePath",
+          "source": { "source": "data", "path": ["filePath"] },
+          "readonly": true
+        },
+        {
+          "id": "sourceType",
+          "kind": "readonly",
+          "labelKey": "inspector.sourcePreview.labels.fileType",
+          "source": { "source": "data", "path": ["sourceType"] }
+        },
+        {
+          "id": "fileSize",
+          "kind": "readonly",
+          "labelKey": "inspector.sourcePreview.labels.fileSize",
+          "source": { "source": "data", "path": ["fileSize"] }
+        }
+      ]
+    },
+    {
+      "id": "statistics",
+      "titleKey": "inspector.sourcePreview.groups.statistics",
+      "fields": [
+        {
+          "id": "totalRows",
+          "kind": "number",
+          "labelKey": "inspector.sourcePreview.labels.totalRows",
+          "source": { "source": "data", "path": ["totalRows"] },
+          "readonly": true
+        },
+        {
+          "id": "totalCols",
+          "kind": "number",
+          "labelKey": "inspector.sourcePreview.labels.totalCols",
+          "source": { "source": "data", "path": ["totalCols"] },
+          "readonly": true
+        }
+      ]
+    },
+    {
+      "id": "header",
+      "titleKey": "inspector.sourcePreview.groups.header",
+      "fields": [
+        {
+          "id": "headerRow",
+          "kind": "number",
+          "labelKey": "inspector.sourcePreview.labels.headerRow",
+          "source": { "source": "data", "path": ["headerRow"] }
+        }
+      ]
+    },
+    {
+      "id": "extracted",
+      "titleKey": "inspector.sourcePreview.groups.extractedColumns",
+      "when": { "op": "exists", "source": { "source": "data", "path": ["derivedColumnsByRegex"] } },
+      "fields": [
+        {
+          "id": "derivedColumnsByRegex",
+          "kind": "json",
+          "labelKey": "inspector.sourcePreview.groups.extractedColumns",
+          "source": { "source": "data", "path": ["derivedColumnsByRegex"] },
+          "readonly": true
+        }
+      ]
+    }
+  ]
+}
+

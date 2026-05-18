@@ -1,0 +1,153 @@
+"""
+@fileoverview DAG 执行器
+
+功能概述:
+- 按拓扑顺序执行 DAG 中的 transform 节点
+- 管理每个节点的输出 DataFrame
+- 将 transform 结果写回 parsed_datasets
+
+数据流:
+    schema 数据源 → [transform] → [transform] → ...
+    每个节点的输出 DataFrame 存储在 node_outputs 中
+"""
+
+from __future__ import annotations
+
+import logging
+import re
+
+import pandas as pd
+
+from app.shared.core.project.regex.types import RegexNodeFile
+from app.shared.core.project.transform.types import TransformFile
+from app.shared.domain.transforms import create_runner
+
+from .builder import ExecutionDAG
+from .sorter import topological_sort
+
+logger = logging.getLogger(__name__)
+
+
+def execute_transform_dag(
+    dag: ExecutionDAG,
+    parsed_datasets: dict[str, pd.DataFrame],
+) -> dict[str, pd.DataFrame]:
+    """@methoddesc 执行 Transform DAG
+
+    参数:
+        dag: 执行 DAG（包含 transform 和 schema 节点）
+        parsed_datasets: 已解析的 DataFrame 字典（键为 schema 表 ID）
+
+    返回:
+        更新后的 parsed_datasets（包含 transform 产生的新列）
+    """
+    if not dag.nodes:
+        return parsed_datasets
+
+    order = topological_sort(dag)
+
+    # 每个节点的输出 DataFrame
+    node_outputs: dict[str, pd.DataFrame] = {}
+
+    # 初始化 schema 节点的输出
+    for sid, df in parsed_datasets.items():
+        if sid in dag.nodes:
+            node_outputs[sid] = df.copy()
+
+    for node_id in order:
+        node = dag.nodes[node_id]
+        if node.node_type == "schema":
+            continue
+
+        if node.node_type == "transform":
+            tfile: TransformFile = node.data
+            if not tfile or not tfile.enabled:
+                continue
+
+            # 确定输入 DataFrame
+            input_node_id = tfile.input_from_node or node_id
+            input_df = node_outputs.get(input_node_id)
+
+            if input_df is None:
+                logger.warning(f"Transform '{node_id}' 的输入节点 '{input_node_id}' 无可用数据，跳过")
+                continue
+
+            input_column = tfile.input_column
+            if input_column and input_column not in input_df.columns:
+                logger.warning(f"Transform '{node_id}' 的输入列 '{input_column}' 不存在，跳过")
+                continue
+
+            try:
+                runner = create_runner(tfile.type)
+                output_df = runner.execute(
+                    input_df.copy(),
+                    input_column or input_df.columns[0],
+                    tfile.params,
+                    tfile.output_columns,
+                )
+                node_outputs[node_id] = output_df
+
+                # 如果 transform 的输入是 schema，将结果合并回原始 DataFrame
+                if input_node_id in parsed_datasets:
+                    for col in tfile.output_columns:
+                        if col in output_df.columns:
+                            parsed_datasets[input_node_id][col] = output_df[col].values
+                    # 同步更新 node_outputs，确保下游节点能看到新列
+                    if input_node_id in node_outputs:
+                        for col in tfile.output_columns:
+                            if col in output_df.columns:
+                                node_outputs[input_node_id][col] = output_df[col].values
+            except Exception as e:
+                logger.exception(f"Transform '{node_id}' 执行失败: {e}")
+                # 执行失败时，保留输入 DataFrame 作为输出，避免下游节点中断
+                node_outputs[node_id] = input_df.copy()
+
+        elif node.node_type == "regex":
+            rfile: RegexNodeFile = node.data
+            if not rfile or not rfile.enabled:
+                continue
+
+            input_node_id = rfile.input_from_node
+            if not input_node_id and rfile.source_ref:
+                input_node_id = rfile.source_ref.table_id
+
+            input_df = node_outputs.get(input_node_id) if input_node_id else None
+            if input_df is None:
+                logger.warning(f"Regex '{node_id}' 的输入节点无可用数据，跳过")
+                continue
+
+            input_column = rfile.input_column or rfile.source_column_name
+            if not input_column or input_column not in input_df.columns:
+                logger.warning(f"Regex '{node_id}' 的输入列 '{input_column}' 不存在，跳过")
+                continue
+
+            pattern_str = rfile.pattern
+            if not pattern_str:
+                logger.warning(f"Regex '{node_id}' 未配置直接模式 pattern（uses_pattern 暂不支持 DAG 执行），跳过")
+                continue
+
+            try:
+                compiled = re.compile(pattern_str)
+                extracted = input_df[input_column].astype(str).str.extract(compiled)
+                output_df = input_df.copy()
+                # 按位置映射 output_columns 到 extracted 列（支持无名捕获组）
+                for i, col in enumerate(rfile.output_columns or []):
+                    if i < len(extracted.columns):
+                        output_df[col] = extracted.iloc[:, i].values
+                node_outputs[node_id] = output_df
+
+                # 将提取的列合并回原始 schema DataFrame
+                if input_node_id in parsed_datasets:
+                    for col in rfile.output_columns or []:
+                        if col in output_df.columns:
+                            parsed_datasets[input_node_id][col] = output_df[col].values
+                    # 同步更新 node_outputs
+                    if input_node_id in node_outputs:
+                        for col in rfile.output_columns or []:
+                            if col in output_df.columns:
+                                node_outputs[input_node_id][col] = output_df[col].values
+            except Exception as e:
+                logger.exception(f"Regex '{node_id}' 执行失败: {e}")
+                node_outputs[node_id] = input_df.copy()
+
+    return parsed_datasets

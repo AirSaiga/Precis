@@ -1,0 +1,558 @@
+/**
+ * 整个属性检查器容器样式
+ * 垂直弹性布局，子元素间距 16px
+ */
+.schema-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/**
+ * 表单组样式
+ * 垂直弹性布局，标签和输入框之间的间距
+ */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/**
+ * 表单标签样式
+ * 字体粗细、大小、颜色
+ */
+.form-group label {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--ui-text);
+}
+
+/**
+ * 列数量徽章样式
+ * 显示当前列总数的胶囊形标签
+ */
+.column-count-badge {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--ui-accent-weak);
+  border: 1px solid var(--ui-accent-ring);
+  color: var(--ui-text);
+}
+
+.column-count-number {
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.column-count-unit {
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ui-text-muted);
+}
+
+/**
+ * 隐式匹配区块样式
+ * 用于显示运行时动态推断的正则绑定列
+ */
+.implicit-match-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.implicit-match-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.implicit-match-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ui-text);
+}
+
+.implicit-match-count {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+  background: var(--ui-accent-weak);
+  color: var(--ui-text);
+}
+
+.implicit-match-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.implicit-match-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+}
+
+.implicit-match-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.match-type {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+  font-style: italic;
+}
+
+.lock-binding-btn {
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--ui-border);
+  background: var(--ui-bg-panel);
+  color: var(--ui-text);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.lock-binding-btn:hover {
+  background: var(--ui-accent-weak);
+  border-color: var(--ui-accent);
+}
+
+.validation-task-copy {
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--ui-text-muted);
+}
+
+.validate-table-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-panel);
+  color: var(--ui-text);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.validate-table-btn:hover {
+  border-color: var(--ui-accent);
+  color: var(--ui-accent);
+  background: var(--ui-accent-weak);
+}
+
+/**
+ * 列定义编辑器样式
+ * 每行包含：序号、列名输入、删除按钮、数据类型选择、内嵌约束切换
+ */
+.columns-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.column-edit-row {
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-elevated);
+  overflow: hidden;
+}
+
+.column-edit-row-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--ui-border);
+  background: var(--white-40);
+}
+
+.column-edit-row-body {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 6px 8px;
+}
+
+.column-index {
+  color: var(--ui-text-subtle);
+  font-size: 12px;
+  min-width: 20px;
+  font-weight: 500;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+/**
+ * 列名输入框样式
+ * 使用等宽字体，支持聚焦高亮
+ */
+.column-name-input {
+  flex: 1;
+  padding: 4px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: 4px;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-size: 13px;
+  font-family: var(--ui-font-mono);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.column-name-input:focus {
+  border-color: var(--ui-border-focus);
+  box-shadow: 0 0 0 2px var(--ui-accent-ring);
+}
+
+.column-name-input::placeholder {
+  color: var(--ui-text-muted);
+}
+
+/**
+ * 删除列按钮样式
+ * 默认透明，悬停时显示红色危险色
+ */
+.column-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ui-text-muted);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: all 0.15s;
+}
+
+.column-delete-btn:hover {
+  background: var(--ui-danger-weak);
+  color: var(--ui-danger);
+}
+
+.column-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.column-edit-label {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ui-text-muted);
+}
+
+/**
+ * 数据类型下拉选择器样式
+ */
+.column-type-select {
+  padding: 3px 6px;
+  border: 1px solid var(--ui-border);
+  border-radius: 4px;
+  background: var(--ui-bg);
+  color: var(--ui-text);
+  font-size: 12px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.column-type-select:focus {
+  border-color: var(--ui-border-focus);
+}
+
+.column-edit-constraints {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+/**
+ * 内嵌约束切换按钮组样式
+ * NN（非空）激活时显示琥珀色，UQ（唯一）激活时显示紫色
+ */
+.constraint-toggles {
+  display: flex;
+  gap: 4px;
+}
+
+.constraint-toggle {
+  padding: 2px 8px;
+  border: 1px solid var(--ui-border);
+  border-radius: 4px;
+  background: var(--ui-bg-panel);
+  color: var(--ui-text-muted);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 30px;
+  text-align: center;
+}
+
+.constraint-toggle:hover {
+  border-color: var(--ui-accent);
+}
+
+.constraint-toggle.not-null.active {
+  background: var(--theme-orange-weak);
+  color: var(--theme-orange-strong);
+  border-color: var(--theme-orange);
+}
+
+.constraint-toggle.unique.active {
+  background: var(--theme-purple-weak);
+  color: var(--theme-purple-strong);
+  border-color: var(--theme-purple);
+}
+
+/**
+ * 添加列按钮样式
+ * 虚线边框，悬停时显示强调色
+ */
+.add-column-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 8px;
+  border: 1px dashed var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: transparent;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.add-column-btn:hover {
+  border-color: var(--ui-accent);
+  color: var(--ui-accent);
+  background: var(--ui-accent-weak);
+}
+
+/**
+ * 连接约束列表样式
+ * 显示通过边或 children 关联到当前 Schema 的约束节点
+ */
+.connected-constraints-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.connected-constraint-item {
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-elevated);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.constraint-item-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/**
+ * 约束类型标签样式
+ * 每种约束类型使用不同的颜色区分
+ */
+.constraint-type-badge {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.constraint-type-badge.ctype-NotNull {
+  background: var(--theme-orange-weak);
+  color: var(--theme-orange-strong);
+}
+.constraint-type-badge.ctype-Unique {
+  background: var(--theme-purple-weak);
+  color: var(--theme-purple-strong);
+}
+.constraint-type-badge.ctype-ForeignKey {
+  background: var(--ui-accent-weak);
+  color: var(--ui-accent-strong);
+}
+.constraint-type-badge.ctype-AllowedValues {
+  background: var(--ui-success-weak);
+  color: var(--ui-success-strong);
+}
+.constraint-type-badge.ctype-Range {
+  background: var(--theme-sky-weak);
+  color: var(--theme-sky-strong);
+}
+.constraint-type-badge.ctype-Conditional {
+  background: var(--theme-orange-weak);
+  color: var(--theme-orange-strong);
+}
+.constraint-type-badge.ctype-Scripted {
+  background: var(--theme-purple-weak);
+  color: var(--theme-purple-strong);
+}
+.constraint-type-badge.ctype-Charset {
+  background: var(--theme-script-weak);
+  color: var(--theme-script-strong);
+}
+.constraint-type-badge.ctype-DateLogic {
+  background: var(--theme-pink-weak);
+  color: var(--theme-pink-strong);
+}
+
+.constraint-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ui-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.constraint-item-detail {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.constraint-detail-label {
+  color: var(--ui-text-muted);
+  flex-shrink: 0;
+}
+
+.constraint-detail-value {
+  color: var(--ui-text);
+  font-family: var(--ui-font-mono);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/**
+ * 校验状态标签样式
+ * idle（灰色）、pass（绿色）、error（红色）、missing（琥珀色）
+ */
+.constraint-status-badge {
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.constraint-status-badge.status-idle {
+  background: var(--ui-bg-muted);
+  color: var(--ui-text-muted);
+}
+.constraint-status-badge.status-pass {
+  background: var(--ui-success-weak);
+  color: var(--ui-success-strong);
+}
+.constraint-status-badge.status-error {
+  background: var(--ui-danger-weak);
+  color: var(--ui-danger-strong);
+}
+.constraint-status-badge.status-missing {
+  background: var(--ui-warning-weak);
+  color: var(--ui-warning-strong);
+}
+
+.no-constraints {
+  text-align: center;
+  padding: 12px;
+  color: var(--ui-text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
+
+/**
+ * 保存状态指示器样式
+ * saved（绿色）、draft（琥珀色）、error（红色）
+ */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+.status-indicator.saved {
+  background: var(--ui-success-weak);
+  color: var(--ui-success);
+  border: 1px solid var(--ui-success);
+}
+
+.status-indicator.draft {
+  background: var(--ui-warning-weak);
+  color: var(--ui-warning-strong);
+  border: 1px solid var(--ui-warning);
+}
+
+.status-indicator.error {
+  background: var(--ui-danger-weak);
+  color: var(--ui-danger);
+  border: 1px solid var(--ui-danger);
+}
+
+.status-icon {
+  font-size: 14px;
+}
+
+.status-text {
+  font-size: 14px;
+}
+
+/**
+ * 约束徽章样式（保留兼容）
+ */
+.constraint-badge {
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  min-width: 18px;
+  text-align: center;
+}
+
+.constraint-badge.not-null {
+  background: var(--theme-orange-weak);
+  color: var(--theme-orange-strong);
+  border: 1px solid var(--theme-orange);
+}
+
+.constraint-badge.unique {
+  background: var(--theme-purple-weak);
+  color: var(--theme-purple-strong);
+  border: 1px solid var(--theme-purple);
+}

@@ -1,0 +1,43 @@
+.inspector-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--ui-radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.badge-status-connected,
+.badge-status-success {
+  background: var(--ui-success-weak);
+  color: var(--ui-success);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+}
+
+.badge-status-disconnected,
+.badge-status-default {
+  background: rgba(100, 116, 139, 0.12);
+  color: var(--ui-text-muted);
+  border: 1px solid rgba(100, 116, 139, 0.22);
+}
+
+.badge-status-error {
+  background: var(--ui-danger-weak);
+  color: var(--ui-danger);
+  border: 1px solid rgba(220, 38, 38, 0.25);
+}
+
+.badge-status-warning {
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid rgba(180, 83, 9, 0.25);
+}
+
+.badge-icon {
+  font-size: 11px;
+}
+
+.badge-text {
+  white-space: nowrap;
+}

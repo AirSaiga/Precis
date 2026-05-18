@@ -1,0 +1,333 @@
+/**
+ * 整个属性检查器容器样式
+ * 垂直弹性布局，子元素间距 16px
+ */
+.regex-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/**
+ * 表单组样式
+ * 垂直弹性布局，标签和输入框之间的间距
+ */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/**
+ * 表单标签样式
+ * 字体粗细、大小、颜色
+ */
+.form-group label {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--ui-text);
+}
+
+/**
+ * 只读值样式
+ * 用于显示不可编辑的数据
+ */
+.readonly-value {
+  padding: 10px 12px;
+  background: var(--ui-bg-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text);
+  font-size: 14px;
+  word-break: break-word;
+  min-height: 20px;
+  backdrop-filter: blur(5px);
+}
+
+/**
+ * 成功状态的值样式
+ * 绿色主题，用于显示匹配数量
+ */
+.readonly-value.success-value {
+  background: var(--ui-success-weak);
+  color: var(--ui-success);
+  border-color: color-mix(in srgb, var(--ui-success) 25%, transparent);
+  font-weight: 600;
+}
+
+/**
+ * 错误状态的值样式
+ * 红色主题，用于显示错误数量
+ */
+.readonly-value.error-value {
+  background: var(--ui-danger-weak);
+  color: var(--ui-danger);
+  border-color: color-mix(in srgb, var(--ui-danger) 25%, transparent);
+  font-weight: 600;
+}
+
+/**
+ * 可编辑输入框和下拉选择框样式
+ */
+.editable-input,
+.editable-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text);
+  font-size: 14px;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(5px);
+}
+
+.editable-input:focus,
+.editable-select:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--node-special-regex-accent) 55%, transparent);
+  background: var(--ui-bg-elevated);
+  box-shadow: var(--ui-focus-ring);
+}
+
+/**
+ * 多行文本输入框样式
+ */
+.editable-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text);
+  font-size: 14px;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(5px);
+  resize: vertical;
+  font-family: inherit;
+}
+
+.editable-textarea:focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--node-special-regex-accent) 55%, transparent);
+  background: var(--ui-bg-elevated);
+  box-shadow: var(--ui-focus-ring);
+}
+
+/**
+ * 开关切换容器样式
+ */
+.toggle-switch {
+  display: flex;
+  align-items: center;
+}
+
+/**
+ * 隐藏原生复选框
+ */
+.toggle-switch input[type='checkbox'] {
+  display: none;
+}
+
+/**
+ * 开关标签样式
+ */
+.toggle-label {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+/**
+ * 开关滑块样式
+ */
+.toggle-slider {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  background: var(--ui-border-strong);
+  border-radius: 12px;
+  transition: background 0.3s ease;
+}
+
+/**
+ * 开关滑块前的小圆点
+ */
+.toggle-slider::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  background: var(--ui-bg-elevated);
+  border-radius: 50%;
+  transition: transform 0.3s ease;
+  box-shadow: var(--ui-shadow-sm);
+}
+
+/**
+ * 开关选中状态下的滑块颜色
+ */
+.toggle-switch input:checked + .toggle-label .toggle-slider {
+  background: var(--ui-success);
+}
+
+/**
+ * 开关选中状态下滑块的位置
+ */
+.toggle-switch input:checked + .toggle-label .toggle-slider::before {
+  transform: translateX(20px);
+}
+
+/**
+ * 开关文本样式
+ */
+.toggle-text {
+  font-size: 14px;
+  color: var(--ui-text);
+  font-weight: 500;
+}
+
+/**
+ * 状态指示器样式
+ */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
+/**
+ * 通过状态样式
+ */
+.status-indicator.pass {
+  background: var(--ui-success-weak);
+  color: var(--ui-success);
+  border: 1px solid color-mix(in srgb, var(--ui-success) 25%, transparent);
+}
+
+/**
+ * 错误状态样式
+ */
+.status-indicator.error {
+  background: var(--ui-danger-weak);
+  color: var(--ui-danger);
+  border: 1px solid color-mix(in srgb, var(--ui-danger) 25%, transparent);
+}
+
+/**
+ * 待校验状态样式
+ */
+.status-indicator.idle {
+  background: color-mix(in srgb, var(--ui-text-muted) 12%, transparent);
+  color: var(--ui-text-muted);
+  border: 1px solid color-mix(in srgb, var(--ui-text-muted) 22%, transparent);
+}
+
+.status-icon {
+  font-size: 14px;
+}
+
+.status-text {
+  font-size: 14px;
+}
+
+/**
+ * 提示信息样式
+ */
+.info-tip {
+  color: var(--ui-text);
+  background: color-mix(in srgb, var(--ui-bg-elevated) 72%, transparent);
+  padding: 12px;
+  border-radius: var(--ui-radius-md);
+  font-size: 12px;
+  border: 1px solid var(--ui-border);
+  backdrop-filter: blur(5px);
+  line-height: 1.4;
+}
+
+/**
+ * 正则表达式模式容器样式
+ */
+.regex-pattern-wrapper {
+  position: relative;
+}
+
+/**
+ * 正则表达式代码块改进样式
+ */
+.editable-textarea.code-font {
+  font-family: 'Courier New', Consolas, monospace;
+  background: var(--node-special-code-bg);
+  border: 1px solid var(--ui-border);
+  color: var(--node-special-code-color);
+  font-size: 13px;
+  line-height: 1.6;
+  padding: 12px 14px;
+  border-radius: 8px;
+  box-shadow: inset 0 1px 3px color-mix(in srgb, var(--ui-text-primary) 10%, transparent);
+}
+
+.editable-textarea.code-font:focus {
+  border-color: color-mix(in srgb, var(--node-special-regex-accent) 50%, transparent);
+  box-shadow:
+    var(--ui-focus-ring),
+    inset 0 1px 3px color-mix(in srgb, var(--ui-text-primary) 10%, transparent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--node-special-regex-accent-bg) 88%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--node-special-regex-accent) 10%, var(--ui-bg-elevated)) 100%
+  );
+}
+
+.editable-textarea.code-font::placeholder {
+  color: var(--node-special-code-placeholder);
+  font-style: italic;
+}
+
+/**
+ * 正则来源徽章样式
+ */
+.pattern-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.pattern-source-badge .badge-icon {
+  font-size: 13px;
+}
+
+.pattern-source-badge .badge-text {
+  font-weight: 600;
+}
+
+.pattern-source-badge {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--node-special-regex-accent) 15%, transparent) 0%,
+    color-mix(in srgb, var(--node-special-regex-accent) 8%, transparent) 100%
+  );
+  color: var(--node-special-regex-accent-strong);
+  border: 1px solid color-mix(in srgb, var(--node-special-regex-accent) 30%, transparent);
+}
+
+.pattern-source-badge.canvas {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ui-accent) 15%, transparent) 0%,
+    color-mix(in srgb, var(--ui-accent) 8%, transparent) 100%
+  );
+  color: var(--ui-accent);
+  border: 1px solid color-mix(in srgb, var(--ui-accent) 30%, transparent);
+}

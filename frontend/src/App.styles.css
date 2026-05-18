@@ -1,0 +1,228 @@
+/* 保留原有样式，从原 App.vue 复制 */
+.app-layout {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  background: var(--ui-bg-canvas);
+  position: relative;
+}
+
+.activity-bar {
+  flex-shrink: 0;
+  background: var(--ui-bg-nav-primary);
+  border-right: 1px solid var(--ui-border-subtle);
+  transition: width 0.2s ease;
+  overflow: hidden;
+}
+
+.sidebar-panel-container {
+  flex-shrink: 0;
+  background: var(--ui-bg-sidebar);
+  border-right: 1px solid var(--ui-border-subtle);
+  transition:
+    width 0.2s ease,
+    margin-left 0.2s ease;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.canvas-tabbed-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  min-width: 0;
+  transition: flex 0.2s ease;
+}
+
+.tab-bar {
+  flex-shrink: 0;
+  height: 32px;
+  background: var(--ui-bg-sidebar);
+  border-bottom: 1px solid var(--ui-border-subtle);
+  display: flex;
+  align-items: center;
+  padding: 0 8px;
+  overflow-x: auto;
+}
+
+.tab-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  white-space: nowrap;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.tab-item:hover {
+  background: var(--ui-bg-elevated);
+}
+
+.tab-item.active {
+  background: var(--ui-accent);
+  color: var(--ui-text-primary);
+}
+
+.tab-icon {
+  display: flex;
+  align-items: center;
+}
+
+.tab-title {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tab-rename-input {
+  width: 100px;
+  max-width: 140px;
+  padding: 0 4px;
+  border: 1px solid var(--ui-accent);
+  border-radius: 2px;
+  background: var(--ui-bg-canvas);
+  color: var(--ui-text-primary);
+  font-size: 12px;
+  line-height: 1.4;
+  outline: none;
+}
+
+.tab-dirty {
+  color: var(--ui-warning-strong);
+  font-size: 8px;
+}
+
+.tab-close {
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.tab-close:hover {
+  opacity: 1;
+}
+
+.tab-add {
+  padding: 4px;
+}
+
+.canvas-area {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.panel-resize-divider {
+  width: 4px;
+  flex-shrink: 0;
+  cursor: col-resize;
+  background: transparent;
+  transition: background 0.15s;
+  z-index: 10;
+}
+
+.panel-resize-divider:hover,
+.panel-resize-divider.is-dragging {
+  background: var(--ui-accent);
+}
+
+.panel-toggle {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+}
+
+.left-toggle {
+  left: 0;
+}
+
+.right-toggle {
+  right: 0;
+}
+
+.toggle-btn {
+  width: 16px;
+  height: 48px;
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ui-text-muted);
+  font-size: 10px;
+  transition: background 0.15s;
+}
+
+.toggle-btn:hover {
+  background: var(--ui-bg-nav-primary);
+}
+
+.arrow {
+  transition: transform 0.2s ease;
+}
+
+.arrow.rotate-180 {
+  transform: rotate(180deg);
+}
+
+.right-panel {
+  flex-shrink: 0;
+  background: var(--ui-bg-sidebar);
+  border-left: 1px solid var(--ui-border-subtle);
+  transition: width 0.2s ease;
+  overflow: hidden;
+}
+
+.ai-chat-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 32px;
+  z-index: 100;
+}
+
+.ai-chat-fab {
+  position: absolute;
+  bottom: 48px;
+  z-index: 90;
+}
+
+.status-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 32px;
+  background: var(--ui-bg-nav-primary);
+  border-top: 1px solid var(--ui-border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  z-index: 50;
+}
+
+.is-resizing .activity-bar,
+.is-resizing .sidebar-panel-container,
+.is-resizing .right-panel,
+.is-resizing .canvas-tabbed-container {
+  transition: none !important;
+}

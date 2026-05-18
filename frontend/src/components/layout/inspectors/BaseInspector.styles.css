@@ -1,0 +1,88 @@
+/**
+ * 属性区块容器样式
+ * - 底部外边距
+ * - 白色半透明背景
+ * - 圆角边框
+ * - 内边距
+ * - 毛玻璃效果
+ * - 阴影效果
+ */
+.inspector-section {
+  margin-bottom: 24px;
+  background: rgba(255, 255, 255, 0.88);
+  border-radius: var(--ui-radius-lg);
+  padding: 16px;
+  border: 1px solid var(--ui-border);
+  backdrop-filter: blur(5px);
+  box-shadow: var(--ui-shadow-sm);
+}
+
+/**
+ * 区块标题样式
+ * - 字体大小和粗细
+ * - 颜色
+ * - 弹性布局（水平排列）
+ * - 两端对齐
+ * - 底部内边距和边框
+ */
+.section-title {
+  margin: 0 0 16px 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ui-text);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--ui-border);
+}
+
+/**
+ * 徽章样式
+ * - 内边距
+ * - 圆角（胶囊形状）
+ * - 字体大小和粗细
+ * - 大写转换
+ * - 字间距
+ */
+.section-badge {
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/**
+ * 可编辑徽章样式
+ * - 绿色背景和文字
+ * - 绿色边框
+ */
+.section-badge.editable {
+  background: var(--ui-success-weak);
+  color: var(--ui-success);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+}
+
+/**
+ * 只读徽章样式
+ * - 灰色背景和文字
+ * - 灰色边框
+ */
+.section-badge.read-only {
+  background: rgba(100, 116, 139, 0.12);
+  color: var(--ui-text-muted);
+  border: 1px solid rgba(100, 116, 139, 0.22);
+}
+
+/**
+ * 内容区域样式
+ * - 弹性布局（垂直方向）
+ * - 子元素间距
+ */
+.section-content {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}

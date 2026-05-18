@@ -1,0 +1,89 @@
+.node-divider {
+  width: 100%;
+  border: none;
+  border-top-width: var(--node-divider-width, 1px);
+  border-top-style: var(--node-divider-style, solid);
+  border-top-color: var(--node-divider-color, var(--ui-border-subtle));
+  opacity: 0.9;
+}
+
+.node-divider.variant-solid {
+  border-top-style: var(--node-divider-style, solid);
+}
+
+.node-divider.variant-dashed {
+  border-top-style: var(--node-divider-style-dashed, dashed);
+  border-top-color: var(--node-divider-color-muted, var(--ui-border-light));
+}
+
+.node-divider.theme-primary {
+  border-top-color: color-mix(
+    in srgb,
+    var(--node-theme-primary, var(--ui-accent)) 28%,
+    var(--ui-border-subtle)
+  );
+}
+
+.node-divider.theme-success {
+  border-top-color: color-mix(
+    in srgb,
+    var(--node-theme-success, var(--ui-success)) 28%,
+    var(--ui-border-subtle)
+  );
+}
+
+.node-divider.theme-warning {
+  border-top-color: color-mix(
+    in srgb,
+    var(--node-theme-warning, var(--ui-warning)) 28%,
+    var(--ui-border-subtle)
+  );
+}
+
+.node-divider.theme-danger {
+  border-top-color: color-mix(
+    in srgb,
+    var(--node-theme-danger, var(--ui-danger)) 28%,
+    var(--ui-border-subtle)
+  );
+}
+
+.node-divider.theme-info {
+  border-top-color: color-mix(
+    in srgb,
+    var(--node-theme-info, var(--ui-info)) 28%,
+    var(--ui-border-subtle)
+  );
+}
+
+.node-divider.theme-purple {
+  border-top-color: color-mix(in srgb, var(--theme-purple) 28%, var(--ui-border-subtle));
+}
+
+.node-divider.theme-orange {
+  border-top-color: color-mix(in srgb, var(--theme-orange) 28%, var(--ui-border-subtle));
+}
+
+.node-divider.theme-sky {
+  border-top-color: color-mix(in srgb, var(--theme-sky) 28%, var(--ui-border-subtle));
+}
+
+.node-divider.theme-pink {
+  border-top-color: color-mix(in srgb, var(--theme-pink) 28%, var(--ui-border-subtle));
+}
+
+.node-divider.theme-script {
+  border-top-color: color-mix(in srgb, var(--theme-script) 28%, var(--ui-border-subtle));
+}
+
+.node-divider.spacing-sm {
+  margin: var(--node-padding-xs, 4px) 0;
+}
+
+.node-divider.spacing-md {
+  margin: var(--node-padding-sm, 8px) 0;
+}
+
+.node-divider.spacing-lg {
+  margin: var(--node-padding-md, 12px) 0;
+}

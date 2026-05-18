@@ -1,0 +1,590 @@
+/**
+ * @file node-tokens.css
+ * @description 节点组件设计令牌 - 统一管理节点样式变量
+ *
+ * 设计令牌分类：
+ * 1. 节点背景系统 - 背景色、透明度、渐变
+ * 2. 节点边框系统 - 边框色、边框样式、圆角
+ * 3. 节点文字系统 - 文字颜色、字号、字重
+ * 4. 节点阴影系统 - 默认、悬浮、选中、错误状态
+ * 5. 节点尺寸系统 - 内边距、外边距、高度
+ * 6. 节点状态系统 - 交互反馈、动画、过渡
+ * 7. 节点主题变体 - 不同类型节点的颜色主题
+ */
+
+:root {
+  /* ========================================
+     节点背景系统
+     ======================================== */
+
+  /* 基础背景 */
+  --node-bg: var(--ui-bg-elevated);
+  --node-bg-hover: var(--ui-bg-canvas);
+  --node-bg-active: var(--ui-bg-muted);
+
+  /* 毛玻璃效果 */
+  --node-glass-bg: color-mix(in srgb, var(--ui-bg-elevated) 85%, transparent);
+  --node-glass-bg-hover: color-mix(in srgb, var(--ui-bg-elevated) 95%, transparent);
+  --node-glass-bg-selected: color-mix(in srgb, var(--ui-bg-elevated) 98%, transparent);
+
+  /* 背景透明度 */
+  --node-bg-opacity: 1;
+  --node-bg-opacity-hover: 0.95;
+  --node-bg-opacity-selected: 0.98;
+
+  /* ========================================
+     节点边框系统
+     ======================================== */
+
+  /* 基础边框 */
+  --node-border: var(--ui-border-subtle);
+  --node-border-hover: var(--ui-border-light);
+  --node-border-active: var(--ui-border);
+  --node-border-strong: var(--ui-border-strong);
+
+  /* 选中边框 */
+  --node-border-selected: var(--ui-accent);
+  --node-border-selected-width: 2px;
+
+  /* 错误边框 */
+  --node-border-error: var(--ui-danger);
+  --node-border-error-width: 1px;
+
+  /* 成功边框 */
+  --node-border-success: var(--ui-success);
+  --node-border-success-width: 1px;
+
+  /* 边框透明度 */
+  --node-border-opacity: 0.6;
+  --node-border-opacity-hover: 0.7;
+
+  /* 边框样式 */
+  --node-border-style: solid;
+
+  /* ========================================
+     节点圆角系统
+     ======================================== */
+
+  /* 圆角尺寸 */
+  --node-radius-sm: var(--ui-radius-sm);
+  --node-radius-md: var(--ui-radius-md);
+  --node-radius-lg: var(--ui-radius-lg);
+  --node-radius-xl: var(--ui-radius-xl);
+
+  /* 圆角别名 */
+  --node-border-radius: var(--node-radius-lg);
+  --node-border-radius-sm: var(--node-radius-sm);
+  --node-border-radius-lg: var(--node-radius-xl);
+
+  /* 特定元素圆角 */
+  --node-header-radius: var(--node-radius-md);
+  --node-content-radius: var(--node-radius-md);
+  --node-footer-radius: var(--node-radius-md);
+
+  /* ========================================
+     节点文字系统
+     ======================================== */
+
+  /* 标题文字 */
+  --node-title-size: var(--ui-font-size-sm);
+  --node-title-weight: var(--ui-font-weight-semibold);
+  --node-title-color: var(--ui-text-primary);
+  --node-title-line-height: var(--ui-line-height-tight);
+
+  /* 正文文字 */
+  --node-text-size: var(--ui-font-size-sm);
+  --node-text-weight: var(--ui-font-weight-normal);
+  --node-text-color: var(--ui-text-body);
+  --node-text-line-height: var(--ui-line-height-normal);
+
+  /* 辅助文字 */
+  --node-muted-size: var(--ui-font-size-xs);
+  --node-muted-weight: var(--ui-font-weight-normal);
+  --node-muted-color: var(--ui-text-muted);
+
+  /* 标签文字 */
+  --node-label-size: var(--ui-font-size-xs);
+  --node-label-weight: var(--ui-font-weight-medium);
+  --node-label-color: var(--ui-text-secondary);
+
+  /* 等宽文字 */
+  --node-mono-size: var(--ui-font-size-xs);
+  --node-mono-family: var(--ui-font-mono);
+
+  /* ========================================
+     节点阴影系统
+     ======================================== */
+
+  /* 默认阴影 */
+  --node-shadow: 0 2px 8px rgba(45, 42, 38, 0.06),
+                 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  --node-shadow-sm: var(--ui-shadow-sm);
+  --node-shadow-md: var(--ui-shadow-md);
+  --node-shadow-lg: var(--ui-shadow-lg);
+
+  /* 悬浮阴影 */
+  --node-shadow-hover: 0 8px 20px rgba(45, 42, 38, 0.1),
+                      0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+
+  /* 选中阴影 - 发光效果 */
+  --node-shadow-selected: 0 0 0 3px var(--ui-accent-ring),
+                          0 12px 24px rgba(45, 42, 38, 0.12);
+
+  /* 错误阴影 */
+  --node-shadow-error: 0 0 0 2px var(--ui-danger-ring),
+                       0 4px 8px rgba(45, 42, 38, 0.08);
+
+  /* 成功阴影 */
+  --node-shadow-success: 0 0 0 2px var(--ui-success-ring),
+                         0 4px 8px rgba(45, 42, 38, 0.08);
+
+  /* 拖拽阴影 */
+  --node-shadow-dragging: 0 16px 32px rgba(45, 42, 38, 0.15),
+                          0 0 0 2px var(--ui-accent-ring);
+
+  /* ========================================
+     节点尺寸系统
+     ======================================== */
+
+  /* 内边距 */
+  --node-padding-xs: 4px;
+  --node-padding-sm: 8px;
+  --node-padding-md: 12px;
+  --node-padding-lg: 16px;
+  --node-padding-xl: 20px;
+
+  /* 头部内边距 */
+  --node-header-padding-x: var(--node-padding-md);
+  --node-header-padding-y: var(--node-padding-sm);
+
+  /* 内容区内边距 */
+  --node-content-padding-x: var(--node-padding-md);
+  --node-content-padding-y: var(--node-padding-sm);
+
+  /* 最小/最大宽度 */
+  --node-min-width: 200px;
+  --node-max-width: 400px;
+  --node-width-default: 280px;
+
+  /* 最小/最大高度 */
+  --node-min-height: 60px;
+  --node-max-height: 600px;
+
+  /* 头部高度 */
+  --node-header-height: 36px;
+  --node-row-height: 36px;
+
+  /* ========================================
+     节点状态系统
+     ======================================== */
+
+  /* 过渡时长 */
+  --node-transition-fast: var(--ui-transition-fast);
+  --node-transition-normal: var(--ui-transition-normal);
+  --node-transition-slow: var(--ui-transition-slow);
+
+  /* 过渡缓动 */
+  --node-ease-default: ease-out;
+  --node-ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* 变换 */
+  --node-transform-hover: translateY(-2px);
+  --node-transform-active: translateY(0);
+
+  /* 透明度 */
+  --node-opacity-disabled: 0.5;
+  --node-opacity-hidden: 0;
+
+  /* ========================================
+     节点主题变体
+     ======================================== */
+
+  /* 主题颜色映射 */
+  --node-theme-primary: var(--ui-accent);
+  --node-theme-primary-weak: var(--ui-accent-weak);
+  --node-theme-primary-light: var(--ui-accent-light);
+
+  --node-theme-success: var(--ui-success);
+  --node-theme-success-weak: var(--ui-success-weak);
+  --node-theme-success-light: var(--ui-success-light);
+
+  --node-theme-warning: var(--ui-warning);
+  --node-theme-warning-weak: var(--ui-warning-weak);
+  --node-theme-warning-light: var(--ui-warning-light);
+
+  --node-theme-danger: var(--ui-danger);
+  --node-theme-danger-weak: var(--ui-danger-weak);
+  --node-theme-danger-light: var(--ui-danger-light);
+
+  --node-theme-info: var(--ui-info);
+  --node-theme-info-weak: var(--ui-info-weak);
+  --node-theme-info-light: var(--ui-info-light);
+
+  --node-special-project-accent: var(--theme-orange);
+  --node-special-project-accent-strong: var(--theme-orange-strong);
+  --node-special-project-accent-weak: var(--theme-orange-weak);
+  --node-special-project-accent-bg: var(--theme-orange-bg);
+  --node-special-source-accent: var(--theme-green);
+  --node-special-source-accent-strong: var(--theme-green-strong);
+  --node-special-source-accent-weak: var(--theme-green-weak);
+  --node-special-source-accent-bg: var(--theme-green-bg);
+  --node-special-regex-accent: var(--theme-purple);
+  --node-special-regex-accent-strong: var(--theme-purple-strong);
+  --node-special-regex-accent-weak: var(--theme-purple-weak);
+  --node-special-regex-accent-bg: var(--theme-purple-bg);
+  --node-special-surface: var(--ui-bg-elevated);
+  --node-special-surface-muted: var(--ui-bg-subtle);
+  --node-special-surface-canvas: var(--ui-bg-canvas);
+  --node-special-menu-shadow: var(--ui-shadow-lg);
+  --node-special-card-shadow: var(--ui-shadow-md);
+  --node-special-outline-info: 0 0 0 3px var(--ui-accent-ring);
+  --node-special-outline-success: 0 0 0 3px var(--ui-success-ring);
+  --node-special-outline-danger: 0 0 0 3px var(--ui-danger-ring);
+  --node-special-overlay: var(--ui-overlay-backdrop);
+  --node-special-overlay-strong: var(--ui-overlay-backdrop-strong);
+  --node-special-code-bg: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--node-special-regex-accent-bg) 84%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--node-special-regex-accent) 8%, var(--ui-bg-elevated)) 100%
+  );
+  --node-special-code-color: var(--ui-text-primary);
+  --node-special-code-placeholder: var(--ui-text-muted);
+
+  /* 节点类型主题 */
+  --node-type-source: var(--theme-green);
+  --node-type-source-bg: var(--theme-green-bg);
+
+  --node-type-schema: var(--ui-accent);
+  --node-type-schema-bg: var(--ui-bg-accent);
+
+  --node-type-regex: var(--theme-purple);
+  --node-type-regex-bg: var(--theme-purple-bg);
+
+  --node-type-pattern: var(--theme-sky);
+  --node-type-pattern-bg: var(--theme-sky-bg);
+
+  --node-type-constraint: var(--ui-accent);
+  --node-type-constraint-bg: var(--ui-bg-subtle);
+
+  --node-type-constraint-notnull: var(--ui-danger);
+  --node-type-constraint-notnull-bg: var(--ui-danger-bg);
+
+  --node-type-constraint-unique: var(--ui-success);
+  --node-type-constraint-unique-bg: var(--ui-success-bg);
+
+  --node-type-constraint-allowed: var(--theme-sky);
+  --node-type-constraint-allowed-bg: var(--theme-sky-bg);
+
+  --node-type-constraint-foreign: var(--theme-purple);
+  --node-type-constraint-foreign-bg: var(--theme-purple-bg);
+
+  --node-type-constraint-conditional: var(--theme-orange);
+  --node-type-constraint-conditional-bg: var(--theme-orange-bg);
+
+  --node-type-constraint-scripted: var(--theme-script);
+  --node-type-constraint-scripted-bg: var(--theme-script-bg);
+
+  --node-type-constraint-range: var(--theme-purple);
+  --node-type-constraint-range-bg: var(--theme-purple-bg);
+
+  --node-type-constraint-charset: var(--theme-pink);
+  --node-type-constraint-charset-bg: var(--ui-bg-accent);
+
+  --node-type-constraint-datetime: var(--theme-pink);
+  --node-type-constraint-datetime-bg: var(--theme-pink-weak);
+
+  /* ========================================
+     节点头部系统
+     ======================================== */
+
+  --node-header-bg: var(--ui-bg-node-header);
+  --node-header-bg-hover: var(--ui-bg-hover);
+
+  /* 头部渐变 - 使用 color-mix 实现平滑的主题感知渐变 */
+  --node-header-gradient-primary: linear-gradient(135deg, color-mix(in srgb, var(--ui-accent) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-accent) 4%, var(--ui-bg-elevated)) 100%);
+  --node-header-gradient-success: linear-gradient(135deg, color-mix(in srgb, var(--ui-success) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-success) 4%, var(--ui-bg-elevated)) 100%);
+  --node-header-gradient-danger: linear-gradient(135deg, color-mix(in srgb, var(--ui-danger) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-danger) 4%, var(--ui-bg-elevated)) 100%);
+  --node-header-gradient-warning: linear-gradient(135deg, color-mix(in srgb, var(--ui-warning) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-warning) 4%, var(--ui-bg-elevated)) 100%);
+  --node-header-gradient-info: linear-gradient(135deg, color-mix(in srgb, var(--ui-info) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-info) 4%, var(--ui-bg-elevated)) 100%);
+  --node-header-gradient-regex: linear-gradient(135deg, color-mix(in srgb, var(--theme-purple) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--theme-purple) 4%, var(--ui-bg-elevated)) 100%);
+  --node-header-gradient-purple: linear-gradient(135deg, color-mix(in srgb, var(--theme-purple) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--theme-purple) 4%, var(--ui-bg-elevated)) 100%);
+  --node-header-gradient-orange: linear-gradient(135deg, color-mix(in srgb, var(--theme-orange) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--theme-orange) 4%, var(--ui-bg-elevated)) 100%);
+  --node-header-gradient-sky: linear-gradient(135deg, color-mix(in srgb, var(--theme-sky) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--theme-sky) 4%, var(--ui-bg-elevated)) 100%);
+  --node-header-gradient-pink: linear-gradient(135deg, color-mix(in srgb, var(--theme-pink) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--theme-pink) 4%, var(--ui-bg-elevated)) 100%);
+  --node-header-gradient-script: linear-gradient(135deg, color-mix(in srgb, var(--theme-script) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--theme-script) 4%, var(--ui-bg-elevated)) 100%);
+  --node-header-gradient-project: linear-gradient(135deg, color-mix(in srgb, var(--node-special-project-accent) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--node-special-project-accent) 4%, var(--ui-bg-elevated)) 100%);
+  --node-header-gradient-source: linear-gradient(135deg, color-mix(in srgb, var(--node-special-source-accent) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--node-special-source-accent) 4%, var(--ui-bg-elevated)) 100%);
+
+  /* ========================================
+     节点连接点系统
+     ======================================== */
+
+  /* 连接点尺寸 */
+  --node-handle-size-sm: 6px;
+  --node-handle-size-md: 10px;
+  --node-handle-size-lg: 12px;
+
+  /* 连接点颜色 */
+  --node-handle-bg: var(--ui-bg-elevated);
+  --node-handle-border: var(--ui-border-strong);
+  --node-handle-color: var(--ui-warning);
+
+  /* 连接点状态颜色 */
+  --node-handle-connected: var(--ui-success);
+  --node-handle-hover: var(--ui-accent);
+  --node-handle-dragging: var(--ui-accent);
+  --node-handle-error: var(--ui-danger);
+
+  /* 连接点透明度 */
+  --node-handle-opacity: 0.9;
+  --node-handle-opacity-hover: 1;
+
+  /* 连接点偏移 */
+  --node-handle-offset-left: -6px;
+  --node-handle-offset-right: -6px;
+
+  /* ========================================
+     节点分隔线系统
+     ======================================== */
+
+  --node-divider-color: var(--ui-border-subtle);
+  --node-divider-width: 1px;
+  --node-divider-style: solid;
+
+  --node-divider-color-muted: var(--ui-border-light);
+  --node-divider-style-dashed: dashed;
+
+  /* ========================================
+     约束节点专用令牌
+     ======================================== */
+
+  /* 间距 */
+  --constraint-gap-xs: 4px;
+  --constraint-gap-sm: 8px;
+  --constraint-gap-md: 10px;
+  --constraint-gap-lg: 14px;
+
+  /* 内边距 */
+  --constraint-padding-xs: 4px;
+  --constraint-padding-sm: 8px;
+  --constraint-padding-md: 10px;
+  --constraint-padding-lg: 14px;
+
+  /* 字体 */
+  --constraint-font-xs: 11px;
+  --constraint-font-sm: 12px;
+  --constraint-font-md: 14px;
+
+  /* 圆角 */
+  --constraint-radius-sm: 4px;
+  --constraint-radius-md: 8px;
+
+  /* 颜色语义映射 - 供布局组件使用 */
+  --constraint-text-primary: var(--ui-text-primary);
+  --constraint-text-secondary: var(--ui-text-secondary);
+  --constraint-text-muted: var(--ui-text-muted);
+  --constraint-border-color: var(--ui-border-light);
+  --constraint-bg-subtle: var(--ui-bg-subtle);
+
+  /* ========================================
+     节点按钮系统
+     ======================================== */
+
+  /* 按钮尺寸 */
+  --node-btn-size-xs: 20px;
+  --node-btn-size-sm: 24px;
+  --node-btn-size-md: 28px;
+
+  /* 按钮圆角 */
+  --node-btn-radius-xs: var(--ui-radius-sm);
+  --node-btn-radius-sm: var(--ui-radius-md);
+
+  /* 按钮背景 */
+  --node-btn-bg: var(--ui-bg-elevated);
+  --node-btn-bg-hover: var(--ui-bg-hover);
+  --node-btn-bg-active: var(--ui-bg-active);
+
+  /* 按钮边框 */
+  --node-btn-border: var(--ui-border);
+  --node-btn-border-hover: var(--ui-border-light);
+
+  /* 按钮文字 */
+  --node-btn-text: var(--ui-text-secondary);
+  --node-btn-text-hover: var(--ui-text-primary);
+
+  /* ========================================
+     节点徽章系统
+     ======================================== */
+
+  /* 徽章尺寸 */
+  --node-badge-size-xs: 16px;
+  --node-badge-size-sm: 18px;
+  --node-badge-size-md: 20px;
+
+  /* 徽章圆角 */
+  --node-badge-radius-full: var(--ui-radius-full);
+
+  /* 徽章字号 */
+  --node-badge-font-size-xs: 10px;
+  --node-badge-font-size-sm: 11px;
+
+  /* 徽章字重 */
+  --node-badge-font-weight: var(--ui-font-weight-bold);
+
+  /* 徽章颜色 - 继承主题 */
+  --node-badge-bg: var(--ui-danger);
+  --node-badge-text: var(--ui-text-on-danger);
+  --node-badge-border: color-mix(in srgb, var(--node-badge-bg) 20%, transparent);
+
+  /* ========================================
+     节点状态指示器系统
+     ======================================== */
+
+  /* 状态点尺寸 */
+  --node-status-size: 8px;
+
+  /* 状态点颜色 */
+  --node-status-idle: var(--ui-text-muted);
+  --node-status-pass: var(--ui-success);
+  --node-status-error: var(--ui-danger);
+  --node-status-warning: var(--ui-warning);
+  --node-status-info: var(--ui-info);
+
+  --node-selection-outline: var(--ui-accent);
+  --node-selection-outline-width: 1px;
+  --node-selection-fill: var(--ui-accent-weak);
+  --node-selection-rect-fill: var(--ui-accent-weak);
+  --node-selection-shadow: 0 2px 8px var(--ui-accent-ring);
+  --node-selection-gap: 4px;
+  --node-selection-radius: var(--ui-radius-sm);
+  --node-selection-rect-offset: 24px;
+  --node-selection-rect-radius: var(--ui-radius-lg);
+
+  /* ========================================
+     水晶风格系统 (Crystal Style)
+     ======================================== */
+
+  /* 水晶背景 - 半透明 + 柔和渐变 */
+  --crystal-bg-base: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(250, 252, 255, 0.88) 100%
+  );
+  --crystal-bg-hover: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.95) 0%,
+    rgba(248, 251, 255, 0.90) 100%
+  );
+  --crystal-bg-selected: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(245, 250, 255, 0.94) 100%
+  );
+
+  /* 水晶边框 - 柔和的蓝色光晕 */
+  --crystal-border: rgba(180, 200, 220, 0.35);
+  --crystal-border-hover: rgba(150, 180, 210, 0.5);
+  --crystal-border-selected: var(--ui-accent);
+
+  /* 水晶阴影 - 内发光 + 柔和外阴影 */
+  --crystal-shadow: 
+    0 2px 8px rgba(100, 120, 140, 0.08),
+    0 4px 16px rgba(100, 120, 140, 0.05),
+    inset 0 1px 1px rgba(255, 255, 255, 0.6),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.02);
+  --crystal-shadow-hover:
+    0 4px 12px rgba(100, 120, 140, 0.12),
+    0 8px 24px rgba(100, 120, 140, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.03);
+  --crystal-shadow-selected:
+    0 0 0 2px var(--ui-accent-ring),
+    0 4px 16px rgba(100, 120, 140, 0.15),
+    inset 0 1px 2px rgba(255, 255, 255, 0.8);
+
+  /* 水晶模糊度 */
+  --crystal-blur: 12px;
+  --crystal-blur-strong: 16px;
+
+  /* 水晶头部 */
+  --crystal-header-bg: linear-gradient(
+    180deg,
+    rgba(248, 251, 255, 0.95) 0%,
+    rgba(245, 248, 252, 0.90) 100%
+  );
+
+  /* 水晶内部区域背景 */
+  --crystal-section-bg: rgba(245, 248, 252, 0.6);
+  --crystal-footer-bg: rgba(245, 248, 252, 0.5);
+
+  /* ========================================
+     节点 Z-Index 系统
+     ======================================== */
+
+  --node-z-base: 1;
+  --node-z-hover: 2;
+  --node-z-selected: 10;
+  --node-z-dragging: 100;
+  --node-z-overlay: 1000;
+}
+
+/* 深色主题覆盖 */
+[data-theme='dark'] {
+  /* 节点背景 */
+  --node-bg: var(--ui-bg-elevated);
+  --node-bg-hover: var(--ui-bg-hover);
+
+  /* 节点边框 */
+  --node-border: rgba(255, 255, 255, 0.1);
+  --node-border-hover: rgba(255, 255, 255, 0.15);
+
+  /* 节点阴影 */
+  --node-shadow: 0 2px 8px rgba(0, 0, 0, 0.3),
+                 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  --node-shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.4),
+                      0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+
+  /* 毛玻璃效果已通过 root 中的 color-mix 实现自适应 */
+  --node-selection-fill: rgba(90, 155, 199, 0.15);
+  --node-selection-rect-fill: rgba(90, 155, 199, 0.1);
+
+  /* 水晶风格深色主题覆盖 */
+  --crystal-bg-base: linear-gradient(
+    180deg,
+    rgba(45, 50, 58, 0.92) 0%,
+    rgba(40, 45, 55, 0.88) 100%
+  );
+  --crystal-bg-hover: linear-gradient(
+    180deg,
+    rgba(50, 55, 65, 0.95) 0%,
+    rgba(45, 50, 60, 0.90) 100%
+  );
+  --crystal-bg-selected: linear-gradient(
+    180deg,
+    rgba(55, 60, 70, 0.98) 0%,
+    rgba(50, 55, 65, 0.94) 100%
+  );
+  --crystal-border: rgba(100, 120, 150, 0.25);
+  --crystal-border-hover: rgba(120, 140, 170, 0.4);
+  --crystal-shadow: 
+    0 2px 8px rgba(0, 0, 0, 0.25),
+    0 4px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 1px rgba(255, 255, 255, 0.06),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.1);
+  --crystal-shadow-hover:
+    0 4px 12px rgba(0, 0, 0, 0.3),
+    0 8px 24px rgba(0, 0, 0, 0.2),
+    inset 0 1px 1px rgba(255, 255, 255, 0.08),
+    inset 0 -1px 1px rgba(0, 0, 0, 0.12);
+  --crystal-shadow-selected:
+    0 0 0 2px var(--ui-accent-ring),
+    0 4px 16px rgba(0, 0, 0, 0.35),
+    inset 0 1px 2px rgba(255, 255, 255, 0.1);
+  --crystal-header-bg: linear-gradient(
+    180deg,
+    rgba(50, 55, 65, 0.95) 0%,
+    rgba(45, 50, 60, 0.90) 100%
+  );
+  --crystal-section-bg: rgba(55, 60, 70, 0.6);
+  --crystal-footer-bg: rgba(50, 55, 65, 0.5);
+}

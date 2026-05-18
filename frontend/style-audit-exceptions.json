@@ -1,0 +1,37 @@
+{
+  "version": 2,
+  "exceptions": [
+    {
+      "pattern": "src/assets/**/*.css",
+      "reason": "全局主题与基础样式仍在令牌化迁移阶段，由主题文件统一承载原始色值。"
+    },
+    {
+      "pattern": "src/components/**/*.vue",
+      "reason": "历史组件体量较大，按模块逐步迁移硬编码颜色到 CSS 变量。"
+    },
+    {
+      "pattern": "src/modules/**/*.vue",
+      "reason": "编排模块仍在迁移旧视觉稿，暂时保留文件级例外。"
+    },
+    {
+      "pattern": "src/views/**/*.vue",
+      "reason": "视图层仍存在存量样式，待主题令牌补齐后再收紧。"
+    },
+    {
+      "pattern": "src/features/**/*.vue",
+      "reason": "功能模块仍在迁移硬编码颜色到 CSS 变量。"
+    },
+    {
+      "pattern": "src/**/*.styles.css",
+      "reason": "从 Vue 组件提取的 scoped CSS 文件，颜色迁移状态与源组件一致。"
+    },
+    {
+      "pattern": "src/components/**/*.css",
+      "reason": "从 Vue 组件提取的 scoped CSS 文件，颜色迁移状态与源组件一致。"
+    },
+    {
+      "pattern": "src/features/**/*.css",
+      "reason": "从 Vue 组件提取的 scoped CSS 文件，颜色迁移状态与源组件一致。"
+    }
+  ]
+}

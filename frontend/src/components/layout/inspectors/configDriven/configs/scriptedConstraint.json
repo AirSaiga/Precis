@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "nodeType": "scriptedConstraint",
+  "sections": [
+    {
+      "id": "basic",
+      "titleKey": "inspector.constraint.scripted.title",
+      "fields": [
+        {
+          "id": "configName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.scripted.configName",
+          "placeholderKey": "inspector.constraint.scripted.configNamePlaceholder",
+          "source": { "source": "data", "path": ["configName"] }
+        },
+        {
+          "id": "constraintName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.scripted.constraintName",
+          "placeholderKey": "inspector.constraint.scripted.constraintNamePlaceholder",
+          "source": { "source": "data", "path": ["constraintName"] }
+        },
+        {
+          "id": "scriptName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.scripted.scriptName",
+          "placeholderKey": "inspector.constraint.scripted.scriptNamePlaceholder",
+          "source": { "source": "data", "path": ["scriptName"] }
+        },
+        {
+          "id": "script",
+          "kind": "code",
+          "labelKey": "inspector.constraint.scripted.script",
+          "placeholderKey": "inspector.constraint.scripted.scriptPlaceholder",
+          "source": { "source": "data", "path": ["script"] },
+          "rows": 10
+        }
+      ]
+    },
+    {
+      "id": "target",
+      "titleKey": "inspector.constraint.scripted.targetColumn",
+      "fields": [
+        {
+          "id": "table",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.scripted.table",
+          "source": { "source": "data", "path": ["table"] }
+        },
+        {
+          "id": "columns",
+          "kind": "json",
+          "labelKey": "inspector.constraint.scripted.column",
+          "source": { "source": "data", "path": ["columns"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["columns"] } },
+          "readonly": true
+        },
+        {
+          "id": "column",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.scripted.column",
+          "source": { "source": "data", "path": ["column"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["column"] } }
+        }
+      ]
+    },
+    {
+      "id": "connection",
+      "titleKey": "inspector.constraint.scripted.sourceConnection",
+      "fields": [
+        {
+          "id": "sourceNodeId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.scripted.sourceNodeId",
+          "source": { "source": "data", "path": ["sourceRef", "nodeId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "nodeId"] } }
+        },
+        {
+          "id": "sourceColumnId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.scripted.sourceColumnId",
+          "source": { "source": "data", "path": ["sourceRef", "columnId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "columnId"] } }
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "titleKey": "inspector.constraint.scripted.validationStatus",
+      "fields": [
+        {
+          "id": "validationStatus",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.scripted.status",
+          "source": { "source": "data", "path": ["validationStatus"] }
+        },
+        {
+          "id": "lastValidation",
+          "kind": "json",
+          "labelKey": "inspector.constraint.scripted.validationStatus",
+          "source": { "source": "data", "path": ["lastValidation"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } },
+          "readonly": true
+        },
+        {
+          "id": "validationErrors",
+          "kind": "json",
+          "labelKey": "inspector.constraint.scripted.errorMessages",
+          "source": { "source": "data", "path": ["validationErrors"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },
+          "readonly": true
+        }
+      ]
+    }
+  ]
+}
+

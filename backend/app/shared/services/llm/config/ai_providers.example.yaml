@@ -1,0 +1,59 @@
+# Precis AI Provider 配置示例 (v2.0)
+# 复制此文件到 ~/.precis/ai_providers.yaml 并修改
+
+version: "2.0"
+
+providers:
+  # ========== 本地 Ollama ==========
+  - id: ollama-local
+    name: Ollama (本地)
+    type: ollama
+    base_url: http://localhost:11434
+    api_key: null
+    model: llama3.2
+    meta:
+      auto_discover: true
+
+  # ========== 本地 LM Studio ==========
+  - id: lm-studio
+    name: LM Studio
+    type: openai
+    base_url: http://localhost:1234/v1
+    api_key: null
+    model: ""
+    meta:
+      auto_discover: true
+
+  # ========== 内网私有部署 ==========
+  - id: company-llm
+    name: 公司私有模型
+    type: openai
+    base_url: http://192.168.1.100:8000/v1
+    api_key: ${INTERNAL_API_KEY}
+    model: company-llm-7b
+    network:
+      timeout: 120
+      verify_ssl: false
+    meta:
+      description: "企业内部部署的大模型"
+
+  # ========== 阿里云（公有云示例）==========
+  - id: aliyun
+    name: 阿里云百炼
+    type: openai
+    base_url: https://dashscope.aliyuncs.com/compatible-mode/v1
+    api_key: ${ALIYUN_API_KEY}
+    model: qwen3.5-plus
+
+  # ========== OpenAI（公有云示例）==========
+  - id: openai
+    name: OpenAI
+    type: openai
+    base_url: https://api.openai.com/v1
+    api_key: ${OPENAI_API_KEY}
+    model: gpt-4
+
+# 默认 Provider 设置
+defaults:
+  chat: ollama-local
+  generate: aliyun

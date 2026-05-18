@@ -1,0 +1,17 @@
+.conditional-constraint-node {
+  /* 仅保留特有的覆盖，其余通过 theme prop 自动由 NodeShell 处理 */
+  --constraint-node-width: var(--node-width-default, 280px);
+}
+
+.conditional-constraint-node:hover {
+  box-shadow: var(--node-shadow-hover);
+}
+
+.if-wrap {
+  display: inline-block;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  vertical-align: middle;
+}

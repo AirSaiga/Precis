@@ -1,0 +1,7 @@
+.ui-workbench-card {
+  padding: var(--ui-space-md);
+}
+
+.ui-workbench-section + .ui-workbench-section {
+  margin-top: var(--ui-space-md);
+}

@@ -1,0 +1,185 @@
+/**
+ * 主面板样式
+ * - 高度占满整个视口
+ * - 温暖色调背景
+ * - 左侧边框和柔和阴影效果
+ */
+.panel {
+  width: 100%;
+  height: 100vh;
+  background: var(--ui-bg-panel);
+  color: var(--ui-text-body);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+/**
+ * 折叠状态下的面板样式
+ * 折叠时保持宽度不变，但内容会隐藏
+ */
+.panel.collapsed {
+  width: 100%;
+}
+
+/**
+ * 内容区域样式
+ * - 内边距
+ * - 高度计算（减去头部高度）
+ * - 垂直滚动条
+ * - 自定义滚动条样式
+ */
+.panel-content {
+  padding: 0 16px;
+  height: calc(100vh - 57px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ui-border-light) transparent;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* Chrome、Safari、Opera 浏览器的滚动条样式 */
+.panel-content::-webkit-scrollbar {
+  width: 4px;
+}
+
+.panel-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.panel-content::-webkit-scrollbar-thumb {
+  background: var(--ui-border-light);
+  border-radius: 2px;
+}
+
+/**
+ * 头部样式
+ * - 居中对齐
+ * - 渐变背景
+ * - 底部边框
+ */
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px 16px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--ui-bg-elevated) 80%, transparent) 0%,
+    color-mix(in srgb, var(--ui-bg-nav-primary) 60%, transparent) 50%,
+    color-mix(in srgb, var(--ui-bg-subtle) 50%, transparent) 100%
+  );
+  border-bottom: 1px solid var(--ui-border-light);
+  height: 53px;
+  position: relative;
+}
+
+.panel-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 10%;
+  right: 10%;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    color-mix(in srgb, var(--ui-border) 40%, transparent) 20%,
+    color-mix(in srgb, var(--ui-border) 40%, transparent) 80%,
+    transparent 100%
+  );
+}
+
+.panel-header h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ui-text-title);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/**
+ * 节点内容区域动画
+ * 淡入上移动画效果
+ */
+.node-content {
+  animation: fadeInUp 0.3s ease-out;
+}
+
+/**
+ * 淡入上移动画关键帧
+ */
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/**
+ * 占位符样式
+ * 当没有选中节点时显示
+ */
+.placeholder {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--ui-text-muted);
+  background: var(--ui-bg-subtle);
+  border-radius: var(--ui-radius-lg);
+  margin: 16px;
+}
+
+.placeholder-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 占位符图标样式 */
+.placeholder-icon {
+  font-size: 40px;
+  opacity: 0.5;
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+.placeholder-text {
+  font-size: 13px;
+  font-style: italic;
+  line-height: 1.5;
+  color: var(--ui-text-subtle);
+}
+
+/**
+ * 响应式设计
+ * 在小屏幕上（宽度 <= 768px）时，面板变为绝对定位
+ */
+@media (max-width: 768px) {
+  .panel {
+    position: absolute;
+    right: 0;
+    top: 0;
+    z-index: 1000;
+    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.15);
+  }
+
+  .panel.collapsed {
+    transform: translateX(100%);
+  }
+}

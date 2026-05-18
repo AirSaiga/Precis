@@ -1,0 +1,146 @@
+{
+  "version": 1,
+  "nodeType": "foreignKeyConstraint",
+  "sections": [
+    {
+      "id": "basic",
+      "titleKey": "inspector.constraint.foreignKey.title",
+      "fields": [
+        {
+          "id": "configName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.foreignKey.configName",
+          "placeholderKey": "inspector.constraint.foreignKey.configNamePlaceholder",
+          "source": { "source": "data", "path": ["configName"] }
+        },
+        {
+          "id": "constraintName",
+          "kind": "text",
+          "labelKey": "inspector.constraint.foreignKey.constraintName",
+          "placeholderKey": "inspector.constraint.foreignKey.constraintNamePlaceholder",
+          "source": { "source": "data", "path": ["constraintName"] }
+        },
+        {
+          "id": "ruleType",
+          "kind": "select",
+          "labelKey": "inspector.constraint.foreignKey.ruleType",
+          "source": { "source": "data", "path": ["config", "ruleType"] },
+          "options": {
+            "type": "static",
+            "options": [
+              { "labelKey": "inspector.constraint.foreignKey.ruleExistIn", "value": "EXIST_IN" },
+              { "labelKey": "inspector.constraint.foreignKey.ruleReferenceFrom", "value": "REFERENCE_FROM" }
+            ]
+          }
+        },
+        {
+          "id": "allowNull",
+          "kind": "boolean",
+          "labelKey": "inspector.constraint.foreignKey.allowNull",
+          "source": { "source": "data", "path": ["allowNull"] }
+        }
+      ]
+    },
+    {
+      "id": "target",
+      "titleKey": "inspector.constraint.foreignKey.targetColumn",
+      "fields": [
+        {
+          "id": "sourceTable",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.foreignKey.sourceTable",
+          "source": { "source": "data", "path": ["sourceTable"] }
+        },
+        {
+          "id": "sourceColumn",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.foreignKey.sourceColumn",
+          "source": { "source": "data", "path": ["sourceColumn"] }
+        },
+        {
+          "id": "targetTable",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.foreignKey.targetTable",
+          "source": { "source": "data", "path": ["targetTable"] }
+        },
+        {
+          "id": "targetColumn",
+          "kind": "foreignKeyTargetColumn",
+          "labelKey": "inspector.constraint.foreignKey.targetColumn",
+          "source": { "source": "data", "path": ["targetRef", "columnId"] },
+          "placeholderKey": "inspector.constraint.foreignKey.selectTargetColumn"
+        }
+      ]
+    },
+    {
+      "id": "connection",
+      "titleKey": "inspector.constraint.foreignKey.sourceConnection",
+      "fields": [
+        {
+          "id": "sourceInfoLabel",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.foreignKey.sourceInfoLabel",
+          "source": { "source": "data", "path": ["sourceInfo", "label"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceInfo", "label"] } }
+        },
+        {
+          "id": "sourceNodeId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.foreignKey.sourceNodeId",
+          "source": { "source": "data", "path": ["sourceRef", "nodeId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "nodeId"] } }
+        },
+        {
+          "id": "sourceColumnId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.foreignKey.sourceColumnId",
+          "source": { "source": "data", "path": ["sourceRef", "columnId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "columnId"] } }
+        },
+        {
+          "id": "targetNodeId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.foreignKey.targetNodeId",
+          "source": { "source": "data", "path": ["targetRef", "nodeId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["targetRef", "nodeId"] } }
+        },
+        {
+          "id": "targetColumnId",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.foreignKey.targetColumnId",
+          "source": { "source": "data", "path": ["targetRef", "columnId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["targetRef", "columnId"] } }
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "titleKey": "inspector.constraint.foreignKey.validationStatus",
+      "fields": [
+        {
+          "id": "validationStatus",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.foreignKey.status",
+          "source": { "source": "data", "path": ["validationStatus"] }
+        },
+        {
+          "id": "lastValidation",
+          "kind": "json",
+          "labelKey": "inspector.constraint.foreignKey.validationStatus",
+          "source": { "source": "data", "path": ["lastValidation"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } },
+          "readonly": true
+        },
+        {
+          "id": "validationErrors",
+          "kind": "json",
+          "labelKey": "inspector.constraint.foreignKey.errorMessages",
+          "source": { "source": "data", "path": ["validationErrors"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },
+          "readonly": true
+        }
+      ]
+    }
+  ]
+}
+

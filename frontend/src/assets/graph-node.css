@@ -1,0 +1,69 @@
+.graph-node {
+  background: var(--node-glass-bg);
+  border: 1px solid var(--node-border);
+  border-radius: var(--node-border-radius);
+  box-shadow: var(--node-shadow);
+  transition: background var(--node-transition-fast),
+              border-color var(--node-transition-fast),
+              box-shadow var(--node-transition-fast),
+              transform var(--node-transition-fast);
+}
+
+.graph-node:hover {
+  background: var(--node-glass-bg-hover);
+  border-color: var(--node-border-hover);
+  box-shadow: var(--node-shadow-hover);
+  transform: var(--node-transform-hover);
+}
+
+.graph-node.is-selected {
+  background: var(--node-glass-bg-selected);
+  border-color: var(--node-border-selected);
+  border-width: var(--node-border-selected-width);
+  box-shadow: var(--node-shadow-selected);
+}
+
+/* 节点整理动画过渡：仅在整理期间生效，避免影响拖拽手感 */
+.vue-flow__node.layout-organizing {
+  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.vue-flow__nodesselection-rect {
+  border: none !important;
+  background: none !important;
+  overflow: visible !important;
+  pointer-events: none;
+}
+
+.vue-flow__nodesselection-rect::after {
+  content: '';
+  position: absolute;
+  top: calc(var(--node-selection-rect-offset) * -1);
+  left: calc(var(--node-selection-rect-offset) * -1);
+  right: calc(var(--node-selection-rect-offset) * -1);
+  bottom: calc(var(--node-selection-rect-offset) * -1);
+  border: var(--node-selection-outline-width) dashed var(--node-selection-outline);
+  border-radius: var(--node-selection-rect-radius);
+  background-color: var(--node-selection-rect-fill);
+  pointer-events: none;
+}
+
+.vue-flow__selection {
+  background-color: var(--node-selection-fill) !important;
+  border: none !important;
+  border-radius: var(--node-selection-radius);
+  overflow: visible !important;
+}
+
+.vue-flow__selection::after {
+  content: '';
+  position: absolute;
+  top: calc(var(--node-selection-gap) * -1);
+  left: calc(var(--node-selection-gap) * -1);
+  right: calc(var(--node-selection-gap) * -1);
+  bottom: calc(var(--node-selection-gap) * -1);
+  border: var(--node-selection-outline-width) solid var(--node-selection-outline);
+  border-radius: calc(var(--node-selection-radius) + var(--node-selection-gap));
+  pointer-events: none;
+  box-shadow: var(--node-selection-shadow);
+}

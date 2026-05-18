@@ -1,0 +1,102 @@
+.inspector-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* 只读字段：横向布局 label左 value右 */
+.inspector-field.field-layout-row {
+  flex-direction: row;
+  align-items: center;
+  gap: 8px;
+}
+
+.field-label {
+  font-weight: 500;
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  user-select: text;
+  -webkit-user-select: text;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* 只读横向布局时 label 固定宽度 */
+.field-layout-row .field-label {
+  flex-shrink: 0;
+  width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.field-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--ui-bg-subtle);
+  border: 1px solid transparent;
+  border-radius: 6px;
+  color: var(--ui-text);
+  font-size: 13px;
+  min-height: 18px;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+  flex: 1;
+  min-width: 0;
+}
+
+.field-value:hover {
+  background: var(--ui-bg-muted);
+}
+
+.field-value.field-type-path {
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 12px;
+  color: var(--ui-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: text;
+  -webkit-user-select: text;
+  cursor: text;
+}
+
+.field-value.field-placeholder {
+  color: var(--ui-text-subtle);
+  font-style: italic;
+}
+
+.field-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.field-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text);
+  font-size: 14px;
+  outline: none;
+  box-sizing: border-box;
+  transition:
+    border-color var(--ui-transition-fast),
+    box-shadow var(--ui-transition-fast);
+}
+
+.field-input:focus {
+  border-color: var(--ui-border-focus);
+  box-shadow: var(--ui-focus-ring);
+}
+
+.field-input::placeholder {
+  color: var(--ui-text-placeholder);
+}

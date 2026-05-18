@@ -1,0 +1,58 @@
+.inspector-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-strong);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.inspector-action-btn:hover {
+  border-color: var(--ui-border-strong);
+  box-shadow: var(--ui-shadow-sm);
+  background: var(--ui-bg-hover);
+}
+
+.inspector-action-btn:active {
+  transform: translateY(1px);
+}
+
+.inspector-action-btn.btn-danger {
+  color: var(--ui-danger);
+  border-color: rgba(220, 38, 38, 0.3);
+}
+
+.inspector-action-btn.btn-danger:hover {
+  background: var(--ui-danger);
+  color: white;
+  border-color: var(--ui-danger);
+}
+
+.inspector-action-btn.btn-disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.inspector-action-btn.btn-disabled:hover {
+  border-color: var(--ui-border);
+  box-shadow: none;
+  background: var(--ui-bg-elevated);
+}
+
+.btn-icon {
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.btn-text {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

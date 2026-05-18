@@ -1,0 +1,114 @@
+.diff-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.diff-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--ui-border-subtle);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: var(--ui-bg-elevated);
+  flex-shrink: 0;
+}
+
+.diff-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.diff-type {
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diff-type.added {
+  background: var(--ui-success-dim);
+  color: var(--ui-success-strong);
+}
+.diff-type.modified {
+  background: var(--ui-warning-dim);
+  color: var(--ui-warning-strong);
+}
+.diff-type.deleted {
+  background: var(--ui-danger-dim);
+  color: var(--ui-danger-strong);
+}
+
+.type-icon {
+  font-size: 14px;
+}
+
+.diff-id {
+  font-family: monospace;
+  font-weight: 600;
+  color: var(--ui-text-primary);
+  font-size: 14px;
+}
+
+.changes-count {
+  font-size: 12px;
+  color: var(--ui-text-secondary);
+  padding: 4px 8px;
+  background: var(--ui-bg-hover);
+  border-radius: 4px;
+}
+
+.diff-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.radio-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 2px solid var(--ui-border-light);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+  background: var(--ui-bg-elevated);
+}
+
+.radio-card:hover:not(.disabled) {
+  border-color: var(--ui-accent);
+}
+
+.radio-card.active {
+  border-color: var(--ui-accent);
+  background: var(--ui-accent-dim);
+}
+
+.radio-card.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.radio-card input {
+  display: none;
+}
+
+.radio-icon {
+  font-size: 16px;
+}
+
+.radio-text {
+  font-weight: 500;
+  color: var(--ui-text-primary);
+}
+
+.diff-content {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}

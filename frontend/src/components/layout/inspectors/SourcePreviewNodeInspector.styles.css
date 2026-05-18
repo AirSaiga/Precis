@@ -1,0 +1,365 @@
+/**
+ * 整个属性检查器容器样式
+ * 垂直弹性布局，子元素间距 16px
+ */
+.source-preview-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/**
+ * 表单组样式
+ * 垂直弹性布局，标签和输入框之间的间距
+ */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/**
+ * 表单标签样式
+ * 字体粗细、大小、颜色
+ */
+.form-group label {
+  font-weight: 500;
+  font-size: 13px;
+  color: var(--ui-text);
+}
+
+/**
+ * 只读值样式
+ * 用于显示不可编辑的数据
+ * - 内边距
+ * - 浅灰色背景
+ * - 圆角边框
+ * - 文字颜色
+ * - 自动换行
+ * - 毛玻璃效果
+ */
+.readonly-value {
+  padding: 10px 12px;
+  background: var(--ui-bg-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text);
+  font-size: 14px;
+  word-break: break-word;
+  min-height: 20px;
+  backdrop-filter: blur(5px);
+}
+
+/**
+ * 可编辑输入框样式
+ * - 宽度 100%
+ * - 内边距
+ * - 边框和圆角
+ * - 半透明白色背景
+ * - 文字颜色
+ * - 过渡动画
+ * - 毛玻璃效果
+ */
+.editable-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text);
+  font-size: 14px;
+  transition: all 0.2s ease;
+  backdrop-filter: blur(5px);
+}
+
+/**
+ * 输入框获得焦点时的样式
+ * - 移除轮廓线
+ * - 边框颜色变为蓝色
+ * - 背景变为不透明
+ * - 添加蓝色阴影
+ */
+.editable-input:focus {
+  outline: none;
+  border-color: rgba(37, 99, 235, 0.55);
+  background: var(--ui-bg-elevated);
+  box-shadow: var(--ui-focus-ring);
+}
+
+/**
+ * 文件类型徽章样式
+ * - 行内弹性布局
+ * - 水平和垂直居中对齐
+ * - 间距
+ * - 内边距
+ * - 圆角
+ * - 字体大小和粗细
+ */
+.file-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/**
+ * Excel 文件类型徽章样式
+ * - 绿色背景和文字
+ * - 绿色边框
+ */
+.file-type-badge.excel {
+  background: var(--ui-success-weak);
+  color: var(--ui-success);
+  border: 1px solid rgba(22, 163, 74, 0.25);
+}
+
+/**
+ * CSV 文件类型徽章样式
+ * - 蓝色背景和文字
+ * - 蓝色边框
+ */
+.file-type-badge.csv {
+  background: var(--ui-accent-weak);
+  color: var(--ui-accent);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+}
+
+/**
+ * Sheets 列表容器样式
+ * - 弹性布局（自动换行）
+ * - 子元素间距
+ * - 内边距
+ * - 浅灰色背景
+ * - 圆角边框
+ */
+.sheets-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--ui-bg-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+}
+
+/**
+ * Sheet 标签样式
+ * - 内边距
+ * - 蓝色背景和文字
+ * - 蓝色边框
+ * - 圆角（胶囊形状）
+ * - 字体大小和粗细
+ */
+.sheet-tag {
+  padding: 4px 10px;
+  background: var(--ui-accent-weak);
+  color: var(--ui-accent);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/**
+ * 状态指示器样式
+ * - 弹性布局，水平和垂直居中对齐
+ * - 间距
+ * - 内边距
+ * - 浅灰色背景
+ * - 圆角边框
+ */
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--ui-bg-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+}
+
+/**
+ * 状态图标样式
+ * - 字体大小
+ */
+.status-icon {
+  font-size: 14px;
+}
+
+/**
+ * 已连接状态图标样式
+ * - 绿色
+ */
+.status-icon.connected {
+  color: var(--ui-success);
+}
+
+/**
+ * 未连接状态图标样式
+ * - 灰色
+ */
+.status-icon.disconnected {
+  color: var(--ui-text-subtle);
+}
+
+/**
+ * 状态文本样式
+ * - 字体大小
+ * - 字体粗细
+ */
+.status-text {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/**
+ * 提示信息样式
+ * - 文字颜色
+ * - 半透明白色背景
+ * - 内边距
+ * - 圆角
+ * - 字体大小
+ * - 边框
+ * - 毛玻璃效果
+ * - 行高
+ */
+.info-tip {
+  color: var(--ui-text);
+  background: rgba(255, 255, 255, 0.5);
+  padding: 12px;
+  border-radius: var(--ui-radius-md);
+  font-size: 12px;
+  border: 1px solid var(--ui-border);
+  backdrop-filter: blur(5px);
+  line-height: 1.4;
+}
+
+/**
+ * ID 值样式
+ */
+.id-value {
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 12px;
+  color: var(--ui-text-muted);
+}
+
+/**
+ * 路径值样式
+ */
+.path-value {
+  font-family: 'Courier New', Consolas, monospace;
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  max-height: 60px;
+  overflow-y: auto;
+}
+
+/**
+ * 文件类型徽章改进样式
+ */
+.file-type-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.file-type-badge .badge-icon {
+  font-size: 14px;
+}
+
+.file-type-badge .badge-text {
+  font-weight: 600;
+}
+
+.file-type-badge.excel {
+  background: linear-gradient(135deg, rgba(22, 163, 74, 0.15) 0%, rgba(22, 163, 74, 0.08) 100%);
+  color: var(--ui-success);
+  border: 1px solid rgba(22, 163, 74, 0.3);
+}
+
+.file-type-badge.csv {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.15) 0%, rgba(37, 99, 235, 0.08) 100%);
+  color: var(--ui-accent);
+  border: 1px solid rgba(37, 99, 235, 0.3);
+}
+
+/**
+ * 关联节点容器样式
+ */
+.connected-nodes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px;
+  background: var(--ui-bg-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+}
+
+/**
+ * 节点标签样式
+ */
+.node-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  background: var(--ui-purple-weak);
+  color: var(--ui-purple);
+  border: 1px solid rgba(147, 51, 234, 0.25);
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.node-tag .tag-icon {
+  font-size: 12px;
+}
+
+/**
+ * 提取列信息组样式
+ */
+.extracted-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.extracted-source {
+  font-size: 11px;
+  color: var(--ui-text-muted);
+  font-family: 'Courier New', Consolas, monospace;
+}
+
+/**
+ * 提取列列表样式
+ */
+.extracted-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--ui-bg-panel);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+}
+
+/**
+ * 提取列标签样式
+ */
+.extracted-column-tag {
+  padding: 3px 8px;
+  background: var(--ui-accent-weak);
+  color: var(--ui-accent);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+}

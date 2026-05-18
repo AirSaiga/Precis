@@ -1,0 +1,3 @@
+.constraint-node-frame {
+  width: var(--constraint-node-width, var(--node-width-default, 280px));
+}

@@ -1,0 +1,233 @@
+.manual-data-node {
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: var(--ui-radius-md);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  overflow: hidden;
+  font-size: 12px;
+  color: var(--ui-text-primary);
+  cursor: default;
+  user-select: none;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+  position: relative;
+  padding-bottom: 6px;
+}
+
+.manual-data-node.is-selected {
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 2px var(--ui-accent-ring);
+}
+
+.manual-data-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 10px;
+  gap: 8px;
+  border-bottom: 1px solid var(--ui-border-subtle);
+  background: var(--ui-bg-sidebar);
+  position: relative;
+}
+
+.header-icon {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.header-content {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.node-name {
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--ui-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.node-meta {
+  font-size: 10px;
+  color: var(--ui-text-muted);
+  margin-top: 1px;
+}
+
+.remove-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--ui-text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 3px;
+  line-height: 1;
+  padding: 0;
+}
+
+.remove-btn:hover {
+  background: var(--ui-bg-hover);
+  color: var(--ui-danger);
+}
+
+/* ============================================================================
+   数据表格区域
+   ============================================================================ */
+
+.data-table-container {
+  padding: 6px 8px;
+}
+
+.data-table {
+  border: 1px solid var(--ui-border-subtle);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.data-header-row {
+  display: flex;
+  background: var(--ui-bg-sidebar);
+  border-bottom: 1px solid var(--ui-border-subtle);
+}
+
+.data-header-cell {
+  padding: 4px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ui-text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-right: 1px solid var(--ui-border-subtle);
+  position: relative;
+}
+
+.data-header-cell:last-child {
+  border-right: none;
+}
+
+/* 行号列头 */
+.row-number-header {
+  flex: 0 0 24px;
+  text-align: center;
+  padding: 4px 2px;
+  color: var(--ui-text-muted);
+  font-size: 9px;
+  border-right: 1px solid var(--ui-border-subtle);
+}
+
+/* 数据列头 */
+.data-column-header {
+  flex: 1;
+  min-width: 40px;
+}
+
+/* 列级 Handle：放在 header cell 内部右侧 */
+.column-handle {
+  position: absolute;
+  right: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* ============================================================================
+   数据行
+   ============================================================================ */
+
+.data-body {
+  max-height: 120px;
+  overflow: hidden;
+}
+
+.data-row {
+  display: flex;
+  border-bottom: 1px solid var(--ui-border-subtle);
+  transition: background-color 0.1s ease;
+}
+
+.data-row:last-child {
+  border-bottom: none;
+}
+
+.data-row:hover {
+  background: var(--ui-bg-hover);
+}
+
+.data-row.is-zebra {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.data-row.is-zebra:hover {
+  background: var(--ui-bg-hover);
+}
+
+.data-cell {
+  padding: 3px 6px;
+  font-size: 11px;
+  color: var(--ui-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-right: 1px solid var(--ui-border-subtle);
+}
+
+.data-cell:last-child {
+  border-right: none;
+}
+
+/* 行号单元格 */
+.row-number {
+  flex: 0 0 24px;
+  text-align: center;
+  padding: 3px 2px;
+  color: var(--ui-text-muted);
+  font-size: 9px;
+  font-family: 'Consolas', 'Monaco', monospace;
+  border-right: 1px solid var(--ui-border-subtle);
+  background: var(--ui-bg-sidebar);
+}
+
+/* 数据值单元格 */
+.data-value {
+  flex: 1;
+  min-width: 40px;
+}
+
+/* ============================================================================
+   底部区域
+   ============================================================================ */
+
+.data-footer {
+  padding: 3px 6px;
+  font-size: 10px;
+  color: var(--ui-text-muted);
+  text-align: center;
+  font-style: italic;
+}
+
+/* 底部整体输出 Handle */
+.table-output-handle {
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+/* 左侧输入 Handle */
+.input-handle {
+  position: absolute;
+  left: -10px;
+  top: 50%;
+  transform: translateY(-50%);
+}

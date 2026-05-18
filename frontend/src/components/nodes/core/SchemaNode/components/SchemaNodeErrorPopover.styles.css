@@ -1,0 +1,42 @@
+.error-detail-popover {
+  position: fixed;
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--node-special-menu-shadow);
+  z-index: 10000;
+  min-width: 200px;
+  max-width: 300px;
+  overflow: hidden;
+  animation: errorPopoverFadeIn 0.15s ease-out;
+}
+
+@keyframes errorPopoverFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.error-detail-header {
+  padding: 8px 12px;
+  background: var(--ui-danger-bg);
+  border-bottom: 1px solid color-mix(in srgb, var(--ui-danger) 18%, transparent);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ui-danger);
+}
+
+.error-detail-content {
+  padding: 8px 12px;
+  font-size: 11px;
+  color: var(--ui-text-muted);
+  white-space: pre-wrap;
+  max-height: 200px;
+  overflow-y: auto;
+  line-height: 1.5;
+}

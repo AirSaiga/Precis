@@ -1,0 +1,49 @@
+# Precis 后端依赖锁定文件
+# Python 版本要求: >=3.9, <3.14
+#
+# 注意: 本文件包含 pyproject.toml [project.dependencies] + [project.optional-dependencies].full
+#       的所有直接依赖的精确锁定版本。开发依赖（ruff, mypy, pytest）不在此列。
+#
+# 更新方式:
+#   pip install -e ".[full,dev]"
+#   pip freeze --exclude-editable > requirements.txt
+#   然后手动恢复此文件头注释
+
+# Web 框架
+fastapi==0.135.3
+uvicorn==0.42.0
+
+# 数据验证与序列化
+pydantic==2.12.5
+email-validator==2.3.0
+
+# 数据处理
+pandas==3.0.2
+openpyxl==3.1.5
+
+# 数据库与 SQL
+SQLAlchemy==2.0.48
+
+# YAML 解析
+pyyaml==6.0.3
+ruamel.yaml==0.19.1
+
+# HTTP 客户端/服务器
+aiohttp==3.13.5
+python-multipart==0.0.26
+uritemplate==4.2.0
+
+# AI/LLM 集成
+openai==2.30.0
+
+# 安全
+cryptography==46.0.7
+
+# 安全表达式求值 (替代 eval)
+simpleeval==1.0.7
+
+# CLI 交互
+readchar==4.2.1
+
+# 系统监控
+psutil==7.2.2
