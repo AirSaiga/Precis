@@ -37,6 +37,7 @@ import { useShortcutStore } from '@/features/keyboard/stores/shortcutStore'
 import { useKeyboardShortcuts, platformDetector } from '@/features/keyboard'
 import type { Shortcut } from '@/features/keyboard/types'
 import { logger } from '@/core/utils/logger'
+import { getV2FullConfig, ProjectNotFoundError } from '@/api/projectV2Api'
 
 /**
  * 提取路径的最后一层目录名作为项目名称
@@ -120,25 +121,56 @@ export function useAppBootstrap(): BootstrapResult {
    *
    * 仅在 Electron 模式（window.electronAPI.loadConfig 存在）时执行。
    * 通过 IPC 从主进程获取上次打开的项目路径，然后：
-   * 1. 设置 projectStore 的路径（持久化到 localStorage）
-   * 2. 调用 graphStore.createProject 初始化项目状态（isProjectLoaded = true）
-   * 3. 在画布上创建 projectRoot 节点作为项目入口
+   * 1. 验证项目路径是否真实存在（调用后端 API 检查）
+   * 2. 如果项目存在：设置 projectStore 路径并创建 projectRoot 节点
+   * 3. 如果项目不存在（已删除/移动）：清理残留路径，避免显示无效项目
    *
    * 幂等性：通过 !graphStore.isProjectLoaded 守卫，防止重复初始化
    * 副作用：修改 projectStore、graphStore 的状态
    */
   const bootstrapProjectPaths = async () => {
+    let configPath: string | undefined
+    let dataPath: string | undefined
+
     if (window.electronAPI?.loadConfig) {
-      const { configPath, dataPath } = await window.electronAPI.loadConfig()
-      if (configPath) {
-        projectStore.setProjectPaths({ configPath, dataPath })
+      const result = await window.electronAPI.loadConfig()
+      configPath = result.configPath
+      dataPath = result.dataPath
+    }
+
+    // 如果没有从 Electron 获取到路径，尝试从 localStorage（projectStore）恢复
+    if (!configPath) {
+      configPath = projectStore.currentPaths?.configPath || undefined
+      dataPath = projectStore.currentPaths?.dataPath || undefined
+    }
+
+    if (configPath) {
+      try {
+        // 验证项目路径是否真实存在（后端能正常返回配置）
+        await getV2FullConfig(configPath)
+        // 项目存在，设置路径并创建 projectRoot
+        projectStore.setProjectPaths({ configPath, dataPath: dataPath || configPath })
+      } catch (error) {
+        if (error instanceof ProjectNotFoundError) {
+          // 项目已不存在（被删除或移动），清理残留路径
+          logger.warn('[AppBootstrap] 项目路径已失效，清理残留:', configPath)
+          projectStore.clearProject()
+          // 同时通知 Electron 主进程清理保存的路径（如果支持）
+          if (window.electronAPI?.saveConfig) {
+            await window.electronAPI.saveConfig('', '').catch(() => undefined)
+          }
+          return
+        }
+        // 其他错误（如后端未启动）暂不清理路径，避免网络抖动导致状态丢失
+        logger.warn('[AppBootstrap] 验证项目路径时出错，保留路径待重试:', error)
+        projectStore.setProjectPaths({ configPath, dataPath: dataPath || configPath })
       }
     }
 
     if (!graphStore.isProjectLoaded) {
-      const configPath = projectStore.currentPaths?.configPath
-      if (configPath) {
-        graphStore.createProject(basename(configPath) || 'project', configPath)
+      const activeConfigPath = projectStore.currentPaths?.configPath
+      if (activeConfigPath) {
+        graphStore.createProject(basename(activeConfigPath) || 'project', activeConfigPath)
         graphStore.createProjectRootNode({ x: 80, y: 80 })
       }
     }
