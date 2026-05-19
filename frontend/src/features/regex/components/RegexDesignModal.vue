@@ -315,9 +315,11 @@
   function handleSave() {
     // 验证必要数据是否存在
     if (props.ruleData && activeRule.value) {
-      // 从 RuleConfigPanel 中获取当前正则表达式
-      const currentRegex = activeRule.value.regex || ''
-      logger.debug('[RegexDesignModal] handleSave - currentRegex:', currentRegex)
+      // 直接从 rules.value[0] 获取最新的正则表达式
+      // 避免 computed 缓存问题
+      const currentRegex = rules.value[0]?.regex || ''
+      logger.debug('[RegexDesignModal] handleSave - currentRegex from rules:', currentRegex)
+      logger.debug('[RegexDesignModal] handleSave - activeRule regex:', activeRule.value.regex)
 
       // =====================================================
       // 构建更新的数据对象
@@ -351,6 +353,7 @@
       logger.warn('[RegexDesignModal] handleSave - 无效数据:', {
         ruleData: props.ruleData,
         activeRule: activeRule.value,
+        rules: rules.value,
       })
     }
   }

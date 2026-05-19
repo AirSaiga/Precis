@@ -273,11 +273,12 @@
   function handleManualRegexInput(e: Event) {
     // 用户手动编辑预览区的正则表达式
     const val = (e.target as HTMLInputElement).value
-    // 检查值是否真的变化了，避免 v-model 更新时重复触发
-    if (val !== localRegex.value) {
-      localRegex.value = val
-      emit('update:rule', { ...props.rule, regex: localRegex.value })
-    }
+    // 注意：v-model 已经在此事件触发前同步了 localRegex.value，
+    // 所以不能用 val !== localRegex.value 作为判断条件（永远为 false）。
+    // 直接同步并通知父组件。
+    localRegex.value = val
+    logger.debug('[RuleConfigPanel] 手动输入正则表达式:', val)
+    emit('update:rule', { ...props.rule, regex: val })
   }
 
   /**

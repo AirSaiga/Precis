@@ -52,25 +52,24 @@
       </button>
     </div>
 
-    <!-- 数据表格预览：单列 -->
+    <!-- 数据列表预览：单列 -->
     <div class="data-table-container">
-      <div class="data-table single-column">
+      <div class="data-table">
         <div class="data-header-row">
-          <div class="data-header-cell row-number-header">#</div>
-          <div class="data-header-cell data-column-header" :title="data.columnName">
+          <div class="data-column-header" :title="data.columnName">
             {{ data.columnName }}
-            <!-- 单列 Handle：固定在 header cell 右侧 -->
-            <NodeHandle
-              id="source-right-0"
-              type="source"
-              :position="Position.Right"
-              color="primary"
-              size="md"
-              sideOffset="2px"
-              :title="t('customNodes.manualDataNode.columnHandle', { name: data.columnName })"
-              class="column-handle"
-            />
           </div>
+          <!-- 单列 Handle：放在 header 右侧 -->
+          <NodeHandle
+            id="source-right-0"
+            type="source"
+            :position="Position.Right"
+            color="primary"
+            size="md"
+            sideOffset="2px"
+            :title="t('customNodes.manualDataNode.columnHandle', { name: data.columnName })"
+            class="column-handle"
+          />
         </div>
         <div class="data-body">
           <div
@@ -79,8 +78,8 @@
             class="data-row"
             :class="{ 'is-zebra': rIdx % 2 === 1 }"
           >
-            <div class="data-cell row-number">{{ rIdx + 1 }}</div>
-            <div class="data-cell data-value" :title="row[0] || ''">
+            <div class="row-number">{{ rIdx + 1 }}</div>
+            <div class="data-value" :title="row[0] || ''">
               {{ row[0] || '' }}
             </div>
           </div>
