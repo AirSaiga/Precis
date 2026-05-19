@@ -116,3 +116,15 @@
   user-select: text;
   -webkit-user-select: text;
 }
+
+.tag-edit-input {
+  background: transparent;
+  border: none;
+  color: var(--ui-text-primary);
+  font-size: 12px;
+  line-height: 1.3;
+  outline: none;
+  width: 80px;
+  min-width: 40px;
+  padding: 0;
+}

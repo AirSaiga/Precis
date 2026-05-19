@@ -23,6 +23,9 @@ import TagsRenderer from './renderers/TagsRenderer.vue'
 import ReadonlyRenderer from './renderers/ReadonlyRenderer.vue'
 import DateReferenceTypeRenderer from './renderers/DateReferenceTypeRenderer.vue'
 import ForeignKeyTargetColumnRenderer from './renderers/ForeignKeyTargetColumnRenderer.vue'
+import DynamicListRenderer from './renderers/DynamicListRenderer.vue'
+import RegexPatternRenderer from './renderers/RegexPatternRenderer.vue'
+import WeightedSumRenderer from './renderers/WeightedSumRenderer.vue'
 
 export const rendererRegistry: Record<InspectorField['kind'], Component> = {
   text: TextRenderer,
@@ -39,4 +42,7 @@ export const rendererRegistry: Record<InspectorField['kind'], Component> = {
   readonly: ReadonlyRenderer,
   dateReferenceType: DateReferenceTypeRenderer,
   foreignKeyTargetColumn: ForeignKeyTargetColumnRenderer,
+  dynamicList: DynamicListRenderer,
+  regexPattern: RegexPatternRenderer,
+  weightedSum: WeightedSumRenderer,
 }

@@ -44,7 +44,7 @@
   function emitCommit(v: string) {
     const trimmed = v.trim()
     if (!trimmed) {
-      emit('commit', undefined)
+      emit('commit', props.field.emptyToNull ? null as unknown as number | undefined : undefined)
       return
     }
     const n = Number(trimmed)

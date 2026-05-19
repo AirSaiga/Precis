@@ -169,8 +169,6 @@
         return defineAsyncComponent(() => import('./inspectors/CharsetConstraintInspector.vue'))
       case 'dateLogicConstraint':
         return defineAsyncComponent(() => import('./inspectors/DateLogicConstraintInspector.vue'))
-      case 'transform':
-        return defineAsyncComponent(() => import('./inspectors/TransformNodeInspector.vue'))
       case 'compositeConstraint':
         return defineAsyncComponent(() => import('./inspectors/CompositeConstraintInspector.vue'))
       case 'manualData':

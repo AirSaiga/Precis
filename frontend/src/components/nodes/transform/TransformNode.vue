@@ -652,8 +652,424 @@
   }
 
   // ============================================================================
+  // MathExpr：数学表达式计算
+  // ============================================================================
+
+  /**
+   * 前端预览：计算数学表达式
+   * 支持 @列名 语法，如 @Column1 + 1, @col_a * @col_b
+   */
+  async function generateMathExprOutput(transformNode: any, upstreamNode: any) {
+    const transformData = transformNode.data as TransformNodeData
+    const upstreamRows = getUpstreamRows(upstreamNode)
+    const expression = (transformData.params?.expression as string) || ''
+    const outputType = (transformData.params?.output_type as string) || ''
+
+    let outputColumns = transformData.outputColumns
+    if (!outputColumns || outputColumns.length === 0) {
+      const baseName = transformData.inputColumn || 'result'
+      outputColumns = [`${baseName}_result`]
+    }
+
+    // 解析表达式中的 @列名，提取列名列表
+    const columnRefs = new Set<string>()
+    const refPattern = /@(\w+)/g
+    let match
+    while ((match = refPattern.exec(expression)) !== null) {
+      columnRefs.add(match[1])
+    }
+
+    // 构建列名到索引的映射（假设上游节点是单列）
+    const columnIndex = 0 // 上游是单列节点
+
+    // 执行计算
+    const resultRows: string[][] = []
+    for (const row of upstreamRows) {
+      // 将 @列名 替换为实际值
+      let evalExpr = expression
+      for (const colName of columnRefs) {
+        const value = row[columnIndex] ?? '0'
+        evalExpr = evalExpr.replace(new RegExp(`@${colName}`, 'g'), value)
+      }
+
+      try {
+        // 使用 Function 构造器安全计算（仅限数学表达式）
+        // eslint-disable-next-line no-new-func
+        const result = new Function(`return ${evalExpr}`)()
+        
+        // 根据 output_type 转换结果
+        let finalResult: string
+        if (outputType === 'int') {
+          finalResult = String(Math.trunc(Number(result) || 0))
+        } else if (outputType === 'float') {
+          finalResult = String(Number(result) || 0)
+        } else {
+          finalResult = String(result)
+        }
+        
+        resultRows.push([finalResult])
+      } catch (e) {
+        // 计算失败，保留原始值
+        resultRows.push([row[columnIndex] ?? ''])
+      }
+    }
+
+    await createOutputNodes(transformNode, outputColumns, () => resultRows)
+  }
+
+  // ============================================================================
+  // Replace：字符串替换
+  // ============================================================================
+
+  async function generateReplaceOutput(transformNode: any, upstreamNode: any) {
+    const transformData = transformNode.data as TransformNodeData
+    const upstreamRows = getUpstreamRows(upstreamNode)
+    const oldStr = (transformData.params?.old as string) || ''
+    const newStr = (transformData.params?.new as string) || ''
+    const count = (transformData.params?.count as number) ?? -1
+
+    let outputColumns = transformData.outputColumns
+    if (!outputColumns || outputColumns.length === 0) {
+      const baseName = transformData.inputColumn || 'result'
+      outputColumns = [`${baseName}_result`]
+    }
+
+    const resultRows: string[][] = []
+    for (const row of upstreamRows) {
+      const value = String(row[0] ?? '')
+      let replaced: string
+      if (count === -1) {
+        // 替换所有出现
+        replaced = value.split(oldStr).join(newStr)
+      } else {
+        // 替换指定次数
+        let replaced_count = 0
+        replaced = value
+        while (replaced_count < count && replaced.includes(oldStr)) {
+          replaced = replaced.replace(oldStr, newStr)
+          replaced_count++
+        }
+      }
+      resultRows.push([replaced])
+    }
+
+    await createOutputNodes(transformNode, outputColumns, () => resultRows)
+  }
+
+  // ============================================================================
+  // Strip：去除首尾空白或指定字符
+  // ============================================================================
+
+  async function generateStripOutput(transformNode: any, upstreamNode: any) {
+    const transformData = transformNode.data as TransformNodeData
+    const upstreamRows = getUpstreamRows(upstreamNode)
+    const chars = (transformData.params?.chars as string) || ''
+
+    let outputColumns = transformData.outputColumns
+    if (!outputColumns || outputColumns.length === 0) {
+      const baseName = transformData.inputColumn || 'result'
+      outputColumns = [`${baseName}_result`]
+    }
+
+    const resultRows: string[][] = []
+    for (const row of upstreamRows) {
+      const value = String(row[0] ?? '')
+      let stripped: string
+      if (chars) {
+        // 去除指定字符集合
+        const charSet = new Set(chars)
+        let start = 0
+        let end = value.length - 1
+        while (start <= end && charSet.has(value[start])) start++
+        while (end >= start && charSet.has(value[end])) end--
+        stripped = value.substring(start, end + 1)
+      } else {
+        // 去除所有空白字符
+        stripped = value.trim()
+      }
+      resultRows.push([stripped])
+    }
+
+    await createOutputNodes(transformNode, outputColumns, () => resultRows)
+  }
+
+  // ============================================================================
+  // UpperCase：转大写
+  // ============================================================================
+
+  async function generateUpperCaseOutput(transformNode: any, upstreamNode: any) {
+    const transformData = transformNode.data as TransformNodeData
+    const upstreamRows = getUpstreamRows(upstreamNode)
+
+    let outputColumns = transformData.outputColumns
+    if (!outputColumns || outputColumns.length === 0) {
+      const baseName = transformData.inputColumn || 'result'
+      outputColumns = [`${baseName}_result`]
+    }
+
+    const resultRows: string[][] = upstreamRows.map((row) => [String(row[0] ?? '').toUpperCase()])
+
+    await createOutputNodes(transformNode, outputColumns, () => resultRows)
+  }
+
+  // ============================================================================
+  // LowerCase：转小写
+  // ============================================================================
+
+  async function generateLowerCaseOutput(transformNode: any, upstreamNode: any) {
+    const transformData = transformNode.data as TransformNodeData
+    const upstreamRows = getUpstreamRows(upstreamNode)
+
+    let outputColumns = transformData.outputColumns
+    if (!outputColumns || outputColumns.length === 0) {
+      const baseName = transformData.inputColumn || 'result'
+      outputColumns = [`${baseName}_result`]
+    }
+
+    const resultRows: string[][] = upstreamRows.map((row) => [String(row[0] ?? '').toLowerCase()])
+
+    await createOutputNodes(transformNode, outputColumns, () => resultRows)
+  }
+
+  // ============================================================================
+  // DateFormat：日期格式化
+  // ============================================================================
+
+  async function generateDateFormatOutput(transformNode: any, upstreamNode: any) {
+    const transformData = transformNode.data as TransformNodeData
+    const upstreamRows = getUpstreamRows(upstreamNode)
+    const inputFormat = (transformData.params?.input_format as string) || '%Y-%m-%d'
+    const outputFormat = (transformData.params?.output_format as string) || '%Y/%m/%d'
+
+    let outputColumns = transformData.outputColumns
+    if (!outputColumns || outputColumns.length === 0) {
+      const baseName = transformData.inputColumn || 'result'
+      outputColumns = [`${baseName}_result`]
+    }
+
+    // 简化的日期格式化（仅支持常见的 %Y, %m, %d, %H, %M, %S）
+    function formatDate(dateStr: string, inFmt: string, outFmt: string): string {
+      try {
+        // 尝试解析日期
+        const date = new Date(dateStr)
+        if (isNaN(date.getTime())) return dateStr
+
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        const hours = String(date.getHours()).padStart(2, '0')
+        const minutes = String(date.getMinutes()).padStart(2, '0')
+        const seconds = String(date.getSeconds()).padStart(2, '0')
+
+        // 替换输出格式中的占位符
+        return outFmt
+          .replace('%Y', String(year))
+          .replace('%m', month)
+          .replace('%d', day)
+          .replace('%H', hours)
+          .replace('%M', minutes)
+          .replace('%S', seconds)
+      } catch {
+        return dateStr
+      }
+    }
+
+    const resultRows: string[][] = upstreamRows.map((row) => [
+      formatDate(String(row[0] ?? ''), inputFormat, outputFormat),
+    ])
+
+    await createOutputNodes(transformNode, outputColumns, () => resultRows)
+  }
+
+  // ============================================================================
+  // Lookup：查找映射
+  // ============================================================================
+
+  async function generateLookupOutput(transformNode: any, upstreamNode: any) {
+    const transformData = transformNode.data as TransformNodeData
+    const upstreamRows = getUpstreamRows(upstreamNode)
+    const mapping = (transformData.params?.mapping as Record<string, string>) || {}
+    const defaultVal = (transformData.params?.default as string) ?? undefined
+
+    let outputColumns = transformData.outputColumns
+    if (!outputColumns || outputColumns.length === 0) {
+      const baseName = transformData.inputColumn || 'result'
+      outputColumns = [`${baseName}_result`]
+    }
+
+    const resultRows: string[][] = upstreamRows.map((row) => {
+      const value = String(row[0] ?? '')
+      const mapped = mapping[value]
+      const finalValue = mapped !== undefined ? mapped : defaultVal !== undefined ? defaultVal : value
+      return [String(finalValue)]
+    })
+
+    await createOutputNodes(transformNode, outputColumns, () => resultRows)
+  }
+
+  // ============================================================================
+  // CastType：类型转换
+  // ============================================================================
+
+  async function generateCastTypeOutput(transformNode: any, upstreamNode: any) {
+    const transformData = transformNode.data as TransformNodeData
+    const upstreamRows = getUpstreamRows(upstreamNode)
+    const targetType = (transformData.params?.target_type as string) || 'string'
+
+    let outputColumns = transformData.outputColumns
+    if (!outputColumns || outputColumns.length === 0) {
+      const baseName = transformData.inputColumn || 'result'
+      outputColumns = [`${baseName}_result`]
+    }
+
+    const resultRows: string[][] = upstreamRows.map((row) => {
+      const value = String(row[0] ?? '')
+      let casted: string
+
+      try {
+        switch (targetType) {
+          case 'int':
+            casted = String(Math.trunc(Number(value) || 0))
+            break
+          case 'float':
+            casted = String(Number(value) || 0)
+            break
+          case 'bool':
+            casted = value.toLowerCase() === 'true' || value === '1' ? 'true' : 'false'
+            break
+          case 'datetime':
+            // 简化的日期解析
+            const date = new Date(value)
+            casted = isNaN(date.getTime()) ? value : date.toISOString()
+            break
+          case 'string':
+          default:
+            casted = value
+            break
+        }
+      } catch {
+        casted = value
+      }
+
+      return [casted]
+    })
+
+    await createOutputNodes(transformNode, outputColumns, () => resultRows)
+  }
+
+  // ============================================================================
+  // Concat：列拼接
+  // ============================================================================
+
+  async function generateConcatOutput(transformNode: any, upstreamNode: any) {
+    const transformData = transformNode.data as TransformNodeData
+    const upstreamRows = getUpstreamRows(upstreamNode)
+    const columns = (transformData.params?.columns as string) || ''
+    const separator = (transformData.params?.separator as string) || ''
+    const outputColumn = (transformData.params?.output_column as string) || ''
+
+    let outputColumns = transformData.outputColumns
+    if (!outputColumns || outputColumns.length === 0) {
+      outputColumns = [outputColumn || 'concat_result']
+    }
+
+    // 注意：Concat 通常需要多列输入，但当前架构只支持单列输入
+    // 这里简化处理：将单列数据重复拼接
+    const columnList = columns.split(',').map((c) => c.trim()).filter(Boolean)
+    
+    const resultRows: string[][] = upstreamRows.map((row) => {
+      if (columnList.length === 0) {
+        // 没有指定列，直接返回原值
+        return [String(row[0] ?? '')]
+      }
+      // 简化处理：使用单列数据
+      const value = String(row[0] ?? '')
+      const concatResult = columnList.map(() => value).join(separator)
+      return [concatResult]
+    })
+
+    await createOutputNodes(transformNode, outputColumns, () => resultRows)
+  }
+
+  // ============================================================================
+  // ConditionalAssign：条件赋值
+  // ============================================================================
+
+  async function generateConditionalAssignOutput(transformNode: any, upstreamNode: any) {
+    const transformData = transformNode.data as TransformNodeData
+    const upstreamRows = getUpstreamRows(upstreamNode)
+    const conditions =
+      (transformData.params?.conditions as Array<{ column: string; op: string; value: string }>) ||
+      []
+    const logic = (transformData.params?.logic as string) || 'and'
+    const thenValue = (transformData.params?.then_value as string) ?? ''
+    const elseValue = (transformData.params?.else_value as string) ?? undefined
+
+    let outputColumns = transformData.outputColumns
+    if (!outputColumns || outputColumns.length === 0) {
+      const baseName = transformData.inputColumn || 'result'
+      outputColumns = [`${baseName}_result`]
+    }
+
+    // 检查单个条件是否满足
+    function checkCondition(rowValue: string, op: string, condValue: string): boolean {
+      switch (op) {
+        case 'eq':
+          return rowValue === condValue
+        case 'ne':
+          return rowValue !== condValue
+        case 'gt':
+          return Number(rowValue) > Number(condValue)
+        case 'gte':
+          return Number(rowValue) >= Number(condValue)
+        case 'lt':
+          return Number(rowValue) < Number(condValue)
+        case 'lte':
+          return Number(rowValue) <= Number(condValue)
+        case 'contains':
+          return rowValue.includes(condValue)
+        case 'startsWith':
+          return rowValue.startsWith(condValue)
+        case 'endsWith':
+          return rowValue.endsWith(condValue)
+        case 'regex':
+          try {
+            return new RegExp(condValue).test(rowValue)
+          } catch {
+            return false
+          }
+        case 'in':
+          return condValue.split(',').map((v) => v.trim()).includes(rowValue)
+        default:
+          return false
+      }
+    }
+
+    const resultRows: string[][] = upstreamRows.map((row) => {
+      const rowValue = String(row[0] ?? '')
+      
+      // 检查所有条件
+      const conditionResults = conditions.map((cond) => checkCondition(rowValue, cond.op, cond.value))
+      
+      // 根据逻辑运算符组合结果
+      let allConditionsMet: boolean
+      if (logic === 'or') {
+        allConditionsMet = conditionResults.some((r) => r)
+      } else {
+        // and 或默认
+        allConditionsMet = conditionResults.every((r) => r)
+      }
+
+      const finalValue = allConditionsMet ? thenValue : elseValue !== undefined ? elseValue : rowValue
+      return [String(finalValue)]
+    })
+
+    await createOutputNodes(transformNode, outputColumns, () => resultRows)
+  }
+
+  // ============================================================================
   // 列输出型：根据 outputColumns 生成多个 output 节点
-  // 适用于多列变换（MathExpr / CastType / Concat 等）和单列变换（Strip / Replace 等）
+  // 适用于多列变换（CastType / Concat 等）和单列变换（Strip / Replace 等）
   // ============================================================================
 
   async function generateColumnOutput(transformNode: any, upstreamNode: any) {
@@ -667,8 +1083,32 @@
       outputColumns = [`${baseName}_result`]
     }
 
-    // 前端无法执行真实 transform，复制上游数据作为占位预览
-    await createOutputNodes(transformNode, outputColumns, () => upstreamRows)
+    // 根据转换类型执行对应的预览计算
+    const type = transformData.transformType
+    if (type === 'MathExpr') {
+      await generateMathExprOutput(transformNode, upstreamNode)
+    } else if (type === 'Replace') {
+      await generateReplaceOutput(transformNode, upstreamNode)
+    } else if (type === 'Strip') {
+      await generateStripOutput(transformNode, upstreamNode)
+    } else if (type === 'UpperCase') {
+      await generateUpperCaseOutput(transformNode, upstreamNode)
+    } else if (type === 'LowerCase') {
+      await generateLowerCaseOutput(transformNode, upstreamNode)
+    } else if (type === 'DateFormat') {
+      await generateDateFormatOutput(transformNode, upstreamNode)
+    } else if (type === 'Lookup') {
+      await generateLookupOutput(transformNode, upstreamNode)
+    } else if (type === 'CastType') {
+      await generateCastTypeOutput(transformNode, upstreamNode)
+    } else if (type === 'Concat') {
+      await generateConcatOutput(transformNode, upstreamNode)
+    } else if (type === 'ConditionalAssign') {
+      await generateConditionalAssignOutput(transformNode, upstreamNode)
+    } else {
+      // 其他未知类型：复制上游数据作为占位预览
+      await createOutputNodes(transformNode, outputColumns, () => upstreamRows)
+    }
   }
 
   // ============================================================================

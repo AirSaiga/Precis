@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 from .base import TransformRunner
+from .concat import ConcatRunner
 from .date_format import DateFormatRunner
 from .digits import DigitsRunner
 from .lookup import LookupRunner
@@ -43,6 +44,7 @@ TRANSFORM_REGISTRY: dict[str, type[TransformRunner]] = {
     "WeightedSum": WeightedSumRunner,
     "Modulo": ModuloRunner,
     "MapValue": MapValueRunner,
+    "Concat": ConcatRunner,
 }
 
 

@@ -87,6 +87,19 @@
       errorText.value = parsed.error
       return
     }
+    // validateType 校验
+    const validateType = props.field.validateType
+    if (validateType && parsed.value !== '' && parsed.value !== undefined) {
+      if (validateType === 'object' && (typeof parsed.value !== 'object' || parsed.value === null || Array.isArray(parsed.value))) {
+        errorText.value = '值必须是 JSON 对象'
+        return
+      }
+      if (validateType === 'array' && !Array.isArray(parsed.value)) {
+        errorText.value = '值必须是 JSON 数组'
+        return
+      }
+    }
+    errorText.value = ''
     emit('commit', parsed.value)
   }
 </script>

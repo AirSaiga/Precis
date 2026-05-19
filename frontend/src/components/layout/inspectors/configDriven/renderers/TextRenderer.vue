@@ -46,6 +46,10 @@
   })
 
   function emitCommit(v: string) {
+    if (props.field.emptyToNull && v === '') {
+      emit('commit', null as unknown as string)
+      return
+    }
     emit('commit', v)
   }
 </script>

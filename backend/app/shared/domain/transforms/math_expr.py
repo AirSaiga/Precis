@@ -6,7 +6,8 @@
 - 支持引用现有列作为变量
 
 参数:
-    expression: 数学表达式字符串，如 "col_a + col_b * 2"
+    expression: 数学表达式字符串，如 "@col_a + @col_b * 2" 或 "col_a + col_b * 2"
+               （支持 @列名 语法，会自动转换为列名引用）
     output_type: 输出类型（int, float, 默认保持原样）
 
 安全说明:
@@ -16,6 +17,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any
 
 import pandas as pd
@@ -44,8 +46,12 @@ class MathExprRunner(TransformRunner):
 
         output_col = output_columns[0]
 
+        # 支持 @列名 语法，转换为 pandas eval 所需的列名引用
+        # 将 @column_name 替换为 column_name
+        eval_expression = re.sub(r'@(\w+)', r'\1', expression)
+
         try:
-            result = df.eval(expression)
+            result = df.eval(eval_expression)
         except Exception as e:
             raise ValueError(f"数学表达式计算失败: {expression}, 错误: {e}")
 

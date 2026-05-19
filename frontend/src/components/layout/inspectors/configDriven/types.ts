@@ -36,6 +36,7 @@ export type InspectorTextField = InspectorFieldBase & {
   kind: 'text'
   source: InspectorValueSource
   placeholderKey?: string
+  emptyToNull?: boolean
 }
 
 export type InspectorNumberField = InspectorFieldBase & {
@@ -44,6 +45,7 @@ export type InspectorNumberField = InspectorFieldBase & {
   min?: number
   max?: number
   step?: number
+  emptyToNull?: boolean
 }
 
 export type InspectorBooleanField = InspectorFieldBase & {
@@ -94,12 +96,14 @@ export type InspectorJsonEditorField = InspectorFieldBase & {
   source: InspectorValueSource
   rows?: number
   parse?: 'auto' | 'always' | 'never'
+  validateType?: 'object' | 'array'
 }
 
 export type InspectorTagsField = InspectorFieldBase & {
   kind: 'tags'
   source: InspectorValueSource
   placeholderKey?: string
+  editable?: boolean
 }
 
 export type InspectorReadonlyField = InspectorFieldBase & {
@@ -121,6 +125,30 @@ export type InspectorForeignKeyTargetColumnField = InspectorFieldBase & {
   placeholderKey?: string
 }
 
+export type InspectorDynamicListColumn =
+  | { key: string; kind: 'text'; placeholderKey?: string; width?: string }
+  | { key: string; kind: 'select'; options: InspectorSelectOption; width?: string }
+
+export type InspectorDynamicListField = InspectorFieldBase & {
+  kind: 'dynamicList'
+  source: InspectorValueSource
+  columns: InspectorDynamicListColumn[]
+  addButtonLabelKey: string
+  emptyItem: Record<string, unknown>
+  minItems?: number
+}
+
+export type InspectorRegexPatternField = InspectorFieldBase & {
+  kind: 'regexPattern'
+  source: InspectorValueSource
+  placeholderKey?: string
+}
+
+export type InspectorWeightedSumField = InspectorFieldBase & {
+  kind: 'weightedSum'
+  source: InspectorValueSource
+}
+
 export type InspectorField =
   | InspectorTextField
   | InspectorNumberField
@@ -136,6 +164,9 @@ export type InspectorField =
   | InspectorReadonlyField
   | InspectorDateReferenceTypeField
   | InspectorForeignKeyTargetColumnField
+  | InspectorDynamicListField
+  | InspectorRegexPatternField
+  | InspectorWeightedSumField
 
 export type InspectorCommitPayload = unknown | { __patch: Record<string, unknown> }
 
