@@ -62,11 +62,8 @@ class ConcatRunner(TransformRunner):
             df[output_col] = df[column_list[0]].astype(str)
         else:
             # 多列情况：拼接
-            df[output_col] = (
-                df[column_list[0]].astype(str)
-                + df[column_list[1:]].apply(
-                    lambda row: separator + row.astype(str), axis=1
-                ).sum(axis=1)
-            )
+            df[output_col] = df[column_list[0]].astype(str) + df[column_list[1:]].apply(
+                lambda row: separator + row.astype(str), axis=1
+            ).sum(axis=1)
 
         return df

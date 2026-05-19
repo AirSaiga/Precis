@@ -48,7 +48,7 @@ class MathExprRunner(TransformRunner):
 
         # 支持 @列名 语法，转换为 pandas eval 所需的列名引用
         # 将 @column_name 替换为 column_name
-        eval_expression = re.sub(r'@(\w+)', r'\1', expression)
+        eval_expression = re.sub(r"@(\w+)", r"\1", expression)
 
         try:
             result = df.eval(eval_expression)
