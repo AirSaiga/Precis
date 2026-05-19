@@ -69,6 +69,7 @@ DSL 操作符说明:
 from __future__ import annotations
 
 # 1. 标准库导入
+import logging
 from typing import Any, Callable
 
 # 2. 第三方库导入
@@ -77,6 +78,8 @@ import pandas as pd
 # 3. 项目内部导入
 from app.shared.domain.constraints.base import Constraint
 from app.shared.domain.constraints.condition_registry import CONDITION_REGISTRY
+
+logger = logging.getLogger(__name__)
 
 
 class ConditionalConstraint(Constraint):
@@ -171,6 +174,10 @@ class ConditionalConstraint(Constraint):
                         try:
                             return float(x) > float(compared)
                         except Exception:
+                            logger.debug(
+                                f"greater_than 比较失败: x={x!r}, compared={compared!r}, "
+                                f"table={self.table}, then_column={self.then_column}"
+                            )
                             return False
 
                 return _safe_greater_than
@@ -183,6 +190,10 @@ class ConditionalConstraint(Constraint):
                     try:
                         return x in values
                     except Exception:
+                        logger.debug(
+                            f"in 操作失败: x={x!r}, values={values!r}, "
+                            f"table={self.table}, then_column={self.then_column}"
+                        )
                         return False
 
                 return _safe_in
@@ -201,6 +212,10 @@ class ConditionalConstraint(Constraint):
                         try:
                             return float(x) < float(compared)
                         except Exception:
+                            logger.debug(
+                                f"less_than 比较失败: x={x!r}, compared={compared!r}, "
+                                f"table={self.table}, then_column={self.then_column}"
+                            )
                             return False
 
                 return _safe_less_than
@@ -331,6 +346,7 @@ class ConditionalConstraint(Constraint):
                     threshold = float(value)
                     return pd.to_numeric(s, errors="coerce") > threshold
                 except Exception:
+                    logger.debug(f"greater_than 条件阈值转换失败: value={value!r}, table={self.table}, column={col}")
                     return pd.Series([False] * len(df), index=df.index)
             if op == "neq":
                 # 不等于
@@ -341,6 +357,7 @@ class ConditionalConstraint(Constraint):
                     threshold = float(value)
                     return pd.to_numeric(s, errors="coerce") < threshold
                 except Exception:
+                    logger.debug(f"less_than 条件阈值转换失败: value={value!r}, table={self.table}, column={col}")
                     return pd.Series([False] * len(df), index=df.index)
             # 默认: 等于
             return s == value

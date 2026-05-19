@@ -120,6 +120,7 @@ def _resolve_id_from_name(
                             break
                     break
             except Exception:
+                logger.warning(f"解析 Schema 文件失败: {schema_file}", exc_info=True)
                 continue
 
     return table_id, column_id

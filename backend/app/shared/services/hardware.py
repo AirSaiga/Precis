@@ -7,12 +7,15 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import platform
 import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -55,6 +58,7 @@ def _cpu_cores() -> int:
     try:
         v = int(os.cpu_count() or 0)
     except Exception:
+        logger.debug("获取 CPU 核心数失败", exc_info=True)
         v = 0
     return v if v > 0 else 1
 
@@ -96,6 +100,7 @@ def _memory_total_bytes() -> int:
                 return 0
             return int(stat.ullTotalPhys)
         except Exception:
+            logger.debug("Windows 平台获取内存总量失败", exc_info=True)
             return 0
 
     # Linux/Unix 平台实现
@@ -108,6 +113,7 @@ def _memory_total_bytes() -> int:
             total = page * pages
             return int(total) if total > 0 else 0
         except Exception:
+            logger.debug("Linux/Unix 平台获取内存总量失败", exc_info=True)
             return 0
 
     return 0
@@ -141,6 +147,7 @@ def _disk_free_bytes(path: str | None = None) -> int:
         usage = shutil.disk_usage(p)
         return int(usage.free)
     except Exception:
+        logger.debug(f"获取磁盘可用空间失败: path={p}", exc_info=True)
         return 0
 
 
@@ -170,6 +177,7 @@ def _has_nvidia_gpu(timeout_seconds: float = 1.2) -> bool:
         # 返回码为0表示命令成功执行，即存在GPU
         return res.returncode == 0
     except Exception:
+        logger.debug("NVIDIA GPU 检测失败", exc_info=True)
         return False
 
 

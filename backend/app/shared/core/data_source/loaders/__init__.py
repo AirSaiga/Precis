@@ -25,12 +25,15 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import pandas as pd
 
 from .base import DataLoadError, DataSourceLoader
 from .registry import LOADER_REGISTRY, get_loader_for_spec, register_loader, supports_source_type
+
+logger = logging.getLogger(__name__)
 
 
 def load_source_data(spec: Any) -> pd.DataFrame:
@@ -224,7 +227,10 @@ def load_multiple_sources(specs: list) -> dict[str, pd.DataFrame]:
             df = load_source_data(spec)
             name = getattr(spec, "name", None) or f"source_{i}"
             result[name] = df
-        except Exception:
+        except Exception as e:
+            spec_name = getattr(spec, "name", None) or f"source_{i}"
+            spec_type = getattr(spec, "type", "unknown")
+            logger.warning(f"加载数据源失败，已跳过: name={spec_name}, type={spec_type}, 错误: {e}")
             continue
     return result
 
