@@ -457,6 +457,8 @@ export function useConnections() {
       }
     } else if (sourceNode.type === 'schema' && targetNode.type === 'regex') {
       edgeStyle.style = { stroke: 'var(--edge-schema-to-regex)', strokeWidth: 2 } // was #8b5cf6
+    } else if (sourceNode.type === 'manualData' && targetNode.type === 'regex') {
+      edgeStyle.style = { stroke: 'var(--edge-schema-to-regex)', strokeWidth: 2 }
     } else if (sourceNode.type === 'transformOutput' && targetNode.type === 'regex') {
       edgeStyle.style = { stroke: 'var(--edge-schema-to-regex)', strokeWidth: 2 }
     } else if (sourceNode.type === 'transformOutput' && isConstraintNodeType(targetNode.type)) {
@@ -583,6 +585,23 @@ export function useConnections() {
           tx.patchNodeData(source, { children: [...schemaChildren, target] })
         }
         tx.patchNodeData(target, { parent: source })
+      }
+
+      // ManualData → Regex：手动数据作为正则校验的数据源
+      if (sourceNode.type === 'manualData' && targetNode.type === 'regex') {
+        const manualData = sourceNode.data as Record<string, unknown>
+        const columnName = (manualData.columnName as string) || 'Column1'
+        const rows = (manualData.rows as string[][]) || []
+
+        // 更新 regex 节点的数据源信息
+        tx.patchNodeData(target, {
+          sourceNodeId: source,
+          sourceColumnName: columnName,
+          configName: `Regex on ${columnName}`,
+          saveState: 'draft',
+        })
+
+        logger.debug(`[ManualData→Regex] 已将 manualData '${sourceNode.id}' 连接到 regex 节点 '${targetNode.id}'`)
       }
 
       if (sourceNode.type === 'jsonSchema' && targetNode.type === 'regex') {

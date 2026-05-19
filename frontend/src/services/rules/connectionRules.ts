@@ -164,6 +164,22 @@ export const connectionRules: ConnectionRule[] = [
     },
   },
   {
+    id: 'manual-data-to-regex',
+    name: 'ManualData to Regex',
+    source: {
+      nodeTypes: ['manualData'],
+      handles: undefined,
+    },
+    target: {
+      nodeTypes: ['regex'],
+      handles: ['regex-input'],
+    },
+    config: {
+      allowMultiple: false,
+      validationMode: 'strict',
+    },
+  },
+  {
     id: 'manual-data-to-constraint',
     name: 'ManualData to Constraint',
     source: {
