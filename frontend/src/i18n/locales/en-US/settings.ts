@@ -74,6 +74,7 @@ const settings = {
     statusInactive: 'Project not opened',
     statusPending: 'Pending changes',
     statusReady: 'Synced with current project',
+    unnamed: 'Unnamed Project',
     stats: 'Resource Overview',
     statsDesc: 'Quickly understand the current project scale and resource organization.',
     schemaDetail: 'Counts manifest and unlisted assets together',
@@ -105,6 +106,7 @@ const settings = {
     selectButton: 'Select',
     directorySelectionUnavailable:
       'Directory selection is unavailable, please ensure the application is running correctly',
+    openProject: 'Open Project',
     apply: 'Apply Changes',
     applying: 'Applying...',
     appliedTitle: 'Applied',

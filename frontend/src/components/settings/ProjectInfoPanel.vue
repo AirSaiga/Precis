@@ -28,7 +28,7 @@
             class="ui-input"
             type="text"
             :placeholder="t('settings.projectInfo.namePlaceholder')"
-            :disabled="!projectStore.isProjectActive"
+            :disabled="!projectStore.isProjectActive && !localConfigPath"
             @blur="handleNameChange"
             @keydown.enter="handleNameChange"
           />
@@ -263,7 +263,7 @@
   })
 
   const applyButtonText = computed(() => {
-    return projectStore.isProjectActive ? t('settings.projectInfo.apply') : t('common.openProject')
+    return projectStore.isProjectActive ? t('settings.projectInfo.apply') : t('settings.projectInfo.openProject')
   })
 
   const canApply = computed(() => {

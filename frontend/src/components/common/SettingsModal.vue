@@ -372,9 +372,9 @@
 
   const projectSummaryText = computed(() => {
     if (!projectStore.isProjectActive) {
-      return t('settings.noProject')
+      return t('settings.workspace.noProject')
     }
-    return graphStore.projectName || t('settings.projectUnnamed')
+    return graphStore.projectName || t('settings.projectInfo.unnamed')
   })
 
   // ============================================================================
