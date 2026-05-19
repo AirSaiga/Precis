@@ -22,9 +22,9 @@ echo.
 
 cd backend
 if exist ".venv\Scripts\python.exe" (
-    .venv\Scripts\python.exe -B app\main.py %*
+    .venv\Scripts\python.exe -B app\cli_main.py %*
 ) else (
-    python -B app\main.py %*
+    python -B app\cli_main.py %*
 )
 
 echo.
