@@ -44,6 +44,22 @@ def _setup_logging() -> None:
     logging.basicConfig(level=level, format="%(levelname)s: %(message)s", handlers=[logging.StreamHandler(sys.stderr)])
 
 
+def _setup_encoding() -> None:
+    """确保 stdout/stderr 使用 UTF-8 编码。
+
+    Windows 中文环境的默认终端编码为 GBK (cp936)，
+    无法输出 Unicode 字符（如 Spinner 动画帧、校验结果中的符号等）。
+    将 stdout/stderr 重新配置为 UTF-8，errors 策略为 replace，避免编码异常。
+    """
+    if sys.platform == "win32":
+        for stream in (sys.stdout, sys.stderr):
+            if stream and hasattr(stream, "reconfigure"):
+                try:
+                    stream.reconfigure(encoding="utf-8", errors="replace")
+                except (AttributeError, OSError):
+                    pass
+
+
 class CLIShell:
     """CLI Shell 主类。
 
@@ -157,6 +173,7 @@ def main(args: Optional[list] = None) -> int:
     Returns:
         退出码
     """
+    _setup_encoding()
     _setup_logging()
 
     if args is None:

@@ -19,6 +19,16 @@ import time
 from typing import Any, Optional
 
 
+def _supports_unicode() -> bool:
+    """检测当前 stdout 是否支持 Unicode 输出。"""
+    try:
+        encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+        "⠋".encode(encoding)
+        return True
+    except (UnicodeEncodeError, LookupError):
+        return False
+
+
 class Colors:
     """终端颜色常量。"""
 
@@ -48,15 +58,31 @@ class Colors:
 class Spinner:
     """终端加载动画。"""
 
-    FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-    SUCCESS_FRAMES = ["✓", "✓", "✓"]
-    ERROR_FRAMES = ["✗", "✗", "✗"]
+    # Unicode 字符集（支持 UTF-8 的终端）
+    _UNICODE_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
+    _UNICODE_SUCCESS = "✓"
+    _UNICODE_ERROR = "✗"
+
+    # ASCII 降级字符集（GBK 等有限编码终端）
+    _ASCII_FRAMES = ["-", "\\", "|", "/"]
+    _ASCII_SUCCESS = "OK"
+    _ASCII_ERROR = "!!"
+
     ANIMATION_INTERVAL = 0.1  # 动画帧间隔（秒）
 
     def __init__(self, message: str = "处理中"):
         self.message = message
         self._stop_event = threading.Event()
         self._thread: Optional[threading.Thread] = None
+        # 根据终端编码能力选择字符集
+        if _supports_unicode():
+            self._frames = self._UNICODE_FRAMES
+            self._success_frame = self._UNICODE_SUCCESS
+            self._error_frame = self._UNICODE_ERROR
+        else:
+            self._frames = self._ASCII_FRAMES
+            self._success_frame = self._ASCII_SUCCESS
+            self._error_frame = self._ASCII_ERROR
 
     def start(self) -> None:
         """启动加载动画。"""
@@ -74,8 +100,7 @@ class Spinner:
         if self._thread:
             self._thread.join(timeout=1)
 
-        frames = self.SUCCESS_FRAMES if success else self.ERROR_FRAMES
-        frame = frames[0]
+        frame = self._success_frame if success else self._error_frame
         suffix = Formatter.success(" 完成") if success else Formatter.error(" 失败")
         print(f"\r{Colors.CYAN}{frame}{Colors.RESET} {self.message}{suffix}")
 
@@ -83,7 +108,7 @@ class Spinner:
         """动画循环。"""
         index = 0
         while not self._stop_event.is_set():
-            frame = self.FRAMES[index % len(self.FRAMES)]
+            frame = self._frames[index % len(self._frames)]
             print(f"\r{Colors.CYAN}{frame}{Colors.RESET} {self.message}...", end="", flush=True)
             index += 1
             time.sleep(self.ANIMATION_INTERVAL)
@@ -230,7 +255,8 @@ class Formatter:
             格式化的结果字符串
         """
         if not errors:
-            return Formatter.success("\n✓ 校验通过，未发现任何错误！\n")
+            mark = "\u2713" if _supports_unicode() else "[OK]"
+            return Formatter.success(f"\n{mark} 校验通过，未发现任何错误！\n")
 
         error_counts = {}
         for error in errors:
