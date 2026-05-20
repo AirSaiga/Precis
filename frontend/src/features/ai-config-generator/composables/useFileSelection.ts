@@ -1,5 +1,5 @@
 /**
- * @file useAiFileSelection.ts
+ * @file useFileSelection.ts
  * @description AI 配置生成中的文件选择状态管理组合式函数
  *
  * 功能概述:
@@ -15,7 +15,7 @@
  * - selectedPaths 变更时自动触发 expandedFiles 更新
  *
  * 输入示例:
- *   const fileSelection = useAiFileSelection(effectiveConfigPath, t)
+ *   const fileSelection = useFileSelection(effectiveConfigPath)
  *   fileSelection.selectedPaths.value = ['/path/to/data.csv']
  *
  * 输出示例:
@@ -24,15 +24,16 @@
  */
 import { logger } from '@/core/utils/logger'
 import { ref, watch, type ComputedRef } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { postExpandPaths } from '@/api/aiApi'
 import { getV2Manifest } from '@/api/projectV2Api'
 
-export function useAiFileSelection(
-  configPath: ComputedRef<string | undefined>,
-  t: (key: string, ...args: unknown[]) => string
+export function useFileSelection(
+  configPath: ComputedRef<string | undefined>
 ) {
+  const { t } = useI18n()
   const graphStore = useGraphStore()
   const workspaceStore = useWorkspaceStore()
 

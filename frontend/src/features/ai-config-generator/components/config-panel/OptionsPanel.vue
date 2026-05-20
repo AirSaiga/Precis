@@ -199,7 +199,7 @@
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
   import type { AiGenerateV2ConfigOptions } from '@/types/ai'
-  import { SAMPLING_PARAM_RANGES, clampSamplingParam } from '@/services/ai/generationOptions'
+  import { SAMPLING_PARAM_RANGES, clampSamplingParam } from '../../services/generationOptions'
 
   const props = defineProps<{
     options: AiGenerateV2ConfigOptions
@@ -228,4 +228,4 @@
   }
 </script>
 
-<style scoped src="./AIConfigOptionsPanel.styles.css"></style>
+<style scoped src="./OptionsPanel.styles.css"></style>

@@ -1,0 +1,72 @@
+/* ============================================================================
+   ProviderBadge — AI Provider 状态徽章
+   ============================================================================ */
+
+.provider-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-xs);
+  padding: var(--ui-space-xs) var(--ui-space-sm);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border-light);
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-muted);
+  line-height: 1;
+}
+
+.provider-badge.not-configured {
+  border-color: var(--ui-warning-light);
+  background: var(--ui-warning-weak);
+}
+
+.provider-icon {
+  width: 14px;
+  height: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.provider-icon svg {
+  width: 14px;
+  height: 14px;
+}
+
+.provider-name {
+  font-weight: var(--ui-font-weight-semibold);
+  color: var(--ui-text-body);
+  font-size: var(--ui-font-size-xs);
+}
+
+.provider-name.warning {
+  color: var(--ui-text-muted);
+  font-weight: var(--ui-font-weight-normal);
+}
+
+.provider-separator {
+  color: var(--ui-text-subtle);
+}
+
+.provider-model {
+  color: var(--ui-text-muted);
+}
+
+.status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--ui-radius-full);
+  flex-shrink: 0;
+  margin-left: 2px;
+}
+
+.status-dot.ok {
+  background: var(--ui-success);
+  box-shadow: 0 0 6px var(--ui-success-ring);
+}
+
+.status-dot.warn {
+  background: var(--ui-warning);
+  box-shadow: 0 0 6px var(--ui-warning-ring);
+}

@@ -140,6 +140,7 @@ Row：操作按钮区域 */
   import { useSettingsStore } from '@/stores/settingsStore'
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
+  import { useAiConfigGeneratorStore } from '@/features/ai-config-generator/stores/aiConfigGeneratorStore'
   import type { ProjectNodeData } from '@/types/graph'
 
   const { t } = useI18n()
@@ -147,6 +148,7 @@ Row：操作按钮区域 */
   const settingsStore = useSettingsStore()
   const resourceTreeStore = useResourceTreeStore()
   const validationTaskStore = useValidationTaskStore()
+  const aiConfigGeneratorStore = useAiConfigGeneratorStore()
 
   const props = defineProps<{
     data: ProjectNodeData
@@ -301,7 +303,7 @@ Row：操作按钮区域 */
 
   const openAiConfigGenerator = () => {
     hideContextMenu()
-    window.dispatchEvent(new CustomEvent('open-ai-config-generator'))
+    aiConfigGeneratorStore.open()
   }
 
   const reloadProject = async () => {

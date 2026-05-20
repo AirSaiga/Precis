@@ -1,0 +1,188 @@
+/* ============================================================================
+   FileSelector — 使用设计令牌
+   ============================================================================ */
+
+.file-selection-area {
+  display: flex;
+  flex-direction: column;
+}
+
+.file-actions {
+  display: flex;
+  gap: var(--ui-space-sm);
+  margin-bottom: var(--ui-space-md);
+}
+
+/* 文件/文件夹选择按钮 */
+.file-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ui-space-xs);
+  height: 34px;
+  padding: 0 var(--ui-space-md);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border-light);
+  color: var(--ui-text-body);
+  border-radius: var(--ui-radius-sm);
+  cursor: pointer;
+  transition: all var(--ui-transition-fast);
+  box-shadow: var(--ui-shadow-elevation-sm);
+}
+
+.file-btn:hover:not(:disabled) {
+  background: var(--ui-bg-hover);
+  border-color: var(--ui-border);
+  box-shadow: var(--ui-shadow-elevation-md);
+}
+
+.file-btn .icon {
+  font-size: var(--ui-font-size-md);
+  line-height: 1;
+}
+
+/* 文件列表容器 */
+.file-list-container {
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-md);
+  overflow: hidden;
+}
+
+.file-list-header {
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  background: var(--ui-bg-subtle);
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-muted);
+  border-bottom: 1px solid var(--ui-border-light);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--ui-space-sm);
+  align-items: center;
+}
+
+/* 文本按钮（全选/取消全选） */
+.text-btn {
+  border: none;
+  background: none;
+  color: var(--ui-accent);
+  font-size: var(--ui-font-size-xs);
+  cursor: pointer;
+  padding: 0;
+  transition: color var(--ui-transition-fast);
+}
+
+.text-btn:hover:not(:disabled) {
+  color: var(--ui-accent-strong);
+}
+
+.text-btn:disabled {
+  color: var(--ui-text-subtle);
+  cursor: not-allowed;
+}
+
+/* 清除按钮 */
+.clear-btn {
+  border: none;
+  background: none;
+  color: var(--ui-danger-strong);
+  font-size: var(--ui-font-size-xs);
+  cursor: pointer;
+  transition: color var(--ui-transition-fast);
+}
+
+.clear-btn:hover {
+  color: var(--ui-danger);
+}
+
+/* 文件列表滚动区 */
+.file-list-scroll {
+  max-height: 240px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--ui-border-strong) transparent;
+}
+
+.file-list-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.file-list-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.file-list-scroll::-webkit-scrollbar-thumb {
+  background: var(--ui-border-strong);
+  border-radius: var(--ui-radius-full);
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+  padding: var(--ui-space-xs) var(--ui-space-sm);
+  font-size: var(--ui-font-size-sm);
+  color: var(--ui-text-body);
+  border-radius: var(--ui-radius-sm);
+  cursor: pointer;
+  transition: background var(--ui-transition-fast);
+}
+
+.file-item:hover {
+  background: var(--ui-bg-hover);
+}
+
+.file-item.disabled {
+  opacity: 0.5;
+}
+
+.file-item input[type="checkbox"] {
+  accent-color: var(--ui-accent);
+  flex-shrink: 0;
+}
+
+.file-icon {
+  flex-shrink: 0;
+  font-size: var(--ui-font-size-sm);
+  line-height: 1;
+}
+
+.file-path {
+  font-weight: var(--ui-font-weight-medium);
+}
+
+.file-path-full {
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-subtle);
+  margin-left: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
+}
+
+.loading-placeholder {
+  padding: var(--ui-space-md);
+  text-align: center;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-sm);
+}
+
+/* 空文件提示 */
+.empty-files-hint {
+  padding: var(--ui-space-lg);
+  text-align: center;
+  font-size: var(--ui-font-size-sm);
+  color: var(--ui-text-muted);
+  border: 1px dashed var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-bg-subtle);
+}

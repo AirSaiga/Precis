@@ -35,4 +35,4 @@
   const extensions = [yaml()]
 </script>
 
-<style scoped src="./AIGenerationCodePreview.styles.css"></style>
+<style scoped src="./CodePreview.styles.css"></style>

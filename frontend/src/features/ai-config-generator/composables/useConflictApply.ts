@@ -1,5 +1,5 @@
 /**
- * @file useAiConflictApply.ts
+ * @file useConflictApply.ts
  * @description AI 配置生成结果应用到项目的冲突检测与处理组合式函数
  *
  * 功能概述:
@@ -14,7 +14,7 @@
  * - applyToProject 为入口，handleConflictConfirm 为模态框回调
  *
  * 输入示例:
- *   const conflict = useAiConflictApply(configPath, generatedConfig, t)
+ *   const conflict = useConflictApply(configPath, generatedConfig)
  *   await conflict.applyToProject()
  *
  * 输出示例:
@@ -33,11 +33,12 @@ import type {
   ProjectManifestV2,
 } from '@/types/projectV2'
 
-export function useAiConflictApply(
+export function useConflictApply(
   configPath: ComputedRef<string | undefined>,
-  generatedConfig: Ref<AiGenerateV2ConfigResponse | null>,
-  t: (key: string, ...args: unknown[]) => string
+  generatedConfig: Ref<AiGenerateV2ConfigResponse | null>
 ) {
+  const { t } = useI18n()
+
   /** 是否正在应用到项目 */
   const applying = ref(false)
 

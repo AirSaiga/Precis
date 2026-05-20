@@ -1,5 +1,5 @@
 /**
- * @file useAiHardwarePrecheck.ts
+ * @file useHardwarePrecheck.ts
  * @description AI 硬件预检组合式函数
  *
  * 功能概述:
@@ -8,24 +8,19 @@
  * - 收集并展示硬件相关警告（如内存不足、GPU 不可用等）
  *
  * 架构设计:
- * - 独立于生成任务生命周期，可被 useAiGenerationJob 在生成前调用
+ * - 独立于生成任务生命周期，可被 useGenerationJob 在生成前调用
  * - 结果存储在 hardwareWarnings ref 中，供 UI 展示
- *
- * 输入示例:
- *   const precheck = useAiHardwarePrecheck(activeProvider, t)
- *   await precheck.runHardwarePrecheck()
- *
- * 输出示例:
- *   precheck.hardwareWarnings.value  // ['内存不足，建议关闭其他应用']
  */
 import { ref, type Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { getAiHardwareDiagnose } from '@/api/aiApi'
 import type { CloudAIProviderResponse } from '@/types/ai'
 
-export function useAiHardwarePrecheck(
-  activeProvider: Ref<CloudAIProviderResponse | null>,
-  t: (key: string, ...args: unknown[]) => string
+export function useHardwarePrecheck(
+  activeProvider: Ref<CloudAIProviderResponse | null>
 ) {
+  const { t } = useI18n()
+
   /** 硬件预检警告信息 */
   const hardwareWarnings = ref<string[]>([])
 

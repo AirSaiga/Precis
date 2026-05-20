@@ -26,8 +26,8 @@
   <FullValidationModal v-model="validationTaskStore.visible" />
 
   <AIConfigGenerateModal
-    :visible="aiConfigGenerateVisible"
-    @close="aiConfigGenerateVisible = false"
+    :visible="aiConfigGeneratorStore.visible"
+    @close="aiConfigGeneratorStore.close()"
   />
 
   <ScriptEditorModal v-model="scriptEditorStore.visible" />
@@ -56,6 +56,7 @@
   import { useSettingsStore } from '@/stores/settingsStore'
   import { useProjectStore } from '@/stores/projectStore'
   import { getV2FullConfigYaml } from '@/api/projectV2Api'
+  import { useAiConfigGeneratorStore } from '@/features/ai-config-generator/stores/aiConfigGeneratorStore'
   import { logger } from '@/core/utils/logger'
 
   const SettingsModal = defineAsyncComponent(() => import('@/components/common/SettingsModal.vue'))
@@ -63,7 +64,7 @@
     () => import('@/components/common/FullValidationModal.vue')
   )
   const AIConfigGenerateModal = defineAsyncComponent(
-    () => import('@/components/common/AIConfigGenerateModal.vue')
+    () => import('@/features/ai-config-generator/components/AIConfigGeneratorModal.vue')
   )
   const ScriptEditorModal = defineAsyncComponent(
     () => import('@/components/common/ScriptEditorModal.vue')
@@ -80,8 +81,7 @@
   const validationTaskStore = useValidationTaskStore()
   const settingsStore = useSettingsStore()
   const projectStore = useProjectStore()
-
-  const aiConfigGenerateVisible = ref(false)
+  const aiConfigGeneratorStore = useAiConfigGeneratorStore()
   const projectManagementVisible = ref(false)
 
   const handleRegexDesignSave = (updatedData: any) => {
@@ -92,10 +92,6 @@
 
   const handleOpenSettings = () => {
     settingsStore.open()
-  }
-
-  const handleOpenAiConfigGenerator = () => {
-    aiConfigGenerateVisible.value = true
   }
 
   const handleOpenProjectManagement = () => {
@@ -127,20 +123,12 @@
 
   onMounted(() => {
     window.addEventListener('open-settings', handleOpenSettings as EventListener)
-    window.addEventListener(
-      'open-ai-config-generator',
-      handleOpenAiConfigGenerator as EventListener
-    )
     window.addEventListener('open-project-management', handleOpenProjectManagement as EventListener)
     window.addEventListener('export-full-config-yaml', handleExportFullConfigYaml as EventListener)
   })
 
   onUnmounted(() => {
     window.removeEventListener('open-settings', handleOpenSettings as EventListener)
-    window.removeEventListener(
-      'open-ai-config-generator',
-      handleOpenAiConfigGenerator as EventListener
-    )
     window.removeEventListener(
       'open-project-management',
       handleOpenProjectManagement as EventListener
@@ -154,7 +142,7 @@
   // 暴露方法给父组件，用于外部触发打开某些 overlay
   defineExpose({
     openAiConfigGenerator: () => {
-      aiConfigGenerateVisible.value = true
+      aiConfigGeneratorStore.open()
     },
     openProjectManagement: () => {
       projectManagementVisible.value = true

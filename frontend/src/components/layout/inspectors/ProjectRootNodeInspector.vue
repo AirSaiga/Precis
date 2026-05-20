@@ -137,6 +137,7 @@
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { useSettingsStore } from '@/stores/settingsStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
+  import { useAiConfigGeneratorStore } from '@/features/ai-config-generator/stores/aiConfigGeneratorStore'
   import BaseInspector from './BaseInspector.vue'
   import {
     InspectorField,
@@ -151,6 +152,7 @@
   const resourceTreeStore = useResourceTreeStore()
   const settingsStore = useSettingsStore()
   const validationTaskStore = useValidationTaskStore()
+  const aiConfigGeneratorStore = useAiConfigGeneratorStore()
 
   /**
    * 组件属性接口
@@ -287,10 +289,10 @@
 
   /**
    * 处理 AI 生成配置操作
-   * 触发 AI 配置生成器事件
+   * 通过 Pinia Store 打开 AI 配置生成器
    */
   function handleAiGenerate() {
-    window.dispatchEvent(new CustomEvent('open-ai-config-generator'))
+    aiConfigGeneratorStore.open()
   }
 
   /**

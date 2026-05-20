@@ -1,5 +1,5 @@
 /**
- * @file useAiGenerationJob.ts
+ * @file useGenerationJob.ts
  * @description AI 配置生成任务生命周期管理组合式函数
  *
  * 功能概述:
@@ -9,12 +9,12 @@
  * - 处理任务完成/失败/取消/异常等各终态
  *
  * 架构设计:
- * - 与 useAiFileSelection 联动：读取 checkedFiles 作为输入
+ * - 与 useFileSelection 联动：读取 checkedFiles 作为输入
  * - 与父组件联动：通过 generatedConfig / yamlPreview / warnings 等 ref 共享结果
  * - 计时器独立管理：elapsedTimer 每 250ms 更新，pollTimer 每 600ms 轮询
  *
  * 输入示例:
- *   const job = useAiGenerationJob(configPath, checkedFiles, options, activeProvider, t)
+ *   const job = useGenerationJob(configPath, checkedFiles, options, activeProvider)
  *   await job.generate(async () => { await runHardwarePrecheck() })
  *
  * 输出示例:
@@ -24,6 +24,7 @@
  */
 import { logger } from '@/core/utils/logger'
 import { computed, onUnmounted, ref, type ComputedRef, type Ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import axios from 'axios'
 import { useGraphStore } from '@/stores/graphStore'
 import {
@@ -38,13 +39,13 @@ import type {
   CloudAIProviderResponse,
 } from '@/types/ai'
 
-export function useAiGenerationJob(
+export function useGenerationJob(
   configPath: ComputedRef<string | undefined>,
   checkedFiles: Ref<Set<string>>,
   options: Ref<AiGenerateV2ConfigOptions>,
-  activeProvider: Ref<CloudAIProviderResponse | null>,
-  t: (key: string, ...args: unknown[]) => string
+  activeProvider: Ref<CloudAIProviderResponse | null>
 ) {
+  const { t } = useI18n()
   const graphStore = useGraphStore()
 
   /** 是否正在生成（轮询任务状态中） */
