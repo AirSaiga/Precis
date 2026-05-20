@@ -55,7 +55,7 @@ async def chat(request: AiChatRequest, x_project_config_path: Optional[str] = He
 
     Args:
         request: AI 聊天请求，包含消息、上下文和历史记录
-        x_project_config_path: 项目配置文件路径（通过 Header 传递）
+        x_project_config_path: 项目配置文件路径（通过 Header 传递，用于编排器上下文）
 
     Returns:
         包含 AI 回复、状态和前端指令的响应对象

@@ -250,10 +250,11 @@ export function useGenerationJob(
     try {
       if (onBeforeSubmit) await onBeforeSubmit()
 
+      const projectName = graphStore.projectName || 'precis-project'
       const payload = {
         file_paths: Array.from(checkedFiles.value),
-        project_name: graphStore.projectName || undefined,
-        project_id: undefined,
+        project_name: projectName,
+        project_id: projectName, // 使用 project_name 作为 project_id
         options: {
           ...options.value,
         },

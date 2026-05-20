@@ -59,26 +59,26 @@ class TestConfigPaths:
     def test_ai_providers_project(self):
         """项目级 AI 配置路径"""
         path = ConfigPaths.ai_providers_project("/tmp/project")
-        assert path.name == "ai_providers.json"
+        assert path.name == "ai_providers.yaml"
         assert ".precis" in str(path)
 
     def test_ai_providers_user(self):
         """用户级 AI 配置路径"""
         path = ConfigPaths.ai_providers_user()
-        assert path.name == "ai_providers.json"
+        assert path.name == "ai_providers.yaml"
         assert str(path.parent).endswith(".precis")
 
     def test_ai_providers_system(self):
         """系统级 AI 配置路径"""
         path = ConfigPaths.ai_providers_system()
-        assert path.name == "ai_providers.json"
+        assert path.name == "ai_providers.yaml"
         assert path.parent.name == "precis"
 
     def test_ai_providers_priority_project(self, tmp_path, monkeypatch):
         """项目级配置存在时优先返回"""
         config_dir = tmp_path / ".precis"
         config_dir.mkdir()
-        (config_dir / "ai_providers.json").write_text("project")
+        (config_dir / "ai_providers.yaml").write_text("project")
         # 屏蔽用户级，避免真实 home 干扰
         monkeypatch.setattr(
             ConfigPaths, "ai_providers_user", classmethod(lambda cls: tmp_path / "user" / "ai_providers.yaml")

@@ -78,6 +78,7 @@
   import { logger } from '@/core/utils/logger'
   import { computed, watch, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import { storeToRefs } from 'pinia'
   import { useProjectStore } from '@/stores/projectStore'
   import { getV2FullConfig } from '@/api/projectV2Api'
   import { useAiConfigGeneratorStore } from '../stores/aiConfigGeneratorStore'
@@ -100,10 +101,10 @@
   const projectStore = useProjectStore()
   const store = useAiConfigGeneratorStore()
 
-  const effectiveConfigPath = computed(() => projectStore.currentPaths?.configPath)
+  // 使用 storeToRefs 保持 ref 的响应式
+  const { activeProvider, options } = storeToRefs(store)
 
-  // 从 store 获取共享状态
-  const { activeProvider, options } = store
+  const effectiveConfigPath = computed(() => projectStore.currentPaths?.configPath)
 
   // ==================== Composables ====================
   const fileSelection = useFileSelection(effectiveConfigPath)
@@ -205,12 +206,13 @@
     stopPolling()
   })
 
-  // 监听 visible 变化以触发项目数据源加载
+  // 监听 visible 变化以触发项目数据源加载和 Provider 重新加载
   watch(
     () => props.visible,
     (v) => {
       if (v) {
         void loadProjectDataSources()
+        void store.loadActiveProvider()
       }
     }
   )

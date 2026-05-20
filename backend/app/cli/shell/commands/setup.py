@@ -20,14 +20,13 @@
     配置信息文本或重载结果
 """
 
-from pathlib import Path
-
 from app.cli.shell.commands.base import Command, CommandContext, CommandResult
 from app.cli.shell.config_storage import (
     get_cli_config,
     reload_providers_config,
 )
 from app.cli.shell.formatter import Formatter
+from app.shared.services.llm.config.loader import loader
 
 
 class SetupCommand(Command):
@@ -119,7 +118,7 @@ class SetupCommand(Command):
         """
         print(Formatter.header("\n热重载 Provider 配置"))
 
-        config_path = Path.home() / ".precis" / "ai_providers.yaml"
+        config_path = loader.USER_PATH
         print(Formatter.info(f"配置文件: {config_path}"))
 
         if reload_providers_config():
@@ -147,7 +146,7 @@ class SetupCommand(Command):
         """
         print(Formatter.header("\nAI Provider 配置"))
 
-        config_path = Path.home() / ".precis" / "ai_providers.yaml"
+        config_path = loader.config_path
         print(Formatter.info(f"配置文件路径: {config_path}"))
 
         providers = self._config.list_providers()

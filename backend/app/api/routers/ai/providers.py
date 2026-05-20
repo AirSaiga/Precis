@@ -87,7 +87,7 @@ async def get_config_info():
     返回配置文件路径、YAML 模板和文件是否存在。
     前端设置面板通过此接口获取配置引导信息。
     """
-    config_path = str(loader.CONFIG_PATH)
+    config_path = loader.config_path
     template = """version: "2.0"
 
 providers:
@@ -110,10 +110,10 @@ providers:
 defaults:
   chat: openai"""
     return {
-        "path": config_path,
-        "default_path": config_path,
+        "path": str(config_path),
+        "default_path": str(loader.USER_PATH),
         "template": template,
-        "exists": loader.CONFIG_PATH.exists(),
+        "exists": config_path.exists(),
     }
 
 

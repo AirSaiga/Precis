@@ -160,5 +160,6 @@ def reload_providers_config() -> bool:
     """重新加载 Provider 配置"""
     global _cli_config
     if _cli_config:
+        loader.invalidate_cache()
         _cli_config._load()
     return True
