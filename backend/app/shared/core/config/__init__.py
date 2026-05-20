@@ -103,7 +103,7 @@ class ConfigPaths:
         返回:
             项目级 AI 配置文件 Path 对象
         """
-        return cls.get_project_config_dir(project_root) / "ai_providers.json"
+        return cls.get_project_config_dir(project_root) / "ai_providers.yaml"
 
     @classmethod
     def ai_providers_user(cls) -> Path:
@@ -111,9 +111,9 @@ class ConfigPaths:
         @methoddesc 用户级 AI 配置文件路径
 
         返回:
-            用户主目录下 ~/.precis/ai_providers.json 的 Path 对象
+            用户主目录下 ~/.precis/ai_providers.yaml 的 Path 对象
         """
-        return cls.USER_CONFIG_DIR / "ai_providers.json"
+        return cls.USER_CONFIG_DIR / "ai_providers.yaml"
 
     @classmethod
     def ai_providers_system(cls) -> Path:
@@ -121,9 +121,9 @@ class ConfigPaths:
         @methoddesc 系统级 AI 配置文件路径（仅 Unix 系统有效）
 
         返回:
-            /etc/precis/ai_providers.json 的 Path 对象
+            /etc/precis/ai_providers.yaml 的 Path 对象
         """
-        return cls.SYSTEM_CONFIG_DIR / "ai_providers.json"
+        return cls.SYSTEM_CONFIG_DIR / "ai_providers.yaml"
 
     @classmethod
     def ai_providers(cls, project_root: Optional[str] = None) -> Path:
@@ -131,9 +131,9 @@ class ConfigPaths:
         @methoddesc AI 服务商配置文件（按优先级返回）
 
         优先级：
-        1. 项目级：{project}/.precis/ai_providers.json
-        2. 用户级：~/.precis/ai_providers.json
-        3. 系统级：/etc/precis/ai_providers.json（Unix only）
+        1. 项目级：{project}/.precis/ai_providers.yaml
+        2. 用户级：~/.precis/ai_providers.yaml
+        3. 系统级：/etc/precis/ai_providers.yaml（Unix only）
 
         如果不存在，返回用户级路径（用于创建）
         """

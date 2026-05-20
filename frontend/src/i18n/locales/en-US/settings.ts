@@ -263,19 +263,19 @@ const settings = {
     tab: 'Model Settings',
     title: 'AI Model Configuration Help',
     description:
-      'AI Provider configuration is fully controlled by the local ai_providers.json file.',
+      'AI Provider configuration is fully controlled by the local ai_providers.yaml file.',
     // Help documentation
     helpTitle: 'How to Configure AI Provider',
     helpIntro:
-      'The application loads AI Providers from a local JSON configuration file. No settings are required in the UI.',
+      'The application loads AI Providers from a local YAML configuration file. No settings are required in the UI.',
     helpStep1Title: '1. Create the Configuration File',
-    helpStep1Desc: 'Create ai_providers.json at one of the following locations, in priority order:',
+    helpStep1Desc: 'Create ai_providers.yaml at one of the following locations, in priority order:',
     helpStep1Project: 'Project: {path}',
     helpStep1User: 'User: {path}',
-    helpStep1System: 'System: /etc/precis/ai_providers.json (Unix only)',
+    helpStep1System: 'System: /etc/precis/ai_providers.yaml (Unix only)',
     helpStep2Title: '2. Fill in the Configuration',
     helpStep2Desc:
-      'The configuration file is in JSON format, containing a providers array and a defaults object.',
+      'The configuration file is in YAML format, containing a providers list and a defaults object.',
     helpStep3Title: '3. Supported Provider Types',
     helpStep3Desc: 'The "type" field supports the following values:',
     helpStep3Types: 'openai, azure_openai, anthropic, google, aliyun, ollama',
@@ -301,7 +301,7 @@ const settings = {
     copied: 'Copied',
     // No provider
     noProvider: 'No AI Provider Configured',
-    noProviderHint: 'Please edit the ai_providers.json configuration file to add a Provider.',
+    noProviderHint: 'Please edit the ai_providers.yaml configuration file to add a Provider.',
     // Field descriptions
     fieldId: 'Unique identifier',
     fieldName: 'Display name',

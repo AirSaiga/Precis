@@ -253,17 +253,17 @@ const settings = {
   aiAssistant: {
     tab: '模型设置',
     title: 'AI 模型配置帮助',
-    description: 'AI Provider 配置完全由本地 ai_providers.json 文件控制。',
+    description: 'AI Provider 配置完全由本地 ai_providers.yaml 文件控制。',
     // 帮助说明
     helpTitle: '如何配置 AI Provider',
-    helpIntro: '应用通过读取本地 JSON 配置文件来加载 AI Provider，无需在界面中进行任何设置。',
+    helpIntro: '应用通过读取本地 YAML 配置文件来加载 AI Provider，无需在界面中进行任何设置。',
     helpStep1Title: '1. 创建配置文件',
-    helpStep1Desc: '在以下任一位置创建 ai_providers.json 文件，优先级从高到低：',
+    helpStep1Desc: '在以下任一位置创建 ai_providers.yaml 文件，优先级从高到低：',
     helpStep1Project: '项目级：{path}',
     helpStep1User: '用户级：{path}',
-    helpStep1System: '系统级：/etc/precis/ai_providers.json（仅 Unix）',
+    helpStep1System: '系统级：/etc/precis/ai_providers.yaml（仅 Unix）',
     helpStep2Title: '2. 填写配置内容',
-    helpStep2Desc: '配置文件为 JSON 格式，包含 providers 数组和 defaults 默认项。',
+    helpStep2Desc: '配置文件为 YAML 格式，包含 providers 列表和 defaults 默认项。',
     helpStep3Title: '3. 支持的 Provider 类型',
     helpStep3Desc: 'type 字段支持以下取值：',
     helpStep3Types: 'openai、azure_openai、anthropic、google、aliyun、ollama',
@@ -288,7 +288,7 @@ const settings = {
     copied: '已复制',
     // 未配置
     noProvider: '未配置 AI Provider',
-    noProviderHint: '请编辑 ai_providers.json 配置文件以添加 Provider。',
+    noProviderHint: '请编辑 ai_providers.yaml 配置文件以添加 Provider。',
     // 字段说明
     fieldId: '唯一标识符',
     fieldName: '显示名称',

@@ -1,5 +1,5 @@
 /* ============================================================================
-   PreviewPanel — 右侧预览面板
+   PreviewPanel — 全宽预览面板（操作条下方的内容区域）
    ============================================================================ */
 
 .preview-panel {
@@ -7,12 +7,12 @@
   flex-direction: column;
   background: var(--ui-bg-base);
   overflow: hidden;
-  height: 100%;
+  flex: 1;
 }
 
 /* --- Header --- */
 .preview-header {
-  padding: var(--ui-space-sm) var(--ui-space-xl);
+  padding: var(--ui-space-sm) var(--ui-space-lg);
   border-bottom: 1px solid var(--ui-border-light);
   display: flex;
   justify-content: space-between;
@@ -104,7 +104,7 @@
   margin: 0;
   font-size: var(--ui-font-size-sm);
   color: var(--ui-text-muted);
-  max-width: 280px;
+  max-width: 400px;
   line-height: var(--ui-line-height-normal);
 }
 
@@ -118,7 +118,8 @@
 
 .loading-content {
   text-align: center;
-  width: 320px;
+  width: 400px;
+  max-width: 100%;
 }
 
 .spinner-lg {
@@ -200,7 +201,7 @@
 
 /* --- Footer --- */
 .preview-footer {
-  padding: var(--ui-space-md) var(--ui-space-xl);
+  padding: var(--ui-space-md) var(--ui-space-lg);
   border-top: 1px solid var(--ui-border-light);
   display: flex;
   justify-content: flex-end;

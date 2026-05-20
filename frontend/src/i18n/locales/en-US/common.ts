@@ -270,7 +270,7 @@ const common = {
     aiAssistant: {
       tab: 'AI Assistant',
       title: 'AI Assistant Settings',
-      desc: 'AI Provider configuration is fully controlled by the local ai_providers.json file.',
+      desc: 'AI Provider configuration is fully controlled by the local ai_providers.yaml file.',
       // Config file related
       configPath: 'Config File Path',
       openConfigFile: 'Open Config File',
@@ -283,7 +283,7 @@ const common = {
       noApiKey: 'No API Key',
       // No provider
       noProvider: 'No AI Provider Configured',
-      noProviderHint: 'Please edit the ai_providers.json configuration file to add a Provider.',
+      noProviderHint: 'Please edit the ai_providers.yaml configuration file to add a Provider.',
     },
   },
 

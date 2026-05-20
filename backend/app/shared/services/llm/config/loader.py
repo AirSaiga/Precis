@@ -2,7 +2,7 @@
 @fileoverview AI 配置加载器
 
 功能概述:
-- 从 ~/.precis/ai_providers.json 加载 AI Provider 配置
+- 从 ~/.precis/ai_providers.yaml 加载 AI Provider 配置
 - 支持环境变量 ${VAR} 递归替换
 - 配置版本检查（仅兼容 2.x）
 - 首次使用自动创建默认空配置
@@ -10,24 +10,27 @@
 架构设计:
 - 单例模式：全局 loader 实例供各模块共享
 - 与 Pydantic 模型联动：加载后自动校验为 AIConfig 对象
-- 原子性保存：直接写入 JSON 文件
+- YAML 格式存储：支持注释，更利于手动编辑
 
 输入示例:
-    # ~/.precis/ai_providers.json
-    {
-      "version": "2.0",
-      "providers": [{"id": "openai", "base_url": "...", "api_key": "${OPENAI_API_KEY}", "model": "gpt-4"}]
-    }
+    # ~/.precis/ai_providers.yaml
+    version: "2.0"
+    providers:
+      - id: openai
+        base_url: "..."
+        api_key: "${OPENAI_API_KEY}"
+        model: gpt-4
 
 输出示例:
     config = loader.load()
     # AIConfig 实例，api_key 已替换为实际环境变量值
 """
 
-import json
 import os
 import re
 from pathlib import Path
+
+import yaml
 
 from .models import AIConfig
 
@@ -36,17 +39,17 @@ class ConfigLoader:
     """
     @classdesc 配置加载器 - 只支持 v2.0
 
-    从 ~/.precis/ai_providers.json 加载 AI Provider 配置，
+    从 ~/.precis/ai_providers.yaml 加载 AI Provider 配置，
     支持环境变量 ${VAR} 递归替换，配置版本检查（仅兼容 2.x），
     首次使用自动创建默认空配置。
 
     设计原则：
     - 单例模式：全局 loader 实例供各模块共享
     - 与 Pydantic 模型联动：加载后自动校验为 AIConfig 对象
-    - 原子性保存：直接写入 JSON 文件
+    - YAML 格式存储：支持注释，更利于手动编辑
     """
 
-    CONFIG_PATH = Path.home() / ".precis" / "ai_providers.json"
+    CONFIG_PATH = Path.home() / ".precis" / "ai_providers.yaml"
 
     def _expand_env(self, value: any) -> any:
         """
@@ -77,7 +80,7 @@ class ConfigLoader:
         """
         @methoddesc 加载 AI Provider 配置文件
 
-        如果配置文件不存在，自动创建默认空配置。
+        如果配置文件不存在，返回默认空配置。
         加载后会进行版本校验（仅支持 2.x）并递归替换环境变量。
 
         返回:
@@ -91,7 +94,7 @@ class ConfigLoader:
             return self._create_default()
 
         with open(self.CONFIG_PATH, encoding="utf-8") as f:
-            data = json.load(f) or {}
+            data = yaml.safe_load(f) or {}
 
         # 版本检查（兼容 2.x 系列）
         version = data.get("version", "unknown")
@@ -105,7 +108,7 @@ class ConfigLoader:
 
     def save(self, config: AIConfig):
         """
-        @methoddesc 将配置保存到 JSON 文件
+        @methoddesc 将配置保存到 YAML 文件
 
         会自动创建配置文件的父目录。
 
@@ -114,8 +117,9 @@ class ConfigLoader:
         """
         self.CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
 
+        data = config.model_dump(exclude_none=True)
         with open(self.CONFIG_PATH, "w", encoding="utf-8") as f:
-            json.dump(config.model_dump(exclude_none=True), f, indent=2, ensure_ascii=False)
+            yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
 
     def _create_default(self) -> AIConfig:
         """

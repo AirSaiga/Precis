@@ -79,12 +79,50 @@ def _provider_to_response(p: AIProvider, health: dict) -> ProviderResponse:
     )
 
 
+@router.get("/providers/config-info")
+async def get_config_info():
+    """
+    获取 AI Provider 配置文件信息
+
+    返回配置文件路径、YAML 模板和文件是否存在。
+    前端设置面板通过此接口获取配置引导信息。
+    """
+    config_path = str(loader.CONFIG_PATH)
+    template = """version: "2.0"
+
+providers:
+  # OpenAI 或兼容 API
+  - id: openai
+    name: OpenAI
+    type: openai
+    base_url: https://api.openai.com/v1
+    api_key: ${OPENAI_API_KEY}
+    model: gpt-4o
+
+  # 本地 Ollama（无需 API Key）
+  - id: ollama-local
+    name: Ollama Local
+    type: ollama
+    base_url: http://localhost:11434
+    api_key: null
+    model: llama3.2
+
+defaults:
+  chat: openai"""
+    return {
+        "path": config_path,
+        "default_path": config_path,
+        "template": template,
+        "exists": loader.CONFIG_PATH.exists(),
+    }
+
+
 @router.get("/providers", response_model=list[ProviderResponse])
 async def list_providers():
     """
     获取所有已配置的 Provider
 
-    只返回配置文件（ai_providers.json）中已定义的 Provider，不再合并系统预设。
+    只返回配置文件（ai_providers.yaml）中已定义的 Provider，不再合并系统预设。
     不执行健康检查，直接返回列表。健康检查由 test 端点按需触发。
     """
     config = loader.load()

@@ -74,13 +74,13 @@
             <li>
               <code class="help-code">{{
                 t('settings.aiAssistant.helpStep1Project', {
-                  path: configPath || '~/.precis/ai_providers.json',
+                  path: configPath || '~/.precis/ai_providers.yaml',
                 })
               }}</code>
             </li>
             <li>
               <code class="help-code">{{
-                t('settings.aiAssistant.helpStep1User', { path: '~/.precis/ai_providers.json' })
+                t('settings.aiAssistant.helpStep1User', { path: '~/.precis/ai_providers.yaml' })
               }}</code>
             </li>
             <li>
@@ -138,7 +138,7 @@
           <p class="help-step__desc">{{ t('settings.aiAssistant.helpStep4Desc') }}</p>
           <div class="help-tip">
             <span class="help-tip__icon">💡</span>
-            <code class="help-code">"api_key": "${OPENAI_API_KEY}"</code>
+            <code class="help-code">api_key: ${OPENAI_API_KEY}</code>
           </div>
         </div>
 
@@ -168,7 +168,7 @@
         </div>
       </div>
       <div class="config-file-section">
-        <code class="config-file-path">{{ configPath || '~/.precis/ai_providers.json' }}</code>
+        <code class="config-file-path">{{ configPath || '~/.precis/ai_providers.yaml' }}</code>
         <button
           v-if="isElectronEnv"
           class="ui-btn ui-btn--secondary ui-btn--sm"
@@ -216,30 +216,30 @@
   const copied = ref(false)
   const isElectronEnv = ref(!!window.electronAPI)
 
-  const configTemplate = `{
-  "version": "2.0",
-  "providers": [
-    {
-      "id": "openai",
-      "name": "OpenAI",
-      "type": "openai",
-      "base_url": "https://api.openai.com/v1",
-      "api_key": "\${OPENAI_API_KEY}",
-      "model": "gpt-4o"
-    },
-    {
-      "id": "ollama-local",
-      "name": "Ollama Local",
-      "type": "ollama",
-      "base_url": "http://localhost:11434",
-      "api_key": null,
-      "model": "llama3.2"
-    }
-  ],
-  "defaults": {
-    "chat": "openai"
-  }
-}`
+  const configTemplate = `# Precis AI Provider 配置文件
+# 复制到 ~/.precis/ai_providers.yaml 并修改
+
+version: "2.0"
+
+providers:
+  # OpenAI（或兼容 API）
+  - id: openai
+    name: OpenAI
+    type: openai
+    base_url: https://api.openai.com/v1
+    api_key: \${OPENAI_API_KEY}
+    model: gpt-4o
+
+  # 本地 Ollama（无需 API Key）
+  - id: ollama-local
+    name: Ollama Local
+    type: ollama
+    base_url: http://localhost:11434
+    api_key: null
+    model: llama3.2
+
+defaults:
+  chat: openai`
 
   async function loadProviders(): Promise<void> {
     try {
@@ -266,7 +266,7 @@
   }
 
   async function openConfigFile(): Promise<void> {
-    const path = configPath.value || '~/.precis/ai_providers.json'
+    const path = configPath.value || '~/.precis/ai_providers.yaml'
     try {
       if (window.electronAPI?.openFile) {
         await window.electronAPI.openFile(path)

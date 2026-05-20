@@ -1,0 +1,293 @@
+/* ============================================================================
+   ConfigPanel — 顶部操作条样式
+   ============================================================================ */
+
+.action-bar {
+  display: flex;
+  flex-direction: column;
+  background: var(--ui-bg-subtle);
+  border-bottom: 1px solid var(--ui-border-light);
+}
+
+.action-bar-main {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+  padding: var(--ui-space-sm) var(--ui-space-xl);
+  min-height: 48px;
+}
+
+/* 文件选择按钮 */
+.file-actions {
+  display: flex;
+  gap: var(--ui-space-xs);
+}
+
+.action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-space-xs);
+  height: 32px;
+  padding: 0 var(--ui-space-md);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border-light);
+  color: var(--ui-text-body);
+  border-radius: var(--ui-radius-sm);
+  cursor: pointer;
+  transition: all var(--ui-transition-fast);
+  box-shadow: var(--ui-shadow-elevation-sm);
+}
+
+.action-btn:hover {
+  background: var(--ui-bg-hover);
+  border-color: var(--ui-border);
+}
+
+/* 已选文件计数按钮 */
+.file-summary-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-space-xs);
+  height: 32px;
+  padding: 0 var(--ui-space-md);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-medium);
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border-light);
+  color: var(--ui-text-muted);
+  border-radius: var(--ui-radius-sm);
+  cursor: pointer;
+  transition: all var(--ui-transition-fast);
+}
+
+.file-summary-btn:hover {
+  background: var(--ui-bg-hover);
+  color: var(--ui-text-body);
+}
+
+.chevron {
+  transition: transform var(--ui-transition-fast);
+}
+
+.chevron.expanded {
+  transform: rotate(180deg);
+}
+
+.no-files-hint {
+  font-size: var(--ui-font-size-sm);
+  color: var(--ui-text-subtle);
+}
+
+/* 弹性间隔 */
+.action-spacer {
+  flex: 1;
+}
+
+/* 生成按钮 */
+.generate-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--ui-space-xs);
+  height: 34px;
+  padding: 0 var(--ui-space-lg);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  background: var(--ui-accent-gradient);
+  color: var(--ui-text-on-accent);
+  border: none;
+  border-radius: var(--ui-radius-md);
+  cursor: pointer;
+  box-shadow: var(--ui-shadow-elevation-sm);
+  transition: all var(--ui-transition-normal);
+  white-space: nowrap;
+}
+
+.generate-btn:hover:not(:disabled) {
+  box-shadow: var(--ui-shadow-elevation-md);
+  transform: translateY(-1px);
+}
+
+.generate-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.generate-btn:disabled {
+  background: var(--ui-bg-muted);
+  color: var(--ui-text-muted);
+  box-shadow: none;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 取消按钮 */
+.cancel-btn {
+  height: 34px;
+  padding: 0 var(--ui-space-md);
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-body);
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-md);
+  cursor: pointer;
+  transition: all var(--ui-transition-fast);
+}
+
+.cancel-btn:hover:not(:disabled) {
+  background: var(--ui-bg-hover);
+  border-color: var(--ui-border);
+}
+
+.cancel-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Spinner */
+.spinner-sm {
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--ui-bg-muted);
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ============================================================================
+   折叠文件列表下拉区
+   ============================================================================ */
+
+.file-list-dropdown {
+  border-top: 1px solid var(--ui-border-light);
+  background: var(--ui-bg-base);
+  max-height: 220px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.file-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--ui-space-xs) var(--ui-space-xl);
+  background: var(--ui-bg-subtle);
+  border-bottom: 1px solid var(--ui-border-light);
+}
+
+.file-list-title {
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+  color: var(--ui-text-muted);
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--ui-space-sm);
+}
+
+.text-btn {
+  border: none;
+  background: none;
+  color: var(--ui-accent);
+  font-size: var(--ui-font-size-xs);
+  cursor: pointer;
+  padding: 0;
+}
+
+.text-btn:hover:not(:disabled) {
+  color: var(--ui-accent-strong);
+}
+
+.text-btn:disabled {
+  color: var(--ui-text-subtle);
+  cursor: not-allowed;
+}
+
+.clear-btn {
+  border: none;
+  background: none;
+  color: var(--ui-danger-strong);
+  font-size: var(--ui-font-size-xs);
+  cursor: pointer;
+}
+
+.clear-btn:hover {
+  color: var(--ui-danger);
+}
+
+.file-list-scroll {
+  overflow-y: auto;
+  padding: var(--ui-space-xs) var(--ui-space-md);
+  scrollbar-width: thin;
+  scrollbar-color: var(--ui-border-strong) transparent;
+}
+
+.file-list-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.file-list-scroll::-webkit-scrollbar-thumb {
+  background: var(--ui-border-strong);
+  border-radius: var(--ui-radius-full);
+}
+
+.file-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+  padding: var(--ui-space-xs) var(--ui-space-sm);
+  font-size: var(--ui-font-size-sm);
+  color: var(--ui-text-body);
+  border-radius: var(--ui-radius-sm);
+  cursor: pointer;
+  transition: background var(--ui-transition-fast);
+}
+
+.file-item:hover {
+  background: var(--ui-bg-hover);
+}
+
+.file-item.disabled {
+  opacity: 0.5;
+}
+
+.file-item input[type="checkbox"] {
+  accent-color: var(--ui-accent);
+  flex-shrink: 0;
+}
+
+.file-icon {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.file-path {
+  font-weight: var(--ui-font-weight-medium);
+}
+
+.file-path-full {
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-subtle);
+  margin-left: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 300px;
+}
+
+.loading-placeholder {
+  padding: var(--ui-space-md);
+  text-align: center;
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-sm);
+}

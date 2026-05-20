@@ -41,9 +41,8 @@ export const useAiConfigGeneratorStore = defineStore('aiConfigGenerator', () => 
     }
   }
 
-  // ==================== 选项 ====================
+  // ==================== 选项（内部使用，不再暴露给 UI 编辑） ====================
   const options = ref<AiGenerateV2ConfigOptions>(createDefaultOptions())
-  const advancedOptionsVisible = ref(false)
 
   // ==================== 重置钩子 ====================
   /** 由 Modal 组件注册的清理回调列表 */
@@ -84,7 +83,6 @@ export const useAiConfigGeneratorStore = defineStore('aiConfigGenerator', () => 
    */
   const resetAllState = () => {
     options.value = createDefaultOptions()
-    advancedOptionsVisible.value = false
     activeProvider.value = null
     providerLoaded.value = false
   }
@@ -96,9 +94,8 @@ export const useAiConfigGeneratorStore = defineStore('aiConfigGenerator', () => 
     activeProvider,
     providerLoaded,
     loadActiveProvider,
-    // 选项
+    // 选项（内部）
     options,
-    advancedOptionsVisible,
     // 核心操作
     open,
     close,

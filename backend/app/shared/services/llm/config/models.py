@@ -13,20 +13,15 @@
 - 配置版本固定为 2.0，确保向前兼容
 
 输入示例:
-    {
-      "version": "2.0",
-      "providers": [
-        {
-          "id": "ollama-local",
-          "name": "Ollama",
-          "type": "ollama",
-          "base_url": "http://localhost:11434",
-          "api_key": null,
-          "model": "llama3.2"
-        }
-      ],
-      "defaults": {"chat": "ollama-local"}
-    }
+    # ~/.precis/ai_providers.yaml
+    version: "2.0"
+    providers:
+      - id: ollama-local
+        name: Ollama
+        type: ollama
+        base_url: http://localhost:11434
+        api_key: null
+        model: llama3.2
 
 输出示例:
     AIConfig(

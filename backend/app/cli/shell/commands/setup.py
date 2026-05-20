@@ -4,7 +4,7 @@
 
 功能概述:
 - 提供 setup 命令查看 AI Provider 配置模板和路径
-- 支持热重载 ai_providers.json 配置文件
+- 支持热重载 ai_providers.yaml 配置文件
 - 显示已配置 Provider 列表与默认设置
 
 架构设计:
@@ -56,29 +56,32 @@ class SetupCommand(Command):
 
 说明:
   AI Provider 配置完全由用户手动控制。
-  编辑 ~/.precis/ai_providers.json 配置文件来添加或修改 Provider。
+  编辑 ~/.precis/ai_providers.yaml 配置文件来添加或修改 Provider。
 
 子命令:
   setup              # 显示配置文件路径和模板示例
-  setup reload       # 热重载 ai_providers.json 配置
+  setup reload       # 热重载 ai_providers.yaml 配置
 
 配置文件格式示例:
-  {
-    "version": "2.0",
-    "providers": [
-      {
-        "id": "openai",
-        "name": "OpenAI",
-        "type": "openai",
-        "base_url": "https://api.openai.com/v1",
-        "api_key": "${OPENAI_API_KEY}",
-        "model": "gpt-4o"
-      }
-    ],
-    "defaults": {
-      "chat": "openai"
-    }
-  }
+  version: "2.0"
+
+  providers:
+    - id: openai
+      name: OpenAI
+      type: openai
+      base_url: https://api.openai.com/v1
+      api_key: ${OPENAI_API_KEY}
+      model: gpt-4o
+
+    - id: ollama-local
+      name: 本地 Ollama
+      type: ollama
+      base_url: http://localhost:11434
+      api_key: null
+      model: llama3.2
+
+  defaults:
+    chat: openai
 
 字段说明:
   - id: 唯一标识
@@ -116,7 +119,7 @@ class SetupCommand(Command):
         """
         print(Formatter.header("\n热重载 Provider 配置"))
 
-        config_path = Path.home() / ".precis" / "ai_providers.json"
+        config_path = Path.home() / ".precis" / "ai_providers.yaml"
         print(Formatter.info(f"配置文件: {config_path}"))
 
         if reload_providers_config():
@@ -131,7 +134,7 @@ class SetupCommand(Command):
             return CommandResult.ok("配置已更新")
         else:
             return CommandResult.error(
-                "配置重载失败，请检查文件格式是否正确。\n提示: 配置文件必须是有效的 JSON 格式，包含 'providers' 字段。"
+                "配置重载失败，请检查文件格式是否正确。\n提示: 配置文件必须是有效的 YAML 格式，包含 'providers' 字段。"
             )
 
     def _show_config_info(self) -> CommandResult:
@@ -144,7 +147,7 @@ class SetupCommand(Command):
         """
         print(Formatter.header("\nAI Provider 配置"))
 
-        config_path = Path.home() / ".precis" / "ai_providers.json"
+        config_path = Path.home() / ".precis" / "ai_providers.yaml"
         print(Formatter.info(f"配置文件路径: {config_path}"))
 
         providers = self._config.list_providers()
@@ -161,30 +164,27 @@ class SetupCommand(Command):
         print(Formatter.info("\n配置模板:"))
         print(
             """
-{
-  "version": "2.0",
-  "providers": [
-    {
-      "id": "openai",
-      "name": "OpenAI",
-      "type": "openai",
-      "base_url": "https://api.openai.com/v1",
-      "api_key": "${OPENAI_API_KEY}",
-      "model": "gpt-4o"
-    },
-    {
-      "id": "ollama-local",
-      "name": "本地 Ollama",
-      "type": "ollama",
-      "base_url": "http://localhost:11434",
-      "api_key": null,
-      "model": "llama3.2"
-    }
-  ],
-  "defaults": {
-    "chat": "openai"
-  }
-}
+version: "2.0"
+
+providers:
+  # OpenAI 或兼容 API
+  - id: openai
+    name: OpenAI
+    type: openai
+    base_url: https://api.openai.com/v1
+    api_key: ${OPENAI_API_KEY}
+    model: gpt-4o
+
+  # 本地 Ollama（无需 API Key）
+  - id: ollama-local
+    name: 本地 Ollama
+    type: ollama
+    base_url: http://localhost:11434
+    api_key: null
+    model: llama3.2
+
+defaults:
+  chat: openai
         """.strip()
         )
 

@@ -3,9 +3,9 @@
   @description AI 智能配置生成模态框壳组件
 
   功能职责：
-  - Modal 壳结构（Teleport、遮罩、标题栏）
+  - Modal 壳结构（Teleport、遮罩、标题栏 + ProviderBadge）
   - 组合 4 个 composables 和子组件
-  - 通过 store 管理 visible / provider / options 状态
+  - 通过 store 管理 visible / provider 状态
   - 通过 registerResetHook 注册 composable 的重置逻辑
   - 调用 ConflictResolutionModal 处理配置合并冲突
 
@@ -26,13 +26,16 @@
             </div>
             <h3>{{ t('aiConfigGenerator.title') }}</h3>
           </div>
-          <button class="close-btn" type="button" :disabled="generating" :aria-label="t('common.close')" @click="handleClose">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-          </button>
+          <div class="header-meta">
+            <ProviderBadge :provider="store.activeProvider" />
+            <button class="close-btn" type="button" :disabled="generating" :aria-label="t('common.close')" @click="handleClose">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+            </button>
+          </div>
         </div>
 
         <div class="modal-body">
-          <!-- Left Panel: Configuration Wizard -->
+          <!-- Top Action Bar: File selection + Generate -->
           <ConfigPanel
             :checked-files="checkedFiles"
             :expanded-files="expandedFiles"
@@ -49,7 +52,7 @@
             @clear="clearSelection"
           />
 
-          <!-- Right Panel: Preview & Result -->
+          <!-- Full-width Preview & Result -->
           <PreviewPanel
             :state="previewState"
             @apply="applyToProject"
@@ -87,6 +90,7 @@
 
   import ConfigPanel from './config-panel/ConfigPanel.vue'
   import PreviewPanel from './preview-panel/PreviewPanel.vue'
+  import ProviderBadge from './config-panel/ProviderBadge.vue'
 
   const props = defineProps<{
     visible: boolean

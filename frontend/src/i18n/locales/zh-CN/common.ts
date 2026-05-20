@@ -267,7 +267,7 @@ const common = {
     aiAssistant: {
       tab: 'AI 助手',
       title: 'AI 助手设置',
-      desc: 'AI Provider 配置完全由本地 ai_providers.json 文件控制。',
+      desc: 'AI Provider 配置完全由本地 ai_providers.yaml 文件控制。',
       // 配置文件相关
       configPath: '配置文件路径',
       openConfigFile: '打开配置文件',
@@ -280,7 +280,7 @@ const common = {
       noApiKey: '未配置 API Key',
       // 未配置
       noProvider: '未配置 AI Provider',
-      noProviderHint: '请编辑 ai_providers.json 配置文件以添加 Provider。',
+      noProviderHint: '请编辑 ai_providers.yaml 配置文件以添加 Provider。',
     },
   },
 
