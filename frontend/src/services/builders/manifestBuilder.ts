@@ -88,7 +88,7 @@ export function buildV2Manifest(
   const templateInstanceRefs: TemplateInstanceRefV2[] = nodes
     .filter((n) => n.type === 'templateInstance')
     .map((n) => {
-      const d = n.data as Record<string, unknown>
+      const d = n.data as unknown as Record<string, unknown>
       return {
         id: n.id,
         template_id: String(d.templateId || ''),

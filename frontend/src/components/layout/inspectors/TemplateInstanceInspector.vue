@@ -139,7 +139,9 @@
     if (!localData.templateId) return
     try {
       const tmpl = await getV2Template(localData.templateId)
-      templateParams.value = (tmpl.parameters || []).map((p: Record<string, unknown>) => ({
+      // 防御性检查：确保 parameters 是数组类型
+      const params = Array.isArray(tmpl.parameters) ? tmpl.parameters : []
+      templateParams.value = params.map((p: Record<string, unknown>) => ({
         id: String(p.id || ''),
         type: String(p.type || 'string') as TemplateParam['type'],
         label: String(p.label || p.id || ''),

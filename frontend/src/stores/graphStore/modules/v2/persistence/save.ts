@@ -73,7 +73,7 @@
 import { logger } from '@/core/utils/logger'
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
-import type { CustomNode, SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
+import type { CustomNode, SchemaNodeData, JsonSchemaNodeData, TemplateInstanceNodeData } from '@/types/graph'
 import { toastError, toastSuccess } from '@/core/toast'
 import { useI18n } from 'vue-i18n'
 import {
@@ -430,23 +430,25 @@ export function createV2SaveOps(params: {
       const node = nodes.value.find((n) => n.id === nodeId && n.type === 'templateInstance')
       if (!node) throw new Error('未找到模板实例节点')
 
-      const data = node.data as Record<string, unknown>
+      // 使用强类型替代双重断言，恢复编译时类型保护
+      const data = node.data as TemplateInstanceNodeData
       const configPath = getEffectiveProjectConfigPath()
 
       await updateV2ManifestTemplateInstanceRef(
         {
           id: nodeId,
-          template_id: String(data.templateId || ''),
+          template_id: data.templateId || '',
           enabled: data.enabled !== false,
-          input_from_node: String(data.inputFromNode || ''),
-          params: (data.parameters as Record<string, unknown>) || {},
+          input_from_node: data.inputFromNode || '',
+          params: data.parameters || {},
         },
         configPath
       )
-      ;(node.data as unknown as Record<string, unknown>).saveState = 'saved'
-      ;(node.data as unknown as Record<string, unknown>).lastSaved = new Date().toISOString()
+      // 直接赋值，类型安全
+      data.saveState = 'saved'
+      data.lastSaved = new Date().toISOString()
 
-      const base = String(data.configName || nodeId)
+      const base = data.configName || nodeId
       toastSuccess(`模板实例 "${base}" 已保存`, '保存成功')
       return true
     } catch (error) {
