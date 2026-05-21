@@ -52,6 +52,7 @@ export type NodeType =
   | 'charsetConstraint'
   | 'dateLogicConstraint'
   | 'compositeConstraint'
+  | 'templateInstance'
 
 export type ConstraintNodeType =
   | 'notNullConstraint'

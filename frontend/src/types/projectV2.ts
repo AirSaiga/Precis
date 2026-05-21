@@ -256,6 +256,19 @@ export interface DataSourceRefV2 {
   description?: string
 }
 
+export interface TemplateRefV2 {
+  id: string
+  path: string
+}
+
+export interface TemplateInstanceRefV2 {
+  id: string
+  template_id: string
+  enabled: boolean
+  input_from_node: string
+  params: Record<string, unknown>
+}
+
 export interface ProjectManifestV2 {
   version: number
   project: ProjectInfoV2
@@ -266,6 +279,8 @@ export interface ProjectManifestV2 {
   regex_nodes: RegexNodeRefV2[]
   transforms: TransformRefV2[]
   data_sources?: DataSourceRefV2[]
+  templates?: TemplateRefV2[]
+  template_instances?: TemplateInstanceRefV2[]
   patterns_dir: string
   warnings?: string[]
 }

@@ -69,6 +69,7 @@ from app.shared.core.project.manifest.types_parts.data_source import DataSourceR
 from app.shared.core.project.manifest.types_parts.info import ProjectInfo
 from app.shared.core.project.manifest.types_parts.refs import ConstraintRef, RegexRef, SchemaRef, TransformRef
 from app.shared.core.project.manifest.types_parts.settings import ProjectSettings
+from app.shared.core.project.manifest.types_parts.template import TemplateInstanceRef, TemplateRef
 
 
 class ProjectManifest(BaseModel):
@@ -124,10 +125,21 @@ class ProjectManifest(BaseModel):
     regex_nodes: list[RegexRef] = Field(default_factory=list, description="Regex 节点文件索引")
     transforms: list[TransformRef] = Field(default_factory=list, description="Transform 功能节点文件索引")
     data_sources: list[DataSourceRef] = Field(default_factory=list, description="数据源目录索引")
+    templates: list[TemplateRef] = Field(default_factory=list, description="模板定义文件索引")
+    template_instances: list[TemplateInstanceRef] = Field(default_factory=list, description="模板实例索引")
     patterns_dir: str = Field("patterns", description="patterns 目录（相对路径）")
     warnings: list[str] = Field(default_factory=list, description="加载时的警告信息")
 
-    @field_validator("schemas", "constraints", "regex_nodes", "transforms", "data_sources", mode="before")
+    @field_validator(
+        "schemas",
+        "constraints",
+        "regex_nodes",
+        "transforms",
+        "data_sources",
+        "templates",
+        "template_instances",
+        mode="before",
+    )
     @classmethod
     def _coerce_none_to_list(cls, v):
         if v is None:
@@ -196,6 +208,34 @@ class ProjectManifest(BaseModel):
                 seen_data_source_ids[ds.id] = ds
                 unique_data_sources.append(ds)
         self.data_sources = unique_data_sources
+
+        # 模板定义 ID 去重
+        seen_template_ids: dict[str, TemplateRef] = {}
+        unique_templates: list[TemplateRef] = []
+        for tmpl in self.templates:
+            if tmpl.id in seen_template_ids:
+                existing = seen_template_ids[tmpl.id]
+                warnings.append(f"Template ID '{tmpl.id}' 重复，已跳过 '{tmpl.path}'，保留 '{existing.path}'")
+            else:
+                seen_template_ids[tmpl.id] = tmpl
+                unique_templates.append(tmpl)
+        self.templates = unique_templates
+
+        # 模板实例 ID 去重
+        seen_instance_ids: dict[str, TemplateInstanceRef] = {}
+        unique_instances: list[TemplateInstanceRef] = []
+        for inst in self.template_instances:
+            if inst.id in seen_instance_ids:
+                existing = seen_instance_ids[inst.id]
+                warnings.append(
+                    f"TemplateInstance ID '{inst.id}' 重复，"
+                    f"已跳过 (template_id={inst.template_id})，"
+                    f"保留 (template_id={existing.template_id})"
+                )
+            else:
+                seen_instance_ids[inst.id] = inst
+                unique_instances.append(inst)
+        self.template_instances = unique_instances
 
         self.warnings = warnings
         return self

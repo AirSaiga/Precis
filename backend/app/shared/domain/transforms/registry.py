@@ -12,10 +12,16 @@
 
 from __future__ import annotations
 
+from .aggregate import AggregateRunner
 from .base import TransformRunner
+from .cast_type import CastTypeRunner
 from .concat import ConcatRunner
+from .conditional_assign import ConditionalAssignRunner
 from .date_format import DateFormatRunner
 from .digits import DigitsRunner
+from .drop_duplicates import DropDuplicatesRunner
+from .fill_na import FillNARunner
+from .filter_rows import FilterRowsRunner
 from .lookup import LookupRunner
 from .lower_case import LowerCaseRunner
 from .map_value import MapValueRunner
@@ -23,6 +29,7 @@ from .math_expr import MathExprRunner
 from .modulo import ModuloRunner
 from .regex_extract import RegexExtractRunner
 from .replace import ReplaceRunner
+from .sort_rows import SortRowsRunner
 from .string_split import StringSplitRunner
 from .strip import StripRunner
 from .substring import SubstringRunner
@@ -39,12 +46,19 @@ TRANSFORM_REGISTRY: dict[str, type[TransformRunner]] = {
     "UpperCase": UpperCaseRunner,
     "LowerCase": LowerCaseRunner,
     "Replace": ReplaceRunner,
+    "FillNA": FillNARunner,
+    "CastType": CastTypeRunner,
+    "Concat": ConcatRunner,
     "Substring": SubstringRunner,
+    "ConditionalAssign": ConditionalAssignRunner,
     "Digits": DigitsRunner,
     "WeightedSum": WeightedSumRunner,
     "Modulo": ModuloRunner,
     "MapValue": MapValueRunner,
-    "Concat": ConcatRunner,
+    "FilterRows": FilterRowsRunner,
+    "DropDuplicates": DropDuplicatesRunner,
+    "Aggregate": AggregateRunner,
+    "SortRows": SortRowsRunner,
 }
 
 

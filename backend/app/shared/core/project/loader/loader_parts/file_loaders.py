@@ -51,6 +51,8 @@ from app.shared.core.project.regex.reader import load_regex_node
 from app.shared.core.project.regex.types import RegexNodeFile
 from app.shared.core.project.schema.reader import load_schema
 from app.shared.core.project.schema.types import TableSchemaFile
+from app.shared.core.project.template.reader import load_template
+from app.shared.core.project.template.types import TemplateFile
 from app.shared.core.project.transform.reader import load_transform
 from app.shared.core.project.transform.types import TransformFile
 
@@ -169,3 +171,20 @@ def load_transform_file(transform_path: Path) -> TransformFile:
         )
     """
     return load_transform(transform_path)
+
+
+def load_template_file(template_path: Path) -> TemplateFile:
+    """@methoddesc 加载模板配置文件
+
+    输入示例:
+        template_path = Path("/path/to/project/templates/age_check.template.yaml")
+
+    输出示例:
+        TemplateFile(
+            id="age_check",
+            name="年龄校验",
+            parameters=[...],
+            nodes=[...],
+        )
+    """
+    return load_template(template_path)

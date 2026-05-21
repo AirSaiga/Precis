@@ -18,6 +18,7 @@ import RegexNode from '@/features/regex/components/RegexNode.vue'
 import TransformNode from '@/components/nodes/transform/TransformNode.vue'
 import TransformOutputNode from '@/components/nodes/transform/TransformOutputNode.vue'
 import ManualDataNode from '@/components/nodes/manualData/ManualDataNode.vue'
+import TemplateInstanceNode from '@/components/nodes/template/TemplateInstanceNode.vue'
 import PatternToolboxNode from '@/components/nodes/patterns/PatternToolboxNode.vue'
 import PatternNode from '@/components/nodes/patterns/PatternNode.vue'
 import ConstraintDashboardNode from '@/components/nodes/constraints/ConstraintDashboardNode.vue'
@@ -40,6 +41,7 @@ export function useNodeTypeRegistry() {
     transform: markRaw(TransformNode) as unknown as NodeComponent,
     transformOutput: markRaw(TransformOutputNode) as unknown as NodeComponent,
     manualData: markRaw(ManualDataNode) as unknown as NodeComponent,
+    templateInstance: markRaw(TemplateInstanceNode) as unknown as NodeComponent,
     notNullConstraint: constraintNodeRegistry.notNull?.component || null,
     uniqueConstraint: constraintNodeRegistry.unique?.component || null,
     foreignKeyConstraint: constraintNodeRegistry.foreignKey?.component || null,

@@ -102,7 +102,15 @@ class CLIShell:
             if input_line.lower() in ("exit!", "quit!", "qq"):
                 print(Formatter.success("再见!"))
                 sys.exit(0)
-            return self._execute_line(executor, input_line)
+            result = executor.execute(input_line)
+            if result.message:
+                if result.success:
+                    print(result.message)
+                else:
+                    Formatter.print_error(result.message)
+            # 单次执行模式：命令失败返回 1，成功返回 0
+            # 这对 CI/CD 自动化至关重要，流水线通过退出码判断校验是否通过
+            return 0 if result.success else 1
 
         Formatter.print_welcome()
 

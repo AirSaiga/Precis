@@ -601,6 +601,22 @@ const inspector = (() => {
         comma: '逗号',
       },
     },
+
+    // 模板实例节点属性检查器
+    templateInstance: {
+      configName: '配置名称',
+      templateId: '引用模板',
+      enabled: '启用',
+      parameters: '参数配置',
+      previewExpand: '预览展开结果',
+      expanding: '展开中...',
+      expandResult: '展开结果',
+      saveState: '保存状态',
+      noParams: '未配置参数',
+      nodeCount: '个节点',
+      unsaved: '未保存',
+      saved: '已保存',
+    },
   }
   return Object.assign(base, inspectorConstraints)
 })()

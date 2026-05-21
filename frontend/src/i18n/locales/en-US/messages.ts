@@ -78,6 +78,7 @@ const messages = {
     newRegex: 'New Regex',
     newTransform: 'New Transform',
     newManualData: 'Manual Data',
+    newTemplateInstance: 'New Template Instance',
     transformMenu: {
       searchPlaceholder: 'Search Transform...',
       recentUsed: 'Recent',

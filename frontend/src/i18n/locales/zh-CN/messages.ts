@@ -71,6 +71,7 @@ const messages = {
     newRegex: '新正则表达式',
     newTransform: '新转换节点',
     newManualData: '手动数据',
+    newTemplateInstance: '新模板实例',
     transformMenu: {
       searchPlaceholder: '搜索 Transform...',
       recentUsed: '最近使用',

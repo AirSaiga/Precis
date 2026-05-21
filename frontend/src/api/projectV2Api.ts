@@ -582,6 +582,141 @@ export async function putV2ProjectView(view: ProjectViewV2, configPath?: string)
   )
 }
 
+// ============================================================================
+// Template（可复用约束模板）API
+// ============================================================================
+
+export interface TemplateListItem {
+  id: string
+  name: string
+  description?: string
+  parameter_count: number
+  node_count: number
+  path: string
+}
+
+export interface TemplateExpandResult {
+  transforms: Record<string, unknown>[]
+  constraints: Record<string, unknown>[]
+  regex_nodes: Record<string, unknown>[]
+}
+
+/**
+ * 列出所有模板定义
+ */
+export async function listV2Templates(configPath?: string): Promise<TemplateListItem[]> {
+  const { data } = await apiClient.get<TemplateListItem[]>(
+    '/project/v2/template',
+    configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
+  )
+  return data
+}
+
+/**
+ * 读取指定模板定义
+ */
+export async function getV2Template(
+  templateId: string,
+  configPath?: string
+): Promise<Record<string, unknown>> {
+  const { data } = await apiClient.get<Record<string, unknown>>(
+    `/project/v2/template/${encodeURIComponent(templateId)}`,
+    configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
+  )
+  return data
+}
+
+/**
+ * 创建模板定义
+ */
+export async function createV2Template(
+  templateData: Record<string, unknown>,
+  configPath?: string
+): Promise<{ success: boolean; message: string }> {
+  const { data } = await apiClient.post<{ success: boolean; message: string }>(
+    '/project/v2/template',
+    templateData,
+    configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
+  )
+  return data
+}
+
+/**
+ * 更新模板定义
+ */
+export async function updateV2Template(
+  templateId: string,
+  templateData: Record<string, unknown>,
+  configPath?: string
+): Promise<{ success: boolean; message: string }> {
+  const { data } = await apiClient.put<{ success: boolean; message: string }>(
+    `/project/v2/template/${encodeURIComponent(templateId)}`,
+    templateData,
+    configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
+  )
+  return data
+}
+
+/**
+ * 删除模板定义
+ */
+export async function deleteV2Template(
+  templateId: string,
+  configPath?: string
+): Promise<{ success: boolean; message: string }> {
+  const { data } = await apiClient.delete<{ success: boolean; message: string }>(
+    `/project/v2/template/${encodeURIComponent(templateId)}`,
+    configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
+  )
+  return data
+}
+
+/**
+ * 预览模板展开结果（不写入文件）
+ */
+export async function expandV2Template(
+  templateId: string,
+  instanceId: string,
+  params: Record<string, unknown>,
+  inputFromNode?: string,
+  configPath?: string
+): Promise<TemplateExpandResult> {
+  const { data } = await apiClient.post<TemplateExpandResult>(
+    `/project/v2/template/${encodeURIComponent(templateId)}/expand`,
+    {
+      instance_id: instanceId,
+      params,
+      input_from_node: inputFromNode || '',
+    },
+    configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
+  )
+  return data
+}
+
+/**
+ * 更新 manifest 中的 Template 实例引用
+ */
+export async function updateV2ManifestTemplateInstanceRef(
+  instanceRef: {
+    id: string
+    template_id: string
+    enabled: boolean
+    input_from_node: string
+    params: Record<string, unknown>
+  },
+  configPath?: string
+): Promise<void> {
+  await apiClient.put(
+    '/project/v2/manifest/template-instance',
+    instanceRef,
+    configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
+  )
+}
+
+// ============================================================================
+// Settings / Workspaces
+// ============================================================================
+
 /**
  * 获取项目设置（从 project.precis.yaml 的 settings 字段）
  */

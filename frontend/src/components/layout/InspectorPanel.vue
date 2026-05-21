@@ -173,6 +173,8 @@
         return defineAsyncComponent(() => import('./inspectors/CompositeConstraintInspector.vue'))
       case 'manualData':
         return defineAsyncComponent(() => import('./inspectors/ManualDataNodeInspector.vue'))
+      case 'templateInstance':
+        return defineAsyncComponent(() => import('./inspectors/TemplateInstanceInspector.vue'))
       default:
         return defineAsyncComponent(() => import('./inspectors/FallbackInspector.vue'))
     }

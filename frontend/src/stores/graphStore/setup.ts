@@ -113,6 +113,7 @@ import { createManualDataFactoryModule } from './modules/factories/manualDataFac
 import { createLibraryNodesFactoryModule } from './modules/factories/libraryNodesFactory'
 import { createMiscFactoryModule } from './modules/factories/miscFactory'
 import { createJsonSchemaFactoryModule } from './modules/factories/jsonSchemaFactory'
+import { createTemplateInstanceFactoryModule } from './modules/factories/templateInstanceFactory'
 import { createSchemaOpsModule } from './modules/schemaOps'
 import { createRegexDesignModule } from './modules/regexDesign'
 import { createAssetsModule } from './modules/assets'
@@ -444,6 +445,11 @@ export function setupGraphStore() {
   )
 
   const { createJsonSchemaNode, createJsonSourcePreviewNode } = createJsonSchemaFactoryModule({
+    nodes,
+    selectedNodeId,
+  })
+
+  const { createTemplateInstanceNode } = createTemplateInstanceFactoryModule({
     nodes,
     selectedNodeId,
   })
@@ -780,6 +786,9 @@ export function setupGraphStore() {
       if (node.type === 'transform') {
         return (node.data as unknown as Record<string, unknown>)?.saveState === 'draft'
       }
+      if (node.type === 'templateInstance') {
+        return (node.data as unknown as Record<string, unknown>)?.saveState === 'draft'
+      }
       return false
     })
   }
@@ -876,6 +885,7 @@ export function setupGraphStore() {
     createManualDataNode,
     createJsonSchemaNode,
     createJsonSourcePreviewNode,
+    createTemplateInstanceNode,
     createEmptyTableNode,
     createEmptyPatternNode,
     createLogicNode,
@@ -935,6 +945,7 @@ export function setupGraphStore() {
     saveConstraintNode: v2Persistence.saveConstraintNode,
     saveRegexNode: v2Persistence.saveRegexNode,
     saveTransformNode: v2Persistence.saveTransformNode,
+    saveTemplateInstanceNode: v2Persistence.saveTemplateInstanceNode,
     loadProjectFromV2: v2Persistence.loadProjectFromV2,
     importV2ResourceToCanvas,
     importV2ConstraintContextAware,

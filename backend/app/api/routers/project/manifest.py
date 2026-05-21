@@ -33,6 +33,7 @@ from app.api.dependencies import get_project_config_path
 from app.api.models.v2_responses import ManifestResponse
 from app.shared.core.io.yaml import read_yaml, write_yaml_atomic
 from app.shared.core.project.manifest.types import ConstraintRef, ProjectManifestV2, RegexRef, SchemaRef
+from app.shared.core.project.manifest.types_parts.template import TemplateInstanceRef
 
 from .base import (
     StandardResponse,
@@ -285,3 +286,47 @@ def update_manifest_regex_ref(regex_ref: RegexRef, config_path: str = Depends(ge
         StandardResponse: 操作结果消息
     """
     return _upsert_manifest_ref(config_path, "regex_nodes", regex_ref)
+
+
+@router.put("/v2/manifest/template-instance", response_model=StandardResponse)
+def update_manifest_template_instance_ref(
+    instance_ref: TemplateInstanceRef,
+    config_path: str = Depends(get_project_config_path),
+):
+    """
+    更新 manifest 中单个 template_instance 引用。
+
+    逻辑：
+    - 如果 instance_ref.id 已存在，则更新其内容
+    - 如果不存在，则添加新引用
+
+    参数:
+        instance_ref: 模板实例引用（id + template_id + enabled + input_from_node + params）
+        config_path: 项目配置根目录
+
+    返回:
+        StandardResponse: 操作结果消息
+    """
+    manifest_path = _v2_manifest_path(config_path)
+
+    with project_lock(config_path):
+        existing_manifest = _read_manifest(manifest_path)
+
+        if not existing_manifest:
+            raise HTTPException(status_code=404, detail="Manifest 文件不存在，请先保存项目")
+
+        items = list(existing_manifest.template_instances or [])
+        existing_ids = {item.id for item in items}
+
+        if instance_ref.id in existing_ids:
+            for i, item in enumerate(items):
+                if item.id == instance_ref.id:
+                    items[i] = instance_ref
+                    break
+        else:
+            items.append(instance_ref)
+
+        updated_manifest = existing_manifest.model_copy(update={"template_instances": items})
+        write_yaml_atomic(Path(manifest_path), updated_manifest.model_dump(exclude_none=True))
+
+    return {"message": f"TemplateInstance 引用 '{instance_ref.id}' 已更新"}

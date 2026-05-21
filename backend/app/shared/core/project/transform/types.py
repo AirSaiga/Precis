@@ -40,11 +40,12 @@ class TransformFile(BaseModel):
     """
     @classdesc 单条功能/转换节点文件内容。
 
-    支持类型:
-    - StringSplit: 字符串切割（按分隔符或固定位置）
-    - RegexExtract: 正则提取（匹配并输出捕获组）
-    - MathExpr: 数学表达式计算
-    - DateFormat: 日期格式转换
+    支持类型（22 种）:
+    - 多列输出: StringSplit, RegexExtract
+    - 单列输出（行数不变）: MathExpr, DateFormat, Lookup, Strip, UpperCase, LowerCase,
+      Replace, FillNA, CastType, Concat, Substring, ConditionalAssign,
+      Digits, WeightedSum, Modulo, MapValue
+    - 行数改变（暂无后端运行器）: FilterRows, DropDuplicates, Aggregate, SortRows
 
     输入接口:
     - input_from_node: 上游节点 ID（优先）
@@ -62,7 +63,19 @@ class TransformFile(BaseModel):
         "MathExpr",
         "DateFormat",
         "Lookup",
+        "Strip",
+        "UpperCase",
+        "LowerCase",
+        "Replace",
+        "FillNA",
+        "FilterRows",
+        "DropDuplicates",
+        "CastType",
+        "Concat",
         "Substring",
+        "Aggregate",
+        "ConditionalAssign",
+        "SortRows",
         "Digits",
         "WeightedSum",
         "Modulo",

@@ -25,6 +25,7 @@ from app.shared.core.project.manifest.types_parts.settings import ProjectSetting
 from app.shared.core.project.manifest.types_parts.settings_file_processing import FileProcessingSettings
 from app.shared.core.project.manifest.types_parts.settings_script_security import ScriptSecuritySettings
 from app.shared.core.project.manifest.types_parts.settings_validation import ValidationSettings
+from app.shared.core.project.manifest.types_parts.template import TemplateInstanceRef, TemplateRef
 
 __all__ = [
     "ConstraintRef",
@@ -36,6 +37,8 @@ __all__ = [
     "RegexRef",
     "SchemaRef",
     "ScriptSecuritySettings",
+    "TemplateInstanceRef",
+    "TemplateRef",
     "ValidationSettings",
     "V2_VERSION",
 ]

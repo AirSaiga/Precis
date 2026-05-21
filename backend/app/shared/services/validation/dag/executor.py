@@ -87,16 +87,23 @@ def execute_transform_dag(
                 )
                 node_outputs[node_id] = output_df
 
-                # 如果 transform 的输入是 schema，将结果合并回原始 DataFrame
+                # 将 transform 结果合并回原始 schema DataFrame
                 if input_node_id in parsed_datasets:
-                    for col in tfile.output_columns:
-                        if col in output_df.columns:
-                            parsed_datasets[input_node_id][col] = output_df[col].values
-                    # 同步更新 node_outputs，确保下游节点能看到新列
-                    if input_node_id in node_outputs:
+                    if len(output_df) != len(input_df):
+                        # 行数改变（如 FilterRows/DropDuplicates/Aggregate）：整体替换
+                        parsed_datasets[input_node_id] = output_df
+                        if input_node_id in node_outputs:
+                            node_outputs[input_node_id] = output_df.copy()
+                    else:
+                        # 行数不变：按列贴回（兼容现有所有 Transform 类型）
                         for col in tfile.output_columns:
                             if col in output_df.columns:
-                                node_outputs[input_node_id][col] = output_df[col].values
+                                parsed_datasets[input_node_id][col] = output_df[col].values
+                        # 同步更新 node_outputs，确保下游节点能看到新列
+                        if input_node_id in node_outputs:
+                            for col in tfile.output_columns:
+                                if col in output_df.columns:
+                                    node_outputs[input_node_id][col] = output_df[col].values
             except Exception as e:
                 logger.exception(f"Transform '{node_id}' 执行失败: {e}")
                 # 执行失败时，保留输入 DataFrame 作为输出，避免下游节点中断

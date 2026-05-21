@@ -13,7 +13,7 @@
  */
 
 import type { CustomNode, SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
-import type { ProjectManifestV2, ProjectSettings } from '@/types/projectV2'
+import type { ProjectManifestV2, ProjectSettings, TemplateInstanceRefV2 } from '@/types/projectV2'
 import { generateSchemaId } from '@/utils/typeHelpers'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 
@@ -85,6 +85,19 @@ export function buildV2Manifest(
     .filter((n) => n.type === 'transform')
     .map((n) => ({ id: n.id, path: `transforms/${n.id}.transform.yaml` }))
 
+  const templateInstanceRefs: TemplateInstanceRefV2[] = nodes
+    .filter((n) => n.type === 'templateInstance')
+    .map((n) => {
+      const d = n.data as Record<string, unknown>
+      return {
+        id: n.id,
+        template_id: String(d.templateId || ''),
+        enabled: d.enabled !== false,
+        input_from_node: String(d.inputFromNode || ''),
+        params: (d.parameters as Record<string, unknown>) || {},
+      }
+    })
+
   const defaultSettings: ProjectSettings = {
     validation: {
       auto_validate: true,
@@ -115,6 +128,7 @@ export function buildV2Manifest(
     constraints: constraintRefs,
     regex_nodes: regexRefs,
     transforms: transformRefs,
+    template_instances: templateInstanceRefs.length > 0 ? templateInstanceRefs : undefined,
     patterns_dir: 'patterns',
   }
 }

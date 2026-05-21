@@ -12,7 +12,19 @@
 
 from fastapi import APIRouter
 
-from . import constraint, full_config, manifest, pattern, regex, schema, settings, validation, view, workspaces
+from . import (
+    constraint,
+    full_config,
+    manifest,
+    pattern,
+    regex,
+    schema,
+    settings,
+    template,
+    validation,
+    view,
+    workspaces,
+)
 
 router = APIRouter(
     prefix="/project",
@@ -26,6 +38,7 @@ router.include_router(schema.router)
 router.include_router(constraint.router)
 router.include_router(regex.router)
 router.include_router(pattern.router)
+router.include_router(template.router)
 router.include_router(full_config.router)
 router.include_router(settings.router)
 router.include_router(validation.router)

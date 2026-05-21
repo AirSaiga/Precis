@@ -606,6 +606,22 @@ const inspector = {
       comma: 'Comma',
     },
   },
+
+  // Template Instance node inspector
+  templateInstance: {
+    configName: 'Config Name',
+    templateId: 'Template',
+    enabled: 'Enabled',
+    parameters: 'Parameters',
+    previewExpand: 'Preview Expansion',
+    expanding: 'Expanding...',
+    expandResult: 'Expansion Result',
+    saveState: 'Save State',
+    noParams: 'No parameters configured',
+    nodeCount: 'nodes',
+    unsaved: 'Unsaved',
+    saved: 'Saved',
+  },
 }
 
 const fallbackInspector = {

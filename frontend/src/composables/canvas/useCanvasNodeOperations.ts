@@ -482,6 +482,24 @@ export function useCanvasNodeOperations(flowWrapper: Ref<HTMLElement | null>) {
         store.createManualDataNode(position)
         break
 
+      // TemplateInstance 类型：模板实例节点
+      case 'templateInstance':
+        if (
+          source === 'toolbox' &&
+          meta &&
+          typeof meta === 'object' &&
+          'templateId' in meta
+        ) {
+          store.createTemplateInstanceNode(
+            position,
+            String((meta as Record<string, unknown>).templateId),
+            String((meta as Record<string, unknown>).templateName || '')
+          )
+        } else {
+          store.createTemplateInstanceNode(position)
+        }
+        break
+
       // RegexNode 类型：从资源树拖拽的正则表达式节点 - 【孤岛渲染】
       case 'regex_node':
         if (source === 'projectResources' && meta && typeof meta === 'object' && 'id' in meta) {

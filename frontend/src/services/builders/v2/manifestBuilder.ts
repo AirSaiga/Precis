@@ -26,6 +26,7 @@ import type {
   RegexNodeFileV2,
   FullConfigV2Request,
   ProjectViewV2,
+  TemplateInstanceRefV2,
 } from '@/types/projectV2'
 import {
   toBackendType,
@@ -109,6 +110,19 @@ export function buildV2Manifest(
     .filter((n) => n.type === 'transform')
     .map((n) => ({ id: n.id, path: `transforms/${n.id}.transform.yaml` }))
 
+  const templateInstanceRefs = nodes
+    .filter((n) => n.type === 'templateInstance')
+    .map((n) => {
+      const d = n.data as Record<string, unknown>
+      return {
+        id: n.id,
+        template_id: String(d.templateId || ''),
+        enabled: d.enabled !== false,
+        input_from_node: String(d.inputFromNode || ''),
+        params: (d.parameters as Record<string, unknown>) || {},
+      }
+    })
+
   return {
     version: 2,
     project: { id: projectId, name: projectName || 'untitled' },
@@ -137,6 +151,7 @@ export function buildV2Manifest(
     constraints: constraintRefs,
     regex_nodes: regexRefs,
     transforms: transformRefs,
+    template_instances: templateInstanceRefs.length > 0 ? templateInstanceRefs : undefined,
     patterns_dir: 'patterns',
   }
 }

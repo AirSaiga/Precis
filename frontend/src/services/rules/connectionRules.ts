@@ -404,6 +404,76 @@ export const connectionRules: ConnectionRule[] = [
       validationMode: 'strict',
     },
   },
+
+  // ========== 模板实例节点连接规则 ==========
+
+  // Schema → 模板实例（输入端口）
+  {
+    id: 'schema-to-template-instance',
+    name: 'Schema → 模板实例',
+    source: {
+      nodeTypes: ['schema', 'jsonSchema'],
+    },
+    target: {
+      nodeTypes: ['templateInstance'],
+      handles: ['template-input'],
+    },
+    config: {
+      allowMultiple: false,
+      validationMode: 'strict',
+    },
+  },
+
+  // TransformOutput → 模板实例（输入端口）
+  {
+    id: 'transform-output-to-template-instance',
+    name: 'TransformOutput → 模板实例',
+    source: {
+      nodeTypes: ['transformOutput'],
+    },
+    target: {
+      nodeTypes: ['templateInstance'],
+      handles: ['template-input'],
+    },
+    config: {
+      allowMultiple: false,
+      validationMode: 'strict',
+    },
+  },
+
+  // ManualData → 模板实例（输入端口）
+  {
+    id: 'manual-data-to-template-instance',
+    name: 'ManualData → 模板实例',
+    source: {
+      nodeTypes: ['manualData'],
+    },
+    target: {
+      nodeTypes: ['templateInstance'],
+      handles: ['template-input'],
+    },
+    config: {
+      allowMultiple: false,
+      validationMode: 'strict',
+    },
+  },
+
+  // Transform → 模板实例（输入端口）
+  {
+    id: 'transform-to-template-instance',
+    name: 'Transform → 模板实例',
+    source: {
+      nodeTypes: ['transform'],
+    },
+    target: {
+      nodeTypes: ['templateInstance'],
+      handles: ['template-input'],
+    },
+    config: {
+      allowMultiple: false,
+      validationMode: 'strict',
+    },
+  },
 ]
 
 export function getRuleById(id: string): ConnectionRule | undefined {

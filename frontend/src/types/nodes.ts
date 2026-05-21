@@ -246,6 +246,35 @@ export interface ManualDataNodeData {
 }
 
 /**
+ * 模板实例节点数据 - 可复用约束模板的实例
+ *
+ * 特点:
+ * - 引用一个已定义的模板（templateId）
+ * - 通过 parameters 字段绑定具体参数值
+ * - 连接到上游 Schema/TransformOutput/manualData 获取数据
+ * - 后端加载时自动展开为标准 Transform + Constraint 文件
+ */
+export interface TemplateInstanceNodeData {
+  configName: string
+  /** 引用的模板定义 ID */
+  templateId: string
+  /** 模板显示名称（缓存） */
+  templateName: string
+  /** 参数绑定值 */
+  parameters: Record<string, unknown>
+  /** 上游数据流节点 ID */
+  inputFromNode?: string
+  /** 是否启用 */
+  enabled: boolean
+  /** 内部节点数量（缓存） */
+  nodeCount: number
+  /** 参数摘要文本 */
+  summaryText: string
+  saveState?: SchemaSaveState
+  lastSaved?: string
+}
+
+/**
  * Transform 输出节点数据 - 绑定在 transform 上的结果展示节点
  *
  * 特点:
@@ -390,6 +419,7 @@ export type CustomNodeData =
   | SourcePreviewNodeData
   | JsonSourcePreviewNodeData
   | JsonSchemaNodeData
+  | TemplateInstanceNodeData
 
 /**
  * 定义我们应用中自定义节点的最终类型。

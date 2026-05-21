@@ -89,6 +89,7 @@ import {
   updateV2ManifestConstraintRef,
   updateV2ManifestRegexRef,
   updateV2ManifestTransformRef,
+  updateV2ManifestTemplateInstanceRef,
 } from '@/api/projectV2Api'
 import {
   buildV2ConstraintFile,
@@ -154,6 +155,9 @@ export function createV2SaveOps(params: {
           ;(node.data as unknown as Record<string, unknown>).saveState = 'saved'
           ;(node.data as unknown as Record<string, unknown>).lastSaved = now
         } else if (node.type === 'transform') {
+          ;(node.data as unknown as Record<string, unknown>).saveState = 'saved'
+          ;(node.data as unknown as Record<string, unknown>).lastSaved = now
+        } else if (node.type === 'templateInstance') {
           ;(node.data as unknown as Record<string, unknown>).saveState = 'saved'
           ;(node.data as unknown as Record<string, unknown>).lastSaved = now
         }
@@ -421,11 +425,46 @@ export function createV2SaveOps(params: {
     }
   }
 
+  async function saveTemplateInstanceNode(nodeId: string): Promise<boolean> {
+    try {
+      const node = nodes.value.find((n) => n.id === nodeId && n.type === 'templateInstance')
+      if (!node) throw new Error('未找到模板实例节点')
+
+      const data = node.data as Record<string, unknown>
+      const configPath = getEffectiveProjectConfigPath()
+
+      await updateV2ManifestTemplateInstanceRef(
+        {
+          id: nodeId,
+          template_id: String(data.templateId || ''),
+          enabled: data.enabled !== false,
+          input_from_node: String(data.inputFromNode || ''),
+          params: (data.parameters as Record<string, unknown>) || {},
+        },
+        configPath
+      )
+      ;(node.data as unknown as Record<string, unknown>).saveState = 'saved'
+      ;(node.data as unknown as Record<string, unknown>).lastSaved = new Date().toISOString()
+
+      const base = String(data.configName || nodeId)
+      toastSuccess(`模板实例 "${base}" 已保存`, '保存成功')
+      return true
+    } catch (error) {
+      logger.error('保存模板实例失败:', error)
+      toastError(
+        error instanceof Error ? error.message : t('messages.error.unknownError'),
+        t('messages.persistence.saveFailed')
+      )
+      return false
+    }
+  }
+
   return {
     saveProject,
     saveSchemaNode,
     saveConstraintNode,
     saveRegexNode,
     saveTransformNode,
+    saveTemplateInstanceNode,
   }
 }
