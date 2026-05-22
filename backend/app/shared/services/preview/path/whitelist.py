@@ -135,32 +135,32 @@ def load_allowed_paths_from_config() -> list[str]:
             try:
                 with open(config_path, encoding="utf-8") as f:
                     content = f.read().strip()
-                
+
                 logger.info(f"[WHITELIST-LOAD] 配置文件内容前100字符: {content[:100]}")
 
                 if not content:
-                    logger.info(f"[WHITELIST-LOAD] 配置文件为空")
+                    logger.info("[WHITELIST-LOAD] 配置文件为空")
                     break
 
                 # 解析 v2.0 YAML 格式配置文件
                 try:
                     data = yaml.safe_load(content)
                     if not isinstance(data, dict):
-                        logger.error(f"[WHITELIST-LOAD] 配置文件格式错误：根节点必须是 YAML 字典")
+                        logger.error("[WHITELIST-LOAD] 配置文件格式错误：根节点必须是 YAML 字典")
                         break
-                    
+
                     version = data.get("version", "")
                     if version != "2.0":
                         logger.error(f"[WHITELIST-LOAD] 不支持的配置版本: {version}，仅支持 v2.0")
                         break
-                    
-                    logger.info(f"[WHITELIST-LOAD] 使用 v2.0 格式解析")
+
+                    logger.info("[WHITELIST-LOAD] 使用 v2.0 格式解析")
                     allowed_paths = _parse_new_format(content)
-                    
+
                 except yaml.YAMLError as e:
                     logger.error(f"[WHITELIST-LOAD] YAML 解析失败: {e}")
                     break
-                
+
                 logger.info(f"[WHITELIST-LOAD] 解析结果: {allowed_paths}")
 
             except Exception:
@@ -168,11 +168,11 @@ def load_allowed_paths_from_config() -> list[str]:
 
             break
         else:
-            logger.info(f"[WHITELIST-LOAD] ❌ 文件不存在")
+            logger.info("[WHITELIST-LOAD] ❌ 文件不存在")
 
     if not allowed_paths:
-        logger.info(f"[WHITELIST-LOAD] ️ 未找到任何配置文件或解析失败")
-    
+        logger.info("[WHITELIST-LOAD] ️ 未找到任何配置文件或解析失败")
+
     return allowed_paths
 
 
@@ -181,7 +181,7 @@ def _parse_new_format(content: str) -> list[str]:
     @methoddesc 解析新格式（YAML v2.0）白名单配置文件
 
     新格式使用 YAML 结构，包含 version、default_policy 和 paths 字段。
-    如果 YAML 解析失败或版本号不匹配，自动降级为旧格式解析。
+    仅支持 v2.0 格式，非 v2.0 格式直接返回空列表。
 
     参数:
         content: 配置文件原始文本内容
@@ -192,14 +192,14 @@ def _parse_new_format(content: str) -> list[str]:
     try:
         # 安全加载 YAML 内容
         data = yaml.safe_load(content)
-        # 如果解析结果不是字典，说明不是有效的 v2.0 格式，降级处理
+        # 如果解析结果不是字典，说明不是有效的 v2.0 格式
         if not data or not isinstance(data, dict):
-            return _parse_old_format(content)
+            return []
 
-        # 检查版本号，非 2.0 版本也降级为旧格式
+        # 检查版本号，非 2.0 版本不支持
         version = data.get("version", "1.0")
         if version != "2.0":
-            return _parse_old_format(content)
+            return []
 
         paths_data = data.get("paths", [])
         allowed_paths = []
@@ -222,9 +222,9 @@ def _parse_new_format(content: str) -> list[str]:
 
         return allowed_paths
 
-    # YAML 语法错误时自动降级为旧格式解析，保证鲁棒性
+    # YAML 语法错误时返回空列表
     except yaml.YAMLError:
-        return _parse_old_format(content)
+        return []
 
 
 def is_path_in_allowed_directories(file_path: str, must_exist: bool = True) -> bool:
@@ -261,10 +261,10 @@ def is_path_in_allowed_directories(file_path: str, must_exist: bool = True) -> b
         # 【调试日志】查看传入的文件路径
         logger.info(f"[WHITELIST] 检查路径: {file_path}")
         logger.info(f"[WHITELIST] 文件是否存在: {os.path.exists(file_path)}")
-        
+
         if not os.path.exists(file_path):
             if must_exist:
-                logger.info(f"[WHITELIST] 文件不存在，拒绝访问")
+                logger.info("[WHITELIST] 文件不存在，拒绝访问")
                 return False
             return True
 
@@ -282,9 +282,9 @@ def is_path_in_allowed_directories(file_path: str, must_exist: bool = True) -> b
                 logger.info(f"[WHITELIST] ✅ 路径匹配成功: {allowed_dir}")
                 return True
             else:
-                logger.info(f"[WHITELIST] ❌ 路径不匹配")
+                logger.info("[WHITELIST] ❌ 路径不匹配")
 
-        logger.info(f"[WHITELIST] ❌ 所有白名单项都不匹配")
+        logger.info("[WHITELIST] ❌ 所有白名单项都不匹配")
         return False
 
     except (ValueError, OSError):
@@ -296,7 +296,7 @@ def load_whitelist_config() -> dict[str, Any]:
     @methoddesc 加载完整的白名单配置（包含权限信息）
 
     在多个候选目录中查找 .precis-allowed-paths 文件，返回完整的配置字典。
-    支持自动识别旧格式并转换为新格式的返回结构。
+    仅支持 v2.0 YAML 格式，旧格式不再支持。
 
     返回:
         包含 version、default_policy、paths 等字段的字典。
@@ -329,15 +329,10 @@ def load_whitelist_config() -> dict[str, Any]:
                 if not content:
                     return {"version": "1.0", "paths": []}
 
-                # 以 # 开头或不含 version 字段的多行文本，判定为旧格式
+                # 以 # 开头或不含 version 字段的多行文本，判定为旧格式，不再支持
                 if content.startswith("#") or (not content.startswith("version") and "\n" in content):
-                    paths = _parse_old_format(content)
-                    # 将旧格式转换为统一的字典结构，默认权限为 readonly
-                    return {
-                        "version": "1.0",
-                        "default_policy": "readonly",
-                        "paths": [{"path": p, "policy": "readonly"} for p in paths],
-                    }
+                    logger.warning("[WHITELIST-CONFIG] 检测到旧格式配置文件，仅支持 v2.0")
+                    return {"version": "1.0", "paths": []}
                 else:
                     # 尝试解析为 YAML 新格式
                     data = yaml.safe_load(content)
