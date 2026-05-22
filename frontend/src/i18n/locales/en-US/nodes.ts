@@ -865,6 +865,21 @@ const customNodes = {
       exampleNullCheckTitle: 'Not empty',
       exampleNullCheckDesc: 'Value must not be None or empty string',
     },
+    compositeConstraintNode: {
+      title: 'Composite Constraint',
+      defaultName: 'New Composite Constraint',
+      helpTooltip:
+        'Composite constraint allows combining multiple sub-constraints with logic (ALL/ANY/NONE). Connect sub-constraint nodes and orchestrate logic in the sub-canvas.',
+      inputHandle: 'Connect Schema column (input)',
+      logicAll: 'All Match (AND)',
+      logicAny: 'Any Match (OR)',
+      logicNone: 'None Match (NOT)',
+      subCount: '{count} sub-constraint(s)',
+      statusIdle: 'Not Validated',
+      statusPass: 'Passed',
+      statusError: 'Failed',
+      statusMissing: 'Missing Config',
+    },
     constraintRuleSetNode: {
       constraintRules: 'Constraint Rules',
       count: 'Count',

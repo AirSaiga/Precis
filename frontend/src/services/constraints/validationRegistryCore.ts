@@ -370,7 +370,30 @@ export async function validateConstraintNodesForSchema(params: {
   const schemaNode = nodes.find((n) => n.id === schemaNodeId && n.type === 'schema')
   if (!schemaNode) return
   const schemaEdges = edges.filter((e) => e.source === schemaNodeId)
-  for (const edge of schemaEdges) {
+
+  // ============================================================================
+  // 分两阶段执行约束校验
+  // ============================================================================
+  // 第一阶段：先执行非 Composite 约束，确保其结果可用
+  // 第二阶段：再执行 Composite 约束，使其能读取上游约束的已执行结果
+
+  const nonCompositeEdges = schemaEdges.filter((e) => {
+    const node = nodes.find((n) => n.id === e.target)
+    return node?.type !== 'compositeConstraint'
+  })
+
+  const compositeEdges = schemaEdges.filter((e) => {
+    const node = nodes.find((n) => n.id === e.target)
+    return node?.type === 'compositeConstraint'
+  })
+
+  for (const edge of nonCompositeEdges) {
+    const constraintNode = nodes.find((n) => n.id === edge.target)
+    if (!constraintNode || !isConstraintNodeType(constraintNode.type)) continue
+    await validateConstraintNode({ schemaNode, constraintNode, edge, nodes, updateNodeData })
+  }
+
+  for (const edge of compositeEdges) {
     const constraintNode = nodes.find((n) => n.id === edge.target)
     if (!constraintNode || !isConstraintNodeType(constraintNode.type)) continue
     await validateConstraintNode({ schemaNode, constraintNode, edge, nodes, updateNodeData })
@@ -476,7 +499,7 @@ export async function validateForInlineSource(params: {
 
   // 从 TransformOutput / ManualData 节点提取行数据
   const sourceData = sourceNode.data as Record<string, unknown>
-  const rows = (sourceData.rows as string[][]) || []
+  const rawRows = (sourceData.rows as string[][]) || []
   const columnName = (sourceData.columnName as string) || 'Column1'
 
   const handler = getHandlerByNodeType(constraintNode.type)
@@ -484,6 +507,14 @@ export async function validateForInlineSource(params: {
     logger.debug('ℹ️ 未找到约束处理器:', constraintNode.type)
     return
   }
+
+  // ManualData 节点的 rows 是纯数据行（不含表头），
+  // 但后端 inline 校验默认将第一行视为表头。
+  // 因此需要在 rows 前添加表头行，使后端能正确识别列名。
+  const isManualData = sourceNode.type === 'manualData'
+  const inlineRows = isManualData && rawRows.length > 0
+    ? [[columnName], ...rawRows]
+    : rawRows
 
   // 构建带有 inlineRows 的校验上下文
   const ctx: ConstraintValidationContext = {
@@ -493,7 +524,7 @@ export async function validateForInlineSource(params: {
     edge: {} as Edge,
     columnId: '0',
     columnName,
-    inlineRows: rows,
+    inlineRows,
   }
 
   const result = await handler.validate(ctx)

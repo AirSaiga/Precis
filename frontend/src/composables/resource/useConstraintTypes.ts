@@ -26,6 +26,7 @@ export interface ConstraintTypeItem {
     | 'range'
     | 'charset'
     | 'dateLogic'
+    | 'composite'
   category: 'attribute' | 'relation' | 'logic'
   requireScriptEnabled?: boolean
   icon: string
@@ -51,6 +52,8 @@ export const CONSTRAINT_ICONS: Record<string, string> = {
     '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
   dateLogic:
     '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
+  composite:
+    '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6H4z"/><path d="M4 4h6v6H4z"/><path d="M14 14h6v6h-6z"/><path d="M14 4h6v6h-6z"/></svg>',
 }
 
 /** 约束类型完整列表 */
@@ -119,6 +122,13 @@ export const CONSTRAINT_TYPES: ConstraintTypeItem[] = [
     category: 'logic',
     icon: CONSTRAINT_ICONS.dateLogic,
   },
+  {
+    id: 'composite',
+    name: '复合约束',
+    constraintType: 'composite',
+    category: 'logic',
+    icon: CONSTRAINT_ICONS.composite,
+  },
 ]
 
 /**
@@ -142,6 +152,7 @@ export function useConstraintTypes() {
     conditional: 'customNodes.constraintRules.conditionalConstraintNode.title',
     scripted: 'customNodes.constraintRules.scriptedConstraintNode.title',
     dateLogic: 'customNodes.constraintRules.dateLogicConstraintNode.title',
+    composite: 'customNodes.constraintRules.compositeConstraintNode.title',
   }
 
   function localizeConstraint(c: ConstraintTypeItem): ConstraintTypeItem {

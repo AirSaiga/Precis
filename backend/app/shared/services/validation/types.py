@@ -108,6 +108,11 @@ class ValidationType:
     # 示例：验证 birth_date 是否在 2000-01-01 之前
     DATE_LOGIC = "date_logic"
 
+    # 复合约束校验：将多个子约束按逻辑策略聚合校验
+    # 适用场景：需要同时满足多个条件的复杂业务规则
+    # 示例：验证 email 既非空又唯一
+    COMPOSITE = "composite"
+
 
 class ValidationResult:
     """

@@ -7,9 +7,7 @@
  *
  * 这是防止 "compositeConstraint" 断裂类回归的最小化自动检查。
  *
- * TODO：compositeConstraint 当前为已知未实现状态，待后端 UnifiedValidationService
- * 支持 composite 校验、前端补齐 connectionHandlers 和 validationHandlers 后，
- * 应从 KNOWN_UNIMPLEMENTED 列表中移除。
+ * Composite 约束已实现端到端链路。
  */
 
 import { describe, it, expect } from 'vitest'
@@ -23,8 +21,8 @@ import { connectionRules } from '@/services/rules/connectionRules'
  * UI 组件和类型定义已存在，但连接规则或校验处理器暂未完成。
  * 回归测试允许它们暂时缺失，但会在控制台输出警告。
  */
-const KNOWN_UNIMPLEMENTED_NODE_TYPES: string[] = ['compositeConstraint']
-const KNOWN_UNIMPLEMENTED_KINDS: string[] = ['composite']
+const KNOWN_UNIMPLEMENTED_NODE_TYPES: string[] = []
+const KNOWN_UNIMPLEMENTED_KINDS: string[] = []
 
 describe('约束注册表完整性自检', () => {
   /**

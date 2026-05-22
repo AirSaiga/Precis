@@ -184,40 +184,76 @@ export function buildConstraintExportPayload(params: {
         refs.column_id = sourceRef.columnId
       }
       outputParams.logic = data.logic || 'all'
-      // 导出子约束：将 subGraph 中的每个子约束节点递归转换为 backend 格式
-      const subNodes = data.subGraph?.nodes || []
-      const subEdges = data.subGraph?.edges || []
-      outputParams.sub_constraints = subNodes
-        .filter((subNode: any) => subNode.type && subNode.type.endsWith('Constraint'))
-        .map((subNode: any) => {
-          const subData = subNode.data || {}
-          const subV2Type = subNode.type.replace('Constraint', '')
-          // 简单映射：提取通用的 refs/params 结构
-          const subRefs: Record<string, unknown> = {}
-          if (subData.table) {
-            const resolved = resolveSchemaAndColumnIdByName(
-              nodes,
-              subData.table,
-              subData.column || ''
-            )
-            if (resolved) {
-              subRefs.table_id = resolved.tableId
-              subRefs.column_id = resolved.columnId
+
+      // 优先使用 includedNodeIds（引用主画布上的独立约束节点）
+      const includedNodeIds: string[] = data.includedNodeIds || []
+      if (includedNodeIds.length > 0) {
+        outputParams.sub_constraints = includedNodeIds
+          .map((nodeId: string) => {
+            const subNode = nodes.find((n) => n.id === nodeId)
+            if (!subNode || !subNode.type?.endsWith('Constraint')) return null
+            const subData = (subNode.data || {}) as Record<string, unknown>
+            const subV2Type = subNode.type.replace('Constraint', '')
+            const subRefs: Record<string, unknown> = {}
+            if ((subData as any).table) {
+              const resolved = resolveSchemaAndColumnIdByName(
+                nodes,
+                (subData as any).table as string,
+                ((subData as any).column as string) || ''
+              )
+              if (resolved) {
+                subRefs.table_id = resolved.tableId
+                subRefs.column_id = resolved.columnId
+              }
             }
-          }
-          if (subData.sourceRef?.nodeId && subData.sourceRef?.columnId) {
-            subRefs.table_id = normalizeSchemaId(subData.sourceRef.nodeId)
-            subRefs.column_id = subData.sourceRef.columnId
-          }
-          return {
-            id: subNode.id,
-            type: subV2Type.charAt(0).toUpperCase() + subV2Type.slice(1),
-            enabled: subData.enabled !== false,
-            description: subData.configName || subData.description || undefined,
-            refs: subRefs,
-            params: {},
-          }
-        })
+            if ((subData as any).sourceRef?.nodeId && (subData as any).sourceRef?.columnId) {
+              subRefs.table_id = normalizeSchemaId((subData as any).sourceRef.nodeId)
+              subRefs.column_id = (subData as any).sourceRef.columnId
+            }
+            return {
+              id: subNode.id,
+              type: subV2Type.charAt(0).toUpperCase() + subV2Type.slice(1),
+              enabled: (subData as any).enabled !== false,
+              description: (subData as any).configName || (subData as any).description || undefined,
+              refs: subRefs,
+              params: {},
+            }
+          })
+          .filter(Boolean)
+      } else {
+        // 向后兼容：从 subGraph.nodes 导出
+        const subNodes = data.subGraph?.nodes || []
+        outputParams.sub_constraints = subNodes
+          .filter((subNode: any) => subNode.type && subNode.type.endsWith('Constraint'))
+          .map((subNode: any) => {
+            const subData = subNode.data || {}
+            const subV2Type = subNode.type.replace('Constraint', '')
+            const subRefs: Record<string, unknown> = {}
+            if (subData.table) {
+              const resolved = resolveSchemaAndColumnIdByName(
+                nodes,
+                subData.table,
+                subData.column || ''
+              )
+              if (resolved) {
+                subRefs.table_id = resolved.tableId
+                subRefs.column_id = resolved.columnId
+              }
+            }
+            if (subData.sourceRef?.nodeId && subData.sourceRef?.columnId) {
+              subRefs.table_id = normalizeSchemaId(subData.sourceRef.nodeId)
+              subRefs.column_id = subData.sourceRef.columnId
+            }
+            return {
+              id: subNode.id,
+              type: subV2Type.charAt(0).toUpperCase() + subV2Type.slice(1),
+              enabled: subData.enabled !== false,
+              description: subData.configName || subData.description || undefined,
+              refs: subRefs,
+              params: {},
+            }
+          })
+      }
       break
     }
     default:

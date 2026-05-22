@@ -56,6 +56,7 @@ from app.shared.domain.constraints.unique import UniqueConstraint
 from .validators.adapter import ConstraintAdapter
 from .validators.base import BaseValidator
 from .validators.charset import CharsetValidator
+from .validators.composite import CompositeValidator
 from .validators.conditional import ConditionalValidator
 from .validators.date_logic import DateLogicValidator
 from .validators.foreign_key import ForeignKeyValidator
@@ -244,3 +245,4 @@ UnifiedValidationService.register_validator(
         kwargs_mapping={"min_value": "min_value", "max_value": "max_value", "boundary_mode": "boundary_mode"},
     ),
 )
+UnifiedValidationService.register_validator(ValidationType.COMPOSITE, CompositeValidator())

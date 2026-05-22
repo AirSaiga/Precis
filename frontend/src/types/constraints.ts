@@ -295,11 +295,13 @@ export interface CompositeConstraintNodeData extends BaseConstraintNodeData {
   description?: string
   /** 复合逻辑策略：all（全部通过）/ any（至少一个通过）/ none（全部失败） */
   logic: 'all' | 'any' | 'none'
-  /** 子画布数据：包含子约束节点和连线 */
-  subGraph: {
+  /** 子画布数据：包含子约束节点和连线（已弃用，保留用于向后兼容） */
+  subGraph?: {
     nodes: import('@vue-flow/core').Node[]
     edges: import('@vue-flow/core').Edge[]
   }
+  /** 聚合的约束节点 ID 列表（引用主画布上的独立约束节点） */
+  includedNodeIds?: string[]
   /** 输入列名（可选） */
   inputColumn?: string
   /** 上游节点 ID（可选） */

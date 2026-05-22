@@ -1,37 +1,59 @@
 <template>
   <div class="composite-inspector">
     <div class="inspector-section">
-      <label>{{ t('compositeConstraint.configName') }}</label>
+      <label>{{ t('inspector.constraint.composite.configName') }}</label>
       <input v-model="localData.configName" type="text" @change="emitUpdate" />
     </div>
 
     <div class="inspector-section">
-      <label>{{ t('compositeConstraint.description') }}</label>
+      <label>{{ t('inspector.constraint.composite.description') }}</label>
       <textarea v-model="localData.description" rows="2" @change="emitUpdate" />
     </div>
 
     <div class="inspector-section">
-      <label>{{ t('compositeConstraint.logic') }}</label>
+      <label>{{ t('inspector.constraint.composite.logic') }}</label>
       <select v-model="localData.logic" @change="emitUpdate">
-        <option value="all">{{ t('compositeConstraint.logic.all') }}</option>
-        <option value="any">{{ t('compositeConstraint.logic.any') }}</option>
-        <option value="none">{{ t('compositeConstraint.logic.none') }}</option>
+        <option value="all">{{ t('inspector.constraint.composite.logicAll') }}</option>
+        <option value="any">{{ t('inspector.constraint.composite.logicAny') }}</option>
+        <option value="none">{{ t('inspector.constraint.composite.logicNone') }}</option>
       </select>
     </div>
 
     <div class="inspector-section">
-      <label>{{ t('compositeConstraint.enabled') }}</label>
+      <label>{{ t('inspector.constraint.composite.enabled') }}</label>
       <input v-model="localData.enabled" type="checkbox" @change="emitUpdate" />
     </div>
 
+    <!-- 聚合约束选择 -->
     <div class="inspector-section">
-      <button class="open-subcanvas-btn" @click="openSubCanvas">
-        {{ t('compositeConstraint.openSubCanvas', { count: subConstraintCount }) }}
-      </button>
+      <label>
+        {{ t('inspector.constraint.composite.includedConstraints', { count: includedCount }) }}
+      </label>
+      <div class="constraint-picker">
+        <div v-if="availableConstraints.length === 0" class="constraint-empty">
+          {{ t('inspector.constraint.composite.noConstraintsAvailable') }}
+        </div>
+        <div
+          v-for="item in availableConstraints"
+          :key="item.node.id"
+          class="constraint-option"
+          :class="{ selected: item.selected }"
+          @click="toggleConstraint(item.node.id)"
+        >
+          <input
+            type="checkbox"
+            :checked="item.selected"
+            @click.stop
+            @change="toggleConstraint(item.node.id)"
+          />
+          <span class="constraint-type-badge">{{ typeLabel(item.node.type) }}</span>
+          <span class="constraint-name">{{ nodeName(item.node) }}</span>
+        </div>
+      </div>
     </div>
 
     <div class="inspector-section">
-      <label>{{ t('compositeConstraint.saveState') }}</label>
+      <label>{{ t('inspector.constraint.composite.saveState') }}</label>
       <span class="save-state">{{ localData.saveState || 'draft' }}</span>
     </div>
   </div>
@@ -40,9 +62,12 @@
 <script setup lang="ts">
   import { reactive, computed } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import { useGraphStore } from '@/stores/graphStore'
   import type { CompositeConstraintNodeData } from '@/types/constraints'
+  import type { Node } from '@vue-flow/core'
 
   const { t } = useI18n()
+  const store = useGraphStore()
 
   interface Props {
     data: CompositeConstraintNodeData
@@ -53,7 +78,6 @@
 
   const emit = defineEmits<{
     'update:data': [data: Partial<CompositeConstraintNodeData>]
-    'open:subCanvas': [nodeId: string]
   }>()
 
   const localData = reactive({
@@ -64,20 +88,68 @@
     saveState: props.data.saveState || 'draft',
   })
 
-  const subConstraintCount = computed(() => {
-    return props.data.subGraph?.nodes?.length || 0
+  const includedNodeIds = computed(() => props.data.includedNodeIds || [])
+  const includedCount = computed(() => includedNodeIds.value.length)
+
+  /**
+   * 判断节点是否为约束类型（排除 composite 自身）
+   */
+  function isConstraintNodeType(type: string | undefined): boolean {
+    if (!type) return false
+    return type.endsWith('Constraint') && type !== 'compositeConstraint'
+  }
+
+  /**
+   * 获取当前画布上所有可作为聚合目标的约束节点
+   * 排除自身和 Composite 类型节点
+   */
+  const availableConstraints = computed(() => {
+    return store.nodes
+      .filter((n) => n.id !== props.nodeId && isConstraintNodeType(n.type))
+      .map((n) => ({
+        node: n,
+        selected: includedNodeIds.value.includes(n.id),
+      }))
   })
+
+  function toggleConstraint(nodeId: string) {
+    const current = new Set(includedNodeIds.value)
+    if (current.has(nodeId)) {
+      current.delete(nodeId)
+    } else {
+      current.add(nodeId)
+    }
+    emit('update:data', { includedNodeIds: Array.from(current) })
+  }
 
   function emitUpdate() {
     emit('update:data', {
       configName: localData.configName,
       description: localData.description,
       logic: localData.logic,
+      enabled: localData.enabled,
     })
   }
 
-  function openSubCanvas() {
-    emit('open:subCanvas', props.nodeId)
+  function typeLabel(nodeType: string | undefined): string {
+    if (!nodeType) return ''
+    const map: Record<string, string> = {
+      notNullConstraint: 'NotNull',
+      uniqueConstraint: 'Unique',
+      rangeConstraint: 'Range',
+      allowedValuesConstraint: 'AllowedValues',
+      foreignKeyConstraint: 'FK',
+      conditionalConstraint: 'Conditional',
+      scriptedConstraint: 'Scripted',
+      charsetConstraint: 'Charset',
+      dateLogicConstraint: 'DateLogic',
+    }
+    return map[nodeType] || nodeType.replace('Constraint', '')
+  }
+
+  function nodeName(node: Node): string {
+    const data = (node.data || {}) as Record<string, unknown>
+    return (data.configName as string) || (data.constraintName as string) || node.id
   }
 </script>
 
@@ -115,20 +187,59 @@
     margin-top: 4px;
   }
 
-  .open-subcanvas-btn {
-    width: 100%;
-    padding: 10px;
-    background: var(--ui-accent);
-    color: white;
-    border: none;
+  .constraint-picker {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid var(--ui-border-subtle);
     border-radius: 4px;
-    cursor: pointer;
-    font-size: 13px;
-    font-weight: 600;
+    background: var(--ui-bg-canvas);
   }
 
-  .open-subcanvas-btn:hover {
+  .constraint-empty {
+    padding: 12px;
+    font-size: 12px;
+    color: var(--ui-text-muted);
+    text-align: center;
+  }
+
+  .constraint-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--ui-border-subtle);
+    transition: background 0.15s ease;
+  }
+
+  .constraint-option:last-child {
+    border-bottom: none;
+  }
+
+  .constraint-option:hover {
     background: var(--ui-accent-primary);
+  }
+
+  .constraint-option.selected {
+    background: rgba(14, 99, 156, 0.2);
+  }
+
+  .constraint-type-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    background: var(--ui-border-light);
+    color: var(--ui-text-secondary);
+    white-space: nowrap;
+  }
+
+  .constraint-name {
+    font-size: 12px;
+    color: var(--ui-text-primary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .save-state {

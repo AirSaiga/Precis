@@ -46,9 +46,5 @@ class TestValidatorRegistryIntegrity:
         防止注册时传入空对象或错误类型导致的运行时异常。
         """
         for vtype, validator in UnifiedValidationService._validators.items():
-            assert hasattr(validator, "validate"), (
-                f"校验器 '{vtype}' 缺少 validate 方法"
-            )
-            assert callable(getattr(validator, "validate")), (
-                f"校验器 '{vtype}' 的 validate 不可调用"
-            )
+            assert hasattr(validator, "validate"), f"校验器 '{vtype}' 缺少 validate 方法"
+            assert callable(getattr(validator, "validate")), f"校验器 '{vtype}' 的 validate 不可调用"

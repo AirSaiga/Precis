@@ -97,6 +97,161 @@ register({
   resetOnDisconnect: defaultReset,
 })
 
+/** 判断节点类型是否为约束类型（工具函数） */
+function isConstraintNodeType(type: string | undefined): boolean {
+  if (!type) return false
+  return type.endsWith('Constraint') && type !== 'compositeConstraint'
+}
+
+/** 注册复合约束处理器（结果聚合器） */
+register({
+  kind: 'composite',
+  validate: async (ctx) => {
+    const nodeData = (ctx.constraintNode.data || {}) as Record<string, unknown>
+    const logic = (nodeData.logic as string) || 'all'
+
+    // 获取要聚合的约束节点 ID 列表
+    let targetIds: string[] = (nodeData.includedNodeIds || []) as string[]
+
+    // 向后兼容：若 includedNodeIds 为空，尝试从 subGraph.nodes 提取
+    if (targetIds.length === 0) {
+      const subGraph = (nodeData.subGraph || {}) as Record<string, unknown>
+      const subNodes = (subGraph.nodes || []) as unknown[]
+      targetIds = subNodes
+        .filter((n: any) => {
+          const t = String(n?.type || '')
+          return t.endsWith('Constraint') && t !== 'compositeConstraint'
+        })
+        .map((n: any) => n.id as string)
+    }
+
+    if (targetIds.length === 0) {
+      return {
+        status: 'idle',
+        validationErrors: ['请在属性面板中选择要聚合的约束节点'],
+        lastValidation: undefined,
+      }
+    }
+
+    // 收集所有上游约束的结果
+    const subResults: Array<{
+      status: 'idle' | 'pass' | 'error' | 'missing'
+      errors: string[]
+      lastValidation?: { totalRows: number; errorCount: number; matchCount: number }
+    }> = []
+
+    for (const targetId of targetIds) {
+      const targetNode = ctx.nodes.find((n) => n.id === targetId)
+      if (!targetNode || !isConstraintNodeType(targetNode.type)) continue
+
+      const targetData = (targetNode.data || {}) as Record<string, unknown>
+      const status = (targetData.validationStatus as 'idle' | 'pass' | 'error' | 'missing') || 'idle'
+      const errors = (targetData.validationErrors || []) as string[]
+      const lastValidation = targetData.lastValidation as
+        | { totalRows: number; errorCount: number; matchCount: number }
+        | undefined
+
+      subResults.push({ status, errors, lastValidation })
+    }
+
+    // 如果没有收集到任何有效结果
+    if (subResults.length === 0) {
+      return {
+        status: 'missing',
+        validationErrors: ['未找到有效的聚合约束节点'],
+        lastValidation: undefined,
+      }
+    }
+
+    // 按 logic 策略聚合结果
+    let finalStatus: 'pass' | 'error' | 'missing' = 'pass'
+    const finalErrors: string[] = []
+    let totalRows = 0
+    let totalErrorCount = 0
+
+    // 统计总行数（取所有子约束的最大值）
+    totalRows = Math.max(...subResults.map((s) => s.lastValidation?.totalRows || 0))
+
+    if (logic === 'all') {
+      // 所有子约束都必须通过：收集所有错误
+      const idleCount = subResults.filter((s) => s.status === 'idle').length
+      if (idleCount > 0) {
+        finalStatus = 'missing'
+        finalErrors.push(`有 ${idleCount} 个约束尚未执行，请先执行上游约束校验`)
+      }
+      for (const s of subResults) {
+        if (s.status === 'error') {
+          finalStatus = 'error'
+          finalErrors.push(...s.errors)
+          totalErrorCount += s.lastValidation?.errorCount || s.errors.length
+        }
+      }
+      if (finalErrors.length === 0 && finalStatus !== 'missing') {
+        finalStatus = 'pass'
+      }
+    } else if (logic === 'any') {
+      // 至少一个子约束通过即算通过
+      const passedCount = subResults.filter(
+        (s) => s.status === 'pass' || s.status === 'missing'
+      ).length
+      const idleCount = subResults.filter((s) => s.status === 'idle').length
+
+      if (idleCount === subResults.length) {
+        finalStatus = 'missing'
+        finalErrors.push('所有约束尚未执行')
+      } else if (passedCount === 0) {
+        finalStatus = 'error'
+        finalErrors.push(
+          `复合约束（logic=any）要求至少一个子约束通过，但全部 ${subResults.length} 个子约束均失败`
+        )
+        totalErrorCount = subResults.reduce(
+          (sum, s) => sum + (s.lastValidation?.errorCount || s.errors.length),
+          0
+        )
+      } else {
+        finalStatus = 'pass'
+      }
+    } else if (logic === 'none') {
+      // 所有子约束都必须失败才算通过
+      const failedCount = subResults.filter((s) => s.status === 'error').length
+      const idleCount = subResults.filter((s) => s.status === 'idle').length
+
+      if (idleCount === subResults.length) {
+        finalStatus = 'missing'
+        finalErrors.push('所有约束尚未执行')
+      } else if (failedCount < subResults.length - idleCount) {
+        finalStatus = 'error'
+        finalErrors.push(
+          `复合约束（logic=none）要求全部子约束失败，但有 ${subResults.length - failedCount - idleCount} 个子约束通过`
+        )
+        totalErrorCount = subResults.reduce(
+          (sum, s) => sum + (s.lastValidation?.errorCount || s.errors.length),
+          0
+        )
+      } else {
+        finalStatus = 'pass'
+      }
+    }
+
+    return {
+      status: finalStatus,
+      validationErrors: finalErrors,
+      lastValidation: {
+        totalRows,
+        errorCount: totalErrorCount,
+        matchCount: Math.max(0, totalRows - totalErrorCount),
+      },
+    }
+  },
+  resetOnDisconnect: (nodeData) => {
+    const reset = defaultReset(nodeData)
+    return {
+      ...reset,
+      includedNodeIds: [],
+    }
+  },
+})
+
 /** 注册唯一性约束处理器 */
 register({
   kind: 'unique',

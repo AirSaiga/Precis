@@ -106,14 +106,7 @@ def load_allowed_paths_from_config() -> list[str]:
         2. 当前工作目录
         3. 用户主目录
 
-    支持两种配置文件格式：
-
-    旧格式（v1.0）- 纯文本：
-        # 这是注释
-        /data/projects
-        /home/user/custom_data
-
-    新格式（v2.0）- YAML：
+    配置文件格式（v2.0 - YAML）：
         version: "2.0"
         default_policy: readonly
         paths:
@@ -125,66 +118,61 @@ def load_allowed_paths_from_config() -> list[str]:
 
     返回:
         从配置文件加载的允许路径列表
-
-    配置文件示例（旧格式）：
-        # 这是注释
-        /data/projects
-        /home/user/custom_data
     """
     config_file_name = ".precis-allowed-paths"
 
     search_paths = _get_whitelist_search_paths()
+    logger.info(f"[WHITELIST-LOAD] 搜索路径列表: {search_paths}")
 
     allowed_paths = []
 
     for search_path in search_paths:
         config_path = os.path.join(search_path, config_file_name)
+        logger.info(f"[WHITELIST-LOAD] 检查配置文件: {config_path}")
 
         if os.path.isfile(config_path):
+            logger.info(f"[WHITELIST-LOAD] ✅ 找到配置文件: {config_path}")
             try:
                 with open(config_path, encoding="utf-8") as f:
                     content = f.read().strip()
+                
+                logger.info(f"[WHITELIST-LOAD] 配置文件内容前100字符: {content[:100]}")
 
                 if not content:
+                    logger.info(f"[WHITELIST-LOAD] 配置文件为空")
                     break
 
-                if content.startswith("#") or (not content.startswith("version") and "\n" in content):
-                    allowed_paths = _parse_old_format(content)
-                else:
+                # 解析 v2.0 YAML 格式配置文件
+                try:
+                    data = yaml.safe_load(content)
+                    if not isinstance(data, dict):
+                        logger.error(f"[WHITELIST-LOAD] 配置文件格式错误：根节点必须是 YAML 字典")
+                        break
+                    
+                    version = data.get("version", "")
+                    if version != "2.0":
+                        logger.error(f"[WHITELIST-LOAD] 不支持的配置版本: {version}，仅支持 v2.0")
+                        break
+                    
+                    logger.info(f"[WHITELIST-LOAD] 使用 v2.0 格式解析")
                     allowed_paths = _parse_new_format(content)
+                    
+                except yaml.YAMLError as e:
+                    logger.error(f"[WHITELIST-LOAD] YAML 解析失败: {e}")
+                    break
+                
+                logger.info(f"[WHITELIST-LOAD] 解析结果: {allowed_paths}")
 
             except Exception:
                 logger.exception("读取白名单配置文件失败")
 
             break
+        else:
+            logger.info(f"[WHITELIST-LOAD] ❌ 文件不存在")
 
-    return allowed_paths
-
-
-def _parse_old_format(content: str) -> list[str]:
-    """
-    @methoddesc 解析旧格式（v1.0）白名单配置文件
-
-    旧格式为纯文本，每行一个路径，以 # 开头的行为注释。
-    仅当路径在磁盘上真实存在时才会被加入白名单。
-
-    参数:
-        content: 配置文件原始文本内容
-
-    返回:
-        解析后的允许路径列表（已规范化且存在的路径）
-    """
-    allowed_paths = []
-    # 逐行读取，跳过空行和注释行
-    for line in content.split("\n"):
-        stripped_line = line.strip()
-        if not stripped_line or stripped_line.startswith("#"):
-            continue
-        # 将路径统一为系统标准格式（如处理多余的斜杠）
-        normalized_path = os.path.normpath(stripped_line)
-        # 仅保留实际存在的目录或文件路径
-        if os.path.exists(normalized_path):
-            allowed_paths.append(normalized_path)
+    if not allowed_paths:
+        logger.info(f"[WHITELIST-LOAD] ️ 未找到任何配置文件或解析失败")
+    
     return allowed_paths
 
 
@@ -270,21 +258,33 @@ def is_path_in_allowed_directories(file_path: str, must_exist: bool = True) -> b
         ...     print("允许访问")
     """
     try:
+        # 【调试日志】查看传入的文件路径
+        logger.info(f"[WHITELIST] 检查路径: {file_path}")
+        logger.info(f"[WHITELIST] 文件是否存在: {os.path.exists(file_path)}")
+        
         if not os.path.exists(file_path):
             if must_exist:
+                logger.info(f"[WHITELIST] 文件不存在，拒绝访问")
                 return False
             return True
 
         resolved_path = os.path.realpath(file_path)
+        logger.info(f"[WHITELIST] 解析后的路径: {resolved_path}")
 
         allowed_dirs = get_allowed_directories()
+        logger.info(f"[WHITELIST] 允许的目录列表: {allowed_dirs}")
 
         for allowed_dir in allowed_dirs:
             allowed_resolved = os.path.realpath(allowed_dir)
+            logger.info(f"[WHITELIST] 检查白名单项: {allowed_dir} -> {allowed_resolved}")
 
             if resolved_path.startswith(allowed_resolved + os.sep) or resolved_path == allowed_resolved:
+                logger.info(f"[WHITELIST] ✅ 路径匹配成功: {allowed_dir}")
                 return True
+            else:
+                logger.info(f"[WHITELIST] ❌ 路径不匹配")
 
+        logger.info(f"[WHITELIST] ❌ 所有白名单项都不匹配")
         return False
 
     except (ValueError, OSError):

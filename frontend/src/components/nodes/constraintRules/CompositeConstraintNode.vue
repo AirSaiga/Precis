@@ -2,7 +2,7 @@
   <div class="composite-constraint-node">
     <NodeShell
       :node-id="id"
-      :title="data.configName || t('compositeConstraint.defaultName')"
+      :title="data.configName || t('customNodes.constraintRules.compositeConstraintNode.defaultName')"
       :badge="logicBadge"
       :badge-color="badgeColor"
       :status="data.validationStatus"
@@ -17,7 +17,7 @@
           <div class="composite-summary">
             <span class="logic-label">{{ logicLabel }}</span>
             <span class="sub-count">
-              {{ t('compositeConstraint.subCount', { count: subConstraintCount }) }}
+              {{ t('customNodes.constraintRules.compositeConstraintNode.subCount', { count: subConstraintCount }) }}
             </span>
           </div>
           <div v-if="data.description" class="composite-desc">
@@ -64,15 +64,15 @@
 
   const logicLabel = computed(() => {
     const labels: Record<string, string> = {
-      all: t('compositeConstraint.logic.all'),
-      any: t('compositeConstraint.logic.any'),
-      none: t('compositeConstraint.logic.none'),
+      all: t('customNodes.constraintRules.compositeConstraintNode.logicAll'),
+      any: t('customNodes.constraintRules.compositeConstraintNode.logicAny'),
+      none: t('customNodes.constraintRules.compositeConstraintNode.logicNone'),
     }
     return labels[props.data.logic || 'all'] || ''
   })
 
   const subConstraintCount = computed(() => {
-    return props.data.subGraph?.nodes?.length || 0
+    return (props.data.includedNodeIds?.length || 0) || (props.data.subGraph?.nodes?.length || 0)
   })
 
   function handleDelete() {

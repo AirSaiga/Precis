@@ -257,7 +257,7 @@
       id: 'logic',
       icon: '🧠',
       kind: 'constraint',
-      types: ['conditional', 'scripted', 'dateLogic'],
+      types: ['conditional', 'scripted', 'dateLogic', 'composite'],
     },
   ]
 
@@ -341,6 +341,7 @@
     conditional: 'customNodes.constraintRules.conditionalConstraintNode.title',
     scripted: 'customNodes.constraintRules.scriptedConstraintNode.title',
     dateLogic: 'customNodes.constraintRules.dateLogicConstraintNode.title',
+    composite: 'customNodes.constraintRules.compositeConstraintNode.title',
   }
 
   /**

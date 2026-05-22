@@ -627,6 +627,21 @@ const customNodes = {
       exampleNullCheckTitle: '非空校验',
       exampleNullCheckDesc: '值不能为 None 或空字符串',
     },
+    compositeConstraintNode: {
+      title: '复合约束',
+      defaultName: '新建复合约束',
+      helpTooltip:
+        '复合约束允许多个子约束按逻辑组合（全部满足/任一满足/全不满足）。连接子约束节点后，在子画布中编排逻辑。',
+      inputHandle: '连接 Schema 列（输入）',
+      logicAll: '全部满足',
+      logicAny: '任一满足',
+      logicNone: '全不满足',
+      subCount: '{count} 个子约束',
+      statusIdle: '未校验',
+      statusPass: '通过',
+      statusError: '失败',
+      statusMissing: '配置缺失',
+    },
   },
   sourcePreviewNode: {
     title: '数据源预览',

@@ -23,6 +23,7 @@ import { welcome, messages, startupLoading } from './messages'
 import { settings } from './settings'
 import { aiChat, aiConfigGenerator } from './ai'
 import { template } from './template'
+import { factories } from './factories'
 
 const enUS = {
   app,
@@ -54,6 +55,7 @@ const enUS = {
   aiChat,
   aiConfigGenerator,
   template,
+  factories,
   common: commonLocales,
   shortcuts,
 }
