@@ -6,16 +6,25 @@
  * - 监听节点右键点击事件
  * - 创建并管理原生 DOM 上下文菜单
  * - 将选中节点添加到 AI Chat 上下文
+ * - 将选中节点打包为模板定义
  */
 
 import type { NodeMouseEvent } from '@vue-flow/core'
 import { useAiChatStore } from '@/stores/aiChatStore'
+import { useGraphStore } from '@/stores/graphStore'
+import { isConstraintNodeType } from '@/services/constraints/validationRegistryCore'
 
 export interface CanvasContextMenuOptions {
   /** VueFlow 节点右键事件注册器 */
   onNodeContextMenu: (handler: (event: NodeMouseEvent) => void) => void
   /** i18n 翻译函数 */
   t: (key: string) => string
+}
+
+/** 判断节点类型是否可被打包进模板 */
+function isEligibleNodeType(type: string | undefined): boolean {
+  if (!type) return false
+  return type === 'transform' || type === 'regex' || isConstraintNodeType(type)
 }
 
 /**
@@ -25,10 +34,11 @@ export interface CanvasContextMenuOptions {
  */
 export function useCanvasContextMenu({ onNodeContextMenu, t }: CanvasContextMenuOptions) {
   const aiChatStore = useAiChatStore()
+  const graphStore = useGraphStore()
 
   /**
    * @description 设置节点右键上下文菜单
-   * @description 注册节点右键事件，创建原生 DOM 菜单并提供"添加到 AI Chat"功能
+   * @description 注册节点右键事件，创建原生 DOM 菜单并提供"添加到 AI Chat"和"保存为模板"功能
    */
   const setupContextMenu = () => {
     onNodeContextMenu(({ event, node }) => {
@@ -75,6 +85,34 @@ export function useCanvasContextMenu({ onNodeContextMenu, t }: CanvasContextMenu
       }
 
       contextMenu.appendChild(addToChatItem)
+
+      // 判断是否显示"保存为模板"菜单项
+      // 条件：当前选中的节点中有至少一个 eligible 类型
+      const selectedNodeIds = graphStore.selectedNodeIds
+      const allSelectedNodes =
+        selectedNodeIds.length > 0
+          ? graphStore.nodes.filter((n) => selectedNodeIds.includes(n.id))
+          : [node]
+      const hasEligible = allSelectedNodes.some((n) => isEligibleNodeType(n.type))
+
+      if (hasEligible) {
+        // 分隔线
+        const separator = document.createElement('div')
+        separator.className = 'context-menu-separator'
+        contextMenu.appendChild(separator)
+
+        // 创建"保存为模板"菜单项
+        const saveAsTemplateItem = document.createElement('button')
+        saveAsTemplateItem.className = 'context-menu-item'
+        saveAsTemplateItem.textContent = '\uD83D\uDCE6 ' + t('template.saveAsTemplate')
+        saveAsTemplateItem.onclick = () => {
+          window.dispatchEvent(new CustomEvent('open-save-as-template-dialog'))
+          if (contextMenu.parentNode === document.body) {
+            document.body.removeChild(contextMenu)
+          }
+        }
+        contextMenu.appendChild(saveAsTemplateItem)
+      }
 
       // 定义点击菜单外部时关闭菜单的处理器
       const closeMenu = (e: MouseEvent) => {

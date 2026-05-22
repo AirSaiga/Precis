@@ -41,6 +41,15 @@
     @close="graphStore.closeRegexDesignModal"
     @save="handleRegexDesignSave"
   />
+
+  <!-- 保存选区为模板对话框 -->
+  <SaveAsTemplateDialog
+    :visible="saveAsTemplateVisible"
+    :selected-nodes="graphStore.selectedNodes"
+    :edges="graphStore.edges"
+    @close="saveAsTemplateVisible = false"
+    @save="saveAsTemplateVisible = false"
+  />
 </template>
 
 <script setup lang="ts">
@@ -75,6 +84,9 @@
   const RegexDesignModal = defineAsyncComponent(
     () => import('@/features/regex/components/RegexDesignModal.vue')
   )
+  const SaveAsTemplateDialog = defineAsyncComponent(
+    () => import('@/components/template/SaveAsTemplateDialog.vue')
+  )
 
   const graphStore = useGraphStore()
   const scriptEditorStore = useScriptEditorStore()
@@ -83,11 +95,16 @@
   const projectStore = useProjectStore()
   const aiConfigGeneratorStore = useAiConfigGeneratorStore()
   const projectManagementVisible = ref(false)
+  const saveAsTemplateVisible = ref(false)
 
   const handleRegexDesignSave = (updatedData: any) => {
     if (graphStore.activeRegexNodeId) {
       graphStore.saveRegexDesign(graphStore.activeRegexNodeId, updatedData)
     }
+  }
+
+  const handleOpenSaveAsTemplate = () => {
+    saveAsTemplateVisible.value = true
   }
 
   const handleOpenSettings = () => {
@@ -125,6 +142,10 @@
     window.addEventListener('open-settings', handleOpenSettings as EventListener)
     window.addEventListener('open-project-management', handleOpenProjectManagement as EventListener)
     window.addEventListener('export-full-config-yaml', handleExportFullConfigYaml as EventListener)
+    window.addEventListener(
+      'open-save-as-template-dialog',
+      handleOpenSaveAsTemplate as EventListener
+    )
   })
 
   onUnmounted(() => {
@@ -136,6 +157,10 @@
     window.removeEventListener(
       'export-full-config-yaml',
       handleExportFullConfigYaml as EventListener
+    )
+    window.removeEventListener(
+      'open-save-as-template-dialog',
+      handleOpenSaveAsTemplate as EventListener
     )
   })
 

@@ -107,6 +107,8 @@ export interface ProjectNodeData {
   schemaCount?: number
   constraintCount?: number
   regexCount?: number
+  transformCount?: number
+  templateCount?: number
   totalAssets?: number
   passRate?: number
   errorCount?: number

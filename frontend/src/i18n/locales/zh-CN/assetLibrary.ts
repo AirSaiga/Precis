@@ -40,6 +40,8 @@ const assetLibraryExtended = {
       validationAssets: '校验资产库',
       independentConstraints: '独立约束',
       regexCenter: '正则中心',
+      templates: '模板',
+      emptyTemplates: '暂无模板',
       embeddedConstraints: '内嵌约束',
       cannotDragEmbeddedConstraint: '无法独立操作，内嵌约束必须依附于数据模型',
       unlistedInManifest: '未入清单',

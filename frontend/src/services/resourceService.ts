@@ -14,6 +14,7 @@ import type {
   PatternResource,
   ConstraintResource,
   RegexNodeResource,
+  TemplateResource,
   ResourceOperationResult,
   EmbeddedConstraintResource,
   ColumnImplicitRegexInfo,
@@ -343,6 +344,21 @@ export class ResourceService implements IResourceService {
       }
     }
 
+    // 解析 Templates
+    if (effectiveManifest.templates && Array.isArray(effectiveManifest.templates)) {
+      for (const ref of effectiveManifest.templates) {
+        resources.push({
+          id: ref.id,
+          name: ref.id,
+          kind: 'template',
+          path: ref.path,
+          meta: {
+            listedInManifest: true,
+          },
+        } as TemplateResource)
+      }
+    }
+
     return resources
   }
 
@@ -358,7 +374,7 @@ export class ResourceService implements IResourceService {
    * @throws 当资源类型不支持或缓存未加载时抛出错误
    */
   async previewResource(
-    resourceKind: 'schema' | 'pattern' | 'constraint' | 'regex_node',
+    resourceKind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template',
     resourceId: string,
     configPath: string
   ): Promise<unknown> {
@@ -371,6 +387,8 @@ export class ResourceService implements IResourceService {
         return projectV2Api.getV2RegexNode(resourceId, configPath)
       case 'constraint':
         return projectV2Api.getV2Constraint(resourceId, configPath)
+      case 'template':
+        return projectV2Api.getV2Template(resourceId, configPath)
       default:
         throw new Error(`Unsupported resource kind: ${resourceKind}`)
     }

@@ -156,7 +156,7 @@
 
   const openContextMenu = (
     event: MouseEvent,
-    kind: 'schema' | 'pattern' | 'constraint' | 'regex_node',
+    kind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template',
     item: ResourceItem
   ) => {
     const contextMenuEl = document.querySelector('.resource-context-menu')

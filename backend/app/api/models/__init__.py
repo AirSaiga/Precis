@@ -64,6 +64,7 @@ from .schema import (
 # 校验模型
 # ============================================================================
 from .validation import (
+    InlineValidationRequest,
     RegexValidationErrorRow,
     RegexValidationRequest,
     RegexValidationResponse,
@@ -103,6 +104,7 @@ __all__ = [
     # 数据预览模型
     "FilePreviewResponse",
     # 校验模型
+    "InlineValidationRequest",
     "RegexValidationRequest",
     "RegexValidationResponse",
     "RegexValidationResult",

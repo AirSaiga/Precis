@@ -17,6 +17,7 @@ const common = {
   confirm: 'Confirm',
   cancel: 'Cancel',
   save: 'Save',
+  saving: 'Saving...',
   delete: 'Delete',
   edit: 'Edit',
   create: 'Create',

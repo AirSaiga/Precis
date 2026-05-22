@@ -485,6 +485,17 @@ export function useCanvasNodeOperations(flowWrapper: Ref<HTMLElement | null>) {
       // TemplateInstance 类型：模板实例节点
       case 'templateInstance':
         if (
+          source === 'projectResources' &&
+          meta &&
+          typeof meta === 'object' &&
+          'id' in meta
+        ) {
+          store.createTemplateInstanceNode(
+            position,
+            String((meta as Record<string, unknown>).id),
+            String((meta as Record<string, unknown>).name || '')
+          )
+        } else if (
           source === 'toolbox' &&
           meta &&
           typeof meta === 'object' &&

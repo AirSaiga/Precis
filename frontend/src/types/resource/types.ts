@@ -23,6 +23,7 @@ export type ResourceType =
   | 'projectConfig'
   | 'patternFolder'
   | 'constraintFolder'
+  | 'template'
 
 /**
  * 模式注册表类型
@@ -173,6 +174,19 @@ export interface ConstraintFolderResource extends BaseResource {
 }
 
 /**
+ * 模板资源
+ */
+export interface TemplateResource extends BaseResource {
+  kind: 'template'
+  /** 模板文件路径 */
+  path: string
+  /** 模板描述 */
+  description?: string
+  /** 参数定义 */
+  params?: Record<string, unknown>
+}
+
+/**
  * 资源联合类型
  */
 export type ResourceItem =
@@ -184,6 +198,7 @@ export type ResourceItem =
   | ProjectConfigResource
   | PatternFolderResource
   | ConstraintFolderResource
+  | TemplateResource
 
 /**
  * 资源文件夹类型
@@ -198,6 +213,7 @@ export type FolderType =
   | 'validationAssets'
   | 'independentConstraints'
   | 'regexCenter'
+  | 'templates'
 
 /**
  * 资源文件夹

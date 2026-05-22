@@ -44,6 +44,7 @@ import {
   validateForeignKey,
   validateRange,
   validateScripted,
+  validateInline,
 } from '@/api/validationApi'
 import { validateNotNull } from '@/composables/nodes/constraints/useNotNull'
 import { validateUnique } from '@/composables/nodes/constraints/useUnique'
@@ -59,6 +60,24 @@ register({
   validate: async (ctx) => {
     const missing = requireSource(ctx)
     if (missing) return missing
+
+    // 行内数据校验（TransformOutput / ManualData）—— 委托后端执行
+    if (ctx.inlineRows && ctx.inlineRows.length > 0) {
+      const response = await validateInline({
+        validation_type: 'not_null',
+        target_column_name: ctx.columnName,
+        rows: ctx.inlineRows,
+      })
+      if (!response.success || !response.data) {
+        return {
+          status: 'error',
+          validationErrors: [String(response.error || '非空校验失败')],
+          lastValidation: undefined,
+        }
+      }
+      return toResult(response.data.error_rows || [], response.data.total_rows || 0, '值不能为空')
+    }
+
     const result = await validateNotNull(
       String(ctx.sourceFilePath),
       ctx.columnName,
@@ -84,6 +103,24 @@ register({
   validate: async (ctx) => {
     const missing = requireSource(ctx)
     if (missing) return missing
+
+    // 行内数据校验（TransformOutput / ManualData）—— 委托后端执行
+    if (ctx.inlineRows && ctx.inlineRows.length > 0) {
+      const response = await validateInline({
+        validation_type: 'unique',
+        target_column_name: ctx.columnName,
+        rows: ctx.inlineRows,
+      })
+      if (!response.success || !response.data) {
+        return {
+          status: 'error',
+          validationErrors: [String(response.error || '唯一性校验失败')],
+          lastValidation: undefined,
+        }
+      }
+      return toResult(response.data.error_rows || [], response.data.total_rows || 0, '值重复')
+    }
+
     const result = await validateUnique(
       String(ctx.sourceFilePath),
       ctx.columnName,
@@ -120,6 +157,29 @@ register({
         lastValidation: undefined,
       }
     }
+
+    // 行内数据校验（TransformOutput / ManualData）—— 委托后端执行
+    if (ctx.inlineRows && ctx.inlineRows.length > 0) {
+      const response = await validateInline({
+        validation_type: 'allowed_values',
+        target_column_name: ctx.columnName,
+        rows: ctx.inlineRows,
+        validation_config: { allowed_values: allowedValues },
+      })
+      if (!response.success || !response.data) {
+        return {
+          status: 'error',
+          validationErrors: [String(response.error || '允许值校验失败')],
+          lastValidation: undefined,
+        }
+      }
+      return toResult(
+        response.data.error_rows || [],
+        response.data.total_rows || 0,
+        '值不在允许值列表中'
+      )
+    }
+
     const response = await validateAllowedValues({
       validation_type: 'allowed_values',
       target_column_name: ctx.columnName,
@@ -151,6 +211,34 @@ register({
     const missing = requireSource(ctx)
     if (missing) return missing
     const nodeData = (ctx.constraintNode.data || {}) as Record<string, unknown>
+
+    // 行内数据校验（TransformOutput / ManualData）—— 委托后端执行
+    if (ctx.inlineRows && ctx.inlineRows.length > 0) {
+      const response = await validateInline({
+        validation_type: 'range',
+        target_column_name: ctx.columnName,
+        rows: ctx.inlineRows,
+        validation_config: {
+          min_value: nodeData.minValue as number,
+          max_value: nodeData.maxValue as number,
+          boundary_mode:
+            (nodeData.boundaryMode as 'inclusive' | 'exclusive' | undefined) || 'inclusive',
+        },
+      })
+      if (!response.success || !response.data) {
+        return {
+          status: 'error',
+          validationErrors: [String(response.error || '区间校验失败')],
+          lastValidation: undefined,
+        }
+      }
+      return toResult(
+        response.data.error_rows || [],
+        response.data.total_rows || 0,
+        '值超出区间范围'
+      )
+    }
+
     const response = await validateRange({
       validation_type: 'range',
       target_column_name: ctx.columnName,
@@ -183,6 +271,31 @@ register({
     const missing = requireSource(ctx)
     if (missing) return missing
     const nodeData = (ctx.constraintNode.data || {}) as Record<string, unknown>
+
+    // 行内数据校验（TransformOutput / ManualData）—— 委托后端执行
+    if (ctx.inlineRows && ctx.inlineRows.length > 0) {
+      const response = await validateInline({
+        validation_type: 'charset',
+        target_column_name: ctx.columnName,
+        rows: ctx.inlineRows,
+        validation_config: {
+          charset_mode: (nodeData.charsetMode as 'ascii' | 'chinese' | undefined) || 'ascii',
+        },
+      })
+      if (!response.success || !response.data) {
+        return {
+          status: 'error',
+          validationErrors: [String(response.error || '字符集校验失败')],
+          lastValidation: undefined,
+        }
+      }
+      return toResult(
+        response.data.error_rows || [],
+        response.data.total_rows || 0,
+        '字符集不符合约束'
+      )
+    }
+
     const response = await validateCharset({
       validation_type: 'charset',
       target_column_name: ctx.columnName,
@@ -216,6 +329,35 @@ register({
     const missing = requireSource(ctx)
     if (missing) return missing
     const nodeData = (ctx.constraintNode.data || {}) as Record<string, unknown>
+    // 行内数据校验（TransformOutput / ManualData）—— 委托后端沙箱执行
+    if (ctx.inlineRows && ctx.inlineRows.length > 0) {
+      const inlineScript = String(nodeData.script || '').trim()
+      if (!inlineScript) {
+        return {
+          status: 'idle',
+          validationErrors: ['请先配置脚本后再进行校验'],
+          lastValidation: undefined,
+        }
+      }
+      const response = await validateInline({
+        validation_type: 'scripted',
+        target_column_name: ctx.columnName,
+        rows: ctx.inlineRows,
+        validation_config: {
+          script: inlineScript,
+          script_name: String(nodeData.configName || 'custom_script'),
+        },
+        allow_unsafe_eval: true,
+      })
+      if (!response.success || !response.data) {
+        return {
+          status: 'error',
+          validationErrors: [String(response.error || '脚本校验失败')],
+          lastValidation: undefined,
+        }
+      }
+      return toResult(response.data.error_rows || [], response.data.total_rows || 0, '脚本校验失败')
+    }
     const script = String(nodeData.script || '').trim()
     if (!script) {
       return {
@@ -282,6 +424,36 @@ register({
       (((targetNode?.data || {}) as Record<string, unknown>)?.tableName as string) ||
       (nodeData.targetTable as string) ||
       'target'
+
+    // 行内数据校验（TransformOutput / ManualData）—— 委托后端执行
+    if (ctx.inlineRows && ctx.inlineRows.length > 0) {
+      const response = await validateInline({
+        validation_type: 'foreign_key',
+        target_column_name: ctx.columnName,
+        rows: ctx.inlineRows,
+        validation_config: {
+          target_table: targetTable,
+          target_column: targetColumn as string,
+          target_values: targetValues,
+        },
+      })
+      if (!response.success || !response.data) {
+        return {
+          status: 'error',
+          validationErrors: [String(response.error || '外键校验失败')],
+          lastValidation: undefined,
+        }
+      }
+      const rows = response.data.error_rows || []
+      const filtered = nodeData.allowNull
+        ? rows.filter((err) => {
+            const v = (err as unknown as Record<string, unknown>)?.cell_value
+            return !(v === null || v === undefined || String(v).trim() === '')
+          })
+        : rows
+      return toResult(filtered, response.data.total_rows || 0, '外键约束不满足')
+    }
+
     const response = await validateForeignKey({
       validation_type: 'foreign_key',
       target_column_name: ctx.columnName,
@@ -319,6 +491,14 @@ register({
   validate: async (ctx) => {
     const missing = requireSource(ctx)
     if (missing) return missing
+    // 行内数据源暂不支持条件校验（需多列 IF/THEN 参照）
+    if (ctx.inlineRows && ctx.inlineRows.length > 0) {
+      return {
+        status: 'idle',
+        validationErrors: ['行内数据源暂不支持条件约束校验，请使用文件数据源'],
+        lastValidation: undefined,
+      }
+    }
     const nodeData = (ctx.constraintNode.data || {}) as Record<string, unknown>
     const ifConditions = Array.isArray(nodeData.ifConditions)
       ? (nodeData.ifConditions as unknown[])
@@ -408,6 +588,14 @@ register({
   validate: async (ctx) => {
     const missing = requireSource(ctx)
     if (missing) return missing
+    // 行内数据源暂不支持日期逻辑校验（需后端日期解析）
+    if (ctx.inlineRows && ctx.inlineRows.length > 0) {
+      return {
+        status: 'idle',
+        validationErrors: ['行内数据源暂不支持日期逻辑校验，请使用文件数据源'],
+        lastValidation: undefined,
+      }
+    }
     const nodeData = (ctx.constraintNode.data || {}) as Record<string, unknown>
     const validationConfig: Record<string, unknown> = {
       logic_mode: nodeData.logicMode || 'compare',

@@ -166,6 +166,37 @@
           </template>
         </ToolboxTile>
 
+        <!-- Template Instance -->
+        <ToolboxTile
+          :tool="{
+            id: 'templateInstance',
+            label: 'Template Instance',
+            iconClass: 'tile-icon-purple',
+            iconSvg: ICONS.templateInstance,
+          }"
+          draggable
+          @dragstart="(e) => handleToolboxDragStart(e, 'templateInstance')"
+          @dragend="handleDragEnd"
+        >
+          <template #action>
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              @click="createTemplateInstance"
+            >
+              <line x1="12" y1="5" x2="12" y2="19"></line>
+              <line x1="5" y1="12" x2="19" y2="12"></line>
+            </svg>
+          </template>
+        </ToolboxTile>
+
         <!-- Transform Node -->
         <ToolboxTile
           :tool="{
@@ -429,6 +460,7 @@
     createConstraintNode,
     createTransform,
     createManualData,
+    createTemplateInstance,
   } = useToolboxCreators()
   const {
     handleToolboxDragStart,
@@ -650,6 +682,8 @@
       '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>',
     transform:
       '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>',
+    templateInstance:
+      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>',
   }
 
   const emit = defineEmits<{

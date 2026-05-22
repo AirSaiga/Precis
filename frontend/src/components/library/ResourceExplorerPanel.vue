@@ -101,11 +101,12 @@
     dragend: []
     contextmenu: [
       event: MouseEvent,
-      kind: 'schema' | 'pattern' | 'constraint' | 'regex_node',
+      kind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template',
       resource: ResourceItem,
     ]
     'project-config-dragstart': [event: DragEvent]
     'embedded-constraint-click': [schema: ResourceItem, ec: unknown]
+
   }>()
 
   const { t } = useI18n()

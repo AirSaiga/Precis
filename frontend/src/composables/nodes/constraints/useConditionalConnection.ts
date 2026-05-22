@@ -17,9 +17,12 @@ import type { ConditionalConstraintNodeData } from '@/types/constraints'
 export function useConditionalConnection() {
   const store = useGraphStore()
 
-  // 辅助函数：判断是否为可连接的源节点类型（Schema 或 TransformOutput）
+  // 辅助函数：判断是否为可连接的源节点类型（Schema / TransformOutput / ManualData）
   const isValidSourceType = (type: string | undefined): boolean =>
-    type === 'schema' || type === 'jsonSchema' || type === 'transformOutput'
+    type === 'schema' ||
+    type === 'jsonSchema' ||
+    type === 'transformOutput' ||
+    type === 'manualData'
 
   const handleSchemaToConditionalConnection = async (
     sourceNodeId: string,
@@ -46,12 +49,13 @@ export function useConditionalConnection() {
       ? sourceHandleId.replace('source-right-', '')
       : sourceHandleId
 
-    // 区分 Schema 节点与 TransformOutput 节点的数据结构
-    const isTransformOutput = sourceNode.type === 'transformOutput'
+    // 区分 Schema 节点与纯数据节点（TransformOutput / ManualData）的数据结构
+    const isPureDataSource =
+      sourceNode.type === 'transformOutput' || sourceNode.type === 'manualData'
     let columnName: string
     let tableName: string
 
-    if (isTransformOutput) {
+    if (isPureDataSource) {
       const sourceData = sourceNode.data as TransformOutputNodeData
       columnName = sourceData.columnName || columnId
       tableName = sourceData.configName || columnName
@@ -73,8 +77,8 @@ export function useConditionalConnection() {
     }
 
     if (isIfHandle) {
-      // TransformOutput 场景下 IF/THEN 可来自不同节点（如实际校验位 vs 期望校验码）
-      if (!isTransformOutput) {
+      // 纯数据源（TransformOutput / ManualData）场景下 IF/THEN 可来自不同节点
+      if (!isPureDataSource) {
         const existingNodeId =
           current.thenRef?.nodeId ||
           current.ifConditions?.find((c) => c.ref?.nodeId)?.ref?.nodeId ||
@@ -133,8 +137,8 @@ export function useConditionalConnection() {
     }
 
     if (isThenHandle) {
-      // TransformOutput 场景下 IF/THEN 可来自不同节点
-      if (!isTransformOutput) {
+      // 纯数据源场景下 IF/THEN 可来自不同节点
+      if (!isPureDataSource) {
         const existingNodeId =
           current.ifConditions?.find((c) => c.ref?.nodeId)?.ref?.nodeId || current.ifRef?.nodeId
         if (existingNodeId && existingNodeId !== sourceNodeId) {

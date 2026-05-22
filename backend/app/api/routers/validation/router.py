@@ -25,7 +25,7 @@ from fastapi import APIRouter
 # 创建数据校验模块的路由实例，tags 用于在 API 文档中分组展示
 router = APIRouter(prefix="", tags=["Data Validation"])
 
-# 导入子模块以注册其路由（content_mode 和 path_mode 通过 from .router import router 装饰本实例）
-from . import content_mode, path_mode  # noqa: E402, F401
+# 导入子模块以注册其路由（content_mode、inline_mode 和 path_mode 通过 from .router import router 装饰本实例）
+from . import content_mode, inline_mode, path_mode  # noqa: E402, F401
 
 __all__ = ["router"]

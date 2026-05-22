@@ -22,6 +22,7 @@ import { assetLibraryExtended } from './assetLibrary'
 import { welcome, messages, startupLoading } from './messages'
 import { settings } from './settings'
 import { aiChat, aiConfigGenerator } from './ai'
+import { template } from './template'
 
 // force rebuild: 2026-05-18
 const zhCN = {
@@ -53,6 +54,7 @@ const zhCN = {
   settings,
   aiChat,
   aiConfigGenerator,
+  template,
   common: commonLocales,
   shortcuts,
 }

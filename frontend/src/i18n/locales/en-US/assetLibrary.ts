@@ -40,6 +40,8 @@ const assetLibraryExtended = {
       validationAssets: 'Validation Assets',
       independentConstraints: 'Independent Constraints',
       regexCenter: 'Regex Center',
+      templates: 'Templates',
+      emptyTemplates: 'No templates',
       embeddedConstraints: 'Embedded Constraints',
       cannotDragEmbeddedConstraint:
         'Cannot operate independently, embedded constraints must be attached to a data model',

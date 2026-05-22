@@ -80,6 +80,9 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
   /** Constraint资源列表 */
   const constraints = computed(() => resourceList.value.filter((r) => r.kind === 'constraint'))
 
+  /** Template资源列表 */
+  const templates = computed(() => resourceList.value.filter((r) => r.kind === 'template'))
+
   /** 独立约束资源列表（constraintSource === 'independent'） */
   const independentConstraints = computed(() =>
     constraints.value.filter(
@@ -146,6 +149,7 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
 
     const targetPatterns = getTargetResources('pattern', patterns.value)
     const targetRegexNodes = getTargetResources('regex_node', regexNodes.value)
+    const targetTemplates = getTargetResources('template', templates.value)
 
     // 过滤独立约束（constraintSource === 'independent'）
     const targetIndependentConstraints = targetConstraints.filter(
@@ -181,7 +185,8 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
         expanded: isSearching
           ? targetIndependentConstraints.length > 0 ||
             targetPatterns.length > 0 ||
-            targetRegexNodes.length > 0
+            targetRegexNodes.length > 0 ||
+            targetTemplates.length > 0
           : folders.value.validationAssets.expanded,
         children: [
           {
@@ -232,6 +237,25 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
               },
             ],
           },
+          {
+            ...(folders.value.validationAssets.children?.find((c) => c.id === 'templates') || {
+              id: 'templates',
+              name: 'templates',
+              type: 'templates',
+              expanded: false,
+              count: 0,
+              resources: [],
+            }),
+            id: 'templates',
+            name: 'templates',
+            type: 'templates' as const,
+            expanded: isSearching
+              ? targetTemplates.length > 0
+              : (folders.value.validationAssets.children?.find((c) => c.id === 'templates')
+                  ?.expanded ?? false),
+            count: targetTemplates.length,
+            resources: targetTemplates,
+          },
         ],
       },
     }
@@ -264,6 +288,8 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
         return []
       case 'regexCenter':
         return []
+      case 'templates':
+        return templates.value
       case 'projectConfig':
         return []
       default:
@@ -309,6 +335,7 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
         independentConstraints: independentConstraints.length,
         patterns: patterns.value.length,
         regexNodes: regexNodes.value.length,
+        templates: templates.value.length,
       })
 
       folderStore.initializeFolderResources({
@@ -316,6 +343,7 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
         independentConstraints,
         patterns: patterns.value,
         regexNodes: regexNodes.value,
+        templates: templates.value,
       })
 
       // 兼容旧代码：schemas, patterns, regex_nodes, constraints 保持引用
@@ -433,6 +461,7 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
       independentConstraints,
       patterns: patterns.value,
       regexNodes: regexNodes.value,
+      templates: templates.value,
     })
   }
 
@@ -460,6 +489,7 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
     independentConstraintsUnlistedCount,
     embeddedConstraintsManifestCount,
     embeddedConstraintsUnlistedCount,
+    templates,
     filteredResources,
     filteredFolders,
 

@@ -17,6 +17,7 @@
 import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
 import { dispatchValidation } from '@/services/constraints/orchestration/globalValidation'
+import { validateForInlineSource } from '@/services/constraints/validationRegistryCore'
 import type { SchemaNodeData } from '@/types/graph'
 
 export interface ConstraintConnectionConfig {
@@ -38,10 +39,14 @@ export function useConstraintConnection() {
   const isSchemaType = (type: string | undefined): boolean =>
     type === 'schema' || type === 'jsonSchema'
 
+  const isPureDataSourceType = (type: string | undefined): boolean =>
+    type === 'transformOutput' || type === 'manualData'
+
   /**
-   * 处理 Schema(列) → 通用约束节点的连接
+   * 处理数据源 → 通用约束节点的连接
+   * 支持 Schema / JsonSchema / TransformOutput / ManualData 作为数据源
    *
-   * @param sourceNodeId - 源 Schema 节点 ID
+   * @param sourceNodeId - 源节点 ID
    * @param targetNodeId - 目标约束节点 ID
    * @param sourceHandle - 源 handle（列端口），格式 source-right-{columnId}
    * @param targetHandle - 目标 handle（预期为 target-input-{id}）
@@ -58,31 +63,52 @@ export function useConstraintConnection() {
     const targetNode = store.nodes.find((n: any) => n.id === targetNodeId)
     if (!sourceNode || !targetNode) return
 
-    if (!isSchemaType(sourceNode.type) || targetNode.type !== config.nodeType) {
+    const isSchema = isSchemaType(sourceNode.type)
+    const isPureData = isPureDataSourceType(sourceNode.type)
+
+    if ((!isSchema && !isPureData) || targetNode.type !== config.nodeType) {
       return
     }
 
-    const columnId = sourceHandle.startsWith('source-right-')
-      ? sourceHandle.replace('source-right-', '')
-      : sourceHandle
+    // 根据源节点类型构建列信息
+    let columnId: string
+    let columnName: string
+    let tableName: string
 
-    const schemaData = sourceNode.data as SchemaNodeData
-    const column = schemaData.columns.find((c: any) => c.id === columnId)
-    if (!column) {
-      logger.warn('❌ 未找到连接的列:', columnId)
-      return
+    if (isPureData) {
+      // TransformOutput / ManualData：单列数据，columnName 存在节点 data 上
+      const sourceData = sourceNode.data as Record<string, unknown>
+      columnId = sourceHandle.startsWith('source-right-')
+        ? sourceHandle.replace('source-right-', '')
+        : sourceHandle || '0'
+      columnName = (sourceData.columnName as string) || 'Column1'
+      tableName = (sourceData.configName as string) || columnName
+    } else {
+      // Schema / JsonSchema：从 columns 数组中查找
+      columnId = sourceHandle.startsWith('source-right-')
+        ? sourceHandle.replace('source-right-', '')
+        : sourceHandle
+      const schemaData = sourceNode.data as SchemaNodeData
+      const column = schemaData.columns.find((c: any) => c.id === columnId)
+      if (!column) {
+        logger.warn('❌ 未找到连接的列:', columnId)
+        return
+      }
+      columnName = column.columnName
+      tableName = schemaData.tableName
     }
 
-    logger.debug(`🔗 Schema列连接到${config.kind}约束:`, {
+    logger.debug(`🔗 数据源列连接到${config.kind}约束:`, {
       sourceNodeId,
+      sourceType: sourceNode.type,
       columnId,
-      columnName: column.columnName,
+      columnName,
     })
 
     const updateData: Record<string, unknown> = {
       sourceRef: { nodeId: sourceNodeId, columnId },
-      table: schemaData.tableName,
-      column: column.columnName,
+      table: tableName,
+      column: columnName,
       saveState: 'draft',
     }
 
@@ -97,19 +123,32 @@ export function useConstraintConnection() {
       ...updateData,
     })
 
-    if (config.addConstraintToColumn) {
+    // Schema 专属操作：在列上标记约束
+    if (isSchema && config.addConstraintToColumn) {
       store.addConstraintToColumn(sourceNodeId, columnId, config.kind as 'notNull' | 'unique')
     }
 
+    // 触发校验
     if (config.dispatchValidation) {
-      dispatchValidation(
-        config.kind,
-        sourceNodeId,
-        columnId,
-        store.nodes,
-        store.edges,
-        store.updateNodeData
-      )
+      if (isPureData) {
+        // 纯数据节点：使用行内校验（本地执行，无需后端文件路径）
+        await validateForInlineSource({
+          sourceNodeId,
+          constraintNode: targetNode,
+          nodes: store.nodes,
+          updateNodeData: store.updateNodeData,
+        })
+      } else {
+        // Schema 节点：使用后端 API 校验
+        dispatchValidation(
+          config.kind,
+          sourceNodeId,
+          columnId,
+          store.nodes,
+          store.edges,
+          store.updateNodeData
+        )
+      }
     }
   }
 

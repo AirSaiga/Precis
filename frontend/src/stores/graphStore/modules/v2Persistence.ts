@@ -47,6 +47,7 @@ export function createV2PersistenceModule(params: {
     constraintInlineCount: number
     regexCount: number
     transformCount: number
+    templateCount: number
   }>
   projectConfigStatsLoaded: Ref<boolean>
   projectConfigStatsConfigPath: Ref<string>
@@ -58,6 +59,18 @@ export function createV2PersistenceModule(params: {
     configDir: string | undefined,
     relPath: string | undefined
   ) => string | undefined
+  createTemplateInstanceNode: (
+    position: { x: number; y: number },
+    templateId?: string,
+    templateName?: string,
+    options?: {
+      nodeId?: string
+      parameters?: Record<string, unknown>
+      inputFromNode?: string
+      enabled?: boolean
+      saveState?: 'draft' | 'saved'
+    }
+  ) => string
 }) {
   const {
     nodes,
@@ -73,6 +86,7 @@ export function createV2PersistenceModule(params: {
     normalizeConfigDir,
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
+    createTemplateInstanceNode,
   } = params
 
   // 初始化统计操作子模块
@@ -107,6 +121,7 @@ export function createV2PersistenceModule(params: {
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     saveProject: saveOps.saveProject,
+    createTemplateInstanceNode,
   })
 
   // 监听统计数据变化，自动同步到 projectRoot 节点
@@ -122,12 +137,14 @@ export function createV2PersistenceModule(params: {
         data.constraintCount = newStats.constraintCount
         data.regexCount = newStats.regexCount
         data.transformCount = newStats.transformCount
+        data.templateCount = newStats.templateCount
         // totalAssets 为所有资源的总和，用于在根节点上展示整体概况
         data.totalAssets =
           newStats.schemaCount +
           newStats.constraintCount +
           newStats.regexCount +
-          newStats.transformCount
+          newStats.transformCount +
+          newStats.templateCount
       }
     },
     { deep: true }

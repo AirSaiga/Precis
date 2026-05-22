@@ -30,6 +30,7 @@ export function createV2StatsOps(params: {
     constraintInlineCount: number
     regexCount: number
     transformCount: number
+    templateCount: number
   }>
   projectConfigStatsLoaded: Ref<boolean>
   projectConfigStatsConfigPath: Ref<string>
@@ -62,6 +63,7 @@ export function createV2StatsOps(params: {
       const constraintStats = calculateConstraintStatsFromManifest(config.manifest, config.schemas)
       const totalRegex = config.manifest.regex_nodes?.length || 0
       const totalTransforms = config.manifest.transforms?.length || 0
+      const totalTemplates = config.manifest.templates?.length || 0
 
       projectConfigStats.value = {
         schemaCount: totalSchemas,
@@ -70,6 +72,7 @@ export function createV2StatsOps(params: {
         constraintInlineCount: constraintStats.inline,
         regexCount: totalRegex,
         transformCount: totalTransforms,
+        templateCount: totalTemplates,
       }
       projectConfigStatsLoaded.value = true
       projectConfigStatsConfigPath.value = effective

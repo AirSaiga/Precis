@@ -144,6 +144,7 @@ import {
 import { validateNotNull } from '@/composables/nodes/constraints/useNotNull'
 import { validateUnique } from '@/composables/nodes/constraints/useUnique'
 import { getApiBaseUrl } from '@/core/services/httpClient'
+import { logger } from '@/core/utils/logger'
 import type {
   ConstraintKind,
   ConstraintNodeType,
@@ -235,6 +236,10 @@ export const toResult = (
 export const requireSource = (
   ctx: ConstraintValidationContext
 ): ConstraintValidationResult | null => {
+  // 行内数据源（TransformOutput / ManualData）无需文件路径
+  if (ctx.inlineRows && ctx.inlineRows.length > 0) {
+    return null
+  }
   if (!ctx.sourceFile || !ctx.sourceFilePath) {
     return { status: 'missing', validationErrors: ['源表未连接数据源'], lastValidation: undefined }
   }
@@ -442,4 +447,64 @@ export async function executeConstraintValidation(params: {
   }
 
   return handler.validate(ctx)
+}
+
+/**
+ * 为纯数据节点（TransformOutput / ManualData）触发约束校验
+ *
+ * 这些节点的数据（rows: string[][]）已在前端内存中，
+ * 无需后端文件路径，通过 inlineRows 传递给约束处理器进行本地校验。
+ *
+ * @param sourceNodeId - 源节点 ID（TransformOutput 或 ManualData）
+ * @param constraintNode - 约束节点
+ * @param nodes - 图中所有节点
+ * @param updateNodeData - 更新节点数据的回调
+ */
+export async function validateForInlineSource(params: {
+  sourceNodeId: string
+  constraintNode: Node
+  nodes: Node[]
+  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
+}): Promise<void> {
+  const { sourceNodeId, constraintNode, nodes, updateNodeData } = params
+
+  const sourceNode = nodes.find((n) => n.id === sourceNodeId)
+  if (!sourceNode) {
+    logger.warn('❌ 未找到源节点:', sourceNodeId)
+    return
+  }
+
+  // 从 TransformOutput / ManualData 节点提取行数据
+  const sourceData = sourceNode.data as Record<string, unknown>
+  const rows = (sourceData.rows as string[][]) || []
+  const columnName = (sourceData.columnName as string) || 'Column1'
+
+  const handler = getHandlerByNodeType(constraintNode.type)
+  if (!handler) {
+    logger.debug('ℹ️ 未找到约束处理器:', constraintNode.type)
+    return
+  }
+
+  // 构建带有 inlineRows 的校验上下文
+  const ctx: ConstraintValidationContext = {
+    nodes,
+    schemaNode: sourceNode,
+    constraintNode,
+    edge: {} as Edge,
+    columnId: '0',
+    columnName,
+    inlineRows: rows,
+  }
+
+  const result = await handler.validate(ctx)
+
+  updateNodeData(constraintNode.id, {
+    ...(constraintNode.data as Record<string, unknown>),
+    table: (sourceData.configName as string) || columnName,
+    column: columnName,
+    sourceRef: { nodeId: sourceNode.id, columnId: '0' },
+    validationStatus: result.status,
+    validationErrors: result.validationErrors,
+    lastValidation: result.lastValidation,
+  })
 }

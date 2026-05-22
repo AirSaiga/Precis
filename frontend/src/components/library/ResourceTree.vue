@@ -236,6 +236,66 @@
           </div>
         </div>
 
+        <!-- 模板文件夹 -->
+        <div class="tree-folder nested">
+          <div class="tree-row folder-row" @click="emit('toggle-folder', 'templates')">
+            <svg
+              class="folder-icon"
+              xmlns="http://www.w3.org/2000/svg"
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect x="3" y="3" width="7" height="7" rx="1"></rect>
+              <rect x="14" y="3" width="7" height="7" rx="1"></rect>
+              <rect x="3" y="14" width="7" height="7" rx="1"></rect>
+              <rect x="14" y="14" width="7" height="7" rx="1"></rect>
+            </svg>
+            <span class="folder-name">{{
+              t('assetLibraryExtended.projectView.explorer.templates')
+            }}</span>
+            <span
+              v-if="filteredFolders.validationAssets?.children?.find(c => c.id === 'templates')?.count > 0"
+              class="folder-count"
+            >
+              {{ filteredFolders.validationAssets.children.find(c => c.id === 'templates').count }}
+            </span>
+          </div>
+          <div
+            v-if="filteredFolders.validationAssets?.children?.find(c => c.id === 'templates')?.expanded"
+            class="tree-children"
+          >
+            <ResourceTreeItem
+              v-for="template in filteredFolders.validationAssets.children.find(c => c.id === 'templates').resources"
+              :key="template.id"
+              :item="template"
+              :is-selected="selectedIds.has(template.id)"
+              :is-multi-select-mode="isMultiSelectMode"
+              :is-on-canvas="isNodeOnCanvas(template.id)"
+              :is-unlisted="isUnlistedInManifest(template)"
+              @toggle-select="emit('toggle-select', template)"
+              @select="(e) => handleResourceSelect(template, e)"
+              @dragstart="(e) => handleResourceDragStart(e, template)"
+              @dragend="emit('dragend')"
+              @contextmenu="(e) => emit('contextmenu', e, 'template', template)"
+              @mousedown="emit('resource-mousedown', template)"
+              @mouseup="emit('resource-mouseup')"
+              @mouseleave="emit('resource-mouseleave')"
+            />
+            <div
+              v-if="filteredFolders.validationAssets?.children?.find(c => c.id === 'templates')?.count === 0"
+              class="tree-empty"
+            >
+              {{ t('assetLibraryExtended.projectView.explorer.emptyTemplates') }}
+            </div>
+          </div>
+        </div>
+
         <!-- 正则中心 -->
         <div class="tree-folder nested">
           <div class="tree-row folder-row" @click="emit('toggle-folder', 'regexCenter')">
@@ -420,7 +480,7 @@
     dragend: []
     contextmenu: [
       event: MouseEvent,
-      kind: 'schema' | 'pattern' | 'constraint' | 'regex_node',
+      kind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template',
       resource: ResourceItem,
     ]
     'project-config-dragstart': [event: DragEvent]

@@ -17,6 +17,7 @@ const common = {
   confirm: '确认',
   cancel: '取消',
   save: '保存',
+  saving: '保存中...',
   delete: '删除',
   edit: '编辑',
   create: '新建',

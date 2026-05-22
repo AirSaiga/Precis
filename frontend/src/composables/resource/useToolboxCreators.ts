@@ -110,6 +110,19 @@ export function useToolboxCreators() {
     }
   }
 
+  /**
+   * 创建模板实例节点
+   */
+  const createTemplateInstance = (): void => {
+    try {
+      const position = { x: 300, y: 200 }
+      store.createTemplateInstanceNode(position)
+    } catch (error) {
+      logger.error('创建模板实例节点失败:', error)
+      alert(t('messages.common.createNodeFailed'))
+    }
+  }
+
   return {
     createProjectRoot,
     createTableSchema,
@@ -118,5 +131,6 @@ export function useToolboxCreators() {
     createConstraintNode,
     createTransform,
     createManualData,
+    createTemplateInstance,
   }
 }

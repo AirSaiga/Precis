@@ -18,19 +18,31 @@ export function createTemplateInstanceFactoryModule(params: {
   function createTemplateInstanceNode(
     position: { x: number; y: number },
     templateId?: string,
-    templateName?: string
+    templateName?: string,
+    options?: {
+      nodeId?: string
+      parameters?: Record<string, unknown>
+      inputFromNode?: string
+      enabled?: boolean
+      saveState?: 'draft' | 'saved'
+    }
   ) {
-    return createNode('templateInstance', position, {
-      configName: templateName || i18n.global.t('messages.canvas.newTemplateInstance'),
-      templateId: templateId || '',
-      templateName: templateName || '',
-      parameters: {},
-      inputFromNode: undefined,
-      enabled: true,
-      nodeCount: 0,
-      summaryText: '',
-      saveState: 'draft',
-    })
+    return createNode(
+      'templateInstance',
+      position,
+      {
+        configName: templateName || i18n.global.t('messages.canvas.newTemplateInstance'),
+        templateId: templateId || '',
+        templateName: templateName || '',
+        parameters: options?.parameters || {},
+        inputFromNode: options?.inputFromNode || undefined,
+        enabled: options?.enabled !== false,
+        nodeCount: 0,
+        summaryText: '',
+        saveState: options?.saveState || 'draft',
+      },
+      { nodeId: options?.nodeId, autoSelect: false }
+    )
   }
 
   return {

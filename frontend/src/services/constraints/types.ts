@@ -55,6 +55,8 @@ export interface ConstraintValidationContext {
   sourceFile?: string
   sheetName?: string
   headerRow?: number
+  /** 行内数据行（来自 TransformOutput / ManualData 等非文件数据源） */
+  inlineRows?: string[][]
 }
 
 export interface ConstraintValidationResult {

@@ -46,6 +46,7 @@ function saveFolderExpandedState(folderId: string, expanded: boolean): void {
     'schemas',
     'patterns',
     'regex_nodes',
+    'templates',
   ]
 
   if (oldFolderIds.includes(folderId) || newFolderIds.includes(folderId)) {
@@ -82,6 +83,7 @@ function restoreFolderExpandedState(folders: Record<string, ResourceFolder>): vo
     'regexCenter',
     'patterns',
     'regex_nodes',
+    'templates',
   ]) {
     if (stored[folderId] === undefined) continue
 
@@ -181,6 +183,14 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
             },
           ],
         },
+        {
+          id: 'templates',
+          name: 'templates',
+          type: 'templates',
+          expanded: false,
+          count: 0,
+          resources: [],
+        },
       ],
     },
   })
@@ -251,6 +261,7 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
     independentConstraints: number
     patterns: number
     regexNodes: number
+    templates: number
   }): void {
     folders.value.dataModels.count = counts.schemas
     if (folders.value.dataModels.children?.[0]) {
@@ -258,13 +269,17 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
     }
 
     folders.value.validationAssets.count =
-      counts.independentConstraints + counts.patterns + counts.regexNodes
+      counts.independentConstraints + counts.patterns + counts.regexNodes + counts.templates
     if (folders.value.validationAssets.children?.[0]) {
       folders.value.validationAssets.children[0].count = counts.independentConstraints
     }
     if (folders.value.validationAssets.children?.[1]?.children) {
       folders.value.validationAssets.children[1].children[0].count = counts.patterns
       folders.value.validationAssets.children[1].children[1].count = counts.regexNodes
+    }
+    const templatesFolder = folders.value.validationAssets.children?.find((c) => c.id === 'templates')
+    if (templatesFolder) {
+      templatesFolder.count = counts.templates
     }
   }
 
@@ -281,6 +296,7 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
     independentConstraints: ResourceItem[]
     patterns: ResourceItem[]
     regexNodes: ResourceItem[]
+    templates: ResourceItem[]
   }): void {
     if (folders.value.dataModels.children?.[0]) {
       folders.value.dataModels.children[0].resources = data.schemas
@@ -291,6 +307,10 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
     if (folders.value.validationAssets.children?.[1]?.children) {
       folders.value.validationAssets.children[1].children[0].resources = data.patterns
       folders.value.validationAssets.children[1].children[1].resources = data.regexNodes
+    }
+    const templatesFolder = folders.value.validationAssets.children?.find((c) => c.id === 'templates')
+    if (templatesFolder) {
+      templatesFolder.resources = data.templates
     }
   }
 
@@ -316,6 +336,12 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
         folders.value.validationAssets.children[1].children[0].expanded = false
         folders.value.validationAssets.children[1].children[1].expanded = false
       }
+    }
+    const templatesFolder = folders.value.validationAssets.children?.find((c) => c.id === 'templates')
+    if (templatesFolder) {
+      templatesFolder.expanded = false
+      templatesFolder.count = 0
+      templatesFolder.resources = []
     }
     folders.value.dataModels.count = 0
     folders.value.validationAssets.count = 0

@@ -142,7 +142,7 @@
   interface ContextMenuPayload {
     visible: boolean
     position: { x: number; y: number }
-    kind: 'schema' | 'pattern' | 'constraint' | 'regex_node'
+    kind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template'
     item: ResourceItem
   }
 
@@ -152,7 +152,7 @@
   const contextMenu = reactive<{
     visible: boolean
     position: { x: number; y: number }
-    resourceKind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | null
+    resourceKind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template' | null
     resourceItem: ResourceItem | null
     availableActions: ContextMenuAction[]
   }>({
@@ -166,7 +166,7 @@
   /**
    * 菜单操作配置
    */
-  const contextMenuActions: ContextMenuAction[] = [
+  const baseContextMenuActions: ContextMenuAction[] = [
     { type: 'preview', labelKey: 'assetLibraryExtended.projectView.resourceContext.preview' },
     {
       type: 'addToCanvas',
@@ -178,6 +178,22 @@
     },
     { type: 'separator', labelKey: '' },
     { type: 'rename', labelKey: 'assetLibraryExtended.projectView.resourceContext.rename' },
+    {
+      type: 'delete',
+      labelKey: 'assetLibraryExtended.projectView.resourceContext.delete',
+      isDanger: true,
+    },
+    { type: 'separator', labelKey: '' },
+    { type: 'refresh', labelKey: 'assetLibraryExtended.projectView.resourceContext.refresh' },
+  ]
+
+  const templateContextMenuActions: ContextMenuAction[] = [
+    { type: 'preview', labelKey: 'assetLibraryExtended.projectView.resourceContext.preview' },
+    {
+      type: 'addToCanvas',
+      labelKey: 'assetLibraryExtended.projectView.resourceContext.addToCanvas',
+    },
+    { type: 'separator', labelKey: '' },
     {
       type: 'delete',
       labelKey: 'assetLibraryExtended.projectView.resourceContext.delete',
@@ -206,7 +222,7 @@
   const renameDialog = reactive<{
     visible: boolean
     resourceId: string
-    resourceKind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | null
+    resourceKind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template' | null
     currentName: string
     inputValue: string
   }>({
@@ -226,7 +242,7 @@
     contextMenu.position = position
     contextMenu.resourceKind = kind
     contextMenu.resourceItem = item
-    contextMenu.availableActions = contextMenuActions
+    contextMenu.availableActions = kind === 'template' ? templateContextMenuActions : baseContextMenuActions
   }
 
   /**
@@ -348,6 +364,13 @@
 
     if (!resource) return
 
+    // 模板类型：创建模板实例节点
+    if (resource.kind === 'template') {
+      const position = { x: 300, y: 200 }
+      graphStore.createTemplateInstanceNode(position, resource.id, resource.name)
+      return
+    }
+
     const kind = resource.kind as 'schema' | 'pattern' | 'constraint' | 'regex_node'
     const position = { x: 240, y: 120 }
     await graphStore.importV2ResourceToCanvas(kind, resource.id, position, {
@@ -364,6 +387,13 @@
     contextMenu.visible = false
 
     if (!resource) return
+
+    // 模板类型：创建模板实例节点
+    if (resource.kind === 'template') {
+      const position = { x: 300, y: 200 }
+      graphStore.createTemplateInstanceNode(position, resource.id, resource.name)
+      return
+    }
 
     const existingNode = graphStore.nodes.find((n) => n.id === resource.id)
     if (existingNode) {
@@ -426,6 +456,9 @@
           break
         case 'constraint':
           await resourceService.deleteConstraint(resource.id, path)
+          break
+        case 'template':
+          await graphStore.deleteV2Template(resource.id, path)
           break
       }
 

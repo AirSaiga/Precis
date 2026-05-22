@@ -55,7 +55,7 @@ export function useResourceDrag() {
    */
   function handleToolboxDragStart(
     event: DragEvent,
-    toolType: 'schema' | 'pattern' | 'constraint' | 'projectRoot' | 'jsonSchema'
+    toolType: 'schema' | 'pattern' | 'constraint' | 'projectRoot' | 'jsonSchema' | 'templateInstance'
   ): void {
     if (!event.dataTransfer) return
 
@@ -97,10 +97,13 @@ export function useResourceDrag() {
     const implicitRegexFields = schemaResource?.implicitRegexFields || []
 
     const payload: ResourceDragPayload = {
-      type: resource.kind as ResourceDragType,
+      type:
+        resource.kind === 'template'
+          ? ('templateInstance' as ResourceDragType)
+          : (resource.kind as ResourceDragType),
       source: 'projectResources',
       label: resource.name,
-      meta: { id: resource.id, kind: resource.kind },
+      meta: { id: resource.id, kind: resource.kind, name: resource.name },
       associatedRegexIds,
       associatedConstraintIds,
       embeddedConstraints,

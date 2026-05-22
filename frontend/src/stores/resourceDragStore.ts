@@ -35,6 +35,7 @@ export type ResourceDragType =
   | 'patternFolder'
   | 'constraintFolder'
   | 'external_data_source'
+  | 'templateInstance'
 
 /**
  * 资源拖拽载荷

@@ -380,7 +380,8 @@ export function useConnections() {
     if (
       (sourceNode.type === 'schema' ||
         sourceNode.type === 'jsonSchema' ||
-        sourceNode.type === 'manualData') &&
+        sourceNode.type === 'manualData' ||
+        sourceNode.type === 'transformOutput') &&
       isConstraintNodeType(targetNode.type)
     ) {
       if (!isValidConstraintTargetHandle(targetNode.id, targetNode.type, targetHandle)) {
@@ -601,7 +602,9 @@ export function useConnections() {
           saveState: 'draft',
         })
 
-        logger.debug(`[ManualData→Regex] 已将 manualData '${sourceNode.id}' 连接到 regex 节点 '${targetNode.id}'`)
+        logger.debug(
+          `[ManualData→Regex] 已将 manualData '${sourceNode.id}' 连接到 regex 节点 '${targetNode.id}'`
+        )
       }
 
       if (sourceNode.type === 'jsonSchema' && targetNode.type === 'regex') {
@@ -658,7 +661,8 @@ export function useConnections() {
       if (
         (sourceNode.type === 'schema' ||
           sourceNode.type === 'jsonSchema' ||
-          sourceNode.type === 'transformOutput') &&
+          sourceNode.type === 'transformOutput' ||
+          sourceNode.type === 'manualData') &&
         isConstraintNodeType(targetNode.type)
       ) {
         if (sourceHandle) {
@@ -666,38 +670,27 @@ export function useConnections() {
           const handler = constraintConnectionHandlers[constraintType]
           if (handler) {
             await handler(sourceNode.id, targetNode.id, sourceHandle, targetHandle, edgeId)
+          } else if (sourceNode.type === 'transformOutput' || sourceNode.type === 'manualData') {
+            // 纯数据源 → 无专用处理器的约束类型（如 foreignKey / composite）：
+            // 设置基本引用数据，供后续手动触发校验使用
+            const srcData = sourceNode.data as Record<string, unknown>
+            const colName = (srcData.columnName as string) || 'Column1'
+            tx.patchNodeData(targetNode.id, {
+              ...((targetNode.data || {}) as Record<string, unknown>),
+              table: (srcData.configName as string) || colName,
+              column: colName,
+              sourceRef: { nodeId: sourceNode.id, columnId: '0' },
+              saveState: 'draft',
+            })
+            logger.debug('🔗 纯数据源 → 约束节点（回退处理）:', {
+              sourceType: sourceNode.type,
+              colName,
+              constraintType: targetNode.type,
+            })
           } else {
             logger.debug('ℹ️ 暂不支持该约束类型的连接处理:', constraintType)
           }
         }
-      }
-
-      if (sourceNode.type === 'manualData' && isConstraintNodeType(targetNode.type)) {
-        const manualData = sourceNode.data as Record<string, unknown>
-        const columnName = (manualData.columnName as string) || 'Column1'
-        const constraintData = targetNode.data as unknown as Record<string, unknown>
-        constraintData.table = (manualData.configName as string) || 'ManualData'
-        constraintData.column = columnName
-        constraintData.sourceRef = { nodeId: sourceNode.id, columnId: '0' }
-        constraintData.saveState = 'draft'
-        logger.debug('🔗 ManualData → 约束节点:', {
-          columnName,
-          constraintType: targetNode.type,
-        })
-      }
-
-      if (sourceNode.type === 'transformOutput' && isConstraintNodeType(targetNode.type)) {
-        const outputData = sourceNode.data as Record<string, unknown>
-        const columnName = (outputData.columnName as string) || 'Column1'
-        const constraintData = targetNode.data as unknown as Record<string, unknown>
-        constraintData.table = (outputData.configName as string) || 'TransformOutput'
-        constraintData.column = columnName
-        constraintData.sourceRef = { nodeId: sourceNode.id, columnId: '0' }
-        constraintData.saveState = 'draft'
-        logger.debug('🔗 TransformOutput → 约束节点:', {
-          columnName,
-          constraintType: targetNode.type,
-        })
       }
 
       if (sourceNode.type === 'schema' && targetNode.type === 'regex') {

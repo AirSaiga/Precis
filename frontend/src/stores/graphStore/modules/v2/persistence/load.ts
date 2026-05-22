@@ -92,6 +92,7 @@ export function createV2LoadOps(params: {
     constraintCount: number
     regexCount: number
     transformCount: number
+    templateCount: number
   }>
   projectConfigStatsLoaded: Ref<boolean>
   projectConfigStatsConfigPath: Ref<string>
@@ -103,6 +104,18 @@ export function createV2LoadOps(params: {
     relPath: string | undefined
   ) => string | undefined
   saveProject: () => Promise<boolean>
+  createTemplateInstanceNode: (
+    position: { x: number; y: number },
+    templateId?: string,
+    templateName?: string,
+    options?: {
+      nodeId?: string
+      parameters?: Record<string, unknown>
+      inputFromNode?: string
+      enabled?: boolean
+      saveState?: 'draft' | 'saved'
+    }
+  ) => string
 }) {
   const {
     nodes,
@@ -118,6 +131,7 @@ export function createV2LoadOps(params: {
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     saveProject,
+    createTemplateInstanceNode,
   } = params
   const { t } = useI18n()
 
@@ -142,6 +156,7 @@ export function createV2LoadOps(params: {
         ((config.manifest as unknown as Record<string, unknown>).regex_nodes as unknown[])
           ?.length || 0
       const totalTransforms = config.manifest.transforms?.length || 0
+      const totalTemplates = config.manifest.templates?.length || 0
 
       config.manifest.schemas.forEach((s) => {
         const schema = config.schemas[s.id]
@@ -157,6 +172,7 @@ export function createV2LoadOps(params: {
         constraintCount: totalConstraints,
         regexCount: totalRegex,
         transformCount: totalTransforms,
+        templateCount: totalTemplates,
       }
       projectConfigStatsLoaded.value = true
       projectConfigStatsConfigPath.value = configPath || ''
@@ -199,13 +215,40 @@ export function createV2LoadOps(params: {
           constraintCount: projectConfigStats.value.constraintCount,
           regexCount: projectConfigStats.value.regexCount,
           transformCount: projectConfigStats.value.transformCount,
+          templateCount: projectConfigStats.value.templateCount,
           totalAssets:
             projectConfigStats.value.schemaCount +
             projectConfigStats.value.constraintCount +
             projectConfigStats.value.regexCount +
-            projectConfigStats.value.transformCount,
+            projectConfigStats.value.transformCount +
+            projectConfigStats.value.templateCount,
         } as unknown as CustomNodeData,
       })
+
+      // 恢复模板实例节点（工作区状态，非资源）
+      const templateInstances = config.manifest.template_instances
+      if (templateInstances && templateInstances.length > 0) {
+        for (const ti of templateInstances) {
+          const pos = view?.nodes?.[ti.id] || { x: 300, y: 200 }
+          const nodeId = createTemplateInstanceNode(pos, ti.template_id, undefined, {
+            nodeId: ti.id,
+            parameters: ti.params || {},
+            inputFromNode: ti.input_from_node || undefined,
+            enabled: ti.enabled !== false,
+            saveState: 'saved',
+          })
+          // 恢复输入连接
+          if (ti.input_from_node) {
+            nextEdges.push({
+              id: `e-${ti.input_from_node}-${ti.id}`,
+              source: ti.input_from_node,
+              target: ti.id,
+              sourceHandle: undefined,
+              targetHandle: 'template-input',
+            } as Edge)
+          }
+        }
+      }
 
       // 注意：不再自动水合所有资源到画布。
       // 画布是用户的工作区，资源应从左侧资源树手动拖拽。

@@ -22,10 +22,10 @@ export function createBaseNodeFactory(ctx: BaseFactoryContext) {
     type: string,
     position: { x: number; y: number },
     data: TData,
-    options?: { autoSelect?: boolean }
+    options?: { autoSelect?: boolean; nodeId?: string }
   ): string {
     const newNode: CustomNode = {
-      id: uuidv4(),
+      id: options?.nodeId || uuidv4(),
       type,
       position,
       data: data as unknown as CustomNodeData,

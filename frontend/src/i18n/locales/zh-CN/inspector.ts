@@ -606,6 +606,8 @@ const inspector = (() => {
     templateInstance: {
       configName: '配置名称',
       templateId: '引用模板',
+      selectTemplate: '请选择模板',
+      noTemplates: '暂无可用模板，请在画布中选中节点后右键"保存为模板"',
       enabled: '启用',
       parameters: '参数配置',
       previewExpand: '预览展开结果',

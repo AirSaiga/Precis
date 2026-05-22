@@ -13,7 +13,8 @@ export type ResourceContextAction =
   | 'separator'
   | 'rename'
   | 'delete'
-  | 'refresh';
+  | 'refresh'
+  | 'editTemplate';
 
 /**
  * 右键菜单操作配置
@@ -45,7 +46,7 @@ export interface ResourceContextMenuState {
     y: number;
   };
   /** 当前资源类型 */
-  resourceKind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | null;
+  resourceKind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template' | null;
   /** 当前资源 */
   resourceItem: unknown | null;
   /** 可用操作列表 */
@@ -79,7 +80,7 @@ export interface RenameDialogState {
   /** 资源ID */
   resourceId: string;
   /** 资源类型 */
-  resourceKind: 'schema' | 'pattern' | 'constraint' | null;
+  resourceKind: 'schema' | 'pattern' | 'constraint' | 'template' | null;
   /** 当前名称 */
   currentName: string;
   /** 输入值 */

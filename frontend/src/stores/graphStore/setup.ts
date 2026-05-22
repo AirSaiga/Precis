@@ -120,6 +120,14 @@ import { createAssetsModule } from './modules/assets'
 import { createScopeModule } from './modules/scope'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 import { useResourceTreeStore } from '@/stores/resourceTreeStore'
+import {
+  listV2Templates,
+  getV2Template,
+  createV2Template,
+  updateV2Template,
+  deleteV2Template,
+  expandV2Template,
+} from '@/api/projectV2Api'
 
 /**
  * Graph Store 主定义
@@ -273,6 +281,7 @@ export function setupGraphStore() {
     constraintInlineCount: 0,
     regexCount: 0,
     transformCount: 0,
+    templateCount: 0,
   })
 
   /**
@@ -375,52 +384,6 @@ export function setupGraphStore() {
     resolveProjectRelativePath,
   })
 
-  const v2Persistence = createV2PersistenceModule({
-    nodes,
-    edges,
-    selectedNodeId,
-    projectName,
-    isProjectLoaded,
-    projectConfigStats,
-    projectConfigStatsLoaded,
-    projectConfigStatsConfigPath,
-    lastFullValidationSummary,
-    lastFullValidationStatistics,
-    normalizeConfigDir,
-    getEffectiveProjectConfigPath,
-    resolveProjectRelativePath,
-  })
-
-  const projectLifecycle = createProjectLifecycleModule({
-    nodes,
-    edges,
-    assets,
-    selectedNodeId,
-    selectedNodeIds,
-    selectionBox,
-    projectName,
-    isProjectLoaded,
-    projectConfigStats,
-    projectConfigStatsLoaded,
-    projectConfigStatsConfigPath,
-    lastFullValidationSummary,
-    lastFullValidationStatistics,
-    designModalVisible,
-    activeRegexNodeId,
-    regexEditSampleData,
-    copiedNodes,
-    normalizeConfigDir,
-    refreshProjectConfigStats: v2Persistence.refreshProjectConfigStats,
-  })
-
-  const {
-    createProject,
-    clearProject,
-    resetCanvas,
-    createProjectConsoleNode,
-    createProjectRootNode,
-  } = projectLifecycle
-
   const { createSchemaNode, addColumnToSchema } = createSchemaFactoryModule({
     nodes,
     selectedNodeId,
@@ -454,6 +417,53 @@ export function setupGraphStore() {
     selectedNodeId,
   })
 
+  const v2Persistence = createV2PersistenceModule({
+    nodes,
+    edges,
+    selectedNodeId,
+    projectName,
+    isProjectLoaded,
+    projectConfigStats,
+    projectConfigStatsLoaded,
+    projectConfigStatsConfigPath,
+    lastFullValidationSummary,
+    lastFullValidationStatistics,
+    normalizeConfigDir,
+    getEffectiveProjectConfigPath,
+    resolveProjectRelativePath,
+    createTemplateInstanceNode,
+  })
+
+  const projectLifecycle = createProjectLifecycleModule({
+    nodes,
+    edges,
+    assets,
+    selectedNodeId,
+    selectedNodeIds,
+    selectionBox,
+    projectName,
+    isProjectLoaded,
+    projectConfigStats,
+    projectConfigStatsLoaded,
+    projectConfigStatsConfigPath,
+    lastFullValidationSummary,
+    lastFullValidationStatistics,
+    designModalVisible,
+    activeRegexNodeId,
+    regexEditSampleData,
+    copiedNodes,
+    normalizeConfigDir,
+    refreshProjectConfigStats: v2Persistence.refreshProjectConfigStats,
+  })
+
+  const {
+    createProject,
+    clearProject,
+    resetCanvas,
+    createProjectConsoleNode,
+    createProjectRootNode,
+  } = projectLifecycle
+
   /**
    * 更新节点数据
    *
@@ -484,6 +494,7 @@ export function setupGraphStore() {
       () => resourceTreeStore.independentConstraintsUnlistedCount,
       () => resourceTreeStore.embeddedConstraintsUnlistedCount,
       () => resourceTreeStore.regexNodes.length,
+      () => resourceTreeStore.templates.length,
     ],
     () => {
       const projectRootNode = nodes.value.find((n) => n.type === 'projectRoot')
@@ -496,7 +507,8 @@ export function setupGraphStore() {
         resourceTreeStore.independentConstraintsUnlistedCount +
         resourceTreeStore.embeddedConstraintsUnlistedCount
       const regexCount = resourceTreeStore.regexNodes.length
-      const totalAssets = schemaCount + constraintCount + regexCount
+      const templateCount = resourceTreeStore.templates.length
+      const totalAssets = schemaCount + constraintCount + regexCount + templateCount
 
       const data = projectRootNode.data as Record<string, unknown>
 
@@ -505,6 +517,7 @@ export function setupGraphStore() {
         data.schemaCount === schemaCount &&
         data.constraintCount === constraintCount &&
         data.regexCount === regexCount &&
+        data.templateCount === templateCount &&
         data.totalAssets === totalAssets
       ) {
         return
@@ -514,6 +527,7 @@ export function setupGraphStore() {
         schemaCount,
         constraintCount,
         regexCount,
+        templateCount,
         totalAssets,
       })
     },
@@ -968,5 +982,13 @@ export function setupGraphStore() {
     closeRegexDesignModal,
     saveRegexDesign,
     setRegexEditSampleData,
+
+    // 模板定义管理 API
+    listV2Templates,
+    getV2Template,
+    createV2Template,
+    updateV2Template,
+    deleteV2Template,
+    expandV2Template,
   }
 }

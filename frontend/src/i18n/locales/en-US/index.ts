@@ -22,6 +22,7 @@ import { assetLibraryExtended } from './assetLibrary'
 import { welcome, messages, startupLoading } from './messages'
 import { settings } from './settings'
 import { aiChat, aiConfigGenerator } from './ai'
+import { template } from './template'
 
 const enUS = {
   app,
@@ -52,6 +53,7 @@ const enUS = {
   settings,
   aiChat,
   aiConfigGenerator,
+  template,
   common: commonLocales,
   shortcuts,
 }

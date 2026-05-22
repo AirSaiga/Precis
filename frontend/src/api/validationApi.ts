@@ -6,8 +6,10 @@
  * - ./validation/core.ts: 共享类型定义和常量
  * - ./validation/basic.ts: 基础校验函数（非空、范围、唯一性）
  * - ./validation/advanced.ts: 高级校验函数（允许值、条件、外键、脚本、字符集）
+ * - ./validation/inline.ts: 行内数据校验（TransformOutput / ManualData）
  */
 
 export * from './validation/core'
 export * from './validation/basic'
 export * from './validation/advanced'
+export * from './validation/inline'

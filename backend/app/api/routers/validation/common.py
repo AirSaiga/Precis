@@ -33,6 +33,8 @@
 
 from __future__ import annotations
 
+import pandas as pd
+
 from app.api.models import (
     RegexValidationResult,
     ValidationErrorRow,
@@ -73,24 +75,21 @@ def convert_validation_result_to_regex(result) -> RegexValidationResult:
     )
 
 
-def execute_standard_validation(
-    source_file_path: str,
-    sheet_name: str | None,
-    header_row: int | None,
+def execute_dataframe_validation(
+    df: pd.DataFrame,
     validation_type: str,
     target_column_name: str,
     validation_config: dict | None = None,
     allow_unsafe_eval: bool = False,
 ) -> ValidationResponse:
     """
-    标准数据校验执行流水线，被 content_mode 和 path_mode 共用。
+    从已有 DataFrame 执行校验（跳过文件加载步骤）。
 
-    调用方需自行处理文件加载前的准备工作（如路径访问权限校验、临时文件创建等）。
+    被 execute_standard_validation（文件模式）和 inline_mode（行内数据模式）共用，
+    封装 DataFrame -> ValidationResponse 的统一流水线。
 
     参数:
-        source_file_path: 数据源文件路径（已准备好的路径或临时文件路径）
-        sheet_name: Excel 工作表名称，可选
-        header_row: 表头所在行号，可选，默认为 0
+        df: 待校验的 pandas DataFrame
         validation_type: 校验类型，如 Unique、NotNull 等
         target_column_name: 需要校验的目标列名
         validation_config: 校验配置字典，可选
@@ -99,14 +98,7 @@ def execute_standard_validation(
     返回值:
         ValidationResponse: 标准化校验响应
     """
-    # 从指定路径加载数据，支持 Excel/CSV 等格式
-    df = load_file_data(
-        source_file_path=source_file_path,
-        sheet_name=sheet_name,
-        header_row=header_row if header_row is not None else 0,
-    )
-
-    # 检查目标列是否存在于加载的数据中，不存在则直接返回错误
+    # 检查目标列是否存在于数据中，不存在则直接返回错误
     if target_column_name not in df.columns:
         return ValidationResponse(
             success=False,
@@ -146,3 +138,47 @@ def execute_standard_validation(
 
     # 返回成功的标准化响应
     return ValidationResponse(success=True, validation_type=validation_type, data=validation_result, error=None)
+
+
+def execute_standard_validation(
+    source_file_path: str,
+    sheet_name: str | None,
+    header_row: int | None,
+    validation_type: str,
+    target_column_name: str,
+    validation_config: dict | None = None,
+    allow_unsafe_eval: bool = False,
+) -> ValidationResponse:
+    """
+    标准数据校验执行流水线，被 content_mode 和 path_mode 共用。
+
+    调用方需自行处理文件加载前的准备工作（如路径访问权限校验、临时文件创建等）。
+    内部通过 execute_dataframe_validation 完成实际的 DataFrame -> Response 转换。
+
+    参数:
+        source_file_path: 数据源文件路径（已准备好的路径或临时文件路径）
+        sheet_name: Excel 工作表名称，可选
+        header_row: 表头所在行号，可选，默认为 0
+        validation_type: 校验类型，如 Unique、NotNull 等
+        target_column_name: 需要校验的目标列名
+        validation_config: 校验配置字典，可选
+        allow_unsafe_eval: 是否允许不安全的表达式求值，可选，默认为 False
+
+    返回值:
+        ValidationResponse: 标准化校验响应
+    """
+    # 从指定路径加载数据，支持 Excel/CSV 等格式
+    df = load_file_data(
+        source_file_path=source_file_path,
+        sheet_name=sheet_name,
+        header_row=header_row if header_row is not None else 0,
+    )
+
+    # 委托给 execute_dataframe_validation 执行实际校验
+    return execute_dataframe_validation(
+        df=df,
+        validation_type=validation_type,
+        target_column_name=target_column_name,
+        validation_config=validation_config,
+        allow_unsafe_eval=allow_unsafe_eval,
+    )

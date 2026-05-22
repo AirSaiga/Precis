@@ -7,7 +7,25 @@
 
     <div class="inspector-section">
       <label>{{ t('inspector.templateInstance.templateId') }}</label>
-      <div class="readonly-field">{{ localData.templateName || localData.templateId }}</div>
+      <div v-if="availableTemplates.length > 0">
+        <select
+          :value="localData.templateId"
+          class="template-select"
+          @change="onTemplateSelect"
+        >
+          <option value="" disabled>{{ t('inspector.templateInstance.selectTemplate') }}</option>
+          <option
+            v-for="tmpl in availableTemplates"
+            :key="tmpl.id"
+            :value="tmpl.id"
+          >
+            {{ tmpl.name || tmpl.id }}
+          </option>
+        </select>
+      </div>
+      <div v-else class="readonly-field readonly-field--hint">
+        {{ t('inspector.templateInstance.noTemplates') }}
+      </div>
     </div>
 
     <div class="inspector-section">
@@ -89,11 +107,12 @@
 </template>
 
 <script setup lang="ts">
-  import { reactive, ref, onMounted } from 'vue'
+  import { reactive, ref, onMounted, computed } from 'vue'
   import { useI18n } from 'vue-i18n'
   import type { TemplateInstanceNodeData } from '@/types/nodes'
   import { getV2Template, expandV2Template } from '@/api/projectV2Api'
   import { useGraphStore } from '@/stores/graphStore'
+  import { useResourceTreeStore } from '@/stores/resourceTreeStore'
 
   const { t } = useI18n()
 
@@ -109,6 +128,14 @@
   }>()
 
   const graphStore = useGraphStore()
+  const resourceTreeStore = useResourceTreeStore()
+
+  const availableTemplates = computed(() =>
+    resourceTreeStore.templates.map((r) => ({
+      id: r.id,
+      name: (r.meta as { name?: string } | undefined)?.name || r.id,
+    }))
+  )
 
   const localData = reactive({
     configName: props.data.configName || '',
@@ -135,10 +162,9 @@
     regex_nodes: unknown[]
   } | null>(null)
 
-  onMounted(async () => {
-    if (!localData.templateId) return
+  async function loadTemplateParams(templateId: string): Promise<void> {
     try {
-      const tmpl = await getV2Template(localData.templateId)
+      const tmpl = await getV2Template(templateId)
       // 防御性检查：确保 parameters 是数组类型
       const params = Array.isArray(tmpl.parameters) ? tmpl.parameters : []
       templateParams.value = params.map((p: Record<string, unknown>) => ({
@@ -158,7 +184,36 @@
     } catch {
       // 模板加载失败（可能尚未创建），静默忽略
     }
+  }
+
+  onMounted(() => {
+    if (!localData.templateId) return
+    loadTemplateParams(localData.templateId)
   })
+
+  function onTemplateSelect(e: Event) {
+    const select = e.target as HTMLSelectElement
+    const newId = select.value
+    if (!newId) return
+
+    const matched = availableTemplates.value.find((t) => t.id === newId)
+    localData.templateId = newId
+    localData.templateName = matched?.name || newId
+    localData.parameters = {}
+    templateParams.value = []
+    expandResult.value = null
+
+    // 加载新模板的参数定义并同步到节点
+    loadTemplateParams(newId).then(() => {
+      emitUpdate()
+      emit('update:data', {
+        templateId: newId,
+        templateName: localData.templateName,
+        configName: localData.templateName,
+        parameters: { ...localData.parameters },
+      })
+    })
+  }
 
   function emitUpdate() {
     const summaryParts: string[] = []
@@ -189,6 +244,14 @@
         { ...localData.parameters },
         inputFromNode
       )
+      // 同步展开后的节点数量到 nodeCount
+      if (expandResult.value) {
+        const totalNodes =
+          expandResult.value.transforms.length +
+          expandResult.value.constraints.length +
+          expandResult.value.regex_nodes.length
+        emit('update:data', { nodeCount: totalNodes })
+      }
     } catch {
       expandResult.value = null
     } finally {
@@ -236,6 +299,27 @@
     border-radius: 4px;
     font-size: 13px;
     color: var(--ui-text-muted);
+  }
+
+  .readonly-field--hint {
+    font-style: italic;
+  }
+
+  .template-select {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--ui-border-subtle);
+    border-radius: 4px;
+    background: var(--ui-bg-elevated);
+    color: var(--ui-text-primary);
+    font-size: 13px;
+    cursor: pointer;
+    appearance: auto;
+  }
+
+  .template-select:focus {
+    outline: 1px solid var(--ui-accent);
+    border-color: var(--ui-accent);
   }
 
   .params-list {

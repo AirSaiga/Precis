@@ -611,6 +611,8 @@ const inspector = {
   templateInstance: {
     configName: 'Config Name',
     templateId: 'Template',
+    selectTemplate: 'Select a template',
+    noTemplates: 'No templates available. Select nodes on the canvas and right-click "Save as Template".',
     enabled: 'Enabled',
     parameters: 'Parameters',
     previewExpand: 'Preview Expansion',

@@ -273,7 +273,7 @@ export function computeMathExpr(upstreamRows: string[][], options: MathExprOptio
     }
 
     try {
-      // eslint-disable-next-line no-new-func
+       
       const result = new Function(`return ${evalExpr}`)()
 
       let finalResult: string

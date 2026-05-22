@@ -27,7 +27,7 @@
     )
 """
 
-from typing import Optional
+from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
@@ -165,6 +165,30 @@ class ValidationRequest(BaseModel):
     source_file_path: str = Field(..., description="数据源文件路径")
     sheet_name: Optional[str] = Field(None, description="Excel工作表名称")
     header_row: Optional[int] = Field(None, description="表头行索引，0表示第一行")
+    validation_config: Optional[dict] = Field(default={}, description="校验特定配置")
+    allow_unsafe_eval: bool = Field(False, description="是否允许执行脚本化校验（eval模式）")
+
+
+class InlineValidationRequest(BaseModel):
+    """
+    行内数据校验请求模型
+
+    用于纯数据节点（TransformOutput / ManualData）的行内校验接口。
+    直接接收行数据，无需文件路径。
+
+    Attributes:
+        validation_type: 校验类型（not_null/unique/allowed_values/range/charset/scripted/foreign_key 等）
+        target_column_name: 目标列名
+        rows: 行数据二维数组，默认第一行为表头（与 TransformOutput/ManualData 的 rows 结构一致）
+        column_names: 列名列表，当提供时 rows 全部视为数据行（覆盖默认的第一行表头行为）
+        validation_config: 校验特定配置（字典）
+        allow_unsafe_eval: 是否允许执行脚本化校验（eval 模式）
+    """
+
+    validation_type: str = Field(..., description="校验类型")
+    target_column_name: str = Field(..., description="目标列名")
+    rows: list[list[Any]] = Field(..., description="行数据，默认第一行为表头")
+    column_names: list[str] = Field(default=[], description="列名列表（提供时 rows 全部视为数据行）")
     validation_config: Optional[dict] = Field(default={}, description="校验特定配置")
     allow_unsafe_eval: bool = Field(False, description="是否允许执行脚本化校验（eval模式）")
 

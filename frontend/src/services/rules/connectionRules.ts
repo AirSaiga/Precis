@@ -105,7 +105,6 @@ export const connectionRules: ConnectionRule[] = [
         'scriptedConstraint',
         'charsetConstraint',
         'dateLogicConstraint',
-        'compositeConstraint',
       ],
       handles: undefined,
     },
@@ -407,6 +406,88 @@ export const connectionRules: ConnectionRule[] = [
 
   // ========== 模板实例节点连接规则 ==========
 
+  // 模板实例 → 约束节点
+  {
+    id: 'template-instance-to-constraint',
+    name: 'TemplateInstance to Constraint',
+    source: {
+      nodeTypes: ['templateInstance'],
+      handles: ['template-output'],
+    },
+    target: {
+      nodeTypes: [
+        'notNullConstraint',
+        'uniqueConstraint',
+        'foreignKeyConstraint',
+        'allowedValuesConstraint',
+        'rangeConstraint',
+        'conditionalConstraint',
+        'scriptedConstraint',
+        'charsetConstraint',
+        'dateLogicConstraint',
+      ],
+      handles: undefined,
+    },
+    config: {
+      allowMultiple: false,
+      validationMode: 'strict',
+    },
+  },
+
+  // 模板实例 → Regex 节点
+  {
+    id: 'template-instance-to-regex',
+    name: 'TemplateInstance to Regex',
+    source: {
+      nodeTypes: ['templateInstance'],
+      handles: ['template-output'],
+    },
+    target: {
+      nodeTypes: ['regex'],
+      handles: ['regex-input'],
+    },
+    config: {
+      allowMultiple: false,
+      validationMode: 'strict',
+    },
+  },
+
+  // 模板实例 → Transform 节点
+  {
+    id: 'template-instance-to-transform',
+    name: 'TemplateInstance to Transform',
+    source: {
+      nodeTypes: ['templateInstance'],
+      handles: ['template-output'],
+    },
+    target: {
+      nodeTypes: ['transform'],
+      handles: ['transform-input'],
+    },
+    config: {
+      allowMultiple: false,
+      validationMode: 'strict',
+    },
+  },
+
+  // 模板实例 → TransformOutput 节点
+  {
+    id: 'template-instance-to-transform-output',
+    name: 'TemplateInstance to TransformOutput',
+    source: {
+      nodeTypes: ['templateInstance'],
+      handles: ['template-output'],
+    },
+    target: {
+      nodeTypes: ['transformOutput'],
+      handles: ['target-left'],
+    },
+    config: {
+      allowMultiple: false,
+      validationMode: 'strict',
+    },
+  },
+
   // Schema → 模板实例（输入端口）
   {
     id: 'schema-to-template-instance',
@@ -535,9 +616,12 @@ export function isConstraintNodeConnection(
   sourceNodeType: string,
   targetNodeType: string
 ): boolean {
-  // Schema/JsonSchema → 约束节点的连接
+  // Schema/JsonSchema/TransformOutput/ManualData → 约束节点的连接
   return (
-    (sourceNodeType === 'schema' || sourceNodeType === 'jsonSchema') &&
+    (sourceNodeType === 'schema' ||
+      sourceNodeType === 'jsonSchema' ||
+      sourceNodeType === 'transformOutput' ||
+      sourceNodeType === 'manualData') &&
     isConstraintNodeType(targetNodeType)
   )
 }
