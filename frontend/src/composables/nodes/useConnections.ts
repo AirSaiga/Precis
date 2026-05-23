@@ -41,6 +41,7 @@ import {
   isConstraintNodeType,
   requiresInputHandle,
 } from '@/services/constraints/validationRegistry'
+import { validateForInlineSource } from '@/services/constraints/validationRegistryCore'
 import { createConnectionTransaction } from '@/utils/nodes/connectionTransaction'
 
 export function useConnections() {
@@ -142,7 +143,7 @@ export function useConnections() {
       constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
         kind: 'allowedValues',
         nodeType: 'allowedValuesConstraint',
-        dispatchValidation: false,
+        dispatchValidation: true,
         addConstraintToColumn: false,
         resetOnConnect: true,
       })
@@ -151,7 +152,7 @@ export function useConnections() {
       constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
         kind: 'range',
         nodeType: 'rangeConstraint',
-        dispatchValidation: false,
+        dispatchValidation: true,
         addConstraintToColumn: false,
         resetOnConnect: true,
       })
@@ -160,7 +161,7 @@ export function useConnections() {
       constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
         kind: 'scripted',
         nodeType: 'scriptedConstraint',
-        dispatchValidation: false,
+        dispatchValidation: true,
         addConstraintToColumn: false,
         resetOnConnect: true,
       })
@@ -169,7 +170,7 @@ export function useConnections() {
       constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
         kind: 'charset',
         nodeType: 'charsetConstraint',
-        dispatchValidation: false,
+        dispatchValidation: true,
         addConstraintToColumn: false,
         resetOnConnect: true,
       })
@@ -178,7 +179,7 @@ export function useConnections() {
       constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
         kind: 'dateLogic',
         nodeType: 'dateLogicConstraint',
-        dispatchValidation: false,
+        dispatchValidation: true,
         addConstraintToColumn: false,
         resetOnConnect: true,
       })
@@ -672,7 +673,7 @@ export function useConnections() {
             await handler(sourceNode.id, targetNode.id, sourceHandle, targetHandle, edgeId)
           } else if (sourceNode.type === 'transformOutput' || sourceNode.type === 'manualData') {
             // 纯数据源 → 无专用处理器的约束类型（如 foreignKey / composite）：
-            // 设置基本引用数据，供后续手动触发校验使用
+            // 设置基本引用数据，并触发行内校验
             const srcData = sourceNode.data as Record<string, unknown>
             const colName = (srcData.columnName as string) || 'Column1'
             tx.patchNodeData(targetNode.id, {
@@ -682,7 +683,16 @@ export function useConnections() {
               sourceRef: { nodeId: sourceNode.id, columnId: '0' },
               saveState: 'draft',
             })
-            logger.debug('🔗 纯数据源 → 约束节点（回退处理）:', {
+            // 触发行内校验（异步，不阻塞连接创建）
+            validateForInlineSource({
+              sourceNodeId: sourceNode.id,
+              constraintNode: targetNode,
+              nodes: store.nodes,
+              updateNodeData: store.updateNodeData,
+            }).catch((err) => {
+              logger.warn('⚠️ 纯数据源行内校验失败:', err)
+            })
+            logger.debug('🔗 纯数据源 → 约束节点（回退处理+校验）:', {
               sourceType: sourceNode.type,
               colName,
               constraintType: targetNode.type,

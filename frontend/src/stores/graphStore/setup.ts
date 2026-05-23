@@ -118,8 +118,9 @@ import { createSchemaOpsModule } from './modules/schemaOps'
 import { createRegexDesignModule } from './modules/regexDesign'
 import { createAssetsModule } from './modules/assets'
 import { createScopeModule } from './modules/scope'
-import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import { isConstraintNodeType, validateForInlineSource } from '@/services/constraints/validationRegistry'
 import { useResourceTreeStore } from '@/stores/resourceTreeStore'
+import { logger } from '@/core/utils/logger'
 import {
   listV2Templates,
   getV2Template,
@@ -533,6 +534,51 @@ export function setupGraphStore() {
     },
     { flush: 'post' }
   )
+
+  // =====================================
+  // 行内数据源自动重新校验
+  // =====================================
+  // 监听 manualData / transformOutput 节点的 rows 数据变化，
+  // 自动触发已连接约束节点的重新校验
+  const inlineSourceFingerprint = computed(() => {
+    let fp = ''
+    for (const n of nodes.value) {
+      if (n.type === 'manualData' || n.type === 'transformOutput') {
+        const d = (n.data || {}) as Record<string, unknown>
+        fp += `${n.id}:${JSON.stringify((d.rows as string[][]) || [])}|`
+      }
+    }
+    return fp
+  })
+
+  let inlineValidationDebounce: ReturnType<typeof setTimeout> | null = null
+
+  watch(inlineSourceFingerprint, (newVal, oldVal) => {
+    if (!oldVal || newVal === oldVal) return
+
+    if (inlineValidationDebounce) clearTimeout(inlineValidationDebounce)
+
+    inlineValidationDebounce = setTimeout(() => {
+      for (const node of nodes.value) {
+        if (node.type !== 'manualData' && node.type !== 'transformOutput') continue
+
+        const constraintEdges = edges.value.filter((e) => e.source === node.id)
+        for (const edge of constraintEdges) {
+          const constraintNode = nodes.value.find((n) => n.id === edge.target)
+          if (!constraintNode || !isConstraintNodeType(constraintNode.type)) continue
+
+          validateForInlineSource({
+            sourceNodeId: node.id,
+            constraintNode,
+            nodes: nodes.value,
+            updateNodeData,
+          }).catch((err) => {
+            logger.warn('Inline auto-revalidation failed:', err)
+          })
+        }
+      }
+    }, 400) // 400ms 防抖，避免输入过程中频繁触发校验
+  }, { flush: 'post' })
 
   const schemaOps = createSchemaOpsModule({ nodes, edges, updateNodeData })
   const {

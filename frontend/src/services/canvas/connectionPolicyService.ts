@@ -185,6 +185,9 @@ class ConnectionPolicyServiceClass {
         description: 'Conditional 约束最多连接10个列（5个IF + 5个THEN）',
       },
       scriptedConstraint: { max: 1, description: 'Scripted 约束只能连接一个列' },
+      charsetConstraint: { max: 1, description: 'Charset 约束只能连接一个列' },
+      dateLogicConstraint: { max: 1, description: 'DateLogic 约束只能连接一个列' },
+      rangeConstraint: { max: 1, description: 'Range 约束只能连接一个列' },
       compositeConstraint: { max: 1, description: 'Composite 约束只能连接一个输入' },
     }
 
