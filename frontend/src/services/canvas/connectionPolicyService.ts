@@ -50,7 +50,11 @@ class ConnectionPolicyServiceClass {
    * @param nodes - 节点列表
    * @returns 连接是否有效
    */
-  isValidConnection(connection: Connection, nodes: Node[]): boolean {
+  isValidConnection(
+    connection: Connection,
+    nodes: Node[],
+    existingConnections: Connection[] = []
+  ): boolean {
     const sourceNode = nodes.find((n) => n.id === connection.source)
     const targetNode = nodes.find((n) => n.id === connection.target)
 
@@ -59,7 +63,7 @@ class ConnectionPolicyServiceClass {
     }
 
     const { validateConnection } = useConnectionValidator({
-      existingConnections: [],
+      existingConnections,
     })
 
     const result = validateConnection(
@@ -84,7 +88,8 @@ class ConnectionPolicyServiceClass {
   getAllowedTargets(
     nodeId: string,
     handleId: string | undefined,
-    nodes: Node[]
+    nodes: Node[],
+    existingConnections: Connection[] = []
   ): Array<{ node: Node; handle?: string }> {
     const sourceNode = nodes.find((n) => n.id === nodeId)
 
@@ -93,7 +98,7 @@ class ConnectionPolicyServiceClass {
     }
 
     const { getAllowedTargetsForSource } = useConnectionValidator({
-      existingConnections: [],
+      existingConnections,
     })
 
     const allowedTargets = getAllowedTargetsForSource(sourceNode, handleId, nodes)
