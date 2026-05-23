@@ -74,7 +74,7 @@ import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
 import { toastError, toastSuccess, toastWarning } from '@/core/toast'
 import { useI18n } from 'vue-i18n'
-import { getV2FullConfig, getV2ProjectView, ProjectNotFoundError } from '@/api/projectV2Api'
+import { getV2FullConfig, getV2ProjectView, getV2Template, ProjectNotFoundError } from '@/api/projectV2Api'
 // Hydration imports retained for potential future use (e.g. restoring saved canvas state)
 // import { hydrateSchemasFromV2Config } from './load/hydrateSchemas'
 // import { hydrateManifestConstraintsFromV2Config } from './load/hydrateConstraints'
