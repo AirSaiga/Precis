@@ -39,6 +39,7 @@ export function createTemplateInstanceFactoryModule(params: {
         enabled: options?.enabled !== false,
         nodeCount: 0,
         summaryText: '',
+        expanded: false,
         saveState: options?.saveState || 'draft',
       },
       { nodeId: options?.nodeId, autoSelect: false }

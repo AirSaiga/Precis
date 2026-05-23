@@ -114,6 +114,7 @@ import { createLibraryNodesFactoryModule } from './modules/factories/libraryNode
 import { createMiscFactoryModule } from './modules/factories/miscFactory'
 import { createJsonSchemaFactoryModule } from './modules/factories/jsonSchemaFactory'
 import { createTemplateInstanceFactoryModule } from './modules/factories/templateInstanceFactory'
+import { createTemplateExpandModule } from './modules/templateExpand'
 import { createSchemaOpsModule } from './modules/schemaOps'
 import { createRegexDesignModule } from './modules/regexDesign'
 import { createAssetsModule } from './modules/assets'
@@ -418,6 +419,12 @@ export function setupGraphStore() {
     selectedNodeId,
   })
 
+  const templateExpand = createTemplateExpandModule({
+    nodes,
+    edges,
+    updateNodeData: updateNodeData as (nodeId: string, newData: Record<string, unknown>) => void,
+  })
+
   const v2Persistence = createV2PersistenceModule({
     nodes,
     edges,
@@ -602,7 +609,14 @@ export function setupGraphStore() {
    */
   function collectCascadeNodeIds(nodeId: string): string[] {
     const node = nodes.value.find((n) => n.id === nodeId)
-    if (!node || node.type !== 'transform') {
+    if (!node) return [nodeId]
+
+    // 模板实例：级联删除其展开预览节点
+    if (node.type === 'templateInstance') {
+      return [nodeId, ...templateExpand.getExpandedIds(nodeId)]
+    }
+
+    if (node.type !== 'transform') {
       return [nodeId]
     }
 
@@ -817,6 +831,7 @@ export function setupGraphStore() {
    * - 属性检查器面板会清空
    */
   function clearCanvas() {
+    templateExpand.resetAll()
     nodes.value = []
     edges.value = []
     selectedNodeId.value = null
@@ -832,22 +847,26 @@ export function setupGraphStore() {
 
   function hasUnsavedChanges(): boolean {
     return nodes.value.some((node) => {
+      // 跳过模板展开预览节点（它们不会被持久化）
+      const data = node.data as unknown as Record<string, unknown>
+      if (data._expandedFromInstanceId) return false
+
       // 普通 schema 和 JSON schema 都需要检查（F12）
       if (node.type === 'schema' || node.type === 'jsonSchema') {
         const schemaData = node.data as SchemaNodeData
         return schemaData.saveState === 'draft'
       }
       if (isConstraintNodeType(node.type)) {
-        return (node.data as unknown as Record<string, unknown>)?.saveState === 'draft'
+        return data?.saveState === 'draft'
       }
       if (node.type === 'regex') {
-        return (node.data as unknown as Record<string, unknown>)?.saveState === 'draft'
+        return data?.saveState === 'draft'
       }
       if (node.type === 'transform') {
-        return (node.data as unknown as Record<string, unknown>)?.saveState === 'draft'
+        return data?.saveState === 'draft'
       }
       if (node.type === 'templateInstance') {
-        return (node.data as unknown as Record<string, unknown>)?.saveState === 'draft'
+        return data?.saveState === 'draft'
       }
       return false
     })
@@ -946,6 +965,11 @@ export function setupGraphStore() {
     createJsonSchemaNode,
     createJsonSourcePreviewNode,
     createTemplateInstanceNode,
+    expandOnCanvas: templateExpand.expandOnCanvas,
+    clearExpansion: templateExpand.clearExpansion,
+    collapseExpansion: templateExpand.collapseExpansion,
+    reExpand: templateExpand.reExpand,
+    getExpandedIds: templateExpand.getExpandedIds,
     createEmptyTableNode,
     createEmptyPatternNode,
     createLogicNode,

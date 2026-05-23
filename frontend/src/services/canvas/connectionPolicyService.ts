@@ -189,6 +189,7 @@ class ConnectionPolicyServiceClass {
       dateLogicConstraint: { max: 1, description: 'DateLogic 约束只能连接一个列' },
       rangeConstraint: { max: 1, description: 'Range 约束只能连接一个列' },
       compositeConstraint: { max: 1, description: 'Composite 约束只能连接一个输入' },
+      templateInstance: { max: 1, description: '模板实例只能接收一个数据源输入' },
     }
 
     return configs[nodeType] || { max: Infinity, description: '无限制' }
@@ -209,6 +210,7 @@ class ConnectionPolicyServiceClass {
       regex: { max: 1, description: 'Regex 节点最多一个输出连接' },
       foreignKeyConstraint: { max: Infinity, description: 'ForeignKey 可以显示连接到多个目标表' },
       constraintDashboard: { max: 0, description: 'ConstraintDashboard 不支持输出连接' },
+      templateInstance: { max: 0, description: '模板实例不作为数据源输出' },
     }
 
     return configs[nodeType] || { max: Infinity, description: '无限制' }

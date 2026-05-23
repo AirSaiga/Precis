@@ -272,6 +272,8 @@ export interface TemplateInstanceNodeData {
   nodeCount: number
   /** 参数摘要文本 */
   summaryText: string
+  /** 是否处于展开（容器）模式 */
+  expanded: boolean
   saveState?: SchemaSaveState
   lastSaved?: string
 }

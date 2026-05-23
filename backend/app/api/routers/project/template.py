@@ -27,7 +27,7 @@ from app.shared.core.project.template.expander import expand_template
 from app.shared.core.project.template.reader import load_template
 from app.shared.core.project.template.types import TemplateFile
 
-from .helpers import _resolve_project_path, project_lock
+from .helpers import _resolve_project_path, _v2_manifest_path, project_lock
 from .manifest import get_v2_manifest
 
 logger = logging.getLogger(__name__)
@@ -35,17 +35,12 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="", tags=["Project-Template"])
 
 
-def _v2_manifest_path(config_path: str) -> Path:
-    """获取 manifest 文件路径"""
-    return _resolve_project_path(config_path) / "project.precis.yaml"
-
-
 def _find_template_path(template_id: str, config_path: str) -> Path | None:
     """从 manifest 中查找模板文件路径"""
     manifest = get_v2_manifest(config_path)
     for ref in manifest.templates:
         if ref.id == template_id:
-            return _resolve_project_path(config_path) / ref.path
+            return Path(_resolve_project_path(config_path, ref.path))
     return None
 
 
@@ -88,7 +83,7 @@ def list_templates(config_path: str = Depends(get_project_config_path)):
     manifest = get_v2_manifest(config_path)
     templates = []
     for ref in manifest.templates:
-        tmpl_path = _resolve_project_path(config_path) / ref.path
+        tmpl_path = Path(_resolve_project_path(config_path, ref.path))
         if tmpl_path.exists():
             try:
                 tmpl = load_template(tmpl_path)
@@ -120,7 +115,7 @@ def get_template(template_id: str, config_path: str = Depends(get_project_config
 @router.post("/v2/template")
 def create_template(template_data: dict, config_path: str = Depends(get_project_config_path)):
     """创建模板定义文件"""
-    project_dir = _resolve_project_path(config_path)
+    project_dir = Path(config_path)
 
     # 验证数据
     try:
@@ -206,6 +201,10 @@ def preview_template_expand(
 
     tmpl = load_template(tmpl_path)
 
+    logger.debug(
+        f"模板展开请求: template_id={template_id}, instance_id={request.instance_id}, "
+        f"params={request.params}, input_from_node={request.input_from_node}"
+    )
     try:
         transforms, constraints, regex_nodes = expand_template(
             tmpl,
@@ -214,6 +213,7 @@ def preview_template_expand(
             request.input_from_node,
         )
     except ValueError as e:
+        logger.warning(f"模板展开 ValueError: {e}")
         raise HTTPException(status_code=400, detail=str(e))
 
     return TemplateExpandResponse(

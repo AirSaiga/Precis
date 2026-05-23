@@ -79,12 +79,17 @@ export function buildV2Manifest(
   projectPath: string,
   schemaIdMap?: Record<string, string>
 ): ProjectManifestV2 {
+  // 过滤模板展开预览节点（不应持久化到清单）
+  const persistentNodes = nodes.filter(
+    (n) => !(n.data as unknown as Record<string, unknown>)?._expandedFromInstanceId
+  )
+
   const projectId = (projectPath?.split(/[/\\]/).pop() || projectName || 'project')
     .trim()
     .replace(/\s+/g, '_')
     .replace(/[\\/:"*?<>|]+/g, '_')
 
-  const schemaRefs = nodes
+  const schemaRefs = persistentNodes
     // 支持普通 schema 和 jsonSchema 节点
     .filter((n) => n.type === 'schema' || n.type === 'jsonSchema')
     .map((n) => {
@@ -98,19 +103,19 @@ export function buildV2Manifest(
       return { id: effectiveId, path: `schemas/${schemaName}.schema.yaml` }
     })
 
-  const constraintRefs = nodes
+  const constraintRefs = persistentNodes
     .filter((n) => isConstraintNodeType(n.type) && !(n.data as { embedded?: boolean })?.embedded)
     .map((n) => ({ id: n.id, path: `constraints/${n.id}.constraint.yaml` }))
 
-  const regexRefs = nodes
+  const regexRefs = persistentNodes
     .filter((n) => n.type === 'regex')
     .map((n) => ({ id: n.id, path: `regex/${n.id}.regex.yaml` }))
 
-  const transformRefs = nodes
+  const transformRefs = persistentNodes
     .filter((n) => n.type === 'transform')
     .map((n) => ({ id: n.id, path: `transforms/${n.id}.transform.yaml` }))
 
-  const templateInstanceRefs = nodes
+  const templateInstanceRefs = persistentNodes
     .filter((n) => n.type === 'templateInstance')
     .map((n) => {
       const d = n.data as unknown as Record<string, unknown>

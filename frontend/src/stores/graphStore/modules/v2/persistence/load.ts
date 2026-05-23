@@ -230,13 +230,33 @@ export function createV2LoadOps(params: {
       if (templateInstances && templateInstances.length > 0) {
         for (const ti of templateInstances) {
           const pos = view?.nodes?.[ti.id] || { x: 300, y: 200 }
-          const nodeId = createTemplateInstanceNode(pos, ti.template_id, undefined, {
+
+          // 加载模板定义以获取 name 和 nodeCount
+          let templateName: string | undefined
+          let nodeCount = 0
+          try {
+            const tmpl = await getV2Template(ti.template_id)
+            templateName = (tmpl as Record<string, unknown>).name as string
+            nodeCount = Array.isArray(tmpl.nodes) ? tmpl.nodes.length : 0
+          } catch {
+            // 模板定义文件可能不存在，使用 template_id 作为 fallback
+            templateName = ti.template_id
+          }
+
+          const nodeId = createTemplateInstanceNode(pos, ti.template_id, templateName, {
             nodeId: ti.id,
             parameters: ti.params || {},
             inputFromNode: ti.input_from_node || undefined,
             enabled: ti.enabled !== false,
             saveState: 'saved',
           })
+          // 补全 nodeCount
+          if (nodeCount > 0) {
+            const newNode = nextNodes.find((n) => n.id === nodeId)
+            if (newNode) {
+              ;(newNode.data as unknown as Record<string, unknown>).nodeCount = nodeCount
+            }
+          }
           // 恢复输入连接
           if (ti.input_from_node) {
             nextEdges.push({

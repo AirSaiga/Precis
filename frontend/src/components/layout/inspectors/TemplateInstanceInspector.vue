@@ -83,22 +83,6 @@
       </button>
     </div>
 
-    <!-- 展开结果 -->
-    <div v-if="expandResult" class="inspector-section">
-      <label>{{ t('inspector.templateInstance.expandResult') }}</label>
-      <div class="expand-summary">
-        <span v-if="expandResult.transforms.length">
-          {{ expandResult.transforms.length }} 个 Transform
-        </span>
-        <span v-if="expandResult.constraints.length">
-          {{ expandResult.constraints.length }} 个 Constraint
-        </span>
-        <span v-if="expandResult.regex_nodes.length">
-          {{ expandResult.regex_nodes.length }} 个 Regex
-        </span>
-      </div>
-    </div>
-
     <div class="inspector-section">
       <label>{{ t('inspector.templateInstance.saveState') }}</label>
       <span class="save-state">{{ localData.saveState || 'draft' }}</span>
@@ -111,10 +95,11 @@
   import { useI18n } from 'vue-i18n'
   import type { TemplateInstanceNodeData } from '@/types/nodes'
   import { getV2Template, expandV2Template } from '@/api/projectV2Api'
-  import { useGraphStore } from '@/stores/graphStore'
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
+  import { useGraphStore } from '@/stores/graphStore'
 
   const { t } = useI18n()
+  const graphStore = useGraphStore()
 
   interface Props {
     data: TemplateInstanceNodeData
@@ -127,7 +112,6 @@
     'update:data': [data: Partial<TemplateInstanceNodeData>]
   }>()
 
-  const graphStore = useGraphStore()
   const resourceTreeStore = useResourceTreeStore()
 
   const availableTemplates = computed(() =>
@@ -156,11 +140,6 @@
 
   const templateParams = ref<TemplateParam[]>([])
   const expanding = ref(false)
-  const expandResult = ref<{
-    transforms: unknown[]
-    constraints: unknown[]
-    regex_nodes: unknown[]
-  } | null>(null)
 
   async function loadTemplateParams(templateId: string): Promise<void> {
     try {
@@ -201,7 +180,9 @@
     localData.templateName = matched?.name || newId
     localData.parameters = {}
     templateParams.value = []
-    expandResult.value = null
+
+    // 清除旧模板的展开节点
+    graphStore.clearExpansion(props.nodeId)
 
     // 加载新模板的参数定义并同步到节点
     loadTemplateParams(newId).then(() => {
@@ -234,26 +215,29 @@
 
   async function previewExpand() {
     if (!localData.templateId) return
+
+    // 如果子节点已存在（之前展开过），直接显示而无需重新调用 API
+    if (graphStore.getExpandedIds(props.nodeId).length > 0) {
+      graphStore.reExpand(props.nodeId)
+      return
+    }
+
     expanding.value = true
     try {
-      const inputFromNode =
-        (graphStore.selectedNode?.data as TemplateInstanceNodeData | undefined)?.inputFromNode || ''
-      expandResult.value = await expandV2Template(
+      // 从 store 实时读取 inputFromNode（props.data 可能在连接后未更新）
+      const currentNode = graphStore.nodes.find((n) => n.id === props.nodeId)
+      const inputFromNode = ((currentNode?.data as Record<string, unknown>)?.inputFromNode as string) || ''
+      const result = await expandV2Template(
         localData.templateId,
         props.nodeId,
         { ...localData.parameters },
         inputFromNode
       )
-      // 同步展开后的节点数量到 nodeCount
-      if (expandResult.value) {
-        const totalNodes =
-          expandResult.value.transforms.length +
-          expandResult.value.constraints.length +
-          expandResult.value.regex_nodes.length
-        emit('update:data', { nodeCount: totalNodes })
-      }
-    } catch {
-      expandResult.value = null
+      // 在画布上渲染展开后的 DAG 节点
+      graphStore.expandOnCanvas(props.nodeId, result)
+      emit('update:data', { nodeCount: result.transforms.length + result.constraints.length + result.regex_nodes.length })
+    } catch (err) {
+      console.error('[TemplateInstanceInspector] 展开预览失败:', err)
     } finally {
       expanding.value = false
     }

@@ -72,6 +72,10 @@ def expand_template(
     # 步骤 1：解析参数（合并绑定值和默认值）
     resolved_params = _resolve_parameters(template, params)
 
+    # 特殊映射：input_anchor → 外部上游节点 ID
+    # 模板节点中通过 {{input_anchor}} 引用输入锚点，需要在实际数据流中替换为具体上游节点
+    resolved_params["input_anchor"] = input_from_node
+
     # 步骤 2：构建 ID 命名空间映射 {local_id → global_id}
     id_map = {}
     for node in template.nodes:

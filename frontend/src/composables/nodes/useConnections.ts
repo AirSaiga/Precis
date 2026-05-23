@@ -703,6 +703,20 @@ export function useConnections() {
         }
       }
 
+      // templateInstance 输入连接：设置 inputFromNode
+      if (targetNode.type === 'templateInstance') {
+        tx.patchNodeData(targetNode.id, {
+          ...((targetNode.data || {}) as Record<string, unknown>),
+          inputFromNode: sourceNode.id,
+          saveState: 'draft',
+        })
+        logger.debug('🔗 数据源 → 模板实例:', {
+          sourceType: sourceNode.type,
+          sourceId: sourceNode.id,
+          instanceId: targetNode.id,
+        })
+      }
+
       if (sourceNode.type === 'schema' && targetNode.type === 'regex') {
         if (sourceHandle) {
           await regexConnection.handleSchemaToRegexConnection(

@@ -198,10 +198,14 @@ def put_v2_manifest(
             merged_schemas = manifest.schemas.copy() if manifest.schemas else []
             merged_constraints = manifest.constraints.copy() if manifest.constraints else []
             merged_regex_nodes = manifest.regex_nodes.copy() if manifest.regex_nodes else []
+            merged_templates = manifest.templates.copy() if manifest.templates else []
+            merged_template_instances = manifest.template_instances.copy() if manifest.template_instances else []
 
             existing_schema_ids = {s.id for s in merged_schemas}
             existing_constraint_ids = {c.id for c in merged_constraints}
             existing_regex_ids = {r.id for r in merged_regex_nodes}
+            existing_template_ids = {t.id for t in merged_templates}
+            existing_instance_ids = {ti.id for ti in merged_template_instances}
 
             for s in existing_manifest.schemas or []:
                 if s.id not in existing_schema_ids:
@@ -215,6 +219,14 @@ def put_v2_manifest(
                 if r.id not in existing_regex_ids:
                     merged_regex_nodes.append(r)
 
+            for t in existing_manifest.templates or []:
+                if t.id not in existing_template_ids:
+                    merged_templates.append(t)
+
+            for ti in existing_manifest.template_instances or []:
+                if ti.id not in existing_instance_ids:
+                    merged_template_instances.append(ti)
+
             final_manifest = ProjectManifestV2(
                 version=manifest.version,
                 project=manifest.project,
@@ -222,7 +234,10 @@ def put_v2_manifest(
                 schemas=merged_schemas,
                 constraints=merged_constraints,
                 regex_nodes=merged_regex_nodes,
+                transforms=manifest.transforms,
                 data_sources=manifest.data_sources,
+                templates=merged_templates,
+                template_instances=merged_template_instances,
                 patterns_dir=manifest.patterns_dir,
                 warnings=manifest.warnings,
             )
