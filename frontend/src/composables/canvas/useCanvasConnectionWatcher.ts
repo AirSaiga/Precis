@@ -26,11 +26,7 @@ export function useCanvasConnectionWatcher() {
    * @returns 连接是否通过策略验证
    */
   const validateConnection = (connection: Connection) => {
-    return connectionPolicyService.isValidConnection(
-      connection,
-      store.nodes,
-      store.edges
-    )
+    return connectionPolicyService.isValidConnection(connection, store.nodes)
   }
 
   // 维护上一次边的状态映射，用于检测被移除的边

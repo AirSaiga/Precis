@@ -52,8 +52,7 @@ class ConnectionPolicyServiceClass {
    */
   isValidConnection(
     connection: Connection,
-    nodes: Node[],
-    existingConnections: Connection[] = []
+    nodes: Node[]
   ): boolean {
     const sourceNode = nodes.find((n) => n.id === connection.source)
     const targetNode = nodes.find((n) => n.id === connection.target)
@@ -63,7 +62,7 @@ class ConnectionPolicyServiceClass {
     }
 
     const { validateConnection } = useConnectionValidator({
-      existingConnections,
+      existingConnections: [],
     })
 
     const result = validateConnection(
@@ -88,8 +87,7 @@ class ConnectionPolicyServiceClass {
   getAllowedTargets(
     nodeId: string,
     handleId: string | undefined,
-    nodes: Node[],
-    existingConnections: Connection[] = []
+    nodes: Node[]
   ): Array<{ node: Node; handle?: string }> {
     const sourceNode = nodes.find((n) => n.id === nodeId)
 
@@ -98,7 +96,7 @@ class ConnectionPolicyServiceClass {
     }
 
     const { getAllowedTargetsForSource } = useConnectionValidator({
-      existingConnections,
+      existingConnections: [],
     })
 
     const allowedTargets = getAllowedTargetsForSource(sourceNode, handleId, nodes)
