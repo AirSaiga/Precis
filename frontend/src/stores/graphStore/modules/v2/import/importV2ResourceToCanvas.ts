@@ -20,6 +20,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { nextTick } from 'vue'
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData, TransformNodeData } from '@/types/graph'
@@ -49,6 +50,7 @@ export function createV2ImportToCanvas(params: {
     configDir: string | undefined,
     relPath: string | undefined
   ) => string | undefined
+  reconcileAll: () => void
 }) {
   const {
     nodes,
@@ -56,6 +58,7 @@ export function createV2ImportToCanvas(params: {
     selectedNodeId,
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
+    reconcileAll,
   } = params
   const { t } = useI18n()
 
@@ -97,7 +100,13 @@ export function createV2ImportToCanvas(params: {
         existing.position = { ...position }
       }
       selectedNodeId.value = existing.id
-      if (normalizedKind !== 'schema') return existing.id
+      // 非 schema 幂等返回时也需要触发 reconcileAll，
+      // 因为内嵌约束物化可能已在之前的 Schema 导入中创建了节点但未建立完整关系
+      if (normalizedKind !== 'schema') {
+        await nextTick()
+        reconcileAll()
+        return existing.id
+      }
     }
 
     try {
@@ -108,19 +117,30 @@ export function createV2ImportToCanvas(params: {
       if (normalizedKind === 'schema') {
         const nodeId = await importSchema(resourceId, position)
         selectedNodeId.value = nodeId
+        await nextTick()
+        reconcileAll()
         return nodeId
       }
 
       if (normalizedKind === 'regex') {
-        return await importRegex(resourceId, position, { includeDeps, moveIfExists })
+        const nodeId = await importRegex(resourceId, position, { includeDeps, moveIfExists })
+        await nextTick()
+        reconcileAll()
+        return nodeId
       }
 
       if (normalizedKind === 'constraint') {
-        return await importConstraint(resourceId, position, { includeDeps, moveIfExists })
+        const nodeId = await importConstraint(resourceId, position, { includeDeps, moveIfExists })
+        await nextTick()
+        reconcileAll()
+        return nodeId
       }
 
       if (normalizedKind === 'transform') {
-        return await importTransform(resourceId, position, { includeDeps, moveIfExists })
+        const nodeId = await importTransform(resourceId, position, { includeDeps, moveIfExists })
+        await nextTick()
+        reconcileAll()
+        return nodeId
       }
 
       return null

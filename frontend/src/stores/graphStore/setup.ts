@@ -102,6 +102,7 @@ import { createV2PersistenceModule } from './modules/v2Persistence'
 import { createClipboardModule } from './modules/clipboard'
 import { createPathingModule } from './modules/pathing'
 import { createConnectionOpsModule } from './modules/connectionOps'
+import { createConnectionStateSyncModule } from './modules/connectionStateSync'
 import { createYamlIOModule } from './modules/yamlIO'
 import { createProjectLifecycleModule } from './modules/projectLifecycle'
 import { createSchemaFactoryModule } from './modules/factories/schemaFactory'
@@ -378,12 +379,20 @@ export function setupGraphStore() {
       nodes,
     })
 
-  const { importV2ResourceToCanvas, importV2ConstraintContextAware } = createV2ImportModule({
+  // --- 连接状态同步模块（统一管理 parent/children/outputPortConnected） ---
+  const connectionStateSync = createConnectionStateSyncModule({
+    nodes,
+    edges,
+    updateNodeData,
+  })
+
+  const { importV2ResourceToCanvas } = createV2ImportModule({
     nodes,
     edges,
     selectedNodeId,
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
+    reconcileAll: connectionStateSync.reconcileAll,
   })
 
   const { createSchemaNode, addColumnToSchema } = createSchemaFactoryModule({
@@ -587,7 +596,12 @@ export function setupGraphStore() {
     }, 400) // 400ms 防抖，避免输入过程中频繁触发校验
   }, { flush: 'post' })
 
-  const schemaOps = createSchemaOpsModule({ nodes, edges, updateNodeData })
+  const schemaOps = createSchemaOpsModule({
+    nodes,
+    edges,
+    updateNodeData,
+    syncOnConnect: connectionStateSync.syncOnConnect,
+  })
   const {
     bindRegexToSchemaColumn,
     addConstraintToColumn,
@@ -783,6 +797,7 @@ export function setupGraphStore() {
       deleteNodes,
       saveState,
       pasteOffset,
+      reconcileAll: connectionStateSync.reconcileAll,
     })
 
   /**
@@ -809,6 +824,7 @@ export function setupGraphStore() {
     edges,
     updateNodeData,
     clearAllValidationErrors,
+    syncOnDisconnect: connectionStateSync.syncOnDisconnect,
   })
 
   /**
@@ -1016,6 +1032,11 @@ export function setupGraphStore() {
     deleteConnection,
     handleEdgeRemoved,
 
+    // 连接状态同步
+    syncOnConnect: connectionStateSync.syncOnConnect,
+    syncOnDisconnect: connectionStateSync.syncOnDisconnect,
+    reconcileAll: connectionStateSync.reconcileAll,
+
     // 画布管理
     clearCanvas,
 
@@ -1032,7 +1053,6 @@ export function setupGraphStore() {
     saveTemplateInstanceNode: v2Persistence.saveTemplateInstanceNode,
     loadProjectFromV2: v2Persistence.loadProjectFromV2,
     importV2ResourceToCanvas,
-    importV2ConstraintContextAware,
     refreshProjectConfigStats: v2Persistence.refreshProjectConfigStats,
     hasUnsavedChanges,
     getSaveStatusSummary,

@@ -225,7 +225,7 @@
       animated: false,
       class: 'fk-display-edge',
       style: { stroke: 'var(--theme-purple)', strokeWidth: 1.4, strokeDasharray: '2 8' },
-      data: { kind: 'fkTargetDisplay', fkNodeId: props.id },
+      data: { kind: 'fkDisplay', fkNodeId: props.id },
     } as Partial<Edge>)
   }
 

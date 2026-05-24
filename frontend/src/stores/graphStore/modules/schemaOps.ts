@@ -65,8 +65,9 @@ export function createSchemaOpsModule(params: {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>
   updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
+  syncOnConnect: (sourceId: string, targetId: string) => void
 }) {
-  const { nodes, edges, updateNodeData } = params
+  const { nodes, edges, updateNodeData, syncOnConnect } = params
 
   function bindRegexToSchemaColumn(schemaNodeId: string, columnId: string, regexNodeId: string) {
     const schemaNode = nodes.value.find((n) => n.id === schemaNodeId && n.type === 'schema')
@@ -104,13 +105,8 @@ export function createSchemaOpsModule(params: {
       saveState: 'draft',
     } as unknown as Record<string, unknown>)
 
-    // 维护 Schema 节点的 children 数组（用于级联保存）
-    const currentChildren = schemaData.children as string[] | undefined
-    if (!currentChildren || !currentChildren.includes(regexNodeId)) {
-      updateNodeData(schemaNodeId, {
-        children: [...(currentChildren || []), regexNodeId],
-      } as unknown as Record<string, unknown>)
-    }
+    // 统一更新 children/parent 关系状态
+    syncOnConnect(schemaNodeId, regexNodeId)
 
     return true
   }

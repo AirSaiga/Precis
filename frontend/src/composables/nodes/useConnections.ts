@@ -426,7 +426,7 @@ export function useConnections() {
         strokeWidth: 1.4,
         strokeDasharray: '2 8',
       } // was rgba(139,92,246,0.65)
-      edgeStyle.data = { kind: 'fkTargetDisplay', fkNodeId: sourceNode.id }
+      edgeStyle.data = { kind: 'fkDisplay', fkNodeId: sourceNode.id }
     } else if (
       (sourceNode.type === 'schema' ||
         sourceNode.type === 'jsonSchema' ||
@@ -485,13 +485,8 @@ export function useConnections() {
     })
 
     try {
-      if (sourceNode.type === 'sourcePreview' && targetNode.type === 'schema') {
-        const sourceData = sourceNode.data as Record<string, unknown>
-        const currentChildren = (sourceData.children as string[]) || []
-        if (!currentChildren.includes(target)) {
-          tx.patchNodeData(source, { children: [...currentChildren, target] })
-        }
-      }
+      // 统一连接状态同步（children/parent/outputPortConnected）
+      store.syncOnConnect(source, target, tx.patchNodeData.bind(tx))
 
       if (sourceNode.type === 'manualData' && targetNode.type === 'schema') {
         const manualData = sourceNode.data as Record<string, unknown>
@@ -573,23 +568,6 @@ export function useConnections() {
         })
       }
 
-      if (sourceNode.type === 'jsonSourcePreview' && targetNode.type === 'jsonSchema') {
-        const sourceData = sourceNode.data as Record<string, unknown>
-        const currentChildren = (sourceData.children as string[]) || []
-        if (!currentChildren.includes(target)) {
-          tx.patchNodeData(source, { children: [...currentChildren, target] })
-        }
-      }
-
-      if (sourceNode.type === 'schema' && targetNode.type === 'regex') {
-        const sourceData = sourceNode.data as Record<string, unknown>
-        const schemaChildren = (sourceData.children as string[]) || []
-        if (!schemaChildren.includes(target)) {
-          tx.patchNodeData(source, { children: [...schemaChildren, target] })
-        }
-        tx.patchNodeData(target, { parent: source })
-      }
-
       // ManualData → Regex：手动数据作为正则校验的数据源
       if (sourceNode.type === 'manualData' && targetNode.type === 'regex') {
         const manualData = sourceNode.data as Record<string, unknown>
@@ -607,33 +585,6 @@ export function useConnections() {
         logger.debug(
           `[ManualData→Regex] 已将 manualData '${sourceNode.id}' 连接到 regex 节点 '${targetNode.id}'`
         )
-      }
-
-      if (sourceNode.type === 'jsonSchema' && targetNode.type === 'regex') {
-        const sourceData = sourceNode.data as Record<string, unknown>
-        const schemaChildren = (sourceData.children as string[]) || []
-        if (!schemaChildren.includes(target)) {
-          tx.patchNodeData(source, { children: [...schemaChildren, target] })
-        }
-        tx.patchNodeData(target, { parent: source })
-      }
-
-      if (sourceNode.type === 'schema' && isConstraintNodeType(targetNode.type)) {
-        const sourceData = sourceNode.data as Record<string, unknown>
-        const schemaChildren = (sourceData.children as string[]) || []
-        if (!schemaChildren.includes(target)) {
-          tx.patchNodeData(source, { children: [...schemaChildren, target] })
-        }
-        tx.patchNodeData(target, { parent: source })
-      }
-
-      if (sourceNode.type === 'jsonSchema' && isConstraintNodeType(targetNode.type)) {
-        const sourceData = sourceNode.data as Record<string, unknown>
-        const schemaChildren = (sourceData.children as string[]) || []
-        if (!schemaChildren.includes(target)) {
-          tx.patchNodeData(source, { children: [...schemaChildren, target] })
-        }
-        tx.patchNodeData(target, { parent: source })
       }
 
       if (sourceNode.type === 'sourcePreview' && targetNode.type === 'schema') {
@@ -750,13 +701,7 @@ export function useConnections() {
 
       if (sourceNode.type === 'transformOutput' && targetNode.type === 'regex') {
         const outputData = sourceNode.data as Record<string, unknown>
-        const sourceData = sourceNode.data as Record<string, unknown>
-        const schemaChildren = (sourceData.children as string[]) || []
-        if (!schemaChildren.includes(target)) {
-          tx.patchNodeData(source, { children: [...schemaChildren, target] })
-        }
         tx.patchNodeData(target, {
-          parent: source,
           sourceNodeId: source,
           sourceColumnName: (outputData.columnName as string) || 'Column1',
           saveState: 'draft',

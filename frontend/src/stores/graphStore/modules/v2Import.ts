@@ -11,7 +11,6 @@ import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
 import { createEnsureSchemaNodeFromV2 } from './v2/import/ensureSchemaNodeFromV2'
 import { createV2ImportToCanvas } from './v2/import/importV2ResourceToCanvas'
-import { createV2ConstraintContextAwareImport } from './v2/import/constraintContextAware'
 
 export function createV2ImportModule(params: {
   nodes: Ref<CustomNode[]>
@@ -19,8 +18,9 @@ export function createV2ImportModule(params: {
   selectedNodeId: Ref<string | null>
   getEffectiveProjectConfigPath: () => string | undefined
   resolveProjectRelativePath: (configDir: string | undefined, relPath: string | undefined) => string | undefined
+  reconcileAll: () => void
 }) {
-  const { nodes, edges, selectedNodeId, getEffectiveProjectConfigPath, resolveProjectRelativePath } = params
+  const { nodes, edges, selectedNodeId, getEffectiveProjectConfigPath, resolveProjectRelativePath, reconcileAll } = params
 
   const { ensureSchemaNodeFromV2 } = createEnsureSchemaNodeFromV2({
     nodes,
@@ -34,15 +34,8 @@ export function createV2ImportModule(params: {
     selectedNodeId,
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
+    reconcileAll,
   })
 
-  const { importV2ConstraintContextAware } = createV2ConstraintContextAwareImport({
-    nodes,
-    edges,
-    selectedNodeId,
-    ensureSchemaNodeFromV2,
-    importV2ResourceToCanvas,
-  })
-
-  return { importV2ResourceToCanvas, importV2ConstraintContextAware }
+  return { importV2ResourceToCanvas, ensureSchemaNodeFromV2 }
 }

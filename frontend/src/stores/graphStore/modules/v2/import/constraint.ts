@@ -3,8 +3,7 @@
  * @description V2 Constraint（约束）导入模块
  *
  * 负责将 V2 项目配置中的独立约束文件导入为画布约束节点。
- * 支持多种约束类型：Unique、NotNull、AllowedValues、ForeignKey、
- * Range、Conditional、Scripted、Charset、DateLogic 等。
+ * 通过 NodeDataBuilder 统一构建节点数据，消除各约束类型的重复数据构建代码。
  *
  * 核心功能：
  * - importConstraint: 根据约束 ID 加载并创建约束节点
@@ -12,15 +11,60 @@
  * - 支持依赖自动导入（includeDeps）和位置更新（moveIfExists）
  *
  * 数据流：
- * V2 约束配置 → getV2Constraint API → 约束数据 → CustomNode → 画布 + Edge
+ * V2 约束配置 → getV2Constraint API → 解析 BuildInput → buildNodeData → CustomNode → 画布 + Edge
  */
 
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { SchemaNodeData } from '@/types/nodes'
+import type { ConstraintKind } from '@/services/constraints/types'
+import type { BuildInput, EdgeDescriptor } from '@/services/constraints/nodeDataBuilder'
 import { getV2Constraint } from '@/api/projectV2Api'
+import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
 import { logger } from '@/core/utils/logger'
+
+/** V2 type → ConstraintKind 映射 */
+const V2_TYPE_TO_KIND: Record<string, ConstraintKind | 'regex'> = {
+  NotNull: 'notNull',
+  Unique: 'unique',
+  AllowedValues: 'allowedValues',
+  ForeignKey: 'foreignKey',
+  Range: 'range',
+  Conditional: 'conditional',
+  Scripted: 'scripted',
+  Charset: 'charset',
+  DateLogic: 'dateLogic',
+}
+
+/** V2 type → node type 映射 */
+const V2_TYPE_TO_NODE_TYPE: Record<string, string> = {
+  NotNull: 'notNullConstraint',
+  Unique: 'uniqueConstraint',
+  AllowedValues: 'allowedValuesConstraint',
+  ForeignKey: 'foreignKeyConstraint',
+  Range: 'rangeConstraint',
+  Conditional: 'conditionalConstraint',
+  Scripted: 'scriptedConstraint',
+  Charset: 'charsetConstraint',
+  DateLogic: 'dateLogicConstraint',
+  Composite: 'compositeConstraint',
+}
+
+/** 从 Schema 节点中查找列名 */
+function resolveColumnName(schemaNode: CustomNode | undefined, columnId: string): string {
+  if (!schemaNode) return ''
+  return (
+    ((schemaNode.data as SchemaNodeData | undefined)?.columns || []).find(
+      (x) => (x as { id?: string; columnName?: string }).id === columnId
+    )?.columnName || ''
+  )
+}
+
+/** 获取 Schema 的 tableName */
+function resolveTableName(schemaNode: CustomNode | undefined): string {
+  return (schemaNode?.data as SchemaNodeData | undefined)?.tableName || ''
+}
 
 export function createV2ConstraintImporter(params: {
   nodes: Ref<CustomNode[]>
@@ -49,93 +93,23 @@ export function createV2ConstraintImporter(params: {
     }
 
     const c = await getV2Constraint(resourceId)
-    const constraintTypeToNodeType: Record<string, string> = {
-      Unique: 'uniqueConstraint',
-      NotNull: 'notNullConstraint',
-      AllowedValues: 'allowedValuesConstraint',
-      ForeignKey: 'foreignKeyConstraint',
-      Range: 'rangeConstraint',
-      Conditional: 'conditionalConstraint',
-      Scripted: 'scriptedConstraint',
-      Charset: 'charsetConstraint',
-      DateLogic: 'dateLogicConstraint',
-    }
-    const nodeType = constraintTypeToNodeType[c.type] || 'constraint'
+    const nodeType = V2_TYPE_TO_NODE_TYPE[c.type] || 'constraint'
+    const kind = V2_TYPE_TO_KIND[c.type]
+    const refs = c.refs as Record<string, unknown>
+    const cParams = c.params as Record<string, unknown> | undefined
 
-    if (c.type === 'AllowedValues') {
-      const tableId = c.refs.table_id as string
-      const colId = c.refs.column_id as string
-      const schemaNode = includeDeps
-        ? await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y })
-        : nodes.value.find((n) => n.id === tableId)
+    // ========================================================================
+    // 解析 Schema 节点和列名 — 根据约束类型不同有不同的引用结构
+    // ========================================================================
 
-      const tableName = (schemaNode?.data as SchemaNodeData | undefined)?.tableName || ''
-      const columnName =
-        ((schemaNode?.data as SchemaNodeData | undefined)?.columns || []).find(
-          (x) => (x as { id?: string; columnName?: string }).id === colId
-        )?.columnName || ''
-
-      const constraintNode: CustomNode = {
-        id: resourceId,
-        type: nodeType,
-        position,
-        data: {
-          configName: c.description || 'AllowedValues',
-          table: tableName,
-          column: columnName,
-          allowedValues: new Set((c.params.allowed_values as unknown[]) || []),
-          validationStatus: 'idle',
-          validationErrors: [],
-          sourceRef: { nodeId: tableId, columnId: colId },
-          saveState: 'saved',
-        } as unknown as CustomNodeData,
-      }
-      nodes.value.push(constraintNode)
-      if (tableId && colId) ensureSchemaToConstraintEdge(tableId, resourceId, colId)
-      selectedNodeId.value = constraintNode.id
-      return constraintNode.id
-    }
-
-    if (c.type === 'Range') {
-      const tableId = c.refs.table_id as string
-      const colId = c.refs.column_id as string
-      const schemaNode = includeDeps
-        ? await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y })
-        : nodes.value.find((n) => n.id === tableId)
-
-      const tableName = (schemaNode?.data as SchemaNodeData | undefined)?.tableName || ''
-      const columnName =
-        ((schemaNode?.data as SchemaNodeData | undefined)?.columns || []).find(
-          (x) => (x as { id?: string; columnName?: string }).id === colId
-        )?.columnName || ''
-
-      const constraintNode: CustomNode = {
-        id: resourceId,
-        type: nodeType,
-        position,
-        data: {
-          configName: c.description || 'Range',
-          table: tableName,
-          column: columnName,
-          minValue: (c.params as Record<string, unknown>)?.min,
-          maxValue: (c.params as Record<string, unknown>)?.max,
-          validationStatus: 'idle',
-          validationErrors: [],
-          sourceRef: { nodeId: tableId, columnId: colId },
-          saveState: 'saved',
-        } as unknown as CustomNodeData,
-      }
-      nodes.value.push(constraintNode)
-      if (tableId && colId) ensureSchemaToConstraintEdge(tableId, resourceId, colId)
-      selectedNodeId.value = constraintNode.id
-      return constraintNode.id
-    }
+    let buildInput: BuildInput
 
     if (c.type === 'ForeignKey') {
-      const fromTableId = c.refs.from_table_id as string
-      const fromColId = c.refs.from_column_id as string
-      const toTableId = c.refs.to_table_id as string
-      const toColId = c.refs.to_column_id as string
+      // FK 有两个 Schema 引用
+      const fromTableId = refs.from_table_id as string
+      const fromColId = refs.from_column_id as string
+      const toTableId = refs.to_table_id as string
+      const toColId = refs.to_column_id as string
 
       const fromSchema = includeDeps
         ? await ensureSchemaNode(fromTableId, { x: position.x - 460, y: position.y - 140 })
@@ -144,266 +118,178 @@ export function createV2ConstraintImporter(params: {
         ? await ensureSchemaNode(toTableId, { x: position.x - 460, y: position.y + 140 })
         : nodes.value.find((n) => n.id === toTableId)
 
-      const sourceTable = (fromSchema?.data as SchemaNodeData | undefined)?.tableName || ''
-      const sourceColumn =
-        ((fromSchema?.data as SchemaNodeData | undefined)?.columns || []).find(
-          (x) => (x as { id?: string; columnName?: string }).id === fromColId
-        )?.columnName || ''
-      const targetTable = (toSchema?.data as SchemaNodeData | undefined)?.tableName || ''
-      const targetColumn =
-        ((toSchema?.data as SchemaNodeData | undefined)?.columns || []).find(
-          (x) => (x as { id?: string; columnName?: string }).id === toColId
-        )?.columnName || ''
-      
       logger.info('[constraint.ts] FK 节点导入 - 列信息:', {
         fromTableId,
         fromColId,
-        sourceTable,
-        sourceColumn,
+        sourceColumn: resolveColumnName(fromSchema, fromColId),
         toTableId,
         toColId,
-        targetTable,
-        targetColumn,
+        targetColumn: resolveColumnName(toSchema, toColId),
         toSchemaExists: !!toSchema,
-        toSchemaColumns: (toSchema?.data as SchemaNodeData | undefined)?.columns?.map((c: any) => ({ id: c.id, name: c.columnName })),
       })
 
-      const constraintNode: CustomNode = {
-        id: resourceId,
-        type: nodeType,
-        position,
-        data: {
-          configName: c.description || 'ForeignKey',
-          sourceTable,
-          sourceColumn,
-          targetTable,
-          targetColumn,
-          validationStatus: 'idle',
-          validationErrors: [],
-          sourceRef: { nodeId: fromTableId, columnId: fromColId },
-          targetRef: { nodeId: toTableId, columnId: toColId },
-          config: {
-            ruleType: 'EXIST_IN',
-            targetNodeId: toTableId,
-            targetColumn: targetColumn
-          },
-          saveState: 'saved',
-        } as unknown as CustomNodeData,
+      buildInput = {
+        mode: 'import',
+        configName: c.description || 'ForeignKey',
+        schemaNodeId: fromTableId,
+        tableName: resolveTableName(fromSchema),
+        nodeId: resourceId,
+        nodeType,
+        fkRefs: {
+          source: { nodeId: fromTableId, columnId: fromColId, columnName: resolveColumnName(fromSchema, fromColId) },
+          target: { nodeId: toTableId, columnId: toColId, columnName: resolveColumnName(toSchema, toColId) },
+        },
+        refs: { ...refs, to_table_name: resolveTableName(toSchema) },
+        params: cParams,
       }
-      
-      nodes.value.push(constraintNode)
-      if (fromTableId && fromColId) ensureSchemaToConstraintEdge(fromTableId, resourceId, fromColId)
-
-      // 创建外键展示边（FK 节点 -> 目标 Schema 列），连接到目标列的右侧端点
-      if (toTableId && toColId) {
-        const edgeId = `fk-${fromTableId}-${toTableId}-${resourceId}`
-        if (!edges.value.some((e) => e.id === edgeId)) {
-          const label = [sourceColumn, targetColumn].filter(Boolean).length
-            ? `${sourceColumn} → ${targetColumn}`
-            : 'ForeignKey'
-          edges.value.push({
-            id: edgeId,
-            source: resourceId,
-            target: toTableId,
-            sourceHandle: `source-output-${resourceId}`,
-            targetHandle: `source-right-${toColId}`,
-            type: 'smoothstep',
-            animated: false,
-            label,
-            class: 'fk-display-edge',
-            style: { stroke: 'var(--edge-fk-display)', strokeWidth: 1.6, strokeDasharray: '2 8' },
-            data: {
-              kind: 'fkConstraint',
-              constraintId: resourceId,
-              fromTableId,
-              toTableId,
-              fromColumnId: fromColId,
-              toColumnId: toColId,
-            },
-          } as unknown as Edge)
-        }
-      }
-
-      selectedNodeId.value = constraintNode.id
-      return constraintNode.id
-    }
-
-    if (c.type === 'NotNull') {
-      const tableId = c.refs.table_id as string
-      const colId = c.refs.column_id as string
+    } else if (c.type === 'Conditional') {
+      // Conditional 有 IF 条件 + THEN 列
+      const tableId = refs.table_id as string
       const schemaNode = includeDeps
         ? await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y })
         : nodes.value.find((n) => n.id === tableId)
-      const tableName = (schemaNode?.data as SchemaNodeData | undefined)?.tableName || ''
-      const columnName =
-        ((schemaNode?.data as SchemaNodeData | undefined)?.columns || []).find(
-          (x) => (x as { id?: string; columnName?: string }).id === colId
-        )?.columnName || ''
-      const constraintNode: CustomNode = {
-        id: resourceId,
-        type: nodeType,
-        position,
-        data: {
-          configName: c.description || 'NotNull',
-          table: tableName,
-          column: columnName,
-          validationErrors: [],
-          sourceRef: { nodeId: tableId, columnId: colId },
-          saveState: 'saved',
-        } as unknown as CustomNodeData,
-      }
-      nodes.value.push(constraintNode)
-      if (tableId && colId) ensureSchemaToConstraintEdge(tableId, resourceId, colId)
-      selectedNodeId.value = constraintNode.id
-      return constraintNode.id
-    }
 
-    if (c.type === 'Unique') {
-      const tableId = c.refs.table_id as string
-      const colIds = Array.isArray(c.refs.column_ids) ? (c.refs.column_ids as string[]) : []
-      const schemaNode = includeDeps
-        ? await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y })
-        : nodes.value.find((n) => n.id === tableId)
-      const tableName = (schemaNode?.data as SchemaNodeData | undefined)?.tableName || ''
-      // 单一约束只取第一列
-      const columnName =
-        colIds.length > 0
-          ? ((schemaNode?.data as SchemaNodeData | undefined)?.columns || []).find(
-              (x) => (x as { id?: string; columnName?: string }).id === colIds[0]
-            )?.columnName || ''
-          : ''
-      const constraintNode: CustomNode = {
-        id: resourceId,
-        type: nodeType,
-        position,
-        data: {
-          configName: c.description || 'Unique',
-          table: tableName,
-          column: columnName,
-          validationErrors: [],
-          sourceRef: { nodeId: tableId, columnId: colIds[0] || '' },
-          saveState: 'saved',
-        } as unknown as CustomNodeData,
-      }
-      nodes.value.push(constraintNode)
-      if (tableId && colIds[0]) ensureSchemaToConstraintEdge(tableId, resourceId, colIds[0])
-      selectedNodeId.value = constraintNode.id
-      return constraintNode.id
-    }
+      const thenColId = refs.then_column_id as string
+      const ifLogic = String(refs.if_logic || 'and')
+      const rawConditions = Array.isArray(refs.if_conditions) ? (refs.if_conditions as unknown[]) : []
 
-    if (c.type === 'Conditional') {
-      const tableId = c.refs.table_id as string
-      const schemaNode = includeDeps
-        ? await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y })
-        : nodes.value.find((n) => n.id === tableId)
-      const tableName = (schemaNode?.data as SchemaNodeData | undefined)?.tableName || ''
-      const ifLogic = String((c.refs as Record<string, unknown>).if_logic || 'and')
-      const thenColId = c.refs.then_column_id as string
-      const thenColumnName =
-        ((schemaNode?.data as SchemaNodeData | undefined)?.columns || []).find(
-          (x) => (x as { id?: string; columnName?: string }).id === thenColId
-        )?.columnName || ''
-      const rawConditions = Array.isArray(c.refs.if_conditions)
-        ? (c.refs.if_conditions as unknown[])
-        : []
       const ifConditions = rawConditions.map((cond) => {
-        const cRec = cond as Record<string, unknown>
-        const ifColId = String(cRec?.if_column_id || '')
-        const ifColName =
-          ((schemaNode?.data as SchemaNodeData | undefined)?.columns || []).find(
-            (x) => (x as { id?: string; columnName?: string }).id === ifColId
-          )?.columnName || ''
+        const r = cond as Record<string, unknown>
+        const ifColId = String(r?.if_column_id || '')
         return {
-          operator: cRec?.operator,
-          value: cRec?.value,
-          values: cRec?.values,
-          ref: ifColId ? { nodeId: tableId, columnId: ifColId } : undefined,
-          column: ifColName,
+          operator: r?.operator,
+          value: r?.value,
+          values: r?.values,
+          columnId: ifColId,
+          columnName: resolveColumnName(schemaNode, ifColId),
         }
       })
-      const first = ifConditions.find((x) => (x as { ref?: { columnId?: string } })?.ref?.columnId)
-      const firstRec = first as Record<string, unknown> | undefined
-      const constraintNode: CustomNode = {
-        id: resourceId,
-        type: nodeType,
-        position,
-        data: {
-          configName: c.description || 'Conditional',
-          table: tableName,
-          ifColumn: (firstRec?.column as string) || '',
-          ifValue: typeof firstRec?.value === 'string' ? firstRec.value : '',
-          thenColumn: thenColumnName,
-          thenConditionConfig: (c.params as Record<string, unknown>)?.then_condition,
-          ifLogic,
-          ifConditions,
-          ifRef: firstRec?.ref as { nodeId: string; columnId: string } | undefined,
-          thenRef: thenColId ? { nodeId: tableId, columnId: thenColId } : undefined,
-          validationStatus: 'idle',
-          validationErrors: [],
-          saveState: 'saved',
-        } as unknown as CustomNodeData,
-      }
-      nodes.value.push(constraintNode)
-      if (tableId && thenColId) ensureSchemaToConstraintEdge(tableId, resourceId, thenColId)
-      selectedNodeId.value = constraintNode.id
-      return constraintNode.id
-    }
 
-    if (c.type === 'Scripted') {
-      const tableId = c.refs.table_id as string
-      const colId = (c.refs.column_id as string) || ''
+      buildInput = {
+        mode: 'import',
+        configName: c.description || 'Conditional',
+        schemaNodeId: tableId,
+        tableName: resolveTableName(schemaNode),
+        nodeId: resourceId,
+        nodeType,
+        ifConditions,
+        ifLogic,
+        thenRef: thenColId
+          ? { nodeId: tableId, columnId: thenColId, columnName: resolveColumnName(schemaNode, thenColId) }
+          : undefined,
+        thenConditionConfig: (cParams as Record<string, unknown>)?.then_condition,
+        params: cParams,
+      }
+    } else if (c.type === 'Unique') {
+      // Unique 使用 column_ids（复数）
+      const tableId = refs.table_id as string
+      const colIds = Array.isArray(refs.column_ids) ? (refs.column_ids as string[]) : []
+      const schemaNode = includeDeps
+        ? await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y })
+        : nodes.value.find((n) => n.id === tableId)
+
+      buildInput = {
+        mode: 'import',
+        configName: c.description || 'Unique',
+        schemaNodeId: tableId,
+        tableName: resolveTableName(schemaNode),
+        nodeId: resourceId,
+        nodeType,
+        columnRef: colIds.length > 0
+          ? { nodeId: tableId, columnId: colIds[0], columnName: resolveColumnName(schemaNode, colIds[0]) }
+          : undefined,
+        params: cParams,
+      }
+    } else {
+      // 通用单列约束：NotNull, AllowedValues, Range, Scripted, Charset, DateLogic, Composite
+      const tableId = (refs.table_id as string) || ''
+      const colId = (refs.column_id as string) || ''
       const schemaNode =
         tableId && includeDeps
           ? await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y })
           : nodes.value.find((n) => n.id === tableId)
-      const tableName = (schemaNode?.data as SchemaNodeData | undefined)?.tableName || ''
-      const columnName = colId
-        ? ((schemaNode?.data as SchemaNodeData | undefined)?.columns || []).find(
-            (x) => (x as { id?: string; columnName?: string }).id === colId
-          )?.columnName || ''
-        : ''
-      const constraintNode: CustomNode = {
-        id: resourceId,
-        type: nodeType,
-        position,
-        data: {
-          configName: c.description || 'Scripted',
-          table: tableName,
-          column: columnName || undefined,
-          script: String((c.params as Record<string, unknown>)?.expression || ''),
-          constraintName: String((c.params as Record<string, unknown>)?.name || resourceId),
-          validationStatus: 'idle',
-          validationErrors: [],
-          sourceRef: tableId && colId ? { nodeId: tableId, columnId: colId } : undefined,
-          saveState: 'saved',
-        } as unknown as CustomNodeData,
+
+      buildInput = {
+        mode: 'import',
+        configName: c.description || c.type || 'Constraint',
+        schemaNodeId: tableId,
+        tableName: resolveTableName(schemaNode),
+        nodeId: resourceId,
+        nodeType,
+        columnRef: tableId && colId
+          ? { nodeId: tableId, columnId: colId, columnName: resolveColumnName(schemaNode, colId) }
+          : undefined,
+        params: cParams,
       }
-      nodes.value.push(constraintNode)
-      if (tableId && colId) ensureSchemaToConstraintEdge(tableId, resourceId, colId)
-      selectedNodeId.value = constraintNode.id
-      return constraintNode.id
     }
 
+    // ========================================================================
+    // 使用 NodeDataBuilder 构建节点数据
+    // ========================================================================
+
+    const result = kind
+      ? buildNodeData(kind, buildInput)
+      : {
+          // 未知约束类型的降级处理
+          nodeData: {
+            ...(c as unknown as Record<string, unknown>),
+            saveState: 'saved',
+          } as Record<string, unknown>,
+          edgeDescriptors: buildInput.columnRef
+            ? [{ kind: 'constraint' as const, sourceNodeId: buildInput.schemaNodeId, targetNodeId: resourceId, columnId: buildInput.columnRef.columnId }]
+            : [],
+        }
+
+    // 创建节点
     const constraintNode: CustomNode = {
       id: resourceId,
       type: nodeType,
       position,
-      data: {
-        ...(c as unknown as Record<string, unknown>),
-        saveState: 'saved',
-      } as unknown as CustomNodeData,
+      data: result.nodeData as unknown as CustomNodeData,
     }
     nodes.value.push(constraintNode)
 
-    // 尝试为未知类型的约束建立连线（如果 refs 中包含 table_id 和 column_id）
-    const fallbackTableId = (c.refs as Record<string, unknown>)?.table_id as string | undefined
-    const fallbackColId = (c.refs as Record<string, unknown>)?.column_id as string | undefined
-    if (fallbackTableId && fallbackColId) {
-      ensureSchemaToConstraintEdge(fallbackTableId, resourceId, fallbackColId)
-    }
+    // 创建边
+    applyEdgeDescriptors(result.edgeDescriptors, resourceId)
 
     selectedNodeId.value = constraintNode.id
     return constraintNode.id
+  }
+
+  /** 根据 EdgeDescriptor 列表创建实际的边 */
+  function applyEdgeDescriptors(descriptors: EdgeDescriptor[], _constraintId: string) {
+    for (const desc of descriptors) {
+      if (desc.kind === 'constraint' || desc.kind === 'if') {
+        // 普通约束边 / Conditional IF 边
+        ensureSchemaToConstraintEdge(desc.sourceNodeId, desc.targetNodeId, desc.columnId)
+      } else if (desc.kind === 'fkDisplay') {
+        // FK 展示边
+        const extra = desc.extra || {}
+        const edgeId = (extra.edgeId as string) || `fk-${desc.sourceNodeId}-${desc.targetNodeId}`
+        if (!edges.value.some((e) => e.id === edgeId)) {
+          edges.value.push({
+            id: edgeId,
+            source: desc.sourceNodeId,
+            target: desc.targetNodeId,
+            sourceHandle: desc.sourceHandle,
+            targetHandle: desc.targetHandle,
+            type: 'smoothstep',
+            animated: false,
+            label: extra.label,
+            class: 'fk-display-edge',
+            style: { stroke: 'var(--edge-fk-display)', strokeWidth: 1.6, strokeDasharray: '2 8' },
+            data: {
+              kind: 'fkDisplay',
+              constraintId: extra.constraintId,
+              fromTableId: extra.fromTableId,
+              toTableId: extra.toTableId,
+              fromColumnId: extra.fromColumnId,
+              toColumnId: extra.toColumnId,
+            },
+          } as unknown as Edge)
+        }
+      }
+    }
   }
 
   return { importConstraint }

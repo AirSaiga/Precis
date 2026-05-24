@@ -38,25 +38,17 @@
  * ====================================================================
  * 当连接被移除时，需要清理相关的引用关系：
  *
- * 【SourcePreview → Schema】
- * - 清理 SourcePreview.children 数组
- * - 清理 Schema 的验证错误
+ * 【统一状态清理】（由 connectionStateSync.syncOnDisconnect 处理）
+ * - 清理 source 节点的 children 数组
+ * - 清理 target 节点的 parent 引用
+ * - 清理 outputPortConnected 状态
  *
- * 【Schema/JsonSchema → Regex】
- * - 清理父节点的 children 数组
- * - 清理 Regex.parent 引用
- * - 重置 Regex 节点的 sourceRef、sourceNodeId、sourceColumnName
- * - 重置 saveState 为 'draft'
- *
- * 【Schema/JsonSchema → Constraint】
- * - 清理父节点的 children 数组
- * - 清理 Constraint.parent 引用
- * - 调用 buildDisconnectReset 重置约束特定字段
- *
- * 【ConditionalConstraint 特殊处理】
- * - 处理 if/then 连接断开时的逻辑
- * - 清理 ifConditions 中的引用
- * - 保留至少一个空条件防止数组为空
+ * 【业务逻辑清理】（本模块内处理）
+ * - Schema 的验证错误清理
+ * - Regex 节点的 sourceRef/sourceColumnName 重置
+ * - Constraint 节点的约束特定字段重置
+ * - ConditionalConstraint 的 if/then 条件清理
+ * - Transform 节点的 inputFromNode 重置
  *
  * ====================================================================
  * 架构设计
@@ -101,8 +93,9 @@ export function createConnectionOpsModule(params: {
   edges: Ref<Edge[]>
   updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
   clearAllValidationErrors: (schemaNodeId: string) => void
+  syncOnDisconnect: (edge: Edge) => void
 }) {
-  const { nodes, edges, updateNodeData, clearAllValidationErrors } = params
+  const { nodes, edges, updateNodeData, clearAllValidationErrors, syncOnDisconnect } = params
 
   function createConnection(
     sourceNodeId: string,
@@ -164,85 +157,8 @@ export function createConnectionOpsModule(params: {
     const sourceNode = nodes.value.find((n) => n.id === edge.source)
     const targetNode = nodes.value.find((n) => n.id === edge.target)
 
-    // SourcePreview → Schema 连接：清理 SourcePreview.children
-    if (sourceNode?.type === 'sourcePreview' && targetNode?.type === 'schema') {
-      const sourceData = sourceNode.data as unknown as Record<string, unknown>
-      if (sourceData?.children) {
-        const newChildren = (sourceData.children as string[]).filter((id) => id !== edge.target)
-        updateNodeData(edge.source, { children: newChildren.length > 0 ? newChildren : undefined })
-      }
-    }
-
-    // Schema → Regex 连接：清理 Schema.children 和 Regex.parent
-    if (sourceNode?.type === 'schema' && targetNode?.type === 'regex') {
-      // 清理 Schema 的 children
-      const sourceData = sourceNode.data as unknown as Record<string, unknown>
-      if (sourceData?.children) {
-        const newChildren = (sourceData.children as string[]).filter((id) => id !== edge.target)
-        updateNodeData(edge.source, { children: newChildren.length > 0 ? newChildren : undefined })
-      }
-      // 清理 Regex 的 parent
-      const targetData = targetNode.data as unknown as Record<string, unknown>
-      if ((targetData as Record<string, unknown> | undefined)?.parent === edge.source) {
-        updateNodeData(edge.target, { parent: undefined })
-      }
-    }
-
-    // Schema → Constraint 连接：清理 Schema.children 和 Constraint.parent
-    if (sourceNode?.type === 'schema' && isConstraintNodeType(targetNode?.type)) {
-      // 清理 Schema 的 children
-      const sourceData = sourceNode.data as unknown as Record<string, unknown>
-      if (sourceData?.children) {
-        const newChildren = (sourceData.children as string[]).filter((id) => id !== edge.target)
-        updateNodeData(edge.source, { children: newChildren.length > 0 ? newChildren : undefined })
-      }
-      // 清理 Constraint 的 parent
-      const targetData = targetNode.data as unknown as Record<string, unknown>
-      if (targetData?.parent === edge.source) {
-        updateNodeData(edge.target, { parent: undefined })
-      }
-    }
-
-    // JsonSourcePreview → JsonSchema 连接：清理 JsonSourcePreview.children
-    if (sourceNode?.type === 'jsonSourcePreview' && targetNode?.type === 'jsonSchema') {
-      const sourceData = sourceNode.data as unknown as Record<string, unknown>
-      const currentChildren = (sourceData.children as string[]) || []
-      const newChildren = currentChildren.filter((id) => id !== edge.target)
-      updateNodeData(edge.source, {
-        children: newChildren.length > 0 ? newChildren : undefined,
-        outputPortConnected: false,
-      })
-    }
-
-    // JsonSchema → Regex 连接：清理 JsonSchema.children 和 Regex.parent
-    if (sourceNode?.type === 'jsonSchema' && targetNode?.type === 'regex') {
-      // 清理 JsonSchema 的 children
-      const sourceData = sourceNode.data as unknown as Record<string, unknown>
-      if (sourceData?.children) {
-        const newChildren = (sourceData.children as string[]).filter((id) => id !== edge.target)
-        updateNodeData(edge.source, { children: newChildren.length > 0 ? newChildren : undefined })
-      }
-      // 清理 Regex 的 parent
-      const targetData = targetNode.data as unknown as Record<string, unknown>
-      if (targetData?.parent === edge.source) {
-        updateNodeData(edge.target, { parent: undefined })
-      }
-    }
-
-    // JsonSchema → Constraint 连接：清理 JsonSchema.children 和 Constraint.parent
-    if (sourceNode?.type === 'jsonSchema' && isConstraintNodeType(targetNode?.type)) {
-      // 清理 JsonSchema 的 children
-      const sourceData = sourceNode.data as unknown as Record<string, unknown>
-      if (sourceData?.children) {
-        const newChildren = (sourceData.children as string[]).filter((id) => id !== edge.target)
-        updateNodeData(edge.source, { children: newChildren.length > 0 ? newChildren : undefined })
-      }
-      // 清理 Constraint 的 parent
-      const targetData = targetNode.data as unknown as Record<string, unknown>
-      if (targetData?.parent === edge.source) {
-        updateNodeData(edge.target, { parent: undefined })
-      }
-    }
+    // 统一清理 children/parent/outputPortConnected
+    syncOnDisconnect(edge)
 
     if (!targetNode) return
 

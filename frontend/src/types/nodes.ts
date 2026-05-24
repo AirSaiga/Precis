@@ -245,6 +245,8 @@ export interface ManualDataNodeData {
   rows: string[][]
   description?: string
   saveState?: SchemaSaveState
+  /** 下游子节点 ID 列表（regex 等） */
+  children?: string[]
 }
 
 /**
@@ -293,6 +295,8 @@ export interface TransformOutputNodeData {
   /** 父 Transform 节点 ID */
   parentTransformId: string
   saveState?: SchemaSaveState
+  /** 下游子节点 ID 列表（regex、constraint 等） */
+  children?: string[]
 }
 
 /**
@@ -359,6 +363,8 @@ export interface JsonSchemaNodeData extends BaseSchemaNodeData<JsonSchemaColumn>
   jsonPath?: string
   recordPath?: string
   format?: 'json' | 'jsonl' | 'ndjson'
+  /** 下游子节点 ID 列表（regex、constraint 等） */
+  children?: string[]
 }
 
 /**

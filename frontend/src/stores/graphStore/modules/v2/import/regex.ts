@@ -3,7 +3,7 @@
  * @description V2 Regex（正则）节点导入模块
  *
  * 负责将 V2 项目配置中的正则校验节点导入到画布中。
- * 包括正则表达式模式、匹配规则、参数配置以及源表列引用关系。
+ * 通过 NodeDataBuilder 统一构建节点数据。
  *
  * 核心功能：
  * - importRegex: 根据正则节点 ID 加载并创建 regex 节点
@@ -11,13 +11,24 @@
  * - 支持依赖自动导入和已存在节点的位置更新
  *
  * 数据流：
- * V2 正则配置 → getV2RegexNode API → Regex 数据 → CustomNode(regex) → 画布 + Edge
+ * V2 正则配置 → getV2RegexNode API → 解析 BuildInput → buildNodeData → CustomNode(regex) → 画布 + Edge
  */
 
 import type { Ref } from 'vue'
-import type { CustomNode, RegexNodeData } from '@/types/graph'
-import type { RegexParameter, Rule } from '@/features/regex/types'
+import type { CustomNode, CustomNodeData } from '@/types/graph'
+import type { SchemaNodeData } from '@/types/nodes'
 import { getV2RegexNode } from '@/api/projectV2Api'
+import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
+
+/** 从 Schema 节点中查找列名 */
+function resolveColumnName(schemaNode: CustomNode | undefined, columnId: string): string {
+  if (!schemaNode) return ''
+  return (
+    ((schemaNode.data as SchemaNodeData | undefined)?.columns || []).find(
+      (x) => (x as { id?: string; columnName?: string }).id === columnId
+    )?.columnName || ''
+  )
+}
 
 export function createV2RegexImporter(params: {
   nodes: Ref<CustomNode[]>
@@ -55,49 +66,45 @@ export function createV2RegexImporter(params: {
         ? await ensureSchemaNode(sourceRef.nodeId, schemaPosition)
         : nodes.value.find((n) => n.id === sourceRef?.nodeId)
 
-    const resolvedColumnName =
-      sourceRef && schemaNode
-        ? (() => {
-            const cols = (schemaNode.data as unknown as Record<string, unknown>).columns as
-              | unknown[]
-              | undefined
-            const found = cols?.find(
-              (x) => (x as Record<string, unknown>).id === sourceRef.columnId
-            )
-            return found ? String((found as Record<string, unknown>).columnName || '') : ''
-          })()
-        : ''
+    const resolvedColumnName = resolveColumnName(schemaNode, sourceRef?.columnId || '')
+
+    // 构建 BuildInput — 将 RegexNodeFileV2 的字段打包到 params 中
+    const result = buildNodeData('regex' as any, {
+      mode: 'import',
+      configName: r.name || 'Regex',
+      schemaNodeId: sourceRef?.nodeId || '',
+      tableName: '',
+      nodeId: resourceId,
+      nodeType: 'regex',
+      columnRef: sourceRef
+        ? { ...sourceRef, columnName: resolvedColumnName }
+        : undefined,
+      params: {
+        pattern: r.pattern || '',
+        description: r.description || '',
+        parameters: r.parameters || [],
+        match_mode: r.match_mode || 'full',
+        enabled: r.enabled,
+        case_sensitive: r.case_sensitive,
+        flags: r.flags || '',
+        rules: r.rules || [],
+        source_column_name: r.source_column_name,
+      },
+    })
 
     const regexNode: CustomNode = {
       id: resourceId,
       type: 'regex',
       position,
-      data: {
-        configName: r.name || 'Regex',
-        pattern: r.pattern || '',
-        description: r.description || '',
-        parameters: (r.parameters || []) as unknown as RegexParameter[],
-        matchMode: r.match_mode || 'full',
-        enabled: r.enabled !== false,
-        caseSensitive: !!r.case_sensitive,
-        flags: r.flags || '',
-        validationRules: {},
-        rules: (r.rules || []) as unknown as Rule[],
-        validationStatus: 'idle',
-        errorCount: 0,
-        totalRows: 0,
-        matchCount: 0,
-        lastValidationTime: undefined,
-        sourceRef,
-        sourceNodeId: sourceRef?.nodeId,
-        sourceColumnName: resolvedColumnName || r.source_column_name,
-        saveState: 'saved',
-      } as unknown as RegexNodeData,
+      data: result.nodeData as unknown as CustomNodeData,
     }
     nodes.value.push(regexNode)
 
-    if (sourceRef?.nodeId && sourceRef?.columnId) {
-      ensureSchemaToRegexEdge(sourceRef.nodeId, resourceId, sourceRef.columnId)
+    // 创建边
+    for (const desc of result.edgeDescriptors) {
+      if (desc.kind === 'constraint' || desc.kind === 'if') {
+        ensureSchemaToRegexEdge(desc.sourceNodeId, resourceId, desc.columnId)
+      }
     }
 
     selectedNodeId.value = regexNode.id

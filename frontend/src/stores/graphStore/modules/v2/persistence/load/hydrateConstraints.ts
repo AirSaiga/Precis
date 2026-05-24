@@ -162,7 +162,7 @@ export function hydrateManifestConstraintsFromV2Config(params: {
             class: 'fk-display-edge',
             style: { stroke: 'var(--edge-fk-display)', strokeWidth: 1.6, strokeDasharray: '2 8' },
             data: {
-              kind: 'fkConstraint',
+              kind: 'fkDisplay',
               constraintId: nodeId,
               fromTableId,
               toTableId,
