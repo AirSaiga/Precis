@@ -350,9 +350,13 @@ export function createV2LoadOps(params: {
       toastSuccess(`V2 项目 "${projectName.value}" 已载入`, '加载成功')
       return true
     } catch (error) {
-      // 项目路径不存在时静默处理（无项目时的正常状态）
+      // 项目路径不存在时提示用户（manifest 缺失或路径错误）
       if (error instanceof ProjectNotFoundError) {
         logger.debug('[loadProjectFromV2] 项目路径不存在，跳过加载:', error.configPath)
+        toastError(
+          t('messages.error.projectNotFound', { path: error.configPath || '' }),
+          t('messages.persistence.loadFailed')
+        )
         return false
       }
       logger.error('加载V2项目失败:', error)

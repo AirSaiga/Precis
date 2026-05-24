@@ -353,37 +353,63 @@
     }
 
     isApplying.value = true
+    // 保存原始路径，加载失败时用于回滚
+    const previousPaths = projectStore.currentPaths
+      ? { ...projectStore.currentPaths }
+      : null
+
     try {
       const currentConfigPath = projectStore.currentPaths?.configPath
       const pathsChanged = configPath !== currentConfigPath
+      const wasActive = projectStore.isProjectActive
 
+      // Step 1: 先持久化路径（loadProjectFromV2 依赖 projectStore 中的路径）
       if (window.electronAPI?.saveConfig) {
         await window.electronAPI.saveConfig(configPath, configPath)
       }
-
       projectStore.setProjectPaths({ configPath, dataPath: configPath })
 
-      if (projectStore.isProjectActive) {
-        const manifest = await getV2Manifest()
-        manifest.project.name = localProjectName.value
-        await putV2Manifest(manifest)
-        originalProjectName.value = localProjectName.value
+      // Step 2: 尝试加载项目验证路径有效性
+      // 如果路径变更或当前无激活项目，需要验证新项目路径
+      let loaded = true
+      if (pathsChanged || !wasActive) {
+        loaded = await graphStore.loadProjectFromV2()
       }
 
-      if (pathsChanged || !projectStore.isProjectActive) {
-        const loaded = await graphStore.loadProjectFromV2()
-        if (loaded) {
-          success(
-            projectStore.isProjectActive
-              ? t('settings.projectInfo.appliedDesc')
-              : t('settings.projectInfo.openedDesc'),
-            projectStore.isProjectActive
-              ? t('settings.projectInfo.appliedTitle')
-              : t('settings.projectInfo.openedTitle')
-          )
+      if (!loaded) {
+        // 加载失败：回滚路径设置，避免 isProjectActive=true 但 manifest 不存在的矛盾状态
+        if (previousPaths) {
+          projectStore.setProjectPaths(previousPaths)
         } else {
-          warning(t('settings.projectInfo.loadFailed'), t('common.error'))
+          projectStore.clearProject()
         }
+        // loadProjectFromV2 内部已显示错误提示，这里不再重复
+        return
+      }
+
+      // Step 3: 更新项目名称（仅当项目已激活时）
+      if (projectStore.isProjectActive) {
+        try {
+          const manifest = await getV2Manifest()
+          manifest.project.name = localProjectName.value
+          await putV2Manifest(manifest)
+          originalProjectName.value = localProjectName.value
+        } catch (e) {
+          // manifest 不存在时跳过名称更新（空项目场景）
+          logger.debug('[ProjectInfoPanel] 跳过名称更新，manifest 不存在:', e)
+        }
+      }
+
+      // Step 4: 显示成功提示
+      if (pathsChanged || !wasActive) {
+        success(
+          wasActive
+            ? t('settings.projectInfo.appliedDesc')
+            : t('settings.projectInfo.openedDesc'),
+          wasActive
+            ? t('settings.projectInfo.appliedTitle')
+            : t('settings.projectInfo.openedTitle')
+        )
       } else {
         success(t('settings.projectInfo.appliedDesc'), t('settings.projectInfo.appliedTitle'))
       }
@@ -393,6 +419,12 @@
     } catch (error) {
       logger.error('[ProjectInfoPanel] 应用路径更改失败:', error)
       warning(t('settings.projectInfo.applyFailed'), t('common.error'))
+      // 异常时同样回滚路径，避免留下无效状态
+      if (previousPaths) {
+        projectStore.setProjectPaths(previousPaths)
+      } else {
+        projectStore.clearProject()
+      }
     } finally {
       isApplying.value = false
     }
