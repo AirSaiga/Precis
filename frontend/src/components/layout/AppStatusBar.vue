@@ -17,7 +17,7 @@
         v-if="projectStore.isProjectActive"
         class="status-item project-info clickable"
         type="button"
-        :title="t('projectManagement.switchProject')"
+        :title="t('common.projectManagement.switchProject')"
         @click="emit('openProjectManagement')"
       >
         <span class="icon">📂</span>
@@ -49,11 +49,11 @@
         v-else
         class="status-item project-info clickable"
         type="button"
-        :title="t('projectManagement.openProject')"
+        :title="t('common.projectManagement.openProject')"
         @click="emit('openProjectManagement')"
       >
         <span class="icon">📁</span>
-        <span class="text">{{ t('projectManagement.noProject') }}</span>
+        <span class="text">{{ t('common.projectManagement.noProject') }}</span>
       </button>
       <span v-if="projectStore.isProjectActive" class="separator">|</span>
       <span class="status-text">{{ statusMessage }}</span>
