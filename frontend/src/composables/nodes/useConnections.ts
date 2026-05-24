@@ -28,6 +28,7 @@ import type { Connection, OnConnectStartParams } from '@vue-flow/core'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import { useProjectStore } from '@/stores/projectStore'
+import type { SchemaNodeData } from '@/types/graph'
 import { useSchemaConnectionHandler } from './schema/useSchemaConnectionHandler'
 import { useRegexConnection } from '@/features/regex/composables'
 import { useForeignKeyConnection } from './constraints/useForeignKeyConnection'
@@ -657,6 +658,26 @@ export function useConnections() {
           targetNode.id,
           targetHandle || undefined
         )
+      }
+
+      // FK → Schema 列：设置目标列
+      if (
+        sourceNode.type === 'foreignKeyConstraint' &&
+        targetNode.type === 'schema' &&
+        targetHandle?.startsWith('source-right-')
+      ) {
+        const targetColumnId = targetHandle.replace('source-right-', '')
+        const targetSchemaData = targetNode.data as SchemaNodeData
+        const targetColumn = targetSchemaData?.columns?.find((c) => c.id === targetColumnId)
+        
+        if (targetColumn) {
+          foreignKeyConnection.handleForeignKeyToSchemaColumnConnection(
+            sourceNode.id,
+            targetNode.id,
+            targetColumnId,
+            targetColumn.columnName
+          )
+        }
       }
 
       if (

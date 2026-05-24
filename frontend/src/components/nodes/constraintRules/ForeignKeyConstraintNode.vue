@@ -175,10 +175,10 @@
   })
 
   // ===== 展示边管理 =====
+  // 规则：只要定义了目标表和目标列，自动创建虚线展示边，无需手动开关
 
   const localTargetNodeId = ref<string>(targetNodeId.value || '')
   const localTargetColumnId = ref<string>(props.data.targetRef?.columnId || '')
-  const localDisplayTargetConnection = ref<boolean>(!!props.data.displayTargetConnection)
 
   const getDisplayTargetEdges = () => {
     const outputHandleId = `source-output-${props.id}`
@@ -186,7 +186,7 @@
       (e: any) =>
         e.source === props.id &&
         e.sourceHandle === outputHandleId &&
-        e.targetHandle === 'target-left'
+        e.targetHandle?.startsWith('source-right-')
     )
   }
 
@@ -195,15 +195,20 @@
   }
 
   const ensureDisplayTargetEdge = () => {
-    if (!targetNodeId.value) {
+    // 自动创建条件：有目标表节点ID 且 有目标列ID
+    const targetColId = props.data.targetRef?.columnId || ''
+    const hasValidTarget = !!targetNodeId.value && !!targetColId
+    if (!hasValidTarget) {
       removeDisplayTargetEdges()
       return
     }
 
     const outputHandleId = `source-output-${props.id}`
+    const targetHandleId = `source-right-${targetColId}`
     const edges = getDisplayTargetEdges()
+    // 清理指向其他列的旧边
     edges
-      .filter((e: any) => e.target !== targetNodeId.value)
+      .filter((e: any) => e.target !== targetNodeId.value || e.targetHandle !== targetHandleId)
       .forEach((e: any) => store.deleteConnection(e.id))
 
     const alreadyExists = store.edges.some(
@@ -211,11 +216,11 @@
         e.source === props.id &&
         e.target === targetNodeId.value &&
         e.sourceHandle === outputHandleId &&
-        e.targetHandle === 'target-left'
+        e.targetHandle === targetHandleId
     )
     if (alreadyExists) return
 
-    store.createConnection(props.id, targetNodeId.value, outputHandleId, 'target-left', {
+    store.createConnection(props.id, targetNodeId.value, outputHandleId, targetHandleId, {
       type: 'smoothstep',
       animated: false,
       class: 'fk-display-edge',
@@ -233,6 +238,8 @@
       if (next && hasSource.value) {
         performValidation().catch(() => undefined)
       }
+      // 目标列变化时自动更新展示边
+      ensureDisplayTargetEdge()
     }
   )
 
@@ -241,6 +248,8 @@
     () => {
       localTargetNodeId.value = targetNodeId.value || ''
       localTargetColumnId.value = props.data.targetRef?.columnId || ''
+      // 目标表变化时自动更新展示边
+      ensureDisplayTargetEdge()
     }
   )
 
@@ -251,23 +260,15 @@
       if (!next) {
         localTargetColumnId.value = ''
       }
-      if (localDisplayTargetConnection.value) {
-        ensureDisplayTargetEdge()
-      }
+      // 自动创建展示边（无需手动开关）
+      ensureDisplayTargetEdge()
     }
   )
 
-  watch(
-    () => props.data.displayTargetConnection,
-    (next) => {
-      localDisplayTargetConnection.value = !!next
-      if (localDisplayTargetConnection.value) {
-        ensureDisplayTargetEdge()
-      } else {
-        removeDisplayTargetEdges()
-      }
-    }
-  )
+  // 初始化时自动创建展示边
+  nextTick(() => {
+    ensureDisplayTargetEdge()
+  })
 </script>
 
 <style scoped src="./ForeignKeyConstraintNode.styles.css"></style>

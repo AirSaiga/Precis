@@ -142,6 +142,37 @@ export function hydrateManifestConstraintsFromV2Config(params: {
         targetHandle: `target-input-${nodeId}`,
         type: 'smoothstep',
       } as Edge)
+
+      // 创建外键展示边（FK 节点 -> 目标 Schema 列），连接到目标列的右侧端点
+      if (toTableId && toColId) {
+        const edgeId = `fk-${fromTableId}-${toTableId}-${nodeId}`
+        if (!nextEdges.some((e) => e.id === edgeId)) {
+          const label = [sourceColumn, targetColumn].filter(Boolean).length
+            ? `${sourceColumn} → ${targetColumn}`
+            : 'ForeignKey'
+          nextEdges.push({
+            id: edgeId,
+            source: nodeId,
+            target: toTableId,
+            sourceHandle: `source-output-${nodeId}`,
+            targetHandle: `source-right-${toColId}`,
+            type: 'smoothstep',
+            animated: false,
+            label,
+            class: 'fk-display-edge',
+            style: { stroke: 'var(--edge-fk-display)', strokeWidth: 1.6, strokeDasharray: '2 8' },
+            data: {
+              kind: 'fkConstraint',
+              constraintId: nodeId,
+              fromTableId,
+              toTableId,
+              fromColumnId: fromColId,
+              toColumnId: toColId,
+            },
+          } as unknown as Edge)
+        }
+      }
+
       return
     }
 

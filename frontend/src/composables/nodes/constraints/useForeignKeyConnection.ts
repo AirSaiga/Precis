@@ -12,6 +12,7 @@
  * 3) ForeignKeyConstraint -> Schema(target-left)：写入 targetRef/config.targetNodeId 等参照关系
  */
  
+import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore';
 import type { SchemaNodeData, ForeignKeyConstraintNodeData } from '@/types/graph';
 import type { Edge } from '@vue-flow/core';
@@ -98,10 +99,10 @@ export function useForeignKeyConnection() {
     });
  
     // 写回 FK 节点的稳定引用关系
+    // 展示边由 ForeignKeyConstraintNode 自动管理（有目标表+目标列时自动创建）
     store.updateNodeData(constraintNodeId, {
       sourceRef: { nodeId: sourceNodeId, columnId: sourceColumnId },
       targetRef: { nodeId: targetNodeId },
-      displayTargetConnection: false,
       sourceInfo: {
         nodeId: sourceNodeId,
         label: `${sourceTableName}.${sourceColumn.columnName}`,
@@ -197,14 +198,47 @@ export function useForeignKeyConnection() {
  
     const targetSchemaData = targetSchemaNode.data as SchemaNodeData;
  
-    // 用户手工连线 FK->Schema 通常表示"希望看到连线"，因此同步打开展示开关
+    // 用户手工连线 FK->Schema 设置目标表
+    // 展示边由 ForeignKeyConstraintNode 自动管理（有目标表+目标列时自动创建）
     store.updateNodeData(fkNodeId, {
       targetTable: targetSchemaData?.tableName || '',
       targetRef: { nodeId: targetSchemaNodeId },
-      displayTargetConnection: true,
       config: {
         ...(fkNode.data as ForeignKeyConstraintNodeData)?.config,
         targetNodeId: targetSchemaNodeId
+      }
+    });
+  };
+
+  /**
+   * 处理 ForeignKeyConstraint -> Schema 列（source-right-{columnId}）的连接（设置参照目标列）
+   *
+   * @param fkNodeId - 外键约束节点 ID
+   * @param targetSchemaNodeId - 参照目标 Schema 节点 ID
+   * @param targetColumnId - 目标列 ID
+   * @param targetColumnName - 目标列名
+   */
+  const handleForeignKeyToSchemaColumnConnection = (
+    fkNodeId: string,
+    targetSchemaNodeId: string,
+    targetColumnId: string,
+    targetColumnName: string
+  ): void => {
+    const fkNode = store.nodes.find((n: any) => n.id === fkNodeId);
+    const targetSchemaNode = store.nodes.find((n: any) => n.id === targetSchemaNodeId);
+    if (!fkNode || !targetSchemaNode) return;
+
+    const targetSchemaData = targetSchemaNode.data as SchemaNodeData;
+
+    // 设置目标表和目标列
+    store.updateNodeData(fkNodeId, {
+      targetTable: targetSchemaData?.tableName || '',
+      targetColumn: targetColumnName,
+      targetRef: { nodeId: targetSchemaNodeId, columnId: targetColumnId },
+      config: {
+        ...(fkNode.data as ForeignKeyConstraintNodeData)?.config,
+        targetNodeId: targetSchemaNodeId,
+        targetColumn: targetColumnName
       }
     });
   };
@@ -212,6 +246,7 @@ export function useForeignKeyConnection() {
   return {
     handleSchemaToSchemaForeignKeyShortcutConnection,
     handleSchemaToForeignKeyConnection,
-    handleForeignKeyToSchemaConnection
+    handleForeignKeyToSchemaConnection,
+    handleForeignKeyToSchemaColumnConnection
   };
 }

@@ -20,6 +20,7 @@ import type { SchemaColumn } from '@/types/graph'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
 import { useToast } from '@/composables/shared/useToast'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
+import { revalidateConstraintsReferencingSchema } from '@/services/constraints/validationRegistryCore'
 
 /**
  * Schema 节点连接事件处理器
@@ -221,6 +222,16 @@ export function useSchemaConnectionHandler() {
             (nodeId: string, data: Record<string, unknown>) => store.updateNodeData(nodeId, data)
           )
         }
+
+        // 重新触发引用本 Schema 为目标的约束验证
+        // 通用机制：任何约束类型只要注册了 targetRefResolver，都会自动被触发
+        await revalidateConstraintsReferencingSchema({
+          schemaNodeId: schemaNodeIdForDialog,
+          nodes: store.nodes,
+          edges: store.edges,
+          updateNodeData: (nodeId: string, data: Record<string, unknown>) =>
+            store.updateNodeData(nodeId, data),
+        })
         document.dispatchEvent(
           new CustomEvent('sourcePreviewDataChanged', {
             detail: {

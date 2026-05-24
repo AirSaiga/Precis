@@ -24,8 +24,10 @@
  * - 断开连接时统一使用 defaultReset 重置节点状态
  */
 
+import { logger } from '@/core/utils/logger'
 import {
   register,
+  registerTargetRefResolver,
   requireSource,
   toResult,
   getTargetValues,
@@ -552,11 +554,29 @@ register({
     const missing = requireSource(ctx)
     if (missing) return missing
     const nodeData = (ctx.constraintNode.data || {}) as Record<string, unknown>
-    const targetNodeId =
-      (nodeData.targetRef as Record<string, unknown> | undefined)?.nodeId ||
-      (nodeData.config as Record<string, unknown> | undefined)?.targetNodeId
-    const targetColumn = ((nodeData.config as Record<string, unknown> | undefined)?.targetColumn ||
+    
+    const targetRef = nodeData.targetRef as Record<string, unknown> | undefined
+    const targetNodeId = targetRef?.nodeId as string | undefined
+    const targetColumnId = targetRef?.columnId as string | undefined
+    
+    // 获取目标列名：优先使用 config.targetColumn，其次使用 targetColumn，最后从 targetColumnId 推导
+    let targetColumn = ((nodeData.config as Record<string, unknown> | undefined)?.targetColumn ||
       nodeData.targetColumn) as string
+    
+    // 如果还是没有，从 targetColumnId 推导
+    if (!targetColumn && targetColumnId && targetNodeId) {
+      const targetNode = (ctx as unknown as Record<string, unknown>).nodes as Node[] | undefined
+      const targetSchemaNode = targetNode?.find((n: Node) => n.id === targetNodeId)
+      if (targetSchemaNode) {
+        const targetSchemaData = (targetSchemaNode.data || {}) as Record<string, unknown>
+        const columns = (targetSchemaData.columns || []) as Array<{ id: string; columnName: string }>
+        const foundColumn = columns.find((c) => c.id === targetColumnId)
+        if (foundColumn) {
+          targetColumn = foundColumn.columnName
+        }
+      }
+    }
+    
     if (!targetNodeId || !targetColumn) {
       return {
         status: 'idle',
@@ -567,7 +587,7 @@ register({
     const targetNode = (
       (ctx as unknown as Record<string, unknown>).nodes as Node[] | undefined
     )?.find((n: Node) => n.id === targetNodeId)
-    const targetValues = getTargetValues(targetNode, targetColumn)
+    const targetValues = getTargetValues(targetNode, targetColumn, ctx.nodes)
     if (targetValues.length === 0) {
       return {
         status: 'missing',
@@ -638,6 +658,19 @@ register({
     return toResult(filtered, response.data.total_rows || 0, '外键约束不满足')
   },
   resetOnDisconnect: defaultReset,
+})
+
+// 注册外键约束的目标引用解析器
+// 当目标 Schema 的数据源就绪时，自动重新验证引用该目标的 FK 约束
+registerTargetRefResolver('foreignKeyConstraint', (nodeData) => {
+  const targetRef = nodeData.targetRef as Record<string, unknown> | undefined
+  const configTargetNodeId = (nodeData.config as Record<string, unknown> | undefined)?.targetNodeId
+  const ids: string[] = []
+  if (targetRef?.nodeId) ids.push(targetRef.nodeId as string)
+  if (configTargetNodeId && !ids.includes(configTargetNodeId as string)) {
+    ids.push(configTargetNodeId as string)
+  }
+  return ids
 })
 
 /** 注册条件约束处理器 */

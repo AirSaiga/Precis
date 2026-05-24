@@ -167,14 +167,11 @@ function applyValidationResultsToSchemaNode(
 
   const updatedColumns = originalColumns.map((col: any) => {
     const columnResults = results.filter((r) => r.columnId === col.id)
-    if (columnResults.length > 0) {
-      const allErrors = columnResults.flatMap((r) => r.errors)
-      return {
-        ...col,
-        validationErrors: allErrors,
-      }
+    const allErrors = columnResults.flatMap((r) => r.errors)
+    return {
+      ...col,
+      validationErrors: allErrors,
     }
-    return col
   })
 
   updateNodeData(schemaNodeId, {

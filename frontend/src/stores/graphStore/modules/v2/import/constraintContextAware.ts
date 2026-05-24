@@ -86,8 +86,10 @@ export function createV2ConstraintContextAwareImport(params: {
     if (!edges.value.some((e) => e.id === edgeId)) {
       edges.value.push({
         id: edgeId,
-        source: fromTableId,
+        source: constraintId,
         target: toTableId,
+        sourceHandle: `source-output-${constraintId}`,
+        targetHandle: `source-right-${toColId}`,
         type: 'smoothstep',
         animated: false,
         label,

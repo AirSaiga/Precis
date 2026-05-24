@@ -15,6 +15,7 @@ import { normalizePath } from '@/core/utils/pathNormalization'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
+import { revalidateConstraintsReferencingSchema } from '@/services/constraints/validationRegistryCore'
 import type { SchemaNodeData, SourcePreviewNodeData } from '@/types/graph'
 
 function basename(filePath: string): string {
@@ -280,6 +281,16 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
     )
     logger.debug('[bindDataSource] 校验已触发')
   }
+
+  // ---- 重新触发引用本 Schema 为目标的约束验证 ----
+  // 通用机制：任何约束类型只要注册了 targetRefResolver，都会自动被触发
+  await revalidateConstraintsReferencingSchema({
+    schemaNodeId: schemaNode.id,
+    nodes: graphStore.nodes,
+    edges: graphStore.edges,
+    updateNodeData: (nodeId: string, data: Record<string, unknown>) =>
+      graphStore.updateNodeData(nodeId, data),
+  })
 
   logger.debug('[bindDataSource] ========== 执行完成 ==========')
   return { success: true, message: 'shortcuts.feedback.bindDataSourceSuccess' }

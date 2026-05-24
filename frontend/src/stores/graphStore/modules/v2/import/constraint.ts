@@ -20,6 +20,7 @@ import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { SchemaNodeData } from '@/types/nodes'
 import { getV2Constraint } from '@/api/projectV2Api'
+import { logger } from '@/core/utils/logger'
 
 export function createV2ConstraintImporter(params: {
   nodes: Ref<CustomNode[]>
@@ -153,6 +154,19 @@ export function createV2ConstraintImporter(params: {
         ((toSchema?.data as SchemaNodeData | undefined)?.columns || []).find(
           (x) => (x as { id?: string; columnName?: string }).id === toColId
         )?.columnName || ''
+      
+      logger.info('[constraint.ts] FK 节点导入 - 列信息:', {
+        fromTableId,
+        fromColId,
+        sourceTable,
+        sourceColumn,
+        toTableId,
+        toColId,
+        targetTable,
+        targetColumn,
+        toSchemaExists: !!toSchema,
+        toSchemaColumns: (toSchema?.data as SchemaNodeData | undefined)?.columns?.map((c: any) => ({ id: c.id, name: c.columnName })),
+      })
 
       const constraintNode: CustomNode = {
         id: resourceId,
@@ -168,14 +182,20 @@ export function createV2ConstraintImporter(params: {
           validationErrors: [],
           sourceRef: { nodeId: fromTableId, columnId: fromColId },
           targetRef: { nodeId: toTableId, columnId: toColId },
+          config: {
+            ruleType: 'EXIST_IN',
+            targetNodeId: toTableId,
+            targetColumn: targetColumn
+          },
           saveState: 'saved',
         } as unknown as CustomNodeData,
       }
+      
       nodes.value.push(constraintNode)
       if (fromTableId && fromColId) ensureSchemaToConstraintEdge(fromTableId, resourceId, fromColId)
 
-      // 创建外键展示边（Schema↔Schema），统一在导入时完成
-      if (fromTableId && toTableId) {
+      // 创建外键展示边（FK 节点 -> 目标 Schema 列），连接到目标列的右侧端点
+      if (toTableId && toColId) {
         const edgeId = `fk-${fromTableId}-${toTableId}-${resourceId}`
         if (!edges.value.some((e) => e.id === edgeId)) {
           const label = [sourceColumn, targetColumn].filter(Boolean).length
@@ -183,8 +203,10 @@ export function createV2ConstraintImporter(params: {
             : 'ForeignKey'
           edges.value.push({
             id: edgeId,
-            source: fromTableId,
+            source: resourceId,
             target: toTableId,
+            sourceHandle: `source-output-${resourceId}`,
+            targetHandle: `source-right-${toColId}`,
             type: 'smoothstep',
             animated: false,
             label,
