@@ -16,6 +16,7 @@ from __future__ import annotations
 import pandas as pd
 import pytest
 
+from app.shared.services.validation.service import UnifiedValidationService
 from app.shared.services.validation.validators.composite import CompositeValidator
 
 
@@ -24,8 +25,8 @@ class TestCompositeValidator:
 
     @pytest.fixture
     def validator(self):
-        """提供 CompositeValidator 实例"""
-        return CompositeValidator()
+        """提供注入了 validate_fn 的 CompositeValidator 实例"""
+        return CompositeValidator(validate_fn=UnifiedValidationService.validate)
 
     @pytest.fixture
     def df_notnull(self):
