@@ -44,7 +44,7 @@ from app.shared.core.data_source.specs.excel_source import ExcelSourceSpec
 from app.shared.core.data_source.specs.json_source import JSONSourceSpec
 
 if TYPE_CHECKING:
-    from ...models.schema import TableSchema
+    from app.shared.domain import TableSchema
 
 
 logger = logging.getLogger(__name__)

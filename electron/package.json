@@ -22,7 +22,7 @@
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.js .",
     "build:electron": "tsc",
-    "build:backend": "cd ../backend && python build_backend.py",
+    "build:backend": "cd ../backend && python -m pip install -e .",
     "build:frontend": "cd ../frontend && npm run build",
     "build:all": "npm run build:backend && npm run build:frontend && npm run build:electron"
   },

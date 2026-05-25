@@ -120,27 +120,9 @@ class RegexValidationResponse(BaseModel):
     updated_at: Optional[str] = Field(None, description="更新时间")
 
 
-class ValidationType(str):
-    """
-    校验类型枚举
-
-    定义系统支持的所有校验类型常量。
-
-    Attributes:
-        REGEX: 正则表达式校验
-        UNIQUE: 唯一性校验
-        NOT_NULL: 非空校验
-        ALLOWED_VALUES: 允许值校验
-        CONDITIONAL: 条件校验
-        SCRIPTED: 脚本化校验
-    """
-
-    REGEX = "regex"
-    UNIQUE = "unique"
-    NOT_NULL = "not_null"
-    ALLOWED_VALUES = "allowed_values"
-    CONDITIONAL = "conditional"
-    SCRIPTED = "scripted"
+# 统一使用 services 层的 ValidationType 作为唯一真相源
+# API 层不再维护独立的校验类型定义，避免与服务层不一致
+from app.shared.services.validation.types import ValidationType  # noqa: F401
 
 
 class ValidationRequest(BaseModel):

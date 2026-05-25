@@ -245,4 +245,6 @@ UnifiedValidationService.register_validator(
         kwargs_mapping={"min_value": "min_value", "max_value": "max_value", "boundary_mode": "boundary_mode"},
     ),
 )
-UnifiedValidationService.register_validator(ValidationType.COMPOSITE, CompositeValidator())
+UnifiedValidationService.register_validator(
+    ValidationType.COMPOSITE, CompositeValidator(validate_fn=UnifiedValidationService.validate)
+)

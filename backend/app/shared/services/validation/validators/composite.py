@@ -3,16 +3,16 @@
 
 功能概述:
 - 将多个子约束按逻辑策略（all/any/none）聚合校验结果
-- 内部调用 UnifiedValidationService 为每个子约束执行校验
+- 通过构造函数注入 validate_fn 回调，调用 UnifiedValidationService 为每个子约束执行校验
 - 避免直接实例化 CompositeConstraint 所需的 create_constraint 工厂 + schema_files 依赖
 
 架构设计:
 - 继承 BaseValidator，遵循统一校验器接口
-- 延迟导入 UnifiedValidationService 避免循环依赖
+- 通过构造函数注入 validate_fn 回调，消除循环依赖
 - 每个子约束独立执行，异常被捕获视为该子约束失败
 
 输入示例:
-    CompositeValidator().validate(
+    CompositeValidator(validate_fn=UnifiedValidationService.validate).validate(
         df=df,
         column="email",
         logic="all",
@@ -35,10 +35,11 @@ from __future__ import annotations
 
 import logging
 import time
+from typing import Callable
 
 import pandas as pd
 
-from ..types import ValidationResult
+from ..types import ValidationResult, ValidationType
 from .base import BaseValidator
 
 logger = logging.getLogger(__name__)
@@ -47,7 +48,7 @@ logger = logging.getLogger(__name__)
 class CompositeValidator(BaseValidator):
     """@classdesc 复合约束校验器
 
-    接收子约束配置列表，为每个子约束调用 UnifiedValidationService 执行校验，
+    接收子约束配置列表，为每个子约束调用注入的 validate_fn 执行校验，
     然后按 logic 策略（all/any/none）聚合最终结果。
 
     字段说明:
@@ -55,10 +56,19 @@ class CompositeValidator(BaseValidator):
         - sub_constraints: 子约束配置列表，每项包含 type/enabled/params
     """
 
+    def __init__(self, validate_fn: Callable | None = None):
+        """@methoddesc 初始化复合约束校验器
+
+        参数:
+            validate_fn: 校验回调函数，签名为 (validation_type, df, column, **kwargs) -> ValidationResult
+                         在 service.py 注册时注入，避免循环依赖
+        """
+        self._validate_fn = validate_fn
+
     def validate(self, df: pd.DataFrame, column: str, **kwargs) -> ValidationResult:
         """@methoddesc 执行复合约束校验
 
-        遍历所有子约束配置，逐个调用 UnifiedValidationService 执行校验，
+        遍历所有子约束配置，逐个调用注入的 validate_fn 执行校验，
         收集结果后按 logic 策略聚合。
 
         参数:
@@ -71,9 +81,10 @@ class CompositeValidator(BaseValidator):
         返回:
             ValidationResult: 标准化校验结果
         """
-        # 延迟导入避免循环依赖
-        # 【关键】CompositeValidator 在 service.py 中被注册，而 service.py 又导入 CompositeValidator
-        from app.shared.services.validation import UnifiedValidationService, ValidationType
+        validate_fn = self._validate_fn
+        if validate_fn is None:
+            logger.error("CompositeValidator 未注入 validate_fn，无法执行子约束校验")
+            return self._format_errors([], len(df), 0)
 
         logic = kwargs.get("logic", "all")
         sub_configs = kwargs.get("sub_constraints", [])
@@ -117,7 +128,7 @@ class CompositeValidator(BaseValidator):
                 continue
 
             try:
-                result = UnifiedValidationService.validate(
+                result = validate_fn(
                     validation_type=validation_type,
                     df=df,
                     column=column,

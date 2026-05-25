@@ -152,6 +152,12 @@ class TestValidationModels:
         assert ValidationType.ALLOWED_VALUES == "allowed_values"
         assert ValidationType.CONDITIONAL == "conditional"
         assert ValidationType.SCRIPTED == "scripted"
+        # 以下类型之前在 API 层缺失，现在从 services 层统一引入
+        assert ValidationType.RANGE == "range"
+        assert ValidationType.FOREIGN_KEY == "foreign_key"
+        assert ValidationType.CHARSET == "charset"
+        assert ValidationType.DATE_LOGIC == "date_logic"
+        assert ValidationType.COMPOSITE == "composite"
 
 
 class TestFullValidationModels:
