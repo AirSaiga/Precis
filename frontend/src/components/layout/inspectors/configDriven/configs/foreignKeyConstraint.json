@@ -82,34 +82,6 @@
           "labelKey": "inspector.constraint.foreignKey.sourceInfoLabel",
           "source": { "source": "data", "path": ["sourceInfo", "label"] },
           "when": { "op": "exists", "source": { "source": "data", "path": ["sourceInfo", "label"] } }
-        },
-        {
-          "id": "sourceNodeId",
-          "kind": "readonly",
-          "labelKey": "inspector.constraint.foreignKey.sourceNodeId",
-          "source": { "source": "data", "path": ["sourceRef", "nodeId"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "nodeId"] } }
-        },
-        {
-          "id": "sourceColumnId",
-          "kind": "readonly",
-          "labelKey": "inspector.constraint.foreignKey.sourceColumnId",
-          "source": { "source": "data", "path": ["sourceRef", "columnId"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "columnId"] } }
-        },
-        {
-          "id": "targetNodeId",
-          "kind": "readonly",
-          "labelKey": "inspector.constraint.foreignKey.targetNodeId",
-          "source": { "source": "data", "path": ["targetRef", "nodeId"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["targetRef", "nodeId"] } }
-        },
-        {
-          "id": "targetColumnId",
-          "kind": "readonly",
-          "labelKey": "inspector.constraint.foreignKey.targetColumnId",
-          "source": { "source": "data", "path": ["targetRef", "columnId"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["targetRef", "columnId"] } }
         }
       ]
     },
@@ -124,12 +96,25 @@
           "source": { "source": "data", "path": ["validationStatus"] }
         },
         {
-          "id": "lastValidation",
-          "kind": "json",
-          "labelKey": "inspector.constraint.foreignKey.validationStatus",
-          "source": { "source": "data", "path": ["lastValidation"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } },
-          "readonly": true
+          "id": "totalRows",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.foreignKey.totalRows",
+          "source": { "source": "data", "path": ["lastValidation", "totalRows"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } }
+        },
+        {
+          "id": "matchCount",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.foreignKey.matchCount",
+          "source": { "source": "data", "path": ["lastValidation", "matchCount"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } }
+        },
+        {
+          "id": "errorCount",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.foreignKey.errorCount",
+          "source": { "source": "data", "path": ["lastValidation", "errorCount"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } }
         },
         {
           "id": "validationErrors",
@@ -138,9 +123,15 @@
           "source": { "source": "data", "path": ["validationErrors"] },
           "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },
           "readonly": true
+        },
+        {
+          "id": "validateNow",
+          "kind": "actionButton",
+          "labelKey": "inspector.constraint.validateNow",
+          "action": "validate",
+          "buttonLabelKey": "inspector.constraint.validateNow"
         }
       ]
     }
   ]
 }
-

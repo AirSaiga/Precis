@@ -57,6 +57,17 @@ const canvas = {
         'Detected connection from "{sourceName}" to "{schemaName}".\n\nDo you want to automatically generate column definitions based on the data source?\n\nTip: This will overwrite the current {currentColumnsCount} column definitions.',
       confirm: 'Generate',
     },
+    smartFix: {
+      title: 'Column Definition Fix',
+      message:
+        'Column definitions between data source "{sourceName}" and "{schemaName}" are inconsistent:\n\n{details}\n\nApply smart fix?',
+      confirm: 'Smart Fix',
+      skip: 'Skip',
+      newInSource:
+        '{count} new column(s) in data source not defined in Schema ({columns})',
+      staleInSchema:
+        '{count} non-derived column(s) in Schema not found in data source ({columns})',
+    },
     columnMismatch: {
       title: 'Column Mismatch Warning',
       message:

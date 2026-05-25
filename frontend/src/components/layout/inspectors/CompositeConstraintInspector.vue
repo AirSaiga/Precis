@@ -52,9 +52,33 @@
       </div>
     </div>
 
+    <!-- 校验状态 -->
+    <div v-if="props.data.validationStatus" class="inspector-section">
+      <label>{{ t('inspector.constraint.composite.validationStatus') }}</label>
+      <span class="status-badge" :class="statusClass">{{ statusText }}</span>
+    </div>
+
+    <div v-if="props.data.lastValidation" class="inspector-section">
+      <label>{{ t('inspector.constraint.composite.totalRows') }}</label>
+      <span class="readonly-value">{{ props.data.lastValidation.totalRows }}</span>
+    </div>
+
+    <div v-if="props.data.lastValidation" class="inspector-section">
+      <label>{{ t('inspector.constraint.composite.errorCount') }}</label>
+      <span class="readonly-value">{{ props.data.lastValidation.errorCount }}</span>
+    </div>
+
+    <div v-if="props.data.validationErrors?.length" class="inspector-section">
+      <label>{{ t('inspector.constraint.composite.errorMessages') }}</label>
+      <ul class="error-list">
+        <li v-for="(err, i) in props.data.validationErrors" :key="i">{{ err }}</li>
+      </ul>
+    </div>
+
     <div class="inspector-section">
-      <label>{{ t('inspector.constraint.composite.saveState') }}</label>
-      <span class="save-state">{{ localData.saveState || 'draft' }}</span>
+      <button class="action-btn action-validate" @click="handleValidate">
+        {{ t('inspector.constraint.validateNow') }}
+      </button>
     </div>
   </div>
 </template>
@@ -63,6 +87,7 @@
   import { reactive, computed } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useGraphStore } from '@/stores/graphStore'
+  import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
   import type { CompositeConstraintNodeData } from '@/types/constraints'
   import type { Node } from '@vue-flow/core'
 
@@ -85,11 +110,36 @@
     description: props.data.description || '',
     logic: props.data.logic || 'all',
     enabled: props.data.enabled !== false,
-    saveState: props.data.saveState || 'draft',
   })
 
   const includedNodeIds = computed(() => props.data.includedNodeIds || [])
   const includedCount = computed(() => includedNodeIds.value.length)
+
+  const statusClass = computed(() => {
+    const s = props.data.validationStatus
+    if (s === 'pass') return 'status-pass'
+    if (s === 'error') return 'status-error'
+    if (s === 'missing') return 'status-missing'
+    return 'status-idle'
+  })
+
+  const statusText = computed(() => {
+    const statusMap: Record<string, string> = {
+      idle: t('inspector.constraint.composite.statusIdle'),
+      pass: t('inspector.constraint.composite.statusPass'),
+      error: t('inspector.constraint.composite.statusError'),
+      missing: t('inspector.constraint.composite.statusMissing'),
+    }
+    return statusMap[props.data.validationStatus || 'idle'] || props.data.validationStatus
+  })
+
+  function handleValidate() {
+    // Composite 通过 sourceRef 关联 Schema，触发整表校验
+    const sourceNodeId = props.data.sourceRef?.nodeId
+    if (sourceNodeId) {
+      triggerValidationForNode(sourceNodeId, store.nodes, store.edges, store.updateNodeData)
+    }
+  }
 
   /**
    * 判断节点是否为约束类型（排除 composite 自身）
@@ -242,9 +292,68 @@
     white-space: nowrap;
   }
 
-  .save-state {
-    font-size: 12px;
-    color: var(--ui-text-muted);
+  .status-badge {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 3px;
     text-transform: uppercase;
+  }
+
+  .status-idle {
+    background: var(--ui-border-light);
+    color: var(--ui-text-muted);
+  }
+
+  .status-pass {
+    background: rgba(34, 197, 94, 0.15);
+    color: #16a34a;
+  }
+
+  .status-error {
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+  }
+
+  .status-missing {
+    background: rgba(234, 179, 8, 0.15);
+    color: #ca8a04;
+  }
+
+  .readonly-value {
+    font-size: 13px;
+    color: var(--ui-text-primary);
+  }
+
+  .error-list {
+    margin: 0;
+    padding-left: 16px;
+    font-size: 12px;
+    color: var(--ui-text-secondary);
+  }
+
+  .error-list li {
+    margin-bottom: 4px;
+  }
+
+  .action-btn {
+    width: 100%;
+    padding: 7px 12px;
+    border: 1px solid rgba(14, 99, 156, 0.3);
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .action-validate {
+    background: rgba(14, 99, 156, 0.1);
+    color: var(--ui-accent-primary, #0e639c);
+  }
+
+  .action-validate:hover {
+    background: rgba(14, 99, 156, 0.2);
   }
 </style>

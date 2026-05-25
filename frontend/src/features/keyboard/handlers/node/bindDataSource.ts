@@ -14,6 +14,7 @@ import { fetchPreviewDataFromPath } from '@/composables/nodes/sourcePreview/useP
 import { normalizePath } from '@/core/utils/pathNormalization'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
+import { extractColumnNamesFromHeader, compareColumns } from '@/utils/nodes/schema/columnValidation'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { revalidateConstraintsReferencingSchema } from '@/services/constraints/validationRegistryCore'
 import type { SchemaNodeData, SourcePreviewNodeData } from '@/types/graph'
@@ -128,8 +129,19 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
   try {
     previewData = await fetchPreviewDataFromPath(localPath, 65535, 65535, schemaData.sheetName)
     logger.debug('[bindDataSource] 预览数据获取成功')
-  } catch (error) {
-    logger.error('[bindDataSource] 预览数据获取失败:', error)
+  } catch (error: any) {
+    const errorText = String(error?.message || error)
+    logger.error('[bindDataSource] 预览数据获取失败:', errorText)
+    // 若后端明确返回 sheet 不存在，给出针对性提示
+    if (
+      errorText.includes('404') &&
+      (errorText.includes('工作表') || errorText.includes('Worksheet') || errorText.includes('sheet'))
+    ) {
+      return {
+        success: false,
+        message: `Sheet "${schemaData.sheetName}" 不存在于目标文件中，请在 Schema 属性面板中修正工作表名称`,
+      }
+    }
     return { success: false, message: 'shortcuts.feedback.failed' }
   }
 
@@ -141,12 +153,14 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
 
   // fetchPreviewDataFromPath 已内部转换 snake_case -> camelCase
   const currentSheetFromBackend = previewData.currentSheet as string | undefined
-  const resolvedSheet = schemaData.sheetName || currentSheetFromBackend
+  const resolvedSheet = currentSheetFromBackend || schemaData.sheetName
   logger.debug(
     '[bindDataSource] 使用工作表:',
     resolvedSheet,
     'backend返回:',
-    currentSheetFromBackend
+    currentSheetFromBackend,
+    'schema原配置:',
+    schemaData.sheetName
   )
 
   const nodeData: SourcePreviewNodeData = {
@@ -242,27 +256,65 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
     outputPortConnected: true,
   })
 
-  // ---- 智能列填充询问 ----
+  // ---- 智能列填充询问（三分支决策：空列生成 / 不匹配修正 / 完全匹配跳过） ----
   const tableData = nodeData.data
   const schemaColumns = schemaData.columns || []
 
   if (tableData && tableData.length > 0) {
     try {
-      const userConfirmed = await showConfirm({
-        title: '智能列填充',
-        message: `是否根据数据源 "${nodeData.sourceName}" 的表头自动生成 "${smartTableName}" 的列定义？\n\n当前已有 ${schemaColumns.length} 个列定义。`,
-        confirmText: '生成列定义',
-        cancelText: '取消',
-      })
+      const headerRow = tableData[0]
+      const sampleDataRow = tableData.length > 1 ? tableData[1] : undefined
+      const sourceColumnNames = extractColumnNamesFromHeader(headerRow)
+      const comparison = compareColumns(sourceColumnNames, schemaColumns)
 
-      if (userConfirmed) {
-        const headerRow = tableData[0]
-        const sampleDataRow = tableData.length > 1 ? tableData[1] : undefined
-        const columns = generateColumnsFromSource(headerRow, schemaColumns, sampleDataRow, {
-          forceReinferTypes: true,
+      if (comparison.schemaEmpty) {
+        // ── Case A: Schema 无列定义 → 弹"生成"对话框 ──
+        const userConfirmed = await showConfirm({
+          title: '智能列填充',
+          message: `是否根据数据源 "${nodeData.sourceName}" 的表头自动生成 "${smartTableName}" 的列定义？`,
+          confirmText: '生成列定义',
+          cancelText: '取消',
         })
-        graphStore.updateNodeData(schemaNode.id, { ...schemaNode.data, columns })
-        logger.debug(`[bindDataSource] 已生成 ${columns.length} 个列定义`)
+        if (userConfirmed) {
+          const columns = generateColumnsFromSource(headerRow, schemaColumns, sampleDataRow, {
+            forceReinferTypes: true,
+          })
+          graphStore.updateNodeData(schemaNode.id, { ...schemaNode.data, columns })
+          logger.debug(`[bindDataSource] 已生成 ${columns.length} 个列定义`)
+        }
+      } else if (comparison.needsAction) {
+        // ── Case B: 列不匹配 → 弹"修正"对话框（三按钮） ──
+        const parts: string[] = []
+        if (comparison.newInSource.length > 0) {
+          const preview = comparison.newInSource.slice(0, 5).join(', ')
+          const suffix = comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
+          parts.push(`数据源有 ${comparison.newInSource.length} 个新列未在 Schema 中定义（${preview}${suffix}）`)
+        }
+        if (comparison.staleInSchema.length > 0) {
+          const preview = comparison.staleInSchema.slice(0, 5).join(', ')
+          const suffix = comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
+          parts.push(`Schema 有 ${comparison.staleInSchema.length} 个非衍生列不在数据源中（${preview}${suffix}）`)
+        }
+
+        const result = await showConfirm({
+          title: '列定义修正',
+          message: `数据源 "${nodeData.sourceName}" 与 "${smartTableName}" 的列定义不一致：\n\n${parts.join('；')}。\n\n是否执行智能修正？`,
+          confirmText: '智能修正',
+          cancelText: '取消',
+          alternativeText: '跳过',
+          type: 'warning',
+        })
+
+        if (result === true) {
+          const columns = generateColumnsFromSource(headerRow, schemaColumns, sampleDataRow, {
+            forceReinferTypes: true,
+          })
+          graphStore.updateNodeData(schemaNode.id, { ...schemaNode.data, columns })
+          logger.debug(`[bindDataSource] 智能修正完成，共 ${columns.length} 个列定义`)
+        }
+      } else {
+        // ── Case C: 列完全匹配 → 静默跳过 ──
+        logger.debug('[bindDataSource] 列定义已匹配数据源，跳过智能填充')
       }
     } catch (dialogError) {
       logger.warn('[bindDataSource] 智能填充对话框异常:', dialogError)

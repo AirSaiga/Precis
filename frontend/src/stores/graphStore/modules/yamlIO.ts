@@ -464,7 +464,7 @@ export function createYamlIOModule(params: {
       }
 
       const tableName = String(rawSchema.table_name || rawSchema.tableName || 'imported_table')
-      const sheetName = String(rawSchema.sheet_name || rawSchema.sheetName || 'Sheet1')
+      const sheetName = (rawSchema.sheet_name || rawSchema.sheetName || undefined) as string | undefined
 
       const rawColumns = Array.isArray(rawSchema.columns) ? rawSchema.columns : []
       const columns: SchemaColumn[] = rawColumns.map((col: unknown) => {

@@ -18,6 +18,7 @@ import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import type { Node, Edge, Connection } from '@vue-flow/core'
 import type { SchemaColumn } from '@/types/graph'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
+import { extractColumnNamesFromHeader, compareColumns } from '@/utils/nodes/schema/columnValidation'
 import { useToast } from '@/composables/shared/useToast'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { revalidateConstraintsReferencingSchema } from '@/services/constraints/validationRegistryCore'
@@ -273,44 +274,85 @@ export function useSchemaConnectionHandler() {
     const sourceName =
       (sourceData.sourceName as string) || (sourceData.fileName as string) || 'Unknown'
     const schemaName = (schemaData.tableName as string) || 'Schema'
-    const currentColumnsCount =
-      ((schemaData as Record<string, unknown>).columns as unknown[])?.length || 0
 
-    // 记录对话框即将弹出的日志
-    logger.debug('🎯 [showSmartFillDialog] 弹出确认对话框')
-    logger.debug('  - 数据源:', sourceName)
-    logger.debug('  - 目标Schema:', schemaName)
-    logger.debug('  - 当前已有列数量:', currentColumnsCount)
+    // 提取数据源列名用于比较
+    const tableData = sourceData.data as unknown[][]
+    if (!tableData || tableData.length === 0) return
 
-    // 使用全局确认对话框（异步）
-    const userConfirmed = await showConfirm({
-      title: t('canvas.nodeCanvas.smartFill.title'),
-      message: t('canvas.nodeCanvas.smartFill.message', {
-        sourceName,
-        schemaName,
-        currentColumnsCount,
-      }),
-      confirmText: t('canvas.nodeCanvas.smartFill.confirm'),
-      cancelText: t('common.cancel'),
-    })
+    const headerRowIndex = (sourceData.headerRow as number) ?? 0
+    const headerRow = tableData[headerRowIndex]
+    if (!headerRow) return
 
-    // 记录用户的选择结果
-    logger.debug('🎯 [showSmartFillDialog] 用户选择:', userConfirmed ? '✅ 确认生成' : '❌ 取消')
+    const schemaColumns = ((schemaData.columns as unknown[]) || []) as {
+      columnName: string
+      expressionType?: string
+      isBound?: boolean
+      extractedConfig?: unknown
+    }[]
+    const sourceColumnNames = extractColumnNamesFromHeader(headerRow)
+    const comparison = compareColumns(sourceColumnNames, schemaColumns)
 
-    if (userConfirmed) {
-      // 只有在用户明确点击"确定"后，才执行列生成
-      logger.debug('🎯 [showSmartFillDialog] 开始生成列定义...')
-      generateColumnsFromDataSource(
-        source as unknown as { id: string; data: Record<string, unknown> },
-        schema as unknown as { id: string; data: Record<string, unknown> }
-      )
+    logger.debug('🎯 [showSmartFillDialog] 列比较结果:', comparison)
+
+    if (comparison.schemaEmpty) {
+      // ── Case A: Schema 无列定义 → 弹"生成"对话框 ──
+      const userConfirmed = await showConfirm({
+        title: t('canvas.nodeCanvas.smartFill.title'),
+        message: t('canvas.nodeCanvas.smartFill.message', {
+          sourceName,
+          schemaName,
+          currentColumnsCount: 0,
+        }),
+        confirmText: t('canvas.nodeCanvas.smartFill.confirm'),
+        cancelText: t('common.cancel'),
+      })
+
+      logger.debug('🎯 [showSmartFillDialog] 用户选择:', userConfirmed ? '✅ 确认生成' : '❌ 取消')
+
+      if (userConfirmed) {
+        generateColumnsFromDataSource(
+          source as unknown as { id: string; data: Record<string, unknown> },
+          schema as unknown as { id: string; data: Record<string, unknown> }
+        )
+      }
+    } else if (comparison.needsAction) {
+      // ── Case B: 列不匹配 → 弹"修正"对话框（三按钮） ──
+      const parts: string[] = []
+      if (comparison.newInSource.length > 0) {
+        const preview = comparison.newInSource.slice(0, 5).join(', ')
+        const suffix = comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
+        parts.push(t('canvas.nodeCanvas.smartFix.newInSource', { count: comparison.newInSource.length, columns: `${preview}${suffix}` }))
+      }
+      if (comparison.staleInSchema.length > 0) {
+        const preview = comparison.staleInSchema.slice(0, 5).join(', ')
+        const suffix = comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
+        parts.push(t('canvas.nodeCanvas.smartFix.staleInSchema', { count: comparison.staleInSchema.length, columns: `${preview}${suffix}` }))
+      }
+
+      const result = await showConfirm({
+        title: t('canvas.nodeCanvas.smartFix.title'),
+        message: t('canvas.nodeCanvas.smartFix.message', {
+          sourceName,
+          schemaName,
+          details: parts.join('\n'),
+        }),
+        confirmText: t('canvas.nodeCanvas.smartFix.confirm'),
+        cancelText: t('common.cancel'),
+        alternativeText: t('canvas.nodeCanvas.smartFix.skip'),
+        type: 'warning',
+      })
+
+      logger.debug('🎯 [showSmartFillDialog] 用户选择:', result === true ? '✅ 智能修正' : '❌ 跳过/取消')
+
+      if (result === true) {
+        generateColumnsFromDataSource(
+          source as unknown as { id: string; data: Record<string, unknown> },
+          schema as unknown as { id: string; data: Record<string, unknown> }
+        )
+      }
     } else {
-      logger.debug('🎯 [showSmartFillDialog] 用户取消，保持现有列定义')
-      // 检查列名匹配情况，如果缺失列则发出警告
-      checkColumnMismatch(
-        source as unknown as { data: Record<string, unknown> },
-        schema as unknown as { data: Record<string, unknown> }
-      )
+      // ── Case C: 列完全匹配 → 静默跳过 ──
+      logger.debug('🎯 [showSmartFillDialog] 列定义已匹配数据源，跳过智能填充')
     }
   }
 

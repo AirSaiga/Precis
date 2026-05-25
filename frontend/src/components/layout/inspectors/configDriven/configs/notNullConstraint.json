@@ -41,29 +41,15 @@
       ]
     },
     {
-      "id": "connection",
-      "titleKey": "inspector.constraint.notNull.sourceConnection",
-      "fields": [
-        {
-          "id": "sourceNodeId",
-          "kind": "readonly",
-          "labelKey": "inspector.constraint.notNull.sourceNodeId",
-          "source": { "source": "data", "path": ["sourceRef", "nodeId"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "nodeId"] } }
-        },
-        {
-          "id": "sourceColumnId",
-          "kind": "readonly",
-          "labelKey": "inspector.constraint.notNull.sourceColumnId",
-          "source": { "source": "data", "path": ["sourceRef", "columnId"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "columnId"] } }
-        }
-      ]
-    },
-    {
       "id": "status",
       "titleKey": "inspector.constraint.notNull.validationStatus",
       "fields": [
+        {
+          "id": "validationStatus",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.notNull.status",
+          "source": { "source": "data", "path": ["validationStatus"] }
+        },
         {
           "id": "validationErrors",
           "kind": "json",
@@ -71,6 +57,13 @@
           "source": { "source": "data", "path": ["validationErrors"] },
           "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },
           "readonly": true
+        },
+        {
+          "id": "validateNow",
+          "kind": "actionButton",
+          "labelKey": "inspector.constraint.validateNow",
+          "action": "validate",
+          "buttonLabelKey": "inspector.constraint.validateNow"
         }
       ]
     }

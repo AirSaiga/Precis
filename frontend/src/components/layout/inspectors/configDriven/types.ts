@@ -149,6 +149,12 @@ export type InspectorWeightedSumField = InspectorFieldBase & {
   source: InspectorValueSource
 }
 
+export type InspectorActionButtonField = InspectorFieldBase & {
+  kind: 'actionButton'
+  action: 'validate'
+  buttonLabelKey: string
+}
+
 export type InspectorField =
   | InspectorTextField
   | InspectorNumberField
@@ -167,6 +173,7 @@ export type InspectorField =
   | InspectorDynamicListField
   | InspectorRegexPatternField
   | InspectorWeightedSumField
+  | InspectorActionButtonField
 
 export type InspectorCommitPayload = unknown | { __patch: Record<string, unknown> }
 

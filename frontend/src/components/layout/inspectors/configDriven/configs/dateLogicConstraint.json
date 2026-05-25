@@ -77,7 +77,15 @@
           "referenceDatePath": ["referenceDate"],
           "referenceColumnPath": ["referenceColumn"],
           "optionDateLabelKey": "inspector.constraint.dateLogic.fixedDate",
-          "optionColumnLabelKey": "inspector.constraint.dateLogic.referenceColumn"
+          "optionColumnLabelKey": "inspector.constraint.dateLogic.referenceColumn",
+          "when": {
+            "op": "or",
+            "exprs": [
+              { "op": "exists", "source": { "source": "data", "path": ["referenceDate"] } },
+              { "op": "exists", "source": { "source": "data", "path": ["referenceColumn"] } },
+              { "op": "equals", "source": { "source": "data", "path": ["logicMode"] }, "value": "compare" }
+            ]
+          }
         },
         {
           "id": "referenceDate",
@@ -92,7 +100,19 @@
           "labelKey": "inspector.constraint.dateLogic.referenceColumn",
           "placeholderKey": "inspector.constraint.dateLogic.referenceColumnPlaceholder",
           "source": { "source": "data", "path": ["referenceColumn"] },
-          "when": { "op": "not", "expr": { "op": "exists", "source": { "source": "data", "path": ["referenceDate"] } } }
+          "when": {
+            "op": "and",
+            "exprs": [
+              { "op": "not", "expr": { "op": "exists", "source": { "source": "data", "path": ["referenceDate"] } } },
+              {
+                "op": "or",
+                "exprs": [
+                  { "op": "exists", "source": { "source": "data", "path": ["referenceColumn"] } },
+                  { "op": "equals", "source": { "source": "data", "path": ["logicMode"] }, "value": "compare" }
+                ]
+              }
+            ]
+          }
         },
         {
           "id": "targetValue",
@@ -100,6 +120,14 @@
           "labelKey": "inspector.constraint.dateLogic.targetValue",
           "placeholderKey": "inspector.constraint.dateLogic.targetValuePlaceholder",
           "source": { "source": "data", "path": ["targetValue"] }
+        },
+        {
+          "id": "targetColumn",
+          "kind": "text",
+          "labelKey": "inspector.constraint.dateLogic.targetColumn",
+          "placeholderKey": "inspector.constraint.dateLogic.targetColumnPlaceholder",
+          "source": { "source": "data", "path": ["targetColumn"] },
+          "when": { "op": "equals", "source": { "source": "data", "path": ["calculationType"] }, "value": "days_diff" }
         }
       ]
     },
@@ -122,26 +150,6 @@
       ]
     },
     {
-      "id": "connection",
-      "titleKey": "inspector.constraint.dateLogic.sourceConnection",
-      "fields": [
-        {
-          "id": "sourceNodeId",
-          "kind": "readonly",
-          "labelKey": "inspector.constraint.dateLogic.sourceNodeId",
-          "source": { "source": "data", "path": ["sourceRef", "nodeId"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "nodeId"] } }
-        },
-        {
-          "id": "sourceColumnId",
-          "kind": "readonly",
-          "labelKey": "inspector.constraint.dateLogic.sourceColumnId",
-          "source": { "source": "data", "path": ["sourceRef", "columnId"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "columnId"] } }
-        }
-      ]
-    },
-    {
       "id": "status",
       "titleKey": "inspector.constraint.dateLogic.validationResult",
       "fields": [
@@ -152,12 +160,25 @@
           "source": { "source": "data", "path": ["validationStatus"] }
         },
         {
-          "id": "lastValidation",
-          "kind": "json",
-          "labelKey": "inspector.constraint.dateLogic.validationResult",
-          "source": { "source": "data", "path": ["lastValidation"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } },
-          "readonly": true
+          "id": "totalRows",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.dateLogic.totalRows",
+          "source": { "source": "data", "path": ["lastValidation", "totalRows"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } }
+        },
+        {
+          "id": "matchCount",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.dateLogic.matchCount",
+          "source": { "source": "data", "path": ["lastValidation", "matchCount"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } }
+        },
+        {
+          "id": "errorCount",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.dateLogic.errorCount",
+          "source": { "source": "data", "path": ["lastValidation", "errorCount"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } }
         },
         {
           "id": "validationErrors",
@@ -166,6 +187,13 @@
           "source": { "source": "data", "path": ["validationErrors"] },
           "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },
           "readonly": true
+        },
+        {
+          "id": "validateNow",
+          "kind": "actionButton",
+          "labelKey": "inspector.constraint.validateNow",
+          "action": "validate",
+          "buttonLabelKey": "inspector.constraint.validateNow"
         }
       ]
     }

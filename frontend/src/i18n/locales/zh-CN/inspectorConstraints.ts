@@ -5,6 +5,7 @@
 
 const inspectorConstraints = {
   constraint: {
+    validateNow: '立即校验',
     // NotNull 约束
     notNull: {
       title: '非空约束配置',
@@ -95,6 +96,7 @@ const inspectorConstraints = {
       statusError: '失败',
       statusMissing: '目标丢失',
       validationDetails: '校验明细',
+      lastValidation: '最近校验',
       totalRows: '总行数',
       matchCount: '匹配数',
       errorCount: '错误数',
@@ -172,6 +174,7 @@ const inspectorConstraints = {
       errorMessages: '错误信息',
       moreErrors: '还有 {count} 个错误...',
       validationResult: '校验结果',
+      lastValidation: '最近校验',
     },
     // Charset 约束
     charset: {
@@ -205,6 +208,7 @@ const inspectorConstraints = {
       matchCount: '匹配数',
       errors: '错误',
       moreErrors: '还有 {count} 个错误...',
+      lastValidation: '最近校验',
     },
     // DateLogic 约束
     dateLogic: {
@@ -235,6 +239,7 @@ const inspectorConstraints = {
       targetValue: '目标值',
       targetValuePlaceholder: '请输入目标值',
       targetColumn: '目标列',
+      targetColumnPlaceholder: '请输入目标列名',
       table: '表名',
       column: '列名',
       sourceConnection: '源 Schema 连接',
@@ -254,6 +259,7 @@ const inspectorConstraints = {
       matchCount: '匹配数',
       errors: '错误',
       moreErrors: '还有 {count} 个错误...',
+      lastValidation: '最近校验',
     },
     // Conditional 约束
     conditional: {
@@ -319,6 +325,7 @@ const inspectorConstraints = {
       errorCount: '错误数',
       errorMessages: '错误信息',
       moreErrors: '还有 {count} 个错误...',
+      lastValidation: '最近校验',
     },
     // Scripted 约束
     scripted: {
@@ -337,6 +344,7 @@ const inspectorConstraints = {
       targetColumnInfo: '目标列信息',
       table: '表名',
       column: '列名',
+      columns: '列名列表',
       sourceConnection: '源 Schema 连接',
       connectionStatus: '连接状态',
       connected: '已连接',
@@ -354,6 +362,7 @@ const inspectorConstraints = {
       errorCount: '错误数',
       errorMessages: '错误信息',
       moreErrors: '还有 {count} 个错误...',
+      lastValidation: '最近校验',
     },
     // Composite 约束
     composite: {

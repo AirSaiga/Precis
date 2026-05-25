@@ -66,26 +66,6 @@
       ]
     },
     {
-      "id": "connection",
-      "titleKey": "inspector.constraint.range.sourceConnection",
-      "fields": [
-        {
-          "id": "sourceNodeId",
-          "kind": "readonly",
-          "labelKey": "inspector.constraint.range.sourceNodeId",
-          "source": { "source": "data", "path": ["sourceRef", "nodeId"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "nodeId"] } }
-        },
-        {
-          "id": "sourceColumnId",
-          "kind": "readonly",
-          "labelKey": "inspector.constraint.range.sourceColumnId",
-          "source": { "source": "data", "path": ["sourceRef", "columnId"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "columnId"] } }
-        }
-      ]
-    },
-    {
       "id": "status",
       "titleKey": "inspector.constraint.range.validationStatus",
       "fields": [
@@ -96,20 +76,40 @@
           "source": { "source": "data", "path": ["validationStatus"] }
         },
         {
-          "id": "lastValidation",
-          "kind": "json",
-          "labelKey": "inspector.constraint.range.validationStatus",
-          "source": { "source": "data", "path": ["lastValidation"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } },
-          "readonly": true
+          "id": "totalRows",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.range.totalRows",
+          "source": { "source": "data", "path": ["lastValidation", "totalRows"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } }
+        },
+        {
+          "id": "matchCount",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.range.matchCount",
+          "source": { "source": "data", "path": ["lastValidation", "matchCount"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } }
+        },
+        {
+          "id": "errorCount",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.range.errorCount",
+          "source": { "source": "data", "path": ["lastValidation", "errorCount"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } }
         },
         {
           "id": "validationErrors",
           "kind": "json",
-          "labelKey": "inspector.constraint.range.errorCount",
+          "labelKey": "inspector.constraint.range.errorMessages",
           "source": { "source": "data", "path": ["validationErrors"] },
           "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },
           "readonly": true
+        },
+        {
+          "id": "validateNow",
+          "kind": "actionButton",
+          "labelKey": "inspector.constraint.validateNow",
+          "action": "validate",
+          "buttonLabelKey": "inspector.constraint.validateNow"
         }
       ]
     }

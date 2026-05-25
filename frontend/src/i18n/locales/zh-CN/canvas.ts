@@ -56,6 +56,15 @@ const canvas = {
         '检测到从 "{sourceName}" 连接到 "{schemaName}"。\n\n是否要基于数据源自动生成列定义？\n\n提示：这将覆盖当前的 {currentColumnsCount} 个列定义。',
       confirm: '生成',
     },
+    smartFix: {
+      title: '列定义修正',
+      message:
+        '数据源 "{sourceName}" 与 "{schemaName}" 的列定义不一致：\n\n{details}\n\n是否执行智能修正？',
+      confirm: '智能修正',
+      skip: '跳过',
+      newInSource: '数据源有 {count} 个新列未在 Schema 中定义（{columns}）',
+      staleInSchema: 'Schema 有 {count} 个非衍生列不在数据源中（{columns}）',
+    },
     columnMismatch: {
       title: '列名不匹配警告',
       message:

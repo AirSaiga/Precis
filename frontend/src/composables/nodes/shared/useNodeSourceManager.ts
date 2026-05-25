@@ -46,6 +46,7 @@ import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
+import { compareColumns } from '@/utils/nodes/schema/columnValidation'
 
 export interface UseNodeSourceManagerOptions {
   /** 数据源节点类型（用于过滤旧连接） */
@@ -181,37 +182,79 @@ export function useNodeSourceManager<TNodeData extends Record<string, any>>(
   // ============================================================================
 
   /**
-   * 显示智能填充询问对话框
+   * 显示智能填充询问对话框（三分支决策）
    */
   const showSmartFillDialog = async (sourceNode: any) => {
     const sourceName = sourceNode.data?.sourceName || sourceNode.data?.fileName || 'Unknown'
     const schemaName = props.data.tableName || options.nodeLabel || 'Schema'
-    const currentColumnsCount = props.data.columns?.length || 0
 
-    logger.debug('🎯 [showSmartFillDialog] 弹出确认对话框')
-    logger.debug('  - 数据源:', sourceName)
-    logger.debug('  - 目标节点:', schemaName)
-    logger.debug('  - 当前已有列数量:', currentColumnsCount)
+    // 提取数据源列名用于比较
+    const sourceFields = options.getSourceFields(sourceNode)
+    if (!sourceFields || sourceFields.length === 0) return
 
-    const userConfirmed = await showConfirm({
-      title: t('canvas.nodeCanvas.smartFill.title'),
-      message: t('canvas.nodeCanvas.smartFill.message', {
-        sourceName,
-        schemaName,
-        currentColumnsCount,
-      }),
-      confirmText: t('canvas.nodeCanvas.smartFill.confirm'),
-      cancelText: t('common.cancel'),
-    })
+    const schemaColumns = (props.data.columns || []) as {
+      columnName: string
+      expressionType?: string
+      isBound?: boolean
+      extractedConfig?: unknown
+    }[]
+    const comparison = compareColumns(sourceFields, schemaColumns)
 
-    logger.debug('🎯 [showSmartFillDialog] 用户选择:', userConfirmed ? '✅ 确认生成' : '❌ 取消')
+    logger.debug('🎯 [showSmartFillDialog] 列比较结果:', comparison)
 
-    if (userConfirmed) {
-      logger.debug('🎯 [showSmartFillDialog] 开始生成列定义...')
-      autoGenerateColumns(sourceNode)
+    if (comparison.schemaEmpty) {
+      // ── Case A: Schema 无列定义 → 弹"生成"对话框 ──
+      const userConfirmed = await showConfirm({
+        title: t('canvas.nodeCanvas.smartFill.title'),
+        message: t('canvas.nodeCanvas.smartFill.message', {
+          sourceName,
+          schemaName,
+          currentColumnsCount: 0,
+        }),
+        confirmText: t('canvas.nodeCanvas.smartFill.confirm'),
+        cancelText: t('common.cancel'),
+      })
+
+      logger.debug('🎯 [showSmartFillDialog] 用户选择:', userConfirmed ? '✅ 确认生成' : '❌ 取消')
+
+      if (userConfirmed) {
+        autoGenerateColumns(sourceNode)
+      }
+    } else if (comparison.needsAction) {
+      // ── Case B: 列不匹配 → 弹"修正"对话框（三按钮） ──
+      const parts: string[] = []
+      if (comparison.newInSource.length > 0) {
+        const preview = comparison.newInSource.slice(0, 5).join(', ')
+        const suffix = comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
+        parts.push(t('canvas.nodeCanvas.smartFix.newInSource', { count: comparison.newInSource.length, columns: `${preview}${suffix}` }))
+      }
+      if (comparison.staleInSchema.length > 0) {
+        const preview = comparison.staleInSchema.slice(0, 5).join(', ')
+        const suffix = comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
+        parts.push(t('canvas.nodeCanvas.smartFix.staleInSchema', { count: comparison.staleInSchema.length, columns: `${preview}${suffix}` }))
+      }
+
+      const result = await showConfirm({
+        title: t('canvas.nodeCanvas.smartFix.title'),
+        message: t('canvas.nodeCanvas.smartFix.message', {
+          sourceName,
+          schemaName,
+          details: parts.join('\n'),
+        }),
+        confirmText: t('canvas.nodeCanvas.smartFix.confirm'),
+        cancelText: t('common.cancel'),
+        alternativeText: t('canvas.nodeCanvas.smartFix.skip'),
+        type: 'warning',
+      })
+
+      logger.debug('🎯 [showSmartFillDialog] 用户选择:', result === true ? '✅ 智能修正' : '❌ 跳过/取消')
+
+      if (result === true) {
+        autoGenerateColumns(sourceNode)
+      }
     } else {
-      logger.debug('🎯 [showSmartFillDialog] 用户取消，保持现有列定义')
-      checkColumnMismatch(sourceNode)
+      // ── Case C: 列完全匹配 → 静默跳过 ──
+      logger.debug('🎯 [showSmartFillDialog] 列定义已匹配数据源，跳过智能填充')
     }
   }
 

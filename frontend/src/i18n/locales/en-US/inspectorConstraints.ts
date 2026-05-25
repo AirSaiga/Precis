@@ -5,6 +5,7 @@
 
 const inspectorConstraints = {
   constraint: {
+    validateNow: 'Validate Now',
     // NotNull constraint
     notNull: {
       title: 'NotNull Constraint Config',
@@ -95,6 +96,7 @@ const inspectorConstraints = {
       statusError: 'Error',
       statusMissing: 'Target Missing',
       validationDetails: 'Validation Details',
+      lastValidation: 'Last Validation',
       totalRows: 'Total Rows',
       matchCount: 'Match Count',
       errorCount: 'Error Count',
@@ -172,6 +174,7 @@ const inspectorConstraints = {
       errorMessages: 'Error Messages',
       moreErrors: '{count} more errors...',
       validationResult: 'Validation Result',
+      lastValidation: 'Last Validation',
     },
     // Charset constraint
     charset: {
@@ -205,6 +208,7 @@ const inspectorConstraints = {
       matchCount: 'Match Count',
       errors: 'Errors',
       moreErrors: '{count} more errors...',
+      lastValidation: 'Last Validation',
     },
     // DateLogic constraint
     dateLogic: {
@@ -235,6 +239,7 @@ const inspectorConstraints = {
       targetValue: 'Target Value',
       targetValuePlaceholder: 'Enter target value',
       targetColumn: 'Target Column',
+      targetColumnPlaceholder: 'Enter target column name',
       table: 'Table',
       column: 'Column',
       sourceConnection: 'Source Schema Connection',
@@ -254,6 +259,7 @@ const inspectorConstraints = {
       matchCount: 'Match Count',
       errors: 'Errors',
       moreErrors: '{count} more errors...',
+      lastValidation: 'Last Validation',
     },
     // Conditional constraint
     conditional: {
@@ -321,6 +327,7 @@ const inspectorConstraints = {
       errorCount: 'Error Count',
       errorMessages: 'Error Messages',
       moreErrors: '{count} more errors...',
+      lastValidation: 'Last Validation',
     },
     // Scripted constraint
     scripted: {
@@ -339,6 +346,7 @@ const inspectorConstraints = {
       targetColumnInfo: 'Target Column Info',
       table: 'Table',
       column: 'Column',
+      columns: 'Column List',
       sourceConnection: 'Source Schema Connection',
       connectionStatus: 'Connection Status',
       connected: 'Connected',
@@ -356,6 +364,7 @@ const inspectorConstraints = {
       errorCount: 'Error Count',
       errorMessages: 'Error Messages',
       moreErrors: '{count} more errors...',
+      lastValidation: 'Last Validation',
     },
     // Composite constraint
     composite: {

@@ -26,6 +26,7 @@ import ForeignKeyTargetColumnRenderer from './renderers/ForeignKeyTargetColumnRe
 import DynamicListRenderer from './renderers/DynamicListRenderer.vue'
 import RegexPatternRenderer from './renderers/RegexPatternRenderer.vue'
 import WeightedSumRenderer from './renderers/WeightedSumRenderer.vue'
+import ActionButtonRenderer from './renderers/ActionButtonRenderer.vue'
 
 export const rendererRegistry: Record<InspectorField['kind'], Component> = {
   text: TextRenderer,
@@ -45,4 +46,5 @@ export const rendererRegistry: Record<InspectorField['kind'], Component> = {
   dynamicList: DynamicListRenderer,
   regexPattern: RegexPatternRenderer,
   weightedSum: WeightedSumRenderer,
+  actionButton: ActionButtonRenderer,
 }

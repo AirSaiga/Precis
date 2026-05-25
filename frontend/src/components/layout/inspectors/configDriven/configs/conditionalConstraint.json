@@ -143,12 +143,25 @@
           "source": { "source": "data", "path": ["validationStatus"] }
         },
         {
-          "id": "lastValidation",
-          "kind": "json",
-          "labelKey": "inspector.constraint.conditional.validationStatus",
-          "source": { "source": "data", "path": ["lastValidation"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } },
-          "readonly": true
+          "id": "totalRows",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.conditional.totalRows",
+          "source": { "source": "data", "path": ["lastValidation", "totalRows"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } }
+        },
+        {
+          "id": "matchCount",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.conditional.matchCount",
+          "source": { "source": "data", "path": ["lastValidation", "matchCount"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } }
+        },
+        {
+          "id": "errorCount",
+          "kind": "readonly",
+          "labelKey": "inspector.constraint.conditional.errorCount",
+          "source": { "source": "data", "path": ["lastValidation", "errorCount"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["lastValidation"] } }
         },
         {
           "id": "validationErrors",
@@ -157,6 +170,13 @@
           "source": { "source": "data", "path": ["validationErrors"] },
           "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },
           "readonly": true
+        },
+        {
+          "id": "validateNow",
+          "kind": "actionButton",
+          "labelKey": "inspector.constraint.validateNow",
+          "action": "validate",
+          "buttonLabelKey": "inspector.constraint.validateNow"
         }
       ]
     }

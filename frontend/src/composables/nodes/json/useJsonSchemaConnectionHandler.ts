@@ -22,6 +22,7 @@ import { useGraphStore } from '@/stores/graphStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useToast } from '@/composables/shared/useToast'
 import { generateJsonColumnsFromSource } from '@/utils/nodes/json/columnGeneration'
+import { compareColumns } from '@/utils/nodes/schema/columnValidation'
 import type { JsonSchemaNodeData, JsonSourcePreviewNodeData } from '@/types/nodes'
 
 /**
@@ -65,32 +66,77 @@ export function useJsonSchemaConnectionHandler(
 
     const sourceName = sourceData?.sourceName || sourceData?.fileName || 'Unknown'
     const schemaName = schemaData?.tableName || 'JsonSchema'
-    const currentColumnsCount = schemaData?.columns?.length || 0
 
-    logger.debug('🎯 [showSmartFillDialog] 弹出 JSON 智能填充确认对话框')
-    logger.debug('  - JSON 数据源:', sourceName)
-    logger.debug('  - 目标 JsonSchema:', schemaName)
-    logger.debug('  - 当前已有列数量:', currentColumnsCount)
+    // 从 JSON rawData 提取列名（取第一条记录的 key）
+    const rawData = sourceData?.rawData
+    if (!rawData || !Array.isArray(rawData) || rawData.length === 0) return
+    const firstRecord = rawData[0]
+    if (!firstRecord || typeof firstRecord !== 'object') return
+    const sourceColumnNames = Object.keys(firstRecord)
 
-    const userConfirmed = await showConfirm({
-      title: t('canvas.nodeCanvas.smartFill.title'),
-      message: t('canvas.nodeCanvas.smartFill.message', {
-        sourceName,
-        schemaName,
-        currentColumnsCount,
-      }),
-      confirmText: t('canvas.nodeCanvas.smartFill.confirm'),
-      cancelText: t('common.cancel'),
-    })
+    const schemaColumns = (schemaData?.columns || []) as {
+      columnName: string
+      expressionType?: string
+      isBound?: boolean
+      extractedConfig?: unknown
+    }[]
+    const comparison = compareColumns(sourceColumnNames, schemaColumns)
 
-    logger.debug('🎯 [showSmartFillDialog] 用户选择:', userConfirmed ? '✅ 确认生成' : '❌ 取消')
+    logger.debug('🎯 [showSmartFillDialog] JSON 列比较结果:', comparison)
 
-    if (userConfirmed) {
-      logger.debug('🎯 [showSmartFillDialog] 开始生成 JSON 列定义...')
-      generateColumnsFromSource(sourceNode)
+    if (comparison.schemaEmpty) {
+      // ── Case A: Schema 无列定义 → 弹"生成"对话框 ──
+      const userConfirmed = await showConfirm({
+        title: t('canvas.nodeCanvas.smartFill.title'),
+        message: t('canvas.nodeCanvas.smartFill.message', {
+          sourceName,
+          schemaName,
+          currentColumnsCount: 0,
+        }),
+        confirmText: t('canvas.nodeCanvas.smartFill.confirm'),
+        cancelText: t('common.cancel'),
+      })
+
+      logger.debug('🎯 [showSmartFillDialog] 用户选择:', userConfirmed ? '✅ 确认生成' : '❌ 取消')
+
+      if (userConfirmed) {
+        generateColumnsFromSource(sourceNode)
+      }
+    } else if (comparison.needsAction) {
+      // ── Case B: 列不匹配 → 弹"修正"对话框（三按钮） ──
+      const parts: string[] = []
+      if (comparison.newInSource.length > 0) {
+        const preview = comparison.newInSource.slice(0, 5).join(', ')
+        const suffix = comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
+        parts.push(t('canvas.nodeCanvas.smartFix.newInSource', { count: comparison.newInSource.length, columns: `${preview}${suffix}` }))
+      }
+      if (comparison.staleInSchema.length > 0) {
+        const preview = comparison.staleInSchema.slice(0, 5).join(', ')
+        const suffix = comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
+        parts.push(t('canvas.nodeCanvas.smartFix.staleInSchema', { count: comparison.staleInSchema.length, columns: `${preview}${suffix}` }))
+      }
+
+      const result = await showConfirm({
+        title: t('canvas.nodeCanvas.smartFix.title'),
+        message: t('canvas.nodeCanvas.smartFix.message', {
+          sourceName,
+          schemaName,
+          details: parts.join('\n'),
+        }),
+        confirmText: t('canvas.nodeCanvas.smartFix.confirm'),
+        cancelText: t('common.cancel'),
+        alternativeText: t('canvas.nodeCanvas.smartFix.skip'),
+        type: 'warning',
+      })
+
+      logger.debug('🎯 [showSmartFillDialog] 用户选择:', result === true ? '✅ 智能修正' : '❌ 跳过/取消')
+
+      if (result === true) {
+        generateColumnsFromSource(sourceNode)
+      }
     } else {
-      logger.debug('🎯 [showSmartFillDialog] 用户取消，保持现有列定义')
-      checkColumnMismatch(sourceNode)
+      // ── Case C: 列完全匹配 → 静默跳过 ──
+      logger.debug('🎯 [showSmartFillDialog] JSON 列定义已匹配数据源，跳过智能填充')
     }
   }
 

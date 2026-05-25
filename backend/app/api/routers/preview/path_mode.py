@@ -68,8 +68,14 @@ def preview_file_by_path(request: FilePathPreviewRequest):
                 excel_file = pd.ExcelFile(file_path, engine="openpyxl")
                 sheet_names = excel_file.sheet_names
 
-                if sheet_name and sheet_name in sheet_names:
-                    current_sheet = sheet_name
+                if sheet_name:
+                    if sheet_name in sheet_names:
+                        current_sheet = sheet_name
+                    else:
+                        raise HTTPException(
+                            status_code=404,
+                            detail=f"工作表 '{sheet_name}' 不存在，可用工作表: {sheet_names}",
+                        )
                 else:
                     current_sheet = sheet_names[0] if sheet_names else "Sheet1"
 
