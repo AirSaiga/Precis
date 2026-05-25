@@ -128,9 +128,9 @@ export function materializeV2EmbeddedConstraints(params: {
         const ifColName = String(r?.if_column_id || '')
         const ifColId = ifColName ? colNameToId.get(ifColName) : undefined
         return {
-          operator: r?.operator,
+          operator: String(r?.operator ?? ''),
           value: r?.value,
-          values: r?.values,
+          values: r?.values as unknown[] | undefined,
           columnId: ifColId || '',
           columnName: ifColName,
         }

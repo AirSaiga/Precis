@@ -157,9 +157,9 @@ export function createV2ConstraintImporter(params: {
         const r = cond as Record<string, unknown>
         const ifColId = String(r?.if_column_id || '')
         return {
-          operator: r?.operator,
+          operator: String(r?.operator ?? ''),
           value: r?.value,
-          values: r?.values,
+          values: r?.values as unknown[] | undefined,
           columnId: ifColId,
           columnName: resolveColumnName(schemaNode, ifColId),
         }
@@ -227,7 +227,7 @@ export function createV2ConstraintImporter(params: {
     // 使用 NodeDataBuilder 构建节点数据
     // ========================================================================
 
-    const result = kind
+    const result = kind && kind !== 'regex'
       ? buildNodeData(kind, buildInput)
       : {
           // 未知约束类型的降级处理
