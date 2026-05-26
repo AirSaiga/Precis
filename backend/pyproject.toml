@@ -27,7 +27,7 @@ classifiers = [
 ]
 dependencies = [
     # Web 框架 (支持 Python 3.13)
-    "fastapi>=0.135.0",
+    "fastapi>=0.135.0,!=0.136.3",  # 0.136.3 含 MAL-2026-4750 供应链漏洞（typosquat: fastar）
     "uvicorn>=0.42.0",
     # 数据验证与序列化
     "pydantic>=2.12.0",
