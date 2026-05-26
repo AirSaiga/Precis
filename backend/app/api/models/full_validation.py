@@ -80,7 +80,9 @@ class ValidationCoverage(BaseModel):
 
     is_complete: bool = Field(..., description="校验覆盖是否完整")  # True 表示清单与磁盘完全一致，无遗漏也无悬空引用
     unlisted: CoverageGroup = Field(..., description="目录存在但未入清单的资源")  # 磁盘上存在但未在清单中注册的资源分组
-    dangling: CoverageGroup = Field(..., description="清单引用但磁盘缺失/不可读的资源")  # 清单中注册但磁盘上缺失或不可读的资源分组
+    dangling: CoverageGroup = Field(
+        ..., description="清单引用但磁盘缺失/不可读的资源"
+    )  # 清单中注册但磁盘上缺失或不可读的资源分组
 
 
 class ValidationSettingsOverride(BaseModel):
@@ -101,10 +103,16 @@ class ValidationSettingsOverride(BaseModel):
     model_config = ConfigDict(extra="forbid")  # 禁止额外字段，防止传入未定义的配置项
 
     auto_validate: Optional[bool] = Field(default=None)  # True 表示加载数据后自动执行校验，None 表示使用项目默认配置
-    strict_mode: Optional[bool] = Field(default=None)  # True 表示遇到首个错误即停止校验，False 表示继续执行并汇总所有错误
-    error_handling: Optional[Literal["stop", "continue", "report"]] = Field(default=None)  # 错误处理策略：stop（停止）、continue（继续）、report（仅报告）
+    strict_mode: Optional[bool] = Field(
+        default=None
+    )  # True 表示遇到首个错误即停止校验，False 表示继续执行并汇总所有错误
+    error_handling: Optional[Literal["stop", "continue", "report"]] = Field(
+        default=None
+    )  # 错误处理策略：stop（停止）、continue（继续）、report（仅报告）
     timeout_seconds: Optional[int] = Field(default=None, ge=1, le=300)  # 校验任务超时时间（秒），最小 1 秒，最大 300 秒
-    batch_max_files: Optional[int] = Field(default=None, ge=1, le=1000)  # 批量加载文件时的最大文件数量限制，最小 1，最大 1000
+    batch_max_files: Optional[int] = Field(
+        default=None, ge=1, le=1000
+    )  # 批量加载文件时的最大文件数量限制，最小 1，最大 1000
 
 
 class FileProcessingSettingsOverride(BaseModel):
@@ -120,7 +128,9 @@ class FileProcessingSettingsOverride(BaseModel):
 
     model_config = ConfigDict(extra="forbid")  # 禁止额外字段，确保配置严格受控
 
-    default_encoding: Optional[Literal["utf-8", "gbk", "auto"]] = Field(default=None)  # 文件编码：utf-8、gbk 或自动检测（auto）
+    default_encoding: Optional[Literal["utf-8", "gbk", "auto"]] = Field(
+        default=None
+    )  # 文件编码：utf-8、gbk 或自动检测（auto）
     csv_delimiter: Optional[str] = Field(default=None)  # CSV 文件列分隔符，如 "," ";" "\t"，None 表示使用项目默认配置
 
 
@@ -143,7 +153,9 @@ class ScriptSecuritySettingsOverride(BaseModel):
     allow_eval: Optional[bool] = Field(default=None)  # True 允许在校验中使用 eval 执行动态表达式，存在代码注入风险
     allow_exec: Optional[bool] = Field(default=None)  # True 允许在校验中使用 exec 执行代码块，安全风险较高
     sandbox_mode: Optional[bool] = Field(default=None)  # True 启用沙箱隔离，限制脚本执行环境访问范围
-    timeout_seconds: Optional[int] = Field(default=None, ge=1, le=60)  # 单个脚本执行的最大允许时间（秒），最小 1 秒，最大 60 秒
+    timeout_seconds: Optional[int] = Field(
+        default=None, ge=1, le=60
+    )  # 单个脚本执行的最大允许时间（秒），最小 1 秒，最大 60 秒
 
 
 class ProjectSettingsOverride(BaseModel):
@@ -162,8 +174,12 @@ class ProjectSettingsOverride(BaseModel):
     model_config = ConfigDict(extra="forbid")  # 禁止额外字段，保持配置结构清晰
 
     validation: Optional[ValidationSettingsOverride] = Field(default=None)  # 校验行为设置覆盖，如严格模式、超时等
-    file_processing: Optional[FileProcessingSettingsOverride] = Field(default=None)  # 文件处理设置覆盖，如编码、分隔符等
-    script_security: Optional[ScriptSecuritySettingsOverride] = Field(default=None)  # 脚本安全策略覆盖，如 eval/exec 权限
+    file_processing: Optional[FileProcessingSettingsOverride] = Field(
+        default=None
+    )  # 文件处理设置覆盖，如编码、分隔符等
+    script_security: Optional[ScriptSecuritySettingsOverride] = Field(
+        default=None
+    )  # 脚本安全策略覆盖，如 eval/exec 权限
 
 
 class ValidationTaskTarget(BaseModel):
@@ -182,10 +198,18 @@ class ValidationTaskTarget(BaseModel):
 
     model_config = ConfigDict(extra="forbid")  # 禁止额外字段，确保目标定义严格
 
-    type: Literal["full_project", "single_table", "single_file"] = Field(..., description="校验目标类型")  # 校验范围：全项目、单表、单文件
-    table_id: Optional[str] = Field(default=None, description="单表校验时的表 ID")  # 当 type 为 single_table 时，指定目标表的 ID
-    file_path: Optional[str] = Field(default=None, description="单文件校验时的文件路径")  # 当 type 为 single_file 时，指定目标文件路径
-    display_name: Optional[str] = Field(default=None, description="前端展示名称")  # 任务在前端界面中显示的友好名称，可选
+    type: Literal["full_project", "single_table", "single_file"] = Field(
+        ..., description="校验目标类型"
+    )  # 校验范围：全项目、单表、单文件
+    table_id: Optional[str] = Field(
+        default=None, description="单表校验时的表 ID"
+    )  # 当 type 为 single_table 时，指定目标表的 ID
+    file_path: Optional[str] = Field(
+        default=None, description="单文件校验时的文件路径"
+    )  # 当 type 为 single_file 时，指定目标文件路径
+    display_name: Optional[str] = Field(
+        default=None, description="前端展示名称"
+    )  # 任务在前端界面中显示的友好名称，可选
 
 
 class ValidationTaskRunOptions(BaseModel):
@@ -201,7 +225,9 @@ class ValidationTaskRunOptions(BaseModel):
 
     model_config = ConfigDict(extra="forbid")  # 禁止额外字段，防止传入无效运行参数
 
-    data_directory: Optional[str] = Field(default=None, description="数据目录（用于解析 relative_file source.path）")  # 数据文件根目录，relative_file 类型的数据源路径基于此解析
+    data_directory: Optional[str] = Field(
+        default=None, description="数据目录（用于解析 relative_file source.path）"
+    )  # 数据文件根目录，relative_file 类型的数据源路径基于此解析
     override_settings: Optional[ProjectSettingsOverride] = Field(
         default=None,
         description="可选：覆盖 project.precis.yaml 中 settings 的部分字段",
@@ -221,7 +247,9 @@ class ValidationTaskPreflightOptions(BaseModel):
 
     model_config = ConfigDict(extra="forbid")  # 禁止额外字段，保持预检逻辑稳定
 
-    save_before_run: bool = Field(default=True, description="执行前是否自动保存项目")  # True 表示在校验执行前自动保存项目配置，避免丢失未保存的更改
+    save_before_run: bool = Field(
+        default=True, description="执行前是否自动保存项目"
+    )  # True 表示在校验执行前自动保存项目配置，避免丢失未保存的更改
     missing_resources_strategy: Literal["ask", "merge_then_run", "run_directly"] = Field(
         default="ask",
         description="发现未合并资源时的处理策略",
@@ -243,7 +271,9 @@ class ValidationTaskRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")  # 禁止额外字段，确保请求结构清晰可控
 
     target: ValidationTaskTarget = Field(..., description="校验目标")  # 定义本次校验的作用范围和具体对象，必填
-    run_options: ValidationTaskRunOptions = Field(default_factory=ValidationTaskRunOptions, description="运行参数")  # 校验执行参数，默认使用空选项（全部使用项目默认配置）
+    run_options: ValidationTaskRunOptions = Field(
+        default_factory=ValidationTaskRunOptions, description="运行参数"
+    )  # 校验执行参数，默认使用空选项（全部使用项目默认配置）
     preflight_options: ValidationTaskPreflightOptions = Field(
         default_factory=ValidationTaskPreflightOptions,
         description="运行前策略",
@@ -261,7 +291,9 @@ class FullValidationOptions(BaseModel):
         override_settings: 可选的配置覆盖项
     """
 
-    data_directory: Optional[str] = Field(None, description="数据目录（用于解析 relative_file source.path）")  # 数据文件根目录，relative_file 类型的数据源路径基于此解析
+    data_directory: Optional[str] = Field(
+        None, description="数据目录（用于解析 relative_file source.path）"
+    )  # 数据文件根目录，relative_file 类型的数据源路径基于此解析
     override_settings: Optional[ProjectSettingsOverride] = Field(
         default=None,
         description="可选：覆盖 project.precis.yaml 中 settings 的部分字段（validation/file_processing/script_security）",
@@ -279,8 +311,12 @@ class FullValidationRequest(BaseModel):
         options: 全量校验选项
     """
 
-    target: Optional[ValidationTaskTarget] = Field(default=None, description="校验目标")  # 校验目标定义，None 表示默认校验整个项目
-    options: Optional[FullValidationOptions] = Field(default=None, description="全量校验选项")  # 校验执行选项，None 表示使用项目默认配置
+    target: Optional[ValidationTaskTarget] = Field(
+        default=None, description="校验目标"
+    )  # 校验目标定义，None 表示默认校验整个项目
+    options: Optional[FullValidationOptions] = Field(
+        default=None, description="全量校验选项"
+    )  # 校验执行选项，None 表示使用项目默认配置
 
 
 class FullValidationSummary(BaseModel):
@@ -300,13 +336,25 @@ class FullValidationSummary(BaseModel):
         duration_ms: 总耗时（毫秒）
     """
 
-    files_total: int = Field(..., description="本次解析涉及的源文件数量")  # 校验过程中扫描到的所有源文件总数（含成功和失败）
+    files_total: int = Field(
+        ..., description="本次解析涉及的源文件数量"
+    )  # 校验过程中扫描到的所有源文件总数（含成功和失败）
     files_loaded: int = Field(..., description="成功加载的源文件数量")  # 成功读取并解析的源文件数量
-    tables_loaded: int = Field(..., description="成功加载的数据表数量")  # 成功构建为内部数据表的 Schema 数量（一个文件可能对应多个表）
-    loading_error_count: int = Field(..., description="加载阶段错误数量（缺文件/格式不支持/读取失败等）")  # 数据加载阶段发生的错误数，如文件缺失、格式不支持、读取权限不足等
-    format_error_count: int = Field(..., description="格式校验错误数量（缺列/类型不匹配等）")  # 数据格式校验阶段发现的错误数，如缺少必需列、数据类型不匹配等
-    constraint_error_count: int = Field(..., description="逻辑约束错误数量（非空/唯一/外键等）")  # 逻辑约束校验阶段发现的错误数，如非空违反、唯一性冲突、外键引用无效等
-    total_error_count: int = Field(..., description="总错误数量")  # 所有阶段错误数量的总和（loading + format + constraint）
+    tables_loaded: int = Field(
+        ..., description="成功加载的数据表数量"
+    )  # 成功构建为内部数据表的 Schema 数量（一个文件可能对应多个表）
+    loading_error_count: int = Field(
+        ..., description="加载阶段错误数量（缺文件/格式不支持/读取失败等）"
+    )  # 数据加载阶段发生的错误数，如文件缺失、格式不支持、读取权限不足等
+    format_error_count: int = Field(
+        ..., description="格式校验错误数量（缺列/类型不匹配等）"
+    )  # 数据格式校验阶段发现的错误数，如缺少必需列、数据类型不匹配等
+    constraint_error_count: int = Field(
+        ..., description="逻辑约束错误数量（非空/唯一/外键等）"
+    )  # 逻辑约束校验阶段发现的错误数，如非空违反、唯一性冲突、外键引用无效等
+    total_error_count: int = Field(
+        ..., description="总错误数量"
+    )  # 所有阶段错误数量的总和（loading + format + constraint）
     duration_ms: int = Field(..., description="总耗时（毫秒）")  # 从校验开始到完成的总耗时，单位为毫秒
 
 
@@ -330,19 +378,39 @@ class FullValidationErrorItem(BaseModel):
         source_path: 相关源文件路径（可选）
     """
 
-    stage: str = Field(..., description="错误阶段：preflight|loading|format|constraint")  # 错误发生的阶段：preflight（预检）、loading（加载）、format（格式）、constraint（约束）
-    error_type: str = Field(..., description="错误类型")  # 错误的具体类型标识，如 FileNotFound、MissingColumn、NotNullViolation 等
-    check_type: Optional[str] = Field(default=None, description="检查类型")  # 触发错误的检查类型，如 NotNull、Unique、Range 等，预检/加载阶段可能为空
+    stage: str = Field(
+        ..., description="错误阶段：preflight|loading|format|constraint"
+    )  # 错误发生的阶段：preflight（预检）、loading（加载）、format（格式）、constraint（约束）
+    error_type: str = Field(
+        ..., description="错误类型"
+    )  # 错误的具体类型标识，如 FileNotFound、MissingColumn、NotNullViolation 等
+    check_type: Optional[str] = Field(
+        default=None, description="检查类型"
+    )  # 触发错误的检查类型，如 NotNull、Unique、Range 等，预检/加载阶段可能为空
     message: str = Field(..., description="错误说明")  # 面向用户的错误描述文本，说明错误原因和影响
-    table: Optional[str] = Field(default=None, description="表名（运行时 name）")  # 错误关联的数据表运行时名称（解析后的名称），可选
-    table_id: Optional[str] = Field(default=None, description="表 ID（schema 文件中的 id）")  # 错误关联的数据表在 schema 配置文件中的原始 ID，可选
+    table: Optional[str] = Field(
+        default=None, description="表名（运行时 name）"
+    )  # 错误关联的数据表运行时名称（解析后的名称），可选
+    table_id: Optional[str] = Field(
+        default=None, description="表 ID（schema 文件中的 id）"
+    )  # 错误关联的数据表在 schema 配置文件中的原始 ID，可选
     column: Optional[str] = Field(default=None, description="列名")  # 错误关联的数据列运行时名称，可选
-    column_id: Optional[str] = Field(default=None, description="列 ID")  # 错误关联的数据列在 schema 配置文件中的原始 ID，可选
-    row_index: Optional[int] = Field(default=None, description="行索引（从0开始）")  # 错误发生的行索引（数据行，从 0 开始计数），可选
+    column_id: Optional[str] = Field(
+        default=None, description="列 ID"
+    )  # 错误关联的数据列在 schema 配置文件中的原始 ID，可选
+    row_index: Optional[int] = Field(
+        default=None, description="行索引（从0开始）"
+    )  # 错误发生的行索引（数据行，从 0 开始计数），可选
     value: Optional[str] = Field(default=None, description="相关值（可选）")  # 触发错误的单元格原始值或相关数据，可选
-    source_path: Optional[str] = Field(default=None, description="相关源文件路径（可选）")  # 错误关联的源数据文件绝对路径，可选
-    source_file: Optional[str] = Field(default=None, description="配置文件内定义的数据源文件名（可选）")  # schema 配置中 source.path 定义的原始文件名，可选
-    source_sheet: Optional[str] = Field(default=None, description="配置文件内定义的 Excel Sheet 名（可选）")  # schema 配置中 source.sheet 定义的 Excel 工作表名称，可选
+    source_path: Optional[str] = Field(
+        default=None, description="相关源文件路径（可选）"
+    )  # 错误关联的源数据文件绝对路径，可选
+    source_file: Optional[str] = Field(
+        default=None, description="配置文件内定义的数据源文件名（可选）"
+    )  # schema 配置中 source.path 定义的原始文件名，可选
+    source_sheet: Optional[str] = Field(
+        default=None, description="配置文件内定义的 Excel Sheet 名（可选）"
+    )  # schema 配置中 source.sheet 定义的 Excel 工作表名称，可选
 
 
 class ValidationPassedItem(BaseModel):
@@ -362,16 +430,32 @@ class ValidationPassedItem(BaseModel):
         source_path: 相关源文件路径（可选）
     """
 
-    stage: str = Field(..., description="检查阶段：loading|format|constraint|regex")  # 检查通过的阶段：loading（加载）、format（格式）、constraint（约束）、regex（正则）
-    check_type: str = Field(..., description="检查类型")  # 通过检查的类型标识，如 NotNull、Unique、AllowedValues、Regex 等
+    stage: str = Field(
+        ..., description="检查阶段：loading|format|constraint|regex"
+    )  # 检查通过的阶段：loading（加载）、format（格式）、constraint（约束）、regex（正则）
+    check_type: str = Field(
+        ..., description="检查类型"
+    )  # 通过检查的类型标识，如 NotNull、Unique、AllowedValues、Regex 等
     message: str = Field(..., description="通过说明")  # 面向用户的通过说明文本，描述检查内容和结果
-    table: Optional[str] = Field(default=None, description="表名（运行时 name）")  # 通过检查关联的数据表运行时名称，可选
-    table_id: Optional[str] = Field(default=None, description="表 ID（schema 文件中的 id）")  # 通过检查关联的数据表在 schema 配置文件中的原始 ID，可选
+    table: Optional[str] = Field(
+        default=None, description="表名（运行时 name）"
+    )  # 通过检查关联的数据表运行时名称，可选
+    table_id: Optional[str] = Field(
+        default=None, description="表 ID（schema 文件中的 id）"
+    )  # 通过检查关联的数据表在 schema 配置文件中的原始 ID，可选
     column: Optional[str] = Field(default=None, description="列名")  # 通过检查关联的数据列运行时名称，可选
-    column_id: Optional[str] = Field(default=None, description="列 ID")  # 通过检查关联的数据列在 schema 配置文件中的原始 ID，可选
-    source_path: Optional[str] = Field(default=None, description="相关源文件路径（可选）")  # 通过检查关联的源数据文件绝对路径，可选
-    source_file: Optional[str] = Field(default=None, description="配置文件内定义的数据源文件名（可选）")  # schema 配置中 source.path 定义的原始文件名，可选
-    source_sheet: Optional[str] = Field(default=None, description="配置文件内定义的 Excel Sheet 名（可选）")  # schema 配置中 source.sheet 定义的 Excel 工作表名称，可选
+    column_id: Optional[str] = Field(
+        default=None, description="列 ID"
+    )  # 通过检查关联的数据列在 schema 配置文件中的原始 ID，可选
+    source_path: Optional[str] = Field(
+        default=None, description="相关源文件路径（可选）"
+    )  # 通过检查关联的源数据文件绝对路径，可选
+    source_file: Optional[str] = Field(
+        default=None, description="配置文件内定义的数据源文件名（可选）"
+    )  # schema 配置中 source.path 定义的原始文件名，可选
+    source_sheet: Optional[str] = Field(
+        default=None, description="配置文件内定义的 Excel Sheet 名（可选）"
+    )  # schema 配置中 source.sheet 定义的 Excel 工作表名称，可选
 
 
 class ValidationStatistics(BaseModel):
@@ -392,7 +476,9 @@ class ValidationStatistics(BaseModel):
     total_checks: int = Field(..., description="总检查项数")  # 本次校验执行的所有检查项总数（含通过和失败）
     passed_count: int = Field(..., description="通过数量")  # 所有检查项中校验通过的数量
     failed_count: int = Field(..., description="失败数量")  # 所有检查项中校验失败的数量
-    pass_rate: float = Field(..., description="通过率（百分比，0-100）")  # 通过率百分比，计算公式：(passed_count / total_checks) * 100，范围 0-100
+    pass_rate: float = Field(
+        ..., description="通过率（百分比，0-100）"
+    )  # 通过率百分比，计算公式：(passed_count / total_checks) * 100，范围 0-100
     by_type: dict[str, dict[str, int]] = Field(
         default_factory=dict, description="按类型统计，如：{'constraint': {'total': 10, 'passed': 8, 'failed': 2}}"
     )  # 按检查类型分组的统计信息，外层 key 为类型（constraint/regex/format），内层包含 total/passed/failed 计数
@@ -417,11 +503,27 @@ class FullValidationResponse(BaseModel):
         warnings: 警告信息列表（可选）
     """
 
-    success: bool = Field(..., description="请求是否成功")  # True 表示校验任务成功完成（可能包含错误项），False 表示任务执行失败（如配置错误、异常中断）
-    summary: FullValidationSummary = Field(..., description="摘要统计")  # 校验结果的摘要统计信息，包含文件数、错误数、耗时等核心指标
-    errors: list[FullValidationErrorItem] = Field(default_factory=list, description="错误明细列表")  # 校验过程中发现的所有错误明细列表，按阶段分类
-    passed_items: list[ValidationPassedItem] = Field(default_factory=list, description="通过项列表")  # 校验通过的所有检查项明细列表，用于展示完整校验覆盖情况
-    statistics: Optional[ValidationStatistics] = Field(default=None, description="详细统计信息")  # 校验的详细统计信息，包含按类型和按表的分组统计，可选
-    error: Optional[str] = Field(default=None, description="致命错误信息（可选）")  # 当 success 为 False 时的致命错误描述，如任务启动失败、配置解析异常等
-    warnings: list[str] = Field(default_factory=list, description="警告信息列表（可选）")  # 校验过程中的非致命警告信息列表，如建议优化项、已自动修复的问题等
-    coverage: Optional[ValidationCoverage] = Field(default=None, description="清单一致性覆盖信息（可选）")  # 项目清单与磁盘文件的一致性检查结果，可选
+    success: bool = Field(
+        ..., description="请求是否成功"
+    )  # True 表示校验任务成功完成（可能包含错误项），False 表示任务执行失败（如配置错误、异常中断）
+    summary: FullValidationSummary = Field(
+        ..., description="摘要统计"
+    )  # 校验结果的摘要统计信息，包含文件数、错误数、耗时等核心指标
+    errors: list[FullValidationErrorItem] = Field(
+        default_factory=list, description="错误明细列表"
+    )  # 校验过程中发现的所有错误明细列表，按阶段分类
+    passed_items: list[ValidationPassedItem] = Field(
+        default_factory=list, description="通过项列表"
+    )  # 校验通过的所有检查项明细列表，用于展示完整校验覆盖情况
+    statistics: Optional[ValidationStatistics] = Field(
+        default=None, description="详细统计信息"
+    )  # 校验的详细统计信息，包含按类型和按表的分组统计，可选
+    error: Optional[str] = Field(
+        default=None, description="致命错误信息（可选）"
+    )  # 当 success 为 False 时的致命错误描述，如任务启动失败、配置解析异常等
+    warnings: list[str] = Field(
+        default_factory=list, description="警告信息列表（可选）"
+    )  # 校验过程中的非致命警告信息列表，如建议优化项、已自动修复的问题等
+    coverage: Optional[ValidationCoverage] = Field(
+        default=None, description="清单一致性覆盖信息（可选）"
+    )  # 项目清单与磁盘文件的一致性检查结果，可选

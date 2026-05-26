@@ -63,8 +63,12 @@ class PathsModel(BaseModel):
     """
 
     schemas: str = Field(..., title="表结构 (Schemas) 路径")  # Schema 配置文件相对于项目根目录的存放路径，必填
-    constraints: str = Field(..., title="约束规则 (Constraints) 路径")  # Constraints 约束规则文件相对于项目根目录的存放路径，必填
-    patterns: Optional[str] = Field(None, title="模式 (Patterns) 路径")  # Patterns 模式匹配规则文件相对于项目根目录的存放路径，可选
+    constraints: str = Field(
+        ..., title="约束规则 (Constraints) 路径"
+    )  # Constraints 约束规则文件相对于项目根目录的存放路径，必填
+    patterns: Optional[str] = Field(
+        None, title="模式 (Patterns) 路径"
+    )  # Patterns 模式匹配规则文件相对于项目根目录的存放路径，可选
 
 
 class ProjectConfigModel(BaseModel):

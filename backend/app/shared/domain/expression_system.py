@@ -42,10 +42,10 @@ from typing import Any, Callable, Optional
 # 类型转换器字典：键为类型名称，值为对应的转换函数
 # 在模板解析时，根据 {name:type} 中的 type 查找对应的转换器，将字符串捕获组转换为目标类型
 TYPE_CASTERS: dict[str, Callable[[str], Any]] = {
-    "": str,           # 默认类型：保持字符串原样
-    "str": str,        # 字符串类型：显式声明，效果同默认
-    "int": int,        # 整数类型：调用 int() 转换
-    "float": float,    # 浮点数类型：调用 float() 转换
+    "": str,  # 默认类型：保持字符串原样
+    "str": str,  # 字符串类型：显式声明，效果同默认
+    "int": int,  # 整数类型：调用 int() 转换
+    "float": float,  # 浮点数类型：调用 float() 转换
     "date": lambda s: datetime.strptime(s, "%Y%m%d").date(),  # 日期类型：按 YYYYMMDD 格式解析
     "bool": lambda s: s.lower() in ["true", "1", "t", "y", "yes"],  # 布尔类型：支持多种真值表示
 }
