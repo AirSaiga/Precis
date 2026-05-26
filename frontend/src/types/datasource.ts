@@ -223,7 +223,7 @@ export interface WorkspaceConfig {
 }
 
 /**
- * 数据预览节点数据
+ * 数据预览节点数据。
  *
  * 表示画布上的数据预览节点，用于展示外部数据源的内容预览。
  * 该节点通常是数据流的第一步，连接到 Schema 节点进行表结构定义。
@@ -243,7 +243,7 @@ export interface SourcePreviewNodeData {
   /** 节点唯一标识符（Vue Flow 节点 ID） */
   id: string
 
-  /** 节点显示标签 */
+  /** 节点显示标签，用于在画布上展示节点名称 */
   label: string
 
   /** 数据源名称（来自 ExternalDataSource） */
@@ -259,7 +259,7 @@ export interface SourcePreviewNodeData {
   sourceType: 'excel' | 'csv' | 'json'
 
   /**
-   * 预览数据内容（二维数组）
+   * 预览数据内容（二维数组）。
    *
    * 包含表头和前 N 行数据，用于在节点上显示预览。
    * 第一行通常为表头（如果 headerRow >= 0）。
@@ -308,29 +308,29 @@ export interface SourcePreviewNodeData {
   outputPortConnected: boolean
 
   /**
-   * 表头所在行索引（0-based）
+   * 表头所在行索引（0-based）。
    *
-   * -1 表示无表头，0 表示第一行是表头
+   * -1 表示无表头，0 表示第一行是表头。
    * @default 0
    */
   headerRow?: number
 
   /**
-   * Excel 文件的所有 Sheet 名称列表
+   * Excel 文件的所有 Sheet 名称列表。
    *
-   * 仅 Excel 文件有效，CSV 文件为 undefined 或空数组
+   * 仅 Excel 文件有效，CSV 文件为 undefined 或空数组。
    */
   sheets?: string[]
 
   /**
-   * 当前选中的 Sheet 名称
+   * 当前选中的 Sheet 名称。
    *
-   * 仅 Excel 文件有效
+   * 仅 Excel 文件有效。
    */
   currentSheet?: string
 
   /**
-   * 数据来源模式
+   * 数据来源模式。
    *
    * 当前仅支持 'localfile' 模式。
    *
@@ -352,7 +352,7 @@ export interface SourcePreviewNodeData {
   localPath: string
 
   /**
-   * 由 Regex 节点"提取模式（extract）"生成的派生列元数据
+   * 由 Regex 节点"提取模式（extract）"生成的派生列元数据。
    *
    * 当 Regex 节点配置为"提取模式"时，它会从某一列提取内容并生成新的列。
    * 该字段记录这些派生列的元数据，用于：
@@ -380,7 +380,7 @@ export interface SourcePreviewNodeData {
   derivedColumnsByRegex?: Record<string, { columnNames: string[]; groupNames: string[] }>
 
   /**
-   * 关联的 Schema 子节点 IDs
+   * 关联的 Schema 子节点 IDs。
    *
    * 记录该数据源预览节点下游连接的 Schema 节点 ID 列表。
    * 用于布局整理（auto-layout）时快速获取关联节点，无需动态遍历边。

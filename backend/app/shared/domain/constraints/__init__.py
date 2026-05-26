@@ -20,6 +20,8 @@
 # ============================================================================
 # 1. 项目内部导入: 从各子模块导入具体的约束实现类
 # ============================================================================
+# 每个约束类型独立一个模块，继承自 Constraint 基类
+# 通过包入口统一聚合导出，降低调用方的导入成本
 
 from app.shared.domain.constraints.allowed_values import AllowedValuesConstraint
 from app.shared.domain.constraints.base import Constraint
@@ -38,6 +40,8 @@ from app.shared.domain.constraints.unique import UniqueConstraint
 # ============================================================================
 # __all__ 控制 from module import * 时导出的符号列表
 # ============================================================================
+# 显式声明对外暴露的公共 API，避免导入内部实现细节
+# 新增约束类型时需同步更新此列表，否则无法通过通配符导入
 
 __all__ = [
     "AllowedValuesConstraint",

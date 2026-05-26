@@ -50,15 +50,15 @@ class RegexValidationRequest(BaseModel):
         use_custom_header: 是否使用自定义表头（可选）
     """
 
-    regex_pattern: str = Field(..., description="正则表达式模式")
-    regex_flags: Optional[str] = Field(None, description="正则表达式标志")
-    match_mode: str = Field(default="full", description="匹配模式: full/partial/extract")
-    case_sensitive: bool = Field(default=True, description="是否大小写敏感")
-    target_column_name: str = Field(..., description="目标列名")
-    source_file_path: str = Field(..., description="数据源文件路径")
-    sheet_name: Optional[str] = Field(None, description="Excel工作表名称")
-    header_columns: Optional[list[str]] = Field(None, description="自定义表头列名")
-    use_custom_header: Optional[bool] = Field(None, description="是否使用自定义表头")
+    regex_pattern: str = Field(..., description="正则表达式模式")  # 用于匹配的正则表达式字符串，必填
+    regex_flags: Optional[str] = Field(None, description="正则表达式标志")  # 正则标志（如 g, i, m），可选
+    match_mode: str = Field(default="full", description="匹配模式: full/partial/extract")  # 匹配模式：full（全匹配）、partial（部分匹配）、extract（提取）
+    case_sensitive: bool = Field(default=True, description="是否大小写敏感")  # True 表示区分大小写，False 表示忽略大小写
+    target_column_name: str = Field(..., description="目标列名")  # 需要进行正则校验的数据列名称，必填
+    source_file_path: str = Field(..., description="数据源文件路径")  # 数据源文件（Excel/CSV/JSON）的绝对或相对路径，必填
+    sheet_name: Optional[str] = Field(None, description="Excel工作表名称")  # 当数据源为 Excel 时指定工作表名称，可选
+    header_columns: Optional[list[str]] = Field(None, description="自定义表头列名")  # 自定义表头列名列表，用于覆盖文件第一行，可选
+    use_custom_header: Optional[bool] = Field(None, description="是否使用自定义表头")  # 是否启用自定义表头覆盖，可选
 
 
 class RegexValidationErrorRow(BaseModel):
@@ -72,8 +72,8 @@ class RegexValidationErrorRow(BaseModel):
         cell_value: 单元格原始值
     """
 
-    row_index: int = Field(..., description="行索引")
-    cell_value: str = Field(..., description="单元格值")
+    row_index: int = Field(..., description="行索引")  # 数据行在源文件中的索引位置，从 0 开始计数
+    cell_value: str = Field(..., description="单元格值")  # 该校验失败的单元格原始值
 
 
 class RegexValidationResult(BaseModel):
@@ -91,12 +91,12 @@ class RegexValidationResult(BaseModel):
         validation_time: 校验耗时时间戳
     """
 
-    is_valid: bool = Field(..., description="校验是否通过")
-    error_count: int = Field(..., description="错误数量")
-    total_rows: int = Field(..., description="总行数")
-    match_count: int = Field(..., description="匹配数量")
-    error_rows: list[RegexValidationErrorRow] = Field(default=[], description="错误行列表")
-    validation_time: str = Field(..., description="校验时间")
+    is_valid: bool = Field(..., description="校验是否通过")  # True 表示全部通过，False 表示存在错误行
+    error_count: int = Field(..., description="错误数量")  # 校验失败的行数
+    total_rows: int = Field(..., description="总行数")  # 参与校验的数据总行数（不含表头）
+    match_count: int = Field(..., description="匹配数量")  # 正则匹配成功的行数
+    error_rows: list[RegexValidationErrorRow] = Field(default=[], description="错误行列表")  # 校验失败的详细行信息列表
+    validation_time: str = Field(..., description="校验时间")  # 校验执行完成的时间戳，ISO 8601 格式
 
 
 class RegexValidationResponse(BaseModel):
@@ -113,11 +113,11 @@ class RegexValidationResponse(BaseModel):
         updated_at: 更新时间（可选）
     """
 
-    success: bool = Field(..., description="请求是否成功")
-    data: Optional[RegexValidationResult] = Field(None, description="校验结果")
-    error: Optional[str] = Field(None, description="错误信息")
-    schema_name: Optional[str] = Field(None, description="Schema名称")
-    updated_at: Optional[str] = Field(None, description="更新时间")
+    success: bool = Field(..., description="请求是否成功")  # True 表示请求处理成功，False 表示接口层面出错
+    data: Optional[RegexValidationResult] = Field(None, description="校验结果")  # 校验成功时返回的详细结果，失败时为 None
+    error: Optional[str] = Field(None, description="错误信息")  # 请求处理失败时的错误描述，成功时为 None
+    schema_name: Optional[str] = Field(None, description="Schema名称")  # 关联的 Schema 名称，用于前端展示上下文，可选
+    updated_at: Optional[str] = Field(None, description="更新时间")  # 响应生成的时间戳，ISO 8601 格式，可选
 
 
 # 统一使用 services 层的 ValidationType 作为唯一真相源
@@ -142,13 +142,13 @@ class ValidationRequest(BaseModel):
         allow_unsafe_eval: 是否允许执行脚本化校验（eval 模式）
     """
 
-    validation_type: str = Field(..., description="校验类型: regex/unique/not_null/allowed_values/conditional/scripted")
-    target_column_name: str = Field(..., description="目标列名")
-    source_file_path: str = Field(..., description="数据源文件路径")
-    sheet_name: Optional[str] = Field(None, description="Excel工作表名称")
-    header_row: Optional[int] = Field(None, description="表头行索引，0表示第一行")
-    validation_config: Optional[dict] = Field(default={}, description="校验特定配置")
-    allow_unsafe_eval: bool = Field(False, description="是否允许执行脚本化校验（eval模式）")
+    validation_type: str = Field(..., description="校验类型: regex/unique/not_null/allowed_values/conditional/scripted")  # 指定要执行的校验类型，必填
+    target_column_name: str = Field(..., description="目标列名")  # 需要校验的数据列名称，必填
+    source_file_path: str = Field(..., description="数据源文件路径")  # 数据源文件（Excel/CSV/JSON）的绝对或相对路径，必填
+    sheet_name: Optional[str] = Field(None, description="Excel工作表名称")  # 当数据源为 Excel 时指定工作表名称，可选
+    header_row: Optional[int] = Field(None, description="表头行索引，0表示第一行")  # 指定表头所在行索引，0 表示第一行，可选
+    validation_config: Optional[dict] = Field(default={}, description="校验特定配置")  # 各类校验的特定配置参数（如 allowed_values 的值列表），默认为空字典
+    allow_unsafe_eval: bool = Field(False, description="是否允许执行脚本化校验（eval模式）")  # True 允许执行脚本化校验（存在安全风险），默认关闭
 
 
 class InlineValidationRequest(BaseModel):
@@ -167,12 +167,12 @@ class InlineValidationRequest(BaseModel):
         allow_unsafe_eval: 是否允许执行脚本化校验（eval 模式）
     """
 
-    validation_type: str = Field(..., description="校验类型")
-    target_column_name: str = Field(..., description="目标列名")
-    rows: list[list[Any]] = Field(..., description="行数据，默认第一行为表头")
-    column_names: list[str] = Field(default=[], description="列名列表（提供时 rows 全部视为数据行）")
-    validation_config: Optional[dict] = Field(default={}, description="校验特定配置")
-    allow_unsafe_eval: bool = Field(False, description="是否允许执行脚本化校验（eval模式）")
+    validation_type: str = Field(..., description="校验类型")  # 指定要执行的校验类型（如 not_null/unique/range 等），必填
+    target_column_name: str = Field(..., description="目标列名")  # 需要校验的数据列名称，必填
+    rows: list[list[Any]] = Field(..., description="行数据，默认第一行为表头")  # 二维数组形式的行数据，默认第一行为表头，后续行为数据
+    column_names: list[str] = Field(default=[], description="列名列表（提供时 rows 全部视为数据行）")  # 显式指定列名时，rows 全部视为数据行（不再将第一行作为表头）
+    validation_config: Optional[dict] = Field(default={}, description="校验特定配置")  # 各类校验的特定配置参数，默认为空字典
+    allow_unsafe_eval: bool = Field(False, description="是否允许执行脚本化校验（eval模式）")  # True 允许执行脚本化校验（存在安全风险），默认关闭
 
 
 class ValidationErrorRow(BaseModel):
@@ -187,9 +187,9 @@ class ValidationErrorRow(BaseModel):
         error_message: 错误描述信息（可选）
     """
 
-    row_index: int = Field(..., description="行索引")
-    cell_value: str = Field(..., description="单元格值")
-    error_message: Optional[str] = Field(None, description="错误信息")
+    row_index: int = Field(..., description="行索引")  # 数据行在源文件或行内数据中的索引位置，从 0 开始计数
+    cell_value: str = Field(..., description="单元格值")  # 该校验失败的单元格原始值
+    error_message: Optional[str] = Field(None, description="错误信息")  # 校验失败的具体错误描述，如"值不在允许列表中"，可选
 
 
 class ValidationResult(BaseModel):
@@ -207,12 +207,12 @@ class ValidationResult(BaseModel):
         validation_time: 校验耗时
     """
 
-    is_valid: bool = Field(..., description="校验是否通过")
-    error_count: int = Field(..., description="错误数量")
-    total_rows: int = Field(..., description="总行数")
-    match_count: Optional[int] = Field(None, description="匹配数量")
-    error_rows: list[ValidationErrorRow] = Field(default=[], description="错误行列表")
-    validation_time: str = Field(..., description="校验耗时")
+    is_valid: bool = Field(..., description="校验是否通过")  # True 表示全部通过，False 表示存在错误行
+    error_count: int = Field(..., description="错误数量")  # 校验失败的行数
+    total_rows: int = Field(..., description="总行数")  # 参与校验的数据总行数（不含表头）
+    match_count: Optional[int] = Field(None, description="匹配数量")  # 匹配成功的行数（部分校验类型适用，如 regex），可选
+    error_rows: list[ValidationErrorRow] = Field(default=[], description="错误行列表")  # 校验失败的详细行信息列表
+    validation_time: str = Field(..., description="校验耗时")  # 校验执行耗时，通常以毫秒或秒为单位的字符串
 
 
 class ValidationResponse(BaseModel):
@@ -228,7 +228,7 @@ class ValidationResponse(BaseModel):
         error: 错误信息（如果有）
     """
 
-    success: bool = Field(..., description="请求是否成功")
-    validation_type: str = Field(..., description="执行的校验类型")
-    data: Optional[ValidationResult] = Field(None, description="校验结果")
-    error: Optional[str] = Field(None, description="错误信息")
+    success: bool = Field(..., description="请求是否成功")  # True 表示请求处理成功，False 表示接口层面出错
+    validation_type: str = Field(..., description="执行的校验类型")  # 实际执行的校验类型标识，与请求中的 validation_type 对应
+    data: Optional[ValidationResult] = Field(None, description="校验结果")  # 校验成功时返回的详细结果，失败时为 None
+    error: Optional[str] = Field(None, description="错误信息")  # 请求处理失败时的错误描述，成功时为 None

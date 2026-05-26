@@ -75,19 +75,24 @@ async def get_project_config_path(
         X-Project-Config-Path: /path/to/project/config
     """
     # 路径标准化并解析为绝对路径，防御 Path Traversal
+    # 【安全策略】使用 os.path.normpath 消除路径中的 .. 等相对路径成分
+    # 再使用 os.path.abspath 转换为绝对路径，防止路径穿越攻击
     normalized_path = os.path.abspath(os.path.normpath(x_project_config_path))
 
     # 步骤1：验证路径是否为绝对路径
     # 绝对路径是项目安全性的基础，确保不会发生路径穿越攻击
+    # 【防御性编程】即使经过 abspath 处理，仍显式检查确保路径为绝对路径
     if not os.path.isabs(normalized_path):
         raise HTTPException(status_code=400, detail="X-Project-Config-Path header 必须是一个绝对路径。")
 
     # 步骤2：验证路径对应的目录是否存在
     # 确保项目配置目录已经创建，避免后续文件操作失败
+    # 【错误码选择】404 表示资源不存在，400 表示请求参数错误
     if not os.path.isdir(normalized_path):
         raise HTTPException(status_code=404, detail=f"提供的项目配置路径不存在: {normalized_path}")
 
     # 步骤3：验证通过，返回绝对路径
+    # 【返回值】返回标准化后的绝对路径，供后续文件操作使用
     return normalized_path
 
 

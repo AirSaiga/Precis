@@ -144,12 +144,18 @@ def validate_full_dataset(
     # ========================
     # 阶段一续：提取派生列
     # ========================
+    # 派生列是通过正则表达式等规则从原始列中提取的新列
+    # 例如：从邮箱列中提取域名作为派生列
+    # 【数据流】在格式解析后、约束校验前执行，确保派生列可用于后续约束
     logger.debug("开始阶段一续: 提取派生列")
     _extract_derived_columns(parsed_datasets, schema, raw_datasets, all_errors)
 
     # ========================
     # 阶段一续二：执行 Transform DAG
     # ========================
+    # Transform DAG 是有向无环图，用于编排多个 transform 规则的执行顺序
+    # 【拓扑排序】根据依赖关系确定执行顺序，确保前置 transform 先执行
+    # 只有当存在 transform_files 或 regex_files 时才需要执行
     if transform_files or regex_files:
         logger.debug("开始阶段一续二: 执行 Transform DAG")
         dag = build_transform_dag(
@@ -164,20 +170,22 @@ def validate_full_dataset(
     # ========================
     # 对解析后的数据进行业务规则校验
     # 支持的约束类型：
-    # - ForeignKeyConstraints: 外键约束
-    # - UniqueConstraint: 唯一性约束
-    # - AllowedValuesConstraint: 允许值约束
-    # - ConditionalConstraint: 条件约束
-    # - ScriptedConstraint: 脚本化约束
+    # - ForeignKeyConstraints: 外键约束（跨表引用完整性）
+    # - UniqueConstraint: 唯一性约束（列值不重复）
+    # - AllowedValuesConstraint: 允许值约束（枚举值检查）
+    # - ConditionalConstraint: 条件约束（基于条件的规则）
+    # - ScriptedConstraint: 脚本化约束（自定义脚本逻辑）
     logger.debug("开始阶段二: 逻辑约束验证")
 
     # 如果所有表都为空，跳过约束验证以避免无意义计算和边界错误（M3）
+    # 【防御性编程】空数据集无需执行约束校验，直接返回阶段一结果
     has_any_data = any(not df.empty for df in parsed_datasets.values())
     if not has_any_data:
         logger.debug("所有解析后的表均为空，跳过阶段二约束验证")
         return parsed_datasets, all_errors, validation_details
 
     # 处理 table_filter 参数（只接受表ID）
+    # 【类型适配】支持字符串或列表形式，统一转换为集合便于成员检查
     filter_tables: Optional[set] = None
     if table_filter:
         if isinstance(table_filter, str):
@@ -186,11 +194,13 @@ def validate_full_dataset(
             filter_tables = set(table_filter)
 
     # 遍历所有注册的约束，逐个执行校验
+    # 【容错设计】单个约束异常不中断整个管线，继续执行后续约束
     for i, constraint in enumerate(schema.constraints):
         # 获取约束信息，判断是否需要跳过
         try:
             constraint_info = constraint.get_constraint_info()
         except Exception as e:
+            # 【异常处理】约束信息获取失败时记录错误并跳过该约束
             logger.error(f"约束 {i + 1} 获取信息失败: {e}")
             validation_details["constraint_checks"].append(
                 {
@@ -207,16 +217,18 @@ def validate_full_dataset(
         constraint_table = constraint_info.get("table")
 
         # 如果指定了 table_filter，只验证相关表的约束
+        # 【过滤逻辑】当 filter_tables 存在且当前约束的表不在过滤列表中时跳过
         if filter_tables and constraint_table not in filter_tables:
             logger.debug(f"跳过约束 {i + 1} ({constraint.__class__.__name__}): 表 '{constraint_table}' 不在过滤列表中")
             continue
 
         # 传递 allow_unsafe_eval 参数以控制脚本约束的执行
-        # 当 allow_unsafe_eval=False 时，脚本约束会在安全沙箱中运行
+        # 【安全策略】当 allow_unsafe_eval=False 时，脚本约束会在安全沙箱中运行
         # 单个约束异常不中断整个管线，继续执行后续约束
         try:
             result = constraint.validate(parsed_datasets, allow_unsafe_eval=allow_unsafe_eval)
         except Exception as e:
+            # 【异常处理】约束执行异常时构造错误结果，不中断后续约束校验
             logger.error(f"约束 {i + 1} ({constraint.__class__.__name__}) 执行异常: {e}")
             result = {
                 "errors": [
@@ -234,6 +246,7 @@ def validate_full_dataset(
         constraint_info = result.get("info", {})
 
         # 聚合错误
+        # 【数据标准化】统一错误字段格式，确保前端能够正确解析
         if constraint_errors:
             for item in constraint_errors:
                 all_errors.append(
@@ -262,6 +275,6 @@ def validate_full_dataset(
         )
 
     # 返回解析后的数据集、所有错误和校验详情
-    # 前端可以根据 is_empty(all_errors) 判断验证是否通过
+    # 【结果说明】前端可以根据 is_empty(all_errors) 判断验证是否通过
     # validation_details 用于展示所有校验过程的详细信息
     return parsed_datasets, all_errors, validation_details

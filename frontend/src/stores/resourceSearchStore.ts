@@ -24,8 +24,11 @@ export const useResourceSearchStore = defineStore('resourceSearch', () => {
    * @returns 过滤后的资源列表；搜索词为空时返回原列表
    */
   function filterResources(source: ResourceItem[]): ResourceItem[] {
+    // 将搜索词统一转为小写并去除首尾空白，实现不区分大小写的匹配
     const query = searchQuery.value.toLowerCase().trim()
+    // 搜索词为空时直接返回原列表，避免不必要的遍历
     if (!query) return source
+    // 按资源名称包含搜索词进行过滤
     return source.filter((r) => r.name.toLowerCase().includes(query))
   }
 

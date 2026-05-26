@@ -59,18 +59,30 @@ def _expand_structured_columns(df: pd.DataFrame, table_schema: TableSchema) -> p
 
     最终输出: pd.DataFrame - 展开后的 DataFrame
     """
+    # 复制 DataFrame 避免修改原始数据，保证函数的纯性
     df_to_process = df.copy()
 
+    # 遍历 schema 中定义的所有列，查找需要展开的结构化列
     for col_name, col_schema in table_schema.columns.items():
+        # 条件判断：列必须存在于 DataFrame 中，且 schema 标记为需要展开
         if col_name in df_to_process.columns and col_schema.expand:
+            # 仅 ExpressionType 类型的列支持展开，其他类型跳过
             if not isinstance(col_schema.data_type, ExpressionType):
                 continue
 
+            # 步骤 1：将 JSON 列的每一行解析为字典列表
+            # fillna({}) 将 NaN 替换为空字典，避免 json_normalize 报错
+            # tolist() 将 Series 转为 Python 列表，供 json_normalize 处理
             normalized_data = pd.json_normalize(df_to_process[col_name].fillna({}).tolist()).add_prefix(f"{col_name}_")
 
+            # 步骤 2：删除原始的 JSON 列，避免列名冲突
             df_to_process = df_to_process.drop(columns=[col_name])
+
+            # 步骤 3：将展开后的新列横向合并到原 DataFrame
+            # axis=1 表示按列方向拼接（横向扩展）
             df_to_process = pd.concat([df_to_process, normalized_data], axis=1)
 
+            # 记录展开操作日志，便于用户追溯数据结构变化
             import logging
 
             logger = logging.getLogger(__name__)
@@ -171,16 +183,24 @@ def process_dataframe(df: pd.DataFrame, schema: TableSchema) -> tuple[pd.DataFra
     - 空 DataFrame: 返回空的解析 DataFrame 和空的错误 DataFrame
     - 验证失败: 记录错误，该单元格填充 None
     """
+    # 存储解析后的列数据，键为列名，值为解析后的列表
     parsed_data: dict[str, list] = {}
+
+    # 存储所有验证和解析过程中发现的错误
     errors: list[dict] = []
+
+    # 记录原始 DataFrame 的行数，用于缺失列时填充空值
     num_rows = len(df)
 
+    # 按 schema 定义的顺序逐列处理
     for col_name, col_schema in schema.columns.items():
         # 跳过派生列（Extracted 类型），它们不存在于原始数据中，由后续提取逻辑生成
         if hasattr(col_schema.data_type, "name") and col_schema.data_type.name == "Extracted":
             continue
 
+        # 情况 1：schema 中定义的列在原始数据中不存在
         if col_name not in df.columns:
+            # 记录 MissingColumn 错误，row_index 为 None 表示整列缺失
             errors.append(
                 {
                     "row_index": None,
@@ -190,19 +210,26 @@ def process_dataframe(df: pd.DataFrame, schema: TableSchema) -> tuple[pd.DataFra
                     "error_message": f"数据表中缺少必需的列 '{col_name}'",
                 }
             )
+            # 用 None 填充整列，保持解析后 DataFrame 的列数与 schema 一致
             parsed_data[col_name] = [None] * num_rows
             continue
 
+        # 从列 schema 中读取 nullable 属性，默认为 True（向后兼容）
         nullable = getattr(col_schema, "nullable", True)
 
         # 使用 DataType 的 process_column 进行向量化验证和解析
+        # 向量化处理比逐行循环性能更高，且统一收集该列的全部错误
         parsed_series, col_errors = col_schema.data_type.process_column(df[col_name], col_name, nullable=nullable)
         parsed_data[col_name] = parsed_series
         errors.extend(col_errors)
 
+    # 将解析后的列数据组装为 DataFrame，保留原始索引以维持行号对应关系
     parsed_df = pd.DataFrame(parsed_data, index=df.index)
+
+    # 展开需要展开的结构化列（JSON 列）
     parsed_df = _expand_structured_columns(parsed_df, schema)
 
+    # 构建错误 DataFrame：有错误时按标准列名构造，无错误时返回空结构（保持列名一致）
     if errors:
         errors_df = pd.DataFrame(errors, columns=["row_index", "column", "value", "error_type", "error_message"])
     else:

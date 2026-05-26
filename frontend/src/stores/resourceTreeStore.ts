@@ -21,6 +21,16 @@ import { useResourceFolderStore } from './resourceFolderStore'
 import { useResourceSearchStore } from './resourceSearchStore'
 import { useProjectStore } from './projectStore'
 
+/**
+ * 资源树 Store 工厂函数
+ *
+ * 使用 Pinia Setup Store 模式，集中管理项目资源树的状态。
+ * 职责：
+ * - 维护资源映射表（Schema、Constraint、Pattern、Regex Node、Template）
+ * - 提供按类型分类的计算属性列表
+ * - 协调 resourceFolderStore（文件夹展开/折叠）与 resourceSearchStore（搜索过滤）
+ * - 处理资源加载、刷新、清空等生命周期操作
+ */
 export const useResourceTreeStore = defineStore('resourceTree', () => {
   const { t } = useI18n()
   const folderStore = useResourceFolderStore()
@@ -465,6 +475,14 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
     })
   }
 
+  // === 导出 ===
+  /**
+   * Store 对外暴露的响应式状态、计算属性与操作方法
+   *
+   * 状态：loading / error / searchQuery / resources / folders
+   * 计算属性：resourceList / schemas / patterns / regexNodes / constraints / templates 及其 manifest/unlisted 计数
+   * 方法：loadResources / refreshResources / toggleFolder / setFolderExpanded / setSearchQuery / getResourceById / getResourcesByFolderType / clear / initializeFolderResources
+   */
   return {
     // 状态
     loading,

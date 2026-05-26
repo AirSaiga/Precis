@@ -71,7 +71,13 @@ const isCrossPlatformInvalidPath = (p: string): boolean => {
   return false
 }
 
-/** 引导函数的返回类型，提供启动、清理和键盘管理器访问 */
+/**
+ * 引导函数的返回类型，提供启动、清理和键盘管理器访问
+ *
+ * @property bootstrap - 启动应用主流程（串行初始化各子系统）
+ * @property cleanup - 清理所有启动时创建的资源与监听器
+ * @property keyboardManager - 键盘快捷键管理器实例，用于外部控制（如暂停/恢复）
+ */
 export interface BootstrapResult {
   bootstrap: () => Promise<void>
   cleanup: () => void
@@ -85,6 +91,13 @@ export interface BootstrapResult {
  * bootstrap 在 onMounted 中调用，cleanup 在 onUnmounted 中调用。
  */
 export function useAppBootstrap(): BootstrapResult {
+  // === 核心 Store 实例 ===
+  // graphStore: 画布节点/边状态，负责 projectRoot 节点创建
+  // workspaceStore: 数据源配置（非画布工作区）
+  // canvasStore: 多标签画布工作区系统
+  // dragStore: 资源树 → 画布跨组件拖拽状态
+  // projectStore: 当前项目路径管理
+  // shortcutStore: 用户自定义快捷键配置
   const graphStore = useGraphStore()
   const workspaceStore = useWorkspaceStore()
   const canvasStore = useCanvasStore()
@@ -92,6 +105,9 @@ export function useAppBootstrap(): BootstrapResult {
   const projectStore = useProjectStore()
   const shortcutStore = useShortcutStore()
 
+  // === 局部状态 ===
+  // keyboardManager: 键盘引擎实例，由 bootstrap 阶段创建
+  // stopShortcutConfigWatch: watch 返回的停止函数，cleanup 时调用
   let keyboardManager: ReturnType<typeof useKeyboardShortcuts> | null = null
   let stopShortcutConfigWatch: WatchStopHandle | null = null
 
@@ -250,8 +266,11 @@ export function useAppBootstrap(): BootstrapResult {
   }
 
   return {
+    // 启动主流程：串行初始化项目路径 → 工作区 → 画布 → 拖拽 → 快捷键
     bootstrap,
+    // 清理函数：在 onUnmounted 中调用，防止内存泄漏
     cleanup,
+    // 通过 getter 暴露 keyboardManager，使外部可访问但不可直接赋值
     get keyboardManager() {
       return keyboardManager
     },

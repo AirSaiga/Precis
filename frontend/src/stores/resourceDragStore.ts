@@ -76,7 +76,11 @@ export interface ResourceDragPayload {
   implicitRegexFields?: ColumnImplicitRegexInfo[]
 }
 
-/** 拖拽内部状态结构 */
+/**
+ * 资源拖拽内部状态结构
+ *
+ * 描述资源树拖拽的当前状态，包括是否正在拖拽以及携带的载荷数据。
+ */
 interface ResourceDragState {
   /** 是否正在拖拽中 */
   isDragging: boolean
@@ -84,25 +88,39 @@ interface ResourceDragState {
   payload: ResourceDragPayload | null
 }
 
+/**
+ * 资源拖拽状态管理 Store
+ *
+ * 管理从资源树/数据源库向画布拖拽资源时的状态。
+ * 与 dragStore.ts 分工：dragStore 处理字段级拖拽，本 Store 处理资源级拖拽。
+ */
 export const useResourceDragStore = defineStore('resourceDrag', () => {
+  // --- State ---
+
+  /** 资源拖拽状态，初始为未拖拽 */
   const state = ref<ResourceDragState>({
     isDragging: false,
     payload: null,
   })
 
-  /** 当前是否处于拖拽状态 */
+  // --- Getters ---
+
+  /** 当前是否处于资源拖拽中，用于显示拖拽幽灵元素 */
   const isDragging = computed(() => state.value.isDragging)
 
-  /** 当前拖拽的载荷数据 */
+  /** 当前拖拽的资源载荷，画布 drop 时根据此数据创建对应节点 */
   const payload = computed(() => state.value.payload)
+
+  // --- Actions ---
 
   /**
    * 开始资源拖拽
    *
    * 在资源树的 dragstart 事件中调用，
    * 将拖拽载荷保存到 store，供画布 drop 事件读取。
+   * 同时设置 isDragging 为 true，触发 DragGhost 组件显示。
    *
-   * @param p - 拖拽载荷
+   * @param p - 拖拽载荷，包含资源类型和元信息
    */
   const startDrag = (p: ResourceDragPayload) => {
     state.value.isDragging = true
@@ -113,6 +131,7 @@ export const useResourceDragStore = defineStore('resourceDrag', () => {
    * 结束资源拖拽
    *
    * 在 dragend 或 drop 事件中调用，清空拖拽状态和载荷数据。
+   * 同时设置 isDragging 为 false，隐藏 DragGhost 组件。
    */
   const endDrag = () => {
     state.value.isDragging = false

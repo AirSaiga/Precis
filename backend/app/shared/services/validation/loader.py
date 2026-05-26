@@ -247,6 +247,9 @@ def load_file_data_with_settings(
 
     file_ext = os.path.splitext(source_file_path)[1].lower()
 
+    # 从 settings 中提取编码和分隔符配置
+    # 【默认值策略】编码默认 utf-8，分隔符默认逗号
+    # 当 settings 中配置为 "auto" 时，回退到默认值
     encoding = "utf-8"
     delimiter = ","
     if settings:
@@ -284,6 +287,8 @@ def load_file_data_with_settings(
         raise ValueError(f"不支持的文件类型: {file_ext}")
 
     df = load_source_data(spec)
+    # 数据清洗：将 NaN 统一转换为 None，保持数据一致性
+    # 【副作用】统一空值表示，便于后续校验逻辑处理
     df = df.where(pd.notnull(df), None)
     return df
 
@@ -324,10 +329,13 @@ def validate_with_settings(
 
     # 处理脚本安全配置
     # 【逻辑分块】Step: 处理安全设置
+    # 当 settings 中配置了 script_security 且 kwargs 未显式传入 allow_unsafe_eval 时，
+    # 根据 script_security 的配置自动推导 allow_unsafe_eval 值
     if settings:
         if "allow_unsafe_eval" not in kwargs:
             if hasattr(settings, "script_security") and settings.script_security:
                 ss = settings.script_security
+                # 允许 eval 且不在沙箱模式时，视为允许不安全执行
                 allow_unsafe_eval = ss.allow_eval and not ss.sandbox_mode
                 kwargs["allow_unsafe_eval"] = allow_unsafe_eval
 

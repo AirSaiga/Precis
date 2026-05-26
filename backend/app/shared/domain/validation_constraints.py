@@ -18,6 +18,8 @@
 """
 
 # 1. 项目内部导入
+# 从新的约束包中导入所有约束类，保持向后兼容
+# 外部代码仍可通过本模块导入，无需修改导入路径
 from app.shared.domain.constraints import (
     AllowedValuesConstraint,
     CharsetConstraint,
@@ -33,6 +35,8 @@ from app.shared.domain.constraints import (
 )
 from app.shared.domain.constraints.condition_registry import CONDITION_REGISTRY, register_condition
 
+# __all__ 显式声明本模块对外暴露的符号
+# 作用：1. 控制 from module import * 的行为；2. 明确模块公共 API 边界
 __all__ = [
     "AllowedValuesConstraint",
     "CharsetConstraint",

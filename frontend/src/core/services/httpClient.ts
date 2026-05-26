@@ -169,12 +169,28 @@ export const API_BASE_URL = getApiBaseUrl()
  * - 网络瞬时故障需要自动恢复
  * - 避免用户看到不必要的错误提示
  */
+/**
+ * 请求重试配置接口
+ *
+ * 定义重试策略的参数结构，用于控制请求失败后的自动重试行为。
+ */
 interface RetryConfig {
-  maxRetries: number // 最大重试次数
-  retryDelay: number // 重试间隔（毫秒）
-  shouldRetry: (error: AxiosError) => boolean // 判断是否应该重试
+  /** 最大重试次数 */
+  maxRetries: number
+  /** 重试间隔（毫秒） */
+  retryDelay: number
+  /** 判断是否应该重试的谓词函数 */
+  shouldRetry: (error: AxiosError) => boolean
 }
 
+/**
+ * 默认重试配置
+ *
+ * 策略说明：
+ * - 最大重试 3 次，初始间隔 1 秒，指数退避
+ * - 仅对网络错误（无响应）和 5xx 服务器错误进行重试
+ * - 4xx 客户端错误不重试（请求本身有问题）
+ */
 const defaultRetryConfig: RetryConfig = {
   maxRetries: 3,
   retryDelay: 1000,
@@ -225,6 +241,17 @@ const apiClient: AxiosInstance = axios.create({
  * @param retryConfig - 重试配置
  * @returns Promise
  */
+/**
+ * 带重试的请求包装函数
+ *
+ * 对 Axios 请求进行包装，在失败时根据重试配置自动重试，
+ * 采用指数退避策略避免对后端造成压力。
+ *
+ * @param config - Axios 请求配置
+ * @param retryConfig - 重试配置（默认使用 defaultRetryConfig）
+ * @returns 请求响应数据
+ * @throws 最后一次重试失败的错误
+ */
 const requestWithRetry = async <T = unknown>(
   config: Parameters<AxiosInstance['request']>[0],
   retryConfig: RetryConfig = defaultRetryConfig
@@ -260,14 +287,17 @@ apiClient.interceptors.request.use(
   (config) => {
     let configPath: string | undefined
     try {
+      // 从 localStorage 读取当前激活项目的配置路径
       const stored = localStorage.getItem('activeProjectPaths')
       if (stored) {
         const parsed = JSON.parse(stored)
         configPath = parsed?.configPath
       }
     } catch {
+      // 解析失败时静默处理，不注入项目路径头
       configPath = undefined
     }
+    // 规范化路径格式后注入请求头，供后端定位项目配置目录
     const normalized = normalizeConfigDir(configPath)
     if (normalized) {
       config.headers['X-Project-Config-Path'] = normalized
@@ -296,14 +326,15 @@ apiClient.interceptors.response.use(
       return Promise.reject(error)
     }
 
-    // 初始化重试计数
+    // 初始化重试计数（从 config 对象上读取自定义属性）
     const retryCount = (config as { retryCount?: number }).retryCount || 0
     const maxRetries = 3
 
-    // 判断是否应该重试
+    // 判断是否应该重试：仅对无响应的网络错误进行重试，且不超过最大次数
     const shouldRetry = !error.response && retryCount < maxRetries
 
     if (shouldRetry) {
+      // 记录重试次数到 config 对象，供下次拦截器读取
       ;(config as { retryCount?: number }).retryCount = retryCount + 1
       const delay = 1000 * Math.pow(2, retryCount) // 指数退避: 1s, 2s, 4s
 

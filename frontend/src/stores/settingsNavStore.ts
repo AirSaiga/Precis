@@ -14,6 +14,15 @@ import { computed, ref } from 'vue'
 import type { SettingsTab } from '@/types/settings'
 import { NAV_ITEM_TO_TAB_MAP, TAB_TO_NAV_ITEM_MAP } from '@/types/settings'
 
+/**
+ * 设置面板导航 Store 工厂函数
+ *
+ * 职责：
+ * - 控制设置面板的打开/关闭/切换
+ * - 管理导航项激活状态与分组展开状态
+ * - 维护搜索关键词
+ * - 提供 Tab 兼容层（旧代码使用 Tab 枚举，新代码使用导航项 ID）
+ */
 export const useSettingsNavStore = defineStore('settingsNav', () => {
   // ===== 面板可见性 =====
   const visible = ref(false)
@@ -128,6 +137,13 @@ export const useSettingsNavStore = defineStore('settingsNav', () => {
   /** 面板是否处于打开状态（visible 的别名，语义更清晰） */
   const isOpen = computed(() => visible.value)
 
+  // --- 导出 ---
+  /**
+   * Store 对外暴露的响应式状态与导航控制方法
+   *
+   * 状态：visible / isOpen / activeNavItem / expandedGroups / searchQuery / activeTab
+   * 方法：open / close / toggle / setActiveNavItem / setActiveTab / toggleGroup / expandGroup
+   */
   return {
     visible,
     isOpen,

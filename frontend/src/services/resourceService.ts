@@ -24,19 +24,22 @@ import * as projectV2Api from '@/api/projectV2Api'
 
 /**
  * 资源操作服务接口
+ *
+ * 定义资源树所需的全部 CRUD 操作，包括加载、解析、预览、重命名和删除。
+ * 实现类负责封装 API 调用、缓存管理和数据转换。
  */
 export interface IResourceService {
   // === 资源加载 ===
 
-  /** 加载完整配置 */
+  /** 从后端加载项目完整配置 */
   loadFullConfig(configPath: string): Promise<FullConfigV2Response>
 
-  /** 解析资源列表 */
+  /** 将后端完整配置解析为前端资源树所需的 ResourceItem 数组 */
   parseResources(fullConfig: FullConfigV2Response): ResourceItem[]
 
   // === 资源预览 ===
 
-  /** 预览资源 */
+  /** 根据资源类型调用对应 API 获取资源详情 */
   previewResource(
     resourceKind: 'schema' | 'pattern' | 'constraint' | 'regex_node',
     resourceId: string,
@@ -45,41 +48,47 @@ export interface IResourceService {
 
   // === 资源重命名 ===
 
-  /** 重命名Schema */
+  /** 重命名 Schema 并更新后端 */
   renameSchema(schemaId: string, newName: string, configPath: string): Promise<void>
 
-  /** 重命名Pattern */
+  /** 重命名 Pattern 并更新后端 */
   renamePattern(patternId: string, newName: string, configPath: string): Promise<void>
 
-  /** 重命名Constraint */
+  /** 重命名 Constraint 并更新后端 */
   renameConstraint(constraintId: string, newName: string, configPath: string): Promise<void>
 
   // === 资源删除 ===
 
-  /** 删除Schema */
+  /** 删除 Schema */
   deleteSchema(schemaId: string, configPath: string): Promise<void>
 
-  /** 删除Pattern */
+  /** 删除 Pattern */
   deletePattern(patternId: string, configPath: string): Promise<void>
 
-  /** 删除RegexNode */
+  /** 删除 RegexNode */
   deleteRegexNode(regexId: string, configPath: string): Promise<void>
 
-  /** 删除Constraint */
+  /** 删除 Constraint */
   deleteConstraint(constraintId: string, configPath: string): Promise<void>
 }
 
 /**
  * 资源操作服务实现
+ *
+ * 封装所有资源相关的 API 调用，内部维护 fullConfig 缓存用于预览时快速读取。
+ * parseResources 是核心方法，负责将后端扁平配置转换为前端资源树所需的层级结构。
  */
 export class ResourceService implements IResourceService {
   /**
-   * 缓存 fullConfig 数据，用于预览时直接获取数据
+   * 缓存 fullConfig 数据，用于预览时直接获取数据（避免重复请求后端）
    */
   private cachedFullConfig: FullConfigV2Response | null = null
 
   /**
    * 加载完整配置
+   *
+   * 调用后端 API 获取项目完整配置，并将结果缓存到 cachedFullConfig。
+   * 后续 previewResource 中的 pattern 预览会直接从缓存读取。
    *
    * @param configPath - 项目配置文件路径
    * @returns 项目完整配置响应
@@ -94,27 +103,40 @@ export class ResourceService implements IResourceService {
    * 解析资源列表
    *
    * 将后端返回的完整配置解析为前端资源树所需的 ResourceItem 数组。
-   * 处理 Schema、Pattern、RegexNode、Constraint 四类资源，并建立关联关系。
+   * 处理 Schema、Pattern、RegexNode、Constraint、Template 五类资源，并建立关联关系。
+   *
+   * 解析流程：
+   * 1. 预处理：收集 manifest 中列出的 ID、schema 解析错误、independent/embedded 约束映射、regex 节点映射
+   * 2. 解析 Schemas：创建 SchemaResource，关联 regex 和 constraint，提取内嵌约束和隐式正则字段
+   * 3. 解析 Regex Registries：创建 PatternResource
+   * 4. 解析 Regex Nodes：创建 RegexNodeResource
+   * 5. 解析 Independent Constraints：创建 ConstraintResource（source='independent'）
+   * 6. 解析 Embedded Constraints：创建 ConstraintResource（source='embedded'）
+   * 7. 解析 Templates：创建 TemplateResource
    *
    * @param fullConfig - 后端返回的完整配置
    * @returns 资源项数组
    */
   parseResources(fullConfig: FullConfigV2Response): ResourceItem[] {
     const manifest = fullConfig.manifest
+    // effective_manifest 是后端合并后的实际生效配置（可能包含目录扫描结果）
     const effectiveManifest = fullConfig.effective_manifest || manifest
     const resources: ResourceItem[] = []
+
+    // === 预处理：收集 manifest 中列出的各类资源 ID ===
     const listedSchemaIds = new Set((manifest.schemas || []).map((r) => r.id))
     const listedConstraintIds = new Set((manifest.constraints || []).map((r) => r.id))
     const listedRegexNodeIds = new Set((manifest.regex_nodes || []).map((r) => r.id))
 
-    // 收集 schema 解析错误
+    // 收集 schema 解析错误（后端在 schema_errors 中记录 YAML 解析失败的 schema）
     const schemaErrors: Record<string, string> =
       ((fullConfig as unknown as Record<string, unknown>).schema_errors as Record<
         string,
         string
       >) || {}
 
-    // 收集所有 independent constraints 的 ID 和关联表
+    // === 预处理：收集所有 independent constraints 的 ID 和关联表/列 ===
+    // independent constraints 是单独文件定义的约束，通过 manifest.constraints 索引
     const independentConstraintMap: Record<string, { tableId?: string; columnId?: string }> = {}
     if (effectiveManifest.constraints && Array.isArray(effectiveManifest.constraints)) {
       for (const ref of effectiveManifest.constraints) {
@@ -128,14 +150,15 @@ export class ResourceService implements IResourceService {
       }
     }
 
-    // 收集 embedded constraints
+    // === 预处理：收集 embedded constraints 与所属 schema 的映射 ===
+    // embedded constraints 内嵌在 schema YAML 的 constraints 数组中
     const embeddedConstraintMap: Record<string, string> = {}
     if (effectiveManifest.schemas && Array.isArray(effectiveManifest.schemas)) {
       for (const ref of effectiveManifest.schemas) {
         const schema = fullConfig.schemas?.[ref.id]
         if (schema?.constraints && Array.isArray(schema.constraints)) {
           for (const ec of schema.constraints) {
-            // 防止重复拼接 schemaId (如果 ec.id 已经包含了 schemaId 前缀)
+            // 防止重复拼接 schemaId（如果 ec.id 已经包含了 schemaId 前缀）
             const ecId = ec.id.startsWith(`${ref.id}_`) ? ec.id : `${ref.id}_${ec.id}`
             embeddedConstraintMap[ecId] = ref.id
           }
@@ -143,7 +166,8 @@ export class ResourceService implements IResourceService {
       }
     }
 
-    // 收集所有 Regex 节点及其关联的表/列
+    // === 预处理：收集所有 Regex 节点及其关联的表/列 ===
+    // regexNodeMap 用于后续 schema 解析时快速查找关联的 regex 节点
     const regexNodeMap: Record<string, { tableId?: string; columnId?: string }> = {}
     if (fullConfig.regex_nodes) {
       for (const [id, node] of Object.entries(fullConfig.regex_nodes)) {
@@ -155,14 +179,15 @@ export class ResourceService implements IResourceService {
       }
     }
 
-    // 解析Schemas 并关联 Regex 节点和 Constraints
+    // === 阶段 1：解析 Schemas ===
+    // 每个 Schema 需要关联 regex 节点、约束（embedded + independent）、内嵌约束子节点、隐式正则字段
     if (effectiveManifest.schemas && Array.isArray(effectiveManifest.schemas)) {
       for (const ref of effectiveManifest.schemas) {
         const schema = fullConfig.schemas?.[ref.id]
         const listedInManifest = listedSchemaIds.has(ref.id)
         const parseError = schemaErrors[ref.id]
 
-        // 收集关联的 Regex 节点
+        // 收集关联到当前 schema 的 Regex 节点（通过 uses_pattern.table_id 匹配）
         const associatedRegexIds: string[] = []
         for (const [regexId, info] of Object.entries(regexNodeMap)) {
           if (info.tableId === ref.id) {
@@ -170,28 +195,28 @@ export class ResourceService implements IResourceService {
           }
         }
 
-        // 收集关联的 Constraints (包括 embedded 和 independent)
+        // 收集关联到当前 schema 的 Constraints（包括 embedded 和 independent）
         const associatedConstraintIds: string[] = []
 
-        // Embedded constraints
+        // Embedded constraints：通过 embeddedConstraintMap 反向查找
         for (const ecId of Object.keys(embeddedConstraintMap)) {
           if (embeddedConstraintMap[ecId] === ref.id) {
             associatedConstraintIds.push(ecId)
           }
         }
 
-        // Independent constraints
+        // Independent constraints：通过 independentConstraintMap 的 tableId 匹配
         for (const [cId, info] of Object.entries(independentConstraintMap)) {
           if (info.tableId === ref.id) {
             associatedConstraintIds.push(cId)
           }
         }
 
-        // 收集内嵌约束作为子节点
+        // 收集内嵌约束作为 SchemaResource 的子节点（用于资源树展开显示）
         const embeddedConstraints: EmbeddedConstraintResource[] = []
         if (schema?.constraints && Array.isArray(schema.constraints)) {
           for (const ec of schema.constraints) {
-            // 防止重复拼接 schemaId (如果 ec.id 已经包含了 schemaId 前缀)
+            // 防止重复拼接 schemaId（如果 ec.id 已经包含了 schemaId 前缀）
             const resourceId = ec.id.startsWith(`${ref.id}_`) ? ec.id : `${ref.id}_${ec.id}`
             embeddedConstraints.push({
               id: resourceId,
@@ -204,7 +229,7 @@ export class ResourceService implements IResourceService {
           }
         }
 
-        // 收集隐式正则字段信息
+        // 收集隐式正则字段信息（type='regex' 但未指定 validator 的列）
         const implicitRegexFields: ColumnImplicitRegexInfo[] = []
         if (schema?.columns && Array.isArray(schema.columns)) {
           for (const col of schema.columns) {
@@ -216,7 +241,7 @@ export class ResourceService implements IResourceService {
               implicit?: boolean
             }
             const colType = colData.type
-            // 隐式正则：type 为 regex 但没有明确指定 validator
+            // 隐式正则判定：type 为 regex 且没有明确指定 validator
             const isImplicit =
               colType === 'regex' &&
               !colData.validator &&
@@ -226,7 +251,7 @@ export class ResourceService implements IResourceService {
                 columnId: colData.id || '',
                 columnName: colData.name || '',
                 isImplicit: true,
-                inferredPatternId: undefined, // 运行时推断
+                inferredPatternId: undefined, // 运行时推断，此处仅标记
               })
             }
           }
@@ -247,8 +272,8 @@ export class ResourceService implements IResourceService {
       }
     }
 
-    // 解析正则表达式注册表 (regex_registries)
-    // 来自 patterns/ 目录
+    // === 阶段 2：解析正则表达式注册表 (regex_registries) ===
+    // 来自 patterns/ 目录，key 格式可能为 "patterns/xxx" 或直接为 ID
     if (fullConfig.regex_registries) {
       for (const [key, value] of Object.entries(fullConfig.regex_registries)) {
         const registryData = value as { id: string; registry: string; definition: unknown }
@@ -270,9 +295,8 @@ export class ResourceService implements IResourceService {
       }
     }
 
-    // 解析正则表达式节点 (regex_nodes)
+    // === 阶段 3：解析正则表达式节点 (regex_nodes) ===
     // 来自 manifest.regex_nodes 或 regex/ 目录
-    // 注意：空数组 [] 也需要扫描目录
     if (
       effectiveManifest.regex_nodes &&
       Array.isArray(effectiveManifest.regex_nodes) &&
@@ -295,7 +319,8 @@ export class ResourceService implements IResourceService {
       }
     }
 
-    // 解析Constraints
+    // === 阶段 4：解析 Independent Constraints ===
+    // 独立约束文件，通过 manifest.constraints 索引
     if (effectiveManifest.constraints && Array.isArray(effectiveManifest.constraints)) {
       for (const ref of effectiveManifest.constraints) {
         const constraint = fullConfig.constraints?.[ref.id]
@@ -315,7 +340,8 @@ export class ResourceService implements IResourceService {
       }
     }
 
-    // 解析 Schemas 并收集 embedded constraints
+    // === 阶段 5：解析 Embedded Constraints ===
+    // 再次遍历 schemas，将内嵌约束也作为独立的 ConstraintResource 加入资源树
     if (effectiveManifest.schemas && Array.isArray(effectiveManifest.schemas)) {
       const embeddedConstraintIds: string[] = []
       for (const ref of effectiveManifest.schemas) {
@@ -344,7 +370,7 @@ export class ResourceService implements IResourceService {
       }
     }
 
-    // 解析 Templates
+    // === 阶段 6：解析 Templates ===
     if (effectiveManifest.templates && Array.isArray(effectiveManifest.templates)) {
       for (const ref of effectiveManifest.templates) {
         resources.push({
@@ -365,9 +391,13 @@ export class ResourceService implements IResourceService {
   /**
    * 预览资源
    *
-   * 根据资源类型调用对应 API 获取资源详情。
+   * 根据资源类型调用对应 API 或从缓存获取资源详情。
    *
-   * @param resourceKind - 资源类型：schema / pattern / constraint / regex_node
+   * 数据来源：
+   * - schema / regex_node / constraint / template：直接调用后端 API
+   * - pattern：从 cachedFullConfig.regex_registries 缓存中读取（需先调用 loadFullConfig）
+   *
+   * @param resourceKind - 资源类型：schema / pattern / constraint / regex_node / template
    * @param resourceId - 资源唯一标识
    * @param configPath - 项目配置文件路径
    * @returns 资源详情对象
@@ -382,6 +412,7 @@ export class ResourceService implements IResourceService {
       case 'schema':
         return projectV2Api.getV2Schema(resourceId, configPath)
       case 'pattern':
+        // Pattern 预览从缓存读取，避免重复请求（regex_registries 数据已在 loadFullConfig 时获取）
         return this.getPatternFromCache(resourceId)
       case 'regex_node':
         return projectV2Api.getV2RegexNode(resourceId, configPath)
@@ -397,7 +428,9 @@ export class ResourceService implements IResourceService {
   /**
    * 从缓存中获取 pattern (regex_registries) 数据
    *
-   * @param resourceId - Pattern 资源标识
+   * Pattern 资源在 loadFullConfig 时已随完整配置一起返回，因此无需额外 API 请求。
+   *
+   * @param resourceId - Pattern 资源标识（即 regex_registries 中的 key）
    * @returns Pattern 定义数据
    * @throws 当缓存未加载或 Pattern 不存在时抛出错误
    */
@@ -486,5 +519,10 @@ export class ResourceService implements IResourceService {
   }
 }
 
-// 导出单例
+/**
+ * 资源服务全局单例
+ *
+ * 整个应用生命周期内共享同一实例，维护统一的 fullConfig 缓存。
+ * 在资源树加载、预览、重命名、删除等操作中复用。
+ */
 export const resourceService = new ResourceService()

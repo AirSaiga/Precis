@@ -37,7 +37,9 @@ function getStoredFolderState(): Record<string, boolean> {
  * @param expanded - 是否展开
  */
 function saveFolderExpandedState(folderId: string, expanded: boolean): void {
+  // 旧版文件夹 ID 列表（兼容历史持久化数据）
   const oldFolderIds = ['schemas', 'patterns', 'atomic', 'complex', 'constraints']
+  // 新版文件夹 ID 列表（当前资源树结构）
   const newFolderIds = [
     'dataModels',
     'validationAssets',
@@ -77,6 +79,7 @@ function restoreFolderExpandedState(folders: Record<string, ResourceFolder>): vo
     }
   }
 
+  // 恢复二级及以下文件夹的展开状态
   for (const folderId of [
     'schemas',
     'independentConstraints',
@@ -87,6 +90,7 @@ function restoreFolderExpandedState(folders: Record<string, ResourceFolder>): vo
   ]) {
     if (stored[folderId] === undefined) continue
 
+    // 在 dataModels 的子节点中查找匹配项（如 schemas）
     if (folders.dataModels.children) {
       for (const child of folders.dataModels.children) {
         if (child.id === folderId) {
@@ -96,6 +100,8 @@ function restoreFolderExpandedState(folders: Record<string, ResourceFolder>): vo
       }
     }
 
+    // 在 validationAssets 的子节点及孙节点中查找匹配项
+    // （如 independentConstraints、regexCenter/patterns、regexCenter/regex_nodes、templates）
     if (folders.validationAssets.children) {
       for (const child of folders.validationAssets.children) {
         if (child.id === folderId) {
@@ -263,11 +269,17 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
     regexNodes: number
     templates: number
   }): void {
+    // 更新 dataModels 及其子节点 schemas 的计数
     folders.value.dataModels.count = counts.schemas
     if (folders.value.dataModels.children?.[0]) {
       folders.value.dataModels.children[0].count = counts.schemas
     }
 
+    // 更新 validationAssets 的总计数及其子节点计数
+    // validationAssets.children[0] = independentConstraints
+    // validationAssets.children[1] = regexCenter
+    // validationAssets.children[1].children[0] = patterns
+    // validationAssets.children[1].children[1] = regex_nodes
     folders.value.validationAssets.count =
       counts.independentConstraints + counts.patterns + counts.regexNodes + counts.templates
     if (folders.value.validationAssets.children?.[0]) {
@@ -298,16 +310,21 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
     regexNodes: ResourceItem[]
     templates: ResourceItem[]
   }): void {
+    // dataModels.children[0] = schemas
     if (folders.value.dataModels.children?.[0]) {
       folders.value.dataModels.children[0].resources = data.schemas
     }
+    // validationAssets.children[0] = independentConstraints
     if (folders.value.validationAssets.children?.[0]) {
       folders.value.validationAssets.children[0].resources = data.independentConstraints
     }
+    // validationAssets.children[1] = regexCenter
+    // regexCenter.children[0] = patterns, regexCenter.children[1] = regex_nodes
     if (folders.value.validationAssets.children?.[1]?.children) {
       folders.value.validationAssets.children[1].children[0].resources = data.patterns
       folders.value.validationAssets.children[1].children[1].resources = data.regexNodes
     }
+    // templates 是 validationAssets 下的动态子节点，通过 id 查找
     const templatesFolder = folders.value.validationAssets.children?.find((c) => c.id === 'templates')
     if (templatesFolder) {
       templatesFolder.resources = data.templates
@@ -321,15 +338,19 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
    * 并清空计数。通常在切换项目或重置工作区时调用。
    */
   function clearFolders(): void {
+    // 重置所有顶级文件夹为折叠状态
     folders.value.projectConfig.expanded = false
     folders.value.dataModels.expanded = false
+    // 重置 dataModels 子节点（schemas）
     if (folders.value.dataModels.children?.[0]) {
       folders.value.dataModels.children[0].expanded = false
     }
+    // 重置 validationAssets 及其子节点
     folders.value.validationAssets.expanded = false
     if (folders.value.validationAssets.children?.[0]) {
       folders.value.validationAssets.children[0].expanded = false
     }
+    // 重置 regexCenter 及其子节点（patterns、regex_nodes）
     if (folders.value.validationAssets.children?.[1]) {
       folders.value.validationAssets.children[1].expanded = false
       if (folders.value.validationAssets.children[1].children) {
@@ -337,12 +358,14 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
         folders.value.validationAssets.children[1].children[1].expanded = false
       }
     }
+    // 重置 templates 文件夹状态并清空资源
     const templatesFolder = folders.value.validationAssets.children?.find((c) => c.id === 'templates')
     if (templatesFolder) {
       templatesFolder.expanded = false
       templatesFolder.count = 0
       templatesFolder.resources = []
     }
+    // 清空计数
     folders.value.dataModels.count = 0
     folders.value.validationAssets.count = 0
   }

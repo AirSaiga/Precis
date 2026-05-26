@@ -22,8 +22,19 @@ import { logger } from '@/core/utils/logger'
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+/**
+ * 判断路径是否为绝对路径
+ *
+ * 支持 Windows 盘符路径（如 C:\\path）和 Unix 绝对路径（如 /path）。
+ * 相对路径（如 ./path、../path、path/to/file）返回 false。
+ *
+ * @param input - 待判断的路径字符串
+ * @returns 是否为绝对路径
+ */
 function isAbsolutePath(input: string): boolean {
   if (!input) return false
+  // Windows 绝对路径：以盘符开头（如 C:\\ 或 D:/）
+  // Unix/Linux/macOS 绝对路径：以斜杠开头
   return /^[a-zA-Z]:[\\/]/.test(input) || input.startsWith('/')
 }
 

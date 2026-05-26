@@ -356,6 +356,9 @@ export async function checkSchemaConflict(
 
 /**
  * 删除指定 Schema 资源（移除文件并更新 manifest）
+ *
+ * @param tableId - 表 ID
+ * @param configPath - 项目配置文件路径（可选）
  */
 export async function deleteV2Schema(tableId: string, configPath?: string): Promise<void> {
   await apiClient.delete(
@@ -366,6 +369,10 @@ export async function deleteV2Schema(tableId: string, configPath?: string): Prom
 
 /**
  * 更新 Schema 展示名（不改变 id）
+ *
+ * @param tableId - 表 ID
+ * @param name - 新的展示名称
+ * @param configPath - 项目配置文件路径（可选）
  */
 export async function updateV2SchemaDisplayName(
   tableId: string,
@@ -418,6 +425,9 @@ export async function putV2Constraint(
 
 /**
  * 删除指定 Constraint 资源（移除文件并更新 manifest）
+ *
+ * @param constraintId - 约束 ID
+ * @param configPath - 项目配置文件路径（可选）
  */
 export async function deleteV2Constraint(constraintId: string, configPath?: string): Promise<void> {
   await apiClient.delete(
@@ -428,6 +438,10 @@ export async function deleteV2Constraint(constraintId: string, configPath?: stri
 
 /**
  * 更新 Constraint 展示名（写入 description，不改变 id）
+ *
+ * @param constraintId - 约束 ID
+ * @param name - 新的展示名称
+ * @param configPath - 项目配置文件路径（可选）
  */
 export async function updateV2ConstraintDisplayName(
   constraintId: string,
@@ -499,6 +513,9 @@ export async function putV2TransformNode(
 
 /**
  * 删除指定 Regex 资源（移除文件并更新 manifest）
+ *
+ * @param regexId - 正则节点 ID
+ * @param configPath - 项目配置文件路径（可选）
  */
 export async function deleteV2RegexNode(regexId: string, configPath?: string): Promise<void> {
   await apiClient.delete(
@@ -509,6 +526,10 @@ export async function deleteV2RegexNode(regexId: string, configPath?: string): P
 
 /**
  * 更新 Regex 展示名（写入 name，不改变 id）
+ *
+ * @param regexId - 正则节点 ID
+ * @param name - 新的展示名称
+ * @param configPath - 项目配置文件路径（可选）
  */
 export async function updateV2RegexNodeDisplayName(
   regexId: string,
@@ -522,11 +543,17 @@ export async function updateV2RegexNodeDisplayName(
   )
 }
 
+// 从 types/api 导入并重新导出 Pattern 相关类型，
+// 供调用方统一从 projectV2Api 模块获取类型定义
 import type { CreatePatternRequest, CreatePatternResponse } from '@/types/api'
 export type { CreatePatternRequest, CreatePatternResponse } from '@/types/api'
 
 /**
  * 创建新的 Pattern 文件
+ *
+ * @param payload - Pattern 创建请求体
+ * @param configPath - 项目配置文件路径（可选）
+ * @returns 创建结果（含文件路径和名称）
  */
 export async function createV2Pattern(
   payload: CreatePatternRequest,
@@ -542,6 +569,10 @@ export async function createV2Pattern(
 
 /**
  * 检查 Pattern 名称是否已存在
+ *
+ * @param patternName - Pattern 名称
+ * @param configPath - 项目配置文件路径（可选）
+ * @returns 名称及是否存在标志
  */
 export async function checkV2PatternExists(
   patternName: string,
@@ -556,6 +587,9 @@ export async function checkV2PatternExists(
 
 /**
  * 获取项目视图文件（画布布局）
+ *
+ * @param configPath - 项目配置文件路径（可选）
+ * @returns 项目视图对象（含节点位置信息）
  */
 export async function getV2ProjectView(configPath?: string): Promise<ProjectViewV2> {
   const { data } = await apiClient.get<ProjectViewV2>(
@@ -586,6 +620,12 @@ export async function putV2ProjectView(view: ProjectViewV2, configPath?: string)
 // Template（可复用约束模板）API
 // ============================================================================
 
+/**
+ * 模板列表项接口
+ *
+ * 描述资源树中展示的模板元数据，
+ * 包含模板的基本信息及参数/节点数量统计。
+ */
 export interface TemplateListItem {
   id: string
   name: string
@@ -595,6 +635,12 @@ export interface TemplateListItem {
   path: string
 }
 
+/**
+ * 模板展开结果接口
+ *
+ * 描述模板实例展开后生成的子节点集合，
+ * 用于前端在画布上 materialize 展开后的 DAG。
+ */
 export interface TemplateExpandResult {
   transforms: Record<string, unknown>[]
   constraints: Record<string, unknown>[]
@@ -603,6 +649,9 @@ export interface TemplateExpandResult {
 
 /**
  * 列出所有模板定义
+ *
+ * @param configPath - 项目配置文件路径（可选）
+ * @returns 模板列表数组
  */
 export async function listV2Templates(configPath?: string): Promise<TemplateListItem[]> {
   const { data } = await apiClient.get<TemplateListItem[]>(
@@ -719,6 +768,8 @@ export async function updateV2ManifestTemplateInstanceRef(
 
 /**
  * 获取项目设置（从 project.precis.yaml 的 settings 字段）
+ *
+ * @returns 项目设置对象（含 validation/file_processing/script_security）
  */
 export async function getProjectSettings(): Promise<ProjectSettings> {
   const { data } = await apiClient.get<ProjectSettings>('/project/v2/config/settings')
@@ -727,6 +778,8 @@ export async function getProjectSettings(): Promise<ProjectSettings> {
 
 /**
  * 更新项目设置（保存到 project.precis.yaml 的 settings 字段）
+ *
+ * @param settings - 项目设置对象
  */
 export async function updateProjectSettings(settings: ProjectSettings): Promise<void> {
   await apiClient.put('/project/v2/config/settings', settings)
@@ -734,6 +787,8 @@ export async function updateProjectSettings(settings: ProjectSettings): Promise<
 
 /**
  * 获取校验行为设置
+ *
+ * @returns 校验行为设置对象
  */
 export async function getValidationSettings(): Promise<ValidationSettings> {
   const { data } = await apiClient.get<ValidationSettings>('/project/v2/config/validation')
@@ -742,6 +797,8 @@ export async function getValidationSettings(): Promise<ValidationSettings> {
 
 /**
  * 更新校验行为设置
+ *
+ * @param settings - 校验行为设置对象
  */
 export async function updateValidationSettings(settings: ValidationSettings): Promise<void> {
   await apiClient.put('/project/v2/config/validation', settings)
@@ -749,6 +806,8 @@ export async function updateValidationSettings(settings: ValidationSettings): Pr
 
 /**
  * 获取文件处理设置
+ *
+ * @returns 文件处理设置对象
  */
 export async function getFileProcessingSettings(): Promise<FileProcessingSettings> {
   const { data } = await apiClient.get<FileProcessingSettings>('/project/v2/config/file-processing')
@@ -757,6 +816,8 @@ export async function getFileProcessingSettings(): Promise<FileProcessingSetting
 
 /**
  * 更新文件处理设置
+ *
+ * @param settings - 文件处理设置对象
  */
 export async function updateFileProcessingSettings(
   settings: FileProcessingSettings
@@ -766,6 +827,8 @@ export async function updateFileProcessingSettings(
 
 /**
  * 获取脚本安全设置
+ *
+ * @returns 脚本安全设置对象
  */
 export async function getScriptSecuritySettings(): Promise<ScriptSecuritySettings> {
   const { data } = await apiClient.get<ScriptSecuritySettings>('/project/v2/config/script-security')
@@ -774,6 +837,8 @@ export async function getScriptSecuritySettings(): Promise<ScriptSecuritySetting
 
 /**
  * 更新脚本安全设置
+ *
+ * @param settings - 脚本安全设置对象
  */
 export async function updateScriptSecuritySettings(
   settings: ScriptSecuritySettings
@@ -783,6 +848,9 @@ export async function updateScriptSecuritySettings(
 
 /**
  * 获取 V2 工作区配置
+ *
+ * @param configPath - 项目配置文件路径（可选）
+ * @returns 工作区配置响应对象
  */
 export async function getV2Workspaces(configPath?: string): Promise<WorkspacesV2Response> {
   const { data } = await apiClient.get<WorkspacesV2Response>(
@@ -794,6 +862,9 @@ export async function getV2Workspaces(configPath?: string): Promise<WorkspacesV2
 
 /**
  * 保存 V2 工作区配置
+ *
+ * @param payload - 工作区配置请求对象
+ * @param configPath - 项目配置文件路径（可选）
  */
 export async function putV2Workspaces(
   payload: WorkspacesV2Response,

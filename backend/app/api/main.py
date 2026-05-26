@@ -145,6 +145,7 @@ import re
 # - 便于追踪和审计谁可以访问 API
 # - 提高安全性
 # - 支持动态端口：使用正则表达式匹配 127.0.0.1 和 localhost 的任意端口
+# [安全考量] 生产环境应限制为具体域名，避免开放过多来源
 origins = [
     # 后端自检（动态端口范围）
     "http://127.0.0.1:8000",
@@ -196,15 +197,16 @@ app.add_middleware(RequestLoggingMiddleware)
 # 注册各功能模块的路由
 # [FastAPI] include_router 将路由添加到应用
 # 路由顺序不影响匹配，FastAPI 使用最长前缀匹配
-app.include_router(project_router)
-app.include_router(ai_router)
-app.include_router(regex_router)
-app.include_router(reporting_router)
-app.include_router(preview_router)
-app.include_router(data_sources_router)
-app.include_router(validation_router)
-app.include_router(connection_rules_router)
-app.include_router(whitelist_router)
+# 【路由列表】按功能模块分组，便于维护和扩展
+app.include_router(project_router)      # 项目管理路由（V2 配置读写）
+app.include_router(ai_router)           # AI 辅助路由（智能提示、生成）
+app.include_router(regex_router)        # 正则表达式路由（测试、验证）
+app.include_router(reporting_router)    # 报告路由（校验结果导出）
+app.include_router(preview_router)      # 预览路由（数据预览、Schema 预览）
+app.include_router(data_sources_router) # 数据源路由（文件上传、加载）
+app.include_router(validation_router)   # 校验路由（执行校验、获取结果）
+app.include_router(connection_rules_router) # 连接规则路由（画布连线规则）
+app.include_router(whitelist_router)    # 白名单路由（IP 访问控制）
 
 # ============================================================================
 # 根路径端点

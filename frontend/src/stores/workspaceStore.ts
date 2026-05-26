@@ -202,19 +202,35 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     return newSource.id
   }
 
-  /** 从工作区移除指定数据源 @param sourceId - 数据源 ID（非 fileId） */
+  /**
+   * 从工作区移除指定数据源
+   *
+   * 从 recent_data_sources 列表中删除对应数据源，并立即保存配置。
+   *
+   * @param sourceId - 数据源唯一 ID（非 fileId）
+   */
   async function removeDataSource(sourceId: string) {
     const index = config.value.recent_data_sources.findIndex((ds) => ds.id === sourceId)
     if (index !== -1) {
+      // 从数组中移除该数据源
       config.value.recent_data_sources.splice(index, 1)
+      // 同步更新后端配置文件
       await saveConfig()
     }
   }
 
-  /** 整体替换指定数据源（用于外部修改后写回） @param sourceId - 数据源 ID @param updatedDataSource - 替换后的完整对象 */
+  /**
+   * 整体替换指定数据源（用于外部修改后写回）
+   *
+   * 当数据源属性在外部被批量修改后，调用此方法将修改后的完整对象写回 store。
+   *
+   * @param sourceId - 数据源唯一 ID
+   * @param updatedDataSource - 替换后的完整数据源对象
+   */
   async function updateDataSource(sourceId: string, updatedDataSource: ExternalDataSource) {
     const index = config.value.recent_data_sources.findIndex((ds) => ds.id === sourceId)
     if (index !== -1) {
+      // 直接替换数组中的对象引用
       config.value.recent_data_sources[index] = updatedDataSource
       await saveConfig()
     }
@@ -223,16 +239,21 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   /**
    * 更新数据源的可用状态（通常在文件系统检测后调用）
    *
-   * @param sourceId - 数据源 ID
+   * 根据文件是否存在设置数据源状态为 ready 或 missing，
+   * 文件不存在时自动填充默认错误信息。
+   *
+   * @param sourceId - 数据源唯一 ID
    * @param exists - 文件是否存在
-   * @param error - 可选的错误描述
+   * @param error - 可选的自定义错误描述
    */
   async function updateDataSourceStatus(sourceId: string, exists: boolean, error?: string) {
     const source = config.value.recent_data_sources.find((ds) => ds.id === sourceId)
     if (source) {
+      // 根据文件存在性设置状态
       source.status = exists ? 'ready' : 'missing'
       source.error = error
       if (!exists) {
+        // 未提供错误信息时，使用国际化默认提示
         source.error = error || i18n.global.t('common.fileNotFound')
       }
       await saveConfig()
@@ -242,22 +263,32 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   /**
    * 为数据源设置别名（同时更新 alias_mappings 映射表）
    *
-   * @param sourceId - 数据源 ID
+   * 别名用于在 UI 中显示更友好的数据源名称，替代原始文件名。
+   * 设置别名后会同步更新 alias_mappings，确保一致性。
+   *
+   * @param sourceId - 数据源唯一 ID
    * @param alias - 用户自定义的显示别名
    */
   async function setDataSourceAlias(sourceId: string, alias: string) {
     const source = config.value.recent_data_sources.find((ds) => ds.id === sourceId)
     if (source) {
       source.alias = alias
+      // 同步更新映射表，便于通过 fileId 快速查找别名
       config.value.alias_mappings[source.fileId] = alias
       await saveConfig()
     }
   }
 
-  /** 获取数据源显示名称（优先别名，回退文件名） @param sourceId - 数据源 ID @returns 显示名称 */
+  /**
+   * 获取数据源显示名称（优先别名，回退文件名）
+   *
+   * @param sourceId - 数据源唯一 ID
+   * @returns 显示名称。未找到时返回 'Unknown Source'
+   */
   function getDataSourceDisplayName(sourceId: string): string {
     const source = config.value.recent_data_sources.find((ds) => ds.id === sourceId)
     if (!source) return 'Unknown Source'
+    // 优先返回用户设置的别名，无别名时回退到原始文件名
     return source.alias || source.name
   }
 
@@ -309,18 +340,21 @@ export const useWorkspaceStore = defineStore('workspace', () => {
    * 批量检测所有数据源的文件可用状态
    *
    * 遍历所有数据源，通过 Electron 文件系统 API 检测文件是否存在，
-   * 用于应用启动时校验数据源完整性。
+   * 用于应用启动时校验数据源完整性，自动标记缺失的文件。
    */
   async function checkAllDataSourceStatus() {
     for (const source of config.value.recent_data_sources) {
       try {
+        // 优先使用 localPath，回退到 fileId 作为检测路径
         const filePath = source.localPath || source.fileId
         const exists = filePath ? await checkFileExists(filePath) : false
         source.status = exists ? 'ready' : 'missing'
         if (exists) {
+          // 文件恢复存在时，清除之前的错误信息
           source.error = undefined
         }
       } catch (error) {
+        // 检测过程发生异常（如权限不足），标记为 missing
         source.status = 'missing'
         source.error = error instanceof Error ? error.message : i18n.global.t('common.unknownError')
       }
@@ -328,13 +362,22 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     await saveConfig()
   }
 
-  /** 清空所有数据源（用于重置工作区或切换项目时清理旧数据） */
+  /**
+   * 清空所有数据源
+   *
+   * 用于重置工作区或切换项目时清理旧项目残留的数据源数据，
+   * 清空后立即保存配置。
+   */
   async function clearAllDataSources() {
     config.value.recent_data_sources = []
     await saveConfig()
   }
 
-  /** 将工作区配置导出为 JSON 字符串（用于调试或备份） @returns 格式化后的 JSON */
+  /**
+   * 将工作区配置导出为 JSON 字符串（用于调试或备份）
+   *
+   * @returns 格式化后的 JSON 字符串，缩进为 2 个空格
+   */
   function exportConfigAsYAML(): string {
     return JSON.stringify(config.value, null, 2)
   }
@@ -344,6 +387,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   /**
    * 初始化工作区配置（应用启动时调用）
    *
+   * 从后端加载工作区配置，并将旧配置中的相对路径统一转换为绝对路径。
    * 加载失败时回退到默认配置，确保应用不会因配置错误而崩溃。
    */
   async function initialize() {
@@ -360,6 +404,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       if (projectRoot && config.value.recent_data_sources.length > 0) {
         let needsSave = false
         for (const ds of config.value.recent_data_sources) {
+          // 处理 fileId：相对路径 → 绝对路径
           if (ds.fileId && !isAbsolutePath(ds.fileId)) {
             const resolved = resolveRelativePath(ds.fileId, projectRoot)
             if (resolved && isAbsolutePath(resolved)) {
@@ -375,6 +420,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
               needsSave = true
             }
           }
+          // 处理 localPath：相对路径 → 绝对路径
           if (ds.localPath && !isAbsolutePath(ds.localPath)) {
             const resolved = resolveRelativePath(ds.localPath, projectRoot)
             if (resolved && isAbsolutePath(resolved)) {
@@ -414,12 +460,18 @@ export const useWorkspaceStore = defineStore('workspace', () => {
       )
     } catch (error) {
       logger.error('[WorkspaceStore] 初始化工作区配置失败:', error)
+      // 加载失败时回退到默认空配置，避免应用崩溃
       config.value = createDefaultConfig()
     }
   }
 
   /**
    * 获取数据源列表（安全访问，自动解包 ComputedRef）
+   *
+   * 使用 unref 自动处理 ComputedRef 和普通 ref 的解包，
+   * 返回空数组作为兜底，避免外部调用时出现 undefined。
+   *
+   * @returns 当前所有数据源的数组
    */
   function getDataSources(): ExternalDataSource[] {
     return unref(dataSources) || []

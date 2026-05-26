@@ -48,6 +48,13 @@ class ValidationOptions:
 
     用于配置校验执行的可选参数，支持前端覆盖配置。
     包含超时控制、错误处理策略、严格模式、表过滤等设置。
+
+    属性:
+        timeout_seconds: 超时时间（秒），默认 30 秒
+        error_handling: 错误处理策略，"continue" 表示遇到错误继续执行
+        strict_mode: 严格模式，True 时任何错误都视为校验失败
+        allow_unsafe_eval: 是否允许不安全脚本执行，None 表示使用项目配置
+        table_filter: 表过滤列表，只校验指定表相关的约束
     """
 
     def __init__(
@@ -83,25 +90,34 @@ class ValidationExecutor:
         manifest_path: str,
         settings_override: Any = None,
     ):
+        # 校验清单文件存在性
+        # 【防御性编程】在初始化阶段即检查文件是否存在，避免后续操作失败
         if not os.path.exists(manifest_path):
             raise FileNotFoundError(f"项目配置文件未找到: {manifest_path}")
 
+        # 解析项目根目录并加载项目配置
+        # 【数据流】manifest_path → project_root → load_project → LoadedProject
         self.project_root = os.path.dirname(manifest_path)
         self.loaded_project: LoadedProject = load_project(manifest_path)
         self.dataset_schema: DataSetSchema = self.loaded_project.dataset_schema
         self.settings = self.loaded_project.manifest.settings
         self.manifest = self.loaded_project.manifest
 
+        # 应用前端或 CLI 传入的设置覆盖值
+        # 【配置优先级】settings_override > 项目配置 > 默认值
         if settings_override:
             self._apply_settings_override(settings_override)
 
+        # 构建表 ID 到 Schema 文件的映射，便于快速查找
         self._schema_by_id: dict[str, TableSchemaFile] = dict(self.loaded_project.schema_files)
 
+        # 初始化数据源解析器，负责将相对路径解析为绝对路径
         self._resolver = DataSourceResolver(
             project_root=self.project_root,
             manifest=self.manifest,
             schema_by_id=self._schema_by_id,
         )
+        # 初始化数据加载器，负责批量加载数据文件
         self._data_loader = DataLoader(
             resolver=self._resolver,
             dataset_schema=self.dataset_schema,
@@ -241,6 +257,16 @@ class ValidationExecutor:
         @methoddesc 执行完整校验流程
 
         编排数据加载、格式解析、约束校验和结果后处理的完整流程。
+        采用分阶段执行策略，每个阶段后检查超时条件。
+
+        执行流程:
+            Step 1: 加载数据源（通过 DataLoader）
+            Step 2: 检查加载阶段超时
+            Step 3: 检查数据加载成功
+            Step 4: 确定脚本安全执行策略
+            Step 5: 执行格式解析和约束校验（调用 engine.validate_full_dataset）
+            Step 6: 结果后处理（ID→Name 映射 + 数据源信息附加）
+            Step 7: 检查校验阶段超时
 
         参数:
             data_directory: 数据文件所在目录
@@ -259,6 +285,7 @@ class ValidationExecutor:
         if options is None:
             options = ValidationOptions()
 
+        # 记录开始时间，用于计算总耗时和超时检查
         started = time.monotonic()
         result: dict[str, Any] = {
             "raw_datasets": {},
@@ -271,6 +298,7 @@ class ValidationExecutor:
         }
 
         # Step 1: 加载数据源
+        # 【职责委托】通过 DataLoader 批量加载数据文件，支持多表并行加载
         raw_datasets, loading_errors = self._data_loader.load_data_sources(
             data_directory, table_filter=options.table_filter
         )
@@ -278,12 +306,14 @@ class ValidationExecutor:
         result["loading_errors"] = loading_errors
 
         # 追加项目加载阶段的错误
+        # 【错误聚合】将项目配置加载阶段的错误一并返回
         for err in self.loaded_project.loading_errors:
             result["loading_errors"].append(err.to_dict())
 
         result["warnings"] = self.loaded_project.warnings
 
         # Step 2: 检查加载阶段是否超时
+        # 【超时检查】在关键阶段后检查耗时，避免长时间阻塞
         if (time.monotonic() - started) > options.timeout_seconds:
             result["errors"].append(
                 {"error_type": "Timeout", "message": f"数据加载阶段超时（>{options.timeout_seconds}s）"}
@@ -293,6 +323,7 @@ class ValidationExecutor:
             return result
 
         # Step 3: 检查数据是否加载成功
+        # 【前置条件】无数据时直接返回，避免后续无意义计算
         if not raw_datasets:
             result["errors"].append(
                 {"error_type": "DataLoadingError", "message": "未能从数据目录加载任何数据表，校验中止。"}
@@ -301,6 +332,7 @@ class ValidationExecutor:
             return result
 
         # Step 4: 确定脚本安全执行策略
+        # 【配置优先级】options.allow_unsafe_eval > manifest.script_security > 默认 False
         # 安全访问 script_security，避免 manifest 缺少该节时崩溃（M5）
         script_security = getattr(self.settings, "script_security", None)
         if options.allow_unsafe_eval is not None:
@@ -316,6 +348,7 @@ class ValidationExecutor:
         logger.debug(f"Starting validate_full_dataset with {len(raw_datasets)} datasets")
 
         # Step 5: 执行格式解析和约束校验
+        # 【核心逻辑】调用 engine.validate_full_dataset 执行两阶段校验
         try:
             parsed_datasets, validation_errors, validation_details = validate_full_dataset(
                 raw_datasets,
@@ -333,25 +366,31 @@ class ValidationExecutor:
         result["validation_details"] = validation_details
 
         # Step 6: 将结果中的表 ID 映射为显示名称，并附加数据源信息
+        # 【后处理】将内部表 ID 替换为用户友好的名称，附加数据源文件信息
         id_to_name = self._build_id_to_name_map(self.dataset_schema)
         table_source_map = self._build_table_source_map()
 
+        # 处理 errors 列表中的表 ID 映射和数据源信息附加
         for error in result["errors"]:
             self._map_table_id(error, id_to_name)
             self._attach_source_info(error, table_source_map)
+        # 处理 loading_errors 列表
         for error in result["loading_errors"]:
             self._map_table_id(error, id_to_name)
             self._attach_source_info(error, table_source_map)
+        # 处理 validation_details 中的 format_checks
         if "format_checks" in result["validation_details"]:
             for item in result["validation_details"]["format_checks"]:
                 self._map_table_id(item, id_to_name)
                 self._attach_source_info(item, table_source_map)
+        # 处理 validation_details 中的 constraint_checks
         if "constraint_checks" in result["validation_details"]:
             for item in result["validation_details"]["constraint_checks"]:
                 self._map_table_id(item, id_to_name)
                 self._attach_source_info(item, table_source_map)
 
         # Step 7: 检查校验阶段是否超时
+        # 【超时检查】在校验完成后再次检查总耗时
         if (time.monotonic() - started) > options.timeout_seconds:
             result["errors"].append(
                 {"error_type": "Timeout", "message": f"数据校验阶段超时（>{options.timeout_seconds}s）"}

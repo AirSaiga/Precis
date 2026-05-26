@@ -409,18 +409,34 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
     syncTabsToBackend()
   }
 
-  /** 标记指定工作区为已保存状态（清除脏标记） */
+  /**
+   * 标记指定工作区为已保存状态（清除脏标记）
+   *
+   * 脏标记用于在 Tab 标题栏显示未保存指示（如 ● 符号）。
+   * 通常在用户显式保存（Ctrl+S）或自动保存成功后调用。
+   *
+   * @param tabId - 目标工作区 ID
+   */
   function markTabSaved(tabId: string) {
     const tab = tabs.value.find((w) => w.id === tabId)
     if (tab) {
+      // 清除脏标记，Tab 标题栏不再显示未保存指示
       tab.hasUnsavedChanges = false
     }
   }
 
-  /** 标记指定工作区为有未保存更改（显示脏标记） */
+  /**
+   * 标记指定工作区为有未保存更改（显示脏标记）
+   *
+   * 当用户修改画布内容（添加/删除节点、修改连接等）时调用，
+   * 提示用户当前工作区有未保存的更改。
+   *
+   * @param tabId - 目标工作区 ID
+   */
   function markTabDirty(tabId: string) {
     const tab = tabs.value.find((w) => w.id === tabId)
     if (tab) {
+      // 设置脏标记，Tab 标题栏显示未保存指示（如 ●）
       tab.hasUnsavedChanges = true
     }
   }
@@ -437,18 +453,31 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
     await syncTabsToBackend()
   }
 
-  /** 获取工作区列表的浅拷贝引用（用于 UI 渲染） */
+  /**
+   * 获取工作区列表的浅拷贝引用（用于 UI 渲染）
+   *
+   * 返回 tabs 数组的浅拷贝，避免外部直接修改内部数组引用，
+   * 同时保持响应性以便 Vue 的模板系统能够追踪变化。
+   *
+   * @returns 当前所有工作区的浅拷贝数组
+   */
   function getTabList() {
-    return tabs.value
+    // 使用展开运算符创建浅拷贝，保留响应性引用
+    return [...tabs.value]
   }
 
   /**
    * 重排工作区顺序（拖拽排序后调用）
    *
-   * 直接用新顺序替换原数组，然后同步到后端。
+   * 用户通过拖拽 Tab 栏重新排列工作区顺序后，
+   * 调用此方法用新顺序替换原数组，并同步到后端持久化。
+   *
+   * @param newOrder - 重新排序后的工作区数组
    */
   function reorderTabs(newOrder: CanvasTab[]) {
+    // 创建新数组引用，触发 Vue 的响应式更新
     tabs.value = [...newOrder]
+    // 同步新顺序到后端配置文件
     syncTabsToBackend()
   }
 

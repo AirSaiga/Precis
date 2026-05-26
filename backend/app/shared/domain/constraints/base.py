@@ -72,14 +72,19 @@ class Constraint(ABC):
 
         抽象方法，子类必须实现具体的验证逻辑。
 
-        参数:
-            datasets: 数据集字典，键为表名，值为对应的 pandas DataFrame
-            **kwargs: 额外的关键字参数，供子类按需使用
+        Args:
+            datasets: 数据集字典，键为表名，值为对应的 pandas DataFrame。
+                      包含验证所需的全部数据，子类从中读取目标表进行校验。
+            **kwargs: 额外的关键字参数，供子类按需使用。
+                      例如：上下文信息、配置参数等。
 
-        返回:
-            验证结果字典，通常包含:
-                - errors: 错误列表，每个元素是一个描述错误的字典
+        Returns:
+            验证结果字典，通常包含以下字段:
+                - errors: 错误列表，每个元素是一个描述错误的字典，包含 row、column、message 等键
                 - info: 约束的基本信息（通过 get_constraint_info() 获取）
+
+        Raises:
+            子类实现中可根据需要抛出异常，但推荐将错误收集到 errors 列表中返回。
 
         注意:
             子类必须重写此方法，否则无法实例化。
@@ -93,13 +98,16 @@ class Constraint(ABC):
 
         返回约束的类型、作用表和描述等元信息，用于日志记录和错误报告。
 
-        返回:
+        Returns:
             包含以下字段的字典:
                 - constraint_type: 约束类名
                 - table: 约束作用的表名（优先取 self.table，否则取 self.from_table）
                 - description: 约束的描述信息
         """
 
+        # 构建约束元信息字典
+        # table 字段的取值优先级：self.table > self.from_table > None
+        # 不同约束子类可能使用不同属性名存储目标表名，此处做兼容处理
         return {
             "constraint_type": self.__class__.__name__,
             "table": getattr(self, "table", getattr(self, "from_table", None)),
@@ -112,8 +120,9 @@ class Constraint(ABC):
 
         默认实现返回 "{类名} 约束"，子类可重写以提供更具体的描述。
 
-        返回:
+        Returns:
             约束的描述字符串
         """
 
+        # 默认描述格式：直接使用类名拼接，子类可覆盖以提供业务语义更明确的描述
         return f"{self.__class__.__name__} 约束"

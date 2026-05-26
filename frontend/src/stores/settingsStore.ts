@@ -51,6 +51,16 @@ export {
 // 让调用方无需关心内部分拆细节。
 // ============================================================================
 
+/**
+ * 设置面板门面 Store 工厂函数
+ *
+ * 采用门面模式（Facade Pattern），将三个子 Store 的状态和方法聚合为单一 API：
+ * - settingsNavStore：面板导航、可见性、搜索
+ * - settingsPreferencesStore：通用偏好、脚本设置、开发设置、localStorage 持久化
+ * - projectSettingsStore：项目设置 API（后端 YAML 持久化）
+ *
+ * 调用方只需导入 useSettingsStore，无需关心内部子 Store 的分拆细节。
+ */
 export const useSettingsStore = defineStore('settings', () => {
   // --- 子 Store 实例化 ---
   const navStore = useSettingsNavStore()
@@ -91,6 +101,12 @@ export const useSettingsStore = defineStore('settings', () => {
     scriptSecuritySettings,
   } = storeToRefs(projStore)
 
+  // --- 导出 ---
+  /**
+   * 门面 Store 对外暴露的聚合状态与操作方法
+   *
+   * 按职责分区：导航 / 偏好设置 / 项目设置 / 快捷 Computed / 控制方法
+   */
   return {
     // 可见性 & 导航
     visible,

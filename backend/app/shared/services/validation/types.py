@@ -148,7 +148,7 @@ class ValidationResult:
         """
         @methoddesc 初始化校验结果实例
 
-        参数:
+        Args:
             is_valid: 校验是否通过
                 - True: 所有数据符合规则，error_count 应为 0
                 - False: 存在不符合规则的数据
@@ -185,7 +185,7 @@ class ValidationResult:
         # 【用途】唯一性校验时显示唯一值数量
         self.match_count = match_count
 
-        # 错误行详情列表，默认为空列表避免空引用
+        # 错误行详情列表，使用 or [] 处理 None 传入，避免后续遍历时空引用异常
         # 【关键数据流】包含错误位置的详细信息，供前端定位问题
         self.error_rows = error_rows or []
 

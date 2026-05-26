@@ -21,16 +21,31 @@
 // L3 - 内部类型（前端使用）
 // ============================================================================
 
+/**
+ * Regex 节点内部配置（L3 - 前端内部使用）。
+ *
+ * 存储 Regex 节点的前端专用内部配置，不直接暴露给用户编辑。
+ */
 export interface RegexNodeInternalV2 {
+  /** 正则参数列表 */
   parameters: Array<Record<string, unknown>>
+  /** 正则规则列表 */
   rules: Array<Record<string, unknown>>
+  /** 源引用信息 */
   source_ref?: RegexSourceRefV2
+  /** 正则标志位（如 'g', 'i', 'm' 等） */
   flags: string
+  /** 是否区分大小写 */
   case_sensitive: boolean
 }
 
+/**
+ * Schema 内部配置（L3 - 前端内部使用）。
+ */
 export interface SchemaInternalV2 {
+  /** 是否展开列详情面板 */
   expand: boolean
+  /** 脚本检查配置列表 */
   script_checks: Array<Record<string, unknown>>
 }
 
@@ -38,69 +53,144 @@ export interface SchemaInternalV2 {
 // L1 - 核心类型（用户需要理解）
 // ============================================================================
 
+/**
+ * 数据源路径模式。
+ *
+ * @values
+ * - 'relative_file': 相对项目目录的文件路径
+ * - 'absolute_file': 本地文件系统的绝对路径
+ */
 export type SourceModeV2 = 'relative_file' | 'absolute_file'
 
+/**
+ * 项目基本信息。
+ */
 export interface ProjectInfoV2 {
+  /** 项目唯一标识符 */
   id: string
+  /** 项目名称 */
   name: string
 }
 
 /**
- * JSON 格式选项（对应后端 JSONOptions）
+ * JSON 格式选项（对应后端 JSONOptions）。
+ *
+ * 用于配置 pandas read_json 的解析行为。
  */
 export interface JSONOptionsV2 {
+  /**
+   * JSON 格式变体
+   * @values
+   * - 'auto': 自动检测
+   * - 'array': JSON 数组格式
+   * - 'lines': JSON Lines 格式
+   * - 'object': JSON 对象格式
+   */
   format?: 'auto' | 'array' | 'lines' | 'object'
+  /** JSONPath 表达式，用于从嵌套 JSON 中提取数据 */
   json_path?: string
+  /** record_path，用于 pandas read_json 的 record_path 参数 */
   record_path?: string
+  /** 元数据前缀，用于区分元数据列 */
   meta_prefix?: string
+  /** 分隔符（用于 lines 格式） */
   sep?: string
+  /** 列数据类型映射 */
   dtype?: Record<string, string>
 }
 
 /**
- * CSV 格式选项
+ * CSV 格式选项。
+ *
+ * 用于配置 pandas read_csv 的解析行为。
  */
 export interface CSVOptionsV2 {
+  /** 字段分隔符 */
   delimiter?: string
+  /** 引号字符 */
   quotechar?: string
+  /** 转义字符 */
   escapechar?: string
+  /** 文件编码 */
   encoding?: string
+  /** 跳过的行数 */
   skip_rows?: number
+  /**
+   * 遇到坏行时的处理方式
+   * @values
+   * - 'error': 抛出错误
+   * - 'warn': 发出警告并跳过
+   * - 'skip': 静默跳过
+   */
   on_bad_lines?: 'error' | 'warn' | 'skip'
 }
 
 /**
- * Excel 格式选项
+ * Excel 格式选项。
+ *
+ * 用于配置 pandas read_excel 的解析行为。
  */
 export interface ExcelOptionsV2 {
+  /**
+   * Excel 解析引擎
+   * @values
+   * - 'openpyxl': 现代 Excel 格式（.xlsx）
+   * - 'xlrd': 旧版 Excel 格式（.xls）
+   */
   engine?: 'openpyxl' | 'xlrd'
+  /** 是否启用数据类型推断 */
   dtype_inference?: boolean
 }
 
 /**
- * 格式选项联合类型
+ * 格式选项联合类型。
+ *
+ * 根据数据源类型选择对应的格式选项配置。
  */
 export type FormatOptionsV2 = JSONOptionsV2 | CSVOptionsV2 | ExcelOptionsV2
 
+/**
+ * 数据源规格定义。
+ *
+ * 描述 Schema 所引用的外部数据源文件的位置和解析方式。
+ */
 export interface SourceSpecV2 {
+  /** 路径模式：相对路径或绝对路径 */
   mode: SourceModeV2
+  /** 文件路径 */
   path: string
+  /** Excel Sheet 名称（仅 Excel 有效） */
   sheet?: string
+  /** 表头所在行索引（0-based） */
   header_row: number
-  /** 格式特定选项（JSON/CSV/Excel）*/
+  /** 格式特定选项（JSON/CSV/Excel） */
   options?: FormatOptionsV2
 }
 
-/** 后端列类型：字符串或对象配置（如 Expr / Extracted） */
+/**
+ * 后端列类型。
+ *
+ * 可以是简单的字符串类型名，也可以是对象配置（如表达式列、提取列）。
+ */
 export type BackendColumnTypeV2 = string | Record<string, unknown>
 
+/**
+ * 列规格定义。
+ *
+ * 描述 Schema 中单个列的结构和属性。
+ */
 export interface ColumnSpecV2 {
+  /** 列唯一标识符 */
   id: string
+  /** 列名称 */
   name: string
+  /** 列数据类型（字符串或对象配置） */
   type: BackendColumnTypeV2
+  /** 是否为主键 */
   primary_key?: boolean
   /** 是否允许为空（对应后端 ColumnSpec.nullable） */
   nullable?: boolean
+  /** 是否展开列详情（UI 状态） */
   expand?: boolean
   /** JSON 列的 JSONPath 路径 */
   json_path?: string
@@ -110,6 +200,23 @@ export interface ColumnSpecV2 {
 // 内嵌约束类型（可直接在 schema.yaml 中定义）
 // ============================================================================
 
+/**
+ * 约束类型枚举。
+ *
+ * 对应后端支持的约束种类，用于 ConstraintItemV2 和 ConstraintFileV2 的 type 字段。
+ *
+ * @values
+ * - 'NotNull': 非空约束
+ * - 'Unique': 唯一约束
+ * - 'AllowedValues': 允许值约束
+ * - 'ForeignKey': 外键约束
+ * - 'Conditional': 条件约束
+ * - 'Scripted': 脚本约束
+ * - 'Range': 区间约束
+ * - 'Charset': 字符集约束
+ * - 'DateLogic': 日期逻辑约束
+ * - 'Composite': 复合约束
+ */
 export type ConstraintTypeV2 =
   | 'NotNull'
   | 'Unique'
@@ -122,6 +229,11 @@ export type ConstraintTypeV2 =
   | 'DateLogic'
   | 'Composite'
 
+/**
+ * 内嵌约束项定义。
+ *
+ * 可直接在 schema.yaml 的 constraints 字段中定义，无需单独创建约束文件。
+ */
 export interface ConstraintItemV2 {
   /** 约束 ID（同一表内必须唯一） */
   id: string
@@ -153,7 +265,7 @@ export interface ConstraintItemV2 {
   /** 外键目标列名 */
   to_column?: string
 
-  /** 约束参数（如 allowed_values 等） */
+  /** 约束参数（如 allowed_values 等，因约束类型而异） */
   params?: Record<string, unknown>
 }
 
@@ -161,17 +273,22 @@ export interface ConstraintItemV2 {
 // V2 Schema 配置
 // ============================================================================
 
+/**
+ * Schema 配置文件结构（*.schema.yaml）。
+ *
+ * 定义数据表的完整结构，包括数据源引用、列定义和内嵌约束。
+ */
 export interface TableSchemaFileV2 {
   /** L1 - 核心：配置版本（固定为 2） */
   version: number
 
-  /** L1 - 核心：表 ID */
+  /** L1 - 核心：表唯一标识符 */
   id: string
 
   /** L1 - 核心：表名称 */
   name: string
 
-  /** L1 - 核心：数据源描述 */
+  /** L1 - 核心：数据源规格描述 */
   source?: SourceSpecV2
 
   /** L2 - 可选：Excel Sheet 名称（后端也支持顶层 sheet 字段） */
@@ -183,43 +300,106 @@ export interface TableSchemaFileV2 {
   /** L1 - 内嵌约束列表（可直接在 schema.yaml 中定义） */
   constraints?: ConstraintItemV2[]
 
+  /** 脚本检查配置列表 */
   script_checks?: unknown[]
 
   /** L3 - 内部：前端专用配置 */
   _internal?: SchemaInternalV2
 }
 
+/**
+ * Schema 资源引用。
+ *
+ * 用于在 project.precis.yaml 中索引 Schema 文件。
+ */
 export interface SchemaRefV2 {
+  /** Schema 唯一标识符 */
   id: string
+  /** Schema 文件路径（相对于项目目录） */
   path: string
 }
 
+/**
+ * Schema 保存模式。
+ *
+ * @values
+ * - 'create': 创建新文件（文件必须不存在）
+ * - 'merge': 合并到现有文件（保留现有字段，覆盖冲突字段）
+ * - 'overwrite': 覆盖现有文件（完全替换）
+ */
 export type SchemaSaveMode = 'create' | 'merge' | 'overwrite'
 
+/**
+ * Schema 冲突信息。
+ *
+ * 在保存 Schema 时检测到的冲突详情，用于前端展示差异对比。
+ */
 export interface SchemaConflictInfo {
+  /** 文件是否已存在 */
   exists: boolean
+  /** 现有文件路径 */
   file_path: string
+  /** 是否存在字段冲突 */
   has_conflict: boolean
+  /** 冲突字段列表 */
   conflict_fields: string[]
+  /** 现有 Schema 内容（用于对比） */
   existing_schema?: Record<string, unknown>
+  /** 新 Schema 内容（用于对比） */
   new_schema?: Record<string, unknown>
 }
 
+/**
+ * 约束资源引用。
+ *
+ * 用于在 project.precis.yaml 中索引约束文件。
+ */
 export interface ConstraintRefV2 {
+  /** 约束唯一标识符 */
   id: string
+  /** 约束文件路径（相对于项目目录） */
   path: string
 }
 
+/**
+ * Regex 节点资源引用。
+ *
+ * 用于在 project.precis.yaml 中索引 Regex 节点文件。
+ */
 export interface RegexNodeRefV2 {
+  /** Regex 节点唯一标识符 */
   id: string
+  /** Regex 节点文件路径（相对于项目目录） */
   path: string
 }
 
+/**
+ * Transform 资源引用。
+ *
+ * 用于在 project.precis.yaml 中索引 Transform 文件。
+ */
 export interface TransformRefV2 {
+  /** Transform 唯一标识符 */
   id: string
+  /** Transform 文件路径（相对于项目目录） */
   path: string
 }
 
+/**
+ * Transform 类型枚举。
+ *
+ * 定义所有支持的数据转换操作类型。
+ *
+ * 分类说明：
+ * - 字符串操作：StringSplit, Strip, UpperCase, LowerCase, Replace, Concat, Substring
+ * - 正则操作：RegexExtract
+ * - 数学计算：MathExpr, Digits, WeightedSum, Modulo
+ * - 日期处理：DateFormat
+ * - 查找替换：Lookup, MapValue
+ * - 数据清洗：FilterRows, FillNA, DropDuplicates, CastType
+ * - 聚合排序：Aggregate, SortRows
+ * - 条件赋值：ConditionalAssign
+ */
 export type TransformTypeV2 =
   | 'StringSplit'
   | 'RegexExtract'
@@ -245,6 +425,11 @@ export type TransformTypeV2 =
   | 'Modulo'
   | 'MapValue'
 
+/**
+ * 数据源资源引用。
+ *
+ * 用于在 project.precis.yaml 中索引外部数据源。
+ */
 export interface DataSourceRefV2 {
   /** 数据源唯一标识符 */
   id: string
@@ -256,53 +441,105 @@ export interface DataSourceRefV2 {
   description?: string
 }
 
+/**
+ * 模板资源引用。
+ *
+ * 用于在 project.precis.yaml 中索引模板定义文件。
+ */
 export interface TemplateRefV2 {
+  /** 模板唯一标识符 */
   id: string
+  /** 模板文件路径（相对于项目目录） */
   path: string
 }
 
+/**
+ * 模板实例引用。
+ *
+ * 用于在 project.precis.yaml 中记录模板实例的配置。
+ */
 export interface TemplateInstanceRefV2 {
+  /** 模板实例唯一标识符 */
   id: string
+  /** 引用的模板定义 ID */
   template_id: string
+  /** 是否启用 */
   enabled: boolean
+  /** 上游数据流节点 ID */
   input_from_node: string
+  /** 模板参数绑定值 */
   params: Record<string, unknown>
 }
 
+/**
+ * 项目清单文件结构（project.precis.yaml）。
+ *
+ * 项目的入口配置文件，索引所有 Schema、Constraint、Regex、Transform 等资源。
+ */
 export interface ProjectManifestV2 {
+  /** 清单版本号 */
   version: number
+  /** 项目基本信息 */
   project: ProjectInfoV2
   /** 项目设置（后端始终返回，前端创建时需提供默认值） */
   settings: ProjectSettings
+  /** Schema 资源引用列表 */
   schemas: SchemaRefV2[]
+  /** 约束资源引用列表 */
   constraints: ConstraintRefV2[]
+  /** Regex 节点资源引用列表 */
   regex_nodes: RegexNodeRefV2[]
+  /** Transform 资源引用列表 */
   transforms: TransformRefV2[]
+  /** 数据源资源引用列表（可选） */
   data_sources?: DataSourceRefV2[]
+  /** 模板资源引用列表（可选） */
   templates?: TemplateRefV2[]
+  /** 模板实例列表（可选） */
   template_instances?: TemplateInstanceRefV2[]
+  /** 正则模式目录路径 */
   patterns_dir: string
+  /** 加载时的警告信息列表 */
   warnings?: string[]
 }
 
+/**
+ * 约束配置文件结构（*.constraint.yaml）。
+ */
 export interface ConstraintFileV2 {
+  /** 配置版本号 */
   version: number
+  /** 约束唯一标识符 */
   id: string
+  /** 约束类型 */
   type: ConstraintTypeV2
+  /** 是否启用 */
   enabled: boolean
+  /** 约束描述（可选） */
   description?: string
+  /** 引用配置（如表 ID、列 ID 等） */
   refs: Record<string, unknown>
+  /** 约束参数（因类型而异） */
   params: Record<string, unknown>
   /** 上游数据流节点 ID（优先于 Schema 引用） */
   input_from_node?: string
 }
 
+/**
+ * Transform 配置文件结构（*.transform.yaml）。
+ */
 export interface TransformFileV2 {
+  /** 配置版本号 */
   version: number
+  /** Transform 唯一标识符 */
   id: string
+  /** Transform 名称（可选） */
   name?: string
+  /** Transform 类型 */
   type: TransformTypeV2
+  /** 是否启用 */
   enabled: boolean
+  /** Transform 描述（可选） */
   description?: string
   /** 上游数据流节点 ID */
   input_from_node?: string
@@ -314,16 +551,36 @@ export interface TransformFileV2 {
   output_columns: string[]
 }
 
+/**
+ * Regex 源引用。
+ *
+ * 用于 Regex 节点引用 Schema 中的特定列作为数据源。
+ */
 export interface RegexSourceRefV2 {
+  /** 源表 ID */
   table_id: string
+  /** 源列 ID */
   column_id: string
 }
 
+/**
+ * 模式注册表类型。
+ *
+ * 当前仅支持 'patterns' 一种注册表。
+ */
 export type PatternRegistryTypeV2 = 'patterns'
 
+/**
+ * 模式引用定义。
+ *
+ * 用于 Regex 节点引用已注册的正则表达式模式。
+ */
 export interface PatternRefV2 {
+  /** 注册表类型 */
   registry: PatternRegistryTypeV2
+  /** 模式名称 */
   pattern_name: string
+  /** 别名（可选），用于在节点中显示替代名称 */
   as_alias?: string
 }
 
@@ -331,6 +588,11 @@ export interface PatternRefV2 {
 // V2 Regex 节点配置
 // ============================================================================
 
+/**
+ * Regex 节点配置文件结构（*.regex.yaml）。
+ *
+ * 定义正则表达式节点的完整配置，支持直接编写正则或引用已注册的模式。
+ */
 export interface RegexNodeFileV2 {
   /** L1 - 核心：节点名称（展示用） */
   name: string
@@ -347,55 +609,90 @@ export interface RegexNodeFileV2 {
   /** L2 - 可选：对引用表达式的覆盖配置 */
   pattern_overrides?: Record<string, unknown>
 
-  /** L2 - 可选：匹配模式 */
+  /**
+   * L2 - 可选：匹配模式
+   * @values
+   * - 'full': 全匹配模式
+   * - 'partial': 部分匹配模式
+   * - 'extract': 提取模式（生成派生列）
+   */
   match_mode: 'full' | 'partial' | 'extract'
 
   /** L2 - 可选：是否启用 */
   enabled: boolean
 
+  /** 是否区分大小写 */
   case_sensitive?: boolean
+  /** 正则标志位（如 'g', 'i', 'm' 等） */
   flags?: string
+  /** 参数列表（前端内部使用） */
   parameters?: unknown[]
+  /** 规则列表（前端内部使用） */
   rules?: unknown[]
 
-  /** 数据流输入接口 */
+  /** 数据流输入接口：上游数据流节点 ID */
   input_from_node?: string
+  /** 数据流输入接口：上游节点中的目标列名 */
   input_column?: string
 
-  /** Extract 模式专用：捕获组定义 */
+  /** Extract 模式专用：捕获组定义（名称与组索引映射） */
   capture_groups?: Array<{ name: string; group_index: number }>
-  /** Extract 模式专用：输出列名 */
+  /** Extract 模式专用：输出列名列表 */
   output_columns?: string[]
 
+  /** 源引用信息，指向 Schema 中的特定列 */
   source_ref?: RegexSourceRefV2
+  /** 源列名称（显示用） */
   source_column_name?: string
 
   /** L3 - 内部：配置版本（程序生成） */
   version: number
 
-  /** L3 - 内部：节点 ID（程序生成） */
+  /** L3 - 内部：节点唯一标识符（程序生成） */
   id: string
 
   /** L3 - 内部：前端专用配置 */
   _internal?: RegexNodeInternalV2
 }
 
+/**
+ * V2 完整配置响应。
+ *
+ * 后端 getV2FullConfig() API 返回的完整项目配置，包含清单和所有资源文件内容。
+ */
 export interface FullConfigV2Response {
+  /** 项目清单 */
   manifest: ProjectManifestV2
+  /** 生效的清单（合并后的实际配置） */
   effective_manifest?: ProjectManifestV2
+  /** Schema 文件映射：schema_id -> TableSchemaFileV2 */
   schemas: Record<string, TableSchemaFileV2>
+  /** 约束文件映射：constraint_id -> ConstraintFileV2 */
   constraints: Record<string, ConstraintFileV2>
+  /** 正则注册表映射 */
   regex_registries: Record<string, unknown>
+  /** Regex 节点文件映射：regex_id -> RegexNodeFileV2 */
   regex_nodes: Record<string, RegexNodeFileV2>
+  /** Transform 文件映射：transform_id -> TransformFileV2 */
   transforms: Record<string, TransformFileV2>
+  /**
+   * 配置覆盖信息。
+   *
+   * 描述 manifest 中列出的资源与实际文件之间的差异：
+   * - unlisted: 文件存在但 manifest 中未列出
+   * - dangling: manifest 列出但文件不存在
+   */
   coverage?: {
+    /** 配置是否完整（无遗漏、无悬空） */
     is_complete: boolean
+    /** 未列入清单的资源 */
     unlisted: {
       schemas: Array<{ id: string; path: string }>
       constraints: Array<{ id: string; path: string }>
       regex_nodes: Array<{ id: string; path: string }>
       transforms: Array<{ id: string; path: string }>
     }
+    /** 悬空引用（manifest 列出但文件缺失） */
     dangling: {
       schemas: Array<{ id: string; path: string }>
       constraints: Array<{ id: string; path: string }>
@@ -403,16 +700,27 @@ export interface FullConfigV2Response {
       transforms: Array<{ id: string; path: string }>
     }
   } | null
+  /** 清单是否被修改过（与原始文件对比） */
   manifest_modified?: boolean
   /** Schema 文件解析错误映射: schema_id -> 错误信息 */
   schema_errors?: Record<string, string>
 }
 
+/**
+ * V2 完整配置请求。
+ *
+ * 前端 saveProject() 时向后端发送的完整项目配置。
+ */
 export interface FullConfigV2Request {
+  /** 项目清单 */
   manifest: ProjectManifestV2
+  /** Schema 文件映射 */
   schemas: Record<string, TableSchemaFileV2>
+  /** 约束文件映射 */
   constraints: Record<string, ConstraintFileV2>
+  /** Regex 节点文件映射 */
   regex_nodes: Record<string, RegexNodeFileV2>
+  /** Transform 文件映射 */
   transforms: Record<string, TransformFileV2>
 }
 
@@ -421,16 +729,16 @@ export interface FullConfigV2Request {
 // ============================================================================
 
 /**
- * V2 项目视图文件
+ * V2 项目视图文件（project.view.json）。
  *
  * 设计目标：
- * - 将“画布布局（节点坐标/视口）”与“校验语义配置（schema/constraint/regex）”解耦
+ * - 将"画布布局（节点坐标/视口）"与"校验语义配置（schema/constraint/regex）"解耦
  * - 避免把 UI 相关信息写入后端全量校验所需的配置文件
  */
 export interface ProjectViewV2 {
   /** 视图版本号，用于未来扩展兼容 */
   version: number
-  /** 节点坐标映射：nodeId -> position */
+  /** 节点坐标映射：nodeId -> { x, y } */
   nodes: Record<string, { x: number; y: number }>
   /** 可选视口信息（不强依赖，缺省时前端使用默认缩放） */
   viewport?: { x: number; y: number; zoom: number }
@@ -440,42 +748,116 @@ export interface ProjectViewV2 {
 // 项目设置类型（从前端设置面板持久化到 project.precis.yaml）
 // ============================================================================
 
+/**
+ * 校验设置。
+ *
+ * 控制数据校验的全局行为。
+ */
 export interface ValidationSettings {
+  /** 是否自动执行校验 */
   auto_validate: boolean
+  /** 是否启用严格模式（严格模式下任何错误都视为失败） */
   strict_mode: boolean
+  /**
+   * 错误处理方式
+   * @values
+   * - 'stop': 遇到第一个错误即停止
+   * - 'continue': 继续处理后续数据
+   * - 'report': 仅报告错误不中断流程
+   */
   error_handling: 'stop' | 'continue' | 'report'
+  /** 校验超时时间（秒） */
   timeout_seconds: number
+  /** 批量处理的最大文件数 */
   batch_max_files: number
 }
 
+/**
+ * 校验运行时设置（ValidationSettings 的别名）。
+ */
 export type ValidationRunSettings = ValidationSettings
 
+/**
+ * 文件处理设置。
+ *
+ * 控制数据文件的读取和解析行为。
+ */
 export interface FileProcessingSettings {
+  /**
+   * 默认文件编码
+   * @values
+   * - 'utf-8': UTF-8 编码
+   * - 'gbk': GBK 编码（中文 Windows 常用）
+   * - 'auto': 自动检测编码
+   */
   default_encoding: 'utf-8' | 'gbk' | 'auto'
+  /** CSV 字段分隔符 */
   csv_delimiter: string
+  /**
+   * 空值处理策略
+   * @values
+   * - 'null': 转为 null
+   * - 'empty': 转为空字符串
+   * - 'default': 使用默认值
+   */
   null_value_strategy: 'null' | 'empty' | 'default'
+  /** 日期格式模板（如 'YYYY-MM-DD'） */
   date_format: string
 }
 
+/**
+ * 脚本安全设置。
+ *
+ * 控制 Python 脚本执行的安全策略。
+ */
 export interface ScriptSecuritySettings {
+  /** 是否允许 eval 执行 */
   allow_eval: boolean
+  /** 是否允许 exec 执行 */
   allow_exec: boolean
+  /** 是否启用沙箱模式 */
   sandbox_mode: boolean
+  /** 脚本执行超时时间（秒） */
   timeout_seconds: number
 }
 
+/**
+ * 项目设置。
+ *
+ * 包含校验、文件处理和脚本安全三大模块的设置。
+ */
 export interface ProjectSettings {
+  /** 校验设置 */
   validation: ValidationSettings
+  /** 文件处理设置 */
   file_processing: FileProcessingSettings
+  /** 脚本安全设置 */
   script_security: ScriptSecuritySettings
 }
 
+/**
+ * 校验任务目标类型。
+ *
+ * @values
+ * - 'full_project': 校验整个项目
+ * - 'single_table': 校验单个表
+ * - 'single_file': 校验单个文件
+ */
 export type ValidationTaskTargetType = 'full_project' | 'single_table' | 'single_file'
 
+/**
+ * 校验任务目标。
+ *
+ * 描述一次校验任务的具体范围。
+ */
 export interface ValidationTaskTarget {
+  /** 目标类型 */
   type: ValidationTaskTargetType
+  /** 目标表 ID（当 type 为 'single_table' 时使用） */
   table_id?: string | null
+  /** 目标文件路径（当 type 为 'single_file' 时使用） */
   file_path?: string | null
+  /** 显示名称（用于 UI 展示） */
   display_name?: string | null
 }
 
@@ -487,25 +869,53 @@ export interface ValidationTaskTarget {
 // 工作区类型
 // ============================================================================
 
+/**
+ * 工作区视口状态。
+ *
+ * 记录画布当前的平移和缩放状态。
+ */
 export interface WorkspaceV2Viewport {
+  /** 视口 X 坐标 */
   x?: number
+  /** 视口 Y 坐标 */
   y?: number
+  /** 视口缩放比例 */
   zoom?: number
 }
 
+/**
+ * 工作区项。
+ *
+ * 表示一个画布工作区的配置，包括可见节点和视口状态。
+ */
 export interface WorkspaceV2Item {
+  /** 工作区唯一标识符 */
   id: string
+  /** 工作区标题 */
   title: string
+  /** 工作区排序索引 */
   index: number
+  /** 创建时间戳（ISO 8601 格式） */
   createdAt: string
+  /** 最后活跃时间戳（ISO 8601 格式） */
   lastActiveAt: string
+  /** 当前工作区中可见的节点 ID 列表 */
   visibleNodeIds: string[]
+  /** 工作区视口状态（可选） */
   viewport?: WorkspaceV2Viewport
 }
 
+/**
+ * 工作区列表响应。
+ *
+ * 后端返回的所有工作区配置。
+ */
 export interface WorkspacesV2Response {
+  /** 响应版本号 */
   version: number
+  /** 当前活跃的工作区 ID，无则为 null */
   activeWorkspaceId: string | null
+  /** 工作区列表 */
   workspaces: WorkspaceV2Item[]
 }
 

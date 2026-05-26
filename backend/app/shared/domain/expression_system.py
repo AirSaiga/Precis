@@ -39,13 +39,15 @@ from typing import Any, Callable, Optional
 #   "date" -> date (日期格式 YYYYMMDD)
 #   "bool" -> bool (布尔值)
 
+# 类型转换器字典：键为类型名称，值为对应的转换函数
+# 在模板解析时，根据 {name:type} 中的 type 查找对应的转换器，将字符串捕获组转换为目标类型
 TYPE_CASTERS: dict[str, Callable[[str], Any]] = {
-    "": str,
-    "str": str,
-    "int": int,
-    "float": float,
-    "date": lambda s: datetime.strptime(s, "%Y%m%d").date(),
-    "bool": lambda s: s.lower() in ["true", "1", "t", "y", "yes"],
+    "": str,           # 默认类型：保持字符串原样
+    "str": str,        # 字符串类型：显式声明，效果同默认
+    "int": int,        # 整数类型：调用 int() 转换
+    "float": float,    # 浮点数类型：调用 float() 转换
+    "date": lambda s: datetime.strptime(s, "%Y%m%d").date(),  # 日期类型：按 YYYYMMDD 格式解析
+    "bool": lambda s: s.lower() in ["true", "1", "t", "y", "yes"],  # 布尔类型：支持多种真值表示
 }
 
 
@@ -135,18 +137,26 @@ def create_tempated_parser(output_template: dict[str, Any]) -> Callable[[dict[st
     :param output_template: 输出模板字典
     :return: 解析器函数
     """
+    # 预处理模板：将模板字典解析为结构化规范列表，便于后续快速执行
+    # 每个元素为三元组：(输出键, 规则类型, 规则数据)
+    # 规则类型为 "static" 表示静态值，"dynamic" 表示需要从捕获组动态提取并转换
     processed_spec: list[tuple[str, str, Any]] = []
+    # 匹配 {name:type} 格式的模板占位符，如 {value:int}
     template_regex = re.compile(r"{(\w+):(\w*)}")
 
     for key, template_value in output_template.items():
         if isinstance(template_value, str):
+            # 尝试匹配动态模板占位符
             match = template_regex.fullmatch(template_value)
             if match:
                 group_name, type_name = match.groups()
+                # 校验类型是否存在于转换器字典中，防止运行时因未知类型而失败
                 if type_name not in TYPE_CASTERS:
                     raise ValueError(f"在类型转换器中未找到目标类型: '{type_name}'")
+                # 记录动态规则：输出键 -> (捕获组名, 目标类型)
                 processed_spec.append((key, "dynamic", (group_name, type_name)))
                 continue
+        # 非动态模板视为静态值，直接保留原值
         processed_spec.append((key, "static", template_value))
 
     def parser(regex_groups: dict[str, str]) -> dict[str, Any]:
@@ -166,19 +176,25 @@ def create_tempated_parser(output_template: dict[str, Any]) -> Callable[[dict[st
         最终输出:
             {"value": 123, "type": "static_type"}
         """
+        # 根据预处理后的规范，将正则捕获组转换为结构化输出字典
         result_dict: dict[str, Any] = {}
         for key, rule_type, rule_data in processed_spec:
             if rule_type == "static":
+                # 静态值直接复制到结果中
                 result_dict[key] = rule_data
             elif rule_type == "dynamic":
+                # 动态值需要从捕获组中提取并按指定类型转换
                 group_name, type_name = rule_data
+                # 校验捕获组是否存在，防止模板与正则表达式定义不一致导致 KeyError
                 if group_name not in regex_groups:
                     raise KeyError(f"在正则捕获组中未找到名为 '{group_name}' 的组")
                 raw_value = regex_groups[group_name]
                 try:
+                    # 查找并调用对应的类型转换器函数
                     caster_func = TYPE_CASTERS[type_name]
                     result_dict[key] = caster_func(raw_value)
                 except (ValueError, TypeError) as e:
+                    # 转换失败时抛出明确的错误信息，包含原始值和目标类型，便于定位问题
                     raise ValueError(f"转换捕获组 '{group_name}' 的值 '{raw_value}' 到类型 '{type_name}' 时失败: {e}")
         return result_dict
 
@@ -289,6 +305,8 @@ class ExpressionRegistry:
     """
 
     def __init__(self):
+        # 使用列表存储已注册的表达式模式，保持注册顺序
+        # 匹配时按注册顺序遍历，先注册的先匹配
         self._patterns: list[ExpressionPattern] = []
 
     def register(self, pattern: ExpressionPattern) -> None:
@@ -297,6 +315,7 @@ class ExpressionRegistry:
 
         :param pattern: ExpressionPattern 实例
         """
+        # 将模式追加到内部列表，后续 find_match 会按此顺序遍历
         self._patterns.append(pattern)
 
     def find_match(self, value: str) -> Optional[tuple[ExpressionPattern, re.Match]]:
@@ -320,8 +339,12 @@ class ExpressionRegistry:
             find_match("13800138000")  # 返回 (phone_pattern, match)
             find_match("invalid")      # 返回 None
         """
+        # 按注册顺序遍历所有模式，使用 fullmatch 确保整个字符串完全匹配
+        # 先去掉输入字符串首尾空白，避免空格导致匹配失败
         for pattern in self._patterns:
             match = pattern.regex.fullmatch(value.strip())
             if match:
+                # 返回第一个匹配成功的模式及其匹配结果对象
                 return pattern, match
+        # 没有任何模式匹配成功，返回 None
         return None

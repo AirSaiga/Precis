@@ -21,6 +21,15 @@ import type {
   ScriptSecuritySettings,
 } from '@/types/settings'
 
+/**
+ * 项目设置 Store 工厂函数
+ *
+ * 职责：
+ * - 从后端加载/保存项目设置（通过 projectV2Api）
+ * - 管理校验参数、文件处理、脚本安全等子设置
+ * - 防抖自动保存（避免频繁触发后端请求）
+ * - 保存状态跟踪（idle / saving / saved / error）
+ */
 export const useProjectSettingsStore = defineStore('projectSettings', () => {
   // ===== 项目设置状态 =====
   // 初始化为默认值，待 loadProjectSettings 成功后替换为后端实际配置
@@ -180,6 +189,14 @@ export const useProjectSettingsStore = defineStore('projectSettings', () => {
   const fileProcessingSettings = computed(() => projectSettings.value.file_processing)
   const scriptSecuritySettings = computed(() => projectSettings.value.script_security)
 
+  // --- 导出 ---
+  /**
+   * Store 对外暴露的响应式状态、计算属性与操作方法
+   *
+   * 状态：projectSettings / projectSettingsLoaded / isLoadingProjectSettings / saveStatus / saveErrorMessage
+   * 计算属性：validationSettings / projectValidationRunDefaults / fileProcessingSettings / scriptSecuritySettings
+   * 方法：loadProjectSettings / saveProjectSettings / debouncedSaveProjectSettings / updateValidationSettings / updateFileProcessingSettings / updateScriptSecuritySettings / getProjectValidationRunDefaults / mergeProjectValidationRunSettings
+   */
   return {
     projectSettings,
     projectSettingsLoaded,

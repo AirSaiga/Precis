@@ -16,6 +16,16 @@ import { computed, ref, watch } from 'vue'
 import { defaultGeneralSettings, defaultScriptSettings, defaultDevSettings } from '@/types/settings'
 import type { GeneralSettings, ScriptSettings, DevSettings } from '@/types/settings'
 
+/**
+ * 用户偏好设置 Store 工厂函数
+ *
+ * 职责：
+ * - 通用设置（语言、主题、启动行为）
+ * - 脚本设置（启用状态、权限警告）
+ * - 开发设置（团队功能）
+ * - 自动整理偏好（节点添加/删除/连线变更时是否自动整理布局）
+ * - localStorage 持久化（深度 watch 自动保存）
+ */
 export const useSettingsPreferencesStore = defineStore('settingsPreferences', () => {
   // ===== 设置状态 =====
   // 启动时立即从 localStorage 恢复，确保用户偏好不丢失
@@ -217,6 +227,14 @@ export const useSettingsPreferencesStore = defineStore('settingsPreferences', ()
   watch(scriptSettings, saveScriptSettings, { deep: true })
   watch(generalSettings, saveGeneralSettings, { deep: true })
 
+  // --- 导出 ---
+  /**
+   * Store 对外暴露的响应式状态、计算属性与操作方法
+   *
+   * 状态：generalSettings / scriptSettings / devSettings / autoOrganizeOnNodeAdd / autoOrganizeOnNodeDelete / autoOrganizeOnConnectionChange
+   * 计算属性：isDevMode / isScriptEnabled / isScriptAdminOnly / teamFeaturesEnabled
+   * 方法：updateGeneralSettings / enableScript / disableScript / setScriptRequireAdmin / markWarningShown / toggleTeamFeatures
+   */
   return {
     generalSettings,
     scriptSettings,

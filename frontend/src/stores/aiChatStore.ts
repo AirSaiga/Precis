@@ -22,7 +22,14 @@ import { sendAiChatMessage, type ChatHistoryMessage } from '../core/services/htt
 import { toastError } from '@/core/toast'
 import { processFrontendInstructions } from '@/services/aiChatInstructionService'
 
-/** 聊天消息结构，用于 UI 渲染 */
+/**
+ * 聊天消息结构，用于 UI 渲染
+ *
+ * @property id - 消息唯一标识（UUID）
+ * @property role - 消息发送者角色：user 为用户，assistant 为 AI
+ * @property content - 消息文本内容
+ * @property timestamp - 消息创建时间（ISO 8601 格式）
+ */
 export interface ChatMessage {
   id: string
   role: 'user' | 'assistant'
@@ -30,7 +37,14 @@ export interface ChatMessage {
   timestamp: string
 }
 
-/** 上下文节点，记录用户选中的画布节点信息，随消息一起发送给 AI */
+/**
+ * 上下文节点，记录用户选中的画布节点信息，随消息一起发送给 AI
+ *
+ * @property id - 画布节点唯一标识
+ * @property type - 节点类型（如 schema、constraint 等）
+ * @property data - 节点原始数据对象
+ * @property label - 节点显示标签（可选）
+ */
 export interface ContextNode {
   id: string
   type: string
@@ -38,13 +52,29 @@ export interface ContextNode {
   label?: string
 }
 
-/** 发送给后端的聊天上下文 */
+/**
+ * 发送给后端的聊天上下文
+ *
+ * @property hasContext - 是否有选中的上下文节点
+ * @property selectedNodes - 用户选中的画布节点列表
+ */
 export interface ChatContext {
   hasContext: boolean
   selectedNodes: ContextNode[]
 }
 
-/** AI 返回的前端指令，用于自动创建约束等画布操作 */
+/**
+ * AI 返回的前端指令，用于自动创建约束等画布操作
+ *
+ * @property actionType - 指令动作类型（如 createConstraint）
+ * @property constraintSpec - 约束规格参数
+ * @property constraintSpec.type - 约束类型（如 NotNull、Unique 等）
+ * @property constraintSpec.targetNodeId - 目标 Schema 节点 ID
+ * @property constraintSpec.tableName - 目标表名
+ * @property constraintSpec.targetColumn - 目标列名
+ * @property constraintSpec.constraintId - 约束唯一标识
+ * @property constraintSpec.isInline - 是否为内嵌约束（可选）
+ */
 export interface FrontendInstruction {
   actionType: string
   constraintSpec: {
@@ -57,6 +87,12 @@ export interface FrontendInstruction {
   }
 }
 
+/**
+ * AI 聊天 Store 工厂函数
+ *
+ * 使用 Pinia Setup Store 模式，提供 AI 聊天相关的完整状态管理。
+ * 包含抽屉控制、上下文节点管理、消息收发及前端指令处理。
+ */
 export const useAiChatStore = defineStore('aiChat', () => {
   const { t } = useI18n()
 
@@ -226,6 +262,13 @@ export const useAiChatStore = defineStore('aiChat', () => {
     }
   }
 
+  // --- 导出 ---
+  /**
+   * Store 对外暴露的响应式状态与操作方法
+   *
+   * 状态：drawerVisible / messages / contextNodes / loading / hasContext
+   * 操作：抽屉控制、上下文管理、消息管理、消息发送
+   */
   return {
     drawerVisible,
     messages,

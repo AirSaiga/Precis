@@ -29,12 +29,17 @@
 // ========== 约束节点类型定义 ==========
 
 /**
- * 约束节点保存状态
+ * 约束节点保存状态。
+ *
+ * @values
+ * - 'draft': 草稿状态，尚未保存到文件
+ * - 'saved': 已保存状态，与文件同步
+ * - 'error': 保存出错状态
  */
 export type ConstraintSaveState = 'draft' | 'saved' | 'error'
 
 /**
- * 约束节点数据基接口
+ * 约束节点数据基接口。
  *
  * 所有约束校验节点（除规则集合节点外）共享的公共字段。
  * 提取公共字段可减少重复类型定义，提高可维护性，并确保新增约束类型时
@@ -82,22 +87,29 @@ export interface BaseConstraintNodeData {
 }
 
 /**
- * 约束规则集合节点数据
+ * 约束规则集合节点数据。
+ *
+ * 用于将多个约束规则组织到一个集合中，便于批量管理和展示。
  */
 export interface ConstraintRuleSetNodeData {
+  /** 集合名称，用于在 UI 中标识该约束规则集 */
   setName: string
+  /** 集合描述（可选） */
   description?: string
 }
 
 /**
- * 约束规则集合根节点数据
+ * 约束规则集合根节点数据。
  */
 export interface ConstraintRuleSetRootNodeData {
+  /** 集合名称，用于在 UI 中标识该约束规则集 */
   setName: string
 }
 
 /**
- * 外键约束节点数据
+ * 外键约束节点数据。
+ *
+ * 用于验证参照完整性，确保源表中的列值在目标表中存在。
  */
 export interface ForeignKeyConstraintNodeData extends BaseConstraintNodeData {
   /** 源表名称，用于描述被校验的表 */
@@ -154,8 +166,8 @@ export interface ForeignKeyConstraintNodeData extends BaseConstraintNodeData {
 }
 
 /**
- * 字符集约束节点数据
- * 用于验证字符串字段是否仅包含特定字符集（ASCII 或中文）
+ * 字符集约束节点数据。
+ * 用于验证字符串字段是否仅包含特定字符集（ASCII 或中文）。
  */
 export interface CharsetConstraintNodeData extends BaseConstraintNodeData {
   /** 表名，用于描述被校验的表 */
@@ -167,8 +179,8 @@ export interface CharsetConstraintNodeData extends BaseConstraintNodeData {
 }
 
 /**
- * 日期逻辑约束节点数据
- * 用于验证日期比较和日期计算
+ * 日期逻辑约束节点数据。
+ * 用于验证日期比较和日期计算。
  */
 export interface DateLogicConstraintNodeData extends BaseConstraintNodeData {
   /** 表名，用于描述被校验的表 */
@@ -192,8 +204,8 @@ export interface DateLogicConstraintNodeData extends BaseConstraintNodeData {
 }
 
 /**
- * 区间约束节点数据
- * 用于验证数值型列的值是否在指定范围内
+ * 区间约束节点数据。
+ * 用于验证数值型列的值是否在指定范围内。
  */
 export interface RangeConstraintNodeData extends BaseConstraintNodeData {
   /** 表名，用于描述被校验的表 */
@@ -204,12 +216,14 @@ export interface RangeConstraintNodeData extends BaseConstraintNodeData {
   minValue?: number
   /** 最大值 */
   maxValue?: number
-  /** 边界模式：inclusive（含）/ exclusive（不含） */
+  /** 边界模式：inclusive（含边界）/ exclusive（不含边界） */
   boundaryMode?: 'inclusive' | 'exclusive'
 }
 
 /**
- * 唯一约束节点数据
+ * 唯一约束节点数据。
+ *
+ * 用于确保指定列中的所有值都是唯一的，不允许重复。
  */
 export interface UniqueConstraintNodeData extends BaseConstraintNodeData {
   /** 表名，用于描述被校验的表 */
@@ -219,7 +233,9 @@ export interface UniqueConstraintNodeData extends BaseConstraintNodeData {
 }
 
 /**
- * 非空约束节点数据
+ * 非空约束节点数据。
+ *
+ * 用于确保指定列中的值不为空（null 或空字符串）。
  */
 export interface NotNullConstraintNodeData extends BaseConstraintNodeData {
   /** 表名，用于描述被校验的表 */
@@ -229,45 +245,57 @@ export interface NotNullConstraintNodeData extends BaseConstraintNodeData {
 }
 
 /**
- * 允许值约束节点数据
+ * 允许值约束节点数据。
+ *
+ * 用于限制列中的值必须在指定的允许值集合内。
  */
 export interface AllowedValuesConstraintNodeData extends BaseConstraintNodeData {
   /** 表名，用于描述被校验的表 */
   table: string
   /** 列名，用于描述被校验的字段 */
   column: string
-  /** 允许的值集合 */
+  /** 允许的值集合，列中的值必须属于该集合 */
   allowedValues: Set<string>
 }
 
 /**
- * 条件约束节点数据
+ * 条件约束节点数据。
+ *
+ * 用于实现 IF-THEN 条件校验逻辑：当 IF 条件满足时，对 THEN 目标列执行约束校验。
  */
 export interface ConditionalConstraintNodeData extends BaseConstraintNodeData {
   /** 表名，用于描述被校验的表 */
   table: string
-  /** IF 条件列名 */
+  /** IF 条件列名（简化写法） */
   ifColumn: string
   /** IF 条件值（简化写法） */
   ifValue: string
-  /** THEN 目标列名 */
+  /** THEN 目标列名（简化写法） */
   thenColumn: string
-  /** THEN 条件配置 */
+  /** THEN 条件配置（简化写法） */
   thenConditionConfig: Record<string, unknown> | string
-  /** 多条件逻辑：and / or */
+  /** 多条件逻辑组合方式：and（全部满足）/ or（任一满足） */
   ifLogic?: 'and' | 'or'
   /** 是否跳过 IF 条件检查（无条件触发 THEN） */
   skipIfCondition?: boolean
-  /** 多条件列表（高级写法） */
+  /** 多条件列表（高级写法，支持复杂条件组合） */
   ifConditions?: Array<{
+    /** 关联的边 ID */
     edgeId?: string
+    /** 条件列的稳定引用（节点 ID + 列 ID） */
     ref?: {
+      /** Schema 节点 ID */
       nodeId: string
+      /** Schema 列 ID */
       columnId: string
     }
+    /** 条件列名 */
     column?: string
+    /** 条件操作符 */
     operator: 'eq' | 'neq' | 'in' | 'not_null' | 'greater_than'
+    /** 条件值（单值） */
     value?: string
+    /** 条件值列表（多值操作符如 in 使用） */
     values?: string[]
   }>
   /** IF 条件列的稳定引用（节点 ID + 列 ID），避免名称变更导致关联丢失 */
@@ -287,8 +315,8 @@ export interface ConditionalConstraintNodeData extends BaseConstraintNodeData {
 }
 
 /**
- * 复合约束节点数据
- * 包含多个子约束，按逻辑策略聚合校验结果
+ * 复合约束节点数据。
+ * 包含多个子约束，按逻辑策略聚合校验结果。
  */
 export interface CompositeConstraintNodeData extends BaseConstraintNodeData {
   /** 节点描述 */
@@ -313,13 +341,13 @@ export interface CompositeConstraintNodeData extends BaseConstraintNodeData {
 }
 
 /**
- * 脚本约束节点数据
- * 使用自定义 Python 脚本执行复杂的数据校验逻辑
+ * 脚本约束节点数据。
+ * 使用自定义 Python 脚本执行复杂的数据校验逻辑。
  */
 export interface ScriptedConstraintNodeData extends BaseConstraintNodeData {
   /** 表名，用于描述被校验的表 */
   table: string
-  /** 列名，用于描述被校验的字段（可选，支持多列） */
+  /** 列名，用于描述被校验的字段（可选，支持多列时使用 columns） */
   column?: string
   /** 多列模式，校验多列组合 */
   columns?: string[]
