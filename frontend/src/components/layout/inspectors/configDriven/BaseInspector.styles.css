@@ -1,7 +1,7 @@
 .base-inspector {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
   user-select: text;
   -webkit-user-select: text;
 }
@@ -17,25 +17,31 @@
 .section {
   display: flex;
   flex-direction: column;
-  gap: 14px;
-  padding: 16px;
-  background: rgba(255, 255, 255, 0.88);
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.85) 100%);
   border-radius: var(--ui-radius-lg);
   border: 1px solid var(--ui-border);
-  border-left: 3px solid var(--ui-accent);
-  backdrop-filter: blur(5px);
-  box-shadow: var(--ui-shadow-sm);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: box-shadow var(--ui-transition-fast);
+}
+
+.section:hover {
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 .section-title {
   margin: 0 0 2px 0;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--ui-text-title);
+  color: var(--ui-text-strong);
   padding-bottom: 8px;
-  border-bottom: 1px solid var(--ui-border);
+  border-bottom: 1px solid var(--ui-border-subtle);
   user-select: text;
   -webkit-user-select: text;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .section-desc {
@@ -49,5 +55,5 @@
 .fields {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }

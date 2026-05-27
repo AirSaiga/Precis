@@ -96,7 +96,9 @@ export interface ColumnNodeData {
 /**
  * 定义工程根节点的数据结构。
  *
- * projectRoot 节点是项目的入口节点，保存项目的基本信息和全局设置。
+ * projectRoot 节点是项目的入口节点，保存项目的基本标识信息。
+ * 统计数据（schema/constraint/regex 数量等）由组件直接从 resourceTreeStore / graphStore computed 读取，
+ * 不在节点 data 中缓存。
  */
 export interface ProjectNodeData {
   /** 项目名称，用于在 UI 中展示 */
@@ -109,60 +111,6 @@ export interface ProjectNodeData {
   createdAt?: string
   /** 项目最后更新时间戳（ISO 8601 格式） */
   updatedAt?: string
-  /** 项目全局设置，包含校验、文件处理、脚本安全等配置 */
-  projectSettings?: {
-    /** 校验设置 */
-    validation?: {
-      /** 是否自动执行校验 */
-      auto_validate?: boolean
-      /** 是否启用严格模式 */
-      strict_mode?: boolean
-      /** 错误处理方式 */
-      error_handling?: 'continue' | 'report' | 'stop'
-      /** 校验超时时间（秒） */
-      timeout_seconds?: number
-      /** 批量处理的最大文件数 */
-      batch_max_files?: number
-    }
-    /** 文件处理设置 */
-    file_processing?: {
-      /** 默认文件编码 */
-      default_encoding?: string
-      /** CSV 分隔符 */
-      csv_delimiter?: string
-      /** 空值处理策略 */
-      null_value_strategy?: string
-      /** 日期格式模板 */
-      date_format?: string
-    }
-    /** 脚本安全设置 */
-    script_security?: {
-      /** 是否允许 eval 执行 */
-      allow_eval?: boolean
-      /** 是否允许 exec 执行 */
-      allow_exec?: boolean
-      /** 是否启用沙箱模式 */
-      sandbox_mode?: boolean
-      /** 脚本执行超时时间（秒） */
-      timeout_seconds?: number
-    }
-  }
-  /** Schema 节点数量（缓存） */
-  schemaCount?: number
-  /** 约束节点数量（缓存） */
-  constraintCount?: number
-  /** 正则节点数量（缓存） */
-  regexCount?: number
-  /** 转换节点数量（缓存） */
-  transformCount?: number
-  /** 模板节点数量（缓存） */
-  templateCount?: number
-  /** 资产总数（缓存） */
-  totalAssets?: number
-  /** 校验通过率（缓存，0-100） */
-  passRate?: number
-  /** 错误数量（缓存） */
-  errorCount?: number
 }
 
 /**

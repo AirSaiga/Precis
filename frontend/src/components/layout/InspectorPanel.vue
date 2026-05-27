@@ -143,8 +143,6 @@
         return defineAsyncComponent(
           () => import('@/features/regex/components/RegexNodeInspector.vue')
         )
-      case 'projectRoot':
-        return defineAsyncComponent(() => import('./inspectors/ProjectRootNodeInspector.vue'))
       case 'pattern':
         return defineAsyncComponent(() => import('./inspectors/PatternNodeInspector.vue'))
       case 'patternToolbox':

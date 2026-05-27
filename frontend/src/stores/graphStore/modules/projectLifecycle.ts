@@ -72,7 +72,6 @@ import type { ProjectNodeData } from '@/types/nodes'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
 import { useProjectStore } from '@/stores/projectStore'
 import { useResourceTreeStore } from '@/stores/resourceTreeStore'
-import { useSettingsStore } from '@/stores/settingsStore'
 
 export function createProjectLifecycleModule(params: {
   nodes: Ref<CustomNode[]>
@@ -210,7 +209,6 @@ export function createProjectLifecycleModule(params: {
     }
 
     const projectStore = useProjectStore()
-    const settingsStore = useSettingsStore()
 
     const node: CustomNode = {
       id: 'project-root',
@@ -221,17 +219,6 @@ export function createProjectLifecycleModule(params: {
         projectName: projectName.value || 'Project',
         projectPath: projectStore.currentPaths?.configPath || '',
         configPath: projectStore.currentPaths?.configPath || '',
-        schemaCount: projectConfigStats.value.schemaCount,
-        constraintCount: projectConfigStats.value.constraintCount,
-        regexCount: projectConfigStats.value.regexCount,
-        totalAssets:
-          projectConfigStats.value.schemaCount +
-          projectConfigStats.value.constraintCount +
-          projectConfigStats.value.regexCount +
-          projectConfigStats.value.transformCount,
-        projectSettings: settingsStore.projectSettingsLoaded
-          ? settingsStore.projectSettings
-          : undefined,
       } as ProjectNodeData,
     }
 

@@ -1,13 +1,9 @@
 <!--
   @file ProjectRootNode.vue
-  @description 项目根节点组件 - 项目信息展示、统计指标与操作入口
+  @description 项目根节点组件 - 极简视觉锚点
+  展示项目名称、路径、状态指示、摘要统计和核心操作入口。
+  详情和更多操作通过 Inspector 面板和右键菜单访问。
 -->
-
-/** * @file ProjectRootNode.vue * @description 项目根节点组件 * * 核心功能： * -
-显示项目名称和路径信息 * - 展示项目统计指标（Schema数量、约束数量、Regex数量） * - 显示校验通过率 *
-- 提供项目操作入口（校验、导出、AI生成、重新加载、项目管理、关闭） * - 双击打开项目设置 * *
-节点结构： * - Header：项目图标和项目名称 * - Metrics Row：统计指标展示 * - Actions
-Row：操作按钮区域 */
 <template>
   <div
     class="project-root-node graph-node"
@@ -15,12 +11,11 @@ Row：操作按钮区域 */
     @dblclick="openSettings"
     @contextmenu.prevent="showContextMenu"
   >
-    <div class="root-badge">{{ t('customNodes.projectRootNode.rootBadge') || '项目起始点' }}</div>
     <div class="header">
-      <span class="icon">🔰</span>
+      <div class="icon">🔬</div>
       <div class="header-text">
         <div class="title">{{ data.projectName }}</div>
-        <div class="subtitle" :title="data.projectPath || '-'">{{ data.projectPath || '-' }}</div>
+        <div class="subtitle" :title="data.projectPath || '-'">{{ projectPathShort }}</div>
       </div>
       <div class="status-indicators">
         <span
@@ -41,67 +36,35 @@ Row：操作按钮区域 */
     </div>
 
     <div class="content-body">
-      <div class="metrics">
-        <div class="metric">
-          <div class="metric-label">{{ t('customNodes.projectRootNode.metrics.schemas') }}</div>
-          <div class="metric-value">{{ schemaCountText }}</div>
+      <div class="summary-row">
+        <div class="summary-item">
+          <span class="count">{{ schemaCount }}</span>
+          <span>{{ t('customNodes.projectRootNode.summary.schemas') }}</span>
         </div>
-        <div class="metric">
-          <div class="metric-label">{{ t('customNodes.projectRootNode.metrics.constraints') }}</div>
-          <div class="metric-value">{{ constraintCountText }}</div>
-          <div class="metric-sub">
-            <span :title="t('aiConfigGenerator.result.stats.standalone')"
-              >S: {{ constraintStandaloneText }}</span
-            >
-            <span class="divider">/</span>
-            <span :title="t('aiConfigGenerator.result.stats.inline')"
-              >I: {{ constraintInlineText }}</span
-            >
-          </div>
+        <div class="summary-item">
+          <span class="count">{{ constraintCount }}</span>
+          <span>{{ t('customNodes.projectRootNode.summary.constraints') }}</span>
         </div>
-        <div class="metric">
-          <div class="metric-label">{{ t('customNodes.projectRootNode.metrics.regex') }}</div>
-          <div class="metric-value">{{ regexCountText }}</div>
-        </div>
-        <div class="metric">
-          <div class="metric-label">{{ t('customNodes.projectRootNode.metrics.transforms') }}</div>
-          <div class="metric-value">{{ transformCountText }}</div>
-        </div>
-        <div class="metric metric-wide">
-          <div class="metric-label">{{ t('customNodes.projectRootNode.metrics.passRate') }}</div>
-          <div class="metric-value pass-rate">
-            <span class="rate-value">{{ passRateText }}</span>
-            <span v-if="validationSummary" class="rate-detail">
-              ({{ validationSummary.total_error_count }}
-              {{ t('customNodes.projectRootNode.errors') }})
-            </span>
-          </div>
+        <div class="summary-item">
+          <span class="count">{{ regexCount }}</span>
+          <span>{{ t('customNodes.projectRootNode.summary.regex') }}</span>
         </div>
       </div>
 
-      <div v-if="data.createdAt" class="created-time">
-        <span class="label">{{ t('customNodes.projectRootNode.createdAt') }}:</span>
-        <span class="time">{{ formatCreatedTime(data.createdAt) }}</span>
+      <div v-if="hasValidationResult" class="pass-rate-row" :class="passRateClass">
+        <span class="pass-rate-icon">{{ passRateIcon }}</span>
+        <span class="pass-rate-value">{{ passRateText }}</span>
+        <span v-if="errorCount > 0" class="pass-rate-errors">
+          ({{ errorCount }} {{ t('customNodes.projectRootNode.errors') }})
+        </span>
       </div>
 
       <div class="actions">
-        <button class="btn" type="button" @click="openFullValidation">
-          {{ t('customNodes.projectRootNode.actions.fullValidation') }}
+        <button class="btn btn-primary" type="button" @click="openFullValidation">
+          ▶ {{ t('customNodes.projectRootNode.actions.fullValidation') }}
         </button>
-        <button class="btn" type="button" @click="exportFullConfig">
-          {{ t('customNodes.projectRootNode.actions.export') }}
-        </button>
-        <button class="btn" type="button" @click="openAiConfigGenerator">
-          {{ t('customNodes.projectRootNode.actions.aiGenerate') }}
-        </button>
-        <button class="btn" type="button" @click="reloadProject">
-          {{ t('customNodes.projectRootNode.actions.reload') }}
-        </button>
-        <button class="btn" type="button" @click="openProjectManagement">
-          {{ t('customNodes.projectRootNode.actions.projectManagement') }}
-        </button>
-        <button class="btn btn-danger" type="button" @click="closeProject">
-          {{ t('customNodes.projectRootNode.actions.closeProject') }}
+        <button class="btn btn-icon" type="button" :title="t('customNodes.projectRootNode.actions.reload')" @click="reloadProject">
+          ↻
         </button>
       </div>
     </div>
@@ -114,6 +77,15 @@ Row：操作按钮区域 */
       <div class="context-menu-item" @click="openFullValidation">
         <span class="menu-icon">✓</span>
         {{ t('customNodes.projectRootNode.actions.fullValidation') }}
+      </div>
+      <div class="context-menu-divider"></div>
+      <div class="context-menu-item" @click="exportFullConfig">
+        <span class="menu-icon">📤</span>
+        {{ t('customNodes.projectRootNode.actions.export') }}
+      </div>
+      <div class="context-menu-item" @click="openAiConfigGenerator">
+        <span class="menu-icon">🤖</span>
+        {{ t('customNodes.projectRootNode.actions.aiGenerate') }}
       </div>
       <div class="context-menu-divider"></div>
       <div class="context-menu-item" @click="openProjectManagement">
@@ -134,7 +106,7 @@ Row：操作按钮区域 */
 </template>
 
 <script setup lang="ts">
-  import { computed, onMounted, ref, onUnmounted } from 'vue'
+  import { computed, onMounted, onUnmounted, ref } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useGraphStore } from '@/stores/graphStore'
   import { useSettingsStore } from '@/stores/settingsStore'
@@ -158,80 +130,31 @@ Row：操作按钮区域 */
   const contextMenuVisible = ref(false)
   const contextMenuPosition = ref({ x: 0, y: 0 })
 
-  /**
-   * 计算 Schema 数量
-   * 使用 resourceTreeStore 保持与状态栏计数一致
-   */
-  const schemaManifestCount = computed(() => resourceTreeStore.schemasManifestCount)
-  const schemaUnlistedCount = computed(() => resourceTreeStore.schemasUnlistedCount)
-  const schemaCountText = computed(() => {
-    const total = resourceTreeStore.schemas.length
-    const unlisted = schemaUnlistedCount.value
-    return unlisted > 0 ? `${total} (M:${schemaManifestCount.value}/U:${unlisted})` : String(total)
+  // 项目路径缩短显示
+  const projectPathShort = computed(() => {
+    const path = props.data.projectPath || '-'
+    // 如果路径太长，只显示最后两级目录
+    const parts = path.replace(/\\/g, '/').split('/').filter(Boolean)
+    if (parts.length > 2) {
+      return `.../${parts.slice(-2).join('/')}`
+    }
+    return path
   })
 
-  /**
-   * 计算约束规则数量
-   * 使用 graphStore.projectConfigStats 保持与 stats.ts 计算逻辑一致（独立约束 + 内嵌约束）
-   */
-  const constraintStandaloneManifestCount = computed(
-    () => resourceTreeStore.independentConstraintsManifestCount
+  // 统计数据直接从 store 读取
+  const schemaCount = computed(() => resourceTreeStore.schemas.length)
+  const constraintCount = computed(() =>
+    resourceTreeStore.independentConstraintsManifestCount +
+    resourceTreeStore.embeddedConstraintsManifestCount +
+    resourceTreeStore.independentConstraintsUnlistedCount +
+    resourceTreeStore.embeddedConstraintsUnlistedCount
   )
-  const constraintStandaloneUnlistedCount = computed(
-    () => resourceTreeStore.independentConstraintsUnlistedCount
-  )
-  const constraintInlineManifestCount = computed(
-    () => resourceTreeStore.embeddedConstraintsManifestCount
-  )
-  const constraintInlineUnlistedCount = computed(
-    () => resourceTreeStore.embeddedConstraintsUnlistedCount
-  )
+  const regexCount = computed(() => resourceTreeStore.regexNodes.length)
 
-  const constraintManifestCount = computed(
-    () => constraintStandaloneManifestCount.value + constraintInlineManifestCount.value
-  )
-  const constraintUnlistedCount = computed(
-    () => constraintStandaloneUnlistedCount.value + constraintInlineUnlistedCount.value
-  )
-  const constraintCountText = computed(() => {
-    const base = constraintManifestCount.value
-    const extra = constraintUnlistedCount.value
-    return extra > 0 ? `${base} (+${extra})` : String(base)
-  })
-  const constraintStandaloneText = computed(() => {
-    const base = constraintStandaloneManifestCount.value
-    const extra = constraintStandaloneUnlistedCount.value
-    return extra > 0 ? `${base} (+${extra})` : String(base)
-  })
-  const constraintInlineText = computed(() => {
-    const base = constraintInlineManifestCount.value
-    const extra = constraintInlineUnlistedCount.value
-    return extra > 0 ? `${base} (+${extra})` : String(base)
-  })
+  const validationSummary = computed(() => graphStore.lastFullValidationSummary)
+  const validationStatistics = computed(() => graphStore.lastFullValidationStatistics)
 
-  /**
-   * 计算正则表达式数量
-   * 使用 resourceTreeStore 保持与状态栏计数一致
-   */
-  const regexManifestCount = computed(() => resourceTreeStore.regexNodesManifestCount)
-  const regexUnlistedCount = computed(() => resourceTreeStore.regexNodesUnlistedCount)
-  const regexCountText = computed(() => {
-    const total = resourceTreeStore.regexNodes.length
-    const unlisted = regexUnlistedCount.value
-    return unlisted > 0 ? `${total} (M:${regexManifestCount.value}/U:${unlisted})` : String(total)
-  })
-
-  const transformCountText = computed(() => {
-    return String(graphStore.projectConfigStats.transformCount || 0)
-  })
-
-  const validationSummary = computed(() => {
-    return graphStore.lastFullValidationSummary
-  })
-
-  const validationStatistics = computed(() => {
-    return graphStore.lastFullValidationStatistics
-  })
+  const hasValidationResult = computed(() => !!validationSummary.value || !!validationStatistics.value)
 
   const passRateText = computed(() => {
     const statistics = validationStatistics.value
@@ -244,37 +167,28 @@ Row：操作按钮区域 */
     return '0%'
   })
 
-  const hasUnsavedChanges = computed(() => {
-    return graphStore.hasUnsavedChanges()
+  const errorCount = computed(() => validationSummary.value?.total_error_count ?? 0)
+
+  const passRateClass = computed(() => {
+    const statistics = validationStatistics.value
+    if (!statistics) return 'no-data'
+    if (statistics.pass_rate >= 100) return 'pass'
+    if (statistics.pass_rate >= 60) return 'partial'
+    return 'fail'
   })
 
-  const contextMenuStyle = computed(() => {
-    return {
-      left: `${contextMenuPosition.value.x}px`,
-      top: `${contextMenuPosition.value.y}px`,
-    }
+  const passRateIcon = computed(() => {
+    if (passRateClass.value === 'pass') return '✅'
+    if (passRateClass.value === 'partial') return '⚠️'
+    return '❌'
   })
 
-  const formatCreatedTime = (dateStr: string): string => {
-    try {
-      const date = new Date(dateStr)
-      const now = new Date()
-      const diffMs = now.getTime() - date.getTime()
-      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+  const hasUnsavedChanges = computed(() => graphStore.hasUnsavedChanges())
 
-      if (diffDays === 0) {
-        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      } else if (diffDays === 1) {
-        return t('customNodes.projectRootNode.time.yesterday')
-      } else if (diffDays < 7) {
-        return t('customNodes.projectRootNode.time.daysAgo', { days: diffDays })
-      } else {
-        return date.toLocaleDateString([], { year: 'numeric', month: 'short', day: 'numeric' })
-      }
-    } catch {
-      return dateStr
-    }
-  }
+  const contextMenuStyle = computed(() => ({
+    left: `${contextMenuPosition.value.x}px`,
+    top: `${contextMenuPosition.value.y}px`,
+  }))
 
   const showContextMenu = (event: MouseEvent) => {
     contextMenuPosition.value = { x: event.offsetX, y: event.offsetY }
@@ -333,8 +247,6 @@ Row：操作按钮区域 */
   }
 
   onMounted(() => {
-    if (graphStore.projectConfigStatsLoaded) return
-    void graphStore.refreshProjectConfigStats(props.data.projectPath)
     document.addEventListener('click', handleClickOutside)
   })
 

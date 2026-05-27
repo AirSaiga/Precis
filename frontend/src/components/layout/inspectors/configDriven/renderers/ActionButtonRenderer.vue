@@ -1,10 +1,14 @@
 <!--
   @file ActionButtonRenderer.vue
-  @description 操作按钮渲染器，用于在 Inspector 中触发校验等操作
+  @description 操作按钮渲染器，支持多种操作类型
 -->
 <template>
   <div class="field action-button-field">
-    <button class="action-btn" :class="[`action-${field.action}`]" @click="handleAction">
+    <button
+      class="action-btn"
+      :class="[`action-${field.action}`, { 'action-danger': field.danger }]"
+      @click="handleAction"
+    >
       {{ buttonLabel }}
     </button>
   </div>
@@ -14,6 +18,9 @@
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useGraphStore } from '@/stores/graphStore'
+  import { useSettingsStore } from '@/stores/settingsStore'
+  import { useValidationTaskStore } from '@/stores/validationTaskStore'
+  import { useAiConfigGeneratorStore } from '@/features/ai-config-generator/stores/aiConfigGeneratorStore'
   import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
   import type { InspectorContext } from '../utils'
   import { getByPath } from '../utils'
@@ -21,6 +28,9 @@
 
   const { t } = useI18n()
   const store = useGraphStore()
+  const settingsStore = useSettingsStore()
+  const validationTaskStore = useValidationTaskStore()
+  const aiConfigGeneratorStore = useAiConfigGeneratorStore()
 
   const props = defineProps<{
     field: InspectorActionButtonField
@@ -35,44 +45,121 @@
   const buttonLabel = computed(() => t(props.field.buttonLabelKey))
 
   function handleAction() {
-    if (props.field.action === 'validate') {
-      handleValidate()
+    switch (props.field.action) {
+      case 'validate':
+        handleValidate()
+        break
+      case 'fullValidation':
+        handleFullValidation()
+        break
+      case 'export':
+        handleExport()
+        break
+      case 'aiGenerate':
+        handleAiGenerate()
+        break
+      case 'reload':
+        handleReload()
+        break
+      case 'projectManagement':
+        handleProjectManagement()
+        break
+      case 'closeProject':
+        handleCloseProject()
+        break
     }
   }
 
   function handleValidate() {
-    // 从节点数据中获取 sourceRef.nodeId（关联的 Schema 节点 ID）
     const sourceNodeId = getByPath(props.ctx.data, ['sourceRef', 'nodeId']) as string | undefined
-
     if (sourceNodeId) {
       triggerValidationForNode(sourceNodeId, store.nodes, store.edges, store.updateNodeData)
+    }
+  }
+
+  function handleFullValidation() {
+    validationTaskStore.openFullProject()
+  }
+
+  function handleExport() {
+    window.dispatchEvent(new CustomEvent('export-full-config-yaml'))
+  }
+
+  function handleAiGenerate() {
+    aiConfigGeneratorStore.open()
+  }
+
+  async function handleReload() {
+    await store.loadProjectFromV2()
+    window.dispatchEvent(new CustomEvent('project-applied'))
+  }
+
+  function handleProjectManagement() {
+    settingsStore.open('project-info')
+  }
+
+  function handleCloseProject() {
+    if (confirm(t('inspector.projectRoot.confirm.closeProject'))) {
+      store.clearProject()
+      window.dispatchEvent(new CustomEvent('project-closed'))
     }
   }
 </script>
 
 <style scoped>
   .action-button-field {
-    padding-top: 4px;
+    padding-top: 2px;
   }
 
   .action-btn {
     width: 100%;
-    padding: 7px 12px;
+    padding: 8px 12px;
     border: 1px solid var(--ui-border-subtle);
-    border-radius: 4px;
+    border-radius: var(--ui-radius-md);
     font-size: 12px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
-    transition: all 0.15s ease;
+    transition: all var(--ui-transition-fast);
   }
 
-  .action-validate {
-    background: rgba(14, 99, 156, 0.1);
+  .action-validate,
+  .action-fullValidation {
+    background: color-mix(in srgb, var(--ui-accent-primary, #0e639c) 10%, transparent);
     color: var(--ui-accent-primary, #0e639c);
-    border-color: rgba(14, 99, 156, 0.3);
+    border-color: color-mix(in srgb, var(--ui-accent-primary, #0e639c) 30%, transparent);
   }
 
-  .action-validate:hover {
-    background: rgba(14, 99, 156, 0.2);
+  .action-validate:hover,
+  .action-fullValidation:hover {
+    background: color-mix(in srgb, var(--ui-accent-primary, #0e639c) 18%, transparent);
+  }
+
+  .action-export,
+  .action-aiGenerate,
+  .action-reload,
+  .action-projectManagement {
+    background: var(--ui-bg-elevated);
+    color: var(--ui-text-strong);
+  }
+
+  .action-export:hover,
+  .action-aiGenerate:hover,
+  .action-reload:hover,
+  .action-projectManagement:hover {
+    background: var(--ui-bg-hover);
+    border-color: var(--ui-border-strong);
+    box-shadow: var(--ui-shadow-sm);
+  }
+
+  .action-danger {
+    color: var(--ui-danger);
+    border-color: color-mix(in srgb, var(--ui-danger) 30%, transparent);
+    background: color-mix(in srgb, var(--ui-danger) 6%, transparent);
+  }
+
+  .action-danger:hover {
+    background: var(--ui-danger);
+    color: white;
+    border-color: var(--ui-danger);
   }
 </style>

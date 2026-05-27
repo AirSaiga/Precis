@@ -192,14 +192,10 @@ const customNodes = {
   },
   projectRootNode: {
     projectStart: '工程起点 - 从下方拖出创建节点',
-    rootBadge: '项目起始点',
-    createdAt: '创建时间',
-    metrics: {
+    summary: {
       schemas: 'Schema 数量',
       constraints: '约束总数',
       regex: 'Regex 数量',
-      transforms: '转换节点',
-      passRate: '通过率',
     },
     actions: {
       fullValidation: '全量校验',
@@ -215,10 +211,6 @@ const customNodes = {
     },
     contextMenu: {
       settings: '项目设置',
-    },
-    time: {
-      yesterday: '昨天',
-      daysAgo: '{days} 天前',
     },
     confirm: {
       closeProject: '确定要关闭当前项目吗？',

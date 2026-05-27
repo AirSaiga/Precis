@@ -27,6 +27,8 @@ import DynamicListRenderer from './renderers/DynamicListRenderer.vue'
 import RegexPatternRenderer from './renderers/RegexPatternRenderer.vue'
 import WeightedSumRenderer from './renderers/WeightedSumRenderer.vue'
 import ActionButtonRenderer from './renderers/ActionButtonRenderer.vue'
+import StatCardRenderer from './renderers/StatCardRenderer.vue'
+import ValidationSummaryRenderer from './renderers/ValidationSummaryRenderer.vue'
 
 export const rendererRegistry: Record<InspectorField['kind'], Component> = {
   text: TextRenderer,
@@ -47,4 +49,6 @@ export const rendererRegistry: Record<InspectorField['kind'], Component> = {
   regexPattern: RegexPatternRenderer,
   weightedSum: WeightedSumRenderer,
   actionButton: ActionButtonRenderer,
+  statCard: StatCardRenderer,
+  validationSummary: ValidationSummaryRenderer,
 }

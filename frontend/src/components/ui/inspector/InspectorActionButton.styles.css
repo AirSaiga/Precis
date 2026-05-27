@@ -3,36 +3,39 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 8px 10px;
+  padding: 9px 12px;
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-md);
-  background: var(--ui-bg-elevated);
+  background: linear-gradient(180deg, var(--ui-bg-elevated) 0%, var(--ui-bg) 100%);
   color: var(--ui-text-strong);
   font-size: 12px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--ui-transition-fast);
 }
 
 .inspector-action-btn:hover {
   border-color: var(--ui-border-strong);
-  box-shadow: var(--ui-shadow-sm);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
   background: var(--ui-bg-hover);
 }
 
 .inspector-action-btn:active {
   transform: translateY(1px);
+  box-shadow: none;
 }
 
 .inspector-action-btn.btn-danger {
   color: var(--ui-danger);
-  border-color: rgba(220, 38, 38, 0.3);
+  border-color: color-mix(in srgb, var(--ui-danger) 25%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-danger) 6%, white) 0%, color-mix(in srgb, var(--ui-danger) 3%, white) 100%);
 }
 
 .inspector-action-btn.btn-danger:hover {
   background: var(--ui-danger);
   color: white;
   border-color: var(--ui-danger);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--ui-danger) 25%, transparent);
 }
 
 .inspector-action-btn.btn-disabled {
@@ -47,12 +50,11 @@
 }
 
 .btn-icon {
-  font-size: 12px;
+  font-size: 13px;
   flex-shrink: 0;
 }
 
 .btn-text {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  line-height: 1.3;
 }

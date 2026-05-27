@@ -121,7 +121,6 @@ import { createRegexDesignModule } from './modules/regexDesign'
 import { createAssetsModule } from './modules/assets'
 import { createScopeModule } from './modules/scope'
 import { isConstraintNodeType, validateForInlineSource } from '@/services/constraints/validationRegistry'
-import { useResourceTreeStore } from '@/stores/resourceTreeStore'
 import { logger } from '@/core/utils/logger'
 import {
   listV2Templates,
@@ -498,58 +497,6 @@ export function setupGraphStore() {
   function updateNodeData(nodeId: string, newData: Partial<CustomNodeData>) {
     nodes.value = updateNodeDataInArray(nodes.value, nodeId, newData)
   }
-
-  const resourceTreeStore = useResourceTreeStore()
-
-  // 监听 resourceTreeStore 统计变化，实时同步到 projectRoot 节点 data
-  // 确保配置驱动的 inspector 与左侧节点显示保持一致
-  watch(
-    [
-      () => resourceTreeStore.schemas.length,
-      () => resourceTreeStore.independentConstraintsManifestCount,
-      () => resourceTreeStore.embeddedConstraintsManifestCount,
-      () => resourceTreeStore.independentConstraintsUnlistedCount,
-      () => resourceTreeStore.embeddedConstraintsUnlistedCount,
-      () => resourceTreeStore.regexNodes.length,
-      () => resourceTreeStore.templates.length,
-    ],
-    () => {
-      const projectRootNode = nodes.value.find((n) => n.type === 'projectRoot')
-      if (!projectRootNode) return
-
-      const schemaCount = resourceTreeStore.schemas.length
-      const constraintCount =
-        resourceTreeStore.independentConstraintsManifestCount +
-        resourceTreeStore.embeddedConstraintsManifestCount +
-        resourceTreeStore.independentConstraintsUnlistedCount +
-        resourceTreeStore.embeddedConstraintsUnlistedCount
-      const regexCount = resourceTreeStore.regexNodes.length
-      const templateCount = resourceTreeStore.templates.length
-      const totalAssets = schemaCount + constraintCount + regexCount + templateCount
-
-      const data = projectRootNode.data as Record<string, unknown>
-
-      // 避免无变化时重复更新
-      if (
-        data.schemaCount === schemaCount &&
-        data.constraintCount === constraintCount &&
-        data.regexCount === regexCount &&
-        data.templateCount === templateCount &&
-        data.totalAssets === totalAssets
-      ) {
-        return
-      }
-
-      updateNodeData('project-root', {
-        schemaCount,
-        constraintCount,
-        regexCount,
-        templateCount,
-        totalAssets,
-      })
-    },
-    { flush: 'post' }
-  )
 
   // =====================================
   // 行内数据源自动重新校验

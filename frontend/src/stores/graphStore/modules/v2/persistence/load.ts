@@ -211,17 +211,6 @@ export function createV2LoadOps(params: {
           projectName: projectName.value,
           projectPath: configPath,
           configPath: configPath,
-          schemaCount: projectConfigStats.value.schemaCount,
-          constraintCount: projectConfigStats.value.constraintCount,
-          regexCount: projectConfigStats.value.regexCount,
-          transformCount: projectConfigStats.value.transformCount,
-          templateCount: projectConfigStats.value.templateCount,
-          totalAssets:
-            projectConfigStats.value.schemaCount +
-            projectConfigStats.value.constraintCount +
-            projectConfigStats.value.regexCount +
-            projectConfigStats.value.transformCount +
-            projectConfigStats.value.templateCount,
         } as unknown as CustomNodeData,
       })
 

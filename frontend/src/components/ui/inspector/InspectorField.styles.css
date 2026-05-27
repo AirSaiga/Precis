@@ -1,14 +1,14 @@
 .inspector-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 /* 只读字段：横向布局 label左 value右 */
 .inspector-field.field-layout-row {
   flex-direction: row;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
 }
 
 .field-label {
@@ -24,7 +24,7 @@
 /* 只读横向布局时 label 固定宽度 */
 .field-layout-row .field-label {
   flex-shrink: 0;
-  width: 90px;
+  width: 80px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -33,10 +33,10 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 10px;
+  padding: 7px 10px;
   background: var(--ui-bg-subtle);
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--ui-radius-md);
   color: var(--ui-text);
   font-size: 13px;
   min-height: 18px;
@@ -45,6 +45,7 @@
   cursor: text;
   flex: 1;
   min-width: 0;
+  transition: background var(--ui-transition-fast);
 }
 
 .field-value:hover {
@@ -52,7 +53,7 @@
 }
 
 .field-value.field-type-path {
-  font-family: 'Courier New', Consolas, monospace;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
   font-size: 12px;
   color: var(--ui-text-secondary);
   white-space: nowrap;
@@ -79,12 +80,12 @@
 
 .field-input {
   width: 100%;
-  padding: 10px 12px;
+  padding: 8px 10px;
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-md);
   background: var(--ui-bg-elevated);
   color: var(--ui-text);
-  font-size: 14px;
+  font-size: 13px;
   outline: none;
   box-sizing: border-box;
   transition:
@@ -94,7 +95,7 @@
 
 .field-input:focus {
   border-color: var(--ui-border-focus);
-  box-shadow: var(--ui-focus-ring);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-border-focus) 20%, transparent);
 }
 
 .field-input::placeholder {

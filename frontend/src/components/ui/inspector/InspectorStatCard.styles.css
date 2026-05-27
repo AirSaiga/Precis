@@ -1,18 +1,24 @@
 .inspector-stat-card {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  background: var(--ui-bg);
+  gap: 7px;
+  padding: 7px 8px;
+  background: linear-gradient(135deg, var(--ui-bg) 0%, var(--ui-bg-subtle) 100%);
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-md);
   min-width: 0;
   overflow: hidden;
+  transition: all var(--ui-transition-fast);
+}
+
+.inspector-stat-card:hover {
+  border-color: var(--ui-border-strong);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
 }
 
 .stat-icon {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -21,23 +27,23 @@
 }
 
 .icon-bg-default {
-  background: #f1f5f9;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
 }
 
 .icon-bg-success {
-  background: #dcfce7;
+  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
 }
 
 .icon-bg-warning {
-  background: #fef3c7;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
 }
 
 .icon-bg-error {
-  background: #fee2e2;
+  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
 }
 
 .icon-emoji {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .stat-content {
@@ -49,7 +55,7 @@
 }
 
 .stat-value {
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--ui-text-strong);
   line-height: 1.2;
@@ -59,7 +65,7 @@
 }
 
 .stat-label {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--ui-text-muted);
   white-space: nowrap;
   overflow: hidden;

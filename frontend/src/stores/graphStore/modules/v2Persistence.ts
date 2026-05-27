@@ -7,7 +7,6 @@
  */
 
 import type { Ref } from 'vue'
-import { watch } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
@@ -123,32 +122,6 @@ export function createV2PersistenceModule(params: {
     saveProject: saveOps.saveProject,
     createTemplateInstanceNode,
   })
-
-  // 监听统计数据变化，自动同步到 projectRoot 节点
-  // 当 schema/constraint/regex 数量发生变更时，实时更新根节点的展示数据
-  watch(
-    projectConfigStats,
-    (newStats) => {
-      // 查找类型为 projectRoot 的节点（项目根节点）
-      const projectRootNode = nodes.value.find((n) => n.type === 'projectRoot')
-      if (projectRootNode && projectRootNode.data) {
-        const data = projectRootNode.data as unknown as Record<string, number>
-        data.schemaCount = newStats.schemaCount
-        data.constraintCount = newStats.constraintCount
-        data.regexCount = newStats.regexCount
-        data.transformCount = newStats.transformCount
-        data.templateCount = newStats.templateCount
-        // totalAssets 为所有资源的总和，用于在根节点上展示整体概况
-        data.totalAssets =
-          newStats.schemaCount +
-          newStats.constraintCount +
-          newStats.regexCount +
-          newStats.transformCount +
-          newStats.templateCount
-      }
-    },
-    { deep: true }
-  )
 
   return {
     ...statsOps,

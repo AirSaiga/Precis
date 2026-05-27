@@ -151,8 +151,22 @@ export type InspectorWeightedSumField = InspectorFieldBase & {
 
 export type InspectorActionButtonField = InspectorFieldBase & {
   kind: 'actionButton'
-  action: 'validate'
+  action: 'validate' | 'fullValidation' | 'export' | 'aiGenerate' | 'reload' | 'projectManagement' | 'closeProject'
   buttonLabelKey: string
+  danger?: boolean
+}
+
+export type InspectorStatCardField = InspectorFieldBase & {
+  kind: 'statCard'
+  items: Array<{
+    icon: string
+    statKey: string
+    labelKey: string
+  }>
+}
+
+export type InspectorValidationSummaryField = InspectorFieldBase & {
+  kind: 'validationSummary'
 }
 
 export type InspectorField =
@@ -174,6 +188,8 @@ export type InspectorField =
   | InspectorRegexPatternField
   | InspectorWeightedSumField
   | InspectorActionButtonField
+  | InspectorStatCardField
+  | InspectorValidationSummaryField
 
 export type InspectorCommitPayload = unknown | { __patch: Record<string, unknown> }
 

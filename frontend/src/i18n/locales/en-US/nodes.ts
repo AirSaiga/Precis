@@ -375,14 +375,10 @@ const customNodes = {
   },
   projectRootNode: {
     projectStart: 'Project Start - Drag from bottom to create nodes',
-    rootBadge: 'Project Start',
-    createdAt: 'Created',
-    metrics: {
-      schemas: 'Schemas',
-      constraints: 'Constraints',
+    summary: {
+      schemas: 'Schema',
+      constraints: 'Constraint',
       regex: 'Regex',
-      transforms: 'Transforms',
-      passRate: 'Pass Rate',
     },
     actions: {
       fullValidation: 'Full Validation',
@@ -398,10 +394,6 @@ const customNodes = {
     },
     contextMenu: {
       settings: 'Project Settings',
-    },
-    time: {
-      yesterday: 'Yesterday',
-      daysAgo: '{days} days ago',
     },
     confirm: {
       closeProject: 'Are you sure you want to close the current project?',
