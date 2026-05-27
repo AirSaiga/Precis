@@ -131,11 +131,18 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     const normalizedFileId = normalizePath(resolvedFileId)
     const normalizedLocalPath = normalizePath(resolvedLocalPath)
 
-    // 使用标准化后的路径进行查找
+    // 使用标准化后的路径进行查找（同时检查 fileId 和 localPath，防止同路径重复导入）
+    // 四路交叉比较：新条目的 fileId/localPath 与已有条目的 fileId/localPath 两两匹配。
+    // 安全性前提：所有当前调用方 fileId === localPath，因此 4-way 等价于 2-way，
+    // 此设计用于兼容旧版本配置中 fileId ≠ localPath 的历史条目。
     const existing = config.value.recent_data_sources.find((ds) => {
+      const dsFileId = normalizePath(ds.fileId || '')
+      const dsLocalPath = normalizePath(ds.localPath || '')
       return (
-        normalizePath(ds.fileId || '') === normalizedFileId ||
-        normalizePath(ds.localPath || '') === normalizedFileId
+        dsFileId === normalizedFileId ||
+        dsLocalPath === normalizedFileId ||
+        dsFileId === normalizedLocalPath ||
+        dsLocalPath === normalizedLocalPath
       )
     })
     if (existing) {

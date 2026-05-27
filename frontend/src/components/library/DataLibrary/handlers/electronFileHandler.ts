@@ -10,6 +10,7 @@ import { logger } from '@/core/utils/logger'
 import type { ExternalDataSource } from '@/types/datasource'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { detectFileTypeFromPath } from '@/utils/fileTypeUtils'
+import { normalizePath } from '@/core/utils/pathNormalization'
 
 export interface ElectronAPI {
   showOpenDialog: (options: {
@@ -104,7 +105,15 @@ export async function importFilesElectron(filePaths: string[]): Promise<{
   const success: string[] = []
   const failed: Array<{ path: string; error: string }> = []
 
-  for (const filePath of filePaths) {
+  const seen = new Set<string>()
+  const uniquePaths = filePaths.filter((p) => {
+    const key = normalizePath(p)
+    if (!key || seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+
+  for (const filePath of uniquePaths) {
     try {
       const dataSource = createDataSourceFromPath(filePath)
       await useWorkspaceStore().addDataSource(

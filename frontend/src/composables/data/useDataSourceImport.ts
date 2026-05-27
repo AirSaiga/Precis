@@ -30,7 +30,31 @@ import { useGraphStore } from '@/stores/graphStore'
 import { logger } from '@/core/utils/logger'
 import { isElectron, getElectronAPI } from '@/core/utils/electronDetector'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
+import { normalizePath } from '@/core/utils/pathNormalization'
 import type { ExternalDataSource } from '@/types/graph'
+
+/**
+ * 对同一导入批次内的数据源按标准化路径去重
+ *
+ * 保留首次出现的条目，丢弃后续同路径重复项，
+ * 防止同路径同名文件在同一次导入中产生多条记录。
+ *
+ * @param sources - 待去重的数据源数组
+ * @returns 去重后的数据源数组
+ */
+function deduplicateByPath(sources: ExternalDataSource[]): ExternalDataSource[] {
+  const seen = new Set<string>()
+  const result: ExternalDataSource[] = []
+  for (const ds of sources) {
+    const key = normalizePath(ds.fileId || ds.localPath || '')
+    if (!key) continue // 无法识别路径的条目直接跳过，与 electronFileHandler 行为一致
+    if (!seen.has(key)) {
+      seen.add(key)
+      result.push(ds)
+    }
+  }
+  return result
+}
 
 /**
  * 使用数据源导入逻辑
@@ -131,7 +155,8 @@ export function useDataSourceImport() {
       }
     }
 
-    const addDataSourcePromises = fileList.map((dataSource) =>
+    const uniqueFileList = deduplicateByPath(fileList)
+    const addDataSourcePromises = uniqueFileList.map((dataSource) =>
       workspaceStore
         .addDataSource(
           dataSource.fileId,
@@ -298,7 +323,8 @@ export function useDataSourceImport() {
           }
         }
 
-        const addDataSourcePromises2 = fileList.map((dataSource) =>
+        const uniqueFileList2 = deduplicateByPath(fileList)
+        const addDataSourcePromises2 = uniqueFileList2.map((dataSource) =>
           workspaceStore
             .addDataSource(
               dataSource.fileId,
@@ -390,7 +416,16 @@ export function useDataSourceImport() {
       let successCount = 0
       let failCount = 0
 
-      for (const filePath of filesInFolder) {
+      // 批次级路径去重：过滤 scanDirectory 可能返回的重复路径
+      const seen = new Set<string>()
+      const uniqueFiles = filesInFolder.filter((p) => {
+        const key = normalizePath(p)
+        if (!key || seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+
+      for (const filePath of uniqueFiles) {
         const fileName = filePath.split(/[/\\]/).pop() || 'unknown'
         // 获取导入的根文件夹名称作为 folderPath 的前缀
         const rootFolderName = folderPath.split(/[/\\]/).pop() || ''
