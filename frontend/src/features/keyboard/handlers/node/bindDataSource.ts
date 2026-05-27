@@ -10,8 +10,9 @@
 import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { useProjectStore } from '@/stores/projectStore'
 import { fetchPreviewDataFromPath } from '@/composables/nodes/sourcePreview/usePreviewCreation'
-import { normalizePath } from '@/core/utils/pathNormalization'
+import { normalizePath, isAbsolutePath, ensureDirPath } from '@/core/utils/pathNormalization'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
 import { extractColumnNamesFromHeader, compareColumns } from '@/utils/nodes/schema/columnValidation'
@@ -86,53 +87,36 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
     return { success: false, message: 'shortcuts.feedback.alreadyConnected' }
   }
 
-  // ---- 在资源树中查找，若不存在则自动添加 ----
-  // 【诊断日志】记录 workspaceStore 中所有数据源路径，帮助排查路径不匹配问题
-  const sourceList = workspaceStore.getDataSources()
-  logger.debug('[bindDataSource] 查找数据源，localPath:', localPath)
-  logger.debug('[bindDataSource] workspaceStore 数据源数量:', sourceList.length)
-  logger.debug(
-    '[bindDataSource] workspaceStore 所有路径:',
-    sourceList.map((ds: any) => ({ fileId: ds.fileId, localPath: ds.localPath, name: ds.name }))
-  )
-
-  // 使用标准化后的路径进行查找
-  let dataSource = workspaceStore.findDataSourceByPath(normalizePath(localPath))
-
-  if (!dataSource) {
-    logger.warn('[bindDataSource] 资源树中未找到匹配数据源，即将自动添加:', localPath)
-    try {
-      await workspaceStore.addDataSource(
-        localPath,
-        basename(localPath),
-        inferFileType(localPath),
-        'localfile',
-        localPath,
-        dirname(localPath)
-      )
-      dataSource = workspaceStore.findDataSourceByPath(localPath)
-
-      // 通过全局 toast 提示用户（避免使用 setup-only 的 useToast）
-      if ((window as any).$toast) {
-        ;(window as any).$toast.info('已新增外部数据', basename(localPath))
-      }
-    } catch (addError) {
-      logger.error('[bindDataSource] 添加数据源到资源树失败:', addError)
-      // 添加失败不影响后续流程，继续尝试直接读取文件
-    }
+  // ---- 根据 Schema 自身的 sourcePathMode 解析绝对路径 ----
+  let resolvedLocalPath: string
+  const sourcePathMode = schemaData.sourcePathMode || 'relative_file'
+  if (sourcePathMode === 'absolute_file' && isAbsolutePath(localPath)) {
+    resolvedLocalPath = normalizePath(localPath)
+  } else if (isAbsolutePath(localPath)) {
+    // localPath 已经是绝对路径（V2 导入时已解析），直接使用
+    resolvedLocalPath = normalizePath(localPath)
   } else {
-    logger.debug('[bindDataSource] 资源树中已存在:', dataSource.name)
+    // relative_file 且路径实际为相对 -> 基于项目根目录解析
+    const projectStore = useProjectStore()
+    const rawProjectRoot = projectStore.currentPaths?.configPath || projectStore.currentPaths?.dataPath
+    const projectRoot = rawProjectRoot ? ensureDirPath(rawProjectRoot) : ''
+    if (projectRoot) {
+      resolvedLocalPath = normalizePath(
+        projectRoot + localPath.replace(/^[\/\\]+/, '')
+      )
+    } else {
+      resolvedLocalPath = normalizePath(localPath)
+    }
   }
 
-  // ---- 调用后端获取文件预览数据 ----
+  // ---- 调用后端获取文件预览数据（同时验证文件存在性） ----
   let previewData: Record<string, unknown>
   try {
-    previewData = await fetchPreviewDataFromPath(localPath, 65535, 65535, schemaData.sheetName)
+    previewData = await fetchPreviewDataFromPath(resolvedLocalPath, 65535, 65535, schemaData.sheetName)
     logger.debug('[bindDataSource] 预览数据获取成功')
   } catch (error: any) {
     const errorText = String(error?.message || error)
     logger.error('[bindDataSource] 预览数据获取失败:', errorText)
-    // 若后端明确返回 sheet 不存在，给出针对性提示
     if (
       errorText.includes('404') &&
       (errorText.includes('工作表') || errorText.includes('Worksheet') || errorText.includes('sheet'))
@@ -145,14 +129,79 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
     return { success: false, message: 'shortcuts.feedback.failed' }
   }
 
+  // ---- 预览成功后，确保数据源已注册到资源树（此时文件已确认存在） ----
+  const sourceList = workspaceStore.getDataSources()
+  logger.debug('[bindDataSource] 查找数据源，resolvedLocalPath:', resolvedLocalPath)
+  logger.debug('[bindDataSource] workspaceStore 数据源数量:', sourceList.length)
+
+  let dataSource = workspaceStore.findDataSourceByPath(normalizePath(resolvedLocalPath))
+
+  if (!dataSource) {
+    logger.warn('[bindDataSource] 资源树中未找到匹配数据源，即将自动添加:', resolvedLocalPath)
+    try {
+      await workspaceStore.addDataSource(
+        resolvedLocalPath,
+        basename(resolvedLocalPath),
+        inferFileType(resolvedLocalPath),
+        'localfile',
+        resolvedLocalPath,
+        dirname(resolvedLocalPath)
+      )
+      dataSource = workspaceStore.findDataSourceByPath(resolvedLocalPath)
+
+      if ((window as any).$toast) {
+        ;(window as any).$toast.info('已新增外部数据', basename(resolvedLocalPath))
+      }
+    } catch (addError) {
+      logger.error('[bindDataSource] 添加数据源到资源树失败:', addError)
+    }
+  } else {
+    logger.debug('[bindDataSource] 资源树中已存在:', dataSource.name)
+  }
+
+  // ---- 校验 Schema 配置的 sheetName 与数据文件实际拥有的 sheets 是否匹配 ----
+  // 严格校验：sheet 不匹配时直接报错，禁止静默降级绑定到其他工作表
+  const actualSheets = (previewData.sheets as string[] | undefined) || undefined
+  const currentSheetFromBackend = previewData.currentSheet as string | undefined
+  const requestedSheet = schemaData.sheetName
+
+  if (actualSheets && actualSheets.length > 0 && requestedSheet) {
+    // Excel 文件：校验配置的 sheetName 是否存在于文件的 sheet 列表中
+    const sheetMatch = actualSheets.some(
+      (s) => s.toLowerCase().trim() === requestedSheet.toLowerCase().trim()
+    )
+    if (!sheetMatch) {
+      logger.warn(
+        '[bindDataSource] Sheet 不匹配: Schema 配置 "',
+        requestedSheet,
+        '", 文件拥有的 sheets:',
+        actualSheets
+      )
+      const sheetList = actualSheets.length <= 5
+        ? actualSheets.join(', ')
+        : actualSheets.slice(0, 5).join(', ') + ` 等 ${actualSheets.length} 个`
+      return {
+        success: false,
+        message: `Sheet "${requestedSheet}" 不存在于目标文件中。文件拥有的工作表: ${sheetList}。请在 Schema 属性面板中修正工作表名称`,
+      }
+    }
+  } else if (actualSheets && actualSheets.length > 0 && !requestedSheet) {
+    // Excel 文件但 Schema 未配置 sheetName：文件有多个 sheet 时给出提示
+    if (actualSheets.length > 1) {
+      logger.warn(
+        '[bindDataSource] Schema 未指定 sheetName，文件拥有多个 sheet:',
+        actualSheets
+      )
+    }
+  }
+
   // ---- 构建并创建 SourcePreview 节点 ----
   const sourcePreviewNodeId = `source-preview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-  const fileType = dataSource?.type || inferFileType(localPath)
+  const fileType = dataSource?.type || inferFileType(resolvedLocalPath)
   const displayName =
-    dataSource?.alias || dataSource?.name || basename(localPath).replace(/\.[^/.]+$/, '') || 'Table'
+    dataSource?.alias || dataSource?.name || basename(resolvedLocalPath).replace(/\.[^/.]+$/, '') || 'Table'
 
-  // fetchPreviewDataFromPath 已内部转换 snake_case -> camelCase
-  const currentSheetFromBackend = previewData.currentSheet as string | undefined
+  // currentSheetFromBackend 已在上方校验块中声明，此处直接使用
   const resolvedSheet = currentSheetFromBackend || schemaData.sheetName
   logger.debug(
     '[bindDataSource] 使用工作表:',
@@ -167,8 +216,8 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
     id: sourcePreviewNodeId,
     label: '数据源预览',
     sourceName: displayName,
-    localPath: localPath,
-    fileName: basename(localPath),
+    localPath: resolvedLocalPath,
+    fileName: basename(resolvedLocalPath),
     fileType: fileType === 'csv' ? 'CSV' : fileType === 'json' ? 'JSON' : 'Excel',
     sourceType: fileType,
     data: (previewData.data as string[][]) || [],
@@ -237,8 +286,8 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
   graphStore.updateNodeData(schemaNode.id, {
     ...schemaNode.data,
     tableName: smartTableName,
-    sourceFile: basename(localPath),
-    sourceFilePath: localPath,
+    sourceFile: basename(resolvedLocalPath),
+    sourceFilePath: resolvedLocalPath,
     sourcePathMode: 'absolute_file',
     sourceType: fileType,
     headerRow: 0,
@@ -246,7 +295,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
     sheetName: nodeData.currentSheet,
     sourceNodeId: sourcePreviewNodeId,
     sourceMode: 'localfile',
-    localPath: localPath,
+    localPath: resolvedLocalPath,
   })
   logger.debug('[bindDataSource] Schema 元数据已同步')
 

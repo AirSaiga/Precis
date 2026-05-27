@@ -125,6 +125,7 @@
     statusI18nPrefix: 'customNodes.constraintRules.uniqueConstraintNode',
     getValidationStatus: (data) => {
       if (data.validationStatus === 'missing') return 'missing'
+      if (data.validationStatus === 'pass') return 'pass'
       const errs = data.validationErrors || []
       return errs.length > 0 ? 'error' : 'idle'
     },
