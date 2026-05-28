@@ -36,6 +36,10 @@
   animation: canvasDashMove 0.9s linear infinite;
 }
 
+:deep(.vue-flow__edge:not(.fk-display-edge)) {
+  cursor: pointer;
+}
+
 :deep(.vue-flow__edge.fk-display-edge) {
   /**
    * 外键“展示边”不应该拦截鼠标事件：

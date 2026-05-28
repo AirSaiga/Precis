@@ -73,7 +73,6 @@ const assetLibrary = {
     resourcesView: 'Resources',
     aiChatView: 'AI Assistant',
     validationHistoryView: 'History',
-    lineageView: 'Lineage',
     dataView: 'Data',
     settings: 'Settings',
     languageSwitch: {

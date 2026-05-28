@@ -172,8 +172,8 @@
       <InspectorPanel :collapsed="layout.rightCollapsed.value" />
     </div>
 
-    <!-- AI 侧边栏容器 -->
-    <AIChatDrawer class="ai-chat-panel" />
+    <!-- AI 侧边栏容器（暂时隐藏，使用侧边栏 AI 助手面板替代） -->
+    <!-- <AIChatDrawer class="ai-chat-panel" /> -->
 
     <!-- 全局 Overlay 挂载点 -->
     <AppOverlayHost />
@@ -181,7 +181,8 @@
     <!-- 状态栏 -->
     <AppStatusBar @open-project-management="() => overlayHostRef?.openProjectManagement?.()" />
 
-    <!-- AI 悬浮按钮 - 当抽屉关闭时显示 -->
+    <!-- AI 悬浮按钮（暂时隐藏） -->
+    <!--
     <button
       v-if="!aiChatStore.drawerVisible"
       class="ai-chat-fab ui-icon-btn ui-icon-btn--lg"
@@ -212,6 +213,7 @@
         <circle cx="12" cy="12" r="4"></circle>
       </svg>
     </button>
+    -->
 
     <!-- 拖拽 Ghost：跟随鼠标的资源拖拽预览 -->
     <DragGhost
@@ -232,7 +234,7 @@
   import InspectorPanel from '@/components/layout/InspectorPanel.vue'
   import NodeCanvas from '@/components/canvas/NodeCanvas.vue'
   import DragGhost from '@/components/canvas/DragGhost.vue'
-  import AIChatDrawer from '@/components/common/AIChatDrawer.vue'
+  // import AIChatDrawer from '@/components/common/AIChatDrawer.vue'
   import AppStatusBar from '@/components/layout/AppStatusBar.vue'
   import AppOverlayHost from '@/components/layout/AppOverlayHost.vue'
 
@@ -243,7 +245,7 @@
   import { useCanvasStore, type Workspace } from '@/stores/canvasStore'
   import { useGraphStore } from '@/stores/graphStore'
   import { useResourceDragStore, type ResourceDragPayload } from '@/stores/resourceDragStore'
-  import { useAiChatStore } from '@/stores/aiChatStore'
+  // import { useAiChatStore } from '@/stores/aiChatStore'
 
   const { t } = useI18n()
 
@@ -259,7 +261,7 @@
   // --- 局部状态 ---
 
   /** 资源库当前视图模式 */
-  const currentView = ref<'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'lineage' | 'data'>('toolbox')
+  const currentView = ref<'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'data'>('toolbox')
 
   /** 拖拽 Ghost 的鼠标位置，实时跟随光标更新 */
   const mousePosition = ref({ x: 0, y: 0 })
@@ -268,7 +270,7 @@
   const canvasStore = useCanvasStore()
   const graphStore = useGraphStore()
   const resourceDragStore = useResourceDragStore()
-  const aiChatStore = useAiChatStore()
+  // const aiChatStore = useAiChatStore()
 
   /** OverlayHost 组件引用，用于外部触发弹窗（如状态栏的"打开项目管理"） */
   const overlayHostRef = ref<InstanceType<typeof AppOverlayHost> | null>(null)

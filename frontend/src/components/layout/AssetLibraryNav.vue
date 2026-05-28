@@ -114,34 +114,6 @@
         </div>
       </button>
 
-      <!-- 数据血缘视图按钮 -->
-      <button
-        class="view-btn"
-        :class="{ active: currentView === 'lineage' }"
-        @click="setCurrentView('lineage')"
-        :title="t('assetLibrary.activityBar.lineageView')"
-      >
-        <div class="view-icon-wrapper">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="20"
-            height="20"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          >
-            <circle cx="18" cy="5" r="3"></circle>
-            <circle cx="6" cy="12" r="3"></circle>
-            <circle cx="18" cy="19" r="3"></circle>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
-          </svg>
-        </div>
-      </button>
-
       <!-- 数据源视图按钮 -->
       <button
         class="view-btn"
@@ -232,7 +204,7 @@
   import { useI18n } from 'vue-i18n'
 
   // 当前视图状态
-  const currentView = ref<'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'lineage' | 'data'>('toolbox')
+  const currentView = ref<'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'data'>('toolbox')
   const { t, locale } = useI18n()
 
   // 当前语言状态
@@ -246,7 +218,7 @@
   }
 
   // 设置当前视图
-  const setCurrentView = (view: 'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'lineage' | 'data') => {
+  const setCurrentView = (view: 'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'data') => {
     if (currentView.value !== view) {
       logger.debug(`[AssetLibraryNav] 准备切换到${view}视图，当前视图: ${currentView.value}`)
       currentView.value = view

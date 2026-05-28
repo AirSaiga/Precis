@@ -2,6 +2,8 @@
   display: flex;
   flex-direction: column;
   height: 100%;
+  padding-bottom: 28px;
+  box-sizing: border-box;
   background: var(--ui-bg-base);
 }
 

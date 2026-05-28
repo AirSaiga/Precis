@@ -73,7 +73,6 @@ const assetLibrary = {
     resourcesView: '项目资源',
     aiChatView: 'AI 助手',
     validationHistoryView: '校验历史',
-    lineageView: '数据血缘',
     dataView: '数据源',
     settings: '设置',
     languageSwitch: {

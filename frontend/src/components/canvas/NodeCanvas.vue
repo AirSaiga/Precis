@@ -32,6 +32,7 @@
         type: 'smoothstep',
         animated: true,
         style: { strokeWidth: 2 },
+        interactionWidth: 12,
       }"
       :is-valid-connection="validateConnection"
       @node-click="onNodeClick"

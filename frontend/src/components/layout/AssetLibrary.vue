@@ -7,7 +7,6 @@
   - resources 视图：显示项目资源浏览器
   - ai-chat 视图：显示 AI 对话面板
   - validation-history 视图：显示校验历史面板
-  - lineage 视图：显示数据血缘浏览器
   - data 视图：显示数据源管理
 
   负责转发拖拽事件（dragstart / dragend）到父组件。
@@ -29,9 +28,6 @@
     <!-- 校验历史视图 -->
     <ValidationHistoryPanel v-show="currentView === 'validation-history'" />
 
-    <!-- 数据血缘视图 -->
-    <LineageExplorerPanel v-show="currentView === 'lineage'" />
-
     <!-- 数据源视图 -->
     <DataLibrary
       v-show="currentView === 'data'"
@@ -50,9 +46,6 @@
   const ValidationHistoryPanel = defineAsyncComponent(
     () => import('../validationHistory/ValidationHistoryPanel.vue')
   )
-  const LineageExplorerPanel = defineAsyncComponent(
-    () => import('../lineage/LineageExplorerPanel.vue')
-  )
 
   // 定义组件的事件
   const emit = defineEmits<{
@@ -62,7 +55,7 @@
 
   // 定义Props
   const props = defineProps<{
-    currentView: 'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'lineage' | 'data'
+    currentView: 'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'data'
   }>()
 
   // 处理子组件的拖拽事件

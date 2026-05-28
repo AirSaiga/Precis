@@ -8,7 +8,8 @@
  */
 
 import { markRaw } from 'vue'
-import type { NodeComponent } from '@vue-flow/core'
+import type { NodeComponent, EdgeComponent } from '@vue-flow/core'
+import DeletableEdge from '@/components/canvas/edges/DeletableEdge.vue'
 import ProjectRootNode from '@/components/nodes/root/ProjectRootNode.vue'
 import SchemaNode from '@/components/nodes/core/SchemaNode.vue'
 import SourcePreviewNode from '@/components/nodes/core/SourcePreviewNode.vue'
@@ -54,7 +55,9 @@ export function useNodeTypeRegistry() {
     compositeConstraint: constraintNodeRegistry.composite?.component || null,
   }
 
-  const edgeTypes: Record<string, never> = {}
+  const edgeTypes: Record<string, EdgeComponent> = {
+    smoothstep: markRaw(DeletableEdge) as unknown as EdgeComponent,
+  }
 
   return {
     nodeTypes,

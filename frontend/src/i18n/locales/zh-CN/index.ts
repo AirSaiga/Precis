@@ -25,7 +25,6 @@ import { aiChat, aiConfigGenerator } from './ai'
 import { template } from './template'
 import { factories } from './factories'
 import { validationHistory } from './validationHistory'
-import { lineage } from './lineage'
 
 // force rebuild: 2026-05-18
 const zhCN = {
@@ -60,7 +59,6 @@ const zhCN = {
   template,
   factories,
   validationHistory,
-  lineage,
   common: commonLocales,
   shortcuts,
 }
