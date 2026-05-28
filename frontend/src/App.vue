@@ -258,8 +258,8 @@
 
   // --- 局部状态 ---
 
-  /** 资源库当前视图模式：'project' 显示项目资源，'data' 显示数据源 */
-  const currentView = ref<'project' | 'data'>('project')
+  /** 资源库当前视图模式 */
+  const currentView = ref<'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'lineage' | 'data'>('toolbox')
 
   /** 拖拽 Ghost 的鼠标位置，实时跟随光标更新 */
   const mousePosition = ref({ x: 0, y: 0 })

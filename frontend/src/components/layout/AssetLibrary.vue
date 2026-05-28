@@ -3,25 +3,38 @@
   @description 资产库布局容器
 
   作为左侧侧边栏的资产库容器，根据当前视图动态切换显示：
-  - project 视图：显示 ProjectLibrary（项目工具箱和资源浏览器）
-  - data 视图：显示 DataLibrary（数据源管理）
+  - toolbox 视图：显示工具箱（可拖拽组件磁贴）
+  - resources 视图：显示项目资源浏览器
+  - ai-chat 视图：显示 AI 对话面板
+  - validation-history 视图：显示校验历史面板
+  - lineage 视图：显示数据血缘浏览器
+  - data 视图：显示数据源管理
 
   负责转发拖拽事件（dragstart / dragend）到父组件。
 -->
 
 <template>
   <div class="asset-library">
-    <!-- 根据currentView动态显示不同内容 -->
-    <!-- 视图-A：工程构建 (Project View) -->
+    <!-- 工具箱 / 项目资源视图 -->
     <ProjectLibrary
-      v-if="currentView === 'project'"
+      v-show="currentView === 'toolbox' || currentView === 'resources'"
+      :view="(currentView === 'toolbox' || currentView === 'resources') ? currentView : 'toolbox'"
       @dragstart="handleDragStart"
       @dragend="handleDragEnd"
     />
 
-    <!-- 视图-B：数据源 (Data View) -->
+    <!-- AI 助手视图 -->
+    <AIChatPanel v-show="currentView === 'ai-chat'" />
+
+    <!-- 校验历史视图 -->
+    <ValidationHistoryPanel v-show="currentView === 'validation-history'" />
+
+    <!-- 数据血缘视图 -->
+    <LineageExplorerPanel v-show="currentView === 'lineage'" />
+
+    <!-- 数据源视图 -->
     <DataLibrary
-      v-else-if="currentView === 'data'"
+      v-show="currentView === 'data'"
       @dragstart="handleDragStart"
       @dragend="handleDragEnd"
     />
@@ -29,8 +42,17 @@
 </template>
 
 <script setup lang="ts">
+  import { defineAsyncComponent } from 'vue'
   import ProjectLibrary from '../library/ProjectLibrary.vue'
   import DataLibrary from '../library/DataLibrary.vue'
+
+  const AIChatPanel = defineAsyncComponent(() => import('../ai/AIChatPanel.vue'))
+  const ValidationHistoryPanel = defineAsyncComponent(
+    () => import('../validationHistory/ValidationHistoryPanel.vue')
+  )
+  const LineageExplorerPanel = defineAsyncComponent(
+    () => import('../lineage/LineageExplorerPanel.vue')
+  )
 
   // 定义组件的事件
   const emit = defineEmits<{
@@ -40,7 +62,7 @@
 
   // 定义Props
   const props = defineProps<{
-    currentView: 'project' | 'data'
+    currentView: 'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'lineage' | 'data'
   }>()
 
   // 处理子组件的拖拽事件

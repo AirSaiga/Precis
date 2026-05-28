@@ -110,6 +110,7 @@ import {
   type FullValidationResponse,
   type ValidationTaskRequest,
 } from '@/api/projectValidationApi'
+import { saveValidationRun } from '@/api/validationHistoryApi'
 import type { DataSourceRefV2, ProjectManifestV2, TableSchemaFileV2 } from '@/types/projectV2'
 import { detectFileTypeFromPath } from '@/utils/fileTypeUtils'
 
@@ -602,6 +603,9 @@ export function useValidationTaskRunner() {
       graphStore.setLastFullValidationSummary(response.summary)
       graphStore.setLastFullValidationStatistics(response.statistics || null)
 
+      // 自动保存校验结果到历史（fire-and-forget，不阻塞 UI 通知）
+      const projectPath = projectStore.currentPaths?.configPath
+
       if (response.error) {
         errorMessage.value = response.error
         warning(t('common.fullValidation.result.toastFail'), t('common.fullValidation.result.fail'))
@@ -609,6 +613,37 @@ export function useValidationTaskRunner() {
         success(t('common.fullValidation.result.toastPass'), t('common.fullValidation.result.pass'))
       } else {
         warning(t('common.fullValidation.result.toastFail'), t('common.fullValidation.result.fail'))
+      }
+
+      if (projectPath && response.summary) {
+        const summaryWithPassRate = {
+          ...response.summary,
+          pass_rate: response.statistics?.pass_rate ?? 0,
+          passed_count: response.statistics?.passed_count ?? 0,
+          failed_count: response.statistics?.failed_count ?? 0,
+          total_checks: response.statistics?.total_checks ?? 0,
+        }
+        saveValidationRun(projectPath, {
+          duration_ms: response.summary.duration_ms ?? 0,
+          summary: summaryWithPassRate as unknown as Record<string, unknown>,
+          by_type: (response.statistics?.by_type ?? {}) as Record<string, Record<string, number>>,
+          by_table: (response.statistics?.by_table ?? {}) as Record<string, Record<string, number>>,
+          errors: (response.errors ?? []).map((e: any) => ({
+            stage: e.stage ?? '',
+            error_type: e.error_type ?? '',
+            check_type: e.check_type ?? '',
+            message: e.message ?? '',
+            table: e.table ?? '',
+            column: e.column ?? '',
+            row_index: e.row_index,
+            value: e.value ?? '',
+          })),
+          warnings: response.warnings ?? [],
+        })
+          .then(() => logger.debug('[ValidationTaskRunner] 校验结果已保存到历史'))
+          .catch((histErr) =>
+            logger.warn('[ValidationTaskRunner] 保存校验历史失败（不影响校验结果）:', histErr)
+          )
       }
 
       setStageStatus('execute', 'success')

@@ -28,4 +28,9 @@ router = APIRouter(prefix="", tags=["Data Validation"])
 # 导入子模块以注册其路由（content_mode、inline_mode 和 path_mode 通过 from .router import router 装饰本实例）
 from . import content_mode, inline_mode, path_mode  # noqa: E402, F401
 
+# history 模块使用独立 router（含 prefix），需要 include_router 注册
+from .history import router as history_router  # noqa: E402
+
+router.include_router(history_router)
+
 __all__ = ["router"]

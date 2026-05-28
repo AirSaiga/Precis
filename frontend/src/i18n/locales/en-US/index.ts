@@ -24,6 +24,8 @@ import { settings } from './settings'
 import { aiChat, aiConfigGenerator } from './ai'
 import { template } from './template'
 import { factories } from './factories'
+import { validationHistory } from './validationHistory'
+import { lineage } from './lineage'
 
 const enUS = {
   app,
@@ -56,6 +58,8 @@ const enUS = {
   aiConfigGenerator,
   template,
   factories,
+  validationHistory,
+  lineage,
   common: commonLocales,
   shortcuts,
 }

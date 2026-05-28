@@ -69,8 +69,12 @@ const assetLibrary = {
   },
   // AssetLibraryNav related
   activityBar: {
-    projectView: 'Project View',
-    dataView: 'Data View',
+    toolboxView: 'Toolbox',
+    resourcesView: 'Resources',
+    aiChatView: 'AI Assistant',
+    validationHistoryView: 'History',
+    lineageView: 'Lineage',
+    dataView: 'Data',
     settings: 'Settings',
     languageSwitch: {
       english: 'EN',

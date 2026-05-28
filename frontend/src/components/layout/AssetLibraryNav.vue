@@ -2,20 +2,20 @@
   @file AssetLibraryNav.vue
   @description 活动栏导航组件
 
-  提供 Project / Data 两个视图的切换按钮，位于左侧活动栏顶部。
+  提供 Toolbox / Resources / Data 三个视图的切换按钮，位于左侧活动栏顶部。
   当前激活的视图按钮会高亮显示。
 -->
 
 <template>
   <nav class="activity-bar-nav">
-    <!-- 简化版顶部功能区：Project/Data切换 -->
+    <!-- 三视图切换：工具箱 / 项目资源 / 数据源 -->
     <div class="view-switcher">
-      <!-- Project视图按钮 -->
+      <!-- 工具箱视图按钮 -->
       <button
         class="view-btn"
-        :class="{ active: currentView === 'project' }"
-        @click="setCurrentView('project')"
-        :title="t('assetLibrary.activityBar.projectView')"
+        :class="{ active: currentView === 'toolbox' }"
+        @click="setCurrentView('toolbox')"
+        :title="t('assetLibrary.activityBar.toolboxView')"
       >
         <div class="view-icon-wrapper">
           <svg
@@ -39,7 +39,110 @@
         </div>
       </button>
 
-      <!-- Data视图按钮 -->
+      <!-- 项目资源视图按钮 -->
+      <button
+        class="view-btn"
+        :class="{ active: currentView === 'resources' }"
+        @click="setCurrentView('resources')"
+        :title="t('assetLibrary.activityBar.resourcesView')"
+      >
+        <div class="view-icon-wrapper">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path
+              d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"
+            ></path>
+          </svg>
+        </div>
+      </button>
+
+      <!-- AI 助手视图按钮 -->
+      <button
+        class="view-btn"
+        :class="{ active: currentView === 'ai-chat' }"
+        @click="setCurrentView('ai-chat')"
+        :title="t('assetLibrary.activityBar.aiChatView')"
+      >
+        <div class="view-icon-wrapper">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </div>
+      </button>
+
+      <!-- 校验历史视图按钮 -->
+      <button
+        class="view-btn"
+        :class="{ active: currentView === 'validation-history' }"
+        @click="setCurrentView('validation-history')"
+        :title="t('assetLibrary.activityBar.validationHistoryView')"
+      >
+        <div class="view-icon-wrapper">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="12" cy="12" r="10"></circle>
+            <polyline points="12 6 12 12 16 14"></polyline>
+          </svg>
+        </div>
+      </button>
+
+      <!-- 数据血缘视图按钮 -->
+      <button
+        class="view-btn"
+        :class="{ active: currentView === 'lineage' }"
+        @click="setCurrentView('lineage')"
+        :title="t('assetLibrary.activityBar.lineageView')"
+      >
+        <div class="view-icon-wrapper">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+        </div>
+      </button>
+
+      <!-- 数据源视图按钮 -->
       <button
         class="view-btn"
         :class="{ active: currentView === 'data' }"
@@ -129,7 +232,7 @@
   import { useI18n } from 'vue-i18n'
 
   // 当前视图状态
-  const currentView = ref<'project' | 'data'>('project')
+  const currentView = ref<'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'lineage' | 'data'>('toolbox')
   const { t, locale } = useI18n()
 
   // 当前语言状态
@@ -143,7 +246,7 @@
   }
 
   // 设置当前视图
-  const setCurrentView = (view: 'project' | 'data') => {
+  const setCurrentView = (view: 'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'lineage' | 'data') => {
     if (currentView.value !== view) {
       logger.debug(`[AssetLibraryNav] 准备切换到${view}视图，当前视图: ${currentView.value}`)
       currentView.value = view

@@ -69,8 +69,12 @@ const assetLibrary = {
   },
   // AssetLibraryNav相关
   activityBar: {
-    projectView: '工程视图',
-    dataView: '数据视图',
+    toolboxView: '工具箱',
+    resourcesView: '项目资源',
+    aiChatView: 'AI 助手',
+    validationHistoryView: '校验历史',
+    lineageView: '数据血缘',
+    dataView: '数据源',
     settings: '设置',
     languageSwitch: {
       english: 'EN',
