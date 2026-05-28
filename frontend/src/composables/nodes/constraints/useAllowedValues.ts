@@ -217,11 +217,6 @@ export function useAllowedValues(
       const headerRow = sourceSchemaData.headerRow
 
       if (!sourceSchemaData.sourceFile) {
-        store.updateNodeData(props.id, {
-          validationStatus: 'idle',
-          validationErrors: ['源表未连接数据源'],
-          lastValidation: undefined,
-        })
         return emptyResult
       }
 
