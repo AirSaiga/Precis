@@ -46,7 +46,7 @@ dependencies = [
     # CLI 交互
     "readchar>=4.2.0",
     # 安全
-    "cryptography>=46.0.7",
+    "cryptography>=48.0.0",
     # 安全表达式求值 (替代 eval)
     "simpleeval>=1.0.0",
 ]
