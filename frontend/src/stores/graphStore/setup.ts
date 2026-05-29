@@ -120,6 +120,7 @@ import { createSchemaOpsModule } from './modules/schemaOps'
 import { createRegexDesignModule } from './modules/regexDesign'
 import { createAssetsModule } from './modules/assets'
 import { createScopeModule } from './modules/scope'
+import '@/services/disconnect' // side-effect: 触发所有断开清理处理器的自注册
 import { isConstraintNodeType, validateForInlineSource } from '@/services/constraints/validationRegistry'
 import { logger } from '@/core/utils/logger'
 import {

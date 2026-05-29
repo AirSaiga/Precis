@@ -21,6 +21,7 @@ import { logger } from '@/core/utils/logger'
 import { useConstraintBase } from './useConstraintBase'
 import { useGraphStore } from '@/stores/graphStore'
 import { validateScripted } from '@/api/validationApi'
+import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
 import { useSettingsStore } from '@/stores/settingsStore'
 import type { ScriptedConstraintNodeData } from '@/types/constraints'
 
@@ -199,12 +200,17 @@ export function UseScripted(props: { id: string; data: ScriptedConstraintNodeDat
       }
 
       // 验证源节点类型
-      if (sourceNode.type !== 'schema') {
+      if (sourceNode.type !== 'schema' && sourceNode.type !== 'manualData' && sourceNode.type !== 'transformOutput') {
         store.updateNodeData(props.id, {
           validationStatus: 'missing',
-          validationErrors: ['脚本约束的源必须是 Schema 节点'],
+          validationErrors: ['脚本约束的源必须是 Schema 节点或数据节点'],
           lastValidation: undefined,
         })
+        return emptyResult
+      }
+
+      if (sourceNode.type === 'manualData' || sourceNode.type === 'transformOutput') {
+        await tryInlineValidation(store, { nodeId: sourceNode.id, columnId: '0' }, props.id)
         return emptyResult
       }
 

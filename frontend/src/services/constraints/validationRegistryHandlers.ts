@@ -679,13 +679,57 @@ register({
   validate: async (ctx) => {
     const missing = requireSource(ctx)
     if (missing) return missing
-    // 行内数据源暂不支持条件校验（需多列 IF/THEN 参照）
     if (ctx.inlineRows && ctx.inlineRows.length > 0) {
-      return {
-        status: 'idle',
-        validationErrors: ['行内数据源暂不支持条件约束校验，请使用文件数据源'],
-        lastValidation: undefined,
+      const nodeData = (ctx.constraintNode.data || {}) as Record<string, unknown>
+      const hasThen = !!(nodeData.thenRef as Record<string, unknown> | undefined)?.columnId
+      if (!hasThen) {
+        return { status: 'idle', validationErrors: [], lastValidation: undefined }
       }
+      const thenColumnName = ctx.columnName
+      const hasIf =
+        (Array.isArray(nodeData.ifConditions) && nodeData.ifConditions.length > 0) ||
+        !!(nodeData.ifRef as Record<string, unknown> | undefined)?.columnId
+      const skipIf = !!nodeData.skipIfCondition
+      if (!hasIf && !skipIf) {
+        return { status: 'idle', validationErrors: ['未配置 IF 条件，请连接 IF 列或启用"无条件触发"'], lastValidation: undefined }
+      }
+      const validationConfig: Record<string, unknown> = {
+        if_logic: (nodeData.ifLogic as 'and' | 'or' | undefined) || 'and',
+        then_column: thenColumnName,
+        then_condition: nodeData.thenConditionConfig as string | Record<string, unknown>,
+        then_condition_config: nodeData.thenConditionConfig as string | Record<string, unknown>,
+      }
+      if (skipIf) {
+        validationConfig.if_conditions = []
+      } else {
+        const rawIfConditions = Array.isArray(nodeData.ifConditions) && nodeData.ifConditions.length > 0
+          ? nodeData.ifConditions
+          : [{ ref: nodeData.ifRef, operator: 'eq', value: nodeData.ifValue }]
+        const normalizedIf = rawIfConditions
+          .map((c: any) => ({
+            if_column: ctx.columnName,
+            operator: c?.operator || 'eq',
+            value: c?.value,
+            values: Array.isArray(c?.values) ? c.values : undefined,
+          }))
+        validationConfig.if_conditions = normalizedIf
+        validationConfig.if_column = normalizedIf[0]?.if_column
+        validationConfig.if_value = normalizedIf[0]?.value
+      }
+      const response = await validateInline({
+        validation_type: 'conditional',
+        target_column_name: thenColumnName,
+        rows: ctx.inlineRows,
+        validation_config: validationConfig,
+      })
+      if (!response.success || !response.data) {
+        return {
+          status: 'error',
+          validationErrors: [String(response.error || '条件约束校验失败')],
+          lastValidation: undefined,
+        }
+      }
+      return toResult(response.data.error_rows || [], response.data.total_rows || 0, '不满足条件')
     }
     const nodeData = (ctx.constraintNode.data || {}) as Record<string, unknown>
     const ifConditions = Array.isArray(nodeData.ifConditions)
@@ -776,13 +820,39 @@ register({
   validate: async (ctx) => {
     const missing = requireSource(ctx)
     if (missing) return missing
-    // 行内数据源暂不支持日期逻辑校验（需后端日期解析）
     if (ctx.inlineRows && ctx.inlineRows.length > 0) {
-      return {
-        status: 'idle',
-        validationErrors: ['行内数据源暂不支持日期逻辑校验，请使用文件数据源'],
-        lastValidation: undefined,
+      const nodeData = (ctx.constraintNode.data || {}) as Record<string, unknown>
+      const validationConfig: Record<string, unknown> = {
+        logic_mode: nodeData.logicMode || 'compare',
       }
+      if ((nodeData.logicMode || 'compare') === 'compare') {
+        validationConfig.compare_op = nodeData.compareOp || 'gt'
+        if (nodeData.referenceType === 'date')
+          validationConfig.reference_date = nodeData.referenceDate
+        else validationConfig.reference_column = nodeData.referenceColumn
+      } else {
+        validationConfig.calculation_type = nodeData.calculationType || 'age'
+        if (nodeData.targetType === 'value') validationConfig.target_value = nodeData.targetValue
+        else validationConfig.target_column = nodeData.targetColumn
+      }
+      const response = await validateInline({
+        validation_type: 'date_logic',
+        target_column_name: ctx.columnName,
+        rows: ctx.inlineRows,
+        validation_config: validationConfig,
+      })
+      if (!response.success || !response.data) {
+        return {
+          status: 'error',
+          validationErrors: [String(response.error || '日期逻辑校验失败')],
+          lastValidation: undefined,
+        }
+      }
+      return toResult(
+        response.data.error_rows || [],
+        response.data.total_rows || 0,
+        '日期逻辑约束冲突'
+      )
     }
     const nodeData = (ctx.constraintNode.data || {}) as Record<string, unknown>
     const validationConfig: Record<string, unknown> = {

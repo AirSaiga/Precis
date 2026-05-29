@@ -99,9 +99,11 @@ def validate_data_inline(request: InlineValidationRequest):
             df = pd.DataFrame(request.rows[1:], columns=header)
 
         # 对目标列做数值类型推断（与 pandas 读取文件时的行为保持一致）
-        # 尝试将字符串列转为数值类型，失败则保持原类型
+        # pandas 3.0 移除了 errors="ignore"，使用 coerce + 回退保持原类型
         if request.target_column_name in df.columns:
-            df[request.target_column_name] = pd.to_numeric(df[request.target_column_name], errors="ignore")
+            converted = pd.to_numeric(df[request.target_column_name], errors="coerce")
+            if converted.notna().any():
+                df[request.target_column_name] = converted
 
         logger.info(
             f"[INLINE] 收到行内校验请求: type={request.validation_type}, "

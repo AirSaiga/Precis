@@ -21,6 +21,7 @@ import { useConstraintBase } from './useConstraintBase'
 import type { ForeignKeyConstraintNodeData } from '../types'
 import { useGraphStore } from '@/stores/graphStore'
 import { validateForeignKey } from '@/api/validationApi'
+import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
 
 /**
  * 外键校验结果
@@ -230,6 +231,11 @@ export function useForeignKey(
           validationErrors: ['找不到源节点或目标节点'],
           lastValidation: undefined,
         })
+        return emptyResult
+      }
+
+      if (sourceNode.type === 'manualData' || sourceNode.type === 'transformOutput') {
+        await tryInlineValidation(store, { nodeId: sourceNode.id, columnId: '0' }, props.id)
         return emptyResult
       }
 

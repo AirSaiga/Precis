@@ -167,9 +167,21 @@ export function useNodeSourceManager<TNodeData extends Record<string, any>>(
 
   /**
    * 断开数据源连接（通用版）
-   * 根据 disconnectFields 清除指定字段
+   * 1. 移除 Schema → SourcePreview 的边（触发 watcher → handleEdgeRemoved → 注册表清理）
+   * 2. 清除 disconnectFields 中的元数据字段
    */
   const disconnectSource = () => {
+    // 找到并移除当前节点作为 target 的数据源连接边
+    const connectedEdges = store.edges.filter(
+      (e: any) =>
+        e.target === props.id &&
+        e.targetHandle === 'target-left'
+    )
+    for (const edge of connectedEdges) {
+      store.deleteConnection(edge.id)
+    }
+
+    // 清除元数据字段
     const updates: Record<string, any> = {}
     for (const field of options.disconnectFields) {
       updates[field] = undefined

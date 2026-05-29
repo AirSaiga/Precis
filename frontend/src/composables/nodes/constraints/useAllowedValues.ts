@@ -21,6 +21,7 @@ import { logger } from '@/core/utils/logger'
 import { useConstraintBase } from './useConstraintBase'
 import { useGraphStore } from '@/stores/graphStore'
 import { validateAllowedValues } from '@/api/validationApi'
+import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
 import type { AllowedValuesConstraintNodeData } from '@/types/graph'
 
 /**
@@ -201,12 +202,17 @@ export function useAllowedValues(
         return emptyResult
       }
 
-      if (sourceNode.type !== 'schema') {
+      if (sourceNode.type !== 'schema' && sourceNode.type !== 'manualData' && sourceNode.type !== 'transformOutput') {
         store.updateNodeData(props.id, {
           validationStatus: 'missing',
-          validationErrors: ['允许值校验的源必须是 Schema 节点'],
+          validationErrors: ['允许值校验的源必须是 Schema 节点或数据节点'],
           lastValidation: undefined,
         })
+        return emptyResult
+      }
+
+      if (sourceNode.type === 'manualData' || sourceNode.type === 'transformOutput') {
+        await tryInlineValidation(store, { nodeId: sourceNode.id, columnId: '0' }, props.id)
         return emptyResult
       }
 

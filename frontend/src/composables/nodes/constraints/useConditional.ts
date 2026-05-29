@@ -23,6 +23,7 @@ import { useConstraintBase } from './useConstraintBase'
 import type { ConditionalConstraintNodeData } from '../types'
 import { useGraphStore } from '@/stores/graphStore'
 import { validateConditional, type ConditionalValidationRequest } from '@/api/validationApi'
+import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
 
 /**
  * 条件约束支持的标量值类型
@@ -146,7 +147,7 @@ function resolveColumnName(
     return columns?.find((c) => c.id === columnId)?.columnName
   }
 
-  if (node.type === 'transformOutput') {
+  if (node.type === 'transformOutput' || node.type === 'manualData') {
     return (node.data as Record<string, unknown>).columnName as string | undefined
   }
 
@@ -157,7 +158,7 @@ function resolveColumnName(
  * 判断节点是否为可连接的数据源（schema 或 transformOutput）
  */
 function isDataSourceNode(type: string | undefined): boolean {
-  return type === 'schema' || type === 'transformOutput'
+  return type === 'schema' || type === 'transformOutput' || type === 'manualData'
 }
 
 export function useConditional(
@@ -316,15 +317,10 @@ export function useConditional(
 
       // 获取数据源文件信息（仅 schema 节点有，transformOutput 节点没有）
       const sourceSchemaData = base.sourceInfo.value
-      const isTransformSource = thenNode.type === 'transformOutput'
+      const isInlineSource = thenNode.type === 'transformOutput' || thenNode.type === 'manualData'
 
-      // TransformOutput 源：前端无法直接校验，提示用户通过后端执行
-      if (isTransformSource) {
-        store.updateNodeData(props.id, {
-          validationStatus: 'idle',
-          validationErrors: ['当前约束引用了 Transform 生成的派生列，保存后请通过后端执行完整校验'],
-          lastValidation: undefined,
-        })
+      if (isInlineSource) {
+        await tryInlineValidation(store, thenRef, props.id)
         return emptyResult
       }
 

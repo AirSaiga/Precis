@@ -125,6 +125,7 @@
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { useConstraintSourceSelector } from '@/composables/nodes/constraints/useConstraintSourceSelector'
   import { resolveValidationSource } from '@/composables/nodes/constraints/useValidationSource'
+  import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
   import {
     validateCharset,
     type CharsetValidationRequest,
@@ -228,6 +229,7 @@
 
     const source = resolveValidationSource(store, props.data.sourceRef)
     if (!source) {
+      if (await tryInlineValidation(store, props.data.sourceRef, props.id)) return emptyResult
       store.updateNodeData(props.id, {
         validationStatus: 'missing',
         validationErrors: ['源表未连接数据源，无法执行字符集校验'],

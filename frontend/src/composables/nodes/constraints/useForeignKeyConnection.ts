@@ -16,6 +16,7 @@ import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore';
 import type { SchemaNodeData, ForeignKeyConstraintNodeData } from '@/types/graph';
 import type { Edge } from '@vue-flow/core';
+import { validateForInlineSource } from '@/services/constraints/validationRegistryCore';
  
 /**
  * 外键连接处理
@@ -135,6 +136,9 @@ export function useForeignKeyConnection() {
    * @param sourceHandleId - 源 handle（列端口）
    * @param targetHandleId - 目标 handle（区分输入端口）
    */
+  const isPureDataSourceType = (type: string | undefined): boolean =>
+    type === 'transformOutput' || type === 'manualData';
+
   const handleSchemaToForeignKeyConnection = async (
     sourceNodeId: string,
     targetNodeId: string,
@@ -146,7 +150,33 @@ export function useForeignKeyConnection() {
     if (!sourceNode || !targetNode) return;
 
     // 只处理 Schema/JsonSchema -> foreignKeyConstraint
-    if (!isSchemaType(sourceNode?.type) || targetNode?.type !== 'foreignKeyConstraint') return;
+    if ((!isSchemaType(sourceNode?.type) && !isPureDataSourceType(sourceNode?.type)) || targetNode?.type !== 'foreignKeyConstraint') return;
+
+    if (isPureDataSourceType(sourceNode?.type)) {
+      const sourceData = sourceNode.data as Record<string, unknown>;
+      const columnName = (sourceData.columnName as string) || 'Column1';
+      const configName = (sourceData.configName as string) || columnName;
+
+      store.updateNodeData(targetNodeId, {
+        ...targetNode.data,
+        sourceRef: { nodeId: sourceNodeId, columnId: '0' },
+        sourceTable: configName,
+        sourceColumn: columnName,
+        sourceInfo: {
+          nodeId: sourceNodeId,
+          label: configName,
+          column: columnName,
+        },
+      });
+
+      await validateForInlineSource({
+        sourceNodeId,
+        constraintNode: targetNode,
+        nodes: store.nodes,
+        updateNodeData: store.updateNodeData,
+      });
+      return;
+    }
  
     // 解析源列 ID：source-right-{columnId} -> {columnId}
     const columnId = sourceHandleId.startsWith('source-right-')

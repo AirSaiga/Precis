@@ -101,6 +101,7 @@
   import { getApiBaseUrl } from '@/core/services/httpClient'
   import { formatNumericValue } from '@/composables/nodes/constraints/useConstraintLayout'
   import { resolveValidationSource } from '@/composables/nodes/constraints/useValidationSource'
+  import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
 
   const props = defineProps<{
     id: string
@@ -179,6 +180,7 @@
 
     const source = resolveValidationSource(store, props.data.sourceRef)
     if (!source) {
+      if (await tryInlineValidation(store, props.data.sourceRef, props.id)) return emptyResult
       store.updateNodeData(props.id, {
         validationStatus: 'missing',
         validationErrors: ['源表未连接数据源，无法执行区间校验'],
