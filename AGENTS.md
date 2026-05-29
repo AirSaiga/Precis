@@ -260,9 +260,10 @@ expandOnCanvas(instanceNodeId)
   → createConnection() [connectionOps]
     → syncOnConnect() [connectionStateSync] → 更新 parent/children/outputPortConnected
 
-边被移除
-  → useCanvasConnectionWatcher (watch store.edges)
-    → handleEdgeRemoved() → syncOnDisconnect()
+边被移除（统一路径）
+  → removeEdges(edgeId)        ← UI 删除（DeletableEdge）或 程序化删除（store.deleteConnection）
+    → onEdgesChange [useCanvasConnectionWatcher]  ← 唯一清理入口
+      → handleEdgeRemoved() → syncOnDisconnect() + executeDisconnectCleanup()
 ```
 
 **关键文件**：
@@ -323,24 +324,99 @@ vue-i18n Composition API 模式（`legacy: false`），默认 `zh-CN`，回退 `
 
 ## Critical Patterns & Pitfalls
 
-### Vue Flow v-model 双向绑定的数组操作
+### Vue Flow DAG 操作规范
 
-Vue Flow 通过 `v-model:nodes="store.nodes"` 实现双向同步（prop 下传 + emit 回写），内部维护状态副本。不当操作会导致竞态，造成节点/边消失。
+Vue Flow 通过 `v-model:nodes` / `v-model:edges` 实现双向同步（prop 下传 + emit 回写），内部维护状态副本。**绕过 Vue Flow API 直接操作数组会导致内部状态与 store 不同步**，引发节点/边消失、事件丢失、竞态等 Bug。
 
-**规则**：
-1. **v-model 数组的修改必须批量替换** — 先收集补丁到 Map，最后做**一次** `nodes.value = newArray` 替换。禁止在循环中多次替换。
-2. **添加节点与修改节点之间必须 `await nextTick()`** — 先 push 新节点，等 Vue 处理完后（`nextTick`）再执行 `reconcileAll()` 等关系重建操作。
-3. **`edges.value.push()` 不触发 Vue Flow 同步** — 必须用 `edges.value = [...edges.value, newEdge]` 创建新数组引用。
+#### 核心原则：增量走 API，全量走数组替换
+
+所有 DAG 增删操作统一通过 `services/canvas/vueFlowApi.ts` 注入层调用 Vue Flow 原生 API。该模块在 `NodeCanvas.vue` setup 中通过 `initVueFlowApi(useVueFlow())` 完成注入，之后可在 Pinia store、composable 等任何地方使用。
+
+| 场景 | 正确方式 | 说明 |
+|------|---------|------|
+| **创建节点** | `addNodes([node])`（vueFlowApi） | 增量 push，触发 hooks，Vue Flow 正确 enrichment |
+| **创建边** | `addEdges(edge)`（vueFlowApi） | 增量 push，触发 hooks，只验证新边 |
+| **删除边** | `removeEdges(edgeId)`（vueFlowApi） | 触发 `onEdgesChange` → `handleEdgeRemoved` |
+| **删除节点** | `removeNodes(nodeId)`（vueFlowApi） | 自动删除关联边并触发清理 |
+| **修改节点数据** | `updateNodeData(nodeId, patches)` | 统一入口，保持 saveState 同步 |
+| **清空/重置画布** | `nodes.value = []` / `edges.value = []` | 全量替换，走 `setNodes`/`setEdges`，不需要 hooks |
+| **加载项目** | `nodes.value = loadedNodes` / `edges.value = loadedEdges` | 全量替换，同上 |
+| **undo/redo** | `nodes.value = snapshot` / `edges.value = snapshot` | 全量替换，恢复后须调 `reconcileAll()` |
+
+#### 两条路径的本质区别
+
+| 操作路径 | 内部机制 | Hooks | 验证范围 | 风险 |
+|---------|---------|-------|---------|------|
+| `addEdges(edge)` / `removeEdges(id)` | `applyChanges` 增量 splice | **触发** | 仅新操作的边/节点 | ✅ 安全 |
+| `edges.value = [...]` → model→store watcher | `setEdges` 全量替换 | **不触发** | **所有边**重新验证 | 源/目标节点缺失时边被静默丢弃 |
+| `edges.value.push()` | 无 | 不触发 | — | **完全损坏**，Vue Flow 不检测 |
+
+**`setEdges` 的致命问题**：`createGraphEdges` 对每条边调用 `findNode(edge.source)`，找不到则 `continue` 静默丢弃。即使节点在 `edges.value` 中存在（通过 push 添加），只要 Vue Flow 内部 `state.nodes` 中没有（push 不触发 model→store watcher），边就会被丢弃。
+
+#### 禁止操作
+
+| 操作 | 原因 |
+|------|------|
+| `nodes.value.push(newNode)` | Vue Flow 的 pausable watcher 追踪 ref 值引用，push 不触发。节点在 Vue Flow 内部完全不存在 |
+| `edges.value.push(newEdge)` | 同上 |
+| `edges.value = edges.value.filter(...)` 删除边 | 绕过 `onEdgesChange`，`handleEdgeRemoved` / `syncOnDisconnect` / `executeDisconnectCleanup` 均不执行 |
+| 直接修改 `node.data` 属性 | 绕过 `updateNodeData` 统一入口，saveState 不同步 |
+| 同一边混合使用 API 和数组操作 | `removeEdges` + `edges.value = filter` 导致 `onEdgesChange` 触发两次 |
+
+#### 时序要求
+
+- **创建节点后、创建边之前必须 `await nextTick()`** — `addNodes` 同步更新 Vue Flow 内部状态，但节点需要渲染后才有 handleBounds（边路径计算依赖）。`nextTick` 确保 Vue Flow 完成节点处理。
+- **`reconcileAll()` 必须在 `nextTick` 之后调用** — 它从 edges 重建所有 parent/children/outputPortConnected 状态，必须在 Vue Flow 完成节点变更处理后执行。
+- **`removeEdges` 同步触发 `onEdgesChange`** — 清理立即执行，"删除旧边 → 设置新数据"的顺序是安全的。
+- **store→model 同步有 nextTick 延迟** — Vue Flow 内部状态变更后，通过 pausable watcher 在 `nextTick` 后才回写到 v-model ref。
+
+#### 事件选择
+
+- **用 `onEdgesChange` / `onNodesChange` 监听变化**，不要用 `watch(store.edges)` — v-model 双向绑定会让 `watch` 频繁触发且难以区分变化来源。
+- **`onEdgesChange` 的 `remove` 事件**：由 `removeEdges` 同步触发。数组替换不会触发。
+
+#### 删除节点时的关联边清理
+
+删除节点时必须同时清理其关联边。当前 `store.deleteNode` 直接替换 `nodes.value` 和 `edges.value`，**绕过了 `onEdgesChange`**，导致 `handleEdgeRemoved` / `syncOnDisconnect` 不执行。
+
+**正确做法**：删除节点前，先逐条删除其关联边（通过 `store.deleteConnection`），再删除节点本身。或在节点删除后调用 `reconcileAll()` 重建状态。
+
+#### undo/redo 的状态恢复
+
+`history.ts` 直接替换 `nodes.value` 和 `edges.value`，不触发任何 hooks。恢复后的 parent/children/outputPortConnected 状态可能与实际 edges 不一致。
+
+**正确做法**：恢复状态后调用 `reconcileAll()` 重建所有连接状态。
+
+### 已知技术债
+
+以下文件中的 `push` 调用需要迁移为 `nodes.value = [...nodes.value, newNode]`：
+
+**`nodes.value.push()`**（16 处）：
+- `modules/projectLifecycle.ts` — createProjectRootNode
+- `modules/yamlIO.ts` — importSchemaFromYAML
+- `modules/v2/import/constraint.ts` — importConstraint
+- `modules/v2/import/importV2ResourceToCanvas.ts` — importPattern, importTransform
+- `modules/v2/import/regex.ts` — importRegex
+- `modules/v2/import/schema.ts` — ensureSchemaNode, embeddedConstraints addNode callback
+- `modules/v2/import/ensureSchemaNodeFromV2.ts` — ensureSchemaNodeFromV2
+- `modules/clipboard.ts` — pasteNodes, duplicateSelectedNode
+- `modules/templateExpand.ts` — materializeNodes
+- `modules/factories/createBaseNodeFactory.ts` — generic createNode
+- `modules/factories/libraryNodesFactory.ts` — createPatternToolboxNode, createConstraintDashboardNode
+
+**`edges.value.push()`**（6 处）：
+- `modules/v2/import/constraint.ts` — FK display edge
+- `modules/v2/import/edges.ts` — ensureSchemaToRegexEdge, ensureSchemaToConstraintEdge
+- `modules/clipboard.ts` — pasteNodes, duplicateSelectedNode edge copy
+- `modules/schemaOps.ts` — bindRegexToSchemaColumn edge
+
+**直接 `node.data` 属性修改**（应改用 `updateNodeData`）：
+- `modules/v2/persistence/save.ts` — saveState/lastSaved 在多个 save 函数中直接赋值
+- `modules/templateExpand.ts` — inputFromNode/style/width/height 直接修改
 
 ### 画布连接规则
 
 任何进入 `store.edges` 的连接都必须先在 `services/rules/connectionRules.ts` 中定义对应规则。规则粒度必须精确到 handle。适用于手工拖拽、自动生成、导入恢复和展示边。
-
-### reconcileAll() 设计约束
-
-`reconcileAll()`（`connectionStateSync.ts`）从 edges 重建所有 parent/children/outputPortConnected 状态。它必须：
-- 收集所有补丁后通过**单次** `nodes.value` 替换应用（批量模式）
-- 仅在 `nextTick` 之后调用（等 Vue Flow 处理完节点变更）
 
 ### 约束节点自注册
 
