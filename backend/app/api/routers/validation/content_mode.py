@@ -202,9 +202,7 @@ async def validate_data_with_file(
             )
 
             if response.success and response.data:
-                logger.info(
-                    f"[VALIDATION] 校验完成: 成功={response.data.is_valid}, 错误数={response.data.error_count}"
-                )
+                logger.info(f"[VALIDATION] 校验完成: 成功={response.data.is_valid}, 错误数={response.data.error_count}")
 
             return response
 

@@ -118,9 +118,7 @@ def validate_data_with_path(request: ValidationRequest):
 
         # 记录校验完成状态
         if response.success and response.data:
-            logger.info(
-                f"[VALIDATION] 路径校验完成: 成功={response.data.is_valid}, 错误数={response.data.error_count}"
-            )
+            logger.info(f"[VALIDATION] 路径校验完成: 成功={response.data.is_valid}, 错误数={response.data.error_count}")
 
         return response
 
