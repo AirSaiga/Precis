@@ -7,8 +7,10 @@
  * 只允许使用：Pinia Store、模块级纯函数、全局状态工具。
  */
 
+import { nextTick } from 'vue'
 import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
+import { addNodes } from '@/services/canvas/vueFlowApi'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { fetchPreviewDataFromPath } from '@/composables/nodes/sourcePreview/usePreviewCreation'
@@ -240,16 +242,19 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
     sourceMode: 'localfile',
   }
 
-  graphStore.nodes.push({
-    id: sourcePreviewNodeId,
-    type: 'sourcePreview',
-    position: { x: schemaNode.position.x - 450, y: schemaNode.position.y },
-    data: nodeData,
-    selected: false,
-    dragging: false,
-  } as any)
+  addNodes([
+    {
+      id: sourcePreviewNodeId,
+      type: 'sourcePreview',
+      position: { x: schemaNode.position.x - 450, y: schemaNode.position.y },
+      data: nodeData,
+    } as any,
+  ])
 
   logger.debug('[bindDataSource] SourcePreview 节点已创建:', sourcePreviewNodeId)
+
+  // 等 Vue Flow 渲染新节点、计算 handleBounds，否则创建边时找不到源端口
+  await nextTick()
 
   // ---- 创建 SourcePreview → Schema 连接边 ----
   graphStore.createConnection(

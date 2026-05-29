@@ -17,7 +17,7 @@
 import { logger } from '@/core/utils/logger'
 import { nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useVueFlow } from '@vue-flow/core'
+
 import { useGraphStore } from '@/stores/graphStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useToast } from '@/composables/shared/useToast'
@@ -49,8 +49,6 @@ export function useJsonSchemaConnectionHandler(
   const showError = toast.error
   const info = toast.info
 
-  // 从 VueFlow 获取边的操作方法
-  const { removeEdges } = useVueFlow()
   // 获取全局图存储
   const store = useGraphStore()
 
@@ -296,12 +294,7 @@ export function useJsonSchemaConnectionHandler(
             logger.debug(
               `  - 断开与 "${(oldSourceNode.data as unknown as Record<string, unknown>)?.sourceName || (oldSourceNode.data as unknown as Record<string, unknown>)?.fileName || oldSourceNode.id}" 的连接`
             )
-            store.updateNodeData(oldSourceNode.id, {
-              ...oldSourceNode.data,
-              outputPortConnected: false,
-            })
           }
-          removeEdges(edge.id)
           store.deleteConnection(edge.id)
         }
 

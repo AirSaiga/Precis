@@ -5,13 +5,14 @@
 
 <script setup lang="ts">
   import { ref, computed } from 'vue'
-  import { getSmoothStepPath, BaseEdge } from '@vue-flow/core'
+  import { getSmoothStepPath, BaseEdge, useVueFlow } from '@vue-flow/core'
   import type { EdgeProps } from '@vue-flow/core'
   import { useGraphStore } from '@/stores/graphStore'
 
   const props = defineProps<EdgeProps>()
 
   const store = useGraphStore()
+  const { removeEdges } = useVueFlow()
   const isHovered = ref(false)
 
   const isDeletable = computed(() => {
@@ -47,7 +48,7 @@
 
   function handleDelete(event: MouseEvent) {
     event.stopPropagation()
-    store.deleteConnection(props.id)
+    removeEdges([props.id])
   }
 </script>
 

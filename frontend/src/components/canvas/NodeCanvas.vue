@@ -171,6 +171,7 @@
   import { useNodeOrganizer } from '@/features/node-layout-organizer/composables/useNodeOrganizer'
   import { useNodeTypeRegistry } from '@/composables/canvas/useNodeTypeRegistry'
   import { useCanvasConnectionWatcher } from '@/composables/canvas/useCanvasConnectionWatcher'
+  import { initVueFlowApi } from '@/services/canvas/vueFlowApi'
   import { useCanvasContextMenu } from '@/composables/canvas/useCanvasContextMenu'
   import { useConnections } from '@/composables/nodes/useConnections'
   import { useCanvasNodeOperations } from '@/composables/canvas/useCanvasNodeOperations'
@@ -198,7 +199,8 @@
   const nodeOrganizer = useNodeOrganizer()
   const zoneGroups = nodeOrganizer.groups
   const { t } = useI18n()
-  const { viewport, onNodeContextMenu, project } = useVueFlow()
+  const { viewport, onNodeContextMenu, project, addNodes, addEdges, removeNodes, removeEdges, updateNodeInternals } = useVueFlow()
+  initVueFlowApi({ addNodes, addEdges, removeNodes, removeEdges, updateNodeInternals })
   const { validateConnection } = useCanvasConnectionWatcher()
   const flowWrapper = ref<HTMLDivElement | null>(null)
   const { projectCreateDialogRef, handleOpenCreateProjectDialog } = useCanvasProjectDialog()

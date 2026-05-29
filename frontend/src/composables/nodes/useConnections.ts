@@ -25,7 +25,7 @@
 import { logger } from '@/core/utils/logger'
 import { ref } from 'vue'
 import type { Connection, OnConnectStartParams } from '@vue-flow/core'
-import { useVueFlow } from '@vue-flow/core'
+
 import { useGraphStore } from '@/stores/graphStore'
 import { useProjectStore } from '@/stores/projectStore'
 import type { SchemaNodeData } from '@/types/graph'
@@ -46,14 +46,8 @@ import { validateForInlineSource } from '@/services/constraints/validationRegist
 import { createConnectionTransaction } from '@/utils/nodes/connectionTransaction'
 
 export function useConnections() {
-  // 获取全局图存储，用于访问节点和连接数据
   const store = useGraphStore()
 
-  // VueFlow 实例，用于操作边
-  const { removeEdges } = useVueFlow()
-
-  // 存储连接开始时的参数信息，用于后续连接完成时验证
-  // 包含源节点 ID、源 handle ID 等信息
   const dragStartData = ref<OnConnectStartParams | null>(null)
 
   // 实例化各类连接处理器，用于处理不同节点类型之间的连接逻辑
@@ -340,8 +334,7 @@ export function useConnections() {
 
         // 600ms 后删除连接线，模拟"被吸收"的效果
         setTimeout(() => {
-          removeEdges(edgeId)
-          // 删除 Pattern 节点，模拟被"消耗"到 Regex 中
+          store.deleteConnection(edgeId)
           store.deleteNode(sourceNode.id)
         }, 600)
 
@@ -759,7 +752,7 @@ export function useConnections() {
       }
     } catch (e) {
       tx.rollback()
-      removeEdges(edgeId)
+      store.deleteConnection(edgeId)
       const errorMsg = e instanceof Error ? e.message : String(e)
       showToastMessage(`连接创建失败，已自动回滚: ${errorMsg}`, 'error')
       logger.error('[handleConnectionCompleted] 连接处理失败:', e)

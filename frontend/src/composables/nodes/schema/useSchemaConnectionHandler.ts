@@ -40,9 +40,8 @@ export function useSchemaConnectionHandler() {
   // 从 VueFlow 获取边的操作方法
   // getConnectedEdges: 获取连接指定节点的边
   // findNode: 根据 ID 查找节点
-  // removeEdges: 移除边
   // addEdges: 添加边
-  const { getConnectedEdges, findNode, removeEdges, addEdges, updateNodeInternals } = useVueFlow()
+  const { getConnectedEdges, findNode, addEdges, updateNodeInternals } = useVueFlow()
   // 获取全局图存储，用于访问和修改节点/边数据
   const store = useGraphStore()
 
@@ -99,16 +98,12 @@ export function useSchemaConnectionHandler() {
 
         // 遍历所有旧连接并删除
         for (const edge of existingEdges) {
-          // 查找旧的源节点用于日志显示
           const oldSourceNode = store.nodes.find((n) => n.id === edge.source)
           if (oldSourceNode) {
             logger.debug(
               `  - 断开与 "${(oldSourceNode.data as Record<string, unknown>)?.sourceName || (oldSourceNode.data as Record<string, unknown>)?.fileName || oldSourceNode.id}" 的连接`
             )
           }
-          // 使用 VueFlow 的 removeEdges 方法从视图中删除边
-          removeEdges(edge.id)
-          // 同时更新 store 中的 edges 数据
           store.deleteConnection(edge.id)
         }
 
