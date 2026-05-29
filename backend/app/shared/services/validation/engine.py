@@ -29,6 +29,7 @@
 """
 
 import logging
+import time
 from typing import Optional, Union
 
 import pandas as pd
@@ -51,6 +52,7 @@ def validate_full_dataset(
     table_filter: Optional[Union[str, list[str]]] = None,
     transform_files: Optional[dict[str, TransformFile]] = None,
     regex_files: Optional[dict[str, RegexNodeFile]] = None,
+    deadline: Optional[float] = None,
 ) -> tuple[dict[str, pd.DataFrame], list[dict], dict[str, list[dict]]]:
     """
     @methoddesc 执行完整的验证流程，包括格式解析和约束校验
@@ -64,6 +66,7 @@ def validate_full_dataset(
         schema: 完整的数据集 Schema 定义，包含表结构和约束配置
         allow_unsafe_eval: 是否允许执行不安全的脚本化约束。默认为 False（安全模式）
         table_filter: 只验证与这些表相关的约束
+        deadline: 超时截止时间（time.monotonic 绝对时间），超过此时间后跳过剩余约束
 
     返回:
         元组 (parsed_datasets, all_errors, validation_details)
@@ -196,6 +199,20 @@ def validate_full_dataset(
     # 遍历所有注册的约束，逐个执行校验
     # 【容错设计】单个约束异常不中断整个管线，继续执行后续约束
     for i, constraint in enumerate(schema.constraints):
+        # 【超时中断】在每个约束执行前检查是否已超过截止时间
+        if deadline is not None and time.monotonic() > deadline:
+            logger.warning(f"超时中断：跳过剩余 {len(schema.constraints) - i} 个约束（含约束 {i + 1}）")
+            all_errors.append(
+                {
+                    "stage": "constraint",
+                    "check_type": "Timeout",
+                    "table": None,
+                    "error_type": "Timeout",
+                    "message": f"校验超时，剩余 {len(schema.constraints) - i} 个约束未执行",
+                }
+            )
+            break
+
         # 获取约束信息，判断是否需要跳过
         try:
             constraint_info = constraint.get_constraint_info()

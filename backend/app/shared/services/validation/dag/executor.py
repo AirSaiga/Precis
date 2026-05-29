@@ -46,13 +46,15 @@ def execute_transform_dag(
 
     order = topological_sort(dag)
 
-    # 每个节点的输出 DataFrame
+    # 使用单一数据源：node_outputs 既是下游输入也是最终结果
+    # schema 节点直接引用 parsed_datasets 中的 DataFrame（延迟 copy，按需隔离）
     node_outputs: dict[str, pd.DataFrame] = {}
+    schema_ids_in_dag: set[str] = set()
 
-    # 初始化 schema 节点的输出
     for sid, df in parsed_datasets.items():
         if sid in dag.nodes:
-            node_outputs[sid] = df.copy()
+            node_outputs[sid] = df
+            schema_ids_in_dag.add(sid)
 
     for node_id in order:
         node = dag.nodes[node_id]
@@ -64,7 +66,6 @@ def execute_transform_dag(
             if not tfile or not tfile.enabled:
                 continue
 
-            # 确定输入 DataFrame
             input_node_id = tfile.input_from_node or node_id
             input_df = node_outputs.get(input_node_id)
 
@@ -87,26 +88,25 @@ def execute_transform_dag(
                 )
                 node_outputs[node_id] = output_df
 
-                # 将 transform 结果合并回原始 schema DataFrame
-                if input_node_id in parsed_datasets:
-                    if len(output_df) != len(input_df):
+                # 将 transform 结果合并回输入节点的输出
+                # 统一通过 node_outputs 操作，消除双数据源同步问题
+                if input_node_id in node_outputs:
+                    existing_df = node_outputs[input_node_id]
+                    if len(output_df) != len(existing_df):
                         # 行数改变（如 FilterRows/DropDuplicates/Aggregate）：整体替换
-                        parsed_datasets[input_node_id] = output_df
-                        if input_node_id in node_outputs:
-                            node_outputs[input_node_id] = output_df.copy()
+                        node_outputs[input_node_id] = output_df.copy()
                     else:
-                        # 行数不变：按列贴回（兼容现有所有 Transform 类型）
+                        # 行数不变：按列贴回
+                        # 如果 existing_df 与 parsed_datasets 共享引用，先隔离再修改
+                        if input_node_id in schema_ids_in_dag:
+                            existing_df = existing_df.copy()
+                            node_outputs[input_node_id] = existing_df
+                            schema_ids_in_dag.discard(input_node_id)
                         for col in tfile.output_columns:
                             if col in output_df.columns:
-                                parsed_datasets[input_node_id][col] = output_df[col].values
-                        # 同步更新 node_outputs，确保下游节点能看到新列
-                        if input_node_id in node_outputs:
-                            for col in tfile.output_columns:
-                                if col in output_df.columns:
-                                    node_outputs[input_node_id][col] = output_df[col].values
+                                existing_df[col] = output_df[col].values
             except Exception as e:
                 logger.exception(f"Transform '{node_id}' 执行失败: {e}")
-                # 执行失败时，保留输入 DataFrame 作为输出，避免下游节点中断
                 node_outputs[node_id] = input_df.copy()
 
         elif node.node_type == "regex":
@@ -143,18 +143,24 @@ def execute_transform_dag(
                         output_df[col] = extracted.iloc[:, i].values
                 node_outputs[node_id] = output_df
 
-                # 将提取的列合并回原始 schema DataFrame
-                if input_node_id in parsed_datasets:
+                # 将提取的列合并回输入节点的输出
+                if input_node_id in node_outputs:
+                    existing_df = node_outputs[input_node_id]
+                    # 如果与 parsed_datasets 共享引用，先隔离再修改
+                    if input_node_id in schema_ids_in_dag:
+                        existing_df = existing_df.copy()
+                        node_outputs[input_node_id] = existing_df
+                        schema_ids_in_dag.discard(input_node_id)
                     for col in rfile.output_columns or []:
                         if col in output_df.columns:
-                            parsed_datasets[input_node_id][col] = output_df[col].values
-                    # 同步更新 node_outputs
-                    if input_node_id in node_outputs:
-                        for col in rfile.output_columns or []:
-                            if col in output_df.columns:
-                                node_outputs[input_node_id][col] = output_df[col].values
+                            existing_df[col] = output_df[col].values
             except Exception as e:
                 logger.exception(f"Regex '{node_id}' 执行失败: {e}")
                 node_outputs[node_id] = input_df.copy()
+
+    # 最终：将 node_outputs 中 schema 节点的结果写回 parsed_datasets
+    for sid in parsed_datasets:
+        if sid in node_outputs:
+            parsed_datasets[sid] = node_outputs[sid]
 
     return parsed_datasets

@@ -320,7 +320,7 @@ def validate_batch(requests: list[ValidationRequest]):
                 "target_column": request.target_column_name,
                 "success": response.success,
                 # 如果校验成功且有数据，将结果对象转为字典；否则为 None
-                "result": response.data.dict() if response.data else None,
+                "result": response.data.model_dump() if response.data else None,
                 "error": response.error,
             }
         )

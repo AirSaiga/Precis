@@ -347,8 +347,12 @@ class ValidationExecutor:
 
         logger.debug(f"Starting validate_full_dataset with {len(raw_datasets)} datasets")
 
+        # 计算校验阶段的超时截止时间
+        deadline = started + options.timeout_seconds
+
         # Step 5: 执行格式解析和约束校验
         # 【核心逻辑】调用 engine.validate_full_dataset 执行两阶段校验
+        # 【超时控制】传入 deadline，engine 会在每个约束执行前检查是否超时
         try:
             parsed_datasets, validation_errors, validation_details = validate_full_dataset(
                 raw_datasets,
@@ -357,6 +361,7 @@ class ValidationExecutor:
                 table_filter=options.table_filter,
                 transform_files=getattr(self.loaded_project, "transform_files", None) if self.loaded_project else None,
                 regex_files=getattr(self.loaded_project, "regex_node_files", None) if self.loaded_project else None,
+                deadline=deadline,
             )
         except Exception as e:
             logger.exception(f"Error during validate_full_dataset: {e}")
