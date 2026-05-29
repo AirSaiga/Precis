@@ -1,6 +1,6 @@
 <!--
   @file ConnectionRulesEditor.vue
-  @description 连接规则编辑器设置面板
+  @description 连接规则编辑器设置面板（macOS 风格简化版）
 
   允许用户自定义画布中节点类型的连接规则：
   - 哪些节点类型可以连接到哪些节点类型
@@ -11,196 +11,139 @@
 -->
 
 <template>
-  <div class="ui-workbench-page" style="position: relative">
-    <!-- Panel Header -->
-    <div class="settings-panel-header">
-      <h2 class="settings-panel-header__title">{{ t('connectionRules.title') }}</h2>
-      <p class="settings-panel-header__desc">{{ t('connectionRules.description') }}</p>
-    </div>
-
-    <div class="page-actions">
-      <div class="page-actions-left">
-        <span class="rules-count">{{
-          t('connectionRules.rulesCount', { count: rules.length })
-        }}</span>
+  <div class="settings-page">
+    <!-- 头部操作 -->
+    <div class="settings-section">
+      <div class="settings-section__header">
+        <div class="settings-section__title">{{ t('connectionRules.title') }}</div>
+        <div class="settings-section__desc">{{ t('connectionRules.rulesCount', { count: rules.length }) }}</div>
       </div>
-      <div class="page-actions-right">
-        <button class="ui-btn ui-btn--primary" @click="addNewRule" :disabled="loading">
+      <div class="settings-actions" style="padding: var(--ui-space-sm) 0">
+        <button class="ui-btn ui-btn--primary ui-btn--sm" type="button" :disabled="loading" @click="addNewRule">
           + {{ t('connectionRules.addRule') }}
         </button>
-        <button class="ui-btn ui-btn--secondary" @click="saveRules" :disabled="loading">
+        <button class="ui-btn ui-btn--secondary ui-btn--sm" type="button" :disabled="loading" @click="saveRules">
           {{ t('connectionRules.save') }}
         </button>
-        <button class="ui-btn ui-btn--ghost" @click="resetRules" :disabled="loading">
+        <button class="ui-btn ui-btn--ghost ui-btn--sm" type="button" :disabled="loading" @click="resetRules">
           {{ t('connectionRules.reset') }}
         </button>
       </div>
     </div>
 
-    <div v-if="rules.length > 0" class="rules-grid">
-      <div
-        v-for="(rule, index) in rules"
-        :key="rule.id"
-        class="ui-card rule-card"
-        :class="{ 'is-expanded': expandedRuleId === rule.id }"
-      >
-        <div class="rule-header" @click="toggleRule(rule.id)">
-          <div class="rule-info">
-            <span class="rule-name">{{ rule.name }}</span>
-            <span class="rule-id">({{ rule.id }})</span>
-          </div>
-          <div class="rule-header-right">
-            <div class="rule-arrows">
-              <span class="arrow-source">{{ rule.source.node_types.join(', ') }}</span>
-              <span class="arrow-icon">→</span>
-              <span class="arrow-target">{{ rule.target.node_types.join(', ') }}</span>
+    <!-- 规则列表 -->
+    <div v-if="rules.length > 0" class="settings-section">
+      <div class="settings-list">
+        <div
+          v-for="(rule, index) in rules"
+          :key="rule.id"
+          class="settings-list__item"
+          style="flex-direction: column; align-items: stretch; gap: var(--ui-space-sm); cursor: pointer"
+          @click="toggleRule(rule.id)"
+        >
+          <!-- 摘要行 -->
+          <div style="display: flex; align-items: center; gap: var(--ui-space-md); width: 100%">
+            <div style="display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0">
+              <div style="font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-medium); color: var(--ui-text-body)">
+                {{ rule.name }}
+                <span style="color: var(--ui-text-muted); font-weight: normal">({{ rule.id }})</span>
+              </div>
+              <div style="font-size: var(--ui-font-size-xs); color: var(--ui-text-muted)">
+                <span class="settings-code">{{ rule.source.node_types.join(', ') }}</span>
+                →
+                <span class="settings-code">{{ rule.target.node_types.join(', ') }}</span>
+              </div>
             </div>
-            <span class="expand-icon" :class="{ 'is-expanded': expandedRuleId === rule.id }"
-              >▼</span
-            >
-            <button
-              class="ui-icon-btn ui-icon-btn--danger"
-              @click.stop="deleteRule(index)"
-              :disabled="loading"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-
-        <div v-show="expandedRuleId === rule.id" class="rule-body">
-          <div class="ui-form-group">
-            <label class="ui-form-label">{{ t('connectionRules.ruleId') }}</label>
-            <input v-model="rule.id" type="text" class="ui-input" :disabled="loading" />
-          </div>
-
-          <div class="ui-form-group">
-            <label class="ui-form-label">{{ t('connectionRules.ruleName') }}</label>
-            <input v-model="rule.name" type="text" class="ui-input" :disabled="loading" />
+            <div style="display: flex; align-items: center; gap: var(--ui-space-sm)">
+              <span class="settings-pill" :class="rule.config?.allow_multiple ? 'settings-pill--info' : 'settings-pill--success'">
+                {{ rule.config?.allow_multiple ? t('connectionRules.multiple') : t('connectionRules.single') }}
+              </span>
+              <span
+                class="expand-icon"
+                :class="{ 'is-expanded': expandedRuleId === rule.id }"
+                style="font-size: 10px; transition: transform 0.2s; color: var(--ui-text-muted)"
+              >
+                ▼
+              </span>
+              <button class="ui-icon-btn ui-icon-btn--danger" type="button" :disabled="loading" @click.stop="deleteRule(index)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M18 6 6 18" />
+                  <path d="m6 6 12 12" />
+                </svg>
+              </button>
+            </div>
           </div>
 
-          <div class="endpoint-section">
-            <h4 class="ui-section-title">{{ t('connectionRules.sourceEndpoint') }}</h4>
-            <div class="ui-form-group">
-              <label class="ui-form-label">{{ t('connectionRules.nodeTypes') }}</label>
-              <div class="ui-workbench-grid ui-workbench-grid--two checkbox-grid">
-                <label v-for="nodeType in allNodeTypes" :key="nodeType" class="ui-checkbox">
-                  <input
-                    type="checkbox"
-                    :value="nodeType"
-                    v-model="rule.source.node_types"
-                    :disabled="loading"
-                    class="ui-checkbox__input"
-                  />
-                  <span class="ui-checkbox__box">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="3"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                  </span>
-                  <span>{{ nodeType }}</span>
+          <!-- 展开内容 -->
+          <div v-show="expandedRuleId === rule.id" style="display: flex; flex-direction: column; gap: var(--ui-space-sm); padding-top: var(--ui-space-sm); border-top: 1px solid var(--ui-border-light)" @click.stop
+          >
+            <div class="settings-row" style="padding: var(--ui-space-xs) 0">
+              <div class="settings-row__label">{{ t('connectionRules.ruleId') }}</div>
+              <div class="settings-row__control settings-row__control--wide">
+                <input v-model="rule.id" type="text" class="settings-input" :disabled="loading" />
+              </div>
+            </div>
+            <div class="settings-row" style="padding: var(--ui-space-xs) 0">
+              <div class="settings-row__label">{{ t('connectionRules.ruleName') }}</div>
+              <div class="settings-row__control settings-row__control--wide">
+                <input v-model="rule.name" type="text" class="settings-input" :disabled="loading" />
+              </div>
+            </div>
+            <div class="settings-row" style="padding: var(--ui-space-xs) 0">
+              <div class="settings-row__label">{{ t('connectionRules.sourceEndpoint') }}</div>
+              <div class="settings-row__control settings-row__control--wide">
+                <select v-model="rule.source.node_types" class="settings-select" multiple :disabled="loading" style="height: 80px"
+                >
+                  <option v-for="nodeType in allNodeTypes" :key="nodeType" :value="nodeType">{{ nodeType }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="settings-row" style="padding: var(--ui-space-xs) 0">
+              <div class="settings-row__label">{{ t('connectionRules.targetEndpoint') }}</div>
+              <div class="settings-row__control settings-row__control--wide">
+                <select v-model="rule.target.node_types" class="settings-select" multiple :disabled="loading" style="height: 80px"
+                >
+                  <option v-for="nodeType in allNodeTypes" :key="nodeType" :value="nodeType">{{ nodeType }}</option>
+                </select>
+              </div>
+            </div>
+            <div class="settings-row" style="padding: var(--ui-space-xs) 0">
+              <div class="settings-row__label">{{ t('connectionRules.allowMultiple') }}</div>
+              <div class="settings-row__desc"></div>
+              <div class="settings-row__control">
+                <label class="settings-switch"
+                >
+                  <input type="checkbox" v-model="rule.config!.allow_multiple" :disabled="loading" class="settings-switch__input" />
+                  <span class="settings-switch__track"></span>
                 </label>
               </div>
             </div>
-            <div class="ui-form-group">
-              <label class="ui-form-label"
-                >{{ t('connectionRules.handles') }} ({{ t('connectionRules.optional') }})</label
-              >
-              <input
-                type="text"
-                class="ui-input"
-                :placeholder="t('connectionRules.handlesPlaceholder')"
-                :value="rule.source.handles?.join(', ') || ''"
-                @input="updateHandles($event, rule.source, 'source')"
-                :disabled="loading"
-              />
-            </div>
-          </div>
-
-          <div class="endpoint-section">
-            <h4 class="ui-section-title">{{ t('connectionRules.targetEndpoint') }}</h4>
-            <div class="ui-form-group">
-              <label class="ui-form-label">{{ t('connectionRules.nodeTypes') }}</label>
-              <div class="ui-workbench-grid ui-workbench-grid--two checkbox-grid">
-                <label v-for="nodeType in allNodeTypes" :key="nodeType" class="ui-checkbox">
-                  <input
-                    type="checkbox"
-                    :value="nodeType"
-                    v-model="rule.target.node_types"
-                    :disabled="loading"
-                    class="ui-checkbox__input"
-                  />
-                  <span class="ui-checkbox__box">
-                    <svg
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="3"
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                    >
-                      <polyline points="20 6 9 17 4 12"></polyline>
-                    </svg>
-                  </span>
-                  <span>{{ nodeType }}</span>
-                </label>
+            <div class="settings-row" style="padding: var(--ui-space-xs) 0">
+              <div class="settings-row__label">{{ t('connectionRules.validationMode') }}</div>
+              <div class="settings-row__desc"></div>
+              <div class="settings-row__control">
+                <select v-model="rule.config!.validation_mode" class="settings-select" :disabled="loading"
+                >
+                  <option value="strict">{{ t('connectionModes.strict') }}</option>
+                  <option value="loose">{{ t('connectionModes.loose') }}</option>
+                </select>
               </div>
-            </div>
-            <div class="ui-form-group">
-              <label class="ui-form-label"
-                >{{ t('connectionRules.handles') }} ({{ t('connectionRules.optional') }})</label
-              >
-              <input
-                type="text"
-                class="ui-input"
-                :placeholder="t('connectionRules.handlesPlaceholder')"
-                :value="rule.target.handles?.join(', ') || ''"
-                @input="updateHandles($event, rule.target, 'target')"
-                :disabled="loading"
-              />
-            </div>
-          </div>
-
-          <div class="config-section">
-            <h4 class="ui-section-title">{{ t('connectionRules.ruleConfig') }}</h4>
-            <div class="ui-form-group">
-              <label class="ui-form-label">{{ t('connectionRules.allowMultiple') }}</label>
-              <label class="ui-switch">
-                <input
-                  type="checkbox"
-                  v-model="rule.config!.allow_multiple"
-                  :disabled="loading"
-                  class="ui-switch__input"
-                />
-                <span class="ui-switch__track"></span>
-              </label>
-            </div>
-            <div class="ui-form-group">
-              <label class="ui-form-label">{{ t('connectionRules.validationMode') }}</label>
-              <select v-model="rule.config!.validation_mode" class="ui-select" :disabled="loading">
-                <option value="strict">{{ t('connectionModes.strict') }}</option>
-                <option value="loose">{{ t('connectionModes.loose') }}</option>
-              </select>
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <div class="ui-empty" v-else>
+    <div v-else class="ui-empty">
       <p class="ui-empty__description">{{ t('connectionRules.empty') }}</p>
-      <button class="ui-btn ui-btn--secondary" @click="addNewRule" :disabled="loading">
+      <button class="ui-btn ui-btn--secondary ui-btn--sm" type="button" :disabled="loading" @click="addNewRule"
+      >
         + {{ t('connectionRules.addFirstRule') }}
       </button>
     </div>
 
-    <div class="ui-loading-overlay" v-if="loading">
+    <div v-if="loading" class="ui-loading-overlay"
+    >
       <div class="ui-spinner"></div>
     </div>
   </div>
@@ -414,23 +357,4 @@
   function toggleRule(ruleId: string) {
     expandedRuleId.value = expandedRuleId.value === ruleId ? null : ruleId
   }
-
-  function updateHandles(
-    event: Event,
-    endpoint: { handles?: string[] | undefined },
-    _type: string
-  ) {
-    const value = (event.target as HTMLInputElement).value.trim()
-    if (value) {
-      endpoint.handles = value.split(',').map((h) => h.trim())
-    } else {
-      endpoint.handles = undefined
-    }
-  }
-
-  onMounted(() => {
-    loadRules()
-  })
 </script>
-
-<style scoped src="./ConnectionRulesEditor.styles.css"></style>

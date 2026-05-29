@@ -1,92 +1,52 @@
 <!--
   @file DataSourcesSettingsPanel.vue
-  @description 数据源设置面板组件
+  @description 数据源设置面板组件（macOS 风格）
 
   用于配置和管理项目的数据源，支持添加、编辑和删除数据源。
 -->
-<template>
-  <div class="ui-workbench-page">
-    <!-- Panel Header -->
-    <div class="settings-panel-header">
-      <h2 class="settings-panel-header__title">{{ t('settings.dataSources.title') }}</h2>
-      <p class="settings-panel-header__desc">{{ t('settings.dataSources.desc') }}</p>
-    </div>
 
-    <!-- Data sources list -->
-    <div v-if="dataSources.length > 0" class="ui-workbench-card source-list">
-      <div class="source-list__inner">
-        <div v-for="(ds, index) in dataSources" :key="ds.id" class="ui-card source-card">
-          <div class="source-card__header">
-            <span class="ui-badge">#{{ index + 1 }}</span>
-            <button
-              class="ui-icon-btn ui-icon-btn--danger"
-              type="button"
-              :disabled="isSaving"
-              @click="removeDataSource(index)"
-            >
-              ×
+<template>
+  <div class="settings-page">
+    <!-- 数据源列表 -->
+    <div v-if="dataSources.length > 0" class="settings-section">
+      <div class="settings-list">
+        <div v-for="(ds, index) in dataSources" :key="ds.id" class="settings-list__item" style="flex-direction: column; align-items: stretch; gap: var(--ui-space-sm)">
+          <div class="settings-row" style="padding: 0">
+            <div class="settings-row__label">{{ t('settings.dataSources.id') }}</div>
+            <div class="settings-row__control settings-row__control--wide">
+              <input v-model="ds.id" class="settings-input" type="text" :placeholder="t('settings.dataSources.idPlaceholder')" :disabled="isSaving" @change="handleChange" />
+            </div>
+            <button class="ui-icon-btn ui-icon-btn--danger" type="button" :disabled="isSaving" @click="removeDataSource(index)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
             </button>
           </div>
-
-          <div class="source-card__body">
-            <div class="ui-form-group">
-              <label class="ui-form-label">{{ t('settings.dataSources.id') }}</label>
-              <input
-                v-model="ds.id"
-                class="ui-input"
-                type="text"
-                :placeholder="t('settings.dataSources.idPlaceholder')"
-                :disabled="isSaving"
-                @change="handleChange"
-              />
-            </div>
-
-            <div class="ui-form-group">
-              <label class="ui-form-label">{{ t('settings.dataSources.path') }}</label>
-              <div style="display: flex; gap: var(--ui-space-sm)">
-                <input
-                  v-model="ds.path"
-                  class="ui-input"
-                  style="flex: 1"
-                  type="text"
-                  :placeholder="t('settings.dataSources.pathPlaceholder')"
-                  :disabled="isSaving"
-                  @change="handleChange"
-                />
-                <button
-                  class="ui-btn ui-btn--secondary ui-btn--sm"
-                  type="button"
-                  :disabled="isSaving"
-                  @click="selectDirectory(index)"
-                >
+          <div class="settings-row" style="padding: 0">
+            <div class="settings-row__label">{{ t('settings.dataSources.path') }}</div>
+            <div class="settings-row__control settings-row__control--wide">
+              <div style="display: flex; gap: var(--ui-space-sm); width: 100%">
+                <input v-model="ds.path" class="settings-input" type="text" :placeholder="t('settings.dataSources.pathPlaceholder')" :disabled="isSaving" @change="handleChange" />
+                <button class="ui-btn ui-btn--secondary ui-btn--sm" type="button" :disabled="isSaving" @click="selectDirectory(index)">
                   {{ t('settings.dataSources.browse') }}
                 </button>
               </div>
             </div>
-
-            <div class="ui-form-group">
-              <label class="ui-form-label">{{ t('settings.dataSources.mode') }}</label>
-              <select
-                v-model="ds.mode"
-                class="ui-select"
-                :disabled="isSaving"
-                @change="handleChange"
-              >
-                <option value="relative">{{ t('settings.dataSources.relative') }}</option>
-                <option value="absolute">{{ t('settings.dataSources.absolute') }}</option>
+          </div>
+          <div class="settings-row" style="padding: 0">
+            <div class="settings-row__label">{{ t('settings.dataSources.mode') }}</div>
+            <div class="settings-row__control">
+              <select v-model="ds.mode" class="settings-select" :disabled="isSaving" @change="handleChange">
+                <option value="relative">{{ t('settings.dataSources.modeRelative') }}</option>
+                <option value="absolute">{{ t('settings.dataSources.modeAbsolute') }}</option>
               </select>
             </div>
-
-            <div class="ui-form-group">
-              <label class="ui-form-label">{{ t('settings.dataSources.description') }}</label>
-              <input
-                v-model="ds.description"
-                class="ui-input"
-                type="text"
-                :placeholder="t('settings.dataSources.descPlaceholder')"
-                :disabled="isSaving"
-                @change="handleChange"
-              />
+          </div>
+          <div class="settings-row" style="padding: 0">
+            <div class="settings-row__label">{{ t('settings.dataSources.description') }}</div>
+            <div class="settings-row__control settings-row__control--wide">
+              <input v-model="ds.description" class="settings-input" type="text" :placeholder="t('settings.dataSources.descriptionPlaceholder')" :disabled="isSaving" @change="handleChange" />
             </div>
           </div>
         </div>
@@ -100,36 +60,31 @@
       <div class="ui-empty__description">{{ t('settings.dataSources.emptyHint') }}</div>
     </div>
 
-    <!-- Add button + Action buttons -->
-    <div class="ui-form-actions">
-      <button
-        class="ui-btn ui-btn--secondary"
-        type="button"
-        :disabled="isSaving"
-        @click="addDataSource"
-      >
+    <!-- 操作 -->
+    <div class="settings-actions">
+      <button class="ui-btn ui-btn--secondary ui-btn--sm" type="button" :disabled="isSaving" @click="addDataSource">
         + {{ t('settings.dataSources.add') }}
       </button>
-      <div style="flex: 1"></div>
-      <button class="ui-btn ui-btn--ghost" type="button" :disabled="isSaving" @click="handleReset">
+      <button class="ui-btn ui-btn--ghost ui-btn--sm" type="button" :disabled="isSaving" @click="handleReset">
         {{ t('common.reset') }}
       </button>
-      <button
-        class="ui-btn ui-btn--primary"
-        type="button"
-        :disabled="isSaving || !hasChanges"
-        @click="handleSave"
-      >
+      <button class="ui-btn ui-btn--primary ui-btn--sm" type="button" :disabled="isSaving || !hasChanges" @click="handleSave">
         {{ isSaving ? t('common.saving') : t('common.save') }}
       </button>
     </div>
 
-    <div v-if="errorMessage" class="settings-error">
-      {{ errorMessage }}
+    <div v-if="errorMessage" class="settings-alert settings-alert--danger">
+      <span class="settings-alert__icon">✕</span>
+      <div class="settings-alert__content">
+        <div class="settings-alert__text">{{ errorMessage }}</div>
+      </div>
     </div>
 
-    <div v-if="successMessage" class="settings-success">
-      {{ successMessage }}
+    <div v-if="successMessage" class="settings-alert settings-alert--success">
+      <span class="settings-alert__icon">✓</span>
+      <div class="settings-alert__content">
+        <div class="settings-alert__text">{{ successMessage }}</div>
+      </div>
     </div>
   </div>
 </template>
@@ -290,5 +245,3 @@
     }
   )
 </script>
-
-<style scoped src="./DataSourcesSettingsPanel.styles.css"></style>

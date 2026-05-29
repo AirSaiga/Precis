@@ -1,22 +1,16 @@
 <!--
   @file SettingsModal.vue
-  @description 应用设置工作台模态框
+  @description 应用设置工作台模态框（UX 重做版）
 
-  功能职责：
-  - 提供应用全局设置的集中管理界面
-  - 左侧导航分组展示设置分类，支持搜索过滤
-  - 右侧动态渲染当前选中设置项的详细配置面板
-  - 展示保存状态（保存中 / 已保存 / 出错）与当前项目信息
+  布局：
+  - 左侧 200px 扁平导航栏（分组标题 + 导航项列表，不可折叠）
+  - 右侧内容区：顶部标题栏（panel 标题 + 描述）+ 可滚动主体
+  - 右下角浮动保存状态 badge
 
-  关键特性：
-  - 分组导航栏，支持展开/收起与快捷键跳转
-  - 面包屑展示当前所在设置分组与具体项
-  - 实时保存状态反馈（含加载动画与状态图标）
-  - 项目信息胶囊展示当前激活项目状态
-  - 搜索框支持快速定位设置项
-
-  无外部 Props / Emits，状态完全由内部 Settings Store 驱动。
-  模态框显隐通过 settingsStore.visible 控制。
+  交互：
+  - 键盘 ↑↓ 切换面板
+  - Esc 关闭（搜索非空时先清空搜索）
+  - 点击遮罩关闭
 -->
 <template>
   <Teleport to="body">
@@ -27,29 +21,23 @@
           <header class="settings-workbench__header">
             <div class="settings-workbench__brand">
               <h1 class="settings-workbench__title">{{ t('settings.title') }}</h1>
-              <span class="settings-workbench__subtitle">{{ t('settings.subtitle') }}</span>
             </div>
-
             <div class="settings-workbench__actions">
-              <!-- Save status -->
-              <span
-                v-if="settingsStore.saveStatus !== 'idle'"
-                class="save-status"
-                :class="`is-${settingsStore.saveStatus}`"
-              >
-                <span
-                  v-if="settingsStore.saveStatus === 'saving'"
-                  class="save-status__spinner"
-                ></span>
-                <span v-else-if="settingsStore.saveStatus === 'saved'" class="save-status__icon"
-                  >✓</span
+              <Transition name="badge-slide">
+                <div
+                  v-if="settingsStore.saveStatus !== 'idle'"
+                  class="save-status-badge"
+                  :class="`is-${settingsStore.saveStatus}`"
                 >
-                <span v-else-if="settingsStore.saveStatus === 'error'" class="save-status__icon"
-                  >✕</span
-                >
-                {{ saveStatusText }}
-              </span>
-
+                  <span
+                    v-if="settingsStore.saveStatus === 'saving'"
+                    class="save-status-badge__spinner"
+                  ></span>
+                  <span v-else-if="settingsStore.saveStatus === 'saved'" class="save-status-badge__icon">✓</span>
+                  <span v-else-if="settingsStore.saveStatus === 'error'" class="save-status-badge__icon">✕</span>
+                  {{ saveStatusText }}
+                </div>
+              </Transition>
               <div
                 class="settings-project-pill"
                 :class="{ 'settings-project-pill--inactive': !projectStore.isProjectActive }"
@@ -57,16 +45,8 @@
                 <span class="settings-project-pill__dot"></span>
                 <span class="settings-project-pill__text">{{ projectSummaryText }}</span>
               </div>
-
               <button class="ui-icon-btn" type="button" @click="handleClose">
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M18 6 6 18" />
                   <path d="m6 6 12 12" />
                 </svg>
@@ -92,51 +72,30 @@
                   <path d="m21 21-4.35-4.35" />
                 </svg>
                 <input
+                  ref="searchInputRef"
                   v-model="settingsStore.searchQuery"
                   type="search"
                   class="settings-sidebar__search-input"
                   :placeholder="t('settings.searchPlaceholder')"
                   @keydown="handleSearchKeydown"
                 />
-                <span v-if="settingsStore.searchQuery" class="settings-sidebar__search-shortcut"
-                  >Esc</span
-                >
+                <span v-if="settingsStore.searchQuery" class="settings-sidebar__search-shortcut">Esc</span>
               </div>
 
               <!-- Navigation -->
-              <nav class="settings-sidebar__nav">
-                <div v-for="group in filteredNavigation" :key="group.id" class="nav-group">
-                  <button
-                    class="nav-group__header"
-                    type="button"
-                    @click="settingsStore.toggleGroup(group.id)"
-                  >
-                    <span class="nav-group__icon" v-html="group.icon" />
-                    <span class="nav-group__label">{{ group.label }}</span>
-                    <svg
-                      class="nav-group__chevron"
-                      :class="{ 'is-expanded': settingsStore.expandedGroups.includes(group.id) }"
-                      width="12"
-                      height="12"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2.5"
-                    >
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </button>
-
-                  <Transition name="expand">
-                    <div
-                      v-show="settingsStore.expandedGroups.includes(group.id)"
-                      class="nav-group__items"
-                    >
+              <nav class="settings-sidebar__nav" role="tablist">
+                <template v-for="group in filteredNavigation" :key="group.id">
+                  <div class="nav-section">
+                    <div class="nav-section__label">{{ group.label }}</div>
+                    <div class="nav-section__items">
                       <button
                         v-for="item in group.items"
                         :key="item.id"
+                        ref="navItemRefs"
                         class="nav-item"
                         :class="{ 'is-active': settingsStore.activeNavItem === item.id }"
+                        role="tab"
+                        :aria-selected="settingsStore.activeNavItem === item.id"
                         type="button"
                         @click="settingsStore.setActiveNavItem(item.id)"
                       >
@@ -144,27 +103,19 @@
                         <span class="nav-item__label">{{ item.label }}</span>
                       </button>
                     </div>
-                  </Transition>
-                </div>
+                  </div>
+                </template>
               </nav>
             </aside>
 
             <!-- Right Content -->
             <div class="settings-content">
-              <!-- Breadcrumb -->
-              <div class="settings-breadcrumb">
-                <span class="settings-breadcrumb__group">{{ currentGroupLabel }}</span>
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                >
-                  <polyline points="9 18 15 12 9 6" />
-                </svg>
-                <span class="settings-breadcrumb__item">{{ currentItemLabel }}</span>
+              <!-- Panel Header (统一标题区) -->
+              <div class="settings-content__header">
+                <div class="settings-content__header-main">
+                  <h2 class="settings-content__title">{{ currentPanelTitle }}</h2>
+                  <p class="settings-content__desc">{{ currentPanelDesc }}</p>
+                </div>
               </div>
 
               <!-- Panel Body -->
@@ -172,23 +123,13 @@
                 <GeneralSettingsPanel v-if="settingsStore.activeNavItem === 'general'" />
                 <ShortcutSettingsPanel v-else-if="settingsStore.activeNavItem === 'shortcuts'" />
                 <ProjectInfoPanel v-else-if="settingsStore.activeNavItem === 'project-overview'" />
-                <ProjectSettingsPanel
-                  v-else-if="settingsStore.activeNavItem === 'validation-params'"
-                />
-                <DataSourcesSettingsPanel
-                  v-else-if="settingsStore.activeNavItem === 'data-sources'"
-                />
-                <ConnectionRulesEditor
-                  v-else-if="settingsStore.activeNavItem === 'connection-rules'"
-                />
-                <ScriptSettingsPanel
-                  v-else-if="settingsStore.activeNavItem === 'script-security'"
-                />
-                <AIAssistantSettingsPanel
-                  v-else-if="settingsStore.activeNavItem === 'ai-assistant'"
-                />
+                <ProjectSettingsPanel v-else-if="settingsStore.activeNavItem === 'validation-params'" />
+                <DataSourcesSettingsPanel v-else-if="settingsStore.activeNavItem === 'data-sources'" />
+                <ScriptSettingsPanel v-else-if="settingsStore.activeNavItem === 'script-security'" />
+                <AIAssistantSettingsPanel v-else-if="settingsStore.activeNavItem === 'ai-assistant'" />
                 <UpdateSettingsPanel v-else-if="settingsStore.activeNavItem === 'update'" />
               </div>
+
             </div>
           </div>
         </div>
@@ -198,7 +139,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, onMounted, onUnmounted, watch } from 'vue'
+  import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useSettingsStore } from '@/stores/settingsStore'
   import { useProjectStore } from '@/stores/projectStore'
@@ -208,7 +149,6 @@
   import DataSourcesSettingsPanel from '@/components/settings/DataSourcesSettingsPanel.vue'
   import GeneralSettingsPanel from '@/components/settings/GeneralSettingsPanel.vue'
   import ProjectInfoPanel from '@/components/settings/ProjectInfoPanel.vue'
-  import ConnectionRulesEditor from '@/components/settings/ConnectionRulesEditor.vue'
   import ScriptSettingsPanel from '@/components/settings/ScriptSettingsPanel.vue'
   import ShortcutSettingsPanel from '@/components/settings/ShortcutSettingsPanel.vue'
   import UpdateSettingsPanel from '@/components/settings/UpdateSettingsPanel.vue'
@@ -219,8 +159,11 @@
   const projectStore = useProjectStore()
   const graphStore = useGraphStore()
 
+  const navItemRefs = ref<HTMLButtonElement[]>([])
+  const searchInputRef = ref<HTMLInputElement | null>(null)
+
   // ============================================================================
-  // 导航配置
+  // 导航配置（新分组：工作区 / 项目 / 集成 / 系统）
   // ============================================================================
 
   const navigationConfig = computed(
@@ -229,7 +172,6 @@
         {
           id: 'workspace',
           label: t('settings.workspace.groups.workspace'),
-          icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>',
           items: [
             {
               id: 'general',
@@ -248,8 +190,6 @@
         {
           id: 'project',
           label: t('settings.workspace.groups.project'),
-          icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>',
-          condition: () => true, // 始终显示，但内部项可根据项目状态调整
           items: [
             {
               id: 'project-overview',
@@ -269,18 +209,11 @@
               icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></svg>',
               tab: 'project-info',
             },
-            {
-              id: 'connection-rules',
-              label: t('connectionRules.title'),
-              icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
-              tab: 'connection-rules',
-            },
           ],
         },
         {
-          id: 'system',
-          label: t('settings.workspace.groups.system'),
-          icon: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4"/><path d="m5 5 2.83 2.83"/><path d="m19 5-2.83 2.83"/><path d="M12 22a7 7 0 1 0 0-14 7 7 0 0 0 0 14Z"/></svg>',
+          id: 'integrations',
+          label: t('settings.workspace.groups.integrations'),
           items: [
             {
               id: 'ai-assistant',
@@ -294,6 +227,12 @@
               icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>',
               tab: 'script',
             },
+          ],
+        },
+        {
+          id: 'system',
+          label: t('settings.workspace.groups.system'),
+          items: [
             {
               id: 'update',
               label: t('settings.update.tab'),
@@ -306,7 +245,7 @@
   )
 
   // ============================================================================
-  // 搜索过滤
+  // 搜索过滤（保留分组结构，只过滤 items）
   // ============================================================================
 
   const filteredNavigation = computed<SettingsNavGroup[]>(() => {
@@ -314,7 +253,6 @@
     if (!query) {
       return navigationConfig.value
     }
-
     const result: SettingsNavGroup[] = []
     for (const group of navigationConfig.value) {
       const matchedItems = group.items.filter((item) => item.label.toLowerCase().includes(query))
@@ -322,35 +260,51 @@
         result.push({ ...group, items: matchedItems })
       }
     }
-
-    // 展开包含搜索结果的分组
-    result.forEach((g) => settingsStore.expandGroup(g.id))
     return result
   })
 
   // ============================================================================
-  // 面包屑
+  // 当前面板标题与描述
   // ============================================================================
 
-  const currentGroupLabel = computed(() => {
-    for (const group of navigationConfig.value) {
-      if (group.items.some((item) => item.id === settingsStore.activeNavItem)) {
-        return group.label
-      }
-    }
-    return ''
-  })
-
-  const currentItemLabel = computed(() => {
+  const currentPanelMeta = computed(() => {
     for (const group of navigationConfig.value) {
       const item = group.items.find((i) => i.id === settingsStore.activeNavItem)
-      if (item) return item.label
+      if (item) {
+        const titleKeyMap: Record<string, string> = {
+          general: 'settings.general.title',
+          shortcuts: 'shortcuts.settings.title',
+          'project-overview': 'settings.projectInfo.title',
+          'validation-params': 'settings.project.title',
+          'data-sources': 'settings.dataSources.title',
+          'script-security': 'settings.script.title',
+          'ai-assistant': 'settings.aiAssistant.title',
+          update: 'settings.update.title',
+        }
+        const descKeyMap: Record<string, string> = {
+          general: 'settings.general.description',
+          shortcuts: 'shortcuts.settings.description',
+          'project-overview': 'settings.projectInfo.description',
+          'validation-params': 'settings.project.description',
+          'data-sources': 'settings.dataSources.desc',
+          'script-security': 'settings.script.description',
+          'ai-assistant': 'settings.aiAssistant.description',
+          update: 'settings.update.description',
+        }
+        return {
+          title: t(titleKeyMap[item.id] || ''),
+          desc: t(descKeyMap[item.id] || ''),
+        }
+      }
     }
-    return ''
+    return { title: '', desc: '' }
   })
 
+  const currentPanelTitle = computed(() => currentPanelMeta.value.title)
+  const currentPanelDesc = computed(() => currentPanelMeta.value.desc)
+
   // ============================================================================
-  // 保存状态文本
+  // 保存状态
   // ============================================================================
 
   const saveStatusText = computed(() => {
@@ -378,6 +332,43 @@
   })
 
   // ============================================================================
+  // 键盘导航
+  // ============================================================================
+
+  function getAllVisibleItemIds(): string[] {
+    const ids: string[] = []
+    for (const group of filteredNavigation.value) {
+      for (const item of group.items) {
+        ids.push(item.id)
+      }
+    }
+    return ids
+  }
+
+  function focusActiveNavItem(): void {
+    nextTick(() => {
+      const activeId = settingsStore.activeNavItem
+      const idx = getAllVisibleItemIds().indexOf(activeId)
+      if (idx >= 0 && navItemRefs.value[idx]) {
+        navItemRefs.value[idx].focus()
+      }
+    })
+  }
+
+  function navigatePanel(direction: 'prev' | 'next'): void {
+    const ids = getAllVisibleItemIds()
+    const currentIdx = ids.indexOf(settingsStore.activeNavItem)
+    if (currentIdx < 0) return
+    const nextIdx = direction === 'next'
+      ? Math.min(currentIdx + 1, ids.length - 1)
+      : Math.max(currentIdx - 1, 0)
+    if (nextIdx !== currentIdx) {
+      settingsStore.setActiveNavItem(ids[nextIdx])
+      focusActiveNavItem()
+    }
+  }
+
+  // ============================================================================
   // 事件处理
   // ============================================================================
 
@@ -386,18 +377,48 @@
   }
 
   function handleKeydown(e: KeyboardEvent): void {
+    // 全局快捷键（仅在模态框打开时生效）
+    if (!settingsStore.visible) return
+
     if (e.key === 'Escape') {
       if (settingsStore.searchQuery) {
         settingsStore.searchQuery = ''
+        e.preventDefault()
       } else {
         handleClose()
       }
+      return
+    }
+
+    if (e.key === '/') {
+      // 聚焦搜索框
+      searchInputRef.value?.focus()
+      e.preventDefault()
+      return
+    }
+
+    // ↑↓ 导航（当焦点不在 input/textarea 内时）
+    const tag = (e.target as HTMLElement)?.tagName?.toLowerCase()
+    if (tag === 'input' || tag === 'textarea' || tag === 'select') return
+
+    if (e.key === 'ArrowDown') {
+      navigatePanel('next')
+      e.preventDefault()
+    } else if (e.key === 'ArrowUp') {
+      navigatePanel('prev')
+      e.preventDefault()
     }
   }
 
   function handleSearchKeydown(e: KeyboardEvent): void {
     if (e.key === 'Escape') {
       settingsStore.searchQuery = ''
+      // 把焦点还给当前 nav item
+      focusActiveNavItem()
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      focusActiveNavItem()
     }
   }
 
@@ -413,12 +434,13 @@
     document.removeEventListener('keydown', handleKeydown)
   })
 
-  // 搜索时自动展开包含结果的分组
+  // 搜索变化后，如果当前 active 项被过滤掉了，自动选中第一个可见项
   watch(
     () => settingsStore.searchQuery,
-    (query) => {
-      if (query.trim()) {
-        filteredNavigation.value.forEach((g) => settingsStore.expandGroup(g.id))
+    () => {
+      const ids = getAllVisibleItemIds()
+      if (ids.length > 0 && !ids.includes(settingsStore.activeNavItem)) {
+        settingsStore.setActiveNavItem(ids[0])
       }
     }
   )

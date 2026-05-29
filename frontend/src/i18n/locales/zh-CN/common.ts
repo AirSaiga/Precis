@@ -30,6 +30,8 @@ const common = {
   refresh: '刷新',
   close: '关闭',
   open: '打开',
+  collapse: '收起',
+  expand: '展开',
   comingSoon: '即将支持',
   export: '导出',
   import: '导入',
@@ -140,9 +142,6 @@ const common = {
       defaultRunParamsSectionTitle: '默认校验参数',
       defaultRunParamsHint:
         '这里的参数只影响全量/单表/单文件等任务型校验，不影响画布节点的即时单次校验。',
-      fileProcessingSectionTitle: '文件处理参数',
-      fileProcessingHint: '配置数据文件的读取方式，包括字符编码和 CSV 分隔符。',
-      openValidationTaskPanel: '打开校验任务面板',
       validation: {
         title: '校验行为',
       },

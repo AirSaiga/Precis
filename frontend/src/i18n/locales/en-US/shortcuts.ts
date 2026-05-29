@@ -121,6 +121,7 @@ const shortcuts = {
     title: 'Keyboard Shortcuts Settings',
     description:
       'Customize keyboard shortcuts, enable/disable specific commands, and manage shortcut conflicts.',
+    globalTitle: 'Global Settings',
     enabled: 'Enable shortcuts',
     showFeedback: 'Show action feedback',
     resetAll: 'Reset all shortcuts',

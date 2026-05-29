@@ -291,7 +291,6 @@
   padding: 0 12px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   background: var(--ui-bg-elevated);
   border-top: 1px solid var(--ui-border-light);
   box-shadow: 0 -1px 3px rgba(45, 42, 38, 0.04);
@@ -302,79 +301,53 @@
   -webkit-backdrop-filter: blur(12px);
 }
 
-.status-left,
-.status-right,
-.project-stats,
-.stat-item,
-.project-info {
-  display: flex;
+.project-chip {
+  display: inline-flex;
   align-items: center;
-}
-
-.status-right {
-  gap: 8px;
-}
-
-.project-info {
   gap: 6px;
-  margin-right: 8px;
-  color: var(--ui-text-body);
-  font-weight: var(--ui-font-weight-medium);
-}
-
-.project-info.clickable {
-  padding: 2px 8px;
-  border: none;
-  border-radius: var(--ui-radius-sm);
-  background: transparent;
-  text-align: left;
-  cursor: pointer;
-  transition: background var(--ui-transition-fast);
-}
-
-.project-info.clickable:hover {
+  height: 22px;
+  padding: 0 10px 0 8px;
+  border: 1px solid transparent;
+  border-radius: var(--ui-radius-full);
   background: var(--ui-bg-subtle);
-}
-
-.project-stats {
-  gap: 12px;
-  margin-left: 4px;
-}
-
-.stat-item {
-  gap: 4px;
-  color: var(--ui-text-secondary);
-}
-
-.stat-label {
-  font-weight: var(--ui-font-weight-normal);
-}
-
-.stat-value {
-  font-weight: var(--ui-font-weight-semibold);
   color: var(--ui-text-body);
-}
-
-.status-text {
-  color: var(--ui-text-muted);
-}
-
-.save-status {
-  color: var(--ui-success);
+  font-size: var(--ui-font-size-xs);
   font-weight: var(--ui-font-weight-medium);
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--ui-transition-fast), border-color var(--ui-transition-fast), box-shadow var(--ui-transition-fast);
 }
 
-.save-status.has-changes {
-  color: var(--ui-danger);
+.project-chip:hover {
+  background: var(--ui-bg-hover);
+  border-color: var(--ui-border-light);
+  box-shadow: var(--ui-shadow-xs);
 }
 
-.separator {
-  margin: 0 4px;
-  color: var(--ui-border);
+.project-chip:active {
+  background: var(--ui-bg-active);
+  box-shadow: none;
 }
 
-.status-action {
-  min-width: max-content;
+.project-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ui-success);
+  flex-shrink: 0;
+}
+
+.project-icon {
+  font-size: 12px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.project-name {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .ai-chat-fab {

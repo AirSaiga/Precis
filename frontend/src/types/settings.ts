@@ -35,8 +35,8 @@ export interface SettingsNavGroup {
   id: string
   /** 分组显示名称 */
   label: string
-  /** 分组图标类名 */
-  icon: string
+  /** 分组图标类名（可选） */
+  icon?: string
   /** 分组内的导航项列表 */
   items: SettingsNavItem[]
   /** 分组显示条件（可选，返回 false 时隐藏整个分组） */

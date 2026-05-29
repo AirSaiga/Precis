@@ -120,6 +120,7 @@ const shortcuts = {
   settings: {
     title: '快捷键设置',
     description: '自定义键盘快捷键、启用/禁用特定命令，以及管理快捷键冲突。',
+    globalTitle: '全局设置',
     enabled: '启用快捷键',
     showFeedback: '显示操作反馈',
     resetAll: '重置所有快捷键',

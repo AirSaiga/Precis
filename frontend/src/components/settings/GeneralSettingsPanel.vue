@@ -1,61 +1,57 @@
 <!--
   @file GeneralSettingsPanel.vue
-  @description 通用设置面板
+  @description 通用设置面板（macOS 风格）
 
   配置应用级通用偏好：
   - 启动时自动加载最近项目
-  - 主题设置（light/dark/system）
+  - 语言设置
+  - 主题设置
 -->
 
 <template>
-  <div class="ui-workbench-page">
-    <!-- Panel Header -->
-    <div class="settings-panel-header">
-      <h2 class="settings-panel-header__title">{{ t('settings.general.title') }}</h2>
-      <p class="settings-panel-header__desc">{{ t('settings.general.description') }}</p>
-    </div>
-
-    <div class="ui-workbench-grid ui-workbench-grid--two">
-      <div class="ui-workbench-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.general.startup.loadRecent.label') }}</label>
-          <p class="settings-desc">{{ t('settings.general.startup.loadRecent.desc') }}</p>
-          <label class="ui-switch">
+  <div class="settings-page">
+    <!-- 启动行为 -->
+    <div class="settings-section">
+      <div class="settings-section__header">
+        <div class="settings-section__title">{{ t('settings.general.startup.title') }}</div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.general.startup.loadRecent.label') }}</div>
+        <div class="settings-row__desc">{{ t('settings.general.startup.loadRecent.desc') }}</div>
+        <div class="settings-row__control">
+          <label class="settings-switch">
             <input
               v-model="localSettings.loadRecentProjectOnStartup"
               type="checkbox"
-              class="ui-switch__input"
+              class="settings-switch__input"
               @change="handleChange"
             />
-            <span class="ui-switch__track"></span>
+            <span class="settings-switch__track"></span>
           </label>
         </div>
       </div>
+    </div>
 
-      <div class="ui-workbench-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.general.appearance.language.label') }}</label>
-          <p class="settings-desc">{{ t('settings.general.appearance.language.desc') }}</p>
-          <select
-            v-model="localSettings.language"
-            class="ui-select ui-select--compact"
-            @change="handleLanguageChange"
-          >
+    <!-- 外观 -->
+    <div class="settings-section">
+      <div class="settings-section__header">
+        <div class="settings-section__title">{{ t('settings.general.appearance.title') }}</div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.general.appearance.language.label') }}</div>
+        <div class="settings-row__desc">{{ t('settings.general.appearance.language.desc') }}</div>
+        <div class="settings-row__control">
+          <select v-model="localSettings.language" class="settings-select" @change="handleLanguageChange">
             <option value="zh-CN">{{ t('settings.general.appearance.language.zhCN') }}</option>
             <option value="en-US">{{ t('settings.general.appearance.language.enUS') }}</option>
           </select>
         </div>
       </div>
-
-      <div class="ui-workbench-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.general.appearance.theme.label') }}</label>
-          <p class="settings-desc">{{ t('settings.general.appearance.theme.desc') }}</p>
-          <select
-            v-model="localSettings.theme"
-            class="ui-select ui-select--compact"
-            @change="handleChange"
-          >
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.general.appearance.theme.label') }}</div>
+        <div class="settings-row__desc">{{ t('settings.general.appearance.theme.desc') }}</div>
+        <div class="settings-row__control">
+          <select v-model="localSettings.theme" class="settings-select" @change="handleChange">
             <option value="light">{{ t('settings.general.appearance.theme.light') }}</option>
             <option value="dark">{{ t('settings.general.appearance.theme.dark') }}</option>
             <option value="system">{{ t('settings.general.appearance.theme.system') }}</option>
@@ -98,5 +94,3 @@
     locale.value = localSettings.value.language
   }
 </script>
-
-<style scoped src="./GeneralSettingsPanel.styles.css"></style>

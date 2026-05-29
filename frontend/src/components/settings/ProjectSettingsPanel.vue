@@ -1,70 +1,56 @@
 <!--
   @file ProjectSettingsPanel.vue
-  @description 项目设置面板
+  @description 项目设置面板（macOS 风格）
 
   配置项目级默认运行参数：
   - 严格模式开关
   - 错误处理策略（continue/report/stop）
   - 超时时间
   - 批量校验最大文件数
+  - 文件处理（编码、分隔符）
 -->
 
 <template>
-  <div class="ui-workbench-page">
-    <!-- Panel Header -->
-    <div class="settings-panel-header">
-      <h2 class="settings-panel-header__title">{{ t('settings.project.title') }}</h2>
-      <p class="settings-panel-header__desc">{{ t('settings.project.description') }}</p>
-    </div>
-
-    <!-- Validation Settings Section -->
-    <div class="ui-workbench-intro">
-      <h3 class="ui-workbench-intro__title">
-        {{ t('settings.project.defaultRunParamsSectionTitle') }}
-      </h3>
-      <p class="ui-workbench-intro__desc">{{ t('settings.project.defaultRunParamsHint') }}</p>
-    </div>
-
-    <div class="ui-workbench-grid ui-workbench-grid--two">
-      <div class="ui-workbench-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.project.strictMode.label') }}</label>
-          <p class="settings-desc">{{ t('settings.project.strictMode.desc') }}</p>
-          <label class="ui-switch">
+  <div class="settings-page">
+    <!-- 校验参数 -->
+    <div class="settings-section">
+      <div class="settings-section__header">
+        <div class="settings-section__title">{{ t('settings.project.defaultRunParamsSectionTitle') }}</div>
+        <div class="settings-section__desc">{{ t('settings.project.defaultRunParamsHint') }}</div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.project.strictMode.label') }}</div>
+        <div class="settings-row__desc">{{ t('settings.project.strictMode.desc') }}</div>
+        <div class="settings-row__control">
+          <label class="settings-switch">
             <input
               v-model="validationSettings.strict_mode"
               type="checkbox"
-              class="ui-switch__input"
+              class="settings-switch__input"
               @change="handleValidationChange"
             />
-            <span class="ui-switch__track"></span>
+            <span class="settings-switch__track"></span>
           </label>
         </div>
       </div>
-
-      <div class="ui-workbench-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.project.errorHandling.label') }}</label>
-          <p class="settings-desc">{{ t('settings.project.errorHandling.desc') }}</p>
-          <select
-            v-model="validationSettings.error_handling"
-            class="ui-select ui-select--compact"
-            @change="handleValidationChange"
-          >
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.project.errorHandling.label') }}</div>
+        <div class="settings-row__desc">{{ t('settings.project.errorHandling.desc') }}</div>
+        <div class="settings-row__control">
+          <select v-model="validationSettings.error_handling" class="settings-select" @change="handleValidationChange">
             <option value="stop">{{ t('settings.project.errorHandling.stop') }}</option>
             <option value="continue">{{ t('settings.project.errorHandling.continue') }}</option>
             <option value="report">{{ t('settings.project.errorHandling.report') }}</option>
           </select>
         </div>
       </div>
-
-      <div class="ui-workbench-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.project.timeout.label') }}</label>
-          <p class="settings-desc">{{ t('settings.project.timeout.desc') }}</p>
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.project.timeout.label') }}</div>
+        <div class="settings-row__desc">{{ t('settings.project.timeout.desc') }}</div>
+        <div class="settings-row__control">
           <input
             v-model.number="validationSettings.timeout_seconds"
-            class="ui-input ui-input--compact"
+            class="settings-input"
             type="number"
             min="1"
             max="300"
@@ -72,14 +58,13 @@
           />
         </div>
       </div>
-
-      <div class="ui-workbench-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.project.batchLimit.label') }}</label>
-          <p class="settings-desc">{{ t('settings.project.batchLimit.desc') }}</p>
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.project.batchLimit.label') }}</div>
+        <div class="settings-row__desc">{{ t('settings.project.batchLimit.desc') }}</div>
+        <div class="settings-row__control">
           <input
             v-model.number="validationSettings.batch_max_files"
-            class="ui-input ui-input--compact"
+            class="settings-input"
             type="number"
             min="1"
             max="1000"
@@ -89,40 +74,28 @@
       </div>
     </div>
 
-    <!-- File Processing Settings Section -->
-    <div class="ui-workbench-intro">
-      <h3 class="ui-workbench-intro__title">
-        {{ t('settings.project.fileProcessingSectionTitle') }}
-      </h3>
-      <p class="ui-workbench-intro__desc">{{ t('settings.project.fileProcessingHint') }}</p>
-    </div>
-
-    <div class="ui-workbench-grid ui-workbench-grid--two">
-      <div class="ui-workbench-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.file.encoding.label') }}</label>
-          <p class="settings-desc">{{ t('settings.file.encoding.desc') }}</p>
-          <select
-            v-model="fileSettings.default_encoding"
-            class="ui-select ui-select--compact"
-            @change="handleFileChange"
-          >
+    <!-- 文件处理 -->
+    <div class="settings-section">
+      <div class="settings-section__header">
+        <div class="settings-section__title">{{ t('settings.project.fileProcessingSectionTitle') }}</div>
+        <div class="settings-section__desc">{{ t('settings.project.fileProcessingHint') }}</div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.file.encoding.label') }}</div>
+        <div class="settings-row__desc">{{ t('settings.file.encoding.desc') }}</div>
+        <div class="settings-row__control">
+          <select v-model="fileSettings.default_encoding" class="settings-select" @change="handleFileChange">
             <option value="utf-8">UTF-8</option>
             <option value="gbk">GBK</option>
             <option value="auto">{{ t('settings.file.encoding.auto') }}</option>
           </select>
         </div>
       </div>
-
-      <div class="ui-workbench-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.file.delimiter.label') }}</label>
-          <p class="settings-desc">{{ t('settings.file.delimiter.desc') }}</p>
-          <select
-            v-model="fileSettings.csv_delimiter"
-            class="ui-select ui-select--compact"
-            @change="handleFileChange"
-          >
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.file.delimiter.label') }}</div>
+        <div class="settings-row__desc">{{ t('settings.file.delimiter.desc') }}</div>
+        <div class="settings-row__control">
+          <select v-model="fileSettings.csv_delimiter" class="settings-select" @change="handleFileChange">
             <option value=",">{{ t('settings.file.delimiter.comma') }} (,)</option>
             <option value=";">{{ t('settings.file.delimiter.semicolon') }} (;)</option>
             <option value="\t">{{ t('settings.file.delimiter.tab') }} (Tab)</option>
@@ -130,22 +103,16 @@
           </select>
         </div>
       </div>
-
-      <div v-if="fileSettings.csv_delimiter === 'custom'" class="ui-workbench-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.file.delimiter.customLabel') }}</label>
-          <input
-            v-model="customDelimiter"
-            class="ui-input ui-input--compact"
-            type="text"
-            maxlength="1"
-            @change="handleFileChange"
-          />
+      <div v-if="fileSettings.csv_delimiter === 'custom'" class="settings-row">
+        <div class="settings-row__label">{{ t('settings.file.delimiter.customLabel') }}</div>
+        <div class="settings-row__desc"></div>
+        <div class="settings-row__control">
+          <input v-model="customDelimiter" class="settings-input" type="text" maxlength="1" @change="handleFileChange" />
         </div>
       </div>
     </div>
 
-    <div class="ui-form-actions">
+    <div class="settings-actions">
       <button class="ui-btn ui-btn--secondary" type="button" @click="openValidationTaskPanel">
         {{ t('settings.project.openValidationTaskPanel') }}
       </button>
@@ -236,5 +203,3 @@
     loadSettings()
   })
 </script>
-
-<style scoped src="./ProjectSettingsPanel.styles.css"></style>

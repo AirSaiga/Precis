@@ -18,6 +18,7 @@ const settings = {
     groups: {
       workspace: '工作区',
       project: '项目',
+      integrations: '集成',
       system: '系统',
     },
   },
@@ -143,6 +144,9 @@ const settings = {
       label: '批量限制',
       desc: '批量校验的最大文件数量',
     },
+    fileProcessingSectionTitle: '文件处理',
+    fileProcessingHint: '配置数据文件的读取方式，包括字符编码和 CSV 分隔符。',
+    openValidationTaskPanel: '打开校验任务面板',
   },
   file: {
     tab: '文件处理',
@@ -176,6 +180,7 @@ const settings = {
   },
   script: {
     tab: '脚本安全',
+    title: '脚本安全设置',
     description: '管理脚本能力的启用状态与运行安全边界。',
     warning: {
       title: '安全警告',
@@ -241,7 +246,9 @@ const settings = {
     releaseDate: '发布日期',
     download: '下载',
     downloading: '下载中...',
+    downloadProgress: '下载进度',
     install: '安装并重启',
+    errorTitle: '更新错误',
     statusIdle: '空闲',
     statusChecking: '检查中',
     statusAvailable: '有可用更新',
@@ -276,9 +283,11 @@ const settings = {
     helpStep6Desc: '保存配置文件后，重启应用即可生效。修改配置无需重新编译。',
     // 当前 Provider
     currentModel: '当前使用的模型',
+    currentConfig: '当前配置',
+    providerName: '提供商',
+    model: '模型',
     configured: '已配置',
     noApiKey: '未配置 API Key',
-    // Provider 列表
     configuredProviders: '已配置的 Provider',
     // 配置文件
     configPath: '配置文件路径',

@@ -1190,25 +1190,6 @@
   font-size: 12px;
 }
 
-.settings-panel-header {
-  margin-bottom: var(--ui-space-lg);
-}
-
-.settings-panel-header__title {
-  font-size: var(--ui-font-size-lg);
-  font-weight: var(--ui-font-weight-semibold);
-  color: var(--ui-text-title);
-  margin: 0 0 var(--ui-space-xs) 0;
-}
-
-.settings-panel-header__desc {
-  font-size: var(--ui-font-size-sm);
-  color: var(--ui-text-muted);
-  margin: 0;
-  line-height: 1.5;
-  max-width: 640px;
-}
-
 /* ========================================
    画布右键上下文菜单样式
    ======================================== */
@@ -1247,4 +1228,381 @@
 
 .context-menu-item span:first-child {
   font-size: 14px;
+}
+
+/* ========================================
+   macOS 风格设置面板组件
+   ======================================== */
+
+/* 根容器 */
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-xl);
+}
+
+/* Section：逻辑分组 */
+.settings-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-sm);
+}
+
+.settings-section__header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 0 var(--ui-space-sm);
+}
+
+.settings-section__title {
+  font-size: var(--ui-font-size-base);
+  font-weight: var(--ui-font-weight-semibold);
+  color: var(--ui-text-body);
+}
+
+.settings-section__desc {
+  font-size: var(--ui-font-size-sm);
+  color: var(--ui-text-muted);
+}
+
+/* Row：单行表单项 */
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-lg);
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  min-height: 44px;
+  border-radius: var(--ui-radius-md);
+  transition: background 0.15s;
+}
+
+.settings-row:hover {
+  background: var(--ui-bg-hover);
+}
+
+.settings-row__label {
+  width: 160px;
+  flex-shrink: 0;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
+  color: var(--ui-text-body);
+}
+
+.settings-row__desc {
+  flex: 1;
+  font-size: var(--ui-font-size-sm);
+  color: var(--ui-text-muted);
+  min-width: 0;
+}
+
+.settings-row__control {
+  width: 200px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ui-space-sm);
+}
+
+.settings-row__control--wide {
+  width: 320px;
+}
+
+.settings-row__control--full {
+  width: 100%;
+  flex: 1;
+}
+
+/* Stat Grid：横向滚动统计 */
+.settings-stat-grid {
+  display: flex;
+  gap: var(--ui-space-md);
+  overflow-x: auto;
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  scrollbar-width: thin;
+}
+
+.settings-stat-grid::-webkit-scrollbar {
+  height: 4px;
+}
+
+.settings-stat-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.settings-stat-grid::-webkit-scrollbar-thumb {
+  background: var(--ui-border);
+  border-radius: var(--ui-radius-full);
+}
+
+.settings-stat {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--ui-space-md);
+  border-radius: var(--ui-radius-lg);
+  border: 1px solid var(--ui-border-light);
+  background: var(--ui-bg-elevated);
+  min-width: 140px;
+}
+
+.settings-stat__label {
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.settings-stat__value {
+  font-size: var(--ui-font-size-2xl);
+  font-weight: var(--ui-font-weight-bold);
+  color: var(--ui-text-body);
+  line-height: 1;
+}
+
+.settings-stat__desc {
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-muted);
+}
+
+/* List：无边框列表 */
+.settings-list {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-lg);
+  overflow: hidden;
+}
+
+.settings-list__item {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-md);
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  border-bottom: 1px solid var(--ui-border-light);
+  min-height: 44px;
+}
+
+.settings-list__item:last-child {
+  border-bottom: none;
+}
+
+.settings-list__item:hover {
+  background: var(--ui-bg-hover);
+}
+
+/* Alert：警告/提示条 */
+.settings-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-space-md);
+  padding: var(--ui-space-md);
+  border-radius: var(--ui-radius-lg);
+  border-left: 3px solid var(--ui-warning);
+  background: var(--ui-warning-weak);
+}
+
+.settings-alert--danger {
+  border-left-color: var(--ui-danger);
+  background: var(--ui-danger-weak);
+}
+
+.settings-alert--success {
+  border-left-color: var(--ui-success);
+  background: var(--ui-success-weak);
+}
+
+.settings-alert--info {
+  border-left-color: var(--ui-accent);
+  background: var(--ui-accent-weak);
+}
+
+.settings-alert__icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.settings-alert__content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-alert__title {
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  color: var(--ui-warning-strong);
+}
+
+.settings-alert--danger .settings-alert__title {
+  color: var(--ui-danger-strong);
+}
+
+.settings-alert--success .settings-alert__title {
+  color: var(--ui-success-strong);
+}
+
+.settings-alert--info .settings-alert__title {
+  color: var(--ui-accent-strong);
+}
+
+.settings-alert__text {
+  font-size: var(--ui-font-size-sm);
+  color: var(--ui-text-muted);
+}
+
+/* 紧凑型输入 */
+.settings-input {
+  height: 28px;
+  padding: 0 var(--ui-space-sm);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-body);
+  font-size: var(--ui-font-size-sm);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+
+.settings-input:focus {
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 2px var(--ui-accent-ring);
+}
+
+.settings-input::placeholder {
+  color: var(--ui-text-muted);
+}
+
+.settings-input:disabled {
+  background: var(--ui-bg-subtle);
+  color: var(--ui-text-muted);
+  cursor: not-allowed;
+}
+
+/* 紧凑型 select */
+.settings-select {
+  height: 28px;
+  padding: 0 var(--ui-space-sm);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-body);
+  font-size: var(--ui-font-size-sm);
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+
+.settings-select:focus {
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 2px var(--ui-accent-ring);
+}
+
+/* 紧凑型开关 */
+.settings-switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  width: 36px;
+  height: 20px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.settings-switch__input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.settings-switch__track {
+  position: absolute;
+  inset: 0;
+  background: var(--ui-border);
+  border-radius: var(--ui-radius-full);
+  transition: background 0.2s;
+}
+
+.settings-switch__track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  background: white;
+  border-radius: 50%;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.settings-switch__input:checked + .settings-switch__track {
+  background: var(--ui-accent);
+}
+
+.settings-switch__input:checked + .settings-switch__track::after {
+  transform: translateX(16px);
+}
+
+.settings-switch__input:disabled + .settings-switch__track {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 行内按钮组 */
+.settings-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--ui-space-sm);
+  padding: var(--ui-space-md);
+}
+
+/* 行内代码/路径展示 */
+.settings-code {
+  font-family: var(--ui-font-family-mono, monospace);
+  font-size: var(--ui-font-size-sm);
+  color: var(--ui-text-body);
+  background: var(--ui-bg-subtle);
+  padding: 2px 6px;
+  border-radius: var(--ui-radius-sm);
+  word-break: break-all;
+}
+
+/* 状态 pill */
+.settings-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: var(--ui-radius-full);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-medium);
+}
+
+.settings-pill--success {
+  background: var(--ui-success-weak);
+  color: var(--ui-success);
+}
+
+.settings-pill--warning {
+  background: var(--ui-warning-weak);
+  color: var(--ui-warning);
+}
+
+.settings-pill--danger {
+  background: var(--ui-danger-weak);
+  color: var(--ui-danger);
+}
+
+.settings-pill__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
 }

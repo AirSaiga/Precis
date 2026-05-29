@@ -94,11 +94,11 @@
 }
 
 .settings-btn {
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   border: none;
   background: transparent;
-  border-radius: var(--ui-radius-md);
+  border-radius: var(--ui-radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -118,11 +118,11 @@
 }
 
 .language-btn {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border: none;
   background: transparent;
-  border-radius: 50%;
+  border-radius: var(--ui-radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;

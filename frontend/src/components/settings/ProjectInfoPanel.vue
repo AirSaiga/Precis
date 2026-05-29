@@ -1,31 +1,24 @@
 <!--
   @file ProjectInfoPanel.vue
-  @description 项目信息设置面板组件
+  @description 项目信息设置面板组件（macOS 风格）
 
-  用于展示和编辑项目的基本信息，包括项目名称、描述等元数据。
+  用于展示和编辑项目的基本信息，包括项目名称、工程路径、资源统计等。
 -->
+
 <template>
-  <div class="ui-workbench-page project-info-page">
-    <!-- 1. Hero card -->
-    <section class="ui-workbench-card hero-card">
-      <div class="hero-row">
-        <div class="ui-avatar">
-          <svg
-            width="22"
-            height="22"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
-            <polyline points="9 22 9 12 15 12 15 22" />
-          </svg>
-        </div>
-        <div class="hero-row__main">
+  <div class="settings-page">
+    <!-- 基本信息 -->
+    <div class="settings-section">
+      <div class="settings-section__header">
+        <div class="settings-section__title">{{ t('settings.projectInfo.basicInfo') }}</div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.projectInfo.name') }}</div>
+        <div class="settings-row__desc"></div>
+        <div class="settings-row__control settings-row__control--wide">
           <input
             v-model="localProjectName"
-            class="ui-input"
+            class="settings-input"
             type="text"
             :placeholder="t('settings.projectInfo.namePlaceholder')"
             :disabled="!projectStore.isProjectActive && !localConfigPath"
@@ -33,111 +26,73 @@
             @keydown.enter="handleNameChange"
           />
         </div>
-        <div class="hero-row__actions">
-          <button class="ui-btn ui-btn--ghost ui-btn--sm" @click="selectConfigPath">
-            {{ t('settings.projectInfo.browse') }}
-          </button>
-          <button
-            class="ui-btn ui-btn--primary ui-btn--sm"
-            :disabled="!canApply || isApplying"
-            @click="applyChanges"
-          >
-            {{ isApplying ? t('settings.projectInfo.applying') : applyButtonText }}
-          </button>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.projectInfo.configPath') }}</div>
+        <div class="settings-row__desc">{{ t('settings.projectInfo.pathHint') }}</div>
+        <div class="settings-row__control settings-row__control--wide">
+          <div class="settings-code" :title="localConfigPath || t('settings.projectInfo.missingConfigPath')">
+            {{ localConfigPath || t('settings.projectInfo.missingConfigPath') }}
+          </div>
         </div>
       </div>
-    </section>
-
-    <!-- 2. Status row -->
-    <section class="status-row">
-      <div class="status-row__pill" :class="statusVariant">
-        <span class="status-row__pill-dot"></span>
-        <span>{{ projectStatusText }}</span>
-      </div>
-      <div class="ui-card status-row__path">
-        <div class="path-header">
-          <span class="ui-badge">{{ t('settings.projectInfo.currentPath') }}</span>
-          <span class="path-hint">{{ t('settings.projectInfo.pathHint') }}</span>
-        </div>
-        <div
-          class="path-text"
-          :title="localConfigPath || t('settings.projectInfo.missingConfigPath')"
-        >
-          {{ localConfigPath || t('settings.projectInfo.missingConfigPath') }}
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.projectInfo.currentState') }}</div>
+        <div class="settings-row__desc"></div>
+        <div class="settings-row__control">
+          <span class="settings-pill" :class="statusVariant">
+            <span class="settings-pill__dot"></span>
+            {{ projectStatusText }}
+          </span>
         </div>
       </div>
-    </section>
+    </div>
 
-    <!-- 3. Stats grid -->
-    <section class="ui-workbench-grid ui-workbench-grid--three stats-grid">
-      <div class="ui-workbench-card stat-card">
-        <span class="stat-label">{{ t('settings.projectInfo.resourceSummary') }}</span>
-        <strong class="stat-value">{{ totalTrackedResources }}</strong>
-        <span class="stat-desc">{{ t('settings.projectInfo.resourceSummaryDesc') }}</span>
+    <!-- 资源统计 -->
+    <div class="settings-section">
+      <div class="settings-section__header">
+        <div class="settings-section__title">{{ t('settings.projectInfo.stats') }}</div>
+        <div class="settings-section__desc">{{ t('settings.projectInfo.statsDesc') }}</div>
       </div>
-
-      <div class="ui-workbench-card stat-card">
-        <span class="stat-label">{{ t('settings.dataSources.title') }}</span>
-        <strong class="stat-value">{{ dataSourceCount }}</strong>
-        <span class="stat-desc">{{ t('settings.projectInfo.dataSourcesSummaryDesc') }}</span>
+      <div class="settings-stat-grid">
+        <div class="settings-stat">
+          <span class="settings-stat__label">{{ t('settings.projectInfo.resourceSummary') }}</span>
+          <strong class="settings-stat__value">{{ totalTrackedResources }}</strong>
+          <span class="settings-stat__desc">{{ t('settings.projectInfo.resourceSummaryDesc') }}</span>
+        </div>
+        <div class="settings-stat">
+          <span class="settings-stat__label">{{ t('settings.dataSources.title') }}</span>
+          <strong class="settings-stat__value">{{ dataSourceCount }}</strong>
+          <span class="settings-stat__desc">{{ t('settings.projectInfo.dataSourcesSummaryDesc') }}</span>
+        </div>
+        <div class="settings-stat">
+          <span class="settings-stat__label">{{ t('settings.projectInfo.schemas') }}</span>
+          <strong class="settings-stat__value">{{ schemaCountText }}</strong>
+          <span class="settings-stat__desc">{{ t('settings.projectInfo.schemaDetail') }}</span>
+        </div>
+        <div class="settings-stat">
+          <span class="settings-stat__label">{{ t('settings.projectInfo.constraints') }}</span>
+          <strong class="settings-stat__value">{{ constraintCountText }}</strong>
+          <span class="settings-stat__desc">
+            {{ t('settings.projectInfo.constraintDetail', { standalone: constraintStandaloneText, inline: constraintInlineText }) }}
+          </span>
+        </div>
+        <div class="settings-stat">
+          <span class="settings-stat__label">{{ t('settings.projectInfo.regexes') }}</span>
+          <strong class="settings-stat__value">{{ regexCountText }}</strong>
+          <span class="settings-stat__desc">{{ t('settings.projectInfo.regexDetail') }}</span>
+        </div>
       </div>
+    </div>
 
-      <div class="ui-workbench-card stat-card">
-        <span class="stat-label">{{ t('settings.projectInfo.currentState') }}</span>
-        <strong class="stat-value">{{ projectStateLabel }}</strong>
-        <span class="stat-desc">{{ t('settings.projectInfo.currentStateDesc') }}</span>
-      </div>
-    </section>
-
-    <!-- 4. Resource detail grid -->
-    <section class="ui-workbench-grid ui-workbench-grid--three stats-grid">
-      <div class="ui-workbench-card stat-card">
-        <span class="stat-label">{{ t('settings.projectInfo.schemas') }}</span>
-        <strong class="stat-value">{{ schemaCountText }}</strong>
-        <span class="stat-desc">{{ t('settings.projectInfo.schemaDetail') }}</span>
-      </div>
-
-      <div class="ui-workbench-card stat-card">
-        <span class="stat-label">{{ t('settings.projectInfo.constraints') }}</span>
-        <strong class="stat-value">{{ constraintCountText }}</strong>
-        <span class="stat-desc">{{
-          t('settings.projectInfo.constraintDetail', {
-            standalone: constraintStandaloneText,
-            inline: constraintInlineText,
-          })
-        }}</span>
-      </div>
-
-      <div class="ui-workbench-card stat-card">
-        <span class="stat-label">{{ t('settings.projectInfo.regexes') }}</span>
-        <strong class="stat-value">{{ regexCountText }}</strong>
-        <span class="stat-desc">{{ t('settings.projectInfo.regexDetail') }}</span>
-      </div>
-    </section>
-
-    <div class="page-footer" v-if="projectStore.isProjectActive">
-      <div class="footer-status">
-        <span class="status-dot" :class="statusVariant"></span>
-        <span class="status-text">{{ projectStatusText }}</span>
-      </div>
-
-      <div class="footer-actions">
-        <button
-          class="ui-btn ui-btn--ghost ui-btn--sm"
-          :disabled="!hasChanges || isApplying"
-          @click="resetChanges"
-        >
-          {{ t('common.reset') }}
-        </button>
-
-        <button
-          class="ui-btn ui-btn--primary ui-btn--sm"
-          :disabled="!canApply || isApplying"
-          @click="applyChanges"
-        >
-          {{ isApplying ? t('settings.projectInfo.applying') : applyButtonText }}
-        </button>
-      </div>
+    <!-- 操作 -->
+    <div v-if="projectStore.isProjectActive" class="settings-actions">
+      <button class="ui-btn ui-btn--ghost ui-btn--sm" :disabled="!hasChanges || isApplying" @click="resetChanges">
+        {{ t('common.reset') }}
+      </button>
+      <button class="ui-btn ui-btn--primary ui-btn--sm" :disabled="!canApply || isApplying" @click="applyChanges">
+        {{ isApplying ? t('settings.projectInfo.applying') : applyButtonText }}
+      </button>
     </div>
   </div>
 </template>
@@ -274,10 +229,10 @@
   })
 
   const statusVariant = computed(() => {
-    if (isApplying.value) return 'is-applying'
-    if (!projectStore.isProjectActive) return 'is-inactive'
-    if (hasChanges.value) return 'is-warning'
-    return 'is-ready'
+    if (isApplying.value) return 'settings-pill--warning'
+    if (!projectStore.isProjectActive) return 'settings-pill--danger'
+    if (hasChanges.value) return 'settings-pill--warning'
+    return 'settings-pill--success'
   })
 
   const projectStatusText = computed(() => {
@@ -285,13 +240,6 @@
     if (!projectStore.isProjectActive) return t('settings.projectInfo.statusInactive')
     if (hasChanges.value) return t('settings.projectInfo.statusPending')
     return t('settings.projectInfo.statusReady')
-  })
-
-  const projectStateLabel = computed(() => {
-    if (!projectStore.isProjectActive) return t('settings.projectInfo.statusInactive')
-    return hasChanges.value
-      ? t('settings.projectInfo.statusPending')
-      : t('settings.projectInfo.statusReady')
   })
 
   function handleNameChange(): void {
@@ -353,7 +301,6 @@
     }
 
     isApplying.value = true
-    // 保存原始路径，加载失败时用于回滚
     const previousPaths = projectStore.currentPaths
       ? { ...projectStore.currentPaths }
       : null
@@ -363,31 +310,25 @@
       const pathsChanged = configPath !== currentConfigPath
       const wasActive = projectStore.isProjectActive
 
-      // Step 1: 先持久化路径（loadProjectFromV2 依赖 projectStore 中的路径）
       if (window.electronAPI?.saveConfig) {
         await window.electronAPI.saveConfig(configPath, configPath)
       }
       projectStore.setProjectPaths({ configPath, dataPath: configPath })
 
-      // Step 2: 尝试加载项目验证路径有效性
-      // 如果路径变更或当前无激活项目，需要验证新项目路径
       let loaded = true
       if (pathsChanged || !wasActive) {
         loaded = await graphStore.loadProjectFromV2()
       }
 
       if (!loaded) {
-        // 加载失败：回滚路径设置，避免 isProjectActive=true 但 manifest 不存在的矛盾状态
         if (previousPaths) {
           projectStore.setProjectPaths(previousPaths)
         } else {
           projectStore.clearProject()
         }
-        // loadProjectFromV2 内部已显示错误提示，这里不再重复
         return
       }
 
-      // Step 3: 更新项目名称（仅当项目已激活时）
       if (projectStore.isProjectActive) {
         try {
           const manifest = await getV2Manifest()
@@ -395,12 +336,10 @@
           await putV2Manifest(manifest)
           originalProjectName.value = localProjectName.value
         } catch (e) {
-          // manifest 不存在时跳过名称更新（空项目场景）
           logger.debug('[ProjectInfoPanel] 跳过名称更新，manifest 不存在:', e)
         }
       }
 
-      // Step 4: 显示成功提示
       if (pathsChanged || !wasActive) {
         success(
           wasActive
@@ -419,7 +358,6 @@
     } catch (error) {
       logger.error('[ProjectInfoPanel] 应用路径更改失败:', error)
       warning(t('settings.projectInfo.applyFailed'), t('common.error'))
-      // 异常时同样回滚路径，避免留下无效状态
       if (previousPaths) {
         projectStore.setProjectPaths(previousPaths)
       } else {
@@ -430,5 +368,3 @@
     }
   }
 </script>
-
-<style scoped src="./ProjectInfoPanel.styles.css"></style>

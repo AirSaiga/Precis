@@ -1,166 +1,149 @@
 <!--
   @file UpdateSettingsPanel.vue
-  @description 更新设置面板组件
+  @description 更新设置面板组件（macOS 风格）
 
   用于检查应用更新、管理版本信息及配置自动更新行为。
 -->
+
 <template>
-  <div class="ui-workbench-page">
-    <!-- Panel Header -->
-    <div class="settings-panel-header">
-      <h2 class="settings-panel-header__title">{{ t('settings.update.tab') }}</h2>
-      <p class="settings-panel-header__desc">{{ t('settings.update.description') }}</p>
-    </div>
-
-    <div class="ui-workbench-card version-card">
-      <div class="version-row">
-        <span class="version-label">{{ t('settings.update.currentVersion') }}</span>
-        <span class="version-value">{{ currentVersion }}</span>
+  <div class="settings-page">
+    <!-- 版本信息 -->
+    <div class="settings-section">
+      <div class="settings-section__header">
+        <div class="settings-section__title">{{ t('settings.update.versionInfo') }}</div>
       </div>
-      <div v-if="updateState.status !== 'idle'" class="version-row">
-        <span class="version-label">{{ t('settings.update.status') }}</span>
-        <span
-          class="ui-badge"
-          :class="{
-            'is-primary': updateState.status === 'checking' || updateState.status === 'downloading',
-            'is-success':
-              updateState.status === 'update-available' || updateState.status === 'downloaded',
-            'is-danger': updateState.status === 'error',
-          }"
-        >
-          {{ getStatusText(updateState.status) }}
-        </span>
-      </div>
-    </div>
-
-    <div class="ui-workbench-grid ui-workbench-grid--two preferences-grid">
-      <div class="ui-card preference-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.update.autoCheck.label') }}</label>
-          <label class="ui-switch">
-            <input
-              v-model="localConfig.autoCheck"
-              class="ui-switch__input"
-              type="checkbox"
-              @change="handleConfigChange"
-            />
-            <span class="ui-switch__track"></span>
-          </label>
-          <p class="settings-desc">{{ t('settings.update.autoCheck.desc') }}</p>
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.update.currentVersion') }}</div>
+        <div class="settings-row__desc"></div>
+        <div class="settings-row__control">
+          <span class="settings-code">{{ currentVersion }}</span>
         </div>
       </div>
-
-      <div class="ui-card preference-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.update.autoDownload.label') }}</label>
-          <label class="ui-switch">
-            <input
-              v-model="localConfig.autoDownload"
-              class="ui-switch__input"
-              type="checkbox"
-              @change="handleConfigChange"
-            />
-            <span class="ui-switch__track"></span>
-          </label>
-          <p class="settings-desc">{{ t('settings.update.autoDownload.desc') }}</p>
+      <div v-if="updateState.status !== 'idle'" class="settings-row">
+        <div class="settings-row__label">{{ t('settings.update.status') }}</div>
+        <div class="settings-row__desc"></div>
+        <div class="settings-row__control">
+          <span
+            class="settings-pill"
+            :class="{
+              'settings-pill--info': updateState.status === 'checking' || updateState.status === 'downloading',
+              'settings-pill--success': updateState.status === 'update-available' || updateState.status === 'downloaded',
+              'settings-pill--danger': updateState.status === 'error',
+            }"
+          >
+            {{ getStatusText(updateState.status) }}
+          </span>
         </div>
       </div>
+    </div>
 
-      <div class="ui-card preference-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.update.sourceType.label') }}</label>
-          <select v-model="localConfig.sourceType" class="ui-select" @change="handleConfigChange">
+    <!-- 更新偏好 -->
+    <div class="settings-section">
+      <div class="settings-section__header">
+        <div class="settings-section__title">{{ t('settings.update.preferences') }}</div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.update.autoCheck.label') }}</div>
+        <div class="settings-row__desc">{{ t('settings.update.autoCheck.desc') }}</div>
+        <div class="settings-row__control">
+          <label class="settings-switch">
+            <input v-model="localConfig.autoCheck" type="checkbox" class="settings-switch__input" @change="handleConfigChange" />
+            <span class="settings-switch__track"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.update.autoDownload.label') }}</div>
+        <div class="settings-row__desc">{{ t('settings.update.autoDownload.desc') }}</div>
+        <div class="settings-row__control">
+          <label class="settings-switch">
+            <input v-model="localConfig.autoDownload" type="checkbox" class="settings-switch__input" @change="handleConfigChange" />
+            <span class="settings-switch__track"></span>
+          </label>
+        </div>
+      </div>
+      <div class="settings-row">
+        <div class="settings-row__label">{{ t('settings.update.sourceType.label') }}</div>
+        <div class="settings-row__desc">{{ t('settings.update.sourceType.desc') }}</div>
+        <div class="settings-row__control">
+          <select v-model="localConfig.sourceType" class="settings-select" @change="handleConfigChange">
             <option value="local">{{ t('settings.update.sourceType.local') }}</option>
             <option value="github">{{ t('settings.update.sourceType.github') }}</option>
             <option value="custom">{{ t('settings.update.sourceType.custom') }}</option>
           </select>
-          <p class="settings-desc">{{ t('settings.update.sourceType.desc') }}</p>
         </div>
       </div>
-
-      <div v-if="localConfig.sourceType === 'custom'" class="ui-card preference-card">
-        <div class="ui-form-group">
-          <label class="ui-form-label">{{ t('settings.update.sourceUrl.label') }}</label>
-          <input
-            v-model="localConfig.sourceUrl"
-            class="ui-input"
-            type="text"
-            :placeholder="t('settings.update.sourceUrl.placeholder')"
-            @blur="handleConfigChange"
-          />
-          <p class="settings-desc">{{ t('settings.update.sourceUrl.desc') }}</p>
+      <div v-if="localConfig.sourceType === 'custom'" class="settings-row">
+        <div class="settings-row__label">{{ t('settings.update.sourceUrl.label') }}</div>
+        <div class="settings-row__desc">{{ t('settings.update.sourceUrl.desc') }}</div>
+        <div class="settings-row__control settings-row__control--wide">
+          <input v-model="localConfig.sourceUrl" class="settings-input" type="text" :placeholder="t('settings.update.sourceUrl.placeholder')" @blur="handleConfigChange" />
         </div>
       </div>
     </div>
 
-    <div class="ui-workbench-card actions-card">
-      <div class="ui-workbench-section__title">{{ t('settings.update.actions') }}</div>
-      <div class="update-actions">
-        <button
-          class="ui-btn ui-btn--primary"
-          type="button"
-          :disabled="isChecking"
-          @click="handleCheckUpdate"
-        >
-          <span
-            v-if="isChecking"
-            class="ui-spinner"
-            style="width: 16px; height: 16px; border-width: 2px"
-          ></span>
-          {{ isChecking ? t('settings.update.checking') : t('settings.update.checkNow') }}
-        </button>
-
-        <button
-          v-if="hasUpdateAvailable()"
-          class="ui-btn ui-btn--success"
-          type="button"
-          :disabled="isDownloading"
-          @click="handleDownload"
-        >
-          <span
-            v-if="isDownloading"
-            class="ui-spinner"
-            style="width: 16px; height: 16px; border-width: 2px"
-          ></span>
-          {{ isDownloading ? t('settings.update.downloading') : t('settings.update.download') }}
-        </button>
-
-        <button
-          v-if="isDownloaded()"
-          class="ui-btn ui-btn--success"
-          type="button"
-          @click="handleInstall"
-        >
-          {{ t('settings.update.install') }}
-        </button>
+    <!-- 操作 -->
+    <div class="settings-section">
+      <div class="settings-section__header">
+        <div class="settings-section__title">{{ t('settings.update.actions') }}</div>
       </div>
-
-      <div v-if="hasUpdateAvailable()" class="ui-card update-info-card">
-        <div class="update-available-version">
-          {{ t('settings.update.newVersion') }}: {{ updateState.version }}
-        </div>
-        <div v-if="updateState.releaseDate" class="update-available-date">
-          {{ t('settings.update.releaseDate') }}: {{ formatDate(updateState.releaseDate) }}
+      <div class="settings-row">
+        <div class="settings-row__label"></div>
+        <div class="settings-row__desc"></div>
+        <div class="settings-row__control settings-row__control--wide">
+          <button class="ui-btn ui-btn--primary ui-btn--sm" type="button" :disabled="isChecking" @click="handleCheckUpdate">
+            <span v-if="isChecking" class="ui-spinner" style="width: 14px; height: 14px; border-width: 2px"></span>
+            {{ isChecking ? t('settings.update.checking') : t('settings.update.checkNow') }}
+          </button>
+          <button
+            v-if="hasUpdateAvailable()"
+            class="ui-btn ui-btn--success ui-btn--sm"
+            type="button"
+            :disabled="isDownloading"
+            @click="handleDownload"
+          >
+            <span v-if="isDownloading" class="ui-spinner" style="width: 14px; height: 14px; border-width: 2px"></span>
+            {{ isDownloading ? t('settings.update.downloading') : t('settings.update.download') }}
+          </button>
+          <button v-if="isDownloaded()" class="ui-btn ui-btn--success ui-btn--sm" type="button" @click="handleInstall">
+            {{ t('settings.update.install') }}
+          </button>
         </div>
       </div>
 
-      <div v-if="isDownloadingStatus()" class="update-progress">
-        <div class="ui-progress">
-          <div class="ui-progress__bar" :style="{ width: `${updateState.progress || 0}%` }"></div>
+      <!-- 更新信息 -->
+      <div v-if="hasUpdateAvailable()" class="settings-row">
+        <div class="settings-row__label">{{ t('settings.update.newVersion') }}</div>
+        <div class="settings-row__desc">
+          <span v-if="updateState.releaseDate" class="settings-section__desc">
+            {{ t('settings.update.releaseDate') }}: {{ formatDate(updateState.releaseDate) }}
+          </span>
         </div>
-        <div class="update-progress-text">
-          {{ Math.round(updateState.progress || 0) }}% -
-          {{ formatBytes(updateState.transferred || 0) }} /
-          {{ formatBytes(updateState.total || 0) }}
+        <div class="settings-row__control">
+          <span class="settings-code">{{ updateState.version }}</span>
         </div>
       </div>
 
-      <div
-        v-if="hasError()"
-        class="ui-card"
-        style="border-left: 3px solid var(--ui-danger); background: rgba(239, 68, 68, 0.08)"
-      >
-        <div class="update-error-message">{{ updateState.error }}</div>
+      <!-- 下载进度 -->
+      <div v-if="isDownloadingStatus()" class="settings-row">
+        <div class="settings-row__label">{{ t('settings.update.downloadProgress') }}</div>
+        <div class="settings-row__desc">
+          {{ Math.round(updateState.progress || 0) }}% - {{ formatBytes(updateState.transferred || 0) }} / {{ formatBytes(updateState.total || 0) }}
+        </div>
+        <div class="settings-row__control">
+          <div class="ui-progress" style="width: 100%">
+            <div class="ui-progress__bar" :style="{ width: `${updateState.progress || 0}%` }"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 错误信息 -->
+      <div v-if="hasError()" class="settings-alert settings-alert--danger">
+        <span class="settings-alert__icon">✕</span>
+        <div class="settings-alert__content">
+          <div class="settings-alert__title">{{ t('settings.update.errorTitle') }}</div>
+          <div class="settings-alert__text">{{ updateState.error }}</div>
+        </div>
       </div>
     </div>
   </div>
@@ -396,5 +379,3 @@
     }
   })
 </script>
-
-<style scoped src="./UpdateSettingsPanel.styles.css"></style>

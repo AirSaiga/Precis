@@ -19,6 +19,7 @@ const settings = {
     groups: {
       workspace: 'Workspace',
       project: 'Project',
+      integrations: 'Integrations',
       system: 'System',
     },
   },
@@ -151,6 +152,9 @@ const settings = {
       label: 'Batch Limit',
       desc: 'Maximum number of files for batch validation',
     },
+    fileProcessingSectionTitle: 'File Processing',
+    fileProcessingHint: 'Configure how data files are read, including character encoding and CSV delimiters.',
+    openValidationTaskPanel: 'Open Validation Task Panel',
   },
   file: {
     tab: 'File Processing',
@@ -185,6 +189,7 @@ const settings = {
   },
   script: {
     tab: 'Script Settings',
+    title: 'Script Security Settings',
     description: 'Manage script capability enablement and the safety boundaries around execution.',
     warning: {
       title: 'Security Warning',
@@ -250,7 +255,9 @@ const settings = {
     releaseDate: 'Release Date',
     download: 'Download',
     downloading: 'Downloading...',
+    downloadProgress: 'Download Progress',
     install: 'Install & Restart',
+    errorTitle: 'Update Error',
     statusIdle: 'Idle',
     statusChecking: 'Checking',
     statusAvailable: 'Update Available',
@@ -265,6 +272,9 @@ const settings = {
     description:
       'AI Provider configuration is fully controlled by the local ai_providers.yaml file.',
     // Help documentation
+    currentConfig: 'Current Configuration',
+    providerName: 'Provider',
+    model: 'Model',
     helpTitle: 'How to Configure AI Provider',
     helpIntro:
       'The application loads AI Providers from a local YAML configuration file. No settings are required in the UI.',

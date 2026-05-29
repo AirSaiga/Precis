@@ -30,6 +30,8 @@ const common = {
   refresh: 'Refresh',
   close: 'Close',
   open: 'Open',
+  collapse: 'Collapse',
+  expand: 'Expand',
   comingSoon: 'Coming soon',
   export: 'Export',
   import: 'Import',
@@ -142,10 +144,6 @@ const common = {
       defaultRunParamsSectionTitle: 'Default Validation Parameters',
       defaultRunParamsHint:
         'These parameters only affect task-based validation such as full/table/file runs. They do not affect instant validation on canvas nodes.',
-      fileProcessingSectionTitle: 'File Processing Parameters',
-      fileProcessingHint:
-        'Configure how data files are read, including character encoding and CSV delimiter.',
-      openValidationTaskPanel: 'Open Validation Task Panel',
       validation: {
         title: 'Validation Behavior',
       },
