@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import subprocess
+import sys
 from dataclasses import FrozenInstanceError
 from unittest.mock import MagicMock, patch
 
@@ -65,6 +66,7 @@ class TestCpuCores:
 
 
 class TestMemoryTotalBytes:
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows only")
     def test_windows_failure_returns_zero(self):
         with patch("os.name", "nt"):
             with patch("ctypes.windll.kernel32.GlobalMemoryStatusEx", side_effect=Exception("fail")):
@@ -82,7 +84,8 @@ class TestMemoryTotalBytes:
 
     def test_unsupported_platform_returns_zero(self):
         with patch("os.name", "java"):
-            assert _memory_total_bytes() == 0
+            with patch("os.sysconf", side_effect=OSError("fail"), create=True):
+                assert _memory_total_bytes() == 0
 
 
 class TestDiskFreeBytes:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 import pytest
 from fastapi import HTTPException
 
@@ -29,6 +31,7 @@ class TestValidateFilePath:
         assert valid is False
         assert ".." in error
 
+    @pytest.mark.skipif(sys.platform != "win32", reason="Windows only: Linux treats /not/abs as absolute")
     def test_pseudo_absolute_path(self):
         valid, error = validate_file_path("/not/abs")
         assert valid is False
