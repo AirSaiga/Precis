@@ -61,6 +61,7 @@ from app.api.routers.validation.common import (
     convert_validation_result_to_regex,
     execute_standard_validation,
 )
+from app.shared.services.preview.path import validate_file_access
 from app.shared.services.validation import UnifiedValidationService, ValidationType, load_file_data
 
 from .router import router
@@ -90,8 +91,11 @@ def validate_data(request: ValidationRequest):
         8. 捕获文件未找到和通用异常，返回友好的错误响应
     """
     try:
-        # 记录校验开始时间，用于后续统计校验耗时
         _start_time = time.time()
+
+        # 校验文件路径格式合法性（防止路径遍历攻击）
+        if request.source_file_path:
+            validate_file_access(request.source_file_path)
 
         return execute_standard_validation(
             source_file_path=request.source_file_path,
@@ -197,9 +201,8 @@ async def validate_data_with_file(
                 allow_unsafe_eval=allow_unsafe_eval,
             )
 
-            # 记录校验完成状态（注意：使用 error 级别日志可能是历史遗留，实际为完成信息）
             if response.success and response.data:
-                logger.error(
+                logger.info(
                     f"[VALIDATION] 校验完成: 成功={response.data.is_valid}, 错误数={response.data.error_count}"
                 )
 
@@ -251,8 +254,11 @@ def validate_regex(request: RegexValidationRequest):
         6. 返回标准化响应，捕获文件未找到和通用异常
     """
     try:
-        # 记录校验开始时间
         _start_time = time.time()
+
+        # 校验文件路径格式合法性（防止路径遍历攻击）
+        if request.source_file_path:
+            validate_file_access(request.source_file_path)
 
         # 加载数据文件，支持自定义表头配置
         df = load_file_data(

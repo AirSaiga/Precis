@@ -340,7 +340,11 @@ def validate_v2_full(
         total_checks=len(passed_items) + len(errors),
         passed_count=len(passed_items),
         failed_count=len(errors),
-        pass_rate=100.0 if not errors else (len(passed_items) / (len(passed_items) + len(errors)) * 100),
+        pass_rate=(
+            100.0
+            if (len(passed_items) + len(errors)) == 0
+            else (len(passed_items) / (len(passed_items) + len(errors)) * 100)
+        ),
         by_type=by_type,
         by_table=by_table,
     )

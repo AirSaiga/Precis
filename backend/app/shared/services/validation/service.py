@@ -192,7 +192,7 @@ class UnifiedValidationService:
         # 【核心逻辑】调用具体校验器的 validate 方法
         # 传入 df, column 和 kwargs（包含各类校验参数）
         logger.debug(f"执行校验: type={validation_type}, column={column}, rows={len(df)}")
-        result = validator.validate(df, column, **kwargs)
+        result = validator.validate_with_error_handling(df, column, **kwargs)
         logger.debug(f"校验完成: is_valid={result.is_valid}, errors={result.error_count}")
         return result
 

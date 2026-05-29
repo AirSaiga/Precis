@@ -87,16 +87,36 @@ def _extract_derived_columns(
             result_type = ext_info.get("result_type")
 
             if source_column not in parsed_df.columns:
-                raise ValueError(
-                    f"提取列 '{col_name}' 失败：源列 '{source_column}' 不存在于表 '{table_id}'。请检查 Schema 配置。"
+                all_errors.append(
+                    {
+                        "stage": "format",
+                        "table": table_id,
+                        "column": col_name,
+                        "check_type": "ExtractedColumnValidation",
+                        "error_type": "ExtractedColumnValidationError",
+                        "message": (
+                            f"提取列 '{col_name}' 失败：源列 '{source_column}' 不存在于表 '{table_id}'。请检查 Schema 配置。"
+                        ),
+                    }
                 )
+                continue
 
             # 获取源列绑定的正则表达式模式
             source_col = table_schema.columns.get(source_column)
             if not source_col:
-                raise ValueError(
-                    f"提取列 '{col_name}' 失败：源列 '{source_column}' 未在 schema 中定义。请检查 Schema 配置。"
+                all_errors.append(
+                    {
+                        "stage": "format",
+                        "table": table_id,
+                        "column": col_name,
+                        "check_type": "ExtractedColumnValidation",
+                        "error_type": "ExtractedColumnValidationError",
+                        "message": (
+                            f"提取列 '{col_name}' 失败：源列 '{source_column}' 未在 schema 中定义。请检查 Schema 配置。"
+                        ),
+                    }
                 )
+                continue
 
             regex_pattern = None
             regex_flags = "g"
@@ -125,9 +145,19 @@ def _extract_derived_columns(
                                     break
 
             if not regex_pattern:
-                raise ValueError(
-                    f"提取列 '{col_name}' 失败：源列 '{source_column}' 没有绑定正则表达式。请检查 Schema 配置。"
+                all_errors.append(
+                    {
+                        "stage": "format",
+                        "table": table_id,
+                        "column": col_name,
+                        "check_type": "ExtractedColumnValidation",
+                        "error_type": "ExtractedColumnValidationError",
+                        "message": (
+                            f"提取列 '{col_name}' 失败：源列 '{source_column}' 没有绑定正则表达式。请检查 Schema 配置。"
+                        ),
+                    }
                 )
+                continue
 
             # 编译正则表达式
             flags = 0

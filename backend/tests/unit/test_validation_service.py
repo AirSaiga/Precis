@@ -126,13 +126,13 @@ class TestUnifiedValidationService:
         """校验请求正确路由到对应校验器"""
         mock_validator = MagicMock(spec=BaseValidator)
         mock_result = ValidationResult(is_valid=True, error_count=0, total_rows=3)
-        mock_validator.validate.return_value = mock_result
+        mock_validator.validate_with_error_handling.return_value = mock_result
 
         UnifiedValidationService.register_validator("mock_route", mock_validator)
         df = pd.DataFrame({"col": [1, 2, 3]})
         result = UnifiedValidationService.validate("mock_route", df, "col", extra_arg=123)
 
-        mock_validator.validate.assert_called_once_with(df, "col", extra_arg=123)
+        mock_validator.validate_with_error_handling.assert_called_once_with(df, "col", extra_arg=123)
         assert result.is_valid is True
 
     def test_validate_with_real_not_null(self):
