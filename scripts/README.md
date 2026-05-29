@@ -35,8 +35,8 @@ scripts/
 
 | 环境 Environment | 版本要求 Version | 推荐安装方式 Recommended |
 |-----------------|-----------------|------------------------|
-| Python | 3.13+ | pyenv / pyenv-win |
-| Node.js | 20.19.0+ | 官网 / Official site / nvm |
+| Python | >=3.12 | pyenv / pyenv-win |
+| Node.js | ^20.19.0 \|\| >=22.12.0 | 官网 / Official site / nvm |
 | Git | 任意 Any | 官网 / Official site |
 
 ### 2. 一键部署 / One-Click Deploy
@@ -63,8 +63,8 @@ chmod +x scripts/setup.sh
 ```
 
 部署脚本会自动完成 / The deploy script will automatically:
-1. ✅ 检查 Python 3.13+ / Check Python 3.13+
-2. ✅ 检查 Node.js 20+ / Check Node.js 20+
+1. ✅ 检查 Python >=3.12 / Check Python >=3.12
+2. ✅ 检查 Node.js / Check Node.js
 3. ✅ 创建 Python 虚拟环境 / Create Python venv (`backend/.venv`)
 4. ✅ 安装后端依赖 / Install backend dependencies
 5. ✅ 安装前端依赖 / Install frontend dependencies (root + frontend + electron)
@@ -110,7 +110,7 @@ For finer control, see `SCRIPTS_GUIDE.md`. Basic steps:
 在项目根目录创建 `.env` 文件 / Create `.env` in project root:
 
 ```env
-PYTHON_VERSION=3.13.5
+PYTHON_VERSION=3.12
 BACKEND_PORT=18000
 FRONTEND_PORT=5173
 SKIP_BUILD=false

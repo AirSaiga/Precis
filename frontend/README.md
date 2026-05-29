@@ -1,264 +1,169 @@
-# Precis 前端项目
+# Precis 前端 / Precis Frontend
 
-## 🎉 架构重构完成！
+> ⚠️ **超早期原型** — 本前端尚未经过完整测试，已知存在 Bug，接口随时可能变更。
 
-本项目已完成全面的架构重构（2026-01-14），代码结构更加清晰、易于维护和扩展。
+Vue 3 + TypeScript 可视化编辑器，基于 Vue Flow 画布引擎。
+
+完整项目说明请见 [根目录 README.md](../README.md)。
 
 ---
 
-## 📚 快速开始
+## 技术栈
 
-### 安装依赖
+| 技术 | 用途 |
+|------|------|
+| Vue 3 + TypeScript | 框架 |
+| Vite 7 | 构建工具 |
+| Pinia | 状态管理 |
+| Vue Flow | 画布/DAG 引擎 |
+| Vue Router | 路由 |
+| Vue I18n | 国际化（zh-CN / en-US） |
+| CodeMirror | 代码编辑器（YAML/Python） |
+| Axios | HTTP 客户端 |
+
+---
+
+## 快速开始
 
 ```bash
 npm install
-```
-
-### 开发环境
-
-```bash
 npm run dev
-```
-
-### 生产构建
-
-```bash
-npm run build
 ```
 
 ---
 
-## 📂 项目结构
+## 项目结构
 
 ```
 src/
-├── api/                    # API接口层
-│   ├── validationApi.ts   # 校验API
-│   └── workspaceApi.ts    # 工作区API
-│
-├── components/             # 组件层
-│   ├── canvas/            # 画布组件
-│   ├── layout/            # 布局组件
-│   ├── library/           # 资源库组件
-│   ├── nodes/             # 节点组件
-│   ├── shared/            # 共享组件
-│   └── icons/             # 图标组件
-│
-├── composables/            # 组合式函数（按功能分组）
-│   ├── canvas/            # 画布相关
-│   ├── connections/       # 连接相关
-│   ├── nodes/             # 节点相关
-│   ├── preview/           # 预览相关
-│   ├── project/           # 项目相关
-│   └── validation/        # 校验相关
-│
-├── core/                   # 核心功能层
-│   ├── managers/          # 管理器
-│   ├── registry/          # 注册表
-│   └── services/          # 核心服务
-│
-├── features/               # 功能模块
-│   ├── regex/             # 正则表达式功能
-│   ├── constraints/       # 约束功能（预留）
-│   └── schema/            # Schema功能（预留）
-│
-├── i18n/                   # 国际化
-├── router/                 # 路由
-├── stores/                 # 状态管理（Pinia）
-├── types/                  # TypeScript类型定义
+├── api/                    # 后端 API 客户端（projectV2Api 等）
+├── components/             # UI 组件
+│   ├── ai/                 # AI 聊天与配置生成
+│   ├── canvas/             # 画布容器与控制
+│   ├── common/             # 通用组件
+│   ├── layout/             # 布局（AppHeader、Sidebar 等）
+│   ├── library/            # 资源库面板
+│   ├── nodes/              # 节点组件
+│   │   ├── core/           # Schema、数据源预览
+│   │   ├── constraintRules/# 10 种约束节点
+│   │   ├── constraintSets/ # 约束规则集节点
+│   │   ├── sets/           # Schema/Regex/Table 集合节点
+│   │   ├── patterns/       # 转换节点
+│   │   ├── regex/          # 正则节点
+│   │   ├── manualData/     # 手动数据节点
+│   │   ├── template/       # 模板实例节点
+│   │   ├── composite/      # 复合节点
+│   │   ├── json/           # JSON Schema 节点
+│   │   ├── root/           # 项目根节点
+│   │   └── shared/         # 共享节点组件
+│   ├── resource/           # 资源树面板
+│   ├── settings/           # 设置工作台
+│   ├── template/           # 模板管理
+│   ├── ui/                 # 基础 UI 组件
+│   └── validationHistory/  # 校验历史面板
+├── composables/            # Vue 组合式函数
+│   ├── canvas/             # 画布相关（连接监听、Vue Flow API）
+│   ├── common/             # 通用（快捷键、剪贴板）
+│   ├── conflict/           # 冲突检测
+│   ├── data/               # 数据操作
+│   ├── nodes/              # 节点操作
+│   ├── project/            # 项目生命周期
+│   ├── resource/           # 资源管理
+│   ├── shared/             # 共享逻辑
+│   ├── template/           # 模板操作
+│   ├── validation/         # 校验相关
+│   └── useAppBootstrap.ts  # 应用启动编排
+├── core/                   # 核心功能
+│   ├── managers/           # 管理器
+│   ├── registry/           # 注册表
+│   └── services/           # 核心服务（HTTP、日志、Toast）
+├── features/               # 垂直功能模块
+│   ├── ai-config-generator/# AI 配置生成器
+│   ├── keyboard/           # 键盘快捷键
+│   ├── node-layout-organizer/ # 节点布局组织器
+│   └── regex/              # 正则功能
+├── i18n/                   # 国际化（zh-CN / en-US）
+├── router/                 # Vue Router 路由
+├── services/               # 业务服务
+│   ├── api/                # API 服务
+│   ├── builders/           # V2 配置构建器
+│   ├── canvas/             # 画布服务（连接策略、Vue Flow API）
+│   ├── constraints/        # 约束系统（双注册表 + 校验编排）
+│   ├── disconnect/         # 断开连接清理
+│   ├── managers/           # 服务管理器
+│   ├── registry/           # 服务注册表
+│   ├── reportExport/       # 报告导出
+│   ├── rules/              # 连接规则（~25 条）
+│   └── validationReportViewModel.ts
+├── stores/                 # Pinia 状态管理
+│   ├── graphStore/         # 画布核心 Store（Setup Store + 工厂模块）
+│   │   ├── setup.ts        # 入口
+│   │   └── modules/        # ~17 个工厂模块（factories/ v2/ clipboard/ history/ ...）
+│   ├── canvasStore.ts      # 多标签画布
+│   ├── workspaceStore.ts   # 数据源工作区
+│   ├── resourceTreeStore.ts # 资源树
+│   ├── resourceFolderStore.ts # 资源树展开状态
+│   ├── resourceSearchStore.ts # 资源搜索
+│   ├── dragStore.ts        # 拖拽状态
+│   ├── projectStore.ts     # 项目状态
+│   ├── settingsStore.ts    # 设置状态
+│   ├── aiChatStore.ts      # AI 聊天
+│   ├── validationTaskStore.ts # 校验任务
+│   └── ...
+├── types/                  # TypeScript 类型定义
+│   ├── graph.ts            # 节点/边核心类型
+│   ├── nodes.ts            # CustomNodeData discriminated union
+│   ├── constraints.ts      # 约束类型
+│   ├── projectV2.ts        # V2 项目配置类型
+│   └── ...
 ├── utils/                  # 工具函数
-├── views/                  # 视图页面
 ├── App.vue                 # 根组件
 └── main.ts                 # 入口文件
 ```
 
 ---
 
-## 🔧 技术栈
+## 核心架构
 
-- **框架**: Vue 3 + TypeScript
-- **构建工具**: Vite
-- **状态管理**: Pinia
-- **图形库**: Vue Flow
-- **样式**: CSS
-- **国际化**: Vue I18n
-- **路由**: Vue Router
+### graphStore（God Store + 工厂模块）
 
----
+画布核心状态管理采用 Pinia Setup Store + 工厂模块拆分模式。`setup.ts` 通过 ~17 个 `createXxxModule()` 工厂函数组合所有功能，每个模块通过闭包参数注入响应式依赖。
 
-## 📖 重构文档
+**关键约定**：所有节点数据修改必须通过 `updateNodeData(nodeId, patches)` 统一入口。
 
-本项目经过了全面的架构重构，相关文档位于项目根目录：
+### 约束系统（双注册表）
 
-1. **[README_REFACTOR.md](./README_REFACTOR.md)** ⭐ 推荐首读
-   - 文档索引和快速指南
-   - 常见问题解答
+- **NodeDataBuilder**（`services/constraints/nodeDataBuilder/`）— 构建约束节点数据
+- **ValidationRegistry**（`services/constraints/validationRegistryCore.ts`）— 执行约束校验
 
-2. **[ARCHITECTURE_REFACTOR.md](./ARCHITECTURE_REFACTOR.md)**
-   - 详细的架构设计方案
-   - 当前架构分析
-   - 新架构设计说明
+每个 builder/handler 文件在模块级别调用 `registerBuilder()` 或 `register()`，通过 barrel 文件的 side-effect import 触发注册。
 
-3. **[REFACTOR_GUIDE.md](./REFACTOR_GUIDE.md)**
-   - 实施指南和操作手册
-   - 后续步骤说明
+### 连接系统
 
-4. **[REFACTOR_SUMMARY.md](./REFACTOR_SUMMARY.md)**
-   - 工作总结和进度统计
-   - 收益说明
-
-5. **[REFACTOR_FINAL_STATUS.md](./REFACTOR_FINAL_STATUS.md)**
-   - 最终状态报告
-   - 修复清单
+连接规则定义在 `services/rules/connectionRules.ts`（~25 条规则），通过 `connectionPolicyService` 验证连线合法性，`useCanvasConnectionWatcher` 监听边变化并同步状态。
 
 ---
 
-## 🎯 核心特性
-
-### 清晰的模块划分
-
-- **API层**: 统一管理与后端的通信
-- **核心层**: 封装核心业务逻辑
-- **功能模块**: 独立的功能模块，易于维护和扩展
-- **组件层**: 按功能分类的Vue组件
-
-### 类型安全
-
-- 完整的TypeScript类型定义
-- 类型按功能模块拆分
-- 向后兼容的类型导出
-
-### 代码组织
-
-- Composables按功能分组
-- 组件按职责分类
-- 清晰的import路径
-
----
-
-## 🚀 开发指南
-
-### 添加新功能
-
-1. **创建功能模块** (如需要)
-
-   ```
-   src/features/your-feature/
-   ├── components/      # 功能专属组件
-   ├── composables/     # 功能专属组合式函数
-   ├── services/        # 功能专属服务
-   └── types/           # 功能专属类型
-   ```
-
-2. **添加新组件**
-   - 布局组件 → `components/layout/`
-   - 画布组件 → `components/canvas/`
-   - 节点组件 → `components/nodes/`
-   - 共享组件 → `components/shared/`
-
-3. **添加新的Composable**
-   - 按功能分组放入对应目录
-   - 例如：节点相关 → `composables/nodes/`
-
-4. **添加新的类型**
-   - 按功能创建新的类型文件或添加到现有文件
-   - 在 `types/index.ts` 中导出
-
-### 代码规范
-
-- 使用TypeScript进行类型定义
-- 遵循Vue 3 Composition API风格
-- 组件使用`<script setup>`语法
-- 使用Pinia进行状态管理
-- 使用相对路径或`@/`别名导入
-
----
-
-## 🔍 常用命令
+## 开发命令
 
 ```bash
-# 安装依赖
-npm install
-
-# 启动开发服务器
-npm run dev
-
-# 类型检查
-npm run type-check
-
-# 代码格式化
-npm run format
-
-# 构建生产版本
-npm run build
-
-# 预览生产构建
-npm run preview
+npm run dev              # 启动开发服务器
+npm run build            # 生产构建（含 type-check）
+npm run type-check       # vue-tsc 类型检查
+npm run lint             # ESLint + style audit
+npm run format           # Prettier 格式化
+npm run test             # Vitest 单元测试
+npm run test:watch       # Vitest watch 模式
 ```
 
 ---
 
-## 📝 注意事项
+## 开发约定
 
-### Import路径
-
-推荐使用新的模块化import：
-
-```typescript
-// ✅ 推荐：使用模块化类型导入
-import type { SchemaNodeData } from '@/types/nodes'
-import type { RegexNodeData } from '@/types/regex'
-
-// ✅ 也可以：使用统一导出（向后兼容）
-import type { SchemaNodeData, RegexNodeData } from '@/types/graph'
-
-// ✅ 推荐：使用新的路径
-import { ValidationService } from '@/core/services/validationService'
-import { useNodeOperations } from '@/composables/nodes/useNodeOperations'
-```
-
-### 文件组织
-
-- 功能相关的文件放在一起
-- 使用清晰的命名
-- 遵循现有的目录结构
-
----
-
-## 🤝 贡献指南
-
-1. 阅读架构文档了解项目结构
-2. 遵循代码规范
-3. 充分测试你的更改
-4. 提交清晰的commit信息
-
----
-
-## 📞 获取帮助
-
-- 查看重构文档了解架构设计
-- 阅读代码注释和类型定义
-- 参考现有代码示例
-
----
-
-## 📊 项目状态
-
-- ✅ 架构重构：完成
-- ✅ 类型定义：完成
-- ✅ 模块化：完成
-- ✅ 文档：完整
-
-**最后更新**: 2026-01-14
-
----
-
-## 🎊 致谢
-
-感谢所有为项目重构做出贡献的开发者！
-
-新的架构为项目的长期发展奠定了坚实的基础。
-
----
-
-**Made with ❤️ by Precis Team**
+- 组件使用 `<script setup lang="ts">` + Composition API
+- 组合式函数以 `use*` 命名
+- Store 以 `use*Store` 命名
+- Props 必须定义类型（`interface Props` + `defineProps<Props>()`）
+- 非功能专属的共享类型放 `types/`
+- DAG 操作必须通过 `services/canvas/vueFlowApi.ts` 调用 Vue Flow 原生 API
+- 创建节点后、创建边之前必须 `await nextTick()`
