@@ -126,6 +126,7 @@ import {
   getConstraintKindByNodeType,
   isConstraintNodeType,
 } from '@/services/constraints/validationRegistry'
+import { addNodes } from '@/services/canvas/vueFlowApi'
 
 export function createYamlIOModule(params: {
   nodes: Ref<CustomNode[]>
@@ -506,7 +507,7 @@ export function createYamlIOModule(params: {
         } as SchemaNodeData,
       }
 
-      nodes.value.push(newNode)
+      addNodes(newNode)
       selectedNodeId.value = newNode.id
 
       return newNode.id

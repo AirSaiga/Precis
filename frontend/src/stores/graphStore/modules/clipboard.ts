@@ -7,9 +7,11 @@
  */
 
 import type { Ref } from 'vue'
+import { nextTick } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
+import { addNodes, addEdges } from '@/services/canvas/vueFlowApi'
 
 export function createClipboardModule(params: {
   nodes: Ref<CustomNode[]>
@@ -137,7 +139,7 @@ export function createClipboardModule(params: {
    *
    * 同时复制 copiedNodes 中节点之间的关联边。
    */
-  function pasteNodes(): string[] {
+  async function pasteNodes(): Promise<string[]> {
     if (copiedNodes.value.length === 0) {
       return []
     }
@@ -162,9 +164,12 @@ export function createClipboardModule(params: {
       }
 
       resetCopiedNodeState(newNode)
-      nodes.value.push(newNode)
+      addNodes(newNode)
       newNodeIds.push(newNode.id)
     }
+
+    // 等待节点渲染，获得 handleBounds 后再创建边
+    await nextTick()
 
     // 复制 copiedNodes 中节点之间的内部边
     const copiedNodeIds = new Set(copiedNodes.value.map((n) => n.id))
@@ -191,7 +196,7 @@ export function createClipboardModule(params: {
         targetHandle: remapHandle(edge.targetHandle, idMap),
       }
 
-      edges.value.push(newEdge)
+      addEdges(newEdge)
     }
 
     // 更新 conditional 约束节点数据中的 edgeId 引用
@@ -220,13 +225,12 @@ export function createClipboardModule(params: {
    *
    * 同时复制与该节点关联的边，更新 source/target 指向新节点。
    */
-  function duplicateSelectedNode(): string | null {
+  async function duplicateSelectedNode(): Promise<string | null> {
     const nodesToCopy = getNodesToCopy()
     if (nodesToCopy.length === 0) {
       return null
     }
 
-    // 单节点重复（Ctrl+D 行为）：只对单选有效
     if (nodesToCopy.length > 1) {
       return null
     }
@@ -249,9 +253,12 @@ export function createClipboardModule(params: {
     }
 
     resetCopiedNodeState(newNode)
-    nodes.value.push(newNode)
+    addNodes(newNode)
     selectedNodeId.value = newNode.id
     selectedNodeIds.value = [newNode.id]
+
+    // 等待节点渲染，获得 handleBounds 后再创建边
+    await nextTick()
 
     // 复制与该节点关联的边，更新 source/target 指向新节点
     const relatedEdges = edges.value.filter(
@@ -276,7 +283,7 @@ export function createClipboardModule(params: {
         targetHandle: remapHandle(edge.targetHandle, idMap),
       }
 
-      edges.value.push(newEdge)
+      addEdges(newEdge)
     }
 
     // 更新 conditional 约束节点数据中的 edgeId 引用

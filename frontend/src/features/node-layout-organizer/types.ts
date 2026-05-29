@@ -1,12 +1,6 @@
 /**
  * @file types.ts
  * @description 节点布局组织器类型定义
- *
- * 功能概述：
- * - 定义节点类别枚举与类型映射
- * - 定义布局策略接口与配置类型
- * - 定义区域、位置、选项与结果接口
- * - 定义动画、网格与层级相关类型
  */
 
 /**
@@ -15,7 +9,6 @@
 export enum NodeCategory {
   ROOT = 'root',
   CORE = 'core',
-  LIBRARY = 'library',
   CONSTRAINT = 'constraint',
 }
 
@@ -29,9 +22,6 @@ export const NODE_TYPE_TO_CATEGORY: Record<string, NodeCategory> = {
   jsonSourcePreview: NodeCategory.CORE,
   jsonSchema: NodeCategory.CORE,
   regex: NodeCategory.CORE,
-  patternToolbox: NodeCategory.LIBRARY,
-  constraintDashboard: NodeCategory.LIBRARY,
-  pattern: NodeCategory.LIBRARY,
   constraint: NodeCategory.CONSTRAINT,
   notNullConstraint: NodeCategory.CONSTRAINT,
   uniqueConstraint: NodeCategory.CONSTRAINT,
@@ -42,6 +32,7 @@ export const NODE_TYPE_TO_CATEGORY: Record<string, NodeCategory> = {
   rangeConstraint: NodeCategory.CONSTRAINT,
   charsetConstraint: NodeCategory.CONSTRAINT,
   dateLogicConstraint: NodeCategory.CONSTRAINT,
+  compositeConstraint: NodeCategory.CONSTRAINT,
 }
 
 /**
@@ -54,21 +45,6 @@ export interface ILayoutStrategy {
     context: LayoutContext
   ): GroupedLayout
 }
-
-/**
- * 收纳策略类型
- */
-export type LayoutStrategy = 'byType' | 'byConnection' | 'byHierarchy' | 'mixed' | 'schemaCentric'
-
-/**
- * Schema家族布局方式
- */
-export type SchemaFamilyLayout = 'horizontal' | 'vertical' | 'radial'
-
-/**
- * 防重叠处理方式
- */
-export type OverlapResolution = 'shift' | 'scale' | 'none'
 
 /**
  * 二级子框结构
@@ -102,29 +78,6 @@ export interface SchemaFamily {
 }
 
 /**
- * 收纳策略配置
- */
-export interface StrategyConfig {
-  type: LayoutStrategy
-  name: string
-  description: string
-  icon: string
-}
-
-/**
- * 区域配置
- */
-export interface ZoneConfig {
-  id: string
-  name: string
-  category: NodeCategory
-  widthRatio: number
-  heightRatio: number
-  position: 'top' | 'bottom' | 'left' | 'right' | 'center'
-  order: number
-}
-
-/**
  * 节点位置信息
  */
 export interface NodePosition {
@@ -136,45 +89,13 @@ export interface NodePosition {
 }
 
 /**
- * 区域位置信息
- */
-export interface ZonePosition {
-  zoneId: string
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-/**
  * 整理选项
  */
 export interface OrganizeOptions {
-  strategy: LayoutStrategy
   animate: boolean
   animateDuration: number
   gap: number
   margin: number
-  enableClustering: boolean
-  maxNodesPerRow: number
-  sortBy: 'type' | 'name' | 'creationTime'
-  preserveConnections: boolean
-  compactMode: boolean
-  schemaFamilyLayout?: SchemaFamilyLayout
-  enableSubGroups?: boolean
-  overlapResolution?: OverlapResolution
-}
-
-/**
- * 整理结果
- */
-export interface OrganizeResult {
-  success: boolean
-  nodeCount: number
-  zoneCount: number
-  duration: number
-  positions: Map<string, { x: number; y: number }>
-  groups: ZoneGroup[]
 }
 
 /**
@@ -194,33 +115,8 @@ export interface ConnectionInfo {
   target: string
   sourceType: string
   targetType: string
-}
-
-/**
- * 层级关系信息
- */
-export interface HierarchyLevel {
-  level: number
-  nodeIds: string[]
-  parentIds: string[]
-}
-
-/**
- * 动画配置
- */
-export interface AnimationConfig {
-  duration: number
-  stagger: number
-  easing: 'linear' | 'easeIn' | 'easeOut' | 'easeInOut' | 'cubic'
-}
-
-/**
- * 网格配置
- */
-export interface GridConfig {
-  enabled: boolean
-  size: number
-  snapStrength: number
+  sourceHandle?: string
+  targetHandle?: string
 }
 
 /**
@@ -233,20 +129,7 @@ export interface LayoutContext {
   nodes: NodePosition[]
   nodeDataById: Map<string, any>
   connections: ConnectionInfo[]
-  options: OrganizeOptions
-}
-
-/**
- * 区域布局
- */
-export interface ZoneLayout {
-  zoneId: string
-  x: number
-  y: number
-  width: number
-  height: number
-  nodeCount: number
-  category: NodeCategory
+  gap: number
 }
 
 /**
@@ -275,5 +158,4 @@ export interface ZoneGroup {
 export interface GroupedLayout {
   positions: Map<string, { x: number; y: number }>
   groups: ZoneGroup[]
-  categoryZones: Map<NodeCategory, ZoneLayout>
 }

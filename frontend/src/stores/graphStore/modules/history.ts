@@ -6,7 +6,7 @@
  * 采用"依赖注入"方式接入 graphStore，避免反向依赖 store 造成循环引用。
  */
 
-import { ref, type Ref } from 'vue'
+import { ref, nextTick, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
 
@@ -32,8 +32,9 @@ export function createHistoryModule(params: {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>
   maxHistoryLength?: number
+  reconcileAll?: () => void
 }) {
-  const { nodes, edges } = params
+  const { nodes, edges, reconcileAll } = params
   // 若未传入最大历史长度，默认保留 50 条记录
   const maxHistoryLength = params.maxHistoryLength ?? 50
 
@@ -76,20 +77,22 @@ export function createHistoryModule(params: {
    * 3. 从撤销栈弹出上一个状态并恢复
    */
   async function undo() {
-    // 无历史记录时无法撤销
     if (undoStack.value.length === 0) {
       return
     }
 
-    // 先保存当前状态，方便后续重做
     const currentSnapshot = structuredClone({ nodes: nodes.value, edges: edges.value })
     redoStack.value.push(currentSnapshot)
 
-    // 弹出撤销栈顶的上一个状态并恢复
     const previousState = undoStack.value.pop()
     if (previousState) {
       nodes.value = previousState.nodes
       edges.value = previousState.edges
+
+      if (reconcileAll) {
+        await nextTick()
+        reconcileAll()
+      }
     }
   }
 
@@ -103,20 +106,22 @@ export function createHistoryModule(params: {
    * 3. 从重做栈弹出下一个状态并恢复
    */
   async function redo() {
-    // 无重做记录时直接返回
     if (redoStack.value.length === 0) {
       return
     }
 
-    // 先保存当前状态，方便后续再次撤销
     const currentSnapshot = structuredClone({ nodes: nodes.value, edges: edges.value })
     undoStack.value.push(currentSnapshot)
 
-    // 弹出重做栈顶的下一个状态并恢复
     const nextState = redoStack.value.pop()
     if (nextState) {
       nodes.value = nextState.nodes
       edges.value = nextState.edges
+
+      if (reconcileAll) {
+        await nextTick()
+        reconcileAll()
+      }
     }
   }
 

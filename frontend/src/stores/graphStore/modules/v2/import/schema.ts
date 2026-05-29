@@ -22,6 +22,7 @@ import { getV2Schema } from '@/api/projectV2Api'
 import { fromBackendType } from '@/services/builders'
 import { materializeV2EmbeddedConstraints } from '../shared/embeddedConstraints'
 import { normalizePath } from '@/core/utils/pathNormalization'
+import { addNodes } from '@/services/canvas/vueFlowApi'
 
 export function createV2SchemaImporter(params: {
   nodes: Ref<CustomNode[]>
@@ -86,7 +87,7 @@ export function createV2SchemaImporter(params: {
         saveState: 'saved',
       } as SchemaNodeData,
     }
-    nodes.value.push(schemaNode)
+    addNodes(schemaNode)
     return schemaNode
   }
 
@@ -105,7 +106,7 @@ export function createV2SchemaImporter(params: {
       embeddedConstraints: embedded,
       colNameToId,
       hasNode: (id: string) => nodes.value.some((n) => n.id === id),
-      addNode: (node: CustomNode) => nodes.value.push(node),
+      addNode: (node: CustomNode) => addNodes(node),
       addConstraintEdge: ensureSchemaToConstraintEdge,
     })
   }

@@ -59,6 +59,7 @@ import { logger } from '@/core/utils/logger'
 import type { Ref } from 'vue'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import { getV2FullConfig } from '@/api/projectV2Api'
+import { addNodes } from '@/services/canvas/vueFlowApi'
 
 export function createLibraryNodesFactoryModule(params: {
   nodes: Ref<CustomNode[]>
@@ -134,7 +135,7 @@ export function createLibraryNodesFactoryModule(params: {
       } as unknown as CustomNodeData,
     }
 
-    nodes.value.push(node)
+    addNodes(node)
     selectedNodeId.value = node.id
     return node.id
   }
@@ -182,7 +183,7 @@ export function createLibraryNodesFactoryModule(params: {
       data: { items, saveState: 'saved' } as unknown as CustomNodeData,
     }
 
-    nodes.value.push(node)
+    addNodes(node)
     selectedNodeId.value = node.id
     return node.id
   }

@@ -44,9 +44,18 @@
       <template #info>
         <div class="info-row">
           <span class="info-label">{{
-            t('customNodes.constraintRules.dateLogicConstraintNode.sourceLabel')
+            t('customNodes.constraintRules.dateLogicConstraintNode.sourceLabel', '源')
           }}</span>
-          <span class="info-value" :class="{ placeholder: !hasSource }">{{ sourceDisplay }}</span>
+          <span class="info-value" :class="{ placeholder: !hasSource }">{{
+            data.table ||
+            t('customNodes.constraintRules.dateLogicConstraintNode.waitingForSource')
+          }}</span>
+        </div>
+        <div v-if="hasSource && data.column" class="info-row">
+          <span class="info-label">{{
+            t('customNodes.constraintRules.dateLogicConstraintNode.columnLabel', '列')
+          }}</span>
+          <span class="info-value">{{ data.column }}</span>
         </div>
         <div class="info-row">
           <span class="info-label">{{

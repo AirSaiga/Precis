@@ -44,9 +44,18 @@
       <template #info>
         <div class="info-row">
           <span class="info-label">{{
-            t('customNodes.constraintRules.charsetConstraintNode.sourceLabel')
+            t('customNodes.constraintRules.charsetConstraintNode.sourceLabel', '源')
           }}</span>
-          <span class="info-value" :class="{ placeholder: !hasSource }">{{ sourceDisplay }}</span>
+          <span class="info-value" :class="{ placeholder: !hasSource }">{{
+            data.table ||
+            t('customNodes.constraintRules.charsetConstraintNode.waitingForSource')
+          }}</span>
+        </div>
+        <div v-if="hasSource && data.column" class="info-row">
+          <span class="info-label">{{
+            t('customNodes.constraintRules.charsetConstraintNode.columnLabel', '列')
+          }}</span>
+          <span class="info-value">{{ data.column }}</span>
         </div>
         <div class="info-row">
           <span class="info-label">{{

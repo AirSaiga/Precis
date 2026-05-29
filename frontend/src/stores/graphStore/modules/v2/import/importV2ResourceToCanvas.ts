@@ -32,6 +32,7 @@ import { createV2RegexImporter } from './regex'
 import { createV2ConstraintImporter } from './constraint'
 import { getV2FullConfig } from '@/api/projectV2Api'
 import type { PatternRegistryTypeV2 } from '@/types/projectV2'
+import { addNodes } from '@/services/canvas/vueFlowApi'
 
 export type ProjectResourceKind =
   | 'schema'
@@ -62,7 +63,7 @@ export function createV2ImportToCanvas(params: {
   } = params
   const { t } = useI18n()
 
-  const { ensureSchemaToRegexEdge, ensureSchemaToConstraintEdge } = createV2ImportEdges({ edges })
+  const { ensureSchemaToRegexEdge, ensureSchemaToConstraintEdge, bufferEdge, flushBufferedEdges } = createV2ImportEdges({ edges })
   const { ensureSchemaNode, importSchema } = createV2SchemaImporter({
     nodes,
     getEffectiveProjectConfigPath,
@@ -81,6 +82,7 @@ export function createV2ImportToCanvas(params: {
     selectedNodeId,
     ensureSchemaNode,
     ensureSchemaToConstraintEdge,
+    bufferEdge,
   })
 
   async function importV2ResourceToCanvas(
@@ -118,6 +120,7 @@ export function createV2ImportToCanvas(params: {
         const nodeId = await importSchema(resourceId, position)
         selectedNodeId.value = nodeId
         await nextTick()
+        flushBufferedEdges()
         reconcileAll()
         return nodeId
       }
@@ -125,6 +128,7 @@ export function createV2ImportToCanvas(params: {
       if (normalizedKind === 'regex') {
         const nodeId = await importRegex(resourceId, position, { includeDeps, moveIfExists })
         await nextTick()
+        flushBufferedEdges()
         reconcileAll()
         return nodeId
       }
@@ -132,6 +136,7 @@ export function createV2ImportToCanvas(params: {
       if (normalizedKind === 'constraint') {
         const nodeId = await importConstraint(resourceId, position, { includeDeps, moveIfExists })
         await nextTick()
+        flushBufferedEdges()
         reconcileAll()
         return nodeId
       }
@@ -139,6 +144,7 @@ export function createV2ImportToCanvas(params: {
       if (normalizedKind === 'transform') {
         const nodeId = await importTransform(resourceId, position, { includeDeps, moveIfExists })
         await nextTick()
+        flushBufferedEdges()
         reconcileAll()
         return nodeId
       }
@@ -218,7 +224,7 @@ export function createV2ImportToCanvas(params: {
       } as unknown as CustomNodeData,
     }
 
-    nodes.value.push(patternNode)
+    addNodes(patternNode)
     selectedNodeId.value = nodeId
     return nodeId
   }
@@ -271,7 +277,7 @@ export function createV2ImportToCanvas(params: {
       } as TransformNodeData,
     }
 
-    nodes.value.push(transformNode)
+    addNodes(transformNode)
     selectedNodeId.value = transformId
     return transformId
   }

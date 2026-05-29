@@ -5,8 +5,9 @@
  * 功能概述：
  * - 单个 Schema 家族内部的流式布局计算
  * - 节点分类、边界计算、维度回退
+ * - 按列对齐约束节点
  */
-import type { SubGroup } from '../types'
+import type { SubGroup, ConnectionInfo } from '../types'
 import { NodeCategory, NODE_TYPE_TO_CATEGORY } from '../types'
 import {
   GROUP_COLORS,
@@ -20,9 +21,6 @@ import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 
 /**
  * 获取节点类型的回退尺寸
- * 当无法从 DOM 获取实际尺寸时，按节点类型返回默认尺寸
- * @param nodeType - 节点类型
- * @returns 节点宽度和高度
  */
 export function getFallbackDimension(nodeType: string): NodeDimension {
   if (nodeType === 'schema') return { width: 320, height: 400 }
@@ -36,9 +34,6 @@ export function getFallbackDimension(nodeType: string): NodeDimension {
 
 /**
  * 按节点类型对节点 ID 进行分组
- * @param nodeIds - 节点 ID 数组
- * @param nodeTypeById - 节点 ID 到类型的映射
- * @returns 类型到节点 ID 数组的映射（已排序）
  */
 export function groupByType(
   nodeIds: string[],
@@ -62,14 +57,6 @@ export function groupByType(
 /**
  * 流式布局：将节点按顺序从左到右、从上到下排列
  * 当行宽度超过 maxWidth 时自动换行
- * @param nodeIds - 要布局的节点 ID 数组
- * @param outPositions - 输出位置映射（会被修改）
- * @param nodeDimensions - 节点尺寸映射
- * @param startX - 起始 X 坐标
- * @param startY - 起始 Y 坐标
- * @param maxWidth - 最大行宽度
- * @param gap - 节点间距
- * @returns 布局边界信息和下一行起始 Y 坐标
  */
 export function flowLayout(
   nodeIds: string[],
@@ -114,10 +101,6 @@ export function flowLayout(
 
 /**
  * 从局部坐标计算节点包围边界（无 padding）
- * @param nodeIds - 节点 ID 数组
- * @param positions - 位置映射
- * @param nodeDimensions - 尺寸映射
- * @returns 边界矩形，无节点时返回 null
  */
 export function calculateBoundsFromLocal(
   nodeIds: string[],
@@ -146,12 +129,6 @@ export function calculateBoundsFromLocal(
 
 /**
  * 从位置计算带 padding 的节点包围边界
- * @param nodeIds - 节点 ID 数组
- * @param positions - 位置映射
- * @param nodeDimensions - 尺寸映射
- * @param nodeTypeById - 节点类型映射（用于尺寸回退）
- * @param padding - 内边距
- * @returns 边界矩形，无节点时返回 null
  */
 export function calculateBoundsFromPositions(
   nodeIds: string[],
@@ -187,9 +164,6 @@ export function calculateBoundsFromPositions(
 
 /**
  * 计算单个 Schema 家族的内部布局
- * 将家族成员节点按类型分区排列，支持水平和垂直两种模式
- * @param params - 布局参数
- * @returns 局部位置、子分组、尺寸和颜色信息
  */
 export function layoutFamily(params: {
   familyId: string
@@ -199,8 +173,9 @@ export function layoutFamily(params: {
   nodeTypeById: Map<string, string>
   nodeDimensions: Map<string, NodeDimension>
   canvasWidth: number
-  layoutMode: 'horizontal' | 'vertical' | 'radial'
+  layoutMode: 'horizontal' | 'vertical'
   gap: number
+  edges: ConnectionInfo[]
 }): {
   localPositions: Map<string, { x: number; y: number }>
   subGroups: SubGroup[]
@@ -216,6 +191,7 @@ export function layoutFamily(params: {
     canvasWidth,
     layoutMode,
     gap,
+    edges,
   } = params
   const localPositions = new Map<string, { x: number; y: number }>()
 
@@ -233,7 +209,7 @@ export function layoutFamily(params: {
 
   for (const id of memberNodeIds) {
     const type = nodeTypeById.get(id) || ''
-    if (type === 'sourcePreview') sources.push(id)
+    if (type === 'sourcePreview' || type === 'jsonSourcePreview') sources.push(id)
     else if (type === 'regex') regexNodes.push(id)
     else if (NODE_TYPE_TO_CATEGORY[type] === NodeCategory.CONSTRAINT || isConstraintNodeType(type))
       constraints.push(id)
@@ -307,6 +283,9 @@ export function layoutFamily(params: {
 
     placeSection(others, 'Others', '#9e9e9e', 'others')
   } else {
+    // === 水平模式 ===
+
+    // 1. Sources — 垂直堆叠在 Schema 左侧
     let maxSourceWidth = 0
     let sourceY = familyPadding
     for (const id of sources) {
@@ -316,6 +295,7 @@ export function layoutFamily(params: {
       maxSourceWidth = Math.max(maxSourceWidth, dim.width)
     }
 
+    // 2. Schema — 放在 Sources 右侧
     let schemaX = familyPadding
     const schemaY = familyPadding
     if (sources.length > 0) schemaX += maxSourceWidth + gap
@@ -330,6 +310,37 @@ export function layoutFamily(params: {
     const rightMaxWidth = Math.max(420, maxFamilyWidth - rightStartX - familyPadding)
 
     let rightY = familyPadding
+
+    // 3. 约束 — 按类型分组，流式布局
+    if (constraints.length > 0) {
+      const constraintGroups = groupByType(constraints, nodeTypeById)
+      for (const [type, ids] of constraintGroups) {
+        const { bounds, nextY } = flowLayout(
+          ids,
+          localPositions,
+          nodeDimensions,
+          rightStartX,
+          rightY,
+          rightMaxWidth,
+          gap
+        )
+        subGroups.push({
+          id: `sub-${params.familyId}-${type}`,
+          name: NODE_TYPE_NAMES[type] || type,
+          nodeType: type,
+          nodeIds: ids,
+          x: bounds.x,
+          y: bounds.y,
+          width: bounds.width,
+          height: bounds.height,
+          color: NODE_TYPE_COLORS[type] || '#ccc',
+          collapsed: false,
+        })
+        rightY = nextY + sectionGap
+      }
+    }
+
+    // 4. Regex — 放在约束下方
     if (regexNodes.length > 0) {
       const { bounds, nextY } = flowLayout(
         regexNodes,
@@ -352,35 +363,10 @@ export function layoutFamily(params: {
         color: NODE_TYPE_COLORS.regex || '#ccc',
         collapsed: false,
       })
-      rightY = nextY + sectionGap
+      rightY = nextY
     }
 
-    const constraintGroups = groupByType(constraints, nodeTypeById)
-    for (const [type, ids] of constraintGroups) {
-      const { bounds, nextY } = flowLayout(
-        ids,
-        localPositions,
-        nodeDimensions,
-        rightStartX,
-        rightY,
-        rightMaxWidth,
-        gap
-      )
-      subGroups.push({
-        id: `sub-${params.familyId}-${type}`,
-        name: NODE_TYPE_NAMES[type] || type,
-        nodeType: type,
-        nodeIds: ids,
-        x: bounds.x,
-        y: bounds.y,
-        width: bounds.width,
-        height: bounds.height,
-        color: NODE_TYPE_COLORS[type] || '#ccc',
-        collapsed: false,
-      })
-      rightY = nextY + sectionGap
-    }
-
+    // 5. Others — 放在最下方
     if (others.length > 0) {
       const { bounds, nextY } = flowLayout(
         others,
@@ -403,7 +389,7 @@ export function layoutFamily(params: {
         color: '#9e9e9e',
         collapsed: false,
       })
-      rightY = nextY + sectionGap
+      rightY = nextY
     }
   }
 

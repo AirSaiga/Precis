@@ -50,7 +50,7 @@
  *   graphStore.saveState.value // 'saved' | 'unsaved' | 'error'
  */
 
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type {
   CustomNode,
@@ -60,7 +60,9 @@ import type {
   RegexNodeData,
 } from '@/types/graph'
 import type { FullValidationSummary, ValidationStatistics } from '../../api/projectValidationApi'
-// ===== 纯数组工具函数（原 nodeOperations.ts 中唯一存活的 3 个函数）=====
+import { addNodes, removeNodes, removeEdges } from '@/services/canvas/vueFlowApi'
+
+// ===== 纯数组工具函数（原 nodeOperations.ts 中唯一存活的 1 个函数）=====
 
 function updateNodeDataInArray(
   nodes: CustomNode[],
@@ -75,26 +77,6 @@ function updateNodeDataInArray(
   })
 }
 
-function deleteNodeInArray(
-  nodes: CustomNode[],
-  edges: Edge[],
-  nodeId: string
-): { nodes: CustomNode[]; edges: Edge[] } {
-  const filteredNodes = nodes.filter((n) => n.id !== nodeId)
-  const filteredEdges = edges.filter((e) => e.source !== nodeId && e.target !== nodeId)
-  return { nodes: filteredNodes, edges: filteredEdges }
-}
-
-function deleteNodesInArray(
-  nodes: CustomNode[],
-  edges: Edge[],
-  nodeIds: string[]
-): { nodes: CustomNode[]; edges: Edge[] } {
-  const nodeIdSet = new Set(nodeIds)
-  const filteredNodes = nodes.filter((n) => !nodeIdSet.has(n.id))
-  const filteredEdges = edges.filter((e) => !nodeIdSet.has(e.source) && !nodeIdSet.has(e.target))
-  return { nodes: filteredNodes, edges: filteredEdges }
-}
 import { createHistoryModule } from './modules/history'
 import { createSelectionModule } from './modules/selection'
 import { createV2ImportModule } from './modules/v2Import'
@@ -620,19 +602,29 @@ export function setupGraphStore() {
     }
 
     const deleteIds = collectCascadeNodeIds(nodeId)
-    const next =
-      deleteIds.length === 1
-        ? deleteNodeInArray(nodes.value, edges.value, nodeId)
-        : deleteNodesInArray(nodes.value, edges.value, deleteIds)
-    nodes.value = next.nodes
-    edges.value = next.edges
+    const nodeIdSet = new Set(deleteIds)
 
-    selectedNodeIds.value = selectedNodeIds.value.filter((id) => !deleteIds.includes(id))
+    // 先通过 API 逐条删除关联边，触发 onEdgesChange → handleEdgeRemoved 清理链
+    const relatedEdges = edges.value.filter(
+      (e) => nodeIdSet.has(e.source) || nodeIdSet.has(e.target)
+    )
+    for (const edge of relatedEdges) {
+      removeEdges(edge.id)
+    }
 
-    // 如果删除的是当前选中的节点，清除选中状态
-    if (selectedNodeId.value && deleteIds.includes(selectedNodeId.value)) {
+    // 再通过 API 删除节点（自动清理 Vue Flow 内部状态）
+    removeNodes(deleteIds)
+
+    selectedNodeIds.value = selectedNodeIds.value.filter((id) => !nodeIdSet.has(id))
+
+    if (selectedNodeId.value && nodeIdSet.has(selectedNodeId.value)) {
       selectedNodeId.value = null
     }
+
+    // 删除后重建连接状态，确保 parent/children/outputPortConnected 一致
+    nextTick(() => {
+      connectionStateSync.reconcileAll()
+    })
   }
 
   /**
@@ -702,15 +694,26 @@ export function setupGraphStore() {
     const deleteIds = Array.from(new Set(filteredIds.flatMap((id) => collectCascadeNodeIds(id))))
     const nodeIdSet = new Set(deleteIds)
 
-    const next = deleteNodesInArray(nodes.value, edges.value, deleteIds)
-    nodes.value = next.nodes
-    edges.value = next.edges
+    // 先通过 API 逐条删除关联边，触发 onEdgesChange → handleEdgeRemoved 清理链
+    const relatedEdges = edges.value.filter(
+      (e) => nodeIdSet.has(e.source) || nodeIdSet.has(e.target)
+    )
+    for (const edge of relatedEdges) {
+      removeEdges(edge.id)
+    }
+
+    // 再通过 API 删除节点
+    removeNodes(deleteIds)
 
     selectedNodeIds.value = selectedNodeIds.value.filter((id) => !nodeIdSet.has(id))
 
     if (selectedNodeId.value && nodeIdSet.has(selectedNodeId.value)) {
       selectedNodeId.value = null
     }
+
+    nextTick(() => {
+      connectionStateSync.reconcileAll()
+    })
   }
 
   /**
@@ -732,7 +735,7 @@ export function setupGraphStore() {
     }
   }
 
-  const { undoStack, redoStack, saveState, undo, redo } = createHistoryModule({ nodes, edges })
+  const { undoStack, redoStack, saveState, undo, redo } = createHistoryModule({ nodes, edges, reconcileAll: connectionStateSync.reconcileAll })
 
   const { cutSelectedNodes, copySelectedNodes, pasteNodes, duplicateSelectedNode } =
     createClipboardModule({

@@ -3,9 +3,8 @@
   @description 画布工具栏组件
 
   职责：
-  - 节点布局整理控制（策略选择、紧凑模式、一键整理）
+  - 节点布局整理控制（一键整理）
   - 聚焦到项目根节点
-  - 显示/隐藏分组框
   - 删除选中节点
   - 显示节点统计信息
 -->
@@ -23,32 +22,6 @@
 
     <div class="toolbar-separator"></div>
 
-    <select
-      class="organize-select"
-      :value="nodeOrganizer.organizeOptions.value.strategy"
-      @change="
-        (e: Event) =>
-          nodeOrganizer.setStrategy(
-            (e.target as HTMLSelectElement).value as unknown as LayoutStrategy
-          )
-      "
-      title="选择整理策略"
-    >
-      <option v-for="s in nodeOrganizer.availableStrategies.value" :key="s.type" :value="s.type">
-        {{ s.name }}
-      </option>
-    </select>
-
-    <button
-      class="organize-btn"
-      :class="{ active: nodeOrganizer.organizeOptions.value.compactMode }"
-      @click="nodeOrganizer.toggleCompactMode"
-      :disabled="nodeOrganizer.isOrganizing.value"
-      title="切换紧凑模式"
-    >
-      <span class="btn-icon">⛶</span>
-    </button>
-
     <button
       class="organize-btn organize-primary"
       @click="nodeOrganizer.quickOrganize"
@@ -62,16 +35,6 @@
     </button>
 
     <div class="toolbar-separator"></div>
-
-    <button
-      v-if="zoneGroups.length > 0"
-      class="organize-btn"
-      :class="{ active: nodeOrganizer.showGroups.value }"
-      @click="nodeOrganizer.toggleShowGroups"
-      title="显示/隐藏分组框"
-    >
-      <span class="btn-icon">▣</span>
-    </button>
 
     <button
       class="organize-btn danger"
@@ -100,7 +63,6 @@
   import { useVueFlow } from '@vue-flow/core'
   import { useGraphStore } from '@/stores/graphStore'
   import { useNodeOrganizer } from '@/features/node-layout-organizer/composables/useNodeOrganizer'
-  import type { LayoutStrategy } from '@/features/node-layout-organizer/types'
   import { deleteNode } from '@/features/keyboard/handlers/node/delete'
 
   const { t } = useI18n()

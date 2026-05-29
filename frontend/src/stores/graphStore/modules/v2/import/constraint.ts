@@ -23,6 +23,7 @@ import type { BuildInput, EdgeDescriptor } from '@/services/constraints/nodeData
 import { getV2Constraint } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
 import { logger } from '@/core/utils/logger'
+import { addNodes } from '@/services/canvas/vueFlowApi'
 
 /** V2 type → ConstraintKind 映射 */
 const V2_TYPE_TO_KIND: Record<string, ConstraintKind | 'regex'> = {
@@ -72,8 +73,9 @@ export function createV2ConstraintImporter(params: {
   selectedNodeId: Ref<string | null>
   ensureSchemaNode: (tableId: string, position: { x: number; y: number }) => Promise<CustomNode>
   ensureSchemaToConstraintEdge: (tableId: string, constraintId: string, columnId: string) => void
+  bufferEdge: (edge: Edge) => void
 }) {
-  const { nodes, edges, selectedNodeId, ensureSchemaNode, ensureSchemaToConstraintEdge } = params
+  const { nodes, edges, selectedNodeId, ensureSchemaNode, ensureSchemaToConstraintEdge, bufferEdge } = params
 
   async function importConstraint(
     resourceId: string,
@@ -247,7 +249,7 @@ export function createV2ConstraintImporter(params: {
       position,
       data: result.nodeData as unknown as CustomNodeData,
     }
-    nodes.value.push(constraintNode)
+    addNodes(constraintNode)
 
     // 创建边
     applyEdgeDescriptors(result.edgeDescriptors, resourceId)
@@ -263,11 +265,9 @@ export function createV2ConstraintImporter(params: {
         // 普通约束边 / Conditional IF 边
         ensureSchemaToConstraintEdge(desc.sourceNodeId, desc.targetNodeId, desc.columnId)
       } else if (desc.kind === 'fkDisplay') {
-        // FK 展示边
         const extra = desc.extra || {}
         const edgeId = (extra.edgeId as string) || `fk-${desc.sourceNodeId}-${desc.targetNodeId}`
-        if (!edges.value.some((e) => e.id === edgeId)) {
-          edges.value.push({
+        bufferEdge({
             id: edgeId,
             source: desc.sourceNodeId,
             target: desc.targetNodeId,
@@ -287,7 +287,6 @@ export function createV2ConstraintImporter(params: {
               toColumnId: extra.toColumnId,
             },
           } as unknown as Edge)
-        }
       }
     }
   }

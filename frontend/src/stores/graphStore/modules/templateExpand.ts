@@ -21,6 +21,7 @@ import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { TemplateExpandResult } from '@/api/projectV2Api'
 import { getConstraintMetaByKind } from '@/services/constraints/validationRegistry'
 import type { ConstraintKind } from '@/services/constraints/types'
+import { addNodes, addEdges, removeNodes, removeEdges } from '@/services/canvas/vueFlowApi'
 
 // ============================================================================
 // Backend type → Frontend ConstraintKind 映射
@@ -99,8 +100,15 @@ export function createTemplateExpandModule(params: {
     if (!ids || ids.length === 0) return
 
     const idSet = new Set(ids)
-    nodes.value = nodes.value.filter((n) => !idSet.has(n.id))
-    edges.value = edges.value.filter((e) => !idSet.has(e.source) && !idSet.has(e.target))
+
+    const relatedEdges = edges.value.filter(
+      (e) => idSet.has(e.source) || idSet.has(e.target)
+    )
+    for (const edge of relatedEdges) {
+      removeEdges(edge.id)
+    }
+    removeNodes(ids)
+
     expandedNodeIds.delete(instanceNodeId)
 
     // 恢复容器为折叠态
@@ -125,7 +133,7 @@ export function createTemplateExpandModule(params: {
   // Main orchestrator — 5 阶段管线
   // --------------------------------------------------------------------------
 
-  function expandOnCanvas(instanceNodeId: string, expandResult: TemplateExpandResult) {
+  async function expandOnCanvas(instanceNodeId: string, expandResult: TemplateExpandResult) {
     // 0. 清除旧展开
     clearExpansion(instanceNodeId)
 
@@ -145,6 +153,9 @@ export function createTemplateExpandModule(params: {
 
     // Stage 4: 创建节点
     const createdIds = materializeNodes(dagNodes, instanceNodeId)
+
+    // 等待节点渲染，获得 handleBounds 后再创建边
+    await nextTick()
 
     // Stage 5: 创建边 + 回写 inputFromNode
     materializeEdges(dagEdges)
@@ -550,7 +561,7 @@ export function createTemplateExpandModule(params: {
         data: nodeBuild.data as unknown as CustomNodeData,
       }
 
-      nodes.value.push(newNode)
+      addNodes(newNode)
       createdIds.push(dagNode.id)
     }
 
@@ -594,7 +605,6 @@ export function createTemplateExpandModule(params: {
         targetHandle: dagEdge.targetHandle,
       })
 
-      // 回写 target 节点的 data.inputFromNode
       const targetNode = nodes.value.find((n) => n.id === dagEdge.targetId)
       if (targetNode) {
         ;(targetNode.data as unknown as Record<string, unknown>).inputFromNode = dagEdge.sourceId
@@ -602,7 +612,7 @@ export function createTemplateExpandModule(params: {
     }
 
     if (newEdges.length > 0) {
-      edges.value = [...edges.value, ...newEdges]
+      addEdges(newEdges)
     }
   }
 

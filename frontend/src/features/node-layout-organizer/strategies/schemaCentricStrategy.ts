@@ -21,7 +21,6 @@ import { NodeCategory, NODE_TYPE_TO_CATEGORY } from '../types'
 import {
   GROUP_COLORS,
   LAYOUT_CONSTANTS,
-  NODE_DIMENSIONS,
   NODE_TYPE_COLORS,
   NODE_TYPE_NAMES,
 } from '../constants'
@@ -44,7 +43,6 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
     const nodeIds = context.nodes.map((n) => n.id).filter((id) => !excludedNodeIds.has(id))
     const nodeDimensions = this.buildNodeDimensions(nodeIds, nodeTypeById, context.viewportZoom)
 
-    // 使用 LayoutCalculator 传入的原始节点数据映射（包含 data.parent 等属性）
     const nodeDataById = context.nodeDataById
 
     const schemaIds = (classification.byType.get('schema') || [])
@@ -54,7 +52,6 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
 
     const adjacency = this.buildAdjacency(nodeIds, connections)
 
-    // 使用显式的 parent/children 属性分配节点到 Schema 家族，BFS 作为 fallback
     const { assignedSchemaByNode, sharedNodeIds, orphanNodeIds } = this.assignNodesByParentChildren(
       nodeIds,
       schemaIds,
@@ -69,17 +66,8 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
     const rootNodeIds = (classification.byCategory.get(NodeCategory.ROOT) || [])
       .slice()
       .sort((a, b) => a.localeCompare(b))
-    const libraryNodeIds = (classification.byCategory.get(NodeCategory.LIBRARY) || [])
-      .slice()
-      .sort((a, b) => a.localeCompare(b))
 
-    const { topReservedHeight } = this.layoutRootAndLibrary(
-      rootNodeIds,
-      libraryNodeIds,
-      positions,
-      nodeDimensions,
-      context.canvasWidth
-    )
+    const { topReservedHeight } = this.layoutRoot(rootNodeIds, positions, nodeDimensions, context.canvasWidth)
 
     const familiesStartX = LAYOUT_CONSTANTS.CANVAS_PADDING
     const familiesStartY = LAYOUT_CONSTANTS.CANVAS_PADDING + topReservedHeight + 80
@@ -138,8 +126,9 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
         nodeTypeById,
         nodeDimensions,
         canvasWidth: context.canvasWidth,
-        layoutMode: context.options.schemaFamilyLayout || 'horizontal',
-        gap: context.options.gap,
+        layoutMode: 'horizontal',
+        gap: context.gap,
+        edges: context.connections,
       })
       familyLayouts.push({
         familyId: schemaId,
@@ -161,8 +150,9 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
         nodeTypeById,
         nodeDimensions,
         canvasWidth: context.canvasWidth,
-        layoutMode: context.options.schemaFamilyLayout || 'horizontal',
-        gap: context.options.gap,
+        layoutMode: 'horizontal',
+        gap: context.gap,
+        edges: context.connections,
       })
       familyLayouts.push({
         familyId: fam.id,
@@ -186,8 +176,8 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
         startY: familiesStartY,
         canvasWidth: context.canvasWidth,
         canvasHeight: context.canvasHeight,
-        gapX: 160,
-        gapY: 220,
+        gapX: 80,
+        gapY: 100,
         padding: LAYOUT_CONSTANTS.CANVAS_PADDING,
       }
     )
@@ -259,7 +249,7 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
       }
     }
 
-    return { positions, groups, categoryZones: new Map() }
+    return { positions, groups }
   }
 
   private placeFamiliesInBestGrid(
@@ -289,8 +279,8 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
       const placement = this.placeFamiliesRowMajor(items, { ...params, maxPerRow: cols })
       const aspect = placement.totalWidth / Math.max(1, placement.totalHeight)
       const targetAspect = canvasWidth / Math.max(1, canvasHeight)
-      const aspectPenalty = Math.abs(aspect - targetAspect) * 800
-      const singleColumnPenalty = cols === 1 && items.length >= 3 ? 1200 : 0
+      const aspectPenalty = Math.abs(aspect - targetAspect) * 400
+      const singleColumnPenalty = cols === 1 && items.length >= 2 ? 800 : 0
       const overflowPenalty =
         placement.totalWidth > availableWidth ? (placement.totalWidth - availableWidth) * 2 : 0
       const score = placement.totalHeight + aspectPenalty + singleColumnPenalty + overflowPenalty
@@ -363,8 +353,7 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
   ): Set<string> {
     const excluded = new Set<string>()
     const root = classification.byCategory.get(NodeCategory.ROOT) || []
-    const library = classification.byCategory.get(NodeCategory.LIBRARY) || []
-    for (const id of [...root, ...library]) excluded.add(id)
+    for (const id of [...root]) excluded.add(id)
     for (const id of classification.unclassified || []) {
       const nodeType = nodeTypeById.get(id)
       if (!nodeType) excluded.add(id)
@@ -500,10 +489,6 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
     return { assignedSchemaByNode, sharedNodeIds, orphanNodeIds }
   }
 
-  /**
-   * 使用显式的 parent/children 属性分配节点到 Schema 家族
-   * 对于没有 parent 或 parent 不是 Schema 的节点，回退到 BFS 连接关系分配
-   */
   private assignNodesByParentChildren(
     nodeIds: string[],
     schemaIds: string[],
@@ -520,12 +505,10 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
 
     const schemaSet = new Set(schemaIds)
 
-    // 首先，将所有 Schema 节点标记为自己家族的根节点
     for (const schemaId of schemaIds) {
       assignedSchemaByNode.set(schemaId, schemaId)
     }
 
-    // 然后，根据 parent 属性分配其他节点到对应的 Schema 家族
     for (const nodeId of nodeIds) {
       if (schemaSet.has(nodeId)) continue
 
@@ -539,14 +522,12 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
       }
     }
 
-    // 对 orphan 候选节点使用 BFS 连接关系进行二次分配
     const {
       assignedSchemaByNode: bfsAssigned,
       sharedNodeIds,
       orphanNodeIds,
     } = this.assignNodesToSchemaFamilies(orphanCandidates, schemaIds, adjacency, excludedNodeIds)
 
-    // 合并 BFS 结果
     for (const [nodeId, schemaId] of bfsAssigned) {
       assignedSchemaByNode.set(nodeId, schemaId)
     }
@@ -554,9 +535,8 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
     return { assignedSchemaByNode, sharedNodeIds, orphanNodeIds }
   }
 
-  private layoutRootAndLibrary(
+  private layoutRoot(
     rootNodeIds: string[],
-    libraryNodeIds: string[],
     positions: Map<string, { x: number; y: number }>,
     nodeDimensions: Map<string, NodeDimension>,
     canvasWidth: number
@@ -570,8 +550,8 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
     let rowHeight = 0
     for (const nodeId of rootNodeIds) {
       const dim = nodeDimensions.get(nodeId) || {
-        width: NODE_DIMENSIONS.ROOT_WIDTH,
-        height: NODE_DIMENSIONS.ROOT_HEIGHT,
+        width: 300,
+        height: 120,
       }
       if (x + dim.width > maxRootX && x > padding) {
         x = padding
@@ -583,19 +563,7 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
       rowHeight = Math.max(rowHeight, dim.height)
     }
 
-    let topHeight = currentRowY + rowHeight - padding
-
-    let libY = padding
-    for (const nodeId of libraryNodeIds) {
-      const dim = nodeDimensions.get(nodeId) || {
-        width: NODE_DIMENSIONS.DEFAULT_WIDTH,
-        height: NODE_DIMENSIONS.DEFAULT_HEIGHT,
-      }
-      positions.set(nodeId, { x: canvasWidth - padding - dim.width, y: libY })
-      libY += dim.height + gap
-      topHeight = Math.max(topHeight, libY - gap - padding)
-    }
-
+    const topHeight = currentRowY + rowHeight - padding
     return { topReservedHeight: Math.max(topHeight, 0) }
   }
 }

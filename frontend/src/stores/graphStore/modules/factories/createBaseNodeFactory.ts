@@ -9,6 +9,7 @@
 import type { Ref } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
+import { addNodes } from '@/services/canvas/vueFlowApi'
 
 export interface BaseFactoryContext {
   nodes: Ref<CustomNode[]>
@@ -31,7 +32,7 @@ export function createBaseNodeFactory(ctx: BaseFactoryContext) {
       data: data as unknown as CustomNodeData,
     }
 
-    nodes.value.push(newNode)
+    addNodes(newNode)
 
     if (options?.autoSelect !== false && selectedNodeId) {
       selectedNodeId.value = newNode.id

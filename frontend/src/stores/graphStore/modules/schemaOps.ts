@@ -60,6 +60,7 @@
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData, RegexNodeData, SchemaNodeData } from '@/types/graph'
+import { addEdges, removeEdges } from '@/services/canvas/vueFlowApi'
 
 export function createSchemaOpsModule(params: {
   nodes: Ref<CustomNode[]>
@@ -77,15 +78,17 @@ export function createSchemaOpsModule(params: {
     const schemaData = schemaNode.data as SchemaNodeData
     const columnName = (schemaData.columns || []).find((c) => c.id === columnId)?.columnName || ''
 
-    edges.value = edges.value.filter((e) => {
-      if (e.target !== regexNodeId) return true
-      const targetHandle = e.targetHandle as string | undefined
-      return targetHandle !== 'regex-input'
-    })
+    // 先通过 API 删除该 Regex 节点的旧入边（触发 onEdgesChange 清理链）
+    const oldEdges = edges.value.filter(
+      (e) => e.target === regexNodeId && (e.targetHandle as string | undefined) === 'regex-input'
+    )
+    for (const edge of oldEdges) {
+      removeEdges(edge.id)
+    }
 
     const edgeId = `e-${schemaNodeId}-${regexNodeId}-${columnId}`
     if (!edges.value.some((e) => e.id === edgeId)) {
-      edges.value.push({
+      addEdges({
         id: edgeId,
         source: schemaNodeId,
         target: regexNodeId,

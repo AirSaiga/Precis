@@ -72,6 +72,7 @@ import type { ProjectNodeData } from '@/types/nodes'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
 import { useProjectStore } from '@/stores/projectStore'
 import { useResourceTreeStore } from '@/stores/resourceTreeStore'
+import { addNodes } from '@/services/canvas/vueFlowApi'
 
 export function createProjectLifecycleModule(params: {
   nodes: Ref<CustomNode[]>
@@ -222,7 +223,7 @@ export function createProjectLifecycleModule(params: {
       } as ProjectNodeData,
     }
 
-    nodes.value.push(node)
+    addNodes(node)
     selectedNodeId.value = node.id
     return node.id
   }

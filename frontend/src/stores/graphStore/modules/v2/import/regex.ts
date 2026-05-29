@@ -19,6 +19,7 @@ import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { SchemaNodeData } from '@/types/nodes'
 import { getV2RegexNode } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
+import { addNodes } from '@/services/canvas/vueFlowApi'
 
 /** 从 Schema 节点中查找列名 */
 function resolveColumnName(schemaNode: CustomNode | undefined, columnId: string): string {
@@ -98,7 +99,7 @@ export function createV2RegexImporter(params: {
       position,
       data: result.nodeData as unknown as CustomNodeData,
     }
-    nodes.value.push(regexNode)
+    addNodes(regexNode)
 
     // 创建边
     for (const desc of result.edgeDescriptors) {

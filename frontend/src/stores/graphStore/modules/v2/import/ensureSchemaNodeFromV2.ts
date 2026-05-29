@@ -20,6 +20,7 @@ import type { CustomNode, SchemaNodeData } from '@/types/graph'
 import { getV2Schema } from '@/api/projectV2Api'
 import { fromBackendType } from '@/services/builders'
 import { normalizePath } from '@/core/utils/pathNormalization'
+import { addNodes } from '@/services/canvas/vueFlowApi'
 
 export function createEnsureSchemaNodeFromV2(params: {
   nodes: Ref<CustomNode[]>
@@ -77,7 +78,7 @@ export function createEnsureSchemaNodeFromV2(params: {
       } as SchemaNodeData,
     }
 
-    nodes.value.push(node)
+    addNodes(node)
     return node
   }
 
