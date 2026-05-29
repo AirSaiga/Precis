@@ -12,235 +12,231 @@
 
 <template>
   <div class="rule-config-panel">
-    <!-- 左侧：编辑器区域 (60%) -->
-    <div class="editor-section">
-      <div class="regex-card">
-        <div class="card-header">
-          <span class="rx-icon">⚙️</span>
-          <h3>{{ t('expressions.ruleConfigPanel.ruleDefinition') }}</h3>
-        </div>
+    <!-- 正则表达式（最顶部，最显眼） -->
+    <div class="regex-bar">
+      <span class="regex-marker">/</span>
+      <input
+        type="text"
+        v-model="localRegex"
+        class="regex-input"
+        spellcheck="false"
+        :placeholder="t('expressions.ruleConfigPanel.regexPlaceholder')"
+        @input="handleManualRegexInput"
+      />
+      <span class="regex-marker">/g</span>
+    </div>
 
-        <div class="card-body">
-          <!-- 1. 规则名称 -->
-          <div class="form-item">
-            <label class="item-label">{{ t('expressions.ruleConfigPanel.ruleName') }}</label>
+    <!-- 样例文本输入 -->
+    <div class="section">
+      <textarea
+        v-model="inputText"
+        class="sample-textarea"
+        :placeholder="t('expressions.interactiveBuilder.exampleText')"
+        @mouseup="handleTextSelection"
+        @keyup="handleTextSelection"
+      ></textarea>
+    </div>
+
+    <!-- 选中文本提示 -->
+    <div v-if="selectedText" class="selection-bar">
+      <span class="selection-label">{{ t('expressions.interactiveBuilder.previewSelection') }}:</span>
+      <span class="selection-text">{{ selectedText }}</span>
+      <button @click="clearSelection" class="selection-clear">&times;</button>
+    </div>
+
+    <!-- 构建器预览 -->
+    <div v-if="patternParts.length > 0" class="section preview-section">
+      <div class="preview-parts">
+        <span v-for="(part, index) in patternParts" :key="index" :class="part.type === 'param' ? 'part-param' : 'part-static'">
+          {{ getPartDisplayText(part) }}
+        </span>
+      </div>
+    </div>
+
+    <!-- 匹配高亮预览 -->
+    <div v-if="matchSegments.length > 0" class="section match-section">
+      <div class="match-text">
+        <span
+          v-for="(seg, i) in matchSegments"
+          :key="i"
+          :class="seg.isMatch ? 'seg-match' : 'seg-plain'"
+        >{{ seg.text }}</span>
+      </div>
+    </div>
+
+    <!-- 输出映射 -->
+    <div class="section mapping-section">
+      <div class="mapping-header">
+        <span class="mapping-title">{{ t('expressions.ruleConfigPanel.outputMapping') }}</span>
+        <button class="add-btn" @click="addOutputKey">+ {{ t('expressions.ruleConfigPanel.addKeyValue') }}</button>
+      </div>
+
+      <div v-if="!rule.output || Object.keys(rule.output).length === 0" class="mapping-empty">
+        {{ t('expressions.ruleConfigPanel.clickToAddFirst') }}
+      </div>
+
+      <div v-else class="mapping-list">
+        <div
+          v-for="(value, key) in rule.output"
+          :key="key"
+          class="mapping-card"
+          :class="{ 'is-param': isParamValue(value) }"
+        >
+          <div class="card-row">
             <input
               type="text"
-              :value="rule.name"
-              class="primary-input"
-              :placeholder="t('expressions.ruleConfigPanel.ruleNamePlaceholder')"
-              @input="
-                $emit('update:rule', {
-                  ...rule,
-                  name: ($event.target as HTMLInputElement).value,
-                  regex: localRegex,
-                })
-              "
+              :value="key"
+              class="card-key"
+              @change="updateOutputKey(String(key), ($event.target as HTMLInputElement).value)"
+            />
+            <div class="card-mode">
+              <button
+                class="mode-btn"
+                :class="{ active: !isParamValue(value) }"
+                @click="updateOutputValue(String(key), String(value))"
+              >Aa</button>
+              <button
+                class="mode-btn"
+                :class="{ active: isParamValue(value) }"
+                :disabled="availableParams.length === 0"
+                @click="updateOutputParam(String(key), availableParams[0]?.name || '')"
+              >.*</button>
+            </div>
+            <button class="card-del" @click="removeOutputKey(String(key))">&times;</button>
+          </div>
+          <div class="card-detail">
+            <template v-if="isParamValue(value)">
+              <select
+                class="card-select"
+                @change="updateOutputParam(String(key), ($event.target as HTMLSelectElement).value)"
+              >
+                <option v-if="availableParams.length === 0" disabled value="">
+                  {{ t('expressions.ruleConfigPanel.noNamedGroups') }}
+                </option>
+                <option
+                  v-for="p in availableParams"
+                  :key="p.name"
+                  :value="p.name"
+                  :selected="getParamName(String(value)) === p.name"
+                >{{ p.name }}</option>
+              </select>
+              <div class="type-pills">
+                <button
+                  v-for="typeOpt in ['string', 'int', 'float']"
+                  :key="typeOpt"
+                  class="type-pill"
+                  :class="{ active: getParamType(String(value)) === typeOpt }"
+                  @click="updateOutputType(String(key), typeOpt)"
+                >{{ typeOpt.toUpperCase() }}</button>
+              </div>
+            </template>
+            <input
+              v-else
+              type="text"
+              :value="String(value)"
+              class="card-static"
+              :placeholder="t('expressions.ruleConfigPanel.staticValuePlaceholder')"
+              @input="updateOutputValue(String(key), ($event.target as HTMLInputElement).value)"
             />
           </div>
-
-          <!-- 2. 构建器可视化区域 (自适应高度) -->
-          <div class="form-item builder-container">
-            <label class="item-label">{{
-              t('expressions.ruleConfigPanel.interactiveBuilder')
-            }}</label>
-            <div class="builder-content">
-              <InteractiveBuilder
-                :sample-text="sampleText"
-                @update:regex="handleRegexUpdate"
-                @update:params="handleParamsUpdate"
-              />
-            </div>
-          </div>
-
-          <!-- 3. 正则预览 (精致单行版) -->
-          <div class="form-item">
-            <label class="item-label">
-              {{ t('expressions.ruleConfigPanel.regex') }}
-              <span class="type-tag">Result</span>
-            </label>
-            <div class="regex-preview-bar">
-              <span class="regex-marker">/</span>
-              <input
-                type="text"
-                v-model="localRegex"
-                class="regex-clean-input"
-                spellcheck="false"
-                @input="handleManualRegexInput"
-              />
-              <span class="regex-marker">/g</span>
-            </div>
-          </div>
         </div>
       </div>
     </div>
 
-    <!-- 右侧：映射面板 (40%) -->
-    <div class="mapping-section">
-      <div class="regex-card">
-        <div class="card-header">
-          <span class="rx-icon">🔗</span>
-          <h3>{{ t('expressions.ruleConfigPanel.outputMapping') }}</h3>
-        </div>
-
-        <div class="card-body scrollable">
-          <div class="mapping-hint">{{ t('expressions.ruleConfigPanel.outputMappingHint') }}</div>
-          <!-- 空状态 -->
-          <div
-            v-if="!rule.output || Object.keys(rule.output).length === 0"
-            class="empty-placeholder"
-          >
-            <div class="placeholder-icon">📥</div>
-            <p>{{ t('expressions.ruleConfigPanel.clickToAddFirst') }}</p>
-          </div>
-
-          <!-- 映射列表 -->
-          <div v-else class="mapping-stack">
-            <div v-for="(value, key) in rule.output" :key="key" class="mapping-node">
-              <div class="node-main">
-                <div class="key-area">
-                  <input
-                    type="text"
-                    :value="key"
-                    class="node-key-input"
-                    @change="
-                      updateOutputKey(String(key), ($event.target as HTMLInputElement).value)
-                    "
-                  />
-                </div>
-                <button class="node-del-btn" @click="removeOutputKey(String(key))">&times;</button>
-              </div>
-
-              <div class="node-sub">
-                <div class="arrow-path">∟</div>
-                <div class="value-logic">
-                  <!-- 如果是绑定参数模式 {paramName:type} -->
-                  <template v-if="isParamValue(value)">
-                    <select
-                      class="param-link-select"
-                      @change="
-                        updateOutputParam(String(key), ($event.target as HTMLSelectElement).value)
-                      "
-                    >
-                      <option v-if="availableParams.length === 0" disabled value="">
-                        {{ t('expressions.ruleConfigPanel.noNamedGroups') }}
-                      </option>
-                      <option
-                        v-for="p in availableParams"
-                        :key="p.name"
-                        :value="p.name"
-                        :selected="getParamName(String(value)) === p.name"
-                      >
-                        {{ p.name }}
-                      </option>
-                    </select>
-                    <div class="type-pill-selector">
-                      <button
-                        v-for="type in ['string', 'int', 'float']"
-                        :key="type"
-                        class="type-pill"
-                        :class="{ active: getParamType(String(value)) === type }"
-                        @click="updateOutputType(String(key), type)"
-                      >
-                        {{ type.toUpperCase() }}
-                      </button>
-                    </div>
-                  </template>
-
-                  <!-- 如果是普通静态值 -->
-                  <input
-                    v-else
-                    type="text"
-                    :value="String(value)"
-                    class="node-static-input"
-                    :placeholder="t('expressions.ruleConfigPanel.staticValuePlaceholder')"
-                    @input="
-                      updateOutputValue(String(key), ($event.target as HTMLInputElement).value)
-                    "
-                  />
-                  <!-- 转换成参数绑定按钮 -->
-                  <button
-                    v-show="!isParamValue(value) && availableParams.length > 0"
-                    class="bind-toggle"
-                    @click="updateOutputParam(String(key), availableParams[0].name)"
-                    :title="t('expressions.ruleConfigPanel.bindToParam')"
-                  >
-                    🔗
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card-footer">
-          <button class="add-mapping-btn" @click="addOutputKey">
-            <span>+</span> {{ t('expressions.ruleConfigPanel.addKeyValue') }}
-          </button>
-        </div>
-      </div>
-    </div>
+    <!-- 弹窗（悬浮） -->
+    <SelectionPopover
+      v-if="selection.text"
+      :selection="selection"
+      :container-ref="containerRef"
+      @define-as-param="defineAsParam"
+      @clear="clearSelection"
+    />
+    <ParamDefinitionModal
+      v-if="isDefiningParam"
+      @confirm="confirmParamDefinition($event)"
+      @cancel="isDefiningParam = false"
+    />
+    <div ref="containerRef" style="display: none"></div>
   </div>
 </template>
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
-  import { ref, watch } from 'vue'
+  import { ref, watch, computed, reactive, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
   import type { Rule } from '@/features/regex/types'
-  import InteractiveBuilder from './InteractiveBuilder.vue'
+  import SelectionPopover from './SelectionPopover.vue'
+  import ParamDefinitionModal from './ParamDefinitionModal.vue'
+  import { useToast } from '@/composables/shared/useToast'
 
-  /**
-   * 规则配置面板组件
-   *
-   * 该组件提供了规则配置的完整界面，分为两个主要区域：
-   * 1. 左侧编辑器区域 - 包含规则名称、交互式构建器和正则表达式预览
-   * 2. 右侧映射面板 - 配置输出字段与正则捕获组的映射关系
-   *
-   * 支持功能：
-   * - 可视化正则表达式构建
-   * - 实时参数提取和同步
-   * - 输出映射配置
-   * - 类型安全的数据绑定
-   */
-
-  // 组件属性：单条规则与示例文本
   const props = defineProps<{
     rule: Rule
     sampleText?: string
   }>()
-  // 组件事件：通知父组件更新规则或触发保存
   const emit = defineEmits<{
     (e: 'update:rule', rule: Rule): void
     (e: 'save-all'): void
   }>()
 
-  // 国际化实例，用于 UI 文案
   const { t } = useI18n()
-  // 当前正则表达式可用的命名捕获组列表（包含参数名和类型）
+  const toast = useToast()
+
+  // --- Regex state ---
+  const localRegex = ref(props.rule.regex || '')
+
+  // --- Pattern parts (builder state) ---
+  interface PatternPart {
+    type: 'static' | 'param'
+    text?: string
+    name?: string
+    paramType?: string
+  }
+  const patternParts = ref<PatternPart[]>([])
+
+  // --- Selection state ---
+  interface SelectionInfo {
+    text: string
+    start: number
+    end: number
+    x: number
+    y: number
+  }
+  const selection = reactive<SelectionInfo>({ text: '', start: 0, end: 0, x: 0, y: 0 })
+  const selectedText = ref('')
+  const isDefiningParam = ref(false)
+  const paramDefinition = reactive({ name: '', type: 'int' })
+  const containerRef = ref<HTMLElement | null>(null)
+  const isUpdatingFromParamDefinition = ref(false)
+
+  // --- Params ---
   interface ParamInfo {
     name: string
     type: string
   }
   const availableParams = ref<ParamInfo[]>([])
 
-  // 正则预览输入框的本地状态
-  // 使用本地状态确保实时更新，避免 props 响应式更新的竞态条件
-  const localRegex = ref(props.rule.regex || '')
-
-  /**
-   * 核心逻辑：解析正则表达式中的命名捕获组
-   * @param regex - 正则表达式字符串
-   * @returns 捕获组名称数组
-   */
   const parseRegexParams = (regex: string) => {
     if (!regex) return []
-    // 使用正则表达式匹配所有命名捕获组 (?P<name>)
     const matches = [...regex.matchAll(/\(\?P<(\w+)>/g)]
     return matches.map((m) => m[1])
   }
 
-  // 同步本地正则状态与 props，同时更新参数列表
+  // --- Textarea text (local, synced with sampleText) ---
+  const inputText = ref('')
+
+  watch(
+    () => props.sampleText,
+    (newText) => {
+      if (newText && newText.trim()) {
+        inputText.value = newText
+        patternParts.value = [{ type: 'static', text: newText }]
+        emit('update:rule', { ...props.rule, regex: '', output: props.rule.output })
+      }
+    },
+    { immediate: true }
+  )
+
+  // Sync regex from props
   watch(
     () => props.rule.regex,
     (val) => {
@@ -259,40 +255,209 @@
     { immediate: true }
   )
 
-  // --- 更新处理器 ---
+  // Watch inputText changes — reset to static if user edits
+  watch(inputText, (newText) => {
+    if (isUpdatingFromParamDefinition.value) return
+    const currentPartsText = patternParts.value.map((p) => p.text || '').join('')
+    if (currentPartsText !== newText) {
+      patternParts.value = [{ type: 'static', text: newText }]
+      emit('update:rule', { ...props.rule, regex: '', output: props.rule.output })
+    }
+  })
 
-  function handleRegexUpdate(newRegex: string) {
-    // 同步更新本地状态，确保正则预览实时显示
-    localRegex.value = newRegex
-    logger.debug('[RuleConfigPanel] 收到正则更新:', newRegex)
-    // 保持规则对象不可变更新，同时通知父组件
-    // 使用 localRegex.value 确保值的一致性
-    emit('update:rule', { ...props.rule, regex: localRegex.value })
+  // --- Text selection ---
+  function handleTextSelection() {
+    const el = document.activeElement
+    if (!(el instanceof HTMLTextAreaElement)) return
+    const start = el.selectionStart
+    const end = el.selectionEnd
+    const text = el.value.substring(start, end)
+    if (text && start !== end && text.trim().length > 0) {
+      selection.text = text
+      selection.start = start
+      selection.end = end
+      const rect = el.getBoundingClientRect()
+      selection.x = rect.left + 20
+      selection.y = rect.top + 40
+      selectedText.value = text
+    } else {
+      clearSelection()
+    }
   }
 
+  function clearSelection() {
+    selection.text = ''
+    selectedText.value = ''
+  }
+
+  function defineAsParam() {
+    paramDefinition.name = ''
+    isDefiningParam.value = true
+  }
+
+  function confirmParamDefinition(payload?: { name: string; type: string }) {
+    if (payload) Object.assign(paramDefinition, payload)
+    if (!paramDefinition.name.trim()) {
+      toast.warning(t('expressions.paramDefinitionModal.paramNameCannotBeEmpty'))
+      return
+    }
+    isDefiningParam.value = false
+    isUpdatingFromParamDefinition.value = true
+
+    const start = selection.start
+    const end = selection.end
+    const currentInputValue = inputText.value
+
+    const charMap: { char: string; type: 'static' | 'param'; paramInfo?: { name: string; paramType: string } }[] = []
+    for (const part of patternParts.value) {
+      const pText = part.text || ''
+      for (const char of pText) {
+        charMap.push({
+          char,
+          type: part.type,
+          paramInfo: part.type === 'param' ? { name: part.name!, paramType: part.paramType! } : undefined,
+        })
+      }
+    }
+
+    if (charMap.length !== currentInputValue.length) {
+      charMap.length = 0
+      for (const char of currentInputValue) {
+        charMap.push({ char, type: 'static' })
+      }
+    }
+
+    for (let i = start; i < end; i++) {
+      if (charMap[i]) {
+        charMap[i].type = 'param'
+        charMap[i].paramInfo = { name: paramDefinition.name, paramType: paramDefinition.type }
+      }
+    }
+
+    const newParts: PatternPart[] = []
+    let currentPart: PatternPart | null = null
+    for (let i = 0; i < charMap.length; i++) {
+      const c = charMap[i]
+      const isParam = c.type === 'param'
+      const paramName = isParam ? c.paramInfo?.name : undefined
+      let shouldStartNew = false
+      if (!currentPart) {
+        shouldStartNew = true
+      } else if (currentPart.type !== c.type) {
+        shouldStartNew = true
+      } else if (isParam && currentPart.name !== paramName) {
+        shouldStartNew = true
+      }
+      if (shouldStartNew) {
+        if (currentPart) newParts.push(currentPart)
+        currentPart = {
+          type: c.type,
+          text: c.char,
+          ...(isParam ? { name: paramName, paramType: c.paramInfo!.paramType } : {}),
+        }
+      } else {
+        if (currentPart) currentPart.text += c.char
+      }
+    }
+    if (currentPart) newParts.push(currentPart)
+
+    patternParts.value = newParts
+    clearSelection()
+
+    nextTick(() => {
+      updateAndEmit()
+      isUpdatingFromParamDefinition.value = false
+    })
+  }
+
+  // --- Compute and emit regex ---
+  function updateAndEmit() {
+    const generatedParams: { name: string; type: string }[] = []
+    const regexParts = patternParts.value.map((p) => {
+      if (p.type === 'static') {
+        return p.text?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      }
+      const paramName = p.name as string
+      const paramType = p.paramType || 'word'
+      if (!generatedParams.some((gp) => gp.name === paramName)) {
+        generatedParams.push({ name: paramName, type: paramType })
+      }
+      const regexMap: Record<string, string> = {
+        int: '(-?\\d+)',
+        float: '(-?\\d+(?:\\.\\d+)?)',
+        word: '(\\w+)',
+        non_space: '\\S+',
+        anything: '.*?',
+      }
+      return `(?P<${paramName}>${regexMap[paramType] || '(.*?)'})`
+    })
+    const finalRegex = regexParts.join('')
+    localRegex.value = finalRegex
+    emit('update:rule', { ...props.rule, regex: finalRegex, output: props.rule.output })
+
+    // Also update available params and auto-generate output mapping
+    handleParamsUpdate(generatedParams)
+  }
+
+  // --- Match highlight ---
+  interface MatchSegment {
+    text: string
+    isMatch: boolean
+  }
+
+  const matchSegments = computed<MatchSegment[]>(() => {
+    if (!inputText.value || patternParts.value.length === 0) return []
+    const regexParts = patternParts.value.map((p) => {
+      if (p.type === 'static') return p.text?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const paramType = p.paramType || 'word'
+      const regexMap: Record<string, string> = {
+        int: '(-?\\d+)',
+        float: '(-?\\d+(?:\\.\\d+)?)',
+        word: '(\\w+)',
+        non_space: '\\S+',
+        anything: '.*?',
+      }
+      return `(?P<${p.name}>${regexMap[paramType] || '(.*?)'})`
+    })
+    const finalRegex = regexParts.join('')
+    if (!finalRegex) return []
+    const jsRegex = finalRegex.replace(/\(\?P</g, '(?<')
+    try {
+      const re = new RegExp(jsRegex, 'g')
+      const segments: MatchSegment[] = []
+      let lastIndex = 0
+      for (const match of inputText.value.matchAll(re)) {
+        const matchStart = match.index!
+        const matchEnd = matchStart + match[0].length
+        if (matchStart > lastIndex) {
+          segments.push({ text: inputText.value.slice(lastIndex, matchStart), isMatch: false })
+        }
+        segments.push({ text: match[0], isMatch: true })
+        lastIndex = matchEnd
+      }
+      if (lastIndex < inputText.value.length) {
+        segments.push({ text: inputText.value.slice(lastIndex), isMatch: false })
+      }
+      return segments
+    } catch {
+      return []
+    }
+  })
+
+  // --- Regex input handler ---
   function handleManualRegexInput(e: Event) {
-    // 用户手动编辑预览区的正则表达式
     const val = (e.target as HTMLInputElement).value
-    // 注意：v-model 已经在此事件触发前同步了 localRegex.value，
-    // 所以不能用 val !== localRegex.value 作为判断条件（永远为 false）。
-    // 直接同步并通知父组件。
     localRegex.value = val
-    logger.debug('[RuleConfigPanel] 手动输入正则表达式:', val)
-    emit('update:rule', { ...props.rule, regex: val })
+    emit('update:rule', { ...props.rule, regex: val, output: props.rule.output })
   }
 
-  /**
-   * 同步参数并自动生成输出映射
-   * @param newParams - 交互式构建器回传的参数列表（包含名称和类型）
-   */
+  // --- Params + output mapping sync ---
   function handleParamsUpdate(newParams: { name: string; type: string }[]) {
     const newParamList = newParams.map((p) => ({ name: p.name, type: p.type || 'string' }))
-
     const existingOutput = props.rule.output || {}
     const newOutput: Record<string, string> = { ...existingOutput }
     const newParamNames = newParamList.map((p) => p.name)
     const newParamMap = new Map(newParamList.map((p) => [p.name, p.type]))
-
     let hasChanges = false
 
     for (const [key, value] of Object.entries(newOutput)) {
@@ -311,114 +476,63 @@
         }
       }
     }
-
     for (const param of newParamList) {
-      const bindingKey = param.name
-      if (!newOutput[bindingKey]) {
-        newOutput[bindingKey] = `{${param.name}:${param.type}}`
+      if (!newOutput[param.name]) {
+        newOutput[param.name] = `{${param.name}:${param.type}}`
         hasChanges = true
       }
     }
-
     availableParams.value = newParamList
-
     if (hasChanges) {
       emit('update:rule', { ...props.rule, output: newOutput, regex: localRegex.value })
     }
   }
 
-  // --- 映射逻辑处理 ---
-
-  /**
-   * 添加新的输出键值对
-   * 自动生成唯一的键名，并绑定第一个可用参数（如果存在）
-   */
+  // --- Output mapping CRUD ---
   function addOutputKey() {
-    // 复制现有 output，避免直接修改 props
     const nextOutput = { ...(props.rule.output || {}) }
-    // 生成唯一 key，优先使用捕获组名，冲突时追加后缀
     const makeUniqueKey = (base: string) => {
-      const normalizedBase = String(base || '').trim() || 'field'
-      if (!nextOutput[normalizedBase]) return normalizedBase
+      const b = String(base || '').trim() || 'field'
+      if (!nextOutput[b]) return b
       let i = 2
-      while (nextOutput[`${normalizedBase}_${i}`]) i++
-      return `${normalizedBase}_${i}`
+      while (nextOutput[`${b}_${i}`]) i++
+      return `${b}_${i}`
     }
-    // 默认 key 来源：优先捕获组名，否则回退为 field
-    const defaultKeyBase =
-      availableParams.value.length > 0 ? availableParams.value[0].name : 'field'
+    const defaultKeyBase = availableParams.value.length > 0 ? availableParams.value[0].name : 'field'
     const newKey = makeUniqueKey(defaultKeyBase)
-
-    // 默认绑定第一个捕获组，如果没有则空文本
-    nextOutput[newKey] =
-      availableParams.value.length > 0
-        ? `{${availableParams.value[0].name}:${availableParams.value[0].type}}`
-        : ''
-
+    nextOutput[newKey] = availableParams.value.length > 0
+      ? `{${availableParams.value[0].name}:${availableParams.value[0].type}}`
+      : ''
     emit('update:rule', { ...props.rule, output: nextOutput, regex: localRegex.value })
   }
 
-  /**
-   * 删除指定的输出键值对
-   * @param key - 要删除的键名
-   */
   function removeOutputKey(key: string) {
-    // 删除映射项并提交更新
     const nextOutput = { ...(props.rule.output || {}) }
     delete nextOutput[key]
     emit('update:rule', { ...props.rule, output: nextOutput, regex: localRegex.value })
   }
 
-  /**
-   * 重命名输出键
-   * @param oldKey - 原始键名
-   * @param newKey - 新键名
-   */
   function updateOutputKey(oldKey: string, newKey: string) {
-    // 空 key 或重复 key 时不处理
     if (!newKey || oldKey === newKey) return
     const nextOutput = { ...(props.rule.output || {}) }
-    // 如果目标 key 已存在，则提示并中止
     if (nextOutput[newKey]) {
-      const message = t('expressions.ruleConfigPanel.keyAlreadyExists', { key: newKey })
-      const toast = (
-        window as unknown as { $toast?: { error: (title: string, msg: string) => void } }
-      ).$toast
-      if (toast) {
-        toast.error(t('common.error'), message)
-      } else {
-        alert(message)
-      }
+      toast.error(t('common.error'), t('expressions.ruleConfigPanel.keyAlreadyExists', { key: newKey }))
       return
     }
-    // 迁移旧值到新 key，保持映射内容不丢失
     nextOutput[newKey] = nextOutput[oldKey]
     delete nextOutput[oldKey]
     emit('update:rule', { ...props.rule, output: nextOutput, regex: localRegex.value })
   }
 
-  /**
-   * 更新输出值（静态文本）
-   * @param key - 输出键名
-   * @param val - 新的值
-   */
   function updateOutputValue(key: string, val: string) {
-    // 更新静态值映射，保持输出字段名不变
     const nextOutput = { ...(props.rule.output || {}) }
     nextOutput[key] = val
     emit('update:rule', { ...props.rule, output: nextOutput, regex: localRegex.value })
   }
 
-  /**
-   * 更新输出映射为参数绑定
-   * @param key - 输出键名
-   * @param paramName - 绑定的参数名
-   */
   function updateOutputParam(key: string, paramName: string) {
-    // 将输出值切换为参数绑定表达式 {param:type}
     const nextOutput = { ...(props.rule.output || {}) }
     const currentType = getParamType(String(nextOutput[key]))
-    // 如果 key 是默认 field_n，且目标捕获组未被占用，则重命名为参数名
     if (/^field_\d+$/.test(key) && !nextOutput[paramName]) {
       nextOutput[paramName] = `{${paramName}:${currentType}}`
       delete nextOutput[key]
@@ -428,36 +542,27 @@
     emit('update:rule', { ...props.rule, output: nextOutput, regex: localRegex.value })
   }
 
-  /**
-   * 更新参数类型
-   * @param key - 输出键名
-   * @param type - 新的类型
-   */
   function updateOutputType(key: string, type: string) {
-    // 保留当前绑定的参数名，仅更新类型
     const nextOutput = { ...(props.rule.output || {}) }
     const currentParam = getParamName(String(nextOutput[key]))
     nextOutput[key] = `{${currentParam}:${type}}`
     emit('update:rule', { ...props.rule, output: nextOutput, regex: localRegex.value })
   }
 
-  // --- 字符串解析辅助 ---
-
+  // --- Helpers ---
   function isParamValue(v: unknown): boolean {
-    // 参数绑定格式：{paramName:type}
     return typeof v === 'string' && /^\{\w+:\w+\}$/.test(v)
   }
-
   function getParamName(v: string): string {
-    // 解析参数名，失败时返回空字符串
     const match = v.match(/^\{(\w+):/)
     return match ? match[1] : ''
   }
-
   function getParamType(v: string): string {
-    // 解析参数类型，失败时默认 string
     const match = v.match(/:(\w+)\}$/)
     return match ? match[1] : 'string'
+  }
+  function getPartDisplayText(part: PatternPart): string {
+    return part.type === 'param' ? '{' + part.name + '}' : (part.text || '')
   }
 </script>
 

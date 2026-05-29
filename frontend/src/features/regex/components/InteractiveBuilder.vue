@@ -43,6 +43,18 @@
       </div>
     </div>
 
+    <!-- 匹配高亮预览 -->
+    <div v-if="matchSegments.length > 0" class="match-highlight-area">
+      <div class="match-highlight-label">{{ t('expressions.interactiveBuilder.matchPreview') }}</div>
+      <div class="match-highlight-text">
+        <span
+          v-for="(seg, i) in matchSegments"
+          :key="i"
+          :class="seg.isMatch ? 'seg-match' : 'seg-plain'"
+          >{{ seg.text }}</span>
+      </div>
+    </div>
+
     <!-- 悬浮弹窗必须传入 container-ref，虽然在fixed定位下不是必须的，但为了类型完整 -->
     <SelectionPopover
       v-if="selection.text"
@@ -63,10 +75,11 @@
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
-  import { ref, reactive, watch, nextTick } from 'vue'
+  import { ref, reactive, watch, nextTick, computed } from 'vue'
   import { useI18n } from 'vue-i18n'
   import SelectionPopover from './SelectionPopover.vue'
   import ParamDefinitionModal from './ParamDefinitionModal.vue'
+  import { useToast } from '@/composables/shared/useToast'
 
   /**
    * 模式片段数据结构：
@@ -127,6 +140,7 @@
 
   // 使用 i18n
   const { t } = useI18n()
+  const toast = useToast()
 
   // 输入文本 - 初始化为空，避免与正则预览框的默认正则冲突
   const inputText = ref('')
@@ -276,7 +290,7 @@
     }
 
     if (!paramDefinition.name.trim()) {
-      alert(t('expressions.paramDefinitionModal.paramNameCannotBeEmpty'))
+      toast.warning(t('expressions.paramDefinitionModal.paramNameCannotBeEmpty'))
       return
     }
     isDefiningParam.value = false
@@ -488,6 +502,72 @@
     // 如果是参数，显示 {name}，否则显示原文
     return part.type === 'param' ? `{${part.name}}` : part.text
   }
+
+  // --- 匹配高亮预览 ---
+  interface MatchSegment {
+    text: string
+    isMatch: boolean
+  }
+
+  /**
+   * 计算匹配高亮片段
+   * 将 inputText 按当前正则匹配结果拆分为 matched/unmatched 片段
+   * 用于在预览区域高亮显示匹配的文本部分
+   */
+  const matchSegments = computed<MatchSegment[]>(() => {
+    if (!inputText.value || patternParts.value.length === 0) return []
+
+    // 构建正则（与 updateAndEmit 相同逻辑）
+    const regexParts = patternParts.value.map((p) => {
+      if (p.type === 'static') {
+        return p.text?.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      }
+      const paramType = p.paramType || 'word'
+      const regexMap: Record<string, string> = {
+        int: '(-?\\d+)',
+        float: '(-?\\d+(?:\\.\\d+)?)',
+        word: '(\\w+)',
+        non_space: '\\S+',
+        anything: '.*?',
+      }
+      const regexPattern = regexMap[paramType] || '(.*?)'
+      return `(?P<${p.name}>${regexPattern})`
+    })
+
+    const finalRegex = regexParts.join('')
+    if (!finalRegex) return []
+
+    // 转换 Python (?P<name>) 为 JS (?<name>) 以便在浏览器中测试
+    const jsRegex = finalRegex.replace(/\(\?P</g, '(?<')
+
+    try {
+      const re = new RegExp(jsRegex, 'g')
+      const segments: MatchSegment[] = []
+      let lastIndex = 0
+
+      for (const match of inputText.value.matchAll(re)) {
+        const matchStart = match.index
+        const matchEnd = matchStart + match[0].length
+
+        // 匹配之前的非匹配文本
+        if (matchStart > lastIndex) {
+          segments.push({ text: inputText.value.slice(lastIndex, matchStart), isMatch: false })
+        }
+        // 匹配的文本
+        segments.push({ text: match[0], isMatch: true })
+        lastIndex = matchEnd
+      }
+
+      // 最后一段非匹配文本
+      if (lastIndex < inputText.value.length) {
+        segments.push({ text: inputText.value.slice(lastIndex), isMatch: false })
+      }
+
+      return segments
+    } catch {
+      return []
+    }
+  })
 </script>
 
 <style scoped src="./InteractiveBuilder.styles.css"></style>

@@ -71,6 +71,7 @@
 <script setup lang="ts">
   import { reactive, onMounted, onUnmounted, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import { useToast } from '@/composables/shared/useToast'
 
   interface ParamDefinition {
     name: string
@@ -80,6 +81,7 @@
   const emit = defineEmits(['confirm', 'cancel'])
 
   const { t } = useI18n()
+  const { warning } = useToast()
 
   const paramDefinition = reactive<ParamDefinition>({ name: '', type: 'int' })
 
@@ -87,7 +89,7 @@
     if (paramDefinition.name.trim()) {
       emit('confirm', { ...paramDefinition })
     } else {
-      alert(t('expressions.paramDefinitionModal.paramNameCannotBeEmpty'))
+      warning(t('expressions.paramDefinitionModal.paramNameCannotBeEmpty'))
     }
   }
 

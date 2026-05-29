@@ -188,9 +188,9 @@ export function createRegexDesignModule(params: {
 
       const toastMessage =
         patternChanged && mergedData.sourceNodeId
-          ? `正则表达式 "${mergedData.configName}" 已保存并触发重校验`
-          : `正则表达式 "${mergedData.configName}" 已保存`
-      toastSuccess(toastMessage, '保存成功')
+          ? t('regexDesignModal.savedWithRevalidation', { name: mergedData.configName })
+          : t('regexDesignModal.saved', { name: mergedData.configName })
+      toastSuccess(toastMessage, t('regexDesignModal.saveSuccess'))
 
       closeRegexDesignModal()
     } catch (error) {

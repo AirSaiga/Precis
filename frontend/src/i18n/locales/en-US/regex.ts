@@ -25,6 +25,14 @@ const regexDesignModal = {
   autoSaveTip: 'Auto-save enabled',
   cancel: 'Cancel',
   save: 'Save',
+  defaultRuleName: 'New Rule',
+  saveSuccess: 'Saved',
+  saved: 'Regex "{name}" saved',
+  savedWithRevalidation: 'Regex "{name}" saved and revalidation triggered',
+  unsavedChangesTitle: 'Unsaved Changes',
+  unsavedChangesMessage: 'You have unsaved changes. Are you sure you want to close?',
+  unsavedChangesConfirm: 'Discard Changes',
+  unsavedChangesCancel: 'Continue Editing',
 }
 
 const expression = {
@@ -47,6 +55,7 @@ const expressions = {
     exampleText: 'e.g.: Order Amount > 100',
     previewSelection: 'Preview Selection',
     previewHere: 'Preview here...',
+    matchPreview: 'Match Preview',
   },
   ruleConfigPanel: {
     ruleConfig: 'Rule Configuration',

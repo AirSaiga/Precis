@@ -12,58 +12,54 @@
 -->
 
 <template>
-  <!-- 使用 v-show 保持组件内部状态，并在视觉上通过 transition 提供动画 -->
   <Transition name="modal-fade">
-    <div v-show="visible" class="regex-design-modal-overlay" @click="handleOverlayClick">
-      <div class="regex-design-modal" @click.stop>
-        <!-- 弹窗头部 -->
-        <header class="modal-header">
-          <div class="header-title">
-            <span class="rx-icon">🔤</span>
-            <h2>{{ t('regexDesignModal.title') }}</h2>
-          </div>
-          <button class="close-btn" @click="handleClose" :title="t('regexDesignModal.cancel')">
-            <span class="close-icon">&times;</span>
+    <div
+      v-show="visible"
+      ref="panelRef"
+      class="regex-design-modal"
+      :style="panelStyle"
+      @click.stop
+    >
+      <header class="modal-header" @mousedown="onDragStart">
+        <div class="header-left">
+          <h2>{{ t('regexDesignModal.title') }}</h2>
+          <input
+            v-if="activeRule"
+            type="text"
+            :value="activeRule.name"
+            class="header-name-input"
+            :placeholder="t('expressions.ruleConfigPanel.ruleNamePlaceholder')"
+            @input="handleNameInput"
+            @mousedown.stop
+          />
+        </div>
+        <div class="header-right">
+          <button class="save-btn" @click.stop="handleSave">
+            {{ t('regexDesignModal.save') }}
           </button>
-        </header>
+          <button class="close-btn" @click.stop="handleClose" :title="t('regexDesignModal.cancel')">
+            &times;
+          </button>
+        </div>
+      </header>
 
-        <!-- 弹窗内容 -->
-        <div class="modal-content">
-          <!-- 侧边栏：如果是多规则模式可以在此扩展，目前保持单规则展示 -->
-          <div class="config-panel">
-            <RuleConfigPanel
-              v-if="activeRule"
-              :rule="activeRule"
-              :sample-text="currentSampleText"
-              @update:rule="handleRuleUpdate"
-              @save-all="handleSaveAll"
-            />
-            <!-- 空状态处理 -->
-            <div v-else class="empty-state">
-              <div class="empty-icon">🔍</div>
-              <div class="empty-text">{{ t('regexDesignModal.selectOrAddRule') }}</div>
-              <button class="add-rule-btn" @click="initDefaultRule">
-                {{ t('regexDesignModal.addRule') }}
-              </button>
-            </div>
+      <div class="modal-content">
+        <div class="config-panel">
+          <RuleConfigPanel
+            v-if="activeRule"
+            :rule="activeRule"
+            :sample-text="currentSampleText"
+            @update:rule="handleRuleUpdate"
+            @save-all="handleSaveAll"
+          />
+          <div v-else class="empty-state">
+            <div class="empty-icon">.*</div>
+            <div class="empty-text">{{ t('regexDesignModal.selectOrAddRule') }}</div>
+            <button class="add-rule-btn" @click="initDefaultRule">
+              {{ t('regexDesignModal.addRule') }}
+            </button>
           </div>
         </div>
-
-        <!-- 弹窗底部 -->
-        <footer class="modal-footer">
-          <div class="footer-tips">
-            {{ t('regexDesignModal.autoSaveTip') }}
-          </div>
-          <div class="footer-actions">
-            <button class="cancel-btn" @click="handleClose">
-              {{ t('regexDesignModal.cancel') }}
-            </button>
-            <button class="save-btn" @click="handleSave">
-              <i class="icon-check"></i>
-              {{ t('regexDesignModal.save') }}
-            </button>
-          </div>
-        </footer>
       </div>
     </div>
   </Transition>
@@ -71,13 +67,14 @@
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
-  import { ref, computed, watch, nextTick } from 'vue'
+  import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
   import RuleConfigPanel from './RuleConfigPanel.vue'
   import type { Rule } from '@/features/regex/types'
   import type { RegexNodeData } from '@/types/graph'
   import { useGraphStore } from '@/stores/graphStore'
   import { useRegexConnection } from '@/features/regex/composables'
+  import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 
   /**
    * 组件属性定义
@@ -108,6 +105,62 @@
   // 获取 useRegexConnection 中的 fetchSampleDataForRegexEdit 函数
   // 用于在弹窗打开时获取样例数据
   const { fetchSampleDataForRegexEdit } = useRegexConnection()
+  const { showConfirm } = useGlobalConfirm()
+
+  // --- Drag state ---
+  const panelRef = ref<HTMLElement | null>(null)
+  const dragState = ref({ x: 0, y: 0, startX: 0, startY: 0, dragging: false })
+  const panelStyle = ref<Record<string, string>>({})
+
+  function onDragStart(e: MouseEvent) {
+    if ((e.target as HTMLElement).closest('input, button')) return
+    const el = panelRef.value
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    dragState.value = {
+      x: rect.left,
+      y: rect.top,
+      startX: e.clientX,
+      startY: e.clientY,
+      dragging: true,
+    }
+    panelStyle.value = {
+      position: 'fixed',
+      left: rect.left + 'px',
+      top: rect.top + 'px',
+      right: 'auto',
+    }
+    document.addEventListener('mousemove', onDragMove)
+    document.addEventListener('mouseup', onDragEnd)
+  }
+
+  function onDragMove(e: MouseEvent) {
+    if (!dragState.value.dragging) return
+    const dx = e.clientX - dragState.value.startX
+    const dy = e.clientY - dragState.value.startY
+    panelStyle.value = {
+      position: 'fixed',
+      left: dragState.value.x + dx + 'px',
+      top: dragState.value.y + dy + 'px',
+      right: 'auto',
+    }
+  }
+
+  function onDragEnd() {
+    dragState.value.dragging = false
+    document.removeEventListener('mousemove', onDragMove)
+    document.removeEventListener('mouseup', onDragEnd)
+  }
+
+  // Reset position when panel becomes visible
+  watch(
+    () => props.visible,
+    (v) => {
+      if (v) {
+        panelStyle.value = {}
+      }
+    }
+  )
 
   /**
    * 当前样例文本
@@ -131,6 +184,15 @@
    * - 只有点击保存时才将数据同步回父组件
    */
   const rules = ref<Rule[]>([])
+
+  // 保存时的快照，用于检测未保存的更改
+  const savedRulesSnapshot = ref<string>('')
+
+  // 检测是否有未保存的更改
+  const hasUnsavedChanges = computed(() => {
+    if (rules.value.length === 0) return false
+    return JSON.stringify(rules.value) !== savedRulesSnapshot.value
+  })
 
   /**
    * 计算当前激活的规则
@@ -169,7 +231,7 @@
       // 使用时间戳生成唯一 ID，避免冲突
       id: `rule-${Date.now()}`,
       // 默认名称
-      name: '新规则',
+      name: t('regexDesignModal.defaultRuleName'),
       // 使用节点已保存的正则表达式或默认表达式
       regex: defaultPattern,
       // 初始描述为空
@@ -207,7 +269,7 @@
         // =====================================================
         // 使用深度克隆防止修改未保存时影响原始数据
         if (props.ruleData && props.ruleData.rules && props.ruleData.rules.length > 0) {
-          rules.value = JSON.parse(JSON.stringify(props.ruleData.rules))
+          rules.value = structuredClone(props.ruleData.rules)
         }
         // =====================================================
         // 场景2：只有正则表达式，没有规则配置
@@ -216,7 +278,7 @@
           // 用 pattern 初始化默认规则
           const defaultRule: Rule = {
             id: `rule-${Date.now()}`,
-            name: props.ruleData.configName || '新规则',
+            name: props.ruleData.configName || t('regexDesignModal.defaultRuleName'),
             regex: props.ruleData.pattern,
             description: '',
             output: {},
@@ -247,6 +309,9 @@
         // 由于 currentSampleText 是 computed，会自动响应 store 中的值变化
         // RuleConfigPanel -> InteractiveBuilder 的 watch 会自动同步
         await nextTick()
+
+        // 保存初始快照，用于检测未保存的更改
+        savedRulesSnapshot.value = JSON.stringify(rules.value)
       }
     },
     { immediate: true }
@@ -263,17 +328,24 @@
       currentRulesCount: rules.value.length,
     })
 
-    // 在 rules 数组中查找匹配的规则
     const index = rules.value.findIndex((rule) => rule.id === updatedRule.id)
 
-    // 如果找到，更新该规则
     if (index !== -1) {
       logger.debug('[RegexDesignModal] 找到匹配规则，索引:', index)
-      // 使用展开运算符创建新对象，触发响应式更新
       rules.value[index] = { ...updatedRule }
       logger.debug('[RegexDesignModal] 更新后的 rules[0].regex:', rules.value[0]?.regex)
     } else {
       logger.warn('[RegexDesignModal] 未找到匹配规则:', updatedRule.id)
+    }
+  }
+
+  /**
+   * 处理 header 中规则名输入
+   */
+  function handleNameInput(event: Event) {
+    const name = (event.target as HTMLInputElement).value
+    if (activeRule.value) {
+      handleRuleUpdate({ ...activeRule.value, name })
     }
   }
 
@@ -288,24 +360,21 @@
 
   /**
    * 关闭弹窗
-   * 触发 close 事件，通知父组件关闭弹窗
    */
   function handleClose() {
-    // 触发 close 事件
+    if (hasUnsavedChanges.value) {
+      showConfirm({
+        title: t('regexDesignModal.unsavedChangesTitle'),
+        message: t('regexDesignModal.unsavedChangesMessage'),
+        confirmText: t('regexDesignModal.unsavedChangesConfirm'),
+        cancelText: t('regexDesignModal.unsavedChangesCancel'),
+        type: 'warning',
+      }).then((confirmed) => {
+        if (confirmed) emit('close')
+      })
+      return
+    }
     emit('close')
-  }
-
-  /**
-   * 遮罩层点击处理
-   * 点击遮罩层时关闭弹窗
-   *
-   * 扩展建议：
-   * 如果有内容变动，可以在这里增加二次确认弹窗
-   * 防止用户误操作导致未保存的数据丢失
-   */
-  function handleOverlayClick() {
-    // 如果有内容变动，可以在这里增加确认弹窗
-    handleClose()
   }
 
   /**
@@ -330,7 +399,7 @@
         // 更新正则表达式模式到 RegexNode 显示区域
         pattern: currentRegex,
         // 保存完整的规则配置（深度拷贝避免引用问题）
-        rules: JSON.parse(JSON.stringify(rules.value)),
+        rules: structuredClone(rules.value),
       }
 
       logger.debug('[RegexDesignModal] handleSave - updatedRuleData:', {
@@ -343,6 +412,9 @@
       // =====================================================
       // 将更新后的数据传递给父组件
       emit('save', updatedRuleData)
+
+      // 重置快照，标记为已保存
+      savedRulesSnapshot.value = JSON.stringify(rules.value)
 
       // =====================================================
       // 关闭弹窗
@@ -357,6 +429,30 @@
       })
     }
   }
+
+  // 键盘快捷键处理
+  function handleKeydown(event: KeyboardEvent) {
+    if (!props.visible) return
+
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      handleClose()
+      return
+    }
+
+    if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+      event.preventDefault()
+      handleSave()
+    }
+  }
+
+  onMounted(() => {
+    document.addEventListener('keydown', handleKeydown)
+  })
+
+  onUnmounted(() => {
+    document.removeEventListener('keydown', handleKeydown)
+  })
 </script>
 
 <style scoped src="./RegexDesignModal.styles.css"></style>

@@ -25,6 +25,14 @@ const regexDesignModal = {
   autoSaveTip: '自动保存已启用',
   cancel: '取消',
   save: '保存',
+  defaultRuleName: '新规则',
+  saveSuccess: '保存成功',
+  saved: '正则表达式 "{name}" 已保存',
+  savedWithRevalidation: '正则表达式 "{name}" 已保存并触发重校验',
+  unsavedChangesTitle: '未保存的更改',
+  unsavedChangesMessage: '当前有未保存的更改，确定要关闭吗？',
+  unsavedChangesConfirm: '放弃更改',
+  unsavedChangesCancel: '继续编辑',
 }
 
 const expression = {
@@ -47,6 +55,7 @@ const expressions = {
     exampleText: '例如: 订单金额 > 100',
     previewSelection: '划词预览',
     previewHere: '在此处预览...',
+    matchPreview: '匹配预览',
   },
   ruleConfigPanel: {
     ruleConfig: '规则配置',

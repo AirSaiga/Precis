@@ -41,7 +41,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, ref, onMounted, onUnmounted, watch } from 'vue'
+  import { computed, ref, onMounted, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
 
   interface SelectionInfo {
@@ -122,13 +122,6 @@
     }
   })
 
-  // 监听窗口尺寸变化，重新计算位置
-  const handleResize = () => {
-    // 使用强制更新来重新计算位置
-    window.dispatchEvent(new Event('resize'))
-  }
-
-  // 点击外部区域关闭弹窗
   const handleClickOutside = (event: MouseEvent) => {
     if (popoverRef.value && !popoverRef.value.contains(event.target as Node)) {
       emit('clear')
@@ -137,12 +130,10 @@
 
   onMounted(() => {
     document.addEventListener('mousedown', handleClickOutside)
-    window.addEventListener('resize', handleResize)
   })
 
   onUnmounted(() => {
     document.removeEventListener('mousedown', handleClickOutside)
-    window.removeEventListener('resize', handleResize)
   })
 </script>
 
