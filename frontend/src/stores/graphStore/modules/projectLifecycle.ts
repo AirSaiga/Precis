@@ -72,7 +72,6 @@ import type { ProjectNodeData } from '@/types/nodes'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
 import { useProjectStore } from '@/stores/projectStore'
 import { useResourceTreeStore } from '@/stores/resourceTreeStore'
-import { addNodes } from '@/services/canvas/vueFlowApi'
 
 export function createProjectLifecycleModule(params: {
   nodes: Ref<CustomNode[]>
@@ -223,7 +222,9 @@ export function createProjectLifecycleModule(params: {
       } as ProjectNodeData,
     }
 
-    addNodes(node)
+    // 使用全量替换而非 addNodes API，与 resetCanvas 的 nodes.value = [] 同路径，
+    // 避免 Vue Flow v-model watcher 的时序竞争导致节点丢失
+    nodes.value = [...nodes.value, node]
     selectedNodeId.value = node.id
     return node.id
   }

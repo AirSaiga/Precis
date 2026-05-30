@@ -105,17 +105,19 @@ class WorkspaceV2Item(BaseModel):
     V2 工作区条目模型。
 
     设计目标：
-    - 存储单个工作区的元数据和视图状态
-    - 不存储完整的节点/边数据，仅保存视图差异（可见节点、视口）
-    - 项目配置（schema/constraint/regex）仍由 V2 YAML 体系承载
+    - 存储单个工作区的元数据、视图状态和完整画布快照
+    - nodes/edges 保存完整画布数据，切换/关闭工作区时立即持久化
+    - 重新打开项目时从 workspaces.json 恢复所有工作区的画布状态
 
     字段说明：
     - id: 工作区唯一标识
     - title: 工作区显示名称
-    - index: 排序索引
+    - index: 排序索引（删除后不重新编号，新建时取 max+1）
     - createdAt/lastActiveAt: 时间戳
     - visibleNodeIds: 在该工作区中可见的节点 ID 列表
     - viewport: 画布视口状态（位置+缩放）
+    - nodes: 画布节点完整数据（JSON 数组）
+    - edges: 画布边完整数据（JSON 数组）
     """
 
     id: str = Field(..., description="工作区唯一标识")
@@ -125,6 +127,8 @@ class WorkspaceV2Item(BaseModel):
     lastActiveAt: str = Field(default="", description="最后活跃时间 ISO 字符串")
     visibleNodeIds: list[str] = Field(default_factory=list, description="可见节点 ID 列表")
     viewport: Optional[dict[str, float]] = Field(default=None, description="视口信息：{x,y,zoom}")
+    nodes: list[dict] = Field(default_factory=list, description="画布节点完整数据")
+    edges: list[dict] = Field(default_factory=list, description="画布边完整数据")
 
 
 class WorkspacesV2Model(BaseModel):
@@ -133,11 +137,11 @@ class WorkspacesV2Model(BaseModel):
 
     使用场景：
     - 前端多标签页画布的工作区持久化
-    - 与 project.view.json 分工：view.json 存节点坐标，workspaces.json 存工作区列表和视图过滤
+    - 每个工作区保存完整画布快照（nodes/edges），实现跨会话恢复
 
     数据流：
-    - 前端保存工作区时调用 PUT /project/v2/workspaces
-    - 前端加载项目时调用 GET /project/v2/workspaces 恢复标签页状态
+    - 前端切换/关闭工作区时调用 PUT /project/v2/workspaces 保存
+    - 前端加载项目时调用 GET /project/v2/workspaces 恢复所有工作区画布状态
     """
 
     version: int = Field(default=1, description="工作区文件版本")

@@ -14,6 +14,7 @@
   "homepage": "https://github.com/AirSaiga/Precis#readme",
   "scripts": {
     "start": "node scripts/start.js",
+    "start:base": "electron .",
     "dev": "electron .",
     "pack": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Target pack",
     "dist": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Target dist",

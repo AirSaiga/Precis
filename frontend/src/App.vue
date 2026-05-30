@@ -416,6 +416,10 @@
 
   /** 应用卸载：清理键盘快捷键、拖拽状态和全局事件监听，防止内存泄漏 */
   onUnmounted(() => {
+    // 应用关闭前，将当前画布快照写入磁盘
+    canvasStore.saveCurrentCanvasData(graphStore.nodes, graphStore.edges)
+    canvasStore.syncWorkspacesToBackend()
+
     window.removeEventListener('viewchange', handleViewChange as EventListener)
     window.removeEventListener('project-closed', handleProjectClosed as EventListener)
     window.removeEventListener('mousemove', handleMouseMove as EventListener)

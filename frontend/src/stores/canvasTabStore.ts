@@ -115,6 +115,8 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
           createdAt: w.createdAt,
           lastActiveAt: w.lastActiveAt,
           visibleNodeIds: w.nodes?.map((n) => n.id) || [],
+          nodes: w.nodes || [],
+          edges: w.edges || [],
         })),
       }
       await putV2Workspaces(payload, configPath)
@@ -161,12 +163,11 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
           hasUnsavedChanges: false,
           createdAt: w.createdAt,
           lastActiveAt: w.lastActiveAt,
-          nodes: [],
-          edges: [],
+          nodes: (w.nodes || []) as unknown as CustomNode[],
+          edges: (w.edges || []) as unknown as Edge[],
         }))
         activeTabId.value = data.activeWorkspaceId || tabs.value[0]?.id || null
       } else {
-        // 新项目没有保存的工作区，清空旧项目残留，避免切换项目时旧 Tab 遗留
         tabs.value = []
         activeTabId.value = null
       }
@@ -216,8 +217,12 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
    * @returns 新创建 Tab 的 ID
    */
   function createNewTab(graphStore?: GraphStoreLike) {
-    // 使用现有最大 index + 1，避免中间关闭 Tab 后序号重复
-    const nextIndex = tabs.value.length > 0 ? Math.max(...tabs.value.map((t) => t.index)) + 1 : 1
+    // 找最小空闲正整数编号：优先填补缺失编号（如历史遗留缺少 1），再扩展
+    const usedIndices = new Set(tabs.value.map((t) => t.index))
+    let nextIndex = 1
+    while (usedIndices.has(nextIndex)) {
+      nextIndex++
+    }
     const newTab: CanvasTab = {
       id: uuidv4(),
       index: nextIndex,
@@ -239,7 +244,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
       saveCurrentCanvasData(graphStore.nodes, graphStore.edges)
     }
 
-    tabs.value.push(newTab)
+    tabs.value = [...tabs.value, newTab]
     activeTabId.value = newTab.id
 
     if (graphStore) {
@@ -343,6 +348,9 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
         graphStore.createProjectRootNode({ x: 100, y: 100 })
       }
     }
+
+    // 切换完成后持久化到磁盘（含画布快照）
+    syncTabsToBackend()
   }
 
   /**
@@ -382,6 +390,9 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
         activeTabId.value = null
         createNewTab(graphStore)
       }
+    } else {
+      // 关闭非激活 Tab：同步到磁盘（setActiveTab/createNewTab 内部已有同步）
+      syncTabsToBackend()
     }
   }
 

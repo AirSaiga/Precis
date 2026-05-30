@@ -886,14 +886,15 @@ export interface WorkspaceV2Viewport {
 /**
  * 工作区项。
  *
- * 表示一个画布工作区的配置，包括可见节点和视口状态。
+ * 表示一个画布工作区的配置，包括可见节点、视口状态和完整画布快照。
+ * nodes/edges 保存完整画布数据，实现跨会话恢复。
  */
 export interface WorkspaceV2Item {
   /** 工作区唯一标识符 */
   id: string
   /** 工作区标题 */
   title: string
-  /** 工作区排序索引 */
+  /** 工作区排序索引（删除后不重新编号，新建时取 max+1） */
   index: number
   /** 创建时间戳（ISO 8601 格式） */
   createdAt: string
@@ -903,19 +904,23 @@ export interface WorkspaceV2Item {
   visibleNodeIds: string[]
   /** 工作区视口状态（可选） */
   viewport?: WorkspaceV2Viewport
+  /** 画布节点完整数据 */
+  nodes: Record<string, unknown>[]
+  /** 画布边完整数据 */
+  edges: Record<string, unknown>[]
 }
 
 /**
  * 工作区列表响应。
  *
- * 后端返回的所有工作区配置。
+ * 后端返回的所有工作区配置，每个工作区包含完整画布快照。
  */
 export interface WorkspacesV2Response {
   /** 响应版本号 */
   version: number
   /** 当前活跃的工作区 ID，无则为 null */
   activeWorkspaceId: string | null
-  /** 工作区列表 */
+  /** 工作区列表（含完整画布快照） */
   workspaces: WorkspaceV2Item[]
 }
 
