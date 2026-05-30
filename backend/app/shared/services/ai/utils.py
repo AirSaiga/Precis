@@ -130,7 +130,7 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
     返回:
         项目概览字典，包含 schemas 和 constraints 两个列表
     """
-    overview: dict[str, Any] = {"schemas": [], "constraints": []}
+    overview: dict[str, Any] = {"schemas": [], "constraints": [], "transforms": [], "regex_nodes": [], "settings": {}}
 
     if not project_path:
         return overview
@@ -221,5 +221,65 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
                 )
             except Exception as e:
                 logger.warning(f"读取 constraint 文件失败 {constraint_file}: {e}")
+
+    # 扫描 Regex 节点
+    for dirname in ("regex_nodes", "regex"):
+        regex_dir = project_path / dirname
+        if regex_dir.exists():
+            for regex_file in regex_dir.glob("*.yaml"):
+                try:
+                    import yaml
+
+                    with open(regex_file, encoding="utf-8") as f:
+                        regex_data = yaml.safe_load(f) or {}
+
+                    overview["regex_nodes"].append(
+                        {
+                            "id": regex_data.get("id", ""),
+                            "name": regex_data.get("name", ""),
+                            "pattern": regex_data.get("pattern", ""),
+                            "match_mode": regex_data.get("match_mode", "full"),
+                            "enabled": regex_data.get("enabled", True),
+                            "source_ref": regex_data.get("source_ref"),
+                        }
+                    )
+                except Exception as e:
+                    logger.debug(f"读取 regex 文件失败 {regex_file}: {e}")
+
+    # 扫描 Transform 节点
+    transforms_dir = project_path / "transforms"
+    if transforms_dir.exists():
+        for transform_file in transforms_dir.glob("*.yaml"):
+            try:
+                import yaml
+
+                with open(transform_file, encoding="utf-8") as f:
+                    transform_data = yaml.safe_load(f) or {}
+
+                overview["transforms"].append(
+                    {
+                        "id": transform_data.get("id", ""),
+                        "type": transform_data.get("type", ""),
+                        "enabled": transform_data.get("enabled", True),
+                        "input_from_node": transform_data.get("input_from_node"),
+                        "input_column": transform_data.get("input_column"),
+                        "output_columns": transform_data.get("output_columns", []),
+                    }
+                )
+            except Exception as e:
+                logger.debug(f"读取 transform 文件失败 {transform_file}: {e}")
+
+    # 读取项目设置
+    manifest_path = project_path / "project.precis.yaml"
+    if manifest_path.exists():
+        try:
+            import yaml
+
+            with open(manifest_path, encoding="utf-8") as f:
+                manifest_data = yaml.safe_load(f) or {}
+
+            overview["settings"] = manifest_data.get("settings", {})
+        except Exception as e:
+            logger.debug(f"读取 manifest 设置失败 {manifest_path}: {e}")
 
     return overview

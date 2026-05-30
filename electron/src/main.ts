@@ -372,8 +372,8 @@ async function startPythonServer(): Promise<void> {
  */
 function createSplashWindow(): void {
   splashWindow = new BrowserWindow({
-    width: 400,
-    height: 260,
+    width: 320,
+    height: 200,
     transparent: true,
     frame: false,
     resizable: false,
@@ -381,6 +381,7 @@ function createSplashWindow(): void {
     alwaysOnTop: true,
     skipTaskbar: true,
     show: false,
+    backgroundColor: '#00000000',
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -941,8 +942,12 @@ ipcMain.handle('open-file', async (event, filePath: string) => {
     });
 
     // 使用系统默认程序打开文件
-    await shell.openPath(filePath);
-    
+    const openError = await shell.openPath(filePath);
+    if (openError) {
+      console.error('[Electron] 打开文件失败:', openError);
+      return { success: false, error: openError };
+    }
+
     console.log('[Electron] 已用系统程序打开文件:', filePath);
     return { success: true };
   } catch (error) {

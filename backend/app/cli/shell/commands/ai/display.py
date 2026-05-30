@@ -136,11 +136,23 @@ def _display_execution_results(result, project_path: str, original_files_cache: 
     actions = result.actions
     original_files_cache = original_files_cache or {}
 
-    # 判断是否有约束节点的增删改操作（这些操作会修改文件）
-    has_modifications = any(
-        a.get("actionType") in ["ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"]
-        for a in actions
-    )
+    # 判断是否有会修改文件的操作
+    file_modification_types = {
+        "ADD_CONSTRAINT_NODE",
+        "UPDATE_CONSTRAINT_NODE",
+        "DELETE_CONSTRAINT_NODE",
+        "ADD_SCHEMA",
+        "UPDATE_SCHEMA",
+        "DELETE_SCHEMA",
+        "ADD_REGEX",
+        "UPDATE_REGEX",
+        "DELETE_REGEX",
+        "ADD_TRANSFORM",
+        "UPDATE_TRANSFORM",
+        "DELETE_TRANSFORM",
+        "UPDATE_SETTINGS",
+    }
+    has_modifications = any(a.get("actionType") in file_modification_types for a in actions)
 
     if not has_modifications:
         _display_results_without_diff(result, project_path)
@@ -183,18 +195,29 @@ def _display_results_without_diff(result, project_path: str) -> None:
 
 
 def _display_constraint_results(results: list[dict]) -> None:
-    """显示约束操作结果。
+    """显示操作结果。
 
-    将动作结果分为两类：
-    1. VALIDATE_PROJECT：数据校验结果（显示通过或错误详情）
-    2. 其他约束操作：显示添加/更新/删除约束的成功或失败信息
+    将动作结果分为四类：
+    1. VALIDATE_PROJECT：数据校验结果
+    2. 约束操作：约束 CRUD 结果
+    3. Schema/Regex/Transform/Settings 操作
+    4. 其他操作
 
     Args:
         results: 动作执行结果列表，每个元素是一个字典
     """
-    # 分离校验结果与约束操作结果
+    constraint_types = {"ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"}
+    schema_types = {"ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"}
+    regex_types = {"ADD_REGEX", "UPDATE_REGEX", "DELETE_REGEX"}
+    transform_types = {"ADD_TRANSFORM", "UPDATE_TRANSFORM", "DELETE_TRANSFORM"}
+
+    # 分离各类结果
     validate_results = [r for r in results if r.get("action", {}).get("actionType") == "VALIDATE_PROJECT"]
-    constraint_results = [r for r in results if r.get("action", {}).get("actionType") != "VALIDATE_PROJECT"]
+    constraint_results = [r for r in results if r.get("action", {}).get("actionType") in constraint_types]
+    schema_results = [r for r in results if r.get("action", {}).get("actionType") in schema_types]
+    regex_results = [r for r in results if r.get("action", {}).get("actionType") in regex_types]
+    transform_results = [r for r in results if r.get("action", {}).get("actionType") in transform_types]
+    settings_results = [r for r in results if r.get("action", {}).get("actionType") == "UPDATE_SETTINGS"]
 
     # 显示校验结果
     for r in validate_results:
@@ -258,3 +281,50 @@ def _display_constraint_results(results: list[dict]) -> None:
                     msg = r.get("message", "未知错误")
                     print(f"  - 错误: {msg}")
             print("=" * 50)
+
+    # 显示 Schema 操作结果
+    if schema_results:
+        print(Formatter.header("\n📋 Schema 操作"))
+        for r in schema_results:
+            action_type = r.get("action", {}).get("actionType", "")
+            spec = r.get("action", {}).get("schemaSpec", {})
+            name = spec.get("name", spec.get("schemaId", "未知"))
+            if r.get("success"):
+                print(Formatter.success(f"  ✓ {action_type}: {name}"))
+            else:
+                print(Formatter.error(f"  ✗ {action_type}: {name} - {r.get('message', '')}"))
+
+    # 显示 Regex 操作结果
+    if regex_results:
+        print(Formatter.header("\n🔤 Regex 操作"))
+        for r in regex_results:
+            action_type = r.get("action", {}).get("actionType", "")
+            spec = r.get("action", {}).get("regexSpec", {})
+            name = spec.get("name", spec.get("regexId", "未知"))
+            if r.get("success"):
+                print(Formatter.success(f"  ✓ {action_type}: {name}"))
+            else:
+                print(Formatter.error(f"  ✗ {action_type}: {name} - {r.get('message', '')}"))
+
+    # 显示 Transform 操作结果
+    if transform_results:
+        print(Formatter.header("\n⚙ Transform 操作"))
+        for r in transform_results:
+            action_type = r.get("action", {}).get("actionType", "")
+            spec = r.get("action", {}).get("transformSpec", {})
+            t_type = spec.get("type", spec.get("transformId", "未知"))
+            if r.get("success"):
+                print(Formatter.success(f"  ✓ {action_type}: {t_type}"))
+            else:
+                print(Formatter.error(f"  ✗ {action_type}: {t_type} - {r.get('message', '')}"))
+
+    # 显示 Settings 操作结果
+    if settings_results:
+        print(Formatter.header("\n⚙ 项目设置"))
+        for r in settings_results:
+            spec = r.get("action", {}).get("settingsSpec", {})
+            category = spec.get("category", "未知")
+            if r.get("success"):
+                print(Formatter.success(f"  ✓ 更新设置: {category}"))
+            else:
+                print(Formatter.error(f"  ✗ 更新设置失败: {r.get('message', '')}"))

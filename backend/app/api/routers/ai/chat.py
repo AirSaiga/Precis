@@ -82,7 +82,7 @@ async def chat(request: AiChatRequest, x_project_config_path: Optional[str] = He
     # 构建 ProviderConfig 给编排器
     provider_config = ProviderConfig(
         id=provider_cfg.id,
-        provider=provider_cfg.provider,
+        provider=provider_cfg.type,
         api_key=api_key_val,
         base_url=provider_cfg.base_url,
         model=provider_cfg.model,

@@ -28,6 +28,40 @@ function isEligibleNodeType(type: string | undefined): boolean {
 }
 
 /**
+ * 根据节点类型提取显示标签
+ *
+ * 不同节点类型使用不同的字段作为显示名称：
+ * - schema/jsonSchema: tableName（表名）
+ * - transform/templateInstance: configName
+ * - 约束节点: configName 或 constraintName
+ * - sourcePreview/jsonSourcePreview: configName 或 sourceName
+ * - regex: configName 或 pattern
+ * - 其他: 回退到 label/name/id
+ */
+function extractNodeLabel(node: { type?: string; data?: Record<string, unknown> }): string {
+  const data = node.data || {}
+  const nodeType = node.type || ''
+
+  // Schema 节点优先使用 tableName
+  if (nodeType === 'schema' || nodeType === 'jsonSchema') {
+    return (data.tableName as string) || (data.configName as string) || (data.name as string) || ''
+  }
+
+  // 约束节点优先使用 configName，其次 constraintName
+  if (isConstraintNodeType(nodeType)) {
+    return (data.configName as string) || (data.constraintName as string) || ''
+  }
+
+  // Transform / Template / Regex / Source 等节点使用 configName
+  if (data.configName) {
+    return data.configName as string
+  }
+
+  // 回退到 name 或 label
+  return (data.name as string) || (data.label as string) || ''
+}
+
+/**
  * @description 画布右键上下文菜单组合式函数
  * @param options - 上下文菜单配置选项
  * @returns setupContextMenu 菜单初始化函数和 onPaneContextMenu 画布右键处理器
@@ -65,19 +99,19 @@ export function useCanvasContextMenu({ onNodeContextMenu, t }: CanvasContextMenu
       addToChatItem.className = 'context-menu-item'
       addToChatItem.textContent = '\u2728 ' + t('aiChat.addToChat')
       addToChatItem.onclick = () => {
-        // 提取节点数据，优先使用 label 或 name 作为显示文本
-        const nodeData = node.data || {}
+        // 提取节点显示标签（如表名、配置名等）
+        const displayLabel = extractNodeLabel(node) || node.id
         aiChatStore.addContextNode({
           id: node.id,
           type: node.type || 'unknown',
           data: {
-            label: (nodeData.label as string) || (nodeData.name as string) || node.id,
-            ...nodeData,
+            label: displayLabel,
+            ...node.data,
           },
-          label: (nodeData.label as string) || (nodeData.name as string) || node.id,
+          label: displayLabel,
         })
-        // 打开 AI Chat 侧边栏
-        aiChatStore.openDrawer()
+        // 切换左侧侧边栏到 AI 助手视图
+        window.dispatchEvent(new CustomEvent('viewchange', { detail: { view: 'ai-chat' } }))
         // 点击后移除上下文菜单
         if (contextMenu.parentNode === document.body) {
           document.body.removeChild(contextMenu)

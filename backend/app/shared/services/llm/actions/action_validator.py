@@ -133,6 +133,8 @@ class ActionValidator:
         "Conditional",
         "Scripted",
         "DateLogic",
+        "Charset",
+        "Composite",
         # 别名兼容
         "NOT_NULL",
         "UNIQUE",
@@ -141,8 +143,43 @@ class ActionValidator:
         "FOREIGN_KEY",
         "CONDITIONAL",
         "DATE_LOGIC",
+        "CHARSET",
+        "COMPOSITE",
         "REGEX",
     }
+
+    VALID_SCHEMA_TYPES = {"ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"}
+    VALID_REGEX_TYPES = {"ADD_REGEX", "UPDATE_REGEX", "DELETE_REGEX"}
+    VALID_TRANSFORM_TYPES = {"ADD_TRANSFORM", "UPDATE_TRANSFORM", "DELETE_TRANSFORM"}
+
+    VALID_TRANSFORM_TYPE_NAMES = {
+        "StringSplit",
+        "RegexExtract",
+        "MathExpr",
+        "DateFormat",
+        "Lookup",
+        "Strip",
+        "UpperCase",
+        "LowerCase",
+        "Replace",
+        "FilterRows",
+        "FillNA",
+        "DropDuplicates",
+        "CastType",
+        "Concat",
+        "Substring",
+        "Aggregate",
+        "ConditionalAssign",
+        "SortRows",
+        "Digits",
+        "WeightedSum",
+        "Modulo",
+        "MapValue",
+    }
+
+    VALID_SETTINGS_CATEGORIES = {"validation", "fileProcessing", "scriptSecurity"}
+
+    VALID_DATA_TYPES = {"string", "integer", "decimal", "boolean", "datetime", "date", "time", "float"}
 
     # 需要特定参数的约束类型
     CONSTRAINT_REQUIRED_PARAMS = {
@@ -248,7 +285,6 @@ class ActionValidator:
         for index, action in enumerate(actions):
             action_type = action.get("actionType", "")
 
-            # 根据动作类型进行验证
             if action_type in ["ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"]:
                 errors = self._validate_constraint_action(action, schema, index)
                 result.errors.extend(errors)
@@ -265,8 +301,39 @@ class ActionValidator:
                 else:
                     result.valid_actions.append(action)
 
+            elif action_type in self.VALID_SCHEMA_TYPES:
+                errors = self._validate_schema_action(action, index)
+                result.errors.extend(errors)
+                if errors:
+                    result.invalid_action_indices.add(index)
+                else:
+                    result.valid_actions.append(action)
+
+            elif action_type in self.VALID_REGEX_TYPES:
+                errors = self._validate_regex_action(action, index)
+                result.errors.extend(errors)
+                if errors:
+                    result.invalid_action_indices.add(index)
+                else:
+                    result.valid_actions.append(action)
+
+            elif action_type in self.VALID_TRANSFORM_TYPES:
+                errors = self._validate_transform_action(action, index)
+                result.errors.extend(errors)
+                if errors:
+                    result.invalid_action_indices.add(index)
+                else:
+                    result.valid_actions.append(action)
+
+            elif action_type == "UPDATE_SETTINGS":
+                errors = self._validate_settings_action(action, index)
+                result.errors.extend(errors)
+                if errors:
+                    result.invalid_action_indices.add(index)
+                else:
+                    result.valid_actions.append(action)
+
             else:
-                # 未知动作类型，记录警告但允许执行
                 result.warnings.append(
                     ValidationError(
                         action_index=index,
@@ -276,7 +343,7 @@ class ActionValidator:
                         suggestion="系统可能不支持此操作，请检查 AI 响应",
                     )
                 )
-                result.valid_actions.append(action)  # 仍允许尝试执行
+                result.valid_actions.append(action)
 
         return result
 
@@ -657,6 +724,237 @@ class ActionValidator:
                     error_type="type_incompatibility",
                     message=f"不能对 {col_type} 类型的字段使用 {constraint_type} 约束",
                     suggestion=f"建议对 {col_type} 类型使用: " + suggest_constraints_for_type(col_type),
+                )
+            )
+
+        return errors
+
+    def _validate_schema_action(self, action: dict[str, Any], index: int) -> list[ValidationError]:
+        """
+        @methoddesc 验证 Schema 操作
+
+        检查 schemaSpec 中的名称、列定义合法性。
+
+        参数:
+            action: 动作字典
+            index: 动作索引
+
+        返回:
+            错误列表
+        """
+        errors = []
+        action_type = action.get("actionType", "")
+        spec = action.get("schemaSpec", {})
+
+        name = spec.get("name", "")
+        schema_id = spec.get("schemaId") or spec.get("id")
+
+        if action_type in ("ADD_SCHEMA", "UPDATE_SCHEMA") and not name and not schema_id:
+            errors.append(
+                ValidationError(
+                    action_index=index,
+                    action_type=action_type,
+                    error_type="missing_schema_name",
+                    message="Schema 名称不能为空",
+                    suggestion="请指定 name 字段",
+                )
+            )
+
+        # 验证列定义
+        columns = spec.get("columns", [])
+        if columns is not None:
+            for col in columns:
+                col_type = col.get("type", "string")
+                if col_type not in self.VALID_DATA_TYPES:
+                    errors.append(
+                        ValidationError(
+                            action_index=index,
+                            action_type=action_type,
+                            error_type="invalid_column_type",
+                            message=f"不支持的数据类型: '{col_type}'",
+                            suggestion=f"可用类型: {', '.join(sorted(self.VALID_DATA_TYPES))}",
+                        )
+                    )
+
+        if action_type in ("UPDATE_SCHEMA", "DELETE_SCHEMA") and not schema_id and not name:
+            errors.append(
+                ValidationError(
+                    action_index=index,
+                    action_type=action_type,
+                    error_type="missing_schema_id",
+                    message="更新/删除 Schema 需要指定 schemaId 或 name",
+                )
+            )
+
+        return errors
+
+    def _validate_regex_action(self, action: dict[str, Any], index: int) -> list[ValidationError]:
+        """
+        @methoddesc 验证 Regex 操作
+
+        检查 regexSpec 中的名称、模式、匹配模式合法性。
+
+        参数:
+            action: 动作字典
+            index: 动作索引
+
+        返回:
+            错误列表
+        """
+        errors = []
+        action_type = action.get("actionType", "")
+        spec = action.get("regexSpec", {})
+
+        if action_type == "ADD_REGEX":
+            name = spec.get("name", "")
+            pattern = spec.get("pattern", "")
+            if not name:
+                errors.append(
+                    ValidationError(
+                        action_index=index,
+                        action_type=action_type,
+                        error_type="missing_regex_name",
+                        message="Regex 名称不能为空",
+                    )
+                )
+            if not pattern:
+                errors.append(
+                    ValidationError(
+                        action_index=index,
+                        action_type=action_type,
+                        error_type="missing_regex_pattern",
+                        message="Regex 模式不能为空",
+                    )
+                )
+
+        match_mode = spec.get("matchMode")
+        if match_mode and match_mode not in {"full", "partial", "extract"}:
+            errors.append(
+                ValidationError(
+                    action_index=index,
+                    action_type=action_type,
+                    error_type="invalid_match_mode",
+                    message=f"不支持的匹配模式: '{match_mode}'",
+                    suggestion="可选: full, partial, extract",
+                )
+            )
+
+        if action_type in ("UPDATE_REGEX", "DELETE_REGEX"):
+            regex_id = spec.get("regexId") or spec.get("id") or spec.get("name")
+            if not regex_id:
+                errors.append(
+                    ValidationError(
+                        action_index=index,
+                        action_type=action_type,
+                        error_type="missing_regex_id",
+                        message="更新/删除 Regex 需要指定 regexId 或 name",
+                    )
+                )
+
+        return errors
+
+    def _validate_transform_action(self, action: dict[str, Any], index: int) -> list[ValidationError]:
+        """
+        @methoddesc 验证 Transform 操作
+
+        检查 transformSpec 中的类型、参数合法性。
+
+        参数:
+            action: 动作字典
+            index: 动作索引
+
+        返回:
+            错误列表
+        """
+        errors = []
+        action_type = action.get("actionType", "")
+        spec = action.get("transformSpec", {})
+
+        if action_type == "ADD_TRANSFORM":
+            transform_type = spec.get("type", "")
+            if not transform_type:
+                errors.append(
+                    ValidationError(
+                        action_index=index,
+                        action_type=action_type,
+                        error_type="missing_transform_type",
+                        message="Transform 类型不能为空",
+                        suggestion=f"可选: {', '.join(sorted(self.VALID_TRANSFORM_TYPE_NAMES))}",
+                    )
+                )
+            elif transform_type not in self.VALID_TRANSFORM_TYPE_NAMES:
+                errors.append(
+                    ValidationError(
+                        action_index=index,
+                        action_type=action_type,
+                        error_type="invalid_transform_type",
+                        message=f"不支持的 Transform 类型: '{transform_type}'",
+                        suggestion=f"可选: {', '.join(sorted(self.VALID_TRANSFORM_TYPE_NAMES))}",
+                    )
+                )
+
+        if action_type in ("UPDATE_TRANSFORM", "DELETE_TRANSFORM"):
+            transform_id = spec.get("transformId") or spec.get("id")
+            if not transform_id:
+                errors.append(
+                    ValidationError(
+                        action_index=index,
+                        action_type=action_type,
+                        error_type="missing_transform_id",
+                        message="更新/删除 Transform 需要指定 transformId",
+                    )
+                )
+
+        return errors
+
+    def _validate_settings_action(self, action: dict[str, Any], index: int) -> list[ValidationError]:
+        """
+        @methoddesc 验证 Settings 操作
+
+        检查 settingsSpec 中的 category 和 settings 合法性。
+
+        参数:
+            action: 动作字典
+            index: 动作索引
+
+        返回:
+            错误列表
+        """
+        errors = []
+        action_type = action.get("actionType", "")
+        spec = action.get("settingsSpec", {})
+
+        category = spec.get("category", "")
+        settings = spec.get("settings", {})
+
+        if not category:
+            errors.append(
+                ValidationError(
+                    action_index=index,
+                    action_type=action_type,
+                    error_type="missing_settings_category",
+                    message="缺少 settings category",
+                    suggestion=f"可选: {', '.join(sorted(self.VALID_SETTINGS_CATEGORIES))}",
+                )
+            )
+        elif category not in self.VALID_SETTINGS_CATEGORIES:
+            errors.append(
+                ValidationError(
+                    action_index=index,
+                    action_type=action_type,
+                    error_type="invalid_settings_category",
+                    message=f"未知的 settings category: '{category}'",
+                    suggestion=f"可选: {', '.join(sorted(self.VALID_SETTINGS_CATEGORIES))}",
+                )
+            )
+
+        if not settings:
+            errors.append(
+                ValidationError(
+                    action_index=index,
+                    action_type=action_type,
+                    error_type="empty_settings",
+                    message="settings 不能为空",
                 )
             )
 

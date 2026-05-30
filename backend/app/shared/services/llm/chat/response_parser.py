@@ -30,7 +30,9 @@ class ActionParser:
         "ForeignKey",
         "Conditional",
         "Scripted",
+        "Charset",
         "DateLogic",
+        "Composite",
         "NOT_NULL",
         "UNIQUE",
         "REGEX",
@@ -39,11 +41,55 @@ class ActionParser:
         "FOREIGN_KEY",
         "CONDITIONAL",
         "DATE_LOGIC",
+        "CHARSET",
+        "COMPOSITE",
     ]
+
+    VALID_TRANSFORM_TYPES = [
+        "StringSplit",
+        "RegexExtract",
+        "MathExpr",
+        "DateFormat",
+        "Lookup",
+        "Strip",
+        "UpperCase",
+        "LowerCase",
+        "Replace",
+        "FillNA",
+        "FilterRows",
+        "DropDuplicates",
+        "CastType",
+        "Concat",
+        "Substring",
+        "Aggregate",
+        "ConditionalAssign",
+        "SortRows",
+        "Digits",
+        "WeightedSum",
+        "Modulo",
+        "MapValue",
+    ]
+
     VALID_ACTION_TYPES = [
+        # 约束操作
         "ADD_CONSTRAINT_NODE",
         "UPDATE_CONSTRAINT_NODE",
         "DELETE_CONSTRAINT_NODE",
+        # Schema 操作
+        "ADD_SCHEMA",
+        "UPDATE_SCHEMA",
+        "DELETE_SCHEMA",
+        # Regex 操作
+        "ADD_REGEX",
+        "UPDATE_REGEX",
+        "DELETE_REGEX",
+        # Transform 操作
+        "ADD_TRANSFORM",
+        "UPDATE_TRANSFORM",
+        "DELETE_TRANSFORM",
+        # 项目设置
+        "UPDATE_SETTINGS",
+        # 校验
         "VALIDATE_PROJECT",
     ]
 
@@ -171,11 +217,29 @@ class ActionParser:
             return False
         if action_type == "VALIDATE_PROJECT":
             return True
-        if "constraintSpec" not in action:
-            return False
-        spec = action.get("constraintSpec", {})
-        if spec.get("type") not in ActionParser.VALID_CONSTRAINT_TYPES:
-            return False
+        if action_type == "UPDATE_SETTINGS":
+            return True
+        # 约束操作需要 constraintSpec
+        if action_type in ("ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"):
+            if "constraintSpec" not in action:
+                return False
+            spec = action.get("constraintSpec", {})
+            if spec.get("type") not in ActionParser.VALID_CONSTRAINT_TYPES:
+                return False
+            return True
+        # Schema/Regex/Transform 操作需要各自的 spec
+        if action_type in ("ADD_SCHEMA", "UPDATE_SCHEMA"):
+            return "schemaSpec" in action
+        if action_type == "DELETE_SCHEMA":
+            return "schemaSpec" in action
+        if action_type in ("ADD_REGEX", "UPDATE_REGEX"):
+            return "regexSpec" in action
+        if action_type == "DELETE_REGEX":
+            return "regexSpec" in action
+        if action_type in ("ADD_TRANSFORM", "UPDATE_TRANSFORM"):
+            return "transformSpec" in action
+        if action_type == "DELETE_TRANSFORM":
+            return "transformSpec" in action
         return True
 
     @staticmethod

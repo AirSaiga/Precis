@@ -64,27 +64,78 @@ export interface ChatContext {
 }
 
 /**
- * AI 返回的前端指令，用于自动创建约束等画布操作
+ * 约束规格参数（约束指令的 spec 部分）
+ */
+export interface ConstraintSpec {
+  type: string
+  targetNodeId: string
+  tableName: string
+  targetColumn: string
+  targetColumnId?: string
+  constraintId: string
+  isInline?: boolean
+  params?: Record<string, unknown>
+}
+
+/**
+ * Schema 规格参数（Schema 指令的 spec 部分）
+ */
+export interface SchemaSpec {
+  name: string
+  schemaId?: string
+  columns?: Array<{ name: string; type: string; id?: string }>
+  source?: Record<string, unknown>
+  action?: 'add' | 'update' | 'delete'
+}
+
+/**
+ * Regex 规格参数（Regex 指令的 spec 部分）
+ */
+export interface RegexSpec {
+  name: string
+  regexId?: string
+  pattern?: string
+  matchMode?: 'full' | 'partial' | 'extract'
+  caseSensitive?: boolean
+  targetNodeId?: string
+  targetColumn?: string
+  description?: string
+}
+
+/**
+ * Transform 规格参数（Transform 指令的 spec 部分）
+ */
+export interface TransformSpec {
+  transformId?: string
+  type: string
+  description?: string
+  inputFromNode?: string
+  inputColumn?: string
+  params?: Record<string, unknown>
+  outputColumns?: string[]
+}
+
+/**
+ * Settings 规格参数（项目设置指令的 spec 部分）
+ */
+export interface SettingsSpec {
+  category: 'validation' | 'fileProcessing' | 'scriptSecurity'
+  settings: Record<string, unknown>
+}
+
+/**
+ * AI 返回的前端指令，用于自动创建/修改画布节点或项目配置
  *
- * @property actionType - 指令动作类型（如 createConstraint）
- * @property constraintSpec - 约束规格参数
- * @property constraintSpec.type - 约束类型（如 NotNull、Unique 等）
- * @property constraintSpec.targetNodeId - 目标 Schema 节点 ID
- * @property constraintSpec.tableName - 目标表名
- * @property constraintSpec.targetColumn - 目标列名
- * @property constraintSpec.constraintId - 约束唯一标识
- * @property constraintSpec.isInline - 是否为内嵌约束（可选）
+ * @property actionType - 指令动作类型
+ * @property constraintSpec - 约束规格参数（兼容旧字段名）
  */
 export interface FrontendInstruction {
   actionType: string
-  constraintSpec: {
-    type: string
-    targetNodeId: string
-    tableName: string
-    targetColumn: string
-    constraintId: string
-    isInline?: boolean
-  }
+  constraintSpec: ConstraintSpec
+  schemaSpec?: SchemaSpec
+  regexSpec?: RegexSpec
+  transformSpec?: TransformSpec
+  settingsSpec?: SettingsSpec
 }
 
 /**

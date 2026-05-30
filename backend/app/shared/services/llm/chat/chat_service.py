@@ -383,6 +383,15 @@ class ChatLLMServiceFactory:
             return cls.create_deepseek(api_key, model or "deepseek-chat")
         elif "qwen" in provider_lower or "ali" in provider_lower or "alibaba" in provider_lower:
             return cls.create_qwen(api_key, model or "qwen-turbo")
+        elif "ollama" in provider_lower:
+            return ChatLLMService(
+                provider_id="ollama",
+                name="Ollama",
+                provider_type=ProviderType.OLLAMA,
+                api_key=api_key,
+                base_url=base_url or "http://localhost:11434",
+                model=model or "",
+            )
         elif "openai" in provider_lower:
             if base_url:
                 return ChatLLMService(

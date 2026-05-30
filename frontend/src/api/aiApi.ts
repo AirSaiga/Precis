@@ -17,6 +17,7 @@ import type {
   AiHardwareDiagnoseResponse,
   AiModelModes,
   CloudAIProviderResponse,
+  CloudAIProviderTestResponse,
 } from '@/types/ai'
 
 /**
@@ -193,5 +194,33 @@ export async function getCloudAIProviderConfigInfo(): Promise<{
   exists: boolean
 }> {
   const { data } = await apiClient.get('/ai/providers/config-info')
+  return data
+}
+
+/**
+ * 测试 AI Provider 连接
+ *
+ * 执行健康检查并获取可用模型列表。
+ *
+ * @param providerId - Provider ID
+ * @returns 测试结果（含健康状态和可用模型列表）
+ */
+export async function testCloudAIProvider(
+  providerId: string
+): Promise<{ provider_id: string; health: { status: string; latency_ms?: number; error?: string }; available_models: string[] }> {
+  const { data } = await apiClient.post(`/ai/providers/${encodeURIComponent(providerId)}/test`)
+  return data
+}
+
+/**
+ * 激活 AI Provider（设为默认 chat provider）
+ *
+ * @param providerId - Provider ID
+ * @returns 激活后的 Provider 信息
+ */
+export async function activateCloudAIProvider(providerId: string): Promise<CloudAIProviderResponse> {
+  const { data } = await apiClient.post<CloudAIProviderResponse>(
+    `/ai/providers/${encodeURIComponent(providerId)}/activate`
+  )
   return data
 }

@@ -22,7 +22,7 @@ from app.shared.core.project.manifest.types_parts.constants import V2_VERSION
 from app.shared.core.project.manifest.types_parts.data_source import DataSourceRef
 from app.shared.core.project.manifest.types_parts.info import ProjectInfo
 from app.shared.core.project.manifest.types_parts.manifest import ProjectManifest
-from app.shared.core.project.manifest.types_parts.refs import ConstraintRef, RegexRef, SchemaRef
+from app.shared.core.project.manifest.types_parts.refs import ConstraintRef, RegexRef, SchemaRef, TransformRef
 from app.shared.core.project.manifest.types_parts.settings import ProjectSettings
 from app.shared.core.project.manifest.types_parts.settings_file_processing import FileProcessingSettings
 from app.shared.core.project.manifest.types_parts.settings_script_security import ScriptSecuritySettings
@@ -56,6 +56,7 @@ __all__ = [
     "RegexRef",
     "SchemaRef",
     "SchemaRefV2",
+    "TransformRef",
     "ScriptSecuritySettings",
     "ScriptSecuritySettingsV2",
     "V2_VERSION",

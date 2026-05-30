@@ -28,6 +28,10 @@ import yaml
 
 from app.shared.core.project.constraint.types import ConstraintFile
 from app.shared.core.project.constraint.writer import save_constraint
+from app.shared.services.llm.actions.regex_handlers import process_regex_action
+from app.shared.services.llm.actions.schema_handlers import process_schema_action
+from app.shared.services.llm.actions.settings_handlers import process_settings_action
+from app.shared.services.llm.actions.transform_handlers import process_transform_action
 from app.shared.services.llm.constraints.constraint_builder import (
     CONSTRAINT_TYPE_MAP,
     _build_constraint_params,
@@ -55,6 +59,10 @@ __all__ = [
     "_collect_target_schema_id",
     "_is_inline_action",
     "process_inline_batch",
+    "process_schema_action",
+    "process_regex_action",
+    "process_transform_action",
+    "process_settings_action",
 ]
 
 

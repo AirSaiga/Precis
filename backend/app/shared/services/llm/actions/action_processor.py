@@ -32,6 +32,10 @@ from app.shared.services.llm.actions.action_handlers import (
     process_inline_batch,
     update_yaml_config,
 )
+from app.shared.services.llm.actions.regex_handlers import process_regex_action
+from app.shared.services.llm.actions.schema_handlers import process_schema_action
+from app.shared.services.llm.actions.settings_handlers import process_settings_action
+from app.shared.services.llm.actions.transform_handlers import process_transform_action
 
 logger = logging.getLogger(__name__)
 
@@ -39,24 +43,78 @@ logger = logging.getLogger(__name__)
 def _collect_affected_files(actions: list[dict[str, Any]], workspace_path: str) -> set[str]:
     """收集动作列表可能影响的所有文件路径（用于备份）。
 
-    扫描动作中的 schema/constraint/regex 相关文件路径。
+    扫描所有动作类型中的相关文件路径，包括约束、Schema、Regex、Transform 和项目设置。
+    始终包含 project.precis.yaml（所有资源类型操作都可能修改它）。
     """
     affected: set[str] = set()
+    has_file_modifications = False
+
+    schema_action_types = {"ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"}
+    regex_action_types = {"ADD_REGEX", "UPDATE_REGEX", "DELETE_REGEX"}
+    transform_action_types = {"ADD_TRANSFORM", "UPDATE_TRANSFORM", "DELETE_TRANSFORM"}
+    constraint_action_types = {"ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"}
+
     for action in actions:
-        spec = action.get("constraintSpec", {})
-        # 收集约束文件路径
-        constraint_file = spec.get("constraintFile") or spec.get("filePath")
-        if constraint_file and not os.path.isabs(constraint_file):
-            constraint_file = os.path.join(workspace_path, constraint_file)
-        if constraint_file:
-            affected.add(constraint_file)
-        # 收集 schema 文件路径
-        schema_file = spec.get("schemaFile") or spec.get("schemaFilePath")
-        if schema_file and not os.path.isabs(schema_file):
-            schema_file = os.path.join(workspace_path, schema_file)
-        if schema_file:
-            affected.add(schema_file)
-    return {f for f in affected if os.path.isfile(f)}
+        action_type = action.get("actionType", "")
+
+        if action_type in constraint_action_types:
+            spec = action.get("constraintSpec", {})
+            constraint_file = spec.get("constraintFile") or spec.get("filePath")
+            if constraint_file and not os.path.isabs(constraint_file):
+                constraint_file = os.path.join(workspace_path, constraint_file)
+            if constraint_file:
+                affected.add(constraint_file)
+            schema_file = spec.get("schemaFile") or spec.get("schemaFilePath")
+            if schema_file and not os.path.isabs(schema_file):
+                schema_file = os.path.join(workspace_path, schema_file)
+            if schema_file:
+                affected.add(schema_file)
+            has_file_modifications = True
+
+        elif action_type in schema_action_types:
+            spec = action.get("schemaSpec", {})
+            schema_id = spec.get("schemaId") or spec.get("id") or spec.get("name")
+            if schema_id:
+                for candidate in [
+                    os.path.join(workspace_path, "schemas", f"{schema_id}.schema.yaml"),
+                    os.path.join(workspace_path, "schemas", f"{schema_id}.yaml"),
+                ]:
+                    if os.path.isfile(candidate):
+                        affected.add(candidate)
+            has_file_modifications = True
+
+        elif action_type in regex_action_types:
+            spec = action.get("regexSpec", {})
+            regex_id = spec.get("regexId") or spec.get("id") or spec.get("name")
+            if regex_id:
+                for dirname in ("regex_nodes", "regex"):
+                    for candidate in [
+                        os.path.join(workspace_path, dirname, f"{regex_id}.regex.yaml"),
+                        os.path.join(workspace_path, dirname, f"{regex_id}.yaml"),
+                    ]:
+                        if os.path.isfile(candidate):
+                            affected.add(candidate)
+            has_file_modifications = True
+
+        elif action_type in transform_action_types:
+            spec = action.get("transformSpec", {})
+            transform_id = spec.get("transformId") or spec.get("id")
+            if transform_id:
+                candidate = os.path.join(workspace_path, "transforms", f"{transform_id}.transform.yaml")
+                if os.path.isfile(candidate):
+                    affected.add(candidate)
+            has_file_modifications = True
+
+        elif action_type == "UPDATE_SETTINGS":
+            has_file_modifications = True
+
+    # 所有资源操作都可能修改 manifest，始终备份
+    if has_file_modifications:
+        manifest_path = os.path.join(workspace_path, "project.precis.yaml")
+        if os.path.isfile(manifest_path):
+            affected.add(manifest_path)
+
+    return affected
 
 
 def _backup_files(file_paths: set[str], backup_dir: str) -> dict[str, str]:
@@ -143,28 +201,39 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
     # 按类型分类 actions
     inline_actions_by_schema: dict[str, list[dict[str, Any]]] = defaultdict(list)
     standalone_actions: list[dict[str, Any]] = []
+    schema_actions: list[dict[str, Any]] = []
+    regex_actions: list[dict[str, Any]] = []
+    transform_actions: list[dict[str, Any]] = []
+    settings_actions: list[dict[str, Any]] = []
     other_actions: list[dict[str, Any]] = []
+
+    constraint_types = {"ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"}
+    schema_types = {"ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"}
+    regex_types = {"ADD_REGEX", "UPDATE_REGEX", "DELETE_REGEX"}
+    transform_types = {"ADD_TRANSFORM", "UPDATE_TRANSFORM", "DELETE_TRANSFORM"}
 
     for action in actions:
         action_type = action.get("actionType")
 
-        # 非约束类动作放入 other_actions
-        if action_type not in [
-            "ADD_CONSTRAINT_NODE",
-            "UPDATE_CONSTRAINT_NODE",
-            "DELETE_CONSTRAINT_NODE",
-        ]:
-            other_actions.append(action)
-        elif _is_inline_action(action):
-            # 内联约束按 schema ID 分组
-            schema_id = _collect_target_schema_id(action)
-            if schema_id:
-                inline_actions_by_schema[schema_id].append(action)
+        if action_type in constraint_types:
+            if _is_inline_action(action):
+                schema_id = _collect_target_schema_id(action)
+                if schema_id:
+                    inline_actions_by_schema[schema_id].append(action)
+                else:
+                    standalone_actions.append(action)
             else:
-                # 无法识别 schema ID，降级为独立处理
                 standalone_actions.append(action)
+        elif action_type in schema_types:
+            schema_actions.append(action)
+        elif action_type in regex_types:
+            regex_actions.append(action)
+        elif action_type in transform_types:
+            transform_actions.append(action)
+        elif action_type == "UPDATE_SETTINGS":
+            settings_actions.append(action)
         else:
-            standalone_actions.append(action)
+            other_actions.append(action)
 
     results = []
 
@@ -184,10 +253,9 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
         )
 
     # 2. 批量处理内联约束（同一 schema 合并为一次文件读写）
-    for schema_id, schema_actions in inline_actions_by_schema.items():
-        if len(schema_actions) == 1:
-            # 单个约束，无需批量优化，直接处理
-            action = schema_actions[0]
+    for schema_id, schema_actions_list in inline_actions_by_schema.items():
+        if len(schema_actions_list) == 1:
+            action = schema_actions_list[0]
             success, message = update_yaml_config(action, workspace_path)
             results.append(
                 {
@@ -198,17 +266,63 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
                 }
             )
         else:
-            # 多个约束针对同一 schema，使用批量处理减少 IO
-            logger.info(f"[process_actions] 批量处理 schema '{schema_id}' 的 {len(schema_actions)} 个内联约束")
-            batch_results = process_inline_batch(schema_actions, workspace_path)
+            logger.info(f"[process_actions] 批量处理 schema '{schema_id}' 的 {len(schema_actions_list)} 个内联约束")
+            batch_results = process_inline_batch(schema_actions_list, workspace_path)
             results.extend(batch_results)
 
-    # 3. 处理 VALIDATE_PROJECT 等其他动作
+    # 3. 处理 Schema 动作
+    for action in schema_actions:
+        result = process_schema_action(action, workspace_path)
+        results.append(
+            {
+                "action": action,
+                "success": result["success"],
+                "message": result["message"],
+                "frontendInstructions": None,
+            }
+        )
+
+    # 4. 处理 Regex 动作
+    for action in regex_actions:
+        result = process_regex_action(action, workspace_path)
+        results.append(
+            {
+                "action": action,
+                "success": result["success"],
+                "message": result["message"],
+                "frontendInstructions": None,
+            }
+        )
+
+    # 5. 处理 Transform 动作
+    for action in transform_actions:
+        result = process_transform_action(action, workspace_path)
+        results.append(
+            {
+                "action": action,
+                "success": result["success"],
+                "message": result["message"],
+                "frontendInstructions": None,
+            }
+        )
+
+    # 6. 处理 Settings 动作
+    for action in settings_actions:
+        result = process_settings_action(action, workspace_path)
+        results.append(
+            {
+                "action": action,
+                "success": result["success"],
+                "message": result["message"],
+                "frontendInstructions": None,
+            }
+        )
+
+    # 7. 处理 VALIDATE_PROJECT 等其他动作
     for action in other_actions:
         action_type = action.get("actionType", "UNKNOWN")
 
         if action_type == "VALIDATE_PROJECT":
-            # 提取可选的表名过滤参数
             spec = action.get("constraintSpec", {})
             table_filter = spec.get("targetNodeId") or spec.get("tableName")
             if not table_filter:
@@ -216,7 +330,6 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
                 if tables:
                     table_filter = tables
 
-            # 执行项目数据校验
             validate_result = execute_validate_project(workspace_path, table_filter=table_filter)
             results.append(
                 {

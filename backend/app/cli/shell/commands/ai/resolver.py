@@ -133,6 +133,22 @@ def resolve_ambiguities(actions: list[dict[str, Any]], project_path: str) -> boo
                     continue
             continue
 
+        # Schema/Regex/Transform/Settings 操作不需要表名歧义解析
+        non_table_types = {
+            "ADD_SCHEMA",
+            "UPDATE_SCHEMA",
+            "DELETE_SCHEMA",
+            "ADD_REGEX",
+            "UPDATE_REGEX",
+            "DELETE_REGEX",
+            "ADD_TRANSFORM",
+            "UPDATE_TRANSFORM",
+            "DELETE_TRANSFORM",
+            "UPDATE_SETTINGS",
+        }
+        if action_type in non_table_types:
+            continue
+
         # 处理约束操作的表名解析
         table_id = spec.get("targetNodeId")
         table_name = spec.get("tableName")

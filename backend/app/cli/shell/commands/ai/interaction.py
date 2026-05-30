@@ -59,10 +59,10 @@ def confirm_actions(actions: list[dict[str, Any]], reply: str) -> bool:
     # 显示每个动作详情
     for i, action in enumerate(actions, 1):
         action_type = action.get("actionType", "UNKNOWN")
-        spec = action.get("constraintSpec", {})
 
         # 处理 VALIDATE_PROJECT 特殊显示
         if action_type == "VALIDATE_PROJECT":
+            spec = action.get("constraintSpec", {})
             table_name = spec.get("tableName", spec.get("targetNodeId", "所有表"))
             tables = spec.get("tables") or spec.get("tableIds")
 
@@ -79,21 +79,55 @@ def confirm_actions(actions: list[dict[str, Any]], reply: str) -> bool:
             print(f"  {i}. {display}")
             continue
 
-        # 约束操作的显示
-        constraint_type = spec.get("type", "Unknown")
-        table_name = spec.get("tableName", spec.get("targetNodeId", "未知"))
-        column_name = spec.get("targetColumn", spec.get("targetColumnId", "未知"))
-
+        # 通用动作描述映射
         action_desc = {
             "ADD_CONSTRAINT_NODE": "添加约束",
             "UPDATE_CONSTRAINT_NODE": "更新约束",
             "DELETE_CONSTRAINT_NODE": "删除约束",
+            "ADD_SCHEMA": "创建表",
+            "UPDATE_SCHEMA": "修改表结构",
+            "DELETE_SCHEMA": "删除表",
+            "ADD_REGEX": "创建正则校验",
+            "UPDATE_REGEX": "更新正则校验",
+            "DELETE_REGEX": "删除正则校验",
+            "ADD_TRANSFORM": "创建数据转换",
+            "UPDATE_TRANSFORM": "更新数据转换",
+            "DELETE_TRANSFORM": "删除数据转换",
+            "UPDATE_SETTINGS": "修改项目设置",
         }.get(action_type, action_type)
 
-        print(f"  {i}. {action_desc}")
-        print(f"     表: {table_name}")
-        print(f"     字段: {column_name}")
-        print(f"     约束类型: {constraint_type}")
+        # 根据动作类型提取展示信息
+        if action_type in ("ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"):
+            spec = action.get("constraintSpec", {})
+            constraint_type = spec.get("type", "Unknown")
+            table_name = spec.get("tableName", spec.get("targetNodeId", "未知"))
+            column_name = spec.get("targetColumn", spec.get("targetColumnId", "未知"))
+            print(f"  {i}. {action_desc}")
+            print(f"     表: {table_name}, 字段: {column_name}, 类型: {constraint_type}")
+        elif action_type in ("ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"):
+            spec = action.get("schemaSpec", {})
+            name = spec.get("name", spec.get("schemaId", "未知"))
+            columns = spec.get("columns", [])
+            print(f"  {i}. {action_desc}: {name}")
+            if columns:
+                col_names = [c.get("name", "?") for c in columns]
+                print(f"     列: {', '.join(col_names)}")
+        elif action_type in ("ADD_REGEX", "UPDATE_REGEX", "DELETE_REGEX"):
+            spec = action.get("regexSpec", {})
+            name = spec.get("name", spec.get("regexId", "未知"))
+            print(f"  {i}. {action_desc}: {name}")
+        elif action_type in ("ADD_TRANSFORM", "UPDATE_TRANSFORM", "DELETE_TRANSFORM"):
+            spec = action.get("transformSpec", {})
+            t_type = spec.get("type", "未知")
+            print(f"  {i}. {action_desc}: {t_type}")
+        elif action_type == "UPDATE_SETTINGS":
+            spec = action.get("settingsSpec", {})
+            category = spec.get("category", "未知")
+            settings = spec.get("settings", {})
+            print(f"  {i}. {action_desc}: {category}")
+            print(f"     设置: {settings}")
+        else:
+            print(f"  {i}. {action_desc}")
 
     print("-" * 40)
 
