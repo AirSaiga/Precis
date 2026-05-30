@@ -245,9 +245,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
     if (graphStore) {
       graphStore.resetCanvas()
       // 项目已加载时，空画布需要 projectRoot 作为项目入口
-      if (graphStore.isProjectLoaded && graphStore.createProjectRootNode) {
-        graphStore.createProjectRootNode({ x: 100, y: 100 })
-      }
+      ensureProjectRootInCanvas(graphStore)
     }
 
     syncTabsToBackend()
@@ -336,6 +334,8 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
         graphStore.nodes = canvasData.nodes
         graphStore.edges = canvasData.edges
       }
+      // 恢复快照后确保 projectRoot 存在（快照可能在 project-closed 时被移除）
+      ensureProjectRootInCanvas(graphStore)
     } else if (graphStore) {
       // 分支 B：目标 Tab 无画布数据，重置画布并创建 projectRoot
       graphStore.resetCanvas()

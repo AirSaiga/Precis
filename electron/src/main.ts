@@ -23,7 +23,7 @@ import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as net from 'net';
-import './update';
+import { updateManager } from './update';
 
 /**
  * Python 后端服务的默认起始端口
@@ -1182,6 +1182,14 @@ app.whenReady().then(async () => {
     await startPythonServer();
   } else {
     console.log('[Main] 开发环境，不自动启动后端服务');
+  }
+
+  // 应用启动时自动检查更新（仅在打包环境）
+  if (app.isPackaged) {
+    // 延迟 3 秒检查，避免影响应用启动速度
+    setTimeout(() => {
+      updateManager.checkForUpdatesIfAutoEnabled();
+    }, 3000);
   }
 
   // [macOS 特定] 点击 Dock 图标时恢复窗口

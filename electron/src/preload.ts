@@ -324,7 +324,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     getStatus: () => ipcRenderer.invoke('update:get-status'),
     getConfig: () => ipcRenderer.invoke('update:get-config'),
     saveConfig: (config: {
-      sourceType?: 'local' | 'github' | 'custom';
+      sourceType?: 'github' | 'custom';
       sourceUrl?: string;
       autoCheck?: boolean;
       autoDownload?: boolean;

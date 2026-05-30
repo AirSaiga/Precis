@@ -14,17 +14,16 @@
   "homepage": "https://github.com/AirSaiga/Precis#readme",
   "scripts": {
     "start": "node scripts/start.js",
-    "start:base": "electron-forge start",
-    "start:utf8": "cmd /c chcp 65001 >nul && electron-forge start",
-    "start:debug": "electron-forge start --inspect-electron",
-    "package": "electron-forge package",
-    "make": "electron-forge make",
-    "publish": "electron-forge publish",
+    "dev": "electron .",
+    "pack": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Target pack",
+    "dist": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Target dist",
+    "release": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Target release",
+    "setup:windows": "powershell -ExecutionPolicy Bypass -File scripts/enable-dev-mode.ps1",
     "lint": "eslint --ext .ts,.js .",
     "build:electron": "tsc",
     "build:backend": "cd ../backend && python -m pip install -e .",
     "build:frontend": "cd ../frontend && npm run build",
-    "build:all": "npm run build:backend && npm run build:frontend && npm run build:electron"
+    "build:all": "npm run build:backend && npm run build:frontend && npm run build:electron && npm run dist"
   },
   "keywords": [
     "electron",
@@ -33,89 +32,68 @@
   ],
   "author": "Precis Team",
   "license": "Apache-2.0",
-  "config": {
-    "forge": {
-      "packagerConfig": {
-        "name": "Precis",
-        "productName": "Precis",
-        "appId": "com.precis.desktop",
-        "asar": true,
-        "directories": {
-          "output": "release"
-        },
-        "files": [
-          "dist/**/*",
-          "backend/**/*",
-          "!backend/build_backend.py",
-          "!backend/requirements-build.txt",
-          "!backend/precis-backend.spec",
-          "!backend/__pycache__/**",
-          "!backend/**/__pycache__/**",
-          "!backend/app/**/__pycache__/**"
-        ],
-        "extraResources": [
-          {
-            "from": "../frontend/dist",
-            "to": "frontend/dist"
-          }
-        ],
-        "win": {
-          "target": "nsis",
-          "icon": "assets/icon.ico"
-        },
-        "mac": {
-          "target": "dmg",
-          "icon": "assets/icon.icns"
-        },
-        "linux": {
-          "target": "AppImage",
-          "icon": "assets/icon.png"
-        }
+  "build": {
+    "appId": "com.precis.desktop",
+    "productName": "Precis",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "backend/**/*",
+      "!backend/build_backend.py",
+      "!backend/requirements-build.txt",
+      "!backend/precis-backend.spec",
+      "!backend/__pycache__/**",
+      "!backend/**/__pycache__/**",
+      "!backend/app/**/__pycache__/**"
+    ],
+    "extraResources": [
+      {
+        "from": "../frontend/dist",
+        "to": "frontend/dist"
+      }
+    ],
+    "publish": {
+      "provider": "github",
+      "owner": "AirSaiga",
+      "repo": "Precis"
+    },
+    "win": {
+      "target": {
+        "target": "nsis",
+        "arch": ["x64"]
       },
-      "makers": [
-        {
-          "name": "@electron-forge/maker-squirrel",
-          "config": {
-            "name": "precis_desktop"
-          }
-        },
-        {
-          "name": "@electron-forge/maker-zip",
-          "platforms": [
-            "darwin"
-          ]
-        },
-        {
-          "name": "@electron-forge/maker-deb",
-          "config": {}
-        },
-        {
-          "name": "@electron-forge/maker-rpm",
-          "config": {}
-        }
+      "icon": "assets/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "mac": {
+      "target": "dmg",
+      "icon": "assets/icon.icns"
+    },
+    "linux": {
+      "target": "AppImage",
+      "icon": "assets/icon.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerLanguages": [
+        "zh_CN",
+        "en_US"
       ],
-      "plugins": [
-        {
-          "name": "@electron-forge/plugin-auto-unpack-natives",
-          "config": {}
-        }
-      ]
+      "language": "2052"
     }
   },
   "devDependencies": {
-    "@electron-forge/cli": "^7.6.0",
-    "@electron-forge/maker-deb": "^7.6.0",
-    "@electron-forge/maker-rpm": "^7.6.0",
-    "@electron-forge/maker-squirrel": "^7.6.0",
-    "@electron-forge/maker-zip": "^7.6.0",
-    "@electron-forge/plugin-auto-unpack-natives": "^7.6.0",
     "@types/node": "^22.18.6",
+    "cross-env": "^10.1.0",
     "electron": "^35.0.0",
+    "electron-builder": "^25.1.0",
     "typescript": "~5.9.0"
   },
   "dependencies": {
     "chalk": "^5.6.2",
-    "electron-squirrel-startup": "^1.0.1",
     "electron-updater": "^6.3.9"
   }
 }

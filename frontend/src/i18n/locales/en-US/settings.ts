@@ -240,7 +240,6 @@ const settings = {
     sourceType: {
       label: 'Update Source Type',
       desc: 'Choose the update server source',
-      local: 'Local (for testing)',
       github: 'GitHub Releases',
       custom: 'Custom Server',
     },

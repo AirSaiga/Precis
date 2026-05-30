@@ -3,12 +3,12 @@
  *
  * 功能概述:
  * - 管理应用的自动更新流程
- * - 支持本地模拟更新源和生产环境更新源
+ * - 支持 GitHub Releases 和自定义更新服务器
  * - 提供完整的更新状态管理和事件处理
  *
  * 架构设计:
  * - 使用 electron-updater 库处理更新逻辑
- * - 支持多种更新源类型（local/github/custom）
+ * - 支持两种更新源类型（github / custom）
  * - 通过 IPC 与渲染进程通信
  */
 
@@ -16,9 +16,15 @@ import { autoUpdater, UpdateInfo, ProgressInfo } from 'electron-updater';
 import { app, ipcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
-import { pathToFileURL } from 'url';
 
-export type UpdateStatus = 'idle' | 'checking' | 'update-available' | 'update-not-available' | 'downloading' | 'downloaded' | 'error';
+export type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'update-available'
+  | 'update-not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error';
 
 export interface UpdateState {
   status: UpdateStatus;
@@ -33,16 +39,16 @@ export interface UpdateState {
 }
 
 export interface UpdateConfig {
-  sourceType: 'local' | 'github' | 'custom';
+  sourceType: 'github' | 'custom';
   sourceUrl?: string;
   autoCheck: boolean;
   autoDownload: boolean;
 }
 
 const DEFAULT_UPDATE_CONFIG: UpdateConfig = {
-  sourceType: 'local',
+  sourceType: 'github',
   autoCheck: true,
-  autoDownload: false
+  autoDownload: false,
 };
 
 class UpdateManager {
@@ -77,14 +83,10 @@ class UpdateManager {
   public saveConfig(config: Partial<UpdateConfig>): void {
     this.config = { ...this.config, ...config };
 
-    if (this.config.sourceType === 'local') {
-      const localUpdatePath = path.join(__dirname, '..', 'local-updates');
-      if (fs.existsSync(localUpdatePath)) {
-        this.setSourceUrl(`file://${localUpdatePath}`);
-      }
-    } else if (this.config.sourceType === 'custom' && this.config.sourceUrl) {
-      this.setSourceUrl(this.config.sourceUrl);
+    if (this.config.sourceType === 'custom' && this.config.sourceUrl) {
+      autoUpdater.setFeedURL({ provider: 'generic', url: this.config.sourceUrl });
     }
+    // github 源无需手动设置 feedURL，electron-updater 会自动从 package.json repository 读取
 
     try {
       fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2), 'utf-8');
@@ -120,7 +122,7 @@ class UpdateManager {
         status: 'update-available',
         version: info.version,
         releaseDate: info.releaseDate,
-        releaseNotes
+        releaseNotes,
       });
       console.log('[UpdateManager] 发现新版本:', info.version);
     });
@@ -128,7 +130,7 @@ class UpdateManager {
     autoUpdater.on('update-not-available', (info: UpdateInfo) => {
       this.updateState({
         status: 'update-not-available',
-        version: info.version
+        version: info.version,
       });
       console.log('[UpdateManager] 当前已是最新版本');
     });
@@ -139,7 +141,7 @@ class UpdateManager {
         progress: progress.percent,
         bytesPerSecond: progress.bytesPerSecond,
         transferred: progress.transferred,
-        total: progress.total
+        total: progress.total,
       });
     });
 
@@ -147,7 +149,7 @@ class UpdateManager {
       this.updateState({
         status: 'downloaded',
         version: info.version,
-        releaseDate: info.releaseDate
+        releaseDate: info.releaseDate,
       });
       console.log('[UpdateManager] 更新已下载完成:', info.version);
     });
@@ -155,7 +157,7 @@ class UpdateManager {
     autoUpdater.on('error', (error: Error) => {
       this.updateState({
         status: 'error',
-        error: error.message
+        error: error.message,
       });
       console.error('[UpdateManager] 更新错误:', error);
     });
@@ -178,65 +180,6 @@ class UpdateManager {
 
     ipcMain.handle('update:check', async () => {
       console.log('[UpdateManager] 收到检查更新请求');
-      console.log('[UpdateManager] NODE_ENV:', process.env.NODE_ENV);
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[UpdateManager] 开发环境，尝试本地更新检查');
-
-        const localUpdatePath = path.join(__dirname, '..', 'local-updates');
-        console.log('[UpdateManager] 本地更新路径:', localUpdatePath);
-
-        if (fs.existsSync(localUpdatePath)) {
-          const latestPath = path.join(localUpdatePath, 'latest.yml');
-          console.log('[UpdateManager] latest.yml 路径:', latestPath);
-
-          if (fs.existsSync(latestPath)) {
-            try {
-              const latestContent = fs.readFileSync(latestPath, 'utf-8');
-              console.log('[UpdateManager] latest.yml 内容:', latestContent.substring(0, 200));
-
-              const currentVersion = app.getVersion();
-              console.log('[UpdateManager] 当前版本:', currentVersion);
-
-              const versionMatch = latestContent.match(/version:\s*(\d+\.\d+\.\d+)/);
-              const dateMatch = latestContent.match(/releaseDate:\s*([^\n]+)/);
-
-              if (versionMatch) {
-                const latestVersion = versionMatch[1];
-                const releaseDate = dateMatch ? dateMatch[1].trim() : '';
-
-                console.log('[UpdateManager] 最新版本:', latestVersion);
-                console.log('[UpdateManager] 发布日期:', releaseDate);
-
-                if (this.compareVersions(latestVersion, currentVersion) > 0) {
-                  console.log('[UpdateManager] 发现新版本!');
-                  this.updateState({
-                    status: 'update-available',
-                    version: latestVersion,
-                    releaseDate: releaseDate,
-                    releaseNotes: ''
-                  });
-                } else {
-                  console.log('[UpdateManager] 当前已是最新版本');
-                  this.updateState({
-                    status: 'update-not-available',
-                    version: currentVersion,
-                    releaseDate: '',
-                    releaseNotes: ''
-                  });
-                }
-
-                return this.state;
-              }
-            } catch (error) {
-              console.error('[UpdateManager] 解析 latest.yml 失败:', error);
-            }
-          }
-        }
-
-        console.log('[UpdateManager] 本地更新目录不存在，跳过更新检查');
-        return { ...this.state, status: 'idle' };
-      }
 
       try {
         await autoUpdater.checkForUpdates();
@@ -280,45 +223,27 @@ class UpdateManager {
     return { ...this.state };
   }
 
-  public compareVersions(v1: string, v2: string): number {
-    const parts1 = v1.split('.').map(Number);
-    const parts2 = v2.split('.').map(Number);
-    for (let i = 0; i < Math.max(parts1.length, parts2.length); i++) {
-      const p1 = parts1[i] || 0;
-      const p2 = parts2[i] || 0;
-      if (p1 > p2) return 1;
-      if (p1 < p2) return -1;
-    }
-    return 0;
-  }
-
-  public setSourceUrl(url: string): void {
-    if (url.startsWith('file://')) {
-      const filePath = url.replace('file://', '');
-      const normalizedPath = path.normalize(filePath);
-      const fileUrl = pathToFileURL(normalizedPath).href;
-      autoUpdater.setFeedURL({ provider: 'generic', url: fileUrl });
-      console.log('[UpdateManager] 设置本地更新源:', fileUrl);
-    } else {
-      autoUpdater.setFeedURL({ provider: 'generic', url });
-      console.log('[UpdateManager] 设置更新源:', url);
-    }
-  }
-
-  public async checkForUpdates(): Promise<UpdateState> {
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[UpdateManager] 开发环境，跳过更新检查');
-      return { status: 'idle' };
+  /**
+   * 应用启动时检查更新（如果配置了 autoCheck）
+   */
+  public async checkForUpdatesIfAutoEnabled(): Promise<void> {
+    if (!this.config.autoCheck) {
+      console.log('[UpdateManager] 自动检查更新已关闭，跳过');
+      return;
     }
 
+    if (!app.isPackaged) {
+      console.log('[UpdateManager] 开发环境，跳过自动更新检查');
+      return;
+    }
+
+    console.log('[UpdateManager] 启动时自动检查更新...');
     try {
       await autoUpdater.checkForUpdates();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '未知错误';
-      this.updateState({ status: 'error', error: errorMessage });
+      console.error('[UpdateManager] 自动检查更新失败:', errorMessage);
     }
-
-    return this.state;
   }
 }
 

@@ -101,11 +101,10 @@ interface UpdateState {
 interface UpdateConfig {
   /**
    * 更新源类型
-   * - local: 本地文件更新
    * - github: 从 GitHub Releases 检查更新
    * - custom: 自定义更新服务器
    */
-  sourceType: 'local' | 'github' | 'custom'
+  sourceType: 'github' | 'custom'
 
   /** 自定义更新源 URL（当 sourceType 为 custom 时使用） */
   sourceUrl?: string

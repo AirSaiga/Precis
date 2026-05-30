@@ -67,7 +67,6 @@
         <div class="settings-row__desc">{{ t('settings.update.sourceType.desc') }}</div>
         <div class="settings-row__control">
           <select v-model="localConfig.sourceType" class="settings-select" @change="handleConfigChange">
-            <option value="local">{{ t('settings.update.sourceType.local') }}</option>
             <option value="github">{{ t('settings.update.sourceType.github') }}</option>
             <option value="custom">{{ t('settings.update.sourceType.custom') }}</option>
           </select>
@@ -191,7 +190,7 @@
   })
 
   const localConfig = ref({
-    sourceType: 'local' as 'local' | 'github' | 'custom',
+    sourceType: 'github' as 'github' | 'custom',
     sourceUrl: '',
     autoCheck: true,
     autoDownload: false,

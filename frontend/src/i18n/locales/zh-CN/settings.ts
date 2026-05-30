@@ -231,7 +231,6 @@ const settings = {
     sourceType: {
       label: '更新源类型',
       desc: '选择更新服务器的来源',
-      local: '本地（测试用）',
       github: 'GitHub Releases',
       custom: '自定义服务器',
     },
