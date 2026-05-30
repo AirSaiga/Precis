@@ -341,6 +341,7 @@ const inspectorConstraints = {
       script: '脚本内容',
       scriptPlaceholder: '请输入 Python 表达式，例如: value > 0',
       scriptHint: '脚本表达式必须返回布尔值（True/False）',
+      openAdvancedEditor: '打开脚本编辑器',
       targetColumn: '目标列',
       targetColumnInfo: '目标列信息',
       table: '表名',

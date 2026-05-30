@@ -41,6 +41,7 @@
     },
     "files": [
       "dist/**/*",
+      "assets/splash.html",
       "backend/**/*",
       "!backend/build_backend.py",
       "!backend/requirements-build.txt",

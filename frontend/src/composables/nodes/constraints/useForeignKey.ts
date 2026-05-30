@@ -255,20 +255,10 @@ export function useForeignKey(
       const headerRow = sourceSchemaData.headerRow as number
 
       if (!sourceSchemaData.sourceFile) {
-        store.updateNodeData(props.id, {
-          validationStatus: 'idle',
-          validationErrors: ['源表未连接数据源'],
-          lastValidation: undefined,
-        })
         return emptyResult
       }
 
       if (!sourceFilePath) {
-        store.updateNodeData(props.id, {
-          validationStatus: 'missing',
-          validationErrors: ['源表未连接数据源，无法执行外键校验'],
-          lastValidation: undefined,
-        })
         return emptyResult
       }
 

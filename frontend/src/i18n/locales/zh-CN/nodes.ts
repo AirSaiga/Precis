@@ -549,6 +549,7 @@ const customNodes = {
     },
     scriptedConstraintNode: {
       title: '脚本约束',
+      scriptEditorTitle: '脚本编辑器',
       helpTooltip:
         '脚本约束允许您使用 JavaScript 表达式定义自定义校验规则。在右侧属性面板中配置脚本和选择源列。',
       table: '表:',
@@ -556,6 +557,7 @@ const customNodes = {
       multipleColumns: '多列',
       validationScript: '验证脚本',
       noScript: '无脚本',
+      scriptConfigured: '脚本已配置',
       inputHandle: '输入连接',
       scriptPreview: '脚本预览',
       editInPropertyPanel: '在属性面板中编辑',

@@ -241,7 +241,7 @@ export const requireSource = (
     return null
   }
   if (!ctx.sourceFile || !ctx.sourceFilePath) {
-    return { status: 'missing', validationErrors: ['源表未连接数据源'], lastValidation: undefined }
+    return { status: 'idle', validationErrors: [], lastValidation: undefined }
   }
   return null
 }

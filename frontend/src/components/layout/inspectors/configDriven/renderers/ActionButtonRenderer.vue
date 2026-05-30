@@ -21,6 +21,7 @@
   import { useSettingsStore } from '@/stores/settingsStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
   import { useAiConfigGeneratorStore } from '@/features/ai-config-generator/stores/aiConfigGeneratorStore'
+  import { useScriptEditorStore } from '@/stores/scriptEditorStore'
   import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
   import type { InspectorContext } from '../utils'
   import { getByPath } from '../utils'
@@ -31,6 +32,7 @@
   const settingsStore = useSettingsStore()
   const validationTaskStore = useValidationTaskStore()
   const aiConfigGeneratorStore = useAiConfigGeneratorStore()
+  const scriptEditorStore = useScriptEditorStore()
 
   const props = defineProps<{
     field: InspectorActionButtonField
@@ -67,6 +69,9 @@
       case 'closeProject':
         handleCloseProject()
         break
+      case 'openScriptEditor':
+        handleOpenScriptEditor()
+        break
     }
   }
 
@@ -102,6 +107,13 @@
     if (confirm(t('inspector.projectRoot.confirm.closeProject'))) {
       store.clearProject()
       window.dispatchEvent(new CustomEvent('project-closed'))
+    }
+  }
+
+  function handleOpenScriptEditor() {
+    const nodeId = props.ctx.nodeId
+    if (nodeId) {
+      scriptEditorStore.open(nodeId)
     }
   }
 </script>

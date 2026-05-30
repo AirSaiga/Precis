@@ -343,6 +343,7 @@ const inspectorConstraints = {
       script: 'Script Content',
       scriptPlaceholder: 'Enter Python expression, e.g., value > 0',
       scriptHint: 'Script expression must return boolean (True/False)',
+      openAdvancedEditor: 'Open Script Editor',
       targetColumn: 'Target Column',
       targetColumnInfo: 'Target Column Info',
       table: 'Table',

@@ -1,6 +1,6 @@
 <!--
   @file ScriptEditorModal.vue
-  @description 脚本约束代码编辑模态框
+  @description 脚本约束代码编辑器（悬浮可拖动面板）
 
   功能职责：
   - 提供轻量级代码编辑器界面，用于编写和编辑 scripted 约束的表达式/脚本
@@ -9,250 +9,232 @@
   - 配置脚本名称并保存到约束节点
 
   关键特性：
-  - 多行文本编辑区，支持语法高亮风格的编辑器外观
-  - 可折叠的帮助面板（变量说明、数学函数、逻辑函数）
+  - 悬浮可拖动面板，不阻挡背景画布操作
+  - 左右分栏布局：左侧编辑区 + 右侧帮助面板
   - 代码模板按钮快速生成常用脚本骨架
   - 代码片段一键插入（value、row、tables 等上下文变量）
 
   Props:
-    - modelValue: boolean  控制模态框显示/隐藏（支持 v-model）
+    - modelValue: boolean  控制面板显示/隐藏（支持 v-model）
 
   Emits:
-    - update:modelValue: 模态框显隐状态变更时触发
+    - update:modelValue: 面板显隐状态变更时触发
     - save: 保存脚本时触发，携带 { script: string; scriptName: string } 载荷
 -->
 <template>
-  <Teleport to="body">
-    <Transition name="modal-fade">
-      <div v-if="visible" class="script-editor-overlay" @click.self="handleClose">
-        <div class="script-editor-modal" role="dialog" aria-modal="true">
-          <div class="script-editor-header">
-            <h3 class="script-editor-title">
-              {{ t('customNodes.constraintRules.scriptedConstraintNode.scriptEditorTitle') }}
-            </h3>
-            <button class="script-editor-close" type="button" @click="handleClose">×</button>
+  <Transition name="modal-fade">
+    <div
+      v-show="visible"
+      ref="panelRef"
+      class="script-editor-panel"
+      :style="panelStyle"
+      role="dialog"
+      aria-modal="false"
+    >
+      <header class="panel-header" @mousedown="onDragStart">
+        <div class="header-left">
+          <h3 class="panel-title">
+            {{ t('customNodes.constraintRules.scriptedConstraintNode.scriptEditorTitle') }}
+          </h3>
+          <input
+            v-model="scriptName"
+            class="panel-name-input"
+            type="text"
+            :placeholder="
+              t('customNodes.constraintRules.scriptedConstraintNode.configNamePlaceholder')
+            "
+            @mousedown.stop
+          />
+        </div>
+        <div class="header-right">
+          <button class="save-btn" type="button" @click="handleSave">
+            {{ t('common.save') }}
+          </button>
+          <button class="close-btn" type="button" @click="handleClose">×</button>
+        </div>
+      </header>
+
+      <div class="panel-body">
+        <div class="editor-column">
+          <div class="toolbar">
+            <span class="toolbar-label">{{
+              t('customNodes.constraintRules.scriptedConstraintNode.scriptContent')
+            }}</span>
+            <div class="toolbar-actions">
+              <button class="template-btn" type="button" @click="insertTemplate('basic')">
+                {{ t('customNodes.constraintRules.scriptedConstraintNode.templateBasic') }}
+              </button>
+              <button class="template-btn" type="button" @click="insertTemplate('range')">
+                {{ t('customNodes.constraintRules.scriptedConstraintNode.templateRange') }}
+              </button>
+              <button class="template-btn" type="button" @click="insertTemplate('regex')">
+                {{ t('customNodes.constraintRules.scriptedConstraintNode.templateRegex') }}
+              </button>
+              <button class="template-btn" type="button" @click="insertTemplate('complex')">
+                {{ t('customNodes.constraintRules.scriptedConstraintNode.templateComplex') }}
+              </button>
+            </div>
+          </div>
+          <div class="textarea-wrapper">
+            <textarea
+              ref="scriptTextarea"
+              v-model="scriptContent"
+              class="code-textarea"
+              :placeholder="
+                t('customNodes.constraintRules.scriptedConstraintNode.scriptPlaceholder')
+              "
+              spellcheck="false"
+            ></textarea>
+          </div>
+          <div class="editor-warning">
+            {{ t('customNodes.constraintRules.scriptedConstraintNode.helpWarning') }}
+          </div>
+        </div>
+
+        <div class="help-column">
+          <div class="help-section">
+            <div
+              class="help-header"
+              @click="expandedSections.variables = !expandedSections.variables"
+            >
+              <span class="help-toggle">{{ expandedSections.variables ? '▼' : '▶' }}</span>
+              <span class="help-title">{{
+                t('customNodes.constraintRules.scriptedConstraintNode.helpVariablesTitle')
+              }}</span>
+            </div>
+            <div v-if="expandedSections.variables" class="help-content">
+              <div class="help-list">
+                <button class="help-item" type="button" @click="insertSnippet('value')">
+                  <code class="help-code">value</code>
+                  <span class="help-desc">{{
+                    t('customNodes.constraintRules.scriptedConstraintNode.helpValueDesc')
+                  }}</span>
+                </button>
+                <button class="help-item" type="button" @click="insertSnippet('row')">
+                  <code class="help-code">row</code>
+                  <span class="help-desc">{{
+                    t('customNodes.constraintRules.scriptedConstraintNode.helpRowDesc')
+                  }}</span>
+                </button>
+                <button class="help-item" type="button" @click="insertSnippet('tables')">
+                  <code class="help-code">tables</code>
+                  <span class="help-desc">{{
+                    t('customNodes.constraintRules.scriptedConstraintNode.helpTablesDesc')
+                  }}</span>
+                </button>
+              </div>
+            </div>
           </div>
 
-          <div class="script-editor-body">
-            <div class="script-config-row">
-              <label class="script-config-label"
-                >{{ t('customNodes.constraintRules.scriptedConstraintNode.configName') }}:</label
-              >
-              <input
-                v-model="scriptName"
-                class="script-config-input"
-                type="text"
-                :placeholder="
-                  t('customNodes.constraintRules.scriptedConstraintNode.configNamePlaceholder')
-                "
-              />
+          <div class="help-section">
+            <div
+              class="help-header"
+              @click="expandedSections.functions = !expandedSections.functions"
+            >
+              <span class="help-toggle">{{ expandedSections.functions ? '▼' : '▶' }}</span>
+              <span class="help-title">{{
+                t('customNodes.constraintRules.scriptedConstraintNode.helpFunctionsTitle')
+              }}</span>
             </div>
+            <div v-if="expandedSections.functions" class="help-content">
+              <div class="help-block">
+                <div class="help-subtitle">
+                  {{ t('customNodes.constraintRules.scriptedConstraintNode.helpMathTitle') }}
+                </div>
+                <div class="help-snippets">
+                  <button class="snippet-btn" type="button" @click="insertSnippet('abs(')">
+                    abs()
+                  </button>
+                  <button class="snippet-btn" type="button" @click="insertSnippet('round(')">
+                    round()
+                  </button>
+                  <button class="snippet-btn" type="button" @click="insertSnippet('min(')">
+                    min()
+                  </button>
+                  <button class="snippet-btn" type="button" @click="insertSnippet('max(')">
+                    max()
+                  </button>
+                </div>
+              </div>
+              <div class="help-block">
+                <div class="help-subtitle">
+                  {{ t('customNodes.constraintRules.scriptedConstraintNode.helpLogicTitle') }}
+                </div>
+                <div class="help-snippets">
+                  <button class="snippet-btn" type="button" @click="insertSnippet('bool(')">
+                    bool()
+                  </button>
+                  <button class="snippet-btn" type="button" @click="insertSnippet('int(')">
+                    int()
+                  </button>
+                  <button class="snippet-btn" type="button" @click="insertSnippet('float(')">
+                    float()
+                  </button>
+                  <button class="snippet-btn" type="button" @click="insertSnippet('str(')">
+                    str()
+                  </button>
+                </div>
+              </div>
+              <div class="help-block">
+                <div class="help-subtitle">
+                  {{
+                    t('customNodes.constraintRules.scriptedConstraintNode.helpCollectionTitle')
+                  }}
+                </div>
+                <div class="help-snippets">
+                  <button class="snippet-btn" type="button" @click="insertSnippet('len(')">
+                    len()
+                  </button>
+                  <button class="snippet-btn" type="button" @click="insertSnippet('any(')">
+                    any()
+                  </button>
+                  <button class="snippet-btn" type="button" @click="insertSnippet('all(')">
+                    all()
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
-            <div class="script-editor-main">
-              <div class="script-editor-toolbar">
-                <span class="toolbar-title"
-                  >{{
-                    t('customNodes.constraintRules.scriptedConstraintNode.scriptContent')
-                  }}:</span
+          <div class="help-section">
+            <div
+              class="help-header"
+              @click="expandedSections.examples = !expandedSections.examples"
+            >
+              <span class="help-toggle">{{ expandedSections.examples ? '▼' : '▶' }}</span>
+              <span class="help-title">{{
+                t('customNodes.constraintRules.scriptedConstraintNode.helpExamplesTitle')
+              }}</span>
+            </div>
+            <div v-if="expandedSections.examples" class="help-content">
+              <div class="example-list">
+                <button
+                  v-for="ex in examples"
+                  :key="ex.key"
+                  class="example-card"
+                  type="button"
+                  @click="insertExample(ex)"
                 >
-                <div class="toolbar-actions">
-                  <button class="toolbar-btn" type="button" @click="insertTemplate('basic')">
-                    {{ t('customNodes.constraintRules.scriptedConstraintNode.templateBasic') }}
-                  </button>
-                  <button class="toolbar-btn" type="button" @click="insertTemplate('range')">
-                    {{ t('customNodes.constraintRules.scriptedConstraintNode.templateRange') }}
-                  </button>
-                  <button class="toolbar-btn" type="button" @click="insertTemplate('regex')">
-                    {{ t('customNodes.constraintRules.scriptedConstraintNode.templateRegex') }}
-                  </button>
-                  <button class="toolbar-btn" type="button" @click="insertTemplate('complex')">
-                    {{ t('customNodes.constraintRules.scriptedConstraintNode.templateComplex') }}
-                  </button>
-                </div>
+                  <div class="example-title">{{ t(ex.titleKey) }}</div>
+                  <div class="example-desc">{{ t(ex.descKey) }}</div>
+                  <div class="example-code">{{ ex.code }}</div>
+                </button>
               </div>
-
-              <div class="script-editor-textarea-wrapper">
-                <textarea
-                  ref="scriptTextarea"
-                  v-model="scriptContent"
-                  class="script-editor-textarea"
-                  :placeholder="
-                    t('customNodes.constraintRules.scriptedConstraintNode.scriptPlaceholder')
-                  "
-                  spellcheck="false"
-                ></textarea>
-              </div>
-
-              <div class="script-help">
-                <div class="help-section">
-                  <div
-                    class="help-header"
-                    @click="expandedSections.variables = !expandedSections.variables"
-                  >
-                    <span class="help-toggle">{{ expandedSections.variables ? '▼' : '▶' }}</span>
-                    <h4>
-                      {{
-                        t('customNodes.constraintRules.scriptedConstraintNode.helpVariablesTitle')
-                      }}
-                    </h4>
-                  </div>
-                  <div v-if="expandedSections.variables" class="help-content">
-                    <div class="help-list">
-                      <button class="help-item" type="button" @click="insertSnippet('value')">
-                        <code class="help-code">value</code>
-                        <span class="help-desc">{{
-                          t('customNodes.constraintRules.scriptedConstraintNode.helpValueDesc')
-                        }}</span>
-                      </button>
-                      <button class="help-item" type="button" @click="insertSnippet('row')">
-                        <code class="help-code">row</code>
-                        <span class="help-desc">{{
-                          t('customNodes.constraintRules.scriptedConstraintNode.helpRowDesc')
-                        }}</span>
-                      </button>
-                      <button class="help-item" type="button" @click="insertSnippet('tables')">
-                        <code class="help-code">tables</code>
-                        <span class="help-desc">{{
-                          t('customNodes.constraintRules.scriptedConstraintNode.helpTablesDesc')
-                        }}</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="help-section">
-                  <div
-                    class="help-header"
-                    @click="expandedSections.functions = !expandedSections.functions"
-                  >
-                    <span class="help-toggle">{{ expandedSections.functions ? '▼' : '▶' }}</span>
-                    <h4>
-                      {{
-                        t('customNodes.constraintRules.scriptedConstraintNode.helpFunctionsTitle')
-                      }}
-                    </h4>
-                  </div>
-                  <div v-if="expandedSections.functions" class="help-content">
-                    <div class="help-block">
-                      <div class="help-subtitle">
-                        {{ t('customNodes.constraintRules.scriptedConstraintNode.helpMathTitle') }}
-                      </div>
-                      <div class="help-snippets">
-                        <button class="snippet" type="button" @click="insertSnippet('abs(')">
-                          abs()
-                        </button>
-                        <button class="snippet" type="button" @click="insertSnippet('round(')">
-                          round()
-                        </button>
-                        <button class="snippet" type="button" @click="insertSnippet('min(')">
-                          min()
-                        </button>
-                        <button class="snippet" type="button" @click="insertSnippet('max(')">
-                          max()
-                        </button>
-                      </div>
-                    </div>
-                    <div class="help-block">
-                      <div class="help-subtitle">
-                        {{ t('customNodes.constraintRules.scriptedConstraintNode.helpLogicTitle') }}
-                      </div>
-                      <div class="help-snippets">
-                        <button class="snippet" type="button" @click="insertSnippet('bool(')">
-                          bool()
-                        </button>
-                        <button class="snippet" type="button" @click="insertSnippet('int(')">
-                          int()
-                        </button>
-                        <button class="snippet" type="button" @click="insertSnippet('float(')">
-                          float()
-                        </button>
-                        <button class="snippet" type="button" @click="insertSnippet('str(')">
-                          str()
-                        </button>
-                      </div>
-                    </div>
-                    <div class="help-block">
-                      <div class="help-subtitle">
-                        {{
-                          t(
-                            'customNodes.constraintRules.scriptedConstraintNode.helpCollectionTitle'
-                          )
-                        }}
-                      </div>
-                      <div class="help-snippets">
-                        <button class="snippet" type="button" @click="insertSnippet('len(')">
-                          len()
-                        </button>
-                        <button class="snippet" type="button" @click="insertSnippet('any(')">
-                          any()
-                        </button>
-                        <button class="snippet" type="button" @click="insertSnippet('all(')">
-                          all()
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="help-section">
-                  <div
-                    class="help-header"
-                    @click="expandedSections.examples = !expandedSections.examples"
-                  >
-                    <span class="help-toggle">{{ expandedSections.examples ? '▼' : '▶' }}</span>
-                    <h4>
-                      {{
-                        t('customNodes.constraintRules.scriptedConstraintNode.helpExamplesTitle')
-                      }}
-                    </h4>
-                  </div>
-                  <div v-if="expandedSections.examples" class="help-content">
-                    <div class="example-grid">
-                      <button
-                        v-for="ex in examples"
-                        :key="ex.key"
-                        class="example-card"
-                        type="button"
-                        @click="insertExample(ex)"
-                      >
-                        <div class="example-title">{{ t(ex.titleKey) }}</div>
-                        <div class="example-desc">{{ t(ex.descKey) }}</div>
-                        <div class="example-code">{{ ex.code }}</div>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                <div class="script-warning">
-                  {{ t('customNodes.constraintRules.scriptedConstraintNode.helpWarning') }}
-                </div>
-              </div>
-            </div>
-
-            <div class="script-editor-footer">
-              <button class="btn btn-cancel" type="button" @click="handleClose">
-                {{ t('common.cancel') }}
-              </button>
-              <button class="btn btn-confirm" type="button" @click="handleSave">
-                {{ t('common.save') }}
-              </button>
             </div>
           </div>
         </div>
       </div>
-    </Transition>
-  </Teleport>
+    </div>
+  </Transition>
 </template>
 
 <script setup lang="ts">
   /**
-   * 脚本编辑器弹窗组件
+   * 脚本编辑器悬浮面板组件
    * 提供完整的脚本编辑功能：
-   * - 脚本名称输入
-   * - 脚本内容编辑区
-   * - 模板快速插入
-   * - 可用函数/变量提示
-   * - 实用示例参考
+   * - 悬浮可拖动，不阻挡背景画布操作
+   * - 左右分栏：左侧代码编辑区 + 右侧帮助面板
+   * - 脚本名称输入、模板快速插入、可用函数/变量提示、实用示例参考
    */
 
   import { computed, ref, watch, nextTick, onMounted, onUnmounted, reactive } from 'vue'
@@ -289,6 +271,52 @@
     set: (value: boolean) => emit('update:modelValue', value),
   })
 
+  // --- 拖动状态 ---
+  const panelRef = ref<HTMLElement | null>(null)
+  const dragState = ref({ x: 0, y: 0, startX: 0, startY: 0, dragging: false })
+  const panelStyle = ref<Record<string, string>>({})
+
+  function onDragStart(e: MouseEvent) {
+    if ((e.target as HTMLElement).closest('input, button')) return
+    const el = panelRef.value
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    dragState.value = {
+      x: rect.left,
+      y: rect.top,
+      startX: e.clientX,
+      startY: e.clientY,
+      dragging: true,
+    }
+    panelStyle.value = {
+      position: 'fixed',
+      left: rect.left + 'px',
+      top: rect.top + 'px',
+      right: 'auto',
+    }
+    document.addEventListener('mousemove', onDragMove)
+    document.addEventListener('mouseup', onDragEnd)
+  }
+
+  function onDragMove(e: MouseEvent) {
+    if (!dragState.value.dragging) return
+    const dx = e.clientX - dragState.value.startX
+    const dy = e.clientY - dragState.value.startY
+    panelStyle.value = {
+      position: 'fixed',
+      left: dragState.value.x + dx + 'px',
+      top: dragState.value.y + dy + 'px',
+      right: 'auto',
+    }
+  }
+
+  function onDragEnd() {
+    dragState.value.dragging = false
+    document.removeEventListener('mousemove', onDragMove)
+    document.removeEventListener('mouseup', onDragEnd)
+  }
+
+  // --- 数据加载 ---
   const loadCurrentScript = () => {
     const id = scriptEditorStore.nodeId
     if (!id) {
@@ -313,9 +341,11 @@
   watch(visible, (newVal) => {
     if (newVal) {
       loadCurrentScript()
+      panelStyle.value = {}
     }
   })
 
+  // --- 操作 ---
   const handleClose = () => {
     scriptEditorStore.close()
     visible.value = false

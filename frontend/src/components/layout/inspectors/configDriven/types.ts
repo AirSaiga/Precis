@@ -151,7 +151,7 @@ export type InspectorWeightedSumField = InspectorFieldBase & {
 
 export type InspectorActionButtonField = InspectorFieldBase & {
   kind: 'actionButton'
-  action: 'validate' | 'fullValidation' | 'export' | 'aiGenerate' | 'reload' | 'projectManagement' | 'closeProject'
+  action: 'validate' | 'fullValidation' | 'export' | 'aiGenerate' | 'reload' | 'projectManagement' | 'closeProject' | 'openScriptEditor'
   buttonLabelKey: string
   danger?: boolean
 }

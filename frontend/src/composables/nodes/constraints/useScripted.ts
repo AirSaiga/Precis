@@ -218,11 +218,6 @@ export function UseScripted(props: { id: string; data: ScriptedConstraintNodeDat
 
       // 检查数据源是否已连接
       if (!sourceSchemaData.sourceFile) {
-        store.updateNodeData(props.id, {
-          validationStatus: 'idle',
-          validationErrors: ['源表未连接数据源'],
-          lastValidation: undefined,
-        })
         return emptyResult
       }
 
@@ -232,11 +227,6 @@ export function UseScripted(props: { id: string; data: ScriptedConstraintNodeDat
       const headerRow = sourceSchemaData.headerRow
 
       if (!sourceFilePath) {
-        store.updateNodeData(props.id, {
-          validationStatus: 'missing',
-          validationErrors: ['源表未连接数据源，无法执行脚本校验'],
-          lastValidation: undefined,
-        })
         return emptyResult
       }
 

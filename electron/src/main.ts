@@ -80,6 +80,11 @@ const FRONTEND_PATH = path.join(__dirname, '..', 'frontend', 'dist');
  */
 let mainWindow: BrowserWindow | null = null;
 
+let splashWindow: BrowserWindow | null = null;
+
+let mainWindowReady = false;
+let backendReady = false;
+
 
 
 /**
@@ -360,6 +365,70 @@ async function startPythonServer(): Promise<void> {
 }
 
 /**
+ * 创建 Splash Screen（启动画面）
+ *
+ * 在应用启动时立即显示一个小型无边框窗口，展示品牌信息和加载动画。
+ * 主窗口 ready-to-show 后自动关闭。
+ */
+function createSplashWindow(): void {
+  splashWindow = new BrowserWindow({
+    width: 400,
+    height: 260,
+    transparent: true,
+    frame: false,
+    resizable: false,
+    center: true,
+    alwaysOnTop: true,
+    skipTaskbar: true,
+    show: false,
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
+
+  const splashPath = path.join(__dirname, '..', 'assets', 'splash.html');
+  splashWindow.loadFile(splashPath);
+
+  splashWindow.once('ready-to-show', () => {
+    splashWindow?.show();
+  });
+
+  splashWindow.on('closed', () => {
+    splashWindow = null;
+  });
+}
+
+/**
+ * 关闭 Splash Screen
+ *
+ * 带渐隐动画效果，避免突兀消失。
+ */
+function closeSplashWindow(): void {
+  if (!splashWindow) return;
+  if (splashWindow.isDestroyed()) {
+    splashWindow = null;
+    return;
+  }
+  splashWindow.close();
+  splashWindow = null;
+}
+
+/**
+ * 尝试关闭 Splash Screen 并显示主窗口
+ *
+ * 只有当主窗口渲染完成 AND 后端就绪（或开发环境无需后端）时才执行。
+ */
+function tryShowMainWindow(): void {
+  if (!mainWindowReady) return;
+  if (!backendReady) return;
+  if (!mainWindow) return;
+  closeSplashWindow();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+/**
  * 创建主应用窗口
  * 
  * 业务功能:
@@ -453,13 +522,11 @@ function createWindow(): void {
     // mainWindow.webContents.openDevTools();
   }
 
-  // 窗口首次渲染完成时显示
-  // [Electron 优化] 避免窗口创建到显示之间的白屏闪烁
+  // 窗口首次渲染完成时标记就绪
+  // 实际显示由 tryShowMainWindow() 统一控制，需等待后端也就绪
   mainWindow.once('ready-to-show', () => {
-    if (mainWindow) {
-      mainWindow.show();
-      mainWindow.focus();
-    }
+    mainWindowReady = true;
+    tryShowMainWindow();
   });
 
   // 窗口关闭时清理引用
@@ -1169,20 +1236,34 @@ ipcMain.handle('get-cwd', async () => {
  * - 但不阻塞窗口创建
  */
 app.whenReady().then(async () => {
+  // 先显示 Splash Screen，让用户立即看到反馈
+  createSplashWindow();
+
   createWindow();
 
   // 判断是否在打包环境（通过检查前端构建文件是否存在）
   const indexPath = path.join(FRONTEND_PATH, 'index.html');
   const hasFrontendBuild = fs.existsSync(indexPath);
   
-  // 在打包环境自动启动后端
-  // 开发环境假设用户已手动启动后端服务
   if (hasFrontendBuild) {
+    // 生产环境: 启动 Python 后端并等待其就绪
     console.log('[Main] 检测到打包环境，启动 Python 后端服务...');
     await startPythonServer();
+    console.log('[Main] 后端启动流程完成，验证 API 就绪...');
   } else {
-    console.log('[Main] 开发环境，不自动启动后端服务');
+    // 开发环境: 后端由用户手动启动，轮询等待其就绪
+    console.log('[Main] 开发环境，等待外部后端服务就绪...');
   }
+
+  // 统一轮询后端 API，确保真正可响应后再显示主窗口
+  const apiReady = await waitForApiReady(currentPythonServerPort, 60000);
+  if (apiReady) {
+    console.log('[Main] 后端 API 已就绪');
+  } else {
+    console.log('[Main] 后端 API 就绪检测超时，继续显示主窗口');
+  }
+  backendReady = true;
+  tryShowMainWindow();
 
   // 应用启动时自动检查更新（仅在打包环境）
   if (app.isPackaged) {

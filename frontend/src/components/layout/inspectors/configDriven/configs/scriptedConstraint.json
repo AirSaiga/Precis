@@ -34,6 +34,13 @@
           "placeholderKey": "inspector.constraint.scripted.scriptPlaceholder",
           "source": { "source": "data", "path": ["script"] },
           "rows": 10
+        },
+        {
+          "id": "openScriptEditor",
+          "kind": "actionButton",
+          "labelKey": "inspector.constraint.scripted.openAdvancedEditor",
+          "action": "openScriptEditor",
+          "buttonLabelKey": "inspector.constraint.scripted.openAdvancedEditor"
         }
       ]
     },

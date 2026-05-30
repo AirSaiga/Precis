@@ -227,11 +227,6 @@ export function useAllowedValues(
       }
 
       if (!sourceFilePath) {
-        store.updateNodeData(props.id, {
-          validationStatus: 'missing',
-          validationErrors: ['源表未连接数据源，无法执行允许值校验'],
-          lastValidation: undefined,
-        })
         return emptyResult
       }
 
