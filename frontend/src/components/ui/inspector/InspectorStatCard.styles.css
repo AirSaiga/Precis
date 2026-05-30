@@ -27,19 +27,19 @@
 }
 
 .icon-bg-default {
-  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+  background: linear-gradient(135deg, var(--ui-bg-subtle) 0%, var(--ui-bg-muted) 100%);
 }
 
 .icon-bg-success {
-  background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+  background: linear-gradient(135deg, var(--ui-success-weak) 0%, var(--ui-success-bg) 100%);
 }
 
 .icon-bg-warning {
-  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  background: linear-gradient(135deg, var(--ui-warning-weak) 0%, var(--ui-warning-bg) 100%);
 }
 
 .icon-bg-error {
-  background: linear-gradient(135deg, #fee2e2 0%, #fecaca 100%);
+  background: linear-gradient(135deg, var(--ui-danger-weak) 0%, var(--ui-danger-bg) 100%);
 }
 
 .icon-emoji {

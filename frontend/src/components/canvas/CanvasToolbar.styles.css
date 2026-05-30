@@ -6,10 +6,10 @@
   align-items: center;
   gap: 12px;
   padding: 8px 12px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(220, 215, 208, 0.5);
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border-light);
   border-radius: var(--ui-radius-lg);
-  box-shadow: 0 4px 16px rgba(45, 42, 38, 0.08);
+  box-shadow: var(--ui-shadow-elevation-md);
   z-index: 10;
 }
 
@@ -29,10 +29,10 @@
 }
 
 .organize-btn:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.5);
+  background: var(--ui-bg-hover);
   backdrop-filter: blur(16px) saturate(180%);
   -webkit-backdrop-filter: blur(16px) saturate(180%);
-  border-color: rgba(160, 170, 185, 0.35);
+  border-color: var(--ui-border);
   transform: translateY(-1px);
 }
 
@@ -46,8 +46,8 @@
 }
 
 .organize-btn.danger:hover:not(:disabled) {
-  background: rgba(253, 245, 245, 0.9);
-  border-color: rgba(212, 114, 114, 0.5);
+  background: var(--ui-danger-weak);
+  border-color: var(--ui-danger-ring);
 }
 
 .btn-icon {
@@ -67,22 +67,22 @@
 
 .stat-item {
   padding: 2px 8px;
-  background: rgba(255, 255, 255, 0.4);
+  background: var(--ui-bg-subtle);
   backdrop-filter: blur(12px) saturate(160%);
   -webkit-backdrop-filter: blur(12px) saturate(160%);
-  border: 1px solid rgba(160, 170, 185, 0.3);
+  border: 1px solid var(--ui-border-light);
   border-radius: var(--ui-radius-sm);
 }
 
 .stat-item.groups {
-  background: rgba(245, 248, 240, 0.65);
-  border-color: rgba(120, 160, 100, 0.5);
+  background: var(--ui-success-weak);
+  border-color: var(--ui-success-ring);
   color: var(--ui-text-primary);
 }
 
 .stat-item.selected {
-  background: rgba(232, 240, 254, 0.65);
-  border-color: rgba(91, 141, 184, 0.5);
+  background: var(--ui-info-weak);
+  border-color: var(--ui-info-ring);
   color: var(--ui-text-primary);
 }
 
@@ -97,7 +97,7 @@
   font-size: 13px;
   border: 1px solid rgba(160, 170, 185, 0.4);
   border-radius: var(--ui-radius-md);
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--ui-bg-subtle);
   color: var(--ui-text-primary);
   cursor: pointer;
   outline: none;
@@ -110,7 +110,7 @@
 .organize-btn.organize-primary {
   background: rgba(33, 150, 243, 0.08);
   border-color: rgba(33, 150, 243, 0.25);
-  color: #0e639c;
+  color: var(--ui-accent);
 }
 
 .organize-btn.organize-primary:hover:not(:disabled) {
@@ -121,5 +121,5 @@
 .organize-btn.active {
   background: rgba(76, 175, 80, 0.12);
   border-color: rgba(76, 175, 80, 0.4);
-  color: #2e7d32;
+  color: var(--ui-success);
 }

@@ -4,7 +4,7 @@
   max-height: 400px;
   overflow-y: auto;
   padding: 4px 0;
-  background: #ffffff;
+  background: var(--ui-bg-elevated);
 }
 
 .tree-row {
@@ -125,24 +125,24 @@
   color: var(--ui-accent, #5a9bc7);
 }
 .type-number {
-  background: #ecfdf5;
-  border: 1px solid #a7f3d0;
-  color: #059669;
+  background: var(--ui-success-weak);
+  border: 1px solid var(--ui-success-ring);
+  color: var(--ui-success-strong);
 }
 .type-boolean {
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #c2410c;
+  background: var(--theme-orange-weak);
+  border: 1px solid var(--theme-orange-ring);
+  color: var(--theme-orange-strong);
 }
 .type-object {
-  background: #f5f3ff;
-  border: 1px solid #ddd6fe;
-  color: #7c3aed;
+  background: var(--theme-purple-weak);
+  border: 1px solid var(--theme-purple-ring);
+  color: var(--theme-purple-strong);
 }
 .type-array {
-  background: #fdf2f8;
-  border: 1px solid #fbcfe8;
-  color: #db2777;
+  background: var(--theme-pink-weak);
+  border: 1px solid var(--theme-pink-ring);
+  color: var(--theme-pink-strong);
 }
 .type-null {
   background: var(--ui-bg-subtle, #f0ede8);
@@ -175,7 +175,7 @@
   outline: none;
   font-weight: 500;
   color: var(--ui-text, #4a453f);
-  background: #ffffff;
+  background: var(--ui-bg-elevated);
 }
 
 .field-path {
@@ -242,7 +242,7 @@
   width: 12px !important;
   height: 12px !important;
   border-radius: 9999px !important;
-  background: #ffffff !important;
+  background: var(--ui-bg-elevated) !important;
   border: 2px solid var(--ui-border-strong, rgba(148, 163, 184, 0.9)) !important;
   box-shadow:
     0 1px 2px rgba(0, 0, 0, 0.08),

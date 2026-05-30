@@ -9,7 +9,7 @@
  */
 .inspector-section {
   margin-bottom: 24px;
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--ui-bg-elevated);
   border-radius: var(--ui-radius-lg);
   padding: 16px;
   border: 1px solid var(--ui-border);

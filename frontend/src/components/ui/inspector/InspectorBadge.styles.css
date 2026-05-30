@@ -29,8 +29,8 @@
 }
 
 .badge-status-warning {
-  background: #fef3c7;
-  color: #92400e;
+  background: var(--ui-warning-weak);
+  color: var(--ui-warning-text);
   border: 1px solid rgba(180, 83, 9, 0.25);
 }
 

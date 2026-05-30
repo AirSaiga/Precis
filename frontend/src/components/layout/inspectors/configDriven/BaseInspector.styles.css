@@ -19,7 +19,7 @@
   flex-direction: column;
   gap: 12px;
   padding: 14px 16px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0.85) 100%);
+  background: var(--ui-bg-elevated);
   border-radius: var(--ui-radius-lg);
   border: 1px solid var(--ui-border);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);

@@ -3,19 +3,19 @@
   align-items: center;
   padding: 10px 12px;
   gap: 12px;
-  background: rgba(255, 255, 255, 0.75);
-  border: 1px solid rgba(220, 215, 208, 0.5);
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border-light);
   border-radius: var(--ui-radius-md);
   cursor: grab;
   transition: all var(--ui-transition-fast);
-  box-shadow: 0 2px 6px rgba(45, 42, 38, 0.04);
+  box-shadow: var(--ui-shadow-elevation-sm);
 }
 
 .component-tile:hover {
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 6px 12px rgba(45, 42, 38, 0.08);
+  background: var(--ui-bg-hover);
+  box-shadow: var(--ui-shadow-elevation-md);
   transform: translateY(-2px);
-  border-color: rgba(200, 192, 182, 0.6);
+  border-color: var(--ui-border);
 }
 
 .component-tile:active {
@@ -59,8 +59,8 @@
 }
 
 .tile-icon-pink {
-  background-color: rgba(236, 72, 153, 0.12);
-  color: #db2777;
+  background-color: var(--theme-pink-weak);
+  color: var(--theme-pink);
 }
 
 .tile-label {

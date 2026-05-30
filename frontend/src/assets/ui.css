@@ -873,7 +873,7 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(255, 255, 255, 0.85);
+  background: color-mix(in srgb, var(--ui-bg-elevated) 85%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1196,10 +1196,10 @@
 
 .canvas-context-menu {
   min-width: 160px;
-  background: rgba(255, 255, 255, 0.6);
+  background: var(--ui-bg-elevated);
   backdrop-filter: blur(24px) saturate(200%);
   -webkit-backdrop-filter: blur(24px) saturate(200%);
-  border: 1px solid rgba(160, 170, 185, 0.35);
+  border: 1px solid var(--ui-border-light);
   border-radius: var(--ui-radius-md);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.14);
   padding: 4px;
@@ -1223,7 +1223,7 @@
 }
 
 .context-menu-item:hover {
-  background: rgba(240, 242, 245, 0.8);
+  background: var(--ui-bg-hover);
 }
 
 .context-menu-item span:first-child {

@@ -103,19 +103,19 @@
   }
 
   .pass-rate-display.pass {
-    background: color-mix(in srgb, var(--ui-success) 10%, white);
+    background: color-mix(in srgb, var(--ui-success) 10%, var(--ui-bg-elevated));
     color: var(--ui-success);
     border: 1px solid color-mix(in srgb, var(--ui-success) 25%, transparent);
   }
 
   .pass-rate-display.partial {
-    background: color-mix(in srgb, var(--ui-warning) 10%, white);
+    background: color-mix(in srgb, var(--ui-warning) 10%, var(--ui-bg-elevated));
     color: var(--ui-warning);
     border: 1px solid color-mix(in srgb, var(--ui-warning) 25%, transparent);
   }
 
   .pass-rate-display.fail {
-    background: color-mix(in srgb, var(--ui-danger) 10%, white);
+    background: color-mix(in srgb, var(--ui-danger) 10%, var(--ui-bg-elevated));
     color: var(--ui-danger);
     border: 1px solid color-mix(in srgb, var(--ui-danger) 25%, transparent);
   }
@@ -138,7 +138,7 @@
   }
 
   .error-count-display.has-errors {
-    background: color-mix(in srgb, var(--ui-danger) 10%, white);
+    background: color-mix(in srgb, var(--ui-danger) 10%, var(--ui-bg-elevated));
     color: var(--ui-danger);
     border: 1px solid color-mix(in srgb, var(--ui-danger) 25%, transparent);
   }
