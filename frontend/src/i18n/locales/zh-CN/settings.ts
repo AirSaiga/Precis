@@ -213,6 +213,7 @@ const settings = {
     },
   },
   update: {
+    title: '检查更新',
     tab: '检查更新',
     description: '查看版本状态并配置更新检测与下载策略。',
     versionInfo: '版本信息',

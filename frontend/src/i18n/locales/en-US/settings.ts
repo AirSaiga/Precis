@@ -222,6 +222,7 @@ const settings = {
     },
   },
   update: {
+    title: 'Check for Updates',
     tab: 'Check for Updates',
     description: 'View version state and configure update checks and download behavior.',
     versionInfo: 'Version Information',
