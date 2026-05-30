@@ -3,7 +3,6 @@
  * @description 画布快捷键命令定义
  */
 import type { Command } from '../types'
-import { i18n } from '@/i18n'
 import {
   zoomIn,
   zoomOut,
@@ -15,24 +14,13 @@ import {
 } from '../handlers/canvas'
 import {
   duplicateNode,
-  copyNode,
-  pasteNode,
   deleteNode,
-  selectAllNodes,
   moveNode,
   generateSchemaFromSource,
   bindDataSourceToSchema,
   validateSelectedNode,
 } from '../handlers/node'
-
-function showFeedback(key: string, detail?: string): void {
-  const translatedText = i18n.global.t(key)
-  const toast = (window as unknown as { $toast?: { info: (msg: string, detail: string) => void } })
-    .$toast
-  if (typeof window !== 'undefined' && toast) {
-    toast.info(translatedText, detail || '')
-  }
-}
+import { showFeedback } from './feedback'
 
 export function createZoomInCommand(): Command {
   return {
@@ -154,26 +142,6 @@ export function createCenterViewCommand(): Command {
   }
 }
 
-export function createCanvasSelectAllCommand(): Command {
-  return {
-    id: 'canvas.selectAll',
-    name: 'shortcuts.commands.selectAll',
-    defaultShortcut: { key: 'a', ctrl: true, shift: true },
-    platformVariants: {
-      mac: { key: 'a', meta: true, shift: true },
-      windows: { key: 'a', ctrl: true, shift: true },
-    },
-    category: 'canvas',
-    priority: 44,
-    execute: async (context) => {
-      const result = await selectAllNodes()
-      if (context.showFeedback && result.message) {
-        showFeedback(result.message)
-      }
-    },
-  }
-}
-
 export function createCanvasDeleteCommand(): Command {
   return {
     id: 'canvas.delete',
@@ -218,51 +186,6 @@ export function createCanvasDeleteBackspaceCommand(): Command {
         graphStore.selectedNodeId !== null ||
         (graphStore.selectedNodeIds && graphStore.selectedNodeIds.length > 0)
       )
-    },
-  }
-}
-
-export function createNodeCopyCommand(): Command {
-  return {
-    id: 'node.copy',
-    name: 'shortcuts.commands.copy',
-    defaultShortcut: { key: 'c', ctrl: true, shift: true },
-    platformVariants: {
-      mac: { key: 'c', meta: true, shift: true },
-      windows: { key: 'c', ctrl: true, shift: true },
-    },
-    category: 'node',
-    priority: 42,
-    execute: async (context) => {
-      const result = await copyNode()
-      if (context.showFeedback && result.message) {
-        showFeedback(result.message)
-      }
-    },
-    isAvailable: async () => {
-      const { useGraphStore } = await import('@/stores/graphStore')
-      const graphStore = useGraphStore()
-      return graphStore.selectedNodeId !== null
-    },
-  }
-}
-
-export function createNodePasteCommand(): Command {
-  return {
-    id: 'node.paste',
-    name: 'shortcuts.commands.paste',
-    defaultShortcut: { key: 'v', ctrl: true, shift: true },
-    platformVariants: {
-      mac: { key: 'v', meta: true, shift: true },
-      windows: { key: 'v', ctrl: true, shift: true },
-    },
-    category: 'node',
-    priority: 41,
-    execute: async (context) => {
-      const result = await pasteNode()
-      if (context.showFeedback && result.message) {
-        showFeedback(result.message)
-      }
     },
   }
 }
@@ -484,11 +407,8 @@ export function getCanvasCommands(): Command[] {
     createFitViewCommand(),
     createToggleMinimapCommand(),
     createCenterViewCommand(),
-    createCanvasSelectAllCommand(),
     createCanvasDeleteCommand(),
     createCanvasDeleteBackspaceCommand(),
-    createNodeCopyCommand(),
-    createNodePasteCommand(),
     createNodeMoveUpCommand(),
     createNodeMoveDownCommand(),
     createNodeMoveLeftCommand(),

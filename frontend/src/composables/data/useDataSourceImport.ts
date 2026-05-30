@@ -29,6 +29,7 @@ import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useGraphStore } from '@/stores/graphStore'
 import { logger } from '@/core/utils/logger'
 import { isElectron, getElectronAPI } from '@/core/utils/electronDetector'
+import { platformDetector } from '@/features/keyboard/platform'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { normalizePath } from '@/core/utils/pathNormalization'
 import type { ExternalDataSource } from '@/types/graph'
@@ -270,7 +271,7 @@ export function useDataSourceImport() {
                   relativePath = rootFolderName
                 } else if (relativePath && rootFolderName) {
                   // 文件在子文件夹中，添加根文件夹前缀，使用跨平台路径分隔符
-                  const sep = rootFolderName.includes('\\') ? '\\' : '/'
+                  const sep = platformDetector.isWindows() ? '\\' : '/'
                   relativePath = rootFolderName + sep + relativePath
                 }
                 logger.debug(
@@ -436,7 +437,7 @@ export function useDataSourceImport() {
           relativePath = rootFolderName
         } else if (relativePath && rootFolderName) {
           // 文件在子文件夹中，添加根文件夹前缀，使用跨平台路径分隔符
-          const sep = rootFolderName.includes('\\') ? '\\' : '/'
+          const sep = platformDetector.isWindows() ? '\\' : '/'
           relativePath = rootFolderName + sep + relativePath
         }
 

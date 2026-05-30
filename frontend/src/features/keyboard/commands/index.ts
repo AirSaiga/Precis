@@ -6,3 +6,4 @@
 
 export * from './baseCommands'
 export * from './canvasCommands'
+export * from './helpCommands'

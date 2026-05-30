@@ -8,6 +8,7 @@
  * - 同步数据源元数据并自动触发智能列填充
  */
 
+import { nextTick } from 'vue'
 import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
@@ -79,6 +80,9 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
   if (!schemaNodeId) {
     return { success: false, message: 'shortcuts.feedback.failed' }
   }
+
+  // 等 Vue Flow 渲染新节点、计算 handleBounds，否则创建边时找不到目标端口
+  await nextTick()
 
   // ========== 创建连接边 ==========
 

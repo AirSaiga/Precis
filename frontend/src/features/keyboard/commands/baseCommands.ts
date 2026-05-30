@@ -3,18 +3,10 @@
  * @description 基础快捷键命令定义
  */
 import type { Command } from '../types'
-import { i18n } from '@/i18n'
 import { save } from '../handlers/editor'
 import { undo, redo } from '../handlers/history'
-import { copyNode, cutNode, pasteNode, deleteNode, selectAllNodes } from '../handlers/node'
-
-function showFeedback(key: string): void {
-  const translatedText = i18n.global.t(key)
-  const toast = (window as unknown as { $toast?: { info: (msg: string, detail: string) => void } }).$toast
-  if (typeof window !== 'undefined' && toast) {
-    toast.info(translatedText, '')
-  }
-}
+import { copyNode, cutNode, pasteNode, selectAllNodes } from '../handlers/node'
+import { showFeedback } from './feedback'
 
 export function createSaveCommand(): Command {
   return {
@@ -60,10 +52,10 @@ export function createRedoCommand(): Command {
   return {
     id: 'editor.redo',
     name: 'shortcuts.commands.redo',
-    defaultShortcut: { key: 'z', ctrl: true, shift: true },
+    defaultShortcut: { key: 'y', ctrl: true },
     platformVariants: {
       mac: { key: 'z', meta: true, shift: true },
-      windows: { key: 'z', ctrl: true, shift: true }
+      windows: { key: 'y', ctrl: true }
     },
     category: 'editor',
     priority: 89,
@@ -170,27 +162,6 @@ export function createSelectAllCommand(): Command {
       if (context.showFeedback && result.message) {
         showFeedback(result.message)
       }
-    }
-  }
-}
-
-export function createDeleteCommand(): Command {
-  return {
-    id: 'editor.delete',
-    name: 'shortcuts.commands.delete',
-    defaultShortcut: { key: 'Delete' },
-    category: 'editor',
-    priority: 60,
-    execute: async (context) => {
-      const result = await deleteNode()
-      if (context.showFeedback && result.message) {
-        showFeedback(result.message)
-      }
-    },
-    isAvailable: async () => {
-      const { useGraphStore } = await import('@/stores/graphStore')
-      const graphStore = useGraphStore()
-      return graphStore.selectedNodeId !== null || (graphStore.selectedNodeIds && graphStore.selectedNodeIds.length > 0)
     }
   }
 }

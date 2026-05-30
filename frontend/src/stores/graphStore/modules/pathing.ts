@@ -101,7 +101,7 @@ export function createPathingModule(params: { nodes: Ref<CustomNode[]> }) {
     if (!base || !rel) return undefined
     if (/^[a-zA-Z]:[\\/]/.test(rel) || rel.startsWith('/') || rel.startsWith('\\')) return rel
 
-    const sep = base.includes('\\') ? '\\' : '/'
+    const sep = platformDetector.isWindows() ? '\\' : '/'
     const normalizedRel = sep === '\\' ? rel.replace(/\//g, '\\') : rel.replace(/\\/g, '/')
     return `${base.replace(/[\\/]+$/, '')}${sep}${normalizedRel.replace(/^[\\/]+/, '')}`
   }

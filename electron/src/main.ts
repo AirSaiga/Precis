@@ -270,8 +270,8 @@ async function startPythonServer(): Promise<void> {
   
   return new Promise<void>((resolve) => {
     // 从环境变量读取 Python 路径，允许用户自定义
-    // 默认使用系统 PATH 中的 'python' 命令
-    const pythonExecutable = process.env.PYTHON_PATH || 'python';
+    // 默认使用系统 PATH 中的 'python' 命令（macOS 通常只有 python3）
+    const pythonExecutable = process.env.PYTHON_PATH || (process.platform === 'darwin' ? 'python3' : 'python');
     
     // 定位后端启动脚本
     const serverScript = path.join(BACKEND_PATH, 'app', 'start_server.py');

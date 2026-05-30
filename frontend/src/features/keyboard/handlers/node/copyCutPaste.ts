@@ -20,12 +20,10 @@ import { useGraphStore } from '@/stores/graphStore'
 export async function copyNode(): Promise<{ success: boolean; message?: string }> {
   const graphStore = useGraphStore()
 
-  // 检查是否有节点被选中，如果没有则返回失败提示
-  if (!graphStore.selectedNodeId) {
+  if (!graphStore.selectedNodeId && graphStore.selectedNodeIds.length === 0) {
     return { success: false, message: 'shortcuts.feedback.notSelected' }
   }
 
-  // 调用 graphStore 的方法将选中节点复制到剪贴板
   graphStore.copySelectedNodes()
   return { success: true, message: 'shortcuts.feedback.copied' }
 }
@@ -40,12 +38,10 @@ export async function copyNode(): Promise<{ success: boolean; message?: string }
 export async function cutNode(): Promise<{ success: boolean; message?: string }> {
   const graphStore = useGraphStore()
 
-  // 检查是否有节点被选中，如果没有则返回失败提示
-  if (!graphStore.selectedNodeId) {
+  if (!graphStore.selectedNodeId && graphStore.selectedNodeIds.length === 0) {
     return { success: false, message: 'shortcuts.feedback.notSelected' }
   }
 
-  // 调用 graphStore 的方法将选中节点剪切到剪贴板（从画布移除）
   await graphStore.cutSelectedNodes()
   return { success: true, message: 'shortcuts.feedback.cut' }
 }

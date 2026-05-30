@@ -103,6 +103,7 @@ import {
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import type { SchemaSaveMode } from '@/types/projectV2'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import { platformDetector } from '@/features/keyboard/platform'
 
 export function createV2SaveOps(params: {
   nodes: Ref<CustomNode[]>
@@ -379,7 +380,7 @@ export function createV2SaveOps(params: {
 
       const base = String((node.data as unknown as Record<string, unknown>).configName || nodeId)
       if (configPath) {
-        const sep = configPath.includes('\\') ? '\\' : '/'
+        const sep = platformDetector.isWindows() ? '\\' : '/'
         const prefix = configPath.replace(/[\\/]+$/, '')
         const manifestPath = `${prefix}${sep}project.precis.yaml`
         const regexPath = `${prefix}${sep}regex${sep}${nodeId}.regex.yaml`

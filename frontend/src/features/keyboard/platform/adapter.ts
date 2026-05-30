@@ -26,6 +26,11 @@ export function adaptShortcutToPlatform(shortcut: Shortcut): Shortcut {
     }
   }
 
+  result.ctrl = result.ctrl ?? false
+  result.meta = result.meta ?? false
+  result.shift = result.shift ?? false
+  result.alt = result.alt ?? false
+
   return result
 }
 
@@ -257,21 +262,10 @@ export function matchesShortcut(event: KeyboardEvent, shortcut: Shortcut): boole
     return false
   }
 
-  if (shortcut.ctrl && !event.ctrlKey) {
-    return false
-  }
-
-  if (shortcut.meta && !event.metaKey) {
-    return false
-  }
-
-  if (shortcut.shift && !event.shiftKey) {
-    return false
-  }
-
-  if (shortcut.alt && !event.altKey) {
-    return false
-  }
+  if (shortcut.ctrl !== event.ctrlKey) return false
+  if (shortcut.meta !== event.metaKey) return false
+  if (shortcut.shift !== event.shiftKey) return false
+  if (shortcut.alt !== event.altKey) return false
 
   return true
 }

@@ -208,9 +208,9 @@ export function useFileSelection(
         if (ds.mode === 'absolute') {
           paths.push(ds.path)
         } else if (configPath.value) {
-          // 相对路径基于 configPath 解析
+          // 相对路径基于 configPath 解析，统一使用正斜杠作为跨平台路径分隔符
           const base = configPath.value.replace(/\\/g, '/')
-          const absPath = `${base}/${ds.path}`.replace(/\//g, '\\')
+          const absPath = `${base}/${ds.path}`
           paths.push(absPath)
         }
       }
