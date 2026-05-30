@@ -122,12 +122,14 @@
 
   /**
    * 计算属性：获取当前应该显示的 Inspector 组件
-   * 根据节点类型动态加载对应的属性面板组件
+   * 根据节点类型动态加载对应的属性面板组件（JSON 驱动检查器优先，此处为旧版回退）
    *
-   * 支持的节点类型：
-   * - sourcePreview: 数据源预览节点
+   * 尚未迁移到 JSON 驱动的节点类型：
    * - schema: Schema 节点
-   * - regex: 正则表达式节点
+   * - pattern / patternToolbox: 模式节点
+   * - compositeConstraint: 复合约束
+   * - manualData: 手动数据
+   * - templateInstance: 模板实例
    */
   const currentInspectorComponent = computed(() => {
     // 如果没有选中节点，返回 null
@@ -135,38 +137,12 @@
 
     // 根据节点类型返回对应的 Inspector 组件
     switch (node.value.type) {
-      case 'sourcePreview':
-        return defineAsyncComponent(() => import('./inspectors/SourcePreviewNodeInspector.vue'))
       case 'schema':
         return defineAsyncComponent(() => import('./inspectors/SchemaNodeInspector.vue'))
-      case 'regex':
-        return defineAsyncComponent(
-          () => import('@/features/regex/components/RegexNodeInspector.vue')
-        )
       case 'pattern':
         return defineAsyncComponent(() => import('./inspectors/PatternNodeInspector.vue'))
       case 'patternToolbox':
         return defineAsyncComponent(() => import('./inspectors/PatternToolboxNodeInspector.vue'))
-      case 'notNullConstraint':
-        return defineAsyncComponent(() => import('./inspectors/NotNullConstraintInspector.vue'))
-      case 'uniqueConstraint':
-        return defineAsyncComponent(() => import('./inspectors/UniqueConstraintInspector.vue'))
-      case 'foreignKeyConstraint':
-        return defineAsyncComponent(() => import('./inspectors/ForeignKeyConstraintInspector.vue'))
-      case 'allowedValuesConstraint':
-        return defineAsyncComponent(
-          () => import('./inspectors/AllowedValuesConstraintInspector.vue')
-        )
-      case 'rangeConstraint':
-        return defineAsyncComponent(() => import('./inspectors/RangeConstraintInspector.vue'))
-      case 'conditionalConstraint':
-        return defineAsyncComponent(() => import('./inspectors/ConditionalConstraintInspector.vue'))
-      case 'scriptedConstraint':
-        return defineAsyncComponent(() => import('./inspectors/ScriptedConstraintInspector.vue'))
-      case 'charsetConstraint':
-        return defineAsyncComponent(() => import('./inspectors/CharsetConstraintInspector.vue'))
-      case 'dateLogicConstraint':
-        return defineAsyncComponent(() => import('./inspectors/DateLogicConstraintInspector.vue'))
       case 'compositeConstraint':
         return defineAsyncComponent(() => import('./inspectors/CompositeConstraintInspector.vue'))
       case 'manualData':
