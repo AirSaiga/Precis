@@ -55,9 +55,8 @@ def _is_configured(p: AIProvider) -> bool:
     - 本地 Provider（OLLAMA 等）：不需要 API Key，base_url 即可
     """
     # 本地部署（Ollama 或 localhost 地址）不需要 API Key
-    is_local = (
-        p.type == ProviderType.OLLAMA
-        or (p.base_url and any(h in p.base_url for h in ["localhost", "127.0.0.1", "0.0.0.0", "::1"]))
+    is_local = p.type == ProviderType.OLLAMA or (
+        p.base_url and any(h in p.base_url for h in ["localhost", "127.0.0.1", "0.0.0.0", "::1"])
     )
     if is_local:
         return bool(p.base_url)
