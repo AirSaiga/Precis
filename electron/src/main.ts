@@ -372,8 +372,8 @@ async function startPythonServer(): Promise<void> {
  */
 function createSplashWindow(): void {
   splashWindow = new BrowserWindow({
-    width: 320,
-    height: 200,
+    width: 360,
+    height: 220,
     transparent: true,
     frame: false,
     resizable: false,
