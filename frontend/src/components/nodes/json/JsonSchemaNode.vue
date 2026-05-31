@@ -53,8 +53,12 @@
   <div
     class="json-schema-node"
     :class="nodeClasses"
+    :style="{ width: width ? `${width}px` : undefined }"
     :data-node-id="props.id"
     @keydown="handleKeydown"
+    @drop="handlePatternDropFromSaving"
+    @dragover="handlePatternDragOverFromSaving"
+    @dragleave="isDragOver = false"
   >
     <!-- 
       左侧目标连接点（Handle）
@@ -98,14 +102,15 @@
     <!-- 列标题栏 -->
     <div class="columns-header">
       <span class="col-h-expand"></span>
-      <span class="col-h-type">{{ t('customNodes.jsonSchemaNode.columnsHeader.type') }}</span>
       <span class="col-h-name">{{ t('customNodes.jsonSchemaNode.columnsHeader.field') }}</span>
       <span class="col-h-path">{{ t('customNodes.jsonSchemaNode.columnsHeader.pathShort') }}</span>
+      <span class="col-h-type">{{ t('customNodes.jsonSchemaNode.columnsHeader.type') }}</span>
+      <span class="col-h-constraints"></span>
       <span class="col-h-actions"></span>
     </div>
 
     <!-- 树形内容 -->
-    <JsonSchemaTree :columns="schemaData.columns" @update="handleColumnsUpdate" />
+    <JsonSchemaTree ref="treeRef" :columns="schemaData.columns" @update="handleColumnsUpdate" />
 
     <!-- 底部 -->
     <div class="node-footer">
@@ -113,6 +118,32 @@
         <span class="plus-icon">+</span>
         <span>{{ t('customNodes.jsonSchemaNode.addField') }}</span>
       </button>
+    </div>
+
+    <!-- 调整大小句柄 -->
+    <div
+      class="resize-handle"
+      @mousedown.stop.prevent="startResize"
+      :title="t('customNodes.sourcePreviewNode.resizeHandle')"
+    ></div>
+
+    <!-- Pattern 绑定提示层 -->
+    <div v-if="isDragOver" class="binding-overlay">
+      <div class="binding-prompt">
+        <span class="prompt-text">{{ t('customNodes.jsonSchemaNode.actions.dropPatternToBind') }}</span>
+      </div>
+    </div>
+
+    <!-- 关闭确认对话框 -->
+    <div v-if="showCloseConfirm" class="close-confirm-overlay" @click.self="cancelClose">
+      <div class="close-confirm-dialog">
+        <p>{{ t('common.confirmDialog.unsavedChanges') }}</p>
+        <div class="close-confirm-actions">
+          <button class="btn-confirm-save" @click="saveAndClose">{{ t('common.saveAndClose') }}</button>
+          <button class="btn-confirm-discard" @click="confirmCloseWithoutSave">{{ t('common.discard') }}</button>
+          <button class="btn-confirm-cancel" @click="cancelClose">{{ t('common.cancel') }}</button>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -167,6 +198,9 @@
   import { useJsonSchemaValidation } from '@/composables/nodes/json/useJsonSchemaValidation'
   import { useJsonSchemaUI } from '@/composables/nodes/json/useJsonSchemaUI'
   import { useJsonSchemaInteractions } from '@/composables/nodes/json/useJsonSchemaInteractions'
+  import { useJsonSchemaSaving } from '@/composables/nodes/json/useJsonSchemaSaving'
+  import { useJsonSchemaConnectionHandler } from '@/composables/nodes/json/useJsonSchemaConnectionHandler'
+  import { useJsonSchemaResizable } from '@/composables/nodes/json/useJsonSchemaResizable'
 
   // Store 导入
   import { useGraphStore } from '@/stores/graphStore'
@@ -323,11 +357,56 @@
     deleteColumn: deleteColumnFromInteraction,
     handleSourceConnect,
     watchSourceConnection,
-    handlePatternDrop,
+    handlePatternDrop: handlePatternDropToColumn,
     cleanup,
   } = useJsonSchemaInteractions(props, emit)
 
+  /**
+   * useJsonSchemaSaving - 保存逻辑
+   * 负责：
+   * - 保存状态追踪（saving/success/error）
+   * - 脏数据追踪（isDirty）
+   * - Ctrl+S 快捷键
+   * - 关闭确认流程
+   */
+  const {
+    isSaving,
+    saveSuccess,
+    saveError,
+    showCloseConfirm,
+    handleSave,
+    handleClose: handleCloseFromSaving,
+    saveAndClose,
+    confirmCloseWithoutSave,
+    cancelClose,
+    markDirty,
+    handlePatternDragOver: handlePatternDragOverFromSaving,
+    handlePatternDrop: handlePatternDropFromSaving,
+  } = useJsonSchemaSaving(props, emit)
+
+  /**
+   * useJsonSchemaConnectionHandler - 连接处理
+   * 负责：
+   * - 数据源连接处理
+   * - Smart Fill 对话框
+   * - 从数据源生成列
+   */
+  const {
+    handleSmartFill,
+  } = useJsonSchemaConnectionHandler(props, emit)
+
+  /**
+   * useJsonSchemaResizable - 缩放逻辑
+   * 负责：
+   * - 节点宽度/高度管理
+   * - 拖拽调整大小
+   * - 最小尺寸约束
+   */
+  const { width, startResize } = useJsonSchemaResizable(props)
+
   // ==================== 计算属性 ====================
+
+  const isDragOver = ref(false)
 
   /**
    * 检查是否已连接到 JSON 数据源
@@ -370,10 +449,10 @@
 
   /**
    * 删除节点
-   * 委托给父组件处理
+   * 使用 useJsonSchemaSaving 的关闭逻辑，支持关闭确认
    */
   const handleClose = () => {
-    emit('remove-node', props.id)
+    handleCloseFromSaving()
   }
 
   /**

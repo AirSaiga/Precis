@@ -34,17 +34,12 @@ import {
   buildJSONOptions,
   toJsonBackendType,
 } from '../schemaBuilder'
-import { useI18n } from 'vue-i18n'
+import { i18n } from '@/i18n'
 import {
   getV2ConstraintTypeByNodeType,
   isConstraintNodeType,
 } from '@/services/constraints/validationRegistry'
 import { buildConstraintExportPayload } from '@/services/constraints/constraintExportAdapter'
-
-function getI18nText(): (key: string) => string {
-  const { t } = useI18n()
-  return t
-}
 
 function buildSchemaIdByNodeId(nodes: CustomNode[]): Record<string, string> {
   const map: Record<string, string> = {}

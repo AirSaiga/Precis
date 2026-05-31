@@ -502,6 +502,25 @@ const common = {
       errorDetails: 'Error Details',
       passedDetails: 'Passed Items Details',
     },
+    progress: {
+      title: 'Overall Progress',
+      processingTable: 'Validating table: {table}',
+      errorsFound: 'Errors found: {count}',
+    },
+    error: {
+      navigateToCanvas: 'Navigate to Canvas',
+      groupByTable: 'By Table',
+      groupByStage: 'By Stage',
+      groupByType: 'By Type',
+      noGrouping: 'No Grouping',
+      searchPlaceholder: 'Search errors...',
+    },
+    stats: {
+      files: 'Files',
+      tables: 'Tables',
+      errors: 'Errors',
+      duration: 'Duration',
+    },
   },
 
   projectManagement: {

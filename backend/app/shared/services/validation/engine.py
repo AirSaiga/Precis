@@ -118,14 +118,14 @@ def validate_full_dataset(
 
         # 获取表的Schema定义，进行格式解析
         table_schema = schema.tables[table_id]
-        # process_dataframe 返回：(解析后的DataFrame, 错误DataFrame)
+        # process_dataframe 返回：(解析后的DataFrame, 错误字典列表)
         parsed_df, parsing_errors = process_dataframe(raw_df, table_schema)
 
         # 存储解析后的数据，供阶段二约束校验使用（使用 table_id 作为键）
         parsed_datasets[table_id] = parsed_df
-        # 将解析错误转换为字典列表并聚合到总错误列表
-        if not parsing_errors.empty:
-            for item in parsing_errors.to_dict("records"):
+        # 将解析错误聚合到总错误列表
+        if parsing_errors:
+            for item in parsing_errors:
                 all_errors.append(
                     {
                         **item,

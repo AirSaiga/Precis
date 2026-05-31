@@ -55,8 +55,9 @@ export function normalizeDirPath(input: string): string {
 export function isAbsolutePath(input: string): boolean {
   if (!input) return false
   // Windows 绝对路径: C:\path 或 C:/path
+  // UNC 路径: \\server\share
   // Unix 绝对路径: /path
-  return /^[a-zA-Z]:[\\/]/.test(input) || input.startsWith('/')
+  return /^[a-zA-Z]:[\\/]/.test(input) || /^\\\\/.test(input) || input.startsWith('/')
 }
 
 /**

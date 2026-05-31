@@ -122,7 +122,7 @@ export const connectionRules: ConnectionRule[] = [
       handles: undefined,
     },
     target: {
-      nodeTypes: ['schema'],
+      nodeTypes: ['schema', 'jsonSchema'],
       handles: undefined,
     },
     config: {

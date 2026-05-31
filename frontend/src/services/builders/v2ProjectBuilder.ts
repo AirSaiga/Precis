@@ -45,7 +45,7 @@ import {
   buildJSONOptions,
   toJsonBackendType,
 } from './schemaBuilder'
-import { useI18n } from 'vue-i18n'
+import { i18n } from '@/i18n'
 import {
   getV2ConstraintTypeByNodeType,
   isConstraintNodeType,
@@ -60,11 +60,6 @@ import { buildV2SchemaFile as _buildV2SchemaFile } from './v2/schemaBuilder'
 
 const buildV2Manifest = _buildV2Manifest
 const buildV2SchemaFile = _buildV2SchemaFile
-
-function getI18nText(): (key: string) => string {
-  const { t } = useI18n()
-  return t
-}
 
 function buildSchemaIdByNodeId(nodes: CustomNode[]): Record<string, string> {
   const map: Record<string, string> = {}
@@ -97,7 +92,7 @@ export function buildV2ConstraintFile(
   nodes: CustomNode[],
   constraintNodeId: string
 ): ConstraintFileV2 {
-  const t = getI18nText()
+  const t = i18n.global.t
   const node = nodes.find((n) => n.id === constraintNodeId && isConstraintNodeType(n.type))
   if (!node) throw new Error(t('messages.builder.constraintNodeNotFound'))
 

@@ -230,17 +230,33 @@ def build_runtime_schema(schema_file: TableSchemaFile, registries: dict[str, Any
     """
     columns: list[ColumnSchema] = []
     for col in schema_file.columns:
-        # 将列的 type 配置转换为运行时数据类型对象
-        # registries 包含类型注册表，用于解析自定义类型
         data_type = build_type_from_config(col.type, registries)
-        columns.append(
-            ColumnSchema(
-                name=col.name,
-                data_type=data_type,
-                is_primary_key=col.primary_key,
-                expand=col.expand,
-            )
+        col_schema = ColumnSchema(
+            name=col.name,
+            data_type=data_type,
+            is_primary_key=col.primary_key,
+            expand=col.expand,
+            nullable=col.nullable,
+            id=col.id,
+            json_path=col.json_path,
         )
+        if col.children:
+            child_columns = []
+            for child in col.children:
+                child_data_type = build_type_from_config(child.type, registries)
+                child_columns.append(
+                    ColumnSchema(
+                        name=child.name,
+                        data_type=child_data_type,
+                        is_primary_key=child.primary_key,
+                        expand=child.expand,
+                        nullable=child.nullable,
+                        id=child.id,
+                        json_path=child.json_path,
+                    )
+                )
+            col_schema.children = child_columns
+        columns.append(col_schema)
 
     # 提取数据源信息
     source_file = None

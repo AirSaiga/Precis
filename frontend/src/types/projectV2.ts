@@ -194,6 +194,8 @@ export interface ColumnSpecV2 {
   expand?: boolean
   /** JSON 列的 JSONPath 路径 */
   json_path?: string
+  /** JSON 嵌套子列（树形结构） */
+  children?: ColumnSpecV2[]
 }
 
 // ============================================================================

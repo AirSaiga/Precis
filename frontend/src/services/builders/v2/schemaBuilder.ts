@@ -30,16 +30,11 @@ import {
   toJsonBackendType,
   flattenJsonColumns,
 } from '../schemaBuilder'
-import { useI18n } from 'vue-i18n'
+import { i18n } from '@/i18n'
 import {
   getV2ConstraintTypeByNodeType,
   isConstraintNodeType,
 } from '@/services/constraints/validationRegistry'
-
-function getI18nText(): (key: string) => string {
-  const { t } = useI18n()
-  return t
-}
 
 function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null {
   const d = (node.data || {}) as Record<string, unknown>
@@ -191,7 +186,7 @@ export function buildV2SchemaFile(nodes: CustomNode[], schemaNodeId: string): Ta
   const node = nodes.find(
     (n) => n.id === schemaNodeId && (n.type === 'schema' || n.type === 'jsonSchema')
   )
-  if (!node) throw new Error(getI18nText()('messages.builder.schemaNodeNotFound'))
+  if (!node) throw new Error(i18n.global.t('messages.builder.schemaNodeNotFound'))
 
   const isJsonSchema = node.type === 'jsonSchema'
 

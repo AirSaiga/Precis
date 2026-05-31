@@ -53,6 +53,9 @@ from app.shared.domain.data_types_parts.expression import ExpressionType, Specif
 # 提取类型：派生列类型，表示由正则提取或其他计算逻辑生成的虚拟列
 from app.shared.domain.data_types_parts.extracted import ExtractedType
 
+# JSON 类型：JSON 对象、数组和空值类型
+from app.shared.domain.data_types_parts.json_types import JsonArrayType, JsonNullType, JsonObjectType
+
 # 标量类型：基本数据类型，覆盖数值、字符串、布尔、日期等常见类型
 from app.shared.domain.data_types_parts.scalars import (
     BooleanType,  # 布尔类型：True / False
@@ -86,6 +89,10 @@ __all__ = [
     "SpecificExpressionType",
     # 提取类型
     "ExtractedType",
+    # JSON 类型
+    "JsonArrayType",
+    "JsonNullType",
+    "JsonObjectType",
     # 序列类型
     "SequenceType",
 ]

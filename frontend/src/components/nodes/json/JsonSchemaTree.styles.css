@@ -1,274 +1,179 @@
-.tree-body {
+/* ==========================================
+   JsonSchemaTree.styles.css
+   JSON Schema 树形列渲染 - 树结构包装器样式
+   行内样式由 JsonSchemaNodeColumnRow 组件的 scoped 样式处理
+   ========================================== */
+
+/* --- 容器 --- */
+.json-tree {
+  width: 100%;
+}
+
+.json-tree .tree-body {
   flex: 1;
   min-height: 120px;
   max-height: 400px;
   overflow-y: auto;
-  padding: 4px 0;
-  background: var(--ui-bg-elevated);
+  padding: 0;
+  background: var(--node-bg);
 }
 
-.tree-row {
-  display: grid;
-  grid-template-columns: 24px minmax(70px, auto) minmax(0, 1fr) 1fr 40px;
-  gap: 8px;
-  align-items: center;
-  padding: 0 12px;
-  height: var(--row-height, 36px);
-  position: relative;
-  border-bottom: 1px solid var(--ui-bg-subtle, #f0ede8);
-}
+/* ==========================================
+   行包装器 - 左侧边框分组 + Handle 定位
+   ========================================== */
 
-.tree-row:last-child {
-  border-bottom: none;
-}
-
-.tree-row:hover {
-  background-color: var(--ui-bg-subtle, #f0ede8);
-}
-
-.expand-btn,
-.expand-placeholder {
-  width: 16px;
-  height: 16px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: var(--ui-text-muted, #94a3b8);
-  transition:
-    color 0.15s,
-    transform 0.15s;
-  flex-shrink: 0;
-}
-
-.expand-btn:hover {
-  color: var(--ui-text-secondary, #64748b);
-}
-
-.expand-btn.is-empty {
-  opacity: 0.3;
-  cursor: default;
-}
-
-.expand-btn svg,
-.expand-placeholder svg {
-  width: 10px;
-  height: 10px;
-  stroke-width: 2;
-  fill: none;
-  stroke: currentColor;
-}
-
-.type-tag {
-  display: inline-flex;
-  align-items: center;
-  height: var(--ui-h-6, 24px);
-  padding: 0 8px;
-  border-radius: 4px;
-  font-size: var(--node-mono-size);
-  font-family: var(--node-mono-family);
-  font-weight: 500;
-  text-transform: lowercase;
-  white-space: nowrap;
-  min-width: 65px;
-  cursor: pointer;
-  transition: all var(--ui-transition-fast, 0.15s);
-}
-
-.type-tag:hover {
-  filter: brightness(0.95);
-}
-
-.dropdown-arrow {
-  font-size: 8px;
-  opacity: 0.6;
-  margin-left: 4px;
-}
-
-.type-tag:hover .dropdown-arrow {
-  opacity: 1;
-}
-
-/* 下拉菜单样式 */
-.type-dropdown-menu {
-  position: fixed;
-  z-index: 9999;
-  background: var(--ui-bg-elevated, #ffffff);
-  border: 1px solid var(--ui-border-subtle, #e2e8f0);
-  border-radius: 6px;
-  box-shadow: var(--ui-shadow-lg);
-  padding: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 100px;
-}
-
-.type-option {
-  padding: 4px 8px;
-  font-size: var(--node-mono-size);
-  font-family: var(--node-mono-family);
-  cursor: pointer;
-  border-radius: 4px;
-  text-align: left;
-  border: 1px solid transparent;
-  transition: all var(--ui-transition-fast, 0.15s);
-}
-
-.type-option:hover {
-  filter: brightness(0.95);
-}
-
-.type-string {
-  background: var(--ui-bg-subtle, #f0ede8);
-  border: 1px solid var(--ui-border-subtle, #e8e4dc);
-  color: var(--ui-accent, #5a9bc7);
-}
-.type-number {
-  background: var(--ui-success-weak);
-  border: 1px solid var(--ui-success-ring);
-  color: var(--ui-success-strong);
-}
-.type-boolean {
-  background: var(--theme-orange-weak);
-  border: 1px solid var(--theme-orange-ring);
-  color: var(--theme-orange-strong);
-}
-.type-object {
-  background: var(--theme-purple-weak);
-  border: 1px solid var(--theme-purple-ring);
-  color: var(--theme-purple-strong);
-}
-.type-array {
-  background: var(--theme-pink-weak);
-  border: 1px solid var(--theme-pink-ring);
-  color: var(--theme-pink-strong);
-}
-.type-null {
-  background: var(--ui-bg-subtle, #f0ede8);
-  border: 1px solid var(--ui-border-subtle, #e8e4dc);
-  color: var(--ui-text-muted, #8a847c);
-}
-
-.field-name {
-  font-size: var(--node-text-size);
-  color: var(--ui-text-body, #4a453f);
-  font-weight: 500;
-  cursor: text;
-  padding: 2px 6px;
-  border-radius: 3px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.field-name:hover {
-  background: var(--ui-bg-hover, #f0ede8);
-  color: var(--ui-accent, #5a9bc7);
-}
-
-.field-input {
-  font-size: var(--node-text-size);
-  padding: 2px 6px;
-  border: 1px solid var(--ui-accent, #5a9bc7);
-  border-radius: 3px;
-  outline: none;
-  font-weight: 500;
-  color: var(--ui-text, #4a453f);
-  background: var(--ui-bg-elevated);
-}
-
-.field-path {
-  font-size: var(--node-muted-size);
-  color: var(--ui-text-muted, #64748b);
-  font-family: var(--node-mono-family);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.actions {
+.json-tree .tree-row-wrapper {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: flex-end;
-  justify-self: end;
   width: 100%;
-  height: 100%;
-  gap: 6px;
-  padding-right: 18px;
-  opacity: 0;
-  transition: opacity 0.15s;
+  transition: background var(--node-transition-fast);
 }
 
-.tree-row:hover .actions {
-  opacity: 1;
+/* 父节点行样式 */
+.json-tree .tree-row-wrapper.is-parent {
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.08) 0%, transparent 100%);
+  border-bottom: 1px solid rgba(14, 165, 233, 0.12);
 }
 
-.btn-icon {
-  background: none;
-  border: none;
-  font-size: 18px;
-  color: var(--ui-text-muted, #9ca3af);
-  cursor: pointer;
-  padding: 0 2px;
-  line-height: 1;
-  display: flex;
-  align-items: center;
+.json-tree .tree-row-wrapper.is-parent:hover {
+  background: linear-gradient(90deg, rgba(14, 165, 233, 0.12) 0%, rgba(14, 165, 233, 0.04) 100%);
 }
 
-.btn-add {
-  font-size: 16px;
-  color: var(--ui-accent, #5a9bc7);
+/* 非首层节点的左侧边框 */
+.json-tree .tree-row-wrapper[data-level]:not([data-level="0"]) {
+  border-left: 2px solid rgba(14, 165, 233, 0.2);
+  margin-left: calc(var(--depth, 0) * 20px);
 }
 
-.btn-add:hover {
-  color: var(--ui-accent-hover, #4a8ab8);
-  background: var(--ui-accent-weak, rgba(90, 155, 199, 0.12));
-  border-radius: 3px;
-}
+/* ==========================================
+   Vue Flow Handle（连接点）
+   ========================================== */
 
-.btn-del {
-  color: var(--ui-text-muted, #9ca3af);
-}
-
-.btn-del:hover {
-  color: #ef4444;
-  background: rgba(239, 68, 68, 0.05);
-  border-radius: 3px;
-}
-
-.column-handle {
-  width: 12px !important;
-  height: 12px !important;
-  border-radius: 9999px !important;
-  background: var(--ui-bg-elevated) !important;
-  border: 2px solid var(--ui-border-strong, rgba(148, 163, 184, 0.9)) !important;
-  box-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.08),
-    0 0 0 0 var(--ui-accent-ring, rgba(90, 155, 199, 0));
+.json-tree .column-handle {
+  width: var(--node-handle-size-lg) !important;
+  height: var(--node-handle-size-lg) !important;
+  border-radius: var(--node-badge-radius-full) !important;
+  background: var(--node-handle-bg) !important;
+  border: 2px solid var(--node-handle-border) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 0 var(--node-handle-hover);
   position: absolute !important;
   right: 2px !important;
   top: 50% !important;
   transform: translateY(-50%) !important;
-  transition:
-    transform 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-  z-index: 15;
+  transition: transform var(--node-transition-fast), border-color var(--node-transition-fast),
+    box-shadow var(--node-transition-fast);
+  z-index: var(--node-z-hover);
 }
 
-.column-handle::before {
+.json-tree .column-handle::before {
   content: '';
   position: absolute;
   inset: -8px;
 }
 
-.tree-row:hover .column-handle,
-.vue-flow__handle-connecting .column-handle {
+.json-tree .tree-row-wrapper:hover .column-handle,
+.json-tree .vue-flow__handle-connecting .column-handle {
   transform: translateY(-50%) scale(1.25) !important;
-  border-color: var(--ui-accent, #5a9bc7) !important;
-  box-shadow:
-    0 2px 6px rgba(0, 0, 0, 0.12),
-    0 0 0 4px var(--ui-accent-ring, rgba(90, 155, 199, 0.18));
+  border-color: var(--node-handle-hover) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12), 0 0 0 4px var(--node-handle-hover);
+}
+
+/* 已连接状态 - 绿色圈 */
+.json-tree .column-handle.is-connected {
+  background: var(--node-theme-success) !important;
+  border-color: var(--node-theme-success) !important;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3);
+}
+
+.json-tree .tree-row-wrapper:hover .column-handle.is-connected {
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3), 0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+.json-tree .column-handle::before {
+  content: '';
+  position: absolute;
+  inset: -6px;
+}
+
+.json-tree .tree-row-wrapper:hover .column-handle {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.2) !important;
+  box-shadow: 0 0 0 3px var(--node-theme-primary-weak), 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.json-tree .vue-flow__handle-connecting .column-handle,
+.json-tree .column-handle:hover {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.3) !important;
+  box-shadow: 0 0 0 4px var(--node-theme-primary-weak), 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* ==========================================
+   类型下拉菜单（Teleport）
+   ========================================== */
+
+.json-tree .type-dropdown-menu {
+  position: fixed;
+  z-index: 9999;
+  background: var(--node-bg);
+  border: 1px solid var(--node-border);
+  border-radius: var(--node-radius-md);
+  box-shadow: var(--node-shadow-lg);
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 120px;
+}
+
+.json-tree .type-option {
+  padding: 6px 10px;
+  font-size: var(--node-mono-size);
+  font-family: var(--node-mono-family);
+  cursor: pointer;
+  border-radius: var(--node-radius-sm);
+  text-align: left;
+  border: 1px solid transparent;
+  transition: all var(--node-transition-fast);
+}
+
+.json-tree .type-option:hover {
+  filter: brightness(0.95);
+}
+
+.json-tree .type-option.type-string {
+  background: var(--ui-bg-accent);
+  border-color: var(--ui-accent-light);
+  color: var(--ui-accent);
+}
+
+.json-tree .type-option.type-number {
+  background: var(--ui-success-bg);
+  border-color: color-mix(in srgb, var(--ui-success) 24%, transparent);
+  color: var(--ui-success);
+}
+
+.json-tree .type-option.type-boolean {
+  background: var(--theme-orange-bg);
+  border-color: color-mix(in srgb, var(--theme-orange) 24%, transparent);
+  color: var(--theme-orange-strong);
+}
+
+.json-tree .type-option.type-object {
+  background: var(--theme-purple-bg);
+  border-color: color-mix(in srgb, var(--theme-purple) 24%, transparent);
+  color: var(--theme-purple-strong);
+}
+
+.json-tree .type-option.type-array {
+  background: var(--theme-pink-bg);
+  border-color: color-mix(in srgb, var(--theme-pink) 24%, transparent);
+  color: var(--theme-pink-strong);
+}
+
+.json-tree .type-option.type-null {
+  background: var(--ui-bg-subtle);
+  border-color: var(--ui-border-subtle);
+  color: var(--node-muted-color);
 }

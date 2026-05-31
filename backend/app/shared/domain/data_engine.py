@@ -18,7 +18,7 @@
     from app.shared.domain.data_engine import process_dataframe
 
     schema = TableSchema(name="users", columns=[...])
-    parsed_df, errors_df = process_dataframe(raw_df, schema)
+    parsed_df, errors = process_dataframe(raw_df, schema)
 
 输出示例:
     parsed_df: 解析后的 DataFrame（类型已转换）
@@ -30,7 +30,74 @@ import pandas as pd
 
 # 2. 项目内部导入
 from app.shared.domain.data_types import ExpressionType
+from app.shared.domain.data_types_parts.json_types import JsonObjectType
 from app.shared.domain.dataset_schema import TableSchema
+
+
+def _reconstruct_expand_columns(df: pd.DataFrame, table_schema: TableSchema) -> pd.DataFrame:
+    """
+    将 pd.json_normalize 展平产生的点分列名重构回原始 dict 列。
+
+    pd.json_normalize 会将 {"specs": {"brand": "X", "model": "Y"}} 展平为
+    specs.brand 和 specs.model 两列。本函数对 schema 中 expand=True 且有 children
+    的列，将这些点分列重新聚合为 dict 列（如 specs 列的每个单元格是一个 dict）。
+
+    这样后续 _expand_structured_columns 就能正确处理这些列。
+    """
+    df = df.copy()
+    for col_name, col_schema in table_schema.columns.items():
+        if not col_schema.expand or not col_schema.children:
+            continue
+        if col_name in df.columns:
+            continue
+
+        prefix = f"{col_name}."
+        matching_cols = [c for c in df.columns if c.startswith(prefix)]
+        if not matching_cols:
+            continue
+
+        reconstructed = []
+        for _, row in df.iterrows():
+            cell = {}
+            for child in col_schema.children:
+                col_key = f"{col_name}.{child.name}"
+                if col_key in df.columns:
+                    val = row.get(col_key)
+                    if pd.notna(val):
+                        cell[child.name] = val
+            reconstructed.append(cell if cell else None)
+
+        df[col_name] = reconstructed
+        df = df.drop(columns=matching_cols)
+
+    return df
+
+
+def _map_json_path_columns(df: pd.DataFrame, table_schema: TableSchema) -> pd.DataFrame:
+    """
+    使用 json_path 将 DataFrame 中的点分列名映射为 schema 定义的列名。
+
+    pd.json_normalize 会将 {"location": {"zone": "A"}} 展平为 location.zone 列，
+    但 schema 定义的列名可能是 location_zone，通过 json_path("$.location.zone") 关联。
+    本函数根据 json_path 将 DataFrame 列名重命名为 schema 列名。
+    """
+    rename_map = {}
+    for col_name, col_schema in table_schema.columns.items():
+        if col_name in df.columns:
+            continue
+        if not col_schema.json_path:
+            continue
+        json_path = col_schema.json_path
+        if not json_path.startswith("$."):
+            continue
+        dot_path = json_path[2:]
+        if dot_path in df.columns:
+            rename_map[dot_path] = col_name
+
+    if rename_map:
+        df = df.rename(columns=rename_map)
+
+    return df
 
 
 def _expand_structured_columns(df: pd.DataFrame, table_schema: TableSchema) -> pd.DataFrame:
@@ -65,33 +132,38 @@ def _expand_structured_columns(df: pd.DataFrame, table_schema: TableSchema) -> p
     # 遍历 schema 中定义的所有列，查找需要展开的结构化列
     for col_name, col_schema in table_schema.columns.items():
         # 条件判断：列必须存在于 DataFrame 中，且 schema 标记为需要展开
-        if col_name in df_to_process.columns and col_schema.expand:
-            # 仅 ExpressionType 类型的列支持展开，其他类型跳过
-            if not isinstance(col_schema.data_type, ExpressionType):
-                continue
+        if col_name not in df_to_process.columns or not col_schema.expand:
+            continue
 
-            # 步骤 1：将 JSON 列的每一行解析为字典列表
-            # fillna({}) 将 NaN 替换为空字典，避免 json_normalize 报错
-            # tolist() 将 Series 转为 Python 列表，供 json_normalize 处理
+        # 仅 ExpressionType 和 JsonObjectType（有 children）支持展开
+        is_expression = isinstance(col_schema.data_type, ExpressionType)
+        is_json_object_with_children = isinstance(col_schema.data_type, JsonObjectType) and col_schema.children
+        if not (is_expression or is_json_object_with_children):
+            continue
+
+        if is_json_object_with_children:
+            child_names = [child.name for child in col_schema.children]
+            normalized_data = pd.json_normalize(df_to_process[col_name].fillna({}).tolist())
+            normalized_data = normalized_data.reindex(columns=child_names)
+            normalized_data = normalized_data.add_prefix(f"{col_name}_")
+        else:
             normalized_data = pd.json_normalize(df_to_process[col_name].fillna({}).tolist()).add_prefix(f"{col_name}_")
 
-            # 步骤 2：删除原始的 JSON 列，避免列名冲突
-            df_to_process = df_to_process.drop(columns=[col_name])
+        # 删除原始的 JSON 列，避免列名冲突
+        df_to_process = df_to_process.drop(columns=[col_name])
 
-            # 步骤 3：将展开后的新列横向合并到原 DataFrame
-            # axis=1 表示按列方向拼接（横向扩展）
-            df_to_process = pd.concat([df_to_process, normalized_data], axis=1)
+        # 将展开后的新列横向合并到原 DataFrame
+        df_to_process = pd.concat([df_to_process, normalized_data], axis=1)
 
-            # 记录展开操作日志，便于用户追溯数据结构变化
-            import logging
+        import logging
 
-            logger = logging.getLogger(__name__)
-            logger.info(f"列 '{col_name}' 已被自动展开为新的列。")
+        logger = logging.getLogger(__name__)
+        logger.info(f"列 '{col_name}' 已被自动展开为新的列。")
 
     return df_to_process
 
 
-def process_dataframe(df: pd.DataFrame, schema: TableSchema) -> tuple[pd.DataFrame, pd.DataFrame]:
+def process_dataframe(df: pd.DataFrame, schema: TableSchema) -> tuple[pd.DataFrame, list[dict]]:
     """
     处理 DataFrame，执行类型验证和解析。
 
@@ -162,15 +234,15 @@ def process_dataframe(df: pd.DataFrame, schema: TableSchema) -> tuple[pd.DataFra
       │ 输出: 展开后的 DataFrame                                │
       └─────────────────────────────────────────────────────────────┘
 
-    最终输出: Tuple[pd.DataFrame, pd.DataFrame]
+    最终输出: Tuple[pd.DataFrame, list[dict]]
       - 第一个元素: 解析后的 DataFrame
-      - 第二个元素: 错误 DataFrame
+      - 第二个元素: 错误字典列表，每项包含 row_index、column、value、error_type、error_message
 
     ============================================================================
     错误格式
     ============================================================================
-    错误 DataFrame 包含以下列：
-    - row_index: 行索引（整数）
+    错误列表中的每个字典包含以下字段：
+    - row_index: 行索引（整数或 None，None 表示整列级错误）
     - column: 列名（字符串）
     - value: 错误值（任意类型）
     - error_type: 错误类型（字符串）
@@ -183,6 +255,13 @@ def process_dataframe(df: pd.DataFrame, schema: TableSchema) -> tuple[pd.DataFra
     - 空 DataFrame: 返回空的解析 DataFrame 和空的错误 DataFrame
     - 验证失败: 记录错误，该单元格填充 None
     """
+    # 展开 expand 列：将 pd.json_normalize 展平产生的点分列名（如 specs.brand）
+    # 重构回原始 dict 列，以便后续 _expand_structured_columns 能正确处理
+    df = _reconstruct_expand_columns(df, schema)
+
+    # 使用 json_path 将 DataFrame 中的点分列名映射为 schema 定义的列名
+    df = _map_json_path_columns(df, schema)
+
     # 存储解析后的列数据，键为列名，值为解析后的列表
     parsed_data: dict[str, list] = {}
 
@@ -229,10 +308,4 @@ def process_dataframe(df: pd.DataFrame, schema: TableSchema) -> tuple[pd.DataFra
     # 展开需要展开的结构化列（JSON 列）
     parsed_df = _expand_structured_columns(parsed_df, schema)
 
-    # 构建错误 DataFrame：有错误时按标准列名构造，无错误时返回空结构（保持列名一致）
-    if errors:
-        errors_df = pd.DataFrame(errors, columns=["row_index", "column", "value", "error_type", "error_message"])
-    else:
-        errors_df = pd.DataFrame(columns=["row_index", "column", "value", "error_type", "error_message"])
-
-    return parsed_df, errors_df
+    return parsed_df, errors

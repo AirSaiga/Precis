@@ -35,6 +35,9 @@ from app.shared.domain.data_types import (
     ExtractedType,
     FloatType,
     IntegerType,
+    JsonArrayType,
+    JsonNullType,
+    JsonObjectType,
     SequenceType,
     StringType,
 )
@@ -75,6 +78,12 @@ TYPE_REGISTRY: dict[str, Any] = {
     "CompositeExpr": CompositeConditionType,
     "Sequence": SequenceType,
     "Extracted": ExtractedType,
+    "JsonObject": JsonObjectType(),
+    "json_object": JsonObjectType(),
+    "JsonArray": JsonArrayType(),
+    "json_array": JsonArrayType(),
+    "JsonNull": JsonNullType(),
+    "json_null": JsonNullType(),
 }
 
 
@@ -170,6 +179,7 @@ class ColumnSchema:
         nullable: bool = True,
         id: str | None = None,
         json_path: str | None = None,
+        children: list["ColumnSchema"] | None = None,
     ):
         self.name = name
         self.data_type = data_type
@@ -178,6 +188,7 @@ class ColumnSchema:
         self.nullable = nullable
         self.id = id
         self.json_path = json_path
+        self.children = children
 
 
 class TableSchema:

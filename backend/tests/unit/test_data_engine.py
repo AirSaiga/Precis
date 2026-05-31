@@ -28,13 +28,13 @@ class TestProcessDataframe:
                 ColumnSchema(name="name", data_type=StringType()),
             ],
         )
-        parsed_df, errors_df = process_dataframe(df, schema)
+        parsed_df, errors = process_dataframe(df, schema)
         assert parsed_df["age"][0] == 25
         assert parsed_df["age"][1] == 30
         assert pd.isna(parsed_df["age"][2])
-        assert len(errors_df) == 1
-        assert errors_df.iloc[0]["column"] == "age"
-        assert errors_df.iloc[0]["error_type"] == "TypeValidationError"
+        assert len(errors) == 1
+        assert errors[0]["column"] == "age"
+        assert errors[0]["error_type"] == "TypeValidationError"
 
     def test_missing_column(self):
         df = pd.DataFrame({"name": ["Alice"]})
@@ -45,10 +45,10 @@ class TestProcessDataframe:
                 ColumnSchema(name="name", data_type=StringType()),
             ],
         )
-        parsed_df, errors_df = process_dataframe(df, schema)
-        assert len(errors_df) == 1
-        assert errors_df.iloc[0]["error_type"] == "MissingColumn"
-        assert errors_df.iloc[0]["column"] == "age"
+        parsed_df, errors = process_dataframe(df, schema)
+        assert len(errors) == 1
+        assert errors[0]["error_type"] == "MissingColumn"
+        assert errors[0]["column"] == "age"
         assert pd.isna(parsed_df["age"][0])
 
     def test_no_errors(self):
@@ -60,8 +60,8 @@ class TestProcessDataframe:
                 ColumnSchema(name="name", data_type=StringType()),
             ],
         )
-        parsed_df, errors_df = process_dataframe(df, schema)
-        assert len(errors_df) == 0
+        parsed_df, errors = process_dataframe(df, schema)
+        assert len(errors) == 0
         assert list(parsed_df["age"]) == [25, 30]
 
     def test_empty_dataframe(self):
@@ -73,9 +73,9 @@ class TestProcessDataframe:
                 ColumnSchema(name="name", data_type=StringType()),
             ],
         )
-        parsed_df, errors_df = process_dataframe(df, schema)
+        parsed_df, errors = process_dataframe(df, schema)
         assert len(parsed_df) == 0
-        assert len(errors_df) == 0
+        assert len(errors) == 0
 
     def test_not_null_violation(self):
         """测试 nullable=False 时空值产生 NotNullViolation 错误"""
@@ -87,8 +87,8 @@ class TestProcessDataframe:
                 ColumnSchema(name="name", data_type=StringType(), nullable=False),
             ],
         )
-        parsed_df, errors_df = process_dataframe(df, schema)
-        notnull_errors = errors_df[errors_df["error_type"] == "NotNullViolation"]
+        parsed_df, errors = process_dataframe(df, schema)
+        notnull_errors = [e for e in errors if e["error_type"] == "NotNullViolation"]
         assert len(notnull_errors) >= 2  # age 的 None 和 name 的空字符串
 
     def test_float_column(self):
@@ -101,12 +101,12 @@ class TestProcessDataframe:
                 ColumnSchema(name="name", data_type=StringType()),
             ],
         )
-        parsed_df, errors_df = process_dataframe(df, schema)
+        parsed_df, errors = process_dataframe(df, schema)
         assert parsed_df["price"][0] == 3.14
         assert parsed_df["price"][1] == 2.0
         assert parsed_df["price"][2] is None or pd.isna(parsed_df["price"][2])
-        assert len(errors_df) == 1
-        assert errors_df.iloc[0]["error_type"] == "TypeValidationError"
+        assert len(errors) == 1
+        assert errors[0]["error_type"] == "TypeValidationError"
 
     def test_boolean_column(self):
         """测试布尔列解析"""
@@ -118,12 +118,12 @@ class TestProcessDataframe:
                 ColumnSchema(name="name", data_type=StringType()),
             ],
         )
-        parsed_df, errors_df = process_dataframe(df, schema)
+        parsed_df, errors = process_dataframe(df, schema)
         assert parsed_df["active"][0] is True
         assert parsed_df["active"][1] is False
         assert parsed_df["active"][2] is True
         assert parsed_df["active"][3] is None or pd.isna(parsed_df["active"][3])
-        assert len(errors_df) == 1
+        assert len(errors) == 1
 
     def test_date_column(self):
         """测试日期列解析"""
@@ -135,14 +135,14 @@ class TestProcessDataframe:
                 ColumnSchema(name="name", data_type=StringType()),
             ],
         )
-        parsed_df, errors_df = process_dataframe(df, schema)
+        parsed_df, errors = process_dataframe(df, schema)
         from datetime import date
 
         assert parsed_df["dob"][0] == date(2024, 1, 15)
         assert parsed_df["dob"][1] is None or pd.isna(parsed_df["dob"][1])
         assert parsed_df["dob"][2] == date(2024, 6, 1)
-        assert len(errors_df) == 1
-        assert errors_df.iloc[0]["error_type"] == "TypeValidationError"
+        assert len(errors) == 1
+        assert errors[0]["error_type"] == "TypeValidationError"
 
     def test_mixed_valid_invalid_rows(self):
         """测试混合合法/非法行的场景"""
@@ -154,11 +154,11 @@ class TestProcessDataframe:
                 ColumnSchema(name="name", data_type=StringType()),
             ],
         )
-        parsed_df, errors_df = process_dataframe(df, schema)
+        parsed_df, errors = process_dataframe(df, schema)
         assert parsed_df["age"][0] == 10
         assert parsed_df["age"][2] == 30
         assert parsed_df["age"][3] == -5
-        type_errors = errors_df[errors_df["error_type"] == "TypeValidationError"]
+        type_errors = [e for e in errors if e["error_type"] == "TypeValidationError"]
         assert len(type_errors) == 2  # "abc" 和 "xyz"
 
 

@@ -232,10 +232,13 @@ def _load_json_with_new_loader(filepath: str, schemas: list[TableSchema]) -> dic
 
     spec = JSONSourceSpec(
         path=filepath,
-        json_format=source_config.get("format", "auto"),
+        format=source_config.get("format", "auto"),
         json_path=source_config.get("json_path"),
-        flatten=source_config.get("flatten", True),
+        record_path=source_config.get("record_path"),
+        meta_prefix=source_config.get("meta_prefix", "meta."),
         sep=source_config.get("sep", "."),
+        dtype=source_config.get("dtype"),
+        flatten=source_config.get("flatten", False),
     )
     loader = JSONLoader(spec)
     df = loader.load()

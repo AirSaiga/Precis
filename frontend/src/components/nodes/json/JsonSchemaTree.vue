@@ -1,80 +1,60 @@
 <!--
   @file JsonSchemaTree.vue
-  @description JSON结构树组件 - JSON Schema结构展示与展开
+  @description JSON Schema 树形列渲染组件
+  使用 JsonSchemaNodeColumnRow 组件 + 左侧边框分组
 -->
-
 <template>
-  <div class="tree-body">
-    <div
-      v-for="item in visibleItems"
-      :key="item.id"
-      class="tree-row"
-      :style="{ paddingLeft: 8 + item.level * 16 + 'px' }"
-    >
-      <!-- 展开按钮 -->
-      <span
-        v-if="item.canHaveChildren"
-        class="expand-btn"
-        :class="{ 'is-empty': !item.hasChildren }"
-        @click="toggle(item.id)"
-      >
-        <svg
-          viewBox="0 0 10 10"
-          :style="{ transform: item.isExpanded ? 'rotate(90deg)' : 'rotate(0deg)' }"
+  <div class="json-tree">
+    <div class="tree-body">
+      <template v-for="(item, index) in visibleItems" :key="item.id">
+        <!-- 树行包装器（包含 Handle 和分组样式） -->
+        <div
+          class="tree-row-wrapper"
+          :class="{
+            'is-parent': item.canHaveChildren,
+            'is-expanded': item.isExpanded,
+            'is-last-child': isLastChild(index),
+          }"
+          :data-level="item.level"
+          :data-column-id="item.id"
+          @mouseenter="hoveredColumnId = item.id"
+          @mouseleave="hoveredColumnId = null"
         >
-          <path d="M3 2 L7 5 L3 8" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </span>
-      <span v-else class="expand-placeholder">
-        <svg viewBox="0 0 10 10">
-          <circle cx="5" cy="5" r="1" fill="currentColor" />
-        </svg>
-      </span>
+          <!-- 使用 JsonSchemaNodeColumnRow 组件 -->
+          <JsonSchemaNodeColumnRow
+            :column="item.column"
+            :index="index"
+            :depth="item.level"
+            :is-editing="editingId === item.id"
+            :is-hovered="hoveredColumnId === item.id"
+            :show-constraint-menu="constraintMenuColumnId === item.id"
+            @start-edit="startEdit"
+            @confirm-edit="confirmEdit"
+            @cancel-edit="cancelEdit"
+            @delete="remove"
+            @hover="hoveredColumnId = $event"
+            @unhover="hoveredColumnId = null"
+            @hover-error="hoveredErrorColumn = $event"
+            @unhover-error="hoveredErrorColumn = null"
+            @toggle-constraint-menu="toggleConstraintMenu"
+            @toggle-type-dropdown="toggleTypeDropdown"
+            @toggle-expand="toggle"
+            @enter="handleEnter"
+            @tab="handleTab"
+          />
 
-      <!-- 类型标签 - 胶囊样式 (支持点击展开下拉框) -->
-      <div class="type-selector-wrapper">
-        <span
-          class="type-tag"
-          :class="'type-' + item.type"
-          @click="toggleTypeDropdown(item.id, $event)"
-        >
-          {{ item.type }}
-          <span class="dropdown-arrow">▼</span>
-        </span>
-      </div>
-
-      <!-- 名称 (可编辑) -->
-      <input
-        v-if="editingId === item.id"
-        v-model="editingName"
-        class="field-input"
-        @blur="saveName(item.id)"
-        @keydown.enter="saveName(item.id)"
-        @keydown.esc="cancelEdit()"
-      />
-      <span v-else class="field-name" @dblclick="startEdit(item)">{{ item.name }}</span>
-
-      <!-- 路径 -->
-      <span class="field-path" :title="item.path">{{ item.path }}</span>
-
-      <!-- 操作 -->
-      <span class="actions">
-        <button v-if="item.canHaveChildren" class="btn-icon btn-add" @click="addChild(item.id)">
-          +
-        </button>
-        <button class="btn-icon btn-del" @click="remove(item.id)">×</button>
-      </span>
-
-      <!-- 连接点 -->
-      <Handle
-        :id="'source-right-' + item.id"
-        type="source"
-        :position="Position.Right"
-        class="column-handle"
-      />
+          <!-- Vue Flow 连接点 Handle -->
+          <Handle
+            :id="'source-right-' + item.id"
+            type="source"
+            :position="Position.Right"
+            :class="['column-handle', { 'is-connected': connectedColumnIds.has(item.id) }]"
+          />
+        </div>
+      </template>
     </div>
 
-    <!-- 传送门挂载的类型选择下拉框 -->
+    <!-- 类型选择下拉菜单（Teleport） -->
     <Teleport to="body">
       <div
         v-if="activeTypeDropdown"
@@ -97,9 +77,12 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, ref, onMounted, onUnmounted } from 'vue'
+  import { ref, computed } from 'vue'
   import { Handle, Position } from '@vue-flow/core'
-  import type { JsonSchemaColumn, JsonDataType } from '@/types/graph'
+  import type { JsonSchemaColumn } from '@/types/graph'
+  import { useGraphStore } from '@/stores/graphStore'
+  import JsonSchemaNodeColumnRow from './components/JsonSchemaNodeColumnRow.vue'
+  import '@/components/nodes/json/JsonSchemaTree.styles.css'
 
   const props = defineProps<{
     columns: JsonSchemaColumn[]
@@ -109,40 +92,44 @@
     update: [columns: JsonSchemaColumn[]]
   }>()
 
-  const editingId = ref<string | null>(null)
-  const editingName = ref('')
+  // ==================== 状态 ====================
 
-  // 类型下拉框状态
+  const editingId = ref<string | null>(null)
+  const hoveredColumnId = ref<string | null>(null)
+  const hoveredErrorColumn = ref<string | null>(null)
+  const constraintMenuColumnId = ref<string | null>(null)
   const activeTypeDropdown = ref<string | null>(null)
   const dropdownPosition = ref({ top: 0, left: 0 })
-  const typeOptions: JsonDataType[] = ['string', 'number', 'boolean', 'object', 'array', 'null']
+  const typeOptions = ['string', 'number', 'boolean', 'object', 'array', 'null']
 
+  // ==================== 计算属性 ====================
+
+  // 展平的可见列列表
   const visibleItems = computed(() => {
     const items: Array<{
       id: string
-      name: string
-      path: string
-      type: string
+      column: JsonSchemaColumn
+      index: number
       level: number
       hasChildren: boolean
       isExpanded: boolean
       canHaveChildren: boolean
     }> = []
+    let index = 0
 
     const walk = (cols: JsonSchemaColumn[], level: number) => {
       for (const col of cols) {
         const hasChildren = col.children && col.children.length > 0
         items.push({
           id: col.id,
-          name: col.columnName,
-          path: col.jsonPath,
-          type: col.dataType,
+          column: col,
+          index,
           level,
           hasChildren,
           isExpanded: col.isExpanded ?? false,
           canHaveChildren: col.dataType === 'object' || col.dataType === 'array',
         })
-
+        index++
         if (col.isExpanded && hasChildren) {
           walk(col.children!, level + 1)
         }
@@ -152,26 +139,45 @@
     if (props.columns) {
       walk(props.columns, 0)
     }
-
     return items
   })
 
+  // 判断是否为同级最后一个子节点
+  const isLastChild = (index: number): boolean => {
+    if (index === visibleItems.value.length - 1) return true
+    const currentLevel = visibleItems.value[index].level
+    const nextLevel = visibleItems.value[index + 1].level
+    return nextLevel < currentLevel
+  }
+
+  // 已连接的列 ID 集合
+  const connectedColumnIds = computed(() => {
+    const store = useGraphStore()
+    const ids = new Set<string>()
+    for (const edge of store.edges) {
+      if (edge.sourceHandle && edge.sourceHandle.startsWith('source-right-')) {
+        ids.add(edge.sourceHandle.replace('source-right-', ''))
+      }
+    }
+    return ids
+  })
+
+  // ==================== 列操作 ====================
+
+  // 递归更新列
   const updateColumn = (
     cols: JsonSchemaColumn[],
     id: string,
     updater: (c: JsonSchemaColumn) => JsonSchemaColumn
   ): JsonSchemaColumn[] => {
     return cols.map((c) => {
-      if (c.id === id) {
-        return updater({ ...c })
-      }
-      if (c.children) {
-        return { ...c, children: updateColumn(c.children, id, updater) }
-      }
+      if (c.id === id) return updater({ ...c })
+      if (c.children) return { ...c, children: updateColumn(c.children, id, updater) }
       return c
     })
   }
 
+  // 展开/折叠
   const toggle = (id: string) => {
     const cols = updateColumn(props.columns, id, (c) => ({
       ...c,
@@ -180,29 +186,29 @@
     emit('update', cols)
   }
 
-  const startEdit = (item: { id: string; name: string }) => {
-    editingId.value = item.id
-    editingName.value = item.name
+  // 编辑
+  const startEdit = (columnId: string) => {
+    editingId.value = columnId
   }
 
-  const saveName = (id: string) => {
-    const newName = editingName.value.trim()
-    if (newName) {
-      const cols = updateColumn(props.columns, id, (c) => {
+  const confirmEdit = (columnId: string, name: string) => {
+    editingId.value = null
+    if (name) {
+      const cols = updateColumn(props.columns, columnId, (c) => {
         const oldPath = c.jsonPath
         const lastDot = oldPath.lastIndexOf('.')
-        const newPath = lastDot > 0 ? oldPath.substring(0, lastDot) + '.' + newName : '$.' + newName
-        return { ...c, columnName: newName, jsonPath: newPath }
+        const newPath = lastDot > 0 ? oldPath.substring(0, lastDot) + '.' + name : '$.' + name
+        return { ...c, columnName: name, jsonPath: newPath }
       })
       emit('update', cols)
     }
-    editingId.value = null
   }
 
   const cancelEdit = () => {
     editingId.value = null
   }
 
+  // 删除
   const remove = (id: string) => {
     const del = (cols: JsonSchemaColumn[]): JsonSchemaColumn[] =>
       cols
@@ -214,75 +220,73 @@
     emit('update', del(props.columns))
   }
 
-  const addChild = (parentId: string) => {
-    const add = (cols: JsonSchemaColumn[]): JsonSchemaColumn[] =>
-      cols.map((c) => {
-        if (c.id === parentId) {
-          const children = c.children || []
-          return {
-            ...c,
-            isExpanded: true,
-            children: [
-              ...children,
-              {
-                id: crypto.randomUUID(),
-                columnName: `field_${children.length + 1}`,
-                jsonPath: `${c.jsonPath}.field_${children.length + 1}`,
-                dataType: 'string',
-                nullable: true,
-              },
-            ],
-          }
-        }
-        if (c.children) {
-          return { ...c, children: add(c.children) }
-        }
-        return c
-      })
-    emit('update', add(props.columns))
+  // 键盘事件
+  const handleEnter = () => {
+    // Tab 到下一个字段（可扩展）
   }
 
-  // === 下拉框逻辑 ===
-  const toggleTypeDropdown = (id: string, event: MouseEvent) => {
-    event.stopPropagation()
-    if (activeTypeDropdown.value === id) {
-      activeTypeDropdown.value = null
-      return
-    }
-
-    const target = event.currentTarget as HTMLElement
-    if (!target) return
-
-    const rect = target.getBoundingClientRect()
-
-    dropdownPosition.value = {
-      top: rect.bottom + 4,
-      left: rect.left,
-    }
-
-    activeTypeDropdown.value = id
+  const handleTab = () => {
+    // Tab 到下一个字段（可扩展）
   }
 
-  const selectType = (id: string, newType: JsonDataType) => {
+  // ==================== 菜单操作 ====================
+
+  const toggleConstraintMenu = (columnId: string, event: MouseEvent) => {
+    constraintMenuColumnId.value = columnId
+    const rect = (event.target as HTMLElement).getBoundingClientRect()
+    dropdownPosition.value = { top: rect.bottom + 4, left: rect.left }
+    activeTypeDropdown.value = null
+  }
+
+  const toggleTypeDropdown = (columnId: string, event: MouseEvent) => {
+    activeTypeDropdown.value = columnId
+    const rect = (event.target as HTMLElement).getBoundingClientRect()
+    dropdownPosition.value = { top: rect.bottom + 4, left: rect.left }
+    constraintMenuColumnId.value = null
+  }
+
+  const selectType = (id: string, type: string) => {
     const cols = updateColumn(props.columns, id, (c) => ({
       ...c,
-      dataType: newType,
+      dataType: type as JsonSchemaColumn['dataType'],
     }))
     emit('update', cols)
     activeTypeDropdown.value = null
   }
 
-  const closeDropdowns = () => {
+  // 点击外部关闭下拉
+  const closeDropdown = () => {
     activeTypeDropdown.value = null
+    constraintMenuColumnId.value = null
   }
 
-  onMounted(() => {
-    document.addEventListener('click', closeDropdowns)
-  })
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', closeDropdown)
+  }
 
-  onUnmounted(() => {
-    document.removeEventListener('click', closeDropdowns)
-  })
+  // ==================== 暴露方法 ====================
+
+  // 展开全部
+  const expandAll = () => {
+    const setExpanded = (cols: JsonSchemaColumn[], expanded: boolean): JsonSchemaColumn[] =>
+      cols.map((c) => ({
+        ...c,
+        isExpanded: expanded,
+        children: c.children ? setExpanded(c.children, expanded) : undefined,
+      }))
+    emit('update', setExpanded(props.columns, true))
+  }
+
+  // 折叠全部
+  const collapseAll = () => {
+    const setExpanded = (cols: JsonSchemaColumn[], expanded: boolean): JsonSchemaColumn[] =>
+      cols.map((c) => ({
+        ...c,
+        isExpanded: expanded,
+        children: c.children ? setExpanded(c.children, expanded) : undefined,
+      }))
+    emit('update', setExpanded(props.columns, false))
+  }
+
+  defineExpose({ expandAll, collapseAll })
 </script>
-
-<style scoped src="./JsonSchemaTree.styles.css"></style>

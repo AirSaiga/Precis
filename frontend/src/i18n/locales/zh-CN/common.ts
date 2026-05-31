@@ -493,6 +493,25 @@ const common = {
       errorDetails: '错误详情',
       passedDetails: '通过项详情',
     },
+    progress: {
+      title: '总体进度',
+      processingTable: '正在校验表: {table}',
+      errorsFound: '已发现错误: {count}',
+    },
+    error: {
+      navigateToCanvas: '定位到画布',
+      groupByTable: '按表',
+      groupByStage: '按阶段',
+      groupByType: '按类型',
+      noGrouping: '不分组',
+      searchPlaceholder: '搜索错误...',
+    },
+    stats: {
+      files: '文件',
+      tables: '表',
+      errors: '错误',
+      duration: '耗时',
+    },
   },
 
   projectManagement: {

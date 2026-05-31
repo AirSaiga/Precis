@@ -33,7 +33,9 @@ export function createEnsureSchemaNodeFromV2(params: {
   const { nodes, getEffectiveProjectConfigPath, resolveProjectRelativePath } = params
 
   async function ensureSchemaNodeFromV2(tableId: string, position: { x: number; y: number }) {
-    const existing = nodes.value.find((n) => n.id === tableId && n.type === 'schema')
+    const existing = nodes.value.find(
+      (n) => n.id === tableId && (n.type === 'schema' || n.type === 'jsonSchema')
+    )
     if (existing) return existing
 
     const schema = await getV2Schema(tableId)
@@ -57,12 +59,16 @@ export function createEnsureSchemaNodeFromV2(params: {
     const localPath = rawLocalPath ? normalizePath(rawLocalPath) : undefined
     const sourceMode = 'localfile'
 
-    // 优先读取 source.sheet，兼容顶层 sheet 字段（后端 TableSchemaFile 支持两者）
-    const sheetName = schema.source?.sheet ?? schema.sheet
+    // 检测是否为 JSON schema：根据文件扩展名判断
+    const sourcePath = schema.source?.path || ''
+    const isJsonSchema = /\.(json|jsonl|ndjson)$/i.test(sourcePath)
+
+    // JSON schema 不需要 sheet
+    const sheetName = isJsonSchema ? undefined : (schema.source?.sheet ?? schema.sheet)
 
     const node: CustomNode = {
       id: tableId,
-      type: 'schema',
+      type: isJsonSchema ? 'jsonSchema' : 'schema',
       position,
       data: {
         configName: `Schema_${schema.name}`,
@@ -75,7 +81,11 @@ export function createEnsureSchemaNodeFromV2(params: {
         localPath,
         columns: cols,
         saveState: 'saved',
-      } as SchemaNodeData,
+        sourceType: isJsonSchema ? 'json' : undefined,
+        format: (schema.source?.options as any)?.format,
+        jsonPath: (schema.source?.options as any)?.json_path,
+        recordPath: (schema.source?.options as any)?.record_path,
+      },
     }
 
     addNodes(node)

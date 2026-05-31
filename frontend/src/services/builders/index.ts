@@ -20,7 +20,6 @@ export {
 } from './v2ProjectBuilder'
 
 export {
-  buildV2SchemaFile as buildV2SchemaFileFromType,
   toBackendType,
   fromBackendType,
 } from './schemaBuilder'

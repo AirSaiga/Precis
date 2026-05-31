@@ -134,7 +134,11 @@ def load_file_data(
             header_enabled=header_enabled,
             format=fmt,
             json_path=sc.get("json_path"),
+            record_path=sc.get("record_path"),
+            meta_prefix=sc.get("meta_prefix", "meta."),
             sep=sc.get("sep", "."),
+            dtype=sc.get("dtype"),
+            flatten=sc.get("flatten", True),
         )
     else:
         raise ValueError(f"不支持的文件类型: {file_ext}")
@@ -209,6 +213,7 @@ def load_file_data_with_settings(
     sheet_name: Optional[str] = None,
     header_row: int = 0,
     settings: Optional["FileProcessingSettings"] = None,
+    source_config: Optional[dict[str, Any]] = None,
 ) -> pd.DataFrame:
     """
     @methoddesc 基于配置加载数据文件
@@ -227,6 +232,14 @@ def load_file_data_with_settings(
         sheet_name: Excel 工作表名称（可选）
         header_row: 用作列名的行索引
         settings: 文件处理配置对象（可选），包含编码、分隔符等设置
+        source_config: 数据源配置字典（可选），用于 JSON 等格式的高级配置
+            - format: JSON 格式类型 (auto/array/lines/object)
+            - json_path: JSONPath 提取路径
+            - record_path: 嵌套数组展平路径
+            - meta_prefix: 元数据字段前缀
+            - sep: 嵌套对象展平分隔符
+            - dtype: 列类型指定
+            - flatten: 是否自动扁平化嵌套结构
 
     返回:
         清洗后的 pandas DataFrame 对象
@@ -246,6 +259,7 @@ def load_file_data_with_settings(
     from app.shared.core.data_source.specs.json_source import JSONSourceSpec
 
     file_ext = os.path.splitext(source_file_path)[1].lower()
+    sc = source_config or {}
 
     # 从 settings 中提取编码和分隔符配置
     # 【默认值策略】编码默认 utf-8，分隔符默认逗号
@@ -276,12 +290,20 @@ def load_file_data_with_settings(
             delimiter=delimiter,
         )
     elif file_ext in [".json", ".jsonl"]:
-        fmt = "lines" if file_ext == ".jsonl" else "auto"
+        fmt = sc.get("format", "auto")
+        if file_ext == ".jsonl":
+            fmt = "lines"
         spec = JSONSourceSpec(
             path=source_file_path,
             header_row=effective_header_row,
             header_enabled=header_enabled,
             format=fmt,
+            json_path=sc.get("json_path"),
+            record_path=sc.get("record_path"),
+            meta_prefix=sc.get("meta_prefix", "meta."),
+            sep=sc.get("sep", "."),
+            dtype=sc.get("dtype"),
+            flatten=sc.get("flatten", True),
         )
     else:
         raise ValueError(f"不支持的文件类型: {file_ext}")

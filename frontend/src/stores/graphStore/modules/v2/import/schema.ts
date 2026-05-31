@@ -16,7 +16,7 @@
  */
 
 import type { Ref } from 'vue'
-import type { CustomNode, SchemaNodeData } from '@/types/graph'
+import type { CustomNode, SchemaNodeData, JsonSchemaColumn } from '@/types/graph'
 import type { TableSchemaFileV2 } from '@/types/projectV2'
 import { getV2Schema } from '@/api/projectV2Api'
 import { fromBackendType } from '@/services/builders'
@@ -45,17 +45,40 @@ export function createV2SchemaImporter(params: {
     schemaPosition: { x: number; y: number },
     schemaFile?: TableSchemaFileV2
   ) => {
-    const found = nodes.value.find((n) => n.id === tableId && n.type === 'schema')
+    const found = nodes.value.find(
+      (n) => n.id === tableId && (n.type === 'schema' || n.type === 'jsonSchema')
+    )
     if (found) return found
 
     const schema = schemaFile || (await getV2Schema(tableId))
-    const cols = (schema.columns || []).map((col) => ({
-      id: col.id,
-      columnName: col.name,
-      dataType: fromBackendType(col.type),
-      validationErrors: [],
-      constraints: {},
-    }))
+
+    // 递归转换列定义，支持嵌套 children
+    const convertColumns = (columns: any[]): JsonSchemaColumn[] => {
+      return (columns || []).map((col) => {
+        // 将后端类型转换为前端 JsonDataType
+        const backendType = fromBackendType(col.type)
+        const jsonDataType = backendType.toLowerCase() as JsonSchemaColumn['dataType']
+
+        const column: JsonSchemaColumn = {
+          id: col.id,
+          columnName: col.name,
+          dataType: jsonDataType,
+          jsonPath: col.json_path || '',
+          nullable: col.nullable,
+          primaryKey: col.primary_key,
+          validationErrors: [],
+          constraints: {},
+        }
+        // 递归处理嵌套子列
+        if (col.children && col.children.length > 0) {
+          column.children = convertColumns(col.children)
+          column.isExpanded = col.expand ?? false
+        }
+        return column
+      })
+    }
+
+    const cols = convertColumns(schema.columns || [])
     const configPath = getEffectiveProjectConfigPath()
     // 默认回退为 relative_file，防止后端返回的 mode 为空或未声明时 localPath 丢失
     const sourcePathMode = schema.source?.mode || 'relative_file'
@@ -67,12 +90,17 @@ export function createV2SchemaImporter(params: {
           : undefined
     const localPath = rawLocalPath ? normalizePath(rawLocalPath) : undefined
     const sourceMode = 'localfile'
-    // 优先读取 source.sheet，兼容顶层 sheet 字段（后端 TableSchemaFile 支持两者）
-    const sheetName = schema.source?.sheet ?? schema.sheet
+
+    // 检测是否为 JSON schema：根据文件扩展名判断
+    const sourcePath = schema.source?.path || ''
+    const isJsonSchema = /\.(json|jsonl|ndjson)$/i.test(sourcePath)
+
+    // JSON schema 不需要 sheet
+    const sheetName = isJsonSchema ? undefined : (schema.source?.sheet ?? schema.sheet)
 
     const schemaNode: CustomNode = {
       id: tableId,
-      type: 'schema',
+      type: isJsonSchema ? 'jsonSchema' : 'schema',
       position: schemaPosition,
       data: {
         configName: `Schema_${schema.name}`,
@@ -85,7 +113,11 @@ export function createV2SchemaImporter(params: {
         localPath,
         columns: cols,
         saveState: 'saved',
-      } as SchemaNodeData,
+        sourceType: isJsonSchema ? 'json' : undefined,
+        format: (schema.source?.options as any)?.format,
+        jsonPath: (schema.source?.options as any)?.json_path,
+        recordPath: (schema.source?.options as any)?.record_path,
+      },
     }
     addNodes(schemaNode)
     return schemaNode

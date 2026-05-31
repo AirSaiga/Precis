@@ -180,6 +180,16 @@ export function useValidationTaskRunner() {
   const pendingTaskRequest = ref<ValidationTaskRequest | null>(null)
   const showMergeConfirm = ref(false)
 
+  // 执行进度跟踪
+  const progress = ref(0)
+  const processedStats = ref({
+    filesLoaded: 0,
+    filesTotal: 0,
+    tablesLoaded: 0,
+    tablesTotal: 0,
+    errorsFound: 0,
+  })
+
   const stageMeta: Array<Omit<ValidationTaskStageItem, 'status'>> = [
     {
       key: 'load-settings',
@@ -646,6 +656,16 @@ export function useValidationTaskRunner() {
           )
       }
 
+      // 更新进度和统计
+      progress.value = 100
+      processedStats.value = {
+        filesLoaded: response.summary.files_loaded,
+        filesTotal: response.summary.files_total,
+        tablesLoaded: response.summary.tables_loaded,
+        tablesTotal: manifest.value?.schemas?.length || response.summary.tables_loaded,
+        errorsFound: response.summary.total_error_count,
+      }
+
       setStageStatus('execute', 'success')
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : String(error)
@@ -683,11 +703,15 @@ export function useValidationTaskRunner() {
     }
 
     running.value = true
+    progress.value = 0
+    processedStats.value = { filesLoaded: 0, filesTotal: 0, tablesLoaded: 0, tablesTotal: 0, errorsFound: 0 }
 
     try {
       setStageStatus('load-settings', 'running')
+      progress.value = 5
       await settingsStore.loadProjectSettings()
       setStageStatus('load-settings', 'success')
+      progress.value = 10
 
       const request = buildTaskRequest()
 
@@ -730,6 +754,7 @@ export function useValidationTaskRunner() {
       }
 
       setStageStatus('preflight', 'success')
+      progress.value = 25
       await executeTask(request)
     } finally {
       running.value = false
@@ -830,6 +855,8 @@ export function useValidationTaskRunner() {
     failedPreviewItems,
     resultHighlights,
     showMergeConfirm,
+    progress,
+    processedStats,
     initializeTask,
     refreshPreflight,
     resetRuntimeOverrides,

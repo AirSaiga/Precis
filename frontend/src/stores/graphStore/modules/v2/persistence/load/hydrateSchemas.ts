@@ -81,10 +81,9 @@ export function hydrateSchemasFromV2Config(params: {
           : undefined
     const localPath = rawLocalPath ? normalizePath(rawLocalPath) : undefined
     const sourceMode = 'localfile'
-    // 判断是否为 JSON schema：存在 format 选项且为 json/jsonl/ndjson
-    const isJsonSchema =
-      schema.source?.options?.format &&
-      ['json', 'jsonl', 'ndjson'].includes(schema.source.options.format)
+    // 检测是否为 JSON schema：根据文件扩展名判断（与后端 SourceSpec.is_json() 一致）
+    const sourcePath = schema.source?.path || ''
+    const isJsonSchema = /\.(json|jsonl|ndjson)$/i.test(sourcePath)
     // 优先读取 source.sheet，兼容顶层 sheet 字段（后端 TableSchemaFile 支持两者）
     const sheetName = schema.source?.sheet ?? schema.sheet
 

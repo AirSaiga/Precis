@@ -58,6 +58,37 @@ function deduplicateByPath(sources: ExternalDataSource[]): ExternalDataSource[] 
 }
 
 /**
+ * 过滤掉已在 workspaceStore 中存在的数据源
+ *
+ * 使用与 workspaceStore.addDataSource 相同的标准化路径比较逻辑，
+ * 在批量导入前预先剔除已存在的文件，避免并发调用 addDataSource 时
+ * 因竞态条件导致重复录入。
+ *
+ * @param sources - 待过滤的数据源数组
+ * @param workspaceStore - workspaceStore 实例
+ * @returns 过滤后的新数据源数组
+ */
+function filterExistingDataSources(
+  sources: ExternalDataSource[],
+  workspaceStore: ReturnType<typeof useWorkspaceStore>
+): ExternalDataSource[] {
+  const existingSources = workspaceStore.getDataSources()
+  return sources.filter((ds) => {
+    const key = normalizePath(ds.fileId || ds.localPath || '')
+    if (!key) return false
+    const exists = existingSources.some((existing) => {
+      const existingFileId = normalizePath(existing.fileId || '')
+      const existingLocalPath = normalizePath(existing.localPath || '')
+      return existingFileId === key || existingLocalPath === key
+    })
+    if (exists) {
+      logger.debug('[useDataSourceImport] 跳过已存在的数据源:', key)
+    }
+    return !exists
+  })
+}
+
+/**
  * 使用数据源导入逻辑
  *
  * @returns 导入相关状态和方法
@@ -157,9 +188,12 @@ export function useDataSourceImport() {
     }
 
     const uniqueFileList = deduplicateByPath(fileList)
-    const addDataSourcePromises = uniqueFileList.map((dataSource) =>
-      workspaceStore
-        .addDataSource(
+    // 与 workspaceStore 中已有数据源交叉去重，避免重复录入
+    const newFileList = filterExistingDataSources(uniqueFileList, workspaceStore)
+
+    for (const dataSource of newFileList) {
+      try {
+        await workspaceStore.addDataSource(
           dataSource.fileId,
           dataSource.name,
           dataSource.type,
@@ -168,17 +202,13 @@ export function useDataSourceImport() {
           undefined,
           dataSource.size
         )
-        .then(() => {
-          logger.debug(`数据源 ${dataSource.name} 添加成功`)
-        })
-        .catch((error) => {
-          logger.error(`添加数据源 ${dataSource.name} 失败:`, error)
-          const errorMessage = error instanceof Error ? error.message : String(error)
-          alert(`添加数据源 ${dataSource.name} 失败: ${errorMessage}`)
-        })
-    )
-
-    await Promise.all(addDataSourcePromises)
+        logger.debug(`数据源 ${dataSource.name} 添加成功`)
+      } catch (error) {
+        logger.error(`添加数据源 ${dataSource.name} 失败:`, error)
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        alert(`添加数据源 ${dataSource.name} 失败: ${errorMessage}`)
+      }
+    }
   }
 
   /**
@@ -325,9 +355,12 @@ export function useDataSourceImport() {
         }
 
         const uniqueFileList2 = deduplicateByPath(fileList)
-        const addDataSourcePromises2 = uniqueFileList2.map((dataSource) =>
-          workspaceStore
-            .addDataSource(
+        // 与 workspaceStore 中已有数据源交叉去重，避免重复录入
+        const newFileList2 = filterExistingDataSources(uniqueFileList2, workspaceStore)
+
+        for (const dataSource of newFileList2) {
+          try {
+            await workspaceStore.addDataSource(
               dataSource.fileId,
               dataSource.name,
               dataSource.type,
@@ -335,19 +368,15 @@ export function useDataSourceImport() {
               dataSource.localPath,
               dataSource.folderPath
             )
-            .then(() => {
-              logger.debug(
-                `数据源 ${dataSource.name} 添加成功，folderPath: ${dataSource.folderPath}`
-              )
-            })
-            .catch((error) => {
-              logger.error(`添加数据源 ${dataSource.name} 失败:`, error)
-              const errorMessage = error instanceof Error ? error.message : String(error)
-              alert(`添加数据源 ${dataSource.name} 失败: ${errorMessage}`)
-            })
-        )
-
-        await Promise.all(addDataSourcePromises2)
+            logger.debug(
+              `数据源 ${dataSource.name} 添加成功，folderPath: ${dataSource.folderPath}`
+            )
+          } catch (error) {
+            logger.error(`添加数据源 ${dataSource.name} 失败:`, error)
+            const errorMessage = error instanceof Error ? error.message : String(error)
+            alert(`添加数据源 ${dataSource.name} 失败: ${errorMessage}`)
+          }
+        }
       }
     } catch (error) {
       logger.error('[useDataSourceImport] Electron 文件选择失败:', error)
@@ -426,6 +455,8 @@ export function useDataSourceImport() {
         return true
       })
 
+      // 构建待导入的数据源列表
+      const fileList: ExternalDataSource[] = []
       for (const filePath of uniqueFiles) {
         const fileName = filePath.split(/[/\\]/).pop() || 'unknown'
         // 获取导入的根文件夹名称作为 folderPath 的前缀
@@ -441,7 +472,7 @@ export function useDataSourceImport() {
           relativePath = rootFolderName + sep + relativePath
         }
 
-        const dataSource: ExternalDataSource = {
+        fileList.push({
           id: `ds_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
           name: fileName,
           fileId: filePath,
@@ -454,8 +485,13 @@ export function useDataSourceImport() {
           localPath: filePath,
           folderPath: relativePath,
           isFolder: false,
-        }
+        })
+      }
 
+      // 与 workspaceStore 中已有数据源交叉去重，避免重复录入
+      const newFileList = filterExistingDataSources(fileList, workspaceStore)
+
+      for (const dataSource of newFileList) {
         try {
           await workspaceStore.addDataSource(
             dataSource.fileId,

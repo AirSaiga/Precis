@@ -167,7 +167,7 @@
 
 .json-schema-node .columns-header {
   display: grid;
-  grid-template-columns: 28px minmax(70px, auto) minmax(0, 1fr) 1fr 40px;
+  grid-template-columns: 24px 1fr minmax(120px, 1.5fr) auto auto 40px;
   gap: 8px;
   padding: var(--node-content-padding-y) var(--node-content-padding-x);
   background: var(--json-accent-weak);
@@ -180,9 +180,16 @@
 }
 
 .json-schema-node .col-h-expand { width: 16px; }
-.json-schema-node .col-h-type { min-width: 80px; }
 .json-schema-node .col-h-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.json-schema-node .col-h-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.json-schema-node .col-h-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--node-muted-color); }
+.json-schema-node .col-h-type { min-width: 80px; }
+.json-schema-node .col-h-constraints { width: 60px; }
+.json-schema-node .col-h-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
 
 .json-schema-node .node-footer {
   padding: var(--node-content-padding-y) var(--node-content-padding-x);

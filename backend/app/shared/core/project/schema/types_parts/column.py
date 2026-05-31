@@ -118,6 +118,7 @@ class ColumnSpec(BaseModel):
     nullable: bool = Field(True, description="是否允许为空")
     expand: bool = Field(False, description="是否展开（与现有 schema 模型保持一致）")
     json_path: str | None = Field(None, description="JSON 特有路径映射")
+    children: list[ColumnSpec] | None = Field(None, description="JSON 嵌套子列（树形结构）")
 
     @model_validator(mode="before")
     @classmethod

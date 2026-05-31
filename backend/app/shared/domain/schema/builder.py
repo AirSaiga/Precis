@@ -35,6 +35,9 @@ from app.shared.domain.data_types import (
     ExtractedType,
     FloatType,
     IntegerType,
+    JsonArrayType,
+    JsonNullType,
+    JsonObjectType,
     SequenceType,
     StringType,
 )
@@ -77,6 +80,12 @@ TYPE_REGISTRY: dict[str, Any] = {
     "CompositeExpr": CompositeConditionType,
     "Sequence": SequenceType,
     "Extracted": ExtractedType,
+    "JsonObject": JsonObjectType(),
+    "json_object": JsonObjectType(),
+    "JsonArray": JsonArrayType(),
+    "json_array": JsonArrayType(),
+    "JsonNull": JsonNullType(),
+    "json_null": JsonNullType(),
 }
 
 

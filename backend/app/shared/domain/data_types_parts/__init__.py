@@ -21,6 +21,7 @@ from app.shared.domain.data_types_parts.base import DataType
 from app.shared.domain.data_types_parts.composite import CompositeConditionType, SpecificCompositeConditionType
 from app.shared.domain.data_types_parts.expression import ExpressionType, SpecificExpressionType
 from app.shared.domain.data_types_parts.extracted import ExtractedType
+from app.shared.domain.data_types_parts.json_types import JsonArrayType, JsonNullType, JsonObjectType
 from app.shared.domain.data_types_parts.scalars import (
     BooleanType,
     DateType,
@@ -41,6 +42,9 @@ __all__ = [
     "ExtractedType",
     "FloatType",
     "IntegerType",
+    "JsonArrayType",
+    "JsonNullType",
+    "JsonObjectType",
     "SequenceType",
     "SpecificCompositeConditionType",
     "SpecificExpressionType",

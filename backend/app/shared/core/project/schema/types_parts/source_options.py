@@ -106,6 +106,8 @@ class JSONOptions(BaseModel):
 
     dtype: dict[str, str] | None = Field(None, description="列类型指定，如 {'id': 'str', 'count': 'int'}")
 
+    flatten: bool = Field(False, description="是否自动扁平化嵌套结构")
+
     def to_loader_config(self) -> dict[str, any]:
         """@methoddesc 转换为加载器配置字典
 
@@ -128,6 +130,7 @@ class JSONOptions(BaseModel):
             "meta_prefix": self.meta_prefix,
             "sep": self.sep,
             "dtype": self.dtype,
+            "flatten": self.flatten,
         }
 
 

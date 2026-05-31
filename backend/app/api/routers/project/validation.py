@@ -217,7 +217,7 @@ def validate_v2_full(
                 table_id=err.get("table_id"),
                 column=err.get("column"),
                 column_id=err.get("column_id"),
-                row_index=err.get("row_index"),
+                row_index=None if (ri := err.get("row_index")) is None or ri != ri else ri,
                 value=str(err.get("value")) if err.get("value") else None,
                 source_path=err.get("source_path"),
                 source_file=err.get("source_file"),
