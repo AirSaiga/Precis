@@ -34,7 +34,7 @@
         class="search-input"
         placeholder="搜索字段..."
       />
-      <span v-if="searchQuery" class="search-clear" @click="searchQuery = ''"">✕</span>
+      <span v-if="searchQuery" class="search-clear" @click="searchQuery = ''">✕</span>
     </div>
 
     <!-- 当前层级内容 -->
