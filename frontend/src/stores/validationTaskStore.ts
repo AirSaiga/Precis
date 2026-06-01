@@ -31,6 +31,9 @@ export const useValidationTaskStore = defineStore('validationTask', () => {
   /** 当前校验目标配置 */
   const target = ref<ValidationTaskTarget>({ ...defaultTarget })
 
+  /** 最近一次校验完成的时间戳，用于触发历史记录刷新 */
+  const lastRunTimestamp = ref<number>(0)
+
   /**
    * 打开校验任务面板
    *
@@ -82,6 +85,7 @@ export const useValidationTaskStore = defineStore('validationTask', () => {
   return {
     visible,
     target,
+    lastRunTimestamp,
     open,
     openFullProject,
     openSingleTable,

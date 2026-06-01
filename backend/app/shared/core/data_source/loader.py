@@ -76,20 +76,18 @@ def clear_cache() -> int:
 
 def _get_or_load(filepath: str, load_fn) -> Any:
     """
-    @methoddesc 带缓存和线程安全的数据加载。
+    @methoddesc 数据加载（已禁用缓存，确保每次从磁盘读取最新数据）。
 
-    实现双检锁模式（Double-Check Locking），确保同一文件在并发环境下只被加载一次：
-    1. 先无锁检查缓存，命中则直接返回（性能最优路径）
-    2. 未命中则获取该文件专属锁
-    3. 持锁后再次检查缓存（防止等待期间其他线程已加载）
-    4. 仍未命中则执行加载函数，并将结果存入缓存
-    5. 缓存满时按 FIFO 策略淘汰最早条目
+    缓存机制已移除原因：
+    - 数据校验工具的核心工作流是"修改数据 → 校验 → 修正 → 再校验"
+    - 缓存会导致用户修改数据文件后，校验仍使用旧数据，造成困惑
+    - 数据文件通常不大（几MB），加载耗时仅几毫秒，缓存收益极低
 
     Args:
-        filepath: 文件的完整路径，同时作为缓存的键
+        filepath: 文件的完整路径（仅用于日志记录）
         load_fn: 实际执行加载的回调函数（无参数）
 
-    Returns:
+    返回:
         加载后的数据对象
 
     示例:
@@ -97,38 +95,8 @@ def _get_or_load(filepath: str, load_fn) -> Any:
         ...     return pd.read_csv("data.csv")
         >>> df = _get_or_load("data.csv", load_csv)
     """
-    cache_key = filepath
-
-    if cache_key in _data_cache:
-        logger.debug(f"[Cache Hit] 直接从缓存返回 '{os.path.basename(filepath)}' 的数据。")
-        return _data_cache[cache_key]
-
-    with _lock_for_locks:
-        if filepath not in _file_locks:
-            _file_locks[filepath] = threading.Lock()
-        file_lock = _file_locks[filepath]
-
-    with file_lock:
-        if cache_key in _data_cache:
-            logger.debug(f"[Cache Hit after Lock] 从缓存返回 '{os.path.basename(filepath)}' 的数据。")
-            return _data_cache[cache_key]
-
-        logger.debug(f"[Cache Miss] 缓存未命中，准备从磁盘加载 '{os.path.basename(filepath)}'...")
-        result = load_fn()
-
-        while len(_data_cache) >= _MAX_CACHE_ENTRIES:
-            oldest_key = next(iter(_data_cache))
-            evicted = _data_cache.pop(oldest_key, None)
-            # 注意：仅驱逐缓存数据，不清除 _file_locks
-            # 原因：其他线程可能正在持有该文件的锁进行加载，
-            # 清除锁会导致新线程创建新锁，破坏互斥保证
-            if evicted is not None:
-                logger.debug(f"[Cache Evict] 缓存已满，淘汰最早条目 '{os.path.basename(oldest_key)}'。")
-
-        _data_cache[cache_key] = result
-        logger.debug(f"[Cache Stored] 已缓存 '{os.path.basename(filepath)}' 的数据。")
-
-        return result
+    logger.debug(f"[Load] 从磁盘加载 '{os.path.basename(filepath)}'...")
+    return load_fn()
 
 
 def _load_excel_with_new_loader(filepath: str, schemas: list[TableSchema]) -> dict[str, pd.DataFrame]:

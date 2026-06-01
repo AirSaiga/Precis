@@ -18,7 +18,6 @@ import { logger } from '@/core/utils/logger'
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { v4 as uuidv4 } from 'uuid'
-import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import type { JsonSchemaColumn, JsonSchemaNodeData } from '@/types/nodes'
 import yaml from 'js-yaml'
@@ -33,7 +32,6 @@ import { useNodeSaving } from '../shared/useNodeSaving'
  */
 export function useJsonSchemaSaving(props: { id: string; data: JsonSchemaNodeData }, emit: any) {
   const { t } = useI18n()
-  const { updateNodeData } = useVueFlow()
   const store = useGraphStore()
 
   // 保存状态
@@ -102,7 +100,7 @@ export function useJsonSchemaSaving(props: { id: string; data: JsonSchemaNodeDat
     const { sourceNodeId, targetNodeId } = event.detail
 
     if (targetNodeId === props.id) {
-      updateNodeData(props.id, {
+      store.updateNodeData(props.id, {
         ...props.data,
         tableName: 'new_json_table',
         sourceFile: null,

@@ -199,7 +199,6 @@
   import { useJsonSchemaUI } from '@/composables/nodes/json/useJsonSchemaUI'
   import { useJsonSchemaInteractions } from '@/composables/nodes/json/useJsonSchemaInteractions'
   import { useJsonSchemaSaving } from '@/composables/nodes/json/useJsonSchemaSaving'
-  import { useJsonSchemaConnectionHandler } from '@/composables/nodes/json/useJsonSchemaConnectionHandler'
   import { useJsonSchemaResizable } from '@/composables/nodes/json/useJsonSchemaResizable'
 
   // Store 导入
@@ -383,17 +382,6 @@
     handlePatternDragOver: handlePatternDragOverFromSaving,
     handlePatternDrop: handlePatternDropFromSaving,
   } = useJsonSchemaSaving(props, emit)
-
-  /**
-   * useJsonSchemaConnectionHandler - 连接处理
-   * 负责：
-   * - 数据源连接处理
-   * - Smart Fill 对话框
-   * - 从数据源生成列
-   */
-  const {
-    handleSmartFill,
-  } = useJsonSchemaConnectionHandler(props, emit)
 
   /**
    * useJsonSchemaResizable - 缩放逻辑

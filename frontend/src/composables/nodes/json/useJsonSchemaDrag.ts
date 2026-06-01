@@ -5,7 +5,6 @@
  */
 
 import { ref } from 'vue';
-import { useVueFlow } from '@vue-flow/core';
 import { useGraphStore } from '@/stores/graphStore';
 import type { JsonSchemaNodeData } from '@/types/nodes';
 
@@ -19,7 +18,6 @@ export function useJsonSchemaDrag(
   props: { id: string; data: JsonSchemaNodeData },
   emit: any
 ) {
-  const { updateNodeData } = useVueFlow();
   const store = useGraphStore();
 
   const isDragging = ref(false);
@@ -72,7 +70,7 @@ export function useJsonSchemaDrag(
     const [removed] = columns.splice(sourceIndex, 1);
     columns.splice(targetIndex, 0, removed);
 
-    updateNodeData(props.id, {
+    store.updateNodeData(props.id, {
       ...props.data,
       columns: columns,
       saveState: 'draft',
@@ -107,7 +105,7 @@ export function useJsonSchemaDrag(
     const columns = [...props.data.columns];
     [columns[index - 1], columns[index]] = [columns[index], columns[index - 1]];
 
-    updateNodeData(props.id, {
+    store.updateNodeData(props.id, {
       ...props.data,
       columns: columns,
       saveState: 'draft',
@@ -131,7 +129,7 @@ export function useJsonSchemaDrag(
     const columns = [...props.data.columns];
     [columns[index], columns[index + 1]] = [columns[index + 1], columns[index]];
 
-    updateNodeData(props.id, {
+    store.updateNodeData(props.id, {
       ...props.data,
       columns: columns,
       saveState: 'draft',

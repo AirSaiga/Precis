@@ -63,10 +63,6 @@ export function useJsonSchemaNode(props: { id: string; data: JsonSchemaNodeData 
   // 处理节点和列的拖拽排序
   const drag = useJsonSchemaDrag(props, emit)
 
-  // JSON Schema连接处理
-  // 处理 JsonSourcePreview 到 JsonSchema 的连接逻辑
-  const connectionHandler = useJsonSchemaConnectionHandler()
-
   return {
     // JSON Schema数据管理
     ...data,
@@ -91,9 +87,6 @@ export function useJsonSchemaNode(props: { id: string; data: JsonSchemaNodeData 
 
     // JSON Schema拖拽
     ...drag,
-
-    // JSON Schema连接处理
-    ...connectionHandler,
   }
 }
 

@@ -161,19 +161,30 @@
     }
   }
 
+  const handleKeydown = (event: KeyboardEvent) => {
+    if (event.key !== 'Escape' || !props.modelValue) return
+    if (showMergeConfirm.value) {
+      cancelMergePrompt()
+      return
+    }
+    close()
+  }
+
   onMounted(() => {
     document.addEventListener('click', handleDocumentClick)
+    document.addEventListener('keydown', handleKeydown)
   })
 
   onUnmounted(() => {
     document.removeEventListener('click', handleDocumentClick)
+    document.removeEventListener('keydown', handleKeydown)
   })
 </script>
 
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div v-if="modelValue" class="fv-overlay" @click.self="close">
+      <div v-if="modelValue" class="fv-overlay">
         <div class="fv-modal" role="dialog" aria-modal="true">
           <!-- Header -->
           <div class="fv-header">
@@ -458,7 +469,7 @@
   <!-- Merge Confirm Modal -->
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div v-if="showMergeConfirm" class="merge-confirm-overlay" @click.self="cancelMergePrompt">
+      <div v-if="showMergeConfirm" class="merge-confirm-overlay">
         <div class="merge-confirm-modal" role="dialog" aria-modal="true">
           <div class="merge-confirm-header">
             <div class="merge-confirm-title">

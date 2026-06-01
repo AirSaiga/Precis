@@ -24,7 +24,6 @@
 
 import { ref, watch, nextTick } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useVueFlow } from '@vue-flow/core';
 import { useGraphStore } from '@/stores/graphStore';
 import type { JsonSchemaNodeData, JsonSchemaColumn } from '@/types/nodes';
 import { useNodeColumnEditing } from '../shared/useNodeColumnEditing';
@@ -58,7 +57,6 @@ export function useJsonSchemaInteractions(
   emit: JsonSchemaInteractionsEmit
 ) {
   const { t } = useI18n();
-  const { updateNodeData, findNode } = useVueFlow();
   const store = useGraphStore();
 
   const snappingColumnIds = ref<Set<string>>(new Set());
@@ -84,7 +82,7 @@ export function useJsonSchemaInteractions(
       } as JsonSchemaColumn),
     supportsNested: true,
     updateColumns: (columns) => {
-      updateNodeData(props.id, {
+      store.updateNodeData(props.id, {
         ...props.data,
         columns,
         saveState: 'draft',
@@ -215,7 +213,7 @@ export function useJsonSchemaInteractions(
   }) => {
     const { handleId, targetNodeId } = event;
     const columnId = handleId.replace('source-right-', '');
-    const targetNode = findNode(targetNodeId);
+    const targetNode = store.nodes.find((n) => n.id === targetNodeId);
 
     if (targetNode && targetNode.type !== 'schema' && targetNode.type !== 'jsonSchema') {
       const constraintType = constraintNodeTypeMap[targetNode.type];
@@ -230,7 +228,7 @@ export function useJsonSchemaInteractions(
           }
           return col;
         });
-        updateNodeData(props.id, {
+        store.updateNodeData(props.id, {
           ...props.data,
           columns: updatedColumns,
           saveState: 'draft',
@@ -275,7 +273,7 @@ export function useJsonSchemaInteractions(
           ? { ...col, relation: relationData, isForeignKey: true }
           : col
       );
-      updateNodeData(props.id, {
+      store.updateNodeData(props.id, {
         ...props.data,
         columns: updatedColumns,
         saveState: 'draft',
@@ -332,7 +330,7 @@ export function useJsonSchemaInteractions(
         ? { ...col, jsonPath }
         : col
     );
-    updateNodeData(props.id, {
+    store.updateNodeData(props.id, {
       ...props.data,
       columns: updatedColumns,
       saveState: 'draft',
@@ -365,7 +363,7 @@ export function useJsonSchemaInteractions(
       }
       return col;
     });
-    updateNodeData(props.id, {
+    store.updateNodeData(props.id, {
       ...props.data,
       columns: updatedColumns,
       saveState: 'draft',
@@ -391,14 +389,14 @@ export function useJsonSchemaInteractions(
         }
         return col;
       });
-      updateNodeData(props.id, {
+      store.updateNodeData(props.id, {
         ...props.data,
         columns: updatedColumns,
         saveState: 'draft',
         updatedAt: new Date().toISOString()
       });
     } else {
-      updateNodeData(props.id, {
+      store.updateNodeData(props.id, {
         ...props.data,
         columns: props.data.columns.filter(col => col.id !== columnId),
         saveState: 'draft',
@@ -415,9 +413,9 @@ export function useJsonSchemaInteractions(
    * @param sourceNodeId - 源节点 ID
    */
   const handleSourceConnect = (sourceNodeId: string) => {
-    const sourceNode = findNode(sourceNodeId);
+    const sourceNode = store.nodes.find((n) => n.id === sourceNodeId);
     if (sourceNode && sourceNode.type === 'jsonSourcePreview') {
-      updateNodeData(props.id, {
+      store.updateNodeData(props.id, {
         ...props.data,
         sourceNodeId: sourceNodeId,
         saveState: 'draft',
@@ -444,7 +442,7 @@ export function useJsonSchemaInteractions(
         if (sourceEdge) {
           handleSourceConnect(sourceEdge.source);
         } else if (props.data.sourceNodeId) {
-          updateNodeData(props.id, {
+          store.updateNodeData(props.id, {
             ...props.data,
             sourceNodeId: undefined,
             sourceFile: undefined,
@@ -487,7 +485,7 @@ export function useJsonSchemaInteractions(
       }
       return col;
     });
-    updateNodeData(props.id, {
+    store.updateNodeData(props.id, {
       ...props.data,
       columns: updatedColumns,
       saveState: 'draft',

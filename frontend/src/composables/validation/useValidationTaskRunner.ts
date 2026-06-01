@@ -650,7 +650,10 @@ export function useValidationTaskRunner() {
           })),
           warnings: response.warnings ?? [],
         })
-          .then(() => logger.debug('[ValidationTaskRunner] 校验结果已保存到历史'))
+          .then(() => {
+            logger.debug('[ValidationTaskRunner] 校验结果已保存到历史')
+            validationTaskStore.lastRunTimestamp = Date.now()
+          })
           .catch((histErr) =>
             logger.warn('[ValidationTaskRunner] 保存校验历史失败（不影响校验结果）:', histErr)
           )

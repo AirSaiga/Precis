@@ -130,6 +130,7 @@
   import { useI18n } from 'vue-i18n'
   import { logger } from '@/core/utils/logger'
   import { useProjectStore } from '@/stores/projectStore'
+  import { useValidationTaskStore } from '@/stores/validationTaskStore'
   import {
     fetchValidationHistory,
     fetchValidationStats,
@@ -139,6 +140,7 @@
 
   const { t } = useI18n()
   const projectStore = useProjectStore()
+  const validationTaskStore = useValidationTaskStore()
 
   const runs = ref<ValidationRunRecord[]>([])
   const stats = ref<ValidationHistoryStats>({
@@ -241,6 +243,15 @@
   watch(projectPath, () => {
     if (projectPath.value) loadData()
   })
+
+  watch(
+    () => validationTaskStore.lastRunTimestamp,
+    () => {
+      if (projectPath.value && validationTaskStore.lastRunTimestamp > 0) {
+        loadData()
+      }
+    }
+  )
 </script>
 
 <style scoped src="./ValidationHistoryPanel.styles.css"></style>
