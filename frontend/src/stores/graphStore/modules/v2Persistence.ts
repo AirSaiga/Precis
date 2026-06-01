@@ -58,18 +58,6 @@ export function createV2PersistenceModule(params: {
     configDir: string | undefined,
     relPath: string | undefined
   ) => string | undefined
-  createTemplateInstanceNode: (
-    position: { x: number; y: number },
-    templateId?: string,
-    templateName?: string,
-    options?: {
-      nodeId?: string
-      parameters?: Record<string, unknown>
-      inputFromNode?: string
-      enabled?: boolean
-      saveState?: 'draft' | 'saved'
-    }
-  ) => string
 }) {
   const {
     nodes,
@@ -85,7 +73,6 @@ export function createV2PersistenceModule(params: {
     normalizeConfigDir,
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
-    createTemplateInstanceNode,
   } = params
 
   // 初始化统计操作子模块
@@ -120,7 +107,6 @@ export function createV2PersistenceModule(params: {
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     saveProject: saveOps.saveProject,
-    createTemplateInstanceNode,
   })
 
   return {

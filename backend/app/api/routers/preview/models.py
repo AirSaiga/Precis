@@ -31,6 +31,11 @@ class FilePreviewResponse(BaseModel):
     error: str | None = None
     # JSON 原始数据（用于树状显示）
     raw_data: list[Any] | None = None
+    # JSON 类型推断（字段名 → 推断类型）
+    type_inference: dict[str, str] | None = None
+    # JSON 结构统计
+    field_count: int | None = None
+    nest_depth: int | None = None
 
 
 class SheetSwitchRequest(BaseModel):
@@ -47,5 +52,5 @@ class FilePathPreviewRequest(BaseModel):
     sheet_name: str | None = None
     # JSON 特有参数
     json_path: str | None = None  # JSONPath 提取路径，如 "$.data.items"
-    json_format: str | None = None  # JSON 格式：auto/array/lines/object
+    json_format: str | None = None  # JSON 格式：auto / array / lines / object（前端直接透传，无需映射）
     record_path: str | None = None  # Record path，用于 pd.json_normalize

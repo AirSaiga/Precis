@@ -1,18 +1,25 @@
 /**
  * @file generateSchema.ts
- * @description 从数据源生成 Schema 处理器
+ * @description 从数据源生成 Schema 处理器（策略模式重构版）
  *
  * 功能概述：
  * - 根据选中数据源节点类型自动创建对应 Schema 节点
  * - 建立数据源到 Schema 的连接边
  * - 同步数据源元数据并自动触发智能列填充
+ *
+ * 重构要点：
+ * - 使用 ColumnGenerationStrategy 替代直接的列生成函数
+ * - 使用 PreviewDataFetcher 统一获取预览数据
+ * - 保留节点/边创建逻辑（属于 UI 编排，非策略核心）
  */
 
 import { nextTick } from 'vue'
 import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
-import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
-import { generateJsonColumnsFromSource } from '@/utils/nodes/json/columnGeneration'
+import { tabularColumnGenerator } from '@/utils/nodes/columnGeneration/TabularColumnGenerator'
+import { jsonColumnGenerator } from '@/utils/nodes/columnGeneration/JsonColumnGenerator'
+import { previewDataFetcher } from '@/utils/nodes/preview/PreviewDataFetcher'
+import type { CustomNodeData } from '@/types/graph'
 
 /**
  * 判断数据源节点类型对应的 Schema 节点类型
@@ -70,10 +77,8 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
   let schemaNodeId: string | undefined
 
   if (schemaNodeType === 'jsonSchema') {
-    // JSON 数据源 → 创建 JsonSchema 节点
     schemaNodeId = graphStore.createJsonSchemaNode(schemaPosition)
   } else {
-    // Excel/CSV 数据源 → 创建普通 Schema 节点
     schemaNodeId = graphStore.createSchemaNode(schemaPosition)
   }
 
@@ -86,7 +91,6 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
 
   // ========== 创建连接边 ==========
 
-  // Handle ID 约定：output handle 使用 data.id（与 Vue 组件中 :id="`${localData.id}-output`" 一致）
   const sourceDataId =
     ((sourceNode.data as unknown as Record<string, unknown>)?.id as string) || sourceNode.id
   const sourceHandleId = `${sourceDataId}-output`
@@ -105,11 +109,10 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
   if (!currentChildren.includes(schemaNodeId)) {
     graphStore.updateNodeData(sourceNode.id, {
       children: [...currentChildren, schemaNodeId],
-    })
+    } as Partial<CustomNodeData>)
   }
 
   // ========== 同步数据源信息到 Schema 节点 ==========
-  // 手动设置 sourceFile、sourceFilePath 等字段，这些字段是字符集约束节点校验时必需的
   const displayFileName =
     (sourceData.sourceName as string) || (sourceData.fileName as string) || 'Unknown'
   const smartTableName =
@@ -121,9 +124,7 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
   const displaySourcePath =
     (sourceData.localPath as string) || (sourceData.fileName as string) || displayFileName
 
-  // 根据 Schema 类型设置不同的字段
   if (schemaNodeType === 'jsonSchema') {
-    // JSON Schema 特有字段
     graphStore.updateNodeData(schemaNodeId, {
       ...graphStore.nodes.find((n) => n.id === schemaNodeId)?.data,
       tableName: smartTableName,
@@ -136,10 +137,9 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
       localPath: sourceData.localPath as string,
       jsonPath: (sourceData.jsonPath as string) || '',
       recordPath: (sourceData.recordPath as string) || '',
-      format: (sourceData.format as 'json' | 'jsonl' | 'ndjson') || 'json',
-    })
+      format: (sourceData.format as 'auto' | 'array' | 'lines' | 'object') || 'auto',
+    } as Partial<CustomNodeData>)
   } else {
-    // 普通 Schema (Excel/CSV) 字段
     graphStore.updateNodeData(schemaNodeId, {
       ...graphStore.nodes.find((n) => n.id === schemaNodeId)?.data,
       tableName: smartTableName,
@@ -154,42 +154,40 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
       sourceNodeId: sourceNode.id,
       sourceMode: sourceData.sourceMode as 'localfile',
       localPath: sourceData.localPath as string,
-    })
+    } as Partial<CustomNodeData>)
   }
 
-  // ========== 自动触发智能列填充 ==========
-  // 根据 Schema 类型，从数据源自动生成列定义
-  if (schemaNodeType === 'jsonSchema') {
-    // JSON 数据源：从 rawData 自动生成列定义
-    const rawData = sourceData.rawData
-    if (rawData && Array.isArray(rawData) && (rawData as unknown[]).length > 0) {
+  // ========== 自动触发智能列填充（策略模式）==========
+  const previewData = await previewDataFetcher.fetch({ type: 'node', node: sourceNode })
+
+  if (previewData) {
+    const schemaNode = graphStore.nodes.find((n) => n.id === schemaNodeId)
+    if (schemaNode) {
       try {
-        const columns = generateJsonColumnsFromSource(rawData, [], { forceReinferTypes: true })
-        const currentData = graphStore.nodes.find((n) => n.id === schemaNodeId)?.data
-        if (currentData && columns.length > 0) {
-          graphStore.updateNodeData(schemaNodeId, { ...currentData, columns })
-          logger.debug(`✅ [Ctrl+G] JSON 智能列填充完成！共 ${columns.length} 列`)
-        }
-      } catch (error) {
-        logger.error('[Ctrl+G] JSON 智能列填充失败:', error)
-      }
-    }
-  } else {
-    // Excel/CSV 数据源：从表头行自动生成列定义
-    const tableData = sourceData.data as unknown[][] | undefined
-    if (tableData && tableData.length > 0) {
-      try {
-        const headerRowIndex = (sourceData.headerRow as number) ?? 0
-        const headerRow = tableData[headerRowIndex]
-        if (headerRow) {
-          const sampleDataRow =
-            headerRowIndex + 1 < tableData.length ? tableData[headerRowIndex + 1] : undefined
-          const columns = generateColumnsFromSource(headerRow, [], sampleDataRow, {
-            forceReinferTypes: true,
-          })
-          const currentData = graphStore.nodes.find((n) => n.id === schemaNodeId)?.data
-          if (currentData && columns.length > 0) {
-            graphStore.updateNodeData(schemaNodeId, { ...currentData, columns })
+        if (schemaNodeType === 'jsonSchema') {
+          // JSON: 使用 JsonColumnGenerator
+          const existingColumns =
+            ((schemaNode.data as Record<string, unknown>)?.jsonColumns as unknown[]) || []
+          const columns = jsonColumnGenerator.generate(previewData.rawData, existingColumns)
+
+          if (columns.length > 0) {
+            graphStore.updateNodeData(schemaNodeId, {
+              ...(schemaNode.data || {}),
+              jsonColumns: columns,
+            } as unknown as Partial<CustomNodeData>)
+            logger.debug(`✅ [Ctrl+G] JSON 智能列填充完成！共 ${columns.length} 列`)
+          }
+        } else {
+          // Tabular: 使用 TabularColumnGenerator
+          const existingColumns =
+            (((schemaNode.data || {}) as Record<string, unknown>)?.columns as unknown[]) || []
+          const columns = tabularColumnGenerator.generate(previewData.rawData, existingColumns)
+
+          if (columns.length > 0) {
+            graphStore.updateNodeData(schemaNodeId, {
+              ...(schemaNode.data || {}),
+              columns,
+            } as unknown as Partial<CustomNodeData>)
             logger.debug(`✅ [Ctrl+G] 智能列填充完成！共 ${columns.length} 列`)
           }
         }

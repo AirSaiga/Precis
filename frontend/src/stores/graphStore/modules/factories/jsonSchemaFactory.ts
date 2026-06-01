@@ -44,7 +44,7 @@ export function createJsonSchemaFactoryModule(params: {
       fileName: fileInfo.fileName,
       fileType: 'json',
       sourceType: 'json',
-      format: 'json',
+      format: 'auto',
       jsonPath: '',
       recordPath: '',
       isPreviewNode: true,

@@ -74,7 +74,7 @@ import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
 import { toastError, toastSuccess, toastWarning } from '@/core/toast'
 import { useI18n } from 'vue-i18n'
-import { getV2FullConfig, getV2ProjectView, getV2Template, ProjectNotFoundError } from '@/api/projectV2Api'
+import { getV2FullConfig, getV2ProjectView, ProjectNotFoundError } from '@/api/projectV2Api'
 // Hydration imports retained for potential future use (e.g. restoring saved canvas state)
 // import { hydrateSchemasFromV2Config } from './load/hydrateSchemas'
 // import { hydrateManifestConstraintsFromV2Config } from './load/hydrateConstraints'
@@ -104,18 +104,6 @@ export function createV2LoadOps(params: {
     relPath: string | undefined
   ) => string | undefined
   saveProject: () => Promise<boolean>
-  createTemplateInstanceNode: (
-    position: { x: number; y: number },
-    templateId?: string,
-    templateName?: string,
-    options?: {
-      nodeId?: string
-      parameters?: Record<string, unknown>
-      inputFromNode?: string
-      enabled?: boolean
-      saveState?: 'draft' | 'saved'
-    }
-  ) => string
 }) {
   const {
     nodes,
@@ -131,7 +119,6 @@ export function createV2LoadOps(params: {
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     saveProject,
-    createTemplateInstanceNode,
   } = params
   const { t } = useI18n()
 
@@ -214,50 +201,9 @@ export function createV2LoadOps(params: {
         } as unknown as CustomNodeData,
       })
 
-      // 恢复模板实例节点（工作区状态，非资源）
-      const templateInstances = config.manifest.template_instances
-      if (templateInstances && templateInstances.length > 0) {
-        for (const ti of templateInstances) {
-          const pos = view?.nodes?.[ti.id] || { x: 300, y: 200 }
-
-          // 加载模板定义以获取 name 和 nodeCount
-          let templateName: string | undefined
-          let nodeCount = 0
-          try {
-            const tmpl = await getV2Template(ti.template_id)
-            templateName = (tmpl as Record<string, unknown>).name as string
-            nodeCount = Array.isArray(tmpl.nodes) ? tmpl.nodes.length : 0
-          } catch {
-            // 模板定义文件可能不存在，使用 template_id 作为 fallback
-            templateName = ti.template_id
-          }
-
-          const nodeId = createTemplateInstanceNode(pos, ti.template_id, templateName, {
-            nodeId: ti.id,
-            parameters: ti.params || {},
-            inputFromNode: ti.input_from_node || undefined,
-            enabled: ti.enabled !== false,
-            saveState: 'saved',
-          })
-          // 补全 nodeCount
-          if (nodeCount > 0) {
-            const newNode = nextNodes.find((n) => n.id === nodeId)
-            if (newNode) {
-              ;(newNode.data as unknown as Record<string, unknown>).nodeCount = nodeCount
-            }
-          }
-          // 恢复输入连接
-          if (ti.input_from_node) {
-            nextEdges.push({
-              id: `e-${ti.input_from_node}-${ti.id}`,
-              source: ti.input_from_node,
-              target: ti.id,
-              sourceHandle: undefined,
-              targetHandle: 'template-input',
-            } as Edge)
-          }
-        }
-      }
+      // 模板实例节点不在加载时自动恢复到画布。
+      // 画布是用户的工作区，模板实例应由用户主动从资源树拖入或展开。
+      // 模板实例的元数据（template_instances）仍保留在 manifest 中，由 save 流程维护。
 
       // 注意：不再自动水合所有资源到画布。
       // 画布是用户的工作区，资源应从左侧资源树手动拖拽。

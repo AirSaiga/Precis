@@ -56,7 +56,6 @@
       'has-children': hasChildren,
       'is-nested': isNested,
     }"
-    :style="{ paddingLeft: `${(props.depth || 0) * 24 + 12}px` }"
     :data-column-id="props.column.id"
     @mouseenter="emit('hover', props.column.id)"
     @mouseleave="emit('unhover')"

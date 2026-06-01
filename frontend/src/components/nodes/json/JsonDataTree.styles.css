@@ -5,6 +5,45 @@
   background: var(--ui-bg-elevated, #ffffff);
 }
 
+/* 搜索栏 */
+.search-bar {
+  position: relative;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--ui-border, #e8e4dc);
+}
+
+.search-input {
+  width: 100%;
+  height: 26px;
+  padding: 0 24px 0 8px;
+  background: var(--ui-bg-canvas, #f5f3ef);
+  border: 1px solid var(--ui-border, #e8e4dc);
+  border-radius: 4px;
+  font-size: 12px;
+  color: var(--ui-text, #4a453f);
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: var(--ui-accent, #5a9bc7);
+  box-shadow: 0 0 0 2px rgba(90, 155, 199, 0.15);
+}
+
+.search-clear {
+  position: absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  color: var(--ui-text-muted, #8a847c);
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.search-clear:hover {
+  color: var(--ui-text, #4a453f);
+}
+
 /* 面包屑导航 */
 .breadcrumb-bar {
   display: flex;
@@ -150,6 +189,48 @@
   color: #7c3aed;
 }
 .type-array {
+  color: #db2777;
+}
+
+/* 类型标签 */
+.type-badge {
+  font-size: 10px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  margin-left: 6px;
+  font-weight: 500;
+  text-transform: lowercase;
+  letter-spacing: 0.3px;
+  flex-shrink: 0;
+}
+
+.badge-string {
+  background: rgba(90, 155, 199, 0.12);
+  color: var(--ui-accent, #5a9bc7);
+}
+
+.badge-number {
+  background: rgba(5, 150, 105, 0.12);
+  color: #059669;
+}
+
+.badge-boolean {
+  background: rgba(194, 65, 12, 0.12);
+  color: #c2410c;
+}
+
+.badge-null {
+  background: rgba(139, 133, 125, 0.12);
+  color: var(--ui-text-muted, #8b857d);
+}
+
+.badge-object {
+  background: rgba(124, 58, 237, 0.12);
+  color: #7c3aed;
+}
+
+.badge-array {
+  background: rgba(219, 39, 119, 0.12);
   color: #db2777;
 }
 

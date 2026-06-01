@@ -109,13 +109,7 @@ export function buildJSONOptions(data: JsonSchemaNodeData): JSONOptionsV2 | unde
 
   // format 字段
   if (data.format) {
-    // 转换 'jsonl' 和 'ndjson' 为 'lines'
-    options.format =
-      data.format === 'jsonl' || data.format === 'ndjson'
-        ? 'lines'
-        : data.format === 'json'
-          ? 'array'
-          : 'auto'
+    options.format = data.format
   } else {
     options.format = 'auto'
   }

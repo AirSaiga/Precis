@@ -10,7 +10,7 @@ import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { validateConstraintNodesForSchema } from '@/services/constraints/validationRegistry'
-import type { SourcePreviewNodeData, SchemaNodeData, JsonSchemaColumn } from '../types'
+import type { SourcePreviewNodeData, SchemaNodeData, JsonSchemaColumn, CustomNodeData } from '../types'
 
 /**
  * SourcePreview节点事件处理
@@ -324,7 +324,7 @@ export function useSourcePreviewEvents(
       store.updateNodeData(schemaNodeId, {
         ...schemaNode.data,
         columns: updatedColumns,
-      })
+      } as Partial<CustomNodeData>)
     }
 
     logger.debug(`✅ 已断开 ${removedColumnIds.length} 个已移除列的约束连接`)
@@ -383,7 +383,7 @@ export function useSourcePreviewEvents(
       } as unknown as JsonSchemaColumn
     })
 
-    store.updateNodeData(schemaNode.id, { ...schemaNode.data, columns: columns })
+    store.updateNodeData(schemaNode.id, { ...schemaNode.data, columns: columns } as Partial<CustomNodeData>)
   }
 
   /**

@@ -1,6 +1,7 @@
 /**
  * @file columnGeneration.ts
  * @description 智能列生成工具函数
+ * @deprecated 迁移至 columnGeneration/TabularColumnGenerator.ts
  */
 
 import { logger } from '@/core/utils/logger'

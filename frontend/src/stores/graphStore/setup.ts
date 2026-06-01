@@ -413,7 +413,7 @@ export function setupGraphStore() {
   const templateExpand = createTemplateExpandModule({
     nodes,
     edges,
-    updateNodeData: updateNodeData as (nodeId: string, newData: Record<string, unknown>) => void,
+    updateNodeData,
   })
 
   const v2Persistence = createV2PersistenceModule({
@@ -430,7 +430,6 @@ export function setupGraphStore() {
     normalizeConfigDir,
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
-    createTemplateInstanceNode,
   })
 
   const projectLifecycle = createProjectLifecycleModule({

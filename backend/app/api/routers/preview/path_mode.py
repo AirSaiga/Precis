@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import logging
 import os
+from typing import Any
 
 import pandas as pd
 from fastapi import HTTPException
@@ -32,6 +33,23 @@ from app.shared.services.preview.path import validate_file_access
 from .router import router
 
 logger = logging.getLogger(__name__)
+
+
+def _infer_json_type(value: Any) -> str:
+    """推断 JSON 值的类型（用于前端类型标记展示）。"""
+    if value is None:
+        return "null"
+    if isinstance(value, bool):
+        return "boolean"
+    if isinstance(value, int) or isinstance(value, float):
+        return "number"
+    if isinstance(value, str):
+        return "string"
+    if isinstance(value, list):
+        return "array"
+    if isinstance(value, dict):
+        return "object"
+    return "string"
 
 
 @router.post("/file/path", response_model=FilePreviewResponse)
@@ -172,15 +190,8 @@ def preview_file_by_path(request: FilePathPreviewRequest):
                     except json_module.JSONDecodeError as e:
                         raise HTTPException(status_code=400, detail=f"JSON 解析失败: {e.msg}") from e
                 else:
-                    # 2. 根据 json_format 选择合适的 parser
+                    # 2. 根据 json_format 选择合适的 parser（前端已统一为后端格式，直接透传）
                     format_type = request.json_format or "auto"
-                    # 处理格式别名
-                    format_mapping = {
-                        "json": "array",
-                        "jsonl": "lines",
-                        "ndjson": "lines",
-                    }
-                    format_type = format_mapping.get(format_type, format_type)
 
                     try:
                         parser = get_parser(format_type)
@@ -201,6 +212,50 @@ def preview_file_by_path(request: FilePathPreviewRequest):
                 # 限制返回的记录数
                 limited_records = records[:max_rows] if records else []
 
+                # JSON 类型推断和结构统计
+                type_inference: dict[str, str] | None = None
+                field_count: int | None = None
+                nest_depth: int | None = None
+
+                if records and isinstance(records, list) and len(records) > 0:
+                    first_record = records[0]
+                    if isinstance(first_record, dict):
+                        # 推断每个字段的类型（遍历所有记录取最精确类型）
+                        type_inference = {}
+                        for key in first_record.keys():
+                            types_found: set[str] = set()
+                            for record in records:
+                                if isinstance(record, dict) and key in record:
+                                    val = record[key]
+                                    types_found.add(_infer_json_type(val))
+                            # 如果只有一种类型，直接使用；多种类型时优先 object > array > string
+                            if len(types_found) == 1:
+                                type_inference[key] = types_found.pop()
+                            elif "object" in types_found:
+                                type_inference[key] = "object"
+                            elif "array" in types_found:
+                                type_inference[key] = "array"
+                            else:
+                                type_inference[key] = "string"
+
+                        field_count = len(first_record)
+
+                        # 计算最大嵌套深度
+                        def _calc_depth(obj: Any, depth: int = 0) -> int:
+                            if not isinstance(obj, (dict, list)):
+                                return depth
+                            if isinstance(obj, list):
+                                if not obj:
+                                    return depth
+                                return max(_calc_depth(item, depth + 1) for item in obj)
+                            # dict
+                            values = list(obj.values())
+                            if not values:
+                                return depth
+                            return max(_calc_depth(v, depth + 1) for v in values)
+
+                        nest_depth = _calc_depth(first_record, 0)
+
                 logger.info(f"[PREVIEW] JSON 文件读取成功: {file_name}, 记录数: {len(limited_records)}")
                 if request.json_path:
                     logger.info(f"[PREVIEW] 使用 JSONPath: {request.json_path}")
@@ -219,6 +274,9 @@ def preview_file_by_path(request: FilePathPreviewRequest):
                     total_cols=None,  # JSON 没有固定列数概念
                     sheets=None,
                     current_sheet=None,
+                    type_inference=type_inference,
+                    field_count=field_count,
+                    nest_depth=nest_depth,
                 )
 
             except HTTPException:

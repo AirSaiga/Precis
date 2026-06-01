@@ -1,6 +1,15 @@
+/* 嵌套缩进变量 */
+.column-row {
+  --nest-indent: 0px;
+}
+
+.column-row.is-nested {
+  --nest-indent: 24px;
+}
+
 .column-row {
   display: grid;
-  grid-template-columns: 24px minmax(0, 1fr) minmax(120px, 1.5fr) auto auto 40px;
+  grid-template-columns: calc(24px + var(--nest-indent)) minmax(80px, 1fr) minmax(100px, 1.2fr) 90px 60px 40px;
   gap: 8px;
   align-items: center;
   height: var(--node-row-height);
@@ -34,8 +43,8 @@
 }
 
 .expand-toggle-btn {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border: none;
   border-radius: var(--node-radius-sm);
   background: transparent;
@@ -48,6 +57,7 @@
     transform var(--node-transition-fast),
     color var(--node-transition-fast);
   padding: 0;
+  margin-left: var(--nest-indent, 0px);
 }
 
 .expand-toggle-btn:hover {
@@ -60,18 +70,19 @@
 }
 
 .expand-spacer {
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
+  margin-left: var(--nest-indent, 0px);
 }
 
 .column-name-wrapper {
-  width: 100%;
   min-width: 0;
   height: 28px;
   display: flex;
   align-items: center;
   position: relative;
   padding-right: 14px;
+  overflow: hidden;
 }
 
 .column-name-text {
@@ -149,7 +160,9 @@
   display: flex;
   gap: 3px;
   align-items: center;
+  justify-content: center;
   flex-shrink: 0;
+  width: 60px;
 }
 
 .constraint-badge {
@@ -222,7 +235,7 @@
 .type-selector-wrapper {
   position: relative;
   flex-shrink: 0;
-  min-width: 70px;
+  width: 90px;
   overflow: visible;
   display: flex;
   align-items: center;
@@ -234,7 +247,7 @@
   align-items: center;
   gap: var(--node-padding-xs);
   height: 24px;
-  padding: 0 8px;
+  padding: 0 6px;
   border-radius: var(--node-radius-sm);
   font-size: var(--node-mono-size);
   font-family: var(--node-mono-family);
@@ -244,9 +257,11 @@
   background: var(--ui-bg-subtle);
   border: 1px solid var(--ui-border-subtle);
   color: var(--node-theme-primary);
-  min-width: 50px;
+  min-width: 0;
+  max-width: 100%;
   justify-content: space-between;
   overflow: visible;
+  flex: 1;
 }
 
 .type-capsule:hover {
@@ -321,11 +336,10 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  justify-self: end;
-  width: 100%;
+  width: 40px;
   height: 100%;
   gap: 6px;
-  padding-right: 18px;
+  padding-right: 4px;
 }
 
 .action-btn {

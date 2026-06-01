@@ -421,8 +421,13 @@ export interface JsonSourcePreviewNodeData {
   fileType: 'json'
   /** 数据源类型，固定为 'json' */
   sourceType: 'json'
-  /** JSON 格式变体 */
-  format?: 'json' | 'jsonl' | 'ndjson'
+  /** JSON 格式变体（与后端 JSONSourceSpec 对齐）
+   * - auto: 自动检测格式
+   * - array: 对象数组 [{...}, {...}]
+   * - lines: JSON Lines / NDJSON（每行一个 JSON 对象）
+   * - object: 嵌套对象（需配合 JSONPath 提取数据数组）
+   */
+  format?: 'auto' | 'array' | 'lines' | 'object'
   /** JSONPath 表达式，用于从 JSON 中提取数据 */
   jsonPath?: string
   /** record_path，用于 pandas read_json 的 record_path 参数 */
@@ -461,6 +466,14 @@ export interface JsonSourcePreviewNodeData {
   currentSheet?: string
   /** 下游子节点 ID 列表 */
   children?: string[]
+  /** 后端推断的字段类型映射（字段名 → 类型） */
+  typeInference?: Record<string, string>
+  /** 字段数量（结构统计） */
+  fieldCount?: number
+  /** 最大嵌套深度（结构统计） */
+  nestDepth?: number
+  /** 与 Schema 定义的类型不匹配列表（自动校验结果） */
+  validationMismatches?: Array<{ field: string; expected: string; actual: string }>
 }
 
 /**
@@ -476,8 +489,8 @@ export interface JsonSchemaNodeData extends BaseSchemaNodeData<JsonSchemaColumn>
   jsonPath?: string
   /** record_path，用于 pandas read_json 的 record_path 参数 */
   recordPath?: string
-  /** JSON 格式变体 */
-  format?: 'json' | 'jsonl' | 'ndjson'
+  /** JSON 格式变体（与 JsonSourcePreviewNodeData.format 对齐） */
+  format?: 'auto' | 'array' | 'lines' | 'object'
   /** 下游子节点 ID 列表（regex、constraint 等） */
   children?: string[]
 }

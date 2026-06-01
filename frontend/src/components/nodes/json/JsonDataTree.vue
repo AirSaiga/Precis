@@ -26,13 +26,24 @@
       </span>
     </div>
 
+    <!-- 搜索过滤 -->
+    <div class="search-bar" v-if="isObject(currentLevelData) || isArray(currentLevelData)">
+      <input
+        v-model="searchQuery"
+        type="text"
+        class="search-input"
+        placeholder="搜索字段..."
+      />
+      <span v-if="searchQuery" class="search-clear" @click="searchQuery = ''"">✕</span>
+    </div>
+
     <!-- 当前层级内容 -->
     <div class="tree-content" ref="treeContentRef">
-      <div v-if="currentLevelData" class="level-view">
+      <div v-if="filteredLevelData" class="level-view">
         <!-- 如果是数组 -->
-        <template v-if="isArray(currentLevelData)">
+        <template v-if="isArray(filteredLevelData)">
           <div
-            v-for="(item, index) in currentLevelData"
+            v-for="(item, index) in filteredLevelData"
             :key="index"
             class="tree-row"
             :class="{ selected: isSelectedInPath(index) }"
@@ -66,9 +77,9 @@
         </template>
 
         <!-- 如果是对象 -->
-        <template v-else-if="isObject(currentLevelData)">
+        <template v-else-if="isObject(filteredLevelData)">
           <div
-            v-for="(value, key) in currentLevelData"
+            v-for="(value, key) in filteredLevelData"
             :key="key"
             class="tree-row"
             :class="{ selected: isSelectedInPath(key) }"
@@ -99,6 +110,15 @@
                 {{ formatValue(value) }}
               </template>
             </span>
+
+            <!-- 类型标签（仅在根层级对象且提供了 typeInference 时显示） -->
+            <span
+              v-if="selectedPath.length === 0 && props.typeInference && props.typeInference[key]"
+              class="type-badge"
+              :class="'badge-' + props.typeInference[key]"
+            >
+              {{ props.typeInference[key] }}
+            </span>
           </div>
         </template>
 
@@ -110,8 +130,8 @@
                 <circle cx="5" cy="5" r="1" fill="currentColor" />
               </svg>
             </span>
-            <span class="value-text" :class="'type-' + getValueType(currentLevelData)">
-              {{ formatValue(currentLevelData) }}
+            <span class="value-text" :class="'type-' + getValueType(filteredLevelData)">
+              {{ formatValue(filteredLevelData) }}
             </span>
           </div>
         </template>
@@ -145,11 +165,13 @@
 
   const props = defineProps<{
     data: unknown
+    typeInference?: Record<string, string>
   }>()
 
   // 当前选中的路径（如 [0, 'warehouse_data', 'inventory', 2]）
   const selectedPath = ref<(string | number)[]>([])
   const treeContentRef = ref<HTMLElement | null>(null)
+  const searchQuery = ref('')
 
   // 监听数据变化，重置路径
   watch(
@@ -180,6 +202,27 @@
   // 当前层级的数据
   const currentLevelData = computed(() => {
     return getValueAtPath(props.data, selectedPath.value)
+  })
+
+  // 过滤后的数据（支持搜索）
+  const filteredLevelData = computed(() => {
+    const data = currentLevelData.value
+    const query = searchQuery.value.trim().toLowerCase()
+    if (!query) return data
+
+    if (isArray(data)) {
+      return data.filter((_, index) => String(index).toLowerCase().includes(query))
+    }
+    if (isObject(data)) {
+      const filtered: Record<string, unknown> = {}
+      for (const [key, value] of Object.entries(data)) {
+        if (key.toLowerCase().includes(query) || String(value).toLowerCase().includes(query)) {
+          filtered[key] = value
+        }
+      }
+      return filtered
+    }
+    return data
   })
 
   // 获取指定路径的值
