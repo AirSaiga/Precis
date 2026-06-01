@@ -11,21 +11,25 @@ echo      Precis - CLI (Interactive)
 echo ============================================
 echo.
 
-call python --version >nul 2>&1
-if errorlevel 1 (
-    echo [ERROR] Python not found. Please install Python ^(3.13+^).
-    pause
-    exit /b 1
+:: Prefer backend venv Python when available
+if exist "backend\.venv\Scripts\python.exe" (
+    set "PYTHON_CMD=backend\.venv\Scripts\python.exe"
+    echo [OK] Using venv Python: backend\.venv
+) else (
+    call python --version >nul 2>&1
+    if errorlevel 1 (
+        echo [ERROR] Python not found. Please install Python ^(3.12+^) or run scripts\setup.ps1.
+        pause
+        exit /b 1
+    )
+    set "PYTHON_CMD=python"
+    echo [WARN] No venv found, falling back to system Python.
 )
-for /f "tokens=2" %%a in ('python --version') do echo [OK] Python: %%a
+for /f "tokens=*" %%a in ('"%PYTHON_CMD%" --version') do echo [OK] %%a
 echo.
 
 cd backend
-if exist ".venv\Scripts\python.exe" (
-    .venv\Scripts\python.exe -B app\cli_main.py %*
-) else (
-    python -B app\cli_main.py %*
-)
+"%PYTHON_CMD%" -B app\cli_main.py %*
 
 echo.
 if %ERRORLEVEL% neq 0 (

@@ -6,8 +6,16 @@ setlocal enabledelayedexpansion
 set "PROJECT_ROOT=%~dp0\..\.."
 cd /d "%PROJECT_ROOT%"
 
+:: Prefer backend venv Python when available
+if exist "backend\.venv\Scripts\python.exe" (
+    set "PYTHON_CMD=backend\.venv\Scripts\python.exe"
+) else (
+    set "PYTHON_CMD=python"
+)
+
 :: Ensure frontend build exists
 if not exist "frontend\dist\index.html" (
+    echo [INFO] Building frontend...
     cd frontend
     call npm run build >nul 2>&1
     if errorlevel 1 (
@@ -20,6 +28,7 @@ if not exist "frontend\dist\index.html" (
 
 :: Ensure electron is compiled
 if not exist "electron\dist\main.js" (
+    echo [INFO] Compiling Electron TypeScript...
     cd electron
     call npm run build:electron >nul 2>&1
     if errorlevel 1 (
@@ -31,6 +40,6 @@ if not exist "electron\dist\main.js" (
 )
 
 :: Start backend and electron (frontend is served statically by electron)
-call npx concurrently --kill-others --names "BACKEND,ELECTRON" --prefix-colors "cyan,magenta" "cd backend && python start_server.py" "npx wait-on --delay 1500 --timeout 60000 http://127.0.0.1:18000/docs >nul 2>&1 && cd electron && npx electron ."
+call npx concurrently --kill-others --names "BACKEND,ELECTRON" --prefix-colors "cyan,magenta" "cd backend && %PYTHON_CMD% app\start_server.py" "npx wait-on --delay 1500 --timeout 60000 http://127.0.0.1:18000/docs >nul 2>&1 && cd electron && npx electron ."
 
 exit /b %ERRORLEVEL%

@@ -13,15 +13,15 @@ echo.
 
 call node --version >nul 2>&1
 if errorlevel 1 (
-    echo [ERROR] Node.js not found. Please install Node.js ^(20.19.0+^).
+    echo [ERROR] Node.js not found. Please install Node.js ^(^>=20.19.0 ^|^| ^>=22.12.0^).
     pause
     exit /b 1
 )
-for /f "tokens=1" %%a in ('node --version') do echo [OK] Node.js: %%a
+for /f "tokens=*" %%a in ('node --version') do echo [OK] Node.js: %%a
 echo.
 
 echo [INFO] Ensure the backend and frontend dev servers are running first:
-echo   - Backend: http://127.0.0.1:18000
+echo   - Backend:  http://127.0.0.1:18000
 echo   - Frontend: http://localhost:5173
 echo.
 
