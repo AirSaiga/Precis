@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from app.shared.services.llm.schema_resolver import _resolve_id_from_name
@@ -92,7 +93,8 @@ def _build_constraint_params(constraint_type: str, constraint_spec: dict[str, An
         pattern = params.get("pattern")
         expression = params.get("expression")
         if pattern and not expression:
-            expression = f"re.match(r'{pattern}', str(value)) is not None"
+            safe_pattern = re.escape(pattern)
+            expression = f"re.match(r'{safe_pattern}', str(value)) is not None"
         return {"expression": expression or "True"}
     elif std_type == "DateLogic":
         return {

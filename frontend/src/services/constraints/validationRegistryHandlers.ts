@@ -32,10 +32,6 @@ import {
   toResult,
   getTargetValues,
   defaultReset,
-  CONSTRAINT_TYPES,
-  typeToMeta,
-  kindToMeta,
-  handlers,
 } from './validationRegistryCore'
 import type { ConstraintValidationContext, ConstraintValidationResult } from './types'
 import type { Edge, Node } from '@vue-flow/core'

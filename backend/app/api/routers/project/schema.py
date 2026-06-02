@@ -330,15 +330,31 @@ def delete_v2_schema(table_id: str, config_path: str = Depends(get_project_confi
         abs_schema_path = _resolve_project_path(config_path, ref.path)
     except ValueError:
         raise HTTPException(status_code=400, detail="非法的 Schema 文件路径")
-    try:
-        if os.path.isfile(abs_schema_path):
-            os.remove(abs_schema_path)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"删除 schema 文件失败: {e}")
 
-    if manifest.schemas:
-        manifest.schemas = [s for s in manifest.schemas if s.id != table_id]
-        with project_lock(config_path):
+    with project_lock(config_path):
+        for c_ref in manifest.constraints:
+            try:
+                c_path = _resolve_project_path(config_path, c_ref.path)
+                if os.path.isfile(c_path):
+                    c_data = read_yaml(Path(c_path))
+                    refs_data = c_data.get("refs", {})
+                    if refs_data.get("table_id") == table_id or refs_data.get("from_table_id") == table_id:
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"Schema '{table_id}' 仍被 constraint '{c_ref.id}' 引用，请先删除引用",
+                        )
+            except HTTPException:
+                raise
+            except Exception:
+                continue
+        try:
+            if os.path.isfile(abs_schema_path):
+                os.remove(abs_schema_path)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"删除 schema 文件失败: {e}")
+
+        if manifest.schemas:
+            manifest.schemas = [s for s in manifest.schemas if s.id != table_id]
             write_yaml(Path(manifest_path), manifest.model_dump(exclude_none=True))
 
     return {"message": f"V2 schema '{table_id}' 已删除。"}

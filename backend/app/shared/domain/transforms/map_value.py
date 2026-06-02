@@ -41,15 +41,11 @@ class MapValueRunner(TransformRunner):
 
         output_col = output_columns[0] if output_columns else "mapped"
 
-        def _map_value(value: Any) -> Any:
-            try:
-                idx = int(float(value))
-                if 0 <= idx < len(mapping):
-                    return mapping[idx]
-                return value
-            except (ValueError, TypeError):
-                return value
-
-        df[output_col] = df[input_column].apply(_map_value)
+        mapping_arr = list(mapping)
+        numeric_idx = pd.to_numeric(df[input_column], errors="coerce")
+        in_range = numeric_idx.notna() & (numeric_idx >= 0) & (numeric_idx < len(mapping_arr))
+        idx_int = numeric_idx.where(in_range)
+        mapped = idx_int.apply(lambda x: mapping_arr[int(x)] if pd.notna(x) and 0 <= int(x) < len(mapping_arr) else None)
+        df[output_col] = mapped.where(in_range, df[input_column])
 
         return df

@@ -31,6 +31,7 @@
 from __future__ import annotations
 
 from typing import Any, ClassVar
+from urllib.parse import urlparse, urlunparse
 
 from pydantic import Field
 
@@ -114,18 +115,25 @@ class SQLSourceSpec(DataSourceSpec):
 
         # 隐藏连接字符串中的密码
         conn = self.connection_string
-        if "@" in conn:
-            # 尝试隐藏密码部分：connection_string 格式通常为 "协议://用户名:密码@主机/数据库"
-            parts = conn.split("@")
-            if len(parts) == 2:
-                user_pass = parts[0]  # "协议://用户名:密码" 部分
-                if ":" in user_pass and "://" in user_pass:
-                    # 分割出协议和凭据："postgresql://" 和 "user:pass"
-                    protocol, creds = user_pass.rsplit("://", 1)
-                    if ":" in creds:
-                        # 提取用户名，将密码替换为 ***
-                        user = creds.split(":")[0]
-                        conn = f"{protocol}://{user}:***@{parts[1]}"
+        try:
+            parsed = urlparse(conn)
+            if parsed.password:
+                netloc_parts = []
+                if parsed.username:
+                    netloc_parts.append(parsed.username)
+                    netloc_parts.append(":***")
+                if parsed.hostname:
+                    if netloc_parts:
+                        netloc_parts.append("@")
+                    netloc_parts.append(parsed.hostname)
+                if parsed.port:
+                    netloc_parts.append(f":{parsed.port}")
+                new_netloc = "".join(netloc_parts)
+                conn = urlunparse(
+                    (parsed.scheme, new_netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
+                )
+        except Exception:
+            pass
 
         return {
             **base,

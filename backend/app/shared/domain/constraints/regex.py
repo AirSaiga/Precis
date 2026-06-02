@@ -100,11 +100,12 @@ class RegexConstraint(Constraint):
         try:
             # 解析正则表达式标志
             re_flags = 0
-            if "i" in self.flags.lower():
+            flags_set = set(self.flags.lower())
+            if "i" in flags_set:
                 re_flags |= re.IGNORECASE
-            if "m" in self.flags.lower():
+            if "m" in flags_set:
                 re_flags |= re.MULTILINE
-            if "s" in self.flags.lower():
+            if "s" in flags_set:
                 re_flags |= re.DOTALL
             if not self.case_sensitive:
                 re_flags |= re.IGNORECASE

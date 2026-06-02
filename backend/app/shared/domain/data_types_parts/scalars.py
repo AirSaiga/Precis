@@ -142,8 +142,19 @@ class IntegerType(DataType):
 
         # 解析：用 pd.to_numeric 批量转换
         parsed = pd.to_numeric(series_str, errors="coerce")
+        overflow_mask = non_na & parsed.notna() & (parsed.abs() > 2**53)
+        for index in series.index[overflow_mask]:
+            errors.append(
+                {
+                    "row_index": index,
+                    "column": col_name,
+                    "value": series[index],
+                    "error_type": "TypeValidationError",
+                    "error_message": f"'{series[index]}' 超出安全整数范围（±2^53），可能丢失精度。",
+                }
+            )
         # 将无效/空值位置设为 None
-        failed = is_na | notnull_violations | type_error_mask
+        failed = is_na | notnull_violations | type_error_mask | overflow_mask
         parsed = parsed.where(~failed, None)
 
         return parsed, errors
@@ -344,6 +355,8 @@ class DecimalType(DataType):
 
         try:
             decimal_value = Decimal(str(value))
+            if not decimal_value.is_finite():
+                return False, f"'{value}' 不是有限的数值（NaN 或 Infinity 不被接受）"
             if self.precision:
                 _sign, digits, _exponent = decimal_value.as_tuple()
                 total_digits = len(digits)

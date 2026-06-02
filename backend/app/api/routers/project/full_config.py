@@ -31,9 +31,8 @@ from fastapi import APIRouter, Depends
 from fastapi.responses import PlainTextResponse
 
 from app.api.dependencies import get_project_config_path
-from app.shared.core.io.yaml import read_yaml, write_yaml
+from app.shared.core.io.yaml import read_yaml
 from app.shared.core.project.manifest.coverage import compute_manifest_coverage, coverage_to_api_dict
-from app.shared.core.project.manifest.types import ProjectManifestV2
 from app.shared.core.project.regex.types import RegexNodeFileV2
 from app.shared.services.diff.config_diff import ConfigDiffResult, ConfigDiffService
 
@@ -45,9 +44,9 @@ from .base import (
     SchemaRefV2,
     StandardResponse,
     TableSchemaFileV2,
-    _v2_manifest_path,
 )
-from .helpers import _resolve_project_path, project_lock
+from .full_config_writer import write_v2_full_config
+from .helpers import _resolve_project_path
 from .manifest import get_v2_manifest
 
 logger = logging.getLogger(__name__)
@@ -226,213 +225,7 @@ def get_v2_full_config_yaml(config_path: str = Depends(get_project_config_path))
 
 @router.put("/v2/config/full", response_model=StandardResponse)
 def put_v2_full_config(payload: FullConfigV2Request, config_path: str = Depends(get_project_config_path)):
-    """
-    写入 V2 全量配置（会覆盖写入 manifest 与其引用的文件）。
-
-    使用场景：
-    - AI 生成完整项目配置后写入
-    - 项目导入（从备份恢复）
-    - 批量更新项目配置
-
-    合并策略：
-    - 如果前端传来的 manifest 中的某类资源为空，保留现有 manifest 中的同类引用
-    - 如果目录中有额外的资源文件，也会合并到 manifest 中
-
-    副作用：
-    - 写入 manifest 文件
-    - 写入所有 schemas、constraints、regex_nodes 文件
-
-    数据流：
-    Step 1: 读取现有 manifest（如果存在）
-    Step 2: 计算最终 manifest（合并策略）
-    Step 3: 写入 manifest
-    Step 4: 遍历 payload 中的资源并写入文件
-
-    参数:
-        payload: 包含 manifest 和所有资源配置的请求
-        config_path: 项目配置根目录（通过 Depends 注入）
-
-    返回:
-        StandardResponse: 操作结果消息
-    """
-    manifest_path = _v2_manifest_path(config_path)
-
-    existing_manifest = None
-    if os.path.isfile(manifest_path):
-        try:
-            existing_manifest = ProjectManifestV2.model_validate(read_yaml(Path(manifest_path)))
-            logger.info("[put_v2_full_config] 读取现有 manifest 成功")
-        except Exception as e:
-            logger.warning(f"[put_v2_full_config] 读取现有 manifest 失败: {e}")
-
-    schema_id_migration: dict[str, str] = {}
-    migrated_schemas: dict[str, TableSchemaFileV2] = {}
-    for key, schema in (payload.schemas or {}).items():
-        current_id = schema.id or key
-        src = schema.source
-        src_path = src.path if src else ""
-        sheet_name = (src.sheet if src else None) or getattr(schema, "sheet", None)
-        if src_path and not current_id.startswith("sc_"):
-            from app.shared.core.project.schema.types import generate_schema_id
-
-            new_id = generate_schema_id(src_path, sheet_name)
-            if new_id and new_id != current_id:
-                schema_id_migration[current_id] = new_id
-                schema = schema.model_copy(update={"id": new_id})
-                migrated_schemas[new_id] = schema
-                continue
-        migrated_schemas[current_id] = schema
-
-    if schema_id_migration:
-        payload = payload.model_copy(update={"schemas": migrated_schemas})
-        migrated_schema_refs: list[SchemaRefV2] = []
-        for ref in payload.manifest.schemas:
-            new_id = schema_id_migration.get(ref.id, ref.id)
-            new_path = ref.path
-            if new_id != ref.id:
-                new_path = f"schemas/{new_id}.schema.yaml"
-            migrated_schema_refs.append(SchemaRefV2(id=new_id, path=new_path))
-        payload = payload.model_copy(
-            update={"manifest": payload.manifest.model_copy(update={"schemas": migrated_schema_refs})}
-        )
-
-        def _rewrite_table_ids_in_refs(refs: dict[str, Any]) -> dict[str, Any]:
-            for k in ["table_id", "from_table_id", "to_table_id"]:
-                v = refs.get(k)
-                if isinstance(v, str) and v in schema_id_migration:
-                    refs[k] = schema_id_migration[v]
-            return refs
-
-        rewritten_schemas: dict[str, TableSchemaFileV2] = {}
-        for sid, s in (payload.schemas or {}).items():
-            s_data = s.model_dump(exclude_none=True)
-            constraints = s_data.get("constraints") or []
-            if isinstance(constraints, list):
-                for c in constraints:
-                    if isinstance(c, dict) and isinstance(c.get("refs"), dict):
-                        c["refs"] = _rewrite_table_ids_in_refs(c["refs"])
-            rewritten_schemas[sid] = TableSchemaFileV2.model_validate(s_data)
-
-        migrated_constraints: dict[str, ConstraintFileV2] = {}
-        for cid, c in (payload.constraints or {}).items():
-            data = c.model_dump(exclude_none=True)
-            refs = data.get("refs") or {}
-            if isinstance(refs, dict):
-                data["refs"] = _rewrite_table_ids_in_refs(refs)
-            migrated_constraints[cid] = ConstraintFileV2.model_validate(data)
-        migrated_regex_nodes: dict[str, RegexNodeFileV2] = {}
-        for rid, r in (payload.regex_nodes or {}).items():
-            data = r.model_dump(exclude_none=True)
-            src_ref = data.get("source_ref") or {}
-            if isinstance(src_ref, dict):
-                table_id = src_ref.get("table_id")
-                if isinstance(table_id, str) and table_id in schema_id_migration:
-                    src_ref["table_id"] = schema_id_migration[table_id]
-                data["source_ref"] = src_ref
-            migrated_regex_nodes[rid] = RegexNodeFileV2.model_validate(data)
-        payload = payload.model_copy(
-            update={
-                "schemas": rewritten_schemas,
-                "constraints": migrated_constraints,
-                "regex_nodes": migrated_regex_nodes,
-            }
-        )
-
-    final_manifest = payload.manifest
-
-    if not payload.manifest.schemas and existing_manifest and existing_manifest.schemas:
-        logger.info(f"[put_v2_full_config] 合并现有 schemas: {len(existing_manifest.schemas)} 个")
-        final_manifest = payload.manifest.model_copy(update={"schemas": existing_manifest.schemas})
-
-    if not payload.manifest.constraints and existing_manifest and existing_manifest.constraints:
-        final_manifest = final_manifest.model_copy(update={"constraints": existing_manifest.constraints})
-
-    if not (payload.manifest.regex_nodes or []) and existing_manifest and existing_manifest.regex_nodes:
-        final_manifest = final_manifest.model_copy(update={"regex_nodes": existing_manifest.regex_nodes})
-
-    if not final_manifest.schemas:
-        schemas_dir = os.path.join(config_path, "schemas")
-        if os.path.isdir(schemas_dir):
-            schema_refs = []
-            for filename in os.listdir(schemas_dir):
-                if filename.endswith(".schema.yaml"):
-                    schema_id = filename[:-12]
-                    schema_refs.append(SchemaRefV2(id=schema_id, path=f"schemas/{filename}"))
-            if schema_refs:
-                logger.info(f"[put_v2_full_config] 从 schemas/ 目录扫描到 {len(schema_refs)} 个 schema 文件")
-                final_manifest = final_manifest.model_copy(update={"schemas": schema_refs})
-
-    if not final_manifest.constraints:
-        constraints_dir = os.path.join(config_path, "constraints")
-        if os.path.isdir(constraints_dir):
-            constraint_refs = []
-            for filename in os.listdir(constraints_dir):
-                if filename.endswith(".constraint.yaml"):
-                    constraint_id = filename[:-16]
-                    constraint_refs.append(ConstraintRefV2(id=constraint_id, path=f"constraints/{filename}"))
-            if constraint_refs:
-                logger.info(
-                    f"[put_v2_full_config] 从 constraints/ 目录扫描到 {len(constraint_refs)} 个 constraint 文件"
-                )
-                final_manifest = final_manifest.model_copy(update={"constraints": constraint_refs})
-
-    if not (final_manifest.regex_nodes or []):
-        regex_dirs = [os.path.join(config_path, "regex"), os.path.join(config_path, "regex_nodes")]
-        seen_regex_ids = set()
-        regex_refs: list[RegexNodeRefV2] = []
-        for d in regex_dirs:
-            if not os.path.isdir(d):
-                continue
-            for filename in os.listdir(d):
-                if filename.endswith(".regex.yaml"):
-                    regex_id = filename[:-10]
-                    if regex_id in seen_regex_ids:
-                        continue
-                    rel_dir = os.path.basename(d)
-                    regex_refs.append(RegexNodeRefV2(id=regex_id, path=f"{rel_dir}/{filename}"))
-                    seen_regex_ids.add(regex_id)
-        if regex_refs:
-            logger.info(f"[put_v2_full_config] 从 regex/ 目录扫描到 {len(regex_refs)} 个 regex 文件")
-            final_manifest = final_manifest.model_copy(update={"regex_nodes": regex_refs})
-
-    with project_lock(config_path):
-        write_yaml(Path(manifest_path), final_manifest.model_dump(exclude_none=True))
-    logger.info(f"[put_v2_full_config] 写入 manifest 完成，schemas: {len(final_manifest.schemas)} 个")
-
-    for ref in payload.manifest.schemas:
-        schema = payload.schemas.get(ref.id)
-        if not schema:
-            continue
-        try:
-            abs_path = _resolve_project_path(config_path, ref.path)
-        except ValueError as e:
-            logger.error(f"[put_v2_full_config] 非法 Schema 路径: {ref.path}, 错误: {e}")
-            continue
-        write_yaml(Path(abs_path), schema.model_dump(exclude_none=True))
-
-    for ref in payload.manifest.constraints:
-        constraint = payload.constraints.get(ref.id)
-        if not constraint:
-            continue
-        try:
-            abs_path = _resolve_project_path(config_path, ref.path)
-        except ValueError as e:
-            logger.error(f"[put_v2_full_config] 非法 Constraint 路径: {ref.path}, 错误: {e}")
-            continue
-        write_yaml(Path(abs_path), constraint.model_dump(exclude_none=True))
-
-    for ref in payload.manifest.regex_nodes:
-        regex_node = payload.regex_nodes.get(ref.id)
-        if not regex_node:
-            continue
-        try:
-            abs_path = _resolve_project_path(config_path, ref.path)
-        except ValueError as e:
-            logger.error(f"[put_v2_full_config] 非法 Regex 路径: {ref.path}, 错误: {e}")
-            continue
-        write_yaml(Path(abs_path), regex_node.model_dump(exclude_none=True))
-
-    return {"message": "V2 全量配置已保存。"}
+    return write_v2_full_config(payload, config_path)
 
 
 @router.post("/v2/config/compare", response_model=ConfigDiffResult)

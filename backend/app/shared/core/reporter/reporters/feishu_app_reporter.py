@@ -40,13 +40,44 @@
 import base64
 import hashlib
 import hmac
+import ipaddress
 import json
 import time
 import urllib.request
 from datetime import datetime
 from typing import Any
+from urllib.parse import urlparse
 
 from .base import Reporter
+
+_ALLOWED_URL_SCHEMES = {"https", "http"}
+_BLOCKED_NETWORKS = [
+    ipaddress.ip_network("169.254.0.0/16"),
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),
+]
+
+
+def _validate_webhook_url(url: str) -> None:
+    parsed = urlparse(url)
+    if parsed.scheme not in _ALLOWED_URL_SCHEMES:
+        raise ValueError(f"不支持的 URL scheme: {parsed.scheme}，仅允许 {_ALLOWED_URL_SCHEMES}")
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("URL 缺少主机名")
+    try:
+        for network in _BLOCKED_NETWORKS:
+            if ipaddress.ip_address(hostname) in network:
+                raise ValueError(f"不允许访问内网地址: {hostname}")
+    except ValueError:
+        if "ValueError: 不允许访问内网地址" in str(ValueError):
+            raise
+    except Exception:
+        pass
 
 
 class FeishuReporter(Reporter):
@@ -384,6 +415,12 @@ class FeishuReporter(Reporter):
             headers: HTTP 请求头字典
             target_id: 目标接收者 ID（用于日志记录）
         """
+        try:
+            _validate_webhook_url(url)
+        except ValueError as e:
+            print(f"[{self.name}] !! 错误: URL 校验失败: {e}")
+            return
+
         try:
             # 序列化请求负载为 JSON 字节
             data = json.dumps(payload).encode("utf-8")

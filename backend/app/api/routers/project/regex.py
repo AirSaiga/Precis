@@ -61,11 +61,7 @@ def get_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_conf
     返回:
         RegexNodeFileV2: Regex 节点文件内容
     """
-    logger.info(f"[DEBUG get_v2_regex_node] regex_id={regex_id}, config_path={config_path}")
-
     manifest = get_v2_manifest(config_path)
-    logger.info(f"[DEBUG get_v2_regex_node] manifest.regex_nodes={[r.model_dump() for r in manifest.regex_nodes]}")
-    logger.info(f"[DEBUG get_v2_regex_node] patterns_dir={manifest.patterns_dir}")
 
     abs_path = None
 
@@ -87,11 +83,8 @@ def get_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_conf
         scan_dirs.append((os.path.join(config_path, "regex"), "patterns"))
         scan_dirs.append((os.path.join(config_path, "regex_nodes"), "patterns"))
 
-        logger.info(f"[DEBUG get_v2_regex_node] scan_dirs={scan_dirs}")
-
         found = False
         for d, reg_name in scan_dirs:
-            logger.info(f"[DEBUG get_v2_regex_node] checking dir={d}, exists={os.path.isdir(d)}")
             if not os.path.isdir(d):
                 continue
             for filename in os.listdir(d):
@@ -104,10 +97,6 @@ def get_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_conf
 
                     match_id = rid if rid == regex_id else f"{reg_name}/{rid}"
 
-                    logger.info(
-                        f"[DEBUG get_v2_regex_node] filename={filename}, rid={rid}, regex_id={regex_id}, match_id={match_id}"
-                    )
-
                     if match_id == regex_id:
                         path = os.path.join(d, filename)
                         if os.path.isfile(path):
@@ -118,13 +107,7 @@ def get_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_conf
                 break
 
     if not abs_path:
-        debug_info = {
-            "regex_id": regex_id,
-            "config_path": config_path,
-            "manifest_regex_nodes": [r.model_dump() for r in manifest.regex_nodes],
-            "patterns_dir": manifest.patterns_dir,
-        }
-        raise HTTPException(status_code=404, detail=f"regex_node 未找到. Debug: {debug_info}")
+        raise HTTPException(status_code=404, detail=f"regex_node '{regex_id}' 未找到")
 
     if not os.path.isfile(abs_path):
         raise HTTPException(status_code=404, detail=f"regex_node 文件未找到: {abs_path}")
@@ -246,15 +229,16 @@ def delete_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_c
         abs_path = _resolve_project_path(config_path, ref.path)
     except ValueError:
         raise HTTPException(status_code=400, detail="非法的 Regex 文件路径")
-    try:
-        if os.path.isfile(abs_path):
-            os.remove(abs_path)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"删除 regex_node 文件失败: {e}")
 
-    if manifest.regex_nodes:
-        manifest.regex_nodes = [r for r in manifest.regex_nodes if r.id != regex_id]
-        with project_lock(config_path):
+    with project_lock(config_path):
+        try:
+            if os.path.isfile(abs_path):
+                os.remove(abs_path)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"删除 regex_node 文件失败: {e}")
+
+        if manifest.regex_nodes:
+            manifest.regex_nodes = [r for r in manifest.regex_nodes if r.id != regex_id]
             write_yaml_atomic(Path(manifest_path), manifest.model_dump(exclude_none=True))
 
     return {"message": f"V2 regex_node '{regex_id}' 已删除。"}

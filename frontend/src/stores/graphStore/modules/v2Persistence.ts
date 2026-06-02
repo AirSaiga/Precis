@@ -58,6 +58,7 @@ export function createV2PersistenceModule(params: {
     configDir: string | undefined,
     relPath: string | undefined
   ) => string | undefined
+  updateNodeData: (nodeId: string, newData: Partial<CustomNode['data']>) => void
 }) {
   const {
     nodes,
@@ -73,6 +74,7 @@ export function createV2PersistenceModule(params: {
     normalizeConfigDir,
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
+    updateNodeData,
   } = params
 
   // 初始化统计操作子模块
@@ -90,6 +92,7 @@ export function createV2PersistenceModule(params: {
     edges,
     projectName,
     getEffectiveProjectConfigPath,
+    updateNodeData,
   })
 
   // 初始化加载操作子模块，并将 saveOps.saveProject 注入其中，以便加载后自动保存

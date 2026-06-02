@@ -46,6 +46,7 @@ from .router import router
 # 内存中的任务存储（生产环境应使用 Redis/数据库）
 _jobs: dict[str, ConfigGenerateJobStatus] = {}
 _job_tasks: dict[str, asyncio.Task] = {}
+_jobs_lock = asyncio.Lock()
 _MAX_JOBS = 100  # 最大保留任务数，超出时淘汰最早完成的任务
 
 
@@ -86,16 +87,17 @@ async def create_generate_job(
     now = datetime.now(timezone.utc).isoformat()
 
     # 清理旧任务
-    _cleanup_old_jobs()
+    async with _jobs_lock:
+        _cleanup_old_jobs()
 
-    # 创建任务记录
-    _jobs[job_id] = ConfigGenerateJobStatus(
-        job_id=job_id, status="pending", created_at=now, updated_at=now, warnings=[]
-    )
+        # 创建任务记录
+        _jobs[job_id] = ConfigGenerateJobStatus(
+            job_id=job_id, status="pending", created_at=now, updated_at=now, warnings=[]
+        )
 
-    # 在后台运行任务（保存 Task 句柄以便取消）
-    task = asyncio.create_task(_run_job(job_id, payload, config_path))
-    _job_tasks[job_id] = task
+        # 在后台运行任务（保存 Task 句柄以便取消）
+        task = asyncio.create_task(_run_job(job_id, payload, config_path))
+        _job_tasks[job_id] = task
 
     return ConfigGenerateJobCreateResponse(job_id=job_id)
 
@@ -131,13 +133,13 @@ async def _run_job(job_id: str, payload: ConfigGenerateRequest, config_path: str
 
     # 进度回调
     def progress_callback(stage: str, progress: float):
-        # 检查是否已被取消
         current_job = _jobs.get(job_id)
         if current_job and current_job.status == "cancelled":
             service.cancel()
-        job.stage = stage
-        job.progress = progress
-        job.updated_at = datetime.now(timezone.utc).isoformat()
+        if current_job:
+            current_job.stage = stage
+            current_job.progress = progress
+            current_job.updated_at = datetime.now(timezone.utc).isoformat()
 
     try:
         result = await service.generate(
@@ -199,21 +201,22 @@ async def get_generate_job(job_id: str) -> ConfigGenerateJobStatus:
 @router.post("/v2/config/generate/jobs/{job_id}/cancel", response_model=ConfigGenerateJobStatus)
 async def cancel_generate_job(job_id: str) -> ConfigGenerateJobStatus:
     """取消任务"""
-    job = _jobs.get(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+    async with _jobs_lock:
+        job = _jobs.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
 
-    if job.status in ("completed", "failed", "cancelled"):
-        return job
+        if job.status in ("completed", "failed", "cancelled"):
+            return job
 
-    # 标记取消状态
-    job.status = "cancelled"
-    job.stage = "cancelled"
-    job.updated_at = datetime.now(timezone.utc).isoformat()
+        # 标记取消状态
+        job.status = "cancelled"
+        job.stage = "cancelled"
+        job.updated_at = datetime.now(timezone.utc).isoformat()
 
-    # 真正取消运行中的任务
-    task = _job_tasks.get(job_id)
-    if task and not task.done():
-        task.cancel()
+        # 真正取消运行中的任务
+        task = _job_tasks.get(job_id)
+        if task and not task.done():
+            task.cancel()
 
     return job

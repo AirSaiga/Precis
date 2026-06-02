@@ -430,6 +430,7 @@ export function setupGraphStore() {
     normalizeConfigDir,
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
+    updateNodeData,
   })
 
   const projectLifecycle = createProjectLifecycleModule({

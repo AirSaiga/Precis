@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -28,6 +29,13 @@ from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
 logger = logging.getLogger(__name__)
 
 VALID_MATCH_MODES = {"full", "partial", "extract"}
+
+
+def _sanitize_resource_id(resource_id: str) -> str:
+    cleaned = os.path.basename(resource_id)
+    if "/" in resource_id or "\\" in resource_id or ".." in resource_id:
+        raise ValueError(f"非法的资源 ID: {resource_id!r}")
+    return cleaned
 
 
 def process_regex_action(action: dict[str, Any], workspace_path: str) -> dict[str, Any]:
@@ -60,6 +68,10 @@ def _add_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     """创建新的 Regex YAML 文件"""
     regex_name = spec.get("name", "")
     regex_id = spec.get("regexId") or spec.get("id") or regex_name
+    try:
+        regex_id = _sanitize_resource_id(regex_id)
+    except ValueError:
+        return {"success": False, "message": f"非法的 Regex ID: {regex_id}"}
     pattern = spec.get("pattern", "")
     match_mode = spec.get("matchMode", "full")
     case_sensitive = spec.get("caseSensitive", False)
@@ -115,6 +127,10 @@ def _add_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
 def _update_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     """更新现有 Regex"""
     regex_id = spec.get("regexId") or spec.get("id") or spec.get("name", "")
+    try:
+        regex_id = _sanitize_resource_id(regex_id)
+    except ValueError:
+        return {"success": False, "message": f"非法的 Regex ID: {regex_id}"}
 
     if not regex_id:
         return {"success": False, "message": "缺少 Regex ID"}
@@ -154,6 +170,10 @@ def _update_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
 def _delete_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     """删除 Regex 文件"""
     regex_id = spec.get("regexId") or spec.get("id") or spec.get("name", "")
+    try:
+        regex_id = _sanitize_resource_id(regex_id)
+    except ValueError:
+        return {"success": False, "message": f"非法的 Regex ID: {regex_id}"}
 
     if not regex_id:
         return {"success": False, "message": "缺少 Regex ID"}

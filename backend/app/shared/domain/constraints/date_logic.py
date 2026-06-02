@@ -312,8 +312,20 @@ class DateLogicConstraint(Constraint):
                 if self.target_value is not None:
                     try:
                         target_age = float(self.target_value)
-                        # 找出年龄小于目标值的行（默认假设 compare_op 隐含 "gte"）
-                        mask_fail_local = ages < target_age
+                        op = self.compare_op or "gte"
+                        if op == "gt":
+                            mask_fail_local = ages <= target_age
+                        elif op == "lt":
+                            mask_fail_local = ages >= target_age
+                        elif op == "lte":
+                            mask_fail_local = ages > target_age
+                        elif op == "eq":
+                            mask_fail_local = ages != target_age
+                        else:
+                            mask_fail_local = ages < target_age
+                        op_desc = {"gt": "大于", "lt": "小于", "gte": "大于等于", "lte": "小于等于", "eq": "等于"}.get(
+                            op, "大于等于"
+                        )
                         failed_indices = mask_fail_local[mask_fail_local].index
                         for idx in failed_indices:
                             val = df.at[idx, self.column]
@@ -325,7 +337,7 @@ class DateLogicConstraint(Constraint):
                                     "row_index": int(idx),
                                     "column": self.column,
                                     "value": str(val),
-                                    "message": f"年龄检查失败: {val} (年龄 {age}) 小于目标值 {target_age}",
+                                    "message": f"年龄检查失败: {val} (年龄 {age}) 不满足条件 ({op_desc} {target_age})",
                                 }
                             )
                     except ValueError as e:

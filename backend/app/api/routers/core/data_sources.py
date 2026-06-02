@@ -29,8 +29,9 @@ from pathlib import Path
 from typing import Any
 
 import yaml
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status
 
+from app.api.dependencies import get_project_config_path
 from app.api.models import ExternalDataSource, UIPreferences, WorkspaceConfig
 from app.shared.core.config import ConfigPaths
 from app.shared.core.io.yaml import write_yaml_atomic
@@ -102,15 +103,20 @@ def build_ui_preferences(config: dict[str, Any]) -> UIPreferences:
     return UIPreferences(expanded_folders=expanded_folders, startup_loading_enabled=bool(startup_loading_enabled))
 
 
+def _get_project_root(config_path: str) -> str:
+    """从 config_path 推导项目根目录（config_path 通常指向 .precis/ 目录）"""
+    parent = str(Path(config_path).parent)
+    return parent if parent != config_path else config_path
+
+
 @router.get("/config", response_model=WorkspaceConfig)
-async def get_workspace_config():
+async def get_workspace_config(config_path: str = Depends(get_project_config_path)):
     """
     获取工作区配置
 
     适用于所有模式（Electron/CLI/Web）
     """
-    # 从环境变量或配置文件获取项目根目录
-    project_root = os.getenv("PRECIS_PROJECT_ROOT", os.getcwd())
+    project_root = _get_project_root(config_path)
     config = load_workspace_config(project_root)
 
     enriched_data_sources = []
@@ -142,13 +148,13 @@ async def get_workspace_config():
 
 
 @router.put("/config", response_model=WorkspaceConfig)
-async def update_workspace_config(config_data: dict[str, Any]):
+async def update_workspace_config(config_data: dict[str, Any], config_path: str = Depends(get_project_config_path)):
     """
     更新工作区配置
 
     适用于所有模式（Electron/CLI/Web）
     """
-    project_root = os.getenv("PRECIS_PROJECT_ROOT", os.getcwd())
+    project_root = _get_project_root(config_path)
 
     # 更新最后修改时间
     config_data["last_updated"] = datetime.now().isoformat()
@@ -157,20 +163,21 @@ async def update_workspace_config(config_data: dict[str, Any]):
     save_workspace_config(project_root, config_data)
 
     # 返回更新后的配置
-    return await get_workspace_config()
+    return await get_workspace_config(config_path)
 
 
 @router.post("/data-sources", response_model=WorkspaceConfig)
-async def add_data_source(data_source: dict[str, Any]):
+async def add_data_source(data_source: dict[str, Any], config_path: str = Depends(get_project_config_path)):
     """
     添加数据源
 
     适用于所有模式（Electron/CLI/Web）
     """
-    project_root = os.getenv("PRECIS_PROJECT_ROOT", os.getcwd())
+    project_root = _get_project_root(config_path)
     config = load_workspace_config(project_root)
 
     file_id = data_source.get("fileId", data_source.get("fullPath"))
+    file_id = os.path.normpath(file_id) if file_id else file_id
 
     # 检查是否已存在
     for ds in config.get("data_sources", []):
@@ -192,7 +199,7 @@ async def add_data_source(data_source: dict[str, Any]):
                 ds["id"] = data_source.get("id", file_id)
 
             save_workspace_config(project_root, config)
-            return await get_workspace_config()
+            return await get_workspace_config(config_path)
 
     # 添加新数据源
     new_source = {
@@ -214,34 +221,36 @@ async def add_data_source(data_source: dict[str, Any]):
     config.setdefault("data_sources", []).insert(0, new_source)
     save_workspace_config(project_root, config)
 
-    return await get_workspace_config()
+    return await get_workspace_config(config_path)
 
 
 @router.delete("/data-sources/{source_id}", response_model=WorkspaceConfig)
-async def remove_data_source(source_id: str):
+async def remove_data_source(source_id: str, config_path: str = Depends(get_project_config_path)):
     """
     移除数据源
 
     适用于所有模式（Electron/CLI/Web）
     """
-    project_root = os.getenv("PRECIS_PROJECT_ROOT", os.getcwd())
+    project_root = _get_project_root(config_path)
     config = load_workspace_config(project_root)
 
     data_sources = config.get("data_sources", [])
     config["data_sources"] = [ds for ds in data_sources if ds.get("id") != source_id]
 
     save_workspace_config(project_root, config)
-    return await get_workspace_config()
+    return await get_workspace_config(config_path)
 
 
 @router.put("/data-sources/{source_id}", response_model=WorkspaceConfig)
-async def update_data_source(source_id: str, data_source: dict[str, Any]):
+async def update_data_source(
+    source_id: str, data_source: dict[str, Any], config_path: str = Depends(get_project_config_path)
+):
     """
     更新数据源
 
     适用于所有模式（Electron/CLI/Web）
     """
-    project_root = os.getenv("PRECIS_PROJECT_ROOT", os.getcwd())
+    project_root = _get_project_root(config_path)
     config = load_workspace_config(project_root)
 
     for ds in config.get("data_sources", []):
@@ -251,21 +260,21 @@ async def update_data_source(source_id: str, data_source: dict[str, Any]):
             break
 
     save_workspace_config(project_root, config)
-    return await get_workspace_config()
+    return await get_workspace_config(config_path)
 
 
 @router.delete("/data-sources", response_model=WorkspaceConfig)
-async def clear_all_data_sources():
+async def clear_all_data_sources(config_path: str = Depends(get_project_config_path)):
     """
     清空所有数据源
 
     适用于所有模式（Electron/CLI/Web）
     """
-    project_root = os.getenv("PRECIS_PROJECT_ROOT", os.getcwd())
+    project_root = _get_project_root(config_path)
     config = load_workspace_config(project_root)
 
     config["data_sources"] = []
     config["last_updated"] = datetime.now().isoformat()
 
     save_workspace_config(project_root, config)
-    return await get_workspace_config()
+    return await get_workspace_config(config_path)

@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +27,13 @@ from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
 logger = logging.getLogger(__name__)
 
 VALID_DATA_TYPES = {"string", "integer", "decimal", "boolean", "datetime", "date", "time", "float"}
+
+
+def _sanitize_resource_id(resource_id: str) -> str:
+    cleaned = os.path.basename(resource_id)
+    if "/" in resource_id or "\\" in resource_id or ".." in resource_id:
+        raise ValueError(f"非法的资源 ID: {resource_id!r}")
+    return cleaned
 
 
 def process_schema_action(action: dict[str, Any], workspace_path: str) -> dict[str, Any]:
@@ -61,6 +69,10 @@ def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     """创建新的 Schema YAML 文件"""
     schema_name = spec.get("name", "")
     schema_id = spec.get("schemaId") or spec.get("id") or schema_name
+    try:
+        schema_id = _sanitize_resource_id(schema_id)
+    except ValueError:
+        return {"success": False, "message": f"非法的 Schema ID: {schema_id}"}
     columns = spec.get("columns", [])
     source = spec.get("source")
 
@@ -119,6 +131,10 @@ def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
 def _update_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     """更新现有 Schema"""
     schema_id = spec.get("schemaId") or spec.get("id") or spec.get("name", "")
+    try:
+        schema_id = _sanitize_resource_id(schema_id)
+    except ValueError:
+        return {"success": False, "message": f"非法的 Schema ID: {schema_id}"}
     columns = spec.get("columns")
     source = spec.get("source")
 
@@ -180,6 +196,10 @@ def _update_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
 def _delete_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     """删除 Schema 文件"""
     schema_id = spec.get("schemaId") or spec.get("id") or spec.get("name", "")
+    try:
+        schema_id = _sanitize_resource_id(schema_id)
+    except ValueError:
+        return {"success": False, "message": f"非法的 Schema ID: {schema_id}"}
 
     if not schema_id:
         return {"success": False, "message": "缺少 Schema ID"}

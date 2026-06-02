@@ -41,7 +41,7 @@ import {
 } from '@/services/constraints/validationRegistry'
 import { buildConstraintExportPayload } from '@/services/constraints/constraintExportAdapter'
 
-function buildSchemaIdByNodeId(nodes: CustomNode[]): Record<string, string> {
+export function buildSchemaIdByNodeId(nodes: CustomNode[]): Record<string, string> {
   const map: Record<string, string> = {}
   for (const n of nodes) {
     if (n.type === 'schema') {

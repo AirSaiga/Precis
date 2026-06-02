@@ -84,7 +84,7 @@ interface DagEdge {
 export function createTemplateExpandModule(params: {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>
-  updateNodeData: (nodeId: string, newData: Record<string, unknown>) => void
+  updateNodeData: (nodeId: string, newData: Partial<CustomNode['data']>) => void
 }) {
   const { nodes, edges, updateNodeData } = params
 
@@ -607,7 +607,10 @@ export function createTemplateExpandModule(params: {
 
       const targetNode = nodes.value.find((n) => n.id === dagEdge.targetId)
       if (targetNode) {
-        ;(targetNode.data as unknown as Record<string, unknown>).inputFromNode = dagEdge.sourceId
+        updateNodeData(dagEdge.targetId, {
+          ...targetNode.data,
+          inputFromNode: dagEdge.sourceId,
+        })
       }
     }
 

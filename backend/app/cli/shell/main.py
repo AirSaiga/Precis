@@ -24,6 +24,7 @@ from app.cli.shell.commands import (
     HelpCommand,
     LsCommand,
     OpenCommand,
+    ProjectCommand,
     PwdCommand,
     SetupCommand,
     StatusCommand,
@@ -76,6 +77,7 @@ class CLIShell:
         self.registry.register(HelpCommand(self.registry))
         self.registry.register(OpenCommand())
         self.registry.register(StatusCommand())
+        self.registry.register(ProjectCommand())
         self.registry.register(ValidateCommand())
         self.registry.register(ConfigCommand())
         self.registry.register(SetupCommand())

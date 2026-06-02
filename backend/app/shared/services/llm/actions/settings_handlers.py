@@ -33,6 +33,8 @@ CATEGORY_TO_YAML_KEY = {
 
 VALID_ERROR_HANDLING = {"stop", "continue", "report"}
 VALID_ENCODINGS = {"utf-8", "gbk", "auto"}
+VALID_ALLOW_EVAL = {False}
+VALID_SANDBOX_MODES = {"strict", "normal"}
 
 
 def process_settings_action(action: dict[str, Any], workspace_path: str) -> dict[str, Any]:
@@ -125,5 +127,11 @@ def _validate_settings(category: str, settings: dict[str, Any]) -> list[str]:
             val = settings["timeout_seconds"]
             if not isinstance(val, (int, float)) or val <= 0:
                 errors.append("timeout_seconds 必须为正数")
+        if "allow_eval" in settings:
+            if settings["allow_eval"] not in VALID_ALLOW_EVAL:
+                errors.append("allow_eval 不允许通过 AI 修改")
+        if "sandbox_mode" in settings:
+            if settings["sandbox_mode"] not in VALID_SANDBOX_MODES:
+                errors.append(f"sandbox_mode 必须为: {', '.join(VALID_SANDBOX_MODES)}")
 
     return errors

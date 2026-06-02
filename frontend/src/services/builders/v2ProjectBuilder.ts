@@ -54,31 +54,14 @@ import { buildConstraintExportPayload } from '@/services/constraints/constraintE
 
 export { buildV2Manifest } from './v2/manifestBuilder'
 export { buildV2SchemaFile, buildV2JsonSchemaFile } from './v2/schemaBuilder'
+export { buildSchemaIdByNodeId } from './v2/manifestBuilder'
 
 import { buildV2Manifest as _buildV2Manifest } from './v2/manifestBuilder'
 import { buildV2SchemaFile as _buildV2SchemaFile } from './v2/schemaBuilder'
+import { buildSchemaIdByNodeId } from './v2/manifestBuilder'
 
 const buildV2Manifest = _buildV2Manifest
 const buildV2SchemaFile = _buildV2SchemaFile
-
-function buildSchemaIdByNodeId(nodes: CustomNode[]): Record<string, string> {
-  const map: Record<string, string> = {}
-  for (const n of nodes) {
-    if (n.type === 'schema') {
-      const data = n.data as SchemaNodeData
-      const schemaId = generateSchemaId(
-        data.sourceFilePath || data.sourceFile || '',
-        data.sheetName
-      )
-      map[n.id] = schemaId
-    } else if (n.type === 'jsonSchema') {
-      const data = n.data as JsonSchemaNodeData
-      const schemaId = generateSchemaId(data.sourceFilePath || data.sourceFile || '', undefined)
-      map[n.id] = schemaId
-    }
-  }
-  return map
-}
 
 /**
  * 构建 V2 项目清单

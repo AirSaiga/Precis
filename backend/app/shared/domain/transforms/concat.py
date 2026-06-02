@@ -61,9 +61,10 @@ class ConcatRunner(TransformRunner):
             # 单列情况：直接复制
             df[output_col] = df[column_list[0]].astype(str)
         else:
-            # 多列情况：拼接
-            df[output_col] = df[column_list[0]].astype(str) + df[column_list[1:]].apply(
-                lambda row: separator + row.astype(str), axis=1
-            ).sum(axis=1)
+            # 多列情况：向量化拼接
+            str_cols = df[column_list].astype(str)
+            df[output_col] = str_cols.iloc[:, 0]
+            for col_name in str_cols.columns[1:]:
+                df[output_col] = df[output_col] + separator + str_cols[col_name]
 
         return df

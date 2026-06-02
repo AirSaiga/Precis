@@ -33,7 +33,7 @@ dependencies = [
     "pydantic>=2.12.0",
     "email-validator>=2.3.0",
     # 数据处理
-    "pandas>=3.0.0",
+    "pandas>=2.2.0,<3.0",
     "openpyxl>=3.1.5",
     # 数据库与 SQL
     "SQLAlchemy>=2.0.48",
@@ -46,7 +46,7 @@ dependencies = [
     # CLI 交互
     "readchar>=4.2.0",
     # 安全
-    "cryptography>=46.0.7",
+    "cryptography>=44.0.0",
     # 安全表达式求值 (替代 eval)
     "simpleeval>=1.0.0",
 ]

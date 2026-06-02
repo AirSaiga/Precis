@@ -124,7 +124,7 @@ def validate_v2_full(
     table_filter = None
     if request.target:
         if request.target.type == "single_file":
-            raise HTTPException(status_code=400, detail="当前版本暂不支持单文件全量校验")
+            raise HTTPException(status_code=501, detail="当前版本暂不支持单文件全量校验")
         if request.target.type == "single_table":
             table_filter = (request.target.table_id or "").strip()
             if not table_filter:

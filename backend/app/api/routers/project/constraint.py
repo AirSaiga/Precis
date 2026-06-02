@@ -217,15 +217,16 @@ def delete_v2_constraint(constraint_id: str, config_path: str = Depends(get_proj
         abs_constraint_path = _resolve_project_path(config_path, ref.path)
     except ValueError:
         raise HTTPException(status_code=400, detail="非法的 Constraint 文件路径")
-    try:
-        if os.path.isfile(abs_constraint_path):
-            os.remove(abs_constraint_path)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"删除 constraint 文件失败: {e}")
 
-    if manifest.constraints:
-        manifest.constraints = [c for c in manifest.constraints if c.id != constraint_id]
-        with project_lock(config_path):
+    with project_lock(config_path):
+        try:
+            if os.path.isfile(abs_constraint_path):
+                os.remove(abs_constraint_path)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"删除 constraint 文件失败: {e}")
+
+        if manifest.constraints:
+            manifest.constraints = [c for c in manifest.constraints if c.id != constraint_id]
             write_yaml_atomic(Path(manifest_path), manifest.model_dump(exclude_none=True))
 
     return {"message": f"V2 constraint '{constraint_id}' 已删除。"}

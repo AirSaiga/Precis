@@ -203,7 +203,7 @@ class ScriptedConstraint(Constraint):
                     continue
 
                 # 结果为 False 表示验证失败
-                if result is False:
+                if not bool(result):
                     errors.append(
                         {
                             "error_type": "BusinessLogicViolation",

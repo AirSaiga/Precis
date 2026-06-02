@@ -174,12 +174,11 @@ def delete_template(template_id: str, config_path: str = Depends(get_project_con
     if not tmpl_path or not tmpl_path.exists():
         raise HTTPException(status_code=404, detail=f"模板 '{template_id}' 不存在")
 
-    # 删除文件
-    tmpl_path.unlink()
-
-    # 更新 manifest
-    manifest_path = _v2_manifest_path(config_path)
     with project_lock(config_path):
+        if tmpl_path and tmpl_path.exists():
+            tmpl_path.unlink()
+
+        manifest_path = _v2_manifest_path(config_path)
         manifest_data = read_yaml(manifest_path)
         templates_list = manifest_data.get("templates") or []
         manifest_data["templates"] = [t for t in templates_list if t.get("id") != template_id]

@@ -14,6 +14,7 @@
 from __future__ import annotations
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -54,6 +55,13 @@ VALID_TRANSFORM_TYPES = {
 }
 
 
+def _sanitize_resource_id(resource_id: str) -> str:
+    cleaned = os.path.basename(resource_id)
+    if "/" in resource_id or "\\" in resource_id or ".." in resource_id:
+        raise ValueError(f"非法的资源 ID: {resource_id!r}")
+    return cleaned
+
+
 def process_transform_action(action: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     """
     @methoddesc 处理 Transform 动作
@@ -84,6 +92,10 @@ def _add_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     """创建新的 Transform YAML 文件"""
     transform_type = spec.get("type", "")
     transform_id = spec.get("transformId") or spec.get("id") or _generate_transform_id(transform_type)
+    try:
+        transform_id = _sanitize_resource_id(transform_id)
+    except ValueError:
+        return {"success": False, "message": f"非法的 Transform ID: {transform_id}"}
     description = spec.get("description")
     input_from_node = spec.get("inputFromNode")
     input_column = spec.get("inputColumn")
@@ -129,6 +141,10 @@ def _add_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
 def _update_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     """更新现有 Transform"""
     transform_id = spec.get("transformId") or spec.get("id", "")
+    try:
+        transform_id = _sanitize_resource_id(transform_id)
+    except ValueError:
+        return {"success": False, "message": f"非法的 Transform ID: {transform_id}"}
 
     if not transform_id:
         return {"success": False, "message": "缺少 Transform ID"}
@@ -167,6 +183,10 @@ def _update_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, An
 def _delete_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     """删除 Transform 文件"""
     transform_id = spec.get("transformId") or spec.get("id", "")
+    try:
+        transform_id = _sanitize_resource_id(transform_id)
+    except ValueError:
+        return {"success": False, "message": f"非法的 Transform ID: {transform_id}"}
 
     if not transform_id:
         return {"success": False, "message": "缺少 Transform ID"}

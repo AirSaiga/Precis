@@ -106,7 +106,7 @@ def put_v2_project_view(
     view_path = _v2_view_path(config_path)
     try:
         with open(view_path, "w", encoding="utf-8") as f:
-            json.dump(payload.dict(), f, ensure_ascii=False, indent=2)
+            json.dump(payload.model_dump(), f, ensure_ascii=False, indent=2)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"写入视图文件失败: {e}")
 

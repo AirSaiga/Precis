@@ -348,3 +348,6 @@ class ExpressionRegistry:
                 return pattern, match
         # 没有任何模式匹配成功，返回 None
         return None
+
+
+create_templated_parser = create_tempated_parser

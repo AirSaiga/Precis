@@ -43,6 +43,8 @@ class DateFormatRunner(TransformRunner):
         output_col = output_columns[0]
 
         parsed = pd.to_datetime(df[input_column], format=input_format, errors=errors)
-        df[output_col] = parsed.dt.strftime(output_format)
+        formatted = parsed.dt.strftime(output_format)
+        formatted = formatted.where(parsed.notna(), None)
+        df[output_col] = formatted
 
         return df

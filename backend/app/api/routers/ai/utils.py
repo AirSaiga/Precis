@@ -34,21 +34,30 @@ _DATA_EXTENSIONS = {".xlsx", ".xls", ".csv", ".json", ".jsonl"}
 # 递归遍历时跳过的目录
 _SKIP_DIRS = {"node_modules", "__pycache__", ".git", ".venv", "venv", ".idea"}
 
+_MAX_DEPTH = 5
+_MAX_FILES = 1000
 
-def _expand_directory(dir_path: str) -> list[str]:
+
+def _expand_directory(dir_path: str, max_depth: int = _MAX_DEPTH) -> list[str]:
     """递归展开目录，收集所有数据文件路径
 
     :param dir_path: 目录绝对路径
+    :param max_depth: 最大递归深度
     :return: 数据文件路径列表（去重、排序）
     """
     result = []
     for root, dirs, files in os.walk(dir_path):
-        # 跳过隐藏目录和常见非数据目录
+        depth = root[len(dir_path) :].count(os.sep)
+        if depth >= max_depth:
+            dirs[:] = []
+            continue
         dirs[:] = [d for d in dirs if not d.startswith(".") and d not in _SKIP_DIRS]
         for fname in files:
             ext = os.path.splitext(fname)[1].lower()
             if ext in _DATA_EXTENSIONS:
                 result.append(os.path.join(root, fname))
+                if len(result) >= _MAX_FILES:
+                    return result
     return sorted(result)
 
 

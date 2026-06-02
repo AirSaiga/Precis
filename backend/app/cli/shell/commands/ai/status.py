@@ -58,7 +58,7 @@ class AIStatusCommand(Command):
 
         if not providers:
             lines.append(Formatter.warning("\n未配置任何 AI Provider"))
-            lines.append(Formatter.info("请编辑 ~/.precis/ai_providers.json 配置文件"))
+            lines.append(Formatter.info("请编辑 ~/.precis/ai_providers.yaml 配置文件"))
         else:
             lines.append(f"\n已配置的 Providers ({len(providers)}):")
             active = self._cli_config.get_active_provider()

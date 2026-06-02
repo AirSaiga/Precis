@@ -13,23 +13,12 @@
 
 import type { CustomNode, SchemaNodeData } from '@/types/graph'
 import type { ConstraintFileV2, ConstraintTypeV2 } from '@/types/projectV2'
-import { generateSchemaId } from '@/utils/typeHelpers'
 import { buildConstraintExportPayload } from '@/services/constraints/constraintExportAdapter'
 import {
   getV2ConstraintTypeByNodeType,
   isConstraintNodeType,
 } from '@/services/constraints/validationRegistry'
-
-function buildSchemaIdByNodeId(nodes: CustomNode[]): Record<string, string> {
-  const map: Record<string, string> = {}
-  for (const n of nodes) {
-    if (n.type !== 'schema') continue
-    const data = n.data as SchemaNodeData
-    const schemaId = generateSchemaId(data.sourceFilePath || data.sourceFile || '', data.sheetName)
-    map[n.id] = schemaId
-  }
-  return map
-}
+import { buildSchemaIdByNodeId } from '@/services/builders/v2/manifestBuilder'
 
 /**
  * 根据表名和列名查找对应的节点和列 ID

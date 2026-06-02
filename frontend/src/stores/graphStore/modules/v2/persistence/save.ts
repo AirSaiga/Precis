@@ -110,8 +110,9 @@ export function createV2SaveOps(params: {
   edges: Ref<Edge[]>
   projectName: Ref<string>
   getEffectiveProjectConfigPath: () => string | undefined
+  updateNodeData: (nodeId: string, newData: Partial<CustomNode['data']>) => void
 }) {
-  const { nodes, projectName, getEffectiveProjectConfigPath } = params
+  const { nodes, projectName, getEffectiveProjectConfigPath, updateNodeData } = params
   const { t } = useI18n()
 
   async function saveProject(): Promise<boolean> {
@@ -144,25 +145,24 @@ export function createV2SaveOps(params: {
       await putV2ProjectView(buildV2ProjectView(nodes.value), configPath)
 
       const now = new Date().toISOString()
-      nodes.value.forEach((node) => {
+      const updatedNodes = nodes.value.map((node) => {
         if (node.type === 'schema' || node.type === 'jsonSchema') {
-          const schemaData = node.data as SchemaNodeData
-          schemaData.saveState = 'saved'
-          schemaData.lastSaved = now
-        } else if (isConstraintNodeType(node.type)) {
-          ;(node.data as unknown as Record<string, unknown>).saveState = 'saved'
-          ;(node.data as unknown as Record<string, unknown>).lastSaved = now
-        } else if (node.type === 'regex') {
-          ;(node.data as unknown as Record<string, unknown>).saveState = 'saved'
-          ;(node.data as unknown as Record<string, unknown>).lastSaved = now
-        } else if (node.type === 'transform') {
-          ;(node.data as unknown as Record<string, unknown>).saveState = 'saved'
-          ;(node.data as unknown as Record<string, unknown>).lastSaved = now
-        } else if (node.type === 'templateInstance') {
-          ;(node.data as unknown as Record<string, unknown>).saveState = 'saved'
-          ;(node.data as unknown as Record<string, unknown>).lastSaved = now
+          return {
+            ...node,
+            data: { ...(node.data as SchemaNodeData), saveState: 'saved' as const, lastSaved: now },
+          } as CustomNode
+        } else if (
+          isConstraintNodeType(node.type) ||
+          node.type === 'regex' ||
+          node.type === 'transform' ||
+          node.type === 'templateInstance'
+        ) {
+          const d = node.data as unknown as Record<string, unknown>
+          return { ...node, data: { ...d, saveState: 'saved', lastSaved: now } } as CustomNode
         }
+        return node
       })
+      nodes.value = updatedNodes
 
       toastSuccess(`项目 "${projectName.value || 'untitled'}" 已保存`, '保存成功')
       return true
@@ -323,8 +323,11 @@ export function createV2SaveOps(params: {
         }
       }
 
-      schemaData.saveState = 'saved'
-      schemaData.lastSaved = new Date().toISOString()
+      updateNodeData(nodeId, {
+        ...schemaData,
+        saveState: 'saved',
+        lastSaved: new Date().toISOString(),
+      })
 
       toastSuccess(`Schema "${tableName}" 已保存`, '保存成功')
       return true
@@ -349,8 +352,11 @@ export function createV2SaveOps(params: {
         { id: nodeId, path: `constraints/${nodeId}.constraint.yaml` },
         configPath
       )
-      ;(node.data as unknown as Record<string, unknown>).saveState = 'saved'
-      ;(node.data as unknown as Record<string, unknown>).lastSaved = new Date().toISOString()
+      updateNodeData(nodeId, {
+        ...node.data,
+        saveState: 'saved',
+        lastSaved: new Date().toISOString(),
+      })
 
       toastSuccess(
         `约束 "${(node.data as unknown as Record<string, unknown>).configName || nodeId}" 已保存`,
@@ -375,8 +381,11 @@ export function createV2SaveOps(params: {
       const configPath = getEffectiveProjectConfigPath()
       await putV2RegexNode(nodeId, buildV2RegexNodeFile(nodes.value, nodeId), configPath)
       await updateV2ManifestRegexRef({ id: nodeId, path: `regex/${nodeId}.regex.yaml` }, configPath)
-      ;(node.data as unknown as Record<string, unknown>).saveState = 'saved'
-      ;(node.data as unknown as Record<string, unknown>).lastSaved = new Date().toISOString()
+      updateNodeData(nodeId, {
+        ...node.data,
+        saveState: 'saved',
+        lastSaved: new Date().toISOString(),
+      })
 
       const base = String((node.data as unknown as Record<string, unknown>).configName || nodeId)
       if (configPath) {
@@ -410,8 +419,11 @@ export function createV2SaveOps(params: {
         { id: nodeId, path: `transforms/${nodeId}.transform.yaml` },
         configPath
       )
-      ;(node.data as unknown as Record<string, unknown>).saveState = 'saved'
-      ;(node.data as unknown as Record<string, unknown>).lastSaved = new Date().toISOString()
+      updateNodeData(nodeId, {
+        ...node.data,
+        saveState: 'saved',
+        lastSaved: new Date().toISOString(),
+      })
 
       const base = String((node.data as unknown as Record<string, unknown>).configName || nodeId)
       toastSuccess(`转换节点 "${base}" 已保存`, '保存成功')
@@ -445,9 +457,11 @@ export function createV2SaveOps(params: {
         },
         configPath
       )
-      // 直接赋值，类型安全
-      data.saveState = 'saved'
-      data.lastSaved = new Date().toISOString()
+      updateNodeData(nodeId, {
+        ...data,
+        saveState: 'saved',
+        lastSaved: new Date().toISOString(),
+      })
 
       const base = data.configName || nodeId
       toastSuccess(`模板实例 "${base}" 已保存`, '保存成功')

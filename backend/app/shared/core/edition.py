@@ -150,5 +150,9 @@ def set_edition_for_test(edition: Edition) -> None:
     Args:
         edition: 要强制设置的版本枚举值
     """
+    import sys
+
+    if "pytest" not in sys.modules:
+        raise RuntimeError("set_edition_for_test 仅允许在测试环境中调用")
     global _cached_edition
     _cached_edition = edition

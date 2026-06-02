@@ -133,9 +133,9 @@ class AIChatCommand(Command):
 
                 if user_input.lower() in ("exit!", "quit!", "qq"):
                     print(Formatter.success("\n再见!"))
-                    import os
+                    import sys
 
-                    os._exit(0)
+                    sys.exit(0)
 
                 if user_input.lower() == "help":
                     self._print_help()

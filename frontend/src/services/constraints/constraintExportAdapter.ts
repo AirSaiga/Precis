@@ -157,7 +157,10 @@ export function buildConstraintExportPayload(params: {
             values: cond.values,
           }))
           .filter((x: any) => !!x.if_column_id)
-        if (!data.thenColumn && thenColumnId) data.thenColumn = resolveColumnNameById(thenColumnId)
+        if (!data.thenColumn && thenColumnId) {
+          const resolved = resolveColumnNameById(thenColumnId)
+          if (resolved) data.thenColumn = resolved
+        }
       }
       outputParams.then_condition = data.thenConditionConfig
       break

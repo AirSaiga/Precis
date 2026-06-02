@@ -104,7 +104,7 @@ class ActionParser:
             ("清理 Markdown", ActionParser._clean_json_text),
             ("提取 JSON 块", ActionParser._extract_json_block),
             ("修复单引号", ActionParser._fix_single_quotes),
-            ("截断恢复", ActionParser._try_recover_truncated),
+            ("截断恢复", lambda t: ActionParser._try_recover_truncated(t)[0]),
         ]
 
         last_error = None
@@ -170,15 +170,18 @@ class ActionParser:
         return re.sub(r"'([^']*)'", replace_quotes, text)
 
     @staticmethod
-    def _try_recover_truncated(text: str) -> str:
+    def _try_recover_truncated(text: str) -> tuple[str, bool]:
         text = text.strip()
         open_braces = text.count("{") - text.count("}")
         open_brackets = text.count("[") - text.count("]")
         result = text
+        recovered = False
         if open_braces > 0:
             result += "}" * open_braces
+            recovered = True
         if open_brackets > 0:
             result += "]" * open_brackets
+            recovered = True
         if result.count('"') % 2 == 1:
             last_quote = result.rfind('"')
             if last_quote > 0:
@@ -186,8 +189,11 @@ class ActionParser:
                     pos = result.rfind(char, 0, last_quote)
                     if pos > 0:
                         result = result[: pos + 1]
+                        recovered = True
                         break
-        return result
+        if recovered:
+            logger.warning("[ResponseParser] 响应被截断，已自动恢复。恢复后的内容可能与 LLM 原始输出不同。")
+        return result, recovered
 
     @staticmethod
     def validate_response(response: dict[str, Any]) -> bool:

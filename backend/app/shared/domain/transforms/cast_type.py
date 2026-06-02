@@ -54,8 +54,7 @@ class CastTypeRunner(TransformRunner):
             series = pd.to_datetime(series, errors="coerce")
         elif target_type == "string":
             series = series.astype(str)
-            # 将 pandas 的 'nan' 字符串还原为 NaN
-            series = series.where(series != "nan", None)
+            series = series.where(~pd.isna(df[input_column]), None)
         else:
             raise ValueError(f"不支持的目标类型: {target_type}")
 

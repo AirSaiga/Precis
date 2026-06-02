@@ -13,20 +13,37 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from datetime import datetime
 from pathlib import Path
 
 import yaml
+from fastapi import Depends
 
+from app.api.dependencies import get_project_config_path
 from app.api.models import HeaderRowChangedRequest, HeaderRowChangedResponse
 from app.shared.core.io.yaml import write_yaml_atomic
 
 from .router import router
 
+logger = logging.getLogger(__name__)
+
+_SAFE_SCHEMA_NAME_CHARS = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-.")
+
+
+def _sanitize_schema_name(name: str) -> str:
+    cleaned = "".join(c for c in name if c in _SAFE_SCHEMA_NAME_CHARS)
+    if not cleaned or cleaned != name:
+        raise ValueError(f"非法的 schema_name: {name!r}")
+    return cleaned
+
 
 @router.post("/header-row-changed", response_model=HeaderRowChangedResponse)
-def handle_header_row_changed(request: HeaderRowChangedRequest):
+def handle_header_row_changed(
+    request: HeaderRowChangedRequest,
+    config_path: str = Depends(get_project_config_path),
+):
     """
     处理表头行变更请求。
 
@@ -54,7 +71,16 @@ def handle_header_row_changed(request: HeaderRowChangedRequest):
         schema_name = request.schema_name
 
         if schema_name:
-            schema_path = Path("schemas") / f"{schema_name}.yaml"
+            try:
+                safe_name = _sanitize_schema_name(schema_name)
+            except ValueError:
+                return HeaderRowChangedResponse(
+                    success=False,
+                    message="非法的 schema_name",
+                    schema_name=schema_name,
+                    updated_at=datetime.now().isoformat(),
+                )
+            schema_path = Path(config_path) / "schemas" / f"{safe_name}.yaml"
 
             if os.path.exists(schema_path):
                 try:
@@ -71,7 +97,7 @@ def handle_header_row_changed(request: HeaderRowChangedRequest):
                     if row_data:
                         schema_content["header_row"]["data"] = row_data
 
-                    write_yaml_atomic(Path(schema_path), schema_content)
+                    write_yaml_atomic(schema_path, schema_content)
 
                     return HeaderRowChangedResponse(
                         success=True,
@@ -81,9 +107,10 @@ def handle_header_row_changed(request: HeaderRowChangedRequest):
                     )
 
                 except Exception as e:
+                    logger.warning("更新Schema文件失败: %s", e)
                     return HeaderRowChangedResponse(
                         success=False,
-                        message=f"更新Schema文件失败: {str(e)}",
+                        message="更新Schema文件失败",
                         schema_name=schema_name,
                         updated_at=datetime.now().isoformat(),
                     )
@@ -96,9 +123,10 @@ def handle_header_row_changed(request: HeaderRowChangedRequest):
         )
 
     except Exception as e:
+        logger.warning("处理表头行变更时发生错误: %s", e)
         return HeaderRowChangedResponse(
             success=False,
-            message=f"处理表头行变更时发生错误: {str(e)}",
+            message="处理表头行变更时发生错误",
             schema_name=request.schema_name or "",
             updated_at=datetime.now().isoformat(),
         )
