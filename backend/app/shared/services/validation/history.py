@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import threading
 import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -128,8 +129,21 @@ class ValidationHistoryStore:
         }
 
 
+_run_id_lock = threading.Lock()
+_run_id_last_us: int = -1
+_run_id_counter: int = 0
+
+
 def generate_run_id() -> str:
-    """生成运行 ID（含微秒保证唯一性）"""
+    """生成运行 ID（时间戳 + 单调计数器保证唯一性）"""
+    global _run_id_last_us, _run_id_counter
     t = time.strftime("%Y%m%d_%H%M%S")
     us = int(time.time() * 1000000) % 1000000
-    return f"run_{t}_{us:06d}"
+    with _run_id_lock:
+        if us == _run_id_last_us:
+            _run_id_counter += 1
+        else:
+            _run_id_last_us = us
+            _run_id_counter = 0
+        suffix = f"{us:06d}_{_run_id_counter:03d}"
+    return f"run_{t}_{suffix}"
