@@ -74,7 +74,6 @@
 from __future__ import annotations
 
 # 1. 标准库导入
-import logging
 from typing import Any
 
 # 2. 第三方库导入
@@ -158,21 +157,13 @@ class RangeConstraint(Constraint):
 
         # 2. 检查是否为 Decimal 类型（object dtype 但包含 Decimal 值）
         if series.dtype == object:
-            # 检查非空值是否都是 Decimal 类型
             non_null_values = series.dropna()
             if len(non_null_values) > 0:
                 from decimal import Decimal
 
-                # 检查第一个非空值的类型
                 first_value = non_null_values.iloc[0]
                 if isinstance(first_value, Decimal):
                     return True
-                # 或者检查是否所有值都可以转换为数值
-                try:
-                    pd.to_numeric(series, errors="raise")
-                    return True
-                except (ValueError, TypeError):
-                    logging.debug("数值类型转换失败", exc_info=True)
 
         return False
 
