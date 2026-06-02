@@ -235,26 +235,24 @@ class RangeConstraint(Constraint):
             )
             return {"errors": errors, "info": self.get_constraint_info()}
 
+        numeric_series = pd.to_numeric(df[self.column], errors="coerce")
+
         # 初始化掩码: 所有行默认都在范围内（True）
         mask = pd.Series([True] * len(df), index=df.index)
 
         # 应用最小值约束
         if self.min_value is not None:
             if self.boundary_mode == "inclusive":
-                # 闭区间: 值 >= 最小值
-                mask = mask & (df[self.column] >= self.min_value)
+                mask = mask & (numeric_series >= self.min_value)
             else:
-                # 开区间: 值 > 最小值
-                mask = mask & (df[self.column] > self.min_value)
+                mask = mask & (numeric_series > self.min_value)
 
         # 应用最大值约束
         if self.max_value is not None:
             if self.boundary_mode == "inclusive":
-                # 闭区间: 值 <= 最大值
-                mask = mask & (df[self.column] <= self.max_value)
+                mask = mask & (numeric_series <= self.max_value)
             else:
-                # 开区间: 值 < 最大值
-                mask = mask & (df[self.column] < self.max_value)
+                mask = mask & (numeric_series < self.max_value)
 
         # 取反得到不在范围内的行，并排除空值
         invalid_rows = df[~mask].dropna(subset=[self.column])
