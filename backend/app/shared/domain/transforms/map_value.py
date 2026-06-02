@@ -45,7 +45,9 @@ class MapValueRunner(TransformRunner):
         numeric_idx = pd.to_numeric(df[input_column], errors="coerce")
         in_range = numeric_idx.notna() & (numeric_idx >= 0) & (numeric_idx < len(mapping_arr))
         idx_int = numeric_idx.where(in_range)
-        mapped = idx_int.apply(lambda x: mapping_arr[int(x)] if pd.notna(x) and 0 <= int(x) < len(mapping_arr) else None)
+        mapped = idx_int.apply(
+            lambda x: mapping_arr[int(x)] if pd.notna(x) and 0 <= int(x) < len(mapping_arr) else None
+        )
         df[output_col] = mapped.where(in_range, df[input_column])
 
         return df
