@@ -20,7 +20,7 @@ export async function fetchValidationRun(
   runId: string,
   projectPath: string
 ): Promise<ValidationRunRecord> {
-  const { data } = await apiClient.get(`/v2/validation/history/${runId}`, {
+  const { data } = await apiClient.get(`/v2/validation/history/${encodeURIComponent(runId)}`, {
     params: { project_path: projectPath },
   })
   return data
@@ -30,7 +30,7 @@ export async function deleteValidationRun(
   runId: string,
   projectPath: string
 ): Promise<void> {
-  await apiClient.delete(`/v2/validation/history/${runId}`, {
+  await apiClient.delete(`/v2/validation/history/${encodeURIComponent(runId)}`, {
     params: { project_path: projectPath },
   })
 }

@@ -80,6 +80,7 @@
   import { useI18n } from 'vue-i18n'
   import { useAiChatStore } from '@/stores/aiChatStore'
   import MarkdownIt from 'markdown-it'
+  import DOMPurify from 'dompurify'
 
   const { t } = useI18n()
   const aiChatStore = useAiChatStore()
@@ -117,7 +118,7 @@
   const messagesRef = ref<HTMLDivElement | null>(null)
 
   const renderMarkdown = (content: string): string => {
-    return md.render(content || '')
+    return DOMPurify.sanitize(md.render(content || ''))
   }
 
   const formatTime = (timestamp: string): string => {

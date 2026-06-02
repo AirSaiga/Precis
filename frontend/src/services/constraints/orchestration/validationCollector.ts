@@ -34,6 +34,7 @@ export interface ConstraintInfo {
     | 'scripted'
     | 'charset'
     | 'dateLogic'
+    | 'composite'
   /** 约束节点的 ID */
   constraintNodeId: string
 }

@@ -250,16 +250,28 @@ export interface MathExprOptions {
   outputType: string
 }
 
+function safeMathEval(expr: string): number {
+  const sanitized = expr.replace(/\s+/g, ' ').trim()
+  if (!/^[\d\s+\-*/().%]+$/.test(sanitized)) {
+    throw new Error(`表达式包含不支持的字符: ${expr}`)
+  }
+  const fn = new Function(`return (${sanitized})`)
+  const result = fn()
+  if (typeof result !== 'number' || !isFinite(result)) {
+    throw new Error(`表达式计算结果无效: ${expr}`)
+  }
+  return result
+}
+
 export function computeMathExpr(upstreamRows: string[][], options: MathExprOptions): string[][] {
   const { expression, outputType } = options
   if (!expression) return upstreamRows
 
-  // 解析表达式中的 @列名
   const columnRefs = new Set<string>()
   const refPattern = /@(\w+)/g
-  let match
-  while ((match = refPattern.exec(expression)) !== null) {
-    columnRefs.add(match[1])
+  let refMatch
+  while ((refMatch = refPattern.exec(expression)) !== null) {
+    columnRefs.add(refMatch[1])
   }
 
   const columnIndex = 0
@@ -268,19 +280,18 @@ export function computeMathExpr(upstreamRows: string[][], options: MathExprOptio
   for (const row of upstreamRows) {
     let evalExpr = expression
     for (const colName of columnRefs) {
-      const value = row[columnIndex] ?? '0'
-      evalExpr = evalExpr.replace(new RegExp(`@${colName}`, 'g'), value)
+      const safeValue = String(row[columnIndex] ?? '')
+      evalExpr = evalExpr.replace(new RegExp(`@${colName}`, 'g'), safeValue)
     }
 
     try {
-       
-      const result = new Function(`return ${evalExpr}`)()
+      const result = safeMathEval(evalExpr)
 
       let finalResult: string
       if (outputType === 'int') {
-        finalResult = String(Math.trunc(Number(result) || 0))
+        finalResult = String(Math.trunc(result || 0))
       } else if (outputType === 'float') {
-        finalResult = String(Number(result) || 0)
+        finalResult = String(result || 0)
       } else {
         finalResult = String(result)
       }

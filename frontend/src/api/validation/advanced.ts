@@ -324,3 +324,34 @@ export async function validateCharset(
     throw error
   }
 }
+
+export interface DateLogicValidationRequest {
+  validation_type: 'date_logic'
+  target_column_name: string
+  source_file_path: string
+  sheet_name?: string
+  header_row?: number
+  validation_config?: Record<string, unknown>
+}
+
+export async function validateDateLogic(
+  request: DateLogicValidationRequest
+): Promise<ValidationResponse> {
+  try {
+    const response = await apiClient.post<ValidationResponse>(`${VALIDATION_API_PATH}`, request, {
+      headers: { 'Content-Type': 'application/json' },
+    })
+    return response.data
+  } catch (error) {
+    logger.error('❌ 日期逻辑约束校验请求错误:', error)
+    if (isAxiosError(error)) {
+      logger.error('请求详情:', {
+        url: error.config?.url,
+        method: error.config?.method,
+        status: error.response?.status,
+        data: error.response?.data,
+      })
+    }
+    throw error
+  }
+}

@@ -251,7 +251,7 @@ export const getTargetValues = (
   targetColumnName: string,
   nodes?: Node[]
 ): string[] => {
-  if (!targetSchemaNode || targetSchemaNode.type !== 'schema') return []
+  if (!targetSchemaNode || (targetSchemaNode.type !== 'schema' && targetSchemaNode.type !== 'jsonSchema')) return []
   const targetSchemaData = (targetSchemaNode.data || {}) as Record<string, unknown>
   let rows =
     (targetSchemaData?.originalData as unknown[]) || (targetSchemaData?.data as unknown[]) || []

@@ -90,7 +90,7 @@
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
-  import { computed, ref, watch, nextTick } from 'vue'
+  import { computed, onBeforeUnmount, ref, watch, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
   import NodeBadge from '@/components/ui/NodeBadge.vue'
@@ -264,6 +264,7 @@
   }
 
   let validationTimer: number | undefined
+  onBeforeUnmount(() => { if (validationTimer) clearTimeout(validationTimer) })
   const scheduleValidation = () => {
     if (validationTimer) window.clearTimeout(validationTimer)
     validationTimer = window.setTimeout(() => {

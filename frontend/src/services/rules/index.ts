@@ -5,7 +5,6 @@
 
 export type {
   NodeType,
-  ConstraintNodeType,
   SourceEndpoint,
   TargetEndpoint,
   ConnectionRuleConfig,
@@ -15,6 +14,8 @@ export type {
   AllowedConnection,
   ConnectionValidationContext,
 } from './connectionRuleTypes'
+
+export type { ConstraintNodeType } from '@/services/constraints/types'
 
 export { isConstraintNodeType } from './connectionRuleTypes'
 

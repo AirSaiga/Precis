@@ -210,13 +210,15 @@ export const highlightChanges = (
   changes?: { key: string; oldValue: unknown; newValue: unknown }[]
 ): string => {
   if (!content) return ''
-  const escaped = content.replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  const escapeHtml = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+  const escaped = escapeHtml(content)
   if (!changes || changes.length === 0) return escaped
 
   let result = escaped
   changes.forEach((change) => {
-    const oldVal = String(change.oldValue ?? '')
-    const newVal = String(change.newValue ?? '')
+    const oldVal = escapeHtml(String(change.oldValue ?? ''))
+    const newVal = escapeHtml(String(change.newValue ?? ''))
     if (oldVal && result.includes(oldVal)) {
       result = result.replace(oldVal, `<span class="highlight-removed">${oldVal}</span>`)
     }

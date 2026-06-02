@@ -398,6 +398,7 @@ export const connectionRules: ConnectionRule[] = [
         'scriptedConstraint',
         'charsetConstraint',
         'dateLogicConstraint',
+        'compositeConstraint',
       ],
       handles: undefined,
     },

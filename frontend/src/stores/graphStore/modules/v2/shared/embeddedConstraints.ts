@@ -62,6 +62,7 @@ const V2_TYPE_TO_KIND: Record<string, ConstraintKind> = {
   Scripted: 'scripted',
   Charset: 'charset',
   DateLogic: 'dateLogic',
+  Composite: 'composite',
 }
 
 /** V2 type → node type 映射 */
@@ -75,6 +76,7 @@ const TYPE_MAP: Record<string, string> = {
   Scripted: 'scriptedConstraint',
   Charset: 'charsetConstraint',
   DateLogic: 'dateLogicConstraint',
+  Composite: 'compositeConstraint',
 }
 
 export function materializeV2EmbeddedConstraints(params: {

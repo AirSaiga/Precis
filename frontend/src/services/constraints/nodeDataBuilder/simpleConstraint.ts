@@ -91,6 +91,13 @@ function buildTypeExtras(
         dateFormat: params.date_format || '',
       }
 
+    case 'composite':
+      return {
+        logic: params.logic || 'and',
+        includedNodeIds: [],
+        enabled: true,
+      }
+
     // notNull, unique 无额外字段
     default:
       return {}
@@ -106,6 +113,7 @@ const SIMPLE_KINDS: ConstraintKind[] = [
   'scripted',
   'charset',
   'dateLogic',
+  'composite',
 ]
 
 SIMPLE_KINDS.forEach((kind) => {

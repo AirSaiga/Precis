@@ -47,10 +47,10 @@ import {
   validateRange,
   validateScripted,
   validateInline,
+  validateDateLogic,
 } from '@/api/validationApi'
 import { validateNotNull } from '@/composables/nodes/constraints/useNotNull'
 import { validateUnique } from '@/composables/nodes/constraints/useUnique'
-import { getApiBaseUrl } from '@/core/services/httpClient'
 
 // ============================================================================
 // 约束验证处理器注册
@@ -868,20 +868,15 @@ register({
       if (nodeData.targetType === 'value') validationConfig.target_value = nodeData.targetValue
       else validationConfig.target_column = nodeData.targetColumn
     }
-    const request = {
-      validation_type: 'date_logic',
+    const request: Parameters<typeof validateDateLogic>[0] = {
+      validation_type: 'date_logic' as const,
       target_column_name: ctx.columnName,
       source_file_path: String(ctx.sourceFilePath),
       sheet_name: ctx.sheetName,
       header_row: ctx.headerRow,
       validation_config: validationConfig,
     }
-    const res = await fetch(`${getApiBaseUrl()}/validate`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(request),
-    })
-    const response = await res.json()
+    const response = await validateDateLogic(request)
     if (!response.success || !response.data) {
       return {
         status: 'error',

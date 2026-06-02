@@ -154,7 +154,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
    *    - 校验结果（通过率、错误行数）会回写到节点状态中，通过不同颜色的边框和徽章直观展示。
    */
 
-  import { computed, nextTick, ref, watch } from 'vue'
+  import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
   import NodeBadge from '@/components/ui/NodeBadge.vue'
@@ -686,6 +686,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   }
 
   let validationTimer: number | undefined
+  onBeforeUnmount(() => { if (validationTimer) clearTimeout(validationTimer) })
   /**
    * 防抖校验函数
    * 避免用户输入过程中频繁触发后端请求

@@ -22,6 +22,10 @@ import {
 import type { ReportGenerateOptions } from '../reportExportService'
 import { REPORT_CSS } from './reportStyles'
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+}
+
 const ICONS = {
   check: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`,
   x: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`,
@@ -52,13 +56,13 @@ export function generateHtmlReport(
       (e, idx) => `
     <tr class="error-row">
       <td class="col-num">${idx + 1}</td>
-      <td><span class="stage-badge stage-${e.normalized_stage}">${t(getValidationStageLabelKey(e.stage))}</span></td>
-      <td class="col-table">${e.table || '-'}</td>
-      <td class="col-column">${e.column || '-'}</td>
-      <td class="col-type"><code class="type-code">${e.type_label}</code></td>
+      <td><span class="stage-badge stage-${escapeHtml(e.normalized_stage)}">${t(getValidationStageLabelKey(e.stage))}</span></td>
+      <td class="col-table">${escapeHtml(e.table || '-')}</td>
+      <td class="col-column">${escapeHtml(e.column || '-')}</td>
+      <td class="col-type"><code class="type-code">${escapeHtml(e.type_label)}</code></td>
       <td class="col-msg">
-        <div class="message-content">${formatValidationReportMessage(e.message, e.table)}</div>
-        ${e.source_path ? `<div class="message-path">${e.source_path}</div>` : ''}
+        <div class="message-content">${escapeHtml(formatValidationReportMessage(e.message, e.table))}</div>
+        ${e.source_path ? `<div class="message-path">${escapeHtml(e.source_path)}</div>` : ''}
       </td>
     </tr>
   `
@@ -70,11 +74,11 @@ export function generateHtmlReport(
       (p, idx) => `
     <tr class="passed-row">
       <td class="col-num">${idx + 1}</td>
-      <td><span class="stage-badge stage-${p.normalized_stage}">${t(getValidationStageLabelKey(p.stage))}</span></td>
-      <td class="col-table">${p.table || '-'}</td>
-      <td class="col-column">${p.column || '-'}</td>
-      <td class="col-type"><code class="type-code">${p.type_label}</code></td>
-      <td class="col-msg">${formatValidationReportMessage(p.message, p.table)}</td>
+      <td><span class="stage-badge stage-${escapeHtml(p.normalized_stage)}">${t(getValidationStageLabelKey(p.stage))}</span></td>
+      <td class="col-table">${escapeHtml(p.table || '-')}</td>
+      <td class="col-column">${escapeHtml(p.column || '-')}</td>
+      <td class="col-type"><code class="type-code">${escapeHtml(p.type_label)}</code></td>
+      <td class="col-msg">${escapeHtml(formatValidationReportMessage(p.message, p.table))}</td>
     </tr>
   `
     )
@@ -85,7 +89,7 @@ export function generateHtmlReport(
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${t('common.fullValidation.report.title')} - ${projectName}</title>
+  <title>${t('common.fullValidation.report.title')} - ${escapeHtml(projectName)}</title>
     ${REPORT_CSS}
 </head>
 <body>
@@ -95,7 +99,7 @@ export function generateHtmlReport(
       <div class="report-header">
         <div class="header-top">
           <div class="header-title-group">
-            <h1 class="project-name">${projectName}</h1>
+            <h1 class="project-name">${escapeHtml(projectName)}</h1>
             <div class="report-subtitle">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
               ${t('common.fullValidation.report.title')}

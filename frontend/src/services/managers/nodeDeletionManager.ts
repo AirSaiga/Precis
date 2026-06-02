@@ -21,8 +21,25 @@ import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
 import i18n from '@/i18n'
 import type { DataType } from '@/types/graph'
+import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 
-type NodeType = 'schema' | 'sourcePreview' | 'regex' | 'constraint' | 'transform' | 'default'
+type StrategyType = 'schema' | 'sourcePreview' | 'regex' | 'constraint' | 'transform' | 'default'
+
+function mapNodeKindToStrategy(nodeType: string | undefined): StrategyType {
+  if (!nodeType) return 'default'
+  if (nodeType === 'projectRoot') return 'default'
+  if (nodeType === 'schema' || nodeType === 'jsonSchema') return 'schema'
+  if (nodeType === 'sourcePreview' || nodeType === 'jsonSourcePreview') return 'sourcePreview'
+  if (nodeType === 'regex') return 'regex'
+  if (nodeType === 'transform') return 'transform'
+  if (isConstraintNodeType(nodeType)) return 'constraint'
+  if (nodeType === 'transformOutput') return 'default'
+  if (nodeType === 'manualData') return 'default'
+  if (nodeType === 'templateInstance') return 'default'
+  if (nodeType === 'pattern' || nodeType === 'patternToolbox') return 'default'
+  if (nodeType === 'constraintDashboard') return 'default'
+  return 'default'
+}
 
 interface SourcePreviewData {
   sourceNodeId: string | null
@@ -56,8 +73,8 @@ interface RegexData {
 interface DeleteOptions {
   showConfirm?: boolean
   confirmMessage?: string
-  onBeforeDelete?: (nodeId: string, nodeType: NodeType) => Promise<void> | void
-  onAfterDelete?: (nodeId: string, nodeType: NodeType) => void
+  onBeforeDelete?: (nodeId: string, nodeType: StrategyType) => Promise<void> | void
+  onAfterDelete?: (nodeId: string, nodeType: StrategyType) => void
 }
 
 /**
@@ -70,7 +87,7 @@ export class NodeDeletionManager {
   private static instance: NodeDeletionManager
   private graphStore = useGraphStore()
 
-  private deletionStrategies: Map<NodeType, (nodeId: string) => Promise<void>> = new Map()
+  private deletionStrategies: Map<StrategyType, (nodeId: string) => Promise<void>> = new Map()
 
   private constructor() {
     this.registerDefaultStrategies()
@@ -83,7 +100,7 @@ export class NodeDeletionManager {
     return NodeDeletionManager.instance
   }
 
-  registerStrategy(nodeType: NodeType, strategy: (nodeId: string) => Promise<void>): void {
+  registerStrategy(nodeType: StrategyType, strategy: (nodeId: string) => Promise<void>): void {
     this.deletionStrategies.set(nodeType, strategy)
   }
 
@@ -107,6 +124,8 @@ export class NodeDeletionManager {
     this.deletionStrategies.set('transform', async (nodeId: string) => {
       await this.deleteTransformNode(nodeId)
     })
+
+    this.deletionStrategies.set('default', async (_nodeId: string) => {})
   }
 
   private async deleteSchemaNode(nodeId: string): Promise<void> {
@@ -237,34 +256,33 @@ export class NodeDeletionManager {
       return false
     }
 
-    const nodeType = node.type as NodeType
+    const strategyType = mapNodeKindToStrategy(node.type)
 
-    const message = confirmMessage || this.getConfirmMessage(nodeType)
+    const message = confirmMessage || this.getConfirmMessage(strategyType)
 
     if (showConfirm && !confirm(message)) {
       return false
     }
 
     if (onBeforeDelete) {
-      await onBeforeDelete(nodeId, nodeType)
+      await onBeforeDelete(nodeId, strategyType)
     }
 
-    const strategy =
-      this.deletionStrategies.get(nodeType) || this.deletionStrategies.get('default')!
+    const strategy = this.deletionStrategies.get(strategyType) || this.deletionStrategies.get('default')!
     await strategy(nodeId)
 
     this.graphStore.deleteNode(nodeId)
 
     if (onAfterDelete) {
-      onAfterDelete(nodeId, nodeType)
+      onAfterDelete(nodeId, strategyType)
     }
 
     return true
   }
 
-  private getConfirmMessage(nodeType: NodeType): string {
+  private getConfirmMessage(strategyType: StrategyType): string {
     const t = i18n.global.t
-    const messages: Record<NodeType, string> = {
+    const messages: Record<StrategyType, string> = {
       schema: t('common.confirmDialog.deleteSchema'),
       sourcePreview: t('common.confirmDialog.deleteSourcePreview'),
       regex: t('common.confirmDialog.deleteRegex'),
@@ -273,6 +291,6 @@ export class NodeDeletionManager {
       default: t('common.confirmDialog.deleteDefault'),
     }
 
-    return messages[nodeType] || messages.default
+    return messages[strategyType] || messages.default
   }
 }

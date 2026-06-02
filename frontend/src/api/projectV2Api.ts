@@ -467,7 +467,7 @@ export async function getV2RegexNode(
   configPath?: string
 ): Promise<RegexNodeFileV2> {
   const { data } = await apiClient.get<RegexNodeFileV2>(
-    `/project/v2/regex/${regexId}`,
+    `/project/v2/regex/${encodeURIComponent(regexId)}`,
     configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
   )
   return data
@@ -486,7 +486,7 @@ export async function putV2RegexNode(
   configPath?: string
 ): Promise<void> {
   await apiClient.put(
-    `/project/v2/regex/${regexId}`,
+    `/project/v2/regex/${encodeURIComponent(regexId)}`,
     regexNode,
     configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
   )
@@ -505,7 +505,7 @@ export async function putV2TransformNode(
   configPath?: string
 ): Promise<void> {
   await apiClient.put(
-    `/project/v2/transform/${transformId}`,
+    `/project/v2/transform/${encodeURIComponent(transformId)}`,
     transformNode,
     configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
   )
@@ -519,7 +519,7 @@ export async function putV2TransformNode(
  */
 export async function deleteV2RegexNode(regexId: string, configPath?: string): Promise<void> {
   await apiClient.delete(
-    `/project/v2/regex/${regexId}`,
+    `/project/v2/regex/${encodeURIComponent(regexId)}`,
     configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
   )
 }
@@ -537,7 +537,7 @@ export async function updateV2RegexNodeDisplayName(
   configPath?: string
 ): Promise<void> {
   await apiClient.post(
-    `/project/v2/regex/${regexId}/display-name`,
+    `/project/v2/regex/${encodeURIComponent(regexId)}/display-name`,
     { name },
     configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
   )

@@ -121,7 +121,7 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
    * - 自动触发后端校验，并在节点内展示状态、指标与错误明细
    */
 
-  import { computed, nextTick, ref, watch } from 'vue'
+  import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
   import NodeBadge from '@/components/ui/NodeBadge.vue'
@@ -230,6 +230,7 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
   })
 
   let validationTimer: number | undefined
+  onBeforeUnmount(() => { if (validationTimer) clearTimeout(validationTimer) })
   const scheduleValidation = () => {
     if (validationTimer) window.clearTimeout(validationTimer)
     validationTimer = window.setTimeout(() => {

@@ -27,6 +27,7 @@
  */
 import type { Connection, Node } from '@vue-flow/core'
 import { getConstraintNodeTypes as getConstraintNodeTypesFromRegistry } from '@/services/constraints/validationRegistry'
+import type { ConstraintNodeType } from '@/services/constraints/types'
 
 export type NodeType =
   | 'projectRoot'
@@ -42,33 +43,10 @@ export type NodeType =
   | 'transformOutput'
   | 'manualData'
   | 'constraint'
-  | 'notNullConstraint'
-  | 'uniqueConstraint'
-  | 'foreignKeyConstraint'
-  | 'allowedValuesConstraint'
-  | 'rangeConstraint'
-  | 'conditionalConstraint'
-  | 'scriptedConstraint'
-  | 'charsetConstraint'
-  | 'dateLogicConstraint'
-  | 'compositeConstraint'
+  | ConstraintNodeType
   | 'templateInstance'
 
-export type ConstraintNodeType =
-  | 'notNullConstraint'
-  | 'uniqueConstraint'
-  | 'foreignKeyConstraint'
-  | 'allowedValuesConstraint'
-  | 'rangeConstraint'
-  | 'conditionalConstraint'
-  | 'scriptedConstraint'
-  | 'charsetConstraint'
-  | 'dateLogicConstraint'
-  | 'compositeConstraint'
-
-export function isConstraintNodeType(type: string): type is ConstraintNodeType {
-  return getConstraintNodeTypesFromRegistry().includes(type as ConstraintNodeType)
-}
+export { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 
 export interface SourceEndpoint {
   nodeTypes: NodeType[]

@@ -9,7 +9,7 @@
  * - 监听 AI 面板变化，同步布局
  */
 
-import { ref, computed, watch, type Ref } from 'vue'
+import { ref, computed, watch, onUnmounted, type Ref } from 'vue'
 import { useAiChatStore } from '@/stores/aiChatStore'
 
 const ACTIVITY_BAR_WIDTH = 64
@@ -253,6 +253,11 @@ export function useAppLayout(): AppLayoutState {
     document.body.style.cursor = ''
     document.body.style.userSelect = ''
   }
+
+  onUnmounted(() => {
+    document.removeEventListener('mousemove', handleMouseMove)
+    document.removeEventListener('mouseup', handleMouseUp)
+  })
 
   return {
     // --- 折叠状态 ---

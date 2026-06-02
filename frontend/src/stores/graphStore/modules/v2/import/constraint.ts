@@ -36,6 +36,7 @@ const V2_TYPE_TO_KIND: Record<string, ConstraintKind | 'regex'> = {
   Scripted: 'scripted',
   Charset: 'charset',
   DateLogic: 'dateLogic',
+  Composite: 'composite',
 }
 
 /** V2 type → node type 映射 */

@@ -172,6 +172,7 @@ export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
     window.removeEventListener('focus-canvas-nodes', handleFocusCanvasNodes as EventListener)
     window.removeEventListener('open-create-project-dialog', handleOpenCreateProjectDialog)
     window.removeEventListener('keydown', handleGlobalKeydown)
+    delete (window as unknown as { __focusToProjectRoot?: () => void }).__focusToProjectRoot
     // 清除拖拽悬浮状态
     dragStore.clearHover()
     logger.debug('NodeCanvas lifecycle cleaned up')
