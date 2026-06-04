@@ -212,6 +212,7 @@ def get_v2_full_config(
     # 仅当 inspect=true 时执行配置文件格式自检
     if inspect:
         from datetime import datetime, timezone
+
         inspection_warnings: list[str] = []
         inspection_errors: list[LoadingError] = []
         inspect_config(

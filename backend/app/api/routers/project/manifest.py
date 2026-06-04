@@ -419,11 +419,7 @@ def deduplicate_constraint_refs(
             file_id = path_to_file_id.get(abs_path)
             is_correct = file_id == ref.id
             # 当前 ref.id 与 file id 不一致，且同 path 存在 ref.id == file id 的"正确条目"
-            is_dup_with_correct = (
-                not is_correct
-                and file_id is not None
-                and (abs_path, file_id) in correct_keys
-            )
+            is_dup_with_correct = not is_correct and file_id is not None and (abs_path, file_id) in correct_keys
             if is_dup_with_correct:
                 removed.append(ref.id)
                 continue
@@ -431,17 +427,11 @@ def deduplicate_constraint_refs(
 
         if removed:
             updated_manifest = manifest.model_copy(update={"constraints": to_keep})
-            write_yaml_atomic(
-                Path(manifest_path), updated_manifest.model_dump(exclude_none=True)
-            )
+            write_yaml_atomic(Path(manifest_path), updated_manifest.model_dump(exclude_none=True))
             logger.info(
                 "[deduplicate_constraint_refs] 已删除 %d 个重复条目: %s",
                 len(removed),
                 removed,
             )
 
-    return {
-        "message": (
-            f"已删除 {len(removed)} 个重复条目" if removed else "未发现可去重的重复条目"
-        )
-    }
+    return {"message": (f"已删除 {len(removed)} 个重复条目" if removed else "未发现可去重的重复条目")}
