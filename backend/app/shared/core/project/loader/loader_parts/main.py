@@ -89,7 +89,7 @@ def _load_referenced_files(
                     suggestion="请检查文件路径是否正确，或在 manifest 中移除该引用",
                 )
             )
-            print(f"⚠️ {warning_msg}")
+            print(f"[WARN] {warning_msg}")
             continue
 
         try:
@@ -104,7 +104,7 @@ def _load_referenced_files(
                     suggestion="请检查 YAML 格式是否正确，必要字段是否完整",
                 )
             )
-            print(f"⚠️ {file_type} 加载失败: {ref.id}, {e}")
+            print(f"[WARN] {file_type} 加载失败: {ref.id}, {e}")
 
     return result
 
@@ -235,6 +235,20 @@ def load_project(manifest_path: str) -> LoadedProject:
     warnings.extend(constraint_warnings)
 
     dataset_schema = DataSetSchema(tables=runtime_tables, constraints=runtime_constraints)
+
+    # 阶段 6：配置格式自检（ID 一致性、引用完整性等）
+    from app.shared.core.project.loader.loader_parts.config_inspector import inspect_config
+
+    inspect_config(
+        manifest_file,
+        manifest,
+        schema_files,
+        constraint_files,
+        regex_files,
+        transform_files,
+        warnings,
+        loading_errors,
+    )
 
     return LoadedProject(
         manifest_path=manifest_file,

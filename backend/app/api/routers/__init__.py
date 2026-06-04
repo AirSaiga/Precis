@@ -6,7 +6,6 @@
 - 统一暴露项目、AI、预览、校验、工作空间等路由
 """
 
-from .ai import router as ai_router
 from .core.connection_rules import router as connection_rules_router
 from .core.data_sources import router as data_sources_router
 from .core.regex import router as regex_router
@@ -27,3 +26,11 @@ __all__ = [
     "reporting_router",
     "whitelist_router",
 ]
+
+
+def __getattr__(name: str):
+    if name == "ai_router":
+        from .ai import router as ai_router
+
+        return ai_router
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
