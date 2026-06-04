@@ -388,8 +388,8 @@ const inspector = {
       },
       mathExpr: {
         expression: 'Math expression',
-        expressionPh: 'e.g. @col_name * 2 + 10',
-        expressionHint: 'Use @column_name to reference input columns, supports + - * / ** operators',
+        expressionPh: "e.g. {'@'}col_name * 2 + 10",
+        expressionHint: "Use {'@'}column_name to reference input columns, supports + - * / ** operators",
         outputType: 'Output type',
         autoInfer: 'Auto infer',
         typeInt: 'Integer (int)',

@@ -32,6 +32,8 @@ from fastapi.responses import PlainTextResponse
 
 from app.api.dependencies import get_project_config_path
 from app.shared.core.io.yaml import read_yaml
+from app.shared.core.project.loader.loader_parts.config_inspector import inspect_config
+from app.shared.core.project.loader.types import LoadingError
 from app.shared.core.project.manifest.coverage import compute_manifest_coverage, coverage_to_api_dict
 from app.shared.core.project.regex.types import RegexNodeFileV2
 from app.shared.services.diff.config_diff import ConfigDiffResult, ConfigDiffService
@@ -55,7 +57,10 @@ router = APIRouter(prefix="", tags=["Project-FullConfig"])
 
 
 @router.get("/v2/config/full")
-def get_v2_full_config(config_path: str = Depends(get_project_config_path)):
+def get_v2_full_config(
+    config_path: str = Depends(get_project_config_path),
+    inspect: bool = False,
+):
     """
     读取 V2 全量配置：manifest + 所有 schemas/constraints/regex_nodes 内容。
 
@@ -66,6 +71,9 @@ def get_v2_full_config(config_path: str = Depends(get_project_config_path)):
 
     副作用：
     - 如果 manifest 中引用的文件不存在，记录警告但继续处理
+
+    查询参数：
+    - inspect: 是否执行配置文件格式自检（默认 false，避免重复调用）
 
     数据流（分三步）：
     Step 1: 获取/补充 manifest
@@ -81,6 +89,7 @@ def get_v2_full_config(config_path: str = Depends(get_project_config_path)):
 
     参数:
         config_path: 项目配置根目录（通过 Depends 注入）
+        inspect: 是否执行配置自检（通过查询参数注入）
 
     返回:
         dict: 包含 manifest、schemas、constraints、regex_nodes 的字典
@@ -111,6 +120,7 @@ def get_v2_full_config(config_path: str = Depends(get_project_config_path)):
 
     # 读取所有 Schema 文件
     schemas: dict[str, Any] = {}
+    schema_objects: dict[str, TableSchemaFileV2] = {}  # 保留对象用于自检
     schema_errors: dict[str, str] = {}
     for ref in effective_manifest.schemas:
         try:
@@ -120,9 +130,9 @@ def get_v2_full_config(config_path: str = Depends(get_project_config_path)):
             continue
         if os.path.isfile(schema_path):
             try:
-                schemas[ref.id] = TableSchemaFileV2.model_validate(read_yaml(Path(schema_path))).model_dump(
-                    exclude_none=True
-                )
+                schema_obj = TableSchemaFileV2.model_validate(read_yaml(Path(schema_path)))
+                schema_objects[ref.id] = schema_obj
+                schemas[ref.id] = schema_obj.model_dump(exclude_none=True)
             except Exception as e:
                 error_msg = str(e)
                 logger.error(f"[get_v2_full_config] 解析 Schema 文件失败: {schema_path}, 错误: {error_msg}")
@@ -133,6 +143,7 @@ def get_v2_full_config(config_path: str = Depends(get_project_config_path)):
 
     # 读取所有 Constraint 文件
     constraints: dict[str, Any] = {}
+    constraint_objects: dict[str, ConstraintFileV2] = {}  # 保留对象用于自检
     for ref in effective_manifest.constraints:
         try:
             constraint_path = _resolve_project_path(config_path, ref.path)
@@ -141,9 +152,9 @@ def get_v2_full_config(config_path: str = Depends(get_project_config_path)):
             continue
         if os.path.isfile(constraint_path):
             try:
-                constraints[ref.id] = ConstraintFileV2.model_validate(read_yaml(Path(constraint_path))).model_dump(
-                    exclude_none=True
-                )
+                constraint_obj = ConstraintFileV2.model_validate(read_yaml(Path(constraint_path)))
+                constraint_objects[ref.id] = constraint_obj
+                constraints[ref.id] = constraint_obj.model_dump(exclude_none=True)
             except Exception as e:
                 logger.error(f"[get_v2_full_config] 解析 Constraint 文件失败: {constraint_path}, 错误: {e}")
         else:
@@ -172,20 +183,21 @@ def get_v2_full_config(config_path: str = Depends(get_project_config_path)):
     # 读取正则表达式节点
     # 优先从 manifest.regex_nodes 读取，否则扫描 regex/ 目录
     regex_nodes: dict[str, Any] = {}
+    regex_objects: dict[str, RegexNodeFileV2] = {}  # 保留对象用于自检
 
     for ref in effective_manifest.regex_nodes:
         abs_path = os.path.join(config_path, ref.path)
         if os.path.isfile(abs_path):
             try:
-                regex_nodes[ref.id] = RegexNodeFileV2.model_validate(read_yaml(Path(abs_path))).model_dump(
-                    exclude_none=True
-                )
+                regex_obj = RegexNodeFileV2.model_validate(read_yaml(Path(abs_path)))
+                regex_objects[ref.id] = regex_obj
+                regex_nodes[ref.id] = regex_obj.model_dump(exclude_none=True)
             except Exception as e:
                 logger.error(f"[get_v2_full_config] 解析 Regex 文件失败: {abs_path}, 错误: {e}")
         else:
             logger.warning(f"[get_v2_full_config] Regex 文件不存在: {abs_path}")
 
-    return {
+    result = {
         "manifest": manifest.model_dump(exclude_none=True),
         "effective_manifest": effective_manifest.model_dump(exclude_none=True),
         "schemas": schemas,
@@ -196,6 +208,28 @@ def get_v2_full_config(config_path: str = Depends(get_project_config_path)):
         "manifest_modified": manifest_modified,
         "schema_errors": schema_errors,
     }
+
+    # 仅当 inspect=true 时执行配置文件格式自检
+    if inspect:
+        from datetime import datetime, timezone
+        inspection_warnings: list[str] = []
+        inspection_errors: list[LoadingError] = []
+        inspect_config(
+            Path(config_path) / "project.precis.yaml",
+            effective_manifest,
+            schema_objects,
+            constraint_objects,
+            regex_objects,
+            {},  # transform_files (full_config 中未加载)
+            inspection_warnings,
+            inspection_errors,
+        )
+        result["inspection"] = {
+            "inspected_at": datetime.now(timezone.utc).isoformat(),
+            "errors": [e.to_dict() for e in inspection_errors],
+        }
+
+    return result
 
 
 @router.get("/v2/config/full/yaml", response_class=PlainTextResponse)

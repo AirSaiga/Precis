@@ -37,6 +37,7 @@ import { useShortcutStore } from '@/features/keyboard/stores/shortcutStore'
 import { useKeyboardShortcuts, platformDetector } from '@/features/keyboard'
 import type { Shortcut } from '@/features/keyboard/types'
 import { logger } from '@/core/utils/logger'
+import { useInspectionStore } from '@/stores/inspectionStore'
 import { getV2FullConfig, ProjectNotFoundError } from '@/api/projectV2Api'
 
 /**
@@ -162,10 +163,26 @@ export function useAppBootstrap(): BootstrapResult {
 
     if (configPath) {
       try {
-        // 验证项目路径是否真实存在（后端能正常返回配置）
-        await getV2FullConfig(configPath)
+        // 验证项目路径是否真实存在（后端能正常返回配置），同时执行配置自检
+        const fullConfig = await getV2FullConfig(configPath, { inspect: true })
         // 项目存在，设置路径并创建 projectRoot
         projectStore.setProjectPaths({ configPath, dataPath: dataPath || configPath })
+
+        // 处理配置自检结果：
+        // - 写入 store，由 Header 徽章 + InspectionDrawer 渲染
+        // - 首次进入项目：如有 blocker 严重度问题，自动展开抽屉
+        const inspectionStore = useInspectionStore()
+        if (fullConfig.inspection) {
+          inspectionStore.setResult(fullConfig.inspection, { autoOpen: 'if-blocker' })
+          if (fullConfig.inspection.errors.length > 0) {
+            logger.warn(
+              '[AppBootstrap] 配置自检发现 %d 个问题',
+              fullConfig.inspection.errors.length
+            )
+          } else {
+            logger.info('[AppBootstrap] 配置自检通过')
+          }
+        }
       } catch (error) {
         if (error instanceof ProjectNotFoundError) {
           // 项目已不存在（被删除或移动），清理残留路径

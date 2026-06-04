@@ -15,6 +15,7 @@ import type {
   ConstraintFileV2,
   FullConfigV2Request,
   FullConfigV2Response,
+  InspectionResultV2,
   ProjectManifestV2,
   ProjectViewV2,
   RegexNodeFileV2,
@@ -225,16 +226,73 @@ export class ProjectNotFoundError extends Error {
  * 获取项目完整配置（含 manifest、schemas、constraints、regex_nodes）
  *
  * @param configPath - 项目配置文件路径（可选）
- * @returns 完整配置响应对象
+ * @param options - 可选配置 { inspect: 是否同时执行配置自检 }
+ * @returns 完整配置响应对象（inspect=true 时包含 inspection 字段）
  * @throws ProjectNotFoundError 当项目不存在时（404）
  */
-export async function getV2FullConfig(configPath?: string): Promise<FullConfigV2Response> {
+export async function getV2FullConfig(
+  configPath?: string,
+  options?: { inspect?: boolean }
+): Promise<FullConfigV2Response> {
   try {
     const { data } = await apiClient.get<FullConfigV2Response>(
       '/project/v2/config/full',
-      configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
+      {
+        ...(options?.inspect ? { params: { inspect: true } } : {}),
+        ...(configPath ? { headers: { 'X-Project-Config-Path': configPath } } : {}),
+      }
     )
     return data
+  } catch (e) {
+    if (isAxiosError(e) && e.response?.status === 404) {
+      throw new ProjectNotFoundError(configPath)
+    }
+    throw e
+  }
+}
+
+/**
+ * 配置自检结果
+ *
+ * @deprecated 已被 InspectionResultV2 取代，保留仅为向后兼容。
+ * 旧版返回 {warnings, errors}，新版只返回 {inspected_at, errors}，
+ * warnings 字段已并入 errors[].message，且 errors 包含完整的 UI 友好字段。
+ */
+export interface ConfigInspectionResult {
+  warnings: string[]
+  errors: Array<{
+    error_type: string
+    file_path: string
+    ref_id: string | null
+    message: string
+    suggestion: string
+  }>
+}
+
+/**
+ * 执行配置文件格式自检
+ *
+ * 调用 GET /project/v2/config/full?inspect=true 触发后端自检，
+ * 返回结构化的 InspectionResultV2。
+ *
+ * @param configPath - 项目配置文件路径（可选）
+ * @returns 自检结果（含时间戳 + 完整问题列表）
+ */
+export async function inspectV2Config(configPath?: string): Promise<InspectionResultV2> {
+  try {
+    const { data } = await apiClient.get<FullConfigV2Response>(
+      '/project/v2/config/full',
+      {
+        params: { inspect: true },
+        ...(configPath ? { headers: { 'X-Project-Config-Path': configPath } } : {}),
+      }
+    )
+    return (
+      (data as any).inspection || {
+        inspected_at: new Date().toISOString(),
+        errors: [],
+      }
+    )
   } catch (e) {
     if (isAxiosError(e) && e.response?.status === 404) {
       throw new ProjectNotFoundError(configPath)

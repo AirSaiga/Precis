@@ -345,3 +345,103 @@ def update_manifest_template_instance_ref(
         write_yaml_atomic(Path(manifest_path), updated_manifest.model_dump(exclude_none=True))
 
     return {"message": f"TemplateInstance 引用 '{instance_ref.id}' 已更新"}
+
+
+@router.post("/v2/manifest/constraint/deduplicate", response_model=StandardResponse)
+def deduplicate_constraint_refs(
+    config_path: str = Depends(get_project_config_path),
+):
+    """
+    @methoddesc 扫描 manifest.constraints，删除指向同文件但 id 不匹配的重复条目。
+
+    算法:
+    1. 读取所有 constraint 文件，建立 {path -> file.id} 映射
+    2. 对每条 ref：
+       - 如果存在另一条 ref 指向同 path 且 ref.id 与 file.id 一致（"正确条目"）
+       - 且当前 ref.id 与 file.id 不一致（"错误条目"）
+       - 则删除当前 ref（保留正确条目）
+    3. 写回 manifest
+
+    安全保证:
+    - 仅删除 manifest 中多余的 ref，不修改任何约束文件
+    - 仅在确实存在"正确条目"时才删除重复，避免误删唯一引用
+    - 不影响 schema / regex / transform 等其他类型
+
+    参数:
+        config_path: 项目配置根目录
+
+    返回:
+        StandardResponse: 操作结果消息（含删除数量）
+    """
+    manifest_path = _v2_manifest_path(config_path)
+
+    if not os.path.isfile(manifest_path):
+        raise HTTPException(status_code=404, detail="Manifest 文件不存在，请先保存项目")
+
+    with project_lock(config_path):
+        manifest = _read_manifest(manifest_path)
+        if not manifest:
+            raise HTTPException(status_code=404, detail="Manifest 文件无法解析")
+
+        constraints = list(manifest.constraints or [])
+        if not constraints:
+            return {"message": "manifest 中无 constraint 引用，无需去重"}
+
+        # 读取每个 constraint 文件，建立 {normalized_path -> file.id} 映射
+        path_to_file_id: dict[str, str] = {}
+        for ref in constraints:
+            abs_path = os.path.normpath(os.path.join(config_path, ref.path))
+            if abs_path in path_to_file_id:
+                continue
+            if not os.path.isfile(abs_path):
+                continue
+            try:
+                from app.shared.core.project.constraint.reader import load_constraint
+
+                file_obj = load_constraint(Path(abs_path))
+                path_to_file_id[abs_path] = file_obj.id
+            except Exception as e:
+                logger.warning("[deduplicate_constraint_refs] 读取失败，跳过: %s, 错误: %s", abs_path, e)
+
+        # 第一遍：标记哪些 (path, ref_id) 是"正确条目"（id 与 file id 匹配）
+        correct_keys: set[tuple[str, str]] = set()
+        for ref in constraints:
+            abs_path = os.path.normpath(os.path.join(config_path, ref.path))
+            file_id = path_to_file_id.get(abs_path)
+            if file_id and file_id == ref.id:
+                correct_keys.add((abs_path, ref.id))
+
+        # 第二遍：删除不正确的重复 ref（仅当同 path 存在正确条目时）
+        to_keep: list[ConstraintRef] = []
+        removed: list[str] = []
+        for ref in constraints:
+            abs_path = os.path.normpath(os.path.join(config_path, ref.path))
+            file_id = path_to_file_id.get(abs_path)
+            is_correct = file_id == ref.id
+            # 当前 ref.id 与 file id 不一致，且同 path 存在 ref.id == file id 的"正确条目"
+            is_dup_with_correct = (
+                not is_correct
+                and file_id is not None
+                and (abs_path, file_id) in correct_keys
+            )
+            if is_dup_with_correct:
+                removed.append(ref.id)
+                continue
+            to_keep.append(ref)
+
+        if removed:
+            updated_manifest = manifest.model_copy(update={"constraints": to_keep})
+            write_yaml_atomic(
+                Path(manifest_path), updated_manifest.model_dump(exclude_none=True)
+            )
+            logger.info(
+                "[deduplicate_constraint_refs] 已删除 %d 个重复条目: %s",
+                len(removed),
+                removed,
+            )
+
+    return {
+        "message": (
+            f"已删除 {len(removed)} 个重复条目" if removed else "未发现可去重的重复条目"
+        )
+    }

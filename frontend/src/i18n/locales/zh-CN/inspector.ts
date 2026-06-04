@@ -383,8 +383,8 @@ const inspector = (() => {
         },
         mathExpr: {
           expression: '数学表达式',
-          expressionPh: '例如: @col_name * 2 + 10',
-          expressionHint: '使用 @列名 引用输入列，支持 + - * / ** 等运算符',
+          expressionPh: "例如: {'@'}col_name * 2 + 10",
+          expressionHint: "使用 {'@'}列名 引用输入列，支持 + - * / ** 等运算符",
           outputType: '输出类型',
           autoInfer: '自动推断',
           typeInt: '整数 (int)',

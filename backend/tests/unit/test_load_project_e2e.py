@@ -224,3 +224,315 @@ regex_nodes:
         result = load_project(str(manifest))
         assert "bad" not in result.regex_node_files
         assert any(e.error_type == "RegexParseError" for e in result.loading_errors)
+
+    def test_id_mismatch_warning(self, tmp_path):
+        """测试 manifest ID 与文件内部 ID 不一致时产生警告。"""
+        manifest = tmp_path / "project.precis.yaml"
+        manifest.write_text(
+            """
+version: 2
+project:
+  id: test-project
+  name: Test Project
+schemas:
+  - id: users_old
+    path: schemas/users.schema.yaml
+""",
+            encoding="utf-8",
+        )
+
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "users.schema.yaml").write_text(
+            """
+version: 2
+id: users
+name: users
+columns:
+  - id: user_id
+    name: user_id
+    type: string
+""",
+            encoding="utf-8",
+        )
+
+        result = load_project(str(manifest))
+        assert any("ID 不一致" in w for w in result.warnings)
+        assert any(e.error_type == "IdMismatchWarning" for e in result.loading_errors)
+
+    def test_reference_integrity_error(self, tmp_path):
+        """测试约束引用不存在的表时产生错误。"""
+        manifest = tmp_path / "project.precis.yaml"
+        manifest.write_text(
+            """
+version: 2
+project:
+  id: test-project
+  name: Test Project
+schemas:
+  - id: users
+    path: schemas/users.schema.yaml
+constraints:
+  - id: bad_ref
+    path: constraints/bad_ref.constraint.yaml
+""",
+            encoding="utf-8",
+        )
+
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "users.schema.yaml").write_text(
+            """
+version: 2
+id: users
+name: users
+columns:
+  - id: user_id
+    name: user_id
+    type: string
+""",
+            encoding="utf-8",
+        )
+
+        constraints_dir = tmp_path / "constraints"
+        constraints_dir.mkdir()
+        (constraints_dir / "bad_ref.constraint.yaml").write_text(
+            """
+version: 2
+id: bad_ref
+type: NotNull
+enabled: true
+refs:
+  table_id: nonexistent_table
+  column_id: user_id
+""",
+            encoding="utf-8",
+        )
+
+        result = load_project(str(manifest))
+        assert any(e.error_type == "ReferenceIntegrityError" for e in result.loading_errors)
+        assert any("不存在" in e.message for e in result.loading_errors if e.error_type == "ReferenceIntegrityError")
+
+    def test_reference_integrity_column_error(self, tmp_path):
+        """测试约束引用不存在的列时产生错误。"""
+        manifest = tmp_path / "project.precis.yaml"
+        manifest.write_text(
+            """
+version: 2
+project:
+  id: test-project
+  name: Test Project
+schemas:
+  - id: users
+    path: schemas/users.schema.yaml
+constraints:
+  - id: bad_col_ref
+    path: constraints/bad_col_ref.constraint.yaml
+""",
+            encoding="utf-8",
+        )
+
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "users.schema.yaml").write_text(
+            """
+version: 2
+id: users
+name: users
+columns:
+  - id: user_id
+    name: user_id
+    type: string
+""",
+            encoding="utf-8",
+        )
+
+        constraints_dir = tmp_path / "constraints"
+        constraints_dir.mkdir()
+        (constraints_dir / "bad_col_ref.constraint.yaml").write_text(
+            """
+version: 2
+id: bad_col_ref
+type: NotNull
+enabled: true
+refs:
+  table_id: users
+  column_id: nonexistent_column
+""",
+            encoding="utf-8",
+        )
+
+        result = load_project(str(manifest))
+        assert any(e.error_type == "ReferenceIntegrityError" for e in result.loading_errors)
+        assert any("列" in e.message and "不存在" in e.message for e in result.loading_errors if e.error_type == "ReferenceIntegrityError")
+
+    def test_naming_convention_no_warning(self, tmp_path):
+        """测试文件名与内部 ID 不一致时不应再产生警告（规则已删除）。
+
+        背景：之前存在「filename == id」的命名检查，但 id 是系统 hash、
+        filename 是用户可读名，二者是不同维度，不应强制相等。
+        本测试确保该规则已彻底删除。
+        """
+        manifest = tmp_path / "project.precis.yaml"
+        manifest.write_text(
+            """
+version: 2
+project:
+  id: test-project
+  name: Test Project
+schemas:
+  - id: users_v2
+    path: schemas/users_old_name.schema.yaml
+""",
+            encoding="utf-8",
+        )
+
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "users_old_name.schema.yaml").write_text(
+            """
+version: 2
+id: users_v2
+name: users v2
+columns:
+  - id: user_id
+    name: user_id
+    type: string
+""",
+            encoding="utf-8",
+        )
+
+        result = load_project(str(manifest))
+        # 不应再产生 NamingConventionWarning
+        assert not any(e.error_type == "NamingConventionWarning" for e in result.loading_errors)
+        assert not any("命名不规范" in w for w in result.warnings)
+
+    def test_reference_integrity_nested_column(self, tmp_path):
+        """测试嵌套列引用能正确解析（递归遍历 children）。
+
+        背景：之前 inspect_reference_integrity 只看 schema_file.columns 顶层，
+        对 JSON schema 的嵌套子列（如 supplier.children.supplier_rating）
+        会误报为「列不存在」。本测试验证递归已生效。
+        """
+        manifest = tmp_path / "project.precis.yaml"
+        manifest.write_text(
+            """
+version: 2
+project:
+  id: test-project
+  name: Test Project
+schemas:
+  - id: products
+    path: schemas/products.schema.yaml
+constraints:
+  - id: range_rating
+    path: constraints/range_rating.constraint.yaml
+""",
+            encoding="utf-8",
+        )
+
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        # JSON 风格的嵌套 schema：supplier 包含 supplier_rating 子列
+        (schemas_dir / "products.schema.yaml").write_text(
+            """
+version: 2
+id: products
+name: products
+columns:
+  - id: product_id
+    name: product_id
+    type: string
+  - id: supplier
+    name: supplier
+    type: JsonObject
+    expand: true
+    children:
+      - id: supplier_rating
+        name: rating
+        type: float
+""",
+            encoding="utf-8",
+        )
+
+        constraints_dir = tmp_path / "constraints"
+        constraints_dir.mkdir()
+        # 约束引用嵌套子列 supplier_rating
+        (constraints_dir / "range_rating.constraint.yaml").write_text(
+            """
+version: 2
+id: range_rating
+type: Range
+enabled: true
+refs:
+  table_id: products
+  column_id: supplier_rating
+params:
+  min: 0
+  max: 5
+""",
+            encoding="utf-8",
+        )
+
+        result = load_project(str(manifest))
+        # 不应误报为「列不存在」
+        ref_errors = [e for e in result.loading_errors if e.error_type == "ReferenceIntegrityError"]
+        assert not any("supplier_rating" in e.message and "不存在" in e.message for e in ref_errors)
+
+    def test_inspection_no_false_positives(self, tmp_path):
+        """测试配置正确时不产生误报。"""
+        manifest = tmp_path / "project.precis.yaml"
+        manifest.write_text(
+            """
+version: 2
+project:
+  id: test-project
+  name: Test Project
+schemas:
+  - id: users
+    path: schemas/users.schema.yaml
+constraints:
+  - id: notnull_name
+    path: constraints/notnull_name.constraint.yaml
+""",
+            encoding="utf-8",
+        )
+
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "users.schema.yaml").write_text(
+            """
+version: 2
+id: users
+name: users
+columns:
+  - id: user_id
+    name: user_id
+    type: string
+  - id: name
+    name: name
+    type: string
+""",
+            encoding="utf-8",
+        )
+
+        constraints_dir = tmp_path / "constraints"
+        constraints_dir.mkdir()
+        (constraints_dir / "notnull_name.constraint.yaml").write_text(
+            """
+version: 2
+id: notnull_name
+type: NotNull
+enabled: true
+refs:
+  table_id: users
+  column_id: name
+""",
+            encoding="utf-8",
+        )
+
+        result = load_project(str(manifest))
+        # 不应有自检相关的错误
+        assert not any(e.error_type == "IdMismatchWarning" for e in result.loading_errors)
+        assert not any(e.error_type == "ReferenceIntegrityError" for e in result.loading_errors)
+        assert not any(e.error_type == "NamingConventionWarning" for e in result.loading_errors)

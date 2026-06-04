@@ -19,6 +19,9 @@
       <span class="project-icon">{{ projectStore.isProjectActive ? '📂' : '📁' }}</span>
       <span class="project-name">{{ projectStore.isProjectActive ? (graphStore.projectName || projectStore.currentPaths?.configPath) : t('common.projectManagement.noProject') }}</span>
     </button>
+
+    <!-- 配置自检状态徽章（无问题时自动隐藏） -->
+    <InspectionStatusBadge />
   </div>
 </template>
 
@@ -26,6 +29,7 @@
   import { useI18n } from 'vue-i18n'
   import { useGraphStore } from '@/stores/graphStore'
   import { useProjectStore } from '@/stores/projectStore'
+  import InspectionStatusBadge from '@/components/inspection/InspectionStatusBadge.vue'
 
   const emit = defineEmits<{
     openProjectManagement: []

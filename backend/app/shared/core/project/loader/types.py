@@ -22,7 +22,7 @@
 """
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional
 
@@ -52,6 +52,21 @@ class LoadingError:
         - ref_id: 对应 manifest 中引用的 ID（可选）
         - message: 人类可读的错误描述
         - suggestion: 修复建议
+
+    === 面向 UI 的扩展字段（前后端契约） ===
+        - id: 稳定唯一 id，用于"忽略"持久化（localStorage 等）
+        - severity: 严重度 — blocker（阻塞） | warning（警告） | info（提示）
+        - title: 人类可读的短标题（中文 fallback，前端有 title_key 时优先用 i18n 渲染）
+        - description: 根因说明（中文 fallback，前端有 description_key 时优先用 i18n 渲染）
+        - fix_hint: 高亮显示的修复建议（中文 fallback，前端有 fix_hint_key 时优先用 i18n 渲染）
+        - actions: 可执行动作列表（open_file / copy / dismiss / auto_fix / navigate）
+                   每个 action 可携带 label_key 用于前端 i18n 渲染
+        - fix_api: 一键修复的 API 描述（method/path/body）— 仅在"安全操作"时填充
+        - context: 上下文数据（如可用表列表、当前值与期望值），用于前端渲染对比表
+
+    === i18n 字段（可选） ===
+        - title_key / description_key / fix_hint_key: i18n 键名，前端有该 key 时优先渲染
+        - message_params: 模板参数字典，用于 i18n 字符串插值（如 {"constraintId": "fk_x"}）
     """
 
     error_type: str  # SchemaNotFound, SchemaParseError, ConstraintNotFound, etc.
@@ -59,6 +74,22 @@ class LoadingError:
     ref_id: Optional[str] = None  # 引用ID
     message: str = ""  # 错误信息
     suggestion: str = ""  # 修复建议
+
+    # === 面向 UI 的扩展字段 ===
+    id: str = ""  # 稳定 id，用于"忽略"持久化
+    severity: str = "warning"  # blocker | warning | info
+    title: str = ""  # 人类可读短标题
+    description: str = ""  # 根因说明
+    fix_hint: str = ""  # 修复建议（突出显示）
+    actions: list[dict] = field(default_factory=list)  # 可执行动作列表
+    fix_api: Optional[dict] = None  # 一键修复 API 描述
+    context: dict = field(default_factory=dict)  # 上下文数据（用于渲染对比表等）
+
+    # === i18n 渲染字段（可选，前端有 key 时优先使用） ===
+    title_key: str = ""  # i18n key，对应 title
+    description_key: str = ""  # i18n key，对应 description
+    fix_hint_key: str = ""  # i18n key，对应 fix_hint
+    message_params: dict = field(default_factory=dict)  # i18n 插值参数
 
     def to_dict(self) -> dict:
         """@methoddesc 将错误对象序列化为字典格式
@@ -71,7 +102,19 @@ class LoadingError:
                 "file_path": ...,
                 "ref_id": ...,
                 "message": ...,
-                "suggestion": ...
+                "suggestion": ...,
+                "id": ...,
+                "severity": ...,
+                "title": ...,
+                "description": ...,
+                "fix_hint": ...,
+                "actions": ...,
+                "fix_api": ...,
+                "context": ...,
+                "title_key": ...,
+                "description_key": ...,
+                "fix_hint_key": ...,
+                "message_params": ...,
             }
         """
         return {
@@ -80,6 +123,18 @@ class LoadingError:
             "ref_id": self.ref_id,
             "message": self.message,
             "suggestion": self.suggestion,
+            "id": self.id,
+            "severity": self.severity,
+            "title": self.title,
+            "description": self.description,
+            "fix_hint": self.fix_hint,
+            "actions": self.actions,
+            "fix_api": self.fix_api,
+            "context": self.context,
+            "title_key": self.title_key,
+            "description_key": self.description_key,
+            "fix_hint_key": self.fix_hint_key,
+            "message_params": self.message_params,
         }
 
 

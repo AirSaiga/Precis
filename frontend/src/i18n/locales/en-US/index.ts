@@ -5,6 +5,7 @@
 
 import commonLocales from './common'
 import shortcuts from './shortcuts'
+import inspection from './inspection'
 
 import { app, navigation, dashboard, assetLibrary } from './core'
 import { canvas, nodeTypeMenu, statusBar } from './canvas'
@@ -60,6 +61,7 @@ const enUS = {
   validationHistory,
   common: commonLocales,
   shortcuts,
+  inspection,
 }
 
 export default enUS

@@ -16,6 +16,9 @@
   <!-- 全局确认弹窗 -->
   <GlobalConfirmModal />
 
+  <!-- 配置自检抽屉（由 InspectionStatusBadge 触发，组件始终挂载以共享状态） -->
+  <InspectionDrawer />
+
   <!-- 设置面板 -->
   <SettingsModal>
     <template #shortcuts>
@@ -57,6 +60,7 @@
   import { defineAsyncComponent } from 'vue'
   import Toast from '@/components/shared/Toast.vue'
   import GlobalConfirmModal from '@/components/common/GlobalConfirmModal.vue'
+  import InspectionDrawer from '@/components/inspection/InspectionDrawer.vue'
   import ShortcutSettingsPanel from '@/components/settings/ShortcutSettingsPanel.vue'
   import type { RegexNodeData } from '@/types/graph'
   import { useGraphStore } from '@/stores/graphStore'

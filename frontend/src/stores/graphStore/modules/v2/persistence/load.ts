@@ -74,6 +74,7 @@ import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
 import { toastError, toastSuccess, toastWarning } from '@/core/toast'
 import { useI18n } from 'vue-i18n'
+import { useInspectionStore } from '@/stores/inspectionStore'
 import { getV2FullConfig, getV2ProjectView, ProjectNotFoundError } from '@/api/projectV2Api'
 // Hydration imports retained for potential future use (e.g. restoring saved canvas state)
 // import { hydrateSchemasFromV2Config } from './load/hydrateSchemas'
@@ -125,7 +126,7 @@ export function createV2LoadOps(params: {
   async function loadProjectFromV2(): Promise<boolean> {
     try {
       const configPath = getEffectiveProjectConfigPath()
-      const config = await getV2FullConfig(configPath)
+      const config = await getV2FullConfig(configPath, { inspect: true })
       projectName.value = config.manifest.project.name
       // isProjectLoaded 推迟到 hydration 完全成功后再设置（F7）
       lastFullValidationSummary.value = null
@@ -281,6 +282,19 @@ export function createV2LoadOps(params: {
 
       // hydration 全部成功后再标记项目为已加载（F7）
       isProjectLoaded.value = true
+
+      // 处理配置自检结果（写入 store，由 Header 徽章 + 抽屉展示）
+      const inspection = config.inspection
+      if (inspection) {
+        const inspectionStore = useInspectionStore()
+        inspectionStore.setResult(inspection, { autoOpen: 'if-blocker' })
+        if (inspection.errors.length > 0) {
+          logger.warn(
+            '[loadProjectFromV2] 配置自检发现 %d 个问题',
+            inspection.errors.length
+          )
+        }
+      }
 
       toastSuccess(`V2 项目 "${projectName.value}" 已载入`, '加载成功')
       return true
