@@ -56,7 +56,15 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="", tags=["Project-FullConfig"])
 
 
-@router.get("/v2/config/full")
+@router.get(
+    "/v2/config/full",
+    response_model=dict[str, Any],
+    summary="读取 V2 全量配置",
+    responses={
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def get_v2_full_config(
     config_path: str = Depends(get_project_config_path),
     inspect: bool = False,
@@ -233,7 +241,15 @@ def get_v2_full_config(
     return result
 
 
-@router.get("/v2/config/full/yaml", response_class=PlainTextResponse)
+@router.get(
+    "/v2/config/full/yaml",
+    response_class=PlainTextResponse,
+    summary="导出 V2 全量配置为 YAML",
+    responses={
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def get_v2_full_config_yaml(config_path: str = Depends(get_project_config_path)):
     """
     导出 V2 全量配置为 YAML 文本。
@@ -258,12 +274,30 @@ def get_v2_full_config_yaml(config_path: str = Depends(get_project_config_path))
     return PlainTextResponse(text, media_type="text/yaml; charset=utf-8")
 
 
-@router.put("/v2/config/full", response_model=StandardResponse)
+@router.put(
+    "/v2/config/full",
+    response_model=StandardResponse,
+    summary="写入 V2 全量配置",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def put_v2_full_config(payload: FullConfigV2Request, config_path: str = Depends(get_project_config_path)):
     return write_v2_full_config(payload, config_path)
 
 
-@router.post("/v2/config/compare", response_model=ConfigDiffResult)
+@router.post(
+    "/v2/config/compare",
+    response_model=ConfigDiffResult,
+    summary="对比 V2 全量配置差异",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def compare_v2_full_config(payload: FullConfigV2Request, config_path: str = Depends(get_project_config_path)):
     """
     对比 V2 全量配置差异。

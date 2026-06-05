@@ -88,6 +88,7 @@ export function useSchemaNodeDrag(): UseSchemaNodeDragReturn {
   const getClientCoordinates = (event: MouseEvent | TouchEvent): { x: number; y: number } => {
     if ('changedTouches' in event) {
       const touch = event.changedTouches[0]
+      if (!touch) return { x: 0, y: 0 }
       return { x: touch.clientX, y: touch.clientY }
     }
     return { x: event.clientX, y: event.clientY }

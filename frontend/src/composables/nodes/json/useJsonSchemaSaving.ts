@@ -103,10 +103,10 @@ export function useJsonSchemaSaving(props: { id: string; data: JsonSchemaNodeDat
       store.updateNodeData(props.id, {
         ...props.data,
         tableName: 'new_json_table',
-        sourceFile: null,
-        sourceFilePath: null,
-        jsonPath: null,
-        recordPath: null,
+        sourceFile: undefined,
+        sourceFilePath: undefined,
+        jsonPath: undefined,
+        recordPath: undefined,
         outputPortConnected: false,
       })
     }

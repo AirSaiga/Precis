@@ -30,6 +30,7 @@ import { useVueFlow } from '@vue-flow/core'
 import { NodeDeletionManager } from '@/services/managers/nodeDeletionManager'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { useGraphStore } from '@/stores/graphStore'
+import { eventBus } from '@/core/eventBus'
 
 export interface NodeSavingOptions {
   nodeId: string
@@ -118,25 +119,21 @@ export function useNodeSaving(options: NodeSavingOptions) {
 
     return new Promise<boolean>((resolve) => {
       try {
-        const _handleSaveComplete = (event: Event) => {
-          const customEvent = event as CustomEvent
-          const { nodeId: eventNodeId, success, error, cancelled } = customEvent.detail
-          if (eventNodeId === nodeId) {
-            const nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`)
-            nodeElement?.removeEventListener(saveCompleteEventName, _handleSaveComplete)
+        const _handleSaveComplete = (detail: { nodeId: string; success: boolean; error?: string; cancelled?: boolean }) => {
+          if (detail.nodeId === nodeId) {
+            eventBus.off(saveCompleteEventName as any, _handleSaveComplete as any)
 
             isSaving.value = false
 
-            if (success) {
+            if (detail.success) {
               saveSuccess.value = true
               onSaveSuccess?.()
               resolve(true)
-            } else if (cancelled) {
-              // 用户取消保存，不显示错误状态
+            } else if (detail.cancelled) {
               resolve(false)
             } else {
               saveError.value = true
-              logger.error('保存失败:', error)
+              logger.error('保存失败:', detail.error)
 
               setTimeout(() => {
                 saveError.value = false
@@ -148,25 +145,8 @@ export function useNodeSaving(options: NodeSavingOptions) {
 
         logger.debug(`📤 分发${saveEventName}事件:`, { nodeId, nodeData })
 
-        const saveEvent = new CustomEvent(saveEventName, {
-          detail: {
-            nodeId,
-            nodeData,
-          },
-          bubbles: true,
-          composed: true,
-        })
-
-        const nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`)
-        if (nodeElement) {
-          nodeElement.addEventListener(saveCompleteEventName, _handleSaveComplete)
-          nodeElement.dispatchEvent(saveEvent)
-        } else {
-          isSaving.value = false
-          saveError.value = true
-          logger.error('保存失败: 找不到节点元素')
-          resolve(false)
-        }
+        eventBus.on(saveCompleteEventName as any, _handleSaveComplete as any)
+        eventBus.emit(saveEventName as any, { nodeId, nodeData } as any)
       } catch (error) {
         isSaving.value = false
         saveError.value = true
@@ -202,8 +182,8 @@ export function useNodeSaving(options: NodeSavingOptions) {
   /**
    * 处理DOM事件
    */
-  const handleSaveCompleteDOM = (event: Event) => {
-    handleSaveComplete((event as CustomEvent).detail)
+  const handleSaveCompleteDOM = (detail: { nodeId: string; success: boolean; error?: string; cancelled?: boolean }) => {
+    handleSaveComplete(detail)
   }
 
   /**

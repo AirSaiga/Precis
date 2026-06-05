@@ -372,6 +372,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
 
     // 未保存更改确认
     const tab = tabs.value[index]
+    if (!tab) return
     if (tab.hasUnsavedChanges) {
       const confirmed = confirm(t('canvas.closeWorkspaceConfirm', { title: tab.title }))
       if (!confirmed) return
@@ -384,7 +385,10 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
       if (tabs.value.length > 0) {
         // 选择被关闭 Tab 的相邻位置（优先右侧，否则左侧）
         const newIndex = index < tabs.value.length ? index : index - 1
-        setActiveTab(tabs.value[newIndex].id, graphStore)
+        const nextTab = tabs.value[newIndex]
+        if (nextTab) {
+          setActiveTab(nextTab.id, graphStore)
+        }
       } else {
         // 最后一个 Tab 被关闭，自动创建新的空 Tab
         activeTabId.value = null

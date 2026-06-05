@@ -53,6 +53,7 @@
   import { ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { logger } from '@/core/utils/logger'
+  import { eventBus } from '@/core/eventBus'
   import ToolboxPanel from './ToolboxPanel.vue'
   import ResourceExplorerPanel from './ResourceExplorerPanel.vue'
   import ResourceContextMenu from '../resource/ResourceContextMenu.vue'
@@ -151,7 +152,7 @@
       item,
     }
 
-    window.dispatchEvent(new CustomEvent('open-resource-context-menu', { detail: payload }))
+    eventBus.emit('open-resource-context-menu', payload)
   }
 
   const emit = defineEmits<{

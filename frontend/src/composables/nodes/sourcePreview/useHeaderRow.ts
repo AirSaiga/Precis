@@ -6,6 +6,7 @@
 
 import { logger } from '@/core/utils/logger'
 import apiClient from '@/core/services/httpClient'
+import { eventBus } from '@/core/eventBus'
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { SourcePreviewNodeData } from '../types'
@@ -92,12 +93,13 @@ export function useHeaderRow(props: { id: string; data: SourcePreviewNodeData },
     }
 
     try {
+      const targetRow = previewRows[rowIndex] ?? []
       const request = {
         action: 'header_row_changed',
         node_id: props.id,
         header_row: rowIndex,
         old_header_row: oldHeaderRow,
-        row_data: previewRows[rowIndex].reduce(
+        row_data: targetRow.reduce(
           (acc: Record<string, unknown>, cell: unknown, index: number) => {
             acc[`column_${index + 1}`] = cell
             return acc
@@ -118,16 +120,13 @@ export function useHeaderRow(props: { id: string; data: SourcePreviewNodeData },
 
         notifyDataChange()
 
-        const headerRowEvent = new CustomEvent('headerRowChanged', {
-          detail: {
-            nodeId: props.id,
-            headerRow: rowIndex,
-            data: props.data,
-            oldHeaderRow: oldHeaderRow,
-            rowData: previewRows[rowIndex] as string[],
-          },
+        eventBus.emit('headerRowChanged', {
+          nodeId: props.id,
+          headerRow: rowIndex,
+          data: props.data as unknown as Record<string, unknown>,
+          oldHeaderRow: oldHeaderRow ?? 0,
+          rowData: previewRows[rowIndex] as string[],
         })
-        document.dispatchEvent(headerRowEvent)
       } else {
         logger.error('通知后端失败:', response.message)
       }
@@ -143,16 +142,13 @@ export function useHeaderRow(props: { id: string; data: SourcePreviewNodeData },
 
       notifyDataChange()
 
-      const headerRowEvent = new CustomEvent('headerRowChanged', {
-        detail: {
-          nodeId: props.id,
-          headerRow: rowIndex,
-          data: props.data,
-          oldHeaderRow: oldHeaderRow,
-          rowData: previewRows[rowIndex] as string[],
-        },
+      eventBus.emit('headerRowChanged', {
+        nodeId: props.id,
+        headerRow: rowIndex,
+        data: props.data as unknown as Record<string, unknown>,
+        oldHeaderRow: oldHeaderRow ?? 0,
+        rowData: previewRows[rowIndex] as string[],
       })
-      document.dispatchEvent(headerRowEvent)
     }
   }
 

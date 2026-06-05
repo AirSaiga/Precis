@@ -83,8 +83,11 @@ class ProjectStorageService {
     const existingIndex = projects.findIndex((p) => p.path === project.path)
 
     if (existingIndex !== -1) {
-      projects[existingIndex].lastOpened = project.lastOpened
-      projects[existingIndex].name = project.name
+      const existing = projects[existingIndex]
+      if (existing) {
+        existing.lastOpened = project.lastOpened
+        existing.name = project.name
+      }
     } else {
       const newProject: ProjectInfo = {
         name: project.name,
@@ -148,7 +151,9 @@ class ProjectStorageService {
       return false
     }
 
-    projects[index] = { ...projects[index], ...updates }
+    const existing = projects[index]
+    if (!existing) return false
+    projects[index] = { ...existing, ...updates }
     this.saveToStorage(projects)
     return true
   }

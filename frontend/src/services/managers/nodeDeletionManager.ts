@@ -18,6 +18,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
 import { useGraphStore } from '@/stores/graphStore'
 import i18n from '@/i18n'
 import type { DataType } from '@/types/graph'
@@ -140,7 +141,7 @@ export class NodeDeletionManager {
         if (sourceData.sourceNodeId === nodeId) {
           this.graphStore.updateNodeData(sourceId, {
             ...sourceData,
-            sourceNodeId: null,
+            sourceNodeId: undefined,
           })
         }
       }
@@ -161,16 +162,11 @@ export class NodeDeletionManager {
     if (connectedEdge) {
       const schemaNode = this.graphStore.nodes.find((n) => n.id === connectedEdge.target)
       if (schemaNode?.type === 'schema') {
-        const event = new CustomEvent('sourceNodeDisconnected', {
-          detail: {
-            sourceNodeId: nodeId,
-            targetNodeId: connectedEdge.target,
-            edgeId: connectedEdge.id,
-          },
-          bubbles: true,
-          composed: true,
+        eventBus.emit('sourceNodeDisconnected', {
+          sourceNodeId: nodeId,
+          targetNodeId: connectedEdge.target,
+          edgeId: connectedEdge.id,
         })
-        document.dispatchEvent(event)
       }
     }
   }

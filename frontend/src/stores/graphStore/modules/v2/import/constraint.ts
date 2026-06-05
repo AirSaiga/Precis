@@ -198,9 +198,14 @@ export function createV2ConstraintImporter(params: {
         tableName: resolveTableName(schemaNode),
         nodeId: resourceId,
         nodeType,
-        columnRef: colIds.length > 0
-          ? { nodeId: tableId, columnId: colIds[0], columnName: resolveColumnName(schemaNode, colIds[0]) }
-          : undefined,
+        columnRef:
+          colIds.length > 0 && colIds[0]
+            ? {
+                nodeId: tableId,
+                columnId: colIds[0],
+                columnName: resolveColumnName(schemaNode, colIds[0]),
+              }
+            : undefined,
         params: cParams,
       }
     } else {

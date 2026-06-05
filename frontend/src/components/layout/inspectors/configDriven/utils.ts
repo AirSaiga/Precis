@@ -36,6 +36,7 @@ export function getByPath(value: unknown, path: InspectorValuePath): unknown {
 export function setByPath(value: unknown, path: InspectorValuePath, next: unknown): unknown {
   if (path.length === 0) return next
   const [head, ...rest] = path
+  if (head === undefined) return value
   if (typeof head === 'number') {
     const base = Array.isArray(value) ? value.slice() : []
     base[head] = setByPath(base[head], rest, next)
@@ -81,6 +82,7 @@ export function buildShallowCompatiblePatch(
   const path = source.path
   if (path.length === 0) return {}
   const root = path[0]
+  if (root === undefined) return {}
   if (typeof root === 'number') return {}
 
   if (path.length === 1) {

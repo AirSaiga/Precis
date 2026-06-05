@@ -109,9 +109,9 @@ export default defineConfig(({ mode }) => {
           'src/**/types/**',
         ],
         thresholds: {
-          lines: 30,
-          branches: 20,
-          functions: 25,
+          lines: 35,
+          branches: 25,
+          functions: 30,
         },
       },
     },

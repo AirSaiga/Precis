@@ -355,8 +355,8 @@ export function useConnections() {
       foreignKeyConnection.handleSchemaToSchemaForeignKeyShortcutConnection(
         sourceNode.id,
         targetNode.id,
-        sourceHandle,
-        targetHandle || undefined,
+        sourceHandle ?? undefined,
+        targetHandle ?? undefined,
         {
           ...createEdgeStyle(),
           style: { stroke: 'var(--edge-default)', strokeWidth: 1.5 },
@@ -467,8 +467,8 @@ export function useConnections() {
     const edgeId = store.createConnection(
       source,
       target,
-      sourceHandle,
-      targetHandle || undefined,
+      sourceHandle ?? undefined,
+      targetHandle ?? undefined,
       edgeStyle
     )
 
@@ -534,13 +534,13 @@ export function useConnections() {
             const headerRow = (previewData.headerRow as number) ?? 0
 
             if (dataMatrix.length > 0 && headerRow >= 0 && headerRow < dataMatrix.length) {
-              const headers = dataMatrix[headerRow]
+              const headers = dataMatrix[headerRow] ?? []
               const colIndex = headers.indexOf(columnName)
               if (colIndex >= 0) {
                 // 提取数据行（跳过表头行）
                 for (let i = 0; i < dataMatrix.length; i++) {
                   if (i === headerRow) continue
-                  const row = dataMatrix[i]
+                  const row = dataMatrix[i] ?? []
                   extractedRows.push([row[colIndex] ?? ''])
                 }
               }

@@ -19,6 +19,7 @@ export function useJsonSchemaData(props: { id: string; data: JsonSchemaNodeData 
   ): { column: JsonSchemaColumn; parentArray: JsonSchemaColumn[]; index: number } | null => {
     for (let i = 0; i < columns.length; i++) {
       const col = columns[i]
+      if (!col) continue
       if (col.id === columnId) {
         return { column: col, parentArray: columns, index: i }
       }

@@ -85,9 +85,9 @@ export function usePreviewDisplay(props: { data: SourcePreviewNodeData }) {
       });
     }
 
-    const sampleRows = [];
+    const sampleRows: string[][] = [];
     for (let i = 0; i < displayRows.value; i++) {
-      const row = [];
+      const row: string[] = [];
       for (let j = 0; j < displayCols.value; j++) {
         row.push(t('customNodes.sourcePreviewNode.sampleData', { index: j + 1 }));
       }

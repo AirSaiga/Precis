@@ -21,11 +21,11 @@ export async function duplicateNode(): Promise<{ success: boolean; message?: str
     return { success: false, message: 'shortcuts.feedback.notFound' }
   }
 
-  const newNodeId = graphStore.duplicateSelectedNode()
-  
+  const newNodeId = await graphStore.duplicateSelectedNode()
+
   if (newNodeId) {
     return { success: true, message: 'shortcuts.feedback.copied' }
   }
-  
+
   return { success: false, message: 'shortcuts.feedback.failed' }
 }

@@ -1,0 +1,21 @@
+id: users
+name: Users Table
+description: E2E test user data
+
+source:
+  type: file
+  path: ../data/users.csv
+
+columns:
+  - name: id
+    dtype: integer
+    description: User ID
+  - name: name
+    dtype: string
+    description: User name
+  - name: email
+    dtype: string
+    description: Email address
+  - name: age
+    dtype: integer
+    description: User age

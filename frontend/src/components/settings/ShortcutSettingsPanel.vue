@@ -69,13 +69,13 @@
             <div style="display: flex; align-items: center; gap: var(--ui-space-sm)">
               <span
                 class="settings-code"
-                :class="{ 'settings-pill--danger': conflictMap[getCommandKeyCombo(cmd)] > 1 }"
+                :class="{ 'settings-pill--danger': (conflictMap[getCommandKeyCombo(cmd)] ?? 0) > 1 }"
                 :style="isCommandDisabled(cmd.id) ? 'opacity: 0.4; text-decoration: line-through' : ''"
               >
                 {{ formatShortcutForDisplay(getEffectiveShortcut(cmd)) }}
               </span>
               <span v-if="isCustom(cmd.id)" class="settings-pill settings-pill--info">{{ t('shortcuts.tips.custom') }}</span>
-              <span v-if="conflictMap[getCommandKeyCombo(cmd)] > 1" class="settings-pill settings-pill--danger">{{ t('shortcuts.tips.conflict') }}</span>
+              <span v-if="(conflictMap[getCommandKeyCombo(cmd)] ?? 0) > 1" class="settings-pill settings-pill--danger">{{ t('shortcuts.tips.conflict') }}</span>
             </div>
 
             <div style="display: flex; align-items: center; gap: var(--ui-space-sm)">

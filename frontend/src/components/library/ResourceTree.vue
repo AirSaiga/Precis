@@ -57,7 +57,7 @@
           t('assetLibraryExtended.projectView.explorer.dataModels')
         }}</span>
         <span v-if="filteredFolders.dataModels?.count > 0" class="folder-count">
-          {{ filteredFolders.dataModels.count }}
+          {{ filteredFolders.dataModels?.count }}
         </span>
       </div>
       <div v-if="filteredFolders.dataModels?.expanded" class="tree-children">
@@ -82,13 +82,16 @@
             <span class="folder-name">{{
               t('assetLibraryExtended.projectView.explorer.schemas')
             }}</span>
-            <span v-if="filteredFolders.dataModels?.children?.[0]?.count > 0" class="folder-count">
-              {{ filteredFolders.dataModels.children[0].count }}
+            <span
+              v-if="(filteredFolders.dataModels?.children?.[0]?.count ?? 0) > 0"
+              class="folder-count"
+            >
+              {{ filteredFolders.dataModels?.children?.[0]?.count }}
             </span>
           </div>
           <div v-if="filteredFolders.dataModels?.children?.[0]?.expanded" class="tree-children">
             <div
-              v-for="schema in filteredFolders.dataModels.children[0].resources"
+              v-for="schema in filteredFolders.dataModels?.children?.[0]?.resources"
               :key="schema.id"
             >
               <!-- Schema 行 -->
@@ -98,7 +101,7 @@
                 :is-multi-select-mode="isMultiSelectMode"
                 :is-expanded="expandedSchemas.has(schema.id)"
                 :has-embedded-constraints="
-                  (schema as SchemaResource).embeddedConstraints?.length > 0
+                  ((schema as SchemaResource).embeddedConstraints?.length ?? 0) > 0
                 "
                 :is-on-canvas="isNodeOnCanvas(schema.id)"
                 :is-unlisted="isUnlistedInManifest(schema)"
@@ -118,7 +121,7 @@
               <div
                 v-if="
                   expandedSchemas?.has(schema.id) &&
-                  (schema as SchemaResource).embeddedConstraints?.length > 0
+                  ((schema as SchemaResource).embeddedConstraints?.length ?? 0) > 0
                 "
                 class="tree-children embedded-constraints"
               >
@@ -175,7 +178,7 @@
           t('assetLibraryExtended.projectView.explorer.validationAssets')
         }}</span>
         <span v-if="filteredFolders.validationAssets?.count > 0" class="folder-count">
-          {{ filteredFolders.validationAssets.count }}
+          {{ filteredFolders.validationAssets?.count }}
         </span>
       </div>
       <div v-if="filteredFolders.validationAssets?.expanded" class="tree-children">
@@ -200,10 +203,10 @@
               t('assetLibraryExtended.projectView.explorer.independentConstraints')
             }}</span>
             <span
-              v-if="filteredFolders.validationAssets?.children?.[0]?.count > 0"
+              v-if="(filteredFolders.validationAssets?.children?.[0]?.count ?? 0) > 0"
               class="folder-count"
             >
-              {{ filteredFolders.validationAssets.children[0].count }}
+              {{ filteredFolders.validationAssets?.children?.[0]?.count }}
             </span>
           </div>
           <div
@@ -211,7 +214,7 @@
             class="tree-children"
           >
             <ResourceTreeItem
-              v-for="constraint in filteredFolders.validationAssets.children[0].resources"
+              v-for="constraint in filteredFolders.validationAssets?.children?.[0]?.resources"
               :key="constraint.id"
               :item="constraint"
               :is-selected="selectedIds.has(constraint.id)"
@@ -260,10 +263,10 @@
               t('assetLibraryExtended.projectView.explorer.templates')
             }}</span>
             <span
-              v-if="filteredFolders.validationAssets?.children?.find(c => c.id === 'templates')?.count > 0"
+              v-if="(filteredFolders.validationAssets?.children?.find(c => c.id === 'templates')?.count ?? 0) > 0"
               class="folder-count"
             >
-              {{ filteredFolders.validationAssets.children.find(c => c.id === 'templates').count }}
+              {{ filteredFolders.validationAssets?.children?.find(c => c.id === 'templates')?.count }}
             </span>
           </div>
           <div
@@ -271,7 +274,7 @@
             class="tree-children"
           >
             <ResourceTreeItem
-              v-for="template in filteredFolders.validationAssets.children.find(c => c.id === 'templates').resources"
+              v-for="template in filteredFolders.validationAssets?.children?.find(c => c.id === 'templates')?.resources"
               :key="template.id"
               :item="template"
               :is-selected="selectedIds.has(template.id)"
@@ -318,10 +321,10 @@
               t('assetLibraryExtended.projectView.explorer.regexCenter')
             }}</span>
             <span
-              v-if="filteredFolders.validationAssets?.children?.[1]?.count > 0"
+              v-if="(filteredFolders.validationAssets?.children?.[1]?.count ?? 0) > 0"
               class="folder-count"
             >
-              {{ filteredFolders.validationAssets.children[1].count }}
+              {{ filteredFolders.validationAssets?.children?.[1]?.count }}
             </span>
           </div>
           <div
@@ -352,10 +355,10 @@
                   t('assetLibraryExtended.projectView.explorer.patternRegistry')
                 }}</span>
                 <span
-                  v-if="filteredFolders.validationAssets?.children?.[1]?.children?.[0]?.count > 0"
+                  v-if="(filteredFolders.validationAssets?.children?.[1]?.children?.[0]?.count ?? 0) > 0"
                   class="folder-count"
                 >
-                  {{ filteredFolders.validationAssets.children[1].children[0].count }}
+                  {{ filteredFolders.validationAssets?.children?.[1]?.children?.[0]?.count }}
                 </span>
               </div>
               <div
@@ -363,8 +366,7 @@
                 class="tree-children"
               >
                 <ResourceTreeItem
-                  v-for="pattern in filteredFolders.validationAssets.children[1].children[0]
-                    .resources"
+                  v-for="pattern in filteredFolders.validationAssets?.children?.[1]?.children?.[0]?.resources"
                   :key="pattern.id"
                   :item="pattern"
                   :is-selected="selectedIds.has(pattern.id)"
@@ -410,10 +412,10 @@
                   t('assetLibraryExtended.projectView.explorer.regexNodes')
                 }}</span>
                 <span
-                  v-if="filteredFolders.validationAssets?.children?.[1]?.children?.[1]?.count > 0"
+                  v-if="(filteredFolders.validationAssets?.children?.[1]?.children?.[1]?.count ?? 0) > 0"
                   class="folder-count"
                 >
-                  {{ filteredFolders.validationAssets.children[1].children[1].count }}
+                  {{ filteredFolders.validationAssets?.children?.[1]?.children?.[1]?.count }}
                 </span>
               </div>
               <div
@@ -421,8 +423,7 @@
                 class="tree-children"
               >
                 <ResourceTreeItem
-                  v-for="regexNode in filteredFolders.validationAssets.children[1].children[1]
-                    .resources"
+                  v-for="regexNode in filteredFolders.validationAssets?.children?.[1]?.children?.[1]?.resources"
                   :key="regexNode.id"
                   :item="regexNode"
                   :is-selected="selectedIds.has(regexNode.id)"
@@ -457,10 +458,10 @@
   import { useI18n } from 'vue-i18n'
   import { useGraphStore } from '@/stores/graphStore'
   import ResourceTreeItem from './ResourceTreeItem.vue'
-  import type { ResourceItem, SchemaResource, ResourceFolder } from '@/types/resource'
+  import type { ResourceItem, SchemaResource, ResourceFolder, ResourceFolderMap } from '@/types/resource'
 
   interface Props {
-    filteredFolders: Record<string, ResourceFolder>
+    filteredFolders: ResourceFolderMap
     expandedSchemas: Set<string>
     isMultiSelectMode: boolean
     selectedIds: Set<string>

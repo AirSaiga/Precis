@@ -68,6 +68,10 @@ export function useJsonSchemaDrag(
     // 移动列
     const columns = [...props.data.columns];
     const [removed] = columns.splice(sourceIndex, 1);
+    if (!removed) {
+      resetDragState();
+      return;
+    }
     columns.splice(targetIndex, 0, removed);
 
     store.updateNodeData(props.id, {
@@ -103,7 +107,12 @@ export function useJsonSchemaDrag(
     if (index <= 0) return;
 
     const columns = [...props.data.columns];
-    [columns[index - 1], columns[index]] = [columns[index], columns[index - 1]];
+    const prev = columns[index - 1];
+    const curr = columns[index];
+    if (prev && curr) {
+      columns[index - 1] = curr;
+      columns[index] = prev;
+    }
 
     store.updateNodeData(props.id, {
       ...props.data,
@@ -127,7 +136,12 @@ export function useJsonSchemaDrag(
     if (index === -1 || index >= props.data.columns.length - 1) return;
 
     const columns = [...props.data.columns];
-    [columns[index], columns[index + 1]] = [columns[index + 1], columns[index]];
+    const curr = columns[index];
+    const next = columns[index + 1];
+    if (curr && next) {
+      columns[index] = next;
+      columns[index + 1] = curr;
+    }
 
     store.updateNodeData(props.id, {
       ...props.data,

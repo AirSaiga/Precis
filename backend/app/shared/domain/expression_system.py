@@ -9,13 +9,13 @@
 
 架构设计:
 - TYPE_CASTERS: 类型转换器字典，将字符串转换为目标类型
-- create_tempated_parser: 创建模板解析器工厂函数
+- create_templated_parser: 创建模板解析器工厂函数
 - ExpressionPattern: 表达式模式数据类
 - ExpressionRegistry: 表达式注册表
 
 输入示例:
     template = {"type": "phone_cn", "value": "{value:int}"}
-    parser = create_tempated_parser(template)
+    parser = create_templated_parser(template)
     result = parser({"value": "13800138000"})
 
 输出示例:
@@ -51,7 +51,7 @@ TYPE_CASTERS: dict[str, Callable[[str], Any]] = {
 }
 
 
-def create_tempated_parser(output_template: dict[str, Any]) -> Callable[[dict[str, str]], dict[str, Any]]:
+def create_templated_parser(output_template: dict[str, Any]) -> Callable[[dict[str, str]], dict[str, Any]]:
     """
     创建模板解析器。
 
@@ -118,7 +118,7 @@ def create_tempated_parser(output_template: dict[str, Any]) -> Callable[[dict[st
 
     最终输出: Callable[[Dict[str, str]], Dict[str, Any]]
       示例:
-        parser = create_tempated_parser({"value": "{value:int}"})
+        parser = create_templated_parser({"value": "{value:int}"})
         result = parser({"value": "123"})
         # 结果: {"value": 123}
 
@@ -252,7 +252,7 @@ class ExpressionRegistry:
     registry.register(ExpressionPattern(
         name="phone_cn",
         regex=re.compile(r'^1[3-9]\\d{9}$'),
-        parser_func=create_tempated_parser({"type": "phone", "value": "{value:str}"})
+        parser_func=create_templated_parser({"type": "phone", "value": "{value:str}"})
     ))
 
     # 查找匹配
@@ -280,7 +280,7 @@ class ExpressionRegistry:
     phone_pattern = ExpressionPattern(
         name="phone_cn",
         regex=re.compile(r'^1[3-9]\\d{9}$'),
-        parser_func=create_tempated_parser({"type": "phone", "value": "{value:str}"})
+        parser_func=create_templated_parser({"type": "phone", "value": "{value:str}"})
     )
     registry.register(phone_pattern)
 
@@ -288,7 +288,7 @@ class ExpressionRegistry:
     email_pattern = ExpressionPattern(
         name="email",
         regex=re.compile(r'^[\w\.-]+@[\w\.-]+\.\w+$'),
-        parser_func=create_tempated_parser({"type": "email", "value": "{value:str}"})
+        parser_func=create_templated_parser({"type": "email", "value": "{value:str}"})
     )
     registry.register(email_pattern)
     ```
@@ -348,6 +348,3 @@ class ExpressionRegistry:
                 return pattern, match
         # 没有任何模式匹配成功，返回 None
         return None
-
-
-create_templated_parser = create_tempated_parser

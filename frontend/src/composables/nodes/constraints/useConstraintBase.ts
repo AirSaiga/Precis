@@ -6,6 +6,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
 import { reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ConstraintNodeData, SchemaNodeSourceInfo } from '../types'
@@ -175,15 +176,7 @@ export function useConstraintBase(props: { id: string; data: ConstraintNodeData 
       result: result,
     })
 
-    // 创建一个自定义事件，通知整个文档验证已完成
-    const event = new CustomEvent('constraintValidationCompleted', {
-      detail: {
-        nodeId: props.id,
-        result: result,
-      },
-    })
-    // 派发事件到文档
-    document.dispatchEvent(event)
+    eventBus.emit('constraintValidationCompleted', { nodeId: props.id, result: result })
   }
 
   /**

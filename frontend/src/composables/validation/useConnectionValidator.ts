@@ -82,7 +82,7 @@ export function useConnectionValidator(options: UseConnectionValidatorOptions = 
   ): ConnectionRule | null {
     // Step 1: 获取源节点类型对应的所有出站规则
     // 目的：缩小搜索范围，避免遍历所有规则
-    const sourceRules = getRulesForSourceNodeType(sourceNode.type)
+    const sourceRules = getRulesForSourceNodeType(sourceNode.type ?? '')
 
     // Step 2: 遍历规则列表，查找匹配的规则
     for (const rule of sourceRules) {
@@ -399,7 +399,7 @@ export function useConnectionValidator(options: UseConnectionValidatorOptions = 
     allNodes: Node[]
   ): Array<{ node: Node; handle?: string; rule: ConnectionRule }> {
     const allowedTargets: Array<{ node: Node; handle?: string; rule: ConnectionRule }> = []
-    const sourceRules = getRulesForSourceNodeType(sourceNode.type)
+    const sourceRules = getRulesForSourceNodeType(sourceNode.type ?? '')
 
     for (const rule of sourceRules) {
       for (const targetNode of allNodes) {
@@ -437,9 +437,9 @@ export function useConnectionValidator(options: UseConnectionValidatorOptions = 
 
       const result = validateConnection(
         sourceNode,
-        conn.sourceHandle,
+        conn.sourceHandle ?? undefined,
         targetNode,
-        conn.targetHandle
+        conn.targetHandle ?? undefined
       )
 
       if (result.isValid) {

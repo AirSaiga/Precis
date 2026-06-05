@@ -177,8 +177,9 @@ export function hydrateManifestConstraintsFromV2Config(params: {
     }
 
     if ((c.type as string) === 'NotNull') {
-      const tableId = c.refs.table_id as string
-      const colId = c.refs.column_id as string
+      const refs = c.refs ?? {}
+      const tableId = refs.table_id as string
+      const colId = refs.column_id as string
       const schemaNode = existingNodes.find((n) => n.id === tableId && n.type === 'schema')
       const schemaData = schemaNode?.data as SchemaNodeData | undefined
       const tableName = schemaData?.tableName || ''
@@ -211,10 +212,9 @@ export function hydrateManifestConstraintsFromV2Config(params: {
     }
 
     if ((c.type as string) === 'Unique') {
-      const tableId = c.refs.table_id as string
-      const colIds = Array.isArray((c.refs as Record<string, unknown>).column_ids)
-        ? (c.refs.column_ids as string[])
-        : []
+      const refs = c.refs ?? {}
+      const tableId = refs.table_id as string
+      const colIds = Array.isArray(refs.column_ids) ? (refs.column_ids as string[]) : []
       const schemaNode = existingNodes.find((n) => n.id === tableId && n.type === 'schema')
       const schemaData = schemaNode?.data as SchemaNodeData | undefined
       const tableName = schemaData?.tableName || ''
@@ -252,18 +252,19 @@ export function hydrateManifestConstraintsFromV2Config(params: {
     }
 
     if ((c.type as string) === 'Conditional') {
-      const tableId = c.refs.table_id as string
+      const refs = c.refs ?? {}
+      const tableId = refs.table_id as string
       const schemaNode = existingNodes.find((n) => n.id === tableId && n.type === 'schema')
       const schemaData = schemaNode?.data as SchemaNodeData | undefined
       const tableName = schemaData?.tableName || ''
-      const ifLogic = String((c.refs as Record<string, unknown>).if_logic || 'and')
-      const thenColId = (c.refs as Record<string, unknown>).then_column_id as string
+      const ifLogic = String(refs.if_logic || 'and')
+      const thenColId = refs.then_column_id as string
       const thenColumnName =
         (schemaData?.columns || []).find(
           (x) => (x as { id?: string; columnName?: string }).id === thenColId
         )?.columnName || ''
-      const rawConditions = Array.isArray((c.refs as Record<string, unknown>).if_conditions)
-        ? (c.refs.if_conditions as unknown[])
+      const rawConditions = Array.isArray(refs.if_conditions)
+        ? (refs.if_conditions as unknown[])
         : []
       const ifConditions = rawConditions.map((cond) => {
         const cRec = cond as Record<string, unknown>
@@ -314,8 +315,9 @@ export function hydrateManifestConstraintsFromV2Config(params: {
     }
 
     if ((c.type as string) === 'Scripted') {
-      const tableId = c.refs.table_id as string
-      const colId = (c.refs.column_id as string) || ''
+      const refs = c.refs ?? {}
+      const tableId = refs.table_id as string
+      const colId = (refs.column_id as string) || ''
       const schemaNode = existingNodes.find((n) => n.id === tableId && n.type === 'schema')
       const schemaData = schemaNode?.data as SchemaNodeData | undefined
       const tableName = schemaData?.tableName || ''
@@ -355,8 +357,9 @@ export function hydrateManifestConstraintsFromV2Config(params: {
 
     // Range / Charset / DateLogic 约束的显式处理
     if ((c.type as string) === 'Range') {
-      const tableId = c.refs.table_id as string
-      const colId = (c.refs.column_id as string) || ''
+      const refs = c.refs ?? {}
+      const tableId = refs.table_id as string
+      const colId = (refs.column_id as string) || ''
       const schemaNode = existingNodes.find((n) => n.id === tableId && n.type === 'schema')
       const schemaData = schemaNode?.data as SchemaNodeData | undefined
       const tableName = schemaData?.tableName || ''
@@ -397,8 +400,9 @@ export function hydrateManifestConstraintsFromV2Config(params: {
     }
 
     if ((c.type as string) === 'Charset') {
-      const tableId = c.refs.table_id as string
-      const colId = (c.refs.column_id as string) || ''
+      const refs = c.refs ?? {}
+      const tableId = refs.table_id as string
+      const colId = (refs.column_id as string) || ''
       const schemaNode = existingNodes.find((n) => n.id === tableId && n.type === 'schema')
       const schemaData = schemaNode?.data as SchemaNodeData | undefined
       const tableName = schemaData?.tableName || ''
@@ -437,8 +441,9 @@ export function hydrateManifestConstraintsFromV2Config(params: {
     }
 
     if ((c.type as string) === 'DateLogic') {
-      const tableId = c.refs.table_id as string
-      const colId = (c.refs.column_id as string) || ''
+      const refs = c.refs ?? {}
+      const tableId = refs.table_id as string
+      const colId = (refs.column_id as string) || ''
       const schemaNode = existingNodes.find((n) => n.id === tableId && n.type === 'schema')
       const schemaData = schemaNode?.data as SchemaNodeData | undefined
       const tableName = schemaData?.tableName || ''
@@ -491,8 +496,9 @@ export function hydrateManifestConstraintsFromV2Config(params: {
     }
 
     if ((c.type as string) === 'Composite') {
-      const tableId = c.refs.table_id as string
-      const colId = (c.refs.column_id as string) || ''
+      const refs = c.refs ?? {}
+      const tableId = refs.table_id as string
+      const colId = (refs.column_id as string) || ''
       const params = (c.params || {}) as Record<string, unknown>
       nextNodes.push({
         id: nodeId,

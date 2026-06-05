@@ -211,7 +211,9 @@
     let currentPath = ''
 
     for (let i = 0; i < parts.length; i++) {
-      currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i]
+      const part = parts[i]
+      if (part === undefined) continue
+      currentPath = currentPath ? `${currentPath}/${part}` : part
       if (i < parts.length - 1 || fileItem.folderPath === currentPath) {
         if (collapsedFolders.value.has(currentPath)) {
           return false

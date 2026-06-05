@@ -5,7 +5,7 @@
  * 需要创建 THEN 约束边 + 每个有列引用的 IF 条件各一条 IF 边。
  */
 
-import type { BuildInput, BuildResult } from './types'
+import type { BuildInput, BuildResult, EdgeDescriptor } from './types'
 import { registerBuilder } from './registry'
 
 function buildConditional(input: BuildInput): BuildResult {
@@ -58,7 +58,7 @@ function buildConditional(input: BuildInput): BuildResult {
     nodeData.embedded = true
   }
 
-  const edgeDescriptors = []
+  const edgeDescriptors: EdgeDescriptor[] = []
 
   // THEN 约束边
   if (thenRef?.columnId) {

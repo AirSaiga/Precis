@@ -2,6 +2,7 @@
 import { useGraphStore } from '@/stores/graphStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
 import type { FullValidationErrorItem } from '@/api/projectValidationApi'
 
 export function useValidationErrorNavigator() {
@@ -83,11 +84,7 @@ export function useValidationErrorNavigator() {
     graphStore.setSelectedNode(nodeId)
 
     // 触发画布聚焦事件
-    window.dispatchEvent(
-      new CustomEvent('focus-canvas-nodes', {
-        detail: { nodeIds: [nodeId] },
-      })
-    )
+    eventBus.emit('focus-canvas-nodes', { nodeIds: [nodeId] })
   }
 
   return {

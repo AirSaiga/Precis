@@ -45,7 +45,7 @@ from app.shared.domain.expression_system import (
     TYPE_CASTERS,
     ExpressionPattern,
     ExpressionRegistry,
-    create_tempated_parser,
+    create_templated_parser,
 )
 from app.shared.domain.validation_constraints import (
     CONDITION_REGISTRY,
@@ -95,7 +95,7 @@ __all__ = [
     "register_condition",
     "ExpressionRegistry",
     "ExpressionPattern",
-    "create_tempated_parser",
+    "create_templated_parser",
     "TYPE_CASTERS",
     "process_dataframe",
 ]

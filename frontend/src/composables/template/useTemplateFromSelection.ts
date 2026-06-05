@@ -189,7 +189,7 @@ export function extractTemplateFromSelection(
 
   // 检测输入锚点
   const anchors = detectInputAnchors(eligibleNodes, selectedIdSet)
-  const inputAnchorId = anchors.length > 0 ? anchors[0] : null
+  const inputAnchorId = anchors.length > 0 ? (anchors[0] ?? null) : null
 
   // 锚点节点的 input_from_node 设为 null（展开时由实例绑定）
   if (inputAnchorId) {

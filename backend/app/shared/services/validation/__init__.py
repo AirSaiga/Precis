@@ -15,12 +15,16 @@
 
 # 从 loader 模块导入文件加载和校验执行的便捷函数
 # 这些函数是调用方快速执行校验的入口，封装了完整的加载+校验流程
+from .chunked_loader import ChunkedDataLoader, ChunkedValidationResult
 from .loader import (
     load_file_data,
     load_file_data_with_settings,
     run_validation,
     validate_with_settings,
 )
+
+# 从新模块导入内存监控和分块加载相关功能
+from .memory_monitor import MemoryMonitor
 
 # 从 service 模块导入统一校验服务类
 # UnifiedValidationService 负责注册和管理各类校验器， orchestrate 校验流程
@@ -47,7 +51,7 @@ from .validators import (
 )
 
 # __all__ 按功能分组声明对外暴露的符号，便于调用方快速定位所需 API
-# 分组顺序：类型定义 -> 服务类 -> 便捷函数 -> 校验器类
+# 分组顺序：类型定义 -> 服务类 -> 便捷函数 -> 校验器类 -> 性能工具
 __all__ = [
     # 类型定义
     "ValidationType",
@@ -71,4 +75,8 @@ __all__ = [
     "ScriptedValidator",
     "CharsetValidator",
     "DateLogicValidator",
+    # 性能工具
+    "MemoryMonitor",
+    "ChunkedDataLoader",
+    "ChunkedValidationResult",
 ]

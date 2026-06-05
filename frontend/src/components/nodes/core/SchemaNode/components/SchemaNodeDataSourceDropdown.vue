@@ -192,7 +192,9 @@ Schema节点数据源绑定/切换 */
     let currentPath = ''
 
     for (let i = 0; i < parts.length; i++) {
-      currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i]
+      const part = parts[i]
+      if (part === undefined) continue
+      currentPath = currentPath ? `${currentPath}/${part}` : part
       // 如果当前路径是一个文件夹（且不是文件本身的路径）
       if (i < parts.length - 1 || fileItem.folderPath === currentPath) {
         // 检查该文件夹是否被折叠

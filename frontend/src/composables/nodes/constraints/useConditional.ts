@@ -317,6 +317,10 @@ export function useConditional(
 
       // 获取数据源文件信息（仅 schema 节点有，transformOutput 节点没有）
       const sourceSchemaData = base.sourceInfo.value
+      if (!sourceSchemaData) {
+        return emptyResult
+      }
+
       const isInlineSource = thenNode.type === 'transformOutput' || thenNode.type === 'manualData'
 
       if (isInlineSource) {

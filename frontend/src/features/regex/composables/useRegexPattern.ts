@@ -35,6 +35,7 @@
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { RegexNodeData } from '@/features/regex/types'
+import { eventBus } from '@/core/eventBus'
 
 /**
  * 正则表达式模式管理
@@ -325,16 +326,13 @@ export function useRegexPattern(props: { id: string; data: RegexNodeData }, emit
       caseSensitive: caseSensitive.value,
     })
 
-    const event = new CustomEvent('regexPatternUpdated', {
-      detail: {
-        nodeId: props.id,
-        pattern: pattern.value,
-        flags: flags.value,
-        matchMode: matchMode.value,
-        caseSensitive: caseSensitive.value,
-      },
+    eventBus.emit('regexPatternUpdated', {
+      nodeId: props.id,
+      pattern: pattern.value,
+      flags: flags.value,
+      matchMode: matchMode.value,
+      caseSensitive: caseSensitive.value,
     })
-    document.dispatchEvent(event)
   }
 
   /**

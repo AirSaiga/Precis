@@ -15,6 +15,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
@@ -144,12 +145,7 @@ export function useJsonSchemaSourceManager(
 
       logger.debug('🔄 刷新数据源数据:', props.data.sourceNodeId)
 
-      const refreshEvent = new CustomEvent('json-source-preview-refresh', {
-        detail: { nodeId: props.data.sourceNodeId },
-        bubbles: true,
-        composed: true,
-      })
-      document.dispatchEvent(refreshEvent)
+      eventBus.emit('json-source-preview-refresh', { nodeId: props.data.sourceNodeId })
 
       success(t('canvas.nodeCanvas.sourceRefreshSuccess'))
     } catch (err) {

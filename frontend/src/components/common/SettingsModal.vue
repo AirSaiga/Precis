@@ -363,8 +363,11 @@
       ? Math.min(currentIdx + 1, ids.length - 1)
       : Math.max(currentIdx - 1, 0)
     if (nextIdx !== currentIdx) {
-      settingsStore.setActiveNavItem(ids[nextIdx])
-      focusActiveNavItem()
+      const nextId = ids[nextIdx]
+      if (nextId !== undefined) {
+        settingsStore.setActiveNavItem(nextId)
+        focusActiveNavItem()
+      }
     }
   }
 
@@ -440,7 +443,10 @@
     () => {
       const ids = getAllVisibleItemIds()
       if (ids.length > 0 && !ids.includes(settingsStore.activeNavItem)) {
-        settingsStore.setActiveNavItem(ids[0])
+        const firstId = ids[0]
+        if (firstId !== undefined) {
+          settingsStore.setActiveNavItem(firstId)
+        }
       }
     }
   )

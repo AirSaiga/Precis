@@ -25,12 +25,15 @@ export class NodeClassifier {
     const result = new Map<NodeCategory, CustomNode[]>()
 
     for (const node of this.nodes.values()) {
+      if (!node.type) continue
       const category = NODE_TYPE_TO_CATEGORY[node.type] || NodeCategory.CORE
 
-      if (!result.has(category)) {
-        result.set(category, [])
+      const list = result.get(category)
+      if (list) {
+        list.push(node)
+      } else {
+        result.set(category, [node])
       }
-      result.get(category)!.push(node)
     }
 
     return result
@@ -43,10 +46,13 @@ export class NodeClassifier {
     const result = new Map<string, CustomNode[]>()
 
     for (const node of this.nodes.values()) {
-      if (!result.has(node.type)) {
-        result.set(node.type, [])
+      if (!node.type) continue
+      const list = result.get(node.type)
+      if (list) {
+        list.push(node)
+      } else {
+        result.set(node.type, [node])
       }
-      result.get(node.type)!.push(node)
     }
 
     return result
@@ -149,7 +155,9 @@ export class NodeClassifier {
    */
   getRootNodes(): CustomNode[] {
     const rootTypes = ['projectRoot']
-    return Array.from(this.nodes.values()).filter((n) => rootTypes.includes(n.type))
+    return Array.from(this.nodes.values()).filter(
+      (n) => n.type !== undefined && rootTypes.includes(n.type)
+    )
   }
 
   /**

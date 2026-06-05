@@ -20,6 +20,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 
@@ -107,10 +108,7 @@ export const useDragStore = defineStore('drag', () => {
     localDragState.value.dragPayload = payload
 
     // 通过 CustomEvent 向 document 广播，使未使用 Pinia 的组件也能响应拖拽状态
-    const dragStartEvent = new CustomEvent('fielddragstart', {
-      detail: payload,
-    })
-    document.dispatchEvent(dragStartEvent)
+    eventBus.emit('fielddragstart', payload)
   }
 
   /**
@@ -127,8 +125,7 @@ export const useDragStore = defineStore('drag', () => {
     localDragState.value.hoverColumn = null
 
     // 广播拖拽结束事件，确保所有组件同步清理拖拽相关 UI 状态
-    const dragEndEvent = new CustomEvent('fielddragend')
-    document.dispatchEvent(dragEndEvent)
+    eventBus.emit('fielddragend')
   }
 
   /**
@@ -187,16 +184,12 @@ export const useDragStore = defineStore('drag', () => {
    * @returns 清理函数，用于组件卸载时移除事件监听器
    */
   const initializeDragState = () => {
-    // 监听来自其他组件的字段拖拽开始事件（通过 CustomEvent 广播）
-    const handleFieldDragStart = (event: Event) => {
-      const customEvent = event as CustomEvent
-      logger.debug('🔄 拖拽状态管理：收到字段拖拽开始事件', customEvent.detail)
-      // 同步外部组件的拖拽状态到本 store
+    const handleFieldDragStart = (payload: DragEventPayload) => {
+      logger.debug('🔄 拖拽状态管理：收到字段拖拽开始事件', payload)
       localDragState.value.isDragging = true
-      localDragState.value.dragPayload = customEvent.detail
+      localDragState.value.dragPayload = payload
     }
 
-    // 监听来自其他组件的字段拖拽结束事件
     const handleFieldDragEnd = () => {
       logger.debug('🔄 拖拽状态管理：收到字段拖拽结束事件')
       localDragState.value.isDragging = false
@@ -205,14 +198,12 @@ export const useDragStore = defineStore('drag', () => {
       localDragState.value.hoverColumn = null
     }
 
-    // 注册全局事件监听器
-    document.addEventListener('fielddragstart', handleFieldDragStart)
-    document.addEventListener('fielddragend', handleFieldDragEnd)
+    eventBus.on('fielddragstart', handleFieldDragStart)
+    eventBus.on('fielddragend', handleFieldDragEnd)
 
-    // 返回清理函数，供调用方在组件卸载时调用，防止内存泄漏
     return () => {
-      document.removeEventListener('fielddragstart', handleFieldDragStart)
-      document.removeEventListener('fielddragend', handleFieldDragEnd)
+      eventBus.off('fielddragstart', handleFieldDragStart)
+      eventBus.off('fielddragend', handleFieldDragEnd)
     }
   }
 

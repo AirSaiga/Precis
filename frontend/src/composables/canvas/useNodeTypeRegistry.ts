@@ -29,7 +29,7 @@ import { registerConstraintNodeLibrary } from '@/components/nodes/constraintRule
 export function useNodeTypeRegistry() {
   registerConstraintNodeLibrary()
 
-  const nodeTypes: Record<string, NodeComponent | null> = {
+  const nodeTypes: Record<string, NodeComponent> = {
     projectRoot: markRaw(ProjectRootNode) as unknown as NodeComponent,
     patternToolbox: markRaw(PatternToolboxNode) as unknown as NodeComponent,
     pattern: markRaw(PatternNode) as unknown as NodeComponent,
@@ -43,16 +43,36 @@ export function useNodeTypeRegistry() {
     transformOutput: markRaw(TransformOutputNode) as unknown as NodeComponent,
     manualData: markRaw(ManualDataNode) as unknown as NodeComponent,
     templateInstance: markRaw(TemplateInstanceNode) as unknown as NodeComponent,
-    notNullConstraint: constraintNodeRegistry.notNull?.component || null,
-    uniqueConstraint: constraintNodeRegistry.unique?.component || null,
-    foreignKeyConstraint: constraintNodeRegistry.foreignKey?.component || null,
-    allowedValuesConstraint: constraintNodeRegistry.allowedValues?.component || null,
-    rangeConstraint: constraintNodeRegistry.range?.component || null,
-    conditionalConstraint: constraintNodeRegistry.conditional?.component || null,
-    scriptedConstraint: constraintNodeRegistry.scripted?.component || null,
-    charsetConstraint: constraintNodeRegistry.charset?.component || null,
-    dateLogicConstraint: constraintNodeRegistry.dateLogic?.component || null,
-    compositeConstraint: constraintNodeRegistry.composite?.component || null,
+    ...(constraintNodeRegistry.notNull?.component && {
+      notNullConstraint: constraintNodeRegistry.notNull.component as unknown as NodeComponent,
+    }),
+    ...(constraintNodeRegistry.unique?.component && {
+      uniqueConstraint: constraintNodeRegistry.unique.component as unknown as NodeComponent,
+    }),
+    ...(constraintNodeRegistry.foreignKey?.component && {
+      foreignKeyConstraint: constraintNodeRegistry.foreignKey.component as unknown as NodeComponent,
+    }),
+    ...(constraintNodeRegistry.allowedValues?.component && {
+      allowedValuesConstraint: constraintNodeRegistry.allowedValues.component as unknown as NodeComponent,
+    }),
+    ...(constraintNodeRegistry.range?.component && {
+      rangeConstraint: constraintNodeRegistry.range.component as unknown as NodeComponent,
+    }),
+    ...(constraintNodeRegistry.conditional?.component && {
+      conditionalConstraint: constraintNodeRegistry.conditional.component as unknown as NodeComponent,
+    }),
+    ...(constraintNodeRegistry.scripted?.component && {
+      scriptedConstraint: constraintNodeRegistry.scripted.component as unknown as NodeComponent,
+    }),
+    ...(constraintNodeRegistry.charset?.component && {
+      charsetConstraint: constraintNodeRegistry.charset.component as unknown as NodeComponent,
+    }),
+    ...(constraintNodeRegistry.dateLogic?.component && {
+      dateLogicConstraint: constraintNodeRegistry.dateLogic.component as unknown as NodeComponent,
+    }),
+    ...(constraintNodeRegistry.composite?.component && {
+      compositeConstraint: constraintNodeRegistry.composite.component as unknown as NodeComponent,
+    }),
   }
 
   const edgeTypes: Record<string, EdgeComponent> = {

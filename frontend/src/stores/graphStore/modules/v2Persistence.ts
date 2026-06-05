@@ -9,6 +9,7 @@
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
+import type { CustomNodeData } from '@/types/nodes'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
 import { createV2StatsOps } from './v2/persistence/stats'
 import { createV2SaveOps } from './v2/persistence/save'
@@ -58,7 +59,7 @@ export function createV2PersistenceModule(params: {
     configDir: string | undefined,
     relPath: string | undefined
   ) => string | undefined
-  updateNodeData: (nodeId: string, newData: Partial<CustomNode['data']>) => void
+  updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
 }) {
   const {
     nodes,

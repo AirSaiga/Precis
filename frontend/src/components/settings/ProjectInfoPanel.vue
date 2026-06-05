@@ -106,6 +106,7 @@
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { useToast } from '@/composables/shared'
   import { isElectron, getElectronAPI } from '@/core/utils/electronDetector'
+  import { eventBus } from '@/core/eventBus'
   import { getV2Manifest, putV2Manifest } from '@/api/projectV2Api'
   import type { ProjectManifestV2 } from '@/types/projectV2'
 
@@ -273,7 +274,7 @@
             properties: ['openDirectory'],
           })
           if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
-            return result.filePaths[0]
+            return result.filePaths[0] ?? ''
           }
         }
       } catch (error) {
@@ -354,7 +355,7 @@
       }
 
       localStorage.setItem('resourceTreeExpanded', 'true')
-      window.dispatchEvent(new CustomEvent('project-applied'))
+      eventBus.emit('project-applied')
     } catch (error) {
       logger.error('[ProjectInfoPanel] 应用路径更改失败:', error)
       warning(t('settings.projectInfo.applyFailed'), t('common.error'))

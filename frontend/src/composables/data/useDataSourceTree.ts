@@ -92,12 +92,17 @@ export function useDataSourceTree() {
         const parts = ds.folderPath.split(/[/\\]/)
         // 添加根文件夹（第一个部分）
         if (parts.length >= 1) {
-          folderPaths.add(parts[0])
+          const firstPart = parts[0]
+          if (firstPart !== undefined) {
+            folderPaths.add(firstPart)
+          }
         }
         // 添加所有中间文件夹
         let currentPath = ''
         for (let i = 0; i < parts.length - 1; i++) {
-          currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i]
+          const part = parts[i]
+          if (part === undefined) continue
+          currentPath = currentPath ? `${currentPath}/${part}` : part
           folderPaths.add(currentPath)
         }
       }
@@ -108,7 +113,7 @@ export function useDataSourceTree() {
 
     for (const folderPath of sortedFolderPaths) {
       const parts = folderPath.split(/[/\\]/)
-      const folderName = parts[parts.length - 1]
+      const folderName = parts[parts.length - 1] ?? folderPath
       // 计算文件夹层级：根文件夹 level = 0，子文件夹 level = 路径中 '/' 的数量
       const level = parts.length - 1
 

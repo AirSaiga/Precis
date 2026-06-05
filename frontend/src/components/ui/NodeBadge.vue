@@ -102,10 +102,11 @@
       return ''
     }
 
-    if (props.count > props.maxCount) {
+    const count = props.count ?? 0
+    if (count > props.maxCount) {
       return `${props.maxCount}+`
     }
-    return props.count
+    return count
   })
 
   function handleClick() {

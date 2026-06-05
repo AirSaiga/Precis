@@ -117,8 +117,9 @@ export function useSchemaEditing(props: { id: string; data: SchemaNodeData }, em
 
   const onTitleEnter = () => {
     confirmTitleEdit()
-    if (props.data.columns.length > 0) {
-      startColumnEdit(props.data.columns[0].id)
+    const firstColumn = props.data.columns[0]
+    if (firstColumn) {
+      startColumnEdit(firstColumn.id)
     }
   }
 

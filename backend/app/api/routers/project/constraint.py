@@ -42,7 +42,15 @@ from .manifest import get_v2_manifest
 router = APIRouter(prefix="", tags=["Project-Constraint"])
 
 
-@router.get("/v2/constraints/{constraint_id}", response_model=ConstraintFileV2)
+@router.get(
+    "/v2/constraints/{constraint_id}",
+    response_model=ConstraintFileV2,
+    summary="读取 Constraint",
+    responses={
+        404: {"description": "Constraint 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def get_v2_constraint(constraint_id: str, config_path: str = Depends(get_project_config_path)):
     """
     读取指定 constraint_id 的 constraint 文件。
@@ -114,7 +122,16 @@ def get_v2_constraint(constraint_id: str, config_path: str = Depends(get_project
     return ConstraintFileV2.model_validate(data)
 
 
-@router.put("/v2/constraints/{constraint_id}", response_model=StandardResponse)
+@router.put(
+    "/v2/constraints/{constraint_id}",
+    response_model=StandardResponse,
+    summary="写入 Constraint",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def put_v2_constraint(
     constraint_id: str,
     constraint: ConstraintFileV2,
@@ -173,7 +190,16 @@ def put_v2_constraint(
     return {"message": f"V2 constraint '{constraint_id}' 已保存。"}
 
 
-@router.delete("/v2/constraints/{constraint_id}", response_model=StandardResponse)
+@router.delete(
+    "/v2/constraints/{constraint_id}",
+    response_model=StandardResponse,
+    summary="删除 Constraint",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Constraint 或 Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def delete_v2_constraint(constraint_id: str, config_path: str = Depends(get_project_config_path)):
     """
     删除指定 constraint_id 的 constraint 文件，并从 manifest 中移除引用。
@@ -232,7 +258,15 @@ def delete_v2_constraint(constraint_id: str, config_path: str = Depends(get_proj
     return {"message": f"V2 constraint '{constraint_id}' 已删除。"}
 
 
-@router.post("/v2/constraints/{constraint_id}/display-name", response_model=StandardResponse)
+@router.post(
+    "/v2/constraints/{constraint_id}/display-name",
+    response_model=StandardResponse,
+    summary="更新 Constraint 展示名",
+    responses={
+        404: {"description": "Constraint 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def update_v2_constraint_display_name(
     constraint_id: str,
     payload: DisplayNameUpdateRequest,

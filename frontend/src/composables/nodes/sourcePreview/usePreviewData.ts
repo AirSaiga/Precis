@@ -31,6 +31,7 @@ import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useGraphStore } from '@/stores/graphStore'
+import { eventBus } from '@/core/eventBus'
 import type { SourcePreviewNodeData } from '../types'
 import type { SourceMode } from '@/types/datasource'
 
@@ -159,14 +160,13 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
    *
    * @param event - DOM 事件对象
    */
-  const handleDataSourceRefreshed = async (event: Event) => {
-    const detail = (event as CustomEvent).detail
+  const handleDataSourceRefreshed = async (detail: { nodeId: string; fileId: string; fileName: string }) => {
     if (!detail || detail.nodeId !== props.id) {
       return
     }
 
-    const fileId = detail.fileId as string | undefined
-    const fileName = detail.fileName as string | undefined
+    const fileId = detail.fileId
+    const fileName = detail.fileName
 
     if (!fileId) {
       return
@@ -189,7 +189,7 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
    * 生命周期：挂载时注册全局事件监听器
    */
   onMounted(() => {
-    document.addEventListener('data-source-refreshed', handleDataSourceRefreshed as EventListener)
+    eventBus.on('data-source-refreshed', handleDataSourceRefreshed)
   })
 
   /**
@@ -197,10 +197,7 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
    * 【重要性】防止内存泄漏和重复调用
    */
   onUnmounted(() => {
-    document.removeEventListener(
-      'data-source-refreshed',
-      handleDataSourceRefreshed as EventListener
-    )
+    eventBus.off('data-source-refreshed', handleDataSourceRefreshed)
   })
 
   /**
@@ -298,10 +295,7 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
         store.updateNodeData(props.id, updatedData)
         notifyDataChange()
 
-        const event = new CustomEvent('sourcePreviewDataChanged', {
-          detail: { nodeId: props.id, data: updatedData },
-        })
-        document.dispatchEvent(event)
+        eventBus.emit('sourcePreviewDataChanged', { nodeId: props.id, data: updatedData as unknown as Record<string, unknown> })
 
         logger.debug('✅ 本地路径方式工作表切换完成:', { sheet: updatedData.currentSheet })
       } else {
@@ -413,10 +407,7 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
         store.updateNodeData(props.id, updatedData)
         notifyDataChange()
 
-        const event = new CustomEvent('sourcePreviewDataChanged', {
-          detail: { nodeId: props.id, data: updatedData },
-        })
-        document.dispatchEvent(event)
+        eventBus.emit('sourcePreviewDataChanged', { nodeId: props.id, data: updatedData as unknown as Record<string, unknown> })
 
         logger.debug('✅ 本地路径方式重载成功:', {
           rows: updatedData.totalRows,
@@ -469,17 +460,15 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
 
       if (files && files.length > 0) {
         const file = files[0]
+        if (!file) return
         logger.debug('User selected file:', file.name)
 
         try {
-          const reloadEvent = new CustomEvent('reload-file-uploaded', {
-            detail: {
-              file: file,
-              nodeId: props.id,
-              sourceName: localData.value.sourceName,
-            },
+          eventBus.emit('reload-file-uploaded', {
+            file: file,
+            nodeId: props.id,
+            sourceName: localData.value.sourceName || '',
           })
-          document.dispatchEvent(reloadEvent)
           logger.debug('File upload event dispatched')
         } catch (error) {
           logger.error('Failed to process file:', error)

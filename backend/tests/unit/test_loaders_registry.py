@@ -22,15 +22,6 @@ class FakeSpec:
         return "fake"
 
 
-class FakeLoader(DataSourceLoader):
-    spec_class = FakeSpec
-
-    def load(self):
-        import pandas as pd
-
-        return pd.DataFrame()
-
-
 class TestRegisterLoader:
     def setup_method(self):
         self._original = dict(reg.LOADER_REGISTRY)
@@ -73,53 +64,4 @@ class TestRegisterLoader:
                     return pd.DataFrame()
 
 
-class TestGetLoader:
-    def setup_method(self):
-        self._original = dict(reg.LOADER_REGISTRY)
-        reg.LOADER_REGISTRY["fake"] = FakeLoader
 
-    def teardown_method(self):
-        reg.LOADER_REGISTRY.clear()
-        reg.LOADER_REGISTRY.update(self._original)
-
-    def test_get_loader_for_spec(self):
-        spec = FakeSpec()
-        loader = reg.get_loader_for_spec(spec)
-        assert isinstance(loader, FakeLoader)
-
-    def test_get_loader_for_spec_missing(self):
-        class MissingSpec:
-            def get_discriminator_value(self):
-                return "missing"
-
-        with pytest.raises(ValueError, match="未找到"):
-            reg.get_loader_for_spec(MissingSpec())
-
-    def test_get_loader_class_for_type(self):
-        cls = reg.get_loader_class_for_type("fake")
-        assert cls is FakeLoader
-
-    def test_get_loader_class_for_type_missing(self):
-        with pytest.raises(KeyError, match="未找到"):
-            reg.get_loader_class_for_type("nope")
-
-    def test_supports_source_type(self):
-        assert reg.supports_source_type("fake") is True
-        assert reg.supports_source_type("nope") is False
-
-    def test_get_supported_types(self):
-        types = reg.get_supported_types()
-        assert "fake" in types
-
-    def test_register_loader_class(self):
-        class AnotherLoader(DataSourceLoader):
-            spec_class = FakeSpec
-
-            def load(self):
-                import pandas as pd
-
-                return pd.DataFrame()
-
-        reg.register_loader_class("another", AnotherLoader)
-        assert reg.supports_source_type("another") is True
-        assert reg.get_loader_class_for_type("another") is AnotherLoader

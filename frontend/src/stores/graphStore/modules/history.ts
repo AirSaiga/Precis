@@ -88,6 +88,7 @@ export function createHistoryModule(params: {
     const previousState = undoStack.value[undoStack.value.length - 1]
     undoStack.value = undoStack.value.slice(0, -1)
 
+    if (!previousState) return
     nodes.value = previousState.nodes
     edges.value = previousState.edges
 
@@ -117,6 +118,7 @@ export function createHistoryModule(params: {
     const nextState = redoStack.value[redoStack.value.length - 1]
     redoStack.value = redoStack.value.slice(0, -1)
 
+    if (!nextState) return
     nodes.value = nextState.nodes
     edges.value = nextState.edges
 

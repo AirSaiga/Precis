@@ -56,8 +56,8 @@ export function useTransformOutputManager() {
     const baseY = basePosition?.y || 0
 
     for (let i = 0; i < columnNames.length; i++) {
-      const colName = columnNames[i]
-      const colRows = rowsByColumn[i]
+      const colName = columnNames[i] ?? ''
+      const colRows = rowsByColumn[i] ?? []
       const pos = { x: baseX, y: baseY + i * 140 }
       const newId = graphStore.createTransformOutputNode(pos, transformNodeId, colName, colRows)
       outputNodeIds.push(newId)

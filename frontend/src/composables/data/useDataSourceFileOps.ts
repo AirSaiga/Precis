@@ -128,6 +128,10 @@ export function useDataSourceFileOps() {
 
       // 获取新选择的文件路径
       const newFilePath = result.filePaths[0]
+      if (!newFilePath) {
+        logger.debug('[useDataSourceFileOps] 未获取到文件路径')
+        return
+      }
       // 使用字符串操作提取文件名（兼容前端环境）
       const fileName = newFilePath.split(/[/\\]/).pop() || newFilePath
       const fileType = getFileTypeFromExtension(fileName)

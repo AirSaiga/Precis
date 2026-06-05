@@ -88,6 +88,10 @@ export class LayoutCalculator {
     const unclassified: string[] = []
 
     for (const node of nodes) {
+      if (!node.type) {
+        unclassified.push(node.id)
+        continue
+      }
       const category = NODE_TYPE_TO_CATEGORY[node.type]
       const nodeType = node.type
 
@@ -96,15 +100,15 @@ export class LayoutCalculator {
         continue
       }
 
-      if (!byCategory.has(category)) {
-        byCategory.set(category, [])
+      const categoryList = byCategory.get(category)
+      if (categoryList) {
+        categoryList.push(node.id)
       }
-      byCategory.get(category)!.push(node.id)
 
-      if (!byType.has(nodeType)) {
-        byType.set(nodeType, [])
+      const typeList = byType.get(nodeType)
+      if (typeList) {
+        typeList.push(node.id)
       }
-      byType.get(nodeType)!.push(node.id)
     }
 
     return { byCategory, byType, unclassified }

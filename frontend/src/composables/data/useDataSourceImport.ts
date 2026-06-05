@@ -32,6 +32,7 @@ import { isElectron, getElectronAPI } from '@/core/utils/electronDetector'
 import { platformDetector } from '@/features/keyboard/platform'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { normalizePath } from '@/core/utils/pathNormalization'
+import { eventBus } from '@/core/eventBus'
 import type { ExternalDataSource } from '@/types/graph'
 
 /**
@@ -572,14 +573,11 @@ export function useDataSourceImport() {
       }
 
       // 触发数据刷新事件
-      const refreshEvent = new CustomEvent('data-source-refreshed', {
-        detail: {
-          nodeId: nodeId,
-          fileId: fileId,
-          fileName: file.name,
-        },
+      eventBus.emit('data-source-refreshed', {
+        nodeId: nodeId,
+        fileId: fileId,
+        fileName: file.name,
       })
-      document.dispatchEvent(refreshEvent)
       logger.debug('[useDataSourceImport] 数据刷新事件已触发')
 
       // 延迟触发关联节点的校验

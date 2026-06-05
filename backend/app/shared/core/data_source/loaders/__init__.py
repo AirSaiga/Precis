@@ -31,7 +31,7 @@ from typing import Any
 import pandas as pd
 
 from .base import DataLoadError, DataSourceLoader
-from .registry import LOADER_REGISTRY, get_loader_for_spec, register_loader, supports_source_type
+from .registry import LOADER_REGISTRY, register_loader
 
 logger = logging.getLogger(__name__)
 
@@ -263,8 +263,6 @@ __all__ = [
     "register_loader",
     # 注册表
     "LOADER_REGISTRY",
-    "get_loader_for_spec",
-    "supports_source_type",
     # 统一加载接口
     "load_source_data",
     "load_source_data_safe",

@@ -61,10 +61,10 @@
                       {{ t('common.fullValidation.report.title') }}
                     </div>
                   </div>
-                  <div class="status-badge" :class="data.success ? 'success' : 'error'">
+                  <div class="status-badge" :class="data?.success ? 'success' : 'error'">
                     <span class="status-icon">
                       <svg
-                        v-if="data.success"
+                        v-if="data?.success"
                         width="16"
                         height="16"
                         viewBox="0 0 24 24"
@@ -92,7 +92,7 @@
                       </svg>
                     </span>
                     {{
-                      data.success
+                      data?.success
                         ? t('common.fullValidation.report.statusPass')
                         : t('common.fullValidation.report.statusFail')
                     }}
@@ -137,7 +137,7 @@
                       </svg>
                       {{ t('common.fullValidation.report.duration') }}
                     </span>
-                    <span class="meta-value">{{ data.summary?.duration_ms }}ms</span>
+                    <span class="meta-value">{{ data?.summary?.duration_ms }}ms</span>
                   </div>
                 </div>
               </div>
@@ -161,7 +161,7 @@
                       <line x1="16" y1="17" x2="8" y2="17" />
                     </svg>
                   </div>
-                  <div class="stat-number">{{ data.statistics?.total_checks || 0 }}</div>
+                  <div class="stat-number">{{ data?.statistics?.total_checks || 0 }}</div>
                   <div class="stat-label">{{ t('common.fullValidation.report.totalChecks') }}</div>
                 </div>
                 <div class="stat-card stat-passed">
@@ -179,7 +179,7 @@
                       <polyline points="20 6 9 17 4 12" />
                     </svg>
                   </div>
-                  <div class="stat-number">{{ data.statistics?.passed_count || 0 }}</div>
+                  <div class="stat-number">{{ data?.statistics?.passed_count || 0 }}</div>
                   <div class="stat-label">{{ t('common.fullValidation.report.passed') }}</div>
                 </div>
                 <div class="stat-card stat-failed">
@@ -198,7 +198,7 @@
                       <line x1="6" y1="6" x2="18" y2="18" />
                     </svg>
                   </div>
-                  <div class="stat-number">{{ data.statistics?.failed_count || 0 }}</div>
+                  <div class="stat-number">{{ data?.statistics?.failed_count || 0 }}</div>
                   <div class="stat-label">{{ t('common.fullValidation.report.failed') }}</div>
                 </div>
                 <div class="stat-card stat-rate">
@@ -218,7 +218,7 @@
                       <line x1="6" y1="20" x2="6" y2="14" />
                     </svg>
                   </div>
-                  <div class="stat-number">{{ (data.statistics?.pass_rate || 0).toFixed(1) }}%</div>
+                  <div class="stat-number">{{ (data?.statistics?.pass_rate || 0).toFixed(1) }}%</div>
                   <div class="stat-label">{{ t('common.fullValidation.report.passRate') }}</div>
                 </div>
               </div>
@@ -242,7 +242,7 @@
                     </svg>
                     {{ t('common.fullValidation.report.totalFiles') }}
                   </span>
-                  <span class="metric-value">{{ data.summary?.files_total }}</span>
+                  <span class="metric-value">{{ data?.summary?.files_total }}</span>
                 </div>
                 <div class="metric-item">
                   <span class="metric-label">
@@ -262,7 +262,7 @@
                     </svg>
                     {{ t('common.fullValidation.report.loadedFiles') }}
                   </span>
-                  <span class="metric-value">{{ data.summary?.files_loaded }}</span>
+                  <span class="metric-value">{{ data?.summary?.files_loaded }}</span>
                 </div>
                 <div class="metric-item">
                   <span class="metric-label">
@@ -282,7 +282,7 @@
                     </svg>
                     {{ t('common.fullValidation.report.tablesLoaded') }}
                   </span>
-                  <span class="metric-value">{{ data.summary?.tables_loaded }}</span>
+                  <span class="metric-value">{{ data?.summary?.tables_loaded }}</span>
                 </div>
                 <div class="metric-item">
                   <span class="metric-label">
@@ -304,8 +304,8 @@
                   </span>
                   <span
                     class="metric-value"
-                    :class="data.summary?.loading_error_count > 0 ? 'text-danger' : 'text-success'"
-                    >{{ data.summary?.loading_error_count }}</span
+                    :class="(data?.summary?.loading_error_count ?? 0) > 0 ? 'text-danger' : 'text-success'"
+                    >{{ data?.summary?.loading_error_count }}</span
                   >
                 </div>
                 <div class="metric-item">
@@ -328,8 +328,8 @@
                   </span>
                   <span
                     class="metric-value"
-                    :class="data.summary?.format_error_count > 0 ? 'text-danger' : 'text-success'"
-                    >{{ data.summary?.format_error_count }}</span
+                    :class="(data?.summary?.format_error_count ?? 0) > 0 ? 'text-danger' : 'text-success'"
+                    >{{ data?.summary?.format_error_count }}</span
                   >
                 </div>
                 <div class="metric-item">
@@ -353,15 +353,17 @@
                   <span
                     class="metric-value"
                     :class="
-                      data.summary?.constraint_error_count > 0 ? 'text-danger' : 'text-success'
+                      (data?.summary?.constraint_error_count ?? 0) > 0
+                        ? 'text-danger'
+                        : 'text-success'
                     "
-                    >{{ data.summary?.constraint_error_count }}</span
+                    >{{ data?.summary?.constraint_error_count }}</span
                   >
                 </div>
               </div>
 
               <!-- 警告信息 -->
-              <div v-if="data.warnings && data.warnings.length > 0" class="warnings-section">
+              <div v-if="data?.warnings && data.warnings.length > 0" class="warnings-section">
                 <div class="warnings-header">
                   <svg
                     width="16"
@@ -381,12 +383,16 @@
                   </svg>
                   <span
                     >{{ t('common.fullValidation.report.warnings') }} ({{
-                      data.warnings.length
+                      data?.warnings?.length
                     }})</span
                   >
                 </div>
                 <ul class="warnings-list">
-                  <li v-for="(warning, index) in data.warnings" :key="index" class="warning-item">
+                  <li
+                    v-for="(warning, index) in data?.warnings"
+                    :key="index"
+                    class="warning-item"
+                  >
                     {{ warning }}
                   </li>
                 </ul>
@@ -616,8 +622,10 @@
       timestamp: props.timestamp,
       t: (key: string) => t(key),
     }
-    exportHtmlReport(props.data, options)
-    close()
+    if (props.data) {
+      exportHtmlReport(props.data, options)
+      close()
+    }
   }
 
   const handleExportPdf = async () => {
@@ -626,6 +634,7 @@
       timestamp: props.timestamp,
       t: (key: string) => t(key),
     }
+    if (!props.data) return
     try {
       await exportPdfReport(props.data, options)
       close()

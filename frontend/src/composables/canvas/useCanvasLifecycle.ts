@@ -15,18 +15,20 @@ import { platformDetector } from '@/features/keyboard/platform'
 import { useGraphStore } from '@/stores/graphStore'
 import { useDragStore } from '@/stores/dragStore'
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
+import type { AppEvents } from '@/core/eventBus'
 
 export interface CanvasLifecycleOptions {
   /** 项目创建对话框打开回调 */
   onOpenCreateProjectDialog?: () => void
   /** 表头行变更回调 */
-  onHeaderRowChanged?: (event: Event) => void
+  onHeaderRowChanged?: (detail: AppEvents['headerRowChanged']) => void
   /** 数据源预览数据变更回调 */
-  onSourcePreviewDataChanged?: (event: any) => void | Promise<void>
+  onSourcePreviewDataChanged?: (detail: AppEvents['sourcePreviewDataChanged']) => void | Promise<void>
   /** Schema 节点保存回调 */
-  onSchemaNodeSave?: (event: any) => void | Promise<void>
+  onSchemaNodeSave?: (detail: AppEvents['schema-node-save']) => void | Promise<void>
   /** 正则模式更新回调 */
-  onRegexPatternUpdated?: (event: any) => void | Promise<void>
+  onRegexPatternUpdated?: (detail: AppEvents['regex-pattern-updated']) => void | Promise<void>
 }
 
 /**
@@ -65,17 +67,13 @@ export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
    * @description 处理聚焦画布节点事件
    * @param evt - 自定义事件，包含需要聚焦的节点 ID 列表
    */
-  const handleFocusCanvasNodes = (evt: Event) => {
-    // 从自定义事件的 detail 中提取节点 ID 列表
-    const detail = (evt as CustomEvent).detail as { nodeIds?: string[] } | undefined
-    const nodeIds = Array.isArray(detail?.nodeIds) ? detail!.nodeIds : []
+  const handleFocusCanvasNodes = (detail: { nodeIds: string[] }) => {
+    const nodeIds = detail.nodeIds
     if (nodeIds.length === 0) return
 
-    // 更新 Store 中的选中状态，并过滤出当前画布中实际存在的节点
     store.setSelection(nodeIds)
     const focusNodeIds = nodeIds.filter((id) => findNode(id))
     if (focusNodeIds.length > 0) {
-      // 将视口动画适配到选中的节点
       fitView({ nodes: focusNodeIds, padding: 0.25 })
     }
   }
@@ -99,78 +97,37 @@ export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
     }
   }
 
-  /**
-   * @description 处理打开创建项目对话框事件
-   */
-  const handleOpenCreateProjectDialog = () => {
-    options.onOpenCreateProjectDialog?.()
+  const handleHeaderRowChanged = (detail: AppEvents['headerRowChanged']) => {
+    options.onHeaderRowChanged?.(detail)
   }
 
-  /**
-   * @description 处理表头行变更事件
-   * @param evt - 自定义事件对象
-   */
-  const handleHeaderRowChanged = (evt: Event) => {
-    options.onHeaderRowChanged?.(evt)
+  const handleSourcePreviewDataChanged = (detail: AppEvents['sourcePreviewDataChanged']) => {
+    options.onSourcePreviewDataChanged?.(detail)
   }
 
-  /**
-   * @description 处理数据源预览数据变更事件
-   * @param evt - 自定义事件对象
-   */
-  const handleSourcePreviewDataChanged = (evt: Event) => {
-    options.onSourcePreviewDataChanged?.(evt)
+  const handleSchemaNodeSave = (detail: AppEvents['schema-node-save']) => {
+    options.onSchemaNodeSave?.(detail)
   }
 
-  /**
-   * @description 处理 Schema 节点保存事件
-   * @param evt - 自定义事件对象
-   */
-  const handleSchemaNodeSave = (evt: Event) => {
-    options.onSchemaNodeSave?.(evt)
-  }
-
-  /**
-   * @description 处理正则模式更新事件
-   * @param evt - 自定义事件对象
-   */
-  const handleRegexPatternUpdated = (evt: Event) => {
-    options.onRegexPatternUpdated?.(evt)
+  const handleRegexPatternUpdated = (detail: AppEvents['regex-pattern-updated']) => {
+    options.onRegexPatternUpdated?.(detail)
   }
 
   onMounted(() => {
-    // 注册来自各节点的跨组件通信自定义事件
-    document.addEventListener('headerRowChanged', handleHeaderRowChanged)
-    document.addEventListener(
-      'sourcePreviewDataChanged',
-      handleSourcePreviewDataChanged as unknown as EventListener
-    )
-    document.addEventListener('schema-node-save', handleSchemaNodeSave)
-    document.addEventListener(
-      'regex-pattern-updated',
-      handleRegexPatternUpdated as unknown as EventListener
-    )
-    // 注册窗口级事件：节点聚焦和创建项目对话框
-    window.addEventListener('focus-canvas-nodes', handleFocusCanvasNodes as EventListener)
-    window.addEventListener('open-create-project-dialog', handleOpenCreateProjectDialog)
-    // 注册全局键盘快捷键监听
+    eventBus.on('headerRowChanged', handleHeaderRowChanged)
+    eventBus.on('sourcePreviewDataChanged', handleSourcePreviewDataChanged)
+    eventBus.on('schema-node-save', handleSchemaNodeSave)
+    eventBus.on('regex-pattern-updated', handleRegexPatternUpdated)
+    eventBus.on('focus-canvas-nodes', handleFocusCanvasNodes)
     window.addEventListener('keydown', handleGlobalKeydown)
   })
 
   onUnmounted(() => {
-    // 清理所有注册的事件监听器，防止组件卸载后发生内存泄漏
-    document.removeEventListener('headerRowChanged', handleHeaderRowChanged)
-    document.removeEventListener(
-      'sourcePreviewDataChanged',
-      handleSourcePreviewDataChanged as unknown as EventListener
-    )
-    document.removeEventListener('schema-node-save', handleSchemaNodeSave)
-    document.removeEventListener(
-      'regex-pattern-updated',
-      handleRegexPatternUpdated as unknown as EventListener
-    )
-    window.removeEventListener('focus-canvas-nodes', handleFocusCanvasNodes as EventListener)
-    window.removeEventListener('open-create-project-dialog', handleOpenCreateProjectDialog)
+    eventBus.off('headerRowChanged', handleHeaderRowChanged)
+    eventBus.off('sourcePreviewDataChanged', handleSourcePreviewDataChanged)
+    eventBus.off('schema-node-save', handleSchemaNodeSave)
+    eventBus.off('regex-pattern-updated', handleRegexPatternUpdated)
+    eventBus.off('focus-canvas-nodes', handleFocusCanvasNodes)
     window.removeEventListener('keydown', handleGlobalKeydown)
     delete (window as unknown as { __focusToProjectRoot?: () => void }).__focusToProjectRoot
     // 清除拖拽悬浮状态

@@ -84,7 +84,7 @@ interface DagEdge {
 export function createTemplateExpandModule(params: {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>
-  updateNodeData: (nodeId: string, newData: Partial<CustomNode['data']>) => void
+  updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
 }) {
   const { nodes, edges, updateNodeData } = params
 
@@ -313,7 +313,11 @@ export function createTemplateExpandModule(params: {
     const rootItems = items.filter((i) => !i.inputFromNode)
 
     if (!dataSourceId && rootItems.length > 0) {
-      const manualNodeId = `manual-input-${rootItems[0].id}`
+      const firstItem = rootItems[0]
+      if (!firstItem) {
+        return { dagNodes, dagEdges }
+      }
+      const manualNodeId = `manual-input-${firstItem.id}`
       dagNodes.push({
         id: manualNodeId,
         origin: 'synthetic',

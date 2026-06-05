@@ -58,6 +58,7 @@
 <script setup lang="ts">
   import { ref, onMounted, onUnmounted } from 'vue'
   import { defineAsyncComponent } from 'vue'
+  import { eventBus } from '@/core/eventBus'
   import Toast from '@/components/shared/Toast.vue'
   import GlobalConfirmModal from '@/components/common/GlobalConfirmModal.vue'
   import InspectionDrawer from '@/components/inspection/InspectionDrawer.vue'
@@ -143,29 +144,17 @@
   }
 
   onMounted(() => {
-    window.addEventListener('open-settings', handleOpenSettings as EventListener)
-    window.addEventListener('open-project-management', handleOpenProjectManagement as EventListener)
-    window.addEventListener('export-full-config-yaml', handleExportFullConfigYaml as EventListener)
-    window.addEventListener(
-      'open-save-as-template-dialog',
-      handleOpenSaveAsTemplate as EventListener
-    )
+    eventBus.on('open-settings', handleOpenSettings)
+    eventBus.on('open-project-management', handleOpenProjectManagement)
+    eventBus.on('export-full-config-yaml', handleExportFullConfigYaml)
+    eventBus.on('open-save-as-template-dialog', handleOpenSaveAsTemplate)
   })
 
   onUnmounted(() => {
-    window.removeEventListener('open-settings', handleOpenSettings as EventListener)
-    window.removeEventListener(
-      'open-project-management',
-      handleOpenProjectManagement as EventListener
-    )
-    window.removeEventListener(
-      'export-full-config-yaml',
-      handleExportFullConfigYaml as EventListener
-    )
-    window.removeEventListener(
-      'open-save-as-template-dialog',
-      handleOpenSaveAsTemplate as EventListener
-    )
+    eventBus.off('open-settings', handleOpenSettings)
+    eventBus.off('open-project-management', handleOpenProjectManagement)
+    eventBus.off('export-full-config-yaml', handleExportFullConfigYaml)
+    eventBus.off('open-save-as-template-dialog', handleOpenSaveAsTemplate)
   })
 
   // 暴露方法给父组件，用于外部触发打开某些 overlay

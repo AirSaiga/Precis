@@ -54,7 +54,7 @@ export function useConstraintNodeBase<TData extends BaseConstraintNodeData>(
 
   const validationStatus = computed(() => {
     if (options.getValidationStatus) {
-      return options.getValidationStatus(props.data)
+      return options.getValidationStatus(props.data) ?? 'idle'
     }
     return props.data.validationStatus || 'idle'
   })
@@ -81,18 +81,18 @@ export function useConstraintNodeBase<TData extends BaseConstraintNodeData>(
   })
 
   const prefix = options.statusI18nPrefix
-  const statusText = computed(() => {
+  const statusText = computed((): string => {
     if (options.getStatusText) {
       const custom = options.getStatusText(props.data, validationStatus.value)
       if (custom !== undefined) return custom
     }
     const statusMap: Record<string, string> = {
-      idle: t(`${prefix}.statusIdle`),
-      pass: t(`${prefix}.statusPass`),
-      error: t(`${prefix}.statusError`),
-      missing: t(`${prefix}.statusMissing`),
+      idle: t(`${prefix}.statusIdle`) ?? 'idle',
+      pass: t(`${prefix}.statusPass`) ?? 'pass',
+      error: t(`${prefix}.statusError`) ?? 'error',
+      missing: t(`${prefix}.statusMissing`) ?? 'missing',
     }
-    return statusMap[validationStatus.value] || statusMap.idle
+    return statusMap[validationStatus.value] ?? statusMap.idle ?? 'idle'
   })
 
   const metrics = computed(() => {

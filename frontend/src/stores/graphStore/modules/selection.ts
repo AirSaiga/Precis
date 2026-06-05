@@ -40,7 +40,10 @@ export function createSelectionModule(params: {
   function selectAllNodes() {
     if (nodes.value.length > 0) {
       selectedNodeIds.value = nodes.value.map((n) => n.id)
-      selectedNodeId.value = nodes.value[nodes.value.length - 1].id
+      const lastNode = nodes.value[nodes.value.length - 1]
+      if (lastNode) {
+        selectedNodeId.value = lastNode.id
+      }
     }
   }
 
@@ -86,7 +89,10 @@ export function createSelectionModule(params: {
   function setSelection(nodeIds: string[]) {
     selectedNodeIds.value = [...nodeIds]
     if (nodeIds.length === 1) {
-      selectedNodeId.value = nodeIds[0]
+      const firstId = nodeIds[0]
+      if (firstId !== undefined) {
+        selectedNodeId.value = firstId
+      }
     } else if (nodeIds.length === 0) {
       selectedNodeId.value = null
     }

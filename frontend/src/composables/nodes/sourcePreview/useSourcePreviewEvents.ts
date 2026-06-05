@@ -11,6 +11,7 @@ import { useGraphStore } from '@/stores/graphStore'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { validateConstraintNodesForSchema } from '@/services/constraints/validationRegistry'
 import { toastSuccess, toastError, toastInfo } from '@/core/toast'
+import type { AppEvents } from '@/core/eventBus'
 import type { SourcePreviewNodeData, SchemaNodeData, JsonSchemaColumn, CustomNodeData } from '../types'
 
 /**
@@ -56,25 +57,18 @@ export function useSourcePreviewEvents(
    *
    * @param event - 自定义事件对象，包含 nodeId、headerRow 和 data
    */
-  const handleHeaderRowChanged = (event: Event) => {
-    // 记录接收到事件的日志
-    logger.debug('📥 SourcePreview收到headerRowChanged事件:', event)
+  const handleHeaderRowChanged = (detail: AppEvents['headerRowChanged']) => {
+    logger.debug('📥 SourcePreview收到headerRowChanged事件:', detail)
 
-    // 将 Event 转换为 CustomEvent 以获取 detail 数据
-    const customEvent = event as CustomEvent
-
-    // 验证事件数据是否存在
-    if (!event || !customEvent.detail) {
-      logger.warn('⚠️ headerRowChanged事件数据格式不正确:', event)
+    if (!detail) {
+      logger.warn('⚠️ headerRowChanged事件数据格式不正确')
       return
     }
 
-    // 解构获取事件数据
-    const { nodeId, headerRow, data } = customEvent.detail
+    const { nodeId, headerRow, data } = detail
 
-    // 验证必要参数的有效性
     if (!nodeId || typeof headerRow !== 'number' || !data) {
-      logger.warn('⚠️ 表头行变更事件数据不完整:', customEvent.detail)
+      logger.warn('⚠️ 表头行变更事件数据不完整:', detail)
       return
     }
 
@@ -190,8 +184,8 @@ export function useSourcePreviewEvents(
         })
 
         // 更新SchemaNode的表名、源文件等信息
-        const updatedSchemaData = {
-          ...schemaNode.data,
+        const updatedSchemaData: Record<string, unknown> = {
+          ...(schemaNode.data as Record<string, unknown>),
           tableName: smartTableName,
           sourceFile: displayFileName, // 使用可读的文件名
           sourceFilePath: displaySourcePath, // 使用原始路径
@@ -377,44 +371,43 @@ export function useSourcePreviewEvents(
    * 当数据源数据变更时，更新连接的SchemaNode并重新校验非空约束
    * @param event - 自定义事件
    */
-  const handleSourcePreviewDataChanged = async (event: CustomEvent) => {
+  const handleSourcePreviewDataChanged = async (detail: AppEvents['sourcePreviewDataChanged']) => {
     try {
-      const { nodeId, data } = event.detail
+      const { nodeId, data } = detail
+      const d = data as Record<string, any>
 
       if (!nodeId || !data) {
-        logger.warn('⚠️ SourcePreview数据变更事件数据不完整:', event.detail)
+        logger.warn('⚠️ SourcePreview数据变更事件数据不完整:', detail)
         return
       }
 
       logger.debug('📥 接收SourcePreview数据变更事件:', {
         nodeId,
-        currentSheet: data.currentSheet,
-        localPath: data.localPath,
+        currentSheet: d.currentSheet,
+        localPath: d.localPath,
       })
 
-      // 调试日志：查看传递的数据
       logger.debug('🔍 handleSourcePreviewDataChanged 收到数据:', {
         nodeId,
         hasSourceName: 'sourceName' in data,
-        sourceName: data.sourceName,
+        sourceName: d.sourceName,
         hasFileName: 'fileName' in data,
-        fileName: data.fileName,
+        fileName: d.fileName,
         hasCurrentSheet: 'currentSheet' in data,
-        currentSheet: data.currentSheet,
+        currentSheet: d.currentSheet,
         dataKeys: Object.keys(data),
       })
 
       // 尝试多种路径匹配方式
-      const sourceFilePath = data.fileName || data.localPath
-      const fileName = data.fileName || ''
+      const sourceFilePath = d.fileName || d.localPath
+      const fileName = d.fileName || ''
 
-      // 方式1：通过路径匹配查找SchemaNode
       let schemaNodes = store.nodes.filter(
         (n) =>
           n.type === 'schema' &&
           ((n.data as Record<string, unknown>)?.sourceFilePath === sourceFilePath ||
-            (n.data as Record<string, unknown>)?.sourceFilePath === data.fileName ||
-            (n.data as Record<string, unknown>)?.sourceFilePath === data.localPath)
+            (n.data as Record<string, unknown>)?.sourceFilePath === d.fileName ||
+            (n.data as Record<string, unknown>)?.sourceFilePath === d.localPath)
       )
 
       // 方式2：如果路径匹配失败，通过边连接查找SchemaNode
@@ -466,14 +459,12 @@ export function useSourcePreviewEvents(
         logger.debug(`🔄 更新 ${schemaNodes.length} 个SchemaNode的元数据`)
 
         for (const schemaNode of schemaNodes) {
-          // 使用 sourceName 作为首选的文件名（人类可读）
-          const displayFileName = data.sourceName || data.fileName || 'Unknown'
-          const displaySourcePath = data.fileName || displayFileName
+          const displayFileName = d.sourceName || d.fileName || 'Unknown'
+          const displaySourcePath = d.fileName || displayFileName
 
-          // 生成表名：优先使用当前Sheet名，然后是文件名（不含扩展名）
           const smartTableName =
-            data.currentSheet ||
-            (data.sourceName || data.fileName || 'Table').replace(/\.[^/.]+$/, '')
+            d.currentSheet ||
+            (d.sourceName || d.fileName || 'Table').replace(/\.[^/.]+$/, '')
 
           // 检查是否已有列定义
           const existingColumns = ((schemaNode.data as Record<string, unknown>)?.columns ||
@@ -492,10 +483,9 @@ export function useSourcePreviewEvents(
             tableName: smartTableName,
             sourceFile: displayFileName,
             sourceFilePath: displaySourcePath,
-            sourceType: data.sourceType,
-            headerRow: data.headerRow || 0,
-            // 仅使用实际的工作表名称；若缺失则保持 undefined，绝不回退到文件名
-            sheetName: data.currentSheet,
+            sourceType: d.sourceType,
+            headerRow: d.headerRow || 0,
+            sheetName: d.currentSheet,
           }
 
           store.updateNodeData(schemaNode.id, updatedSchemaData)

@@ -44,7 +44,7 @@ export class TabularColumnGenerator implements ColumnGenerationStrategy {
       if (Array.isArray(rawData[0])) {
         // rawData 是 string[][] 格式
         const rows = rawData as unknown[][]
-        headerRow = rows[0]
+        headerRow = rows[0] ?? []
         sampleDataRow = rows.length > 1 ? rows[1] : undefined
       } else {
         // rawData 是单个 headerRow

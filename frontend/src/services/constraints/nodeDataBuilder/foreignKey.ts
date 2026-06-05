@@ -5,7 +5,7 @@
  * 需要创建两条边：一条约束输入边 + 一条 FK 展示边。
  */
 
-import type { BuildInput, BuildResult } from './types'
+import type { BuildInput, BuildResult, EdgeDescriptor } from './types'
 import { registerBuilder } from './registry'
 
 function buildForeignKey(input: BuildInput): BuildResult {
@@ -48,7 +48,7 @@ function buildForeignKey(input: BuildInput): BuildResult {
     nodeData.embedded = true
   }
 
-  const edgeDescriptors = []
+  const edgeDescriptors: EdgeDescriptor[] = []
 
   // 约束输入边：Schema → FK 节点
   if (fkRefs.source.nodeId && fkRefs.source.columnId) {

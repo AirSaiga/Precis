@@ -113,6 +113,7 @@
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
   import { useAiConfigGeneratorStore } from '@/features/ai-config-generator/stores/aiConfigGeneratorStore'
+  import { eventBus } from '@/core/eventBus'
   import type { ProjectNodeData } from '@/types/graph'
 
   const { t } = useI18n()
@@ -212,7 +213,7 @@
 
   const exportFullConfig = () => {
     hideContextMenu()
-    window.dispatchEvent(new CustomEvent('export-full-config-yaml'))
+    eventBus.emit('export-full-config-yaml')
   }
 
   const openAiConfigGenerator = () => {
@@ -223,7 +224,7 @@
   const reloadProject = async () => {
     hideContextMenu()
     await graphStore.loadProjectFromV2()
-    window.dispatchEvent(new CustomEvent('project-applied'))
+    eventBus.emit('project-applied')
   }
 
   const openProjectManagement = () => {
@@ -235,7 +236,7 @@
     hideContextMenu()
     if (confirm(t('customNodes.projectRootNode.confirm.closeProject'))) {
       graphStore.clearProject()
-      window.dispatchEvent(new CustomEvent('project-closed'))
+      eventBus.emit('project-closed')
     }
   }
 

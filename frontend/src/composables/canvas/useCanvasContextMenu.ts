@@ -13,6 +13,7 @@ import type { NodeMouseEvent } from '@vue-flow/core'
 import { useAiChatStore } from '@/stores/aiChatStore'
 import { useGraphStore } from '@/stores/graphStore'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistryCore'
+import { eventBus } from '@/core/eventBus'
 
 export interface CanvasContextMenuOptions {
   /** VueFlow 节点右键事件注册器 */
@@ -111,7 +112,7 @@ export function useCanvasContextMenu({ onNodeContextMenu, t }: CanvasContextMenu
           label: displayLabel,
         })
         // 切换左侧侧边栏到 AI 助手视图
-        window.dispatchEvent(new CustomEvent('viewchange', { detail: { view: 'ai-chat' } }))
+        eventBus.emit('viewchange', { view: 'ai-chat' })
         // 点击后移除上下文菜单
         if (contextMenu.parentNode === document.body) {
           document.body.removeChild(contextMenu)
@@ -140,7 +141,7 @@ export function useCanvasContextMenu({ onNodeContextMenu, t }: CanvasContextMenu
         saveAsTemplateItem.className = 'context-menu-item'
         saveAsTemplateItem.textContent = '\uD83D\uDCE6 ' + t('template.saveAsTemplate')
         saveAsTemplateItem.onclick = () => {
-          window.dispatchEvent(new CustomEvent('open-save-as-template-dialog'))
+          eventBus.emit('open-save-as-template-dialog')
           if (contextMenu.parentNode === document.body) {
             document.body.removeChild(contextMenu)
           }

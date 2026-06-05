@@ -106,7 +106,7 @@ export function materializeV2EmbeddedConstraints(params: {
 
     if (hasNode(id)) return
 
-    const nodeType = TYPE_MAP[item.type] || 'constraint'
+    const nodeType = (item.type && TYPE_MAP[item.type]) || 'constraint'
     const basePos = { x: schemaNode.position.x + 420, y: schemaNode.position.y + idx * 160 }
     const kind = item.type ? V2_TYPE_TO_KIND[item.type] : undefined
 

@@ -243,7 +243,9 @@ function normalizeSheetKey(filePath: string, sheetName?: string | null): string 
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = ''
   for (let i = 0; i < bytes.length; i++) {
-    binary += String.fromCharCode(bytes[i])
+    const byte = bytes[i]
+    if (byte === undefined) continue
+    binary += String.fromCharCode(byte)
   }
   const b64 = btoa(binary)
   return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
@@ -270,7 +272,11 @@ function xorBytes(data: Uint8Array, secret: string): Uint8Array {
   if (key.length === 0) return data
   const out = new Uint8Array(data.length)
   for (let i = 0; i < data.length; i++) {
-    out[i] = data[i] ^ key[i % key.length]
+    const dataByte = data[i]
+    const keyByte = key[i % key.length]
+    if (dataByte !== undefined && keyByte !== undefined) {
+      out[i] = dataByte ^ keyByte
+    }
   }
   return out
 }
@@ -320,9 +326,9 @@ export function extractSheetFromId(id: string): string | null {
   const raw = decodeSchemaId(id)
   if (raw) {
     const parts = raw.split('|', 2)
-    return parts.length === 2 ? parts[1] : null
+    return parts.length === 2 ? (parts[1] ?? null) : null
   }
-  if (id.includes('-')) return id.split('-', 2)[1] || null
+  if (id.includes('-')) return id.split('-', 2)[1] ?? null
   return null
 }
 

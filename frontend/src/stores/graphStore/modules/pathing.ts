@@ -75,13 +75,13 @@
 
 import type { Ref } from 'vue'
 import type { CustomNode, SchemaNodeData } from '@/types/graph'
-import { useProjectStore } from '@/stores/projectStore'
+import type { ProjectStoreLike } from '@/types/storeInterfaces'
 import { platformDetector } from '@/features/keyboard/platform'
 import { normalizeConfigDir } from '@/core/utils/pathUtils'
 import { isAbsolutePath } from '@/core/utils/pathNormalization'
 
-export function createPathingModule(params: { nodes: Ref<CustomNode[]> }) {
-  const { nodes } = params
+export function createPathingModule(params: { nodes: Ref<CustomNode[]>; projectStore: ProjectStoreLike }) {
+  const { nodes, projectStore } = params
 
   function isCrossPlatformInvalidPath(inputPath: string): boolean {
     const p = (inputPath || '').trim()
@@ -112,7 +112,6 @@ export function createPathingModule(params: { nodes: Ref<CustomNode[]> }) {
   }
 
   function getEffectiveProjectConfigPath(): string | undefined {
-    const projectStore = useProjectStore()
     const storePath = projectStore.currentPaths?.configPath
     if (storePath && isAbsolutePath(storePath)) {
       return normalizeConfigDir(storePath)

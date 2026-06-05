@@ -18,7 +18,7 @@
  * - [网络] 端口冲突检测机制确保服务可用性
  */
 
-import { app, BrowserWindow, ipcMain, shell } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, protocol, net as electronNet } from 'electron';
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -62,6 +62,22 @@ const BACKEND_PATH = path.join(__dirname, '..', 'backend');
  * 注意: 打包后 __dirname 指向 resources/app/dist，所以使用相对路径找到 frontend/dist
  */
 const FRONTEND_PATH = path.join(__dirname, '..', 'frontend', 'dist');
+
+// ============================================================================
+// 自定义协议注册（必须在 app.whenReady 之前）
+// ============================================================================
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'app',
+    privileges: {
+      secure: true,
+      standard: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
+  },
+]);
 
 // ============================================================================
 // 全局状态管理
@@ -385,6 +401,7 @@ function createSplashWindow(): void {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
+      sandbox: true,
     },
   });
 
@@ -443,18 +460,15 @@ function tryShowMainWindow(): void {
  * - webPreferences.nodeIntegration: 设为 false 增强安全性
  * - webPreferences.contextIsolation: 设为 true 隔离渲染进程
  * - webPreferences.preload: 预加载脚本路径
- * - webSecurity: 设为 false 以允许加载本地资源（CSP 受限场景）
+ * - webPreferences.sandbox: 设为 true 启用沙箱，限制渲染进程权限
  *   [安全说明]
- *   禁用 webSecurity 是为了允许 Electron 窗口加载本地 HTML/JS/CSS 文件
- *   以及向后端 localhost API 发起请求。此配置的风险已通过以下措施缓解：
+ *   通过以下措施实现安全加载：
  *   1. nodeIntegration: false — 渲染进程无法直接访问 Node.js API
  *   2. contextIsolation: true — preload 脚本运行在独立上下文
- *   3. preload 脚本通过 contextBridge 白名单机制暴露有限 API
- *   4. 后端 CORS 通过 DynamicPortCORSMiddleware 限制 localhost 来源
- *   [替代方案评估]
- *   理论上可使用 protocol.registerFileProtocol 自定义协议加载本地文件，
- *   但 Vite 开发服务器在开发模式下使用 HTTP 协议，此方案与开发环境不兼容。
- *   生产构建中 webSecurity: true 为更安全的选择，评估后可切换。
+ *   3. sandbox: true — 启用 Chromium 沙箱，限制 OS 级别访问
+ *   4. preload 脚本通过 contextBridge 白名单机制暴露有限 API
+ *   5. 生产环境使用 app:// 自定义协议加载本地文件，避免禁用 webSecurity
+ *   6. 后端 CORS 通过 DynamicPortCORSMiddleware 限制 localhost 来源
  * 
  * [窗口事件流程]
  * 1. 创建窗口 (BrowserWindow 构造函数)
@@ -471,14 +485,10 @@ function createWindow(): void {
     minWidth: 1200,    // 最小宽度约束，保证画布操作区可用
     minHeight: 800,    // 最小高度约束，保证面板信息完整显示
     webPreferences: {
-      // [安全] 禁用 Node.js 集成，防止渲染进程访问系统资源
       nodeIntegration: false,
-      // [安全] 启用上下文隔离，preload 脚本运行在独立上下文
       contextIsolation: true,
-      // 预加载脚本路径，打包后指向 dist/preload.js
+      sandbox: true,
       preload: path.join(__dirname, 'preload.js'),
-      // [性能] 禁用 Web Security 以支持本地文件加载
-      webSecurity: false
     },
     titleBarStyle: 'default',  // 使用系统默认标题栏
     show: false,               // 先创建后显示，避免闪烁
@@ -514,10 +524,10 @@ function createWindow(): void {
     // 自动打开开发者工具，便于调试
     mainWindow.webContents.openDevTools();
   } else {
-    // 生产环境: 加载本地打包文件
-    console.log('[Main] 生产模式: 加载本地文件');
-    console.log('[Main] 加载本地文件:', indexPath);
-    mainWindow.loadFile(indexPath);
+    // 生产环境: 通过自定义 app:// 协议加载本地打包文件
+    // 使用自定义协议替代 file://，避免 CORS 限制和 webSecurity 问题
+    console.log('[Main] 生产模式: 通过 app:// 协议加载本地文件');
+    mainWindow.loadURL(`app://./index.html`);
     
     // 生产环境可选开发者工具
     // mainWindow.webContents.openDevTools();
@@ -1261,6 +1271,13 @@ ipcMain.handle('get-cwd', async () => {
  * - 但不阻塞窗口创建
  */
 app.whenReady().then(async () => {
+  // 注册 app:// 自定义协议处理器，将请求映射到前端构建目录
+  protocol.handle('app', (request) => {
+    const url = new URL(request.url);
+    const filePath = path.join(FRONTEND_PATH, url.pathname);
+    return electronNet.fetch(`file://${filePath}`);
+  });
+
   // 先显示 Splash Screen，让用户立即看到反馈
   createSplashWindow();
 

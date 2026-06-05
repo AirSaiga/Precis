@@ -242,6 +242,7 @@ export class BoundsCalculator {
 
     for (const currentIdx of sortedIndices) {
       const currentBounds = boundsList[currentIdx]
+      if (!currentBounds) continue
       let offsetX = 0
       let offsetY = 0
       let attempts = 0
@@ -253,7 +254,9 @@ export class BoundsCalculator {
           if (prevIdx >= currentIdx) break
 
           const prevOffset = offsetMap.get(prevIdx) || { x: 0, y: 0 }
-          const prevBounds = this.translate(boundsList[prevIdx], prevOffset.x, prevOffset.y)
+          const prevBoundsRaw = boundsList[prevIdx]
+          if (!prevBoundsRaw) continue
+          const prevBounds = this.translate(prevBoundsRaw, prevOffset.x, prevOffset.y)
           const currentTranslated = this.translate(currentBounds, offsetX, offsetY)
 
           if (this.checkOverlap(prevBounds, currentTranslated, padding)) {

@@ -44,7 +44,10 @@
     "lint:all": "cd frontend && npm run lint && cd ../backend && python -m ruff check .",
     "format:all": "cd frontend && npm run format && cd ../backend && python -m ruff format . && python -m ruff check --fix .",
     "test:all": "cd frontend && npm run test && cd ../backend && python -m pytest",
-    "test:coverage": "cd frontend && npm run test:coverage && cd ../backend && python -m pytest --cov=app --cov-report=term-missing --cov-report=html"
+    "test:coverage": "cd frontend && npm run test:coverage && cd ../backend && python -m pytest --cov=app --cov-report=term-missing --cov-report=html",
+    "e2e:install": "cd e2e && npm install && npx playwright install chromium",
+    "e2e:test": "cd e2e && npx playwright test",
+    "e2e:report": "cd e2e && npx playwright show-report"
   },
   "keywords": [
     "precis",

@@ -48,6 +48,7 @@ export function useNodeOrganizer() {
     const byType: Record<string, number> = {}
 
     for (const node of nodes.value) {
+      if (!node.type) continue
       const category = node.type.replace(/Constraint|Preview|Console|Root|Toolbox|Dashboard$/, '')
       byCategory[category] = (byCategory[category] || 0) + 1
       byType[node.type] = (byType[node.type] || 0) + 1
@@ -152,13 +153,14 @@ export function useNodeOrganizer() {
   function extractConnections(): ConnectionInfo[] {
     const nodeTypeMap = new Map<string, string>()
     for (const node of nodes.value) {
+      if (!node.type) continue
       nodeTypeMap.set(node.id, node.type)
     }
     return edges.value.map((edge) => ({
       source: edge.source,
       target: edge.target,
-      sourceType: nodeTypeMap.get(edge.source) || '',
-      targetType: nodeTypeMap.get(edge.target) || '',
+      sourceType: nodeTypeMap.get(edge.source) ?? '',
+      targetType: nodeTypeMap.get(edge.target) ?? '',
       sourceHandle: edge.sourceHandle ?? undefined,
       targetHandle: edge.targetHandle ?? undefined,
     }))
@@ -182,7 +184,11 @@ export function useNodeOrganizer() {
     zoneGroups: ZoneGroup[],
     nodePositions: Map<string, { x: number; y: number }>
   ): void {
-    const nodeTypeById = new Map<string, string>(nodes.value.map((n) => [n.id, n.type]))
+    const nodeTypeById = new Map<string, string>(
+      nodes.value
+        .filter((n): n is typeof n & { type: string } => !!n.type)
+        .map((n) => [n.id, n.type])
+    )
     const nodeIds = Array.from(nodePositions.keys())
     const domDimensions = getNodeDimensionsFromDOM(nodeIds)
     const zoom = viewport.value.zoom || 1
@@ -346,6 +352,7 @@ export function useNodeOrganizer() {
 
     for (let i = 0; i < hiddenIds.length; i++) {
       const id = hiddenIds[i]
+      if (id === undefined) continue
       positions.set(id, {
         x: stackX + i * 6,
         y: stackY + i * 6,

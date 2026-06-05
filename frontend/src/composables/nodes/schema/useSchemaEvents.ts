@@ -6,6 +6,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
 import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
 import type { SchemaNodeData } from '../types'
@@ -71,48 +72,28 @@ export function useSchemaEvents(props: { id: string; data: SchemaNodeData }, emi
         // showToastMessage('Schema节点保存成功', 'success');
 
         // 查找对应的 DOM 元素，派发保存完成事件
-        const nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`)
-        if (nodeElement) {
-          // 创建自定义事件，携带节点 ID 和成功状态
-          const event = new CustomEvent('schema-node-save-complete', {
-            detail: {
-              nodeId: nodeId,
-              success: true,
-            },
-          })
-          // 派发事件到 DOM 元素
-          nodeElement.dispatchEvent(event)
-        }
+        eventBus.emit('schema-node-save-complete', {
+          nodeId: nodeId,
+          success: true,
+        })
       } else if (result === 'cancelled') {
         // 保存被取消
         logger.debug('🚫 Schema节点保存已取消')
 
-        const nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`)
-        if (nodeElement) {
-          const event = new CustomEvent('schema-node-save-complete', {
-            detail: {
-              nodeId: nodeId,
-              success: false,
-              cancelled: true,
-            },
-          })
-          nodeElement.dispatchEvent(event)
-        }
+        eventBus.emit('schema-node-save-complete', {
+          nodeId: nodeId,
+          success: false,
+          cancelled: true,
+        })
       } else {
         // 保存失败（store 内部已处理错误提示）
         logger.debug('❌ Schema节点保存失败')
 
         // 查找对应的 DOM 元素，派发保存完成事件（success: false）
-        const nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`)
-        if (nodeElement) {
-          const event = new CustomEvent('schema-node-save-complete', {
-            detail: {
-              nodeId: nodeId,
-              success: false,
-            },
-          })
-          nodeElement.dispatchEvent(event)
-        }
+        eventBus.emit('schema-node-save-complete', {
+          nodeId: nodeId,
+          success: false,
+        })
       }
     } catch (error) {
       // 捕获并记录错误
@@ -122,19 +103,11 @@ export function useSchemaEvents(props: { id: string; data: SchemaNodeData }, emi
       showError('保存失败：' + (error as Error).message)
 
       // 查找对应的 DOM 元素，派发保存失败事件
-      const nodeElement = document.querySelector(`[data-node-id="${nodeId}"]`)
-      if (nodeElement) {
-        // 创建自定义事件，携带节点 ID、失败状态和错误信息
-        const event = new CustomEvent('schema-node-save-complete', {
-          detail: {
-            nodeId: nodeId,
-            success: false,
-            error: error,
-          },
-        })
-        // 派发事件到 DOM 元素
-        nodeElement.dispatchEvent(event)
-      }
+      eventBus.emit('schema-node-save-complete', {
+        nodeId: nodeId,
+        success: false,
+        error: String(error),
+      })
     }
   }
 

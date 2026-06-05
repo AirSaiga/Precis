@@ -386,7 +386,7 @@ export async function getCwd(): Promise<string> {
  * @returns 文件内容（字符串格式）
  * @throws 如果不在 Electron 环境中，调用 ensureElectron() 抛出错误
  */
-export async function readFile(filePath: string): Promise<string> {
+export async function readFile(filePath: string): Promise<string | null> {
   ensureElectron()
   return window.electronAPI!.readFile(filePath)
 }

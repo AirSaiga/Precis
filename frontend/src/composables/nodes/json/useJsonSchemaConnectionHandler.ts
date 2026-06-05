@@ -16,6 +16,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
 import { nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -298,10 +299,7 @@ export function useJsonSchemaConnectionHandler() {
 
       setTimeout(() => {
         logger.debug('🔄 [handleSourceConnection] 触发 JSON Schema 自动校验')
-        const event = new CustomEvent('validate-json-schema', {
-          detail: { nodeId: schemaNodeId },
-        })
-        document.dispatchEvent(event)
+        eventBus.emit('validate-json-schema', { nodeId: schemaNodeId })
       }, 500)
     }
   }

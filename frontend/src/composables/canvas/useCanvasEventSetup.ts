@@ -54,7 +54,7 @@ export function useCanvasEventSetup(options: CanvasEventSetupOptions) {
     onOpenCreateProjectDialog: options.onOpenCreateProjectDialog,
     onHeaderRowChanged: handleHeaderRowChanged,
     onSourcePreviewDataChanged: handleSourcePreviewDataChanged,
-    onSchemaNodeSave: (evt) => handleNodeSave((evt as CustomEvent).detail),
+    onSchemaNodeSave: (detail) => handleNodeSave(detail),
     onRegexPatternUpdated: handleRegexPatternUpdated,
   })
 

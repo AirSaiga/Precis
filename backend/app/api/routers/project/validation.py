@@ -49,7 +49,17 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="", tags=["Project-Validation"])
 
 
-@router.post("/v2/validate/full", response_model=FullValidationResponse)
+@router.post(
+    "/v2/validate/full",
+    response_model=FullValidationResponse,
+    summary="执行项目全量数据校验",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Manifest 不存在"},
+        501: {"description": "功能暂未实现"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def validate_v2_full(
     request: FullValidationRequest,
     config_path: str = Depends(get_project_config_path),

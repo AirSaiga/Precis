@@ -33,7 +33,7 @@ export interface ConstraintTypeItem {
 }
 
 /** 约束类型图标映射 */
-export const CONSTRAINT_ICONS: Record<string, string> = {
+export const CONSTRAINT_ICONS = {
   notNull:
     '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
   unique:
@@ -54,7 +54,7 @@ export const CONSTRAINT_ICONS: Record<string, string> = {
     '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
   composite:
     '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6H4z"/><path d="M4 4h6v6H4z"/><path d="M14 14h6v6h-6z"/><path d="M14 4h6v6h-6z"/></svg>',
-}
+} as const satisfies Record<string, string>
 
 /** 约束类型完整列表 */
 export const CONSTRAINT_TYPES: ConstraintTypeItem[] = [
@@ -175,7 +175,7 @@ export function useConstraintTypes() {
    * 判断约束类型是否被禁用
    */
   const isConstraintDisabled = (constraint: ConstraintTypeItem): boolean => {
-    return constraint.requireScriptEnabled && !settingsStore.isScriptEnabled
+    return Boolean(constraint.requireScriptEnabled) && !settingsStore.isScriptEnabled
   }
 
   return {

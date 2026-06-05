@@ -22,6 +22,7 @@
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
   import { useAiConfigGeneratorStore } from '@/features/ai-config-generator/stores/aiConfigGeneratorStore'
   import { useScriptEditorStore } from '@/stores/scriptEditorStore'
+  import { eventBus } from '@/core/eventBus'
   import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
   import type { InspectorContext } from '../utils'
   import { getByPath } from '../utils'
@@ -87,7 +88,7 @@
   }
 
   function handleExport() {
-    window.dispatchEvent(new CustomEvent('export-full-config-yaml'))
+    eventBus.emit('export-full-config-yaml')
   }
 
   function handleAiGenerate() {
@@ -96,7 +97,7 @@
 
   async function handleReload() {
     await store.loadProjectFromV2()
-    window.dispatchEvent(new CustomEvent('project-applied'))
+    eventBus.emit('project-applied')
   }
 
   function handleProjectManagement() {
@@ -106,7 +107,7 @@
   function handleCloseProject() {
     if (confirm(t('inspector.projectRoot.confirm.closeProject'))) {
       store.clearProject()
-      window.dispatchEvent(new CustomEvent('project-closed'))
+      eventBus.emit('project-closed')
     }
   }
 

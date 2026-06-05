@@ -88,6 +88,9 @@
 
   const ghostStyle = computed(() => {
     const config = typeConfigs[props.payload.type] || typeConfigs.schema
+    if (!config) {
+      return {}
+    }
     return {
       background: getCssVar('--ui-overlay-surface', 'rgba(39, 39, 42, 0.9)'),
       border: `1px solid ${getCssVar(config.borderColor.replace('var(', '').replace(')', ''), '#2563eb')}`,
@@ -106,7 +109,7 @@
 
   const icon = computed(() => {
     const config = typeConfigs[props.payload.type] || typeConfigs.schema
-    return config.icon
+    return config?.icon ?? ''
   })
 
   const label = computed(() => {

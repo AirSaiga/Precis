@@ -200,6 +200,7 @@
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
+  import { eventBus } from '@/core/eventBus'
   import { ref, onMounted, onUnmounted, computed } from 'vue'
   import { useI18n } from 'vue-i18n'
 
@@ -223,34 +224,28 @@
       logger.debug(`[AssetLibraryNav] 准备切换到${view}视图，当前视图: ${currentView.value}`)
       currentView.value = view
       // 向父组件发送视图切换事件
-      window.dispatchEvent(
-        new CustomEvent('viewchange', {
-          detail: { view },
-        })
-      )
+      eventBus.emit('viewchange', { view })
       logger.debug(`[AssetLibraryNav] 已发送视图切换事件: ${view}`)
     }
   }
 
   // 处理设置按钮点击
   const handleSettingsClick = () => {
-    window.dispatchEvent(new CustomEvent('open-settings'))
+    eventBus.emit('open-settings')
   }
 
-  // 监听全局视图切换事件（同步状态）
-  const handleGlobalViewChange = (event: CustomEvent) => {
-    const { view } = event.detail
-    if (currentView.value !== view) {
-      currentView.value = view
+  const handleGlobalViewChange = (detail: { view: string }) => {
+    if (currentView.value !== detail.view) {
+      currentView.value = detail.view as typeof currentView.value
     }
   }
 
   onMounted(() => {
-    window.addEventListener('viewchange', handleGlobalViewChange as EventListener)
+    eventBus.on('viewchange', handleGlobalViewChange)
   })
 
   onUnmounted(() => {
-    window.removeEventListener('viewchange', handleGlobalViewChange as EventListener)
+    eventBus.off('viewchange', handleGlobalViewChange)
   })
 </script>
 

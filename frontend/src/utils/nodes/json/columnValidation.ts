@@ -161,6 +161,7 @@ export function validateColumns(columns: JsonSchemaColumn[]): ValidationResult {
 
   for (let i = 0; i < columns.length; i++) {
     const column = columns[i]
+    if (!column) continue
     const columnResult = validateColumn(column)
 
     for (const error of columnResult.errors) {

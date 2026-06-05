@@ -456,6 +456,7 @@ export function useRegexValidation() {
           } else {
             for (let i = 0; i < groupNames.length; i++) {
               const groupName = groupNames[i]
+              if (groupName === undefined) continue
               const valueList = extractedColumns[groupName] || []
               nextRow.push(String(valueList[dataRowIndex] ?? ''))
             }
@@ -507,6 +508,7 @@ export function useRegexValidation() {
         for (let i = 0; i < newColumnNames.length; i++) {
           const sourceKey = derivedSourceKeys[i]
           const columnNameResolved = newColumnNames[i]
+          if (columnNameResolved === undefined) continue
           if (existingSchemaColumnNames.has(columnNameResolved)) continue
           appendedColumns.push({
             id: columnNameResolved,
@@ -806,9 +808,8 @@ export function useRegexValidation() {
    *
    * @param event - CustomEvent 事件对象
    */
-  const handleRegexPatternUpdated = async (event: Event) => {
-    const customEvent = event as CustomEvent
-    const { nodeId } = customEvent.detail
+  const handleRegexPatternUpdated = async (detail: { nodeId: string; reason: string }) => {
+    const { nodeId } = detail
 
     const regexNode = store.nodes.find((n) => n.id === nodeId && n.type === 'regex')
     if (!regexNode) {
