@@ -21,7 +21,7 @@
     "install:all": "npm install && cd frontend && npm install && cd ../electron && npm install",
     "build:all": "npm run backend:build && npm run frontend:build && cd electron && npm run build:electron && npm run dist",
     "cli": "cd backend && python -B -m app.cli",
-    "cli:validate": "cd backend && python -B -m app.cli validate --manifest ./test_fixtures/project.precis.yaml --data-directory ./test_fixtures/data",
+    "cli:validate": "cd backend && python -B -m app.cli validate --manifest ../qa_test/qa_simple/project.precis.yaml --data-directory ../qa_test/qa_simple/data",
     "setup": "node scripts/check-env.js && echo 'Run setup.ps1 (Windows) or setup.sh (Mac/Linux) for full deployment'",
     "setup:win": "powershell -ExecutionPolicy Bypass -File scripts/setup.ps1",
     "setup:mac": "bash scripts/setup.sh",
@@ -42,7 +42,9 @@
     "dev": "npx concurrently --kill-others --names 'BACKEND,FRONTEND' --prefix-colors 'cyan,green' 'cd backend && python app/start_server.py' 'cd frontend && npm run dev'",
     "prepare": "husky",
     "lint:all": "cd frontend && npm run lint && cd ../backend && python -m ruff check .",
-    "format:all": "cd frontend && npm run format && cd ../backend && python -m ruff format . && python -m ruff check --fix ."
+    "format:all": "cd frontend && npm run format && cd ../backend && python -m ruff format . && python -m ruff check --fix .",
+    "test:all": "cd frontend && npm run test && cd ../backend && python -m pytest",
+    "test:coverage": "cd frontend && npm run test:coverage && cd ../backend && python -m pytest --cov=app --cov-report=term-missing --cov-report=html"
   },
   "keywords": [
     "precis",

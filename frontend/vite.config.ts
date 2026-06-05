@@ -96,6 +96,19 @@ export default defineConfig(({ mode }) => {
       globals: true,
       environment: 'jsdom',
       include: ['tests/**/*.test.ts'],
+      coverage: {
+        provider: 'v8',
+        reporter: ['text', 'lcov', 'html'],
+        reportsDirectory: './coverage',
+        include: ['src/**/*.{ts,vue}'],
+        exclude: [
+          'src/**/*.{test,spec}.{ts,vue}',
+          'src/**/*.d.ts',
+          'src/main.ts',
+          'src/**/index.ts',
+          'src/**/types/**',
+        ],
+      },
     },
   }
 })

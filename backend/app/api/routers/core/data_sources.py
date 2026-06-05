@@ -177,11 +177,17 @@ async def add_data_source(data_source: dict[str, Any], config_path: str = Depend
     config = load_workspace_config(project_root)
 
     file_id = data_source.get("fileId", data_source.get("fullPath"))
-    file_id = os.path.normpath(file_id) if file_id else file_id
+    # 仅在路径为绝对路径时执行 normpath；在 Windows 上 normpath("/a") 会变成 "\a"
+    # （去掉前导斜杠、视作相对路径），导致不同 fileId 在比较时塌缩为同一字符串。
+    if file_id and os.path.isabs(file_id):
+        file_id = os.path.normpath(file_id)
 
     # 检查是否已存在
+    # 注意：fullPath 比较必须排除 None == None 的情况——否则当 payload 与已有项都缺
+    # 少 fullPath 字段时，条件会误判为重复，导致不同 fileId 的新数据源被错误地覆盖。
+    new_full_path = data_source.get("fullPath")
     for ds in config.get("data_sources", []):
-        if ds.get("fileId") == file_id or ds.get("fullPath") == data_source.get("fullPath"):
+        if ds.get("fileId") == file_id or (new_full_path and ds.get("fullPath") == new_full_path):
             # 更新现有数据源
             ds["name"] = data_source.get("name", ds.get("name", ""))
             ds["type"] = data_source.get("type", ds.get("type", "excel"))

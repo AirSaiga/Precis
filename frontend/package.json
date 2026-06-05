@@ -35,6 +35,7 @@
     "lint": "eslint . --fix && npm run audit:styles",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "prepare": "husky"
