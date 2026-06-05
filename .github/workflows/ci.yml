@@ -89,13 +89,11 @@ jobs:
         run: python -m pytest --cov=app --cov-fail-under=55 --cov-report=html --cov-report=term-missing
 
       - name: Smoke test CLI validate against real fixture
-        # 验证 cli:validate 脚本能针对 qa_test/qa_simple 真实项目端到端通过
-        # 这是 CLI 在 CI 环境（headless、无交互）下工作的最低保障
         run: |
           cd ..
           python -B -m app.cli validate \
-            --manifest qa_test/qa_simple/project.precis.yaml \
-            --data-directory qa_test/qa_simple/data
+            --manifest e2e/fixtures/test-project/project.precis.yaml \
+            --data-directory e2e/fixtures/test-project/data
 
       - name: Upload coverage report
         if: always()
