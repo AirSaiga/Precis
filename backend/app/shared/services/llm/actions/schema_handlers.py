@@ -112,9 +112,10 @@ def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     }
 
     if source:
+        source_path = source.get("path", "")
+        if source_path and (".." in source_path or os.path.isabs(source_path)):
+            return {"success": False, "message": f"source.path 不允许绝对路径或目录穿越: {source_path}"}
         schema_data["source"] = source
-
-    # 原子写入 schema 文件
     try:
         with FileLock(str(schema_file)):
             atomic_write_yaml(schema_file, schema_data)
@@ -182,6 +183,9 @@ def _update_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
 
             # 更新数据源
             if source is not None:
+                source_path = source.get("path", "")
+                if source_path and (".." in source_path or os.path.isabs(source_path)):
+                    return {"success": False, "message": "source.path 不允许绝对路径或目录穿越"}
                 schema_data["source"] = source
 
             atomic_write_yaml(schema_file, schema_data)

@@ -114,10 +114,16 @@ export function createTemplateExpandModule(params: {
     // 恢复容器为折叠态
     const instanceNode = nodes.value.find((n) => n.id === instanceNodeId)
     if (instanceNode) {
-      updateNodeData(instanceNodeId, { expanded: false })
-      instanceNode.style = {}
-      instanceNode.width = undefined
-      instanceNode.height = undefined
+      nodes.value = nodes.value.map((n) => {
+        if (n.id !== instanceNodeId) return n
+        return {
+          ...n,
+          style: {},
+          width: undefined,
+          height: undefined,
+          data: { ...n.data, expanded: false },
+        } as CustomNode
+      })
     }
   }
 
@@ -162,12 +168,18 @@ export function createTemplateExpandModule(params: {
 
     // 先用估算尺寸设置容器（确保子节点在容器内）
     if (containerSize) {
-      instanceNode.style = {
-        width: `${containerSize.width}px`,
-        height: `${containerSize.height}px`,
-      }
-      instanceNode.width = containerSize.width
-      instanceNode.height = containerSize.height
+      nodes.value = nodes.value.map((n) => {
+        if (n.id !== instanceNodeId) return n
+        return {
+          ...n,
+          style: {
+            width: `${containerSize.width}px`,
+            height: `${containerSize.height}px`,
+          },
+          width: containerSize.width,
+          height: containerSize.height,
+        } as CustomNode
+      })
     }
 
     // 切换为展开态
@@ -526,12 +538,18 @@ export function createTemplateExpandModule(params: {
     const width = maxRight + CONTAINER_PADDING_RIGHT
     const height = maxBottom + CONTAINER_PADDING_BOTTOM
 
-    instanceNode.style = {
-      width: `${width}px`,
-      height: `${height}px`,
-    }
-    instanceNode.width = width
-    instanceNode.height = height
+    nodes.value = nodes.value.map((n) => {
+      if (n.id !== instanceNodeId) return n
+      return {
+        ...n,
+        style: {
+          width: `${width}px`,
+          height: `${height}px`,
+        },
+        width,
+        height,
+      } as CustomNode
+    })
   }
 
   // --------------------------------------------------------------------------
@@ -800,24 +818,23 @@ export function createTemplateExpandModule(params: {
    */
   function collapseExpansion(instanceNodeId: string) {
     const ids = expandedNodeIds.get(instanceNodeId)
-    if (ids && ids.length > 0) {
-      const idSet = new Set(ids)
-      for (const node of nodes.value) {
-        if (idSet.has(node.id)) {
-          node.hidden = true
-        }
+    const idSet = ids && ids.length > 0 ? new Set(ids) : new Set<string>()
+
+    nodes.value = nodes.value.map((n) => {
+      if (idSet.has(n.id)) {
+        return { ...n, hidden: true } as CustomNode
       }
-    }
-
-    // 恢复紧凑尺寸
-    const instanceNode = nodes.value.find((n) => n.id === instanceNodeId)
-    if (instanceNode) {
-      instanceNode.style = {}
-      instanceNode.width = undefined
-      instanceNode.height = undefined
-    }
-
-    updateNodeData(instanceNodeId, { expanded: false })
+      if (n.id === instanceNodeId) {
+        return {
+          ...n,
+          style: {},
+          width: undefined,
+          height: undefined,
+          data: { ...n.data, expanded: false },
+        } as CustomNode
+      }
+      return n
+    })
   }
 
   /**
@@ -830,11 +847,12 @@ export function createTemplateExpandModule(params: {
 
     const idSet = new Set(ids)
 
-    for (const node of nodes.value) {
-      if (idSet.has(node.id)) {
-        node.hidden = false
+    nodes.value = nodes.value.map((n) => {
+      if (idSet.has(n.id)) {
+        return { ...n, hidden: false } as CustomNode
       }
-    }
+      return n
+    })
 
     updateNodeData(instanceNodeId, { expanded: true })
 

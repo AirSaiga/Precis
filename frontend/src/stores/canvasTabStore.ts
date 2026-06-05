@@ -260,7 +260,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
   /**
    * 将当前画布的节点/边深拷贝保存到对应工作区
    *
-   * 使用 JSON.parse(JSON.stringify(...)) 实现深拷贝，
+   * 使用 structuredClone 实现深拷贝，
    * 断开引用关系，确保工作区间的画布状态完全隔离。
    *
    * 副作用：设置 hasUnsavedChanges = true，Tab 标题栏显示脏标记（●）
@@ -268,8 +268,8 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
   function saveCurrentCanvasData(nodes: CustomNode[], edges: Edge[]) {
     const currentTab = tabs.value.find((w) => w.id === activeTabId.value)
     if (currentTab) {
-      currentTab.nodes = JSON.parse(JSON.stringify(nodes))
-      currentTab.edges = JSON.parse(JSON.stringify(edges))
+      currentTab.nodes = structuredClone(nodes)
+      currentTab.edges = structuredClone(edges)
       currentTab.hasUnsavedChanges = true
     }
   }
@@ -293,8 +293,8 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
         (currentTab.edges && currentTab.edges.length > 0))
     if (hasData) {
       return {
-        nodes: currentTab.nodes ? JSON.parse(JSON.stringify(currentTab.nodes)) : [],
-        edges: currentTab.edges ? JSON.parse(JSON.stringify(currentTab.edges)) : [],
+        nodes: currentTab.nodes ? structuredClone(currentTab.nodes) : [],
+        edges: currentTab.edges ? structuredClone(currentTab.edges) : [],
       }
     }
     return null

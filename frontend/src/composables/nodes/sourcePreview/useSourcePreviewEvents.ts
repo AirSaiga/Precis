@@ -10,6 +10,7 @@ import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { validateConstraintNodesForSchema } from '@/services/constraints/validationRegistry'
+import { toastSuccess, toastError, toastInfo } from '@/core/toast'
 import type { SourcePreviewNodeData, SchemaNodeData, JsonSchemaColumn, CustomNodeData } from '../types'
 
 /**
@@ -43,47 +44,9 @@ export function useSourcePreviewEvents(
    * @param type - 消息类型，success=成功绿色，error=错误红色，info=信息蓝色
    */
   const showToastMessage = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
-    // 创建消息容器 DOM 元素
-    const messageEl = document.createElement('div')
-    messageEl.textContent = message
-
-    // 动态创建 CSS 样式，定义消息提示的视觉效果
-    const style = document.createElement('style')
-    style.textContent = `
-      .toast-message {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 12px 20px;
-        border-radius: var(--ui-radius-sm); /* was 4px */
-        color: var(--ui-text-on-accent); /* was white */
-        font-size: 14px;
-        z-index: 10000;
-        box-shadow: var(--ui-shadow-md); /* was rgba(0,0,0,0.15) */
-        animation: slideIn 0.3s ease;
-      }
-      .toast-success { background-color: var(--ui-success); } /* was #28a745 */
-      .toast-error { background-color: var(--ui-danger); } /* was #dc3545 */
-      .toast-info { background-color: var(--ui-info); } /* was #17a2b8 */
-      @keyframes slideIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
-      }
-    `
-
-    // 根据消息类型设置 CSS 类名
-    messageEl.className = `toast-message toast-${type}`
-    // 将样式添加到 head，消息元素添加到 body
-    document.head.appendChild(style)
-    document.body.appendChild(messageEl)
-
-    // 设置 3 秒定时器，到期后移除消息元素和样式，避免 DOM 泄漏
-    setTimeout(() => {
-      if (messageEl.parentNode) {
-        messageEl.remove()
-        style.remove()
-      }
-    }, 3000)
+    if (type === 'success') toastSuccess(message)
+    else if (type === 'error') toastError(message)
+    else toastInfo(message)
   }
 
   /**

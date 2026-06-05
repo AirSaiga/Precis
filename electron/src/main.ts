@@ -975,6 +975,11 @@ ipcMain.handle('save-text-file', async (event, fileName: string, content: string
       return false;
     }
 
+    if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+      console.error('[Electron] save-text-file: 文件名包含非法字符:', fileName);
+      return false;
+    }
+
     const userDataPath = app.getPath('userData');
     const filePath = path.join(userDataPath, fileName);
     
@@ -1001,6 +1006,11 @@ ipcMain.handle('save-text-file', async (event, fileName: string, content: string
 ipcMain.handle('load-text-file', async (event, fileName: string) => {
   try {
     if (!fileName || typeof fileName !== 'string') {
+      return null;
+    }
+
+    if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
+      console.error('[Electron] load-text-file: 文件名包含非法字符:', fileName);
       return null;
     }
 
@@ -1136,7 +1146,12 @@ ipcMain.handle('read-file', async (event, filePath: string) => {
       return null;
     }
 
-    // 验证路径是否为绝对路径
+    const resolved = path.resolve(filePath);
+    if (resolved !== filePath && resolved !== path.normalize(filePath)) {
+      console.error('[Electron] read-file: 路径包含非法穿越:', filePath);
+      return null;
+    }
+
     if (!path.isAbsolute(filePath)) {
       console.error('[Electron] 路径必须是绝对路径:', filePath);
       return null;
@@ -1188,7 +1203,12 @@ ipcMain.handle('write-file', async (event, filePath: string, content: string) =>
       return false;
     }
 
-    // 验证路径是否为绝对路径
+    const resolved = path.resolve(filePath);
+    if (resolved !== filePath && resolved !== path.normalize(filePath)) {
+      console.error('[Electron] write-file: 路径包含非法穿越:', filePath);
+      return false;
+    }
+
     if (!path.isAbsolute(filePath)) {
       console.error('[Electron] 路径必须是绝对路径:', filePath);
       return false;

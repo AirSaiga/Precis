@@ -3,15 +3,12 @@
 
 功能概述:
 - 提供 Excel/CSV/JSON 文件的统一加载入口
-- 实现线程安全的文件级缓存机制，避免重复读取磁盘
 - 支持按文件分组批量加载多个数据源规格
-- 提供缓存清除和加载能力检测工具函数
+- 提供加载能力检测工具函数
 
 架构设计:
-- 使用装饰器模式实现缓存（@synchronized_and_cached_by_filepath）
-- 全局缓存字典 _data_cache 配合 FIFO 淘汰策略
-- 全局锁字典 _file_locks 实现文件级别的并发控制
-- 双检锁模式（double-check locking）提高并发性能
+- 使用类式加载器（CSVLoader, ExcelLoader, JSONLoader）
+- 每次调用均从磁盘读取最新数据，不使用缓存
 
 输入示例:
     file_to_schemas = {
@@ -29,7 +26,6 @@ from __future__ import annotations
 
 import logging
 import os
-import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -48,55 +44,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-
-
-_data_cache: dict[str, Any] = {}
-
-_MAX_CACHE_ENTRIES = 32
-
-_file_locks: dict[str, threading.Lock] = {}
-
-_lock_for_locks = threading.Lock()
-
-
-def clear_cache() -> int:
-    """
-    @methoddesc 清除全局数据缓存，释放内存。
-
-    注意：不会清除 _file_locks，防止正在进行中的加载操作丢失锁引用。
-
-    :return: 清除前缓存中的条目数
-    """
-    with _lock_for_locks:
-        count = len(_data_cache)
-        _data_cache.clear()
-        logger.debug(f"[Cache Clear] 已清除 {count} 个缓存条目。")
-        return count
-
-
-def _get_or_load(filepath: str, load_fn) -> Any:
-    """
-    @methoddesc 数据加载（已禁用缓存，确保每次从磁盘读取最新数据）。
-
-    缓存机制已移除原因：
-    - 数据校验工具的核心工作流是"修改数据 → 校验 → 修正 → 再校验"
-    - 缓存会导致用户修改数据文件后，校验仍使用旧数据，造成困惑
-    - 数据文件通常不大（几MB），加载耗时仅几毫秒，缓存收益极低
-
-    Args:
-        filepath: 文件的完整路径（仅用于日志记录）
-        load_fn: 实际执行加载的回调函数（无参数）
-
-    返回:
-        加载后的数据对象
-
-    示例:
-        >>> def load_csv():
-        ...     return pd.read_csv("data.csv")
-        >>> df = _get_or_load("data.csv", load_csv)
-    """
-    logger.debug(f"[Load] 从磁盘加载 '{os.path.basename(filepath)}'...")
-    return load_fn()
 
 
 def _load_excel_with_new_loader(filepath: str, schemas: list[TableSchema]) -> dict[str, pd.DataFrame]:
@@ -286,11 +233,8 @@ def load_grouped_sources(
 
         try:
             loader_fn = _LOADER_FNS[file_ext]
-
-            def _load(fp=full_path, fn=loader_fn, schemas=schemas_for_file):
-                return fn(fp, schemas)
-
-            file_datasets = _get_or_load(full_path, _load)
+            logger.debug(f"[Load] 从磁盘加载 '{os.path.basename(full_path)}'...")
+            file_datasets = loader_fn(full_path, schemas_for_file)
             datasets.update(file_datasets)
 
         except DataLoadError as e:

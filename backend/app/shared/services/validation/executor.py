@@ -332,18 +332,10 @@ class ValidationExecutor:
             return result
 
         # Step 4: 确定脚本安全执行策略
-        # 【配置优先级】options.allow_unsafe_eval > manifest.script_security > 默认 False
-        # 安全访问 script_security，避免 manifest 缺少该节时崩溃（M5）
-        script_security = getattr(self.settings, "script_security", None)
-        if options.allow_unsafe_eval is not None:
-            allow_unsafe_eval = options.allow_unsafe_eval
-        else:
-            if script_security is not None:
-                allow_unsafe_eval = bool(
-                    getattr(script_security, "allow_eval", False) or getattr(script_security, "allow_exec", False)
-                )
-            else:
-                allow_unsafe_eval = False
+        # 【安全加固】allow_unsafe_eval 始终为 False，禁止从不安全来源启用
+        # options.allow_unsafe_eval 仅在显式调用（CLI / V1 API）时生效，
+        # V2 全量校验路径（用户通过 manifest 触发）中忽略 manifest.script_security
+        allow_unsafe_eval = False
 
         logger.debug(f"Starting validate_full_dataset with {len(raw_datasets)} datasets")
 

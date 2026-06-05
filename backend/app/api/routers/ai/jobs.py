@@ -104,19 +104,16 @@ async def create_generate_job(
 
 async def _run_job(job_id: str, payload: ConfigGenerateRequest, config_path: str):
     """后台执行任务"""
-    job = _jobs.get(job_id)
-    if not job:
-        return
+    async with _jobs_lock:
+        job = _jobs.get(job_id)
+        if not job:
+            return
+        job.status = "running"
+        job.stage = "initializing"
+        job.updated_at = datetime.now(timezone.utc).isoformat()
 
-    # 更新状态为运行中
-    job.status = "running"
-    job.stage = "initializing"
-    job.updated_at = datetime.now(timezone.utc).isoformat()
-
-    # 创建服务
     service = ConfigGenerationService(provider_id=payload.provider_id)
 
-    # 构建选项
     profiling_opts = ProfilingOptions(
         sample_rows=payload.options.sample_rows,
         sample_values_per_column=payload.options.sample_values_per_column,
@@ -131,15 +128,15 @@ async def _run_job(job_id: str, payload: ConfigGenerateRequest, config_path: str
         keep_existing=payload.options.keep_existing,
     )
 
-    # 进度回调
     def progress_callback(stage: str, progress: float):
-        current_job = _jobs.get(job_id)
-        if current_job and current_job.status == "cancelled":
-            service.cancel()
-        if current_job:
-            current_job.stage = stage
-            current_job.progress = progress
-            current_job.updated_at = datetime.now(timezone.utc).isoformat()
+        with _jobs_lock:
+            current_job = _jobs.get(job_id)
+            if current_job and current_job.status == "cancelled":
+                service.cancel()
+            if current_job:
+                current_job.stage = stage
+                current_job.progress = progress
+                current_job.updated_at = datetime.now(timezone.utc).isoformat()
 
     try:
         result = await service.generate(
@@ -155,47 +152,51 @@ async def _run_job(job_id: str, payload: ConfigGenerateRequest, config_path: str
         # 任务完成
         from .models import ConfigGenerateResponse
 
-        job.status = "completed"
-        job.stage = "completed"
-        job.progress = 100.0
-        job.result = ConfigGenerateResponse(
-            success=result["success"],
-            yaml_preview=result["yaml_preview"],
-            manifest=result["manifest"],
-            schemas=result["schemas"],
-            constraints=result["constraints"],
-            regex_nodes=result["regex_nodes"],
-            warnings=result.get("warnings", []),
-            error=result.get("error"),
-        )
-        job.warnings = result.get("warnings", [])
+        async with _jobs_lock:
+            job.status = "completed"
+            job.stage = "completed"
+            job.progress = 100.0
+            job.result = ConfigGenerateResponse(
+                success=result["success"],
+                yaml_preview=result["yaml_preview"],
+                manifest=result["manifest"],
+                schemas=result["schemas"],
+                constraints=result["constraints"],
+                regex_nodes=result["regex_nodes"],
+                warnings=result.get("warnings", []),
+                error=result.get("error"),
+            )
+            job.warnings = result.get("warnings", [])
 
     except CancelledError:
-        job.status = "cancelled"
-        job.stage = "cancelled"
-        job.error = "任务已取消"
+        async with _jobs_lock:
+            job.status = "cancelled"
+            job.stage = "cancelled"
+            job.error = "任务已取消"
     except GenerationParseError as e:
-        job.status = "failed"
-        job.stage = "error"
-        job.error = f"配置解析失败: {e}"
+        async with _jobs_lock:
+            job.status = "failed"
+            job.stage = "error"
+            job.error = f"配置解析失败: {e}"
     except Exception as e:
-        # 任务失败
-        job.status = "failed"
-        job.stage = "error"
-        job.error = str(e)
+        async with _jobs_lock:
+            job.status = "failed"
+            job.stage = "error"
+            job.error = str(e)
 
-    job.updated_at = datetime.now(timezone.utc).isoformat()
-    # 任务结束后清理 Task 句柄
-    _job_tasks.pop(job_id, None)
+    async with _jobs_lock:
+        job.updated_at = datetime.now(timezone.utc).isoformat()
+        _job_tasks.pop(job_id, None)
 
 
 @router.get("/v2/config/generate/jobs/{job_id}", response_model=ConfigGenerateJobStatus)
 async def get_generate_job(job_id: str) -> ConfigGenerateJobStatus:
     """获取任务状态"""
-    job = _jobs.get(job_id)
-    if not job:
-        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
-    return job
+    async with _jobs_lock:
+        job = _jobs.get(job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+        return job
 
 
 @router.post("/v2/config/generate/jobs/{job_id}/cancel", response_model=ConfigGenerateJobStatus)

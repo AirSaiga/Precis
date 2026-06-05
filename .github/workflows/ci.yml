@@ -38,8 +38,8 @@ jobs:
       - name: Type check
         run: npm run type-check
 
-      - name: Test
-        run: npm run test
+      - name: Test with coverage
+        run: npm run test -- --coverage
 
       - name: Audit dependencies
         run: npm audit --audit-level=moderate
@@ -85,8 +85,8 @@ jobs:
           pip install pip-audit
           pip-audit --desc --format=markdown
 
-      - name: Run unit + integration tests
-        run: python -m pytest
+      - name: Run unit + integration tests with coverage
+        run: python -m pytest --cov=app --cov-fail-under=55 --cov-report=html --cov-report=term-missing
 
       - name: Smoke test CLI validate against real fixture
         # 验证 cli:validate 脚本能针对 qa_test/qa_simple 真实项目端到端通过

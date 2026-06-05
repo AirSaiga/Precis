@@ -126,7 +126,8 @@ class ScriptedConstraint(Constraint):
         errors = []
 
         # 安全检查: 必须显式开启 allow_unsafe_eval 才能执行脚本约束
-        if not kwargs.get("allow_unsafe_eval", False):
+        # 【安全加固】使用 is True 严格检查，防止 numpy bool 等意外 truthy 值绕过
+        if kwargs.get("allow_unsafe_eval") is not True:
             errors.append(
                 {
                     "error_type": "PermissionError",

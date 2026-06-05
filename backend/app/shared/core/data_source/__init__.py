@@ -37,12 +37,10 @@
 # 从 loader 子模块导入加载器注册表及工具函数
 # LOADER_REGISTRY: 数据源类型到加载器类的映射表，支持运行时扩展
 # load_grouped_sources: 批量加载入口，按文件分组并行处理
-# clear_cache: 清除加载缓存，用于数据源文件变更后的热刷新
 # can_load: 预检函数，判断给定规格是否可被当前注册表支持
 from .loader import (
     LOADER_REGISTRY,
     can_load,
-    clear_cache,
     load_grouped_sources,
 )
 
@@ -83,7 +81,6 @@ __all__ = [
     # 加载器工具
     "DataLoadError",
     "load_grouped_sources",
-    "clear_cache",
     "can_load",
     "LOADER_REGISTRY",
 ]

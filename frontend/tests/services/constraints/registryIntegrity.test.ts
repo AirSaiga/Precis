@@ -108,3 +108,75 @@ describe('约束注册表完整性自检', () => {
 function isConstraintNodeType(type: string): boolean {
   return kindToMeta.has(type as never)
 }
+
+/**
+ * 后端 CONSTRAINT_REGISTRY 中的 V2 约束类型名称（从 registry.py 提取）
+ * 用于跨系统一致性校验：前端 V2Type 必须与后端注册表键完全对应
+ */
+const BACKEND_V2_TYPES = new Set([
+  'NotNull',
+  'Unique',
+  'ForeignKey',
+  'AllowedValues',
+  'Range',
+  'Conditional',
+  'Scripted',
+  'Charset',
+  'DateLogic',
+  'Composite',
+])
+
+describe('前后端约束命名一致性', () => {
+  it('前端 CONSTRAINT_TYPES 的 v2Type 必须与后端 CONSTRAINT_REGISTRY 键一一对应', () => {
+    const frontendV2Types = new Set(CONSTRAINT_TYPES.map((m) => m.v2Type))
+
+    const missingInBackend = [...frontendV2Types].filter((t) => !BACKEND_V2_TYPES.has(t))
+    const missingInFrontend = [...BACKEND_V2_TYPES].filter((t) => !frontendV2Types.has(t))
+
+    expect(missingInBackend).toEqual([])
+    expect(missingInFrontend).toEqual([])
+  })
+
+  it('前端 kind → v2Type 映射必须满足：kind 为 camelCase，v2Type 为 PascalCase', () => {
+    for (const meta of CONSTRAINT_TYPES) {
+      expect(meta.kind).toMatch(/^[a-z][a-zA-Z0-9]*$/)
+      expect(meta.v2Type).toMatch(/^[A-Z][a-zA-Z0-9]*$/)
+      expect(meta.nodeType).toMatch(/^[a-z][a-zA-Z0-9]*Constraint$/)
+    }
+  })
+
+  it('每个 kind 必须有对应的 NodeDataBuilder', async () => {
+    await import('@/services/constraints/nodeDataBuilder')
+    const { buildNodeData } = await import('@/services/constraints/nodeDataBuilder/registry')
+    const missing: string[] = []
+    for (const meta of CONSTRAINT_TYPES) {
+      const fkRefs = meta.kind === 'foreignKey'
+        ? { source: { nodeId: 's1', columnId: 'c1', columnName: 'col' }, target: { nodeId: 's2', columnId: 'c2', columnName: 'col2' } }
+        : undefined
+      const result = buildNodeData(meta.kind, {
+        nodeId: 'test-id',
+        configName: 'test',
+        mode: 'import',
+        schemaNodeId: 'schema-id',
+        sourceData: {},
+        columnRef: { columnId: 'col-1', columnName: 'col' },
+        tableName: 'testTable',
+        fkRefs,
+      })
+      const data = result.nodeData as Record<string, unknown>
+      if (meta.kind === 'foreignKey') {
+        if (!('sourceTable' in data) && !('targetTable' in data)) {
+          missing.push(meta.kind)
+        }
+      } else {
+        if (!('table' in data) && !('column' in data)) {
+          missing.push(meta.kind)
+        }
+      }
+    }
+    if (missing.length > 0) {
+      console.log('Kinds without builder (using fallback):', missing)
+    }
+    expect(missing).toEqual([])
+  })
+})

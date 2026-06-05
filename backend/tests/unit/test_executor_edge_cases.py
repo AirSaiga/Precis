@@ -353,7 +353,7 @@ class TestExecuteEdgeCases:
         assert any("校验阶段超时" in e["message"] for e in result["errors"])
 
     def test_script_security_allow_eval(self):
-        """settings.script_security.allow_eval=True 时 allow_unsafe_eval 为 True（用户未指定时）"""
+        """【安全加固】V2 全量校验路径中 allow_unsafe_eval 始终为 False，即使 script_security.allow_eval=True"""
         executor = _make_executor(
             tables={"users": MockTableSchema("users", "users")},
             schema_files={"users": MockSchemaFile("users", "users")},
@@ -370,10 +370,10 @@ class TestExecuteEdgeCases:
         ):
             executor.execute("D:\\data", ValidationOptions())
         _, kwargs = mock_validate.call_args
-        assert kwargs["allow_unsafe_eval"] is True
+        assert kwargs["allow_unsafe_eval"] is False
 
     def test_script_security_allow_exec(self):
-        """settings.script_security.allow_exec=True 时 allow_unsafe_eval 为 True（用户未指定时）"""
+        """【安全加固】V2 全量校验路径中 allow_unsafe_eval 始终为 False，即使 script_security.allow_exec=True"""
         executor = _make_executor(
             tables={"users": MockTableSchema("users", "users")},
             schema_files={"users": MockSchemaFile("users", "users")},
@@ -390,10 +390,10 @@ class TestExecuteEdgeCases:
         ):
             executor.execute("D:\\data", ValidationOptions())
         _, kwargs = mock_validate.call_args
-        assert kwargs["allow_unsafe_eval"] is True
+        assert kwargs["allow_unsafe_eval"] is False
 
-    def test_options_allow_unsafe_eval_override(self):
-        """options.allow_unsafe_eval=True 直接覆盖"""
+    def test_options_allow_unsafe_eval_always_false(self):
+        """【安全加固】V2 全量校验路径中 allow_unsafe_eval 始终为 False，options 无法覆盖"""
         executor = _make_executor(
             tables={"users": MockTableSchema("users", "users")},
             schema_files={"users": MockSchemaFile("users", "users")},
@@ -409,4 +409,4 @@ class TestExecuteEdgeCases:
         ):
             executor.execute("D:\\data", ValidationOptions(allow_unsafe_eval=True))
         _, kwargs = mock_validate.call_args
-        assert kwargs["allow_unsafe_eval"] is True
+        assert kwargs["allow_unsafe_eval"] is False

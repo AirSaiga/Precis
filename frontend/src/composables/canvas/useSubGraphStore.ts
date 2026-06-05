@@ -15,8 +15,8 @@ export interface SubGraphState {
 }
 
 export function useSubGraphStore(initialNodes: Node[] = [], initialEdges: Edge[] = []) {
-  const nodes = ref<Node[]>(JSON.parse(JSON.stringify(initialNodes)))
-  const edges = ref<Edge[]>(JSON.parse(JSON.stringify(initialEdges)))
+  const nodes = ref<Node[]>(structuredClone(initialNodes))
+  const edges = ref<Edge[]>(structuredClone(initialEdges))
 
   function addNode(node: Node) {
     nodes.value.push(node)
@@ -44,8 +44,8 @@ export function useSubGraphStore(initialNodes: Node[] = [], initialEdges: Edge[]
 
   function getState() {
     return {
-      nodes: JSON.parse(JSON.stringify(nodes.value)),
-      edges: JSON.parse(JSON.stringify(edges.value)),
+      nodes: structuredClone(nodes.value),
+      edges: structuredClone(edges.value),
     }
   }
 

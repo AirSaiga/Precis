@@ -108,6 +108,11 @@ export default defineConfig(({ mode }) => {
           'src/**/index.ts',
           'src/**/types/**',
         ],
+        thresholds: {
+          lines: 30,
+          branches: 20,
+          functions: 25,
+        },
       },
     },
   }

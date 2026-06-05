@@ -19,7 +19,7 @@ export function useCanvasConnectionWatcher() {
   const store = useGraphStore()
 
   const validateConnection = (connection: Connection) => {
-    return connectionPolicyService.isValidConnection(connection, store.nodes)
+    return connectionPolicyService.isValidConnection(connection, store.nodes, store.edges)
   }
 
   const { onEdgesChange } = useVueFlow()

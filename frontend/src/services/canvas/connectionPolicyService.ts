@@ -26,7 +26,7 @@
  * - 现有连接清理
  */
 
-import type { Connection, Node } from '@vue-flow/core'
+import type { Connection, Edge, Node } from '@vue-flow/core'
 import { useConnectionValidator } from '../../composables/validation/useConnectionValidator'
 import { connectionRules, type ConnectionRule } from '@/services/rules'
 
@@ -52,7 +52,8 @@ class ConnectionPolicyServiceClass {
    */
   isValidConnection(
     connection: Connection,
-    nodes: Node[]
+    nodes: Node[],
+    edges: Edge[] = []
   ): boolean {
     const sourceNode = nodes.find((n) => n.id === connection.source)
     const targetNode = nodes.find((n) => n.id === connection.target)
@@ -62,7 +63,7 @@ class ConnectionPolicyServiceClass {
     }
 
     const { validateConnection } = useConnectionValidator({
-      existingConnections: [],
+      existingConnections: edges as Connection[],
     })
 
     const result = validateConnection(
@@ -87,7 +88,8 @@ class ConnectionPolicyServiceClass {
   getAllowedTargets(
     nodeId: string,
     handleId: string | undefined,
-    nodes: Node[]
+    nodes: Node[],
+    edges: Edge[] = []
   ): Array<{ node: Node; handle?: string }> {
     const sourceNode = nodes.find((n) => n.id === nodeId)
 
@@ -96,7 +98,7 @@ class ConnectionPolicyServiceClass {
     }
 
     const { getAllowedTargetsForSource } = useConnectionValidator({
-      existingConnections: [],
+      existingConnections: edges as Connection[],
     })
 
     const allowedTargets = getAllowedTargetsForSource(sourceNode, handleId, nodes)

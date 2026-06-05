@@ -7,6 +7,7 @@
  */
 
 import type { Ref } from 'vue'
+import type { GraphNode } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
 
 /**
@@ -115,11 +116,10 @@ export function createSelectionModule(params: {
     const boxBottom = Math.max(box.y, box.y + box.height)
 
     for (const node of nodes.value) {
-      // 固定节点尺寸，用于计算节点中心点
-      const nodeWidth = 260
-      const nodeHeight = 120
+      const graphNode = node as unknown as GraphNode
+      const nodeWidth = graphNode.dimensions?.width || 260
+      const nodeHeight = graphNode.dimensions?.height || 120
 
-      // 计算节点中心点坐标
       const nodeCenterX = node.position.x + nodeWidth / 2
       const nodeCenterY = node.position.y + nodeHeight / 2
 

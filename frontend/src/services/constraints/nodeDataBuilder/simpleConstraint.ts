@@ -61,7 +61,7 @@ function buildTypeExtras(
   switch (kind) {
     case 'allowedValues':
       return {
-        allowedValues: new Set((params.allowed_values as unknown[]) || []),
+        allowedValues: ((params.allowed_values as unknown[]) || []),
       }
 
     case 'range':
@@ -85,10 +85,14 @@ function buildTypeExtras(
 
     case 'dateLogic':
       return {
-        logicMode: params.logic_mode || 'range',
-        startDate: params.start_date || '',
-        endDate: params.end_date || '',
-        dateFormat: params.date_format || '',
+        logicMode: params.logic_mode || 'compare',
+        compareOp: params.compare_op || 'gt',
+        referenceDate: (params.reference_date as string) || '',
+        referenceColumn: (params.reference_column as string) || '',
+        calculationType: (params.calculation_type as string) || 'age',
+        targetType: (params.target_type as string) || 'value',
+        targetValue: (params.target_value as string) || '',
+        targetColumn: (params.target_column as string) || '',
       }
 
     case 'composite':

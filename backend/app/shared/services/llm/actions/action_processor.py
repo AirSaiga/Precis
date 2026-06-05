@@ -49,6 +49,25 @@ def _collect_affected_files(actions: list[dict[str, Any]], workspace_path: str) 
     affected: set[str] = set()
     has_file_modifications = False
 
+    workspace_abs = os.path.abspath(workspace_path)
+
+    def _safe_resolve(raw_path: str) -> str | None:
+        """解析路径并验证不超出工作区范围，防止路径穿越。"""
+        if not os.path.isabs(raw_path):
+            raw_path = os.path.join(workspace_path, raw_path)
+        resolved = os.path.normpath(os.path.abspath(raw_path))
+        if not resolved.startswith(workspace_abs + os.sep) and resolved != workspace_abs:
+            logger.warning("LLM 返回的路径超出工作区范围，已忽略: %s", raw_path)
+            return None
+        return resolved
+
+    def _sanitize_id(resource_id: str) -> str | None:
+        """清洗资源 ID，禁止目录分隔符和路径穿越。"""
+        if "/" in resource_id or "\\" in resource_id or ".." in resource_id:
+            logger.warning("LLM 返回的资源 ID 包含非法字符，已忽略: %s", resource_id)
+            return None
+        return os.path.basename(resource_id)
+
     schema_action_types = {"ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"}
     regex_action_types = {"ADD_REGEX", "UPDATE_REGEX", "DELETE_REGEX"}
     transform_action_types = {"ADD_TRANSFORM", "UPDATE_TRANSFORM", "DELETE_TRANSFORM"}
@@ -60,49 +79,55 @@ def _collect_affected_files(actions: list[dict[str, Any]], workspace_path: str) 
         if action_type in constraint_action_types:
             spec = action.get("constraintSpec", {})
             constraint_file = spec.get("constraintFile") or spec.get("filePath")
-            if constraint_file and not os.path.isabs(constraint_file):
-                constraint_file = os.path.join(workspace_path, constraint_file)
             if constraint_file:
-                affected.add(constraint_file)
+                resolved = _safe_resolve(constraint_file)
+                if resolved:
+                    affected.add(resolved)
             schema_file = spec.get("schemaFile") or spec.get("schemaFilePath")
-            if schema_file and not os.path.isabs(schema_file):
-                schema_file = os.path.join(workspace_path, schema_file)
             if schema_file:
-                affected.add(schema_file)
+                resolved = _safe_resolve(schema_file)
+                if resolved:
+                    affected.add(resolved)
             has_file_modifications = True
 
         elif action_type in schema_action_types:
             spec = action.get("schemaSpec", {})
             schema_id = spec.get("schemaId") or spec.get("id") or spec.get("name")
             if schema_id:
-                for candidate in [
-                    os.path.join(workspace_path, "schemas", f"{schema_id}.schema.yaml"),
-                    os.path.join(workspace_path, "schemas", f"{schema_id}.yaml"),
-                ]:
-                    if os.path.isfile(candidate):
-                        affected.add(candidate)
+                safe_id = _sanitize_id(str(schema_id))
+                if safe_id:
+                    for candidate in [
+                        os.path.join(workspace_path, "schemas", f"{safe_id}.schema.yaml"),
+                        os.path.join(workspace_path, "schemas", f"{safe_id}.yaml"),
+                    ]:
+                        if os.path.isfile(candidate):
+                            affected.add(candidate)
             has_file_modifications = True
 
         elif action_type in regex_action_types:
             spec = action.get("regexSpec", {})
             regex_id = spec.get("regexId") or spec.get("id") or spec.get("name")
             if regex_id:
-                for dirname in ("regex_nodes", "regex"):
-                    for candidate in [
-                        os.path.join(workspace_path, dirname, f"{regex_id}.regex.yaml"),
-                        os.path.join(workspace_path, dirname, f"{regex_id}.yaml"),
-                    ]:
-                        if os.path.isfile(candidate):
-                            affected.add(candidate)
+                safe_id = _sanitize_id(str(regex_id))
+                if safe_id:
+                    for dirname in ("regex_nodes", "regex"):
+                        for candidate in [
+                            os.path.join(workspace_path, dirname, f"{safe_id}.regex.yaml"),
+                            os.path.join(workspace_path, dirname, f"{safe_id}.yaml"),
+                        ]:
+                            if os.path.isfile(candidate):
+                                affected.add(candidate)
             has_file_modifications = True
 
         elif action_type in transform_action_types:
             spec = action.get("transformSpec", {})
             transform_id = spec.get("transformId") or spec.get("id")
             if transform_id:
-                candidate = os.path.join(workspace_path, "transforms", f"{transform_id}.transform.yaml")
-                if os.path.isfile(candidate):
-                    affected.add(candidate)
+                safe_id = _sanitize_id(str(transform_id))
+                if safe_id:
+                    candidate = os.path.join(workspace_path, "transforms", f"{safe_id}.transform.yaml")
+                    if os.path.isfile(candidate):
+                        affected.add(candidate)
             has_file_modifications = True
 
         elif action_type == "UPDATE_SETTINGS":

@@ -6,7 +6,7 @@
  * 采用"依赖注入"方式接入 graphStore，避免反向依赖 store 造成循环引用。
  */
 
-import { ref, nextTick, type Ref } from 'vue'
+import { ref, shallowRef, toRaw, nextTick, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
 
@@ -39,9 +39,13 @@ export function createHistoryModule(params: {
   const maxHistoryLength = params.maxHistoryLength ?? 50
 
   // 撤销栈：存放每一步操作前的状态快照
-  const undoStack = ref<HistorySnapshot[]>([])
+  const undoStack = shallowRef<HistorySnapshot[]>([])
   // 重做栈：存放被撤销的状态快照，执行新操作时会清空
-  const redoStack = ref<HistorySnapshot[]>([])
+  const redoStack = shallowRef<HistorySnapshot[]>([])
+
+  function cloneCurrent(): HistorySnapshot {
+    return structuredClone({ nodes: toRaw(nodes.value), edges: toRaw(edges.value) })
+  }
 
   /**
    * @description 保存当前画布状态到撤销栈
@@ -54,16 +58,13 @@ export function createHistoryModule(params: {
    * 4. 若撤销栈超出上限，移除最旧记录
    */
   function saveState() {
-    // 使用 structuredClone 进行深拷贝，避免后续修改影响历史快照
-    const snapshot = structuredClone({ nodes: nodes.value, edges: edges.value })
+    const snapshot = cloneCurrent()
 
-    undoStack.value.push(snapshot)
-    // 新操作产生后，之前的重做记录不再有效
+    undoStack.value = [...undoStack.value, snapshot]
     redoStack.value = []
 
-    // 超出最大长度时，移除栈底最旧记录
     if (undoStack.value.length > maxHistoryLength) {
-      undoStack.value.shift()
+      undoStack.value = undoStack.value.slice(1)
     }
   }
 
@@ -81,18 +82,18 @@ export function createHistoryModule(params: {
       return
     }
 
-    const currentSnapshot = structuredClone({ nodes: nodes.value, edges: edges.value })
-    redoStack.value.push(currentSnapshot)
+    const currentSnapshot = cloneCurrent()
+    redoStack.value = [...redoStack.value, currentSnapshot]
 
-    const previousState = undoStack.value.pop()
-    if (previousState) {
-      nodes.value = previousState.nodes
-      edges.value = previousState.edges
+    const previousState = undoStack.value[undoStack.value.length - 1]
+    undoStack.value = undoStack.value.slice(0, -1)
 
-      if (reconcileAll) {
-        await nextTick()
-        reconcileAll()
-      }
+    nodes.value = previousState.nodes
+    edges.value = previousState.edges
+
+    if (reconcileAll) {
+      await nextTick()
+      reconcileAll()
     }
   }
 
@@ -110,18 +111,18 @@ export function createHistoryModule(params: {
       return
     }
 
-    const currentSnapshot = structuredClone({ nodes: nodes.value, edges: edges.value })
-    undoStack.value.push(currentSnapshot)
+    const currentSnapshot = cloneCurrent()
+    undoStack.value = [...undoStack.value, currentSnapshot]
 
-    const nextState = redoStack.value.pop()
-    if (nextState) {
-      nodes.value = nextState.nodes
-      edges.value = nextState.edges
+    const nextState = redoStack.value[redoStack.value.length - 1]
+    redoStack.value = redoStack.value.slice(0, -1)
 
-      if (reconcileAll) {
-        await nextTick()
-        reconcileAll()
-      }
+    nodes.value = nextState.nodes
+    edges.value = nextState.edges
+
+    if (reconcileAll) {
+      await nextTick()
+      reconcileAll()
     }
   }
 
