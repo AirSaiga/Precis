@@ -101,15 +101,7 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
-  import {
-    validateRange,
-    type RangeValidationRequest,
-    type ValidationResponse,
-  } from '@/api/validationApi'
-  import { getApiBaseUrl } from '@/core/services/httpClient'
-  import { formatNumericValue } from '@/composables/nodes/constraints/useConstraintLayout'
-  import { resolveValidationSource } from '@/composables/nodes/constraints/useValidationSource'
-  import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
+  import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
 
   const props = defineProps<{
     id: string
@@ -178,82 +170,8 @@
   // ===== 校验逻辑 =====
 
   const performValidation = async () => {
-    const emptyResult = {
-      errorCount: 0,
-      totalRows: 0,
-      errors: [] as Array<{ row: number; value: unknown; message: string | undefined }>,
-    }
-
-    if (!hasSource.value || !hasRange.value) return emptyResult
-
-    const source = resolveValidationSource(store, props.data.sourceRef)
-    if (!source) {
-      if (await tryInlineValidation(store, props.data.sourceRef, props.id)) return emptyResult
-      store.updateNodeData(props.id, {
-        validationStatus: 'missing',
-        validationErrors: ['源表未连接数据源，无法执行区间校验'],
-        lastValidation: undefined,
-      })
-      return emptyResult
-    }
-
-    const validationConfig = {
-      min_value: props.data.minValue,
-      max_value: props.data.maxValue,
-      boundary_mode: boundaryMode.value,
-    }
-
-    try {
-      const request: RangeValidationRequest = {
-        validation_type: 'range',
-        target_column_name: source.columnName,
-        source_file_path: source.filePath,
-        sheet_name: source.sheetName,
-        header_row: source.headerRow,
-        validation_config: validationConfig,
-      }
-      const response = await validateRange(request)
-
-      if (!response.success || !response.data) {
-        const status = 'error'
-        store.updateNodeData(props.id, {
-          validationStatus: status,
-          validationErrors: response.error ? [String(response.error)] : ['区间校验失败'],
-          lastValidation: undefined,
-        })
-        return emptyResult
-      }
-
-      const errorRows = response.data.error_rows || []
-      const errorCountVal = errorRows.length
-      const totalRows = response.data.total_rows || 0
-      const matchCount = Math.max(0, totalRows - errorCountVal)
-
-      const formattedErrors = errorRows.map((err: any) => {
-        const formattedValue = formatNumericValue(err.cell_value)
-        const minValue = formatNumericValue(props.data.minValue)
-        const maxValue = formatNumericValue(props.data.maxValue)
-        const message =
-          err.error_message ||
-          `区间约束冲突：值 ${formattedValue} 不在范围 [${minValue}, ${maxValue}] 内。`
-        return { row: err.row_index, value: err.cell_value, formattedValue, message }
-      })
-
-      store.updateNodeData(props.id, {
-        validationStatus: errorCountVal > 0 ? 'error' : 'pass',
-        validationErrors: formattedErrors.map((e) => e.message),
-        lastValidation: { totalRows, errorCount: errorCountVal, matchCount },
-      })
-
-      return { errorCount: errorCountVal, totalRows, errors: formattedErrors }
-    } catch (error) {
-      logger.error('Range validation failed:', error)
-      store.updateNodeData(props.id, {
-        validationStatus: 'error',
-        validationErrors: [String(error)],
-      })
-      return emptyResult
-    }
+    if (!hasSource.value || !hasRange.value) return
+    await validateConstraintNodeById(props.id, store.nodes, store.edges, store.updateNodeData)
   }
 
   // ===== 事件处理 =====

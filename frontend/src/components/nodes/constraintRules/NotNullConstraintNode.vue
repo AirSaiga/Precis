@@ -96,7 +96,6 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
-  import { useNotNull } from '@/composables/nodes/constraints/useNotNull'
 
   const props = defineProps<{
     id: string
@@ -112,9 +111,6 @@
   const { t } = useI18n()
   const store = useGraphStore()
   const { showConfirm } = useGlobalConfirm()
-
-  // 初始化非空约束逻辑（display-only，验证由连接处理器调度）
-  useNotNull(props, emit)
 
   const {
     isSaving,

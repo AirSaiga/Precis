@@ -113,10 +113,10 @@
   import ConstraintNodeLayout from './shared/ConstraintNodeLayout.vue'
   import { resolveNodeState } from '@/components/ui/nodeVariants'
   import type { AllowedValuesConstraintNodeData } from '@/types/graph'
-  import { useAllowedValues } from '@/composables/nodes/constraints/useAllowedValues'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { useGraphStore } from '@/stores/graphStore'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
+  import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
 
   const props = defineProps<{
     id: string
@@ -135,7 +135,10 @@
   const { t } = useI18n()
   const store = useGraphStore()
   const { showConfirm } = useGlobalConfirm()
-  const { performValidation } = useAllowedValues(props, emit)
+
+  const performValidation = async () => {
+    await validateConstraintNodeById(props.id, store.nodes, store.edges, store.updateNodeData)
+  }
 
   const {
     isSaving,

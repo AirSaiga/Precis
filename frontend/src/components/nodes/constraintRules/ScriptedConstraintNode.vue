@@ -129,13 +129,13 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
   import ConstraintNodeLayout from './shared/ConstraintNodeLayout.vue'
   import { resolveNodeState } from '@/components/ui/nodeVariants'
   import type { ScriptedConstraintNodeData } from '@/types/constraints'
-  import { UseScripted } from '@/composables/nodes/constraints/useScripted'
   import { useGraphStore } from '@/stores/graphStore'
   import { useSettingsStore } from '@/stores/settingsStore'
   import { useScriptEditorStore } from '@/stores/scriptEditorStore'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { useConstraintSourceSelector } from '@/composables/nodes/constraints/useConstraintSourceSelector'
+  import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
 
   const props = defineProps<{
     id: string
@@ -156,7 +156,10 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
   const settingsStore = useSettingsStore()
   const scriptEditorStore = useScriptEditorStore()
   const { showConfirm } = useGlobalConfirm()
-  const { performValidation } = UseScripted(props, emit)
+
+  const performValidation = async () => {
+    await validateConstraintNodeById(props.id, store.nodes, store.edges, store.updateNodeData)
+  }
 
   const {
     isSaving,

@@ -122,10 +122,7 @@
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { useConstraintSourceSelector } from '@/composables/nodes/constraints/useConstraintSourceSelector'
-  import { resolveValidationSource } from '@/composables/nodes/constraints/useValidationSource'
-  import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
-  import { getApiBaseUrl } from '@/core/services/httpClient'
-  import { isUUID } from '@/shared/isUUID'
+  import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
 
   const props = defineProps<{
     id: string
@@ -279,105 +276,8 @@
   })
 
   const performValidation = async () => {
-    const emptyResult = {
-      errorCount: 0,
-      totalRows: 0,
-      errors: [] as Array<{ row: number; value: unknown; message: string | undefined }>,
-    }
-
-    if (!hasSource.value || !hasConfig.value) return emptyResult
-
-    const source = resolveValidationSource(store, props.data.sourceRef)
-    if (!source) {
-      if (await tryInlineValidation(store, props.data.sourceRef, props.id)) return emptyResult
-      store.updateNodeData(props.id, {
-        validationStatus: 'missing',
-        validationErrors: ['源表未连接数据源，无法执行日期逻辑校验'],
-        lastValidation: undefined,
-      })
-      return emptyResult
-    }
-
-    const validationConfig: Record<string, any> = {
-      logic_mode: localLogicMode.value,
-    }
-
-    if (localLogicMode.value === 'compare') {
-      validationConfig.compare_op = localCompareOp.value
-      if (localReferenceType.value === 'date') {
-        validationConfig.reference_date = localReferenceDate.value
-      } else {
-        validationConfig.reference_column = localReferenceColumn.value
-      }
-    } else {
-      validationConfig.calculation_type = localCalculationType.value
-      if (localTargetType.value === 'value') {
-        validationConfig.target_value = localTargetValue.value
-      } else {
-        validationConfig.target_column = localTargetColumn.value
-      }
-    }
-
-    try {
-      const request = {
-        validation_type: 'date_logic',
-        target_column_name: source.columnName,
-        source_file_path: source.filePath,
-        sheet_name: source.sheetName,
-        header_row: source.headerRow,
-        validation_config: validationConfig,
-      }
-
-      const fetchResponse = await fetch(`${getApiBaseUrl()}/validate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request),
-      })
-      const response = await fetchResponse.json()
-
-      if (!response.success || !response.data) {
-        const status = 'error'
-        store.updateNodeData(props.id, {
-          validationStatus: status,
-          validationErrors: response.error ? [String(response.error)] : ['日期逻辑校验失败'],
-          lastValidation: undefined,
-        })
-        return emptyResult
-      }
-
-      const errorRows = response.data.error_rows || []
-      const errorCountVal = errorRows.length
-      const totalRows = response.data.total_rows || 0
-      const matchCount = Math.max(0, totalRows - errorCountVal)
-
-      const formattedErrors = errorRows.map((err: any) => {
-        const message = err.error_message || `日期逻辑约束冲突`
-        return {
-          row: err.row_index,
-          value: err.cell_value,
-          message,
-        }
-      })
-
-      store.updateNodeData(props.id, {
-        validationStatus: errorCountVal > 0 ? 'error' : 'pass',
-        validationErrors: formattedErrors.map((e) => e.message),
-        lastValidation: {
-          totalRows,
-          errorCount: errorCountVal,
-          matchCount,
-        },
-      })
-
-      return { errorCount: errorCountVal, totalRows, errors: formattedErrors }
-    } catch (error) {
-      logger.error('DateLogic validation failed:', error)
-      store.updateNodeData(props.id, {
-        validationStatus: 'error',
-        validationErrors: [String(error)],
-      })
-      return emptyResult
-    }
+    if (!hasSource.value || !hasConfig.value) return
+    await validateConstraintNodeById(props.id, store.nodes, store.edges, store.updateNodeData)
   }
 
   let validationTimer: number | undefined

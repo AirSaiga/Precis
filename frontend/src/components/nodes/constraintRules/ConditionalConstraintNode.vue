@@ -163,18 +163,18 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   import { resolveNodeState } from '@/components/ui/nodeVariants'
   import type { ConditionalConstraintNodeData } from '@/types/graph'
   import { useGraphStore } from '@/stores/graphStore'
-  import { useConditional } from '@/composables/nodes/constraints/useConditional'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
+  import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
 
   const props = defineProps<{
-    id: string // 节点在 Vue Flow 图中的唯一 ID
-    data: ConditionalConstraintNodeData // 节点的持久化数据，包含配置和校验状态
-    selected?: boolean // Vue Flow 注入的属性，表示当前节点是否被选中
+    id: string
+    data: ConditionalConstraintNodeData
+    selected?: boolean
   }>()
 
   const { t } = useI18n()
-  const store = useGraphStore() // 全局图状态管理，用于获取其他节点信息和操作边
+  const store = useGraphStore()
   const { showConfirm } = useGlobalConfirm()
 
   const {
@@ -191,12 +191,10 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   } = useConstraintNodeBase(props, {
     statusI18nPrefix: 'customNodes.constraintRules.conditionalConstraintNode',
   })
-  // useConditional: 封装了调用后端校验 API 的逻辑
-  // 第二个参数是回调，这里暂时传入空函数，因为我们主要依赖响应式状态更新
-  const { performValidation } = useConditional(
-    props,
-    (() => undefined) as unknown as (event: string, ...args: unknown[]) => void
-  )
+
+  const performValidation = async () => {
+    await validateConstraintNodeById(props.id, store.nodes, store.edges, store.updateNodeData)
+  }
 
   /**
    * 格式化 THEN 部分的条件配置为可读字符串

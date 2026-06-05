@@ -89,7 +89,6 @@
   import type { UniqueConstraintNodeData } from '@/types/graph'
   import { useGraphStore } from '@/stores/graphStore'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
-  import { useUnique } from '@/composables/nodes/constraints/useUnique'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
 
   const props = defineProps<{
@@ -106,9 +105,6 @@
   const { t } = useI18n()
   const store = useGraphStore()
   const { showConfirm } = useGlobalConfirm()
-
-  // 初始化唯一约束逻辑（display-only，验证由连接处理器调度）
-  useUnique(props, emit)
 
   const {
     isSaving,

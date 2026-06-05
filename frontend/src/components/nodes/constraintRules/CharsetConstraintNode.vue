@@ -120,7 +120,6 @@
 </template>
 
 <script setup lang="ts">
-  import { logger } from '@/core/utils/logger'
   import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
@@ -133,14 +132,7 @@
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { useConstraintSourceSelector } from '@/composables/nodes/constraints/useConstraintSourceSelector'
-  import { resolveValidationSource } from '@/composables/nodes/constraints/useValidationSource'
-  import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
-  import {
-    validateCharset,
-    type CharsetValidationRequest,
-    type ValidationResponse,
-  } from '@/api/validationApi'
-  import { getApiBaseUrl } from '@/core/services/httpClient'
+  import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
   import { useToast } from '@/composables/shared/useToast'
 
   const props = defineProps<{
@@ -159,11 +151,8 @@
 
   const { t } = useI18n()
   const store = useGraphStore()
-  const toast = useToast()
-  const showSuccess = toast.success
-  const showError = toast.error
-
   const { showConfirm } = useGlobalConfirm()
+  const toast = useToast()
 
   const {
     isSaving,
@@ -228,113 +217,8 @@
   })
 
   const performValidation = async () => {
-    const emptyResult = {
-      errorCount: 0,
-      totalRows: 0,
-      errors: [] as Array<{ row: number; value: unknown; message: string | undefined }>,
-    }
-
-    if (!hasSource.value || !hasMode.value) return emptyResult
-
-    const source = resolveValidationSource(store, props.data.sourceRef)
-    if (!source) {
-      if (await tryInlineValidation(store, props.data.sourceRef, props.id)) return emptyResult
-      store.updateNodeData(props.id, {
-        validationStatus: 'missing',
-        validationErrors: ['源表未连接数据源，无法执行字符集校验'],
-        lastValidation: undefined,
-      })
-      return emptyResult
-    }
-
-    const validationConfig = {
-      charset_mode: localCharsetMode.value,
-    }
-
-    try {
-      const request: CharsetValidationRequest = {
-        validation_type: 'charset',
-        target_column_name: source.columnName,
-        source_file_path: source.filePath,
-        sheet_name: source.sheetName,
-        header_row: source.headerRow,
-        validation_config: validationConfig,
-      }
-
-      const response = await validateCharset(request)
-
-      if (!response.success || !response.data) {
-        const status = 'error'
-        store.updateNodeData(props.id, {
-          validationStatus: status,
-          validationErrors: response.error ? [String(response.error)] : ['字符集校验失败'],
-          lastValidation: undefined,
-        })
-        return emptyResult
-      }
-
-      const errorRows = response.data.error_rows || []
-      const errorCountVal = errorRows.length
-      const totalRows = response.data.total_rows || 0
-      const matchCount = Math.max(0, totalRows - errorCountVal)
-
-      const formattedErrors = errorRows.map((err: any) => {
-        const message = err.error_message || `字符集约束冲突：值包含非允许字符`
-        return {
-          row: err.row_index,
-          value: err.cell_value,
-          message,
-        }
-      })
-
-      store.updateNodeData(props.id, {
-        validationStatus: errorCountVal > 0 ? 'error' : 'pass',
-        validationErrors: formattedErrors.map((e) => e.message),
-        lastValidation: {
-          totalRows,
-          errorCount: errorCountVal,
-          matchCount,
-        },
-      })
-
-      // 显示校验结果反馈
-      if (errorCountVal > 0) {
-        showError(
-          t(
-            'customNodes.constraintRules.charsetConstraintNode.validationFailed',
-            '字符集校验未通过'
-          ),
-          t(
-            'customNodes.constraintRules.charsetConstraintNode.errorCountMessage',
-            { count: errorCountVal },
-            `发现 ${errorCountVal} 条不符合约束的数据`
-          )
-        )
-      } else {
-        showSuccess(
-          t('customNodes.constraintRules.charsetConstraintNode.validationPassed', '字符集校验通过'),
-          t(
-            'customNodes.constraintRules.charsetConstraintNode.allRowsMatch',
-            { count: totalRows },
-            `全部 ${totalRows} 行数据符合字符集约束`
-          )
-        )
-      }
-
-      return { errorCount: errorCountVal, totalRows, errors: formattedErrors }
-    } catch (error) {
-      logger.error('Charset validation failed:', error)
-      const errorMessage = error instanceof Error ? error.message : String(error)
-      store.updateNodeData(props.id, {
-        validationStatus: 'error',
-        validationErrors: [errorMessage],
-      })
-      showError(
-        t('customNodes.constraintRules.charsetConstraintNode.validationError', '校验执行失败'),
-        errorMessage
-      )
-      return emptyResult
-    }
+    if (!hasSource.value || !hasMode.value) return
+    await validateConstraintNodeById(props.id, store.nodes, store.edges, store.updateNodeData)
   }
 
   let validationTimer: number | undefined
@@ -358,6 +242,31 @@
     isValidating.value = true
     try {
       await validateNow()
+      await nextTick()
+      const node = store.nodes.find((n) => n.id === props.id)
+      const status = (node?.data as Record<string, unknown>)?.validationStatus as string
+      const lastVal = (node?.data as Record<string, unknown>)?.lastValidation as
+        | { totalRows?: number; errorCount?: number }
+        | undefined
+      if (status === 'error') {
+        toast.error(
+          t('customNodes.constraintRules.charsetConstraintNode.validationFailed', '字符集校验未通过'),
+          t(
+            'customNodes.constraintRules.charsetConstraintNode.errorCountMessage',
+            { count: lastVal?.errorCount || 0 },
+            `发现 ${lastVal?.errorCount || 0} 条不符合约束的数据`
+          )
+        )
+      } else if (status === 'pass') {
+        toast.success(
+          t('customNodes.constraintRules.charsetConstraintNode.validationPassed', '字符集校验通过'),
+          t(
+            'customNodes.constraintRules.charsetConstraintNode.allRowsMatch',
+            { count: lastVal?.totalRows || 0 },
+            `全部 ${lastVal?.totalRows || 0} 行数据符合字符集约束`
+          )
+        )
+      }
     } finally {
       isValidating.value = false
     }

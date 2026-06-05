@@ -364,7 +364,6 @@ export async function validateConstraintNode(params: {
   if (!ctx) return
   const result = await handler.validate(ctx)
   updateNodeData(constraintNode.id, {
-    ...(constraintNode.data as Record<string, unknown>),
     table: ((schemaNode.data || {}) as Record<string, unknown>)?.tableName as string,
     column: ctx.columnName,
     sourceRef: { nodeId: schemaNode.id, columnId: ctx.columnId },
@@ -374,22 +373,30 @@ export async function validateConstraintNode(params: {
   })
 }
 
+export interface ValidationSummary {
+  totalConstraints: number
+  validConstraints: number
+  invalidConstraints: number
+  totalErrors: number
+}
+
 export async function validateConstraintNodesForSchema(params: {
   schemaNodeId: string
   nodes: Node[]
   edges: Edge[]
   updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
-}): Promise<void> {
+}): Promise<ValidationSummary> {
   const { schemaNodeId, nodes, edges, updateNodeData } = params
-  const schemaNode = nodes.find((n) => n.id === schemaNodeId && n.type === 'schema')
-  if (!schemaNode) return
-  const schemaEdges = edges.filter((e) => e.source === schemaNodeId)
+  const emptySummary: ValidationSummary = {
+    totalConstraints: 0,
+    validConstraints: 0,
+    invalidConstraints: 0,
+    totalErrors: 0,
+  }
 
-  // ============================================================================
-  // 分两阶段执行约束校验
-  // ============================================================================
-  // 第一阶段：先执行非 Composite 约束，确保其结果可用
-  // 第二阶段：再执行 Composite 约束，使其能读取上游约束的已执行结果
+  const schemaNode = nodes.find((n) => n.id === schemaNodeId && (n.type === 'schema' || n.type === 'jsonSchema'))
+  if (!schemaNode) return emptySummary
+  const schemaEdges = edges.filter((e) => e.source === schemaNodeId)
 
   const nonCompositeEdges = schemaEdges.filter((e) => {
     const node = nodes.find((n) => n.id === e.target)
@@ -401,46 +408,52 @@ export async function validateConstraintNodesForSchema(params: {
     return node?.type === 'compositeConstraint'
   })
 
-  // 收集每列的校验错误，用于同步更新 Schema 列的 validationErrors
+  if (nonCompositeEdges.length === 0 && compositeEdges.length === 0) return emptySummary
+
   const columnErrorMap = new Map<string, string[]>()
+  let totalValid = 0
+  let totalInvalid = 0
+  let totalErrorCount = 0
 
-  for (const edge of nonCompositeEdges) {
-    const constraintNode = nodes.find((n) => n.id === edge.target)
-    if (!constraintNode || !isConstraintNodeType(constraintNode.type)) continue
-    const ctx = buildValidationContext({ schemaNode, constraintNode, edge, nodes })
-    if (!ctx) continue
-    const handler = getHandlerByNodeType(constraintNode.type)
-    if (!handler) continue
-    const result = await handler.validate(ctx)
+  const validateEdgeBatch = async (edgeList: Edge[]) => {
+    for (const edge of edgeList) {
+      const constraintNode = nodes.find((n) => n.id === edge.target)
+      if (!constraintNode || !isConstraintNodeType(constraintNode.type)) continue
+      const ctx = buildValidationContext({ schemaNode, constraintNode, edge, nodes })
+      if (!ctx) continue
+      const handler = getHandlerByNodeType(constraintNode.type)
+      if (!handler) continue
+      const result = await handler.validate(ctx)
 
-    // 更新约束节点状态
-    updateNodeData(constraintNode.id, {
-      ...(constraintNode.data as Record<string, unknown>),
-      table: ((schemaNode.data || {}) as Record<string, unknown>)?.tableName as string,
-      column: ctx.columnName,
-      sourceRef: { nodeId: schemaNode.id, columnId: ctx.columnId },
-      validationStatus: result.status,
-      validationErrors: result.validationErrors,
-      lastValidation: result.lastValidation,
-    })
+      updateNodeData(constraintNode.id, {
+        table: ((schemaNode.data || {}) as Record<string, unknown>)?.tableName as string,
+        column: ctx.columnName,
+        sourceRef: { nodeId: schemaNode.id, columnId: ctx.columnId },
+        validationStatus: result.status,
+        validationErrors: result.validationErrors,
+        lastValidation: result.lastValidation,
+      })
 
-    // 收集该列的错误
-    if (result.validationErrors.length > 0) {
-      const existing = columnErrorMap.get(ctx.columnId) || []
-      columnErrorMap.set(ctx.columnId, [...existing, ...result.validationErrors])
+      if (result.status === 'pass') {
+        totalValid++
+      } else if (result.status === 'error') {
+        totalInvalid++
+        totalErrorCount += result.lastValidation?.errorCount || result.validationErrors.length
+      }
+
+      if (result.validationErrors.length > 0) {
+        const existing = columnErrorMap.get(ctx.columnId) || []
+        columnErrorMap.set(ctx.columnId, [...existing, ...result.validationErrors])
+      }
     }
   }
 
-  for (const edge of compositeEdges) {
-    const constraintNode = nodes.find((n) => n.id === edge.target)
-    if (!constraintNode || !isConstraintNodeType(constraintNode.type)) continue
-    await validateConstraintNode({ schemaNode, constraintNode, edge, nodes, updateNodeData })
-  }
+  await validateEdgeBatch(nonCompositeEdges)
+  await validateEdgeBatch(compositeEdges)
 
-  // 同步更新 Schema 列的 validationErrors
   const schemaData = (schemaNode.data || {}) as Record<string, unknown>
   const columns = (schemaData.columns || []) as Array<Record<string, unknown>>
-  if (columns.length > 0 && (nonCompositeEdges.length > 0 || compositeEdges.length > 0)) {
+  if (columns.length > 0) {
     const updatedColumns = columns.map((col) => {
       const colId = col.id as string
       const errors = columnErrorMap.get(colId) || []
@@ -453,6 +466,13 @@ export async function validateConstraintNodesForSchema(params: {
       ...schemaData,
       columns: updatedColumns,
     })
+  }
+
+  return {
+    totalConstraints: totalValid + totalInvalid,
+    validConstraints: totalValid,
+    invalidConstraints: totalInvalid,
+    totalErrors: totalErrorCount,
   }
 }
 
@@ -539,7 +559,7 @@ export async function revalidateConstraintsReferencingSchema(params: {
     const sourceEdges = edges.filter((e) => e.target === constraintNode.id)
     for (const edge of sourceEdges) {
       const sourceNode = nodes.find((n) => n.id === edge.source)
-      if (sourceNode?.type === 'schema') {
+      if (sourceNode?.type === 'schema' || sourceNode?.type === 'jsonSchema') {
         sourceSchemaIds.add(sourceNode.id)
       }
     }
@@ -691,12 +711,102 @@ export async function validateForInlineSource(params: {
   const result = await handler.validate(ctx)
 
   updateNodeData(constraintNode.id, {
-    ...(constraintNode.data as Record<string, unknown>),
     table: (sourceData.configName as string) || columnName,
     column: columnName,
     sourceRef: { nodeId: sourceNode.id, columnId: '0' },
     validationStatus: result.status,
     validationErrors: result.validationErrors,
     lastValidation: result.lastValidation,
+  })
+}
+
+/**
+ * 通过约束节点 ID 执行单约束校验（统一入口）
+ *
+ * 自动检测数据源类型（Schema 或 inline），查找对应的 edge 和源节点，
+ * 调用合适的校验路径并更新节点数据。
+ *
+ * @param constraintNodeId - 约束节点 ID
+ * @param nodes - 画布所有节点
+ * @param edges - 画布所有边
+ * @param updateNodeData - 更新节点数据的回调
+ */
+export async function validateConstraintNodeById(
+  constraintNodeId: string,
+  nodes: Node[],
+  edges: Edge[],
+  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
+): Promise<void> {
+  const constraintNode = nodes.find((n) => n.id === constraintNodeId)
+  if (!constraintNode) return
+
+  const nodeData = (constraintNode.data || {}) as Record<string, unknown>
+  const sourceRef = nodeData.sourceRef as { nodeId: string; columnId: string } | undefined
+
+  if (!sourceRef?.nodeId) return
+
+  const sourceNode = nodes.find((n) => n.id === sourceRef.nodeId)
+  if (!sourceNode) return
+
+  if (sourceNode.type === 'manualData' || sourceNode.type === 'transformOutput') {
+    await validateForInlineSource({
+      sourceNodeId: sourceRef.nodeId,
+      constraintNode,
+      nodes,
+      updateNodeData,
+    })
+    return
+  }
+
+  if (sourceNode.type === 'schema' || sourceNode.type === 'jsonSchema') {
+    const edge = edges.find(
+      (e) => e.target === constraintNodeId && e.source === sourceRef.nodeId
+    )
+    if (!edge) return
+
+    await validateConstraintNode({
+      schemaNode: sourceNode,
+      constraintNode,
+      edge,
+      nodes,
+      updateNodeData,
+    })
+
+    syncColumnErrorsForSourceRef(sourceRef.nodeId, sourceRef.columnId, nodes, updateNodeData)
+  }
+}
+
+export function syncColumnErrorsForSourceRef(
+  schemaNodeId: string,
+  columnId: string,
+  nodes: Node[],
+  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
+): void {
+  const schemaNode = nodes.find((n) => n.id === schemaNodeId)
+  if (!schemaNode) return
+  const schemaData = (schemaNode.data || {}) as Record<string, unknown>
+  const columns = (schemaData.columns || []) as Array<Record<string, unknown>>
+  if (columns.length === 0) return
+
+  const columnErrors: string[] = []
+  for (const node of nodes) {
+    if (!isConstraintNodeType(node.type)) continue
+    const nd = (node.data || {}) as Record<string, unknown>
+    const ref = nd.sourceRef as { nodeId: string; columnId: string } | undefined
+    if (ref?.nodeId === schemaNodeId && ref?.columnId === columnId) {
+      const errors = (nd.validationErrors as string[]) || []
+      columnErrors.push(...errors)
+    }
+  }
+
+  const updatedColumns = columns.map((col) => {
+    if ((col as Record<string, unknown>).id === columnId) {
+      return { ...col, validationErrors: columnErrors }
+    }
+    return col
+  })
+  updateNodeData(schemaNodeId, {
+    ...schemaData,
+    columns: updatedColumns,
   })
 }

@@ -88,7 +88,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, ref, watch, nextTick } from 'vue'
+  import { computed, ref, watch, nextTick, onBeforeUnmount } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
   import NodeBadge from '@/components/ui/NodeBadge.vue'
@@ -97,10 +97,10 @@
   import { resolveNodeState } from '@/components/ui/nodeVariants'
   import type { ForeignKeyConstraintNodeData, SchemaNodeData } from '@/types/graph'
   import type { Edge } from '@vue-flow/core'
-  import { useForeignKey } from '@/composables/nodes/constraints/useForeignKey'
   import { useGraphStore } from '@/stores/graphStore'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
+  import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
 
   const props = defineProps<{
     id: string
@@ -119,7 +119,19 @@
   const { t } = useI18n()
   const store = useGraphStore()
   const { showConfirm } = useGlobalConfirm()
-  const { performValidation } = useForeignKey(props, emit)
+
+  const performValidation = async () => {
+    await validateConstraintNodeById(props.id, store.nodes, store.edges, store.updateNodeData)
+  }
+
+  let validationTimer: number | undefined
+  onBeforeUnmount(() => { if (validationTimer) clearTimeout(validationTimer) })
+  const scheduleValidation = () => {
+    if (validationTimer) window.clearTimeout(validationTimer)
+    validationTimer = window.setTimeout(() => {
+      performValidation().catch(() => undefined)
+    }, 300)
+  }
 
   const {
     isSaving,
@@ -236,7 +248,7 @@
     (next) => {
       localTargetColumnId.value = next || ''
       if (next && hasSource.value) {
-        performValidation().catch(() => undefined)
+        scheduleValidation()
       }
       // 目标列变化时自动更新展示边
       ensureDisplayTargetEdge()
