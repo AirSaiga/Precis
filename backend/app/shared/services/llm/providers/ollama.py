@@ -34,6 +34,11 @@ import logging
 from collections.abc import AsyncIterator
 from typing import Any
 
+try:
+    import aiohttp as _aiohttp
+except ImportError:
+    _aiohttp = None  # type: ignore[assignment]
+
 from .base import BaseProvider, ChatRequest, ChatResponse
 
 logger = logging.getLogger(__name__)
@@ -71,8 +76,8 @@ class OllamaProvider(BaseProvider):
         返回:
             aiohttp.ClientSession 实例
         """
-        import aiohttp as _aiohttp
-
+        if _aiohttp is None:
+            raise ImportError("aiohttp 未安装，请运行 pip install aiohttp")
         if self._session is None or self._session.closed:
             timeout = _aiohttp.ClientTimeout(total=self.timeout_seconds)
             self._session = _aiohttp.ClientSession(timeout=timeout)
@@ -100,7 +105,8 @@ class OllamaProvider(BaseProvider):
             warnings.warn("OllamaProvider 未显式关闭 session，请在使用完毕后调用 close()", ResourceWarning)
 
     async def _post(self, endpoint: str, data: dict) -> dict:
-        import aiohttp as _aiohttp
+        if _aiohttp is None:
+            raise ImportError("aiohttp 未安装，请运行 pip install aiohttp")
 
         url = f"{self.cfg.base_url}/api/{endpoint}"
         for attempt in range(_MAX_RETRIES):
@@ -178,7 +184,8 @@ class OllamaProvider(BaseProvider):
         返回:
             异步生成器，逐块返回 AI 回复内容
         """
-        import aiohttp as _aiohttp
+        if _aiohttp is None:
+            raise ImportError("aiohttp 未安装，请运行 pip install aiohttp")
 
         data = {
             "model": self._get_model(req.model),

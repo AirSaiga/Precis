@@ -30,7 +30,12 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator
 
-from openai import APIConnectionError, APIStatusError, AsyncOpenAI
+try:
+    from openai import APIConnectionError, APIStatusError, AsyncOpenAI
+except ImportError:
+    APIConnectionError = None  # type: ignore[assignment,misc]
+    APIStatusError = None  # type: ignore[assignment,misc]
+    AsyncOpenAI = None  # type: ignore[assignment,misc]
 
 from .base import BaseProvider, ChatRequest, ChatResponse
 
@@ -60,7 +65,8 @@ class OpenAIProvider(BaseProvider):
 
     def __init__(self, config):
         super().__init__(config)
-        # 初始化异步 OpenAI 客户端
+        if AsyncOpenAI is None:
+            raise ImportError("openai 未安装，请运行 pip install openai")
         self.client = AsyncOpenAI(
             base_url=config.base_url,
             api_key=config.api_key or "",
