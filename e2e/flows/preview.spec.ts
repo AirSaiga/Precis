@@ -1,4 +1,8 @@
+import * as path from 'path'
 import { test, expect } from '../fixtures/base'
+
+const FIXTURES_DIR = path.join(__dirname, '..', 'fixtures')
+const USERS_CSV = path.join(FIXTURES_DIR, 'test-project', 'data', 'users.csv')
 
 /**
  * 数据预览 E2E 测试
@@ -12,7 +16,7 @@ import { test, expect } from '../fixtures/base'
 test.describe('Preview API', () => {
   test('CSV file preview returns data rows', async ({ apiHelper }) => {
     const resp = await apiHelper.post('/preview/content', {
-      source_file_path: 'e2e/fixtures/test-project/data/users.csv',
+      source_file_path: USERS_CSV,
       header_row: 0,
     })
 

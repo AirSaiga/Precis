@@ -1,4 +1,8 @@
+import * as path from 'path'
 import { test, expect } from '../fixtures/base'
+
+const FIXTURES_DIR = path.join(__dirname, '..', 'fixtures')
+const USERS_CSV = path.join(FIXTURES_DIR, 'test-project', 'data', 'users.csv')
 
 /**
  * 数据校验 E2E 测试
@@ -12,7 +16,7 @@ import { test, expect } from '../fixtures/base'
 test.describe('Validation API', () => {
   test('POST /validate returns validation result', async ({ apiHelper }) => {
     const resp = await apiHelper.post('/validate', {
-      source_file_path: 'e2e/fixtures/test-project/data/users.csv',
+      source_file_path: USERS_CSV,
       validation_type: 'NotNull',
       target_column_name: 'name',
     })
@@ -25,7 +29,7 @@ test.describe('Validation API', () => {
 
   test('NotNull validation passes for complete column', async ({ apiHelper }) => {
     const resp = await apiHelper.post('/validate', {
-      source_file_path: 'e2e/fixtures/test-project/data/users.csv',
+      source_file_path: USERS_CSV,
       validation_type: 'NotNull',
       target_column_name: 'name',
     })
@@ -39,7 +43,7 @@ test.describe('Validation API', () => {
 
   test('Unique validation detects duplicates', async ({ apiHelper }) => {
     const resp = await apiHelper.post('/validate', {
-      source_file_path: 'e2e/fixtures/test-project/data/users.csv',
+      source_file_path: USERS_CSV,
       validation_type: 'Unique',
       target_column_name: 'email',
     })
@@ -53,7 +57,7 @@ test.describe('Validation API', () => {
 
   test('validation handles missing column gracefully', async ({ apiHelper }) => {
     const resp = await apiHelper.post('/validate', {
-      source_file_path: 'e2e/fixtures/test-project/data/users.csv',
+      source_file_path: USERS_CSV,
       validation_type: 'NotNull',
       target_column_name: 'nonexistent_column',
     })
