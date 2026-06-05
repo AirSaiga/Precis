@@ -17,20 +17,20 @@ test.describe('Validation API', () => {
   test('POST /validate returns validation result', async ({ apiHelper }) => {
     const resp = await apiHelper.post('/validate', {
       source_file_path: USERS_CSV,
-      validation_type: 'NotNull',
+      validation_type: 'not_null',
       target_column_name: 'name',
     })
 
     expect(resp.ok).toBe(true)
     const data = await resp.json()
     expect(data).toHaveProperty('success')
-    expect(data).toHaveProperty('validation_type', 'NotNull')
+    expect(data).toHaveProperty('validation_type', 'not_null')
   })
 
   test('NotNull validation passes for complete column', async ({ apiHelper }) => {
     const resp = await apiHelper.post('/validate', {
       source_file_path: USERS_CSV,
-      validation_type: 'NotNull',
+      validation_type: 'not_null',
       target_column_name: 'name',
     })
 
@@ -44,7 +44,7 @@ test.describe('Validation API', () => {
   test('Unique validation detects duplicates', async ({ apiHelper }) => {
     const resp = await apiHelper.post('/validate', {
       source_file_path: USERS_CSV,
-      validation_type: 'Unique',
+      validation_type: 'unique',
       target_column_name: 'email',
     })
 
@@ -58,7 +58,7 @@ test.describe('Validation API', () => {
   test('validation handles missing column gracefully', async ({ apiHelper }) => {
     const resp = await apiHelper.post('/validate', {
       source_file_path: USERS_CSV,
-      validation_type: 'NotNull',
+      validation_type: 'not_null',
       target_column_name: 'nonexistent_column',
     })
 
@@ -71,7 +71,7 @@ test.describe('Validation API', () => {
   test('validation handles missing file gracefully', async ({ apiHelper }) => {
     const resp = await apiHelper.post('/validate', {
       source_file_path: '/nonexistent/file.csv',
-      validation_type: 'NotNull',
+      validation_type: 'not_null',
       target_column_name: 'name',
     })
 
