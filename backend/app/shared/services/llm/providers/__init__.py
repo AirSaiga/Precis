@@ -17,20 +17,9 @@
 """
 
 from .base import BaseProvider, ChatMessage, ChatRequest, ChatResponse
+from .ollama import OllamaProvider
+from .openai import OpenAIProvider
 from .registry import create, register
-
-
-def __getattr__(name: str):
-    if name == "OpenAIProvider":
-        from .openai import OpenAIProvider
-
-        return OpenAIProvider
-    if name == "OllamaProvider":
-        from .ollama import OllamaProvider
-
-        return OllamaProvider
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-
 
 __all__ = [
     "BaseProvider",

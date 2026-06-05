@@ -22,14 +22,8 @@
 
 from ..config.models import AIProvider, ProviderType
 from .base import BaseProvider
-
-
-def _lazy_import_providers():
-    from .ollama import OllamaProvider
-    from .openai import OpenAIProvider
-
-    return {ProviderType.OPENAI: OpenAIProvider, ProviderType.OLLAMA: OllamaProvider}
-
+from .ollama import OllamaProvider
+from .openai import OpenAIProvider
 
 # 全局注册表：ProviderType -> Provider 类 的映射字典
 _registry: dict[ProviderType, type[BaseProvider]] = {}
@@ -47,18 +41,6 @@ def register(type: ProviderType, cls: type[BaseProvider]):
         >>> register(ProviderType.OPENAI, OpenAIProvider)
     """
     _registry[type] = cls
-
-
-# 注册内置 Provider（延迟导入，仅在首次调用 create 时注册）
-_providers_registered = False
-
-
-def _ensure_providers_registered():
-    global _providers_registered
-    if _providers_registered:
-        return
-    _registry.update(_lazy_import_providers())
-    _providers_registered = True
 
 
 def create(config: AIProvider) -> BaseProvider:
@@ -79,8 +61,12 @@ def create(config: AIProvider) -> BaseProvider:
     示例：
         >>> provider = create(config)
     """
-    _ensure_providers_registered()
     cls = _registry.get(config.type)
     if not cls:
         raise ValueError(f"Unknown provider type: {config.type}")
     return cls(config)
+
+
+# 注册内置 Provider
+register(ProviderType.OPENAI, OpenAIProvider)
+register(ProviderType.OLLAMA, OllamaProvider)
