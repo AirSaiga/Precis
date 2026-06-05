@@ -49,6 +49,8 @@ dependencies = [
     "cryptography>=44.0.0",
     # 安全表达式求值 (替代 eval)
     "simpleeval>=1.0.0",
+    # 文件锁
+    "filelock>=3.12.0",
 ]
 
 [project.optional-dependencies]

@@ -162,8 +162,17 @@ jobs:
       - name: Start backend server
         run: |
           cd ../backend
-          python -m uvicorn app.api.main:app --port 18000 &
-          sleep 5
+          python -m uvicorn app.api.main:app --host 0.0.0.0 --port 18000 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:18000/health > /dev/null 2>&1; then
+              echo "Backend is ready"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/30)"
+            sleep 1
+          done
+          echo "Backend failed to start"
+          exit 1
         env:
           E2E_SKIP_WEB_SERVER: 'true'
 
