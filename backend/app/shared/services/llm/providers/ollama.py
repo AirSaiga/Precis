@@ -26,15 +26,18 @@
         print(chunk, end="")
 """
 
+from __future__ import annotations
+
 import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
-
-import aiohttp
+from typing import TYPE_CHECKING, Any
 
 from .base import BaseProvider, ChatRequest, ChatResponse
+
+if TYPE_CHECKING:
+    import aiohttp
 
 logger = logging.getLogger(__name__)
 
@@ -62,18 +65,20 @@ class OllamaProvider(BaseProvider):
     def __init__(self, config):
         super().__init__(config)
         self.timeout_seconds = config.network.timeout if config.network else 60
-        self._session: aiohttp.ClientSession | None = None
+        self._session = None
 
-    async def _get_session(self) -> aiohttp.ClientSession:
+    async def _get_session(self):
         """
         @methoddesc 获取或创建 aiohttp 会话（懒加载 + 自动重建）
 
         返回:
             aiohttp.ClientSession 实例
         """
+        import aiohttp as _aiohttp
+
         if self._session is None or self._session.closed:
-            timeout = aiohttp.ClientTimeout(total=self.timeout_seconds)
-            self._session = aiohttp.ClientSession(timeout=timeout)
+            timeout = _aiohttp.ClientTimeout(total=self.timeout_seconds)
+            self._session = _aiohttp.ClientSession(timeout=timeout)
         return self._session
 
     async def close(self):
@@ -98,20 +103,22 @@ class OllamaProvider(BaseProvider):
             warnings.warn("OllamaProvider 未显式关闭 session，请在使用完毕后调用 close()", ResourceWarning)
 
     async def _post(self, endpoint: str, data: dict) -> dict:
+        import aiohttp as _aiohttp
+
         url = f"{self.cfg.base_url}/api/{endpoint}"
         for attempt in range(_MAX_RETRIES):
             try:
                 session = await self._get_session()
                 async with session.post(url, json=data) as resp:
                     if resp.status >= 500:
-                        raise aiohttp.ClientResponseError(
+                        raise _aiohttp.ClientResponseError(
                             request_info=resp.request_info,
                             history=resp.history,
                             status=resp.status,
                             message=f"服务端错误: {resp.status}",
                         )
                     if resp.status == 429:
-                        raise aiohttp.ClientResponseError(
+                        raise _aiohttp.ClientResponseError(
                             request_info=resp.request_info,
                             history=resp.history,
                             status=resp.status,
@@ -119,16 +126,16 @@ class OllamaProvider(BaseProvider):
                         )
                     if resp.status >= 400:
                         text = await resp.text()
-                        raise aiohttp.ClientResponseError(
+                        raise _aiohttp.ClientResponseError(
                             request_info=resp.request_info,
                             history=resp.history,
                             status=resp.status,
                             message=f"请求失败({resp.status}): {text[:200]}",
                         )
                     return await resp.json()
-            except (aiohttp.ClientConnectionError, asyncio.TimeoutError, aiohttp.ClientResponseError) as e:
-                should_retry = isinstance(e, (aiohttp.ClientConnectionError, asyncio.TimeoutError)) or (
-                    isinstance(e, aiohttp.ClientResponseError) and e.status in (429, 500, 502, 503)
+            except (_aiohttp.ClientConnectionError, asyncio.TimeoutError, _aiohttp.ClientResponseError) as e:
+                should_retry = isinstance(e, (_aiohttp.ClientConnectionError, asyncio.TimeoutError)) or (
+                    isinstance(e, _aiohttp.ClientResponseError) and e.status in (429, 500, 502, 503)
                 )
                 if should_retry and attempt < _MAX_RETRIES - 1:
                     delay = _RETRY_BASE_DELAY * (2**attempt)
@@ -174,6 +181,8 @@ class OllamaProvider(BaseProvider):
         返回:
             异步生成器，逐块返回 AI 回复内容
         """
+        import aiohttp as _aiohttp
+
         data = {
             "model": self._get_model(req.model),
             "messages": [{"role": m.role, "content": m.content} for m in req.messages],
@@ -185,7 +194,7 @@ class OllamaProvider(BaseProvider):
         async with session.post(url, json=data) as resp:
             if resp.status >= 400:
                 text = await resp.text()
-                raise aiohttp.ClientResponseError(
+                raise _aiohttp.ClientResponseError(
                     request_info=resp.request_info,
                     history=resp.history,
                     status=resp.status,
