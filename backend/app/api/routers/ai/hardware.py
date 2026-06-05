@@ -30,7 +30,10 @@ import logging
 import platform
 from typing import Any
 
-import psutil
+try:
+    import psutil
+except ImportError:
+    psutil = None  # type: ignore[assignment]
 
 from .models import HardwareDiagnoseResponse, HardwareInfo, HardwareRequirement
 from .router import router
@@ -43,6 +46,8 @@ def diagnose_hardware() -> HardwareDiagnoseResponse:
 
     检查 CPU、内存、磁盘等硬件信息，评估运行本地 AI 模型的条件
     """
+    if psutil is None:
+        raise ImportError("psutil 未安装，请运行 pip install psutil")
     # 获取系统信息
     platform_name = platform.platform()
 
