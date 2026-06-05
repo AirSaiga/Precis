@@ -15,9 +15,12 @@ from .validation import (
     AllowedValuesValidator,
     BaseValidator,
     CharsetValidator,
+    ChunkedDataLoader,
+    ChunkedValidationResult,
     ConditionalValidator,
     DateLogicValidator,
     ForeignKeyValidator,
+    MemoryMonitor,
     NotNullValidator,
     RangeValidator,
     RegexValidator,
@@ -64,4 +67,8 @@ __all__ = [
     "ValidationOptions",
     "create_executor",
     "validate_full_dataset",
+    # 性能工具
+    "MemoryMonitor",
+    "ChunkedDataLoader",
+    "ChunkedValidationResult",
 ]

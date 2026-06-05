@@ -164,15 +164,18 @@
 
       if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
         const selectedPath = result.filePaths[0]
+        if (!selectedPath) return
         const configPath = projectStore.currentPaths?.configPath
+        const target = dataSources.value[index]
+        if (!target) return
 
         if (configPath && selectedPath.startsWith(configPath)) {
           const relativePath = selectedPath.substring(configPath.length).replace(/^[/\\]/, '')
-          dataSources.value[index].path = relativePath
-          dataSources.value[index].mode = 'relative'
+          target.path = relativePath
+          target.mode = 'relative'
         } else {
-          dataSources.value[index].path = selectedPath
-          dataSources.value[index].mode = 'absolute'
+          target.path = selectedPath
+          target.mode = 'absolute'
         }
         handleChange()
       }

@@ -219,9 +219,12 @@ export function useConnectionDispatcher(): UseConnectionDispatcherReturn {
    * @param params - 连接开始参数
    */
   const onConnectStart = (params: OnConnectStartParams): void => {
+    if (!params.nodeId || !params.handleType) {
+      return
+    }
     connectStartData.value = {
       nodeId: params.nodeId,
-      handleId: params.handleId,
+      handleId: params.handleId ?? '',
       handleType: params.handleType,
     }
 
@@ -249,9 +252,9 @@ export function useConnectionDispatcher(): UseConnectionDispatcherReturn {
 
     const validationResult = validateConnection(
       sourceNode,
-      params.sourceHandle,
+      params.sourceHandle ?? undefined,
       targetNode,
-      params.targetHandle
+      params.targetHandle ?? undefined
     )
 
     if (!validationResult.isValid) {

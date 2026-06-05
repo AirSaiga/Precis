@@ -60,7 +60,10 @@ export function useValidationErrorFilter(errors: FullValidationErrorItem[]) {
       if (!groups[key]) {
         groups[key] = []
       }
-      groups[key].push(item)
+      const bucket = groups[key]
+      if (bucket) {
+        bucket.push(item)
+      }
     }
 
     return groups

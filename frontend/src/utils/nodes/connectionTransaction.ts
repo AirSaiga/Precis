@@ -45,9 +45,10 @@ export function createConnectionTransaction(params: {
     if (!node) return
 
     const before: Record<string, any> = {}
+    const nodeData = node.data ?? {}
     for (const key of Object.keys(patch)) {
       const k = key as keyof CustomNodeData
-      before[key] = node.data[k]
+      before[key] = (nodeData as Record<string, unknown>)[k as string]
     }
 
     snapshots.push({ nodeId, data: before })
@@ -55,11 +56,11 @@ export function createConnectionTransaction(params: {
     undoStack.push(() => {
       const target = nodes.find((n) => n.id === nodeId)
       if (target) {
-        updateNodeData(nodeId, before)
+        updateNodeData(nodeId, before as Partial<CustomNodeData>)
       }
     })
 
-    updateNodeData(nodeId, patch)
+    updateNodeData(nodeId, patch as Partial<CustomNodeData>)
   }
 
   const commit = () => {
@@ -69,7 +70,8 @@ export function createConnectionTransaction(params: {
 
   const rollback = () => {
     for (let i = undoStack.length - 1; i >= 0; i--) {
-      undoStack[i]()
+      const fn = undoStack[i]
+      if (fn) fn()
     }
     undoStack.length = 0
     snapshots.length = 0

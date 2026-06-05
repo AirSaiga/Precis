@@ -45,7 +45,15 @@ from .manifest import get_v2_manifest
 router = APIRouter(prefix="", tags=["Project-Regex"])
 
 
-@router.get("/v2/regex/{regex_id}", response_model=RegexNodeFileV2)
+@router.get(
+    "/v2/regex/{regex_id}",
+    response_model=RegexNodeFileV2,
+    summary="读取 Regex 节点",
+    responses={
+        404: {"description": "Regex 节点不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def get_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_config_path)):
     """
     读取指定 regex_id 的 regex 节点文件。
@@ -121,7 +129,16 @@ def get_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_conf
     return RegexNodeFileV2.model_validate(data)
 
 
-@router.put("/v2/regex/{regex_id}", response_model=StandardResponse)
+@router.put(
+    "/v2/regex/{regex_id}",
+    response_model=StandardResponse,
+    summary="写入 Regex 节点",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def put_v2_regex_node(
     regex_id: str,
     regex_node: RegexNodeFileV2,
@@ -180,7 +197,16 @@ def put_v2_regex_node(
     return {"message": f"V2 regex_node '{regex_id}' 已保存。"}
 
 
-@router.delete("/v2/regex/{regex_id}", response_model=StandardResponse)
+@router.delete(
+    "/v2/regex/{regex_id}",
+    response_model=StandardResponse,
+    summary="删除 Regex 节点",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Regex 节点或 Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def delete_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_config_path)):
     """
     删除指定 regex_id 的 regex 文件，并从 manifest 中移除引用。
@@ -244,7 +270,15 @@ def delete_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_c
     return {"message": f"V2 regex_node '{regex_id}' 已删除。"}
 
 
-@router.post("/v2/regex/{regex_id}/display-name", response_model=StandardResponse)
+@router.post(
+    "/v2/regex/{regex_id}/display-name",
+    response_model=StandardResponse,
+    summary="更新 Regex 节点展示名",
+    responses={
+        404: {"description": "Regex 节点不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def update_v2_regex_node_display_name(
     regex_id: str,
     payload: DisplayNameUpdateRequest,

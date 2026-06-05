@@ -89,7 +89,15 @@ class SchemaConflictInfo(BaseModel):
     new_schema: Optional[dict[str, Any]] = None
 
 
-@router.get("/v2/schemas/{table_id}", response_model=TableSchemaFileV2)
+@router.get(
+    "/v2/schemas/{table_id}",
+    response_model=TableSchemaFileV2,
+    summary="读取 Schema",
+    responses={
+        404: {"description": "Schema 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def get_v2_schema(table_id: str, config_path: str = Depends(get_project_config_path)):
     """
     读取指定 table_id 的 schema 文件。
@@ -133,7 +141,17 @@ def get_v2_schema(table_id: str, config_path: str = Depends(get_project_config_p
     raise HTTPException(status_code=404, detail=f"未找到 schema: {table_id}")
 
 
-@router.put("/v2/schemas/{table_id}", response_model=StandardResponse)
+@router.put(
+    "/v2/schemas/{table_id}",
+    response_model=StandardResponse,
+    summary="写入 Schema",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Manifest 不存在"},
+        409: {"description": "Schema 文件已存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def put_v2_schema(
     table_id: str,
     schema: TableSchemaFileV2,
@@ -232,7 +250,16 @@ def put_v2_schema(
     return {"message": f"V2 schema '{table_id}' 已保存。"}
 
 
-@router.post("/v2/schemas/{table_id}/check-conflict", response_model=SchemaConflictInfo)
+@router.post(
+    "/v2/schemas/{table_id}/check-conflict",
+    response_model=SchemaConflictInfo,
+    summary="检查 Schema 冲突",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Schema 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def check_schema_conflict(
     table_id: str,
     new_schema: TableSchemaFileV2,
@@ -286,7 +313,17 @@ def check_schema_conflict(
     )
 
 
-@router.delete("/v2/schemas/{table_id}", response_model=StandardResponse)
+@router.delete(
+    "/v2/schemas/{table_id}",
+    response_model=StandardResponse,
+    summary="删除 Schema",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Schema 或 Manifest 不存在"},
+        409: {"description": "Schema 仍被约束引用"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def delete_v2_schema(table_id: str, config_path: str = Depends(get_project_config_path)):
     """
     删除指定 table_id 的 schema 文件，并从 manifest 中移除引用。
@@ -360,7 +397,15 @@ def delete_v2_schema(table_id: str, config_path: str = Depends(get_project_confi
     return {"message": f"V2 schema '{table_id}' 已删除。"}
 
 
-@router.post("/v2/schemas/{table_id}/display-name", response_model=StandardResponse)
+@router.post(
+    "/v2/schemas/{table_id}/display-name",
+    response_model=StandardResponse,
+    summary="更新 Schema 展示名",
+    responses={
+        404: {"description": "Schema 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def update_v2_schema_display_name(
     table_id: str,
     payload: DisplayNameUpdateRequest,
@@ -414,7 +459,16 @@ class ImplicitToExplicitBindingRequest(BaseModel):
     pattern_registry: str = "expression_registry"
 
 
-@router.post("/v2/schemas/{table_id}/convert-to-explicit-binding", response_model=StandardResponse)
+@router.post(
+    "/v2/schemas/{table_id}/convert-to-explicit-binding",
+    response_model=StandardResponse,
+    summary="将隐式正则匹配转换为显式绑定",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Schema 或列不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def convert_implicit_to_explicit_binding(
     table_id: str,
     payload: ImplicitToExplicitBindingRequest,

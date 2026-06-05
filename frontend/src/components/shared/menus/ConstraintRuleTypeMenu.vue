@@ -319,7 +319,7 @@
   const isScriptEnabled = computed(() => settingsStore.isScriptEnabled)
 
   const isConstraintDisabled = (constraintType: ConstraintRuleTypeOption): boolean => {
-    return constraintType.requireScriptEnabled && !isScriptEnabled.value
+    return Boolean(constraintType.requireScriptEnabled) && !isScriptEnabled.value
   }
 
   const getConstraintDisabledMessage = (constraintType: ConstraintRuleTypeOption): string => {

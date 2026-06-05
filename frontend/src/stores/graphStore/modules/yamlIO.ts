@@ -168,7 +168,7 @@ export function createYamlIOModule(params: {
         schemaData.columns.forEach((column) => {
           yaml += `      - column_name: ${yamlSafe(column.columnName)}\n`
           yaml += `        data_type: ${column.dataType}\n`
-          if (column.validationErrors.length > 0) {
+          if ((column.validationErrors ?? []).length > 0) {
             yaml += `        validation_errors: ${JSON.stringify(column.validationErrors)}\n`
           }
           if (column.constraints && (column.constraints.notNull || column.constraints.unique)) {

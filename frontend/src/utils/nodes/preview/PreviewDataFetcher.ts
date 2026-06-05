@@ -76,8 +76,10 @@ export class NodePreviewFetcher implements PreviewDataFetcher {
       if (!rawData) return null
 
       const headerRow = nodeData.headerRow as number | undefined
-      const hasHeaders = headerRow !== undefined && headerRow >= 0 && rawData.length > 0
-      const headers = hasHeaders ? rawData[0].map((h) => String(h)) : undefined
+      const firstRow = rawData[0]
+      const hasHeaders =
+        headerRow !== undefined && headerRow >= 0 && rawData.length > 0 && firstRow !== undefined
+      const headers = hasHeaders && firstRow ? firstRow.map((h) => String(h)) : undefined
 
       return {
         rawData,

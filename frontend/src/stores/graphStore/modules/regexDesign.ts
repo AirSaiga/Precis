@@ -70,6 +70,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
 import type { Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {
@@ -122,7 +123,7 @@ export function createRegexDesignModule(params: {
 
       if (updatedData.rules && updatedData.rules.length > 0) {
         const activeRule = updatedData.rules[0]
-        if (activeRule.regex) {
+        if (activeRule?.regex) {
           mergedData.pattern = activeRule.regex
           logger.debug('✅ 正则表达式已更新:', activeRule.regex)
         }
@@ -169,12 +170,7 @@ export function createRegexDesignModule(params: {
         const reason = patternChanged ? 'pattern' : outputMappingChanged ? 'output' : 'matchMode'
         logger.debug('🔄 正则表达式设计已更新，触发自动刷新:', { nodeId, reason })
 
-        const evt = new CustomEvent('regex-pattern-updated', {
-          detail: { nodeId, reason },
-        })
-
-        document.dispatchEvent(evt)
-        window.dispatchEvent(evt)
+        eventBus.emit('regex-pattern-updated', { nodeId, reason })
       }
 
       logger.debug('💾 正则表达式设计已保存:', {

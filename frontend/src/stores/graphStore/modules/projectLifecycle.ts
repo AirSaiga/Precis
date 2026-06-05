@@ -70,8 +70,11 @@ import type { Edge } from '@vue-flow/core'
 import type { CustomNode, TableAsset } from '@/types/graph'
 import type { ProjectNodeData } from '@/types/nodes'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
-import { useProjectStore } from '@/stores/projectStore'
-import { useResourceTreeStore } from '@/stores/resourceTreeStore'
+import type { ProjectStoreLike } from '@/types/storeInterfaces'
+
+interface ResourceTreeStoreLike {
+  clear: () => void
+}
 
 export function createProjectLifecycleModule(params: {
   nodes: Ref<CustomNode[]>
@@ -98,6 +101,8 @@ export function createProjectLifecycleModule(params: {
   copiedNodes: Ref<CustomNode[]>
   normalizeConfigDir: (inputPath: string) => string
   refreshProjectConfigStats: (configPath?: string) => Promise<boolean>
+  projectStore: ProjectStoreLike
+  resourceTreeStore: ResourceTreeStoreLike
 }) {
   const {
     nodes,
@@ -119,6 +124,8 @@ export function createProjectLifecycleModule(params: {
     copiedNodes,
     normalizeConfigDir,
     refreshProjectConfigStats,
+    projectStore,
+    resourceTreeStore,
   } = params
 
   function createProject(name: string, path: string) {
@@ -148,7 +155,6 @@ export function createProjectLifecycleModule(params: {
     regexEditSampleData.value = ''
     copiedNodes.value = []
 
-    const projectStore = useProjectStore()
     projectStore.setProjectPaths({ configPath: normalizedPath, dataPath: normalizedPath })
   }
 
@@ -178,10 +184,8 @@ export function createProjectLifecycleModule(params: {
     regexEditSampleData.value = ''
     copiedNodes.value = []
 
-    const projectStore = useProjectStore()
     projectStore.clearProject()
 
-    const resourceTreeStore = useResourceTreeStore()
     resourceTreeStore.clear()
   }
 
@@ -207,8 +211,6 @@ export function createProjectLifecycleModule(params: {
       selectedNodeId.value = existing.id
       return existing.id
     }
-
-    const projectStore = useProjectStore()
 
     const node: CustomNode = {
       id: 'project-root',

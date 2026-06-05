@@ -77,7 +77,15 @@ class StandardResponse(BaseModel):
 # ============================================================================
 
 
-@router.get("/v2/template")
+@router.get(
+    "/v2/template",
+    response_model=list[dict[str, Any]],
+    summary="列出所有模板定义",
+    responses={
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def list_templates(config_path: str = Depends(get_project_config_path)):
     """列出所有模板定义"""
     manifest = get_v2_manifest(config_path)
@@ -102,7 +110,15 @@ def list_templates(config_path: str = Depends(get_project_config_path)):
     return templates
 
 
-@router.get("/v2/template/{template_id}")
+@router.get(
+    "/v2/template/{template_id}",
+    response_model=dict[str, Any],
+    summary="读取指定模板定义",
+    responses={
+        404: {"description": "模板不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def get_template(template_id: str, config_path: str = Depends(get_project_config_path)):
     """读取指定模板定义"""
     tmpl_path = _find_template_path(template_id, config_path)
@@ -112,7 +128,16 @@ def get_template(template_id: str, config_path: str = Depends(get_project_config
     return tmpl.model_dump()
 
 
-@router.post("/v2/template")
+@router.post(
+    "/v2/template",
+    response_model=StandardResponse,
+    summary="创建模板定义文件",
+    responses={
+        400: {"description": "请求参数错误"},
+        409: {"description": "模板文件已存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def create_template(template_data: dict, config_path: str = Depends(get_project_config_path)):
     """创建模板定义文件"""
     project_dir = Path(config_path)
@@ -146,7 +171,16 @@ def create_template(template_data: dict, config_path: str = Depends(get_project_
     return StandardResponse(success=True, message=f"模板 '{tmpl.id}' 创建成功")
 
 
-@router.put("/v2/template/{template_id}")
+@router.put(
+    "/v2/template/{template_id}",
+    response_model=StandardResponse,
+    summary="更新模板定义文件",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "模板不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def update_template(
     template_id: str,
     template_data: dict,
@@ -167,7 +201,15 @@ def update_template(
     return StandardResponse(success=True, message=f"模板 '{template_id}' 更新成功")
 
 
-@router.delete("/v2/template/{template_id}")
+@router.delete(
+    "/v2/template/{template_id}",
+    response_model=StandardResponse,
+    summary="删除模板定义文件",
+    responses={
+        404: {"description": "模板不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def delete_template(template_id: str, config_path: str = Depends(get_project_config_path)):
     """删除模板定义文件"""
     tmpl_path = _find_template_path(template_id, config_path)
@@ -187,7 +229,16 @@ def delete_template(template_id: str, config_path: str = Depends(get_project_con
     return StandardResponse(success=True, message=f"模板 '{template_id}' 删除成功")
 
 
-@router.post("/v2/template/{template_id}/expand", response_model=TemplateExpandResponse)
+@router.post(
+    "/v2/template/{template_id}/expand",
+    response_model=TemplateExpandResponse,
+    summary="预览模板展开结果",
+    responses={
+        400: {"description": "请求参数错误或模板展开失败"},
+        404: {"description": "模板不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def preview_template_expand(
     template_id: str,
     request: TemplateExpandRequest,

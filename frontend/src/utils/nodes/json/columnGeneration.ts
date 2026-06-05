@@ -125,7 +125,8 @@ function inferArrayItemType(arr: unknown[]): JsonDataType {
   }
 
   if (types.size === 1) {
-    return types.values().next().value
+    const first = types.values().next().value
+    if (first) return first
   }
 
   if (types.has('object')) {
@@ -135,7 +136,9 @@ function inferArrayItemType(arr: unknown[]): JsonDataType {
     return 'array'
   }
 
-  return types.values().next().value
+  const first = types.values().next().value
+  if (first) return first
+  return 'null'
 }
 
 /**
@@ -168,7 +171,8 @@ function inferTypeFromRecords(records: unknown[], key: string): JsonDataType {
   }
 
   if (types.size === 1) {
-    return types.values().next().value
+    const first = types.values().next().value
+    if (first) return first
   }
 
   if (types.has('object')) {
@@ -178,7 +182,9 @@ function inferTypeFromRecords(records: unknown[], key: string): JsonDataType {
     return 'array'
   }
 
-  return types.values().next().value
+  const first = types.values().next().value
+  if (first) return first
+  return 'null'
 }
 
 /**

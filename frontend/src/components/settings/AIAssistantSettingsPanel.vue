@@ -93,28 +93,28 @@
           <div v-if="testResults[p.id]" class="provider-card__test-result">
             <div
               class="provider-card__test-status"
-              :class="testResults[p.id].health.status === 'ok' ? 'test-status--ok' : 'test-status--error'"
+              :class="testResults[p.id]?.health.status === 'ok' ? 'test-status--ok' : 'test-status--error'"
             >
-              <span class="test-status__icon">{{ testResults[p.id].health.status === 'ok' ? '✓' : '✗' }}</span>
+              <span class="test-status__icon">{{ testResults[p.id]?.health.status === 'ok' ? '✓' : '✗' }}</span>
               <span class="test-status__text">
-                {{ testResults[p.id].health.status === 'ok'
-                  ? t('settings.aiAssistant.testSuccess', { latency: testResults[p.id].health.latency_ms })
-                  : t('settings.aiAssistant.testFailed', { error: testResults[p.id].health.error })
+                {{ testResults[p.id]?.health.status === 'ok'
+                  ? t('settings.aiAssistant.testSuccess', { latency: testResults[p.id]?.health.latency_ms })
+                  : t('settings.aiAssistant.testFailed', { error: testResults[p.id]?.health.error })
                 }}
               </span>
             </div>
-            <div v-if="testResults[p.id].available_models?.length" class="provider-card__models">
+            <div v-if="testResults[p.id]?.available_models?.length" class="provider-card__models">
               <div class="provider-card__models-label">{{ t('settings.aiAssistant.availableModels') }}:</div>
               <div class="provider-card__models-list">
                 <span
-                  v-for="model in testResults[p.id].available_models.slice(0, 5)"
+                  v-for="model in testResults[p.id]?.available_models?.slice(0, 5) ?? []"
                   :key="model"
                   class="provider-card__model-tag"
                 >
                   {{ model }}
                 </span>
-                <span v-if="testResults[p.id].available_models.length > 5" class="provider-card__model-tag">
-                  +{{ testResults[p.id].available_models.length - 5 }}
+                <span v-if="(testResults[p.id]?.available_models?.length ?? 0) > 5" class="provider-card__model-tag">
+                  +{{ (testResults[p.id]?.available_models?.length ?? 0) - 5 }}
                 </span>
               </div>
             </div>

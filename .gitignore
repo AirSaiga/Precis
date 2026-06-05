@@ -179,6 +179,8 @@ $RECYCLE.BIN/
 
 # CSV 数据文件（测试/示例数据）
 *.csv
+# 但保留 E2E 测试 fixtures 中的 CSV
+!/e2e/fixtures/**/*.csv
 
 # Excel 文件
 *.xlsx

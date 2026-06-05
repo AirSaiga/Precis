@@ -47,7 +47,10 @@ export function useSchemaDataBase<
   ): { column: TColumn; parentArray: TColumn[]; index: number } | null => {
     const index = columns.findIndex((col) => col.id === columnId)
     if (index !== -1) {
-      return { column: columns[index], parentArray: columns, index }
+      const column = columns[index]
+      if (column) {
+        return { column, parentArray: columns, index }
+      }
     }
     return null
   }

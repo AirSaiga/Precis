@@ -9,6 +9,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
 import { computed, onMounted, onUnmounted, watch, ref as vueRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storeToRefs } from 'pinia'
@@ -381,7 +382,7 @@ export function useResourceTree() {
   // === 生命周期 ===
 
   onMounted(() => {
-    window.addEventListener('project-applied', handleProjectApplied as EventListener)
+    eventBus.on('project-applied', handleProjectApplied)
 
     if (projectStore.isProjectActive) {
       loadProjectResources()
@@ -389,7 +390,7 @@ export function useResourceTree() {
   })
 
   onUnmounted(() => {
-    window.removeEventListener('project-applied', handleProjectApplied as EventListener)
+    eventBus.off('project-applied', handleProjectApplied)
   })
 
   // 监听资源变化，更新文件夹引用

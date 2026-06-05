@@ -39,7 +39,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="", tags=["Project-View"])
 
 
-@router.get("/v2/view", response_model=ProjectViewV2Model)
+@router.get(
+    "/v2/view",
+    response_model=ProjectViewV2Model,
+    summary="获取项目画布视图",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 def get_v2_project_view(config_path: str = Depends(get_project_config_path)) -> ProjectViewV2Model:
     """
     获取 V2 项目视图文件（画布布局）。
@@ -74,7 +81,15 @@ def get_v2_project_view(config_path: str = Depends(get_project_config_path)) -> 
         raise HTTPException(status_code=500, detail=f"读取视图文件失败: {e}")
 
 
-@router.put("/v2/view", response_model=StandardResponse)
+@router.put(
+    "/v2/view",
+    response_model=StandardResponse,
+    summary="更新项目画布视图",
+    responses={
+        400: {"description": "请求参数错误"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def put_v2_project_view(
     payload: ProjectViewV2Model,
     config_path: str = Depends(get_project_config_path),

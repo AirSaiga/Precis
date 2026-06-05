@@ -17,10 +17,11 @@ registerDisconnectHandler({
     )
   },
   cleanup: (edge, source, target, ctx) => {
+    if (!source) return
     const fkData = (source.data || {}) as Record<string, unknown>
     const config = (fkData.config || {}) as Record<string, unknown>
     const targetRef = (fkData.targetRef || {}) as Record<string, unknown>
-    
+
     ctx.updateNodeData(source.id, {
       ...fkData,
       targetColumn: undefined,

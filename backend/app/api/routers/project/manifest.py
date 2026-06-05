@@ -133,7 +133,15 @@ def _upsert_manifest_ref(
     return {"message": f"{label} 引用 '{ref.id}' 已更新"}
 
 
-@router.get("/v2/manifest", response_model=ManifestResponse)
+@router.get(
+    "/v2/manifest",
+    response_model=ManifestResponse,
+    summary="读取项目 V2 清单",
+    responses={
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def get_v2_manifest(config_path: str = Depends(get_project_config_path)):
     """
     读取当前项目的 V2 清单（project.precis.yaml）。
@@ -165,7 +173,15 @@ def get_v2_manifest(config_path: str = Depends(get_project_config_path)):
     return ProjectManifestV2.model_validate(data)
 
 
-@router.put("/v2/manifest", response_model=StandardResponse)
+@router.put(
+    "/v2/manifest",
+    response_model=StandardResponse,
+    summary="写入项目 V2 清单",
+    responses={
+        400: {"description": "请求参数错误"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def put_v2_manifest(
     manifest: ProjectManifestV2, config_path: str = Depends(get_project_config_path), replace: bool = False
 ):
@@ -246,7 +262,16 @@ def put_v2_manifest(
     return {"message": "V2 manifest 已保存。"}
 
 
-@router.put("/v2/manifest/schema", response_model=StandardResponse)
+@router.put(
+    "/v2/manifest/schema",
+    response_model=StandardResponse,
+    summary="更新 manifest 中单个 Schema 引用",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def update_manifest_schema_ref(schema_ref: SchemaRef, config_path: str = Depends(get_project_config_path)):
     """
     更新 manifest 中单个 schema 引用。
@@ -265,7 +290,16 @@ def update_manifest_schema_ref(schema_ref: SchemaRef, config_path: str = Depends
     return _upsert_manifest_ref(config_path, "schemas", schema_ref)
 
 
-@router.put("/v2/manifest/constraint", response_model=StandardResponse)
+@router.put(
+    "/v2/manifest/constraint",
+    response_model=StandardResponse,
+    summary="更新 manifest 中单个 Constraint 引用",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def update_manifest_constraint_ref(constraint_ref: ConstraintRef, config_path: str = Depends(get_project_config_path)):
     """
     更新 manifest 中单个 constraint 引用。
@@ -284,7 +318,16 @@ def update_manifest_constraint_ref(constraint_ref: ConstraintRef, config_path: s
     return _upsert_manifest_ref(config_path, "constraints", constraint_ref)
 
 
-@router.put("/v2/manifest/regex", response_model=StandardResponse)
+@router.put(
+    "/v2/manifest/regex",
+    response_model=StandardResponse,
+    summary="更新 manifest 中单个 Regex 引用",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def update_manifest_regex_ref(regex_ref: RegexRef, config_path: str = Depends(get_project_config_path)):
     """
     更新 manifest 中单个 regex 节点引用。
@@ -303,7 +346,16 @@ def update_manifest_regex_ref(regex_ref: RegexRef, config_path: str = Depends(ge
     return _upsert_manifest_ref(config_path, "regex_nodes", regex_ref)
 
 
-@router.put("/v2/manifest/template-instance", response_model=StandardResponse)
+@router.put(
+    "/v2/manifest/template-instance",
+    response_model=StandardResponse,
+    summary="更新 manifest 中单个 Template Instance 引用",
+    responses={
+        400: {"description": "请求参数错误"},
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def update_manifest_template_instance_ref(
     instance_ref: TemplateInstanceRef,
     config_path: str = Depends(get_project_config_path),
@@ -347,7 +399,15 @@ def update_manifest_template_instance_ref(
     return {"message": f"TemplateInstance 引用 '{instance_ref.id}' 已更新"}
 
 
-@router.post("/v2/manifest/constraint/deduplicate", response_model=StandardResponse)
+@router.post(
+    "/v2/manifest/constraint/deduplicate",
+    response_model=StandardResponse,
+    summary="去重 manifest 中的 Constraint 引用",
+    responses={
+        404: {"description": "Manifest 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def deduplicate_constraint_refs(
     config_path: str = Depends(get_project_config_path),
 ):

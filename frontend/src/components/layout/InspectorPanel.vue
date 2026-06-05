@@ -31,7 +31,7 @@
           v-if="inspectorConfig"
           :config="inspectorConfig"
           :data="node.data as unknown as Record<string, unknown>"
-          :node-type="node.type"
+          :node-type="node.type ?? ''"
           :node-id="node.id"
           @update:data="handleDataUpdate"
         />

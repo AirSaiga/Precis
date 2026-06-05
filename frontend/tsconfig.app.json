@@ -25,7 +25,7 @@
 
     // 2. 关闭严格空检查 (最推荐关闭这个缓解痛苦)
     // 开启必须处理 null/undefined。关闭后，object.prop 不会报 "可能是 undefined"
-    "strictNullChecks": false,
+    "strictNullChecks": true,
 
     // 3. 允许 this 推断为 any
     "noImplicitThis": false

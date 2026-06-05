@@ -43,10 +43,15 @@ function inferArrayItemType(arr: unknown[]): JsonDataType {
   }
 
   if (types.size === 0) return 'null'
-  if (types.size === 1) return types.values().next().value
+  if (types.size === 1) {
+    const first = types.values().next().value
+    if (first) return first
+  }
   if (types.has('object')) return 'object'
   if (types.has('array')) return 'array'
-  return types.values().next().value
+  const first = types.values().next().value
+  if (first) return first
+  return 'null'
 }
 
 function mergeJsonStructure(records: unknown[]): Record<string, unknown> {
@@ -92,10 +97,15 @@ function inferTypeFromRecords(records: unknown[], key: string): JsonDataType {
   }
 
   if (types.size === 0) return 'null'
-  if (types.size === 1) return types.values().next().value
+  if (types.size === 1) {
+    const first = types.values().next().value
+    if (first) return first
+  }
   if (types.has('object')) return 'object'
   if (types.has('array')) return 'array'
-  return types.values().next().value
+  const first = types.values().next().value
+  if (first) return first
+  return 'null'
 }
 
 function getRepresentativeArray(records: unknown[], key: string): unknown[] {

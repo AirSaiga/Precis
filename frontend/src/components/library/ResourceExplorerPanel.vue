@@ -71,10 +71,10 @@
   import { useI18n } from 'vue-i18n'
   import MultiSelectToolbar from './MultiSelectToolbar.vue'
   import ResourceTree from './ResourceTree.vue'
-  import type { ResourceFolder, ResourceItem } from '@/types/resource'
+  import type { ResourceFolder, ResourceFolderMap, ResourceItem } from '@/types/resource'
 
   interface Props {
-    filteredFolders: Record<string, ResourceFolder>
+    filteredFolders: ResourceFolderMap
     searchQuery: string
     hasSelection: boolean
     selectedCount: number

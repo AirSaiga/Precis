@@ -74,6 +74,7 @@ import { logger } from '@/core/utils/logger'
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, SchemaNodeData, JsonSchemaNodeData, TemplateInstanceNodeData } from '@/types/graph'
+import type { CustomNodeData } from '@/types/nodes'
 import { toastError, toastSuccess } from '@/core/toast'
 import { useI18n } from 'vue-i18n'
 import {
@@ -110,7 +111,7 @@ export function createV2SaveOps(params: {
   edges: Ref<Edge[]>
   projectName: Ref<string>
   getEffectiveProjectConfigPath: () => string | undefined
-  updateNodeData: (nodeId: string, newData: Partial<CustomNode['data']>) => void
+  updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
 }) {
   const { nodes, projectName, getEffectiveProjectConfigPath, updateNodeData } = params
   const { t } = useI18n()

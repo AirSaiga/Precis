@@ -122,12 +122,17 @@ export function useNodeUI<TColumn extends { id: string; columnName: string }, TD
         const parts = ds.folderPath.split(/[/\\]/)
         // 添加根文件夹
         if (parts.length >= 1) {
-          folderPaths.add(parts[0])
+          const firstPart = parts[0]
+          if (firstPart !== undefined) {
+            folderPaths.add(firstPart)
+          }
         }
         // 添加所有中间文件夹
         let currentPath = ''
         for (let i = 0; i < parts.length - 1; i++) {
-          currentPath = currentPath ? `${currentPath}/${parts[i]}` : parts[i]
+          const part = parts[i]
+          if (part === undefined) continue
+          currentPath = currentPath ? `${currentPath}/${part}` : part
           folderPaths.add(currentPath)
         }
       }
@@ -139,7 +144,7 @@ export function useNodeUI<TColumn extends { id: string; columnName: string }, TD
     // 创建文件夹节点
     for (const folderPath of sortedFolderPaths) {
       const parts = folderPath.split(/[/\\]/)
-      const folderName = parts[parts.length - 1]
+      const folderName = parts[parts.length - 1] ?? folderPath
       const level = parts.length - 1
 
       const folderNode: DataSourceTreeItem = {
@@ -344,8 +349,11 @@ export function useNodeUI<TColumn extends { id: string; columnName: string }, TD
         if (col.id === columnId) foundIndex = index
       })
 
-      if (foundIndex >= 0 && columnRows[foundIndex]) {
-        targetRow = columnRows[foundIndex]
+      if (foundIndex >= 0) {
+        const foundRow = columnRows[foundIndex]
+        if (foundRow) {
+          targetRow = foundRow
+        }
       }
     }
 

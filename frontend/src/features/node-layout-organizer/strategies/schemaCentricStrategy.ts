@@ -431,7 +431,9 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
 
     let qi = 0
     while (qi < queue.length) {
-      const { nodeId, schemaId } = queue[qi++]
+      const item = queue[qi++]
+      if (!item) continue
+      const { nodeId, schemaId } = item
       const nodeDist = distByNode.get(nodeId)
       if (nodeDist === undefined) continue
 
@@ -477,7 +479,10 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
 
       const schemaList = Array.from(best).sort((a, b) => a.localeCompare(b))
       if (schemaList.length === 1) {
-        assignedSchemaByNode.set(nodeId, schemaList[0])
+        const firstSchema = schemaList[0]
+        if (firstSchema !== undefined) {
+          assignedSchemaByNode.set(nodeId, firstSchema)
+        }
       } else {
         sharedNodeIds.push(nodeId)
       }

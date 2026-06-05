@@ -119,14 +119,14 @@
 
     const walk = (cols: JsonSchemaColumn[], level: number) => {
       for (const col of cols) {
-        const hasChildren = col.children && col.children.length > 0
+        const hasChildren = Boolean(col.children && col.children.length > 0)
         items.push({
           id: col.id,
           column: col,
           index,
           level,
           hasChildren,
-          isExpanded: col.isExpanded ?? false,
+          isExpanded: col.isExpanded !== undefined ? col.isExpanded : false,
           canHaveChildren: col.dataType === 'object' || col.dataType === 'array',
         })
         index++
@@ -145,8 +145,11 @@
   // 判断是否为同级最后一个子节点
   const isLastChild = (index: number): boolean => {
     if (index === visibleItems.value.length - 1) return true
-    const currentLevel = visibleItems.value[index].level
-    const nextLevel = visibleItems.value[index + 1].level
+    const currentItem = visibleItems.value[index]
+    const nextItem = visibleItems.value[index + 1]
+    if (!currentItem || !nextItem) return true
+    const currentLevel = currentItem.level
+    const nextLevel = nextItem.level
     return nextLevel < currentLevel
   }
 

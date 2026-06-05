@@ -237,6 +237,9 @@ export function useValidationTaskRunner() {
     }
 
     const firstDataSource = dataSources.value[0]
+    if (!firstDataSource) {
+      return t('common.fullValidation.task.context.noProject')
+    }
     if (firstDataSource.mode === 'absolute') {
       return firstDataSource.path
     }
@@ -426,7 +429,9 @@ export function useValidationTaskRunner() {
     if (matched) return
 
     const fallback = availableTableTargets.value[0]
-    validationTaskStore.openSingleTable(fallback.value, fallback.label)
+    if (fallback) {
+      validationTaskStore.openSingleTable(fallback.value, fallback.label)
+    }
   }
 
   /**

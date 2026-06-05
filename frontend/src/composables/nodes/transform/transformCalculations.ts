@@ -93,11 +93,17 @@ export function tryRegexExtract(
       hasMatch = true
       for (let i = 0; i < outputColumns.length; i++) {
         const groupValue = match[i + 1] !== undefined ? String(match[i + 1]) : ''
-        extractedData[i].push([groupValue])
+        const target = extractedData[i]
+        if (target) {
+          target.push([groupValue])
+        }
       }
     } else {
       for (let i = 0; i < outputColumns.length; i++) {
-        extractedData[i].push([''])
+        const target = extractedData[i]
+        if (target) {
+          target.push([''])
+        }
       }
     }
   }
@@ -207,7 +213,11 @@ export function computeWeightedSum(upstreamRows: string[][], weights: number[]):
 
     let sum = 0
     for (let i = 0; i < Math.min(digits.length, weights.length); i++) {
-      sum += digits[i] * weights[i]
+      const digit = digits[i]
+      const weight = weights[i]
+      if (digit !== undefined && weight !== undefined) {
+        sum += digit * weight
+      }
     }
     return [String(sum)]
   })
@@ -346,8 +356,16 @@ export function computeStrip(upstreamRows: string[][], chars: string): string[][
       const charSet = new Set(chars)
       let start = 0
       let end = value.length - 1
-      while (start <= end && charSet.has(value[start])) start++
-      while (end >= start && charSet.has(value[end])) end--
+      while (start <= end) {
+        const c = value[start]
+        if (c === undefined || !charSet.has(c)) break
+        start++
+      }
+      while (end >= start) {
+        const c = value[end]
+        if (c === undefined || !charSet.has(c)) break
+        end--
+      }
       stripped = value.substring(start, end + 1)
     } else {
       stripped = value.trim()

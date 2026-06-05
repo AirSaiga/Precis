@@ -212,7 +212,10 @@ export function createClipboardModule(params: {
     currentPasteOffset.y += pasteOffset.y
 
     if (newNodeIds.length > 0) {
-      selectedNodeId.value = newNodeIds[newNodeIds.length - 1]
+      const lastId = newNodeIds[newNodeIds.length - 1]
+      if (lastId !== undefined) {
+        selectedNodeId.value = lastId
+      }
       selectedNodeIds.value = newNodeIds
     }
 
@@ -238,6 +241,9 @@ export function createClipboardModule(params: {
     saveState()
 
     const nodeToCopy = nodesToCopy[0]
+    if (!nodeToCopy) {
+      return null
+    }
     const newId = uuidv4()
     const idMap = new Map<string, string>()
     idMap.set(nodeToCopy.id, newId)

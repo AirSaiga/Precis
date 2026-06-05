@@ -34,6 +34,7 @@
 
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
+  import { eventBus } from '@/core/eventBus'
 
   const { t } = useI18n()
 
@@ -45,7 +46,7 @@
   }>()
 
   const focus = (nodeIds: string[]) => {
-    window.dispatchEvent(new CustomEvent('focus-canvas-nodes', { detail: { nodeIds } }))
+    eventBus.emit('focus-canvas-nodes', { nodeIds })
   }
 </script>
 

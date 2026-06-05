@@ -10,6 +10,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
 import type { KeyboardListener, KeyboardListenerConfig, ShortcutEventData } from '../types'
 import { DEFAULT_LISTENER_CONFIG, IGNORED_KEYS } from '../constants'
 import { platformAdapter } from '../platform'
@@ -63,7 +64,9 @@ export class KeyboardListenerImpl implements KeyboardListener {
       return
     }
 
-    document.addEventListener('keydown', this.boundHandler)
+    if (this.boundHandler) {
+      document.addEventListener('keydown', this.boundHandler)
+    }
     this.isActive = true
   }
 
@@ -75,7 +78,9 @@ export class KeyboardListenerImpl implements KeyboardListener {
       return
     }
 
-    document.removeEventListener('keydown', this.boundHandler)
+    if (this.boundHandler) {
+      document.removeEventListener('keydown', this.boundHandler)
+    }
     this.isActive = false
   }
 
@@ -221,7 +226,7 @@ export class KeyboardListenerImpl implements KeyboardListener {
 
     if (isPKey && hasShift && hasCtrlOrMeta) {
       event.preventDefault()
-      window.dispatchEvent(new CustomEvent('open-project-management'))
+      eventBus.emit('open-project-management')
       return true
     }
 

@@ -285,7 +285,7 @@
             properties: ['openDirectory'],
           })
           if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
-            return result.filePaths[0]
+            return result.filePaths[0] ?? ''
           }
         }
       } catch (error) {
@@ -312,8 +312,13 @@
         document.body.removeChild(input)
 
         if (files && files.length > 0) {
-          const path = files[0].webkitRelativePath || ''
-          const dirPath = path.split('/')[0]
+          const first = files[0]
+          if (!first) {
+            resolve('')
+            return
+          }
+          const path = first.webkitRelativePath || ''
+          const dirPath = path.split('/')[0] ?? ''
           resolve(dirPath)
         } else {
           resolve('')

@@ -41,6 +41,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
 import { onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
@@ -406,9 +407,8 @@ export function useNodeSourceManager<TNodeData extends Record<string, any>>(
   /**
    * 处理源数据变更事件
    */
-  const handleSourcePreviewDataChanged = (event: Event) => {
-    const customEvent = event as CustomEvent
-    const { nodeId, data } = customEvent.detail
+  const handleSourcePreviewDataChanged = (detail: { nodeId: string; data: Record<string, unknown> }) => {
+    const { nodeId, data } = detail
 
     const isConnected = store.edges.some(
       (edge) => edge.source === nodeId && edge.target === props.id
@@ -421,11 +421,11 @@ export function useNodeSourceManager<TNodeData extends Record<string, any>>(
   }
 
   onMounted(() => {
-    document.addEventListener(options.eventName, handleSourcePreviewDataChanged)
+    eventBus.on('sourcePreviewDataChanged', handleSourcePreviewDataChanged)
   })
 
   onUnmounted(() => {
-    document.removeEventListener(options.eventName, handleSourcePreviewDataChanged)
+    eventBus.off('sourcePreviewDataChanged', handleSourcePreviewDataChanged)
   })
 
   // ============================================================================

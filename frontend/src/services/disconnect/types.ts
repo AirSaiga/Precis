@@ -15,9 +15,9 @@ export interface DisconnectContext {
 /** 断开清理处理器 */
 export interface DisconnectHandler {
   /** 匹配函数：返回 true 表示此 handler 处理该边 */
-  match: (edge: Edge, sourceNode: Node | undefined, targetNode: Node | undefined, ctx: DisconnectContext) => boolean
+  match: (edge: Edge, sourceNode: Node | undefined, targetNode: Node, ctx: DisconnectContext) => boolean
   /** 执行清理 */
-  cleanup: (edge: Edge, sourceNode: Node | undefined, targetNode: Node | undefined, ctx: DisconnectContext) => void
+  cleanup: (edge: Edge, sourceNode: Node | undefined, targetNode: Node, ctx: DisconnectContext) => void
   /** 优先级（越小越先执行，默认 100）。数据源清理优先级最高。 */
   priority?: number
 }

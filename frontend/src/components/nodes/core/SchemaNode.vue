@@ -93,9 +93,9 @@
     -->
     <SchemaNodeHeader
       :table-name="localData.tableName"
-      :source-file="localData.sourceFile"
+      :source-file="localData.sourceFile ?? null"
       :sheet-name="localData.sheetName"
-      :is-editing-title="localData.isEditingTitle"
+      :is-editing-title="localData.isEditingTitle ?? false"
       :is-saving="isSaving"
       :save-success="saveSuccess"
       :save-error="saveError"
@@ -155,7 +155,7 @@
             :index="index"
             :is-editing="editingColumn === column.id"
             :is-hovered="hoveredColumn === column.id"
-            :is-drag-over="localData.isDragOver"
+            :is-drag-over="localData.isDragOver ?? false"
             :is-snapping="snappingColumnIds.has(column.id)"
             :is-connected="connectedColumnIds.has(column.id)"
             :show-constraint-menu="constraintMenuColumnId === column.id"
@@ -235,7 +235,7 @@
     <SchemaNodeDataSourceDropdown
       :show="showSourceDropdown"
       :position="sourceDropdownPosition"
-      :current-source="{ sourceName: localData.sourceFile, sheetName: localData.sheetName }"
+      :current-source="{ sourceName: localData.sourceFile ?? '', sheetName: localData.sheetName }"
       :data-source-tree="dataSourceTree"
       @select="connectToDataSource"
       @close="closeSourceDropdown"
@@ -289,6 +289,7 @@
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
+  import { eventBus } from '@/core/eventBus'
   /**
    * @file SchemaNode.vue
    * @description Schema节点组件 - 数据表结构定义的核心可视化组件
@@ -679,12 +680,12 @@
   const handleSmartFillClick = async () => {
     const schemaData = props.data as SchemaNodeData
 
-    let sourceNode = null
+    let sourceNode: ReturnType<typeof store.nodes.find> | null = null
 
     if (schemaData.sourceNodeId) {
       sourceNode = store.nodes.find(
         (n) => n.id === schemaData.sourceNodeId && n.type === 'sourcePreview'
-      )
+      ) ?? null
     }
 
     if (!sourceNode) {
@@ -695,7 +696,7 @@
       )
 
       if (edge) {
-        sourceNode = store.nodes.find((n) => n.id === edge.source)
+        sourceNode = store.nodes.find((n) => n.id === edge.source) ?? null
       }
     }
 
@@ -1031,15 +1032,8 @@
 
     initKnownEdgeIds()
 
-    window.addEventListener('sourceNodeDisconnected', handleSourceNodeDisconnected as EventListener)
-
-    const currentElement = document.querySelector(`[data-node-id="${props.id}"]`)
-    if (currentElement) {
-      currentElement.addEventListener(
-        'schema-node-save-complete',
-        handleSaveCompleteDOM as EventListener
-      )
-    }
+    eventBus.on('sourceNodeDisconnected', handleSourceNodeDisconnected)
+    eventBus.on('schema-node-save-complete', handleSaveCompleteDOM)
   })
 
   /**
@@ -1047,18 +1041,8 @@
    * - 移除全局事件监听器
    */
   onUnmounted(() => {
-    window.removeEventListener(
-      'sourceNodeDisconnected',
-      handleSourceNodeDisconnected as EventListener
-    )
-
-    const currentElement = document.querySelector(`[data-node-id="${props.id}"]`)
-    if (currentElement) {
-      currentElement.removeEventListener(
-        'schema-node-save-complete',
-        handleSaveCompleteDOM as EventListener
-      )
-    }
+    eventBus.off('sourceNodeDisconnected', handleSourceNodeDisconnected)
+    eventBus.off('schema-node-save-complete', handleSaveCompleteDOM)
   })
 
   // 导入 nextTick（解决脚本末尾导入顺序问题）

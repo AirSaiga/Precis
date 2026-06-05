@@ -462,7 +462,7 @@
    * @param el - DOM元素
    * @param id - 列ID
    */
-  function setInputRef(el: Element | ComponentPublicInstance | undefined, id: string): void {
+  function setInputRef(el: Element | ComponentPublicInstance | null | undefined, id: string): void {
     if (el && '$el' in el) {
       inputRefs.value[id] = el.$el as HTMLInputElement
     } else if (el && (el as Element).tagName) {

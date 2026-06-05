@@ -11,7 +11,7 @@ registerDisconnectHandler({
       targetHandle === `target-then-${target.id}` ||
       targetHandle === `target-input-${target.id}`
 
-    const parseColumnId = (handle?: string) => {
+    const parseColumnId = (handle?: string | null) => {
       if (!handle) return undefined
       return handle.startsWith('source-right-') ? handle.replace('source-right-', '') : handle
     }

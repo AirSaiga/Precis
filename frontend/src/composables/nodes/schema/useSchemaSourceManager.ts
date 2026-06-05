@@ -216,7 +216,7 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
         return existingColumns
       }
       const headerRowIndex = sourceData.headerRow ?? 0
-      const headerRow = tableData[headerRowIndex]
+      const headerRow = tableData[headerRowIndex] ?? []
       const sampleDataRow =
         headerRowIndex + 1 < tableData.length ? tableData[headerRowIndex + 1] : undefined
       return generateColumnsFromSource(headerRow, existingColumns, sampleDataRow, {

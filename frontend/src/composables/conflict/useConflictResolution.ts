@@ -66,13 +66,17 @@ export const setValueByPath = (obj: any, path: string, value: any) => {
   let current = obj
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i]
+    if (part === undefined) return
     if (current[part] === undefined || current[part] === null) {
       const nextPart = parts[i + 1]
-      current[part] = /^\d+$/.test(nextPart) ? [] : {}
+      current[part] = /^\d+$/.test(nextPart ?? '') ? [] : {}
     }
     current = current[part]
   }
-  current[parts[parts.length - 1]] = value
+  const lastKey = parts[parts.length - 1]
+  if (lastKey !== undefined) {
+    current[lastKey] = value
+  }
 }
 
 /**
@@ -90,10 +94,12 @@ export const removeValueByPath = (obj: any, path: string) => {
   let current = obj
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i]
+    if (part === undefined) return
     if (current[part] === undefined || current[part] === null) return
     current = current[part]
   }
   const lastKey = parts[parts.length - 1]
+  if (lastKey === undefined) return
   if (Array.isArray(current)) {
     current.splice(Number(lastKey), 1)
   } else {

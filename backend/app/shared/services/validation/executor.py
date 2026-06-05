@@ -31,12 +31,16 @@ import os
 import time
 from typing import Any, Optional, Union
 
+import pandas as pd
+
 from app.shared.core.project.loader import LoadedProject, load_project
 from app.shared.core.project.schema.types import TableSchemaFile
 from app.shared.domain.dataset_schema import DataSetSchema
 
+from .chunked_loader import ChunkedDataLoader
 from .data_loader import DataLoader
 from .engine import validate_full_dataset
+from .memory_monitor import MemoryMonitor
 from .resolver import DataSourceResolver
 
 logger = logging.getLogger(__name__)
@@ -64,12 +68,16 @@ class ValidationOptions:
         strict_mode: bool = False,
         allow_unsafe_eval: Optional[bool] = None,
         table_filter: Optional[Union[str, list[str]]] = None,
+        chunk_threshold_mb: float = 500,
+        chunk_rows: int = 100_000,
     ):
         self.timeout_seconds = timeout_seconds
         self.error_handling = error_handling
         self.strict_mode = strict_mode
         self.allow_unsafe_eval = allow_unsafe_eval
         self.table_filter = table_filter
+        self.chunk_threshold_mb = chunk_threshold_mb
+        self.chunk_rows = chunk_rows
 
 
 class ValidationExecutor:
@@ -124,6 +132,24 @@ class ValidationExecutor:
             schema_by_id=self._schema_by_id,
             settings=self.settings,
         )
+        # 初始化内存监控器
+        self._memory_monitor = MemoryMonitor()
+        # 初始化分块数据加载器（惰性创建，仅在需要时使用）
+        self._chunked_loader: Optional[ChunkedDataLoader] = None
+
+    def _get_chunked_loader(self, options: ValidationOptions) -> ChunkedDataLoader:
+        """获取或创建分块数据加载器。"""
+        if self._chunked_loader is None:
+            self._memory_monitor.chunk_threshold_mb = options.chunk_threshold_mb
+            self._memory_monitor.chunk_rows = options.chunk_rows
+            self._chunked_loader = ChunkedDataLoader(
+                resolver=self._resolver,
+                dataset_schema=self.dataset_schema,
+                schema_by_id=self._schema_by_id,
+                settings=self.settings,
+                memory_monitor=self._memory_monitor,
+            )
+        return self._chunked_loader
 
     def _apply_settings_override(self, override: Any):
         """
@@ -258,15 +284,17 @@ class ValidationExecutor:
 
         编排数据加载、格式解析、约束校验和结果后处理的完整流程。
         采用分阶段执行策略，每个阶段后检查超时条件。
+        当检测到大文件时自动切换到分块处理模式。
 
         执行流程:
-            Step 1: 加载数据源（通过 DataLoader）
-            Step 2: 检查加载阶段超时
-            Step 3: 检查数据加载成功
-            Step 4: 确定脚本安全执行策略
-            Step 5: 执行格式解析和约束校验（调用 engine.validate_full_dataset）
-            Step 6: 结果后处理（ID→Name 映射 + 数据源信息附加）
-            Step 7: 检查校验阶段超时
+            Step 1: 检测文件大小，决定使用标准模式还是分块模式
+            Step 2: 加载数据源（标准 DataLoader 或 ChunkedDataLoader）
+            Step 3: 检查加载阶段超时
+            Step 4: 检查数据加载成功
+            Step 5: 确定脚本安全执行策略
+            Step 6: 执行格式解析和约束校验
+            Step 7: 结果后处理（ID→Name 映射 + 数据源信息附加）
+            Step 8: 检查校验阶段超时
 
         参数:
             data_directory: 数据文件所在目录
@@ -281,9 +309,15 @@ class ValidationExecutor:
                 - duration_ms: 执行耗时（毫秒）
                 - timeout_occurred: 是否发生超时
                 - validation_details: 校验详情
+                - chunked_mode: 是否使用了分块模式
+                - memory_info: 内存监控信息
         """
         if options is None:
             options = ValidationOptions()
+
+        # 更新内存监控器配置
+        self._memory_monitor.chunk_threshold_mb = options.chunk_threshold_mb
+        self._memory_monitor.chunk_rows = options.chunk_rows
 
         # 记录开始时间，用于计算总耗时和超时检查
         started = time.monotonic()
@@ -295,10 +329,18 @@ class ValidationExecutor:
             "duration_ms": 0,
             "timeout_occurred": False,
             "validation_details": {"format_checks": [], "constraint_checks": []},
+            "chunked_mode": False,
+            "memory_info": {},
         }
 
-        # Step 1: 加载数据源
-        # 【职责委托】通过 DataLoader 批量加载数据文件，支持多表并行加载
+        # Step 1: 检测是否需要分块模式
+        use_chunked = self._should_use_chunked_mode(data_directory, options)
+        if use_chunked:
+            result["chunked_mode"] = True
+            logger.info("检测到大文件，启用分块处理模式")
+            return self._execute_chunked(data_directory, options, started, result)
+
+        # Step 2: 加载数据源（标准模式）
         raw_datasets, loading_errors = self._data_loader.load_data_sources(
             data_directory, table_filter=options.table_filter
         )
@@ -306,35 +348,31 @@ class ValidationExecutor:
         result["loading_errors"] = loading_errors
 
         # 追加项目加载阶段的错误
-        # 【错误聚合】将项目配置加载阶段的错误一并返回
         for err in self.loaded_project.loading_errors:
             result["loading_errors"].append(err.to_dict())
 
         result["warnings"] = self.loaded_project.warnings
 
-        # Step 2: 检查加载阶段是否超时
-        # 【超时检查】在关键阶段后检查耗时，避免长时间阻塞
+        # Step 3: 检查加载阶段是否超时
         if (time.monotonic() - started) > options.timeout_seconds:
             result["errors"].append(
                 {"error_type": "Timeout", "message": f"数据加载阶段超时（>{options.timeout_seconds}s）"}
             )
             result["timeout_occurred"] = True
             result["duration_ms"] = int((time.monotonic() - started) * 1000)
+            result["memory_info"] = self._memory_monitor.get_progress_info()
             return result
 
-        # Step 3: 检查数据是否加载成功
-        # 【前置条件】无数据时直接返回，避免后续无意义计算
+        # Step 4: 检查数据是否加载成功
         if not raw_datasets:
             result["errors"].append(
                 {"error_type": "DataLoadingError", "message": "未能从数据目录加载任何数据表，校验中止。"}
             )
             result["duration_ms"] = int((time.monotonic() - started) * 1000)
+            result["memory_info"] = self._memory_monitor.get_progress_info()
             return result
 
-        # Step 4: 确定脚本安全执行策略
-        # 【安全加固】allow_unsafe_eval 始终为 False，禁止从不安全来源启用
-        # options.allow_unsafe_eval 仅在显式调用（CLI / V1 API）时生效，
-        # V2 全量校验路径（用户通过 manifest 触发）中忽略 manifest.script_security
+        # Step 5: 确定脚本安全执行策略
         allow_unsafe_eval = False
 
         logger.debug(f"Starting validate_full_dataset with {len(raw_datasets)} datasets")
@@ -342,9 +380,7 @@ class ValidationExecutor:
         # 计算校验阶段的超时截止时间
         deadline = started + options.timeout_seconds
 
-        # Step 5: 执行格式解析和约束校验
-        # 【核心逻辑】调用 engine.validate_full_dataset 执行两阶段校验
-        # 【超时控制】传入 deadline，engine 会在每个约束执行前检查是否超时
+        # Step 6: 执行格式解析和约束校验
         try:
             parsed_datasets, validation_errors, validation_details = validate_full_dataset(
                 raw_datasets,
@@ -362,32 +398,26 @@ class ValidationExecutor:
         result["errors"].extend(validation_errors)
         result["validation_details"] = validation_details
 
-        # Step 6: 将结果中的表 ID 映射为显示名称，并附加数据源信息
-        # 【后处理】将内部表 ID 替换为用户友好的名称，附加数据源文件信息
+        # Step 7: 结果后处理
         id_to_name = self._build_id_to_name_map(self.dataset_schema)
         table_source_map = self._build_table_source_map()
 
-        # 处理 errors 列表中的表 ID 映射和数据源信息附加
         for error in result["errors"]:
             self._map_table_id(error, id_to_name)
             self._attach_source_info(error, table_source_map)
-        # 处理 loading_errors 列表
         for error in result["loading_errors"]:
             self._map_table_id(error, id_to_name)
             self._attach_source_info(error, table_source_map)
-        # 处理 validation_details 中的 format_checks
         if "format_checks" in result["validation_details"]:
             for item in result["validation_details"]["format_checks"]:
                 self._map_table_id(item, id_to_name)
                 self._attach_source_info(item, table_source_map)
-        # 处理 validation_details 中的 constraint_checks
         if "constraint_checks" in result["validation_details"]:
             for item in result["validation_details"]["constraint_checks"]:
                 self._map_table_id(item, id_to_name)
                 self._attach_source_info(item, table_source_map)
 
-        # Step 7: 检查校验阶段是否超时
-        # 【超时检查】在校验完成后再次检查总耗时
+        # Step 8: 检查校验阶段是否超时
         if (time.monotonic() - started) > options.timeout_seconds:
             result["errors"].append(
                 {"error_type": "Timeout", "message": f"数据校验阶段超时（>{options.timeout_seconds}s）"}
@@ -395,6 +425,211 @@ class ValidationExecutor:
             result["timeout_occurred"] = True
 
         result["duration_ms"] = int((time.monotonic() - started) * 1000)
+        result["memory_info"] = self._memory_monitor.get_progress_info()
+        return result
+
+    def _should_use_chunked_mode(self, data_directory: str, options: ValidationOptions) -> bool:
+        """
+        @methoddesc 检测数据目录中是否有需要分块处理的大文件
+
+        参数:
+            data_directory: 数据文件目录
+            options: 校验选项
+
+        返回:
+            True 表示存在需要分块处理的大文件
+        """
+        search_directory = data_directory
+        first_data_source = self._resolver.resolve_first_data_source()
+        if first_data_source:
+            search_directory = first_data_source
+
+        if not os.path.isdir(search_directory):
+            return False
+
+        for table_id, schema_file in self._schema_by_id.items():
+            source_path, _ = self._resolver.resolve_source_path(data_directory, schema_file)
+            if source_path and self._memory_monitor.should_chunk(source_path):
+                return True
+
+        return False
+
+    def _execute_chunked(
+        self,
+        data_directory: str,
+        options: ValidationOptions,
+        started: float,
+        result: dict[str, Any],
+    ) -> dict[str, Any]:
+        """
+        @methoddesc 执行分块校验流程
+
+        使用 ChunkedDataLoader 分块加载数据，逐块执行格式解析和约束校验，
+        最终合并所有分块的结果。
+
+        参数:
+            data_directory: 数据文件目录
+            options: 校验选项
+            started: 开始时间
+            result: 结果字典（已初始化）
+
+        返回:
+            完整的校验结果字典
+        """
+        chunked_loader = self._get_chunked_loader(options)
+
+        # 分块加载数据源
+        try:
+            chunked_datasets = chunked_loader.load_chunked_sources(data_directory, table_filter=options.table_filter)
+        except Exception as e:
+            logger.exception(f"分块加载失败: {e}")
+            result["errors"].append({"error_type": "ChunkedLoadError", "message": f"分块加载失败: {e}"})
+            result["duration_ms"] = int((time.monotonic() - started) * 1000)
+            result["memory_info"] = self._memory_monitor.get_progress_info()
+            return result
+
+        # 追加项目加载阶段的错误
+        for err in self.loaded_project.loading_errors:
+            result["loading_errors"].append(err.to_dict())
+        result["warnings"] = self.loaded_project.warnings
+
+        if not chunked_datasets:
+            result["errors"].append(
+                {"error_type": "DataLoadingError", "message": "未能从数据目录加载任何数据表，校验中止。"}
+            )
+            result["duration_ms"] = int((time.monotonic() - started) * 1000)
+            result["memory_info"] = self._memory_monitor.get_progress_info()
+            return result
+
+        # 统计总行数和分块数
+        total_rows = 0
+        total_chunks = 0
+        for table_id, chunks in chunked_datasets.items():
+            for chunk in chunks:
+                total_rows += len(chunk)
+            total_chunks += len(chunks)
+
+        logger.info(f"分块加载完成: {len(chunked_datasets)} 个表, {total_chunks} 个分块, {total_rows} 总行数")
+
+        # 记录原始数据集信息（用于响应）
+        for table_id, chunks in chunked_datasets.items():
+            result["raw_datasets"][table_id] = {"chunk_count": len(chunks), "row_count": sum(len(c) for c in chunks)}
+
+        # 检查加载阶段超时
+        if (time.monotonic() - started) > options.timeout_seconds:
+            result["errors"].append(
+                {"error_type": "Timeout", "message": f"数据加载阶段超时（>{options.timeout_seconds}s）"}
+            )
+            result["timeout_occurred"] = True
+            result["duration_ms"] = int((time.monotonic() - started) * 1000)
+            result["memory_info"] = self._memory_monitor.get_progress_info()
+            return result
+
+        # 确定脚本安全策略
+        allow_unsafe_eval = False
+        deadline = started + options.timeout_seconds
+
+        # 逐块执行校验，聚合结果
+        all_parsed_datasets: dict[str, list[pd.DataFrame]] = {}
+        all_errors: list[dict] = []
+        all_validation_details: dict[str, list[dict]] = {
+            "format_checks": [],
+            "constraint_checks": [],
+        }
+
+        for table_id, chunks in chunked_datasets.items():
+            all_parsed_datasets[table_id] = []
+
+            for chunk_idx, chunk_df in enumerate(chunks):
+                # 超时检查
+                if deadline is not None and time.monotonic() > deadline:
+                    logger.warning(f"分块校验超时: 表 {table_id} 分块 {chunk_idx + 1}/{len(chunks)}")
+                    all_errors.append(
+                        {
+                            "error_type": "Timeout",
+                            "stage": "constraint",
+                            "check_type": "Timeout",
+                            "message": f"分块校验超时，表 {table_id} 剩余分块未执行",
+                            "table": table_id,
+                        }
+                    )
+                    break
+
+                try:
+                    parsed_datasets, validation_errors, validation_details = validate_full_dataset(
+                        {table_id: chunk_df},
+                        self.dataset_schema,
+                        allow_unsafe_eval=allow_unsafe_eval,
+                        table_filter=options.table_filter,
+                        transform_files=getattr(self.loaded_project, "transform_files", None)
+                        if self.loaded_project
+                        else None,
+                        regex_files=getattr(self.loaded_project, "regex_node_files", None)
+                        if self.loaded_project
+                        else None,
+                        deadline=deadline,
+                    )
+
+                    # 收集解析后的数据
+                    for tid, parsed_df in parsed_datasets.items():
+                        all_parsed_datasets[tid].append(parsed_df)
+
+                    # 聚合错误（添加分块信息）
+                    for err in validation_errors:
+                        err["chunk_index"] = chunk_idx
+                        all_errors.append(err)
+
+                    # 聚合校验详情
+                    for check in validation_details.get("format_checks", []):
+                        all_validation_details["format_checks"].append(check)
+                    for check in validation_details.get("constraint_checks", []):
+                        all_validation_details["constraint_checks"].append(check)
+
+                except Exception as e:
+                    logger.exception(f"分块校验异常: 表 {table_id} 分块 {chunk_idx}: {e}")
+                    all_errors.append(
+                        {
+                            "error_type": "ChunkValidationError",
+                            "stage": "constraint",
+                            "message": f"分块校验异常: {e}",
+                            "table": table_id,
+                            "chunk_index": chunk_idx,
+                        }
+                    )
+
+        # 合并分块的解析结果
+        for table_id, dfs in all_parsed_datasets.items():
+            if dfs:
+                result["parsed_datasets"][table_id] = pd.concat(dfs, ignore_index=True)
+
+        result["errors"] = all_errors
+        result["validation_details"] = all_validation_details
+
+        # 结果后处理
+        id_to_name = self._build_id_to_name_map(self.dataset_schema)
+        table_source_map = self._build_table_source_map()
+
+        for error in result["errors"]:
+            self._map_table_id(error, id_to_name)
+            self._attach_source_info(error, table_source_map)
+        for error in result["loading_errors"]:
+            self._map_table_id(error, id_to_name)
+            self._attach_source_info(error, table_source_map)
+        if "format_checks" in result["validation_details"]:
+            for item in result["validation_details"]["format_checks"]:
+                self._map_table_id(item, id_to_name)
+                self._attach_source_info(item, table_source_map)
+        if "constraint_checks" in result["validation_details"]:
+            for item in result["validation_details"]["constraint_checks"]:
+                self._map_table_id(item, id_to_name)
+                self._attach_source_info(item, table_source_map)
+
+        # 检查总超时
+        if (time.monotonic() - started) > options.timeout_seconds:
+            result["timeout_occurred"] = True
+
+        result["duration_ms"] = int((time.monotonic() - started) * 1000)
+        result["memory_info"] = self._memory_monitor.get_progress_info()
         return result
 
 

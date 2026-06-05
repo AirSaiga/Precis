@@ -213,11 +213,12 @@
     (val) => {
       if (val) {
         initResolutions()
-        if (filteredSchemas.value.length > 0) selectItem(filteredSchemas.value[0], 'schema')
-        else if (filteredConstraints.value.length > 0)
-          selectItem(filteredConstraints.value[0], 'constraint')
-        else if (filteredRegexNodes.value.length > 0)
-          selectItem(filteredRegexNodes.value[0], 'regex')
+        const firstSchema = filteredSchemas.value[0]
+        const firstConstraint = filteredConstraints.value[0]
+        const firstRegex = filteredRegexNodes.value[0]
+        if (firstSchema) selectItem(firstSchema, 'schema')
+        else if (firstConstraint) selectItem(firstConstraint, 'constraint')
+        else if (firstRegex) selectItem(firstRegex, 'regex')
       }
     }
   )

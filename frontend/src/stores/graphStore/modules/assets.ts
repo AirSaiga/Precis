@@ -52,6 +52,9 @@ export function createAssetsModule(params: {
 
     // 目前仅支持保存第一个 Schema 节点
     const schemaNode = schemaNodes[0]
+    if (!schemaNode) {
+      throw new Error('画布上未找到Schema节点')
+    }
     const schemaData = schemaNode.data as SchemaNodeData
 
     // 构造新的资产对象，只保留核心字段

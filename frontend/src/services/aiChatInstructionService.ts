@@ -210,7 +210,7 @@ function handleInlineConstraint(
   }
 
   const constraintKey = constraintType.toLowerCase()
-  column.constraints[constraintKey] = {
+  ;(column.constraints as Record<string, unknown>)[constraintKey] = {
     id: constraintId,
     enabled: true,
   }

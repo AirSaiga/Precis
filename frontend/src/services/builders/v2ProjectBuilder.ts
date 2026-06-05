@@ -115,7 +115,8 @@ export function buildV2RegexNodeFile(nodes: CustomNode[], regexNodeId: string): 
 
   const data = node.data as RegexNodeData
   const schemaIdByNodeId = buildSchemaIdByNodeId(nodes)
-  const normalizeSchemaId = (value?: string) => (value ? schemaIdByNodeId[value] || value : value)
+  const normalizeSchemaId = (value?: string): string | undefined =>
+    value ? schemaIdByNodeId[value] || value : value
 
   const usesPattern = data.uses_pattern
 
@@ -133,7 +134,10 @@ export function buildV2RegexNodeFile(nodes: CustomNode[], regexNodeId: string): 
     parameters: data.parameters || [],
     rules: data.rules || [],
     source_ref: data.sourceRef
-      ? { table_id: normalizeSchemaId(data.sourceRef.nodeId), column_id: data.sourceRef.columnId }
+      ? {
+          table_id: normalizeSchemaId(data.sourceRef.nodeId) || data.sourceRef.nodeId,
+          column_id: data.sourceRef.columnId,
+        }
       : undefined,
     source_column_name: data.sourceColumnName || undefined,
   }

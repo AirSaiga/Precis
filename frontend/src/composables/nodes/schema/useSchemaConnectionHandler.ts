@@ -22,6 +22,7 @@ import { extractColumnNamesFromHeader, compareColumns } from '@/utils/nodes/sche
 import { useToast } from '@/composables/shared/useToast'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { revalidateConstraintsReferencingSchema } from '@/services/constraints/validationRegistryCore'
+import { eventBus } from '@/core/eventBus'
 
 /**
  * Schema 节点连接事件处理器
@@ -228,14 +229,10 @@ export function useSchemaConnectionHandler() {
           updateNodeData: (nodeId: string, data: Record<string, unknown>) =>
             store.updateNodeData(nodeId, data),
         })
-        document.dispatchEvent(
-          new CustomEvent('sourcePreviewDataChanged', {
-            detail: {
-              nodeId: sourceNodeIdForDialog,
-              data: latestSourceNode.data,
-            },
-          })
-        )
+        eventBus.emit('sourcePreviewDataChanged', {
+          nodeId: sourceNodeIdForDialog,
+          data: latestSourceNode.data as Record<string, unknown>,
+        })
       }
     } catch (error) {
       // 捕获并记录错误，显示失败提示
@@ -643,6 +640,7 @@ export function useSchemaConnectionHandler() {
 
     const nextBaseEdges = baseEdges.map((edge) => {
       if (!isSemanticEdge(edge)) return edge
+      if (!edge.sourceHandle) return edge
       const columnId = edge.sourceHandle.replace('source-right-', '')
       const shouldTop = topSet.has(columnId)
       const shouldBottom = bottomSet.has(columnId)
@@ -656,7 +654,7 @@ export function useSchemaConnectionHandler() {
 
     const semanticEdgeIdSet = new Set(semanticEdges.map((e) => e.id))
     for (const [key, proxy] of proxyMap.entries()) {
-      const originalId = key.split(':')[0]
+      const originalId = key.split(':')[0] ?? key
       if (!semanticEdgeIdSet.has(originalId)) {
         proxyMap.delete(key)
         didChange = true

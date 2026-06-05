@@ -215,10 +215,10 @@
   }
   const availableParams = ref<ParamInfo[]>([])
 
-  const parseRegexParams = (regex: string) => {
+  const parseRegexParams = (regex: string): string[] => {
     if (!regex) return []
     const matches = [...regex.matchAll(/\(\?P<(\w+)>/g)]
-    return matches.map((m) => m[1])
+    return matches.map((m) => m[1] ?? '')
   }
 
   // --- Textarea text (local, synced with sampleText) ---
@@ -240,7 +240,7 @@
   watch(
     () => props.rule.regex,
     (val) => {
-      const newVal = val || ''
+      const newVal = val ?? ''
       if (newVal !== localRegex.value) {
         localRegex.value = newVal
       }
@@ -248,7 +248,7 @@
       const existingNames = new Set(availableParams.value.map((p) => p.name))
       for (const name of extractedParams) {
         if (!existingNames.has(name)) {
-          availableParams.value.push({ name, type: 'string' })
+          availableParams.value.push({ name: name ?? '', type: 'string' })
         }
       }
     },
@@ -328,9 +328,10 @@
     }
 
     for (let i = start; i < end; i++) {
-      if (charMap[i]) {
-        charMap[i].type = 'param'
-        charMap[i].paramInfo = { name: paramDefinition.name, paramType: paramDefinition.type }
+      const item = charMap[i]
+      if (item) {
+        item.type = 'param'
+        item.paramInfo = { name: paramDefinition.name, paramType: paramDefinition.type }
       }
     }
 
@@ -338,6 +339,7 @@
     let currentPart: PatternPart | null = null
     for (let i = 0; i < charMap.length; i++) {
       const c = charMap[i]
+      if (!c) continue
       const isParam = c.type === 'param'
       const paramName = isParam ? c.paramInfo?.name : undefined
       let shouldStartNew = false
@@ -353,7 +355,9 @@
         currentPart = {
           type: c.type,
           text: c.char,
-          ...(isParam ? { name: paramName, paramType: c.paramInfo!.paramType } : {}),
+          ...(isParam && c.paramInfo
+            ? { name: paramName, paramType: c.paramInfo.paramType }
+            : {}),
         }
       } else {
         if (currentPart) currentPart.text += c.char
@@ -498,10 +502,11 @@
       while (nextOutput[`${b}_${i}`]) i++
       return `${b}_${i}`
     }
-    const defaultKeyBase = availableParams.value.length > 0 ? availableParams.value[0].name : 'field'
+    const firstParam = availableParams.value[0]
+    const defaultKeyBase = firstParam ? firstParam.name : 'field'
     const newKey = makeUniqueKey(defaultKeyBase)
-    nextOutput[newKey] = availableParams.value.length > 0
-      ? `{${availableParams.value[0].name}:${availableParams.value[0].type}}`
+    nextOutput[newKey] = firstParam
+      ? `{${firstParam.name}:${firstParam.type}}`
       : ''
     emit('update:rule', { ...props.rule, output: nextOutput, regex: localRegex.value })
   }
@@ -519,7 +524,10 @@
       toast.error(t('common.error'), t('expressions.ruleConfigPanel.keyAlreadyExists', { key: newKey }))
       return
     }
-    nextOutput[newKey] = nextOutput[oldKey]
+    const oldVal = nextOutput[oldKey]
+    if (oldVal !== undefined) {
+      nextOutput[newKey] = oldVal
+    }
     delete nextOutput[oldKey]
     emit('update:rule', { ...props.rule, output: nextOutput, regex: localRegex.value })
   }
@@ -555,11 +563,11 @@
   }
   function getParamName(v: string): string {
     const match = v.match(/^\{(\w+):/)
-    return match ? match[1] : ''
+    return match && match[1] ? match[1] : ''
   }
   function getParamType(v: string): string {
     const match = v.match(/:(\w+)\}$/)
-    return match ? match[1] : 'string'
+    return match && match[1] ? match[1] : 'string'
   }
   function getPartDisplayText(part: PatternPart): string {
     return part.type === 'param' ? '{' + part.name + '}' : (part.text || '')

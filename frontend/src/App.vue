@@ -229,6 +229,7 @@
   import { useI18n } from 'vue-i18n'
 
   import { logger } from '@/core/utils/logger'
+  import { eventBus } from '@/core/eventBus'
   import AssetLibraryNav from '@/components/layout/AssetLibraryNav.vue'
   import AssetLibrary from '@/components/layout/AssetLibrary.vue'
   import InspectorPanel from '@/components/layout/InspectorPanel.vue'
@@ -345,9 +346,8 @@
    *
    * 切换 'project' / 'data' 视图，并自动展开侧边栏（如果已折叠）
    */
-  const handleViewChange = (event: CustomEvent) => {
-    const { view } = event.detail
-    currentView.value = view
+  const handleViewChange = (detail: { view: string }) => {
+    currentView.value = detail.view as typeof currentView.value
     if (layout.sidebarCollapsed.value) {
       layout.sidebarCollapsed.value = false
     }
@@ -405,10 +405,10 @@
     try {
       await bootstrap()
 
-      window.addEventListener('viewchange', handleViewChange as EventListener)
-      window.addEventListener('project-closed', handleProjectClosed as EventListener)
       window.addEventListener('mousemove', handleMouseMove as EventListener)
       window.addEventListener('resize', handleResize)
+      eventBus.on('viewchange', handleViewChange)
+      eventBus.on('project-closed', handleProjectClosed)
     } catch (error) {
       logger.error('初始化工作区失败:', error)
     }
@@ -420,8 +420,8 @@
     canvasStore.saveCurrentCanvasData(graphStore.nodes, graphStore.edges)
     canvasStore.syncWorkspacesToBackend()
 
-    window.removeEventListener('viewchange', handleViewChange as EventListener)
-    window.removeEventListener('project-closed', handleProjectClosed as EventListener)
+    eventBus.off('viewchange', handleViewChange)
+    eventBus.off('project-closed', handleProjectClosed)
     window.removeEventListener('mousemove', handleMouseMove as EventListener)
     window.removeEventListener('resize', handleResize)
     cleanup()

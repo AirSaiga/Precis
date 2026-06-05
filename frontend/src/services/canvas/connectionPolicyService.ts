@@ -68,9 +68,9 @@ class ConnectionPolicyServiceClass {
 
     const result = validateConnection(
       sourceNode,
-      connection.sourceHandle,
+      connection.sourceHandle ?? undefined,
       targetNode,
-      connection.targetHandle
+      connection.targetHandle ?? undefined
     )
 
     return result.isValid

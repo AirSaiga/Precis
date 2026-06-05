@@ -234,6 +234,7 @@ export function useForeignKeyConnection() {
       targetTable: targetSchemaData?.tableName || '',
       targetRef: { nodeId: targetSchemaNodeId },
       config: {
+        ruleType: 'EXIST_IN',
         ...(fkNode.data as ForeignKeyConstraintNodeData)?.config,
         targetNodeId: targetSchemaNodeId
       }
@@ -266,6 +267,7 @@ export function useForeignKeyConnection() {
       targetColumn: targetColumnName,
       targetRef: { nodeId: targetSchemaNodeId, columnId: targetColumnId },
       config: {
+        ruleType: 'EXIST_IN',
         ...(fkNode.data as ForeignKeyConstraintNodeData)?.config,
         targetNodeId: targetSchemaNodeId,
         targetColumn: targetColumnName

@@ -1,0 +1,16 @@
+{
+  "name": "precis-e2e",
+  "version": "1.0.0",
+  "private": true,
+  "description": "E2E tests for Precis application",
+  "scripts": {
+    "test": "npx playwright test",
+    "test:headed": "npx playwright test --headed",
+    "test:ui": "npx playwright test --ui",
+    "report": "npx playwright show-report",
+    "install:browsers": "npx playwright install chromium"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.52.0"
+  }
+}

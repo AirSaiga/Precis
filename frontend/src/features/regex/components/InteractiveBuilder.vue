@@ -336,9 +336,10 @@
     // 在 start 到 end 的区间内，强制将字符属性改为新的参数
     for (let i = start; i < end; i++) {
       // 边界检查，防止越界
-      if (charMap[i]) {
-        charMap[i].type = 'param'
-        charMap[i].paramInfo = {
+      const item = charMap[i]
+      if (item) {
+        item.type = 'param'
+        item.paramInfo = {
           name: paramDefinition.name,
           paramType: paramDefinition.type,
         }
@@ -351,6 +352,7 @@
 
     for (let i = 0; i < charMap.length; i++) {
       const charObj = charMap[i]
+      if (!charObj) continue
       const isParam = charObj.type === 'param'
       // 注意：这里的 paramName 取值逻辑，如果是 static 则为 undefined
       const paramName = isParam ? charObj.paramInfo?.name : undefined
@@ -381,7 +383,9 @@
           type: charObj.type,
           text: charObj.char,
           // 只有是参数时才带上 name 和 paramType
-          ...(isParam ? { name: paramName, paramType: charObj.paramInfo.paramType } : {}),
+          ...(isParam && charObj.paramInfo
+            ? { name: paramName, paramType: charObj.paramInfo.paramType }
+            : {}),
         }
       } else {
         // 延续当前片段，追加字符

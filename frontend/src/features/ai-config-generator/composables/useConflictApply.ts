@@ -27,6 +27,7 @@ import { logger } from '@/core/utils/logger'
 import { putV2FullConfig, getV2FullConfig, compareV2FullConfig } from '@/api/projectV2Api'
 import type { AiGenerateV2ConfigResponse } from '@/types/ai'
 import type { ConfigComparison } from '@/api/types/conflict'
+import { eventBus } from '@/core/eventBus'
 import type {
   FullConfigV2Request,
   FullConfigV2Response,
@@ -117,7 +118,7 @@ export function useConflictApply(
     try {
       await putV2FullConfig(finalConfig, configPath.value)
 
-      window.dispatchEvent(new CustomEvent('project-applied'))
+      eventBus.emit('project-applied')
       window.$toast?.success(t('common.success'), t('aiConfigGenerator.toast.applied'))
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)

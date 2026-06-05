@@ -29,6 +29,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
 import { useI18n } from 'vue-i18n'
 import type { SchemaNodeData } from '../types'
 import { validateNotNull } from '@/composables/nodes/constraints/useNotNull'
@@ -101,7 +102,12 @@ export function useSchemaValidation(props: { id: string; data: SchemaNodeData },
     logger.debug('🔄 开始验证所有列:', props.id)
 
     try {
-      const results = []
+      const results: Array<{
+        columnId: string
+        columnName: string
+        errorCount: number
+        errors: Array<{ row: number; value: string; message: string }>
+      }> = []
 
       for (const column of props.data.columns) {
         const result = await validateColumn(column.id)
@@ -172,7 +178,13 @@ export function useSchemaValidation(props: { id: string; data: SchemaNodeData },
         errors: [] as Array<{ row: number; value: string; message: string }>,
       }
 
-      if (column.constraints.notNull) {
+      const constraints = (column.constraints ?? {}) as {
+        notNull?: unknown
+        unique?: unknown
+        allowedValues?: unknown
+      }
+
+      if (constraints.notNull) {
         const notNullResult = await validateNotNull(
           getEffectiveSourcePath(),
           column.columnName,
@@ -183,7 +195,7 @@ export function useSchemaValidation(props: { id: string; data: SchemaNodeData },
         result.errors.push(...notNullResult.errors)
       }
 
-      if (column.constraints.unique) {
+      if (constraints.unique) {
         const uniqueResult = await validateUnique(
           getEffectiveSourcePath(),
           column.columnName,
@@ -194,7 +206,7 @@ export function useSchemaValidation(props: { id: string; data: SchemaNodeData },
         result.errors.push(...uniqueResult.errors)
       }
 
-      if (column.constraints.allowedValues && column.constraints.allowedValues.length > 0) {
+      if (constraints.allowedValues && Array.isArray(constraints.allowedValues) && constraints.allowedValues.length > 0) {
         const allowedValuesResult = await validateAllowedValues(column)
         result.errorCount += allowedValuesResult.errorCount
         result.errors.push(...allowedValuesResult.errors)
@@ -324,13 +336,7 @@ export function useSchemaValidation(props: { id: string; data: SchemaNodeData },
       results: results,
     })
 
-    const event = new CustomEvent('schemaValidationCompleted', {
-      detail: {
-        nodeId: props.id,
-        results: results,
-      },
-    })
-    document.dispatchEvent(event)
+    eventBus.emit('schemaValidationCompleted', { nodeId: props.id, results: results })
   }
 
   return {

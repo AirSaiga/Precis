@@ -20,7 +20,7 @@ from app.shared.domain.expression_system import (
     TYPE_CASTERS,
     ExpressionPattern,
     ExpressionRegistry,
-    create_tempated_parser,
+    create_templated_parser,
 )
 
 
@@ -49,28 +49,28 @@ class TestTypeCasters:
 
 class TestCreateTempatedParser:
     def test_static_values(self):
-        parser = create_tempated_parser({"type": "phone", "country": "CN"})
+        parser = create_templated_parser({"type": "phone", "country": "CN"})
         result = parser({})
         assert result == {"type": "phone", "country": "CN"}
 
     def test_dynamic_int(self):
-        parser = create_tempated_parser({"value": "{val:int}"})
+        parser = create_templated_parser({"value": "{val:int}"})
         result = parser({"val": "123"})
         assert result["value"] == 123
 
     def test_dynamic_str(self):
-        parser = create_tempated_parser({"name": "{n:str}"})
+        parser = create_templated_parser({"name": "{n:str}"})
         result = parser({"n": "hello"})
         assert result["name"] == "hello"
 
     def test_missing_group_raises(self):
-        parser = create_tempated_parser({"value": "{val:int}"})
+        parser = create_templated_parser({"value": "{val:int}"})
         with pytest.raises(KeyError):
             parser({})
 
     def test_unknown_type_raises(self):
         with pytest.raises(ValueError, match="未找到"):
-            create_tempated_parser({"value": "{val:unknown}"})
+            create_templated_parser({"value": "{val:unknown}"})
 
 
 class TestExpressionPattern:

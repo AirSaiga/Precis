@@ -91,10 +91,10 @@
         >
           <div class="row-num">{{ rIdx + 1 }}</div>
           <input
-            v-model="localRows[rIdx][0]"
+            :value="localRows[rIdx]?.[0] ?? ''"
+            @change="onRowInputChange(rIdx, 0, $event)"
             class="data-cell-input"
             type="text"
-            @change="emitUpdate"
           />
           <div class="row-actions">
             <button
@@ -206,8 +206,21 @@
 
   function duplicateRow(idx: number) {
     const row = localRows.value[idx]
+    if (!row) return
     localRows.value.splice(idx + 1, 0, [...row])
     emitUpdate()
+  }
+
+  function handleRowChange(rIdx: number, cIdx: number, value: string) {
+    const row = localRows.value[rIdx]
+    if (!row) return
+    row[cIdx] = value
+    emitUpdate()
+  }
+
+  function onRowInputChange(rIdx: number, cIdx: number, event: Event) {
+    const target = event.target as HTMLInputElement
+    handleRowChange(rIdx, cIdx, target.value)
   }
 
   function clearAllRows() {
@@ -230,11 +243,11 @@
       .map((line) => {
         // 如果是 CSV 格式（含逗号），取第一个字段
         if (line.includes(',')) {
-          return line.split(',')[0].trim()
+          return (line.split(',')[0] ?? '').trim()
         }
         // 如果是 TSV 格式（含制表符），取第一个字段
         if (line.includes('\t')) {
-          return line.split('\t')[0].trim()
+          return (line.split('\t')[0] ?? '').trim()
         }
         return line
       })

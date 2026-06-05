@@ -100,12 +100,14 @@
     }
 
   md.renderer.rules.link_open = function (tokens, idx, options, env, self) {
-    const href = tokens[idx].attrGet('href')
+    const token = tokens[idx]
+    if (!token) return self.renderToken(tokens, idx, options)
+    const href = token.attrGet('href')
     if (href && /^(javascript|data|vbscript):/i.test(href.trim())) {
-      tokens[idx].attrSet('href', '#')
+      token.attrSet('href', '#')
     }
-    tokens[idx].attrSet('rel', 'noopener noreferrer')
-    tokens[idx].attrSet('target', '_blank')
+    token.attrSet('rel', 'noopener noreferrer')
+    token.attrSet('target', '_blank')
     return defaultLinkRender(tokens, idx, options, env, self)
   }
 

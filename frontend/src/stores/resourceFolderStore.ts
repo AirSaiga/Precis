@@ -69,7 +69,7 @@ function saveFolderExpandedState(folderId: string, expanded: boolean): void {
  *
  * @param folders - 资源文件夹映射表
  */
-function restoreFolderExpandedState(folders: Record<string, ResourceFolder>): void {
+function restoreFolderExpandedState(folders: ResourceFolderMap): void {
   const stored = getStoredFolderState()
   if (Object.keys(stored).length === 0) return
 
@@ -286,8 +286,11 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
       folders.value.validationAssets.children[0].count = counts.independentConstraints
     }
     if (folders.value.validationAssets.children?.[1]?.children) {
-      folders.value.validationAssets.children[1].children[0].count = counts.patterns
-      folders.value.validationAssets.children[1].children[1].count = counts.regexNodes
+      const vaChildren = folders.value.validationAssets.children[1].children
+      const patterns = vaChildren[0]
+      const regexNodes = vaChildren[1]
+      if (patterns) patterns.count = counts.patterns
+      if (regexNodes) regexNodes.count = counts.regexNodes
     }
     const templatesFolder = folders.value.validationAssets.children?.find((c) => c.id === 'templates')
     if (templatesFolder) {
@@ -321,8 +324,11 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
     // validationAssets.children[1] = regexCenter
     // regexCenter.children[0] = patterns, regexCenter.children[1] = regex_nodes
     if (folders.value.validationAssets.children?.[1]?.children) {
-      folders.value.validationAssets.children[1].children[0].resources = data.patterns
-      folders.value.validationAssets.children[1].children[1].resources = data.regexNodes
+      const vaChildren = folders.value.validationAssets.children[1].children
+      const patterns = vaChildren[0]
+      const regexNodes = vaChildren[1]
+      if (patterns) patterns.resources = data.patterns
+      if (regexNodes) regexNodes.resources = data.regexNodes
     }
     // templates 是 validationAssets 下的动态子节点，通过 id 查找
     const templatesFolder = folders.value.validationAssets.children?.find((c) => c.id === 'templates')
@@ -354,8 +360,11 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
     if (folders.value.validationAssets.children?.[1]) {
       folders.value.validationAssets.children[1].expanded = false
       if (folders.value.validationAssets.children[1].children) {
-        folders.value.validationAssets.children[1].children[0].expanded = false
-        folders.value.validationAssets.children[1].children[1].expanded = false
+        const vaChildren = folders.value.validationAssets.children[1].children
+        const patterns = vaChildren[0]
+        const regexNodes = vaChildren[1]
+        if (patterns) patterns.expanded = false
+        if (regexNodes) regexNodes.expanded = false
       }
     }
     // 重置 templates 文件夹状态并清空资源

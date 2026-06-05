@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from ...domain.expression_system import ExpressionPattern, ExpressionRegistry, create_tempated_parser
+from ...domain.expression_system import ExpressionPattern, ExpressionRegistry, create_templated_parser
 from ..io.yaml import read_yaml
 
 if TYPE_CHECKING:
@@ -93,7 +93,7 @@ def load_patterns_from_config(base_dir: str) -> ExpressionRegistry:
 
                 # 创建模板化解析器工厂函数
                 # output 字段可选，用于配置解析器的输出格式
-                parser_factory = create_tempated_parser(cfg.get("output") or {})
+                parser_factory = create_templated_parser(cfg.get("output") or {})
 
                 # 编译正则表达式为 Pattern 对象
                 # 使用 re.compile 提高后续匹配的效率

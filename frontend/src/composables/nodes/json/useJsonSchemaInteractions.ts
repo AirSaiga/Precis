@@ -216,7 +216,7 @@ export function useJsonSchemaInteractions(
     const targetNode = store.nodes.find((n) => n.id === targetNodeId);
 
     if (targetNode && targetNode.type !== 'schema' && targetNode.type !== 'jsonSchema') {
-      const constraintType = constraintNodeTypeMap[targetNode.type];
+      const constraintType = targetNode.type ? constraintNodeTypeMap[targetNode.type] : undefined;
       if (constraintType) {
         const updatedColumns = props.data.columns.map(col => {
           if (col.id === columnId) {

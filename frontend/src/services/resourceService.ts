@@ -280,17 +280,19 @@ export class ResourceService implements IResourceService {
         const [registryType, patternId] = key.includes('/')
           ? key.split('/', 2)
           : [registryData.registry || 'patterns', registryData.id]
+        const safeRegistryType = registryType ?? 'patterns'
+        const safePatternId = patternId ?? ''
 
         resources.push({
           id: key,
-          name: patternId,
+          name: safePatternId,
           kind: 'pattern',
-          path: `${registryType}/${patternId}.yaml`,
+          path: `${safeRegistryType}/${safePatternId}.yaml`,
           meta: {
-            registry: registryType,
+            registry: safeRegistryType,
             definition: registryData.definition,
           },
-          registry: registryType as 'patterns',
+          registry: safeRegistryType as 'patterns',
         })
       }
     }

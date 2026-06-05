@@ -184,6 +184,8 @@
   // Vue 核心功能导入
   import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 
+  import { eventBus } from '@/core/eventBus'
+
   // 国际化支持
   import { useI18n } from 'vue-i18n'
 
@@ -509,9 +511,8 @@
    * 监听 validate-json-schema 自定义事件
    * 当事件的 nodeId 与当前组件匹配时触发校验
    */
-  const handleValidateJsonSchema = (event: Event) => {
-    const customEvent = event as CustomEvent
-    if (customEvent.detail?.nodeId === props.id) {
+  const handleValidateJsonSchema = (detail: { nodeId: string }) => {
+    if (detail.nodeId === props.id) {
       logger.debug('🔄 [JsonSchemaNode] 收到自动校验事件，nodeId:', props.id)
       runValidation()
     }
@@ -525,7 +526,7 @@
    * - 启动数据源连接监听
    */
   onMounted(() => {
-    document.addEventListener('validate-json-schema', handleValidateJsonSchema)
+    eventBus.on('validate-json-schema', handleValidateJsonSchema)
     watchSourceConnection()
   })
 
@@ -535,7 +536,7 @@
    * - 清理 composable 资源
    */
   onBeforeUnmount(() => {
-    document.removeEventListener('validate-json-schema', handleValidateJsonSchema)
+    eventBus.off('validate-json-schema', handleValidateJsonSchema)
     cleanup()
   })
 

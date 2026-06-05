@@ -66,7 +66,7 @@ export function usePreviewInteraction(props: { data: SourcePreviewNodeData }, em
   const copyRowToClipboard = async (previewRows: string[][]) => {
     if (contextMenu.rowIndex >= 0) {
       try {
-        const rowData = previewRows[contextMenu.rowIndex]
+        const rowData = previewRows[contextMenu.rowIndex] ?? []
         const textData = rowData.join('\t')
         await navigator.clipboard.writeText(textData)
         logger.debug(t('customNodes.sourcePreviewNode.rowDataCopied'))

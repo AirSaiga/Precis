@@ -96,8 +96,8 @@ export function isOutputParamBinding(raw: unknown): raw is string {
 export function parseOutputParamBinding(raw: string): OutputMappingParamBinding | null {
   const match = raw.match(/^\{(\w+):(\w+)\}$/)
   if (!match) return null
-  const name = match[1]
-  const typeRaw = match[2]
+  const name = match[1] ?? ''
+  const typeRaw = match[2] ?? ''
 
   const normalizedType: OutputMappingParamType =
     typeRaw === 'int' || typeRaw === 'float' || typeRaw === 'boolean' ? typeRaw : 'string'
