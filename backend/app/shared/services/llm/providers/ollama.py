@@ -32,12 +32,9 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from .base import BaseProvider, ChatRequest, ChatResponse
-
-if TYPE_CHECKING:
-    import aiohttp
 
 logger = logging.getLogger(__name__)
 
