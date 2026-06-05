@@ -16,6 +16,6 @@ settings:
 
 schemas:
   - id: users
-    file: schemas/users.schema.yaml
+    path: schemas/users.schema.yaml
 
 constraints: []
