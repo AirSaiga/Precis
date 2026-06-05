@@ -19,6 +19,7 @@ import { useGraphStore } from '@/stores/graphStore'
 import { tabularColumnGenerator } from '@/utils/nodes/columnGeneration/TabularColumnGenerator'
 import { jsonColumnGenerator } from '@/utils/nodes/columnGeneration/JsonColumnGenerator'
 import { previewDataFetcher } from '@/utils/nodes/preview/PreviewDataFetcher'
+import { syncSchemaResources } from '@/services/schemaResourceSync'
 import type { CustomNodeData } from '@/types/graph'
 
 /**
@@ -195,6 +196,14 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
         logger.error('[Ctrl+G] 智能列填充失败:', error)
       }
     }
+  }
+
+  // ========== 同步 V2 Schema 资源（约束、正则）==========
+  const syncResult = await syncSchemaResources(schemaNodeId)
+  if (syncResult.success) {
+    logger.debug(
+      `✅ [Ctrl+G] 已同步 V2 Schema 资源: 内嵌${syncResult.embeddedCount} 独立${syncResult.independentCount} 正则${syncResult.regexCount}`
+    )
   }
 
   // 选中新创建的 Schema 节点

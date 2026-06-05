@@ -46,7 +46,7 @@ export class NodePreviewFetcher implements PreviewDataFetcher {
     const nodeData = (node.data || {}) as Record<string, unknown>
 
     // 处理 JSON preview 节点
-    if (nodeData.type === 'jsonSourcePreview') {
+    if (node.type === 'jsonSourcePreview') {
       const rawData = nodeData.rawData as unknown[] | undefined
       if (!rawData || !Array.isArray(rawData)) return null
 
@@ -70,7 +70,7 @@ export class NodePreviewFetcher implements PreviewDataFetcher {
     }
 
     // 处理 Tabular preview 节点 (sourcePreview)
-    if (nodeData.type === 'sourcePreview') {
+    if (node.type === 'sourcePreview') {
       const rawData = nodeData.data as string[][] | undefined
 
       if (!rawData) return null
@@ -160,16 +160,24 @@ export class CompositePreviewFetcher implements PreviewDataFetcher {
       const result = await this.nodeFetcher.fetch(source)
       if (result) return result
 
-      // 如果节点没有预览数据，尝试从节点的 filePath 获取
+      // 如果节点没有预览数据，尝试从节点的 localPath/filePath 获取
       const node = source.node
-      const nodeData = (node.data || {}) as Record<string, unknown>
-      const filePath = nodeData?.filePath as string | undefined
+      const nodeData = (source.node.data || {}) as Record<string, unknown>
+      const filePath =
+        (nodeData?.localPath as string | undefined) || (nodeData?.filePath as string | undefined)
 
       if (filePath) {
+        const isJsonSource = node.type === 'jsonSourcePreview'
         return this.fileFetcher.fetch({
           type: 'filePath',
           filePath,
           format: (nodeData?.format as string) || undefined,
+          sheetName: (nodeData?.currentSheet as string) || undefined,
+          jsonOptions: {
+            jsonPath: (nodeData?.jsonPath as string) || undefined,
+            jsonFormat: isJsonSource ? (nodeData?.format as string) || undefined : undefined,
+            recordPath: (nodeData?.recordPath as string) || undefined,
+          },
         })
       }
     }

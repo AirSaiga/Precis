@@ -495,16 +495,20 @@ useNodeSourceManager → options.generateColumns 传入策略实例
 
 ## V2 Configuration File Standards
 
+> 完整格式规范见 [`docs/v2-config-format.md`](docs/v2-config-format.md)，包含所有文件类型的字段定义、ID 编码规则和 10 种约束类型的 refs/params 结构。
+
 项目配置使用 V2 YAML 格式，入口文件为 `project.precis.yaml`。
 
-| 文件类型 | 命名 | 说明 |
-|---------|------|------|
-| 项目清单 | `project.precis.yaml` | 索引所有 Schema/Constraint/Regex 资源 |
-| Schema | `*.schema.yaml` | 表结构定义（列、数据类型、内嵌约束） |
-| Constraint | `*.constraint.yaml` | 独立约束（refs + params 分离设计） |
-| Regex | `*.regex.yaml` | 正则节点（引用模式或直接模式） |
+| 文件类型 | 命名 | ID 规则 |
+|---------|------|--------|
+| 项目清单 | `project.precis.yaml` | `project.id` 为项目标识符 |
+| Schema | `schemas/*.schema.yaml` | `sc_` 前缀 + XOR + Base64URL 编码（由文件路径 + sheet 名派生） |
+| Constraint | `constraints/*.constraint.yaml` | 直接使用 `node.id`（UUID） |
+| Regex | `regex/*.regex.yaml` | 直接使用 `node.id` |
+| Transform | `transforms/*.transform.yaml` | 直接使用 `node.id` |
+| Template | `templates/*.template.yaml` | 直接使用 `node.id` |
 
-**约束类型**: NotNull, Unique, AllowedValues, Range, ForeignKey, Conditional, Scripted, Charset, DateLogic
+**约束类型**（10 种）: NotNull, Unique, AllowedValues, Range, ForeignKey, Conditional, Scripted, Charset, DateLogic, Composite
 
 **数据类型**: string, integer, decimal, boolean, datetime, date, time
 

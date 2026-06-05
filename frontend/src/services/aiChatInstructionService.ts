@@ -24,7 +24,7 @@ import { useVueFlow, type Edge, type Node as VueFlowNode } from '@vue-flow/core'
 import { v4 as uuidv4 } from 'uuid'
 import { nextTick } from 'vue'
 import { useGraphStore } from '@/stores/graphStore'
-import { useI18n } from 'vue-i18n'
+import { i18n } from '@/i18n'
 import type { FrontendInstruction } from '@/stores/aiChatStore'
 import * as vueFlowApi from '@/services/canvas/vueFlowApi'
 import { fromBackendType } from '@/services/builders/schemaBuilder'
@@ -99,7 +99,7 @@ export async function processFrontendInstructions(
  * - 独立约束：在目标节点右侧创建约束节点并连线
  */
 async function handleConstraintInstruction(instruction: FrontendInstruction): Promise<void> {
-  const { t } = useI18n()
+  const { t } = i18n.global
   const graphStore = useGraphStore()
   const { fitView } = useVueFlow()
 
@@ -188,7 +188,7 @@ function handleInlineConstraint(
   constraintId: string
 ) {
   const graphStore = useGraphStore()
-  const { t } = useI18n()
+  const { t } = i18n.global
 
   const nodeData = targetNode.data as unknown as Record<string, unknown>
   if (!nodeData.columns) {

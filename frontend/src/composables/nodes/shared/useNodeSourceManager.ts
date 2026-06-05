@@ -73,6 +73,8 @@ export interface UseNodeSourceManagerOptions {
   onColumnsGenerated?: (columns: any[]) => void
   /** 列生成失败回调（可选） */
   onColumnsGenerationFailed?: () => void
+  /** 数据源连接成功后的回调（可选） */
+  onSourceConnected?: (sourceNodeId: string) => void
 }
 
 export function useNodeSourceManager<TNodeData extends Record<string, any>>(
@@ -155,6 +157,15 @@ export function useNodeSourceManager<TNodeData extends Record<string, any>>(
           const sourceDataSnapshot = JSON.parse(JSON.stringify(latestSourceNode.data))
           showSmartFillDialog({ id: sourceNodeId, data: sourceDataSnapshot })
         }
+
+        // onSourceConnected 可能触发 syncSchemaResources 等异步操作，
+        // 此处为 intentional fire-and-forget，内部已有 try/catch 保护
+        const result = options.onSourceConnected?.(sourceNodeId) as unknown as
+          | Promise<unknown>
+          | undefined
+        result?.catch?.((err: unknown) =>
+          logger.error('❌ [handleSourceConnection] onSourceConnected 回调失败:', err)
+        )
       }, 100)
     } catch (err) {
       logger.error('❌ [handleSourceConnection] 处理数据源连接失败:', err)

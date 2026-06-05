@@ -8,6 +8,7 @@ import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
 import { useNodeSourceManager } from '../shared/useNodeSourceManager'
+import { syncSchemaResources } from '@/services/schemaResourceSync'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import type { SchemaNodeData, SourcePreviewNodeData } from '@/types/graph'
 
@@ -243,6 +244,7 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
     eventName: 'sourcePreviewDataChanged',
     onSourceDataChanged: (data) => updateSchemaNodeFromSheetChange(props.id, data),
     nodeLabel: 'Schema',
+    onSourceConnected: () => syncSchemaResources(props.id),
   })
 
   return {

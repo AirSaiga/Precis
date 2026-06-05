@@ -188,6 +188,19 @@ export function setupGraphStore() {
   const selectionBox = ref<{ x: number; y: number; width: number; height: number } | null>(null)
 
   /**
+   * V2 Schema ID 映射表
+   *
+   * 当画布节点使用 UUID（而非 V2 ID）时，通过此映射表关联到 V2 配置。
+   * 键：画布节点 ID（UUID）
+   * 值：V2 Schema ID（sc_...）
+   *
+   * 注意：此 Map 仅用于命令式查询（resolveV2SchemaId），无模板/computed 依赖，
+   * 因此 .set() 原地修改不触发响应性是可接受的。若未来需要响应式依赖，
+   * 应改用 v2SchemaIdMap.value = new Map([...v2SchemaIdMap.value, [key, value]])。
+   */
+  const v2SchemaIdMap = ref<Map<string, string>>(new Map())
+
+  /**
    * 是否正在框选模式
    *
    * 标记当前是否处于 Shift+拖拽框选状态
@@ -886,6 +899,19 @@ export function setupGraphStore() {
 
   const { switchScope, getSubGraphStats } = createScopeModule({ nodes, edges })
 
+  // ============================================================================
+  // V2 Schema ID 映射管理
+  // ============================================================================
+
+  function registerV2SchemaMapping(canvasNodeId: string, v2SchemaId: string) {
+    v2SchemaIdMap.value.set(canvasNodeId, v2SchemaId)
+  }
+
+  function getV2SchemaId(canvasNodeId: string): string | undefined {
+    if (canvasNodeId.startsWith('sc_')) return canvasNodeId
+    return v2SchemaIdMap.value.get(canvasNodeId)
+  }
+
   return {
     // 状态
     nodes,
@@ -893,6 +919,7 @@ export function setupGraphStore() {
     assets,
     selectedNode,
     selectedNodeId,
+    v2SchemaIdMap,
     selectedNodes,
     hasMultipleSelection,
     selectedNodeIds,
@@ -1017,6 +1044,10 @@ export function setupGraphStore() {
 
     // 统计信息
     getSubGraphStats,
+
+    // V2 Schema ID 映射管理
+    registerV2SchemaMapping,
+    getV2SchemaId,
 
     // 正则表达式设计弹窗管理
     openRegexDesignModal,
