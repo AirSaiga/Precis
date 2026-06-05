@@ -225,3 +225,8 @@ async def root():
     @returns dict - 包含欢迎消息的响应对象
     """
     return {"message": "欢迎使用数据校验工具 API! 请访问 /docs 查看详情。"}
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
