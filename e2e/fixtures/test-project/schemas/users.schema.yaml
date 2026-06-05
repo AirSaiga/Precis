@@ -3,19 +3,19 @@ name: Users Table
 description: E2E test user data
 
 source:
-  type: file
-  path: ../data/users.csv
+  mode: relative_file
+  path: data/users.csv
 
 columns:
   - name: id
-    dtype: integer
+    type: integer
     description: User ID
   - name: name
-    dtype: string
+    type: string
     description: User name
   - name: email
-    dtype: string
+    type: string
     description: Email address
   - name: age
-    dtype: integer
+    type: integer
     description: User age
