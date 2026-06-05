@@ -31,9 +31,10 @@
 """
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
-import aiohttp
+if TYPE_CHECKING:
+    import aiohttp
 
 
 @dataclass
@@ -128,6 +129,9 @@ class ServiceScanner:
         """
         url = f"http://{host}:{port}"
         try:
+            # aiohttp 是 [ai]/[full] 可选依赖，按需延迟导入
+            import aiohttp
+
             # 使用 aiohttp 发送异步 GET 请求，超时 5 秒
             async with aiohttp.ClientSession() as session:
                 async with session.get(f"{url}{path}", timeout=5) as resp:

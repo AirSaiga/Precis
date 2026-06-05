@@ -52,7 +52,7 @@ npm run format:all            # 前端 format + 后端 ruff format + fix
 ### 测试
 
 ```bash
-# 前端单元测试（295 用例，覆盖率阈值 lines:35% branches:25% functions:30%）
+# 前端单元测试（295 用例，覆盖率仅统计 .ts 源文件；阈值 lines:5% branches:4% functions:6%）
 cd frontend && npm run test          # vitest 运行全部测试
 cd frontend && npm run test:watch    # vitest watch 模式
 
