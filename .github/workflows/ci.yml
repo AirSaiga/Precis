@@ -162,7 +162,7 @@ jobs:
       - name: Start backend server
         run: |
           cd ../backend
-          python -m uvicorn app.main:app --port 18000 &
+          python -m uvicorn app.api.main:app --port 18000 &
           sleep 5
         env:
           E2E_SKIP_WEB_SERVER: 'true'
