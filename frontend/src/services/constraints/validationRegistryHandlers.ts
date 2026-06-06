@@ -823,7 +823,7 @@ register({
       }
       if ((nodeData.logicMode || 'compare') === 'compare') {
         validationConfig.compare_op = nodeData.compareOp || 'gt'
-        if (nodeData.referenceType === 'date')
+        if (nodeData.referenceDate)
           validationConfig.reference_date = nodeData.referenceDate
         else validationConfig.reference_column = nodeData.referenceColumn
       } else {
@@ -856,7 +856,7 @@ register({
     }
     if ((nodeData.logicMode || 'compare') === 'compare') {
       validationConfig.compare_op = nodeData.compareOp || 'gt'
-      if (nodeData.referenceType === 'date')
+      if (nodeData.referenceDate)
         validationConfig.reference_date = nodeData.referenceDate
       else validationConfig.reference_column = nodeData.referenceColumn
     } else {
