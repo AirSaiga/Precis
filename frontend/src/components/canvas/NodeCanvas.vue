@@ -199,8 +199,8 @@
   const nodeOrganizer = useNodeOrganizer()
   const zoneGroups = nodeOrganizer.groups
   const { t } = useI18n()
-  const { viewport, onNodeContextMenu, project, addNodes, addEdges, removeNodes, removeEdges, updateNodeInternals } = useVueFlow()
-  initVueFlowApi({ addNodes, addEdges, removeNodes, removeEdges, updateNodeInternals })
+  const { viewport, onNodeContextMenu, project, addNodes, addEdges, removeNodes, removeEdges, updateNodeInternals, updateEdgeData, findEdge } = useVueFlow()
+  initVueFlowApi({ addNodes, addEdges, removeNodes, removeEdges, updateNodeInternals, updateEdgeData, findEdge })
   const { validateConnection } = useCanvasConnectionWatcher()
   const flowWrapper = ref<HTMLDivElement | null>(null)
   const { projectCreateDialogRef, handleOpenCreateProjectDialog } = useCanvasProjectDialog()

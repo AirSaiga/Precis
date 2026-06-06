@@ -12,11 +12,14 @@
  */
 
 import type {
+  GraphEdge,
   AddNodes,
   AddEdges,
   RemoveNodes,
   RemoveEdges,
   UpdateNodeInternals,
+  UpdateEdgeData,
+  FindEdge,
 } from '@vue-flow/core'
 
 export interface VueFlowApi {
@@ -25,6 +28,8 @@ export interface VueFlowApi {
   removeNodes: RemoveNodes
   removeEdges: RemoveEdges
   updateNodeInternals: UpdateNodeInternals
+  updateEdgeData: UpdateEdgeData
+  findEdge: FindEdge
 }
 
 let _api: VueFlowApi | null = null
@@ -57,4 +62,12 @@ export function removeEdges(...args: Parameters<RemoveEdges>) {
 
 export function updateNodeInternals(...args: Parameters<UpdateNodeInternals>) {
   requireApi().updateNodeInternals(...args)
+}
+
+export function updateEdgeData(...args: Parameters<UpdateEdgeData>) {
+  requireApi().updateEdgeData(...args)
+}
+
+export function findEdge(...args: Parameters<FindEdge>): GraphEdge | undefined {
+  return requireApi().findEdge(...args)
 }

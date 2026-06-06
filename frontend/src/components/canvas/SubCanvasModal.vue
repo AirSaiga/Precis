@@ -62,7 +62,7 @@
 
 <script setup lang="ts">
   import { computed, markRaw } from 'vue'
-  import { VueFlow, SelectionMode } from '@vue-flow/core'
+  import { VueFlow, SelectionMode, useVueFlow } from '@vue-flow/core'
   import { Background, BackgroundVariant } from '@vue-flow/background'
   import { Controls } from '@vue-flow/controls'
   import type { NodeComponent } from '@vue-flow/core'
@@ -74,6 +74,7 @@
   import SubSchemaInputNode from '@/components/nodes/composite/SubSchemaInputNode.vue'
 
   const { t } = useI18n()
+  const { addEdges: vfAddEdges, removeEdges: vfRemoveEdges } = useVueFlow()
 
   interface Props {
     visible: boolean
@@ -93,7 +94,11 @@
     close: []
   }>()
 
-  const subStore = useSubGraphStore(props.initialNodes, props.initialEdges)
+  const subStore = useSubGraphStore(
+    props.initialNodes,
+    props.initialEdges,
+    { addEdges: vfAddEdges, removeEdges: vfRemoveEdges }
+  )
 
   const subNodeTypes: Record<string, NodeComponent> = {
     subSchemaInput: markRaw(SubSchemaInputNode) as unknown as NodeComponent,

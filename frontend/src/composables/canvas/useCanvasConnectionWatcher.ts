@@ -10,7 +10,7 @@
  * removeEdges 同步触发 onEdgesChange，此时 edges.value 中仍可查到边数据。
  */
 
-import type { Connection, EdgeChange } from '@vue-flow/core'
+import type { Connection, Edge, EdgeChange, Node } from '@vue-flow/core'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import { connectionPolicyService } from '@/services/canvas/connectionPolicyService'
@@ -18,8 +18,13 @@ import { connectionPolicyService } from '@/services/canvas/connectionPolicyServi
 export function useCanvasConnectionWatcher() {
   const store = useGraphStore()
 
-  const validateConnection = (connection: Connection) => {
-    return connectionPolicyService.isValidConnection(connection, store.nodes, store.edges)
+  const validateConnection = (
+    connection: Connection,
+    context?: { nodes?: Node[]; edges?: Edge[]; sourceNode?: Node; targetNode?: Node }
+  ) => {
+    const nodes = context?.nodes ?? store.nodes
+    const edges = context?.edges ?? store.edges
+    return connectionPolicyService.isValidConnection(connection, nodes, edges)
   }
 
   const { onEdgesChange } = useVueFlow()

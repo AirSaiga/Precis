@@ -18,6 +18,7 @@ import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import type { Node, Edge, Connection } from '@vue-flow/core'
 import type { SchemaColumn } from '@/types/graph'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
+import { addEdges, removeEdges, findEdge } from '@/services/canvas/vueFlowApi'
 import { extractColumnNamesFromHeader, compareColumns } from '@/utils/nodes/schema/columnValidation'
 import { useToast } from '@/composables/shared/useToast'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
@@ -676,7 +677,33 @@ export function useSchemaConnectionHandler() {
     }
 
     if (!didChange) return
-    store.edges = rebuilt
+
+    const currentById = new Map(currentEdges.map((e) => [e.id, e]))
+    const rebuiltById = new Map(rebuilt.map((e) => [e.id, e]))
+
+    const toRemove: string[] = []
+    const toAdd: Edge[] = []
+
+    for (const id of currentById.keys()) {
+      if (!rebuiltById.has(id)) toRemove.push(id)
+    }
+    for (const [id, edge] of rebuiltById) {
+      if (!currentById.has(id)) toAdd.push(edge)
+    }
+
+    if (toRemove.length > 0) removeEdges(toRemove)
+    if (toAdd.length > 0) addEdges(toAdd)
+
+    for (const newEdge of rebuilt) {
+      if (!currentById.has(newEdge.id)) continue
+      const vfEdge = findEdge(newEdge.id)
+      if (!vfEdge) continue
+      if (vfEdge.hidden !== newEdge.hidden) vfEdge.hidden = newEdge.hidden
+      if (vfEdge.class !== newEdge.class) vfEdge.class = newEdge.class
+      if (vfEdge.sourceHandle !== newEdge.sourceHandle) vfEdge.sourceHandle = newEdge.sourceHandle
+      vfEdge.style = newEdge.style
+      vfEdge.data = newEdge.data
+    }
   }
 
   /**

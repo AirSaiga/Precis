@@ -44,6 +44,7 @@ import {
 } from '@/services/constraints/validationRegistry'
 import { validateForInlineSource } from '@/services/constraints/validationRegistryCore'
 import { createConnectionTransaction } from '@/utils/nodes/connectionTransaction'
+import { updateEdgeData } from '@/services/canvas/vueFlowApi'
 
 export function useConnections() {
   const store = useGraphStore()
@@ -744,12 +745,7 @@ export function useConnections() {
 
       tx.commit()
 
-      const pendingEdge = store.edges.find((e) => e.id === edgeId)
-      if (pendingEdge) {
-        store.edges = store.edges.map((e) =>
-          e.id === edgeId ? { ...e, data: { ...e.data, status: 'active' } } : e
-        )
-      }
+      updateEdgeData(edgeId, { status: 'active' })
     } catch (e) {
       tx.rollback()
       store.deleteConnection(edgeId)

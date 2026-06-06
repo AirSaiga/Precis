@@ -50,6 +50,7 @@ import {
 import { useToast } from '@/composables/shared'
 import { useI18n } from 'vue-i18n'
 import { ensureUniqueColumnNames, removeDerivedColumns } from './regexExtractUtils'
+import { findEdge } from '@/services/canvas/vueFlowApi'
 
 /**
  * 正则校验逻辑组合式函数
@@ -765,29 +766,28 @@ export function useRegexValidation() {
     validationStatus: 'pass' | 'error' | 'idle'
   ) => {
     try {
-      store.edges = store.edges.map((edge) => {
-        if (edge.target === regexNodeId && edge.label === 'Regex Validation') {
-          let className = ''
-          if (typeof edge.class === 'string') {
-            className = edge.class
-              .replace(/validation-pass/g, '')
-              .replace(/validation-error/g, '')
-              .replace(/validation-idle/g, '')
-              .trim()
-          }
+      for (const edge of store.edges) {
+        if (edge.target !== regexNodeId || edge.label !== 'Regex Validation') continue
 
-          const updatedClassName =
-            validationStatus === 'idle'
-              ? className
-              : `${className} validation-${validationStatus}`.trim()
-
-          return {
-            ...edge,
-            class: updatedClassName || undefined,
-          }
+        let className = ''
+        if (typeof edge.class === 'string') {
+          className = edge.class
+            .replace(/validation-pass/g, '')
+            .replace(/validation-error/g, '')
+            .replace(/validation-idle/g, '')
+            .trim()
         }
-        return edge
-      })
+
+        const updatedClassName =
+          validationStatus === 'idle'
+            ? className
+            : `${className} validation-${validationStatus}`.trim()
+
+        const vfEdge = findEdge(edge.id)
+        if (vfEdge) {
+          vfEdge.class = updatedClassName || undefined
+        }
+      }
     } catch (error) {
       logger.error('更新连接线状态失败:', error)
     }
