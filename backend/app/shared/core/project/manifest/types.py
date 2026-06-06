@@ -33,6 +33,7 @@ ProjectInfoV2 = ProjectInfo
 SchemaRefV2 = SchemaRef
 ConstraintRefV2 = ConstraintRef
 RegexNodeRefV2 = RegexRef
+TransformRefV2 = TransformRef
 DataSourceRefV2 = DataSourceRef
 ValidationSettingsV2 = ValidationSettings
 FileProcessingSettingsV2 = FileProcessingSettings

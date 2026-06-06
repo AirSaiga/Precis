@@ -51,10 +51,12 @@ from app.shared.core.project.manifest.types import (
     RegexNodeRefV2,
     SchemaRefV2,
     ScriptSecuritySettingsV2,
+    TransformRefV2,
     ValidationSettingsV2,
 )
 from app.shared.core.project.regex.types import RegexNodeFileV2
 from app.shared.core.project.schema.types import TableSchemaFileV2
+from app.shared.core.project.transform.types import TransformFileV2
 
 __all__ = [
     # helpers
@@ -81,6 +83,7 @@ __all__ = [
     "SchemaRefV2",
     "ConstraintRefV2",
     "RegexNodeRefV2",
+    "TransformRefV2",
     "ProjectSettingsV2",
     "ValidationSettingsV2",
     "FileProcessingSettingsV2",
@@ -89,4 +92,5 @@ __all__ = [
     "TableSchemaFileV2",
     "ConstraintFileV2",
     "RegexNodeFileV2",
+    "TransformFileV2",
 ]

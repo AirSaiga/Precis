@@ -99,17 +99,72 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
       enabled: true,
       description: (d.configName as string) || undefined,
       column: d.column as string,
-      params: { expression: d.script || '' },
+      params: {
+        name: d.constraintName || d.configName || node.id,
+        expression: d.script || '',
+      },
     }
   }
 
   if (v2Type === 'Conditional') {
+    // ⚠️ 后端兼容性说明：
+    // 后端 factory.py 从 refs 读取 if_logic/if_conditions，但 ConstraintItem 无 refs 字段。
+    // embedded_constraints.py 在转换时需将这些字段从 params 提取到 refs。
+    // standalone 场景（constraintExportAdapter.ts）已正确写入 refs。
+    const params: Record<string, unknown> = {
+      then_condition: d.thenConditionConfig,
+    }
+
+    // THEN 列
+    const thenRef = d.thenRef as { columnId?: string; nodeId?: string } | undefined
+    const thenColId = thenRef?.columnId || (d.thenColumn as string)
+    if (thenColId) params.then_column_id = thenColId
+
+    // 表引用
+    const ifRef = d.ifRef as { nodeId?: string } | undefined
+    const sourceRef = d.sourceRef as { nodeId?: string } | undefined
+    const tableId = thenRef?.nodeId || ifRef?.nodeId || sourceRef?.nodeId
+    if (tableId) params.table_id = tableId
+
+    // IF 条件
+    if (d.ifLogic) params.if_logic = d.ifLogic
+    if (Array.isArray(d.ifConditions)) {
+      const validConditions = d.ifConditions
+        .filter((c: any) => {
+          if (!c?.operator) {
+            console.warn(`[schemaBuilder] Conditional ${node.id}: 跳过缺少 operator 的条件`)
+            return false
+          }
+          return true
+        })
+        .map((c: any) => ({
+          if_column_id: c.ref?.columnId || c.column || '',
+          operator: c.operator,
+          ...(c.value !== undefined && { value: c.value }),
+          ...(c.values && { values: c.values }),
+        }))
+        .filter((c: any) => {
+          if (!c.if_column_id) {
+            console.warn(`[schemaBuilder] Conditional ${node.id}: 跳过缺少 if_column_id 的条件 (operator=${c.operator})`)
+            return false
+          }
+          return true
+        })
+      
+      if (validConditions.length < d.ifConditions.length) {
+        console.warn(`[schemaBuilder] Conditional ${node.id}: ${d.ifConditions.length - validConditions.length} 个条件被丢弃，仅保留 ${validConditions.length} 个有效条件`)
+      }
+      
+      params.if_conditions = validConditions
+    }
+
     return {
       id: node.id,
       type: v2Type,
       enabled: true,
       description: (d.configName as string) || undefined,
-      params: { then_condition: d.thenConditionConfig },
+      column: thenColId,
+      params,
     }
   }
 
@@ -129,15 +184,18 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
   }
 
   if (v2Type === 'Charset') {
+    const params: Record<string, unknown> = {
+      charset_mode: d.charsetMode || 'ascii',
+    }
+    if (d.allowedChars) params.allowed_chars = d.allowedChars
+    if (d.disallowedChars) params.disallowed_chars = d.disallowedChars
     return {
       id: node.id,
       type: v2Type,
       enabled: true,
       description: (d.configName as string) || undefined,
       column: d.column as string,
-      params: {
-        charset_mode: d.charsetMode || 'ascii',
-      },
+      params,
     }
   }
 
@@ -164,6 +222,20 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
     }
   }
 
+  if (v2Type === 'Composite') {
+    // Composite 约束强制独立保存，内嵌时仅保留基本信息作为降级
+    console.warn(`[schemaBuilder] Composite 约束 ${node.id} 尝试内嵌保存，已降级。建议改为独立保存。`)
+    return {
+      id: node.id,
+      type: v2Type,
+      enabled: d.enabled !== false,
+      description: (d.configName as string) || undefined,
+      params: {
+        logic: d.logic || 'all',
+      },
+    }
+  }
+
   return {
     id: node.id,
     type: v2Type,
@@ -181,6 +253,7 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
  * @param nodes - 图中所有节点
  * @param schemaNodeId - Schema 节点 ID
  * @returns Schema 文件对象
+ * @deprecated 请使用 schemaBuilder (src/services/persistence/builders/schemaBuilder.ts)
  */
 export function buildV2SchemaFile(nodes: CustomNode[], schemaNodeId: string): TableSchemaFileV2 {
   const node = nodes.find(

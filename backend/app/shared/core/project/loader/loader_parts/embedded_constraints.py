@@ -180,6 +180,17 @@ def collect_constraints_from_schemas(
                     "to_column_id": to_col_id,
                 }
 
+            # Conditional 约束：将 params 中的字段提取到 refs（前端 embedded 约束无 refs 字段）
+            # 提取后从 params 中移除，避免下游同时看到 refs 和 params 中的重复字段
+            if constraint_type == "Conditional":
+                params = dict(constraint_item.params or {})
+                refs["if_logic"] = params.pop("if_logic", "and")
+                refs["if_conditions"] = params.pop("if_conditions", []) or []
+                refs["then_column_id"] = params.pop("then_column_id", None)
+                params.pop("table_id", None)
+            else:
+                params = constraint_item.params or {}
+
             # 构建 ConstraintFile 对象，将内嵌约束转换为独立约束文件格式
             cf = ConstraintFile(
                 version=2,
@@ -187,7 +198,7 @@ def collect_constraints_from_schemas(
                 type=constraint_type,
                 enabled=constraint_item.enabled,
                 refs=refs,
-                params=constraint_item.params or {},
+                params=params,
             )
             # 以全局唯一 ID 为键存入字典
             constraint_files[cf.id] = cf

@@ -119,12 +119,18 @@ export function materializeV2EmbeddedConstraints(params: {
 
     if (item.type === 'Conditional') {
       // Conditional 内嵌约束 — 解析 IF 条件和 THEN 列
-      const itemRefs = item.refs || {}
-      const ifLogic = String(itemRefs.if_logic || 'and')
-      const thenColName = itemRefs.then_column_id ? String(itemRefs.then_column_id) : ''
+      // 优先从 params 读取（与 schemaBuilder 导出格式一致），兼容旧版 refs
+      const itemParams = (item.params || {}) as Record<string, unknown>
+      const itemRefs = (item.refs || itemParams) as Record<string, unknown>
+      const ifLogic = String(itemRefs.if_logic || itemParams.if_logic || 'and')
+      const thenColName = (itemRefs.then_column_id || itemParams.then_column_id)
+        ? String(itemRefs.then_column_id || itemParams.then_column_id)
+        : ''
       const thenColId = thenColName ? colNameToId.get(thenColName) : undefined
 
-      const rawConditions = Array.isArray(itemRefs.if_conditions) ? itemRefs.if_conditions! : []
+      const rawConditions = Array.isArray(itemRefs.if_conditions || itemParams.if_conditions)
+        ? (itemRefs.if_conditions || itemParams.if_conditions) as unknown[]
+        : []
       const ifConditions = rawConditions.map((cond) => {
         const r = cond as Record<string, unknown>
         const ifColName = String(r?.if_column_id || '')
@@ -151,6 +157,7 @@ export function materializeV2EmbeddedConstraints(params: {
         thenRef: thenColId
           ? { nodeId: schemaNode.id, columnId: thenColId, columnName: thenColName }
           : undefined,
+        thenConditionConfig: itemParams.then_condition,
         params: item.params as Record<string, unknown> | undefined,
       }
     } else {

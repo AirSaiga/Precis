@@ -32,6 +32,7 @@ from .base import (
     RegexNodeRefV2,
     SchemaRefV2,
     TableSchemaFileV2,
+    TransformRefV2,
     _v2_manifest_path,
 )
 from .helpers import _resolve_project_path, project_lock
@@ -175,6 +176,9 @@ def _merge_manifest_references(
     if not (payload.manifest.regex_nodes or []) and existing_manifest and existing_manifest.regex_nodes:
         final_manifest = final_manifest.model_copy(update={"regex_nodes": existing_manifest.regex_nodes})
 
+    if not (payload.manifest.transforms or []) and existing_manifest and existing_manifest.transforms:
+        final_manifest = final_manifest.model_copy(update={"transforms": existing_manifest.transforms})
+
     if not final_manifest.schemas:
         schemas_dir = os.path.join(config_path, "schemas")
         if os.path.isdir(schemas_dir):
@@ -219,6 +223,18 @@ def _merge_manifest_references(
         if regex_refs:
             logger.info(f"[put_v2_full_config] 从 regex/ 目录扫描到 {len(regex_refs)} 个 regex 文件")
             final_manifest = final_manifest.model_copy(update={"regex_nodes": regex_refs})
+
+    if not (final_manifest.transforms or []):
+        transforms_dir = os.path.join(config_path, "transforms")
+        if os.path.isdir(transforms_dir):
+            transform_refs = []
+            for filename in os.listdir(transforms_dir):
+                if filename.endswith(".transform.yaml"):
+                    transform_id = filename[:-15]
+                    transform_refs.append(TransformRefV2(id=transform_id, path=f"transforms/{filename}"))
+            if transform_refs:
+                logger.info(f"[put_v2_full_config] 从 transforms/ 目录扫描到 {len(transform_refs)} 个 transform 文件")
+                final_manifest = final_manifest.model_copy(update={"transforms": transform_refs})
 
     return final_manifest
 
@@ -267,6 +283,17 @@ def _write_resource_files(
             logger.error(f"[put_v2_full_config] 非法 Regex 路径: {ref.path}, 错误: {e}")
             continue
         write_yaml(Path(abs_path), regex_node.model_dump(exclude_none=True))
+
+    for ref in payload.manifest.transforms or []:
+        transform = payload.transforms.get(ref.id)
+        if not transform:
+            continue
+        try:
+            abs_path = _resolve_project_path(config_path, ref.path)
+        except ValueError as e:
+            logger.error(f"[put_v2_full_config] 非法 Transform 路径: {ref.path}, 错误: {e}")
+            continue
+        write_yaml(Path(abs_path), transform.model_dump(exclude_none=True))
 
 
 def write_v2_full_config(

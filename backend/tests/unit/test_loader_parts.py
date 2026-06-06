@@ -273,3 +273,45 @@ class TestCollectConstraintsFromSchemas:
         }
         result = collect_constraints_from_schemas(schema_files)
         assert result["users_av_status"].params == {"allowed_values": ["active", "inactive"]}
+
+    def test_conditional_constraint_refs_from_params(self):
+        """Conditional embedded 约束的 if_logic/if_conditions/then_column_id 应从 params 提取到 refs"""
+        schema_files = {
+            "users": TableSchemaFile(
+                version=2,
+                id="users",
+                name="users",
+                columns=[
+                    ColumnSpec(id="status", name="status", type="string"),
+                    ColumnSpec(id="amount", name="amount", type="decimal"),
+                ],
+                constraints=[
+                    ConstraintItem(
+                        id="cond_status",
+                        type="Conditional",
+                        enabled=True,
+                        column="amount",
+                        params={
+                            "if_logic": "and",
+                            "then_column_id": "amount",
+                            "if_conditions": [
+                                {"if_column_id": "status", "operator": "eq", "value": "active"},
+                            ],
+                        },
+                    )
+                ],
+            )
+        }
+        result = collect_constraints_from_schemas(schema_files)
+        cf = result["users_cond_status"]
+        assert cf.type == "Conditional"
+        assert cf.refs["table_id"] == "users"
+        assert cf.refs["then_column_id"] == "amount"
+        assert cf.refs["if_logic"] == "and"
+        assert cf.refs["if_conditions"] == [
+            {"if_column_id": "status", "operator": "eq", "value": "active"},
+        ]
+        # 提取后 params 中不应再包含这些字段
+        assert "if_logic" not in cf.params
+        assert "if_conditions" not in cf.params
+        assert "then_column_id" not in cf.params

@@ -5,10 +5,15 @@
 
 /**
  * @file v2ProjectBuilder.ts
- * @description V2 项目构建器
+ * @description V2 项目构建器（已弃用）
  *
- * 从 graphStore.ts 提取的 V2 项目构建逻辑，
- * 负责将前端节点数据转换为后端 V2 配置格式。
+ * ⚠️ 本模块已弃用，请使用新的 persistence 架构：
+ *    - SaveOrchestrator: src/services/persistence/orchestrator.ts
+ *    - BuilderRegistry: src/services/persistence/builders/registry.ts
+ *    - SavePlan: src/services/persistence/planBuilder.ts
+ *
+ * 当前仍被单个节点保存（saveSchemaNode/saveConstraintNode 等）使用，
+ * 完整项目保存已迁移到 SaveOrchestrator。
  *
  * 功能：
  * 1. 构建项目清单 (manifest)
@@ -64,12 +69,13 @@ const buildV2Manifest = _buildV2Manifest
 const buildV2SchemaFile = _buildV2SchemaFile
 
 /**
- * 构建 V2 项目清单
+ * @deprecated 请使用 constraint builders (src/services/persistence/builders/constraint/)
+ *
+ * 构建 V2 约束文件
  *
  * @param nodes - 图中所有节点
- * @param projectName - 项目名称
- * @param projectPath - 项目路径
- * @returns 项目清单对象
+ * @param constraintNodeId - 约束节点 ID
+ * @returns 约束文件对象
  */
 export function buildV2ConstraintFile(
   nodes: CustomNode[],
@@ -103,6 +109,8 @@ export function buildV2ConstraintFile(
 }
 
 /**
+ * @deprecated 请使用 regexBuilder (src/services/persistence/builders/regexBuilder.ts)
+ *
  * 构建 V2 Regex 节点文件
  *
  * @param nodes - 图中所有节点
@@ -144,6 +152,8 @@ export function buildV2RegexNodeFile(nodes: CustomNode[], regexNodeId: string): 
 }
 
 /**
+ * @deprecated 请使用 transformBuilder (src/services/persistence/builders/transformBuilder.ts)
+ *
  * 构建 V2 Transform 文件
  *
  * @param nodes - 图中所有节点
@@ -173,6 +183,8 @@ export function buildV2TransformFile(
 }
 
 /**
+ * @deprecated 请使用 buildSavePlan + SaveOrchestrator
+ *
  * 构建 V2 全量配置
  *
  * @param nodes - 图中所有节点
@@ -214,6 +226,8 @@ export function buildV2FullConfig(
 }
 
 /**
+ * @deprecated 请使用 buildV2ProjectView（保留）或 SaveOrchestrator
+ *
  * 构建 V2 项目视图（画布布局）
  *
  * 注意：对于 schema/jsonSchema 节点，使用 schema ID 而非 canvas UUID 作为 key。

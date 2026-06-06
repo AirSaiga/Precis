@@ -53,6 +53,7 @@ export function resolveSchemaAndColumnIdByName(
  * ```typescript
  * const constraintFile = buildV2ConstraintFile('constraint-1', nodes);
  * ```
+ * @deprecated 请使用 constraint builders (src/services/persistence/builders/constraint/)
  */
 export function buildV2ConstraintFile(
   constraintNodeId: string,

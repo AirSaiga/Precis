@@ -36,6 +36,7 @@ from app.shared.core.project.manifest.types import (
 )
 from app.shared.core.project.regex.types import RegexNodeFileV2
 from app.shared.core.project.schema.types import TableSchemaFileV2
+from app.shared.core.project.transform.types import TransformFileV2
 
 
 class ProjectViewV2Model(BaseModel):
@@ -82,6 +83,9 @@ class FullConfigV2Request(BaseModel):
     )
     regex_nodes: dict[str, RegexNodeFileV2] = Field(
         default_factory=dict, description="regex_nodes 映射：regex_id -> regex_node"
+    )
+    transforms: dict[str, TransformFileV2] = Field(
+        default_factory=dict, description="transforms 映射：transform_id -> transform"
     )
 
 

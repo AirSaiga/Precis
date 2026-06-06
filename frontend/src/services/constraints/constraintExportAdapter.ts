@@ -114,8 +114,13 @@ export function buildConstraintExportPayload(params: {
       if (v2Type === 'Range') {
         if (data.minValue !== undefined) outputParams.min = data.minValue
         if (data.maxValue !== undefined) outputParams.max = data.maxValue
+        if (data.boundaryMode) outputParams.boundary_mode = data.boundaryMode
       }
-      if (v2Type === 'Charset' && data.charsetMode) outputParams.charset_mode = data.charsetMode
+      if (v2Type === 'Charset') {
+        if (data.charsetMode) outputParams.charset_mode = data.charsetMode
+        if (data.allowedChars) outputParams.allowed_chars = data.allowedChars
+        if (data.disallowedChars) outputParams.disallowed_chars = data.disallowedChars
+      }
       if (v2Type === 'DateLogic') {
         if (data.logicMode) outputParams.logic_mode = data.logicMode
         if (data.compareOp) outputParams.compare_op = data.compareOp

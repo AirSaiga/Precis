@@ -68,6 +68,7 @@ function buildTypeExtras(
       return {
         minValue: params.min,
         maxValue: params.max,
+        boundaryMode: params.boundary_mode || 'inclusive',
       }
 
     case 'scripted':
@@ -96,9 +97,12 @@ function buildTypeExtras(
       }
 
     case 'composite':
+      const subConstraints = ((params.sub_constraints as unknown[]) || [])
       return {
-        logic: params.logic || 'and',
-        includedNodeIds: [],
+        logic: params.logic || 'all',
+        includedNodeIds: subConstraints
+          .map((s: any) => s?.id)
+          .filter((id: any): id is string => !!id),
         enabled: true,
       }
 

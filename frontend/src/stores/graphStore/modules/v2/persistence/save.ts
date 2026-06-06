@@ -75,17 +75,16 @@ import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, SchemaNodeData, JsonSchemaNodeData, TemplateInstanceNodeData } from '@/types/graph'
 import type { CustomNodeData } from '@/types/nodes'
+import type { TableSchemaFileV2 } from '@/types/projectV2'
 import { toastError, toastSuccess } from '@/core/toast'
 import { useI18n } from 'vue-i18n'
 import {
   putV2Constraint,
   putV2FullConfig,
-  putV2Manifest,
   putV2ProjectView,
   putV2RegexNode,
   putV2TransformNode,
   putV2Schema,
-  checkSchemaConflict,
   updateV2ManifestSchemaRef,
   updateV2ManifestConstraintRef,
   updateV2ManifestRegexRef,
@@ -101,6 +100,7 @@ import {
   buildV2TransformFile,
   buildV2SchemaFile,
 } from '@/services/builders'
+import { SaveOrchestrator, buildNodeFile, SchemaConflictResolver } from '@/services/persistence'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import type { SchemaSaveMode } from '@/types/projectV2'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
@@ -117,60 +117,50 @@ export function createV2SaveOps(params: {
   const { t } = useI18n()
 
   async function saveProject(): Promise<boolean> {
-    try {
-      const payload = buildV2FullConfig(
-        nodes.value,
-        projectName.value,
-        getEffectiveProjectConfigPath() || ''
+    const configPath = getEffectiveProjectConfigPath()
+
+    // 空节点检查：避免不必要的 API 调用
+    const manifestPreview = buildV2Manifest(nodes.value, projectName.value, configPath || '')
+    if (
+      manifestPreview.schemas.length === 0 &&
+      manifestPreview.constraints.length === 0 &&
+      (manifestPreview.regex_nodes?.length || 0) === 0 &&
+      (manifestPreview.transforms?.length || 0) === 0
+    ) {
+      logger.debug(
+        '[saveProject] 没有需要保存的 schema/constraint/regex/transform 节点，跳过保存'
       )
-      const configPath = getEffectiveProjectConfigPath()
-
-      logger.debug('[saveProject] payload.manifest.schemas:', payload.manifest.schemas)
-
-      if (
-        payload.manifest.schemas.length === 0 &&
-        payload.manifest.constraints.length === 0 &&
-        (payload.manifest.regex_nodes?.length || 0) === 0 &&
-        (payload.manifest.transforms?.length || 0) === 0
-      ) {
-        logger.debug(
-          '[saveProject] 没有需要保存的 schema/constraint/regex/transform 节点，跳过保存'
-        )
-        return true
-      }
-
-      await putV2FullConfig(payload, configPath)
-
-      // 视图保存失败视为整体保存失败，阻止 saveState 更新（F2）
-      // 否则用户看到"保存成功"但下次 reload 节点位置全部丢失
-      await putV2ProjectView(buildV2ProjectView(nodes.value), configPath)
-
-      const now = new Date().toISOString()
-      const updatedNodes = nodes.value.map((node) => {
-        if (node.type === 'schema' || node.type === 'jsonSchema') {
-          return {
-            ...node,
-            data: { ...(node.data as SchemaNodeData), saveState: 'saved' as const, lastSaved: now },
-          } as CustomNode
-        } else if (
-          isConstraintNodeType(node.type) ||
-          node.type === 'regex' ||
-          node.type === 'transform' ||
-          node.type === 'templateInstance'
-        ) {
-          const d = node.data as unknown as Record<string, unknown>
-          return { ...node, data: { ...d, saveState: 'saved', lastSaved: now } } as CustomNode
-        }
-        return node
-      })
-      nodes.value = updatedNodes
-
-      toastSuccess(`项目 "${projectName.value || 'untitled'}" 已保存`, '保存成功')
       return true
-    } catch (error) {
-      logger.error('保存项目失败:', error)
+    }
+
+    // 使用新版 SaveOrchestrator 执行保存
+    const orchestrator = new SaveOrchestrator({
+      nodes,
+      edges: params.edges,
+      projectName,
+      getEffectiveProjectConfigPath,
+      updateNodeData,
+    })
+
+    const result = await orchestrator.saveProject()
+
+    if (result.success) {
+      const warningCount = result.errors?.filter((e) => e.severity === 'WARNING').length || 0
+      if (warningCount > 0) {
+        toastSuccess(
+          `项目 "${projectName.value || 'untitled'}" 已保存（${warningCount} 个警告）`,
+          '保存成功'
+        )
+      } else {
+        toastSuccess(`项目 "${projectName.value || 'untitled'}" 已保存`, '保存成功')
+      }
+      return true
+    } else {
+      const blockers = result.errors?.filter((e) => e.severity === 'BLOCKER') || []
+      const messages = blockers.map((e) => e.message).join('; ')
+      logger.error('保存项目失败:', messages || result.errors)
       toastError(
-        error instanceof Error ? error.message : t('messages.error.unknownError'),
+        messages || t('messages.error.unknownError'),
         t('messages.persistence.saveFailed')
       )
       return false
@@ -195,101 +185,33 @@ export function createV2SaveOps(params: {
         return false
       }
 
-      const schemaFile = buildV2SchemaFile(nodes.value, nodeId)
+      // 收尾: 优先使用新 persistence builder，fallback 旧 builder
+      const schemaFile = (buildNodeFile(node, nodes.value, configPath || '') as TableSchemaFileV2)
+        || buildV2SchemaFile(nodes.value, nodeId)
       const tableName = schemaData.tableName
       const schemaId = schemaFile.id
 
       const effectiveTableId = schemaId
-      let saveMode: SchemaSaveMode = 'create'
-      // 用于保存冲突检测返回的实际文件路径
-      let existingFilePath: string | undefined
 
-      try {
-        const conflictInfo = await checkSchemaConflict(schemaId, schemaFile, configPath)
+      // Phase 9: 使用 SchemaConflictResolver 处理冲突检测
+      const resolver = new SchemaConflictResolver(showConfirm)
+      const resolution = await resolver.resolve({
+        schemaId,
+        schemaFile,
+        tableName,
+        configPath,
+      })
 
-        if (conflictInfo.exists) {
-          // 保存实际存在的文件路径，后续 manifest 更新需要使用
-          existingFilePath = conflictInfo.file_path
-
-          const existingId = conflictInfo.existing_schema?.id as string | undefined
-
-          if (existingId && existingId !== schemaId) {
-            // 获取已存在文件的表名
-            const existingTableName = (conflictInfo.existing_schema?.name as string) || existingId
-
-            const confirmed = await showConfirm({
-              title: t('common.confirmDialog.schemaConflict.idDuplicateTitle'),
-              message: t('common.confirmDialog.schemaConflict.idDuplicateMessage', {
-                filePath: conflictInfo.file_path,
-                existingTableName,
-                tableName,
-              }),
-              confirmText: t('common.confirmDialog.schemaConflict.overwrite'),
-              cancelText: t('common.cancel'),
-              type: 'warning',
-              allowHtml: true,
-            })
-            if (!confirmed) {
-              return 'cancelled'
-            }
-            saveMode = 'overwrite'
-          } else if (conflictInfo.has_conflict) {
-            const result = await showConfirm({
-              title: t('common.confirmDialog.schemaConflict.configDiffTitle'),
-              message: t('common.confirmDialog.schemaConflict.configDiffMessage', {
-                filePath: conflictInfo.file_path,
-                diff: conflictInfo.conflict_fields.join(', '),
-              }),
-              confirmText: t('common.confirmDialog.schemaConflict.overwrite'),
-              alternativeText: t('common.confirmDialog.schemaConflict.merge'),
-              cancelText: t('common.cancel'),
-              type: 'warning',
-              allowHtml: true,
-            })
-
-            if (result === true) {
-              saveMode = 'overwrite'
-            } else if (result === 'alternative') {
-              saveMode = 'merge'
-            } else {
-              return 'cancelled'
-            }
-          } else {
-            const result = await showConfirm({
-              title: t('common.confirmDialog.schemaConflict.existsTitle'),
-              message: t('common.confirmDialog.schemaConflict.existsMessage', {
-                filePath: conflictInfo.file_path,
-                tableName: tableName,
-              }),
-              confirmText: t('common.confirmDialog.schemaConflict.overwrite'),
-              alternativeText: t('common.confirmDialog.schemaConflict.merge'),
-              cancelText: t('common.cancel'),
-              type: 'warning',
-              allowHtml: true,
-            })
-
-            if (result === true) {
-              saveMode = 'overwrite'
-            } else if (result === 'alternative') {
-              saveMode = 'merge'
-            } else {
-              return 'cancelled'
-            }
-          }
-        } else {
-          saveMode = 'create'
-        }
-      } catch (checkError) {
-        logger.warn('检查冲突失败，将直接保存:', checkError)
-        saveMode = 'create'
+      if (resolution.cancelled) {
+        return 'cancelled'
       }
+
+      const saveMode = resolution.saveMode
+      const schemaFilePath = resolution.filePath
 
       if (effectiveTableId !== nodeId) {
         schemaFile.id = effectiveTableId
       }
-
-      // 如果检测到冲突文件，使用实际的文件路径；否则使用生成的路径
-      const schemaFilePath = existingFilePath || `schemas/${schemaFile.name}.schema.yaml`
 
       try {
         await putV2Schema(effectiveTableId, schemaFile, configPath, saveMode)
@@ -299,26 +221,11 @@ export function createV2SaveOps(params: {
         if (err?.response?.status === 409) {
           logger.warn('保存Schema时遇到 409 冲突，提示用户选择覆盖或合并:', error)
 
-          const result = await showConfirm({
-            title: t('common.confirmDialog.schemaConflict.existsTitle'),
-            message: t('common.confirmDialog.schemaConflict.existsMessage', {
-              filePath: schemaFilePath,
-              tableName: tableName,
-            }),
-            confirmText: t('common.confirmDialog.schemaConflict.overwrite'),
-            alternativeText: t('common.confirmDialog.schemaConflict.merge'),
-            cancelText: t('common.cancel'),
-            type: 'warning',
-            allowHtml: true,
-          })
-
-          if (result === true) {
-            await putV2Schema(effectiveTableId, schemaFile, configPath, 'overwrite')
-          } else if (result === 'alternative') {
-            await putV2Schema(effectiveTableId, schemaFile, configPath, 'merge')
-          } else {
+          const result = await resolver.handle409Conflict(schemaFilePath, tableName)
+          if (result === 'cancelled') {
             return 'cancelled'
           }
+          await putV2Schema(effectiveTableId, schemaFile, configPath, result)
         } else {
           throw error
         }
@@ -348,7 +255,10 @@ export function createV2SaveOps(params: {
       if (!node) throw new Error('未找到约束节点')
 
       const configPath = getEffectiveProjectConfigPath()
-      await putV2Constraint(nodeId, buildV2ConstraintFile(nodes.value, nodeId), configPath)
+      // Phase 8: 使用新 persistence builder 替代旧 builder
+      const file = buildNodeFile(node, nodes.value, configPath || '')
+        || buildV2ConstraintFile(nodes.value, nodeId)
+      await putV2Constraint(nodeId, file as any, configPath)
       await updateV2ManifestConstraintRef(
         { id: nodeId, path: `constraints/${nodeId}.constraint.yaml` },
         configPath
@@ -380,7 +290,10 @@ export function createV2SaveOps(params: {
       if (!node) throw new Error('未找到Regex节点')
 
       const configPath = getEffectiveProjectConfigPath()
-      await putV2RegexNode(nodeId, buildV2RegexNodeFile(nodes.value, nodeId), configPath)
+      // Phase 8: 使用新 persistence builder 替代旧 builder
+      const file = buildNodeFile(node, nodes.value, configPath || '')
+        || buildV2RegexNodeFile(nodes.value, nodeId)
+      await putV2RegexNode(nodeId, file as any, configPath)
       await updateV2ManifestRegexRef({ id: nodeId, path: `regex/${nodeId}.regex.yaml` }, configPath)
       updateNodeData(nodeId, {
         ...node.data,
@@ -415,7 +328,10 @@ export function createV2SaveOps(params: {
       if (!node) throw new Error('未找到Transform节点')
 
       const configPath = getEffectiveProjectConfigPath()
-      await putV2TransformNode(nodeId, buildV2TransformFile(nodes.value, nodeId), configPath)
+      // Phase 8: 使用新 persistence builder 替代旧 builder
+      const file = buildNodeFile(node, nodes.value, configPath || '')
+        || buildV2TransformFile(nodes.value, nodeId)
+      await putV2TransformNode(nodeId, file as any, configPath)
       await updateV2ManifestTransformRef(
         { id: nodeId, path: `transforms/${nodeId}.transform.yaml` },
         configPath
@@ -444,27 +360,28 @@ export function createV2SaveOps(params: {
       const node = nodes.value.find((n) => n.id === nodeId && n.type === 'templateInstance')
       if (!node) throw new Error('未找到模板实例节点')
 
-      // 使用强类型替代双重断言，恢复编译时类型保护
-      const data = node.data as TemplateInstanceNodeData
       const configPath = getEffectiveProjectConfigPath()
+      // 收尾: 使用新 persistence builder 构建 ref
+      const ref = buildNodeFile(node, nodes.value, configPath || '')
+        || (() => {
+            const data = node.data as TemplateInstanceNodeData
+            return {
+              id: nodeId,
+              template_id: data.templateId || '',
+              enabled: data.enabled !== false,
+              input_from_node: data.inputFromNode || '',
+              params: data.parameters || {},
+            }
+          })()
 
-      await updateV2ManifestTemplateInstanceRef(
-        {
-          id: nodeId,
-          template_id: data.templateId || '',
-          enabled: data.enabled !== false,
-          input_from_node: data.inputFromNode || '',
-          params: data.parameters || {},
-        },
-        configPath
-      )
+      await updateV2ManifestTemplateInstanceRef(ref as any, configPath)
       updateNodeData(nodeId, {
-        ...data,
+        ...(node.data as TemplateInstanceNodeData),
         saveState: 'saved',
         lastSaved: new Date().toISOString(),
       })
 
-      const base = data.configName || nodeId
+      const base = (node.data as TemplateInstanceNodeData).configName || nodeId
       toastSuccess(`模板实例 "${base}" 已保存`, '保存成功')
       return true
     } catch (error) {

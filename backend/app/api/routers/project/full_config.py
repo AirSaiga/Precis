@@ -36,6 +36,7 @@ from app.shared.core.project.loader.loader_parts.config_inspector import inspect
 from app.shared.core.project.loader.types import LoadingError
 from app.shared.core.project.manifest.coverage import compute_manifest_coverage, coverage_to_api_dict
 from app.shared.core.project.regex.types import RegexNodeFileV2
+from app.shared.core.project.transform.types import TransformFileV2
 from app.shared.services.diff.config_diff import ConfigDiffResult, ConfigDiffService
 
 from .base import (
@@ -194,7 +195,7 @@ def get_v2_full_config(
     regex_objects: dict[str, RegexNodeFileV2] = {}  # 保留对象用于自检
 
     for ref in effective_manifest.regex_nodes:
-        abs_path = os.path.join(config_path, ref.path)
+        abs_path = _resolve_project_path(config_path, ref.path)
         if os.path.isfile(abs_path):
             try:
                 regex_obj = RegexNodeFileV2.model_validate(read_yaml(Path(abs_path)))
@@ -205,6 +206,22 @@ def get_v2_full_config(
         else:
             logger.warning(f"[get_v2_full_config] Regex 文件不存在: {abs_path}")
 
+    # 读取 Transform 节点
+    transforms: dict[str, Any] = {}
+    transform_objects: dict[str, TransformFileV2] = {}  # 保留对象用于自检
+
+    for ref in effective_manifest.transforms or []:
+        abs_path = _resolve_project_path(config_path, ref.path)
+        if os.path.isfile(abs_path):
+            try:
+                transform_obj = TransformFileV2.model_validate(read_yaml(Path(abs_path)))
+                transform_objects[ref.id] = transform_obj
+                transforms[ref.id] = transform_obj.model_dump(exclude_none=True)
+            except Exception as e:
+                logger.error(f"[get_v2_full_config] 解析 Transform 文件失败: {abs_path}, 错误: {e}")
+        else:
+            logger.warning(f"[get_v2_full_config] Transform 文件不存在: {abs_path}")
+
     result = {
         "manifest": manifest.model_dump(exclude_none=True),
         "effective_manifest": effective_manifest.model_dump(exclude_none=True),
@@ -212,6 +229,7 @@ def get_v2_full_config(
         "constraints": constraints,
         "regex_registries": regex_registries,
         "regex_nodes": regex_nodes,
+        "transforms": transforms,
         "coverage": coverage,
         "manifest_modified": manifest_modified,
         "schema_errors": schema_errors,
@@ -229,7 +247,7 @@ def get_v2_full_config(
             schema_objects,
             constraint_objects,
             regex_objects,
-            {},  # transform_files (full_config 中未加载)
+            transform_objects,  # ⭐ 传入 transform 对象用于自检
             inspection_warnings,
             inspection_errors,
         )

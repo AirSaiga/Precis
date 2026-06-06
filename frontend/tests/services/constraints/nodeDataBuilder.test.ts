@@ -208,9 +208,9 @@ describe('nodeDataBuilder - simpleConstraint', () => {
       expect(result.nodeData.enabled).toBe(true)
     })
 
-    it('默认 logic 为 and', () => {
+    it('默认 logic 为 all', () => {
       const result = buildNodeData('composite', makeInput())
-      expect(result.nodeData.logic).toBe('and')
+      expect(result.nodeData.logic).toBe('all')
     })
   })
 })
