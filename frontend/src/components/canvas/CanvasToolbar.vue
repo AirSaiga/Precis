@@ -26,11 +26,11 @@
       class="organize-btn organize-primary"
       @click="nodeOrganizer.quickOrganize"
       :disabled="nodeOrganizer.isOrganizing.value"
-      title="整理节点布局"
+      :title="t('canvas.nodeCanvas.organizeNodes') || '整理节点'"
     >
       <span class="btn-icon">⊞</span>
       <span class="btn-text">{{
-        nodeOrganizer.isOrganizing.value ? '整理中...' : '整理节点'
+        nodeOrganizer.isOrganizing.value ? t('canvas.nodeCanvas.organizeNodesInProgress') : t('canvas.nodeCanvas.organizeNodes')
       }}</span>
     </button>
 

@@ -25,6 +25,8 @@ const canvas = {
     createProject: 'Create Project',
     openProject: 'Open Project',
     focusProject: 'Focus Project',
+    organizeNodes: 'Organize Nodes',
+    organizeNodesInProgress: 'Organizing...',
     deleteSelected: 'Delete Selected',
     projectName: 'Project Name:',
     projectNamePlaceholder: 'e.g., MyValidationProject',

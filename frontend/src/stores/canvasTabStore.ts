@@ -24,7 +24,7 @@
  *   必须使用 .length > 0 而非简单的 truthy 检查
  */
 
-import { ref, computed } from 'vue'
+import { ref, computed, toRaw, isProxy } from 'vue'
 import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import type { Edge } from '@vue-flow/core'
@@ -64,6 +64,41 @@ interface GraphStoreLike {
   resetCanvas: () => void
   isProjectLoaded?: boolean
   createProjectRootNode?: (position: { x: number; y: number }) => string
+}
+
+/**
+ * 安全的深拷贝，处理 Vue reactive proxy 和不可序列化对象
+ * 跳过 DOM 元素、函数、Symbol、Vue proxy 等不可 clone 的类型
+ */
+function safeClone<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj
+  if (typeof obj !== 'object') return obj
+
+  // 解包 Vue proxy
+  const raw = isProxy(obj) ? toRaw(obj) : obj
+
+  // 跳过 DOM 元素
+  if (raw instanceof HTMLElement || raw instanceof Element) {
+    return undefined as unknown as T
+  }
+
+  // 处理数组
+  if (Array.isArray(raw)) {
+    return raw.map((item) => safeClone(item)) as unknown as T
+  }
+
+  // 处理对象
+  const result: any = {}
+  for (const key in raw) {
+    if (Object.prototype.hasOwnProperty.call(raw, key)) {
+      const value = (raw as any)[key]
+      if (typeof value === 'function' || typeof value === 'symbol') {
+        continue
+      }
+      result[key] = safeClone(value)
+    }
+  }
+  return result
 }
 
 export const useCanvasTabStore = defineStore('canvasTab', () => {
@@ -268,8 +303,8 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
   function saveCurrentCanvasData(nodes: CustomNode[], edges: Edge[]) {
     const currentTab = tabs.value.find((w) => w.id === activeTabId.value)
     if (currentTab) {
-      currentTab.nodes = structuredClone(nodes)
-      currentTab.edges = structuredClone(edges)
+      currentTab.nodes = safeClone(nodes)
+      currentTab.edges = safeClone(edges)
       currentTab.hasUnsavedChanges = true
     }
   }
@@ -293,8 +328,8 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
         (currentTab.edges && currentTab.edges.length > 0))
     if (hasData) {
       return {
-        nodes: currentTab.nodes ? structuredClone(currentTab.nodes) : [],
-        edges: currentTab.edges ? structuredClone(currentTab.edges) : [],
+        nodes: currentTab.nodes ? safeClone(currentTab.nodes) : [],
+        edges: currentTab.edges ? safeClone(currentTab.edges) : [],
       }
     }
     return null

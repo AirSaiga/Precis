@@ -24,6 +24,8 @@ const canvas = {
     createProject: '新建项目',
     openProject: '打开项目',
     focusProject: '聚焦项目',
+    organizeNodes: '整理节点',
+    organizeNodesInProgress: '整理中...',
     deleteSelected: '删除选中',
     projectName: '项目名称:',
     projectNamePlaceholder: '例如: MyValidationProject',

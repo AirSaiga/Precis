@@ -119,7 +119,7 @@
             class="tab-add ui-btn ui-btn--ghost ui-btn--icon ui-btn--sm"
             type="button"
             @click="canvasStore.createNewWorkspace(graphStore)"
-            title="新建画布工作区"
+            :title="t('canvas.newWorkspace')"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
