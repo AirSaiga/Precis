@@ -24,6 +24,7 @@ type Fixtures = {
   apiHelper: {
     get: (endpoint: string) => Promise<Response>
     post: (endpoint: string, body: unknown) => Promise<Response>
+    put: (endpoint: string, body: unknown) => Promise<Response>
     healthCheck: () => Promise<boolean>
   }
 }
@@ -47,6 +48,16 @@ export const test = base.extend<Fixtures>({
       post: async (endpoint: string, body: unknown) => {
         return fetch(`${BACKEND_URL}${endpoint}`, {
           method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Project-Config-Path': TEST_PROJECT_DIR,
+          },
+          body: JSON.stringify(body),
+        })
+      },
+      put: async (endpoint: string, body: unknown) => {
+        return fetch(`${BACKEND_URL}${endpoint}`, {
+          method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
             'X-Project-Config-Path': TEST_PROJECT_DIR,

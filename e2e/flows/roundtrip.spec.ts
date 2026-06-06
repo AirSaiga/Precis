@@ -76,7 +76,7 @@ test.describe('Save/Load Round-Trip', () => {
     }
 
     // 2. 保存配置
-    const saveResp = await apiHelper.post('/project/v2/full-config', fullConfig)
+    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     // 3. 读取保存的文件
@@ -89,7 +89,7 @@ test.describe('Save/Load Round-Trip', () => {
     expect(savedContent).toContain('charset_mode: custom')
 
     // 4. 重新加载配置
-    const loadResp = await apiHelper.get('/project/v2/full-config')
+    const loadResp = await apiHelper.get('/project/v2/config/full')
     expect(loadResp.status).toBeLessThan(300)
 
     const loadedConfig = await loadResp.json()
@@ -137,14 +137,14 @@ test.describe('Save/Load Round-Trip', () => {
       },
     }
 
-    const saveResp = await apiHelper.post('/project/v2/full-config', fullConfig)
+    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     const constraintPath = path.join(projectPath, 'constraints', 'c-range.constraint.yaml')
     const savedContent = fs.readFileSync(constraintPath, 'utf-8')
     expect(savedContent).toContain('boundary_mode: exclusive')
 
-    const loadResp = await apiHelper.get('/project/v2/full-config')
+    const loadResp = await apiHelper.get('/project/v2/config/full')
     const loadedConfig = await loadResp.json()
     expect(loadedConfig.constraints?.['c-range']?.params?.boundary_mode).toBe('exclusive')
   })
@@ -215,7 +215,7 @@ test.describe('Save/Load Round-Trip', () => {
       },
     }
 
-    const saveResp = await apiHelper.post('/project/v2/full-config', fullConfig)
+    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     const constraintPath = path.join(projectPath, 'constraints', 'c-composite.constraint.yaml')
@@ -223,7 +223,7 @@ test.describe('Save/Load Round-Trip', () => {
     expect(savedContent).toContain('logic: all')
     expect(savedContent).toContain('sub_constraints:')
 
-    const loadResp = await apiHelper.get('/project/v2/full-config')
+    const loadResp = await apiHelper.get('/project/v2/config/full')
     const loadedConfig = await loadResp.json()
     const composite = loadedConfig.constraints?.['c-composite']
     expect(composite?.params?.logic).toBe('all')
@@ -257,7 +257,7 @@ test.describe('Save/Load Round-Trip', () => {
       },
     }
 
-    const saveResp = await apiHelper.post('/project/v2/full-config', fullConfig)
+    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     const transformPath = path.join(projectPath, 'transforms', 't-1.transform.yaml')
@@ -268,7 +268,7 @@ test.describe('Save/Load Round-Trip', () => {
     expect(savedContent).toContain('first_name')
     expect(savedContent).toContain('last_name')
 
-    const loadResp = await apiHelper.get('/project/v2/full-config')
+    const loadResp = await apiHelper.get('/project/v2/config/full')
     const loadedConfig = await loadResp.json()
     expect(loadedConfig.transforms?.['t-1']?.type).toBe('StringSplit')
     expect(loadedConfig.transforms?.['t-1']?.output_columns).toEqual(['first_name', 'last_name'])
