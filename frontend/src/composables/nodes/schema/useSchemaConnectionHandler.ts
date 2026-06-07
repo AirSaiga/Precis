@@ -27,9 +27,9 @@ import { useToast } from '@/composables/shared/useToast'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { revalidateConstraintsReferencingSchema } from '@/services/constraints/validationRegistryCore'
 import { materializeV2EmbeddedConstraints } from '@/stores/graphStore/modules/v2/shared/embeddedConstraints'
-import { getV2Schema } from '@/api/projectV2Api'
-import { generateSchemaId } from '@/utils/typeHelpers'
+import { getV2FullConfig } from '@/api/projectV2Api'
 import { fromBackendType } from '@/services/builders'
+import { normalizePath, resolveRelativePath } from '@/core/utils/pathNormalization'
 import { eventBus } from '@/core/eventBus'
 
 function convertColumnsFromConfig(columns: TableSchemaFileV2['columns']): SchemaColumn[] {
@@ -42,30 +42,86 @@ function convertColumnsFromConfig(columns: TableSchemaFileV2['columns']): Schema
   }))
 }
 
+function findMatchingSchema(
+  schemas: Record<string, TableSchemaFileV2>,
+  localPath: string,
+  sheetName: string | undefined | null,
+  configDir: string
+): { id: string; schema: TableSchemaFileV2 } | null {
+  const normLocal = normalizePath(localPath)
+  const normSheet = (sheetName || '').trim().toLowerCase()
+
+  // 第一轮：精确匹配（路径 + sheet）
+  for (const [id, schema] of Object.entries(schemas)) {
+    const srcPath = schema.source?.path
+    if (!srcPath) continue
+
+    const absPath = resolveRelativePath(srcPath, configDir) ?? srcPath
+    const normAbs = normalizePath(absPath)
+    if (normAbs !== normLocal) continue
+
+    const isExcel = /\.(xlsx|xls)$/i.test(srcPath)
+    if (isExcel) {
+      const schemaSheet = (schema.source?.sheet ?? schema.sheet ?? '').trim().toLowerCase()
+      if (schemaSheet === normSheet) return { id, schema }
+    } else {
+      return { id, schema }
+    }
+  }
+
+  // 第二轮：模糊匹配（仅路径，忽略 sheet，针对 Excel schema）
+  // 用于处理以下场景：
+  // 1. schema 配置中未明确指定 sheet 名称
+  // 2. sourcePreview 的 currentSheet 为空，但 schema 配置中有 sheet 名称
+  for (const [id, schema] of Object.entries(schemas)) {
+    const srcPath = schema.source?.path
+    if (!srcPath) continue
+    if (!/\.(xlsx|xls)$/i.test(srcPath)) continue
+
+    const absPath = resolveRelativePath(srcPath, configDir) ?? srcPath
+    const normAbs = normalizePath(absPath)
+    if (normAbs !== normLocal) continue
+
+    const schemaSheet = (schema.source?.sheet ?? schema.sheet ?? '').trim()
+    // 接受未指定 sheet 的 schema，或当传入的 sheetName 为空时接受任何 sheet
+    if (!schemaSheet || !sheetName) return { id, schema }
+  }
+
+  return null
+}
+
 async function tryLoadExistingSchemaConfig(params: {
   schemaNodeId: string
-  sourceFilePath: string
+  localPath: string | undefined
   sheetName: string | undefined | null
   configPath: string | undefined
   store: ReturnType<typeof useGraphStore>
+  updateNodeInternals: (ids: string | string[]) => void
 }): Promise<boolean> {
-  const { schemaNodeId, sourceFilePath, sheetName, configPath, store } = params
+  const { schemaNodeId, localPath, sheetName, configPath, store, updateNodeInternals } = params
 
-  if (!sourceFilePath || !configPath) return false
+  if (!localPath || !configPath) return false
 
-  const tableId = generateSchemaId(sourceFilePath, sheetName)
-  if (!tableId) return false
+  const resolvedLocalPath = resolveRelativePath(localPath, configPath) ?? localPath
 
-  let schemaFile: TableSchemaFileV2
+  let fullConfig: Awaited<ReturnType<typeof getV2FullConfig>>
   try {
-    schemaFile = await getV2Schema(tableId, configPath)
+    fullConfig = await getV2FullConfig(configPath)
   } catch {
+    logger.debug('🔌 [tryLoadExistingSchemaConfig] 无法加载 V2 配置')
+    return false
+  }
+
+  const schemas = fullConfig.schemas || {}
+  const match = findMatchingSchema(schemas, resolvedLocalPath, sheetName, configPath)
+  if (!match) {
     logger.debug(
-      `🔌 [tryLoadExistingSchemaConfig] 未找到已有配置 tableId=${tableId}，回退到智能填充`
+      `🔌 [tryLoadExistingSchemaConfig] 未找到匹配的 schema (localPath=${localPath}, sheet=${sheetName})`
     )
     return false
   }
 
+  const { id: tableId, schema: schemaFile } = match
   const cols = convertColumnsFromConfig(schemaFile.columns || [])
 
   store.updateNodeData(schemaNodeId, {
@@ -76,6 +132,11 @@ async function tryLoadExistingSchemaConfig(params: {
   if (schemaNodeId !== tableId) {
     store.registerV2SchemaMapping(schemaNodeId, tableId)
   }
+
+  // 列数据更新后必须刷新 schema 节点的 internals，
+  // 否则 handle 不会重新生成，后续创建的边无法找到正确的 sourceHandle
+  await nextTick()
+  updateNodeInternals(schemaNodeId)
 
   const schemaNode = store.nodes.find((n) => n.id === schemaNodeId)
   if (!schemaNode) return true
@@ -106,6 +167,7 @@ async function tryLoadExistingSchemaConfig(params: {
     })
 
     await nextTick()
+    updateNodeInternals(schemaNodeId)
     for (const edge of bufferedEdges) {
       store.createConnection(
         edge.tableId,
@@ -117,7 +179,7 @@ async function tryLoadExistingSchemaConfig(params: {
   }
 
   logger.debug(
-    `🔌 [tryLoadExistingSchemaConfig] 已从 V2 配置恢复 schema: ${cols.length} 列, ${embedded.length} 内嵌约束`
+    `🔌 [tryLoadExistingSchemaConfig] 已从 V2 配置恢复 schema: ${cols.length} 列, ${embedded.length} 内嵌约束 (tableId=${tableId})`
   )
   return true
 }
@@ -232,7 +294,7 @@ export function useSchemaConnectionHandler() {
           ''
         )
 
-      // 来源路径
+      // 来源路径（用于 schema 节点显示）
       const displaySourcePath = (sourceData.fileName as string) || displayFileName
 
       // 构建要更新的 Schema 节点数据对象
@@ -243,10 +305,7 @@ export function useSchemaConnectionHandler() {
         sourceFilePath: displaySourcePath,
         sourceType: sourceData.sourceType,
         headerRow: (sourceData.headerRow as number) || 0,
-        sheetName:
-          (sourceData.currentSheet as string) ||
-          (sourceData.sourceName as string) ||
-          (sourceData.fileName as string),
+        sheetName: (sourceData.currentSheet as string) || undefined,
         sourceNodeId: sourcePreviewNodeId,
         sourceMode: sourceData.sourceMode,
         localPath: sourceData.localPath,
@@ -287,12 +346,12 @@ export function useSchemaConnectionHandler() {
       // ========== 步骤 4：尝试加载已有 V2 配置 ==========
       const loadedFromConfig = await tryLoadExistingSchemaConfig({
         schemaNodeId,
-        sourceFilePath: displaySourcePath,
+        localPath: sourceData.localPath as string | undefined,
         sheetName: updatedSchemaData.sheetName,
         configPath,
         store,
+        updateNodeInternals,
       })
-
       if (!loadedFromConfig) {
         // 未找到已有配置，回退到智能填充对话框
         await nextTick()
@@ -337,10 +396,14 @@ export function useSchemaConnectionHandler() {
         updateNodeData: (nodeId: string, data: Record<string, unknown>) =>
           store.updateNodeData(nodeId, data),
       })
-      eventBus.emit('sourcePreviewDataChanged', {
-        nodeId: sourceNodeIdForDialog,
-        data: (store.nodes.find((n) => n.id === sourceNodeIdForDialog)?.data ?? {}) as Record<string, unknown>,
-      })
+      // 配置已从 V2 恢复时不再 emit sourcePreviewDataChanged，
+      // 避免 useSchemaSourceManager 的 updateSchemaNodeFromSheetChange 用 header 重新生成列覆盖
+      if (!loadedFromConfig) {
+        eventBus.emit('sourcePreviewDataChanged', {
+          nodeId: sourceNodeIdForDialog,
+          data: (store.nodes.find((n) => n.id === sourceNodeIdForDialog)?.data ?? {}) as Record<string, unknown>,
+        })
+      }
     } catch (error) {
       // 捕获并记录错误，显示失败提示
       logger.error('处理 SourcePreview 到 Schema 连线失败:', error)

@@ -21,7 +21,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { normalizeConfigDir } from '@/core/utils/pathUtils'
+import { normalizeConfigDir } from '@/core/utils/pathNormalization'
 import axios, { type AxiosInstance, type AxiosError } from 'axios'
 
 /**

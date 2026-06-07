@@ -14,6 +14,7 @@ import {
   buildJSONOptions,
 } from '@/services/builders/schemaBuilder'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import { toPosixPath } from '@/core/utils/pathNormalization'
 import { buildEmbeddedConstraintItem } from '../embedders/embeddedConstraintBuilder'
 import type { BuilderContext, NodeBuilder } from '../types'
 
@@ -88,7 +89,7 @@ function buildSourceSpec(node: CustomNode): TableSchemaFileV2['source'] {
     if (resolvedAbsolute) {
       source = {
         mode: 'absolute_file',
-        path: resolvedAbsolute.replace(/\\/g, '/'),
+        path: toPosixPath(resolvedAbsolute),
         header_row: typeof data.headerRow === 'number' ? data.headerRow : 0,
       }
     }
@@ -96,7 +97,7 @@ function buildSourceSpec(node: CustomNode): TableSchemaFileV2['source'] {
     if (resolvedRelative) {
       source = {
         mode: 'relative_file',
-        path: resolvedRelative.replace(/\\/g, '/'),
+        path: toPosixPath(resolvedRelative),
         header_row: typeof data.headerRow === 'number' ? data.headerRow : 0,
       }
     }

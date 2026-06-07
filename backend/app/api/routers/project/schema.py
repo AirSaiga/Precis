@@ -40,6 +40,7 @@ from pydantic import BaseModel
 from app.api.dependencies import get_project_config_path
 from app.shared.core.io.yaml import read_yaml, write_yaml, write_yaml_atomic
 from app.shared.core.project.manifest.types import ProjectManifestV2
+from app.shared.core.utils.path_utils import make_relative
 
 from .base import (
     DisplayNameUpdateRequest,
@@ -286,7 +287,7 @@ def check_schema_conflict(
         # 返回相对于 config_path 的路径（如果存在）
         relative_path = ""
         if schema_path and schema_path.startswith(config_path):
-            relative_path = os.path.relpath(schema_path, config_path).replace("\\", "/")
+            relative_path = make_relative(config_path, schema_path)
         return SchemaConflictInfo(
             exists=False,
             file_path=relative_path,
@@ -301,7 +302,7 @@ def check_schema_conflict(
     conflict_fields = _compute_conflicts(existing_data, new_data)
 
     # 将绝对路径转换为相对于 config_path 的路径
-    relative_path = os.path.relpath(schema_path, config_path).replace("\\", "/")
+    relative_path = make_relative(config_path, schema_path)
 
     return SchemaConflictInfo(
         exists=True,

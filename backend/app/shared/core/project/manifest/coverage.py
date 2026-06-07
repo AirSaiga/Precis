@@ -39,6 +39,7 @@ from pathlib import Path
 
 from app.shared.core.io.yaml import read_yaml
 from app.shared.core.project.manifest.types import ProjectManifestV2
+from app.shared.core.utils.path_utils import normalize_to_posix
 
 logger = logging.getLogger(__name__)
 
@@ -141,7 +142,7 @@ def compute_manifest_coverage(config_path: str, manifest: ProjectManifestV2) -> 
     # ============================================================================
     # schema_paths 使用小写路径集合，用于不区分大小写的路径匹配
     # 注意：schemas 使用 path 字段匹配，constraints 和 regex 使用 id 字段匹配
-    schema_paths = {(r.path or "").replace("\\", "/").lower() for r in (manifest.schemas or [])}
+    schema_paths = {normalize_to_posix(r.path or "").lower() for r in (manifest.schemas or [])}
     constraint_ids = {r.id for r in (manifest.constraints or [])}
     regex_ids = {r.id for r in (manifest.regex_nodes or [])}
 
@@ -161,7 +162,7 @@ def compute_manifest_coverage(config_path: str, manifest: ProjectManifestV2) -> 
                 # 构建相对路径，统一使用正斜杠
                 rel_path = f"schemas/{filename}"
                 # 检查 manifest 中是否已引用该路径（不区分大小写）
-                if rel_path.replace("\\", "/").lower() in schema_paths:
+                if normalize_to_posix(rel_path).lower() in schema_paths:
                     continue  # 已入清单，跳过
                 # 默认使用文件名（去掉 .schema.yaml）作为 id
                 rid = filename[:-12]

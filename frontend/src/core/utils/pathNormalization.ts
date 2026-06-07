@@ -20,15 +20,34 @@
  * 标准化规则：
  * 1. 去除首尾空白
  * 2. 将所有反斜杠 `\` 替换为正斜杠 `/`
- * 3. 转换为小写（Windows 文件系统不区分大小写）
- * 4. 去除末尾的 `/`（文件路径）
+ * 3. 合并连续的正斜杠为单个 `/`（处理后端 "d://path" 等异常格式）
+ * 4. 解析 `.` 和 `..` 路径段（保留 Windows 驱动器前缀 `c:/`）
+ * 5. 转换为小写（Windows 文件系统不区分大小写）
+ * 6. 去除末尾的 `/`（文件路径）
  *
  * @param input - 原始路径
  * @returns 标准化后的路径
  */
 export function normalizePath(input: string): string {
   if (!input) return ''
-  return input.trim().replace(/\\/g, '/').toLowerCase().replace(/\/$/, '')
+  const trimmed = input.trim().replace(/\\/g, '/').replace(/\/+/g, '/')
+  const lower = trimmed.toLowerCase()
+  // 保留 Windows 驱动器前缀（如 "c:/"），避免解析 .. 时误删
+  const driveMatch = lower.match(/^[a-z]:\//)
+  const prefix = driveMatch ? driveMatch[0] : ''
+  const rest = prefix ? lower.slice(prefix.length) : lower
+  const parts = rest.split('/').filter((p) => p !== '.' && p !== '')
+  const resolved: string[] = []
+  for (const part of parts) {
+    if (part === '..') {
+      resolved.pop()
+    } else {
+      resolved.push(part)
+    }
+  }
+  const joined = resolved.join('/')
+  const result = prefix + joined
+  return result || (lower.startsWith('/') ? '/' : '')
 }
 
 /**
@@ -178,4 +197,68 @@ export function findPathMatchIndex(
   }
 
   return -1
+}
+
+/**
+ * 将路径中的反斜杠转换为正斜杠并合并连续斜杠
+ *
+ * 与 normalizePath 的区别：不转小写、不解析 . 和 ..。
+ * 适用于写入 YAML 等需要保留原始大小写的场景。
+ *
+ * @param input - 原始路径
+ * @returns POSIX 格式路径（正斜杠、无连续斜杠、无末尾斜杠）
+ */
+export function toPosixPath(input: string): string {
+  if (!input) return ''
+  return input.trim().replace(/\\/g, '/').replace(/\/+/g, '/').replace(/\/$/, '')
+}
+
+/**
+ * 安全拼接路径段
+ *
+ * 自动处理段之间的分隔符，不会产生连续斜杠。
+ * 所有段统一转为正斜杠。
+ *
+ * @param segments - 路径段
+ * @returns 拼接后的路径
+ */
+export function joinPath(...segments: string[]): string {
+  if (segments.length === 0) return ''
+  const normalized = segments.map((s) => toPosixPath(s))
+  const joined = normalized.filter(Boolean).join('/')
+  return joined.replace(/\/+/g, '/')
+}
+
+/**
+ * 获取路径的小写扩展名（不含点号）
+ *
+ * @param input - 路径
+ * @returns 小写扩展名（如 "xlsx"），无扩展名返回空字符串
+ */
+export function getPathExtension(input: string): string {
+  const basename = getPathBasename(input)
+  if (!basename) return ''
+  const dotIdx = basename.lastIndexOf('.')
+  return dotIdx >= 0 ? basename.slice(dotIdx + 1).toLowerCase() : ''
+}
+
+/**
+ * 标准化配置目录路径
+ *
+ * - 移除路径末尾的斜杠/反斜杠
+ * - 如果路径指向文件（.csv/.xlsx/.xls/.yaml 等），自动提取目录部分
+ * - 空路径返回空字符串
+ *
+ * @param inputPath - 原始路径（可选）
+ * @returns 标准化后的目录路径
+ */
+export function normalizeConfigDir(inputPath?: string): string {
+  const raw = (inputPath || '').trim()
+  if (!raw) return raw
+  const withoutTrailing = raw.replace(/[\\/]+$/, '')
+  if (/\.(csv|xlsx|xls|ya?ml)$/i.test(withoutTrailing)) {
+    const idx = Math.max(withoutTrailing.lastIndexOf('\\'), withoutTrailing.lastIndexOf('/'))
+    return idx >= 0 ? withoutTrailing.slice(0, idx) : withoutTrailing
+  }
+  return withoutTrailing
 }

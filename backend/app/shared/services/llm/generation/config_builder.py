@@ -25,6 +25,8 @@ from typing import Any, Optional
 
 import yaml
 
+from app.shared.core.utils.path_utils import make_relative, normalize_to_posix
+
 
 def build_config(
     project_id: str,
@@ -78,12 +80,10 @@ def build_config(
         """
         if config_path:
             try:
-                rel = os.path.relpath(abs_path, config_path)
-                # 统一使用正斜杠，避免 Windows 反斜杠问题
-                return rel.replace("\\", "/")
+                return make_relative(config_path, abs_path)
             except ValueError:
                 pass
-        return os.path.basename(abs_path).replace("\\", "/")
+        return normalize_to_posix(os.path.basename(abs_path))
 
     def _sanitize_id(name: str) -> str:
         """将名称转为合法的 id（小写，替换特殊字符为下划线）。"""

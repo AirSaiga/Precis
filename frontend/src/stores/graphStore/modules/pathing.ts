@@ -77,8 +77,7 @@ import type { Ref } from 'vue'
 import type { CustomNode, SchemaNodeData } from '@/types/graph'
 import type { ProjectStoreLike } from '@/types/storeInterfaces'
 import { platformDetector } from '@/features/keyboard/platform'
-import { normalizeConfigDir } from '@/core/utils/pathUtils'
-import { isAbsolutePath } from '@/core/utils/pathNormalization'
+import { isAbsolutePath, normalizeConfigDir } from '@/core/utils/pathNormalization'
 
 export function createPathingModule(params: { nodes: Ref<CustomNode[]>; projectStore: ProjectStoreLike }) {
   const { nodes, projectStore } = params
@@ -103,12 +102,9 @@ export function createPathingModule(params: { nodes: Ref<CustomNode[]>; projectS
 
     const sep = platformDetector.isWindows() ? '\\' : '/'
     const normalizedRel = sep === '\\' ? rel.replace(/\//g, '\\') : rel.replace(/\\/g, '/')
-    return `${base.replace(/[\\/]+$/, '')}${sep}${normalizedRel.replace(/^[\\/]+/, '')}`
-  }
-
-  function isAbsolutePath(input: string): boolean {
-    if (!input) return false
-    return /^[a-zA-Z]:[\\/]/.test(input) || input.startsWith('/')
+    // 去除开头的 ./ 或 .\ 前缀，防止拼接后路径包含 . 导致匹配失败
+    const cleanRel = normalizedRel.replace(/^[.\\/]+/, '').replace(/^[\\/]+/, '')
+    return `${base.replace(/[\\/]+$/, '')}${sep}${cleanRel}`
   }
 
   function getEffectiveProjectConfigPath(): string | undefined {

@@ -31,7 +31,7 @@ import { logger } from '@/core/utils/logger'
 import { isElectron, getElectronAPI } from '@/core/utils/electronDetector'
 import { platformDetector } from '@/features/keyboard/platform'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
-import { normalizePath } from '@/core/utils/pathNormalization'
+import { normalizePath, getPathBasename } from '@/core/utils/pathNormalization'
 import { eventBus } from '@/core/eventBus'
 import type { ExternalDataSource } from '@/types/graph'
 
@@ -274,7 +274,7 @@ export function useDataSourceImport() {
         const fileList: ExternalDataSource[] = []
 
         for (const filePath of result.filePaths) {
-          const fileName = filePath.split(/[/\\]/).pop() || 'unknown'
+          const fileName = getPathBasename(filePath) || 'unknown'
 
           // 检查是否是文件夹（通过文件扩展名判断，无扩展名可能是文件夹）
           const hasExtension = /\.(xlsx|xls|csv|json)$/i.test(fileName)
@@ -292,9 +292,9 @@ export function useDataSourceImport() {
               logger.debug('[useDataSourceImport] 文件夹扫描结果:', filesInFolder)
 
               for (const scannedFilePath of filesInFolder) {
-                const scannedFileName = scannedFilePath.split(/[/\\]/).pop() || 'unknown'
+                const scannedFileName = getPathBasename(scannedFilePath) || 'unknown'
                 // 获取导入的根文件夹名称作为 folderPath 的前缀
-                const rootFolderName = filePath.split(/[/\\]/).pop() || ''
+                const rootFolderName = getPathBasename(filePath)
                 // 计算相对于导入文件夹根目录的路径
                 let relativePath = scannedFilePath.replace(filePath, '').replace(/^[/\\]/, '')
                 // 如果 relativePath 等于文件名，说明文件在文件夹根目录，设置为根文件夹名称
@@ -443,7 +443,7 @@ export function useDataSourceImport() {
         return
       }
 
-      const folderName = folderPath.split(/[/\\]/).pop() || 'folder'
+      const folderName = getPathBasename(folderPath) || 'folder'
       let successCount = 0
       let failCount = 0
 
@@ -461,7 +461,7 @@ export function useDataSourceImport() {
       for (const filePath of uniqueFiles) {
         const fileName = filePath.split(/[/\\]/).pop() || 'unknown'
         // 获取导入的根文件夹名称作为 folderPath 的前缀
-        const rootFolderName = folderPath.split(/[/\\]/).pop() || ''
+        const rootFolderName = getPathBasename(folderPath)
         // 计算相对于导入文件夹根目录的路径
         let relativePath = filePath.replace(folderPath, '').replace(/^[/\\]/, '')
         // 如果 relativePath 等于文件名，说明文件在文件夹根目录，设置为根文件夹名称

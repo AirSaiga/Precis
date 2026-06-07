@@ -21,6 +21,8 @@
 import os
 from typing import Optional
 
+from app.shared.core.utils.path_utils import paths_equal
+
 # 配置模板
 PROJECT_TEMPLATE = """# Precis 项目配置文件
 # 项目基本信息
@@ -143,7 +145,7 @@ def find_config_file(project_path: str, filename: str) -> Optional[str]:
         # 也检查完整路径匹配
         for f in files:
             rel_path = os.path.relpath(os.path.join(root, f), project_path)
-            if rel_path.replace("\\", "/") == filename.replace("\\", "/"):
+            if paths_equal(rel_path, filename):
                 full_path = os.path.join(root, f)
                 # 验证找到的完整路径在项目范围内
                 if os.path.realpath(full_path).startswith(project_path):

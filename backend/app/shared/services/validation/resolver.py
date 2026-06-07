@@ -28,6 +28,7 @@ from typing import Optional
 
 from app.shared.core.project.manifest.types import ProjectManifestV2
 from app.shared.core.project.schema.types import TableSchemaFile
+from app.shared.core.utils.path_utils import normalize_to_posix
 
 logger = logging.getLogger(__name__)
 
@@ -121,7 +122,7 @@ class DataSourceResolver:
 
             # 处理路径中多余的项目目录前缀（如 data/users.xlsx 中的 data 部分）
             data_dir_basename = os.path.basename(self.project_root)
-            src_path_parts = src_path.replace("\\", "/").split("/")
+            src_path_parts = normalize_to_posix(src_path).split("/")
             if len(src_path_parts) > 1 and src_path_parts[0] == data_dir_basename:
                 src_path_adjusted = "/".join(src_path_parts[1:])
                 adjusted_path = os.path.normpath(os.path.join(self.project_root, src_path_adjusted))

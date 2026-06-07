@@ -70,6 +70,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
+from app.shared.core.utils.path_utils import normalize_to_posix
+
 from .source_options import (
     FormatOptions,
 )
@@ -158,7 +160,7 @@ class SourceSpec(BaseModel):
             >>> normalize_path(r"data\myfile.xlsx")
             'data/myfile.xlsx'
         """
-        return v.replace("\\", "/")
+        return normalize_to_posix(v)
 
     def is_json(self) -> bool:
         """@methoddesc 判断数据源是否为 JSON 格式

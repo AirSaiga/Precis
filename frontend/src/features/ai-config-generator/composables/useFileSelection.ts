@@ -23,6 +23,7 @@
  *   fileSelection.checkedFiles.value    // Set { 'C:\\project\\data.csv' }
  */
 import { logger } from '@/core/utils/logger'
+import { joinPath } from '@/core/utils/pathNormalization'
 import { ref, watch, type ComputedRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
@@ -208,10 +209,7 @@ export function useFileSelection(
         if (ds.mode === 'absolute') {
           paths.push(ds.path)
         } else if (configPath.value) {
-          // 相对路径基于 configPath 解析，统一使用正斜杠作为跨平台路径分隔符
-          const base = configPath.value.replace(/\\/g, '/')
-          const absPath = `${base}/${ds.path}`
-          paths.push(absPath)
+          paths.push(joinPath(configPath.value, ds.path))
         }
       }
       if (paths.length > 0) {

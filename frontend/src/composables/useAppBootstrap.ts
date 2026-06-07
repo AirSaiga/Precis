@@ -53,26 +53,6 @@ const basename = (p: string): string => {
 }
 
 /**
- * 检测路径是否跨平台无效（Windows 路径在 Unix 上或反之）
- *
- * 用于防御 localStorage 中保存了错误平台路径的情况（如用户在
- * Windows/Unix 之间迁移了浏览器配置文件）。
- *
- * @returns true 表示路径格式与当前操作系统不匹配
- */
-const isCrossPlatformInvalidPath = (p: string): boolean => {
-  const raw = (p || '').trim()
-  if (!raw) return false
-  const platform = window.electronAPI?.platform
-  const isWindows = platform ? platform === 'win32' : platformDetector.isWindows()
-  // Unix 环境下出现 Windows 盘符路径（C:\）视为无效
-  if (isWindows && raw.startsWith('/')) return true
-  // Windows 环境下出现 Unix 绝对路径（/）视为无效
-  if (!isWindows && /^[a-zA-Z]:[\\/]/.test(raw)) return true
-  return false
-}
-
-/**
  * 引导函数的返回类型，提供启动、清理和键盘管理器访问
  *
  * @property bootstrap - 启动应用主流程（串行初始化各子系统）
