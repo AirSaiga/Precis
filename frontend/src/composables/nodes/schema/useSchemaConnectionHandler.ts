@@ -96,7 +96,7 @@ async function tryLoadExistingSchemaConfig(params: {
   sheetName: string | undefined | null
   configPath: string | undefined
   store: ReturnType<typeof useGraphStore>
-  updateNodeInternals: (ids: string | string[]) => void
+  updateNodeInternals: (nodeIds?: string[]) => void
 }): Promise<boolean> {
   const { schemaNodeId, localPath, sheetName, configPath, store, updateNodeInternals } = params
 
@@ -136,7 +136,7 @@ async function tryLoadExistingSchemaConfig(params: {
   // 列数据更新后必须刷新 schema 节点的 internals，
   // 否则 handle 不会重新生成，后续创建的边无法找到正确的 sourceHandle
   await nextTick()
-  updateNodeInternals(schemaNodeId)
+  updateNodeInternals([schemaNodeId])
 
   const schemaNode = store.nodes.find((n) => n.id === schemaNodeId)
   if (!schemaNode) return true
@@ -167,7 +167,7 @@ async function tryLoadExistingSchemaConfig(params: {
     })
 
     await nextTick()
-    updateNodeInternals(schemaNodeId)
+    updateNodeInternals([schemaNodeId])
     for (const edge of bufferedEdges) {
       store.createConnection(
         edge.tableId,
