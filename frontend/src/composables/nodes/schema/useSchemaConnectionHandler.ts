@@ -5,7 +5,8 @@
  * 功能概述：
  * - 处理 SourcePreview 到 Schema 节点的连接事件
  * - 同步数据源元数据并断开旧连接
- * - 触发智能列填充询问与自动生成列定义
+ * - 绑定数据源时尝试加载已有 V2 配置（恢复列定义 + 物化内嵌约束）
+ * - 未找到配置时回退到智能列填充询问与自动生成列定义
  * - 管理虚拟锚点边的同步与滚动状态监听
  */
 
@@ -14,16 +15,112 @@ import { watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
+import { useProjectStore } from '@/stores/projectStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import type { Node, Edge, Connection } from '@vue-flow/core'
-import type { SchemaColumn } from '@/types/graph'
+import type { SchemaColumn, SchemaNodeData } from '@/types/graph'
+import type { TableSchemaFileV2 } from '@/types/projectV2'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
-import { addEdges, removeEdges, findEdge } from '@/services/canvas/vueFlowApi'
+import { addEdges, addNodes, removeEdges, findEdge } from '@/services/canvas/vueFlowApi'
 import { extractColumnNamesFromHeader, compareColumns } from '@/utils/nodes/schema/columnValidation'
 import { useToast } from '@/composables/shared/useToast'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { revalidateConstraintsReferencingSchema } from '@/services/constraints/validationRegistryCore'
+import { materializeV2EmbeddedConstraints } from '@/stores/graphStore/modules/v2/shared/embeddedConstraints'
+import { getV2Schema } from '@/api/projectV2Api'
+import { generateSchemaId } from '@/utils/typeHelpers'
+import { fromBackendType } from '@/services/builders'
 import { eventBus } from '@/core/eventBus'
+
+function convertColumnsFromConfig(columns: TableSchemaFileV2['columns']): SchemaColumn[] {
+  return (columns || []).map((col) => ({
+    id: col.id,
+    columnName: col.name,
+    dataType: fromBackendType(col.type),
+    validationErrors: [],
+    constraints: {},
+  }))
+}
+
+async function tryLoadExistingSchemaConfig(params: {
+  schemaNodeId: string
+  sourceFilePath: string
+  sheetName: string | undefined | null
+  configPath: string | undefined
+  store: ReturnType<typeof useGraphStore>
+}): Promise<boolean> {
+  const { schemaNodeId, sourceFilePath, sheetName, configPath, store } = params
+
+  if (!sourceFilePath || !configPath) return false
+
+  const tableId = generateSchemaId(sourceFilePath, sheetName)
+  if (!tableId) return false
+
+  let schemaFile: TableSchemaFileV2
+  try {
+    schemaFile = await getV2Schema(tableId, configPath)
+  } catch {
+    logger.debug(
+      `🔌 [tryLoadExistingSchemaConfig] 未找到已有配置 tableId=${tableId}，回退到智能填充`
+    )
+    return false
+  }
+
+  const cols = convertColumnsFromConfig(schemaFile.columns || [])
+
+  store.updateNodeData(schemaNodeId, {
+    columns: cols,
+    saveState: 'saved',
+  } as unknown as Record<string, unknown>)
+
+  if (schemaNodeId !== tableId) {
+    store.registerV2SchemaMapping(schemaNodeId, tableId)
+  }
+
+  const schemaNode = store.nodes.find((n) => n.id === schemaNodeId)
+  if (!schemaNode) return true
+
+  const schemaData = schemaNode.data as SchemaNodeData
+  const colNameToId = new Map<string, string>(
+    (schemaData.columns || []).map((c) => [c.columnName, c.id])
+  )
+  const embedded = Array.isArray(schemaFile.constraints) ? schemaFile.constraints : []
+
+  if (embedded.length > 0) {
+    const bufferedEdges: Array<{
+      tableId: string
+      constraintId: string
+      columnId: string
+    }> = []
+
+    materializeV2EmbeddedConstraints({
+      schemaNode: schemaNode as unknown as import('@/types/graph').CustomNode,
+      schemaTableName: schemaData.tableName,
+      embeddedConstraints: embedded as Parameters<typeof materializeV2EmbeddedConstraints>[0]['embeddedConstraints'],
+      colNameToId,
+      hasNode: (id: string) => store.nodes.some((n) => n.id === id),
+      addNode: (node: import('@/types/graph').CustomNode) => addNodes(node),
+      addConstraintEdge: (tId: string, cId: string, colId: string) => {
+        bufferedEdges.push({ tableId: tId, constraintId: cId, columnId: colId })
+      },
+    })
+
+    await nextTick()
+    for (const edge of bufferedEdges) {
+      store.createConnection(
+        edge.tableId,
+        edge.constraintId,
+        `source-right-${edge.columnId}`,
+        `target-input-${edge.constraintId}`
+      )
+    }
+  }
+
+  logger.debug(
+    `🔌 [tryLoadExistingSchemaConfig] 已从 V2 配置恢复 schema: ${cols.length} 列, ${embedded.length} 内嵌约束`
+  )
+  return true
+}
 
 /**
  * Schema 节点连接事件处理器
@@ -180,61 +277,70 @@ export function useSchemaConnectionHandler() {
         outputPortConnected: true,
       })
 
-      logger.debug('🔌 [handleSourceToSchemaConnection] 连接处理完成，准备弹出确认对话框')
+      logger.debug('🔌 [handleSourceToSchemaConnection] 连接处理完成，准备恢复配置或弹出确认对话框')
 
-      // ========== 步骤 4：触发智能填充逻辑询问 ==========
       const schemaNodeIdForDialog = schemaNodeId
       const sourceNodeIdForDialog = sourcePreviewNodeId
+      const projectStore = useProjectStore()
+      const configPath = projectStore.currentPaths?.configPath
 
-      // 使用 nextTick 确保 Vue 响应式更新完成后再弹出对话框
-      await nextTick()
-      // 重新从 store 获取最新的节点数据
-      const latestSchemaNode = store.nodes.find((n) => n.id === schemaNodeIdForDialog)
-      const latestSourceNode = store.nodes.find((n) => n.id === sourceNodeIdForDialog)
+      // ========== 步骤 4：尝试加载已有 V2 配置 ==========
+      const loadedFromConfig = await tryLoadExistingSchemaConfig({
+        schemaNodeId,
+        sourceFilePath: displaySourcePath,
+        sheetName: updatedSchemaData.sheetName,
+        configPath,
+        store,
+      })
 
-      if (latestSchemaNode && latestSourceNode) {
-        // 创建数据快照
-        const sourceDataSnapshot = JSON.parse(JSON.stringify(latestSourceNode.data)) as Record<
-          string,
-          unknown
-        >
-        const schemaDataSnapshot = JSON.parse(JSON.stringify(latestSchemaNode.data)) as Record<
-          string,
-          unknown
-        >
+      if (!loadedFromConfig) {
+        // 未找到已有配置，回退到智能填充对话框
+        await nextTick()
+        const latestSchemaNode = store.nodes.find((n) => n.id === schemaNodeIdForDialog)
+        const latestSourceNode = store.nodes.find((n) => n.id === sourceNodeIdForDialog)
 
-        // 调用对话框显示方法
-        await showSmartFillDialog(
-          { id: sourceNodeIdForDialog, data: sourceDataSnapshot },
-          { id: schemaNodeIdForDialog, data: schemaDataSnapshot }
-        )
-        const currentSchemaNode = store.nodes.find((n) => n.id === schemaNodeIdForDialog)
-        const hasColumns =
-          (((currentSchemaNode?.data as Record<string, unknown>)?.columns as unknown[])?.length ||
-            0) > 0
-        if (currentSchemaNode && hasColumns) {
-          triggerValidationForNode(
-            schemaNodeIdForDialog,
-            store.nodes,
-            store.edges,
-            (nodeId: string, data: Record<string, unknown>) => store.updateNodeData(nodeId, data)
+        if (latestSchemaNode && latestSourceNode) {
+          const sourceDataSnapshot = JSON.parse(JSON.stringify(latestSourceNode.data)) as Record<
+            string,
+            unknown
+          >
+          const schemaDataSnapshot = JSON.parse(JSON.stringify(latestSchemaNode.data)) as Record<
+            string,
+            unknown
+          >
+
+          await showSmartFillDialog(
+            { id: sourceNodeIdForDialog, data: sourceDataSnapshot },
+            { id: schemaNodeIdForDialog, data: schemaDataSnapshot }
           )
         }
-
-        // 重新触发引用本 Schema 为目标的约束验证
-        // 通用机制：任何约束类型只要注册了 targetRefResolver，都会自动被触发
-        await revalidateConstraintsReferencingSchema({
-          schemaNodeId: schemaNodeIdForDialog,
-          nodes: store.nodes,
-          edges: store.edges,
-          updateNodeData: (nodeId: string, data: Record<string, unknown>) =>
-            store.updateNodeData(nodeId, data),
-        })
-        eventBus.emit('sourcePreviewDataChanged', {
-          nodeId: sourceNodeIdForDialog,
-          data: latestSourceNode.data as Record<string, unknown>,
-        })
       }
+
+      // ========== 步骤 5：触发校验 ==========
+      const currentSchemaNode = store.nodes.find((n) => n.id === schemaNodeIdForDialog)
+      const hasColumns =
+        (((currentSchemaNode?.data as Record<string, unknown>)?.columns as unknown[])?.length ||
+          0) > 0
+      if (currentSchemaNode && hasColumns) {
+        triggerValidationForNode(
+          schemaNodeIdForDialog,
+          store.nodes,
+          store.edges,
+          (nodeId: string, data: Record<string, unknown>) => store.updateNodeData(nodeId, data)
+        )
+      }
+
+      await revalidateConstraintsReferencingSchema({
+        schemaNodeId: schemaNodeIdForDialog,
+        nodes: store.nodes,
+        edges: store.edges,
+        updateNodeData: (nodeId: string, data: Record<string, unknown>) =>
+          store.updateNodeData(nodeId, data),
+      })
+      eventBus.emit('sourcePreviewDataChanged', {
+        nodeId: sourceNodeIdForDialog,
+        data: (store.nodes.find((n) => n.id === sourceNodeIdForDialog)?.data ?? {}) as Record<string, unknown>,
+      })
     } catch (error) {
       // 捕获并记录错误，显示失败提示
       logger.error('处理 SourcePreview 到 Schema 连线失败:', error)
