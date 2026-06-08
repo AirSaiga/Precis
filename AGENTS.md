@@ -399,6 +399,188 @@ E2E 是前端功能正确性的**主验证手段**，覆盖：
 
 ---
 
+## 测试编写规范
+
+> 目的：确保测试验证**行为**而非**实现细节**，使功能修改和 bug 修复不会导致测试大面积失效。
+
+### 核心原则：测行为，不测实现
+
+```
+✅ 好的测试：调用函数，验证输入→输出映射、状态变化、副作用
+❌ 坏的测试：验证函数内部是否调用了某个私有方法、mock 了不必要的内部依赖
+```
+
+### 前端单元测试规范（vitest）
+
+#### 1. 工厂模块测试模式
+
+工厂模块（`createXxxModule`）通过闭包参数注入依赖，测试应**只 mock 被测模块的边界**：
+
+```typescript
+// ✅ 正确：只 mock 边界（vueFlowApi 是外部边界）
+vi.mock('@/services/canvas/vueFlowApi', () => ({
+  addNodes: vi.fn(),
+  addEdges: vi.fn(),
+}))
+
+// 构造依赖注入参数 — 使用最小可用的真实数据
+const nodes = ref<CustomNode[]>([])
+const selectedNodeId = ref<string | null>(null)
+const module = createXxxModule({ nodes, selectedNodeId })
+
+// ❌ 错误：mock 被测模块内部调用的其他工厂
+vi.mock('@/stores/graphStore/modules/factories/createBaseNodeFactory')
+```
+
+#### 2. 工具函数：使用测试数据工厂
+
+所有测试中的 mock 数据必须通过工厂函数生成，禁止内联硬编码：
+
+```typescript
+// ✅ 正确：工厂函数，集中维护
+function makeNode(overrides?: Partial<CustomNode>): CustomNode {
+  return {
+    id: 'test-node-1',
+    type: 'schema',
+    position: { x: 0, y: 0 },
+    data: { configName: 'Test', ...overrides?.data } as CustomNodeData,
+    ...overrides,
+  }
+}
+
+function makeEdge(overrides?: Partial<Edge>): Edge {
+  return { id: 'e1', source: 'n1', target: 'n2', ...overrides }
+}
+
+// ❌ 错误：每次内联写完整对象
+const node = { id: 'abc', type: 'schema', position: { x: 100, y: 200 }, data: { ... } }
+```
+
+工厂函数命名规范：`make` + 类型名，如 `makeNode`、`makeEdge`、`makeConstraint`。
+
+#### 3. 断言：验证结果，不验证过程
+
+```typescript
+// ✅ 正确：验证最终状态
+expect(nodes.value).toHaveLength(2)
+expect(nodes.value[0].data.configName).toBe('Users')
+
+// ❌ 错误：过度验证内部调用细节
+expect(addNodes).toHaveBeenCalledTimes(1)
+expect(addNodes).toHaveBeenCalledWith(expect.objectContaining({
+  id: 'abc-123-def',
+  type: 'schema',
+}))
+```
+
+**例外**：当 mock 外部边界（如 `addNodes`）时，验证调用次数和参数是可接受的，但不应断言 UUID 等随机值。
+
+#### 4. 测试隔离
+
+每个 `describe` 块的 `beforeEach` 必须重新初始化所有状态：
+
+```typescript
+// ✅ 正确
+beforeEach(() => {
+  nodes = ref<CustomNode[]>([makeNode()])
+  edges = ref<Edge[]>([])
+  vi.clearAllMocks()
+})
+
+// ❌ 错误：共享可变状态
+let nodes = ref([makeNode()]) // 在 describe 外初始化
+```
+
+#### 5. 禁止 snapshot 测试
+
+```typescript
+// ❌ 禁止：snapshot 测试阻碍重构
+expect(result).toMatchSnapshot()
+```
+
+原因：snapshot 测试在重构时会大面积失效，且难以判断断言意图。改用精确的字段断言。
+
+#### 6. 测试文件组织
+
+```
+frontend/tests/
+├── stores/graphStore/           # 对应 src/stores/graphStore/modules/
+│   ├── factories/               # 工厂模块测试
+│   │   ├── schemaFactory.test.ts
+│   │   └── ...
+│   ├── history.test.ts
+│   └── ...
+├── services/                    # 对应 src/services/
+│   ├── rules/
+│   ├── constraints/
+│   ├── connectionPolicyService.test.ts
+│   └── builders/
+├── features/                    # 对应 src/features/（仅纯逻辑 .ts）
+│   ├── keyboard/
+│   ├── regex/
+│   └── nodeLayoutOrganizer/
+├── core/                        # 对应 src/core/
+├── api/                         # 对应 src/api/
+└── utils/                       # 对应 src/utils/
+```
+
+规则：测试文件的路径结构**镜像源文件路径**，便于定位。
+
+### 后端测试规范（pytest）
+
+#### 1. fixture 优先于 setup
+
+```python
+# ✅ 正确：pytest fixture，可复用
+@pytest.fixture
+def sample_manifest():
+    return ProjectManifest(
+        version=2,
+        project=ProjectInfo(id="test", name="Test"),
+        schemas=[SchemaRef(id="users", path="schemas/users.schema.yaml")],
+    )
+
+# ❌ 错误：每个测试函数内重复构造
+def test_something():
+    manifest = ProjectManifest(version=2, project=ProjectInfo(...))
+```
+
+#### 2. mock 边界，不 mock 内部
+
+```python
+# ✅ 正确：mock 文件系统、外部 API
+monkeypatch.setattr(os.path, "exists", lambda p: True)
+
+# ❌ 错误：mock 同模块内的其他函数
+monkeypatch.setattr(module, "_internal_helper", mock_fn)
+```
+
+#### 3. 测试命名
+
+```python
+# ✅ 正确：描述行为
+def test_save_manifest_excludes_none_values():
+def test_ensure_schema_ref_creates_new_when_missing():
+def test_detect_file_type_raises_for_unsupported():
+
+# ❌ 错误：描述实现
+def test_function_calls_write_yaml():
+def test_returns_dict():
+```
+
+### 重构时的测试维护规则
+
+| 场景 | 做法 |
+|------|------|
+| 修改函数签名（增减参数） | 更新测试中的工厂函数和调用参数，不删除测试 |
+| 重命名函数/变量 | 全局替换即可，不影响测试逻辑 |
+| 重构内部实现（不改变外部行为） | 测试不应需要修改。如果需要，说明测试耦合了实现 |
+| 新增约束类型 | 在注册表完整性测试中自动覆盖（如 `CONSTRAINT_TYPES.length`） |
+| 修改节点 data 结构 | 更新 `makeNode` 等工厂函数，不逐个修改测试用例 |
+| 修改 API 请求/响应格式 | 更新 API 层测试的 fixture，不修改业务逻辑测试 |
+
+---
+
 ## Coding Standards
 
 ### Python 后端
