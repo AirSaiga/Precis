@@ -65,7 +65,7 @@ test.describe('Schema CRUD', () => {
 
     expect(resp.ok).toBe(true)
     const data = await resp.json()
-    expect(data).toHaveProperty('table_name')
+    expect(data).toHaveProperty('name')
     expect(data).toHaveProperty('columns')
   })
 
