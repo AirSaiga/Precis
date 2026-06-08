@@ -60,5 +60,7 @@ class FilePathPreviewRequest(BaseModel):
     sheet_name: str | None = Field(default=None, description="Excel 工作表名")
     # JSON 特有参数
     json_path: str | None = Field(default=None, description="JSONPath 提取路径，如 $.data.items")
-    json_format: str | None = Field(default=None, description="JSON 格式：auto / array / lines / object（前端直接透传）")
+    json_format: str | None = Field(
+        default=None, description="JSON 格式：auto / array / lines / object（前端直接透传）"
+    )
     record_path: str | None = Field(default=None, description="Record path，用于 pd.json_normalize")
