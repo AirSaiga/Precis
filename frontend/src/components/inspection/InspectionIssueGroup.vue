@@ -36,6 +36,7 @@
           @dismiss="$emit('dismiss', $event)"
           @restore="$emit('restore', $event)"
           @action="(i, a) => $emit('action', i, a)"
+          @fixed="$emit('fixed')"
         />
       </div>
     </Transition>
@@ -43,7 +44,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, watch } from 'vue'
+  import { computed, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import InspectionIssueCard from './InspectionIssueCard.vue'
   import type { InspectionIssue } from '@/types/projectV2'
@@ -68,6 +69,7 @@
     restore: [issueId: string]
     dismissGroup: [issueIds: string[]]
     action: [issue: InspectionIssue, action: any]
+    fixed: []
   }>()
 
   const { t } = useI18n()
@@ -80,12 +82,10 @@
     }
   )
 
-  const ICONS: Record<string, string> = {
-    file: '📄',
-    severity: '🪧',
-  }
-
-  const icon = '📄'
+  const icon = computed(() => {
+    if (props.group.key.startsWith('file-')) return '📄'
+    return '🪧'
+  })
 
   function dismissAllInGroup(): void {
     emit(

@@ -60,12 +60,6 @@
 
   const { t } = useI18n()
 
-  defineEmits<{
-    recheck: []
-    expandAll: []
-    copyAll: []
-  }>()
-
   const counts = computed(() => ({
     blocker: props.blockerCount,
     warning: props.warningCount,

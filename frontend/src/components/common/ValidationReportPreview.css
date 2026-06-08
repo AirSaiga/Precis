@@ -360,8 +360,8 @@
 .warnings-section {
   margin-top: 20px;
   padding: 16px;
-  background: var(--ui-warning-bg);
-  border: 1px solid var(--ui-warning-light);
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border-light);
   border-radius: 8px;
 }
 
@@ -369,28 +369,30 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--ui-warning-text);
+  color: var(--ui-warning-strong);
   font-weight: 600;
   margin-bottom: 12px;
+  font-size: 14px;
 }
 
 .warnings-list {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .warning-item {
-  padding: 8px 12px;
-  background: var(--ui-bg-elevated);
-  border-radius: 4px;
-  margin-bottom: 8px;
-  color: var(--ui-warning-strong);
-  font-size: 14px;
-}
-
-.warning-item:last-child {
-  margin-bottom: 0;
+  padding: 10px 12px;
+  background: var(--ui-bg-base);
+  border-radius: 6px;
+  border-left: 3px solid var(--ui-warning);
+  color: var(--ui-text-body);
+  font-size: 13px;
+  line-height: 1.5;
+  word-break: break-word;
 }
 
 .result-table {
@@ -464,6 +466,29 @@
 
 .col-msg {
   color: var(--ui-text-body);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.msg-body {
+  margin: 0;
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.msg-suggestion {
+  margin: 0;
+  font-size: 12px;
+  color: var(--ui-text-muted);
+  line-height: 1.4;
+  padding-left: 8px;
+  border-left: 2px solid var(--ui-border-light);
+}
+
+.msg-suggestion-label {
+  font-weight: 500;
+  color: var(--ui-text-secondary);
 }
 
 .badge {

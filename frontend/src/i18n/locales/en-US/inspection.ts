@@ -50,13 +50,14 @@ const inspection = {
     copyId: 'Copy ID',
     dismiss: 'Ignore',
     viewAvailableTables: 'View available tables',
+    selectFix: 'Select',
     autoFix: {
       deduplicate: 'Auto deduplicate',
     },
   },
   context: {
-    availableSchemas: 'Available tables in the project',
-    availableColumns: 'Available columns',
+    availableSchemas: 'Available tables in the project (click to fix reference)',
+    availableColumns: 'Available columns (click to fix reference)',
   },
   rawDetails: 'Show raw details',
   errorType: 'Error type',
@@ -88,7 +89,7 @@ const inspection = {
   /**
    * Localized text for each kind of configuration issue.
    * Placeholders correspond to backend message_params:
-   *   - manifestId / fileId / filePath (ID mismatch)
+   *   - manifestId / fileId / filePath / manifestDisplay / fileDisplay (ID mismatch)
    *   - constraintId / tableId / columnId (foreign key / generic reference)
    */
   issues: {
@@ -96,32 +97,32 @@ const inspection = {
       schema: {
         title: 'Table ID does not match the project manifest',
         description:
-          'The project manifest registers this table as "{manifestId}", but the file itself has ID "{fileId}". This may break other references to this table.',
+          'The project manifest registers this table as "{manifestDisplay}", but the file itself has ID "{fileDisplay}". This may break other references to this table.',
         fixHint: 'Update the manifest to match the file, or change the file ID to match the manifest.',
       },
       constraint: {
         title: 'Constraint ID does not match the project manifest',
         description:
-          'The project manifest registers this constraint as "{manifestId}", but the file itself has ID "{fileId}". This may prevent the rule from being referenced correctly.',
+          'The project manifest registers this constraint as "{manifestDisplay}", but the file itself has ID "{fileDisplay}". This may prevent the rule from being referenced correctly.',
         fixHint: 'Update the manifest to match the file, or change the file ID to match the manifest.',
       },
       regex: {
         title: 'Regex rule ID does not match the project manifest',
         description:
-          'The project manifest registers this regex rule as "{manifestId}", but the file itself has ID "{fileId}". This may prevent the rule from being referenced correctly.',
+          'The project manifest registers this regex rule as "{manifestDisplay}", but the file itself has ID "{fileDisplay}". This may prevent the rule from being referenced correctly.',
         fixHint: 'Update the manifest to match the file, or change the file ID to match the manifest.',
       },
       transform: {
         title: 'Data transform ID does not match the project manifest',
         description:
-          'The project manifest registers this transform as "{manifestId}", but the file itself has ID "{fileId}". This may prevent the transform from being referenced correctly.',
+          'The project manifest registers this transform as "{manifestDisplay}", but the file itself has ID "{fileDisplay}". This may prevent the transform from being referenced correctly.',
         fixHint: 'Update the manifest to match the file, or change the file ID to match the manifest.',
       },
     },
     dupConstraintRef: {
       title: 'A constraint is referenced multiple times',
       description:
-        'The project manifest lists the same constraint file "{filePath}" twice, and one of the entries uses ID "{manifestId}" which does not match the file\'s actual ID "{fileId}". This will load the rule twice and may cause conflicts.',
+        'The project manifest lists the same constraint file "{filePath}" twice, and one of the entries uses ID "{manifestDisplay}" which does not match the file\'s actual ID "{fileDisplay}". This will load the rule twice and may cause conflicts.',
       fixHint: 'Click "Auto deduplicate" to clean up (recommended), or manually remove the redundant entry from the manifest.',
     },
     fk: {
@@ -129,25 +130,25 @@ const inspection = {
         title: 'Foreign key source table not found',
         description:
           'Foreign key rule "{constraintId}" tries to read data from source table "{tableId}", but this table no longer exists in the project (it may have been deleted or renamed).',
-        fixHint: 'Pick one from "Available tables in the project" below as the source table.',
+        fixHint: 'Pick one from "Available tables in the project" below as the source table — click to fix reference.',
       },
       srcColMissing: {
         title: 'Foreign key source column not found',
         description:
           'Foreign key rule "{constraintId}" tries to read column "{columnId}" of source table "{tableId}", but this column no longer exists.',
-        fixHint: 'Pick one from "Available columns" below as the source column.',
+        fixHint: 'Pick one from "Available columns" below as the source column — click to fix reference.',
       },
       dstTableMissing: {
         title: 'Foreign key target table not found',
         description:
           'Foreign key rule "{constraintId}" references target table "{tableId}", but this table no longer exists in the project (it may have been deleted or renamed).',
-        fixHint: 'Pick one from "Available tables in the project" below as the target table.',
+        fixHint: 'Pick one from "Available tables in the project" below as the target table — click to fix reference.',
       },
       dstColMissing: {
         title: 'Foreign key target column not found',
         description:
           'Foreign key rule "{constraintId}" references column "{columnId}" of target table "{tableId}", but this column no longer exists.',
-        fixHint: 'Pick one from "Available columns" below as the target column.',
+        fixHint: 'Pick one from "Available columns" below as the target column — click to fix reference.',
       },
     },
     ref: {
@@ -155,13 +156,27 @@ const inspection = {
         title: 'The table referenced by this rule no longer exists',
         description:
           'Rule "{constraintId}" references table "{tableId}", but this table no longer exists in the project (it may have been deleted or renamed).',
-        fixHint: 'Pick one from "Available tables in the project" below as the referenced table.',
+        fixHint: 'Pick one from "Available tables in the project" below as the referenced table — click to fix reference.',
       },
       colMissing: {
         title: 'The column referenced by this rule no longer exists',
         description:
           'Rule "{constraintId}" references column "{columnId}" of table "{tableId}", but this column no longer exists.',
-        fixHint: 'Pick one from "Available columns" below as the referenced column.',
+        fixHint: 'Pick one from "Available columns" below as the referenced column — click to fix reference.',
+      },
+    },
+    regex: {
+      tableMissing: {
+        title: 'The table referenced by this regex rule no longer exists',
+        description:
+          'Regex rule "{constraintId}" references table "{tableId}", but this table no longer exists in the project (it may have been deleted or renamed).',
+        fixHint: 'Pick one from "Available tables in the project" below as the referenced table — click to fix reference.',
+      },
+      colMissing: {
+        title: 'The column referenced by this regex rule no longer exists',
+        description:
+          'Regex rule "{constraintId}" references column "{columnId}" of table "{tableId}", but this column no longer exists.',
+        fixHint: 'Pick one from "Available columns" below as the referenced column — click to fix reference.',
       },
     },
   },

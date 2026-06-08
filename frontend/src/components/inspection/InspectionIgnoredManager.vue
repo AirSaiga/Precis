@@ -20,7 +20,7 @@
 
         <ul v-else class="iim-list">
           <li v-for="issueId in [...store.ignoredIds]" :key="issueId" class="iim-item">
-            <span class="iim-item-id">{{ issueId }}</span>
+            <span class="iim-item-title">{{ issueTitleMap[issueId] ?? issueId }}</span>
             <button class="iim-restore" @click="restore(issueId)">
               {{ t('inspection.action.restore') }}
             </button>
@@ -45,14 +45,27 @@
 </template>
 
 <script setup lang="ts">
+  import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useInspectionStore } from '@/stores/inspectionStore'
+  import type { InspectionIssue } from '@/types/projectV2'
 
-  defineProps<{ visible: boolean }>()
+  const props = defineProps<{
+    visible: boolean
+    allIssues: InspectionIssue[]
+  }>()
   const emit = defineEmits<{ close: [] }>()
 
   const { t } = useI18n()
   const store = useInspectionStore()
+
+  const issueTitleMap = computed<Record<string, string>>(() => {
+    const map: Record<string, string> = {}
+    for (const issue of props.allIssues) {
+      map[issue.id] = issue.title
+    }
+    return map
+  })
 
   function close(): void {
     emit('close')
@@ -153,10 +166,9 @@
     border-radius: var(--ui-radius-sm);
   }
 
-  .iim-item-id {
+  .iim-item-title {
     flex: 1;
-    font-family: monospace;
-    font-size: 12px;
+    font-size: 13px;
     color: var(--ui-text);
     overflow: hidden;
     text-overflow: ellipsis;

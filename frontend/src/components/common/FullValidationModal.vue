@@ -15,6 +15,7 @@
   import { useValidationReportExport } from '@/composables/useValidationReportExport'
   import { useValidationErrorFilter } from '@/composables/validation/useValidationErrorFilter'
   import { useValidationErrorNavigator } from '@/composables/validation/useValidationErrorNavigator'
+  import { createValidationReportViewModel } from '@/services/validationReportViewModel'
   import ValidationScopeCards from '@/components/validation/ValidationScopeCards.vue'
   import ValidationContextBar from '@/components/validation/ValidationContextBar.vue'
   import ValidationSettingsGrid from '@/components/validation/ValidationSettingsGrid.vue'
@@ -70,9 +71,14 @@
   const showExportMenu = ref(false)
   const currentView = ref<'config' | 'running' | 'results'>('config')
 
+  // 报告视图模型（转换原始错误数据为展示友好的格式）
+  const reportViewModel = computed(() =>
+    createValidationReportViewModel(result.value, { rowLabel: t('common.fullValidation.table.row') })
+  )
+
   // 结果页筛选
   const errorFilter = computed(() => {
-    if (!result.value) {
+    if (!reportViewModel.value.errors.length) {
       return {
         stageFilter: ref('all' as const),
         groupBy: ref('table' as const),
@@ -80,7 +86,7 @@
         groupedErrors: ref({} as Record<string, any>),
       }
     }
-    return useValidationErrorFilter(result.value.errors)
+    return useValidationErrorFilter(reportViewModel.value.errors)
   })
 
   // 自动视图切换
@@ -190,7 +196,9 @@
           <div class="fv-header">
             <div class="fv-header-main">
               <h2 class="fv-header-title">{{ t('common.fullValidation.title') }}</h2>
-              <span v-if="currentTargetLabel" class="ui-badge is-primary">{{ currentTargetLabel }}</span>
+              <span v-if="currentTargetLabel" class="ui-badge is-primary">{{
+                currentTargetLabel
+              }}</span>
             </div>
             <button class="ui-icon-btn" type="button" @click="close">×</button>
           </div>
@@ -283,7 +291,9 @@
             <div v-else-if="currentView === 'running'" class="fv-view fv-view--center">
               <ValidationProgressBar
                 :progress="progress"
-                :current-table="processedStats.tablesLoaded > 0 ? `表 ${processedStats.tablesLoaded}` : undefined"
+                :current-table="
+                  processedStats.tablesLoaded > 0 ? `表 ${processedStats.tablesLoaded}` : undefined
+                "
                 :errors-found="processedStats.errorsFound"
               />
 
@@ -303,7 +313,11 @@
                   </svg>
                 </div>
                 <h3 class="fv-running-title">
-                  {{ running ? t('common.fullValidation.run.running') : t('common.fullValidation.run.completed') }}
+                  {{
+                    running
+                      ? t('common.fullValidation.run.running')
+                      : t('common.fullValidation.run.completed')
+                  }}
                 </h3>
               </div>
 
@@ -360,10 +374,18 @@
                 </div>
                 <div class="fv-status-main">
                   <div class="fv-status-title">
-                    {{ result?.success ? t('common.fullValidation.result.pass') : t('common.fullValidation.result.fail') }}
+                    {{
+                      result?.success
+                        ? t('common.fullValidation.result.pass')
+                        : t('common.fullValidation.result.fail')
+                    }}
                   </div>
                   <div class="fv-status-sub">
-                    {{ result?.success ? t('common.fullValidation.result.completeSuccess') : t('common.fullValidation.result.completeWithErrors') }}
+                    {{
+                      result?.success
+                        ? t('common.fullValidation.result.completeSuccess')
+                        : t('common.fullValidation.result.completeWithErrors')
+                    }}
                   </div>
                 </div>
                 <div class="fv-status-rate">
@@ -450,10 +472,18 @@
                     {{ t('common.fullValidation.export.exportReport') }}
                   </button>
                   <div v-if="showExportMenu" class="export-menu">
-                    <button class="export-menu-item" type="button" @click="handleExportReport('html')">
+                    <button
+                      class="export-menu-item"
+                      type="button"
+                      @click="handleExportReport('html')"
+                    >
                       {{ t('common.fullValidation.export.exportHtml') }}
                     </button>
-                    <button class="export-menu-item" type="button" @click="handleExportReport('pdf')">
+                    <button
+                      class="export-menu-item"
+                      type="button"
+                      @click="handleExportReport('pdf')"
+                    >
                       {{ t('common.fullValidation.export.exportPdf') }}
                     </button>
                   </div>

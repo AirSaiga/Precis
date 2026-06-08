@@ -14,7 +14,7 @@
 
 检查项:
 1. ID 跨文件一致性: manifest 引用 ID 与文件内部 id 字段是否一致
-2. 引用完整性: constraint 的 refs 指向是否有效（包括递归遍历 schema 嵌套子列）
+2. 引用完整性: constraint/regex 的引用指向是否有效
 """
 
 from __future__ import annotations
@@ -35,13 +35,66 @@ if TYPE_CHECKING:
     from app.shared.core.project.transform.types import TransformFile
 
 
-def _collect_column_identifiers(columns: list[ColumnSpec]) -> set[str]:
-    """递归收集 schema 中所有列的 id 和 name（包括嵌套子列）。
+_CONSTRAINT_LABELS: dict[str, str] = {
+    "NotNull": "非空",
+    "Unique": "唯一",
+    "AllowedValues": "允许值",
+    "ForeignKey": "外键",
+    "Conditional": "条件",
+    "Scripted": "脚本",
+    "Range": "区间",
+    "Charset": "字符集",
+    "DateLogic": "日期逻辑",
+    "Composite": "组合",
+}
 
-    JSON 等嵌套 schema 的列结构是树形的，父列的 children 中包含子列。
-    引用完整性检查需要把整棵树的列都纳入候选集合，否则会误报
-    "子列不存在"。
-    """
+
+def _schema_display(schema_file: TableSchemaFile | None, fallback_id: str = "") -> str:
+    """生成数据表的友好显示名称。"""
+    if schema_file is None:
+        id_text = fallback_id or "未知"
+        return f"数据表（编号 {id_text}）"
+    name = getattr(schema_file, "name", None) or getattr(schema_file, "id", "")
+    return f"数据表「{name}」"
+
+
+def _constraint_display(cf: ConstraintFile | None) -> str:
+    """生成约束规则的友好显示名称。"""
+    if cf is None:
+        return "未知规则"
+    label = _CONSTRAINT_LABELS.get(getattr(cf, "type", ""), "规则")
+    name = getattr(cf, "description", None) or ""
+    refs = getattr(cf, "refs", None) or {}
+    if not name:
+        t = refs.get("table_id") or refs.get("from_table_id")
+        c = refs.get("column_id") or refs.get("column_ids") or refs.get("from_column_id")
+        if isinstance(c, list):
+            c = c[0] if c else None
+        if t and c:
+            name = f"{t}.{c}"
+    if not name:
+        name = getattr(cf, "id", "")
+    return f"{label}规则「{name}」"
+
+
+def _regex_display(rf: RegexNodeFile | None) -> str:
+    """生成正则规则的友好显示名称。"""
+    if rf is None:
+        return "未知正则规则"
+    name = getattr(rf, "name", None) or getattr(rf, "id", "")
+    return f"正则规则「{name}」"
+
+
+def _transform_display(tf: TransformFile | None) -> str:
+    """生成转换规则的友好显示名称。"""
+    if tf is None:
+        return "未知转换规则"
+    name = getattr(tf, "name", None) or getattr(tf, "id", "")
+    return f"转换规则「{name}」"
+
+
+def _collect_column_identifiers(columns: list[ColumnSpec]) -> set[str]:
+    """递归收集 schema 中所有列的 id 和 name（包括嵌套子列）。"""
     ids: set[str] = set()
     for c in columns or []:
         ids.add(c.id)
@@ -56,10 +109,7 @@ def _default_actions_for_file(
     ref_id: str | None = None,
     include_dismiss: bool = True,
 ) -> list[dict]:
-    """为指向某个文件的错误生成通用动作列表（打开文件 / 复制 / 忽略）。
-
-    每个动作同时携带 label（中文 fallback）和 label_key（前端 i18n 键）。
-    """
+    """为指向某个文件的错误生成通用动作列表。"""
     actions: list[dict] = []
     if file_path:
         actions.append(
@@ -98,6 +148,47 @@ def _default_actions_for_file(
     return actions
 
 
+def _build_id_mismatch_loading_error(
+    resource_type: str,
+    manifest_id: str,
+    file_id: str,
+    file_path: str,
+    manifest_display: str,
+    file_display: str,
+) -> LoadingError:
+    """构建 ID 不一致类型的 LoadingError（通用）。"""
+    return LoadingError(
+        id=f"id_mismatch_{resource_type}:{manifest_id}:{file_id}",
+        severity="warning",
+        title="编号不一致",
+        description=(
+            f"项目配置中记录的（编号 {manifest_id}）"
+            f"与文件中的记录（编号 {file_id}）不一致。"
+            "编号不统一可能导致该资源无法正常生效。"
+        ),
+        fix_hint="请统一编号：建议以文件中的记录为准，更新项目配置中的编号。",
+        error_type="IdMismatchWarning",
+        file_path=file_path,
+        ref_id=manifest_id,
+        suggestion="请更新项目配置中的引用编号，或修改文件内部的编号使其一致",
+        actions=_default_actions_for_file(file_path, manifest_id),
+        title_key=f"inspection.issues.idMismatch.{resource_type}.title",
+        description_key=f"inspection.issues.idMismatch.{resource_type}.description",
+        fix_hint_key=f"inspection.issues.idMismatch.{resource_type}.fixHint",
+        message_params={
+            "manifestId": manifest_id,
+            "fileId": file_id,
+            "manifestDisplay": manifest_display,
+            "fileDisplay": file_display,
+        },
+        fix_api={
+            "method": "POST",
+            "path": "/project/v2/manifest/fix-id-mismatch",
+            "body": {"resource_type": resource_type, "manifest_id": manifest_id, "file_id": file_id},
+        },
+    )
+
+
 def inspect_id_consistency(
     manifest: ProjectManifest,
     schema_files: dict[str, TableSchemaFile],
@@ -107,212 +198,228 @@ def inspect_id_consistency(
     warnings: list[str],
     loading_errors: list[LoadingError],
 ) -> None:
-    """@methoddesc 检查 manifest 引用 ID 与文件内部 ID 的一致性。
-
-    业务规则:
-    - manifest 中引用的 id 应与文件内部的 id 字段一致
-    - 不一致时记录警告（可能是文件被手动修改或 manifest 过期）
-
-    检查逻辑:
-    1. 遍历 manifest.schemas，对比 schema_files 中对应文件的 id
-    2. 遍历 manifest.constraints，对比 constraint_files 中对应文件的 id
-    3. 遍历 manifest.regex_nodes，对比 regex_node_files 中对应文件的 id
-
-    Args:
-        manifest: 项目清单对象
-        schema_files: 已加载的 schema 文件字典 {manifest_id: TableSchemaFile}
-        constraint_files: 已加载的约束文件字典 {manifest_id: ConstraintFile}
-        regex_node_files: 已加载的正则文件字典 {manifest_id: RegexNodeFile}
-        transform_files: 已加载的转换文件字典 {manifest_id: TransformFile}
-        warnings: 警告列表（会被修改）
-        loading_errors: 错误列表（会被修改）
-    """
-    # 检查 Schema ID 一致性
+    """检查 manifest 引用 ID 与文件内部 ID 的一致性。"""
     for ref in manifest.schemas or []:
         schema_file = schema_files.get(ref.id)
         if schema_file and schema_file.id != ref.id:
+            manifest_display = _schema_display(schema_files.get(ref.id))
+            file_display = _schema_display(schema_file)
             msg = (
                 f"Schema ID 不一致: manifest 引用 ID '{ref.id}' "
                 f"与文件内部 id '{schema_file.id}' 不匹配 (文件: {ref.path})"
             )
             warnings.append(msg)
             loading_errors.append(
-                LoadingError(
-                    id=f"id_mismatch_schema:{ref.id}:{schema_file.id}",
-                    severity="warning",
-                    title="表 ID 与项目清单对不上",
-                    description=(
-                        f"项目清单里登记的表 ID 是「{ref.id}」，"
-                        f"但实际文件里的表 ID 是「{schema_file.id}」。"
-                        "这可能会导致其他引用到这张表的地方失效。"
-                    ),
-                    fix_hint="把项目清单里的 ID 改成与文件一致，或反过来修改文件里的 ID。",
-                    error_type="IdMismatchWarning",
-                    file_path=ref.path,
-                    ref_id=ref.id,
-                    message=msg,
-                    suggestion="请更新项目清单中的引用 ID 或修改文件内部的 id 字段使其一致",
-                    actions=_default_actions_for_file(ref.path, ref.id),
-                    title_key="inspection.issues.idMismatch.schema.title",
-                    description_key="inspection.issues.idMismatch.schema.description",
-                    fix_hint_key="inspection.issues.idMismatch.schema.fixHint",
-                    message_params={
-                        "manifestId": ref.id,
-                        "fileId": schema_file.id,
-                    },
+                _build_id_mismatch_loading_error(
+                    "schema", ref.id, schema_file.id, ref.path, manifest_display, file_display
                 )
             )
 
-    # 检查 Constraint ID 一致性
     for ref in manifest.constraints or []:
         constraint_file = constraint_files.get(ref.id)
         if constraint_file and constraint_file.id != ref.id:
+            manifest_display = _constraint_display(constraint_files.get(ref.id))
+            file_display = _constraint_display(constraint_file)
             msg = (
                 f"Constraint ID 不一致: manifest 引用 ID '{ref.id}' "
                 f"与文件内部 id '{constraint_file.id}' 不匹配 (文件: {ref.path})"
             )
             warnings.append(msg)
-            # 检测是否同时存在指向同文件且 id 匹配的"正确"条目
-            # → 这是 manifest 重复引用场景，给出针对性文案
             correct_ref_exists = any(
                 other_ref.id == constraint_file.id
                 for other_ref in (manifest.constraints or [])
                 if other_ref.id != ref.id
             )
             if correct_ref_exists:
-                title = "同一个约束被引用了多次"
-                description = (
-                    f"项目清单里同一个约束文件「{ref.path}」被列了两次，"
-                    f"其中一条登记的 ID「{ref.id}」与文件里的实际 ID「{constraint_file.id}」对不上。"
-                    "这会让这条规则被加载两次，可能产生冲突。"
+                loading_errors.append(
+                    LoadingError(
+                        id=f"id_mismatch_constraint:{ref.id}:{constraint_file.id}",
+                        severity="warning",
+                        title="同一条规则被重复登记",
+                        description=(
+                            f"项目配置中，规则文件「{ref.path}」被登记了两次，"
+                            f"其中一条的编号「{ref.id}」与文件中实际编号「{constraint_file.id}」不一致。"
+                            "重复登记会导致这条规则加载冲突。"
+                        ),
+                        fix_hint="点击「一键去重」自动清理重复记录（推荐），或手动从项目配置中删除多余条目。",
+                        error_type="IdMismatchWarning",
+                        file_path="project.precis.yaml",
+                        ref_id=ref.id,
+                        message=msg,
+                        suggestion="请更新项目配置中的引用编号，或修改文件内部的编号使其一致",
+                        actions=_default_actions_for_file("project.precis.yaml", ref.id),
+                        title_key="inspection.issues.dupConstraintRef.title",
+                        description_key="inspection.issues.dupConstraintRef.description",
+                        fix_hint_key="inspection.issues.dupConstraintRef.fixHint",
+                        message_params={
+                            "manifestId": ref.id,
+                            "fileId": constraint_file.id,
+                            "filePath": ref.path,
+                            "manifestDisplay": manifest_display,
+                            "fileDisplay": file_display,
+                        },
+                        fix_api={
+                            "method": "POST",
+                            "path": "/project/v2/manifest/constraint/deduplicate",
+                        },
+                    )
                 )
-                fix_hint = '点击"一键去重"自动清理（推荐），或手动从项目清单里删掉多余的那一条。'
-                title_key = "inspection.issues.dupConstraintRef.title"
-                description_key = "inspection.issues.dupConstraintRef.description"
-                fix_hint_key = "inspection.issues.dupConstraintRef.fixHint"
-                actions = _default_actions_for_file("project.precis.yaml", ref.id)
-                actions.insert(
-                    0,
-                    {
-                        "type": "auto_fix",
-                        "label": "一键去重",
-                        "label_key": "inspection.actions.autoFix.deduplicate",
-                        "fix_kind": "deduplicate_constraint_refs",
-                    },
-                )
-                fix_api = {
-                    "method": "POST",
-                    "path": "/project/v2/manifest/constraint/deduplicate",
-                }
             else:
-                title = "约束 ID 与项目清单对不上"
-                description = (
-                    f"项目清单里登记的约束 ID 是「{ref.id}」，"
-                    f"但实际文件里的约束 ID 是「{constraint_file.id}」。"
-                    "这可能让这条规则无法被正确引用。"
+                loading_errors.append(
+                    _build_id_mismatch_loading_error(
+                        "constraint", ref.id, constraint_file.id, ref.path, manifest_display, file_display
+                    )
                 )
-                fix_hint = "把项目清单里的 ID 改成与文件一致，或反过来修改文件里的 ID。"
-                title_key = "inspection.issues.idMismatch.constraint.title"
-                description_key = "inspection.issues.idMismatch.constraint.description"
-                fix_hint_key = "inspection.issues.idMismatch.constraint.fixHint"
-                actions = _default_actions_for_file(ref.path, ref.id)
-                fix_api = None
-            loading_errors.append(
-                LoadingError(
-                    id=f"id_mismatch_constraint:{ref.id}:{constraint_file.id}",
-                    severity="warning",
-                    title=title,
-                    description=description,
-                    fix_hint=fix_hint,
-                    error_type="IdMismatchWarning",
-                    file_path=ref.path,
-                    ref_id=ref.id,
-                    message=msg,
-                    suggestion="请更新项目清单中的引用 ID 或修改文件内部的 id 字段使其一致",
-                    actions=actions,
-                    fix_api=fix_api,
-                    title_key=title_key,
-                    description_key=description_key,
-                    fix_hint_key=fix_hint_key,
-                    message_params={
-                        "manifestId": ref.id,
-                        "fileId": constraint_file.id,
-                        "filePath": ref.path,
-                    },
-                )
-            )
 
-    # 检查 Regex ID 一致性
     for ref in manifest.regex_nodes or []:
         regex_file = regex_node_files.get(ref.id)
         if regex_file and regex_file.id != ref.id:
+            manifest_display = _regex_display(regex_node_files.get(ref.id))
+            file_display = _regex_display(regex_file)
             msg = (
                 f"Regex ID 不一致: manifest 引用 ID '{ref.id}' "
                 f"与文件内部 id '{regex_file.id}' 不匹配 (文件: {ref.path})"
             )
             warnings.append(msg)
             loading_errors.append(
-                LoadingError(
-                    id=f"id_mismatch_regex:{ref.id}:{regex_file.id}",
-                    severity="warning",
-                    title="正则规则 ID 与项目清单对不上",
-                    description=(
-                        f"项目清单里登记的正则规则 ID 是「{ref.id}」，"
-                        f"但实际文件里的 ID 是「{regex_file.id}」。"
-                        "这可能让这条规则无法被正确引用。"
-                    ),
-                    fix_hint="把项目清单里的 ID 改成与文件一致，或反过来修改文件里的 ID。",
-                    error_type="IdMismatchWarning",
-                    file_path=ref.path,
-                    ref_id=ref.id,
-                    message=msg,
-                    suggestion="请更新项目清单中的引用 ID 或修改文件内部的 id 字段使其一致",
-                    actions=_default_actions_for_file(ref.path, ref.id),
-                    title_key="inspection.issues.idMismatch.regex.title",
-                    description_key="inspection.issues.idMismatch.regex.description",
-                    fix_hint_key="inspection.issues.idMismatch.regex.fixHint",
-                    message_params={
-                        "manifestId": ref.id,
-                        "fileId": regex_file.id,
-                    },
+                _build_id_mismatch_loading_error(
+                    "regex", ref.id, regex_file.id, ref.path, manifest_display, file_display
                 )
             )
 
-    # 检查 Transform ID 一致性
     for ref in manifest.transforms or []:
         transform_file = transform_files.get(ref.id)
         if transform_file and transform_file.id != ref.id:
+            manifest_display = _transform_display(transform_files.get(ref.id))
+            file_display = _transform_display(transform_file)
             msg = (
                 f"Transform ID 不一致: manifest 引用 ID '{ref.id}' "
                 f"与文件内部 id '{transform_file.id}' 不匹配 (文件: {ref.path})"
             )
             warnings.append(msg)
             loading_errors.append(
-                LoadingError(
-                    id=f"id_mismatch_transform:{ref.id}:{transform_file.id}",
-                    severity="warning",
-                    title="数据转换 ID 与项目清单对不上",
-                    description=(
-                        f"项目清单里登记的数据转换 ID 是「{ref.id}」，"
-                        f"但实际文件里的 ID 是「{transform_file.id}」。"
-                        "这可能让这个转换无法被正确引用。"
-                    ),
-                    fix_hint="把项目清单里的 ID 改成与文件一致，或反过来修改文件里的 ID。",
-                    error_type="IdMismatchWarning",
-                    file_path=ref.path,
-                    ref_id=ref.id,
-                    message=msg,
-                    suggestion="请更新项目清单中的引用 ID 或修改文件内部的 id 字段使其一致",
-                    actions=_default_actions_for_file(ref.path, ref.id),
-                    title_key="inspection.issues.idMismatch.transform.title",
-                    description_key="inspection.issues.idMismatch.transform.description",
-                    fix_hint_key="inspection.issues.idMismatch.transform.fixHint",
-                    message_params={
-                        "manifestId": ref.id,
-                        "fileId": transform_file.id,
-                    },
+                _build_id_mismatch_loading_error(
+                    "transform", ref.id, transform_file.id, ref.path, manifest_display, file_display
                 )
             )
+
+
+def _check_table_missing(
+    table_id: str,
+    constraint_id: str,
+    constraint_display: str,
+    schema_files: dict[str, TableSchemaFile],
+    available_schemas: list[dict],
+    error_prefix: str,
+    title_key: str,
+    description_key: str,
+    fix_hint_key: str,
+    loading_errors: list[LoadingError],
+    warnings: list[str],
+    role_label: str,
+) -> None:
+    """检查引用的表是否存在，不存在时生成 LoadingError。"""
+    schema = schema_files.get(table_id)
+    schema_display = _schema_display(schema, fallback_id=table_id)
+    msg = f"约束 '{constraint_id}' 引用的表 '{table_id}' 不存在"
+    warnings.append(msg)
+    loading_errors.append(
+        LoadingError(
+            id=f"{error_prefix}:{constraint_id}:{table_id}",
+            severity="blocker",
+            title=f"规则引用的{role_label}数据表已不存在",
+            description=(
+                f"{constraint_display} {role_label}的 {_schema_display(schema, fallback_id=table_id)}"
+                "已被删除或改名，当前无法找到。"
+            ),
+            fix_hint="请从下方列表中选择一张现有数据表进行关联，点击即可自动修正。",
+            error_type="ReferenceIntegrityError",
+            file_path="",
+            ref_id=constraint_id,
+            message=msg,
+            suggestion=f"请检查约束关联的表是否正确，可用的表: {[s['id'] for s in available_schemas]}",
+            actions=_default_actions_for_file("", constraint_id),
+            context={"available_schemas": available_schemas, "missing_table_id": table_id},
+            title_key=title_key,
+            description_key=description_key,
+            fix_hint_key=fix_hint_key,
+            message_params={
+                "constraintId": constraint_id,
+                "tableId": table_id,
+                "constraintDisplay": constraint_display,
+                "schemaDisplay": schema_display,
+            },
+            fix_api={
+                "method": "POST",
+                "path": "/project/v2/inspection/fix-table-ref",
+                "body": {"constraint_id": constraint_id, "field": error_prefix.split(":")[0], "old_table_id": table_id},
+            },
+        )
+    )
+
+
+def _check_column_missing(
+    col_id: str,
+    table_id: str,
+    constraint_id: str,
+    constraint_display: str,
+    schema_files: dict[str, TableSchemaFile],
+    schema_column_cache: dict[str, set[str]],
+    error_prefix: str,
+    title_key: str,
+    description_key: str,
+    fix_hint_key: str,
+    loading_errors: list[LoadingError],
+    warnings: list[str],
+    role_label: str,
+) -> None:
+    """检查引用的列是否存在，不存在时生成 LoadingError。"""
+    schema = schema_files.get(table_id)
+    available_cols = sorted(schema_column_cache.get(table_id, set()))
+    msg = f"约束 '{constraint_id}' 引用的列 '{col_id}' 在表 '{table_id}' 中不存在"
+    warnings.append(msg)
+    loading_errors.append(
+        LoadingError(
+            id=f"{error_prefix}:{constraint_id}:{table_id}:{col_id}",
+            severity="blocker",
+            title=f"规则引用的{role_label}列已不存在",
+            description=(
+                f"{constraint_display} {role_label}到 {_schema_display(schema)}的「{col_id}」列，但该列已被删除或改名。"
+            ),
+            fix_hint="请从下方该表的可用列中选择一个进行关联，点击即可自动修正。",
+            error_type="ReferenceIntegrityError",
+            file_path="",
+            ref_id=constraint_id,
+            message=msg,
+            suggestion=f"请检查列编号是否正确，表 '{table_id}' 的可用列: {available_cols}",
+            actions=_default_actions_for_file("", constraint_id),
+            context={
+                "table_id": table_id,
+                "available_columns": available_cols,
+                "missing_column_id": col_id,
+            },
+            title_key=title_key,
+            description_key=description_key,
+            fix_hint_key=fix_hint_key,
+            message_params={
+                "constraintId": constraint_id,
+                "tableId": table_id,
+                "columnId": col_id,
+                "constraintDisplay": constraint_display,
+                "schemaDisplay": _schema_display(schema),
+            },
+            fix_api={
+                "method": "POST",
+                "path": "/project/v2/inspection/fix-column-ref",
+                "body": {
+                    "constraint_id": constraint_id,
+                    "field": error_prefix.split(":")[0],
+                    "table_id": table_id,
+                    "old_column_id": col_id,
+                },
+            },
+        )
+    )
 
 
 def inspect_reference_integrity(
@@ -321,33 +428,11 @@ def inspect_reference_integrity(
     warnings: list[str],
     loading_errors: list[LoadingError],
 ) -> None:
-    """@methoddesc 检查约束引用的完整性。
-
-    业务规则:
-    - constraint.refs.table_id 必须指向 manifest 中存在的 schema
-    - constraint.refs.column_id/column_ids 必须指向 schema 中存在的列
-      （包括递归遍历的 JSON 嵌套子列）
-    - 引用无效时记录错误
-
-    检查逻辑:
-    1. 遍历所有 constraint_files
-    2. 根据约束类型提取 table_id 和 column_id/column_ids
-    3. 检查 table_id 是否在 schema_files 中存在
-    4. 检查 column_id 是否在对应 schema 的列集合中存在（递归）
-
-    Args:
-        schema_files: 已加载的 schema 文件字典 {id: TableSchemaFile}
-        constraint_files: 已加载的约束文件字典 {id: ConstraintFile}
-        warnings: 警告列表（会被修改）
-        loading_errors: 错误列表（会被修改）
-    """
-    # 构建 schema 列集合的缓存 {table_id: {id_or_name 集合}}
-    # 递归遍历 children 以支持 JSON 嵌套列（如 supplier.children 中的 supplier_rating）
+    """检查约束引用的完整性。"""
     schema_column_cache: dict[str, set[str]] = {}
     for table_id, schema_file in schema_files.items():
         schema_column_cache[table_id] = _collect_column_identifiers(schema_file.columns)
 
-    # 构建"可用的 schema"列表，用于 FK 悬挂错误时给出可选目标
     available_schemas: list[dict] = [{"id": sid, "name": s.name} for sid, s in schema_files.items()]
 
     for constraint_id, constraint_file in constraint_files.items():
@@ -355,21 +440,18 @@ def inspect_reference_integrity(
         if not refs:
             continue
 
-        # 根据约束类型提取引用信息
         table_id = None
         column_ids_to_check: list[str] = []
 
         constraint_type = constraint_file.type
 
         if constraint_type in ("NotNull", "AllowedValues", "Range", "DateLogic", "Charset", "Scripted"):
-            # 单表单列约束
             table_id = refs.get("table_id")
             col = refs.get("column_id")
             if col:
                 column_ids_to_check.append(col)
 
         elif constraint_type == "Unique":
-            # 单表多列约束
             table_id = refs.get("table_id")
             cols = refs.get("column_ids") or refs.get("column_id")
             if isinstance(cols, str):
@@ -378,161 +460,86 @@ def inspect_reference_integrity(
                 column_ids_to_check.extend(cols)
 
         elif constraint_type == "ForeignKey":
-            # 外键约束：检查 from_table/from_column 和 to_table/to_column
             from_table_id = refs.get("from_table_id")
             from_column_id = refs.get("from_column_id")
             to_table_id = refs.get("to_table_id")
             to_column_id = refs.get("to_column_id")
 
-            # 检查 from 端
+            constraint_display = _constraint_display(constraint_file)
+
             if from_table_id:
                 if from_table_id not in schema_files:
-                    msg = f"约束 '{constraint_id}' 引用的源表 '{from_table_id}' 不存在"
-                    warnings.append(msg)
-                    loading_errors.append(
-                        LoadingError(
-                            id=f"fk_src_table_missing:{constraint_id}:{from_table_id}",
-                            severity="blocker",
-                            title="找不到外键来源的表",
-                            description=(
-                                f"外键规则「{constraint_id}」要从来源表「{from_table_id}」"
-                                "取数据进行匹配，但这张表已不在项目里（可能被删除或重命名）。"
-                            ),
-                            fix_hint='从下方"项目中可用的表"挑一张作为来源表。',
-                            error_type="ReferenceIntegrityError",
-                            file_path="",
-                            ref_id=constraint_id,
-                            message=msg,
-                            suggestion="请检查外键来源表是否正确",
-                            actions=_default_actions_for_file("", constraint_id)
-                            + [
-                                {
-                                    "type": "navigate",
-                                    "label": "查看可用表",
-                                    "label_key": "inspection.actions.viewAvailableTables",
-                                    "target": "schemas",
-                                }
-                            ],
-                            context={"available_schemas": available_schemas},
-                            title_key="inspection.issues.fk.srcTableMissing.title",
-                            description_key="inspection.issues.fk.srcTableMissing.description",
-                            fix_hint_key="inspection.issues.fk.srcTableMissing.fixHint",
-                            message_params={
-                                "constraintId": constraint_id,
-                                "tableId": from_table_id,
-                            },
-                        )
+                    _check_table_missing(
+                        from_table_id,
+                        constraint_id,
+                        constraint_display,
+                        schema_files,
+                        available_schemas,
+                        "fk_src_table_missing",
+                        "inspection.issues.fk.srcTableMissing.title",
+                        "inspection.issues.fk.srcTableMissing.description",
+                        "inspection.issues.fk.srcTableMissing.fixHint",
+                        loading_errors,
+                        warnings,
+                        "数据来源",
                     )
                 elif from_column_id and from_column_id not in schema_column_cache.get(from_table_id, set()):
-                    available_cols = sorted(schema_column_cache.get(from_table_id, set()))
-                    msg = f"约束 '{constraint_id}' 引用的源列 '{from_column_id}' 在表 '{from_table_id}' 中不存在"
-                    warnings.append(msg)
-                    loading_errors.append(
-                        LoadingError(
-                            id=f"fk_src_col_missing:{constraint_id}:{from_table_id}:{from_column_id}",
-                            severity="blocker",
-                            title="找不到外键来源的列",
-                            description=(
-                                f"外键规则「{constraint_id}」要从来源表「{from_table_id}」"
-                                f"的「{from_column_id}」列取数据，但这一列已不存在。"
-                            ),
-                            fix_hint='从下方"可用的列"挑一个作为来源列。',
-                            error_type="ReferenceIntegrityError",
-                            file_path="",
-                            ref_id=constraint_id,
-                            message=msg,
-                            suggestion="请检查外键来源列是否正确",
-                            actions=_default_actions_for_file("", constraint_id),
-                            context={
-                                "table_id": from_table_id,
-                                "available_columns": available_cols,
-                            },
-                            title_key="inspection.issues.fk.srcColMissing.title",
-                            description_key="inspection.issues.fk.srcColMissing.description",
-                            fix_hint_key="inspection.issues.fk.srcColMissing.fixHint",
-                            message_params={
-                                "constraintId": constraint_id,
-                                "tableId": from_table_id,
-                                "columnId": from_column_id,
-                            },
-                        )
+                    _check_column_missing(
+                        from_column_id,
+                        from_table_id,
+                        constraint_id,
+                        constraint_display,
+                        schema_files,
+                        schema_column_cache,
+                        "fk_src_col_missing",
+                        "inspection.issues.fk.srcColMissing.title",
+                        "inspection.issues.fk.srcColMissing.description",
+                        "inspection.issues.fk.srcColMissing.fixHint",
+                        loading_errors,
+                        warnings,
+                        "数据来源",
                     )
 
-            # 检查 to 端（表不存在时跳过列检查，避免重复报告）
             if to_table_id:
                 if to_table_id not in schema_files:
-                    msg = f"约束 '{constraint_id}' 引用的目标表 '{to_table_id}' 不存在"
-                    warnings.append(msg)
-                    loading_errors.append(
-                        LoadingError(
-                            id=f"fk_dst_table_missing:{constraint_id}:{to_table_id}",
-                            severity="blocker",
-                            title="找不到外键关联的目标表",
-                            description=(
-                                f"外键规则「{constraint_id}」要关联到目标表「{to_table_id}」，"
-                                "但这张表已不在项目里（可能被删除或重命名）。"
-                            ),
-                            fix_hint='从下方"项目中可用的表"挑一张作为目标表。',
-                            error_type="ReferenceIntegrityError",
-                            file_path="",
-                            ref_id=constraint_id,
-                            message=msg,
-                            suggestion="请检查外键目标表是否正确",
-                            actions=_default_actions_for_file("", constraint_id),
-                            context={"available_schemas": available_schemas},
-                            title_key="inspection.issues.fk.dstTableMissing.title",
-                            description_key="inspection.issues.fk.dstTableMissing.description",
-                            fix_hint_key="inspection.issues.fk.dstTableMissing.fixHint",
-                            message_params={
-                                "constraintId": constraint_id,
-                                "tableId": to_table_id,
-                            },
-                        )
+                    _check_table_missing(
+                        to_table_id,
+                        constraint_id,
+                        constraint_display,
+                        schema_files,
+                        available_schemas,
+                        "fk_dst_table_missing",
+                        "inspection.issues.fk.dstTableMissing.title",
+                        "inspection.issues.fk.dstTableMissing.description",
+                        "inspection.issues.fk.dstTableMissing.fixHint",
+                        loading_errors,
+                        warnings,
+                        "关联目标",
                     )
                 elif to_column_id and to_column_id not in schema_column_cache.get(to_table_id, set()):
-                    available_cols = sorted(schema_column_cache.get(to_table_id, set()))
-                    msg = f"约束 '{constraint_id}' 引用的目标列 '{to_column_id}' 在表 '{to_table_id}' 中不存在"
-                    warnings.append(msg)
-                    loading_errors.append(
-                        LoadingError(
-                            id=f"fk_dst_col_missing:{constraint_id}:{to_table_id}:{to_column_id}",
-                            severity="blocker",
-                            title="找不到外键关联的列",
-                            description=(
-                                f"外键规则「{constraint_id}」要关联到目标表「{to_table_id}」"
-                                f"的「{to_column_id}」列，但这一列已不存在。"
-                            ),
-                            fix_hint='从下方"可用的列"挑一个作为目标列。',
-                            error_type="ReferenceIntegrityError",
-                            file_path="",
-                            ref_id=constraint_id,
-                            message=msg,
-                            suggestion="请检查外键目标列是否正确",
-                            actions=_default_actions_for_file("", constraint_id),
-                            context={
-                                "table_id": to_table_id,
-                                "available_columns": available_cols,
-                            },
-                            title_key="inspection.issues.fk.dstColMissing.title",
-                            description_key="inspection.issues.fk.dstColMissing.description",
-                            fix_hint_key="inspection.issues.fk.dstColMissing.fixHint",
-                            message_params={
-                                "constraintId": constraint_id,
-                                "tableId": to_table_id,
-                                "columnId": to_column_id,
-                            },
-                        )
+                    _check_column_missing(
+                        to_column_id,
+                        to_table_id,
+                        constraint_id,
+                        constraint_display,
+                        schema_files,
+                        schema_column_cache,
+                        "fk_dst_col_missing",
+                        "inspection.issues.fk.dstColMissing.title",
+                        "inspection.issues.fk.dstColMissing.description",
+                        "inspection.issues.fk.dstColMissing.fixHint",
+                        loading_errors,
+                        warnings,
+                        "关联目标",
                     )
 
-            continue  # ForeignKey 已单独处理，跳过后续通用检查
+            continue
 
         elif constraint_type == "Conditional":
-            # 条件约束：检查 table_id、then_column_id、if_conditions 中的列
             table_id = refs.get("table_id")
             then_col = refs.get("then_column_id")
             if then_col:
                 column_ids_to_check.append(then_col)
-            # 检查 if_conditions 中的列
             if_conditions = refs.get("if_conditions") or []
             for cond in if_conditions:
                 if isinstance(cond, dict):
@@ -543,77 +550,153 @@ def inspect_reference_integrity(
                     column_ids_to_check.append(if_col)
 
         elif constraint_type == "Composite":
-            # 组合约束：refs 结构可能不同，跳过深度检查
             continue
 
-        # 通用检查：table_id 存在性
         if table_id and table_id not in schema_files:
-            msg = f"约束 '{constraint_id}' 引用的表 '{table_id}' 不存在"
-            warnings.append(msg)
-            loading_errors.append(
-                LoadingError(
-                    id=f"ref_table_missing:{constraint_id}:{table_id}",
-                    severity="blocker",
-                    title="规则关联的表已不存在",
-                    description=(
-                        f"规则「{constraint_id}」要关联到表「{table_id}」，但这张表已不在项目里（可能被删除或重命名）。"
-                    ),
-                    fix_hint='从下方"项目中可用的表"挑一张作为关联的表。',
-                    error_type="ReferenceIntegrityError",
-                    file_path="",
-                    ref_id=constraint_id,
-                    message=msg,
-                    suggestion=f"请检查约束关联的表是否正确，可用的表: {[s['id'] for s in available_schemas]}",
-                    actions=_default_actions_for_file("", constraint_id),
-                    context={"available_schemas": available_schemas},
-                    title_key="inspection.issues.ref.tableMissing.title",
-                    description_key="inspection.issues.ref.tableMissing.description",
-                    fix_hint_key="inspection.issues.ref.tableMissing.fixHint",
-                    message_params={
-                        "constraintId": constraint_id,
-                        "tableId": table_id,
-                    },
-                )
+            constraint_display = _constraint_display(constraint_file)
+            _check_table_missing(
+                table_id,
+                constraint_id,
+                constraint_display,
+                schema_files,
+                available_schemas,
+                "ref_table_missing",
+                "inspection.issues.ref.tableMissing.title",
+                "inspection.issues.ref.tableMissing.description",
+                "inspection.issues.ref.tableMissing.fixHint",
+                loading_errors,
+                warnings,
+                "",
             )
-            continue  # 表不存在，跳过列检查
+            continue
 
-        # 通用检查：column_id 存在性
         if table_id and table_id in schema_column_cache:
             valid_columns = schema_column_cache[table_id]
             for col_id in column_ids_to_check:
                 if col_id not in valid_columns:
-                    available_cols = sorted(valid_columns)
-                    msg = f"约束 '{constraint_id}' 引用的列 '{col_id}' 在表 '{table_id}' 中不存在"
-                    warnings.append(msg)
-                    loading_errors.append(
-                        LoadingError(
-                            id=f"ref_col_missing:{constraint_id}:{table_id}:{col_id}",
-                            severity="blocker",
-                            title="规则关联的列已不存在",
-                            description=(
-                                f"规则「{constraint_id}」要关联到表「{table_id}」的「{col_id}」列，但这一列已不存在。"
-                            ),
-                            fix_hint='从下方"可用的列"挑一个作为关联的列。',
-                            error_type="ReferenceIntegrityError",
-                            file_path="",
-                            ref_id=constraint_id,
-                            message=msg,
-                            suggestion=f"请检查列 ID 是否正确，表 '{table_id}' 的可用列: {available_cols}",
-                            actions=_default_actions_for_file("", constraint_id),
-                            context={
-                                "table_id": table_id,
-                                "available_columns": available_cols,
-                            },
-                            title_key="inspection.issues.ref.colMissing.title",
-                            description_key="inspection.issues.ref.colMissing.description",
-                            fix_hint_key="inspection.issues.ref.colMissing.fixHint",
-                            message_params={
-                                "constraintId": constraint_id,
-                                "tableId": table_id,
-                                "columnId": col_id,
-                            },
-                        )
+                    constraint_display = _constraint_display(constraint_file)
+                    _check_column_missing(
+                        col_id,
+                        table_id,
+                        constraint_id,
+                        constraint_display,
+                        schema_files,
+                        schema_column_cache,
+                        "ref_col_missing",
+                        "inspection.issues.ref.colMissing.title",
+                        "inspection.issues.ref.colMissing.description",
+                        "inspection.issues.ref.colMissing.fixHint",
+                        loading_errors,
+                        warnings,
+                        "",
                     )
+
+
+def inspect_regex_reference_integrity(
+    regex_node_files: dict[str, RegexNodeFile],
+    schema_files: dict[str, TableSchemaFile],
+    warnings: list[str],
+    loading_errors: list[LoadingError],
+) -> None:
+    """检查正则节点的 source_ref 引用完整性。"""
+    schema_column_cache: dict[str, set[str]] = {}
+    for table_id, schema_file in schema_files.items():
+        schema_column_cache[table_id] = _collect_column_identifiers(schema_file.columns)
+
+    available_schemas: list[dict] = [{"id": sid, "name": s.name} for sid, s in schema_files.items()]
+
+    for regex_id, regex_file in regex_node_files.items():
+        source_ref = getattr(regex_file, "source_ref", None)
+        if not source_ref:
+            continue
+
+        table_id = source_ref.table_id
+        column_id = source_ref.column_id
+
+        if table_id and table_id not in schema_files:
+            regex_display = _regex_display(regex_file)
+            msg = f"正则节点 '{regex_id}' 引用的表 '{table_id}' 不存在"
+            warnings.append(msg)
+            loading_errors.append(
+                LoadingError(
+                    id=f"regex_table_missing:{regex_id}:{table_id}",
+                    severity="blocker",
+                    title="正则规则引用的数据表已不存在",
+                    description=(
+                        f"{regex_display} 引用的 {_schema_display(None, fallback_id=table_id)}"
+                        "已被删除或改名，当前无法找到。"
+                    ),
+                    fix_hint="请从下方列表中选择一张现有数据表进行关联，点击即可自动修正。",
+                    error_type="ReferenceIntegrityError",
+                    file_path="",
+                    ref_id=regex_id,
+                    message=msg,
+                    suggestion="请检查正则节点关联的表是否正确",
+                    actions=_default_actions_for_file("", regex_id),
+                    context={"available_schemas": available_schemas, "missing_table_id": table_id},
+                    title_key="inspection.issues.regex.tableMissing.title",
+                    description_key="inspection.issues.regex.tableMissing.description",
+                    fix_hint_key="inspection.issues.regex.tableMissing.fixHint",
+                    message_params={
+                        "regexId": regex_id,
+                        "tableId": table_id,
+                        "regexDisplay": regex_display,
+                    },
+                    fix_api={
+                        "method": "POST",
+                        "path": "/project/v2/inspection/fix-regex-table-ref",
+                        "body": {"regex_id": regex_id, "old_table_id": table_id},
+                    },
+                )
+            )
+            continue
+
+        if table_id and column_id and column_id not in schema_column_cache.get(table_id, set()):
+            available_cols = sorted(schema_column_cache.get(table_id, set()))
+            regex_display = _regex_display(regex_file)
+            msg = f"正则节点 '{regex_id}' 引用的列 '{column_id}' 在表 '{table_id}' 中不存在"
+            warnings.append(msg)
+            loading_errors.append(
+                LoadingError(
+                    id=f"regex_col_missing:{regex_id}:{table_id}:{column_id}",
+                    severity="blocker",
+                    title="正则规则引用的列已不存在",
+                    description=(
+                        f"{regex_display} 引用到 {_schema_display(schema_files.get(table_id))}"
+                        f"的「{column_id}」列，但该列已被删除或改名。"
+                    ),
+                    fix_hint="请从下方该表的可用列中选择一个进行关联，点击即可自动修正。",
+                    error_type="ReferenceIntegrityError",
+                    file_path="",
+                    ref_id=regex_id,
+                    message=msg,
+                    suggestion=f"请检查列编号是否正确，表 '{table_id}' 的可用列: {available_cols}",
+                    actions=_default_actions_for_file("", regex_id),
+                    context={
+                        "table_id": table_id,
+                        "available_columns": available_cols,
+                        "missing_column_id": column_id,
+                    },
+                    title_key="inspection.issues.regex.colMissing.title",
+                    description_key="inspection.issues.regex.colMissing.description",
+                    fix_hint_key="inspection.issues.regex.colMissing.fixHint",
+                    message_params={
+                        "regexId": regex_id,
+                        "tableId": table_id,
+                        "columnId": column_id,
+                        "regexDisplay": regex_display,
+                    },
+                    fix_api={
+                        "method": "POST",
+                        "path": "/project/v2/inspection/fix-regex-column-ref",
+                        "body": {
+                            "regex_id": regex_id,
+                            "table_id": table_id,
+                            "old_column_id": column_id,
+                        },
+                    },
+                )
+            )
 
 
 def inspect_config(
@@ -626,25 +709,7 @@ def inspect_config(
     warnings: list[str],
     loading_errors: list[LoadingError],
 ) -> None:
-    """@methoddesc 配置文件格式自检主入口。
-
-    在项目加载完成后执行跨文件一致性检查，将发现的问题记录到
-    warnings 和 loading_errors 中。
-
-    检查流程:
-    1. ID 跨文件一致性检查
-    2. 引用完整性检查（嵌套列）
-
-    Args:
-        manifest_path: manifest 文件路径
-        manifest: 项目清单对象
-        schema_files: 已加载的 schema 文件字典
-        constraint_files: 已加载的约束文件字典
-        regex_node_files: 已加载的正则文件字典
-        transform_files: 已加载的转换文件字典
-        warnings: 警告列表（会被修改）
-        loading_errors: 错误列表（会被修改）
-    """
+    """配置文件格式自检主入口。"""
     logger.info("[配置自检] 开始检查项目配置: %s", manifest_path.parent.name)
     logger.info(
         "[配置自检] 检查范围: %d schemas, %d constraints, %d regex, %d transforms",
@@ -657,13 +722,13 @@ def inspect_config(
     errors_before = len(loading_errors)
     warnings_before = len(warnings)
 
-    # 检查 1: ID 跨文件一致性
     inspect_id_consistency(
         manifest, schema_files, constraint_files, regex_node_files, transform_files, warnings, loading_errors
     )
 
-    # 检查 2: 引用完整性（包含嵌套列递归）
     inspect_reference_integrity(schema_files, constraint_files, warnings, loading_errors)
+
+    inspect_regex_reference_integrity(regex_node_files, schema_files, warnings, loading_errors)
 
     errors_found = len(loading_errors) - errors_before
     warnings_found = len(warnings) - warnings_before

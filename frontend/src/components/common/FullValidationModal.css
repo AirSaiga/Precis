@@ -496,6 +496,156 @@
   justify-content: center;
 }
 
+/* ---- Error Groups & Items ---- */
+.fv-error-groups {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-md);
+}
+
+.fv-error-group {
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-lg);
+  overflow: hidden;
+  background: var(--ui-bg-elevated);
+}
+
+.fv-error-group-header {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--ui-transition-fast);
+}
+
+.fv-error-group-header:hover {
+  background: var(--ui-bg-subtle);
+}
+
+.fv-error-group-toggle {
+  display: inline-flex;
+  color: var(--ui-text-muted);
+  transition: transform var(--ui-transition-fast);
+}
+
+.fv-error-group-name {
+  flex: 1;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-medium);
+  color: var(--ui-text-strong);
+}
+
+.fv-error-group-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  background: var(--ui-border-light);
+}
+
+.fv-error-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-space-md);
+  padding: var(--ui-space-md);
+  background: var(--ui-bg-panel);
+  cursor: pointer;
+  transition: background var(--ui-transition-fast);
+}
+
+.fv-error-item:hover {
+  background: var(--ui-bg-subtle);
+}
+
+.fv-error-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-xs);
+  min-width: 0;
+}
+
+.fv-error-topline {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+  flex-wrap: wrap;
+}
+
+.fv-error-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--ui-radius-sm);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.fv-error-badge.is-danger {
+  background: var(--ui-danger-weak);
+  color: var(--ui-danger-strong);
+}
+
+.fv-error-badge.is-warning {
+  background: var(--ui-warning-weak);
+  color: var(--ui-warning-strong);
+}
+
+.fv-error-badge.is-info {
+  background: var(--ui-info-weak);
+  color: var(--ui-info-strong);
+}
+
+.fv-error-type {
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-muted);
+  font-weight: var(--ui-font-weight-medium);
+}
+
+.fv-error-msg {
+  margin: 0;
+  font-size: var(--ui-font-size-sm);
+  line-height: 1.5;
+  color: var(--ui-text-body);
+  word-break: break-word;
+}
+
+.fv-error-suggestion {
+  margin: 0;
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.5;
+  color: var(--ui-text-muted);
+  padding-left: var(--ui-space-sm);
+  border-left: 2px solid var(--ui-border-light);
+}
+
+.fv-error-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.fv-error-location {
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-muted);
+  font-family: var(--ui-font-mono);
+}
+
+.fv-error-navigate {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--ui-text-muted);
+}
+
+.fv-error-navigate:hover {
+  color: var(--ui-accent-strong);
+}
+
 /* ---- Responsive ---- */
 @media (max-width: 960px) {
   .fv-overlay {

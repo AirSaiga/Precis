@@ -15,6 +15,7 @@ from fastapi import APIRouter
 from . import (
     constraint,
     full_config,
+    inspection_fix,
     manifest,
     pattern,
     regex,
@@ -42,3 +43,4 @@ router.include_router(template.router)
 router.include_router(full_config.router)
 router.include_router(settings.router)
 router.include_router(validation.router)
+router.include_router(inspection_fix.router)

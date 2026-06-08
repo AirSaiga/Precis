@@ -1,15 +1,15 @@
 <script setup lang="ts">
   import { ref } from 'vue'
   import { useI18n } from 'vue-i18n'
-  import type { FullValidationErrorItem } from '@/api/projectValidationApi'
+  import type { ValidationReportErrorRow } from '@/services/validationReportViewModel'
 
   const props = defineProps<{
     groupName: string
-    errors: FullValidationErrorItem[]
+    errors: ValidationReportErrorRow[]
   }>()
 
   const emit = defineEmits<{
-    (e: 'navigate', error: FullValidationErrorItem): void
+    (e: 'navigate', error: ValidationReportErrorRow): void
   }>()
 
   const { t } = useI18n()
@@ -44,25 +44,28 @@
         class="fv-error-item"
         @click="emit('navigate', error)"
       >
-        <span
-          class="fv-error-badge"
-          :class="{
-            'is-danger': error.stage === 'constraint',
-            'is-warning': error.stage === 'format',
-            'is-info': error.stage === 'loading',
-          }"
-        >
-          {{ error.stage }}
-        </span>
-        <span class="fv-error-type">{{ error.check_type || error.error_type }}</span>
-        <span class="fv-error-msg">{{ error.message }}</span>
-        <span class="fv-error-meta">
-          <span v-if="error.table">{{ error.table }}</span>
-          <span v-if="error.column">{{ error.column }}</span>
-          <span v-if="typeof error.row_index === 'number'">
-            {{ t('common.fullValidation.table.row') }} {{ error.row_index + 1 }}
-          </span>
-        </span>
+        <div class="fv-error-main">
+          <div class="fv-error-topline">
+            <span
+              class="fv-error-badge"
+              :class="{
+                'is-danger': error.stage === 'constraint',
+                'is-warning': error.stage === 'format',
+                'is-info': error.stage === 'loading',
+              }"
+            >
+              {{ error.stage }}
+            </span>
+            <span class="fv-error-type">{{ error.check_type || error.error_type }}</span>
+          </div>
+          <p class="fv-error-msg">{{ error.display_message }}</p>
+          <p v-if="error.suggestion" class="fv-error-suggestion">
+            {{ t('common.fullValidation.result.suggestion') }}: {{ error.suggestion }}
+          </p>
+          <div class="fv-error-meta">
+            <span v-if="error.location" class="fv-error-location">{{ error.location }}</span>
+          </div>
+        </div>
         <button
           class="fv-error-navigate ui-btn ui-btn--ghost ui-btn--xs"
           type="button"

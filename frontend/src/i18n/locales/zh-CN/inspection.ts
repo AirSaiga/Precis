@@ -50,13 +50,14 @@ const inspection = {
     copyId: '复制 ID',
     dismiss: '忽略',
     viewAvailableTables: '查看可用表',
+    selectFix: '选择',
     autoFix: {
       deduplicate: '一键去重',
     },
   },
   context: {
-    availableSchemas: '项目中可用的表',
-    availableColumns: '可用的列',
+    availableSchemas: '项目中可用的表（点击可直接修正引用）',
+    availableColumns: '可用的列（点击可直接修正引用）',
   },
   rawDetails: '查看原始信息',
   errorType: '错误类型',
@@ -88,7 +89,7 @@ const inspection = {
   /**
    * 各类配置问题的本地化文案
    * 占位符与后端 message_params 对应：
-   *   - manifestId / fileId / filePath（ID 不一致）
+   *   - manifestId / fileId / filePath / manifestDisplay / fileDisplay（ID 不一致）
    *   - constraintId / tableId / columnId（外键 / 通用引用）
    */
   issues: {
@@ -96,58 +97,58 @@ const inspection = {
       schema: {
         title: '表 ID 与项目清单对不上',
         description:
-          '项目清单里登记的表 ID 是「{manifestId}」，但实际文件里的表 ID 是「{fileId}」。这可能会导致其他引用到这张表的地方失效。',
+          '项目清单里登记的表 ID 是「{manifestDisplay}」，但实际文件里的表 ID 是「{fileDisplay}」。这可能会导致其他引用到这张表的地方失效。',
         fixHint: '把项目清单里的 ID 改成与文件一致，或反过来修改文件里的 ID。',
       },
       constraint: {
         title: '约束 ID 与项目清单对不上',
         description:
-          '项目清单里登记的约束 ID 是「{manifestId}」，但实际文件里的约束 ID 是「{fileId}」。这可能让这条规则无法被正确引用。',
+          '项目清单里登记的约束 ID 是「{manifestDisplay}」，但实际文件里的约束 ID 是「{fileDisplay}」。这可能让这条规则无法被正确引用。',
         fixHint: '把项目清单里的 ID 改成与文件一致，或反过来修改文件里的 ID。',
       },
       regex: {
         title: '正则规则 ID 与项目清单对不上',
         description:
-          '项目清单里登记的正则规则 ID 是「{manifestId}」，但实际文件里的 ID 是「{fileId}」。这可能让这条规则无法被正确引用。',
+          '项目清单里登记的正则规则 ID 是「{manifestDisplay}」，但实际文件里的 ID 是「{fileDisplay}」。这可能让这条规则无法被正确引用。',
         fixHint: '把项目清单里的 ID 改成与文件一致，或反过来修改文件里的 ID。',
       },
       transform: {
         title: '数据转换 ID 与项目清单对不上',
         description:
-          '项目清单里登记的数据转换 ID 是「{manifestId}」，但实际文件里的 ID 是「{fileId}」。这可能让这个转换无法被正确引用。',
+          '项目清单里登记的数据转换 ID 是「{manifestDisplay}」，但实际文件里的 ID 是「{fileDisplay}」。这可能让这个转换无法被正确引用。',
         fixHint: '把项目清单里的 ID 改成与文件一致，或反过来修改文件里的 ID。',
       },
     },
     dupConstraintRef: {
       title: '同一个约束被引用了多次',
       description:
-        '项目清单里同一个约束文件「{filePath}」被列了两次，其中一条登记的 ID「{manifestId}」与文件里的实际 ID「{fileId}」对不上。这会让这条规则被加载两次，可能产生冲突。',
-      fixHint: '点击"一键去重"自动清理（推荐），或手动从项目清单里删掉多余的那一条。',
+        '项目清单里同一个约束文件「{filePath}」被列了两次，其中一条登记的 ID「{manifestDisplay}」与文件里的实际 ID「{fileDisplay}」对不上。这会让这条规则被加载两次，可能产生冲突。',
+      fixHint: '点击「一键修正」自动清理（推荐），或手动从项目清单里删掉多余的那一条。',
     },
     fk: {
       srcTableMissing: {
         title: '找不到外键来源的表',
         description:
           '外键规则「{constraintId}」要从来源表「{tableId}」取数据进行匹配，但这张表已不在项目里（可能被删除或重命名）。',
-        fixHint: '从下方"项目中可用的表"挑一张作为来源表。',
+        fixHint: '从下方"项目中可用的表"挑一张作为来源表，点击即可自动修正。',
       },
       srcColMissing: {
         title: '找不到外键来源的列',
         description:
           '外键规则「{constraintId}」要从来源表「{tableId}」的「{columnId}」列取数据，但这一列已不存在。',
-        fixHint: '从下方"可用的列"挑一个作为来源列。',
+        fixHint: '从下方"可用的列"挑一个作为来源列，点击即可自动修正。',
       },
       dstTableMissing: {
         title: '找不到外键关联的目标表',
         description:
           '外键规则「{constraintId}」要关联到目标表「{tableId}」，但这张表已不在项目里（可能被删除或重命名）。',
-        fixHint: '从下方"项目中可用的表"挑一张作为目标表。',
+        fixHint: '从下方"项目中可用的表"挑一张作为目标表，点击即可自动修正。',
       },
       dstColMissing: {
         title: '找不到外键关联的列',
         description:
           '外键规则「{constraintId}」要关联到目标表「{tableId}」的「{columnId}」列，但这一列已不存在。',
-        fixHint: '从下方"可用的列"挑一个作为目标列。',
+        fixHint: '从下方"可用的列"挑一个作为目标列，点击即可自动修正。',
       },
     },
     ref: {
@@ -155,13 +156,27 @@ const inspection = {
         title: '规则关联的表已不存在',
         description:
           '规则「{constraintId}」要关联到表「{tableId}」，但这张表已不在项目里（可能被删除或重命名）。',
-        fixHint: '从下方"项目中可用的表"挑一张作为关联的表。',
+        fixHint: '从下方"项目中可用的表"挑一张作为关联的表，点击即可自动修正。',
       },
       colMissing: {
         title: '规则关联的列已不存在',
         description:
           '规则「{constraintId}」要关联到表「{tableId}」的「{columnId}」列，但这一列已不存在。',
-        fixHint: '从下方"可用的列"挑一个作为关联的列。',
+        fixHint: '从下方"可用的列"挑一个作为关联的列，点击即可自动修正。',
+      },
+    },
+    regex: {
+      tableMissing: {
+        title: '正则规则关联的表已不存在',
+        description:
+          '正则规则「{constraintId}」要关联到表「{tableId}」，但这张表已不在项目里（可能被删除或重命名）。',
+        fixHint: '从下方"项目中可用的表"挑一张作为关联的表，点击即可自动修正。',
+      },
+      colMissing: {
+        title: '正则规则关联的列已不存在',
+        description:
+          '正则规则「{constraintId}」要关联到表「{tableId}」的「{columnId}」列，但这一列已不存在。',
+        fixHint: '从下方"可用的列"挑一个作为关联的列，点击即可自动修正。',
       },
     },
   },

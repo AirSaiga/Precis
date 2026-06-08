@@ -28,6 +28,8 @@ export interface ValidationReportErrorRow extends FullValidationErrorItem {
   type_label: string
   location: string
   normalized_stage: string
+  display_message: string
+  suggestion: string | null
 }
 
 export interface ValidationReportPassedRow extends ValidationPassedItem {
@@ -57,6 +59,32 @@ export function getValidationStageLabelKey(stage: string): string {
 
 export function normalizeValidationStage(stage?: string | null): string {
   return String(stage || 'constraint').toLowerCase()
+}
+
+const ID_PATTERN = /\b(sc_|c_|fk_|regex_)[A-Za-z0-9_-]{8,}\b/g
+const MAX_ID_DISPLAY_LEN = 20
+
+function truncateId(id: string): string {
+  if (id.length <= MAX_ID_DISPLAY_LEN) return id
+  const prefix = id.slice(0, 6)
+  const suffix = id.slice(-4)
+  return `${prefix}...${suffix}`
+}
+
+export function truncateLongIds(message: string): string {
+  return message.replace(ID_PATTERN, (match) => truncateId(match))
+}
+
+const SUGGESTION_SPLIT_RE = /(?:\s|^)[\s：:]*(?:建议|Suggestion)\s*[:：]\s*/i
+
+function splitMessageAndSuggestion(message: string): { body: string; suggestion: string | null } {
+  const parts = message.split(SUGGESTION_SPLIT_RE)
+  if (parts.length >= 2 && parts[0] !== undefined) {
+    const body = parts[0].trim()
+    const suggestion = parts.slice(1).join('建议:').trim()
+    return { body, suggestion }
+  }
+  return { body: message.trim(), suggestion: null }
 }
 
 export function formatValidationReportMessage(message: string, table?: string | null): string {
@@ -92,13 +120,18 @@ export function createValidationReportViewModel(
     errors: [],
   }
 
-  const errors = (source.errors || []).map((item, index) => ({
-    ...item,
-    key: `error-${index}`,
-    type_label: item.check_type || item.error_type,
-    location: formatValidationErrorLocation(item, options.rowLabel),
-    normalized_stage: normalizeValidationStage(item.stage),
-  }))
+  const errors = (source.errors || []).map((item, index) => {
+    const { body, suggestion } = splitMessageAndSuggestion(item.message)
+    return {
+      ...item,
+      key: `error-${index}`,
+      type_label: item.check_type || item.error_type,
+      location: formatValidationErrorLocation(item, options.rowLabel),
+      normalized_stage: normalizeValidationStage(item.stage),
+      display_message: truncateLongIds(body),
+      suggestion: suggestion ? truncateLongIds(suggestion) : null,
+    }
+  })
 
   const passedItems = (source.passed_items || []).map((item, index) => ({
     ...item,

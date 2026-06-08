@@ -13,22 +13,6 @@ import type { ConfigComparison } from '@/api/types/conflict'
 import { isProjectNotFound, ProjectNotFoundError, withConfigPathHeader } from './shared'
 
 /**
- * 配置自检结果（已废弃类型）
- *
- * @deprecated 已被 InspectionResultV2 取代，保留仅为向后兼容。
- */
-export interface ConfigInspectionResult {
-  warnings: string[]
-  errors: Array<{
-    error_type: string
-    file_path: string
-    ref_id: string | null
-    message: string
-    suggestion: string
-  }>
-}
-
-/**
  * 获取项目完整配置（含 manifest、schemas、constraints、regex_nodes）
  *
  * @throws ProjectNotFoundError 当项目不存在时（404）

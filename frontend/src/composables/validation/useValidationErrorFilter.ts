@@ -11,7 +11,7 @@ export type ErrorStageFilter = 'all' | 'loading' | 'format' | 'constraint'
 export type ErrorGroupBy = 'table' | 'stage' | 'type' | 'none'
 
 /** @returns stageFilter / groupBy / searchQuery 响应式状态及过滤/分组计算属性 */
-export function useValidationErrorFilter(errors: FullValidationErrorItem[]) {
+export function useValidationErrorFilter<T extends FullValidationErrorItem>(errors: T[]) {
   const stageFilter = ref<ErrorStageFilter>('all')
   const groupBy = ref<ErrorGroupBy>('table')
   const searchQuery = ref('')
@@ -27,12 +27,13 @@ export function useValidationErrorFilter(errors: FullValidationErrorItem[]) {
     // Search filter
     if (searchQuery.value.trim()) {
       const query = searchQuery.value.toLowerCase()
-      result = result.filter((e) =>
-        e.message.toLowerCase().includes(query) ||
-        (e.table?.toLowerCase() || '').includes(query) ||
-        (e.column?.toLowerCase() || '').includes(query) ||
-        (e.error_type?.toLowerCase() || '').includes(query) ||
-        (e.check_type?.toLowerCase() || '').includes(query)
+      result = result.filter(
+        (e) =>
+          e.message.toLowerCase().includes(query) ||
+          (e.table?.toLowerCase() || '').includes(query) ||
+          (e.column?.toLowerCase() || '').includes(query) ||
+          (e.error_type?.toLowerCase() || '').includes(query) ||
+          (e.check_type?.toLowerCase() || '').includes(query)
       )
     }
 
@@ -42,10 +43,10 @@ export function useValidationErrorFilter(errors: FullValidationErrorItem[]) {
   const groupedErrors = computed(() => {
     const items = filteredErrors.value
     if (groupBy.value === 'none') {
-      return { '全部错误': items }
+      return { 全部错误: items }
     }
 
-    const groups: Record<string, FullValidationErrorItem[]> = {}
+    const groups: Record<string, T[]> = {}
 
     for (const item of items) {
       let key: string

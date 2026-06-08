@@ -125,6 +125,7 @@
               @restore="store.restore"
               @dismiss-group="dismissGroup"
               @action="handleAction"
+              @fixed="onIssueFixed"
             />
           </div>
         </aside>
@@ -136,13 +137,14 @@
     <InspectionIgnoredManager
       v-if="showIgnoredManager"
       :visible="showIgnoredManager"
+      :all-issues="store.allIssues"
       @close="showIgnoredManager = false"
     />
   </Teleport>
 </template>
 
 <script setup lang="ts">
-  import { computed, ref } from 'vue'
+  import { computed, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useInspectionStore } from '@/stores/inspectionStore'
   import { inspectV2Config } from '@/api/projectV2Api'
@@ -164,6 +166,15 @@
   const showIgnoredManager = ref(false)
   /** 临时强制全部展开（点击"全部展开"按钮） */
   const forceExpandAll = ref(false)
+
+  watch(
+    () => store.drawerVisible,
+    (visible) => {
+      if (!visible) {
+        forceExpandAll.value = false
+      }
+    }
+  )
 
   const severityCounts = computed(() => {
     const issues = store.unresolvedIssues
@@ -246,6 +257,7 @@
       return
     }
     isRechecking.value = true
+    forceExpandAll.value = false
     try {
       const result = await inspectV2Config(path)
       store.setResult(result, { autoOpen: false })
@@ -274,6 +286,11 @@
     for (const id of issueIds) {
       store.dismiss(id)
     }
+  }
+
+  /** issue 卡片触发 fixed 事件后自动重新检查 */
+  function onIssueFixed(): void {
+    recheck()
   }
 
   /**

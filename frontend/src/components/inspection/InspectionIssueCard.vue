@@ -5,9 +5,10 @@
   展示结构（自上而下）:
   1. 头部：严重度图标 + 标题 + 单条忽略按钮
   2. 根因说明（一句话）
-  3. 上下文数据（如果有）：可用表 / 可用列 对比表
-  4. 修复建议（高亮）
-  5. 动作按钮（打开文件 / 一键修复 / 复制 / 忽略）
+  3. 修复建议（高亮）
+  4. 动作按钮（打开文件 / 一键修复 / 复制 / 忽略）
+  5. 上下文数据（如果有）：可用表 / 可用列（可点击直接修正引用）
+  6. 原始信息（兜底）
 
   i18n 渲染策略：
   - issue.title_key / description_key / fix_hint_key 存在时优先用 i18n 渲染
@@ -48,51 +49,9 @@
 
       <p v-if="descriptionText" class="card-description">{{ descriptionText }}</p>
 
-      <!-- 上下文：可用表列表（用于 FK 悬挂 / 表不存在） -->
-      <div
-        v-if="availableSchemas.length > 0"
-        class="context-block"
-        :title="t('inspection.context.availableSchemas')"
-      >
-        <div class="context-label">
-          {{ t('inspection.context.availableSchemas') }}
-        </div>
-        <ul class="schema-list">
-          <li v-for="schema in availableSchemas" :key="schema.id" class="schema-item">
-            <span class="schema-name">{{ schema.name || schema.id }}</span>
-            <div v-if="schema.name && schema.id !== schema.name" class="schema-id-row">
-              <code class="schema-id">{{ schema.id }}</code>
-              <button
-                class="schema-copy-btn"
-                :title="t('inspection.actions.copyId')"
-                @click="handleCopyId(schema.id)"
-              >
-                📋
-              </button>
-            </div>
-          </li>
-        </ul>
-      </div>
-
-      <!-- 上下文：可用列列表（用于列不存在） -->
-      <div
-        v-if="availableColumns.length > 0"
-        class="context-block"
-        :title="t('inspection.context.availableColumns')"
-      >
-        <div class="context-label">
-          {{ t('inspection.context.availableColumns') }}
-        </div>
-        <div class="column-chips">
-          <code v-for="col in availableColumns" :key="col" class="column-chip">
-            {{ col }}
-          </code>
-        </div>
-      </div>
-
       <!-- 修复建议（高亮） -->
       <div v-if="fixHintText" class="fix-hint">
-        <span class="hint-icon">💡</span>
+        <span class="section-label">💡</span>
         <span class="hint-text">{{ fixHintText }}</span>
       </div>
 
@@ -109,6 +68,61 @@
           <span v-else class="action-icon">{{ iconForAction(action.type) }}</span>
           <span class="action-label">{{ actionLabel(action) }}</span>
         </button>
+      </div>
+
+      <!-- 上下文：可用表列表（用于 FK 悬挂 / 表不存在） -->
+      <div
+        v-if="availableSchemas.length > 0"
+        class="context-block"
+        :title="t('inspection.context.availableSchemas')"
+      >
+        <div class="context-label">
+          💡 {{ t('inspection.context.availableSchemas') }}
+        </div>
+        <ul class="schema-list">
+          <li v-for="schema in availableSchemas" :key="schema.id" class="schema-item">
+            <span class="schema-name">{{ schema.name || schema.id }}</span>
+            <div v-if="schema.name && schema.id !== schema.name" class="schema-id-row">
+              <code class="schema-id">{{ schema.id }}</code>
+              <button
+                class="schema-copy-btn"
+                :title="t('inspection.actions.copyId')"
+                @click="handleCopyId(schema.id)"
+              >
+                📋
+              </button>
+            </div>
+            <button
+              class="fix-select-btn"
+              :title="t('inspection.actions.selectFix')"
+              @click="fixTableRef(schema.id)"
+            >
+              {{ t('inspection.actions.selectFix') }}
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <!-- 上下文：可用列列表（用于列不存在） -->
+      <div
+        v-if="availableColumns.length > 0"
+        class="context-block"
+        :title="t('inspection.context.availableColumns')"
+      >
+        <div class="context-label">
+          💡 {{ t('inspection.context.availableColumns') }}
+        </div>
+        <div class="column-chips">
+          <button
+            v-for="col in availableColumns"
+            :key="col"
+            class="column-chip-fix"
+            :title="t('inspection.actions.selectFix')"
+            @click="fixColumnRef(col)"
+          >
+            {{ col }}
+          </button>
+        </div>
       </div>
 
       <!-- 兜底：原始 message（高级用户排查用） -->
@@ -139,10 +153,11 @@
     fixing?: boolean
   }>()
 
-  defineEmits<{
+  const emit = defineEmits<{
     dismiss: [issueId: string]
     restore: [issueId: string]
     action: [issue: InspectionIssue, action: InspectionAction]
+    fixed: []
   }>()
 
   const { t } = useI18n()
@@ -230,6 +245,46 @@
     } catch (err) {
       toastError(err instanceof Error ? err.message : String(err), '')
     }
+  }
+
+  /** 点击可用表条目，修正当前 issue 的表引用 */
+  function fixTableRef(schemaId: string): void {
+    const ctx = props.issue.context as Record<string, unknown> | undefined
+    if (!ctx) return
+    ctx._fixTableRef = schemaId
+    emit('fixed')
+  }
+
+  /** 点击可用列条目，修正当前 issue 的列引用 */
+  function fixColumnRef(col: string): void {
+    const ctx = props.issue.context as Record<string, unknown> | undefined
+    if (!ctx) return
+    ctx._fixColumnRef = col
+    emit('fixed')
+  }
+
+  function _levenshtein(a: string, b: string): number {
+    const m = a.length
+    const n = b.length
+    const matrix: number[][] = []
+    for (let i = 0; i <= m; i++) {
+      matrix[i] = []
+      for (let j = 0; j <= n; j++) {
+        if (i === 0) {
+          matrix[i]![j] = j
+        } else if (j === 0) {
+          matrix[i]![j] = i
+        } else {
+          const cost = a[i - 1] === b[j - 1] ? 0 : 1
+          matrix[i]![j] = Math.min(
+            matrix[i - 1]![j]! + 1,
+            matrix[i]![j - 1]! + 1,
+            matrix[i - 1]![j - 1]! + cost
+          )
+        }
+      }
+    }
+    return matrix[m]![n]!
   }
 </script>
 
@@ -443,12 +498,33 @@
     opacity: 1;
   }
 
+  .fix-select-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2px 10px;
+    margin-top: 2px;
+    align-self: flex-start;
+    background: var(--ui-accent, #3b82f6);
+    border: 1px solid var(--ui-accent, #3b82f6);
+    border-radius: var(--ui-radius-sm);
+    color: var(--ui-text-on-accent, #fff);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .fix-select-btn:hover {
+    background: var(--ui-accent-hover, #2563eb);
+    border-color: var(--ui-accent-hover, #2563eb);
+  }
+
   .column-chips {
     display: flex;
     flex-wrap: wrap;
     gap: 4px;
   }
-  .column-chip {
+  .column-chip-fix {
     display: inline-flex;
     align-items: center;
     padding: 2px 6px;
@@ -458,6 +534,12 @@
     font-family: monospace;
     font-size: 11px;
     color: var(--ui-text);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .column-chip-fix:hover {
+    border-color: var(--ui-accent, #3b82f6);
+    color: var(--ui-accent, #3b82f6);
   }
 
   .fix-hint {
@@ -476,7 +558,7 @@
     line-height: 1.5;
     color: var(--ui-text);
   }
-  .hint-icon {
+  .section-label {
     flex-shrink: 0;
   }
   .hint-text {

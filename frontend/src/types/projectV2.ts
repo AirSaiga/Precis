@@ -784,7 +784,7 @@ export interface InspectionIssue {
   /** 一键修复 API 描述（仅安全操作） */
   fix_api?: InspectionFixApi
   /** 上下文数据，用于渲染对比表（如 available_schemas、available_columns 等） */
-  context: Record<string, unknown>
+  context?: Record<string, unknown>
   /** i18n key for title（可选，存在时前端优先用 i18n 渲染） */
   title_key?: string
   /** i18n key for description（可选） */

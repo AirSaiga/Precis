@@ -453,6 +453,7 @@ const common = {
       completeSuccess: '校验已完成，所有检查项均通过',
       completeWithErrors: '校验已完成，发现错误',
       exportHint: '您可以预览完整报告或导出为 HTML/PDF 文件',
+      suggestion: '建议',
     },
     table: {
       stage: '阶段',

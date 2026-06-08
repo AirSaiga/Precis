@@ -462,6 +462,7 @@ const common = {
       completeSuccess: 'Validation complete. All checks passed.',
       completeWithErrors: 'Validation complete. Errors found.',
       exportHint: 'You can preview the full report or export as HTML/PDF.',
+      suggestion: 'Suggestion',
     },
     table: {
       stage: 'Stage',

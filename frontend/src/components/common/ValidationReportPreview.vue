@@ -363,7 +363,7 @@
               </div>
 
               <!-- 警告信息 -->
-              <div v-if="data?.warnings && data.warnings.length > 0" class="warnings-section">
+              <div v-if="processedWarnings.length > 0" class="warnings-section">
                 <div class="warnings-header">
                   <svg
                     width="16"
@@ -381,15 +381,13 @@
                     <line x1="12" y1="9" x2="12" y2="13" />
                     <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
-                  <span
-                    >{{ t('common.fullValidation.report.warnings') }} ({{
-                      data?.warnings?.length
-                    }})</span
-                  >
+                  <span>
+                    {{ t('common.fullValidation.report.warnings') }} ({{ processedWarnings.length }})
+                  </span>
                 </div>
                 <ul class="warnings-list">
                   <li
-                    v-for="(warning, index) in data?.warnings"
+                    v-for="(warning, index) in processedWarnings"
                     :key="index"
                     class="warning-item"
                   >
@@ -473,7 +471,13 @@
                     </div>
                     <div class="col-type">{{ e.type_label }}</div>
                     <div class="col-msg">
-                      {{ formatValidationReportMessage(e.message, e.table) }}
+                      <p class="msg-body">{{ e.display_message }}</p>
+                      <p v-if="e.suggestion" class="msg-suggestion">
+                        <span class="msg-suggestion-label">
+                          {{ t('common.fullValidation.result.suggestion') }}:
+                        </span>
+                        {{ e.suggestion }}
+                      </p>
                     </div>
                   </div>
                 </template>
@@ -569,6 +573,7 @@
   import {
     createValidationReportViewModel,
     formatValidationReportMessage,
+    truncateLongIds,
   } from '@/services/validationReportViewModel'
 
   const props = defineProps<{
@@ -598,6 +603,10 @@
 
   const filteredPassedItems = computed(() => {
     return viewModel.value.passedItems
+  })
+
+  const processedWarnings = computed(() => {
+    return (props.data?.warnings || []).map((w) => truncateLongIds(w))
   })
 
   const displayItems = computed(() => {
