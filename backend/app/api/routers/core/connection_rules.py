@@ -45,7 +45,7 @@ from app.api.models import StandardResponse
 from app.shared.core.io.yaml import read_yaml, write_yaml
 
 router = APIRouter(
-    prefix="/connection-rules",
+    prefix="/api/v1/connection-rules",
     tags=["Connection Rules"],
 )
 

@@ -33,7 +33,7 @@ from app.shared.services.preview.path import (
     load_whitelist_config,
 )
 
-router = APIRouter(prefix="/whitelist", tags=["whitelist"])
+router = APIRouter(prefix="/api/v1/whitelist", tags=["whitelist"])
 
 
 class WhitelistEntry(BaseModel):

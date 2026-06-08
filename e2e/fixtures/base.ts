@@ -39,14 +39,17 @@ export const test = base.extend<Fixtures>({
   },
 
   apiHelper: async ({}, use) => {
+    // API 版本前缀（/health 保留根路径）
+    const apiPrefix = '/api/v1'
     const helper = {
       get: async (endpoint: string) => {
-        return fetch(`${BACKEND_URL}${endpoint}`, {
+        const url = endpoint === '/health' ? `${BACKEND_URL}/health` : `${BACKEND_URL}${apiPrefix}${endpoint}`
+        return fetch(url, {
           headers: { 'X-Project-Config-Path': TEST_PROJECT_DIR },
         })
       },
       post: async (endpoint: string, body: unknown) => {
-        return fetch(`${BACKEND_URL}${endpoint}`, {
+        return fetch(`${BACKEND_URL}${apiPrefix}${endpoint}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -56,7 +59,7 @@ export const test = base.extend<Fixtures>({
         })
       },
       put: async (endpoint: string, body: unknown) => {
-        return fetch(`${BACKEND_URL}${endpoint}`, {
+        return fetch(`${BACKEND_URL}${apiPrefix}${endpoint}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',

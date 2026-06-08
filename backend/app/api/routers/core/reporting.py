@@ -35,7 +35,7 @@ from pydantic import BaseModel, EmailStr, Field
 from app.api.dependencies import ProjectStore, get_project_store
 from app.shared.core.io.yaml import write_yaml_atomic
 
-router = APIRouter()
+router = APIRouter(prefix="/api/v1")
 
 
 class LocalFileConfig(BaseModel):

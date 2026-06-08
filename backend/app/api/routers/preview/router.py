@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter
 
-router = APIRouter(prefix="/preview", tags=["File Preview"])
+router = APIRouter(prefix="/api/v1/preview", tags=["File Preview"])
 
 
 __all__ = ["router"]

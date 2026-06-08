@@ -86,7 +86,7 @@ jobs:
           pip-audit --desc --format=markdown
 
       - name: Run unit + integration tests with coverage
-        run: python -m pytest --cov=app --cov-fail-under=58 --cov-report=html --cov-report=term-missing
+        run: python -m pytest --cov=app --cov-fail-under=67 --cov-report=html --cov-report=term-missing
 
       - name: Smoke test CLI validate against real fixture
         run: |
@@ -198,3 +198,94 @@ jobs:
           name: playwright-screenshots
           path: e2e/test-results/
           retention-days: 7
+
+  electron-package:
+    name: Electron Package (Windows)
+    runs-on: windows-latest
+    needs: [frontend, backend]
+    defaults:
+      run:
+        working-directory: electron
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: electron/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build-only
+
+      - name: Install electron dependencies
+        run: npm ci
+
+      - name: TypeScript compile
+        run: npx tsc
+
+      - name: Package (directory)
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
+        run: npx electron-builder --dir --win
+
+      - name: Upload package artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-win-package
+          path: electron/release/
+          retention-days: 7
+
+  electron-package-mac:
+    name: Electron Package (macOS)
+    runs-on: macos-latest
+    needs: [frontend, backend]
+    defaults:
+      run:
+        working-directory: electron
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: electron/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: frontend
+        run: npm run build-only
+
+      - name: Install electron dependencies
+        run: npm ci
+
+      - name: TypeScript compile
+        run: npx tsc
+
+      - name: Package (DMG)
+        env:
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
+          CSC_IDENTITY_AUTO_DISCOVERY: false
+        run: npx electron-builder --mac --config.mac.identity=null
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-mac-package
+          path: electron/release/
+          retention-days: 7
+
+
