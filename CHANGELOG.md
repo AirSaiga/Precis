@@ -110,17 +110,13 @@ Currently an actively developed prototype. Interfaces, config formats, and CLI p
 
 ### 已知问题 / Known Issues
 
-- ⚠️ **测试覆盖仍严重不足** — 核心校验引擎缺乏充分的自动化测试
-   
-  ⚠️ **Test coverage still severely lacking** — Core validation engine lacks adequate automated tests
+- ⚠️ **测试覆盖基线已建立，但核心引擎与边界场景仍不足** — 前后端单元测试、E2E 测试及 CI 流水线已运行，核心校验引擎的边界 case 和异常路径仍需补充覆盖
+
+  ⚠️ **Test coverage baseline established, but core engine and edge cases still insufficient** — Unit tests (frontend + backend), E2E tests, and CI pipelines are operational, but boundary cases and error paths in the core validation engine need more coverage
 
 - ⚠️ **配置格式不稳定** — YAML 结构可能随版本调整
-   
-  ⚠️ **Config format unstable** — YAML structure may change with versions
 
-- ⚠️ **`nodes.value.push()` 技术债** — 16 处前端 push 操作需迁移为 Vue Flow API
-   
-  ⚠️ **`nodes.value.push()` tech debt** — 16 frontend push calls need migration to Vue Flow API
+  ⚠️ **Config format unstable** — YAML structure may change with versions
 
 ## [0.1.0] - 2026-04-17
 

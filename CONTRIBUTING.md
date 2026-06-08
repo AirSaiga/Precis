@@ -6,15 +6,15 @@ Thank you for your interest in the Precis project!
 
 ## 当前阶段说明 / Current Stage
 
-Precis 目前处于**超早期原型阶段**。核心功能框架刚刚搭成，代码尚未经过完整测试，已知存在大量 Bug，接口随时可能重构。
+Precis 目前处于**超早期原型阶段**。核心功能框架已就绪，测试基线已建立，但核心引擎与边界场景覆盖仍不足，已知存在大量 Bug，接口随时可能重构。
 
-Precis is currently in **ultra-early prototype stage**. The core framework has just been built, the code has not been fully tested, many bugs are known, and interfaces may be refactored at any time.
+Precis is currently in **ultra-early prototype stage**. The core framework is ready, a test coverage baseline has been established, but core engine and edge case coverage are still insufficient, many bugs are known, and interfaces may be refactored at any time.
 
 **因此，本项目现阶段暂不寻求外部代码贡献。**
 
 **Therefore, this project is not seeking external code contributions at this stage.**
 
-- ❌ **不接受 Pull Request** / No Pull Requests accepted
+- ❌ **不接受外部 Pull Request** / No external Pull Requests accepted
 - ✅ **欢迎提交 Issue**（Bug 报告、功能建议、使用反馈）/ Issues welcome (bugs, features, feedback)
 - ✅ **欢迎通过 GitHub Discussions 讨论使用场景** / Welcome to discuss use cases on GitHub Discussions
 - ✅ **欢迎分享你的需求想法** / Welcome to share your needs and ideas
@@ -25,9 +25,9 @@ Precis is currently in **ultra-early prototype stage**. The core framework has j
    
    **Architecture unstable** — Underlying design may change significantly at any time; externally contributed code is likely to be discarded during refactoring
 
-2. **无测试覆盖** — 我们还没有建立可靠的测试基线，无法安全地合并外部代码
+2. **测试基线已建立，但核心引擎覆盖仍需加强** — 前后端单元测试、E2E 测试及 CI 流水线已运行，但核心校验引擎的边界 case 和异常路径仍需补充覆盖
    
-   **No test coverage** — We have not yet established a reliable test baseline and cannot safely merge external code
+   **Test baseline established, but core engine coverage still needs improvement** — Unit tests (frontend + backend), E2E tests, and CI pipelines are operational, but boundary cases and error paths in the core validation engine need more coverage
 
 3. **方向未验证** — 在确认这个方向有人需要之前，我们不希望扩大维护面
    

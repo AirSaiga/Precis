@@ -14,7 +14,7 @@
 |------------|-------------|-----------------|
 | 无安全审计 No security audit | ⚠️ 未开始 Not started | 代码未经过第三方安全审查 Code has not undergone third-party security review |
 | 沙箱脚本执行 Sandboxed script execution | 🔄 计划中 Planned | 脚本约束计划使用受限执行环境 Scripted constraints planned to use restricted execution environment |
-| 依赖安全 Dependency security | 🔄 依赖 CI 扫描 CI scanning | 使用 Dependabot 和 pip-audit 进行基础扫描 Basic scanning via Dependabot and pip-audit |
+| 依赖安全 Dependency security | ✅ CI 扫描已启用 CI scanning enabled | 流水线已集成 pip-audit 与 npm audit，每次提交自动扫描基础漏洞 CI pipeline integrates pip-audit and npm audit, scanning on every commit |
 | 输入验证 Input validation | 🔄 完善中 In progress | 前端和后端的输入校验尚未覆盖全部边界情况 Frontend and backend input validation does not yet cover all edge cases |
 
 ## 安全漏洞报告 / Reporting Vulnerabilities

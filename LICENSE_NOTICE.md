@@ -3,14 +3,14 @@
 > ⚠️ **项目状态声明 / Project Status**
 >
 > Precis 目前处于**超早期原型阶段（Prototype / Pre-Alpha）**。
-> - 核心功能框架刚刚搭成，**尚未完成测试覆盖**，已知存在大量 Bug
-> - 本仓库**开源仅为展示方向、收集需求反馈**，暂不寻求代码贡献
+> - 核心功能框架已就绪，**测试基线已建立，但核心引擎与边界场景覆盖仍不足**，已知存在大量 Bug
+> - 本仓库**开源仅为展示方向、收集需求反馈**，暂不寻求外部代码贡献
 > - **不建议**在生产环境或关键数据场景中使用
 > - 代码随时可能大规模重构，接口和行为均不保证稳定
 >
 > Precis is currently in **ultra-early prototype stage (Prototype / Pre-Alpha)**.
-> - Core framework is just built, **test coverage is severely lacking**, many bugs are known
-> - Open-sourced **only to showcase direction and collect feedback**, not seeking contributions
+> - Core framework is ready, **test coverage baseline established, but core engine and edge case coverage still insufficient**, many bugs are known
+> - Open-sourced **only to showcase direction and collect feedback**, not seeking external contributions
 > - **Not recommended** for production or critical data scenarios
 > - Code may be massively refactored at any time; interfaces and behaviors are not stable
 

@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "precis"
 version = "0.1.0"
-description = "Precis - 超早期原型 / 可配置数据校验工具（测试覆盖不足，不建议生产使用）"
+description = "Precis - 超早期原型 / 可配置数据校验工具（测试基线已建立，核心引擎覆盖仍需加强，不建议生产使用）"
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.9,<3.14"

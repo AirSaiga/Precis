@@ -20,11 +20,11 @@ Visual DAG Editor · Schema-Aware Validation · Local-First · AI-Ready
 > **⚠️ 项目状态：Pre-Alpha**
 >
 > Precis 正处于**方向验证与技术原型**阶段。核心框架已就绪，但以下事项尚未完成：
-> - 测试覆盖率严重不足，已知缺陷存在
+> - 测试基线已建立，但核心引擎与边界场景覆盖仍不足，已知缺陷存在
 > - 配置格式与 API 可能在无预警情况下变更
 > - **不适合生产环境或关键业务数据**
 >
-> 开源目的在于展示技术方向、收集场景反馈。当前阶段**不接受 Pull Request**，欢迎通过 [Issues](https://github.com/AirSaiga/Precis/issues) 与 [Discussions](https://github.com/AirSaiga/Precis/discussions) 提交需求与缺陷。
+> 开源目的在于展示技术方向、收集场景反馈。当前阶段**不接受外部 Pull Request**，欢迎通过 [Issues](https://github.com/AirSaiga/Precis/issues) 与 [Discussions](https://github.com/AirSaiga/Precis/discussions) 提交需求与缺陷。
 
 ---
 
@@ -283,7 +283,7 @@ Precis/
 A: **不可以。** 当前为 Pre-Alpha 原型，存在已知缺陷，API 与配置格式随时可能变更。请勿在关键数据上使用。
 
 **Q: 是否接受外部贡献？**  
-A: 当前阶段**不接受 Pull Request**。架构与接口尚未稳定，欢迎提交 Issue 或在 Discussions 中交流使用场景。
+A: 当前阶段**不接受外部 Pull Request**。架构与接口尚未稳定，欢迎提交 Issue 或在 Discussions 中交流使用场景。
 
 **Q: 是否提供纯 Web 版本？**  
 A: 不提供。Precis 采用本地优先架构，数据始终驻留本地。请使用 Electron 桌面版获得完整功能。
@@ -557,7 +557,7 @@ Precis/
 A: **No.** This is a Pre-Alpha prototype with known defects. APIs and configuration formats may change without notice. Do not use with critical data.
 
 **Q: Do you accept external contributions?**  
-A: **Not accepting Pull Requests** at this stage. The architecture and interfaces are not yet stable. Issues and Discussions are welcome.
+A: **Not accepting external Pull Requests** at this stage. The architecture and interfaces are not yet stable. Issues and Discussions are welcome.
 
 **Q: Is there a pure web version?**  
 A: No. Precis adopts a local-first architecture; data always remains on your machine. Please use the Electron desktop app for full functionality.
