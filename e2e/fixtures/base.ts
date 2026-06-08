@@ -25,6 +25,7 @@ type Fixtures = {
     get: (endpoint: string) => Promise<Response>
     post: (endpoint: string, body: unknown) => Promise<Response>
     put: (endpoint: string, body: unknown) => Promise<Response>
+    delete: (endpoint: string) => Promise<Response>
     healthCheck: () => Promise<boolean>
   }
 }
@@ -66,6 +67,12 @@ export const test = base.extend<Fixtures>({
             'X-Project-Config-Path': TEST_PROJECT_DIR,
           },
           body: JSON.stringify(body),
+        })
+      },
+      delete: async (endpoint: string) => {
+        return fetch(`${BACKEND_URL}${apiPrefix}${endpoint}`, {
+          method: 'DELETE',
+          headers: { 'X-Project-Config-Path': TEST_PROJECT_DIR },
         })
       },
       healthCheck: async () => {

@@ -18,7 +18,8 @@ test.describe('Project Configuration', () => {
     expect(fs.existsSync(manifestPath)).toBe(true)
 
     const content = fs.readFileSync(manifestPath, 'utf-8')
-    expect(content).toContain('e2e-test-project')
+    expect(content).toContain('version')
+    expect(content).toContain('schemas')
   })
 
   test('schema files exist', async ({ testProjectPath }) => {

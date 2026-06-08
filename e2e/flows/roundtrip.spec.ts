@@ -384,7 +384,7 @@ test.describe('Save/Load Round-Trip', () => {
         sc_products: {
           ...fullConfig.schemas.sc_products,
           columns: [
-            { id: 'col-name', name: 'updated_product_name', type: 'Str' },
+            { id: 'col-name', name: 'item_title', type: 'Str' },
             { id: 'col-price', name: 'price', type: 'Decimal' },
           ],
         },
@@ -395,12 +395,12 @@ test.describe('Save/Load Round-Trip', () => {
     expect(updateResp.status).toBeLessThan(300)
 
     const updatedContent = fs.readFileSync(schemaPath, 'utf-8')
-    expect(updatedContent).toContain('updated_product_name')
+    expect(updatedContent).toContain('item_title')
     expect(updatedContent).not.toContain('product_name')
 
     const loadResp = await apiHelper.get('/project/v2/config/full')
     const loadedConfig = await loadResp.json()
-    expect(loadedConfig.schemas?.sc_products?.columns[0]?.name).toBe('updated_product_name')
+    expect(loadedConfig.schemas?.sc_products?.columns[0]?.name).toBe('item_title')
   })
 
   test('draft 状态节点未保存 — 未调用保存 API 的资源不存在于磁盘', async ({ apiHelper }) => {
