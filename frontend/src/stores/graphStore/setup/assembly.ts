@@ -37,6 +37,9 @@ import { createMiscFactoryModule } from '../modules/factories/miscFactory'
 import { createJsonSchemaFactoryModule } from '../modules/factories/jsonSchemaFactory'
 import { createTemplateInstanceFactoryModule } from '../modules/factories/templateInstanceFactory'
 import { createTemplateExpandModule } from '../modules/templateExpand'
+import { createNodeOpsModule } from '../modules/nodeOps'
+import { createPersistenceStatusModule } from '../modules/persistenceStatus'
+import { createV2SchemaMappingModule } from '../modules/v2SchemaMapping'
 import { createSchemaOpsModule } from '../modules/schemaOps'
 import { createRegexDesignModule } from '../modules/regexDesign'
 import { createAssetsModule } from '../modules/assets'
@@ -201,76 +204,15 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
     clearAllValidationErrors,
   } = schemaOps
 
-  function collectCascadeNodeIds(nodeId: string): string[] {
-    const node = nodes.value.find((n) => n.id === nodeId)
-    if (!node) return [nodeId]
-
-    if (node.type === 'templateInstance') {
-      return [nodeId, ...templateExpand.getExpandedIds(nodeId)]
-    }
-
-    if (node.type !== 'transform') {
-      return [nodeId]
-    }
-
-    const transformData = (node.data || {}) as Record<string, unknown>
-    const outputNodeIds = Array.isArray(transformData.outputNodeIds)
-      ? (transformData.outputNodeIds as string[])
-      : []
-
-    const childIdsByParentRef = nodes.value
-      .filter((candidate) => {
-        if (candidate.type !== 'transformOutput') return false
-        const outputData = (candidate.data || {}) as Record<string, unknown>
-        return outputData.parentTransformId === nodeId
-      })
-      .map((candidate) => candidate.id)
-
-    return Array.from(new Set([nodeId, ...outputNodeIds, ...childIdsByParentRef]))
-  }
-
-  function deleteNode(nodeId: string) {
-    const node = nodes.value.find((n) => n.id === nodeId)
-    if (node?.type === 'projectRoot') {
-      return
-    }
-
-    const deleteIds = collectCascadeNodeIds(nodeId)
-    const nodeIdSet = new Set(deleteIds)
-
-    const relatedEdges = edges.value.filter(
-      (e) => nodeIdSet.has(e.source) || nodeIdSet.has(e.target)
-    )
-    for (const edge of relatedEdges) {
-      removeEdges(edge.id)
-    }
-
-    removeNodes(deleteIds)
-
-    selectedNodeIds.value = selectedNodeIds.value.filter((id) => !nodeIdSet.has(id))
-
-    if (selectedNodeId.value && nodeIdSet.has(selectedNodeId.value)) {
-      selectedNodeId.value = null
-    }
-
-    nextTick(() => {
-      connectionStateSync.reconcileAll()
-    })
-  }
-
-  function moveSelectedNode(deltaX: number, deltaY: number) {
-    if (!selectedNodeId.value) {
-      return
-    }
-
-    const node = nodes.value.find((n) => n.id === selectedNodeId.value)
-    if (!node) {
-      return
-    }
-
-    node.position.x += deltaX
-    node.position.y += deltaY
-  }
+  const nodeOps = createNodeOpsModule({
+    nodes,
+    edges,
+    selectedNodeId,
+    selectedNodeIds,
+    reconcileAll: connectionStateSync.reconcileAll,
+    templateExpand,
+  })
+  const { deleteNode, moveSelectedNode, moveSelectedNodes } = nodeOps
 
   const {
     selectAllNodes,
@@ -283,51 +225,7 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
     setSelecting,
   } = createSelectionModule({ nodes, selectedNodeId, selectedNodeIds, selectionBox, isSelecting })
 
-  function deleteNodes(nodeIds: string[]) {
-    const filteredIds = nodeIds.filter((id) => {
-      const node = nodes.value.find((n) => n.id === id)
-      return node?.type !== 'projectRoot'
-    })
-
-    if (filteredIds.length === 0) {
-      return
-    }
-
-    const deleteIds = Array.from(new Set(filteredIds.flatMap((id) => collectCascadeNodeIds(id))))
-    const nodeIdSet = new Set(deleteIds)
-
-    const relatedEdges = edges.value.filter(
-      (e) => nodeIdSet.has(e.source) || nodeIdSet.has(e.target)
-    )
-    for (const edge of relatedEdges) {
-      removeEdges(edge.id)
-    }
-
-    removeNodes(deleteIds)
-
-    selectedNodeIds.value = selectedNodeIds.value.filter((id) => !nodeIdSet.has(id))
-
-    if (selectedNodeId.value && nodeIdSet.has(selectedNodeId.value)) {
-      selectedNodeId.value = null
-    }
-
-    nextTick(() => {
-      connectionStateSync.reconcileAll()
-    })
-  }
-
-  function moveSelectedNodes(deltaX: number, deltaY: number) {
-    if (selectedNodeIds.value.length === 0) {
-      return
-    }
-
-    for (const node of nodes.value) {
-      if (selectedNodeIds.value.includes(node.id)) {
-        node.position.x += deltaX
-        node.position.y += deltaY
-      }
-    }
-  }
+  const { deleteNodes } = nodeOps
 
   const { undoStack, redoStack, saveState, undo, redo } = createHistoryModule({ nodes, edges, reconcileAll: connectionStateSync.reconcileAll })
 
@@ -374,56 +272,10 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
       selectedNodeId,
     })
 
-  function hasUnsavedChanges(): boolean {
-    return nodes.value.some((node) => {
-      const data = node.data as unknown as Record<string, unknown>
-      if (data._expandedFromInstanceId) return false
-
-      if (node.type === 'schema' || node.type === 'jsonSchema') {
-        const schemaData = node.data as SchemaNodeData
-        return schemaData.saveState === 'draft'
-      }
-      if (isConstraintNodeType(node.type)) {
-        return data?.saveState === 'draft'
-      }
-      if (node.type === 'regex') {
-        return data?.saveState === 'draft'
-      }
-      if (node.type === 'transform') {
-        return data?.saveState === 'draft'
-      }
-      if (node.type === 'templateInstance') {
-        return data?.saveState === 'draft'
-      }
-      return false
-    })
-  }
-
-  function getSaveStatusSummary() {
-    const totalSchemas = nodes.value.filter((n) => n.type === 'schema').length
-    const savedSchemas = nodes.value.filter((n) => {
-      if (n.type === 'schema') {
-        const schemaData = n.data as SchemaNodeData
-        return schemaData.saveState === 'saved'
-      }
-      return false
-    }).length
-
-    const totalTransforms = nodes.value.filter((n) => n.type === 'transform').length
-    const savedTransforms = nodes.value.filter((n) => {
-      if (n.type === 'transform') {
-        return (n.data as unknown as Record<string, unknown>)?.saveState === 'saved'
-      }
-      return false
-    }).length
-
-    return {
-      total: totalSchemas + totalTransforms,
-      saved: savedSchemas + savedTransforms,
-      unsaved: totalSchemas - savedSchemas + totalTransforms - savedTransforms,
-      hasChanges: hasUnsavedChanges(),
-    }
-  }
+  const { hasUnsavedChanges, getSaveStatusSummary } = createPersistenceStatusModule({
+    nodes,
+    isConstraintNodeType,
+  })
 
   const { openRegexDesignModal, closeRegexDesignModal, saveRegexDesign, setRegexEditSampleData } =
     createRegexDesignModule({
@@ -443,14 +295,9 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
 
   const { switchScope, getSubGraphStats } = createScopeModule({ nodes, edges })
 
-  function registerV2SchemaMapping(canvasNodeId: string, v2SchemaId: string) {
-    state.v2SchemaIdMap.value.set(canvasNodeId, v2SchemaId)
-  }
-
-  function getV2SchemaId(canvasNodeId: string): string | undefined {
-    if (canvasNodeId.startsWith('sc_')) return canvasNodeId
-    return state.v2SchemaIdMap.value.get(canvasNodeId)
-  }
+  const { registerV2SchemaMapping, getV2SchemaId } = createV2SchemaMappingModule({
+    v2SchemaIdMap: state.v2SchemaIdMap,
+  })
 
   return {
     nodes,
