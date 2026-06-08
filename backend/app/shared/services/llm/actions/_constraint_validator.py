@@ -181,9 +181,7 @@ def validate_constraint_action(
     return errors
 
 
-def validate_validate_action(
-    action: dict[str, Any], schema: dict[str, Any], index: int
-) -> list[ValidationError]:
+def validate_validate_action(action: dict[str, Any], schema: dict[str, Any], index: int) -> list[ValidationError]:
     """验证 VALIDATE_PROJECT 动作
 
     检查动作中指定的表是否存在。

@@ -8,11 +8,11 @@ import {
 
 const mockFetchPreviewDataFromPath = vi.fn()
 
-vi.mock('@/composables/nodes/sourcePreview/usePreviewCreation', () => ({
+vi.mock('@/services/preview/fetchPreviewFromPath', () => ({
   fetchPreviewDataFromPath: (...args: any[]) => mockFetchPreviewDataFromPath(...args),
 }))
 
-import { fetchPreviewDataFromPath } from '@/composables/nodes/sourcePreview/usePreviewCreation'
+import { fetchPreviewDataFromPath } from '@/services/preview/fetchPreviewFromPath'
 
 describe('NodePreviewFetcher', () => {
   const fetcher = new NodePreviewFetcher()

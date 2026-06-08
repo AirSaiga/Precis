@@ -99,9 +99,6 @@ def format_validation_result(result: ValidationResult) -> str:
             lines.append(f"  - {warning.message}")
 
     if result.partial_valid:
-        lines.append(
-            f"\n[i] {len(result.valid_actions)} 个操作有效，"
-            f"{len(result.invalid_action_indices)} 个操作无效"
-        )
+        lines.append(f"\n[i] {len(result.valid_actions)} 个操作有效，{len(result.invalid_action_indices)} 个操作无效")
 
     return "\n".join(lines)
