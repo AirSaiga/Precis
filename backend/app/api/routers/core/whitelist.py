@@ -98,7 +98,14 @@ def _get_config_path() -> str:
     raise HTTPException(status_code=404, detail="白名单配置文件未找到")
 
 
-@router.get("", response_model=WhitelistConfig)
+@router.get(
+    "",
+    response_model=WhitelistConfig,
+    summary="获取白名单配置",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 def get_whitelist_config():
     """
     获取白名单配置
@@ -116,7 +123,16 @@ def get_whitelist_config():
     )
 
 
-@router.put("", response_model=dict[str, str])
+@router.put(
+    "",
+    response_model=dict[str, str],
+    summary="更新白名单配置",
+    responses={
+        403: {"description": "个人版不支持此功能"},
+        404: {"description": "白名单配置文件未找到"},
+        500: {"description": "保存配置失败"},
+    },
+)
 def update_whitelist_config(config: WhitelistConfig):
     """
     更新白名单配置
@@ -136,7 +152,14 @@ def update_whitelist_config(config: WhitelistConfig):
         raise HTTPException(status_code=500, detail=f"保存配置失败: {str(e)}")
 
 
-@router.post("/validate", response_model=PathValidationResponse)
+@router.post(
+    "/validate",
+    response_model=PathValidationResponse,
+    summary="验证路径访问权限",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 def validate_path(request: PathValidationRequest):
     """
     验证路径访问权限

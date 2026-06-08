@@ -91,7 +91,13 @@ def _provider_to_response(p: AIProvider, health: dict) -> ProviderResponse:
     )
 
 
-@router.get("/providers/config-info")
+@router.get(
+    "/providers/config-info",
+    summary="获取 AI Provider 配置文件信息",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def get_config_info():
     """
     获取 AI Provider 配置文件信息
@@ -129,7 +135,14 @@ defaults:
     }
 
 
-@router.get("/providers", response_model=list[ProviderResponse])
+@router.get(
+    "/providers",
+    response_model=list[ProviderResponse],
+    summary="获取所有已配置的 Provider",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def list_providers():
     """
     获取所有已配置的 Provider
@@ -142,7 +155,14 @@ async def list_providers():
     return [_provider_to_response(p, {}) for p in config.providers]
 
 
-@router.post("/providers/discover", response_model=DiscoverResponse)
+@router.post(
+    "/providers/discover",
+    response_model=DiscoverResponse,
+    summary="扫描并发现本地 AI 服务",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def discover_local_services():
     """
     扫描并发现本地 AI 服务
@@ -160,7 +180,14 @@ async def discover_local_services():
     )
 
 
-@router.post("/providers/discover/add")
+@router.post(
+    "/providers/discover/add",
+    summary="将发现的服务添加到配置",
+    responses={
+        404: {"description": "服务未找到"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def add_discovered_service(service_id: str):
     """
     将发现的服务添加到配置
@@ -209,7 +236,15 @@ async def add_discovered_service(service_id: str):
     }
 
 
-@router.post("/providers/{provider_id}/test", response_model=TestProviderResponse)
+@router.post(
+    "/providers/{provider_id}/test",
+    response_model=TestProviderResponse,
+    summary="测试 Provider 连接",
+    responses={
+        404: {"description": "Provider 未找到"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def test_provider(provider_id: str):
     """
     测试 Provider 连接
@@ -239,7 +274,14 @@ async def test_provider(provider_id: str):
     return TestProviderResponse(provider_id=provider_id, health=health, available_models=models)
 
 
-@router.get("/providers/active", response_model=Optional[ProviderResponse])
+@router.get(
+    "/providers/active",
+    response_model=Optional[ProviderResponse],
+    summary="获取当前活动的 Provider",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def get_active_provider():
     """
     获取当前活动的 Provider
@@ -265,7 +307,15 @@ async def get_active_provider():
     return _provider_to_response(provider_cfg, {})
 
 
-@router.post("/providers/{provider_id}/activate", response_model=ProviderResponse)
+@router.post(
+    "/providers/{provider_id}/activate",
+    response_model=ProviderResponse,
+    summary="设置活动 Provider",
+    responses={
+        404: {"description": "Provider 未找到"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def activate_provider(provider_id: str):
     """
     设置活动 Provider

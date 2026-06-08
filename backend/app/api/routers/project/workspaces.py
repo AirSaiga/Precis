@@ -39,7 +39,14 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="", tags=["Project-Workspaces"])
 
 
-@router.get("/v2/workspaces", response_model=WorkspacesV2Model)
+@router.get(
+    "/v2/workspaces",
+    response_model=WorkspacesV2Model,
+    summary="获取 V2 项目工作区配置",
+    responses={
+        500: {"description": "读取工作区文件失败"},
+    },
+)
 def get_v2_workspaces(config_path: str = Depends(get_project_config_path)) -> WorkspacesV2Model:
     """
     获取 V2 项目工作区配置。
@@ -69,7 +76,14 @@ def get_v2_workspaces(config_path: str = Depends(get_project_config_path)) -> Wo
         raise HTTPException(status_code=500, detail=f"读取工作区文件失败: {e}")
 
 
-@router.put("/v2/workspaces", response_model=StandardResponse)
+@router.put(
+    "/v2/workspaces",
+    response_model=StandardResponse,
+    summary="更新 V2 项目工作区配置",
+    responses={
+        500: {"description": "写入工作区文件失败"},
+    },
+)
 def put_v2_workspaces(
     payload: WorkspacesV2Model,
     config_path: str = Depends(get_project_config_path),

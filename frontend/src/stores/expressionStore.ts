@@ -61,6 +61,7 @@ export const useExpressionStore = defineStore('expressions', () => {
   function addRule(type: 'patterns') {
     const newRule = { name: 'new_rule', regex: '', output: {} }
     if (type === 'patterns') {
+      // [safe-push] patterns 是独立的响应式数组，非 Vue Flow 节点/边
       patterns.value.push(newRule)
     }
     return newRule

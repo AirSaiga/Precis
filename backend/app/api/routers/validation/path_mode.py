@@ -66,7 +66,15 @@ from .router import router
 logger = logging.getLogger(__name__)
 
 
-@router.post("/validate/path", response_model=ValidationResponse)
+@router.post(
+    "/validate/path",
+    response_model=ValidationResponse,
+    summary="基于文件路径的单条数据校验（Path 模式）",
+    responses={
+        404: {"description": "文件未找到"},
+        500: {"description": "校验过程中发生错误"},
+    },
+)
 def validate_data_with_path(request: ValidationRequest):
     """
     基于文件路径的单条数据校验接口（Path 模式）。
@@ -140,7 +148,15 @@ def validate_data_with_path(request: ValidationRequest):
         )
 
 
-@router.post("/regex/path", response_model=RegexValidationResponse)
+@router.post(
+    "/regex/path",
+    response_model=RegexValidationResponse,
+    summary="基于文件路径的正则表达式校验（Path 模式）",
+    responses={
+        404: {"description": "文件未找到"},
+        500: {"description": "校验过程中发生错误"},
+    },
+)
 def validate_regex_with_path(request: RegexValidationRequest):
     """
     基于文件路径的正则表达式校验接口（Path 模式）。
@@ -223,7 +239,14 @@ def validate_regex_with_path(request: RegexValidationRequest):
         return RegexValidationResponse(success=False, data=None, error=f"校验过程中发生错误: {str(e)}")
 
 
-@router.post("/validate/path/batch", response_model=dict)
+@router.post(
+    "/validate/path/batch",
+    response_model=dict,
+    summary="批量数据校验（Path 模式）",
+    responses={
+        500: {"description": "校验过程中发生错误"},
+    },
+)
 def validate_batch_with_path(requests: list[ValidationRequest]):
     """
     批量数据校验接口（基于文件路径）。

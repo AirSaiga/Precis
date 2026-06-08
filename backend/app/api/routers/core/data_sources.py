@@ -109,7 +109,14 @@ def _get_project_root(config_path: str) -> str:
     return parent if parent != config_path else config_path
 
 
-@router.get("/config", response_model=WorkspaceConfig)
+@router.get(
+    "/config",
+    response_model=WorkspaceConfig,
+    summary="获取工作区配置",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def get_workspace_config(config_path: str = Depends(get_project_config_path)):
     """
     获取工作区配置
@@ -147,7 +154,14 @@ async def get_workspace_config(config_path: str = Depends(get_project_config_pat
     )
 
 
-@router.put("/config", response_model=WorkspaceConfig)
+@router.put(
+    "/config",
+    response_model=WorkspaceConfig,
+    summary="更新工作区配置",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def update_workspace_config(config_data: dict[str, Any], config_path: str = Depends(get_project_config_path)):
     """
     更新工作区配置
@@ -166,7 +180,14 @@ async def update_workspace_config(config_data: dict[str, Any], config_path: str 
     return await get_workspace_config(config_path)
 
 
-@router.post("/data-sources", response_model=WorkspaceConfig)
+@router.post(
+    "/data-sources",
+    response_model=WorkspaceConfig,
+    summary="添加数据源",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def add_data_source(data_source: dict[str, Any], config_path: str = Depends(get_project_config_path)):
     """
     添加数据源
@@ -230,7 +251,14 @@ async def add_data_source(data_source: dict[str, Any], config_path: str = Depend
     return await get_workspace_config(config_path)
 
 
-@router.delete("/data-sources/{source_id}", response_model=WorkspaceConfig)
+@router.delete(
+    "/data-sources/{source_id}",
+    response_model=WorkspaceConfig,
+    summary="移除数据源",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def remove_data_source(source_id: str, config_path: str = Depends(get_project_config_path)):
     """
     移除数据源
@@ -247,7 +275,14 @@ async def remove_data_source(source_id: str, config_path: str = Depends(get_proj
     return await get_workspace_config(config_path)
 
 
-@router.put("/data-sources/{source_id}", response_model=WorkspaceConfig)
+@router.put(
+    "/data-sources/{source_id}",
+    response_model=WorkspaceConfig,
+    summary="更新数据源",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def update_data_source(
     source_id: str, data_source: dict[str, Any], config_path: str = Depends(get_project_config_path)
 ):
@@ -269,7 +304,14 @@ async def update_data_source(
     return await get_workspace_config(config_path)
 
 
-@router.delete("/data-sources", response_model=WorkspaceConfig)
+@router.delete(
+    "/data-sources",
+    response_model=WorkspaceConfig,
+    summary="清空所有数据源",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def clear_all_data_sources(config_path: str = Depends(get_project_config_path)):
     """
     清空所有数据源

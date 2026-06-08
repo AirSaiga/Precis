@@ -81,7 +81,14 @@ def _resolve_path(path: str, config_path: str | None) -> str:
     return path
 
 
-@router.post("/utils/expand-paths", response_model=list[str])
+@router.post(
+    "/utils/expand-paths",
+    response_model=list[str],
+    summary="展开路径列表",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 def expand_paths(
     paths: list[str],
     x_project_config_path: str | None = Header(None, alias="X-Project-Config-Path"),

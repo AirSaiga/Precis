@@ -50,7 +50,14 @@ from .router import router
 logger = logging.getLogger(__name__)
 
 
-@router.post("/validate/inline", response_model=ValidationResponse)
+@router.post(
+    "/validate/inline",
+    response_model=ValidationResponse,
+    summary="基于行内数据的校验（Inline 模式）",
+    responses={
+        500: {"description": "校验过程中发生错误"},
+    },
+)
 def validate_data_inline(request: InlineValidationRequest):
     """
     基于行内数据的校验接口（Inline 模式）。

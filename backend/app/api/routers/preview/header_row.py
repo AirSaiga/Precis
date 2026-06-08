@@ -39,7 +39,14 @@ def _sanitize_schema_name(name: str) -> str:
     return cleaned
 
 
-@router.post("/header-row-changed", response_model=HeaderRowChangedResponse)
+@router.post(
+    "/header-row-changed",
+    response_model=HeaderRowChangedResponse,
+    summary="处理表头行变更请求",
+    responses={
+        500: {"description": "处理表头行变更时发生错误"},
+    },
+)
 def handle_header_row_changed(
     request: HeaderRowChangedRequest,
     config_path: str = Depends(get_project_config_path),

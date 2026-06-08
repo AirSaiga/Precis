@@ -190,6 +190,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
   function addContextNode(node: ContextNode) {
     const exists = contextNodes.value.some((n) => n.id === node.id)
     if (!exists) {
+      // [safe-push] contextNodes 是独立的响应式数组，非 Vue Flow 节点/边
       contextNodes.value.push(node)
     }
   }
@@ -222,12 +223,13 @@ export const useAiChatStore = defineStore('aiChat', () => {
       content,
       timestamp: new Date().toISOString(),
     }
+    // [safe-push] messages 是独立的响应式数组，非 Vue Flow 节点/边
     messages.value.push(message)
     return message
   }
 
   /**
-   * 添加 AI 助手消息到聊天列表
+    * 添加 AI 助手消息到聊天列表
    *
    * @param content - AI 回复的文本内容
    * @returns 新创建的消息对象
@@ -239,6 +241,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
       content,
       timestamp: new Date().toISOString(),
     }
+    // [safe-push] messages 是独立的响应式数组，非 Vue Flow 节点/边
     messages.value.push(message)
     return message
   }

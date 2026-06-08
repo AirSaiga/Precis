@@ -27,7 +27,14 @@ from app.shared.services.llm.providers import create
 from .router import router
 
 
-@router.get("/ollama/models", response_model=list[str])
+@router.get(
+    "/ollama/models",
+    response_model=list[str],
+    summary="获取 Ollama 可用模型列表",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def list_ollama_models() -> list[str]:
     """
     获取 Ollama 可用模型列表
@@ -55,7 +62,13 @@ async def list_ollama_models() -> list[str]:
         return []
 
 
-@router.get("/ollama/health")
+@router.get(
+    "/ollama/health",
+    summary="检查 Ollama 服务健康状态",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def ollama_health() -> dict[str, Any]:
     """
     检查 Ollama 服务健康状态

@@ -39,7 +39,13 @@ class SaveRunRequest(BaseModel):
     warnings: list[str] = []
 
 
-@router.post("")
+@router.post(
+    "",
+    summary="保存校验运行记录",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 def save_run(req: SaveRunRequest) -> dict[str, Any]:
     store = _get_store(req.project_path)
     record = ValidationRunRecord(
@@ -57,7 +63,13 @@ def save_run(req: SaveRunRequest) -> dict[str, Any]:
     return {"success": True, "run_id": run_id}
 
 
-@router.get("")
+@router.get(
+    "",
+    summary="获取校验运行记录列表",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 def list_runs(
     project_path: str = Query(..., description="项目路径"),
     limit: int = Query(20, ge=1, le=100),
@@ -67,7 +79,13 @@ def list_runs(
     return store.get_runs(limit=limit, offset=offset)
 
 
-@router.get("/stats")
+@router.get(
+    "/stats",
+    summary="获取校验运行统计信息",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 def get_stats(
     project_path: str = Query(..., description="项目路径"),
     last_n: int = Query(10, ge=1, le=50),
@@ -76,7 +94,13 @@ def get_stats(
     return store.get_stats(last_n=last_n)
 
 
-@router.get("/{run_id}")
+@router.get(
+    "/{run_id}",
+    summary="获取单条校验运行记录",
+    responses={
+        404: {"description": "记录不存在"},
+    },
+)
 def get_run(run_id: str, project_path: str = Query(..., description="项目路径")) -> dict[str, Any]:
     store = _get_store(project_path)
     run = store.get_run(run_id)
@@ -85,7 +109,13 @@ def get_run(run_id: str, project_path: str = Query(..., description="项目路�
     return run
 
 
-@router.delete("/{run_id}")
+@router.delete(
+    "/{run_id}",
+    summary="删除校验运行记录",
+    responses={
+        404: {"description": "记录不存在"},
+    },
+)
 def delete_run(run_id: str, project_path: str = Query(..., description="项目路径")) -> dict[str, Any]:
     store = _get_store(project_path)
     deleted = store.delete_run(run_id)

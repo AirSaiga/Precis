@@ -69,7 +69,14 @@ from .router import router
 logger = logging.getLogger(__name__)
 
 
-@router.post("/validate", response_model=ValidationResponse)
+@router.post(
+    "/validate",
+    response_model=ValidationResponse,
+    summary="基于 JSON 请求体的单条数据校验",
+    responses={
+        500: {"description": "校验过程中发生错误"},
+    },
+)
 def validate_data(request: ValidationRequest):
     """
     基于 JSON 请求体的单条数据校验接口。
@@ -120,7 +127,15 @@ def validate_data(request: ValidationRequest):
         )
 
 
-@router.post("/validate/content", response_model=ValidationResponse)
+@router.post(
+    "/validate/content",
+    response_model=ValidationResponse,
+    summary="基于文件上传的单条数据校验（Content 模式）",
+    responses={
+        400: {"description": "文件内容为空"},
+        500: {"description": "校验过程中发生错误"},
+    },
+)
 async def validate_data_with_file(
     file: UploadFile = File(...),
     validation_type: str = Form(...),
@@ -231,7 +246,14 @@ async def validate_data_with_file(
         )
 
 
-@router.post("/regex", response_model=RegexValidationResponse)
+@router.post(
+    "/regex",
+    response_model=RegexValidationResponse,
+    summary="基于 JSON 请求体的正则表达式校验",
+    responses={
+        500: {"description": "校验过程中发生错误"},
+    },
+)
 def validate_regex(request: RegexValidationRequest):
     """
     基于 JSON 请求体的正则表达式校验接口。
@@ -294,7 +316,14 @@ def validate_regex(request: RegexValidationRequest):
         return RegexValidationResponse(success=False, data=None, error=f"校验过程中发生错误: {str(e)}")
 
 
-@router.post("/validate/batch", response_model=dict)
+@router.post(
+    "/validate/batch",
+    response_model=dict,
+    summary="批量数据校验",
+    responses={
+        500: {"description": "校验过程中发生错误"},
+    },
+)
 def validate_batch(requests: list[ValidationRequest]):
     """
     批量数据校验接口（基于 JSON 请求体列表）。

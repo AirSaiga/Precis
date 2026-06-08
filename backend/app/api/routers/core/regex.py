@@ -85,7 +85,14 @@ PARAM_TYPE_REGEX_MAP = {
 }
 
 
-@router.post("/parse-pattern", response_model=ParsePatternResponse)
+@router.post(
+    "/parse-pattern",
+    response_model=ParsePatternResponse,
+    summary="将可视化模式片段解析为正则表达式",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 def parse_pattern_to_regex(request: ParsePatternRequest):
     """将可视化模式片段解析为正则表达式
 
@@ -142,7 +149,14 @@ class TestRegexResponse(BaseModel):
     error: Union[str, None] = None
 
 
-@router.post("/test-regex", response_model=TestRegexResponse)
+@router.post(
+    "/test-regex",
+    response_model=TestRegexResponse,
+    summary="测试正则表达式匹配",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 def test_regex_matching(request: TestRegexRequest):
     """测试正则表达式匹配
 
@@ -222,7 +236,14 @@ class RegexValidateExtractResponse(BaseModel):
     error: Optional[str] = None
 
 
-@router.post("/regex/validate-extract", response_model=RegexValidateExtractResponse)
+@router.post(
+    "/regex/validate-extract",
+    response_model=RegexValidateExtractResponse,
+    summary="批量验证数据并提取正则命名组",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 def validate_and_extract_regex(request: RegexValidateExtractRequest):
     """批量验证数据并提取正则命名组
 

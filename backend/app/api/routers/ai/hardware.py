@@ -39,7 +39,14 @@ from .models import HardwareDiagnoseResponse, HardwareInfo, HardwareRequirement
 from .router import router
 
 
-@router.get("/hardware/diagnose", response_model=HardwareDiagnoseResponse)
+@router.get(
+    "/hardware/diagnose",
+    response_model=HardwareDiagnoseResponse,
+    summary="诊断本地硬件环境",
+    responses={
+        500: {"description": "服务器内部错误（psutil 未安装等）"},
+    },
+)
 def diagnose_hardware() -> HardwareDiagnoseResponse:
     """
     诊断本地硬件环境
@@ -152,7 +159,13 @@ def diagnose_hardware() -> HardwareDiagnoseResponse:
     )
 
 
-@router.get("/hardware/requirements/{model_size}")
+@router.get(
+    "/hardware/requirements/{model_size}",
+    summary="获取指定规模模型的硬件需求",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 def get_hardware_requirements(model_size: str) -> dict[str, Any]:
     """
     获取指定规模模型的硬件需求

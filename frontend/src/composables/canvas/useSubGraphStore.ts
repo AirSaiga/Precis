@@ -28,7 +28,8 @@ export function useSubGraphStore(
   const edges = ref<Edge[]>(structuredClone(initialEdges))
 
   function addNode(node: any) {
-    nodes.value.push(node)
+    // useSubGraphStore 的 nodes 是局部状态，不走 Vue Flow 管线，此处赋值替换仅为代码规范统一
+    nodes.value = [...nodes.value, node]
   }
 
   function removeNode(nodeId: string) {
@@ -56,7 +57,8 @@ export function useSubGraphStore(
     if (edgeApi) {
       edgeApi.addEdges(edge)
     } else {
-      edges.value.push(edge)
+      // useSubGraphStore 的 edges 是局部状态，不走 Vue Flow 管线，此处赋值替换仅为代码规范统一
+      edges.value = [...edges.value, edge]
     }
   }
 

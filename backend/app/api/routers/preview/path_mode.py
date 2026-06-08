@@ -52,7 +52,16 @@ def _infer_json_type(value: Any) -> str:
     return "string"
 
 
-@router.post("/file/path", response_model=FilePreviewResponse)
+@router.post(
+    "/file/path",
+    response_model=FilePreviewResponse,
+    summary="基于文件路径预览文件内容",
+    responses={
+        400: {"description": "不支持的文件类型"},
+        404: {"description": "工作表不存在"},
+        500: {"description": "读取文件失败"},
+    },
+)
 def preview_file_by_path(request: FilePathPreviewRequest):
     logger.info("=" * 50)
     logger.info(f"[PREVIEW] 收到路径预览请求: {request.file_path}")
@@ -306,7 +315,16 @@ def preview_file_by_path(request: FilePathPreviewRequest):
         )
 
 
-@router.post("/switch-sheet/path", response_model=FilePreviewResponse)
+@router.post(
+    "/switch-sheet/path",
+    response_model=FilePreviewResponse,
+    summary="基于文件路径切换 Excel 工作表",
+    responses={
+        400: {"description": "切换工作表只支持 Excel 文件"},
+        404: {"description": "工作表不存在"},
+        500: {"description": "读取文件失败"},
+    },
+)
 def switch_sheet_by_path(request: SheetSwitchRequest):
     try:
         file_path = request.file_path

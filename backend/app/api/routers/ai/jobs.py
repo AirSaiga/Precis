@@ -73,7 +73,14 @@ def _cleanup_old_jobs():
         _job_tasks.pop(job_id, None)
 
 
-@router.post("/v2/config/generate/jobs", response_model=ConfigGenerateJobCreateResponse)
+@router.post(
+    "/v2/config/generate/jobs",
+    response_model=ConfigGenerateJobCreateResponse,
+    summary="创建异步配置生成任务",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def create_generate_job(
     payload: ConfigGenerateRequest,
     config_path: str = Depends(get_project_config_path),
@@ -189,7 +196,14 @@ async def _run_job(job_id: str, payload: ConfigGenerateRequest, config_path: str
         _job_tasks.pop(job_id, None)
 
 
-@router.get("/v2/config/generate/jobs/{job_id}", response_model=ConfigGenerateJobStatus)
+@router.get(
+    "/v2/config/generate/jobs/{job_id}",
+    response_model=ConfigGenerateJobStatus,
+    summary="获取任务状态",
+    responses={
+        404: {"description": "任务未找到"},
+    },
+)
 async def get_generate_job(job_id: str) -> ConfigGenerateJobStatus:
     """获取任务状态"""
     async with _jobs_lock:
@@ -199,7 +213,14 @@ async def get_generate_job(job_id: str) -> ConfigGenerateJobStatus:
         return job
 
 
-@router.post("/v2/config/generate/jobs/{job_id}/cancel", response_model=ConfigGenerateJobStatus)
+@router.post(
+    "/v2/config/generate/jobs/{job_id}/cancel",
+    response_model=ConfigGenerateJobStatus,
+    summary="取消任务",
+    responses={
+        404: {"description": "任务未找到"},
+    },
+)
 async def cancel_generate_job(job_id: str) -> ConfigGenerateJobStatus:
     """取消任务"""
     async with _jobs_lock:

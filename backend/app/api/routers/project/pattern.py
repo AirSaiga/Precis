@@ -60,7 +60,15 @@ class CreatePatternResponse(BaseModel):
     pattern_name: str
 
 
-@router.post("/v2/pattern", response_model=CreatePatternResponse)
+@router.post(
+    "/v2/pattern",
+    response_model=CreatePatternResponse,
+    summary="创建新的 Pattern 文件",
+    responses={
+        409: {"description": "Pattern 已存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 def create_v2_pattern(
     payload: CreatePatternRequest,
     config_path: str = Depends(get_project_config_path),
@@ -116,7 +124,14 @@ def create_v2_pattern(
     )
 
 
-@router.get("/v2/pattern/{pattern_name}/exists", response_model=dict)
+@router.get(
+    "/v2/pattern/{pattern_name}/exists",
+    response_model=dict,
+    summary="检查 Pattern 名称是否已存在",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
 def check_pattern_name_exists(
     pattern_name: str,
     config_path: str = Depends(get_project_config_path),

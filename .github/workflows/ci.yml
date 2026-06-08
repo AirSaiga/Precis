@@ -86,7 +86,7 @@ jobs:
           pip-audit --desc --format=markdown
 
       - name: Run unit + integration tests with coverage
-        run: python -m pytest --cov=app --cov-fail-under=55 --cov-report=html --cov-report=term-missing
+        run: python -m pytest --cov=app --cov-fail-under=58 --cov-report=html --cov-report=term-missing
 
       - name: Smoke test CLI validate against real fixture
         run: |

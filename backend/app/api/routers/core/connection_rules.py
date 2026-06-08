@@ -114,7 +114,14 @@ class ConnectionRulesModel(BaseModel):
     rules: list[ConnectionRuleModel] = Field(default=[], description="规则列表")
 
 
-@router.get("", response_model=ConnectionRulesModel)
+@router.get(
+    "",
+    response_model=ConnectionRulesModel,
+    summary="获取当前项目的连接规则",
+    responses={
+        500: {"description": "加载连接规则失败"},
+    },
+)
 def get_connection_rules(config_path: str = Depends(get_project_config_path)):
     """
     获取当前项目的连接规则。
@@ -149,7 +156,14 @@ def get_connection_rules(config_path: str = Depends(get_project_config_path)):
         raise HTTPException(status_code=500, detail=f"加载连接规则失败: {str(e)}")
 
 
-@router.put("", response_model=StandardResponse)
+@router.put(
+    "",
+    response_model=StandardResponse,
+    summary="保存当前项目的连接规则",
+    responses={
+        500: {"description": "保存连接规则失败"},
+    },
+)
 def save_connection_rules(rules: ConnectionRulesModel, config_path: str = Depends(get_project_config_path)):
     """
     保存当前项目的连接规则。
@@ -180,7 +194,14 @@ def save_connection_rules(rules: ConnectionRulesModel, config_path: str = Depend
         raise HTTPException(status_code=500, detail=f"保存连接规则失败: {str(e)}")
 
 
-@router.post("/reset", response_model=StandardResponse)
+@router.post(
+    "/reset",
+    response_model=StandardResponse,
+    summary="重置连接规则为默认值",
+    responses={
+        500: {"description": "重置连接规则失败"},
+    },
+)
 def reset_connection_rules(config_path: str = Depends(get_project_config_path)):
     """
     重置连接规则为默认值。

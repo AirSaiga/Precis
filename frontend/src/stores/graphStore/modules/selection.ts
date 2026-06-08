@@ -55,6 +55,7 @@ export function createSelectionModule(params: {
   function addToSelection(nodeId: string) {
     // 去重：仅当节点不在列表中时才追加
     if (!selectedNodeIds.value.includes(nodeId)) {
+      // [safe-push] selectedNodeIds 是独立的响应式数组，非 Vue Flow 节点/边
       selectedNodeIds.value.push(nodeId)
     }
   }

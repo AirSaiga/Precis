@@ -45,7 +45,16 @@ from .models import AiChatRequest, AiChatResponse, ChatRequestInput
 from .router import router
 
 
-@router.post("/chat", response_model=AiChatResponse)
+@router.post(
+    "/chat",
+    response_model=AiChatResponse,
+    summary="与前端对齐的 AI 聊天接口",
+    responses={
+        400: {"description": "未配置默认 Provider"},
+        404: {"description": "Provider 未找到"},
+        502: {"description": "AI 服务调用失败"},
+    },
+)
 async def chat(request: AiChatRequest, x_project_config_path: Optional[str] = Header(None)):
     """
     与前端对齐的 AI 聊天接口
@@ -122,7 +131,15 @@ async def chat(request: AiChatRequest, x_project_config_path: Optional[str] = He
     )
 
 
-@router.post("/chat/completions")
+@router.post(
+    "/chat/completions",
+    summary="OpenAI 兼容的聊天接口",
+    responses={
+        400: {"description": "未指定 Provider"},
+        404: {"description": "Provider 未找到"},
+        502: {"description": "AI 服务调用失败"},
+    },
+)
 async def chat_completions(request: ChatRequestInput):
     """
     OpenAI 兼容的聊天接口

@@ -166,7 +166,14 @@ class ReportingConfig(BaseModel):
     reporters: ReportersConfig
 
 
-@router.get("/reporting/config", response_model=ReportingConfig)
+@router.get(
+    "/reporting/config",
+    response_model=ReportingConfig,
+    summary="获取报告配置",
+    responses={
+        500: {"description": "读取报告配置文件失败"},
+    },
+)
 def get_reporting_config(store: ProjectStore = Depends(get_project_store)):
     """获取报告配置
 
@@ -208,7 +215,13 @@ def get_reporting_config(store: ProjectStore = Depends(get_project_store)):
         raise HTTPException(status_code=500, detail=f"读取报告配置文件失败: {e}")
 
 
-@router.post("/reporting/config")
+@router.post(
+    "/reporting/config",
+    summary="更新报告配置",
+    responses={
+        500: {"description": "写入报告配置文件失败"},
+    },
+)
 def update_reporting_config(config: ReportingConfig, store: ProjectStore = Depends(get_project_store)):
     """更新报告配置
 

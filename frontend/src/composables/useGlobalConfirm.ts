@@ -87,6 +87,7 @@ function normalizeOptions(opts: string | ConfirmOptions): ConfirmOptions {
 export function useGlobalConfirm() {
   const showConfirm = (opts: string | ConfirmOptions): Promise<boolean | 'alternative'> => {
     return new Promise((resolve) => {
+      // [safe-push] queue 是独立的响应式数组，非 Vue Flow 节点/边
       queue.value.push({
         options: normalizeOptions(opts),
         resolve,

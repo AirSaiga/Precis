@@ -70,6 +70,7 @@ export function createAssetsModule(params: {
     }
 
     // 将新资产追加到资产列表
+    // [safe-push] assets 是独立的响应式数组，非 Vue Flow 节点/边
     assets.value.push(newAsset)
     return newAsset.id
   }

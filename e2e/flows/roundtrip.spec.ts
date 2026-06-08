@@ -273,4 +273,153 @@ test.describe('Save/Load Round-Trip', () => {
     expect(loadedConfig.transforms?.['t-1']?.type).toBe('StringSplit')
     expect(loadedConfig.transforms?.['t-1']?.output_columns).toEqual(['first_name', 'last_name'])
   })
+
+  test('多节点保存/恢复 — Schema + Constraint + Regex 完整配置', async ({ apiHelper }) => {
+
+    const fullConfig = {
+      manifest: {
+        version: 2,
+        project: { id: 'roundtrip-multi', name: 'Multi Node RoundTrip' },
+        settings: {
+          validation: { auto_validate: true, strict_mode: false, error_handling: 'continue', timeout_seconds: 30, batch_max_files: 100 },
+          file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
+          script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
+        },
+        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        constraints: [{ id: 'c-notnull', path: 'constraints/c-notnull.constraint.yaml' }],
+        regex_nodes: [{ id: 'r-email', path: 'regex/r-email.regex.yaml' }],
+      },
+      schemas: {
+        sc_users: {
+          version: 2,
+          id: 'sc_users',
+          name: 'users',
+          source: { mode: 'absolute_file' as const, path: '/data/users.csv', header_row: 0 },
+          columns: [
+            { id: 'col-name', name: 'name', type: 'Str' },
+            { id: 'col-email', name: 'email', type: 'Str' },
+          ],
+          constraints: [],
+          script_checks: [],
+        },
+      },
+      constraints: {
+        'c-notnull': {
+          version: 2,
+          id: 'c-notnull',
+          type: 'NotNull',
+          enabled: true,
+          refs: { table_id: 'sc_users', column_id: 'col-name' },
+          params: {},
+        },
+      },
+      regex_nodes: {
+        'r-email': {
+          version: 2,
+          id: 'r-email',
+          name: 'Email Pattern',
+          pattern: '^[\\w.-]+@[\\w.-]+\\.\\w+$',
+          description: 'Validates email format',
+        },
+      },
+    }
+
+    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    expect(saveResp.status).toBeLessThan(300)
+
+    const loadResp = await apiHelper.get('/project/v2/config/full')
+    expect(loadResp.status).toBeLessThan(300)
+    const loadedConfig = await loadResp.json()
+
+    expect(loadedConfig.schemas?.sc_users).toBeDefined()
+    expect(loadedConfig.schemas?.sc_users.columns).toHaveLength(2)
+
+    expect(loadedConfig.constraints?.['c-notnull']).toBeDefined()
+    expect(loadedConfig.constraints?.['c-notnull']?.type).toBe('NotNull')
+    expect(loadedConfig.constraints?.['c-notnull']?.refs?.column_id).toBe('col-name')
+
+    expect(loadedConfig.regex_nodes?.['r-email']).toBeDefined()
+    expect(loadedConfig.regex_nodes?.['r-email']?.pattern).toBe('^[\\w.-]+@[\\w.-]+\\.\\w+$')
+  })
+
+  test('修改后保存 — Schema 列名修改持久化', async ({ apiHelper }) => {
+
+    const fullConfig = {
+      manifest: {
+        version: 2,
+        project: { id: 'roundtrip-modify', name: 'Modify RoundTrip' },
+        settings: {
+          validation: { auto_validate: true, strict_mode: false, error_handling: 'continue', timeout_seconds: 30, batch_max_files: 100 },
+          file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
+          script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
+        },
+        schemas: [{ id: 'sc_products', path: 'schemas/sc_products.schema.yaml' }],
+      },
+      schemas: {
+        sc_products: {
+          version: 2,
+          id: 'sc_products',
+          name: 'products',
+          source: { mode: 'absolute_file' as const, path: '/data/products.csv', header_row: 0 },
+          columns: [
+            { id: 'col-name', name: 'product_name', type: 'Str' },
+            { id: 'col-price', name: 'price', type: 'Decimal' },
+          ],
+          constraints: [],
+          script_checks: [],
+        },
+      },
+    }
+
+    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    expect(saveResp.status).toBeLessThan(300)
+
+    const schemaPath = path.join(projectPath, 'schemas', 'sc_products.schema.yaml')
+    const savedContent = fs.readFileSync(schemaPath, 'utf-8')
+    expect(savedContent).toContain('product_name')
+
+    const updatedConfig = {
+      ...fullConfig,
+      schemas: {
+        sc_products: {
+          ...fullConfig.schemas.sc_products,
+          columns: [
+            { id: 'col-name', name: 'updated_product_name', type: 'Str' },
+            { id: 'col-price', name: 'price', type: 'Decimal' },
+          ],
+        },
+      },
+    }
+
+    const updateResp = await apiHelper.put('/project/v2/config/full', updatedConfig)
+    expect(updateResp.status).toBeLessThan(300)
+
+    const updatedContent = fs.readFileSync(schemaPath, 'utf-8')
+    expect(updatedContent).toContain('updated_product_name')
+    expect(updatedContent).not.toContain('product_name')
+
+    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadedConfig = await loadResp.json()
+    expect(loadedConfig.schemas?.sc_products?.columns[0]?.name).toBe('updated_product_name')
+  })
+
+  test('draft 状态节点未保存 — 未调用保存 API 的资源不存在于磁盘', async ({ apiHelper }) => {
+
+    const loadResp = await apiHelper.get('/project/v2/config/full')
+    expect(loadResp.status).toBeLessThan(300)
+    const initialConfig = await loadResp.json()
+    const initialConstraintCount = Object.keys(initialConfig.constraints || {}).length
+    const initialRegexCount = Object.keys(initialConfig.regex_nodes || {}).length
+
+    const draftConstraintPath = path.join(projectPath, 'constraints', 'c-draft-unwritten.constraint.yaml')
+    const draftRegexPath = path.join(projectPath, 'regex', 'r-draft-unwritten.regex.yaml')
+
+    expect(fs.existsSync(draftConstraintPath)).toBe(false)
+    expect(fs.existsSync(draftRegexPath)).toBe(false)
+
+    const reloadResp = await apiHelper.get('/project/v2/config/full')
+    const reloadedConfig = await reloadResp.json()
+    expect(Object.keys(reloadedConfig.constraints || {}).length).toBe(initialConstraintCount)
+    expect(Object.keys(reloadedConfig.regex_nodes || {}).length).toBe(initialRegexCount)
+  })
 })

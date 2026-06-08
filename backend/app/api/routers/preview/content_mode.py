@@ -32,7 +32,14 @@ from .router import router
 logger = logging.getLogger(__name__)
 
 
-@router.post("/file", response_model=FilePreviewResponse)
+@router.post(
+    "/file",
+    response_model=FilePreviewResponse,
+    summary="基于文件路径预览文件内容",
+    responses={
+        500: {"description": "预览文件时发生错误"},
+    },
+)
 def preview_file(request: FilePreviewRequest):
     """基于文件路径预览文件内容
 
@@ -73,7 +80,14 @@ def preview_file(request: FilePreviewRequest):
         )
 
 
-@router.post("/file/content", response_model=FilePreviewResponse)
+@router.post(
+    "/file/content",
+    response_model=FilePreviewResponse,
+    summary="基于文件上传预览文件内容",
+    responses={
+        500: {"description": "预览文件时发生错误"},
+    },
+)
 async def preview_file_content(
     file: UploadFile = File(...),
     max_rows: int = Form(65535),
@@ -117,7 +131,14 @@ async def preview_file_content(
         )
 
 
-@router.post("/switch-sheet", response_model=FilePreviewResponse)
+@router.post(
+    "/switch-sheet",
+    response_model=FilePreviewResponse,
+    summary="切换 Excel 工作表预览",
+    responses={
+        500: {"description": "切换工作表时发生错误"},
+    },
+)
 def switch_sheet(request: SheetSwitchRequest):
     """切换 Excel 工作表预览"""
     file_path = request.file_path
@@ -153,7 +174,14 @@ def switch_sheet(request: SheetSwitchRequest):
         )
 
 
-@router.post("/switch-sheet/content", response_model=FilePreviewResponse)
+@router.post(
+    "/switch-sheet/content",
+    response_model=FilePreviewResponse,
+    summary="基于文件上传切换 Excel 工作表预览",
+    responses={
+        500: {"description": "切换工作表时发生错误"},
+    },
+)
 async def switch_sheet_content(
     file: UploadFile = File(...),
     sheet_name: str = Form(...),

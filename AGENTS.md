@@ -52,19 +52,21 @@ npm run format:all            # 前端 format + 后端 ruff format + fix
 ### 测试
 
 ```bash
-# 前端单元测试（295 用例，覆盖率仅统计 .ts 源文件；阈值 lines:5% branches:4% functions:6%）
+# 前端单元测试（仅纯逻辑模块，覆盖率仅统计指定的 .ts 源文件）
 cd frontend && npm run test          # vitest 运行全部测试
 cd frontend && npm run test:watch    # vitest watch 模式
 
-# 后端单元测试（1360 用例，覆盖率阈值 56%）
+# 后端单元测试（覆盖率阈值 56%）
 cd backend && python -m pytest       # pytest 运行全部测试
 
-# E2E 测试（12 用例，Playwright）
+# E2E 测试（Playwright + Chromium，前端主测试手段）
 cd e2e && npx playwright test        # 运行 E2E 测试（需后端运行）
 
 # CLI 校验
 npm run cli:validate                 # CLI 校验测试套件
 ```
+
+> 详细测试策略见下方 [Testing Strategy](#testing-strategy) 章节。
 
 ---
 
@@ -331,7 +333,7 @@ Electron 主进程 (`electron/src/main.ts`) 负责：
 
 ### E2E 测试
 
-`e2e/` 目录包含 Playwright E2E 测试（12 用例），独立 `package.json` 和 `playwright.config.ts`。
+`e2e/` 目录包含 Playwright E2E 测试，独立 `package.json` 和 `playwright.config.ts`。
 
 | 测试文件 | 覆盖内容 |
 |---------|---------|
@@ -339,6 +341,61 @@ Electron 主进程 (`electron/src/main.ts`) 负责：
 | `flows/validation.spec.ts` | NotNull/Unique 校验、异常处理 |
 | `flows/project-config.spec.ts` | manifest/schema/数据文件加载 |
 | `flows/preview.spec.ts` | CSV 预览、空文件处理 |
+| `flows/roundtrip.spec.ts` | 配置保存/加载 roundtrip |
+
+---
+
+## Testing Strategy
+
+前端采用 **E2E-first** 策略，后端保持 pytest 单元测试。
+
+### 分层原则
+
+| 层 | 工具 | 覆盖范围 |
+|----|------|---------|
+| 前端单元测试 | vitest | 仅纯逻辑 `.ts` 模块（无 Vue/Pinia/Vue Flow 依赖） |
+| 前端 E2E 测试 | Playwright | 所有 UI 交互、composables、`.vue` 组件、跨层集成流程 |
+| 后端单元测试 | pytest | 全部后端代码，`--cov-fail-under` 门控 |
+
+### 前端单元测试范围（vitest）
+
+**应该写单元测试的**（纯逻辑，无框架依赖或依赖易 mock）：
+
+- `services/rules/` — 连接规则定义与验证
+- `services/constraints/` — 约束注册表、校验编排、节点数据构建、导出适配
+- `services/builders/` — V2 配置序列化
+- `services/canvas/` — 连接策略服务
+- `stores/graphStore/modules/` — 工厂模块（`createXxxModule` 闭包，通过参数注入依赖）
+- `utils/` — 纯工具函数
+- `api/` — API 调用层（mock HTTP）
+- `core/` — 基础设施（httpClient、logger 等）
+
+**不应写单元测试的**（由 E2E 覆盖）：
+
+- `composables/` — 依赖 Pinia store、Vue 响应式、Vue Flow hooks 等运行时环境
+- `.vue` 组件 — UI 渲染与交互
+- `features/` — 跨层功能模块（components + composables + types 整体由 E2E 验证）
+
+### 前端覆盖率配置
+
+vitest 覆盖率（`vite.config.ts`）仅统计上述纯逻辑 `.ts` 文件，排除 composables、.vue、types、index barrel。
+
+阈值设定应反映纯逻辑模块的实际覆盖水平，不因排除 UI 层而失真。
+
+### E2E 测试职责
+
+E2E 是前端功能正确性的**主验证手段**，覆盖：
+
+- 用户操作完整路径（导入 → 编辑 → 校验 → 保存 roundtrip）
+- Composable 与组件的集成行为
+- 前端 ↔ 后端 API 交互
+- Electron 特有行为（如适用）
+
+新增功能时，优先补充 E2E 用例；纯逻辑提取为独立函数后才考虑补充单元测试。
+
+### 后端测试策略
+
+保持不变：`pytest` + `--cov-fail-under` 覆盖率门控。新增后端功能必须附带单元测试。
 
 ---
 

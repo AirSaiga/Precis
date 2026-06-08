@@ -54,7 +54,17 @@ from .models import ConfigGenerateRequest, ConfigGenerateResponse
 from .router import router
 
 
-@router.post("/v2/config/generate", response_model=ConfigGenerateResponse)
+@router.post(
+    "/v2/config/generate",
+    response_model=ConfigGenerateResponse,
+    summary="同步生成 V2 配置",
+    responses={
+        400: {"description": "参数错误"},
+        409: {"description": "生成任务已取消"},
+        422: {"description": "AI 响应解析失败"},
+        500: {"description": "服务器内部错误"},
+    },
+)
 async def generate_v2_config(
     payload: ConfigGenerateRequest,
     config_path: str = Depends(get_project_config_path),
