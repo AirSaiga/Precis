@@ -1,10 +1,16 @@
-
+/**
+ * 校验错误过滤组合式函数
+ *
+ * 提供按阶段过滤（all/loading/format/constraint）、搜索过滤、
+ * 按表/阶段/类型/无分组的能力。
+ */
 import { computed, ref } from 'vue'
 import type { FullValidationErrorItem } from '@/api/projectValidationApi'
 
 export type ErrorStageFilter = 'all' | 'loading' | 'format' | 'constraint'
 export type ErrorGroupBy = 'table' | 'stage' | 'type' | 'none'
 
+/** @returns stageFilter / groupBy / searchQuery 响应式状态及过滤/分组计算属性 */
 export function useValidationErrorFilter(errors: FullValidationErrorItem[]) {
   const stageFilter = ref<ErrorStageFilter>('all')
   const groupBy = ref<ErrorGroupBy>('table')

@@ -176,6 +176,15 @@ async def chat_completions(request: ChatRequestInput):
         # 流式响应模式：使用 SSE 格式逐块返回
 
         async def generate():
+            """
+            @methoddesc SSE 流式响应生成器
+
+            业务用途:
+            - 在流式聊天请求下，构造与 OpenAI 兼容的 SSE 事件流
+            - 起始事件携带 assistant 角色标识；中间事件逐块回传 delta.content；末尾发送 [DONE] 终止标记
+
+            @yields str - 形如 ``data: {json}\\n\\n`` 的 SSE 帧
+            """
             # 发送 SSE 起始事件，标识助手角色
             yield '{"id":"chatcmpl-start","object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant"}}]}\n\n'
 

@@ -1,10 +1,16 @@
-
+/**
+ * 校验错误导航组合式函数
+ *
+ * 将验证错误列表中的条目定位到对应的画布节点。
+ * 节点不存在时尝试通过 V2 导入逻辑创建；存在时直接聚焦 + 居中。
+ */
 import { useGraphStore } from '@/stores/graphStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
 import type { FullValidationErrorItem } from '@/api/projectValidationApi'
 
+/** @returns navigateErrorToCanvas / focusNode / resolveErrorNodeId 等导航方法 */
 export function useValidationErrorNavigator() {
   const graphStore = useGraphStore()
   const projectStore = useProjectStore()

@@ -93,9 +93,20 @@ async def preview_file_content(
     max_rows: int = Form(65535),
     max_cols: int = Form(65535),
 ):
-    """基于文件上传预览文件内容
+    """
+    @methoddesc 基于文件上传预览文件内容
 
-    接收前端上传的文件流，保存到临时文件后解析预览。
+    业务用途:
+    - 接收前端通过 multipart 上传的文件流
+    - 内部读取字节流并复用 preview_from_content 服务进行解析
+
+    参数:
+        file: 上传的文件对象
+        max_rows: 最大返回行数，默认 65535
+        max_cols: 最大返回列数，默认 65535
+
+    返回:
+        FilePreviewResponse: 包含解析数据、文件类型、Sheet 列表的响应
     """
     logger.info("=" * 50)
     logger.info(f"[PREVIEW] 收到文件内容预览请求: {file.filename}")
@@ -188,7 +199,22 @@ async def switch_sheet_content(
     max_rows: int = Form(65535),
     max_cols: int = Form(65535),
 ):
-    """基于文件上传切换 Excel 工作表预览"""
+    """
+    @methoddesc 基于文件上传切换 Excel 工作表预览
+
+    业务用途:
+    - 接收前端上传的多 Sheet Excel 文件，并切换到指定 sheet 进行预览
+    - 与 switch_sheet_by_path 互补：本接口处理"用户拖入即上传"的场景
+
+    参数:
+        file: 上传的文件对象（multipart/form-data）
+        sheet_name: 目标工作表名
+        max_rows: 最大返回行数，默认 65535
+        max_cols: 最大返回列数，默认 65535
+
+    返回:
+        FilePreviewResponse: 包含新工作表预览数据的响应
+    """
     try:
         file_name = file.filename or "unknown"
         file_ext = os.path.splitext(file_name)[1].lower()

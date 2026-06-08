@@ -1,8 +1,15 @@
+/**
+ * GraphStore 计算属性模块
+ *
+ * 定义 selectedNode / selectedNodes / activeRegexNode / activeSchemaNode 等计算属性，
+ * 以及基于状态变化的 watch 逻辑。
+ */
 import { computed, watch } from 'vue'
 import { isConstraintNodeType, validateForInlineSource } from '@/services/constraints/validationRegistry'
 import { logger } from '@/core/utils/logger'
 import type { GraphStoreState } from './state'
 
+/** @returns 包含 selectedNode / selectedNodes / hasMultipleSelection 等计算属性的对象 */
 export function createGraphStoreComputed(state: GraphStoreState) {
   const selectedNode = computed(() => {
     return state.nodes.value.find((node) => node.id === state.selectedNodeId.value) || null

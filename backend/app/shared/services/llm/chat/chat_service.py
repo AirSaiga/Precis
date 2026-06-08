@@ -370,7 +370,22 @@ class ChatLLMServiceFactory:
         base_url: str | None = None,
         model: str | None = None,
     ) -> ChatLLMService:
-        """根据 Provider 名称自动匹配并创建 ChatLLMService"""
+        """
+        @methoddesc 根据 Provider 名称自动匹配并创建 ChatLLMService
+
+        业务用途:
+        - 接收用户输入的 Provider 字符串，识别 glm/minimax/kimi/deepseek/qwen/ollama/openai 等
+        - 根据识别结果路由到对应的 create_xxx 工厂方法
+
+        参数:
+            provider: Provider 名称（大小写不敏感）
+            api_key: API 密钥
+            base_url: API 基础 URL（仅 ollama/openai 兼容模式需要）
+            model: 模型名称，None 则使用 Provider 默认
+
+        返回:
+            ChatLLMService 实例
+        """
         provider_lower = provider.lower()
 
         if "glm" in provider_lower or "zhipu" in provider_lower:

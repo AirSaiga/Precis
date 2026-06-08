@@ -35,6 +35,22 @@ class SubstringRunner(TransformRunner):
         params: dict[str, Any],
         output_columns: list[str],
     ) -> pd.DataFrame:
+        """
+        @methoddesc 执行 子字符串转换
+
+        业务用途:
+        - TransformRunner 协议的标准入口，由 transform 节点调用
+        - 读取 params 中的转换参数，对 input_column 应用转换，输出到 output_columns
+
+        参数:
+            df: 源 DataFrame
+            input_column: 输入列名
+            params: 转换参数字典
+            output_columns: 目标输出列名列表
+
+        返回:
+            转换后的 DataFrame
+        """
         start = params.get("start", 0)
         end = params.get("end")
         length = params.get("length")

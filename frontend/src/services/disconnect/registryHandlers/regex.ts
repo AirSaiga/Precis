@@ -1,3 +1,10 @@
+/**
+ * Regex 正则节点断开连接处理器
+ *
+ * 处理 schema → regex 断开的清理：
+ * - 重置 sourceNodeId / sourceColumnName / sourceRef
+ * - 清除校验状态
+ */
 import { registerDisconnectHandler } from '../registryCore'
 
 registerDisconnectHandler({

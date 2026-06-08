@@ -136,6 +136,17 @@ async def _run_job(job_id: str, payload: ConfigGenerateRequest, config_path: str
     )
 
     def progress_callback(stage: str, progress: float):
+        """
+        @methoddesc 同步进度回调，更新任务状态
+
+        业务用途:
+        - 由 ConfigGenerationService 在生成过程中周期性调用
+        - 同时检查任务是否被取消，若是则调用 service.cancel() 触发中止
+
+        参数:
+            stage: 当前阶段名称（如 "profiling" / "generating"）
+            progress: 当前进度（0.0 - 1.0）
+        """
         with _jobs_lock:
             current_job = _jobs.get(job_id)
             if current_job and current_job.status == "cancelled":

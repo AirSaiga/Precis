@@ -28,6 +28,7 @@ function getStorageKey(nodeId: string): string {
   return `${STORAGE_KEY_PREFIX}${nodeId}`
 }
 
+/** 从 localStorage 加载指定节点的脚本草稿，不存在则返回空 */
 export function loadScriptDraft(nodeId: string): ScriptDraft {
   try {
     const stored = localStorage.getItem(getStorageKey(nodeId))
@@ -45,6 +46,7 @@ export function loadScriptDraft(nodeId: string): ScriptDraft {
   }
 }
 
+/** 将脚本草稿保存到 localStorage */
 export function saveScriptDraft(nodeId: string, draft: ScriptDraft): void {
   try {
     localStorage.setItem(getStorageKey(nodeId), JSON.stringify(draft))
@@ -53,6 +55,7 @@ export function saveScriptDraft(nodeId: string, draft: ScriptDraft): void {
   }
 }
 
+/** 从 localStorage 清除指定节点的脚本草稿 */
 export function clearScriptDraft(nodeId: string): void {
   try {
     localStorage.removeItem(getStorageKey(nodeId))

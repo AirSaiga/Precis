@@ -32,6 +32,23 @@ CONSTRAINT_TYPE_MAP = {
 def _build_constraint_refs(
     constraint_type: str, table_name: str, column_name: str, constraint_spec: dict[str, Any], workspace_path: str = ""
 ) -> dict[str, Any]:
+    """
+    @methoddesc 构建约束的 refs 字段
+
+    业务用途:
+    - 根据约束类型（NotNull/Unique/ForeignKey/...）组装符合 YAML 规范的 refs 字典
+    - 必要时根据工作区路径将名称回退解析为 table_id / column_id
+
+    参数:
+        constraint_type: AI 给出的原始约束类型（可能大小写不规范）
+        table_name: 表名（用于名称回退）
+        column_name: 列名（用于名称回退）
+        constraint_spec: AI 输出的 spec 字典
+        workspace_path: 工作区路径，启用名称回退
+
+    返回:
+        refs 字典，结构因约束类型而异
+    """
     std_type = CONSTRAINT_TYPE_MAP.get(constraint_type, constraint_type)
     table_id = constraint_spec.get("targetNodeId")
     column_id = constraint_spec.get("targetColumnId")
@@ -82,6 +99,20 @@ def _build_constraint_refs(
 
 
 def _build_constraint_params(constraint_type: str, constraint_spec: dict[str, Any]) -> dict[str, Any]:
+    """
+    @methoddesc 构建约束的 params 字段
+
+    业务用途:
+    - 将 AI 输出的 camelCase 字段（allowedValues, min/max, logicMode 等）映射为 YAML 标准的 snake_case 字段
+    - Scripted 约束支持从 pattern 自动生成 expression
+
+    参数:
+        constraint_type: 原始约束类型
+        constraint_spec: AI 输出的 spec 字典
+
+    返回:
+        params 字典
+    """
     std_type = CONSTRAINT_TYPE_MAP.get(constraint_type, constraint_type)
     params = constraint_spec.get("params", {})
 

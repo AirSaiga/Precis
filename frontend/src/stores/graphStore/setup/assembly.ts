@@ -1,3 +1,9 @@
+/**
+ * GraphStore 组装模块
+ *
+ * 将所有 createXxxModule 工厂函数组装为一个扁平对象，
+ * 与 state/computed 组合后导出，供 graphStore setup() 使用。
+ */
 import { nextTick } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type {

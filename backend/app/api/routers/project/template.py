@@ -186,7 +186,21 @@ def update_template(
     template_data: dict,
     config_path: str = Depends(get_project_config_path),
 ):
-    """更新模板定义文件"""
+    """
+    @methoddesc 更新模板定义文件
+
+    业务用途:
+    - 覆盖写入 templates/{template_id}.template.yaml
+    - 模板不存在时返回 404
+
+    参数:
+        template_id: 模板唯一标识
+        template_data: 模板新内容（任意字典）
+        config_path: 项目配置路径
+
+    返回:
+        StandardResponse: 写入结果
+    """
     tmpl_path = _find_template_path(template_id, config_path)
     if not tmpl_path or not tmpl_path.exists():
         raise HTTPException(status_code=404, detail=f"模板 '{template_id}' 不存在")
@@ -244,7 +258,21 @@ def preview_template_expand(
     request: TemplateExpandRequest,
     config_path: str = Depends(get_project_config_path),
 ):
-    """预览模板展开结果（不写入文件）"""
+    """
+    @methoddesc 预览模板展开结果（不写入文件）
+
+    业务用途:
+    - 在前端"展开前预览"流程中调用
+    - 调用后端 expandV2Template 服务计算展开后的 transforms/constraints/regex_nodes，但不落盘
+
+    参数:
+        template_id: 模板唯一标识
+        request: 包含 instance_id / params / input_from_node 的请求
+        config_path: 项目配置路径
+
+    返回:
+        TemplateExpandResponse: 展开结果预览
+    """
     tmpl_path = _find_template_path(template_id, config_path)
     if not tmpl_path or not tmpl_path.exists():
         raise HTTPException(status_code=404, detail=f"模板 '{template_id}' 不存在")

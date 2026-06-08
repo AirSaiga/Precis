@@ -1,3 +1,11 @@
+/**
+ * 数据源到 Schema 断开连接处理器
+ *
+ * 处理 sourcePreview / jsonSourcePreview / manualData → schema 断开的清理：
+ * - 清除 Schema 节点的数据源元数据（sourceNodeId、sourceFile 等）
+ * - 重置下游所有约束节点的校验状态
+ * - 清除 Schema 上的全部校验错误
+ */
 import { registerDisconnectHandler } from '../registryCore'
 import type { DisconnectContext } from '../types'
 import { isConstraintNodeType, buildDisconnectReset } from '@/services/constraints/validationRegistry'

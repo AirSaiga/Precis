@@ -1,3 +1,9 @@
+/**
+ * 校验历史记录类型定义
+ *
+ * 对应后端 ValidationRunRecord / ValidationHistoryStore 的数据结构。
+ */
+
 export interface ValidationRunSummary {
   total_checks: number
   passed_count: number

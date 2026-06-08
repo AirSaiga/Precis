@@ -1,3 +1,9 @@
+/**
+ * 校验历史记录 API
+ *
+ * 封装 /v2/validation/history 端点的 CRUD 操作。
+ * 对应后端 validation/history.py 路由。
+ */
 import apiClient from '@/core/services/httpClient'
 import type {
   ValidationHistoryList,
@@ -5,6 +11,7 @@ import type {
   ValidationRunRecord,
 } from '@/types/validationHistory'
 
+/** 分页获取校验历史记录列表 */
 export async function fetchValidationHistory(
   projectPath: string,
   limit = 20,
@@ -16,6 +23,7 @@ export async function fetchValidationHistory(
   return data
 }
 
+/** 获取单条校验运行记录详情 */
 export async function fetchValidationRun(
   runId: string,
   projectPath: string
@@ -26,6 +34,7 @@ export async function fetchValidationRun(
   return data
 }
 
+/** 删除指定 runId 的校验运行记录 */
 export async function deleteValidationRun(
   runId: string,
   projectPath: string
@@ -35,6 +44,7 @@ export async function deleteValidationRun(
   })
 }
 
+/** 获取校验历史统计信息（趋势、最新等） */
 export async function fetchValidationStats(
   projectPath: string,
   lastN = 10
@@ -45,6 +55,7 @@ export async function fetchValidationStats(
   return data
 }
 
+/** 保存一次校验运行的结果记录，返回 run_id */
 export async function saveValidationRun(
   projectPath: string,
   result: {

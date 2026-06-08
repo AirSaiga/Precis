@@ -287,9 +287,20 @@ async def update_data_source(
     source_id: str, data_source: dict[str, Any], config_path: str = Depends(get_project_config_path)
 ):
     """
-    更新数据源
+    @methoddesc 更新数据源
 
-    适用于所有模式（Electron/CLI/Web）
+    业务用途:
+    - 在工作区配置中按 id 查找数据源并就地合并更新
+    - 同步刷新 lastUsed 字段以反映最近访问时间
+    - 适用于所有运行模式（Electron/CLI/Web）
+
+    参数:
+        source_id: 数据源唯一标识
+        data_source: 包含待更新字段的字典
+        config_path: 项目配置路径（由依赖注入提供）
+
+    返回:
+        更新后的 WorkspaceConfig 完整配置
     """
     project_root = _get_project_root(config_path)
     config = load_workspace_config(project_root)

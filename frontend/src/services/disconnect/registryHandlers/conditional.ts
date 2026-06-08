@@ -1,3 +1,11 @@
+/**
+ * Conditional 条件约束断开连接处理器
+ *
+ * 处理 schema → conditionalConstraint 断开的清理：
+ * - 若断开的是 IF 输入端，从 ifConditions 列表中移除对应条件，保持首个条件
+ * - 若断开的是 THEN 输入端，重置 thenRef/thenColumn
+ * - 重置 validationStatus 为 idle
+ */
 import { registerDisconnectHandler } from '../registryCore'
 
 registerDisconnectHandler({

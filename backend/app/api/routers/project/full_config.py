@@ -303,6 +303,20 @@ def get_v2_full_config_yaml(config_path: str = Depends(get_project_config_path))
     },
 )
 def put_v2_full_config(payload: FullConfigV2Request, config_path: str = Depends(get_project_config_path)):
+    """
+    @methoddesc 写入 V2 全量配置
+
+    业务用途:
+    - 由前端"保存项目"或"导入配置"等流程调用
+    - 委托给 write_v2_full_config 执行实际写入，包含 manifest、所有 schemas/constraints/regex_nodes
+
+    参数:
+        payload: 完整 V2 配置请求体
+        config_path: 项目配置路径（依赖注入）
+
+    返回:
+        StandardResponse: 写入操作的统一响应
+    """
     return write_v2_full_config(payload, config_path)
 
 

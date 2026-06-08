@@ -47,6 +47,26 @@ class AggregateRunner(TransformRunner):
         params: dict[str, Any],
         output_columns: list[str],
     ) -> pd.DataFrame:
+        """
+        @methoddesc 执行聚合转换
+
+        业务用途:
+        - 从 params.aggregations 读取 [{column, func}, ...] 配置
+        - 若指定 group_by 则按其分组聚合；否则整表聚合
+        - 输出列名优先取 output_columns[i]，缺省按 func_column 自动生成
+
+        参数:
+            df: 源 DataFrame
+            input_column: 输入列名（聚合场景忽略）
+            params: 包含 aggregations / group_by 的参数字典
+            output_columns: 用户指定的输出列名列表
+
+        返回:
+            聚合后的 DataFrame
+
+        异常:
+            ValueError: aggregations 为空或列名不存在
+        """
         aggregations = params.get("aggregations", [])
         group_by_str = params.get("group_by", "")
 

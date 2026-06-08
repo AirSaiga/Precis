@@ -1,3 +1,8 @@
+/**
+ * GraphStore 状态声明模块
+ *
+ * 定义核心响应式状态（nodes/edges/selectedNodeId）和 updateNodeData 唯一修改入口。
+ */
 import { ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type {
@@ -7,6 +12,12 @@ import type {
 } from '@/types/graph'
 import type { FullValidationSummary, ValidationStatistics } from '../../../api/projectValidationApi'
 
+/**
+ * 在节点数组中查找指定 nodeId 并合并更新其 data 字段
+ *
+ * 返回新数组（不可变更新），不修改原数组。
+ * 是 graphStore 中修改节点数据的唯一途径。
+ */
 function updateNodeDataInArray(
   nodes: CustomNode[],
   nodeId: string,
@@ -20,6 +31,7 @@ function updateNodeDataInArray(
   })
 }
 
+/** @returns 包含 nodes / edges / assets / selectedNodeId 等响应式状态的对象 */
 export function createGraphStoreState() {
   const nodes = ref<CustomNode[]>([])
 

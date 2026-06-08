@@ -167,6 +167,19 @@ class DynamicPortCORSMiddleware(CORSMiddleware):
     """
 
     def is_allowed_origin(self, origin: str) -> bool:
+        """
+        @methoddesc 判断请求 Origin 是否被允许
+
+        业务用途:
+        - 在 CORS 握手阶段决定是否在响应中回写 Access-Control-Allow-Origin
+        - 在标准 allow_origins 之外，额外放行 127.0.0.1/localhost 的任意端口
+
+        参数:
+            origin: 浏览器请求头中的 Origin 字段（形如 ``http://127.0.0.1:5173``）
+
+        返回:
+            True 表示允许该 Origin 的跨域请求，False 表示拒绝
+        """
         # 首先检查是否在明确允许列表中
         if origin in self.allow_origins:
             return True
@@ -229,4 +242,13 @@ async def root():
 
 @app.get("/health")
 async def health():
+    """
+    @methoddesc 健康检查端点
+
+    业务用途:
+    - 供 Electron 主进程和负载均衡器探测后端存活状态
+    - 返回 {"status": "ok"} 即表示 FastAPI 应用已启动并能响应 HTTP 请求
+
+    @returns dict - 包含 status 字段的响应对象
+    """
     return {"status": "ok"}

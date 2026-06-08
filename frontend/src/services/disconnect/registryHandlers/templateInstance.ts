@@ -1,3 +1,10 @@
+/**
+ * TemplateInstance 模板实例断开连接处理器
+ *
+ * 处理上游节点 → templateInstance 断开的清理：
+ * - 重置 inputFromNode
+ * - 标记为 draft 待保存
+ */
 import { registerDisconnectHandler } from '../registryCore'
 
 registerDisconnectHandler({

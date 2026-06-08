@@ -1,3 +1,8 @@
+/**
+ * 基础校验 API（NotNull / Unique / Range）
+ *
+ * 封装到 /v2/validation 端点的 HTTP 请求。
+ */
 import { logger } from '@/core/utils/logger'
 import { isAxiosError } from 'axios'
 import apiClient from '@/core/services/httpClient'
@@ -9,6 +14,7 @@ import type {
   UniqueValidationRequest,
 } from './core'
 
+/** 非空约束校验 */
 export async function validateNotNull(
   request: NotNullValidationRequest
 ): Promise<ValidationResponse> {

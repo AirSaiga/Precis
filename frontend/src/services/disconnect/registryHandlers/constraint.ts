@@ -1,3 +1,11 @@
+/**
+ * 约束节点断开连接处理器（conditionalConstraint 除外）
+ *
+ * 处理 schema → constraint 断开的清理：
+ * - 重置约束节点的 sourceRef/table/column 字段
+ * - foreignKeyConstraint 额外重置 sourceTable/sourceColumn
+ * - 清理 Schema 列上的 validationErrors（仅当无其他约束引用该列时）
+ */
 import { registerDisconnectHandler } from '../registryCore'
 import { isConstraintNodeType, buildDisconnectReset } from '@/services/constraints/validationRegistry'
 

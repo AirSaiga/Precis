@@ -63,6 +63,22 @@ def _infer_json_type(value: Any) -> str:
     },
 )
 def preview_file_by_path(request: FilePathPreviewRequest):
+    """
+    @methoddesc 基于文件路径预览文件内容
+
+    业务用途:
+    - 接收前端给定的绝对文件路径，校验访问权限后解析数据
+    - 支持 Excel 多 Sheet 切换（通过 sheet_name 字段）
+
+    参数:
+        request: 包含 file_path / max_rows / max_cols / sheet_name 的请求体
+
+    返回:
+        FilePreviewResponse: 包含解析数据、Sheet 列表、文件类型等的响应
+
+    异常:
+        HTTPException: 文件不可访问(403) / 工作表不存在(404) / 读取失败(500)
+    """
     logger.info("=" * 50)
     logger.info(f"[PREVIEW] 收到路径预览请求: {request.file_path}")
     logger.info(f"[PREVIEW] max_rows: {request.max_rows}, max_cols: {request.max_cols}")
@@ -326,6 +342,22 @@ def preview_file_by_path(request: FilePathPreviewRequest):
     },
 )
 def switch_sheet_by_path(request: SheetSwitchRequest):
+    """
+    @methoddesc 基于文件路径切换 Excel 工作表预览
+
+    业务用途:
+    - 用户在预览界面点击其他 Sheet 时调用
+    - 仅支持 .xlsx / .xls；非 Excel 文件返回 400
+
+    参数:
+        request: 包含 file_path / sheet_name / max_rows / max_cols 的请求体
+
+    返回:
+        FilePreviewResponse: 新工作表的预览数据
+
+    异常:
+        HTTPException: 非 Excel 文件(400) / 工作表不存在(404) / 读取失败(500)
+    """
     try:
         file_path = request.file_path
         sheet_name = request.sheet_name

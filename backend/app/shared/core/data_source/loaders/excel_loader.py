@@ -186,6 +186,16 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
             raise DataLoadError(f"Excel 多 sheet 加载失败: {e}", self.spec, e)
 
     def _build_read_kwargs(self) -> dict[str, Any]:
+        """
+        @methoddesc 构造 pandas.read_excel 的参数字典
+
+        业务用途:
+        - 根据 self.spec 配置（header 行、engine、dtype、sheet 索引、skip_rows、nrows）组装参数
+        - engine_kwargs.data_only=True 用于读取公式结果而非公式本身
+
+        返回:
+            可直接传入 pd.read_excel 的参数字典
+        """
         read_kwargs: dict[str, Any] = {
             "header": self.spec.header_row if self.spec.header_enabled else None,
             "engine": self.spec.engine,

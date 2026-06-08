@@ -9,6 +9,21 @@ logger = logging.getLogger(__name__)
 
 
 def _generate_constraint_id(constraint_type: str, table_name: str, column_name: str) -> str:
+    """
+    @methoddesc 生成符合命名规范的约束 ID
+
+    业务用途:
+    - 拼接 {type}_{table}_{column} 形式的 ID
+    - 中文表/列名通过 _chinese_to_abbr 转拼音或内建映射
+
+    参数:
+        constraint_type: 约束类型（如 "NotNull" / "Unique"）
+        table_name: 表名
+        column_name: 列名
+
+    返回:
+        标准化后的约束 ID 字符串
+    """
     type_prefix = constraint_type.lower()
 
     if re.match(r"^[\u4e00-\u9fff]+$", column_name):
@@ -29,6 +44,19 @@ def _generate_constraint_id(constraint_type: str, table_name: str, column_name: 
 
 
 def _chinese_to_abbr(text: str) -> str:
+    """
+    @methoddesc 中文文本到拼音/英文缩写
+
+    业务用途:
+    - 内建常用业务词映射（订单→order, 用户→user 等）
+    - 不在内建表中的词使用 pypinyin 转换（若可用），否则返回原文本
+
+    参数:
+        text: 中文文本
+
+    返回:
+        拼音或英文缩写
+    """
     mappings = {
         "订单": "order",
         "订单表": "order",

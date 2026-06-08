@@ -1,3 +1,8 @@
+/**
+ * 高级校验 API（AllowedValues / Conditional / ForeignKey / Scripted / Charset / DateLogic）
+ *
+ * 封装到 /v2/validation 端点的 HTTP 请求。
+ */
 import { logger } from '@/core/utils/logger'
 import { isAxiosError } from 'axios'
 import apiClient from '@/core/services/httpClient'
@@ -11,6 +16,7 @@ import type {
   CharsetValidationRequest,
 } from './core'
 
+/** 允许值约束校验 */
 export async function validateAllowedValues(
   request: AllowedValuesValidationRequest
 ): Promise<ValidationResponse> {
@@ -334,6 +340,7 @@ export interface DateLogicValidationRequest {
   validation_config?: Record<string, unknown>
 }
 
+/** 日期逻辑约束校验 */
 export async function validateDateLogic(
   request: DateLogicValidationRequest
 ): Promise<ValidationResponse> {
