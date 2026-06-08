@@ -249,20 +249,93 @@ async function loadEmbeddedConstraints(
 }
 
 /**
- * 加载独立约束（Phase 2 实现）
+ * 加载独立约束
+ *
+ * 遍历 V2 配置中的 constraints，加载 refs.table_id 匹配 v2SchemaId 的独立约束节点。
+ * 幂等：已存在于画布上的节点不会重复创建。
  */
 async function loadIndependentConstraints(
-  _schemaNodeId: string,
-  _v2SchemaId: string
+  schemaNodeId: string,
+  v2SchemaId: string
 ): Promise<number> {
-  // TODO: Phase 2 - 遍历 V2 constraints，加载 refs.table_id 匹配的独立约束
-  return 0
+  try {
+    const projectStore = useProjectStore()
+    const configPath = projectStore.currentPaths?.configPath
+    if (!configPath) return 0
+
+    const fullConfig = await getV2FullConfig(configPath)
+    const constraints = fullConfig.constraints || {}
+    const graphStore = useGraphStore()
+
+    const matchingConstraints = Object.values(constraints).filter((c) => {
+      const refs = c.refs as Record<string, unknown>
+      return refs?.table_id === v2SchemaId
+    })
+
+    if (matchingConstraints.length === 0) return 0
+
+    const schemaNode = graphStore.nodes.find((n) => n.id === schemaNodeId)
+    const baseX = (schemaNode?.position.x || 0) + 350
+    const baseY = schemaNode?.position.y || 0
+
+    let loadedCount = 0
+    for (let i = 0; i < matchingConstraints.length; i++) {
+      const c = matchingConstraints[i]
+      if (!c) continue
+      if (graphStore.nodes.some((n) => n.id === c.id)) continue
+
+      const position = { x: baseX, y: baseY + i * 120 }
+      const createdId = await graphStore.importV2ResourceToCanvas('constraint', c.id, position)
+      if (createdId) loadedCount++
+    }
+
+    return loadedCount
+  } catch (error) {
+    logger.debug('ℹ️ [loadIndependentConstraints] 加载失败:', error)
+    return 0
+  }
 }
 
 /**
- * 加载正则节点（Phase 2 实现）
+ * 加载正则节点
+ *
+ * 遍历 V2 配置中的 regex_nodes，加载 source_ref.table_id 匹配 v2SchemaId 的正则节点。
+ * 幂等：已存在于画布上的节点不会重复创建。
  */
-async function loadRegexNodes(_schemaNodeId: string, _v2SchemaId: string): Promise<number> {
-  // TODO: Phase 2 - 遍历 V2 regex_nodes，加载 source_ref.table_id 匹配的正则
-  return 0
+async function loadRegexNodes(schemaNodeId: string, v2SchemaId: string): Promise<number> {
+  try {
+    const projectStore = useProjectStore()
+    const configPath = projectStore.currentPaths?.configPath
+    if (!configPath) return 0
+
+    const fullConfig = await getV2FullConfig(configPath)
+    const regexNodes = fullConfig.regex_nodes || {}
+    const graphStore = useGraphStore()
+
+    const matchingRegex = Object.values(regexNodes).filter((r) => {
+      return r.source_ref?.table_id === v2SchemaId
+    })
+
+    if (matchingRegex.length === 0) return 0
+
+    const schemaNode = graphStore.nodes.find((n) => n.id === schemaNodeId)
+    const baseX = (schemaNode?.position.x || 0) + 350
+    const baseY = schemaNode?.position.y || 0
+
+    let loadedCount = 0
+    for (let i = 0; i < matchingRegex.length; i++) {
+      const r = matchingRegex[i]
+      if (!r) continue
+      if (graphStore.nodes.some((n) => n.id === r.id)) continue
+
+      const position = { x: baseX, y: baseY + i * 120 }
+      const createdId = await graphStore.importV2ResourceToCanvas('regex', r.id, position)
+      if (createdId) loadedCount++
+    }
+
+    return loadedCount
+  } catch (error) {
+    logger.debug('ℹ️ [loadRegexNodes] 加载失败:', error)
+    return 0
+  }
 }

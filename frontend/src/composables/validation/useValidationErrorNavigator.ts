@@ -29,12 +29,29 @@ export function useValidationErrorNavigator() {
       return true
     }
 
-    // 节点不存在，需要创建
-    // TODO: 调用 importV2ResourceToCanvas 创建节点
-    // 这需要知道资源类型和 ID，目前从错误信息中难以完全推断
-    // 暂时返回 false，等待后续实现
-    logger.warn('[ValidationErrorNavigator] 节点不在画布上，自动创建尚未实现:', nodeId)
-    return false
+    const resourceInfo = resolveErrorResource(error)
+    if (!resourceInfo) {
+      logger.warn('[ValidationErrorNavigator] 无法从错误信息推断资源:', error)
+      return false
+    }
+
+    try {
+      const position = calculateImportPosition()
+      const createdId = await graphStore.importV2ResourceToCanvas(
+        resourceInfo.kind,
+        resourceInfo.resourceId,
+        position
+      )
+      if (createdId) {
+        focusNode(createdId)
+        return true
+      }
+      logger.warn('[ValidationErrorNavigator] 节点创建失败')
+      return false
+    } catch (err) {
+      logger.error('[ValidationErrorNavigator] 自动创建节点异常:', err)
+      return false
+    }
   }
 
   /**
@@ -85,6 +102,25 @@ export function useValidationErrorNavigator() {
 
     // 触发画布聚焦事件
     eventBus.emit('focus-canvas-nodes', { nodeIds: [nodeId] })
+  }
+
+  function resolveErrorResource(
+    error: FullValidationErrorItem
+  ): { kind: 'schema' | 'constraint' | 'regex'; resourceId: string } | null {
+    if (error.table_id) {
+      return { kind: 'schema', resourceId: error.table_id }
+    }
+    return null
+  }
+
+  function calculateImportPosition(): { x: number; y: number } {
+    const allNodes = graphStore.nodes
+    if (allNodes.length === 0) {
+      return { x: 200, y: 200 }
+    }
+    const sumX = allNodes.reduce((acc, n) => acc + n.position.x, 0)
+    const sumY = allNodes.reduce((acc, n) => acc + n.position.y, 0)
+    return { x: sumX / allNodes.length + 300, y: sumY / allNodes.length }
   }
 
   return {
