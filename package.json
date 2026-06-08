@@ -59,7 +59,7 @@
   "author": "Precis Team",
   "license": "Apache-2.0",
   "devDependencies": {
-    "concurrently": "^8.2.2",
+    "concurrently": "^10.0.3",
     "wait-on": "^7.2.0"
   },
   "dependencies": {
