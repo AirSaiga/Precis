@@ -20,121 +20,23 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import apiClient from '@/core/services/httpClient'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import type { SourcePreviewNodeData } from '../types'
 import type { SourceMode } from '@/types/datasource'
+import {
+  fetchPreviewDataFromPath,
+  type JsonPreviewOptions,
+  type FilePreviewResult,
+} from '@/services/preview/fetchPreviewFromPath'
+
+export { fetchPreviewDataFromPath, type JsonPreviewOptions, type FilePreviewResult }
 
 /*
  * @deprecated 2026年3月：IndexedDB 模式已移除
  *
  * const fetchPreviewDataFromIndexedDB = async (fileId: string, maxRows: number, maxCols: number) => { ... };
  */
-
-/**
- * JSON 文件特有的参数选项
- */
-interface JsonOptions {
-  jsonPath?: string
-  jsonFormat?: string
-  recordPath?: string
-}
-
-/**
- * 从本地路径读取文件预览数据（Electron 环境专用）
- *
- * 【实现原理】
- * 直接将文件路径发送给后端，后端使用 pandas 直接读取本地文件系统
- *
- * 【数据流】
- * filePath (字符串) -> /preview/file/path JSON 请求 -> 后端 pandas.read_* -> PreviewResponse
- *
- * 【平台兼容性】
- * - Windows: C:\path\to\file.xlsx
- * - Linux: /home/user/path/to/file.xlsx
- * - macOS: /Users/user/path/to/file.xlsx
- *
- * @param filePath - 本地文件绝对路径
- * @param maxRows - 最大返回行数
- * @param maxCols - 最大返回列数
- * @param sheetName - 可选，指定读取的工作表名称（仅 Excel 文件有效）
- * @param jsonOptions - 可选，JSON 文件特有参数（jsonPath, jsonFormat, recordPath）
- * @returns 预览数据对象，包含数据行、行列数、工作表列表、文件类型等信息
- * @throws {Error} 当 HTTP 请求失败或后端返回错误时抛出异常
- *
- * @example
- * const data = await fetchPreviewDataFromPath('C:/data/users.xlsx', 100, 50, 'Sheet1');
- * logger.debug(data.data); // 二维数组形式的数据
- * logger.debug(data.sheets); // ['Sheet1', 'Sheet2']
- *
- * @example
- * // JSON 文件示例
- * const data = await fetchPreviewDataFromPath('/data/users.json', 100, 50, undefined, {
- *   jsonPath: '$.data.items',
- *   jsonFormat: 'auto',
- *   recordPath: 'items'
- * });
- */
-export const fetchPreviewDataFromPath = async (
-  filePath: string,
-  maxRows: number,
-  maxCols: number,
-  sheetName?: string,
-  jsonOptions?: JsonOptions
-) => {
-  const requestBody: Record<string, unknown> = {
-    file_path: filePath,
-    max_rows: maxRows,
-    max_cols: maxCols,
-    sheet_name: sheetName || null,
-  }
-
-  // 附加 JSON 特有参数
-  if (jsonOptions?.jsonPath) {
-    requestBody.json_path = jsonOptions.jsonPath
-  }
-  if (jsonOptions?.jsonFormat) {
-    requestBody.json_format = jsonOptions.jsonFormat
-  }
-  if (jsonOptions?.recordPath) {
-    requestBody.record_path = jsonOptions.recordPath
-  }
-
-  let result: any
-  try {
-    const response = await apiClient.post('/preview/file/path', requestBody)
-    result = response.data
-  } catch (error: any) {
-    const status = error?.response?.status
-    const data = error?.response?.data
-    const errorText =
-      typeof data === 'string'
-        ? data
-        : (data?.error as string | undefined) ||
-          (data?.message as string | undefined) ||
-          (error?.message as string | undefined) ||
-          '未知错误'
-    throw new Error(`HTTP错误 ${status ?? ''}: ${errorText}`.trim())
-  }
-  if (!result.success) {
-    throw new Error(result.error || '读取文件失败')
-  }
-
-  return {
-    data: result.data || [],
-    actualRowCount: result.total_rows || 0,
-    actualColCount: result.total_cols || 0,
-    previewRowCount: result.total_rows || 0,
-    previewColCount: result.total_cols || 0,
-    sheets: result.sheets || undefined,
-    currentSheet: result.current_sheet || undefined,
-    source_type: result.file_type || 'unknown',
-    file_name: result.file_name || filePath.split(/[/\\]/).pop() || 'unknown',
-    size_mb: 0,
-    modified_time: Date.now(),
-  }
-}
 
 /**
  * 数据源预览节点创建 Composable
@@ -208,7 +110,7 @@ export function usePreviewCreation() {
     maxCols: number = 10,
     sourceMode: SourceMode = 'localfile',
     sheetName?: string,
-    jsonOptions?: JsonOptions
+    jsonOptions?: JsonPreviewOptions
   ) => {
     logger.debug(`[PreviewCreation] 获取预览数据: fileId=${fileId}, mode=${sourceMode}`)
 

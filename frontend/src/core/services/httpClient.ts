@@ -22,7 +22,9 @@
 
 import { logger } from '@/core/utils/logger'
 import { normalizeConfigDir } from '@/core/utils/pathNormalization'
-import axios, { type AxiosInstance, type AxiosError } from 'axios'
+import axios, { isAxiosError, type AxiosInstance, type AxiosError } from 'axios'
+
+export { isAxiosError }
 
 /**
  * 默认后端端口

@@ -5,7 +5,7 @@
  * 统一从不同来源获取预览数据的接口。
  */
 
-import { fetchPreviewDataFromPath } from '@/composables/nodes/sourcePreview/usePreviewCreation'
+import { fetchPreviewDataFromPath } from '@/services/preview/fetchPreviewFromPath'
 import type { CustomNode } from '@/types/graph'
 
 /** 预览数据来源 */

@@ -25,7 +25,7 @@
 import { logger } from '@/core/utils/logger'
 import { computed, onUnmounted, ref, type ComputedRef, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import axios from 'axios'
+import { isAxiosError } from '@/core/services/httpClient'
 import { useGraphStore } from '@/stores/graphStore'
 import {
   getAiGenerateV2ConfigJob,
@@ -194,7 +194,7 @@ export function useGenerationJob(
       handleJobStatus(status)
     } catch (e) {
       let msg = e instanceof Error ? e.message : String(e)
-      if (axios.isAxiosError(e)) {
+      if (isAxiosError(e)) {
         const data = e.response?.data as unknown
         if (typeof data === 'string' && data.trim()) {
           msg = data
@@ -267,7 +267,7 @@ export function useGenerationJob(
       await pollJob()
     } catch (e) {
       let msg = e instanceof Error ? e.message : String(e)
-      if (axios.isAxiosError(e)) {
+      if (isAxiosError(e)) {
         const data = e.response?.data as unknown
         if (typeof data === 'string' && data.trim()) {
           msg = data
