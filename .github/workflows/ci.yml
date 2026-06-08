@@ -234,7 +234,7 @@ jobs:
         env:
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
           ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
-        run: npx electron-builder --dir --win
+        run: npx electron-builder --dir --win --publish never
 
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
@@ -279,7 +279,7 @@ jobs:
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
           ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
           CSC_IDENTITY_AUTO_DISCOVERY: false
-        run: npx electron-builder --mac --config.mac.identity=null
+        run: npx electron-builder --mac --config.mac.identity=null --publish never
 
       - name: Upload macOS artifact
         uses: actions/upload-artifact@v4
