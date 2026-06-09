@@ -126,6 +126,8 @@
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useToast } from '@/composables/shared'
+  import { eventBus } from '@/core/eventBus'
+  import { updateV2ManifestSchemaRef } from '@/api/projectV2Api/manifest'
 
   const { t } = useI18n()
   const { error } = useToast()
@@ -135,16 +137,6 @@
   const { showConfirm } = useGlobalConfirm()
 
   const extensions = [yaml()]
-
-  /**
-   * 右键菜单负载接口
-   */
-  interface ContextMenuPayload {
-    visible: boolean
-    position: { x: number; y: number }
-    kind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template'
-    item: ResourceItem
-  }
 
   /**
    * 右键菜单状态
@@ -166,26 +158,40 @@
   /**
    * 菜单操作配置
    */
-  const baseContextMenuActions: ContextMenuAction[] = [
-    { type: 'preview', labelKey: 'assetLibraryExtended.projectView.resourceContext.preview' },
-    {
-      type: 'addToCanvas',
-      labelKey: 'assetLibraryExtended.projectView.resourceContext.addToCanvas',
-    },
-    {
-      type: 'locateOnCanvas',
-      labelKey: 'assetLibraryExtended.projectView.resourceContext.locateOnCanvas',
-    },
-    { type: 'separator', labelKey: '' },
-    { type: 'rename', labelKey: 'assetLibraryExtended.projectView.resourceContext.rename' },
-    {
-      type: 'delete',
-      labelKey: 'assetLibraryExtended.projectView.resourceContext.delete',
-      isDanger: true,
-    },
-    { type: 'separator', labelKey: '' },
-    { type: 'refresh', labelKey: 'assetLibraryExtended.projectView.resourceContext.refresh' },
-  ]
+  const addToManifestAction: ContextMenuAction = {
+    type: 'addToManifest',
+    labelKey: 'assetLibraryExtended.projectView.resourceContext.addToManifest',
+  }
+
+  function buildBaseContextMenuActions(item: ResourceItem): ContextMenuAction[] {
+    const isUnlisted = item.meta?.listedInManifest === false
+    const actions: ContextMenuAction[] = [
+      { type: 'preview', labelKey: 'assetLibraryExtended.projectView.resourceContext.preview' },
+      {
+        type: 'addToCanvas',
+        labelKey: 'assetLibraryExtended.projectView.resourceContext.addToCanvas',
+      },
+      {
+        type: 'locateOnCanvas',
+        labelKey: 'assetLibraryExtended.projectView.resourceContext.locateOnCanvas',
+      },
+    ]
+    if (isUnlisted) {
+      actions.push(addToManifestAction)
+    }
+    actions.push(
+      { type: 'separator', labelKey: '' },
+      { type: 'rename', labelKey: 'assetLibraryExtended.projectView.resourceContext.rename' },
+      {
+        type: 'delete',
+        labelKey: 'assetLibraryExtended.projectView.resourceContext.delete',
+        isDanger: true,
+      },
+      { type: 'separator', labelKey: '' },
+      { type: 'refresh', labelKey: 'assetLibraryExtended.projectView.resourceContext.refresh' },
+    )
+    return actions
+  }
 
   const templateContextMenuActions: ContextMenuAction[] = [
     { type: 'preview', labelKey: 'assetLibraryExtended.projectView.resourceContext.preview' },
@@ -236,13 +242,19 @@
   /**
    * 处理打开右键菜单事件
    */
-  const handleOpenResourceContextMenu = (event: CustomEvent<ContextMenuPayload>): void => {
-    const { position, kind, item } = event.detail
+  const handleOpenResourceContextMenu = (payload: {
+    visible: boolean
+    position: { x: number; y: number }
+    kind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template'
+    item: ResourceItem
+  }): void => {
+    const { position, kind, item } = payload
     contextMenu.visible = true
     contextMenu.position = position
     contextMenu.resourceKind = kind
     contextMenu.resourceItem = item
-    contextMenu.availableActions = kind === 'template' ? templateContextMenuActions : baseContextMenuActions
+    contextMenu.availableActions =
+      kind === 'template' ? templateContextMenuActions : buildBaseContextMenuActions(item)
   }
 
   /**
@@ -267,6 +279,9 @@
         break
       case 'refresh':
         handleRefreshAction()
+        break
+      case 'addToManifest':
+        handleAddToManifestAction()
         break
       default:
         break
@@ -486,6 +501,32 @@
   }
 
   /**
+   * 处理加入清单操作
+   */
+  const handleAddToManifestAction = async (): Promise<void> => {
+    const item = contextMenu.resourceItem
+    const configPath = projectStore.currentPaths?.configPath
+    if (!item || !configPath) return
+
+    contextMenu.visible = false
+
+    try {
+      await updateV2ManifestSchemaRef(
+        { id: item.id, path: item.path || `schemas/${item.id}.schema.yaml` },
+        configPath
+      )
+      await treeStore.refreshResources()
+      eventBus.emit('project-applied')
+    } catch (err) {
+      logger.error('[ResourceContextMenu] 加入清单失败:', err)
+      error(
+        err instanceof Error ? err.message : t('common.unknownError'),
+        t('assetLibraryExtended.projectView.resourceContext.addToManifestFailedTitle')
+      )
+    }
+  }
+
+  /**
    * 提交重命名
    */
   const submitRename = async (): Promise<void> => {
@@ -549,10 +590,7 @@
    * 组件挂载时添加事件监听
    */
   onMounted(() => {
-    window.addEventListener(
-      'open-resource-context-menu',
-      handleOpenResourceContextMenu as EventListener
-    )
+    eventBus.on('open-resource-context-menu', handleOpenResourceContextMenu)
     window.addEventListener('keydown', handleKeyDown)
     window.addEventListener('click', handleClickOutside)
   })
@@ -561,10 +599,7 @@
    * 组件卸载时移除事件监听
    */
   onUnmounted(() => {
-    window.removeEventListener(
-      'open-resource-context-menu',
-      handleOpenResourceContextMenu as EventListener
-    )
+    eventBus.off('open-resource-context-menu', handleOpenResourceContextMenu)
     window.removeEventListener('keydown', handleKeyDown)
     window.removeEventListener('click', handleClickOutside)
   })

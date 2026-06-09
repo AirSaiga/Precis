@@ -58,6 +58,7 @@ const assetLibraryExtended = {
       preview: '预览配置',
       addToCanvas: '添加到画布',
       locateOnCanvas: '定位到画布',
+      addToManifest: '加入清单',
       rename: '重命名',
       delete: '删除',
       refresh: '刷新',
@@ -66,6 +67,7 @@ const assetLibraryExtended = {
       renameFailedTitle: '重命名失败',
       deleteFailedTitle: '删除失败',
       deleteConfirm: '确定要删除"{name}"吗？该操作不可撤销。',
+      addToManifestFailedTitle: '加入清单失败',
     },
     multiSelect: {
       selectedCount: '已选择 {count} 项',

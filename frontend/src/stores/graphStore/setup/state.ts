@@ -15,8 +15,11 @@ import type { FullValidationSummary, ValidationStatistics } from '../../../api/p
 /**
  * 在节点数组中查找指定 nodeId 并合并更新其 data 字段
  *
- * 返回新数组（不可变更新），不修改原数组。
- * 是 graphStore 中修改节点数据的唯一途径。
+ * 复用已有节点对象引用（仅 mutate data），避免 VueFlow 在 v-model
+ * 同步时因节点引用变化触发 setEdges → createGraphEdges → findNode
+ * 导致边被静默丢弃。
+ *
+ * 返回新数组（触发 ref 响应式），但节点对象本身引用不变。
  */
 function updateNodeDataInArray(
   nodes: CustomNode[],
@@ -25,7 +28,7 @@ function updateNodeDataInArray(
 ): CustomNode[] {
   return nodes.map((node) => {
     if (node.id === nodeId) {
-      return { ...node, data: { ...node.data, ...data } } as CustomNode
+      Object.assign(node.data, data)
     }
     return node
   })

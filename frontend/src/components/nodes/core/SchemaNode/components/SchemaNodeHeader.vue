@@ -45,28 +45,13 @@
     <div class="header-left">
       <!--
         ========================================
-        表名显示/编辑区域
+        表名显示区域
         ========================================
-        支持两种模式：
-        1. 显示模式：显示只读表名文本，点击可进入编辑
-        2. 编辑模式：显示输入框，支持修改表名
+        显示只读表名文本
       -->
-      <div class="title-input-container">
-        <input
-          v-if="props.isEditingTitle"
-          ref="titleInput"
-          v-model="localTableName"
-          class="title-input-field"
-          @blur="confirmEdit"
-          @keydown.enter="onEnter"
-          @keydown.esc="emit('cancelEdit')"
-          autofocus
-          :placeholder="t('customNodes.schemaNode.tableNamePlaceholder')"
-        />
-        <span v-else class="table-name-display" @click="emit('startEdit')">
-          {{ props.tableName }}
-        </span>
-      </div>
+      <span class="table-name-display">
+        {{ props.tableName }}
+      </span>
 
       <!--
         ========================================
@@ -160,7 +145,7 @@
    * @description Schema节点头部组件
    *
    * 该组件负责渲染Schema节点的头部区域，包含：
-   * 1. 表名显示和编辑（支持点击编辑、Enter确认、ESC取消）
+   * 1. 表名显示
    * 2. 数据源连接状态显示（显示当前连接的文件/工作表信息）
    * 3. 控制按钮：
    *    - 智能填充：自动推断Schema结构
@@ -169,7 +154,6 @@
    *
    * 设计特点：
    * - 纯展示组件，所有用户交互通过events向上传递
-   * - 表名编辑支持键盘导航（Enter确认、ESC取消）
    * - 保存按钮具有多种状态显示（保存中、成功、错误）
    * - 数据源信息支持显示/隐藏切换
    */
@@ -178,7 +162,7 @@
   // 1. 导入依赖
   // ============================================================================
 
-  import { ref, watch, nextTick } from 'vue'
+  import { ref } from 'vue'
   import { useI18n } from 'vue-i18n'
 
   // ============================================================================
@@ -208,11 +192,6 @@
      */
     sourceFilePath?: string
     /**
-     * 是否处于表名编辑模式
-     * 编辑模式下显示输入框而非文本
-     */
-    isEditingTitle: boolean
-    /**
      * 是否正在保存
      * 控制保存按钮的加载动画
      */
@@ -238,26 +217,6 @@
    * 所有用户交互通过事件向上传递给父组件处理
    */
   const emit = defineEmits<{
-    /**
-     * 开始编辑表名
-     * 触发后显示输入框进入编辑模式
-     */
-    (e: 'startEdit'): void
-    /**
-     * 确认表名编辑
-     * @param name - 新的表名
-     */
-    (e: 'confirmEdit', name: string): void
-    /**
-     * 取消表名编辑
-     * 恢复原表名，退出编辑模式
-     */
-    (e: 'cancelEdit'): void
-    /**
-     * 在编辑时按下Enter键
-     * 通常会确认编辑
-     */
-    (e: 'enter'): void
     /**
      * 保存Schema变更
      */
@@ -292,8 +251,6 @@
    * 本地表名状态
    * 用于编辑时的双向绑定，编辑确认后才更新父组件
    */
-  const localTableName = ref(props.tableName)
-
   /**
    * 保存按钮是否悬停
    * 控制保存按钮图标显示
@@ -305,69 +262,6 @@
    * 控制关闭按钮样式变化
    */
   const closeBtnHovered = ref(false)
-
-  /**
-   * 表名输入框DOM引用
-   * 用于自动聚焦和选中文本
-   */
-  const titleInput = ref<HTMLInputElement | undefined>()
-
-  // ============================================================================
-  // 5. Watchers
-  // ============================================================================
-
-  /**
-   * 监听表名变化，同步到本地状态
-   * 当父组件更新表名时，保持本地状态同步
-   */
-  watch(
-    () => props.tableName,
-    (newVal) => {
-      localTableName.value = newVal
-    }
-  )
-
-  /**
-   * 监听编辑模式变化
-   * 进入编辑模式时，自动聚焦并选中文本
-   */
-  watch(
-    () => props.isEditingTitle,
-    (isEditing) => {
-      if (isEditing) {
-        localTableName.value = props.tableName
-        nextTick(() => {
-          titleInput.value?.focus()
-          titleInput.value?.select()
-        })
-      }
-    }
-  )
-
-  // ============================================================================
-  // 6. 方法定义
-  // ============================================================================
-
-  /**
-   * 确认表名编辑
-   * 如果新名称有效且与原名称不同，则发送confirmEdit事件
-   * 否则取消编辑
-   */
-  function confirmEdit(): void {
-    if (localTableName.value.trim() && localTableName.value !== props.tableName) {
-      emit('confirmEdit', localTableName.value.trim())
-    } else {
-      emit('cancelEdit')
-    }
-  }
-
-  /**
-   * 处理Enter键按下
-   * 发送enter事件，通常会确认编辑
-   */
-  function onEnter(): void {
-    emit('enter')
-  }
 </script>
 
 <style scoped src="./SchemaNodeHeader.styles.css"></style>

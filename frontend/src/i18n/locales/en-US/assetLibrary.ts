@@ -60,6 +60,7 @@ const assetLibraryExtended = {
     resourceContext: {
       addToCanvas: 'Add to Canvas',
       locateOnCanvas: 'Locate on Canvas',
+      addToManifest: 'Add to Manifest',
       rename: 'Rename',
       delete: 'Delete',
       refresh: 'Refresh',
@@ -68,6 +69,7 @@ const assetLibraryExtended = {
       renameFailedTitle: 'Rename Failed',
       deleteFailedTitle: 'Delete Failed',
       deleteConfirm: 'Delete "{name}"? This action cannot be undone.',
+      addToManifestFailedTitle: 'Failed to Add to Manifest',
     },
     multiSelect: {
       selectedCount: '{count} selected',

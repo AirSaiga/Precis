@@ -9,7 +9,6 @@
     class="project-root-node graph-node"
     :class="{ 'is-selected': selected }"
     @dblclick="openSettings"
-    @contextmenu.prevent="showContextMenu"
   >
     <div class="header">
       <div class="icon">🔬</div>
@@ -68,51 +67,16 @@
         </button>
       </div>
     </div>
-
-    <div v-if="contextMenuVisible" class="context-menu" :style="contextMenuStyle" @click.stop>
-      <div class="context-menu-item" @click="openSettings">
-        <span class="menu-icon">⚙️</span>
-        {{ t('customNodes.projectRootNode.contextMenu.settings') }}
-      </div>
-      <div class="context-menu-item" @click="openFullValidation">
-        <span class="menu-icon">✓</span>
-        {{ t('customNodes.projectRootNode.actions.fullValidation') }}
-      </div>
-      <div class="context-menu-divider"></div>
-      <div class="context-menu-item" @click="exportFullConfig">
-        <span class="menu-icon">📤</span>
-        {{ t('customNodes.projectRootNode.actions.export') }}
-      </div>
-      <div class="context-menu-item" @click="openAiConfigGenerator">
-        <span class="menu-icon">🤖</span>
-        {{ t('customNodes.projectRootNode.actions.aiGenerate') }}
-      </div>
-      <div class="context-menu-divider"></div>
-      <div class="context-menu-item" @click="openProjectManagement">
-        <span class="menu-icon">📁</span>
-        {{ t('customNodes.projectRootNode.actions.projectManagement') }}
-      </div>
-      <div class="context-menu-item" @click="reloadProject">
-        <span class="menu-icon">🔄</span>
-        {{ t('customNodes.projectRootNode.actions.reload') }}
-      </div>
-      <div class="context-menu-divider"></div>
-      <div class="context-menu-item danger" @click="closeProject">
-        <span class="menu-icon">✕</span>
-        {{ t('customNodes.projectRootNode.actions.closeProject') }}
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { computed, onMounted, onUnmounted, ref } from 'vue'
+  import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useGraphStore } from '@/stores/graphStore'
   import { useSettingsStore } from '@/stores/settingsStore'
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
-  import { useAiConfigGeneratorStore } from '@/features/ai-config-generator/stores/aiConfigGeneratorStore'
   import { eventBus } from '@/core/eventBus'
   import type { ProjectNodeData } from '@/types/graph'
 
@@ -121,15 +85,11 @@
   const settingsStore = useSettingsStore()
   const resourceTreeStore = useResourceTreeStore()
   const validationTaskStore = useValidationTaskStore()
-  const aiConfigGeneratorStore = useAiConfigGeneratorStore()
 
   const props = defineProps<{
     data: ProjectNodeData
     selected?: boolean
   }>()
-
-  const contextMenuVisible = ref(false)
-  const contextMenuPosition = ref({ x: 0, y: 0 })
 
   // 项目路径缩短显示
   const projectPathShort = computed(() => {
@@ -186,74 +146,19 @@
 
   const hasUnsavedChanges = computed(() => graphStore.hasUnsavedChanges())
 
-  const contextMenuStyle = computed(() => ({
-    left: `${contextMenuPosition.value.x}px`,
-    top: `${contextMenuPosition.value.y}px`,
-  }))
-
-  const showContextMenu = (event: MouseEvent) => {
-    contextMenuPosition.value = { x: event.offsetX, y: event.offsetY }
-    contextMenuVisible.value = true
-  }
-
-  const hideContextMenu = () => {
-    contextMenuVisible.value = false
-  }
-
   const openFullValidation = () => {
-    hideContextMenu()
     validationTaskStore.openFullProject()
   }
 
   const openSettings = () => {
-    hideContextMenu()
     settingsStore.open()
     settingsStore.setActiveTab('project')
   }
 
-  const exportFullConfig = () => {
-    hideContextMenu()
-    eventBus.emit('export-full-config-yaml')
-  }
-
-  const openAiConfigGenerator = () => {
-    hideContextMenu()
-    aiConfigGeneratorStore.open()
-  }
-
   const reloadProject = async () => {
-    hideContextMenu()
     await graphStore.loadProjectFromV2()
     eventBus.emit('project-applied')
   }
-
-  const openProjectManagement = () => {
-    hideContextMenu()
-    settingsStore.open('project-info')
-  }
-
-  const closeProject = () => {
-    hideContextMenu()
-    if (confirm(t('customNodes.projectRootNode.confirm.closeProject'))) {
-      graphStore.clearProject()
-      eventBus.emit('project-closed')
-    }
-  }
-
-  const handleClickOutside = (event: MouseEvent) => {
-    const target = event.target as HTMLElement
-    if (!target.closest('.context-menu')) {
-      hideContextMenu()
-    }
-  }
-
-  onMounted(() => {
-    document.addEventListener('click', handleClickOutside)
-  })
-
-  onUnmounted(() => {
-    document.removeEventListener('click', handleClickOutside)
-  })
 </script>
 
 <style scoped src="./ProjectRootNode.styles.css"></style>

@@ -60,7 +60,6 @@
     :class="nodeClasses"
     :style="{ width: width + 'px', height: height ? height + 'px' : 'auto' }"
     :data-node-id="props.id"
-    @dblclick="startTitleEdit"
     @keydown="handleKeydown"
     @drop="handlePatternDrop"
     @dragover="handlePatternDragOver"
@@ -95,14 +94,9 @@
       :table-name="localData.tableName"
       :source-file="localData.sourceFile ?? null"
       :sheet-name="localData.sheetName"
-      :is-editing-title="localData.isEditingTitle ?? false"
       :is-saving="isSaving"
       :save-success="saveSuccess"
       :save-error="saveError"
-      @start-edit="startTitleEdit"
-      @confirm-edit="confirmTitleEdit"
-      @cancel-edit="cancelTitleEdit"
-      @enter="onTitleEnter"
       @save="handleSave"
       @smart-fill="handleSmartFillClick"
       @close="handleClose"
@@ -560,14 +554,8 @@
     updateSchemaNodeFromHeaderChangeSafe,
     updateSchemaNodeFromSheetChange,
     findConnectedSchemaNodes,
-    editingTableName,
     editingColumn,
-    titleInput,
     columnInputRefs,
-    startTitleEdit,
-    confirmTitleEdit,
-    cancelTitleEdit,
-    onTitleEnter,
     startColumnEdit,
     confirmColumnEdit,
     cancelColumnEdit,
@@ -1057,9 +1045,6 @@
   defineExpose({
     handleSave,
     handleClose,
-    startTitleEdit,
-    confirmTitleEdit,
-    cancelTitleEdit,
     startColumnEdit,
     confirmColumnEdit,
     cancelColumnEdit,
@@ -1070,7 +1055,6 @@
     handlePatternDragOver,
     handleColumnOutputConnect,
     createTableRelation,
-    editingTableName,
     editingColumn,
     editingColumnName,
     hoveredColumn,

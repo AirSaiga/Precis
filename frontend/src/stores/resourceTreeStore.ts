@@ -444,6 +444,25 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
   }
 
   /**
+   * 轻量级更新资源显示名称
+   *
+   * 仅更新内存中的 name 字段，不触发后端 API 调用。
+   * 用于画布上名称变更后同步资源树显示。
+   *
+   * @param resourceId - 资源 ID
+   * @param newName - 新的显示名称
+   */
+  function updateResourceName(resourceId: string, newName: string): void {
+    const resource = resources.value[resourceId]
+    if (resource) {
+      resources.value = {
+        ...resources.value,
+        [resourceId]: { ...resource, name: newName },
+      }
+    }
+  }
+
+  /**
    * 清空资源树所有状态
    *
    * 重置资源映射、搜索词、加载状态及配置路径，
@@ -518,6 +537,7 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
     setFolderExpanded,
     setSearchQuery,
     getResourceById,
+    updateResourceName,
     getResourcesByFolderType,
     clear,
     initializeFolderResources,

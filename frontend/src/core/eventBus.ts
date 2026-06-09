@@ -13,6 +13,7 @@
  */
 import mitt from 'mitt'
 import type { DragEventPayload } from '@/stores/dragStore'
+import type { ResourceItem } from '@/types/resource/types'
 
 export interface AppEvents {
   'focus-canvas-nodes': { nodeIds: string[] }
@@ -70,7 +71,7 @@ export interface AppEvents {
     visible: boolean
     position: { x: number; y: number }
     kind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template'
-    item: unknown
+    item: ResourceItem
   }
 }
 

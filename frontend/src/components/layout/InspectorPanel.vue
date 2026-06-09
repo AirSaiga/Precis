@@ -72,6 +72,7 @@
   import { computed, defineAsyncComponent, ref } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useGraphStore } from '@/stores/graphStore'
+  import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import type { CustomNodeData } from '@/types/nodes'
   import BaseInspector from './inspectors/configDriven/BaseInspector.vue'
   import { getInspectorConfig } from './inspectors/configDriven/configLoader'
@@ -84,6 +85,7 @@
    * GraphStore 包含当前选中的节点信息
    */
   const store = useGraphStore()
+  const resourceTreeStore = useResourceTreeStore()
 
   const showSubCanvas = ref(false)
   const subCanvasNodeId = ref<string | null>(null)
@@ -166,6 +168,10 @@
     if (!node.value) return
     // 调用 GraphStore 的 updateNodeData 方法更新节点数据
     store.updateNodeData(node.value.id, newData)
+    // 同步更新资源树显示名称（仅 schema 节点的 tableName 变更时）
+    if (newData.tableName && node.value.type === 'schema') {
+      resourceTreeStore.updateResourceName(node.value.id, newData.tableName)
+    }
   }
 </script>
 

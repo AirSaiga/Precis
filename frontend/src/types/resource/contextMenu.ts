@@ -14,7 +14,8 @@ export type ResourceContextAction =
   | 'rename'
   | 'delete'
   | 'refresh'
-  | 'editTemplate';
+  | 'editTemplate'
+  | 'addToManifest';
 
 /**
  * 右键菜单操作配置

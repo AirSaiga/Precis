@@ -5,7 +5,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { ref, nextTick } from 'vue'
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
@@ -20,13 +20,6 @@ export function useSchemaEditing(props: { id: string; data: SchemaNodeData }, em
   const { updateNodeData } = useVueFlow()
   const { showConfirm } = useGlobalConfirm()
   const store = useGraphStore()
-
-  // ============================================================================
-  // 表名编辑状态
-  // ============================================================================
-
-  const editingTableName = ref(props.data.tableName)
-  const titleInput = ref<HTMLInputElement>()
 
   // ============================================================================
   // 列编辑通用逻辑
@@ -82,46 +75,6 @@ export function useSchemaEditing(props: { id: string; data: SchemaNodeData }, em
   const columnInputRefs = genericEditing.columnInputRefs
   const setInputRef = genericEditing.setInputRef
   const startColumnEdit = genericEditing.startColumnEdit
-
-  // ============================================================================
-  // 表名编辑
-  // ============================================================================
-
-  const startTitleEdit = () => {
-    updateNodeData(props.id, { ...props.data, isEditingTitle: true })
-    editingTableName.value = props.data.tableName
-    nextTick(() => {
-      titleInput.value?.focus()
-      titleInput.value?.select()
-    })
-  }
-
-  const confirmTitleEdit = () => {
-    if (editingTableName.value.trim() && editingTableName.value !== props.data.tableName) {
-      updateNodeData(props.id, {
-        ...props.data,
-        tableName: editingTableName.value.trim(),
-        isEditingTitle: false,
-        saveState: 'draft',
-        updatedAt: new Date().toISOString(),
-      })
-    } else {
-      updateNodeData(props.id, { ...props.data, isEditingTitle: false })
-    }
-  }
-
-  const cancelTitleEdit = () => {
-    updateNodeData(props.id, { ...props.data, isEditingTitle: false })
-    editingTableName.value = props.data.tableName
-  }
-
-  const onTitleEnter = () => {
-    confirmTitleEdit()
-    const firstColumn = props.data.columns[0]
-    if (firstColumn) {
-      startColumnEdit(firstColumn.id)
-    }
-  }
 
   // ============================================================================
   // 列编辑（Schema 特有行为封装）
@@ -323,17 +276,9 @@ export function useSchemaEditing(props: { id: string; data: SchemaNodeData }, em
 
   return {
     // 状态
-    editingTableName,
     editingColumn,
     editingColumnName,
-    titleInput,
     columnInputRefs,
-
-    // 表名编辑
-    startTitleEdit,
-    confirmTitleEdit,
-    cancelTitleEdit,
-    onTitleEnter,
 
     // 列编辑
     startColumnEdit,
