@@ -41,7 +41,49 @@ from app.api.models import (
     ValidationResponse,
     ValidationResult,
 )
+from app.shared.domain.data_types import (
+    BooleanType,
+    DataType,
+    DateType,
+    DecimalType,
+    FloatType,
+    IntegerType,
+    StringType,
+)
 from app.shared.services.validation import UnifiedValidationService, load_file_data
+
+
+def _create_data_type(type_name: str | None) -> DataType | None:
+    """根据类型名称创建对应的 DataType 实例。"""
+    if not type_name:
+        return None
+    type_map = {
+        "string": StringType,
+        "integer": IntegerType,
+        "decimal": DecimalType,
+        "float": FloatType,
+        "boolean": BooleanType,
+        "datetime": DateType,
+        "date": DateType,
+        "time": DateType,
+    }
+    cls = type_map.get(type_name.lower())
+    return cls() if cls else None
+
+
+def _convert_column_by_schema_type(
+    df: pd.DataFrame, column: str, column_data_type: str
+) -> pd.DataFrame:
+    """按 Schema 声明的类型转换目标列，保持与全量校验 Phase 1 行为一致。"""
+    data_type = _create_data_type(column_data_type)
+    if not data_type or column not in df.columns:
+        return df
+
+    # 使用 DataType.process_column 做类型转换（与 process_dataframe 一致）
+    # 忽略转换错误，仅保留解析后的类型，让约束校验器自行判断
+    parsed_series, _ = data_type.process_column(df[column], column, nullable=True)
+    df[column] = parsed_series
+    return df
 
 
 def convert_validation_result_to_regex(result) -> RegexValidationResult:
@@ -81,6 +123,7 @@ def execute_dataframe_validation(
     target_column_name: str,
     validation_config: dict | None = None,
     allow_unsafe_eval: bool = False,
+    column_data_type: str | None = None,
 ) -> ValidationResponse:
     """
     从已有 DataFrame 执行校验（跳过文件加载步骤）。
@@ -94,6 +137,7 @@ def execute_dataframe_validation(
         target_column_name: 需要校验的目标列名
         validation_config: 校验配置字典，可选
         allow_unsafe_eval: 是否允许不安全的表达式求值，可选，默认为 False
+        column_data_type: 目标列在 Schema 中声明的数据类型，可选
 
     返回值:
         ValidationResponse: 标准化校验响应
@@ -106,6 +150,10 @@ def execute_dataframe_validation(
             data=None,
             error=f"未找到列: {target_column_name}",
         )
+
+    # 按 Schema 声明的类型转换目标列，保持与全量校验行为一致
+    if column_data_type:
+        df = _convert_column_by_schema_type(df, target_column_name, column_data_type)
 
     # 调用统一校验服务执行实际校验逻辑
     result = UnifiedValidationService.validate(
@@ -148,6 +196,7 @@ def execute_standard_validation(
     target_column_name: str,
     validation_config: dict | None = None,
     allow_unsafe_eval: bool = False,
+    column_data_type: str | None = None,
 ) -> ValidationResponse:
     """
     标准数据校验执行流水线，被 content_mode 和 path_mode 共用。
@@ -163,6 +212,7 @@ def execute_standard_validation(
         target_column_name: 需要校验的目标列名
         validation_config: 校验配置字典，可选
         allow_unsafe_eval: 是否允许不安全的表达式求值，可选，默认为 False
+        column_data_type: 目标列在 Schema 中声明的数据类型，可选
 
     返回值:
         ValidationResponse: 标准化校验响应
@@ -181,4 +231,5 @@ def execute_standard_validation(
         target_column_name=target_column_name,
         validation_config=validation_config,
         allow_unsafe_eval=allow_unsafe_eval,
+        column_data_type=column_data_type,
     )

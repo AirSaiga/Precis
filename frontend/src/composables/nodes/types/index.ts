@@ -72,6 +72,7 @@ export interface SchemaNodeSourceInfo {
   headerRow?: number // 表头行号
   sourceMode?: SourceMode // 数据来源模式：indexeddb 或 localfile
   localPath?: string // 本地文件绝对路径（Electron 环境本地文件模式专用）
+  columnDataType?: string // 目标列在 Schema 中声明的数据类型（如 string/integer/decimal）
 }
 
 /**

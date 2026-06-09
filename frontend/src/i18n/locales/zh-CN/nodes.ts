@@ -58,6 +58,8 @@ const customNodes = {
       type: '类型',
     },
     saveButton: '保存 (Ctrl+S)',
+    draft: '未保存',
+    draftTooltip: '当前有未保存的更改，保存后约束校验将使用最新配置',
     unsavedChanges: '未保存的更改',
     saveError: '保存错误',
     saveTooltip: '保存更改',

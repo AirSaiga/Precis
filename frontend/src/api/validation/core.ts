@@ -48,6 +48,8 @@ export interface NotNullValidationRequest {
   header_row?: number
   /** 校验配置，可选的额外校验参数 */
   validation_config?: Record<string, unknown>
+  /** 目标列在 Schema 中声明的数据类型，用于单节点校验时按 Schema 类型转换 */
+  column_data_type?: string
 }
 
 /**
@@ -67,6 +69,8 @@ export interface UniqueValidationRequest {
   header_row?: number
   /** 校验配置，可选的额外校验参数 */
   validation_config?: Record<string, unknown>
+  /** 目标列在 Schema 中声明的数据类型，用于单节点校验时按 Schema 类型转换 */
+  column_data_type?: string
 }
 
 // ========================================
@@ -255,6 +259,7 @@ export interface AllowedValuesValidationRequest {
      */
     allowed_values: Array<string | number | boolean>
   }
+  column_data_type?: string
 }
 
 /**
@@ -281,6 +286,7 @@ export interface ConditionalValidationRequest {
     then_condition?: Record<string, unknown> | string
     then_condition_config?: Record<string, unknown> | string
   }
+  column_data_type?: string
 }
 
 /**
@@ -298,6 +304,7 @@ export interface ForeignKeyValidationRequest {
     target_column: string
     target_values?: string[]
   }
+  column_data_type?: string
 }
 
 /**
@@ -315,6 +322,7 @@ export interface ScriptedValidationRequest {
     script_name?: string
   }
   allow_unsafe_eval?: boolean
+  column_data_type?: string
 }
 
 /**
@@ -332,6 +340,7 @@ export interface RangeValidationRequest {
     max_value?: number
     boundary_mode?: 'inclusive' | 'exclusive'
   }
+  column_data_type?: string
 }
 
 /**
@@ -347,6 +356,7 @@ export interface CharsetValidationRequest {
   validation_config?: {
     charset_mode?: 'ascii' | 'chinese'
   }
+  column_data_type?: string
 }
 
 // ========================================

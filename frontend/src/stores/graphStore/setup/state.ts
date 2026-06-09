@@ -27,7 +27,7 @@ function updateNodeDataInArray(
   data: Partial<CustomNode['data']>
 ): CustomNode[] {
   return nodes.map((node) => {
-    if (node.id === nodeId) {
+    if (node.id === nodeId && node.data) {
       Object.assign(node.data, data)
     }
     return node

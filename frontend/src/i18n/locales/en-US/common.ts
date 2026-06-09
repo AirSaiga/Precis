@@ -443,6 +443,7 @@ const common = {
       runOnce: 'Save & validate',
       running: 'Validating…',
       completed: 'Completed',
+      completedWithErrors: 'Completed with errors',
       save: 'Save only',
       saveFailed: 'Save failed. Cannot run full validation.',
     },

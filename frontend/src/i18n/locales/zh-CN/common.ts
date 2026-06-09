@@ -434,6 +434,7 @@ const common = {
       runOnce: '保存并全量校验',
       running: '正在校验…',
       completed: '执行完成',
+      completedWithErrors: '执行完成，发现错误',
       save: '仅保存',
       saveFailed: '保存失败，无法执行全量校验',
     },

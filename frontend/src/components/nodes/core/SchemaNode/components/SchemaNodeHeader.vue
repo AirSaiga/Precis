@@ -55,6 +55,21 @@
 
       <!--
         ========================================
+        保存状态指示
+        ========================================
+        显示当前Schema节点的保存状态
+      -->
+      <div
+        v-if="props.saveState === 'draft'"
+        class="save-state-badge draft-badge"
+        :title="t('customNodes.schemaNode.draftTooltip')"
+      >
+        <span class="save-state-dot"></span>
+        <span class="save-state-text">{{ t('customNodes.schemaNode.draft') }}</span>
+      </div>
+
+      <!--
+        ========================================
         数据源连接状态显示
         ========================================
         显示当前Schema节点连接的数据源信息：
@@ -201,12 +216,19 @@
      * 成功时显示勾号图标
      */
     saveSuccess: boolean
-    /**
-     * 保存是否出错
-     * 错误时显示感叹号图标
-     */
-    saveError: boolean
-  }>()
+  /**
+   * 保存是否出错
+   * 错误时显示感叹号图标
+   */
+  saveError: boolean
+  /**
+   * 节点保存状态
+   * 'draft' = 草稿（未保存）
+   * 'saved' = 已保存
+   * 'error' = 保存出错
+   */
+  saveState?: string
+}>()
 
   // ============================================================================
   // 3. Events 定义

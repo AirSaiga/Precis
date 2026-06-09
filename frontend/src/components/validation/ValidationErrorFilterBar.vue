@@ -32,34 +32,52 @@
 
 <template>
   <div class="fv-filter-bar">
-    <div class="fv-filter-group">
-      <span class="fv-filter-label">分组:</span>
-      <select
-        :value="groupBy"
-        class="ui-select ui-select--compact"
-        @change="emit('update:groupBy', ($event.target as HTMLSelectElement).value as 'table' | 'stage' | 'type' | 'none')"
-      >
-        <option v-for="opt in groupOptions" :key="opt.key" :value="opt.key">
-          {{ opt.label }}
-        </option>
-      </select>
-    </div>
+    <div class="fv-filter-row">
+      <div class="fv-filter-group">
+        <span class="fv-filter-label">分组</span>
+        <select
+          :value="groupBy"
+          class="ui-select ui-select--compact"
+          @change="emit('update:groupBy', ($event.target as HTMLSelectElement).value as 'table' | 'stage' | 'type' | 'none')"
+        >
+          <option v-for="opt in groupOptions" :key="opt.key" :value="opt.key">
+            {{ opt.label }}
+          </option>
+        </select>
+      </div>
 
-    <div class="fv-stage-filter">
-      <span class="fv-filter-label">阶段:</span>
-      <button
-        v-for="opt in stageOptions"
-        :key="opt.key"
-        class="fv-stage-chip"
-        :class="{ 'is-active': stageFilter === opt.key }"
-        type="button"
-        @click="emit('update:stageFilter', opt.key)"
-      >
-        {{ opt.label }}
-      </button>
+      <div class="fv-stage-filter">
+        <span class="fv-filter-label">阶段</span>
+        <div class="fv-stage-chips">
+          <button
+            v-for="opt in stageOptions"
+            :key="opt.key"
+            class="fv-stage-chip"
+            :class="{ 'is-active': stageFilter === opt.key }"
+            type="button"
+            @click="emit('update:stageFilter', opt.key)"
+          >
+            {{ opt.label }}
+          </button>
+        </div>
+      </div>
     </div>
 
     <div class="fv-filter-search">
+      <svg
+        class="fv-search-icon"
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+      >
+        <circle cx="11" cy="11" r="8" />
+        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+      </svg>
       <input
         :value="searchQuery"
         class="ui-input ui-input--compact"

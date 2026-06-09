@@ -62,6 +62,7 @@ export function useConstraintBase(props: { id: string; data: ConstraintNodeData 
     // 记录 Schema 节点的源信息，用于后续验证
     // sourceMode 和 localPath 用于判断数据源类型，以便选择正确的 API 端点
     // sourceFile 用于判断源表是否显式连接了数据源（区分残留路径）
+    // columnDataType 用于单节点校验时按 Schema 类型转换目标列，保持与全量校验一致
     sourceInfo.value = {
       sourceFilePath: schemaNode.data.sourceFilePath || '',
       sourceFile: schemaNode.data.sourceFile, // 同步显式连接标识
@@ -69,6 +70,7 @@ export function useConstraintBase(props: { id: string; data: ConstraintNodeData 
       headerRow: schemaNode.data.headerRow,
       sourceMode: schemaNode.data.sourceMode, // localfile
       localPath: schemaNode.data.localPath, // 本地文件路径（Electron 环境专用）
+      columnDataType: column.dataType, // 目标列的 Schema 类型
     }
 
     // 向上层组件通知连接建立事件

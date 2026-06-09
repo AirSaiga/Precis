@@ -58,6 +58,8 @@ const customNodes = {
       type: 'Type',
     },
     saveButton: 'Save (Ctrl+S)',
+    draft: 'Draft',
+    draftTooltip: 'Unsaved changes. Constraints will use the latest config after saving.',
     unsavedChanges: 'Unsaved changes',
     saveError: 'Save error',
     saveTooltip: 'Save changes',

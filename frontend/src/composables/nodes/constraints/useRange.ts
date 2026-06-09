@@ -31,7 +31,8 @@ export async function validateRange(
   sourceFilePath: string,
   columnName: string,
   sheetName?: string,
-  headerRow?: number
+  headerRow?: number,
+  columnDataType?: string
 ): Promise<RangeValidationResult> {
   logger.debug('执行区间验证:', columnName)
 
@@ -42,6 +43,7 @@ export async function validateRange(
       source_file_path: sourceFilePath,
       sheet_name: sheetName,
       header_row: headerRow,
+      column_data_type: columnDataType,
     }
 
     const response = await apiValidateRange(request)
@@ -100,7 +102,8 @@ export function useRange(props: { id: string; data: RangeConstraintNodeData }, e
       actualFilePath,
       props.data.column,
       base.sourceInfo.value.sheetName,
-      base.sourceInfo.value.headerRow
+      base.sourceInfo.value.headerRow,
+      base.sourceInfo.value.columnDataType
     )
   }
 

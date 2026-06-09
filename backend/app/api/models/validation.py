@@ -169,6 +169,9 @@ class ValidationRequest(BaseModel):
     allow_unsafe_eval: bool = Field(
         False, description="是否允许执行脚本化校验（eval模式）"
     )  # True 允许执行脚本化校验（存在安全风险），默认关闭
+    column_data_type: Optional[str] = Field(
+        None, description="目标列在 Schema 中声明的数据类型（如 string/integer/decimal）"
+    )  # 用于单节点校验时按 Schema 类型转换目标列，保持与全量校验行为一致
 
 
 class InlineValidationRequest(BaseModel):
@@ -203,6 +206,9 @@ class InlineValidationRequest(BaseModel):
     allow_unsafe_eval: bool = Field(
         False, description="是否允许执行脚本化校验（eval模式）"
     )  # True 允许执行脚本化校验（存在安全风险），默认关闭
+    column_data_type: Optional[str] = Field(
+        None, description="目标列在 Schema 中声明的数据类型（如 string/integer/decimal）"
+    )  # 用于单节点校验时按 Schema 类型转换目标列，保持与全量校验行为一致
 
 
 class ValidationErrorRow(BaseModel):

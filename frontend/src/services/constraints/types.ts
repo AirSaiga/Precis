@@ -55,6 +55,8 @@ export interface ConstraintValidationContext {
   sourceFile?: string
   sheetName?: string
   headerRow?: number
+  /** 目标列在 Schema 中声明的数据类型（如 String/Integer/Decimal） */
+  columnDataType?: string
   /** 行内数据行（来自 TransformOutput / ManualData 等非文件数据源） */
   inlineRows?: string[][]
 }

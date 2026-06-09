@@ -97,6 +97,7 @@
       :is-saving="isSaving"
       :save-success="saveSuccess"
       :save-error="saveError"
+      :save-state="localData.saveState"
       @save="handleSave"
       @smart-fill="handleSmartFillClick"
       @close="handleClose"

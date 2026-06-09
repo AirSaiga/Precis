@@ -175,30 +175,55 @@
 }
 
 /* ---- Running View ---- */
-.fv-spinner {
-  color: var(--ui-accent-strong);
-  margin-bottom: var(--ui-space-lg);
+.fv-running-title {
+  font-size: var(--ui-font-size-lg);
+  font-weight: var(--ui-font-weight-semibold);
+  color: var(--ui-text-strong);
+  margin: 0 0 var(--ui-space-xs);
 }
 
-.fv-spinner svg {
+.fv-running-title.is-success {
+  color: var(--ui-success-strong);
+}
+
+.fv-running-title.is-error {
+  color: var(--ui-danger-strong);
+}
+
+/* ---- Status Icon Large ---- */
+.fv-status-icon-lg {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  margin-bottom: var(--ui-space-lg);
+  background: var(--ui-bg-subtle);
+  color: var(--ui-accent-strong);
+  border: 2px solid var(--ui-border-light);
+}
+
+.fv-status-icon-lg.is-spinning svg {
   animation: fv-spin 1s linear infinite;
 }
 
-.fv-spinner.is-completed svg {
-  animation: none;
+.fv-status-icon-lg.is-success {
+  color: var(--ui-success-strong);
+  background: var(--ui-success-weak);
+  border-color: color-mix(in srgb, var(--ui-success-strong) 20%, transparent);
+}
+
+.fv-status-icon-lg.is-error {
+  color: var(--ui-danger-strong);
+  background: var(--ui-danger-weak);
+  border-color: color-mix(in srgb, var(--ui-danger-strong) 20%, transparent);
 }
 
 @keyframes fv-spin {
   to {
     transform: rotate(360deg);
   }
-}
-
-.fv-running-title {
-  font-size: var(--ui-font-size-lg);
-  font-weight: var(--ui-font-weight-semibold);
-  color: var(--ui-text-strong);
-  margin: 0 0 var(--ui-space-xs);
 }
 
 .fv-running-sub {
@@ -644,6 +669,394 @@
 
 .fv-error-navigate:hover {
   color: var(--ui-accent-strong);
+}
+
+/* ============================================================================
+   Progress Bar
+   ============================================================================ */
+.fv-progress-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-md);
+  width: 100%;
+  max-width: 520px;
+}
+
+.fv-progress-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--ui-space-md);
+}
+
+.fv-progress-percent {
+  font-size: 36px;
+  font-weight: var(--ui-font-weight-bold);
+  color: var(--ui-text-strong);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.fv-progress-status {
+  font-size: var(--ui-font-size-sm);
+  color: var(--ui-text-muted);
+  font-weight: var(--ui-font-weight-medium);
+}
+
+.fv-progress {
+  width: 100%;
+  height: 8px;
+  background: var(--ui-bg-subtle);
+  border-radius: var(--ui-radius-full);
+  overflow: hidden;
+  border: 1px solid var(--ui-border-light);
+}
+
+.fv-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--ui-accent-strong), color-mix(in srgb, var(--ui-accent-strong) 70%, var(--ui-accent-weak)));
+  border-radius: var(--ui-radius-full);
+  transition: width 0.3s ease;
+}
+
+.fv-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ui-space-md);
+  font-size: var(--ui-font-size-sm);
+  color: var(--ui-text-muted);
+}
+
+.fv-progress-table,
+.fv-progress-errors {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-space-xs);
+}
+
+.fv-progress-errors.has-errors {
+  color: var(--ui-danger-strong);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+/* ============================================================================
+   Stage Timeline (Vertical)
+   ============================================================================ */
+.fv-timeline {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 480px;
+  gap: 0;
+}
+
+.fv-timeline-item {
+  display: flex;
+  gap: var(--ui-space-md);
+  padding: var(--ui-space-sm) 0;
+  position: relative;
+}
+
+.fv-timeline-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.fv-timeline-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 2px solid var(--ui-border-light);
+  background: var(--ui-bg-panel);
+  color: var(--ui-text-muted);
+  transition: all 0.3s ease;
+}
+
+.fv-timeline-icon.is-pending {
+  border-color: var(--ui-border-light);
+  color: var(--ui-text-muted);
+}
+
+.fv-timeline-icon.is-running {
+  border-color: var(--ui-accent-strong);
+  color: var(--ui-accent-strong);
+  background: var(--ui-accent-weak);
+}
+
+.fv-timeline-icon.is-running svg {
+  animation: fv-spin 1s linear infinite;
+}
+
+.fv-timeline-icon.is-success {
+  border-color: var(--ui-success-strong);
+  color: var(--ui-success-strong);
+  background: var(--ui-success-weak);
+}
+
+.fv-timeline-icon.is-error {
+  border-color: var(--ui-danger-strong);
+  color: var(--ui-danger-strong);
+  background: var(--ui-danger-weak);
+}
+
+.fv-timeline-icon.is-attention {
+  border-color: var(--ui-warning-strong);
+  color: var(--ui-warning-strong);
+  background: var(--ui-warning-weak);
+}
+
+.fv-timeline-icon.is-skipped {
+  border-color: var(--ui-border);
+  color: var(--ui-text-muted);
+  background: var(--ui-bg-subtle);
+}
+
+.fv-timeline-connector {
+  width: 2px;
+  flex: 1;
+  min-height: 24px;
+  background: var(--ui-border-light);
+  margin: 4px 0;
+}
+
+.fv-timeline-connector.is-active {
+  background: linear-gradient(to bottom, var(--ui-success-strong), var(--ui-border-light));
+}
+
+.fv-timeline-right {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 2px;
+  flex: 1;
+}
+
+.fv-timeline-name {
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  color: var(--ui-text-strong);
+}
+
+.fv-timeline-desc {
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-muted);
+  line-height: 1.4;
+}
+
+.fv-timeline-status {
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-medium);
+  margin-top: 2px;
+}
+
+.fv-timeline-status.is-pending {
+  color: var(--ui-text-muted);
+}
+
+.fv-timeline-status.is-running {
+  color: var(--ui-accent-strong);
+}
+
+.fv-timeline-status.is-success {
+  color: var(--ui-success-strong);
+}
+
+.fv-timeline-status.is-error {
+  color: var(--ui-danger-strong);
+}
+
+.fv-timeline-status.is-attention {
+  color: var(--ui-warning-strong);
+}
+
+.fv-timeline-status.is-skipped {
+  color: var(--ui-text-muted);
+}
+
+/* ============================================================================
+   Stats Mini (2x2 Card Grid)
+   ============================================================================ */
+.fv-stats-mini {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--ui-space-md);
+  width: 100%;
+  max-width: 480px;
+}
+
+.fv-stats-mini-item {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-md);
+  padding: var(--ui-space-md) var(--ui-space-lg);
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-lg);
+  transition: all var(--ui-transition-fast);
+}
+
+.fv-stats-mini-item:hover {
+  border-color: var(--ui-border);
+  box-shadow: var(--ui-shadow-elevation-sm);
+}
+
+.fv-stats-mini-item.is-error {
+  background: var(--ui-danger-weak);
+  border-color: color-mix(in srgb, var(--ui-danger-strong) 15%, transparent);
+}
+
+.fv-stats-mini-item.is-error .fv-stats-mini-icon {
+  color: var(--ui-danger-strong);
+}
+
+.fv-stats-mini-item.is-error .fv-stats-mini-value {
+  color: var(--ui-danger-strong);
+}
+
+.fv-stats-mini-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--ui-radius-md);
+  background: var(--ui-bg-subtle);
+  color: var(--ui-text-muted);
+  flex-shrink: 0;
+}
+
+.fv-stats-mini-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fv-stats-mini-value {
+  font-size: 22px;
+  font-weight: var(--ui-font-weight-bold);
+  color: var(--ui-text-strong);
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+}
+
+.fv-stats-mini-label {
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* ============================================================================
+   Error Filter Bar
+   ============================================================================ */
+.fv-filter-bar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-md);
+  width: 100%;
+  padding: var(--ui-space-md) 0;
+}
+
+.fv-filter-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--ui-space-xl);
+  flex-wrap: wrap;
+}
+
+.fv-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-sm);
+  min-width: 120px;
+}
+
+.fv-filter-label {
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+  color: var(--ui-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.fv-stage-filter {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-sm);
+  flex: 1;
+  min-width: 200px;
+}
+
+.fv-stage-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--ui-space-xs);
+}
+
+.fv-stage-chip {
+  padding: 5px 12px;
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-bg-panel);
+  color: var(--ui-text-muted);
+  font-size: var(--ui-font-size-sm);
+  cursor: pointer;
+  transition: all var(--ui-transition-fast);
+}
+
+.fv-stage-chip:hover {
+  border-color: var(--ui-border);
+  background: var(--ui-bg-subtle);
+}
+
+.fv-stage-chip.is-active {
+  background: var(--ui-accent-weak);
+  color: var(--ui-accent-strong);
+  border-color: color-mix(in srgb, var(--ui-accent-strong) 30%, transparent);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+.fv-filter-search {
+  position: relative;
+  width: 100%;
+}
+
+.fv-filter-search .ui-input {
+  width: 100%;
+  padding-left: 40px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  font-size: var(--ui-font-size-sm);
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-lg);
+  background: var(--ui-bg-elevated);
+  transition: all var(--ui-transition-fast);
+}
+
+.fv-filter-search .ui-input:focus {
+  outline: none;
+  border-color: var(--ui-accent-strong);
+  box-shadow: 0 0 0 3px var(--ui-accent-weak);
+}
+
+.fv-filter-search .ui-input::placeholder {
+  color: var(--ui-text-muted);
+  opacity: 0.7;
+}
+
+.fv-search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--ui-text-muted);
+  pointer-events: none;
 }
 
 /* ---- Responsive ---- */

@@ -43,6 +43,12 @@
   box-shadow: var(--node-shadow-error);
 }
 
+.schema-node.is-draft {
+  border-style: dashed;
+  border-color: var(--ui-warning-strong);
+  box-shadow: 0 0 0 1px var(--ui-warning-weak);
+}
+
 .columns-header {
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) auto auto 36px;

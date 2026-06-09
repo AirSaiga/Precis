@@ -169,8 +169,11 @@
     // 调用 GraphStore 的 updateNodeData 方法更新节点数据
     store.updateNodeData(node.value.id, newData)
     // 同步更新资源树显示名称（仅 schema 节点的 tableName 变更时）
-    if (newData.tableName && node.value.type === 'schema') {
-      resourceTreeStore.updateResourceName(node.value.id, newData.tableName)
+    if (node.value.type === 'schema') {
+      const tableName = (newData as Record<string, unknown>).tableName
+      if (tableName) {
+        resourceTreeStore.updateResourceName(node.value.id, tableName as string)
+      }
     }
   }
 </script>

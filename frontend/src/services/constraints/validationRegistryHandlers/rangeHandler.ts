@@ -45,6 +45,7 @@ register({
       source_file_path: String(ctx.sourceFilePath),
       sheet_name: ctx.sheetName,
       header_row: ctx.headerRow,
+      column_data_type: ctx.columnDataType,
       validation_config: {
         min_value: nodeData.minValue as number,
         max_value: nodeData.maxValue as number,

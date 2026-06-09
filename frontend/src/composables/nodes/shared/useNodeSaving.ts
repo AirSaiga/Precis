@@ -128,6 +128,8 @@ export function useNodeSaving(options: NodeSavingOptions) {
             if (detail.success) {
               saveSuccess.value = true
               onSaveSuccess?.()
+              // 保存成功后自动触发关联约束重验
+              handleValidate()
               resolve(true)
             } else if (detail.cancelled) {
               resolve(false)
@@ -170,6 +172,8 @@ export function useNodeSaving(options: NodeSavingOptions) {
       if (data.success) {
         saveSuccess.value = true
         onSaveSuccess?.()
+        // 保存成功后自动触发关联约束重验
+        handleValidate()
       } else {
         saveError.value = true
         setTimeout(() => {

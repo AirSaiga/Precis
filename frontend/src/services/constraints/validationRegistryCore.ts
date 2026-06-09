@@ -343,6 +343,7 @@ export function buildValidationContext(params: {
     edge,
     columnId,
     columnName: column.columnName as string,
+    columnDataType: (column.dataType as string) || undefined,
     sourceFilePath: (schemaData.localPath || schemaData.sourceFilePath) as string,
     sourceFile: schemaData.sourceFile as string,
     sheetName: schemaData.sheetName as string,
