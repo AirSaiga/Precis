@@ -6,6 +6,13 @@
 const inspectorConstraints = {
   constraint: {
     validateNow: '立即校验',
+    validatePassed: '校验通过',
+    validatePassDetail: '全部 {count} 行数据符合约束',
+    validateFailed: '校验未通过',
+    validateErrorDetail: '发现 {count} 条不符合约束的数据',
+    validateSkipped: '校验跳过',
+    validateSkippedDetail: '约束配置不完整或数据源未连接',
+    validateError: '校验出错',
     // NotNull 约束
     notNull: {
       title: '非空约束配置',

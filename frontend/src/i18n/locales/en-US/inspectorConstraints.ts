@@ -6,6 +6,13 @@
 const inspectorConstraints = {
   constraint: {
     validateNow: 'Validate Now',
+    validatePassed: 'Validation Passed',
+    validatePassDetail: 'All {count} rows satisfy the constraint',
+    validateFailed: 'Validation Failed',
+    validateErrorDetail: '{count} rows do not satisfy the constraint',
+    validateSkipped: 'Validation Skipped',
+    validateSkippedDetail: 'Constraint config incomplete or data source not connected',
+    validateError: 'Validation Error',
     // NotNull constraint
     notNull: {
       title: 'NotNull Constraint Config',

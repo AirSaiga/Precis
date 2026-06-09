@@ -38,11 +38,17 @@ export function useSchemaUI(props: { id: string; data: SchemaNodeData; selected?
   const getTypeDisplayText = (type: DataType) => {
     const map: Record<string, string> = {
       'String': 'String',
+      'string': 'String',
       'Integer': 'Int',
+      'integer': 'Int',
       'Float': 'Float',
+      'float': 'Float',
       'Date': 'Date',
+      'date': 'Date',
       'Boolean': 'Boolean',
-      'Expression': 'Expr'
+      'boolean': 'Boolean',
+      'Expression': 'Expr',
+      'expression': 'Expr'
     };
     return map[type] || type;
   };

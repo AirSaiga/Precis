@@ -512,11 +512,17 @@
   function getTypeDisplayText(type: DataType): string {
     const displayMap: Record<string, string> = {
       String: 'String',
+      string: 'String',
       Integer: 'Int',
+      integer: 'Int',
       Float: 'Float',
+      float: 'Float',
       Date: 'Date',
+      date: 'Date',
       Boolean: 'Boolean',
+      boolean: 'Boolean',
       Expression: 'Expr',
+      expression: 'Expr',
     }
     return displayMap[type] || type
   }

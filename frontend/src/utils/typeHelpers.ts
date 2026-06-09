@@ -50,10 +50,17 @@ export function toBackendType(dataType: DataType): string {
  */
 export function fromBackendType(typeConfig: unknown): DataType {
   if (typeof typeConfig === 'string') {
-    if (typeConfig === 'Int') return 'Integer'
-    if (typeConfig === 'Float') return 'Float'
-    if (typeConfig === 'Str') return 'String'
-    if (typeConfig === 'Expr' || typeConfig === 'CompositeExpr') return 'Expression'
+    const t = typeConfig.toLowerCase()
+    if (t === 'int' || t === 'integer') return 'Integer'
+    if (t === 'float') return 'Float'
+    if (t === 'decimal') return 'Float'
+    if (t === 'str' || t === 'string') return 'String'
+    if (t === 'boolean' || t === 'bool') return 'Boolean'
+    if (t === 'date' || t === 'datetime' || t === 'time') return 'Date'
+    if (t === 'expr' || t === 'compositeexpr') return 'Expression'
+    if (t === 'jsonobject' || t === 'json_object') return 'String'
+    if (t === 'jsonarray' || t === 'json_array') return 'String'
+    if (t === 'jsonnull' || t === 'json_null') return 'String'
   }
   return 'String'
 }

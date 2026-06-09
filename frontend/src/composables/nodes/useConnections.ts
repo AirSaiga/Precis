@@ -498,7 +498,7 @@ export function useConnections() {
                 {
                   id: 'col-0',
                   columnName,
-                  dataType: 'string',
+                  dataType: 'String',
                   validationErrors: [],
                   constraints: {},
                 },

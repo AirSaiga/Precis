@@ -67,14 +67,18 @@ export function toBackendType(
  */
 export function fromBackendType(typeConfig: unknown): DataType {
   if (typeof typeConfig === 'string') {
-    if (typeConfig === 'Int') return 'Integer'
-    if (typeConfig === 'Float') return 'Float'
-    if (typeConfig === 'Str') return 'String'
-    if (typeConfig === 'Boolean') return 'Boolean'
-    if (typeConfig === 'Date') return 'Date'
-    if (typeConfig === 'Expr' || typeConfig === 'CompositeExpr') return 'Expression'
+    const t = typeConfig.toLowerCase()
+    if (t === 'int' || t === 'integer') return 'Integer'
+    if (t === 'float') return 'Float'
+    if (t === 'decimal') return 'Float'
+    if (t === 'str' || t === 'string') return 'String'
+    if (t === 'boolean' || t === 'bool') return 'Boolean'
+    if (t === 'date' || t === 'datetime' || t === 'time') return 'Date'
+    if (t === 'expr' || t === 'compositeexpr') return 'Expression'
     // JSON 类型映射到 String（Excel/CSV 类型系统中无直接等价类型）
-    if (typeConfig === 'JsonObject' || typeConfig === 'JsonArray' || typeConfig === 'JsonNull') return 'String'
+    if (t === 'jsonobject' || t === 'json_object') return 'String'
+    if (t === 'jsonarray' || t === 'json_array') return 'String'
+    if (t === 'jsonnull' || t === 'json_null') return 'String'
   }
   return 'String'
 }

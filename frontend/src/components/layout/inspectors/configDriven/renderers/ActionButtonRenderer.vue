@@ -15,15 +15,16 @@
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue'
+  import { computed, nextTick, ref } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useGraphStore } from '@/stores/graphStore'
   import { useSettingsStore } from '@/stores/settingsStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
   import { useAiConfigGeneratorStore } from '@/features/ai-config-generator/stores/aiConfigGeneratorStore'
   import { useScriptEditorStore } from '@/stores/scriptEditorStore'
+  import { useToast } from '@/composables/shared/useToast'
   import { eventBus } from '@/core/eventBus'
-  import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
+  import { validateConstraintNodeById } from '@/services/constraints/validationRegistryCore'
   import type { InspectorContext } from '../utils'
   import { getByPath } from '../utils'
   import type { InspectorActionButtonField } from '../types'
@@ -34,6 +35,8 @@
   const validationTaskStore = useValidationTaskStore()
   const aiConfigGeneratorStore = useAiConfigGeneratorStore()
   const scriptEditorStore = useScriptEditorStore()
+  const toast = useToast()
+  const isValidating = ref(false)
 
   const props = defineProps<{
     field: InspectorActionButtonField
@@ -76,10 +79,50 @@
     }
   }
 
-  function handleValidate() {
-    const sourceNodeId = getByPath(props.ctx.data, ['sourceRef', 'nodeId']) as string | undefined
-    if (sourceNodeId) {
-      triggerValidationForNode(sourceNodeId, store.nodes, store.edges, store.updateNodeData)
+  async function handleValidate() {
+    const constraintNodeId = props.ctx.nodeId
+    if (!constraintNodeId || isValidating.value) return
+
+    isValidating.value = true
+    try {
+      await validateConstraintNodeById(
+        constraintNodeId,
+        store.nodes,
+        store.edges,
+        store.updateNodeData
+      )
+      await nextTick()
+
+      const node = store.nodes.find((n) => n.id === constraintNodeId)
+      const data = (node?.data || {}) as Record<string, unknown>
+      const status = data.validationStatus as string | undefined
+      const lastVal = data.lastValidation as
+        | { totalRows?: number; errorCount?: number }
+        | undefined
+
+      if (status === 'error') {
+        toast.error(
+          t('inspector.constraint.validateErrorDetail', { count: lastVal?.errorCount || 0 }),
+          t('inspector.constraint.validateFailed')
+        )
+      } else if (status === 'pass') {
+        toast.success(
+          t('inspector.constraint.validatePassDetail', { count: lastVal?.totalRows || 0 }),
+          t('inspector.constraint.validatePassed')
+        )
+      } else {
+        toast.warning(
+          t('inspector.constraint.validateSkippedDetail'),
+          t('inspector.constraint.validateSkipped')
+        )
+      }
+    } catch (e) {
+      toast.error(
+        e instanceof Error ? e.message : String(e),
+        t('inspector.constraint.validateError')
+      )
+    } finally {
+      isValidating.value = false
     }
   }
 
