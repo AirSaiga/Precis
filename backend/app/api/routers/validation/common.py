@@ -71,9 +71,7 @@ def _create_data_type(type_name: str | None) -> DataType | None:
     return cls() if cls else None
 
 
-def _convert_column_by_schema_type(
-    df: pd.DataFrame, column: str, column_data_type: str
-) -> pd.DataFrame:
+def _convert_column_by_schema_type(df: pd.DataFrame, column: str, column_data_type: str) -> pd.DataFrame:
     """按 Schema 声明的类型转换目标列，保持与全量校验 Phase 1 行为一致。"""
     data_type = _create_data_type(column_data_type)
     if not data_type or column not in df.columns:
