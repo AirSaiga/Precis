@@ -6,16 +6,16 @@ vi.mock('vue-i18n', () => ({
   useI18n: () => ({
     t: (key: string) => {
       const map: Record<string, string> = {
-        'persistence.comments.projectConfig': '# Project Config\n',
-        'persistence.comments.schemaConfig': '# Schema Config\n',
-        'persistence.comments.constraintConfig': '# Constraint Config\n',
-        'persistence.comments.assetsConfig': '# Assets Config\n',
-        'persistence.exportYamlSuccess': 'Export success',
-        'persistence.exportSuccess': 'Success',
-        'persistence.exportYamlFailed': 'Export failed',
-        'persistence.saveFailed': 'Save failed',
-        'persistence.schemaNotFound': 'Schema not found',
-        'persistence.invalidYamlFormat': 'Invalid YAML format',
+        'messages.persistence.comments.projectConfig': '# Project Config\n',
+        'messages.persistence.comments.schemaConfig': '# Schema Config\n',
+        'messages.persistence.comments.constraintConfig': '# Constraint Config\n',
+        'messages.persistence.comments.assetsConfig': '# Assets Config\n',
+        'messages.persistence.exportYamlSuccess': 'Export success',
+        'messages.persistence.exportSuccess': 'Success',
+        'messages.persistence.exportYamlFailed': 'Export failed',
+        'messages.persistence.saveFailed': 'Save failed',
+        'messages.persistence.schemaNotFound': 'Schema not found',
+        'messages.persistence.invalidYamlFormat': 'Invalid YAML format',
       }
       return map[key] || key
     },
