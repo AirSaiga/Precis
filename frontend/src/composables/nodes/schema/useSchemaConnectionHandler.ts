@@ -601,7 +601,7 @@ export function useSchemaConnectionHandler() {
 
       // 检查数据是否存在
       if (!tableData || tableData.length === 0) {
-        showError('数据源为空，无法生成列定义')
+        showError(t('canvas.nodeCanvas.dataSourceEmpty'), t('canvas.nodeCanvas.columnsGenerationFailed'))
         return
       }
 
@@ -618,7 +618,7 @@ export function useSchemaConnectionHandler() {
       const headerRow = tableData[headerRowIndex]
 
       if (!headerRow) {
-        showError('表头行数据不存在，无法生成列定义')
+        showError(t('canvas.nodeCanvas.headerRowMissing'), t('canvas.nodeCanvas.columnsGenerationFailed'))
         return
       }
 
@@ -654,10 +654,10 @@ export function useSchemaConnectionHandler() {
 
       store.updateNodeData(schemaNode.id, updatedSchemaData)
 
-      success(`成功生成 ${columns.length} 个列定义！`)
+      success(t('canvas.nodeCanvas.columnsGenerated', { count: columns.length }))
     } catch (error) {
       logger.error('自动生成列定义失败:', error)
-      showError('自动生成列定义失败，请手动配置')
+      showError(t('canvas.nodeCanvas.columnsGenerationFailed'), t('common.error'))
     }
   }
 

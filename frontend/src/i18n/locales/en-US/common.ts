@@ -13,6 +13,7 @@ const common = {
   loading: 'Loading...',
   error: 'Error',
   success: 'Success',
+  warning: 'Warning',
   info: 'Info',
   confirm: 'Confirm',
   cancel: 'Cancel',

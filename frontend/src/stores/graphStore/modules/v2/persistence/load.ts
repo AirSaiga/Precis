@@ -277,7 +277,10 @@ export function createV2LoadOps(params: {
         const errorList = Object.entries(schemaErrors)
           .map(([id, msg]) => `${id}: ${msg}`)
           .join('\n')
-        toastWarning(`部分配置文件解析失败，已跳过:\n${errorList}`, '配置警告')
+        toastWarning(
+          t('messages.persistence.configParseFailed', { list: errorList }),
+          t('messages.persistence.configWarningTitle')
+        )
       }
 
       // hydration 全部成功后再标记项目为已加载（F7）
@@ -296,7 +299,10 @@ export function createV2LoadOps(params: {
         }
       }
 
-      toastSuccess(`V2 项目 "${projectName.value}" 已载入`, '加载成功')
+      toastSuccess(
+        t('messages.persistence.projectLoaded', { name: projectName.value }),
+        t('messages.persistence.loadSuccess')
+      )
       return true
     } catch (error) {
       // 项目路径不存在时提示用户（manifest 缺失或路径错误）

@@ -110,6 +110,7 @@ const settings = {
     applyFailed: '应用更改失败',
     loadFailed: '项目加载失败',
     missingConfigPath: '请先设置工程路径',
+    directoryPickerUnavailable: '当前环境不支持目录选择器，请手动输入绝对路径',
   },
   project: {
     tab: '项目设置',

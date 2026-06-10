@@ -58,6 +58,7 @@ const messages = {
     electronRequired: 'Cannot open file: Electron environment is not available',
     cannotReselectFile: 'Cannot reselect file: Electron environment is not available',
     reloadFailed: 'Failed to reload file, please try again later',
+    invalidFolderPath: 'Invalid folder path',
   },
   projectLibrary: {
     createSchemaNodeFailed: 'Failed to create Schema node',
@@ -101,6 +102,7 @@ const messages = {
   persistence: {
     exportYamlSuccess: 'Project exported as YAML file',
     exportSuccess: 'Export Successful',
+    exportFailed: 'Export Failed',
     schemaNotFound: 'Schema node not found',
     invalidYamlFormat: 'Invalid YAML format',
     comments: {
@@ -111,9 +113,23 @@ const messages = {
     },
     savePartialSuccess: 'Failed to save project view, project config saved but view update failed',
     saveFailed: 'Save failed',
+    saveSuccess: 'Save successful',
     loadFailed: 'Load failed',
+    loadSuccess: 'Load successful',
     exportYamlFailed: 'Cannot generate YAML file',
     saveRegexDesignFailed: 'Save failed',
+    projectSaved: 'Project "{name}" saved',
+    projectSavedWithWarnings: 'Project "{name}" saved ({count} warnings)',
+    projectLoaded: 'V2 project "{name}" loaded',
+    schemaSaved: 'Schema "{name}" saved',
+    constraintSaved: 'Constraint "{name}" saved',
+    regexSaved: 'Regex "{name}" saved',
+    transformSaved: 'Transform "{name}" saved',
+    templateInstanceSaved: 'Template instance "{name}" saved',
+    regexSavedWithPaths: 'Regex "{name}" saved to: {path} (manifest: {manifest})',
+    pleaseSelectDataSourceFirst: 'Please select a data source before saving',
+    configWarningTitle: 'Config warning',
+    configParseFailed: 'Some configuration files failed to parse, skipped:\n{list}',
   },
   import: {
     patternNotFound: 'Regex pattern not found: {patternId}',
@@ -123,6 +139,11 @@ const messages = {
   },
   builder: {
     constraintNodeNotFound: 'Constraint node not found',
+    schemaNodeNotFound: 'Schema node not found',
+    regexNodeNotFound: 'Regex node not found',
+    transformNodeNotFound: 'Transform node not found',
+    templateInstanceNodeNotFound: 'Template instance node not found',
+    unsupportedConstraintType: 'Unsupported constraint type',
   },
 }
 

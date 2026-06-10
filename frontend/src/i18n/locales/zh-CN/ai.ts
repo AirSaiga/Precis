@@ -15,6 +15,11 @@ const aiChat = {
   constraintCreated: '已为 {table}.{column} 创建独立约束',
   inlineConstraintCreated: '已为 {table}.{column} 添加内联约束',
   columnNotFound: '未找到列 {column}，请检查表结构',
+  unsupportedConstraintType: '不支持的约束类型: {type}',
+  schemaCreated: 'Schema "{name}" 已创建',
+  schemaDeleted: 'Schema "{name}" 已删除',
+  regexCreated: 'Regex "{name}" 已创建',
+  transformCreated: 'Transform "{name}" 已创建',
 }
 
 const aiConfigGenerator = {

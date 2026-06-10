@@ -13,6 +13,7 @@ const common = {
   loading: '正在加载中...',
   error: '错误',
   success: '成功',
+  warning: '警告',
   info: '信息',
   confirm: '确认',
   cancel: '取消',

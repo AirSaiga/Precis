@@ -11,9 +11,9 @@
  * const { copy } = useClipboard()
  * try {
  *   await copy('hello')
- *   toastSuccess('已复制', '')
+ *   toastSuccess(t('inspection.toast.copied'), '')
  * } catch (e) {
- *   toastError('复制失败', e instanceof Error ? e.message : String(e))
+ *   toastError(t('messages.error.unknownError'), e instanceof Error ? e.message : String(e))
  * }
  */
 

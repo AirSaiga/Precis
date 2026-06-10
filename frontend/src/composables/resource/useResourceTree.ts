@@ -262,7 +262,7 @@ export function useResourceTree() {
 
     const path = projectStore.currentPaths?.configPath
     if (!path) {
-      showError(t('common.error'), t('common.error'))
+      showError(t('common.error'), t('settings.projectInfo.missingConfigPath'))
       return
     }
 

@@ -8,10 +8,13 @@
  * ```typescript
  * import { toastSuccess, toastError } from '@/core/toast'
  *
- * toastSuccess('操作成功', '提示')
- * toastError('操作失败', '错误')
+ * toastSuccess('操作成功')                // 使用 i18n 默认标题（common.success）
+ * toastError('操作失败', '保存失败')        // 显式指定标题
  * ```
  */
+
+import { i18n } from '@/i18n'
+import type { ToastType } from '@/composables/shared/useToast'
 
 /**
  * Toast API 接口定义
@@ -27,51 +30,62 @@ export interface ToastAPI {
 }
 
 /**
+ * 根据 Toast 类型解析默认标题。
+ * 使用全局 vue-i18n 实例解析 `common.${type}` 键，
+ * 解析失败时回退到空字符串（避免显示原始键名）。
+ */
+function resolveDefaultTitle(type: ToastType): string {
+  const translated = i18n.global.t(`common.${type}`)
+  if (translated && translated !== `common.${type}`) {
+    return translated
+  }
+  return ''
+}
+
+function showToast(type: ToastType, message: string, title?: string): void {
+  if (!window.$toast) return
+  const displayTitle = title && title.length > 0 ? title : resolveDefaultTitle(type)
+  window.$toast[type](displayTitle, message)
+}
+
+/**
  * 显示成功消息
  *
  * @param message - 消息内容
- * @param title - 标题（默认：'提示'）
+ * @param title - 标题（默认：通过 i18n 解析 `common.success`，未传则使用解析结果或空标题）
  */
-export function toastSuccess(message: string, title: string = '提示'): void {
-  if (window.$toast) {
-    window.$toast.success(title, message)
-  }
+export function toastSuccess(message: string, title?: string): void {
+  showToast('success', message, title)
 }
 
 /**
  * 显示错误消息
  *
  * @param message - 消息内容
- * @param title - 标题（默认：'错误'）
+ * @param title - 标题（默认：通过 i18n 解析 `common.error`）
  */
-export function toastError(message: string, title: string = '错误'): void {
-  if (window.$toast) {
-    window.$toast.error(title, message)
-  }
+export function toastError(message: string, title?: string): void {
+  showToast('error', message, title)
 }
 
 /**
  * 显示警告消息
  *
  * @param message - 消息内容
- * @param title - 标题（默认：'警告'）
+ * @param title - 标题（默认：通过 i18n 解析 `common.warning`）
  */
-export function toastWarning(message: string, title: string = '警告'): void {
-  if (window.$toast) {
-    window.$toast.warning(title, message)
-  }
+export function toastWarning(message: string, title?: string): void {
+  showToast('warning', message, title)
 }
 
 /**
  * 显示信息消息
  *
  * @param message - 消息内容
- * @param title - 标题（默认：'信息'）
+ * @param title - 标题（默认：通过 i18n 解析 `common.info`）
  */
-export function toastInfo(message: string, title: string = '信息'): void {
-  if (window.$toast) {
-    window.$toast.info(title, message)
-  }
+export function toastInfo(message: string, title?: string): void {
+  showToast('info', message, title)
 }
 
 /**

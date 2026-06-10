@@ -87,8 +87,20 @@ const canvas = {
     connectionSuccess: '已成功将 "{source}" 连接到 "{target}"',
     // JSON Schema 连接相关
     jsonSourceEmpty: 'JSON 数据源为空，无法生成列定义',
+    jsonSourceInvalid: 'JSON 数据源格式无效，无法生成列定义',
     jsonColumnsGeneratedSuccess: '成功生成 {count} 个 JSON 列定义！',
     jsonColumnsGenerationFailed: '自动生成 JSON 列定义失败，请手动配置',
+    // 通用 Toast 提示
+    sourceRefreshSuccess: '数据源已刷新',
+    sourceRefreshFailed: '数据源刷新失败',
+    columnsGenerated: '成功生成 {count} 个列定义！',
+    columnsGenerationFailed: '自动生成列定义失败，请手动配置',
+    dataSourceEmpty: '数据源为空，无法生成列定义',
+    headerRowMissing: '表头行数据不存在，无法生成列定义',
+    schemaNodesUpdated: '已更新 {count} 个Schema节点',
+    externalDataAdded: '已新增外部数据：{name}',
+    sheetNotFound: 'Sheet "{sheet}" 不存在于目标文件中，请在 Schema 属性面板中修正工作表名称',
+    sheetNotFoundWithList: 'Sheet "{sheet}" 不存在于目标文件中。文件拥有的工作表: {list}。请在 Schema 属性面板中修正工作表名称',
     nodeTypes: {
       schema: {
         name: '数据表Schema',

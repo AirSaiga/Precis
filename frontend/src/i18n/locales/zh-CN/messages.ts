@@ -52,6 +52,7 @@ const messages = {
     electronRequired: '无法打开文件：Electron 环境不可用',
     cannotReselectFile: '无法重新选择文件：Electron 环境不可用',
     reloadFailed: '重新加载文件失败，请稍后重试',
+    invalidFolderPath: '无效的文件夹路径',
   },
   projectLibrary: {
     createSchemaNodeFailed: '创建 Schema 节点失败',
@@ -94,6 +95,7 @@ const messages = {
   persistence: {
     exportYamlSuccess: '项目已导出为YAML文件',
     exportSuccess: '导出成功',
+    exportFailed: '导出失败',
     schemaNotFound: '未找到Schema节点',
     invalidYamlFormat: '无效的YAML格式',
     comments: {
@@ -104,9 +106,23 @@ const messages = {
     },
     savePartialSuccess: '保存项目视图失败，项目配置已保存但视图更新失败',
     saveFailed: '保存失败',
+    saveSuccess: '保存成功',
     loadFailed: '加载失败',
+    loadSuccess: '加载成功',
     exportYamlFailed: '无法生成YAML文件',
     saveRegexDesignFailed: '保存失败',
+    projectSaved: '项目 "{name}" 已保存',
+    projectSavedWithWarnings: '项目 "{name}" 已保存（{count} 个警告）',
+    projectLoaded: 'V2 项目 "{name}" 已载入',
+    schemaSaved: 'Schema "{name}" 已保存',
+    constraintSaved: '约束 "{name}" 已保存',
+    regexSaved: '正则 "{name}" 已保存',
+    transformSaved: '转换节点 "{name}" 已保存',
+    templateInstanceSaved: '模板实例 "{name}" 已保存',
+    regexSavedWithPaths: '正则 "{name}" 已保存到：{path}（清单：{manifest}）',
+    pleaseSelectDataSourceFirst: '请先选择数据源再保存',
+    configWarningTitle: '配置警告',
+    configParseFailed: '部分配置文件解析失败，已跳过:\n{list}',
   },
   import: {
     patternNotFound: '未找到正则表达式模式: {patternId}',
@@ -115,6 +131,11 @@ const messages = {
   },
   builder: {
     constraintNodeNotFound: '未找到约束节点',
+    schemaNodeNotFound: '未找到Schema节点',
+    regexNodeNotFound: '未找到Regex节点',
+    transformNodeNotFound: '未找到Transform节点',
+    templateInstanceNodeNotFound: '未找到模板实例节点',
+    unsupportedConstraintType: '不支持的约束类型',
   },
 }
 

@@ -100,7 +100,10 @@ export function useSchemaEvents(props: { id: string; data: SchemaNodeData }, emi
       logger.error('保存Schema节点失败:', error)
 
       // 显示失败提示
-      showError('保存失败：' + (error as Error).message)
+      showError(
+        t('messages.persistence.saveFailed') + ': ' + (error as Error).message,
+        t('messages.persistence.saveFailed')
+      )
 
       // 查找对应的 DOM 元素，派发保存失败事件
       eventBus.emit('schema-node-save-complete', {

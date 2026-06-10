@@ -71,6 +71,7 @@
   import { useProjectStore } from '@/stores/projectStore'
   import { getV2FullConfigYaml } from '@/api/projectV2Api'
   import { useAiConfigGeneratorStore } from '@/features/ai-config-generator/stores/aiConfigGeneratorStore'
+  import { useI18n } from 'vue-i18n'
   import { logger } from '@/core/utils/logger'
 
   const SettingsModal = defineAsyncComponent(() => import('@/components/common/SettingsModal.vue'))
@@ -101,6 +102,7 @@
   const aiConfigGeneratorStore = useAiConfigGeneratorStore()
   const projectManagementVisible = ref(false)
   const saveAsTemplateVisible = ref(false)
+  const { t } = useI18n()
 
   const handleRegexDesignSave = (updatedData: any) => {
     if (graphStore.activeRegexNodeId) {
@@ -136,10 +138,13 @@
       a.remove()
       URL.revokeObjectURL(url)
 
-      window.$toast?.success('成功', '项目配置已导出')
+      window.$toast?.success(
+        t('messages.persistence.exportSuccess'),
+        t('messages.persistence.exportYamlSuccess')
+      )
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e)
-      window.$toast?.error('导出失败', msg)
+      window.$toast?.error(t('messages.persistence.exportFailed'), msg)
     }
   }
 

@@ -90,8 +90,20 @@ const canvas = {
       'Column {column} has been connected to regex "{regex}" and initial validation completed',
     connectionFailed: 'Connection failed',
     connectionSuccess: 'Successfully connected "{source}" to "{target}"',
+    // Common toast messages
+    sourceRefreshSuccess: 'Data source refreshed',
+    sourceRefreshFailed: 'Failed to refresh data source',
+    columnsGenerated: 'Successfully generated {count} column definitions!',
+    columnsGenerationFailed: 'Failed to auto-generate column definitions, please configure manually',
+    dataSourceEmpty: 'Data source is empty, cannot generate column definitions',
+    headerRowMissing: 'Header row data is missing, cannot generate column definitions',
+    schemaNodesUpdated: 'Updated {count} Schema node(s)',
+    externalDataAdded: 'External data added: {name}',
+    sheetNotFound: 'Sheet "{sheet}" does not exist in the target file, please correct the sheet name in the Schema property panel',
+    sheetNotFoundWithList: 'Sheet "{sheet}" does not exist in the target file. Available sheets: {list}. Please correct the sheet name in the Schema property panel',
     // JSON Schema connection related
     jsonSourceEmpty: 'JSON data source is empty, cannot generate column definitions',
+    jsonSourceInvalid: 'JSON data source is invalid, cannot generate column definitions',
     jsonColumnsGeneratedSuccess: 'Successfully generated {count} JSON column definitions!',
     jsonColumnsGenerationFailed:
       'Failed to auto-generate JSON column definitions, please configure manually',

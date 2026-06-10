@@ -380,7 +380,10 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
         const errorList = Object.entries(schemaErrors)
           .map(([id, msg]) => `${id}: ${msg}`)
           .join('\n')
-        toastWarning(`部分配置文件解析失败，已跳过:\n${errorList}`, '配置警告')
+        toastWarning(
+          t('messages.persistence.configParseFailed', { list: errorList }),
+          t('messages.persistence.configWarningTitle')
+        )
       }
 
       // 路径由调用方提供，不维护本地副本

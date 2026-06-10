@@ -117,6 +117,8 @@ const settings = {
     applyFailed: 'Failed to apply changes',
     loadFailed: 'Failed to load project',
     missingConfigPath: 'Please set the config path first',
+    directoryPickerUnavailable:
+      'Directory picker is not available in this environment, please enter the absolute path manually',
   },
   project: {
     tab: 'Project Settings',

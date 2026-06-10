@@ -15,6 +15,11 @@ const aiChat = {
   constraintCreated: 'Created standalone constraint for {table}.{column}',
   inlineConstraintCreated: 'Added inline constraint for {table}.{column}',
   columnNotFound: 'Column {column} not found. Please check the table structure.',
+  unsupportedConstraintType: 'Unsupported constraint type: {type}',
+  schemaCreated: 'Schema "{name}" created',
+  schemaDeleted: 'Schema "{name}" deleted',
+  regexCreated: 'Regex "{name}" created',
+  transformCreated: 'Transform "{name}" created',
 }
 
 const aiConfigGenerator = {

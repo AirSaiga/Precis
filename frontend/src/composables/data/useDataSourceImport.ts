@@ -428,7 +428,7 @@ export function useDataSourceImport() {
 
     if (!folderPath || typeof folderPath !== 'string') {
       logger.error('[useDataSourceImport] 文件夹导入失败：无效的文件夹路径')
-      alert('无效的文件夹路径')
+      alert(t('messages.messages.invalidFolderPath'))
       return
     }
 

@@ -148,11 +148,17 @@ export function createV2SaveOps(params: {
       const warningCount = result.errors?.filter((e) => e.severity === 'WARNING').length || 0
       if (warningCount > 0) {
         toastSuccess(
-          `项目 "${projectName.value || 'untitled'}" 已保存（${warningCount} 个警告）`,
-          '保存成功'
+          t('messages.persistence.projectSavedWithWarnings', {
+            name: projectName.value || 'untitled',
+            count: warningCount,
+          }),
+          t('messages.persistence.saveSuccess')
         )
       } else {
-        toastSuccess(`项目 "${projectName.value || 'untitled'}" 已保存`, '保存成功')
+        toastSuccess(
+          t('messages.persistence.projectSaved', { name: projectName.value || 'untitled' }),
+          t('messages.persistence.saveSuccess')
+        )
       }
       return true
     } else {
@@ -173,7 +179,7 @@ export function createV2SaveOps(params: {
       const node = nodes.value.find(
         (n) => n.id === nodeId && (n.type === 'schema' || n.type === 'jsonSchema')
       )
-      if (!node) throw new Error('未找到Schema节点')
+      if (!node) throw new Error(t('messages.builder.schemaNodeNotFound'))
 
       const isJsonSchema = node.type === 'jsonSchema'
       const schemaData = node.data as SchemaNodeData | JsonSchemaNodeData
@@ -181,7 +187,10 @@ export function createV2SaveOps(params: {
       const { showConfirm } = useGlobalConfirm()
 
       if (!schemaData.sourceFilePath && !schemaData.sourceFile) {
-        toastError('请先选择数据源再保存', '保存失败')
+        toastError(
+          t('messages.persistence.pleaseSelectDataSourceFirst'),
+          t('messages.persistence.saveFailed')
+        )
         return false
       }
 
@@ -237,7 +246,10 @@ export function createV2SaveOps(params: {
         lastSaved: new Date().toISOString(),
       })
 
-      toastSuccess(`Schema "${tableName}" 已保存`, '保存成功')
+      toastSuccess(
+        t('messages.persistence.schemaSaved', { name: tableName }),
+        t('messages.persistence.saveSuccess')
+      )
       return true
     } catch (error) {
       logger.error('保存Schema失败:', error)
@@ -252,7 +264,7 @@ export function createV2SaveOps(params: {
   async function saveConstraintNode(nodeId: string): Promise<boolean> {
     try {
       const node = nodes.value.find((n) => n.id === nodeId && isConstraintNodeType(n.type))
-      if (!node) throw new Error('未找到约束节点')
+      if (!node) throw new Error(t('messages.builder.constraintNodeNotFound'))
 
       const configPath = getEffectiveProjectConfigPath()
       // Phase 8: 使用新 persistence builder 替代旧 builder
@@ -270,8 +282,10 @@ export function createV2SaveOps(params: {
       })
 
       toastSuccess(
-        `约束 "${(node.data as unknown as Record<string, unknown>).configName || nodeId}" 已保存`,
-        '保存成功'
+        t('messages.persistence.constraintSaved', {
+          name: (node.data as unknown as Record<string, unknown>).configName || nodeId,
+        }),
+        t('messages.persistence.saveSuccess')
       )
       return true
     } catch (error) {
@@ -287,7 +301,7 @@ export function createV2SaveOps(params: {
   async function saveRegexNode(nodeId: string): Promise<boolean> {
     try {
       const node = nodes.value.find((n) => n.id === nodeId && n.type === 'regex')
-      if (!node) throw new Error('未找到Regex节点')
+      if (!node) throw new Error(t('messages.builder.regexNodeNotFound'))
 
       const configPath = getEffectiveProjectConfigPath()
       // Phase 8: 使用新 persistence builder 替代旧 builder
@@ -307,9 +321,19 @@ export function createV2SaveOps(params: {
         const prefix = configPath.replace(/[\\/]+$/, '')
         const manifestPath = `${prefix}${sep}project.precis.yaml`
         const regexPath = `${prefix}${sep}regex${sep}${nodeId}.regex.yaml`
-        toastSuccess(`正则 "${base}" 已保存到：${regexPath}（清单：${manifestPath}）`, '保存成功')
+        toastSuccess(
+          t('messages.persistence.regexSavedWithPaths', {
+            name: base,
+            path: regexPath,
+            manifest: manifestPath,
+          }),
+          t('messages.persistence.saveSuccess')
+        )
       } else {
-        toastSuccess(`正则 "${base}" 已保存`, '保存成功')
+        toastSuccess(
+          t('messages.persistence.regexSaved', { name: base }),
+          t('messages.persistence.saveSuccess')
+        )
       }
       return true
     } catch (error) {
@@ -325,7 +349,7 @@ export function createV2SaveOps(params: {
   async function saveTransformNode(nodeId: string): Promise<boolean> {
     try {
       const node = nodes.value.find((n) => n.id === nodeId && n.type === 'transform')
-      if (!node) throw new Error('未找到Transform节点')
+      if (!node) throw new Error(t('messages.builder.transformNodeNotFound'))
 
       const configPath = getEffectiveProjectConfigPath()
       // Phase 8: 使用新 persistence builder 替代旧 builder
@@ -343,7 +367,10 @@ export function createV2SaveOps(params: {
       })
 
       const base = String((node.data as unknown as Record<string, unknown>).configName || nodeId)
-      toastSuccess(`转换节点 "${base}" 已保存`, '保存成功')
+      toastSuccess(
+        t('messages.persistence.transformSaved', { name: base }),
+        t('messages.persistence.saveSuccess')
+      )
       return true
     } catch (error) {
       logger.error('保存Transform失败:', error)
@@ -358,7 +385,7 @@ export function createV2SaveOps(params: {
   async function saveTemplateInstanceNode(nodeId: string): Promise<boolean> {
     try {
       const node = nodes.value.find((n) => n.id === nodeId && n.type === 'templateInstance')
-      if (!node) throw new Error('未找到模板实例节点')
+      if (!node) throw new Error(t('messages.builder.templateInstanceNodeNotFound'))
 
       const configPath = getEffectiveProjectConfigPath()
       // 收尾: 使用新 persistence builder 构建 ref
@@ -382,7 +409,10 @@ export function createV2SaveOps(params: {
       })
 
       const base = (node.data as TemplateInstanceNodeData).configName || nodeId
-      toastSuccess(`模板实例 "${base}" 已保存`, '保存成功')
+      toastSuccess(
+        t('messages.persistence.templateInstanceSaved', { name: base }),
+        t('messages.persistence.saveSuccess')
+      )
       return true
     } catch (error) {
       logger.error('保存模板实例失败:', error)

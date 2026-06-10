@@ -282,7 +282,7 @@
       }
       return ''
     } else {
-      warning('当前环境不支持目录选择器，请手动输入绝对路径', '提示')
+      warning(t('settings.projectInfo.directoryPickerUnavailable'), t('common.warning'))
       return ''
     }
   }

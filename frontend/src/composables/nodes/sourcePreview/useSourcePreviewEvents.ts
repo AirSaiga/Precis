@@ -501,7 +501,10 @@ export function useSourcePreviewEvents(
           }
         }
 
-        showToastMessage(`已更新 ${schemaNodes.length} 个Schema节点`, 'success')
+        showToastMessage(
+          t('canvas.nodeCanvas.schemaNodesUpdated', { count: schemaNodes.length }),
+          'success'
+        )
       }
 
       logger.debug('✅ SourcePreview数据变更处理完成')

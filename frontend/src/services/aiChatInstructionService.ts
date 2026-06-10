@@ -123,7 +123,7 @@ async function handleConstraintInstruction(instruction: FrontendInstruction): Pr
   const constraintKind = CONSTRAINT_TYPE_MAP[type]
   if (!constraintKind) {
     logger.warn(`[AI Chat] 未知的约束类型: ${type}`)
-    toastError(`不支持的约束类型: ${type}`)
+    toastError(t('aiChat.unsupportedConstraintType', { type }))
     return
   }
 
@@ -229,6 +229,7 @@ function handleInlineConstraint(
  * DELETE_SCHEMA: 移除画布上的 Schema 节点（YAML 已由后端删除）
  */
 async function handleSchemaInstruction(instruction: FrontendInstruction): Promise<void> {
+  const { t } = i18n.global
   const graphStore = useGraphStore()
   const { fitView } = useVueFlow()
 
@@ -272,7 +273,7 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
       fitView({ nodes: [schemaId], padding: 0.25, duration: 300 })
     }, 100)
 
-    toastSuccess(`Schema "${schemaName}" 已创建`)
+    toastSuccess(t('aiChat.schemaCreated', { name: schemaName }))
     return
   }
 
@@ -283,7 +284,7 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
       vueFlowApi.removeNodes(schemaId)
       await nextTick()
       graphStore.reconcileAll()
-      toastSuccess(`Schema "${spec.name || schemaId}" 已删除`)
+      toastSuccess(t('aiChat.schemaDeleted', { name: spec.name || schemaId }))
     }
     return
   }
@@ -300,6 +301,7 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
  * UPDATE/DELETE: 后端已处理 YAML，前端暂不做画布操作
  */
 async function handleRegexInstruction(instruction: FrontendInstruction): Promise<void> {
+  const { t } = i18n.global
   const graphStore = useGraphStore()
   const { fitView } = useVueFlow()
 
@@ -356,7 +358,7 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
       fitView({ nodes: [regexId], padding: 0.25, duration: 300 })
     }, 100)
 
-    toastSuccess(`Regex "${regexName}" 已创建`)
+    toastSuccess(t('aiChat.regexCreated', { name: regexName }))
     return
   }
 
@@ -370,6 +372,7 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
  * UPDATE/DELETE: 后端已处理 YAML
  */
 async function handleTransformInstruction(instruction: FrontendInstruction): Promise<void> {
+  const { t } = i18n.global
   const graphStore = useGraphStore()
   const { fitView } = useVueFlow()
 
@@ -409,7 +412,7 @@ async function handleTransformInstruction(instruction: FrontendInstruction): Pro
       fitView({ nodes: [transformId], padding: 0.25, duration: 300 })
     }, 100)
 
-    toastSuccess(`Transform "${transformType}" 已创建`)
+    toastSuccess(t('aiChat.transformCreated', { name: transformType }))
     return
   }
 

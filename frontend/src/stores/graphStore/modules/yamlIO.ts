@@ -150,12 +150,12 @@ export function createYamlIOModule(params: {
       return isConstraintNodeType(n.type)
     })
 
-    let yaml = t('persistence.comments.projectConfig')
+    let yaml = t('messages.persistence.comments.projectConfig')
     yaml += `project_name: ${yamlSafe(projectName.value) || 'untitled_project'}\n`
     yaml += `generated_at: ${new Date().toISOString()}\n\n`
 
     if (schemaNodes.length > 0) {
-      yaml += t('persistence.comments.schemaConfig')
+      yaml += t('messages.persistence.comments.schemaConfig')
       yaml += 'schemas:\n'
 
       schemaNodes.forEach((node, index) => {
@@ -189,7 +189,7 @@ export function createYamlIOModule(params: {
     }
 
     if (constraintNodes.length > 0) {
-      yaml += '\n' + t('persistence.comments.constraintConfig')
+      yaml += '\n' + t('messages.persistence.comments.constraintConfig')
       yaml += 'constraints:\n'
 
       constraintNodes.forEach((node, index) => {
@@ -381,7 +381,7 @@ export function createYamlIOModule(params: {
     }
 
     if (assets.value.length > 0) {
-      yaml += '\n' + t('persistence.comments.assetsConfig')
+      yaml += '\n' + t('messages.persistence.comments.assetsConfig')
       yaml += 'assets:\n'
 
       assets.value.forEach((asset, index) => {
@@ -419,16 +419,16 @@ export function createYamlIOModule(params: {
 
       URL.revokeObjectURL(url)
 
-      toastSuccess(t('persistence.exportYamlSuccess'), t('persistence.exportSuccess'))
+      toastSuccess(t('messages.persistence.exportYamlSuccess'), t('messages.persistence.exportSuccess'))
     } catch (error) {
       logger.error('导出项目失败:', error)
-      toastError(t('persistence.exportYamlFailed'), t('persistence.saveFailed'))
+      toastError(t('messages.persistence.exportYamlFailed'), t('messages.persistence.saveFailed'))
     }
   }
 
   function exportSchemaAsYAML(nodeId: string): string {
     const node = nodes.value.find((n) => n.id === nodeId && n.type === 'schema')
-    if (!node) throw new Error(t('persistence.schemaNotFound'))
+    if (!node) throw new Error(t('messages.persistence.schemaNotFound'))
 
     const schemaData = node.data as SchemaNodeData
     let yaml = `# Schema配置: ${schemaData.configName}\n`
@@ -513,7 +513,7 @@ export function createYamlIOModule(params: {
       return newNode.id
     } catch (error) {
       logger.error('Schema导入失败:', error)
-      throw new Error(t('persistence.invalidYamlFormat'))
+      throw new Error(t('messages.persistence.invalidYamlFormat'))
     }
   }
 

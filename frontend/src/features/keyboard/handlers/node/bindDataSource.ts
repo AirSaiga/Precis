@@ -27,6 +27,7 @@ import { previewDataFetcher } from '@/utils/nodes/preview/PreviewDataFetcher'
 import { extractColumnNamesFromHeader, compareColumns } from '@/utils/nodes/schema/columnValidation'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { revalidateConstraintsReferencingSchema } from '@/services/constraints/validationRegistryCore'
+import { i18n } from '@/i18n'
 import type { SchemaNodeData, SourcePreviewNodeData, JsonSchemaNodeData, JsonSourcePreviewNodeData, CustomNodeData } from '@/types/graph'
 
 function basename(filePath: string): string {
@@ -123,10 +124,12 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
     ) {
       return {
         success: false,
-        message: `Sheet "${schemaData.sheetName}" 不存在于目标文件中，请在 Schema 属性面板中修正工作表名称`,
+        message: i18n.global.t('canvas.nodeCanvas.sheetNotFound', {
+          sheet: schemaData.sheetName,
+        }),
       }
     }
-    return { success: false, message: 'shortcuts.feedback.failed' }
+    return { success: false, message: i18n.global.t('shortcuts.feedback.failed') }
   }
 
   // ---- 确保数据源已注册到资源树 ----
@@ -149,7 +152,11 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       dataSource = workspaceStore.findDataSourceByPath(resolvedLocalPath)
 
       if ((window as any).$toast) {
-        ;(window as any).$toast.info('已新增外部数据', basename(resolvedLocalPath))
+        ;(window as any).$toast.info(
+          i18n.global.t('canvas.nodeCanvas.externalDataAdded', {
+            name: basename(resolvedLocalPath),
+          })
+        )
       }
     } catch (addError) {
       logger.error('[bindDataSource] 添加数据源到资源树失败:', addError)
@@ -171,7 +178,10 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
         : actualSheets.slice(0, 5).join(', ') + ` 等 ${actualSheets.length} 个`
       return {
         success: false,
-        message: `Sheet "${requestedSheet}" 不存在于目标文件中。文件拥有的工作表: ${sheetList}。请在 Schema 属性面板中修正工作表名称`,
+        message: i18n.global.t('canvas.nodeCanvas.sheetNotFoundWithList', {
+          sheet: requestedSheet,
+          list: sheetList,
+        }),
       }
     }
   }
