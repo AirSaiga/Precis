@@ -100,6 +100,10 @@ export function createV2RegexImporter(params: {
       data: result.nodeData as unknown as CustomNodeData,
     }
     addNodes(regexNode)
+    // addNodes() 只更新 Vue Flow 内部状态，不会同步到 Pinia store 的 nodes ref
+    // （v-model 同步在 nextTick 才触发）。手动同步确保本 tick 内的后续节点查找
+    // （如后端导入流程完成前的 schemaNode computed）能正确找到该节点。
+    nodes.value = [...nodes.value, regexNode]
 
     // 创建边
     for (const desc of result.edgeDescriptors) {

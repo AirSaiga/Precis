@@ -317,6 +317,7 @@ const customNodes = {
     sourceLabel: 'Source',
     modeLabel: 'Mode',
     sourceNotConnected: 'Not connected',
+    unregisteredTable: 'Unregistered table',
     columnNotSelected: 'Column not selected',
     connectFirst: 'Please connect to a data source first',
     startValidation: 'Click to start validation',

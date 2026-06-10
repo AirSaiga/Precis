@@ -170,6 +170,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
   import { Position } from '@vue-flow/core'
   import { useGraphStore } from '@/stores/graphStore'
   import { useProjectStore } from '@/stores/projectStore'
+  import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import type { RegexNodeData, SchemaNodeData } from '@/types/graph'
   import { NodeDeletionManager } from '@/services/managers/nodeDeletionManager'
@@ -233,6 +234,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    */
   const store = useGraphStore()
   const projectStore = useProjectStore()
+  const resourceTreeStore = useResourceTreeStore()
   const { t } = useI18n()
   const { showConfirm } = useGlobalConfirm()
   const { handleRegexValidate } = useRegexValidation()
@@ -392,7 +394,13 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    */
   const schemaNode = computed(() => {
     if (!props.data.sourceNodeId) return null
-    return store.nodes.find((n) => n.type === 'schema' && n.id === props.data.sourceNodeId) || null
+    return (
+      store.nodes.find(
+        (n) =>
+          (n.type === 'schema' || n.type === 'jsonSchema') &&
+          n.id === props.data.sourceNodeId
+      ) || null
+    )
   })
 
   /**
@@ -405,16 +413,24 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * - 未连接：显示本地化占位文本
    * - 已连接：格式为 "表名.列名"
    *
-   * 【实现逻辑】
-   * 1. 如果 sourceNodeId 为空，显示"未连接"
-   * 2. 获取 Schema 节点的表名（优先使用 tableName 字段，否则使用节点 ID）
-   * 3. 如果 sourceColumnName 为空，显示"表名.未选择列"
-   * 4. 正常情况显示 "表名.列名"
+   * 【数据来源】
+   * - 优先从画布上的 schema 节点 data.tableName（反映可能的编辑）
+   * - 回退到 resourceTreeStore 中按 sourceNodeId 查找的 schema 资源 name
+   * - 最终回退到"未注册表"并发出 warn 日志
    */
   const sourceDisplay = computed(() => {
     if (!props.data.sourceNodeId) return t('customNodes.regexNode.sourceNotConnected')
-    const tableName =
-      (schemaNode.value?.data as SchemaNodeData | undefined)?.tableName || props.data.sourceNodeId
+    const resource = resourceTreeStore.resources[props.data.sourceNodeId]
+    const canvasName = (schemaNode.value?.data as SchemaNodeData | undefined)?.tableName
+    const resourceName = resource?.kind === 'schema' ? resource.name : undefined
+    const tableName = canvasName || resourceName
+    if (!tableName) {
+      logger.warn(
+        '[RegexNode] 无法找到 schema 节点或资源树中的表名, sourceNodeId:',
+        props.data.sourceNodeId
+      )
+      return t('customNodes.regexNode.unregisteredTable')
+    }
     const col = props.data.sourceColumnName || ''
     if (!col) return `${tableName}.${t('customNodes.regexNode.columnNotSelected')}`
     return `${tableName}.${col}`

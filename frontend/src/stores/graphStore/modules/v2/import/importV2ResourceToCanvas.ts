@@ -225,6 +225,8 @@ export function createV2ImportToCanvas(params: {
     }
 
     addNodes(patternNode)
+    // 手动同步 nodes.ref — 见 ensureSchemaNodeFromV2.ts 中相同模式的详细说明
+    nodes.value = [...nodes.value, patternNode]
     selectedNodeId.value = nodeId
     return nodeId
   }
@@ -278,6 +280,8 @@ export function createV2ImportToCanvas(params: {
     }
 
     addNodes(transformNode)
+    // 手动同步 nodes.ref — 见 ensureSchemaNodeFromV2.ts 中相同模式的详细说明
+    nodes.value = [...nodes.value, transformNode]
     selectedNodeId.value = transformId
     return transformId
   }

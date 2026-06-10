@@ -815,6 +815,7 @@ const customNodes = {
     sourceLabel: '来源',
     modeLabel: '模式',
     sourceNotConnected: '未连接',
+    unregisteredTable: '未注册表',
     columnNotSelected: '未选择列',
     connectFirst: '请先连接到数据源',
     startValidation: '点击开始校验',
