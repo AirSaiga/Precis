@@ -36,6 +36,10 @@
   animation: canvasDashMove 0.9s linear infinite;
 }
 
+:deep(.vue-flow__controls) {
+  bottom: 76px !important;
+}
+
 :deep(.vue-flow__edge:not(.fk-display-edge)) {
   cursor: pointer;
 }

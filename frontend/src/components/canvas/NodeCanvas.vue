@@ -79,7 +79,7 @@
       />
     </div>
 
-    <CanvasToolbar />
+    <CanvasControls />
 
     <ProjectCreateDialog ref="projectCreateDialogRef" />
 
@@ -182,7 +182,7 @@
   // ========================================
   // 子组件导入
   // ========================================
-  import CanvasToolbar from './CanvasToolbar.vue'
+  import CanvasControls from './CanvasControls.vue'
   import ProjectCreateDialog from './ProjectCreateDialog.vue'
   import RegexConnectionDialog from './RegexConnectionDialog.vue'
   import ZoneGroupsOverlay from '@/features/node-layout-organizer/components/ZoneGroupsOverlay.vue'
@@ -199,8 +199,27 @@
   const nodeOrganizer = useNodeOrganizer()
   const zoneGroups = nodeOrganizer.groups
   const { t } = useI18n()
-  const { viewport, onNodeContextMenu, project, addNodes, addEdges, removeNodes, removeEdges, updateNodeInternals, updateEdgeData, findEdge } = useVueFlow()
-  initVueFlowApi({ addNodes, addEdges, removeNodes, removeEdges, updateNodeInternals, updateEdgeData, findEdge })
+  const {
+    viewport,
+    onNodeContextMenu,
+    project,
+    addNodes,
+    addEdges,
+    removeNodes,
+    removeEdges,
+    updateNodeInternals,
+    updateEdgeData,
+    findEdge,
+  } = useVueFlow()
+  initVueFlowApi({
+    addNodes,
+    addEdges,
+    removeNodes,
+    removeEdges,
+    updateNodeInternals,
+    updateEdgeData,
+    findEdge,
+  })
   const { validateConnection } = useCanvasConnectionWatcher()
   const flowWrapper = ref<HTMLDivElement | null>(null)
   const { projectCreateDialogRef, handleOpenCreateProjectDialog } = useCanvasProjectDialog()
