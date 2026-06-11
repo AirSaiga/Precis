@@ -10,16 +10,16 @@ Vue 3 + TypeScript 可视化编辑器，基于 Vue Flow 画布引擎。
 
 ## 技术栈
 
-| 技术 | 用途 |
-|------|------|
-| Vue 3 + TypeScript | 框架 |
-| Vite 7 | 构建工具 |
-| Pinia | 状态管理 |
-| Vue Flow | 画布/DAG 引擎 |
-| Vue Router | 路由 |
-| Vue I18n | 国际化（zh-CN / en-US） |
-| CodeMirror | 代码编辑器（YAML/Python） |
-| Axios | HTTP 客户端 |
+| 技术               | 用途                      |
+| ------------------ | ------------------------- |
+| Vue 3 + TypeScript | 框架                      |
+| Vite 7             | 构建工具                  |
+| Pinia              | 状态管理                  |
+| Vue Flow           | 画布/DAG 引擎             |
+| Vue Router         | 路由                      |
+| Vue I18n           | 国际化（zh-CN / en-US）   |
+| CodeMirror         | 代码编辑器（YAML/Python） |
+| Axios              | HTTP 客户端               |
 
 ---
 
@@ -97,8 +97,8 @@ src/
 │   └── validationReportViewModel.ts
 ├── stores/                 # Pinia 状态管理
 │   ├── graphStore/         # 画布核心 Store（Setup Store + 工厂模块）
-│   │   ├── setup.ts        # 入口
-│   │   └── modules/        # ~17 个工厂模块（factories/ v2/ clipboard/ history/ ...）
+│   │   ├── setup/           # 入口（state.ts + computed.ts + assembly.ts + index.ts）
+│   │   └── modules/        # 工厂模块（factories/ v2/ clipboard/ history/ ...）
 │   ├── canvasStore.ts      # 多标签画布
 │   ├── workspaceStore.ts   # 数据源工作区
 │   ├── resourceTreeStore.ts # 资源树
@@ -127,7 +127,7 @@ src/
 
 ### graphStore（God Store + 工厂模块）
 
-画布核心状态管理采用 Pinia Setup Store + 工厂模块拆分模式。`setup.ts` 通过 ~17 个 `createXxxModule()` 工厂函数组合所有功能，每个模块通过闭包参数注入响应式依赖。
+画布核心状态管理采用 Pinia Setup Store + 工厂模块拆分模式。`setup/index.ts` 通过多个 `createXxxModule()` 工厂函数组合所有功能，每个模块通过闭包参数注入响应式依赖。
 
 **关键约定**：所有节点数据修改必须通过 `updateNodeData(nodeId, patches)` 统一入口。
 

@@ -6,13 +6,19 @@
 keyboard/
 ├── commands/              ← 命令定义（快捷键 + 元数据）
 │   ├── baseCommands.ts   ← 编辑器基础命令
-│   └── canvasCommands.ts  ← 画布相关命令
+│   ├── canvasCommands.ts  ← 画布相关命令
+│   ├── helpCommands.ts   ← 帮助命令
+│   ├── feedback.ts       ← 反馈相关
+│   └── index.ts
 ├── handlers/              ← 命令处理器（业务逻辑）
 │   ├── node/             ← 节点操作
 │   │   ├── duplicate.ts
 │   │   ├── copyCutPaste.ts
 │   │   ├── delete.ts
 │   │   ├── move.ts
+│   │   ├── bindDataSource.ts
+│   │   ├── generateSchema.ts
+│   │   ├── validateNode.ts
 │   │   └── index.ts
 │   ├── canvas/           ← 画布视图操作
 │   │   ├── zoom.ts
@@ -26,10 +32,24 @@ keyboard/
 │   │   └── save.ts
 │   └── index.ts
 ├── registry/             ← 命令注册表
+│   ├── shortcutRegistry.ts
+│   └── index.ts
 ├── executor/             ← 命令执行器
+│   ├── commandExecutor.ts
+│   └── index.ts
 ├── listeners/            ← 键盘事件监听
+│   ├── keyboardListener.ts
+│   └── index.ts
+├── platform/             ← 平台检测与适配
+│   ├── detector.ts
+│   ├── adapter.ts
+│   └── index.ts
+├── stores/               ← 快捷键状态管理
+│   ├── shortcutStore.ts
+│   └── index.ts
+├── index.ts              ← 模块入口
 ├── types.ts              ← 类型定义
-├── constants.ts           ← 快捷键配置
+├── constants.ts          ← 快捷键配置
 └── README.md             ← 本文档
 ```
 
@@ -92,7 +112,7 @@ import { useGraphStore } from '@/stores/graphStore'
 
 export async function newFeature(): Promise<{ success: boolean; message?: string }> {
   const graphStore = useGraphStore()
-  
+
   if (!graphStore.selectedNodeId) {
     return { success: false, message: 'shortcuts.feedback.notSelected' }
   }
@@ -123,8 +143,8 @@ import { newFeature } from '../handlers/node'
 
 export function createNewFeatureCommand(): Command {
   return {
-    id: 'node.newFeature',          // 唯一标识
-    name: 'shortcuts.newFeature',   // i18n 键名
+    id: 'node.newFeature', // 唯一标识
+    name: 'shortcuts.newFeature', // i18n 键名
     defaultShortcut: { key: 'n', ctrl: true, shift: true },
     category: 'node',
     priority: 35,
@@ -138,7 +158,7 @@ export function createNewFeatureCommand(): Command {
       const { useGraphStore } = await import('@/stores/graphStore')
       const graphStore = useGraphStore()
       return graphStore.selectedNodeId !== null
-    }
+    },
   }
 }
 ```
@@ -146,6 +166,7 @@ export function createNewFeatureCommand(): Command {
 ### 步骤 4: 添加 i18n 键值
 
 **zh-CN/shortcuts.ts**:
+
 ```typescript
 feedback: {
   newFeature: '新功能执行成功',
@@ -153,6 +174,7 @@ feedback: {
 ```
 
 **en-US/shortcuts.ts**:
+
 ```typescript
 feedback: {
   newFeature: 'New feature executed',
@@ -160,6 +182,7 @@ feedback: {
 ```
 
 **命令名称**（用于快捷键设置界面显示）：
+
 ```typescript
 commands: {
   newFeature: '新功能',
@@ -172,13 +195,13 @@ commands: {
 
 ## 快捷键分类
 
-| 分类 | 命令前缀 | Handler 目录 | 示例 |
-|------|----------|-------------|------|
-| 画布 | `canvas.*` | handlers/canvas/ | zoomIn, fitView |
-| 节点 | `node.*` | handlers/node/ | duplicate, delete, move |
-| 历史 | `history.*` | handlers/history/ | undo, redo |
-| 编辑器 | `editor.*` | handlers/editor/ | save |
-| 连接 | `connection.*` | handlers/ (需新建) | create, delete |
+| 分类   | 命令前缀       | Handler 目录       | 示例                    |
+| ------ | -------------- | ------------------ | ----------------------- |
+| 画布   | `canvas.*`     | handlers/canvas/   | zoomIn, fitView         |
+| 节点   | `node.*`       | handlers/node/     | duplicate, delete, move |
+| 历史   | `history.*`    | handlers/history/  | undo, redo              |
+| 编辑器 | `editor.*`     | handlers/editor/   | save                    |
+| 连接   | `connection.*` | handlers/ (需新建) | create, delete          |
 
 ## 快捷键配置
 
@@ -190,7 +213,7 @@ commands: {
 export const DEFAULT_SHORTCUTS: Record<string, Shortcut | { mac: Shortcut; windows: Shortcut }> = {
   'node.duplicate': {
     mac: { key: 'd', meta: true },
-    windows: { key: 'd', ctrl: true }
+    windows: { key: 'd', ctrl: true },
   },
   // ...
 }
@@ -200,11 +223,11 @@ export const DEFAULT_SHORTCUTS: Record<string, Shortcut | { mac: Shortcut; windo
 
 ```typescript
 interface Shortcut {
-  key: string           // 键名 (如 'a', 'ArrowUp', 'Delete')
-  ctrl?: boolean        // Ctrl 修饰键
-  meta?: boolean        // Cmd (Mac) 修饰键
-  shift?: boolean       // Shift 修饰键
-  alt?: boolean         // Alt/Option 修饰键
+  key: string // 键名 (如 'a', 'ArrowUp', 'Delete')
+  ctrl?: boolean // Ctrl 修饰键
+  meta?: boolean // Cmd (Mac) 修饰键
+  shift?: boolean // Shift 修饰键
+  alt?: boolean // Alt/Option 修饰键
 }
 ```
 
@@ -221,15 +244,16 @@ interface Shortcut {
 
 ```typescript
 interface Command {
-  id: string                           // 命令唯一标识
-  name: string                         // i18n 键名（显示名称）
-  defaultShortcut?: Shortcut            // 默认快捷键
-  platformVariants?: {                 // 平台特定快捷键
+  id: string // 命令唯一标识
+  name: string // i18n 键名（显示名称）
+  defaultShortcut?: Shortcut // 默认快捷键
+  platformVariants?: {
+    // 平台特定快捷键
     mac?: Shortcut
     windows?: Shortcut
   }
-  category: string                     // 分类 (editor/canvas/node/history)
-  priority: number                    // 优先级 (数字越小越靠前)
+  category: string // 分类 (editor/canvas/node/history)
+  priority: number // 优先级 (数字越小越靠前)
   execute: (context?: CommandContext) => Promise<void>
   isAvailable?: (context?: CommandContext) => Promise<boolean> | boolean
 }
@@ -258,5 +282,5 @@ console.log('[NewFeature] 执行:', result)
 
 ```typescript
 const manager = useKeyboardShortcuts()
-manager.disable('node.duplicate')  // 禁用复制节点快捷键
+manager.disable('node.duplicate') // 禁用复制节点快捷键
 ```

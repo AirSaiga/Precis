@@ -45,7 +45,7 @@ scripts/
 
 | 环境 Environment | 版本要求 Version | 推荐安装方式 Recommended |
 |-----------------|-----------------|------------------------|
-| Python | `>=3.12`（推荐 3.13） | pyenv / pyenv-win |
+| Python | `>=3.9`（推荐 3.13） | pyenv / pyenv-win |
 | Node.js | `^20.19.0 \|\| >=22.12.0` | nvm / 官网 |
 | Git | 任意 Any | 官网 / Official site |
 
@@ -74,7 +74,7 @@ chmod +x scripts/setup.sh scripts/mac/*.sh
 
 部署脚本自动完成 / The deploy script will automatically:
 
-1. ✅ 检查 Python `>=3.12` / Check Python `>=3.12`
+1. ✅ 检查 Python `>=3.9` / Check Python `>=3.9`
 2. ✅ 检查 Node.js / Check Node.js
 3. ✅ 创建 Python 虚拟环境 / Create Python venv (`backend/.venv`)
 4. ✅ 安装后端依赖 / Install backend dependencies
@@ -199,7 +199,7 @@ VITE_BACKEND_PORT=18000
 ```bash
 # Electron 安装包 / Electron installer
 cd electron && npm run dist
-# 输出在 electron/out/ 目录 / Output in electron/out/
+# 输出在 electron/release/ 目录 / Output in electron/release/
 
 # 后端独立可执行文件 (PyInstaller) / Standalone backend executable
 cd backend && python build_backend.py

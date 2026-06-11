@@ -28,7 +28,7 @@ cd frontend && npm run dev    # 仅启动前端 Vite dev server
 ```bash
 npm run build:all             # 构建前端 + 后端
 npm run frontend:build        # 构建前端（包含 type-check）
-npm run backend:build         # 构建后端（PyInstaller）
+npm run backend:build         # 安装后端可编辑包（pip install -e .）
 ```
 
 ### 代码检查与格式化
@@ -56,7 +56,7 @@ npm run format:all            # 前端 format + 后端 ruff format + fix
 cd frontend && npm run test          # vitest 运行全部测试
 cd frontend && npm run test:watch    # vitest watch 模式
 
-# 后端单元测试（覆盖率阈值 56%）
+# 后端单元测试
 cd backend && python -m pytest       # pytest 运行全部测试
 
 # E2E 测试（Playwright + Chromium，前端主测试手段）
@@ -76,12 +76,12 @@ npm run cli:validate                 # CLI 校验测试套件
 |------|------|
 | 前端 | Vue 3 + TypeScript + Vite + Pinia + Vue Router + Vue I18n + Vue Flow |
 | 后端 | Python + FastAPI + Uvicorn + Pydantic + Pandas |
-| 桌面端 | Electron Forge + TypeScript（sandbox: true） |
+| 桌面端 | Electron + electron-builder + TypeScript（sandbox: true） |
 | E2E 测试 | Playwright + Chromium |
 | 前端代码质量 | ESLint + Prettier + lint-staged + Husky |
 | 后端代码质量 | Ruff（lint + format + import 排序） |
 
-**运行环境要求**: Node.js `^20.19.0 || >=22.12.0`，Python `>=3.12`
+**运行环境要求**: Node.js `^20.19.0 || >=22.12.0`，Python `>=3.9,<3.14`
 
 ---
 
@@ -395,7 +395,7 @@ E2E 是前端功能正确性的**主验证手段**，覆盖：
 
 ### 后端测试策略
 
-保持不变：`pytest` + `--cov-fail-under` 覆盖率门控。新增后端功能必须附带单元测试。
+保持不变：`pytest` + 覆盖率报告。新增后端功能必须附带单元测试。
 
 ---
 
