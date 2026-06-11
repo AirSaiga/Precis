@@ -305,7 +305,11 @@ def build_config(
         if isinstance(obj, dict):
             remapped: dict[str, Any] = {}
             for k, v in obj.items():
-                if k in ("table_id", "from_table_id", "to_table_id") and isinstance(v, str) and v in llm_id_to_schema_id:
+                if (
+                    k in ("table_id", "from_table_id", "to_table_id")
+                    and isinstance(v, str)
+                    and v in llm_id_to_schema_id
+                ):
                     remapped[k] = llm_id_to_schema_id[v]
                 else:
                     remapped[k] = _remap_schema_refs(v)
@@ -328,7 +332,9 @@ def build_config(
 
     # 对 schema 内联约束也做 ID 重映射
     for schema_doc in schemas.values():
-        schema_doc["constraints"] = [_remap_schema_refs(c) for c in schema_doc.get("constraints", []) if isinstance(c, dict)]
+        schema_doc["constraints"] = [
+            _remap_schema_refs(c) for c in schema_doc.get("constraints", []) if isinstance(c, dict)
+        ]
 
     # 处理 Regex Nodes
     if options.generate_regex_nodes:

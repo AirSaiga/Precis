@@ -84,9 +84,7 @@ def build_prompt(
         )
         if estimated <= max_prompt_chars:
             if columns_limit < 20:
-                warnings.append(
-                    f"数据文件较多，prompt 长度受限，每表仅展示前 {columns_limit} 列"
-                )
+                warnings.append(f"数据文件较多，prompt 长度受限，每表仅展示前 {columns_limit} 列")
             break
     else:
         # 即使 3 列也超限，需要截断文件数
@@ -107,10 +105,7 @@ def build_prompt(
         profiling_data = profiling_data[:best_files]
         omitted = len(profiling_data) - best_files if len(profiling_data) > best_files else 0
         if omitted > 0:
-            warnings.append(
-                f"数据文件过多（共 {len(profiling_data) + omitted} 个），"
-                f"仅分析前 {best_files} 个文件"
-            )
+            warnings.append(f"数据文件过多（共 {len(profiling_data) + omitted} 个），仅分析前 {best_files} 个文件")
         max_columns_per_table = 3
 
     # 阶段 2: 实际构建 prompt
