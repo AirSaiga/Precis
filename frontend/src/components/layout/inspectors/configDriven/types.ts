@@ -104,6 +104,8 @@ export type InspectorTagsField = InspectorFieldBase & {
   source: InspectorValueSource
   placeholderKey?: string
   editable?: boolean
+  computedFromParams?: string
+  suggestionsFromUpstream?: boolean
 }
 
 export type InspectorReadonlyField = InspectorFieldBase & {
@@ -127,6 +129,7 @@ export type InspectorForeignKeyTargetColumnField = InspectorFieldBase & {
 
 export type InspectorDynamicListColumn =
   | { key: string; kind: 'text'; placeholderKey?: string; width?: string }
+  | { key: string; kind: 'text'; columnSource: 'upstream'; placeholderKey?: string; width?: string }
   | { key: string; kind: 'select'; options: InspectorSelectOption; width?: string }
 
 export type InspectorDynamicListField = InspectorFieldBase & {
@@ -176,6 +179,18 @@ export type InspectorValidationSummaryField = InspectorFieldBase & {
   kind: 'validationSummary'
 }
 
+export type InspectorUpstreamColumnSelectField = InspectorFieldBase & {
+  kind: 'upstreamColumnSelect'
+  source: InspectorValueSource
+  placeholderKey?: string
+}
+
+export type InspectorExpressionField = InspectorFieldBase & {
+  kind: 'expression'
+  source: InspectorValueSource
+  placeholderKey?: string
+}
+
 export type InspectorField =
   | InspectorTextField
   | InspectorNumberField
@@ -195,6 +210,8 @@ export type InspectorField =
   | InspectorKeyValueListField
   | InspectorRegexPatternField
   | InspectorWeightedSumField
+  | InspectorUpstreamColumnSelectField
+  | InspectorExpressionField
   | InspectorActionButtonField
   | InspectorStatCardField
   | InspectorValidationSummaryField

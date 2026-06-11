@@ -9,6 +9,9 @@
       :modelValue="display"
       :editable="!readonly"
       type="number"
+      :min="field.min"
+      :max="field.max"
+      :step="field.step"
       @update:modelValue="(v) => emitCommit(v)"
     />
     <div v-if="help" class="help">{{ help }}</div>

@@ -1,6 +1,9 @@
 <!--
   @file DynamicListRenderer.vue
   @description 动态列表字段渲染器（用于 FilterRows / Aggregate / ConditionalAssign / SortRows）
+
+  扩展功能：
+  - columnSource: 'upstream' 支持从上游节点列名提供下拉选择
 -->
 <template>
   <div class="field">
@@ -8,8 +11,40 @@
 
     <div v-for="(item, idx) in items" :key="idx" class="row">
       <template v-for="col in columns" :key="col.key">
+        <div
+          v-if="col.kind === 'text' && 'columnSource' in col && col.columnSource === 'upstream'"
+          class="row-combobox-wrapper"
+          :style="{ flex: col.width === 'flex' ? '1' : undefined, width: col.width !== 'flex' ? col.width : undefined }"
+        >
+          <input
+            class="row-input"
+            type="text"
+            :value="(item as Record<string, unknown>)[col.key] ?? ''"
+            :placeholder="col.placeholderKey ? t(col.placeholderKey) : ''"
+            @change="updateItem(idx, col.key, ($event.target as HTMLInputElement).value)"
+            @focus="openDropdown(idx, col.key)"
+            @blur="closeDropdown"
+            @input="filterDropdown(idx, col.key, ($event.target as HTMLInputElement).value)"
+          />
+          <Transition name="dropdown">
+            <ul
+              v-if="isDropdownOpen(idx, col.key) && getFilteredUpstreamColumns(idx, col.key).length > 0"
+              class="column-dropdown"
+              @mousedown.prevent
+            >
+              <li
+                v-for="colName in getFilteredUpstreamColumns(idx, col.key)"
+                :key="colName"
+                class="column-option"
+                @mousedown.prevent="selectUpstreamColumn(idx, col.key, colName)"
+              >
+                {{ colName }}
+              </li>
+            </ul>
+          </Transition>
+        </div>
         <input
-          v-if="col.kind === 'text'"
+          v-else-if="col.kind === 'text'"
           class="row-input"
           :style="{ flex: col.width === 'flex' ? '1' : undefined, width: col.width !== 'flex' ? col.width : undefined }"
           type="text"
@@ -42,10 +77,10 @@
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue'
+  import { computed, ref } from 'vue'
   import { useI18n } from 'vue-i18n'
   import type { InspectorContext } from '../utils'
-  import { getByPath } from '../utils'
+  import { getByPath, getUpstreamColumns } from '../utils'
   import type { InspectorDynamicListField, InspectorSelectOption } from '../types'
 
   const { t } = useI18n()
@@ -75,6 +110,42 @@
     if (props.field.minItems) return [{ ...props.field.emptyItem }]
     return []
   })
+
+  const upstreamColumns = computed(() => getUpstreamColumns(props.ctx))
+
+  const openDropdownKey = ref<string | null>(null)
+  const dropdownFilter = ref('')
+
+  function openDropdown(idx: number, key: string) {
+    openDropdownKey.value = `${idx}-${key}`
+    dropdownFilter.value = ''
+  }
+
+  function closeDropdown() {
+    setTimeout(() => {
+      openDropdownKey.value = null
+    }, 150)
+  }
+
+  function isDropdownOpen(idx: number, key: string): boolean {
+    return openDropdownKey.value === `${idx}-${key}`
+  }
+
+  function filterDropdown(idx: number, key: string, value: string) {
+    openDropdownKey.value = `${idx}-${key}`
+    dropdownFilter.value = value
+  }
+
+  function getFilteredUpstreamColumns(_idx: number, _key: string): string[] {
+    const query = dropdownFilter.value.toLowerCase().trim()
+    if (!query) return upstreamColumns.value
+    return upstreamColumns.value.filter((col) => col.toLowerCase().includes(query))
+  }
+
+  function selectUpstreamColumn(idx: number, key: string, colName: string) {
+    updateItem(idx, key, colName)
+    openDropdownKey.value = null
+  }
 
   function resolveOptions(opt: InspectorSelectOption): Array<{ key: string; label: string }> {
     if (opt.type === 'static') {
@@ -133,6 +204,10 @@
     margin-bottom: 4px;
   }
 
+  .row-combobox-wrapper {
+    position: relative;
+  }
+
   .row-input {
     background: transparent;
     border: none;
@@ -156,6 +231,37 @@
     color: var(--ui-text-primary);
     font-size: 11px;
     cursor: pointer;
+  }
+
+  .column-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    min-width: 120px;
+    max-height: 160px;
+    overflow-y: auto;
+    margin: 2px 0 0;
+    padding: 4px 0;
+    background: var(--ui-bg-elevated, #2d2d30);
+    border: 1px solid var(--ui-border-subtle, #333);
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    z-index: 100;
+    list-style: none;
+  }
+
+  .column-option {
+    padding: 5px 8px;
+    font-size: 11px;
+    color: var(--ui-text-primary, #ccc);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .column-option:hover {
+    background: var(--ui-accent-primary, #0e639c);
   }
 
   .row-remove {
@@ -194,5 +300,15 @@
     font-size: 11px;
     color: var(--ui-text-muted);
     margin-top: 2px;
+  }
+
+  .dropdown-enter-active,
+  .dropdown-leave-active {
+    transition: opacity 0.12s ease;
+  }
+
+  .dropdown-enter-from,
+  .dropdown-leave-to {
+    opacity: 0;
   }
 </style>

@@ -8,14 +8,22 @@
     <label class="label">{{ label }}</label>
 
     <!-- 正则表达式输入 -->
-    <input
-      class="pattern-input"
-      type="text"
-      :value="patternValue"
-      :placeholder="placeholder"
-      :disabled="readonly"
-      @blur="onPatternBlur(($event.target as HTMLInputElement).value)"
-    />
+    <div class="pattern-input-wrapper">
+      <input
+        class="pattern-input"
+        :class="{ 'pattern-invalid': !!validationError }"
+        type="text"
+        :value="patternValue"
+        :placeholder="placeholder"
+        :disabled="readonly"
+        @input="onPatternInput(($event.target as HTMLInputElement).value)"
+        @blur="onPatternBlur(($event.target as HTMLInputElement).value)"
+      />
+      <span v-if="validationError" class="validation-error">{{ validationError }}</span>
+      <span v-else-if="patternValue && captureGroupCount > 0" class="validation-ok">
+        {{ t('inspector.transformNode.params.regexExtract.captureGroups') }}: {{ captureGroupCount }}
+      </span>
+    </div>
 
     <!-- 忽略大小写复选框 -->
     <div class="flags-row">
@@ -76,6 +84,27 @@
   const emit = defineEmits<{
     commit: [value: unknown]
   }>()
+
+  const validationError = ref('')
+  let validateTimer: ReturnType<typeof setTimeout> | null = null
+
+  function validateRegex(pattern: string): string {
+    if (!pattern) return ''
+    try {
+      new RegExp(pattern)
+      return ''
+    } catch (e) {
+      return String((e as Error).message || 'Invalid regex')
+    }
+  }
+
+  function onPatternInput(value: string) {
+    if (validateTimer) clearTimeout(validateTimer)
+    validateTimer = setTimeout(() => {
+      validationError.value = validateRegex(value)
+    }, 300)
+    validationError.value = ''
+  }
 
   // 从 ctx 读取关联数据
   const patternValue = computed(() => String(props.value ?? ''))
@@ -192,6 +221,12 @@
     color: var(--ui-text-muted);
   }
 
+  .pattern-input-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
   .pattern-input {
     background: transparent;
     border: none;
@@ -206,6 +241,20 @@
 
   .pattern-input:focus {
     border-bottom-color: var(--ui-accent);
+  }
+
+  .pattern-input.pattern-invalid {
+    border-bottom-color: var(--ui-danger, #f44336);
+  }
+
+  .validation-error {
+    font-size: 11px;
+    color: var(--ui-danger, #f44336);
+  }
+
+  .validation-ok {
+    font-size: 11px;
+    color: var(--ui-success, #4caf50);
   }
 
   .flags-row {

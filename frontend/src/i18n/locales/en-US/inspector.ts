@@ -333,6 +333,8 @@ const inspector = {
   },
   transformNode: {
     title: 'Transform Node Properties',
+    noUpstreamConnected: 'Connect an upstream node first',
+    autoComputed: '(auto-computed)',
     badgeEditable: 'Editable',
     badgeReadOnly: 'Read Only',
     groups: {

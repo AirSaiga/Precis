@@ -18,7 +18,7 @@
   - update:modelValue: [value: string] — 值变更事件
 -->
 <template>
-  <div class="inspector-field" :class="{ 'field-layout-row': !editable }">
+  <div class="inspector-field" :class="{ 'field-layout-row': !editable, 'field-has-error': !!error }">
     <label v-if="label" class="field-label">{{ label }}</label>
 
     <!-- 只读模式 -->
@@ -40,8 +40,13 @@
       :value="modelValue"
       @input="handleInput"
       :placeholder="placeholder"
+      :min="min"
+      :max="max"
+      :step="step"
       class="field-input"
     />
+
+    <div v-if="error" class="field-error">{{ error }}</div>
   </div>
 </template>
 
@@ -54,6 +59,10 @@
     editable?: boolean
     type?: 'text' | 'number' | 'path'
     placeholder?: string
+    error?: string
+    min?: number
+    max?: number
+    step?: number
   }
 
   const props = withDefaults(defineProps<Props>(), {
@@ -62,6 +71,7 @@
     editable: false,
     type: 'text',
     placeholder: '',
+    error: '',
   })
 
   const emit = defineEmits<{

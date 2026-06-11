@@ -34,7 +34,7 @@
       "fields": [
         {
           "id": "inputColumn",
-          "kind": "text",
+          "kind": "upstreamColumnSelect",
           "source": { "source": "data", "path": ["inputColumn"] },
           "labelKey": "inspector.transformNode.labels.inputColumn",
           "placeholderKey": "inspector.transformNode.placeholders.inputColumn"
@@ -45,7 +45,9 @@
           "source": { "source": "data", "path": ["outputColumns"] },
           "labelKey": "inspector.transformNode.labels.outputColumns",
           "placeholderKey": "inspector.transformNode.placeholders.addColumn",
-          "editable": true
+          "editable": true,
+          "computedFromParams": "StringSplit",
+          "suggestionsFromUpstream": true
         }
       ]
     },
@@ -72,7 +74,7 @@
 
         {
           "id": "mathExpression",
-          "kind": "text",
+          "kind": "expression",
           "source": { "source": "data", "path": ["params", "expression"] },
           "labelKey": "inspector.transformNode.params.mathExpr.expression",
           "placeholderKey": "inspector.transformNode.params.mathExpr.expressionPh",
@@ -219,7 +221,7 @@
           "labelKey": "inspector.transformNode.params.filterRows.conditions",
           "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "FilterRows" },
           "columns": [
-            { "key": "column", "kind": "text", "width": "flex" },
+            { "key": "column", "kind": "text", "columnSource": "upstream", "width": "flex" },
             { "key": "op", "kind": "select", "width": "80px", "options": { "type": "static", "options": [
               { "labelKey": "inspector.transformNode.params.common.opEq", "value": "eq" },
               { "labelKey": "inspector.transformNode.params.common.opNe", "value": "ne" },
@@ -358,11 +360,12 @@
 
         {
           "id": "concatColumns",
-          "kind": "textarea",
+          "kind": "tags",
           "source": { "source": "data", "path": ["params", "columns"] },
           "labelKey": "inspector.transformNode.params.concat.columns",
           "placeholderKey": "inspector.transformNode.params.concat.columnsPh",
-          "rows": 3,
+          "editable": true,
+          "suggestionsFromUpstream": true,
           "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Concat" }
         },
         {
@@ -412,7 +415,7 @@
 
         {
           "id": "aggregateGroupBy",
-          "kind": "text",
+          "kind": "upstreamColumnSelect",
           "source": { "source": "data", "path": ["params", "group_by"] },
           "labelKey": "inspector.transformNode.params.aggregate.groupBy",
           "placeholderKey": "inspector.transformNode.params.aggregate.groupByPh",
@@ -426,7 +429,7 @@
           "labelKey": "inspector.transformNode.params.aggregate.aggregations",
           "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Aggregate" },
           "columns": [
-            { "key": "column", "kind": "text", "width": "flex" },
+            { "key": "column", "kind": "text", "columnSource": "upstream", "width": "flex" },
             { "key": "func", "kind": "select", "width": "80px", "options": { "type": "static", "options": [
               { "labelKey": "inspector.transformNode.params.aggregate.funcCount", "value": "count" },
               { "labelKey": "inspector.transformNode.params.aggregate.funcSum", "value": "sum" },
@@ -447,7 +450,7 @@
           "labelKey": "inspector.transformNode.params.conditionalAssign.conditions",
           "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "ConditionalAssign" },
           "columns": [
-            { "key": "column", "kind": "text", "width": "flex" },
+            { "key": "column", "kind": "text", "columnSource": "upstream", "width": "flex" },
             { "key": "op", "kind": "select", "width": "80px", "options": { "type": "static", "options": [
               { "labelKey": "inspector.transformNode.params.common.opEq", "value": "eq" },
               { "labelKey": "inspector.transformNode.params.common.opNe", "value": "ne" },
@@ -505,7 +508,7 @@
           "labelKey": "inspector.transformNode.params.sortRows.sortBy",
           "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "SortRows" },
           "columns": [
-            { "key": "column", "kind": "text", "width": "flex" },
+            { "key": "column", "kind": "text", "columnSource": "upstream", "width": "flex" },
             { "key": "order", "kind": "select", "width": "80px", "options": { "type": "static", "options": [
               { "labelKey": "inspector.transformNode.params.sortRows.orderAsc", "value": "asc" },
               { "labelKey": "inspector.transformNode.params.sortRows.orderDesc", "value": "desc" }

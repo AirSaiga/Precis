@@ -222,9 +222,20 @@ const SCHEMA_SOURCE_ROOT_TEST = ''
 
 function normalizeRelPathKey(filePath: string): string {
   const p0 = (filePath || '').replace(/\\/g, '/').trim().replace(/^\.\//, '')
-  const root0 = (SCHEMA_SOURCE_ROOT_TEST || '').replace(/\\/g, '/').trim().replace(/\/+$/, '')
 
   let p = p0
+
+  // 绝对路径：提取 data/ 之后的部分，确保与相对路径生成相同 ID
+  if (p.startsWith('/') || (p.length > 1 && p[1] === ':')) {
+    const parts = p.toLowerCase().split('/')
+    const dataIdx = parts.indexOf('data')
+    if (dataIdx >= 0 && dataIdx < parts.length - 1) {
+      p = parts.slice(dataIdx).join('/')
+    }
+  }
+
+  const root0 = (SCHEMA_SOURCE_ROOT_TEST || '').replace(/\\/g, '/').trim().replace(/\/+$/, '')
+
   if (root0) {
     const pLower = p.toLowerCase()
     const rootLower = root0.toLowerCase()

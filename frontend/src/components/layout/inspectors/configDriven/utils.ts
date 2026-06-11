@@ -71,6 +71,38 @@ export function evaluateWhen(ctx: InspectorContext, when?: InspectorWhen): boole
   }
 }
 
+export function getUpstreamColumns(ctx: InspectorContext): string[] {
+  const inputFromNode = ctx.data.inputFromNode as string | undefined
+  if (!inputFromNode || !ctx.nodes) return []
+
+  const upstreamNode = ctx.nodes.find((n) => n.id === inputFromNode)
+  if (!upstreamNode) return []
+
+  const data = upstreamNode.data as Record<string, unknown>
+
+  switch (upstreamNode.type) {
+    case 'manualData':
+    case 'transformOutput':
+      return data.columnName ? [data.columnName as string] : []
+    case 'schema':
+    case 'jsonSchema': {
+      const cols = data.columns as Array<{ columnName: string }> | undefined
+      return cols?.map((c) => c.columnName) ?? []
+    }
+    case 'sourcePreview':
+    case 'jsonSourcePreview': {
+      const matrix = data.data as string[][] | undefined
+      const headerRow = (data.headerRow as number) ?? 0
+      return matrix?.[headerRow] ?? []
+    }
+    case 'transform': {
+      return Array.isArray(data.outputColumns) ? (data.outputColumns as string[]) : []
+    }
+    default:
+      return []
+  }
+}
+
 export function buildShallowCompatiblePatch(
   data: Record<string, unknown>,
   source: InspectorValueSource,

@@ -328,6 +328,8 @@ const inspector = (() => {
     },
     transformNode: {
       title: '转换节点属性',
+      noUpstreamConnected: '请先连接上游节点',
+      autoComputed: '(自动计算)',
       badgeEditable: '可编辑',
       badgeReadOnly: '只读',
       groups: {

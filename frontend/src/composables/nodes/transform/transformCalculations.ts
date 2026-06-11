@@ -496,11 +496,14 @@ export interface ConcatOptions {
 }
 
 export function computeConcat(upstreamRows: string[][], options: ConcatOptions): string[][] {
-  const { columns, separator } = options
-  const columnList = columns
-    .split(',')
-    .map((c) => c.trim())
-    .filter(Boolean)
+  const { separator } = options
+  const rawColumns = options.columns as string | string[]
+  const columnList = Array.isArray(rawColumns)
+    ? rawColumns.filter(Boolean)
+    : String(rawColumns)
+        .split(',')
+        .map((c) => c.trim())
+        .filter(Boolean)
 
   return upstreamRows.map((row) => {
     if (columnList.length === 0) {

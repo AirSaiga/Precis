@@ -67,9 +67,10 @@ def _normalize_rel_path_key(file_path: str) -> str:
     处理流程：
     1. 将反斜杠替换为正斜杠，统一路径格式
     2. 去除开头的 "./" 前缀
-    3. 如果配置了 SCHEMA_SOURCE_ROOT_TEST，裁剪该前缀
-    4. 使用 pathlib 进一步标准化路径
-    5. 转为小写，保证一致性
+    3. 如果是绝对路径，提取 data/ 之后的部分
+    4. 如果配置了 SCHEMA_SOURCE_ROOT_TEST，裁剪该前缀
+    5. 使用 pathlib 进一步标准化路径
+    6. 转为小写，保证一致性
 
     参数说明:
         :param file_path: 原始文件路径（可能包含反斜杠、./ 等）
@@ -80,14 +81,24 @@ def _normalize_rel_path_key(file_path: str) -> str:
         'data/users.xlsx'
         >>> _normalize_rel_path_key("./data/users.xlsx")
         'data/users.xlsx'
+        >>> _normalize_rel_path_key("D:/project/qa_test/qa_simple/data/orders.csv")
+        'data/orders.csv'
     """
-    from pathlib import Path
+    from pathlib import Path, PurePosixPath
 
     # 将反斜杠统一替换为正斜杠，去除首尾空白
     p = str(file_path or "").replace("\\", "/").strip()
     # 去除开头的 "./" 前缀
     if p.startswith("./"):
         p = p[2:]
+
+    # 绝对路径：提取 data/ 之后的部分，确保与相对路径生成相同 ID
+    if p.startswith("/") or (len(p) > 1 and p[1] == ":"):
+        parts = PurePosixPath(p.lower()).parts
+        for i, part in enumerate(parts):
+            if part == "data" and i + 1 < len(parts):
+                p = str(PurePosixPath(*parts[i:]))
+                break
 
     # 如果配置了源根目录，裁剪该前缀（用于统一不同环境的路径差异）
     root = str(SCHEMA_SOURCE_ROOT_TEST or "").replace("\\", "/").strip().rstrip("/")
