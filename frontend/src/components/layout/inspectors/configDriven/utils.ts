@@ -78,7 +78,7 @@ export function getUpstreamColumns(ctx: InspectorContext): string[] {
   const upstreamNode = ctx.nodes.find((n) => n.id === inputFromNode)
   if (!upstreamNode) return []
 
-  const data = upstreamNode.data as Record<string, unknown>
+  const data = upstreamNode.data as unknown as Record<string, unknown>
 
   switch (upstreamNode.type) {
     case 'manualData':

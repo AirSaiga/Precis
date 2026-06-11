@@ -127,7 +127,7 @@
 
   function selectHighlighted() {
     if (highlightedIndex.value >= 0 && highlightedIndex.value < filteredColumns.value.length) {
-      selectColumn(filteredColumns.value[highlightedIndex.value])
+      selectColumn(filteredColumns.value[highlightedIndex.value]!)
     } else {
       showDropdown.value = false
     }
