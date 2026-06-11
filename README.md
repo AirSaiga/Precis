@@ -13,7 +13,7 @@ Visual DAG Editor · Schema-Aware Validation · Local-First
 
 [🇨🇳 中文](#中文) · [🇺🇸 English](#english)
 
-</div---
+</div>
 
 > **⚠️ Pre-Alpha** — 方向验证与技术原型阶段，配置格式与 API 可能随时变更，不适合生产环境。
 > 当前阶段**不接受外部 Pull Request**，欢迎 [Issues](https://github.com/AirSaiga/Precis/issues) 与 [Discussions](https://github.com/AirSaiga/Precis/discussions)。
