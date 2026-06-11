@@ -24,6 +24,8 @@
 
 from typing import Any
 
+from app.shared.domain.constraints.base import Constraint
+
 # 1. 项目内部导入
 from app.shared.domain.data_types import (
     BooleanType,
@@ -41,7 +43,6 @@ from app.shared.domain.data_types import (
     SequenceType,
     StringType,
 )
-from app.shared.domain.constraints.base import Constraint
 
 # ============================================================================
 # 类型注册表

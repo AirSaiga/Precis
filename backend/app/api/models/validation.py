@@ -46,8 +46,6 @@ class RegexValidationRequest(BaseModel):
         target_column_name: 目标列名
         source_file_path: 数据源文件路径
         sheet_name: Excel 工作表名称（可选）
-        header_columns: 自定义表头列名列表（可选）
-        use_custom_header: 是否使用自定义表头（可选）
     """
 
     regex_pattern: str = Field(..., description="正则表达式模式")  # 用于匹配的正则表达式字符串，必填
@@ -63,10 +61,6 @@ class RegexValidationRequest(BaseModel):
         ..., description="数据源文件路径"
     )  # 数据源文件（Excel/CSV/JSON）的绝对或相对路径，必填
     sheet_name: Optional[str] = Field(None, description="Excel工作表名称")  # 当数据源为 Excel 时指定工作表名称，可选
-    header_columns: Optional[list[str]] = Field(
-        None, description="自定义表头列名"
-    )  # 自定义表头列名列表，用于覆盖文件第一行，可选
-    use_custom_header: Optional[bool] = Field(None, description="是否使用自定义表头")  # 是否启用自定义表头覆盖，可选
 
 
 class RegexValidationErrorRow(BaseModel):

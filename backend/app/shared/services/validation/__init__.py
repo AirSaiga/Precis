@@ -11,7 +11,6 @@
 from .chunked_loader import ChunkedDataLoader, ChunkedValidationResult
 from .loader import (
     load_file_data,
-    load_file_data_with_settings,
     run_validation,
     validate_with_settings,
 )
@@ -32,7 +31,6 @@ __all__ = [
     "UnifiedValidationService",
     "load_file_data",
     "run_validation",
-    "load_file_data_with_settings",
     "validate_with_settings",
     "BaseValidator",
     "ConstraintAdapter",

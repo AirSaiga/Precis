@@ -410,7 +410,7 @@ const inspector = (() => {
         },
         lookup: {
           mapping: '映射表 (JSON)',
-          mappingPh: '例如: {"A": "优秀", "B": "良好", "C": "及格"}',
+          mappingPh: '例如: A→优秀, B→良好, C→及格',
           mappingHint: '键为原值，值为替换后的新值',
           default: '未匹配默认值',
           defaultPh: '未匹配时填充的值（留空则保持原值）',

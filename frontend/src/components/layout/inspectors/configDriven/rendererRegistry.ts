@@ -25,6 +25,7 @@ import DateReferenceTypeRenderer from './renderers/DateReferenceTypeRenderer.vue
 import ForeignKeyTargetColumnRenderer from './renderers/ForeignKeyTargetColumnRenderer.vue'
 import DynamicListRenderer from './renderers/DynamicListRenderer.vue'
 import RegexPatternRenderer from './renderers/RegexPatternRenderer.vue'
+import KeyValueListRenderer from './renderers/KeyValueListRenderer.vue'
 import WeightedSumRenderer from './renderers/WeightedSumRenderer.vue'
 import ActionButtonRenderer from './renderers/ActionButtonRenderer.vue'
 import StatCardRenderer from './renderers/StatCardRenderer.vue'
@@ -46,6 +47,7 @@ export const rendererRegistry: Record<InspectorField['kind'], Component> = {
   dateReferenceType: DateReferenceTypeRenderer,
   foreignKeyTargetColumn: ForeignKeyTargetColumnRenderer,
   dynamicList: DynamicListRenderer,
+  keyValueList: KeyValueListRenderer,
   regexPattern: RegexPatternRenderer,
   weightedSum: WeightedSumRenderer,
   actionButton: ActionButtonRenderer,

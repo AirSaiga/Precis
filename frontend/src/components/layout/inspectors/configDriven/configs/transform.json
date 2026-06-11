@@ -140,14 +140,12 @@
 
         {
           "id": "lookupMapping",
-          "kind": "jsonEditor",
+          "kind": "keyValueList",
           "source": { "source": "data", "path": ["params", "mapping"] },
           "labelKey": "inspector.transformNode.params.lookup.mapping",
-          "placeholderKey": "inspector.transformNode.params.lookup.mappingPh",
           "helpKey": "inspector.transformNode.params.lookup.mappingHint",
-          "parse": "auto",
-          "validateType": "object",
-          "rows": 4,
+          "keyPlaceholder": "原值",
+          "valuePlaceholder": "替换为",
           "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Lookup" }
         },
         {

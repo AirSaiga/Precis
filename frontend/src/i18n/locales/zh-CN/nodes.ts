@@ -129,7 +129,7 @@ const customNodes = {
     inputHandle: '输入连接',
     outputHandle: '输出连接',
     helpTooltip:
-      '数据转换节点：切割字符串、正则提取、数学计算、日期格式化、查找替换、去除空白、大小写转换或文本替换',
+      '数据转换节点：切割字符串、正则提取、数学计算、日期格式化、字典映射、去除空白、大小写转换或文本替换',
     typeLabel: '类型',
     inputColumnLabel: '输入列',
     outputColumnsLabel: '输出列',
@@ -142,7 +142,7 @@ const customNodes = {
       regexExtract: '正则提取',
       mathExpr: '数学表达式',
       dateFormat: '日期格式化',
-      lookup: '查找替换',
+      lookup: '字典映射',
       strip: '去除空白',
       upperCase: '转大写',
       lowerCase: '转小写',

@@ -3,7 +3,7 @@
 
 测试范围:
 - load_file_data: Excel/CSV/JSON/JSONL 加载、文件不存在、不支持类型
-- load_file_data_with_settings: 带配置加载、编码/分隔符设置
+- load_file_data: 带配置加载、编码/分隔符设置
 - run_validation: 校验执行入口
 - validate_with_settings: 带配置校验
 """
@@ -20,7 +20,6 @@ import pytest
 
 from app.shared.services.validation.loader import (
     load_file_data,
-    load_file_data_with_settings,
     run_validation,
     validate_with_settings,
 )
@@ -122,7 +121,7 @@ class TestLoadFileDataWithSettings:
             default_encoding = "utf-8"
             csv_delimiter = ","
 
-        df = load_file_data_with_settings(str(csv_file), settings=MockSettings())
+        df = load_file_data(str(csv_file), settings=MockSettings())
         assert len(df) == 1
 
     def test_csv_settings_auto_encoding(self, tmp_path):
@@ -133,47 +132,47 @@ class TestLoadFileDataWithSettings:
             default_encoding = "auto"
             csv_delimiter = "auto"
 
-        df = load_file_data_with_settings(str(csv_file), settings=MockSettings())
+        df = load_file_data(str(csv_file), settings=MockSettings())
         assert len(df) == 1
 
     def test_no_settings(self, tmp_path):
         csv_file = tmp_path / "test.csv"
         csv_file.write_text("id\n1\n", encoding="utf-8")
-        df = load_file_data_with_settings(str(csv_file))
+        df = load_file_data(str(csv_file))
         assert len(df) == 1
 
     def test_file_not_found(self):
         with pytest.raises(FileNotFoundError, match="文件不存在"):
-            load_file_data_with_settings("/nonexistent.csv")
+            load_file_data("/nonexistent.csv")
 
     def test_unsupported_type(self, tmp_path):
         txt_file = tmp_path / "test.txt"
         txt_file.write_text("hello")
         with pytest.raises(ValueError, match="不支持的文件类型"):
-            load_file_data_with_settings(str(txt_file))
+            load_file_data(str(txt_file))
 
     def test_json_format(self, tmp_path):
         json_file = tmp_path / "test.json"
         json_file.write_text('[{"id": 1}]', encoding="utf-8")
-        df = load_file_data_with_settings(str(json_file), source_config={"format": "array"})
+        df = load_file_data(str(json_file), source_config={"format": "array"})
         assert len(df) == 1
 
     def test_jsonl_format(self, tmp_path):
         jsonl_file = tmp_path / "test.jsonl"
         jsonl_file.write_text('{"id": 1}\n{"id": 2}\n', encoding="utf-8")
-        df = load_file_data_with_settings(str(jsonl_file))
+        df = load_file_data(str(jsonl_file))
         assert len(df) == 2
 
     def test_excel_format(self, tmp_path):
         excel_file = tmp_path / "test.xlsx"
         pd.DataFrame({"a": [1]}).to_excel(str(excel_file), index=False)
-        df = load_file_data_with_settings(str(excel_file))
+        df = load_file_data(str(excel_file))
         assert len(df) == 1
 
     def test_csv_no_header(self, tmp_path):
         csv_file = tmp_path / "test.csv"
         csv_file.write_text("1,alice\n2,bob\n", encoding="utf-8")
-        df = load_file_data_with_settings(str(csv_file), header_row=-1)
+        df = load_file_data(str(csv_file), header_row=-1)
         assert len(df) == 2
 
 

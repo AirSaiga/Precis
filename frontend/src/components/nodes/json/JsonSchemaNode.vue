@@ -60,7 +60,7 @@
     @dragover="handlePatternDragOverFromSaving"
     @dragleave="isDragOver = false"
   >
-    <!-- 
+    <!--
       左侧目标连接点（Handle）
       用于接收来自 JsonSourcePreview 节点的数据源连接
       - type="target": 表示这是目标端，接收连接
@@ -72,6 +72,20 @@
       :position="Position.Left"
       class="target-handle"
       :title="t('customNodes.jsonSchemaNode.dragForDataSource')"
+    />
+
+    <!--
+      右侧主输出连接点（Handle）
+      用于数据流输出到 Transform、Regex 等下游节点
+      - type="source": 表示这是源端，输出连接
+      - position="Right": 位于节点右侧
+    -->
+    <Handle
+      id="schema-output"
+      type="source"
+      :position="Position.Right"
+      class="output-handle"
+      :title="t('customNodes.jsonSchemaNode.dragToTransform')"
     />
 
     <!-- 数据源连接状态徽标 -->

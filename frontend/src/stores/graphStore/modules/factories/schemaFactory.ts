@@ -20,14 +20,14 @@
  */
 
 import type { Ref } from 'vue'
-import type { CustomNode, SchemaNodeData } from '@/types/graph'
+import type { CustomNode, CustomNodeData, SchemaNodeData } from '@/types/graph'
 import type { SchemaColumn } from '@/types/nodes'
 import { createBaseNodeFactory } from './createBaseNodeFactory'
 
 export function createSchemaFactoryModule(params: {
   nodes: Ref<CustomNode[]>
   selectedNodeId: Ref<string | null>
-  updateNodeData: (nodeId: string, newData: Partial<CustomNode['data']>) => void
+  updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
 }) {
   const { nodes, selectedNodeId, updateNodeData } = params
   const createNode = createBaseNodeFactory({ nodes, selectedNodeId })

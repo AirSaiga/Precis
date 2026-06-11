@@ -251,12 +251,12 @@ export function useSchemaEditing(props: { id: string; data: SchemaNodeData }, em
   }
 
   const bindPatternToColumn = (columnId: string, patternData: Record<string, unknown>) => {
-    const updatedColumns = props.data.columns.map((col) =>
+    const updatedColumns: SchemaColumn[] = props.data.columns.map((col) =>
       col.id === columnId
         ? {
             ...col,
             dataType: 'Expression' as DataType,
-            boundPattern: patternData.patternName || patternData.name,
+            boundPattern: (patternData.patternName || patternData.name) as string,
             patternType: patternData.patternType || 'regex',
             isBound: true,
             expressionType: 'explicit' as 'none' | 'implicit' | 'explicit',

@@ -258,6 +258,29 @@ class ValidationExecutor:
                 id_to_name[tid] = target_name
         return id_to_name
 
+    def _postprocess_result(self, result: dict[str, Any]) -> None:
+        id_to_name = self._build_id_to_name_map(self.dataset_schema)
+        table_source_map = self._build_table_source_map()
+
+        for error in result["errors"]:
+            self._map_table_id(error, id_to_name)
+            self._attach_source_info(error, table_source_map)
+        for error in result["loading_errors"]:
+            self._map_table_id(error, id_to_name)
+            self._attach_source_info(error, table_source_map)
+        if "format_checks" in result["validation_details"]:
+            for item in result["validation_details"]["format_checks"]:
+                self._map_table_id(item, id_to_name)
+                self._attach_source_info(item, table_source_map)
+        if "constraint_checks" in result["validation_details"]:
+            for item in result["validation_details"]["constraint_checks"]:
+                self._map_table_id(item, id_to_name)
+                self._attach_source_info(item, table_source_map)
+
+    def _finalize_result(self, result: dict[str, Any], started: float) -> None:
+        result["duration_ms"] = int((time.monotonic() - started) * 1000)
+        result["memory_info"] = self._memory_monitor.get_progress_info()
+
     @staticmethod
     def _map_table_id(item: dict[str, Any], id_to_name: dict[str, str]):
         """
@@ -359,8 +382,7 @@ class ValidationExecutor:
                 {"error_type": "Timeout", "message": f"数据加载阶段超时（>{options.timeout_seconds}s）"}
             )
             result["timeout_occurred"] = True
-            result["duration_ms"] = int((time.monotonic() - started) * 1000)
-            result["memory_info"] = self._memory_monitor.get_progress_info()
+            self._finalize_result(result, started)
             return result
 
         # Step 4: 检查数据是否加载成功
@@ -368,8 +390,7 @@ class ValidationExecutor:
             result["errors"].append(
                 {"error_type": "DataLoadingError", "message": "未能从数据目录加载任何数据表，校验中止。"}
             )
-            result["duration_ms"] = int((time.monotonic() - started) * 1000)
-            result["memory_info"] = self._memory_monitor.get_progress_info()
+            self._finalize_result(result, started)
             return result
 
         # Step 5: 确定脚本安全执行策略
@@ -399,23 +420,7 @@ class ValidationExecutor:
         result["validation_details"] = validation_details
 
         # Step 7: 结果后处理
-        id_to_name = self._build_id_to_name_map(self.dataset_schema)
-        table_source_map = self._build_table_source_map()
-
-        for error in result["errors"]:
-            self._map_table_id(error, id_to_name)
-            self._attach_source_info(error, table_source_map)
-        for error in result["loading_errors"]:
-            self._map_table_id(error, id_to_name)
-            self._attach_source_info(error, table_source_map)
-        if "format_checks" in result["validation_details"]:
-            for item in result["validation_details"]["format_checks"]:
-                self._map_table_id(item, id_to_name)
-                self._attach_source_info(item, table_source_map)
-        if "constraint_checks" in result["validation_details"]:
-            for item in result["validation_details"]["constraint_checks"]:
-                self._map_table_id(item, id_to_name)
-                self._attach_source_info(item, table_source_map)
+        self._postprocess_result(result)
 
         # Step 8: 检查校验阶段是否超时
         if (time.monotonic() - started) > options.timeout_seconds:
@@ -424,8 +429,7 @@ class ValidationExecutor:
             )
             result["timeout_occurred"] = True
 
-        result["duration_ms"] = int((time.monotonic() - started) * 1000)
-        result["memory_info"] = self._memory_monitor.get_progress_info()
+        self._finalize_result(result, started)
         return result
 
     def _should_use_chunked_mode(self, data_directory: str, options: ValidationOptions) -> bool:
@@ -484,8 +488,7 @@ class ValidationExecutor:
         except Exception as e:
             logger.exception(f"分块加载失败: {e}")
             result["errors"].append({"error_type": "ChunkedLoadError", "message": f"分块加载失败: {e}"})
-            result["duration_ms"] = int((time.monotonic() - started) * 1000)
-            result["memory_info"] = self._memory_monitor.get_progress_info()
+            self._finalize_result(result, started)
             return result
 
         # 追加项目加载阶段的错误
@@ -497,8 +500,7 @@ class ValidationExecutor:
             result["errors"].append(
                 {"error_type": "DataLoadingError", "message": "未能从数据目录加载任何数据表，校验中止。"}
             )
-            result["duration_ms"] = int((time.monotonic() - started) * 1000)
-            result["memory_info"] = self._memory_monitor.get_progress_info()
+            self._finalize_result(result, started)
             return result
 
         # 统计总行数和分块数
@@ -521,8 +523,7 @@ class ValidationExecutor:
                 {"error_type": "Timeout", "message": f"数据加载阶段超时（>{options.timeout_seconds}s）"}
             )
             result["timeout_occurred"] = True
-            result["duration_ms"] = int((time.monotonic() - started) * 1000)
-            result["memory_info"] = self._memory_monitor.get_progress_info()
+            self._finalize_result(result, started)
             return result
 
         # 确定脚本安全策略
@@ -606,30 +607,13 @@ class ValidationExecutor:
         result["validation_details"] = all_validation_details
 
         # 结果后处理
-        id_to_name = self._build_id_to_name_map(self.dataset_schema)
-        table_source_map = self._build_table_source_map()
-
-        for error in result["errors"]:
-            self._map_table_id(error, id_to_name)
-            self._attach_source_info(error, table_source_map)
-        for error in result["loading_errors"]:
-            self._map_table_id(error, id_to_name)
-            self._attach_source_info(error, table_source_map)
-        if "format_checks" in result["validation_details"]:
-            for item in result["validation_details"]["format_checks"]:
-                self._map_table_id(item, id_to_name)
-                self._attach_source_info(item, table_source_map)
-        if "constraint_checks" in result["validation_details"]:
-            for item in result["validation_details"]["constraint_checks"]:
-                self._map_table_id(item, id_to_name)
-                self._attach_source_info(item, table_source_map)
+        self._postprocess_result(result)
 
         # 检查总超时
         if (time.monotonic() - started) > options.timeout_seconds:
             result["timeout_occurred"] = True
 
-        result["duration_ms"] = int((time.monotonic() - started) * 1000)
-        result["memory_info"] = self._memory_monitor.get_progress_info()
+        self._finalize_result(result, started)
         return result
 
 

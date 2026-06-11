@@ -2,7 +2,7 @@
 @fileoverview Lookup 转换运行器
 
 功能概述:
-- 根据映射表替换列值
+- 根据映射表精确替换列值
 - 支持默认值回退
 
 参数:
@@ -20,7 +20,7 @@ from .base import TransformRunner
 
 
 class LookupRunner(TransformRunner):
-    """@classdesc 查找替换转换运行器"""
+    """@classdesc 字典映射转换运行器"""
 
     def execute(
         self,

@@ -81,7 +81,22 @@
       :title="t('customNodes.schemaNode.dragForRelation')"
     />
 
-    <!-- 
+    <!--
+      右侧主输出连接点（Handle）
+      用于数据流输出到 Transform、Regex 等下游节点
+      - type="source": 表示这是源端，输出连接
+      - position="Right": 位于节点右侧
+      - class="output-handle": 自定义样式类
+    -->
+    <Handle
+      id="schema-output"
+      type="source"
+      :position="Position.Right"
+      class="output-handle"
+      :title="t('customNodes.schemaNode.dragToTransform')"
+    />
+
+    <!--
       SchemaNodeHeader 节点头部组件
       包含：
       - 表名显示/编辑区域

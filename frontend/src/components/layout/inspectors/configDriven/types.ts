@@ -144,6 +144,13 @@ export type InspectorRegexPatternField = InspectorFieldBase & {
   placeholderKey?: string
 }
 
+export type InspectorKeyValueListField = InspectorFieldBase & {
+  kind: 'keyValueList'
+  source: InspectorValueSource
+  keyPlaceholder?: string
+  valuePlaceholder?: string
+}
+
 export type InspectorWeightedSumField = InspectorFieldBase & {
   kind: 'weightedSum'
   source: InspectorValueSource
@@ -185,6 +192,7 @@ export type InspectorField =
   | InspectorDateReferenceTypeField
   | InspectorForeignKeyTargetColumnField
   | InspectorDynamicListField
+  | InspectorKeyValueListField
   | InspectorRegexPatternField
   | InspectorWeightedSumField
   | InspectorActionButtonField

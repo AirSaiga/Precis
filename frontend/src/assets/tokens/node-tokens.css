@@ -240,6 +240,7 @@
   --node-special-outline-info: 0 0 0 3px var(--ui-accent-ring);
   --node-special-outline-success: 0 0 0 3px var(--ui-success-ring);
   --node-special-outline-danger: 0 0 0 3px var(--ui-danger-ring);
+  --node-special-outline-orange: 0 0 0 3px var(--theme-orange-ring);
   --node-special-overlay: var(--ui-overlay-backdrop);
   --node-special-overlay-strong: var(--ui-overlay-backdrop-strong);
   --node-special-code-bg: linear-gradient(

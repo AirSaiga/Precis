@@ -231,3 +231,14 @@
   border: 2px solid var(--node-handle-bg) !important;
   z-index: var(--node-z-hover);
 }
+
+.output-handle {
+  right: var(--node-handle-offset-right) !important;
+  top: 44px !important;
+  width: var(--node-handle-size-md) !important;
+  height: var(--node-handle-size-md) !important;
+  border-radius: 50% !important;
+  background: var(--node-type-schema) !important;
+  border: 2px solid var(--node-handle-bg) !important;
+  z-index: var(--node-z-hover);
+}

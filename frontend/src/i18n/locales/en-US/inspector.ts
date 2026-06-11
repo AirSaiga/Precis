@@ -415,7 +415,7 @@ const inspector = {
       },
       lookup: {
         mapping: 'Mapping (JSON)',
-        mappingPh: 'e.g. {"A": "Excellent", "B": "Good", "C": "Pass"}',
+        mappingPh: 'e.g. A→Excellent, B→Good, C→Pass',
         mappingHint: 'Key is original value, value is the replacement',
         default: 'Default for unmatched',
         defaultPh: 'Value to fill when unmatched (leave empty to keep original)',

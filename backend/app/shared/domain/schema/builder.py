@@ -34,9 +34,6 @@ from app.shared.domain.data_types import (
 from app.shared.domain.expression_system import (
     ExpressionRegistry,
 )
-from app.shared.domain.expression_system import (
-    ExpressionRegistry,
-)
 
 # ============================================================================
 # 类型注册表

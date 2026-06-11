@@ -201,8 +201,6 @@ def validate_regex_with_path(request: RegexValidationRequest):
         df = load_file_data(
             source_file_path=source_file_path,
             sheet_name=request.sheet_name,
-            header_columns=request.header_columns,
-            use_custom_header=request.use_custom_header or False,
         )
 
         # 检查目标列是否存在于数据中

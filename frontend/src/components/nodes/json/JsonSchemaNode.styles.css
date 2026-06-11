@@ -49,6 +49,26 @@
   border-color: var(--node-bg) !important;
 }
 
+.output-handle {
+  right: var(--node-handle-offset-right) !important;
+  top: 44px !important;
+  width: var(--node-handle-size-md) !important;
+  height: var(--node-handle-size-md) !important;
+  background: var(--json-accent) !important;
+  border: 2px solid var(--node-bg) !important;
+  border-radius: 50% !important;
+  z-index: 100 !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  transition: none !important;
+  transform: none !important;
+}
+
+.output-handle:hover {
+  transform: none !important;
+  border-color: var(--node-bg) !important;
+}
+
 .source-status-badge {
   position: absolute;
   left: 8px;

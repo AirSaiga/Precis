@@ -50,9 +50,9 @@ export function useSchemaSaving(
       updateNodeData(props.id, {
         ...props.data,
         tableName: 'new_table',
-        sourceFile: null,
-        sourceFilePath: null,
-        sheetName: null,
+        sourceFile: undefined,
+        sourceFilePath: undefined,
+        sheetName: undefined,
         outputPortConnected: false,
       })
     }
