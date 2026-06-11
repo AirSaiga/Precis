@@ -49,19 +49,19 @@ from .types import ValidationResult, ValidationType
 logger = logging.getLogger(__name__)
 
 from app.shared.domain.constraints.allowed_values import AllowedValuesConstraint
+from app.shared.domain.constraints.charset import CharsetConstraint
+from app.shared.domain.constraints.conditional import ConditionalConstraint
+from app.shared.domain.constraints.foreign_key import ForeignKeyConstraints
 from app.shared.domain.constraints.not_null import NotNullConstraint
 from app.shared.domain.constraints.range import RangeConstraint
+from app.shared.domain.constraints.regex import RegexConstraint
+from app.shared.domain.constraints.scripted import ScriptedConstraint
 from app.shared.domain.constraints.unique import UniqueConstraint
 
-from .validators.adapter import ConstraintAdapter
+from .validators.adapter import ConstraintAdapter, PreCheck
 from .validators.base import BaseValidator
-from .validators.charset import CharsetValidator
 from .validators.composite import CompositeValidator
-from .validators.conditional import ConditionalValidator
 from .validators.date_logic import DateLogicValidator
-from .validators.foreign_key import ForeignKeyValidator
-from .validators.regex import RegexValidator
-from .validators.scripted import ScriptedValidator
 
 
 class UnifiedValidationService:
@@ -201,22 +201,13 @@ class UnifiedValidationService:
 # 【副作用】模块导入时自动执行，完成后服务即可用
 #
 # 注册策略:
-# - 独立类: 有额外服务层逻辑的校验器（预检、自定义数据集等）
-# - ConstraintAdapter: 纯委托型校验器，通过适配器消除模板代码
-
-# 独立类注册（有额外服务层逻辑）
-UnifiedValidationService.register_validator(ValidationType.REGEX, RegexValidator())
-UnifiedValidationService.register_validator(ValidationType.FOREIGN_KEY, ForeignKeyValidator())
-UnifiedValidationService.register_validator(ValidationType.CONDITIONAL, ConditionalValidator())
-UnifiedValidationService.register_validator(ValidationType.SCRIPTED, ScriptedValidator())
-UnifiedValidationService.register_validator(ValidationType.CHARSET, CharsetValidator())
-UnifiedValidationService.register_validator(ValidationType.DATE_LOGIC, DateLogicValidator())
-
-# ConstraintAdapter 注册（纯委托型，消除独立 Validator 文件）
+# - ConstraintAdapter: 通过适配器配置消除独立 Validator 文件
+#   支持预检、参数映射、自定义 datasets 和错误格式化
+# - DateLogicValidator: 保留独立实现（日期预扫描逻辑过于特殊）
+# - CompositeValidator: 元验证器，递归调用 UnifiedValidationService.validate
 
 
 def _not_null_formatter(err: dict) -> dict:
-    """非空校验专用错误格式化：cell_value 强制为 None（空值不应展示原始内容）"""
     return {
         "row_index": err.get("row_index"),
         "cell_value": None,
@@ -224,19 +215,112 @@ def _not_null_formatter(err: dict) -> dict:
     }
 
 
+def _conditional_kwargs_builder(column: str, kwargs: dict) -> dict:
+    if_conditions = kwargs.get("if_conditions") or []
+    then_condition = kwargs.get("then_condition") or kwargs.get("then_condition_config")
+    if if_conditions:
+        return {
+            "table": "temp",
+            "if_conditions": if_conditions,
+            "if_logic": kwargs.get("if_logic", "and"),
+            "then_column": column,
+            "then_condition": then_condition,
+        }
+    return {
+        "table": "temp",
+        "if_column": kwargs.get("if_column", ""),
+        "if_value": kwargs.get("if_value"),
+        "then_column": column,
+        "then_condition": then_condition,
+    }
+
+
+def _conditional_pre_check(df, column, kwargs):
+    then_condition = kwargs.get("then_condition") or kwargs.get("then_condition_config")
+    if not then_condition:
+        return "条件校验配置不完整"
+    if_conditions = kwargs.get("if_conditions") or []
+    if not if_conditions and not kwargs.get("if_column"):
+        return "条件校验配置不完整"
+    return None
+
+
+def _conditional_error_formatter(err):
+    return {
+        "row_index": err.get("row_index"),
+        "cell_value": err.get("value"),
+        "error_message": err.get("message"),
+    }
+
+
+def _fk_kwargs_builder(column: str, kwargs: dict) -> dict:
+    return {
+        "from_table": "temp",
+        "from_column": column,
+        "to_table": "target",
+        "to_column": kwargs.get("target_column"),
+    }
+
+
+def _fk_datasets_builder(df, column, kwargs):
+    target_column = kwargs.get("target_column")
+    target_df = pd.DataFrame({target_column: kwargs.get("target_values", [])})
+    return {"temp": df, "target": target_df}
+
+
+def _fk_pre_check(df, column, kwargs):
+    if not kwargs.get("target_table") or not kwargs.get("target_column"):
+        return "外键校验缺少目标表或目标列配置"
+    if column not in df.columns:
+        return f"列 '{column}' 不存在"
+    return None
+
+
+def _scripted_kwargs_builder(column: str, kwargs: dict) -> dict:
+    return {
+        "table": "temp",
+        "name": kwargs.get("script_name", "custom_script"),
+        "expression": kwargs.get("script", ""),
+        "column": column,
+    }
+
+
+def _scripted_error_formatter(err):
+    row_index = err.get("row_index")
+    if row_index is None:
+        row_index = 0
+    try:
+        row_index = int(row_index)
+    except (TypeError, ValueError):
+        row_index = 0
+    return {
+        "row_index": row_index,
+        "cell_value": str(err.get("value", "")),
+        "error_message": err.get("message", ""),
+    }
+
+
+# --- ConstraintAdapter 注册 ---
+
 UnifiedValidationService.register_validator(
-    ValidationType.UNIQUE, ConstraintAdapter(UniqueConstraint, column_param="column")
+    ValidationType.UNIQUE,
+    ConstraintAdapter(UniqueConstraint, column_param="column"),
 )
+
 UnifiedValidationService.register_validator(
     ValidationType.NOT_NULL,
     ConstraintAdapter(NotNullConstraint, column_param="column", error_formatter=_not_null_formatter),
 )
+
 UnifiedValidationService.register_validator(
     ValidationType.ALLOWED_VALUES,
     ConstraintAdapter(
-        AllowedValuesConstraint, column_param="column", kwargs_mapping={"allowed_values": "allowed_values"}
+        AllowedValuesConstraint,
+        column_param="column",
+        kwargs_mapping={"allowed_values": "allowed_values"},
     ),
 )
+
 UnifiedValidationService.register_validator(
     ValidationType.RANGE,
     ConstraintAdapter(
@@ -245,6 +329,70 @@ UnifiedValidationService.register_validator(
         kwargs_mapping={"min_value": "min_value", "max_value": "max_value", "boundary_mode": "boundary_mode"},
     ),
 )
+
+UnifiedValidationService.register_validator(
+    ValidationType.REGEX,
+    ConstraintAdapter(
+        RegexConstraint,
+        column_param="column",
+        kwargs_mapping={
+            "regex_pattern": "pattern",
+            "regex_flags": "flags",
+            "match_mode": "match_mode",
+            "case_sensitive": "case_sensitive",
+        },
+        pre_checks=[PreCheck.column_exists(), PreCheck.param_required("regex_pattern")],
+    ),
+)
+
+UnifiedValidationService.register_validator(
+    ValidationType.FOREIGN_KEY,
+    ConstraintAdapter(
+        ForeignKeyConstraints,
+        column_param="from_column",
+        kwargs_builder=_fk_kwargs_builder,
+        datasets_builder=_fk_datasets_builder,
+        pre_checks=[_fk_pre_check],
+    ),
+)
+
+UnifiedValidationService.register_validator(
+    ValidationType.CONDITIONAL,
+    ConstraintAdapter(
+        ConditionalConstraint,
+        column_param="then_column",
+        kwargs_builder=_conditional_kwargs_builder,
+        pre_checks=[_conditional_pre_check],
+        error_formatter=_conditional_error_formatter,
+    ),
+)
+
+UnifiedValidationService.register_validator(
+    ValidationType.SCRIPTED,
+    ConstraintAdapter(
+        ScriptedConstraint,
+        column_param="column",
+        kwargs_builder=_scripted_kwargs_builder,
+        pre_checks=[PreCheck.param_required("script")],
+        error_formatter=_scripted_error_formatter,
+        constraint_kwargs_keys=["allow_unsafe_eval"],
+    ),
+)
+
+UnifiedValidationService.register_validator(
+    ValidationType.CHARSET,
+    ConstraintAdapter(
+        CharsetConstraint,
+        column_param="column",
+        kwargs_mapping={"charset_mode": "charset_mode"},
+        pre_checks=[PreCheck.column_exists()],
+    ),
+)
+
+# --- 独立 Validator 注册 ---
+
+UnifiedValidationService.register_validator(ValidationType.DATE_LOGIC, DateLogicValidator())
+
 UnifiedValidationService.register_validator(
     ValidationType.COMPOSITE, CompositeValidator(validate_fn=UnifiedValidationService.validate)
 )

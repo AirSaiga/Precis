@@ -13,33 +13,33 @@ if _project_root not in sys.path:
 
 import pandas as pd
 
-from app.shared.services.validation.validators.foreign_key import ForeignKeyValidator
+from app.shared.services.validation.service import UnifiedValidationService
 
 
 class TestForeignKeyValidator:
     def test_pass(self):
         df = pd.DataFrame({"user_id": [1, 2, 3]})
-        v = ForeignKeyValidator()
+        v = UnifiedValidationService.get_validator("foreign_key")
         result = v.validate(df, "user_id", target_table="users", target_column="id", target_values=[1, 2, 3, 4])
         assert result.is_valid is True
 
     def test_fail(self):
         df = pd.DataFrame({"user_id": [1, 99]})
-        v = ForeignKeyValidator()
+        v = UnifiedValidationService.get_validator("foreign_key")
         result = v.validate(df, "user_id", target_table="users", target_column="id", target_values=[1, 2, 3])
         assert result.is_valid is False
         assert result.error_count == 1
 
     def test_missing_target_config(self):
         df = pd.DataFrame({"user_id": [1]})
-        v = ForeignKeyValidator()
+        v = UnifiedValidationService.get_validator("foreign_key")
         result = v.validate(df, "user_id")
         assert result.is_valid is False
         assert "缺少目标表" in result.error_rows[0]["error_message"]
 
     def test_column_not_found(self):
         df = pd.DataFrame({"a": [1]})
-        v = ForeignKeyValidator()
+        v = UnifiedValidationService.get_validator("foreign_key")
         result = v.validate(df, "missing", target_table="users", target_column="id", target_values=[1])
         assert result.is_valid is False
         assert "不存在" in result.error_rows[0]["error_message"]

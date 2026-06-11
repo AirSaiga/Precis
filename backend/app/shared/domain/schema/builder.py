@@ -1,25 +1,15 @@
 """
-@fileoverview 数据 Schema 模型模块
+@fileoverview 数据 Schema 类型构建器
 
 功能概述:
-- 定义数据集的结构（表、字段、约束）
-- 提供从配置文件构建 Schema 实例的工厂函数
-- 管理类型注册表（TYPE_REGISTRY）和约束注册表（CONSTRAINT_REGISTRY）
+- 提供从配置文件构建数据类型实例的工厂函数
+- 管理类型注册表（TYPE_REGISTRY）
 
 架构设计:
 - 类型注册表: 将配置中的类型名称映射到 Python 类型对象
-- 约束注册表: 将配置中的约束名称映射到约束类
 - 工厂函数: build_type_from_config 根据配置递归构建 DataType 实例
 
-输入示例:
-    from app.shared.domain.dataset_schema import DataSetSchema, TableSchema, ColumnSchema
-
-    col1 = ColumnSchema(name="user_id", data_type=IntegerType(), is_primary_key=True)
-    table = TableSchema(name="users", columns=[col1, col2], source_file="data/users.xlsx")
-    schema = DataSetSchema(tables={"users": table}, constraints=[])
-
-输出示例:
-    schema: 完整的数据集 Schema 对象，可用于驱动 process_dataframe 和约束校验
+约束注册表已迁移至 app.shared.core.project.constraint.registry
 """
 
 from typing import Any
@@ -44,11 +34,8 @@ from app.shared.domain.data_types import (
 from app.shared.domain.expression_system import (
     ExpressionRegistry,
 )
-from app.shared.domain.validation_constraints import (
-    AllowedValuesConstraint,
-    ForeignKeyConstraints,
-    NotNullConstraint,
-    UniqueConstraint,
+from app.shared.domain.expression_system import (
+    ExpressionRegistry,
 )
 
 # ============================================================================
@@ -86,22 +73,6 @@ TYPE_REGISTRY: dict[str, Any] = {
     "json_array": JsonArrayType(),
     "JsonNull": JsonNullType(),
     "json_null": JsonNullType(),
-}
-
-
-# ============================================================================
-# 约束注册表
-# ============================================================================
-# 将配置中的约束名称映射到约束类
-# 使用示例：
-#   "Unique" -> UniqueConstraint 类
-#   "ForeignKey" -> ForeignKeyConstraints 类
-
-CONSTRAINT_REGISTRY: dict[str, Any] = {
-    "Unique": UniqueConstraint,
-    "ForeignKey": ForeignKeyConstraints,
-    "NotNull": NotNullConstraint,
-    "AllowedValues": AllowedValuesConstraint,
 }
 
 

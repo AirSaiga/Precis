@@ -1,7 +1,7 @@
 """
-RangeValidator (validator wrapper) 单元测试
+RangeValidator (ConstraintAdapter 包装) 单元测试
 
-测试 validators/range.py 中 RangeValidator 类的 validate 方法，
+测试通过 UnifiedValidationService 注册的 Range ConstraintAdapter，
 覆盖 boundary_mode 参数、min/max 参数传递以及错误格式化。
 """
 
@@ -14,14 +14,13 @@ if project_root not in sys.path:
 
 import pandas as pd
 
-from app.shared.services.validation.validators.range import RangeValidator
+from app.shared.services.validation.service import UnifiedValidationService
 
 
 class TestRangeValidator:
-    """RangeValidator（服务层包装器）单元测试"""
 
     def setup_method(self):
-        self.validator = RangeValidator()
+        self.validator = UnifiedValidationService.get_validator("range")
 
     def test_inclusive_pass(self):
         df = pd.DataFrame({"age": [10, 50, 100]})

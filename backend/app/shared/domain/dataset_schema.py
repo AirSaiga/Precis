@@ -12,18 +12,11 @@
 - 本模块仅做 re-export，无独立业务逻辑
 - 保持向后兼容，避免导入路径变更
 
-输入示例:
-    from app.shared.domain.dataset_schema import DataSetSchema, TableSchema, ColumnSchema
-    from app.shared.domain.dataset_schema import build_type_from_config, TYPE_REGISTRY
-
-输出示例:
-    # 可直接使用 ColumnSchema、TableSchema、DataSetSchema 等核心类型
-    # 以及 build_type_from_config 工厂函数和 TYPE_REGISTRY 注册表
+注意: CONSTRAINT_REGISTRY 已迁移至 app.shared.core.project.constraint.registry
 """
 
 # 1. 项目内部导入
 from .schema.builder import (
-    CONSTRAINT_REGISTRY,
     TYPE_REGISTRY,
     build_type_from_config,
 )
@@ -35,5 +28,4 @@ __all__ = [
     "DataSetSchema",
     "build_type_from_config",
     "TYPE_REGISTRY",
-    "CONSTRAINT_REGISTRY",
 ]

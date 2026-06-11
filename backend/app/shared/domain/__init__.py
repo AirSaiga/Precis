@@ -34,7 +34,6 @@ from app.shared.domain.data_types import (
     StringType,
 )
 from app.shared.domain.dataset_schema import (
-    CONSTRAINT_REGISTRY,
     TYPE_REGISTRY,
     ColumnSchema,
     DataSetSchema,
@@ -68,7 +67,6 @@ __all__ = [
     "TableSchema",
     "ColumnSchema",
     "build_type_from_config",
-    "CONSTRAINT_REGISTRY",
     "TYPE_REGISTRY",
     "DataType",
     "IntegerType",

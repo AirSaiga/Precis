@@ -4,7 +4,6 @@ import pytest
 from app.shared.domain.schema.builder import (
     build_type_from_config,
     TYPE_REGISTRY,
-    CONSTRAINT_REGISTRY,
 )
 from app.shared.domain.data_types import (
     IntegerType,
@@ -167,8 +166,3 @@ class TestTypeRegistryCoverage:
                           "json_object", "json_array", "json_null"]
         for key in lowercase_keys:
             assert key in TYPE_REGISTRY, f"Missing lowercase key: {key}"
-
-    def test_constraint_registry_has_all_keys(self):
-        expected = ["Unique", "ForeignKey", "NotNull", "AllowedValues"]
-        for key in expected:
-            assert key in CONSTRAINT_REGISTRY, f"Missing constraint key: {key}"

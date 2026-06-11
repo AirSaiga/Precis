@@ -41,13 +41,7 @@ from app.shared.domain.data_types import (
     SequenceType,
     StringType,
 )
-from app.shared.domain.validation_constraints import (
-    AllowedValuesConstraint,
-    Constraint,
-    ForeignKeyConstraints,
-    NotNullConstraint,
-    UniqueConstraint,
-)
+from app.shared.domain.constraints.base import Constraint
 
 # ============================================================================
 # 类型注册表
@@ -84,22 +78,6 @@ TYPE_REGISTRY: dict[str, Any] = {
     "json_array": JsonArrayType(),
     "JsonNull": JsonNullType(),
     "json_null": JsonNullType(),
-}
-
-
-# ============================================================================
-# 约束注册表
-# ============================================================================
-# 将配置中的约束名称映射到约束类
-# 使用示例：
-#   "Unique" -> UniqueConstraint 类
-#   "ForeignKey" -> ForeignKeyConstraints 类
-
-CONSTRAINT_REGISTRY: dict[str, Any] = {
-    "Unique": UniqueConstraint,
-    "ForeignKey": ForeignKeyConstraints,
-    "NotNull": NotNullConstraint,
-    "AllowedValues": AllowedValuesConstraint,
 }
 
 

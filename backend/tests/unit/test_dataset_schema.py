@@ -15,14 +15,12 @@ import pytest
 
 from app.shared.domain.data_types import IntegerType, SequenceType, StringType
 from app.shared.domain.dataset_schema import (
-    CONSTRAINT_REGISTRY,
     TYPE_REGISTRY,
     ColumnSchema,
     DataSetSchema,
     TableSchema,
     build_type_from_config,
 )
-from app.shared.domain.validation_constraints import NotNullConstraint, UniqueConstraint
 
 
 class TestTypeRegistry:
@@ -33,16 +31,6 @@ class TestTypeRegistry:
     def test_contains_string(self):
         assert "string" in TYPE_REGISTRY
         assert isinstance(TYPE_REGISTRY["string"], StringType)
-
-
-class TestConstraintRegistry:
-    def test_contains_unique(self):
-        assert "Unique" in CONSTRAINT_REGISTRY
-        assert CONSTRAINT_REGISTRY["Unique"] is UniqueConstraint
-
-    def test_contains_not_null(self):
-        assert "NotNull" in CONSTRAINT_REGISTRY
-        assert CONSTRAINT_REGISTRY["NotNull"] is NotNullConstraint
 
 
 class TestBuildTypeFromConfig:

@@ -45,52 +45,52 @@ class TestValidators:
     """覆盖 allowed_values / not_null / unique 的 validate() 方法体。"""
 
     def test_allowed_values_validator_calls_validate(self):
-        from app.shared.services.validation.validators.allowed_values import AllowedValuesValidator
+        from app.shared.services.validation.service import UnifiedValidationService
 
         df = pd.DataFrame({"col": ["a", "b", "c", "a"]})
-        validator = AllowedValuesValidator()
+        validator = UnifiedValidationService.get_validator("allowed_values")
         result = validator.validate(df, "col", allowed_values=["a", "b"])
         assert isinstance(result.is_valid, bool)
 
     def test_allowed_values_validator_rejects_invalid(self):
-        from app.shared.services.validation.validators.allowed_values import AllowedValuesValidator
+        from app.shared.services.validation.service import UnifiedValidationService
 
         df = pd.DataFrame({"col": ["x", "y", "z"]})
-        validator = AllowedValuesValidator()
+        validator = UnifiedValidationService.get_validator("allowed_values")
         result = validator.validate(df, "col", allowed_values=["a", "b"])
         assert result.is_valid is False
         assert result.error_count > 0
 
     def test_not_null_validator_calls_validate(self):
-        from app.shared.services.validation.validators.not_null import NotNullValidator
+        from app.shared.services.validation.service import UnifiedValidationService
 
         df = pd.DataFrame({"col": ["a", None, "c"]})
-        validator = NotNullValidator()
+        validator = UnifiedValidationService.get_validator("not_null")
         result = validator.validate(df, "col")
         assert not result.is_valid
         assert result.error_count > 0
 
     def test_not_null_validator_all_valid(self):
-        from app.shared.services.validation.validators.not_null import NotNullValidator
+        from app.shared.services.validation.service import UnifiedValidationService
 
         df = pd.DataFrame({"col": ["a", "b", "c"]})
-        validator = NotNullValidator()
+        validator = UnifiedValidationService.get_validator("not_null")
         result = validator.validate(df, "col")
         assert result.is_valid
 
     def test_unique_validator_calls_validate(self):
-        from app.shared.services.validation.validators.unique import UniqueValidator
+        from app.shared.services.validation.service import UnifiedValidationService
 
         df = pd.DataFrame({"col": ["a", "b", "a"]})
-        validator = UniqueValidator()
+        validator = UnifiedValidationService.get_validator("unique")
         result = validator.validate(df, "col")
         assert not result.is_valid
 
     def test_unique_validator_all_unique(self):
-        from app.shared.services.validation.validators.unique import UniqueValidator
+        from app.shared.services.validation.service import UnifiedValidationService
 
         df = pd.DataFrame({"col": ["a", "b", "c"]})
-        validator = UniqueValidator()
+        validator = UnifiedValidationService.get_validator("unique")
         result = validator.validate(df, "col")
         assert result.is_valid
 
