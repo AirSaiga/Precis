@@ -23,7 +23,7 @@ const aiChat = {
 }
 
 const aiConfigGenerator = {
-  title: 'AI Config Generator',
+  title: 'AI Initialize Config',
   noFiles: 'No files/folders selected',
   selectedCount: '{count} paths selected',
   progressTitle: 'Progress',
@@ -43,12 +43,12 @@ const aiConfigGenerator = {
     selectAll: 'Select all',
     selectNone: 'Select none',
     generate: 'Generate Preview',
-    startGeneration: 'Start Generation',
+    startGeneration: 'Start Initialization',
     generating: 'Generating…',
     cancel: 'Cancel',
     canceling: 'Canceling…',
-    apply: 'Apply to Project',
-    applying: 'Applying…',
+    apply: 'Overwrite Config',
+    applying: 'Overwriting…',
     close: 'Close',
   },
   preview: {
@@ -154,7 +154,7 @@ const aiConfigGenerator = {
     generationComplete: 'Generation Complete',
     warningsTitle: '⚠️ Warnings',
     hardwareTitle: '🖥️ Hardware',
-    successHint: '✅ Generation succeeded. Click “Apply to Project” to save changes.',
+    successHint: '✅ Generation complete. Click "Overwrite Config" to reset project config.',
     stats: {
       schemas: 'Schemas',
       constraints: 'Constraints',
@@ -168,6 +168,8 @@ const aiConfigGenerator = {
     folderTitle: 'Select data folder',
     confirm: 'Select',
   },
+  overwriteConfirm:
+    'This will overwrite the existing config:\n{schemas} schemas, {constraints} constraints, {regex} regex nodes will be reset.\n\nThis action cannot be undone. Continue?',
   errors: {
     modelNotInstalled: 'Model not found locally, please install in Ollama first',
     modelNotConfigured: 'Please configure API Key for AI model first',
@@ -180,8 +182,8 @@ const aiConfigGenerator = {
     generated: 'Preview generated',
     generateFailed: 'Generate failed',
     canceled: 'Generation canceled',
-    applied: 'Applied to project',
-    applyFailed: 'Apply failed',
+    applied: 'Config overwritten',
+    applyFailed: 'Overwrite failed',
     noChanges: 'No changes detected',
   },
   conflict: {

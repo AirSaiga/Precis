@@ -202,7 +202,7 @@ const customNodes = {
     actions: {
       fullValidation: '全量校验',
       export: '导出完整配置',
-      aiGenerate: 'AI 生成配置',
+      aiGenerate: 'AI 初始化配置',
       reload: '重载项目',
       projectManagement: '项目管理',
       closeProject: '关闭项目',
@@ -218,8 +218,6 @@ const customNodes = {
       closeProject: '确定要关闭当前项目吗？',
     },
     errors: '错误',
-    exportSuccess: '已导出完整配置',
-    exportFailed: '导出失败',
   },
   projectConsoleNode: {
     metrics: {
@@ -230,12 +228,9 @@ const customNodes = {
     },
     actions: {
       fullValidation: '全量校验',
-      export: '导出完整配置',
-      aiGenerate: 'AI 生成配置',
+      aiGenerate: 'AI 初始化配置',
       reload: '重载项目',
     },
-    exportSuccess: '已导出完整配置',
-    exportFailed: '导出失败',
   },
   schemaSetRootNode: {
     contains: '包含',

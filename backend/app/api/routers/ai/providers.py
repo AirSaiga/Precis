@@ -6,11 +6,14 @@
 - 扫描本地 AI 服务（Ollama、OpenAI 兼容服务）
 - 测试 Provider 连接并获取可用模型列表
 - 设置默认活动 Provider
+- CRUD：创建、更新、删除 Provider
+- 预设：获取内置服务商预设列表
 
 架构设计:
 - 与 CLI 共用同一套 ai_providers.yaml 配置文件
 - 使用 Provider 注册表创建对应类型的 Provider 实例
 - 发现的服务可直接添加到配置文件并持久化
+- 预设模板定义在 config/presets.py，方便扩展
 
 输入示例:
     POST /ai/providers/discover
@@ -29,6 +32,8 @@
     }
 """
 
+from __future__ import annotations
+
 import logging
 from typing import Optional
 
@@ -36,12 +41,16 @@ from fastapi import HTTPException
 
 from ....shared.services.llm.config import loader
 from ....shared.services.llm.config.models import AIProvider, ProviderType
+from ....shared.services.llm.config.presets import get_preset_list
 from ....shared.services.llm.discovery import scanner
 from ....shared.services.llm.providers import create
 from .models import (
+    CreateProviderRequest,
     DiscoverResponse,
+    ProviderPresetResponse,
     ProviderResponse,
     TestProviderResponse,
+    UpdateProviderRequest,
 )
 
 # 从 router 模块导入 router 实例（与旧代码保持一致）
@@ -336,3 +345,143 @@ async def activate_provider(provider_id: str):
     loader.save(config)
 
     return _provider_to_response(provider_cfg, {})
+
+
+# =============================================================================
+# 预设
+# =============================================================================
+
+
+@router.get(
+    "/providers/presets",
+    response_model=list[ProviderPresetResponse],
+    summary="获取内置服务商预设列表",
+)
+async def list_presets():
+    """
+    获取内置服务商预设列表
+
+    返回后端预定义的服务商模板，包含 base_url、默认模型、可用模型列表。
+    前端可据此构建「选择服务商 → 填 API Key」的交互流程。
+    """
+    return get_preset_list()
+
+
+# =============================================================================
+# CRUD：创建 / 更新 / 删除
+# =============================================================================
+
+
+@router.post(
+    "/providers",
+    response_model=ProviderResponse,
+    summary="创建 Provider",
+    responses={
+        409: {"description": "Provider ID 已存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
+async def create_provider(req: CreateProviderRequest):
+    """
+    创建一个新的 Provider 并写入配置文件。
+
+    自动生成唯一 ID（基于预设 ID + 短随机后缀），或使用请求中的 name 生成。
+    """
+    config = loader.load()
+
+    # 生成唯一 ID：预设ID + 递增后缀
+    base_id = req.name.lower().replace(" ", "-").replace("_", "-")
+    new_id = base_id
+    counter = 1
+    while any(p.id == new_id for p in config.providers):
+        new_id = f"{base_id}-{counter}"
+        counter += 1
+
+    # 校验 type 合法性
+    try:
+        provider_type = ProviderType(req.type)
+    except ValueError:
+        raise HTTPException(400, detail=f"Unsupported provider type: {req.type}. Supported: openai, ollama")
+
+    new_provider = AIProvider(
+        id=new_id,
+        name=req.name,
+        type=provider_type,
+        base_url=req.base_url,
+        api_key=req.api_key,
+        model=req.model,
+    )
+
+    config.providers.append(new_provider)
+    loader.save(config)
+
+    return _provider_to_response(new_provider, {})
+
+
+@router.put(
+    "/providers/{provider_id}",
+    response_model=ProviderResponse,
+    summary="更新 Provider",
+    responses={
+        404: {"description": "Provider 未找到"},
+        500: {"description": "服务器内部错误"},
+    },
+)
+async def update_provider(provider_id: str, req: UpdateProviderRequest):
+    """
+    更新已有 Provider 的配置。
+
+    仅更新请求中传递的非 None 字段。
+    """
+    config = loader.load()
+
+    idx = next((i for i, p in enumerate(config.providers) if p.id == provider_id), None)
+    if idx is None:
+        raise HTTPException(404, detail=f"Provider not found: {provider_id}")
+
+    existing = config.providers[idx]
+
+    # 合并更新
+    update_data = req.model_dump(exclude_none=True)
+    if "type" in update_data:
+        try:
+            update_data["type"] = ProviderType(update_data["type"])
+        except ValueError:
+            raise HTTPException(400, detail=f"Unsupported provider type: {update_data['type']}")
+
+    updated_provider = existing.model_copy(update=update_data)
+    config.providers[idx] = updated_provider
+    loader.save(config)
+
+    return _provider_to_response(updated_provider, {})
+
+
+@router.delete(
+    "/providers/{provider_id}",
+    summary="删除 Provider",
+    responses={
+        404: {"description": "Provider 未找到"},
+        500: {"description": "服务器内部错误"},
+    },
+)
+async def delete_provider(provider_id: str):
+    """
+    删除指定的 Provider。
+
+    如果删除的是当前活跃 Provider，自动清除 defaults.chat。
+    """
+    config = loader.load()
+
+    idx = next((i for i, p in enumerate(config.providers) if p.id == provider_id), None)
+    if idx is None:
+        raise HTTPException(404, detail=f"Provider not found: {provider_id}")
+
+    config.providers.pop(idx)
+
+    # 清除活跃引用
+    if config.defaults.get("chat") == provider_id:
+        config.defaults["chat"] = ""
+
+    loader.save(config)
+
+    return {"success": True, "deleted": provider_id}

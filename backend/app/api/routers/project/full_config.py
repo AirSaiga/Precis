@@ -18,7 +18,6 @@
 
 输出示例:
     dict: 包含 manifest、effective_manifest、schemas、constraints、regex_nodes 等
-    PlainTextResponse: YAML 格式的全量配置文本
     ConfigDiffResult: 配置差异详情
 """
 
@@ -28,7 +27,6 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends
-from fastapi.responses import PlainTextResponse
 
 from app.api.dependencies import get_project_config_path
 from app.shared.core.io.yaml import read_yaml
@@ -257,39 +255,6 @@ def get_v2_full_config(
         }
 
     return result
-
-
-@router.get(
-    "/v2/config/full/yaml",
-    response_class=PlainTextResponse,
-    summary="导出 V2 全量配置为 YAML",
-    responses={
-        404: {"description": "Manifest 不存在"},
-        500: {"description": "服务器内部错误"},
-    },
-)
-def get_v2_full_config_yaml(config_path: str = Depends(get_project_config_path)):
-    """
-    导出 V2 全量配置为 YAML 文本。
-
-    使用场景：
-    - 用户导出项目为 YAML 文件进行版本控制
-    - 项目配置备份
-
-    副作用：
-    - 调用 get_v2_full_config 获取数据后转换为 YAML
-
-    参数:
-        config_path: 项目配置根目录（通过 Depends 注入）
-
-    返回:
-        PlainTextResponse: YAML 格式的项目配置
-    """
-    import yaml
-
-    data = get_v2_full_config(config_path)
-    text = yaml.safe_dump(data, sort_keys=False, allow_unicode=True)
-    return PlainTextResponse(text, media_type="text/yaml; charset=utf-8")
 
 
 @router.put(

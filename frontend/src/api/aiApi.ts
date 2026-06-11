@@ -18,6 +18,9 @@ import type {
   AiModelModes,
   CloudAIProviderResponse,
   CloudAIProviderTestResponse,
+  CreateProviderRequest,
+  ProviderPreset,
+  UpdateProviderRequest,
 } from '@/types/ai'
 
 /**
@@ -223,4 +226,41 @@ export async function activateCloudAIProvider(providerId: string): Promise<Cloud
     `/ai/providers/${encodeURIComponent(providerId)}/activate`
   )
   return data
+}
+
+/**
+ * 获取内置服务商预设列表
+ */
+export async function getProviderPresets(): Promise<ProviderPreset[]> {
+  const { data } = await apiClient.get<ProviderPreset[]>('/ai/providers/presets')
+  return data
+}
+
+/**
+ * 创建新的 AI Provider
+ */
+export async function createCloudAIProvider(req: CreateProviderRequest): Promise<CloudAIProviderResponse> {
+  const { data } = await apiClient.post<CloudAIProviderResponse>('/ai/providers', req)
+  return data
+}
+
+/**
+ * 更新已有 AI Provider
+ */
+export async function updateCloudAIProvider(
+  providerId: string,
+  req: UpdateProviderRequest
+): Promise<CloudAIProviderResponse> {
+  const { data } = await apiClient.put<CloudAIProviderResponse>(
+    `/ai/providers/${encodeURIComponent(providerId)}`,
+    req
+  )
+  return data
+}
+
+/**
+ * 删除 AI Provider
+ */
+export async function deleteCloudAIProvider(providerId: string): Promise<void> {
+  await apiClient.delete(`/ai/providers/${encodeURIComponent(providerId)}`)
 }

@@ -26,6 +26,7 @@
 """
 
 import asyncio
+import threading
 import uuid
 from datetime import datetime, timezone
 
@@ -46,7 +47,7 @@ from .router import router
 # 内存中的任务存储（生产环境应使用 Redis/数据库）
 _jobs: dict[str, ConfigGenerateJobStatus] = {}
 _job_tasks: dict[str, asyncio.Task] = {}
-_jobs_lock = asyncio.Lock()
+_jobs_lock = threading.Lock()
 _MAX_JOBS = 100  # 最大保留任务数，超出时淘汰最早完成的任务
 
 
@@ -94,7 +95,7 @@ async def create_generate_job(
     now = datetime.now(timezone.utc).isoformat()
 
     # 清理旧任务
-    async with _jobs_lock:
+    with _jobs_lock:
         _cleanup_old_jobs()
 
         # 创建任务记录
@@ -111,7 +112,7 @@ async def create_generate_job(
 
 async def _run_job(job_id: str, payload: ConfigGenerateRequest, config_path: str):
     """后台执行任务"""
-    async with _jobs_lock:
+    with _jobs_lock:
         job = _jobs.get(job_id)
         if not job:
             return
@@ -170,7 +171,7 @@ async def _run_job(job_id: str, payload: ConfigGenerateRequest, config_path: str
         # 任务完成
         from .models import ConfigGenerateResponse
 
-        async with _jobs_lock:
+        with _jobs_lock:
             job.status = "completed"
             job.stage = "completed"
             job.progress = 100.0
@@ -187,22 +188,22 @@ async def _run_job(job_id: str, payload: ConfigGenerateRequest, config_path: str
             job.warnings = result.get("warnings", [])
 
     except CancelledError:
-        async with _jobs_lock:
+        with _jobs_lock:
             job.status = "cancelled"
             job.stage = "cancelled"
             job.error = "任务已取消"
     except GenerationParseError as e:
-        async with _jobs_lock:
+        with _jobs_lock:
             job.status = "failed"
             job.stage = "error"
             job.error = f"配置解析失败: {e}"
     except Exception as e:
-        async with _jobs_lock:
+        with _jobs_lock:
             job.status = "failed"
             job.stage = "error"
             job.error = str(e)
 
-    async with _jobs_lock:
+    with _jobs_lock:
         job.updated_at = datetime.now(timezone.utc).isoformat()
         _job_tasks.pop(job_id, None)
 
@@ -217,7 +218,7 @@ async def _run_job(job_id: str, payload: ConfigGenerateRequest, config_path: str
 )
 async def get_generate_job(job_id: str) -> ConfigGenerateJobStatus:
     """获取任务状态"""
-    async with _jobs_lock:
+    with _jobs_lock:
         job = _jobs.get(job_id)
         if not job:
             raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
@@ -234,7 +235,7 @@ async def get_generate_job(job_id: str) -> ConfigGenerateJobStatus:
 )
 async def cancel_generate_job(job_id: str) -> ConfigGenerateJobStatus:
     """取消任务"""
-    async with _jobs_lock:
+    with _jobs_lock:
         job = _jobs.get(job_id)
         if not job:
             raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")

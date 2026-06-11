@@ -23,7 +23,7 @@ const aiChat = {
 }
 
 const aiConfigGenerator = {
-  title: 'AI 自动生成配置',
+  title: 'AI 初始化配置',
   noFiles: '尚未选择数据文件/文件夹',
   selectedCount: '已选择 {count} 个路径',
   progressTitle: '生成进度',
@@ -43,12 +43,12 @@ const aiConfigGenerator = {
     selectAll: '全选',
     selectNone: '全不选',
     generate: '生成预览',
-    startGeneration: '开始生成配置',
+    startGeneration: '开始初始化',
     generating: '生成中…',
     cancel: '中断生成',
     canceling: '中断中…',
-    apply: '应用到项目',
-    applying: '应用中…',
+    apply: '覆盖现有配置',
+    applying: '覆盖中…',
     close: '关闭',
   },
   preview: {
@@ -151,7 +151,7 @@ const aiConfigGenerator = {
     generationComplete: '生成完成',
     warningsTitle: '⚠️ 注意事项',
     hardwareTitle: '🖥️ 硬件提示',
-    successHint: '✅ 配置生成成功！您可以点击“应用到项目”以保存更改。',
+    successHint: '✅ 配置生成完成！点击"覆盖现有配置"以重置项目配置。',
     stats: {
       schemas: '数据表 (Schemas)',
       constraints: '约束规则 (Constraints)',
@@ -165,20 +165,22 @@ const aiConfigGenerator = {
     folderTitle: '选择数据文件夹',
     confirm: '确认选择',
   },
+  overwriteConfirm:
+    '即将覆盖现有配置：\n{schemas} 个数据表、{constraints} 条约束、{regex} 个正则节点将被重置。\n\n此操作不可撤销，是否继续？',
   errors: {
     modelNotInstalled: '本地未检测到该模型，请先在 Ollama 中安装',
     modelNotConfigured: '请先配置 AI 模型的 API Key',
     electronOnly: '该功能需要在 Electron 桌面端使用文件选择器。',
     missingProject: '未检测到当前项目配置路径，请先创建/打开项目。',
     noFiles: '请先选择至少一个数据文件或文件夹。',
-    closeWhileGenerating: '生成中无法关闭弹窗，请先点击“中断生成”。',
+    closeWhileGenerating: '生成中无法关闭弹窗，请先点击"中断生成"。',
   },
   toast: {
     generated: '已生成配置预览',
     generateFailed: '生成失败',
     canceled: '已中断生成',
-    applied: '已应用到项目',
-    applyFailed: '应用失败',
+    applied: '已覆盖现有配置',
+    applyFailed: '覆盖失败',
     noChanges: '未检测到配置变化',
   },
   conflict: {

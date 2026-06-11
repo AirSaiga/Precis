@@ -12,6 +12,8 @@ export type {
   AiGenerateV2ConfigJobStatusValue,
   AiGenerateV2ConfigJobStatus,
   CloudAIProviderResponse,
-  CloudAIProviderRequest,
   CloudAIProviderTestResponse,
+  CreateProviderRequest,
+  UpdateProviderRequest,
+  ProviderPreset,
 } from '@/types/ai'

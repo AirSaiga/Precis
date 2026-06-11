@@ -148,11 +148,6 @@ class TestFullConfigRouter:
         resp = client.get("/api/v1/v2/config/full", headers={"X-Project-Config-Path": proj_dir})
         assert resp.status_code in (200, 404)
 
-    def test_get_full_config_yaml(self, client, project_dir):
-        proj_dir, _ = project_dir
-        resp = client.get("/api/v1/v2/config/full/yaml", headers={"X-Project-Config-Path": proj_dir})
-        assert resp.status_code in (200, 404)
-
     def test_compare_config(self, client, project_dir):
         proj_dir, _ = project_dir
         resp = client.post(

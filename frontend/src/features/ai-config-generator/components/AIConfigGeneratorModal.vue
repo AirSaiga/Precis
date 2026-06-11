@@ -55,7 +55,7 @@
           <!-- Full-width Preview & Result -->
           <PreviewPanel
             :state="previewState"
-            @apply="applyToProject"
+            @apply="overwriteProject"
             @close="handleClose"
           />
         </div>
@@ -63,30 +63,23 @@
     </div>
   </Teleport>
 
-  <ConflictResolutionModal
-    v-if="conflictModalVisible && comparisonResult && generatedConfig?.manifest && originalManifest"
-    :visible="conflictModalVisible"
-    :comparison="comparisonResult"
-    :generated-manifest="generatedConfig.manifest"
-    :original-manifest="originalManifest"
-    @close="conflictModalVisible = false"
-    @confirm="handleConflictConfirm"
-  />
+  <!-- ConflictResolutionModal 已隐藏，作为日后高级功能保留 -->
 </template>
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
-  import { computed, watch, onUnmounted } from 'vue'
+  import { computed, ref, watch, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { storeToRefs } from 'pinia'
   import { useProjectStore } from '@/stores/projectStore'
-  import { getV2FullConfig } from '@/api/projectV2Api'
+  import { getV2FullConfig, putV2FullConfig } from '@/api/projectV2Api'
+  import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useAiConfigGeneratorStore } from '../stores/aiConfigGeneratorStore'
-  import ConflictResolutionModal from '@/components/common/ConflictResolutionModal.vue'
+  // import ConflictResolutionModal from '@/components/common/ConflictResolutionModal.vue'
 
   import { useFileSelection } from '../composables/useFileSelection'
   import { useGenerationJob } from '../composables/useGenerationJob'
-  import { useConflictApply } from '../composables/useConflictApply'
+  // import { useConflictApply } from '../composables/useConflictApply'
   import { useHardwarePrecheck } from '../composables/useHardwarePrecheck'
 
   import ConfigPanel from './config-panel/ConfigPanel.vue'
@@ -98,8 +91,11 @@
   }>()
 
   const { t } = useI18n()
+  const { showConfirm } = useGlobalConfirm()
   const projectStore = useProjectStore()
   const store = useAiConfigGeneratorStore()
+
+  const applying = ref(false)
 
   // 使用 storeToRefs 保持 ref 的响应式
   const { activeProvider, options } = storeToRefs(store)
@@ -148,16 +144,53 @@
     stopElapsed,
   } = generationJob
 
-  const conflictApply = useConflictApply(effectiveConfigPath, generatedConfig)
-  const {
-    applying,
-    conflictModalVisible,
-    comparisonResult,
-    originalManifest,
-    cachedFullConfig,
-    applyToProject,
-    handleConflictConfirm,
-  } = conflictApply
+  // 直接覆盖：生成结果 -> putV2FullConfig（不再走冲突解决模态框）
+  const overwriteProject = async () => {
+    if (!effectiveConfigPath.value || !generatedConfig.value) return
+    const cfg = generatedConfig.value
+    if (!cfg.manifest) {
+      window.$toast?.error(t('aiConfigGenerator.toast.applyFailed'), 'manifest is missing')
+      return
+    }
+    const schemaCount = Object.keys(cfg.schemas || {}).length
+    const constraintCount = Object.keys(cfg.constraints || {}).length
+    const regexCount = Object.keys(cfg.regex_nodes || {}).length
+
+    const confirmed = await showConfirm({
+      title: t('aiConfigGenerator.actions.apply'),
+      message: t('aiConfigGenerator.overwriteConfirm', {
+        schemas: schemaCount,
+        constraints: constraintCount,
+        regex: regexCount,
+      }),
+      confirmText: t('aiConfigGenerator.actions.apply'),
+      type: 'warning',
+    })
+    if (!confirmed) return
+
+    applying.value = true
+    try {
+      const payload = {
+        manifest: cfg.manifest,
+        schemas: cfg.schemas || {},
+        constraints: cfg.constraints || {},
+        regex_nodes: cfg.regex_nodes || {},
+        transforms: cfg.transforms || {},
+      }
+      await putV2FullConfig(payload, effectiveConfigPath.value)
+      window.$toast?.success(t('common.success'), t('aiConfigGenerator.toast.applied'))
+      store.close()
+      // 触发项目刷新
+      setTimeout(() => {
+        window.location.reload()
+      }, 500)
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      window.$toast?.error(t('aiConfigGenerator.toast.applyFailed'), msg)
+    } finally {
+      applying.value = false
+    }
+  }
 
   // ==================== 聚合 PreviewPanel 状态 ====================
   const previewState = computed(() => ({
@@ -196,11 +229,7 @@
     progressMessage.value = ''
     receivedChars.value = 0
     canceling.value = false
-    // 重置冲突与应用状态
-    cachedFullConfig.value = null
-    conflictModalVisible.value = false
-    comparisonResult.value = null
-    originalManifest.value = null
+    // 重置应用状态
     applying.value = false
     // 停止轮询
     stopPolling()
@@ -237,15 +266,6 @@
   const generate = async () => {
     await startGeneration(async () => {
       await runHardwarePrecheck()
-      // 缓存现有配置（供 keep_existing 时复用）
-      if (options.value.keep_existing && effectiveConfigPath.value) {
-        try {
-          cachedFullConfig.value = await getV2FullConfig(effectiveConfigPath.value)
-        } catch (e) {
-          logger.warn('Failed to load existing config, proceeding with empty base', e)
-          cachedFullConfig.value = null
-        }
-      }
     })
   }
 </script>

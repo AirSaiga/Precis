@@ -32,7 +32,6 @@ export interface AppEvents {
     targetNodeId: string
     edgeId: string
   }
-  'export-full-config-yaml': undefined
   'data-source-refreshed': { nodeId: string; fileId: string; fileName: string }
   'reload-file-uploaded': { file: File; nodeId: string; sourceName: string }
   'schemaValidationCompleted': { nodeId: string; results: unknown }

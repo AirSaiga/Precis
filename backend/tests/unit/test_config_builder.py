@@ -99,6 +99,52 @@ class TestKeepExisting:
         assert "old_c" in result["constraints"]
         assert "old_r" in result["regex_nodes"]
 
+    def test_reuses_existing_schema_id_for_same_source(self):
+        """同一 source.path 的 schema 应复用已有 ID，而非生成新 ID"""
+        existing_schema_id = "sc_existing_employees"
+        existing = {
+            "schemas": {
+                existing_schema_id: {
+                    "id": existing_schema_id,
+                    "name": "Employees",
+                    "source": {
+                        "mode": "relative_file",
+                        "path": "employees.xlsx",
+                        "header_row": 0,
+                    },
+                    "columns": [{"id": "old_col", "name": "old_col", "type": "string"}],
+                }
+            }
+        }
+        profiling = [_make_profiling("data/employees.xlsx", "employees")]
+        llm_result = {
+            "schemas": [
+                {
+                    "name": "employees",
+                    "columns": [
+                        {"id": "emp_id", "name": "emp_id", "type": "integer", "primary_key": True}
+                    ],
+                }
+            ]
+        }
+        result = build_config(
+            project_id="p",
+            project_name="P",
+            config_path=None,
+            profiling_data=profiling,
+            llm_result=llm_result,
+            options=_make_options(keep_existing=True),
+            existing_config=existing,
+        )
+        # 应只有一个 schema，且 ID 复用已有 ID
+        assert len(result["schemas"]) == 1
+        assert existing_schema_id in result["schemas"]
+        # 内容应被 AI 生成的新内容覆盖
+        schema = result["schemas"][existing_schema_id]
+        assert schema["name"] == "employees"
+        assert len(schema["columns"]) == 1
+        assert schema["columns"][0]["id"] == "emp_id"
+
 
 class TestSchemaGeneration:
     def test_generates_schema_with_source_from_profiling(self):
@@ -113,7 +159,9 @@ class TestSchemaGeneration:
             options=_make_options(),
             existing_config=None,
         )
-        schema = result["schemas"]["users"]
+        # 所有 schema ID 必须以 sc_ 开头
+        assert all(k.startswith("sc_") for k in result["schemas"])
+        schema = list(result["schemas"].values())[0]
         assert schema["version"] == 2
         assert schema["source"]["mode"] == "relative_file"
 
@@ -138,7 +186,8 @@ class TestSchemaGeneration:
             options=_make_options(),
             existing_config=None,
         )
-        source = result["schemas"]["users"]["source"]
+        schema = list(result["schemas"].values())[0]
+        source = schema["source"]
         assert "delimiter" in source.get("options", {})
 
     def test_schema_xlsx_source_options(self):
@@ -162,7 +211,8 @@ class TestSchemaGeneration:
             options=_make_options(),
             existing_config=None,
         )
-        source = result["schemas"]["users"]["source"]
+        schema = list(result["schemas"].values())[0]
+        source = schema["source"]
         assert source["options"]["engine"] == "openpyxl"
 
     def test_schema_json_source_options(self):
@@ -186,7 +236,8 @@ class TestSchemaGeneration:
             options=_make_options(),
             existing_config=None,
         )
-        source = result["schemas"]["records"]["source"]
+        schema = list(result["schemas"].values())[0]
+        source = schema["source"]
         assert source["options"]["format"] == "auto"
 
     def test_schema_with_sheet_name(self):
@@ -210,7 +261,8 @@ class TestSchemaGeneration:
             options=_make_options(),
             existing_config=None,
         )
-        assert result["schemas"]["users"]["source"]["sheet"] == "Sheet1"
+        schema = list(result["schemas"].values())[0]
+        assert schema["source"]["sheet"] == "Sheet1"
 
     def test_schema_inline_constraints(self):
         llm_result = {
@@ -232,7 +284,8 @@ class TestSchemaGeneration:
             options=_make_options(),
             existing_config=None,
         )
-        assert len(result["schemas"]["users"]["constraints"]) == 1
+        # 无 profiling 数据时回退到 sc_ + sanitized_id
+        assert len(result["schemas"]["sc_users"]["constraints"]) == 1
 
     def test_skips_non_dict_schema(self):
         llm_result = {"schemas": ["not_a_dict"]}
@@ -247,8 +300,26 @@ class TestSchemaGeneration:
         )
         assert result["schemas"] == {}
 
-    def test_skips_schema_without_id(self):
-        llm_result = {"schemas": [{"name": "no_id"}]}
+    def test_schema_uses_name_when_id_missing(self):
+        """LLM 遵循'无需填写 id'提示时，用 name 作为 fallback 生成规范 ID"""
+        llm_result = {"schemas": [{"name": "users", "columns": []}]}
+        result = build_config(
+            project_id="p",
+            project_name="P",
+            config_path=None,
+            profiling_data=[],
+            llm_result=llm_result,
+            options=_make_options(),
+            existing_config=None,
+        )
+        assert len(result["schemas"]) == 1
+        schema = list(result["schemas"].values())[0]
+        assert schema["id"].startswith("sc_")
+        assert schema["name"] == "users"
+
+    def test_skips_schema_without_id_and_name(self):
+        """既无 id 也无 name 的 schema 应被跳过"""
+        llm_result = {"schemas": [{"columns": []}]}
         result = build_config(
             project_id="p",
             project_name="P",

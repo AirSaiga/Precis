@@ -394,7 +394,7 @@ const customNodes = {
     actions: {
       fullValidation: 'Full Validation',
       export: 'Export Full Config',
-      aiGenerate: 'AI Generate Config',
+      aiGenerate: 'AI Initialize Config',
       reload: 'Reload Project',
       projectManagement: 'Project Management',
       closeProject: 'Close Project',
@@ -410,8 +410,6 @@ const customNodes = {
       closeProject: 'Are you sure you want to close the current project?',
     },
     errors: 'errors',
-    exportSuccess: 'Full config exported successfully',
-    exportFailed: 'Export failed',
   },
   schemaSetRootNode: {
     back: 'Back to Parent',
@@ -427,12 +425,9 @@ const customNodes = {
     },
     actions: {
       fullValidation: 'Full Validation',
-      export: 'Export Full Config',
-      aiGenerate: 'AI Generate Config',
+      aiGenerate: 'AI Initialize Config',
       reload: 'Reload Project',
     },
-    exportSuccess: 'Exported full config',
-    exportFailed: 'Export failed',
   },
   manualDataNode: {
     title: 'Manual Data',

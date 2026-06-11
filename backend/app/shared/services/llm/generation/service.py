@@ -162,11 +162,11 @@ class ConfigGenerationService:
         if self._cancelled:
             raise CancelledError("Generation cancelled")
 
-        # 阶段 2: 构建提示词
+        # 阶段 2: 构建提示词（带长度预算和自动降级）
         if progress_callback:
             progress_callback("building_prompt", 20)
 
-        prompt = build_prompt(profiling_data, project_name)
+        prompt, prompt_warnings = build_prompt(profiling_data, project_name)
 
         # 阶段 3: 调用 LLM
         if progress_callback:
@@ -210,6 +210,9 @@ class ConfigGenerationService:
             generation_options,
             existing_config,
         )
+
+        # 合并 prompt truncation 警告到结果
+        config["warnings"] = config.get("warnings", []) + prompt_warnings
 
         if progress_callback:
             progress_callback("completed", 100)

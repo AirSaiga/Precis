@@ -94,13 +94,6 @@
           "buttonLabelKey": "inspector.projectRoot.actions.fullValidation"
         },
         {
-          "id": "btnExport",
-          "kind": "actionButton",
-          "action": "export",
-          "labelKey": "inspector.projectRoot.actions.export",
-          "buttonLabelKey": "inspector.projectRoot.actions.export"
-        },
-        {
           "id": "btnAiGenerate",
           "kind": "actionButton",
           "action": "aiGenerate",

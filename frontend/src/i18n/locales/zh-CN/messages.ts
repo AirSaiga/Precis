@@ -93,9 +93,6 @@ const messages = {
     },
   },
   persistence: {
-    exportYamlSuccess: '项目已导出为YAML文件',
-    exportSuccess: '导出成功',
-    exportFailed: '导出失败',
     schemaNotFound: '未找到Schema节点',
     invalidYamlFormat: '无效的YAML格式',
     comments: {

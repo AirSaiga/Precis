@@ -1,13 +1,14 @@
 <!--
   @file AIAssistantSettingsPanel.vue
-  @description AI 助手设置面板组件（支持多 Provider 管理）
+  @description AI 助手设置面板组件（重构版）
 
   功能：
-  - 显示所有已配置的 Provider 列表
-  - 标记当前活跃 Provider
-  - 支持切换默认 Provider
-  - 支持对每个 Provider 做连接测试
-  - 显示连接状态（健康、延迟、可用模型）
+  - 展示已配置的 Provider 列表（卡片形式）
+  - 添加新 Provider（选择服务商预设 → 填 API Key → 选模型）
+  - 编辑已有 Provider（内联编辑 API Key / 模型 / 名称）
+  - 删除 Provider（带确认）
+  - 测试连接 / 切换活跃 Provider
+  - 底部折叠式"高级"区域：配置文件路径、打开文件、复制模板
 -->
 
 <template>
@@ -19,36 +20,149 @@
         <div class="settings-section__subtitle">{{ t('settings.aiAssistant.providerListHint') }}</div>
       </div>
 
-      <div v-if="providers.length === 0" class="settings-alert settings-alert--warning">
+      <!-- 无 Provider 提示 -->
+      <div v-if="providers.length === 0 && !showAddForm" class="settings-alert settings-alert--warning">
         <span class="settings-alert__icon">⚠️</span>
         <div class="settings-alert__content">
           <div class="settings-alert__title">{{ t('settings.aiAssistant.noProvider') }}</div>
-          <div class="settings-alert__text">{{ t('settings.aiAssistant.noProviderHint') }}</div>
+          <div class="settings-alert__text">{{ t('settings.aiAssistant.noProviderDesc') }}</div>
         </div>
       </div>
 
-      <div v-else class="provider-list">
+      <!-- Provider 卡片列表 -->
+      <div v-if="providers.length > 0" class="provider-list">
         <div
           v-for="p in providers"
           :key="p.id"
           class="provider-card"
           :class="{ 'provider-card--active': p.id === activeProviderId }"
         >
-          <div class="provider-card__header">
-            <div class="provider-card__info">
-              <div class="provider-card__name">
-                {{ p.name }}
-                <span
-                  v-if="p.id === activeProviderId"
-                  class="provider-card__badge provider-card__badge--active"
-                >
-                  {{ t('settings.aiAssistant.active') }}
-                </span>
-              </div>
-              <div class="provider-card__meta">
-                {{ p.provider }} · {{ p.model }}
+          <!-- 编辑模式 -->
+          <template v-if="editingId === p.id">
+            <div class="provider-card__header">
+              <div class="provider-card__info">
+                <div class="provider-card__name">
+                  {{ t('settings.aiAssistant.edit') }}: {{ editForm.name }}
+                </div>
               </div>
             </div>
+            <div class="provider-card__edit-form">
+              <div class="edit-row">
+                <label class="edit-label">{{ t('settings.aiAssistant.providerName') }}</label>
+                <input
+                  v-model="editForm.name"
+                  class="settings-input"
+                  type="text"
+                />
+              </div>
+              <div class="edit-row">
+                <label class="edit-label">{{ t('settings.aiAssistant.apiKey') }}</label>
+                <input
+                  v-model="editForm.apiKey"
+                  class="settings-input"
+                  type="password"
+                  :placeholder="t('settings.aiAssistant.apiKeyPlaceholder')"
+                />
+              </div>
+              <div class="edit-row">
+                <label class="edit-label">{{ t('settings.aiAssistant.model') }}</label>
+                <select v-model="editForm.model" class="settings-select">
+                  <option v-for="m in presetModels(p)" :key="m" :value="m">{{ m }}</option>
+                  <option v-if="!presetModels(p).includes(editForm.model)" :value="editForm.model">
+                    {{ editForm.model }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="provider-card__actions">
+              <button
+                class="ui-btn ui-btn--secondary ui-btn--sm"
+                :disabled="actionLoading"
+                @click="cancelEdit"
+              >
+                {{ t('settings.aiAssistant.cancel') }}
+              </button>
+              <button
+                class="ui-btn ui-btn--primary ui-btn--sm"
+                :disabled="actionLoading"
+                @click="handleUpdate(p.id)"
+              >
+                <span v-if="actionLoading" class="spinner-sm"></span>
+                {{ t('settings.aiAssistant.save') }}
+              </button>
+            </div>
+          </template>
+
+          <!-- 展示模式 -->
+          <template v-else>
+            <div class="provider-card__header">
+              <div class="provider-card__info">
+                <div class="provider-card__name">
+                  {{ p.name }}
+                  <span
+                    v-if="p.id === activeProviderId"
+                    class="provider-card__badge provider-card__badge--active"
+                  >
+                    {{ t('settings.aiAssistant.active') }}
+                  </span>
+                </div>
+                <div class="provider-card__meta">
+                  {{ p.provider }} · {{ p.model }}
+                </div>
+              </div>
+              <div class="provider-card__status">
+                <span
+                  class="settings-pill"
+                  :class="p.is_configured ? 'settings-pill--success' : 'settings-pill--warning'"
+                >
+                  {{ p.is_configured ? '✓ ' + t('settings.aiAssistant.configured') : '✗ ' + t('settings.aiAssistant.noApiKey') }}
+                </span>
+              </div>
+            </div>
+
+            <div class="provider-card__details">
+              <div class="provider-card__detail-row">
+                <span class="provider-card__label">ID</span>
+                <span class="provider-card__value">{{ p.id }}</span>
+              </div>
+              <div class="provider-card__detail-row">
+                <span class="provider-card__label">Base URL</span>
+                <span class="provider-card__value">{{ p.base_url }}</span>
+              </div>
+            </div>
+
+            <!-- 测试结果 -->
+            <div v-if="testResults[p.id]" class="provider-card__test-result">
+              <div
+                class="provider-card__test-status"
+                :class="testResults[p.id]?.health.status === 'ok' ? 'test-status--ok' : 'test-status--error'"
+              >
+                <span class="test-status__icon">{{ testResults[p.id]?.health.status === 'ok' ? '✓' : '✗' }}</span>
+                <span class="test-status__text">
+                  {{ testResults[p.id]?.health.status === 'ok'
+                    ? t('settings.aiAssistant.testSuccess', { latency: testResults[p.id]?.health.latency_ms })
+                    : t('settings.aiAssistant.testFailed', { error: testResults[p.id]?.health.error })
+                  }}
+                </span>
+              </div>
+              <div v-if="testResults[p.id]?.available_models?.length" class="provider-card__models">
+                <div class="provider-card__models-label">{{ t('settings.aiAssistant.availableModels') }}:</div>
+                <div class="provider-card__models-list">
+                  <span
+                    v-for="model in testResults[p.id]?.available_models?.slice(0, 5) ?? []"
+                    :key="model"
+                    class="provider-card__model-tag"
+                  >
+                    {{ model }}
+                  </span>
+                  <span v-if="(testResults[p.id]?.available_models?.length ?? 0) > 5" class="provider-card__model-tag">
+                    +{{ (testResults[p.id]?.available_models?.length ?? 0) - 5 }}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 操作按钮 -->
             <div class="provider-card__actions">
               <button
                 class="ui-btn ui-btn--secondary ui-btn--sm"
@@ -66,124 +180,155 @@
               >
                 {{ t('settings.aiAssistant.setActive') }}
               </button>
-            </div>
-          </div>
-
-          <div class="provider-card__details">
-            <div class="provider-card__detail-row">
-              <span class="provider-card__label">ID</span>
-              <span class="provider-card__value">{{ p.id }}</span>
-            </div>
-            <div class="provider-card__detail-row">
-              <span class="provider-card__label">Base URL</span>
-              <span class="provider-card__value">{{ p.base_url }}</span>
-            </div>
-            <div class="provider-card__detail-row">
-              <span class="provider-card__label">{{ t('settings.aiAssistant.configStatus') }}</span>
-              <span
-                class="settings-pill"
-                :class="p.is_configured ? 'settings-pill--success' : 'settings-pill--warning'"
+              <button
+                class="ui-btn ui-btn--ghost ui-btn--sm"
+                @click="startEdit(p)"
               >
-                {{ p.is_configured ? '✓ ' + t('settings.aiAssistant.configured') : '✗ ' + t('settings.aiAssistant.noApiKey') }}
-              </span>
+                {{ t('settings.aiAssistant.edit') }}
+              </button>
+              <button
+                class="ui-btn ui-btn--ghost ui-btn--sm ui-btn--danger-text"
+                @click="handleDelete(p.id, p.name)"
+              >
+                {{ t('settings.aiAssistant.delete') }}
+              </button>
             </div>
-          </div>
-
-          <!-- 连接测试结果 -->
-          <div v-if="testResults[p.id]" class="provider-card__test-result">
-            <div
-              class="provider-card__test-status"
-              :class="testResults[p.id]?.health.status === 'ok' ? 'test-status--ok' : 'test-status--error'"
-            >
-              <span class="test-status__icon">{{ testResults[p.id]?.health.status === 'ok' ? '✓' : '✗' }}</span>
-              <span class="test-status__text">
-                {{ testResults[p.id]?.health.status === 'ok'
-                  ? t('settings.aiAssistant.testSuccess', { latency: testResults[p.id]?.health.latency_ms })
-                  : t('settings.aiAssistant.testFailed', { error: testResults[p.id]?.health.error })
-                }}
-              </span>
-            </div>
-            <div v-if="testResults[p.id]?.available_models?.length" class="provider-card__models">
-              <div class="provider-card__models-label">{{ t('settings.aiAssistant.availableModels') }}:</div>
-              <div class="provider-card__models-list">
-                <span
-                  v-for="model in testResults[p.id]?.available_models?.slice(0, 5) ?? []"
-                  :key="model"
-                  class="provider-card__model-tag"
-                >
-                  {{ model }}
-                </span>
-                <span v-if="(testResults[p.id]?.available_models?.length ?? 0) > 5" class="provider-card__model-tag">
-                  +{{ (testResults[p.id]?.available_models?.length ?? 0) - 5 }}
-                </span>
-              </div>
-            </div>
-          </div>
+          </template>
         </div>
       </div>
-    </div>
 
-    <!-- 配置文件 -->
-    <div class="settings-section">
-      <div class="settings-section__header">
-        <div class="settings-section__title">{{ t('settings.aiAssistant.configPath') }}</div>
+      <!-- 添加按钮 -->
+      <div class="settings-actions" v-if="!showAddForm">
+        <button class="ui-btn ui-btn--secondary ui-btn--sm" type="button" @click="openAddForm">
+          + {{ t('settings.aiAssistant.addProvider') }}
+        </button>
       </div>
-      <div class="settings-row">
-        <div class="settings-row__desc">
-          <span class="settings-code">{{ configPath || '~/.precis/ai_providers.yaml' }}</span>
+
+      <!-- 添加表单 -->
+      <div v-if="showAddForm" class="provider-card provider-card--add">
+        <div class="provider-card__header">
+          <div class="provider-card__name">{{ t('settings.aiAssistant.addProvider') }}</div>
         </div>
-        <div class="settings-row__control">
-          <button v-if="isElectronEnv" class="ui-btn ui-btn--secondary ui-btn--sm" type="button" @click="openConfigFile">
-            {{ t('settings.aiAssistant.openConfigFile') }}
+        <div class="provider-card__edit-form">
+          <div class="edit-row">
+            <label class="edit-label">{{ t('settings.aiAssistant.selectPreset') }}</label>
+            <select v-model="addForm.presetId" class="settings-select" @change="onPresetChange">
+              <option value="" disabled>{{ t('settings.aiAssistant.selectPresetPlaceholder') }}</option>
+              <option v-for="pr in presets" :key="pr.id" :value="pr.id">{{ pr.name }}</option>
+            </select>
+          </div>
+          <div class="edit-row">
+            <label class="edit-label">{{ t('settings.aiAssistant.apiKey') }}</label>
+            <input
+              v-model="addForm.apiKey"
+              class="settings-input"
+              type="password"
+              :placeholder="t('settings.aiAssistant.apiKeyPlaceholder')"
+            />
+          </div>
+          <div class="edit-row">
+            <label class="edit-label">{{ t('settings.aiAssistant.model') }}</label>
+            <select v-model="addForm.model" class="settings-select">
+              <option v-for="m in addFormModels" :key="m" :value="m">{{ m }}</option>
+            </select>
+          </div>
+          <div class="edit-row">
+            <label class="edit-label">{{ t('settings.aiAssistant.providerName') }}</label>
+            <input
+              v-model="addForm.name"
+              class="settings-input"
+              type="text"
+              :placeholder="t('settings.aiAssistant.providerNamePlaceholder')"
+            />
+          </div>
+        </div>
+        <div class="provider-card__actions">
+          <button
+            class="ui-btn ui-btn--secondary ui-btn--sm"
+            :disabled="actionLoading"
+            @click="cancelAdd"
+          >
+            {{ t('settings.aiAssistant.cancel') }}
+          </button>
+          <button
+            class="ui-btn ui-btn--primary ui-btn--sm"
+            :disabled="actionLoading || !addForm.presetId || !addForm.apiKey"
+            @click="handleCreate"
+          >
+            <span v-if="actionLoading" class="spinner-sm"></span>
+            {{ t('settings.aiAssistant.create') }}
           </button>
         </div>
       </div>
     </div>
 
-    <!-- 配置模板 -->
+    <!-- 高级：配置文件 -->
     <div class="settings-section">
-      <div class="settings-section__header">
-        <div class="settings-section__title">{{ t('settings.aiAssistant.configTemplate') }}</div>
-      </div>
-      <div class="settings-row">
-        <div class="settings-row__desc settings-row__control--full">
-          <pre class="config-template">{{ configTemplate }}</pre>
+      <details class="advanced-details">
+        <summary class="advanced-summary">
+          {{ t('settings.aiAssistant.advanced') }}
+          <span class="advanced-hint">{{ t('settings.aiAssistant.advancedHint') }}</span>
+        </summary>
+        <div class="advanced-content">
+          <div class="settings-row">
+            <div class="settings-row__desc">
+              <span class="settings-code">{{ configPath || '~/.precis/ai_providers.yaml' }}</span>
+            </div>
+            <div class="settings-row__control">
+              <button v-if="isElectronEnv" class="ui-btn ui-btn--secondary ui-btn--sm" type="button" @click="openConfigFile">
+                {{ t('settings.aiAssistant.openConfigFile') }}
+              </button>
+            </div>
+          </div>
+          <div class="settings-row" style="flex-direction: column; gap: var(--ui-space-sm)">
+            <div class="settings-row__desc settings-row__control--full" style="width: 100%">
+              <pre class="config-template">{{ configTemplate }}</pre>
+            </div>
+            <div class="settings-row__control">
+              <button class="ui-btn ui-btn--secondary ui-btn--sm" type="button" @click="copyTemplate">
+                {{ copied ? t('settings.aiAssistant.copied') : t('common.copy') }}
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="settings-row__control">
-          <button class="ui-btn ui-btn--secondary ui-btn--sm" type="button" @click="copyTemplate">
-            {{ copied ? t('common.copied') : t('common.copy') }}
-          </button>
-        </div>
-      </div>
+      </details>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
-  import { computed, onMounted, ref } from 'vue'
+  import { computed, onMounted, reactive, ref } from 'vue'
   import { useI18n } from 'vue-i18n'
-  import type { CloudAIProviderResponse } from '@/types/ai'
+  import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
+  import { useToast } from '@/composables/shared'
+  import type { CloudAIProviderResponse, ProviderPreset } from '@/types/ai'
   import {
     getCloudAIProviders,
     getActiveCloudAIProvider,
     getCloudAIProviderConfigInfo,
     testCloudAIProvider,
     activateCloudAIProvider,
+    getProviderPresets,
+    createCloudAIProvider,
+    updateCloudAIProvider,
+    deleteCloudAIProvider,
   } from '@/api/aiApi'
-  import { useToast } from '@/composables/shared'
 
   const { t } = useI18n()
   const { success: showSuccess, error: showError } = useToast()
+  const { showConfirm } = useGlobalConfirm()
 
   const providers = ref<CloudAIProviderResponse[]>([])
   const activeProviderId = ref<string | null>(null)
+  const presets = ref<ProviderPreset[]>([])
   const configPath = ref('')
   const copied = ref(false)
   const isElectronEnv = ref(!!window.electronAPI)
 
-  // 测试状态
   const testingProvider = ref<string | null>(null)
+  const activatingProvider = ref<string | null>(null)
+  const actionLoading = ref(false)
   const testResults = ref<
     Record<
       string,
@@ -195,8 +340,27 @@
     >
   >({})
 
-  // 激活状态
-  const activatingProvider = ref<string | null>(null)
+  // 添加表单
+  const showAddForm = ref(false)
+  const addForm = reactive({
+    presetId: '',
+    apiKey: '',
+    model: '',
+    name: '',
+  })
+
+  // 编辑表单
+  const editingId = ref<string | null>(null)
+  const editForm = reactive({
+    name: '',
+    apiKey: '',
+    model: '',
+  })
+
+  const addFormModels = computed(() => {
+    const preset = presets.value.find((p) => p.id === addForm.presetId)
+    return preset?.models ?? []
+  })
 
   const configTemplate = computed(
     () => `# ${t('settings.aiAssistant.configTemplateHeader')}
@@ -225,6 +389,10 @@ defaults:
   chat: openai`
   )
 
+  function presetModels(provider: CloudAIProviderResponse): string[] {
+    return presets.value.find((p) => p.base_url === provider.base_url)?.models ?? []
+  }
+
   async function loadProviders(): Promise<void> {
     try {
       const [allProviders, active] = await Promise.all([
@@ -235,6 +403,15 @@ defaults:
       activeProviderId.value = active?.id || null
     } catch (error) {
       logger.error('[AIAssistantSettings] Failed to load providers:', error)
+    }
+  }
+
+  async function loadPresets(): Promise<void> {
+    try {
+      presets.value = await getProviderPresets()
+    } catch (error) {
+      logger.error('[AIAssistantSettings] Failed to load presets:', error)
+      presets.value = []
     }
   }
 
@@ -286,6 +463,105 @@ defaults:
     }
   }
 
+  function openAddForm(): void {
+    showAddForm.value = true
+    const firstPreset = presets.value[0]
+    addForm.presetId = firstPreset?.id ?? ''
+    addForm.apiKey = ''
+    addForm.model = firstPreset?.default_model ?? ''
+    addForm.name = firstPreset?.name ?? ''
+  }
+
+  function cancelAdd(): void {
+    showAddForm.value = false
+  }
+
+  function onPresetChange(): void {
+    const preset = presets.value.find((p) => p.id === addForm.presetId)
+    if (preset) {
+      addForm.model = preset.default_model
+      addForm.name = preset.name
+    }
+  }
+
+  async function handleCreate(): Promise<void> {
+    const preset = presets.value.find((p) => p.id === addForm.presetId)
+    if (!preset) return
+
+    actionLoading.value = true
+    try {
+      await createCloudAIProvider({
+        name: addForm.name || preset.name,
+        type: preset.type as 'openai' | 'ollama',
+        base_url: preset.base_url,
+        api_key: addForm.apiKey,
+        model: addForm.model,
+      })
+      showSuccess(t('settings.aiAssistant.createdSuccess'), '')
+      showAddForm.value = false
+      await loadProviders()
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error)
+      showError(t('settings.aiAssistant.createdFailed'), msg)
+    } finally {
+      actionLoading.value = false
+    }
+  }
+
+  function startEdit(provider: CloudAIProviderResponse): void {
+    editingId.value = provider.id
+    editForm.name = provider.name
+    editForm.apiKey = ''
+    editForm.model = provider.model
+  }
+
+  function cancelEdit(): void {
+    editingId.value = null
+  }
+
+  async function handleUpdate(providerId: string): Promise<void> {
+    actionLoading.value = true
+    try {
+      const req: Record<string, string> = {}
+      if (editForm.name) req.name = editForm.name
+      if (editForm.apiKey) req.api_key = editForm.apiKey
+      if (editForm.model) req.model = editForm.model
+      await updateCloudAIProvider(providerId, req)
+      showSuccess(t('settings.aiAssistant.updatedSuccess'), '')
+      editingId.value = null
+      await loadProviders()
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error)
+      showError(t('settings.aiAssistant.updatedFailed'), msg)
+    } finally {
+      actionLoading.value = false
+    }
+  }
+
+  async function handleDelete(providerId: string, providerName: string): Promise<void> {
+    const confirmed = await showConfirm({
+      title: t('settings.aiAssistant.delete'),
+      message: t('settings.aiAssistant.deleteConfirm'),
+      confirmText: t('settings.aiAssistant.delete'),
+      type: 'error',
+    })
+    if (!confirmed) return
+
+    actionLoading.value = true
+    try {
+      await deleteCloudAIProvider(providerId)
+      showSuccess(t('settings.aiAssistant.deletedSuccess'), '')
+      if (editingId.value === providerId) editingId.value = null
+      delete testResults.value[providerId]
+      await loadProviders()
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error)
+      showError(t('settings.aiAssistant.deletedFailed'), msg)
+    } finally {
+      actionLoading.value = false
+    }
+  }
+
   async function openConfigFile(): Promise<void> {
     const path = configPath.value || '~/.precis/ai_providers.yaml'
     try {
@@ -314,6 +590,7 @@ defaults:
   }
 
   onMounted(() => {
+    loadPresets()
     loadProviders()
     loadConfigInfo()
   })
@@ -337,6 +614,11 @@ defaults:
   .provider-card--active {
     border-color: var(--ui-color-primary);
     box-shadow: 0 0 0 1px var(--ui-color-primary);
+  }
+
+  .provider-card--add {
+    border-style: dashed;
+    border-color: var(--ui-color-primary);
   }
 
   .provider-card__header {
@@ -374,12 +656,6 @@ defaults:
     font-size: var(--ui-font-size-sm);
     color: var(--ui-text-muted);
     margin-top: 2px;
-  }
-
-  .provider-card__actions {
-    display: flex;
-    gap: var(--ui-space-sm);
-    flex-shrink: 0;
   }
 
   .provider-card__details {
@@ -457,6 +733,85 @@ defaults:
     color: var(--ui-text-secondary);
   }
 
+  .provider-card__actions {
+    display: flex;
+    gap: var(--ui-space-sm);
+    flex-shrink: 0;
+    margin-top: var(--ui-space-sm);
+    flex-wrap: wrap;
+  }
+
+  .provider-card__edit-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-sm);
+    margin-bottom: var(--ui-space-sm);
+  }
+
+  .edit-row {
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-sm);
+  }
+
+  .edit-label {
+    font-size: var(--ui-font-size-sm);
+    color: var(--ui-text-muted);
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+
+  .edit-row .settings-input,
+  .edit-row .settings-select {
+    flex: 1;
+  }
+
+  .spinner-sm {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid var(--ui-border-light);
+    border-top-color: var(--ui-color-primary);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin-right: 4px;
+    vertical-align: middle;
+  }
+
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .advanced-details {
+    margin-top: var(--ui-space-lg);
+  }
+
+  .advanced-summary {
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--ui-text-secondary);
+    padding: var(--ui-space-sm) 0;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: var(--ui-space-sm);
+  }
+
+  .advanced-hint {
+    font-weight: 400;
+    font-size: var(--ui-font-size-sm);
+    color: var(--ui-text-muted);
+  }
+
+  .advanced-content {
+    padding-top: var(--ui-space-sm);
+    display: flex;
+    flex-direction: column;
+    gap: var(--ui-space-md);
+  }
+
   .config-template {
     font-family: var(--ui-font-family-mono, monospace);
     font-size: 11px;
@@ -469,5 +824,19 @@ defaults:
     white-space: pre;
     margin: 0;
     width: 100%;
+  }
+
+  .settings-code {
+    font-family: var(--ui-font-family-mono, monospace);
+    font-size: var(--ui-font-size-sm);
+    color: var(--ui-text-secondary);
+  }
+
+  .ui-btn--danger-text {
+    color: var(--ui-color-error);
+  }
+
+  .ui-btn--danger-text:hover {
+    background: var(--ui-color-error-light, rgba(239, 68, 68, 0.1));
   }
 </style>

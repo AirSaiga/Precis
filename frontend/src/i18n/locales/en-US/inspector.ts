@@ -572,8 +572,7 @@ const inspector = {
     },
     actions: {
       fullValidation: 'Full Validation',
-      export: 'Export Config',
-      aiGenerate: 'AI Generate',
+      aiGenerate: 'AI Initialize Config',
       reload: 'Reload',
       projectManagement: 'Project Management',
       closeProject: 'Close Project',

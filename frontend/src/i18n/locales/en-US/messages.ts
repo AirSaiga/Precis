@@ -100,9 +100,6 @@ const messages = {
     },
   },
   persistence: {
-    exportYamlSuccess: 'Project exported as YAML file',
-    exportSuccess: 'Export Successful',
-    exportFailed: 'Export Failed',
     schemaNotFound: 'Schema node not found',
     invalidYamlFormat: 'Invalid YAML format',
     comments: {

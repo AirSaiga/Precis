@@ -134,6 +134,37 @@ class UpdateApiKeyRequest(BaseModel):
     api_key: str
 
 
+class CreateProviderRequest(BaseModel):
+    """创建 Provider 请求"""
+
+    name: str = Field(..., description="显示名称")
+    type: str = Field(default="openai", description="Provider 类型（openai 或 ollama）")
+    base_url: str = Field(..., description="API 基础 URL")
+    api_key: Optional[str] = Field(default=None, description="API 密钥（本地服务可为 null）")
+    model: str = Field(..., description="默认模型名称")
+
+
+class UpdateProviderRequest(BaseModel):
+    """更新 Provider 请求（所有字段可选，仅传递需要更新的字段）"""
+
+    name: Optional[str] = Field(default=None, description="显示名称")
+    type: Optional[str] = Field(default=None, description="Provider 类型")
+    base_url: Optional[str] = Field(default=None, description="API 基础 URL")
+    api_key: Optional[str] = Field(default=None, description="API 密钥")
+    model: Optional[str] = Field(default=None, description="默认模型名称")
+
+
+class ProviderPresetResponse(BaseModel):
+    """服务商预设响应"""
+
+    id: str
+    name: str
+    type: str
+    base_url: str
+    default_model: str
+    models: list[str]
+
+
 # =============================================================================
 # 配置生成模型 (新架构)
 # =============================================================================

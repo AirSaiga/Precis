@@ -58,9 +58,6 @@
       case 'fullValidation':
         handleFullValidation()
         break
-      case 'export':
-        handleExport()
-        break
       case 'aiGenerate':
         handleAiGenerate()
         break
@@ -130,10 +127,6 @@
     validationTaskStore.openFullProject()
   }
 
-  function handleExport() {
-    eventBus.emit('export-full-config-yaml')
-  }
-
   function handleAiGenerate() {
     aiConfigGeneratorStore.open()
   }
@@ -190,7 +183,6 @@
     background: color-mix(in srgb, var(--ui-accent-primary, #0e639c) 18%, transparent);
   }
 
-  .action-export,
   .action-aiGenerate,
   .action-reload,
   .action-projectManagement {
@@ -198,7 +190,6 @@
     color: var(--ui-text-strong);
   }
 
-  .action-export:hover,
   .action-aiGenerate:hover,
   .action-reload:hover,
   .action-projectManagement:hover {

@@ -567,8 +567,7 @@ const inspector = (() => {
       },
       actions: {
         fullValidation: '全量校验',
-        export: '导出完整配置',
-        aiGenerate: 'AI 生成配置',
+        aiGenerate: 'AI 初始化配置',
         reload: '重载项目',
         projectManagement: '项目管理',
         closeProject: '关闭项目',

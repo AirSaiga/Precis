@@ -25,6 +25,7 @@ from typing import Any, Optional
 
 import yaml
 
+from app.shared.core.project.schema.types_parts.schema_id import generate_schema_id
 from app.shared.core.utils.path_utils import make_relative, normalize_to_posix
 
 
@@ -72,6 +73,19 @@ def build_config(
 
     # 构建 profiling_data 的 path -> table_name 映射，用于 source 配置
     path_to_profile = {item["path"]: item for item in profiling_data}
+
+    def _find_existing_schema_id_by_source(src_path: str, sheet_name: str | None) -> str | None:
+        """根据 source.path + source.sheet 查找已有 schema，复用其 ID。
+
+        避免同一文件因 ID 计算方式不同而被识别为新增 schema。
+        """
+        for sid, sdoc in schemas.items():
+            existing_src = sdoc.get("source", {})
+            existing_path = existing_src.get("path", "")
+            existing_sheet = existing_src.get("sheet")
+            if existing_path == src_path and existing_sheet == sheet_name:
+                return sid
+        return None
 
     def _make_relative_path(abs_path: str) -> str:
         """将绝对路径转为相对于项目根目录的路径。
@@ -219,13 +233,15 @@ def build_config(
             "source_ref": rdef.get("source_ref", {}),
         }
 
-    # 处理 Schema
+    # 处理 Schema —— 生成规范的 sc_ 前缀 ID
+    llm_id_to_schema_id: dict[str, str] = {}  # LLM 返回的原始 ID -> 规范 ID 映射
     if options.generate_schemas:
         for schema_def in llm_result.get("schemas", []):
             if not isinstance(schema_def, dict):
                 continue
-            schema_id = schema_def.get("id")
-            if not schema_id:
+            # LLM 可能遵循"id 无需填写"的提示而不返回 id，用 name 兜底
+            llm_schema_id = schema_def.get("id") or schema_def.get("name", "")
+            if not llm_schema_id:
                 continue
 
             # 补充 source 配置
@@ -233,7 +249,7 @@ def build_config(
             if not profile:
                 # 尝试通过 table_name 匹配
                 for p in profiling_data:
-                    if p["table_name"] == schema_def.get("name", schema_id):
+                    if p["table_name"] == schema_def.get("name", llm_schema_id):
                         profile = p
                         break
 
@@ -251,11 +267,27 @@ def build_config(
                 elif ext in [".json", ".jsonl"]:
                     source["options"] = {"format": "auto"}
 
+            # 生成规范的 Schema ID（sc_ 前缀 + XOR + Base64URL）
+            src_path = source.get("path", "")
+            sheet_name = source.get("sheet")
+            if src_path:
+                # 优先复用已有 schema 的 ID（按 source.path + sheet 匹配）
+                existing_id = _find_existing_schema_id_by_source(src_path, sheet_name)
+                if existing_id:
+                    proper_schema_id = existing_id
+                else:
+                    proper_schema_id = generate_schema_id(src_path, sheet_name)
+            else:
+                # 兜底：如果无法推导路径，保留原始 ID（但加 sc_ 前缀标识）
+                proper_schema_id = f"sc_{_sanitize_id(llm_schema_id)}"
+
+            llm_id_to_schema_id[llm_schema_id] = proper_schema_id
+
             # 构建标准 schema 格式
             schema_doc = {
                 "version": 2,
-                "id": schema_id,
-                "name": schema_def.get("name", schema_id),
+                "id": proper_schema_id,
+                "name": schema_def.get("name", llm_schema_id),
                 "source": schema_def.get("source", source),
                 "columns": schema_def.get("columns", []),
                 "constraints": [],
@@ -266,17 +298,37 @@ def build_config(
                 if isinstance(cdef, dict):
                     schema_doc["constraints"].append(cdef)
 
-            schemas[schema_id] = schema_doc
+            schemas[proper_schema_id] = schema_doc
 
-    # 处理 Constraints（独立约束文件）
+    def _remap_schema_refs(obj: Any) -> Any:
+        """递归替换约束中的 table_id 为规范 Schema ID。"""
+        if isinstance(obj, dict):
+            remapped: dict[str, Any] = {}
+            for k, v in obj.items():
+                if k in ("table_id", "from_table_id", "to_table_id") and isinstance(v, str) and v in llm_id_to_schema_id:
+                    remapped[k] = llm_id_to_schema_id[v]
+                else:
+                    remapped[k] = _remap_schema_refs(v)
+            return remapped
+        if isinstance(obj, list):
+            return [_remap_schema_refs(item) for item in obj]
+        return obj
+
+    # 先处理独立 Constraints，再统一做 ID 重映射
     if options.generate_constraints:
         constraint_ids = set(constraints.keys())
         for cdef in llm_result.get("constraints", []):
+            # 将约束中的 table_id 从 LLM ID 替换为规范 ID
+            cdef = _remap_schema_refs(cdef)
             normalized = _normalize_constraint(cdef, "", constraint_ids)
             if normalized:
                 constraints[normalized["id"]] = normalized
             else:
                 warnings.append(f"无法解析约束: {cdef}")
+
+    # 对 schema 内联约束也做 ID 重映射
+    for schema_doc in schemas.values():
+        schema_doc["constraints"] = [_remap_schema_refs(c) for c in schema_doc.get("constraints", []) if isinstance(c, dict)]
 
     # 处理 Regex Nodes
     if options.generate_regex_nodes:

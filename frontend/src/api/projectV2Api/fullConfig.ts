@@ -59,19 +59,6 @@ export async function inspectV2Config(configPath?: string): Promise<InspectionRe
 }
 
 /**
- * 获取项目完整配置的 YAML 文本
- */
-export async function getV2FullConfigYaml(configPath?: string): Promise<string> {
-  const res = await apiClient.get<string>(
-    '/project/v2/config/full/yaml',
-    configPath
-      ? { headers: { 'X-Project-Config-Path': configPath }, responseType: 'text' as const }
-      : { responseType: 'text' as const }
-  )
-  return res.data as unknown as string
-}
-
-/**
  * 保存项目完整配置
  */
 export async function putV2FullConfig(

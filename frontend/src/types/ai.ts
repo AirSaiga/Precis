@@ -14,7 +14,6 @@ import type {
   TableSchemaFileV2,
   TransformFileV2,
 } from './projectV2'
-import i18n from '@/i18n'
 
 export interface AiGenerateV2ConfigOptions {
   sample_rows: number
@@ -119,59 +118,9 @@ export interface AiHardwareDiagnoseResponse {
 }
 
 /**
- * 云端 AI Provider 类型
+ * 云端 AI Provider 类型（简化版，后端只有 openai/ollama 两种协议）
  */
-export type CloudAIProviderType =
-  | 'ollama'
-  | 'openai'
-  | 'openrouter'
-  | 'azure_openai'
-  | 'anthropic'
-  | 'custom'
-  | 'glm'
-  | 'minimax'
-  | 'kimi'
-  | 'deepseek'
-  | 'qwen'
-
-/**
- * 云端 AI Provider 显示名称映射
- */
-export const CloudAIProviderNames: Record<CloudAIProviderType, string> = {
-  get ollama() {
-    return i18n.global.t('cloudAI.providerTypes.ollama')
-  },
-  get openai() {
-    return i18n.global.t('cloudAI.providerTypes.openai')
-  },
-  get openrouter() {
-    return i18n.global.t('cloudAI.providerTypes.openrouter')
-  },
-  get azure_openai() {
-    return i18n.global.t('cloudAI.providerTypes.azure_openai')
-  },
-  get anthropic() {
-    return i18n.global.t('cloudAI.providerTypes.anthropic')
-  },
-  get custom() {
-    return i18n.global.t('cloudAI.providerTypes.custom')
-  },
-  get glm() {
-    return i18n.global.t('cloudAI.providerTypes.glm')
-  },
-  get minimax() {
-    return i18n.global.t('cloudAI.providerTypes.minimax')
-  },
-  get kimi() {
-    return i18n.global.t('cloudAI.providerTypes.kimi')
-  },
-  get deepseek() {
-    return i18n.global.t('cloudAI.providerTypes.deepseek')
-  },
-  get qwen() {
-    return i18n.global.t('cloudAI.providerTypes.qwen')
-  },
-}
+export type CloudAIProviderType = 'ollama' | 'openai'
 
 /**
  * 云端 AI Provider 配置响应（不包含 api_key）
@@ -186,24 +135,43 @@ export interface CloudAIProviderResponse {
   azure_deployment?: string
   extra_params?: Record<string, string>
   enabled?: boolean
-  is_configured?: boolean // 是否已配置（有 API Key）
+  is_configured?: boolean
   created_at?: string
   updated_at?: string
 }
 
 /**
- * 云端 AI Provider 添加/更新请求
+ * 创建 Provider 请求
  */
-export interface CloudAIProviderRequest {
+export interface CreateProviderRequest {
   name: string
-  provider_type: CloudAIProviderType
-  api_key: string
-  base_url?: string
+  type: CloudAIProviderType
+  base_url: string
+  api_key?: string
   model: string
-  api_version?: string
-  deployment?: string
-  extra_params?: Record<string, string>
-  is_default?: boolean
+}
+
+/**
+ * 更新 Provider 请求（所有字段可选）
+ */
+export interface UpdateProviderRequest {
+  name?: string
+  type?: CloudAIProviderType
+  base_url?: string
+  api_key?: string
+  model?: string
+}
+
+/**
+ * 服务商预设
+ */
+export interface ProviderPreset {
+  id: string
+  name: string
+  type: CloudAIProviderType
+  base_url: string
+  default_model: string
+  models: string[]
 }
 
 /**

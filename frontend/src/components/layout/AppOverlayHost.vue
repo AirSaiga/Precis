@@ -68,11 +68,8 @@
   import { useScriptEditorStore } from '@/stores/scriptEditorStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
   import { useSettingsStore } from '@/stores/settingsStore'
-  import { useProjectStore } from '@/stores/projectStore'
-  import { getV2FullConfigYaml } from '@/api/projectV2Api'
   import { useAiConfigGeneratorStore } from '@/features/ai-config-generator/stores/aiConfigGeneratorStore'
   import { useI18n } from 'vue-i18n'
-  import { logger } from '@/core/utils/logger'
 
   const SettingsModal = defineAsyncComponent(() => import('@/components/common/SettingsModal.vue'))
   const FullValidationModal = defineAsyncComponent(
@@ -98,7 +95,6 @@
   const scriptEditorStore = useScriptEditorStore()
   const validationTaskStore = useValidationTaskStore()
   const settingsStore = useSettingsStore()
-  const projectStore = useProjectStore()
   const aiConfigGeneratorStore = useAiConfigGeneratorStore()
   const projectManagementVisible = ref(false)
   const saveAsTemplateVisible = ref(false)
@@ -123,42 +119,15 @@
     projectManagementVisible.value = true
   }
 
-  const handleExportFullConfigYaml = async () => {
-    try {
-      const configPath = projectStore.currentPaths?.configPath
-      const yamlText = await getV2FullConfigYaml(configPath)
-      const blob = new Blob([yamlText], { type: 'text/yaml;charset=utf-8' })
-      const url = URL.createObjectURL(blob)
-
-      const a = document.createElement('a')
-      a.href = url
-      a.download = 'project.full.yaml'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
-
-      window.$toast?.success(
-        t('messages.persistence.exportSuccess'),
-        t('messages.persistence.exportYamlSuccess')
-      )
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      window.$toast?.error(t('messages.persistence.exportFailed'), msg)
-    }
-  }
-
   onMounted(() => {
     eventBus.on('open-settings', handleOpenSettings)
     eventBus.on('open-project-management', handleOpenProjectManagement)
-    eventBus.on('export-full-config-yaml', handleExportFullConfigYaml)
     eventBus.on('open-save-as-template-dialog', handleOpenSaveAsTemplate)
   })
 
   onUnmounted(() => {
     eventBus.off('open-settings', handleOpenSettings)
     eventBus.off('open-project-management', handleOpenProjectManagement)
-    eventBus.off('export-full-config-yaml', handleExportFullConfigYaml)
     eventBus.off('open-save-as-template-dialog', handleOpenSaveAsTemplate)
   })
 
