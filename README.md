@@ -2,29 +2,24 @@
 
 # Precis
 
-**本地优先的可视化数据质量平台**
+**本地优先的可视化数据质量平台 / Local-First Visual Data Quality Platform**
 
-Visual DAG Editor · Schema-Aware Validation · Local-First · AI-Ready
-
-[🇨🇳 中文](#中文) · [🇺🇸 English](#english)
+Visual DAG Editor · Schema-Aware Validation · Local-First
 
 [![Status](https://img.shields.io/badge/status-Pre--Alpha-critical)](https://github.com/AirSaiga/Precis)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%5E20.19.0%20%7C%7C%20%3E%3D22.12.0-green.svg)](https://nodejs.org/)
-[![Python](https://img.shields.io/badge/python-%3E%3D3.12-blue.svg)](https://python.org/)
+[![Python](https://img.shields.io/badge/python-%3E%3D3.9-blue.svg)](https://python.org/)
 
-</div>
+[🇨🇳 中文](#中文) · [🇺🇸 English](#english)
 
----
+</div---
 
-> **⚠️ 项目状态：Pre-Alpha**
+> **⚠️ Pre-Alpha** — 方向验证与技术原型阶段，配置格式与 API 可能随时变更，不适合生产环境。
+> 当前阶段**不接受外部 Pull Request**，欢迎 [Issues](https://github.com/AirSaiga/Precis/issues) 与 [Discussions](https://github.com/AirSaiga/Precis/discussions)。
 >
-> Precis 正处于**方向验证与技术原型**阶段。核心框架已就绪，但以下事项尚未完成：
-> - 测试基线已建立，但核心引擎与边界场景覆盖仍不足，已知缺陷存在
-> - 配置格式与 API 可能在无预警情况下变更
-> - **不适合生产环境或关键业务数据**
->
-> 开源目的在于展示技术方向、收集场景反馈。当前阶段**不接受外部 Pull Request**，欢迎通过 [Issues](https://github.com/AirSaiga/Precis/issues) 与 [Discussions](https://github.com/AirSaiga/Precis/discussions) 提交需求与缺陷。
+> Ultra-early prototype. Config formats and APIs may change without notice. **No external PRs accepted** at this stage.
+> [Issues](https://github.com/AirSaiga/Precis/issues) and [Discussions](https://github.com/AirSaiga/Precis/discussions) welcome.
 
 ---
 
@@ -32,390 +27,96 @@ Visual DAG Editor · Schema-Aware Validation · Local-First · AI-Ready
 
 ## 简介
 
-Precis 是一款面向 Excel/CSV 类表格数据的**本地优先**数据质量工具。它通过可视化 DAG（有向无环图）将数据校验流程从代码转化为画布操作——非技术人员亦可拖拽节点、连接边线、配置规则，完成从数据源接入到多维度质量校验的完整链路。
+Precis 是一款面向 Excel/CSV 表格数据的**本地优先**数据质量工具。通过可视化 DAG 画布，将数据校验流程从代码转化为拖拽操作——非技术人员亦可完成从数据源接入到多维度质量校验的完整链路。
 
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│   数据源      │────→│    Schema    │────→│   转换节点    │────→│   约束节点    │
-│ Excel / CSV  │     │   列定义      │     │ 拆分/过滤/映射 │     │ 唯一/非空/外键 │
-└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
-                                                      │
-                                                      ↓
-                                               ┌──────────────┐
-                                               │    正则节点   │
-                                               │  模式匹配引擎  │
-                                               └──────────────┘
-```
-
-### 设计原则
-
-- **Local-First** — 数据与配置完全驻留本地，无需上传云端
-- **Visual DAG** — 基于 Vue Flow 的无限画布，所见即所得的校验流程编排
-- **Schema-Aware** — 强类型列定义驱动，校验规则与数据结构深度绑定
-- **Multi-Entry** — Electron 桌面应用、CLI 命令行、REST API 三种入口一致
-- **AI-Ready** — 可选 LLM（OpenAI / Ollama）辅助生成校验配置
-
----
+三种入口：Electron 桌面应用（推荐）、CLI 命令行、REST API。
 
 ## 核心特性
 
-### 可视化编辑器
-
-- **DAG 画布**：基于 Vue Flow 的节点拖拽、自动连线、拓扑布局
-- **节点体系**：Schema、约束、转换、正则、模板实例五大类节点
-- **连接规则**：~25 条精确到 Handle 级别的边类型校验，防止非法连接
-- **模板展开**：约束模板容器一键展开为子图，支持收起/重新展开
-
-### 数据建模
-
-- **Schema 定义**：列名、数据类型（string / integer / decimal / boolean / datetime / date / time）、内嵌约束
-- **数据类型系统**：前端与后端统一类型体系，自动类型转换与校验
-- **版本管理**：V2 YAML 配置格式，项目清单 `project.precis.yaml` 统一索引
-
-### 校验引擎（后端）
-
-- **10 种约束类型**：NotNull、Unique、ForeignKey、AllowedValues、Range、Conditional、Scripted、Charset、DateLogic、Composite
-- **两阶段流水线**：数据加载与预处理 → 约束逐条校验，聚合错误报告
-- **大文件分块**：数据文件 ≥ 500MB 时自动切换分块校验模式
-- **目标引用重验**：外键目标 Schema 数据就绪后，自动触发下游约束重验
-
-### 转换引擎
-
-- **22 种转换算子**：StringSplit、RegexExtract、MathExpr、DateFormat、ConditionalAssign、MapValue、Lookup、FilterRows、SortRows、Aggregate、CastType、Concat、Digits、DropDuplicates、FillNA、LowerCase、UpperCase、Modulo、Replace、Strip、Substring、WeightedSum
-- **DAG 拓扑执行**：自动解析依赖图，按拓扑序链式执行
-- **客户端计算**：前端实时预览转换结果（基于 `transformCalculations.ts`），保存时同步到画布
-
-### 工程能力
-
-- **Electron 桌面版**：主进程动态分配端口、启动 Python 后端、健康检查
-- **国际化**：基于 Vue I18n，支持简体中文 / 英文切换
-- **撤销/重做**：完整的操作历史栈，支持跨步骤回退
-- **剪贴板**：节点复制、粘贴、多选批量操作
-- **自动更新**：基于 electron-updater 的 GitHub Releases 自动更新
-
----
-
-## 架构
-
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                           Electron 桌面应用                                   │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐   │
-│  │   Vue 3 前端     │  │   Vue Flow      │  │   Pinia 状态管理             │   │
-│  │  TypeScript     │  │   画布引擎       │  │  graphStore（工厂模块拆分）   │   │
-│  │  Vite 7         │  │                 │  │                             │   │
-│  └────────┬────────┘  └─────────────────┘  └─────────────────────────────┘   │
-│           │                                                                  │
-│           ▼ IPC                                                              │
-│  ┌───────────────────────────────────────────────────────────────────────┐   │
-│  │                    FastAPI 后端（Python 3.12+）                         │   │
-│  │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────────────┐  │   │
-│  │  │  V2 API    │ │   CLI      │ │  校验引擎   │ │    转换引擎         │  │   │
-│  │  │  CRUD      │ │  交互壳     │ │ 两阶段流水  │ │  DAG 拓扑执行      │  │   │
-│  │  └────────────┘ └────────────┘ └────────────┘ └────────────────────┘  │   │
-│  └───────────────────────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
-
-### 后端分层
-
-```
-backend/app/shared/
-├── core/       # 基础设施 — 文件 I/O、配置解析、数据加载（Pandas）
-├── domain/     # 纯领域逻辑 — 约束、转换、表达式求值（零 I/O 依赖）
-└── services/   # 应用服务 — 编排 core + domain，实现校验、AI、预览用例
-```
-
-### 前端核心
-
-```
-graphStore（Pinia Setup Store + 工厂模块注入）
-├── setup.ts                      # Store 入口
-├── modules/
-│   ├── factories/                # 节点工厂（Schema / 约束 / 正则 / 转换）
-│   ├── v2/
-│   │   ├── import/               # V2 资源导入（Schema / 约束 / 正则 / 转换）
-│   │   └── persistence/          # V2 持久化（保存 / 加载）
-│   ├── connectionOps.ts          # 连接操作
-│   ├── connectionStateSync.ts    # 连接状态同步
-│   ├── templateExpand.ts         # 模板展开
-│   ├── clipboard.ts              # 剪贴板
-│   └── history.ts                # 撤销 / 重做
-```
-
----
+| 能力 | 说明 |
+|------|------|
+| **可视化 DAG** | 基于 Vue Flow 的节点拖拽、自动连线、拓扑布局；~25 条 Handle 级连接规则 |
+| **Schema 建模** | 7 种数据类型（string / integer / decimal / boolean / datetime / date / time），V2 YAML 配置格式 |
+| **校验引擎** | 10 种约束（NotNull / Unique / ForeignKey / AllowedValues / Range / Conditional / Scripted / Charset / DateLogic / Composite），两阶段流水线，≥500MB 自动分块 |
+| **转换引擎** | 22 种算子（字符串拆分、正则提取、数学表达式、聚合、过滤、排序……），DAG 拓扑执行 |
+| **工程能力** | Electron 桌面版、中英双语 i18n、撤销/重做、剪贴板、自动更新 |
 
 ## 技术栈
 
-| 层级 | 技术选型 |
-|------|---------|
-| 前端框架 | Vue 3.5 + TypeScript 5.9 + Vite 7 |
-| 状态管理 | Pinia 3（Setup Store） |
-| 画布引擎 | Vue Flow 1.48 |
-| 路由 | Vue Router 4 |
-| 国际化 | Vue I18n 11（Composition API） |
-| 代码编辑器 | CodeMirror 6 |
-| 后端框架 | Python 3.12+ + FastAPI + Uvicorn |
-| 数据处理 | Pandas 2 + Pydantic 2 |
-| 桌面壳 | Electron 35 + electron-builder |
-| 前端质量 | ESLint 9 + Prettier 3 + Husky + lint-staged |
-| 后端质量 | Ruff（lint + format + import 排序）+ mypy |
-| 单元测试 | Vitest 4（前端）+ pytest（后端） |
-| E2E 测试 | Playwright + Chromium |
+| 层级 | 技术 |
+|------|------|
+| 前端 | Vue 3 + TypeScript + Vite + Pinia + Vue Flow + Vue I18n |
+| 后端 | Python 3.9+ · FastAPI + Uvicorn + Pydantic + Pandas |
+| 桌面端 | Electron + electron-builder |
+| 测试 | Vitest + pytest + Playwright E2E |
+| 代码质量 | ESLint + Prettier + Ruff + mypy |
 
----
+## 架构
+
+后端三层分离：`core/`（基础设施）→ `domain/`（纯领域逻辑，零 I/O）→ `services/`（应用服务编排）。
+
+前端核心：Pinia Setup Store + 工厂模块注入的 graphStore，统一管理画布节点/边/历史。
 
 ## 快速开始
 
 ### 前置条件
 
-| 工具 | 版本要求 |
-|------|---------|
-| **Node.js** | `^20.19.0 \|\| >=22.12.0` |
-| **Python** | `>=3.12` |
-| **Git** | 任意较新版本 |
+| 工具 | 版本 |
+|------|------|
+| Node.js | `^20.19.0 \|\| >=22.12.0` |
+| Python | `>=3.9` |
 
 ### 安装
 
 ```bash
-# 1. 克隆仓库
 git clone https://github.com/AirSaiga/Precis.git
 cd Precis
-
-# 2. 安装前端 + Electron 依赖
-npm run install:all
-
-# 3. 创建后端虚拟环境并安装依赖
-cd backend
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
-pip install -e ".[dev]"
-
-# 4. （可选）安装 AI 依赖
-pip install -e ".[ai]"
-
-# 5. 回到项目根目录
-cd ..
+npm run install:all                    # 前端 + Electron 依赖
+cd backend && python -m venv .venv && .venv\Scripts\activate && pip install -e ".[dev]" && cd ..
+cp .env.example .env                   # 环境变量（默认即可）
 ```
 
-> **一键安装脚本**（含环境检查）：
-> - Windows：`npm run setup:win`
-> - macOS/Linux：`npm run setup:mac`
-
-### 环境变量
-
-复制 `.env.example` 为 `.env`，按需修改：
-
-```bash
-cp .env.example .env
-```
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `VITE_BACKEND_PORT` | `18000` | 后端服务端口 |
-| `OPENAI_API_KEY` | — | OpenAI API Key（AI 功能可选） |
+> **一键安装**：`npm run setup:win`（Windows）或 `npm run setup:mac`（macOS/Linux）
 
 ### 启动
 
-**方式一：桌面版（推荐）**
 ```bash
-npm run electron:dev
-```
-Electron 自动管理后端子进程，无需手动启动。
-
-**方式二：开发模式（前后端分离）**
-```bash
-# 同时启动后端 + 前端
-npm run dev
-
-# 或分别启动
-npm run backend:dev             # FastAPI → http://127.0.0.1:18000
-cd frontend && npm run dev      # Vite dev server（自动代理后端 API）
+npm run electron:dev                   # 桌面版（推荐，自动管理后端）
+npm run dev                            # 开发模式：后端(18000) + 前端(5173)
+npm run cli                            # CLI 交互式命令行
+npm run cli:validate                   # 快速验证安装是否正常
 ```
 
 > Swagger UI：`http://127.0.0.1:18000/docs`
 
-**方式三：CLI 命令行**
-```bash
-npm run cli                     # 进入交互式命令行
-# 或
-cd backend && python -B -m app.cli
-```
+## 开发命令
 
-```
-precis> open /path/to/project    # 打开项目
-precis> validate                 # 校验全部数据表
-precis> validate users           # 校验指定表
-precis> help                     # 查看命令列表
-precis> exit
-```
-
-### 快速验证（一键校验测试项目）
-
-```bash
-npm run cli:validate
-# 校验 qa_test/qa_simple 示例项目，验证安装是否正常
-```
-
----
-
-## 开发指南
-
-### 常用命令
-
-```bash
-# ─── 代码质量 ───
-npm run lint:all                 # 前端 ESLint + 后端 Ruff
-npm run format:all               # 前端 Prettier + 后端 Ruff format + fix
-
-# ─── 类型检查 ───
-cd frontend && npm run type-check  # vue-tsc
-
-# ─── 测试 ───
-cd frontend && npm run test      # Vitest
-cd frontend && npm run test:watch  # Vitest watch 模式
-cd frontend && npm run test:coverage  # Vitest + 覆盖率报告
-cd backend && python -m pytest   # pytest
-cd backend && python -m pytest --cov=app --cov-report=term-missing  # pytest + 覆盖率
-
-# ─── 全量测试 ───
-npm run test:all                 # 前端 + 后端
-npm run test:coverage            # 前端 + 后端 + 覆盖率
-
-# ─── E2E 测试 ───
-npm run e2e:install              # 安装 Playwright + Chromium
-npm run e2e:test                 # 运行 E2E 测试
-npm run e2e:report               # 查看 E2E 测试报告
-```
-
-### 构建
-
-```bash
-npm run build:all                # 前端 + 后端 + Electron 全量构建
-npm run frontend:build           # 仅前端（含 type-check）
-npm run backend:build            # 仅后端
-npm run electron:build           # 仅 Electron 打包
-```
-
-### 后端质量工具
-
-```bash
-cd backend
-
-# Ruff lint
-python -m ruff check .
-
-# Ruff format（自动修复）
-python -m ruff format .
-python -m ruff check --fix .
-
-# mypy 类型检查
-python -m mypy app
-```
-
-### 测试覆盖率阈值
-
-| 层级 | Lines | Branches | Functions |
-|------|-------|----------|-----------|
-| 前端 | ≥ 40% | ≥ 30% | ≥ 40% |
-| 后端 | ≥ 56% | — | — |
-
----
+| 类别 | 命令 |
+|------|------|
+| 代码检查 | `npm run lint:all` · `npm run format:all` |
+| 类型检查 | `cd frontend && npm run type-check` |
+| 测试 | `npm run test:all` · `npm run test:coverage` |
+| E2E | `npm run e2e:install` · `npm run e2e:test` |
+| 构建 | `npm run build:all` · `npm run frontend:build` · `npm run electron:build` |
 
 ## 项目结构
 
 ```
 Precis/
-├── backend/                  # FastAPI + CLI + 校验 / 转换引擎
-│   ├── app/
-│   │   ├── api/              # REST API（V2 CRUD、校验、预览、AI）
-│   │   │   ├── models/       # Pydantic 请求/响应模型
-│   │   │   ├── routers/      # 路由定义
-│   │   │   └── services/     # API 层服务
-│   │   ├── cli/              # 交互式命令行入口
-│   │   ├── shared/
-│   │   │   ├── core/         # 配置引擎、项目加载器、文件 I/O
-│   │   │   ├── domain/       # 领域模型：约束、转换、表达式、数据类型
-│   │   │   └── services/     # 校验引擎、AI 服务、预览服务
-│   │   └── start_server.py   # 服务器启动脚本
-│   ├── tests/                # pytest 测试（unit + integration）
-│   └── pyproject.toml        # Python 依赖 + Ruff + mypy + pytest 配置
-├── frontend/                 # Vue 3 可视化编辑器
-│   ├── src/
-│   │   ├── api/              # 后端 API 客户端（Axios）
-│   │   ├── components/       # UI 组件（canvas / nodes / layout / settings / ai）
-│   │   ├── composables/      # Vue 组合式函数（canvas / nodes / validation）
-│   │   ├── core/             # 日志、HTTP、Toast
-│   │   ├── features/         # 垂直功能模块（keyboard / regex / ai-config-generator）
-│   │   ├── i18n/             # 多语言资源（zh-CN / en-US）
-│   │   ├── services/         # 构建器、校验器、连接规则、画布 API 注入
-│   │   ├── stores/           # Pinia Stores（graphStore / canvasStore / workspaceStore）
-│   │   ├── types/            # TypeScript 类型定义
-│   │   └── utils/            # 工具函数
-│   ├── tests/                # Vitest 单元测试
-│   ├── tsconfig.json         # TypeScript 项目引用配置
-│   └── package.json
-├── electron/                 # Electron 桌面壳
-│   ├── src/                  # Main process + Preload
-│   ├── scripts/              # 构建 + 启动脚本
-│   └── package.json          # electron-builder 配置
-├── e2e/                      # Playwright E2E 测试
-├── qa_test/                  # 示例测试项目（qa_simple）
-├── scripts/                  # 构建与部署脚本（Windows + macOS/Linux）
-├── docs/                     # 项目文档
-├── AGENTS.md                 # AI 辅助开发指南
-├── .env.example              # 环境变量示例
-└── package.json              # Monorepo 脚本入口
+├── backend/        # FastAPI + CLI + 校验/转换引擎
+├── frontend/       # Vue 3 可视化编辑器
+├── electron/       # Electron 桌面壳
+├── e2e/            # Playwright E2E 测试
+├── scripts/        # 构建与部署脚本
+├── AGENTS.md       # AI 辅助开发指南（详细的架构与规范）
+└── package.json    # Monorepo 脚本入口
 ```
-
----
-
-## NPM Scripts 速查
-
-| 命令 | 说明 |
-|------|------|
-| `npm run install:all` | 安装 root + frontend + electron 依赖 |
-| `npm run dev` | concurrently 同时启动后端 + 前端 |
-| `npm run backend:dev` | 启动 FastAPI 后端（端口 18000） |
-| `npm run electron:dev` | 启动 Electron 桌面版（推荐） |
-| `npm run cli` | 启动 CLI 交互式命令行 |
-| `npm run cli:validate` | 一键校验 qa_simple 示例项目 |
-| `npm run lint:all` | 前端 ESLint + 后端 Ruff 检查 |
-| `npm run format:all` | 前端 Prettier + 后端 Ruff 格式化 |
-| `npm run test:all` | 运行前端 + 后端全部测试 |
-| `npm run test:coverage` | 运行测试并生成覆盖率报告 |
-| `npm run build:all` | 全量构建（前端 + 后端 + Electron） |
-| `npm run e2e:test` | 运行 Playwright E2E 测试 |
-| `npm run check` | 检查环境依赖是否满足 |
-| `npm run setup:win` | Windows 一键安装脚本 |
-| `npm run setup:mac` | macOS/Linux 一键安装脚本 |
-
----
 
 ## 常见问题
 
-**Q: 可以用于生产环境吗？**
-A: **不可以。** 当前为 Pre-Alpha 原型，存在已知缺陷，API 与配置格式随时可能变更。请勿在关键数据上使用。
+**可以用于生产环境吗？** 不可以。Pre-Alpha 原型，API 与配置格式随时可能变更。
 
-**Q: 是否接受外部贡献？**
-A: 当前阶段**不接受外部 Pull Request**。架构与接口尚未稳定，欢迎提交 Issue 或在 Discussions 中交流使用场景。
-
-**Q: 是否提供纯 Web 版本？**
-A: 不提供。Precis 采用本地优先架构，数据始终驻留本地。请使用 Electron 桌面版获得完整功能。
-
-**Q: 后端能否独立部署？**
-A: 技术上可以，但 API 尚未稳定，不推荐服务器部署。
-
-**Q: 支持哪些 LLM？**
-A: 任何兼容 OpenAI API 的服务（OpenAI、Azure、LocalAI）以及 Ollama。在 `~/.precis/ai_providers.yaml` 中配置。
-
-**Q: 前端开发时如何连接后端？**
-A: Vite dev server 已配置代理，自动将 `/preview`、`/workspace`、`/regex`、`/utils`、`/api` 路径代理到 `http://localhost:18000`。默认无需额外配置。
-
----
+**接受外部贡献吗？** 当前不接受外部 PR，欢迎 Issue 和 Discussion。
 
 ## 许可证
 
@@ -427,138 +128,35 @@ A: Vite dev server 已配置代理，自动将 `/preview`、`/workspace`、`/reg
 
 ## Overview
 
-Precis is a **local-first** data quality platform for Excel/CSV tabular data. It transforms data validation workflows from code into canvas operations through a visual DAG (Directed Acyclic Graph) — enabling non-technical users to drag nodes, connect edges, and configure rules to build complete pipelines from data ingestion to multi-dimensional quality validation.
+Precis is a **local-first** data quality platform for Excel/CSV tabular data. It transforms data validation workflows from code into canvas operations through a visual DAG — non-technical users can build complete validation pipelines by dragging nodes and connecting edges.
 
-```
-┌──────────────┐     ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
-│  Data Source │────→│    Schema    │────→│  Transform   │────→│  Constraint  │
-│ Excel / CSV  │     │ Column Defs  │     │ Split/Filter │     │ Unique/Null/FK│
-└──────────────┘     └──────────────┘     └──────────────┘     └──────────────┘
-                                                      │
-                                                      ↓
-                                               ┌──────────────┐
-                                               │  Regex Node  │
-                                               │ Pattern Match│
-                                               └──────────────┘
-```
-
-### Design Principles
-
-- **Local-First** — All data and configurations remain on your machine, no cloud upload required
-- **Visual DAG** — Infinite canvas powered by Vue Flow for WYSIWYG validation pipeline orchestration
-- **Schema-Aware** — Strongly-typed column definitions drive validation rules deeply bound to data structure
-- **Multi-Entry** — Consistent behavior across Electron desktop app, CLI, and REST API
-- **AI-Ready** — Optional LLM-assisted configuration generation (OpenAI / Ollama)
-
----
+Three entry points: Electron desktop app (recommended), CLI, and REST API.
 
 ## Core Features
 
-### Visual Editor
-
-- **DAG Canvas**: Node drag-and-drop, auto-connection, and topological layout powered by Vue Flow
-- **Node System**: Five categories — Schema, Constraint, Transform, Regex, and Template Instance
-- **Connection Rules**: ~25 handle-level edge type validations to prevent illegal connections
-- **Template Expansion**: One-click expansion of constraint templates into subgraphs, with collapse and re-expand support
-
-### Data Modeling
-
-- **Schema Definition**: Column names, data types (string / integer / decimal / boolean / datetime / date / time), and embedded constraints
-- **Type System**: Unified type system across frontend and backend, with automatic type conversion and validation
-- **Versioning**: V2 YAML configuration format, indexed by project manifest `project.precis.yaml`
-
-### Validation Engine (Backend)
-
-- **10 Constraint Types**: NotNull, Unique, ForeignKey, AllowedValues, Range, Conditional, Scripted, Charset, DateLogic, Composite
-- **Two-Stage Pipeline**: Data loading and preprocessing → constraint-by-constraint validation with aggregated error reporting
-- **Chunked Loading**: Automatically switches to chunked mode for data files ≥ 500MB
-- **Target Reference Revalidation**: Automatically triggers downstream constraint revalidation when foreign key target Schema data becomes available
-
-### Transform Engine
-
-- **22 Transform Operators**: StringSplit, RegexExtract, MathExpr, DateFormat, ConditionalAssign, MapValue, Lookup, FilterRows, SortRows, Aggregate, CastType, Concat, Digits, DropDuplicates, FillNA, LowerCase, UpperCase, Modulo, Replace, Strip, Substring, WeightedSum
-- **DAG Topological Execution**: Automatically resolves dependency graphs and executes in topological order
-- **Client-Side Preview**: Frontend computes transform results in real-time via `transformCalculations.ts`
-
-### Engineering Capabilities
-
-- **Electron Desktop**: Main process dynamically allocates ports, launches Python backend, and performs health checks
-- **Internationalization**: Vue I18n-based, supports Simplified Chinese / English switching
-- **Undo/Redo**: Complete operation history stack with cross-step rollback support
-- **Clipboard**: Node copy, paste, and multi-select batch operations
-- **Auto-Update**: GitHub Releases-based auto-update via electron-updater
-
----
-
-## Architecture
-
-```
-┌──────────────────────────────────────────────────────────────────────────────┐
-│                          Electron Desktop App                                 │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────────────────┐   │
-│  │   Vue 3 Frontend │  │   Vue Flow      │  │   Pinia State Management    │   │
-│  │  TypeScript     │  │   Canvas Engine │  │  graphStore (Factory Split) │   │
-│  │  Vite 7         │  │                 │  │                             │   │
-│  └────────┬────────┘  └─────────────────┘  └─────────────────────────────┘   │
-│           │                                                                  │
-│           ▼ IPC                                                              │
-│  ┌───────────────────────────────────────────────────────────────────────┐   │
-│  │                 FastAPI Backend (Python 3.12+)                        │   │
-│  │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────────────┐  │   │
-│  │  │  V2 API    │ │   CLI      │ │ Validation │ │   Transform Engine │  │   │
-│  │  │  CRUD      │ │  Shell     │ │ 2-Stage    │ │  DAG Topological   │  │   │
-│  │  └────────────┘ └────────────┘ └────────────┘ └────────────────────┘  │   │
-│  └───────────────────────────────────────────────────────────────────────┘   │
-└──────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Backend Layers
-
-```
-backend/app/shared/
-├── core/       # Infrastructure — file I/O, config parsing, data loading (Pandas)
-├── domain/     # Pure domain logic — constraints, transforms, expression evaluation (zero I/O dependency)
-└── services/   # Application services — orchestrate core + domain for validation, AI, and preview use cases
-```
-
-### Frontend Core
-
-```
-graphStore (Pinia Setup Store + Factory Module Injection)
-├── setup.ts                      # Store entry
-├── modules/
-│   ├── factories/                # Node factories (Schema / Constraint / Regex / Transform)
-│   ├── v2/
-│   │   ├── import/               # V2 resource import (Schema / Constraint / Regex / Transform)
-│   │   └── persistence/          # V2 persistence (save / load)
-│   ├── connectionOps.ts          # Connection operations
-│   ├── connectionStateSync.ts    # Connection state synchronization
-│   ├── templateExpand.ts         # Template expansion
-│   ├── clipboard.ts              # Clipboard
-│   └── history.ts                # Undo / Redo
-```
-
----
+| Capability | Description |
+|-----------|-------------|
+| **Visual DAG** | Node drag-and-drop, auto-connection, topological layout via Vue Flow; ~25 handle-level connection rules |
+| **Schema Modeling** | 7 data types (string / integer / decimal / boolean / datetime / date / time), V2 YAML config format |
+| **Validation Engine** | 10 constraint types (NotNull / Unique / ForeignKey / AllowedValues / Range / Conditional / Scripted / Charset / DateLogic / Composite), two-stage pipeline, auto-chunking for files ≥500MB |
+| **Transform Engine** | 22 operators (string split, regex extract, math expression, aggregate, filter, sort, etc.), DAG topological execution |
+| **Engineering** | Electron desktop, zh-CN/en-US i18n, undo/redo, clipboard, auto-update |
 
 ## Tech Stack
 
 | Layer | Technology |
 |-------|-----------|
-| Frontend Framework | Vue 3.5 + TypeScript 5.9 + Vite 7 |
-| State Management | Pinia 3 (Setup Store) |
-| Canvas Engine | Vue Flow 1.48 |
-| Routing | Vue Router 4 |
-| i18n | Vue I18n 11 (Composition API) |
-| Code Editor | CodeMirror 6 |
-| Backend Framework | Python 3.12+ + FastAPI + Uvicorn |
-| Data Processing | Pandas 2 + Pydantic 2 |
-| Desktop Shell | Electron 35 + electron-builder |
-| Frontend Quality | ESLint 9 + Prettier 3 + Husky + lint-staged |
-| Backend Quality | Ruff (lint + format + import sorting) + mypy |
-| Unit Testing | Vitest 4 (frontend) + pytest (backend) |
-| E2E Testing | Playwright + Chromium |
+| Frontend | Vue 3 + TypeScript + Vite + Pinia + Vue Flow + Vue I18n |
+| Backend | Python 3.9+ · FastAPI + Uvicorn + Pydantic + Pandas |
+| Desktop | Electron + electron-builder |
+| Testing | Vitest + pytest + Playwright E2E |
+| Quality | ESLint + Prettier + Ruff + mypy |
 
----
+## Architecture
+
+Backend three-layer separation: `core/` (infrastructure) → `domain/` (pure domain logic, zero I/O) → `services/` (application service orchestration).
+
+Frontend core: Pinia Setup Store + factory module injection graphStore for unified canvas node/edge/history management.
 
 ## Quick Start
 
@@ -566,251 +164,60 @@ graphStore (Pinia Setup Store + Factory Module Injection)
 
 | Tool | Version |
 |------|---------|
-| **Node.js** | `^20.19.0 \|\| >=22.12.0` |
-| **Python** | `>=3.12` |
-| **Git** | Any recent version |
+| Node.js | `^20.19.0 \|\| >=22.12.0` |
+| Python | `>=3.9` |
 
 ### Installation
 
 ```bash
-# 1. Clone the repository
 git clone https://github.com/AirSaiga/Precis.git
 cd Precis
-
-# 2. Install frontend + electron dependencies
-npm run install:all
-
-# 3. Create backend virtual environment
-cd backend
-python -m venv .venv
-# Windows:
-.venv\Scripts\activate
-# macOS/Linux:
-source .venv/bin/activate
-pip install -e ".[dev]"
-
-# 4. (Optional) Install AI dependencies
-pip install -e ".[ai]"
-
-# 5. Return to project root
-cd ..
+npm run install:all                    # Frontend + Electron deps
+cd backend && python -m venv .venv && source .venv/bin/activate && pip install -e ".[dev]" && cd ..
+cp .env.example .env                   # Env vars (defaults work)
 ```
 
-> **One-click setup** (with environment checks):
-> - Windows: `npm run setup:win`
-> - macOS/Linux: `npm run setup:mac`
-
-### Environment Variables
-
-Copy `.env.example` to `.env` and customize:
-
-```bash
-cp .env.example .env
-```
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `VITE_BACKEND_PORT` | `18000` | Backend server port |
-| `OPENAI_API_KEY` | — | OpenAI API Key (optional, for AI features) |
+> **One-click setup**: `npm run setup:win` (Windows) or `npm run setup:mac` (macOS/Linux)
 
 ### Launch
 
-**Option 1: Desktop App (Recommended)**
 ```bash
-npm run electron:dev
-```
-Electron auto-manages the backend child process.
-
-**Option 2: Development Mode (Decoupled)**
-```bash
-# Start both backend + frontend
-npm run dev
-
-# Or start separately
-npm run backend:dev             # FastAPI → http://127.0.0.1:18000
-cd frontend && npm run dev      # Vite dev server (auto-proxies backend API)
+npm run electron:dev                   # Desktop app (recommended, auto-manages backend)
+npm run dev                            # Dev mode: backend(18000) + frontend(5173)
+npm run cli                            # CLI interactive shell
+npm run cli:validate                   # Quick verification that setup is correct
 ```
 
 > Swagger UI: `http://127.0.0.1:18000/docs`
 
-**Option 3: CLI**
-```bash
-npm run cli
-# or
-cd backend && python -B -m app.cli
-```
+## Development Commands
 
-```
-precis> open /path/to/project    # Open a project
-precis> validate                 # Validate all tables
-precis> validate users           # Validate a specific table
-precis> help                     # List all commands
-precis> exit
-```
-
-### Quick Verification
-
-```bash
-npm run cli:validate
-# Validates the qa_test/qa_simple sample project to verify your setup
-```
-
----
-
-## Development Guide
-
-### Common Commands
-
-```bash
-# ─── Code Quality ───
-npm run lint:all                 # Frontend ESLint + Backend Ruff
-npm run format:all               # Frontend Prettier + Backend Ruff format + fix
-
-# ─── Type Checking ───
-cd frontend && npm run type-check  # vue-tsc
-
-# ─── Testing ───
-cd frontend && npm run test      # Vitest
-cd frontend && npm run test:watch  # Vitest watch mode
-cd frontend && npm run test:coverage  # Vitest + coverage report
-cd backend && python -m pytest   # pytest
-cd backend && python -m pytest --cov=app --cov-report=term-missing  # pytest + coverage
-
-# ─── Full Test Suite ───
-npm run test:all                 # Frontend + Backend
-npm run test:coverage            # Frontend + Backend + coverage
-
-# ─── E2E Testing ───
-npm run e2e:install              # Install Playwright + Chromium
-npm run e2e:test                 # Run E2E tests
-npm run e2e:report               # View E2E report
-```
-
-### Build
-
-```bash
-npm run build:all                # Frontend + Backend + Electron full build
-npm run frontend:build           # Frontend only (with type-check)
-npm run backend:build            # Backend only
-npm run electron:build           # Electron packaging only
-```
-
-### Backend Quality Tools
-
-```bash
-cd backend
-
-# Ruff lint
-python -m ruff check .
-
-# Ruff format (auto-fix)
-python -m ruff format .
-python -m ruff check --fix .
-
-# mypy type checking
-python -m mypy app
-```
-
-### Test Coverage Thresholds
-
-| Layer | Lines | Branches | Functions |
-|-------|-------|----------|-----------|
-| Frontend | ≥ 40% | ≥ 30% | ≥ 40% |
-| Backend | ≥ 56% | — | — |
-
----
+| Category | Commands |
+|----------|----------|
+| Lint | `npm run lint:all` · `npm run format:all` |
+| Type Check | `cd frontend && npm run type-check` |
+| Test | `npm run test:all` · `npm run test:coverage` |
+| E2E | `npm run e2e:install` · `npm run e2e:test` |
+| Build | `npm run build:all` · `npm run frontend:build` · `npm run electron:build` |
 
 ## Project Structure
 
 ```
 Precis/
-├── backend/                  # FastAPI + CLI + Validation / Transform Engine
-│   ├── app/
-│   │   ├── api/              # REST API (V2 CRUD, Validation, Preview, AI)
-│   │   │   ├── models/       # Pydantic request/response models
-│   │   │   ├── routers/      # Route definitions
-│   │   │   └── services/     # API-layer services
-│   │   ├── cli/              # Interactive CLI entry
-│   │   ├── shared/
-│   │   │   ├── core/         # Config engine, project loader, file I/O
-│   │   │   ├── domain/       # Domain models: constraints, transforms, expressions, data types
-│   │   │   └── services/     # Validation engine, AI services, preview services
-│   │   └── start_server.py   # Server startup script
-│   ├── tests/                # pytest tests (unit + integration)
-│   └── pyproject.toml        # Python deps + Ruff + mypy + pytest config
-├── frontend/                 # Vue 3 Visual Editor
-│   ├── src/
-│   │   ├── api/              # Backend API client (Axios)
-│   │   ├── components/       # UI components (canvas / nodes / layout / settings / ai)
-│   │   ├── composables/      # Vue composables (canvas / nodes / validation)
-│   │   ├── core/             # Logging, HTTP, Toast
-│   │   ├── features/         # Vertical feature modules (keyboard / regex / ai-config-generator)
-│   │   ├── i18n/             # Multi-language resources (zh-CN / en-US)
-│   │   ├── services/         # Builders, validators, connection rules, canvas API injection
-│   │   ├── stores/           # Pinia Stores (graphStore / canvasStore / workspaceStore)
-│   │   ├── types/            # TypeScript type definitions
-│   │   └── utils/            # Utility functions
-│   ├── tests/                # Vitest unit tests
-│   ├── tsconfig.json         # TypeScript project references config
-│   └── package.json
-├── electron/                 # Electron Desktop Shell
-│   ├── src/                  # Main process + Preload
-│   ├── scripts/              # Build + startup scripts
-│   └── package.json          # electron-builder config
-├── e2e/                      # Playwright E2E tests
-├── qa_test/                  # Sample test projects (qa_simple)
-├── scripts/                  # Build and deployment scripts (Windows + macOS/Linux)
-├── docs/                     # Project documentation
-├── AGENTS.md                 # AI-assisted development guide
-├── .env.example              # Environment variable template
-└── package.json              # Monorepo script entry point
+├── backend/        # FastAPI + CLI + Validation/Transform engine
+├── frontend/       # Vue 3 visual editor
+├── electron/       # Electron desktop shell
+├── e2e/            # Playwright E2E tests
+├── scripts/        # Build and deployment scripts
+├── AGENTS.md       # AI-assisted development guide (detailed architecture & conventions)
+└── package.json    # Monorepo script entry point
 ```
-
----
-
-## NPM Scripts Reference
-
-| Command | Description |
-|---------|-------------|
-| `npm run install:all` | Install root + frontend + electron dependencies |
-| `npm run dev` | concurrently starts backend + frontend |
-| `npm run backend:dev` | Start FastAPI backend (port 18000) |
-| `npm run electron:dev` | Start Electron desktop app (recommended) |
-| `npm run cli` | Start CLI interactive shell |
-| `npm run cli:validate` | One-command validation of qa_simple sample project |
-| `npm run lint:all` | Frontend ESLint + Backend Ruff check |
-| `npm run format:all` | Frontend Prettier + Backend Ruff format |
-| `npm run test:all` | Run all frontend + backend tests |
-| `npm run test:coverage` | Run tests with coverage reports |
-| `npm run build:all` | Full build (frontend + backend + Electron) |
-| `npm run e2e:test` | Run Playwright E2E tests |
-| `npm run check` | Verify environment dependencies |
-| `npm run setup:win` | Windows one-click setup |
-| `npm run setup:mac` | macOS/Linux one-click setup |
-
----
 
 ## FAQ
 
-**Q: Can it be used in production?**
-A: **No.** This is a Pre-Alpha prototype with known defects. APIs and configuration formats may change without notice. Do not use with critical data.
+**Can it be used in production?** No. Pre-Alpha prototype; APIs and config formats may change without notice.
 
-**Q: Do you accept external contributions?**
-A: **Not accepting external Pull Requests** at this stage. The architecture and interfaces are not yet stable. Issues and Discussions are welcome.
-
-**Q: Is there a pure web version?**
-A: No. Precis adopts a local-first architecture; data always remains on your machine. Please use the Electron desktop app for full functionality.
-
-**Q: Can the backend be deployed independently?**
-A: Technically possible, but APIs are not yet stable and server deployment is not recommended.
-
-**Q: Which LLMs are supported?**
-A: Any OpenAI API-compatible service (OpenAI, Azure, LocalAI) and Ollama. Configure in `~/.precis/ai_providers.yaml`.
-
-**Q: How does the frontend connect to the backend during development?**
-A: The Vite dev server is pre-configured with proxies for `/preview`, `/workspace`, `/regex`, `/utils`, and `/api` paths, forwarding to `http://localhost:18000`. No manual configuration needed.
-
----
+**Do you accept external contributions?** No external PRs at this stage. Issues and Discussions welcome.
 
 ## License
 
