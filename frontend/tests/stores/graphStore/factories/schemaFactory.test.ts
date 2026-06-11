@@ -19,12 +19,20 @@ describe('schemaFactory', () => {
   let selectedNodeId: ReturnType<typeof ref<string | null>>
   let factory: ReturnType<typeof createSchemaFactoryModule>
 
+  const mockUpdateNodeData = vi.fn((nodeId: string, data: Partial<CustomNode['data']>) => {
+    const node = nodes.value.find((n) => n.id === nodeId)
+    if (node && node.data) {
+      Object.assign(node.data, data)
+    }
+  })
+
   beforeEach(() => {
     nodes = ref<CustomNode[]>([])
     selectedNodeId = ref<string | null>(null)
-    factory = createSchemaFactoryModule({ nodes, selectedNodeId })
+    factory = createSchemaFactoryModule({ nodes, selectedNodeId, updateNodeData: mockUpdateNodeData })
     capturedNodes = []
     vi.mocked(addNodes).mockClear()
+    mockUpdateNodeData.mockClear()
   })
 
   describe('createSchemaNode', () => {

@@ -26,7 +26,6 @@
 import { logger } from '@/core/utils/logger'
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useVueFlow } from '@vue-flow/core'
 import { NodeDeletionManager } from '@/services/managers/nodeDeletionManager'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { useGraphStore } from '@/stores/graphStore'
@@ -48,8 +47,8 @@ export interface NodeSavingOptions {
 
 export function useNodeSaving(options: NodeSavingOptions) {
   const { t } = useI18n()
-  const { updateNodeData } = useVueFlow()
   const store = useGraphStore()
+  const updateNodeData = store.updateNodeData
 
   const {
     nodeId,

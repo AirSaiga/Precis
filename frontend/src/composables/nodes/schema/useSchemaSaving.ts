@@ -4,7 +4,6 @@
  * 负责保存逻辑、保存状态管理、关闭逻辑
  */
 
-import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import type { SchemaNodeData } from '@/types/graph'
 import { useNodeSaving } from '../shared/useNodeSaving'
@@ -21,8 +20,8 @@ export function useSchemaSaving(
   emit: any,
   hoveredColumn: { value: string | null }
 ) {
-  const { updateNodeData } = useVueFlow()
   const store = useGraphStore()
+  const updateNodeData = store.updateNodeData
 
   const nodeSaving = useNodeSaving({
     nodeId: props.id,

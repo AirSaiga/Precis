@@ -409,16 +409,16 @@
   const { t } = useI18n()
 
   // VueFlow 核心功能
-  // - updateNodeData: 更新节点数据
   // - updateNodeInternals: 刷新节点内部状态（如虚拟锚点）
   // - addEdges: 添加边连接
-  const { updateNodeData, updateNodeInternals, addEdges } = useVueFlow()
+  const { updateNodeInternals, addEdges } = useVueFlow()
 
   // 全局确认对话框
   const { showConfirm } = useGlobalConfirm()
 
   // Store 初始化
   const store = useGraphStore()
+  const updateNodeData = store.updateNodeData
 
   /**
    * 创建本地数据副本

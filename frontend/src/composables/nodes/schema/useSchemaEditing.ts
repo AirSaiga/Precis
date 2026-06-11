@@ -7,7 +7,6 @@
 import { logger } from '@/core/utils/logger'
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import type { SchemaNodeData, SchemaColumn, DataType } from '@/types/graph'
@@ -17,9 +16,10 @@ import { useNodeColumnEditing } from '../shared/useNodeColumnEditing'
 
 export function useSchemaEditing(props: { id: string; data: SchemaNodeData }, emit: any) {
   const { t } = useI18n()
-  const { updateNodeData } = useVueFlow()
   const { showConfirm } = useGlobalConfirm()
   const store = useGraphStore()
+
+  const updateNodeData = store.updateNodeData
 
   // ============================================================================
   // 列编辑通用逻辑

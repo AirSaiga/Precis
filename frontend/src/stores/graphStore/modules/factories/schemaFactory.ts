@@ -27,8 +27,9 @@ import { createBaseNodeFactory } from './createBaseNodeFactory'
 export function createSchemaFactoryModule(params: {
   nodes: Ref<CustomNode[]>
   selectedNodeId: Ref<string | null>
+  updateNodeData: (nodeId: string, newData: Partial<CustomNode['data']>) => void
 }) {
-  const { nodes, selectedNodeId } = params
+  const { nodes, selectedNodeId, updateNodeData } = params
   const createNode = createBaseNodeFactory({ nodes, selectedNodeId })
 
   function createSchemaNode(position: { x: number; y: number }, name?: string) {
@@ -54,8 +55,10 @@ export function createSchemaFactoryModule(params: {
       validationErrors: [],
     }
 
-    schemaData.columns.push(newColumn as SchemaColumn)
-    schemaData.saveState = 'draft'
+    updateNodeData(schemaNodeId, {
+      columns: [...schemaData.columns, newColumn as SchemaColumn],
+      saveState: 'draft',
+    })
   }
 
   return {

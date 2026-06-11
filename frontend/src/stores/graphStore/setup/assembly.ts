@@ -110,6 +110,7 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
   const { createSchemaNode, addColumnToSchema } = createSchemaFactoryModule({
     nodes,
     selectedNodeId,
+    updateNodeData,
   })
   const { createConstraintNode } = createConstraintFactoryModule({ nodes, selectedNodeId })
   const { createRegexNode } = createRegexFactoryModule({ nodes, selectedNodeId })

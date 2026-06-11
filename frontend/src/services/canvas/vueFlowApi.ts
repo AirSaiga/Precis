@@ -20,6 +20,8 @@ import type {
   UpdateNodeInternals,
   UpdateEdgeData,
   FindEdge,
+  UpdateNodeData,
+  UpdateNode,
 } from '@vue-flow/core'
 
 export interface VueFlowApi {
@@ -30,6 +32,8 @@ export interface VueFlowApi {
   updateNodeInternals: UpdateNodeInternals
   updateEdgeData: UpdateEdgeData
   findEdge: FindEdge
+  updateNodeData: UpdateNodeData
+  updateNode: UpdateNode
 }
 
 let _api: VueFlowApi | null = null
@@ -70,4 +74,12 @@ export function updateEdgeData(...args: Parameters<UpdateEdgeData>) {
 
 export function findEdge(...args: Parameters<FindEdge>): GraphEdge | undefined {
   return requireApi().findEdge(...args)
+}
+
+export function updateNodeData(...args: Parameters<UpdateNodeData>) {
+  requireApi().updateNodeData(...args)
+}
+
+export function updateNode(...args: Parameters<UpdateNode>) {
+  requireApi().updateNode(...args)
 }

@@ -21,8 +21,9 @@ export function useSchemaInteractions(
   emit: any
 ) {
   const { t } = useI18n();
-  const { updateNodeData, findNode } = useVueFlow();
+  const { findNode } = useVueFlow();
   const store = useGraphStore();
+  const updateNodeData = store.updateNodeData;
 
   const snappingColumnIds = ref<Set<string>>(new Set());
   const knownEdgeIds = ref<Set<string>>(new Set());

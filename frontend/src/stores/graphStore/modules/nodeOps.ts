@@ -15,7 +15,7 @@ import { nextTick } from 'vue'
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
-import { removeEdges, removeNodes } from '@/services/canvas/vueFlowApi'
+import { removeEdges, removeNodes, updateNode } from '@/services/canvas/vueFlowApi'
 
 interface TemplateExpandLike {
   getExpandedIds(instanceNodeId: string): string[]
@@ -133,8 +133,16 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
       return
     }
 
-    node.position.x += deltaX
-    node.position.y += deltaY
+    const nextPosition = {
+      x: node.position.x + deltaX,
+      y: node.position.y + deltaY,
+    }
+
+    try {
+      updateNode(node.id, { position: nextPosition })
+    } catch {
+      node.position = nextPosition
+    }
   }
 
   function moveSelectedNodes(deltaX: number, deltaY: number) {
@@ -144,8 +152,16 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
 
     for (const node of nodes.value) {
       if (selectedNodeIds.value.includes(node.id)) {
-        node.position.x += deltaX
-        node.position.y += deltaY
+        const nextPosition = {
+          x: node.position.x + deltaX,
+          y: node.position.y + deltaY,
+        }
+
+        try {
+          updateNode(node.id, { position: nextPosition })
+        } catch {
+          node.position = nextPosition
+        }
       }
     }
   }

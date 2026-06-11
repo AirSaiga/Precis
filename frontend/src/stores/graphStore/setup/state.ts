@@ -3,7 +3,7 @@
  *
  * 定义核心响应式状态（nodes/edges/selectedNodeId）和 updateNodeData 唯一修改入口。
  */
-import { ref } from 'vue'
+import { ref, nextTick } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type {
   CustomNode,
@@ -11,28 +11,8 @@ import type {
   TableAsset,
 } from '@/types/graph'
 import type { FullValidationSummary, ValidationStatistics } from '../../../api/projectValidationApi'
-
-/**
- * 在节点数组中查找指定 nodeId 并合并更新其 data 字段
- *
- * 复用已有节点对象引用（仅 mutate data），避免 VueFlow 在 v-model
- * 同步时因节点引用变化触发 setEdges → createGraphEdges → findNode
- * 导致边被静默丢弃。
- *
- * 返回新数组（触发 ref 响应式），但节点对象本身引用不变。
- */
-function updateNodeDataInArray(
-  nodes: CustomNode[],
-  nodeId: string,
-  data: Partial<CustomNode['data']>
-): CustomNode[] {
-  return nodes.map((node) => {
-    if (node.id === nodeId && node.data) {
-      Object.assign(node.data, data)
-    }
-    return node
-  })
-}
+import { updateNodeData as updateVueFlowNodeData } from '@/services/canvas/vueFlowApi'
+import { logger } from '@/core/utils/logger'
 
 /** @returns 包含 nodes / edges / assets / selectedNodeId 等响应式状态的对象 */
 export function createGraphStoreState() {
@@ -92,8 +72,38 @@ export function createGraphStoreState() {
     lastFullValidationStatistics.value = statistics
   }
 
+  /**
+   * 统一节点数据更新入口
+   *
+   * 实现策略：
+   * 1. 通过 VueFlow API 直接更新内部状态（增量更新，不触发 setNodes/setEdges）
+   * 2. nextTick 后同步 store 中的节点 data（不替换数组，避免 v-model 连锁反应）
+   *
+   * 此策略避免 nodes.value 数组替换导致的 setNodes → createGraphNodes →
+   * setEdges → createGraphEdges 连锁链，从而防止边被静默丢弃。
+   */
   function updateNodeData(nodeId: string, newData: Partial<CustomNodeData>) {
-    nodes.value = updateNodeDataInArray(nodes.value, nodeId, newData)
+    // 步骤 1：通过注入层调用 VueFlow 内置 updateNodeData（增量，安全）
+    try {
+      updateVueFlowNodeData(nodeId, newData as Record<string, unknown>)
+    } catch {
+      // VueFlow 尚未初始化（如 store 创建阶段），回退到直接 store mutation
+      const node = nodes.value.find((n) => n.id === nodeId)
+      if (node && node.data) {
+        Object.assign(node.data, newData)
+      }
+      return
+    }
+
+    // 步骤 2：nextTick 后同步 store 数据（不触发 v-model watcher）
+    nextTick(() => {
+      const node = nodes.value.find((n) => n.id === nodeId)
+      if (node && node.data) {
+        Object.assign(node.data, newData)
+      } else if (!node) {
+        logger.warn(`[updateNodeData] Node ${nodeId} not found in store after VueFlow update`)
+      }
+    })
   }
 
   return {
