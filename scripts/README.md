@@ -13,9 +13,6 @@ scripts/
 ├── setup.ps1                 # Windows 一键部署 / Windows one-click deploy ⭐
 ├── setup.sh                  # Mac/Linux 一键部署 / Mac/Linux one-click deploy ⭐
 ├── check-env.js              # 环境检查工具 / Environment checker
-├── clean_workspace.py        # 清理 .precis 工作区 / Clean .precis workspace
-├── fix_workspace_paths.py    # 修复工作区路径 / Fix workspace paths
-├── count_lines.py            # 源代码行数统计 / Source line counter
 ├── README.md                 # 本文档 / This document
 │
 ├── windows/                            # Windows 启动脚本 / Windows startup scripts
