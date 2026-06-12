@@ -25,7 +25,7 @@ from app.api.services.preview_service import (
     preview_from_content,
     preview_from_path,
 )
-from app.shared.services.preview.path import validate_file_access
+from app.shared.services.preview.path_validation import validate_file_access
 
 from .router import router
 

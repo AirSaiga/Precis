@@ -1,20 +1,21 @@
 """测试 schema builder 的 build_type_from_config 工厂函数"""
 
 import pytest
-from app.shared.domain.schema.builder import (
-    build_type_from_config,
-    TYPE_REGISTRY,
-)
+
 from app.shared.domain.data_types import (
-    IntegerType,
-    StringType,
-    FloatType,
-    DecimalType,
     BooleanType,
     DateType,
+    DecimalType,
     ExpressionType,
-    SequenceType,
     ExtractedType,
+    FloatType,
+    IntegerType,
+    SequenceType,
+    StringType,
+)
+from app.shared.domain.schema.builder import (
+    TYPE_REGISTRY,
+    build_type_from_config,
 )
 
 
@@ -91,6 +92,7 @@ class TestBuildTypeFromConfigDict:
 
     def test_expression_type_with_registry_object(self):
         from app.shared.domain.expression_system import ExpressionRegistry
+
         registry = ExpressionRegistry()
         result = build_type_from_config(
             {"name": "Expr", "registry": registry},
@@ -99,6 +101,7 @@ class TestBuildTypeFromConfigDict:
 
     def test_expression_type_with_string_registry(self):
         from app.shared.domain.expression_system import ExpressionRegistry
+
         registries = {"patterns": ExpressionRegistry()}
         result = build_type_from_config(
             {"name": "Expr", "registry": "patterns"},
@@ -122,19 +125,23 @@ class TestBuildTypeFromConfigDict:
             )
 
     def test_extracted_type_with_params(self):
-        result = build_type_from_config({
-            "name": "Extracted",
-            "source_column": "col1",
-            "extract_key": "key1",
-        })
+        result = build_type_from_config(
+            {
+                "name": "Extracted",
+                "source_column": "col1",
+                "extract_key": "key1",
+            }
+        )
         assert isinstance(result, ExtractedType)
 
     def test_sequence_with_delimiter(self):
-        result = build_type_from_config({
-            "name": "Sequence",
-            "item_type": "int",
-            "delimiter": ";",
-        })
+        result = build_type_from_config(
+            {
+                "name": "Sequence",
+                "item_type": "int",
+                "delimiter": ";",
+            }
+        )
         assert isinstance(result, SequenceType)
 
 
@@ -154,15 +161,38 @@ class TestBuildTypeFromConfigInvalid:
 
 class TestTypeRegistryCoverage:
     def test_registry_has_all_uppercase_keys(self):
-        uppercase_keys = ["Int", "Str", "Float", "Decimal", "Boolean", "Date",
-                          "Expr", "CompositeExpr", "Sequence", "Extracted",
-                          "JsonObject", "JsonArray", "JsonNull"]
+        uppercase_keys = [
+            "Int",
+            "Str",
+            "Float",
+            "Decimal",
+            "Boolean",
+            "Date",
+            "Expr",
+            "CompositeExpr",
+            "Sequence",
+            "Extracted",
+            "JsonObject",
+            "JsonArray",
+            "JsonNull",
+        ]
         for key in uppercase_keys:
             assert key in TYPE_REGISTRY, f"Missing uppercase key: {key}"
 
     def test_registry_has_all_lowercase_keys(self):
-        lowercase_keys = ["int", "integer", "string", "str", "float", "decimal",
-                          "boolean", "bool", "date",
-                          "json_object", "json_array", "json_null"]
+        lowercase_keys = [
+            "int",
+            "integer",
+            "string",
+            "str",
+            "float",
+            "decimal",
+            "boolean",
+            "bool",
+            "date",
+            "json_object",
+            "json_array",
+            "json_null",
+        ]
         for key in lowercase_keys:
             assert key in TYPE_REGISTRY, f"Missing lowercase key: {key}"

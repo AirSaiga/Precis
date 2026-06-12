@@ -143,9 +143,7 @@ class TestUpdateYamlConfig:
             "columns": [
                 {"id": "sc_email", "name": "email", "type": "string"},
             ],
-            "constraints": [
-                {"id": "notnull_users_email", "column": "sc_email", "type": "NotNull"}
-            ],
+            "constraints": [{"id": "notnull_users_email", "column": "sc_email", "type": "NotNull"}],
         }
         schema_file = os.path.join(schemas_dir, "sc_users.schema.yaml")
         with open(schema_file, "w", encoding="utf-8") as f:
@@ -270,9 +268,7 @@ class TestProcessSchemaAction:
     """测试 process_schema_action 的分发和核心逻辑"""
 
     def test_unknown_action_type(self, tmp_path):
-        result = process_schema_action(
-            {"actionType": "UNKNOWN_ACTION", "schemaSpec": {}}, str(tmp_path)
-        )
+        result = process_schema_action({"actionType": "UNKNOWN_ACTION", "schemaSpec": {}}, str(tmp_path))
         assert result["success"] is False
         assert "未知" in result["message"]
 
@@ -304,9 +300,7 @@ class TestProcessSchemaAction:
         with open(manifest_path, "w") as f:
             import yaml
 
-            yaml.safe_dump(
-                {"version": 2, "project": {"id": "p1"}, "schemas": []}, f
-            )
+            yaml.safe_dump({"version": 2, "project": {"id": "p1"}, "schemas": []}, f)
 
         result = process_schema_action(
             {
@@ -334,9 +328,7 @@ class TestProcessSchemaAction:
         with open(manifest_path, "w") as f:
             import yaml
 
-            yaml.safe_dump(
-                {"version": 2, "project": {"id": "p1"}, "schemas": []}, f
-            )
+            yaml.safe_dump({"version": 2, "project": {"id": "p1"}, "schemas": []}, f)
 
         result = process_schema_action(
             {
@@ -590,9 +582,7 @@ class TestProcessRegexAction:
     """测试 process_regex_action 的分发和核心逻辑"""
 
     def test_unknown_action_type(self, tmp_path):
-        result = process_regex_action(
-            {"actionType": "UNKNOWN_REGEX_ACTION", "regexSpec": {}}, str(tmp_path)
-        )
+        result = process_regex_action({"actionType": "UNKNOWN_REGEX_ACTION", "regexSpec": {}}, str(tmp_path))
         assert result["success"] is False
         assert "未知" in result["message"]
 
@@ -624,9 +614,7 @@ class TestProcessRegexAction:
         import yaml
 
         with open(manifest_path, "w") as f:
-            yaml.safe_dump(
-                {"version": 2, "project": {"id": "p1"}, "regex_nodes": []}, f
-            )
+            yaml.safe_dump({"version": 2, "project": {"id": "p1"}, "regex_nodes": []}, f)
 
         result = process_regex_action(
             {
@@ -666,9 +654,7 @@ class TestProcessRegexAction:
         import yaml
 
         with open(manifest_path, "w") as f:
-            yaml.safe_dump(
-                {"version": 2, "project": {"id": "p1"}, "regex_nodes": []}, f
-            )
+            yaml.safe_dump({"version": 2, "project": {"id": "p1"}, "regex_nodes": []}, f)
 
         result = process_regex_action(
             {
@@ -821,9 +807,7 @@ class TestProcessTransformAction:
     """测试 process_transform_action 的分发和核心逻辑"""
 
     def test_unknown_action_type(self, tmp_path):
-        result = process_transform_action(
-            {"actionType": "UNKNOWN_TRANSFORM", "transformSpec": {}}, str(tmp_path)
-        )
+        result = process_transform_action({"actionType": "UNKNOWN_TRANSFORM", "transformSpec": {}}, str(tmp_path))
         assert result["success"] is False
         assert "未知" in result["message"]
 
@@ -855,9 +839,7 @@ class TestProcessTransformAction:
         import yaml
 
         with open(manifest_path, "w") as f:
-            yaml.safe_dump(
-                {"version": 2, "project": {"id": "p1"}, "transforms": []}, f
-            )
+            yaml.safe_dump({"version": 2, "project": {"id": "p1"}, "transforms": []}, f)
 
         result = process_transform_action(
             {
@@ -915,9 +897,7 @@ class TestProcessTransformAction:
         import yaml
 
         with open(manifest_path, "w") as f:
-            yaml.safe_dump(
-                {"version": 2, "project": {"id": "p1"}, "transforms": []}, f
-            )
+            yaml.safe_dump({"version": 2, "project": {"id": "p1"}, "transforms": []}, f)
 
         result = process_transform_action(
             {
@@ -1073,9 +1053,7 @@ class TestValidateSettings:
         assert len(errors) >= 1
 
     def test_valid_file_processing_settings(self):
-        errors = _validate_settings(
-            "fileProcessing", {"default_encoding": "utf-8", "csv_delimiter": ","}
-        )
+        errors = _validate_settings("fileProcessing", {"default_encoding": "utf-8", "csv_delimiter": ","})
         assert errors == []
 
     def test_invalid_encoding(self):
@@ -1093,9 +1071,7 @@ class TestValidateSettings:
         assert len(errors) >= 1
 
     def test_valid_script_security(self):
-        errors = _validate_settings(
-            "scriptSecurity", {"timeout_seconds": 10, "sandbox_mode": "strict"}
-        )
+        errors = _validate_settings("scriptSecurity", {"timeout_seconds": 10, "sandbox_mode": "strict"})
         assert errors == []
 
     def test_invalid_allow_eval(self):

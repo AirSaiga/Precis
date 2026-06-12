@@ -364,7 +364,11 @@ refs:
 
         result = load_project(str(manifest))
         assert any(e.error_type == "ReferenceIntegrityError" for e in result.loading_errors)
-        assert any("列" in e.message and "不存在" in e.message for e in result.loading_errors if e.error_type == "ReferenceIntegrityError")
+        assert any(
+            "列" in e.message and "不存在" in e.message
+            for e in result.loading_errors
+            if e.error_type == "ReferenceIntegrityError"
+        )
 
     def test_naming_convention_no_warning(self, tmp_path):
         """测试文件名与内部 ID 不一致时不应再产生警告（规则已删除）。

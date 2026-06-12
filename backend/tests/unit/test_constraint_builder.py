@@ -19,7 +19,9 @@ class TestBuildConstraintRefs:
     def test_notnull_refs(self):
         from app.shared.services.llm.constraints.constraint_builder import _build_constraint_refs
 
-        refs = _build_constraint_refs("NOT_NULL", "users", "email", {"targetNodeId": "sc_users", "targetColumnId": "c1"})
+        refs = _build_constraint_refs(
+            "NOT_NULL", "users", "email", {"targetNodeId": "sc_users", "targetColumnId": "c1"}
+        )
         assert refs["table_id"] == "sc_users"
         assert refs["column_id"] == "c1"
 

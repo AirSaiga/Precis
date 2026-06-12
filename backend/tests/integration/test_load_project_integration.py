@@ -95,8 +95,7 @@ schemas:
         assert "ghost" not in result.schema_files
         # 应有 SchemaNotFound 类型的加载错误
         assert any(
-            (e.error_type or "").lower().find("schema") >= 0
-            or "ghost" in (e.message or "")
+            (e.error_type or "").lower().find("schema") >= 0 or "ghost" in (e.message or "")
             for e in (result.loading_errors or [])
         )
 
@@ -142,9 +141,7 @@ class TestValidationExecutorIntegration:
         from app.shared.core.project.loader.loader_parts.main import load_project
 
         loaded = load_project(manifest)
-        employee_schema_id = next(
-            sid for sid, sf in loaded.schema_files.items() if sf.name == "Employees"
-        )
+        employee_schema_id = next(sid for sid, sf in loaded.schema_files.items() if sf.name == "Employees")
 
         executor = ValidationExecutor(manifest)
         result = executor.execute(

@@ -28,7 +28,7 @@ from app.api.routers.preview.models import FilePathPreviewRequest, FilePreviewRe
 from app.shared.core.data_source.loaders.extractor import JSONPathExtractor
 from app.shared.core.data_source.loaders.strategies import get_parser
 from app.shared.services.preview.loader import load_preview_data
-from app.shared.services.preview.path import validate_file_access
+from app.shared.services.preview.path_validation import validate_file_access
 
 from .router import router
 

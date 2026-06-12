@@ -3,11 +3,11 @@
 import json
 import os
 import tempfile
-from pathlib import Path
 
 import pytest
-from app.shared.core.reporter.reporters.local_file_reporter import LocalFileReporter
+
 from app.shared.core.reporter.reporters.base import Reporter
+from app.shared.core.reporter.reporters.local_file_reporter import LocalFileReporter
 
 
 class TestLocalFileReporter:
@@ -65,12 +65,13 @@ class TestLocalFileReporter:
         assert len(json_files) == 1
 
         filepath = os.path.join(temp_dir, json_files[0])
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             written = json.load(f)
         assert written == errors
 
     def test_report_multiple_calls_create_multiple_files(self, reporter, temp_dir):
         import time
+
         reporter.configure(log_dir=temp_dir)
         reporter.report([{"error": "first"}])
         time.sleep(1.1)
@@ -100,7 +101,7 @@ class TestLocalFileReporter:
         files = os.listdir(temp_dir)
         json_files = [f for f in files if f.startswith("error_report_")]
         filepath = os.path.join(temp_dir, json_files[0])
-        with open(filepath, "r", encoding="utf-8") as f:
+        with open(filepath, encoding="utf-8") as f:
             written = json.load(f)
         assert written[0]["error_message"] == "无效的值"
         assert written[0]["column"] == "姓名"

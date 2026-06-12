@@ -15,8 +15,6 @@ if _project_root not in sys.path:
     sys.path.insert(0, _project_root)
 
 
-
-
 class TestAtomicWriteYaml:
     def test_write_new_file(self, tmp_path):
         from app.shared.services.llm.yaml_io import atomic_write_yaml

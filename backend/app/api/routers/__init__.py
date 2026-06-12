@@ -10,7 +10,6 @@ from .core.connection_rules import router as connection_rules_router
 from .core.data_sources import router as data_sources_router
 from .core.regex import router as regex_router
 from .core.reporting import router as reporting_router
-from .core.whitelist import router as whitelist_router
 from .preview import router as preview_router
 from .project import router as project_router
 from .validation import router as validation_router
@@ -24,7 +23,6 @@ __all__ = [
     "data_sources_router",
     "regex_router",
     "reporting_router",
-    "whitelist_router",
 ]
 
 

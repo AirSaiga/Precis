@@ -73,27 +73,21 @@ class TestValidationResult:
 
     def test_result_with_errors(self):
         result = ValidationResult()
-        result.errors.append(
-            ValidationError(0, "ADD", "error", "msg")
-        )
+        result.errors.append(ValidationError(0, "ADD", "error", "msg"))
         assert result.has_errors is True
         assert result.all_valid is False
         assert result.partial_valid is False
 
     def test_result_with_warnings(self):
         result = ValidationResult()
-        result.warnings.append(
-            ValidationError(0, "UNKNOWN", "warning", "msg")
-        )
+        result.warnings.append(ValidationError(0, "UNKNOWN", "warning", "msg"))
         assert result.has_warnings is True
         assert result.has_errors is False
         assert result.all_valid is True  # warnings don't block
 
     def test_partial_valid(self):
         result = ValidationResult()
-        result.errors.append(
-            ValidationError(0, "ADD", "error", "msg")
-        )
+        result.errors.append(ValidationError(0, "ADD", "error", "msg"))
         result.valid_actions.append({"actionType": "VALIDATE"})
         assert result.partial_valid is True
 
@@ -146,9 +140,7 @@ class TestFormatValidationResult:
 
     def test_partial_valid_info(self):
         result = ValidationResult()
-        result.errors.append(
-            ValidationError(0, "ADD", "error", "msg")
-        )
+        result.errors.append(ValidationError(0, "ADD", "error", "msg"))
         result.valid_actions.append({"test": "ok"})
         result.invalid_action_indices.add(0)
         formatted = format_validation_result(result)
@@ -186,9 +178,7 @@ class TestLoadProjectSchema:
         assert "sc_users" in schema["tables"]
         assert schema["tables"]["sc_users"]["name"] == "users"
         assert "sc_email" in schema["tables"]["sc_users"]["columns"]
-        assert (
-            schema["tables"]["sc_users"]["columns"]["sc_email"]["type"] == "string"
-        )
+        assert schema["tables"]["sc_users"]["columns"]["sc_email"]["type"] == "string"
 
     def test_caches_schema(self, tmp_path):
         _create_schema_dir(
@@ -599,9 +589,7 @@ class TestValidateConstraintParams:
                     "version": 2,
                     "id": "sc_products",
                     "name": "products",
-                    "columns": [
-                        {"id": "sc_price", "name": "price", "type": "decimal"}
-                    ],
+                    "columns": [{"id": "sc_price", "name": "price", "type": "decimal"}],
                 }
             ],
         )
@@ -630,9 +618,7 @@ class TestValidateConstraintParams:
                     "version": 2,
                     "id": "sc_products",
                     "name": "products",
-                    "columns": [
-                        {"id": "sc_price", "name": "price", "type": "decimal"}
-                    ],
+                    "columns": [{"id": "sc_price", "name": "price", "type": "decimal"}],
                 }
             ],
         )
@@ -660,9 +646,7 @@ class TestValidateConstraintParams:
                     "version": 2,
                     "id": "sc_products",
                     "name": "products",
-                    "columns": [
-                        {"id": "sc_price", "name": "price", "type": "decimal"}
-                    ],
+                    "columns": [{"id": "sc_price", "name": "price", "type": "decimal"}],
                 }
             ],
         )
@@ -690,9 +674,7 @@ class TestValidateConstraintParams:
                     "version": 2,
                     "id": "sc_products",
                     "name": "products",
-                    "columns": [
-                        {"id": "sc_price", "name": "price", "type": "decimal"}
-                    ],
+                    "columns": [{"id": "sc_price", "name": "price", "type": "decimal"}],
                 }
             ],
         )
@@ -895,9 +877,7 @@ class TestValidateConstraintParams:
                 }
             ]
         )
-        assert any(
-            e.error_type == "foreign_key_column_not_found" for e in result.errors
-        )
+        assert any(e.error_type == "foreign_key_column_not_found" for e in result.errors)
 
 
 # ============================================================

@@ -95,8 +95,22 @@ class TestFormatter:
         from app.cli.shell.formatter import Formatter
 
         errors = [
-            {"error_type": "NotNullViolation", "message": "null value", "table": "users", "column": "email", "row_index": 1, "value": None},
-            {"error_type": "UniqueViolation", "message": "duplicate", "table": "users", "column": "id", "row_index": 5, "value": "dup"},
+            {
+                "error_type": "NotNullViolation",
+                "message": "null value",
+                "table": "users",
+                "column": "email",
+                "row_index": 1,
+                "value": None,
+            },
+            {
+                "error_type": "UniqueViolation",
+                "message": "duplicate",
+                "table": "users",
+                "column": "id",
+                "row_index": 5,
+                "value": "dup",
+            },
         ]
         result = Formatter.format_validation_result(errors, detailed=True)
         assert isinstance(result, str)

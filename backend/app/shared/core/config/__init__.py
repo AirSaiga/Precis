@@ -181,40 +181,6 @@ class ConfigPaths:
 
         return paths
 
-    # ==================== 路径白名单配置 ====================
-
-    @classmethod
-    def allowed_paths(cls, project_root: str) -> Path:
-        """
-        @methoddesc 路径白名单配置文件路径
-
-        每行一个绝对路径，Electron 模式下允许访问这些路径。
-
-        参数:
-            project_root: 项目根目录路径
-
-        返回:
-            allowed_paths.txt 的 Path 对象
-        """
-        return cls.get_project_config_dir(project_root) / "allowed_paths.txt"
-
-    # ==================== 产品版本配置 ====================
-
-    @classmethod
-    def product_edition(cls, project_root: str) -> Path:
-        """
-        @methoddesc 产品版本标识文件路径
-
-        内容：community | professional | enterprise
-
-        参数:
-            project_root: 项目根目录路径
-
-        返回:
-            product_edition 文件的 Path 对象
-        """
-        return cls.get_project_config_dir(project_root) / "product_edition"
-
 
 # 便捷导入
 __all__ = [

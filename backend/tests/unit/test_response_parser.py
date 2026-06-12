@@ -78,7 +78,7 @@ class TestParseLLMResponse:
 
     def test_list_json_raises(self):
         with pytest.raises(ActionParseError):
-            ActionParser.parse_llm_response('[1, 2, 3]')
+            ActionParser.parse_llm_response("[1, 2, 3]")
 
 
 class TestCleanJsonText:
@@ -115,12 +115,12 @@ class TestExtractJsonBlock:
         assert result == '{"a": 1}'
 
     def test_from_brackets(self):
-        text = 'prefix [1, 2, 3] suffix'
+        text = "prefix [1, 2, 3] suffix"
         result = ActionParser._extract_json_block(text)
-        assert result == '[1, 2, 3]'
+        assert result == "[1, 2, 3]"
 
     def test_no_json_returns_text(self):
-        text = 'no json here'
+        text = "no json here"
         result = ActionParser._extract_json_block(text)
         assert result == text
 
@@ -229,40 +229,28 @@ class TestValidateResponse:
         assert ActionParser.validate_response(
             {"reply": "ok", "actions": [{"actionType": "ADD_SCHEMA", "schemaSpec": {}}]}
         )
-        assert not ActionParser.validate_response(
-            {"reply": "ok", "actions": [{"actionType": "ADD_SCHEMA"}]}
-        )
+        assert not ActionParser.validate_response({"reply": "ok", "actions": [{"actionType": "ADD_SCHEMA"}]})
 
     def test_regex_action_needs_spec(self):
         assert ActionParser.validate_response(
             {"reply": "ok", "actions": [{"actionType": "ADD_REGEX", "regexSpec": {}}]}
         )
-        assert not ActionParser.validate_response(
-            {"reply": "ok", "actions": [{"actionType": "ADD_REGEX"}]}
-        )
+        assert not ActionParser.validate_response({"reply": "ok", "actions": [{"actionType": "ADD_REGEX"}]})
 
     def test_transform_action_needs_spec(self):
         assert ActionParser.validate_response(
             {"reply": "ok", "actions": [{"actionType": "ADD_TRANSFORM", "transformSpec": {}}]}
         )
-        assert not ActionParser.validate_response(
-            {"reply": "ok", "actions": [{"actionType": "ADD_TRANSFORM"}]}
-        )
+        assert not ActionParser.validate_response({"reply": "ok", "actions": [{"actionType": "ADD_TRANSFORM"}]})
 
     def test_delete_schema_needs_spec(self):
-        assert not ActionParser.validate_response(
-            {"reply": "ok", "actions": [{"actionType": "DELETE_SCHEMA"}]}
-        )
+        assert not ActionParser.validate_response({"reply": "ok", "actions": [{"actionType": "DELETE_SCHEMA"}]})
 
     def test_delete_regex_needs_spec(self):
-        assert not ActionParser.validate_response(
-            {"reply": "ok", "actions": [{"actionType": "DELETE_REGEX"}]}
-        )
+        assert not ActionParser.validate_response({"reply": "ok", "actions": [{"actionType": "DELETE_REGEX"}]})
 
     def test_delete_transform_needs_spec(self):
-        assert not ActionParser.validate_response(
-            {"reply": "ok", "actions": [{"actionType": "DELETE_TRANSFORM"}]}
-        )
+        assert not ActionParser.validate_response({"reply": "ok", "actions": [{"actionType": "DELETE_TRANSFORM"}]})
 
     def test_action_not_dict(self):
         response = {"reply": "ok", "actions": ["not a dict"]}

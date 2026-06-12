@@ -120,13 +120,3 @@ class TestConfigPaths:
         # Windows 下不含系统级路径
         expected_count = 2 if os.name == "nt" else 3
         assert len(paths) == expected_count
-
-    def test_allowed_paths(self):
-        """路径白名单配置文件路径"""
-        path = ConfigPaths.allowed_paths("/tmp/project")
-        assert path.name == "allowed_paths.txt"
-
-    def test_product_edition(self):
-        """产品版本标识文件路径"""
-        path = ConfigPaths.product_edition("/tmp/project")
-        assert path.name == "product_edition"

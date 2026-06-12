@@ -145,13 +145,13 @@ class TestJsonNullType:
         assert ok is True
 
     def test_validate_null_string(self):
-        """"null" 字符串应验证通过。"""
+        """ "null" 字符串应验证通过。"""
         t = JsonNullType()
         ok, err = t.validate("null")
         assert ok is True
 
     def test_validate_none_string(self):
-        """"None" 字符串应验证通过。"""
+        """ "None" 字符串应验证通过。"""
         t = JsonNullType()
         ok, err = t.validate("None")
         assert ok is True

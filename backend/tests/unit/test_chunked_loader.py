@@ -86,6 +86,7 @@ class TestChunkedDataLoaderCSV:
             tmp_path = f.name
 
         try:
+
             class MockSchema:
                 header_row = 0
                 source_config = {"delimiter": ","}
@@ -111,6 +112,7 @@ class TestChunkedDataLoaderDataFrameChunked:
             tmp_path = f.name
 
         try:
+
             class MockSchema:
                 header_row = 0
                 source_config = {"delimiter": ","}

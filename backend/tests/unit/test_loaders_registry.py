@@ -62,6 +62,3 @@ class TestRegisterLoader:
                     import pandas as pd
 
                     return pd.DataFrame()
-
-
-

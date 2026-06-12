@@ -249,9 +249,7 @@ class TestExcelChunkedColumnMismatch:
         excel_file = tmp_path / "mismatch.xlsx"
         pd.DataFrame({"id": [1, 2], "name": ["a", "b"]}).to_excel(str(excel_file), index=False)
 
-        with patch(
-            "app.shared.services.validation.chunked_loader.pd.read_excel"
-        ) as mock_read:
+        with patch("app.shared.services.validation.chunked_loader.pd.read_excel") as mock_read:
             mock_read.side_effect = [
                 pd.DataFrame(columns=["id", "name"]),  # header call
                 pd.DataFrame({0: [1], 1: [2], 2: ["a"]}),  # chunk with 3 cols

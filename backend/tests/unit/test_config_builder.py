@@ -49,9 +49,7 @@ class TestBuildConfigBasic:
     def test_manifest_lists_schemas_and_constraints(self):
         llm_result = {
             "schemas": [{"id": "users", "name": "users", "columns": []}],
-            "constraints": [
-                {"type": "NotNull", "table_id": "users", "column_id": "email"}
-            ],
+            "constraints": [{"type": "NotNull", "table_id": "users", "column_id": "email"}],
         }
         result = build_config(
             project_id="p1",
@@ -121,9 +119,7 @@ class TestKeepExisting:
             "schemas": [
                 {
                     "name": "employees",
-                    "columns": [
-                        {"id": "emp_id", "name": "emp_id", "type": "integer", "primary_key": True}
-                    ],
+                    "columns": [{"id": "emp_id", "name": "emp_id", "type": "integer", "primary_key": True}],
                 }
             ]
         }
@@ -347,11 +343,7 @@ class TestSchemaGeneration:
 
 class TestConstraintNormalization:
     def test_simple_notnull_constraint(self):
-        llm_result = {
-            "constraints": [
-                {"type": "notnull", "table_id": "users", "column_id": "email"}
-            ]
-        }
+        llm_result = {"constraints": [{"type": "notnull", "table_id": "users", "column_id": "email"}]}
         result = build_config(
             project_id="p",
             project_name="P",
@@ -585,9 +577,7 @@ class TestConstraintNormalization:
         assert len(result["constraints"]) == 0
 
     def test_no_constraints_when_option_disabled(self):
-        llm_result = {
-            "constraints": [{"type": "NotNull", "table_id": "u", "column_id": "e"}]
-        }
+        llm_result = {"constraints": [{"type": "NotNull", "table_id": "u", "column_id": "e"}]}
         result = build_config(
             project_id="p",
             project_name="P",
@@ -602,11 +592,7 @@ class TestConstraintNormalization:
 
 class TestRegexNormalization:
     def test_basic_regex_node(self):
-        llm_result = {
-            "regex_nodes": [
-                {"name": "邮箱格式", "pattern": "^[^@]+@[^@]+$"}
-            ]
-        }
+        llm_result = {"regex_nodes": [{"name": "邮箱格式", "pattern": "^[^@]+@[^@]+$"}]}
         result = build_config(
             project_id="p",
             project_name="P",

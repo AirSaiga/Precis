@@ -6,9 +6,7 @@
 - engine.py — table_filter 列表分支 + timeout 分支
 - history.py — _save 异常处理
 - executor.py — settings_override + chunked timeout
-- edition.py — 文件版检测
 - config_diff.py — Pydantic model_dump + 删除分支
-- whitelist.py — 各种边缘配置
 - config_inspector.py — ID 不一致 + 引用完整性
 - llm/yaml_io.py — 文件锁导入、异常处理
 - llm/config/loader.py — 加载/保存/缓存
@@ -229,55 +227,7 @@ class TestExecutorSettings:
 
 
 # ============================================================================
-# 5. edition.py — 文件版检测
-# ============================================================================
-
-
-class TestEditionFileBased:
-    """覆盖 edition.py 的文件读取版检测路径。"""
-
-    def test_get_edition_from_env(self, monkeypatch):
-        """环境变量设置 edition 时应直接返回。"""
-        from app.shared.core.edition import Edition, clear_edition_cache, get_current_edition
-
-        clear_edition_cache()
-        monkeypatch.setenv("PRECIS_EDITION", "team")
-        assert get_current_edition() == Edition.TEAM
-
-    def test_get_edition_defaults_to_personal(self, monkeypatch, tmp_path):
-        """无环境变量、无配置文件时默认返回 PERSONAL。"""
-        from app.shared.core.edition import Edition, clear_edition_cache, get_current_edition
-
-        clear_edition_cache()
-        monkeypatch.delenv("PRECIS_EDITION", raising=False)
-        with patch("app.shared.core.edition.ConfigPaths.product_edition", return_value=str(tmp_path / "nonexistent.yaml")):
-            assert get_current_edition() == Edition.PERSONAL
-
-    def test_is_team_edition(self, monkeypatch):
-        from app.shared.core.edition import clear_edition_cache, is_team_edition
-
-        clear_edition_cache()
-        monkeypatch.setenv("PRECIS_EDITION", "team")
-        assert is_team_edition() is True
-
-    def test_is_personal_edition(self, monkeypatch):
-        from app.shared.core.edition import clear_edition_cache, is_personal_edition
-
-        clear_edition_cache()
-        monkeypatch.setenv("PRECIS_EDITION", "personal")
-        assert is_personal_edition() is True
-
-    def test_set_edition_for_test(self):
-        from app.shared.core.edition import Edition, clear_edition_cache, get_current_edition, set_edition_for_test
-
-        clear_edition_cache()
-        set_edition_for_test(Edition.TEAM)
-        assert get_current_edition() == Edition.TEAM
-        set_edition_for_test(Edition.PERSONAL)
-
-
-# ============================================================================
-# 6. config_diff.py — Pydantic model_dump + 删除分支
+# 5. config_diff.py — Pydantic model_dump + 删除分支
 # ============================================================================
 
 
@@ -333,24 +283,7 @@ class TestConfigDiff:
 
 
 # ============================================================================
-# 7. whitelist.py — 边缘配置解析
-# ============================================================================
-
-
-class TestWhitelistEdgeCases:
-    """覆盖 whitelist.py 中各种边缘配置解析。"""
-
-    def test_no_config_found(self):
-        """没有任何配置文件时返回默认。"""
-        from app.shared.services.preview.path.whitelist import load_whitelist_config
-
-        with patch("os.path.expanduser", return_value="/fake/home"):
-            result = load_whitelist_config()
-            assert result["version"] == "1.0"
-
-
-# ============================================================================
-# 8. config_inspector.py — ID 不一致 + 引用完整性
+# 6. config_inspector.py — ID 不一致 + 引用完整性
 # ============================================================================
 
 
@@ -365,16 +298,12 @@ class TestConfigInspector:
     def _make_table_schema(self, table_id, name, columns, constraints=None):
         from app.shared.core.project.schema.types import TableSchemaFile
 
-        return TableSchemaFile(
-            id=table_id, name=name, source=None, columns=columns, constraints=constraints or []
-        )
+        return TableSchemaFile(id=table_id, name=name, source=None, columns=columns, constraints=constraints or [])
 
     def _make_constraint_file(self, constraint_id, **refs):
         from app.shared.core.project.constraint.types import ConstraintFile
 
-        return ConstraintFile(
-            id=constraint_id, type="NotNull", refs=refs
-        )
+        return ConstraintFile(id=constraint_id, type="NotNull", refs=refs)
 
     def _make_manifest(self, schemas=None, constraints=None):
         from app.shared.core.project.manifest.types import ConstraintRef, ProjectInfo, ProjectManifest, SchemaRef
@@ -382,7 +311,9 @@ class TestConfigInspector:
         return ProjectManifest(
             project=ProjectInfo(id="test_proj", name="Test"),
             schemas=[SchemaRef(id=s["id"], path=f"schemas/{s['id']}.schema.yaml") for s in (schemas or [])],
-            constraints=[ConstraintRef(id=c["id"], path=f"constraints/{c['id']}.constraint.yaml") for c in (constraints or [])],
+            constraints=[
+                ConstraintRef(id=c["id"], path=f"constraints/{c['id']}.constraint.yaml") for c in (constraints or [])
+            ],
         )
 
     def test_id_consistency_schema_mismatch(self):
@@ -397,7 +328,6 @@ class TestConfigInspector:
         errors = []
 
         inspect_config(Path("."), manifest, schema_files, {}, {}, {}, warnings, errors)
-
 
     def test_reference_integrity_foreign_key(self):
         """ForeignKey 引用不存在的表和列。"""
@@ -532,7 +462,20 @@ class TestConfigLoader:
 
         config_file = tmp_path / "ai_providers.yaml"
         config_file.write_text(
-            yaml.dump({"version": "2.0", "providers": [{"id": "test", "name": "Test", "type": "openai", "base_url": "https://api.test.com", "model": "gpt-4"}]}),
+            yaml.dump(
+                {
+                    "version": "2.0",
+                    "providers": [
+                        {
+                            "id": "test",
+                            "name": "Test",
+                            "type": "openai",
+                            "base_url": "https://api.test.com",
+                            "model": "gpt-4",
+                        }
+                    ],
+                }
+            ),
             encoding="utf-8",
         )
 
@@ -631,9 +574,7 @@ class TestConstraintDeletion:
         constraint_file = constraints_dir / "notnull_users_email.constraint.yaml"
         constraint_file.write_text("id: test\n", encoding="utf-8")
 
-        success, msg = delete_constraint_file(
-            "notNull", "users", "email", str(tmp_path)
-        )
+        success, msg = delete_constraint_file("notNull", "users", "email", str(tmp_path))
         assert success is True or success is False
         assert isinstance(msg, str)
 
@@ -644,9 +585,7 @@ class TestConstraintDeletion:
         constraints_dir = tmp_path / "constraints"
         constraints_dir.mkdir()
 
-        success, msg = delete_constraint_file(
-            "notNull", "nonexistent", "col", str(tmp_path)
-        )
+        success, msg = delete_constraint_file("notNull", "nonexistent", "col", str(tmp_path))
         assert success is False
 
 

@@ -70,10 +70,7 @@ class TestExecuteValidateProject:
 
     def test_truncates_errors_beyond_10(self, tmp_path, _mock_executor):
         (tmp_path / "project.precis.yaml").write_text("version: 2\n")
-        errors = [
-            {"type": "NotNull", "table": "t", "column": f"c{i}", "message": "bad"}
-            for i in range(15)
-        ]
+        errors = [{"type": "NotNull", "table": "t", "column": f"c{i}", "message": "bad"} for i in range(15)]
         mock_instance = MagicMock()
         mock_instance.execute.return_value = {"errors": errors, "duration_ms": 200}
         _mock_executor.return_value = mock_instance

@@ -61,7 +61,7 @@ from app.api.routers.validation.common import (
     convert_validation_result_to_regex,
     execute_standard_validation,
 )
-from app.shared.services.preview.path import validate_file_access
+from app.shared.services.preview.path_validation import validate_file_access
 from app.shared.services.validation import UnifiedValidationService, ValidationType, load_file_data
 
 from .router import router

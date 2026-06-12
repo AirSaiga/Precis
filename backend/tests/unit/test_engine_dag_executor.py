@@ -136,8 +136,12 @@ class TestValidateFullDataset:
         }
         schema = DataSetSchema(
             tables={
-                "users": TableSchema(id="users", name="users", columns=[ColumnSchema(name="id", data_type=IntegerType())]),
-                "orders": TableSchema(id="orders", name="orders", columns=[ColumnSchema(name="id", data_type=IntegerType())]),
+                "users": TableSchema(
+                    id="users", name="users", columns=[ColumnSchema(name="id", data_type=IntegerType())]
+                ),
+                "orders": TableSchema(
+                    id="orders", name="orders", columns=[ColumnSchema(name="id", data_type=IntegerType())]
+                ),
             },
             constraints=[
                 NotNullConstraint(table="users", column="id"),
@@ -162,7 +166,9 @@ class TestValidateFullDataset:
         raw = {"users": pd.DataFrame({"id": [1]})}
         schema = DataSetSchema(
             tables={
-                "users": TableSchema(id="users", name="users", columns=[ColumnSchema(name="id", data_type=IntegerType())])
+                "users": TableSchema(
+                    id="users", name="users", columns=[ColumnSchema(name="id", data_type=IntegerType())]
+                )
             },
             constraints=[BadConstraint()],
         )
@@ -183,7 +189,9 @@ class TestValidateFullDataset:
         raw = {"users": pd.DataFrame({"id": [1]})}
         schema = DataSetSchema(
             tables={
-                "users": TableSchema(id="users", name="users", columns=[ColumnSchema(name="id", data_type=IntegerType())])
+                "users": TableSchema(
+                    id="users", name="users", columns=[ColumnSchema(name="id", data_type=IntegerType())]
+                )
             },
             constraints=[BadInfoConstraint()],
         )
@@ -195,10 +203,14 @@ class TestValidateFullDataset:
         raw = {"users": pd.DataFrame({"id": [1, 2], "val": [10, 20]})}
         schema = DataSetSchema(
             tables={
-                "users": TableSchema(id="users", name="users", columns=[
-                    ColumnSchema(name="id", data_type=IntegerType()),
-                    ColumnSchema(name="val", data_type=IntegerType()),
-                ])
+                "users": TableSchema(
+                    id="users",
+                    name="users",
+                    columns=[
+                        ColumnSchema(name="id", data_type=IntegerType()),
+                        ColumnSchema(name="val", data_type=IntegerType()),
+                    ],
+                )
             },
             constraints=[],
         )

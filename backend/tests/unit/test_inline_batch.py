@@ -113,11 +113,7 @@ class TestProcessInlineBatch:
     def test_update_existing_constraint(self, tmp_path):
         _write_schema(
             tmp_path,
-            _make_schema(
-                constraints=[
-                    {"id": "old", "column": "col_email", "type": "NotNull"}
-                ]
-            ),
+            _make_schema(constraints=[{"id": "old", "column": "col_email", "type": "NotNull"}]),
         )
         actions = [_make_action()]
         result = process_inline_batch(actions, str(tmp_path))

@@ -18,7 +18,6 @@ from app.shared.services.validation.service import UnifiedValidationService
 
 
 class TestRangeValidator:
-
     def setup_method(self):
         self.validator = UnifiedValidationService.get_validator("range")
 

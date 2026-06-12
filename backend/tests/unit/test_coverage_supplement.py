@@ -106,12 +106,16 @@ class TestDateLogicUncovered:
     def test_date_logic_with_valid_dates(self):
         from app.shared.services.validation.service import UnifiedValidationService
 
-        df = pd.DataFrame({
-            "start": pd.to_datetime(["2024-01-01", "2024-06-01"]),
-            "end": pd.to_datetime(["2024-12-31", "2024-03-01"]),
-        })
+        df = pd.DataFrame(
+            {
+                "start": pd.to_datetime(["2024-01-01", "2024-06-01"]),
+                "end": pd.to_datetime(["2024-12-31", "2024-03-01"]),
+            }
+        )
         result = UnifiedValidationService.validate(
-            "date_logic", df, "end",
+            "date_logic",
+            df,
+            "end",
             date_logic_type="after",
             reference_column="start",
         )
@@ -120,12 +124,16 @@ class TestDateLogicUncovered:
     def test_date_logic_before(self):
         from app.shared.services.validation.service import UnifiedValidationService
 
-        df = pd.DataFrame({
-            "start": pd.to_datetime(["2024-01-01", "2024-06-01"]),
-            "end": pd.to_datetime(["2024-12-31", "2024-03-01"]),
-        })
+        df = pd.DataFrame(
+            {
+                "start": pd.to_datetime(["2024-01-01", "2024-06-01"]),
+                "end": pd.to_datetime(["2024-12-31", "2024-03-01"]),
+            }
+        )
         result = UnifiedValidationService.validate(
-            "date_logic", df, "start",
+            "date_logic",
+            df,
+            "start",
             date_logic_type="before",
             reference_column="end",
         )
@@ -136,12 +144,16 @@ class TestConditionalUncovered:
     def test_conditional_basic(self):
         from app.shared.services.validation.service import UnifiedValidationService
 
-        df = pd.DataFrame({
-            "status": ["active", "inactive", "active"],
-            "amount": [100, 200, 300],
-        })
+        df = pd.DataFrame(
+            {
+                "status": ["active", "inactive", "active"],
+                "amount": [100, 200, 300],
+            }
+        )
         result = UnifiedValidationService.validate(
-            "conditional", df, "amount",
+            "conditional",
+            df,
+            "amount",
             if_conditions=[{"if_column_id": "status", "operator": "eq", "value": "active"}],
             if_logic="and",
             then_column_id="amount",

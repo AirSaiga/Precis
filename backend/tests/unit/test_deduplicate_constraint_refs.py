@@ -8,7 +8,6 @@
 - 安全保证：只删 manifest 条目，不修改任何约束文件
 """
 
-
 import pytest
 
 
@@ -127,9 +126,7 @@ def test_deduplicate_preserves_constraint_file(tmp_project_with_dup_constraint):
     """安全保证：去重操作不应修改任何约束文件内容"""
     from app.api.routers.project.manifest import deduplicate_constraint_refs
 
-    constraint_file = (
-        tmp_project_with_dup_constraint / "constraints" / "notnull_id.constraint.yaml"
-    )
+    constraint_file = tmp_project_with_dup_constraint / "constraints" / "notnull_id.constraint.yaml"
     original_content = constraint_file.read_text(encoding="utf-8")
     original_mtime = constraint_file.stat().st_mtime_ns
 

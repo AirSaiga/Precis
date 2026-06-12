@@ -278,12 +278,8 @@ class TestProcessActions:
 
     @patch("app.shared.services.llm.actions.action_processor._execute_actions")
     def test_all_success_returns_true(self, mock_execute, tmp_path):
-        mock_execute.return_value = [
-            {"action": {"actionType": "VALIDATE_PROJECT"}, "success": True, "message": "ok"}
-        ]
-        result = process_actions(
-            [{"actionType": "VALIDATE_PROJECT"}], str(tmp_path)
-        )
+        mock_execute.return_value = [{"action": {"actionType": "VALIDATE_PROJECT"}, "success": True, "message": "ok"}]
+        result = process_actions([{"actionType": "VALIDATE_PROJECT"}], str(tmp_path))
         assert result["success"] is True
         assert len(result["results"]) == 1
 
@@ -322,12 +318,8 @@ class TestProcessActions:
 
     @patch("app.shared.services.llm.actions.action_processor._execute_actions")
     def test_no_affected_files_no_backup(self, mock_execute, tmp_path):
-        mock_execute.return_value = [
-            {"action": {"actionType": "VALIDATE_PROJECT"}, "success": True, "message": "ok"}
-        ]
-        result = process_actions(
-            [{"actionType": "VALIDATE_PROJECT", "constraintSpec": {}}], str(tmp_path)
-        )
+        mock_execute.return_value = [{"action": {"actionType": "VALIDATE_PROJECT"}, "success": True, "message": "ok"}]
+        result = process_actions([{"actionType": "VALIDATE_PROJECT", "constraintSpec": {}}], str(tmp_path))
         assert result["success"] is True
 
 
@@ -403,9 +395,7 @@ class TestExecuteActions:
 
     @patch("app.shared.services.llm.actions.action_processor.process_inline_batch")
     def test_inline_constraint_batch(self, mock_batch, tmp_path):
-        mock_batch.return_value = [
-            {"action": {"actionType": "ADD_CONSTRAINT_NODE"}, "success": True, "message": "ok"}
-        ]
+        mock_batch.return_value = [{"action": {"actionType": "ADD_CONSTRAINT_NODE"}, "success": True, "message": "ok"}]
 
         actions = [
             {
@@ -580,9 +570,7 @@ class TestExecuteActions:
     @patch("app.shared.services.llm.actions.action_processor.process_regex_action")
     @patch("app.shared.services.llm.actions.action_processor.process_transform_action")
     @patch("app.shared.services.llm.actions.action_processor.process_settings_action")
-    def test_mixed_actions_all_processed(
-        self, mock_settings, mock_transform, mock_regex, mock_schema, tmp_path
-    ):
+    def test_mixed_actions_all_processed(self, mock_settings, mock_transform, mock_regex, mock_schema, tmp_path):
         mock_schema.return_value = {"success": True, "message": "s1"}
         mock_regex.return_value = {"success": True, "message": "r1"}
         mock_transform.return_value = {"success": True, "message": "t1"}
@@ -592,7 +580,10 @@ class TestExecuteActions:
             {"actionType": "ADD_SCHEMA", "schemaSpec": {"name": "s1", "schemaId": "s1"}},
             {"actionType": "ADD_REGEX", "regexSpec": {"name": "r1", "pattern": ".*"}},
             {"actionType": "ADD_TRANSFORM", "transformSpec": {"type": "UpperCase"}},
-            {"actionType": "UPDATE_SETTINGS", "settingsSpec": {"category": "validation", "settings": {"error_handling": "stop"}}},
+            {
+                "actionType": "UPDATE_SETTINGS",
+                "settingsSpec": {"category": "validation", "settings": {"error_handling": "stop"}},
+            },
         ]
         results = _execute_actions(actions, str(tmp_path))
         assert len(results) == 4

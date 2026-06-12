@@ -41,9 +41,7 @@ class TestBuildPrompt:
         assert "data/users.csv" in prompt
 
     def test_contains_sheet_name(self):
-        prompt, _ = build_prompt(
-            [_make_profiling_item(sheet_name="Sheet1")], "Test"
-        )
+        prompt, _ = build_prompt([_make_profiling_item(sheet_name="Sheet1")], "Test")
         assert "Sheet: Sheet1" in prompt
 
     def test_omits_sheet_when_absent(self):
@@ -57,9 +55,7 @@ class TestBuildPrompt:
 
     def test_truncates_columns_beyond_limit(self):
         columns = [{"name": f"col_{i}", "dtype": "int64", "null_count": 0} for i in range(25)]
-        prompt, _ = build_prompt(
-            [_make_profiling_item(columns=columns)], "Test"
-        )
+        prompt, _ = build_prompt([_make_profiling_item(columns=columns)], "Test")
         assert "还有 5 列未显示" in prompt
 
     def test_empty_profiling_data(self):
@@ -81,7 +77,5 @@ class TestBuildPrompt:
                 "sample_values": ["a" * 100],
             }
         ]
-        prompt, _ = build_prompt(
-            [_make_profiling_item(columns=columns)], "Test"
-        )
+        prompt, _ = build_prompt([_make_profiling_item(columns=columns)], "Test")
         assert "例:" in prompt
