@@ -26,6 +26,21 @@ vi.mock('@/services/constraints/validationRegistry', () => ({
     }
     return map[kind] || null
   }),
+  getConstraintKindByV2Type: vi.fn((v2Type: string) => {
+    const map: Record<string, string> = {
+      NotNull: 'notNull',
+      Unique: 'unique',
+      AllowedValues: 'allowedValues',
+      ForeignKey: 'foreignKey',
+      Range: 'range',
+      Conditional: 'conditional',
+      Scripted: 'scripted',
+      Charset: 'charset',
+      DateLogic: 'dateLogic',
+      Composite: 'composite',
+    }
+    return map[v2Type] || undefined
+  }),
 }))
 
 import { createTemplateExpandModule } from '@/stores/graphStore/modules/templateExpand'

@@ -19,26 +19,9 @@ import { nextTick, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { TemplateExpandResult } from '@/api/projectV2Api'
-import { getConstraintMetaByKind } from '@/services/constraints/validationRegistry'
+import { getConstraintKindByV2Type, getConstraintMetaByKind } from '@/services/constraints/validationRegistry'
 import type { ConstraintKind } from '@/services/constraints/types'
 import { addNodes, addEdges, removeNodes, removeEdges } from '@/services/canvas/vueFlowApi'
-
-// ============================================================================
-// Backend type → Frontend ConstraintKind 映射
-// ============================================================================
-
-const V2_TYPE_TO_KIND: Record<string, ConstraintKind | undefined> = {
-  Range: 'range',
-  Unique: 'unique',
-  NotNull: 'notNull',
-  AllowedValues: 'allowedValues',
-  ForeignKey: 'foreignKey',
-  Conditional: 'conditional',
-  Scripted: 'scripted',
-  Charset: 'charset',
-  DateLogic: 'dateLogic',
-  Composite: 'composite',
-}
 
 // ============================================================================
 // 数据结构
@@ -670,7 +653,7 @@ export function createTemplateExpandModule(params: {
     item: ExpandItem,
     instanceNodeId: string
   ): { type: string; data: Record<string, unknown> } | null {
-    const kind = V2_TYPE_TO_KIND[item.type]
+    const kind = getConstraintKindByV2Type(item.type)
     if (!kind) return null
     const meta = getConstraintMetaByKind(kind)
     if (!meta) return null

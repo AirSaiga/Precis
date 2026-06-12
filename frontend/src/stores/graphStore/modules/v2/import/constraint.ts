@@ -18,40 +18,16 @@ import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { SchemaNodeData } from '@/types/nodes'
+import {
+  getConstraintKindByV2Type,
+  getConstraintNodeTypeByV2Type,
+} from '@/services/constraints/validationRegistry'
 import type { ConstraintKind } from '@/services/constraints/types'
 import type { BuildInput, EdgeDescriptor } from '@/services/constraints/nodeDataBuilder'
 import { getV2Constraint } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
 import { logger } from '@/core/utils/logger'
 import { addNodes } from '@/services/canvas/vueFlowApi'
-
-/** V2 type → ConstraintKind 映射 */
-const V2_TYPE_TO_KIND: Record<string, ConstraintKind | 'regex'> = {
-  NotNull: 'notNull',
-  Unique: 'unique',
-  AllowedValues: 'allowedValues',
-  ForeignKey: 'foreignKey',
-  Range: 'range',
-  Conditional: 'conditional',
-  Scripted: 'scripted',
-  Charset: 'charset',
-  DateLogic: 'dateLogic',
-  Composite: 'composite',
-}
-
-/** V2 type → node type 映射 */
-const V2_TYPE_TO_NODE_TYPE: Record<string, string> = {
-  NotNull: 'notNullConstraint',
-  Unique: 'uniqueConstraint',
-  AllowedValues: 'allowedValuesConstraint',
-  ForeignKey: 'foreignKeyConstraint',
-  Range: 'rangeConstraint',
-  Conditional: 'conditionalConstraint',
-  Scripted: 'scriptedConstraint',
-  Charset: 'charsetConstraint',
-  DateLogic: 'dateLogicConstraint',
-  Composite: 'compositeConstraint',
-}
 
 /** 从 Schema 节点中查找列名 */
 function resolveColumnName(schemaNode: CustomNode | undefined, columnId: string): string {
@@ -96,8 +72,12 @@ export function createV2ConstraintImporter(params: {
     }
 
     const c = await getV2Constraint(resourceId)
-    const nodeType = V2_TYPE_TO_NODE_TYPE[c.type] || 'constraint'
-    const kind = V2_TYPE_TO_KIND[c.type]
+    const kind = getConstraintKindByV2Type(c.type)
+    if (!kind) {
+      logger.warn(`[constraint.ts] 未知约束类型 "${c.type}"，跳过导入 (resourceId=${resourceId})`)
+      return ''
+    }
+    const nodeType = getConstraintNodeTypeByV2Type(c.type) ?? 'constraint'
     const refs = c.refs as Record<string, unknown>
     const cParams = c.params as Record<string, unknown> | undefined
 
@@ -235,18 +215,7 @@ export function createV2ConstraintImporter(params: {
     // 使用 NodeDataBuilder 构建节点数据
     // ========================================================================
 
-    const result = kind && kind !== 'regex'
-      ? buildNodeData(kind, buildInput)
-      : {
-          // 未知约束类型的降级处理
-          nodeData: {
-            ...(c as unknown as Record<string, unknown>),
-            saveState: 'saved',
-          } as Record<string, unknown>,
-          edgeDescriptors: buildInput.columnRef
-            ? [{ kind: 'constraint' as const, sourceNodeId: buildInput.schemaNodeId, targetNodeId: resourceId, columnId: buildInput.columnRef.columnId }]
-            : [],
-        }
+    const result = buildNodeData(kind, buildInput)
 
     // 创建节点
     const constraintNode: CustomNode = {

@@ -20,6 +20,7 @@
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { SchemaNodeData } from '@/types/nodes'
+import { getConstraintNodeTypeByV2Type } from '@/services/constraints/validationRegistry'
 
 export function hydrateManifestConstraintsFromV2Config(params: {
   config: any
@@ -45,19 +46,7 @@ export function hydrateManifestConstraintsFromV2Config(params: {
     if (!c) return
 
     const nodeId = ref.id as string
-    const nodeTypeMap: Record<string, string> = {
-      Unique: 'uniqueConstraint',
-      NotNull: 'notNullConstraint',
-      AllowedValues: 'allowedValuesConstraint',
-      ForeignKey: 'foreignKeyConstraint',
-      Range: 'rangeConstraint',
-      Conditional: 'conditionalConstraint',
-      Scripted: 'scriptedConstraint',
-      Charset: 'charsetConstraint',
-      DateLogic: 'dateLogicConstraint',
-      Composite: 'compositeConstraint',
-    }
-    const nodeType = nodeTypeMap[c.type as string] || 'constraint'
+    const nodeType = getConstraintNodeTypeByV2Type(c.type as string) ?? 'constraint'
     const pos = { x: 560 + (idx % 3) * 420, y: 80 + Math.floor(idx / 3) * 240 }
 
     if ((c.type as string) === 'AllowedValues') {

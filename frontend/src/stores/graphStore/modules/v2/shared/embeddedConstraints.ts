@@ -18,6 +18,10 @@
  */
 
 import type { CustomNode } from '@/types/graph'
+import {
+  getConstraintKindByV2Type,
+  getConstraintNodeTypeByV2Type,
+} from '@/services/constraints/validationRegistry'
 import type { ConstraintKind } from '@/services/constraints/types'
 import type { BuildInput } from '@/services/constraints/nodeDataBuilder'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
@@ -51,34 +55,6 @@ interface EmbeddedConstraintItem {
   }
 }
 
-/** V2 type → ConstraintKind 映射 */
-const V2_TYPE_TO_KIND: Record<string, ConstraintKind> = {
-  NotNull: 'notNull',
-  Unique: 'unique',
-  AllowedValues: 'allowedValues',
-  ForeignKey: 'foreignKey',
-  Range: 'range',
-  Conditional: 'conditional',
-  Scripted: 'scripted',
-  Charset: 'charset',
-  DateLogic: 'dateLogic',
-  Composite: 'composite',
-}
-
-/** V2 type → node type 映射 */
-const TYPE_MAP: Record<string, string> = {
-  Unique: 'uniqueConstraint',
-  NotNull: 'notNullConstraint',
-  AllowedValues: 'allowedValuesConstraint',
-  ForeignKey: 'foreignKeyConstraint',
-  Range: 'rangeConstraint',
-  Conditional: 'conditionalConstraint',
-  Scripted: 'scriptedConstraint',
-  Charset: 'charsetConstraint',
-  DateLogic: 'dateLogicConstraint',
-  Composite: 'compositeConstraint',
-}
-
 export function materializeV2EmbeddedConstraints(params: {
   schemaNode: CustomNode
   schemaTableName: string
@@ -106,9 +82,9 @@ export function materializeV2EmbeddedConstraints(params: {
 
     if (hasNode(id)) return
 
-    const nodeType = (item.type && TYPE_MAP[item.type]) || 'constraint'
+    const nodeType = getConstraintNodeTypeByV2Type(item.type ?? '') ?? 'constraint'
     const basePos = { x: schemaNode.position.x + 420, y: schemaNode.position.y + idx * 160 }
-    const kind = item.type ? V2_TYPE_TO_KIND[item.type] : undefined
+    const kind = getConstraintKindByV2Type(item.type ?? '')
 
     // 解析列 ID
     const colName = item.column ? String(item.column) : ''

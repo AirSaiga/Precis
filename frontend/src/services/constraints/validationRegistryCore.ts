@@ -197,6 +197,18 @@ export const CONSTRAINT_TYPES: ConstraintTypeMeta[] = [
   },
 ]
 
+export function getConstraintKindByV2Type(v2Type: string): ConstraintKind | undefined {
+  return CONSTRAINT_TYPES.find((x) => x.v2Type === v2Type)?.kind
+}
+
+export function getConstraintNodeTypeByV2Type(v2Type: string): ConstraintNodeType | undefined {
+  return CONSTRAINT_TYPES.find((x) => x.v2Type === v2Type)?.nodeType
+}
+
+export function getV2TypeByConstraintKind(kind: ConstraintKind): string | undefined {
+  return CONSTRAINT_TYPES.find((x) => x.kind === kind)?.v2Type
+}
+
 export const typeToMeta = new Map(CONSTRAINT_TYPES.map((x) => [x.nodeType, x]))
 export const kindToMeta = new Map(CONSTRAINT_TYPES.map((x) => [x.kind, x]))
 

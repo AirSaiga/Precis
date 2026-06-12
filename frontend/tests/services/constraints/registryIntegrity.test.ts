@@ -11,7 +11,14 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { CONSTRAINT_TYPES, kindToMeta, handlers } from '@/services/constraints/validationRegistryCore'
+import {
+  CONSTRAINT_TYPES,
+  kindToMeta,
+  handlers,
+  getConstraintKindByV2Type,
+  getConstraintNodeTypeByV2Type,
+  getV2TypeByConstraintKind,
+} from '@/services/constraints/validationRegistryCore'
 import { connectionRules } from '@/services/rules/connectionRules'
 
 /**
@@ -178,5 +185,38 @@ describe('前后端约束命名一致性', () => {
       console.log('Kinds without builder (using fallback):', missing)
     }
     expect(missing).toEqual([])
+  })
+})
+
+describe('V2 类型映射查询函数', () => {
+  it('所有 CONSTRAINT_TYPES 都能通过 V2Type 查询到正确的 ConstraintKind', () => {
+    for (const meta of CONSTRAINT_TYPES) {
+      expect(getConstraintKindByV2Type(meta.v2Type)).toBe(meta.kind)
+    }
+  })
+
+  it('所有 CONSTRAINT_TYPES 都能通过 V2Type 查询到正确的 ConstraintNodeType', () => {
+    for (const meta of CONSTRAINT_TYPES) {
+      expect(getConstraintNodeTypeByV2Type(meta.v2Type)).toBe(meta.nodeType)
+    }
+  })
+
+  it('所有 CONSTRAINT_TYPES 都能通过 kind 查询到正确的 V2Type', () => {
+    for (const meta of CONSTRAINT_TYPES) {
+      expect(getV2TypeByConstraintKind(meta.kind)).toBe(meta.v2Type)
+    }
+  })
+
+  it('未知 V2Type 返回 undefined，不抛异常', () => {
+    expect(getConstraintKindByV2Type('UnknownType')).toBeUndefined()
+    expect(getConstraintNodeTypeByV2Type('UnknownType')).toBeUndefined()
+  })
+
+  it('查询函数保持双向一致性：kind → v2Type → nodeType', () => {
+    for (const meta of CONSTRAINT_TYPES) {
+      const v2Type = getV2TypeByConstraintKind(meta.kind)
+      expect(getConstraintKindByV2Type(v2Type!)).toBe(meta.kind)
+      expect(getConstraintNodeTypeByV2Type(v2Type!)).toBe(meta.nodeType)
+    }
   })
 })

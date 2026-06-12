@@ -22,6 +22,7 @@ vi.mock('@/core/utils/logger', () => ({
 import { addNodes } from '@/services/canvas/vueFlowApi'
 import { getV2Constraint } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
+import { logger } from '@/core/utils/logger'
 import { createV2ConstraintImporter } from '@/stores/graphStore/modules/v2/import/constraint'
 
 function makeNode(id: string, type: string, data: Record<string, unknown> = {}): CustomNode {
@@ -200,7 +201,7 @@ describe('createV2ConstraintImporter', () => {
   })
 
   describe('未知约束类型', () => {
-    it('降级处理', async () => {
+    it('跳过导入并记录警告', async () => {
       vi.mocked(getV2Constraint).mockResolvedValue({
         type: 'UnknownType',
         description: 'unknown',
@@ -210,9 +211,9 @@ describe('createV2ConstraintImporter', () => {
 
       const result = await importer.importConstraint('c1', { x: 0, y: 0 })
 
-      expect(addNodes).toHaveBeenCalledTimes(1)
-      const node = vi.mocked(addNodes).mock.calls[0][0] as CustomNode
-      expect(node.type).toBe('constraint')
+      expect(result).toBe('')
+      expect(addNodes).not.toHaveBeenCalled()
+      expect(logger.warn).toHaveBeenCalled()
     })
   })
 
