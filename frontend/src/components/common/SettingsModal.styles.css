@@ -135,7 +135,9 @@
   color: var(--ui-text-body);
   font-size: var(--ui-font-size-sm);
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
 }
 
 .settings-sidebar__search-input:focus {
@@ -206,7 +208,9 @@
   color: var(--ui-text-secondary);
   font-size: var(--ui-font-size-sm);
   cursor: pointer;
-  transition: color 0.15s, background 0.15s;
+  transition:
+    color 0.15s,
+    background 0.15s;
   text-align: left;
   position: relative;
 }

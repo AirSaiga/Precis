@@ -18,8 +18,7 @@ register({
       }
       if ((nodeData.logicMode || 'compare') === 'compare') {
         validationConfig.compare_op = nodeData.compareOp || 'gt'
-        if (nodeData.referenceDate)
-          validationConfig.reference_date = nodeData.referenceDate
+        if (nodeData.referenceDate) validationConfig.reference_date = nodeData.referenceDate
         else validationConfig.reference_column = nodeData.referenceColumn
       } else {
         validationConfig.calculation_type = nodeData.calculationType || 'age'
@@ -35,7 +34,9 @@ register({
       if (!response.success || !response.data) {
         return {
           status: 'error',
-          validationErrors: [String(response.error || '\u65E5\u671F\u903B\u8F91\u6821\u9A8C\u5931\u8D25')],
+          validationErrors: [
+            String(response.error || '\u65E5\u671F\u903B\u8F91\u6821\u9A8C\u5931\u8D25'),
+          ],
           lastValidation: undefined,
         }
       }
@@ -51,8 +52,7 @@ register({
     }
     if ((nodeData.logicMode || 'compare') === 'compare') {
       validationConfig.compare_op = nodeData.compareOp || 'gt'
-      if (nodeData.referenceDate)
-        validationConfig.reference_date = nodeData.referenceDate
+      if (nodeData.referenceDate) validationConfig.reference_date = nodeData.referenceDate
       else validationConfig.reference_column = nodeData.referenceColumn
     } else {
       validationConfig.calculation_type = nodeData.calculationType || 'age'
@@ -71,7 +71,9 @@ register({
     if (!response.success || !response.data) {
       return {
         status: 'error',
-        validationErrors: [String(response.error || '\u65E5\u671F\u903B\u8F91\u6821\u9A8C\u5931\u8D25')],
+        validationErrors: [
+          String(response.error || '\u65E5\u671F\u903B\u8F91\u6821\u9A8C\u5931\u8D25'),
+        ],
         lastValidation: undefined,
       }
     }

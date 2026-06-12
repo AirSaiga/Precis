@@ -10,7 +10,10 @@ import { buildSingleColumnRefs } from './helpers'
 export const notNullBuilder: NodeBuilder<ConstraintFileV2> = {
   kind: 'constraint',
   matches: (node: CustomNode) => node.type === 'notNullConstraint',
-  build({ node, nodes, schemaIdByNodeId }: BuilderContext): { consumed: boolean; file: ConstraintFileV2 } {
+  build({ node, nodes, schemaIdByNodeId }: BuilderContext): {
+    consumed: boolean
+    file: ConstraintFileV2
+  } {
     const d = (node.data || {}) as Record<string, unknown>
     return {
       consumed: true,

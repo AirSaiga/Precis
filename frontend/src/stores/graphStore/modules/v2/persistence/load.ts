@@ -292,10 +292,7 @@ export function createV2LoadOps(params: {
         const inspectionStore = useInspectionStore()
         inspectionStore.setResult(inspection, { autoOpen: 'if-blocker' })
         if (inspection.errors.length > 0) {
-          logger.warn(
-            '[loadProjectFromV2] 配置自检发现 %d 个问题',
-            inspection.errors.length
-          )
+          logger.warn('[loadProjectFromV2] 配置自检发现 %d 个问题', inspection.errors.length)
         }
       }
 

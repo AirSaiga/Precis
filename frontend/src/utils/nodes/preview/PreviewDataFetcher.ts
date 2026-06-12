@@ -11,7 +11,13 @@ import type { CustomNode } from '@/types/graph'
 /** 预览数据来源 */
 export type PreviewSource =
   | { type: 'node'; node: CustomNode }
-  | { type: 'filePath'; filePath: string; format?: string; sheetName?: string; jsonOptions?: { jsonPath?: string; jsonFormat?: string; recordPath?: string } }
+  | {
+      type: 'filePath'
+      filePath: string
+      format?: string
+      sheetName?: string
+      jsonOptions?: { jsonPath?: string; jsonFormat?: string; recordPath?: string }
+    }
 
 /** 统一预览数据结构 */
 export interface UnifiedPreviewData {
@@ -137,7 +143,7 @@ export class FilePreviewFetcher implements PreviewDataFetcher {
       }
 
       // Tabular 格式
-      const rawData = result.data as string[][] || []
+      const rawData = (result.data as string[][]) || []
 
       return {
         rawData,

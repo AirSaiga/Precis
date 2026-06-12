@@ -158,7 +158,9 @@ async function tryLoadExistingSchemaConfig(params: {
     materializeV2EmbeddedConstraints({
       schemaNode: schemaNode as unknown as import('@/types/graph').CustomNode,
       schemaTableName: schemaData.tableName,
-      embeddedConstraints: embedded as Parameters<typeof materializeV2EmbeddedConstraints>[0]['embeddedConstraints'],
+      embeddedConstraints: embedded as Parameters<
+        typeof materializeV2EmbeddedConstraints
+      >[0]['embeddedConstraints'],
       colNameToId,
       hasNode: (id: string) => store.nodes.some((n) => n.id === id),
       addNode: (node: import('@/types/graph').CustomNode) => addNodes(node),
@@ -402,7 +404,10 @@ export function useSchemaConnectionHandler() {
       if (!loadedFromConfig) {
         eventBus.emit('sourcePreviewDataChanged', {
           nodeId: sourceNodeIdForDialog,
-          data: (store.nodes.find((n) => n.id === sourceNodeIdForDialog)?.data ?? {}) as Record<string, unknown>,
+          data: (store.nodes.find((n) => n.id === sourceNodeIdForDialog)?.data ?? {}) as Record<
+            string,
+            unknown
+          >,
         })
       }
     } catch (error) {
@@ -483,13 +488,25 @@ export function useSchemaConnectionHandler() {
       const parts: string[] = []
       if (comparison.newInSource.length > 0) {
         const preview = comparison.newInSource.slice(0, 5).join(', ')
-        const suffix = comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
-        parts.push(t('canvas.nodeCanvas.smartFix.newInSource', { count: comparison.newInSource.length, columns: `${preview}${suffix}` }))
+        const suffix =
+          comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
+        parts.push(
+          t('canvas.nodeCanvas.smartFix.newInSource', {
+            count: comparison.newInSource.length,
+            columns: `${preview}${suffix}`,
+          })
+        )
       }
       if (comparison.staleInSchema.length > 0) {
         const preview = comparison.staleInSchema.slice(0, 5).join(', ')
-        const suffix = comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
-        parts.push(t('canvas.nodeCanvas.smartFix.staleInSchema', { count: comparison.staleInSchema.length, columns: `${preview}${suffix}` }))
+        const suffix =
+          comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
+        parts.push(
+          t('canvas.nodeCanvas.smartFix.staleInSchema', {
+            count: comparison.staleInSchema.length,
+            columns: `${preview}${suffix}`,
+          })
+        )
       }
 
       const result = await showConfirm({
@@ -505,7 +522,10 @@ export function useSchemaConnectionHandler() {
         type: 'warning',
       })
 
-      logger.debug('🎯 [showSmartFillDialog] 用户选择:', result === true ? '✅ 智能修正' : '❌ 跳过/取消')
+      logger.debug(
+        '🎯 [showSmartFillDialog] 用户选择:',
+        result === true ? '✅ 智能修正' : '❌ 跳过/取消'
+      )
 
       if (result === true) {
         generateColumnsFromDataSource(
@@ -601,7 +621,10 @@ export function useSchemaConnectionHandler() {
 
       // 检查数据是否存在
       if (!tableData || tableData.length === 0) {
-        showError(t('canvas.nodeCanvas.dataSourceEmpty'), t('canvas.nodeCanvas.columnsGenerationFailed'))
+        showError(
+          t('canvas.nodeCanvas.dataSourceEmpty'),
+          t('canvas.nodeCanvas.columnsGenerationFailed')
+        )
         return
       }
 
@@ -618,7 +641,10 @@ export function useSchemaConnectionHandler() {
       const headerRow = tableData[headerRowIndex]
 
       if (!headerRow) {
-        showError(t('canvas.nodeCanvas.headerRowMissing'), t('canvas.nodeCanvas.columnsGenerationFailed'))
+        showError(
+          t('canvas.nodeCanvas.headerRowMissing'),
+          t('canvas.nodeCanvas.columnsGenerationFailed')
+        )
         return
       }
 

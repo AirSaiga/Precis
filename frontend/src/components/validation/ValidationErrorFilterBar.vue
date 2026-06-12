@@ -38,7 +38,12 @@
         <select
           :value="groupBy"
           class="ui-select ui-select--compact"
-          @change="emit('update:groupBy', ($event.target as HTMLSelectElement).value as 'table' | 'stage' | 'type' | 'none')"
+          @change="
+            emit(
+              'update:groupBy',
+              ($event.target as HTMLSelectElement).value as 'table' | 'stage' | 'type' | 'none'
+            )
+          "
         >
           <option v-for="opt in groupOptions" :key="opt.key" :value="opt.key">
             {{ opt.label }}

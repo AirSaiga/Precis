@@ -34,7 +34,8 @@ const messages = {
     validationFailed: '验证失败',
     networkError: '网络错误',
     unknownError: '未知错误',
-    projectNotFound: '目录缺少 project.precis.yaml 项目清单文件，请新建项目或选择有效项目目录\n{path}',
+    projectNotFound:
+      '目录缺少 project.precis.yaml 项目清单文件，请新建项目或选择有效项目目录\n{path}',
   },
   warning: {
     unsavedChanges: '您有未保存的更改',

@@ -86,22 +86,14 @@ describe('SchemaCentricStrategy - calculate', () => {
   it('assigns position to schema nodes', () => {
     const nodes: CustomNode[] = [makeNode('node-s1', 'schema')]
     const strategy = new SchemaCentricStrategy()
-    const result = strategy.calculate(
-      makeClassification(nodes),
-      [],
-      makeContext(nodes)
-    )
+    const result = strategy.calculate(makeClassification(nodes), [], makeContext(nodes))
     expect(result.positions.has('node-s1')).toBe(true)
   })
 
   it('groups schema nodes into a group', () => {
     const nodes: CustomNode[] = [makeNode('node-s1', 'schema')]
     const strategy = new SchemaCentricStrategy()
-    const result = strategy.calculate(
-      makeClassification(nodes),
-      [],
-      makeContext(nodes)
-    )
+    const result = strategy.calculate(makeClassification(nodes), [], makeContext(nodes))
     const schemaGroups = result.groups.filter((g) => g.id === 'fam-node-s1')
     expect(schemaGroups).toHaveLength(1)
   })
@@ -112,11 +104,7 @@ describe('SchemaCentricStrategy - calculate', () => {
       makeNode('node-s1', 'schema'),
     ]
     const strategy = new SchemaCentricStrategy()
-    const result = strategy.calculate(
-      makeClassification(nodes),
-      [],
-      makeContext(nodes)
-    )
+    const result = strategy.calculate(makeClassification(nodes), [], makeContext(nodes))
     const rootPos = result.positions.get('node-root')!
     const schemaPos = result.positions.get('node-s1')!
     expect(rootPos.y).toBeLessThan(schemaPos.y)
@@ -143,16 +131,9 @@ describe('SchemaCentricStrategy - calculate', () => {
   })
 
   it('assigns orphan nodes without connections to orphan group', () => {
-    const nodes: CustomNode[] = [
-      makeNode('node-s1', 'schema'),
-      makeNode('node-orphan', 'regex'),
-    ]
+    const nodes: CustomNode[] = [makeNode('node-s1', 'schema'), makeNode('node-orphan', 'regex')]
     const strategy = new SchemaCentricStrategy()
-    const result = strategy.calculate(
-      makeClassification(nodes),
-      [],
-      makeContext(nodes)
-    )
+    const result = strategy.calculate(makeClassification(nodes), [], makeContext(nodes))
     const orphanGroup = result.groups.find((g) => g.id === 'fam-orphan')
     expect(orphanGroup).toBeDefined()
   })
@@ -171,11 +152,7 @@ describe('SchemaCentricStrategy - calculate', () => {
       makeNode('node-cn1', 'notNullConstraint'),
     ]
     const strategy = new SchemaCentricStrategy()
-    const result = strategy.calculate(
-      makeClassification(nodes),
-      [],
-      makeContext(nodes)
-    )
+    const result = strategy.calculate(makeClassification(nodes), [], makeContext(nodes))
     // 策略层返回的坐标是原始计算结果，网格对齐由 LayoutCalculator 完成
     for (const pos of result.positions.values()) {
       expect(typeof pos.x).toBe('number')
@@ -191,11 +168,7 @@ describe('SchemaCentricStrategy - calculate', () => {
       makeNode('node-cn2', 'uniqueConstraint', { parent: 'node-s1' }),
     ]
     const strategy = new SchemaCentricStrategy()
-    const result = strategy.calculate(
-      makeClassification(nodes),
-      [],
-      makeContext(nodes)
-    )
+    const result = strategy.calculate(makeClassification(nodes), [], makeContext(nodes))
     const familyGroup = result.groups.find((g) => g.id === 'fam-node-s1')
     expect(familyGroup).toBeDefined()
     if (familyGroup) {

@@ -17,11 +17,16 @@
     <div class="settings-section">
       <div class="settings-section__header">
         <div class="settings-section__title">{{ t('settings.aiAssistant.providerList') }}</div>
-        <div class="settings-section__subtitle">{{ t('settings.aiAssistant.providerListHint') }}</div>
+        <div class="settings-section__subtitle">
+          {{ t('settings.aiAssistant.providerListHint') }}
+        </div>
       </div>
 
       <!-- 无 Provider 提示 -->
-      <div v-if="providers.length === 0 && !showAddForm" class="settings-alert settings-alert--warning">
+      <div
+        v-if="providers.length === 0 && !showAddForm"
+        class="settings-alert settings-alert--warning"
+      >
         <span class="settings-alert__icon">⚠️</span>
         <div class="settings-alert__content">
           <div class="settings-alert__title">{{ t('settings.aiAssistant.noProvider') }}</div>
@@ -49,11 +54,7 @@
             <div class="provider-card__edit-form">
               <div class="edit-row">
                 <label class="edit-label">{{ t('settings.aiAssistant.providerName') }}</label>
-                <input
-                  v-model="editForm.name"
-                  class="settings-input"
-                  type="text"
-                />
+                <input v-model="editForm.name" class="settings-input" type="text" />
               </div>
               <div class="edit-row">
                 <label class="edit-label">{{ t('settings.aiAssistant.apiKey') }}</label>
@@ -106,16 +107,18 @@
                     {{ t('settings.aiAssistant.active') }}
                   </span>
                 </div>
-                <div class="provider-card__meta">
-                  {{ p.provider }} · {{ p.model }}
-                </div>
+                <div class="provider-card__meta">{{ p.provider }} · {{ p.model }}</div>
               </div>
               <div class="provider-card__status">
                 <span
                   class="settings-pill"
                   :class="p.is_configured ? 'settings-pill--success' : 'settings-pill--warning'"
                 >
-                  {{ p.is_configured ? '✓ ' + t('settings.aiAssistant.configured') : '✗ ' + t('settings.aiAssistant.noApiKey') }}
+                  {{
+                    p.is_configured
+                      ? '✓ ' + t('settings.aiAssistant.configured')
+                      : '✗ ' + t('settings.aiAssistant.noApiKey')
+                  }}
                 </span>
               </div>
             </div>
@@ -135,18 +138,31 @@
             <div v-if="testResults[p.id]" class="provider-card__test-result">
               <div
                 class="provider-card__test-status"
-                :class="testResults[p.id]?.health.status === 'ok' ? 'test-status--ok' : 'test-status--error'"
+                :class="
+                  testResults[p.id]?.health.status === 'ok'
+                    ? 'test-status--ok'
+                    : 'test-status--error'
+                "
               >
-                <span class="test-status__icon">{{ testResults[p.id]?.health.status === 'ok' ? '✓' : '✗' }}</span>
+                <span class="test-status__icon">{{
+                  testResults[p.id]?.health.status === 'ok' ? '✓' : '✗'
+                }}</span>
                 <span class="test-status__text">
-                  {{ testResults[p.id]?.health.status === 'ok'
-                    ? t('settings.aiAssistant.testSuccess', { latency: testResults[p.id]?.health.latency_ms })
-                    : t('settings.aiAssistant.testFailed', { error: testResults[p.id]?.health.error })
+                  {{
+                    testResults[p.id]?.health.status === 'ok'
+                      ? t('settings.aiAssistant.testSuccess', {
+                          latency: testResults[p.id]?.health.latency_ms,
+                        })
+                      : t('settings.aiAssistant.testFailed', {
+                          error: testResults[p.id]?.health.error,
+                        })
                   }}
                 </span>
               </div>
               <div v-if="testResults[p.id]?.available_models?.length" class="provider-card__models">
-                <div class="provider-card__models-label">{{ t('settings.aiAssistant.availableModels') }}:</div>
+                <div class="provider-card__models-label">
+                  {{ t('settings.aiAssistant.availableModels') }}:
+                </div>
                 <div class="provider-card__models-list">
                   <span
                     v-for="model in testResults[p.id]?.available_models?.slice(0, 5) ?? []"
@@ -155,7 +171,10 @@
                   >
                     {{ model }}
                   </span>
-                  <span v-if="(testResults[p.id]?.available_models?.length ?? 0) > 5" class="provider-card__model-tag">
+                  <span
+                    v-if="(testResults[p.id]?.available_models?.length ?? 0) > 5"
+                    class="provider-card__model-tag"
+                  >
                     +{{ (testResults[p.id]?.available_models?.length ?? 0) - 5 }}
                   </span>
                 </div>
@@ -169,7 +188,9 @@
                 :disabled="testingProvider === p.id"
                 @click="testProvider(p.id)"
               >
-                <span v-if="testingProvider === p.id">{{ t('settings.aiAssistant.testing') }}...</span>
+                <span v-if="testingProvider === p.id"
+                  >{{ t('settings.aiAssistant.testing') }}...</span
+                >
                 <span v-else>{{ t('settings.aiAssistant.testConnection') }}</span>
               </button>
               <button
@@ -180,10 +201,7 @@
               >
                 {{ t('settings.aiAssistant.setActive') }}
               </button>
-              <button
-                class="ui-btn ui-btn--ghost ui-btn--sm"
-                @click="startEdit(p)"
-              >
+              <button class="ui-btn ui-btn--ghost ui-btn--sm" @click="startEdit(p)">
                 {{ t('settings.aiAssistant.edit') }}
               </button>
               <button
@@ -213,7 +231,9 @@
           <div class="edit-row">
             <label class="edit-label">{{ t('settings.aiAssistant.selectPreset') }}</label>
             <select v-model="addForm.presetId" class="settings-select" @change="onPresetChange">
-              <option value="" disabled>{{ t('settings.aiAssistant.selectPresetPlaceholder') }}</option>
+              <option value="" disabled>
+                {{ t('settings.aiAssistant.selectPresetPlaceholder') }}
+              </option>
               <option v-for="pr in presets" :key="pr.id" :value="pr.id">{{ pr.name }}</option>
             </select>
           </div>
@@ -275,7 +295,12 @@
               <span class="settings-code">{{ configPath || '~/.precis/ai_providers.yaml' }}</span>
             </div>
             <div class="settings-row__control">
-              <button v-if="isElectronEnv" class="ui-btn ui-btn--secondary ui-btn--sm" type="button" @click="openConfigFile">
+              <button
+                v-if="isElectronEnv"
+                class="ui-btn ui-btn--secondary ui-btn--sm"
+                type="button"
+                @click="openConfigFile"
+              >
                 {{ t('settings.aiAssistant.openConfigFile') }}
               </button>
             </div>
@@ -285,7 +310,11 @@
               <pre class="config-template">{{ configTemplate }}</pre>
             </div>
             <div class="settings-row__control">
-              <button class="ui-btn ui-btn--secondary ui-btn--sm" type="button" @click="copyTemplate">
+              <button
+                class="ui-btn ui-btn--secondary ui-btn--sm"
+                type="button"
+                @click="copyTemplate"
+              >
                 {{ copied ? t('settings.aiAssistant.copied') : t('common.copy') }}
               </button>
             </div>
@@ -432,9 +461,15 @@ defaults:
       const result = await testCloudAIProvider(providerId)
       testResults.value[providerId] = result
       if (result.health.status === 'ok') {
-        showSuccess(t('settings.aiAssistant.testSuccessTitle'), t('settings.aiAssistant.testSuccessDesc'))
+        showSuccess(
+          t('settings.aiAssistant.testSuccessTitle'),
+          t('settings.aiAssistant.testSuccessDesc')
+        )
       } else {
-        showError(t('settings.aiAssistant.testFailedTitle'), result.health.error || t('settings.aiAssistant.testFailedUnknown'))
+        showError(
+          t('settings.aiAssistant.testFailedTitle'),
+          result.health.error || t('settings.aiAssistant.testFailedUnknown')
+        )
       }
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
@@ -454,7 +489,10 @@ defaults:
     try {
       await activateCloudAIProvider(providerId)
       activeProviderId.value = providerId
-      showSuccess(t('settings.aiAssistant.activateSuccessTitle'), t('settings.aiAssistant.activateSuccessDesc'))
+      showSuccess(
+        t('settings.aiAssistant.activateSuccessTitle'),
+        t('settings.aiAssistant.activateSuccessDesc')
+      )
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)
       showError(t('settings.aiAssistant.activateFailedTitle'), msg)

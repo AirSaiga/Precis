@@ -63,7 +63,8 @@ export function createV2ImportToCanvas(params: {
   } = params
   const { t } = useI18n()
 
-  const { ensureSchemaToRegexEdge, ensureSchemaToConstraintEdge, bufferEdge, flushBufferedEdges } = createV2ImportEdges({ edges })
+  const { ensureSchemaToRegexEdge, ensureSchemaToConstraintEdge, bufferEdge, flushBufferedEdges } =
+    createV2ImportEdges({ edges })
   const { ensureSchemaNode, importSchema } = createV2SchemaImporter({
     nodes,
     getEffectiveProjectConfigPath,

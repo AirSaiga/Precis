@@ -5,9 +5,18 @@ import { ref } from 'vue'
 
 vi.mock('@/services/constraints/validationRegistry', () => ({
   isConstraintNodeType: vi.fn((type: string) =>
-    ['notNullConstraint', 'uniqueConstraint', 'foreignKeyConstraint', 'allowedValuesConstraint',
-     'rangeConstraint', 'conditionalConstraint', 'scriptedConstraint', 'charsetConstraint',
-     'dateLogicConstraint', 'compositeConstraint'].includes(type)
+    [
+      'notNullConstraint',
+      'uniqueConstraint',
+      'foreignKeyConstraint',
+      'allowedValuesConstraint',
+      'rangeConstraint',
+      'conditionalConstraint',
+      'scriptedConstraint',
+      'charsetConstraint',
+      'dateLogicConstraint',
+      'compositeConstraint',
+    ].includes(type)
   ),
   buildDisconnectReset: vi.fn(() => ({ validationStatus: 'idle', validationErrors: [] })),
 }))
@@ -24,15 +33,25 @@ describe('disconnect handlers', () => {
     }
 
     it('sourcePreview → schema + target-left = true', () => {
-      expect(matchFn({ targetHandle: 'target-left' }, { type: 'sourcePreview' }, { type: 'schema' })).toBe(true)
+      expect(
+        matchFn({ targetHandle: 'target-left' }, { type: 'sourcePreview' }, { type: 'schema' })
+      ).toBe(true)
     })
 
     it('jsonSourcePreview → jsonSchema + target-left = true', () => {
-      expect(matchFn({ targetHandle: 'target-left' }, { type: 'jsonSourcePreview' }, { type: 'jsonSchema' })).toBe(true)
+      expect(
+        matchFn(
+          { targetHandle: 'target-left' },
+          { type: 'jsonSourcePreview' },
+          { type: 'jsonSchema' }
+        )
+      ).toBe(true)
     })
 
     it('manualData → schema + target-left = true', () => {
-      expect(matchFn({ targetHandle: 'target-left' }, { type: 'manualData' }, { type: 'schema' })).toBe(true)
+      expect(
+        matchFn({ targetHandle: 'target-left' }, { type: 'manualData' }, { type: 'schema' })
+      ).toBe(true)
     })
 
     it('source 未定义也能匹配', () => {
@@ -40,15 +59,21 @@ describe('disconnect handlers', () => {
     })
 
     it('targetHandle 不是 target-left 返回 false', () => {
-      expect(matchFn({ targetHandle: 'other' }, { type: 'sourcePreview' }, { type: 'schema' })).toBe(false)
+      expect(
+        matchFn({ targetHandle: 'other' }, { type: 'sourcePreview' }, { type: 'schema' })
+      ).toBe(false)
     })
 
     it('target 不是 schema/jsonSchema 返回 false', () => {
-      expect(matchFn({ targetHandle: 'target-left' }, { type: 'sourcePreview' }, { type: 'regex' })).toBe(false)
+      expect(
+        matchFn({ targetHandle: 'target-left' }, { type: 'sourcePreview' }, { type: 'regex' })
+      ).toBe(false)
     })
 
     it('source 不是 sourcePreview/jsonSourcePreview/manualData 返回 false', () => {
-      expect(matchFn({ targetHandle: 'target-left' }, { type: 'schema' }, { type: 'schema' })).toBe(false)
+      expect(matchFn({ targetHandle: 'target-left' }, { type: 'schema' }, { type: 'schema' })).toBe(
+        false
+      )
     })
   })
 
@@ -102,9 +127,18 @@ describe('disconnect handlers', () => {
 
   describe('constraint handler logic', () => {
     const isConstraintNodeType = (type: string) =>
-      ['notNullConstraint', 'uniqueConstraint', 'foreignKeyConstraint', 'allowedValuesConstraint',
-       'rangeConstraint', 'conditionalConstraint', 'scriptedConstraint', 'charsetConstraint',
-       'dateLogicConstraint', 'compositeConstraint'].includes(type)
+      [
+        'notNullConstraint',
+        'uniqueConstraint',
+        'foreignKeyConstraint',
+        'allowedValuesConstraint',
+        'rangeConstraint',
+        'conditionalConstraint',
+        'scriptedConstraint',
+        'charsetConstraint',
+        'dateLogicConstraint',
+        'compositeConstraint',
+      ].includes(type)
 
     it('constraint 类型但不是 conditionalConstraint 时匹配', () => {
       const match = (_edge: any, _source: any, target: any) =>
@@ -131,12 +165,14 @@ describe('disconnect handlers', () => {
 
   describe('conditional handler logic', () => {
     it('target 是 conditionalConstraint 时匹配', () => {
-      const match = (_edge: any, _source: any, target: any) => target.type === 'conditionalConstraint'
+      const match = (_edge: any, _source: any, target: any) =>
+        target.type === 'conditionalConstraint'
       expect(match({}, undefined, { type: 'conditionalConstraint' })).toBe(true)
     })
 
     it('target 不是 conditionalConstraint 时不匹配', () => {
-      const match = (_edge: any, _source: any, target: any) => target.type === 'conditionalConstraint'
+      const match = (_edge: any, _source: any, target: any) =>
+        target.type === 'conditionalConstraint'
       expect(match({}, undefined, { type: 'notNullConstraint' })).toBe(false)
     })
   })
@@ -169,11 +205,13 @@ describe('disconnect handlers', () => {
         )
       }
 
-      expect(match(
-        { targetHandle: 'source-right-col1' },
-        { type: 'foreignKeyConstraint' },
-        { type: 'schema' }
-      )).toBe(true)
+      expect(
+        match(
+          { targetHandle: 'source-right-col1' },
+          { type: 'foreignKeyConstraint' },
+          { type: 'schema' }
+        )
+      ).toBe(true)
     })
 
     it('source 未定义返回 false', () => {
@@ -181,7 +219,9 @@ describe('disconnect handlers', () => {
         if (!source) return false
         return source.type === 'foreignKeyConstraint'
       }
-      expect(match({ targetHandle: 'source-right-col1' }, undefined, { type: 'schema' })).toBe(false)
+      expect(match({ targetHandle: 'source-right-col1' }, undefined, { type: 'schema' })).toBe(
+        false
+      )
     })
 
     it('targetHandle 不以 source-right- 开头时不匹配', () => {
@@ -193,11 +233,9 @@ describe('disconnect handlers', () => {
           !!edge.targetHandle?.startsWith('source-right-')
         )
       }
-      expect(match(
-        { targetHandle: 'other' },
-        { type: 'foreignKeyConstraint' },
-        { type: 'schema' }
-      )).toBe(false)
+      expect(
+        match({ targetHandle: 'other' }, { type: 'foreignKeyConstraint' }, { type: 'schema' })
+      ).toBe(false)
     })
   })
 })

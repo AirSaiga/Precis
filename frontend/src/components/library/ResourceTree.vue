@@ -263,18 +263,28 @@
               t('assetLibraryExtended.projectView.explorer.templates')
             }}</span>
             <span
-              v-if="(filteredFolders.validationAssets?.children?.find(c => c.id === 'templates')?.count ?? 0) > 0"
+              v-if="
+                (filteredFolders.validationAssets?.children?.find((c) => c.id === 'templates')
+                  ?.count ?? 0) > 0
+              "
               class="folder-count"
             >
-              {{ filteredFolders.validationAssets?.children?.find(c => c.id === 'templates')?.count }}
+              {{
+                filteredFolders.validationAssets?.children?.find((c) => c.id === 'templates')?.count
+              }}
             </span>
           </div>
           <div
-            v-if="filteredFolders.validationAssets?.children?.find(c => c.id === 'templates')?.expanded"
+            v-if="
+              filteredFolders.validationAssets?.children?.find((c) => c.id === 'templates')
+                ?.expanded
+            "
             class="tree-children"
           >
             <ResourceTreeItem
-              v-for="template in filteredFolders.validationAssets?.children?.find(c => c.id === 'templates')?.resources"
+              v-for="template in filteredFolders.validationAssets?.children?.find(
+                (c) => c.id === 'templates'
+              )?.resources"
               :key="template.id"
               :item="template"
               :is-selected="selectedIds.has(template.id)"
@@ -291,7 +301,10 @@
               @mouseleave="emit('resource-mouseleave')"
             />
             <div
-              v-if="filteredFolders.validationAssets?.children?.find(c => c.id === 'templates')?.count === 0"
+              v-if="
+                filteredFolders.validationAssets?.children?.find((c) => c.id === 'templates')
+                  ?.count === 0
+              "
               class="tree-empty"
             >
               {{ t('assetLibraryExtended.projectView.explorer.emptyTemplates') }}
@@ -355,7 +368,9 @@
                   t('assetLibraryExtended.projectView.explorer.patternRegistry')
                 }}</span>
                 <span
-                  v-if="(filteredFolders.validationAssets?.children?.[1]?.children?.[0]?.count ?? 0) > 0"
+                  v-if="
+                    (filteredFolders.validationAssets?.children?.[1]?.children?.[0]?.count ?? 0) > 0
+                  "
                   class="folder-count"
                 >
                   {{ filteredFolders.validationAssets?.children?.[1]?.children?.[0]?.count }}
@@ -366,7 +381,8 @@
                 class="tree-children"
               >
                 <ResourceTreeItem
-                  v-for="pattern in filteredFolders.validationAssets?.children?.[1]?.children?.[0]?.resources"
+                  v-for="pattern in filteredFolders.validationAssets?.children?.[1]?.children?.[0]
+                    ?.resources"
                   :key="pattern.id"
                   :item="pattern"
                   :is-selected="selectedIds.has(pattern.id)"
@@ -412,7 +428,9 @@
                   t('assetLibraryExtended.projectView.explorer.regexNodes')
                 }}</span>
                 <span
-                  v-if="(filteredFolders.validationAssets?.children?.[1]?.children?.[1]?.count ?? 0) > 0"
+                  v-if="
+                    (filteredFolders.validationAssets?.children?.[1]?.children?.[1]?.count ?? 0) > 0
+                  "
                   class="folder-count"
                 >
                   {{ filteredFolders.validationAssets?.children?.[1]?.children?.[1]?.count }}
@@ -423,7 +441,8 @@
                 class="tree-children"
               >
                 <ResourceTreeItem
-                  v-for="regexNode in filteredFolders.validationAssets?.children?.[1]?.children?.[1]?.resources"
+                  v-for="regexNode in filteredFolders.validationAssets?.children?.[1]?.children?.[1]
+                    ?.resources"
                   :key="regexNode.id"
                   :item="regexNode"
                   :is-selected="selectedIds.has(regexNode.id)"
@@ -458,7 +477,12 @@
   import { useI18n } from 'vue-i18n'
   import { useGraphStore } from '@/stores/graphStore'
   import ResourceTreeItem from './ResourceTreeItem.vue'
-  import type { ResourceItem, SchemaResource, ResourceFolder, ResourceFolderMap } from '@/types/resource'
+  import type {
+    ResourceItem,
+    SchemaResource,
+    ResourceFolder,
+    ResourceFolderMap,
+  } from '@/types/resource'
 
   interface Props {
     filteredFolders: ResourceFolderMap

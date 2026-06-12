@@ -177,9 +177,7 @@
               </div>
               <div class="help-block">
                 <div class="help-subtitle">
-                  {{
-                    t('customNodes.constraintRules.scriptedConstraintNode.helpCollectionTitle')
-                  }}
+                  {{ t('customNodes.constraintRules.scriptedConstraintNode.helpCollectionTitle') }}
                 </div>
                 <div class="help-snippets">
                   <button class="snippet-btn" type="button" @click="insertSnippet('len(')">

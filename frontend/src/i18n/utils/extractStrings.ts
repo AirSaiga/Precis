@@ -13,7 +13,7 @@
 export const commonPatterns = [
   // Vue 模板中的文本内容
   /(?<![\w>])["'`]([^"'`]*?)["'`](?!\s*[=>])/g,
-  
+
   // 错误消息和其他显示文本
   /['"`]([^'"`]*?[加载|错误|成功|保存|删除|编辑|创建|添加|移除|搜索|筛选|重置|清除|刷新|关闭|打开|导出|导入|返回|下一步|上一步|是|否|名称|描述|类型|状态|日期|时间|ID|版本|启用|禁用|活跃|非活跃|必填|可选|有效|无效|选择|全部|无][^'"`]*?)["'"]/g,
 ]
@@ -22,19 +22,19 @@ export const commonPatterns = [
 export const extractedStrings = [
   // 应用标题
   'DataValidator',
-  
+
   // 导航菜单
   '仪表盘',
-  'Schema 配置', 
+  'Schema 配置',
   '表达式规则',
   '报告配置',
-  
+
   // 通用操作
   '切换项目',
   '开始校验',
   '编辑配置',
   '查看历史报告',
-  
+
   // 状态信息
   '正在加载项目信息...',
   '无法加载项目信息：',
@@ -44,12 +44,12 @@ export const extractedStrings = [
   '项目信息',
   '工作区',
   '新建画布工作区',
-  
+
   // 确认对话框
   '您确定要切换项目吗？所有未保存的更改都将丢失。',
   '您确定要删除此项吗？此操作不可恢复。',
   '您确定要执行此操作吗？',
-  
+
   // 面板和组件
   '资产库',
   '节点画布',
@@ -62,14 +62,14 @@ export const extractedStrings = [
   '文档',
   '工具',
   '支持',
-  
+
   // 列定义
   '列定义',
   '表定义',
   '正则表达式集',
   '正则表达式',
   '约束规则集',
-  
+
   // 数据相关
   '数据类型',
   '约束条件',
@@ -80,7 +80,7 @@ export const extractedStrings = [
   '正则表达式约束',
   '条件约束',
   '允许值约束',
-  
+
   // 表达式和规则
   '交互式构建器',
   '参数定义',
@@ -90,7 +90,7 @@ export const extractedStrings = [
   '表达式编辑器',
   '表达式构建器',
   '选择弹出框',
-  
+
   // 配置和设置
   '配置编辑器',
   '项目设置',
@@ -98,7 +98,7 @@ export const extractedStrings = [
   'Webhook配置',
   '脚本检查',
   'WebHook',
-  
+
   // 通用状态
   '加载中...',
   '保存中...',
@@ -113,7 +113,7 @@ export const extractedStrings = [
   '同步中...',
   '导入中...',
   '导出中...',
-  
+
   // 错误消息
   '网络错误',
   '请求失败',
@@ -127,7 +127,7 @@ export const extractedStrings = [
   '同步失败',
   '导入失败',
   '导出失败',
-  
+
   // 成功消息
   '保存成功',
   '删除成功',
@@ -139,7 +139,7 @@ export const extractedStrings = [
   '导入成功',
   '导出成功',
   '操作成功',
-  
+
   // 按钮和控件
   '确定',
   '取消',
@@ -154,7 +154,7 @@ export const extractedStrings = [
   '导入',
   '刷新',
   '刷新数据',
-  
+
   // 表单相关
   '输入',
   '选择',
@@ -163,7 +163,7 @@ export const extractedStrings = [
   '图片',
   '日期',
   '时间',
-  
+
   // 布局相关
   '左侧',
   '右侧',
@@ -175,7 +175,7 @@ export const extractedStrings = [
   '两端对齐',
   '水平',
   '垂直',
-  
+
   // 分页相关
   '页码',
   '总页数',
@@ -183,7 +183,7 @@ export const extractedStrings = [
   '下一页',
   '首页',
   '尾页',
-  
+
   // 筛选相关
   '全部',
   '是',
@@ -192,19 +192,19 @@ export const extractedStrings = [
   '禁用',
   '激活',
   '停用',
-  
+
   // 排序相关
   '升序',
   '降序',
   '自定义',
-  
+
   // 视图相关
   '列表',
   '网格',
   '表格',
   '卡片',
   '树形',
-  
+
   // 操作相关
   '点击',
   '双击',
@@ -213,7 +213,7 @@ export const extractedStrings = [
   '复制',
   '剪切',
   '粘贴',
-  
+
   // 验证相关
   '必填',
   '可选',
@@ -221,14 +221,14 @@ export const extractedStrings = [
   '长度超限',
   '唯一性验证',
   '数据格式',
-  
+
   // 权限相关
   '管理员',
   '普通用户',
   '访客',
   '只读',
   '读写',
-  
+
   // 系统相关
   '系统',
   '用户',
@@ -237,7 +237,7 @@ export const extractedStrings = [
   '配置',
   '设置',
   '偏好',
-  
+
   // 图表相关
   '图表',
   '图表类型',
@@ -246,7 +246,7 @@ export const extractedStrings = [
   '饼图',
   '散点图',
   '面积图',
-  
+
   // 文件相关
   '文件类型',
   '文件大小',
@@ -255,7 +255,7 @@ export const extractedStrings = [
   '预览',
   '重命名',
   '移动',
-  
+
   // 时间相关
   '创建时间',
   '更新时间',
@@ -264,7 +264,7 @@ export const extractedStrings = [
   '过期时间',
   '访问时间',
   '修改时间',
-  
+
   // 更多常用字符串...
 ]
 
@@ -597,13 +597,13 @@ export const namingConvention = {
   vectorEffect: '矢量效果相关',
   visibility: '可见性相关',
   wordSpacing: '单词间距相关',
-  writingMode: '书写模式相关'
+  writingMode: '书写模式相关',
 }
 
 // 提取字符串的工具函数
 export function extractStringsFromFile(content: string): string[] {
   const extractedStrings = new Set<string>()
-  
+
   // 匹配各种字符串模式
   const patterns = [
     // 模板字符串和文本内容
@@ -611,9 +611,9 @@ export function extractStringsFromFile(content: string): string[] {
     // 带有翻译标识的字符串
     /(?:\$t|t)\(["'`]([^"'`]*?)["'`]\)/g,
     // 中文字符串（可能包含常见词汇）
-    /['"`]([^'"`]*?[加载|错误|成功|保存|删除|编辑|创建|添加|移除|搜索|筛选|重置|清除|刷新|关闭|打开|导出|导入|返回|下一步|上一步|是|否|名称|描述|类型|状态|日期|时间|ID|版本|启用|禁用|活跃|非活跃|必填|可选|有效|无效|选择|全部|无|确认|项目|配置|表达式|规则|约束|校验|数据|表|列|字段][^'"`]*?)["'"]/g
+    /['"`]([^'"`]*?[加载|错误|成功|保存|删除|编辑|创建|添加|移除|搜索|筛选|重置|清除|刷新|关闭|打开|导出|导入|返回|下一步|上一步|是|否|名称|描述|类型|状态|日期|时间|ID|版本|启用|禁用|活跃|非活跃|必填|可选|有效|无效|选择|全部|无|确认|项目|配置|表达式|规则|约束|校验|数据|表|列|字段][^'"`]*?)["'"]/g,
   ]
-  
+
   for (const pattern of patterns) {
     let match
     while ((match = pattern.exec(content)) !== null) {
@@ -623,21 +623,21 @@ export function extractStringsFromFile(content: string): string[] {
       }
     }
   }
-  
+
   return Array.from(extractedStrings).sort()
 }
 
 // 推荐的国际化键名生成策略
 export function generateI18nKeys(strings: string[]): { [key: string]: string } {
   const keys: { [key: string]: string } = {}
-  
-  strings.forEach(str => {
+
+  strings.forEach((str) => {
     let key = str
       .toLowerCase()
       .replace(/[^\w\s]/g, '') // 移除标点符号
       .replace(/\s+/g, '.') // 空格替换为点
-      .replace(/.+/g, match => match.charAt(0).toLowerCase() + match.slice(1)) // 首字母小写
-    
+      .replace(/.+/g, (match) => match.charAt(0).toLowerCase() + match.slice(1)) // 首字母小写
+
     // 根据内容添加前缀
     if (str.includes('加载') || str.includes('保存') || str.includes('处理')) {
       key = `common.status.${key}`
@@ -652,10 +652,10 @@ export function generateI18nKeys(strings: string[]): { [key: string]: string } {
     } else {
       key = `common.${key}`
     }
-    
+
     keys[key] = str
   })
-  
+
   return keys
 }
 
@@ -665,5 +665,5 @@ export default {
   extractedStrings,
   namingConvention,
   extractStringsFromFile,
-  generateI18nKeys
+  generateI18nKeys,
 }

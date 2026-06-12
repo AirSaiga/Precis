@@ -7,7 +7,10 @@
  * - 清理 Schema 列上的 validationErrors（仅当无其他约束引用该列时）
  */
 import { registerDisconnectHandler } from '../registryCore'
-import { isConstraintNodeType, buildDisconnectReset } from '@/services/constraints/validationRegistry'
+import {
+  isConstraintNodeType,
+  buildDisconnectReset,
+} from '@/services/constraints/validationRegistry'
 
 registerDisconnectHandler({
   priority: 60,

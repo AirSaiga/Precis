@@ -14,6 +14,7 @@ const inspector = (() => {
     settings: '设置',
     empty: '选择一个节点以查看其属性',
     placeholder: '选择一个节点以查看其属性',
+    emptyHint: '点击画布中的任意节点开始编辑属性',
 
     // [新增] PatternToolbox节点属性检查器
     patternToolbox: {

@@ -6,7 +6,15 @@
  */
 
 export { buildNodeData, registerBuilder } from './registry'
-export type { BuildInput, BuildResult, EdgeDescriptor, BuildMode, ColumnRef, FKRefs, ConditionalIfItem } from './types'
+export type {
+  BuildInput,
+  BuildResult,
+  EdgeDescriptor,
+  BuildMode,
+  ColumnRef,
+  FKRefs,
+  ConditionalIfItem,
+} from './types'
 
 // 触发各 builder 的自注册
 import './simpleConstraint'

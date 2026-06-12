@@ -29,7 +29,10 @@
             "type": "static",
             "options": [
               { "labelKey": "inspector.constraint.foreignKey.ruleExistIn", "value": "EXIST_IN" },
-              { "labelKey": "inspector.constraint.foreignKey.ruleReferenceFrom", "value": "REFERENCE_FROM" }
+              {
+                "labelKey": "inspector.constraint.foreignKey.ruleReferenceFrom",
+                "value": "REFERENCE_FROM"
+              }
             ]
           }
         },
@@ -81,7 +84,10 @@
           "kind": "readonly",
           "labelKey": "inspector.constraint.foreignKey.sourceInfoLabel",
           "source": { "source": "data", "path": ["sourceInfo", "label"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceInfo", "label"] } }
+          "when": {
+            "op": "exists",
+            "source": { "source": "data", "path": ["sourceInfo", "label"] }
+          }
         }
       ]
     },

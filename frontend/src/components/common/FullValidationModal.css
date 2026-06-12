@@ -713,7 +713,11 @@
 
 .fv-progress-fill {
   height: 100%;
-  background: linear-gradient(90deg, var(--ui-accent-strong), color-mix(in srgb, var(--ui-accent-strong) 70%, var(--ui-accent-weak)));
+  background: linear-gradient(
+    90deg,
+    var(--ui-accent-strong),
+    color-mix(in srgb, var(--ui-accent-strong) 70%, var(--ui-accent-weak))
+  );
   border-radius: var(--ui-radius-full);
   transition: width 0.3s ease;
 }

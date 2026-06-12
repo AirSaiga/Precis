@@ -73,7 +73,9 @@
 
   // 报告视图模型（转换原始错误数据为展示友好的格式）
   const reportViewModel = computed(() =>
-    createValidationReportViewModel(result.value, { rowLabel: t('common.fullValidation.table.row') })
+    createValidationReportViewModel(result.value, {
+      rowLabel: t('common.fullValidation.table.row'),
+    })
   )
 
   // 结果页筛选

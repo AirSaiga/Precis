@@ -9,7 +9,10 @@
 
 .column-row {
   display: grid;
-  grid-template-columns: calc(24px + var(--nest-indent)) minmax(80px, 1fr) minmax(100px, 1.2fr) 90px 60px 40px;
+  grid-template-columns: calc(24px + var(--nest-indent)) minmax(80px, 1fr) minmax(
+      100px,
+      1.2fr
+    ) 90px 60px 40px;
   gap: 8px;
   align-items: center;
   height: var(--node-row-height);

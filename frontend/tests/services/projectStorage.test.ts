@@ -102,7 +102,9 @@ describe('ProjectStorageService', () => {
     it('超过 10 个时移除最早的', async () => {
       const svc = await getService()
       for (let i = 0; i < 15; i++) {
-        svc.addRecentProject(makeProject({ name: `Project ${i}`, path: `/path/${i}`, lastOpened: i * 100 }))
+        svc.addRecentProject(
+          makeProject({ name: `Project ${i}`, path: `/path/${i}`, lastOpened: i * 100 })
+        )
       }
       const projects = svc.getRecentProjects()
       expect(projects.length).toBeLessThanOrEqual(10)

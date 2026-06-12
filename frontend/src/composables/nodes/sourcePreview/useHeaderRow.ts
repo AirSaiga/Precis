@@ -99,13 +99,10 @@ export function useHeaderRow(props: { id: string; data: SourcePreviewNodeData },
         node_id: props.id,
         header_row: rowIndex,
         old_header_row: oldHeaderRow,
-        row_data: targetRow.reduce(
-          (acc: Record<string, unknown>, cell: unknown, index: number) => {
-            acc[`column_${index + 1}`] = cell
-            return acc
-          },
-          {}
-        ),
+        row_data: targetRow.reduce((acc: Record<string, unknown>, cell: unknown, index: number) => {
+          acc[`column_${index + 1}`] = cell
+          return acc
+        }, {}),
       }
 
       const response = await notifyHeaderRowChanged(request)

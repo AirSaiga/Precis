@@ -141,7 +141,10 @@ export function createConnectionStateSyncModule(ctx: ConnectionStateSyncContext)
     targetId: string,
     patchFn?: (nodeId: string, patch: Record<string, unknown>) => void
   ) {
-    const fn = patchFn || ((id: string, patch: Record<string, unknown>) => updateNodeData(id, patch as Partial<CustomNodeData>))
+    const fn =
+      patchFn ||
+      ((id: string, patch: Record<string, unknown>) =>
+        updateNodeData(id, patch as Partial<CustomNodeData>))
     applyConnectState(sourceId, targetId, fn)
   }
 

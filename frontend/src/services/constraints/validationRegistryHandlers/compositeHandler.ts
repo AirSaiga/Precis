@@ -32,7 +32,9 @@ register({
     if (targetIds.length === 0) {
       return {
         status: 'idle',
-        validationErrors: ['\u8BF7\u5728\u5C5E\u6027\u9762\u677F\u4E2D\u9009\u62E9\u8981\u805A\u5408\u7684\u7EA6\u675F\u8282\u70B9'],
+        validationErrors: [
+          '\u8BF7\u5728\u5C5E\u6027\u9762\u677F\u4E2D\u9009\u62E9\u8981\u805A\u5408\u7684\u7EA6\u675F\u8282\u70B9',
+        ],
         lastValidation: undefined,
       }
     }
@@ -48,7 +50,8 @@ register({
       if (!targetNode || !isConstraintNodeType(targetNode.type)) continue
 
       const targetData = (targetNode.data || {}) as Record<string, unknown>
-      const status = (targetData.validationStatus as 'idle' | 'pass' | 'error' | 'missing') || 'idle'
+      const status =
+        (targetData.validationStatus as 'idle' | 'pass' | 'error' | 'missing') || 'idle'
       const errors = (targetData.validationErrors || []) as string[]
       const lastValidation = targetData.lastValidation as
         | { totalRows: number; errorCount: number; matchCount: number }
@@ -60,7 +63,9 @@ register({
     if (subResults.length === 0) {
       return {
         status: 'missing',
-        validationErrors: ['\u672A\u627E\u5230\u6709\u6548\u7684\u805A\u5408\u7EA6\u675F\u8282\u70B9'],
+        validationErrors: [
+          '\u672A\u627E\u5230\u6709\u6548\u7684\u805A\u5408\u7EA6\u675F\u8282\u70B9',
+        ],
         lastValidation: undefined,
       }
     }
@@ -76,7 +81,9 @@ register({
       const idleCount = subResults.filter((s) => s.status === 'idle').length
       if (idleCount > 0) {
         finalStatus = 'missing'
-        finalErrors.push(`\u6709 ${idleCount} \u4E2A\u7EA6\u675F\u5C1A\u672A\u6267\u884C\uFF0C\u8BF7\u5148\u6267\u884C\u4E0A\u6E38\u7EA6\u675F\u6821\u9A8C`)
+        finalErrors.push(
+          `\u6709 ${idleCount} \u4E2A\u7EA6\u675F\u5C1A\u672A\u6267\u884C\uFF0C\u8BF7\u5148\u6267\u884C\u4E0A\u6E38\u7EA6\u675F\u6821\u9A8C`
+        )
       }
       for (const s of subResults) {
         if (s.status === 'error') {

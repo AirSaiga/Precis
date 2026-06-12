@@ -13,10 +13,10 @@ registerDisconnectHandler({
   cleanup: (edge, source, target, ctx) => {
     const fkNode = ctx.nodes.value.find((n) => n.id === edge.data.fkNodeId)
     if (!fkNode) return
-    
+
     const fkData = (fkNode.data || {}) as Record<string, unknown>
     const config = (fkData.config || {}) as Record<string, unknown>
-    
+
     ctx.updateNodeData(fkNode.id, {
       ...fkData,
       targetTable: undefined,

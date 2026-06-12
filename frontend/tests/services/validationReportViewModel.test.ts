@@ -87,7 +87,9 @@ describe('formatValidationReportMessage', () => {
   })
 
   it('去除表格前缀', () => {
-    expect(formatValidationReportMessage("表 'users' 列 'email' 校验失败", 'users')).toBe("列 'email' 校验失败")
+    expect(formatValidationReportMessage("表 'users' 列 'email' 校验失败", 'users')).toBe(
+      "列 'email' 校验失败"
+    )
   })
 })
 
@@ -175,7 +177,13 @@ describe('createValidationReportViewModel', () => {
       success: false,
       summary: { constraint_error_count: 1, total_error_count: 1 },
       errors: [
-        { stage: 'constraint', error_type: 'unique', check_type: 'Unique', message: 'Duplicate', table: 'users' },
+        {
+          stage: 'constraint',
+          error_type: 'unique',
+          check_type: 'Unique',
+          message: 'Duplicate',
+          table: 'users',
+        },
       ],
     }
 
@@ -188,7 +196,12 @@ describe('createValidationReportViewModel', () => {
       success: false,
       summary: { constraint_error_count: 1, total_error_count: 1 },
       errors: [
-        { stage: 'constraint', error_type: 'range', check_type: 'Range', message: 'Value out of range 建议: Set value between 0-100' },
+        {
+          stage: 'constraint',
+          error_type: 'range',
+          check_type: 'Range',
+          message: 'Value out of range 建议: Set value between 0-100',
+        },
       ],
     }
 

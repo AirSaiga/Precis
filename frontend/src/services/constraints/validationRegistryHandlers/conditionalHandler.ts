@@ -25,7 +25,9 @@ register({
       if (!hasIf && !skipIf) {
         return {
           status: 'idle',
-          validationErrors: ['\u672A\u914D\u7F6E IF \u6761\u4EF6\uFF0C\u8BF7\u8FDE\u63A5 IF \u5217\u6216\u542F\u7528\u201C\u65E0\u6761\u4EF6\u89E6\u53D1\u201D'],
+          validationErrors: [
+            '\u672A\u914D\u7F6E IF \u6761\u4EF6\uFF0C\u8BF7\u8FDE\u63A5 IF \u5217\u6216\u542F\u7528\u201C\u65E0\u6761\u4EF6\u89E6\u53D1\u201D',
+          ],
           lastValidation: undefined,
         }
       }
@@ -38,9 +40,10 @@ register({
       if (skipIf) {
         validationConfig.if_conditions = []
       } else {
-        const rawIfConditions = Array.isArray(nodeData.ifConditions) && nodeData.ifConditions.length > 0
-          ? nodeData.ifConditions
-          : [{ ref: nodeData.ifRef, operator: 'eq', value: nodeData.ifValue }]
+        const rawIfConditions =
+          Array.isArray(nodeData.ifConditions) && nodeData.ifConditions.length > 0
+            ? nodeData.ifConditions
+            : [{ ref: nodeData.ifRef, operator: 'eq', value: nodeData.ifValue }]
         const normalizedIf = rawIfConditions.map((c: any) => ({
           if_column: ctx.columnName,
           operator: c?.operator || 'eq',
@@ -60,7 +63,9 @@ register({
       if (!response.success || !response.data) {
         return {
           status: 'error',
-          validationErrors: [String(response.error || '\u6761\u4EF6\u7EA6\u675F\u6821\u9A8C\u5931\u8D25')],
+          validationErrors: [
+            String(response.error || '\u6761\u4EF6\u7EA6\u675F\u6821\u9A8C\u5931\u8D25'),
+          ],
           lastValidation: undefined,
         }
       }
@@ -144,7 +149,9 @@ register({
     if (!response.success || !response.data) {
       return {
         status: 'error',
-        validationErrors: [String(response.error || '\u6761\u4EF6\u7EA6\u675F\u6821\u9A8C\u5931\u8D25')],
+        validationErrors: [
+          String(response.error || '\u6761\u4EF6\u7EA6\u675F\u6821\u9A8C\u5931\u8D25'),
+        ],
         lastValidation: undefined,
       }
     }

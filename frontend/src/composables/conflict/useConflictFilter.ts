@@ -32,7 +32,14 @@ export function useConflictFilter(comparison: ConfigComparison) {
     if (!typeOk) return false
     const q = (searchText.value || '').trim().toLowerCase()
     if (!q) return true
-    return String(item.name || '').toLowerCase().includes(q) || String(item.id || '').toLowerCase().includes(q)
+    return (
+      String(item.name || '')
+        .toLowerCase()
+        .includes(q) ||
+      String(item.id || '')
+        .toLowerCase()
+        .includes(q)
+    )
   }
 
   const filteredSchemas = computed(() => comparison.schemas.filter(matchesFilter))
@@ -40,17 +47,27 @@ export function useConflictFilter(comparison: ConfigComparison) {
   const filteredRegexNodes = computed(() => comparison.regex_nodes.filter(matchesFilter))
 
   const totalCount = computed(() => {
-    return filteredSchemas.value.length + filteredConstraints.value.length + filteredRegexNodes.value.length
+    return (
+      filteredSchemas.value.length +
+      filteredConstraints.value.length +
+      filteredRegexNodes.value.length
+    )
   })
 
   const addedCount = computed(() => {
-    return [...filteredSchemas.value, ...filteredConstraints.value, ...filteredRegexNodes.value]
-      .filter(i => i.type === 'added').length
+    return [
+      ...filteredSchemas.value,
+      ...filteredConstraints.value,
+      ...filteredRegexNodes.value,
+    ].filter((i) => i.type === 'added').length
   })
 
   const modifiedCount = computed(() => {
-    return [...filteredSchemas.value, ...filteredConstraints.value, ...filteredRegexNodes.value]
-      .filter(i => i.type === 'modified').length
+    return [
+      ...filteredSchemas.value,
+      ...filteredConstraints.value,
+      ...filteredRegexNodes.value,
+    ].filter((i) => i.type === 'modified').length
   })
 
   return {

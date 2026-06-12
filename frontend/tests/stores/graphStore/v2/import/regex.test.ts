@@ -97,24 +97,33 @@ describe('createV2RegexImporter', () => {
       } as any)
 
       vi.mocked(buildNodeData).mockReturnValue({
-        nodeData: { configName: 'EmailRegex', pattern: '^[\\w]+@[\\w]+\\.[\\w]+$', saveState: 'saved' },
-        edgeDescriptors: [{ kind: 'constraint', sourceNodeId: 's1', targetNodeId: 'r1', columnId: 'col1' }],
+        nodeData: {
+          configName: 'EmailRegex',
+          pattern: '^[\\w]+@[\\w]+\\.[\\w]+$',
+          saveState: 'saved',
+        },
+        edgeDescriptors: [
+          { kind: 'constraint', sourceNodeId: 's1', targetNodeId: 'r1', columnId: 'col1' },
+        ],
       } as any)
 
       const result = await importer.importRegex('r1', { x: 100, y: 200 })
 
       expect(result).toBe('r1')
       expect(getV2RegexNode).toHaveBeenCalledWith('r1')
-      expect(buildNodeData).toHaveBeenCalledWith('regex', expect.objectContaining({
-        mode: 'import',
-        configName: 'EmailRegex',
-        schemaNodeId: 's1',
-        nodeType: 'regex',
-        params: expect.objectContaining({
-          pattern: '^[\\w]+@[\\w]+\\.[\\w]+$',
-          match_mode: 'full',
-        }),
-      }))
+      expect(buildNodeData).toHaveBeenCalledWith(
+        'regex',
+        expect.objectContaining({
+          mode: 'import',
+          configName: 'EmailRegex',
+          schemaNodeId: 's1',
+          nodeType: 'regex',
+          params: expect.objectContaining({
+            pattern: '^[\\w]+@[\\w]+\\.[\\w]+$',
+            match_mode: 'full',
+          }),
+        })
+      )
       expect(addNodes).toHaveBeenCalledTimes(1)
       expect(mockEnsureRegexEdge).toHaveBeenCalledWith('s1', 'r1', 'col1')
       expect(selectedNodeId.value).toBe('r1')
@@ -139,10 +148,12 @@ describe('createV2RegexImporter', () => {
     })
 
     it('includeDeps=false 时不调用 ensureSchemaNode', async () => {
-      nodes.value = [makeNode('s1', 'schema', {
-        tableName: 'users',
-        columns: [{ id: 'col1', columnName: 'email' }],
-      })]
+      nodes.value = [
+        makeNode('s1', 'schema', {
+          tableName: 'users',
+          columns: [{ id: 'col1', columnName: 'email' }],
+        }),
+      ]
 
       vi.mocked(getV2RegexNode).mockResolvedValue({
         name: 'TestRegex',
@@ -152,7 +163,9 @@ describe('createV2RegexImporter', () => {
 
       vi.mocked(buildNodeData).mockReturnValue({
         nodeData: { saveState: 'saved' },
-        edgeDescriptors: [{ kind: 'constraint', sourceNodeId: 's1', targetNodeId: 'r1', columnId: 'col1' }],
+        edgeDescriptors: [
+          { kind: 'constraint', sourceNodeId: 's1', targetNodeId: 'r1', columnId: 'col1' },
+        ],
       } as any)
 
       await importer.importRegex('r1', { x: 0, y: 0 }, { includeDeps: false })

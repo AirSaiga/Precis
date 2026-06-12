@@ -145,16 +145,20 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
         }))
         .filter((c: any) => {
           if (!c.if_column_id) {
-            console.warn(`[schemaBuilder] Conditional ${node.id}: 跳过缺少 if_column_id 的条件 (operator=${c.operator})`)
+            console.warn(
+              `[schemaBuilder] Conditional ${node.id}: 跳过缺少 if_column_id 的条件 (operator=${c.operator})`
+            )
             return false
           }
           return true
         })
-      
+
       if (validConditions.length < d.ifConditions.length) {
-        console.warn(`[schemaBuilder] Conditional ${node.id}: ${d.ifConditions.length - validConditions.length} 个条件被丢弃，仅保留 ${validConditions.length} 个有效条件`)
+        console.warn(
+          `[schemaBuilder] Conditional ${node.id}: ${d.ifConditions.length - validConditions.length} 个条件被丢弃，仅保留 ${validConditions.length} 个有效条件`
+        )
       }
-      
+
       params.if_conditions = validConditions
     }
 
@@ -224,7 +228,9 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
 
   if (v2Type === 'Composite') {
     // Composite 约束强制独立保存，内嵌时仅保留基本信息作为降级
-    console.warn(`[schemaBuilder] Composite 约束 ${node.id} 尝试内嵌保存，已降级。建议改为独立保存。`)
+    console.warn(
+      `[schemaBuilder] Composite 约束 ${node.id} 尝试内嵌保存，已降级。建议改为独立保存。`
+    )
     return {
       id: node.id,
       type: v2Type,

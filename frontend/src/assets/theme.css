@@ -3,7 +3,11 @@
   --ui-theme-mode: light;
 
   --ui-bg-canvas: rgba(241, 245, 249, 0.6);
-  --ui-bg-canvas-gradient: radial-gradient(at 0% 0%, rgba(224, 242, 254, 0.4) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(241, 245, 249, 0.4) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(224, 242, 254, 0.4) 0px, transparent 50%), radial-gradient(at 0% 100%, rgba(241, 245, 249, 0.4) 0px, transparent 50%), #f8fafc;
+  --ui-bg-canvas-gradient:
+    radial-gradient(at 0% 0%, rgba(224, 242, 254, 0.4) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(241, 245, 249, 0.4) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(224, 242, 254, 0.4) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(241, 245, 249, 0.4) 0px, transparent 50%), #f8fafc;
   --ui-bg-base: #f1f5f9;
   --ui-bg-nav-primary: rgba(255, 255, 255, 0.85);
   --ui-bg-sidebar: rgba(255, 255, 255, 0.85);
@@ -131,15 +135,18 @@
 
   --ui-shadow-elevation-sm: 0 1px 2px rgba(45, 42, 38, 0.04);
   --ui-shadow-elevation-md: 0 2px 4px rgba(45, 42, 38, 0.05), 0 1px 2px rgba(45, 42, 38, 0.03);
-  --ui-shadow-elevation-lg: 0 4px 8px -1px rgba(45, 42, 38, 0.06), 0 2px 4px -2px rgba(45, 42, 38, 0.04);
-  --ui-shadow-elevation-xl: 0 10px 20px -3px rgba(45, 42, 38, 0.06), 0 4px 8px -4px rgba(45, 42, 38, 0.04);
+  --ui-shadow-elevation-lg:
+    0 4px 8px -1px rgba(45, 42, 38, 0.06), 0 2px 4px -2px rgba(45, 42, 38, 0.04);
+  --ui-shadow-elevation-xl:
+    0 10px 20px -3px rgba(45, 42, 38, 0.06), 0 4px 8px -4px rgba(45, 42, 38, 0.04);
   --ui-shadow-xs: 0 1px 2px rgba(45, 42, 38, 0.03);
   --ui-shadow-sm: 0 1px 3px rgba(45, 42, 38, 0.04), 0 1px 2px rgba(45, 42, 38, 0.02);
   --ui-shadow-md: 0 4px 8px -1px rgba(45, 42, 38, 0.05), 0 2px 4px -2px rgba(45, 42, 38, 0.03);
   --ui-shadow-lg: 0 10px 20px -3px rgba(45, 42, 38, 0.06), 0 4px 8px -4px rgba(45, 42, 38, 0.04);
   --ui-shadow-xl: 0 20px 30px -5px rgba(45, 42, 38, 0.06), 0 8px 12px -6px rgba(45, 42, 38, 0.04);
   --ui-shadow-2xl: 0 25px 50px -12px rgba(45, 42, 38, 0.1);
-  --ui-shadow-hover: 0 12px 24px -5px rgba(45, 42, 38, 0.08), 0 6px 12px -4px rgba(45, 42, 38, 0.05);
+  --ui-shadow-hover:
+    0 12px 24px -5px rgba(45, 42, 38, 0.08), 0 6px 12px -4px rgba(45, 42, 38, 0.05);
   --ui-shadow-focus: 0 0 0 3px var(--ui-accent-ring);
   --ui-shadow-active: 0 2px 4px rgba(45, 42, 38, 0.04);
   --ui-shadow-glow: 0 0 0 4px rgba(90, 155, 199, 0.12);
@@ -154,7 +161,9 @@
   --ui-settings-shell-top: color-mix(in srgb, var(--ui-bg-panel) 92%, var(--ui-accent-weak));
   --ui-settings-body-bg: color-mix(in srgb, var(--ui-bg-base) 12%, var(--ui-bg-elevated));
   --ui-settings-shell-border: color-mix(in srgb, var(--ui-border-light) 92%, transparent);
-  --ui-settings-shell-shadow: 0 28px 64px -18px color-mix(in srgb, var(--ui-text-primary) 16%, transparent), 0 18px 30px -24px color-mix(in srgb, var(--ui-text-primary) 18%, transparent);
+  --ui-settings-shell-shadow:
+    0 28px 64px -18px color-mix(in srgb, var(--ui-text-primary) 16%, transparent),
+    0 18px 30px -24px color-mix(in srgb, var(--ui-text-primary) 18%, transparent);
   --ui-settings-highlight: color-mix(in srgb, var(--ui-accent-weak) 72%, transparent);
   --ui-settings-sidebar-bg: color-mix(in srgb, var(--ui-bg-sidebar) 90%, var(--ui-bg-base));
   --ui-settings-nav-hover: color-mix(in srgb, var(--ui-bg-hover) 76%, var(--ui-bg-elevated));
@@ -168,12 +177,21 @@
   --ui-settings-card-bg: color-mix(in srgb, var(--ui-bg-elevated) 94%, var(--ui-bg-base));
   --ui-settings-card-border: color-mix(in srgb, var(--ui-border-light) 92%, transparent);
   --ui-settings-card-muted-bg: color-mix(in srgb, var(--ui-bg-subtle) 88%, var(--ui-bg-elevated));
-  --ui-settings-card-strong-bg: linear-gradient(135deg, color-mix(in srgb, var(--ui-accent-weak) 92%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-success-weak) 70%, var(--ui-bg-elevated)) 100%);
+  --ui-settings-card-strong-bg: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ui-accent-weak) 92%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--ui-success-weak) 70%, var(--ui-bg-elevated)) 100%
+  );
   --ui-settings-badge-bg: color-mix(in srgb, var(--ui-accent-weak) 92%, var(--ui-bg-elevated));
   --ui-settings-badge-text: var(--ui-accent-strong);
   --ui-settings-meta-bg: color-mix(in srgb, var(--ui-bg-elevated) 88%, var(--ui-bg-base));
   --ui-settings-meta-border: color-mix(in srgb, var(--ui-border-light) 92%, transparent);
-  --ui-settings-hero-bg: linear-gradient(160deg, color-mix(in srgb, var(--ui-accent-weak) 88%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-info-weak) 50%, var(--ui-bg-elevated)) 52%, color-mix(in srgb, var(--ui-success-weak) 42%, var(--ui-bg-elevated)) 100%);
+  --ui-settings-hero-bg: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--ui-accent-weak) 88%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--ui-info-weak) 50%, var(--ui-bg-elevated)) 52%,
+    color-mix(in srgb, var(--ui-success-weak) 42%, var(--ui-bg-elevated)) 100%
+  );
 
   --ui-grid-color: #64748b;
   --ui-grid-opacity: 0.6;
@@ -269,7 +287,11 @@
   --ui-theme-mode: dark;
 
   --ui-bg-canvas: rgba(15, 23, 42, 0.7);
-  --ui-bg-canvas-gradient: radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.15) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(15, 23, 42, 0.15) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.15) 0px, transparent 50%), radial-gradient(at 0% 100%, rgba(15, 23, 42, 0.15) 0px, transparent 50%), #0f172a;
+  --ui-bg-canvas-gradient:
+    radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(15, 23, 42, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.15) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(15, 23, 42, 0.15) 0px, transparent 50%), #0f172a;
   --ui-bg-base: #0f172a;
   --ui-bg-nav-primary: rgba(30, 41, 59, 0.85);
   --ui-bg-sidebar: rgba(30, 41, 59, 0.85);
@@ -336,7 +358,8 @@
   --ui-settings-shell-top: color-mix(in srgb, var(--ui-bg-panel) 88%, var(--ui-accent-weak));
   --ui-settings-body-bg: color-mix(in srgb, var(--ui-bg-base) 12%, var(--ui-bg-elevated));
   --ui-settings-shell-border: color-mix(in srgb, var(--ui-border-light) 96%, transparent);
-  --ui-settings-shell-shadow: 0 32px 80px -18px rgba(0, 0, 0, 0.56), 0 18px 32px -22px rgba(0, 0, 0, 0.48);
+  --ui-settings-shell-shadow:
+    0 32px 80px -18px rgba(0, 0, 0, 0.56), 0 18px 32px -22px rgba(0, 0, 0, 0.48);
   --ui-settings-highlight: color-mix(in srgb, var(--ui-accent-weak) 88%, transparent);
   --ui-settings-sidebar-bg: color-mix(in srgb, var(--ui-bg-sidebar) 92%, var(--ui-bg-base));
   --ui-settings-nav-hover: color-mix(in srgb, var(--ui-bg-hover) 76%, var(--ui-bg-elevated));
@@ -345,17 +368,30 @@
   --ui-settings-nav-active-border: color-mix(in srgb, var(--ui-accent) 28%, var(--ui-border-light));
   --ui-settings-nav-icon-bg: color-mix(in srgb, var(--ui-bg-subtle) 72%, var(--ui-bg-elevated));
   --ui-settings-nav-icon-text: var(--ui-text-secondary);
-  --ui-settings-nav-icon-active-bg: linear-gradient(135deg, color-mix(in srgb, var(--ui-accent-strong) 92%, #0f172a) 0%, color-mix(in srgb, var(--ui-accent) 100%, #1e293b) 100%);
+  --ui-settings-nav-icon-active-bg: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ui-accent-strong) 92%, #0f172a) 0%,
+    color-mix(in srgb, var(--ui-accent) 100%, #1e293b) 100%
+  );
   --ui-settings-nav-icon-active-text: var(--ui-text-on-accent);
   --ui-settings-card-bg: color-mix(in srgb, var(--ui-bg-elevated) 94%, var(--ui-bg-base));
   --ui-settings-card-border: color-mix(in srgb, var(--ui-border-light) 96%, transparent);
   --ui-settings-card-muted-bg: color-mix(in srgb, var(--ui-bg-subtle) 86%, var(--ui-bg-elevated));
-  --ui-settings-card-strong-bg: linear-gradient(135deg, color-mix(in srgb, var(--ui-accent-weak) 78%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-success-weak) 48%, var(--ui-bg-elevated)) 100%);
+  --ui-settings-card-strong-bg: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ui-accent-weak) 78%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--ui-success-weak) 48%, var(--ui-bg-elevated)) 100%
+  );
   --ui-settings-badge-bg: color-mix(in srgb, var(--ui-accent-weak) 82%, var(--ui-bg-elevated));
   --ui-settings-badge-text: color-mix(in srgb, var(--ui-accent-light) 82%, white);
   --ui-settings-meta-bg: color-mix(in srgb, var(--ui-bg-elevated) 88%, var(--ui-bg-base));
   --ui-settings-meta-border: color-mix(in srgb, var(--ui-border-light) 96%, transparent);
-  --ui-settings-hero-bg: linear-gradient(160deg, color-mix(in srgb, var(--ui-accent-weak) 86%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-info-weak) 36%, var(--ui-bg-elevated)) 52%, color-mix(in srgb, var(--ui-success-weak) 32%, var(--ui-bg-elevated)) 100%);
+  --ui-settings-hero-bg: linear-gradient(
+    160deg,
+    color-mix(in srgb, var(--ui-accent-weak) 86%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--ui-info-weak) 36%, var(--ui-bg-elevated)) 52%,
+    color-mix(in srgb, var(--ui-success-weak) 32%, var(--ui-bg-elevated)) 100%
+  );
 
   --ui-grid-color: #cbd5e1;
 

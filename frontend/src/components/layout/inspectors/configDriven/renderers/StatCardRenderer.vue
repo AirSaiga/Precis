@@ -6,8 +6,8 @@
   <div class="field stat-card-field">
     <div class="stats-grid">
       <div v-for="item in field.items" :key="item.labelKey" class="stat-item">
-        <div class="stat-icon-wrap">
-          <span class="stat-icon">{{ item.icon }}</span>
+        <div class="stat-icon-wrap" :class="iconClassFor(item)">
+          <span class="stat-icon" v-html="iconSvgFor(item)"></span>
         </div>
         <div class="stat-content">
           <div class="stat-value">{{ getStatValue(item.statKey) }}</div>
@@ -24,6 +24,12 @@
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import type { InspectorContext } from '../utils'
   import type { InspectorStatCardField } from '../types'
+
+  interface StatItem {
+    icon: string
+    statKey: string
+    labelKey: string
+  }
 
   const { t } = useI18n()
   const resourceTreeStore = useResourceTreeStore()
@@ -53,6 +59,29 @@
     if (val === undefined || val === null) return '-'
     return String(val)
   }
+
+  const ICONS: Record<string, { svg: string; class: string }> = {
+    schemaCount: {
+      class: 'stat-icon-blue',
+      svg: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect></svg>',
+    },
+    constraintCount: {
+      class: 'stat-icon-amber',
+      svg: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>',
+    },
+    regexCount: {
+      class: 'stat-icon-purple',
+      svg: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
+    },
+  }
+
+  function iconSvgFor(item: StatItem): string {
+    return ICONS[item.statKey]?.svg ?? ''
+  }
+
+  function iconClassFor(item: StatItem): string {
+    return ICONS[item.statKey]?.class ?? ''
+  }
 </script>
 
 <style scoped>
@@ -62,35 +91,63 @@
 
   .stats-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+    gap: 10px;
   }
 
   .stat-item {
     display: flex;
     align-items: center;
-    gap: 7px;
-    padding: 7px 8px;
-    background: linear-gradient(135deg, var(--ui-bg) 0%, var(--ui-bg-subtle) 100%);
-    border: 1px solid var(--ui-border);
+    gap: 10px;
+    padding: 10px;
+    background: var(--ui-bg-subtle);
+    border: 1px solid var(--ui-border-light);
     border-radius: var(--ui-radius-md);
     min-width: 0;
     overflow: hidden;
+    transition:
+      background var(--ui-transition-fast),
+      border-color var(--ui-transition-fast);
+  }
+
+  .stat-item:hover {
+    background: var(--ui-bg-muted);
+    border-color: var(--ui-border);
   }
 
   .stat-icon-wrap {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: var(--ui-radius-sm);
+    border-radius: var(--ui-radius-md);
     flex-shrink: 0;
-    background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
   }
 
   .stat-icon {
-    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .stat-icon :deep(svg) {
+    display: block;
+  }
+
+  .stat-icon-blue {
+    background: var(--ui-bg-accent);
+    color: var(--ui-accent);
+  }
+
+  .stat-icon-amber {
+    background: var(--ui-bg-warning);
+    color: var(--ui-warning-strong);
+  }
+
+  .stat-icon-purple {
+    background: var(--ui-bg-accent);
+    color: var(--ui-accent);
   }
 
   .stat-content {
@@ -102,7 +159,7 @@
   }
 
   .stat-value {
-    font-size: 15px;
+    font-size: 16px;
     font-weight: 600;
     color: var(--ui-text-strong);
     line-height: 1.2;
@@ -112,7 +169,7 @@
   }
 
   .stat-label {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--ui-text-muted);
     white-space: nowrap;
     overflow: hidden;

@@ -55,11 +55,7 @@ export async function updateV2ManifestSchemaRef(
   configPath?: string
 ): Promise<void> {
   try {
-    await apiClient.put(
-      '/project/manifest/schema',
-      schemaRef,
-      withConfigPathHeader(configPath)
-    )
+    await apiClient.put('/project/manifest/schema', schemaRef, withConfigPathHeader(configPath))
   } catch (e: any) {
     const detail = e?.response?.data?.detail
     const errorText =
@@ -109,11 +105,7 @@ export async function updateV2ManifestRegexRef(
   configPath?: string
 ): Promise<void> {
   try {
-    await apiClient.put(
-      '/project/manifest/regex',
-      regexRef,
-      withConfigPathHeader(configPath)
-    )
+    await apiClient.put('/project/manifest/regex', regexRef, withConfigPathHeader(configPath))
   } catch (e: any) {
     const detail = e?.response?.data?.detail
     const errorText =

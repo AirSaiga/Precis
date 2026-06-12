@@ -72,7 +72,7 @@ describe('createPathingModule', () => {
 
   describe('getEffectiveProjectConfigPath', () => {
     it('优先使用 projectStore 路径', () => {
-      (projectStore as any).currentPaths = { configPath: '/store/path' }
+      ;(projectStore as any).currentPaths = { configPath: '/store/path' }
       const result = module.getEffectiveProjectConfigPath()
       expect(result).toBe('/store/path')
     })

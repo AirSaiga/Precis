@@ -29,19 +29,15 @@ export interface BuildSavePlanOptions {
 /**
  * 构建 SavePlan
  */
-export function buildSavePlan(
-  nodes: CustomNode[],
-  options: BuildSavePlanOptions
-): SavePlan {
+export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions): SavePlan {
   const persistentNodes = filterPersistentNodes(nodes)
   const schemaIdByNodeId = buildSchemaIdByNodeId(persistentNodes)
   const errors: PreValidationError[] = []
 
   // 分类节点
-  const schemaNodes = persistentNodes.filter(
-    (n) => n.type === 'schema' || n.type === 'jsonSchema'
-  )
-  const constraintNodes = persistentNodes.filter((n) => typeof n.type === 'string' && n.type.endsWith('Constraint')
+  const schemaNodes = persistentNodes.filter((n) => n.type === 'schema' || n.type === 'jsonSchema')
+  const constraintNodes = persistentNodes.filter(
+    (n) => typeof n.type === 'string' && n.type.endsWith('Constraint')
   )
   const regexNodes = persistentNodes.filter((n) => n.type === 'regex')
   const transformNodes = persistentNodes.filter((n) => n.type === 'transform')
@@ -189,7 +185,9 @@ export function buildSavePlan(
   const manifest: ProjectManifestV2 = {
     version: 2,
     project: {
-      id: sanitizeV2Id(options.projectPath.split(/[/\\]/).pop() || options.projectName || 'project'),
+      id: sanitizeV2Id(
+        options.projectPath.split(/[/\\]/).pop() || options.projectName || 'project'
+      ),
       name: options.projectName || 'untitled',
     },
     settings: {
@@ -229,7 +227,8 @@ export function buildSavePlan(
       id,
       path: `transforms/${id}.transform.yaml`,
     })),
-    template_instances: templateInstances.size > 0 ? Array.from(templateInstances.values()) : undefined,
+    template_instances:
+      templateInstances.size > 0 ? Array.from(templateInstances.values()) : undefined,
     patterns_dir: 'patterns',
   }
 
@@ -252,10 +251,7 @@ export function buildSavePlan(
  * - schema 节点 → 其内嵌约束节点
  * - transform/templateInstance → input_from_node 引用的节点
  */
-function collectDependencies(
-  targetNode: CustomNode,
-  allNodes: CustomNode[],
-): Set<string> {
+function collectDependencies(targetNode: CustomNode, allNodes: CustomNode[]): Set<string> {
   const visited = new Set<string>()
   const queue: string[] = [targetNode.id]
 
@@ -321,15 +317,14 @@ function collectDependencies(
  *
  * 用于增量保存时保留其他资源的引用，避免构建完整 SavePlan 的开销。
  */
-function buildFullManifest(
-  nodes: CustomNode[],
-  options: BuildSavePlanOptions
-): ProjectManifestV2 {
+function buildFullManifest(nodes: CustomNode[], options: BuildSavePlanOptions): ProjectManifestV2 {
   const persistent = filterPersistentNodes(nodes)
   const schemaIdByNodeId = buildSchemaIdByNodeId(persistent)
 
   const schemaNodes = persistent.filter((n) => n.type === 'schema' || n.type === 'jsonSchema')
-  const constraintNodes = persistent.filter((n) => typeof n.type === 'string' && n.type.endsWith('Constraint'))
+  const constraintNodes = persistent.filter(
+    (n) => typeof n.type === 'string' && n.type.endsWith('Constraint')
+  )
   const regexNodes = persistent.filter((n) => n.type === 'regex')
   const transformNodes = persistent.filter((n) => n.type === 'transform')
   const templateInstanceNodes = persistent.filter((n) => n.type === 'templateInstance')
@@ -348,7 +343,10 @@ function buildFullManifest(
     .map((n) => ({ id: n.id, path: `constraints/${n.id}.constraint.yaml` }))
 
   const regexRefs = regexNodes.map((n) => ({ id: n.id, path: `regex/${n.id}.regex.yaml` }))
-  const transformRefs = transformNodes.map((n) => ({ id: n.id, path: `transforms/${n.id}.transform.yaml` }))
+  const transformRefs = transformNodes.map((n) => ({
+    id: n.id,
+    path: `transforms/${n.id}.transform.yaml`,
+  }))
   const templateRefs = templateInstanceNodes.map((n) => {
     const data = (n.data || {}) as Record<string, unknown>
     return {
@@ -363,13 +361,31 @@ function buildFullManifest(
   return {
     version: 2,
     project: {
-      id: sanitizeV2Id(options.projectPath.split(/[/\\]/).pop() || options.projectName || 'project'),
+      id: sanitizeV2Id(
+        options.projectPath.split(/[/\\]/).pop() || options.projectName || 'project'
+      ),
       name: options.projectName || 'untitled',
     },
     settings: {
-      validation: { auto_validate: true, strict_mode: false, error_handling: 'continue', timeout_seconds: 30, batch_max_files: 100 },
-      file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
-      script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
+      validation: {
+        auto_validate: true,
+        strict_mode: false,
+        error_handling: 'continue',
+        timeout_seconds: 30,
+        batch_max_files: 100,
+      },
+      file_processing: {
+        default_encoding: 'utf-8',
+        csv_delimiter: ',',
+        null_value_strategy: 'null',
+        date_format: '%Y-%m-%d',
+      },
+      script_security: {
+        allow_eval: false,
+        allow_exec: false,
+        sandbox_mode: true,
+        timeout_seconds: 10,
+      },
     },
     schemas,
     constraints,

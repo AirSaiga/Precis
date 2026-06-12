@@ -48,7 +48,9 @@ describe('createV2SchemaImporter', () => {
   let nodes: Ref<CustomNode[]>
   let importer: ReturnType<typeof createV2SchemaImporter>
   const mockGetConfigPath = vi.fn(() => '/project')
-  const mockResolveRelPath = vi.fn((dir?: string, rel?: string) => (dir && rel ? `${dir}/${rel}` : rel))
+  const mockResolveRelPath = vi.fn((dir?: string, rel?: string) =>
+    dir && rel ? `${dir}/${rel}` : rel
+  )
   const mockEnsureEdge = vi.fn()
 
   beforeEach(() => {
@@ -66,7 +68,12 @@ describe('createV2SchemaImporter', () => {
 
   describe('ensureSchemaNode', () => {
     it('返回已存在的节点（幂等）', async () => {
-      const existing = { id: 's1', type: 'schema', position: { x: 0, y: 0 }, data: {} } as CustomNode
+      const existing = {
+        id: 's1',
+        type: 'schema',
+        position: { x: 0, y: 0 },
+        data: {},
+      } as CustomNode
       nodes.value = [existing]
 
       const result = await importer.ensureSchemaNode('s1', { x: 10, y: 10 })

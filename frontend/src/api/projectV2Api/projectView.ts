@@ -16,9 +16,5 @@ export async function getV2ProjectView(configPath?: string): Promise<ProjectView
 }
 
 export async function putV2ProjectView(view: ProjectViewV2, configPath?: string): Promise<void> {
-  await apiClient.put(
-    '/project/view',
-    view,
-    withConfigPathHeader(configPath)
-  )
+  await apiClient.put('/project/view', view, withConfigPathHeader(configPath))
 }

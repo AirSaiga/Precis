@@ -40,7 +40,7 @@
 }
 
 /* 非首层节点的左侧边框 */
-.json-tree .tree-row-wrapper[data-level]:not([data-level="0"]) {
+.json-tree .tree-row-wrapper[data-level]:not([data-level='0']) {
   border-left: 2px solid rgba(14, 165, 233, 0.2);
   margin-left: calc(var(--depth, 0) * 20px);
 }
@@ -55,12 +55,16 @@
   border-radius: var(--node-badge-radius-full) !important;
   background: var(--node-handle-bg) !important;
   border: 2px solid var(--node-handle-border) !important;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 0 var(--node-handle-hover);
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.08),
+    0 0 0 0 var(--node-handle-hover);
   position: absolute !important;
   right: 2px !important;
   top: 50% !important;
   transform: translateY(-50%) !important;
-  transition: transform var(--node-transition-fast), border-color var(--node-transition-fast),
+  transition:
+    transform var(--node-transition-fast),
+    border-color var(--node-transition-fast),
     box-shadow var(--node-transition-fast);
   z-index: var(--node-z-hover);
 }
@@ -75,7 +79,9 @@
 .json-tree .vue-flow__handle-connecting .column-handle {
   transform: translateY(-50%) scale(1.25) !important;
   border-color: var(--node-handle-hover) !important;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12), 0 0 0 4px var(--node-handle-hover);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.12),
+    0 0 0 4px var(--node-handle-hover);
 }
 
 /* 已连接状态 - 绿色圈 */
@@ -86,7 +92,9 @@
 }
 
 .json-tree .tree-row-wrapper:hover .column-handle.is-connected {
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.3), 0 2px 6px rgba(0, 0, 0, 0.12);
+  box-shadow:
+    0 0 0 3px rgba(34, 197, 94, 0.3),
+    0 2px 6px rgba(0, 0, 0, 0.12);
 }
 
 .json-tree .column-handle::before {
@@ -98,14 +106,18 @@
 .json-tree .tree-row-wrapper:hover .column-handle {
   opacity: 1;
   transform: translateY(-50%) scale(1.2) !important;
-  box-shadow: 0 0 0 3px var(--node-theme-primary-weak), 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow:
+    0 0 0 3px var(--node-theme-primary-weak),
+    0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .json-tree .vue-flow__handle-connecting .column-handle,
 .json-tree .column-handle:hover {
   opacity: 1;
   transform: translateY(-50%) scale(1.3) !important;
-  box-shadow: 0 0 0 4px var(--node-theme-primary-weak), 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow:
+    0 0 0 4px var(--node-theme-primary-weak),
+    0 2px 8px rgba(0, 0, 0, 0.25);
 }
 
 /* ==========================================

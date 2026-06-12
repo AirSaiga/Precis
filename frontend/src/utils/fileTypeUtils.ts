@@ -90,10 +90,10 @@ export function detectFileTypeFromPath(filePath: string): DataSourceFileType {
 
   // 提取文件名（处理路径分隔符）
   const fileName = filePath.split(/[/\\]/).pop() || filePath
-  
+
   // 提取扩展名（取最后一个点号后的部分）
   const ext = fileName.split('.').pop()
-  
+
   if (!ext) {
     return 'unknown'
   }

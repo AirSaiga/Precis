@@ -100,7 +100,8 @@ const canvas = {
     schemaNodesUpdated: '已更新 {count} 个Schema节点',
     externalDataAdded: '已新增外部数据：{name}',
     sheetNotFound: 'Sheet "{sheet}" 不存在于目标文件中，请在 Schema 属性面板中修正工作表名称',
-    sheetNotFoundWithList: 'Sheet "{sheet}" 不存在于目标文件中。文件拥有的工作表: {list}。请在 Schema 属性面板中修正工作表名称',
+    sheetNotFoundWithList:
+      'Sheet "{sheet}" 不存在于目标文件中。文件拥有的工作表: {list}。请在 Schema 属性面板中修正工作表名称',
     nodeTypes: {
       schema: {
         name: '数据表Schema',

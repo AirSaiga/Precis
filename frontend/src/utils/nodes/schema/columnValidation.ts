@@ -115,7 +115,13 @@ export function compareColumns(
   const schemaEmpty = schemaColumns.length === 0
 
   if (schemaEmpty) {
-    return { schemaEmpty: true, newInSource: [], staleInSchema: [], isMatch: false, needsAction: true }
+    return {
+      schemaEmpty: true,
+      newInSource: [],
+      staleInSchema: [],
+      isMatch: false,
+      needsAction: true,
+    }
   }
 
   const sourceSet = new Set(sourceColumnNames)

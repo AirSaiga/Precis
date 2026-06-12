@@ -51,6 +51,7 @@ const settings = {
         light: '浅色',
         dark: '深色',
         system: '跟随系统',
+        liquid: 'Liquid（次世代）',
       },
     },
   },

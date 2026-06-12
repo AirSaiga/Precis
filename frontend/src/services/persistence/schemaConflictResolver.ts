@@ -87,14 +87,14 @@ export class SchemaConflictResolver {
 
         if (existingId && existingId !== schemaId) {
           // ID 重复：完全不同的 schema 占用了相同文件路径
-          const existingTableName =
-            (info.existing_schema?.name as string) || existingId
+          const existingTableName = (info.existing_schema?.name as string) || existingId
           const confirmed = await this.getResolvedShowConfirm()({
             title: this.t('common.confirmDialog.schemaConflict.idDuplicateTitle'),
-            message: this.t(
-              'common.confirmDialog.schemaConflict.idDuplicateMessage',
-              { filePath: info.file_path, existingTableName, tableName }
-            ),
+            message: this.t('common.confirmDialog.schemaConflict.idDuplicateMessage', {
+              filePath: info.file_path,
+              existingTableName,
+              tableName,
+            }),
             confirmText: this.t('common.confirmDialog.schemaConflict.overwrite'),
             cancelText: this.t('common.cancel'),
             type: 'warning',
@@ -108,10 +108,10 @@ export class SchemaConflictResolver {
           // 配置有差异
           const result = await this.getResolvedShowConfirm()({
             title: this.t('common.confirmDialog.schemaConflict.configDiffTitle'),
-            message: this.t(
-              'common.confirmDialog.schemaConflict.configDiffMessage',
-              { filePath: info.file_path, diff: info.conflict_fields.join(', ') }
-            ),
+            message: this.t('common.confirmDialog.schemaConflict.configDiffMessage', {
+              filePath: info.file_path,
+              diff: info.conflict_fields.join(', '),
+            }),
             confirmText: this.t('common.confirmDialog.schemaConflict.overwrite'),
             alternativeText: this.t('common.confirmDialog.schemaConflict.merge'),
             cancelText: this.t('common.cancel'),
@@ -126,10 +126,10 @@ export class SchemaConflictResolver {
           // 文件已存在但无冲突
           const result = await this.getResolvedShowConfirm()({
             title: this.t('common.confirmDialog.schemaConflict.existsTitle'),
-            message: this.t(
-              'common.confirmDialog.schemaConflict.existsMessage',
-              { filePath: info.file_path, tableName }
-            ),
+            message: this.t('common.confirmDialog.schemaConflict.existsMessage', {
+              filePath: info.file_path,
+              tableName,
+            }),
             confirmText: this.t('common.confirmDialog.schemaConflict.overwrite'),
             alternativeText: this.t('common.confirmDialog.schemaConflict.merge'),
             cancelText: this.t('common.cancel'),

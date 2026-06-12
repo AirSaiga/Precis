@@ -30,9 +30,7 @@ function buildConditional(input: BuildInput): BuildResult {
     operator: cond.operator,
     value: cond.value,
     ...(cond.values !== undefined ? { values: cond.values } : {}),
-    ref: cond.columnId
-      ? { nodeId: input.schemaNodeId, columnId: cond.columnId }
-      : undefined,
+    ref: cond.columnId ? { nodeId: input.schemaNodeId, columnId: cond.columnId } : undefined,
     column: cond.columnName,
   }))
 

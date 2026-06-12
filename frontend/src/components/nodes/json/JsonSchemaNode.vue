@@ -144,7 +144,9 @@
     <!-- Pattern 绑定提示层 -->
     <div v-if="isDragOver" class="binding-overlay">
       <div class="binding-prompt">
-        <span class="prompt-text">{{ t('customNodes.jsonSchemaNode.actions.dropPatternToBind') }}</span>
+        <span class="prompt-text">{{
+          t('customNodes.jsonSchemaNode.actions.dropPatternToBind')
+        }}</span>
       </div>
     </div>
 
@@ -153,8 +155,12 @@
       <div class="close-confirm-dialog">
         <p>{{ t('common.confirmDialog.unsavedChanges') }}</p>
         <div class="close-confirm-actions">
-          <button class="btn-confirm-save" @click="saveAndClose">{{ t('common.saveAndClose') }}</button>
-          <button class="btn-confirm-discard" @click="confirmCloseWithoutSave">{{ t('common.discard') }}</button>
+          <button class="btn-confirm-save" @click="saveAndClose">
+            {{ t('common.saveAndClose') }}
+          </button>
+          <button class="btn-confirm-discard" @click="confirmCloseWithoutSave">
+            {{ t('common.discard') }}
+          </button>
           <button class="btn-confirm-cancel" @click="cancelClose">{{ t('common.cancel') }}</button>
         </div>
       </div>

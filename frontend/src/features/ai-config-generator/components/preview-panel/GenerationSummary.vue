@@ -19,7 +19,9 @@
       <h5 class="result-title">
         {{ t('aiConfigGenerator.result.generationComplete') }}
       </h5>
-      <span class="elapsed-time">{{ t('aiConfigGenerator.progress.elapsed', { time: elapsedTimeText }) }}</span>
+      <span class="elapsed-time">{{
+        t('aiConfigGenerator.progress.elapsed', { time: elapsedTimeText })
+      }}</span>
     </div>
     <div class="stats-grid">
       <div class="stat-card">

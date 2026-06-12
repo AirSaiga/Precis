@@ -15,7 +15,7 @@ export function createSaveCommand(): Command {
     defaultShortcut: { key: 's', ctrl: true },
     platformVariants: {
       mac: { key: 's', meta: true },
-      windows: { key: 's', ctrl: true }
+      windows: { key: 's', ctrl: true },
     },
     category: 'editor',
     priority: 100,
@@ -24,7 +24,7 @@ export function createSaveCommand(): Command {
       if (context.showFeedback && result.message) {
         showFeedback(result.message)
       }
-    }
+    },
   }
 }
 
@@ -35,7 +35,7 @@ export function createUndoCommand(): Command {
     defaultShortcut: { key: 'z', ctrl: true },
     platformVariants: {
       mac: { key: 'z', meta: true },
-      windows: { key: 'z', ctrl: true }
+      windows: { key: 'z', ctrl: true },
     },
     category: 'editor',
     priority: 90,
@@ -44,7 +44,7 @@ export function createUndoCommand(): Command {
       if (context.showFeedback && result.message) {
         showFeedback(result.message)
       }
-    }
+    },
   }
 }
 
@@ -55,7 +55,7 @@ export function createRedoCommand(): Command {
     defaultShortcut: { key: 'y', ctrl: true },
     platformVariants: {
       mac: { key: 'z', meta: true, shift: true },
-      windows: { key: 'y', ctrl: true }
+      windows: { key: 'y', ctrl: true },
     },
     category: 'editor',
     priority: 89,
@@ -64,7 +64,7 @@ export function createRedoCommand(): Command {
       if (context.showFeedback && result.message) {
         showFeedback(result.message)
       }
-    }
+    },
   }
 }
 
@@ -75,7 +75,7 @@ export function createCopyCommand(): Command {
     defaultShortcut: { key: 'c', ctrl: true },
     platformVariants: {
       mac: { key: 'c', meta: true },
-      windows: { key: 'c', ctrl: true }
+      windows: { key: 'c', ctrl: true },
     },
     category: 'editor',
     priority: 85,
@@ -92,8 +92,11 @@ export function createCopyCommand(): Command {
       }
       const { useGraphStore } = await import('@/stores/graphStore')
       const graphStore = useGraphStore()
-      return graphStore.selectedNodeId !== null || (graphStore.selectedNodeIds && graphStore.selectedNodeIds.length > 0)
-    }
+      return (
+        graphStore.selectedNodeId !== null ||
+        (graphStore.selectedNodeIds && graphStore.selectedNodeIds.length > 0)
+      )
+    },
   }
 }
 
@@ -104,7 +107,7 @@ export function createCutCommand(): Command {
     defaultShortcut: { key: 'x', ctrl: true },
     platformVariants: {
       mac: { key: 'x', meta: true },
-      windows: { key: 'x', ctrl: true }
+      windows: { key: 'x', ctrl: true },
     },
     category: 'editor',
     priority: 79,
@@ -121,8 +124,11 @@ export function createCutCommand(): Command {
       }
       const { useGraphStore } = await import('@/stores/graphStore')
       const graphStore = useGraphStore()
-      return graphStore.selectedNodeId !== null || (graphStore.selectedNodeIds && graphStore.selectedNodeIds.length > 0)
-    }
+      return (
+        graphStore.selectedNodeId !== null ||
+        (graphStore.selectedNodeIds && graphStore.selectedNodeIds.length > 0)
+      )
+    },
   }
 }
 
@@ -133,7 +139,7 @@ export function createPasteCommand(): Command {
     defaultShortcut: { key: 'v', ctrl: true },
     platformVariants: {
       mac: { key: 'v', meta: true },
-      windows: { key: 'v', ctrl: true }
+      windows: { key: 'v', ctrl: true },
     },
     category: 'editor',
     priority: 78,
@@ -142,7 +148,7 @@ export function createPasteCommand(): Command {
       if (context.showFeedback && result.message) {
         showFeedback(result.message)
       }
-    }
+    },
   }
 }
 
@@ -153,7 +159,7 @@ export function createSelectAllCommand(): Command {
     defaultShortcut: { key: 'a', ctrl: true },
     platformVariants: {
       mac: { key: 'a', meta: true },
-      windows: { key: 'a', ctrl: true }
+      windows: { key: 'a', ctrl: true },
     },
     category: 'editor',
     priority: 70,
@@ -162,7 +168,7 @@ export function createSelectAllCommand(): Command {
       if (context.showFeedback && result.message) {
         showFeedback(result.message)
       }
-    }
+    },
   }
 }
 
@@ -174,6 +180,6 @@ export function getBaseCommands(): Command[] {
     createCopyCommand(),
     createCutCommand(),
     createPasteCommand(),
-    createSelectAllCommand()
+    createSelectAllCommand(),
   ]
 }

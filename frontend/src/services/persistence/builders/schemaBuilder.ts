@@ -4,7 +4,13 @@
  * 将 schema/jsonSchema 节点转换为 TableSchemaFileV2。
  */
 
-import type { CustomNode, SchemaNodeData, JsonSchemaNodeData, JsonSchemaColumn, SchemaColumn } from '@/types/graph'
+import type {
+  CustomNode,
+  SchemaNodeData,
+  JsonSchemaNodeData,
+  JsonSchemaColumn,
+  SchemaColumn,
+} from '@/types/graph'
 import type { ColumnSpecV2, ConstraintItemV2, TableSchemaFileV2 } from '@/types/projectV2'
 import { generateSchemaId } from '@/utils/typeHelpers'
 import {
@@ -74,7 +80,8 @@ function buildJsonColumnSpec(column: JsonSchemaColumn): ColumnSpecV2 {
  */
 function buildSourceSpec(node: CustomNode): TableSchemaFileV2['source'] {
   const data = node.data as SchemaNodeData | JsonSchemaNodeData
-  if (!data.sourceFilePath && !data.sourceFile && !(data as SchemaNodeData).localPath) return undefined
+  if (!data.sourceFilePath && !data.sourceFile && !(data as SchemaNodeData).localPath)
+    return undefined
 
   const isJsonSchema = node.type === 'jsonSchema'
   const schemaData = data as SchemaNodeData
@@ -206,8 +213,8 @@ function collectEmbeddedConstraints(
   // 1. 从 children 收集
   const fromChildren = childrenIds
     .map((id) => allNodes.find((n) => n.id === id))
-    .filter((n): n is CustomNode =>
-      !!n && typeof n.type === 'string' && isConstraintNodeType(n.type)
+    .filter(
+      (n): n is CustomNode => !!n && typeof n.type === 'string' && isConstraintNodeType(n.type)
     )
     .map((n) => {
       try {
@@ -244,10 +251,7 @@ function collectEmbeddedConstraints(
     .filter((item): item is ConstraintItemV2 => item !== null)
 
   const seen = new Set(fromChildren.map((c) => c.id))
-  return [
-    ...fromChildren,
-    ...fromLegacy.filter((c) => !seen.has(c.id)),
-  ]
+  return [...fromChildren, ...fromLegacy.filter((c) => !seen.has(c.id))]
 }
 
 export const schemaBuilder: NodeBuilder<TableSchemaFileV2> = {
@@ -272,9 +276,7 @@ export const schemaBuilder: NodeBuilder<TableSchemaFileV2> = {
       : columns
 
     // 收集内嵌约束
-    const embeddedConstraints = isJsonSchema
-      ? []
-      : collectEmbeddedConstraints(node, nodes)
+    const embeddedConstraints = isJsonSchema ? [] : collectEmbeddedConstraints(node, nodes)
     const columnConstraints = isJsonSchema
       ? []
       : buildColumnConstraints((data as SchemaNodeData).columns)

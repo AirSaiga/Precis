@@ -12,10 +12,7 @@ import { logger } from '@/core/utils/logger'
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import { v4 as uuidv4 } from 'uuid'
-import type {
-  CustomNode,
-  CustomNodeData,
-} from '@/types/graph'
+import type { CustomNode, CustomNodeData } from '@/types/graph'
 import { executeDisconnectCleanup } from '@/services/disconnect'
 import type { DisconnectContext } from '@/services/disconnect'
 import { addEdges, removeEdges } from '@/services/canvas/vueFlowApi'

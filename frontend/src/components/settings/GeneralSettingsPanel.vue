@@ -41,7 +41,11 @@
         <div class="settings-row__label">{{ t('settings.general.appearance.language.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.general.appearance.language.desc') }}</div>
         <div class="settings-row__control">
-          <select v-model="localSettings.language" class="settings-select" @change="handleLanguageChange">
+          <select
+            v-model="localSettings.language"
+            class="settings-select"
+            @change="handleLanguageChange"
+          >
             <option value="zh-CN">{{ t('settings.general.appearance.language.zhCN') }}</option>
             <option value="en-US">{{ t('settings.general.appearance.language.enUS') }}</option>
           </select>
@@ -55,6 +59,7 @@
             <option value="light">{{ t('settings.general.appearance.theme.light') }}</option>
             <option value="dark">{{ t('settings.general.appearance.theme.dark') }}</option>
             <option value="system">{{ t('settings.general.appearance.theme.system') }}</option>
+            <option value="liquid">{{ t('settings.general.appearance.theme.liquid') }}</option>
           </select>
         </div>
       </div>

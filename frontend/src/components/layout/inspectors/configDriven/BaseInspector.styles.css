@@ -1,15 +1,15 @@
 .base-inspector {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
   user-select: text;
   -webkit-user-select: text;
 }
 
 .base-title {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 600;
-  color: var(--ui-text-title);
+  color: var(--ui-text-strong);
   user-select: text;
   -webkit-user-select: text;
 }
@@ -18,35 +18,40 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 14px 16px;
+  padding: 16px;
   background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border-light);
   border-radius: var(--ui-radius-lg);
-  border: 1px solid var(--ui-border);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
-  transition: box-shadow var(--ui-transition-fast);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition:
+    border-color var(--ui-transition-fast),
+    box-shadow var(--ui-transition-fast);
 }
 
 .section:hover {
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
+  border-color: var(--ui-border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 .section-title {
-  margin: 0 0 2px 0;
+  margin: 0;
   font-size: 13px;
   font-weight: 600;
   color: var(--ui-text-strong);
-  padding-bottom: 8px;
+  padding-bottom: 10px;
   border-bottom: 1px solid var(--ui-border-subtle);
   user-select: text;
   -webkit-user-select: text;
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .section-desc {
-  margin-top: -6px;
+  margin-top: -4px;
   font-size: 12px;
+  line-height: 1.5;
   color: var(--ui-text-muted);
   user-select: text;
   -webkit-user-select: text;
@@ -55,5 +60,5 @@
 .fields {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }

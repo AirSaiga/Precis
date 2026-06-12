@@ -5,7 +5,10 @@
  * 以及基于状态变化的 watch 逻辑。
  */
 import { computed, watch } from 'vue'
-import { isConstraintNodeType, validateForInlineSource } from '@/services/constraints/validationRegistry'
+import {
+  isConstraintNodeType,
+  validateForInlineSource,
+} from '@/services/constraints/validationRegistry'
 import { logger } from '@/core/utils/logger'
 import type { GraphStoreState } from './state'
 
@@ -41,32 +44,36 @@ export function createGraphStoreComputed(state: GraphStoreState) {
 
   let inlineValidationDebounce: ReturnType<typeof setTimeout> | null = null
 
-  watch(inlineSourceFingerprint, (newVal, oldVal) => {
-    if (!oldVal || newVal === oldVal) return
+  watch(
+    inlineSourceFingerprint,
+    (newVal, oldVal) => {
+      if (!oldVal || newVal === oldVal) return
 
-    if (inlineValidationDebounce) clearTimeout(inlineValidationDebounce)
+      if (inlineValidationDebounce) clearTimeout(inlineValidationDebounce)
 
-    inlineValidationDebounce = setTimeout(() => {
-      for (const node of state.nodes.value) {
-        if (node.type !== 'manualData' && node.type !== 'transformOutput') continue
+      inlineValidationDebounce = setTimeout(() => {
+        for (const node of state.nodes.value) {
+          if (node.type !== 'manualData' && node.type !== 'transformOutput') continue
 
-        const constraintEdges = state.edges.value.filter((e) => e.source === node.id)
-        for (const edge of constraintEdges) {
-          const constraintNode = state.nodes.value.find((n) => n.id === edge.target)
-          if (!constraintNode || !isConstraintNodeType(constraintNode.type)) continue
+          const constraintEdges = state.edges.value.filter((e) => e.source === node.id)
+          for (const edge of constraintEdges) {
+            const constraintNode = state.nodes.value.find((n) => n.id === edge.target)
+            if (!constraintNode || !isConstraintNodeType(constraintNode.type)) continue
 
-          validateForInlineSource({
-            sourceNodeId: node.id,
-            constraintNode,
-            nodes: state.nodes.value,
-            updateNodeData: state.updateNodeData,
-          }).catch((err) => {
-            logger.warn('Inline auto-revalidation failed:', err)
-          })
+            validateForInlineSource({
+              sourceNodeId: node.id,
+              constraintNode,
+              nodes: state.nodes.value,
+              updateNodeData: state.updateNodeData,
+            }).catch((err) => {
+              logger.warn('Inline auto-revalidation failed:', err)
+            })
+          }
         }
-      }
-    }, 400) // 400ms 防抖，避免输入过程中频繁触发校验
-  }, { flush: 'post' })
+      }, 400) // 400ms 防抖，避免输入过程中频繁触发校验
+    },
+    { flush: 'post' }
+  )
 
   return {
     selectedNode,

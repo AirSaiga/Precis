@@ -45,13 +45,16 @@
 
     <!-- 匹配高亮预览 -->
     <div v-if="matchSegments.length > 0" class="match-highlight-area">
-      <div class="match-highlight-label">{{ t('expressions.interactiveBuilder.matchPreview') }}</div>
+      <div class="match-highlight-label">
+        {{ t('expressions.interactiveBuilder.matchPreview') }}
+      </div>
       <div class="match-highlight-text">
         <span
           v-for="(seg, i) in matchSegments"
           :key="i"
           :class="seg.isMatch ? 'seg-match' : 'seg-plain'"
-          >{{ seg.text }}</span>
+          >{{ seg.text }}</span
+        >
       </div>
     </div>
 

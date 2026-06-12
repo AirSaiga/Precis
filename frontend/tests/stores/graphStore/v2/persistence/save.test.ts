@@ -56,7 +56,9 @@ vi.mock('@/services/persistence', () => ({
   })),
   buildNodeFile: vi.fn(),
   SchemaConflictResolver: vi.fn().mockImplementation(() => ({
-    resolve: vi.fn().mockResolvedValue({ cancelled: false, saveMode: 'overwrite', filePath: 'test.yaml' }),
+    resolve: vi
+      .fn()
+      .mockResolvedValue({ cancelled: false, saveMode: 'overwrite', filePath: 'test.yaml' }),
     handle409Conflict: vi.fn().mockResolvedValue('overwrite'),
   })),
 }))
@@ -73,7 +75,15 @@ vi.mock('@/features/keyboard/platform', () => ({
   platformDetector: { isWindows: () => false },
 }))
 
-import { putV2Constraint, putV2RegexNode, putV2TransformNode, updateV2ManifestConstraintRef, updateV2ManifestRegexRef, updateV2ManifestTransformRef, updateV2ManifestTemplateInstanceRef } from '@/api/projectV2Api'
+import {
+  putV2Constraint,
+  putV2RegexNode,
+  putV2TransformNode,
+  updateV2ManifestConstraintRef,
+  updateV2ManifestRegexRef,
+  updateV2ManifestTransformRef,
+  updateV2ManifestTemplateInstanceRef,
+} from '@/api/projectV2Api'
 import { buildNodeFile } from '@/services/persistence'
 import { createV2SaveOps } from '@/stores/graphStore/modules/v2/persistence/save'
 

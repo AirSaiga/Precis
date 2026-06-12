@@ -83,8 +83,12 @@ function getRelativePath(filePath) {
 }
 
 function extractVueStyleContent(content) {
-  const blocks = [...content.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/g)].map((match) => match[1] ?? '')
-  const inlineStyles = [...content.matchAll(/\bstyle\s*=\s*["']([\s\S]*?)["']/g)].map((match) => match[1] ?? '')
+  const blocks = [...content.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/g)].map(
+    (match) => match[1] ?? ''
+  )
+  const inlineStyles = [...content.matchAll(/\bstyle\s*=\s*["']([\s\S]*?)["']/g)].map(
+    (match) => match[1] ?? ''
+  )
   return [...blocks, ...inlineStyles].join('\n')
 }
 
@@ -120,7 +124,10 @@ function collectViolations(filePath) {
     for (const match of auditContent.matchAll(rule.regex)) {
       const index = match.index ?? 0
       const { line, column } = getLineAndColumn(auditContent, index)
-      const snippet = auditContent.slice(index, index + 80).split('\n')[0].trim()
+      const snippet = auditContent
+        .slice(index, index + 80)
+        .split('\n')[0]
+        .trim()
 
       violations.push({
         rule: rule.id,
@@ -141,13 +148,17 @@ const failedFiles = scannedFiles.filter((item) => item.violations.length > 0)
 
 if (failedFiles.length > 0) {
   console.error('硬编码样式审查失败。')
-  console.error(`扫描文件: ${scannedFiles.length}，迁移例外: ${skippedFiles.length}，失败文件: ${failedFiles.length}`)
+  console.error(
+    `扫描文件: ${scannedFiles.length}，迁移例外: ${skippedFiles.length}，失败文件: ${failedFiles.length}`
+  )
 
   for (const file of failedFiles) {
     console.error(`\n${file.relativePath}`)
 
     for (const violation of file.violations) {
-      console.error(`  [${violation.rule}] ${violation.line}:${violation.column} ${violation.snippet}`)
+      console.error(
+        `  [${violation.rule}] ${violation.line}:${violation.column} ${violation.snippet}`
+      )
     }
   }
 

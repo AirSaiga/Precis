@@ -1,7 +1,7 @@
 /**
  * @file types.ts
  * @description 校验 API 通用类型定义
- * 
+ *
  * 该模块定义校验 API 的通用类型，
  * 供各校验类型 API 使用。
  */
@@ -37,21 +37,21 @@ export interface ValidationRequest {
   validation_config?: Record<string, unknown>
 }
 
-export type ValidationType = 
-  | 'not_null' 
-  | 'unique' 
-  | 'allowed_values' 
-  | 'conditional' 
-  | 'foreign_key' 
+export type ValidationType =
+  | 'not_null'
+  | 'unique'
+  | 'allowed_values'
+  | 'conditional'
+  | 'foreign_key'
   | 'scripted'
 
 export function isValidationType(value: string): value is ValidationType {
   return [
     'not_null',
-    'unique', 
+    'unique',
     'allowed_values',
     'conditional',
     'foreign_key',
-    'scripted'
+    'scripted',
   ].includes(value)
 }

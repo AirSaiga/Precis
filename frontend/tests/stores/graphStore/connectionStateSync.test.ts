@@ -14,7 +14,12 @@ function makeNode(id: string, type: string, data: Record<string, unknown> = {}):
   return { id, type, position: { x: 0, y: 0 }, data: data as CustomNodeData } as CustomNode
 }
 
-function makeEdge(id: string, source: string, target: string, data?: Record<string, unknown>): Edge {
+function makeEdge(
+  id: string,
+  source: string,
+  target: string,
+  data?: Record<string, unknown>
+): Edge {
   return { id, source, target, ...(data ? { data } : {}) } as Edge
 }
 
@@ -73,7 +78,9 @@ describe('connectionStateSync', () => {
 
       module.syncOnConnect('s1', 'c1')
 
-      const childPatch = patches.find((p) => p.nodeId === 's1' && 'children' in (p.data as Record<string, unknown>))
+      const childPatch = patches.find(
+        (p) => p.nodeId === 's1' && 'children' in (p.data as Record<string, unknown>)
+      )
       expect(childPatch).toBeUndefined()
     })
   })
@@ -110,7 +117,12 @@ describe('connectionStateSync', () => {
 
       module.syncOnDisconnect(edgesRef.value[0])
 
-      expect(patches.find((p) => p.nodeId === 'sp1' && (p.data as Record<string, unknown>).outputPortConnected === false)).toBeDefined()
+      expect(
+        patches.find(
+          (p) =>
+            p.nodeId === 'sp1' && (p.data as Record<string, unknown>).outputPortConnected === false
+        )
+      ).toBeDefined()
     })
   })
 
@@ -119,10 +131,7 @@ describe('connectionStateSync', () => {
       const source = makeNode('sp1', 'sourcePreview', {})
       const schema = makeNode('s1', 'schema', { columns: [] })
       const constraint = makeNode('c1', 'notNullConstraint', {})
-      const edges = [
-        makeEdge('e1', 'sp1', 's1'),
-        makeEdge('e2', 's1', 'c1'),
-      ]
+      const edges = [makeEdge('e1', 'sp1', 's1'), makeEdge('e2', 's1', 'c1')]
       const { module, nodesRef } = createTestContext([source, schema, constraint], edges)
 
       module.reconcileAll()

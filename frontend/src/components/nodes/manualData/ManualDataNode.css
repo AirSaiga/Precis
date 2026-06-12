@@ -19,11 +19,7 @@
 }
 
 .manual-data-node:hover {
-  background: color-mix(
-    in srgb,
-    var(--theme-orange-weak) 18%,
-    var(--node-glass-bg-hover)
-  );
+  background: color-mix(in srgb, var(--theme-orange-weak) 18%, var(--node-glass-bg-hover));
   box-shadow: var(--node-shadow-hover);
   border-color: color-mix(in srgb, var(--theme-orange) 20%, var(--node-border-hover));
 }

@@ -30,7 +30,9 @@
             />
           </template>
           <span v-else class="tag-text">{{ tag }}</span>
-          <button v-if="!readonly" class="tag-remove" type="button" @click="removeTag(idx)">×</button>
+          <button v-if="!readonly" class="tag-remove" type="button" @click="removeTag(idx)">
+            ×
+          </button>
         </div>
         <div v-if="tags.length === 0" class="empty">-</div>
       </div>

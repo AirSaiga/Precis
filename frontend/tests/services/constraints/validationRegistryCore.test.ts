@@ -261,7 +261,11 @@ describe('validationRegistryCore - buildValidationContext', () => {
 
 describe('validationRegistryCore - defaultReset', () => {
   it('重置 validationStatus 为 idle', () => {
-    const result = defaultReset({ validationStatus: 'error', validationErrors: ['err'], foo: 'bar' })
+    const result = defaultReset({
+      validationStatus: 'error',
+      validationErrors: ['err'],
+      foo: 'bar',
+    })
     expect(result.validationStatus).toBe('idle')
     expect(result.validationErrors).toEqual([])
     expect(result.lastValidation).toBeUndefined()

@@ -31,7 +31,10 @@
         <div class="settings-row__label">{{ t('settings.projectInfo.configPath') }}</div>
         <div class="settings-row__desc">{{ t('settings.projectInfo.pathHint') }}</div>
         <div class="settings-row__control settings-row__control--wide">
-          <div class="settings-code" :title="localConfigPath || t('settings.projectInfo.missingConfigPath')">
+          <div
+            class="settings-code"
+            :title="localConfigPath || t('settings.projectInfo.missingConfigPath')"
+          >
             {{ localConfigPath || t('settings.projectInfo.missingConfigPath') }}
           </div>
         </div>
@@ -58,12 +61,16 @@
         <div class="settings-stat">
           <span class="settings-stat__label">{{ t('settings.projectInfo.resourceSummary') }}</span>
           <strong class="settings-stat__value">{{ totalTrackedResources }}</strong>
-          <span class="settings-stat__desc">{{ t('settings.projectInfo.resourceSummaryDesc') }}</span>
+          <span class="settings-stat__desc">{{
+            t('settings.projectInfo.resourceSummaryDesc')
+          }}</span>
         </div>
         <div class="settings-stat">
           <span class="settings-stat__label">{{ t('settings.dataSources.title') }}</span>
           <strong class="settings-stat__value">{{ dataSourceCount }}</strong>
-          <span class="settings-stat__desc">{{ t('settings.projectInfo.dataSourcesSummaryDesc') }}</span>
+          <span class="settings-stat__desc">{{
+            t('settings.projectInfo.dataSourcesSummaryDesc')
+          }}</span>
         </div>
         <div class="settings-stat">
           <span class="settings-stat__label">{{ t('settings.projectInfo.schemas') }}</span>
@@ -74,7 +81,12 @@
           <span class="settings-stat__label">{{ t('settings.projectInfo.constraints') }}</span>
           <strong class="settings-stat__value">{{ constraintCountText }}</strong>
           <span class="settings-stat__desc">
-            {{ t('settings.projectInfo.constraintDetail', { standalone: constraintStandaloneText, inline: constraintInlineText }) }}
+            {{
+              t('settings.projectInfo.constraintDetail', {
+                standalone: constraintStandaloneText,
+                inline: constraintInlineText,
+              })
+            }}
           </span>
         </div>
         <div class="settings-stat">
@@ -87,10 +99,18 @@
 
     <!-- 操作 -->
     <div v-if="projectStore.isProjectActive" class="settings-actions">
-      <button class="ui-btn ui-btn--ghost ui-btn--sm" :disabled="!hasChanges || isApplying" @click="resetChanges">
+      <button
+        class="ui-btn ui-btn--ghost ui-btn--sm"
+        :disabled="!hasChanges || isApplying"
+        @click="resetChanges"
+      >
         {{ t('common.reset') }}
       </button>
-      <button class="ui-btn ui-btn--primary ui-btn--sm" :disabled="!canApply || isApplying" @click="applyChanges">
+      <button
+        class="ui-btn ui-btn--primary ui-btn--sm"
+        :disabled="!canApply || isApplying"
+        @click="applyChanges"
+      >
         {{ isApplying ? t('settings.projectInfo.applying') : applyButtonText }}
       </button>
     </div>
@@ -219,7 +239,9 @@
   })
 
   const applyButtonText = computed(() => {
-    return projectStore.isProjectActive ? t('settings.projectInfo.apply') : t('settings.projectInfo.openProject')
+    return projectStore.isProjectActive
+      ? t('settings.projectInfo.apply')
+      : t('settings.projectInfo.openProject')
   })
 
   const canApply = computed(() => {
@@ -302,9 +324,7 @@
     }
 
     isApplying.value = true
-    const previousPaths = projectStore.currentPaths
-      ? { ...projectStore.currentPaths }
-      : null
+    const previousPaths = projectStore.currentPaths ? { ...projectStore.currentPaths } : null
 
     try {
       const currentConfigPath = projectStore.currentPaths?.configPath
@@ -343,12 +363,8 @@
 
       if (pathsChanged || !wasActive) {
         success(
-          wasActive
-            ? t('settings.projectInfo.appliedDesc')
-            : t('settings.projectInfo.openedDesc'),
-          wasActive
-            ? t('settings.projectInfo.appliedTitle')
-            : t('settings.projectInfo.openedTitle')
+          wasActive ? t('settings.projectInfo.appliedDesc') : t('settings.projectInfo.openedDesc'),
+          wasActive ? t('settings.projectInfo.appliedTitle') : t('settings.projectInfo.openedTitle')
         )
       } else {
         success(t('settings.projectInfo.appliedDesc'), t('settings.projectInfo.appliedTitle'))

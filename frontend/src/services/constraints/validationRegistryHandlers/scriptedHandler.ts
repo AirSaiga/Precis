@@ -17,7 +17,9 @@ register({
       if (!inlineScript) {
         return {
           status: 'idle',
-          validationErrors: ['\u8BF7\u5148\u914D\u7F6E\u811A\u672C\u540E\u518D\u8FDB\u884C\u6821\u9A8C'],
+          validationErrors: [
+            '\u8BF7\u5148\u914D\u7F6E\u811A\u672C\u540E\u518D\u8FDB\u884C\u6821\u9A8C',
+          ],
           lastValidation: undefined,
         }
       }
@@ -48,7 +50,9 @@ register({
     if (!script) {
       return {
         status: 'idle',
-        validationErrors: ['\u8BF7\u5148\u914D\u7F6E\u811A\u672C\u540E\u518D\u8FDB\u884C\u6821\u9A8C'],
+        validationErrors: [
+          '\u8BF7\u5148\u914D\u7F6E\u811A\u672C\u540E\u518D\u8FDB\u884C\u6821\u9A8C',
+        ],
         lastValidation: undefined,
       }
     }

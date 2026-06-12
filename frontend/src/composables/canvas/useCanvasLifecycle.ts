@@ -24,7 +24,9 @@ export interface CanvasLifecycleOptions {
   /** 表头行变更回调 */
   onHeaderRowChanged?: (detail: AppEvents['headerRowChanged']) => void
   /** 数据源预览数据变更回调 */
-  onSourcePreviewDataChanged?: (detail: AppEvents['sourcePreviewDataChanged']) => void | Promise<void>
+  onSourcePreviewDataChanged?: (
+    detail: AppEvents['sourcePreviewDataChanged']
+  ) => void | Promise<void>
   /** Schema 节点保存回调 */
   onSchemaNodeSave?: (detail: AppEvents['schema-node-save']) => void | Promise<void>
   /** 正则模式更新回调 */

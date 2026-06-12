@@ -13,7 +13,12 @@ import { createHistoryModule } from '@/stores/graphStore/modules/history'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 
 function makeNode(id: string, label: string): CustomNode {
-  return { id, type: 'schema', position: { x: 0, y: 0 }, data: { configName: label } as CustomNodeData } as CustomNode
+  return {
+    id,
+    type: 'schema',
+    position: { x: 0, y: 0 },
+    data: { configName: label } as CustomNodeData,
+  } as CustomNode
 }
 
 function makeEdge(id: string, source: string, target: string): Edge {

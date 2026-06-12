@@ -10,7 +10,10 @@ import { buildSingleColumnRefs } from './helpers'
 export const charsetBuilder: NodeBuilder<ConstraintFileV2> = {
   kind: 'constraint',
   matches: (node: CustomNode) => node.type === 'charsetConstraint',
-  build({ node, nodes, schemaIdByNodeId }: BuilderContext): { consumed: boolean; file: ConstraintFileV2 } {
+  build({ node, nodes, schemaIdByNodeId }: BuilderContext): {
+    consumed: boolean
+    file: ConstraintFileV2
+  } {
     const d = (node.data || {}) as Record<string, unknown>
     const params: Record<string, unknown> = {
       charset_mode: d.charsetMode || 'ascii',

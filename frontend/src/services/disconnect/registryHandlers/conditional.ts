@@ -16,8 +16,7 @@ registerDisconnectHandler({
     const targetHandle = edge.targetHandle || ''
     const isIf = targetHandle.startsWith(`target-if-${target.id}`)
     const isThen =
-      targetHandle === `target-then-${target.id}` ||
-      targetHandle === `target-input-${target.id}`
+      targetHandle === `target-then-${target.id}` || targetHandle === `target-input-${target.id}`
 
     const parseColumnId = (handle?: string | null) => {
       if (!handle) return undefined

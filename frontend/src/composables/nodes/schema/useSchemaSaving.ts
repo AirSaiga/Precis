@@ -43,7 +43,11 @@ export function useSchemaSaving(
   /**
    * 处理SourcePreviewNode断开连接
    */
-  const handleSourceNodeDisconnected = (detail: { sourceNodeId: string; targetNodeId: string; edgeId: string }) => {
+  const handleSourceNodeDisconnected = (detail: {
+    sourceNodeId: string
+    targetNodeId: string
+    edgeId: string
+  }) => {
     const { targetNodeId } = detail
 
     if (targetNodeId === props.id) {

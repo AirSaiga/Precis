@@ -60,9 +60,7 @@ export async function copyToClipboard(text: string): Promise<void> {
       throw new Error('execCommand 返回 false')
     }
   } catch (err) {
-    throw new Error(
-      `复制失败: ${err instanceof Error ? err.message : String(err)}`
-    )
+    throw new Error(`复制失败: ${err instanceof Error ? err.message : String(err)}`)
   }
 }
 

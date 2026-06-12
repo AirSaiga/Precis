@@ -18,12 +18,7 @@ import type {
   SubGroup,
 } from '../types'
 import { NodeCategory, NODE_TYPE_TO_CATEGORY } from '../types'
-import {
-  GROUP_COLORS,
-  LAYOUT_CONSTANTS,
-  NODE_TYPE_COLORS,
-  NODE_TYPE_NAMES,
-} from '../constants'
+import { GROUP_COLORS, LAYOUT_CONSTANTS, NODE_TYPE_COLORS, NODE_TYPE_NAMES } from '../constants'
 import {
   getDefaultDimension,
   getNodeDimensionsFromDOM,
@@ -67,7 +62,12 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
       .slice()
       .sort((a, b) => a.localeCompare(b))
 
-    const { topReservedHeight } = this.layoutRoot(rootNodeIds, positions, nodeDimensions, context.canvasWidth)
+    const { topReservedHeight } = this.layoutRoot(
+      rootNodeIds,
+      positions,
+      nodeDimensions,
+      context.canvasWidth
+    )
 
     const familiesStartX = LAYOUT_CONSTANTS.CANVAS_PADDING
     const familiesStartY = LAYOUT_CONSTANTS.CANVAS_PADDING + topReservedHeight + 80

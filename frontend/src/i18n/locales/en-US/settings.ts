@@ -53,6 +53,7 @@ const settings = {
         light: 'Light',
         dark: 'Dark',
         system: 'System',
+        liquid: 'Liquid (Next-gen)',
       },
     },
   },
@@ -155,7 +156,8 @@ const settings = {
       desc: 'Maximum number of files for batch validation',
     },
     fileProcessingSectionTitle: 'File Processing',
-    fileProcessingHint: 'Configure how data files are read, including character encoding and CSV delimiters.',
+    fileProcessingHint:
+      'Configure how data files are read, including character encoding and CSV delimiters.',
     openValidationTaskPanel: 'Open Validation Task Panel',
   },
   file: {
@@ -305,7 +307,8 @@ const settings = {
     save: 'Save',
     cancel: 'Cancel',
     delete: 'Delete',
-    deleteConfirm: 'Are you sure you want to delete this AI model configuration? This cannot be undone.',
+    deleteConfirm:
+      'Are you sure you want to delete this AI model configuration? This cannot be undone.',
     createdSuccess: 'AI model added successfully',
     createdFailed: 'Failed to add',
     updatedSuccess: 'AI model updated successfully',

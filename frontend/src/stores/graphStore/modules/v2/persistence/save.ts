@@ -73,7 +73,12 @@
 import { logger } from '@/core/utils/logger'
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
-import type { CustomNode, SchemaNodeData, JsonSchemaNodeData, TemplateInstanceNodeData } from '@/types/graph'
+import type {
+  CustomNode,
+  SchemaNodeData,
+  JsonSchemaNodeData,
+  TemplateInstanceNodeData,
+} from '@/types/graph'
 import type { CustomNodeData } from '@/types/nodes'
 import type { TableSchemaFileV2 } from '@/types/projectV2'
 import { toastError, toastSuccess } from '@/core/toast'
@@ -127,9 +132,7 @@ export function createV2SaveOps(params: {
       (manifestPreview.regex_nodes?.length || 0) === 0 &&
       (manifestPreview.transforms?.length || 0) === 0
     ) {
-      logger.debug(
-        '[saveProject] 没有需要保存的 schema/constraint/regex/transform 节点，跳过保存'
-      )
+      logger.debug('[saveProject] 没有需要保存的 schema/constraint/regex/transform 节点，跳过保存')
       return true
     }
 
@@ -165,10 +168,7 @@ export function createV2SaveOps(params: {
       const blockers = result.errors?.filter((e) => e.severity === 'BLOCKER') || []
       const messages = blockers.map((e) => e.message).join('; ')
       logger.error('保存项目失败:', messages || result.errors)
-      toastError(
-        messages || t('messages.error.unknownError'),
-        t('messages.persistence.saveFailed')
-      )
+      toastError(messages || t('messages.error.unknownError'), t('messages.persistence.saveFailed'))
       return false
     }
   }
@@ -195,8 +195,9 @@ export function createV2SaveOps(params: {
       }
 
       // 收尾: 优先使用新 persistence builder，fallback 旧 builder
-      const schemaFile = (buildNodeFile(node, nodes.value, configPath || '') as TableSchemaFileV2)
-        || buildV2SchemaFile(nodes.value, nodeId)
+      const schemaFile =
+        (buildNodeFile(node, nodes.value, configPath || '') as TableSchemaFileV2) ||
+        buildV2SchemaFile(nodes.value, nodeId)
       const tableName = schemaData.tableName
       const schemaId = schemaFile.id
 
@@ -268,8 +269,9 @@ export function createV2SaveOps(params: {
 
       const configPath = getEffectiveProjectConfigPath()
       // Phase 8: 使用新 persistence builder 替代旧 builder
-      const file = buildNodeFile(node, nodes.value, configPath || '')
-        || buildV2ConstraintFile(nodes.value, nodeId)
+      const file =
+        buildNodeFile(node, nodes.value, configPath || '') ||
+        buildV2ConstraintFile(nodes.value, nodeId)
       await putV2Constraint(nodeId, file as any, configPath)
       await updateV2ManifestConstraintRef(
         { id: nodeId, path: `constraints/${nodeId}.constraint.yaml` },
@@ -305,8 +307,9 @@ export function createV2SaveOps(params: {
 
       const configPath = getEffectiveProjectConfigPath()
       // Phase 8: 使用新 persistence builder 替代旧 builder
-      const file = buildNodeFile(node, nodes.value, configPath || '')
-        || buildV2RegexNodeFile(nodes.value, nodeId)
+      const file =
+        buildNodeFile(node, nodes.value, configPath || '') ||
+        buildV2RegexNodeFile(nodes.value, nodeId)
       await putV2RegexNode(nodeId, file as any, configPath)
       await updateV2ManifestRegexRef({ id: nodeId, path: `regex/${nodeId}.regex.yaml` }, configPath)
       updateNodeData(nodeId, {
@@ -353,8 +356,9 @@ export function createV2SaveOps(params: {
 
       const configPath = getEffectiveProjectConfigPath()
       // Phase 8: 使用新 persistence builder 替代旧 builder
-      const file = buildNodeFile(node, nodes.value, configPath || '')
-        || buildV2TransformFile(nodes.value, nodeId)
+      const file =
+        buildNodeFile(node, nodes.value, configPath || '') ||
+        buildV2TransformFile(nodes.value, nodeId)
       await putV2TransformNode(nodeId, file as any, configPath)
       await updateV2ManifestTransformRef(
         { id: nodeId, path: `transforms/${nodeId}.transform.yaml` },
@@ -389,17 +393,18 @@ export function createV2SaveOps(params: {
 
       const configPath = getEffectiveProjectConfigPath()
       // 收尾: 使用新 persistence builder 构建 ref
-      const ref = buildNodeFile(node, nodes.value, configPath || '')
-        || (() => {
-            const data = node.data as TemplateInstanceNodeData
-            return {
-              id: nodeId,
-              template_id: data.templateId || '',
-              enabled: data.enabled !== false,
-              input_from_node: data.inputFromNode || '',
-              params: data.parameters || {},
-            }
-          })()
+      const ref =
+        buildNodeFile(node, nodes.value, configPath || '') ||
+        (() => {
+          const data = node.data as TemplateInstanceNodeData
+          return {
+            id: nodeId,
+            template_id: data.templateId || '',
+            enabled: data.enabled !== false,
+            input_from_node: data.inputFromNode || '',
+            params: data.parameters || {},
+          }
+        })()
 
       await updateV2ManifestTemplateInstanceRef(ref as any, configPath)
       updateNodeData(nodeId, {

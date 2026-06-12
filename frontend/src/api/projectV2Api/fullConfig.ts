@@ -65,11 +65,7 @@ export async function putV2FullConfig(
   payload: FullConfigV2Request,
   configPath?: string
 ): Promise<void> {
-  await apiClient.put(
-    '/project/config/full',
-    payload,
-    withConfigPathHeader(configPath)
-  )
+  await apiClient.put('/project/config/full', payload, withConfigPathHeader(configPath))
 }
 
 /**

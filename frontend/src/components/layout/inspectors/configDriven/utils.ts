@@ -43,7 +43,9 @@ export function setByPath(value: unknown, path: InspectorValuePath, next: unknow
     return base
   }
   const base =
-    value && typeof value === 'object' && !Array.isArray(value) ? { ...(value as Record<string, unknown>) } : {}
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? { ...(value as Record<string, unknown>) }
+      : {}
   base[head] = setByPath((base as Record<string, unknown>)[head], rest, next)
   return base
 }
@@ -65,9 +67,9 @@ export function evaluateWhen(ctx: InspectorContext, when?: InspectorWhen): boole
     case 'not':
       return !evaluateWhen(ctx, when.expr)
     case 'and':
-      return when.exprs.every(e => evaluateWhen(ctx, e))
+      return when.exprs.every((e) => evaluateWhen(ctx, e))
     case 'or':
-      return when.exprs.some(e => evaluateWhen(ctx, e))
+      return when.exprs.some((e) => evaluateWhen(ctx, e))
   }
 }
 
@@ -125,4 +127,3 @@ export function buildShallowCompatiblePatch(
   const nextRoot = setByPath(existingRoot, path.slice(1), nextValue)
   return { [root]: nextRoot }
 }
-

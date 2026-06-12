@@ -29,7 +29,10 @@
             "type": "static",
             "options": [
               { "labelKey": "inspector.constraint.dateLogic.compareMode", "value": "compare" },
-              { "labelKey": "inspector.constraint.dateLogic.calculationMode", "value": "calculation" }
+              {
+                "labelKey": "inspector.constraint.dateLogic.calculationMode",
+                "value": "calculation"
+              }
             ]
           }
         },
@@ -41,8 +44,15 @@
           "when": {
             "op": "or",
             "exprs": [
-              { "op": "equals", "source": { "source": "data", "path": ["logicMode"] }, "value": "compare" },
-              { "op": "not", "expr": { "op": "exists", "source": { "source": "data", "path": ["logicMode"] } } }
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["logicMode"] },
+                "value": "compare"
+              },
+              {
+                "op": "not",
+                "expr": { "op": "exists", "source": { "source": "data", "path": ["logicMode"] } }
+              }
             ]
           },
           "options": {
@@ -61,7 +71,11 @@
           "kind": "select",
           "labelKey": "inspector.constraint.dateLogic.calculationType",
           "source": { "source": "data", "path": ["calculationType"] },
-          "when": { "op": "equals", "source": { "source": "data", "path": ["logicMode"] }, "value": "calculation" },
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["logicMode"] },
+            "value": "calculation"
+          },
           "options": {
             "type": "static",
             "options": [
@@ -83,7 +97,11 @@
             "exprs": [
               { "op": "exists", "source": { "source": "data", "path": ["referenceDate"] } },
               { "op": "exists", "source": { "source": "data", "path": ["referenceColumn"] } },
-              { "op": "equals", "source": { "source": "data", "path": ["logicMode"] }, "value": "compare" }
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["logicMode"] },
+                "value": "compare"
+              }
             ]
           }
         },
@@ -103,12 +121,22 @@
           "when": {
             "op": "and",
             "exprs": [
-              { "op": "not", "expr": { "op": "exists", "source": { "source": "data", "path": ["referenceDate"] } } },
+              {
+                "op": "not",
+                "expr": {
+                  "op": "exists",
+                  "source": { "source": "data", "path": ["referenceDate"] }
+                }
+              },
               {
                 "op": "or",
                 "exprs": [
                   { "op": "exists", "source": { "source": "data", "path": ["referenceColumn"] } },
-                  { "op": "equals", "source": { "source": "data", "path": ["logicMode"] }, "value": "compare" }
+                  {
+                    "op": "equals",
+                    "source": { "source": "data", "path": ["logicMode"] },
+                    "value": "compare"
+                  }
                 ]
               }
             ]
@@ -127,7 +155,11 @@
           "labelKey": "inspector.constraint.dateLogic.targetColumn",
           "placeholderKey": "inspector.constraint.dateLogic.targetColumnPlaceholder",
           "source": { "source": "data", "path": ["targetColumn"] },
-          "when": { "op": "equals", "source": { "source": "data", "path": ["calculationType"] }, "value": "days_diff" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["calculationType"] },
+            "value": "days_diff"
+          }
         }
       ]
     },
@@ -199,4 +231,3 @@
     }
   ]
 }
-

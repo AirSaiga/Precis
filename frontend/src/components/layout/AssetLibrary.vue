@@ -17,7 +17,7 @@
     <!-- 工具箱 / 项目资源视图 -->
     <ProjectLibrary
       v-show="currentView === 'toolbox' || currentView === 'resources'"
-      :view="(currentView === 'toolbox' || currentView === 'resources') ? currentView : 'toolbox'"
+      :view="currentView === 'toolbox' || currentView === 'resources' ? currentView : 'toolbox'"
       @dragstart="handleDragStart"
       @dragend="handleDragEnd"
     />

@@ -33,7 +33,8 @@ export const regexBuilder: NodeBuilder<RegexNodeFileV2> = {
         rules: data.rules || [],
         source_ref: data.sourceRef
           ? {
-              table_id: normalizeTableId(data.sourceRef.nodeId, schemaIdByNodeId) || data.sourceRef.nodeId,
+              table_id:
+                normalizeTableId(data.sourceRef.nodeId, schemaIdByNodeId) || data.sourceRef.nodeId,
               column_id: data.sourceRef.columnId,
             }
           : undefined,

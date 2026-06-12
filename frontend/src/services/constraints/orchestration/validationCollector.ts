@@ -47,7 +47,9 @@ export function getSchemaNodeSourceInfo(
   nodes: Node[],
   edges: Edge[]
 ): SchemaNodeSourceInfo | null {
-  const schemaNode = nodes.find((n) => n.id === schemaNodeId && (n.type === 'schema' || n.type === 'jsonSchema'))
+  const schemaNode = nodes.find(
+    (n) => n.id === schemaNodeId && (n.type === 'schema' || n.type === 'jsonSchema')
+  )
   const schemaData = schemaNode?.data as Record<string, any>
 
   const schemaLocalPath = schemaData?.localPath as string | undefined
@@ -75,7 +77,9 @@ export function getSchemaNodeSourceInfo(
 
   if (schemaData?.sourceNodeId) {
     sourcePreviewNode = nodes.find(
-      (n) => n.id === schemaData.sourceNodeId && (n.type === 'sourcePreview' || n.type === 'jsonSourcePreview')
+      (n) =>
+        n.id === schemaData.sourceNodeId &&
+        (n.type === 'sourcePreview' || n.type === 'jsonSourcePreview')
     )
   }
 
@@ -91,7 +95,9 @@ export function getSchemaNodeSourceInfo(
     }
 
     sourcePreviewNode = nodes.find(
-      (n) => n.id === incomingEdge.source && (n.type === 'sourcePreview' || n.type === 'jsonSourcePreview')
+      (n) =>
+        n.id === incomingEdge.source &&
+        (n.type === 'sourcePreview' || n.type === 'jsonSourcePreview')
     )
   }
 

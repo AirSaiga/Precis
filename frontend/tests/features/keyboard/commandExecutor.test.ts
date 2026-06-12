@@ -165,9 +165,7 @@ describe('CommandExecutor - execute (async)', () => {
     const cmd = makeCommand({ id: 'cmd.feedback' })
     const executor = new CommandExecutor(makeRegistry([cmd]))
     await executor.execute('cmd.feedback')
-    expect(cmd.execute).toHaveBeenCalledWith(
-      expect.objectContaining({ showFeedback: true })
-    )
+    expect(cmd.execute).toHaveBeenCalledWith(expect.objectContaining({ showFeedback: true }))
   })
 })
 

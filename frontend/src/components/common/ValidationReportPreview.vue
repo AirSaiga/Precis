@@ -218,7 +218,9 @@
                       <line x1="6" y1="20" x2="6" y2="14" />
                     </svg>
                   </div>
-                  <div class="stat-number">{{ (data?.statistics?.pass_rate || 0).toFixed(1) }}%</div>
+                  <div class="stat-number">
+                    {{ (data?.statistics?.pass_rate || 0).toFixed(1) }}%
+                  </div>
                   <div class="stat-label">{{ t('common.fullValidation.report.passRate') }}</div>
                 </div>
               </div>
@@ -304,7 +306,9 @@
                   </span>
                   <span
                     class="metric-value"
-                    :class="(data?.summary?.loading_error_count ?? 0) > 0 ? 'text-danger' : 'text-success'"
+                    :class="
+                      (data?.summary?.loading_error_count ?? 0) > 0 ? 'text-danger' : 'text-success'
+                    "
                     >{{ data?.summary?.loading_error_count }}</span
                   >
                 </div>
@@ -328,7 +332,9 @@
                   </span>
                   <span
                     class="metric-value"
-                    :class="(data?.summary?.format_error_count ?? 0) > 0 ? 'text-danger' : 'text-success'"
+                    :class="
+                      (data?.summary?.format_error_count ?? 0) > 0 ? 'text-danger' : 'text-success'
+                    "
                     >{{ data?.summary?.format_error_count }}</span
                   >
                 </div>
@@ -382,7 +388,9 @@
                     <line x1="12" y1="17" x2="12.01" y2="17" />
                   </svg>
                   <span>
-                    {{ t('common.fullValidation.report.warnings') }} ({{ processedWarnings.length }})
+                    {{ t('common.fullValidation.report.warnings') }} ({{
+                      processedWarnings.length
+                    }})
                   </span>
                 </div>
                 <ul class="warnings-list">

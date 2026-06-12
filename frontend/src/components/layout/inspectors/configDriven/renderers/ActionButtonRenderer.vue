@@ -93,9 +93,7 @@
       const node = store.nodes.find((n) => n.id === constraintNodeId)
       const data = (node?.data || {}) as Record<string, unknown>
       const status = data.validationStatus as string | undefined
-      const lastVal = data.lastValidation as
-        | { totalRows?: number; errorCount?: number }
-        | undefined
+      const lastVal = data.lastValidation as { totalRows?: number; errorCount?: number } | undefined
 
       if (status === 'error') {
         toast.error(

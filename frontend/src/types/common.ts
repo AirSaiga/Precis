@@ -1,19 +1,19 @@
 /**
  * @file common.ts
  * @description 通用类型定义
- * 
+ *
  * 该模块定义了在整个应用中共用的基础类型，包括：
  * 1. 数据类型 - 表示列的数据类型（String、Integer、Float 等）
  * 2. 列结构 - 表示单个列的信息
  * 3. 表格资产 - 表示完整的表格配置
  * 4. 绑定来源 - 表示字段绑定的来源信息
  * 5. 运行时绑定配置 - 表示运行时的绑定状态
- * 
+ *
  * 类型设计原则：
  * - 使用联合类型代替字符串，提供类型安全和自动补全
  * - 明确的命名和注释，便于理解和使用
  * - 基础类型与其他模块解耦，可在多处复用
- * 
+ *
  * 数据类型说明：
  * - String: 字符串类型
  * - Integer: 整数类型
@@ -21,7 +21,7 @@
  * - Boolean: 布尔类型
  * - Date: 日期类型
  * - Expression: 表达式类型（用于正则等计算）
- * 
+ *
  * 使用场景：
  * - SchemaColumn.dataType: 列的数据类型
  * - TableAsset.columns: 表格的列定义
@@ -41,7 +41,7 @@
  * - 'Date': 日期类型
  * - 'Expression': 表达式类型（用于正则等计算）
  */
-export type DataType = 'String' | 'Integer' | 'Float' | 'Boolean' | 'Date' | 'Expression';
+export type DataType = 'String' | 'Integer' | 'Float' | 'Boolean' | 'Date' | 'Expression'
 
 /**
  * 定义一个数据列表的结构。
@@ -49,9 +49,9 @@ export type DataType = 'String' | 'Integer' | 'Float' | 'Boolean' | 'Date' | 'Ex
  */
 export interface Column {
   /** 列名称，用于在 UI 和配置中标识该列 */
-  columnName: string;
+  columnName: string
   /** 列的数据类型，决定该列存储的数据种类和校验方式 */
-  dataType: DataType;
+  dataType: DataType
 }
 
 /**
@@ -60,15 +60,15 @@ export interface Column {
  */
 export interface TableAsset {
   /** 表格资产的唯一标识符 */
-  id: string;
+  id: string
   /** 配置名称，用于在资产库中展示该表格的业务含义 */
-  configName: string;
+  configName: string
   /** 表名，对应实际数据源的表/Sheet 名称 */
-  tableName: string;
+  tableName: string
   /** Sheet 名称（仅 Excel 数据源有效，可选） */
-  sheetName?: string;
+  sheetName?: string
   /** 列定义列表，描述该表格的所有列结构 */
-  columns: Column[];
+  columns: Column[]
 }
 
 /**
@@ -78,9 +78,9 @@ export interface TableAsset {
  */
 export interface BindingSource {
   /** 来源节点的唯一标识符（Vue Flow 节点 ID） */
-  nodeId: string;
+  nodeId: string
   /** 来源节点中的字段名称 */
-  fieldName: string;
+  fieldName: string
 }
 
 /**
@@ -90,11 +90,11 @@ export interface BindingSource {
  */
 export interface RuntimeBindingConfig {
   /** 数据源的唯一标识符 */
-  sourceId: string;
+  sourceId: string
   /** 绑定的目标 Schema 节点 ID */
-  schemaNodeId: string;
+  schemaNodeId: string
   /** 字段映射关系：key 为数据源字段名，value 为 Schema 列名 */
-  fieldMappings?: Record<string, string>;
+  fieldMappings?: Record<string, string>
   /**
    * 绑定状态
    * @values
@@ -103,10 +103,9 @@ export interface RuntimeBindingConfig {
    * - 'mapping_required': 需要手动映射字段
    * - 'error': 绑定出错
    */
-  status: 'pending' | 'linked' | 'mapping_required' | 'error';
+  status: 'pending' | 'linked' | 'mapping_required' | 'error'
   /** 绑定匹配时间戳（ISO 8601 格式） */
-  matchedAt?: string;
+  matchedAt?: string
   /** 校验结果映射，key 为字段名，value 为该校验的详细结果 */
-  validationResults?: Record<string, unknown>;
+  validationResults?: Record<string, unknown>
 }
-

@@ -12,12 +12,7 @@ import { useResourceTree } from '@/composables/resource'
 import type { ResourceItem } from '@/types/resource'
 
 export function useResourceInteraction() {
-  const {
-    hasSelection,
-    isMultiSelectMode,
-    toggleSelect,
-    enterMultiSelectMode,
-  } = useResourceTree()
+  const { hasSelection, isMultiSelectMode, toggleSelect, enterMultiSelectMode } = useResourceTree()
 
   const LONG_PRESS_DURATION = 500
   let longPressTimer: ReturnType<typeof setTimeout> | null = null

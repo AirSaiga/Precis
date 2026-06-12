@@ -188,7 +188,7 @@
         isDanger: true,
       },
       { type: 'separator', labelKey: '' },
-      { type: 'refresh', labelKey: 'assetLibraryExtended.projectView.resourceContext.refresh' },
+      { type: 'refresh', labelKey: 'assetLibraryExtended.projectView.resourceContext.refresh' }
     )
     return actions
   }

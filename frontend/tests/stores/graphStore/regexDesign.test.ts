@@ -16,7 +16,9 @@ vi.mock('@/core/eventBus', () => ({
 }))
 
 vi.mock('vue-i18n', () => ({
-  useI18n: () => ({ t: (key: string, params?: any) => params ? `${key}:${JSON.stringify(params)}` : key }),
+  useI18n: () => ({
+    t: (key: string, params?: any) => (params ? `${key}:${JSON.stringify(params)}` : key),
+  }),
 }))
 
 import { eventBus } from '@/core/eventBus'
@@ -100,11 +102,17 @@ describe('createRegexDesignModule', () => {
     it('更新节点数据', () => {
       nodes.value = [makeRegexNode('r1')]
 
-      module.saveRegexDesign('r1', { pattern: '[a-z]+', rules: [{ regex: '[a-z]+', output: {} }] } as any)
+      module.saveRegexDesign('r1', {
+        pattern: '[a-z]+',
+        rules: [{ regex: '[a-z]+', output: {} }],
+      } as any)
 
-      expect(mockUpdateNodeData).toHaveBeenCalledWith('r1', expect.objectContaining({
-        saveState: 'draft',
-      }))
+      expect(mockUpdateNodeData).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({
+          saveState: 'draft',
+        })
+      )
     })
 
     it('pattern 变更时触发自动重校验', () => {
@@ -115,10 +123,13 @@ describe('createRegexDesignModule', () => {
         rules: [{ regex: '[a-z]+', output: {} }],
       } as any)
 
-      expect(eventBus.emit).toHaveBeenCalledWith('regex-pattern-updated', expect.objectContaining({
-        nodeId: 'r1',
-        reason: 'pattern',
-      }))
+      expect(eventBus.emit).toHaveBeenCalledWith(
+        'regex-pattern-updated',
+        expect.objectContaining({
+          nodeId: 'r1',
+          reason: 'pattern',
+        })
+      )
     })
 
     it('pattern 未变更时不触发重校验', () => {
@@ -153,9 +164,12 @@ describe('createRegexDesignModule', () => {
         rules: [{ regex: '\\d+', output: { group1: 'col1' } }],
       } as any)
 
-      expect(mockUpdateNodeData).toHaveBeenCalledWith('r1', expect.objectContaining({
-        matchMode: 'extract',
-      }))
+      expect(mockUpdateNodeData).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({
+          matchMode: 'extract',
+        })
+      )
     })
 
     it('显示保存成功 toast', () => {

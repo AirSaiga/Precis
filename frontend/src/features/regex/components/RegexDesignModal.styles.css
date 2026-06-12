@@ -1,6 +1,8 @@
 .modal-fade-enter-active,
 .modal-fade-leave-active {
-  transition: opacity var(--ui-transition-fast), transform var(--ui-transition-fast);
+  transition:
+    opacity var(--ui-transition-fast),
+    transform var(--ui-transition-fast);
 }
 
 .modal-fade-enter-from,

@@ -27,6 +27,10 @@ describe('theme utilities', () => {
     expect(resolveThemePreference('dark')).toBe('dark')
   })
 
+  it('resolves liquid preference directly', () => {
+    expect(resolveThemePreference('liquid')).toBe('liquid')
+  })
+
   it('resolves system preference based on matchMedia', () => {
     const matchMediaMock = vi.fn().mockReturnValue({ matches: true })
     window.matchMedia = matchMediaMock as unknown as typeof window.matchMedia
@@ -42,6 +46,13 @@ describe('theme utilities', () => {
     expect(document.documentElement.getAttribute('data-theme')).toBe('dark')
     expect(document.documentElement.getAttribute('data-theme-preference')).toBe('dark')
     expect(document.documentElement.style.colorScheme).toBe('dark')
+  })
+
+  it('applies liquid theme with light color-scheme', () => {
+    applyThemePreference('liquid')
+    expect(document.documentElement.getAttribute('data-theme')).toBe('liquid')
+    expect(document.documentElement.getAttribute('data-theme-preference')).toBe('liquid')
+    expect(document.documentElement.style.colorScheme).toBe('light')
   })
 
   it('applies system theme with resolved value', () => {
@@ -74,6 +85,11 @@ describe('theme utilities', () => {
   it('getStoredThemePreference reads from localStorage', () => {
     localStorage.setItem('generalSettings', JSON.stringify({ theme: 'dark' }))
     expect(getStoredThemePreference()).toBe('dark')
+  })
+
+  it('getStoredThemePreference reads liquid theme from localStorage', () => {
+    localStorage.setItem('generalSettings', JSON.stringify({ theme: 'liquid' }))
+    expect(getStoredThemePreference()).toBe('liquid')
   })
 
   it('getStoredThemePreference returns system for invalid JSON', () => {

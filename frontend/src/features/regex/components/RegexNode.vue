@@ -396,9 +396,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
     if (!props.data.sourceNodeId) return null
     return (
       store.nodes.find(
-        (n) =>
-          (n.type === 'schema' || n.type === 'jsonSchema') &&
-          n.id === props.data.sourceNodeId
+        (n) => (n.type === 'schema' || n.type === 'jsonSchema') && n.id === props.data.sourceNodeId
       ) || null
     )
   })

@@ -20,9 +20,15 @@ vi.mock('@/services/constraints/validationRegistry', () => ({
   isConstraintNodeType: (type: string | undefined) => {
     if (!type) return false
     return [
-      'notNullConstraint', 'uniqueConstraint', 'foreignKeyConstraint',
-      'allowedValuesConstraint', 'rangeConstraint', 'conditionalConstraint',
-      'scriptedConstraint', 'charsetConstraint', 'dateLogicConstraint',
+      'notNullConstraint',
+      'uniqueConstraint',
+      'foreignKeyConstraint',
+      'allowedValuesConstraint',
+      'rangeConstraint',
+      'conditionalConstraint',
+      'scriptedConstraint',
+      'charsetConstraint',
+      'dateLogicConstraint',
       'compositeConstraint',
     ].includes(type)
   },
@@ -39,7 +45,10 @@ vi.mock('@/i18n', () => ({
   i18n: { global: { t: (key: string) => key } },
 }))
 
-import { resolveSchemaAndColumnIdByName, buildV2ConstraintFile } from '@/services/builders/constraintBuilder'
+import {
+  resolveSchemaAndColumnIdByName,
+  buildV2ConstraintFile,
+} from '@/services/builders/constraintBuilder'
 
 function schemaNode(overrides: Record<string, unknown> = {}): CustomNode {
   return {

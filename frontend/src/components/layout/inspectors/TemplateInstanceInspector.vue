@@ -8,17 +8,9 @@
     <div class="inspector-section">
       <label>{{ t('inspector.templateInstance.templateId') }}</label>
       <div v-if="availableTemplates.length > 0">
-        <select
-          :value="localData.templateId"
-          class="template-select"
-          @change="onTemplateSelect"
-        >
+        <select :value="localData.templateId" class="template-select" @change="onTemplateSelect">
           <option value="" disabled>{{ t('inspector.templateInstance.selectTemplate') }}</option>
-          <option
-            v-for="tmpl in availableTemplates"
-            :key="tmpl.id"
-            :value="tmpl.id"
-          >
+          <option v-for="tmpl in availableTemplates" :key="tmpl.id" :value="tmpl.id">
             {{ tmpl.name || tmpl.id }}
           </option>
         </select>
@@ -66,11 +58,7 @@
             @change="emitUpdate"
           />
           <label v-else-if="param.type === 'boolean'" class="checkbox-label">
-            <input
-              v-model="localData.parameters[param.id]"
-              type="checkbox"
-              @change="emitUpdate"
-            />
+            <input v-model="localData.parameters[param.id]" type="checkbox" @change="emitUpdate" />
           </label>
         </div>
       </div>
@@ -79,7 +67,11 @@
     <!-- 展开预览 -->
     <div class="inspector-section">
       <button class="expand-btn" :disabled="expanding" @click="previewExpand">
-        {{ expanding ? t('inspector.templateInstance.expanding') : t('inspector.templateInstance.previewExpand') }}
+        {{
+          expanding
+            ? t('inspector.templateInstance.expanding')
+            : t('inspector.templateInstance.previewExpand')
+        }}
       </button>
     </div>
 
@@ -226,7 +218,8 @@
     try {
       // 从 store 实时读取 inputFromNode（props.data 可能在连接后未更新）
       const currentNode = graphStore.nodes.find((n) => n.id === props.nodeId)
-      const inputFromNode = ((currentNode?.data as Record<string, unknown>)?.inputFromNode as string) || ''
+      const inputFromNode =
+        ((currentNode?.data as Record<string, unknown>)?.inputFromNode as string) || ''
       const result = await expandV2Template(
         localData.templateId,
         props.nodeId,
@@ -235,7 +228,9 @@
       )
       // 在画布上渲染展开后的 DAG 节点
       graphStore.expandOnCanvas(props.nodeId, result)
-      emit('update:data', { nodeCount: result.transforms.length + result.constraints.length + result.regex_nodes.length })
+      emit('update:data', {
+        nodeCount: result.transforms.length + result.constraints.length + result.regex_nodes.length,
+      })
     } catch (err) {
       console.error('[TemplateInstanceInspector] 展开预览失败:', err)
     } finally {

@@ -5,9 +5,18 @@
       <span class="chat-title">{{ t('aiChat.title') }}</span>
       <div class="chat-actions">
         <button class="header-btn" @click="handleClear" :title="t('aiChat.clear')">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="2"
+          >
             <polyline points="3 6 5 6 21 6"></polyline>
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            <path
+              d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"
+            ></path>
           </svg>
         </button>
       </div>
@@ -17,7 +26,15 @@
     <div class="chat-messages" ref="messagesRef">
       <div v-if="messages.length === 0" class="chat-empty">
         <div class="empty-icon">
-          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.3">
+          <svg
+            width="48"
+            height="48"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            opacity="0.3"
+          >
             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
           </svg>
         </div>
@@ -30,7 +47,9 @@
           <span v-else>AI</span>
         </div>
         <div class="message-body">
-          <div v-if="msg.role === 'user'" class="message-content user-content">{{ msg.content }}</div>
+          <div v-if="msg.role === 'user'" class="message-content user-content">
+            {{ msg.content }}
+          </div>
           <div v-else class="message-content ai-content" v-html="renderMarkdown(msg.content)"></div>
           <div class="message-time">{{ formatTime(msg.timestamp) }}</div>
         </div>
@@ -40,9 +59,7 @@
       <div v-if="loading" class="chat-message assistant">
         <div class="message-avatar">AI</div>
         <div class="message-body">
-          <div class="typing-indicator">
-            <span></span><span></span><span></span>
-          </div>
+          <div class="typing-indicator"><span></span><span></span><span></span></div>
         </div>
       </div>
     </div>
@@ -66,7 +83,14 @@
         rows="3"
       ></textarea>
       <button class="send-btn" @click="handleSend" :disabled="!inputText.trim() || loading">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
           <line x1="22" y1="2" x2="11" y2="13"></line>
           <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
         </svg>

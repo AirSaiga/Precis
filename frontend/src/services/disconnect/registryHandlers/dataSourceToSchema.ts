@@ -8,7 +8,10 @@
  */
 import { registerDisconnectHandler } from '../registryCore'
 import type { DisconnectContext } from '../types'
-import { isConstraintNodeType, buildDisconnectReset } from '@/services/constraints/validationRegistry'
+import {
+  isConstraintNodeType,
+  buildDisconnectReset,
+} from '@/services/constraints/validationRegistry'
 
 /**
  * 重置 Schema 节点的数据源元数据字段

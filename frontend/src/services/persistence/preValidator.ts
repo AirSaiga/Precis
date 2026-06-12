@@ -226,12 +226,14 @@ export class PreValidator {
    * 生成建议的列 ID（基于列名）
    */
   private suggestColumnId(baseName: string): string {
-    return baseName
-      .toLowerCase()
-      .replace(/[^a-z0-9_]/g, '_')
-      .replace(/_+/g, '_')
-      .replace(/^_+|_+$/g, '')
-      .substring(0, 30) || 'col'
+    return (
+      baseName
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '_')
+        .replace(/_+/g, '_')
+        .replace(/^_+|_+$/g, '')
+        .substring(0, 30) || 'col'
+    )
   }
 
   /**

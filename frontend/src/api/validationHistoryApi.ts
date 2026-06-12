@@ -35,10 +35,7 @@ export async function fetchValidationRun(
 }
 
 /** 删除指定 runId 的校验运行记录 */
-export async function deleteValidationRun(
-  runId: string,
-  projectPath: string
-): Promise<void> {
+export async function deleteValidationRun(runId: string, projectPath: string): Promise<void> {
   await apiClient.delete(`/validation/history/${encodeURIComponent(runId)}`, {
     params: { project_path: projectPath },
   })

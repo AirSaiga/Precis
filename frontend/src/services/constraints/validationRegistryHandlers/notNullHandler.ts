@@ -41,7 +41,9 @@ register({
     )
     return {
       status: result.errorCount > 0 ? 'error' : 'pass',
-      validationErrors: result.errors.map((err) => `\u7B2C ${err.row + 1} \u884C: \u503C\u4E0D\u80FD\u4E3A\u7A7A`),
+      validationErrors: result.errors.map(
+        (err) => `\u7B2C ${err.row + 1} \u884C: \u503C\u4E0D\u80FD\u4E3A\u7A7A`
+      ),
       lastValidation: {
         totalRows: result.totalRows,
         errorCount: result.errorCount,

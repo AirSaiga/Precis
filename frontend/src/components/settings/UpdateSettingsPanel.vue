@@ -26,8 +26,10 @@
           <span
             class="settings-pill"
             :class="{
-              'settings-pill--info': updateState.status === 'checking' || updateState.status === 'downloading',
-              'settings-pill--success': updateState.status === 'update-available' || updateState.status === 'downloaded',
+              'settings-pill--info':
+                updateState.status === 'checking' || updateState.status === 'downloading',
+              'settings-pill--success':
+                updateState.status === 'update-available' || updateState.status === 'downloaded',
               'settings-pill--danger': updateState.status === 'error',
             }"
           >
@@ -47,7 +49,12 @@
         <div class="settings-row__desc">{{ t('settings.update.autoCheck.desc') }}</div>
         <div class="settings-row__control">
           <label class="settings-switch">
-            <input v-model="localConfig.autoCheck" type="checkbox" class="settings-switch__input" @change="handleConfigChange" />
+            <input
+              v-model="localConfig.autoCheck"
+              type="checkbox"
+              class="settings-switch__input"
+              @change="handleConfigChange"
+            />
             <span class="settings-switch__track"></span>
           </label>
         </div>
@@ -57,7 +64,12 @@
         <div class="settings-row__desc">{{ t('settings.update.autoDownload.desc') }}</div>
         <div class="settings-row__control">
           <label class="settings-switch">
-            <input v-model="localConfig.autoDownload" type="checkbox" class="settings-switch__input" @change="handleConfigChange" />
+            <input
+              v-model="localConfig.autoDownload"
+              type="checkbox"
+              class="settings-switch__input"
+              @change="handleConfigChange"
+            />
             <span class="settings-switch__track"></span>
           </label>
         </div>
@@ -66,7 +78,11 @@
         <div class="settings-row__label">{{ t('settings.update.sourceType.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.update.sourceType.desc') }}</div>
         <div class="settings-row__control">
-          <select v-model="localConfig.sourceType" class="settings-select" @change="handleConfigChange">
+          <select
+            v-model="localConfig.sourceType"
+            class="settings-select"
+            @change="handleConfigChange"
+          >
             <option value="github">{{ t('settings.update.sourceType.github') }}</option>
             <option value="custom">{{ t('settings.update.sourceType.custom') }}</option>
           </select>
@@ -76,7 +92,13 @@
         <div class="settings-row__label">{{ t('settings.update.sourceUrl.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.update.sourceUrl.desc') }}</div>
         <div class="settings-row__control settings-row__control--wide">
-          <input v-model="localConfig.sourceUrl" class="settings-input" type="text" :placeholder="t('settings.update.sourceUrl.placeholder')" @blur="handleConfigChange" />
+          <input
+            v-model="localConfig.sourceUrl"
+            class="settings-input"
+            type="text"
+            :placeholder="t('settings.update.sourceUrl.placeholder')"
+            @blur="handleConfigChange"
+          />
         </div>
       </div>
     </div>
@@ -90,8 +112,17 @@
         <div class="settings-row__label"></div>
         <div class="settings-row__desc"></div>
         <div class="settings-row__control settings-row__control--wide">
-          <button class="ui-btn ui-btn--primary ui-btn--sm" type="button" :disabled="isChecking" @click="handleCheckUpdate">
-            <span v-if="isChecking" class="ui-spinner" style="width: 14px; height: 14px; border-width: 2px"></span>
+          <button
+            class="ui-btn ui-btn--primary ui-btn--sm"
+            type="button"
+            :disabled="isChecking"
+            @click="handleCheckUpdate"
+          >
+            <span
+              v-if="isChecking"
+              class="ui-spinner"
+              style="width: 14px; height: 14px; border-width: 2px"
+            ></span>
             {{ isChecking ? t('settings.update.checking') : t('settings.update.checkNow') }}
           </button>
           <button
@@ -101,10 +132,19 @@
             :disabled="isDownloading"
             @click="handleDownload"
           >
-            <span v-if="isDownloading" class="ui-spinner" style="width: 14px; height: 14px; border-width: 2px"></span>
+            <span
+              v-if="isDownloading"
+              class="ui-spinner"
+              style="width: 14px; height: 14px; border-width: 2px"
+            ></span>
             {{ isDownloading ? t('settings.update.downloading') : t('settings.update.download') }}
           </button>
-          <button v-if="isDownloaded()" class="ui-btn ui-btn--success ui-btn--sm" type="button" @click="handleInstall">
+          <button
+            v-if="isDownloaded()"
+            class="ui-btn ui-btn--success ui-btn--sm"
+            type="button"
+            @click="handleInstall"
+          >
             {{ t('settings.update.install') }}
           </button>
         </div>
@@ -127,7 +167,9 @@
       <div v-if="isDownloadingStatus()" class="settings-row">
         <div class="settings-row__label">{{ t('settings.update.downloadProgress') }}</div>
         <div class="settings-row__desc">
-          {{ Math.round(updateState.progress || 0) }}% - {{ formatBytes(updateState.transferred || 0) }} / {{ formatBytes(updateState.total || 0) }}
+          {{ Math.round(updateState.progress || 0) }}% -
+          {{ formatBytes(updateState.transferred || 0) }} /
+          {{ formatBytes(updateState.total || 0) }}
         </div>
         <div class="settings-row__control">
           <div class="ui-progress" style="width: 100%">

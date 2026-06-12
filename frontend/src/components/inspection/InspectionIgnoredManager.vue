@@ -29,11 +29,7 @@
       </div>
 
       <footer class="iim-footer">
-        <button
-          v-if="store.ignoredIds.size > 0"
-          class="iim-clear-all"
-          @click="clearAll"
-        >
+        <button v-if="store.ignoredIds.size > 0" class="iim-clear-all" @click="clearAll">
           {{ t('inspection.ignoredManager.clearAll') }}
         </button>
         <button class="iim-confirm" @click="close">

@@ -23,23 +23,38 @@ describe('connectionPolicyService', () => {
 
   describe('isValidConnection', () => {
     const makeNode = (id: string, type: string): Node =>
-      ({ id, type, position: { x: 0, y: 0 } } as Node)
+      ({ id, type, position: { x: 0, y: 0 } }) as Node
 
     it('源节点缺失时返回 false', () => {
-      const conn: Connection = { source: 'missing', target: 't1', sourceHandle: null, targetHandle: null }
+      const conn: Connection = {
+        source: 'missing',
+        target: 't1',
+        sourceHandle: null,
+        targetHandle: null,
+      }
       const result = connectionPolicyService.isValidConnection(conn, [makeNode('t1', 'schema')])
       expect(result).toBe(false)
     })
 
     it('目标节点缺失时返回 false', () => {
-      const conn: Connection = { source: 's1', target: 'missing', sourceHandle: null, targetHandle: null }
+      const conn: Connection = {
+        source: 's1',
+        target: 'missing',
+        sourceHandle: null,
+        targetHandle: null,
+      }
       const result = connectionPolicyService.isValidConnection(conn, [makeNode('s1', 'schema')])
       expect(result).toBe(false)
     })
 
     it('正常连接时调用 validator 返回 result.isValid', () => {
       mockValidateConnection.mockReturnValue({ isValid: true })
-      const conn: Connection = { source: 's1', target: 't1', sourceHandle: null, targetHandle: null }
+      const conn: Connection = {
+        source: 's1',
+        target: 't1',
+        sourceHandle: null,
+        targetHandle: null,
+      }
       const nodes = [makeNode('s1', 'schema'), makeNode('t1', 'regex')]
       const result = connectionPolicyService.isValidConnection(conn, nodes)
       expect(mockValidateConnection).toHaveBeenCalledTimes(1)
@@ -48,7 +63,12 @@ describe('connectionPolicyService', () => {
 
     it('validator 返回 false 时返回 false', () => {
       mockValidateConnection.mockReturnValue({ isValid: false })
-      const conn: Connection = { source: 's1', target: 't1', sourceHandle: null, targetHandle: null }
+      const conn: Connection = {
+        source: 's1',
+        target: 't1',
+        sourceHandle: null,
+        targetHandle: null,
+      }
       const nodes = [makeNode('s1', 'schema'), makeNode('t1', 'regex')]
       const result = connectionPolicyService.isValidConnection(conn, nodes)
       expect(result).toBe(false)
@@ -57,10 +77,12 @@ describe('connectionPolicyService', () => {
 
   describe('getAllowedTargets', () => {
     const makeNode = (id: string, type: string): Node =>
-      ({ id, type, position: { x: 0, y: 0 } } as Node)
+      ({ id, type, position: { x: 0, y: 0 } }) as Node
 
     it('节点不存在时返回空数组', () => {
-      const result = connectionPolicyService.getAllowedTargets('missing', undefined, [makeNode('n1', 'schema')])
+      const result = connectionPolicyService.getAllowedTargets('missing', undefined, [
+        makeNode('n1', 'schema'),
+      ])
       expect(result).toEqual([])
     })
 
@@ -77,13 +99,15 @@ describe('connectionPolicyService', () => {
 
   describe('sanitizeConnections', () => {
     const makeNode = (id: string, type: string): Node =>
-      ({ id, type, position: { x: 0, y: 0 } } as Node)
+      ({ id, type, position: { x: 0, y: 0 } }) as Node
 
     it('全部有效时返回空数组', () => {
       mockSanitizeConnections.mockReturnValue([
         { source: 's1', target: 't1', sourceHandle: null, targetHandle: null } as Connection,
       ])
-      const conns: Connection[] = [{ source: 's1', target: 't1', sourceHandle: null, targetHandle: null }]
+      const conns: Connection[] = [
+        { source: 's1', target: 't1', sourceHandle: null, targetHandle: null },
+      ]
       const nodes = [makeNode('s1', 'schema'), makeNode('t1', 'regex')]
       const result = connectionPolicyService.sanitizeConnections(nodes, conns)
       expect(result).toEqual([])
@@ -91,7 +115,9 @@ describe('connectionPolicyService', () => {
 
     it('含无效时返回 InvalidConnection[]', () => {
       mockSanitizeConnections.mockReturnValue([])
-      const conns: Connection[] = [{ source: 's1', target: 't1', sourceHandle: null, targetHandle: null }]
+      const conns: Connection[] = [
+        { source: 's1', target: 't1', sourceHandle: null, targetHandle: null },
+      ]
       const nodes = [makeNode('s1', 'schema'), makeNode('t1', 'regex')]
       const result = connectionPolicyService.sanitizeConnections(nodes, conns)
       expect(result).toHaveLength(1)
@@ -191,7 +217,16 @@ describe('connectionPolicyService', () => {
     })
 
     it('各节点类型出度配置正确', () => {
-      const types = ['schema', 'jsonSchema', 'sourcePreview', 'jsonSourcePreview', 'regex', 'foreignKeyConstraint', 'constraintDashboard', 'templateInstance']
+      const types = [
+        'schema',
+        'jsonSchema',
+        'sourcePreview',
+        'jsonSourcePreview',
+        'regex',
+        'foreignKeyConstraint',
+        'constraintDashboard',
+        'templateInstance',
+      ]
       types.forEach((type) => {
         const config = connectionPolicyService.getOutDegreeConfig(type)
         expect(config.max).toBeDefined()

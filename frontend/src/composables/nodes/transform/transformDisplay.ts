@@ -80,8 +80,7 @@ export function getParamsDisplay(
       return oldStr ? `"${oldStr}" → "${newStr}"` : ''
     }
     case 'FilterRows': {
-      const conds =
-        (p.conditions as Array<{ column: string; op: string; value: string }>) || []
+      const conds = (p.conditions as Array<{ column: string; op: string; value: string }>) || []
       return conds.length ? `${conds.length} 个过滤条件` : ''
     }
     case 'FillNA': {
@@ -126,8 +125,7 @@ export function getParamsDisplay(
       return aggs.length ? `${aggs.length} 项聚合` : ''
     }
     case 'ConditionalAssign': {
-      const conds =
-        (p.conditions as Array<{ column: string; op: string; value: string }>) || []
+      const conds = (p.conditions as Array<{ column: string; op: string; value: string }>) || []
       return conds.length ? `${conds.length} 个条件 → 赋值` : ''
     }
     case 'SortRows': {

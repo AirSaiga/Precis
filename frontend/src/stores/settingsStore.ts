@@ -69,8 +69,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   // --- 导航状态 (storeToRefs 保持响应性) ---
   // storeToRefs 将子 Store 的 state 解构为独立 ref，避免直接解构丢失响应性
-  const { visible, isOpen, activeNavItem, searchQuery, activeTab } =
-    storeToRefs(navStore)
+  const { visible, isOpen, activeNavItem, searchQuery, activeTab } = storeToRefs(navStore)
 
   // --- 偏好设置状态 ---
   const {

@@ -50,11 +50,7 @@ class ConnectionPolicyServiceClass {
    * @param nodes - 节点列表
    * @returns 连接是否有效
    */
-  isValidConnection(
-    connection: Connection,
-    nodes: Node[],
-    edges: Edge[] = []
-  ): boolean {
+  isValidConnection(connection: Connection, nodes: Node[], edges: Edge[] = []): boolean {
     const sourceNode = nodes.find((n) => n.id === connection.source)
     const targetNode = nodes.find((n) => n.id === connection.target)
 

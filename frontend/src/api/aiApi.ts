@@ -210,7 +210,11 @@ export async function getCloudAIProviderConfigInfo(): Promise<{
  */
 export async function testCloudAIProvider(
   providerId: string
-): Promise<{ provider_id: string; health: { status: string; latency_ms?: number; error?: string }; available_models: string[] }> {
+): Promise<{
+  provider_id: string
+  health: { status: string; latency_ms?: number; error?: string }
+  available_models: string[]
+}> {
   const { data } = await apiClient.post(`/ai/providers/${encodeURIComponent(providerId)}/test`)
   return data
 }
@@ -221,7 +225,9 @@ export async function testCloudAIProvider(
  * @param providerId - Provider ID
  * @returns 激活后的 Provider 信息
  */
-export async function activateCloudAIProvider(providerId: string): Promise<CloudAIProviderResponse> {
+export async function activateCloudAIProvider(
+  providerId: string
+): Promise<CloudAIProviderResponse> {
   const { data } = await apiClient.post<CloudAIProviderResponse>(
     `/ai/providers/${encodeURIComponent(providerId)}/activate`
   )
@@ -239,7 +245,9 @@ export async function getProviderPresets(): Promise<ProviderPreset[]> {
 /**
  * 创建新的 AI Provider
  */
-export async function createCloudAIProvider(req: CreateProviderRequest): Promise<CloudAIProviderResponse> {
+export async function createCloudAIProvider(
+  req: CreateProviderRequest
+): Promise<CloudAIProviderResponse> {
   const { data } = await apiClient.post<CloudAIProviderResponse>('/ai/providers', req)
   return data
 }

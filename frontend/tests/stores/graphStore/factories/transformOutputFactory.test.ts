@@ -33,7 +33,10 @@ describe('transformOutputFactory', () => {
   })
 
   it('节点 data 默认值正确', () => {
-    const rows = [['a', 'b'], ['c', 'd']]
+    const rows = [
+      ['a', 'b'],
+      ['c', 'd'],
+    ]
     factory.createTransformOutputNode({ x: 0, y: 0 }, 'parent-1', 'col1', rows)
     const node = vi.mocked(addNodes).mock.calls[0][0]
     expect(node.data.columnName).toBe('col1')

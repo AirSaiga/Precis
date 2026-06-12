@@ -99,13 +99,14 @@ export function materializeV2EmbeddedConstraints(params: {
       const itemParams = (item.params || {}) as Record<string, unknown>
       const itemRefs = (item.refs || itemParams) as Record<string, unknown>
       const ifLogic = String(itemRefs.if_logic || itemParams.if_logic || 'and')
-      const thenColName = (itemRefs.then_column_id || itemParams.then_column_id)
-        ? String(itemRefs.then_column_id || itemParams.then_column_id)
-        : ''
+      const thenColName =
+        itemRefs.then_column_id || itemParams.then_column_id
+          ? String(itemRefs.then_column_id || itemParams.then_column_id)
+          : ''
       const thenColId = thenColName ? colNameToId.get(thenColName) : undefined
 
       const rawConditions = Array.isArray(itemRefs.if_conditions || itemParams.if_conditions)
-        ? (itemRefs.if_conditions || itemParams.if_conditions) as unknown[]
+        ? ((itemRefs.if_conditions || itemParams.if_conditions) as unknown[])
         : []
       const ifConditions = rawConditions.map((cond) => {
         const r = cond as Record<string, unknown>
@@ -163,7 +164,12 @@ export function materializeV2EmbeddedConstraints(params: {
             configName: item.description || id,
             saveState: 'saved',
           } as Record<string, unknown>,
-          edgeDescriptors: [] as Array<{ kind: 'constraint'; sourceNodeId: string; targetNodeId: string; columnId: string }>,
+          edgeDescriptors: [] as Array<{
+            kind: 'constraint'
+            sourceNodeId: string
+            targetNodeId: string
+            columnId: string
+          }>,
         }
 
     addNode({

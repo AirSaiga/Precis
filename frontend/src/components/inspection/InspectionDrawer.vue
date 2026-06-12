@@ -12,11 +12,7 @@
 <template>
   <Teleport to="body">
     <Transition name="drawer-fade">
-      <div
-        v-if="store.drawerVisible"
-        class="inspection-drawer"
-        @click.self="store.closeDrawer()"
-      >
+      <div v-if="store.drawerVisible" class="inspection-drawer" @click.self="store.closeDrawer()">
         <aside class="drawer-panel" role="dialog" :aria-label="t('inspection.title')">
           <header class="drawer-header">
             <h3 class="drawer-title">
@@ -39,11 +35,7 @@
               >
                 🔕
               </button>
-              <button
-                class="header-btn"
-                :title="t('inspection.action.copyAll')"
-                @click="copyAll"
-              >
+              <button class="header-btn" :title="t('inspection.action.copyAll')" @click="copyAll">
                 📋
               </button>
               <button
@@ -71,10 +63,7 @@
           />
 
           <div v-if="store.unresolvedCount > 0" class="group-tabs">
-            <button
-              :class="{ active: store.groupBy === 'file' }"
-              @click="store.setGroupBy('file')"
-            >
+            <button :class="{ active: store.groupBy === 'file' }" @click="store.setGroupBy('file')">
               {{ t('inspection.groupBy.file') }}
             </button>
             <button

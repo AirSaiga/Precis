@@ -93,10 +93,7 @@ describe('ShortcutRegistry - registration', () => {
   it('registerAll counts only successful registrations', () => {
     const registry = new ShortcutRegistry()
     registry.register(makeCommand({ id: 'cmd.a' }))
-    const count = registry.registerAll([
-      makeCommand({ id: 'cmd.a' }),
-      makeCommand({ id: 'cmd.b' }),
-    ])
+    const count = registry.registerAll([makeCommand({ id: 'cmd.a' }), makeCommand({ id: 'cmd.b' })])
     expect(count).toBe(1)
   })
 })
@@ -129,10 +126,7 @@ describe('ShortcutRegistry - unregister and clear', () => {
 
   it('clears all registrations', () => {
     const registry = new ShortcutRegistry()
-    registry.registerAll([
-      makeCommand({ id: 'cmd.a' }),
-      makeCommand({ id: 'cmd.b' }),
-    ])
+    registry.registerAll([makeCommand({ id: 'cmd.a' }), makeCommand({ id: 'cmd.b' })])
     registry.clear()
     expect(registry.size).toBe(0)
     expect(registry.getAllCommandIds()).toEqual([])
@@ -176,10 +170,7 @@ describe('ShortcutRegistry - lookup', () => {
 
   it('returns all commands', () => {
     const registry = new ShortcutRegistry()
-    registry.registerAll([
-      makeCommand({ id: 'cmd.a' }),
-      makeCommand({ id: 'cmd.b' }),
-    ])
+    registry.registerAll([makeCommand({ id: 'cmd.a' }), makeCommand({ id: 'cmd.b' })])
     const all = registry.getAllCommands()
     expect(all).toHaveLength(2)
     expect(all.map((c) => c.id).sort()).toEqual(['cmd.a', 'cmd.b'])
@@ -236,20 +227,14 @@ describe('ShortcutRegistry - disabled commands', () => {
 
   it('disableAll marks multiple commands as disabled', () => {
     const registry = new ShortcutRegistry()
-    registry.registerAll([
-      makeCommand({ id: 'cmd.a' }),
-      makeCommand({ id: 'cmd.b' }),
-    ])
+    registry.registerAll([makeCommand({ id: 'cmd.a' }), makeCommand({ id: 'cmd.b' })])
     registry.disableAll(['cmd.a', 'cmd.b'])
     expect(registry.disabledCount).toBe(2)
   })
 
   it('enableAll restores all commands', () => {
     const registry = new ShortcutRegistry()
-    registry.registerAll([
-      makeCommand({ id: 'cmd.a' }),
-      makeCommand({ id: 'cmd.b' }),
-    ])
+    registry.registerAll([makeCommand({ id: 'cmd.a' }), makeCommand({ id: 'cmd.b' })])
     registry.disableAll(['cmd.a', 'cmd.b'])
     registry.enableAll()
     expect(registry.disabledCount).toBe(0)
@@ -351,10 +336,7 @@ describe('ShortcutRegistry - state and export/import', () => {
   it('imports commands and restores disabled list', () => {
     const registry = new ShortcutRegistry()
     registry.import({
-      commands: [
-        makeCommand({ id: 'cmd.a' }),
-        makeCommand({ id: 'cmd.b' }),
-      ],
+      commands: [makeCommand({ id: 'cmd.a' }), makeCommand({ id: 'cmd.b' })],
       disabledCommands: ['cmd.b'],
     })
     expect(registry.size).toBe(2)

@@ -199,7 +199,9 @@
   }
 
   let validationTimer: number | undefined
-  onBeforeUnmount(() => { if (validationTimer) clearTimeout(validationTimer) })
+  onBeforeUnmount(() => {
+    if (validationTimer) clearTimeout(validationTimer)
+  })
   const scheduleValidation = () => {
     if (validationTimer) window.clearTimeout(validationTimer)
     validationTimer = window.setTimeout(() => {

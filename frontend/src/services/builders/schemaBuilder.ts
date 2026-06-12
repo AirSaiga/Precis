@@ -12,16 +12,8 @@
  * 4. 收集并构建内嵌约束
  */
 
-import type {
-  DataType,
-  SchemaColumn,
-  JsonSchemaNodeData,
-  JsonSchemaColumn,
-} from '@/types/graph'
-import type {
-  ColumnSpecV2,
-  JSONOptionsV2,
-} from '@/types/projectV2'
+import type { DataType, SchemaColumn, JsonSchemaNodeData, JsonSchemaColumn } from '@/types/graph'
+import type { ColumnSpecV2, JSONOptionsV2 } from '@/types/projectV2'
 
 /**
  * 数据类型转换：前端类型 → 后端类型

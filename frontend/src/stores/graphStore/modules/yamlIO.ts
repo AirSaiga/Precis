@@ -419,7 +419,10 @@ export function createYamlIOModule(params: {
 
       URL.revokeObjectURL(url)
 
-      toastSuccess(t('messages.persistence.exportYamlSuccess'), t('messages.persistence.exportSuccess'))
+      toastSuccess(
+        t('messages.persistence.exportYamlSuccess'),
+        t('messages.persistence.exportSuccess')
+      )
     } catch (error) {
       logger.error('导出项目失败:', error)
       toastError(t('messages.persistence.exportYamlFailed'), t('messages.persistence.saveFailed'))
@@ -465,7 +468,9 @@ export function createYamlIOModule(params: {
       }
 
       const tableName = String(rawSchema.table_name || rawSchema.tableName || 'imported_table')
-      const sheetName = (rawSchema.sheet_name || rawSchema.sheetName || undefined) as string | undefined
+      const sheetName = (rawSchema.sheet_name || rawSchema.sheetName || undefined) as
+        | string
+        | undefined
 
       const rawColumns = Array.isArray(rawSchema.columns) ? rawSchema.columns : []
       const columns: SchemaColumn[] = rawColumns.map((col: unknown) => {

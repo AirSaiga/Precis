@@ -71,8 +71,16 @@ export type InspectorCodeField = InspectorFieldBase & {
 }
 
 export type InspectorSelectOption =
-  | { type: 'static'; options: Array<{ labelKey: string; value: string | number | boolean | null }> }
-  | { type: 'dataPath'; path: InspectorValuePath; labelPath?: InspectorValuePath; valuePath?: InspectorValuePath }
+  | {
+      type: 'static'
+      options: Array<{ labelKey: string; value: string | number | boolean | null }>
+    }
+  | {
+      type: 'dataPath'
+      path: InspectorValuePath
+      labelPath?: InspectorValuePath
+      valuePath?: InspectorValuePath
+    }
 
 export type InspectorSelectField = InspectorFieldBase & {
   kind: 'select'
@@ -161,7 +169,15 @@ export type InspectorWeightedSumField = InspectorFieldBase & {
 
 export type InspectorActionButtonField = InspectorFieldBase & {
   kind: 'actionButton'
-  action: 'validate' | 'fullValidation' | 'export' | 'aiGenerate' | 'reload' | 'projectManagement' | 'closeProject' | 'openScriptEditor'
+  action:
+    | 'validate'
+    | 'fullValidation'
+    | 'export'
+    | 'aiGenerate'
+    | 'reload'
+    | 'projectManagement'
+    | 'closeProject'
+    | 'openScriptEditor'
   buttonLabelKey: string
   danger?: boolean
 }

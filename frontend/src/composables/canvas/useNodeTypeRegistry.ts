@@ -53,13 +53,15 @@ export function useNodeTypeRegistry() {
       foreignKeyConstraint: constraintNodeRegistry.foreignKey.component as unknown as NodeComponent,
     }),
     ...(constraintNodeRegistry.allowedValues?.component && {
-      allowedValuesConstraint: constraintNodeRegistry.allowedValues.component as unknown as NodeComponent,
+      allowedValuesConstraint: constraintNodeRegistry.allowedValues
+        .component as unknown as NodeComponent,
     }),
     ...(constraintNodeRegistry.range?.component && {
       rangeConstraint: constraintNodeRegistry.range.component as unknown as NodeComponent,
     }),
     ...(constraintNodeRegistry.conditional?.component && {
-      conditionalConstraint: constraintNodeRegistry.conditional.component as unknown as NodeComponent,
+      conditionalConstraint: constraintNodeRegistry.conditional
+        .component as unknown as NodeComponent,
     }),
     ...(constraintNodeRegistry.scripted?.component && {
       scriptedConstraint: constraintNodeRegistry.scripted.component as unknown as NodeComponent,

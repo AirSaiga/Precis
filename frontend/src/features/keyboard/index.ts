@@ -6,7 +6,13 @@
  */
 
 import { ref } from 'vue'
-import type { Command, CommandContext, KeyboardListenerConfig, Shortcut, ShortcutEventData } from './types'
+import type {
+  Command,
+  CommandContext,
+  KeyboardListenerConfig,
+  Shortcut,
+  ShortcutEventData,
+} from './types'
 import { ShortcutRegistry } from './registry'
 import { CommandExecutor } from './executor'
 import { KeyboardListenerImpl } from './listeners'
@@ -63,7 +69,7 @@ export function createKeyboardShortcuts(
     registryConfig,
     autoRegisterDefaults = true,
     autoStart = true,
-    userConfig
+    userConfig,
   } = options
 
   const registry = new ShortcutRegistry(registryConfig)
@@ -72,7 +78,7 @@ export function createKeyboardShortcuts(
     {
       getCommand: (commandId) => registry.getCommand(commandId),
       getCommandShortcut: (command) => registry.getCommandShortcut(command),
-      isDisabled: (commandId) => registry.isDisabled(commandId)
+      isDisabled: (commandId) => registry.isDisabled(commandId),
     },
     context
   )
@@ -88,7 +94,7 @@ export function createKeyboardShortcuts(
     },
     off: (event: string, handler: (data: ShortcutEventData) => void) => {
       executor.off(event as 'shortcut', handler)
-    }
+    },
   }
 
   const listener = new KeyboardListenerImpl(
@@ -123,11 +129,14 @@ export function createKeyboardShortcuts(
       : []
   }
 
-  const applyCustomShortcuts = (commands: Command[], customShortcuts?: Record<string, Shortcut>): Command[] => {
+  const applyCustomShortcuts = (
+    commands: Command[],
+    customShortcuts?: Record<string, Shortcut>
+  ): Command[] => {
     if (!customShortcuts) {
       return commands
     }
-    return commands.map(cmd => {
+    return commands.map((cmd) => {
       const custom = customShortcuts[cmd.id]
       if (!custom) {
         return cmd
@@ -140,7 +149,10 @@ export function createKeyboardShortcuts(
     })
   }
 
-  const applyUserConfig = (config: { customShortcuts?: Record<string, Shortcut>; disabledCommands?: string[] }): void => {
+  const applyUserConfig = (config: {
+    customShortcuts?: Record<string, Shortcut>
+    disabledCommands?: string[]
+  }): void => {
     registry.clear()
     const baseCommands = buildDefaultCommands()
     const mergedCommands = applyCustomShortcuts(baseCommands, config.customShortcuts)
@@ -180,7 +192,7 @@ export function createKeyboardShortcuts(
     },
     get isActive() {
       return isActive.value
-    }
+    },
   }
 
   if (autoStart) {

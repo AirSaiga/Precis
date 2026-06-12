@@ -90,7 +90,10 @@
     // validateType 校验
     const validateType = props.field.validateType
     if (validateType && parsed.value !== '' && parsed.value !== undefined) {
-      if (validateType === 'object' && (typeof parsed.value !== 'object' || parsed.value === null || Array.isArray(parsed.value))) {
+      if (
+        validateType === 'object' &&
+        (typeof parsed.value !== 'object' || parsed.value === null || Array.isArray(parsed.value))
+      ) {
         errorText.value = '值必须是 JSON 对象'
         return
       }

@@ -75,7 +75,11 @@ describe('createV2LoadOps', () => {
     projectName = ref('')
     isProjectLoaded = ref(false)
     projectConfigStats = ref({
-      schemaCount: 0, constraintCount: 0, regexCount: 0, transformCount: 0, templateCount: 0,
+      schemaCount: 0,
+      constraintCount: 0,
+      regexCount: 0,
+      transformCount: 0,
+      templateCount: 0,
     })
     projectConfigStatsLoaded = ref(false)
     projectConfigStatsConfigPath = ref('')

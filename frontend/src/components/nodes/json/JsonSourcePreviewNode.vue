@@ -89,8 +89,12 @@
         </select>
       </div>
       <div v-if="typeStats" class="type-stats">
-        <span class="stat-item">{{ typeStats.fieldCount }} {{ t('customNodes.jsonSourcePreviewNode.fields') }}</span>
-        <span class="stat-item">{{ typeStats.nestDepth }} {{ t('customNodes.jsonSourcePreviewNode.nestDepth') }}</span>
+        <span class="stat-item"
+          >{{ typeStats.fieldCount }} {{ t('customNodes.jsonSourcePreviewNode.fields') }}</span
+        >
+        <span class="stat-item"
+          >{{ typeStats.nestDepth }} {{ t('customNodes.jsonSourcePreviewNode.nestDepth') }}</span
+        >
       </div>
     </div>
 
@@ -108,7 +112,9 @@
           :placeholder="t('customNodes.jsonSourcePreviewNode.jsonPathPlaceholder')"
           @change="handleConfigChange"
         />
-        <span v-if="jsonPathInvalid" class="input-error">{{ t('customNodes.jsonSourcePreviewNode.jsonPathError') }}</span>
+        <span v-if="jsonPathInvalid" class="input-error">{{
+          t('customNodes.jsonSourcePreviewNode.jsonPathError')
+        }}</span>
       </div>
       <div v-if="localData.format !== 'lines'" class="path-config-item">
         <label class="config-label">Record Path</label>
@@ -153,7 +159,10 @@
       </div>
 
       <!-- 类型不匹配警告 -->
-      <div v-if="localData.validationMismatches && localData.validationMismatches.length > 0" class="validation-warning">
+      <div
+        v-if="localData.validationMismatches && localData.validationMismatches.length > 0"
+        class="validation-warning"
+      >
         <span class="warning-icon">⚠️</span>
         <span class="warning-text">
           {{ localData.validationMismatches.length }} 个字段类型与 Schema 定义不匹配
@@ -170,8 +179,8 @@
             })
           }}
           <span v-if="typeStats" class="footer-stats">
-            · {{ typeStats.fieldCount }} {{ t('customNodes.jsonSourcePreviewNode.fields') }}
-            · {{ typeStats.nestDepth }} {{ t('customNodes.jsonSourcePreviewNode.nestDepth') }}
+            · {{ typeStats.fieldCount }} {{ t('customNodes.jsonSourcePreviewNode.fields') }} ·
+            {{ typeStats.nestDepth }} {{ t('customNodes.jsonSourcePreviewNode.nestDepth') }}
           </span>
         </div>
         <div
@@ -441,7 +450,11 @@
 
   const handleConfigChange = () => {
     // object 格式时自动校验 JSONPath
-    if (localData.value.format === 'object' && localData.value.jsonPath && !localData.value.jsonPath.trim().startsWith('$')) {
+    if (
+      localData.value.format === 'object' &&
+      localData.value.jsonPath &&
+      !localData.value.jsonPath.trim().startsWith('$')
+    ) {
       // 显示错误但不阻止保存配置
       logger.warn('[JsonSourcePreview] JSONPath 格式不正确，应以 "$" 开头')
     }

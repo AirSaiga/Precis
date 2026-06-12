@@ -17,6 +17,22 @@
     <!-- 面板头部 -->
     <div class="panel-header">
       <h3>
+        <svg
+          class="panel-header-icon"
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="3" y1="9" x2="21" y2="9"></line>
+          <line x1="9" y1="21" x2="9" y2="9"></line>
+        </svg>
         <!-- 根据折叠状态显示完整标题或缩写 -->
         <span v-if="!collapsed">{{ t('inspector.title') }}</span>
         <span v-else class="collapsed-text">{{ t('inspector.collapsedTitle') }}</span>
@@ -49,8 +65,28 @@
       <!-- 如果没有选中节点，显示占位提示 -->
       <div v-else class="placeholder">
         <div class="placeholder-content">
-          <div class="placeholder-icon">⬜</div>
-          <div class="placeholder-text">{{ t('inspector.placeholder') }}</div>
+          <div class="placeholder-icon">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 5v2m0 10v2M5 12h2m10 0h2"></path>
+              <circle cx="12" cy="12" r="3"></circle>
+              <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+              <path d="M3 17v2a2 2 0 0 0 2 2h2"></path>
+              <path d="M21 7V5a2 2 0 0 0-2-2h-2"></path>
+              <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+            </svg>
+          </div>
+          <div class="placeholder-title">{{ t('inspector.placeholder') }}</div>
+          <div class="placeholder-hint">{{ t('inspector.emptyHint') }}</div>
         </div>
       </div>
     </div>

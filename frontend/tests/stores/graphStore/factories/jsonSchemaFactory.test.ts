@@ -59,31 +59,43 @@ describe('jsonSchemaFactory', () => {
 
   describe('createJsonSourcePreviewNode', () => {
     it('返回有效的 nodeId', () => {
-      const id = factory.createJsonSourcePreviewNode('src1', { x: 0, y: 0 }, {
-        fileId: 'f1',
-        fileName: 'data.json',
-      })
+      const id = factory.createJsonSourcePreviewNode(
+        'src1',
+        { x: 0, y: 0 },
+        {
+          fileId: 'f1',
+          fileName: 'data.json',
+        }
+      )
       expect(typeof id).toBe('string')
       expect(id.length).toBeGreaterThan(0)
     })
 
     it('addNodes 被调用，传入节点包含正确的 type', () => {
-      factory.createJsonSourcePreviewNode('src1', { x: 0, y: 0 }, {
-        fileId: 'f1',
-        fileName: 'data.json',
-      })
+      factory.createJsonSourcePreviewNode(
+        'src1',
+        { x: 0, y: 0 },
+        {
+          fileId: 'f1',
+          fileName: 'data.json',
+        }
+      )
       expect(addNodes).toHaveBeenCalledTimes(1)
       const node = vi.mocked(addNodes).mock.calls[0][0]
       expect(node.type).toBe('jsonSourcePreview')
     })
 
     it('节点 data 包含正确的文件信息', () => {
-      factory.createJsonSourcePreviewNode('src1', { x: 0, y: 0 }, {
-        fileId: 'f1',
-        fileName: 'data.json',
-        sourceMode: 'localfile',
-        localPath: '/path/to/data.json',
-      })
+      factory.createJsonSourcePreviewNode(
+        'src1',
+        { x: 0, y: 0 },
+        {
+          fileId: 'f1',
+          fileName: 'data.json',
+          sourceMode: 'localfile',
+          localPath: '/path/to/data.json',
+        }
+      )
       const node = vi.mocked(addNodes).mock.calls[0][0]
       expect(node.data.configName).toBe('JsonSource_src1')
       expect(node.data.sourceName).toBe('src1')

@@ -9,11 +9,7 @@
  * 这是 TransformNode.vue 中 handleSave + 所有 generate*Output 函数的统一替代。
  */
 
-import type {
-  TransformNodeData,
-  ManualDataNodeData,
-  TransformOutputNodeData,
-} from '@/types/nodes'
+import type { TransformNodeData, ManualDataNodeData, TransformOutputNodeData } from '@/types/nodes'
 import { useGraphStore } from '@/stores/graphStore'
 import { useTransformOutputManager } from './useTransformOutputManager'
 import { ROW_CHANGING_TRANSFORMS } from './transformTypeRegistry'
@@ -139,7 +135,10 @@ export function useTransformSave() {
     }
 
     if (type === 'WeightedSum') {
-      const rows = computeWeightedSum(upstreamRows, (transformData.params?.weights as number[]) || [])
+      const rows = computeWeightedSum(
+        upstreamRows,
+        (transformData.params?.weights as number[]) || []
+      )
       const columns = resolveOutputColumns(transformData, 'weighted_sum')
       await createOutputNodes(nodeId, oldOutputIds, columns, [rows], basePosition)
       return
@@ -213,7 +212,10 @@ export function useTransformSave() {
         )
         break
       case 'CastType':
-        rows = computeCastType(upstreamRows, (transformData.params?.target_type as string) || 'string')
+        rows = computeCastType(
+          upstreamRows,
+          (transformData.params?.target_type as string) || 'string'
+        )
         break
       case 'Concat':
         rows = computeConcat(upstreamRows, {
@@ -224,8 +226,11 @@ export function useTransformSave() {
       case 'ConditionalAssign':
         rows = computeConditionalAssign(upstreamRows, {
           conditions:
-            (transformData.params?.conditions as Array<{ column: string; op: string; value: string }>) ||
-            [],
+            (transformData.params?.conditions as Array<{
+              column: string
+              op: string
+              value: string
+            }>) || [],
           logic: (transformData.params?.logic as string) || 'and',
           then_value: (transformData.params?.then_value as string) ?? '',
           else_value: (transformData.params?.else_value as string) ?? undefined,

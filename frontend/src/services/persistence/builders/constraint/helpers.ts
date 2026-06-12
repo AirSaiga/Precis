@@ -26,7 +26,10 @@ export function resolveSchemaAndColumnIdByName(
   const col = schemaData.columns.find((c) => c.columnName === columnName)
   if (!col) return null
 
-  const tableId = generateSchemaId(schemaData.sourceFilePath || schemaData.sourceFile || '', schemaData.sheetName)
+  const tableId = generateSchemaId(
+    schemaData.sourceFilePath || schemaData.sourceFile || '',
+    schemaData.sheetName
+  )
   return { tableId, columnId: col.id }
 }
 
@@ -43,7 +46,9 @@ export function normalizeSchemaId(
 /**
  * 安全获取 sourceRef
  */
-export function getSourceRef(data: Record<string, unknown>): { nodeId: string; columnId: string } | undefined {
+export function getSourceRef(
+  data: Record<string, unknown>
+): { nodeId: string; columnId: string } | undefined {
   const ref = data.sourceRef as { nodeId?: string; columnId?: string } | undefined
   if (ref?.nodeId && ref?.columnId) {
     return { nodeId: ref.nodeId, columnId: ref.columnId }

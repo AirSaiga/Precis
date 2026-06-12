@@ -10,7 +10,10 @@ import { normalizeSchemaId } from './helpers'
 export const conditionalBuilder: NodeBuilder<ConstraintFileV2> = {
   kind: 'constraint',
   matches: (node: CustomNode) => node.type === 'conditionalConstraint',
-  build({ node, nodes, schemaIdByNodeId }: BuilderContext): { consumed: boolean; file: ConstraintFileV2 } {
+  build({ node, nodes, schemaIdByNodeId }: BuilderContext): {
+    consumed: boolean
+    file: ConstraintFileV2
+  } {
     const d = (node.data || {}) as Record<string, unknown>
     const refs: Record<string, unknown> = {}
 
@@ -24,8 +27,12 @@ export const conditionalBuilder: NodeBuilder<ConstraintFileV2> = {
     if (schemaId) {
       refs.table_id = normalizeSchemaId(schemaId, schemaIdByNodeId) || schemaId
 
-      const schemaNode = nodes.find((n) => n.id === schemaId && (n.type === 'schema' || n.type === 'jsonSchema'))
-      const schemaData = schemaNode?.data as { columns?: Array<{ id: string; columnName: string }> } | undefined
+      const schemaNode = nodes.find(
+        (n) => n.id === schemaId && (n.type === 'schema' || n.type === 'jsonSchema')
+      )
+      const schemaData = schemaNode?.data as
+        | { columns?: Array<{ id: string; columnName: string }> }
+        | undefined
 
       const resolveColumnNameById = (colId?: string) =>
         schemaData?.columns?.find((c) => c.id === colId)?.columnName || ''

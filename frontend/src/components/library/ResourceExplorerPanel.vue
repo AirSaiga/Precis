@@ -106,7 +106,6 @@
     ]
     'project-config-dragstart': [event: DragEvent]
     'embedded-constraint-click': [schema: ResourceItem, ec: unknown]
-
   }>()
 
   const { t } = useI18n()

@@ -687,9 +687,9 @@
     let sourceNode: ReturnType<typeof store.nodes.find> | null = null
 
     if (schemaData.sourceNodeId) {
-      sourceNode = store.nodes.find(
-        (n) => n.id === schemaData.sourceNodeId && n.type === 'sourcePreview'
-      ) ?? null
+      sourceNode =
+        store.nodes.find((n) => n.id === schemaData.sourceNodeId && n.type === 'sourcePreview') ??
+        null
     }
 
     if (!sourceNode) {

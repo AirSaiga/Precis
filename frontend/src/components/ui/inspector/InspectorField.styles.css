@@ -1,19 +1,19 @@
 .inspector-field {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
 }
 
 /* 只读字段：横向布局 label左 value右 */
 .inspector-field.field-layout-row {
   flex-direction: row;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 12px;
 }
 
 .field-label {
   font-weight: 500;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--ui-text-muted);
   user-select: text;
   -webkit-user-select: text;
@@ -25,6 +25,7 @@
 .field-layout-row .field-label {
   flex-shrink: 0;
   width: 80px;
+  padding-top: 8px;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -33,9 +34,9 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 7px 10px;
+  padding: 8px 10px;
   background: var(--ui-bg-subtle);
-  border: 1px solid transparent;
+  border: 1px solid var(--ui-border-light);
   border-radius: var(--ui-radius-md);
   color: var(--ui-text);
   font-size: 13px;
@@ -45,11 +46,14 @@
   cursor: text;
   flex: 1;
   min-width: 0;
-  transition: background var(--ui-transition-fast);
+  transition:
+    background var(--ui-transition-fast),
+    border-color var(--ui-transition-fast);
 }
 
 .field-value:hover {
   background: var(--ui-bg-muted);
+  border-color: var(--ui-border);
 }
 
 .field-value.field-type-path {
@@ -66,7 +70,6 @@
 
 .field-value.field-placeholder {
   color: var(--ui-text-subtle);
-  font-style: italic;
 }
 
 .field-text {
@@ -90,12 +93,18 @@
   box-sizing: border-box;
   transition:
     border-color var(--ui-transition-fast),
-    box-shadow var(--ui-transition-fast);
+    box-shadow var(--ui-transition-fast),
+    background var(--ui-transition-fast);
+}
+
+.field-input:hover {
+  border-color: var(--ui-border-strong);
 }
 
 .field-input:focus {
   border-color: var(--ui-border-focus);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--ui-border-focus) 20%, transparent);
+  background: var(--ui-bg-elevated);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-border-focus) 15%, transparent);
 }
 
 .field-input::placeholder {
@@ -104,6 +113,10 @@
 
 .field-has-error .field-input {
   border-color: var(--ui-danger, #f44336);
+}
+
+.field-has-error .field-input:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-danger, #f44336) 15%, transparent);
 }
 
 .field-error {

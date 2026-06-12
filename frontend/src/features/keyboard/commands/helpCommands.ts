@@ -2,10 +2,10 @@
  * @file helpCommands.ts
  * @description 帮助快捷键命令定义
  */
- 
+
 import type { Command } from '../types'
 import { useSettingsStore } from '@/stores/settingsStore'
- 
+
 /**
  * 创建“显示快捷键”命令：打开设置面板并定位到快捷键页
  */
@@ -26,7 +26,7 @@ export function createShowShortcutsCommand(): Command {
     },
   }
 }
- 
+
 /**
  * 获取帮助相关命令列表
  */

@@ -211,7 +211,12 @@ export const highlightChanges = (
 ): string => {
   if (!content) return ''
   const escapeHtml = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+    s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
   const escaped = escapeHtml(content)
   if (!changes || changes.length === 0) return escaped
 

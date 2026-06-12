@@ -68,13 +68,16 @@
 
   let ignoreWatch = false
 
-  watch(() => props.value, (v) => {
-    if (ignoreWatch) {
-      ignoreWatch = false
-      return
+  watch(
+    () => props.value,
+    (v) => {
+      if (ignoreWatch) {
+        ignoreWatch = false
+        return
+      }
+      pairs.value = valueToList(v)
     }
-    pairs.value = valueToList(v)
-  })
+  )
 
   function toObject(list: Pair[]): Record<string, string> {
     const obj: Record<string, string> = {}

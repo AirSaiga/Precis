@@ -86,9 +86,7 @@ export const useInspectionStore = defineStore('inspection', () => {
   })
 
   /** 是否有未解决的 blocker（用于自动展开抽屉） */
-  const hasBlocker = computed(() =>
-    unresolvedIssues.value.some((i) => i.severity === 'blocker')
-  )
+  const hasBlocker = computed(() => unresolvedIssues.value.some((i) => i.severity === 'blocker'))
 
   // === 动作 ===
   /**
@@ -110,8 +108,7 @@ export const useInspectionStore = defineStore('inspection', () => {
   ): void {
     currentResult.value = result
     const shouldOpen =
-      options.autoOpen === true ||
-      (options.autoOpen === 'if-blocker' && hasBlocker.value)
+      options.autoOpen === true || (options.autoOpen === 'if-blocker' && hasBlocker.value)
     if (shouldOpen) drawerVisible.value = true
   }
 

@@ -78,13 +78,16 @@ function makeImportInput(overrides: Partial<BuildInput> = {}): BuildInput {
 
 describe('Round-Trip - Charset', () => {
   it('standalone 保存保留 allowedChars 和 disallowedChars', () => {
-    const nodes = [makeSchemaNode(), makeConstraintNode('charsetConstraint', {
-      configName: '字符集校验',
-      sourceRef: { nodeId: 'schema-1', columnId: 'col-status' },
-      charsetMode: 'custom',
-      allowedChars: '0123456789',
-      disallowedChars: 'abcdef',
-    })]
+    const nodes = [
+      makeSchemaNode(),
+      makeConstraintNode('charsetConstraint', {
+        configName: '字符集校验',
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-status' },
+        charsetMode: 'custom',
+        allowedChars: '0123456789',
+        disallowedChars: 'abcdef',
+      }),
+    ]
 
     const { refs, params } = buildConstraintExportPayload({
       nodes,
@@ -100,10 +103,13 @@ describe('Round-Trip - Charset', () => {
     expect(params.disallowed_chars).toBe('abcdef')
 
     // Round-trip: 用 params 重新构建节点数据
-    const imported = buildNodeData('charset', makeImportInput({
-      nodeType: 'charsetConstraint',
-      params,
-    }))
+    const imported = buildNodeData(
+      'charset',
+      makeImportInput({
+        nodeType: 'charsetConstraint',
+        params,
+      })
+    )
 
     expect(imported.nodeData.allowedChars).toBe('0123456789')
     expect(imported.nodeData.disallowedChars).toBe('abcdef')
@@ -117,13 +123,16 @@ describe('Round-Trip - Charset', () => {
 
 describe('Round-Trip - Range', () => {
   it('standalone 保存保留 boundary_mode=exclusive', () => {
-    const nodes = [makeSchemaNode(), makeConstraintNode('rangeConstraint', {
-      configName: '年龄范围',
-      sourceRef: { nodeId: 'schema-1', columnId: 'col-age' },
-      minValue: 0,
-      maxValue: 150,
-      boundaryMode: 'exclusive',
-    })]
+    const nodes = [
+      makeSchemaNode(),
+      makeConstraintNode('rangeConstraint', {
+        configName: '年龄范围',
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-age' },
+        minValue: 0,
+        maxValue: 150,
+        boundaryMode: 'exclusive',
+      }),
+    ]
 
     const { refs, params } = buildConstraintExportPayload({
       nodes,
@@ -137,10 +146,13 @@ describe('Round-Trip - Range', () => {
     expect(params.max).toBe(150)
     expect(params.boundary_mode).toBe('exclusive')
 
-    const imported = buildNodeData('range', makeImportInput({
-      nodeType: 'rangeConstraint',
-      params,
-    }))
+    const imported = buildNodeData(
+      'range',
+      makeImportInput({
+        nodeType: 'rangeConstraint',
+        params,
+      })
+    )
 
     expect(imported.nodeData.minValue).toBe(0)
     expect(imported.nodeData.maxValue).toBe(150)
@@ -148,10 +160,13 @@ describe('Round-Trip - Range', () => {
   })
 
   it('boundary_mode 默认值 inclusive', () => {
-    const imported = buildNodeData('range', makeImportInput({
-      nodeType: 'rangeConstraint',
-      params: { min: 0, max: 100 },
-    }))
+    const imported = buildNodeData(
+      'range',
+      makeImportInput({
+        nodeType: 'rangeConstraint',
+        params: { min: 0, max: 100 },
+      })
+    )
 
     expect(imported.nodeData.boundaryMode).toBe('inclusive')
   })
@@ -213,20 +228,27 @@ describe('Round-Trip - Conditional', () => {
 
     // Round-trip: 用导出结果重新 import
     // 模拟 embeddedConstraints.ts 的构建逻辑：从 params 读取 if_conditions
-    const imported = buildNodeData('conditional', makeImportInput({
-      nodeType: 'conditionalConstraint',
-      ifLogic: String(params.if_logic || refs.if_logic),
-      ifConditions: (refs.if_conditions as any[] || []).map((c: any) => ({
-        operator: c.operator,
-        value: c.value,
-        values: c.values,
-        columnId: c.if_column_id,
-        columnName: '',
-      })),
-      thenRef: { nodeId: 'schema-1', columnId: refs.then_column_id as string, columnName: 'amount' },
-      thenConditionConfig: params.then_condition,
-      params,
-    }))
+    const imported = buildNodeData(
+      'conditional',
+      makeImportInput({
+        nodeType: 'conditionalConstraint',
+        ifLogic: String(params.if_logic || refs.if_logic),
+        ifConditions: ((refs.if_conditions as any[]) || []).map((c: any) => ({
+          operator: c.operator,
+          value: c.value,
+          values: c.values,
+          columnId: c.if_column_id,
+          columnName: '',
+        })),
+        thenRef: {
+          nodeId: 'schema-1',
+          columnId: refs.then_column_id as string,
+          columnName: 'amount',
+        },
+        thenConditionConfig: params.then_condition,
+        params,
+      })
+    )
 
     expect(imported.nodeData.ifLogic).toBe('and')
     expect(imported.nodeData.ifConditions).toHaveLength(2)
@@ -278,20 +300,26 @@ describe('Round-Trip - Composite', () => {
     expect(params.sub_constraints![1].id).toBe('c-sub-2')
 
     // Round-trip
-    const imported = buildNodeData('composite', makeImportInput({
-      nodeType: 'compositeConstraint',
-      params,
-    }))
+    const imported = buildNodeData(
+      'composite',
+      makeImportInput({
+        nodeType: 'compositeConstraint',
+        params,
+      })
+    )
 
     expect(imported.nodeData.logic).toBe('all')
     expect(imported.nodeData.includedNodeIds).toEqual(['c-sub-1', 'c-sub-2'])
   })
 
   it('sub_constraints 为空时 includedNodeIds 为空数组', () => {
-    const imported = buildNodeData('composite', makeImportInput({
-      nodeType: 'compositeConstraint',
-      params: { logic: 'any' },
-    }))
+    const imported = buildNodeData(
+      'composite',
+      makeImportInput({
+        nodeType: 'compositeConstraint',
+        params: { logic: 'any' },
+      })
+    )
 
     expect(imported.nodeData.logic).toBe('any')
     expect(imported.nodeData.includedNodeIds).toEqual([])
@@ -304,10 +332,13 @@ describe('Round-Trip - Composite', () => {
 
 describe('Round-Trip - NotNull', () => {
   it('standalone 保存保留基本引用', () => {
-    const nodes = [makeSchemaNode(), makeConstraintNode('notNullConstraint', {
-      configName: '邮箱非空',
-      sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
-    })]
+    const nodes = [
+      makeSchemaNode(),
+      makeConstraintNode('notNullConstraint', {
+        configName: '邮箱非空',
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+      }),
+    ]
 
     const { refs, params } = buildConstraintExportPayload({
       nodes,
@@ -321,10 +352,13 @@ describe('Round-Trip - NotNull', () => {
     expect(refs.column_id).toBe('col-email')
     expect(Object.keys(params)).toHaveLength(0)
 
-    const imported = buildNodeData('notNull', makeImportInput({
-      nodeType: 'notNullConstraint',
-      params,
-    }))
+    const imported = buildNodeData(
+      'notNull',
+      makeImportInput({
+        nodeType: 'notNullConstraint',
+        params,
+      })
+    )
 
     expect(imported.nodeData.configName).toBe('test-constraint')
     expect(imported.nodeData.table).toBe('users')
@@ -337,10 +371,13 @@ describe('Round-Trip - NotNull', () => {
 
 describe('Round-Trip - Unique', () => {
   it('standalone 保存使用 column_ids 数组', () => {
-    const nodes = [makeSchemaNode(), makeConstraintNode('uniqueConstraint', {
-      configName: '邮箱唯一',
-      sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
-    })]
+    const nodes = [
+      makeSchemaNode(),
+      makeConstraintNode('uniqueConstraint', {
+        configName: '邮箱唯一',
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+      }),
+    ]
 
     const { refs, params } = buildConstraintExportPayload({
       nodes,
@@ -355,10 +392,13 @@ describe('Round-Trip - Unique', () => {
     expect(Object.keys(params)).toHaveLength(0)
 
     // Unique 导入时 params 为空，round-trip 主要验证 refs 结构正确
-    const imported = buildNodeData('unique', makeImportInput({
-      nodeType: 'uniqueConstraint',
-      params,
-    }))
+    const imported = buildNodeData(
+      'unique',
+      makeImportInput({
+        nodeType: 'uniqueConstraint',
+        params,
+      })
+    )
 
     expect(imported.nodeData.configName).toBe('test-constraint')
   })
@@ -370,11 +410,14 @@ describe('Round-Trip - Unique', () => {
 
 describe('Round-Trip - AllowedValues', () => {
   it('standalone 保存保留 allowed_values', () => {
-    const nodes = [makeSchemaNode(), makeConstraintNode('allowedValuesConstraint', {
-      configName: '状态枚举',
-      sourceRef: { nodeId: 'schema-1', columnId: 'col-status' },
-      allowedValues: ['active', 'inactive', 'pending'],
-    })]
+    const nodes = [
+      makeSchemaNode(),
+      makeConstraintNode('allowedValuesConstraint', {
+        configName: '状态枚举',
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-status' },
+        allowedValues: ['active', 'inactive', 'pending'],
+      }),
+    ]
 
     const { refs, params } = buildConstraintExportPayload({
       nodes,
@@ -388,10 +431,13 @@ describe('Round-Trip - AllowedValues', () => {
     expect(refs.column_id).toBe('col-status')
     expect(params.allowed_values).toEqual(['active', 'inactive', 'pending'])
 
-    const imported = buildNodeData('allowedValues', makeImportInput({
-      nodeType: 'allowedValuesConstraint',
-      params,
-    }))
+    const imported = buildNodeData(
+      'allowedValues',
+      makeImportInput({
+        nodeType: 'allowedValuesConstraint',
+        params,
+      })
+    )
 
     expect(imported.nodeData.allowedValues).toEqual(['active', 'inactive', 'pending'])
   })
@@ -448,12 +494,15 @@ describe('Round-Trip - ForeignKey', () => {
 
 describe('Round-Trip - Scripted', () => {
   it('standalone 保存保留 name 和 expression', () => {
-    const nodes = [makeSchemaNode(), makeConstraintNode('scriptedConstraint', {
-      configName: '自定义脚本',
-      sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
-      script: 'return value.includes("@")',
-      constraintName: 'check_email_format',
-    })]
+    const nodes = [
+      makeSchemaNode(),
+      makeConstraintNode('scriptedConstraint', {
+        configName: '自定义脚本',
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+        script: 'return value.includes("@")',
+        constraintName: 'check_email_format',
+      }),
+    ]
 
     const { refs, params } = buildConstraintExportPayload({
       nodes,
@@ -468,10 +517,13 @@ describe('Round-Trip - Scripted', () => {
     expect(params.name).toBe('check_email_format')
     expect(params.expression).toBe('return value.includes("@")')
 
-    const imported = buildNodeData('scripted', makeImportInput({
-      nodeType: 'scriptedConstraint',
-      params,
-    }))
+    const imported = buildNodeData(
+      'scripted',
+      makeImportInput({
+        nodeType: 'scriptedConstraint',
+        params,
+      })
+    )
 
     expect(imported.nodeData.script).toBe('return value.includes("@")')
     expect(imported.nodeData.constraintName).toBe('check_email_format')
@@ -484,14 +536,17 @@ describe('Round-Trip - Scripted', () => {
 
 describe('Round-Trip - DateLogic', () => {
   it('standalone 保存保留 compare 模式参数', () => {
-    const nodes = [makeSchemaNode(), makeConstraintNode('dateLogicConstraint', {
-      configName: '日期比较',
-      sourceRef: { nodeId: 'schema-1', columnId: 'col-age' },
-      logicMode: 'compare',
-      compareOp: 'gt',
-      referenceDate: '2024-01-01',
-      referenceColumn: '',
-    })]
+    const nodes = [
+      makeSchemaNode(),
+      makeConstraintNode('dateLogicConstraint', {
+        configName: '日期比较',
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-age' },
+        logicMode: 'compare',
+        compareOp: 'gt',
+        referenceDate: '2024-01-01',
+        referenceColumn: '',
+      }),
+    ]
 
     const { refs, params } = buildConstraintExportPayload({
       nodes,
@@ -507,10 +562,13 @@ describe('Round-Trip - DateLogic', () => {
     expect(params.compare_op).toBe('gt')
     expect(params.reference_date).toBe('2024-01-01')
 
-    const imported = buildNodeData('dateLogic', makeImportInput({
-      nodeType: 'dateLogicConstraint',
-      params,
-    }))
+    const imported = buildNodeData(
+      'dateLogic',
+      makeImportInput({
+        nodeType: 'dateLogicConstraint',
+        params,
+      })
+    )
 
     expect(imported.nodeData.logicMode).toBe('compare')
     expect(imported.nodeData.compareOp).toBe('gt')
@@ -518,14 +576,17 @@ describe('Round-Trip - DateLogic', () => {
   })
 
   it('standalone 保存保留 calculation 模式参数', () => {
-    const nodes = [makeSchemaNode(), makeConstraintNode('dateLogicConstraint', {
-      configName: '年龄计算',
-      sourceRef: { nodeId: 'schema-1', columnId: 'col-age' },
-      logicMode: 'calculation',
-      calculationType: 'age',
-      targetValue: '18',
-      targetColumn: '',
-    })]
+    const nodes = [
+      makeSchemaNode(),
+      makeConstraintNode('dateLogicConstraint', {
+        configName: '年龄计算',
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-age' },
+        logicMode: 'calculation',
+        calculationType: 'age',
+        targetValue: '18',
+        targetColumn: '',
+      }),
+    ]
 
     const { refs, params } = buildConstraintExportPayload({
       nodes,
@@ -539,10 +600,13 @@ describe('Round-Trip - DateLogic', () => {
     expect(params.calculation_type).toBe('age')
     expect(params.target_value).toBe('18')
 
-    const imported = buildNodeData('dateLogic', makeImportInput({
-      nodeType: 'dateLogicConstraint',
-      params,
-    }))
+    const imported = buildNodeData(
+      'dateLogic',
+      makeImportInput({
+        nodeType: 'dateLogicConstraint',
+        params,
+      })
+    )
 
     expect(imported.nodeData.logicMode).toBe('calculation')
     expect(imported.nodeData.calculationType).toBe('age')
@@ -571,8 +635,24 @@ describe('Round-Trip - JsonSchema', () => {
         jsonPath: '$.users',
         recordPath: '$.users[*]',
         columns: [
-          { id: 'col-name', columnName: 'name', dataType: 'string', primaryKey: false, nullable: true, isExpanded: false, jsonPath: 'name' },
-          { id: 'col-age', columnName: 'age', dataType: 'number', primaryKey: false, nullable: true, isExpanded: false, jsonPath: 'age' },
+          {
+            id: 'col-name',
+            columnName: 'name',
+            dataType: 'string',
+            primaryKey: false,
+            nullable: true,
+            isExpanded: false,
+            jsonPath: 'name',
+          },
+          {
+            id: 'col-age',
+            columnName: 'age',
+            dataType: 'number',
+            primaryKey: false,
+            nullable: true,
+            isExpanded: false,
+            jsonPath: 'age',
+          },
         ],
       } as any,
       position: { x: 0, y: 0 },
@@ -614,7 +694,8 @@ describe('Round-Trip - TemplateInstance', () => {
     } as CustomNode
 
     // 测试新 builder（templateInstance 无旧 builder 导出）
-    const { templateInstanceBuilder } = await import('@/services/persistence/builders/templateInstanceBuilder')
+    const { templateInstanceBuilder } =
+      await import('@/services/persistence/builders/templateInstanceBuilder')
     const { file } = templateInstanceBuilder.build({
       nodes: [node],
       node,

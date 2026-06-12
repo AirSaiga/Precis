@@ -264,7 +264,8 @@ export class NodeDeletionManager {
       await onBeforeDelete(nodeId, strategyType)
     }
 
-    const strategy = this.deletionStrategies.get(strategyType) || this.deletionStrategies.get('default')!
+    const strategy =
+      this.deletionStrategies.get(strategyType) || this.deletionStrategies.get('default')!
     await strategy(nodeId)
 
     this.graphStore.deleteNode(nodeId)

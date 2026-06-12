@@ -86,7 +86,13 @@ function makeSchemaNode(overrides: Partial<CustomNode> = {}): CustomNode {
       tableName: 'users',
       sheetName: 'Sheet1',
       columns: [
-        { id: 'c1', columnName: 'email', dataType: 'String', validationErrors: [], constraints: { notNull: true } },
+        {
+          id: 'c1',
+          columnName: 'email',
+          dataType: 'String',
+          validationErrors: [],
+          constraints: { notNull: true },
+        },
         { id: 'c2', columnName: 'age', dataType: 'Integer', validationErrors: [] },
       ],
       saveState: 'saved',
@@ -155,7 +161,11 @@ describe('yamlIO module', () => {
 
     it('NotNull 约束序列化正确', () => {
       nodes.value = [
-        makeConstraintNode('notNullConstraint', { table: 'users', column: 'email', constraintName: 'nn_email' }),
+        makeConstraintNode('notNullConstraint', {
+          table: 'users',
+          column: 'email',
+          constraintName: 'nn_email',
+        }),
       ]
       const yaml = module.buildProjectYAML()
       expect(yaml).toContain('type: notNull')
@@ -165,9 +175,7 @@ describe('yamlIO module', () => {
     })
 
     it('Unique 约束序列化正确', () => {
-      nodes.value = [
-        makeConstraintNode('uniqueConstraint', { table: 'users', column: 'email' }),
-      ]
+      nodes.value = [makeConstraintNode('uniqueConstraint', { table: 'users', column: 'email' })]
       const yaml = module.buildProjectYAML()
       expect(yaml).toContain('type: unique')
       expect(yaml).toContain('table: users')

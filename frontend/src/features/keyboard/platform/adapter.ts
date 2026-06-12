@@ -89,9 +89,8 @@ export function formatShortcut(shortcut: Shortcut, shortFormat = false): string 
     parts.push(platformDetector.isMac() ? '⇧' : 'Shift')
   }
 
-  const key = shortcut.key.length === 1
-    ? shortcut.key.toUpperCase()
-    : getKeyDisplayName(shortcut.key)
+  const key =
+    shortcut.key.length === 1 ? shortcut.key.toUpperCase() : getKeyDisplayName(shortcut.key)
 
   parts.push(shortFormat ? key.toUpperCase() : key)
 
@@ -107,32 +106,32 @@ export function formatShortcut(shortcut: Shortcut, shortFormat = false): string 
 export function getKeyDisplayName(key: string): string {
   const displayNames: Record<string, string> = {
     ' ': 'Space',
-    'Escape': 'Esc',
-    'Enter': 'Enter',
-    'Tab': 'Tab',
-    'ArrowUp': '↑',
-    'ArrowDown': '↓',
-    'ArrowLeft': '←',
-    'ArrowRight': '→',
-    'Home': 'Home',
-    'End': 'End',
-    'PageUp': 'PageUp',
-    'PageDown': 'PageDown',
-    'Insert': 'Ins',
-    'Delete': 'Del',
-    'Backspace': 'Backspace',
-    'F1': 'F1',
-    'F2': 'F2',
-    'F3': 'F3',
-    'F4': 'F4',
-    'F5': 'F5',
-    'F6': 'F6',
-    'F7': 'F7',
-    'F8': 'F8',
-    'F9': 'F9',
-    'F10': 'F10',
-    'F11': 'F11',
-    'F12': 'F12'
+    Escape: 'Esc',
+    Enter: 'Enter',
+    Tab: 'Tab',
+    ArrowUp: '↑',
+    ArrowDown: '↓',
+    ArrowLeft: '←',
+    ArrowRight: '→',
+    Home: 'Home',
+    End: 'End',
+    PageUp: 'PageUp',
+    PageDown: 'PageDown',
+    Insert: 'Ins',
+    Delete: 'Del',
+    Backspace: 'Backspace',
+    F1: 'F1',
+    F2: 'F2',
+    F3: 'F3',
+    F4: 'F4',
+    F5: 'F5',
+    F6: 'F6',
+    F7: 'F7',
+    F8: 'F8',
+    F9: 'F9',
+    F10: 'F10',
+    F11: 'F11',
+    F12: 'F12',
   }
 
   return displayNames[key] || key
@@ -153,10 +152,10 @@ export function parseShortcut(combo: string): Shortcut {
     ctrl: false,
     meta: false,
     shift: false,
-    alt: false
+    alt: false,
   }
 
-  const parts = combo.split(/[\s\+]+/).filter(part => part.length > 0)
+  const parts = combo.split(/[\s\+]+/).filter((part) => part.length > 0)
 
   for (const part of parts) {
     const lowerPart = part.toLowerCase()
@@ -205,26 +204,26 @@ export function parseShortcut(combo: string): Shortcut {
  */
 export function getOriginalKey(displayName: string): string {
   const keyMap: Record<string, string> = {
-    'SPACE': ' ',
-    'SP': ' ',
-    'ESC': 'Escape',
-    'ESCAPE': 'Escape',
-    'ENTER': 'Enter',
-    'TAB': 'Tab',
-    'UP': 'ArrowUp',
-    'DOWN': 'ArrowDown',
-    'LEFT': 'ArrowLeft',
-    'RIGHT': 'ArrowRight',
-    'HOME': 'Home',
-    'END': 'End',
-    'PAGEUP': 'PageUp',
-    'PAGEDOWN': 'PageDown',
-    'INS': 'Insert',
-    'INSERT': 'Insert',
-    'DEL': 'Delete',
-    'DELETE': 'Delete',
-    'BACKSPACE': 'Backspace',
-    'BS': 'Backspace'
+    SPACE: ' ',
+    SP: ' ',
+    ESC: 'Escape',
+    ESCAPE: 'Escape',
+    ENTER: 'Enter',
+    TAB: 'Tab',
+    UP: 'ArrowUp',
+    DOWN: 'ArrowDown',
+    LEFT: 'ArrowLeft',
+    RIGHT: 'ArrowRight',
+    HOME: 'Home',
+    END: 'End',
+    PAGEUP: 'PageUp',
+    PAGEDOWN: 'PageDown',
+    INS: 'Insert',
+    INSERT: 'Insert',
+    DEL: 'Delete',
+    DELETE: 'Delete',
+    BACKSPACE: 'Backspace',
+    BS: 'Backspace',
   }
 
   return keyMap[displayName.toUpperCase()] || displayName
@@ -238,11 +237,13 @@ export function getOriginalKey(displayName: string): string {
  * @returns 是否相同
  */
 export function compareShortcuts(a: Shortcut, b: Shortcut): boolean {
-  return a.key.toLowerCase() === b.key.toLowerCase() &&
+  return (
+    a.key.toLowerCase() === b.key.toLowerCase() &&
     a.ctrl === b.ctrl &&
     a.meta === b.meta &&
     a.shift === b.shift &&
     a.alt === b.alt
+  )
 }
 
 /**
@@ -281,7 +282,7 @@ export const platformAdapter = {
   parseShortcut,
   getOriginalKey,
   compareShortcuts,
-  matchesShortcut
+  matchesShortcut,
 }
 
 export default platformAdapter

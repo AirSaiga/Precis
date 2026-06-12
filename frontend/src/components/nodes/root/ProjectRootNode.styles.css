@@ -154,7 +154,8 @@
   color: var(--ui-text-body);
   margin-bottom: 10px;
   padding: 8px 0;
-  border-bottom: 1px solid color-mix(in srgb, var(--node-special-project-accent) 10%, var(--ui-border-subtle));
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--node-special-project-accent) 10%, var(--ui-border-subtle));
 }
 
 .summary-item {

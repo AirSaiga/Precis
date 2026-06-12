@@ -3,7 +3,7 @@
  * @description 主题管理组合式函数
  *
  * 响应式监听用户设置的主题偏好，并应用到 UI。
- * 支持 'light'、'dark'、'system' 三种模式。
+ * 支持 'light'、'dark'、'system'、'liquid' 四种模式。
  *
  * 功能概述：
  * - 监听 settingsStore.generalSettings.theme 变化
@@ -24,7 +24,7 @@ import { useSettingsStore } from '@/stores/settingsStore'
  * 主题管理组合式函数
  *
  * 响应式监听用户设置的主题偏好，并应用到 UI。
- * 支持 'light'、'dark'、'system' 三种模式。
+ * 支持 'light'、'dark'、'system'、'liquid' 四种模式。
  *
  * 当主题为 'system' 时，会额外监听操作系统主题变化事件，实现自动切换。
  * 组件卸载时自动清理事件监听器，避免内存泄漏。

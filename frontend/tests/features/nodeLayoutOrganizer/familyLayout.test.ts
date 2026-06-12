@@ -144,9 +144,7 @@ describe('calculateBoundsFromPositions', () => {
   })
 
   it('adds padding around the bounding box', () => {
-    const positions = new Map<string, { x: number; y: number }>([
-      ['a', { x: 0, y: 0 }],
-    ])
+    const positions = new Map<string, { x: number; y: number }>([['a', { x: 0, y: 0 }]])
     const dims = new Map<string, NodeDimension>([['a', defaultDim]])
     const result = calculateBoundsFromPositions(['a'], positions, dims, new Map(), 10)
     expect(result).toEqual({
@@ -158,9 +156,7 @@ describe('calculateBoundsFromPositions', () => {
   })
 
   it('falls back to default dim when dim not provided', () => {
-    const positions = new Map<string, { x: number; y: number }>([
-      ['a', { x: 0, y: 0 }],
-    ])
+    const positions = new Map<string, { x: number; y: number }>([['a', { x: 0, y: 0 }]])
     const result = calculateBoundsFromPositions(['a'], positions, new Map(), new Map(), 0)
     expect(result?.width).toBeGreaterThan(0)
   })

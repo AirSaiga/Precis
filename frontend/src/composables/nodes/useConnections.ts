@@ -614,7 +614,7 @@ export function useConnections() {
         const targetColumnId = targetHandle.replace('source-right-', '')
         const targetSchemaData = targetNode.data as SchemaNodeData
         const targetColumn = targetSchemaData?.columns?.find((c) => c.id === targetColumnId)
-        
+
         if (targetColumn) {
           foreignKeyConnection.handleForeignKeyToSchemaColumnConnection(
             sourceNode.id,

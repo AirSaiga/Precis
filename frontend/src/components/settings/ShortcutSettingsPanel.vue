@@ -31,7 +31,11 @@
         <div class="settings-row__desc"></div>
         <div class="settings-row__control">
           <label class="settings-switch">
-            <input v-model="shortcutStore.showFeedback" type="checkbox" class="settings-switch__input" />
+            <input
+              v-model="shortcutStore.showFeedback"
+              type="checkbox"
+              class="settings-switch__input"
+            />
             <span class="settings-switch__track"></span>
           </label>
         </div>
@@ -41,7 +45,12 @@
     <!-- 搜索与重置 -->
     <div class="settings-row">
       <div class="settings-row__control settings-row__control--wide">
-        <input v-model="searchQuery" class="settings-input" type="text" :placeholder="t('shortcuts.settings.searchPlaceholder')" />
+        <input
+          v-model="searchQuery"
+          class="settings-input"
+          type="text"
+          :placeholder="t('shortcuts.settings.searchPlaceholder')"
+        />
       </div>
       <div class="settings-row__control">
         <button class="ui-btn ui-btn--ghost ui-btn--sm" type="button" @click="handleResetAll">
@@ -62,20 +71,38 @@
         </div>
         <div class="settings-list">
           <div v-for="cmd in group.commands" :key="cmd.id" class="settings-list__item">
-            <div style="font-size: var(--ui-font-size-sm); font-weight: var(--ui-font-weight-medium); color: var(--ui-text-body); flex: 1; min-width: 0">
+            <div
+              style="
+                font-size: var(--ui-font-size-sm);
+                font-weight: var(--ui-font-weight-medium);
+                color: var(--ui-text-body);
+                flex: 1;
+                min-width: 0;
+              "
+            >
               {{ getCommandLabel(cmd) }}
             </div>
 
             <div style="display: flex; align-items: center; gap: var(--ui-space-sm)">
               <span
                 class="settings-code"
-                :class="{ 'settings-pill--danger': (conflictMap[getCommandKeyCombo(cmd)] ?? 0) > 1 }"
-                :style="isCommandDisabled(cmd.id) ? 'opacity: 0.4; text-decoration: line-through' : ''"
+                :class="{
+                  'settings-pill--danger': (conflictMap[getCommandKeyCombo(cmd)] ?? 0) > 1,
+                }"
+                :style="
+                  isCommandDisabled(cmd.id) ? 'opacity: 0.4; text-decoration: line-through' : ''
+                "
               >
                 {{ formatShortcutForDisplay(getEffectiveShortcut(cmd)) }}
               </span>
-              <span v-if="isCustom(cmd.id)" class="settings-pill settings-pill--info">{{ t('shortcuts.tips.custom') }}</span>
-              <span v-if="(conflictMap[getCommandKeyCombo(cmd)] ?? 0) > 1" class="settings-pill settings-pill--danger">{{ t('shortcuts.tips.conflict') }}</span>
+              <span v-if="isCustom(cmd.id)" class="settings-pill settings-pill--info">{{
+                t('shortcuts.tips.custom')
+              }}</span>
+              <span
+                v-if="(conflictMap[getCommandKeyCombo(cmd)] ?? 0) > 1"
+                class="settings-pill settings-pill--danger"
+                >{{ t('shortcuts.tips.conflict') }}</span
+              >
             </div>
 
             <div style="display: flex; align-items: center; gap: var(--ui-space-sm)">
@@ -109,23 +136,45 @@
             </div>
 
             <!-- 捕获编辑器 -->
-            <div v-if="editingCommandId === cmd.id" class="settings-alert settings-alert--info" style="width: 100%; margin-top: var(--ui-space-sm)">
+            <div
+              v-if="editingCommandId === cmd.id"
+              class="settings-alert settings-alert--info"
+              style="width: 100%; margin-top: var(--ui-space-sm)"
+            >
               <span class="settings-alert__icon">⌨️</span>
               <div class="settings-alert__content" style="flex: 1">
                 <div class="settings-alert__title">{{ capturePreview }}</div>
-                <div v-if="captureConflictWith" class="settings-alert__text" style="color: var(--ui-danger)">
+                <div
+                  v-if="captureConflictWith"
+                  class="settings-alert__text"
+                  style="color: var(--ui-danger)"
+                >
                   {{ t('shortcuts.tips.conflict') }}: {{ captureConflictWith }}
                 </div>
                 <div style="display: flex; gap: var(--ui-space-sm); margin-top: var(--ui-space-sm)">
-                  <button class="ui-btn ui-btn--primary ui-btn--sm" type="button" :disabled="!canSaveCapture" @click="saveCapture">
+                  <button
+                    class="ui-btn ui-btn--primary ui-btn--sm"
+                    type="button"
+                    :disabled="!canSaveCapture"
+                    @click="saveCapture"
+                  >
                     {{ t('common.save') }}
                   </button>
-                  <button class="ui-btn ui-btn--ghost ui-btn--sm" type="button" @click="cancelCapture">
+                  <button
+                    class="ui-btn ui-btn--ghost ui-btn--sm"
+                    type="button"
+                    @click="cancelCapture"
+                  >
                     {{ t('common.cancel') }}
                   </button>
                 </div>
               </div>
-              <input ref="captureInput" type="text" style="position: absolute; opacity: 0; width: 0; height: 0" @keydown.stop.prevent="handleCaptureKeydown" />
+              <input
+                ref="captureInput"
+                type="text"
+                style="position: absolute; opacity: 0; width: 0; height: 0"
+                @keydown.stop.prevent="handleCaptureKeydown"
+              />
             </div>
           </div>
         </div>

@@ -15,7 +15,7 @@
  * - 'explorer': 从资源浏览器/资源树拖拽
  * - 'input_staging': 从输入暂存区拖拽（如数据源导入面板）
  */
-export type DragSource = 'toolbox' | 'explorer' | 'input_staging';
+export type DragSource = 'toolbox' | 'explorer' | 'input_staging'
 
 /**
  * 拖拽操作类型。
@@ -27,7 +27,7 @@ export type DragSource = 'toolbox' | 'explorer' | 'input_staging';
  * - 'load_resource': 加载已有资源到画布
  * - 'bind_column': 绑定列（用于列与数据源的关联）
  */
-export type DragOperation = 'create_node' | 'load_resource' | 'bind_column';
+export type DragOperation = 'create_node' | 'load_resource' | 'bind_column'
 
 /**
  * 文件资源类型。
@@ -41,7 +41,12 @@ export type DragOperation = 'create_node' | 'load_resource' | 'bind_column';
  * - 'constraint': 约束规则资源
  * - 'external_data_source': 外部数据源资源
  */
-export type FileResourceType = 'schema' | 'pattern' | 'source' | 'constraint' | 'external_data_source';
+export type FileResourceType =
+  | 'schema'
+  | 'pattern'
+  | 'source'
+  | 'constraint'
+  | 'external_data_source'
 
 /**
  * 拖拽载荷数据结构。
@@ -50,26 +55,26 @@ export type FileResourceType = 'schema' | 'pattern' | 'source' | 'constraint' | 
  */
 export interface DragPayload {
   /** 拖拽操作类型，决定释放时的处理逻辑 */
-  op: DragOperation;
+  op: DragOperation
   /** 拖拽来源，标识拖拽操作的发起位置 */
-  source: DragSource;
+  source: DragSource
   /** 资源类型，标识被拖拽的资源种类 */
-  type: FileResourceType;
+  type: FileResourceType
   /** 元数据，包含资源的具体信息 */
   meta: {
     /** 文件路径（可选） */
-    filePath?: string;
+    filePath?: string
     /** 文件名称（可选） */
-    fileName?: string;
+    fileName?: string
     /** 文件类型（可选） */
-    fileType?: 'yaml' | 'xlsx' | 'csv' | 'json';
+    fileType?: 'yaml' | 'xlsx' | 'csv' | 'json'
     /** 默认标签，用于新节点的显示名称（可选） */
-    defaultLabel?: string;
+    defaultLabel?: string
     /** 是否为引用模式（可选） */
-    isRef?: boolean;
+    isRef?: boolean
     /** 初始配置对象，用于预填充节点数据（可选） */
-    initialConfig?: Record<string, unknown>;
-  };
+    initialConfig?: Record<string, unknown>
+  }
 }
 
 /**
@@ -79,16 +84,16 @@ export interface DragPayload {
  */
 export interface PatternDragPayload extends Omit<DragPayload, 'meta'> {
   /** 固定为 'pattern' */
-  type: 'pattern';
+  type: 'pattern'
   /** 模式元数据 */
   meta: {
     /** 模式名称 */
-    patternName: string;
+    patternName: string
     /** 模式类型 */
-    patternType: string;
+    patternType: string
     /** 模式内容（可选） */
-    patternContent?: string;
-  };
+    patternContent?: string
+  }
 }
 
 /**
@@ -98,14 +103,14 @@ export interface PatternDragPayload extends Omit<DragPayload, 'meta'> {
  */
 export interface SchemaDragPayload extends Omit<DragPayload, 'meta'> {
   /** 固定为 'schema' */
-  type: 'schema';
+  type: 'schema'
   /** Schema 元数据 */
   meta: {
     /** Schema 名称 */
-    schemaName: string;
+    schemaName: string
     /** Schema 配置对象（SchemaNodeData 类型将在 nodes.ts 中定义） */
-    schemaConfig: Record<string, unknown>;
-  };
+    schemaConfig: Record<string, unknown>
+  }
 }
 
 /**
@@ -115,19 +120,19 @@ export interface SchemaDragPayload extends Omit<DragPayload, 'meta'> {
  */
 export interface ExternalDataSourceDragPayload extends DragPayload {
   /** 固定为 'external_data_source' */
-  type: 'external_data_source';
+  type: 'external_data_source'
   /** 数据源唯一标识符 */
-  sourceId: string;
+  sourceId: string
   /** 数据源显示名称 */
-  name: string;
+  name: string
   /** 文件类型：excel、csv 或 json */
-  fileType: 'excel' | 'csv' | 'json';
+  fileType: 'excel' | 'csv' | 'json'
   /** 文件名称（含扩展名） */
-  fileName: string;
+  fileName: string
   /** 拖拽来源，固定为 'input_staging' */
-  dragSource: 'input_staging';
+  dragSource: 'input_staging'
   /** 节点标签，用于在画布上展示 */
-  label: string;
+  label: string
 }
 
 /**
@@ -137,11 +142,11 @@ export interface ExternalDataSourceDragPayload extends DragPayload {
  */
 export interface DragState {
   /** 是否正在拖拽中 */
-  isDragging: boolean;
+  isDragging: boolean
   /** 当前拖拽的载荷数据，未拖拽时为 null */
-  payload: DragPayload | null;
+  payload: DragPayload | null
   /** 当前拖拽的来源（可选，用于状态追踪） */
-  dragSource?: DragSource;
+  dragSource?: DragSource
   /** 当前悬停的目标节点 ID（可选） */
-  hoverTarget?: string;
+  hoverTarget?: string
 }

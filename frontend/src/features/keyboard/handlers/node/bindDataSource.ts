@@ -28,7 +28,13 @@ import { extractColumnNamesFromHeader, compareColumns } from '@/utils/nodes/sche
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { revalidateConstraintsReferencingSchema } from '@/services/constraints/validationRegistryCore'
 import { i18n } from '@/i18n'
-import type { SchemaNodeData, SourcePreviewNodeData, JsonSchemaNodeData, JsonSourcePreviewNodeData, CustomNodeData } from '@/types/graph'
+import type {
+  SchemaNodeData,
+  SourcePreviewNodeData,
+  JsonSchemaNodeData,
+  JsonSourcePreviewNodeData,
+  CustomNodeData,
+} from '@/types/graph'
 
 function basename(filePath: string): string {
   return filePath.split(/[/\\]/).pop() || filePath
@@ -101,7 +107,8 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
     resolvedLocalPath = normalizePath(localPath)
   } else {
     const projectStore = useProjectStore()
-    const rawProjectRoot = projectStore.currentPaths?.configPath || projectStore.currentPaths?.dataPath
+    const rawProjectRoot =
+      projectStore.currentPaths?.configPath || projectStore.currentPaths?.dataPath
     const projectRoot = rawProjectRoot ? ensureDirPath(rawProjectRoot) : ''
     if (projectRoot) {
       resolvedLocalPath = normalizePath(projectRoot + localPath.replace(/^[\/\\]+/, ''))
@@ -113,14 +120,21 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
   // ---- 调用后端获取文件预览数据 ----
   let previewData: Record<string, unknown>
   try {
-    previewData = await fetchPreviewDataFromPath(resolvedLocalPath, 65535, 65535, schemaData.sheetName)
+    previewData = await fetchPreviewDataFromPath(
+      resolvedLocalPath,
+      65535,
+      65535,
+      schemaData.sheetName
+    )
     logger.debug('[bindDataSource] 预览数据获取成功')
   } catch (error: any) {
     const errorText = String(error?.message || error)
     logger.error('[bindDataSource] 预览数据获取失败:', errorText)
     if (
       errorText.includes('404') &&
-      (errorText.includes('工作表') || errorText.includes('Worksheet') || errorText.includes('sheet'))
+      (errorText.includes('工作表') ||
+        errorText.includes('Worksheet') ||
+        errorText.includes('sheet'))
     ) {
       return {
         success: false,
@@ -173,9 +187,10 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       (s) => s.toLowerCase().trim() === requestedSheet.toLowerCase().trim()
     )
     if (!sheetMatch) {
-      const sheetList = actualSheets.length <= 5
-        ? actualSheets.join(', ')
-        : actualSheets.slice(0, 5).join(', ') + ` 等 ${actualSheets.length} 个`
+      const sheetList =
+        actualSheets.length <= 5
+          ? actualSheets.join(', ')
+          : actualSheets.slice(0, 5).join(', ') + ` 等 ${actualSheets.length} 个`
       return {
         success: false,
         message: i18n.global.t('canvas.nodeCanvas.sheetNotFoundWithList', {
@@ -190,7 +205,10 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
   const sourcePreviewNodeId = `${isJsonSchema ? 'json' : 'source'}-preview-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
   const fileType = dataSource?.type || inferFileType(resolvedLocalPath)
   const displayName =
-    dataSource?.alias || dataSource?.name || basename(resolvedLocalPath).replace(/\.[^/.]+$/, '') || 'Table'
+    dataSource?.alias ||
+    dataSource?.name ||
+    basename(resolvedLocalPath).replace(/\.[^/.]+$/, '') ||
+    'Table'
   const resolvedSheet = currentSheetFromBackend || schemaData.sheetName
 
   if (isJsonSchema) {
@@ -298,7 +316,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
   }
 
   // ---- 同步 Schema 节点的数据源元数据 ----
-  const smartTableName = isJsonSchema ? displayName : (resolvedSheet || displayName)
+  const smartTableName = isJsonSchema ? displayName : resolvedSheet || displayName
 
   if (isJsonSchema) {
     const jsonSchemaData = schemaData as JsonSchemaNodeData
@@ -343,7 +361,10 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
   }
 
   // ---- 智能列填充询问（策略模式） ----
-  const unifiedPreview = await previewDataFetcher.fetch({ type: 'node', node: graphStore.nodes.find((n) => n.id === sourcePreviewNodeId)! })
+  const unifiedPreview = await previewDataFetcher.fetch({
+    type: 'node',
+    node: graphStore.nodes.find((n) => n.id === sourcePreviewNodeId)!,
+  })
 
   if (unifiedPreview) {
     const columnGenerator = isJsonSchema ? jsonColumnGenerator : tabularColumnGenerator
@@ -372,13 +393,19 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
         const parts: string[] = []
         if (comparison.newInSource.length > 0) {
           const preview = comparison.newInSource.slice(0, 5).join(', ')
-          const suffix = comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
-          parts.push(`数据源有 ${comparison.newInSource.length} 个新列未在 Schema 中定义（${preview}${suffix}）`)
+          const suffix =
+            comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
+          parts.push(
+            `数据源有 ${comparison.newInSource.length} 个新列未在 Schema 中定义（${preview}${suffix}）`
+          )
         }
         if (comparison.staleInSchema.length > 0) {
           const preview = comparison.staleInSchema.slice(0, 5).join(', ')
-          const suffix = comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
-          parts.push(`Schema 有 ${comparison.staleInSchema.length} 个非衍生列不在数据源中（${preview}${suffix}）`)
+          const suffix =
+            comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
+          parts.push(
+            `Schema 有 ${comparison.staleInSchema.length} 个非衍生列不在数据源中（${preview}${suffix}）`
+          )
         }
 
         const result = await showConfirm({
@@ -408,7 +435,8 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
 
   // ---- 触发校验 ----
   const updatedSchema = graphStore.nodes.find((n) => n.id === schemaNode.id)
-  const hasColumns = ((updatedSchema?.data as SchemaNodeData | JsonSchemaNodeData)?.columns?.length || 0) > 0
+  const hasColumns =
+    ((updatedSchema?.data as SchemaNodeData | JsonSchemaNodeData)?.columns?.length || 0) > 0
   if (hasColumns) {
     triggerValidationForNode(
       schemaNode.id,

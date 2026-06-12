@@ -68,9 +68,7 @@ describe('DataSourceBindingOrchestrator logic', () => {
   })
 
   it('无策略时返回 validate 阶段错误', async () => {
-    const registry = new Map<string, any>([
-      ['schema', null],
-    ])
+    const registry = new Map<string, any>([['schema', null]])
 
     function getStrategyForNode(node: any) {
       const nodeType = (node.data as Record<string, unknown>)?.type as string

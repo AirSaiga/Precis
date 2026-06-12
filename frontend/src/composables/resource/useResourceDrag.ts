@@ -55,7 +55,13 @@ export function useResourceDrag() {
    */
   function handleToolboxDragStart(
     event: DragEvent,
-    toolType: 'schema' | 'pattern' | 'constraint' | 'projectRoot' | 'jsonSchema' | 'templateInstance'
+    toolType:
+      | 'schema'
+      | 'pattern'
+      | 'constraint'
+      | 'projectRoot'
+      | 'jsonSchema'
+      | 'templateInstance'
   ): void {
     if (!event.dataTransfer) return
 

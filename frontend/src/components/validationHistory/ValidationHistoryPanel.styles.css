@@ -29,9 +29,15 @@
   color: var(--ui-accent);
 }
 
-.stat-value.success { color: var(--ui-success, #22c55e); }
-.stat-value.warning { color: var(--ui-warning, #f59e0b); }
-.stat-value.error { color: var(--ui-error, #ef4444); }
+.stat-value.success {
+  color: var(--ui-success, #22c55e);
+}
+.stat-value.warning {
+  color: var(--ui-warning, #f59e0b);
+}
+.stat-value.error {
+  color: var(--ui-error, #ef4444);
+}
 
 .stat-card.error .stat-value {
   color: var(--ui-error, #ef4444);
@@ -129,9 +135,15 @@
   font-weight: 600;
 }
 
-.pass-rate.success { color: var(--ui-success, #22c55e); }
-.pass-rate.warning { color: var(--ui-warning, #f59e0b); }
-.pass-rate.error { color: var(--ui-error, #ef4444); }
+.pass-rate.success {
+  color: var(--ui-success, #22c55e);
+}
+.pass-rate.warning {
+  color: var(--ui-warning, #f59e0b);
+}
+.pass-rate.error {
+  color: var(--ui-error, #ef4444);
+}
 
 .check-count {
   color: var(--ui-text-tertiary);
@@ -153,7 +165,9 @@
   border-radius: 4px;
   color: var(--ui-text-tertiary);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 
 .action-btn:hover {

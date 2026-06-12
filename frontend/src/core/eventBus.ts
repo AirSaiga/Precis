@@ -18,8 +18,8 @@ import type { ResourceItem } from '@/types/resource/types'
 export interface AppEvents {
   'focus-canvas-nodes': { nodeIds: string[] }
   'project-applied': undefined
-  'sourcePreviewDataChanged': { nodeId: string; data: Record<string, unknown> }
-  'headerRowChanged': {
+  sourcePreviewDataChanged: { nodeId: string; data: Record<string, unknown> }
+  headerRowChanged: {
     nodeId: string
     headerRow: number
     data: Record<string, unknown>
@@ -27,30 +27,30 @@ export interface AppEvents {
     rowData: string[]
   }
   'regex-pattern-updated': { nodeId: string; reason: string }
-  'sourceNodeDisconnected': {
+  sourceNodeDisconnected: {
     sourceNodeId: string
     targetNodeId: string
     edgeId: string
   }
   'data-source-refreshed': { nodeId: string; fileId: string; fileName: string }
   'reload-file-uploaded': { file: File; nodeId: string; sourceName: string }
-  'schemaValidationCompleted': { nodeId: string; results: unknown }
+  schemaValidationCompleted: { nodeId: string; results: unknown }
   'validate-json-schema': { nodeId: string }
-  'constraintValidationCompleted': { nodeId: string; result: unknown }
-  'regexPatternUpdated': {
+  constraintValidationCompleted: { nodeId: string; result: unknown }
+  regexPatternUpdated: {
     nodeId: string
     pattern: string
     flags: string
     matchMode: string
     caseSensitive: boolean
   }
-  'viewchange': { view: string }
+  viewchange: { view: string }
   'open-settings': undefined
   'open-project-management': undefined
   'project-closed': undefined
   'open-save-as-template-dialog': undefined
-  'fielddragstart': DragEventPayload
-  'fielddragend': undefined
+  fielddragstart: DragEventPayload
+  fielddragend: undefined
   'json-source-preview-refresh': { nodeId: string }
   'schema-node-save-complete': {
     nodeId: string

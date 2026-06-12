@@ -5,11 +5,7 @@
  */
 import { ref, nextTick } from 'vue'
 import type { Edge } from '@vue-flow/core'
-import type {
-  CustomNode,
-  CustomNodeData,
-  TableAsset,
-} from '@/types/graph'
+import type { CustomNode, CustomNodeData, TableAsset } from '@/types/graph'
 import type { FullValidationSummary, ValidationStatistics } from '../../../api/projectValidationApi'
 import { updateNodeData as updateVueFlowNodeData } from '@/services/canvas/vueFlowApi'
 import { logger } from '@/core/utils/logger'

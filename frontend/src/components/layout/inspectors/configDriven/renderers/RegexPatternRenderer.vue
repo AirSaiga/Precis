@@ -21,13 +21,16 @@
       />
       <span v-if="validationError" class="validation-error">{{ validationError }}</span>
       <span v-else-if="patternValue && captureGroupCount > 0" class="validation-ok">
-        {{ t('inspector.transformNode.params.regexExtract.captureGroups') }}: {{ captureGroupCount }}
+        {{ t('inspector.transformNode.params.regexExtract.captureGroups') }}:
+        {{ captureGroupCount }}
       </span>
     </div>
 
     <!-- 忽略大小写复选框 -->
     <div class="flags-row">
-      <label class="flags-label">{{ t('inspector.transformNode.params.regexExtract.flags') }}</label>
+      <label class="flags-label">{{
+        t('inspector.transformNode.params.regexExtract.flags')
+      }}</label>
       <input
         type="checkbox"
         :checked="flagsValue === 'i'"
@@ -39,11 +42,16 @@
     <!-- 捕获组配置 -->
     <div v-if="captureGroupCount > 0" class="capture-groups">
       <label class="groups-label">
-        {{ t('inspector.transformNode.params.regexExtract.captureGroups') }}（{{ captureGroupCount }} 个）
+        {{ t('inspector.transformNode.params.regexExtract.captureGroups') }}（{{
+          captureGroupCount
+        }}
+        个）
       </label>
       <div class="groups-list">
         <div v-for="(name, idx) in groupNames" :key="idx" class="group-item">
-          <span class="group-label">{{ t('inspector.transformNode.params.regexExtract.groupLabel') }}{{ idx + 1 }}</span>
+          <span class="group-label"
+            >{{ t('inspector.transformNode.params.regexExtract.groupLabel') }}{{ idx + 1 }}</span
+          >
           <input
             class="group-input"
             type="text"
@@ -108,10 +116,12 @@
 
   // 从 ctx 读取关联数据
   const patternValue = computed(() => String(props.value ?? ''))
-  const flagsValue = computed(() => String((props.ctx.data.params as Record<string, unknown>)?.flags ?? ''))
+  const flagsValue = computed(() =>
+    String((props.ctx.data.params as Record<string, unknown>)?.flags ?? '')
+  )
   const outputColumnsValue = computed(() => {
     const cols = props.ctx.data.outputColumns
-    return Array.isArray(cols) ? cols as string[] : []
+    return Array.isArray(cols) ? (cols as string[]) : []
   })
 
   // 捕获组列名本地副本

@@ -27,8 +27,14 @@ import {
   clearBuildersForTest,
 } from '@/services/persistence/builders/registry'
 import { buildSchemaIdByNodeId, filterPersistentNodes } from '@/services/persistence/utils'
-import { shouldEmbedInSchema, classifyConstraints } from '@/services/persistence/embedders/embeddedSelector'
-import { buildEmbeddedConstraintItem, CompositeCannotEmbedError } from '@/services/persistence/embedders/embeddedConstraintBuilder'
+import {
+  shouldEmbedInSchema,
+  classifyConstraints,
+} from '@/services/persistence/embedders/embeddedSelector'
+import {
+  buildEmbeddedConstraintItem,
+  CompositeCannotEmbedError,
+} from '@/services/persistence/embedders/embeddedConstraintBuilder'
 import { buildSavePlan } from '@/services/persistence/planBuilder'
 import { PreValidator } from '@/services/persistence/preValidator'
 import { SaveOrchestrator } from '@/services/persistence/orchestrator'
@@ -57,11 +63,7 @@ function makeSchemaNode(overrides: Partial<CustomNode> = {}): CustomNode {
   } as CustomNode
 }
 
-function makeConstraintNode(
-  type: string,
-  data: Record<string, unknown>,
-  id = 'c-1'
-): CustomNode {
+function makeConstraintNode(type: string, data: Record<string, unknown>, id = 'c-1'): CustomNode {
   return {
     id,
     type,
@@ -188,9 +190,13 @@ describe('Persistence - Embedded Selector', () => {
   })
 
   it('classifyConstraints 正确分组', () => {
-    const embedded = makeConstraintNode('notNullConstraint', {
-      sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
-    }, 'c-emb')
+    const embedded = makeConstraintNode(
+      'notNullConstraint',
+      {
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+      },
+      'c-emb'
+    )
     const standalone = makeConstraintNode('compositeConstraint', { logic: 'all' }, 'c-std')
 
     const { embedded: e, standalone: s } = classifyConstraints([embedded, standalone], [schema])
@@ -269,7 +275,12 @@ describe('Persistence - Standalone Constraint Builders', () => {
     const builder = findBuilderFor(node)
     expect(builder).toBeTruthy()
 
-    const { file } = builder!.build({ nodes: [schema, node], node, schemaIdByNodeId, configPath: '/tmp' })
+    const { file } = builder!.build({
+      nodes: [schema, node],
+      node,
+      schemaIdByNodeId,
+      configPath: '/tmp',
+    })
     const f = file as ConstraintFileV2
     expect(f.type).toBe('NotNull')
     expect(f.refs.table_id).toBe(schemaIdByNodeId['schema-1'])
@@ -286,18 +297,31 @@ describe('Persistence - Standalone Constraint Builders', () => {
     })
 
     const builder = findBuilderFor(node)!
-    const { file } = builder.build({ nodes: [schema, node], node, schemaIdByNodeId, configPath: '/tmp' })
+    const { file } = builder.build({
+      nodes: [schema, node],
+      node,
+      schemaIdByNodeId,
+      configPath: '/tmp',
+    })
     expect(file.params).toEqual({ min: 0, max: 150, boundary_mode: 'exclusive' })
   })
 
   it('composite builder 收集子约束', () => {
     const sub1 = makeConstraintNode('notNullConstraint', { configName: '子1' }, 'c-sub-1')
-    const sub2 = makeConstraintNode('rangeConstraint', { configName: '子2', minValue: 0, maxValue: 10 }, 'c-sub-2')
-    const composite = makeConstraintNode('compositeConstraint', {
-      configName: '复合',
-      logic: 'all',
-      includedNodeIds: ['c-sub-1', 'c-sub-2'],
-    }, 'c-composite')
+    const sub2 = makeConstraintNode(
+      'rangeConstraint',
+      { configName: '子2', minValue: 0, maxValue: 10 },
+      'c-sub-2'
+    )
+    const composite = makeConstraintNode(
+      'compositeConstraint',
+      {
+        configName: '复合',
+        logic: 'all',
+        includedNodeIds: ['c-sub-1', 'c-sub-2'],
+      },
+      'c-composite'
+    )
 
     const builder = findBuilderFor(composite)!
     const { file } = builder.build({
@@ -352,10 +376,14 @@ describe('Persistence - SavePlan Builder', () => {
 
   it('schema + embedded 约束写入 schema 文件', () => {
     const schema = makeSchemaNode()
-    const nn = makeConstraintNode('notNullConstraint', {
-      configName: '非空',
-      sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
-    }, 'c-nn')
+    const nn = makeConstraintNode(
+      'notNullConstraint',
+      {
+        configName: '非空',
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+      },
+      'c-nn'
+    )
 
     const plan = buildSavePlan([schema, nn], { projectName: 'Test', projectPath: '/tmp/test' })
     const schemaPlan = Array.from(plan.schemas.values())[0]
@@ -366,13 +394,20 @@ describe('Persistence - SavePlan Builder', () => {
 
   it('standalone 约束写入 constraints Map', () => {
     const schema = makeSchemaNode()
-    const composite = makeConstraintNode('compositeConstraint', {
-      configName: '复合',
-      logic: 'all',
-      includedNodeIds: [],
-    }, 'c-composite')
+    const composite = makeConstraintNode(
+      'compositeConstraint',
+      {
+        configName: '复合',
+        logic: 'all',
+        includedNodeIds: [],
+      },
+      'c-composite'
+    )
 
-    const plan = buildSavePlan([schema, composite], { projectName: 'Test', projectPath: '/tmp/test' })
+    const plan = buildSavePlan([schema, composite], {
+      projectName: 'Test',
+      projectPath: '/tmp/test',
+    })
     expect(plan.constraints.has('c-composite')).toBe(true)
     expect(Array.from(plan.schemas.values())[0].schemaFile.constraints).toHaveLength(0)
   })
@@ -382,7 +417,10 @@ describe('Persistence - SavePlan Builder', () => {
     const transform = makeTransformNode('t-1')
     const template = makeTemplateInstanceNode('ti-1')
 
-    const plan = buildSavePlan([regex, transform, template], { projectName: 'Test', projectPath: '/tmp/test' })
+    const plan = buildSavePlan([regex, transform, template], {
+      projectName: 'Test',
+      projectPath: '/tmp/test',
+    })
     expect(plan.regexes.has('r-1')).toBe(true)
     expect(plan.transforms.has('t-1')).toBe(true)
     expect(plan.templateInstances.has('ti-1')).toBe(true)
@@ -530,7 +568,9 @@ describe('Persistence - Pre-Validator', () => {
       refs: {},
       params: {
         logic: 'all',
-        sub_constraints: [{ id: 'c-composite', type: 'NotNull', enabled: true, refs: {}, params: {} }],
+        sub_constraints: [
+          { id: 'c-composite', type: 'NotNull', enabled: true, refs: {}, params: {} },
+        ],
       },
     } as any)
 
@@ -666,10 +706,14 @@ describe('Persistence - SaveOrchestrator', () => {
 
   it('成功保存时调用 API 并更新 saveState', async () => {
     const schema = makeSchemaNode()
-    const nn = makeConstraintNode('notNullConstraint', {
-      configName: '非空',
-      sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
-    }, 'c-nn')
+    const nn = makeConstraintNode(
+      'notNullConstraint',
+      {
+        configName: '非空',
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+      },
+      'c-nn'
+    )
 
     const nodes: CustomNode[] = [schema, nn]
     const updateNodeData = vi.fn()
@@ -689,8 +733,14 @@ describe('Persistence - SaveOrchestrator', () => {
     expect(result.success).toBe(true)
     expect(projectV2Api.putV2FullConfig).toHaveBeenCalledTimes(1)
     expect(projectV2Api.putV2ProjectView).toHaveBeenCalledTimes(1)
-    expect(updateNodeData).toHaveBeenCalledWith('schema-1', expect.objectContaining({ saveState: 'saved' }))
-    expect(updateNodeData).toHaveBeenCalledWith('c-nn', expect.objectContaining({ saveState: 'saved' }))
+    expect(updateNodeData).toHaveBeenCalledWith(
+      'schema-1',
+      expect.objectContaining({ saveState: 'saved' })
+    )
+    expect(updateNodeData).toHaveBeenCalledWith(
+      'c-nn',
+      expect.objectContaining({ saveState: 'saved' })
+    )
   })
 
   it('API 异常时返回 BLOCKER', async () => {

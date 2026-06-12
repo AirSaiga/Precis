@@ -35,12 +35,15 @@ function makeKeyEvent(key: string, opts: Partial<KeyboardEventInit> = {}): Keybo
   return event
 }
 
-function withModifiers(event: KeyboardEvent, mods: {
-  ctrl?: boolean
-  meta?: boolean
-  shift?: boolean
-  alt?: boolean
-}): KeyboardEvent {
+function withModifiers(
+  event: KeyboardEvent,
+  mods: {
+    ctrl?: boolean
+    meta?: boolean
+    shift?: boolean
+    alt?: boolean
+  }
+): KeyboardEvent {
   Object.defineProperty(event, 'ctrlKey', { value: mods.ctrl ?? false, configurable: true })
   Object.defineProperty(event, 'metaKey', { value: mods.meta ?? false, configurable: true })
   Object.defineProperty(event, 'shiftKey', { value: mods.shift ?? false, configurable: true })
@@ -193,8 +196,9 @@ describe('formatShortcut', () => {
     })
 
     it('combines multiple modifiers in canonical order', () => {
-      expect(formatShortcut({ key: 's', ctrl: true, shift: true, alt: true, meta: true }))
-        .toBe(`${CTRL}+${CMD}+${OPT}+${SHIFT}+S`)
+      expect(formatShortcut({ key: 's', ctrl: true, shift: true, alt: true, meta: true })).toBe(
+        `${CTRL}+${CMD}+${OPT}+${SHIFT}+S`
+      )
     })
 
     it('uses display name for special keys', () => {
@@ -235,8 +239,7 @@ describe('formatShortcut', () => {
     })
 
     it('combines modifiers with + separator', () => {
-      expect(formatShortcut({ key: 's', ctrl: true, shift: true }))
-        .toBe('Ctrl+Shift+S')
+      expect(formatShortcut({ key: 's', ctrl: true, shift: true })).toBe('Ctrl+Shift+S')
     })
 
     it('keeps multi-character key as-is', () => {
@@ -399,38 +402,23 @@ describe('compareShortcuts', () => {
   })
 
   it('returns false when ctrl differs', () => {
-    expect(compareShortcuts(
-      { key: 's', ctrl: true },
-      { key: 's', ctrl: false }
-    )).toBe(false)
+    expect(compareShortcuts({ key: 's', ctrl: true }, { key: 's', ctrl: false })).toBe(false)
   })
 
   it('returns false when meta differs', () => {
-    expect(compareShortcuts(
-      { key: 's', meta: true },
-      { key: 's', meta: false }
-    )).toBe(false)
+    expect(compareShortcuts({ key: 's', meta: true }, { key: 's', meta: false })).toBe(false)
   })
 
   it('returns false when shift differs', () => {
-    expect(compareShortcuts(
-      { key: 's', shift: true },
-      { key: 's', shift: false }
-    )).toBe(false)
+    expect(compareShortcuts({ key: 's', shift: true }, { key: 's', shift: false })).toBe(false)
   })
 
   it('returns false when alt differs', () => {
-    expect(compareShortcuts(
-      { key: 's', alt: true },
-      { key: 's', alt: false }
-    )).toBe(false)
+    expect(compareShortcuts({ key: 's', alt: true }, { key: 's', alt: false })).toBe(false)
   })
 
   it('returns false when key differs', () => {
-    expect(compareShortcuts(
-      { key: 's', ctrl: true },
-      { key: 'a', ctrl: true }
-    )).toBe(false)
+    expect(compareShortcuts({ key: 's', ctrl: true }, { key: 'a', ctrl: true })).toBe(false)
   })
 })
 

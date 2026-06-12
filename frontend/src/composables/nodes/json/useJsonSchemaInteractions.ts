@@ -22,45 +22,45 @@
  * - types/nodes: JsonSchemaNodeData, JsonSchemaColumn 类型
  */
 
-import { ref, watch, nextTick } from 'vue';
-import { useI18n } from 'vue-i18n';
-import { useGraphStore } from '@/stores/graphStore';
-import type { JsonSchemaNodeData, JsonSchemaColumn } from '@/types/nodes';
-import { useNodeColumnEditing } from '../shared/useNodeColumnEditing';
+import { ref, watch, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { useGraphStore } from '@/stores/graphStore'
+import type { JsonSchemaNodeData, JsonSchemaColumn } from '@/types/nodes'
+import { useNodeColumnEditing } from '../shared/useNodeColumnEditing'
 
 export interface JsonSchemaInteractionsProps {
-  id: string;
-  data: JsonSchemaNodeData;
+  id: string
+  data: JsonSchemaNodeData
 }
 
 export interface JsonSchemaInteractionsEmit {
-  (e: 'constraint-create', data: ConstraintCreateData): void;
-  (e: 'column-update', data: { columnId: string; updates: Partial<JsonSchemaColumn> }): void;
-  (e: 'column-delete', columnId: string): void;
-  (e: 'source-connect', data: { sourceNodeId: string; targetNodeId: string }): void;
+  (e: 'constraint-create', data: ConstraintCreateData): void
+  (e: 'column-update', data: { columnId: string; updates: Partial<JsonSchemaColumn> }): void
+  (e: 'column-delete', columnId: string): void
+  (e: 'source-connect', data: { sourceNodeId: string; targetNodeId: string }): void
 }
 
 export interface ConstraintCreateData {
-  type?: string;
-  columnId?: string;
-  constraintType?: string;
-  targetNodeId?: string;
-  sourceColumn?: string;
-  targetColumn?: string;
-  targetColumnId?: string;
-  constraintName?: string;
-  relationType?: string;
+  type?: string
+  columnId?: string
+  constraintType?: string
+  targetNodeId?: string
+  sourceColumn?: string
+  targetColumn?: string
+  targetColumnId?: string
+  constraintName?: string
+  relationType?: string
 }
 
 export function useJsonSchemaInteractions(
   props: JsonSchemaInteractionsProps,
   emit: JsonSchemaInteractionsEmit
 ) {
-  const { t } = useI18n();
-  const store = useGraphStore();
+  const { t } = useI18n()
+  const store = useGraphStore()
 
-  const snappingColumnIds = ref<Set<string>>(new Set());
-  const knownEdgeIds = ref<Set<string>>(new Set());
+  const snappingColumnIds = ref<Set<string>>(new Set())
+  const knownEdgeIds = ref<Set<string>>(new Set())
 
   // ============================================================================
   // 列编辑通用逻辑
@@ -79,7 +79,7 @@ export function useJsonSchemaInteractions(
         description: partial.description,
         children: partial.children,
         isExpanded: true,
-      } as JsonSchemaColumn),
+      }) as JsonSchemaColumn,
     supportsNested: true,
     updateColumns: (columns) => {
       store.updateNodeData(props.id, {
@@ -87,40 +87,40 @@ export function useJsonSchemaInteractions(
         columns,
         saveState: 'draft',
         updatedAt: new Date().toISOString(),
-      });
+      })
     },
     onConfirmColumnEdit: (columnId, newName) => {
-      emit('column-update', { columnId, updates: { columnName: newName } });
+      emit('column-update', { columnId, updates: { columnName: newName } })
     },
-  });
+  })
 
   // 映射通用状态到 JSON 命名（保持返回接口兼容）
-  const editingColumnName = genericEditing.editingColumnId;
-  const columnInputRefs = genericEditing.columnInputRefs;
+  const editingColumnName = genericEditing.editingColumnId
+  const columnInputRefs = genericEditing.columnInputRefs
 
   const setInputRef = (columnId: string, el: HTMLInputElement | null) => {
-    genericEditing.setInputRef(el, columnId);
-  };
+    genericEditing.setInputRef(el, columnId)
+  }
 
-  const startColumnEdit = genericEditing.startColumnEdit;
-  const confirmColumnEdit = genericEditing.confirmColumnEdit;
-  const cancelColumnEdit = genericEditing.cancelColumnEdit;
-  const onColumnEnter = genericEditing.onColumnEnter;
-  const onColumnTab = genericEditing.onColumnTab;
-  const handleKeydown = genericEditing.handleKeydown;
-  const updateColumnDataType = genericEditing.updateColumnDataType;
-  const addColumn = genericEditing.addColumn;
+  const startColumnEdit = genericEditing.startColumnEdit
+  const confirmColumnEdit = genericEditing.confirmColumnEdit
+  const cancelColumnEdit = genericEditing.cancelColumnEdit
+  const onColumnEnter = genericEditing.onColumnEnter
+  const onColumnTab = genericEditing.onColumnTab
+  const handleKeydown = genericEditing.handleKeydown
+  const updateColumnDataType = genericEditing.updateColumnDataType
+  const addColumn = genericEditing.addColumn
 
   const constraintNodeTypeMap: Record<string, string> = {
-    'notNullConstraint': 'notNull',
-    'uniqueConstraint': 'unique',
-    'allowedValuesConstraint': 'allowedValues',
-    'foreignKeyConstraint': 'foreignKey',
-    'conditionalConstraint': 'conditional',
-    'scriptedConstraint': 'scripted',
-    'charsetConstraint': 'charset',
-    'dateLogicConstraint': 'dateLogic'
-  };
+    notNullConstraint: 'notNull',
+    uniqueConstraint: 'unique',
+    allowedValuesConstraint: 'allowedValues',
+    foreignKeyConstraint: 'foreignKey',
+    conditionalConstraint: 'conditional',
+    scriptedConstraint: 'scripted',
+    charsetConstraint: 'charset',
+    dateLogicConstraint: 'dateLogic',
+  }
 
   /**
    * 触发某一列的右端点吸附动画
@@ -135,16 +135,16 @@ export function useJsonSchemaInteractions(
    * ```
    */
   const triggerColumnSnapAnimation = (columnId: string) => {
-    const next = new Set(snappingColumnIds.value);
-    next.add(columnId);
-    snappingColumnIds.value = next;
+    const next = new Set(snappingColumnIds.value)
+    next.add(columnId)
+    snappingColumnIds.value = next
 
     window.setTimeout(() => {
-      const after = new Set(snappingColumnIds.value);
-      after.delete(columnId);
-      snappingColumnIds.value = after;
-    }, 420);
-  };
+      const after = new Set(snappingColumnIds.value)
+      after.delete(columnId)
+      snappingColumnIds.value = after
+    }, 420)
+  }
 
   /**
    * 监听新增连接并触发吸附动画
@@ -152,32 +152,32 @@ export function useJsonSchemaInteractions(
    */
   const watchConnectionChanges = () => {
     watch(
-      () => store.edges.map(e => e.id),
+      () => store.edges.map((e) => e.id),
       (newEdgeIdList) => {
-        const currentKnown = knownEdgeIds.value;
-        const newEdges = store.edges.filter(e => !currentKnown.has(e.id));
+        const currentKnown = knownEdgeIds.value
+        const newEdges = store.edges.filter((e) => !currentKnown.has(e.id))
 
         for (const edge of newEdges) {
-          if (edge.source !== props.id) continue;
-          if (!edge.sourceHandle || !edge.sourceHandle.startsWith('source-right-')) continue;
+          if (edge.source !== props.id) continue
+          if (!edge.sourceHandle || !edge.sourceHandle.startsWith('source-right-')) continue
 
-          const targetNode = store.nodes.find(n => n.id === edge.target);
+          const targetNode = store.nodes.find((n) => n.id === edge.target)
           const isInstantConstraint =
             targetNode?.type === 'uniqueConstraint' ||
             targetNode?.type === 'notNullConstraint' ||
-            targetNode?.type === 'allowedValuesConstraint';
+            targetNode?.type === 'allowedValuesConstraint'
 
-          if (!isInstantConstraint) continue;
+          if (!isInstantConstraint) continue
 
-          const columnId = edge.sourceHandle.replace('source-right-', '');
-          triggerColumnSnapAnimation(columnId);
+          const columnId = edge.sourceHandle.replace('source-right-', '')
+          triggerColumnSnapAnimation(columnId)
         }
 
-        knownEdgeIds.value = new Set(newEdgeIdList);
+        knownEdgeIds.value = new Set(newEdgeIdList)
       },
       { deep: false }
-    );
-  };
+    )
+  }
 
   /**
    * 初始化已知边集合
@@ -185,8 +185,8 @@ export function useJsonSchemaInteractions(
    * 避免后续检测边变化时重复处理已存在的边
    */
   const initKnownEdgeIds = () => {
-    knownEdgeIds.value = new Set(store.edges.map(e => e.id));
-  };
+    knownEdgeIds.value = new Set(store.edges.map((e) => e.id))
+  }
 
   /**
    * 处理列输出连接事件
@@ -207,37 +207,37 @@ export function useJsonSchemaInteractions(
    * ```
    */
   const handleColumnOutputConnect = (event: {
-    handleId: string;
-    targetNodeId: string;
-    targetHandleId: string;
+    handleId: string
+    targetNodeId: string
+    targetHandleId: string
   }) => {
-    const { handleId, targetNodeId } = event;
-    const columnId = handleId.replace('source-right-', '');
-    const targetNode = store.nodes.find((n) => n.id === targetNodeId);
+    const { handleId, targetNodeId } = event
+    const columnId = handleId.replace('source-right-', '')
+    const targetNode = store.nodes.find((n) => n.id === targetNodeId)
 
     if (targetNode && targetNode.type !== 'schema' && targetNode.type !== 'jsonSchema') {
-      const constraintType = targetNode.type ? constraintNodeTypeMap[targetNode.type] : undefined;
+      const constraintType = targetNode.type ? constraintNodeTypeMap[targetNode.type] : undefined
       if (constraintType) {
-        const updatedColumns = props.data.columns.map(col => {
+        const updatedColumns = props.data.columns.map((col) => {
           if (col.id === columnId) {
-            const currentConstraints = col.constraints || {};
+            const currentConstraints = col.constraints || {}
             return {
               ...col,
-              constraints: { ...currentConstraints, [constraintType]: true }
-            };
+              constraints: { ...currentConstraints, [constraintType]: true },
+            }
           }
-          return col;
-        });
+          return col
+        })
         store.updateNodeData(props.id, {
           ...props.data,
           columns: updatedColumns,
           saveState: 'draft',
-          updatedAt: new Date().toISOString()
-        });
-        emit('constraint-create', { columnId, constraintType, targetNodeId });
+          updatedAt: new Date().toISOString(),
+        })
+        emit('constraint-create', { columnId, constraintType, targetNodeId })
       }
     }
-  };
+  }
 
   /**
    * 创建表关系（外键约束）
@@ -252,12 +252,8 @@ export function useJsonSchemaInteractions(
    * createTableRelation('col-user-id', 'users-schema', 'col-id');
    * ```
    */
-  const createTableRelation = (
-    columnId: string,
-    targetNodeId: string,
-    targetColumnId?: string
-  ) => {
-    const sourceColumn = props.data.columns.find(col => col.id === columnId);
+  const createTableRelation = (columnId: string, targetNodeId: string, targetColumnId?: string) => {
+    const sourceColumn = props.data.columns.find((col) => col.id === columnId)
     if (sourceColumn) {
       const relationData = {
         type: 'foreign_key',
@@ -265,22 +261,20 @@ export function useJsonSchemaInteractions(
         targetColumn: targetNodeId,
         targetColumnId: targetColumnId,
         constraintName: `FK_${props.data.tableName}_${sourceColumn.columnName}`,
-        relationType: 'many_to_one'
-      };
-      emit('constraint-create', relationData);
-      const updatedColumns = props.data.columns.map(col =>
-        col.id === columnId
-          ? { ...col, relation: relationData, isForeignKey: true }
-          : col
-      );
+        relationType: 'many_to_one',
+      }
+      emit('constraint-create', relationData)
+      const updatedColumns = props.data.columns.map((col) =>
+        col.id === columnId ? { ...col, relation: relationData, isForeignKey: true } : col
+      )
       store.updateNodeData(props.id, {
         ...props.data,
         columns: updatedColumns,
         saveState: 'draft',
-        updatedAt: new Date().toISOString()
-      });
+        updatedAt: new Date().toISOString(),
+      })
     }
-  };
+  }
 
   /**
    * 获取列的吸附状态
@@ -290,8 +284,8 @@ export function useJsonSchemaInteractions(
    * @returns 是否处于吸附动画状态
    */
   const isColumnSnapping = (columnId: string): boolean => {
-    return snappingColumnIds.value.has(columnId);
-  };
+    return snappingColumnIds.value.has(columnId)
+  }
 
   /**
    * 获取列是否正在编辑
@@ -300,8 +294,8 @@ export function useJsonSchemaInteractions(
    * @returns 是否处于编辑状态
    */
   const isColumnEditing = (columnId: string): boolean => {
-    return editingColumnName.value === columnId;
-  };
+    return editingColumnName.value === columnId
+  }
 
   /**
    * 获取指定列的当前列名
@@ -312,11 +306,11 @@ export function useJsonSchemaInteractions(
    */
   const getColumnName = (columnId: string): string => {
     if (editingColumnName.value === columnId) {
-      return '';
+      return ''
     }
-    const column = props.data.columns.find(col => col.id === columnId);
-    return column?.columnName || '';
-  };
+    const column = props.data.columns.find((col) => col.id === columnId)
+    return column?.columnName || ''
+  }
 
   /**
    * 更新列的 JSONPath
@@ -325,18 +319,16 @@ export function useJsonSchemaInteractions(
    * @param jsonPath - 新的 JSONPath
    */
   const updateColumnJsonPath = (columnId: string, jsonPath: string) => {
-    const updatedColumns = props.data.columns.map(col =>
-      col.id === columnId
-        ? { ...col, jsonPath }
-        : col
-    );
+    const updatedColumns = props.data.columns.map((col) =>
+      col.id === columnId ? { ...col, jsonPath } : col
+    )
     store.updateNodeData(props.id, {
       ...props.data,
       columns: updatedColumns,
       saveState: 'draft',
-      updatedAt: new Date().toISOString()
-    });
-  };
+      updatedAt: new Date().toISOString(),
+    })
+  }
 
   /**
    * 更新列的约束状态
@@ -350,26 +342,26 @@ export function useJsonSchemaInteractions(
     constraintType: 'notNull' | 'unique' | 'allowedValues',
     enabled: boolean
   ) => {
-    const updatedColumns = props.data.columns.map(col => {
+    const updatedColumns = props.data.columns.map((col) => {
       if (col.id === columnId) {
-        const currentConstraints = col.constraints || {};
+        const currentConstraints = col.constraints || {}
         return {
           ...col,
           constraints: {
             ...currentConstraints,
-            [constraintType]: enabled ? true : undefined
-          }
-        };
+            [constraintType]: enabled ? true : undefined,
+          },
+        }
       }
-      return col;
-    });
+      return col
+    })
     store.updateNodeData(props.id, {
       ...props.data,
       columns: updatedColumns,
       saveState: 'draft',
-      updatedAt: new Date().toISOString()
-    });
-  };
+      updatedAt: new Date().toISOString(),
+    })
+  }
 
   /**
    * 删除列
@@ -380,31 +372,31 @@ export function useJsonSchemaInteractions(
    */
   const deleteColumn = (columnId: string, parentId?: string) => {
     if (parentId) {
-      const updatedColumns = props.data.columns.map(col => {
+      const updatedColumns = props.data.columns.map((col) => {
         if (col.id === parentId) {
           return {
             ...col,
-            children: (col.children || []).filter(c => c.id !== columnId)
-          };
+            children: (col.children || []).filter((c) => c.id !== columnId),
+          }
         }
-        return col;
-      });
+        return col
+      })
       store.updateNodeData(props.id, {
         ...props.data,
         columns: updatedColumns,
         saveState: 'draft',
-        updatedAt: new Date().toISOString()
-      });
+        updatedAt: new Date().toISOString(),
+      })
     } else {
       store.updateNodeData(props.id, {
         ...props.data,
-        columns: props.data.columns.filter(col => col.id !== columnId),
+        columns: props.data.columns.filter((col) => col.id !== columnId),
         saveState: 'draft',
-        updatedAt: new Date().toISOString()
-      });
+        updatedAt: new Date().toISOString(),
+      })
     }
-    emit('column-delete', columnId);
-  };
+    emit('column-delete', columnId)
+  }
 
   /**
    * 处理数据源连接
@@ -413,20 +405,20 @@ export function useJsonSchemaInteractions(
    * @param sourceNodeId - 源节点 ID
    */
   const handleSourceConnect = (sourceNodeId: string) => {
-    const sourceNode = store.nodes.find((n) => n.id === sourceNodeId);
+    const sourceNode = store.nodes.find((n) => n.id === sourceNodeId)
     if (sourceNode && sourceNode.type === 'jsonSourcePreview') {
       store.updateNodeData(props.id, {
         ...props.data,
         sourceNodeId: sourceNodeId,
         saveState: 'draft',
-        updatedAt: new Date().toISOString()
-      });
+        updatedAt: new Date().toISOString(),
+      })
       emit('source-connect', {
         sourceNodeId,
-        targetNodeId: props.id
-      });
+        targetNodeId: props.id,
+      })
     }
-  };
+  }
 
   /**
    * 监听数据源连接
@@ -437,10 +429,10 @@ export function useJsonSchemaInteractions(
       () => store.edges,
       (edges) => {
         const sourceEdge = edges.find(
-          edge => edge.target === props.id && edge.targetHandle === 'target-left'
-        );
+          (edge) => edge.target === props.id && edge.targetHandle === 'target-left'
+        )
         if (sourceEdge) {
-          handleSourceConnect(sourceEdge.source);
+          handleSourceConnect(sourceEdge.source)
         } else if (props.data.sourceNodeId) {
           store.updateNodeData(props.id, {
             ...props.data,
@@ -453,13 +445,13 @@ export function useJsonSchemaInteractions(
             jsonPath: undefined,
             recordPath: undefined,
             saveState: 'draft',
-            updatedAt: new Date().toISOString()
-          });
+            updatedAt: new Date().toISOString(),
+          })
         }
       },
       { deep: true }
-    );
-  };
+    )
+  }
 
   /**
    * 处理 Pattern 节点拖拽到列上
@@ -471,7 +463,7 @@ export function useJsonSchemaInteractions(
     columnId: string,
     patternData: { pattern: string; patternName?: string }
   ) => {
-    const updatedColumns = props.data.columns.map(col => {
+    const updatedColumns = props.data.columns.map((col) => {
       if (col.id === columnId) {
         return {
           ...col,
@@ -479,30 +471,30 @@ export function useJsonSchemaInteractions(
           isBound: true,
           bindingConfig: {
             sourcePattern: patternData.patternName,
-            status: 'active' as const
-          }
-        };
+            status: 'active' as const,
+          },
+        }
       }
-      return col;
-    });
+      return col
+    })
     store.updateNodeData(props.id, {
       ...props.data,
       columns: updatedColumns,
       saveState: 'draft',
-      updatedAt: new Date().toISOString()
-    });
-  };
+      updatedAt: new Date().toISOString(),
+    })
+  }
 
   /**
    * 清理资源
    * 在组件卸载时清理副作用
    */
   const cleanup = () => {
-    snappingColumnIds.value.clear();
-    knownEdgeIds.value.clear();
-    columnInputRefs.value = {};
-    genericEditing.cancelColumnEdit();
-  };
+    snappingColumnIds.value.clear()
+    knownEdgeIds.value.clear()
+    columnInputRefs.value = {}
+    genericEditing.cancelColumnEdit()
+  }
 
   return {
     snappingColumnIds,
@@ -532,6 +524,6 @@ export function useJsonSchemaInteractions(
     watchSourceConnection,
     handlePatternDrop,
     cleanup,
-    constraintNodeTypeMap
-  };
+    constraintNodeTypeMap,
+  }
 }

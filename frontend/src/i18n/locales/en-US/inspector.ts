@@ -12,6 +12,7 @@ const inspector = {
   settings: 'Settings',
   empty: 'Select a node to view its properties',
   placeholder: 'Select a node to view its properties',
+  emptyHint: 'Click any node on the canvas to start editing properties',
 
   ...inspectorConstraints,
   // [Added] PatternToolbox node inspector
@@ -391,7 +392,8 @@ const inspector = {
       mathExpr: {
         expression: 'Math expression',
         expressionPh: "e.g. {'@'}col_name * 2 + 10",
-        expressionHint: "Use {'@'}column_name to reference input columns, supports + - * / ** operators",
+        expressionHint:
+          "Use {'@'}column_name to reference input columns, supports + - * / ** operators",
         outputType: 'Output type',
         autoInfer: 'Auto infer',
         typeInt: 'Integer (int)',
@@ -400,7 +402,8 @@ const inspector = {
       regexExtract: {
         pattern: 'Regex pattern',
         patternPh: 'e.g. (\\d{4})-(\\d{2})-(\\d{2})',
-        patternHint: 'Use capture groups () to extract content, output columns will be auto-configured below',
+        patternHint:
+          'Use capture groups () to extract content, output columns will be auto-configured below',
         flags: 'Ignore case',
         captureGroups: 'Capture groups',
         groupLabel: 'Group',
@@ -589,7 +592,8 @@ const inspector = {
     configName: 'Config Name',
     templateId: 'Template',
     selectTemplate: 'Select a template',
-    noTemplates: 'No templates available. Select nodes on the canvas and right-click "Save as Template".',
+    noTemplates:
+      'No templates available. Select nodes on the canvas and right-click "Save as Template".',
     enabled: 'Enabled',
     parameters: 'Parameters',
     previewExpand: 'Preview Expansion',

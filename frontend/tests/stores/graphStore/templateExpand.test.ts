@@ -47,7 +47,12 @@ import { createTemplateExpandModule } from '@/stores/graphStore/modules/template
 import type { TemplateExpandResult } from '@/api/projectV2Api'
 import { addNodes, addEdges, removeNodes, removeEdges } from '@/services/canvas/vueFlowApi'
 
-function makeNode(id: string, type: string, data: Record<string, unknown> = {}, overrides: Partial<CustomNode> = {}): CustomNode {
+function makeNode(
+  id: string,
+  type: string,
+  data: Record<string, unknown> = {},
+  overrides: Partial<CustomNode> = {}
+): CustomNode {
   return {
     id,
     type,
@@ -87,7 +92,10 @@ describe('templateExpand module', () => {
         updateNodeDataCalls.push({ nodeId, data })
         const idx = nodes.value.findIndex((n) => n.id === nodeId)
         if (idx >= 0) {
-          nodes.value[idx] = { ...nodes.value[idx], data: { ...nodes.value[idx].data, ...data } as CustomNodeData } as CustomNode
+          nodes.value[idx] = {
+            ...nodes.value[idx],
+            data: { ...nodes.value[idx].data, ...data } as CustomNodeData,
+          } as CustomNode
         }
       },
     })
@@ -121,15 +129,24 @@ describe('templateExpand module', () => {
         makeNode('child-1', 'notNullConstraint', {}, { parentNode: 'ti-1' }),
         makeNode('child-2', 'transform', {}, { parentNode: 'ti-1' }),
       ]
-      edges.value = [
-        makeEdge('e1', 'child-1', 'child-2'),
-        makeEdge('e2', 'external', 'ti-1'),
-      ]
+      edges.value = [makeEdge('e1', 'child-1', 'child-2'), makeEdge('e2', 'external', 'ti-1')]
 
       // 先展开一次建立追踪
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        constraints: [{ id: 'child-1', type: 'NotNull', input_from_node: null, description: 'nn', refs: { table_id: 't1', column_id: 'c1' }, params: {} }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'child-1',
+              type: 'NotNull',
+              input_from_node: null,
+              description: 'nn',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
       // 重置 mock 计数
       vi.mocked(addNodes).mockClear()
@@ -154,9 +171,21 @@ describe('templateExpand module', () => {
         makeNode('child-1', 'notNullConstraint', {}, { parentNode: 'ti-1' }),
       ]
 
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        constraints: [{ id: 'child-1', type: 'NotNull', input_from_node: null, description: 'nn', refs: { table_id: 't1', column_id: 'c1' }, params: {} }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'child-1',
+              type: 'NotNull',
+              input_from_node: null,
+              description: 'nn',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
       module.collapseExpansion('ti-1')
 
@@ -174,9 +203,21 @@ describe('templateExpand module', () => {
       ]
 
       // 手动注入展开追踪
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        constraints: [{ id: 'child-1', type: 'NotNull', input_from_node: null, description: 'nn', refs: { table_id: 't1', column_id: 'c1' }, params: {} }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'child-1',
+              type: 'NotNull',
+              input_from_node: null,
+              description: 'nn',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
       module.collapseExpansion('ti-1')
 
@@ -200,9 +241,21 @@ describe('templateExpand module', () => {
   describe('resetAll & getExpandedIds', () => {
     it('resetAll 清空所有追踪', async () => {
       nodes.value = [makeNode('ti-1', 'templateInstance', {})]
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        constraints: [{ id: 'c1', type: 'NotNull', input_from_node: null, description: 'nn', refs: { table_id: 't1', column_id: 'c1' }, params: {} }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'c1',
+              type: 'NotNull',
+              input_from_node: null,
+              description: 'nn',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
       expect(module.getExpandedIds('ti-1').length).toBeGreaterThan(0)
 
@@ -226,25 +279,42 @@ describe('templateExpand module', () => {
     })
 
     it('实例节点不存在时不操作', async () => {
-      await module.expandOnCanvas('nonexistent', makeExpandResult({
-        constraints: [{ id: 'c1', type: 'NotNull', input_from_node: null, description: 'nn', refs: {}, params: {} }],
-      }))
+      await module.expandOnCanvas(
+        'nonexistent',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'c1',
+              type: 'NotNull',
+              input_from_node: null,
+              description: 'nn',
+              refs: {},
+              params: {},
+            },
+          ],
+        })
+      )
       expect(addNodes).not.toHaveBeenCalled()
     })
 
     it('创建 constraint 节点', async () => {
       nodes.value = [makeNode('ti-1', 'templateInstance', { inputFromNode: 'schema-1' })]
 
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        constraints: [{
-          id: 'c1',
-          type: 'NotNull',
-          input_from_node: null,
-          description: 'NN Email',
-          refs: { table_id: 't1', column_id: 'c1' },
-          params: {},
-        }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'c1',
+              type: 'NotNull',
+              input_from_node: null,
+              description: 'NN Email',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
       expect(addNodes).toHaveBeenCalledTimes(1)
       const node = addNodes.mock.calls[0][0] as CustomNode
@@ -258,17 +328,22 @@ describe('templateExpand module', () => {
     it('创建 transform 节点', async () => {
       nodes.value = [makeNode('ti-1', 'templateInstance', { inputFromNode: 'schema-1' })]
 
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        transforms: [{
-          id: 't1',
-          type: 'UpperCase',
-          input_from_node: null,
-          description: 'Upper',
-          input_column: 'name',
-          params: {},
-          output_columns: ['upper_name'],
-        }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          transforms: [
+            {
+              id: 't1',
+              type: 'UpperCase',
+              input_from_node: null,
+              description: 'Upper',
+              input_column: 'name',
+              params: {},
+              output_columns: ['upper_name'],
+            },
+          ],
+        })
+      )
 
       expect(addNodes).toHaveBeenCalledTimes(1)
       const node = addNodes.mock.calls[0][0] as CustomNode
@@ -280,19 +355,24 @@ describe('templateExpand module', () => {
     it('创建 regex 节点', async () => {
       nodes.value = [makeNode('ti-1', 'templateInstance', { inputFromNode: 'schema-1' })]
 
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        regex_nodes: [{
-          id: 'r1',
-          type: 'regex',
-          input_from_node: null,
-          name: 'Email Regex',
-          pattern: '^.*$',
-          description: 'email pattern',
-          match_mode: 'full',
-          case_sensitive: true,
-          parameters: [],
-        }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          regex_nodes: [
+            {
+              id: 'r1',
+              type: 'regex',
+              input_from_node: null,
+              name: 'Email Regex',
+              pattern: '^.*$',
+              description: 'email pattern',
+              match_mode: 'full',
+              case_sensitive: true,
+              parameters: [],
+            },
+          ],
+        })
+      )
 
       expect(addNodes).toHaveBeenCalledTimes(1)
       const node = addNodes.mock.calls[0][0] as CustomNode
@@ -303,23 +383,30 @@ describe('templateExpand module', () => {
     it('transform → constraint 插入 transformOutput 合成节点', async () => {
       nodes.value = [makeNode('ti-1', 'templateInstance', { inputFromNode: 'schema-1' })]
 
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        transforms: [{
-          id: 't1',
-          type: 'UpperCase',
-          input_from_node: null,
-          description: 'Upper',
-          output_columns: ['upper_name'],
-        }],
-        constraints: [{
-          id: 'c1',
-          type: 'NotNull',
-          input_from_node: 't1',
-          description: 'NN',
-          refs: { table_id: 't1', column_id: 'c1' },
-          params: {},
-        }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          transforms: [
+            {
+              id: 't1',
+              type: 'UpperCase',
+              input_from_node: null,
+              description: 'Upper',
+              output_columns: ['upper_name'],
+            },
+          ],
+          constraints: [
+            {
+              id: 'c1',
+              type: 'NotNull',
+              input_from_node: 't1',
+              description: 'NN',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
       // transform + transformOutput + constraint = 3 nodes
       expect(addNodes).toHaveBeenCalledTimes(3)
@@ -336,36 +423,44 @@ describe('templateExpand module', () => {
     it('无外部输入时插入 manualData 合成节点', async () => {
       nodes.value = [makeNode('ti-1', 'templateInstance', {})]
 
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        constraints: [{
-          id: 'c1',
-          type: 'NotNull',
-          input_from_node: null,
-          description: 'NN',
-          refs: { table_id: 't1', column_id: 'c1' },
-          params: {},
-        }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'c1',
+              type: 'NotNull',
+              input_from_node: null,
+              description: 'NN',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
       const types = addNodes.mock.calls.map((c) => (c[0] as CustomNode).type)
       expect(types).toContain('manualData')
     })
 
     it('使用实例节点的 inputFromNode 作为数据源', async () => {
-      nodes.value = [
-        makeNode('ti-1', 'templateInstance', { inputFromNode: 'schema-1' }),
-      ]
+      nodes.value = [makeNode('ti-1', 'templateInstance', { inputFromNode: 'schema-1' })]
 
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        constraints: [{
-          id: 'c1',
-          type: 'NotNull',
-          input_from_node: null,
-          description: 'NN',
-          refs: { table_id: 't1', column_id: 'c1' },
-          params: {},
-        }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'c1',
+              type: 'NotNull',
+              input_from_node: null,
+              description: 'NN',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
       // 有外部输入时，不创建 manualData
       const types = addNodes.mock.calls.map((c) => (c[0] as CustomNode).type)
@@ -375,16 +470,21 @@ describe('templateExpand module', () => {
     it('外部 inputFromNode 不在展开图中时回退到数据源', async () => {
       nodes.value = [makeNode('ti-1', 'templateInstance', { inputFromNode: 'schema-1' })]
 
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        constraints: [{
-          id: 'c1',
-          type: 'NotNull',
-          input_from_node: 'external-node',
-          description: 'NN',
-          refs: { table_id: 't1', column_id: 'c1' },
-          params: {},
-        }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'c1',
+              type: 'NotNull',
+              input_from_node: 'external-node',
+              description: 'NN',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
       // 边的 source 应该是 schema-1（外部数据源替代）
       const edges = addEdges.mock.calls[0][0] as Edge[]
@@ -395,37 +495,51 @@ describe('templateExpand module', () => {
     it('更新实例节点 expanded 和 nodeCount', async () => {
       nodes.value = [makeNode('ti-1', 'templateInstance', {})]
 
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        constraints: [{
-          id: 'c1',
-          type: 'NotNull',
-          input_from_node: null,
-          description: 'NN',
-          refs: { table_id: 't1', column_id: 'c1' },
-          params: {},
-        }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'c1',
+              type: 'NotNull',
+              input_from_node: null,
+              description: 'NN',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
-      const expandedCall = updateNodeDataCalls.find((c) => c.nodeId === 'ti-1' && c.data.expanded === true)
+      const expandedCall = updateNodeDataCalls.find(
+        (c) => c.nodeId === 'ti-1' && c.data.expanded === true
+      )
       expect(expandedCall).toBeDefined()
 
-      const countCall = updateNodeDataCalls.find((c) => c.nodeId === 'ti-1' && typeof c.data.nodeCount === 'number')
+      const countCall = updateNodeDataCalls.find(
+        (c) => c.nodeId === 'ti-1' && typeof c.data.nodeCount === 'number'
+      )
       expect(countCall).toBeDefined()
     })
 
     it('设置容器尺寸', async () => {
       nodes.value = [makeNode('ti-1', 'templateInstance', {})]
 
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        constraints: [{
-          id: 'c1',
-          type: 'NotNull',
-          input_from_node: null,
-          description: 'NN',
-          refs: { table_id: 't1', column_id: 'c1' },
-          params: {},
-        }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'c1',
+              type: 'NotNull',
+              input_from_node: null,
+              description: 'NN',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
       const parent = nodes.value.find((n) => n.id === 'ti-1')
       expect(parent?.width).toBeGreaterThan(0)
@@ -440,23 +554,30 @@ describe('templateExpand module', () => {
         makeNode('output-t1', 'transformOutput', { parentTransformId: 't1' }),
       ]
 
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        transforms: [{
-          id: 't1',
-          type: 'UpperCase',
-          input_from_node: null,
-          description: 'Upper',
-          output_columns: ['upper_name'],
-        }],
-        constraints: [{
-          id: 'c1',
-          type: 'NotNull',
-          input_from_node: 't1',
-          description: 'NN',
-          refs: { table_id: 't1', column_id: 'c1' },
-          params: {},
-        }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          transforms: [
+            {
+              id: 't1',
+              type: 'UpperCase',
+              input_from_node: null,
+              description: 'Upper',
+              output_columns: ['upper_name'],
+            },
+          ],
+          constraints: [
+            {
+              id: 'c1',
+              type: 'NotNull',
+              input_from_node: 't1',
+              description: 'NN',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
       const ids = addNodes.mock.calls.map((c) => (c[0] as CustomNode).id)
       // output-t1 已存在，不应再次创建
@@ -488,25 +609,58 @@ describe('templateExpand module', () => {
 
         if (ct.type === 'NotNull') refs.column_id = 'c1'
         if (ct.type === 'Unique') refs.column_ids = ['c1']
-        if (ct.type === 'AllowedValues') { refs.column_id = 'c1'; params.allowed_values = ['a', 'b'] }
-        if (ct.type === 'ForeignKey') { refs.from_table_id = 't1'; refs.from_column_id = 'c1'; refs.to_table_id = 't2'; refs.to_column_id = 'c2' }
-        if (ct.type === 'Range') { refs.column_id = 'c1'; params.min = 0; params.max = 100; params.boundary_mode = 'inclusive' }
-        if (ct.type === 'Conditional') { refs.if_column_id = 'c1'; refs.then_column_id = 'c2'; params.if_conditions = [] }
-        if (ct.type === 'Scripted') { refs.column_id = 'c1'; params.expression = 'true' }
-        if (ct.type === 'Charset') { refs.column_id = 'c1'; params.charset_mode = 'ascii' }
-        if (ct.type === 'DateLogic') { refs.column_id = 'c1'; params.logic_mode = 'compare' }
-        if (ct.type === 'Composite') { /* no refs needed */ }
+        if (ct.type === 'AllowedValues') {
+          refs.column_id = 'c1'
+          params.allowed_values = ['a', 'b']
+        }
+        if (ct.type === 'ForeignKey') {
+          refs.from_table_id = 't1'
+          refs.from_column_id = 'c1'
+          refs.to_table_id = 't2'
+          refs.to_column_id = 'c2'
+        }
+        if (ct.type === 'Range') {
+          refs.column_id = 'c1'
+          params.min = 0
+          params.max = 100
+          params.boundary_mode = 'inclusive'
+        }
+        if (ct.type === 'Conditional') {
+          refs.if_column_id = 'c1'
+          refs.then_column_id = 'c2'
+          params.if_conditions = []
+        }
+        if (ct.type === 'Scripted') {
+          refs.column_id = 'c1'
+          params.expression = 'true'
+        }
+        if (ct.type === 'Charset') {
+          refs.column_id = 'c1'
+          params.charset_mode = 'ascii'
+        }
+        if (ct.type === 'DateLogic') {
+          refs.column_id = 'c1'
+          params.logic_mode = 'compare'
+        }
+        if (ct.type === 'Composite') {
+          /* no refs needed */
+        }
 
-        await module.expandOnCanvas('ti-1', makeExpandResult({
-          constraints: [{
-            id: `c-${ct.type}`,
-            type: ct.type,
-            input_from_node: null,
-            description: `${ct.type} test`,
-            refs,
-            params,
-          }],
-        }))
+        await module.expandOnCanvas(
+          'ti-1',
+          makeExpandResult({
+            constraints: [
+              {
+                id: `c-${ct.type}`,
+                type: ct.type,
+                input_from_node: null,
+                description: `${ct.type} test`,
+                refs,
+                params,
+              },
+            ],
+          })
+        )
 
         expect(addNodes).toHaveBeenCalled()
         const node = addNodes.mock.calls[0][0] as CustomNode
@@ -517,16 +671,21 @@ describe('templateExpand module', () => {
     it('未知约束类型跳过', async () => {
       nodes.value = [makeNode('ti-1', 'templateInstance', {})]
 
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        constraints: [{
-          id: 'c1',
-          type: 'UnknownType',
-          input_from_node: null,
-          description: 'Unknown',
-          refs: { table_id: 't1' },
-          params: {},
-        }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'c1',
+              type: 'UnknownType',
+              input_from_node: null,
+              description: 'Unknown',
+              refs: { table_id: 't1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
       // UnknownType 映射不到 kind，所以 buildConstraintNodeData 返回 null，不创建节点
       const types = addNodes.mock.calls.map((c) => (c[0] as CustomNode).type)
@@ -536,16 +695,21 @@ describe('templateExpand module', () => {
     it('边创建时回写 inputFromNode', async () => {
       nodes.value = [makeNode('ti-1', 'templateInstance', {})]
 
-      await module.expandOnCanvas('ti-1', makeExpandResult({
-        constraints: [{
-          id: 'c1',
-          type: 'NotNull',
-          input_from_node: null,
-          description: 'NN',
-          refs: { table_id: 't1', column_id: 'c1' },
-          params: {},
-        }],
-      }))
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'c1',
+              type: 'NotNull',
+              input_from_node: null,
+              description: 'NN',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
 
       expect(addEdges).toHaveBeenCalled()
       const createdEdges = addEdges.mock.calls[0][0] as Edge[]

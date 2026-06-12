@@ -229,7 +229,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
   }
 
   /**
-    * 添加 AI 助手消息到聊天列表
+   * 添加 AI 助手消息到聊天列表
    *
    * @param content - AI 回复的文本内容
    * @returns 新创建的消息对象

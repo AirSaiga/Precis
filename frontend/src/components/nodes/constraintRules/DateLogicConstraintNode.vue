@@ -47,8 +47,7 @@
             t('customNodes.constraintRules.dateLogicConstraintNode.sourceLabel', '源')
           }}</span>
           <span class="info-value" :class="{ placeholder: !hasSource }">{{
-            data.table ||
-            t('customNodes.constraintRules.dateLogicConstraintNode.waitingForSource')
+            data.table || t('customNodes.constraintRules.dateLogicConstraintNode.waitingForSource')
           }}</span>
         </div>
         <div v-if="hasSource && data.column" class="info-row">
@@ -281,7 +280,9 @@
   }
 
   let validationTimer: number | undefined
-  onBeforeUnmount(() => { if (validationTimer) clearTimeout(validationTimer) })
+  onBeforeUnmount(() => {
+    if (validationTimer) clearTimeout(validationTimer)
+  })
   const scheduleValidation = () => {
     if (validationTimer) window.clearTimeout(validationTimer)
     validationTimer = window.setTimeout(() => {

@@ -116,31 +116,25 @@
      ======================================== */
 
   /* 默认阴影 */
-  --node-shadow: 0 2px 8px rgba(45, 42, 38, 0.06),
-                 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  --node-shadow: 0 2px 8px rgba(45, 42, 38, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
   --node-shadow-sm: var(--ui-shadow-sm);
   --node-shadow-md: var(--ui-shadow-md);
   --node-shadow-lg: var(--ui-shadow-lg);
 
   /* 悬浮阴影 */
-  --node-shadow-hover: 0 8px 20px rgba(45, 42, 38, 0.1),
-                      0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+  --node-shadow-hover: 0 8px 20px rgba(45, 42, 38, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
 
   /* 选中阴影 - 发光效果 */
-  --node-shadow-selected: 0 0 0 3px var(--ui-accent-ring),
-                          0 12px 24px rgba(45, 42, 38, 0.12);
+  --node-shadow-selected: 0 0 0 3px var(--ui-accent-ring), 0 12px 24px rgba(45, 42, 38, 0.12);
 
   /* 错误阴影 */
-  --node-shadow-error: 0 0 0 2px var(--ui-danger-ring),
-                       0 4px 8px rgba(45, 42, 38, 0.08);
+  --node-shadow-error: 0 0 0 2px var(--ui-danger-ring), 0 4px 8px rgba(45, 42, 38, 0.08);
 
   /* 成功阴影 */
-  --node-shadow-success: 0 0 0 2px var(--ui-success-ring),
-                         0 4px 8px rgba(45, 42, 38, 0.08);
+  --node-shadow-success: 0 0 0 2px var(--ui-success-ring), 0 4px 8px rgba(45, 42, 38, 0.08);
 
   /* 拖拽阴影 */
-  --node-shadow-dragging: 0 16px 32px rgba(45, 42, 38, 0.15),
-                          0 0 0 2px var(--ui-accent-ring);
+  --node-shadow-dragging: 0 16px 32px rgba(45, 42, 38, 0.15), 0 0 0 2px var(--ui-accent-ring);
 
   /* ========================================
      节点尺寸系统
@@ -302,19 +296,71 @@
   --node-header-bg-hover: var(--ui-bg-hover);
 
   /* 头部渐变 - 使用 color-mix 实现平滑的主题感知渐变 */
-  --node-header-gradient-primary: linear-gradient(135deg, color-mix(in srgb, var(--ui-accent) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-accent) 4%, var(--ui-bg-elevated)) 100%);
-  --node-header-gradient-success: linear-gradient(135deg, color-mix(in srgb, var(--ui-success) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-success) 4%, var(--ui-bg-elevated)) 100%);
-  --node-header-gradient-danger: linear-gradient(135deg, color-mix(in srgb, var(--ui-danger) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-danger) 4%, var(--ui-bg-elevated)) 100%);
-  --node-header-gradient-warning: linear-gradient(135deg, color-mix(in srgb, var(--ui-warning) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-warning) 4%, var(--ui-bg-elevated)) 100%);
-  --node-header-gradient-info: linear-gradient(135deg, color-mix(in srgb, var(--ui-info) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-info) 4%, var(--ui-bg-elevated)) 100%);
-  --node-header-gradient-regex: linear-gradient(135deg, color-mix(in srgb, var(--theme-purple) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--theme-purple) 4%, var(--ui-bg-elevated)) 100%);
-  --node-header-gradient-purple: linear-gradient(135deg, color-mix(in srgb, var(--theme-purple) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--theme-purple) 4%, var(--ui-bg-elevated)) 100%);
-  --node-header-gradient-orange: linear-gradient(135deg, color-mix(in srgb, var(--theme-orange) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--theme-orange) 4%, var(--ui-bg-elevated)) 100%);
-  --node-header-gradient-sky: linear-gradient(135deg, color-mix(in srgb, var(--theme-sky) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--theme-sky) 4%, var(--ui-bg-elevated)) 100%);
-  --node-header-gradient-pink: linear-gradient(135deg, color-mix(in srgb, var(--theme-pink) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--theme-pink) 4%, var(--ui-bg-elevated)) 100%);
-  --node-header-gradient-script: linear-gradient(135deg, color-mix(in srgb, var(--theme-script) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--theme-script) 4%, var(--ui-bg-elevated)) 100%);
-  --node-header-gradient-project: linear-gradient(135deg, color-mix(in srgb, var(--node-special-project-accent) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--node-special-project-accent) 4%, var(--ui-bg-elevated)) 100%);
-  --node-header-gradient-source: linear-gradient(135deg, color-mix(in srgb, var(--node-special-source-accent) 12%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--node-special-source-accent) 4%, var(--ui-bg-elevated)) 100%);
+  --node-header-gradient-primary: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ui-accent) 12%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--ui-accent) 4%, var(--ui-bg-elevated)) 100%
+  );
+  --node-header-gradient-success: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ui-success) 12%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--ui-success) 4%, var(--ui-bg-elevated)) 100%
+  );
+  --node-header-gradient-danger: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ui-danger) 12%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--ui-danger) 4%, var(--ui-bg-elevated)) 100%
+  );
+  --node-header-gradient-warning: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ui-warning) 12%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--ui-warning) 4%, var(--ui-bg-elevated)) 100%
+  );
+  --node-header-gradient-info: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--ui-info) 12%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--ui-info) 4%, var(--ui-bg-elevated)) 100%
+  );
+  --node-header-gradient-regex: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-purple) 12%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--theme-purple) 4%, var(--ui-bg-elevated)) 100%
+  );
+  --node-header-gradient-purple: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-purple) 12%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--theme-purple) 4%, var(--ui-bg-elevated)) 100%
+  );
+  --node-header-gradient-orange: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-orange) 12%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--theme-orange) 4%, var(--ui-bg-elevated)) 100%
+  );
+  --node-header-gradient-sky: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-sky) 12%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--theme-sky) 4%, var(--ui-bg-elevated)) 100%
+  );
+  --node-header-gradient-pink: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-pink) 12%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--theme-pink) 4%, var(--ui-bg-elevated)) 100%
+  );
+  --node-header-gradient-script: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--theme-script) 12%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--theme-script) 4%, var(--ui-bg-elevated)) 100%
+  );
+  --node-header-gradient-project: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--node-special-project-accent) 12%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--node-special-project-accent) 4%, var(--ui-bg-elevated)) 100%
+  );
+  --node-header-gradient-source: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--node-special-source-accent) 12%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--node-special-source-accent) 4%, var(--ui-bg-elevated)) 100%
+  );
 
   /* ========================================
      节点连接点系统
@@ -474,7 +520,7 @@
   --crystal-bg-hover: linear-gradient(
     180deg,
     rgba(255, 255, 255, 0.95) 0%,
-    rgba(248, 251, 255, 0.90) 100%
+    rgba(248, 251, 255, 0.9) 100%
   );
   --crystal-bg-selected: linear-gradient(
     180deg,
@@ -488,19 +534,14 @@
   --crystal-border-selected: var(--ui-accent);
 
   /* 水晶阴影 - 内发光 + 柔和外阴影 */
-  --crystal-shadow: 
-    0 2px 8px rgba(100, 120, 140, 0.08),
-    0 4px 16px rgba(100, 120, 140, 0.05),
-    inset 0 1px 1px rgba(255, 255, 255, 0.6),
-    inset 0 -1px 1px rgba(0, 0, 0, 0.02);
+  --crystal-shadow:
+    0 2px 8px rgba(100, 120, 140, 0.08), 0 4px 16px rgba(100, 120, 140, 0.05),
+    inset 0 1px 1px rgba(255, 255, 255, 0.6), inset 0 -1px 1px rgba(0, 0, 0, 0.02);
   --crystal-shadow-hover:
-    0 4px 12px rgba(100, 120, 140, 0.12),
-    0 8px 24px rgba(100, 120, 140, 0.08),
-    inset 0 1px 1px rgba(255, 255, 255, 0.7),
-    inset 0 -1px 1px rgba(0, 0, 0, 0.03);
+    0 4px 12px rgba(100, 120, 140, 0.12), 0 8px 24px rgba(100, 120, 140, 0.08),
+    inset 0 1px 1px rgba(255, 255, 255, 0.7), inset 0 -1px 1px rgba(0, 0, 0, 0.03);
   --crystal-shadow-selected:
-    0 0 0 2px var(--ui-accent-ring),
-    0 4px 16px rgba(100, 120, 140, 0.15),
+    0 0 0 2px var(--ui-accent-ring), 0 4px 16px rgba(100, 120, 140, 0.15),
     inset 0 1px 2px rgba(255, 255, 255, 0.8);
 
   /* 水晶模糊度 */
@@ -511,7 +552,7 @@
   --crystal-header-bg: linear-gradient(
     180deg,
     rgba(248, 251, 255, 0.95) 0%,
-    rgba(245, 248, 252, 0.90) 100%
+    rgba(245, 248, 252, 0.9) 100%
   );
 
   /* 水晶内部区域背景 */
@@ -540,10 +581,8 @@
   --node-border-hover: rgba(255, 255, 255, 0.15);
 
   /* 节点阴影 */
-  --node-shadow: 0 2px 8px rgba(0, 0, 0, 0.3),
-                 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  --node-shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.4),
-                      0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  --node-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  --node-shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
 
   /* 毛玻璃效果已通过 root 中的 color-mix 实现自适应 */
   --node-selection-fill: rgba(90, 155, 199, 0.15);
@@ -558,7 +597,7 @@
   --crystal-bg-hover: linear-gradient(
     180deg,
     rgba(50, 55, 65, 0.95) 0%,
-    rgba(45, 50, 60, 0.90) 100%
+    rgba(45, 50, 60, 0.9) 100%
   );
   --crystal-bg-selected: linear-gradient(
     180deg,
@@ -567,24 +606,19 @@
   );
   --crystal-border: rgba(100, 120, 150, 0.25);
   --crystal-border-hover: rgba(120, 140, 170, 0.4);
-  --crystal-shadow: 
-    0 2px 8px rgba(0, 0, 0, 0.25),
-    0 4px 16px rgba(0, 0, 0, 0.15),
-    inset 0 1px 1px rgba(255, 255, 255, 0.06),
-    inset 0 -1px 1px rgba(0, 0, 0, 0.1);
+  --crystal-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.15),
+    inset 0 1px 1px rgba(255, 255, 255, 0.06), inset 0 -1px 1px rgba(0, 0, 0, 0.1);
   --crystal-shadow-hover:
-    0 4px 12px rgba(0, 0, 0, 0.3),
-    0 8px 24px rgba(0, 0, 0, 0.2),
-    inset 0 1px 1px rgba(255, 255, 255, 0.08),
-    inset 0 -1px 1px rgba(0, 0, 0, 0.12);
+    0 4px 12px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.2),
+    inset 0 1px 1px rgba(255, 255, 255, 0.08), inset 0 -1px 1px rgba(0, 0, 0, 0.12);
   --crystal-shadow-selected:
-    0 0 0 2px var(--ui-accent-ring),
-    0 4px 16px rgba(0, 0, 0, 0.35),
+    0 0 0 2px var(--ui-accent-ring), 0 4px 16px rgba(0, 0, 0, 0.35),
     inset 0 1px 2px rgba(255, 255, 255, 0.1);
   --crystal-header-bg: linear-gradient(
     180deg,
     rgba(50, 55, 65, 0.95) 0%,
-    rgba(45, 50, 60, 0.90) 100%
+    rgba(45, 50, 60, 0.9) 100%
   );
   --crystal-section-bg: rgba(55, 60, 70, 0.6);
   --crystal-footer-bg: rgba(50, 55, 65, 0.5);

@@ -337,7 +337,7 @@ export interface RegexNodeData {
    * idle → (开始校验) → (处理中) → pass/error
    * pass/error → (修改配置) → idle
    */
-   validationStatus: 'idle' | 'pass' | 'error' | 'missing'
+  validationStatus: 'idle' | 'pass' | 'error' | 'missing'
 
   /**
    * 校验失败的行数

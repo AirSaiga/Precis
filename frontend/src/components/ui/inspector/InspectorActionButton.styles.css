@@ -28,7 +28,11 @@
 .inspector-action-btn.btn-danger {
   color: var(--ui-danger);
   border-color: color-mix(in srgb, var(--ui-danger) 25%, transparent);
-  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-danger) 6%, var(--ui-bg-elevated)) 0%, color-mix(in srgb, var(--ui-danger) 3%, var(--ui-bg-elevated)) 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--ui-danger) 6%, var(--ui-bg-elevated)) 0%,
+    color-mix(in srgb, var(--ui-danger) 3%, var(--ui-bg-elevated)) 100%
+  );
 }
 
 .inspector-action-btn.btn-danger:hover {

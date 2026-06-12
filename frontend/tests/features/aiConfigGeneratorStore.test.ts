@@ -12,7 +12,8 @@ vi.mock('@/core/utils/logger', () => ({
 }))
 
 // Must import after mocks are set up
-const { useAiConfigGeneratorStore } = await import('@/features/ai-config-generator/stores/aiConfigGeneratorStore')
+const { useAiConfigGeneratorStore } =
+  await import('@/features/ai-config-generator/stores/aiConfigGeneratorStore')
 
 describe('aiConfigGeneratorStore', () => {
   beforeEach(() => {

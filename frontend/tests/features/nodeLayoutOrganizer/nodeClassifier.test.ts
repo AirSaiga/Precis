@@ -3,7 +3,11 @@ import { NodeClassifier } from '@/features/node-layout-organizer/utils/nodeClass
 import { NodeCategory, NODE_TYPE_TO_CATEGORY } from '@/features/node-layout-organizer/types'
 import type { CustomNode } from '@/types/nodes'
 
-function makeNode(id: string, type: string | undefined, data: Record<string, unknown> = {}): CustomNode {
+function makeNode(
+  id: string,
+  type: string | undefined,
+  data: Record<string, unknown> = {}
+): CustomNode {
   return {
     id,
     type: type as CustomNode['type'],
@@ -42,10 +46,7 @@ describe('NodeClassifier - classifyByCategory', () => {
   })
 
   it('skips nodes without type', () => {
-    const nodes: CustomNode[] = [
-      makeNode('n1', undefined),
-      makeNode('n2', 'schema'),
-    ]
+    const nodes: CustomNode[] = [makeNode('n1', undefined), makeNode('n2', 'schema')]
     const classifier = new NodeClassifier(nodes)
     const result = classifier.classifyByCategory()
     expect(result.get(NodeCategory.CORE)).toHaveLength(1)
@@ -146,10 +147,7 @@ describe('NodeClassifier - classifyByConnection', () => {
 
 describe('NodeClassifier - classifyByHierarchy', () => {
   it('places all disconnected nodes at level 0', () => {
-    const nodes: CustomNode[] = [
-      makeNode('a', 'schema'),
-      makeNode('b', 'schema'),
-    ]
+    const nodes: CustomNode[] = [makeNode('a', 'schema'), makeNode('b', 'schema')]
     const classifier = new NodeClassifier(nodes)
     const levels = classifier.classifyByHierarchy([])
     expect(levels.get(0)).toHaveLength(2)
@@ -195,10 +193,7 @@ describe('NodeClassifier - classifyByHierarchy', () => {
 
 describe('NodeClassifier - getRootNodes / getLeafNodes', () => {
   it('getRootNodes returns projectRoot nodes', () => {
-    const nodes: CustomNode[] = [
-      makeNode('root1', 'projectRoot'),
-      makeNode('s', 'schema'),
-    ]
+    const nodes: CustomNode[] = [makeNode('root1', 'projectRoot'), makeNode('s', 'schema')]
     const classifier = new NodeClassifier(nodes)
     const roots = classifier.getRootNodes()
     expect(roots).toHaveLength(1)

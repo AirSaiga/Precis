@@ -37,9 +37,7 @@
   }
 
   // 全部已忽略：当前 inspection 有问题，但都被忽略了
-  const isIgnoredOnly = computed(
-    () => store.unresolvedCount === 0 && store.allIssues.length > 0
-  )
+  const isIgnoredOnly = computed(() => store.unresolvedCount === 0 && store.allIssues.length > 0)
 
   const hasContent = computed(() => store.unresolvedCount > 0 || isIgnoredOnly.value)
 

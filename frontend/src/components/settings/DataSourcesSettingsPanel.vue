@@ -10,14 +10,38 @@
     <!-- 数据源列表 -->
     <div v-if="dataSources.length > 0" class="settings-section">
       <div class="settings-list">
-        <div v-for="(ds, index) in dataSources" :key="ds.id" class="settings-list__item" style="flex-direction: column; align-items: stretch; gap: var(--ui-space-sm)">
+        <div
+          v-for="(ds, index) in dataSources"
+          :key="ds.id"
+          class="settings-list__item"
+          style="flex-direction: column; align-items: stretch; gap: var(--ui-space-sm)"
+        >
           <div class="settings-row" style="padding: 0">
             <div class="settings-row__label">{{ t('settings.dataSources.id') }}</div>
             <div class="settings-row__control settings-row__control--wide">
-              <input v-model="ds.id" class="settings-input" type="text" :placeholder="t('settings.dataSources.idPlaceholder')" :disabled="isSaving" @change="handleChange" />
+              <input
+                v-model="ds.id"
+                class="settings-input"
+                type="text"
+                :placeholder="t('settings.dataSources.idPlaceholder')"
+                :disabled="isSaving"
+                @change="handleChange"
+              />
             </div>
-            <button class="ui-icon-btn ui-icon-btn--danger" type="button" :disabled="isSaving" @click="removeDataSource(index)">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <button
+              class="ui-icon-btn ui-icon-btn--danger"
+              type="button"
+              :disabled="isSaving"
+              @click="removeDataSource(index)"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+              >
                 <path d="M18 6 6 18" />
                 <path d="m6 6 12 12" />
               </svg>
@@ -27,8 +51,20 @@
             <div class="settings-row__label">{{ t('settings.dataSources.path') }}</div>
             <div class="settings-row__control settings-row__control--wide">
               <div style="display: flex; gap: var(--ui-space-sm); width: 100%">
-                <input v-model="ds.path" class="settings-input" type="text" :placeholder="t('settings.dataSources.pathPlaceholder')" :disabled="isSaving" @change="handleChange" />
-                <button class="ui-btn ui-btn--secondary ui-btn--sm" type="button" :disabled="isSaving" @click="selectDirectory(index)">
+                <input
+                  v-model="ds.path"
+                  class="settings-input"
+                  type="text"
+                  :placeholder="t('settings.dataSources.pathPlaceholder')"
+                  :disabled="isSaving"
+                  @change="handleChange"
+                />
+                <button
+                  class="ui-btn ui-btn--secondary ui-btn--sm"
+                  type="button"
+                  :disabled="isSaving"
+                  @click="selectDirectory(index)"
+                >
                   {{ t('settings.dataSources.browse') }}
                 </button>
               </div>
@@ -37,7 +73,12 @@
           <div class="settings-row" style="padding: 0">
             <div class="settings-row__label">{{ t('settings.dataSources.mode') }}</div>
             <div class="settings-row__control">
-              <select v-model="ds.mode" class="settings-select" :disabled="isSaving" @change="handleChange">
+              <select
+                v-model="ds.mode"
+                class="settings-select"
+                :disabled="isSaving"
+                @change="handleChange"
+              >
                 <option value="relative">{{ t('settings.dataSources.modeRelative') }}</option>
                 <option value="absolute">{{ t('settings.dataSources.modeAbsolute') }}</option>
               </select>
@@ -46,7 +87,14 @@
           <div class="settings-row" style="padding: 0">
             <div class="settings-row__label">{{ t('settings.dataSources.description') }}</div>
             <div class="settings-row__control settings-row__control--wide">
-              <input v-model="ds.description" class="settings-input" type="text" :placeholder="t('settings.dataSources.descriptionPlaceholder')" :disabled="isSaving" @change="handleChange" />
+              <input
+                v-model="ds.description"
+                class="settings-input"
+                type="text"
+                :placeholder="t('settings.dataSources.descriptionPlaceholder')"
+                :disabled="isSaving"
+                @change="handleChange"
+              />
             </div>
           </div>
         </div>
@@ -62,13 +110,28 @@
 
     <!-- 操作 -->
     <div class="settings-actions">
-      <button class="ui-btn ui-btn--secondary ui-btn--sm" type="button" :disabled="isSaving" @click="addDataSource">
+      <button
+        class="ui-btn ui-btn--secondary ui-btn--sm"
+        type="button"
+        :disabled="isSaving"
+        @click="addDataSource"
+      >
         + {{ t('settings.dataSources.add') }}
       </button>
-      <button class="ui-btn ui-btn--ghost ui-btn--sm" type="button" :disabled="isSaving" @click="handleReset">
+      <button
+        class="ui-btn ui-btn--ghost ui-btn--sm"
+        type="button"
+        :disabled="isSaving"
+        @click="handleReset"
+      >
         {{ t('common.reset') }}
       </button>
-      <button class="ui-btn ui-btn--primary ui-btn--sm" type="button" :disabled="isSaving || !hasChanges" @click="handleSave">
+      <button
+        class="ui-btn ui-btn--primary ui-btn--sm"
+        type="button"
+        :disabled="isSaving || !hasChanges"
+        @click="handleSave"
+      >
         {{ isSaving ? t('common.saving') : t('common.save') }}
       </button>
     </div>

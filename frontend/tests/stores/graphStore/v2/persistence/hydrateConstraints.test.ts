@@ -7,7 +7,11 @@ vi.mock('@/core/utils/logger', () => ({
 
 import { hydrateManifestConstraintsFromV2Config } from '@/stores/graphStore/modules/v2/persistence/load/hydrateConstraints'
 
-function makeSchemaNode(id: string, tableName: string, columns: Array<{ id: string; columnName: string }> = []): CustomNode {
+function makeSchemaNode(
+  id: string,
+  tableName: string,
+  columns: Array<{ id: string; columnName: string }> = []
+): CustomNode {
   return {
     id,
     type: 'schema',
@@ -223,7 +227,9 @@ describe('hydrateManifestConstraintsFromV2Config', () => {
           },
         },
       }
-      const existingNodes = [makeSchemaNode('s1', 'users', [{ id: 'col1', columnName: 'created_at' }])]
+      const existingNodes = [
+        makeSchemaNode('s1', 'users', [{ id: 'col1', columnName: 'created_at' }]),
+      ]
 
       const result = hydrateManifestConstraintsFromV2Config({ config, existingNodes })
 

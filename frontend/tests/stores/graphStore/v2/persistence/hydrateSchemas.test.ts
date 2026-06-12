@@ -33,7 +33,9 @@ import { materializeV2EmbeddedConstraints } from '@/stores/graphStore/modules/v2
 
 describe('hydrateSchemasFromV2Config', () => {
   const mockGetConfigPath = vi.fn(() => '/project')
-  const mockResolveRelPath = vi.fn((dir?: string, rel?: string) => (dir && rel ? `${dir}/${rel}` : rel))
+  const mockResolveRelPath = vi.fn((dir?: string, rel?: string) =>
+    dir && rel ? `${dir}/${rel}` : rel
+  )
 
   beforeEach(() => {
     vi.mocked(materializeV2EmbeddedConstraints).mockClear()

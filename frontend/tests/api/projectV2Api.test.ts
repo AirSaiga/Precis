@@ -49,7 +49,12 @@ describe('projectV2Api - manifest 端点', () => {
       }
       if (mockResponse.status >= 400) {
         const err = new Error('Request failed') as Error & {
-          response?: { data: unknown; status: number; headers: Record<string, string>; config: typeof config }
+          response?: {
+            data: unknown
+            status: number
+            headers: Record<string, string>
+            config: typeof config
+          }
           config?: typeof config
         }
         err.config = config

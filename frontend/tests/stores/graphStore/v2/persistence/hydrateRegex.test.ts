@@ -38,7 +38,10 @@ describe('hydrateRegexNodesFromV2Config', () => {
         id: 's1',
         type: 'schema',
         position: { x: 0, y: 0 },
-        data: { tableName: 'users', columns: [{ id: 'col1', columnName: 'email' }] } as CustomNodeData,
+        data: {
+          tableName: 'users',
+          columns: [{ id: 'col1', columnName: 'email' }],
+        } as CustomNodeData,
       } as CustomNode,
     ]
 
@@ -73,7 +76,10 @@ describe('hydrateRegexNodesFromV2Config', () => {
         id: 's1',
         type: 'schema',
         position: { x: 0, y: 0 },
-        data: { tableName: 'users', columns: [{ id: 'col1', columnName: 'phone' }] } as CustomNodeData,
+        data: {
+          tableName: 'users',
+          columns: [{ id: 'col1', columnName: 'phone' }],
+        } as CustomNodeData,
       } as CustomNode,
     ]
 

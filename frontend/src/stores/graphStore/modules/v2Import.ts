@@ -17,10 +17,20 @@ export function createV2ImportModule(params: {
   edges: Ref<Edge[]>
   selectedNodeId: Ref<string | null>
   getEffectiveProjectConfigPath: () => string | undefined
-  resolveProjectRelativePath: (configDir: string | undefined, relPath: string | undefined) => string | undefined
+  resolveProjectRelativePath: (
+    configDir: string | undefined,
+    relPath: string | undefined
+  ) => string | undefined
   reconcileAll: () => void
 }) {
-  const { nodes, edges, selectedNodeId, getEffectiveProjectConfigPath, resolveProjectRelativePath, reconcileAll } = params
+  const {
+    nodes,
+    edges,
+    selectedNodeId,
+    getEffectiveProjectConfigPath,
+    resolveProjectRelativePath,
+    reconcileAll,
+  } = params
 
   const { ensureSchemaNodeFromV2 } = createEnsureSchemaNodeFromV2({
     nodes,

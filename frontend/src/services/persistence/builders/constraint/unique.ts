@@ -10,7 +10,10 @@ import { buildSingleColumnRefs, getSourceRef, normalizeSchemaId } from './helper
 export const uniqueBuilder: NodeBuilder<ConstraintFileV2> = {
   kind: 'constraint',
   matches: (node: CustomNode) => node.type === 'uniqueConstraint',
-  build({ node, nodes, schemaIdByNodeId }: BuilderContext): { consumed: boolean; file: ConstraintFileV2 } {
+  build({ node, nodes, schemaIdByNodeId }: BuilderContext): {
+    consumed: boolean
+    file: ConstraintFileV2
+  } {
     const d = (node.data || {}) as Record<string, unknown>
     const refs: Record<string, unknown> = {}
 

@@ -282,7 +282,8 @@ export function useJsonSchemaSaving(props: { id: string; data: JsonSchemaNodeDat
         sourceFile: source.path ? String(source.path) : props.data.sourceFile,
         jsonPath: source.jsonPath ? String(source.jsonPath) : props.data.jsonPath,
         recordPath: source.recordPath ? String(source.recordPath) : props.data.recordPath,
-        format: (source.format as 'auto' | 'array' | 'lines' | 'object') || props.data.format || 'auto',
+        format:
+          (source.format as 'auto' | 'array' | 'lines' | 'object') || props.data.format || 'auto',
         columns: parseColumns(parsed.columns as unknown[]),
         saveState: 'draft',
       }

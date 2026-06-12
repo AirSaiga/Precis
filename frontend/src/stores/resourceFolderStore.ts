@@ -292,7 +292,9 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
       if (patterns) patterns.count = counts.patterns
       if (regexNodes) regexNodes.count = counts.regexNodes
     }
-    const templatesFolder = folders.value.validationAssets.children?.find((c) => c.id === 'templates')
+    const templatesFolder = folders.value.validationAssets.children?.find(
+      (c) => c.id === 'templates'
+    )
     if (templatesFolder) {
       templatesFolder.count = counts.templates
     }
@@ -331,7 +333,9 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
       if (regexNodes) regexNodes.resources = data.regexNodes
     }
     // templates 是 validationAssets 下的动态子节点，通过 id 查找
-    const templatesFolder = folders.value.validationAssets.children?.find((c) => c.id === 'templates')
+    const templatesFolder = folders.value.validationAssets.children?.find(
+      (c) => c.id === 'templates'
+    )
     if (templatesFolder) {
       templatesFolder.resources = data.templates
     }
@@ -368,7 +372,9 @@ export const useResourceFolderStore = defineStore('resourceFolder', () => {
       }
     }
     // 重置 templates 文件夹状态并清空资源
-    const templatesFolder = folders.value.validationAssets.children?.find((c) => c.id === 'templates')
+    const templatesFolder = folders.value.validationAssets.children?.find(
+      (c) => c.id === 'templates'
+    )
     if (templatesFolder) {
       templatesFolder.expanded = false
       templatesFolder.count = 0

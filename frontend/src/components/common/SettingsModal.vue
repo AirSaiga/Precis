@@ -33,8 +33,16 @@
                     v-if="settingsStore.saveStatus === 'saving'"
                     class="save-status-badge__spinner"
                   ></span>
-                  <span v-else-if="settingsStore.saveStatus === 'saved'" class="save-status-badge__icon">✓</span>
-                  <span v-else-if="settingsStore.saveStatus === 'error'" class="save-status-badge__icon">✕</span>
+                  <span
+                    v-else-if="settingsStore.saveStatus === 'saved'"
+                    class="save-status-badge__icon"
+                    >✓</span
+                  >
+                  <span
+                    v-else-if="settingsStore.saveStatus === 'error'"
+                    class="save-status-badge__icon"
+                    >✕</span
+                  >
                   {{ saveStatusText }}
                 </div>
               </Transition>
@@ -46,7 +54,14 @@
                 <span class="settings-project-pill__text">{{ projectSummaryText }}</span>
               </div>
               <button class="ui-icon-btn" type="button" @click="handleClose">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                >
                   <path d="M18 6 6 18" />
                   <path d="m6 6 12 12" />
                 </svg>
@@ -79,7 +94,9 @@
                   :placeholder="t('settings.searchPlaceholder')"
                   @keydown="handleSearchKeydown"
                 />
-                <span v-if="settingsStore.searchQuery" class="settings-sidebar__search-shortcut">Esc</span>
+                <span v-if="settingsStore.searchQuery" class="settings-sidebar__search-shortcut"
+                  >Esc</span
+                >
               </div>
 
               <!-- Navigation -->
@@ -123,13 +140,20 @@
                 <GeneralSettingsPanel v-if="settingsStore.activeNavItem === 'general'" />
                 <ShortcutSettingsPanel v-else-if="settingsStore.activeNavItem === 'shortcuts'" />
                 <ProjectInfoPanel v-else-if="settingsStore.activeNavItem === 'project-overview'" />
-                <ProjectSettingsPanel v-else-if="settingsStore.activeNavItem === 'validation-params'" />
-                <DataSourcesSettingsPanel v-else-if="settingsStore.activeNavItem === 'data-sources'" />
-                <ScriptSettingsPanel v-else-if="settingsStore.activeNavItem === 'script-security'" />
-                <AIAssistantSettingsPanel v-else-if="settingsStore.activeNavItem === 'ai-assistant'" />
+                <ProjectSettingsPanel
+                  v-else-if="settingsStore.activeNavItem === 'validation-params'"
+                />
+                <DataSourcesSettingsPanel
+                  v-else-if="settingsStore.activeNavItem === 'data-sources'"
+                />
+                <ScriptSettingsPanel
+                  v-else-if="settingsStore.activeNavItem === 'script-security'"
+                />
+                <AIAssistantSettingsPanel
+                  v-else-if="settingsStore.activeNavItem === 'ai-assistant'"
+                />
                 <UpdateSettingsPanel v-else-if="settingsStore.activeNavItem === 'update'" />
               </div>
-
             </div>
           </div>
         </div>
@@ -359,9 +383,8 @@
     const ids = getAllVisibleItemIds()
     const currentIdx = ids.indexOf(settingsStore.activeNavItem)
     if (currentIdx < 0) return
-    const nextIdx = direction === 'next'
-      ? Math.min(currentIdx + 1, ids.length - 1)
-      : Math.max(currentIdx - 1, 0)
+    const nextIdx =
+      direction === 'next' ? Math.min(currentIdx + 1, ids.length - 1) : Math.max(currentIdx - 1, 0)
     if (nextIdx !== currentIdx) {
       const nextId = ids[nextIdx]
       if (nextId !== undefined) {

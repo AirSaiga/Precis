@@ -31,4 +31,15 @@ const constraintBuilders = [
 
 constraintBuilders.forEach((builder) => registerBuilder(builder))
 
-export { notNullBuilder, uniqueBuilder, allowedValuesBuilder, rangeBuilder, charsetBuilder, dateLogicBuilder, foreignKeyBuilder, conditionalBuilder, scriptedBuilder, compositeBuilder }
+export {
+  notNullBuilder,
+  uniqueBuilder,
+  allowedValuesBuilder,
+  rangeBuilder,
+  charsetBuilder,
+  dateLogicBuilder,
+  foreignKeyBuilder,
+  conditionalBuilder,
+  scriptedBuilder,
+  compositeBuilder,
+}

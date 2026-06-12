@@ -67,7 +67,10 @@ describe('NodePreviewFetcher', () => {
         id: 'n1',
         type: 'sourcePreview',
         data: {
-          data: [['Name', 'Age'], ['Alice', '30']],
+          data: [
+            ['Name', 'Age'],
+            ['Alice', '30'],
+          ],
           format: 'csv',
           headerRow: 0,
         },
@@ -121,7 +124,10 @@ describe('FilePreviewFetcher', () => {
 
   it('tabular 文件返回数据', async () => {
     mockFetchPreviewDataFromPath.mockResolvedValue({
-      data: [['Name', 'Age'], ['Alice', '30']],
+      data: [
+        ['Name', 'Age'],
+        ['Alice', '30'],
+      ],
       actualRowCount: 2,
       source_type: 'csv',
     })
@@ -166,7 +172,11 @@ describe('FilePreviewFetcher', () => {
       source_type: 'json',
     })
 
-    const result = await fetcher.fetch({ type: 'filePath', filePath: '/data/test.json', format: 'json' })
+    const result = await fetcher.fetch({
+      type: 'filePath',
+      filePath: '/data/test.json',
+      format: 'json',
+    })
     expect(result).not.toBeNull()
     expect(result?.rowCount).toBe(0)
     expect(result?.fields).toBeUndefined()
@@ -259,7 +269,7 @@ describe('CompositePreviewFetcher', () => {
       65535,
       65535,
       undefined,
-      expect.objectContaining({ jsonPath: '$.items', recordPath: '$.records' }),
+      expect.objectContaining({ jsonPath: '$.items', recordPath: '$.records' })
     )
   })
 

@@ -304,9 +304,7 @@ describe('schemaBuilder - flattenJsonColumns', () => {
         id: 'c1',
         columnName: 'meta',
         dataType: 'object',
-        children: [
-          { id: 'c1a', columnName: 'name', dataType: 'string' },
-        ],
+        children: [{ id: 'c1a', columnName: 'name', dataType: 'string' }],
       },
       { id: 'c2', columnName: 'name', dataType: 'string' },
     ]

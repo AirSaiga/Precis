@@ -43,7 +43,9 @@ describe('validateAndExtractRegex', () => {
     apiClient.defaults.adapter = undefined
   })
 
-  function makeRequest(partial: Partial<RegexValidateExtractRequest> = {}): RegexValidateExtractRequest {
+  function makeRequest(
+    partial: Partial<RegexValidateExtractRequest> = {}
+  ): RegexValidateExtractRequest {
     return {
       regex_pattern: '.*',
       regex_flags: 'g',
@@ -110,7 +112,9 @@ describe('validateAndExtractRegex', () => {
     }
     const request = makeRequest()
 
-    await expect(validateAndExtractRegex(request)).rejects.toThrow('Invalid regex pattern: unclosed group')
+    await expect(validateAndExtractRegex(request)).rejects.toThrow(
+      'Invalid regex pattern: unclosed group'
+    )
   })
 
   it('throws generic message when success is false but no error field', async () => {

@@ -39,7 +39,9 @@
 
     <!-- 选中文本提示 -->
     <div v-if="selectedText" class="selection-bar">
-      <span class="selection-label">{{ t('expressions.interactiveBuilder.previewSelection') }}:</span>
+      <span class="selection-label"
+        >{{ t('expressions.interactiveBuilder.previewSelection') }}:</span
+      >
       <span class="selection-text">{{ selectedText }}</span>
       <button @click="clearSelection" class="selection-clear">&times;</button>
     </div>
@@ -47,7 +49,11 @@
     <!-- 构建器预览 -->
     <div v-if="patternParts.length > 0" class="section preview-section">
       <div class="preview-parts">
-        <span v-for="(part, index) in patternParts" :key="index" :class="part.type === 'param' ? 'part-param' : 'part-static'">
+        <span
+          v-for="(part, index) in patternParts"
+          :key="index"
+          :class="part.type === 'param' ? 'part-param' : 'part-static'"
+        >
           {{ getPartDisplayText(part) }}
         </span>
       </div>
@@ -60,7 +66,8 @@
           v-for="(seg, i) in matchSegments"
           :key="i"
           :class="seg.isMatch ? 'seg-match' : 'seg-plain'"
-        >{{ seg.text }}</span>
+          >{{ seg.text }}</span
+        >
       </div>
     </div>
 
@@ -68,7 +75,9 @@
     <div class="section mapping-section">
       <div class="mapping-header">
         <span class="mapping-title">{{ t('expressions.ruleConfigPanel.outputMapping') }}</span>
-        <button class="add-btn" @click="addOutputKey">+ {{ t('expressions.ruleConfigPanel.addKeyValue') }}</button>
+        <button class="add-btn" @click="addOutputKey">
+          + {{ t('expressions.ruleConfigPanel.addKeyValue') }}
+        </button>
       </div>
 
       <div v-if="!rule.output || Object.keys(rule.output).length === 0" class="mapping-empty">
@@ -94,13 +103,17 @@
                 class="mode-btn"
                 :class="{ active: !isParamValue(value) }"
                 @click="updateOutputValue(String(key), String(value))"
-              >Aa</button>
+              >
+                Aa
+              </button>
               <button
                 class="mode-btn"
                 :class="{ active: isParamValue(value) }"
                 :disabled="availableParams.length === 0"
                 @click="updateOutputParam(String(key), availableParams[0]?.name || '')"
-              >.*</button>
+              >
+                .*
+              </button>
             </div>
             <button class="card-del" @click="removeOutputKey(String(key))">&times;</button>
           </div>
@@ -118,7 +131,9 @@
                   :key="p.name"
                   :value="p.name"
                   :selected="getParamName(String(value)) === p.name"
-                >{{ p.name }}</option>
+                >
+                  {{ p.name }}
+                </option>
               </select>
               <div class="type-pills">
                 <button
@@ -127,7 +142,9 @@
                   class="type-pill"
                   :class="{ active: getParamType(String(value)) === typeOpt }"
                   @click="updateOutputType(String(key), typeOpt)"
-                >{{ typeOpt.toUpperCase() }}</button>
+                >
+                  {{ typeOpt.toUpperCase() }}
+                </button>
               </div>
             </template>
             <input
@@ -308,14 +325,19 @@
     const end = selection.end
     const currentInputValue = inputText.value
 
-    const charMap: { char: string; type: 'static' | 'param'; paramInfo?: { name: string; paramType: string } }[] = []
+    const charMap: {
+      char: string
+      type: 'static' | 'param'
+      paramInfo?: { name: string; paramType: string }
+    }[] = []
     for (const part of patternParts.value) {
       const pText = part.text || ''
       for (const char of pText) {
         charMap.push({
           char,
           type: part.type,
-          paramInfo: part.type === 'param' ? { name: part.name!, paramType: part.paramType! } : undefined,
+          paramInfo:
+            part.type === 'param' ? { name: part.name!, paramType: part.paramType! } : undefined,
         })
       }
     }
@@ -355,9 +377,7 @@
         currentPart = {
           type: c.type,
           text: c.char,
-          ...(isParam && c.paramInfo
-            ? { name: paramName, paramType: c.paramInfo.paramType }
-            : {}),
+          ...(isParam && c.paramInfo ? { name: paramName, paramType: c.paramInfo.paramType } : {}),
         }
       } else {
         if (currentPart) currentPart.text += c.char
@@ -505,9 +525,7 @@
     const firstParam = availableParams.value[0]
     const defaultKeyBase = firstParam ? firstParam.name : 'field'
     const newKey = makeUniqueKey(defaultKeyBase)
-    nextOutput[newKey] = firstParam
-      ? `{${firstParam.name}:${firstParam.type}}`
-      : ''
+    nextOutput[newKey] = firstParam ? `{${firstParam.name}:${firstParam.type}}` : ''
     emit('update:rule', { ...props.rule, output: nextOutput, regex: localRegex.value })
   }
 
@@ -521,7 +539,10 @@
     if (!newKey || oldKey === newKey) return
     const nextOutput = { ...(props.rule.output || {}) }
     if (nextOutput[newKey]) {
-      toast.error(t('common.error'), t('expressions.ruleConfigPanel.keyAlreadyExists', { key: newKey }))
+      toast.error(
+        t('common.error'),
+        t('expressions.ruleConfigPanel.keyAlreadyExists', { key: newKey })
+      )
       return
     }
     const oldVal = nextOutput[oldKey]
@@ -570,7 +591,7 @@
     return match && match[1] ? match[1] : 'string'
   }
   function getPartDisplayText(part: PatternPart): string {
-    return part.type === 'param' ? '{' + part.name + '}' : (part.text || '')
+    return part.type === 'param' ? '{' + part.name + '}' : part.text || ''
   }
 </script>
 

@@ -32,9 +32,12 @@ export async function centerView(): Promise<{ success: boolean; message?: string
 
 export async function focusToProjectRoot(): Promise<{ success: boolean; message?: string }> {
   const graphStore = useGraphStore()
-  const projectNode = graphStore.nodes.find(n => n.type === 'projectRoot')
+  const projectNode = graphStore.nodes.find((n) => n.type === 'projectRoot')
   if (projectNode) {
-    if (typeof window !== 'undefined' && (window as unknown as { __focusToProjectRoot?: () => void }).__focusToProjectRoot) {
+    if (
+      typeof window !== 'undefined' &&
+      (window as unknown as { __focusToProjectRoot?: () => void }).__focusToProjectRoot
+    ) {
       ;(window as unknown as { __focusToProjectRoot?: () => void }).__focusToProjectRoot!()
     }
     return { success: true, message: 'shortcuts.feedback.focusProject' }

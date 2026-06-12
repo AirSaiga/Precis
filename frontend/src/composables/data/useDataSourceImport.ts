@@ -369,9 +369,7 @@ export function useDataSourceImport() {
               dataSource.localPath,
               dataSource.folderPath
             )
-            logger.debug(
-              `数据源 ${dataSource.name} 添加成功，folderPath: ${dataSource.folderPath}`
-            )
+            logger.debug(`数据源 ${dataSource.name} 添加成功，folderPath: ${dataSource.folderPath}`)
           } catch (error) {
             logger.error(`添加数据源 ${dataSource.name} 失败:`, error)
             const errorMessage = error instanceof Error ? error.message : String(error)

@@ -33,9 +33,7 @@ export async function updateValidationSettings(settings: ValidationSettings): Pr
 }
 
 export async function getFileProcessingSettings(): Promise<FileProcessingSettings> {
-  const { data } = await apiClient.get<FileProcessingSettings>(
-    '/project/config/file-processing'
-  )
+  const { data } = await apiClient.get<FileProcessingSettings>('/project/config/file-processing')
   return data
 }
 
@@ -46,9 +44,7 @@ export async function updateFileProcessingSettings(
 }
 
 export async function getScriptSecuritySettings(): Promise<ScriptSecuritySettings> {
-  const { data } = await apiClient.get<ScriptSecuritySettings>(
-    '/project/config/script-security'
-  )
+  const { data } = await apiClient.get<ScriptSecuritySettings>('/project/config/script-security')
   return data
 }
 

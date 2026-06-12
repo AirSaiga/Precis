@@ -13,13 +13,7 @@
 
 <template>
   <Transition name="modal-fade">
-    <div
-      v-show="visible"
-      ref="panelRef"
-      class="regex-design-modal"
-      :style="panelStyle"
-      @click.stop
-    >
+    <div v-show="visible" ref="panelRef" class="regex-design-modal" :style="panelStyle" @click.stop>
       <header class="modal-header" @mousedown="onDragStart">
         <div class="header-left">
           <h2>{{ t('regexDesignModal.title') }}</h2>

@@ -194,10 +194,7 @@ export function isV2SchemaId(id: string): boolean {
 /**
  * 加载内嵌约束
  */
-async function loadEmbeddedConstraints(
-  schemaNodeId: string,
-  v2SchemaId: string
-): Promise<number> {
+async function loadEmbeddedConstraints(schemaNodeId: string, v2SchemaId: string): Promise<number> {
   try {
     const schemaFile = await getV2Schema(v2SchemaId)
     if (!schemaFile?.constraints?.length) return 0

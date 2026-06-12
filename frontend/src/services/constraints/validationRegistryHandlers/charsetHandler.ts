@@ -25,7 +25,9 @@ register({
       if (!response.success || !response.data) {
         return {
           status: 'error',
-          validationErrors: [String(response.error || '\u5B57\u7B26\u96C6\u6821\u9A8C\u5931\u8D25')],
+          validationErrors: [
+            String(response.error || '\u5B57\u7B26\u96C6\u6821\u9A8C\u5931\u8D25'),
+          ],
           lastValidation: undefined,
         }
       }

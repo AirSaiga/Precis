@@ -4,7 +4,7 @@
 -->
 <template>
   <div class="base-inspector">
-    <div v-if="configTitle" class="base-title">{{ configTitle }}</div>
+    <div v-if="showBaseTitle" class="base-title">{{ configTitle }}</div>
 
     <div v-for="section in visibleSections" :key="section.id" class="section">
       <div v-if="section.titleKey" class="section-title">{{ t(section.titleKey) }}</div>
@@ -69,6 +69,12 @@
   }))
 
   const configTitle = computed(() => (props.config.titleKey ? t(props.config.titleKey) : ''))
+
+  const showBaseTitle = computed(() => {
+    const title = configTitle.value.trim()
+    // 避免与面板顶部标题重复
+    return title !== '' && title !== t('inspector.title')
+  })
 
   const visibleSections = computed(() =>
     props.config.sections.filter((s) => evaluateWhen(ctx.value, s.when))

@@ -3,10 +3,11 @@
   border: 1px solid var(--node-border);
   border-radius: var(--node-border-radius);
   box-shadow: var(--node-shadow);
-  transition: background var(--node-transition-fast),
-              border-color var(--node-transition-fast),
-              box-shadow var(--node-transition-fast),
-              transform var(--node-transition-fast);
+  transition:
+    background var(--node-transition-fast),
+    border-color var(--node-transition-fast),
+    box-shadow var(--node-transition-fast),
+    transform var(--node-transition-fast);
 }
 
 .graph-node:hover {

@@ -15,9 +15,15 @@ const mockRegistry = vi.hoisted(() => {
     compositeConstraint: 'Composite',
   }
   const constraintTypes = [
-    'notNullConstraint', 'uniqueConstraint', 'foreignKeyConstraint',
-    'allowedValuesConstraint', 'rangeConstraint', 'conditionalConstraint',
-    'scriptedConstraint', 'charsetConstraint', 'dateLogicConstraint',
+    'notNullConstraint',
+    'uniqueConstraint',
+    'foreignKeyConstraint',
+    'allowedValuesConstraint',
+    'rangeConstraint',
+    'conditionalConstraint',
+    'scriptedConstraint',
+    'charsetConstraint',
+    'dateLogicConstraint',
     'compositeConstraint',
   ]
   return {
@@ -41,7 +47,12 @@ vi.mock('@/i18n', () => ({
 
 import { buildSchemaIdByNodeId, buildV2Manifest } from '@/services/builders/v2/manifestBuilder'
 import { sanitizeV2Id } from '@/services/builders/manifestBuilder'
-import { buildV2ProjectView, buildV2FullConfig, buildV2RegexNodeFile, buildV2TransformFile } from '@/services/builders/v2ProjectBuilder'
+import {
+  buildV2ProjectView,
+  buildV2FullConfig,
+  buildV2RegexNodeFile,
+  buildV2TransformFile,
+} from '@/services/builders/v2ProjectBuilder'
 import { generateSchemaId } from '@/utils/typeHelpers'
 
 function schemaNode(overrides: Record<string, unknown> = {}): CustomNode {
@@ -231,12 +242,7 @@ describe('v2/manifestBuilder - buildV2Manifest', () => {
 
   it('uses schemaIdMap when provided', () => {
     const node = schemaNode()
-    const result = buildV2Manifest(
-      [node],
-      'Proj',
-      '/path',
-      { 'schema-1': 'sc_custom_id' }
-    )
+    const result = buildV2Manifest([node], 'Proj', '/path', { 'schema-1': 'sc_custom_id' })
     expect(result.schemas[0].id).toBe('sc_custom_id')
   })
 

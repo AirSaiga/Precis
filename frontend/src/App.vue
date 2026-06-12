@@ -262,7 +262,9 @@
   // --- 局部状态 ---
 
   /** 资源库当前视图模式 */
-  const currentView = ref<'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'data'>('toolbox')
+  const currentView = ref<'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'data'>(
+    'toolbox'
+  )
 
   /** 拖拽 Ghost 的鼠标位置，实时跟随光标更新 */
   const mousePosition = ref({ x: 0, y: 0 })

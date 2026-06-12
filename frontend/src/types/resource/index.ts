@@ -4,10 +4,10 @@
  */
 
 /** 资源基础类型 */
-export * from './types';
+export * from './types'
 
 /** 拖拽负载类型 */
-export * from './payload';
+export * from './payload'
 
 /** 右键菜单类型 */
-export * from './contextMenu';
+export * from './contextMenu'

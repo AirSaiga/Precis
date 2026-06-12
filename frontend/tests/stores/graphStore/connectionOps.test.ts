@@ -66,7 +66,10 @@ describe('createConnectionOpsModule', () => {
     })
 
     it('支持额外选项', () => {
-      module.createConnection('s1', 'c1', undefined, undefined, { type: 'smoothstep', animated: true })
+      module.createConnection('s1', 'c1', undefined, undefined, {
+        type: 'smoothstep',
+        animated: true,
+      })
 
       const edge = vi.mocked(addEdges).mock.calls[0][0] as Edge
       expect(edge.type).toBe('smoothstep')
@@ -98,7 +101,12 @@ describe('createConnectionOpsModule', () => {
     })
 
     it('跳过瞬态边', () => {
-      const edge = { id: 'e1', source: 's1', target: 'c1', data: { transient: true } } as unknown as Edge
+      const edge = {
+        id: 'e1',
+        source: 's1',
+        target: 'c1',
+        data: { transient: true },
+      } as unknown as Edge
 
       module.handleEdgeRemoved(edge)
 

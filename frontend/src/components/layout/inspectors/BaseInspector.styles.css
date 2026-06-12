@@ -1,40 +1,39 @@
 /**
  * 属性区块容器样式
- * - 底部外边距
- * - 白色半透明背景
- * - 圆角边框
- * - 内边距
- * - 毛玻璃效果
- * - 阴影效果
+ * - 圆角卡片
+ * - 细微边框与背景
+ * - 柔和 hover 反馈
  */
 .inspector-section {
-  margin-bottom: 24px;
+  margin-bottom: 16px;
   background: var(--ui-bg-elevated);
   border-radius: var(--ui-radius-lg);
   padding: 16px;
-  border: 1px solid var(--ui-border);
-  backdrop-filter: blur(5px);
-  box-shadow: var(--ui-shadow-sm);
+  border: 1px solid var(--ui-border-light);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
+  transition:
+    border-color var(--ui-transition-fast),
+    box-shadow var(--ui-transition-fast);
+}
+
+.inspector-section:hover {
+  border-color: var(--ui-border);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
 }
 
 /**
  * 区块标题样式
- * - 字体大小和粗细
- * - 颜色
- * - 弹性布局（水平排列）
- * - 两端对齐
- * - 底部内边距和边框
  */
 .section-title {
   margin: 0 0 16px 0;
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 600;
-  color: var(--ui-text);
+  color: var(--ui-text-strong);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--ui-border);
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--ui-border-subtle);
 }
 
 /**
@@ -84,5 +83,5 @@
 .section-content {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }

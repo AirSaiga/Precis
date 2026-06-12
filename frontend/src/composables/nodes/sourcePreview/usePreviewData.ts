@@ -160,7 +160,11 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
    *
    * @param event - DOM 事件对象
    */
-  const handleDataSourceRefreshed = async (detail: { nodeId: string; fileId: string; fileName: string }) => {
+  const handleDataSourceRefreshed = async (detail: {
+    nodeId: string
+    fileId: string
+    fileName: string
+  }) => {
     if (!detail || detail.nodeId !== props.id) {
       return
     }
@@ -295,7 +299,10 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
         store.updateNodeData(props.id, updatedData)
         notifyDataChange()
 
-        eventBus.emit('sourcePreviewDataChanged', { nodeId: props.id, data: updatedData as unknown as Record<string, unknown> })
+        eventBus.emit('sourcePreviewDataChanged', {
+          nodeId: props.id,
+          data: updatedData as unknown as Record<string, unknown>,
+        })
 
         logger.debug('✅ 本地路径方式工作表切换完成:', { sheet: updatedData.currentSheet })
       } else {
@@ -407,7 +414,10 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
         store.updateNodeData(props.id, updatedData)
         notifyDataChange()
 
-        eventBus.emit('sourcePreviewDataChanged', { nodeId: props.id, data: updatedData as unknown as Record<string, unknown> })
+        eventBus.emit('sourcePreviewDataChanged', {
+          nodeId: props.id,
+          data: updatedData as unknown as Record<string, unknown>,
+        })
 
         logger.debug('✅ 本地路径方式重载成功:', {
           rows: updatedData.totalRows,

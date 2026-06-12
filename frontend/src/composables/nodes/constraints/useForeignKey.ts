@@ -84,9 +84,9 @@ export function useForeignKey(
   const getSchemaColumnName = (schemaNodeId: string, columnId: string) => {
     const node = store.nodes.find((n) => n.id === schemaNodeId)
     if (!node || node.type !== 'schema') return null
-    const columns = ((node.data as unknown) as Record<string, unknown>).columns as unknown[] || []
+    const columns = ((node.data as unknown as Record<string, unknown>).columns as unknown[]) || []
     const col = columns.find((c: any) => c.id === columnId) as Record<string, unknown> | undefined
-    return col?.columnName as string || null
+    return (col?.columnName as string) || null
   }
 
   /**
@@ -149,7 +149,7 @@ export function useForeignKey(
     }
 
     if (targetNode.type === 'schema') {
-      const sourceNodeId = ((targetNode.data as unknown) as Record<string, unknown>).sourceNodeId
+      const sourceNodeId = (targetNode.data as unknown as Record<string, unknown>).sourceNodeId
       const sourcePreviewNode = store.nodes.find((n) => n.id === sourceNodeId)
       if (sourcePreviewNode?.type === 'sourcePreview') {
         return extractTargetValuesFromSourcePreview(sourcePreviewNode.data, targetColumnName)
@@ -170,9 +170,14 @@ export function useForeignKey(
    */
   const getTargetTableName = (targetNode: any) => {
     if (!targetNode) return props.data.targetTable || ''
-    if (targetNode.type === 'schema') return ((targetNode.data as unknown) as Record<string, unknown>).tableName as string || ''
+    if (targetNode.type === 'schema')
+      return ((targetNode.data as unknown as Record<string, unknown>).tableName as string) || ''
     if (targetNode.type === 'sourcePreview')
-      return ((targetNode.data as unknown) as Record<string, unknown>).sourceName as string || ((targetNode.data as unknown) as Record<string, unknown>).fileName as string || ''
+      return (
+        ((targetNode.data as unknown as Record<string, unknown>).sourceName as string) ||
+        ((targetNode.data as unknown as Record<string, unknown>).fileName as string) ||
+        ''
+      )
     return props.data.targetTable || ''
   }
 
@@ -248,7 +253,7 @@ export function useForeignKey(
         return emptyResult
       }
 
-      const sourceSchemaData = (sourceNode.data as unknown) as Record<string, unknown>
+      const sourceSchemaData = sourceNode.data as unknown as Record<string, unknown>
       const sourceFilePath = sourceSchemaData.sourceFilePath
       const localPath = sourceSchemaData.localPath
       const sheetName = sourceSchemaData.sheetName as string

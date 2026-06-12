@@ -153,8 +153,10 @@ export function useAllowedValues(
   const getSchemaColumnName = (schemaNodeId: string, columnId: string) => {
     const node = store.nodes.find((n) => n.id === schemaNodeId)
     if (!node || node.type !== 'schema') return null
-    const columns = ((node.data as unknown) as Record<string, unknown>).columns || []
-    const col = (columns as Array<{ id: string; columnName: string }>).find((c) => c.id === columnId)
+    const columns = (node.data as unknown as Record<string, unknown>).columns || []
+    const col = (columns as Array<{ id: string; columnName: string }>).find(
+      (c) => c.id === columnId
+    )
     return col?.columnName || null
   }
 
@@ -202,7 +204,11 @@ export function useAllowedValues(
         return emptyResult
       }
 
-      if (sourceNode.type !== 'schema' && sourceNode.type !== 'manualData' && sourceNode.type !== 'transformOutput') {
+      if (
+        sourceNode.type !== 'schema' &&
+        sourceNode.type !== 'manualData' &&
+        sourceNode.type !== 'transformOutput'
+      ) {
         store.updateNodeData(props.id, {
           validationStatus: 'missing',
           validationErrors: ['允许值校验的源必须是 Schema 节点或数据节点'],

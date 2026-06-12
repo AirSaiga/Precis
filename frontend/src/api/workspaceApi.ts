@@ -271,7 +271,9 @@ export async function addDataSource(
  */
 export async function removeDataSource(sourceId: string): Promise<BackendWorkspaceConfig> {
   try {
-    const response = await apiClient.delete(`${WORKSPACE_API_PATH}/data-sources/${encodeURIComponent(sourceId)}`)
+    const response = await apiClient.delete(
+      `${WORKSPACE_API_PATH}/data-sources/${encodeURIComponent(sourceId)}`
+    )
     return response.data
   } catch (error) {
     logger.error('移除数据源失败:', error)

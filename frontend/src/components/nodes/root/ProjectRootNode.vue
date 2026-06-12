@@ -62,7 +62,12 @@
         <button class="btn btn-primary" type="button" @click="openFullValidation">
           ▶ {{ t('customNodes.projectRootNode.actions.fullValidation') }}
         </button>
-        <button class="btn btn-icon" type="button" :title="t('customNodes.projectRootNode.actions.reload')" @click="reloadProject">
+        <button
+          class="btn btn-icon"
+          type="button"
+          :title="t('customNodes.projectRootNode.actions.reload')"
+          @click="reloadProject"
+        >
           ↻
         </button>
       </div>
@@ -104,18 +109,21 @@
 
   // 统计数据直接从 store 读取
   const schemaCount = computed(() => resourceTreeStore.schemas.length)
-  const constraintCount = computed(() =>
-    resourceTreeStore.independentConstraintsManifestCount +
-    resourceTreeStore.embeddedConstraintsManifestCount +
-    resourceTreeStore.independentConstraintsUnlistedCount +
-    resourceTreeStore.embeddedConstraintsUnlistedCount
+  const constraintCount = computed(
+    () =>
+      resourceTreeStore.independentConstraintsManifestCount +
+      resourceTreeStore.embeddedConstraintsManifestCount +
+      resourceTreeStore.independentConstraintsUnlistedCount +
+      resourceTreeStore.embeddedConstraintsUnlistedCount
   )
   const regexCount = computed(() => resourceTreeStore.regexNodes.length)
 
   const validationSummary = computed(() => graphStore.lastFullValidationSummary)
   const validationStatistics = computed(() => graphStore.lastFullValidationStatistics)
 
-  const hasValidationResult = computed(() => !!validationSummary.value || !!validationStatistics.value)
+  const hasValidationResult = computed(
+    () => !!validationSummary.value || !!validationStatistics.value
+  )
 
   const passRateText = computed(() => {
     const statistics = validationStatistics.value

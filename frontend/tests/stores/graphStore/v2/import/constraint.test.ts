@@ -98,20 +98,30 @@ describe('createV2ConstraintImporter', () => {
       } as any)
 
       vi.mocked(buildNodeData).mockReturnValue({
-        nodeData: { configName: 'email not null', table: 'users', column: 'email', saveState: 'saved' },
-        edgeDescriptors: [{ kind: 'constraint', sourceNodeId: 's1', targetNodeId: 'c1', columnId: 'col1' }],
+        nodeData: {
+          configName: 'email not null',
+          table: 'users',
+          column: 'email',
+          saveState: 'saved',
+        },
+        edgeDescriptors: [
+          { kind: 'constraint', sourceNodeId: 's1', targetNodeId: 'c1', columnId: 'col1' },
+        ],
       } as any)
 
       const result = await importer.importConstraint('c1', { x: 100, y: 200 })
 
       expect(result).toBe('c1')
       expect(getV2Constraint).toHaveBeenCalledWith('c1')
-      expect(buildNodeData).toHaveBeenCalledWith('notNull', expect.objectContaining({
-        mode: 'import',
-        schemaNodeId: 's1',
-        nodeId: 'c1',
-        nodeType: 'notNullConstraint',
-      }))
+      expect(buildNodeData).toHaveBeenCalledWith(
+        'notNull',
+        expect.objectContaining({
+          mode: 'import',
+          schemaNodeId: 's1',
+          nodeId: 'c1',
+          nodeType: 'notNullConstraint',
+        })
+      )
       expect(addNodes).toHaveBeenCalledTimes(1)
       expect(mockEnsureEdge).toHaveBeenCalledWith('s1', 'c1', 'col1')
       expect(selectedNodeId.value).toBe('c1')
@@ -123,7 +133,12 @@ describe('createV2ConstraintImporter', () => {
       vi.mocked(getV2Constraint).mockResolvedValue({
         type: 'ForeignKey',
         description: 'user FK',
-        refs: { from_table_id: 's1', from_column_id: 'col1', to_table_id: 's2', to_column_id: 'col2' },
+        refs: {
+          from_table_id: 's1',
+          from_column_id: 'col1',
+          to_table_id: 's2',
+          to_column_id: 'col2',
+        },
         params: {},
       } as any)
 
@@ -139,12 +154,15 @@ describe('createV2ConstraintImporter', () => {
 
       expect(mockEnsureSchema).toHaveBeenCalledWith('s1', expect.any(Object))
       expect(mockEnsureSchema).toHaveBeenCalledWith('s2', expect.any(Object))
-      expect(buildNodeData).toHaveBeenCalledWith('foreignKey', expect.objectContaining({
-        fkRefs: expect.objectContaining({
-          source: expect.objectContaining({ nodeId: 's1', columnId: 'col1' }),
-          target: expect.objectContaining({ nodeId: 's2', columnId: 'col2' }),
-        }),
-      }))
+      expect(buildNodeData).toHaveBeenCalledWith(
+        'foreignKey',
+        expect.objectContaining({
+          fkRefs: expect.objectContaining({
+            source: expect.objectContaining({ nodeId: 's1', columnId: 'col1' }),
+            target: expect.objectContaining({ nodeId: 's2', columnId: 'col2' }),
+          }),
+        })
+      )
       expect(mockBufferEdge).toHaveBeenCalledTimes(1)
     })
   })
@@ -170,11 +188,14 @@ describe('createV2ConstraintImporter', () => {
 
       await importer.importConstraint('c1', { x: 0, y: 0 })
 
-      expect(buildNodeData).toHaveBeenCalledWith('conditional', expect.objectContaining({
-        ifConditions: [expect.objectContaining({ operator: 'eq', columnId: 'col1' })],
-        ifLogic: 'and',
-        thenRef: expect.objectContaining({ nodeId: 's1', columnId: 'col2' }),
-      }))
+      expect(buildNodeData).toHaveBeenCalledWith(
+        'conditional',
+        expect.objectContaining({
+          ifConditions: [expect.objectContaining({ operator: 'eq', columnId: 'col1' })],
+          ifLogic: 'and',
+          thenRef: expect.objectContaining({ nodeId: 's1', columnId: 'col2' }),
+        })
+      )
     })
   })
 
@@ -194,9 +215,12 @@ describe('createV2ConstraintImporter', () => {
 
       await importer.importConstraint('c1', { x: 0, y: 0 })
 
-      expect(buildNodeData).toHaveBeenCalledWith('unique', expect.objectContaining({
-        columnRef: expect.objectContaining({ nodeId: 's1', columnId: 'col1' }),
-      }))
+      expect(buildNodeData).toHaveBeenCalledWith(
+        'unique',
+        expect.objectContaining({
+          columnRef: expect.objectContaining({ nodeId: 's1', columnId: 'col1' }),
+        })
+      )
     })
   })
 

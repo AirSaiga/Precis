@@ -111,13 +111,25 @@ export function useJsonSchemaConnectionHandler() {
       const parts: string[] = []
       if (comparison.newInSource.length > 0) {
         const preview = comparison.newInSource.slice(0, 5).join(', ')
-        const suffix = comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
-        parts.push(t('canvas.nodeCanvas.smartFix.newInSource', { count: comparison.newInSource.length, columns: `${preview}${suffix}` }))
+        const suffix =
+          comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
+        parts.push(
+          t('canvas.nodeCanvas.smartFix.newInSource', {
+            count: comparison.newInSource.length,
+            columns: `${preview}${suffix}`,
+          })
+        )
       }
       if (comparison.staleInSchema.length > 0) {
         const preview = comparison.staleInSchema.slice(0, 5).join(', ')
-        const suffix = comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
-        parts.push(t('canvas.nodeCanvas.smartFix.staleInSchema', { count: comparison.staleInSchema.length, columns: `${preview}${suffix}` }))
+        const suffix =
+          comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
+        parts.push(
+          t('canvas.nodeCanvas.smartFix.staleInSchema', {
+            count: comparison.staleInSchema.length,
+            columns: `${preview}${suffix}`,
+          })
+        )
       }
 
       const result = await showConfirm({
@@ -133,7 +145,10 @@ export function useJsonSchemaConnectionHandler() {
         type: 'warning',
       })
 
-      logger.debug('🎯 [showSmartFillDialog] 用户选择:', result === true ? '✅ 智能修正' : '❌ 跳过/取消')
+      logger.debug(
+        '🎯 [showSmartFillDialog] 用户选择:',
+        result === true ? '✅ 智能修正' : '❌ 跳过/取消'
+      )
 
       if (result === true) {
         generateColumnsFromSource(schemaNode.id, sourceData)

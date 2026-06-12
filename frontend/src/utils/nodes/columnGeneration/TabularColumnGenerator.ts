@@ -134,7 +134,13 @@ export class TabularColumnGenerator implements ColumnGenerationStrategy {
     const schemaEmpty = schemaCols.length === 0
 
     if (schemaEmpty) {
-      return { schemaEmpty: true, newInSource: [], staleInSchema: [], isMatch: false, needsAction: true }
+      return {
+        schemaEmpty: true,
+        newInSource: [],
+        staleInSchema: [],
+        isMatch: false,
+        needsAction: true,
+      }
     }
 
     const sourceSet = new Set(sourceFields)

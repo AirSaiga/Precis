@@ -92,7 +92,11 @@
   import ConstraintNodeFrame from '@/components/nodes/constraintRules/shared/ConstraintNodeFrame.vue'
   import type { TransformNodeData } from '@/types/nodes'
   import { useGraphStore } from '@/stores/graphStore'
-  import { useTransformSave, TRANSFORM_TYPE_I18N_KEYS, getParamsDisplay } from '@/composables/nodes/transform'
+  import {
+    useTransformSave,
+    TRANSFORM_TYPE_I18N_KEYS,
+    getParamsDisplay,
+  } from '@/composables/nodes/transform'
 
   const { t } = useI18n()
   const { id, node } = useNode()

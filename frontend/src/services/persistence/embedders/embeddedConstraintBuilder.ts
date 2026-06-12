@@ -79,7 +79,9 @@ export function buildEmbeddedConstraintItem(node: CustomNode): ConstraintItemV2 
         const validConditions = (d.ifConditions as any[])
           .filter((c: any) => {
             if (!c?.operator) {
-              console.warn(`[EmbeddedConstraintBuilder] Conditional ${node.id}: 跳过缺少 operator 的条件`)
+              console.warn(
+                `[EmbeddedConstraintBuilder] Conditional ${node.id}: 跳过缺少 operator 的条件`
+              )
               return false
             }
             return true
@@ -92,14 +94,18 @@ export function buildEmbeddedConstraintItem(node: CustomNode): ConstraintItemV2 
           }))
           .filter((c: any) => {
             if (!c.if_column_id) {
-              console.warn(`[EmbeddedConstraintBuilder] Conditional ${node.id}: 跳过缺少 if_column_id 的条件 (operator=${c.operator})`)
+              console.warn(
+                `[EmbeddedConstraintBuilder] Conditional ${node.id}: 跳过缺少 if_column_id 的条件 (operator=${c.operator})`
+              )
               return false
             }
             return true
           })
 
         if (validConditions.length < (d.ifConditions as any[]).length) {
-          console.warn(`[EmbeddedConstraintBuilder] Conditional ${node.id}: ${(d.ifConditions as any[]).length - validConditions.length} 个条件被丢弃，仅保留 ${validConditions.length} 个有效条件`)
+          console.warn(
+            `[EmbeddedConstraintBuilder] Conditional ${node.id}: ${(d.ifConditions as any[]).length - validConditions.length} 个条件被丢弃，仅保留 ${validConditions.length} 个有效条件`
+          )
         }
 
         params.if_conditions = validConditions
@@ -113,10 +119,7 @@ export function buildEmbeddedConstraintItem(node: CustomNode): ConstraintItemV2 
   return base
 }
 
-function buildParamsForType(
-  v2Type: string,
-  d: Record<string, unknown>
-): Record<string, unknown> {
+function buildParamsForType(v2Type: string, d: Record<string, unknown>): Record<string, unknown> {
   switch (v2Type) {
     case 'AllowedValues':
       return {

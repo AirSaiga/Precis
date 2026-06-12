@@ -1,7 +1,7 @@
 /**
  * @file index.ts
  * @description 校验 API 统一导出
- * 
+ *
  * 按校验类型组织 API，便于按需导入。
  */
 

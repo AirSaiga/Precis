@@ -3,7 +3,11 @@ import { ref, type Ref } from 'vue'
 import type { CustomNode, CustomNodeData, TableAsset } from '@/types/graph'
 import { createAssetsModule } from '@/stores/graphStore/modules/assets'
 
-function makeSchemaNode(id: string, tableName: string, columns: Array<{ columnName: string; dataType: string }> = []): CustomNode {
+function makeSchemaNode(
+  id: string,
+  tableName: string,
+  columns: Array<{ columnName: string; dataType: string }> = []
+): CustomNode {
   return {
     id,
     type: 'schema',
@@ -45,10 +49,12 @@ describe('createAssetsModule', () => {
 
   describe('saveCanvasAsAsset', () => {
     it('保存 Schema 节点为资产', () => {
-      nodes.value = [makeSchemaNode('s1', 'users', [
-        { columnName: 'email', dataType: 'string' },
-        { columnName: 'age', dataType: 'integer' },
-      ])]
+      nodes.value = [
+        makeSchemaNode('s1', 'users', [
+          { columnName: 'email', dataType: 'string' },
+          { columnName: 'age', dataType: 'integer' },
+        ]),
+      ]
 
       const assetId = module.saveCanvasAsAsset('MyAsset')
 
@@ -72,13 +78,15 @@ describe('createAssetsModule', () => {
 
   describe('loadAssetToCanvas', () => {
     it('加载资产到画布', () => {
-      assets.value = [{
-        id: 'a1',
-        configName: 'MyAsset',
-        tableName: 'users',
-        sheetName: 'Sheet1',
-        columns: [{ columnName: 'email', dataType: 'string' }],
-      }]
+      assets.value = [
+        {
+          id: 'a1',
+          configName: 'MyAsset',
+          tableName: 'users',
+          sheetName: 'Sheet1',
+          columns: [{ columnName: 'email', dataType: 'string' }],
+        },
+      ]
       nodes.value = [makeSchemaNode('new-schema-id', '')]
 
       module.loadAssetToCanvas('a1')

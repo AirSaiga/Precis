@@ -14,7 +14,10 @@
         <div
           v-if="col.kind === 'text' && 'columnSource' in col && col.columnSource === 'upstream'"
           class="row-combobox-wrapper"
-          :style="{ flex: col.width === 'flex' ? '1' : undefined, width: col.width !== 'flex' ? col.width : undefined }"
+          :style="{
+            flex: col.width === 'flex' ? '1' : undefined,
+            width: col.width !== 'flex' ? col.width : undefined,
+          }"
         >
           <input
             class="row-input"
@@ -28,7 +31,9 @@
           />
           <Transition name="dropdown">
             <ul
-              v-if="isDropdownOpen(idx, col.key) && getFilteredUpstreamColumns(idx, col.key).length > 0"
+              v-if="
+                isDropdownOpen(idx, col.key) && getFilteredUpstreamColumns(idx, col.key).length > 0
+              "
               class="column-dropdown"
               @mousedown.prevent
             >
@@ -46,7 +51,10 @@
         <input
           v-else-if="col.kind === 'text'"
           class="row-input"
-          :style="{ flex: col.width === 'flex' ? '1' : undefined, width: col.width !== 'flex' ? col.width : undefined }"
+          :style="{
+            flex: col.width === 'flex' ? '1' : undefined,
+            width: col.width !== 'flex' ? col.width : undefined,
+          }"
           type="text"
           :value="(item as Record<string, unknown>)[col.key] ?? ''"
           :placeholder="col.placeholderKey ? t(col.placeholderKey) : ''"
@@ -55,15 +63,14 @@
         <select
           v-else-if="col.kind === 'select'"
           class="row-select"
-          :style="{ flex: col.width === 'flex' ? '1' : undefined, width: col.width !== 'flex' ? col.width : undefined }"
+          :style="{
+            flex: col.width === 'flex' ? '1' : undefined,
+            width: col.width !== 'flex' ? col.width : undefined,
+          }"
           :value="(item as Record<string, unknown>)[col.key] ?? ''"
           @change="updateItem(idx, col.key, ($event.target as HTMLSelectElement).value)"
         >
-          <option
-            v-for="opt in resolveOptions(col.options)"
-            :key="opt.key"
-            :value="opt.key"
-          >
+          <option v-for="opt in resolveOptions(col.options)" :key="opt.key" :value="opt.key">
             {{ opt.label }}
           </option>
         </select>

@@ -1,5 +1,9 @@
 import { describe, it, expect, vi } from 'vitest'
-import { ProjectNotFoundError, withConfigPathHeader, isProjectNotFound } from '@/api/projectV2Api/shared'
+import {
+  ProjectNotFoundError,
+  withConfigPathHeader,
+  isProjectNotFound,
+} from '@/api/projectV2Api/shared'
 
 describe('ProjectNotFoundError', () => {
   it('包含默认错误消息', () => {

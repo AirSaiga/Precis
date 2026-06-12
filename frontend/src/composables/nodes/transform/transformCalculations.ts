@@ -425,9 +425,7 @@ export function computeDateFormat(
 ): string[][] {
   const inputFormat = options.inputFormat || '%Y-%m-%d'
   const outputFormat = options.outputFormat || '%Y/%m/%d'
-  return upstreamRows.map((row) => [
-    formatDate(String(row[0] ?? ''), inputFormat, outputFormat),
-  ])
+  return upstreamRows.map((row) => [formatDate(String(row[0] ?? ''), inputFormat, outputFormat)])
 }
 
 // ============================================================================
@@ -442,8 +440,7 @@ export function computeLookup(
   return upstreamRows.map((row) => {
     const value = String(row[0] ?? '')
     const mapped = mapping[value]
-    const finalValue =
-      mapped !== undefined ? mapped : defaultVal !== undefined ? defaultVal : value
+    const finalValue = mapped !== undefined ? mapped : defaultVal !== undefined ? defaultVal : value
     return [String(finalValue)]
   })
 }

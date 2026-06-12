@@ -105,10 +105,7 @@ describe('nodeDataBuilder - simpleConstraint', () => {
 
   describe('range', () => {
     it('透传 min/max', () => {
-      const result = buildNodeData(
-        'range',
-        makeInput({ params: { min: 0, max: 100 } })
-      )
+      const result = buildNodeData('range', makeInput({ params: { min: 0, max: 100 } }))
       expect(result.nodeData.minValue).toBe(0)
       expect(result.nodeData.maxValue).toBe(100)
     })
@@ -199,10 +196,7 @@ describe('nodeDataBuilder - simpleConstraint', () => {
 
   describe('composite', () => {
     it('生成 logic 和 includedNodeIds', () => {
-      const result = buildNodeData(
-        'composite',
-        makeInput({ params: { logic: 'or' } })
-      )
+      const result = buildNodeData('composite', makeInput({ params: { logic: 'or' } }))
       expect(result.nodeData.logic).toBe('or')
       expect(result.nodeData.includedNodeIds).toEqual([])
       expect(result.nodeData.enabled).toBe(true)
@@ -313,9 +307,7 @@ describe('nodeDataBuilder - conditional', () => {
     const result = buildNodeData(
       'conditional',
       makeInput({
-        ifConditions: [
-          { operator: 'eq', value: 'x', columnId: '', columnName: '' },
-        ],
+        ifConditions: [{ operator: 'eq', value: 'x', columnId: '', columnName: '' }],
         thenRef: { nodeId: 'schema-1', columnId: 'c1', columnName: 'col' },
       })
     )

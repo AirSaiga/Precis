@@ -68,9 +68,7 @@ describe('buildV2RegexNodeFile', () => {
         { name: 'minLength', type: 'int', description: 'Minimum length' },
         { name: 'domain', type: 'word' },
       ],
-      rules: [
-        { id: 'r1', name: 'Rule 1', regex: '.*', output: {} },
-      ],
+      rules: [{ id: 'r1', name: 'Rule 1', regex: '.*', output: {} }],
       sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
     })
     const result = buildV2RegexNodeFile('regex-email', data)

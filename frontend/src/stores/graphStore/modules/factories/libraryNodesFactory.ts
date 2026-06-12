@@ -73,7 +73,9 @@ export function createLibraryNodesFactoryModule(params: {
     scope: 'patterns' | 'all'
   ) {
     const existing = nodes.value.find(
-      (n) => n.type === 'patternToolbox' && ((n.data as unknown) as Record<string, unknown>)?.scope === scope
+      (n) =>
+        n.type === 'patternToolbox' &&
+        (n.data as unknown as Record<string, unknown>)?.scope === scope
     )
     if (existing) {
       existing.position = { ...position }
@@ -89,21 +91,36 @@ export function createLibraryNodesFactoryModule(params: {
 
     const config = await getV2FullConfig(configPath)
     logger.debug('[createPatternToolboxNode] Loaded config:', {
-      regexCount: (((config.manifest as unknown) as Record<string, unknown>).regex_nodes as unknown[])?.length,
-      regexKeys: Object.keys((((config as unknown) as Record<string, unknown>).regex_nodes || {}) as Record<string, unknown>),
-      manifestRegex: ((config.manifest as unknown) as Record<string, unknown>).regex_nodes,
+      regexCount: ((config.manifest as unknown as Record<string, unknown>).regex_nodes as unknown[])
+        ?.length,
+      regexKeys: Object.keys(
+        ((config as unknown as Record<string, unknown>).regex_nodes || {}) as Record<
+          string,
+          unknown
+        >
+      ),
+      manifestRegex: (config.manifest as unknown as Record<string, unknown>).regex_nodes,
     })
 
     const manifestRegexRefs =
-      ((((config.manifest as unknown) as Record<string, unknown>).regex_nodes || []) as Array<{ id: string; path?: string }>) || []
+      (((config.manifest as unknown as Record<string, unknown>).regex_nodes || []) as Array<{
+        id: string
+        path?: string
+      }>) || []
 
     const resolvePatterns = (targetScope: 'patterns' | 'all') =>
       manifestRegexRefs
         .filter((r) => {
           if (targetScope === 'all') return true
-          const node = ((config as unknown) as Record<string, unknown>).regex_nodes as Record<string, unknown> | undefined
+          const node = (config as unknown as Record<string, unknown>).regex_nodes as
+            | Record<string, unknown>
+            | undefined
           const nodeRec = node?.[r.id] as Record<string, unknown> | undefined
-          let registry = ((nodeRec as Record<string, unknown> | undefined)?.uses_pattern as Record<string, unknown> | undefined)?.registry
+          let registry = (
+            (nodeRec as Record<string, unknown> | undefined)?.uses_pattern as
+              | Record<string, unknown>
+              | undefined
+          )?.registry
           if (!registry && r.path) {
             if (r.path.startsWith('patterns/') || r.path.includes('/patterns/')) {
               registry = 'patterns'
@@ -113,7 +130,9 @@ export function createLibraryNodesFactoryModule(params: {
           return registry === targetScope
         })
         .map((r) => {
-          const node2 = ((config as unknown) as Record<string, unknown>).regex_nodes as Record<string, unknown> | undefined
+          const node2 = (config as unknown as Record<string, unknown>).regex_nodes as
+            | Record<string, unknown>
+            | undefined
           const nodeRec2 = node2?.[r.id] as Record<string, unknown> | undefined
           return { id: r.id, name: nodeRec2?.name || r.id }
         })
@@ -157,19 +176,28 @@ export function createLibraryNodesFactoryModule(params: {
     const config = await getV2FullConfig(configPath)
     logger.debug('[createConstraintDashboardNode] Loaded config:', {
       constraintsCount: config.manifest.constraints?.length,
-      constraintKeys: Object.keys((((config as unknown) as Record<string, unknown>).constraints || {}) as Record<string, unknown>),
+      constraintKeys: Object.keys(
+        ((config as unknown as Record<string, unknown>).constraints || {}) as Record<
+          string,
+          unknown
+        >
+      ),
       manifestConstraints: config.manifest.constraints,
     })
 
     const items = (config.manifest.constraints || []).map((ref) => {
-      const c = ((config as unknown) as Record<string, unknown>).constraints as Record<string, unknown> | undefined
+      const c = (config as unknown as Record<string, unknown>).constraints as
+        | Record<string, unknown>
+        | undefined
       const cRec = c?.[ref.id] as Record<string, unknown> | undefined
       const name = cRec?.description || cRec?.type || ref.id
       const refs = cRec?.refs || {}
       const relatedSchemaIds: string[] = []
       if (cRec?.type === 'ForeignKey') {
-        if ((refs as Record<string, unknown>)?.from_table_id) relatedSchemaIds.push(String((refs as Record<string, unknown>).from_table_id))
-        if ((refs as Record<string, unknown>)?.to_table_id) relatedSchemaIds.push(String((refs as Record<string, unknown>).to_table_id))
+        if ((refs as Record<string, unknown>)?.from_table_id)
+          relatedSchemaIds.push(String((refs as Record<string, unknown>).from_table_id))
+        if ((refs as Record<string, unknown>)?.to_table_id)
+          relatedSchemaIds.push(String((refs as Record<string, unknown>).to_table_id))
       } else if ((refs as Record<string, unknown>)?.table_id) {
         relatedSchemaIds.push(String((refs as Record<string, unknown>).table_id))
       }

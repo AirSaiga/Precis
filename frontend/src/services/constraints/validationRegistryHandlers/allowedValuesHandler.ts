@@ -18,7 +18,9 @@ register({
     if (allowedValues.length === 0) {
       return {
         status: 'idle',
-        validationErrors: ['\u8BF7\u5148\u914D\u7F6E\u5141\u8BB8\u503C\u5217\u8868\u540E\u518D\u8FDB\u884C\u6821\u9A8C'],
+        validationErrors: [
+          '\u8BF7\u5148\u914D\u7F6E\u5141\u8BB8\u503C\u5217\u8868\u540E\u518D\u8FDB\u884C\u6821\u9A8C',
+        ],
         lastValidation: undefined,
       }
     }
@@ -33,7 +35,9 @@ register({
       if (!response.success || !response.data) {
         return {
           status: 'error',
-          validationErrors: [String(response.error || '\u5141\u8BB8\u503C\u6821\u9A8C\u5931\u8D25')],
+          validationErrors: [
+            String(response.error || '\u5141\u8BB8\u503C\u6821\u9A8C\u5931\u8D25'),
+          ],
           lastValidation: undefined,
         }
       }

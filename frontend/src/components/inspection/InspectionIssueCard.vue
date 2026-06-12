@@ -76,9 +76,7 @@
         class="context-block"
         :title="t('inspection.context.availableSchemas')"
       >
-        <div class="context-label">
-          💡 {{ t('inspection.context.availableSchemas') }}
-        </div>
+        <div class="context-label">💡 {{ t('inspection.context.availableSchemas') }}</div>
         <ul class="schema-list">
           <li v-for="schema in availableSchemas" :key="schema.id" class="schema-item">
             <span class="schema-name">{{ schema.name || schema.id }}</span>
@@ -109,9 +107,7 @@
         class="context-block"
         :title="t('inspection.context.availableColumns')"
       >
-        <div class="context-label">
-          💡 {{ t('inspection.context.availableColumns') }}
-        </div>
+        <div class="context-label">💡 {{ t('inspection.context.availableColumns') }}</div>
         <div class="column-chips">
           <button
             v-for="col in availableColumns"

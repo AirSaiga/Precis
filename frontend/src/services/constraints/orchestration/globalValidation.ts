@@ -109,7 +109,9 @@ export async function dispatchValidation(
     return
   }
 
-  const schemaNode = nodes.find((n) => n.id === schemaNodeId && (n.type === 'schema' || n.type === 'jsonSchema'))
+  const schemaNode = nodes.find(
+    (n) => n.id === schemaNodeId && (n.type === 'schema' || n.type === 'jsonSchema')
+  )
   if (!schemaNode) return
 
   const sourceHandle = `source-right-${columnId}`

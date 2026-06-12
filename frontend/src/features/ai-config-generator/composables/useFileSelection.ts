@@ -31,9 +31,7 @@ import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { postExpandPaths } from '@/api/aiApi'
 import { getV2Manifest } from '@/api/projectV2Api'
 
-export function useFileSelection(
-  configPath: ComputedRef<string | undefined>
-) {
+export function useFileSelection(configPath: ComputedRef<string | undefined>) {
   const { t } = useI18n()
   const graphStore = useGraphStore()
   const workspaceStore = useWorkspaceStore()

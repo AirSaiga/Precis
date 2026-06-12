@@ -33,7 +33,10 @@ register({
       const targetSchemaNode = targetNode?.find((n: Node) => n.id === targetNodeId)
       if (targetSchemaNode) {
         const targetSchemaData = (targetSchemaNode.data || {}) as Record<string, unknown>
-        const columns = (targetSchemaData.columns || []) as Array<{ id: string; columnName: string }>
+        const columns = (targetSchemaData.columns || []) as Array<{
+          id: string
+          columnName: string
+        }>
         const foundColumn = columns.find((c) => c.id === targetColumnId)
         if (foundColumn) {
           targetColumn = foundColumn.columnName
@@ -44,7 +47,9 @@ register({
     if (!targetNodeId || !targetColumn) {
       return {
         status: 'idle',
-        validationErrors: ['\u8BF7\u9009\u62E9\u76EE\u6807\u5217\u540E\u518D\u8FDB\u884C\u6821\u9A8C'],
+        validationErrors: [
+          '\u8BF7\u9009\u62E9\u76EE\u6807\u5217\u540E\u518D\u8FDB\u884C\u6821\u9A8C',
+        ],
         lastValidation: undefined,
       }
     }
@@ -91,7 +96,11 @@ register({
             return !(v === null || v === undefined || String(v).trim() === '')
           })
         : rows
-      return toResult(filtered, response.data.total_rows || 0, '\u5916\u952E\u7EA6\u675F\u4E0D\u6EE1\u8DB3')
+      return toResult(
+        filtered,
+        response.data.total_rows || 0,
+        '\u5916\u952E\u7EA6\u675F\u4E0D\u6EE1\u8DB3'
+      )
     }
 
     const response = await validateForeignKey({
@@ -120,7 +129,11 @@ register({
           return !(v === null || v === undefined || String(v).trim() === '')
         })
       : rows
-    return toResult(filtered, response.data.total_rows || 0, '\u5916\u952E\u7EA6\u675F\u4E0D\u6EE1\u8DB3')
+    return toResult(
+      filtered,
+      response.data.total_rows || 0,
+      '\u5916\u952E\u7EA6\u675F\u4E0D\u6EE1\u8DB3'
+    )
   },
   resetOnDisconnect: defaultReset,
 })

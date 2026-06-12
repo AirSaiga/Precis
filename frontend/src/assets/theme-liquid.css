@@ -1,0 +1,1192 @@
+/**
+ * @file theme-liquid.css
+ * @description Precis Liquid（次世代）主题令牌
+ *
+ * 设计目标：
+ * - 跨平台（macOS / Windows）通用的现代玻璃质感
+ * - 专业但轻盈友好，拒绝工业风
+ * - 柔和极光色彩 + 大圆角 + 悬浮层次 + 柔光阴影
+ *
+ * 使用方式：
+ * - 通过设置中心选择“Liquid（次世代）”主题
+ * - useTheme() 会给 html 加上 data-theme="liquid"
+ * - 本文件在 main.css 中最后导入，覆盖 light/dark 的默认令牌
+ */
+
+/* ============================================================
+   基础画布与背景
+   ============================================================ */
+
+[data-theme='liquid'] {
+  color-scheme: light;
+
+  /* 主背景：柔和的蓝紫极光渐变 */
+  --ui-bg-canvas: linear-gradient(
+    135deg,
+    #f5f7fb 0%,
+    #eef4fb 25%,
+    #f4f1fb 50%,
+    #f0f6fc 75%,
+    #f8f9fc 100%
+  );
+
+  /* 动态光晕装饰：可在 body/pseudo 元素上使用 */
+  --ui-bg-aurora-1: radial-gradient(
+    ellipse at 10% 10%,
+    rgba(120, 180, 255, 0.22) 0%,
+    transparent 50%
+  );
+  --ui-bg-aurora-2: radial-gradient(
+    ellipse at 90% 20%,
+    rgba(180, 160, 255, 0.18) 0%,
+    transparent 45%
+  );
+  --ui-bg-aurora-3: radial-gradient(
+    ellipse at 80% 90%,
+    rgba(130, 220, 200, 0.16) 0%,
+    transparent 45%
+  );
+
+  /* 面板与表面：半透明白色玻璃 */
+  --ui-bg-base: rgba(246, 248, 252, 0.72);
+  --ui-bg-nav-primary: rgba(255, 255, 255, 0.78);
+  --ui-bg-sidebar: rgba(255, 255, 255, 0.72);
+  --ui-bg-sidebar-hover: rgba(255, 255, 255, 0.92);
+  --ui-bg-elevated: rgba(255, 255, 255, 0.88);
+  --ui-bg-panel: rgba(255, 255, 255, 0.72);
+  --ui-bg-surface: rgba(255, 255, 255, 0.84);
+  --ui-bg-node-header: rgba(255, 255, 255, 0.82);
+  --ui-bg-subtle: rgba(245, 247, 252, 0.76);
+  --ui-bg-muted: rgba(228, 234, 243, 0.8);
+  --ui-bg-hover: rgba(255, 255, 255, 0.96);
+  --ui-bg-active: rgba(236, 242, 250, 0.96);
+
+  /* 强调色：极光蓝 */
+  --ui-accent: #3aa0ff;
+  --ui-accent-primary: var(--ui-accent);
+  --ui-accent-hover: #268df0;
+  --ui-accent-light: #6bb8ff;
+  --ui-accent-strong: #1d7ad9;
+  --ui-accent-weak: rgba(58, 160, 255, 0.12);
+  --ui-accent-ring: rgba(58, 160, 255, 0.22);
+  --ui-accent-gradient: linear-gradient(135deg, #4fa8ff 0%, #7ec3ff 100%);
+  --ui-bg-accent: rgba(58, 160, 255, 0.1);
+  --ui-bg-accent-light: rgba(58, 160, 255, 0.16);
+
+  /* 语义色：柔和 pastel */
+  --ui-success: #4cd7a8;
+  --ui-success-light: #78e4c0;
+  --ui-success-strong: #2db88a;
+  --ui-success-weak: rgba(76, 215, 168, 0.12);
+  --ui-success-ring: rgba(76, 215, 168, 0.22);
+  --ui-success-bg: rgba(76, 215, 168, 0.1);
+  --ui-success-gradient: linear-gradient(135deg, #36c996 0%, #6fe0b8 100%);
+
+  --ui-warning: #f9c66b;
+  --ui-warning-light: #fcd68a;
+  --ui-warning-strong: #e5ad3d;
+  --ui-warning-text: #b3831e;
+  --ui-warning-weak: rgba(249, 198, 107, 0.12);
+  --ui-warning-ring: rgba(249, 198, 107, 0.22);
+  --ui-warning-bg: rgba(249, 198, 107, 0.1);
+  --ui-warning-gradient: linear-gradient(135deg, #e5b044 0%, #f9d07a 100%);
+
+  --ui-danger: #ff8a8a;
+  --ui-danger-light: #ffb3b3;
+  --ui-danger-strong: #e85d5d;
+  --ui-danger-weak: rgba(255, 138, 138, 0.12);
+  --ui-danger-soft: rgba(255, 138, 138, 0.18);
+  --ui-danger-ring: rgba(255, 138, 138, 0.22);
+  --ui-danger-bg: rgba(255, 138, 138, 0.1);
+  --ui-danger-gradient: linear-gradient(135deg, #e86a6a 0%, #ff9e9e 100%);
+
+  --ui-info: #72b8ff;
+  --ui-info-light: #9ecdff;
+  --ui-info-strong: #4a9df0;
+  --ui-info-weak: rgba(114, 184, 255, 0.12);
+  --ui-info-ring: rgba(114, 184, 255, 0.22);
+  --ui-info-bg: rgba(114, 184, 255, 0.1);
+  --ui-info-gradient: linear-gradient(135deg, #5aa6f5 0%, #8fc4ff 100%);
+
+  /* 文字：深蓝灰，保证在柔和背景上可读 */
+  --ui-text-primary: #0f172a;
+  --ui-text-secondary: #334155;
+  --ui-text-tertiary: #475569;
+  --ui-text-quaternary: #64748b;
+  --ui-text-title: #0f172a;
+  --ui-text-strong: #0f172a;
+  --ui-text-body: #334155;
+  --ui-text: var(--ui-text-body);
+  --ui-text-muted: #5e6c80;
+  --ui-text-subtle: #8a97a8;
+  --ui-text-placeholder: #b0bac8;
+  --ui-text-on-accent: #ffffff;
+  --ui-text-on-success: #ffffff;
+  --ui-text-on-warning: #ffffff;
+  --ui-text-on-danger: #ffffff;
+  --ui-text-on-info: #ffffff;
+
+  /* 边框：半透明白色/浅灰，营造玻璃边缘 */
+  --ui-border-subtle: rgba(255, 255, 255, 0.72);
+  --ui-border-light: rgba(210, 220, 235, 0.72);
+  --ui-border: rgba(195, 208, 225, 0.82);
+  --ui-border-strong: rgba(165, 180, 200, 0.9);
+  --ui-border-focus: var(--ui-accent);
+  --ui-border-error: var(--ui-danger-light);
+  --ui-border-success: var(--ui-success-light);
+  --ui-border-warning: var(--ui-warning-light);
+  --ui-border-danger: var(--ui-danger-light);
+  --ui-border-info: var(--ui-info-light);
+
+  /* 阴影：极柔和、大面积、低对比 */
+  --ui-shadow-elevation-sm: 0 1px 2px rgba(45, 55, 75, 0.04);
+  --ui-shadow-elevation-md: 0 4px 12px rgba(45, 55, 75, 0.06);
+  --ui-shadow-elevation-lg: 0 8px 24px rgba(45, 55, 75, 0.08);
+  --ui-shadow-elevation-xl: 0 16px 48px rgba(45, 55, 75, 0.1);
+  --ui-shadow-xs: 0 1px 2px rgba(45, 55, 75, 0.03);
+  --ui-shadow-sm: 0 2px 6px rgba(45, 55, 75, 0.04);
+  --ui-shadow-md: 0 6px 16px rgba(45, 55, 75, 0.06);
+  --ui-shadow-lg: 0 12px 32px rgba(45, 55, 75, 0.08);
+  --ui-shadow-xl: 0 24px 56px rgba(45, 55, 75, 0.1);
+  --ui-shadow-2xl: 0 32px 72px rgba(45, 55, 75, 0.12);
+  --ui-shadow-hover: 0 14px 36px rgba(45, 55, 75, 0.12);
+  --ui-shadow-active: 0 4px 10px rgba(45, 55, 75, 0.05);
+  --ui-shadow-focus: 0 0 0 3px var(--ui-accent-ring);
+  --ui-shadow-glow: 0 0 0 4px rgba(58, 160, 255, 0.1);
+
+  /* 遮罩 */
+  --ui-overlay-backdrop-soft: rgba(15, 23, 42, 0.18);
+  --ui-overlay-backdrop: rgba(15, 23, 42, 0.32);
+  --ui-overlay-backdrop-strong: rgba(15, 23, 42, 0.46);
+
+  /* 设置中心特定令牌：更白净、更通透，但保留轻微玻璃质感 */
+  --ui-settings-overlay: rgba(15, 23, 42, 0.22);
+  --ui-settings-shell-bg: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.96) 0%,
+    rgba(248, 251, 255, 0.94) 50%,
+    rgba(245, 250, 252, 0.94) 100%
+  );
+  --ui-settings-shell-top: rgba(255, 255, 255, 0.88);
+  --ui-settings-body-bg: rgba(255, 255, 255, 0.86);
+  --ui-settings-shell-border: rgba(255, 255, 255, 0.8);
+  --ui-settings-shell-shadow:
+    0 32px 80px -20px rgba(45, 55, 75, 0.16), 0 18px 36px -24px rgba(45, 55, 75, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  --ui-settings-highlight: rgba(58, 160, 255, 0.1);
+  --ui-settings-sidebar-bg: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(245, 249, 255, 0.88) 100%
+  );
+  --ui-settings-nav-hover: rgba(255, 255, 255, 0.98);
+  --ui-settings-nav-border: rgba(210, 220, 235, 0.55);
+  --ui-settings-nav-active: rgba(58, 160, 255, 0.12);
+  --ui-settings-nav-active-border: rgba(58, 160, 255, 0.35);
+  --ui-settings-nav-icon-bg: rgba(240, 244, 250, 0.9);
+  --ui-settings-nav-icon-text: var(--ui-text-secondary);
+  --ui-settings-nav-icon-active-bg: var(--ui-accent-gradient);
+  --ui-settings-nav-icon-active-text: #ffffff;
+  --ui-settings-card-bg: rgba(255, 255, 255, 0.82);
+  --ui-settings-card-border: rgba(255, 255, 255, 0.78);
+  --ui-settings-card-muted-bg: rgba(245, 248, 252, 0.82);
+  --ui-settings-card-strong-bg: linear-gradient(
+    135deg,
+    rgba(58, 160, 255, 0.08) 0%,
+    rgba(76, 215, 168, 0.06) 100%
+  );
+  --ui-settings-badge-bg: rgba(58, 160, 255, 0.12);
+  --ui-settings-badge-text: var(--ui-accent-strong);
+  --ui-settings-meta-bg: rgba(255, 255, 255, 0.82);
+  --ui-settings-meta-border: rgba(255, 255, 255, 0.78);
+  --ui-settings-hero-bg: linear-gradient(
+    160deg,
+    rgba(58, 160, 255, 0.09) 0%,
+    rgba(114, 184, 255, 0.06) 52%,
+    rgba(76, 215, 168, 0.06) 100%
+  );
+
+  /* 画布网格：极低透明度 */
+  --ui-grid-color: #8a97a8;
+  --ui-grid-opacity: 0.22;
+  --ui-grid-size: 32px;
+  --ui-grid-dot-size: 2px;
+
+  /* 间距：微调更透气 */
+  --ui-space-xs: 4px;
+  --ui-space-sm: 8px;
+  --ui-space-md: 12px;
+  --ui-space-lg: 16px;
+  --ui-space-xl: 24px;
+  --ui-space-2xl: 32px;
+  --ui-space-3xl: 40px;
+
+  /* 圆角：统一加大 */
+  --ui-radius-sm: 8px;
+  --ui-radius-md: 12px;
+  --ui-radius-lg: 16px;
+  --ui-radius-xl: 22px;
+  --ui-radius-full: 9999px;
+
+  /* 字体 */
+  --ui-font-family:
+    'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI Variable', Roboto,
+    sans-serif;
+  --ui-font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+
+  /* 过渡 */
+  --ui-transition-fast: 0.15s cubic-bezier(0.32, 0.72, 0, 1);
+  --ui-transition-normal: 0.22s cubic-bezier(0.32, 0.72, 0, 1);
+  --ui-transition-slow: 0.32s cubic-bezier(0.32, 0.72, 0, 1);
+  --ui-transition-spring: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* 灰阶：带一点蓝调，更柔和 */
+  --ui-gray-50: #f7f9fc;
+  --ui-gray-100: #eef2f7;
+  --ui-gray-200: #e1e8f0;
+  --ui-gray-300: #cdd6e3;
+  --ui-gray-400: #a6b3c4;
+  --ui-gray-500: #7a8ba1;
+  --ui-gray-600: #5c6b80;
+  --ui-gray-700: #3d4a5f;
+  --ui-gray-800: #232d3d;
+  --ui-gray-900: #111827;
+}
+
+/* ============================================================
+   节点令牌覆盖
+   ============================================================ */
+
+[data-theme='liquid'] {
+  --node-bg: rgba(255, 255, 255, 0.86);
+  --node-bg-hover: rgba(255, 255, 255, 0.94);
+  --node-bg-active: rgba(245, 247, 252, 0.96);
+
+  --node-glass-bg: rgba(255, 255, 255, 0.78);
+  --node-glass-bg-hover: rgba(255, 255, 255, 0.9);
+  --node-glass-bg-selected: rgba(255, 255, 255, 0.98);
+
+  --node-border: rgba(210, 220, 235, 0.78);
+  --node-border-hover: rgba(180, 195, 215, 0.86);
+  --node-border-active: rgba(160, 175, 200, 0.92);
+  --node-border-strong: rgba(140, 155, 180, 0.96);
+  --node-border-selected: var(--ui-accent);
+  --node-border-error: var(--ui-danger);
+  --node-border-success: var(--ui-success);
+
+  /* 节点阴影：大但极淡，营造悬浮感 */
+  --node-shadow: 0 8px 24px rgba(45, 55, 75, 0.07), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+  --node-shadow-sm: 0 2px 6px rgba(45, 55, 75, 0.04);
+  --node-shadow-md: 0 6px 16px rgba(45, 55, 75, 0.06);
+  --node-shadow-lg: 0 12px 32px rgba(45, 55, 75, 0.08);
+  --node-shadow-hover: 0 16px 40px rgba(45, 55, 75, 0.12), 0 0 0 1px rgba(255, 255, 255, 0.7) inset;
+  --node-shadow-selected: 0 0 0 3px var(--ui-accent-ring), 0 16px 40px rgba(45, 55, 75, 0.12);
+  --node-shadow-error: 0 0 0 2px var(--ui-danger-ring), 0 8px 20px rgba(45, 55, 75, 0.08);
+  --node-shadow-success: 0 0 0 2px var(--ui-success-ring), 0 8px 20px rgba(45, 55, 75, 0.08);
+  --node-shadow-dragging: 0 24px 56px rgba(45, 55, 75, 0.16), 0 0 0 2px var(--ui-accent-ring);
+
+  /* 节点类型色：pastel + 发光 */
+  --node-type-source: var(--ui-success);
+  --node-type-source-bg: var(--ui-success-bg);
+
+  --node-type-schema: var(--ui-accent);
+  --node-type-schema-bg: var(--ui-bg-accent);
+
+  --node-type-regex: #a78bfa;
+  --node-type-regex-bg: rgba(167, 139, 250, 0.1);
+
+  --node-type-pattern: #6ec3ff;
+  --node-type-pattern-bg: rgba(110, 195, 255, 0.1);
+
+  --node-type-constraint: var(--ui-accent);
+  --node-type-constraint-bg: rgba(58, 160, 255, 0.06);
+
+  --node-type-constraint-notnull: var(--ui-danger);
+  --node-type-constraint-notnull-bg: var(--ui-danger-bg);
+
+  --node-type-constraint-unique: var(--ui-success);
+  --node-type-constraint-unique-bg: var(--ui-success-bg);
+
+  --node-type-constraint-allowed: #6ec3ff;
+  --node-type-constraint-allowed-bg: rgba(110, 195, 255, 0.1);
+
+  --node-type-constraint-foreign: #a78bfa;
+  --node-type-constraint-foreign-bg: rgba(167, 139, 250, 0.1);
+
+  --node-type-constraint-conditional: #f9c66b;
+  --node-type-constraint-conditional-bg: rgba(249, 198, 107, 0.1);
+
+  --node-type-constraint-scripted: #ff9f6b;
+  --node-type-constraint-scripted-bg: rgba(255, 159, 107, 0.1);
+
+  --node-type-constraint-range: #a78bfa;
+  --node-type-constraint-range-bg: rgba(167, 139, 250, 0.1);
+
+  --node-type-constraint-charset: #f472b6;
+  --node-type-constraint-charset-bg: rgba(244, 114, 182, 0.08);
+
+  --node-type-constraint-datetime: #f472b6;
+  --node-type-constraint-datetime-bg: rgba(244, 114, 182, 0.08);
+
+  /* 节点头部渐变：极淡的 tint */
+  --node-header-gradient-primary: linear-gradient(
+    135deg,
+    rgba(58, 160, 255, 0.08) 0%,
+    rgba(58, 160, 255, 0.02) 100%
+  );
+  --node-header-gradient-success: linear-gradient(
+    135deg,
+    rgba(76, 215, 168, 0.08) 0%,
+    rgba(76, 215, 168, 0.02) 100%
+  );
+  --node-header-gradient-danger: linear-gradient(
+    135deg,
+    rgba(255, 138, 138, 0.08) 0%,
+    rgba(255, 138, 138, 0.02) 100%
+  );
+  --node-header-gradient-warning: linear-gradient(
+    135deg,
+    rgba(249, 198, 107, 0.08) 0%,
+    rgba(249, 198, 107, 0.02) 100%
+  );
+  --node-header-gradient-info: linear-gradient(
+    135deg,
+    rgba(114, 184, 255, 0.08) 0%,
+    rgba(114, 184, 255, 0.02) 100%
+  );
+  --node-header-gradient-regex: linear-gradient(
+    135deg,
+    rgba(167, 139, 250, 0.08) 0%,
+    rgba(167, 139, 250, 0.02) 100%
+  );
+  --node-header-gradient-purple: linear-gradient(
+    135deg,
+    rgba(167, 139, 250, 0.08) 0%,
+    rgba(167, 139, 250, 0.02) 100%
+  );
+  --node-header-gradient-orange: linear-gradient(
+    135deg,
+    rgba(249, 198, 107, 0.08) 0%,
+    rgba(249, 198, 107, 0.02) 100%
+  );
+  --node-header-gradient-sky: linear-gradient(
+    135deg,
+    rgba(110, 195, 255, 0.08) 0%,
+    rgba(110, 195, 255, 0.02) 100%
+  );
+  --node-header-gradient-pink: linear-gradient(
+    135deg,
+    rgba(244, 114, 182, 0.08) 0%,
+    rgba(244, 114, 182, 0.02) 100%
+  );
+  --node-header-gradient-script: linear-gradient(
+    135deg,
+    rgba(255, 159, 107, 0.08) 0%,
+    rgba(255, 159, 107, 0.02) 100%
+  );
+  --node-header-gradient-project: linear-gradient(
+    135deg,
+    rgba(249, 166, 120, 0.1) 0%,
+    rgba(249, 166, 120, 0.03) 100%
+  );
+  --node-header-gradient-source: linear-gradient(
+    135deg,
+    rgba(76, 215, 168, 0.1) 0%,
+    rgba(76, 215, 168, 0.03) 100%
+  );
+
+  /* 水晶风格：Liquid 主题的核心材质 */
+  --crystal-bg-base: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.92) 0%,
+    rgba(250, 252, 255, 0.86) 100%
+  );
+  --crystal-bg-hover: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.96) 0%,
+    rgba(248, 251, 255, 0.9) 100%
+  );
+  --crystal-bg-selected: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.98) 0%,
+    rgba(245, 250, 255, 0.94) 100%
+  );
+  --crystal-border: rgba(200, 212, 228, 0.4);
+  --crystal-border-hover: rgba(170, 188, 210, 0.55);
+  --crystal-border-selected: var(--ui-accent);
+  --crystal-shadow:
+    0 4px 14px rgba(45, 55, 75, 0.06), 0 8px 24px rgba(45, 55, 75, 0.04),
+    inset 0 1px 1px rgba(255, 255, 255, 0.7), inset 0 -1px 1px rgba(0, 0, 0, 0.02);
+  --crystal-shadow-hover:
+    0 8px 22px rgba(45, 55, 75, 0.1), 0 14px 36px rgba(45, 55, 75, 0.06),
+    inset 0 1px 1px rgba(255, 255, 255, 0.75), inset 0 -1px 1px rgba(0, 0, 0, 0.03);
+  --crystal-shadow-selected:
+    0 0 0 2px var(--ui-accent-ring), 0 8px 22px rgba(45, 55, 75, 0.1),
+    inset 0 1px 2px rgba(255, 255, 255, 0.8);
+  --crystal-blur: 18px;
+  --crystal-blur-strong: 26px;
+  --crystal-header-bg: linear-gradient(
+    180deg,
+    rgba(248, 251, 255, 0.96) 0%,
+    rgba(245, 248, 252, 0.9) 100%
+  );
+  --crystal-section-bg: rgba(245, 248, 252, 0.62);
+  --crystal-footer-bg: rgba(245, 248, 252, 0.52);
+}
+
+/* ============================================================
+   全局材质增强：让液态玻璃材质真正生效
+   ============================================================ */
+
+[data-theme='liquid'] .app-layout {
+  background: var(--ui-bg-canvas);
+}
+
+[data-theme='liquid'] .activity-bar,
+[data-theme='liquid'] .sidebar-panel-container,
+[data-theme='liquid'] .panel-container,
+[data-theme='liquid'] .tab-bar,
+[data-theme='liquid'] .status-bar {
+  background: var(--ui-bg-panel);
+  backdrop-filter: blur(var(--crystal-blur));
+  -webkit-backdrop-filter: blur(var(--crystal-blur));
+}
+
+[data-theme='liquid'] .canvas-tabbed-container {
+  background: transparent;
+}
+
+/* 画布区加上微弱动态光晕（通过伪元素实现，不依赖 JS） */
+[data-theme='liquid'] .canvas-area::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: var(--ui-bg-aurora-1), var(--ui-bg-aurora-2), var(--ui-bg-aurora-3);
+  opacity: 0.7;
+  z-index: 0;
+}
+
+/* ============================================================
+   液态玻璃组件改造：在不影响 light/dark 的前提下覆盖关键 UI
+   ============================================================ */
+
+/* ---------- 左侧活动栏导航按钮 ---------- */
+[data-theme='liquid'] .activity-bar .activity-bar-nav {
+  background: transparent;
+  border-right-color: transparent;
+}
+
+[data-theme='liquid'] .activity-bar .view-btn,
+[data-theme='liquid'] .activity-bar .settings-btn,
+[data-theme='liquid'] .activity-bar .language-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--ui-text-tertiary);
+  transition: all var(--ui-transition-fast);
+}
+
+[data-theme='liquid'] .activity-bar .view-btn:hover,
+[data-theme='liquid'] .activity-bar .settings-btn:hover,
+[data-theme='liquid'] .activity-bar .language-btn:hover {
+  background: rgba(255, 255, 255, 0.65);
+  border-color: var(--crystal-border);
+  color: var(--ui-text-primary);
+  box-shadow: var(--crystal-shadow);
+  transform: translateY(-1px);
+}
+
+[data-theme='liquid'] .activity-bar .view-btn.active {
+  color: var(--ui-text-on-accent);
+  background: var(--ui-accent-gradient);
+  border-color: transparent;
+  box-shadow:
+    0 6px 16px rgba(58, 160, 255, 0.28),
+    inset 0 1px 1px rgba(255, 255, 255, 0.35);
+}
+
+[data-theme='liquid'] .activity-bar .view-btn.active::before {
+  display: none;
+}
+
+/* ---------- 侧边栏 / 资产库 ---------- */
+[data-theme='liquid'] .sidebar-panel-container,
+[data-theme='liquid'] .asset-library {
+  background: var(--ui-bg-sidebar);
+  border-right-color: var(--ui-border-light);
+}
+
+/* ---------- 资源树行 ---------- */
+[data-theme='liquid'] .resource-tree .tree-row {
+  margin-bottom: 3px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+}
+
+[data-theme='liquid'] .resource-tree .tree-row:hover {
+  background: var(--crystal-bg-hover);
+  border-color: var(--crystal-border);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .resource-tree .tree-row.selected {
+  background: var(--crystal-bg-selected);
+  border-color: var(--crystal-border-selected);
+  box-shadow: var(--crystal-shadow-selected);
+}
+
+[data-theme='liquid'] .resource-tree .folder-count {
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ui-text-muted);
+  border: 1px solid var(--crystal-border);
+  font-weight: var(--ui-font-weight-medium);
+}
+
+[data-theme='liquid'] .resource-tree .tree-folder.nested::before,
+[data-theme='liquid'] .resource-tree .tree-children::before,
+[data-theme='liquid'] .resource-tree .tree-children.embedded-constraints {
+  border-left-color: rgba(195, 208, 225, 0.45);
+}
+
+[data-theme='liquid'] .resource-tree .embedded-constraint-row {
+  border-radius: 8px;
+  border: 1px solid transparent;
+}
+
+[data-theme='liquid'] .resource-tree .embedded-constraint-row:hover {
+  background: rgba(167, 139, 250, 0.08);
+  border-color: rgba(167, 139, 250, 0.18);
+}
+
+[data-theme='liquid'] .resource-tree .embedded-constraint-row.selected {
+  background: rgba(58, 160, 255, 0.1);
+  border-color: var(--ui-accent-ring);
+}
+
+[data-theme='liquid'] .resource-tree .tree-empty {
+  color: var(--ui-text-muted);
+  font-style: normal;
+}
+
+/* ---------- 资源浏览器搜索框 ---------- */
+[data-theme='liquid'] .resources-content .search-input {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--crystal-border);
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .resources-content .search-input:focus {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: var(--ui-accent);
+  box-shadow:
+    0 0 0 3px var(--ui-accent-ring),
+    var(--crystal-shadow-hover);
+}
+
+/* ---------- 右侧检查器面板 ---------- */
+[data-theme='liquid'] .panel .panel-header {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.94) 100%);
+  border-bottom-color: var(--crystal-border);
+  backdrop-filter: blur(var(--crystal-blur));
+  -webkit-backdrop-filter: blur(var(--crystal-blur));
+}
+
+[data-theme='liquid'] .panel .panel-header::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--crystal-border) 20%,
+    var(--crystal-border) 80%,
+    transparent 100%
+  );
+}
+
+[data-theme='liquid'] .panel .panel-content {
+  scrollbar-color: var(--crystal-border) transparent;
+}
+
+[data-theme='liquid'] .panel .panel-content::-webkit-scrollbar-thumb {
+  background: var(--crystal-border);
+}
+
+[data-theme='liquid'] .panel .placeholder {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.86) 0%, rgba(245, 249, 255, 0.82) 100%);
+  border: 1px solid var(--crystal-border);
+  box-shadow: var(--crystal-shadow);
+  backdrop-filter: blur(var(--crystal-blur));
+  -webkit-backdrop-filter: blur(var(--crystal-blur));
+  border-radius: var(--ui-radius-xl);
+}
+
+[data-theme='liquid'] .panel .placeholder-content {
+  gap: 16px;
+}
+
+[data-theme='liquid'] .panel .placeholder-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--ui-radius-xl);
+  font-size: 32px;
+  color: var(--ui-accent);
+  background: linear-gradient(135deg, rgba(58, 160, 255, 0.12) 0%, rgba(76, 215, 168, 0.08) 100%);
+  box-shadow: var(--crystal-shadow);
+  opacity: 1;
+}
+
+[data-theme='liquid'] .panel .placeholder-title {
+  color: var(--ui-text-strong);
+  font-style: normal;
+}
+
+[data-theme='liquid'] .panel .placeholder-hint {
+  color: var(--ui-text-muted);
+  font-style: normal;
+}
+
+/* ---------- 检查器 Section（旧版） ---------- */
+[data-theme='liquid'] .panel-content .inspector-section {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84) 0%, rgba(245, 249, 255, 0.78) 100%);
+  border: 1px solid var(--crystal-border);
+  border-left: 3px solid var(--ui-accent-weak);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--crystal-shadow);
+  backdrop-filter: blur(var(--crystal-blur));
+  -webkit-backdrop-filter: blur(var(--crystal-blur));
+  transition:
+    box-shadow var(--ui-transition-fast),
+    border-color var(--ui-transition-fast);
+}
+
+[data-theme='liquid'] .panel-content .inspector-section:hover {
+  box-shadow: var(--crystal-shadow-hover);
+  border-left-color: var(--ui-accent-light);
+}
+
+[data-theme='liquid'] .panel-content .inspector-section .section-title {
+  color: var(--ui-text-strong);
+  border-bottom-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .panel-content .inspector-section .section-badge.editable {
+  background: var(--ui-success-weak);
+  color: var(--ui-success-strong);
+  border-color: var(--ui-success-border);
+}
+
+[data-theme='liquid'] .panel-content .inspector-section .section-badge.read-only {
+  background: rgba(100, 116, 139, 0.1);
+  color: var(--ui-text-muted);
+  border-color: rgba(100, 116, 139, 0.18);
+}
+
+/* ---------- 检查器 Section（JSON 驱动版） ---------- */
+[data-theme='liquid'] .panel-content .base-inspector .base-title {
+  font-size: 15px;
+  font-weight: var(--ui-font-weight-semibold);
+  color: var(--ui-text-strong);
+  margin-bottom: 4px;
+}
+
+[data-theme='liquid'] .panel-content .base-inspector .section {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84) 0%, rgba(245, 249, 255, 0.78) 100%);
+  border: 1px solid var(--crystal-border);
+  border-left: 3px solid var(--ui-accent-weak);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--crystal-shadow);
+  transition:
+    box-shadow var(--ui-transition-fast),
+    border-color var(--ui-transition-fast);
+}
+
+[data-theme='liquid'] .panel-content .base-inspector .section:hover {
+  box-shadow: var(--crystal-shadow-hover);
+  border-left-color: var(--ui-accent-light);
+}
+
+[data-theme='liquid'] .panel-content .base-inspector .section-title {
+  color: var(--ui-text-strong);
+  border-bottom-color: var(--crystal-border);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+[data-theme='liquid'] .panel-content .base-inspector .section-desc {
+  color: var(--ui-text-muted);
+}
+
+/* ---------- 工具箱磁贴 ---------- */
+[data-theme='liquid'] .component-tile {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82) 0%, rgba(248, 251, 255, 0.78) 100%);
+  border: 1px solid var(--crystal-border);
+  box-shadow: var(--crystal-shadow);
+  border-radius: var(--ui-radius-md);
+  transition: all var(--ui-transition-fast);
+}
+
+[data-theme='liquid'] .component-tile:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 250, 255, 0.92) 100%);
+  border-color: var(--crystal-border-hover);
+  box-shadow: var(--crystal-shadow-hover);
+  transform: translateY(-2px);
+}
+
+[data-theme='liquid'] .component-tile:active {
+  transform: scale(0.98);
+}
+
+[data-theme='liquid'] .component-tile .tile-icon {
+  border-radius: 10px;
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .component-tile .tile-icon-blue,
+[data-theme='liquid'] .component-tile .tile-icon-purple {
+  background: linear-gradient(135deg, rgba(58, 160, 255, 0.14) 0%, rgba(126, 195, 255, 0.1) 100%);
+  color: var(--ui-accent-strong);
+}
+
+[data-theme='liquid'] .component-tile .tile-icon-amber {
+  background: linear-gradient(135deg, rgba(249, 198, 107, 0.18) 0%, rgba(252, 214, 138, 0.12) 100%);
+  color: #c68a1e;
+}
+
+[data-theme='liquid'] .component-tile .tile-icon-green {
+  background: linear-gradient(135deg, rgba(76, 215, 168, 0.14) 0%, rgba(120, 228, 192, 0.1) 100%);
+  color: var(--ui-success-strong);
+}
+
+[data-theme='liquid'] .component-tile .tile-icon-sky {
+  background: linear-gradient(135deg, rgba(110, 195, 255, 0.14) 0%, rgba(143, 196, 255, 0.1) 100%);
+  color: var(--ui-info-strong);
+}
+
+[data-theme='liquid'] .component-tile .tile-icon-pink {
+  background: linear-gradient(135deg, rgba(244, 114, 182, 0.14) 0%, rgba(249, 166, 200, 0.1) 100%);
+  color: #db2777;
+}
+
+[data-theme='liquid'] .component-tile .tile-action :deep(svg) {
+  color: var(--ui-text-tertiary);
+}
+
+[data-theme='liquid'] .component-tile:hover .tile-action :deep(svg) {
+  color: var(--ui-accent);
+}
+
+[data-theme='liquid'] .constraint-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(248, 251, 255, 0.72) 100%);
+  border-color: var(--crystal-border);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .constraint-type-item:hover {
+  background: rgba(58, 160, 255, 0.06);
+  border-radius: 8px;
+}
+
+[data-theme='liquid'] .constraint-type-item.disabled {
+  opacity: 0.35;
+}
+
+[data-theme='liquid'] .constraint-type-item.disabled:hover {
+  background: transparent;
+}
+
+[data-theme='liquid'] .constraint-category {
+  border-bottom-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .subsection-header,
+[data-theme='liquid'] .constraint-category-title {
+  color: var(--ui-text-muted);
+  letter-spacing: 0.08em;
+}
+
+/* ---------- 资源树行 ---------- */
+[data-theme='liquid'] .resource-tree .tree-row {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  margin-bottom: 3px;
+  transition: all var(--ui-transition-fast);
+}
+
+[data-theme='liquid'] .resource-tree .tree-row:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(245, 249, 255, 0.86) 100%);
+  border-color: var(--crystal-border);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .resource-tree .tree-row.selected {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(232, 244, 255, 0.92) 100%);
+  border-color: var(--ui-accent-ring);
+  box-shadow:
+    0 0 0 2px var(--ui-accent-ring),
+    var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .resource-tree .folder-count {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ui-text-muted);
+  border: 1px solid var(--crystal-border);
+  font-weight: var(--ui-font-weight-medium);
+}
+
+[data-theme='liquid'] .resource-tree .tree-folder.nested::before,
+[data-theme='liquid'] .resource-tree .tree-children::before,
+[data-theme='liquid'] .resource-tree .tree-children.embedded-constraints {
+  border-left-color: rgba(195, 208, 225, 0.4);
+}
+
+[data-theme='liquid'] .resource-tree .embedded-constraint-row {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: all var(--ui-transition-fast);
+}
+
+[data-theme='liquid'] .resource-tree .embedded-constraint-row:hover {
+  background: rgba(167, 139, 250, 0.08);
+  border-color: rgba(167, 139, 250, 0.16);
+}
+
+[data-theme='liquid'] .resource-tree .embedded-constraint-row.selected {
+  background: rgba(58, 160, 255, 0.1);
+  border-color: var(--ui-accent-ring);
+}
+
+/* ---------- Tab Bar ---------- */
+[data-theme='liquid'] .tab-bar {
+  background: transparent;
+  border-bottom-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .tab-bar .tab-item {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--ui-radius-md);
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid transparent;
+  color: var(--ui-text-muted);
+}
+
+[data-theme='liquid'] .tab-bar .tab-item:hover {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--crystal-border);
+  color: var(--ui-text-body);
+}
+
+[data-theme='liquid'] .tab-bar .tab-item.active {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--crystal-border);
+  color: var(--ui-text-strong);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .tab-bar .tab-add:hover {
+  color: var(--ui-accent);
+}
+
+/* ---------- 全局按钮 ---------- */
+[data-theme='liquid'] .ui-btn {
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .ui-btn--primary {
+  background: var(--ui-accent-gradient);
+  border-color: transparent;
+  color: var(--ui-text-on-accent);
+}
+
+[data-theme='liquid'] .ui-btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5eb4ff 0%, #91cfff 100%);
+  box-shadow: 0 6px 18px rgba(58, 160, 255, 0.28);
+}
+
+[data-theme='liquid'] .ui-btn--secondary {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--crystal-border);
+  color: var(--ui-text-body);
+}
+
+[data-theme='liquid'] .ui-btn--secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: var(--crystal-border-hover);
+}
+
+[data-theme='liquid'] .ui-btn--ghost {
+  background: rgba(255, 255, 255, 0.45);
+  border-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .ui-btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+[data-theme='liquid'] .ui-btn--toolbar {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .ui-btn--toolbar:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+[data-theme='liquid'] .ui-icon-btn {
+  border-radius: var(--ui-radius-md);
+}
+
+[data-theme='liquid'] .ui-icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--crystal-border);
+  color: var(--ui-text-body);
+}
+
+/* ---------- 全局表单控件 ---------- */
+[data-theme='liquid'] .ui-input,
+[data-theme='liquid'] .ui-select,
+[data-theme='liquid'] .ui-textarea {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--crystal-border);
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .ui-input:hover,
+[data-theme='liquid'] .ui-select:hover,
+[data-theme='liquid'] .ui-textarea:hover {
+  border-color: var(--crystal-border-hover);
+}
+
+[data-theme='liquid'] .ui-input:focus,
+[data-theme='liquid'] .ui-select:focus,
+[data-theme='liquid'] .ui-textarea:focus {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 3px var(--ui-accent-ring);
+}
+
+[data-theme='liquid'] .ui-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme='liquid'] .ui-switch__track {
+  background: rgba(195, 208, 225, 0.65);
+}
+
+[data-theme='liquid'] .ui-switch__track::after {
+  background: white;
+  box-shadow: 0 1px 3px rgba(45, 55, 75, 0.18);
+}
+
+[data-theme='liquid'] .ui-switch__input:checked + .ui-switch__track {
+  background: var(--ui-accent-gradient);
+}
+
+[data-theme='liquid'] .ui-checkbox__box {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .ui-checkbox__input:checked + .ui-checkbox__box {
+  background: var(--ui-accent-gradient);
+  border-color: transparent;
+}
+
+/* ---------- 设置中心 ---------- */
+[data-theme='liquid'] .settings-overlay {
+  background: var(--ui-settings-overlay);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+[data-theme='liquid'] .settings-overlay .settings-workbench {
+  background: var(--ui-settings-shell-bg);
+  border-color: var(--ui-settings-shell-border);
+  box-shadow: var(--ui-settings-shell-shadow);
+  border-radius: var(--ui-radius-xl);
+  backdrop-filter: blur(var(--crystal-blur-strong));
+  -webkit-backdrop-filter: blur(var(--crystal-blur-strong));
+}
+
+[data-theme='liquid'] .settings-overlay .settings-workbench__header {
+  background: var(--ui-settings-shell-top);
+  border-bottom-color: var(--ui-settings-nav-border);
+}
+
+[data-theme='liquid'] .settings-overlay .settings-sidebar {
+  background: var(--ui-settings-sidebar-bg);
+  border-right-color: var(--ui-settings-nav-border);
+}
+
+[data-theme='liquid'] .settings-overlay .settings-sidebar__search {
+  border-bottom-color: var(--ui-settings-nav-border);
+}
+
+[data-theme='liquid'] .settings-overlay .settings-sidebar__search-input {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: var(--crystal-border);
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .settings-overlay .settings-sidebar__search-input:focus {
+  background: rgba(255, 255, 255, 0.98);
+  border-color: var(--ui-accent);
+  box-shadow:
+    0 0 0 3px var(--ui-accent-ring),
+    var(--crystal-shadow-hover);
+}
+
+[data-theme='liquid'] .settings-overlay .nav-section:not(:first-child) {
+  border-top-color: var(--ui-settings-nav-border);
+}
+
+[data-theme='liquid'] .settings-overlay .nav-item {
+  border-radius: 10px;
+  margin-bottom: 2px;
+  border: 1px solid transparent;
+}
+
+[data-theme='liquid'] .settings-overlay .nav-item:hover {
+  background: var(--ui-settings-nav-hover);
+  color: var(--ui-text-primary);
+  border-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .settings-overlay .nav-item.is-active {
+  background: var(--ui-settings-nav-active);
+  border-color: var(--ui-settings-nav-active-border);
+  color: var(--ui-accent-strong);
+  box-shadow: 0 0 0 3px rgba(58, 160, 255, 0.08);
+}
+
+[data-theme='liquid'] .settings-overlay .settings-content {
+  background: var(--ui-settings-body-bg);
+}
+
+[data-theme='liquid'] .settings-overlay .settings-content__header {
+  background: transparent;
+  border-bottom-color: var(--ui-settings-nav-border);
+}
+
+[data-theme='liquid'] .settings-overlay .settings-content__title {
+  color: var(--ui-text-strong);
+}
+
+[data-theme='liquid'] .settings-overlay .settings-project-pill {
+  background: var(--ui-success-weak);
+  border-color: var(--ui-success-border);
+  color: var(--ui-success-strong);
+}
+
+[data-theme='liquid'] .settings-overlay .settings-project-pill--inactive {
+  background: rgba(255, 255, 255, 0.65);
+  border-color: var(--crystal-border);
+  color: var(--ui-text-muted);
+}
+
+[data-theme='liquid'] .settings-overlay .ui-workbench-intro,
+[data-theme='liquid'] .settings-overlay .ui-workbench-card,
+[data-theme='liquid'] .settings-overlay .ui-settings-item {
+  background: var(--ui-settings-card-bg);
+  border: 1px solid var(--ui-settings-card-border);
+  box-shadow: var(--crystal-shadow);
+  border-radius: var(--ui-radius-lg);
+  transition: box-shadow var(--ui-transition-fast);
+}
+
+[data-theme='liquid'] .settings-overlay .ui-workbench-card:hover,
+[data-theme='liquid'] .settings-overlay .ui-settings-item:hover {
+  box-shadow: var(--crystal-shadow-hover);
+}
+
+[data-theme='liquid'] .settings-overlay .ui-workbench-card--muted,
+[data-theme='liquid'] .settings-overlay .ui-settings-item--indented {
+  background: var(--ui-settings-card-muted-bg);
+}
+
+[data-theme='liquid'] .settings-overlay .ui-workbench-intro {
+  background: var(--ui-settings-hero-bg);
+  border-color: rgba(255, 255, 255, 0.6);
+}
+
+[data-theme='liquid'] .settings-overlay .settings-select,
+[data-theme='liquid'] .settings-overlay .settings-switch__track {
+  background: rgba(255, 255, 255, 0.78);
+  border-color: var(--crystal-border);
+}
+
+/* ---------- 状态栏与项目芯片 ---------- */
+[data-theme='liquid'] .status-bar {
+  background: var(--ui-bg-elevated);
+  border-top-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .project-chip {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .project-chip:hover {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* ---------- 画布节点与 Vue Flow 控件 ---------- */
+[data-theme='liquid'] .graph-node {
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+[data-theme='liquid'] .vue-flow__controls {
+  background: var(--crystal-section-bg) !important;
+  border: 1px solid var(--crystal-border) !important;
+  border-radius: var(--ui-radius-md) !important;
+  box-shadow: var(--crystal-shadow) !important;
+  backdrop-filter: blur(var(--crystal-blur));
+  -webkit-backdrop-filter: blur(var(--crystal-blur));
+}
+
+[data-theme='liquid'] .vue-flow__controls-button {
+  background: transparent !important;
+  color: var(--ui-text-secondary) !important;
+  border-bottom-color: var(--crystal-border) !important;
+}
+
+[data-theme='liquid'] .vue-flow__controls-button:hover {
+  background: rgba(255, 255, 255, 0.6) !important;
+  color: var(--ui-text-primary) !important;
+}
+
+[data-theme='liquid'] .vue-flow__controls-button svg {
+  fill: currentColor;
+}
+
+/* ---------- 数据源库头部 ---------- */
+[data-theme='liquid'] .data-library .data-view-header {
+  background: var(--crystal-header-bg);
+  border-bottom-color: var(--crystal-border);
+  backdrop-filter: blur(var(--crystal-blur));
+  -webkit-backdrop-filter: blur(var(--crystal-blur));
+}
+
+[data-theme='liquid'] .data-library .data-source-count {
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ui-text-muted);
+  border: 1px solid var(--crystal-border);
+}
+
+/* ---------- 通用空状态 ---------- */
+[data-theme='liquid'] .ui-empty__icon {
+  color: var(--ui-accent);
+  opacity: 0.65;
+}
+
+[data-theme='liquid'] .ui-empty__title {
+  color: var(--ui-text-strong);
+}

@@ -6,10 +6,7 @@
  */
 import { nextTick } from 'vue'
 import type { Edge } from '@vue-flow/core'
-import type {
-  CustomNode,
-  SchemaNodeData,
-} from '@/types/graph'
+import type { CustomNode, SchemaNodeData } from '@/types/graph'
 import { addNodes, removeNodes, removeEdges } from '@/services/canvas/vueFlowApi'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 import '@/services/disconnect' // side-effect: 触发所有断开清理处理器的自注册
@@ -234,7 +231,11 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
 
   const { deleteNodes } = nodeOps
 
-  const { undoStack, redoStack, saveState, undo, redo } = createHistoryModule({ nodes, edges, reconcileAll: connectionStateSync.reconcileAll })
+  const { undoStack, redoStack, saveState, undo, redo } = createHistoryModule({
+    nodes,
+    edges,
+    reconcileAll: connectionStateSync.reconcileAll,
+  })
 
   const { cutSelectedNodes, copySelectedNodes, pasteNodes, duplicateSelectedNode } =
     createClipboardModule({

@@ -28,12 +28,7 @@
 
     <!-- 搜索过滤 -->
     <div class="search-bar" v-if="isObject(currentLevelData) || isArray(currentLevelData)">
-      <input
-        v-model="searchQuery"
-        type="text"
-        class="search-input"
-        placeholder="搜索字段..."
-      />
+      <input v-model="searchQuery" type="text" class="search-input" placeholder="搜索字段..." />
       <span v-if="searchQuery" class="search-clear" @click="searchQuery = ''">✕</span>
     </div>
 

@@ -10,12 +10,12 @@ declare module '*.vue' {
 
 // 处理图片
 declare module '*.png' {
-  const value: string;
-  export default value;
+  const value: string
+  export default value
 }
 
 // 处理 CSS/SCSS (如果是 CSS Modules)
 declare module '*.module.css' {
-  const classes: { [key: string]: string };
-  export default classes;
+  const classes: { [key: string]: string }
+  export default classes
 }

@@ -19,10 +19,7 @@ export {
   buildV2ProjectView,
 } from './v2ProjectBuilder'
 
-export {
-  toBackendType,
-  fromBackendType,
-} from './schemaBuilder'
+export { toBackendType, fromBackendType } from './schemaBuilder'
 
 export {
   buildV2ConstraintFile as buildV2ConstraintFileFromType,

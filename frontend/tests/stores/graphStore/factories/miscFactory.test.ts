@@ -48,20 +48,16 @@ describe('miscFactory', () => {
     it('委托给 createConstraintNode 并返回 id', () => {
       const id = factory.createLogicNode({ x: 10, y: 20 }, 'MyLogic')
       expect(id).toBe('constraint-id')
-      expect(mockCreateConstraintNode).toHaveBeenCalledWith(
-        { x: 10, y: 20 },
-        'foreignKey',
-        { configName: 'MyLogic' }
-      )
+      expect(mockCreateConstraintNode).toHaveBeenCalledWith({ x: 10, y: 20 }, 'foreignKey', {
+        configName: 'MyLogic',
+      })
     })
 
     it('使用默认名称', () => {
       factory.createLogicNode({ x: 0, y: 0 })
-      expect(mockCreateConstraintNode).toHaveBeenCalledWith(
-        { x: 0, y: 0 },
-        'foreignKey',
-        { configName: '新逻辑约束' }
-      )
+      expect(mockCreateConstraintNode).toHaveBeenCalledWith({ x: 0, y: 0 }, 'foreignKey', {
+        configName: '新逻辑约束',
+      })
     })
   })
 })

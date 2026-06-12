@@ -48,7 +48,11 @@
     </div>
 
     <div v-else class="readonly-value">
-      {{ noUpstreamHint ? t('inspector.transformNode.noUpstreamConnected') : (value as string || placeholder || '-') }}
+      {{
+        noUpstreamHint
+          ? t('inspector.transformNode.noUpstreamConnected')
+          : (value as string) || placeholder || '-'
+      }}
     </div>
 
     <div v-if="help" class="help">{{ help }}</div>

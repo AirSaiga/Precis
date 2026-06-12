@@ -206,7 +206,11 @@ export function useSchemaValidation(props: { id: string; data: SchemaNodeData },
         result.errors.push(...uniqueResult.errors)
       }
 
-      if (constraints.allowedValues && Array.isArray(constraints.allowedValues) && constraints.allowedValues.length > 0) {
+      if (
+        constraints.allowedValues &&
+        Array.isArray(constraints.allowedValues) &&
+        constraints.allowedValues.length > 0
+      ) {
         const allowedValuesResult = await validateAllowedValues(column)
         result.errorCount += allowedValuesResult.errorCount
         result.errors.push(...allowedValuesResult.errors)

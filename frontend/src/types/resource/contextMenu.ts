@@ -15,24 +15,24 @@ export type ResourceContextAction =
   | 'delete'
   | 'refresh'
   | 'editTemplate'
-  | 'addToManifest';
+  | 'addToManifest'
 
 /**
  * 右键菜单操作配置
  */
 export interface ContextMenuAction {
   /** 操作类型 */
-  type: ResourceContextAction;
+  type: ResourceContextAction
   /** 操作标签（国际化key） */
-  labelKey: string;
+  labelKey: string
   /** 图标名称 */
-  icon?: string;
+  icon?: string
   /** 是否危险操作 */
-  isDanger?: boolean;
+  isDanger?: boolean
   /** 是否禁用 */
-  disabled?: boolean;
+  disabled?: boolean
   /** 权限要求 */
-  permission?: string;
+  permission?: string
 }
 
 /**
@@ -40,18 +40,18 @@ export interface ContextMenuAction {
  */
 export interface ResourceContextMenuState {
   /** 是否可见 */
-  visible: boolean;
+  visible: boolean
   /** 菜单位置 */
   position: {
-    x: number;
-    y: number;
-  };
+    x: number
+    y: number
+  }
   /** 当前资源类型 */
-  resourceKind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template' | null;
+  resourceKind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template' | null
   /** 当前资源 */
-  resourceItem: unknown | null;
+  resourceItem: unknown | null
   /** 可用操作列表 */
-  availableActions: ContextMenuAction[];
+  availableActions: ContextMenuAction[]
 }
 
 /**
@@ -59,17 +59,17 @@ export interface ResourceContextMenuState {
  */
 export interface ResourceContextMenuConfig {
   /** 菜单宽度 */
-  width?: number;
+  width?: number
   /** 菜单项高度 */
-  itemHeight?: number;
+  itemHeight?: number
   /** 最大显示项数 */
-  maxVisibleItems?: number;
+  maxVisibleItems?: number
   /** 点击外部关闭 */
-  clickOutsideClose?: boolean;
+  clickOutsideClose?: boolean
   /** ESC关闭 */
-  escClose?: boolean;
+  escClose?: boolean
   /** Z索引 */
-  zIndex?: number;
+  zIndex?: number
 }
 
 /**
@@ -77,15 +77,15 @@ export interface ResourceContextMenuConfig {
  */
 export interface RenameDialogState {
   /** 是否可见 */
-  visible: boolean;
+  visible: boolean
   /** 资源ID */
-  resourceId: string;
+  resourceId: string
   /** 资源类型 */
-  resourceKind: 'schema' | 'pattern' | 'constraint' | 'template' | null;
+  resourceKind: 'schema' | 'pattern' | 'constraint' | 'template' | null
   /** 当前名称 */
-  currentName: string;
+  currentName: string
   /** 输入值 */
-  inputValue: string;
+  inputValue: string
 }
 
 /**
@@ -93,11 +93,11 @@ export interface RenameDialogState {
  */
 export interface RenameValidationResult {
   /** 是否有效 */
-  valid: boolean;
+  valid: boolean
   /** 错误信息 */
-  message?: string;
+  message?: string
   /** 净化后的名称 */
-  sanitizedName?: string;
+  sanitizedName?: string
 }
 
 /**
@@ -105,11 +105,11 @@ export interface RenameValidationResult {
  */
 export interface PreviewModalState {
   /** 是否可见 */
-  visible: boolean;
+  visible: boolean
   /** 标题 */
-  title: string;
+  title: string
   /** 内容（YAML格式） */
-  content: string;
+  content: string
 }
 
 /**
@@ -117,19 +117,19 @@ export interface PreviewModalState {
  */
 export interface ContextMenuEvents {
   /** 预览事件 */
-  onPreview: () => void;
+  onPreview: () => void
   /** 添加到画布事件 */
-  onAddToCanvas: () => void;
+  onAddToCanvas: () => void
   /** 定位到画布事件 */
-  onLocateOnCanvas: () => void;
+  onLocateOnCanvas: () => void
   /** 重命名事件 */
-  onRename: () => void;
+  onRename: () => void
   /** 删除事件 */
-  onDelete: () => void;
+  onDelete: () => void
   /** 刷新事件 */
-  onRefresh: () => void;
+  onRefresh: () => void
   /** 关闭事件 */
-  onClose: () => void;
+  onClose: () => void
 }
 
 /**
@@ -137,21 +137,21 @@ export interface ContextMenuEvents {
  */
 export interface ContextMenuI18nConfig {
   /** 预览标签 */
-  preview: string;
+  preview: string
   /** 添加到画布标签 */
-  addToCanvas: string;
+  addToCanvas: string
   /** 定位到画布标签 */
-  locateOnCanvas: string;
+  locateOnCanvas: string
   /** 重命名标签 */
-  rename: string;
+  rename: string
   /** 删除标签 */
-  delete: string;
+  delete: string
   /** 刷新标签 */
-  refresh: string;
+  refresh: string
   /** 标题 */
-  title: string;
+  title: string
   /** 重命名标题 */
-  renameTitle: string;
+  renameTitle: string
   /** 重命名标签 */
-  renameLabel: string;
+  renameLabel: string
 }

@@ -37,7 +37,12 @@ describe('TabularColumnGenerator', () => {
     it('保留现有列的约束和配置', () => {
       const rawData = [['Name', 'Age']]
       const existing = [
-        { columnName: 'Name', dataType: 'String', constraints: { notNull: true }, validationErrors: [] },
+        {
+          columnName: 'Name',
+          dataType: 'String',
+          constraints: { notNull: true },
+          validationErrors: [],
+        },
       ]
       const cols = generator.generate(rawData, existing) as any[]
       expect(cols[0].constraints).toEqual({ notNull: true })
@@ -99,10 +104,7 @@ describe('TabularColumnGenerator', () => {
     })
 
     it('检测过期列（排除衍生列）', () => {
-      const existing = [
-        { columnName: 'A' },
-        { columnName: 'Derived', expressionType: 'implicit' },
-      ]
+      const existing = [{ columnName: 'A' }, { columnName: 'Derived', expressionType: 'implicit' }]
       const result = generator.compare(['A'], existing)
       expect(result.staleInSchema).toEqual([])
     })
@@ -169,10 +171,7 @@ describe('JsonColumnGenerator', () => {
     })
 
     it('处理数组类型', () => {
-      const rawData = [
-        { tags: ['a', 'b', 'c'] },
-        { tags: ['d'] },
-      ]
+      const rawData = [{ tags: ['a', 'b', 'c'] }, { tags: ['d'] }]
       const cols = generator.generate(rawData, []) as any[]
       expect(cols[0].columnName).toBe('tags')
       expect(cols[0].dataType).toBe('array')
@@ -180,9 +179,7 @@ describe('JsonColumnGenerator', () => {
     })
 
     it('处理对象数组', () => {
-      const rawData = [
-        { items: [{ name: 'a' }, { name: 'b' }] },
-      ]
+      const rawData = [{ items: [{ name: 'a' }, { name: 'b' }] }]
       const cols = generator.generate(rawData, []) as any[]
       const itemsCol = cols[0]
       expect(itemsCol.dataType).toBe('array')

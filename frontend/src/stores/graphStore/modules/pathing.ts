@@ -79,7 +79,10 @@ import type { ProjectStoreLike } from '@/types/storeInterfaces'
 import { platformDetector } from '@/features/keyboard/platform'
 import { isAbsolutePath, normalizeConfigDir } from '@/core/utils/pathNormalization'
 
-export function createPathingModule(params: { nodes: Ref<CustomNode[]>; projectStore: ProjectStoreLike }) {
+export function createPathingModule(params: {
+  nodes: Ref<CustomNode[]>
+  projectStore: ProjectStoreLike
+}) {
   const { nodes, projectStore } = params
 
   function isCrossPlatformInvalidPath(inputPath: string): boolean {

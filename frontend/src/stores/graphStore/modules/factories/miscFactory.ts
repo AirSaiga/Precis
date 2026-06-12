@@ -23,7 +23,16 @@ export function createMiscFactoryModule(params: {
   createRegexNode: (position: { x: number; y: number }, pattern?: string, name?: string) => string
   createConstraintNode: (
     position: { x: number; y: number },
-    constraintType: 'foreignKey' | 'unique' | 'notNull' | 'allowedValues' | 'conditional' | 'scripted' | 'range' | 'charset' | 'dateLogic',
+    constraintType:
+      | 'foreignKey'
+      | 'unique'
+      | 'notNull'
+      | 'allowedValues'
+      | 'conditional'
+      | 'scripted'
+      | 'range'
+      | 'charset'
+      | 'dateLogic',
     data?: Record<string, unknown>
   ) => string
 }) {
@@ -49,4 +58,3 @@ export function createMiscFactoryModule(params: {
     createLogicNode,
   }
 }
-

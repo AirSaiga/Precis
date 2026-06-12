@@ -52,7 +52,14 @@ export function createV2ConstraintImporter(params: {
   ensureSchemaToConstraintEdge: (tableId: string, constraintId: string, columnId: string) => void
   bufferEdge: (edge: Edge) => void
 }) {
-  const { nodes, edges, selectedNodeId, ensureSchemaNode, ensureSchemaToConstraintEdge, bufferEdge } = params
+  const {
+    nodes,
+    edges,
+    selectedNodeId,
+    ensureSchemaNode,
+    ensureSchemaToConstraintEdge,
+    bufferEdge,
+  } = params
 
   async function importConstraint(
     resourceId: string,
@@ -119,8 +126,16 @@ export function createV2ConstraintImporter(params: {
         nodeId: resourceId,
         nodeType,
         fkRefs: {
-          source: { nodeId: fromTableId, columnId: fromColId, columnName: resolveColumnName(fromSchema, fromColId) },
-          target: { nodeId: toTableId, columnId: toColId, columnName: resolveColumnName(toSchema, toColId) },
+          source: {
+            nodeId: fromTableId,
+            columnId: fromColId,
+            columnName: resolveColumnName(fromSchema, fromColId),
+          },
+          target: {
+            nodeId: toTableId,
+            columnId: toColId,
+            columnName: resolveColumnName(toSchema, toColId),
+          },
         },
         refs: { ...refs, to_table_name: resolveTableName(toSchema) },
         params: cParams,
@@ -134,7 +149,9 @@ export function createV2ConstraintImporter(params: {
 
       const thenColId = refs.then_column_id as string
       const ifLogic = String(refs.if_logic || 'and')
-      const rawConditions = Array.isArray(refs.if_conditions) ? (refs.if_conditions as unknown[]) : []
+      const rawConditions = Array.isArray(refs.if_conditions)
+        ? (refs.if_conditions as unknown[])
+        : []
 
       const ifConditions = rawConditions.map((cond) => {
         const r = cond as Record<string, unknown>
@@ -158,7 +175,11 @@ export function createV2ConstraintImporter(params: {
         ifConditions,
         ifLogic,
         thenRef: thenColId
-          ? { nodeId: tableId, columnId: thenColId, columnName: resolveColumnName(schemaNode, thenColId) }
+          ? {
+              nodeId: tableId,
+              columnId: thenColId,
+              columnName: resolveColumnName(schemaNode, thenColId),
+            }
           : undefined,
         thenConditionConfig: (cParams as Record<string, unknown>)?.then_condition,
         params: cParams,
@@ -204,9 +225,10 @@ export function createV2ConstraintImporter(params: {
         tableName: resolveTableName(schemaNode),
         nodeId: resourceId,
         nodeType,
-        columnRef: tableId && colId
-          ? { nodeId: tableId, columnId: colId, columnName: resolveColumnName(schemaNode, colId) }
-          : undefined,
+        columnRef:
+          tableId && colId
+            ? { nodeId: tableId, columnId: colId, columnName: resolveColumnName(schemaNode, colId) }
+            : undefined,
         params: cParams,
       }
     }
@@ -247,25 +269,25 @@ export function createV2ConstraintImporter(params: {
         const extra = desc.extra || {}
         const edgeId = (extra.edgeId as string) || `fk-${desc.sourceNodeId}-${desc.targetNodeId}`
         bufferEdge({
-            id: edgeId,
-            source: desc.sourceNodeId,
-            target: desc.targetNodeId,
-            sourceHandle: desc.sourceHandle,
-            targetHandle: desc.targetHandle,
-            type: 'smoothstep',
-            animated: false,
-            label: extra.label,
-            class: 'fk-display-edge',
-            style: { stroke: 'var(--edge-fk-display)', strokeWidth: 1.6, strokeDasharray: '2 8' },
-            data: {
-              kind: 'fkDisplay',
-              constraintId: extra.constraintId,
-              fromTableId: extra.fromTableId,
-              toTableId: extra.toTableId,
-              fromColumnId: extra.fromColumnId,
-              toColumnId: extra.toColumnId,
-            },
-          } as unknown as Edge)
+          id: edgeId,
+          source: desc.sourceNodeId,
+          target: desc.targetNodeId,
+          sourceHandle: desc.sourceHandle,
+          targetHandle: desc.targetHandle,
+          type: 'smoothstep',
+          animated: false,
+          label: extra.label,
+          class: 'fk-display-edge',
+          style: { stroke: 'var(--edge-fk-display)', strokeWidth: 1.6, strokeDasharray: '2 8' },
+          data: {
+            kind: 'fkDisplay',
+            constraintId: extra.constraintId,
+            fromTableId: extra.fromTableId,
+            toTableId: extra.toTableId,
+            fromColumnId: extra.fromColumnId,
+            toColumnId: extra.toColumnId,
+          },
+        } as unknown as Edge)
       }
     }
   }

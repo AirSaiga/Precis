@@ -8,3 +8,6 @@
 @import './ui.css' layer(ui);
 @import './app-shell.css' layer(ui);
 @import './graph-node.css' layer(graph);
+
+/* Liquid 主题覆盖需要放在 layer 体系之外，才能覆盖 ui/graph 层以及组件 scoped 样式 */
+@import './theme-liquid.css';

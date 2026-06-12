@@ -3,7 +3,12 @@ import { LayoutCalculator } from '@/features/node-layout-organizer/core/layoutCa
 import type { CustomNode } from '@/types/nodes'
 import type { OrganizeOptions, ConnectionInfo } from '@/features/node-layout-organizer/types'
 
-function makeNode(id: string, type: string, data: Record<string, unknown> = {}, position = { x: 0, y: 0 }): CustomNode {
+function makeNode(
+  id: string,
+  type: string,
+  data: Record<string, unknown> = {},
+  position = { x: 0, y: 0 }
+): CustomNode {
   return {
     id,
     type: type as CustomNode['type'],
@@ -40,10 +45,7 @@ describe('LayoutCalculator - basic', () => {
   })
 
   it('returns a position entry for each classified node', () => {
-    const nodes: CustomNode[] = [
-      makeNode('node-s1', 'schema'),
-      makeNode('node-s2', 'schema'),
-    ]
+    const nodes: CustomNode[] = [makeNode('node-s1', 'schema'), makeNode('node-s2', 'schema')]
     const calc = new LayoutCalculator(nodes, [], { width: 1000, height: 800 }, defaultOptions)
     const positions = calc.calculate()
     expect(positions.size).toBe(2)
@@ -62,10 +64,7 @@ describe('LayoutCalculator - basic', () => {
   })
 
   it('produces distinct positions for each node', () => {
-    const nodes: CustomNode[] = [
-      makeNode('node-s1', 'schema'),
-      makeNode('node-s2', 'schema'),
-    ]
+    const nodes: CustomNode[] = [makeNode('node-s1', 'schema'), makeNode('node-s2', 'schema')]
     const calc = new LayoutCalculator(nodes, [], { width: 1000, height: 800 }, defaultOptions)
     const positions = calc.calculate()
     const a = positions.get('node-s1')!
@@ -83,13 +82,7 @@ describe('LayoutCalculator - basic', () => {
 
   it('respects viewportZoom in constructor', () => {
     const nodes: CustomNode[] = [makeNode('node-s1', 'schema')]
-    const calc = new LayoutCalculator(
-      nodes,
-      [],
-      { width: 1000, height: 800 },
-      defaultOptions,
-      0.5
-    )
+    const calc = new LayoutCalculator(nodes, [], { width: 1000, height: 800 }, defaultOptions, 0.5)
     expect(() => calc.calculate()).not.toThrow()
   })
 })
@@ -154,14 +147,16 @@ describe('LayoutCalculator - with connections', () => {
   })
 
   it('processes connections without error', () => {
-    const nodes: CustomNode[] = [
-      makeNode('node-s1', 'schema'),
-      makeNode('node-s2', 'schema'),
-    ]
+    const nodes: CustomNode[] = [makeNode('node-s1', 'schema'), makeNode('node-s2', 'schema')]
     const connections: ConnectionInfo[] = [
       { source: 'node-s1', target: 'node-s2', sourceType: 'schema', targetType: 'schema' },
     ]
-    const calc = new LayoutCalculator(nodes, connections, { width: 2000, height: 1000 }, defaultOptions)
+    const calc = new LayoutCalculator(
+      nodes,
+      connections,
+      { width: 2000, height: 1000 },
+      defaultOptions
+    )
     const positions = calc.calculate()
     expect(positions.size).toBe(2)
   })

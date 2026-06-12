@@ -39,7 +39,8 @@ const messages = {
     validationFailed: 'Validation failed',
     networkError: 'Network error',
     unknownError: 'Unknown error',
-    projectNotFound: 'Directory is missing project.precis.yaml manifest. Please create a new project or select a valid project directory.\n{path}',
+    projectNotFound:
+      'Directory is missing project.precis.yaml manifest. Please create a new project or select a valid project directory.\n{path}',
   },
   warning: {
     unsavedChanges: 'You have unsaved changes',

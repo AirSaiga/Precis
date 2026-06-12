@@ -12,9 +12,18 @@ describe('disconnect registryCore', () => {
     vi.resetModules()
     vi.doMock('@/services/constraints/validationRegistry', () => ({
       isConstraintNodeType: vi.fn((type: string) =>
-        ['notNullConstraint', 'uniqueConstraint', 'foreignKeyConstraint', 'allowedValuesConstraint',
-         'rangeConstraint', 'conditionalConstraint', 'scriptedConstraint', 'charsetConstraint',
-         'dateLogicConstraint', 'compositeConstraint'].includes(type)
+        [
+          'notNullConstraint',
+          'uniqueConstraint',
+          'foreignKeyConstraint',
+          'allowedValuesConstraint',
+          'rangeConstraint',
+          'conditionalConstraint',
+          'scriptedConstraint',
+          'charsetConstraint',
+          'dateLogicConstraint',
+          'compositeConstraint',
+        ].includes(type)
       ),
       buildDisconnectReset: vi.fn(() => ({ validationStatus: 'idle', validationErrors: [] })),
     }))
@@ -44,13 +53,15 @@ describe('disconnect registryCore', () => {
       } as Node
     }
 
-    function makeContext(overrides?: Partial<{
-      nodes: any[]
-      edges: any[]
-      updateNodeData: any
-      syncOnDisconnect: any
-      clearAllValidationErrors: any
-    }>) {
+    function makeContext(
+      overrides?: Partial<{
+        nodes: any[]
+        edges: any[]
+        updateNodeData: any
+        syncOnDisconnect: any
+        clearAllValidationErrors: any
+      }>
+    ) {
       const n = ref(overrides?.nodes ?? []) as Ref<any[]>
       const e = ref(overrides?.edges ?? []) as Ref<Edge[]>
       return {

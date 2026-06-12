@@ -9,15 +9,7 @@ import type { ConstraintKind } from '../types'
 import { registerBuilder } from './registry'
 
 function buildRegex(input: BuildInput): BuildResult {
-  const {
-    configName,
-    nodeId,
-    columnRef,
-    tableName,
-    mode,
-    saveState,
-    params,
-  } = input
+  const { configName, nodeId, columnRef, tableName, mode, saveState, params } = input
 
   const nodeData: Record<string, unknown> = {
     configName,

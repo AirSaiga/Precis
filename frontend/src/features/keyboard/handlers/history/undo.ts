@@ -11,7 +11,7 @@ import { useGraphStore } from '@/stores/graphStore'
 
 export async function undo(): Promise<{ success: boolean; message?: string }> {
   const graphStore = useGraphStore()
-  
+
   const canUndo = graphStore.undoStack.length > 0
   if (!canUndo) {
     return { success: false, message: 'shortcuts.feedback.nothingToUndo' }

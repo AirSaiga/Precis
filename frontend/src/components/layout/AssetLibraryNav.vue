@@ -205,7 +205,9 @@
   import { useI18n } from 'vue-i18n'
 
   // 当前视图状态
-  const currentView = ref<'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'data'>('toolbox')
+  const currentView = ref<'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'data'>(
+    'toolbox'
+  )
   const { t, locale } = useI18n()
 
   // 当前语言状态
@@ -219,7 +221,9 @@
   }
 
   // 设置当前视图
-  const setCurrentView = (view: 'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'data') => {
+  const setCurrentView = (
+    view: 'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'data'
+  ) => {
     if (currentView.value !== view) {
       logger.debug(`[AssetLibraryNav] 准备切换到${view}视图，当前视图: ${currentView.value}`)
       currentView.value = view

@@ -72,7 +72,7 @@ export interface GeneralSettings {
   /** 界面语言 */
   language: 'zh-CN' | 'en-US'
   /** 主题模式 */
-  theme: 'light' | 'dark' | 'system'
+  theme: 'light' | 'dark' | 'system' | 'liquid'
 }
 
 /**

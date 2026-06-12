@@ -15,7 +15,15 @@ vi.mock('@/core/utils/logger', () => ({
 import { addEdges, removeEdges } from '@/services/canvas/vueFlowApi'
 import { createSchemaOpsModule } from '@/stores/graphStore/modules/schemaOps'
 
-function makeSchemaNode(id: string, columns: Array<{ id: string; columnName: string; constraints?: Record<string, boolean>; validationErrors?: unknown[] }> = []): CustomNode {
+function makeSchemaNode(
+  id: string,
+  columns: Array<{
+    id: string
+    columnName: string
+    constraints?: Record<string, boolean>
+    validationErrors?: unknown[]
+  }> = []
+): CustomNode {
   return {
     id,
     type: 'schema',
@@ -76,11 +84,14 @@ describe('createSchemaOpsModule', () => {
 
       expect(result).toBe(true)
       expect(addEdges).toHaveBeenCalled()
-      expect(mockUpdateNodeData).toHaveBeenCalledWith('r1', expect.objectContaining({
-        sourceRef: { nodeId: 's1', columnId: 'col1' },
-        sourceNodeId: 's1',
-        sourceColumnName: 'email',
-      }))
+      expect(mockUpdateNodeData).toHaveBeenCalledWith(
+        'r1',
+        expect.objectContaining({
+          sourceRef: { nodeId: 's1', columnId: 'col1' },
+          sourceNodeId: 's1',
+          sourceColumnName: 'email',
+        })
+      )
       expect(mockSyncOnConnect).toHaveBeenCalledWith('s1', 'r1')
     })
 
@@ -89,7 +100,9 @@ describe('createSchemaOpsModule', () => {
         makeSchemaNode('s1', [{ id: 'col1', columnName: 'email' }]),
         makeRegexNode('r1'),
       ]
-      edges.value = [{ id: 'old-edge', source: 's2', target: 'r1', targetHandle: 'regex-input' } as Edge]
+      edges.value = [
+        { id: 'old-edge', source: 's2', target: 'r1', targetHandle: 'regex-input' } as Edge,
+      ]
 
       module.bindRegexToSchemaColumn('s1', 'col1', 'r1')
 
@@ -109,31 +122,47 @@ describe('createSchemaOpsModule', () => {
 
       module.addConstraintToColumn('s1', 'col1', 'notNull')
 
-      expect(mockUpdateNodeData).toHaveBeenCalledWith('s1', expect.objectContaining({
-        columns: [expect.objectContaining({
-          constraints: { notNull: true },
-        })],
-      }))
+      expect(mockUpdateNodeData).toHaveBeenCalledWith(
+        's1',
+        expect.objectContaining({
+          columns: [
+            expect.objectContaining({
+              constraints: { notNull: true },
+            }),
+          ],
+        })
+      )
     })
   })
 
   describe('removeConstraintFromColumn', () => {
     it('移除约束标记', () => {
-      nodes.value = [makeSchemaNode('s1', [{ id: 'col1', columnName: 'email', constraints: { notNull: true, unique: true } }])]
+      nodes.value = [
+        makeSchemaNode('s1', [
+          { id: 'col1', columnName: 'email', constraints: { notNull: true, unique: true } },
+        ]),
+      ]
 
       module.removeConstraintFromColumn('s1', 'col1', 'notNull')
 
-      expect(mockUpdateNodeData).toHaveBeenCalledWith('s1', expect.objectContaining({
-        columns: [expect.objectContaining({
-          constraints: { unique: true },
-        })],
-      }))
+      expect(mockUpdateNodeData).toHaveBeenCalledWith(
+        's1',
+        expect.objectContaining({
+          columns: [
+            expect.objectContaining({
+              constraints: { unique: true },
+            }),
+          ],
+        })
+      )
     })
   })
 
   describe('hasColumnConstraint', () => {
     it('有约束时返回 true', () => {
-      nodes.value = [makeSchemaNode('s1', [{ id: 'col1', columnName: 'email', constraints: { notNull: true } }])]
+      nodes.value = [
+        makeSchemaNode('s1', [{ id: 'col1', columnName: 'email', constraints: { notNull: true } }]),
+      ]
       expect(module.hasColumnConstraint('s1', 'col1', 'notNull')).toBe(true)
     })
 
@@ -149,31 +178,41 @@ describe('createSchemaOpsModule', () => {
 
   describe('clearColumnValidationErrors', () => {
     it('清除指定列的验证错误', () => {
-      nodes.value = [makeSchemaNode('s1', [{ id: 'col1', columnName: 'email', validationErrors: ['err1'] }])]
+      nodes.value = [
+        makeSchemaNode('s1', [{ id: 'col1', columnName: 'email', validationErrors: ['err1'] }]),
+      ]
 
       module.clearColumnValidationErrors('s1', 'col1')
 
-      expect(mockUpdateNodeData).toHaveBeenCalledWith('s1', expect.objectContaining({
-        columns: [expect.objectContaining({ validationErrors: [] })],
-      }))
+      expect(mockUpdateNodeData).toHaveBeenCalledWith(
+        's1',
+        expect.objectContaining({
+          columns: [expect.objectContaining({ validationErrors: [] })],
+        })
+      )
     })
   })
 
   describe('clearAllValidationErrors', () => {
     it('清除所有列的验证错误', () => {
-      nodes.value = [makeSchemaNode('s1', [
-        { id: 'col1', columnName: 'email', validationErrors: ['err1'] },
-        { id: 'col2', columnName: 'age', validationErrors: ['err2'] },
-      ])]
+      nodes.value = [
+        makeSchemaNode('s1', [
+          { id: 'col1', columnName: 'email', validationErrors: ['err1'] },
+          { id: 'col2', columnName: 'age', validationErrors: ['err2'] },
+        ]),
+      ]
 
       module.clearAllValidationErrors('s1')
 
-      expect(mockUpdateNodeData).toHaveBeenCalledWith('s1', expect.objectContaining({
-        columns: [
-          expect.objectContaining({ validationErrors: [] }),
-          expect.objectContaining({ validationErrors: [] }),
-        ],
-      }))
+      expect(mockUpdateNodeData).toHaveBeenCalledWith(
+        's1',
+        expect.objectContaining({
+          columns: [
+            expect.objectContaining({ validationErrors: [] }),
+            expect.objectContaining({ validationErrors: [] }),
+          ],
+        })
+      )
     })
   })
 })

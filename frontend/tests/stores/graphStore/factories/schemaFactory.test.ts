@@ -29,7 +29,11 @@ describe('schemaFactory', () => {
   beforeEach(() => {
     nodes = ref<CustomNode[]>([])
     selectedNodeId = ref<string | null>(null)
-    factory = createSchemaFactoryModule({ nodes, selectedNodeId, updateNodeData: mockUpdateNodeData })
+    factory = createSchemaFactoryModule({
+      nodes,
+      selectedNodeId,
+      updateNodeData: mockUpdateNodeData,
+    })
     capturedNodes = []
     vi.mocked(addNodes).mockClear()
     mockUpdateNodeData.mockClear()

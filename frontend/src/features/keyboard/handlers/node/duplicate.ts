@@ -11,12 +11,12 @@ import { useGraphStore } from '@/stores/graphStore'
 
 export async function duplicateNode(): Promise<{ success: boolean; message?: string }> {
   const graphStore = useGraphStore()
-  
+
   if (!graphStore.selectedNodeId) {
     return { success: false, message: 'shortcuts.feedback.notSelected' }
   }
 
-  const node = graphStore.nodes.find(n => n.id === graphStore.selectedNodeId)
+  const node = graphStore.nodes.find((n) => n.id === graphStore.selectedNodeId)
   if (!node) {
     return { success: false, message: 'shortcuts.feedback.notFound' }
   }

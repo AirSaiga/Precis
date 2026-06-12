@@ -122,7 +122,9 @@ describe('validationCollector - getSchemaNodeSourceInfo', () => {
       const nodes = makeNodes()
       const schema2 = nodes.find((n) => n.id === 'schema-2')
       schema2.data.sourceNodeId = undefined
-      const edges = [{ source: 'preview-1', target: 'schema-2', targetHandle: 'target-left' }] as any[]
+      const edges = [
+        { source: 'preview-1', target: 'schema-2', targetHandle: 'target-left' },
+      ] as any[]
       const result = getSchemaNodeSourceInfo('schema-2', nodes, edges)
       expect(result).toBeTruthy()
       expect(result!.sourceFilePath).toBe('/data/orders.csv')

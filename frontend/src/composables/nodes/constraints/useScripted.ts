@@ -200,7 +200,11 @@ export function UseScripted(props: { id: string; data: ScriptedConstraintNodeDat
       }
 
       // 验证源节点类型
-      if (sourceNode.type !== 'schema' && sourceNode.type !== 'manualData' && sourceNode.type !== 'transformOutput') {
+      if (
+        sourceNode.type !== 'schema' &&
+        sourceNode.type !== 'manualData' &&
+        sourceNode.type !== 'transformOutput'
+      ) {
         store.updateNodeData(props.id, {
           validationStatus: 'missing',
           validationErrors: ['脚本约束的源必须是 Schema 节点或数据节点'],

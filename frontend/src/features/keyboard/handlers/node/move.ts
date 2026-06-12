@@ -9,16 +9,19 @@
 
 import { useGraphStore } from '@/stores/graphStore'
 
-export async function moveNode(direction: 'up' | 'down' | 'left' | 'right', pixel: number = 10): Promise<{ success: boolean; message?: string }> {
+export async function moveNode(
+  direction: 'up' | 'down' | 'left' | 'right',
+  pixel: number = 10
+): Promise<{ success: boolean; message?: string }> {
   const graphStore = useGraphStore()
-  
+
   if (!graphStore.selectedNodeId) {
     return { success: false, message: 'shortcuts.feedback.notSelected' }
   }
 
   const deltaX = direction === 'left' ? -pixel : direction === 'right' ? pixel : 0
   const deltaY = direction === 'up' ? -pixel : direction === 'down' ? pixel : 0
-  
+
   graphStore.moveSelectedNode(deltaX, deltaY)
   return { success: true, message: 'shortcuts.feedback.moved' }
 }

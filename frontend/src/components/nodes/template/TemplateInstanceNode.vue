@@ -25,21 +25,11 @@
     @save="handleSave"
   >
     <template #overlay>
-      <NodeHandle
-        id="template-input"
-        type="target"
-        :position="Position.Left"
-        color="primary"
-      />
+      <NodeHandle id="template-input" type="target" :position="Position.Left" color="primary" />
     </template>
 
     <template #header>
-      <NodeHeader
-        :title="data.templateName || configName"
-        icon="🧩"
-        theme="purple"
-        status="idle"
-      />
+      <NodeHeader :title="data.templateName || configName" icon="🧩" theme="purple" status="idle" />
       <NodeDivider theme="purple" spacing="sm" />
     </template>
 
@@ -56,24 +46,25 @@
         {{ t('inspector.templateInstance.noParams') }}
       </div>
       <div class="template-footer">
-        <span class="template-count">{{ nodeCount }} {{ t('inspector.templateInstance.nodeCount') }}</span>
+        <span class="template-count"
+          >{{ nodeCount }} {{ t('inspector.templateInstance.nodeCount') }}</span
+        >
         <span
           class="template-badge"
           :class="saveState === 'saved' ? 'template-badge--saved' : 'template-badge--draft'"
         >
-          {{ saveState === 'saved' ? t('inspector.templateInstance.saved') : t('inspector.templateInstance.unsaved') }}
+          {{
+            saveState === 'saved'
+              ? t('inspector.templateInstance.saved')
+              : t('inspector.templateInstance.unsaved')
+          }}
         </span>
       </div>
     </div>
   </NodeShell>
 
   <!-- ============ 展开态：容器框架 ============ -->
-  <div
-    v-else
-    class="template-container"
-    :class="{ 'is-selected': selected }"
-    @click="onNodeClick"
-  >
+  <div v-else class="template-container" :class="{ 'is-selected': selected }" @click="onNodeClick">
     <Handle
       id="template-input"
       type="target"
@@ -125,288 +116,288 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import { Handle, Position, useNode } from '@vue-flow/core'
-import { useI18n } from 'vue-i18n'
-import NodeShell from '@/components/ui/NodeShell.vue'
-import NodeHeader from '@/components/ui/NodeHeader.vue'
-import NodeDivider from '@/components/ui/NodeDivider.vue'
-import NodeHandle from '@/components/ui/NodeHandle.vue'
-import type { TemplateInstanceNodeData } from '@/types/nodes'
-import { useGraphStore } from '@/stores/graphStore'
+  import { computed, ref } from 'vue'
+  import { Handle, Position, useNode } from '@vue-flow/core'
+  import { useI18n } from 'vue-i18n'
+  import NodeShell from '@/components/ui/NodeShell.vue'
+  import NodeHeader from '@/components/ui/NodeHeader.vue'
+  import NodeDivider from '@/components/ui/NodeDivider.vue'
+  import NodeHandle from '@/components/ui/NodeHandle.vue'
+  import type { TemplateInstanceNodeData } from '@/types/nodes'
+  import { useGraphStore } from '@/stores/graphStore'
 
-const { t } = useI18n()
-const { id, node } = useNode()
-const rawData = computed(() => node.data)
-const selected = computed(() => node.selected)
-const graphStore = useGraphStore()
+  const { t } = useI18n()
+  const { id, node } = useNode()
+  const rawData = computed(() => node.data)
+  const selected = computed(() => node.selected)
+  const graphStore = useGraphStore()
 
-const data = computed(() => rawData.value as TemplateInstanceNodeData)
-const configName = computed(() => data.value.configName || '')
-const summaryText = computed(() => data.value.summaryText || '')
-const nodeCount = computed(() => data.value.nodeCount || 0)
-const saveState = computed(() => data.value.saveState || 'draft')
-const isExpanded = computed(() => data.value.expanded === true)
-const isSaving = ref(false)
+  const data = computed(() => rawData.value as TemplateInstanceNodeData)
+  const configName = computed(() => data.value.configName || '')
+  const summaryText = computed(() => data.value.summaryText || '')
+  const nodeCount = computed(() => data.value.nodeCount || 0)
+  const saveState = computed(() => data.value.saveState || 'draft')
+  const isExpanded = computed(() => data.value.expanded === true)
+  const isSaving = ref(false)
 
-function onNodeClick() {
-  graphStore.selectedNodeId = id
-}
-
-function handleClose() {
-  graphStore.deleteNode(id)
-}
-
-async function handleSave() {
-  isSaving.value = true
-  try {
-    await graphStore.saveTemplateInstanceNode(id)
-  } finally {
-    isSaving.value = false
+  function onNodeClick() {
+    graphStore.selectedNodeId = id
   }
-}
 
-function handleToggle() {
-  if (isExpanded.value) {
-    graphStore.collapseExpansion(id)
-  } else {
-    graphStore.reExpand(id)
+  function handleClose() {
+    graphStore.deleteNode(id)
   }
-}
+
+  async function handleSave() {
+    isSaving.value = true
+    try {
+      await graphStore.saveTemplateInstanceNode(id)
+    } finally {
+      isSaving.value = false
+    }
+  }
+
+  function handleToggle() {
+    if (isExpanded.value) {
+      graphStore.collapseExpansion(id)
+    } else {
+      graphStore.reExpand(id)
+    }
+  }
 </script>
 
 <style scoped>
-/* ============ 折叠态 ============ */
-.template-instance-node {
-  --constraint-node-width: var(--node-width-default, 280px);
-}
+  /* ============ 折叠态 ============ */
+  .template-instance-node {
+    --constraint-node-width: var(--node-width-default, 280px);
+  }
 
-.template-content {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 8px 12px 10px;
-}
+  .template-content {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 8px 12px 10px;
+  }
 
-.template-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-height: 20px;
-}
+  .template-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 20px;
+  }
 
-.template-label {
-  font-size: 10px;
-  font-weight: 600;
-  color: var(--ui-text-muted, #858585);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  flex-shrink: 0;
-  width: 52px;
-}
+  .template-label {
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--ui-text-muted, #858585);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    flex-shrink: 0;
+    width: 52px;
+  }
 
-.template-value {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--ui-text-primary, #cccccc);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
+  .template-value {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ui-text-primary, #cccccc);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
 
-.template-value--truncate {
-  color: var(--ui-text-secondary, #9cdcfe);
-}
+  .template-value--truncate {
+    color: var(--ui-text-secondary, #9cdcfe);
+  }
 
-.template-empty {
-  font-size: 11px;
-  color: var(--ui-text-muted, #858585);
-  font-style: italic;
-  padding: 2px 0;
-}
+  .template-empty {
+    font-size: 11px;
+    color: var(--ui-text-muted, #858585);
+    font-style: italic;
+    padding: 2px 0;
+  }
 
-.template-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-top: 6px;
-  border-top: 1px solid var(--ui-border-subtle, #333333);
-}
+  .template-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 6px;
+    border-top: 1px solid var(--ui-border-subtle, #333333);
+  }
 
-.template-count {
-  font-size: 11px;
-  color: var(--ui-text-muted, #858585);
-  font-weight: 500;
-}
+  .template-count {
+    font-size: 11px;
+    color: var(--ui-text-muted, #858585);
+    font-weight: 500;
+  }
 
-.template-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-  line-height: 1.3;
-}
+  .template-badge {
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 10px;
+    line-height: 1.3;
+  }
 
-.template-badge--draft {
-  color: var(--theme-orange, #d19a66);
-  background: color-mix(in srgb, var(--theme-orange, #d19a66) 14%, transparent);
-}
+  .template-badge--draft {
+    color: var(--theme-orange, #d19a66);
+    background: color-mix(in srgb, var(--theme-orange, #d19a66) 14%, transparent);
+  }
 
-.template-badge--saved {
-  color: var(--ui-success, #73c991);
-  background: color-mix(in srgb, var(--ui-success, #73c991) 14%, transparent);
-}
+  .template-badge--saved {
+    color: var(--ui-success, #73c991);
+    background: color-mix(in srgb, var(--ui-success, #73c991) 14%, transparent);
+  }
 
-/* ============ 展开态：容器框架 ============ */
-.template-container {
-  width: 100%;
-  height: 100%;
-  border: 1px dashed color-mix(in srgb, var(--theme-purple, #805ad5) 50%, var(--ui-border-subtle));
-  border-radius: var(--node-radius-lg, 10px);
-  background: color-mix(in srgb, var(--ui-bg-canvas, #1e1e1e) 60%, transparent);
-  display: flex;
-  flex-direction: column;
-  overflow: visible;
-  position: relative;
-  transition:
-    border-color var(--node-transition-fast, 0.15s),
-    box-shadow var(--node-transition-fast, 0.15s);
-}
+  /* ============ 展开态：容器框架 ============ */
+  .template-container {
+    width: 100%;
+    height: 100%;
+    border: 1px dashed color-mix(in srgb, var(--theme-purple, #805ad5) 50%, var(--ui-border-subtle));
+    border-radius: var(--node-radius-lg, 10px);
+    background: color-mix(in srgb, var(--ui-bg-canvas, #1e1e1e) 60%, transparent);
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+    position: relative;
+    transition:
+      border-color var(--node-transition-fast, 0.15s),
+      box-shadow var(--node-transition-fast, 0.15s);
+  }
 
-.template-container:hover {
-  border-color: color-mix(in srgb, var(--theme-purple, #805ad5) 60%, var(--ui-border-light));
-  box-shadow: var(--node-shadow-hover);
-}
+  .template-container:hover {
+    border-color: color-mix(in srgb, var(--theme-purple, #805ad5) 60%, var(--ui-border-light));
+    box-shadow: var(--node-shadow-hover);
+  }
 
-.template-container.is-selected {
-  border-color: var(--theme-purple, #805ad5);
-  border-style: solid;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-purple, #805ad5) 15%, transparent);
-}
+  .template-container.is-selected {
+    border-color: var(--theme-purple, #805ad5);
+    border-style: solid;
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--theme-purple, #805ad5) 15%, transparent);
+  }
 
-.template-container__handle {
-  position: absolute;
-  left: -6px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 12px;
-  height: 12px;
-  border-radius: 50%;
-  background: var(--theme-purple, #805ad5);
-  border: 2px solid var(--node-bg, var(--ui-bg-elevated));
-  z-index: 10;
-  transition: transform var(--node-transition-fast, 0.15s);
-}
+  .template-container__handle {
+    position: absolute;
+    left: -6px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--theme-purple, #805ad5);
+    border: 2px solid var(--node-bg, var(--ui-bg-elevated));
+    z-index: 10;
+    transition: transform var(--node-transition-fast, 0.15s);
+  }
 
-.template-container:hover .template-container__handle {
-  transform: translateY(-50%) scale(1.15);
-}
+  .template-container:hover .template-container__handle {
+    transform: translateY(-50%) scale(1.15);
+  }
 
-.template-container__header {
-  display: flex;
-  align-items: center;
-  gap: var(--constraint-gap-sm, 8px);
-  padding: 0 var(--node-padding-md, 12px);
-  height: var(--node-header-height, 36px);
-  min-height: var(--node-header-height, 36px);
-  background: color-mix(in srgb, var(--ui-bg-elevated) 85%, transparent);
-  backdrop-filter: blur(8px);
-  border-bottom: 1px dashed color-mix(in srgb, var(--theme-purple, #805ad5) 30%, transparent);
-  border-radius: var(--node-radius-lg, 10px) var(--node-radius-lg, 10px) 0 0;
-  cursor: grab;
-  user-select: none;
-}
+  .template-container__header {
+    display: flex;
+    align-items: center;
+    gap: var(--constraint-gap-sm, 8px);
+    padding: 0 var(--node-padding-md, 12px);
+    height: var(--node-header-height, 36px);
+    min-height: var(--node-header-height, 36px);
+    background: color-mix(in srgb, var(--ui-bg-elevated) 85%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px dashed color-mix(in srgb, var(--theme-purple, #805ad5) 30%, transparent);
+    border-radius: var(--node-radius-lg, 10px) var(--node-radius-lg, 10px) 0 0;
+    cursor: grab;
+    user-select: none;
+  }
 
-.template-container__icon {
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--theme-purple, #805ad5) 12%, var(--ui-bg-elevated));
-  border: 1px solid color-mix(in srgb, var(--theme-purple, #805ad5) 22%, transparent);
-  font-size: 12px;
-  flex-shrink: 0;
-  box-shadow: var(--node-shadow-sm);
-}
+  .template-container__icon {
+    width: 22px;
+    height: 22px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    background: color-mix(in srgb, var(--theme-purple, #805ad5) 12%, var(--ui-bg-elevated));
+    border: 1px solid color-mix(in srgb, var(--theme-purple, #805ad5) 22%, transparent);
+    font-size: 12px;
+    flex-shrink: 0;
+    box-shadow: var(--node-shadow-sm);
+  }
 
-.template-container__title {
-  font-size: var(--node-title-size, 12px);
-  font-weight: var(--node-title-weight, 600);
-  color: var(--node-title-color, var(--ui-text-primary));
-  line-height: var(--node-title-line-height, 1.3);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+  .template-container__title {
+    font-size: var(--node-title-size, 12px);
+    font-weight: var(--node-title-weight, 600);
+    color: var(--node-title-color, var(--ui-text-primary));
+    line-height: var(--node-title-line-height, 1.3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
-.template-container__summary {
-  font-size: var(--node-muted-size, 10px);
-  color: var(--node-muted-color, var(--ui-text-muted));
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  flex: 1;
-  min-width: 0;
-}
+  .template-container__summary {
+    font-size: var(--node-muted-size, 10px);
+    color: var(--node-muted-color, var(--ui-text-muted));
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex: 1;
+    min-width: 0;
+  }
 
-.template-container__actions {
-  display: flex;
-  gap: 2px;
-  margin-left: auto;
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity var(--node-transition-fast, 0.15s);
-}
+  .template-container__actions {
+    display: flex;
+    gap: 2px;
+    margin-left: auto;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity var(--node-transition-fast, 0.15s);
+  }
 
-.template-container:hover .template-container__actions {
-  opacity: 1;
-}
+  .template-container:hover .template-container__actions {
+    opacity: 1;
+  }
 
-.template-container__btn {
-  width: var(--node-btn-size-xs, 20px);
-  height: var(--node-btn-size-xs, 20px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid transparent;
-  border-radius: var(--node-btn-radius-xs, 4px);
-  background: transparent;
-  color: var(--ui-text-muted, #858585);
-  cursor: pointer;
-  font-size: 12px;
-  line-height: 1;
-  padding: 0;
-  transition:
-    background var(--node-transition-fast, 0.12s),
-    color var(--node-transition-fast, 0.12s),
-    border-color var(--node-transition-fast, 0.12s);
-}
+  .template-container__btn {
+    width: var(--node-btn-size-xs, 20px);
+    height: var(--node-btn-size-xs, 20px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid transparent;
+    border-radius: var(--node-btn-radius-xs, 4px);
+    background: transparent;
+    color: var(--ui-text-muted, #858585);
+    cursor: pointer;
+    font-size: 12px;
+    line-height: 1;
+    padding: 0;
+    transition:
+      background var(--node-transition-fast, 0.12s),
+      color var(--node-transition-fast, 0.12s),
+      border-color var(--node-transition-fast, 0.12s);
+  }
 
-.template-container__btn:hover {
-  background: var(--ui-bg-hover);
-  color: var(--ui-text-primary, #cccccc);
-  border-color: var(--ui-border-light);
-}
+  .template-container__btn:hover {
+    background: var(--ui-bg-hover);
+    color: var(--ui-text-primary, #cccccc);
+    border-color: var(--ui-border-light);
+  }
 
-.template-container__btn--delete:hover {
-  background: color-mix(in srgb, var(--ui-danger, #f44747) 15%, transparent);
-  color: var(--ui-danger, #f44747);
-  border-color: color-mix(in srgb, var(--ui-danger, #f44747) 30%, transparent);
-}
+  .template-container__btn--delete:hover {
+    background: color-mix(in srgb, var(--ui-danger, #f44747) 15%, transparent);
+    color: var(--ui-danger, #f44747);
+    border-color: color-mix(in srgb, var(--ui-danger, #f44747) 30%, transparent);
+  }
 
-.template-container__btn--collapse:hover {
-  background: color-mix(in srgb, var(--theme-purple, #805ad5) 15%, transparent);
-  color: var(--theme-purple, #805ad5);
-  border-color: color-mix(in srgb, var(--theme-purple, #805ad5) 30%, transparent);
-}
+  .template-container__btn--collapse:hover {
+    background: color-mix(in srgb, var(--theme-purple, #805ad5) 15%, transparent);
+    color: var(--theme-purple, #805ad5);
+    border-color: color-mix(in srgb, var(--theme-purple, #805ad5) 30%, transparent);
+  }
 
-.template-container__body {
-  flex: 1;
-  position: relative;
-  pointer-events: none;
-  background: color-mix(in srgb, var(--ui-bg-canvas, #1e1e1e) 30%, transparent);
-}
+  .template-container__body {
+    flex: 1;
+    position: relative;
+    pointer-events: none;
+    background: color-mix(in srgb, var(--ui-bg-canvas, #1e1e1e) 30%, transparent);
+  }
 </style>

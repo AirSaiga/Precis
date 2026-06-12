@@ -61,7 +61,11 @@
           "source": { "source": "data", "path": ["params", "delimiter"] },
           "labelKey": "inspector.transformNode.params.stringSplit.delimiter",
           "placeholderKey": "inspector.transformNode.params.stringSplit.delimiterPh",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "StringSplit" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "StringSplit"
+          }
         },
         {
           "id": "maxsplit",
@@ -69,7 +73,11 @@
           "source": { "source": "data", "path": ["params", "maxsplit"] },
           "labelKey": "inspector.transformNode.params.stringSplit.maxsplit",
           "helpKey": "inspector.transformNode.params.stringSplit.maxsplitHint",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "StringSplit" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "StringSplit"
+          }
         },
 
         {
@@ -79,14 +87,22 @@
           "labelKey": "inspector.transformNode.params.mathExpr.expression",
           "placeholderKey": "inspector.transformNode.params.mathExpr.expressionPh",
           "helpKey": "inspector.transformNode.params.mathExpr.expressionHint",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "MathExpr" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "MathExpr"
+          }
         },
         {
           "id": "mathOutputType",
           "kind": "select",
           "source": { "source": "data", "path": ["params", "output_type"] },
           "labelKey": "inspector.transformNode.params.mathExpr.outputType",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "MathExpr" },
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "MathExpr"
+          },
           "options": {
             "type": "static",
             "options": [
@@ -104,7 +120,11 @@
           "labelKey": "inspector.transformNode.params.regexExtract.pattern",
           "placeholderKey": "inspector.transformNode.params.regexExtract.patternPh",
           "helpKey": "inspector.transformNode.params.regexExtract.patternHint",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "RegexExtract" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "RegexExtract"
+          }
         },
 
         {
@@ -114,7 +134,11 @@
           "labelKey": "inspector.transformNode.params.dateFormat.inputFormat",
           "placeholderKey": "inspector.transformNode.params.dateFormat.inputFormatPh",
           "helpKey": "inspector.transformNode.params.dateFormat.formatHint",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "DateFormat" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "DateFormat"
+          }
         },
         {
           "id": "outputFormat",
@@ -122,18 +146,29 @@
           "source": { "source": "data", "path": ["params", "output_format"] },
           "labelKey": "inspector.transformNode.params.dateFormat.outputFormat",
           "placeholderKey": "inspector.transformNode.params.dateFormat.outputFormatPh",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "DateFormat" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "DateFormat"
+          }
         },
         {
           "id": "dfErrors",
           "kind": "select",
           "source": { "source": "data", "path": ["params", "errors"] },
           "labelKey": "inspector.transformNode.params.dateFormat.errors",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "DateFormat" },
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "DateFormat"
+          },
           "options": {
             "type": "static",
             "options": [
-              { "labelKey": "inspector.transformNode.params.common.errorCoerce", "value": "coerce" },
+              {
+                "labelKey": "inspector.transformNode.params.common.errorCoerce",
+                "value": "coerce"
+              },
               { "labelKey": "inspector.transformNode.params.common.errorRaise", "value": "raise" },
               { "labelKey": "inspector.transformNode.params.common.errorIgnore", "value": "ignore" }
             ]
@@ -148,7 +183,11 @@
           "helpKey": "inspector.transformNode.params.lookup.mappingHint",
           "keyPlaceholder": "原值",
           "valuePlaceholder": "替换为",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Lookup" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Lookup"
+          }
         },
         {
           "id": "lookupDefault",
@@ -156,7 +195,11 @@
           "source": { "source": "data", "path": ["params", "default"] },
           "labelKey": "inspector.transformNode.params.lookup.default",
           "placeholderKey": "inspector.transformNode.params.lookup.defaultPh",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Lookup" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Lookup"
+          }
         },
 
         {
@@ -167,7 +210,11 @@
           "placeholderKey": "inspector.transformNode.params.strip.charsPh",
           "helpKey": "inspector.transformNode.params.strip.charsHint",
           "emptyToNull": true,
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Strip" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Strip"
+          }
         },
 
         {
@@ -175,10 +222,21 @@
           "kind": "readonly",
           "source": { "source": "data", "path": ["transformType"] },
           "labelKey": "inspector.transformNode.params.noParams.noParamsHint",
-          "when": { "op": "or", "exprs": [
-            { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "UpperCase" },
-            { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "LowerCase" }
-          ]}
+          "when": {
+            "op": "or",
+            "exprs": [
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "UpperCase"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "LowerCase"
+              }
+            ]
+          }
         },
 
         {
@@ -186,7 +244,11 @@
           "kind": "readonly",
           "source": { "source": "data", "path": ["transformType"] },
           "labelKey": "inspector.transformNode.params.digits.digitsHint",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Digits" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Digits"
+          }
         },
 
         {
@@ -195,7 +257,11 @@
           "source": { "source": "data", "path": ["params", "old"] },
           "labelKey": "inspector.transformNode.params.replace.old",
           "placeholderKey": "inspector.transformNode.params.replace.oldPh",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Replace" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Replace"
+          }
         },
         {
           "id": "replaceNew",
@@ -203,7 +269,11 @@
           "source": { "source": "data", "path": ["params", "new"] },
           "labelKey": "inspector.transformNode.params.replace.new",
           "placeholderKey": "inspector.transformNode.params.replace.newPh",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Replace" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Replace"
+          }
         },
         {
           "id": "replaceCount",
@@ -211,7 +281,11 @@
           "source": { "source": "data", "path": ["params", "count"] },
           "labelKey": "inspector.transformNode.params.replace.count",
           "helpKey": "inspector.transformNode.params.replace.countHint",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Replace" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Replace"
+          }
         },
 
         {
@@ -219,22 +293,43 @@
           "kind": "dynamicList",
           "source": { "source": "data", "path": ["params", "conditions"] },
           "labelKey": "inspector.transformNode.params.filterRows.conditions",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "FilterRows" },
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "FilterRows"
+          },
           "columns": [
             { "key": "column", "kind": "text", "columnSource": "upstream", "width": "flex" },
-            { "key": "op", "kind": "select", "width": "80px", "options": { "type": "static", "options": [
-              { "labelKey": "inspector.transformNode.params.common.opEq", "value": "eq" },
-              { "labelKey": "inspector.transformNode.params.common.opNe", "value": "ne" },
-              { "labelKey": "inspector.transformNode.params.common.opGt", "value": "gt" },
-              { "labelKey": "inspector.transformNode.params.common.opGte", "value": "gte" },
-              { "labelKey": "inspector.transformNode.params.common.opLt", "value": "lt" },
-              { "labelKey": "inspector.transformNode.params.common.opLte", "value": "lte" },
-              { "labelKey": "inspector.transformNode.params.common.opContains", "value": "contains" },
-              { "labelKey": "inspector.transformNode.params.common.opStartsWith", "value": "startsWith" },
-              { "labelKey": "inspector.transformNode.params.common.opEndsWith", "value": "endsWith" },
-              { "labelKey": "inspector.transformNode.params.common.opRegex", "value": "regex" },
-              { "labelKey": "inspector.transformNode.params.common.opIn", "value": "in" }
-            ]}},
+            {
+              "key": "op",
+              "kind": "select",
+              "width": "80px",
+              "options": {
+                "type": "static",
+                "options": [
+                  { "labelKey": "inspector.transformNode.params.common.opEq", "value": "eq" },
+                  { "labelKey": "inspector.transformNode.params.common.opNe", "value": "ne" },
+                  { "labelKey": "inspector.transformNode.params.common.opGt", "value": "gt" },
+                  { "labelKey": "inspector.transformNode.params.common.opGte", "value": "gte" },
+                  { "labelKey": "inspector.transformNode.params.common.opLt", "value": "lt" },
+                  { "labelKey": "inspector.transformNode.params.common.opLte", "value": "lte" },
+                  {
+                    "labelKey": "inspector.transformNode.params.common.opContains",
+                    "value": "contains"
+                  },
+                  {
+                    "labelKey": "inspector.transformNode.params.common.opStartsWith",
+                    "value": "startsWith"
+                  },
+                  {
+                    "labelKey": "inspector.transformNode.params.common.opEndsWith",
+                    "value": "endsWith"
+                  },
+                  { "labelKey": "inspector.transformNode.params.common.opRegex", "value": "regex" },
+                  { "labelKey": "inspector.transformNode.params.common.opIn", "value": "in" }
+                ]
+              }
+            },
             { "key": "value", "kind": "text", "width": "flex" }
           ],
           "emptyItem": { "column": "", "op": "eq", "value": "" },
@@ -246,7 +341,11 @@
           "kind": "select",
           "source": { "source": "data", "path": ["params", "logic"] },
           "labelKey": "inspector.transformNode.params.filterRows.logic",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "FilterRows" },
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "FilterRows"
+          },
           "options": {
             "type": "static",
             "options": [
@@ -261,15 +360,31 @@
           "kind": "select",
           "source": { "source": "data", "path": ["params", "strategy"] },
           "labelKey": "inspector.transformNode.params.fillNA.strategy",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "FillNA" },
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "FillNA"
+          },
           "options": {
             "type": "static",
             "options": [
-              { "labelKey": "inspector.transformNode.params.fillNA.strategyValue", "value": "value" },
-              { "labelKey": "inspector.transformNode.params.fillNA.strategyFfill", "value": "ffill" },
-              { "labelKey": "inspector.transformNode.params.fillNA.strategyBfill", "value": "bfill" },
+              {
+                "labelKey": "inspector.transformNode.params.fillNA.strategyValue",
+                "value": "value"
+              },
+              {
+                "labelKey": "inspector.transformNode.params.fillNA.strategyFfill",
+                "value": "ffill"
+              },
+              {
+                "labelKey": "inspector.transformNode.params.fillNA.strategyBfill",
+                "value": "bfill"
+              },
               { "labelKey": "inspector.transformNode.params.fillNA.strategyMean", "value": "mean" },
-              { "labelKey": "inspector.transformNode.params.fillNA.strategyMedian", "value": "median" }
+              {
+                "labelKey": "inspector.transformNode.params.fillNA.strategyMedian",
+                "value": "median"
+              }
             ]
           }
         },
@@ -279,13 +394,33 @@
           "source": { "source": "data", "path": ["params", "fill_value"] },
           "labelKey": "inspector.transformNode.params.fillNA.fillValue",
           "placeholderKey": "inspector.transformNode.params.fillNA.fillValuePh",
-          "when": { "op": "and", "exprs": [
-            { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "FillNA" },
-            { "op": "or", "exprs": [
-              { "op": "not", "expr": { "op": "exists", "source": { "source": "data", "path": ["params", "strategy"] } } },
-              { "op": "equals", "source": { "source": "data", "path": ["params", "strategy"] }, "value": "value" }
-            ]}
-          ]}
+          "when": {
+            "op": "and",
+            "exprs": [
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "FillNA"
+              },
+              {
+                "op": "or",
+                "exprs": [
+                  {
+                    "op": "not",
+                    "expr": {
+                      "op": "exists",
+                      "source": { "source": "data", "path": ["params", "strategy"] }
+                    }
+                  },
+                  {
+                    "op": "equals",
+                    "source": { "source": "data", "path": ["params", "strategy"] },
+                    "value": "value"
+                  }
+                ]
+              }
+            ]
+          }
         },
 
         {
@@ -295,20 +430,37 @@
           "labelKey": "inspector.transformNode.params.dropDuplicates.subset",
           "placeholderKey": "inspector.transformNode.params.dropDuplicates.subsetPh",
           "helpKey": "inspector.transformNode.params.dropDuplicates.subsetHint",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "DropDuplicates" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "DropDuplicates"
+          }
         },
         {
           "id": "dropKeep",
           "kind": "select",
           "source": { "source": "data", "path": ["params", "keep"] },
           "labelKey": "inspector.transformNode.params.dropDuplicates.keep",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "DropDuplicates" },
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "DropDuplicates"
+          },
           "options": {
             "type": "static",
             "options": [
-              { "labelKey": "inspector.transformNode.params.dropDuplicates.keepFirst", "value": "first" },
-              { "labelKey": "inspector.transformNode.params.dropDuplicates.keepLast", "value": "last" },
-              { "labelKey": "inspector.transformNode.params.dropDuplicates.keepNone", "value": "false" }
+              {
+                "labelKey": "inspector.transformNode.params.dropDuplicates.keepFirst",
+                "value": "first"
+              },
+              {
+                "labelKey": "inspector.transformNode.params.dropDuplicates.keepLast",
+                "value": "last"
+              },
+              {
+                "labelKey": "inspector.transformNode.params.dropDuplicates.keepNone",
+                "value": "false"
+              }
             ]
           }
         },
@@ -318,15 +470,25 @@
           "kind": "select",
           "source": { "source": "data", "path": ["params", "target_type"] },
           "labelKey": "inspector.transformNode.params.castType.targetType",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "CastType" },
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "CastType"
+          },
           "options": {
             "type": "static",
             "options": [
-              { "labelKey": "inspector.transformNode.params.castType.typeString", "value": "string" },
+              {
+                "labelKey": "inspector.transformNode.params.castType.typeString",
+                "value": "string"
+              },
               { "labelKey": "inspector.transformNode.params.castType.typeInt", "value": "int" },
               { "labelKey": "inspector.transformNode.params.castType.typeFloat", "value": "float" },
               { "labelKey": "inspector.transformNode.params.castType.typeBool", "value": "bool" },
-              { "labelKey": "inspector.transformNode.params.castType.typeDatetime", "value": "datetime" }
+              {
+                "labelKey": "inspector.transformNode.params.castType.typeDatetime",
+                "value": "datetime"
+              }
             ]
           }
         },
@@ -337,21 +499,39 @@
           "labelKey": "inspector.transformNode.params.castType.format",
           "placeholderKey": "inspector.transformNode.params.castType.formatPh",
           "helpKey": "inspector.transformNode.params.castType.formatHint",
-          "when": { "op": "and", "exprs": [
-            { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "CastType" },
-            { "op": "equals", "source": { "source": "data", "path": ["params", "target_type"] }, "value": "datetime" }
-          ]}
+          "when": {
+            "op": "and",
+            "exprs": [
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "CastType"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["params", "target_type"] },
+                "value": "datetime"
+              }
+            ]
+          }
         },
         {
           "id": "castErrors",
           "kind": "select",
           "source": { "source": "data", "path": ["params", "errors"] },
           "labelKey": "inspector.transformNode.params.castType.errors",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "CastType" },
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "CastType"
+          },
           "options": {
             "type": "static",
             "options": [
-              { "labelKey": "inspector.transformNode.params.common.errorCoerce", "value": "coerce" },
+              {
+                "labelKey": "inspector.transformNode.params.common.errorCoerce",
+                "value": "coerce"
+              },
               { "labelKey": "inspector.transformNode.params.common.errorRaise", "value": "raise" },
               { "labelKey": "inspector.transformNode.params.common.errorIgnore", "value": "ignore" }
             ]
@@ -366,7 +546,11 @@
           "placeholderKey": "inspector.transformNode.params.concat.columnsPh",
           "editable": true,
           "suggestionsFromUpstream": true,
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Concat" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Concat"
+          }
         },
         {
           "id": "concatSeparator",
@@ -375,7 +559,11 @@
           "labelKey": "inspector.transformNode.params.concat.separator",
           "placeholderKey": "inspector.transformNode.params.concat.separatorPh",
           "helpKey": "inspector.transformNode.params.concat.separatorHint",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Concat" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Concat"
+          }
         },
         {
           "id": "concatOutputColumn",
@@ -383,7 +571,11 @@
           "source": { "source": "data", "path": ["params", "output_column"] },
           "labelKey": "inspector.transformNode.params.concat.outputColumn",
           "placeholderKey": "inspector.transformNode.params.concat.outputColumnPh",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Concat" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Concat"
+          }
         },
 
         {
@@ -392,7 +584,11 @@
           "source": { "source": "data", "path": ["params", "start"] },
           "labelKey": "inspector.transformNode.params.substring.start",
           "helpKey": "inspector.transformNode.params.substring.startHint",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Substring" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Substring"
+          }
         },
         {
           "id": "substringEnd",
@@ -401,7 +597,11 @@
           "labelKey": "inspector.transformNode.params.substring.end",
           "placeholderKey": "inspector.transformNode.params.substring.endPh",
           "emptyToNull": true,
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Substring" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Substring"
+          }
         },
         {
           "id": "substringLength",
@@ -410,7 +610,11 @@
           "labelKey": "inspector.transformNode.params.substring.length",
           "placeholderKey": "inspector.transformNode.params.substring.lengthPh",
           "emptyToNull": true,
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Substring" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Substring"
+          }
         },
 
         {
@@ -420,23 +624,51 @@
           "labelKey": "inspector.transformNode.params.aggregate.groupBy",
           "placeholderKey": "inspector.transformNode.params.aggregate.groupByPh",
           "helpKey": "inspector.transformNode.params.aggregate.groupByHint",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Aggregate" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Aggregate"
+          }
         },
         {
           "id": "aggregations",
           "kind": "dynamicList",
           "source": { "source": "data", "path": ["params", "aggregations"] },
           "labelKey": "inspector.transformNode.params.aggregate.aggregations",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Aggregate" },
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Aggregate"
+          },
           "columns": [
             { "key": "column", "kind": "text", "columnSource": "upstream", "width": "flex" },
-            { "key": "func", "kind": "select", "width": "80px", "options": { "type": "static", "options": [
-              { "labelKey": "inspector.transformNode.params.aggregate.funcCount", "value": "count" },
-              { "labelKey": "inspector.transformNode.params.aggregate.funcSum", "value": "sum" },
-              { "labelKey": "inspector.transformNode.params.aggregate.funcAvg", "value": "avg" },
-              { "labelKey": "inspector.transformNode.params.aggregate.funcMin", "value": "min" },
-              { "labelKey": "inspector.transformNode.params.aggregate.funcMax", "value": "max" }
-            ]}}
+            {
+              "key": "func",
+              "kind": "select",
+              "width": "80px",
+              "options": {
+                "type": "static",
+                "options": [
+                  {
+                    "labelKey": "inspector.transformNode.params.aggregate.funcCount",
+                    "value": "count"
+                  },
+                  {
+                    "labelKey": "inspector.transformNode.params.aggregate.funcSum",
+                    "value": "sum"
+                  },
+                  {
+                    "labelKey": "inspector.transformNode.params.aggregate.funcAvg",
+                    "value": "avg"
+                  },
+                  {
+                    "labelKey": "inspector.transformNode.params.aggregate.funcMin",
+                    "value": "min"
+                  },
+                  { "labelKey": "inspector.transformNode.params.aggregate.funcMax", "value": "max" }
+                ]
+              }
+            }
           ],
           "emptyItem": { "column": "", "func": "count" },
           "addButtonLabelKey": "inspector.transformNode.params.aggregate.addAggregation",
@@ -448,22 +680,43 @@
           "kind": "dynamicList",
           "source": { "source": "data", "path": ["params", "conditions"] },
           "labelKey": "inspector.transformNode.params.conditionalAssign.conditions",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "ConditionalAssign" },
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "ConditionalAssign"
+          },
           "columns": [
             { "key": "column", "kind": "text", "columnSource": "upstream", "width": "flex" },
-            { "key": "op", "kind": "select", "width": "80px", "options": { "type": "static", "options": [
-              { "labelKey": "inspector.transformNode.params.common.opEq", "value": "eq" },
-              { "labelKey": "inspector.transformNode.params.common.opNe", "value": "ne" },
-              { "labelKey": "inspector.transformNode.params.common.opGt", "value": "gt" },
-              { "labelKey": "inspector.transformNode.params.common.opGte", "value": "gte" },
-              { "labelKey": "inspector.transformNode.params.common.opLt", "value": "lt" },
-              { "labelKey": "inspector.transformNode.params.common.opLte", "value": "lte" },
-              { "labelKey": "inspector.transformNode.params.common.opContains", "value": "contains" },
-              { "labelKey": "inspector.transformNode.params.common.opStartsWith", "value": "startsWith" },
-              { "labelKey": "inspector.transformNode.params.common.opEndsWith", "value": "endsWith" },
-              { "labelKey": "inspector.transformNode.params.common.opRegex", "value": "regex" },
-              { "labelKey": "inspector.transformNode.params.common.opIn", "value": "in" }
-            ]}},
+            {
+              "key": "op",
+              "kind": "select",
+              "width": "80px",
+              "options": {
+                "type": "static",
+                "options": [
+                  { "labelKey": "inspector.transformNode.params.common.opEq", "value": "eq" },
+                  { "labelKey": "inspector.transformNode.params.common.opNe", "value": "ne" },
+                  { "labelKey": "inspector.transformNode.params.common.opGt", "value": "gt" },
+                  { "labelKey": "inspector.transformNode.params.common.opGte", "value": "gte" },
+                  { "labelKey": "inspector.transformNode.params.common.opLt", "value": "lt" },
+                  { "labelKey": "inspector.transformNode.params.common.opLte", "value": "lte" },
+                  {
+                    "labelKey": "inspector.transformNode.params.common.opContains",
+                    "value": "contains"
+                  },
+                  {
+                    "labelKey": "inspector.transformNode.params.common.opStartsWith",
+                    "value": "startsWith"
+                  },
+                  {
+                    "labelKey": "inspector.transformNode.params.common.opEndsWith",
+                    "value": "endsWith"
+                  },
+                  { "labelKey": "inspector.transformNode.params.common.opRegex", "value": "regex" },
+                  { "labelKey": "inspector.transformNode.params.common.opIn", "value": "in" }
+                ]
+              }
+            },
             { "key": "value", "kind": "text", "width": "flex" }
           ],
           "emptyItem": { "column": "", "op": "eq", "value": "" },
@@ -475,7 +728,11 @@
           "kind": "select",
           "source": { "source": "data", "path": ["params", "logic"] },
           "labelKey": "inspector.transformNode.params.conditionalAssign.logic",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "ConditionalAssign" },
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "ConditionalAssign"
+          },
           "options": {
             "type": "static",
             "options": [
@@ -490,7 +747,11 @@
           "source": { "source": "data", "path": ["params", "then_value"] },
           "labelKey": "inspector.transformNode.params.conditionalAssign.thenValue",
           "placeholderKey": "inspector.transformNode.params.conditionalAssign.thenValuePh",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "ConditionalAssign" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "ConditionalAssign"
+          }
         },
         {
           "id": "elseValue",
@@ -498,7 +759,11 @@
           "source": { "source": "data", "path": ["params", "else_value"] },
           "labelKey": "inspector.transformNode.params.conditionalAssign.elseValue",
           "placeholderKey": "inspector.transformNode.params.conditionalAssign.elseValuePh",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "ConditionalAssign" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "ConditionalAssign"
+          }
         },
 
         {
@@ -506,13 +771,31 @@
           "kind": "dynamicList",
           "source": { "source": "data", "path": ["params", "sort_by"] },
           "labelKey": "inspector.transformNode.params.sortRows.sortBy",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "SortRows" },
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "SortRows"
+          },
           "columns": [
             { "key": "column", "kind": "text", "columnSource": "upstream", "width": "flex" },
-            { "key": "order", "kind": "select", "width": "80px", "options": { "type": "static", "options": [
-              { "labelKey": "inspector.transformNode.params.sortRows.orderAsc", "value": "asc" },
-              { "labelKey": "inspector.transformNode.params.sortRows.orderDesc", "value": "desc" }
-            ]}}
+            {
+              "key": "order",
+              "kind": "select",
+              "width": "80px",
+              "options": {
+                "type": "static",
+                "options": [
+                  {
+                    "labelKey": "inspector.transformNode.params.sortRows.orderAsc",
+                    "value": "asc"
+                  },
+                  {
+                    "labelKey": "inspector.transformNode.params.sortRows.orderDesc",
+                    "value": "desc"
+                  }
+                ]
+              }
+            }
           ],
           "emptyItem": { "column": "", "order": "asc" },
           "addButtonLabelKey": "inspector.transformNode.params.sortRows.addSortColumn",
@@ -525,7 +808,11 @@
           "source": { "source": "data", "path": ["params", "weights"] },
           "labelKey": "inspector.transformNode.params.weightedSum.weights",
           "helpKey": "inspector.transformNode.params.weightedSum.weightsHint",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "WeightedSum" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "WeightedSum"
+          }
         },
 
         {
@@ -534,7 +821,11 @@
           "source": { "source": "data", "path": ["params", "divisor"] },
           "labelKey": "inspector.transformNode.params.modulo.divisor",
           "placeholderKey": "inspector.transformNode.params.modulo.divisorPh",
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "Modulo" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "Modulo"
+          }
         },
 
         {
@@ -547,7 +838,11 @@
           "parse": "auto",
           "validateType": "array",
           "rows": 4,
-          "when": { "op": "equals", "source": { "source": "data", "path": ["transformType"] }, "value": "MapValue" }
+          "when": {
+            "op": "equals",
+            "source": { "source": "data", "path": ["transformType"] },
+            "value": "MapValue"
+          }
         }
       ]
     },

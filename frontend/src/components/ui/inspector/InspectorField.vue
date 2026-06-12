@@ -18,7 +18,10 @@
   - update:modelValue: [value: string] — 值变更事件
 -->
 <template>
-  <div class="inspector-field" :class="{ 'field-layout-row': !editable, 'field-has-error': !!error }">
+  <div
+    class="inspector-field"
+    :class="{ 'field-layout-row': !editable, 'field-has-error': !!error }"
+  >
     <label v-if="label" class="field-label">{{ label }}</label>
 
     <!-- 只读模式 -->

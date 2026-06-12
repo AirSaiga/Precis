@@ -65,10 +65,8 @@ const canvas = {
         'Column definitions between data source "{sourceName}" and "{schemaName}" are inconsistent:\n\n{details}\n\nApply smart fix?',
       confirm: 'Smart Fix',
       skip: 'Skip',
-      newInSource:
-        '{count} new column(s) in data source not defined in Schema ({columns})',
-      staleInSchema:
-        '{count} non-derived column(s) in Schema not found in data source ({columns})',
+      newInSource: '{count} new column(s) in data source not defined in Schema ({columns})',
+      staleInSchema: '{count} non-derived column(s) in Schema not found in data source ({columns})',
     },
     columnMismatch: {
       title: 'Column Mismatch Warning',
@@ -94,13 +92,16 @@ const canvas = {
     sourceRefreshSuccess: 'Data source refreshed',
     sourceRefreshFailed: 'Failed to refresh data source',
     columnsGenerated: 'Successfully generated {count} column definitions!',
-    columnsGenerationFailed: 'Failed to auto-generate column definitions, please configure manually',
+    columnsGenerationFailed:
+      'Failed to auto-generate column definitions, please configure manually',
     dataSourceEmpty: 'Data source is empty, cannot generate column definitions',
     headerRowMissing: 'Header row data is missing, cannot generate column definitions',
     schemaNodesUpdated: 'Updated {count} Schema node(s)',
     externalDataAdded: 'External data added: {name}',
-    sheetNotFound: 'Sheet "{sheet}" does not exist in the target file, please correct the sheet name in the Schema property panel',
-    sheetNotFoundWithList: 'Sheet "{sheet}" does not exist in the target file. Available sheets: {list}. Please correct the sheet name in the Schema property panel',
+    sheetNotFound:
+      'Sheet "{sheet}" does not exist in the target file, please correct the sheet name in the Schema property panel',
+    sheetNotFoundWithList:
+      'Sheet "{sheet}" does not exist in the target file. Available sheets: {list}. Please correct the sheet name in the Schema property panel',
     // JSON Schema connection related
     jsonSourceEmpty: 'JSON data source is empty, cannot generate column definitions',
     jsonSourceInvalid: 'JSON data source is invalid, cannot generate column definitions',

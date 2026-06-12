@@ -37,11 +37,13 @@ export class SaveOrchestrator {
     if (!configPath) {
       return {
         success: false,
-        errors: [{
-          severity: 'BLOCKER',
-          nodeId: '',
-          message: '未找到项目配置路径',
-        }],
+        errors: [
+          {
+            severity: 'BLOCKER',
+            nodeId: '',
+            message: '未找到项目配置路径',
+          },
+        ],
       }
     }
 
@@ -93,11 +95,13 @@ export class SaveOrchestrator {
     } catch (error) {
       return {
         success: false,
-        errors: [{
-          severity: 'BLOCKER',
-          nodeId: '',
-          message: error instanceof Error ? error.message : '保存失败',
-        }],
+        errors: [
+          {
+            severity: 'BLOCKER',
+            nodeId: '',
+            message: error instanceof Error ? error.message : '保存失败',
+          },
+        ],
         fixed: fixedRecords,
       }
     }
@@ -114,11 +118,13 @@ export class SaveOrchestrator {
     if (!configPath) {
       return {
         success: false,
-        errors: [{
-          severity: 'BLOCKER',
-          nodeId: '',
-          message: '未找到项目配置路径',
-        }],
+        errors: [
+          {
+            severity: 'BLOCKER',
+            nodeId: '',
+            message: '未找到项目配置路径',
+          },
+        ],
       }
     }
 
@@ -174,11 +180,13 @@ export class SaveOrchestrator {
     } catch (error) {
       return {
         success: false,
-        errors: [{
-          severity: 'BLOCKER',
-          nodeId: '',
-          message: error instanceof Error ? error.message : '保存失败',
-        }],
+        errors: [
+          {
+            severity: 'BLOCKER',
+            nodeId: '',
+            message: error instanceof Error ? error.message : '保存失败',
+          },
+        ],
         fixed: fixedRecords,
       }
     }
@@ -235,10 +243,20 @@ export class SaveOrchestrator {
   private markNodesSaved(scope: 'all' | Set<string> = 'all'): void {
     const now = new Date().toISOString()
     const persistableTypes = new Set([
-      'schema', 'jsonSchema', 'regex', 'transform', 'templateInstance',
-      'notNullConstraint', 'uniqueConstraint', 'foreignKeyConstraint',
-      'allowedValuesConstraint', 'rangeConstraint', 'conditionalConstraint',
-      'scriptedConstraint', 'charsetConstraint', 'dateLogicConstraint',
+      'schema',
+      'jsonSchema',
+      'regex',
+      'transform',
+      'templateInstance',
+      'notNullConstraint',
+      'uniqueConstraint',
+      'foreignKeyConstraint',
+      'allowedValuesConstraint',
+      'rangeConstraint',
+      'conditionalConstraint',
+      'scriptedConstraint',
+      'charsetConstraint',
+      'dateLogicConstraint',
       'compositeConstraint',
     ])
 

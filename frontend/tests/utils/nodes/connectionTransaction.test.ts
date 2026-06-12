@@ -68,7 +68,10 @@ describe('createConnectionTransaction', () => {
   describe('rollback', () => {
     it('回滚恢复到 patch 前的状态', () => {
       const updateNodeData = vi.fn()
-      const node = makeNode({ id: 'n1', data: { configName: 'Old', sourceRef: { columnId: 'c1' } } as any })
+      const node = makeNode({
+        id: 'n1',
+        data: { configName: 'Old', sourceRef: { columnId: 'c1' } } as any,
+      })
       const tx = createConnectionTransaction({ nodes: [node], updateNodeData })
 
       tx.patchNodeData('n1', { configName: 'New' } as any)

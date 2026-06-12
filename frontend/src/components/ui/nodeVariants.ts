@@ -21,14 +21,7 @@ export const NODE_THEMES = [
 
 export type NodeTheme = (typeof NODE_THEMES)[number]
 
-export const NODE_STATES = [
-  'idle',
-  'selected',
-  'success',
-  'warning',
-  'error',
-  'disabled',
-] as const
+export const NODE_STATES = ['idle', 'selected', 'success', 'warning', 'error', 'disabled'] as const
 
 export type NodeState = (typeof NODE_STATES)[number]
 

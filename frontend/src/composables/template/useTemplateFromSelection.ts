@@ -151,10 +151,7 @@ function extractRegexNode(node: CustomNode): TemplateNode {
  * 检测输入锚点：找出 inputFromNode 指向选区外部节点的 eligible 节点
  * 这些节点是模板的入口，展开时由 TemplateInstance 的 input_from_node 绑定
  */
-function detectInputAnchors(
-  eligibleNodes: CustomNode[],
-  selectedIdSet: Set<string>,
-): string[] {
+function detectInputAnchors(eligibleNodes: CustomNode[], selectedIdSet: Set<string>): string[] {
   const anchors: string[] = []
   for (const node of eligibleNodes) {
     const d = node.data as unknown as Record<string, unknown> | undefined
@@ -172,10 +169,7 @@ function detectInputAnchors(
 /**
  * 从画布选区中提取模板节点数据
  */
-export function extractTemplateFromSelection(
-  nodes: CustomNode[],
-  edges: Edge[],
-): ExtractionResult {
+export function extractTemplateFromSelection(nodes: CustomNode[], edges: Edge[]): ExtractionResult {
   const eligibleNodes = nodes.filter(isEligibleNode)
   const selectedIdSet = new Set(nodes.map((n) => n.id))
   const excludedCount = nodes.length - eligibleNodes.length
@@ -232,7 +226,7 @@ export async function saveTemplateFromSelection(
   meta: { id: string; name: string; description: string },
   parameters: TemplateParameter[],
   templateNodes: TemplateNode[],
-  configPath?: string,
+  configPath?: string
 ): Promise<boolean> {
   const { t } = useI18n()
   const resourceTreeStore = useResourceTreeStore()

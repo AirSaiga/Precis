@@ -158,7 +158,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ============================================================================
@@ -260,7 +262,7 @@
   opacity: 0.5;
 }
 
-.file-item input[type="checkbox"] {
+.file-item input[type='checkbox'] {
   accent-color: var(--ui-accent);
   flex-shrink: 0;
 }

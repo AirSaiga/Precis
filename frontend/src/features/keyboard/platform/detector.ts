@@ -88,7 +88,7 @@ export function getPlatformInfo(): PlatformInfo {
     isMac: platform === 'mac',
     isWindows: platform === 'windows',
     isLinux: platform === 'linux',
-    displayName: getPlatformDisplayName(platform)
+    displayName: getPlatformDisplayName(platform),
   }
 }
 
@@ -163,7 +163,7 @@ export const platformDetector = {
   getPrimaryModifierKey,
   getSecondaryModifierKey,
   detectKeyboardLayout,
-  hasFunctionKeys
+  hasFunctionKeys,
 }
 
 export default platformDetector

@@ -36,7 +36,9 @@
 .sidebar-panel-container {
   order: 2;
   z-index: 9;
-  transition: width var(--ui-transition-slow), margin-left var(--ui-transition-slow);
+  transition:
+    width var(--ui-transition-slow),
+    margin-left var(--ui-transition-slow);
   background: var(--ui-bg-sidebar);
   border-right: 1px solid var(--ui-border-light);
   backdrop-filter: blur(12px);
@@ -81,7 +83,12 @@
   overflow-x: auto;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--ui-bg-elevated) 80%, transparent) 0%, color-mix(in srgb, var(--ui-bg-nav-primary) 80%, transparent) 55%, color-mix(in srgb, var(--ui-bg-subtle) 80%, transparent) 100%);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--ui-bg-elevated) 80%, transparent) 0%,
+    color-mix(in srgb, var(--ui-bg-nav-primary) 80%, transparent) 55%,
+    color-mix(in srgb, var(--ui-bg-subtle) 80%, transparent) 100%
+  );
   border-bottom: 1px solid var(--ui-border-light);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -204,7 +211,9 @@
   width: 2px;
   height: 100%;
   background: transparent;
-  transition: background var(--ui-transition-fast), box-shadow var(--ui-transition-fast);
+  transition:
+    background var(--ui-transition-fast),
+    box-shadow var(--ui-transition-fast);
 }
 
 .panel-resize-divider:hover::after {
@@ -315,7 +324,10 @@
   font-weight: var(--ui-font-weight-medium);
   line-height: 1;
   cursor: pointer;
-  transition: background var(--ui-transition-fast), border-color var(--ui-transition-fast), box-shadow var(--ui-transition-fast);
+  transition:
+    background var(--ui-transition-fast),
+    border-color var(--ui-transition-fast),
+    box-shadow var(--ui-transition-fast);
 }
 
 .project-chip:hover {

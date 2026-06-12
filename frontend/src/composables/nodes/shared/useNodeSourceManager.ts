@@ -185,9 +185,7 @@ export function useNodeSourceManager<TNodeData extends Record<string, any>>(
   const disconnectSource = () => {
     // 找到并移除当前节点作为 target 的数据源连接边
     const connectedEdges = store.edges.filter(
-      (e: any) =>
-        e.target === props.id &&
-        e.targetHandle === 'target-left'
+      (e: any) => e.target === props.id && e.targetHandle === 'target-left'
     )
     for (const edge of connectedEdges) {
       store.deleteConnection(edge.id)
@@ -249,13 +247,25 @@ export function useNodeSourceManager<TNodeData extends Record<string, any>>(
       const parts: string[] = []
       if (comparison.newInSource.length > 0) {
         const preview = comparison.newInSource.slice(0, 5).join(', ')
-        const suffix = comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
-        parts.push(t('canvas.nodeCanvas.smartFix.newInSource', { count: comparison.newInSource.length, columns: `${preview}${suffix}` }))
+        const suffix =
+          comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
+        parts.push(
+          t('canvas.nodeCanvas.smartFix.newInSource', {
+            count: comparison.newInSource.length,
+            columns: `${preview}${suffix}`,
+          })
+        )
       }
       if (comparison.staleInSchema.length > 0) {
         const preview = comparison.staleInSchema.slice(0, 5).join(', ')
-        const suffix = comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
-        parts.push(t('canvas.nodeCanvas.smartFix.staleInSchema', { count: comparison.staleInSchema.length, columns: `${preview}${suffix}` }))
+        const suffix =
+          comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
+        parts.push(
+          t('canvas.nodeCanvas.smartFix.staleInSchema', {
+            count: comparison.staleInSchema.length,
+            columns: `${preview}${suffix}`,
+          })
+        )
       }
 
       const result = await showConfirm({
@@ -271,7 +281,10 @@ export function useNodeSourceManager<TNodeData extends Record<string, any>>(
         type: 'warning',
       })
 
-      logger.debug('🎯 [showSmartFillDialog] 用户选择:', result === true ? '✅ 智能修正' : '❌ 跳过/取消')
+      logger.debug(
+        '🎯 [showSmartFillDialog] 用户选择:',
+        result === true ? '✅ 智能修正' : '❌ 跳过/取消'
+      )
 
       if (result === true) {
         autoGenerateColumns(sourceNode)
@@ -407,7 +420,10 @@ export function useNodeSourceManager<TNodeData extends Record<string, any>>(
   /**
    * 处理源数据变更事件
    */
-  const handleSourcePreviewDataChanged = (detail: { nodeId: string; data: Record<string, unknown> }) => {
+  const handleSourcePreviewDataChanged = (detail: {
+    nodeId: string
+    data: Record<string, unknown>
+  }) => {
     const { nodeId, data } = detail
 
     const isConnected = store.edges.some(

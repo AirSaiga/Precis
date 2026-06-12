@@ -16,9 +16,7 @@ import { useI18n } from 'vue-i18n'
 import { getAiHardwareDiagnose } from '@/api/aiApi'
 import type { CloudAIProviderResponse } from '@/types/ai'
 
-export function useHardwarePrecheck(
-  activeProvider: Ref<CloudAIProviderResponse | null>
-) {
+export function useHardwarePrecheck(activeProvider: Ref<CloudAIProviderResponse | null>) {
   const { t } = useI18n()
 
   /** 硬件预检警告信息 */

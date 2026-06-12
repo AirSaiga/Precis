@@ -28,7 +28,9 @@ function buildSubConstraintParams(subData: Record<string, unknown>): Record<stri
       }
     case 'AllowedValues':
       return {
-        allowed_values: Array.from((subData.allowedValues as unknown[]) || []).map((v) => String(v)),
+        allowed_values: Array.from((subData.allowedValues as unknown[]) || []).map((v) =>
+          String(v)
+        ),
       }
     case 'Scripted':
       return {
@@ -57,13 +59,18 @@ function buildSubConstraintParams(subData: Record<string, unknown>): Record<stri
 export const compositeBuilder: NodeBuilder<ConstraintFileV2> = {
   kind: 'constraint',
   matches: (node: CustomNode) => node.type === 'compositeConstraint',
-  build({ node, nodes, schemaIdByNodeId }: BuilderContext): { consumed: boolean; file: ConstraintFileV2 } {
+  build({ node, nodes, schemaIdByNodeId }: BuilderContext): {
+    consumed: boolean
+    file: ConstraintFileV2
+  } {
     const d = (node.data || {}) as Record<string, unknown>
     const includedNodeIds = (d.includedNodeIds as string[]) || []
 
     const subConstraints = includedNodeIds
       .map((id) => nodes.find((n) => n.id === id))
-      .filter((n): n is CustomNode => !!n && typeof n.type === 'string' && n.type.endsWith('Constraint'))
+      .filter(
+        (n): n is CustomNode => !!n && typeof n.type === 'string' && n.type.endsWith('Constraint')
+      )
       .map((subNode) => {
         const subData = (subNode.data || {}) as Record<string, unknown>
         const subType = subNode.type!.replace('Constraint', '')
@@ -71,7 +78,8 @@ export const compositeBuilder: NodeBuilder<ConstraintFileV2> = {
           id: subNode.id,
           type: subType.charAt(0).toUpperCase() + subType.slice(1),
           enabled: subData.enabled !== false,
-          description: (subData.configName as string) || (subData.description as string) || undefined,
+          description:
+            (subData.configName as string) || (subData.description as string) || undefined,
           refs: buildSingleColumnRefs(subData, nodes, schemaIdByNodeId),
           params: buildSubConstraintParams(subData),
         }

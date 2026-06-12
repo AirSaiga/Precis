@@ -11,7 +11,7 @@ import { useGraphStore } from '@/stores/graphStore'
 
 export async function redo(): Promise<{ success: boolean; message?: string }> {
   const graphStore = useGraphStore()
-  
+
   const canRedo = graphStore.redoStack.length > 0
   if (!canRedo) {
     return { success: false, message: 'shortcuts.feedback.nothingToRedo' }

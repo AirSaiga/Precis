@@ -19,7 +19,10 @@ import { nextTick, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { TemplateExpandResult } from '@/api/projectV2Api'
-import { getConstraintKindByV2Type, getConstraintMetaByKind } from '@/services/constraints/validationRegistry'
+import {
+  getConstraintKindByV2Type,
+  getConstraintMetaByKind,
+} from '@/services/constraints/validationRegistry'
 import type { ConstraintKind } from '@/services/constraints/types'
 import { addNodes, addEdges, removeNodes, removeEdges } from '@/services/canvas/vueFlowApi'
 
@@ -84,9 +87,7 @@ export function createTemplateExpandModule(params: {
 
     const idSet = new Set(ids)
 
-    const relatedEdges = edges.value.filter(
-      (e) => idSet.has(e.source) || idSet.has(e.target)
-    )
+    const relatedEdges = edges.value.filter((e) => idSet.has(e.source) || idSet.has(e.target))
     for (const edge of relatedEdges) {
       removeEdges(edge.id)
     }
@@ -753,9 +754,10 @@ export function createTemplateExpandModule(params: {
     }
   }
 
-  function buildTransformOutputData(
-    dagNode: DagNode
-  ): { type: string; data: Record<string, unknown> } {
+  function buildTransformOutputData(dagNode: DagNode): {
+    type: string
+    data: Record<string, unknown>
+  } {
     const sd = dagNode.syntheticData || {}
     return {
       type: 'transformOutput',
@@ -769,9 +771,7 @@ export function createTemplateExpandModule(params: {
     }
   }
 
-  function buildManualDataData(
-    dagNode: DagNode
-  ): { type: string; data: Record<string, unknown> } {
+  function buildManualDataData(dagNode: DagNode): { type: string; data: Record<string, unknown> } {
     const sd = dagNode.syntheticData || {}
     return {
       type: 'manualData',

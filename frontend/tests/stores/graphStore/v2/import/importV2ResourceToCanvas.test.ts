@@ -72,7 +72,9 @@ describe('createV2ImportToCanvas', () => {
       selectedNodeId,
       getEffectiveProjectConfigPath: () => '/project',
       resolveProjectRelativePath: (dir, rel) => (dir && rel ? `${dir}/${rel}` : rel),
-      reconcileAll: () => { reconcileCalls++ },
+      reconcileAll: () => {
+        reconcileCalls++
+      },
     })
 
     vi.mocked(addNodes).mockClear()
@@ -157,7 +159,12 @@ describe('createV2ImportToCanvas', () => {
       node.position = { x: 0, y: 0 }
       nodes.value = [node]
 
-      await importer.importV2ResourceToCanvas('constraint', 'c1', { x: 99, y: 99 }, { moveIfExists: true })
+      await importer.importV2ResourceToCanvas(
+        'constraint',
+        'c1',
+        { x: 99, y: 99 },
+        { moveIfExists: true }
+      )
 
       expect(node.position).toEqual({ x: 99, y: 99 })
       expect(selectedNodeId.value).toBe('c1')

@@ -157,9 +157,13 @@ describe('前后端约束命名一致性', () => {
     const { buildNodeData } = await import('@/services/constraints/nodeDataBuilder/registry')
     const missing: string[] = []
     for (const meta of CONSTRAINT_TYPES) {
-      const fkRefs = meta.kind === 'foreignKey'
-        ? { source: { nodeId: 's1', columnId: 'c1', columnName: 'col' }, target: { nodeId: 's2', columnId: 'c2', columnName: 'col2' } }
-        : undefined
+      const fkRefs =
+        meta.kind === 'foreignKey'
+          ? {
+              source: { nodeId: 's1', columnId: 'c1', columnName: 'col' },
+              target: { nodeId: 's2', columnId: 'c2', columnName: 'col2' },
+            }
+          : undefined
       const result = buildNodeData(meta.kind, {
         nodeId: 'test-id',
         configName: 'test',

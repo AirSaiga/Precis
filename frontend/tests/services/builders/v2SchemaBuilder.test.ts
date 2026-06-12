@@ -11,9 +11,15 @@ vi.mock('@/i18n', () => ({
 
 const mockRegistry = vi.hoisted(() => {
   const CONSTRAINT_NODE_TYPES = [
-    'notNullConstraint', 'uniqueConstraint', 'foreignKeyConstraint',
-    'allowedValuesConstraint', 'rangeConstraint', 'conditionalConstraint',
-    'scriptedConstraint', 'charsetConstraint', 'dateLogicConstraint',
+    'notNullConstraint',
+    'uniqueConstraint',
+    'foreignKeyConstraint',
+    'allowedValuesConstraint',
+    'rangeConstraint',
+    'conditionalConstraint',
+    'scriptedConstraint',
+    'charsetConstraint',
+    'dateLogicConstraint',
     'compositeConstraint',
   ]
   const NODE_TYPE_TO_V2_TYPE: Record<string, string> = {
@@ -31,8 +37,7 @@ const mockRegistry = vi.hoisted(() => {
   return {
     getV2ConstraintTypeByNodeType: (nodeType: string | undefined) =>
       NODE_TYPE_TO_V2_TYPE[nodeType || ''] || '',
-    isConstraintNodeType: (type: string | undefined) =>
-      CONSTRAINT_NODE_TYPES.includes(type || ''),
+    isConstraintNodeType: (type: string | undefined) => CONSTRAINT_NODE_TYPES.includes(type || ''),
   }
 })
 
@@ -158,9 +163,7 @@ describe('v2/schemaBuilder - buildV2SchemaFile', () => {
   })
 
   it('has no source when no file path available', () => {
-    const nodes: CustomNode[] = [
-      schemaNode({ sourceFilePath: undefined, localPath: undefined }),
-    ]
+    const nodes: CustomNode[] = [schemaNode({ sourceFilePath: undefined, localPath: undefined })]
     const result = buildV2SchemaFile(nodes, 'schema-1')
     expect(result.source).toBeUndefined()
   })
@@ -209,9 +212,7 @@ describe('v2/schemaBuilder - buildV2SchemaFile', () => {
 
   it('skips column-level constraints when none set', () => {
     const node = schemaNode({
-      columns: [
-        { id: 'col-1', columnName: 'col', dataType: 'String', constraints: undefined },
-      ],
+      columns: [{ id: 'col-1', columnName: 'col', dataType: 'String', constraints: undefined }],
     })
     const result = buildV2SchemaFile([node], 'schema-1')
     const columnConstraintIds = result.constraints!.filter((c: any) => !(c as any).from_table)

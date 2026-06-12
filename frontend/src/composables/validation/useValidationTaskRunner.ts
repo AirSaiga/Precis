@@ -712,7 +712,13 @@ export function useValidationTaskRunner() {
 
     running.value = true
     progress.value = 0
-    processedStats.value = { filesLoaded: 0, filesTotal: 0, tablesLoaded: 0, tablesTotal: 0, errorsFound: 0 }
+    processedStats.value = {
+      filesLoaded: 0,
+      filesTotal: 0,
+      tablesLoaded: 0,
+      tablesTotal: 0,
+      errorsFound: 0,
+    }
 
     try {
       setStageStatus('load-settings', 'running')

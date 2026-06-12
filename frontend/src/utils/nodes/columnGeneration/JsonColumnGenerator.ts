@@ -25,11 +25,16 @@ function inferJsonDataType(value: unknown): JsonDataType {
 
   const jsType = typeof value
   switch (jsType) {
-    case 'string': return 'string'
-    case 'number': return 'number'
-    case 'boolean': return 'boolean'
-    case 'object': return 'object'
-    default: return 'string'
+    case 'string':
+      return 'string'
+    case 'number':
+      return 'number'
+    case 'boolean':
+      return 'boolean'
+    case 'object':
+      return 'object'
+    default:
+      return 'string'
   }
 }
 
@@ -58,7 +63,12 @@ function mergeJsonStructure(records: unknown[]): Record<string, unknown> {
   const merged: Record<string, unknown> = {}
 
   for (const record of records) {
-    if (record === null || record === undefined || typeof record !== 'object' || Array.isArray(record)) {
+    if (
+      record === null ||
+      record === undefined ||
+      typeof record !== 'object' ||
+      Array.isArray(record)
+    ) {
       continue
     }
 
@@ -70,8 +80,11 @@ function mergeJsonStructure(records: unknown[]): Record<string, unknown> {
       if (existingValue === undefined || existingValue === null) {
         merged[key] = newValue
       } else if (
-        typeof existingValue === 'object' && !Array.isArray(existingValue) &&
-        typeof newValue === 'object' && !Array.isArray(newValue) && newValue !== null
+        typeof existingValue === 'object' &&
+        !Array.isArray(existingValue) &&
+        typeof newValue === 'object' &&
+        !Array.isArray(newValue) &&
+        newValue !== null
       ) {
         merged[key] = mergeJsonStructure([existingValue, newValue])
       }
@@ -85,7 +98,12 @@ function inferTypeFromRecords(records: unknown[], key: string): JsonDataType {
   const types = new Set<JsonDataType>()
 
   for (const record of records) {
-    if (record === null || record === undefined || typeof record !== 'object' || Array.isArray(record)) {
+    if (
+      record === null ||
+      record === undefined ||
+      typeof record !== 'object' ||
+      Array.isArray(record)
+    ) {
       continue
     }
 
@@ -110,7 +128,12 @@ function inferTypeFromRecords(records: unknown[], key: string): JsonDataType {
 
 function getRepresentativeArray(records: unknown[], key: string): unknown[] {
   for (const record of records) {
-    if (record === null || record === undefined || typeof record !== 'object' || Array.isArray(record)) {
+    if (
+      record === null ||
+      record === undefined ||
+      typeof record !== 'object' ||
+      Array.isArray(record)
+    ) {
       continue
     }
 
@@ -125,7 +148,12 @@ function getRepresentativeObject(records: unknown[], key: string): Record<string
   const objectValues: unknown[] = []
 
   for (const record of records) {
-    if (record === null || record === undefined || typeof record !== 'object' || Array.isArray(record)) {
+    if (
+      record === null ||
+      record === undefined ||
+      typeof record !== 'object' ||
+      Array.isArray(record)
+    ) {
       continue
     }
 
@@ -314,7 +342,13 @@ export class JsonColumnGenerator implements ColumnGenerationStrategy {
     const schemaEmpty = schemaCols.length === 0
 
     if (schemaEmpty) {
-      return { schemaEmpty: true, newInSource: [], staleInSchema: [], isMatch: false, needsAction: true }
+      return {
+        schemaEmpty: true,
+        newInSource: [],
+        staleInSchema: [],
+        isMatch: false,
+        needsAction: true,
+      }
     }
 
     const sourceSet = new Set(sourceFields)
@@ -351,7 +385,8 @@ export class JsonColumnGenerator implements ColumnGenerationStrategy {
     if (!rawData || !Array.isArray(rawData) || rawData.length === 0) return undefined
 
     const firstRecord = rawData[0]
-    if (!firstRecord || typeof firstRecord !== 'object' || Array.isArray(firstRecord)) return undefined
+    if (!firstRecord || typeof firstRecord !== 'object' || Array.isArray(firstRecord))
+      return undefined
 
     return Object.keys(firstRecord as Record<string, unknown>)
   }

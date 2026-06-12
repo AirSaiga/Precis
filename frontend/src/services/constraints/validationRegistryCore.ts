@@ -263,7 +263,11 @@ export const getTargetValues = (
   targetColumnName: string,
   nodes?: Node[]
 ): string[] => {
-  if (!targetSchemaNode || (targetSchemaNode.type !== 'schema' && targetSchemaNode.type !== 'jsonSchema')) return []
+  if (
+    !targetSchemaNode ||
+    (targetSchemaNode.type !== 'schema' && targetSchemaNode.type !== 'jsonSchema')
+  )
+    return []
   const targetSchemaData = (targetSchemaNode.data || {}) as Record<string, unknown>
   let rows =
     (targetSchemaData?.originalData as unknown[]) || (targetSchemaData?.data as unknown[]) || []
@@ -407,7 +411,9 @@ export async function validateConstraintNodesForSchema(params: {
     totalErrors: 0,
   }
 
-  const schemaNode = nodes.find((n) => n.id === schemaNodeId && (n.type === 'schema' || n.type === 'jsonSchema'))
+  const schemaNode = nodes.find(
+    (n) => n.id === schemaNodeId && (n.type === 'schema' || n.type === 'jsonSchema')
+  )
   if (!schemaNode) return emptySummary
   const schemaEdges = edges.filter((e) => e.source === schemaNodeId)
 
@@ -516,10 +522,7 @@ const targetRefResolvers = new Map<string, TargetRefResolver>()
  * @param nodeType - 约束节点类型（如 'foreignKeyConstraint'）
  * @param resolver - 解析函数，返回该约束引用的目标 Schema ID 列表
  */
-export function registerTargetRefResolver(
-  nodeType: string,
-  resolver: TargetRefResolver
-): void {
+export function registerTargetRefResolver(nodeType: string, resolver: TargetRefResolver): void {
   targetRefResolvers.set(nodeType, resolver)
 }
 
@@ -706,9 +709,7 @@ export async function validateForInlineSource(params: {
   // 但后端 inline 校验默认将第一行视为表头。
   // 因此需要在 rows 前添加表头行，使后端能正确识别列名。
   const isManualData = sourceNode.type === 'manualData'
-  const inlineRows = isManualData && rawRows.length > 0
-    ? [[columnName], ...rawRows]
-    : rawRows
+  const inlineRows = isManualData && rawRows.length > 0 ? [[columnName], ...rawRows] : rawRows
 
   // 构建带有 inlineRows 的校验上下文
   const ctx: ConstraintValidationContext = {
@@ -772,9 +773,7 @@ export async function validateConstraintNodeById(
   }
 
   if (sourceNode.type === 'schema' || sourceNode.type === 'jsonSchema') {
-    const edge = edges.find(
-      (e) => e.target === constraintNodeId && e.source === sourceRef.nodeId
-    )
+    const edge = edges.find((e) => e.target === constraintNodeId && e.source === sourceRef.nodeId)
     if (!edge) return
 
     await validateConstraintNode({

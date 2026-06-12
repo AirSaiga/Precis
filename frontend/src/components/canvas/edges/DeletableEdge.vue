@@ -75,20 +75,8 @@
       @click.stop="handleDelete"
     >
       <circle r="9" class="edge-delete-button__bg" />
-      <line
-        x1="-4"
-        y1="-4"
-        x2="4"
-        y2="4"
-        class="edge-delete-button__icon"
-      />
-      <line
-        x1="4"
-        y1="-4"
-        x2="-4"
-        y2="4"
-        class="edge-delete-button__icon"
-      />
+      <line x1="-4" y1="-4" x2="4" y2="4" class="edge-delete-button__icon" />
+      <line x1="4" y1="-4" x2="-4" y2="4" class="edge-delete-button__icon" />
     </g>
   </g>
 </template>

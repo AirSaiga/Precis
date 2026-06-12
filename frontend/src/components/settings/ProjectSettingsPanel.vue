@@ -15,7 +15,9 @@
     <!-- 校验参数 -->
     <div class="settings-section">
       <div class="settings-section__header">
-        <div class="settings-section__title">{{ t('settings.project.defaultRunParamsSectionTitle') }}</div>
+        <div class="settings-section__title">
+          {{ t('settings.project.defaultRunParamsSectionTitle') }}
+        </div>
         <div class="settings-section__desc">{{ t('settings.project.defaultRunParamsHint') }}</div>
       </div>
       <div class="settings-row">
@@ -37,7 +39,11 @@
         <div class="settings-row__label">{{ t('settings.project.errorHandling.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.project.errorHandling.desc') }}</div>
         <div class="settings-row__control">
-          <select v-model="validationSettings.error_handling" class="settings-select" @change="handleValidationChange">
+          <select
+            v-model="validationSettings.error_handling"
+            class="settings-select"
+            @change="handleValidationChange"
+          >
             <option value="stop">{{ t('settings.project.errorHandling.stop') }}</option>
             <option value="continue">{{ t('settings.project.errorHandling.continue') }}</option>
             <option value="report">{{ t('settings.project.errorHandling.report') }}</option>
@@ -77,14 +83,20 @@
     <!-- 文件处理 -->
     <div class="settings-section">
       <div class="settings-section__header">
-        <div class="settings-section__title">{{ t('settings.project.fileProcessingSectionTitle') }}</div>
+        <div class="settings-section__title">
+          {{ t('settings.project.fileProcessingSectionTitle') }}
+        </div>
         <div class="settings-section__desc">{{ t('settings.project.fileProcessingHint') }}</div>
       </div>
       <div class="settings-row">
         <div class="settings-row__label">{{ t('settings.file.encoding.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.file.encoding.desc') }}</div>
         <div class="settings-row__control">
-          <select v-model="fileSettings.default_encoding" class="settings-select" @change="handleFileChange">
+          <select
+            v-model="fileSettings.default_encoding"
+            class="settings-select"
+            @change="handleFileChange"
+          >
             <option value="utf-8">UTF-8</option>
             <option value="gbk">GBK</option>
             <option value="auto">{{ t('settings.file.encoding.auto') }}</option>
@@ -95,7 +107,11 @@
         <div class="settings-row__label">{{ t('settings.file.delimiter.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.file.delimiter.desc') }}</div>
         <div class="settings-row__control">
-          <select v-model="fileSettings.csv_delimiter" class="settings-select" @change="handleFileChange">
+          <select
+            v-model="fileSettings.csv_delimiter"
+            class="settings-select"
+            @change="handleFileChange"
+          >
             <option value=",">{{ t('settings.file.delimiter.comma') }} (,)</option>
             <option value=";">{{ t('settings.file.delimiter.semicolon') }} (;)</option>
             <option value="\t">{{ t('settings.file.delimiter.tab') }} (Tab)</option>
@@ -107,7 +123,13 @@
         <div class="settings-row__label">{{ t('settings.file.delimiter.customLabel') }}</div>
         <div class="settings-row__desc"></div>
         <div class="settings-row__control">
-          <input v-model="customDelimiter" class="settings-input" type="text" maxlength="1" @change="handleFileChange" />
+          <input
+            v-model="customDelimiter"
+            class="settings-input"
+            type="text"
+            maxlength="1"
+            @change="handleFileChange"
+          />
         </div>
       </div>
     </div>

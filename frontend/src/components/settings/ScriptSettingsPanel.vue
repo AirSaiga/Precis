@@ -47,7 +47,11 @@
         <div class="settings-row__desc">{{ t('settings.script.allowEval.desc') }}</div>
         <div class="settings-row__control">
           <label class="settings-switch">
-            <input v-model="localSettings.allow_eval" type="checkbox" class="settings-switch__input" />
+            <input
+              v-model="localSettings.allow_eval"
+              type="checkbox"
+              class="settings-switch__input"
+            />
             <span class="settings-switch__track"></span>
           </label>
         </div>
@@ -57,7 +61,11 @@
         <div class="settings-row__desc">{{ t('settings.script.allowExec.desc') }}</div>
         <div class="settings-row__control">
           <label class="settings-switch">
-            <input v-model="localSettings.allow_exec" type="checkbox" class="settings-switch__input" />
+            <input
+              v-model="localSettings.allow_exec"
+              type="checkbox"
+              class="settings-switch__input"
+            />
             <span class="settings-switch__track"></span>
           </label>
         </div>
@@ -67,7 +75,11 @@
         <div class="settings-row__desc">{{ t('settings.script.sandbox.desc') }}</div>
         <div class="settings-row__control">
           <label class="settings-switch">
-            <input v-model="localSettings.sandbox_mode" type="checkbox" class="settings-switch__input" />
+            <input
+              v-model="localSettings.sandbox_mode"
+              type="checkbox"
+              class="settings-switch__input"
+            />
             <span class="settings-switch__track"></span>
           </label>
         </div>

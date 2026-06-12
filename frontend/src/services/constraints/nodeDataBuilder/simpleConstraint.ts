@@ -61,7 +61,7 @@ function buildTypeExtras(
   switch (kind) {
     case 'allowedValues':
       return {
-        allowedValues: ((params.allowed_values as unknown[]) || []),
+        allowedValues: (params.allowed_values as unknown[]) || [],
       }
 
     case 'range':
@@ -97,7 +97,7 @@ function buildTypeExtras(
       }
 
     case 'composite':
-      const subConstraints = ((params.sub_constraints as unknown[]) || [])
+      const subConstraints = (params.sub_constraints as unknown[]) || []
       return {
         logic: params.logic || 'all',
         includedNodeIds: subConstraints

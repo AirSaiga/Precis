@@ -12,7 +12,12 @@ import { triggerValidationForNode } from '@/services/constraints/orchestration/g
 import { validateConstraintNodesForSchema } from '@/services/constraints/validationRegistry'
 import { toastSuccess, toastError, toastInfo } from '@/core/toast'
 import type { AppEvents } from '@/core/eventBus'
-import type { SourcePreviewNodeData, SchemaNodeData, JsonSchemaColumn, CustomNodeData } from '../types'
+import type {
+  SourcePreviewNodeData,
+  SchemaNodeData,
+  JsonSchemaColumn,
+  CustomNodeData,
+} from '../types'
 
 /**
  * SourcePreview节点事件处理
@@ -340,7 +345,10 @@ export function useSourcePreviewEvents(
       } as unknown as JsonSchemaColumn
     })
 
-    store.updateNodeData(schemaNode.id, { ...schemaNode.data, columns: columns } as Partial<CustomNodeData>)
+    store.updateNodeData(schemaNode.id, {
+      ...schemaNode.data,
+      columns: columns,
+    } as Partial<CustomNodeData>)
   }
 
   /**
@@ -463,8 +471,7 @@ export function useSourcePreviewEvents(
           const displaySourcePath = d.fileName || displayFileName
 
           const smartTableName =
-            d.currentSheet ||
-            (d.sourceName || d.fileName || 'Table').replace(/\.[^/.]+$/, '')
+            d.currentSheet || (d.sourceName || d.fileName || 'Table').replace(/\.[^/.]+$/, '')
 
           // 检查是否已有列定义
           const existingColumns = ((schemaNode.data as Record<string, unknown>)?.columns ||

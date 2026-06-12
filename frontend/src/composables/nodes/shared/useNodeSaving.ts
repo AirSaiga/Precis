@@ -118,7 +118,12 @@ export function useNodeSaving(options: NodeSavingOptions) {
 
     return new Promise<boolean>((resolve) => {
       try {
-        const _handleSaveComplete = (detail: { nodeId: string; success: boolean; error?: string; cancelled?: boolean }) => {
+        const _handleSaveComplete = (detail: {
+          nodeId: string
+          success: boolean
+          error?: string
+          cancelled?: boolean
+        }) => {
           if (detail.nodeId === nodeId) {
             eventBus.off(saveCompleteEventName as any, _handleSaveComplete as any)
 
@@ -185,7 +190,12 @@ export function useNodeSaving(options: NodeSavingOptions) {
   /**
    * 处理DOM事件
    */
-  const handleSaveCompleteDOM = (detail: { nodeId: string; success: boolean; error?: string; cancelled?: boolean }) => {
+  const handleSaveCompleteDOM = (detail: {
+    nodeId: string
+    success: boolean
+    error?: string
+    cancelled?: boolean
+  }) => {
     handleSaveComplete(detail)
   }
 

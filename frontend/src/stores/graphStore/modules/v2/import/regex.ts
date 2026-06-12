@@ -77,9 +77,7 @@ export function createV2RegexImporter(params: {
       tableName: '',
       nodeId: resourceId,
       nodeType: 'regex',
-      columnRef: sourceRef
-        ? { ...sourceRef, columnName: resolvedColumnName }
-        : undefined,
+      columnRef: sourceRef ? { ...sourceRef, columnName: resolvedColumnName } : undefined,
       params: {
         pattern: r.pattern || '',
         description: r.description || '',

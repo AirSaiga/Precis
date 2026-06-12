@@ -684,7 +684,9 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   }
 
   let validationTimer: number | undefined
-  onBeforeUnmount(() => { if (validationTimer) clearTimeout(validationTimer) })
+  onBeforeUnmount(() => {
+    if (validationTimer) clearTimeout(validationTimer)
+  })
   /**
    * 防抖校验函数
    * 避免用户输入过程中频繁触发后端请求

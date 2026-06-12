@@ -68,10 +68,7 @@ describe('createScopeModule', () => {
         makeNode('c1', 'notNullConstraint'),
         makeNode('c2', 'uniqueConstraint'),
       ]
-      edges.value = [
-        makeEdge('e1', 's1', 'c1'),
-        makeEdge('e2', 'c1', 'c2'),
-      ]
+      edges.value = [makeEdge('e1', 's1', 'c1'), makeEdge('e2', 'c1', 'c2')]
 
       const stats = module.getSubGraphStats('s1')
       expect(stats.totalNodes).toBe(1)

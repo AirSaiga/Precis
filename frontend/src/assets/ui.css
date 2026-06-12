@@ -1464,7 +1464,9 @@
   color: var(--ui-text-body);
   font-size: var(--ui-font-size-sm);
   outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
   width: 100%;
 }
 
@@ -1494,7 +1496,9 @@
   font-size: var(--ui-font-size-sm);
   outline: none;
   cursor: pointer;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  transition:
+    border-color 0.2s,
+    box-shadow 0.2s;
   width: 100%;
 }
 

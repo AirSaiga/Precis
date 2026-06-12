@@ -101,18 +101,10 @@
   }
 
   .is-pass {
-    background: linear-gradient(
-      90deg,
-      rgba(34, 197, 94, 0.06) 0%,
-      var(--ui-bg-elevated) 60%
-    );
+    background: linear-gradient(90deg, rgba(34, 197, 94, 0.06) 0%, var(--ui-bg-elevated) 60%);
   }
   .is-warning {
-    background: linear-gradient(
-      90deg,
-      rgba(245, 158, 11, 0.08) 0%,
-      var(--ui-bg-elevated) 60%
-    );
+    background: linear-gradient(90deg, rgba(245, 158, 11, 0.08) 0%, var(--ui-bg-elevated) 60%);
   }
 
   .summary-status {
