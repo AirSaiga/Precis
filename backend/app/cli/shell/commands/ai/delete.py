@@ -40,7 +40,7 @@ class AIDeleteCommand(Command):
 
     @property
     def description(self) -> str:
-        return "删除已配置的 API Key"
+        return "删除 AI Provider"
 
     @property
     def usage(self) -> str:
@@ -53,10 +53,10 @@ class AIDeleteCommand(Command):
 
 示例:
   ai delete           # 交互式选择要删除的 Provider
-  ai delete openai   # 直接删除 OpenAI 的 API Key
+  ai delete openai   # 直接删除 OpenAI
 
 说明:
-  删除指定 Provider 的 API Key 配置。
+  删除指定的 Provider 配置。
   使用 'ai status' 查看已配置的 Provider。
         """.strip()
 
@@ -72,17 +72,14 @@ class AIDeleteCommand(Command):
         """
         providers = self._cli_config.list_providers()
 
-        # 筛选出有 API Key 的 Provider（无 Key 的不需要删除）
-        configured_providers = [p for p in providers if p.api_key]
-
-        if not configured_providers:
-            return CommandResult.error("没有已配置的 API Key\n请使用 'ai setup' 进行配置")
+        if not providers:
+            return CommandResult.error("没有已配置的 Provider\n请使用 'ai setup' 进行配置")
 
         if not args:
-            return self._interactive_delete(configured_providers)
+            return self._interactive_delete(providers)
 
         provider_id = args[0].lower()
-        return self._do_delete(provider_id, configured_providers)
+        return self._do_delete(provider_id, providers)
 
     def _interactive_delete(self, providers: list) -> CommandResult:
         """交互式删除 Provider（支持方向键导航）。
@@ -90,12 +87,12 @@ class AIDeleteCommand(Command):
         显示菜单让用户选择要删除的 Provider。
 
         Args:
-            providers: 已配置 API Key 的 Provider 列表
+            providers: 已配置的 Provider 列表
 
         Returns:
             删除结果或取消结果
         """
-        print(Formatter.header("\n删除 API Key"))
+        print(Formatter.header("\n删除 Provider"))
 
         menu = InteractiveMenu("请选择要删除的 Provider:")
 
@@ -112,14 +109,14 @@ class AIDeleteCommand(Command):
 
         return self._do_delete(provider_id, providers)
 
-    def _do_delete(self, provider_id: str, configured_providers: list) -> CommandResult:
+    def _do_delete(self, provider_id: str, providers: list) -> CommandResult:
         """执行删除操作。
 
-        验证 Provider 存在且有 API Key，然后要求用户确认后删除。
+        验证 Provider 存在，然后要求用户确认后删除。
 
         Args:
             provider_id: 要删除的 Provider ID
-            configured_providers: 已配置 API Key 的 Provider 列表
+            providers: 已配置的 Provider 列表
 
         Returns:
             删除成功或失败的结果
@@ -128,10 +125,7 @@ class AIDeleteCommand(Command):
         if not provider:
             return CommandResult.error(f"Provider '{provider_id}' 未配置\n使用 'ai status' 查看已配置的 Provider")
 
-        if not provider.api_key:
-            return CommandResult.error(f"Provider '{provider_id}' 没有配置 API Key")
-
-        print(Formatter.warning(f"\n警告: 将删除 {provider.name} 的 API Key"))
+        print(Formatter.warning(f"\n警告: 将删除 {provider.name} ({provider.id})"))
         print(Formatter.info(f"  模型: {provider.model}\n"))
 
         try:
@@ -144,7 +138,7 @@ class AIDeleteCommand(Command):
             return CommandResult.ok("已取消")
 
         if self._cli_config.delete_provider(provider_id):
-            print(Formatter.success(f"\n[*] {provider.name} 的 API Key 已删除"))
-            return CommandResult.ok("API Key 已删除")
+            print(Formatter.success(f"\n[*] {provider.name} 已删除"))
+            return CommandResult.ok("Provider 已删除")
         else:
             return CommandResult.error("删除失败")

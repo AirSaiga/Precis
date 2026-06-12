@@ -11,8 +11,7 @@
 import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
-
-const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:18000'
+import { BACKEND_URL } from '../config'
 const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
 const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
 
@@ -42,7 +41,7 @@ test.describe('Regex Creation & Validation', () => {
     }
 
     // 保存 regex 节点
-    const saveResp = await apiHelper.put(`/project/v2/regex/${regexId}`, regexNode)
+    const saveResp = await apiHelper.put(`/project/regex/${regexId}`, regexNode)
     expect(saveResp.status).toBeLessThan(300)
 
     // 验证文件存在
@@ -154,11 +153,11 @@ test.describe('Regex Creation & Validation', () => {
     }
 
     // 保存
-    const saveResp = await apiHelper.put(`/project/v2/regex/${regexId}`, regexNode)
+    const saveResp = await apiHelper.put(`/project/regex/${regexId}`, regexNode)
     expect(saveResp.status).toBeLessThan(300)
 
     // 通过全量配置加载
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     expect(loadResp.ok).toBe(true)
     const config = await loadResp.json()
     const loadedRegex = config.regex_nodes?.[regexId]
@@ -168,7 +167,7 @@ test.describe('Regex Creation & Validation', () => {
     expect(loadedRegex.match_mode).toBe('full')
 
     // 通过单个 Regex API 读取
-    const getResp = await apiHelper.get(`/project/v2/regex/${regexId}`)
+    const getResp = await apiHelper.get(`/project/regex/${regexId}`)
     expect(getResp.ok).toBe(true)
     const singleRegex = await getResp.json()
     expect(singleRegex.id).toBe(regexId)
@@ -289,7 +288,7 @@ test.describe('Regex Creation & Validation', () => {
     }
 
     // 保存
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     // 验证文件存在
@@ -299,7 +298,7 @@ test.describe('Regex Creation & Validation', () => {
     }
 
     // 重新加载验证
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     const loadedConfig = await loadResp.json()
     expect(loadedConfig.regex_nodes?.['e2e-regex-batch-1']?.name).toBe('Name Alpha Check')
     expect(loadedConfig.regex_nodes?.['e2e-regex-batch-2']?.pattern).toBe('@example\\.com$')

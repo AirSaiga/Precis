@@ -13,9 +13,9 @@
 - 单个引用更新通过 _upsert_manifest_ref 收敛为统一入口
 
 输入示例:
-    GET /v2/manifest
-    PUT /v2/manifest (body: ProjectManifestV2, query: replace=false)
-    PUT /v2/manifest/schema (body: SchemaRef)
+    GET /manifest
+    PUT /manifest (body: ProjectManifestV2, query: replace=false)
+    PUT /manifest/schema (body: SchemaRef)
 
 输出示例:
     ProjectManifestV2: 项目清单对象
@@ -134,7 +134,7 @@ def _upsert_manifest_ref(
 
 
 @router.get(
-    "/v2/manifest",
+    "/manifest",
     response_model=ManifestResponse,
     summary="读取项目 V2 清单",
     responses={
@@ -174,7 +174,7 @@ def get_v2_manifest(config_path: str = Depends(get_project_config_path)):
 
 
 @router.put(
-    "/v2/manifest",
+    "/manifest",
     response_model=StandardResponse,
     summary="写入项目 V2 清单",
     responses={
@@ -263,7 +263,7 @@ def put_v2_manifest(
 
 
 @router.put(
-    "/v2/manifest/schema",
+    "/manifest/schema",
     response_model=StandardResponse,
     summary="更新 manifest 中单个 Schema 引用",
     responses={
@@ -291,7 +291,7 @@ def update_manifest_schema_ref(schema_ref: SchemaRef, config_path: str = Depends
 
 
 @router.put(
-    "/v2/manifest/constraint",
+    "/manifest/constraint",
     response_model=StandardResponse,
     summary="更新 manifest 中单个 Constraint 引用",
     responses={
@@ -319,7 +319,7 @@ def update_manifest_constraint_ref(constraint_ref: ConstraintRef, config_path: s
 
 
 @router.put(
-    "/v2/manifest/regex",
+    "/manifest/regex",
     response_model=StandardResponse,
     summary="更新 manifest 中单个 Regex 引用",
     responses={
@@ -347,7 +347,7 @@ def update_manifest_regex_ref(regex_ref: RegexRef, config_path: str = Depends(ge
 
 
 @router.put(
-    "/v2/manifest/template-instance",
+    "/manifest/template-instance",
     response_model=StandardResponse,
     summary="更新 manifest 中单个 Template Instance 引用",
     responses={
@@ -400,7 +400,7 @@ def update_manifest_template_instance_ref(
 
 
 @router.post(
-    "/v2/manifest/constraint/deduplicate",
+    "/manifest/constraint/deduplicate",
     response_model=StandardResponse,
     summary="去重 manifest 中的 Constraint 引用",
     responses={

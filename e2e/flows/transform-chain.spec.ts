@@ -68,7 +68,7 @@ test.describe('Transform Chain E2E', () => {
       },
     }
 
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     const transformPath = path.join(projectPath, 'transforms', 't-split-name.transform.yaml')
@@ -117,10 +117,10 @@ test.describe('Transform Chain E2E', () => {
       },
     }
 
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     expect(loadResp.status).toBeLessThan(300)
     const loaded = await loadResp.json()
 
@@ -180,10 +180,10 @@ test.describe('Transform Chain E2E', () => {
       },
     }
 
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     expect(loadResp.status).toBeLessThan(300)
     const loaded = await loadResp.json()
 

@@ -147,7 +147,7 @@ def _update_refs_field(refs: dict[str, Any], field: str, key: str, old_value: st
 
 
 @router.post(
-    "/v2/inspection/fix-table-ref",
+    "/inspection/fix-table-ref",
     response_model=StandardResponse,
     summary="修复约束中的表引用",
 )
@@ -175,7 +175,7 @@ def fix_table_ref(
 
 
 @router.post(
-    "/v2/inspection/fix-column-ref",
+    "/inspection/fix-column-ref",
     response_model=StandardResponse,
     summary="修复约束中的列引用",
 )
@@ -213,7 +213,7 @@ def fix_column_ref(
 
 
 @router.post(
-    "/v2/inspection/fix-regex-table-ref",
+    "/inspection/fix-regex-table-ref",
     response_model=StandardResponse,
     summary="修复正则节点的表引用",
 )
@@ -241,7 +241,7 @@ def fix_regex_table_ref(
 
 
 @router.post(
-    "/v2/inspection/fix-regex-column-ref",
+    "/inspection/fix-regex-column-ref",
     response_model=StandardResponse,
     summary="修复正则节点的列引用",
 )
@@ -271,7 +271,7 @@ def fix_regex_column_ref(
 
 
 @router.post(
-    "/v2/manifest/fix-id-mismatch",
+    "/manifest/fix-id-mismatch",
     response_model=StandardResponse,
     summary="修复 manifest 中的 ID 不一致",
 )

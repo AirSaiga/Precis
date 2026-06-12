@@ -12,7 +12,7 @@
 - 返回结果包含错误列表、通过项、统计信息与 coverage 报告
 
 输入示例:
-    POST /v2/validate/full (body: FullValidationRequest)
+    POST /validate/full (body: FullValidationRequest)
 
 输出示例:
     FullValidationResponse: {
@@ -50,7 +50,7 @@ router = APIRouter(prefix="", tags=["Project-Validation"])
 
 
 @router.post(
-    "/v2/validate/full",
+    "/validate/full",
     response_model=FullValidationResponse,
     summary="执行项目全量数据校验",
     responses={

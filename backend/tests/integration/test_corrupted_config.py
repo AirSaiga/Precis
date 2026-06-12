@@ -69,14 +69,14 @@ class TestCorruptManifest:
             tmp_path,
             "this: is: not: valid: yaml: : :",
         )
-        resp = client.get("/api/v1/project/v2/manifest", headers={"X-Project-Config-Path": project})
+        resp = client.get("/api/latest/project/manifest", headers={"X-Project-Config-Path": project})
         # 完全损坏的 YAML 应该返回 500（服务器内部错误），关键是不要崩溃
         assert resp.status_code == 500
 
     def test_empty_manifest_returns_404(self, client, tmp_path):
         """空的 project.precis.yaml 应返回 '项目配置为空' 或文件未找到类错误。"""
         project = _create_minimal_project(tmp_path, "")
-        resp = client.get("/api/v1/project/v2/manifest", headers={"X-Project-Config-Path": project})
+        resp = client.get("/api/latest/project/manifest", headers={"X-Project-Config-Path": project})
         # 空文件无法解析，返回 404 或 500 均可接受，关键是不要崩溃
         assert resp.status_code in (404, 500)
         detail = resp.json().get("detail", "")
@@ -106,7 +106,7 @@ id: broken_schema
             },
         )
 
-        resp = client.get("/api/v1/project/v2/manifest", headers={"X-Project-Config-Path": project})
+        resp = client.get("/api/latest/project/manifest", headers={"X-Project-Config-Path": project})
         # manifest 本身可读，返回 200
         assert resp.status_code == 200
 
@@ -183,7 +183,7 @@ class TestCorruptViewFile:
     """project.view.json 损坏场景"""
 
     def test_corrupt_view_file_returns_500(self, client, tmp_path):
-        """project.view.json 损坏时，GET /v2/view 返回 500，前端可降级处理。"""
+        """project.view.json 损坏时，GET /project/view 返回 500，前端可降级处理。"""
         project = _create_minimal_project(
             tmp_path,
             """version: 2
@@ -198,7 +198,7 @@ schemas: []
         with open(view_path, "w", encoding="utf-8") as f:
             f.write("this is not valid json {{")
 
-        resp = client.get("/api/v1/project/v2/view", headers={"X-Project-Config-Path": project})
+        resp = client.get("/api/latest/project/view", headers={"X-Project-Config-Path": project})
         # 当前实现返回 500，这是预期行为（前端可捕获并降级）
         assert resp.status_code == 500
         detail = resp.json().get("detail", "")

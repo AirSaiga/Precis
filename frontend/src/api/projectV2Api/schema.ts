@@ -12,7 +12,7 @@ export async function getV2Schema(
   configPath?: string
 ): Promise<TableSchemaFileV2> {
   const { data } = await apiClient.get<TableSchemaFileV2>(
-    `/project/v2/schemas/${encodeURIComponent(tableId)}`,
+    `/project/schemas/${encodeURIComponent(tableId)}`,
     withConfigPathHeader(configPath)
   )
   return data
@@ -24,7 +24,7 @@ export async function putV2Schema(
   configPath?: string,
   mode: SchemaSaveMode = 'overwrite'
 ): Promise<void> {
-  await apiClient.put(`/project/v2/schemas/${encodeURIComponent(tableId)}`, schema, {
+  await apiClient.put(`/project/schemas/${encodeURIComponent(tableId)}`, schema, {
     params: { mode },
     ...(configPath ? { headers: { 'X-Project-Config-Path': configPath } } : {}),
   })
@@ -36,7 +36,7 @@ export async function checkSchemaConflict(
   configPath?: string
 ): Promise<SchemaConflictInfo> {
   const { data } = await apiClient.post<SchemaConflictInfo>(
-    `/project/v2/schemas/${encodeURIComponent(tableId)}/check-conflict`,
+    `/project/schemas/${encodeURIComponent(tableId)}/check-conflict`,
     newSchema,
     withConfigPathHeader(configPath)
   )
@@ -45,7 +45,7 @@ export async function checkSchemaConflict(
 
 export async function deleteV2Schema(tableId: string, configPath?: string): Promise<void> {
   await apiClient.delete(
-    `/project/v2/schemas/${encodeURIComponent(tableId)}`,
+    `/project/schemas/${encodeURIComponent(tableId)}`,
     withConfigPathHeader(configPath)
   )
 }
@@ -56,7 +56,7 @@ export async function updateV2SchemaDisplayName(
   configPath?: string
 ): Promise<void> {
   await apiClient.post(
-    `/project/v2/schemas/${encodeURIComponent(tableId)}/display-name`,
+    `/project/schemas/${encodeURIComponent(tableId)}/display-name`,
     { name },
     withConfigPathHeader(configPath)
   )

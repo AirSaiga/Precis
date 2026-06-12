@@ -20,7 +20,7 @@ from app.shared.services.validation.history import (
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/v2/validation/history", tags=["validation-history"])
+router = APIRouter(prefix="/validation/history", tags=["validation-history"])
 
 
 def _get_store(project_path: str) -> ValidationHistoryStore:

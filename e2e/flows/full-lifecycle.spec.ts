@@ -15,19 +15,18 @@
 import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
-
-const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:18000'
+import { BACKEND_URL } from '../config'
 const QA_PROJECT_PATH = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_v3_complex')
 
 // 辅助函数：向后端发起带 project path 的请求
 async function apiGet(endpoint: string): Promise<Response> {
-  return fetch(`${BACKEND_URL}/api/v1${endpoint}`, {
+  return fetch(`${BACKEND_URL}/api/latest${endpoint}`, {
     headers: { 'X-Project-Config-Path': QA_PROJECT_PATH },
   })
 }
 
 async function apiPost(endpoint: string, body: unknown): Promise<Response> {
-  return fetch(`${BACKEND_URL}/api/v1${endpoint}`, {
+  return fetch(`${BACKEND_URL}/api/latest${endpoint}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -38,7 +37,7 @@ async function apiPost(endpoint: string, body: unknown): Promise<Response> {
 }
 
 async function apiPut(endpoint: string, body: unknown): Promise<Response> {
-  return fetch(`${BACKEND_URL}/api/v1${endpoint}`, {
+  return fetch(`${BACKEND_URL}/api/latest${endpoint}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -65,7 +64,7 @@ test.beforeAll(() => {
 // ============================================================================
 test.describe('Stage 1 — 项目加载', () => {
   test('manifest 包含所有 schema 引用', async () => {
-    const resp = await apiGet('/project/v2/manifest')
+    const resp = await apiGet('/project/manifest')
     expect(resp.status).toBeLessThan(300)
 
     const manifest = await resp.json()
@@ -129,14 +128,14 @@ test.describe('Stage 1 — 项目加载', () => {
 // ============================================================================
 test.describe('Stage 2 — 资源导入', () => {
   test('导入 users Schema 并验证内嵌约束', async () => {
-    const manifestResp = await apiGet('/project/v2/manifest')
+    const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
     const usersSchemaRef = manifest.schemas.find((s: { id: string }) =>
       s.id === 'sc_FQArF182DRtAAw8NHUIFTB0FAgYWBgAWWlUaQhwdARIJGx0'
     )
     expect(usersSchemaRef).toBeDefined()
 
-    const schemaResp = await apiGet(`/project/v2/schemas/${usersSchemaRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${usersSchemaRef.id}`)
     expect(schemaResp.status).toBeLessThan(300)
 
     const schema = await schemaResp.json()
@@ -155,14 +154,14 @@ test.describe('Stage 2 — 资源导入', () => {
   })
 
   test('导入 customers Schema 并验证列映射', async () => {
-    const manifestResp = await apiGet('/project/v2/manifest')
+    const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
     const customersRef = manifest.schemas.find((s: { id: string }) =>
       s.id === 'sc_FQArF182DRtAAw8NHUIFTB0FAhAQEAYKGUgEQkoCBxcQChsHWRwODRce'
     )
     expect(customersRef).toBeDefined()
 
-    const schemaResp = await apiGet(`/project/v2/schemas/${customersRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${customersRef.id}`)
     expect(schemaResp.status).toBeLessThan(300)
 
     const schema = await schemaResp.json()
@@ -181,13 +180,13 @@ test.describe('Stage 2 — 资源导入', () => {
   })
 
   test('关联 Regex 可通过 V2 API 获取', async () => {
-    const manifestResp = await apiGet('/project/v2/manifest')
+    const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
     const regexIds = manifest.regex_nodes.map((r: { id: string }) => r.id)
 
     // 验证至少第一个 regex 可获取
     const firstRegexId = regexIds[0]
-    const regexResp = await apiGet(`/project/v2/regex/${firstRegexId}`)
+    const regexResp = await apiGet(`/project/regex/${firstRegexId}`)
     expect(regexResp.status).toBeLessThan(300)
 
     const regex = await regexResp.json()
@@ -197,14 +196,14 @@ test.describe('Stage 2 — 资源导入', () => {
   })
 
   test('导入 categories Schema 并验证 Range 约束参数', async () => {
-    const manifestResp = await apiGet('/project/v2/manifest')
+    const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
     const catRef = manifest.schemas.find((s: { id: string }) =>
       s.id === 'sc_FQArF182DRtAAw8NHUIFTB0FAhAEFxcCG18fVBdPFxIaFQ0VWRYEBxcEBF4'
     )
     expect(catRef).toBeDefined()
 
-    const schemaResp = await apiGet(`/project/v2/schemas/${catRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${catRef.id}`)
     const schema = await schemaResp.json()
 
     const constraints = schema.constraints || []
@@ -219,14 +218,14 @@ test.describe('Stage 2 — 资源导入', () => {
   })
 
   test('导入 JSON Schema（inventory）并验证嵌套源', async () => {
-    const manifestResp = await apiGet('/project/v2/manifest')
+    const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
     const jsonRef = manifest.schemas.find((s: { id: string }) =>
       s.id === 'sc_JSON_Inventory_001'
     )
     expect(jsonRef).toBeDefined()
 
-    const schemaResp = await apiGet(`/project/v2/schemas/${jsonRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${jsonRef.id}`)
     expect(schemaResp.status).toBeLessThan(300)
 
     const schema = await schemaResp.json()
@@ -264,7 +263,7 @@ test.describe('Stage 3 — 数据源绑定', () => {
   })
 
   test('验证 Schema source 路径对应的数据文件存在', async () => {
-    const manifestResp = await apiGet('/project/v2/manifest')
+    const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
 
     // 检查 orders-csv schema 指向 data/orders.csv
@@ -273,7 +272,7 @@ test.describe('Stage 3 — 数据源绑定', () => {
     )
     expect(ordersRef).toBeDefined()
 
-    const schemaResp = await apiGet(`/project/v2/schemas/${ordersRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${ordersRef.id}`)
     const schema = await schemaResp.json()
     expect(schema.source).toBeDefined()
     expect(schema.source.path).toBeTruthy()
@@ -301,7 +300,7 @@ test.describe('Stage 3 — 数据源绑定', () => {
 // ============================================================================
 test.describe('Stage 4 — 校验执行', () => {
   test('全量校验触发成功并返回结构化结果', async () => {
-    const resp = await apiPost('/project/v2/validate/full', {})
+    const resp = await apiPost('/project/validate/full', {})
     expect(resp.status).toBeLessThan(300)
 
     const result = await resp.json()
@@ -316,7 +315,7 @@ test.describe('Stage 4 — 校验执行', () => {
   })
 
   test('校验结果中的错误包含阶段分类', async () => {
-    const resp = await apiPost('/project/v2/validate/full', {})
+    const resp = await apiPost('/project/validate/full', {})
     const result = await resp.json()
 
     for (const err of result.errors) {
@@ -328,7 +327,7 @@ test.describe('Stage 4 — 校验执行', () => {
   })
 
   test('employees Schema 校验不崩溃', async () => {
-    const manifestResp = await apiGet('/project/v2/manifest')
+    const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
     const empRef = manifest.schemas.find((s: { id: string }) =>
       s.id === 'sc_FQArF182DRtAAw8NHUIFTB0FAhYIEx4KDUgTQkoCBxcQDAMEQRwaDQAe'
@@ -336,7 +335,7 @@ test.describe('Stage 4 — 校验执行', () => {
     expect(empRef).toBeDefined()
 
     // 单独获取 schema 验证其结构完整
-    const schemaResp = await apiGet(`/project/v2/schemas/${empRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${empRef.id}`)
     const schema = await schemaResp.json()
     expect(schema.columns.length).toBe(11)
 
@@ -346,14 +345,14 @@ test.describe('Stage 4 — 校验执行', () => {
   })
 
   test('order_items Schema 校验 Range 参数正确', async () => {
-    const manifestResp = await apiGet('/project/v2/manifest')
+    const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
     const oiRef = manifest.schemas.find((s: { id: string }) =>
       s.id === 'sc_FQArF182DRtAAw8NHUIFTB0FAhwXBxcXK0QCVAkSWgIfHxIbXxcGGjoEFUgEFw'
     )
     expect(oiRef).toBeDefined()
 
-    const schemaResp = await apiGet(`/project/v2/schemas/${oiRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${oiRef.id}`)
     const schema = await schemaResp.json()
     const rangeConstraints = (schema.constraints || []).filter(
       (c: { type: string }) => c.type === 'Range'
@@ -363,7 +362,7 @@ test.describe('Stage 4 — 校验执行', () => {
   })
 
   test('全量校验 summary 与 errors 列表一致性', async () => {
-    const resp = await apiPost('/project/v2/validate/full', {})
+    const resp = await apiPost('/project/validate/full', {})
     const result = await resp.json()
 
     const actualLoading = result.errors.filter((e: { stage: string }) => e.stage === 'loading').length
@@ -382,7 +381,7 @@ test.describe('Stage 4 — 校验执行', () => {
 // ============================================================================
 test.describe('Stage 5 — 保存 Roundtrip', () => {
   test('完整配置加载并解析为有效结构', async () => {
-    const loadResp = await apiGet('/project/v2/config/full')
+    const loadResp = await apiGet('/project/config/full')
     expect(loadResp.status).toBeLessThan(300)
 
     const config = await loadResp.json()
@@ -403,10 +402,10 @@ test.describe('Stage 5 — 保存 Roundtrip', () => {
 
   test('Schema 文件重读与初始加载一致', async () => {
     // 通过全量配置获取 schema
-    const configResp = await apiGet('/project/v2/config/full')
+    const configResp = await apiGet('/project/config/full')
     const config = await configResp.json()
 
-    const manifestResp = await apiGet('/project/v2/manifest')
+    const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
 
     const firstSchemaRef = manifest.schemas[0]
@@ -414,7 +413,7 @@ test.describe('Stage 5 — 保存 Roundtrip', () => {
     expect(schemaInConfig).toBeDefined()
 
     // 通过单个 API 读取
-    const singleResp = await apiGet(`/project/v2/schemas/${firstSchemaRef.id}`)
+    const singleResp = await apiGet(`/project/schemas/${firstSchemaRef.id}`)
     const singleSchema = await singleResp.json()
 
     // 列数应一致
@@ -422,7 +421,7 @@ test.describe('Stage 5 — 保存 Roundtrip', () => {
   })
 
   test('Regex 文件通过全量配置重读完整性', async () => {
-    const configResp = await apiGet('/project/v2/config/full')
+    const configResp = await apiGet('/project/config/full')
     const config = await configResp.json()
 
     for (const [regexId, regexData] of Object.entries(config.regex_nodes || {})) {
@@ -433,7 +432,7 @@ test.describe('Stage 5 — 保存 Roundtrip', () => {
   })
 
   test('project.view.json 可读且格式正确', async () => {
-    const viewResp = await apiGet('/project/v2/view')
+    const viewResp = await apiGet('/project/view')
     // view 可能存在也可能不存在（取决于后端实现）
     if (viewResp.ok) {
       const view = await viewResp.json()
@@ -449,11 +448,11 @@ test.describe('Stage 5 — 保存 Roundtrip', () => {
 // ============================================================================
 test.describe('Stage 6 — 错误导航', () => {
   test('所有 schema 资源可通过 getV2Schema 访问', async () => {
-    const manifestResp = await apiGet('/project/v2/manifest')
+    const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
 
     for (const schemaRef of manifest.schemas) {
-      const schemaResp = await apiGet(`/project/v2/schemas/${schemaRef.id}`)
+      const schemaResp = await apiGet(`/project/schemas/${schemaRef.id}`)
       expect(schemaResp.status).toBeLessThan(300)
 
       const schema = await schemaResp.json()
@@ -465,12 +464,12 @@ test.describe('Stage 6 — 错误导航', () => {
   })
 
   test('不存在的 schema 返回 404（navigator 降级路径）', async () => {
-    const resp = await apiGet('/project/v2/schemas/sc_nonexistent_abcdef')
+    const resp = await apiGet('/project/schemas/sc_nonexistent_abcdef')
     expect(resp.status).toBe(404)
   })
 
   test('校验错误应包含导航所需字段', async () => {
-    const resp = await apiPost('/project/v2/validate/full', {})
+    const resp = await apiPost('/project/validate/full', {})
     const result = await resp.json()
 
     const constraintErrors = result.errors.filter(
@@ -486,11 +485,11 @@ test.describe('Stage 6 — 错误导航', () => {
   })
 
   test('所有 regex 资源可通过 getV2Regex 访问', async () => {
-    const manifestResp = await apiGet('/project/v2/manifest')
+    const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
 
     for (const regexRef of manifest.regex_nodes) {
-      const regexResp = await apiGet(`/project/v2/regex/${regexRef.id}`)
+      const regexResp = await apiGet(`/project/regex/${regexRef.id}`)
       expect(regexResp.status).toBeLessThan(300)
 
       const regex = await regexResp.json()
@@ -550,7 +549,7 @@ test.describe('综合 — 完整性验证', () => {
   })
 
   test('项目完整配置可被加载并包含所有必需端', async () => {
-    const configResp = await apiGet('/project/v2/config/full')
+    const configResp = await apiGet('/project/config/full')
     const config = await configResp.json()
 
     // 验证全量配置包含所有 section

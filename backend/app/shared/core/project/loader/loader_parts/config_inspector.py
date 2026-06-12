@@ -183,7 +183,7 @@ def _build_id_mismatch_loading_error(
         },
         fix_api={
             "method": "POST",
-            "path": "/project/v2/manifest/fix-id-mismatch",
+            "path": "/project/manifest/fix-id-mismatch",
             "body": {"resource_type": resource_type, "manifest_id": manifest_id, "file_id": file_id},
         },
     )
@@ -260,7 +260,7 @@ def inspect_id_consistency(
                         },
                         fix_api={
                             "method": "POST",
-                            "path": "/project/v2/manifest/constraint/deduplicate",
+                            "path": "/project/manifest/constraint/deduplicate",
                         },
                     )
                 )
@@ -351,7 +351,7 @@ def _check_table_missing(
             },
             fix_api={
                 "method": "POST",
-                "path": "/project/v2/inspection/fix-table-ref",
+                "path": "/project/inspection/fix-table-ref",
                 "body": {"constraint_id": constraint_id, "field": error_prefix.split(":")[0], "old_table_id": table_id},
             },
         )
@@ -410,7 +410,7 @@ def _check_column_missing(
             },
             fix_api={
                 "method": "POST",
-                "path": "/project/v2/inspection/fix-column-ref",
+                "path": "/project/inspection/fix-column-ref",
                 "body": {
                     "constraint_id": constraint_id,
                     "field": error_prefix.split(":")[0],
@@ -644,7 +644,7 @@ def inspect_regex_reference_integrity(
                     },
                     fix_api={
                         "method": "POST",
-                        "path": "/project/v2/inspection/fix-regex-table-ref",
+                        "path": "/project/inspection/fix-regex-table-ref",
                         "body": {"regex_id": regex_id, "old_table_id": table_id},
                     },
                 )
@@ -688,7 +688,7 @@ def inspect_regex_reference_integrity(
                     },
                     fix_api={
                         "method": "POST",
-                        "path": "/project/v2/inspection/fix-regex-column-ref",
+                        "path": "/project/inspection/fix-regex-column-ref",
                         "body": {
                             "regex_id": regex_id,
                             "table_id": table_id,

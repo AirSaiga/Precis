@@ -12,8 +12,8 @@
 - 通过 _v2_view_path 统一计算视图文件路径
 
 输入示例:
-    GET /v2/view
-    PUT /v2/view (body: ProjectViewV2Model)
+    GET /view
+    PUT /view (body: ProjectViewV2Model)
 
 输出示例:
     ProjectViewV2Model: {version, nodes, viewport}
@@ -40,7 +40,7 @@ router = APIRouter(prefix="", tags=["Project-View"])
 
 
 @router.get(
-    "/v2/view",
+    "/view",
     response_model=ProjectViewV2Model,
     summary="获取项目画布视图",
     responses={
@@ -82,7 +82,7 @@ def get_v2_project_view(config_path: str = Depends(get_project_config_path)) -> 
 
 
 @router.put(
-    "/v2/view",
+    "/view",
     response_model=StandardResponse,
     summary="更新项目画布视图",
     responses={

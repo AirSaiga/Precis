@@ -12,8 +12,7 @@
 import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
-
-const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:18000'
+import { BACKEND_URL } from '../config'
 const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
 const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
 
@@ -25,7 +24,7 @@ test.beforeAll(() => {
 
 test.describe('Schema Import → Bind Data Source → Validate', () => {
   test('读取已有 Schema 并验证列信息', async ({ apiHelper }) => {
-    const resp = await apiHelper.get('/v2/schemas/users')
+    const resp = await apiHelper.get('/schemas/users')
     if (!resp.ok) {
       test.skip(true, 'Schema "users" 不存在，可能被其他测试修改')
       return
@@ -80,7 +79,7 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
     }
 
     // 保存
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     // 验证文件存在
@@ -88,7 +87,7 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
     expect(fs.existsSync(schemaPath)).toBe(true)
 
     // 重新加载
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     const loadedConfig = await loadResp.json()
     const schema = loadedConfig.schemas?.[schemaId]
     expect(schema).toBeDefined()
@@ -99,7 +98,7 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
     expect(columnNames).toContain('phone')
 
     // 通过单个 Schema API 读取
-    const schemaResp = await apiHelper.get(`/v2/schemas/${schemaId}`)
+    const schemaResp = await apiHelper.get(`/schemas/${schemaId}`)
     if (!schemaResp.ok) {
       test.skip(true, `Schema ${schemaId} 单独读取失败`)
       return
@@ -182,11 +181,11 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
     }
 
     // 保存完整配置
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     // 验证配置加载
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     const loadedConfig = await loadResp.json()
     expect(loadedConfig.schemas?.[schemaId]).toBeDefined()
     expect(loadedConfig.constraints?.[constraintId]).toBeDefined()
@@ -246,18 +245,18 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
       },
     }
 
-    const saveResp1 = await apiHelper.put('/project/v2/config/full', fullConfig1)
+    const saveResp1 = await apiHelper.put('/project/config/full', fullConfig1)
     expect(saveResp1.status).toBeLessThan(300)
 
     // 第二版：修改列名 name → full_name
     const fullConfig2 = JSON.parse(JSON.stringify(fullConfig1))
     fullConfig2.schemas[schemaId].columns[1].name = 'full_name'
 
-    const saveResp2 = await apiHelper.put('/project/v2/config/full', fullConfig2)
+    const saveResp2 = await apiHelper.put('/project/config/full', fullConfig2)
     expect(saveResp2.status).toBeLessThan(300)
 
     // 重新加载验证修改已持久化
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     const loadedConfig = await loadResp.json()
     const columns = loadedConfig.schemas?.[schemaId]?.columns
     expect(columns).toBeDefined()

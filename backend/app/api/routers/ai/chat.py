@@ -36,7 +36,6 @@ from fastapi import Header, HTTPException
 from fastapi.responses import StreamingResponse
 
 from ....shared.services.ai.chat_orchestrator import execute_ai_chat_unified
-from ....shared.services.ai.types import ProviderConfig
 from ....shared.services.llm.config import loader
 from ....shared.services.llm.providers import ChatMessage, ChatRequest, create
 from .models import AiChatRequest, AiChatResponse, ChatRequestInput
@@ -81,22 +80,6 @@ async def chat(request: AiChatRequest, x_project_config_path: Optional[str] = He
     if not provider_cfg:
         raise HTTPException(404, detail=f"Provider not found: {provider_id}")
 
-    # 提取 api_key，兼容 SecretStr
-    api_key_val = (
-        provider_cfg.api_key.get_secret_value()
-        if hasattr(provider_cfg.api_key, "get_secret_value")
-        else provider_cfg.api_key
-    )
-
-    # 构建 ProviderConfig 给编排器
-    provider_config = ProviderConfig(
-        id=provider_cfg.id,
-        provider=provider_cfg.type,
-        api_key=api_key_val,
-        base_url=provider_cfg.base_url,
-        model=provider_cfg.model,
-    )
-
     # 转换上下文节点（将 Pydantic 模型转为字典）
     context_nodes = [node.model_dump() for node in request.context.selectedNodes]
 
@@ -108,7 +91,7 @@ async def chat(request: AiChatRequest, x_project_config_path: Optional[str] = He
         result = await execute_ai_chat_unified(
             message=request.message,
             project_path=x_project_config_path,
-            provider_config=provider_config,
+            provider=provider_cfg,
             context_nodes=context_nodes,
             history=history,
         )

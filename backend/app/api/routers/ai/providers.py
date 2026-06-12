@@ -40,7 +40,7 @@ from typing import Optional
 from fastapi import HTTPException
 
 from ....shared.services.llm.config import loader
-from ....shared.services.llm.config.models import AIProvider, ProviderType
+from ....shared.services.llm.config.models import AIProvider, DeploymentType, ProviderType
 from ....shared.services.llm.config.presets import get_preset_list
 from ....shared.services.llm.discovery import scanner
 from ....shared.services.llm.providers import create
@@ -60,18 +60,12 @@ from .router import router
 def _is_configured(p: AIProvider) -> bool:
     """判断 Provider 是否已配置。
 
-    - 远程 Provider（OPENAI 等）：需要有效的 API Key
-    - 本地 Provider（OLLAMA 等）：不需要 API Key，base_url 即可
+    loader.load() 已完成 env-var 覆盖，直接检查 api_key 即可。
+    本地 Provider（Ollama）不需要 API Key。
     """
-    # 本地部署（Ollama 或 localhost 地址）不需要 API Key
-    is_local = p.type == ProviderType.OLLAMA or (
-        p.base_url and any(h in p.base_url for h in ["localhost", "127.0.0.1", "0.0.0.0", "::1"])
-    )
-    if is_local:
+    if p.deployment == DeploymentType.LOCAL:
         return bool(p.base_url)
-
-    # 远程 Provider 需要有效的 API Key
-    return bool(p.api_key and p.api_key.strip() and not p.api_key.startswith("${"))
+    return bool(p.api_key and p.api_key.strip())
 
 
 def _get_type_str(p: AIProvider) -> str:

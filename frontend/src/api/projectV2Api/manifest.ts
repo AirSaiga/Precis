@@ -12,7 +12,7 @@ import { withConfigPathHeader } from './shared'
  */
 export async function getV2Manifest(configPath?: string): Promise<ProjectManifestV2> {
   const { data } = await apiClient.get<ProjectManifestV2>(
-    '/project/v2/manifest',
+    '/project/manifest',
     withConfigPathHeader(configPath)
   )
   return data
@@ -29,7 +29,7 @@ export async function putV2Manifest(
   replace?: boolean
 ): Promise<void> {
   try {
-    await apiClient.put('/project/v2/manifest', manifest, {
+    await apiClient.put('/project/manifest', manifest, {
       ...(configPath ? { headers: { 'X-Project-Config-Path': configPath } } : {}),
       ...(replace ? { params: { replace: true } } : {}),
     })
@@ -56,7 +56,7 @@ export async function updateV2ManifestSchemaRef(
 ): Promise<void> {
   try {
     await apiClient.put(
-      '/project/v2/manifest/schema',
+      '/project/manifest/schema',
       schemaRef,
       withConfigPathHeader(configPath)
     )
@@ -83,7 +83,7 @@ export async function updateV2ManifestConstraintRef(
 ): Promise<void> {
   try {
     await apiClient.put(
-      '/project/v2/manifest/constraint',
+      '/project/manifest/constraint',
       constraintRef,
       withConfigPathHeader(configPath)
     )
@@ -110,7 +110,7 @@ export async function updateV2ManifestRegexRef(
 ): Promise<void> {
   try {
     await apiClient.put(
-      '/project/v2/manifest/regex',
+      '/project/manifest/regex',
       regexRef,
       withConfigPathHeader(configPath)
     )
@@ -137,7 +137,7 @@ export async function updateV2ManifestTransformRef(
 ): Promise<void> {
   try {
     await apiClient.put(
-      '/project/v2/manifest/transform',
+      '/project/manifest/transform',
       transformRef,
       withConfigPathHeader(configPath)
     )

@@ -30,9 +30,9 @@ import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
+import { BACKEND_URL } from '../config'
 
 const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
-const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:18000'
 
 test.beforeAll(() => {
   if (!fs.existsSync(projectPath)) {
@@ -267,7 +267,7 @@ test.describe('SchemaResourceSync E2E', () => {
     test('getV2FullConfig 返回完整数据，包含所有独立约束', async ({ apiHelper }) => {
       const project = createResourceSyncProject('full_config', 'sc_users_sync', 'sc_other')
       try {
-        const resp = await fetch(`${BACKEND_URL}/api/v1/project/v2/config/full`, {
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/config/full`, {
           headers: { 'X-Project-Config-Path': project },
         })
         expect(resp.ok).toBe(true)
@@ -287,7 +287,7 @@ test.describe('SchemaResourceSync E2E', () => {
     test('过滤出 refs.table_id 指向 primary schema 的约束（2 个）', async ({ apiHelper }) => {
       const project = createResourceSyncProject('filter_indep', 'sc_users_sync', 'sc_other')
       try {
-        const resp = await fetch(`${BACKEND_URL}/api/v1/project/v2/config/full`, {
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/config/full`, {
           headers: { 'X-Project-Config-Path': project },
         })
         const fullConfig = await resp.json()
@@ -304,7 +304,7 @@ test.describe('SchemaResourceSync E2E', () => {
     test('过滤出 refs.table_id 指向 other schema 的约束（1 个）', async ({ apiHelper }) => {
       const project = createResourceSyncProject('filter_other', 'sc_users_sync', 'sc_other')
       try {
-        const resp = await fetch(`${BACKEND_URL}/api/v1/project/v2/config/full`, {
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/config/full`, {
           headers: { 'X-Project-Config-Path': project },
         })
         const fullConfig = await resp.json()
@@ -319,7 +319,7 @@ test.describe('SchemaResourceSync E2E', () => {
     test('每个匹配的约束都能通过 V2 单个约束 API 加载', async ({ apiHelper }) => {
       const project = createResourceSyncProject('load_indep', 'sc_users_sync', 'sc_other')
       try {
-        const resp = await fetch(`${BACKEND_URL}/api/v1/project/v2/config/full`, {
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/config/full`, {
           headers: { 'X-Project-Config-Path': project },
         })
         const fullConfig = await resp.json()
@@ -329,10 +329,10 @@ test.describe('SchemaResourceSync E2E', () => {
         // 对每个匹配的约束，验证单个 API 加载成功
         for (const constraintId of matching) {
           const constraintResp = await fetch(
-            `${BACKEND_URL}/api/v1/project/v2/constraints/${constraintId}`,
+            `${BACKEND_URL}/api/latest/project/constraints/${constraintId}`,
             { headers: { 'X-Project-Config-Path': project } }
           )
-          // 注：API 路径是 /v2/constraints/{id}（不通过 fullConfig 路径前缀）
+          // 注：API 路径是 /project/constraints/{id}（不通过 fullConfig 路径前缀）
           // 实际可能返回 404 或 200，取决于路由实现
           // 我们只验证：若返回 200，则数据完整
           if (constraintResp.ok) {
@@ -349,7 +349,7 @@ test.describe('SchemaResourceSync E2E', () => {
     test('当没有匹配约束时返回空数组（不报错）', async ({ apiHelper }) => {
       const project = createResourceSyncProject('no_match', 'sc_users_sync', 'sc_other')
       try {
-        const resp = await fetch(`${BACKEND_URL}/api/v1/project/v2/config/full`, {
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/config/full`, {
           headers: { 'X-Project-Config-Path': project },
         })
         const fullConfig = await resp.json()
@@ -366,7 +366,7 @@ test.describe('SchemaResourceSync E2E', () => {
     test('getV2FullConfig 返回所有 regex_nodes', async ({ apiHelper }) => {
       const project = createResourceSyncProject('regex_full', 'sc_users_sync', 'sc_other')
       try {
-        const resp = await fetch(`${BACKEND_URL}/api/v1/project/v2/config/full`, {
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/config/full`, {
           headers: { 'X-Project-Config-Path': project },
         })
         const fullConfig = await resp.json()
@@ -385,7 +385,7 @@ test.describe('SchemaResourceSync E2E', () => {
     test('过滤出 source_ref.table_id 指向 primary schema 的正则（2 个）', async ({ apiHelper }) => {
       const project = createResourceSyncProject('regex_filter', 'sc_users_sync', 'sc_other')
       try {
-        const resp = await fetch(`${BACKEND_URL}/api/v1/project/v2/config/full`, {
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/config/full`, {
           headers: { 'X-Project-Config-Path': project },
         })
         const fullConfig = await resp.json()
@@ -402,7 +402,7 @@ test.describe('SchemaResourceSync E2E', () => {
     test('每个匹配的正则都能通过 V2 单个 regex API 加载', async ({ apiHelper }) => {
       const project = createResourceSyncProject('regex_load', 'sc_users_sync', 'sc_other')
       try {
-        const resp = await fetch(`${BACKEND_URL}/api/v1/project/v2/config/full`, {
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/config/full`, {
           headers: { 'X-Project-Config-Path': project },
         })
         const fullConfig = await resp.json()
@@ -411,7 +411,7 @@ test.describe('SchemaResourceSync E2E', () => {
 
         for (const regexId of matching) {
           const regexResp = await fetch(
-            `${BACKEND_URL}/api/v1/project/v2/regex/${regexId}`,
+            `${BACKEND_URL}/api/latest/project/regex/${regexId}`,
             { headers: { 'X-Project-Config-Path': project } }
           )
           // 实际可能返回 200 或 404，取决于路由注册
@@ -432,7 +432,7 @@ test.describe('SchemaResourceSync E2E', () => {
     test('同一 schema 多次过滤，结果完全一致', async ({ apiHelper }) => {
       const project = createResourceSyncProject('idem', 'sc_users_sync', 'sc_other')
       try {
-        const resp = await fetch(`${BACKEND_URL}/api/v1/project/v2/config/full`, {
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/config/full`, {
           headers: { 'X-Project-Config-Path': project },
         })
         const fullConfig = await resp.json()
@@ -460,7 +460,7 @@ test.describe('SchemaResourceSync E2E', () => {
     test('独立约束与正则过滤无交叉（不被混为一谈）', async ({ apiHelper }) => {
       const project = createResourceSyncProject('no_cross', 'sc_users_sync', 'sc_other')
       try {
-        const resp = await fetch(`${BACKEND_URL}/api/v1/project/v2/config/full`, {
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/config/full`, {
           headers: { 'X-Project-Config-Path': project },
         })
         const fullConfig = await resp.json()
@@ -479,7 +479,7 @@ test.describe('SchemaResourceSync E2E', () => {
     test('同步两个不同 schema 时，各自的过滤结果互不干扰', async ({ apiHelper }) => {
       const project = createResourceSyncProject('multi_schema', 'sc_users_sync', 'sc_other')
       try {
-        const resp = await fetch(`${BACKEND_URL}/api/v1/project/v2/config/full`, {
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/config/full`, {
           headers: { 'X-Project-Config-Path': project },
         })
         const fullConfig = await resp.json()
@@ -540,7 +540,7 @@ columns:
 `
       )
       try {
-        const resp = await fetch(`${BACKEND_URL}/api/v1/project/v2/config/full`, {
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/config/full`, {
           headers: { 'X-Project-Config-Path': project },
         })
         if (resp.ok) {

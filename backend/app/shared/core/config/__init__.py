@@ -215,28 +215,6 @@ class ConfigPaths:
         """
         return cls.get_project_config_dir(project_root) / "product_edition"
 
-    # ==================== CLI AI 配置 ====================
-
-    @classmethod
-    def cli_ai_config(cls) -> Path:
-        """
-        @methoddesc CLI AI 配置文件路径（加密存储）
-
-        返回:
-            ~/.precis/cli_ai_config.yaml 的 Path 对象
-        """
-        return cls.USER_CONFIG_DIR / "cli_ai_config.yaml"
-
-    @classmethod
-    def cli_ai_key(cls) -> Path:
-        """
-        @methoddesc CLI AI 加密密钥文件路径
-
-        返回:
-            ~/.precis/.cli_key 的 Path 对象
-        """
-        return cls.USER_CONFIG_DIR / ".cli_key"
-
 
 # 便捷导入
 __all__ = [

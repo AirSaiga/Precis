@@ -47,7 +47,7 @@ class TestFullConfigPutRouter:
     def test_put_full_config_minimal(self, client, project_dir):
         proj_dir, _ = project_dir
         resp = client.put(
-            "/api/v1/v2/config/full",
+            "/api/latest/config/full",
             json={
                 "manifest": {
                     "version": 2,
@@ -72,7 +72,7 @@ class TestSettingsPutRouter:
     def test_put_validation_settings(self, client, project_dir):
         proj_dir, _ = project_dir
         resp = client.put(
-            "/api/v1/v2/config/validation",
+            "/api/latest/config/validation",
             json={"max_rows": 1000},
             headers={"X-Project-Config-Path": proj_dir},
         )
@@ -81,7 +81,7 @@ class TestSettingsPutRouter:
     def test_put_file_processing_settings(self, client, project_dir):
         proj_dir, _ = project_dir
         resp = client.put(
-            "/api/v1/v2/config/file-processing",
+            "/api/latest/config/file-processing",
             json={"encoding": "utf-8"},
             headers={"X-Project-Config-Path": proj_dir},
         )
@@ -90,7 +90,7 @@ class TestSettingsPutRouter:
     def test_put_script_security_settings(self, client, project_dir):
         proj_dir, _ = project_dir
         resp = client.put(
-            "/api/v1/v2/config/script-security",
+            "/api/latest/config/script-security",
             json={"allow_eval": False},
             headers={"X-Project-Config-Path": proj_dir},
         )
@@ -105,7 +105,7 @@ class TestSettingsPutRouter:
 class TestValidationInlineRouter:
     def test_validate_inline_not_null(self, client):
         resp = client.post(
-            "/api/v1/validate/inline",
+            "/api/latest/validate/inline",
             json={
                 "data": [{"col_a": "x"}, {"col_a": None}, {"col_a": "y"}],
                 "validation_type": "not_null",
@@ -116,7 +116,7 @@ class TestValidationInlineRouter:
 
     def test_validate_inline_unique(self, client):
         resp = client.post(
-            "/api/v1/validate/inline",
+            "/api/latest/validate/inline",
             json={
                 "data": [{"col_a": "x"}, {"col_a": "x"}],
                 "validation_type": "unique",
@@ -127,7 +127,7 @@ class TestValidationInlineRouter:
 
     def test_validate_inline_allowed_values(self, client):
         resp = client.post(
-            "/api/v1/validate/inline",
+            "/api/latest/validate/inline",
             json={
                 "data": [{"col_a": "x"}, {"col_a": "z"}],
                 "validation_type": "allowed_values",
@@ -146,7 +146,7 @@ class TestValidationInlineRouter:
 class TestValidationHistoryPostRouter:
     def test_save_validation_run(self, client, tmp_path):
         resp = client.post(
-            "/api/v1/v2/validation/history",
+            "/api/latest/validation/history",
             json={
                 "project_path": str(tmp_path),
                 "duration_ms": 100,

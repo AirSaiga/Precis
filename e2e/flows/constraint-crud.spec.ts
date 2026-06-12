@@ -14,8 +14,7 @@
 import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
-
-const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:18000'
+import { BACKEND_URL } from '../config'
 const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
 
 test.beforeAll(() => {
@@ -68,7 +67,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
     }
 
     // 保存配置
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     // 读取约束文件并验证内容
@@ -79,7 +78,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
     expect(savedContent).toContain(constraintId)
 
     // 重新加载并验证
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     expect(loadResp.status).toBeLessThan(300)
     const loadedConfig = await loadResp.json()
     const constraint = loadedConfig.constraints?.[constraintId]
@@ -101,7 +100,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
     expect(validateData.data.error_count).toBe(0)
 
     // 清理：删除约束
-    const deleteResp = await apiHelper.post('/project/v2/constraints/delete', {
+    const deleteResp = await apiHelper.post('/project/constraints/delete', {
       constraint_id: constraintId,
     })
     // 清理约束文件
@@ -153,7 +152,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
     }
 
     // 保存配置
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     // 读取约束文件
@@ -163,7 +162,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
     expect(savedContent).toContain('Unique')
 
     // 重新加载并验证
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     const loadedConfig = await loadResp.json()
     const constraint = loadedConfig.constraints?.[constraintId]
     expect(constraint).toBeDefined()
@@ -232,7 +231,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
     }
 
     // 保存第一轮配置
-    const saveResp1 = await apiHelper.put('/project/v2/config/full', fullConfig1)
+    const saveResp1 = await apiHelper.put('/project/config/full', fullConfig1)
     expect(saveResp1.status).toBeLessThan(300)
 
     // 读取并验证约束文件
@@ -263,14 +262,14 @@ test.describe('Constraint CRUD Roundtrip', () => {
     const fullConfig2 = JSON.parse(JSON.stringify(fullConfig1))
     fullConfig2.constraints[constraintId].params.max = 50
 
-    const saveResp2 = await apiHelper.put('/project/v2/config/full', fullConfig2)
+    const saveResp2 = await apiHelper.put('/project/config/full', fullConfig2)
     expect(saveResp2.status).toBeLessThan(300)
 
     savedContent = fs.readFileSync(constraintPath, 'utf-8')
     expect(savedContent).toContain('max: 50')
 
     // 重新加载并验证参数已更新
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     const loadedConfig = await loadResp.json()
     const constraint = loadedConfig.constraints?.[constraintId]
     expect(constraint).toBeDefined()
@@ -337,7 +336,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
       },
     }
 
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     // 验证约束存在
@@ -345,11 +344,11 @@ test.describe('Constraint CRUD Roundtrip', () => {
     expect(fs.existsSync(constraintPath)).toBe(true)
 
     // 删除约束：使用 DELETE API
-    const deleteResp = await apiHelper.delete(`/project/v2/constraints/${constraintId}`)
+    const deleteResp = await apiHelper.delete(`/project/constraints/${constraintId}`)
     expect(deleteResp.status).toBeLessThan(300)
 
     // 验证约束文件被删除
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     const loadedConfig = await loadResp.json()
     expect(loadedConfig.constraints?.[constraintId]).toBeUndefined()
 
@@ -419,7 +418,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
     }
 
     // 保存
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     // 验证所有约束文件存在
@@ -429,7 +428,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
     }
 
     // 重新加载并验证所有约束
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     const loadedConfig = await loadResp.json()
 
     expect(loadedConfig.constraints?.['e2e-multi-notnull']?.type).toBe('NotNull')

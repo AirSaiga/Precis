@@ -77,14 +77,14 @@ describe('projectV2Api - manifest 端点', () => {
   })
 
   describe('getV2Manifest', () => {
-    it('不带 configPath 时调用 GET /project/v2/manifest', async () => {
+    it('不带 configPath 时调用 GET /project/manifest', async () => {
       mockResponse = { status: 200, data: { version: 2, project: { id: 'p' } } }
 
       const result = await getV2Manifest()
 
       expect(captured).toBeDefined()
       expect(captured!.method).toBe('GET')
-      expect(captured!.url).toBe('/project/v2/manifest')
+      expect(captured!.url).toBe('/project/manifest')
       expect(result).toEqual({ version: 2, project: { id: 'p' } })
     })
 
@@ -98,13 +98,13 @@ describe('projectV2Api - manifest 端点', () => {
   })
 
   describe('putV2Manifest', () => {
-    it('默认调用 PUT /project/v2/manifest（无 replace 参数）', async () => {
+    it('默认调用 PUT /project/manifest（无 replace 参数）', async () => {
       const manifest = { version: 2, project: { id: 'p', name: 'P' }, schemas: [] }
 
       await putV2Manifest(manifest)
 
       expect(captured!.method).toBe('PUT')
-      expect(captured!.url).toBe('/project/v2/manifest')
+      expect(captured!.url).toBe('/project/manifest')
       // axios 会将 body 序列化为 JSON 字符串
       expect(JSON.parse(captured!.data as string)).toEqual(manifest)
       // 默认 replace=false 时，URL 中不包含 replace=true
@@ -137,11 +137,11 @@ describe('projectV2Api - manifest 端点', () => {
   })
 
   describe('upsert 引用端点', () => {
-    it('updateV2ManifestSchemaRef 调用 PUT /project/v2/manifest/schema', async () => {
+    it('updateV2ManifestSchemaRef 调用 PUT /project/manifest/schema', async () => {
       await updateV2ManifestSchemaRef({ id: 'users', path: 'schemas/users.schema.yaml' })
 
       expect(captured!.method).toBe('PUT')
-      expect(captured!.url).toBe('/project/v2/manifest/schema')
+      expect(captured!.url).toBe('/project/manifest/schema')
       // axios 会将 body 序列化为 JSON 字符串
       expect(JSON.parse(captured!.data as string)).toEqual({
         id: 'users',
@@ -149,22 +149,22 @@ describe('projectV2Api - manifest 端点', () => {
       })
     })
 
-    it('updateV2ManifestConstraintRef 调用 PUT /project/v2/manifest/constraint', async () => {
+    it('updateV2ManifestConstraintRef 调用 PUT /project/manifest/constraint', async () => {
       await updateV2ManifestConstraintRef({ id: 'nn_email', path: 'constraints/nn_email.yaml' })
 
       expect(captured!.method).toBe('PUT')
-      expect(captured!.url).toBe('/project/v2/manifest/constraint')
+      expect(captured!.url).toBe('/project/manifest/constraint')
       expect(JSON.parse(captured!.data as string)).toEqual({
         id: 'nn_email',
         path: 'constraints/nn_email.yaml',
       })
     })
 
-    it('updateV2ManifestRegexRef 调用 PUT /project/v2/manifest/regex', async () => {
+    it('updateV2ManifestRegexRef 调用 PUT /project/manifest/regex', async () => {
       await updateV2ManifestRegexRef({ id: 'email_format', path: 'regex/email.regex.yaml' })
 
       expect(captured!.method).toBe('PUT')
-      expect(captured!.url).toBe('/project/v2/manifest/regex')
+      expect(captured!.url).toBe('/project/manifest/regex')
       expect(JSON.parse(captured!.data as string)).toEqual({
         id: 'email_format',
         path: 'regex/email.regex.yaml',

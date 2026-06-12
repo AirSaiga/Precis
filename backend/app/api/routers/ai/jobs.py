@@ -14,7 +14,7 @@
 - 超过最大任务数时自动清理已完成任务
 
 输入示例:
-    POST /ai/v2/config/generate/jobs
+    POST /ai/config/generate/jobs
     {
         "file_paths": ["data/users.xlsx"],
         "project_name": "用户数据项目",
@@ -75,7 +75,7 @@ def _cleanup_old_jobs():
 
 
 @router.post(
-    "/v2/config/generate/jobs",
+    "/config/generate/jobs",
     response_model=ConfigGenerateJobCreateResponse,
     summary="创建异步配置生成任务",
     responses={
@@ -209,7 +209,7 @@ async def _run_job(job_id: str, payload: ConfigGenerateRequest, config_path: str
 
 
 @router.get(
-    "/v2/config/generate/jobs/{job_id}",
+    "/config/generate/jobs/{job_id}",
     response_model=ConfigGenerateJobStatus,
     summary="获取任务状态",
     responses={
@@ -226,7 +226,7 @@ async def get_generate_job(job_id: str) -> ConfigGenerateJobStatus:
 
 
 @router.post(
-    "/v2/config/generate/jobs/{job_id}/cancel",
+    "/config/generate/jobs/{job_id}/cancel",
     response_model=ConfigGenerateJobStatus,
     summary="取消任务",
     responses={

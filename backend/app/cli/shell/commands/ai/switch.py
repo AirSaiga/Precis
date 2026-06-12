@@ -117,7 +117,7 @@ class AISwitchCommand(Command):
     def _do_switch(self, provider_id: str) -> CommandResult:
         """执行切换操作。
 
-        验证 Provider 存在且有 API Key，然后设置为默认。
+        验证 Provider 存在，然后设置为默认。
 
         Args:
             provider_id: 要切换到的 Provider ID
@@ -128,11 +128,6 @@ class AISwitchCommand(Command):
         provider = self._cli_config.get_provider(provider_id)
         if not provider:
             return CommandResult.error(f"Provider '{provider_id}' 未配置\n请先使用 'setup {provider_id}' 进行配置")
-
-        if not provider.api_key:
-            return CommandResult.error(
-                f"Provider '{provider_id}' 没有配置 API Key\n请使用 'setup {provider_id}' 重新配置"
-            )
 
         if self._cli_config.set_active_provider(provider_id):
             print(Formatter.success(f"\n[*] 已切换到 {provider.name}"))

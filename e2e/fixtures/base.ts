@@ -1,6 +1,7 @@
 import { test as base, expect } from '@playwright/test'
 import * as fs from 'fs'
 import * as path from 'path'
+import { BACKEND_URL, API_PREFIX } from '../config'
 
 /**
  * E2E 测试共享 Fixture
@@ -14,9 +15,6 @@ import * as path from 'path'
 // 测试项目 fixture 路径
 const FIXTURES_DIR = path.join(__dirname, '..', 'fixtures')
 const TEST_PROJECT_DIR = path.join(FIXTURES_DIR, 'test-project')
-
-// 后端 API 基础 URL
-const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:18000'
 
 type Fixtures = {
   projectPage: import('@playwright/test').Page
@@ -39,18 +37,16 @@ export const test = base.extend<Fixtures>({
     await use(TEST_PROJECT_DIR)
   },
 
-  apiHelper: async ({}, use) => {
-    // API 版本前缀（/health 保留根路径）
-    const apiPrefix = '/api/v1'
+    apiHelper: async ({}, use) => {
     const helper = {
       get: async (endpoint: string) => {
-        const url = endpoint === '/health' ? `${BACKEND_URL}/health` : `${BACKEND_URL}${apiPrefix}${endpoint}`
+        const url = endpoint === '/health' ? `${BACKEND_URL}/health` : `${BACKEND_URL}${API_PREFIX}${endpoint}`
         return fetch(url, {
           headers: { 'X-Project-Config-Path': TEST_PROJECT_DIR },
         })
       },
       post: async (endpoint: string, body: unknown) => {
-        return fetch(`${BACKEND_URL}${apiPrefix}${endpoint}`, {
+        return fetch(`${BACKEND_URL}${API_PREFIX}${endpoint}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -60,7 +56,7 @@ export const test = base.extend<Fixtures>({
         })
       },
       put: async (endpoint: string, body: unknown) => {
-        return fetch(`${BACKEND_URL}${apiPrefix}${endpoint}`, {
+        return fetch(`${BACKEND_URL}${API_PREFIX}${endpoint}`, {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
@@ -70,7 +66,7 @@ export const test = base.extend<Fixtures>({
         })
       },
       delete: async (endpoint: string) => {
-        return fetch(`${BACKEND_URL}${apiPrefix}${endpoint}`, {
+        return fetch(`${BACKEND_URL}${API_PREFIX}${endpoint}`, {
           method: 'DELETE',
           headers: { 'X-Project-Config-Path': TEST_PROJECT_DIR },
         })

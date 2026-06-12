@@ -15,7 +15,7 @@
  *   降低 store 间耦合，便于单元测试 mock
  *
  * 数据持久化：
- * - 后端文件：.precis/workspaces.json（通过 GET/PUT /v2/workspaces 同步）
+ * - 后端文件：.precis/workspaces.json（通过 GET/PUT /project/workspaces 同步）
  * - 仅保存元数据（id、title、index），不保存完整节点/边数据
  * - 节点坐标由 project.view.json 承载，与本文件分工协作
  *

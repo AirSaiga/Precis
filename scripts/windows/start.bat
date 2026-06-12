@@ -40,6 +40,7 @@ if not exist "electron\dist\main.js" (
 )
 
 :: Start backend and electron (frontend is served statically by electron)
-call npx concurrently --kill-others --names "BACKEND,ELECTRON" --prefix-colors "cyan,magenta" "cd backend && %PYTHON_CMD% app\start_server.py" "npx wait-on --delay 1500 --timeout 60000 http://127.0.0.1:18000/docs >nul 2>&1 && cd electron && npx electron ."
+for /f "tokens=*" %%a in ('node -e "try { require('dotenv').config(); } catch(e) {} console.log(process.env.VITE_BACKEND_PORT || '18000')"') do set BACKEND_PORT=%%a
+call npx concurrently --kill-others --names "BACKEND,ELECTRON" --prefix-colors "cyan,magenta" "cd backend && %PYTHON_CMD% app\start_server.py" "npx wait-on --delay 1500 --timeout 60000 http://127.0.0.1:%BACKEND_PORT%/docs >nul 2>&1 && cd electron && npx electron ."
 
 exit /b %ERRORLEVEL%

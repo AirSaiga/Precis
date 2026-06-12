@@ -12,8 +12,8 @@
 - 使用 exclude_none=True 清理空值，保持 YAML 整洁
 
 输入示例:
-    GET /v2/config/settings
-    PUT /v2/config/validation (body: ValidationSettingsV2)
+    GET /config/settings
+    PUT /config/validation (body: ValidationSettingsV2)
 
 输出示例:
     ProjectSettingsV2 / ValidationSettingsV2 / FileProcessingSettingsV2 / ScriptSecuritySettingsV2
@@ -44,7 +44,7 @@ router = APIRouter(prefix="", tags=["Project-Settings"])
 
 
 @router.get(
-    "/v2/config/settings",
+    "/config/settings",
     response_model=ProjectSettingsV2,
     summary="读取当前项目的设置",
     responses={
@@ -82,7 +82,7 @@ def get_v2_project_settings(config_path: str = Depends(get_project_config_path))
 
 
 @router.put(
-    "/v2/config/settings",
+    "/config/settings",
     response_model=StandardResponse,
     summary="写入当前项目的设置",
     responses={
@@ -128,7 +128,7 @@ def put_v2_project_settings(settings: ProjectSettingsV2, config_path: str = Depe
 
 
 @router.get(
-    "/v2/config/validation",
+    "/config/validation",
     response_model=ValidationSettingsV2,
     summary="读取当前项目的校验行为设置",
     responses={
@@ -157,7 +157,7 @@ def get_v2_validation_settings(config_path: str = Depends(get_project_config_pat
 
 
 @router.put(
-    "/v2/config/validation",
+    "/config/validation",
     response_model=StandardResponse,
     summary="写入当前项目的校验行为设置",
     responses={
@@ -203,7 +203,7 @@ def put_v2_validation_settings(validation: ValidationSettingsV2, config_path: st
 
 
 @router.get(
-    "/v2/config/file-processing",
+    "/config/file-processing",
     response_model=FileProcessingSettingsV2,
     summary="读取当前项目的文件处理设置",
     responses={
@@ -232,7 +232,7 @@ def get_v2_file_processing_settings(config_path: str = Depends(get_project_confi
 
 
 @router.put(
-    "/v2/config/file-processing",
+    "/config/file-processing",
     response_model=StandardResponse,
     summary="写入当前项目的文件处理设置",
     responses={
@@ -280,7 +280,7 @@ def put_v2_file_processing_settings(
 
 
 @router.get(
-    "/v2/config/script-security",
+    "/config/script-security",
     response_model=ScriptSecuritySettingsV2,
     summary="读取当前项目的脚本安全设置",
     responses={
@@ -309,7 +309,7 @@ def get_v2_script_security_settings(config_path: str = Depends(get_project_confi
 
 
 @router.put(
-    "/v2/config/script-security",
+    "/config/script-security",
     response_model=StandardResponse,
     summary="写入当前项目的脚本安全设置",
     responses={

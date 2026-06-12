@@ -29,7 +29,7 @@ export interface TemplateExpandResult {
 
 export async function listV2Templates(configPath?: string): Promise<TemplateListItem[]> {
   const { data } = await apiClient.get<TemplateListItem[]>(
-    '/project/v2/template',
+    '/project/template',
     withConfigPathHeader(configPath)
   )
   return data
@@ -40,7 +40,7 @@ export async function getV2Template(
   configPath?: string
 ): Promise<Record<string, unknown>> {
   const { data } = await apiClient.get<Record<string, unknown>>(
-    `/project/v2/template/${encodeURIComponent(templateId)}`,
+    `/project/template/${encodeURIComponent(templateId)}`,
     withConfigPathHeader(configPath)
   )
   return data
@@ -51,7 +51,7 @@ export async function createV2Template(
   configPath?: string
 ): Promise<{ success: boolean; message: string }> {
   const { data } = await apiClient.post<{ success: boolean; message: string }>(
-    '/project/v2/template',
+    '/project/template',
     templateData,
     withConfigPathHeader(configPath)
   )
@@ -64,7 +64,7 @@ export async function updateV2Template(
   configPath?: string
 ): Promise<{ success: boolean; message: string }> {
   const { data } = await apiClient.put<{ success: boolean; message: string }>(
-    `/project/v2/template/${encodeURIComponent(templateId)}`,
+    `/project/template/${encodeURIComponent(templateId)}`,
     templateData,
     withConfigPathHeader(configPath)
   )
@@ -76,7 +76,7 @@ export async function deleteV2Template(
   configPath?: string
 ): Promise<{ success: boolean; message: string }> {
   const { data } = await apiClient.delete<{ success: boolean; message: string }>(
-    `/project/v2/template/${encodeURIComponent(templateId)}`,
+    `/project/template/${encodeURIComponent(templateId)}`,
     withConfigPathHeader(configPath)
   )
   return data
@@ -93,7 +93,7 @@ export async function expandV2Template(
   configPath?: string
 ): Promise<TemplateExpandResult> {
   const { data } = await apiClient.post<TemplateExpandResult>(
-    `/project/v2/template/${encodeURIComponent(templateId)}/expand`,
+    `/project/template/${encodeURIComponent(templateId)}/expand`,
     {
       instance_id: instanceId,
       params,
@@ -118,7 +118,7 @@ export async function updateV2ManifestTemplateInstanceRef(
   configPath?: string
 ): Promise<void> {
   await apiClient.put(
-    '/project/v2/manifest/template-instance',
+    '/project/manifest/template-instance',
     instanceRef,
     withConfigPathHeader(configPath)
   )

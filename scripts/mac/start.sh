@@ -47,6 +47,6 @@ npx concurrently --kill-others \
     --names "BACKEND,ELECTRON" \
     --prefix-colors "cyan,magenta" \
     "cd backend && ${PYTHON_CMD} app/start_server.py" \
-    "npx wait-on --delay 1500 --timeout 60000 http://127.0.0.1:18000/docs > /dev/null 2>&1 && cd electron && npx electron ."
+    "npx wait-on --delay 1500 --timeout 60000 http://127.0.0.1:${BACKEND_PORT}/docs > /dev/null 2>&1 && cd electron && npx electron ."
 
 exit $?

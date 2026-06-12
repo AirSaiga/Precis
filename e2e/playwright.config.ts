@@ -8,6 +8,9 @@ import { defineConfig, devices } from '@playwright/test'
  * - 后端需要单独启动（或通过 CI 脚本管理）
  * - 核心流程测试覆盖：项目创建、Schema 绑定、约束添加、校验执行
  */
+const FRONTEND_PORT = process.env.VITE_FRONTEND_PORT || '5173'
+const FRONTEND_URL = process.env.E2E_BASE_URL || `http://localhost:${FRONTEND_PORT}`
+
 export default defineConfig({
   testDir: './flows',
   fullyParallel: false,
@@ -16,7 +19,7 @@ export default defineConfig({
   workers: 1,
   reporter: [['html', { open: 'never' }], ['list']],
   use: {
-    baseURL: process.env.E2E_BASE_URL || 'http://localhost:5173',
+    baseURL: FRONTEND_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -31,7 +34,7 @@ export default defineConfig({
     ? undefined
     : {
         command: 'cd ../frontend && npm run dev',
-        url: 'http://localhost:5173',
+        url: FRONTEND_URL,
         reuseExistingServer: !process.env.CI,
         timeout: 60_000,
       },

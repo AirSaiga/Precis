@@ -12,8 +12,8 @@
 - 使用 JSON 格式，便于前端快速序列化/反序列化
 
 输入示例:
-    GET /v2/workspaces
-    PUT /v2/workspaces (body: WorkspacesV2Model)
+    GET /workspaces
+    PUT /workspaces (body: WorkspacesV2Model)
 
 输出示例:
     WorkspacesV2Model: {version, activeWorkspaceId, workspaces}
@@ -40,7 +40,7 @@ router = APIRouter(prefix="", tags=["Project-Workspaces"])
 
 
 @router.get(
-    "/v2/workspaces",
+    "/workspaces",
     response_model=WorkspacesV2Model,
     summary="获取 V2 项目工作区配置",
     responses={
@@ -77,7 +77,7 @@ def get_v2_workspaces(config_path: str = Depends(get_project_config_path)) -> Wo
 
 
 @router.put(
-    "/v2/workspaces",
+    "/workspaces",
     response_model=StandardResponse,
     summary="更新 V2 项目工作区配置",
     responses={

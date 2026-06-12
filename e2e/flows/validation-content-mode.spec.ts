@@ -2,8 +2,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as os from 'os'
 import { test, expect } from '../fixtures/base'
-
-const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:18000'
+import { BACKEND_URL } from '../config'
 const FIXTURES_DIR = path.join(__dirname, '..', 'fixtures')
 const USERS_CSV = path.join(FIXTURES_DIR, 'test-project', 'data', 'users.csv')
 const USERS_SCHEMA = path.join(FIXTURES_DIR, 'test-project', 'schemas', 'users.schema.yaml')
@@ -58,7 +57,7 @@ test.describe('Validation Content Mode', () => {
 
   test('POST /validate/content processes uploaded data', async () => {
     const csvContent = 'id,name,email,age\n1,Alice,alice@example.com,30\n2,Bob,bob@example.com,25'
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/validate/content`, {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/validate/content`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -77,7 +76,7 @@ test.describe('Validation Content Mode', () => {
 
   test('POST /validate/content with NotNull constraint', async () => {
     const csvContent = 'id,name,email\n1,Alice,alice@example.com\n2,Bob,bob@example.com'
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/validate/content`, {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/validate/content`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -107,7 +106,7 @@ test.describe('Validation Content Mode', () => {
   })
 
   test('POST /validate/batch processes multiple requests', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/validate/batch`, {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/validate/batch`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -129,7 +128,7 @@ test.describe('Validation Content Mode', () => {
   })
 
   test('POST /regex validates regex pattern', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/regex`, {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/regex`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -145,7 +144,7 @@ test.describe('Validation Content Mode', () => {
   })
 
   test('POST /regex/path validates regex with path mode', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/regex/path`, {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/regex/path`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -161,7 +160,7 @@ test.describe('Validation Content Mode', () => {
   })
 
   test('POST /validate/inline validates inline data', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/validate/inline`, {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/validate/inline`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -198,8 +197,8 @@ test.describe('Validation History', () => {
     cleanupProject(tmpDir)
   })
 
-  test('POST /v2/validation/history creates history entry', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/v2/validation/history`, {
+  test('POST /validation/history creates history entry', async () => {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/validation/history`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -215,8 +214,8 @@ test.describe('Validation History', () => {
     expect(resp.status).toBeLessThan(500)
   })
 
-  test('GET /v2/validation/history returns history list', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/v2/validation/history`, {
+  test('GET /validation/history returns history list', async () => {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/validation/history`, {
       method: 'GET',
       configPath: tmpDir,
     })
@@ -228,8 +227,8 @@ test.describe('Validation History', () => {
     }
   })
 
-  test('GET /v2/validation/history/stats returns stats', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/v2/validation/history/stats`, {
+  test('GET /validation/history/stats returns stats', async () => {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/validation/history/stats`, {
       method: 'GET',
       configPath: tmpDir,
     })

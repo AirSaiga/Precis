@@ -12,7 +12,7 @@ export async function getV2Constraint(
   configPath?: string
 ): Promise<ConstraintFileV2> {
   const { data } = await apiClient.get<ConstraintFileV2>(
-    `/project/v2/constraints/${encodeURIComponent(constraintId)}`,
+    `/project/constraints/${encodeURIComponent(constraintId)}`,
     withConfigPathHeader(configPath)
   )
   return data
@@ -24,7 +24,7 @@ export async function putV2Constraint(
   configPath?: string
 ): Promise<void> {
   await apiClient.put(
-    `/project/v2/constraints/${encodeURIComponent(constraintId)}`,
+    `/project/constraints/${encodeURIComponent(constraintId)}`,
     constraint,
     withConfigPathHeader(configPath)
   )
@@ -32,7 +32,7 @@ export async function putV2Constraint(
 
 export async function deleteV2Constraint(constraintId: string, configPath?: string): Promise<void> {
   await apiClient.delete(
-    `/project/v2/constraints/${encodeURIComponent(constraintId)}`,
+    `/project/constraints/${encodeURIComponent(constraintId)}`,
     withConfigPathHeader(configPath)
   )
 }
@@ -43,7 +43,7 @@ export async function updateV2ConstraintDisplayName(
   configPath?: string
 ): Promise<void> {
   await apiClient.post(
-    `/project/v2/constraints/${encodeURIComponent(constraintId)}/display-name`,
+    `/project/constraints/${encodeURIComponent(constraintId)}/display-name`,
     { name },
     withConfigPathHeader(configPath)
   )

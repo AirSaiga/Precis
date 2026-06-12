@@ -298,9 +298,9 @@ class TestQaV3ComplexApiEndpoints:
     """通过 FastAPI TestClient 端到端验证 V2 API。"""
 
     def test_get_manifest_via_api(self, client, qa_v3_complex_project: Path):
-        """GET /api/v1/project/v2/manifest 应返回 200 + schemas/constraints/regex_nodes 列表。"""
+        """GET /api/latest/project/manifest 应返回 200 + schemas/constraints/regex_nodes 列表。"""
         resp = client.get(
-            "/api/v1/project/v2/manifest",
+            "/api/latest/project/manifest",
             headers={"X-Project-Config-Path": str(qa_v3_complex_project)},
         )
         assert resp.status_code == 200
@@ -311,9 +311,9 @@ class TestQaV3ComplexApiEndpoints:
         assert len(manifest["regex_nodes"]) == 17
 
     def test_list_templates_via_api(self, client, qa_v3_complex_project: Path):
-        """GET /api/v1/project/v2/template 应返回 2 个模板。"""
+        """GET /api/latest/project/template 应返回 2 个模板。"""
         resp = client.get(
-            "/api/v1/project/v2/template",
+            "/api/latest/project/template",
             headers={"X-Project-Config-Path": str(qa_v3_complex_project)},
         )
         assert resp.status_code == 200
@@ -325,9 +325,9 @@ class TestQaV3ComplexApiEndpoints:
         assert "user_quality_check" in template_ids
 
     def test_get_template_by_id_via_api(self, client, qa_v3_complex_project: Path):
-        """GET /api/v1/project/v2/template/age_check 应返回完整模板定义。"""
+        """GET /api/latest/project/template/age_check 应返回完整模板定义。"""
         resp = client.get(
-            "/api/v1/project/v2/template/age_check",
+            "/api/latest/project/template/age_check",
             headers={"X-Project-Config-Path": str(qa_v3_complex_project)},
         )
         assert resp.status_code == 200
@@ -338,10 +338,10 @@ class TestQaV3ComplexApiEndpoints:
         assert len(template["nodes"]) >= 1
 
     def test_preview_template_expand_age_check_via_api(self, client, qa_v3_complex_project: Path):
-        """POST /api/v1/project/v2/template/age_check/expand 应返回展开结果。"""
+        """POST /api/latest/project/template/age_check/expand 应返回展开结果。"""
         users_schema_id = "sc_FQArF182DRtAAw8NHUIFTB0FAgYWBgAWWlUaQhwdARIJGx0"
         resp = client.post(
-            "/api/v1/project/v2/template/age_check/expand",
+            "/api/latest/project/template/age_check/expand",
             headers={"X-Project-Config-Path": str(qa_v3_complex_project)},
             json={
                 "instance_id": "preview-instance",
@@ -370,7 +370,7 @@ class TestQaV3ComplexApiEndpoints:
         """POST .../user_quality_check/expand 应展开出多个约束 + 至少 1 个 transform。"""
         users_schema_id = "sc_FQArF182DRtAAw8NHUIFTB0FAgYWBgAWWlUaQhwdARIJGx0"
         resp = client.post(
-            "/api/v1/project/v2/template/user_quality_check/expand",
+            "/api/latest/project/template/user_quality_check/expand",
             headers={"X-Project-Config-Path": str(qa_v3_complex_project)},
             json={
                 "instance_id": "preview-quality",
@@ -396,10 +396,10 @@ class TestQaV3ComplexApiEndpoints:
         assert "AllowedValues" in constraint_types
 
     def test_get_schema_by_id_via_api(self, client, qa_v3_complex_project: Path):
-        """GET /api/v1/project/v2/schemas/{table_id} 应能获取 users-Users schema。"""
+        """GET /api/latest/project/schemas/{table_id} 应能获取 users-Users schema。"""
         users_schema_id = "sc_FQArF182DRtAAw8NHUIFTB0FAgYWBgAWWlUaQhwdARIJGx0"
         resp = client.get(
-            f"/api/v1/project/v2/schemas/{users_schema_id}",
+            f"/api/latest/project/schemas/{users_schema_id}",
             headers={"X-Project-Config-Path": str(qa_v3_complex_project)},
         )
         assert resp.status_code == 200
@@ -409,9 +409,9 @@ class TestQaV3ComplexApiEndpoints:
         assert len(schema["columns"]) >= 6
 
     def test_get_regex_by_id_via_api(self, client, qa_v3_complex_project: Path):
-        """GET /api/v1/project/v2/regex/{regex_id} 应能获取邮箱正则。"""
+        """GET /api/latest/project/regex/{regex_id} 应能获取邮箱正则。"""
         resp = client.get(
-            "/api/v1/project/v2/regex/regex_users-users_email",
+            "/api/latest/project/regex/regex_users-users_email",
             headers={"X-Project-Config-Path": str(qa_v3_complex_project)},
         )
         assert resp.status_code == 200
@@ -421,9 +421,9 @@ class TestQaV3ComplexApiEndpoints:
         assert regex["pattern"]  # 非空
 
     def test_nonexistent_template_returns_404(self, client, qa_v3_complex_project: Path):
-        """GET /api/v1/project/v2/template/ghost 应返回 404 而非崩溃。"""
+        """GET /api/latest/project/template/ghost 应返回 404 而非崩溃。"""
         resp = client.get(
-            "/api/v1/project/v2/template/__nonexistent_template__",
+            "/api/latest/project/template/__nonexistent_template__",
             headers={"X-Project-Config-Path": str(qa_v3_complex_project)},
         )
         assert resp.status_code == 404

@@ -13,7 +13,7 @@ export async function putV2TransformNode(
   configPath?: string
 ): Promise<void> {
   await apiClient.put(
-    `/project/v2/transform/${encodeURIComponent(transformId)}`,
+    `/project/transform/${encodeURIComponent(transformId)}`,
     transformNode,
     withConfigPathHeader(configPath)
   )

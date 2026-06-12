@@ -11,15 +11,15 @@ import logging
 from dataclasses import dataclass, field
 from typing import Any, Callable, Protocol
 
-from app.shared.services.ai.types import ProviderConfig
 from app.shared.services.llm.actions.action_parser import (
     ActionParseError,
     ActionParser,
     process_actions,
 )
 from app.shared.services.llm.actions.action_validator import ActionValidator
-from app.shared.services.llm.chat.chat_service import ChatLLMServiceFactory
+from app.shared.services.llm.chat.chat_service import ChatLLMService
 from app.shared.services.llm.chat.chat_system_prompt import build_system_prompt
+from app.shared.services.llm.config.models import AIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -104,29 +104,24 @@ class AIChatOrchestrator:
     4. 生成前端渲染指令
     """
 
-    def __init__(self, provider_config: ProviderConfig):
+    def __init__(self, provider: AIProvider):
         """
         初始化编排器
 
         Args:
-            provider_config: LLM Provider 配置
+            provider: AIProvider 配置对象（包含 api_key、base_url、model 等信息）
         """
-        self.provider_config = provider_config
+        self._provider = provider
         self._chat_service: Any | None = None
 
     def _get_chat_service(self) -> Any:
         """
         @methoddesc 获取或创建 Chat 服务实例（懒加载）
 
-        如果服务实例未创建，则根据 provider_config 创建新的服务实例。
+        直接使用 AIProvider 配置创建 ChatLLMService。
         """
         if self._chat_service is None:
-            self._chat_service = ChatLLMServiceFactory.create_from_config(
-                provider=self.provider_config.provider,
-                api_key=self.provider_config.api_key,
-                base_url=self.provider_config.base_url,
-                model=self.provider_config.model,
-            )
+            self._chat_service = ChatLLMService(self._provider)
         return self._chat_service
 
     async def execute_chat(
@@ -483,7 +478,7 @@ class AIChatOrchestrator:
 async def execute_ai_chat_unified(
     message: str,
     project_path: str | None,
-    provider_config: ProviderConfig,
+    provider: AIProvider,
     context_nodes: list[dict[str, Any]] = None,
     history: list[dict[str, str]] = None,
 ) -> ChatExecutionResult:
@@ -493,14 +488,14 @@ async def execute_ai_chat_unified(
     参数:
         message: 用户消息
         project_path: 项目路径
-        provider_config: Provider 配置
+        provider: AIProvider 配置对象
         context_nodes: 上下文节点
         history: 对话历史
 
     返回:
         ChatExecutionResult: 执行结果
     """
-    orchestrator = AIChatOrchestrator(provider_config)
+    orchestrator = AIChatOrchestrator(provider)
     options = ChatOptions(
         history=history or [],
         enable_interactive=False,  # API 模式禁用交互

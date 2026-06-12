@@ -2,8 +2,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as os from 'os'
 import { test, expect } from '../fixtures/base'
-
-const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:18000'
+import { BACKEND_URL } from '../config'
 const FIXTURES_DIR = path.join(__dirname, '..', 'fixtures')
 const USERS_CSV = path.join(FIXTURES_DIR, 'test-project', 'data', 'users.csv')
 
@@ -56,7 +55,7 @@ test.describe('Preview Path Mode', () => {
   })
 
   test('POST /preview/file returns preview for valid CSV', async () => {
-    const resp = await fetchWithConfigPath(`${BACKEND_URL}/api/v1/preview/file`, {
+    const resp = await fetchWithConfigPath(`${BACKEND_URL}/api/latest/preview/file`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ source_file_path: USERS_CSV, header_row: 0 }),
@@ -72,7 +71,7 @@ test.describe('Preview Path Mode', () => {
   })
 
   test('POST /preview/file/path handles CSV file', async () => {
-    const resp = await fetchWithConfigPath(`${BACKEND_URL}/api/v1/preview/file/path`, {
+    const resp = await fetchWithConfigPath(`${BACKEND_URL}/api/latest/preview/file/path`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ source_file_path: USERS_CSV, header_row: 0 }),
@@ -83,7 +82,7 @@ test.describe('Preview Path Mode', () => {
   })
 
   test('POST /preview/file/path rejects nonexistent file without crashing', async () => {
-    const resp = await fetchWithConfigPath(`${BACKEND_URL}/api/v1/preview/file/path`, {
+    const resp = await fetchWithConfigPath(`${BACKEND_URL}/api/latest/preview/file/path`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ source_file_path: '/no/such/file.csv', header_row: 0 }),
@@ -94,7 +93,7 @@ test.describe('Preview Path Mode', () => {
   })
 
   test('POST /preview/header-row-changed persists header row change', async () => {
-    const resp = await fetchWithConfigPath(`${BACKEND_URL}/api/v1/preview/header-row-changed`, {
+    const resp = await fetchWithConfigPath(`${BACKEND_URL}/api/latest/preview/header-row-changed`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -109,7 +108,7 @@ test.describe('Preview Path Mode', () => {
   })
 
   test('POST /preview/switch-sheet/path for nonexistent sheet', async () => {
-    const resp = await fetchWithConfigPath(`${BACKEND_URL}/api/v1/preview/switch-sheet/path`, {
+    const resp = await fetchWithConfigPath(`${BACKEND_URL}/api/latest/preview/switch-sheet/path`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

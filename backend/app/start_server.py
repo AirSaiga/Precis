@@ -39,7 +39,12 @@ def main():
     parser = argparse.ArgumentParser(description="Precis Backend Server", prog="start_server")
 
     # 添加端口参数
-    parser.add_argument("--port", type=int, default=18000, help="服务器监听端口 (默认: 18000)")
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=int(os.environ.get("VITE_BACKEND_PORT", 18000)),
+        help="服务器监听端口 (默认: 18000，可通过 VITE_BACKEND_PORT 覆盖)",
+    )
 
     # 添加主机参数
     parser.add_argument("--host", type=str, default="127.0.0.1", help="服务器监听地址 (默认: 127.0.0.1)")

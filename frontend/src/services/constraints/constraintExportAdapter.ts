@@ -264,8 +264,12 @@ export function buildConstraintExportPayload(params: {
       }
       break
     }
-    default:
+    default: {
+      // 穷尽检查：如果新增 ConstraintTypeV2 但未在 switch 中添加 case，编译报错
+      const _exhaustive: never = v2Type
+      void _exhaustive
       break
+    }
   }
 
   return { refs, params: outputParams }

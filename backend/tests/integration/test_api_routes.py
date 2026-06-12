@@ -125,15 +125,15 @@ class TestRootEndpoint:
         assert "paths" in spec
         assert len(spec["paths"]) > 10
         # 关键路由应存在
-        assert "/api/v1/project/v2/manifest" in spec["paths"]
-        assert "/api/v1/connection-rules" in spec["paths"]
+        assert "/api/latest/project/manifest" in spec["paths"]
+        assert "/api/latest/connection-rules" in spec["paths"]
 
 
 class TestProjectConfigPathHeader:
     """X-Project-Config-Path header 依赖验证"""
 
     def test_missing_header_returns_422(self, client):
-        resp = client.get("/api/v1/project/v2/manifest")
+        resp = client.get("/api/latest/project/manifest")
         assert resp.status_code == 422
         body = resp.json()
         assert "x-project-config-path" in str(body).lower()
@@ -151,7 +151,7 @@ class TestProjectConfigPathHeader:
         fake_path = "/__precis_nonexistent_dir_for_test_12345__"
         if sys.platform == "win32":
             fake_path = "D:/__precis_nonexistent_dir_for_test_12345__"
-        resp = client.get("/api/v1/project/v2/manifest", headers={"X-Project-Config-Path": fake_path})
+        resp = client.get("/api/latest/project/manifest", headers={"X-Project-Config-Path": fake_path})
         assert resp.status_code == 404
         assert "不存在" in resp.json().get("detail", "")
 
@@ -160,7 +160,7 @@ class TestManifestRoute:
     """manifest 端点集成测试（GET / PUT / 单引用 upsert / dedup）"""
 
     def test_get_manifest_returns_project_content(self, client, project_dir, project_header):
-        resp = client.get("/api/v1/project/v2/manifest", headers=project_header)
+        resp = client.get("/api/latest/project/manifest", headers=project_header)
         assert resp.status_code == 200
         body = resp.json()
         assert body["version"] == 2
@@ -177,11 +177,11 @@ class TestManifestRoute:
                 {"id": "extra", "path": "schemas/extra.schema.yaml"},
             ],
         }
-        resp = client.put("/api/v1/project/v2/manifest", json=new_manifest, headers=project_header)
+        resp = client.put("/api/latest/project/manifest", json=new_manifest, headers=project_header)
         assert resp.status_code == 200
 
         # 重新读取，应包含原有的 users 和新加的 extra（合并模式）
-        resp2 = client.get("/api/v1/project/v2/manifest", headers=project_header)
+        resp2 = client.get("/api/latest/project/manifest", headers=project_header)
         body = resp2.json()
         ids = {s["id"] for s in body["schemas"]}
         assert "users" in ids
@@ -194,27 +194,27 @@ class TestManifestRoute:
             "schemas": [{"id": "only", "path": "schemas/only.schema.yaml"}],
         }
         resp = client.put(
-            "/api/v1/project/v2/manifest",
+            "/api/latest/project/manifest",
             json=new_manifest,
             params={"replace": True},
             headers=project_header,
         )
         assert resp.status_code == 200
 
-        resp2 = client.get("/api/v1/project/v2/manifest", headers=project_header)
+        resp2 = client.get("/api/latest/project/manifest", headers=project_header)
         body = resp2.json()
         ids = {s["id"] for s in body["schemas"]}
         assert ids == {"only"}
 
     def test_upsert_schema_ref_adds_new(self, client, project_dir, project_header):
         resp = client.put(
-            "/api/v1/project/v2/manifest/schema",
+            "/api/latest/project/manifest/schema",
             json={"id": "new_schema", "path": "schemas/new.schema.yaml"},
             headers=project_header,
         )
         assert resp.status_code == 200
 
-        resp2 = client.get("/api/v1/project/v2/manifest", headers=project_header)
+        resp2 = client.get("/api/latest/project/manifest", headers=project_header)
         body = resp2.json()
         ids = {s["id"] for s in body["schemas"]}
         assert "new_schema" in ids
@@ -223,19 +223,19 @@ class TestManifestRoute:
     def test_upsert_schema_ref_updates_existing(self, client, project_dir, project_header):
         # 第一次 upsert：添加
         client.put(
-            "/api/v1/project/v2/manifest/schema",
+            "/api/latest/project/manifest/schema",
             json={"id": "users", "path": "schemas/users.schema.yaml"},
             headers=project_header,
         )
         # 第二次 upsert：更新 path
         resp = client.put(
-            "/api/v1/project/v2/manifest/schema",
+            "/api/latest/project/manifest/schema",
             json={"id": "users", "path": "schemas/users_renamed.schema.yaml"},
             headers=project_header,
         )
         assert resp.status_code == 200
 
-        resp2 = client.get("/api/v1/project/v2/manifest", headers=project_header)
+        resp2 = client.get("/api/latest/project/manifest", headers=project_header)
         body = resp2.json()
         users = next(s for s in body["schemas"] if s["id"] == "users")
         assert users["path"] == "schemas/users_renamed.schema.yaml"
@@ -247,7 +247,7 @@ class TestViewRoute:
     """project.view.json 端点测试"""
 
     def test_get_view_returns_default_when_missing(self, client, project_dir, project_header):
-        resp = client.get("/api/v1/project/v2/view", headers=project_header)
+        resp = client.get("/api/latest/project/view", headers=project_header)
         assert resp.status_code == 200
         body = resp.json()
         assert body["version"] == 1
@@ -261,12 +261,12 @@ class TestViewRoute:
                 "node-2": {"x": 300, "y": 400},
             },
         }
-        resp = client.put("/api/v1/project/v2/view", json=payload, headers=project_header)
+        resp = client.put("/api/latest/project/view", json=payload, headers=project_header)
         assert resp.status_code == 200
         assert resp.json()["message"]
 
         # 重新读
-        resp2 = client.get("/api/v1/project/v2/view", headers=project_header)
+        resp2 = client.get("/api/latest/project/view", headers=project_header)
         body = resp2.json()
         assert body["nodes"]["node-1"]["x"] == 100
         assert body["nodes"]["node-2"]["y"] == 400
@@ -277,7 +277,7 @@ class TestViewRoute:
             "version": 1,
             "nodes": {"中文节点": {"x": 0, "y": 0}},
         }
-        client.put("/api/v1/project/v2/view", json=payload, headers=project_header)
+        client.put("/api/latest/project/view", json=payload, headers=project_header)
 
         view_path = os.path.join(project_dir, "project.view.json")
         assert os.path.isfile(view_path)
@@ -290,7 +290,7 @@ class TestWorkspacesRoute:
     """.precis/workspaces.json 端点测试"""
 
     def test_get_workspaces_returns_default(self, client, project_dir, project_header):
-        resp = client.get("/api/v1/project/v2/workspaces", headers=project_header)
+        resp = client.get("/api/latest/project/workspaces", headers=project_header)
         assert resp.status_code == 200
         body = resp.json()
         assert body["version"] == 1
@@ -314,10 +314,10 @@ class TestWorkspacesRoute:
                 },
             ],
         }
-        resp = client.put("/api/v1/project/v2/workspaces", json=payload, headers=project_header)
+        resp = client.put("/api/latest/project/workspaces", json=payload, headers=project_header)
         assert resp.status_code == 200
 
-        resp2 = client.get("/api/v1/project/v2/workspaces", headers=project_header)
+        resp2 = client.get("/api/latest/project/workspaces", headers=project_header)
         body = resp2.json()
         assert body["activeWorkspaceId"] == "ws-1"
         assert len(body["workspaces"]) == 1
@@ -329,7 +329,7 @@ class TestWorkspacesRoute:
         assert not os.path.isdir(precis_dir)
 
         client.put(
-            "/api/v1/project/v2/workspaces",
+            "/api/latest/project/workspaces",
             json={"version": 1, "workspaces": []},
             headers=project_header,
         )
@@ -340,7 +340,7 @@ class TestConnectionRulesRoute:
     """connection-rules.precis.yaml 端点测试"""
 
     def test_get_returns_empty_when_file_missing(self, client, project_dir, project_header):
-        resp = client.get("/api/v1/connection-rules", headers=project_header)
+        resp = client.get("/api/latest/connection-rules", headers=project_header)
         assert resp.status_code == 200
         body = resp.json()
         assert body["version"] == "1.0"
@@ -358,10 +358,10 @@ class TestConnectionRulesRoute:
                 }
             ],
         }
-        resp = client.put("/api/v1/connection-rules", json=rules, headers=project_header)
+        resp = client.put("/api/latest/connection-rules", json=rules, headers=project_header)
         assert resp.status_code == 200
 
-        resp2 = client.get("/api/v1/connection-rules", headers=project_header)
+        resp2 = client.get("/api/latest/connection-rules", headers=project_header)
         body = resp2.json()
         assert len(body["rules"]) == 1
         assert body["rules"][0]["id"] == "schema_to_constraint"
@@ -379,17 +379,17 @@ class TestConnectionRulesRoute:
                 }
             ],
         }
-        client.put("/api/v1/connection-rules", json=rules, headers=project_header)
+        client.put("/api/latest/connection-rules", json=rules, headers=project_header)
         rules_file = os.path.join(project_dir, "connection-rules.precis.yaml")
         assert os.path.isfile(rules_file)
 
         # 重置
-        resp = client.post("/api/v1/connection-rules/reset", headers=project_header)
+        resp = client.post("/api/latest/connection-rules/reset", headers=project_header)
         assert resp.status_code == 200
         assert not os.path.isfile(rules_file)
 
         # 重置后 GET 返回空规则
-        resp2 = client.get("/api/v1/connection-rules", headers=project_header)
+        resp2 = client.get("/api/latest/connection-rules", headers=project_header)
         assert resp2.json()["rules"] == []
 
 
@@ -397,7 +397,7 @@ class TestWorkspaceDataSourcesRoute:
     """workspace/config + data-sources CRUD 端点测试"""
 
     def test_get_default_workspace(self, client, project_dir, project_header):
-        resp = client.get("/api/v1/workspace/config", headers=project_header)
+        resp = client.get("/api/latest/workspace/config", headers=project_header)
         assert resp.status_code == 200
         body = resp.json()
         assert body["data_sources"] == []
@@ -412,14 +412,14 @@ class TestWorkspaceDataSourcesRoute:
             "type": "csv",
             "status": "ready",
         }
-        resp = client.post("/api/v1/workspace/data-sources", json=ds, headers=project_header)
+        resp = client.post("/api/latest/workspace/data-sources", json=ds, headers=project_header)
         assert resp.status_code == 200
         body = resp.json()
         assert len(body["data_sources"]) == 1
         assert body["data_sources"][0]["name"] == "Test Excel"
 
         # 再次 GET 验证持久化
-        resp2 = client.get("/api/v1/workspace/config", headers=project_header)
+        resp2 = client.get("/api/latest/workspace/config", headers=project_header)
         assert len(resp2.json()["data_sources"]) == 1
 
     def test_add_duplicate_data_source_updates_existing(self, client, project_dir, project_header):
@@ -430,14 +430,14 @@ class TestWorkspaceDataSourcesRoute:
             "fileId": path,
             "type": "csv",
         }
-        client.post("/api/v1/workspace/data-sources", json=ds, headers=project_header)
+        client.post("/api/latest/workspace/data-sources", json=ds, headers=project_header)
         # 用相同 fileId 但不同 name 添加
         client.post(
-            "/api/v1/workspace/data-sources",
+            "/api/latest/workspace/data-sources",
             json={"id": "ds-1", "name": "Renamed", "fileId": path, "type": "csv"},
             headers=project_header,
         )
-        resp = client.get("/api/v1/workspace/config", headers=project_header)
+        resp = client.get("/api/latest/workspace/config", headers=project_header)
         sources = resp.json()["data_sources"]
         # 仍然只有一条记录，但 name 已更新
         assert len(sources) == 1
@@ -449,16 +449,16 @@ class TestWorkspaceDataSourcesRoute:
         path_a = str(os.path.join(project_dir, "data", "a.csv"))
         path_b = str(os.path.join(project_dir, "data", "b.csv"))
         client.post(
-            "/api/v1/workspace/data-sources",
+            "/api/latest/workspace/data-sources",
             json={"id": "ds-1", "name": "A", "fileId": path_a, "type": "csv"},
             headers=project_header,
         )
         client.post(
-            "/api/v1/workspace/data-sources",
+            "/api/latest/workspace/data-sources",
             json={"id": "ds-2", "name": "B", "fileId": path_b, "type": "csv"},
             headers=project_header,
         )
-        resp = client.delete("/api/v1/workspace/data-sources/ds-1", headers=project_header)
+        resp = client.delete("/api/latest/workspace/data-sources/ds-1", headers=project_header)
         assert resp.status_code == 200
         remaining = resp.json()["data_sources"]
         assert len(remaining) == 1
@@ -467,11 +467,11 @@ class TestWorkspaceDataSourcesRoute:
     def test_clear_all_data_sources(self, client, project_dir, project_header):
         path_a = str(os.path.join(project_dir, "data", "a.csv"))
         client.post(
-            "/api/v1/workspace/data-sources",
+            "/api/latest/workspace/data-sources",
             json={"id": "ds-1", "name": "A", "fileId": path_a, "type": "csv"},
             headers=project_header,
         )
-        resp = client.delete("/api/v1/workspace/data-sources", headers=project_header)
+        resp = client.delete("/api/latest/workspace/data-sources", headers=project_header)
         assert resp.status_code == 200
         assert resp.json()["data_sources"] == []
 
@@ -482,10 +482,10 @@ class TestWhitespaceConfigPathRejected:
     @pytest.mark.parametrize(
         "endpoint",
         [
-            "/api/v1/project/v2/manifest",
-            "/api/v1/project/v2/view",
-            "/api/v1/project/v2/workspaces",
-            "/api/v1/connection-rules",
+            "/api/latest/project/manifest",
+            "/api/latest/project/view",
+            "/api/latest/project/workspaces",
+            "/api/latest/connection-rules",
         ],
     )
     def test_endpoints_reject_missing_header(self, client, endpoint):

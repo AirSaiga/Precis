@@ -66,8 +66,8 @@ fi
 
 banner "正在启动 Precis Desktop..."
 echo "启动顺序:"
-echo "  1. Python 后端服务 (端口 18000)"
-echo "  2. Vite 前端开发服务器 (端口 5173)"
+echo "  1. Python 后端服务 (端口 ${BACKEND_PORT})"
+echo "  2. Vite 前端开发服务器 (端口 ${FRONTEND_PORT})"
 echo "  3. Electron 桌面应用 (等待前后端就绪后启动)"
 echo ""
 echo "提示: 首次启动可能需要几秒钟; 按 Ctrl+C 停止所有服务"
@@ -79,15 +79,15 @@ if ! npx concurrently --version &> /dev/null; then
 fi
 
 if [ -n "${USE_TS_NODE}" ]; then
-    ELECTRON_CMD="npx wait-on --delay 1000 --timeout 60000 http://127.0.0.1:18000/docs http://localhost:5173 && cd electron && npx electron-forge start"
+    ELECTRON_CMD="npx wait-on --delay 1000 --timeout 60000 http://127.0.0.1:${BACKEND_PORT}/docs http://localhost:${FRONTEND_PORT} && cd electron && npx electron-forge start"
 else
-    ELECTRON_CMD="npx wait-on --delay 1000 --timeout 60000 http://127.0.0.1:18000/docs http://localhost:5173 && cd electron && npm start"
+    ELECTRON_CMD="npx wait-on --delay 1000 --timeout 60000 http://127.0.0.1:${BACKEND_PORT}/docs http://localhost:${FRONTEND_PORT} && cd electron && npm start"
 fi
 
 npx concurrently --kill-others \
     --names "BACKEND,FRONTEND,ELECTRON" \
     --prefix-colors "cyan,green,magenta" \
-    "cd backend && ${PYTHON_CMD} -m uvicorn app.api.main:app --reload --port 18000" \
+    "cd backend && ${PYTHON_CMD} -m uvicorn app.api.main:app --reload --port ${BACKEND_PORT}" \
     "cd frontend && npm run dev" \
     "${ELECTRON_CMD}"
 

@@ -48,8 +48,8 @@ class ProjectViewV2Model(BaseModel):
     - 避免把 UI 相关信息写入 project.precis.yaml / schema / constraint / regex 文件
 
     数据流：
-    - 前端保存画布视图时调用 PUT /project/v2/view
-    - 前端加载项目时调用 GET /project/v2/view 获取节点位置
+    - 前端保存画布视图时调用 PUT /project/view
+    - 前端加载项目时调用 GET /project/view 获取节点位置
 
     字段说明：
     - version: 视图文件版本，用于后续格式迁移
@@ -144,8 +144,8 @@ class WorkspacesV2Model(BaseModel):
     - 每个工作区保存完整画布快照（nodes/edges），实现跨会话恢复
 
     数据流：
-    - 前端切换/关闭工作区时调用 PUT /project/v2/workspaces 保存
-    - 前端加载项目时调用 GET /project/v2/workspaces 恢复所有工作区画布状态
+    - 前端切换/关闭工作区时调用 PUT /project/workspaces 保存
+    - 前端加载项目时调用 GET /project/workspaces 恢复所有工作区画布状态
     """
 
     version: int = Field(default=1, description="工作区文件版本")

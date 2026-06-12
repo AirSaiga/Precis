@@ -18,9 +18,7 @@
 import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
-
-// 后端 API 基础 URL
-const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:18000'
+import { BACKEND_URL } from '../config'
 
 const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
 
@@ -76,7 +74,7 @@ test.describe('Save/Load Round-Trip', () => {
     }
 
     // 2. 保存配置
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     // 3. 读取保存的文件
@@ -89,7 +87,7 @@ test.describe('Save/Load Round-Trip', () => {
     expect(savedContent).toContain('charset_mode: custom')
 
     // 4. 重新加载配置
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     expect(loadResp.status).toBeLessThan(300)
 
     const loadedConfig = await loadResp.json()
@@ -137,14 +135,14 @@ test.describe('Save/Load Round-Trip', () => {
       },
     }
 
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     const constraintPath = path.join(projectPath, 'constraints', 'c-range.constraint.yaml')
     const savedContent = fs.readFileSync(constraintPath, 'utf-8')
     expect(savedContent).toContain('boundary_mode: exclusive')
 
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     const loadedConfig = await loadResp.json()
     expect(loadedConfig.constraints?.['c-range']?.params?.boundary_mode).toBe('exclusive')
   })
@@ -215,7 +213,7 @@ test.describe('Save/Load Round-Trip', () => {
       },
     }
 
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     const constraintPath = path.join(projectPath, 'constraints', 'c-composite.constraint.yaml')
@@ -223,7 +221,7 @@ test.describe('Save/Load Round-Trip', () => {
     expect(savedContent).toContain('logic: all')
     expect(savedContent).toContain('sub_constraints:')
 
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     const loadedConfig = await loadResp.json()
     const composite = loadedConfig.constraints?.['c-composite']
     expect(composite?.params?.logic).toBe('all')
@@ -257,7 +255,7 @@ test.describe('Save/Load Round-Trip', () => {
       },
     }
 
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     const transformPath = path.join(projectPath, 'transforms', 't-1.transform.yaml')
@@ -268,7 +266,7 @@ test.describe('Save/Load Round-Trip', () => {
     expect(savedContent).toContain('first_name')
     expect(savedContent).toContain('last_name')
 
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     const loadedConfig = await loadResp.json()
     expect(loadedConfig.transforms?.['t-1']?.type).toBe('StringSplit')
     expect(loadedConfig.transforms?.['t-1']?.output_columns).toEqual(['first_name', 'last_name'])
@@ -324,10 +322,10 @@ test.describe('Save/Load Round-Trip', () => {
       },
     }
 
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     expect(loadResp.status).toBeLessThan(300)
     const loadedConfig = await loadResp.json()
 
@@ -371,7 +369,7 @@ test.describe('Save/Load Round-Trip', () => {
       },
     }
 
-    const saveResp = await apiHelper.put('/project/v2/config/full', fullConfig)
+    const saveResp = await apiHelper.put('/project/config/full', fullConfig)
     expect(saveResp.status).toBeLessThan(300)
 
     const schemaPath = path.join(projectPath, 'schemas', 'sc_products.schema.yaml')
@@ -391,21 +389,21 @@ test.describe('Save/Load Round-Trip', () => {
       },
     }
 
-    const updateResp = await apiHelper.put('/project/v2/config/full', updatedConfig)
+    const updateResp = await apiHelper.put('/project/config/full', updatedConfig)
     expect(updateResp.status).toBeLessThan(300)
 
     const updatedContent = fs.readFileSync(schemaPath, 'utf-8')
     expect(updatedContent).toContain('item_title')
     expect(updatedContent).not.toContain('product_name')
 
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     const loadedConfig = await loadResp.json()
     expect(loadedConfig.schemas?.sc_products?.columns[0]?.name).toBe('item_title')
   })
 
   test('draft 状态节点未保存 — 未调用保存 API 的资源不存在于磁盘', async ({ apiHelper }) => {
 
-    const loadResp = await apiHelper.get('/project/v2/config/full')
+    const loadResp = await apiHelper.get('/project/config/full')
     expect(loadResp.status).toBeLessThan(300)
     const initialConfig = await loadResp.json()
     const initialConstraintCount = Object.keys(initialConfig.constraints || {}).length
@@ -417,7 +415,7 @@ test.describe('Save/Load Round-Trip', () => {
     expect(fs.existsSync(draftConstraintPath)).toBe(false)
     expect(fs.existsSync(draftRegexPath)).toBe(false)
 
-    const reloadResp = await apiHelper.get('/project/v2/config/full')
+    const reloadResp = await apiHelper.get('/project/config/full')
     const reloadedConfig = await reloadResp.json()
     expect(Object.keys(reloadedConfig.constraints || {}).length).toBe(initialConstraintCount)
     expect(Object.keys(reloadedConfig.regex_nodes || {}).length).toBe(initialRegexCount)

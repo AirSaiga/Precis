@@ -51,7 +51,7 @@ from app.cli.shell.commands.ai.base import (
 )
 from app.cli.shell.config_storage import get_cli_config
 from app.cli.shell.formatter import Colors, Formatter
-from app.shared.services.ai.types import ProviderConfig
+from app.shared.services.llm.config.models import AIProvider
 
 logger = logging.getLogger(__name__)
 
@@ -122,25 +122,20 @@ class SpinnerController:
             time.sleep(0.1)
 
 
-def _get_provider_with_key() -> Optional[ProviderConfig]:
-    """获取包含完整 API Key 的 Provider 配置。
+def _get_provider_with_key() -> Optional[AIProvider]:
+    """
+    获取包含完整 API Key 的 Provider 配置。
 
-    从 CLI 配置中读取当前激活的 Provider，并转换为 ProviderConfig 对象。
+    从 CLI 配置中读取当前激活的 Provider（已通过 ConfigLoader 解密 api_key）。
 
     Returns:
-        包含完整 API Key 的 ProviderConfig，如果未配置则返回 None
+        AIProvider 实例，如果未配置则返回 None
     """
     cli_config = get_cli_config()
     provider = cli_config.get_active_provider()
 
     if provider and provider.api_key:
-        return ProviderConfig(
-            id=provider.id,
-            provider=provider.provider,
-            api_key=provider.api_key,
-            base_url=provider.base_url,
-            model=provider.model,
-        )
+        return provider
     return None
 
 
@@ -156,9 +151,11 @@ def _get_provider_display() -> Optional[dict[str, object]]:
     provider = cli_config.get_active_provider()
 
     if provider and provider.api_key:
+        # 统一使用 AIProvider 的 type 字段（ProviderType 枚举）
+        provider_type = provider.type.value if hasattr(provider.type, "value") else str(provider.type)
         return {
             "id": provider.id,
-            "provider": provider.provider,
+            "provider": provider_type,
             "api_key": mask_api_key(provider.api_key),
             "base_url": provider.base_url,
             "model": provider.model,

@@ -9,7 +9,7 @@ import { withConfigPathHeader } from './shared'
 
 export async function getV2ProjectView(configPath?: string): Promise<ProjectViewV2> {
   const { data } = await apiClient.get<ProjectViewV2>(
-    '/project/v2/view',
+    '/project/view',
     withConfigPathHeader(configPath)
   )
   return data
@@ -17,7 +17,7 @@ export async function getV2ProjectView(configPath?: string): Promise<ProjectView
 
 export async function putV2ProjectView(view: ProjectViewV2, configPath?: string): Promise<void> {
   await apiClient.put(
-    '/project/v2/view',
+    '/project/view',
     view,
     withConfigPathHeader(configPath)
   )

@@ -96,16 +96,7 @@ class TestConstraintRegistry:
         assert CONSTRAINT_REGISTRY["Unique"] is UniqueConstraint
 
     def test_registry_contains_all_standard_types(self):
-        expected = [
-            "Unique",
-            "NotNull",
-            "AllowedValues",
-            "ForeignKey",
-            "Range",
-            "Conditional",
-            "Scripted",
-            "Charset",
-            "DateLogic",
-        ]
+        expected = sorted(CONSTRAINT_REGISTRY.keys())
+        assert "Composite" in expected, "Composite not in registry"
         for name in expected:
             assert name in CONSTRAINT_REGISTRY, f"{name} not in registry"

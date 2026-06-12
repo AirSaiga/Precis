@@ -29,7 +29,8 @@ for /f "tokens=*" %%a in ('"%PYTHON_CMD%" --version') do echo [OK] %%a
 echo.
 
 cd backend
-"%PYTHON_CMD%" -m uvicorn app.api.main:app --reload --port 18000
+for /f "tokens=*" %%a in ('node -e "try { require('dotenv').config(); } catch(e) {} console.log(process.env.VITE_BACKEND_PORT || '18000')"') do set BACKEND_PORT=%%a
+"%PYTHON_CMD%" -m uvicorn app.api.main:app --reload --port %BACKEND_PORT%
 
 echo.
 echo [INFO] Backend stopped.

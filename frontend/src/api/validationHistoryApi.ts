@@ -1,7 +1,7 @@
 /**
  * 校验历史记录 API
  *
- * 封装 /v2/validation/history 端点的 CRUD 操作。
+ * 封装 /validation/history 端点的 CRUD 操作。
  * 对应后端 validation/history.py 路由。
  */
 import apiClient from '@/core/services/httpClient'
@@ -17,7 +17,7 @@ export async function fetchValidationHistory(
   limit = 20,
   offset = 0
 ): Promise<ValidationHistoryList> {
-  const { data } = await apiClient.get('/v2/validation/history', {
+  const { data } = await apiClient.get('/validation/history', {
     params: { project_path: projectPath, limit, offset },
   })
   return data
@@ -28,7 +28,7 @@ export async function fetchValidationRun(
   runId: string,
   projectPath: string
 ): Promise<ValidationRunRecord> {
-  const { data } = await apiClient.get(`/v2/validation/history/${encodeURIComponent(runId)}`, {
+  const { data } = await apiClient.get(`/validation/history/${encodeURIComponent(runId)}`, {
     params: { project_path: projectPath },
   })
   return data
@@ -39,7 +39,7 @@ export async function deleteValidationRun(
   runId: string,
   projectPath: string
 ): Promise<void> {
-  await apiClient.delete(`/v2/validation/history/${encodeURIComponent(runId)}`, {
+  await apiClient.delete(`/validation/history/${encodeURIComponent(runId)}`, {
     params: { project_path: projectPath },
   })
 }
@@ -49,7 +49,7 @@ export async function fetchValidationStats(
   projectPath: string,
   lastN = 10
 ): Promise<ValidationHistoryStats> {
-  const { data } = await apiClient.get('/v2/validation/history/stats', {
+  const { data } = await apiClient.get('/validation/history/stats', {
     params: { project_path: projectPath, last_n: lastN },
   })
   return data
@@ -67,7 +67,7 @@ export async function saveValidationRun(
     warnings?: string[]
   }
 ): Promise<string> {
-  const { data } = await apiClient.post('/v2/validation/history', {
+  const { data } = await apiClient.post('/validation/history', {
     project_path: projectPath,
     ...result,
   })

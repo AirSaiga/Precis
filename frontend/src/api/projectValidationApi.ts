@@ -167,7 +167,7 @@ export interface ValidationTaskRequest {
 export async function validateV2Full(
   payload: FullValidationRequest
 ): Promise<FullValidationResponse> {
-  const res = await apiClient.post<FullValidationResponse>('/project/v2/validate/full', payload)
+  const res = await apiClient.post<FullValidationResponse>('/project/validate/full', payload)
   return res.data
 }
 

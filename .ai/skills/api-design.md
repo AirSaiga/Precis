@@ -32,7 +32,7 @@ scope: ["backend/app/api/**/*.py"]
 ├── /regex                 # 正则节点管理
 ├── /ai                    # AI 服务
 │   ├── POST /chat
-│   ├── POST /v2/config/generate
+│   ├── POST /config/generate
 │   └── GET  /providers
 └── /preview               # 数据预览
 ```

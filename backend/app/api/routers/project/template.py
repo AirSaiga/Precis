@@ -78,7 +78,7 @@ class StandardResponse(BaseModel):
 
 
 @router.get(
-    "/v2/template",
+    "/template",
     response_model=list[dict[str, Any]],
     summary="列出所有模板定义",
     responses={
@@ -111,7 +111,7 @@ def list_templates(config_path: str = Depends(get_project_config_path)):
 
 
 @router.get(
-    "/v2/template/{template_id}",
+    "/template/{template_id}",
     response_model=dict[str, Any],
     summary="读取指定模板定义",
     responses={
@@ -129,7 +129,7 @@ def get_template(template_id: str, config_path: str = Depends(get_project_config
 
 
 @router.post(
-    "/v2/template",
+    "/template",
     response_model=StandardResponse,
     summary="创建模板定义文件",
     responses={
@@ -172,7 +172,7 @@ def create_template(template_data: dict, config_path: str = Depends(get_project_
 
 
 @router.put(
-    "/v2/template/{template_id}",
+    "/template/{template_id}",
     response_model=StandardResponse,
     summary="更新模板定义文件",
     responses={
@@ -216,7 +216,7 @@ def update_template(
 
 
 @router.delete(
-    "/v2/template/{template_id}",
+    "/template/{template_id}",
     response_model=StandardResponse,
     summary="删除模板定义文件",
     responses={
@@ -244,7 +244,7 @@ def delete_template(template_id: str, config_path: str = Depends(get_project_con
 
 
 @router.post(
-    "/v2/template/{template_id}/expand",
+    "/template/{template_id}/expand",
     response_model=TemplateExpandResponse,
     summary="预览模板展开结果",
     responses={

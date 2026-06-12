@@ -47,11 +47,11 @@ def project_dir(tmp_path):
 
 class TestWhitelistRouter:
     def test_get_whitelist_defaults(self, client):
-        resp = client.get("/api/v1/whitelist")
+        resp = client.get("/api/latest/whitelist")
         assert resp.status_code in (200, 404)
 
     def test_validate_whitelist_personal(self, client):
-        resp = client.post("/api/v1/whitelist/validate", json={"file_path": "/tmp/test.csv"})
+        resp = client.post("/api/latest/whitelist/validate", json={"file_path": "/tmp/test.csv"})
         assert resp.status_code in (200, 404)
 
 
@@ -62,11 +62,11 @@ class TestWhitelistRouter:
 
 class TestValidationHistoryRouter:
     def test_get_history_stats_empty(self, client, tmp_path):
-        resp = client.get("/api/v1/v2/validation/history/stats", params={"project_path": str(tmp_path)})
+        resp = client.get("/api/latest/validation/history/stats", params={"project_path": str(tmp_path)})
         assert resp.status_code in (200, 404)
 
     def test_get_history_list_empty(self, client, tmp_path):
-        resp = client.get("/api/v1/v2/validation/history", params={"project_path": str(tmp_path)})
+        resp = client.get("/api/latest/validation/history", params={"project_path": str(tmp_path)})
         assert resp.status_code in (200, 404)
 
 
@@ -78,12 +78,12 @@ class TestValidationHistoryRouter:
 class TestSettingsRouter:
     def test_get_settings(self, client, project_dir):
         proj_dir, _ = project_dir
-        resp = client.get("/api/v1/v2/config/settings", headers={"X-Project-Config-Path": proj_dir})
+        resp = client.get("/api/latest/config/settings", headers={"X-Project-Config-Path": proj_dir})
         assert resp.status_code in (200, 404)
 
     def test_get_validation_settings(self, client, project_dir):
         proj_dir, _ = project_dir
-        resp = client.get("/api/v1/v2/config/validation", headers={"X-Project-Config-Path": proj_dir})
+        resp = client.get("/api/latest/config/validation", headers={"X-Project-Config-Path": proj_dir})
         assert resp.status_code in (200, 404)
 
 
@@ -95,7 +95,7 @@ class TestSettingsRouter:
 class TestTemplateRouter:
     def test_list_templates_empty(self, client, project_dir):
         proj_dir, _ = project_dir
-        resp = client.get("/api/v1/v2/template", headers={"X-Project-Config-Path": proj_dir})
+        resp = client.get("/api/latest/template", headers={"X-Project-Config-Path": proj_dir})
         assert resp.status_code in (200, 404)
 
 
@@ -108,7 +108,7 @@ class TestSchemaRouter:
     def test_check_conflict_nonexistent(self, client, project_dir):
         proj_dir, _ = project_dir
         resp = client.post(
-            "/api/v1/v2/schemas/nonexistent_id/check-conflict",
+            "/api/latest/schemas/nonexistent_id/check-conflict",
             json={
                 "columns": [{"id": "c1", "name": "col1", "type": "String"}],
                 "name": "Test",
@@ -121,7 +121,7 @@ class TestSchemaRouter:
 
     def test_get_schema_not_found(self, client, project_dir):
         proj_dir, _ = project_dir
-        resp = client.get("/api/v1/v2/schemas/nonexistent_schema", headers={"X-Project-Config-Path": proj_dir})
+        resp = client.get("/api/latest/schemas/nonexistent_schema", headers={"X-Project-Config-Path": proj_dir})
         assert resp.status_code in (200, 404)
 
 
@@ -133,7 +133,7 @@ class TestSchemaRouter:
 class TestRegexRouter:
     def test_get_regex_not_found(self, client, project_dir):
         proj_dir, _ = project_dir
-        resp = client.get("/api/v1/v2/regex/nonexistent_regex", headers={"X-Project-Config-Path": proj_dir})
+        resp = client.get("/api/latest/regex/nonexistent_regex", headers={"X-Project-Config-Path": proj_dir})
         assert resp.status_code in (200, 404)
 
 
@@ -145,13 +145,13 @@ class TestRegexRouter:
 class TestFullConfigRouter:
     def test_get_full_config(self, client, project_dir):
         proj_dir, _ = project_dir
-        resp = client.get("/api/v1/v2/config/full", headers={"X-Project-Config-Path": proj_dir})
+        resp = client.get("/api/latest/config/full", headers={"X-Project-Config-Path": proj_dir})
         assert resp.status_code in (200, 404)
 
     def test_compare_config(self, client, project_dir):
         proj_dir, _ = project_dir
         resp = client.post(
-            "/api/v1/v2/config/compare",
+            "/api/latest/config/compare",
             json={"manifest": {}, "schemas": {}, "constraints": {}},
             headers={"X-Project-Config-Path": proj_dir},
         )
@@ -166,7 +166,7 @@ class TestFullConfigRouter:
 class TestValidationPathRouter:
     def test_validate_path_empty_source(self, client):
         resp = client.post(
-            "/api/v1/validate/path",
+            "/api/latest/validate/path",
             json={
                 "source_file_path": "",
                 "validation_type": "not_null",
@@ -177,7 +177,7 @@ class TestValidationPathRouter:
 
     def test_regex_path_empty_source(self, client):
         resp = client.post(
-            "/api/v1/regex/path",
+            "/api/latest/regex/path",
             json={
                 "source_file_path": "",
                 "target_column_name": "col",
@@ -187,13 +187,13 @@ class TestValidationPathRouter:
         assert resp.status_code in (200, 400, 500)
 
     def test_validate_batch(self, client):
-        resp = client.post("/api/v1/validate/path/batch", json=[])
+        resp = client.post("/api/latest/validate/path/batch", json=[])
         assert resp.status_code in (200, 400)
 
     def test_regex_path_nonexistent_file(self, client, tmp_path):
         fake_file = str(tmp_path / "nonexistent.csv")
         resp = client.post(
-            "/api/v1/regex/path",
+            "/api/latest/regex/path",
             json={
                 "source_file_path": fake_file,
                 "target_column_name": "col",
@@ -212,7 +212,7 @@ class TestProjectValidationRouter:
     def test_validate_full_no_manifest(self, client, tmp_path):
         """无 manifest 时返回 404。"""
         resp = client.post(
-            "/api/v1/v2/validate/full",
+            "/api/latest/validate/full",
             json={"options": {"data_directory": str(tmp_path)}},
             headers={"X-Project-Config-Path": str(tmp_path)},
         )
@@ -222,7 +222,7 @@ class TestProjectValidationRouter:
         """最小项目触发完整校验流程。"""
         proj_dir, _ = project_dir
         resp = client.post(
-            "/api/v1/v2/validate/full",
+            "/api/latest/validate/full",
             json={"options": {}},
             headers={"X-Project-Config-Path": proj_dir},
         )
@@ -292,7 +292,7 @@ class TestPreviewService:
 class TestDataSourcesRouter:
     def test_list_data_sources_empty(self, client, project_dir):
         proj_dir, _ = project_dir
-        resp = client.get("/api/v1/workspace/data-sources", headers={"X-Project-Config-Path": proj_dir})
+        resp = client.get("/api/latest/workspace/data-sources", headers={"X-Project-Config-Path": proj_dir})
         assert resp.status_code in (200, 404, 405)
 
 
@@ -304,12 +304,12 @@ class TestDataSourcesRouter:
 class TestConnectionRulesRouter:
     def test_get_rules_default(self, client, project_dir):
         proj_dir, _ = project_dir
-        resp = client.get("/api/v1/connection-rules", headers={"X-Project-Config-Path": proj_dir})
+        resp = client.get("/api/latest/connection-rules", headers={"X-Project-Config-Path": proj_dir})
         assert resp.status_code in (200, 404)
 
     def test_reset_rules_nonexistent(self, client, project_dir):
         proj_dir, _ = project_dir
-        resp = client.post("/api/v1/connection-rules/reset", headers={"X-Project-Config-Path": proj_dir})
+        resp = client.post("/api/latest/connection-rules/reset", headers={"X-Project-Config-Path": proj_dir})
         assert resp.status_code in (200, 404)
 
 
@@ -320,7 +320,7 @@ class TestConnectionRulesRouter:
 
 class TestReportingRouter:
     def test_list_reports_empty(self, client):
-        resp = client.get("/api/v1/reports")
+        resp = client.get("/api/latest/reports")
         assert resp.status_code in (200, 404, 405)
 
 

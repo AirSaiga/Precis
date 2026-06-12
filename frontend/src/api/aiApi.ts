@@ -90,7 +90,7 @@ export async function postAiGenerateV2Config(
   configPath?: string
 ): Promise<AiGenerateV2ConfigResponse> {
   const { data } = await apiClient.post<AiGenerateV2ConfigResponse>(
-    '/ai/v2/config/generate',
+    '/ai/config/generate',
     payload,
     configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
   )
@@ -111,7 +111,7 @@ export async function postAiGenerateV2ConfigJob(
   configPath?: string
 ): Promise<AiGenerateV2ConfigJobCreateResponse> {
   const { data } = await apiClient.post<AiGenerateV2ConfigJobCreateResponse>(
-    '/ai/v2/config/generate/jobs',
+    '/ai/config/generate/jobs',
     payload,
     configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
   )
@@ -130,7 +130,7 @@ export async function getAiGenerateV2ConfigJob(
   configPath?: string
 ): Promise<AiGenerateV2ConfigJobStatus> {
   const { data } = await apiClient.get<AiGenerateV2ConfigJobStatus>(
-    `/ai/v2/config/generate/jobs/${encodeURIComponent(jobId)}`,
+    `/ai/config/generate/jobs/${encodeURIComponent(jobId)}`,
     configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
   )
   return data
@@ -148,7 +148,7 @@ export async function postCancelAiGenerateV2ConfigJob(
   configPath?: string
 ): Promise<AiGenerateV2ConfigJobStatus> {
   const { data } = await apiClient.post<AiGenerateV2ConfigJobStatus>(
-    `/ai/v2/config/generate/jobs/${encodeURIComponent(jobId)}/cancel`,
+    `/ai/config/generate/jobs/${encodeURIComponent(jobId)}/cancel`,
     undefined,
     configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
   )

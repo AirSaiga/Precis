@@ -25,9 +25,9 @@ import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
+import { BACKEND_URL } from '../config'
 
 const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
-const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:18000'
 
 test.beforeAll(() => {
   if (!fs.existsSync(projectPath)) {
@@ -168,7 +168,7 @@ params:
  * 调用全量校验 API
  */
 async function runFullValidation(projectDir: string): Promise<any> {
-  const resp = await fetch(`${BACKEND_URL}/api/v1/project/v2/validate/full`, {
+  const resp = await fetch(`${BACKEND_URL}/api/latest/project/validate/full`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': projectDir },
     body: JSON.stringify({}),
@@ -248,7 +248,7 @@ test.describe('Validation Error Navigation E2E', () => {
   })
 
   test.describe('错误节点已存在时：可基于 table_id 定位', () => {
-    test('通过 GET /v2/schemas/{table_id} 验证节点可被定位', async ({ apiHelper }) => {
+    test('通过 GET /schemas/{table_id} 验证节点可被定位', async ({ apiHelper }) => {
       // 模拟：navigator 收到 error.table_id="sc_users_nav"，需要确认该项目
       // 存在该 schema 资源（API 端 200 + 返回 schema 内容）
       const project = createValidationProject(
@@ -267,7 +267,7 @@ test.describe('Validation Error Navigation E2E', () => {
         // 2. navigator 内部先在 graphStore 中查找节点
         //    E2E 视角：调用 V2 API 验证该 schema 存在（如果存在，画布上的节点就有效）
         const schemaResp = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/schemas/${tableId}`,
+          `${BACKEND_URL}/api/latest/project/schemas/${tableId}`,
           { headers: { 'X-Project-Config-Path': project } }
         )
         expect(schemaResp.ok).toBe(true)
@@ -300,13 +300,13 @@ test.describe('Validation Error Navigation E2E', () => {
       try {
         // 多次调用应返回相同内容
         const resp1 = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/schemas/sc_users_nav`,
+          `${BACKEND_URL}/api/latest/project/schemas/sc_users_nav`,
           { headers: { 'X-Project-Config-Path': project } }
         )
         const data1 = await resp1.json()
 
         const resp2 = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/schemas/sc_users_nav`,
+          `${BACKEND_URL}/api/latest/project/schemas/sc_users_nav`,
           { headers: { 'X-Project-Config-Path': project } }
         )
         const data2 = await resp2.json()
@@ -339,7 +339,7 @@ test.describe('Validation Error Navigation E2E', () => {
       try {
         // 模拟 navigator 内部调用：getV2Schema(table_id)
         const schemaResp = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/schemas/sc_users_nav`,
+          `${BACKEND_URL}/api/latest/project/schemas/sc_users_nav`,
           { headers: { 'X-Project-Config-Path': project } }
         )
         expect(schemaResp.ok).toBe(true)
@@ -373,7 +373,7 @@ test.describe('Validation Error Navigation E2E', () => {
         // navigator 拿到一个错误的 table_id（不在项目里）
         const missingTableId = 'sc_nonexistent_schema'
         const schemaResp = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/schemas/${missingTableId}`,
+          `${BACKEND_URL}/api/latest/project/schemas/${missingTableId}`,
           { headers: { 'X-Project-Config-Path': project } }
         )
         // 后端返回 404，前端 navigator 捕获后降级（不崩溃）

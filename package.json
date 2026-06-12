@@ -16,7 +16,7 @@
     "electron:build": "cd electron && npm run dist",
     "electron:build:all": "npm run frontend:build && cd electron && npm run build:electron && npm run dist",
     "frontend:build": "cd frontend && npm run build",
-    "backend:dev": "cd backend && python -m uvicorn app.api.main:app --reload --port 18000",
+    "backend:dev": "node -e \"require('dotenv').config(); const { spawn } = require('child_process'); const port = process.env.VITE_BACKEND_PORT || '18000'; spawn('python', ['-m', 'uvicorn', 'app.api.main:app', '--reload', '--port', port], { cwd: 'backend', stdio: 'inherit', shell: true });\"",
     "backend:build": "cd backend && python -m pip install -e .",
     "install:all": "npm install && cd frontend && npm install && cd ../electron && npm install",
     "build:all": "npm run backend:build && npm run frontend:build && cd electron && npm run build:electron && npm run dist",
@@ -39,7 +39,7 @@
     "start:desktop:mac": "bash scripts/mac/start-electron.sh",
     "start:cli:mac": "bash scripts/mac/start-cli.sh",
     "check": "node scripts/check-env.js",
-    "dev": "npx concurrently --kill-others --names 'BACKEND,FRONTEND' --prefix-colors 'cyan,green' 'cd backend && python app/start_server.py' 'cd frontend && npm run dev'",
+    "dev": "node -e \"require('dotenv').config(); require('child_process').spawn('npx', ['concurrently', '--kill-others', '--names', 'BACKEND,FRONTEND', '--prefix-colors', 'cyan,green', 'cd backend && python app/start_server.py', 'cd frontend && npm run dev'], { stdio: 'inherit', shell: true });\"",
     "prepare": "husky",
     "lint:all": "cd frontend && npm run lint && cd ../backend && python -m ruff check .",
     "format:all": "cd frontend && npm run format && cd ../backend && python -m ruff format . && python -m ruff check --fix .",
@@ -60,6 +60,7 @@
   "license": "Apache-2.0",
   "devDependencies": {
     "concurrently": "^10.0.3",
+    "dotenv": "^16.6.1",
     "wait-on": "^7.2.0"
   },
   "dependencies": {

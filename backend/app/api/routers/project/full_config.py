@@ -12,9 +12,9 @@
 - 支持 schema ID 自动迁移（根据 source.path 生成标准 ID）
 
 输入示例:
-    GET /v2/config/full
-    PUT /v2/config/full (body: FullConfigV2Request)
-    POST /v2/config/compare (body: FullConfigV2Request)
+    GET /config/full
+    PUT /config/full (body: FullConfigV2Request)
+    POST /config/compare (body: FullConfigV2Request)
 
 输出示例:
     dict: 包含 manifest、effective_manifest、schemas、constraints、regex_nodes 等
@@ -56,7 +56,7 @@ router = APIRouter(prefix="", tags=["Project-FullConfig"])
 
 
 @router.get(
-    "/v2/config/full",
+    "/config/full",
     response_model=dict[str, Any],
     summary="读取 V2 全量配置",
     responses={
@@ -258,7 +258,7 @@ def get_v2_full_config(
 
 
 @router.put(
-    "/v2/config/full",
+    "/config/full",
     response_model=StandardResponse,
     summary="写入 V2 全量配置",
     responses={
@@ -286,7 +286,7 @@ def put_v2_full_config(payload: FullConfigV2Request, config_path: str = Depends(
 
 
 @router.post(
-    "/v2/config/compare",
+    "/config/compare",
     response_model=ConfigDiffResult,
     summary="对比 V2 全量配置差异",
     responses={

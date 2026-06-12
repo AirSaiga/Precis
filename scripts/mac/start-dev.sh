@@ -35,9 +35,9 @@ fi
 npx concurrently --kill-others \
     --names "BACKEND,FRONTEND,ELECTRON" \
     --prefix-colors "cyan,green,magenta" \
-    "cd backend && ${PYTHON_CMD} -m uvicorn app.api.main:app --reload --port 18000" \
+    "cd backend && ${PYTHON_CMD} -m uvicorn app.api.main:app --reload --port ${BACKEND_PORT}" \
     "cd frontend && npm run dev" \
-    "npx wait-on --delay 1000 --timeout 60000 http://127.0.0.1:18000/docs http://localhost:5173 && cd electron && npm start"
+    "npx wait-on --delay 1000 --timeout 60000 http://127.0.0.1:${BACKEND_PORT}/docs http://localhost:${FRONTEND_PORT} && cd electron && npm start"
 
 EXIT_CODE=$?
 echo ""

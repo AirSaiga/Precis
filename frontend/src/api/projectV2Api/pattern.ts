@@ -17,7 +17,7 @@ export async function createV2Pattern(
   configPath?: string
 ): Promise<CreatePatternResponse> {
   const { data } = await apiClient.post<CreatePatternResponse>(
-    '/project/v2/pattern',
+    '/project/pattern',
     payload,
     withConfigPathHeader(configPath)
   )
@@ -32,7 +32,7 @@ export async function checkV2PatternExists(
   configPath?: string
 ): Promise<{ pattern_name: string; exists: boolean }> {
   const { data } = await apiClient.get<{ pattern_name: string; exists: boolean }>(
-    `/project/v2/pattern/${encodeURIComponent(patternName)}/exists`,
+    `/project/pattern/${encodeURIComponent(patternName)}/exists`,
     withConfigPathHeader(configPath)
   )
   return data

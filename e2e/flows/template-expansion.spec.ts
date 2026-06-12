@@ -20,9 +20,9 @@ import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
+import { BACKEND_URL } from '../config'
 
 const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
-const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:18000'
 
 test.beforeAll(() => {
   if (!fs.existsSync(projectPath)) {
@@ -250,12 +250,12 @@ templates:
       )
       try {
         // 1. 列出模板（应能读到 age_check）
-        const listResp = await apiHelper.get('/project/v2/template')
+        const listResp = await apiHelper.get('/project/template')
         const templates = await listResp.json()
         // 至少应包含 1 个模板（前提是 X-Project-Config-Path 生效，否则为空）
         // 因为 base fixture 指向 test-project，新创建的临时项目不可见
         // 我们用直接 fetch 验证
-        const directResp = await fetch(`${BACKEND_URL}/api/v1/project/v2/template`, {
+        const directResp = await fetch(`${BACKEND_URL}/api/latest/project/template`, {
           headers: { 'X-Project-Config-Path': project },
         })
         expect(directResp.ok).toBe(true)
@@ -267,7 +267,7 @@ templates:
         expect(directTemplates[0].parameter_count).toBe(3)
 
         // 2. 按 ID 读取模板
-        const getResp = await fetch(`${BACKEND_URL}/api/v1/project/v2/template/age_check`, {
+        const getResp = await fetch(`${BACKEND_URL}/api/latest/project/template/age_check`, {
           headers: { 'X-Project-Config-Path': project },
         })
         expect(getResp.ok).toBe(true)
@@ -293,7 +293,7 @@ templates:
       )
       try {
         const resp = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/template/__nonexistent_template__`,
+          `${BACKEND_URL}/api/latest/project/template/__nonexistent_template__`,
           { headers: { 'X-Project-Config-Path': project } }
         )
         expect(resp.status).toBe(404)
@@ -320,7 +320,7 @@ templates:
       try {
         // 调用 expand API
         const expandResp = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/template/age_check/expand`,
+          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
           {
             method: 'POST',
             headers: {
@@ -371,7 +371,7 @@ templates:
       )
       try {
         const expandResp = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/template/user_quality_check/expand`,
+          `${BACKEND_URL}/api/latest/project/template/user_quality_check/expand`,
           {
             method: 'POST',
             headers: {
@@ -438,7 +438,7 @@ templates:
       try {
         // 不传 max_age（required=false，default=120）
         const expandResp = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/template/age_check/expand`,
+          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
           {
             method: 'POST',
             headers: {
@@ -475,7 +475,7 @@ templates:
       try {
         // 缺少必填参数 min_age
         const expandResp = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/template/age_check/expand`,
+          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
           {
             method: 'POST',
             headers: {
@@ -511,7 +511,7 @@ templates:
       try {
         // 展开 instance A
         const respA = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/template/age_check/expand`,
+          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
@@ -525,7 +525,7 @@ templates:
         const dataA = await respA.json()
         // 展开 instance B
         const respB = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/template/age_check/expand`,
+          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
@@ -562,7 +562,7 @@ templates:
       )
       try {
         const resp = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/template/__ghost_template__/expand`,
+          `${BACKEND_URL}/api/latest/project/template/__ghost_template__/expand`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
@@ -613,7 +613,7 @@ template_instances:
       )
       try {
         // 1. 读取 manifest，确认 template_instances 存在
-        const manifestResp = await fetch(`${BACKEND_URL}/api/v1/project/v2/manifest`, {
+        const manifestResp = await fetch(`${BACKEND_URL}/api/latest/project/manifest`, {
           headers: { 'X-Project-Config-Path': project },
         })
         expect(manifestResp.ok).toBe(true)
@@ -628,7 +628,7 @@ template_instances:
 
         // 2. 单独调用 expand API 验证展开契约仍然正确
         const expandResp = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/template/age_check/expand`,
+          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
@@ -672,7 +672,7 @@ templates:
       try {
         // 1. 添加 template_instance
         const putResp = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/manifest/template-instance`,
+          `${BACKEND_URL}/api/latest/project/manifest/template-instance`,
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
@@ -688,7 +688,7 @@ templates:
         expect(putResp.ok).toBe(true)
 
         // 2. 读取 manifest 验证
-        const manifestResp = await fetch(`${BACKEND_URL}/api/v1/project/v2/manifest`, {
+        const manifestResp = await fetch(`${BACKEND_URL}/api/latest/project/manifest`, {
           headers: { 'X-Project-Config-Path': project },
         })
         const manifest = await manifestResp.json()
@@ -697,7 +697,7 @@ templates:
 
         // 3. 更新 instance（PUT 是 upsert 语义）
         const putResp2 = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/manifest/template-instance`,
+          `${BACKEND_URL}/api/latest/project/manifest/template-instance`,
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
@@ -713,7 +713,7 @@ templates:
         expect(putResp2.ok).toBe(true)
 
         // 4. 重新读取应反映更新
-        const manifestResp2 = await fetch(`${BACKEND_URL}/api/v1/project/v2/manifest`, {
+        const manifestResp2 = await fetch(`${BACKEND_URL}/api/latest/project/manifest`, {
           headers: { 'X-Project-Config-Path': project },
         })
         const manifest2 = await manifestResp2.json()
@@ -737,7 +737,7 @@ templates:
       )
       try {
         const expandResp = await fetch(
-          `${BACKEND_URL}/api/v1/project/v2/template/age_check/expand`,
+          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
           {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },

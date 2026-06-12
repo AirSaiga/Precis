@@ -12,8 +12,8 @@
 - 删除时同步清理 manifest 引用与物理文件
 
 输入示例:
-    GET /v2/regex/phone_number
-    PUT /v2/regex/phone_number (body: RegexNodeFileV2)
+    GET /regex/phone_number
+    PUT /regex/phone_number (body: RegexNodeFileV2)
 
 输出示例:
     RegexNodeFileV2 模型实例或 StandardResponse 操作结果
@@ -46,7 +46,7 @@ router = APIRouter(prefix="", tags=["Project-Regex"])
 
 
 @router.get(
-    "/v2/regex/{regex_id}",
+    "/regex/{regex_id}",
     response_model=RegexNodeFileV2,
     summary="读取 Regex 节点",
     responses={
@@ -130,7 +130,7 @@ def get_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_conf
 
 
 @router.put(
-    "/v2/regex/{regex_id}",
+    "/regex/{regex_id}",
     response_model=StandardResponse,
     summary="写入 Regex 节点",
     responses={
@@ -198,7 +198,7 @@ def put_v2_regex_node(
 
 
 @router.delete(
-    "/v2/regex/{regex_id}",
+    "/regex/{regex_id}",
     response_model=StandardResponse,
     summary="删除 Regex 节点",
     responses={
@@ -271,7 +271,7 @@ def delete_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_c
 
 
 @router.post(
-    "/v2/regex/{regex_id}/display-name",
+    "/regex/{regex_id}/display-name",
     response_model=StandardResponse,
     summary="更新 Regex 节点展示名",
     responses={

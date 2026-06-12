@@ -20,7 +20,7 @@ resolve_python || prompt_exit 1
 echo ""
 
 cd "${BACKEND_DIR}"
-"${PYTHON_CMD}" -m uvicorn app.api.main:app --reload --port 18000
+"${PYTHON_CMD}" -m uvicorn app.api.main:app --reload --port "${BACKEND_PORT}"
 
 echo ""
 info "Backend stopped."

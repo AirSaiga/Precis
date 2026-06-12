@@ -128,19 +128,13 @@ class TestProviderResponse(BaseModel):
     available_models: list[str]
 
 
-class UpdateApiKeyRequest(BaseModel):
-    """更新 Provider API Key 请求"""
-
-    api_key: str
-
-
 class CreateProviderRequest(BaseModel):
     """创建 Provider 请求"""
 
     name: str = Field(..., description="显示名称")
     type: str = Field(default="openai", description="Provider 类型（openai 或 ollama）")
     base_url: str = Field(..., description="API 基础 URL")
-    api_key: Optional[str] = Field(default=None, description="API 密钥（本地服务可为 null）")
+    api_key: Optional[str] = Field(default=None, description="API 密钥，本地服务可留空")
     model: str = Field(..., description="默认模型名称")
 
 
@@ -150,7 +144,7 @@ class UpdateProviderRequest(BaseModel):
     name: Optional[str] = Field(default=None, description="显示名称")
     type: Optional[str] = Field(default=None, description="Provider 类型")
     base_url: Optional[str] = Field(default=None, description="API 基础 URL")
-    api_key: Optional[str] = Field(default=None, description="API 密钥")
+    api_key: Optional[str] = Field(default=None, description="API 密钥，传空字符串表示清空")
     model: Optional[str] = Field(default=None, description="默认模型名称")
 
 

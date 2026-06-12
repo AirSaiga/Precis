@@ -2,8 +2,7 @@ import * as path from 'path'
 import * as fs from 'fs'
 import * as os from 'os'
 import { test, expect } from '../fixtures/base'
-
-const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:18000'
+import { BACKEND_URL } from '../config'
 const FIXTURES_DIR = path.join(__dirname, '..', 'fixtures')
 const USERS_CSV = path.join(FIXTURES_DIR, 'test-project', 'data', 'users.csv')
 const USERS_SCHEMA = path.join(FIXTURES_DIR, 'test-project', 'schemas', 'users.schema.yaml')
@@ -57,8 +56,8 @@ test.describe('Schema CRUD', () => {
     cleanupProject(tmpDir)
   })
 
-  test('GET /v2/schemas/{table_id} returns schema data', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/project/v2/schemas/users`, {
+  test('GET /schemas/{table_id} returns schema data', async () => {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/project/schemas/users`, {
       method: 'GET',
       configPath: tmpDir,
     })
@@ -69,8 +68,8 @@ test.describe('Schema CRUD', () => {
     expect(data).toHaveProperty('columns')
   })
 
-  test('PUT /v2/schemas/{table_id} updates schema', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/project/v2/schemas/users`, {
+  test('PUT /schemas/{table_id} updates schema', async () => {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/project/schemas/users`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -90,7 +89,7 @@ test.describe('Schema CRUD', () => {
   })
 
   test('schema roundtrip: PUT then GET preserves column count', async () => {
-    const putResp = await fetchWithConfig(`${BACKEND_URL}/api/v1/project/v2/schemas/users`, {
+    const putResp = await fetchWithConfig(`${BACKEND_URL}/api/latest/project/schemas/users`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -106,7 +105,7 @@ test.describe('Schema CRUD', () => {
     })
 
     if (putResp.ok) {
-      const getResp = await fetchWithConfig(`${BACKEND_URL}/api/v1/project/v2/schemas/users`, {
+      const getResp = await fetchWithConfig(`${BACKEND_URL}/api/latest/project/schemas/users`, {
         method: 'GET',
         configPath: tmpDir,
       })
@@ -116,8 +115,8 @@ test.describe('Schema CRUD', () => {
     }
   })
 
-  test('GET /v2/schemas/{table_id} for nonexistent schema returns 404', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/project/v2/schemas/nonexistent_table`, {
+  test('GET /schemas/{table_id} for nonexistent schema returns 404', async () => {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/project/schemas/nonexistent_table`, {
       method: 'GET',
       configPath: tmpDir,
     })
@@ -125,8 +124,8 @@ test.describe('Schema CRUD', () => {
     expect(resp.status).toBe(404)
   })
 
-  test('POST /v2/schemas/{table_id}/display-name updates display name', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/project/v2/schemas/users/display-name`, {
+  test('POST /schemas/{table_id}/display-name updates display name', async () => {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/project/schemas/users/display-name`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ display_name: '用户表' }),
@@ -136,8 +135,8 @@ test.describe('Schema CRUD', () => {
     expect(resp.status).toBeLessThan(500)
   })
 
-  test('POST /v2/schemas/{table_id}/check-conflict returns conflict info', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/project/v2/schemas/users/check-conflict`, {
+  test('POST /schemas/{table_id}/check-conflict returns conflict info', async () => {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/project/schemas/users/check-conflict`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -162,8 +161,8 @@ test.describe('Pattern CRUD', () => {
     cleanupProject(tmpDir)
   })
 
-  test('POST /v2/pattern creates a pattern', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/project/v2/pattern`, {
+  test('POST /pattern creates a pattern', async () => {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/project/pattern`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pattern_name: 'email_pattern', regex: '^[\\w.+-]+@[\\w-]+\\.[a-z]{2,}$' }),
@@ -173,8 +172,8 @@ test.describe('Pattern CRUD', () => {
     expect(resp.status).toBeLessThan(500)
   })
 
-  test('GET /v2/pattern/{name}/exists returns exists flag', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/project/v2/pattern/email_pattern/exists`, {
+  test('GET /pattern/{name}/exists returns exists flag', async () => {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/project/pattern/email_pattern/exists`, {
       method: 'GET',
       configPath: tmpDir,
     })
@@ -195,7 +194,7 @@ test.describe('Reporting Config', () => {
   })
 
   test('GET /reporting/config returns config', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/reporting/config`, {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/reporting/config`, {
       method: 'GET',
       configPath: tmpDir,
     })
@@ -204,7 +203,7 @@ test.describe('Reporting Config', () => {
   })
 
   test('POST /reporting/config updates config', async () => {
-    const resp = await fetchWithConfig(`${BACKEND_URL}/api/v1/reporting/config`, {
+    const resp = await fetchWithConfig(`${BACKEND_URL}/api/latest/reporting/config`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ enabled: true, format: 'html' }),

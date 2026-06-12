@@ -488,9 +488,9 @@ POST /ai/chat/completions               # OpenAI 兼容接口
 ### 配置生成
 
 ```
-POST /ai/v2/config/generate             # 同步生成
-POST /ai/v2/config/generate/jobs        # 创建异步任务
-GET  /ai/v2/config/generate/jobs/{id}   # 查询任务状态
+POST /ai/config/generate             # 同步生成
+POST /ai/config/generate/jobs        # 创建异步任务
+GET  /ai/config/generate/jobs/{id}   # 查询任务状态
 ```
 
 ### Ollama 管理

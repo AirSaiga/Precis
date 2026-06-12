@@ -79,6 +79,8 @@ class AIStatusCommand(Command):
             else:
                 lines.append("\n" + Formatter.warning("[!] 没有可用的默认 Provider"))
 
-        lines.append(Formatter.info("\n配置文件: ~/.precis/ai_providers.json"))
+        lines.append(Formatter.info("\n配置文件: ~/.precis/ai_providers.yaml"))
+        lines.append(Formatter.info("API Key 设置方式: 环境变量"))
+        lines.append(Formatter.info("  例如: OPENAI_API_KEY=sk-xxx"))
 
         return CommandResult.ok("\n".join(lines))

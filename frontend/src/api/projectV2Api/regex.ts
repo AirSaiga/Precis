@@ -12,7 +12,7 @@ export async function getV2RegexNode(
   configPath?: string
 ): Promise<RegexNodeFileV2> {
   const { data } = await apiClient.get<RegexNodeFileV2>(
-    `/project/v2/regex/${encodeURIComponent(regexId)}`,
+    `/project/regex/${encodeURIComponent(regexId)}`,
     withConfigPathHeader(configPath)
   )
   return data
@@ -24,7 +24,7 @@ export async function putV2RegexNode(
   configPath?: string
 ): Promise<void> {
   await apiClient.put(
-    `/project/v2/regex/${encodeURIComponent(regexId)}`,
+    `/project/regex/${encodeURIComponent(regexId)}`,
     regexNode,
     withConfigPathHeader(configPath)
   )
@@ -32,7 +32,7 @@ export async function putV2RegexNode(
 
 export async function deleteV2RegexNode(regexId: string, configPath?: string): Promise<void> {
   await apiClient.delete(
-    `/project/v2/regex/${encodeURIComponent(regexId)}`,
+    `/project/regex/${encodeURIComponent(regexId)}`,
     withConfigPathHeader(configPath)
   )
 }
@@ -43,7 +43,7 @@ export async function updateV2RegexNodeDisplayName(
   configPath?: string
 ): Promise<void> {
   await apiClient.post(
-    `/project/v2/regex/${encodeURIComponent(regexId)}/display-name`,
+    `/project/regex/${encodeURIComponent(regexId)}/display-name`,
     { name },
     withConfigPathHeader(configPath)
   )

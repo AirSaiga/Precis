@@ -34,7 +34,7 @@
 from enum import Enum
 from typing import Any, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ProviderType(str, Enum):
@@ -110,30 +110,28 @@ class AIProvider(BaseModel):
     model: str = Field(..., description="默认模型名称")
 
     # 运行时推断字段（不序列化到配置文件）
-    deployment: DeploymentType = Field(default=None, exclude=True, description="部署类型（自动推断）")
+    deployment: Optional[DeploymentType] = Field(default=None, exclude=True, description="部署类型（自动推断）")
 
     # 可选扩展配置
     network: Optional[NetworkConfig] = Field(default=None, description="网络配置")
     meta: Optional[dict[str, Any]] = Field(default=None, description="额外元数据")
 
-    @field_validator("deployment", mode="before")
-    @classmethod
-    def infer_deployment(cls, v, info):
+    @model_validator(mode="after")
+    def _infer_deployment(self) -> "AIProvider":
         """
         @methoddesc 根据 base_url 推断部署类型
 
         如果 URL 中包含 localhost、127.0.0.1 等本地地址，
         则推断为 LOCAL，否则为 REMOTE。
+        使用 model_validator 确保在所有字段初始化后执行。
         """
-        if v is not None:
-            return v
-
-        url = info.data.get("base_url", "")
-        local_hosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]
-
-        if any(h in url for h in local_hosts):
-            return DeploymentType.LOCAL
-        return DeploymentType.REMOTE
+        if self.deployment is None:
+            local_hosts = ["localhost", "127.0.0.1", "0.0.0.0", "::1"]
+            if any(h in self.base_url for h in local_hosts):
+                self.deployment = DeploymentType.LOCAL
+            else:
+                self.deployment = DeploymentType.REMOTE
+        return self
 
 
 class AIConfig(BaseModel):

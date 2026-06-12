@@ -95,8 +95,8 @@ const getBaseURL = (): string => {
 export const updateApiBaseUrl = (port: number): void => {
   currentApiBaseUrl = `http://127.0.0.1:${port}`
   // 更新 axios 实例的 baseURL
-  apiClient.defaults.baseURL = `${currentApiBaseUrl}/api/v1`
-  logger.debug(`[API] 已更新后端地址: ${currentApiBaseUrl}/api/v1`)
+  apiClient.defaults.baseURL = `${currentApiBaseUrl}/api/latest`
+  logger.debug(`[API] 已更新后端地址: ${currentApiBaseUrl}/api/latest`)
 }
 
 /**
@@ -211,7 +211,7 @@ const defaultRetryConfig: RetryConfig = {
 }
 
 const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL ? `${API_BASE_URL}/api/v1` : undefined,
+  baseURL: API_BASE_URL ? `${API_BASE_URL}/api/latest` : undefined,
   timeout: 30000, // 30秒超时
 })
 

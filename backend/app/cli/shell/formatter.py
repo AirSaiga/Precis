@@ -178,21 +178,38 @@ class Formatter:
     def print_welcome() -> None:
         """打印欢迎信息。"""
         print()
-        print(
-            Formatter.colorize(
-                r"""
- ____                _
-|  _ \ _ __ ___  ___(_)___
-| |_) | '__/ _ \/ __| / __|
-|  __/| | |  __/ (__| \__ \
-|_|   |_|  \___|\___|_|___/
-        """,
-                Colors.CYAN,
-                Colors.BOLD,
+        if _supports_unicode():
+            logo = r"""
+██████╗ ██████╗ ███████╗ ██████╗██╗███████╗
+██╔══██╗██╔══██╗██╔════╝██╔════╝██║██╔════╝
+██████╔╝██████╔╝█████╗  ██║     ██║███████╗
+██╔═══╝ ██╔══██╗██╔══╝  ██║     ██║╚════██║
+██║     ██║  ██║███████╗╚██████╗██║███████║
+╚═╝     ╚═╝  ╚═╝╚══════╝ ╚═════╝╚═╝╚══════╝
+        """
+            subtitle = (
+                "        ┌─────────────────────────────────────────┐\n"
+                "        │     Precis · Data Validation Engine     │\n"
+                "        │          CLI Interactive Shell          │\n"
+                "        └─────────────────────────────────────────┘"
             )
-        )
-        print()
-        print(Formatter.header("                       CLI Interactive Shell"))
+        else:
+            logo = r"""
+  _____  ____   _____  ____  _____
+ |  __ \|  _ \ / ____|/ __ \|_   _|
+ | |__) | |_) | |    | |  | | | |
+ |  ___/|  _ <| |    | |  | | | |
+ | |    | |_) | |____| |__| |_| |_
+ |_|    |____/ \_____|\____/|_____|
+        """
+            subtitle = (
+                "        +-----------------------------------------+\n"
+                "        |     Precis - Data Validation Engine     |\n"
+                "        |          CLI Interactive Shell          |\n"
+                "        +-----------------------------------------+"
+            )
+        print(Formatter.colorize(logo, Colors.CYAN, Colors.BOLD))
+        print(Formatter.header(subtitle))
         print()
         print(Formatter.dim("Type 'help' for available commands, 'exit' to exit, 'qq' to force quit"))
         print()

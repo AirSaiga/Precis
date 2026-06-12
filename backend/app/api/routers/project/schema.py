@@ -14,7 +14,7 @@
 - 冲突检测: 检查同名表在 manifest 和文件系统的一致性
 
 输入示例:
-    PUT /v2/schemas/users
+    PUT /schemas/users
     {
       "id": "users",
       "columns": [
@@ -91,7 +91,7 @@ class SchemaConflictInfo(BaseModel):
 
 
 @router.get(
-    "/v2/schemas/{table_id}",
+    "/schemas/{table_id}",
     response_model=TableSchemaFileV2,
     summary="读取 Schema",
     responses={
@@ -143,7 +143,7 @@ def get_v2_schema(table_id: str, config_path: str = Depends(get_project_config_p
 
 
 @router.put(
-    "/v2/schemas/{table_id}",
+    "/schemas/{table_id}",
     response_model=StandardResponse,
     summary="写入 Schema",
     responses={
@@ -252,7 +252,7 @@ def put_v2_schema(
 
 
 @router.post(
-    "/v2/schemas/{table_id}/check-conflict",
+    "/schemas/{table_id}/check-conflict",
     response_model=SchemaConflictInfo,
     summary="检查 Schema 冲突",
     responses={
@@ -315,7 +315,7 @@ def check_schema_conflict(
 
 
 @router.delete(
-    "/v2/schemas/{table_id}",
+    "/schemas/{table_id}",
     response_model=StandardResponse,
     summary="删除 Schema",
     responses={
@@ -399,7 +399,7 @@ def delete_v2_schema(table_id: str, config_path: str = Depends(get_project_confi
 
 
 @router.post(
-    "/v2/schemas/{table_id}/display-name",
+    "/schemas/{table_id}/display-name",
     response_model=StandardResponse,
     summary="更新 Schema 展示名",
     responses={
@@ -461,7 +461,7 @@ class ImplicitToExplicitBindingRequest(BaseModel):
 
 
 @router.post(
-    "/v2/schemas/{table_id}/convert-to-explicit-binding",
+    "/schemas/{table_id}/convert-to-explicit-binding",
     response_model=StandardResponse,
     summary="将隐式正则匹配转换为显式绑定",
     responses={

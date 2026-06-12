@@ -12,8 +12,8 @@
 - 创建请求使用 CreatePatternRequest，响应使用 CreatePatternResponse
 
 输入示例:
-    POST /v2/pattern (body: CreatePatternRequest)
-    GET /v2/pattern/phone_cn/exists
+    POST /pattern (body: CreatePatternRequest)
+    GET /pattern/phone_cn/exists
 
 输出示例:
     CreatePatternResponse: {message, pattern_path, pattern_name}
@@ -61,7 +61,7 @@ class CreatePatternResponse(BaseModel):
 
 
 @router.post(
-    "/v2/pattern",
+    "/pattern",
     response_model=CreatePatternResponse,
     summary="创建新的 Pattern 文件",
     responses={
@@ -125,7 +125,7 @@ def create_v2_pattern(
 
 
 @router.get(
-    "/v2/pattern/{pattern_name}/exists",
+    "/pattern/{pattern_name}/exists",
     response_model=dict,
     summary="检查 Pattern 名称是否已存在",
     responses={

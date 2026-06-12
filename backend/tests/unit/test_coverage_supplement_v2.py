@@ -109,9 +109,16 @@ class TestConstraintDeletion:
 class TestLLMConfigModels:
     def test_provider_model(self):
         try:
-            from app.shared.services.llm.config.models import ProviderConfig
+            from app.shared.services.llm.config.models import AIProvider, ProviderType
 
-            p = ProviderConfig(id="openai", type="openai", api_key="sk-test")
+            p = AIProvider(
+                id="openai",
+                name="OpenAI",
+                type=ProviderType.OPENAI,
+                base_url="https://api.openai.com/v1",
+                api_key="sk-test",
+                model="gpt-4o",
+            )
             assert p.id == "openai"
         except Exception:
             pass  # Model may require different fields

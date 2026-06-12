@@ -28,7 +28,7 @@ from . import (
 )
 
 router = APIRouter(
-    prefix="/api/v1/project",
+    prefix="/api/latest/project",
     tags=["Project"],
 )
 

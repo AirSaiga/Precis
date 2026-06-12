@@ -2,6 +2,7 @@ import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
+import { BACKEND_URL } from '../config'
 
 /**
  * 损坏配置恢复 E2E 测试
@@ -14,7 +15,6 @@ import * as os from 'os'
  * - 数据文件不存在时的校验错误
  */
 
-const BACKEND_URL = process.env.E2E_BACKEND_URL || 'http://localhost:18000'
 const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
 
 /**
@@ -66,7 +66,7 @@ test.describe('Corrupted Configuration Recovery', () => {
       )
       try {
         const resp = await fetch(
-          `${process.env.E2E_BACKEND_URL || 'http://localhost:18000'}/api/v1/project/v2/manifest`,
+          `${BACKEND_URL}/api/latest/project/manifest`,
           { headers: { 'X-Project-Config-Path': project } }
         )
         // 损坏的 YAML: 后端可能返回 500 或成功解析并返回 200
@@ -81,7 +81,7 @@ test.describe('Corrupted Configuration Recovery', () => {
       const project = createBrokenProject('empty', '')
       try {
         const resp = await fetch(
-          `${process.env.E2E_BACKEND_URL || 'http://localhost:18000'}/api/v1/project/v2/manifest`,
+          `${BACKEND_URL}/api/latest/project/manifest`,
           { headers: { 'X-Project-Config-Path': project } }
         )
         // 空文件: 后端可能返回 404/500/200(默认空对象)
@@ -105,7 +105,7 @@ test.describe('Corrupted Configuration Recovery', () => {
         )
 
         const resp = await fetch(
-          `${process.env.E2E_BACKEND_URL || 'http://localhost:18000'}/api/v1/project/v2/view`,
+          `${BACKEND_URL}/api/latest/project/view`,
           { headers: { 'X-Project-Config-Path': project } }
         )
         // 损坏的 JSON: 可能返回 500 或默认空视图(200)

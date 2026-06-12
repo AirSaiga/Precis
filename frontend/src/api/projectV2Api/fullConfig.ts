@@ -22,7 +22,7 @@ export async function getV2FullConfig(
   options?: { inspect?: boolean }
 ): Promise<FullConfigV2Response> {
   try {
-    const { data } = await apiClient.get<FullConfigV2Response>('/project/v2/config/full', {
+    const { data } = await apiClient.get<FullConfigV2Response>('/project/config/full', {
       ...(options?.inspect ? { params: { inspect: true } } : {}),
       ...(configPath ? { headers: { 'X-Project-Config-Path': configPath } } : {}),
     })
@@ -40,7 +40,7 @@ export async function getV2FullConfig(
  */
 export async function inspectV2Config(configPath?: string): Promise<InspectionResultV2> {
   try {
-    const { data } = await apiClient.get<FullConfigV2Response>('/project/v2/config/full', {
+    const { data } = await apiClient.get<FullConfigV2Response>('/project/config/full', {
       params: { inspect: true },
       ...(configPath ? { headers: { 'X-Project-Config-Path': configPath } } : {}),
     })
@@ -66,7 +66,7 @@ export async function putV2FullConfig(
   configPath?: string
 ): Promise<void> {
   await apiClient.put(
-    '/project/v2/config/full',
+    '/project/config/full',
     payload,
     withConfigPathHeader(configPath)
   )
@@ -80,7 +80,7 @@ export async function compareV2FullConfig(
   configPath?: string
 ): Promise<ConfigComparison> {
   const { data } = await apiClient.post<ConfigComparison>(
-    '/project/v2/config/compare',
+    '/project/config/compare',
     payload,
     withConfigPathHeader(configPath)
   )

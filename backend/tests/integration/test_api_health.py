@@ -40,11 +40,11 @@ class TestApiHealth:
         paths = spec.get("paths", {})
         # 至少应注册这些关键 V2 路由
         expected = [
-            "/api/v1/project/v2/manifest",
-            "/api/v1/project/v2/view",
-            "/api/v1/project/v2/workspaces",
-            "/api/v1/connection-rules",
-            "/api/v1/workspace/config",
+            "/api/latest/project/manifest",
+            "/api/latest/project/view",
+            "/api/latest/project/workspaces",
+            "/api/latest/connection-rules",
+            "/api/latest/workspace/config",
         ]
         for path in expected:
             assert path in paths, f"Missing V2 route in OpenAPI: {path}"

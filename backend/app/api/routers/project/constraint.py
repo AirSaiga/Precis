@@ -12,8 +12,8 @@
 - 写入时自动补齐 manifest 引用，保证索引一致性
 
 输入示例:
-    GET /v2/constraints/unique_email
-    PUT /v2/constraints/unique_email (body: ConstraintFileV2)
+    GET /constraints/unique_email
+    PUT /constraints/unique_email (body: ConstraintFileV2)
 
 输出示例:
     ConstraintFileV2 模型实例或 StandardResponse 操作结果
@@ -43,7 +43,7 @@ router = APIRouter(prefix="", tags=["Project-Constraint"])
 
 
 @router.get(
-    "/v2/constraints/{constraint_id}",
+    "/constraints/{constraint_id}",
     response_model=ConstraintFileV2,
     summary="读取 Constraint",
     responses={
@@ -123,7 +123,7 @@ def get_v2_constraint(constraint_id: str, config_path: str = Depends(get_project
 
 
 @router.put(
-    "/v2/constraints/{constraint_id}",
+    "/constraints/{constraint_id}",
     response_model=StandardResponse,
     summary="写入 Constraint",
     responses={
@@ -191,7 +191,7 @@ def put_v2_constraint(
 
 
 @router.delete(
-    "/v2/constraints/{constraint_id}",
+    "/constraints/{constraint_id}",
     response_model=StandardResponse,
     summary="删除 Constraint",
     responses={
@@ -259,7 +259,7 @@ def delete_v2_constraint(constraint_id: str, config_path: str = Depends(get_proj
 
 
 @router.post(
-    "/v2/constraints/{constraint_id}/display-name",
+    "/constraints/{constraint_id}/display-name",
     response_model=StandardResponse,
     summary="更新 Constraint 展示名",
     responses={

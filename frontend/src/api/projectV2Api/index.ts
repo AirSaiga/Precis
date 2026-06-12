@@ -2,7 +2,7 @@
  * @file index.ts
  * @description V2 项目配置 API 统一导出入口（barrel）
  *
- * 该模块封装后端 /project/v2/* 接口，按领域拆分为多个子文件：
+ * 该模块封装后端 /project/* 接口，按领域拆分为多个子文件：
  * - shared: 共享错误类型与工具
  * - manifest: 项目清单
  * - fullConfig: 全量配置

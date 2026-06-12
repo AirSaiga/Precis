@@ -12,7 +12,7 @@
 - 对生成过程中的各类异常进行分层处理
 
 输入示例:
-    POST /ai/v2/config/generate
+    POST /ai/config/generate
     {
         "file_paths": ["data/users.xlsx"],
         "project_name": "用户数据项目",
@@ -55,7 +55,7 @@ from .router import router
 
 
 @router.post(
-    "/v2/config/generate",
+    "/config/generate",
     response_model=ConfigGenerateResponse,
     summary="同步生成 V2 配置",
     responses={

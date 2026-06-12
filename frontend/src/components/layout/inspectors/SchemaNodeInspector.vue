@@ -580,7 +580,7 @@
     if (!patternId) return
 
     try {
-      await apiClient.post(`/api/v2/schemas/${tableId}/convert-to-explicit-binding`, {
+      await apiClient.post(`/api/latest/project/schemas/${tableId}/convert-to-explicit-binding`, {
         column_id: columnId,
         pattern_id: patternId,
         pattern_registry: 'expression_registry',

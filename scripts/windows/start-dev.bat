@@ -51,7 +51,10 @@ if not exist "electron\dist\main.js" (
     cd "%PROJECT_ROOT%"
 )
 
-call npx concurrently --kill-others --names "BACKEND,FRONTEND,ELECTRON" --prefix-colors "cyan,green,magenta" "cd backend && %PYTHON_CMD% -m uvicorn app.api.main:app --reload --port 18000" "cd frontend && npm run dev" "npx wait-on --delay 1000 --timeout 60000 http://127.0.0.1:18000/docs http://localhost:5173 && cd electron && npm start"
+for /f "tokens=*" %%a in ('node -e "try { require('dotenv').config(); } catch(e) {} console.log(process.env.VITE_BACKEND_PORT || '18000')"') do set BACKEND_PORT=%%a
+for /f "tokens=*" %%a in ('node -e "try { require('dotenv').config(); } catch(e) {} console.log(process.env.VITE_FRONTEND_PORT || '5173')"') do set FRONTEND_PORT=%%a
+
+call npx concurrently --kill-others --names "BACKEND,FRONTEND,ELECTRON" --prefix-colors "cyan,green,magenta" "cd backend && %PYTHON_CMD% -m uvicorn app.api.main:app --reload --port %BACKEND_PORT%" "cd frontend && npm run dev" "npx wait-on --delay 1000 --timeout 60000 http://127.0.0.1:%BACKEND_PORT%/docs http://localhost:%FRONTEND_PORT% && cd electron && npm start"
 
 echo.
 echo [INFO] All services stopped.

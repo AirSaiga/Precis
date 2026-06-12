@@ -158,28 +158,6 @@ class GenerateOptions:
 # =============================================================================
 
 
-@dataclass(frozen=True)
-class ProviderConfig:
-    """
-    @classdesc LLM Provider 配置类
-
-    用于统一 API 和 CLI 的 Provider 配置传递。
-
-    Attributes:
-        id: Provider 唯一标识
-        provider: Provider 类型（如 openai, ollama 等）
-        api_key: API 密钥（明文，仅用于请求）
-        base_url: API 基础 URL（可选）
-        model: 模型名称
-    """
-
-    id: str
-    provider: str
-    api_key: str
-    base_url: str | None = None
-    model: str | None = None
-
-
 @dataclass
 class ChatContext:
     """

@@ -36,7 +36,7 @@ from app.api.models import ExternalDataSource, UIPreferences, WorkspaceConfig
 from app.shared.core.config import ConfigPaths
 from app.shared.core.io.yaml import write_yaml_atomic
 
-router = APIRouter(prefix="/api/v1/workspace", tags=["Data Sources"])
+router = APIRouter(prefix="/api/latest/workspace", tags=["Data Sources"])
 
 
 def get_workspace_config_path(project_root: str) -> Path:

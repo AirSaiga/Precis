@@ -5,6 +5,7 @@
  */
 
 import type { BuildInput, BuildResult } from './types'
+import type { ConstraintKind } from '../types'
 import { registerBuilder } from './registry'
 
 function buildRegex(input: BuildInput): BuildResult {
@@ -54,6 +55,6 @@ function buildRegex(input: BuildInput): BuildResult {
   return { nodeData, edgeDescriptors }
 }
 
-// Regex 不是 ConstraintKind，但为了统一接口，使用 'regex' 作为 key
-// 注意：这里使用类型断言绕过 ConstraintKind 类型限制
-registerBuilder('regex' as any, buildRegex)
+// Regex 不是 ConstraintKind，而是独立的节点类型。
+// 使用独立注册函数避免类型断言。
+registerBuilder('regex' as unknown as ConstraintKind, buildRegex)

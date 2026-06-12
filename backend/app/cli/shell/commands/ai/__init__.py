@@ -77,24 +77,23 @@ class AICommand(Command):
   ask <message>     直接执行 AI 指令（如: ai ask "添加非空约束到用户表的email字段"）
   status            显示 AI 配置状态
   switch <provider> 切换默认 AI Provider
-  setup             配置 AI Provider API Key
-  delete [provider] 删除已配置的 API Key
+  setup             管理 AI Provider（添加/编辑/删除/测试）
+  delete [provider] 删除已配置的 Provider
 
 示例:
   ai chat                           # 进入交互式对话
   ai ask "创建非空约束到users表的email列"   # 直接执行
   ai status                         # 查看 AI 配置状态
   ai switch kimi                    # 切换到 Kimi
-  ai setup                          # 配置 API Key
-  ai delete                         # 删除 API Key（交互式）
-  ai delete kimi                   # 删除 Kimi 的 API Key
+  ai setup                          # 管理 AI Provider
+  ai delete kimi                   # 删除 Kimi
 
 说明:
   AI 助手可以帮你通过自然语言修改项目配置，包括：
   - 添加、更新、删除约束（NOT_NULL, UNIQUE, RANGE, ALLOWED_VALUES, REGEX）
   - 查看和解释当前配置
 
-  首次使用请先运行 'ai setup' 或 'setup' 命令配置 API Key
+  首次使用请先运行 'ai setup' 命令添加 Provider
         """.strip()
 
     def execute(self, args: list[str], context: CommandContext) -> CommandResult:
@@ -166,8 +165,8 @@ class AICommand(Command):
             menu.add_item("chat", "chat", "进入交互式对话模式")
             menu.add_item("status", "status", "查看 AI 配置状态")
             menu.add_item("switch", "switch", "切换 AI Provider")
-            menu.add_item("setup", "setup", "配置 API Key")
-            menu.add_item("delete", "delete", "删除已配置的 API Key")
+            menu.add_item("setup", "setup", "管理 AI Provider")
+            menu.add_item("delete", "delete", "删除 Provider")
             menu.add_item("help", "help", "显示帮助信息")
 
             choice = menu.show_with_status(status_lines)

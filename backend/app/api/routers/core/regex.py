@@ -25,7 +25,7 @@ from typing import Literal, Optional, Union
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
 
-router = APIRouter(prefix="/api/v1/utils", tags=["Utilities"])
+router = APIRouter(prefix="/api/latest/utils", tags=["Utilities"])
 
 
 class PatternPart(BaseModel):

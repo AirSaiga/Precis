@@ -33,7 +33,7 @@ import { updateManager } from './update';
  * - 如果默认端口被占用，会自动查找下一个可用端口
  * - 实际使用的端口存储在 currentPythonServerPort 变量中
  */
-const PYTHON_SERVER_DEFAULT_PORT = parseInt(process.env.BACKEND_PORT || '18000', 10);
+const PYTHON_SERVER_DEFAULT_PORT = parseInt(process.env.VITE_BACKEND_PORT || '18000', 10);
 
 /**
  * 当前实际使用的 Python 服务端口号
@@ -46,7 +46,7 @@ let currentPythonServerPort: number = PYTHON_SERVER_DEFAULT_PORT;
  * 可通过环境变量 FRONTEND_DEV_PORT 覆盖
  * 与 frontend/vite.config.ts 中的配置保持一致
  */
-const FRONTEND_DEV_PORT = parseInt(process.env.FRONTEND_DEV_PORT || '5173', 10);
+const FRONTEND_DEV_PORT = parseInt(process.env.VITE_FRONTEND_PORT || '5173', 10);
 
 /**
  * 后端代码库的基础路径

@@ -8,7 +8,7 @@ import type { WorkspacesV2Response } from '@/types/projectV2'
 
 export async function getV2Workspaces(configPath?: string): Promise<WorkspacesV2Response> {
   const { data } = await apiClient.get<WorkspacesV2Response>(
-    '/project/v2/workspaces',
+    '/project/workspaces',
     configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
   )
   return data
@@ -18,7 +18,7 @@ export async function putV2Workspaces(
   payload: WorkspacesV2Response,
   configPath?: string
 ): Promise<void> {
-  await apiClient.put('/project/v2/workspaces', payload, {
+  await apiClient.put('/project/workspaces', payload, {
     ...(configPath ? { headers: { 'X-Project-Config-Path': configPath } } : {}),
   })
 }

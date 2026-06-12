@@ -130,13 +130,3 @@ class TestConfigPaths:
         """产品版本标识文件路径"""
         path = ConfigPaths.product_edition("/tmp/project")
         assert path.name == "product_edition"
-
-    def test_cli_ai_config(self):
-        """CLI AI 配置文件路径"""
-        path = ConfigPaths.cli_ai_config()
-        assert path.name == "cli_ai_config.yaml"
-
-    def test_cli_ai_key(self):
-        """CLI AI 密钥文件路径"""
-        path = ConfigPaths.cli_ai_key()
-        assert path.name == ".cli_key"

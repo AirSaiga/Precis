@@ -22,7 +22,7 @@ from app.shared.core.project.manifest.types import ProjectManifestV2
 
 class ManifestResponse(ProjectManifestV2):
     """
-    /v2/manifest GET 的 API 响应模型。
+    /manifest GET 的 API 响应模型。
 
     当前继承自 ProjectManifestV2 以保持兼容性，
     后续可按需添加/移除字段，或在此做数据转换。
