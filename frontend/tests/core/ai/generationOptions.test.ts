@@ -14,5 +14,15 @@ describe('generationOptions', () => {
       expect(opts.generate_regex_nodes).toBe(true)
       expect(opts.keep_existing).toBe(true)
     })
+
+    it('should enable agent mode by default', () => {
+      const opts = createDefaultOptions()
+      expect(opts.agent_mode).toBe(true)
+      expect(opts.max_iterations).toBe(2)
+      expect(opts.validation_sample_size).toBe(1000)
+      expect(opts.auto_chunking).toBe(true)
+      expect(opts.chunk_max_columns).toBe(20)
+      expect(opts.chunk_max_files).toBe(5)
+    })
   })
 })

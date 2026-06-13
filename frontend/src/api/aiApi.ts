@@ -15,6 +15,7 @@ import type {
   AiGenerateV2ConfigRequest,
   AiGenerateV2ConfigResponse,
   AiHardwareDiagnoseResponse,
+  AiMigrateV2ConfigRequest,
   AiModelModes,
   CloudAIProviderResponse,
   CloudAIProviderTestResponse,
@@ -208,9 +209,7 @@ export async function getCloudAIProviderConfigInfo(): Promise<{
  * @param providerId - Provider ID
  * @returns 测试结果（含健康状态和可用模型列表）
  */
-export async function testCloudAIProvider(
-  providerId: string
-): Promise<{
+export async function testCloudAIProvider(providerId: string): Promise<{
   provider_id: string
   health: { status: string; latency_ms?: number; error?: string }
   available_models: string[]
@@ -262,6 +261,25 @@ export async function updateCloudAIProvider(
   const { data } = await apiClient.put<CloudAIProviderResponse>(
     `/ai/providers/${encodeURIComponent(providerId)}`,
     req
+  )
+  return data
+}
+
+/**
+ * 创建异步 V2 配置迁移任务（从旧脚本迁移）
+ *
+ * @param payload - 迁移请求参数
+ * @param configPath - 项目配置文件路径（可选）
+ * @returns 任务创建响应（含 job_id）
+ */
+export async function postAiMigrateV2ConfigJob(
+  payload: AiMigrateV2ConfigRequest,
+  configPath?: string
+): Promise<AiGenerateV2ConfigJobCreateResponse> {
+  const { data } = await apiClient.post<AiGenerateV2ConfigJobCreateResponse>(
+    '/ai/config/migrate/jobs',
+    payload,
+    configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
   )
   return data
 }

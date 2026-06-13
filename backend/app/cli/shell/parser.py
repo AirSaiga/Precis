@@ -176,6 +176,31 @@ class CommandExecutor:
         except Exception as e:
             return CommandResult.error(f"命令执行失败: {e}")
 
+    def execute_with_args(self, args: list[str]) -> CommandResult:
+        """使用预分割参数列表执行命令。
+
+        跳过 join/split 循环，保留参数中的空格（如文件路径）。
+
+        Args:
+            args: 预分割的参数列表，第一个元素为命令名
+
+        Returns:
+            命令执行结果
+        """
+        try:
+            if not args:
+                return CommandResult.error("请输入命令")
+
+            command = self.parser.registry.get(args[0])
+            if command is None:
+                raise CommandNotFoundError(args[0])
+
+            return command.execute(args[1:], self.context)
+        except CommandNotFoundError as e:
+            return CommandResult.error(str(e))
+        except Exception as e:
+            return CommandResult.error(f"命令执行失败: {e}")
+
 
 def command(name: str, aliases: Optional[list[str]] = None) -> Callable:
     """命令装饰器。

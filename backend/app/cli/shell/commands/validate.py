@@ -36,9 +36,13 @@
 
 import os
 
+from rich.console import Console
+
 from app.cli.shell.commands.base import Command, CommandContext, CommandResult
 from app.cli.shell.exceptions import ValidationError
 from app.cli.shell.formatter import Formatter, Spinner
+
+_console = Console()
 
 
 def _parse_standalone_args(args: list[str]) -> dict:
@@ -234,24 +238,24 @@ class ValidateCommand(Command):
             # 处理并显示加载阶段的警告信息
             loading_errors = result.get("loading_errors", [])
             if loading_errors:
-                print(Formatter.warning("\n加载警告:"))
+                _console.print("\n[yellow]加载警告:[/yellow]")
                 for err in loading_errors:
-                    print(f"  - {err.get('error_type')}: {err.get('message')}")
+                    _console.print(f"  - {err.get('error_type')}: {err.get('message')}")
 
             errors = result.get("errors", [])
             duration_ms = result.get("duration_ms", 0)
 
-            print(f"\n校验完成，耗时: {duration_ms} ms")
+            _console.print(f"\n校验完成，耗时: {duration_ms} ms")
 
             output = Formatter.format_validation_result(errors)
-            print(output)
+            _console.print(output)
 
             if errors:
                 return CommandResult.error(
-                    f"验证完成，发现 {len(errors)} 个错误", data={"errors": errors, "duration_ms": duration_ms}
+                    "", data={"errors": errors, "duration_ms": duration_ms}
                 )
             else:
-                return CommandResult.ok("验证通过", data={"errors": [], "duration_ms": duration_ms})
+                return CommandResult.ok("", data={"errors": [], "duration_ms": duration_ms})
 
         except Exception as e:
             raise ValidationError(str(e))

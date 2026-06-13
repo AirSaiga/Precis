@@ -140,7 +140,7 @@
           <button
             class="clear-btn"
             @click="
-              emit('clear');
+              emit('clear')
               fileListExpanded = false
             "
           >

@@ -27,8 +27,13 @@
 import logging
 import os
 
+from rich.console import Console
+from rich.table import Table
+
 from app.cli.shell.commands.base import Command, CommandContext, CommandResult
 from app.cli.shell.exceptions import InvalidProjectError, ProjectNotFoundError
+
+_console = Console()
 
 # 历史记录文件路径：存储在用户主目录下
 HISTORY_FILE = os.path.expanduser("~/.precis_project_history")
@@ -195,30 +200,33 @@ class StatusCommand(Command):
         if not project_path:
             return CommandResult(success=False, message="当前未选择任何项目。使用 'project open <路径>' 切换项目。")
 
-        # 构建状态信息行
-        lines = [f"当前项目: {os.path.basename(project_path)}", f"路径: {project_path}"]
-
         # 检查清单文件
         manifest_path = os.path.join(project_path, "project.precis.yaml")
-        if os.path.exists(manifest_path):
-            lines.append("项目清单: 已找到")
-        else:
-            lines.append("项目清单: 未找到")
+        has_manifest = os.path.exists(manifest_path)
 
         # 统计数据目录中的文件数量
         data_dir = os.path.join(project_path, "data")
+        data_file_count = 0
         if os.path.isdir(data_dir):
-            files = [f for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f))]
-            lines.append(f"数据文件数量: {len(files)}")
-        else:
-            lines.append("数据目录: 未找到")
+            data_file_count = sum(1 for f in os.listdir(data_dir) if os.path.isfile(os.path.join(data_dir, f)))
 
         # 统计历史记录数量
-        history = _load_history()
-        history_count = len(history)
-        lines.append(f"历史项目数量: {history_count}")
+        history_count = len(_load_history())
 
-        return CommandResult(success=True, message="\n".join(lines))
+        # 使用 rich table 渲染
+        table = Table(show_header=False, box=None, padding=(0, 2))
+        table.add_column("Key", style="dim")
+        table.add_column("Value", style="bold")
+        table.add_row("项目", os.path.basename(project_path))
+        table.add_row("路径", project_path)
+        table.add_row("项目清单", "[green]已找到[/green]" if has_manifest else "[yellow]未找到[/yellow]")
+        table.add_row("数据文件", str(data_file_count) if data_file_count > 0 else "[dim]未找到[/dim]")
+        table.add_row("历史项目", str(history_count))
+
+        _console.print()
+        _console.print(table)
+
+        return CommandResult(success=True, message="")
 
 
 class ProjectHistoryCommand(Command):
@@ -271,11 +279,9 @@ class ProjectCommand(Command):
 
     def __init__(self):
         super().__init__("project", aliases=["p"])
-        self.subcommands = [
-            OpenCommand(),
-            StatusCommand(),
-            ProjectHistoryCommand(),
-        ]
+        self.add_subcommand("open", OpenCommand())
+        self.add_subcommand("status", StatusCommand())
+        self.add_subcommand("history", ProjectHistoryCommand())
 
     @property
     def description(self) -> str:
@@ -303,12 +309,13 @@ class ProjectCommand(Command):
 
         # 子命令名匹配（支持名称或别名）
         sub_name = args[0].lower()
-        for sub in self.subcommands:
+        for sub in self._subcommands.values():
             if sub_name == sub.name or sub_name in (a.lower() for a in sub.aliases):
                 return sub.execute(args[1:], ctx)
 
+        available = ", ".join(self.list_subcommands())
         return CommandResult(
-            success=False, message=f"未知的 project 子命令: {sub_name}。可用子命令: open, status, history"
+            success=False, message=f"未知的 project 子命令: {sub_name}。可用子命令: {available}"
         )
 
     def _show_help(self) -> CommandResult:
@@ -318,7 +325,9 @@ class ProjectCommand(Command):
             包含所有子命令说明的结果
         """
         lines = ["project - 项目管理命令", "用法: project <子命令>", "", "可用子命令:"]
-        for sub in self.subcommands:
-            aliases_str = f" ({', '.join(sub.aliases)})" if sub.aliases else ""
-            lines.append(f"  {sub.name}{aliases_str} - {sub.description}")
+        for name in self.list_subcommands():
+            sub = self.get_subcommand(name)
+            if sub:
+                aliases_str = f" ({', '.join(sub.aliases)})" if sub.aliases else ""
+                lines.append(f"  {sub.name}{aliases_str} - {sub.description}")
         return CommandResult(success=True, message="\n".join(lines))

@@ -156,6 +156,8 @@ export const useAiChatStore = defineStore('aiChat', () => {
   const contextNodes = ref<ContextNode[]>([])
   /** 是否正在等待 AI 响应 */
   const loading = ref(false)
+  /** 是否启用 Agent 深度模式 */
+  const agentMode = ref(true)
 
   // --- 计算属性 ---
   /** 是否有选中的上下文节点 */
@@ -289,7 +291,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
       }
 
       const history = buildChatHistory()
-      const response = await sendAiChatMessage(content, context, history)
+      const response = await sendAiChatMessage(content, context, history, agentMode.value)
 
       if (response.status === 'error') {
         addAssistantMessage(response.reply)
@@ -328,6 +330,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
     messages,
     contextNodes,
     loading,
+    agentMode,
     hasContext,
     openDrawer,
     closeDrawer,

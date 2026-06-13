@@ -25,6 +25,27 @@ export interface AiGenerateV2ConfigOptions {
   generate_regex_nodes: boolean
   keep_existing: boolean
   model?: string
+  agent_mode: boolean
+  max_iterations: number
+  validation_sample_size: number
+  auto_chunking: boolean
+  chunk_max_columns: number
+  chunk_max_files: number
+}
+
+export interface AiGenerateV2ConfigMetrics {
+  total_rules?: number
+  passed_rules?: number
+  failed_rules?: number
+  removed_rules?: number
+  modified_rules?: number
+  issues?: Array<{
+    rule_id?: string
+    type?: string
+    severity?: string
+    message?: string
+    [key: string]: unknown
+  }>
 }
 
 export interface AiGenerateV2ConfigRequest {
@@ -48,6 +69,16 @@ export interface AiGenerateV2ConfigResponse {
   error?: string
 }
 
+export interface AiMigrateV2ConfigRequest {
+  script_content: string
+  language: string
+  file_paths: string[]
+  project_name: string
+  project_id: string
+  provider_id?: string
+  options: AiGenerateV2ConfigOptions
+}
+
 /**
  * 创建 AI 生成任务响应。
  */
@@ -63,7 +94,7 @@ export type AiGenerateV2ConfigJobStatusValue =
   | 'running'
   | 'completed'
   | 'failed'
-  | 'canceled'
+  | 'cancelled'
 
 /**
  * AI 生成任务状态查询响应。
@@ -73,6 +104,12 @@ export interface AiGenerateV2ConfigJobStatus {
   status: AiGenerateV2ConfigJobStatusValue
   stage?: string
   message?: string
+  progress?: number
+  iterations?: number
+  max_iterations?: number
+  metrics?: AiGenerateV2ConfigMetrics
+  current_plan?: Array<Record<string, unknown>>
+  checkpoints?: Array<Record<string, unknown>>
   received_chars: number
   warnings: string[]
   result?: AiGenerateV2ConfigResponse

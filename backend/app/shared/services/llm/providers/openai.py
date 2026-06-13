@@ -93,18 +93,52 @@ class OpenAIProvider(BaseProvider):
         """
         for attempt in range(_MAX_RETRIES):
             try:
-                resp = await self.client.chat.completions.create(
-                    model=self._get_model(req.model),
-                    messages=[{"role": m.role, "content": m.content} for m in req.messages],
-                    temperature=req.temperature,
-                    stream=False,
-                )
+                # 构造 messages payload，支持 tool_calls 和 tool_call_id
+                messages_payload = []
+                for m in req.messages:
+                    msg: dict = {"role": m.role}
+                    if m.content is not None:
+                        msg["content"] = m.content
+                    if m.tool_calls is not None:
+                        msg["tool_calls"] = m.tool_calls
+                    if m.tool_call_id is not None:
+                        msg["tool_call_id"] = m.tool_call_id
+                    messages_payload.append(msg)
+
+                kwargs: dict = {
+                    "model": self._get_model(req.model),
+                    "messages": messages_payload,
+                    "temperature": req.temperature,
+                    "stream": False,
+                }
+                if req.tools:
+                    kwargs["tools"] = req.tools
+                    kwargs["tool_choice"] = req.tool_choice if req.tool_choice is not None else "auto"
+
+                resp = await self.client.chat.completions.create(**kwargs)
                 if not resp.choices:
                     raise ValueError("API 返回空的 choices 列表")
-                content = resp.choices[0].message.content
-                if content is None:
-                    content = ""
-                return ChatResponse(content=content, model=resp.model)
+                message = resp.choices[0].message
+                content = message.content or ""
+
+                # 解析 tool_calls
+                tool_calls = None
+                raw_tool_calls = getattr(message, "tool_calls", None)
+                if raw_tool_calls:
+                    tool_calls = []
+                    for tc in raw_tool_calls:
+                        tool_calls.append(
+                            {
+                                "id": getattr(tc, "id", ""),
+                                "type": getattr(tc, "type", "function"),
+                                "function": {
+                                    "name": tc.function.name,
+                                    "arguments": tc.function.arguments,
+                                },
+                            }
+                        )
+
+                return ChatResponse(content=content, tool_calls=tool_calls, model=resp.model)
             except (APIConnectionError, APIStatusError) as e:
                 # 非可重试状态码直接抛出异常
                 if isinstance(e, APIStatusError) and e.status_code not in (429, 500, 502, 503):

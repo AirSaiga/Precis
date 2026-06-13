@@ -52,6 +52,7 @@ def build_prompt(
     profiling_data: list[dict],
     project_name: str,
     max_prompt_chars: int = DEFAULT_MAX_PROMPT_CHARS,
+    extra_context: list[str] | None = None,
 ) -> tuple[str, list[str]]:
     """
     @methoddesc 构建生成提示词（带长度预算和自动降级）
@@ -66,6 +67,7 @@ def build_prompt(
         profiling_data: 数据画像结果列表
         project_name: 项目名称
         max_prompt_chars: prompt 最大字符数预算
+        extra_context: 额外上下文文本列表（如上一轮结果、校验问题等）
 
     返回:
         (prompt 字符串, truncation 警告列表)
@@ -133,6 +135,12 @@ def build_prompt(
         remaining = len(item.get("columns", [])) - max_columns_per_table
         if remaining > 0:
             prompt += f"- ... 还有 {remaining} 列未显示\n"
+
+    # 追加额外上下文
+    if extra_context:
+        prompt += "\n## 额外上下文\n\n"
+        for ctx in extra_context:
+            prompt += f"{ctx}\n\n"
 
     prompt += """
 ## 输出要求

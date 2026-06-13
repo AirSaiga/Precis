@@ -20,9 +20,13 @@
     可用命令列表或特定命令的 help_text
 """
 
+from rich.console import Console
+from rich.table import Table
+
 from app.cli.shell.commands.base import Command, CommandContext, CommandResult
-from app.cli.shell.formatter import Formatter
 from app.cli.shell.parser import CommandRegistry
+
+_console = Console()
 
 
 class HelpCommand(Command):
@@ -32,11 +36,6 @@ class HelpCommand(Command):
     """
 
     def __init__(self, registry: CommandRegistry):
-        """初始化帮助命令。
-
-        Args:
-            registry: 命令注册表，包含所有已注册的命令
-        """
         super().__init__("help", aliases=["?"])
         self._registry = registry
 
@@ -49,48 +48,33 @@ class HelpCommand(Command):
         return "help [command]"
 
     def execute(self, args: list[str], context: CommandContext) -> CommandResult:
-        """执行帮助命令。
-
-        Args:
-            args: 命令参数列表，为空显示所有命令，否则显示指定命令帮助
-            context: 命令上下文
-
-        Returns:
-            格式化的帮助文本
-        """
         if not args:
             return self._show_all_commands()
         else:
             return self._show_command_help(args[0])
 
     def _show_all_commands(self) -> CommandResult:
-        """显示所有可用命令的列表。
-
-        Returns:
-            包含所有命令名称和描述的格式化文本
-        """
         commands = self._registry.get_all_commands()
 
-        lines = [Formatter.header("\n可用命令:"), ""]
+        _console.print()
+        _console.print("[bold]可用命令:[/bold]")
+        _console.print()
+
+        table = Table(show_header=False, box=None, padding=(0, 2, 0, 0))
+        table.add_column("Command", style="cyan bold", min_width=18)
+        table.add_column("Description")
 
         for cmd in commands:
-            lines.append(f"  {Formatter.info(cmd.name):15} - {cmd.description}")
+            table.add_row(cmd.name, cmd.description)
 
-        lines.append("")
-        lines.append(Formatter.dim("输入 'help <command>' 查看特定命令的详细帮助"))
-        lines.append(Formatter.dim("输入 'exit' 或 'quit' 退出 CLI"))
+        _console.print(table)
+        _console.print()
+        _console.print("[dim]输入 'help <command>' 查看特定命令的详细帮助[/dim]")
+        _console.print("[dim]输入 'exit' 或 'quit' 退出 CLI，'qq' 强制退出[/dim]")
 
-        return CommandResult.ok("\n".join(lines))
+        return CommandResult.ok("")
 
     def _show_command_help(self, command_name: str) -> CommandResult:
-        """显示特定命令的详细帮助。
-
-        Args:
-            command_name: 要查看帮助的命令名称
-
-        Returns:
-            命令的详细帮助文本，或错误提示
-        """
         command = self._registry.get(command_name)
         if command is None:
             return CommandResult.error(f"未知命令: {command_name}")

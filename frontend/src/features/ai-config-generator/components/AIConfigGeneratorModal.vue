@@ -73,6 +73,37 @@
         </div>
 
         <div class="modal-body">
+          <!-- Agent Mode Options -->
+          <div class="agent-options-bar">
+            <label class="agent-mode-toggle">
+              <input v-model="options.agent_mode" type="checkbox" :disabled="generating" />
+              <span>{{ t('aiConfigGenerator.agentMode.label') }}</span>
+            </label>
+            <div v-if="options.agent_mode" class="agent-params">
+              <label class="agent-param">
+                <span>{{ t('aiConfigGenerator.agentMode.maxIterations') }}</span>
+                <input
+                  v-model.number="options.max_iterations"
+                  type="range"
+                  min="1"
+                  max="5"
+                  step="1"
+                  :disabled="generating"
+                />
+                <span class="param-value">{{ options.max_iterations }}</span>
+              </label>
+              <label class="agent-param">
+                <span>{{ t('aiConfigGenerator.agentMode.validationSampleSize') }}</span>
+                <select v-model.number="options.validation_sample_size" :disabled="generating">
+                  <option :value="500">500</option>
+                  <option :value="1000">1000</option>
+                  <option :value="2000">2000</option>
+                  <option :value="5000">5000</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
           <!-- Top Action Bar: File selection + Generate -->
           <ConfigPanel
             :checked-files="checkedFiles"
@@ -90,6 +121,84 @@
             @clear="clearSelection"
           />
 
+          <!-- Mode Tabs -->
+          <div class="mode-tabs">
+            <button
+              class="mode-tab"
+              :class="{ active: activeTab === 'generate' }"
+              @click="activeTab = 'generate'"
+            >
+              {{ t('aiConfigGenerator.tabs.generate') }}
+            </button>
+            <button
+              class="mode-tab"
+              :class="{ active: activeTab === 'migrate' }"
+              @click="activeTab = 'migrate'"
+            >
+              {{ t('aiConfigGenerator.tabs.migrate') }}
+            </button>
+          </div>
+
+          <!-- Migrate Panel -->
+          <div v-if="activeTab === 'migrate'" class="migrate-panel">
+            <div class="migrate-form">
+              <label class="migrate-field">
+                <span>{{ t('aiConfigGenerator.migrate.language') }}</span>
+                <select v-model="migrateLanguage" :disabled="generating">
+                  <option value="python">Python pandas</option>
+                  <option value="natural_language">
+                    {{ t('aiConfigGenerator.migrate.naturalLanguage') }}
+                  </option>
+                  <option value="excel_formula">Excel / Google Sheets</option>
+                  <option value="sql">SQL DDL</option>
+                </select>
+              </label>
+              <label class="migrate-field">
+                <span>{{ t('aiConfigGenerator.migrate.scriptContent') }}</span>
+                <textarea
+                  v-model="migrateScript"
+                  class="migrate-textarea"
+                  :disabled="generating"
+                  :placeholder="t('aiConfigGenerator.migrate.placeholder')"
+                  rows="6"
+                />
+              </label>
+              <div class="migrate-actions">
+                <button
+                  class="generate-btn"
+                  type="button"
+                  :disabled="
+                    generating ||
+                    checkedFiles.size === 0 ||
+                    !store.activeProvider?.is_configured ||
+                    !migrateScript.trim()
+                  "
+                  @click="startMigration"
+                >
+                  <span v-if="generating" class="spinner-sm"></span>
+                  {{
+                    generating
+                      ? t('aiConfigGenerator.actions.generating')
+                      : t('aiConfigGenerator.migrate.start')
+                  }}
+                </button>
+                <button
+                  v-if="generating"
+                  class="cancel-btn"
+                  type="button"
+                  :disabled="canceling"
+                  @click="cancelMigration"
+                >
+                  {{
+                    canceling
+                      ? t('aiConfigGenerator.actions.canceling')
+                      : t('aiConfigGenerator.actions.cancel')
+                  }}
+                </button>
+              </div>
+            </div>
+          </div>
+
           <!-- Full-width Preview & Result -->
           <PreviewPanel :state="previewState" @apply="overwriteProject" @close="handleClose" />
         </div>
@@ -106,6 +215,7 @@
   import { useI18n } from 'vue-i18n'
   import { storeToRefs } from 'pinia'
   import { useProjectStore } from '@/stores/projectStore'
+  import { useGraphStore } from '@/stores/graphStore'
   import { getV2FullConfig, putV2FullConfig } from '@/api/projectV2Api'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useAiConfigGeneratorStore } from '../stores/aiConfigGeneratorStore'
@@ -113,7 +223,7 @@
 
   import { useFileSelection } from '../composables/useFileSelection'
   import { useGenerationJob } from '../composables/useGenerationJob'
-  // import { useConflictApply } from '../composables/useConflictApply'
+  import { useMigrationJob } from '../composables/useMigrationJob'
   import { useHardwarePrecheck } from '../composables/useHardwarePrecheck'
 
   import ConfigPanel from './config-panel/ConfigPanel.vue'
@@ -128,8 +238,12 @@
   const { showConfirm } = useGlobalConfirm()
   const projectStore = useProjectStore()
   const store = useAiConfigGeneratorStore()
+  const graphStore = useGraphStore()
 
   const applying = ref(false)
+  const activeTab = ref<'generate' | 'migrate'>('generate')
+  const migrateLanguage = ref('python')
+  const migrateScript = ref('')
 
   // 使用 storeToRefs 保持 ref 的响应式
   const { activeProvider, options } = storeToRefs(store)
@@ -159,19 +273,46 @@
   const {
     generating,
     canceling,
+    jobId,
     currentStage,
     progressMessage,
     receivedChars,
     warnings,
+    generateStartedAt,
+    lastElapsedMs,
+    elapsedNow,
     elapsedTimeText,
     stageLabel,
+    iterations,
+    maxIterations,
+    metrics,
+    currentPlan,
     generatedConfig,
     yamlPreview,
+    pollTimer,
+    elapsedTimer,
     generate: startGeneration,
     cancelGenerate,
     stopPolling,
     stopElapsed,
   } = generationJob
+
+  const migrationJob = useMigrationJob(effectiveConfigPath, checkedFiles, options, activeProvider, {
+    generating,
+    canceling,
+    jobId,
+    currentStage,
+    progressMessage,
+    warnings,
+    generateStartedAt,
+    lastElapsedMs,
+    elapsedNow,
+    pollTimer,
+    elapsedTimer,
+    generatedConfig,
+    yamlPreview,
+  })
+  const { startMigration: runMigration, cancelMigration } = migrationJob
 
   // 直接覆盖：生成结果 -> putV2FullConfig（不再走冲突解决模态框）
   const overwriteProject = async () => {
@@ -221,6 +362,14 @@
     }
   }
 
+  /**
+   * 启动迁移任务
+   */
+  const startMigration = async () => {
+    const projectName = graphStore.projectName || 'precis-project'
+    await runMigration(migrateScript.value, migrateLanguage.value, projectName)
+  }
+
   // ==================== 聚合 PreviewPanel 状态 ====================
   const previewState = computed(() => ({
     generating: generating.value,
@@ -233,6 +382,10 @@
     progressMessage: progressMessage.value,
     receivedChars: receivedChars.value,
     applying: applying.value,
+    iterations: iterations.value,
+    maxIterations: maxIterations.value,
+    metrics: metrics.value,
+    currentPlan: currentPlan.value,
   }))
 
   // ==================== 注册重置钩子到 Store ====================

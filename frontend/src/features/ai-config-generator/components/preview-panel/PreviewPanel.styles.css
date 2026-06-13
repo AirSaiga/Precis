@@ -184,6 +184,42 @@
   padding-top: var(--ui-space-sm);
 }
 
+.current-plan-box {
+  margin-top: var(--ui-space-sm);
+  padding: var(--ui-space-sm);
+  background: var(--ui-bg-subtle);
+  border-radius: var(--ui-radius-sm);
+  border: 1px solid var(--ui-border-light);
+}
+
+.plan-title {
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-semibold);
+  color: var(--ui-text-body);
+  margin-bottom: var(--ui-space-xs);
+}
+
+.plan-item {
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-muted);
+  line-height: var(--ui-line-height-normal);
+}
+
+.plan-strategy {
+  color: var(--ui-accent);
+  font-weight: var(--ui-font-weight-medium);
+  text-transform: capitalize;
+}
+
+.plan-reason {
+  margin-top: 2px;
+}
+
+.plan-chunks {
+  margin-top: 2px;
+  color: var(--ui-text-subtle);
+}
+
 /* --- Result State --- */
 .result-state {
   height: 100%;

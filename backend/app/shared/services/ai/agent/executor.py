@@ -1,0 +1,290 @@
+"""@fileoverview Agent 执行器
+
+功能概述:
+- 实现 Agent 主循环：LLM 调用 → 工具执行 → 结果回传 → 下一轮
+- 支持最大迭代轮数、取消检查、checkpoint 回调
+- 支持 function calling 和直接文本回复两种终止方式
+
+架构设计:
+- AgentExecutor 组合 ChatLLMService、ToolRegistry、AgentMemory
+- 每轮调用 LLM，若返回 tool_calls 则执行工具并继续循环
+- 若返回 content 则视为最终答案，结束循环
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any, Callable
+
+from app.shared.services.llm.config.models import AIProvider
+from app.shared.services.llm.providers.base import ChatMessage, ChatRequest
+
+from .memory import AgentMemory
+from .tool_registry import ToolRegistry
+from .types import AgentMetrics, AgentResult, AgentTurn, ToolResult
+
+logger = logging.getLogger(__name__)
+
+# 默认系统提示词
+DEFAULT_SYSTEM_PROMPT = """你是一个数据治理专家 Agent，擅长分析数据文件并生成数据验证配置。
+你可以调用工具来完成任务。每一步请根据观察结果决定下一步行动。
+如果任务已完成，请直接输出最终结果，不要再调用工具。"""
+
+
+# 进度回调签名：stage, progress(0-1), extra dict
+def default_progress_callback(stage: str, progress: float, extra: dict[str, Any] | None = None) -> None:
+    pass
+
+
+# 默认取消回调
+def default_cancelled_callback() -> bool:
+    return False
+
+
+# 默认 tool result 回调
+def default_on_tool_result(tr: ToolResult) -> None:
+    pass
+
+
+class AgentExecutor:
+    """
+    @classdesc Agent 执行器
+
+    实现规划-执行-观察的循环。
+    """
+
+    def __init__(
+        self,
+        provider: AIProvider,
+        registry: ToolRegistry,
+        system_prompt: str | None = None,
+        max_iterations: int = 5,
+        max_tokens: int = 120000,
+        progress_callback: Callable[[str, float, dict[str, Any] | None], None] | None = None,
+        checkpoint_callback: Callable[[dict[str, Any]], None] | None = None,
+        cancelled_callback: Callable[[], bool] | None = None,
+        on_tool_result: Callable[[ToolResult], None] | None = None,
+    ):
+        """
+        @methoddesc 初始化 Agent 执行器
+
+        参数:
+            provider: AIProvider 配置
+            registry: 工具注册表
+            system_prompt: 系统提示词，None 使用默认
+            max_iterations: 最大迭代轮数
+            max_tokens: 记忆最大 token 预算
+            progress_callback: 进度回调
+            checkpoint_callback: checkpoint 保存回调
+            cancelled_callback: 取消检查回调
+            on_tool_result: 工具结果回调，用于提取 metrics
+        """
+        self.provider = provider
+        self.registry = registry
+        self.system_prompt = system_prompt or DEFAULT_SYSTEM_PROMPT
+        self.max_iterations = max_iterations
+        self.max_tokens = max_tokens
+        self.progress_callback = progress_callback or default_progress_callback
+        self.checkpoint_callback = checkpoint_callback or (lambda x: None)
+        self.cancelled_callback = cancelled_callback or default_cancelled_callback
+        self.on_tool_result = on_tool_result or default_on_tool_result
+        self._chat_service: Any | None = None
+        self._memory: AgentMemory | None = None
+
+    async def run(
+        self,
+        task_message: str,
+        initial_checkpoint: dict[str, Any] | None = None,
+    ) -> AgentResult:
+        """
+        @methoddesc 运行 Agent
+
+        参数:
+            task_message: 用户任务描述
+            initial_checkpoint: 可选的初始 checkpoint 数据
+
+        返回:
+            AgentResult 执行结果
+        """
+        self._memory = AgentMemory(self.system_prompt, max_tokens=self.max_tokens)
+        self._memory.set_task(task_message)
+
+        tools = self.registry.get_definitions()
+
+        result = AgentResult(success=True, iterations=0)
+
+        for turn_idx in range(1, self.max_iterations + 1):
+            if self.cancelled_callback():
+                result.success = False
+                result.error = "任务已取消"
+                return result
+
+            self.progress_callback(
+                f"agent_turn_{turn_idx}",
+                turn_idx / self.max_iterations,
+                {"iterations": turn_idx, "max_iterations": self.max_iterations},
+            )
+
+            messages = self._memory.get_messages()
+            logger.debug(f"Agent turn {turn_idx}, messages={len(messages)}")
+
+            chat_messages = []
+            for m in messages:
+                chat_messages.append(
+                    ChatMessage(
+                        role=m["role"],
+                        content=m.get("content"),
+                        tool_calls=m.get("tool_calls"),
+                        tool_call_id=m.get("tool_call_id"),
+                    )
+                )
+            req = ChatRequest(
+                messages=chat_messages,
+                model=self.provider.model if hasattr(self.provider, "model") else None,
+                temperature=0.3,
+                tools=tools,
+                tool_choice="auto",
+            )
+
+            try:
+                llm_response = await self.provider.chat(req)
+            except Exception as e:
+                logger.error(f"Agent LLM 调用失败: {e}")
+                result.success = False
+                result.error = f"AI 服务调用失败: {e}"
+                return result
+
+            content = llm_response.content
+            raw_tool_calls = llm_response.tool_calls or []
+            tool_calls = [self.registry.parse_tool_call(tc) for tc in raw_tool_calls]
+
+            self._memory.add_assistant_message(content=content or None, tool_calls=raw_tool_calls or None)
+
+            turn = AgentTurn(
+                turn=turn_idx,
+                content=content,
+                tool_calls=tool_calls,
+            )
+
+            if tool_calls:
+                # 执行工具
+                self.progress_callback("agent_executing_tools", turn_idx / self.max_iterations, None)
+                tool_results = await self.registry.execute_many(tool_calls)
+                turn.tool_results = tool_results
+
+                for tr in tool_results:
+                    self.on_tool_result(tr)
+                    observation = tr.observation
+                    if isinstance(observation, dict):
+                        observation_text = self._dict_to_text(observation)
+                    else:
+                        observation_text = str(observation)
+                    self._memory.add_tool_result(tr.call_id, tr.name, observation_text)
+
+                # 更新 checkpoint
+                checkpoint = self._make_checkpoint(turn_idx, turn, None)
+                self.checkpoint_callback(checkpoint)
+                self._memory.add_turn(turn)
+                result.turns.append(turn)
+                result.iterations = turn_idx
+                continue
+
+            # 没有 tool_calls 且 content 非空，视为最终结果
+            if content:
+                self._memory.add_turn(turn)
+                result.turns.append(turn)
+                result.iterations = turn_idx
+                result.content = content
+
+                # 尝试从 content 解析配置
+                config = self._try_parse_config(content)
+                if config:
+                    result.config = config
+
+                final_checkpoint = self._make_checkpoint(turn_idx, turn, result.metrics.to_dict())
+                self.checkpoint_callback(final_checkpoint)
+                break
+
+            # content 为空且无 tool_calls，记录 turn 后继续
+            self._memory.add_turn(turn)
+            result.turns.append(turn)
+            result.iterations = turn_idx
+
+        # 如果达到最大轮数仍未结束
+        if result.iterations >= self.max_iterations and result.config is None and not result.content:
+            result.success = False
+            result.error = f"达到最大迭代轮数 {self.max_iterations}，仍未获得最终结果"
+
+        return result
+
+    def _make_checkpoint(
+        self,
+        turn: int,
+        agent_turn: AgentTurn,
+        metrics: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """构造 checkpoint。"""
+        return {
+            "turn": turn,
+            "content": agent_turn.content,
+            "tool_calls": [{"id": c.id, "name": c.name, "arguments": c.arguments} for c in agent_turn.tool_calls],
+            "tool_results": [
+                {
+                    "call_id": r.call_id,
+                    "name": r.name,
+                    "success": r.success,
+                    "observation": r.observation if isinstance(r.observation, dict) else str(r.observation),
+                    "error": r.error,
+                }
+                for r in agent_turn.tool_results
+            ],
+            "metrics": metrics,
+        }
+
+    @staticmethod
+    def _dict_to_text(data: dict[str, Any]) -> str:
+        """将字典转为文本。"""
+        import json
+
+        try:
+            return json.dumps(data, ensure_ascii=False)
+        except (TypeError, ValueError):
+            return str(data)
+
+    @staticmethod
+    def _try_parse_config(content: str | None) -> dict[str, Any] | None:
+        """尝试从文本中提取 JSON 配置。"""
+        if not content:
+            return None
+        import json
+        import re
+
+        # 尝试找到 Markdown JSON 代码块
+        match = re.search(r"```(?:json)?\s*(.*?)\s*```", content, re.DOTALL)
+        text = match.group(1).strip() if match else content
+
+        start = text.find("{")
+        if start == -1:
+            return None
+        balance = 0
+        for i, char in enumerate(text[start:], start=start):
+            if char == "{":
+                balance += 1
+            elif char == "}":
+                balance -= 1
+                if balance == 0:
+                    try:
+                        parsed = json.loads(text[start : i + 1])
+                        if isinstance(parsed, dict):
+                            return parsed
+                    except json.JSONDecodeError:
+                        return None
+        return None
+
+    @staticmethod
+    def build_metrics_from_issues(issues: list[dict[str, Any]]) -> AgentMetrics:
+        """根据校验问题构造 metrics。"""
+        metrics = AgentMetrics()
+        metrics.issues = issues
+        metrics.failed_rules = len(issues)
+        return metrics

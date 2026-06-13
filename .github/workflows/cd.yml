@@ -1,0 +1,182 @@
+name: CD - CLI Build & Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g. 0.1.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  build-cli:
+    name: Build CLI (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            runner: windows-latest
+            python-version: '3.12'
+            artifact: precis-windows-x64
+            executable: precis.exe
+          - platform: macos-arm64
+            runner: macos-latest
+            python-version: '3.12'
+            artifact: precis-macos-arm64
+            executable: precis
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install build dependencies
+        working-directory: backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+
+      - name: Install project dependencies
+        working-directory: backend
+        run: pip install -e .
+
+      - name: Run tests
+        working-directory: backend
+        run: python -m pytest --tb=short -q
+
+      - name: Build with PyInstaller
+        shell: bash
+        run: |
+          cd backend
+          pyinstaller --onefile \
+            --name precis \
+            --console \
+            --clean \
+            --noconfirm \
+            --paths "." \
+            --copy-metadata readchar \
+            --copy-metadata precis \
+            --hidden-import=pandas \
+            --hidden-import=openpyxl \
+            --hidden-import=sqlalchemy \
+            --hidden-import=yaml \
+            --hidden-import=ruamel.yaml \
+            --hidden-import=pydantic \
+            --hidden-import=rich \
+            --hidden-import=cryptography \
+            --hidden-import=cryptography.fernet \
+            --hidden-import=readchar \
+            --hidden-import=simpleeval \
+            --hidden-import=filelock \
+            --hidden-import=numpy \
+            --hidden-import=app \
+            --hidden-import=app.cli \
+            --hidden-import=app.cli.shell \
+            --hidden-import=app.shared \
+            --hidden-import=app.shared.core \
+            --hidden-import=app.shared.domain \
+            --hidden-import=app.shared.services \
+            entrypoint.py
+
+      - name: Smoke test
+        shell: bash
+        run: |
+          cd backend/dist
+          chmod +x ./${{ matrix.executable }}
+          ./${{ matrix.executable }} validate \
+            --manifest ../../e2e/fixtures/test-project/project.precis.yaml \
+            --data-directory ../../e2e/fixtures/test-project/data
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: backend/dist/${{ matrix.executable }}
+          retention-days: 5
+
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    needs: [build-cli]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+            TAG="v${VERSION}"
+          else
+            TAG="${{ github.ref_name }}"
+            VERSION="${TAG#v}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Rename binaries with platform suffix
+        run: |
+          mv release-assets/precis.exe release-assets/precis-${{ steps.version.outputs.version }}-windows-x64.exe
+          mv release-assets/precis release-assets/precis-${{ steps.version.outputs.version }}-macos-arm64
+
+      - name: Generate checksums
+        run: |
+          cd release-assets
+          sha256sum * > checksums-${{ steps.version.outputs.version }}.txt
+          cat checksums-${{ steps.version.outputs.version }}.txt
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: Precis CLI v${{ steps.version.outputs.version }}
+          draft: true
+          generate_release_notes: true
+          body: |
+            ## Precis CLI v${{ steps.version.outputs.version }}
+
+            ### Downloads
+
+            | Platform | File |
+            |----------|------|
+            | Windows x64 | `precis-${{ steps.version.outputs.version }}-windows-x64.exe` |
+            | macOS ARM64 | `precis-${{ steps.version.outputs.version }}-macos-arm64` |
+
+            ### Verify
+
+            ```bash
+            sha256sum -c checksums-${{ steps.version.outputs.version }}.txt
+            ```
+
+            ### Usage
+
+            ```bash
+            # Windows
+            precis-${{ steps.version.outputs.version }}-windows-x64.exe validate --manifest project.precis.yaml
+
+            # macOS
+            chmod +x precis-${{ steps.version.outputs.version }}-macos-arm64
+            ./precis-${{ steps.version.outputs.version }}-macos-arm64 validate --manifest project.precis.yaml
+            ```
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

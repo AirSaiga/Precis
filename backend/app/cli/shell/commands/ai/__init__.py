@@ -30,7 +30,7 @@ from app.cli.shell.commands.ai.executor import execute_ai_chat
 from app.cli.shell.commands.ai.status import AIStatusCommand
 from app.cli.shell.commands.ai.switch import AISwitchCommand
 from app.cli.shell.commands.base import Command, CommandContext, CommandResult
-from app.cli.shell.commands.setup import SetupCommand
+from app.cli.shell.commands.provider import ProviderCommand
 from app.cli.shell.config_storage import get_cli_config
 from app.cli.shell.formatter import Formatter
 from app.cli.shell.interactive_menu import InteractiveMenu
@@ -48,7 +48,7 @@ class AICommand(Command):
         self._chat_cmd = AIChatCommand()
         self._status_cmd = AIStatusCommand()
         self._switch_cmd = AISwitchCommand()
-        self._setup_cmd = SetupCommand()
+        self._provider_cmd = ProviderCommand()
         self._delete_cmd = AIDeleteCommand()
         self._cli_config = get_cli_config()
 
@@ -57,7 +57,7 @@ class AICommand(Command):
         self.add_subcommand("status", self._status_cmd)
         self.add_subcommand("switch", self._switch_cmd)
         self.add_subcommand("delete", self._delete_cmd)
-        self.add_subcommand("setup", self._setup_cmd)
+        self.add_subcommand("provider", self._provider_cmd)
 
     @property
     def description(self) -> str:
@@ -65,7 +65,7 @@ class AICommand(Command):
 
     @property
     def usage(self) -> str:
-        return "ai [chat|status|switch|setup|delete|ask <message>]"
+        return "ai [chat|status|switch|provider|delete|ask <message>]"
 
     @property
     def help_text(self) -> str:
@@ -77,7 +77,7 @@ class AICommand(Command):
   ask <message>     直接执行 AI 指令（如: ai ask "添加非空约束到用户表的email字段"）
   status            显示 AI 配置状态
   switch <provider> 切换默认 AI Provider
-  setup             管理 AI Provider（添加/编辑/删除/测试）
+  provider          管理 AI Provider（添加/编辑/删除/测试）
   delete [provider] 删除已配置的 Provider
 
 示例:
@@ -85,15 +85,15 @@ class AICommand(Command):
   ai ask "创建非空约束到users表的email列"   # 直接执行
   ai status                         # 查看 AI 配置状态
   ai switch kimi                    # 切换到 Kimi
-  ai setup                          # 管理 AI Provider
-  ai delete kimi                   # 删除 Kimi
+  ai provider                       # 管理 AI Provider
+  ai delete kimi                    # 删除 Kimi
 
 说明:
   AI 助手可以帮你通过自然语言修改项目配置，包括：
   - 添加、更新、删除约束（NOT_NULL, UNIQUE, RANGE, ALLOWED_VALUES, REGEX）
   - 查看和解释当前配置
 
-  首次使用请先运行 'ai setup' 命令添加 Provider
+  首次使用请先运行 'ai provider' 命令添加 Provider
         """.strip()
 
     def execute(self, args: list[str], context: CommandContext) -> CommandResult:
@@ -127,8 +127,8 @@ class AICommand(Command):
             return self._switch_cmd.execute(sub_args, context)
         elif subcommand == "delete":
             return self._delete_cmd.execute(sub_args, context)
-        elif subcommand == "setup":
-            return self._setup_cmd.execute(sub_args, context)
+        elif subcommand == "provider":
+            return self._provider_cmd.execute(sub_args, context)
         else:
             # 如果第一个参数不是子命令，则将其视为直接询问的消息
             return self._ask_direct(args, context)
@@ -165,7 +165,7 @@ class AICommand(Command):
             menu.add_item("chat", "chat", "进入交互式对话模式")
             menu.add_item("status", "status", "查看 AI 配置状态")
             menu.add_item("switch", "switch", "切换 AI Provider")
-            menu.add_item("setup", "setup", "管理 AI Provider")
+            menu.add_item("provider", "provider", "管理 AI Provider")
             menu.add_item("delete", "delete", "删除 Provider")
             menu.add_item("help", "help", "显示帮助信息")
 
@@ -183,8 +183,8 @@ class AICommand(Command):
                 input(Formatter.info("\n按回车键返回菜单..."))
             elif choice == "switch":
                 self._switch_cmd.execute([], context)
-            elif choice == "setup":
-                self._setup_cmd.execute([], context)
+            elif choice == "provider":
+                self._provider_cmd.execute([], context)
             elif choice == "delete":
                 self._delete_cmd.execute([], context)
             elif choice == "help":

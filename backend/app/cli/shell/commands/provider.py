@@ -1,6 +1,6 @@
-# backend/app/cli/shell/commands/setup.py
+# backend/app/cli/shell/commands/provider.py
 """
-@fileoverview CLI Setup 命令模块（交互式 AI Provider 管理器）
+@fileoverview CLI Provider 命令模块（交互式 AI Provider 管理器）
 
 功能概述:
 - 提供交互式 AI Provider 管理界面，与前端 AI 设置面板对齐
@@ -10,15 +10,15 @@
 - 支持热重载配置文件
 
 架构设计:
-- SetupCommand 继承 Command 基类
+- ProviderCommand 继承 Command 基类
 - execute() 进入交互式主循环
 - 通过 config_storage 管理配置，通过 provider registry 测试连接
 - 预设从 presets.py 加载
 
 输入示例:
-    precis> setup
-    precis> setup reload
-    precis> setup test openai
+    precis> provider
+    precis> provider reload
+    precis> provider test openai
 
 输出示例:
     交互式菜单或操作结果
@@ -40,7 +40,7 @@ from app.shared.services.llm.config.presets import get_preset_list
 from app.shared.services.llm.providers.registry import create
 
 
-class SetupCommand(Command):
+class ProviderCommand(Command):
     """交互式 AI Provider 管理器。
 
     提供与前端 AI 设置面板对齐的 CLI 管理界面：
@@ -54,7 +54,7 @@ class SetupCommand(Command):
     """
 
     def __init__(self):
-        super().__init__("setup", aliases=["config"])
+        super().__init__("provider")
         self._config = get_cli_config()
 
     @property
@@ -63,17 +63,17 @@ class SetupCommand(Command):
 
     @property
     def usage(self) -> str:
-        return "setup [reload|test <id>]"
+        return "provider [reload|test <id>]"
 
     @property
     def help_text(self) -> str:
         return """
-用法: setup [子命令] [参数]
+用法: provider [子命令] [参数]
 
 子命令:
-  setup              进入交互式 Provider 管理界面
-  setup reload       热重载 ai_providers.yaml 配置
-  setup test <id>    测试指定 Provider 的连接
+  provider              进入交互式 Provider 管理界面
+  provider reload       热重载 ai_providers.yaml 配置
+  provider test <id>    测试指定 Provider 的连接
 
 说明:
   交互式界面支持以下操作：
@@ -86,7 +86,7 @@ class SetupCommand(Command):
         """.strip()
 
     def execute(self, args: list[str], context: CommandContext) -> CommandResult:
-        """执行 setup 命令。
+        """执行 provider 命令。
 
         Args:
             args: 命令参数列表
@@ -465,7 +465,7 @@ class SetupCommand(Command):
         for line in template.split("\n"):
             print(f"  {Formatter.dim(line)}")
 
-        tip = '提示: 修改配置文件后，使用 "setup reload" 立即生效'
+        tip = '提示: 修改配置文件后，使用 "provider reload" 立即生效'
         print(f"\n  {Formatter.dim(tip)}")
 
     def _get_config_template(self) -> str:
@@ -527,4 +527,4 @@ defaults:
             )
 
 
-__all__ = ["SetupCommand"]
+__all__ = ["ProviderCommand"]

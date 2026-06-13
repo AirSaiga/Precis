@@ -27,10 +27,17 @@ import os
 from typing import Optional
 
 import yaml
+from rich.console import Console
+from rich.syntax import Syntax
 
 from app.cli.shell.commands.base import Command, CommandContext, CommandResult
 from app.cli.shell.commands.config.base import find_config_file
-from app.cli.shell.formatter import Formatter
+from app.cli.shell.formatter import _supports_unicode
+
+_CHECK_MARK = "\u2713" if _supports_unicode() else "[OK]"
+_CROSS_MARK = "\u2717" if _supports_unicode() else "[FAIL]"
+
+_console = Console()
 
 
 class ConfigCheckCommand(Command):
@@ -126,7 +133,7 @@ class ConfigCheckCommand(Command):
             return CommandResult.ok(f"✓ 所有 {valid_count} 个配置文件格式正确")
 
         # 有错误时只显示错误文件（除非指定 --all）
-        output_lines = [Formatter.header(f"\n发现 {invalid_count} 个配置文件格式错误:")]
+        output_lines = [f"[bold]\n发现 {invalid_count} 个配置文件格式错误:[/bold]"]
         output_lines.extend(results)
         if show_all:
             output_lines.append(f"\n总计: {valid_count} 个有效, {invalid_count} 个无效")
@@ -136,20 +143,11 @@ class ConfigCheckCommand(Command):
         return CommandResult.error("\n".join(output_lines))
 
     def _check_single_file(self, config_path: str, config_file: str) -> CommandResult:
-        """检查单个文件，显示详细错误。
-
-        Args:
-            config_path: 文件的完整路径
-            config_file: 用于显示的相对路径
-
-        Returns:
-            检查结果
-        """
         result, error_msg = self._check_file(config_path)
         if result:
-            return CommandResult.ok(f"✓ {config_file} 格式正确")
+            return CommandResult.ok(f"{_CHECK_MARK} {config_file} 格式正确")
         else:
-            output = f"✗ {config_file} 格式错误"
+            output = f"{_CROSS_MARK} {config_file} 格式错误"
             if error_msg:
                 output += f"\n\n错误详情:\n{error_msg}"
             return CommandResult.error(output)
@@ -201,25 +199,31 @@ class ConfigCheckCommand(Command):
             error_line_no = problem_mark.line  # 0-based
             error_col = problem_mark.column
 
-            # 显示错误位置（1-based）
             lines.append(f"位置: 第 {error_line_no + 1} 行")
 
-            # 显示上下文（前后2行）
+            # 使用 rich.syntax 高亮代码片段
             context_start = max(0, error_line_no - 2)
             context_end = min(len(content_lines), error_line_no + 3)
+            snippet = "\n".join(content_lines[context_start:context_end])
+            start_line = context_start + 1
 
             lines.append("")
             lines.append("代码片段:")
-            for i in range(context_start, context_end):
-                line_num = i + 1
-                line_content = content_lines[i]
-                prefix = ">>>" if i == error_line_no else "   "
-                lines.append(f"{prefix} {line_num:3d} | {line_content}")
+            syntax = Syntax(
+                snippet,
+                "yaml",
+                start_line=start_line,
+                line_numbers=True,
+                highlight_lines={error_line_no + 1},
+                theme="monokai",
+            )
+            with _console.capture() as capture:
+                _console.print(syntax)
+            lines.append(capture.get())
 
-                # 在错误行下方显示指示器
-                if i == error_line_no:
-                    indicator = " " * 8 + " " * error_col + "^"
-                    lines.append(f"      {indicator}")
+            # 指示器
+            indicator = " " * error_col + "^"
+            lines.append(f"      {indicator}")
         else:
             lines.append("位置: 未知")
 

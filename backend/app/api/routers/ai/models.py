@@ -86,6 +86,7 @@ class AiChatRequest(BaseModel):
     message: str
     context: AiChatContext
     history: Optional[list[AiChatHistoryMessage]] = None
+    agent_mode: bool = Field(default=True, description="是否启用 Agent 深度模式")
 
 
 class AiChatResponse(BaseModel):
@@ -176,6 +177,12 @@ class ConfigGenerateOptions(BaseModel):
     generate_regex_nodes: bool = Field(default=False, description="生成正则节点")
     keep_existing: bool = Field(default=True, description="保留现有配置")
     target_files: Optional[list[str]] = Field(default=None, description="指定目标文件")
+    agent_mode: bool = Field(default=True, description="启用 Agent 多轮优化模式")
+    max_iterations: int = Field(default=2, ge=1, le=5, description="Agent 最大迭代轮数")
+    validation_sample_size: int = Field(default=1000, ge=100, le=10000, description="校验采样行数")
+    auto_chunking: bool = Field(default=True, description="大数据量自动分块处理")
+    chunk_max_columns: int = Field(default=20, ge=5, le=100, description="分块最大列数")
+    chunk_max_files: int = Field(default=5, ge=1, le=20, description="分块最大文件数")
 
 
 class ConfigGenerateRequest(BaseModel):
@@ -199,6 +206,20 @@ class ConfigGenerateResponse(BaseModel):
     regex_nodes: Optional[dict[str, Any]] = Field(default=None, description="正则节点")
     warnings: list[str] = Field(default_factory=list)
     error: Optional[str] = None
+    iterations: Optional[int] = Field(default=None, description="Agent 迭代轮数")
+    metrics: Optional[dict[str, Any]] = Field(default=None, description="Agent 校验指标")
+
+
+class ConfigMigrateRequest(BaseModel):
+    """配置迁移请求"""
+
+    script_content: str = Field(..., description="脚本内容或自然语言描述")
+    language: str = Field(default="python", description="脚本类型: python/natural_language/excel_formula/sql")
+    file_paths: list[str] = Field(default_factory=list, description="数据文件路径列表")
+    project_name: str = Field(..., description="项目名称")
+    project_id: str = Field(..., description="项目标识")
+    provider_id: Optional[str] = Field(default=None, description="指定AI Provider，不指定使用默认")
+    options: ConfigGenerateOptions = Field(default_factory=ConfigGenerateOptions)
 
 
 # =============================================================================
@@ -220,6 +241,11 @@ class ConfigGenerateJobStatus(BaseModel):
     stage: Optional[str] = Field(default=None, description="当前阶段")
     message: Optional[str] = Field(default=None, description="状态消息")
     progress: Optional[float] = Field(default=None, description="进度 0-100")
+    iterations: Optional[int] = Field(default=None, description="当前已执行迭代轮数")
+    max_iterations: Optional[int] = Field(default=None, description="最大迭代轮数")
+    metrics: Optional[dict[str, Any]] = Field(default=None, description="校验指标")
+    current_plan: Optional[list[dict[str, Any]]] = Field(default=None, description="当前执行计划")
+    checkpoints: Optional[list[dict[str, Any]]] = Field(default=None, description="已保存的 checkpoints")
     created_at: str
     updated_at: str
     warnings: list[str] = Field(default_factory=list)

@@ -388,6 +388,8 @@ export interface AiChatRequest {
   }
   /** 历史消息记录（可选） */
   history?: ChatHistoryMessage[]
+  /** 是否启用 Agent 深度模式 */
+  agent_mode?: boolean
 }
 
 /** AI 聊天响应体 */
@@ -430,12 +432,14 @@ export const sendAiChatMessage = async (
       data: Record<string, unknown>
     }>
   },
-  history?: ChatHistoryMessage[]
+  history?: ChatHistoryMessage[],
+  agentMode: boolean = true
 ): Promise<AiChatResponse> => {
   const request: AiChatRequest = {
     message,
     context,
     history: history || [],
+    agent_mode: agentMode,
   }
   const response = await apiClient.post<AiChatResponse>('/ai/chat', request)
   return response.data

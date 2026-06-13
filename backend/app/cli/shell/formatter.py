@@ -3,20 +3,28 @@
 @fileoverview CLI Shell 输出格式化模块
 
 功能概述:
-- 提供彩色终端输出和格式化工具
+- 基于 rich 库提供彩色终端输出和格式化工具
 - 支持加载动画 Spinner、表格打印、验证结果格式化
 - 打印欢迎信息与项目信息
+- 保持 Colors/Formatter/Spinner 公共 API 不变，内部实现委托 rich
 
 架构设计:
-- Colors 定义 ANSI 颜色常量
-- Spinner 使用独立线程实现终端加载动画
-- Formatter 提供静态方法统一各类输出格式
+- Colors 定义 ANSI 颜色常量（兼容旧代码直接引用）
+- Spinner 基于 rich.progress 实现终端加载动画
+- Formatter 提供静态方法统一各类输出格式，内部使用 rich Console
 """
 
 import sys
-import threading
-import time
 from typing import Any, Optional
+
+from rich.console import Console
+from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
+from rich.text import Text
+
+_console = Console(stderr=False)
+_stderr_console = Console(stderr=True)
 
 
 def _supports_unicode() -> bool:
@@ -30,7 +38,7 @@ def _supports_unicode() -> bool:
 
 
 class Colors:
-    """终端颜色常量。"""
+    """终端颜色常量。（保留以兼容旧代码直接引用）"""
 
     RESET = "\033[0m"
     BOLD = "\033[1m"
@@ -56,62 +64,35 @@ class Colors:
 
 
 class Spinner:
-    """终端加载动画。"""
+    """终端加载动画（基于 rich.progress）。"""
 
-    # Unicode 字符集（支持 UTF-8 的终端）
-    _UNICODE_FRAMES = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
-    _UNICODE_SUCCESS = "✓"
-    _UNICODE_ERROR = "✗"
-
-    # ASCII 降级字符集（GBK 等有限编码终端）
-    _ASCII_FRAMES = ["-", "\\", "|", "/"]
-    _ASCII_SUCCESS = "OK"
-    _ASCII_ERROR = "!!"
-
-    ANIMATION_INTERVAL = 0.1  # 动画帧间隔（秒）
+    ANIMATION_INTERVAL = 0.1
 
     def __init__(self, message: str = "处理中"):
         self.message = message
-        self._stop_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
-        # 根据终端编码能力选择字符集
-        if _supports_unicode():
-            self._frames = self._UNICODE_FRAMES
-            self._success_frame = self._UNICODE_SUCCESS
-            self._error_frame = self._UNICODE_ERROR
-        else:
-            self._frames = self._ASCII_FRAMES
-            self._success_frame = self._ASCII_SUCCESS
-            self._error_frame = self._ASCII_ERROR
+        self._success = True
+        self._progress: Optional[Progress] = None
+        self._task_id = None
 
     def start(self) -> None:
-        """启动加载动画。"""
-        self._stop_event.clear()
-        self._thread = threading.Thread(target=self._animate, daemon=True)
-        self._thread.start()
+        self._progress = Progress(
+            SpinnerColumn(),
+            TextColumn("[cyan]{task.description}"),
+            console=_console,
+            transient=True,
+        )
+        self._progress.start()
+        self._task_id = self._progress.add_task(self.message + "...", total=None)
 
     def stop(self, success: bool = True) -> None:
-        """停止加载动画。
+        self._success = success
+        if self._progress:
+            self._progress.stop()
+            self._progress = None
 
-        Args:
-            success: 是否显示成功状态
-        """
-        self._stop_event.set()
-        if self._thread:
-            self._thread.join(timeout=1)
-
-        frame = self._success_frame if success else self._error_frame
-        suffix = Formatter.success(" 完成") if success else Formatter.error(" 失败")
-        print(f"\r{Colors.CYAN}{frame}{Colors.RESET} {self.message}{suffix}")
-
-    def _animate(self) -> None:
-        """动画循环。"""
-        index = 0
-        while not self._stop_event.is_set():
-            frame = self._frames[index % len(self._frames)]
-            print(f"\r{Colors.CYAN}{frame}{Colors.RESET} {self.message}...", end="", flush=True)
-            index += 1
-            time.sleep(self.ANIMATION_INTERVAL)
+        mark = "[green]✓[/green]" if success else "[red]✗[/red]"
+        suffix = "[green] 完成[/green]" if success else "[red] 失败[/red]"
+        _console.print(f"{mark} {self.message}{suffix}")
 
 
 class Formatter:
@@ -119,241 +100,171 @@ class Formatter:
 
     @staticmethod
     def colorize(text: str, *colors: str) -> str:
-        """为文本添加颜色。
-
-        Args:
-            text: 要着色的文本
-            colors: 颜色代码
-
-        Returns:
-            着色后的文本
-        """
         color_codes = "".join(colors)
         return f"{color_codes}{text}{Colors.RESET}"
 
     @staticmethod
     def success(text: str) -> str:
-        """绿色成功文本。"""
         return Formatter.colorize(text, Colors.GREEN)
 
     @staticmethod
     def error(text: str) -> str:
-        """红色错误文本。"""
         return Formatter.colorize(text, Colors.RED)
 
     @staticmethod
     def warning(text: str) -> str:
-        """黄色警告文本。"""
         return Formatter.colorize(text, Colors.YELLOW)
 
     @staticmethod
     def info(text: str) -> str:
-        """蓝色信息文本。"""
         return Formatter.colorize(text, Colors.CYAN)
 
     @staticmethod
     def header(text: str) -> str:
-        """粗体标题文本。"""
         return Formatter.colorize(text, Colors.BOLD)
 
     @staticmethod
     def dim(text: str) -> str:
-        """暗淡文本。"""
         return Formatter.colorize(text, Colors.DIM)
 
     @staticmethod
     def print_header(text: str, width: int = 50) -> None:
-        """打印带边框的标题。
-
-        Args:
-            text: 标题文本
-            width: 边框宽度
-        """
-        border = "=" * width
-        print(Formatter.colorize(border, Colors.CYAN))
-        print(Formatter.header(f"{text:^{width}}"))
-        print(Formatter.colorize(border, Colors.CYAN))
+        _console.rule(Text(text.strip(), style="bold"), style="cyan", characters="═")
 
     @staticmethod
     def print_welcome() -> None:
-        """打印欢迎信息。"""
         print()
+
         if _supports_unicode():
             logo = r"""
-██████╗ ██████╗ ███████╗ ██████╗██╗███████╗
+[bold cyan]██████╗ ██████╗ ███████╗ ██████╗██╗███████╗
 ██╔══██╗██╔══██╗██╔════╝██╔════╝██║██╔════╝
 ██████╔╝██████╔╝█████╗  ██║     ██║███████╗
 ██╔═══╝ ██╔══██╗██╔══╝  ██║     ██║╚════██║
 ██║     ██║  ██║███████╗╚██████╗██║███████║
-╚═╝     ╚═╝  ╚═╝╚══════╝ ╚═════╝╚═╝╚══════╝
-        """
-            subtitle = (
-                "        ┌─────────────────────────────────────────┐\n"
-                "        │     Precis · Data Validation Engine     │\n"
-                "        │          CLI Interactive Shell          │\n"
-                "        └─────────────────────────────────────────┘"
-            )
+╚═╝     ╚═╝  ╚═╝╚══════╝ ╚═════╝╚═╝╚══════╝[/bold cyan]"""
         else:
             logo = r"""
-  _____  ____   _____  ____  _____
+[bold cyan]  _____  ____   _____  ____  _____
  |  __ \|  _ \ / ____|/ __ \|_   _|
  | |__) | |_) | |    | |  | | | |
  |  ___/|  _ <| |    | |  | | | |
  | |    | |_) | |____| |__| |_| |_
- |_|    |____/ \_____|\____/|_____|
-        """
-            subtitle = (
-                "        +-----------------------------------------+\n"
-                "        |     Precis - Data Validation Engine     |\n"
-                "        |          CLI Interactive Shell          |\n"
-                "        +-----------------------------------------+"
-            )
-        print(Formatter.colorize(logo, Colors.CYAN, Colors.BOLD))
-        print(Formatter.header(subtitle))
+ |_|    |____/ \_____|\____/|_____|[/bold cyan]"""
+
+        subtitle = Text("Precis · Data Validation Engine", style="bold")
+        version_text = Text("v0.1.0  CLI Interactive Shell", style="dim")
+
+        _console.print(logo)
+        _console.print()
+        _console.print(Panel.fit(
+            f"{subtitle}\n{version_text}",
+            border_style="cyan",
+            padding=(0, 4),
+        ))
+
         print()
-        print(Formatter.dim("Type 'help' for available commands, 'exit' to exit, 'qq' to force quit"))
+        _console.print("[dim]Type 'help' for available commands, 'exit' to exit, 'qq' to force quit[/dim]")
         print()
 
     @staticmethod
     def print_error(message: str) -> None:
-        """打印错误信息。"""
-        print(Formatter.error(f"错误: {message}"), file=sys.stderr)
+        _stderr_console.print(f"[bold red]错误:[/bold red] {message}")
 
     @staticmethod
     def print_warning(message: str) -> None:
-        """打印警告信息。"""
-        print(Formatter.warning(f"警告: {message}"))
+        _console.print(f"[yellow]警告:[/yellow] {message}")
 
     @staticmethod
     def print_success(message: str) -> None:
-        """打印成功信息。"""
-        print(Formatter.success(message))
+        _console.print(f"[green]{message}[/green]")
 
     @staticmethod
     def print_info(message: str) -> None:
-        """打印信息。"""
-        print(Formatter.info(message))
+        _console.print(f"[cyan]{message}[/cyan]")
 
     @staticmethod
     def print_table(headers: list[str], rows: list[list[Any]]) -> None:
-        """打印表格。
-
-        Args:
-            headers: 表头列表
-            rows: 行数据列表
-        """
         if not headers:
             return
 
-        col_widths = [len(h) for h in headers]
+        table = Table(show_header=True, header_style="bold")
+        for h in headers:
+            table.add_column(h)
         for row in rows:
-            for i, cell in enumerate(row):
-                col_widths[i] = max(col_widths[i], len(str(cell)))
-
-        def format_row(cells: list[Any]) -> str:
-            return " | ".join(str(cell).ljust(width) for cell, width in zip(cells, col_widths))
-
-        separator = "-+-".join("-" * width for width in col_widths)
-
-        print(Formatter.header(format_row(headers)))
-        print(separator)
-        for row in rows:
-            print(format_row(row))
+            table.add_row(*[str(cell) for cell in row])
+        _console.print(table)
 
     @staticmethod
     def format_validation_result(errors: list[dict[str, Any]], detailed: bool = True) -> str:
-        """格式化验证结果（CLI 专业格式）。
-
-        Args:
-            errors: 错误列表
-            detailed: 是否显示详细信息
-
-        Returns:
-            格式化的结果字符串
-        """
         if not errors:
-            mark = "\u2713" if _supports_unicode() else "[OK]"
-            return Formatter.success(f"\n{mark} 校验通过，未发现任何错误！\n")
+            mark = "✓" if _supports_unicode() else "[OK]"
+            return f"[green]\n{mark} 校验通过，未发现任何错误！\n[/green]"
 
-        error_counts = {}
+        error_counts: dict[str, int] = {}
         for error in errors:
             error_type = error.get("error_type", "UnknownError")
             error_counts[error_type] = error_counts.get(error_type, 0) + 1
 
         lines = []
         lines.append("")
-        lines.append(Formatter.colorize("=" * 60, Colors.CYAN))
-        lines.append(Formatter.colorize(Formatter.header(" 校验结果汇总 "), Colors.CYAN, Colors.BOLD))
-        lines.append(Formatter.colorize("=" * 60, Colors.CYAN))
-        lines.append("")
-
         total_errors = len(errors)
-        lines.append(Formatter.header(f"  总计: {total_errors} 个错误"))
+
+        lines.append(f"[bold]  总计: {total_errors} 个错误[/bold]")
         lines.append("")
 
         if error_counts:
-            lines.append(Formatter.header(" 按类型统计:"))
+            lines.append("[bold] 按类型统计:[/bold]")
             for error_type, count in sorted(error_counts.items()):
                 type_display = error_type.replace("Violation", "").replace("Error", "")
-                lines.append(f"   • {type_display}: {count}")
+                lines.append(f"   [yellow]•[/yellow] {type_display}: {count}")
             lines.append("")
 
-        lines.append(Formatter.colorize("-" * 60, Colors.DIM))
-        lines.append(Formatter.header(" 详细错误列表 "))
-        lines.append(Formatter.colorize("-" * 60, Colors.DIM))
+        lines.append("[dim]" + "─" * 60 + "[/dim]")
+        lines.append("[bold] 详细错误列表[/bold]")
+        lines.append("[dim]" + "─" * 60 + "[/dim]")
         lines.append("")
 
         for i, error in enumerate(errors, 1):
             error_type = error.get("error_type", "UnknownError")
             message = error.get("message", "无错误信息")
-            table = error.get("table", "")
+            table_name = error.get("table", "")
             column = error.get("column", "")
             row_index = error.get("row_index")
             value = error.get("value")
 
             type_display = error_type.replace("Violation", "").replace("Error", "")
-            type_color = Colors.RED if "Violation" in error_type else Colors.YELLOW
+            type_color = "red" if "Violation" in error_type else "yellow"
 
-            lines.append(
-                Formatter.colorize(f"  [{i}] ", Colors.BOLD)
-                + Formatter.colorize(f"【{type_display}】", type_color, Colors.BOLD)
-            )
+            lines.append(f"  [bold][{i}][/bold] [{type_color}]【{type_display}】[/{type_color}]")
 
-            if table:
-                lines.append(f"      表: {Formatter.colorize(table, Colors.CYAN)}")
+            if table_name:
+                lines.append(f"      表: [cyan]{table_name}[/cyan]")
                 if column:
-                    lines.append(f"      列: {Formatter.colorize(column, Colors.CYAN)}")
+                    lines.append(f"      列: [cyan]{column}[/cyan]")
                 if row_index is not None:
-                    lines.append(f"      行号: {Formatter.colorize(str(row_index), Colors.CYAN)}")
+                    lines.append(f"      行号: [cyan]{row_index}[/cyan]")
                 if value is not None:
-                    lines.append(f"      值: {Formatter.colorize(str(value), Colors.YELLOW)}")
+                    lines.append(f"      值: [yellow]{value}[/yellow]")
 
-            lines.append(f"      {Formatter.colorize('消息:', Colors.DIM)} {message}")
+            lines.append(f"      [dim]消息:[/dim] {message}")
             lines.append("")
 
-        lines.append(Formatter.colorize("=" * 60, Colors.CYAN))
+        lines.append("[cyan]" + "═" * 60 + "[/cyan]")
 
         return "\n".join(lines)
 
     @staticmethod
     def format_project_info(info: dict[str, Any]) -> str:
-        """格式化项目信息。
-
-        Args:
-            info: 项目信息字典
-
-        Returns:
-            格式化的项目信息
-        """
         lines = []
-        lines.append(Formatter.header("\n项目信息:"))
+        lines.append("[bold]\n项目信息:[/bold]")
         lines.append(f"  名称: {info.get('name', '未命名')}")
         lines.append(f"  路径: {info.get('path', '')}")
         lines.append(f"  Schema 数量: {info.get('schemas_count', 0)}")
         lines.append(f"  约束数量: {info.get('constraints_count', 0)}")
 
         if info.get("tables"):
-            lines.append(Formatter.header("\n数据表:"))
+            lines.append("[bold]\n数据表:[/bold]")
             for table in info["tables"]:
                 lines.append(f"  - {table}")
 

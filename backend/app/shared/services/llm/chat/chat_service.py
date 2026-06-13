@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from typing import Callable
+from typing import Any, Callable
 
 from app.shared.services.llm.config.models import AIProvider
 from app.shared.services.llm.providers import create
@@ -145,6 +145,64 @@ class ChatLLMService:
             return response.content
         except Exception as e:
             logger.error(f"Chat request failed: {e}")
+            raise
+
+    def chat_with_tools(
+        self,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+        temperature: float | None = None,
+        tool_choice: str | dict | None = "auto",
+    ) -> dict[str, Any]:
+        """
+        @methoddesc 发送带 function calling 的非流式聊天请求
+
+        支持 OpenAI tools 协议，返回文本内容或工具调用请求。
+
+        参数:
+            messages: 对话消息列表，每条可包含 role/content/tool_call_id/tool_calls
+            tools: tools 定义列表
+            temperature: 采样温度（0~1），None 则使用默认值 0.7
+            tool_choice: 工具选择策略，默认 "auto"
+
+        返回:
+            {"content": str, "tool_calls": list[dict], "model": str}
+
+        异常:
+            Exception: Provider 调用失败时抛出
+        """
+        chat_messages = []
+        for m in messages:
+            cm = ChatMessage(
+                role=m["role"],
+                content=m.get("content"),
+                tool_calls=m.get("tool_calls"),
+                tool_call_id=m.get("tool_call_id"),
+            )
+            chat_messages.append(cm)
+        req = ChatRequest(
+            messages=chat_messages,
+            model=self._config.model,
+            temperature=temperature if temperature is not None else 0.7,
+            tools=tools,
+            tool_choice=tool_choice,
+        )
+
+        logger.debug(
+            f"Chat with tools request: model={self._config.model}, messages={len(messages)}, tools={len(tools)}"
+        )
+        try:
+            response = _run_async(self.client.chat(req))
+            logger.debug(
+                f"Chat with tools response: content_length={len(response.content or '')}, tool_calls={len(response.tool_calls or [])}"
+            )
+            return {
+                "content": response.content or "",
+                "tool_calls": response.tool_calls or [],
+                "model": response.model,
+            }
+        except Exception as e:
+            logger.error(f"Chat with tools request failed: {e}")
             raise
 
     def chat_with_system_prompt(

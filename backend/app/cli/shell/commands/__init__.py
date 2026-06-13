@@ -24,8 +24,8 @@ from app.cli.shell.commands.base import Command, CommandResult
 from app.cli.shell.commands.config import ConfigCommand
 from app.cli.shell.commands.exit import ExitCommand
 from app.cli.shell.commands.help import HelpCommand
-from app.cli.shell.commands.project import OpenCommand, ProjectCommand, StatusCommand
-from app.cli.shell.commands.setup import SetupCommand
+from app.cli.shell.commands.project import ProjectCommand
+from app.cli.shell.commands.provider import ProviderCommand
 from app.cli.shell.commands.system import LsCommand, PwdCommand
 from app.cli.shell.commands.validate import ValidateCommand
 
@@ -33,13 +33,11 @@ __all__ = [
     "Command",
     "CommandResult",
     "HelpCommand",
-    "OpenCommand",
     "ProjectCommand",
-    "StatusCommand",
     "ValidateCommand",
     "ConfigCommand",
     "ExitCommand",
-    "SetupCommand",
+    "ProviderCommand",
     "AICommand",
     "PwdCommand",
     "LsCommand",

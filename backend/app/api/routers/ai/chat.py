@@ -94,6 +94,7 @@ async def chat(request: AiChatRequest, x_project_config_path: Optional[str] = He
             provider=provider_cfg,
             context_nodes=context_nodes,
             history=history,
+            agent_mode=request.agent_mode,
         )
     except Exception as exc:
         logging.getLogger(__name__).exception("AI chat failed")

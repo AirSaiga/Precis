@@ -23,11 +23,9 @@ from app.cli.shell.commands import (
     ExitCommand,
     HelpCommand,
     LsCommand,
-    OpenCommand,
     ProjectCommand,
+    ProviderCommand,
     PwdCommand,
-    SetupCommand,
-    StatusCommand,
     ValidateCommand,
 )
 from app.cli.shell.commands.base import ProjectContext
@@ -75,12 +73,10 @@ class CLIShell:
     def _setup_commands(self) -> None:
         """注册所有内置命令。"""
         self.registry.register(HelpCommand(self.registry))
-        self.registry.register(OpenCommand())
-        self.registry.register(StatusCommand())
         self.registry.register(ProjectCommand())
         self.registry.register(ValidateCommand())
         self.registry.register(ConfigCommand())
-        self.registry.register(SetupCommand())
+        self.registry.register(ProviderCommand())
         self.registry.register(AICommand())
         self.registry.register(PwdCommand())
         self.registry.register(LsCommand())
@@ -104,7 +100,7 @@ class CLIShell:
             if input_line.lower() in ("exit!", "quit!", "qq"):
                 print(Formatter.success("再见!"))
                 sys.exit(0)
-            result = executor.execute(input_line)
+            result = executor.execute_with_args(initial_args)
             if result.message:
                 if result.success:
                     print(result.message)

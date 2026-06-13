@@ -19,5 +19,11 @@ export function createDefaultOptions(): AiGenerateV2ConfigOptions {
     generate_constraints: true,
     generate_regex_nodes: true,
     keep_existing: true,
+    agent_mode: true,
+    max_iterations: 2,
+    validation_sample_size: 1000,
+    auto_chunking: true,
+    chunk_max_columns: 20,
+    chunk_max_files: 5,
   }
 }

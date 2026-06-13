@@ -34,6 +34,7 @@ import {
 } from '@/api/aiApi'
 import type {
   AiGenerateV2ConfigJobStatus,
+  AiGenerateV2ConfigMetrics,
   AiGenerateV2ConfigOptions,
   AiGenerateV2ConfigResponse,
   CloudAIProviderResponse,
@@ -56,6 +57,18 @@ export function useGenerationJob(
 
   /** 当前生成任务 ID */
   const jobId = ref<string | null>(null)
+
+  /** 当前 Agent 迭代轮数 */
+  const iterations = ref(0)
+
+  /** 最大迭代轮数 */
+  const maxIterations = ref(2)
+
+  /** Agent 校验指标 */
+  const metrics = ref<AiGenerateV2ConfigMetrics | undefined>(undefined)
+
+  /** 当前分块执行计划（大数据量时展示） */
+  const currentPlan = ref<Array<Record<string, unknown>> | undefined>(undefined)
 
   /** 当前阶段标识（由后端提供） */
   const currentStage = ref('')
@@ -141,6 +154,13 @@ export function useGenerationJob(
     currentStage.value = status.stage || ''
     progressMessage.value = status.message || ''
     receivedChars.value = typeof status.received_chars === 'number' ? status.received_chars : 0
+    iterations.value = typeof status.iterations === 'number' ? status.iterations : 0
+    maxIterations.value =
+      typeof status.max_iterations === 'number'
+        ? status.max_iterations
+        : options.value.max_iterations
+    metrics.value = status.metrics
+    currentPlan.value = status.current_plan
 
     if (status.status === 'completed') {
       const result = status.result
@@ -172,7 +192,7 @@ export function useGenerationJob(
       return
     }
 
-    if (status.status === 'canceled') {
+    if (status.status === 'cancelled') {
       generating.value = false
       canceling.value = false
       stopPolling()
@@ -236,6 +256,9 @@ export function useGenerationJob(
     generateStartedAt.value = Date.now()
     lastElapsedMs.value = null
     elapsedNow.value = Date.now()
+    iterations.value = 0
+    metrics.value = undefined
+    currentPlan.value = undefined
     stopElapsed()
     elapsedTimer.value = window.setInterval(() => {
       elapsedNow.value = Date.now()
@@ -325,8 +348,14 @@ export function useGenerationJob(
     elapsedNow,
     elapsedTimeText,
     stageLabel,
+    iterations,
+    maxIterations,
+    metrics,
+    currentPlan,
     generatedConfig,
     yamlPreview,
+    pollTimer,
+    elapsedTimer,
     generate,
     cancelGenerate,
     stopPolling,

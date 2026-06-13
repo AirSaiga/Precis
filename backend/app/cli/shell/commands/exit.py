@@ -3,9 +3,9 @@
 @fileoverview CLI Shell 退出命令模块
 
 功能概述:
-- 提供 exit 和 quit 命令退出交互式 Shell
+- 提供 exit 命令退出交互式 Shell
 - 返回 should_exit=True 的结果使主循环终止
-- 支持别名 quit，方便用户习惯
+- 全局快捷键 qq 可直接退出程序
 
 架构设计:
 - ExitCommand 继承 Command 基类
@@ -13,7 +13,6 @@
 
 输入示例:
     precis> exit
-    precis> quit
 
 输出示例:
     CommandResult.exit("再见!")
@@ -25,11 +24,12 @@ from app.cli.shell.commands.base import Command, CommandContext, CommandResult
 class ExitCommand(Command):
     """退出命令。
 
-    当用户输入 exit 或 quit 时触发，使 Shell 主循环终止。
+    当用户输入 exit 时触发，使 Shell 主循环终止。
+    全局快捷键 qq 仍可直接退出程序。
     """
 
     def __init__(self):
-        super().__init__("exit", aliases=["quit"])
+        super().__init__("exit")
 
     @property
     def description(self) -> str:

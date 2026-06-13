@@ -60,6 +60,40 @@
       </div>
     </div>
 
+    <!-- Agent 优化指标 -->
+    <div v-if="iterations && maxIterations" class="agent-metrics-box">
+      <h5>{{ t('aiConfigGenerator.result.agentMetricsTitle') }}</h5>
+      <div class="agent-metrics">
+        <span class="metric-item">
+          {{
+            t('aiConfigGenerator.result.agentIterations', {
+              current: iterations,
+              max: maxIterations,
+            })
+          }}
+        </span>
+        <span v-if="metrics" class="metric-item">
+          {{
+            t('aiConfigGenerator.result.agentPassRate', {
+              passed: metrics.passed_rules || 0,
+              total: metrics.total_rules || 0,
+            })
+          }}
+        </span>
+        <span v-if="metrics?.failed_rules" class="metric-item warn">
+          {{ t('aiConfigGenerator.result.agentIssues', { count: metrics.failed_rules }) }}
+        </span>
+      </div>
+      <ul v-if="metrics?.issues?.length" class="issues-list">
+        <li v-for="(issue, idx) in metrics.issues.slice(0, 5)" :key="idx">
+          <span :class="['issue-badge', issue.severity || 'warning']">{{
+            issue.severity || 'warning'
+          }}</span>
+          <span class="issue-message">{{ issue.message }}</span>
+        </li>
+      </ul>
+    </div>
+
     <div v-if="warnings.length" class="warnings-box">
       <h5>{{ t('aiConfigGenerator.result.warningsTitle') }}</h5>
       <ul>
@@ -84,13 +118,16 @@
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { calculateConstraintStats } from '@/utils/constraintCount'
-  import type { AiGenerateV2ConfigResponse } from '@/types/ai'
+  import type { AiGenerateV2ConfigMetrics, AiGenerateV2ConfigResponse } from '@/types/ai'
 
   const props = defineProps<{
     config: AiGenerateV2ConfigResponse | null
     warnings: string[]
     hardwareWarnings: string[]
     elapsedTimeText: string
+    iterations?: number
+    maxIterations?: number
+    metrics?: AiGenerateV2ConfigMetrics
   }>()
 
   const { t } = useI18n()

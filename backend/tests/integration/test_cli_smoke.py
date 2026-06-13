@@ -364,8 +364,17 @@ class TestCliShellInitialization:
         shell = CLIShell()
         commands = shell.registry.list_commands()
         # 至少应注册这些核心命令
-        for name in ("help", "validate", "exit", "open", "status"):
+        for name in ("help", "validate", "exit", "project"):
             assert name in commands, f"Missing built-in command: {name}"
+
+    def test_project_command_has_open_and_status_subcommands(self):
+        shell = CLIShell()
+        project_cmd = shell.registry.get("project")
+        assert project_cmd is not None
+        subcommands = project_cmd.list_subcommands()
+        assert "open" in subcommands
+        assert "status" in subcommands
+        assert "history" in subcommands
 
     def test_shell_validate_command_has_check_alias(self):
         shell = CLIShell()

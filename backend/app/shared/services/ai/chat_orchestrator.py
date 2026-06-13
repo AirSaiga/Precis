@@ -72,6 +72,8 @@ class ChatOptions:
     skip_action_validation: bool = False
     skip_action_processing: bool = False
     return_frontend_instructions: bool = True
+    agent_mode: bool = False
+    max_agent_iterations: int = 3
 
 
 @dataclass
@@ -203,6 +205,20 @@ class AIChatOrchestrator:
             )
             if isinstance(actions, ChatExecutionResult):
                 return actions
+
+        # Agent 模式：把 action 执行结果回传给 LLM，获取最终回复
+        if options.agent_mode and action_results and project_path:
+            followup = await self._agent_followup(
+                system_prompt=system_prompt,
+                history=options.history,
+                user_message=message,
+                assistant_reply=reply,
+                actions=actions,
+                action_results=action_results,
+                options=options,
+            )
+            if followup:
+                reply = followup
 
         return ChatExecutionResult(
             success=True,
@@ -374,6 +390,57 @@ class AIChatOrchestrator:
         if options.progress_callback:
             options.progress_callback(stage, message, data)
 
+    async def _agent_followup(
+        self,
+        system_prompt: str,
+        history: list[dict[str, str]],
+        user_message: str,
+        assistant_reply: str,
+        actions: list[dict[str, Any]],
+        action_results: list[dict[str, Any]],
+        options: ChatOptions,
+    ) -> str | None:
+        """
+        @methoddesc Agent 模式下的结果回传
+
+        将动作执行结果回传给 LLM，获取最终回复。
+        """
+        import json
+
+        observation = {
+            "role": "user",
+            "content": (
+                "上一步操作已执行完成，结果如下：\n"
+                f"{json.dumps({'actions': actions, 'results': action_results}, ensure_ascii=False, indent=2)}\n"
+                "请根据执行结果给出最终回复，说明完成了什么、是否成功、是否需要用户进一步确认。"
+            ),
+        }
+
+        messages = self._build_messages(
+            system_prompt=system_prompt,
+            history=history,
+            user_message=user_message,
+            max_tokens=options.max_history_tokens,
+        )
+        # 替换最后一条 user message 为对话链：user + assistant + observation
+        messages.pop()
+        messages.append({"role": "user", "content": user_message})
+        messages.append({"role": "assistant", "content": assistant_reply})
+        messages.append(observation)
+
+        self._notify_progress(options, "llm_calling", "正在根据执行结果生成回复...")
+        try:
+            chat_service = self._get_chat_service()
+            llm_response = chat_service.chat(messages=messages, temperature=options.temperature)
+        except Exception as e:
+            logger.error(f"Agent followup LLM 调用失败: {e}")
+            return None
+
+        parsed = self._parse_llm_response(llm_response)
+        if parsed.get("valid"):
+            return parsed.get("reply", "")
+        return None
+
     def _process_actions(
         self,
         actions: list[dict[str, Any]],
@@ -481,6 +548,7 @@ async def execute_ai_chat_unified(
     provider: AIProvider,
     context_nodes: list[dict[str, Any]] = None,
     history: list[dict[str, str]] = None,
+    agent_mode: bool = True,
 ) -> ChatExecutionResult:
     """
     @methoddesc 便捷的统一 AI Chat 执行函数（用于 API 场景）
@@ -491,6 +559,7 @@ async def execute_ai_chat_unified(
         provider: AIProvider 配置对象
         context_nodes: 上下文节点
         history: 对话历史
+        agent_mode: 是否启用 Agent 深度模式
 
     返回:
         ChatExecutionResult: 执行结果
@@ -500,6 +569,8 @@ async def execute_ai_chat_unified(
         history=history or [],
         enable_interactive=False,  # API 模式禁用交互
         return_frontend_instructions=True,
+        agent_mode=agent_mode,
+        max_agent_iterations=3,
     )
 
     return await orchestrator.execute_chat(

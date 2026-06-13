@@ -36,12 +36,16 @@ class ChatMessage:
     """单条对话消息
 
     Attributes:
-        role: 消息角色，如 "system"（系统）、"user"（用户）、"assistant"（AI助手）
+        role: 消息角色，如 "system"（系统）、"user"（用户）、"assistant"（AI助手）、"tool"（工具结果）
         content: 消息文本内容
+        tool_calls: assistant 消息中的工具调用请求列表（OpenAI tools 协议）
+        tool_call_id: tool 角色消息对应的工具调用 ID
     """
 
     role: str
-    content: str
+    content: str | None = None
+    tool_calls: list[dict] | None = None
+    tool_call_id: str | None = None
 
 
 @dataclass
@@ -53,12 +57,16 @@ class ChatRequest:
         model: 指定使用的模型名称，None 则使用 Provider 配置的默认模型
         stream: 是否启用流式输出（True 时逐字返回，False 时一次性返回）
         temperature: 采样温度（0~1 之间），值越低输出越确定，越高越有创造性
+        tools: OpenAI tools 定义列表，用于 function calling
+        tool_choice: 工具选择策略，如 "auto"、"none" 或指定某个工具
     """
 
     messages: list[ChatMessage]
     model: str = None
     stream: bool = False
     temperature: float = 0.7
+    tools: list[dict] | None = None
+    tool_choice: str | dict | None = None
 
 
 @dataclass
@@ -67,10 +75,12 @@ class ChatResponse:
 
     Attributes:
         content: AI 回复的文本内容
+        tool_calls: AI 请求调用的工具列表（OpenAI tools 协议）
         model: 实际使用的模型名称
     """
 
-    content: str
+    content: str | None = None
+    tool_calls: list[dict] | None = None
     model: str = None
 
 

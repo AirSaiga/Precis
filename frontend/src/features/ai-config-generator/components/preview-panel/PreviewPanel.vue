@@ -77,8 +77,22 @@
               <span class="label">{{ t('aiConfigGenerator.progress.stage') }}:</span>
               <span class="value highlight">{{ state.stageLabel }}</span>
             </div>
+            <div v-if="state.iterations && state.maxIterations" class="progress-step">
+              <span class="label">{{ t('aiConfigGenerator.progress.iteration') }}:</span>
+              <span class="value">{{ state.iterations }} / {{ state.maxIterations }}</span>
+            </div>
             <div class="progress-message">
               {{ state.progressMessage || t('aiConfigGenerator.progress.running') }}
+            </div>
+            <div v-if="state.currentPlan?.length" class="current-plan-box">
+              <div class="plan-title">{{ t('aiConfigGenerator.progress.planTitle') }}</div>
+              <div v-for="(plan, pIdx) in state.currentPlan" :key="pIdx" class="plan-item">
+                <div class="plan-strategy">{{ (plan.strategy as string) || '' }}</div>
+                <div class="plan-reason">{{ (plan.reason as string) || '' }}</div>
+                <div v-if="Array.isArray(plan.chunks)" class="plan-chunks">
+                  {{ t('aiConfigGenerator.progress.chunksCount', { count: plan.chunks.length }) }}
+                </div>
+              </div>
             </div>
             <div v-if="state.receivedChars > 0" class="stream-info">
               {{ t('aiConfigGenerator.progress.receivedChars', { count: state.receivedChars }) }}
@@ -96,6 +110,9 @@
             :warnings="state.warnings"
             :hardware-warnings="state.hardwareWarnings"
             :elapsed-time-text="state.elapsedTimeText"
+            :iterations="state.iterations"
+            :max-iterations="state.maxIterations"
+            :metrics="state.metrics"
           />
         </div>
 
@@ -126,7 +143,7 @@
 <script setup lang="ts">
   import { ref } from 'vue'
   import { useI18n } from 'vue-i18n'
-  import type { AiGenerateV2ConfigResponse } from '@/types/ai'
+  import type { AiGenerateV2ConfigMetrics, AiGenerateV2ConfigResponse } from '@/types/ai'
   import GenerationSummary from './GenerationSummary.vue'
   import CodePreview from './CodePreview.vue'
 
@@ -145,6 +162,10 @@
     progressMessage: string
     receivedChars: number
     applying: boolean
+    iterations?: number
+    maxIterations?: number
+    metrics?: AiGenerateV2ConfigMetrics
+    currentPlan?: Array<Record<string, unknown>>
   }
 
   const props = defineProps<{

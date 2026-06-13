@@ -24,6 +24,6 @@ from fastapi import APIRouter
 router = APIRouter(prefix="/api/latest/ai", tags=["ai"])
 
 # 导入各子模块以注册端点
-from . import chat, generate, hardware, jobs, ollama, providers, utils
+from . import chat, generate, hardware, jobs, migrate, ollama, providers, utils
 
-__all__ = ["router", "chat", "generate", "hardware", "jobs", "ollama", "providers", "utils"]
+__all__ = ["router", "chat", "generate", "hardware", "jobs", "migrate", "ollama", "providers", "utils"]
