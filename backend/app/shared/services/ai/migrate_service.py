@@ -125,6 +125,9 @@ class ConfigMigrationService(ConfigGenerationService):
                 "iterations": 0,
             }
 
+        if self._cancelled:
+            raise CancelledError()
+
         provider = self._get_provider()
         registry = self._create_migrate_registry(validation_sample_size)
 
