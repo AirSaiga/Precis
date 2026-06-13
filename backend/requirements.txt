@@ -43,7 +43,7 @@ cryptography==46.0.7
 simpleeval==1.0.7
 
 # CLI 交互
-readchar==4.2.1
+readchar==4.2.2
 
 # 系统监控
 psutil==7.2.2
