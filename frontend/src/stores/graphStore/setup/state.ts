@@ -24,8 +24,6 @@ export function createGraphStoreState() {
 
   const selectionBox = ref<{ x: number; y: number; width: number; height: number } | null>(null)
 
-  const v2SchemaIdMap = ref<Map<string, string>>(new Map())
-
   const isSelecting = ref(false)
 
   const copiedNodes = ref<CustomNode[]>([])
@@ -109,7 +107,6 @@ export function createGraphStoreState() {
     selectedNodeId,
     selectedNodeIds,
     selectionBox,
-    v2SchemaIdMap,
     isSelecting,
     copiedNodes,
     pasteOffset,

@@ -196,6 +196,60 @@ export function useFileSelection(configPath: ComputedRef<string | undefined>) {
   }
 
   /**
+   * 选择脚本文件（用于迁移）
+   */
+  const pickScriptFiles = async () => {
+    const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
+      | { showOpenDialog?: (opts: unknown) => Promise<unknown> }
+      | undefined
+    if (!electronAPI?.showOpenDialog) {
+      window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.electronOnly'))
+      return []
+    }
+
+    const res = await electronAPI.showOpenDialog({
+      title: t('aiConfigGenerator.migrate.dialog.title'),
+      buttonLabel: t('aiConfigGenerator.dialog.confirm'),
+      filters: [
+        {
+          name: 'Script Files',
+          extensions: ['py', 'sql', 'md', 'txt', 'js', 'json', 'yaml', 'yml'],
+        },
+      ],
+      properties: ['openFile', 'multiSelections'],
+    })
+
+    const paths = Array.isArray((res as Record<string, unknown>)?.filePaths)
+      ? ((res as Record<string, unknown>).filePaths as string[])
+      : []
+    return paths
+  }
+
+  /**
+   * 选择脚本文件夹（用于迁移）
+   */
+  const pickScriptFolder = async () => {
+    const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
+      | { showOpenDialog?: (opts: unknown) => Promise<unknown> }
+      | undefined
+    if (!electronAPI?.showOpenDialog) {
+      window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.electronOnly'))
+      return []
+    }
+
+    const res = await electronAPI.showOpenDialog({
+      title: t('aiConfigGenerator.migrate.dialog.folderTitle'),
+      buttonLabel: t('aiConfigGenerator.dialog.confirm'),
+      properties: ['openDirectory'],
+    })
+
+    const paths = Array.isArray((res as Record<string, unknown>)?.filePaths)
+      ? ((res as Record<string, unknown>).filePaths as string[])
+      : []
+    return paths
+  }
+
+  /**
    * 从项目 manifest 的 data_sources 中加载配置的目录路径
    */
   const loadProjectDataSources = async () => {
@@ -239,6 +293,8 @@ export function useFileSelection(configPath: ComputedRef<string | undefined>) {
     mergeSelectedPaths,
     pickFiles,
     pickFolders,
+    pickScriptFiles,
+    pickScriptFolder,
     collectExistingDataSources,
     loadProjectDataSources,
     clearSelection,

@@ -10,7 +10,7 @@ import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { validateConstraintNodesForSchema } from '@/services/constraints/validationRegistry'
-import { toastSuccess, toastError, toastInfo } from '@/core/toast'
+import { toastSuccess, toastError, toastInfo, toastWarning } from '@/core/toast'
 import type { AppEvents } from '@/core/eventBus'
 import type {
   SourcePreviewNodeData,
@@ -198,6 +198,29 @@ export function useSourcePreviewEvents(
           headerRow: headerRow,
           // 仅使用实际的工作表名称；若缺失则保持 undefined，绝不回退到文件名
           sheetName: data.currentSheet,
+        }
+
+        // 检测重复数据源
+        if (
+          store.schemaSourceIndex?.isDuplicateSource(
+            displaySourcePath,
+            data.currentSheet as string | undefined,
+            schemaNode.id
+          )
+        ) {
+          const conflict = store.schemaSourceIndex.getConflictForSource(
+            displaySourcePath,
+            data.currentSheet as string | undefined,
+            schemaNode.id
+          )
+          const otherIds = conflict?.nodeIds.filter((id) => id !== schemaNode.id) || []
+          toastWarning(
+            t('canvas.nodeCanvas.duplicateSourceMessage', {
+              source: displayFileName,
+              nodes: otherIds.join(', '),
+            }),
+            t('canvas.nodeCanvas.duplicateSourceTitle')
+          )
         }
 
         logger.debug('🔄 更新SchemaNode数据:', {
@@ -495,7 +518,31 @@ export function useSourcePreviewEvents(
             sheetName: d.currentSheet,
           }
 
+          // 检测重复数据源
+          if (
+            store.schemaSourceIndex?.isDuplicateSource(
+              displaySourcePath,
+              d.currentSheet,
+              schemaNode.id
+            )
+          ) {
+            const conflict = store.schemaSourceIndex.getConflictForSource(
+              displaySourcePath,
+              d.currentSheet,
+              schemaNode.id
+            )
+            const otherIds = conflict?.nodeIds.filter((id) => id !== schemaNode.id) || []
+            toastWarning(
+              t('canvas.nodeCanvas.duplicateSourceMessage', {
+                source: displayFileName,
+                nodes: otherIds.join(', '),
+              }),
+              t('canvas.nodeCanvas.duplicateSourceTitle')
+            )
+          }
+
           store.updateNodeData(schemaNode.id, updatedSchemaData)
+          store.schemaSourceIndex?.rebuild()
 
           logger.debug(`✅ 已更新SchemaNode元数据: ${displayFileName} -> ${smartTableName}`)
 

@@ -39,7 +39,7 @@ from pydantic import ValidationError
 from app.shared.core.io.yaml import read_yaml
 from app.shared.domain import ColumnSchema, TableSchema, build_type_from_config
 
-from .types import TableSchemaFile, extract_sheet_from_id
+from .types import TableSchemaFile
 
 if TYPE_CHECKING:
     from .types import TableSchemaFile
@@ -270,10 +270,9 @@ def build_runtime_schema(schema_file: TableSchemaFile, registries: dict[str, Any
         # 保存完整的 source 配置，用于数据加载
         source_config = schema_file.source.to_loader_config()
     else:
-        # 如果没有显式声明 source.sheet，尝试从 ID 中提取
-        # ID 格式：xlsx 为 {文件名}-{sheet名}，csv 为 {文件名}
-        if schema_file.id and "-" in schema_file.id:
-            sheet_name = extract_sheet_from_id(schema_file.id)
+        # source 为空时 sheet_name 保持 None
+        # 旧版从 ID 解码 sheet 的逻辑已移除
+        pass
 
     # 构建运行时 TableSchema 对象
     return TableSchema(

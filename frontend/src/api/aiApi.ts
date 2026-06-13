@@ -173,7 +173,7 @@ export async function postExpandPaths(paths: string[], configPath?: string): Pro
 }
 
 /**
- * 获取已配置的 AI Provider 列表（只读，来自用户本地 ai_providers.json）
+ * 获取已配置的 AI Provider 列表（只读，来自用户本地 ai_providers.yaml）
  */
 export async function getCloudAIProviders(): Promise<CloudAIProviderResponse[]> {
   const { data } = await apiClient.get<CloudAIProviderResponse[]>('/ai/providers')
@@ -279,6 +279,35 @@ export async function postAiMigrateV2ConfigJob(
   const { data } = await apiClient.post<AiGenerateV2ConfigJobCreateResponse>(
     '/ai/config/migrate/jobs',
     payload,
+    configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
+  )
+  return data
+}
+
+/**
+ * 获取异步 V2 配置迁移任务状态
+ */
+export async function getAiMigrateV2ConfigJob(
+  jobId: string,
+  configPath?: string
+): Promise<AiGenerateV2ConfigJobStatus> {
+  const { data } = await apiClient.get<AiGenerateV2ConfigJobStatus>(
+    `/ai/config/migrate/jobs/${encodeURIComponent(jobId)}`,
+    configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
+  )
+  return data
+}
+
+/**
+ * 取消异步 V2 配置迁移任务
+ */
+export async function postCancelAiMigrateV2ConfigJob(
+  jobId: string,
+  configPath?: string
+): Promise<AiGenerateV2ConfigJobStatus> {
+  const { data } = await apiClient.post<AiGenerateV2ConfigJobStatus>(
+    `/ai/config/migrate/jobs/${encodeURIComponent(jobId)}/cancel`,
+    {},
     configPath ? { headers: { 'X-Project-Config-Path': configPath } } : undefined
   )
   return data

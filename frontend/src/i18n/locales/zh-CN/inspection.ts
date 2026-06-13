@@ -51,6 +51,7 @@ const inspection = {
     dismiss: '忽略',
     viewAvailableTables: '查看可用表',
     selectFix: '选择',
+    navigateToNode: '定位到节点',
     autoFix: {
       deduplicate: '一键去重',
     },
@@ -70,6 +71,7 @@ const inspection = {
   errors: {
     noProject: '未设置项目路径',
     noFixApi: '该问题暂不支持自动修复',
+    nodeNotFound: '未找到目标节点',
   },
   toast: {
     recheckDone: '检查完成，发现 {count} 个问题',
@@ -178,6 +180,12 @@ const inspection = {
           '正则规则「{constraintId}」要关联到表「{tableId}」的「{columnId}」列，但这一列已不存在。',
         fixHint: '从下方"可用的列"挑一个作为关联的列，点击即可自动修正。',
       },
+    },
+    saveBlocked: {
+      title: '保存被阻塞',
+      description: '{description}',
+      fixHint: '请检查画布中的节点配置',
+      fixHintWithField: '请检查节点 {nodeId} 的 {field} 字段',
     },
   },
 }

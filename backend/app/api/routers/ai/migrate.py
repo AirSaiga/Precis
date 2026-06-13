@@ -13,7 +13,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Any
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException
 
 from app.api.dependencies import get_project_config_path
 from app.shared.services.ai.job_storage import AgentJobStorage
@@ -142,6 +142,7 @@ async def _run_migrate_job(job_id: str, payload: ConfigMigrateRequest, config_pa
         current_status = storage.load_status(job_id)
         if current_status and current_status.get("status") == "cancelled":
             service.cancel()
+            return
         extra = extra or {}
         update_status(
             "running",
@@ -164,6 +165,7 @@ async def _run_migrate_job(job_id: str, payload: ConfigMigrateRequest, config_pa
             max_iterations=payload.options.max_iterations,
             validation_sample_size=payload.options.validation_sample_size,
             progress_callback=progress_callback,
+            sources=[s.model_dump() for s in payload.sources] if payload.sources else None,
         )
 
         response_result = ConfigGenerateResponse(
@@ -179,15 +181,27 @@ async def _run_migrate_job(job_id: str, payload: ConfigMigrateRequest, config_pa
             metrics=result.get("metrics"),
         )
 
-        update_status(
-            "completed",
-            stage="completed",
-            progress=100.0,
-            iterations=result.get("iterations"),
-            metrics=result.get("metrics"),
-            warnings=result.get("warnings", []),
-            result=response_result.model_dump(),
-        )
+        if result.get("success"):
+            update_status(
+                "completed",
+                stage="completed",
+                progress=100.0,
+                iterations=result.get("iterations"),
+                metrics=result.get("metrics"),
+                warnings=result.get("warnings", []),
+                result=response_result.model_dump(),
+            )
+        else:
+            update_status(
+                "failed",
+                stage="error",
+                progress=100.0,
+                error=result.get("error") or "迁移失败",
+                iterations=result.get("iterations"),
+                metrics=result.get("metrics"),
+                warnings=result.get("warnings", []),
+                result=response_result.model_dump(),
+            )
 
     except CancelledError:
         update_status("cancelled", stage="cancelled", error="任务已取消")
@@ -198,3 +212,54 @@ async def _run_migrate_job(job_id: str, payload: ConfigMigrateRequest, config_pa
     finally:
         with _job_tasks_lock:
             _job_tasks.pop(job_id, None)
+
+
+@router.get(
+    "/config/migrate/jobs/{job_id}",
+    response_model=ConfigGenerateJobStatus,
+    summary="获取迁移任务状态",
+    responses={
+        404: {"description": "任务未找到"},
+    },
+)
+async def get_migrate_job(job_id: str, config_path: str = Depends(get_project_config_path)) -> ConfigGenerateJobStatus:
+    """获取迁移任务状态"""
+    storage = _get_storage(config_path)
+    status_data = storage.load_status(job_id)
+    if not status_data:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+    return ConfigGenerateJobStatus(**status_data)
+
+
+@router.post(
+    "/config/migrate/jobs/{job_id}/cancel",
+    response_model=ConfigGenerateJobStatus,
+    summary="取消迁移任务",
+    responses={
+        404: {"description": "任务未找到"},
+    },
+)
+async def cancel_migrate_job(
+    job_id: str, config_path: str = Depends(get_project_config_path)
+) -> ConfigGenerateJobStatus:
+    """取消迁移任务"""
+    storage = _get_storage(config_path)
+    status_data = storage.load_status(job_id)
+    if not status_data:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+
+    if status_data.get("status") in ("completed", "failed", "cancelled"):
+        return ConfigGenerateJobStatus(**status_data)
+
+    status_data["status"] = "cancelled"
+    status_data["stage"] = "cancelled"
+    status_data["updated_at"] = _now_iso()
+    storage.save_status(job_id, status_data)
+
+    # 真正取消运行中的任务
+    with _job_tasks_lock:
+        task = _job_tasks.get(job_id)
+        if task and not task.done():
+            task.cancel()
+
+    return ConfigGenerateJobStatus(**storage.load_status(job_id))

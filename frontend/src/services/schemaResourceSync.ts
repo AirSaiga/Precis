@@ -21,7 +21,6 @@ import { getV2Schema, getV2FullConfig } from '@/api/projectV2Api'
 import { materializeV2EmbeddedConstraints } from '@/stores/graphStore/modules/v2/shared/embeddedConstraints'
 import { addNodes } from '@/services/canvas/vueFlowApi'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
-import { generateSchemaId } from '@/utils/typeHelpers'
 import type { SchemaNodeData } from '@/types/graph'
 
 export interface SchemaResourceSyncOptions {
@@ -63,11 +62,6 @@ export async function syncSchemaResources(
     }
 
     const graphStore = useGraphStore()
-
-    // 注册映射（UUID -> V2 ID）
-    if (schemaNodeId !== v2SchemaId) {
-      graphStore.registerV2SchemaMapping(schemaNodeId, v2SchemaId)
-    }
 
     let embeddedCount = 0
     let independentCount = 0
@@ -123,25 +117,16 @@ export async function syncSchemaResources(
 /**
  * 解析 schema 节点对应的 V2 Schema ID
  *
+ * 语义化 ID 方案：节点 ID 就是 schema ID。
+ * 仍支持用 tableName 反查 V2 配置作为兼容兜底。
+ *
  * 优先级：
- * 1. 节点 ID 本身就是 V2 ID (sc_...)
- * 2. graphStore 映射表
- * 3. 用 tableName 反查 V2 配置
- * 4. 用 sourceFilePath + sheetName 计算 V2 ID
+ * 1. 用 tableName 反查 V2 配置
+ * 2. 回退到节点 ID 本身
  */
 export async function resolveV2SchemaId(schemaNodeId: string): Promise<string | null> {
-  // 1. 本身就是 V2 ID
-  if (isV2SchemaId(schemaNodeId)) {
-    return schemaNodeId
-  }
-
   const graphStore = useGraphStore()
 
-  // 2. 查映射表
-  const mapped = graphStore.getV2SchemaId?.(schemaNodeId)
-  if (mapped) return mapped
-
-  // 3. 用节点数据计算
   const schemaNode = graphStore.nodes.find((n) => n.id === schemaNodeId)
   if (!schemaNode) return null
 
@@ -149,42 +134,35 @@ export async function resolveV2SchemaId(schemaNodeId: string): Promise<string | 
   const projectStore = useProjectStore()
   const configPath = projectStore.currentPaths?.configPath
 
-  if (!configPath) return null
+  if (!configPath) return schemaNodeId
 
-  // 加载 V2 配置（供后续两步共用）
   let fullConfig: Awaited<ReturnType<typeof getV2FullConfig>> | null = null
   try {
     fullConfig = await getV2FullConfig(configPath)
   } catch (error) {
     logger.debug('ℹ️ [resolveV2SchemaId] 无法加载 V2 配置:', error)
-    return null
+    return schemaNodeId
   }
 
   const schemas = fullConfig.schemas || {}
 
-  // 3a. 用 tableName 反查
+  // 用 tableName 反查
   const byName = Object.values(schemas).find(
     (s: any) => s.name?.toLowerCase() === schemaData.tableName?.toLowerCase()
   )
   if (byName?.id) return byName.id as string
 
-  // 3b. 用 sourceFilePath + sheetName 计算
-  const computedId = generateSchemaId(
-    schemaData.sourceFilePath || schemaData.sourceFile || '',
-    schemaData.sheetName
-  )
-  if (schemas[computedId]) {
-    return computedId
-  }
-
-  return null
+  // 回退到节点 ID
+  return schemaNodeId
 }
 
 /**
- * 判断是否为 V2 Schema ID
+ * 判断是否为 V2 Schema ID（语义化 ID 方案下始终返回 true）
+ *
+ * @deprecated 语义化 ID 方案下所有 ID 均合法，此函数仅为兼容保留
  */
-export function isV2SchemaId(id: string): boolean {
-  return id.startsWith('sc_')
+export function isV2SchemaId(_id: string): boolean {
+  return true
 }
 
 // ============================================================================

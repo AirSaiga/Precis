@@ -19,7 +19,6 @@ import type { ColumnSpecV2, JSONOptionsV2 } from '@/types/projectV2'
  * 数据类型转换：前端类型 → 后端类型
  * 当列绑定了 pattern 时，返回完整的类型配置对象
  */
-export { generateSchemaId, extractSheetFromId, isExcelSchema } from '@/utils/typeHelpers'
 export function toBackendType(
   dataType: DataType,
   column?: SchemaColumn

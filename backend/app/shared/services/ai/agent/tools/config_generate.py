@@ -39,7 +39,11 @@ class ConfigGenerateTool:
             "type": "function",
             "function": {
                 "name": self.NAME,
-                "description": "根据数据画像生成或修正 Precis V2 项目配置（schemas、constraints、regex_nodes）。",
+                "description": (
+                    "根据数据画像生成或修正 Precis V2 项目配置（schemas、constraints、regex_nodes）。"
+                    "这是最终输出工具：调用成功后，返回的 config 会被 Agent 直接作为最终结果返回给用户，"
+                    "不需要再输出 JSON 文本或调用其他工具。"
+                ),
                 "parameters": {
                     "type": "object",
                     "properties": {
@@ -107,6 +111,7 @@ class ConfigGenerateTool:
                 "success": True,
                 "config": result,
                 "warnings": result.get("warnings", []),
+                "is_final_config": True,
             }
         except Exception as e:
             logger.exception("配置生成工具执行失败")

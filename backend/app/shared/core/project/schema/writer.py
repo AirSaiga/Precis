@@ -30,7 +30,7 @@ from typing import TYPE_CHECKING
 
 from app.shared.core.io.yaml import write_yaml
 
-from .types import TableSchemaFile, extract_sheet_from_id
+from .types import TableSchemaFile
 
 if TYPE_CHECKING:
     from .types import TableSchemaFile
@@ -72,12 +72,8 @@ def save_schema(schema: TableSchemaFile, schema_path: str | Path) -> None:
         "_internal": data.get("_internal", {}),  # 内部元数据
     }
 
-    # 步骤3：从 id 提取 sheet 名并写入 source
-    # ID 格式：xlsx 为 {文件名}-{sheet名}，csv 为 {文件名}
-    if ordered["source"] and not ordered["source"].get("sheet"):
-        sheet_from_id = extract_sheet_from_id(schema.id)
-        if sheet_from_id:
-            ordered["source"]["sheet"] = sheet_from_id
+    # source 已包含完整的 sheet 信息，无需从 ID 提取
+    # 旧版从 ID 解码 sheet 的逻辑已移除
 
     # 步骤4：调用底层 YAML 写入工具
     write_yaml(Path(schema_path), ordered)

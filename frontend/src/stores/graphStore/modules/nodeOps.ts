@@ -28,10 +28,23 @@ export interface NodeOpsDeps {
   selectedNodeIds: Ref<string[]>
   reconcileAll: () => void
   templateExpand: TemplateExpandLike
+  sourceIndex?: { rebuild: () => void }
 }
 
 export function createNodeOpsModule(deps: NodeOpsDeps) {
-  const { nodes, edges, selectedNodeId, selectedNodeIds, reconcileAll, templateExpand } = deps
+  const {
+    nodes,
+    edges,
+    selectedNodeId,
+    selectedNodeIds,
+    reconcileAll,
+    templateExpand,
+    sourceIndex,
+  } = deps
+
+  function onNodesRemoved() {
+    sourceIndex?.rebuild()
+  }
 
   function collectCascadeNodeIds(nodeId: string): string[] {
     const node = nodes.value.find((n) => n.id === nodeId)
@@ -87,6 +100,7 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
 
     nextTick(() => {
       reconcileAll()
+      onNodesRemoved()
     })
   }
 
@@ -120,6 +134,7 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
 
     nextTick(() => {
       reconcileAll()
+      onNodesRemoved()
     })
   }
 

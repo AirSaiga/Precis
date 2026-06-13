@@ -103,6 +103,7 @@ const aiConfigGenerator = {
   },
   agentMode: {
     label: 'AI 智能优化',
+    hint: '开启后 AI 将自动校验并迭代优化生成结果',
     maxIterations: '最大优化轮数',
     validationSampleSize: '校验采样数',
   },
@@ -116,6 +117,24 @@ const aiConfigGenerator = {
     placeholder: '粘贴 Python pandas、SQL、Excel 公式或自然语言描述...',
     naturalLanguage: '自然语言描述',
     start: '开始迁移',
+    sourceMode: {
+      files: '批量脚本文件',
+      paste: '粘贴脚本',
+    },
+    pickScriptFiles: '选择脚本文件',
+    pickScriptFolder: '选择脚本文件夹',
+    emptyFiles: '选择脚本文件或文件夹，AI 将自动读取并迁移为 Precis 配置',
+    emptySources: '请至少添加一个脚本来源',
+    dialog: {
+      title: '选择脚本文件',
+      folderTitle: '选择脚本文件夹',
+    },
+    scriptLanguages: {
+      python: 'Python pandas',
+      naturalLanguage: '自然语言描述',
+      excelFormula: 'Excel / Google Sheets',
+      sqlDdl: 'SQL DDL',
+    },
   },
   progressStages: {
     unknown: '未知',
@@ -131,6 +150,7 @@ const aiConfigGenerator = {
     llm_generate: '模型生成',
     map_results: '映射结果',
     done: '完成',
+    completed: '完成',
     failed: '失败',
     canceled: '已中断',
   },
@@ -156,7 +176,7 @@ const aiConfigGenerator = {
     local: '本地 Ollama',
     localDesc: '使用本地部署的 Ollama 模型',
     cloud: '云端 AI',
-    cloudDesc: '使用 OpenAI/Azure/Anthropic 等云端 AI 服务',
+    cloudDesc: '使用 DeepSeek 云端 AI 服务',
   },
   cloudProvider: {
     selectProvider: '选择 Provider',
@@ -197,6 +217,7 @@ const aiConfigGenerator = {
     electronOnly: '该功能需要在 Electron 桌面端使用文件选择器。',
     missingProject: '未检测到当前项目配置路径，请先创建/打开项目。',
     noFiles: '请先选择至少一个数据文件或文件夹。',
+    manifestMissing: '缺少项目清单信息',
     closeWhileGenerating: '生成中无法关闭弹窗，请先点击"中断生成"。',
   },
   toast: {

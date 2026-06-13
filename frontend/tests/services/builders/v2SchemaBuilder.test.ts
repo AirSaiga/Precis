@@ -52,7 +52,6 @@ vi.mock('@/services/constraints/constraintExportAdapter', () => ({
 
 import { buildV2SchemaFile, buildV2JsonSchemaFile } from '@/services/builders/v2/schemaBuilder'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
-import { generateSchemaId } from '@/utils/typeHelpers'
 
 function schemaNode(overrides: Record<string, unknown> = {}): CustomNode {
   return {
@@ -168,11 +167,11 @@ describe('v2/schemaBuilder - buildV2SchemaFile', () => {
     expect(result.source).toBeUndefined()
   })
 
-  it('generates schema ID from file path', () => {
+  it('uses node ID as schema ID', () => {
     const nodes: CustomNode[] = [schemaNode()]
     const result = buildV2SchemaFile(nodes, 'schema-1')
-    const expectedId = generateSchemaId('/data/users.csv', undefined)
-    expect(result.id).toBe(expectedId)
+    // 语义化 ID 方案：节点 ID 直接作为 schema ID
+    expect(result.id).toBe('schema-1')
   })
 
   it('throws when node not found', () => {
@@ -538,10 +537,10 @@ describe('v2/schemaBuilder - buildV2JsonSchemaFile', () => {
     expect(result.source!.options!.format).toBe('json')
   })
 
-  it('generates schema ID from file path', () => {
+  it('uses node ID as schema ID', () => {
     const result = buildV2JsonSchemaFile(jsonSchemaNode(), [])
-    const expectedId = generateSchemaId('/data/users.json', undefined)
-    expect(result.id).toBe(expectedId)
+    // 语义化 ID 方案：节点 ID 直接作为 schema ID
+    expect(result.id).toBe('json-schema-1')
   })
 
   it('collects embedded constraints via children for JSON schema', () => {

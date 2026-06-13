@@ -6,22 +6,21 @@
 - 支持环境变量 ${VAR} 递归替换
 - API Key 加密存储（Fernet 对称加密）
 - 配置版本检查（仅兼容 2.x）
-- 首次使用自动创建默认空配置
-- 支持项目级 / 用户级 / 系统级三级配置查找
+- 首次使用自动创建默认配置模板
 - mtime 缓存避免重复文件读取
 
-架构设计:
-- 路径查找委托 ConfigPaths（路径单一真相源）
-- 加载逻辑在 ConfigLoader（加载单一职责）
-- 单例模式：全局 loader 实例供各模块共享
-- YAML 格式存储：支持注释，更利于手动编辑
-- api_key 加密: save 时加密写入，load 时解密还原；环境变量引用 ${VAR} 和明文值均向后兼容
+设计原则:
+- AI Provider 配置是用户级全局设置，不属于项目仓库
+- 统一固定读取 ~/.precis/ai_providers.yaml
+- save() 始终写入用户级路径
+- api_key 加密存储：YAML 中以 "enc:" 前缀标记加密值
 """
+
+from __future__ import annotations
 
 import os
 import re
 from pathlib import Path
-from typing import Optional
 
 import yaml
 
@@ -35,47 +34,41 @@ class ConfigLoader:
     """
     @classdesc 配置加载器 - 只支持 v2.0
 
-    路径查找委托 ConfigPaths，三级优先级：
-    1. 项目级：{cwd}/.precis/ai_providers.yaml
-    2. 用户级：~/.precis/ai_providers.yaml
-    3. 系统级：/etc/precis/ai_providers.yaml（Unix only）
-
-    设计原则：
-    - AI 配置是全局设置，不依赖是否打开项目
-    - ConfigPaths 管路径，ConfigLoader 管加载
-    - save() 始终写入用户级路径
-    - mtime 缓存避免每次请求都读文件
-    - api_key 加密存储：YAML 中以 "enc:" 前缀标记加密值
+    AI Provider 配置固定存放在用户级路径 ~/.precis/ai_providers.yaml，
+    不再支持项目级或系统级配置查找。
     """
 
     CONFIG_FILENAME = "ai_providers.yaml"
 
-    _cached_config: Optional[AIConfig] = None
-    _cached_path: Optional[Path] = None
-    _cached_mtime: Optional[float] = None
+    _cached_config: AIConfig | None = None
+    _cached_mtime: float | None = None
+
+    def __init__(self, config_path: Path | None = None):
+        """
+        @methoddesc 初始化配置加载器
+
+        参数:
+            config_path: 可选，自定义配置文件路径。主要用于测试。
+                         未提供时固定使用 ~/.precis/ai_providers.yaml。
+        """
+        self._config_path = config_path
+
+    @property
+    def config_path(self) -> Path:
+        """用户级 AI 配置文件路径（唯一真相源）"""
+        if self._config_path is not None:
+            return self._config_path
+        return ConfigPaths.ai_providers()
+
+    @config_path.setter
+    def config_path(self, value: Path) -> None:
+        """允许测试注入自定义路径。"""
+        self._config_path = value
 
     @property
     def USER_PATH(self) -> Path:  # noqa: N802
         """用户级配置路径（save 的写入目标）"""
-        return ConfigPaths.ai_providers_user()
-
-    def _resolve_path(self) -> Path:
-        """
-        @methoddesc 按优先级查找配置文件
-
-        委托 ConfigPaths.ai_providers() 实现三级查找。
-        项目级检测基于 cwd()：后端从 backend/ 启动时，
-        向上 1 层就是项目根，自然能找到 .precis/ 目录。
-
-        返回:
-            配置文件的 Path（可能不存在，由调用方判断）
-        """
-        project_root = None
-        cwd_config = Path.cwd() / ConfigPaths.PROJECT_CONFIG_DIR / self.CONFIG_FILENAME
-        if cwd_config.exists():
-            project_root = str(Path.cwd())
-
-        return ConfigPaths.ai_providers(project_root)
+        return self.config_path
 
     def _expand_env(self, value: any) -> any:
         """
@@ -83,12 +76,6 @@ class ConfigLoader:
 
         支持字符串、字典、列表的递归处理。
         如果环境变量不存在，替换为空字符串。
-
-        参数:
-            value: 任意类型的值（字符串/字典/列表/其他）
-
-        返回:
-            替换后的值，类型与输入保持一致
         """
         if isinstance(value, str):
             return re.sub(r"\$\{([^}]+)\}", lambda m: os.getenv(m.group(1), ""), value)
@@ -99,18 +86,7 @@ class ConfigLoader:
         return value
 
     def _decrypt_api_keys(self, data: any) -> any:
-        """
-        @methoddesc 递归解密 api_key 字段中的加密值
-
-        遍历 data 结构，对 "api_key" 键对应的值进行解密。
-        仅解密 "enc:" 前缀的值，明文和环境变量引用保持不变。
-
-        参数:
-            data: YAML 加载后的原始数据结构
-
-        返回:
-            api_key 已解密的数据结构
-        """
+        """递归解密 api_key 字段中的加密值。"""
         if isinstance(data, dict):
             result = {}
             for k, v in data.items():
@@ -124,18 +100,7 @@ class ConfigLoader:
         return data
 
     def _encrypt_api_keys(self, data: any) -> any:
-        """
-        @methoddesc 递归加密 api_key 字段中的明文值
-
-        遍历 data 结构，对 "api_key" 键对应的明文值进行加密。
-        跳过 None、空字符串、环境变量引用 ${...} 和已加密 "enc:" 前缀的值。
-
-        参数:
-            data: 即将序列化的数据结构
-
-        返回:
-            api_key 已加密的数据结构
-        """
+        """递归加密 api_key 字段中的明文值。"""
         if isinstance(data, dict):
             result = {}
             for k, v in data.items():
@@ -152,26 +117,12 @@ class ConfigLoader:
         """
         @methoddesc 加载 AI Provider 配置文件
 
-        按项目级 > 用户级 > 系统级优先级查找。
-        找不到任何配置文件时返回默认空配置。
-        带 mtime 缓存：文件未变更时直接返回缓存。
-
-        处理顺序：
-        1. YAML 文件读取
-        2. 环境变量 ${VAR} 展开
-        3. api_key 解密（enc: 前缀 → 明文）
-        4. Pydantic 模型构造
-        5. 环境变量覆盖 api_key（优先级最高）
-
-        返回:
-            AIConfig 配置对象
-
-        异常:
-            ValueError: 配置文件版本不兼容时抛出
+        固定读取 ~/.precis/ai_providers.yaml。
+        文件不存在时自动创建默认模板并返回。
         """
-        config_path = self._resolve_path()
+        config_path = self.config_path
 
-        if self._cached_config is not None and self._cached_path == config_path and config_path.exists():
+        if self._cached_config is not None and config_path.exists():
             try:
                 current_mtime = config_path.stat().st_mtime
                 if current_mtime == self._cached_mtime:
@@ -180,7 +131,9 @@ class ConfigLoader:
                 pass
 
         if not config_path.exists():
-            return self._create_default()
+            config = self._create_default()
+            self.save(config)
+            return config
 
         with open(config_path, encoding="utf-8") as f:
             data = yaml.safe_load(f) or {}
@@ -189,19 +142,12 @@ class ConfigLoader:
         if not isinstance(version, str) or not version.startswith("2."):
             raise ValueError(f"Unsupported config version: {version}, expected 2.x")
 
-        # 环境变量替换
         data = self._expand_env(data)
-
-        # 解密 api_key（enc: 前缀 → 明文）
         data = self._decrypt_api_keys(data)
-
         config = AIConfig(**data)
-
-        # 从环境变量读取 API Key（环境变量优先级高于配置文件）
         self._load_api_keys_from_env(config)
 
         try:
-            self._cached_path = config_path
             self._cached_mtime = config_path.stat().st_mtime
             self._cached_config = config
         except OSError:
@@ -210,19 +156,7 @@ class ConfigLoader:
         return config
 
     def _load_api_keys_from_env(self, config: AIConfig) -> None:
-        """
-        @methoddesc 从环境变量读取 API Key
-
-        根据 Provider 的 ID 和类型，自动从环境变量读取 API Key。
-        环境变量命名规则：
-        - {PROVIDER_ID}_API_KEY (例如: OPENAI_API_KEY, DEEPSEEK_API_KEY)
-        - {PROVIDER_TYPE}_API_KEY (例如: OPENAI_API_KEY, OLLAMA_API_KEY)
-
-        环境变量优先级高于配置文件中的 api_key。
-
-        参数:
-            config: AIConfig 配置对象，会被直接修改
-        """
+        """从环境变量读取 API Key（优先级高于配置文件）。"""
         for provider in config.providers:
             env_key = f"{provider.id.upper().replace('-', '_')}_API_KEY"
             api_key = os.getenv(env_key)
@@ -239,20 +173,12 @@ class ConfigLoader:
         """
         @methoddesc 将配置保存到用户级 YAML 文件
 
-        始终写入 ~/.precis/ai_providers.yaml，
-        自动创建父目录。写入后自动失效缓存。
-        api_key 明文值会被加密为 "enc:" 前缀格式后写入文件，
-        ${VAR} 环境变量引用和空值保持原样。
-
-        参数:
-            config: AIConfig 配置对象
+        始终写入 ~/.precis/ai_providers.yaml。
         """
-        user_path = self.USER_PATH
+        user_path = self.config_path
         user_path.parent.mkdir(parents=True, exist_ok=True)
 
         data = config.model_dump(exclude_none=True)
-
-        # 加密 api_key 明文值
         data = self._encrypt_api_keys(data)
 
         with open(user_path, "w", encoding="utf-8") as f:
@@ -263,22 +189,31 @@ class ConfigLoader:
     def invalidate_cache(self):
         """清除缓存，强制下次 load() 重新读取文件"""
         self._cached_config = None
-        self._cached_path = None
         self._cached_mtime = None
 
     def _create_default(self) -> AIConfig:
-        """
-        @methoddesc 创建默认的空配置
-
-        返回:
-            空的 AIConfig 实例（无 Provider，默认聊天为空字符串）
-        """
-        return AIConfig(providers=[], defaults={"chat": ""})
-
-    @property
-    def config_path(self) -> Path:
-        """当前解析到的配置文件路径"""
-        return self._resolve_path()
+        """创建默认配置模板（DeepSeek + Ollama Local）。"""
+        return AIConfig(
+            providers=[
+                {
+                    "id": "deepseek",
+                    "name": "DeepSeek",
+                    "type": "openai",
+                    "base_url": "https://api.deepseek.com",
+                    "api_key": "${DEEPSEEK_API_KEY}",
+                    "model": "deepseek-v4-pro",
+                },
+                {
+                    "id": "ollama-local",
+                    "name": "Ollama Local",
+                    "type": "ollama",
+                    "base_url": "http://localhost:11434",
+                    "api_key": None,
+                    "model": "llama3.2",
+                },
+            ],
+            defaults={"chat": "deepseek"},
+        )
 
 
 # 全局实例

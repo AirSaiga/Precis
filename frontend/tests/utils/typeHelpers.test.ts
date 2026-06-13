@@ -8,12 +8,7 @@ import {
   safeJsonParse,
   generateId,
   isEmpty,
-  encodeSchemaRawId,
-  decodeSchemaId,
-  buildSchemaRawId,
-  generateSchemaId,
-  extractSheetFromId,
-  isExcelSchema,
+  normalizeSourceKey,
 } from '@/utils/typeHelpers'
 
 describe('toBackendType', () => {
@@ -191,88 +186,41 @@ describe('isEmpty', () => {
   })
 })
 
-describe('Schema ID 编码/解码', () => {
-  describe('encodeSchemaRawId / decodeSchemaId', () => {
-    it('编码后以 sc_ 开头', () => {
-      const encoded = encodeSchemaRawId('test/path|sheet1')
-      expect(encoded).toMatch(/^sc_/)
-    })
-
-    it('编码后可以解码回原始值', () => {
-      const raw = 'test/path|sheet1'
-      const encoded = encodeSchemaRawId(raw)
-      const decoded = decodeSchemaId(encoded)
-      expect(decoded).toBe(raw)
-    })
-
-    it('非 sc_ 前缀的 ID 解码返回 null', () => {
-      expect(decodeSchemaId('normal-id')).toBeNull()
-      expect(decodeSchemaId('')).toBeNull()
-    })
-
-    it('空字符串编码可解码', () => {
-      const encoded = encodeSchemaRawId('')
-      const decoded = decodeSchemaId(encoded)
-      expect(decoded).not.toBeNull()
-    })
+describe('normalizeSourceKey', () => {
+  it('标准化路径和 sheet', () => {
+    const [path, sheet] = normalizeSourceKey('data/users.xlsx', 'Sheet1')
+    expect(path).toBe('data/users.xlsx')
+    expect(sheet).toBe('sheet1')
   })
 
-  describe('buildSchemaRawId', () => {
-    it('拼接相对路径和 sheet 名（Excel 文件使用 sheet 名）', () => {
-      const raw = buildSchemaRawId('data/users.xlsx', 'Sheet1')
-      expect(raw).toContain('|')
-      expect(raw).toContain('sheet1')
-    })
-
-    it('CSV 文件忽略 sheetName 参数，使用文件名', () => {
-      const raw = buildSchemaRawId('data/users.csv', 'Sheet1')
-      expect(raw).toContain('|')
-      expect(raw).toContain('users')
-      expect(raw).not.toContain('sheet1')
-    })
-
-    it('非 Excel 文件使用文件名作为 sheet key', () => {
-      const raw = buildSchemaRawId('data/users.csv', null)
-      expect(raw).toContain('users')
-    })
+  it('反斜杠转正斜杠', () => {
+    const [path] = normalizeSourceKey('data\\sub\\users.csv', null)
+    expect(path).toBe('data/sub/users.csv')
   })
 
-  describe('generateSchemaId', () => {
-    it('返回以 sc_ 开头的编码 ID', () => {
-      const id = generateSchemaId('data/users.csv', 'Sheet1')
-      expect(id.startsWith('sc_')).toBe(true)
-    })
+  it('去除 ./ 前缀', () => {
+    const [path] = normalizeSourceKey('./data/users.csv', undefined)
+    expect(path).toBe('data/users.csv')
   })
 
-  describe('extractSheetFromId', () => {
-    it('从 Schema ID 提取 sheet 名', () => {
-      const id = generateSchemaId('data/users.xlsx', 'Sheet1')
-      const sheet = extractSheetFromId(id)
-      expect(sheet).toBe('sheet1')
-    })
-
-    it('无 sheet 信息的 ID 返回 null', () => {
-      expect(extractSheetFromId('plain-id')).toBe('id')
-    })
+  it('空 sheet 统一为 null', () => {
+    const [, sheet] = normalizeSourceKey('data/users.csv', '')
+    expect(sheet).toBeNull()
   })
 
-  describe('isExcelSchema', () => {
-    it('xlsx 文件的 Schema ID 返回 true', () => {
-      const id = generateSchemaId('data/users.xlsx', 'Sheet1')
-      expect(isExcelSchema(id)).toBe(true)
-    })
+  it('统一小写', () => {
+    const [path, sheet] = normalizeSourceKey('Data/USERS.XLSX', 'MySheet')
+    expect(path).toBe('data/users.xlsx')
+    expect(sheet).toBe('mysheet')
+  })
 
-    it('CSV 文件的 Schema ID 返回 false', () => {
-      const id = generateSchemaId('data/users.csv')
-      expect(isExcelSchema(id)).toBe(false)
-    })
+  it('解析 .. 路径段与后端 PurePosixPath 一致', () => {
+    const [path] = normalizeSourceKey('data/../users.csv', null)
+    expect(path).toBe('users.csv')
+  })
 
-    it('包含连字符的普通 ID 返回 true (回退逻辑)', () => {
-      expect(isExcelSchema('normal-id')).toBe(true)
-    })
-
-    it('无连字符的普通 ID 返回 false', () => {
-      expect(isExcelSchema('normalid')).toBe(false)
-    })
+  it('保留 Windows 驱动器前缀', () => {
+    const [path] = normalizeSourceKey('D:\\\\Data\\\\..\\\\users.csv', null)
+    expect(path).toBe('d:/users.csv')
   })
 })

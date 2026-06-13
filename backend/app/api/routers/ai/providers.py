@@ -10,26 +10,10 @@
 - 预设：获取内置服务商预设列表
 
 架构设计:
-- 与 CLI 共用同一套 ai_providers.yaml 配置文件
+- 与 CLI 共用同一套 ~/.precis/ai_providers.yaml 配置文件
 - 使用 Provider 注册表创建对应类型的 Provider 实例
 - 发现的服务可直接添加到配置文件并持久化
 - 预设模板定义在 config/presets.py，方便扩展
-
-输入示例:
-    POST /ai/providers/discover
-    GET /ai/providers/openai/test
-    POST /ai/providers/openai/activate
-
-输出示例:
-    {
-        "id": "ollama-local",
-        "name": "Ollama (本地)",
-        "provider": "ollama",
-        "base_url": "http://localhost:11434",
-        "model": "llama3.2",
-        "health": {"status": "ok"},
-        "is_configured": true
-    }
 """
 
 from __future__ import annotations
@@ -52,8 +36,6 @@ from .models import (
     TestProviderResponse,
     UpdateProviderRequest,
 )
-
-# 从 router 模块导入 router 实例（与旧代码保持一致）
 from .router import router
 
 
@@ -109,16 +91,24 @@ async def get_config_info():
     前端设置面板通过此接口获取配置引导信息。
     """
     config_path = loader.config_path
-    template = """version: "2.0"
+    return {
+        "path": str(config_path),
+        "default_path": str(config_path),
+        "template": _DEFAULT_CONFIG_TEMPLATE,
+        "exists": config_path.exists(),
+    }
+
+
+_DEFAULT_CONFIG_TEMPLATE = """version: "2.0"
 
 providers:
-  # OpenAI 或兼容 API
-  - id: openai
-    name: OpenAI
+  # DeepSeek
+  - id: deepseek
+    name: DeepSeek
     type: openai
-    base_url: https://api.openai.com/v1
-    api_key: ${OPENAI_API_KEY}
-    model: gpt-4o
+    base_url: https://api.deepseek.com
+    api_key: ${DEEPSEEK_API_KEY}
+    model: deepseek-v4-pro
 
   # 本地 Ollama（无需 API Key）
   - id: ollama-local
@@ -129,13 +119,7 @@ providers:
     model: llama3.2
 
 defaults:
-  chat: openai"""
-    return {
-        "path": str(config_path),
-        "default_path": str(loader.USER_PATH),
-        "template": template,
-        "exists": config_path.exists(),
-    }
+  chat: deepseek"""
 
 
 @router.get(
@@ -154,8 +138,38 @@ async def list_providers():
     不执行健康检查，直接返回列表。健康检查由 test 端点按需触发。
     """
     config = loader.load()
-
     return [_provider_to_response(p, {}) for p in config.providers]
+
+
+@router.get(
+    "/providers/active",
+    response_model=Optional[ProviderResponse],
+    summary="获取当前活动的 Provider",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
+async def get_active_provider():
+    """
+    获取当前活动的 Provider
+
+    读取 config.defaults["chat"] 并从 config.providers 中查找。
+    只返回已配置文件中存在的 Provider。
+    """
+    config = loader.load()
+
+    active_id = config.defaults.get("chat")
+    if not active_id:
+        if config.providers:
+            active_id = config.providers[0].id
+        else:
+            return None
+
+    provider_cfg = next((p for p in config.providers if p.id == active_id), None)
+    if not provider_cfg:
+        return None
+
+    return _provider_to_response(provider_cfg, {})
 
 
 @router.post(
@@ -198,17 +212,13 @@ async def add_discovered_service(service_id: str):
     Args:
         service_id: 发现的服务 ID（从 discover 接口获取）
     """
-    # 重新扫描获取服务详情
     services = await scanner.scan()
-    # 在扫描结果中查找目标服务
     target = next((s for s in services if s.id == service_id), None)
     if not target:
         raise HTTPException(404, detail="Service not found or no longer available")
 
-    # 加载当前配置
     config = loader.load()
 
-    # 构建新的 Provider 配置
     provider_type = ProviderType.OLLAMA if target.type == "ollama" else ProviderType.OPENAI
 
     new_provider = AIProvider(
@@ -220,11 +230,9 @@ async def add_discovered_service(service_id: str):
         model=target.models[0] if target.models else "",
     )
 
-    # 去重（相同 ID 覆盖）
     config.providers = [p for p in config.providers if p.id != target.id]
     config.providers.append(new_provider)
 
-    # 保存配置
     loader.save(config)
 
     return {
@@ -255,18 +263,14 @@ async def test_provider(provider_id: str):
     执行健康检查并尝试获取可用模型列表
     """
     config = loader.load()
-    # 在配置中查找目标 Provider
     provider_cfg = next((p for p in config.providers if p.id == provider_id), None)
     if not provider_cfg:
         raise HTTPException(404, detail=f"Provider not found: {provider_id}")
 
-    # 根据配置创建对应的 Provider 实例
     provider = create(provider_cfg)
 
-    # 执行健康检查
     health = await provider.health()
 
-    # 如果健康，尝试获取模型列表
     models = []
     if health.get("status") == "ok":
         try:
@@ -275,39 +279,6 @@ async def test_provider(provider_id: str):
             logging.exception("获取模型列表失败")
 
     return TestProviderResponse(provider_id=provider_id, health=health, available_models=models)
-
-
-@router.get(
-    "/providers/active",
-    response_model=Optional[ProviderResponse],
-    summary="获取当前活动的 Provider",
-    responses={
-        500: {"description": "服务器内部错误"},
-    },
-)
-async def get_active_provider():
-    """
-    获取当前活动的 Provider
-
-    读取 config.defaults["chat"] 并从 config.providers 中查找。
-    只返回已配置文件中存在的 Provider，不再回退到系统预设。
-    """
-    config = loader.load()
-
-    # 获取默认 chat provider ID
-    active_id = config.defaults.get("chat")
-    if not active_id:
-        if config.providers:
-            active_id = config.providers[0].id
-        else:
-            return None
-
-    # 只从配置文件查找
-    provider_cfg = next((p for p in config.providers if p.id == active_id), None)
-    if not provider_cfg:
-        return None
-
-    return _provider_to_response(provider_cfg, {})
 
 
 @router.post(
@@ -328,22 +299,14 @@ async def activate_provider(provider_id: str):
     """
     config = loader.load()
 
-    # 只从配置文件查找
     provider_cfg = next((p for p in config.providers if p.id == provider_id), None)
-
     if not provider_cfg:
         raise HTTPException(404, detail=f"Provider not found: {provider_id}")
 
-    # 设置为默认 chat provider
     config.defaults["chat"] = provider_id
     loader.save(config)
 
     return _provider_to_response(provider_cfg, {})
-
-
-# =============================================================================
-# 预设
-# =============================================================================
 
 
 @router.get(
@@ -359,11 +322,6 @@ async def list_presets():
     前端可据此构建「选择服务商 → 填 API Key」的交互流程。
     """
     return get_preset_list()
-
-
-# =============================================================================
-# CRUD：创建 / 更新 / 删除
-# =============================================================================
 
 
 @router.post(
@@ -383,7 +341,6 @@ async def create_provider(req: CreateProviderRequest):
     """
     config = loader.load()
 
-    # 生成唯一 ID：预设ID + 递增后缀
     base_id = req.name.lower().replace(" ", "-").replace("_", "-")
     new_id = base_id
     counter = 1
@@ -391,7 +348,6 @@ async def create_provider(req: CreateProviderRequest):
         new_id = f"{base_id}-{counter}"
         counter += 1
 
-    # 校验 type 合法性
     try:
         provider_type = ProviderType(req.type)
     except ValueError:
@@ -435,7 +391,6 @@ async def update_provider(provider_id: str, req: UpdateProviderRequest):
 
     existing = config.providers[idx]
 
-    # 合并更新
     update_data = req.model_dump(exclude_none=True)
     if "type" in update_data:
         try:
@@ -472,7 +427,6 @@ async def delete_provider(provider_id: str):
 
     config.providers.pop(idx)
 
-    # 清除活跃引用
     if config.defaults.get("chat") == provider_id:
         config.defaults["chat"] = ""
 

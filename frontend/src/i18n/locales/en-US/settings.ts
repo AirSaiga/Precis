@@ -331,7 +331,7 @@ const settings = {
     configTemplate: 'Config Template',
     configTemplateHeader: 'Precis AI Provider Configuration',
     configTemplateHint: 'Copy to ~/.precis/ai_providers.yaml and modify',
-    configTemplateOpenAI: 'OpenAI (or compatible API)',
+    configTemplateDeepSeek: 'DeepSeek',
     configTemplateOllama: 'Local Ollama (no API key required)',
     copied: 'Copied',
     // Current provider
@@ -359,7 +359,7 @@ const settings = {
       'The configuration file is in YAML format, containing a providers list and a defaults object.',
     helpStep3Title: '3. Supported Provider Types',
     helpStep3Desc: 'The "type" field supports the following values:',
-    helpStep3Types: 'openai, azure_openai, anthropic, google, aliyun, ollama',
+    helpStep3Types: 'openai, ollama',
     helpStep4Title: '4. Environment Variable Substitution',
     helpStep4Desc:
       'The api_key field supports ${ENV_VAR} syntax to reference environment variables, avoiding hardcoded secrets.',

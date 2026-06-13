@@ -25,7 +25,6 @@ import type {
 } from '@/types/projectV2'
 import {
   toBackendType,
-  generateSchemaId,
   buildJSONOptions,
   toJsonBackendType,
   flattenJsonColumns,
@@ -402,7 +401,7 @@ export function buildV2SchemaFile(nodes: CustomNode[], schemaNodeId: string): Ta
 
   return {
     version: 2,
-    id: generateSchemaId(data.sourceFilePath || data.sourceFile || '', data.sheetName),
+    id: schemaNodeId,
     name: data.tableName,
     source,
     columns: (data.columns || []).map((col): Record<string, unknown> => {
@@ -572,7 +571,7 @@ export function buildV2JsonSchemaFile(node: CustomNode, nodes: CustomNode[]): Ta
 
   return {
     version: 2,
-    id: generateSchemaId(data.sourceFilePath || data.sourceFile || '', undefined),
+    id: node.id,
     name: data.tableName,
     source,
     columns,

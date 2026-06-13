@@ -12,7 +12,6 @@ import type {
   SchemaColumn,
 } from '@/types/graph'
 import type { ColumnSpecV2, ConstraintItemV2, TableSchemaFileV2 } from '@/types/projectV2'
-import { generateSchemaId } from '@/utils/typeHelpers'
 import {
   toBackendType,
   toJsonBackendType,
@@ -260,11 +259,8 @@ export const schemaBuilder: NodeBuilder<TableSchemaFileV2> = {
   build({ node, nodes }: BuilderContext): { consumed: boolean; file: TableSchemaFileV2 } {
     const data = node.data as SchemaNodeData | JsonSchemaNodeData
     const isJsonSchema = node.type === 'jsonSchema'
-    const sheetName = isJsonSchema ? undefined : (data as SchemaNodeData).sheetName
-    const schemaId = generateSchemaId(
-      data.sourceFilePath || data.sourceFile || (data as SchemaNodeData).localPath || '',
-      sheetName
-    )
+    // 语义化 ID 方案：节点 ID 直接作为 schema ID
+    const schemaId = node.id
 
     const columns = isJsonSchema
       ? (data as JsonSchemaNodeData).columns.map(buildJsonColumnSpec)

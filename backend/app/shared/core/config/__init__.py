@@ -5,9 +5,7 @@
 - 提供项目级/用户级/系统级配置的优先级加载
 """
 
-import os
 from pathlib import Path
-from typing import Optional
 
 
 class ConfigPaths:
@@ -93,93 +91,14 @@ class ConfigPaths:
     # ==================== AI 服务商配置 ====================
 
     @classmethod
-    def ai_providers_project(cls, project_root: str) -> Path:
-        """
-        @methoddesc 项目级 AI 配置文件路径
-
-        参数:
-            project_root: 项目根目录路径
-
-        返回:
-            项目级 AI 配置文件 Path 对象
-        """
-        return cls.get_project_config_dir(project_root) / "ai_providers.yaml"
-
-    @classmethod
-    def ai_providers_user(cls) -> Path:
+    def ai_providers(cls) -> Path:
         """
         @methoddesc 用户级 AI 配置文件路径
 
-        返回:
-            用户主目录下 ~/.precis/ai_providers.yaml 的 Path 对象
+        AI Provider 配置是用户级全局设置（包含 API Key 等敏感信息），
+        不属于项目仓库。统一固定存放在 ~/.precis/ai_providers.yaml。
         """
         return cls.USER_CONFIG_DIR / "ai_providers.yaml"
-
-    @classmethod
-    def ai_providers_system(cls) -> Path:
-        """
-        @methoddesc 系统级 AI 配置文件路径（仅 Unix 系统有效）
-
-        返回:
-            /etc/precis/ai_providers.yaml 的 Path 对象
-        """
-        return cls.SYSTEM_CONFIG_DIR / "ai_providers.yaml"
-
-    @classmethod
-    def ai_providers(cls, project_root: Optional[str] = None) -> Path:
-        """
-        @methoddesc AI 服务商配置文件（按优先级返回）
-
-        优先级：
-        1. 项目级：{project}/.precis/ai_providers.yaml
-        2. 用户级：~/.precis/ai_providers.yaml
-        3. 系统级：/etc/precis/ai_providers.yaml（Unix only）
-
-        如果不存在，返回用户级路径（用于创建）
-        """
-        # 1. 项目级
-        if project_root:
-            project_path = cls.ai_providers_project(project_root)
-            if project_path.exists():
-                return project_path
-
-        # 2. 用户级
-        user_path = cls.ai_providers_user()
-        if user_path.exists():
-            return user_path
-
-        # 3. 系统级（仅 Unix）
-        if os.name != "nt":  # 非 Windows
-            system_path = cls.ai_providers_system()
-            if system_path.exists():
-                return system_path
-
-        # 默认返回用户级路径
-        return user_path
-
-    @classmethod
-    def get_all_ai_providers_paths(cls, project_root: Optional[str] = None) -> list[Path]:
-        """
-        @methoddesc 获取所有可能的 AI 配置文件路径
-
-        返回所有级别（项目级/用户级/系统级）的配置文件路径，
-        用于显示和调试，不检查文件是否存在。
-
-        参数:
-            project_root: 可选，项目根目录路径
-
-        返回:
-            AI 配置文件路径列表
-        """
-        paths = []
-
-        if project_root:
-            paths.append(cls.ai_providers_project(project_root))
-        paths.append(cls.ai_providers_user())
-        if os.name != "nt":
-            paths.append(cls.ai_providers_system())
-
-        return paths
 
 
 # 便捷导入

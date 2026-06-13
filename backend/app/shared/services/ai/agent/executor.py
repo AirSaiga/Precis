@@ -3,12 +3,13 @@
 功能概述:
 - 实现 Agent 主循环：LLM 调用 → 工具执行 → 结果回传 → 下一轮
 - 支持最大迭代轮数、取消检查、checkpoint 回调
-- 支持 function calling 和直接文本回复两种终止方式
+- 约定：名为 generate_config 的工具是最终输出工具，调用成功并返回 config 时任务结束
 
 架构设计:
-- AgentExecutor 组合 ChatLLMService、ToolRegistry、AgentMemory
-- 每轮调用 LLM，若返回 tool_calls 则执行工具并继续循环
-- 若返回 content 则视为最终答案，结束循环
+- AgentExecutor 组合 AIProvider、ToolRegistry、AgentMemory
+- 每轮调用 LLM，若返回 tool_calls 则执行工具
+- 若工具调用中包含 generate_config 且成功返回 config，则以该 config 作为最终结果结束
+- 若 LLM 直接返回可解析为配置 JSON 的文本，也接受为最终结果
 """
 
 from __future__ import annotations
@@ -28,7 +29,10 @@ logger = logging.getLogger(__name__)
 # 默认系统提示词
 DEFAULT_SYSTEM_PROMPT = """你是一个数据治理专家 Agent，擅长分析数据文件并生成数据验证配置。
 你可以调用工具来完成任务。每一步请根据观察结果决定下一步行动。
-如果任务已完成，请直接输出最终结果，不要再调用工具。"""
+当需要输出最终结果时，请调用 generate_config 工具，其返回的 config 会被作为最终结果。"""
+
+# 最终输出工具名
+FINAL_OUTPUT_TOOL = "generate_config"
 
 
 # 进度回调签名：stage, progress(0-1), extra dict
@@ -172,6 +176,19 @@ class AgentExecutor:
                 tool_results = await self.registry.execute_many(tool_calls)
                 turn.tool_results = tool_results
 
+                final_config = self._extract_final_config(tool_results)
+                if final_config is not None:
+                    # 最终输出工具已生成配置，任务结束
+                    result.config = final_config
+                    result.success = True
+                    result.iterations = turn_idx
+                    result.content = content
+                    self._memory.add_turn(turn)
+                    result.turns.append(turn)
+                    final_checkpoint = self._make_checkpoint(turn_idx, turn, result.metrics.to_dict())
+                    self.checkpoint_callback(final_checkpoint)
+                    return result
+
                 for tr in tool_results:
                     self.on_tool_result(tr)
                     observation = tr.observation
@@ -211,11 +228,27 @@ class AgentExecutor:
             result.iterations = turn_idx
 
         # 如果达到最大轮数仍未结束
-        if result.iterations >= self.max_iterations and result.config is None and not result.content:
+        if result.iterations >= self.max_iterations and result.config is None:
             result.success = False
             result.error = f"达到最大迭代轮数 {self.max_iterations}，仍未获得最终结果"
 
         return result
+
+    def _extract_final_config(self, tool_results: list[ToolResult]) -> dict[str, Any] | None:
+        """从工具结果中提取最终配置（generate_config 工具的返回值）。"""
+        for tr in tool_results:
+            if tr.name != FINAL_OUTPUT_TOOL:
+                continue
+            if not tr.success:
+                continue
+            observation = tr.observation
+            if (
+                isinstance(observation, dict)
+                and observation.get("success")
+                and isinstance(observation.get("config"), dict)
+            ):
+                return observation["config"]
+        return None
 
     def _make_checkpoint(
         self,

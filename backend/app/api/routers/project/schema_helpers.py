@@ -23,10 +23,8 @@
 """
 
 import os
-from pathlib import Path
 from typing import Any, Optional
 
-from app.shared.core.io.yaml import read_yaml
 from app.shared.core.project.manifest.types import ProjectManifestV2
 
 
@@ -60,25 +58,6 @@ def _get_schema_path(manifest: ProjectManifestV2, table_id: str, config_path: st
                 tname = filename[:-12]
                 if tname == table_id:
                     return os.path.join(schemas_dir, filename)
-
-        for filename in os.listdir(schemas_dir):
-            if not filename.lower().endswith(".schema.yaml"):
-                continue
-            abs_path = os.path.join(schemas_dir, filename)
-            try:
-                data = read_yaml(Path(abs_path))
-                src = data.get("source") or {}
-                src_path = src.get("path") or ""
-                sheet_name = src.get("sheet") or data.get("sheet")
-                if not src_path:
-                    continue
-                from app.shared.core.project.schema.types import generate_schema_id
-
-                computed_id = generate_schema_id(src_path, sheet_name)
-                if computed_id == table_id:
-                    return abs_path
-            except Exception:
-                continue
     return None
 
 

@@ -1,7 +1,7 @@
 /**
  * @fileoverview E2E 全链路冒烟测试（qa_v3_complex 端到端）
  *
- * 使用最复杂的 qa fixture（13 Schema + 17 Regex + 独立约束）验证完整生命周期：
+ * 使用最复杂的 qa fixture（10 Schema + 16 Regex + 模板实例）验证完整生命周期：
  * 1. 项目加载 — manifest 完整性
  * 2. 资源导入 — Schema + 内嵌约束 + Regex 验证
  * 3. 数据源绑定 — 数据文件访问与预览
@@ -74,10 +74,10 @@ test.describe('Stage 1 — 项目加载', () => {
 
     // 验证 schemas 引用
     const schemaIds = manifest.schemas.map((s: { id: string }) => s.id)
-    expect(schemaIds.length).toBeGreaterThanOrEqual(12)
+    expect(schemaIds.length).toBeGreaterThanOrEqual(10)
 
     // 验证包含 jsonSchema 类型的 schema
-    const hasJsonSchema = schemaIds.some((id: string) => id.includes('JSON'))
+    const hasJsonSchema = schemaIds.some((id: string) => id === 'inventory')
     expect(hasJsonSchema).toBe(true)
 
     // 验证 regex_nodes 引用
@@ -97,7 +97,7 @@ test.describe('Stage 1 — 项目加载', () => {
   test('schemas 目录包含所有 schema 文件', () => {
     const schemasDir = path.join(QA_PROJECT_PATH, 'schemas')
     const files = fs.readdirSync(schemasDir).filter(f => f.endsWith('.schema.yaml'))
-    expect(files.length).toBeGreaterThanOrEqual(12)
+    expect(files.length).toBeGreaterThanOrEqual(10)
   })
 
   test('regex 目录包含所有 regex 文件', () => {
@@ -131,7 +131,7 @@ test.describe('Stage 2 — 资源导入', () => {
     const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
     const usersSchemaRef = manifest.schemas.find((s: { id: string }) =>
-      s.id === 'sc_FQArF182DRtAAw8NHUIFTB0FAgYWBgAWWlUaQhwdARIJGx0'
+      s.id === 'users-users'
     )
     expect(usersSchemaRef).toBeDefined()
 
@@ -157,7 +157,7 @@ test.describe('Stage 2 — 资源导入', () => {
     const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
     const customersRef = manifest.schemas.find((s: { id: string }) =>
-      s.id === 'sc_FQArF182DRtAAw8NHUIFTB0FAhAQEAYKGUgEQkoCBxcQChsHWRwODRce'
+      s.id === 'customers'
     )
     expect(customersRef).toBeDefined()
 
@@ -199,7 +199,7 @@ test.describe('Stage 2 — 资源导入', () => {
     const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
     const catRef = manifest.schemas.find((s: { id: string }) =>
-      s.id === 'sc_FQArF182DRtAAw8NHUIFTB0FAhAEFxcCG18fVBdPFxIaFQ0VWRYEBxcEBF4'
+      s.id === 'categories'
     )
     expect(catRef).toBeDefined()
 
@@ -221,7 +221,7 @@ test.describe('Stage 2 — 资源导入', () => {
     const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
     const jsonRef = manifest.schemas.find((s: { id: string }) =>
-      s.id === 'sc_JSON_Inventory_001'
+      s.id === 'inventory'
     )
     expect(jsonRef).toBeDefined()
 
@@ -268,7 +268,7 @@ test.describe('Stage 3 — 数据源绑定', () => {
 
     // 检查 orders-csv schema 指向 data/orders.csv
     const ordersRef = manifest.schemas.find((s: { id: string }) =>
-      s.id === 'sc_FQArF182DRtAAw8NHUIFTB0FAhwXBxcXBwMVQhIdGxMODcwH'
+      s.id === 'orders-csv'
     )
     expect(ordersRef).toBeDefined()
 
@@ -330,7 +330,7 @@ test.describe('Stage 4 — 校验执行', () => {
     const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
     const empRef = manifest.schemas.find((s: { id: string }) =>
-      s.id === 'sc_FQArF182DRtAAw8NHUIFTB0FAhYIEx4KDUgTQkoCBxcQDAMEQRwaDQAe'
+      s.id === 'employees'
     )
     expect(empRef).toBeDefined()
 
@@ -348,7 +348,7 @@ test.describe('Stage 4 — 校验执行', () => {
     const manifestResp = await apiGet('/project/manifest')
     const manifest = await manifestResp.json()
     const oiRef = manifest.schemas.find((s: { id: string }) =>
-      s.id === 'sc_FQArF182DRtAAw8NHUIFTB0FAhwXBxcXK0QCVAkSWgIfHxIbXxcGGjoEFUgEFw'
+      s.id === 'order_items'
     )
     expect(oiRef).toBeDefined()
 
@@ -511,7 +511,7 @@ test.describe('综合 — 完整性验证', () => {
     const pathMatches = manifestContent.matchAll(/path:\s*schemas\/([\w-]+\.schema\.yaml)/g)
     const referencedPaths = Array.from(pathMatches, m => m[1])
 
-    expect(referencedPaths.length).toBeGreaterThanOrEqual(12)
+    expect(referencedPaths.length).toBeGreaterThanOrEqual(10)
 
     for (const schemaPath of referencedPaths) {
       const fullPath = path.join(QA_PROJECT_PATH, 'schemas', schemaPath)

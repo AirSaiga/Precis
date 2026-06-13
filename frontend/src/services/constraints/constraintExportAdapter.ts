@@ -18,7 +18,6 @@
 
 import type { CustomNode, SchemaNodeData } from '@/types/graph'
 import type { ConstraintTypeV2 } from '@/types/projectV2'
-import { generateSchemaId } from '@/utils/typeHelpers'
 
 function resolveSchemaAndColumnIdByName(
   nodes: CustomNode[],
@@ -32,11 +31,8 @@ function resolveSchemaAndColumnIdByName(
   const schemaData = schemaNode.data as SchemaNodeData
   const col = schemaData.columns.find((c) => c.columnName === columnName)
   if (!col) return null
-  const tableId = generateSchemaId(
-    schemaData.sourceFilePath || schemaData.sourceFile || '',
-    schemaData.sheetName
-  )
-  return { tableId, columnId: col.id }
+  // 语义化 ID：节点 ID 即 schema ID
+  return { tableId: schemaNode.id, columnId: col.id }
 }
 
 export function buildConstraintExportPayload(params: {

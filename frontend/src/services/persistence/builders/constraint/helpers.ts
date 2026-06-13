@@ -4,10 +4,11 @@
  * 提供约束 builder 通用的辅助函数：
  * - 解析 sourceRef 构建 refs
  * - 根据表名/列名查找 schema 和列
+ *
+ * 语义化 ID 方案：节点 ID 直接作为 schema ID
  */
 
 import type { CustomNode, SchemaNodeData } from '@/types/graph'
-import { generateSchemaId } from '@/utils/typeHelpers'
 
 /**
  * 根据表名和列名查找 schema 节点和列 ID
@@ -26,11 +27,8 @@ export function resolveSchemaAndColumnIdByName(
   const col = schemaData.columns.find((c) => c.columnName === columnName)
   if (!col) return null
 
-  const tableId = generateSchemaId(
-    schemaData.sourceFilePath || schemaData.sourceFile || '',
-    schemaData.sheetName
-  )
-  return { tableId, columnId: col.id }
+  // 语义化 ID：节点 ID 即 schema ID
+  return { tableId: schemaNode.id, columnId: col.id }
 }
 
 /**

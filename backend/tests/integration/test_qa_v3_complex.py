@@ -183,7 +183,7 @@ class TestQaV3ComplexConstraintAggregation:
             f"应收集至少 5 条内嵌约束（命名空间非模板），实际: {len(embedded_collected)}"
         )
         # 其中至少一条应是 users-Users 表的 user_id unique 约束（命名空间拼接后）
-        users_schema_id = "sc_FQArF182DRtAAw8NHUIFTB0FAgYWBgAWWlUaQhwdARIJGx0"
+        users_schema_id = "users-users"
         assert f"{users_schema_id}_c_users-users_user_id_unique" in constraint_ids
 
     def test_combined_constraint_count_exceeds_manifest_count(self, qa_v3_complex_project: Path):
@@ -339,7 +339,7 @@ class TestQaV3ComplexApiEndpoints:
 
     def test_preview_template_expand_age_check_via_api(self, client, qa_v3_complex_project: Path):
         """POST /api/latest/project/template/age_check/expand 应返回展开结果。"""
-        users_schema_id = "sc_FQArF182DRtAAw8NHUIFTB0FAgYWBgAWWlUaQhwdARIJGx0"
+        users_schema_id = "users-users"
         resp = client.post(
             "/api/latest/project/template/age_check/expand",
             headers={"X-Project-Config-Path": str(qa_v3_complex_project)},
@@ -368,7 +368,7 @@ class TestQaV3ComplexApiEndpoints:
 
     def test_preview_template_expand_user_quality_check_via_api(self, client, qa_v3_complex_project: Path):
         """POST .../user_quality_check/expand 应展开出多个约束 + 至少 1 个 transform。"""
-        users_schema_id = "sc_FQArF182DRtAAw8NHUIFTB0FAgYWBgAWWlUaQhwdARIJGx0"
+        users_schema_id = "users-users"
         resp = client.post(
             "/api/latest/project/template/user_quality_check/expand",
             headers={"X-Project-Config-Path": str(qa_v3_complex_project)},
@@ -397,7 +397,7 @@ class TestQaV3ComplexApiEndpoints:
 
     def test_get_schema_by_id_via_api(self, client, qa_v3_complex_project: Path):
         """GET /api/latest/project/schemas/{table_id} 应能获取 users-Users schema。"""
-        users_schema_id = "sc_FQArF182DRtAAw8NHUIFTB0FAgYWBgAWWlUaQhwdARIJGx0"
+        users_schema_id = "users-users"
         resp = client.get(
             f"/api/latest/project/schemas/{users_schema_id}",
             headers={"X-Project-Config-Path": str(qa_v3_complex_project)},

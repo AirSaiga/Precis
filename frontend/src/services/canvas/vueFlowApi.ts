@@ -22,6 +22,7 @@ import type {
   FindEdge,
   UpdateNodeData,
   UpdateNode,
+  FitView,
 } from '@vue-flow/core'
 
 export interface VueFlowApi {
@@ -34,6 +35,7 @@ export interface VueFlowApi {
   findEdge: FindEdge
   updateNodeData: UpdateNodeData
   updateNode: UpdateNode
+  fitView: FitView
 }
 
 let _api: VueFlowApi | null = null
@@ -82,4 +84,8 @@ export function updateNodeData(...args: Parameters<UpdateNodeData>) {
 
 export function updateNode(...args: Parameters<UpdateNode>) {
   requireApi().updateNode(...args)
+}
+
+export function fitView(...args: Parameters<FitView>) {
+  requireApi().fitView(...args)
 }

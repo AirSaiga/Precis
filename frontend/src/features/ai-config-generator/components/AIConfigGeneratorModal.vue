@@ -73,38 +73,6 @@
         </div>
 
         <div class="modal-body">
-          <!-- Agent Mode Options -->
-          <div class="agent-options-bar">
-            <label class="agent-mode-toggle">
-              <input v-model="options.agent_mode" type="checkbox" :disabled="generating" />
-              <span>{{ t('aiConfigGenerator.agentMode.label') }}</span>
-            </label>
-            <div v-if="options.agent_mode" class="agent-params">
-              <label class="agent-param">
-                <span>{{ t('aiConfigGenerator.agentMode.maxIterations') }}</span>
-                <input
-                  v-model.number="options.max_iterations"
-                  type="range"
-                  min="1"
-                  max="5"
-                  step="1"
-                  :disabled="generating"
-                />
-                <span class="param-value">{{ options.max_iterations }}</span>
-              </label>
-              <label class="agent-param">
-                <span>{{ t('aiConfigGenerator.agentMode.validationSampleSize') }}</span>
-                <select v-model.number="options.validation_sample_size" :disabled="generating">
-                  <option :value="500">500</option>
-                  <option :value="1000">1000</option>
-                  <option :value="2000">2000</option>
-                  <option :value="5000">5000</option>
-                </select>
-              </label>
-            </div>
-          </div>
-
-          <!-- Top Action Bar: File selection + Generate -->
           <ConfigPanel
             :checked-files="checkedFiles"
             :expanded-files="expandedFiles"
@@ -112,6 +80,11 @@
             :selected-paths="selectedPaths"
             :generating="generating"
             :canceling="canceling"
+            :provider="store.activeProvider"
+            :active-tab="activeTab"
+            :agent-mode="options.agent_mode"
+            :max-iterations="options.max_iterations"
+            :validation-sample-size="options.validation_sample_size"
             @generate="generate"
             @cancel="cancelGenerate"
             @pick-files="pickFiles"
@@ -119,88 +92,28 @@
             @toggle-file="toggleFile"
             @toggle-all="toggleAllFiles"
             @clear="clearSelection"
+            @update:active-tab="activeTab = $event"
+            @update:agent-mode="options.agent_mode = $event"
+            @update:max-iterations="options.max_iterations = $event"
+            @update:validation-sample-size="options.validation_sample_size = $event"
           />
 
-          <!-- Mode Tabs -->
-          <div class="mode-tabs">
-            <button
-              class="mode-tab"
-              :class="{ active: activeTab === 'generate' }"
-              @click="activeTab = 'generate'"
-            >
-              {{ t('aiConfigGenerator.tabs.generate') }}
-            </button>
-            <button
-              class="mode-tab"
-              :class="{ active: activeTab === 'migrate' }"
-              @click="activeTab = 'migrate'"
-            >
-              {{ t('aiConfigGenerator.tabs.migrate') }}
-            </button>
+          <div class="right-column">
+            <MigratePanel
+              v-if="activeTab === 'migrate'"
+              :generating="generating"
+              :canceling="canceling"
+              :provider="store.activeProvider"
+              :checked-files="checkedFiles"
+              :sources="migrateSources"
+              @update:sources="migrateSources = $event"
+              @pick-script-files="handlePickScriptFiles"
+              @pick-script-folder="handlePickScriptFolder"
+              @start-migration="startMigration"
+              @cancel-migration="cancelMigration"
+            />
+            <PreviewPanel :state="previewState" @apply="overwriteProject" @close="handleClose" />
           </div>
-
-          <!-- Migrate Panel -->
-          <div v-if="activeTab === 'migrate'" class="migrate-panel">
-            <div class="migrate-form">
-              <label class="migrate-field">
-                <span>{{ t('aiConfigGenerator.migrate.language') }}</span>
-                <select v-model="migrateLanguage" :disabled="generating">
-                  <option value="python">Python pandas</option>
-                  <option value="natural_language">
-                    {{ t('aiConfigGenerator.migrate.naturalLanguage') }}
-                  </option>
-                  <option value="excel_formula">Excel / Google Sheets</option>
-                  <option value="sql">SQL DDL</option>
-                </select>
-              </label>
-              <label class="migrate-field">
-                <span>{{ t('aiConfigGenerator.migrate.scriptContent') }}</span>
-                <textarea
-                  v-model="migrateScript"
-                  class="migrate-textarea"
-                  :disabled="generating"
-                  :placeholder="t('aiConfigGenerator.migrate.placeholder')"
-                  rows="6"
-                />
-              </label>
-              <div class="migrate-actions">
-                <button
-                  class="generate-btn"
-                  type="button"
-                  :disabled="
-                    generating ||
-                    checkedFiles.size === 0 ||
-                    !store.activeProvider?.is_configured ||
-                    !migrateScript.trim()
-                  "
-                  @click="startMigration"
-                >
-                  <span v-if="generating" class="spinner-sm"></span>
-                  {{
-                    generating
-                      ? t('aiConfigGenerator.actions.generating')
-                      : t('aiConfigGenerator.migrate.start')
-                  }}
-                </button>
-                <button
-                  v-if="generating"
-                  class="cancel-btn"
-                  type="button"
-                  :disabled="canceling"
-                  @click="cancelMigration"
-                >
-                  {{
-                    canceling
-                      ? t('aiConfigGenerator.actions.canceling')
-                      : t('aiConfigGenerator.actions.cancel')
-                  }}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Full-width Preview & Result -->
-          <PreviewPanel :state="previewState" @apply="overwriteProject" @close="handleClose" />
         </div>
       </div>
     </div>
@@ -227,11 +140,16 @@
   import { useHardwarePrecheck } from '../composables/useHardwarePrecheck'
 
   import ConfigPanel from './config-panel/ConfigPanel.vue'
+  import MigratePanel from './migrate-panel/MigratePanel.vue'
   import PreviewPanel from './preview-panel/PreviewPanel.vue'
   import ProviderBadge from './config-panel/ProviderBadge.vue'
 
   const props = defineProps<{
     visible: boolean
+  }>()
+
+  const emit = defineEmits<{
+    close: []
   }>()
 
   const { t } = useI18n()
@@ -242,8 +160,7 @@
 
   const applying = ref(false)
   const activeTab = ref<'generate' | 'migrate'>('generate')
-  const migrateLanguage = ref('python')
-  const migrateScript = ref('')
+  const migrateSources = ref<Array<{ content: string; language: string; name?: string }>>([])
 
   // 使用 storeToRefs 保持 ref 的响应式
   const { activeProvider, options } = storeToRefs(store)
@@ -261,6 +178,8 @@
     toggleAllFiles,
     pickFiles,
     pickFolders,
+    pickScriptFiles,
+    pickScriptFolder,
     collectExistingDataSources,
     loadProjectDataSources,
     clearSelection,
@@ -314,12 +233,100 @@
   })
   const { startMigration: runMigration, cancelMigration } = migrationJob
 
+  /**
+   * 推断脚本语言
+   */
+  const inferScriptLanguage = (filePath: string): string => {
+    const lower = filePath.toLowerCase()
+    if (lower.endsWith('.py')) return 'python'
+    if (lower.endsWith('.sql')) return 'sql'
+    if (lower.endsWith('.xlsx') || lower.endsWith('.xls') || lower.endsWith('.csv'))
+      return 'excel_formula'
+    return 'natural_language'
+  }
+
+  /**
+   * 读取本地脚本文件内容
+   */
+  const readLocalScriptFiles = async (paths: string[]) => {
+    const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
+      | { readFile?: (path: string) => Promise<string | null> }
+      | undefined
+    if (!electronAPI?.readFile) {
+      window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.electronOnly'))
+      return
+    }
+    const newSources = [...migrateSources.value]
+    for (const p of paths) {
+      try {
+        const content = await electronAPI.readFile(p)
+        if (content != null) {
+          newSources.push({
+            content,
+            language: inferScriptLanguage(p),
+            name: p,
+          })
+        }
+      } catch (e) {
+        logger.warn('Failed to read script file', p, e)
+      }
+    }
+    migrateSources.value = newSources
+  }
+
+  /**
+   * 处理选择脚本文件
+   */
+  const handlePickScriptFiles = async () => {
+    const paths = await pickScriptFiles()
+    if (paths.length) await readLocalScriptFiles(paths)
+  }
+
+  /**
+   * 处理选择脚本文件夹（递归查找）
+   */
+  const handlePickScriptFolder = async () => {
+    const paths = await pickScriptFolder()
+    if (!paths.length) return
+    const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
+      | { readdirRecursive?: (path: string, extensions: string[]) => Promise<string[]> }
+      | undefined
+    if (electronAPI?.readdirRecursive) {
+      const files = await electronAPI.readdirRecursive(paths[0] ?? '', [
+        '.py',
+        '.sql',
+        '.md',
+        '.txt',
+        '.js',
+        '.json',
+        '.yaml',
+        '.yml',
+      ])
+      await readLocalScriptFiles(files)
+    } else {
+      window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.electronOnly'))
+    }
+  }
+
+  /**
+   * 启动迁移任务
+   */
+  const startMigration = async (
+    sources: Array<{ content: string; language: string; name?: string }>
+  ) => {
+    const projectName = graphStore.projectName || 'precis-project'
+    await runMigration(sources, projectName)
+  }
+
   // 直接覆盖：生成结果 -> putV2FullConfig（不再走冲突解决模态框）
   const overwriteProject = async () => {
     if (!effectiveConfigPath.value || !generatedConfig.value) return
     const cfg = generatedConfig.value
     if (!cfg.manifest) {
-      window.$toast?.error(t('aiConfigGenerator.toast.applyFailed'), 'manifest is missing')
+      window.$toast?.error(
+        t('aiConfigGenerator.toast.applyFailed'),
+        t('aiConfigGenerator.errors.manifestMissing')
+      )
       return
     }
     const schemaCount = Object.keys(cfg.schemas || {}).length
@@ -360,14 +367,6 @@
     } finally {
       applying.value = false
     }
-  }
-
-  /**
-   * 启动迁移任务
-   */
-  const startMigration = async () => {
-    const projectName = graphStore.projectName || 'precis-project'
-    await runMigration(migrateScript.value, migrateLanguage.value, projectName)
   }
 
   // ==================== 聚合 PreviewPanel 状态 ====================
@@ -413,6 +412,9 @@
     canceling.value = false
     // 重置应用状态
     applying.value = false
+    // 重置迁移状态
+    migrateSources.value = []
+    activeTab.value = 'generate'
     // 停止轮询
     stopPolling()
   })
@@ -440,6 +442,7 @@
       return
     }
     store.close()
+    emit('close')
   }
 
   /**

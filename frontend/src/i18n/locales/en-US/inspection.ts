@@ -51,6 +51,7 @@ const inspection = {
     dismiss: 'Ignore',
     viewAvailableTables: 'View available tables',
     selectFix: 'Select',
+    navigateToNode: 'Navigate to node',
     autoFix: {
       deduplicate: 'Auto deduplicate',
     },
@@ -70,6 +71,7 @@ const inspection = {
   errors: {
     noProject: 'No project path set',
     noFixApi: 'Auto-fix not supported for this issue',
+    nodeNotFound: 'Target node not found',
   },
   toast: {
     recheckDone: 'Check done: {count} issue(s)',
@@ -191,6 +193,12 @@ const inspection = {
         fixHint:
           'Pick one from "Available columns" below as the referenced column — click to fix reference.',
       },
+    },
+    saveBlocked: {
+      title: 'Save blocked',
+      description: '{description}',
+      fixHint: 'Please check the node configuration on the canvas',
+      fixHintWithField: 'Please check field "{field}" of node "{nodeId}"',
     },
   },
 }

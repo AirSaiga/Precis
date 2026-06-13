@@ -448,11 +448,10 @@ class TestConfigLoader:
         """没有配置文件时返回默认 AIConfig。"""
         from app.shared.services.llm.config.loader import ConfigLoader
 
-        loader = ConfigLoader()
-        with patch.object(loader, "_resolve_path", return_value=tmp_path / "nonexistent.yaml"):
-            config = loader.load()
-            assert config is not None
-            assert hasattr(config, "providers")
+        loader = ConfigLoader(config_path=tmp_path / "nonexistent.yaml")
+        config = loader.load()
+        assert config is not None
+        assert hasattr(config, "providers")
 
     def test_cache_hit_returns_cached(self, tmp_path):
         """缓存命中时直接返回缓存。"""
@@ -479,23 +478,22 @@ class TestConfigLoader:
             encoding="utf-8",
         )
 
-        loader = ConfigLoader()
+        loader = ConfigLoader(config_path=config_file)
         loader.invalidate_cache()
-        with patch.object(loader, "_resolve_path", return_value=config_file):
-            config1 = loader.load()
-            config2 = loader.load()
-            assert config1 is config2
+        config1 = loader.load()
+        config2 = loader.load()
+        assert config1 is config2
 
     def test_save_writes_and_invalidates(self):
         """save 写入配置文件并清除缓存。"""
         from app.shared.services.llm.config.loader import ConfigLoader
         from app.shared.services.llm.config.models import AIConfig
 
-        loader = ConfigLoader()
-        with patch.object(loader, "_resolve_path") as mock_resolve:
-            mock_resolve.return_value = Path(tempfile.mkdtemp()) / "ai_providers.yaml"
-            new_config = AIConfig(providers=[], defaults={"chat": "test-provider"})
-            loader.save(new_config)
+        target = Path(tempfile.mkdtemp()) / "ai_providers.yaml"
+        loader = ConfigLoader(config_path=target)
+        new_config = AIConfig(providers=[], defaults={"chat": "test-provider"})
+        loader.save(new_config)
+        assert target.exists()
 
     def test_config_path_property(self):
         from app.shared.services.llm.config.loader import ConfigLoader

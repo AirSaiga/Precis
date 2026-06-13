@@ -69,9 +69,16 @@ export interface AiGenerateV2ConfigResponse {
   error?: string
 }
 
+export interface AiMigrateV2ConfigSource {
+  content: string
+  language: string
+  name?: string
+}
+
 export interface AiMigrateV2ConfigRequest {
   script_content: string
   language: string
+  sources?: AiMigrateV2ConfigSource[]
   file_paths: string[]
   project_name: string
   project_id: string

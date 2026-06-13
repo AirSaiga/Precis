@@ -56,67 +56,8 @@ class TestConfigPaths:
         assert ".precis" in str(path)
         assert path.name == "electron_launch.yaml"
 
-    def test_ai_providers_project(self):
-        """项目级 AI 配置路径"""
-        path = ConfigPaths.ai_providers_project("/tmp/project")
-        assert path.name == "ai_providers.yaml"
-        assert ".precis" in str(path)
-
-    def test_ai_providers_user(self):
-        """用户级 AI 配置路径"""
-        path = ConfigPaths.ai_providers_user()
+    def test_ai_providers(self):
+        """AI Provider 配置固定为用户级路径"""
+        path = ConfigPaths.ai_providers()
         assert path.name == "ai_providers.yaml"
         assert str(path.parent).endswith(".precis")
-
-    def test_ai_providers_system(self):
-        """系统级 AI 配置路径"""
-        path = ConfigPaths.ai_providers_system()
-        assert path.name == "ai_providers.yaml"
-        assert path.parent.name == "precis"
-
-    def test_ai_providers_priority_project(self, tmp_path, monkeypatch):
-        """项目级配置存在时优先返回"""
-        config_dir = tmp_path / ".precis"
-        config_dir.mkdir()
-        (config_dir / "ai_providers.yaml").write_text("project")
-        # 屏蔽用户级，避免真实 home 干扰
-        monkeypatch.setattr(
-            ConfigPaths, "ai_providers_user", classmethod(lambda cls: tmp_path / "user" / "ai_providers.yaml")
-        )
-        result = ConfigPaths.ai_providers(str(tmp_path))
-        assert ".precis" in str(result)
-
-    def test_ai_providers_priority_user(self, tmp_path, monkeypatch):
-        """用户级配置存在且项目级不存在时返回用户级"""
-        user_path = tmp_path / "user_ai.yaml"
-        user_path.write_text("user")
-        monkeypatch.setattr(ConfigPaths, "ai_providers_user", classmethod(lambda cls: user_path))
-        monkeypatch.setattr(ConfigPaths, "ai_providers_system", classmethod(lambda cls: tmp_path / "sys_ai.yaml"))
-        result = ConfigPaths.ai_providers(str(tmp_path))
-        assert result == user_path
-
-    def test_ai_providers_fallback_user(self, tmp_path, monkeypatch):
-        """所有级别都不存在时默认返回用户级路径"""
-        user_path = tmp_path / "user_ai.yaml"
-        monkeypatch.setattr(ConfigPaths, "ai_providers_user", classmethod(lambda cls: user_path))
-        monkeypatch.setattr(ConfigPaths, "ai_providers_system", classmethod(lambda cls: tmp_path / "sys_ai.yaml"))
-        result = ConfigPaths.ai_providers(str(tmp_path))
-        assert result == user_path
-
-    def test_ai_providers_system_on_unix(self, tmp_path, monkeypatch):
-        """Unix 系统且系统级配置存在时返回系统级"""
-        monkeypatch.setattr(os, "name", "posix")
-        system_path = tmp_path / "sys_ai.yaml"
-        system_path.write_text("system")
-        monkeypatch.setattr(ConfigPaths, "ai_providers_system", classmethod(lambda cls: system_path))
-        monkeypatch.setattr(ConfigPaths, "ai_providers_user", classmethod(lambda cls: tmp_path / "user_ai.yaml"))
-        # 传入 None 避免在 Windows 上构造 PosixPath
-        result = ConfigPaths.ai_providers(project_root=None)
-        assert result == system_path
-
-    def test_get_all_ai_providers_paths(self):
-        """返回所有可能的 AI 配置路径"""
-        paths = ConfigPaths.get_all_ai_providers_paths("/tmp/project")
-        # Windows 下不含系统级路径
-        expected_count = 2 if os.name == "nt" else 3
-        assert len(paths) == expected_count

@@ -31,7 +31,9 @@ import { getV2FullConfig } from '@/api/projectV2Api'
 import { fromBackendType } from '@/services/builders'
 import { normalizePath, resolveRelativePath } from '@/core/utils/pathNormalization'
 import { eventBus } from '@/core/eventBus'
+import { i18n } from '@/i18n'
 import { useVirtualAnchorEdges } from './useVirtualAnchorEdges'
+import { toastWarning } from '@/core/toast'
 
 function convertColumnsFromConfig(columns: TableSchemaFileV2['columns']): SchemaColumn[] {
   return (columns || []).map((col) => ({
@@ -131,8 +133,40 @@ async function tryLoadExistingSchemaConfig(params: {
   } as unknown as Record<string, unknown>)
 
   if (schemaNodeId !== tableId) {
-    store.registerV2SchemaMapping(schemaNodeId, tableId)
+    // 语义化 ID 方案：绑定后发现节点 ID 与文件 ID 不一致，
+    // 说明是旧项目/旧数据，用 tableId 作为新节点 ID 保持一致性
+    store.updateNodeData(schemaNodeId, {
+      configName: tableId,
+      saveState: 'modified',
+    } as unknown as Record<string, unknown>)
+    logger.warn(
+      `[tryLoadExistingSchemaConfig] schema node ID ${schemaNodeId} differs from file ID ${tableId}, ` +
+        `please resave project to align IDs.`
+    )
   }
+
+  // 检测重复数据源（绑定已有配置时）
+  const sourcePath = schemaFile.source?.path
+  const sourceSheet = schemaFile.source?.sheet ?? schemaFile.sheet
+  if (
+    sourcePath &&
+    store.schemaSourceIndex?.isDuplicateSource(sourcePath, sourceSheet, schemaNodeId)
+  ) {
+    const conflict = store.schemaSourceIndex.getConflictForSource(
+      sourcePath,
+      sourceSheet,
+      schemaNodeId
+    )
+    const otherIds = conflict?.nodeIds.filter((id) => id !== schemaNodeId) || []
+    toastWarning(
+      i18n.global.t('canvas.nodeCanvas.duplicateSourceMessage', {
+        source: sourcePath,
+        nodes: otherIds.join(', '),
+      }),
+      i18n.global.t('canvas.nodeCanvas.duplicateSourceTitle')
+    )
+  }
+  store.schemaSourceIndex?.rebuild()
 
   // 列数据更新后必须刷新 schema 节点的 internals，
   // 否则 handle 不会重新生成，后续创建的边无法找到正确的 sourceHandle
@@ -489,7 +523,11 @@ export function useSchemaConnectionHandler() {
       if (comparison.newInSource.length > 0) {
         const preview = comparison.newInSource.slice(0, 5).join(', ')
         const suffix =
-          comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
+          comparison.newInSource.length > 5
+            ? t('canvas.nodeCanvas.smartFix.moreItems', {
+                count: comparison.newInSource.length,
+              })
+            : ''
         parts.push(
           t('canvas.nodeCanvas.smartFix.newInSource', {
             count: comparison.newInSource.length,
@@ -500,7 +538,11 @@ export function useSchemaConnectionHandler() {
       if (comparison.staleInSchema.length > 0) {
         const preview = comparison.staleInSchema.slice(0, 5).join(', ')
         const suffix =
-          comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
+          comparison.staleInSchema.length > 5
+            ? t('canvas.nodeCanvas.smartFix.moreItems', {
+                count: comparison.staleInSchema.length,
+              })
+            : ''
         parts.push(
           t('canvas.nodeCanvas.smartFix.staleInSchema', {
             count: comparison.staleInSchema.length,

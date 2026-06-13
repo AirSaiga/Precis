@@ -138,6 +138,8 @@
   import { useInspectionStore } from '@/stores/inspectionStore'
   import { inspectV2Config } from '@/api/projectV2Api'
   import { useProjectStore } from '@/stores/projectStore'
+  import { useGraphStore } from '@/stores/graphStore'
+  import { fitView } from '@/services/canvas/vueFlowApi'
   import { logger } from '@/core/utils/logger'
   import { toastError, toastSuccess } from '@/core/toast'
   import { useClipboard } from '@/composables/useClipboard'
@@ -148,6 +150,7 @@
 
   const store = useInspectionStore()
   const projectStore = useProjectStore()
+  const graphStore = useGraphStore()
   const { t } = useI18n()
   const { copy: copyToClipboard } = useClipboard()
 
@@ -283,6 +286,24 @@
   }
 
   /**
+   * 定位到画布中的指定节点，并关闭抽屉
+   */
+  function navigateToNode(nodeId: string): void {
+    const node = graphStore.nodes.find((n) => n.id === nodeId)
+    if (!node) {
+      toastError(t('inspection.errors.nodeNotFound'), t('inspection.title'))
+      return
+    }
+    graphStore.setSelectedNode(nodeId)
+    try {
+      fitView({ nodes: [nodeId], padding: 0.3, duration: 500 })
+    } catch (err) {
+      logger.warn('[InspectionDrawer] fitView 失败:', err)
+    }
+    store.closeDrawer()
+  }
+
+  /**
    * 处理 issue 卡片上的动作按钮
    *
    * 支持的动作:
@@ -317,7 +338,12 @@
         break
       }
       case 'navigate': {
-        logger.warn('[InspectionDrawer] navigate 动作暂未实现:', action)
+        const target = action.target || issue.ref_id || issue.context?.nodeId
+        if (typeof target === 'string' && target) {
+          navigateToNode(target)
+        } else {
+          logger.warn('[InspectionDrawer] navigate 动作缺少目标:', action)
+        }
         break
       }
     }

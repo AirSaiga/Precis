@@ -244,7 +244,7 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
     const columns = spec.columns || []
 
     const cols = columns.map((col) => ({
-      id: col.id || `sc_${col.name}`,
+      id: col.id || col.name,
       columnName: col.name,
       dataType: fromBackendType(col.type),
       validationErrors: [],

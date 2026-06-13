@@ -42,8 +42,8 @@ import { createTemplateInstanceFactoryModule } from '../modules/factories/templa
 import { createTemplateExpandModule } from '../modules/templateExpand'
 import { createNodeOpsModule } from '../modules/nodeOps'
 import { createPersistenceStatusModule } from '../modules/persistenceStatus'
-import { createV2SchemaMappingModule } from '../modules/v2SchemaMapping'
 import { createSchemaOpsModule } from '../modules/schemaOps'
+import { createSchemaSourceIndex } from '../modules/schemaSourceIndex'
 import { createRegexDesignModule } from '../modules/regexDesign'
 import { createAssetsModule } from '../modules/assets'
 import { createScopeModule } from '../modules/scope'
@@ -95,6 +95,8 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
     updateNodeData,
   })
 
+  const sourceIndex = createSchemaSourceIndex(nodes)
+
   const { importV2ResourceToCanvas } = createV2ImportModule({
     nodes,
     edges,
@@ -102,6 +104,7 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     reconcileAll: connectionStateSync.reconcileAll,
+    sourceIndex,
   })
 
   const { createSchemaNode, addColumnToSchema } = createSchemaFactoryModule({
@@ -215,6 +218,7 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
     selectedNodeIds,
     reconcileAll: connectionStateSync.reconcileAll,
     templateExpand,
+    sourceIndex,
   })
   const { deleteNode, moveSelectedNode, moveSelectedNodes } = nodeOps
 
@@ -270,6 +274,7 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
     nodes.value = []
     edges.value = []
     selectedNodeId.value = null
+    sourceIndex.rebuild()
   }
 
   const { buildProjectYAML, exportProjectAsFile, exportSchemaAsYAML, importSchemaFromYAML } =
@@ -303,17 +308,12 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
 
   const { switchScope, getSubGraphStats } = createScopeModule({ nodes, edges })
 
-  const { registerV2SchemaMapping, getV2SchemaId } = createV2SchemaMappingModule({
-    v2SchemaIdMap: state.v2SchemaIdMap,
-  })
-
   return {
     nodes,
     edges,
     assets,
     selectedNode: computed.selectedNode,
     selectedNodeId,
-    v2SchemaIdMap: state.v2SchemaIdMap,
     selectedNodes: computed.selectedNodes,
     hasMultipleSelection: computed.hasMultipleSelection,
     selectedNodeIds,
@@ -329,6 +329,8 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
     activeRegexNodeId,
     activeRegexNode: computed.activeRegexNode,
     regexEditSampleData,
+
+    schemaSourceIndex: sourceIndex,
 
     createProject,
     clearProject,
@@ -424,9 +426,6 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
     switchScope,
 
     getSubGraphStats,
-
-    registerV2SchemaMapping,
-    getV2SchemaId,
 
     openRegexDesignModal,
     closeRegexDesignModal,

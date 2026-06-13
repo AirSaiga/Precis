@@ -2,25 +2,23 @@
  * @fileoverview Persistence 层辅助函数
  *
  * 提供 schema ID 规范化、节点过滤等通用逻辑。
+ *
+ * 语义化 ID 方案：画布节点 ID 直接作为 schema ID，无需映射。
  */
 
-import type { CustomNode, SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
-import { generateSchemaId } from '@/utils/typeHelpers'
+import type { CustomNode } from '@/types/graph'
 
 /**
- * 构建 canvas UUID -> 确定性 schema ID 的映射
+ * 构建 canvas node ID -> schema ID 的映射
  *
- * 所有 builder 在构造 refs.table_id / source_ref.table_id 时必须使用此映射。
+ * 语义化 ID 方案下，schema 节点的 ID 就是 schema ID，映射为恒等映射。
+ * 保留此函数以维持 builder 接口兼容。
  */
 export function buildSchemaIdByNodeId(nodes: CustomNode[]): Record<string, string> {
   const map: Record<string, string> = {}
   for (const n of nodes) {
-    if (n.type === 'schema') {
-      const data = n.data as SchemaNodeData
-      map[n.id] = generateSchemaId(data.sourceFilePath || data.sourceFile || '', data.sheetName)
-    } else if (n.type === 'jsonSchema') {
-      const data = n.data as JsonSchemaNodeData
-      map[n.id] = generateSchemaId(data.sourceFilePath || data.sourceFile || '', undefined)
+    if (n.type === 'schema' || n.type === 'jsonSchema') {
+      map[n.id] = n.id
     }
   }
   return map

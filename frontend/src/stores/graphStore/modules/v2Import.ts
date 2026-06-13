@@ -22,6 +22,19 @@ export function createV2ImportModule(params: {
     relPath: string | undefined
   ) => string | undefined
   reconcileAll: () => void
+  sourceIndex?: {
+    isDuplicateSource: (
+      path: string,
+      sheet: string | null | undefined,
+      excludeNodeId?: string
+    ) => boolean
+    getConflictForSource: (
+      path: string,
+      sheet: string | null | undefined,
+      excludeNodeId?: string
+    ) => { nodeIds: string[] } | null
+    rebuild: () => void
+  }
 }) {
   const {
     nodes,
@@ -30,6 +43,7 @@ export function createV2ImportModule(params: {
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     reconcileAll,
+    sourceIndex,
   } = params
 
   const { ensureSchemaNodeFromV2 } = createEnsureSchemaNodeFromV2({
@@ -45,6 +59,7 @@ export function createV2ImportModule(params: {
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     reconcileAll,
+    sourceIndex,
   })
 
   return { importV2ResourceToCanvas, ensureSchemaNodeFromV2 }

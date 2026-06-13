@@ -155,8 +155,8 @@ class TestSchemaGeneration:
             options=_make_options(),
             existing_config=None,
         )
-        # 所有 schema ID 必须以 sc_ 开头
-        assert all(k.startswith("sc_") for k in result["schemas"])
+        # 语义化 ID：直接使用 LLM 提供的 id
+        assert "users" in result["schemas"]
         schema = list(result["schemas"].values())[0]
         assert schema["version"] == 2
         assert schema["source"]["mode"] == "relative_file"
@@ -280,8 +280,8 @@ class TestSchemaGeneration:
             options=_make_options(),
             existing_config=None,
         )
-        # 无 profiling 数据时回退到 sc_ + sanitized_id
-        assert len(result["schemas"]["sc_users"]["constraints"]) == 1
+        # 无 profiling 数据时使用 LLM 提供的语义化 ID
+        assert len(result["schemas"]["users"]["constraints"]) == 1
 
     def test_skips_non_dict_schema(self):
         llm_result = {"schemas": ["not_a_dict"]}
@@ -297,7 +297,7 @@ class TestSchemaGeneration:
         assert result["schemas"] == {}
 
     def test_schema_uses_name_when_id_missing(self):
-        """LLM 遵循'无需填写 id'提示时，用 name 作为 fallback 生成规范 ID"""
+        """LLM 未提供 id 时，用 name 作为 fallback 生成语义化 ID"""
         llm_result = {"schemas": [{"name": "users", "columns": []}]}
         result = build_config(
             project_id="p",
@@ -310,7 +310,7 @@ class TestSchemaGeneration:
         )
         assert len(result["schemas"]) == 1
         schema = list(result["schemas"].values())[0]
-        assert schema["id"].startswith("sc_")
+        assert schema["id"] == "users"
         assert schema["name"] == "users"
 
     def test_skips_schema_without_id_and_name(self):

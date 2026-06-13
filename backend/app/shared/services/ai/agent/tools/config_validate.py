@@ -141,7 +141,11 @@ class ConfigValidateTool:
             self._dataframes.clear()
 
         constraints = config.get("constraints", {})
+        if isinstance(constraints, list):
+            constraints = {c.get("id", f"c_{i}"): c for i, c in enumerate(constraints)}
         schemas = config.get("schemas", {})
+        if isinstance(schemas, list):
+            schemas = {s.get("id", f"s_{i}"): s for i, s in enumerate(schemas)}
 
         if not constraints:
             return {"success": True, "total_rules": 0, "passed": 0, "issues": []}
@@ -188,6 +192,8 @@ class ConfigValidateTool:
 
         # 同时校验 regex_nodes
         regex_nodes = config.get("regex_nodes", {})
+        if isinstance(regex_nodes, list):
+            regex_nodes = {r.get("id", f"r_{i}"): r for i, r in enumerate(regex_nodes)}
         for rid, rdef in regex_nodes.items():
             total += 1
             source_ref = rdef.get("source_ref", {})

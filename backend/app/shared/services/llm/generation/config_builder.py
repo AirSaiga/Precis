@@ -25,7 +25,6 @@ from typing import Any, Optional
 
 import yaml
 
-from app.shared.core.project.schema.types_parts.schema_id import generate_schema_id
 from app.shared.core.utils.path_utils import make_relative, normalize_to_posix
 
 
@@ -233,13 +232,13 @@ def build_config(
             "source_ref": rdef.get("source_ref", {}),
         }
 
-    # 处理 Schema —— 生成规范的 sc_ 前缀 ID
-    llm_id_to_schema_id: dict[str, str] = {}  # LLM 返回的原始 ID -> 规范 ID 映射
+    # 处理 Schema —— 使用 LLM 提供的语义化 ID
+    llm_id_to_schema_id: dict[str, str] = {}  # LLM 返回的原始 ID -> 最终 ID 映射
+    used_schema_ids: set[str] = set(schemas.keys())  # 已占用的 ID（含 keep_existing）
     if options.generate_schemas:
         for schema_def in llm_result.get("schemas", []):
             if not isinstance(schema_def, dict):
                 continue
-            # LLM 可能遵循"id 无需填写"的提示而不返回 id，用 name 兜底
             llm_schema_id = schema_def.get("id") or schema_def.get("name", "")
             if not llm_schema_id:
                 continue
@@ -247,7 +246,6 @@ def build_config(
             # 补充 source 配置
             profile = path_to_profile.get(schema_def.get("_source_path", ""))
             if not profile:
-                # 尝试通过 table_name 匹配
                 for p in profiling_data:
                     if p["table_name"] == schema_def.get("name", llm_schema_id):
                         profile = p
@@ -258,7 +256,6 @@ def build_config(
                 source["path"] = _make_relative_path(profile["path"])
                 if profile.get("sheet_name"):
                     source["sheet"] = profile["sheet_name"]
-                # 根据文件类型补充 options
                 ext = os.path.splitext(profile["path"])[1].lower()
                 if ext == ".csv":
                     source["options"] = {"delimiter": ",", "encoding": "utf-8"}
@@ -267,19 +264,21 @@ def build_config(
                 elif ext in [".json", ".jsonl"]:
                     source["options"] = {"format": "auto"}
 
-            # 生成规范的 Schema ID（sc_ 前缀 + XOR + Base64URL）
+            # 优先复用已有 schema 的 ID（按 source.path + sheet 匹配）
             src_path = source.get("path", "")
             sheet_name = source.get("sheet")
-            if src_path:
-                # 优先复用已有 schema 的 ID（按 source.path + sheet 匹配）
-                existing_id = _find_existing_schema_id_by_source(src_path, sheet_name)
-                if existing_id:
-                    proper_schema_id = existing_id
-                else:
-                    proper_schema_id = generate_schema_id(src_path, sheet_name)
+            existing_id = _find_existing_schema_id_by_source(src_path, sheet_name) if src_path else None
+            if existing_id:
+                proper_schema_id = existing_id
             else:
-                # 兜底：如果无法推导路径，保留原始 ID（但加 sc_ 前缀标识）
-                proper_schema_id = f"sc_{_sanitize_id(llm_schema_id)}"
+                # 使用 LLM 提供的语义化 ID，清洗并保证唯一
+                proper_schema_id = _sanitize_id(llm_schema_id)
+                base = proper_schema_id
+                i = 2
+                while proper_schema_id in used_schema_ids:
+                    proper_schema_id = f"{base}_{i}"
+                    i += 1
+                used_schema_ids.add(proper_schema_id)
 
             llm_id_to_schema_id[llm_schema_id] = proper_schema_id
 

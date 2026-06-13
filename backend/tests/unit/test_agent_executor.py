@@ -145,6 +145,92 @@ async def test_agent_cancelled():
 
 
 @pytest.mark.asyncio
+async def test_agent_returns_config_from_generate_config_tool():
+    """generate_config 工具成功返回 config 时，Agent 直接结束并返回该 config。"""
+    registry = ToolRegistry()
+    registry.register(
+        name="generate_config",
+        description="Generate final config",
+        parameters={"type": "object", "properties": {}},
+        handler=lambda args: {"success": True, "config": {"schemas": {"s1": {}}, "constraints": {"c1": {}}}},
+    )
+
+    provider = FakeProvider(
+        responses=[
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "generate_config", "arguments": "{}"},
+                    }
+                ],
+            },
+        ]
+    )
+
+    executor = AgentExecutor(provider=provider, registry=registry, max_iterations=3)
+    result = await executor.run("test task")
+
+    assert result.success is True
+    assert result.config == {"schemas": {"s1": {}}, "constraints": {"c1": {}}}
+    assert result.iterations == 1
+    assert len(result.turns) == 1
+
+
+@pytest.mark.asyncio
+async def test_agent_validates_then_generates_final_config():
+    """Agent 可以先调用 validate_config，再调用 generate_config 输出最终配置。"""
+    registry = ToolRegistry()
+    registry.register(
+        name="validate_config",
+        description="Validate config",
+        parameters={"type": "object", "properties": {}},
+        handler=lambda args: {"success": True, "issues": []},
+    )
+    registry.register(
+        name="generate_config",
+        description="Generate final config",
+        parameters={"type": "object", "properties": {}},
+        handler=lambda args: {"success": True, "config": {"schemas": {"s1": {}}, "constraints": {"c1": {}}}},
+    )
+
+    provider = FakeProvider(
+        responses=[
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "validate_config", "arguments": "{}"},
+                    }
+                ],
+            },
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_2",
+                        "type": "function",
+                        "function": {"name": "generate_config", "arguments": "{}"},
+                    }
+                ],
+            },
+        ]
+    )
+
+    executor = AgentExecutor(provider=provider, registry=registry, max_iterations=3)
+    result = await executor.run("test task")
+
+    assert result.success is True
+    assert result.config == {"schemas": {"s1": {}}, "constraints": {"c1": {}}}
+    assert result.iterations == 2
+    assert len(result.turns) == 2
+
+
+@pytest.mark.asyncio
 async def test_agent_tool_failure():
     """工具执行失败时，结果中携带错误信息。"""
     registry = ToolRegistry()

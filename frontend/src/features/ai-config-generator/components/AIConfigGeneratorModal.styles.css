@@ -97,12 +97,171 @@
   color: var(--ui-text-body);
 }
 
-/* --- Body Layout（单列：操作条 + 全宽预览区） --- */
+/* --- Body Layout（左右分栏：左侧配置，右侧预览） --- */
 .modal-body {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.right-column {
   flex: 1;
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  min-width: 0;
+}
+
+/* --- Agent Options --- */
+.agent-options-bar {
+  padding: var(--ui-space-md) var(--ui-space-xl);
+  border-bottom: 1px solid var(--ui-border-light);
+  background: var(--ui-bg-subtle);
+}
+
+.agent-mode-header {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-md);
+  flex-wrap: wrap;
+}
+
+/* Switch */
+.switch-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.switch-input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.switch-track {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  background: var(--ui-bg-muted);
+  border-radius: var(--ui-radius-full);
+  transition: background var(--ui-transition-fast);
+  flex-shrink: 0;
+}
+
+.switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  background: var(--ui-text-on-accent);
+  border-radius: 50%;
+  box-shadow: var(--ui-shadow-xs);
+  transition: transform var(--ui-transition-fast);
+}
+
+.switch-input:checked + .switch-track {
+  background: var(--ui-accent);
+}
+
+.switch-input:checked + .switch-track .switch-thumb {
+  transform: translateX(18px);
+}
+
+.switch-input:disabled + .switch-track {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.switch-text {
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  color: var(--ui-text-body);
+}
+
+.agent-mode-hint {
+  font-size: var(--ui-font-size-xs);
+  color: var(--ui-text-muted);
+}
+
+/* Agent Params Card */
+.agent-params-card {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: var(--ui-space-md);
+  margin-top: var(--ui-space-md);
+  padding: var(--ui-space-md);
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-md);
+}
+
+.agent-param {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-xs);
+}
+
+.param-label {
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-medium);
+  color: var(--ui-text-muted);
+}
+
+.param-control {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+}
+
+.param-control input[type='range'] {
+  flex: 1;
+  min-width: 120px;
+  accent-color: var(--ui-accent);
+}
+
+.param-control select {
+  height: 28px;
+  padding: 0 var(--ui-space-sm);
+  font-size: var(--ui-font-size-sm);
+  background: var(--ui-bg-base);
+  border: 1px solid var(--ui-border-light);
+  border-radius: var(--ui-radius-sm);
+  color: var(--ui-text-body);
+}
+
+.param-value {
+  min-width: 20px;
+  text-align: center;
+  font-size: var(--ui-font-size-sm);
+  font-weight: var(--ui-font-weight-semibold);
+  color: var(--ui-accent);
+}
+
+/* Agent params transition */
+.agent-params-enter-active,
+.agent-params-leave-active {
+  transition: all var(--ui-transition-normal);
+  overflow: hidden;
+}
+
+.agent-params-enter-from,
+.agent-params-leave-to {
+  opacity: 0;
+  max-height: 0;
+  margin-top: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.agent-params-enter-to,
+.agent-params-leave-from {
+  opacity: 1;
+  max-height: 160px;
 }
 
 /* --- Animations --- */

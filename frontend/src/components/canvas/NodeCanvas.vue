@@ -212,6 +212,7 @@
     findEdge,
     updateNodeData,
     updateNode,
+    fitView,
   } = useVueFlow()
   initVueFlowApi({
     addNodes,
@@ -223,6 +224,7 @@
     findEdge,
     updateNodeData,
     updateNode,
+    fitView,
   })
   const { validateConnection } = useCanvasConnectionWatcher()
   const flowWrapper = ref<HTMLDivElement | null>(null)

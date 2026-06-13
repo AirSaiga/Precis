@@ -44,12 +44,7 @@ import type {
   FullConfigV2Request,
   ProjectViewV2,
 } from '@/types/projectV2'
-import {
-  toBackendType,
-  generateSchemaId,
-  buildJSONOptions,
-  toJsonBackendType,
-} from './schemaBuilder'
+import { toBackendType, buildJSONOptions, toJsonBackendType } from './schemaBuilder'
 import { i18n } from '@/i18n'
 import {
   getV2ConstraintTypeByNodeType,

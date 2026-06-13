@@ -699,6 +699,83 @@ def inspect_regex_reference_integrity(
             )
 
 
+def inspect_schema_id_global_uniqueness(
+    schema_files: dict[str, TableSchemaFile],
+    loading_errors: list[LoadingError],
+) -> None:
+    """检测多个 schema 文件使用了同一个 ID（blocker）。
+
+    遍历所有 schema_files，构建 id → [table_ids] 索引。
+    如果同一 schema id 出现在多个条目中，记录 blocker 级错误。
+    """
+    id_counts: dict[str, int] = {}
+    for sid, sdoc in schema_files.items():
+        file_internal_id = getattr(sdoc, "id", None) or sid
+        id_counts[file_internal_id] = id_counts.get(file_internal_id, 0) + 1
+
+    for sid, count in id_counts.items():
+        if count > 1:
+            loading_errors.append(
+                LoadingError(
+                    id=f"schema_id_duplicate:{sid}",
+                    severity="blocker",
+                    title=f"Schema ID 重复: {sid}",
+                    description=f"Schema ID '{sid}' 被 {count} 个 schema 配置使用，可能导致约束引用指向错误的表。请确保每个 schema ID 唯一。",
+                    fix_hint=f"请为重复的 schema 重新命名 ID（当前: {sid}），使其在项目内唯一。",
+                    error_type="SchemaIdDuplicate",
+                    file_path="",
+                    ref_id=sid,
+                    suggestion="修改其中一个 schema 文件的 id 字段，使其与其他 schema 不同",
+                    actions=[],
+                )
+            )
+
+
+def inspect_source_uniqueness(
+    schema_files: dict[str, TableSchemaFile],
+    loading_errors: list[LoadingError],
+) -> None:
+    """检测两个 schema 指向同一数据源（blocker）。
+
+    遍历所有 schema 的 source.path + source.sheet，标准化后构建索引。
+    如果同一 source 被多个 schema 引用，记录 blocker 级错误。
+    """
+    from app.shared.core.project.schema.types_parts.schema_id import normalize_source_key
+
+    source_map: dict[tuple[str, str | None], list[str]] = {}
+    for sid, sdoc in schema_files.items():
+        source = getattr(sdoc, "source", None)
+        if source is None:
+            continue
+        path = getattr(source, "path", None) or ""
+        sheet = getattr(source, "sheet", None)
+        if not path:
+            continue
+        key = normalize_source_key(path, sheet)
+        source_map.setdefault(key, []).append(sid)
+
+    for key, sids in source_map.items():
+        if len(sids) > 1:
+            path_str, sheet_str = key
+            source_display = f"{path_str}"
+            if sheet_str:
+                source_display += f" ({sheet_str})"
+            loading_errors.append(
+                LoadingError(
+                    id=f"schema_source_duplicate:{path_str}:{sheet_str}",
+                    severity="blocker",
+                    title=f"数据源重复: {source_display}",
+                    description=f"数据源 '{source_display}' 被 {len(sids)} 个 schema 引用: {', '.join(sids)}。每个数据源只能被一个 schema 定义。请删除重复的 schema 或修改其 source.path。",
+                    fix_hint=f"请保留其中一个 schema（如 {sids[0]}），删除或修改其他的。",
+                    error_type="SchemaSourceDuplicate",
+                    file_path="",
+                    ref_id=sids[0],
+                    suggestion=f"保留 schema '{sids[0]}'，删除或修改: {', '.join(sids[1:])}",
+                    actions=[],
+                )
+            )
+
+
 def inspect_config(
     manifest_path: Path,
     manifest: ProjectManifest,
@@ -725,6 +802,10 @@ def inspect_config(
     inspect_id_consistency(
         manifest, schema_files, constraint_files, regex_node_files, transform_files, warnings, loading_errors
     )
+
+    inspect_schema_id_global_uniqueness(schema_files, loading_errors)
+
+    inspect_source_uniqueness(schema_files, loading_errors)
 
     inspect_reference_integrity(schema_files, constraint_files, warnings, loading_errors)
 

@@ -53,9 +53,9 @@ def _build_constraint_refs(
     table_id = constraint_spec.get("targetNodeId")
     column_id = constraint_spec.get("targetColumnId")
 
-    if workspace_path and (not table_id or not table_id.startswith("sc_")):
+    if workspace_path and table_name:
         fallback_table_id, fallback_column_id = _resolve_id_from_name(
-            workspace_path, table_name or table_id, column_name or column_id
+            workspace_path, table_name, column_name or column_id
         )
         if fallback_table_id:
             table_id = fallback_table_id

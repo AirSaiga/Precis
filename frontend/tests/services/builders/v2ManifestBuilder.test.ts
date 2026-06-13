@@ -53,7 +53,6 @@ import {
   buildV2RegexNodeFile,
   buildV2TransformFile,
 } from '@/services/builders/v2ProjectBuilder'
-import { generateSchemaId } from '@/utils/typeHelpers'
 
 function schemaNode(overrides: Record<string, unknown> = {}): CustomNode {
   return {
@@ -122,18 +121,16 @@ describe('v2/manifestBuilder - buildSchemaIdByNodeId', () => {
     expect(buildSchemaIdByNodeId([])).toEqual({})
   })
 
-  it('maps schema nodes to their schema IDs', () => {
+  it('maps schema nodes to their node IDs as schema IDs', () => {
     const nodes: CustomNode[] = [schemaNode()]
     const result = buildSchemaIdByNodeId(nodes)
-    const expectedId = generateSchemaId('/data/users.csv', undefined)
-    expect(result['schema-1']).toBe(expectedId)
+    expect(result['schema-1']).toBe('schema-1')
   })
 
   it('maps jsonSchema nodes', () => {
     const nodes: CustomNode[] = [jsonSchemaNode()]
     const result = buildSchemaIdByNodeId(nodes)
-    const expectedId = generateSchemaId('/data/data.json', undefined)
-    expect(result['json-1']).toBe(expectedId)
+    expect(result['json-1']).toBe('json-1')
   })
 
   it('ignores non-schema nodes', () => {

@@ -2,7 +2,7 @@
 
 This file provides guidance to Qoder (qoder.com) when working with code in this repository.
 
-> **项目状态**: 早期开发阶段（Pre-Alpha）。修改代码时应格外谨慎：优先做最小改动，避免大规模重构。
+> **项目状态**: 早期开发阶段（Pre-Alpha）。修改代码时仍需保证正确性，但不必刻意追求最小改动；应结合具体业务场景，必要时进行合理重构以保持代码健康。
 
 ## Build & Run Commands
 

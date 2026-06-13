@@ -1456,13 +1456,15 @@
 
 /* 紧凑型输入 */
 .settings-input {
-  height: 28px;
+  box-sizing: border-box;
+  height: 34px;
   padding: 0 var(--ui-space-sm);
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-md);
   background: var(--ui-bg-elevated);
   color: var(--ui-text-body);
   font-size: var(--ui-font-size-sm);
+  line-height: 32px;
   outline: none;
   transition:
     border-color 0.2s,
@@ -1487,19 +1489,28 @@
 
 /* 紧凑型 select */
 .settings-select {
-  height: 28px;
-  padding: 0 var(--ui-space-sm);
+  box-sizing: border-box;
+  height: 34px;
+  padding: 0 28px 0 var(--ui-space-sm);
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-sm);
+  border-radius: var(--ui-radius-md);
   background: var(--ui-bg-elevated);
   color: var(--ui-text-body);
   font-size: var(--ui-font-size-sm);
+  line-height: 32px;
   outline: none;
   cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
   transition:
     border-color 0.2s,
     box-shadow 0.2s;
   width: 100%;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239aa0a6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  background-size: 14px;
 }
 
 .settings-select:focus {

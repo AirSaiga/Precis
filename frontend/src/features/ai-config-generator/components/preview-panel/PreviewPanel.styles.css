@@ -17,14 +17,25 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: var(--ui-bg-subtle);
+  background: var(--ui-bg-elevated);
 }
 
 .preview-header h4 {
   margin: 0;
   font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-semibold);
-  color: var(--ui-text-body);
+  color: var(--ui-text-title);
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-xs);
+}
+
+.preview-header h4::before {
+  content: '';
+  width: 3px;
+  height: 16px;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-accent-gradient);
 }
 
 /* --- Pill Tab Switcher --- */
@@ -74,37 +85,37 @@
   justify-content: center;
   color: var(--ui-text-muted);
   text-align: center;
-  padding: var(--ui-space-3xl);
+  padding: var(--ui-space-2xl);
 }
 
 .empty-icon {
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-bottom: var(--ui-space-lg);
-  opacity: 0.4;
+  margin-bottom: var(--ui-space-md);
+  opacity: 0.5;
   color: var(--ui-accent);
 }
 
 .empty-icon svg {
-  width: 40px;
-  height: 40px;
+  width: 32px;
+  height: 32px;
 }
 
 .empty-state h3 {
-  margin: 0 0 var(--ui-space-sm);
-  font-size: var(--ui-font-size-md);
+  margin: 0 0 var(--ui-space-xs);
+  font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-semibold);
   color: var(--ui-text-body);
 }
 
 .empty-state p {
   margin: 0;
-  font-size: var(--ui-font-size-sm);
+  font-size: var(--ui-font-size-xs);
   color: var(--ui-text-muted);
-  max-width: 400px;
+  max-width: 360px;
   line-height: var(--ui-line-height-normal);
 }
 

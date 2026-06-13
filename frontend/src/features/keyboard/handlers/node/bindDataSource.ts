@@ -28,6 +28,7 @@ import { extractColumnNamesFromHeader, compareColumns } from '@/utils/nodes/sche
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { revalidateConstraintsReferencingSchema } from '@/services/constraints/validationRegistryCore'
 import { i18n } from '@/i18n'
+import { toastWarning } from '@/core/toast'
 import type {
   SchemaNodeData,
   SourcePreviewNodeData,
@@ -318,6 +319,25 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
   // ---- 同步 Schema 节点的数据源元数据 ----
   const smartTableName = isJsonSchema ? displayName : resolvedSheet || displayName
 
+  // 检测重复数据源
+  if (
+    graphStore.schemaSourceIndex?.isDuplicateSource(resolvedLocalPath, resolvedSheet, schemaNode.id)
+  ) {
+    const conflict = graphStore.schemaSourceIndex.getConflictForSource(
+      resolvedLocalPath,
+      resolvedSheet,
+      schemaNode.id
+    )
+    const otherIds = conflict?.nodeIds.filter((id) => id !== schemaNode.id) || []
+    toastWarning(
+      i18n.global.t('canvas.nodeCanvas.duplicateSourceMessage', {
+        source: basename(resolvedLocalPath),
+        nodes: otherIds.join(', '),
+      }),
+      i18n.global.t('canvas.nodeCanvas.duplicateSourceTitle')
+    )
+  }
+
   if (isJsonSchema) {
     const jsonSchemaData = schemaData as JsonSchemaNodeData
     graphStore.updateNodeData(schemaNode.id, {
@@ -335,6 +355,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       recordPath: jsonSchemaData.recordPath || '',
       format: (jsonSchemaData.format as any) || 'auto',
     } as Partial<CustomNodeData>)
+    graphStore.schemaSourceIndex?.rebuild()
   } else {
     graphStore.updateNodeData(schemaNode.id, {
       ...schemaNode.data,
@@ -349,6 +370,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       sourceMode: 'localfile',
       localPath: resolvedLocalPath,
     } as Partial<CustomNodeData>)
+    graphStore.schemaSourceIndex?.rebuild()
   }
 
   // ---- 标记 SourcePreview 输出端口已连接 ----
@@ -376,10 +398,14 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
 
       if (comparison.schemaEmpty) {
         const userConfirmed = await showConfirm({
-          title: '智能列填充',
-          message: `是否根据数据源 "${displayName}" 自动生成 "${smartTableName}" 的列定义？`,
-          confirmText: '生成列定义',
-          cancelText: '取消',
+          title: i18n.global.t('canvas.nodeCanvas.smartFill.title'),
+          message: i18n.global.t('canvas.nodeCanvas.smartFill.message', {
+            sourceName: displayName,
+            schemaName: smartTableName,
+            currentColumnsCount: 0,
+          }),
+          confirmText: i18n.global.t('canvas.nodeCanvas.smartFill.confirm'),
+          cancelText: i18n.global.t('common.cancel'),
         })
         if (userConfirmed) {
           const newColumns = columnGenerator.generate(unifiedPreview.rawData, schemaColumns)
@@ -394,26 +420,44 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
         if (comparison.newInSource.length > 0) {
           const preview = comparison.newInSource.slice(0, 5).join(', ')
           const suffix =
-            comparison.newInSource.length > 5 ? ` 等 ${comparison.newInSource.length} 个` : ''
+            comparison.newInSource.length > 5
+              ? i18n.global.t('canvas.nodeCanvas.smartFix.moreItems', {
+                  count: comparison.newInSource.length,
+                })
+              : ''
           parts.push(
-            `数据源有 ${comparison.newInSource.length} 个新列未在 Schema 中定义（${preview}${suffix}）`
+            i18n.global.t('canvas.nodeCanvas.smartFix.newInSource', {
+              count: comparison.newInSource.length,
+              columns: `${preview}${suffix}`,
+            })
           )
         }
         if (comparison.staleInSchema.length > 0) {
           const preview = comparison.staleInSchema.slice(0, 5).join(', ')
           const suffix =
-            comparison.staleInSchema.length > 5 ? ` 等 ${comparison.staleInSchema.length} 个` : ''
+            comparison.staleInSchema.length > 5
+              ? i18n.global.t('canvas.nodeCanvas.smartFix.moreItems', {
+                  count: comparison.staleInSchema.length,
+                })
+              : ''
           parts.push(
-            `Schema 有 ${comparison.staleInSchema.length} 个非衍生列不在数据源中（${preview}${suffix}）`
+            i18n.global.t('canvas.nodeCanvas.smartFix.staleInSchema', {
+              count: comparison.staleInSchema.length,
+              columns: `${preview}${suffix}`,
+            })
           )
         }
 
         const result = await showConfirm({
-          title: '列定义修正',
-          message: `数据源 "${displayName}" 与 "${smartTableName}" 的列定义不一致：\n\n${parts.join('；')}。\n\n是否执行智能修正？`,
-          confirmText: '智能修正',
-          cancelText: '取消',
-          alternativeText: '跳过',
+          title: i18n.global.t('canvas.nodeCanvas.smartFix.title'),
+          message: i18n.global.t('canvas.nodeCanvas.smartFix.message', {
+            sourceName: displayName,
+            schemaName: smartTableName,
+            details: parts.join('\n'),
+          }),
+          confirmText: i18n.global.t('canvas.nodeCanvas.smartFix.confirm'),
+          cancelText: i18n.global.t('common.cancel'),
+          alternativeText: i18n.global.t('canvas.nodeCanvas.smartFix.skip'),
           type: 'warning',
         })
 

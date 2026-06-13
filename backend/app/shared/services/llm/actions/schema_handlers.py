@@ -97,7 +97,7 @@ def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
             col_type = "string"
         column_defs.append(
             {
-                "id": f"sc_{col_name}",
+                "id": col_name,
                 "name": col_name,
                 "type": col_type,
             }
@@ -169,7 +169,7 @@ def _update_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
                         # 新增列
                         updated_cols.append(
                             {
-                                "id": f"sc_{col_name}",
+                                "id": col_name,
                                 "name": col_name,
                                 "type": col_type,
                             }

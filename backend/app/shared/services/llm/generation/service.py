@@ -124,17 +124,24 @@ class ConfigGenerationService:
         """
         @methoddesc 获取 Provider 实例
 
-        懒加载：首次调用时从配置中查找并创建 Provider 实例。
+        懒加载：首次调用时从用户级 AI 配置中查找并创建 Provider 实例。
+        优先使用显式指定的 provider_id，其次 defaults.generate / defaults.chat。
+        如果默认指向的 Provider 不存在，则回退到第一个已配置 Provider。
         """
         if self._provider is None:
             config = loader.load()
-            pid = self.provider_id or config.defaults.get("generate") or config.defaults.get("chat")
-            if not pid:
-                raise ValueError("No provider configured")
+            pid = self.provider_id
 
-            provider_cfg = next((p for p in config.providers if p.id == pid), None)
+            if not pid:
+                pid = config.defaults.get("generate") or config.defaults.get("chat")
+
+            provider_cfg = next((p for p in config.providers if p.id == pid), None) if pid else None
+            if provider_cfg is None and config.providers:
+                provider_cfg = config.providers[0]
+                pid = provider_cfg.id
+
             if not provider_cfg:
-                raise ValueError(f"Provider not found: {pid}")
+                raise ValueError("No provider configured")
 
             self._provider = create(provider_cfg)
         return self._provider
@@ -288,19 +295,19 @@ class ConfigGenerationService:
             # 尝试从最后一轮 content 中解析
             config = self._try_parse_config_from_content(agent_result.content) or {}
 
-        # 如果没有 schemas/constraints，说明 agent 没有正确输出配置
         if not config.get("schemas") and not config.get("constraints"):
-            # 兜底：使用单次生成
-            logger.warning("Agent 未输出有效配置，回退到单次生成")
-            return await self.generate(
-                file_paths=file_paths,
-                project_name=project_name,
-                project_id=project_id,
-                config_path=config_path,
-                profiling_options=profiling_options,
-                generation_options=generation_options,
-                progress_callback=progress_callback,
-            )
+            return {
+                "success": False,
+                "error": "Agent 未生成有效配置（缺少 schemas/constraints）",
+                "yaml_preview": "",
+                "manifest": None,
+                "schemas": {},
+                "constraints": {},
+                "regex_nodes": {},
+                "warnings": [],
+                "iterations": agent_result.iterations,
+                "metrics": agent_result.metrics.to_dict() if agent_result.metrics else None,
+            }
 
         # 补充 YAML 预览和统一字段
         if "yaml_preview" not in config:
@@ -473,23 +480,21 @@ class ConfigGenerationService:
         """构建 Agent 系统提示词。"""
         return """你是一个数据治理专家 Agent，擅长分析数据文件并生成 Precis V2 数据验证配置。
 
-你的任务是根据用户提供的数据文件画像，生成高质量的 schemas、constraints、regex_nodes 配置，并通过工具校验和精修配置。
+你的任务是根据用户提供的数据文件画像，生成高质量的 schemas、constraints、regex_nodes 配置。
 
 可用工具：
 1. plan_chunks: 根据数据画像生成分块计划（大数据量时先调用）。
-2. generate_config: 根据画像或指定 scope 生成局部配置。
-3. merge_results: 合并多个局部配置为一个完整配置。
-4. validate_config: 对生成的配置做抽样校验，返回问题列表。
-5. refine_config: 根据校验问题修正配置。
+2. generate_config: 根据画像生成完整配置。这是最终输出工具，工具返回的 config 会被作为 Agent 最终结果，调用后任务即结束。
+3. merge_results: 合并多个局部配置为一个完整配置（分块生成后使用）。
+4. validate_config: 对配置做抽样校验，返回问题列表（中间工具）。
+5. refine_config: 根据校验问题修正配置（中间工具）。
 
 工作原则：
-- 如果用户开启了 auto_chunking 且数据量大（文件数 > chunk_max_files 或列数 > chunk_max_columns），先调用 plan_chunks，然后按 chunk 多次调用 generate_config，最后用 merge_results 合并。
+- 最终必须通过调用 generate_config 工具输出配置，不要直接输出 JSON 文本。
 - 如果数据量小，直接调用 generate_config 生成完整配置。
-- 生成配置后调用 validate_config 校验，发现问题后调用 refine_config 修正。
-- 最终必须输出完整配置 JSON。
-
-输出格式：
-最终回答请直接返回 JSON 配置，包含 schemas、constraints、regex_nodes 三个字段。不要解释。"""
+- 如果用户开启了 auto_chunking 且数据量大（文件数 > chunk_max_files 或列数 > chunk_max_columns），先调用 plan_chunks，然后按 chunk 多次调用 generate_config，最后用 merge_results 合并，再调用一次 generate_config 输出最终配置。
+- 可选流程：generate_config → validate_config → refine_config → generate_config（最终）。
+- 你最多只能调用有限次工具，不要把大量时间浪费在反复校验上。"""
 
     def _build_agent_task_message(
         self,
@@ -516,10 +521,12 @@ class ConfigGenerationService:
                     f"- chunk_max_files={chunk_max_files}",
                 ]
             )
-        parts.append(
-            "- 先调用 generate_config 生成配置，再调用 validate_config 校验，最后调用 refine_config 修正问题。"
+        parts.extend(
+            [
+                "- 工作流建议：直接调用 generate_config 生成完整配置；如果希望更可靠，可以生成后调用 validate_config 校验，再调用 refine_config 修正，最后再次调用 generate_config 输出最终配置。",
+                "- 最终必须调用 generate_config 工具，其返回的 config 即为最终结果。",
+            ]
         )
-        parts.append("- 最终返回完整 JSON 配置。")
         return "\n".join(parts)
 
     def _format_profiling_for_agent(self) -> str:
@@ -724,8 +731,8 @@ class ConfigGenerationService:
             project_name=self._project_name,
             config_path=self._config_path,
             profiling_data=self._profiling_data,
-            result=result,
-            generation_options=self._generation_options,
+            llm_result=result,
+            options=self._generation_options,
             existing_config=self._existing_config,
         )
 

@@ -319,7 +319,7 @@ const settings = {
     configTemplate: '配置模板',
     configTemplateHeader: 'Precis AI Provider 配置文件',
     configTemplateHint: '复制到 ~/.precis/ai_providers.yaml 并修改',
-    configTemplateOpenAI: 'OpenAI（或兼容 API）',
+    configTemplateDeepSeek: 'DeepSeek',
     configTemplateOllama: '本地 Ollama（无需 API Key）',
     copied: '已复制',
     // 当前 Provider
@@ -345,7 +345,7 @@ const settings = {
     helpStep2Desc: '配置文件为 YAML 格式，包含 providers 列表和 defaults 默认项。',
     helpStep3Title: '3. 支持的 Provider 类型',
     helpStep3Desc: 'type 字段支持以下取值：',
-    helpStep3Types: 'openai、azure_openai、anthropic、google、aliyun、ollama',
+    helpStep3Types: 'openai、ollama',
     helpStep4Title: '4. 环境变量替换',
     helpStep4Desc: 'api_key 支持使用 ${ENV_VAR} 语法引用环境变量，避免密钥直接写入文件。',
     helpStep5Title: '5. 本地 Ollama 部署',

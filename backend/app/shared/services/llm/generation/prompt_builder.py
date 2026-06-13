@@ -147,10 +147,10 @@ def build_prompt(
 
 返回 JSON 配置，包含 schemas、constraints、regex_nodes 三个字段。
 
-Schema 格式（id 由服务端根据 path + sheet 自动生成，无需填写）：
-{"name": "users", "source": {"mode": "relative_file", "path": "data/users.xlsx", "header_row": 0}, "columns": [{"id": "col_id", "name": "col_name", "type": "string", "primary_key": true, "nullable": false}]}
+Schema 格式（请为每个 schema 提供语义化、唯一的 id，使用小写英文+下划线，如 "users"、"order_items"。该 id 会作为约束和正则节点引用的主键）：
+{"id": "users", "name": "用户表", "source": {"mode": "relative_file", "path": "data/users.xlsx", "header_row": 0}, "columns": [{"id": "email", "name": "邮箱", "type": "string", "primary_key": true, "nullable": false}]}
 
-Constraint 格式（V2，refs/params 分离）：
+Constraint 格式（V2，refs/params 分离，table_id 必须与 schema 的 id 一致）：
 {"id": "users_email_notnull", "type": "NotNull", "enabled": true, "refs": {"table_id": "users", "column_id": "email"}, "params": {}}
 
 支持类型：NotNull, Unique, AllowedValues(refs+params{allowed_values}), Range(refs+params{min,max}), ForeignKey, Conditional。

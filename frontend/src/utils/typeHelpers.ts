@@ -188,13 +188,13 @@ export function generateId(prefix: string = 'id'): string {
 /**
  * 深度克隆对象
  *
- * 通过 JSON 序列化/反序列化实现深拷贝（注意：不处理函数、循环引用等）。
+ * 使用 structuredClone 实现深拷贝（注意：不处理函数、循环引用等）。
  *
  * @param obj - 要克隆的对象
  * @returns 克隆后的新对象
  */
 export function deepClone<T>(obj: T): T {
-  return JSON.parse(JSON.stringify(obj))
+  return structuredClone(obj)
 }
 
 /**
@@ -213,156 +213,41 @@ export function isEmpty(obj: unknown): boolean {
 }
 
 /**
- * Schema ID 工具函数
+ * 标准化 source 的 (path, sheet) 元组，用于唯一性检测和索引
+ *
+ * 与后端 normalize_source_key 逻辑完全一致。
+ *
+ * @param path - 数据文件路径
+ * @param sheet - Excel 工作表名（非 Excel 文件传 null）
+ * @returns 标准化的 [path, sheet] 元组
  */
-
-const SCHEMA_ID_PREFIX = 'sc_'
-const SCHEMA_ID_SECRET = 'precis-schema-id-secret-v1'
-const SCHEMA_SOURCE_ROOT_TEST = ''
-
-function normalizeRelPathKey(filePath: string): string {
-  const p0 = (filePath || '').replace(/\\/g, '/').trim().replace(/^\.\//, '')
-
-  let p = p0
-
-  // 绝对路径：提取 data/ 之后的部分，确保与相对路径生成相同 ID
-  if (p.startsWith('/') || (p.length > 1 && p[1] === ':')) {
-    const parts = p.toLowerCase().split('/')
-    const dataIdx = parts.indexOf('data')
-    if (dataIdx >= 0 && dataIdx < parts.length - 1) {
-      p = parts.slice(dataIdx).join('/')
+export function normalizeSourceKey(
+  path: string,
+  sheet: string | null | undefined
+): [string, string | null] {
+  let p = (path || '').replace(/\\/g, '/').trim().replace(/^\.\//, '')
+  p = p.replace(/\/+/g, '/')
+  // 模拟后端 PurePosixPath 的 .. 解析
+  const driveMatch = p.match(/^[a-zA-Z]:\//)
+  const prefix = driveMatch ? driveMatch[0] : ''
+  const rest = prefix ? p.slice(prefix.length) : p
+  const parts = rest.split('/').filter((part) => part !== '.' && part !== '')
+  const resolved: string[] = []
+  for (const part of parts) {
+    if (part === '..') {
+      resolved.pop()
+    } else {
+      resolved.push(part)
     }
   }
-
-  const root0 = (SCHEMA_SOURCE_ROOT_TEST || '').replace(/\\/g, '/').trim().replace(/\/+$/, '')
-
-  if (root0) {
-    const pLower = p.toLowerCase()
-    const rootLower = root0.toLowerCase()
-    if (pLower === rootLower) {
-      p = ''
-    } else if (pLower.startsWith(`${rootLower}/`)) {
-      p = p.slice(root0.length + 1)
-    }
-  }
-
-  return p.replace(/^\.\//, '').toLowerCase()
+  p = prefix + resolved.join('/')
+  p = p.replace(/^\.\//, '').toLowerCase()
+  let s = (sheet || '').trim().toLowerCase()
+  s = s || ''
+  return [p, s || null]
 }
 
-function normalizeSheetKey(filePath: string, sheetName?: string | null): string {
-  const ext = filePath.split('.').pop()?.toLowerCase()
-  if (ext === 'xlsx' || ext === 'xls') {
-    return (sheetName || '').trim().toLowerCase()
-  }
-  const fileName = filePath.replace(/^.*[/\\]/, '').replace(/\.[^.]+$/, '')
-  return fileName.trim().toLowerCase()
-}
-
-function bytesToBase64Url(bytes: Uint8Array): string {
-  let binary = ''
-  for (let i = 0; i < bytes.length; i++) {
-    const byte = bytes[i]
-    if (byte === undefined) continue
-    binary += String.fromCharCode(byte)
-  }
-  const b64 = btoa(binary)
-  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-}
-
-function base64UrlToBytes(b64url: string): Uint8Array | null {
-  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/')
-  const padLen = (4 - (b64.length % 4)) % 4
-  const padded = b64 + '='.repeat(padLen)
-  try {
-    const binary = atob(padded)
-    const out = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) {
-      out[i] = binary.charCodeAt(i)
-    }
-    return out
-  } catch {
-    return null
-  }
-}
-
-function xorBytes(data: Uint8Array, secret: string): Uint8Array {
-  const key = new TextEncoder().encode(secret || '')
-  if (key.length === 0) return data
-  const out = new Uint8Array(data.length)
-  for (let i = 0; i < data.length; i++) {
-    const dataByte = data[i]
-    const keyByte = key[i % key.length]
-    if (dataByte !== undefined && keyByte !== undefined) {
-      out[i] = dataByte ^ keyByte
-    }
-  }
-  return out
-}
-
-export function encodeSchemaRawId(raw: string): string {
-  const rawBytes = new TextEncoder().encode(raw || '')
-  const xored = xorBytes(rawBytes, SCHEMA_ID_SECRET)
-  return `${SCHEMA_ID_PREFIX}${bytesToBase64Url(xored)}`
-}
-
-export function decodeSchemaId(schemaId: string): string | null {
-  if (!schemaId?.startsWith(SCHEMA_ID_PREFIX)) return null
-  const payload = schemaId.slice(SCHEMA_ID_PREFIX.length)
-  const bytes = base64UrlToBytes(payload)
-  if (!bytes) return null
-  const rawBytes = xorBytes(bytes, SCHEMA_ID_SECRET)
-  return new TextDecoder().decode(rawBytes)
-}
-
-export function buildSchemaRawId(filePath: string, sheetName?: string | null): string {
-  const relPathKey = normalizeRelPathKey(filePath)
-  const sheetKey = normalizeSheetKey(filePath, sheetName)
-  return `${relPathKey}|${sheetKey}`
-}
-
-/**
- * 根据数据源文件生成唯一的 Schema ID
- *
- * schema.id 由“相对路径 + sheetKey”拼接后做可逆编码得到。
- *
- * @param filePath - 数据源文件路径
- * @param sheetName - Excel Sheet 名称（可选）
- * @returns 编码后的 Schema ID
- */
-export function generateSchemaId(filePath: string, sheetName?: string | null): string {
-  const raw = buildSchemaRawId(filePath, sheetName)
-  return encodeSchemaRawId(raw)
-}
-
-/**
- * 从 Schema ID 中提取 sheet 名
- *
- * @param id - Schema ID
- * @returns Sheet 名称，如果无法提取则返回 null
- */
-export function extractSheetFromId(id: string): string | null {
-  const raw = decodeSchemaId(id)
-  if (raw) {
-    const parts = raw.split('|', 2)
-    return parts.length === 2 ? (parts[1] ?? null) : null
-  }
-  if (id.includes('-')) return id.split('-', 2)[1] ?? null
-  return null
-}
-
-/**
- * 判断是否为 Excel 类型的 Schema
- *
- * 通过解码 Schema ID 并检查文件扩展名是否为 .xlsx 或 .xls。
- *
- * @param id - Schema ID
- * @returns 是否为 Excel 类型
- */
-export function isExcelSchema(id: string): boolean {
-  const raw = decodeSchemaId(id)
-  if (raw) {
-    const relPath = raw.split('|', 2)[0] || ''
-    return relPath.toLowerCase().endsWith('.xlsx') || relPath.toLowerCase().endsWith('.xls')
-  }
-  return id.includes('-')
+export function sourceKeyString(path: string, sheet: string | null | undefined): string {
+  const [p, s] = normalizeSourceKey(path, sheet)
+  return s ? `${p}::${s}` : p
 }

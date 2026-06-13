@@ -27,53 +27,13 @@ from __future__ import annotations
 from typing import Any
 
 PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
-    "openai": {
-        "id": "openai",
-        "name": "OpenAI",
-        "type": "openai",
-        "base_url": "https://api.openai.com/v1",
-        "default_model": "gpt-4o",
-        "models": ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-3.5-turbo"],
-    },
     "deepseek": {
         "id": "deepseek",
         "name": "DeepSeek",
         "type": "openai",
         "base_url": "https://api.deepseek.com",
-        "default_model": "deepseek-v4-flash",
-        "models": ["deepseek-v4-flash", "deepseek-v4-pro"],
-    },
-    "glm": {
-        "id": "glm",
-        "name": "智谱 GLM",
-        "type": "openai",
-        "base_url": "https://open.bigmodel.cn/api/paas/v4",
-        "default_model": "glm-4-flash",
-        "models": ["glm-4-flash", "glm-4-plus", "glm-4"],
-    },
-    "minimax": {
-        "id": "minimax",
-        "name": "MiniMax",
-        "type": "openai",
-        "base_url": "https://api.minimax.chat/v1",
-        "default_model": "abab6.5s-chat",
-        "models": ["abab6.5s-chat"],
-    },
-    "kimi": {
-        "id": "kimi",
-        "name": "Kimi",
-        "type": "openai",
-        "base_url": "https://api.moonshot.cn/v1",
-        "default_model": "kimi-chat",
-        "models": ["kimi-chat", "moonshot-v1-8k", "moonshot-v1-32k"],
-    },
-    "qwen": {
-        "id": "qwen",
-        "name": "通义千问",
-        "type": "openai",
-        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "default_model": "qwen-turbo",
-        "models": ["qwen-turbo", "qwen-plus", "qwen-max"],
+        "default_model": "deepseek-v4-pro",
+        "models": ["deepseek-v4-pro", "deepseek-v4-flash"],
     },
     "ollama": {
         "id": "ollama-local",

@@ -278,6 +278,7 @@ export function useGenerationJob(
         file_paths: Array.from(checkedFiles.value),
         project_name: projectName,
         project_id: projectName, // 使用 project_name 作为 project_id
+        provider_id: activeProvider.value?.id,
         options: {
           ...options.value,
         },

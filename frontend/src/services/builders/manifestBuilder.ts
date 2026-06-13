@@ -14,7 +14,6 @@
 
 import type { CustomNode, SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
 import type { ProjectManifestV2, ProjectSettings, TemplateInstanceRefV2 } from '@/types/projectV2'
-import { generateSchemaId } from '@/utils/typeHelpers'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 
 /**
@@ -57,15 +56,11 @@ export function buildV2Manifest(
   const projectId = sanitizeV2Id(projectPath?.split(/[/\\]/).pop() || projectName || 'project')
 
   const schemaRefs = nodes
-    // 支持普通 schema 和 jsonSchema 节点
     .filter((n) => n.type === 'schema' || n.type === 'jsonSchema')
     .map((n) => {
-      const isJsonSchema = n.type === 'jsonSchema'
       const data = n.data as SchemaNodeData | JsonSchemaNodeData
-      // JSON Schema 没有 sheetName
-      const sheetName = isJsonSchema ? undefined : (data as SchemaNodeData).sheetName
-      const computedId = generateSchemaId(data.sourceFilePath || data.sourceFile || '', sheetName)
-      const effectiveId = schemaIdMap?.[n.id] || computedId || n.id
+      // 语义化 ID：节点 ID 即 schema ID
+      const effectiveId = schemaIdMap?.[n.id] || n.id
       const schemaName = data.tableName
       return { id: effectiveId, path: `schemas/${schemaName}.schema.yaml` }
     })

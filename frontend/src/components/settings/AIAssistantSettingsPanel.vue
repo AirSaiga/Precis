@@ -23,15 +23,29 @@
       </div>
 
       <!-- 无 Provider 提示 -->
-      <div
-        v-if="providers.length === 0 && !showAddForm"
-        class="settings-alert settings-alert--warning"
-      >
-        <span class="settings-alert__icon">⚠️</span>
-        <div class="settings-alert__content">
-          <div class="settings-alert__title">{{ t('settings.aiAssistant.noProvider') }}</div>
-          <div class="settings-alert__text">{{ t('settings.aiAssistant.noProviderDesc') }}</div>
+      <div v-if="providers.length === 0 && !showAddForm" class="provider-empty">
+        <div class="provider-empty__icon">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="32"
+            height="32"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          >
+            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+            <path d="M2 17l10 5 10-5" />
+            <path d="M2 12l10 5 10-5" />
+          </svg>
         </div>
+        <div class="provider-empty__title">{{ t('settings.aiAssistant.noProvider') }}</div>
+        <div class="provider-empty__text">{{ t('settings.aiAssistant.noProviderDesc') }}</div>
+        <button class="ui-btn ui-btn--primary ui-btn--sm" type="button" @click="openAddForm">
+          + {{ t('settings.aiAssistant.addProvider') }}
+        </button>
       </div>
 
       <!-- Provider 卡片列表 -->
@@ -97,6 +111,23 @@
           <!-- 展示模式 -->
           <template v-else>
             <div class="provider-card__header">
+              <div class="provider-card__icon">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                  <path d="M2 17l10 5 10-5" />
+                  <path d="M2 12l10 5 10-5" />
+                </svg>
+              </div>
               <div class="provider-card__info">
                 <div class="provider-card__name">
                   {{ p.name }}
@@ -107,7 +138,7 @@
                     {{ t('settings.aiAssistant.active') }}
                   </span>
                 </div>
-                <div class="provider-card__meta">{{ p.provider }} · {{ p.model }}</div>
+                <div class="provider-card__meta">{{ p.model }}</div>
               </div>
               <div class="provider-card__status">
                 <span
@@ -116,22 +147,42 @@
                 >
                   {{
                     p.is_configured
-                      ? '✓ ' + t('settings.aiAssistant.configured')
-                      : '✗ ' + t('settings.aiAssistant.noApiKey')
+                      ? t('settings.aiAssistant.configured')
+                      : t('settings.aiAssistant.noApiKey')
                   }}
                 </span>
               </div>
             </div>
 
-            <div class="provider-card__details">
-              <div class="provider-card__detail-row">
-                <span class="provider-card__label">ID</span>
-                <span class="provider-card__value">{{ p.id }}</span>
-              </div>
-              <div class="provider-card__detail-row">
-                <span class="provider-card__label">Base URL</span>
-                <span class="provider-card__value">{{ p.base_url }}</span>
-              </div>
+            <!-- 操作按钮 -->
+            <div class="provider-card__actions">
+              <button
+                class="ui-btn ui-btn--secondary ui-btn--sm"
+                :disabled="testingProvider === p.id"
+                @click="testProvider(p.id)"
+              >
+                <span v-if="testingProvider === p.id"
+                  >{{ t('settings.aiAssistant.testing') }}...</span
+                >
+                <span v-else>{{ t('settings.aiAssistant.testConnection') }}</span>
+              </button>
+              <button
+                v-if="p.id !== activeProviderId"
+                class="ui-btn ui-btn--primary ui-btn--sm"
+                :disabled="activatingProvider === p.id"
+                @click="activateProvider(p.id)"
+              >
+                {{ t('settings.aiAssistant.setActive') }}
+              </button>
+              <button class="ui-btn ui-btn--ghost ui-btn--sm" @click="startEdit(p)">
+                {{ t('settings.aiAssistant.edit') }}
+              </button>
+              <button
+                class="ui-btn ui-btn--ghost ui-btn--sm ui-btn--danger-text"
+                @click="handleDelete(p.id, p.name)"
+              >
+                {{ t('settings.aiAssistant.delete') }}
+              </button>
             </div>
 
             <!-- 测试结果 -->
@@ -180,43 +231,12 @@
                 </div>
               </div>
             </div>
-
-            <!-- 操作按钮 -->
-            <div class="provider-card__actions">
-              <button
-                class="ui-btn ui-btn--secondary ui-btn--sm"
-                :disabled="testingProvider === p.id"
-                @click="testProvider(p.id)"
-              >
-                <span v-if="testingProvider === p.id"
-                  >{{ t('settings.aiAssistant.testing') }}...</span
-                >
-                <span v-else>{{ t('settings.aiAssistant.testConnection') }}</span>
-              </button>
-              <button
-                v-if="p.id !== activeProviderId"
-                class="ui-btn ui-btn--primary ui-btn--sm"
-                :disabled="activatingProvider === p.id"
-                @click="activateProvider(p.id)"
-              >
-                {{ t('settings.aiAssistant.setActive') }}
-              </button>
-              <button class="ui-btn ui-btn--ghost ui-btn--sm" @click="startEdit(p)">
-                {{ t('settings.aiAssistant.edit') }}
-              </button>
-              <button
-                class="ui-btn ui-btn--ghost ui-btn--sm ui-btn--danger-text"
-                @click="handleDelete(p.id, p.name)"
-              >
-                {{ t('settings.aiAssistant.delete') }}
-              </button>
-            </div>
           </template>
         </div>
       </div>
 
       <!-- 添加按钮 -->
-      <div class="settings-actions" v-if="!showAddForm">
+      <div class="settings-actions" v-if="providers.length > 0 && !showAddForm">
         <button class="ui-btn ui-btn--secondary ui-btn--sm" type="button" @click="openAddForm">
           + {{ t('settings.aiAssistant.addProvider') }}
         </button>
@@ -225,18 +245,28 @@
       <!-- 添加表单 -->
       <div v-if="showAddForm" class="provider-card provider-card--add">
         <div class="provider-card__header">
-          <div class="provider-card__name">{{ t('settings.aiAssistant.addProvider') }}</div>
+          <div class="provider-card__icon provider-card__icon--accent">
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 5v14" />
+              <path d="M5 12h14" />
+            </svg>
+          </div>
+          <div class="provider-card__info">
+            <div class="provider-card__name">{{ t('settings.aiAssistant.addProvider') }}</div>
+            <div class="provider-card__meta">DeepSeek</div>
+          </div>
         </div>
         <div class="provider-card__edit-form">
-          <div class="edit-row">
-            <label class="edit-label">{{ t('settings.aiAssistant.selectPreset') }}</label>
-            <select v-model="addForm.presetId" class="settings-select" @change="onPresetChange">
-              <option value="" disabled>
-                {{ t('settings.aiAssistant.selectPresetPlaceholder') }}
-              </option>
-              <option v-for="pr in presets" :key="pr.id" :value="pr.id">{{ pr.name }}</option>
-            </select>
-          </div>
           <div class="edit-row">
             <label class="edit-label">{{ t('settings.aiAssistant.apiKey') }}</label>
             <input
@@ -282,8 +312,8 @@
       </div>
     </div>
 
-    <!-- 高级：配置文件 -->
-    <div class="settings-section">
+    <!-- 高级：配置文件（暂时隐藏） -->
+    <div v-if="false" class="settings-section">
       <details class="advanced-details">
         <summary class="advanced-summary">
           {{ t('settings.aiAssistant.advanced') }}
@@ -398,13 +428,13 @@
 version: "2.0"
 
 providers:
-  # ${t('settings.aiAssistant.configTemplateOpenAI')}
-  - id: openai
-    name: OpenAI
+  # ${t('settings.aiAssistant.configTemplateDeepSeek')}
+  - id: deepseek
+    name: DeepSeek
     type: openai
-    base_url: https://api.openai.com/v1
-    api_key: \${OPENAI_API_KEY}
-    model: gpt-4o
+    base_url: https://api.deepseek.com
+    api_key: \${DEEPSEEK_API_KEY}
+    model: deepseek-v4-pro
 
   # ${t('settings.aiAssistant.configTemplateOllama')}
   - id: ollama-local
@@ -415,7 +445,7 @@ providers:
     model: llama3.2
 
 defaults:
-  chat: openai`
+  chat: deepseek`
   )
 
   function presetModels(provider: CloudAIProviderResponse): string[] {
@@ -503,11 +533,11 @@ defaults:
 
   function openAddForm(): void {
     showAddForm.value = true
-    const firstPreset = presets.value[0]
-    addForm.presetId = firstPreset?.id ?? ''
+    const deepseekPreset = presets.value.find((p) => p.id === 'deepseek')
+    addForm.presetId = deepseekPreset?.id ?? presets.value[0]?.id ?? ''
     addForm.apiKey = ''
-    addForm.model = firstPreset?.default_model ?? ''
-    addForm.name = firstPreset?.name ?? ''
+    addForm.model = deepseekPreset?.default_model ?? 'deepseek-v4-pro'
+    addForm.name = deepseekPreset?.name ?? 'DeepSeek'
   }
 
   function cancelAdd(): void {
@@ -645,49 +675,71 @@ defaults:
     background: var(--ui-bg-elevated);
     border: 1px solid var(--ui-border-light);
     border-radius: var(--ui-radius-lg);
-    padding: var(--ui-space-md);
+    padding: var(--ui-space-lg);
     transition: all 0.2s ease;
   }
 
   .provider-card--active {
-    border-color: var(--ui-color-primary);
-    box-shadow: 0 0 0 1px var(--ui-color-primary);
+    border-color: var(--ui-accent);
+    box-shadow:
+      0 0 0 1px var(--ui-accent),
+      var(--ui-shadow-elevation-sm);
+  }
+
+  .provider-card--active .provider-card__icon {
+    color: var(--ui-accent);
+    background: var(--ui-accent-weak);
   }
 
   .provider-card--add {
     border-style: dashed;
-    border-color: var(--ui-color-primary);
+    border-color: var(--ui-accent);
+    background: var(--ui-bg-base);
   }
 
   .provider-card__header {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: var(--ui-space-sm);
+    align-items: center;
+    gap: var(--ui-space-md);
+    margin-bottom: var(--ui-space-md);
+  }
+
+  .provider-card__icon {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-bg-subtle);
+    color: var(--ui-text-muted);
+    flex-shrink: 0;
   }
 
   .provider-card__info {
     flex: 1;
+    min-width: 0;
   }
 
   .provider-card__name {
-    font-weight: 600;
+    font-weight: var(--ui-font-weight-semibold);
     font-size: var(--ui-font-size-md);
     display: flex;
     align-items: center;
     gap: var(--ui-space-sm);
+    color: var(--ui-text-title);
   }
 
   .provider-card__badge {
     font-size: var(--ui-font-size-xs);
     padding: 2px 8px;
     border-radius: var(--ui-radius-sm);
-    font-weight: 500;
+    font-weight: var(--ui-font-weight-medium);
   }
 
   .provider-card__badge--active {
-    background: var(--ui-color-primary-light);
-    color: var(--ui-color-primary);
+    background: var(--ui-accent-weak);
+    color: var(--ui-accent);
   }
 
   .provider-card__meta {
@@ -696,34 +748,13 @@ defaults:
     margin-top: 2px;
   }
 
-  .provider-card__details {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin-bottom: var(--ui-space-sm);
-  }
-
-  .provider-card__detail-row {
-    display: flex;
-    align-items: center;
-    gap: var(--ui-space-sm);
-    font-size: var(--ui-font-size-sm);
-  }
-
-  .provider-card__label {
-    color: var(--ui-text-muted);
-    width: 80px;
+  .provider-card__status {
     flex-shrink: 0;
   }
 
-  .provider-card__value {
-    color: var(--ui-text-secondary);
-    word-break: break-all;
-  }
-
   .provider-card__test-result {
-    margin-top: var(--ui-space-sm);
-    padding-top: var(--ui-space-sm);
+    margin-top: var(--ui-space-md);
+    padding-top: var(--ui-space-md);
     border-top: 1px solid var(--ui-border-light);
   }
 
@@ -775,21 +806,21 @@ defaults:
     display: flex;
     gap: var(--ui-space-sm);
     flex-shrink: 0;
-    margin-top: var(--ui-space-sm);
+    margin-top: var(--ui-space-md);
     flex-wrap: wrap;
   }
 
   .provider-card__edit-form {
     display: flex;
     flex-direction: column;
-    gap: var(--ui-space-sm);
-    margin-bottom: var(--ui-space-sm);
+    gap: var(--ui-space-md);
+    margin-bottom: var(--ui-space-md);
   }
 
   .edit-row {
     display: flex;
     align-items: center;
-    gap: var(--ui-space-sm);
+    gap: var(--ui-space-md);
   }
 
   .edit-label {
@@ -820,6 +851,49 @@ defaults:
     to {
       transform: rotate(360deg);
     }
+  }
+
+  .provider-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: var(--ui-space-3xl);
+    text-align: center;
+    color: var(--ui-text-muted);
+    background: var(--ui-bg-elevated);
+    border: 1px dashed var(--ui-border-light);
+    border-radius: var(--ui-radius-lg);
+    gap: var(--ui-space-md);
+  }
+
+  .provider-empty__icon {
+    width: 56px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-bg-subtle);
+    color: var(--ui-text-muted);
+    opacity: 0.6;
+  }
+
+  .provider-empty__title {
+    font-size: var(--ui-font-size-md);
+    font-weight: var(--ui-font-weight-semibold);
+    color: var(--ui-text-body);
+  }
+
+  .provider-empty__text {
+    font-size: var(--ui-font-size-sm);
+    color: var(--ui-text-muted);
+    max-width: 360px;
+  }
+
+  .provider-card__icon--accent {
+    color: var(--ui-accent);
+    background: var(--ui-accent-weak);
   }
 
   .advanced-details {

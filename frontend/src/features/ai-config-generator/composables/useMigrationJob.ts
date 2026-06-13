@@ -10,9 +10,9 @@ import { ref, type ComputedRef, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isAxiosError } from '@/core/services/httpClient'
 import {
-  getAiGenerateV2ConfigJob,
+  getAiMigrateV2ConfigJob,
   postAiMigrateV2ConfigJob,
-  postCancelAiGenerateV2ConfigJob,
+  postCancelAiMigrateV2ConfigJob,
 } from '@/api/aiApi'
 import type {
   AiGenerateV2ConfigJobStatus,
@@ -108,7 +108,7 @@ export function useMigrationJob(
   const pollJob = async () => {
     if (!configPath.value || !jobState.jobId.value) return
     try {
-      const status = await getAiGenerateV2ConfigJob(jobState.jobId.value, configPath.value)
+      const status = await getAiMigrateV2ConfigJob(jobState.jobId.value, configPath.value)
       handleJobStatus(status)
     } catch (e) {
       let msg = e instanceof Error ? e.message : String(e)
@@ -130,7 +130,10 @@ export function useMigrationJob(
     }
   }
 
-  const startMigration = async (scriptContent: string, language: string, projectName: string) => {
+  const startMigration = async (
+    sources: Array<{ content: string; language: string; name?: string }>,
+    projectName: string
+  ) => {
     if (!configPath.value) {
       window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.missingProject'))
       return
@@ -143,8 +146,8 @@ export function useMigrationJob(
       window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.modelNotConfigured'))
       return
     }
-    if (!scriptContent.trim()) {
-      window.$toast?.info(t('common.info'), '请输入脚本内容')
+    if (!sources.length || !sources.some((s) => s.content.trim())) {
+      window.$toast?.info(t('common.info'), t('aiConfigGenerator.migrate.emptySources'))
       return
     }
 
@@ -165,12 +168,19 @@ export function useMigrationJob(
     jobState.progressMessage.value = t('aiConfigGenerator.progress.queued')
 
     try {
+      const first = sources[0]
+      if (!first) {
+        window.$toast?.info(t('common.info'), t('aiConfigGenerator.migrate.emptySources'))
+        return
+      }
       const payload = {
-        script_content: scriptContent,
-        language,
+        script_content: first.content,
+        language: first.language,
+        sources,
         file_paths: Array.from(checkedFiles.value),
         project_name: projectName,
         project_id: projectName,
+        provider_id: activeProvider.value?.id,
         options: options.value,
       }
       const created = await postAiMigrateV2ConfigJob(payload, configPath.value)
@@ -192,6 +202,13 @@ export function useMigrationJob(
         }
       }
       window.$toast?.error(t('aiConfigGenerator.toast.generateFailed'), msg)
+      jobState.generating.value = false
+      jobState.canceling.value = false
+      stopPolling()
+      if (jobState.generateStartedAt.value != null)
+        jobState.lastElapsedMs.value = Date.now() - jobState.generateStartedAt.value
+      jobState.generateStartedAt.value = null
+      stopElapsed()
     } finally {
       if (!jobState.jobId.value) {
         jobState.generating.value = false
@@ -208,7 +225,7 @@ export function useMigrationJob(
     if (jobState.canceling.value) return
     jobState.canceling.value = true
     try {
-      const status = await postCancelAiGenerateV2ConfigJob(jobState.jobId.value, configPath.value)
+      const status = await postCancelAiMigrateV2ConfigJob(jobState.jobId.value, configPath.value)
       handleJobStatus(status)
     } catch (e) {
       jobState.canceling.value = false

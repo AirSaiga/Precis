@@ -64,6 +64,7 @@ const canvas = {
         '数据源 "{sourceName}" 与 "{schemaName}" 的列定义不一致：\n\n{details}\n\n是否执行智能修正？',
       confirm: '智能修正',
       skip: '跳过',
+      moreItems: ' 等 {count} 个',
       newInSource: '数据源有 {count} 个新列未在 Schema 中定义（{columns}）',
       staleInSchema: 'Schema 有 {count} 个非衍生列不在数据源中（{columns}）',
     },
@@ -99,6 +100,11 @@ const canvas = {
     headerRowMissing: '表头行数据不存在，无法生成列定义',
     schemaNodesUpdated: '已更新 {count} 个Schema节点',
     externalDataAdded: '已新增外部数据：{name}',
+    duplicateSourceTitle: '数据源冲突',
+    duplicateSourceMessage:
+      '数据源 "{source}" 已被其他 Schema 节点使用（{nodes}），请避免重复绑定。',
+    duplicateSourceImportMessage:
+      '导入的 Schema "{resourceId}" 与已有 Schema 节点使用同一数据源（{nodes}），请检查重复。',
     sheetNotFound: 'Sheet "{sheet}" 不存在于目标文件中，请在 Schema 属性面板中修正工作表名称',
     sheetNotFoundWithList:
       'Sheet "{sheet}" 不存在于目标文件中。文件拥有的工作表: {list}。请在 Schema 属性面板中修正工作表名称',

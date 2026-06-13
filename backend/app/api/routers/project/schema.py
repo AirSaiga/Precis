@@ -376,10 +376,47 @@ def delete_v2_schema(table_id: str, config_path: str = Depends(get_project_confi
                 if os.path.isfile(c_path):
                     c_data = read_yaml(Path(c_path))
                     refs_data = c_data.get("refs", {})
-                    if refs_data.get("table_id") == table_id or refs_data.get("from_table_id") == table_id:
+                    if (
+                        refs_data.get("table_id") == table_id
+                        or refs_data.get("from_table_id") == table_id
+                        or refs_data.get("to_table_id") == table_id
+                    ):
                         raise HTTPException(
                             status_code=409,
                             detail=f"Schema '{table_id}' 仍被 constraint '{c_ref.id}' 引用，请先删除引用",
+                        )
+            except HTTPException:
+                raise
+            except Exception:
+                continue
+
+        # 检查 regex 引用
+        for r_ref in manifest.regex_nodes or []:
+            try:
+                r_path = _resolve_project_path(config_path, r_ref.path)
+                if os.path.isfile(r_path):
+                    r_data = read_yaml(Path(r_path))
+                    source_ref = r_data.get("source_ref", {})
+                    if source_ref.get("table_id") == table_id:
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"Schema '{table_id}' 仍被 regex '{r_ref.id}' 引用，请先删除引用",
+                        )
+            except HTTPException:
+                raise
+            except Exception:
+                continue
+
+        # 检查 transform 引用
+        for t_ref in manifest.transforms or []:
+            try:
+                t_path = _resolve_project_path(config_path, t_ref.path)
+                if os.path.isfile(t_path):
+                    t_data = read_yaml(Path(t_path))
+                    if t_data.get("input_from_node") == table_id:
+                        raise HTTPException(
+                            status_code=409,
+                            detail=f"Schema '{table_id}' 仍被 transform '{t_ref.id}' 引用，请先删除引用",
                         )
             except HTTPException:
                 raise

@@ -100,7 +100,6 @@ def build_runtime_schemas(schema_files: dict[str, TableSchemaFile], registries: 
         - build_type_from_config() 函数负责解析类型字符串或字典，生成对应的 DataType 对象
         - 如果 schema 没有 source 但有 id，则从 id 推断 sheet_name (向后兼容旧格式)
     """
-    from app.shared.core.project.schema.types import extract_sheet_from_id
     from app.shared.domain import ColumnSchema, TableSchema, build_type_from_config
 
     # 用于存储转换后的运行时表对象，键为表 ID
@@ -155,9 +154,7 @@ def build_runtime_schemas(schema_files: dict[str, TableSchemaFile], registries: 
             # 当 source 为空时，优先使用顶层 sheet 字段作为回退
             if schema.sheet:
                 sheet_name = schema.sheet
-            elif schema.id:
-                # 向后兼容：从表 ID 推断 sheet 名称
-                sheet_name = extract_sheet_from_id(schema.id)
+            # 旧版从 ID 解码 sheet 的逻辑已移除
 
         # 构建运行时的 TableSchema 对象
         table = TableSchema(

@@ -28,12 +28,7 @@ import type {
   ProjectViewV2,
   TemplateInstanceRefV2,
 } from '@/types/projectV2'
-import {
-  toBackendType,
-  generateSchemaId,
-  buildJSONOptions,
-  toJsonBackendType,
-} from '../schemaBuilder'
+import { toBackendType, buildJSONOptions, toJsonBackendType } from '../schemaBuilder'
 import { i18n } from '@/i18n'
 import {
   getV2ConstraintTypeByNodeType,
@@ -41,20 +36,16 @@ import {
 } from '@/services/constraints/validationRegistry'
 import { buildConstraintExportPayload } from '@/services/constraints/constraintExportAdapter'
 
+/**
+ * 构建 canvas node ID -> schema ID 的映射
+ *
+ * 语义化 ID 方案：节点 ID 直接作为 schema ID，映射为恒等映射。
+ */
 export function buildSchemaIdByNodeId(nodes: CustomNode[]): Record<string, string> {
   const map: Record<string, string> = {}
   for (const n of nodes) {
-    if (n.type === 'schema') {
-      const data = n.data as SchemaNodeData
-      const schemaId = generateSchemaId(
-        data.sourceFilePath || data.sourceFile || '',
-        data.sheetName
-      )
-      map[n.id] = schemaId
-    } else if (n.type === 'jsonSchema') {
-      const data = n.data as JsonSchemaNodeData
-      const schemaId = generateSchemaId(data.sourceFilePath || data.sourceFile || '', undefined)
-      map[n.id] = schemaId
+    if (n.type === 'schema' || n.type === 'jsonSchema') {
+      map[n.id] = n.id
     }
   }
   return map
@@ -85,15 +76,11 @@ export function buildV2Manifest(
     .replace(/[\\/:"*?<>|]+/g, '_')
 
   const schemaRefs = persistentNodes
-    // 支持普通 schema 和 jsonSchema 节点
     .filter((n) => n.type === 'schema' || n.type === 'jsonSchema')
     .map((n) => {
-      const isJsonSchema = n.type === 'jsonSchema'
       const data = n.data as SchemaNodeData | JsonSchemaNodeData
-      // JSON Schema 没有 sheetName
-      const sheetName = isJsonSchema ? undefined : (data as SchemaNodeData).sheetName
-      const schemaId = generateSchemaId(data.sourceFilePath || data.sourceFile || '', sheetName)
-      const effectiveId = schemaIdMap?.[n.id] || schemaId || n.id
+      // 语义化 ID：节点 ID 即 schema ID
+      const effectiveId = schemaIdMap?.[n.id] || n.id
       const schemaName = data.tableName
       return { id: effectiveId, path: `schemas/${schemaName}.schema.yaml` }
     })

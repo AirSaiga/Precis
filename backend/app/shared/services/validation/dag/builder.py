@@ -14,11 +14,14 @@
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 from app.shared.core.project.regex.types import RegexNodeFile
 from app.shared.core.project.transform.types import TransformFile
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -37,6 +40,7 @@ class ExecutionDAG:
     """@classdesc 执行 DAG"""
 
     nodes: dict[str, DAGNode] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
 
 def build_execution_dag(
@@ -86,6 +90,7 @@ def build_execution_dag(
             )
 
     # 4. 建立边（input_from_node → node）
+    dangling_nodes: list[str] = []
     for tid, tfile in transform_files.items():
         if not tfile.enabled:
             continue
@@ -94,8 +99,8 @@ def build_execution_dag(
             dag.nodes[tid].incoming.append(input_node)
             dag.nodes[input_node].outgoing.append(tid)
         elif input_node and input_node not in dag.nodes:
-            # 上游节点未定义，记录为悬空依赖
-            pass
+            logger.warning("[DAG] Transform '%s' 的上游节点 '%s' 不存在（悬空依赖）", tid, input_node)
+            dangling_nodes.append(f"{tid} -> {input_node}")
 
     if regex_files:
         for rid, rfile in regex_files.items():
@@ -107,6 +112,12 @@ def build_execution_dag(
             if input_node and input_node in dag.nodes:
                 dag.nodes[rid].incoming.append(input_node)
                 dag.nodes[input_node].outgoing.append(rid)
+            elif input_node and input_node not in dag.nodes:
+                logger.warning("[DAG] Regex '%s' 的上游节点 '%s' 不存在（悬空依赖）", rid, input_node)
+                dangling_nodes.append(f"{rid} -> {input_node}")
+
+    if dangling_nodes:
+        dag.metadata["dangling_nodes"] = dangling_nodes
 
     return dag
 

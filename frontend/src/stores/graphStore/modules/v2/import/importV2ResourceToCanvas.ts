@@ -25,7 +25,7 @@ import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData, TransformNodeData } from '@/types/graph'
 import { useI18n } from 'vue-i18n'
-import { toastError } from '@/core/toast'
+import { toastError, toastWarning } from '@/core/toast'
 import { createV2ImportEdges } from './edges'
 import { createV2SchemaImporter } from './schema'
 import { createV2RegexImporter } from './regex'
@@ -52,6 +52,19 @@ export function createV2ImportToCanvas(params: {
     relPath: string | undefined
   ) => string | undefined
   reconcileAll: () => void
+  sourceIndex?: {
+    isDuplicateSource: (
+      path: string,
+      sheet: string | null | undefined,
+      excludeNodeId?: string
+    ) => boolean
+    getConflictForSource: (
+      path: string,
+      sheet: string | null | undefined,
+      excludeNodeId?: string
+    ) => { nodeIds: string[] } | null
+    rebuild: () => void
+  }
 }) {
   const {
     nodes,
@@ -60,6 +73,7 @@ export function createV2ImportToCanvas(params: {
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     reconcileAll,
+    sourceIndex,
   } = params
   const { t } = useI18n()
 
@@ -120,9 +134,42 @@ export function createV2ImportToCanvas(params: {
       if (normalizedKind === 'schema') {
         const nodeId = await importSchema(resourceId, position)
         selectedNodeId.value = nodeId
+        sourceIndex?.rebuild()
         await nextTick()
         flushBufferedEdges()
         reconcileAll()
+        // 导入后检测是否出现重复 source
+        const schemaNode = nodes.value.find(
+          (n) => n.id === nodeId && (n.type === 'schema' || n.type === 'jsonSchema')
+        )
+        if (schemaNode && sourceIndex) {
+          const data = schemaNode.data as {
+            sourceFilePath?: string
+            localPath?: string
+            sheetName?: string
+          }
+          if (
+            sourceIndex.isDuplicateSource(
+              data.sourceFilePath || data.localPath || '',
+              data.sheetName,
+              nodeId
+            )
+          ) {
+            const conflict = sourceIndex.getConflictForSource(
+              data.sourceFilePath || data.localPath || '',
+              data.sheetName,
+              nodeId
+            )
+            const otherIds = conflict?.nodeIds.filter((id) => id !== nodeId) || []
+            toastWarning(
+              t('canvas.nodeCanvas.duplicateSourceImportMessage', {
+                resourceId,
+                nodes: otherIds.join(', '),
+              }),
+              t('canvas.nodeCanvas.duplicateSourceTitle')
+            )
+          }
+        }
         return nodeId
       }
 

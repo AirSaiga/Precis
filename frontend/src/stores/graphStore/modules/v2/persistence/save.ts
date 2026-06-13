@@ -83,6 +83,7 @@ import type { CustomNodeData } from '@/types/nodes'
 import type { TableSchemaFileV2 } from '@/types/projectV2'
 import { toastError, toastSuccess } from '@/core/toast'
 import { useI18n } from 'vue-i18n'
+import { useInspectionStore } from '@/stores/inspectionStore'
 import {
   putV2Constraint,
   putV2FullConfig,
@@ -169,6 +170,56 @@ export function createV2SaveOps(params: {
       const messages = blockers.map((e) => e.message).join('; ')
       logger.error('保存项目失败:', messages || result.errors)
       toastError(messages || t('messages.error.unknownError'), t('messages.persistence.saveFailed'))
+
+      // 将保存前的 BLOCKER 写入 inspectionStore，方便用户在抽屉中统一查看/跳转
+      if (blockers.length > 0) {
+        const inspectionStore = useInspectionStore()
+        const now = new Date().toISOString()
+        inspectionStore.setResult(
+          {
+            inspected_at: now,
+            errors: blockers.map((e) => ({
+              id: `save-blocker:${e.nodeId || 'global'}:${e.field || 'unknown'}:${now}`,
+              severity: 'blocker' as const,
+              title: '',
+              title_key: 'inspection.issues.saveBlocked.title',
+              description: e.message,
+              description_key: 'inspection.issues.saveBlocked.description',
+              fix_hint: '',
+              fix_hint_key: e.field
+                ? 'inspection.issues.saveBlocked.fixHintWithField'
+                : 'inspection.issues.saveBlocked.fixHint',
+              error_type: 'SavePreValidationBlocked',
+              file_path: '',
+              ref_id: e.nodeId || null,
+              message: e.message,
+              suggestion: '',
+              actions: e.nodeId
+                ? [
+                    {
+                      type: 'navigate' as const,
+                      label: '',
+                      label_key: 'inspection.actions.navigateToNode',
+                      target: e.nodeId,
+                    },
+                  ]
+                : [],
+              context: {
+                field: e.field || null,
+                nodeId: e.nodeId || null,
+                description: e.message,
+              },
+              message_params: {
+                description: e.message,
+                field: e.field || '',
+                nodeId: e.nodeId || '',
+              },
+            })),
+          },
+          { autoOpen: true }
+        )
+      }
+
       return false
     }
   }

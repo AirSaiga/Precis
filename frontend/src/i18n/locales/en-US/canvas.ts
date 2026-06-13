@@ -65,6 +65,7 @@ const canvas = {
         'Column definitions between data source "{sourceName}" and "{schemaName}" are inconsistent:\n\n{details}\n\nApply smart fix?',
       confirm: 'Smart Fix',
       skip: 'Skip',
+      moreItems: ' and {count} more',
       newInSource: '{count} new column(s) in data source not defined in Schema ({columns})',
       staleInSchema: '{count} non-derived column(s) in Schema not found in data source ({columns})',
     },
@@ -98,6 +99,11 @@ const canvas = {
     headerRowMissing: 'Header row data is missing, cannot generate column definitions',
     schemaNodesUpdated: 'Updated {count} Schema node(s)',
     externalDataAdded: 'External data added: {name}',
+    duplicateSourceTitle: 'Duplicate Data Source',
+    duplicateSourceMessage:
+      'Data source "{source}" is already used by other Schema node(s) ({nodes}). Please avoid duplicate binding.',
+    duplicateSourceImportMessage:
+      'Imported Schema "{resourceId}" uses the same data source as existing Schema node(s) ({nodes}). Please check for duplicates.',
     sheetNotFound:
       'Sheet "{sheet}" does not exist in the target file, please correct the sheet name in the Schema property panel',
     sheetNotFoundWithList:

@@ -210,11 +210,20 @@ class ConfigGenerateResponse(BaseModel):
     metrics: Optional[dict[str, Any]] = Field(default=None, description="Agent 校验指标")
 
 
+class ConfigMigrateSource(BaseModel):
+    """单个迁移脚本来源"""
+
+    content: str = Field(..., description="脚本内容或自然语言描述")
+    language: str = Field(default="python", description="脚本类型: python/natural_language/excel_formula/sql")
+    name: Optional[str] = Field(default=None, description="来源名称或文件路径，用于展示")
+
+
 class ConfigMigrateRequest(BaseModel):
     """配置迁移请求"""
 
-    script_content: str = Field(..., description="脚本内容或自然语言描述")
+    script_content: str = Field(default="", description="脚本内容或自然语言描述（兼容单来源）")
     language: str = Field(default="python", description="脚本类型: python/natural_language/excel_formula/sql")
+    sources: Optional[list[ConfigMigrateSource]] = Field(default=None, description="批量脚本来源列表")
     file_paths: list[str] = Field(default_factory=list, description="数据文件路径列表")
     project_name: str = Field(..., description="项目名称")
     project_id: str = Field(..., description="项目标识")

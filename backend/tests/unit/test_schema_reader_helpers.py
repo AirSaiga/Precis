@@ -106,6 +106,7 @@ class TestBuildRuntimeSchema:
         assert result.sheet_name is None
 
     def test_without_source_with_hyphen_id(self):
+        """旧版从 ID 解码 sheet 的逻辑已移除，无 source 时 sheet_name 保持 None"""
         schema_file = TableSchemaFile(
             version=2,
             id="users-Sheet1",
@@ -113,4 +114,4 @@ class TestBuildRuntimeSchema:
             columns=[ColumnSpec(id="name", name="name", type="string")],
         )
         result = build_runtime_schema(schema_file, {})
-        assert result.sheet_name == "Sheet1"
+        assert result.sheet_name is None
