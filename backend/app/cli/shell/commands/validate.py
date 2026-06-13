@@ -251,9 +251,7 @@ class ValidateCommand(Command):
             _console.print(output)
 
             if errors:
-                return CommandResult.error(
-                    "", data={"errors": errors, "duration_ms": duration_ms}
-                )
+                return CommandResult.error("", data={"errors": errors, "duration_ms": duration_ms})
             else:
                 return CommandResult.ok("", data={"errors": [], "duration_ms": duration_ms})
 

@@ -314,9 +314,7 @@ class ProjectCommand(Command):
                 return sub.execute(args[1:], ctx)
 
         available = ", ".join(self.list_subcommands())
-        return CommandResult(
-            success=False, message=f"未知的 project 子命令: {sub_name}。可用子命令: {available}"
-        )
+        return CommandResult(success=False, message=f"未知的 project 子命令: {sub_name}。可用子命令: {available}")
 
     def _show_help(self) -> CommandResult:
         """显示 project 命令的帮助信息。

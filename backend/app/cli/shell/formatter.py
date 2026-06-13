@@ -157,11 +157,13 @@ class Formatter:
 
         _console.print(logo)
         _console.print()
-        _console.print(Panel.fit(
-            f"{subtitle}\n{version_text}",
-            border_style="cyan",
-            padding=(0, 4),
-        ))
+        _console.print(
+            Panel.fit(
+                f"{subtitle}\n{version_text}",
+                border_style="cyan",
+                padding=(0, 4),
+            )
+        )
 
         print()
         _console.print("[dim]Type 'help' for available commands, 'exit' to exit, 'qq' to force quit[/dim]")

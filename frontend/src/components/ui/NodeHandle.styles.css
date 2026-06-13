@@ -6,9 +6,9 @@
   border: 2px solid var(--handle-accent, var(--node-handle-border, var(--ui-border-strong))) !important;
   box-shadow: var(--node-shadow-sm) !important;
   transition:
-    transform var(--node-transition-fast, var(--ui-transition-fast)) !important,
-    box-shadow var(--node-transition-fast, var(--ui-transition-fast)) !important,
-    border-color var(--node-transition-fast, var(--ui-transition-fast)) !important,
+    transform var(--node-transition-fast, var(--ui-transition-fast)),
+    box-shadow var(--node-transition-fast, var(--ui-transition-fast)),
+    border-color var(--node-transition-fast, var(--ui-transition-fast)),
     opacity var(--node-transition-fast, var(--ui-transition-fast)) !important;
   z-index: 15;
   opacity: var(--node-handle-opacity, 0.9);
