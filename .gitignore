@@ -37,7 +37,8 @@
 
 # 通用 AI Skill 目录（编辑器无关，团队共享）
 # 注意：.ai/skills/ 用于存放各编辑器共用的 skill 规则
-!/.ai/
+# 目前该目录已从 Git 跟踪中移除，保持本地使用
+/.ai/
 !/.ai/skills/
 !/.ai/skills/**/*.md
 !/.ai/README.md
