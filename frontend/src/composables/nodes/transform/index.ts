@@ -13,3 +13,14 @@ export {
   ROW_CHANGING_TYPE_LABELS,
   hasDedicatedGenerator,
 } from './transformTypeRegistry'
+export {
+  TRANSFORM_CATEGORIES,
+  TRANSFORM_SEMANTICS,
+  getCategoryForType,
+  getCategoryIcon,
+  getCategoryId,
+  getSemanticForType,
+  type TransformCategory,
+  type TransformCategoryId,
+  type TransformSemantic,
+} from './transformCategory'

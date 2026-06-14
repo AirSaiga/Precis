@@ -28,6 +28,11 @@ export const TRANSFORM_TYPE_I18N_KEYS: Record<string, string> = {
   Aggregate: 'customNodes.transformNode.types.aggregate',
   ConditionalAssign: 'customNodes.transformNode.types.conditionalAssign',
   SortRows: 'customNodes.transformNode.types.sortRows',
+  // 原子化操作（补全：此前会 fallback 显示英文 PascalCase）
+  Digits: 'customNodes.transformNode.types.digits',
+  WeightedSum: 'customNodes.transformNode.types.weightedSum',
+  Modulo: 'customNodes.transformNode.types.modulo',
+  MapValue: 'customNodes.transformNode.types.mapValue',
 }
 
 /**

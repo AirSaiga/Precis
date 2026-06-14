@@ -52,6 +52,12 @@ export function createV2ImportToCanvas(params: {
     relPath: string | undefined
   ) => string | undefined
   reconcileAll: () => void
+  /**
+   * 查询引用指定 Schema 的独立约束 ID 列表。
+   * 用于拖拽独立约束触发自动创建 Schema 时，连带创建该 Schema 关联的其他独立约束。
+   * 返回 undefined 表示无法查询（如 resourceTreeStore 未初始化），此时跳过连带创建。
+   */
+  getIndependentConstraintIdsForSchema?: (schemaId: string) => string[] | undefined
   sourceIndex?: {
     isDuplicateSource: (
       path: string,
@@ -73,17 +79,68 @@ export function createV2ImportToCanvas(params: {
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     reconcileAll,
+    getIndependentConstraintIdsForSchema,
     sourceIndex,
   } = params
   const { t } = useI18n()
 
   const { ensureSchemaToRegexEdge, ensureSchemaToConstraintEdge, bufferEdge, flushBufferedEdges } =
     createV2ImportEdges({ edges })
+
+  // 延迟绑定 importConstraint，解决 schema importer ↔ constraint importer 的循环依赖：
+  // createV2SchemaImporter 需要在新建 Schema 时连带创建引用它的独立约束（调用 importConstraint），
+  // 但 importConstraint 依赖 ensureSchemaNode（来自 schema importer），二者互相引用。
+  // 通过 getImportConstraint 闭包在运行时获取最新的 importConstraint 引用，
+  // 此时它已在下方 createV2ConstraintImporter 中完成赋值。
+  let importConstraintFn:
+    | ((
+        resourceId: string,
+        position: { x: number; y: number },
+        options?: { includeDeps?: boolean; moveIfExists?: boolean }
+      ) => Promise<string>)
+    | null = null
+  const getImportConstraint = () => importConstraintFn
+
+  /**
+   * 连带创建引用指定 Schema 的其他独立约束。
+   *
+   * 调用时机：拖拽独立约束 A 触发 ensureSchemaNode 新建 Schema 时，
+   * 补齐该 Schema 关联的其他独立约束（排除 A 自身），使自动创建的 Schema 内容完整。
+   *
+   * 布局：连带约束围绕 Schema 右侧错落排列，沿用内嵌约束的 idx*160 y 偏移模式。
+   */
+  const importRelatedIndependentConstraints = async (
+    tableId: string,
+    excludeConstraintId: string,
+    schemaPosition: { x: number; y: number }
+  ): Promise<void> => {
+    const importConstraint = getImportConstraint()
+    if (!importConstraint || !getIndependentConstraintIdsForSchema) return
+
+    const relatedIds = getIndependentConstraintIdsForSchema(tableId)
+    if (!relatedIds || relatedIds.length === 0) return
+
+    // 逐个导入引用该 Schema 的独立约束（排除被拖拽约束自身）
+    // importConstraint 内部是幂等的，重复拖拽时已存在的节点会被跳过
+    let idx = 0
+    for (const cId of relatedIds) {
+      if (!cId || cId === excludeConstraintId) continue
+      // 排除画布上已存在的约束，避免重复导入
+      if (nodes.value.some((n) => n.id === cId)) continue
+      const cPosition = { x: schemaPosition.x + 420, y: schemaPosition.y + idx * 160 }
+      // includeDeps=false：连带创建的约束不再触发其依赖 Schema 的连带创建，
+      // 避免雪崩（其依赖的 Schema 即当前 tableId，已存在会直接返回）
+      await importConstraint(cId, cPosition, { includeDeps: false, moveIfExists: false })
+      idx++
+    }
+  }
+
   const { ensureSchemaNode, importSchema } = createV2SchemaImporter({
     nodes,
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     ensureSchemaToConstraintEdge,
+    importRelatedIndependentConstraints,
   })
   const { importRegex } = createV2RegexImporter({
     nodes,
@@ -99,6 +156,8 @@ export function createV2ImportToCanvas(params: {
     ensureSchemaToConstraintEdge,
     bufferEdge,
   })
+  // 完成延迟绑定：供 schema importer 的连带创建逻辑使用
+  importConstraintFn = importConstraint
 
   async function importV2ResourceToCanvas(
     kind: ProjectResourceKind,

@@ -19,9 +19,12 @@
 
 <script setup lang="ts">
   import { computed, ref } from 'vue'
+  import { useI18n } from 'vue-i18n'
   import InspectorField from '@/components/ui/inspector/InspectorField.vue'
   import type { InspectorContext } from '../utils'
   import type { InspectorExpressionField } from '../types'
+
+  const { t } = useI18n()
 
   const props = defineProps<{
     field: InspectorExpressionField
@@ -49,15 +52,15 @@
     if (!expr.trim()) return ''
     const validPattern = /^[@\w\s+\-*/().%\[\]]+$/
     if (!validPattern.test(expr)) {
-      return 'Contains invalid characters'
+      return t('inspector.transformNode.params.mathExpr.invalidChars')
     }
     let depth = 0
     for (const ch of expr) {
       if (ch === '(') depth++
       if (ch === ')') depth--
-      if (depth < 0) return 'Unmatched closing parenthesis'
+      if (depth < 0) return t('inspector.transformNode.params.mathExpr.unmatchedClose')
     }
-    if (depth !== 0) return 'Unmatched opening parenthesis'
+    if (depth !== 0) return t('inspector.transformNode.params.mathExpr.unmatchedOpen')
     return ''
   }
 

@@ -152,7 +152,14 @@ describe('createV2ConstraintImporter', () => {
 
       await importer.importConstraint('c1', { x: 100, y: 100 })
 
-      expect(mockEnsureSchema).toHaveBeenCalledWith('s1', expect.any(Object))
+      // FK 的 from_schema 触发连带创建（importRelatedConstraints=true，排除被拖拽约束自身 c1）
+      expect(mockEnsureSchema).toHaveBeenCalledWith(
+        's1',
+        expect.any(Object),
+        undefined,
+        { importRelatedConstraints: true, excludeConstraintId: 'c1' }
+      )
+      // FK 的 to_schema 不连带创建（避免雪崩），只传 tableId 和 position
       expect(mockEnsureSchema).toHaveBeenCalledWith('s2', expect.any(Object))
       expect(buildNodeData).toHaveBeenCalledWith(
         'foreignKey',

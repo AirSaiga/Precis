@@ -172,7 +172,17 @@ export function useTransformSave() {
     // ============================================================
 
     const baseName = transformData.inputColumn || 'result'
-    const columns = resolveOutputColumns(transformData, `${baseName}_result`)
+
+    // Concat 特殊处理：遵循后端命名优先级 output_column → outputColumns[0] → concat_result
+    // 否则 output_column 参数形同虚设（检查器暴露了该字段）
+    const concatOutputColumn = (transformData.params?.output_column as string) || ''
+    const columns =
+      type === 'Concat' && concatOutputColumn
+        ? [concatOutputColumn]
+        : resolveOutputColumns(
+            transformData,
+            type === 'Concat' ? 'concat_result' : `${baseName}_result`
+          )
     let rows: string[][]
 
     switch (type) {

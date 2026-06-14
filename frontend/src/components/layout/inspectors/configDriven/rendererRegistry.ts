@@ -32,6 +32,8 @@ import StatCardRenderer from './renderers/StatCardRenderer.vue'
 import ValidationSummaryRenderer from './renderers/ValidationSummaryRenderer.vue'
 import UpstreamColumnSelectRenderer from './renderers/UpstreamColumnSelectRenderer.vue'
 import ExpressionRenderer from './renderers/ExpressionRenderer.vue'
+import DescriptionCardRenderer from './renderers/DescriptionCardRenderer.vue'
+import TransformTypeSelectRenderer from './renderers/TransformTypeSelectRenderer.vue'
 
 export const rendererRegistry: Record<InspectorField['kind'], Component> = {
   text: TextRenderer,
@@ -57,4 +59,6 @@ export const rendererRegistry: Record<InspectorField['kind'], Component> = {
   actionButton: ActionButtonRenderer,
   statCard: StatCardRenderer,
   validationSummary: ValidationSummaryRenderer,
+  descriptionCard: DescriptionCardRenderer,
+  transformTypeSelect: TransformTypeSelectRenderer,
 }

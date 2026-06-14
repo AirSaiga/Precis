@@ -22,6 +22,11 @@ export function createV2ImportModule(params: {
     relPath: string | undefined
   ) => string | undefined
   reconcileAll: () => void
+  /**
+   * 查询引用指定 Schema 的独立约束 ID 列表。
+   * 透传给 createV2ImportToCanvas，用于拖拽独立约束触发自动创建 Schema 时连带创建其他独立约束。
+   */
+  getIndependentConstraintIdsForSchema?: (schemaId: string) => string[] | undefined
   sourceIndex?: {
     isDuplicateSource: (
       path: string,
@@ -43,6 +48,7 @@ export function createV2ImportModule(params: {
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     reconcileAll,
+    getIndependentConstraintIdsForSchema,
     sourceIndex,
   } = params
 
@@ -59,6 +65,7 @@ export function createV2ImportModule(params: {
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     reconcileAll,
+    getIndependentConstraintIdsForSchema,
     sourceIndex,
   })
 

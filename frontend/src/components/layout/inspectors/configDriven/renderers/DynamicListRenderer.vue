@@ -111,11 +111,33 @@
 
   type RowItem = Record<string, unknown>
 
+  /**
+   * 判断一行是否全字段为空（视为未填写的占位行）。
+   * 用于避免把 {column:"", op:"eq", value:""} 这类空行提交到 store / 后端。
+   */
+  function isEmptyRow(row: RowItem): boolean {
+    return columns.value.every((col) => {
+      const v = row[col.key]
+      return v === '' || v === null || v === undefined
+    })
+  }
+
+  /** 过滤掉全空行，仅提交有效行 */
+  function filterEmptyRows(rows: RowItem[]): RowItem[] {
+    return rows.filter((r) => !isEmptyRow(r))
+  }
+
+  /**
+   * 展示用的行列表：
+   * - 先取 store 中已持久化的行
+   * - 始终在末尾追加一个占位空行，作为下一个输入位置
+   * 占位空行仅用于展示编辑，不会被提交（见 filterEmptyRows）
+   */
   const items = computed<RowItem[]>(() => {
     const v = props.value
-    if (Array.isArray(v) && v.length > 0) return v as RowItem[]
-    if (props.field.minItems) return [{ ...props.field.emptyItem }]
-    return []
+    const stored: RowItem[] = Array.isArray(v) ? (v as RowItem[]) : []
+    const validStored = filterEmptyRows(stored)
+    return [...validStored, { ...props.field.emptyItem }]
   })
 
   const upstreamColumns = computed(() => getUpstreamColumns(props.ctx))
@@ -174,21 +196,19 @@
     const next = items.value.map((item, i) =>
       i === index ? { ...item, [key]: value } : { ...item }
     )
-    emit('commit', next)
+    // 过滤全空行后再提交，避免空行污染 store / 后端
+    emit('commit', filterEmptyRows(next))
   }
 
   function addItem() {
-    const next = [...items.value, { ...props.field.emptyItem }]
-    emit('commit', next)
+    // 当前末尾已有占位空行；"添加"仅触发一次提交（含已填行，过滤空行）
+    // 提交后 items 会重新计算并补出新的占位空行
+    emit('commit', filterEmptyRows(items.value))
   }
 
   function removeItem(index: number) {
     const next = items.value.filter((_, i) => i !== index)
-    if (props.field.minItems && next.length === 0) {
-      emit('commit', [{ ...props.field.emptyItem }])
-    } else {
-      emit('commit', next)
-    }
+    emit('commit', filterEmptyRows(next))
   }
 </script>
 

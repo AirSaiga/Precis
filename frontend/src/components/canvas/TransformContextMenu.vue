@@ -142,6 +142,7 @@
   import { useI18n } from 'vue-i18n'
   import type { TransformTypeV2 } from '@/types/projectV2'
   import type { ConstraintKind } from '@/services/constraints/types'
+  import { TRANSFORM_CATEGORIES as SHARED_TRANSFORM_CATEGORIES } from '@/composables/nodes/transform/transformCategory'
 
   // ============================================================================
   // Props & Emits
@@ -195,49 +196,13 @@
     kind: 'transform' | 'constraint'
   }
 
-  // Transform 分类
-  const TRANSFORM_CATEGORIES: MenuCategory[] = [
-    {
-      id: 'text',
-      icon: '📄',
-      kind: 'transform',
-      types: [
-        'StringSplit',
-        'RegexExtract',
-        'Strip',
-        'UpperCase',
-        'LowerCase',
-        'Replace',
-        'Concat',
-        'Substring',
-        'Lookup',
-      ],
-    },
-    {
-      id: 'numeric',
-      icon: '🔢',
-      kind: 'transform',
-      types: ['MathExpr', 'WeightedSum', 'Modulo', 'Digits'],
-    },
-    {
-      id: 'cleaning',
-      icon: '🧹',
-      kind: 'transform',
-      types: ['FilterRows', 'FillNA', 'DropDuplicates', 'CastType', 'SortRows'],
-    },
-    {
-      id: 'structure',
-      icon: '🏗️',
-      kind: 'transform',
-      types: ['Aggregate', 'ConditionalAssign', 'MapValue'],
-    },
-    {
-      id: 'date',
-      icon: '📅',
-      kind: 'transform',
-      types: ['DateFormat'],
-    },
-  ]
+  // Transform 分类 —— 复用 transformCategory.ts 单一数据源
+  const TRANSFORM_CATEGORIES: MenuCategory[] = SHARED_TRANSFORM_CATEGORIES.map((cat) => ({
+    id: cat.id,
+    icon: cat.icon,
+    kind: 'transform',
+    types: cat.types,
+  }))
 
   // Constraint 分类
   const CONSTRAINT_CATEGORIES: MenuCategory[] = [

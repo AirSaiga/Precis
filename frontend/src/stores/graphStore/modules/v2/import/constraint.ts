@@ -18,6 +18,7 @@ import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { SchemaNodeData } from '@/types/nodes'
+import type { TableSchemaFileV2 } from '@/types/projectV2'
 import {
   getConstraintKindByV2Type,
   getConstraintNodeTypeByV2Type,
@@ -48,7 +49,17 @@ export function createV2ConstraintImporter(params: {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>
   selectedNodeId: Ref<string | null>
-  ensureSchemaNode: (tableId: string, position: { x: number; y: number }) => Promise<CustomNode>
+  /**
+   * ensureSchemaNode 的类型签名（与 schema.ts 中定义一致）。
+   * constraint.ts 仅使用 tableId/position/options 参数，从不传 schemaFile，
+   * 但保留完整签名以确保与 ensureSchemaNode 的真实类型兼容。
+   */
+  ensureSchemaNode: (
+    tableId: string,
+    position: { x: number; y: number },
+    schemaFile?: TableSchemaFileV2,
+    options?: { importRelatedConstraints?: boolean; excludeConstraintId?: string }
+  ) => Promise<CustomNode>
   ensureSchemaToConstraintEdge: (tableId: string, constraintId: string, columnId: string) => void
   bufferEdge: (edge: Edge) => void
 }) {
@@ -102,8 +113,14 @@ export function createV2ConstraintImporter(params: {
       const toColId = refs.to_column_id as string
 
       const fromSchema = includeDeps
-        ? await ensureSchemaNode(fromTableId, { x: position.x - 460, y: position.y - 140 })
+        ? await ensureSchemaNode(
+            fromTableId,
+            { x: position.x - 460, y: position.y - 140 },
+            undefined,
+            { importRelatedConstraints: true, excludeConstraintId: resourceId }
+          )
         : nodes.value.find((n) => n.id === fromTableId)
+      // FK 的 to_schema 不传 importRelatedConstraints，避免雪崩式导入其关联约束
       const toSchema = includeDeps
         ? await ensureSchemaNode(toTableId, { x: position.x - 460, y: position.y + 140 })
         : nodes.value.find((n) => n.id === toTableId)
@@ -144,7 +161,12 @@ export function createV2ConstraintImporter(params: {
       // Conditional 有 IF 条件 + THEN 列
       const tableId = refs.table_id as string
       const schemaNode = includeDeps
-        ? await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y })
+        ? await ensureSchemaNode(
+            tableId,
+            { x: position.x - 420, y: position.y },
+            undefined,
+            { importRelatedConstraints: true, excludeConstraintId: resourceId }
+          )
         : nodes.value.find((n) => n.id === tableId)
 
       const thenColId = refs.then_column_id as string
@@ -189,7 +211,12 @@ export function createV2ConstraintImporter(params: {
       const tableId = refs.table_id as string
       const colIds = Array.isArray(refs.column_ids) ? (refs.column_ids as string[]) : []
       const schemaNode = includeDeps
-        ? await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y })
+        ? await ensureSchemaNode(
+            tableId,
+            { x: position.x - 420, y: position.y },
+            undefined,
+            { importRelatedConstraints: true, excludeConstraintId: resourceId }
+          )
         : nodes.value.find((n) => n.id === tableId)
 
       buildInput = {
@@ -215,7 +242,12 @@ export function createV2ConstraintImporter(params: {
       const colId = (refs.column_id as string) || ''
       const schemaNode =
         tableId && includeDeps
-          ? await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y })
+          ? await ensureSchemaNode(
+              tableId,
+              { x: position.x - 420, y: position.y },
+              undefined,
+              { importRelatedConstraints: true, excludeConstraintId: resourceId }
+            )
           : nodes.value.find((n) => n.id === tableId)
 
       buildInput = {

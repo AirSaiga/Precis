@@ -160,6 +160,10 @@ export type InspectorKeyValueListField = InspectorFieldBase & {
   source: InspectorValueSource
   keyPlaceholder?: string
   valuePlaceholder?: string
+  /** i18n key for key placeholder（优先于 keyPlaceholder） */
+  keyPlaceholderKey?: string
+  /** i18n key for value placeholder（优先于 valuePlaceholder） */
+  valuePlaceholderKey?: string
 }
 
 export type InspectorWeightedSumField = InspectorFieldBase & {
@@ -193,6 +197,29 @@ export type InspectorStatCardField = InspectorFieldBase & {
 
 export type InspectorValidationSummaryField = InspectorFieldBase & {
   kind: 'validationSummary'
+}
+
+/**
+ * 类型说明卡字段 —— 展示当前 transformType 的图标、分类、一句话描述、输入输出语义。
+ *
+ * 仅用于 transform 节点检查器顶部，纯展示，不接收 commit。
+ * typeKey/semanticKey/categoryLabelKey 均为 i18n 命名空间前缀，
+ * 渲染器会拼上具体类型名取值。
+ */
+export type InspectorDescriptionCardField = InspectorFieldBase & {
+  kind: 'descriptionCard'
+}
+
+/**
+ * Transform 类型切换字段 —— 可切换 transformType 的分类分组下拉。
+ *
+ * 切换时弹出确认，确认后一次性 emit 多字段 __patch
+ * （transformType + 清空 params/outputColumns/saveState）。
+ */
+export type InspectorTransformTypeSelectField = InspectorFieldBase & {
+  kind: 'transformTypeSelect'
+  source: InspectorValueSource
+  placeholderKey?: string
 }
 
 export type InspectorUpstreamColumnSelectField = InspectorFieldBase & {
@@ -231,6 +258,8 @@ export type InspectorField =
   | InspectorActionButtonField
   | InspectorStatCardField
   | InspectorValidationSummaryField
+  | InspectorDescriptionCardField
+  | InspectorTransformTypeSelectField
 
 export type InspectorCommitPayload = unknown | { __patch: Record<string, unknown> }
 

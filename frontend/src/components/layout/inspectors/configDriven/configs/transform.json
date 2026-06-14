@@ -4,6 +4,16 @@
   "titleKey": "inspector.transformNode.title",
   "sections": [
     {
+      "id": "overview",
+      "fields": [
+        {
+          "id": "typeCard",
+          "kind": "descriptionCard",
+          "labelKey": "inspector.transformNode.labels.transformType"
+        }
+      ]
+    },
+    {
       "id": "config",
       "titleKey": "inspector.transformNode.groups.config",
       "fields": [
@@ -16,7 +26,7 @@
         },
         {
           "id": "transformType",
-          "kind": "readonly",
+          "kind": "transformTypeSelect",
           "source": { "source": "data", "path": ["transformType"] },
           "labelKey": "inspector.transformNode.labels.transformType"
         },
@@ -47,7 +57,60 @@
           "placeholderKey": "inspector.transformNode.placeholders.addColumn",
           "editable": true,
           "computedFromParams": "StringSplit",
-          "suggestionsFromUpstream": true
+          "suggestionsFromUpstream": true,
+          "when": {
+            "op": "not",
+            "expr": {
+              "op": "or",
+              "exprs": [
+                {
+                  "op": "equals",
+                  "source": { "source": "data", "path": ["transformType"] },
+                  "value": "RegexExtract"
+                },
+                {
+                  "op": "equals",
+                  "source": { "source": "data", "path": ["transformType"] },
+                  "value": "Digits"
+                },
+                {
+                  "op": "equals",
+                  "source": { "source": "data", "path": ["transformType"] },
+                  "value": "Modulo"
+                },
+                {
+                  "op": "equals",
+                  "source": { "source": "data", "path": ["transformType"] },
+                  "value": "MapValue"
+                },
+                {
+                  "op": "equals",
+                  "source": { "source": "data", "path": ["transformType"] },
+                  "value": "WeightedSum"
+                },
+                {
+                  "op": "equals",
+                  "source": { "source": "data", "path": ["transformType"] },
+                  "value": "FilterRows"
+                },
+                {
+                  "op": "equals",
+                  "source": { "source": "data", "path": ["transformType"] },
+                  "value": "DropDuplicates"
+                },
+                {
+                  "op": "equals",
+                  "source": { "source": "data", "path": ["transformType"] },
+                  "value": "Aggregate"
+                },
+                {
+                  "op": "equals",
+                  "source": { "source": "data", "path": ["transformType"] },
+                  "value": "SortRows"
+                }
+              ]
+            }
+          }
         }
       ]
     },
@@ -181,8 +244,8 @@
           "source": { "source": "data", "path": ["params", "mapping"] },
           "labelKey": "inspector.transformNode.params.lookup.mapping",
           "helpKey": "inspector.transformNode.params.lookup.mappingHint",
-          "keyPlaceholder": "原值",
-          "valuePlaceholder": "替换为",
+          "keyPlaceholderKey": "inspector.transformNode.params.lookup.keyPh",
+          "valuePlaceholderKey": "inspector.transformNode.params.lookup.valuePh",
           "when": {
             "op": "equals",
             "source": { "source": "data", "path": ["transformType"] },
@@ -425,11 +488,13 @@
 
         {
           "id": "dropSubset",
-          "kind": "text",
+          "kind": "tags",
           "source": { "source": "data", "path": ["params", "subset"] },
           "labelKey": "inspector.transformNode.params.dropDuplicates.subset",
           "placeholderKey": "inspector.transformNode.params.dropDuplicates.subsetPh",
           "helpKey": "inspector.transformNode.params.dropDuplicates.subsetHint",
+          "editable": true,
+          "suggestionsFromUpstream": true,
           "when": {
             "op": "equals",
             "source": { "source": "data", "path": ["transformType"] },
@@ -596,6 +661,7 @@
           "source": { "source": "data", "path": ["params", "end"] },
           "labelKey": "inspector.transformNode.params.substring.end",
           "placeholderKey": "inspector.transformNode.params.substring.endPh",
+          "helpKey": "inspector.transformNode.params.substring.endHint",
           "emptyToNull": true,
           "when": {
             "op": "equals",
@@ -609,6 +675,7 @@
           "source": { "source": "data", "path": ["params", "length"] },
           "labelKey": "inspector.transformNode.params.substring.length",
           "placeholderKey": "inspector.transformNode.params.substring.lengthPh",
+          "helpKey": "inspector.transformNode.params.substring.lengthHint",
           "emptyToNull": true,
           "when": {
             "op": "equals",
@@ -619,11 +686,13 @@
 
         {
           "id": "aggregateGroupBy",
-          "kind": "upstreamColumnSelect",
+          "kind": "tags",
           "source": { "source": "data", "path": ["params", "group_by"] },
           "labelKey": "inspector.transformNode.params.aggregate.groupBy",
           "placeholderKey": "inspector.transformNode.params.aggregate.groupByPh",
           "helpKey": "inspector.transformNode.params.aggregate.groupByHint",
+          "editable": true,
+          "suggestionsFromUpstream": true,
           "when": {
             "op": "equals",
             "source": { "source": "data", "path": ["transformType"] },

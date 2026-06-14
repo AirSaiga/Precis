@@ -24,7 +24,7 @@
       />
       <button class="row-remove" type="button" @click="removeItem(idx)">×</button>
     </div>
-    <button class="add-btn" type="button" @click="addItem">+ 添加映射</button>
+    <button class="add-btn" type="button" @click="addItem">{{ t('common.addMapping') }}</button>
 
     <div v-if="help" class="help">{{ help }}</div>
   </div>
@@ -32,8 +32,11 @@
 
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue'
+  import { useI18n } from 'vue-i18n'
   import type { InspectorContext } from '../utils'
   import type { InspectorKeyValueListField } from '../types'
+
+  const { t, te } = useI18n()
 
   const props = defineProps<{
     field: InspectorKeyValueListField
@@ -49,8 +52,23 @@
     commit: [value: unknown]
   }>()
 
-  const keyPlaceholder = computed(() => props.field.keyPlaceholder ?? '键')
-  const valuePlaceholder = computed(() => props.field.valuePlaceholder ?? '值')
+  /** 解析占位符：优先 i18n key，其次原始字符串，最后回退 */
+  function resolvePlaceholder(key?: string, fallbackKey?: string, fallback?: string): string {
+    if (key && te(key)) return t(key)
+    if (fallback) return fallback
+    return t(fallbackKey ?? '')
+  }
+
+  const keyPlaceholder = computed(() =>
+    resolvePlaceholder(props.field.keyPlaceholderKey, 'common.key', props.field.keyPlaceholder)
+  )
+  const valuePlaceholder = computed(() =>
+    resolvePlaceholder(
+      props.field.valuePlaceholderKey,
+      'common.value',
+      props.field.valuePlaceholder
+    )
+  )
 
   type Pair = { key: string; value: string }
 

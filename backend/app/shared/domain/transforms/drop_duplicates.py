@@ -7,7 +7,7 @@
 - 支持保留策略：first（保留第一条）、last（保留最后一条）、false（全部删除）
 
 参数:
-    subset: 去重列名（逗号分隔字符串），留空则基于全部列去重
+    subset: 去重列名，支持逗号分隔字符串或列表，留空则基于全部列去重
     keep: 保留策略 ("first"|"last"|"false")
 
 说明:
@@ -52,16 +52,20 @@ class DropDuplicatesRunner(TransformRunner):
             转换后的 DataFrame
         """
         keep = params.get("keep", "first")
-        subset_str = params.get("subset", "")
+        subset_raw = params.get("subset", "")
 
-        # 解析 subset：逗号分隔字符串 → 列名列表
+        # 解析 subset：兼容逗号分隔字符串与列表两种格式
+        # 前端 tags 产出的是数组，旧配置/手写 YAML 可能是逗号分隔字符串
         subset = None
-        if subset_str and isinstance(subset_str, str):
-            subset = [col.strip() for col in subset_str.split(",") if col.strip()]
+        if subset_raw:
+            if isinstance(subset_raw, list):
+                parsed = [str(col).strip() for col in subset_raw if str(col).strip()]
+            else:
+                parsed = [col.strip() for col in str(subset_raw).split(",") if col.strip()]
             # 只保留实际存在于 DataFrame 中的列
-            subset = [col for col in subset if col in df.columns]
-            if not subset:
-                subset = None
+            parsed = [col for col in parsed if col in df.columns]
+            if parsed:
+                subset = parsed
 
         # pandas 的 keep 参数：keep=False 表示全部删除
         keep_param: str | bool = keep

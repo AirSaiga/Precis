@@ -21,8 +21,11 @@
 
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue'
+  import { useI18n } from 'vue-i18n'
   import type { InspectorContext } from '../utils'
   import type { InspectorJsonEditorField } from '../types'
+
+  const { t } = useI18n()
 
   const props = defineProps<{
     field: InspectorJsonEditorField
@@ -94,11 +97,11 @@
         validateType === 'object' &&
         (typeof parsed.value !== 'object' || parsed.value === null || Array.isArray(parsed.value))
       ) {
-        errorText.value = '值必须是 JSON 对象'
+        errorText.value = t('inspector.transformNode.errors.mustBeObject')
         return
       }
       if (validateType === 'array' && !Array.isArray(parsed.value)) {
-        errorText.value = '值必须是 JSON 数组'
+        errorText.value = t('inspector.transformNode.errors.mustBeArray')
         return
       }
     }

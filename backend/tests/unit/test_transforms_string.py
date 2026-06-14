@@ -191,6 +191,19 @@ class TestConcatRunner:
         result = runner.execute(df, "first", {"columns": "first,last", "separator": " "}, ["full"])
         assert result["full"][0] == "John Doe"
 
+    def test_columns_as_list(self):
+        """前端 TagsRenderer 产出数组格式，后端必须兼容"""
+        runner = ConcatRunner()
+        df = pd.DataFrame({"first": ["John"], "last": ["Doe"]})
+        result = runner.execute(df, "first", {"columns": ["first", "last"], "separator": " "}, ["full"])
+        assert result["full"][0] == "John Doe"
+
+    def test_columns_as_list_single(self):
+        runner = ConcatRunner()
+        df = pd.DataFrame({"name": ["John"]})
+        result = runner.execute(df, "name", {"columns": ["name"]}, ["out"])
+        assert result["out"][0] == "John"
+
     def test_single_column(self):
         runner = ConcatRunner()
         df = pd.DataFrame({"name": ["John"]})

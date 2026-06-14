@@ -32,18 +32,40 @@ export function createV2SchemaImporter(params: {
     relPath: string | undefined
   ) => string | undefined
   ensureSchemaToConstraintEdge: (tableId: string, constraintId: string, columnId: string) => void
+  /**
+   * 连带创建引用该 Schema 的其他独立约束。
+   * 仅在 ensureSchemaNode 新建 Schema 且 options.importRelatedConstraints=true 时调用。
+   * 用于拖拽独立约束触发自动创建 Schema 时，补齐该 Schema 关联的其他约束。
+   */
+  importRelatedIndependentConstraints?: (
+    tableId: string,
+    excludeConstraintId: string,
+    schemaPosition: { x: number; y: number }
+  ) => Promise<void>
 }) {
   const {
     nodes,
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     ensureSchemaToConstraintEdge,
+    importRelatedIndependentConstraints,
   } = params
 
+  /**
+   * 确保指定 Schema 节点存在于画布中（幂等）。
+   *
+   * @param tableId - Schema 资源 ID
+   * @param schemaPosition - 节点在画布上的坐标
+   * @param schemaFile - 可选的预加载 Schema 文件，避免重复请求后端
+   * @param options.importRelatedConstraints - 是否连带创建该 Schema 的内嵌约束和引用它的其他独立约束。
+   *   拖拽独立约束触发自动创建 Schema 时置为 true；拖拽 FK 的 to_schema 等不希望雪崩的场景保持 false。
+   * @param options.excludeConstraintId - 连带创建时需排除的约束 ID（通常是触发本次自动创建的被拖拽约束自身）
+   */
   const ensureSchemaNode = async (
     tableId: string,
     schemaPosition: { x: number; y: number },
-    schemaFile?: TableSchemaFileV2
+    schemaFile?: TableSchemaFileV2,
+    options?: { importRelatedConstraints?: boolean; excludeConstraintId?: string }
   ) => {
     const found = nodes.value.find(
       (n) => n.id === tableId && (n.type === 'schema' || n.type === 'jsonSchema')
@@ -124,6 +146,25 @@ export function createV2SchemaImporter(params: {
     // （v-model 同步在 nextTick 才触发）。手动同步确保本 tick 内的后续节点查找
     // （如 ensureSchemaNode / nodes.value.find）能正确找到该节点，避免重复创建。
     nodes.value = [...nodes.value, schemaNode]
+
+    // 连带创建该 Schema 的约束：
+    // - 拖拽独立约束触发自动创建 Schema 时（options.importRelatedConstraints=true），
+    //   补齐 Schema 自身的内嵌约束 + 引用该 Schema 的其他独立约束，
+    //   使自动创建的 Schema 与直接拖拽 Schema 时的内容保持一致。
+    // - FK 的 to_schema 等场景不传该选项，避免雪崩式导入。
+    if (options?.importRelatedConstraints) {
+      // 先物化内嵌约束（与直接 importSchema 行为一致）
+      materializeEmbeddedConstraints(schemaNode, schema)
+      // 再连带创建引用该 Schema 的其他独立约束（排除被拖拽约束自身）
+      if (importRelatedIndependentConstraints) {
+        await importRelatedIndependentConstraints(
+          tableId,
+          options.excludeConstraintId || '',
+          schemaPosition
+        )
+      }
+    }
+
     return schemaNode
   }
 
@@ -156,6 +197,9 @@ export function createV2SchemaImporter(params: {
     position: { x: number; y: number }
   ): Promise<string> => {
     const schemaFile = await getV2Schema(resourceId)
+    // 直接拖拽 Schema 保持原有行为：只物化内嵌约束，不连带创建引用它的独立约束。
+    // 连带创建独立约束的能力（importRelatedConstraints）仅用于拖拽独立约束触发
+    // 自动创建 Schema 的场景，避免改变直接拖拽 Schema 的导入范围。
     const node = await ensureSchemaNode(resourceId, position, schemaFile)
     materializeEmbeddedConstraints(node, schemaFile)
     return node.id

@@ -150,6 +150,14 @@ class TestDropDuplicatesRunner:
         assert len(result) == 2
         assert result["a"].tolist() == [1, 2]
 
+    def test_subset_as_list(self):
+        """前端 tags 产出数组格式，后端必须兼容"""
+        runner = DropDuplicatesRunner()
+        df = pd.DataFrame({"a": [1, 1, 2], "b": ["x", "y", "z"]})
+        result = runner.execute(df, "a", {"subset": ["a", "b"], "keep": "first"}, [])
+        # 按 a,b 组合去重，三行各不相同
+        assert len(result) == 3
+
     def test_keep_false(self):
         runner = DropDuplicatesRunner()
         df = pd.DataFrame({"a": [1, 1, 2]})
@@ -190,6 +198,25 @@ class TestAggregateRunner:
             ["total"],
         )
         assert len(result) == 2
+        assert result["total"].sum() == 6
+
+    def test_group_by_as_list(self):
+        """前端 tags 产出数组格式，后端必须兼容"""
+        runner = AggregateRunner()
+        df = pd.DataFrame(
+            {"region": ["北", "北", "南"], "dept": ["A", "B", "A"], "value": [1, 2, 3]}
+        )
+        result = runner.execute(
+            df,
+            "value",
+            {
+                "aggregations": [{"column": "value", "func": "sum"}],
+                "group_by": ["region", "dept"],
+            },
+            ["total"],
+        )
+        # 按两列组合分组，应有 3 组
+        assert len(result) == 3
         assert result["total"].sum() == 6
 
     def test_group_by_count(self):

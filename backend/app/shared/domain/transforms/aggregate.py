@@ -10,7 +10,7 @@
     aggregations: 聚合配置列表 [{column, func}]
         - column: 聚合目标列名
         - func: 聚合函数 ("count"|"sum"|"avg"|"min"|"max")
-    group_by: 分组列名（逗号分隔字符串），留空则整表聚合
+    group_by: 分组列名，支持逗号分隔字符串或列表，留空则整表聚合
 
 说明:
     - input_column 被忽略（操作整表而非单列）
@@ -73,13 +73,17 @@ class AggregateRunner(TransformRunner):
         if not aggregations:
             raise ValueError("Aggregate 需要至少一个 aggregation 配置")
 
-        # 解析 group_by：逗号分隔字符串 → 列名列表
+        # 解析 group_by：兼容逗号分隔字符串与列表两种格式
+        # 前端 tags 产出的是数组，旧配置/手写 YAML 可能是逗号分隔字符串
         group_by = None
-        if group_by_str and isinstance(group_by_str, str):
-            group_by = [col.strip() for col in group_by_str.split(",") if col.strip()]
-            group_by = [col for col in group_by if col in df.columns]
-            if not group_by:
-                group_by = None
+        if group_by_str:
+            if isinstance(group_by_str, list):
+                parsed = [str(col).strip() for col in group_by_str if str(col).strip()]
+            else:
+                parsed = [col.strip() for col in str(group_by_str).split(",") if col.strip()]
+            parsed = [col for col in parsed if col in df.columns]
+            if parsed:
+                group_by = parsed
 
         # 构建 agg 字典：{输出列名: (源列名, pandas函数名)}
         agg_dict: dict[str, tuple[str, str]] = {}

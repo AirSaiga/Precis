@@ -15,23 +15,25 @@
             class="weight-input"
             :value="weight"
             :disabled="readonly"
-            placeholder="权重值"
+            :placeholder="t('inspector.transformNode.params.weightedSum.weightPh')"
             @input="onWeightInput(index, ($event.target as HTMLInputElement).value)"
           />
           <button
             class="weight-remove"
             type="button"
             @click="removeWeight(index)"
-            title="删除此权重"
+            :title="t('common.remove')"
           >
             ×
           </button>
         </div>
       </div>
       <div class="weights-actions">
-        <button class="btn-add-weight" type="button" @click="addWeight">+ 添加权重</button>
+        <button class="btn-add-weight" type="button" @click="addWeight">
+          {{ t('inspector.transformNode.params.weightedSum.addWeight') }}
+        </button>
         <button class="btn-add-preset" type="button" @click="showPresetModal = true">
-          使用预设
+          {{ t('inspector.transformNode.params.weightedSum.usePreset') }}
         </button>
       </div>
     </div>
@@ -150,7 +152,7 @@
     showPresetModal.value = false
     window.$toast?.success?.(
       '',
-      `${t('inspector.transformNode.params.weightedSum.presetApplied')}：${preset.name}`
+      t('inspector.transformNode.params.weightedSum.presetAppliedWithName', { name: preset.name })
     )
   }
 </script>

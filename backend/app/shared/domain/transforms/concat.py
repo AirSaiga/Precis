@@ -6,7 +6,7 @@
 - 支持自定义分隔符
 
 参数:
-    columns: 要拼接的列名，逗号分隔（如 "first_name,last_name"）
+    columns: 要拼接的列名，支持逗号分隔字符串（如 "first_name,last_name"）或列表（如 ["first_name","last_name"]）
     separator: 分隔符（默认空字符串）
     output_column: 输出列名（可选）
 """
@@ -46,18 +46,19 @@ class ConcatRunner(TransformRunner):
         返回:
             转换后的 DataFrame
         """
-        columns_str = params.get("columns", "")
+        columns_raw = params.get("columns", "")
         separator = params.get("separator", "")
         output_column = params.get("output_column", None)
 
-        if not columns_str:
-            raise ValueError("Concat 需要 columns 参数（要拼接的列名，逗号分隔）")
-
-        # 解析列名列表
-        column_list = [col.strip() for col in columns_str.split(",") if col.strip()]
+        # 解析列名列表：兼容字符串（逗号分隔）与列表两种格式
+        # 前端 TagsRenderer 产出的是数组，旧配置/手写 YAML 可能是逗号分隔字符串
+        if isinstance(columns_raw, list):
+            column_list = [str(col).strip() for col in columns_raw if str(col).strip()]
+        else:
+            column_list = [col.strip() for col in str(columns_raw).split(",") if col.strip()]
 
         if not column_list:
-            raise ValueError("Concat 需要至少一个列名")
+            raise ValueError("Concat 需要 columns 参数（要拼接的列名，逗号分隔）")
 
         # 验证所有列都存在
         for col in column_list:
