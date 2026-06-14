@@ -191,10 +191,11 @@ export class NodeDeletionManager {
     const regexNode = this.graphStore.nodes.find((n) => n.id === nodeId)
     if (!regexNode) return
 
-    const regexData = regexNode.data as unknown as RegexData
-
-    // 清理父 Schema 节点的 children 引用
-    const sourceNodeId = regexData.sourceNodeId
+    // 清理父 Schema 节点的 children 引用（通过 incoming edge 查找）
+    const incomingEdge = this.graphStore.edges.find(
+      (e: any) => e.target === nodeId && (e.targetHandle === 'regex-input' || !e.targetHandle)
+    )
+    const sourceNodeId = incomingEdge?.source as string | undefined
     if (sourceNodeId) {
       const schemaNode = this.graphStore.nodes.find((n) => n.id === sourceNodeId)
       if (schemaNode?.type === 'schema') {

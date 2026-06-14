@@ -145,6 +145,7 @@ import { validateNotNull } from '@/composables/nodes/constraints/useNotNull'
 import { validateUnique } from '@/composables/nodes/constraints/useUnique'
 import { getApiBaseUrl } from '@/core/services/httpClient'
 import { logger } from '@/core/utils/logger'
+import { validateRegexNode } from '@/services/regex/regexValidationHandler'
 import type {
   ConstraintKind,
   ConstraintNodeType,
@@ -469,6 +470,47 @@ export async function validateConstraintNodesForSchema(params: {
 
   await validateEdgeBatch(nonCompositeEdges)
   await validateEdgeBatch(compositeEdges)
+
+  // ====================================================================
+  // Regex 节点校验（edge-driven）
+  // ====================================================================
+  const regexEdges = schemaEdges.filter((e) => {
+    const node = nodes.find((n) => n.id === e.target)
+    return node?.type === 'regex'
+  })
+
+  for (const edge of regexEdges) {
+    const regexNode = nodes.find((n) => n.id === edge.target)
+    if (!regexNode) continue
+    // extract 模式的正则节点会产生派生列写回副作用，
+    // 仅在用户显式点击校验时触发，全局/自动化校验跳过。
+    const regexData = (regexNode.data || {}) as Record<string, unknown>
+    if (regexData.matchMode === 'extract') continue
+    const ctx = buildValidationContext({ schemaNode, constraintNode: regexNode, edge, nodes })
+    if (!ctx) continue
+    const result = await validateRegexNode({
+      regexNode,
+      sourceNode: schemaNode,
+      columnName: ctx.columnName,
+      columnId: ctx.columnId,
+      nodes,
+      edges,
+      updateNodeData,
+    })
+    if (result) {
+      if (result.validationStatus === 'pass') {
+        totalValid++
+      } else if (result.validationStatus === 'error') {
+        totalInvalid++
+        totalErrorCount += result.errorCount || 0
+      }
+      if (result.errorCount && result.errorCount > 0) {
+        const existing = columnErrorMap.get(ctx.columnId) || []
+        const regexErrors = [`Regex: ${result.errorCount} errors`]
+        columnErrorMap.set(ctx.columnId, [...existing, ...regexErrors])
+      }
+    }
+  }
 
   const schemaData = (schemaNode.data || {}) as Record<string, unknown>
   const columns = (schemaData.columns || []) as Array<Record<string, unknown>>

@@ -570,8 +570,7 @@ export function useConnections() {
 
         // 更新 regex 节点的数据源信息
         tx.patchNodeData(target, {
-          sourceNodeId: source,
-          sourceColumnName: columnName,
+          sourceRef: { nodeId: source, columnId: '0' },
           configName: `Regex on ${columnName}`,
           saveState: 'draft',
         })
@@ -696,8 +695,7 @@ export function useConnections() {
       if (sourceNode.type === 'transformOutput' && targetNode.type === 'regex') {
         const outputData = sourceNode.data as Record<string, unknown>
         tx.patchNodeData(target, {
-          sourceNodeId: source,
-          sourceColumnName: (outputData.columnName as string) || 'Column1',
+          sourceRef: { nodeId: source, columnId: '0' },
           saveState: 'draft',
           validationStatus: 'idle',
         })

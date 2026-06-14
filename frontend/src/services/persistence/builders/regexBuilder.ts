@@ -12,9 +12,23 @@ import type { BuilderContext, NodeBuilder } from '../types'
 export const regexBuilder: NodeBuilder<RegexNodeFileV2> = {
   kind: 'regex',
   matches: (node) => node.type === 'regex',
-  build({ node, schemaIdByNodeId }: BuilderContext): { consumed: boolean; file: RegexNodeFileV2 } {
+  build({ node, schemaIdByNodeId, nodes }: BuilderContext): { consumed: boolean; file: RegexNodeFileV2 } {
     const data = node.data as RegexNodeData
     const usesPattern = data.uses_pattern
+
+    let sourceColumnName: string | undefined
+    if (data.sourceRef) {
+      const schemaNode = nodes.find(
+        (n) => n.id === data.sourceRef!.nodeId && (n.type === 'schema' || n.type === 'jsonSchema')
+      )
+      if (schemaNode) {
+        const columns = ((schemaNode.data as unknown as Record<string, unknown>).columns as unknown[] | undefined) || []
+        const col = columns.find(
+          (c) => (c as Record<string, unknown>).id === data.sourceRef!.columnId
+        ) as Record<string, unknown> | undefined
+        sourceColumnName = col?.columnName as string | undefined
+      }
+    }
 
     return {
       consumed: true,
@@ -38,7 +52,7 @@ export const regexBuilder: NodeBuilder<RegexNodeFileV2> = {
               column_id: data.sourceRef.columnId,
             }
           : undefined,
-        source_column_name: data.sourceColumnName || undefined,
+        source_column_name: sourceColumnName,
       },
     }
   },

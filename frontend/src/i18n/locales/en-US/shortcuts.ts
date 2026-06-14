@@ -91,6 +91,7 @@ const shortcuts = {
     saveFailed: 'Save failed',
     sourceOnly: 'Only source preview node is supported',
     alreadyConnected: 'This source is already connected to a schema',
+    alreadyInProgress: 'Schema generation in progress, please wait',
     schemaGenerated: 'Schema generated',
     bindDataSourceSuccess: 'Data source bound',
     dataSourceNotImported: 'Data source not yet imported',

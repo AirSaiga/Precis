@@ -115,6 +115,35 @@ export async function syncSchemaResources(
 }
 
 /**
+ * 根据表名查找 V2 Schema ID
+ *
+ * 加载项目完整配置，按 tableName（不区分大小写）匹配已存在的 schema。
+ * 用于在创建新 schema 节点前，判断是否应该复用已有的 V2 schema ID，
+ * 避免画布节点 ID 与 V2 配置不一致导致后续资源同步时重复创建 schema。
+ */
+export async function findV2SchemaIdByTableName(tableName: string): Promise<string | null> {
+  if (!tableName) return null
+
+  const projectStore = useProjectStore()
+  const configPath = projectStore.currentPaths?.configPath
+  if (!configPath) return null
+
+  let fullConfig: Awaited<ReturnType<typeof getV2FullConfig>> | null = null
+  try {
+    fullConfig = await getV2FullConfig(configPath)
+  } catch (error) {
+    logger.debug('ℹ️ [findV2SchemaIdByTableName] 无法加载 V2 配置:', error)
+    return null
+  }
+
+  const schemas = fullConfig.schemas || {}
+  const byName = Object.values(schemas).find(
+    (s: any) => s.name?.toLowerCase() === tableName.toLowerCase()
+  )
+  return byName?.id ? (byName.id as string) : null
+}
+
+/**
  * 解析 schema 节点对应的 V2 Schema ID
  *
  * 语义化 ID 方案：节点 ID 就是 schema ID。
@@ -131,29 +160,8 @@ export async function resolveV2SchemaId(schemaNodeId: string): Promise<string | 
   if (!schemaNode) return null
 
   const schemaData = schemaNode.data as SchemaNodeData
-  const projectStore = useProjectStore()
-  const configPath = projectStore.currentPaths?.configPath
-
-  if (!configPath) return schemaNodeId
-
-  let fullConfig: Awaited<ReturnType<typeof getV2FullConfig>> | null = null
-  try {
-    fullConfig = await getV2FullConfig(configPath)
-  } catch (error) {
-    logger.debug('ℹ️ [resolveV2SchemaId] 无法加载 V2 配置:', error)
-    return schemaNodeId
-  }
-
-  const schemas = fullConfig.schemas || {}
-
-  // 用 tableName 反查
-  const byName = Object.values(schemas).find(
-    (s: any) => s.name?.toLowerCase() === schemaData.tableName?.toLowerCase()
-  )
-  if (byName?.id) return byName.id as string
-
-  // 回退到节点 ID
-  return schemaNodeId
+  const v2Id = await findV2SchemaIdByTableName(schemaData.tableName)
+  return v2Id || schemaNodeId
 }
 
 /**

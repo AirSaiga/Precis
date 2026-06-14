@@ -17,14 +17,23 @@ export function createJsonSchemaFactoryModule(params: {
   const { nodes, selectedNodeId } = params
   const createNode = createBaseNodeFactory({ nodes, selectedNodeId })
 
-  function createJsonSchemaNode(position: { x: number; y: number }, name?: string) {
-    return createNode('jsonSchema', position, {
-      configName: name || '新JSON Schema配置',
-      tableName: 'json_table',
-      sourceType: 'json',
-      columns: [],
-      saveState: 'draft',
-    })
+  function createJsonSchemaNode(
+    position: { x: number; y: number },
+    name?: string,
+    options?: { nodeId?: string }
+  ) {
+    return createNode(
+      'jsonSchema',
+      position,
+      {
+        configName: name || '新JSON Schema配置',
+        tableName: 'json_table',
+        sourceType: 'json',
+        columns: [],
+        saveState: 'draft',
+      },
+      options ? { nodeId: options.nodeId } : undefined
+    )
   }
 
   function createJsonSourcePreviewNode(

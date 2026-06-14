@@ -91,6 +91,7 @@ const shortcuts = {
     saveFailed: '保存失败',
     sourceOnly: '仅支持数据源预览节点',
     alreadyConnected: '该数据源已关联 Schema',
+    alreadyInProgress: '正在生成 Schema，请稍候',
     schemaGenerated: '已生成 Schema',
     bindDataSourceSuccess: '已绑定数据源',
     dataSourceNotImported: '该数据源还未导入',

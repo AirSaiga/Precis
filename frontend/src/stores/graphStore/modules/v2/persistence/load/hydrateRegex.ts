@@ -42,26 +42,41 @@ export function hydrateRegexNodesFromV2Config(params: {
     const pos = { x: 980 + (idx % 3) * 420, y: 80 + Math.floor(idx / 3) * 240 }
 
     const rRec = rData || {}
-    const sourceRef = rRec.source_ref
+    const v2SourceRef = rRec.source_ref
       ? {
           nodeId: String((rRec.source_ref as Record<string, unknown>).table_id),
-          columnId: String((rRec.source_ref as Record<string, unknown>).column_id),
+          v2ColumnId: String((rRec.source_ref as Record<string, unknown>).column_id),
         }
-      : undefined
+      : null
+    const v2ColumnName = (rRec.source_column_name as string | undefined) || ''
 
-    const schemaNode = sourceRef
-      ? existingNodes.find((n) => n.id === sourceRef.nodeId && n.type === 'schema')
+    const schemaNode = v2SourceRef
+      ? existingNodes.find((n) => n.id === v2SourceRef.nodeId && n.type === 'schema')
       : null
     const schemaColumns =
-      sourceRef && schemaNode
+      v2SourceRef && schemaNode
         ? ((schemaNode.data as unknown as Record<string, unknown> | undefined)?.columns as
             | unknown[]
             | undefined)
         : undefined
-    const resolvedCol = schemaColumns?.find((x: any) => x.id === sourceRef?.columnId) as
-      | Record<string, unknown>
-      | undefined
-    const resolvedColumnName = (resolvedCol?.columnName as string) || ''
+
+    // 按列名匹配当前 schema 列（与 constraint hydrate 策略一致）
+    const resolvedColByName =
+      v2ColumnName && schemaColumns
+        ? (schemaColumns.find((x: any) => x.columnName === v2ColumnName) as Record<string, unknown> | undefined)
+        : undefined
+    const actualColumnId = resolvedColByName?.id as string
+      || v2SourceRef?.v2ColumnId
+      || ''
+
+    const sourceRef = v2SourceRef
+      ? { nodeId: v2SourceRef.nodeId, columnId: actualColumnId }
+      : undefined
+
+    const resolvedColumnName = v2ColumnName
+      || (resolvedColByName?.columnName as string)
+      || (schemaColumns?.find((x: any) => x.id === v2SourceRef?.v2ColumnId) as Record<string, unknown> | undefined)?.columnName as string
+      || ''
 
     nextNodes.push({
       id: nodeId,
@@ -84,8 +99,6 @@ export function hydrateRegexNodesFromV2Config(params: {
         matchCount: 0,
         lastValidationTime: undefined,
         sourceRef,
-        sourceNodeId: sourceRef?.nodeId,
-        sourceColumnName: resolvedColumnName || rRec.source_column_name,
         saveState: 'saved',
       } as unknown as RegexNodeData,
     })

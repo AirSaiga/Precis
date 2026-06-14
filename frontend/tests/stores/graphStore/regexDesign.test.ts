@@ -35,8 +35,7 @@ function makeRegexNode(id: string, data: Record<string, unknown> = {}): CustomNo
       pattern: '\\d+',
       matchMode: 'full',
       rules: [{ regex: '\\d+', output: {} }],
-      sourceNodeId: 's1',
-      sourceColumnName: 'email',
+      sourceRef: { nodeId: 's1', columnId: 'c_email' },
       ...data,
     } as unknown as CustomNodeData,
   } as CustomNode

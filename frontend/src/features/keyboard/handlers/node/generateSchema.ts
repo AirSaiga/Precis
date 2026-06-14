@@ -19,7 +19,10 @@ import { useGraphStore } from '@/stores/graphStore'
 import { tabularColumnGenerator } from '@/utils/nodes/columnGeneration/TabularColumnGenerator'
 import { jsonColumnGenerator } from '@/utils/nodes/columnGeneration/JsonColumnGenerator'
 import { previewDataFetcher } from '@/utils/nodes/preview/PreviewDataFetcher'
-import { syncSchemaResources } from '@/services/schemaResourceSync'
+import {
+  findV2SchemaIdByTableName,
+  syncSchemaResources,
+} from '@/services/schemaResourceSync'
 import type { CustomNodeData } from '@/types/graph'
 
 /**
@@ -34,7 +37,22 @@ function getSchemaTypeForSource(sourceType: SourceNodeType): SchemaNodeType {
   return sourceType === 'jsonSourcePreview' ? 'jsonSchema' : 'schema'
 }
 
+let isGenerating = false
+
 export async function generateSchemaFromSource(): Promise<{ success: boolean; message?: string }> {
+  if (isGenerating) {
+    return { success: false, message: 'shortcuts.feedback.alreadyInProgress' }
+  }
+
+  isGenerating = true
+  try {
+    return await generateSchemaFromSourceInternal()
+  } finally {
+    isGenerating = false
+  }
+}
+
+async function generateSchemaFromSourceInternal(): Promise<{ success: boolean; message?: string }> {
   const graphStore = useGraphStore()
 
   // ========== 前置检查 ==========
@@ -68,6 +86,27 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
     return { success: false, message: 'shortcuts.feedback.alreadyConnected' }
   }
 
+  // ========== 预计算表名并尝试复用 V2 Schema ID ==========
+  // 语义化 ID 方案下，schema 节点 ID 即 schema ID。若 V2 配置中已存在同名 schema，
+  // 复用其 ID 可避免后续 syncSchemaResources 加载 regex/约束时再次创建重复 schema。
+  const sourceData = sourceNode.data as unknown as Record<string, unknown>
+  const smartTableName =
+    (sourceData.currentSheet as string) ||
+    ((sourceData.sourceName as string) || (sourceData.fileName as string) || 'Table').replace(
+      /\.[^/.]+$/,
+      ''
+    )
+
+  const existingV2SchemaId = await findV2SchemaIdByTableName(smartTableName)
+  if (
+    existingV2SchemaId &&
+    graphStore.nodes.some(
+      (n) => n.id === existingV2SchemaId && (n.type === 'schema' || n.type === 'jsonSchema')
+    )
+  ) {
+    return { success: false, message: 'shortcuts.feedback.alreadyConnected' }
+  }
+
   // ========== 创建 Schema 节点 ==========
 
   const schemaPosition = {
@@ -78,9 +117,13 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
   let schemaNodeId: string | undefined
 
   if (schemaNodeType === 'jsonSchema') {
-    schemaNodeId = graphStore.createJsonSchemaNode(schemaPosition)
+    schemaNodeId = graphStore.createJsonSchemaNode(schemaPosition, undefined, {
+      nodeId: existingV2SchemaId || undefined,
+    })
   } else {
-    schemaNodeId = graphStore.createSchemaNode(schemaPosition)
+    schemaNodeId = graphStore.createSchemaNode(schemaPosition, undefined, {
+      nodeId: existingV2SchemaId || undefined,
+    })
   }
 
   if (!schemaNodeId) {
@@ -92,8 +135,7 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
 
   // ========== 创建连接边 ==========
 
-  const sourceDataId =
-    ((sourceNode.data as unknown as Record<string, unknown>)?.id as string) || sourceNode.id
+  const sourceDataId = (sourceData.id as string) || sourceNode.id
   const sourceHandleId = `${sourceDataId}-output`
 
   graphStore.createConnection(sourceNode.id, schemaNodeId, sourceHandleId, 'target-left', {
@@ -105,7 +147,6 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
 
   // ========== 维护父子关系 ==========
 
-  const sourceData = sourceNode.data as unknown as Record<string, unknown>
   const currentChildren = (sourceData.children || []) as string[]
   if (!currentChildren.includes(schemaNodeId)) {
     graphStore.updateNodeData(sourceNode.id, {
@@ -116,12 +157,6 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
   // ========== 同步数据源信息到 Schema 节点 ==========
   const displayFileName =
     (sourceData.sourceName as string) || (sourceData.fileName as string) || 'Unknown'
-  const smartTableName =
-    (sourceData.currentSheet as string) ||
-    ((sourceData.sourceName as string) || (sourceData.fileName as string) || 'Table').replace(
-      /\.[^/.]+$/,
-      ''
-    )
   const displaySourcePath =
     (sourceData.localPath as string) || (sourceData.fileName as string) || displayFileName
 

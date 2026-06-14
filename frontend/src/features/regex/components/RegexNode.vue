@@ -136,10 +136,10 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * 【数据流】
    * SourcePreview(原始数据) → Schema(表结构) → Regex(正则校验) → 输出结果
    *
-   * 1. 左侧 Handle (regex-input): 接收来自 Schema 或 Pattern 节点的连接
-   *    - 通过 sourceNodeId 关联到上游 Schema 节点
-   *    - 通过 sourceColumnName 关联到具体的列
-   *    - Pattern 连接时自动应用正则表达式内容
+ * 1. 左侧 Handle (regex-input): 接收来自 Schema 或 Pattern 节点的连接
+ *    - 通过 sourceRef 关联到上游 Schema 节点
+ *    - 通过 sourceRef.columnId / columnName 关联到具体的列
+ *    - Pattern 连接时自动应用正则表达式内容
    *
    * 【组件职责】
    * 1. 展示正则节点的核心信息：
@@ -358,7 +358,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * - 显示/隐藏连接指引
    * - 决定详情面板中的提示信息
    */
-  const hasSource = computed(() => !!props.data.sourceNodeId)
+  const hasSource = computed(() => !!props.data.sourceRef?.nodeId)
 
   /**
    * 【计算属性：是否有正则模式】
@@ -381,7 +381,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * 【计算属性：上游 Schema 节点】
    *
    * 【数据来源】
-   * 根据 sourceNodeId 在 store.nodes 中查找类型为 'schema' 的节点。
+   * 根据 sourceRef.nodeId 在 store.nodes 中查找类型为 'schema' 的节点。
    *
    * 【使用场景】
    * - 获取 Schema 节点的表名、列定义等信息
@@ -389,14 +389,14 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * - 传递给 useRegexValidation 执行实际校验
    *
    * 【边缘情况】
-   * - sourceNodeId 为空时返回 null
+   * - sourceRef.nodeId 为空时返回 null
    * - 节点已被删除时返回 null
    */
   const schemaNode = computed(() => {
-    if (!props.data.sourceNodeId) return null
+    if (!props.data.sourceRef?.nodeId) return null
     return (
       store.nodes.find(
-        (n) => (n.type === 'schema' || n.type === 'jsonSchema') && n.id === props.data.sourceNodeId
+        (n) => (n.type === 'schema' || n.type === 'jsonSchema') && n.id === props.data.sourceRef?.nodeId
       ) || null
     )
   })
@@ -413,23 +413,26 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    *
    * 【数据来源】
    * - 优先从画布上的 schema 节点 data.tableName（反映可能的编辑）
-   * - 回退到 resourceTreeStore 中按 sourceNodeId 查找的 schema 资源 name
+   * - 回退到 resourceTreeStore 中按 sourceRef.nodeId 查找的 schema 资源 name
    * - 最终回退到"未注册表"并发出 warn 日志
    */
   const sourceDisplay = computed(() => {
-    if (!props.data.sourceNodeId) return t('customNodes.regexNode.sourceNotConnected')
-    const resource = resourceTreeStore.resources[props.data.sourceNodeId]
+    const srcRef = props.data.sourceRef
+    if (!srcRef?.nodeId) return t('customNodes.regexNode.sourceNotConnected')
+    const resource = resourceTreeStore.resources[srcRef.nodeId]
     const canvasName = (schemaNode.value?.data as SchemaNodeData | undefined)?.tableName
     const resourceName = resource?.kind === 'schema' ? resource.name : undefined
     const tableName = canvasName || resourceName
     if (!tableName) {
       logger.warn(
-        '[RegexNode] 无法找到 schema 节点或资源树中的表名, sourceNodeId:',
-        props.data.sourceNodeId
+        '[RegexNode] 无法找到 schema 节点或资源树中的表名, sourceRef.nodeId:',
+        srcRef.nodeId
       )
       return t('customNodes.regexNode.unregisteredTable')
     }
-    const col = props.data.sourceColumnName || ''
+    const columnObj = ((schemaNode.value?.data as unknown as Record<string, unknown>)?.columns as unknown[] | undefined)
+        ?.find((c: any) => c.id === srcRef.columnId) as Record<string, unknown> | undefined
+    const col = (columnObj?.columnName as string) || ''
     if (!col) return `${tableName}.${t('customNodes.regexNode.columnNotSelected')}`
     return `${tableName}.${col}`
   })
@@ -658,7 +661,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * - 必须已配置正则模式（hasPattern 为 true）
    *
    * 【校验流程】
-   * 1. 检查 sourceNodeId 是否存在
+   * 1. 检查 sourceRef.nodeId 是否存在
    * 2. 调用 useRegexValidation 的 handleRegexValidate 方法
    * 3. 等待校验完成，更新节点状态
    *
@@ -671,7 +674,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * - 校验过程中的错误由 handleRegexValidate 内部处理
    */
   async function onValidateClick() {
-    if (!props.data.sourceNodeId) {
+    if (!props.data.sourceRef?.nodeId) {
       return
     }
 

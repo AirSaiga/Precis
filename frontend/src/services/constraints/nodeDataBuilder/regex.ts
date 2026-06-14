@@ -28,8 +28,6 @@ function buildRegex(input: BuildInput): BuildResult {
     matchCount: 0,
     lastValidationTime: undefined,
     sourceRef: columnRef || undefined,
-    sourceNodeId: columnRef?.nodeId,
-    sourceColumnName: columnRef?.columnName || (params?.source_column_name as string) || '',
     saveState: saveState || (mode === 'connect' ? 'draft' : 'saved'),
   }
 

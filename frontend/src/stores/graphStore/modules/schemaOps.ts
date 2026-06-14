@@ -103,8 +103,6 @@ export function createSchemaOpsModule(params: {
     // 更新 Regex 节点的 sourceRef
     updateNodeData(regexNodeId, {
       sourceRef: { nodeId: schemaNodeId, columnId },
-      sourceNodeId: schemaNodeId,
-      sourceColumnName: columnName,
       saveState: 'draft',
     } as unknown as Record<string, unknown>)
 

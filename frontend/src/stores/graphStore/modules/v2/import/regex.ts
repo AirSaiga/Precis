@@ -21,14 +21,24 @@ import { getV2RegexNode } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
 import { addNodes } from '@/services/canvas/vueFlowApi'
 
-/** 从 Schema 节点中查找列名 */
-function resolveColumnName(schemaNode: CustomNode | undefined, columnId: string): string {
+/** 从 Schema 节点中查找列名（按 ID 查找，兼容直接匹配场景） */
+function resolveColumnNameById(schemaNode: CustomNode | undefined, columnId: string): string {
   if (!schemaNode) return ''
   return (
     ((schemaNode.data as SchemaNodeData | undefined)?.columns || []).find(
       (x) => (x as { id?: string; columnName?: string }).id === columnId
     )?.columnName || ''
   )
+}
+
+/** 按列名在当前 schema 中查找实际列 ID */
+function resolveColumnIdByName(schemaNode: CustomNode | undefined, columnName: string): string | null {
+  if (!schemaNode || !columnName) return null
+  const cols = (schemaNode.data as SchemaNodeData | undefined)?.columns || []
+  const found = cols.find(
+    (x) => (x as { columnName?: string }).columnName === columnName
+  )
+  return (found as { id?: string } | undefined)?.id || null
 }
 
 export function createV2RegexImporter(params: {
@@ -57,17 +67,31 @@ export function createV2RegexImporter(params: {
     }
 
     const r = await getV2RegexNode(resourceId)
-    const sourceRef = r.source_ref
-      ? { nodeId: String(r.source_ref.table_id), columnId: String(r.source_ref.column_id) }
-      : undefined
+    const v2SourceRef = r.source_ref
+      ? { nodeId: String(r.source_ref.table_id), v2ColumnId: String(r.source_ref.column_id) }
+      : null
+    const v2ColumnName = (r.source_column_name as string) || ''
 
     const schemaPosition = { x: position.x - 420, y: position.y }
     const schemaNode =
-      includeDeps && sourceRef?.nodeId
-        ? await ensureSchemaNode(sourceRef.nodeId, schemaPosition)
-        : nodes.value.find((n) => n.id === sourceRef?.nodeId)
+      includeDeps && v2SourceRef?.nodeId
+        ? await ensureSchemaNode(v2SourceRef.nodeId, schemaPosition)
+        : nodes.value.find((n) => n.id === v2SourceRef?.nodeId)
 
-    const resolvedColumnName = resolveColumnName(schemaNode, sourceRef?.columnId || '')
+    // 用列名（与约束节点相同的策略）反查当前 schema 的实际列 ID。
+    // V2 配置中的 source_ref.column_id 是 V2 生成的 ID，可能与
+    // Ctrl+G 时 TabularColumnGenerator 从 CSV header 生成的列 ID 不同。
+    // 而 source_column_name 是实际列名，可与 schema 的 columns 按名称匹配。
+    const actualColumnIdFromName = resolveColumnIdByName(schemaNode, v2ColumnName)
+    const actualColumnId =
+      actualColumnIdFromName || (v2SourceRef?.v2ColumnId || '')
+
+    const resolvedColumnName =
+      v2ColumnName || resolveColumnNameById(schemaNode, actualColumnId)
+
+    const sourceRef = v2SourceRef
+      ? { nodeId: v2SourceRef.nodeId, columnId: actualColumnId }
+      : undefined
 
     // 构建 BuildInput — 将 RegexNodeFileV2 的字段打包到 params 中
     const result = buildNodeData('regex' as any, {

@@ -73,6 +73,18 @@ describe('schemaFactory', () => {
       const id = factory.createSchemaNode({ x: 0, y: 0 })
       expect(selectedNodeId.value).toBe(id)
     })
+
+    it('支持自定义 nodeId', () => {
+      const id = factory.createSchemaNode({ x: 0, y: 0 }, undefined, { nodeId: 'custom-schema-id' })
+      expect(id).toBe('custom-schema-id')
+      const node = vi.mocked(addNodes).mock.calls[0][0]
+      expect(node.id).toBe('custom-schema-id')
+    })
+
+    it('未传入 nodeId 时生成新 id', () => {
+      const id = factory.createSchemaNode({ x: 0, y: 0 })
+      expect(id).not.toBe('custom-schema-id')
+    })
   })
 
   describe('addColumnToSchema', () => {

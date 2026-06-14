@@ -123,6 +123,20 @@ export function buildV2RegexNodeFile(nodes: CustomNode[], regexNodeId: string): 
 
   const usesPattern = data.uses_pattern
 
+  let sourceColumnName: string | undefined
+  if (data.sourceRef) {
+    const schemaNode = nodes.find(
+      (n) => n.id === data.sourceRef!.nodeId && (n.type === 'schema' || n.type === 'jsonSchema')
+    )
+    if (schemaNode) {
+      const columns = ((schemaNode.data as unknown as Record<string, unknown>).columns as unknown[] | undefined) || []
+      const col = columns.find(
+        (c) => (c as Record<string, unknown>).id === data.sourceRef!.columnId
+      ) as Record<string, unknown> | undefined
+      sourceColumnName = col?.columnName as string | undefined
+    }
+  }
+
   return {
     version: 2,
     id: regexNodeId,
@@ -142,7 +156,7 @@ export function buildV2RegexNodeFile(nodes: CustomNode[], regexNodeId: string): 
           column_id: data.sourceRef.columnId,
         }
       : undefined,
-    source_column_name: data.sourceColumnName || undefined,
+    source_column_name: sourceColumnName,
   }
 }
 

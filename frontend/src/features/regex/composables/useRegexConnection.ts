@@ -6,7 +6,7 @@
  * - 处理 Schema 列到 Regex 节点的连接建立
  * - 从数据源获取样例数据用于正则设计和预览
  * - 管理连接确认对话框的显示和隐藏
- * - 维护正则节点的源数据信息（sourceNodeId, sourceColumnName）
+ * - 维护正则节点的源数据信息（sourceRef）
  */
 
 import { logger } from '@/core/utils/logger'
@@ -16,6 +16,7 @@ import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import type { CustomNode, RegexNodeData } from '@/types/graph'
 import { useRegexValidation } from './useRegexValidation'
+import { resolveRegexSource } from '@/services/regex/regexEdgeResolver'
 
 /**
  * Regex 节点连接处理 Composable
@@ -212,8 +213,6 @@ export function useRegexConnection() {
         // 先写入 Regex 节点的源信息，确保后续编辑弹窗可获取列上下文
         store.updateNodeData(regexNode.id, {
           ...(regexNode.data as Record<string, unknown>),
-          sourceNodeId: schemaNode.id,
-          sourceColumnName: sourceColumn.columnName,
           sourceRef: { nodeId: schemaNode.id, columnId: sourceColumnId },
           saveState: 'draft',
           validationStatus: 'idle',
@@ -312,32 +311,19 @@ export function useRegexConnection() {
       // 从 Regex 节点的数据中获取源信息
       // 这些信息在建立连接时已经保存到这里
       const regexData = regexNode.data as Record<string, unknown>
-      // 约定：RegexNodeData.sourceNodeId 存储的是 Schema 节点 ID（表结构节点），而非 SourcePreview。
-      // 这样 Regex 与“表结构”绑定，数据源变化由 Schema 统一管理，避免 Regex 直接依赖数据源节点。
-      const schemaNodeId = regexData.sourceNodeId
-      const sourceColumnName = regexData.sourceColumnName
-
-      // 验证源信息是否完整，缺少任一信息都无法获取数据
-      if (!schemaNodeId || !sourceColumnName) {
-        logger.warn('正则节点没有关联的数据源信息')
+      // 约定：Regex 与"表结构"绑定，数据源变化由 Schema 统一管理。
+      // 通过 edges 解析上游绑定，不依赖 node data 中被删除的 sourceNodeId 字段。
+      const source = resolveRegexSource(options.regexNodeId, store.nodes, store.edges as any)
+      if (!source || (source.sourceType !== 'schema' && source.sourceType !== 'jsonSchema')) {
+        logger.warn('正则节点没有关联的数据源信息（无可用的 schema 边）')
         return
       }
 
       // =====================================================
-      // 1.2 查找 Schema 节点（表结构）
+      // 1.2 使用从 edges 解析的 Schema 节点
       // =====================================================
-      schemaNode = store.nodes.find((n) => n.id === schemaNodeId && n.type === 'schema')
-      if (!schemaNode) {
-        // 兼容旧连线或异常状态：如果节点 data 中没有写入 schemaNodeId，则回退通过边关系定位。
-        const schemaNodeMatch = store.edges.find(
-          (edge) => edge.target === regexNode.id && edge.targetHandle === 'regex-input'
-        )
-        if (schemaNodeMatch) {
-          schemaNode = store.nodes.find(
-            (n) => n.id === schemaNodeMatch.source && n.type === 'schema'
-          )
-        }
-      }
+      schemaNode = source.sourceNode
+      sourceColumnId = source.columnId
 
       // 验证 Schema 节点是否存在
       if (!schemaNode) {
@@ -346,7 +332,6 @@ export function useRegexConnection() {
       }
 
       const schemaData = schemaNode.data as Record<string, unknown>
-      // Schema 节点的 sourceNodeId 指向 SourcePreview（实际数据源预览节点）。
       const sourcePreviewNodeId = schemaData.sourceNodeId
       if (!sourcePreviewNodeId) {
         logger.warn('Schema 节点没有关联的数据源节点 ID')
@@ -362,22 +347,8 @@ export function useRegexConnection() {
       }
 
       // =====================================================
-      // 1.3 根据列名查找列 ID
+      // 1.3 直接从 edges 解析的列信息获取数据
       // =====================================================
-      // 在 columns 数组中查找列名匹配的列对象
-      // 使用列名而非列 ID 进行匹配，因为保存的是列名
-      const targetColumn = (schemaData.columns as unknown[]).find(
-        (col) => (col as Record<string, unknown>).columnName === sourceColumnName
-      ) as Record<string, unknown> | undefined
-
-      // 验证列是否存在
-      if (!targetColumn) {
-        logger.warn('未找到列:', sourceColumnName)
-        return
-      }
-
-      // 提取列 ID 供后续使用
-      sourceColumnId = targetColumn.id as string
 
       // 调用数据提取函数完成数据获取
       extractSampleDataFromNode(sourcePreviewNode, schemaNode, sourceColumnId)
@@ -605,10 +576,6 @@ export function useRegexConnection() {
     // 合并现有节点数据与新数据，避免丢失其他字段
     const updatedRegexData = {
       ...regexNode.data,
-      // 这里显式写入 Schema 节点 ID，作为 Regex 绑定对象的唯一来源。
-      sourceNodeId: schemaNode.id,
-      // 保存关联的列名，用于标识正则作用于哪一列
-      sourceColumnName: sourceColumn.columnName as string,
       sourceRef: { nodeId: schemaNode.id, columnId: sourceColumn.id as string },
       saveState: 'draft',
       // 设置校验状态为"空闲"，表示尚未执行校验

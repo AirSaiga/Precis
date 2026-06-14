@@ -55,6 +55,20 @@ describe('jsonSchemaFactory', () => {
       const id = factory.createJsonSchemaNode({ x: 0, y: 0 })
       expect(selectedNodeId.value).toBe(id)
     })
+
+    it('支持自定义 nodeId', () => {
+      const id = factory.createJsonSchemaNode({ x: 0, y: 0 }, undefined, {
+        nodeId: 'custom-json-schema-id',
+      })
+      expect(id).toBe('custom-json-schema-id')
+      const node = vi.mocked(addNodes).mock.calls[0][0]
+      expect(node.id).toBe('custom-json-schema-id')
+    })
+
+    it('未传入 nodeId 时生成新 id', () => {
+      const id = factory.createJsonSchemaNode({ x: 0, y: 0 })
+      expect(id).not.toBe('custom-json-schema-id')
+    })
   })
 
   describe('createJsonSourcePreviewNode', () => {

@@ -164,8 +164,7 @@ export function createRegexDesignModule(params: {
 
       if (
         (patternChanged || outputMappingChanged || matchModeChanged) &&
-        mergedData.sourceNodeId &&
-        mergedData.sourceColumnName
+        mergedData.sourceRef?.nodeId
       ) {
         const reason = patternChanged ? 'pattern' : outputMappingChanged ? 'output' : 'matchMode'
         logger.debug('🔄 正则表达式设计已更新，触发自动刷新:', { nodeId, reason })
@@ -179,11 +178,11 @@ export function createRegexDesignModule(params: {
         pattern: mergedData.pattern,
         rules: updatedData.rules,
         patternChanged,
-        hasSourceConnection: !!(mergedData.sourceNodeId && mergedData.sourceColumnName),
+        hasSourceConnection: !!mergedData.sourceRef?.nodeId,
       })
 
       const toastMessage =
-        patternChanged && mergedData.sourceNodeId
+        patternChanged && mergedData.sourceRef?.nodeId
           ? t('regexDesignModal.savedWithRevalidation', { name: mergedData.configName })
           : t('regexDesignModal.saved', { name: mergedData.configName })
       toastSuccess(toastMessage, t('regexDesignModal.saveSuccess'))

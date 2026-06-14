@@ -92,14 +92,14 @@
           "id": "sourceNodeId",
           "kind": "readonly",
           "labelKey": "inspector.regexNode.labels.sourceNode",
-          "source": { "source": "data", "path": ["sourceNodeId"] }
+          "source": { "source": "data", "path": ["sourceRef", "nodeId"] }
         },
         {
           "id": "sourceColumnName",
           "kind": "readonly",
           "labelKey": "inspector.regexNode.labels.targetColumn",
-          "source": { "source": "data", "path": ["sourceColumnName"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceColumnName"] } }
+          "source": { "source": "data", "path": ["sourceRef", "columnId"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "columnId"] } }
         }
       ]
     }

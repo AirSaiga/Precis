@@ -60,7 +60,7 @@ export const connectionRules: ConnectionRule[] = [
     name: 'Schema to Regex',
     source: {
       nodeTypes: ['schema', 'jsonSchema'],
-      handles: ['schema-output'],
+      handles: undefined,
     },
     target: {
       nodeTypes: ['regex'],
@@ -305,7 +305,7 @@ export const connectionRules: ConnectionRule[] = [
     name: 'Schema to Transform',
     source: {
       nodeTypes: ['schema', 'jsonSchema'],
-      handles: ['schema-output'],
+      handles: undefined,
     },
     target: {
       nodeTypes: ['transform'],

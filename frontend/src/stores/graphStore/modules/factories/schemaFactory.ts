@@ -32,14 +32,23 @@ export function createSchemaFactoryModule(params: {
   const { nodes, selectedNodeId, updateNodeData } = params
   const createNode = createBaseNodeFactory({ nodes, selectedNodeId })
 
-  function createSchemaNode(position: { x: number; y: number }, name?: string) {
-    return createNode('schema', position, {
-      configName: name || '新Schema配置',
-      tableName: 'new_table',
-      sheetName: null,
-      columns: [],
-      saveState: 'draft',
-    })
+  function createSchemaNode(
+    position: { x: number; y: number },
+    name?: string,
+    options?: { nodeId?: string }
+  ) {
+    return createNode(
+      'schema',
+      position,
+      {
+        configName: name || '新Schema配置',
+        tableName: 'new_table',
+        sheetName: null,
+        columns: [],
+        saveState: 'draft',
+      },
+      options ? { nodeId: options.nodeId } : undefined
+    )
   }
 
   function addColumnToSchema(schemaNodeId: string, columnName?: string, dataType?: string) {

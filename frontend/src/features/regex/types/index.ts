@@ -214,8 +214,7 @@ export interface RegexParameter {
  * - 包含完整的配置和状态信息
  *
  * 【与其他节点的关联】
- * - sourceNodeId: 关联上游 Schema 节点 ID
- * - sourceColumnName: 关联的具体列名
+   * - sourceRef: 关联上游 Schema 列信息（{ nodeId, columnId, columnName? }）
  */
 export interface RegexNodeData {
   /**
@@ -394,36 +393,6 @@ export interface RegexNodeData {
   }
 
   /**
-   * 数据源节点 ID
-   *
-   * 【数据来源】
-   * - 用户连接 Schema 节点时设置
-   * - 值为 Schema 节点的 ID
-   *
-   * 【关联关系】
-   * - 通过此 ID 查找上游 Schema 节点
-   * - 获取表结构和列定义
-   *
-   * 【设计考量】
-   * 保存的是 Schema 节点 ID 而非 SourcePreview 节点 ID，
-   * 这样正则与"字段定义"绑定，数据源变化由 Schema 统一管理。
-   */
-  sourceNodeId?: string
-
-  /**
-   * 数据源列名
-   *
-   * 【数据来源】
-   * - 用户选择要校验的列时设置
-   * - 值为列的 columnName (非 ID)
-   *
-   【使用场景】
-   * - 在 SourcePreview 中定位目标列
-   * - 显示数据源信息 (表名.列名)
-   */
-  sourceColumnName?: string
-
-  /**
    * 保存状态：用于驱动“保存按钮”的状态展示
    */
   saveState?: 'draft' | 'saved' | 'error'
@@ -439,7 +408,7 @@ export interface RegexNodeData {
 
   /**
    * 数据流输入接口（新增）
-   * 若存在，优先于 sourceNodeId/sourceColumnName 使用
+   * 若存在，优先于 sourceRef 使用
    */
   inputFromNode?: string
   inputColumn?: string
@@ -550,16 +519,6 @@ export interface RegexDesignUpdateData {
    * 正则模式更新
    */
   pattern?: string
-
-  /**
-   * 数据源节点 ID 更新
-   */
-  sourceNodeId?: string
-
-  /**
-   * 数据源列名更新
-   */
-  sourceColumnName?: string
 
   /**
    * 匹配模式更新

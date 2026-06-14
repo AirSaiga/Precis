@@ -88,8 +88,6 @@ describe('createSchemaOpsModule', () => {
         'r1',
         expect.objectContaining({
           sourceRef: { nodeId: 's1', columnId: 'col1' },
-          sourceNodeId: 's1',
-          sourceColumnName: 'email',
         })
       )
       expect(mockSyncOnConnect).toHaveBeenCalledWith('s1', 'r1')

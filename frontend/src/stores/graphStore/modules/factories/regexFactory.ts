@@ -32,8 +32,6 @@ export function createRegexFactoryModule(params: {
       totalRows: 0,
       matchCount: 0,
       lastValidationTime: undefined,
-      sourceNodeId: undefined,
-      sourceColumnName: undefined,
     })
   }
 
