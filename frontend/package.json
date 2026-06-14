@@ -70,7 +70,7 @@
     "vue": "^3.5.22",
     "vue-codemirror": "^6.1.1",
     "vue-i18n": "^11.4.4",
-    "vue-router": "^4.5.1"
+    "vue-router": "^5.1.0"
   },
   "overrides": {
     "shell-quote": "^1.8.4"
