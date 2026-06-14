@@ -272,14 +272,22 @@
   // 搜索过滤（保留分组结构，只过滤 items）
   // ============================================================================
 
+  // 暂时隐藏的导航项：功能代码保留，仅从设置面板导航中移除
+  const HIDDEN_NAV_ITEMS: ReadonlySet<string> = new Set(['data-sources'])
+
   const filteredNavigation = computed<SettingsNavGroup[]>(() => {
     const query = settingsStore.searchQuery.trim().toLowerCase()
     if (!query) {
-      return navigationConfig.value
+      return navigationConfig.value.map((group) => ({
+        ...group,
+        items: group.items.filter((item) => !HIDDEN_NAV_ITEMS.has(item.id)),
+      }))
     }
     const result: SettingsNavGroup[] = []
     for (const group of navigationConfig.value) {
-      const matchedItems = group.items.filter((item) => item.label.toLowerCase().includes(query))
+      const matchedItems = group.items.filter(
+        (item) => !HIDDEN_NAV_ITEMS.has(item.id) && item.label.toLowerCase().includes(query),
+      )
       if (matchedItems.length > 0) {
         result.push({ ...group, items: matchedItems })
       }
