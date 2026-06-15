@@ -125,7 +125,8 @@ describe('transformCategory — 语义映射完整性', () => {
   it('已知的多列变换类型标记正确', () => {
     expect(getSemanticForType('StringSplit')).toBe('multiColumn')
     expect(getSemanticForType('RegexExtract')).toBe('multiColumn')
-    expect(getSemanticForType('Concat')).toBe('multiColumn')
+    // Concat 实际只输出单个拼接列，非多列（useTransformSave 走单列分支）
+    expect(getSemanticForType('Concat')).toBe('singleColumn')
   })
 
   it('已知的行变化类型标记正确', () => {

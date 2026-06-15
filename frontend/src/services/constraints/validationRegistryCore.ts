@@ -747,11 +747,10 @@ export async function validateForInlineSource(params: {
     return
   }
 
-  // ManualData 节点的 rows 是纯数据行（不含表头），
-  // 但后端 inline 校验默认将第一行视为表头。
-  // 因此需要在 rows 前添加表头行，使后端能正确识别列名。
-  const isManualData = sourceNode.type === 'manualData'
-  const inlineRows = isManualData && rawRows.length > 0 ? [[columnName], ...rawRows] : rawRows
+  // 后端 inline 校验默认将 rows 第一行视为表头；
+  // 但 TransformOutput / ManualData 的 rows 均为纯数据行（不含表头）。
+  // 通过 column_names 显式指定列名，使后端将 rows 全部视为数据行。
+  const inlineColumnNames = [columnName]
 
   // 构建带有 inlineRows 的校验上下文
   const ctx: ConstraintValidationContext = {
@@ -761,7 +760,9 @@ export async function validateForInlineSource(params: {
     edge: {} as Edge,
     columnId: '0',
     columnName,
-    inlineRows,
+    columnDataType: (sourceData.columnDataType as string) || undefined,
+    inlineRows: rawRows,
+    inlineColumnNames,
   }
 
   const result = await handler.validate(ctx)

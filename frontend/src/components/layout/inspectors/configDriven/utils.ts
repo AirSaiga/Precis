@@ -105,6 +105,30 @@ export function getUpstreamColumns(ctx: InspectorContext): string[] {
   }
 }
 
+/**
+ * 获取上游节点的行数据（string[][]），用于检查器中需要真实数据预览的场景（如 StringSplit 列数估算）。
+ * 仅支持 manualData / transformOutput（带 rows 字段）。其他类型返回空数组。
+ */
+export function getUpstreamRows(ctx: InspectorContext): string[][] {
+  const inputFromNode = ctx.data.inputFromNode as string | undefined
+  if (!inputFromNode || !ctx.nodes) return []
+
+  const upstreamNode = ctx.nodes.find((n) => n.id === inputFromNode)
+  if (!upstreamNode) return []
+
+  const data = upstreamNode.data as unknown as Record<string, unknown>
+
+  switch (upstreamNode.type) {
+    case 'manualData':
+    case 'transformOutput': {
+      const rows = data.rows as string[][] | undefined
+      return Array.isArray(rows) ? rows : []
+    }
+    default:
+      return []
+  }
+}
+
 export function buildShallowCompatiblePatch(
   data: Record<string, unknown>,
   source: InspectorValueSource,

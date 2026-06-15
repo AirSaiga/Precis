@@ -42,7 +42,8 @@ export function useTransformOutputManager() {
     oldOutputIds: string[],
     columnNames: string[],
     rowsByColumn: string[][][],
-    basePosition: { x: number; y: number }
+    basePosition: { x: number; y: number },
+    columnDataType?: string
   ): Promise<string[]> {
     // 清理旧输出节点
     oldOutputIds.forEach((oid) => {
@@ -59,7 +60,13 @@ export function useTransformOutputManager() {
       const colName = columnNames[i] ?? ''
       const colRows = rowsByColumn[i] ?? []
       const pos = { x: baseX, y: baseY + i * 140 }
-      const newId = graphStore.createTransformOutputNode(pos, transformNodeId, colName, colRows)
+      const newId = graphStore.createTransformOutputNode(
+        pos,
+        transformNodeId,
+        colName,
+        colRows,
+        columnDataType
+      )
       outputNodeIds.push(newId)
 
       await waitForNodeMount([transformNodeId, newId])

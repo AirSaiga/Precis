@@ -22,6 +22,7 @@ if _project_root not in sys.path:
 import pytest
 
 from app.cli.shell.commands.base import CommandResult, ProjectContext
+from app.cli.shell.commands.open import OpenCommand
 from app.cli.shell.commands.validate import ValidateCommand, _parse_standalone_args
 from app.cli.shell.main import CLIShell
 from app.cli.shell.main import main as cli_main
@@ -78,6 +79,55 @@ class TestProjectContext:
         ctx.project_config = {"k": "v"}
         assert ctx.get("project_path") == "/p"
         assert ctx.get("project_config") == {"k": "v"}
+
+
+class TestOpenCommand:
+    """OpenCommand 顶层/子命令行为测试"""
+
+    def test_open_requires_project_path(self):
+        cmd = OpenCommand()
+        result = cmd.execute([], ProjectContext())
+        assert result.success is False
+        assert "缺少项目路径参数" in result.message
+
+    def test_open_rejects_nonexistent_path(self):
+        cmd = OpenCommand()
+        result = cmd.execute(["/nonexistent/path/for/test"], ProjectContext())
+        assert result.success is False
+        assert "项目路径不存在" in result.message
+
+    def test_open_rejects_file_path(self, tmp_path):
+        file_path = tmp_path / "not_a_dir.txt"
+        file_path.write_text("x", encoding="utf-8")
+        cmd = OpenCommand()
+        result = cmd.execute([str(file_path)], ProjectContext())
+        assert result.success is False
+        assert "路径不是目录" in result.message
+
+    def test_open_sets_context_project_path(self, tmp_path):
+        proj = tmp_path / "proj"
+        proj.mkdir()
+        cmd = OpenCommand()
+        ctx = ProjectContext()
+        result = cmd.execute([str(proj)], ctx)
+        assert result.success is True
+        assert ctx.is_project_open is True
+        assert ctx.project_path == str(proj.resolve())
+
+    def test_open_detects_manifest(self, tmp_path):
+        proj = tmp_path / "proj"
+        proj.mkdir()
+        (proj / "project.precis.yaml").write_text("project: {id: x, name: x}\n", encoding="utf-8")
+        cmd = OpenCommand()
+        result = cmd.execute([str(proj)], ProjectContext())
+        assert result.success is True
+        assert "检测到项目清单文件" in result.message
+
+    def test_open_alias_registered_at_top_level(self):
+        shell = CLIShell()
+        cmd = shell.registry.get("o")
+        assert cmd is not None
+        assert cmd.name == "open"
 
 
 class TestStandaloneArgsParser:
@@ -364,7 +414,7 @@ class TestCliShellInitialization:
         shell = CLIShell()
         commands = shell.registry.list_commands()
         # 至少应注册这些核心命令
-        for name in ("help", "validate", "exit", "project"):
+        for name in ("help", "open", "validate", "exit", "project"):
             assert name in commands, f"Missing built-in command: {name}"
 
     def test_project_command_has_open_and_status_subcommands(self):

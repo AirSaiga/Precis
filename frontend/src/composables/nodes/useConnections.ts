@@ -513,7 +513,7 @@ export function useConnections() {
       // Schema 列 → ManualData：提取该列数据到手动数据节点
       if (sourceNode.type === 'schema' && targetNode.type === 'manualData') {
         const schemaData = sourceNode.data as Record<string, unknown>
-        const columns = (schemaData.columns as Array<{ id: string; columnName: string }>) || []
+        const columns = (schemaData.columns as Array<{ id: string; columnName: string; dataType?: string }>) || []
 
         // 从 sourceHandle 解析列 ID，例如 "source-right-col-0" → "col-0"
         let columnId = ''
@@ -523,6 +523,7 @@ export function useConnections() {
 
         const column = columns.find((c) => c.id === columnId)
         const columnName = column?.columnName || 'Column1'
+        const columnDataType = column?.dataType
 
         // 尝试从关联的 SourcePreview 提取该列数据
         let extractedRows: string[][] = []
@@ -556,6 +557,7 @@ export function useConnections() {
 
         tx.patchNodeData(target, {
           columnName,
+          columnDataType: columnDataType as any,
           rows: extractedRows,
           configName: columnName,
           saveState: 'draft',

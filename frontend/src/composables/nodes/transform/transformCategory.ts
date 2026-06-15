@@ -117,13 +117,14 @@ export const TRANSFORM_SEMANTICS: Record<TransformTypeV2, TransformSemantic> = {
   // 单列 → 多列
   StringSplit: 'multiColumn',
   RegexExtract: 'multiColumn',
-  Concat: 'multiColumn',
+  // Concat 实际只输出单个拼接列（useTransformSave 走单列分支），非多列
   // 会改变行数
   FilterRows: 'rowChanging',
   DropDuplicates: 'rowChanging',
   SortRows: 'rowChanging',
   Aggregate: 'rowChanging',
   ConditionalAssign: 'singleColumn',
+  Concat: 'singleColumn',
   // 行级原子拆分
   Digits: 'rowAtomic',
   WeightedSum: 'rowAtomic',

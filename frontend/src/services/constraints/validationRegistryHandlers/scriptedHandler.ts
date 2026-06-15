@@ -27,6 +27,8 @@ register({
         validation_type: 'scripted',
         target_column_name: ctx.columnName,
         rows: ctx.inlineRows,
+        column_names: ctx.inlineColumnNames,
+        column_data_type: ctx.columnDataType,
         validation_config: {
           script: inlineScript,
           script_name: String(nodeData.configName || 'custom_script'),
@@ -62,6 +64,7 @@ register({
       source_file_path: String(ctx.sourceFilePath),
       sheet_name: ctx.sheetName,
       header_row: ctx.headerRow,
+      column_data_type: ctx.columnDataType,
       validation_config: {
         script,
         script_name: String(nodeData.configName || 'custom_script'),

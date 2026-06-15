@@ -76,6 +76,8 @@ register({
         validation_type: 'foreign_key',
         target_column_name: ctx.columnName,
         rows: ctx.inlineRows,
+        column_names: ctx.inlineColumnNames,
+        column_data_type: ctx.columnDataType,
         validation_config: {
           target_table: targetTable,
           target_column: targetColumn as string,

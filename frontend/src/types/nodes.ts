@@ -313,6 +313,8 @@ export interface ManualDataNodeData {
   configName: string
   /** 列名称 */
   columnName: string
+  /** 列数据类型（如 Integer/Float/String），用于下游约束按 Schema 类型转换 */
+  columnDataType?: DataType
   /** 数据行（二维数组，每行为一个记录） */
   rows: string[][]
   /** 节点描述（可选） */
@@ -370,6 +372,8 @@ export interface TransformOutputNodeData {
   configName: string
   /** 输出列名称 */
   columnName: string
+  /** 输出列数据类型（如 Integer/Float/String），用于下游约束按 Schema 类型转换 */
+  columnDataType?: DataType
   /** 输出数据行（二维数组） */
   rows: string[][]
   /** 父 Transform 节点 ID */

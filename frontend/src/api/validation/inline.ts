@@ -34,6 +34,8 @@ export interface InlineValidationRequest {
   validation_config?: Record<string, unknown>
   /** 是否允许脚本执行 */
   allow_unsafe_eval?: boolean
+  /** 目标列在 Schema 中声明的数据类型（如 string/integer/decimal） */
+  column_data_type?: string
 }
 
 /**

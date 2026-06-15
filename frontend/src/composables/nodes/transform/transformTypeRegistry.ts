@@ -5,17 +5,17 @@
  * 供计算逻辑、显示层、保存编排等模块统一引用。
  */
 
-/** 会产生多列输出的 transform 类型 */
-export const MULTI_COLUMN_TRANSFORMS = new Set([
-  'StringSplit',
-  'RegexExtract',
-  'MathExpr',
-  'DateFormat',
-  'CastType',
-  'Concat',
-  'Substring',
-  'ConditionalAssign',
-])
+import type { TransformTypeV2 } from '@/types/projectV2'
+
+/**
+ * 会产生多列输出的 transform 类型。
+ * 注意：仅包含在 save 路径（useTransformSave）中实际可能产生 >1 列的类型：
+ * - StringSplit：按分隔符拆分，列数由数据决定（始终可能多列）
+ * - RegexExtract：按捕获组数，用户可设置多个输出列名（条件性多列）
+ * 其余类型（MathExpr/DateFormat/CastType/Concat/Substring/ConditionalAssign）
+ * 在 save 时均走单列分支，不应列入此集合。
+ */
+export const MULTI_COLUMN_TRANSFORMS = new Set<TransformTypeV2>(['StringSplit', 'RegexExtract'])
 
 /** 会改变行数的 transform 类型 */
 export const ROW_CHANGING_TRANSFORMS = new Set([

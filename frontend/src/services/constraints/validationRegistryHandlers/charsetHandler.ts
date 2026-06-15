@@ -18,6 +18,8 @@ register({
         validation_type: 'charset',
         target_column_name: ctx.columnName,
         rows: ctx.inlineRows,
+        column_names: ctx.inlineColumnNames,
+        column_data_type: ctx.columnDataType,
         validation_config: {
           charset_mode: (nodeData.charsetMode as 'ascii' | 'chinese' | undefined) || 'ascii',
         },

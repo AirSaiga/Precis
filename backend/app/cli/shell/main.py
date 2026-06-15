@@ -23,6 +23,7 @@ from app.cli.shell.commands import (
     ExitCommand,
     HelpCommand,
     LsCommand,
+    OpenCommand,
     ProjectCommand,
     ProviderCommand,
     PwdCommand,
@@ -73,6 +74,7 @@ class CLIShell:
     def _setup_commands(self) -> None:
         """注册所有内置命令。"""
         self.registry.register(HelpCommand(self.registry))
+        self.registry.register(OpenCommand())
         self.registry.register(ProjectCommand())
         self.registry.register(ValidateCommand())
         self.registry.register(ConfigCommand())

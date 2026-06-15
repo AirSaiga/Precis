@@ -48,7 +48,8 @@ export function computeStringSplit(
     return value.split(delimiter, maxsplit + 1)
   })
 
-  const colCount = splitRows[0]?.length || 1
+  // 取所有行中最大的分片数作为列数，避免只看第一行导致后续行的字段被静默丢弃
+  const colCount = splitRows.length > 0 ? Math.max(...splitRows.map((r) => r.length), 1) : 1
   const rowsByColumn: string[][][] = Array.from({ length: colCount }, (_, i) =>
     splitRows.map((r) => [r[i] ?? ''])
   )
@@ -258,6 +259,20 @@ export function computeMapValue(
 export interface MathExprOptions {
   expression: string
   outputType: string
+}
+
+/**
+ * 将 MathExpr 输出类型映射为 DataType
+ */
+export function mapMathExprOutputType(outputType: string): string {
+  switch (outputType) {
+    case 'int':
+      return 'Integer'
+    case 'float':
+      return 'Float'
+    default:
+      return 'String'
+  }
 }
 
 function safeMathEval(expr: string): number {
@@ -481,6 +496,25 @@ export function computeCastType(upstreamRows: string[][], targetType: string): s
 
     return [casted]
   })
+}
+
+/**
+ * 将 CastType 目标类型映射为 DataType
+ */
+export function mapCastTypeOutputType(targetType: string): string {
+  switch (targetType) {
+    case 'int':
+      return 'Integer'
+    case 'float':
+      return 'Float'
+    case 'bool':
+      return 'Boolean'
+    case 'datetime':
+      return 'Date'
+    case 'string':
+    default:
+      return 'String'
+  }
 }
 
 // ============================================================================

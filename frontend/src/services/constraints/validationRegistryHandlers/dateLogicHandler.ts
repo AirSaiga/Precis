@@ -29,6 +29,8 @@ register({
         validation_type: 'date_logic',
         target_column_name: ctx.columnName,
         rows: ctx.inlineRows,
+        column_names: ctx.inlineColumnNames,
+        column_data_type: ctx.columnDataType,
         validation_config: validationConfig,
       })
       if (!response.success || !response.data) {

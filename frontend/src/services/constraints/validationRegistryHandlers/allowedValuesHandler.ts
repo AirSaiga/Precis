@@ -30,6 +30,8 @@ register({
         validation_type: 'allowed_values',
         target_column_name: ctx.columnName,
         rows: ctx.inlineRows,
+        column_names: ctx.inlineColumnNames,
+        column_data_type: ctx.columnDataType,
         validation_config: { allowed_values: allowedValues },
       })
       if (!response.success || !response.data) {

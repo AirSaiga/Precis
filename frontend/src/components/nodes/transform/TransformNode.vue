@@ -130,7 +130,7 @@
   })
 
   const paramsDisplay = computed(() => {
-    const text = getParamsDisplay(data.value.transformType, data.value.params)
+    const text = getParamsDisplay(data.value.transformType, data.value.params, t)
     return text || t('customNodes.transformNode.paramsEmpty')
   })
 

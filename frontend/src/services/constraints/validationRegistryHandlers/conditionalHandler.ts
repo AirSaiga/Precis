@@ -58,6 +58,8 @@ register({
         validation_type: 'conditional',
         target_column_name: thenColumnName,
         rows: ctx.inlineRows,
+        column_names: ctx.inlineColumnNames,
+        column_data_type: ctx.columnDataType,
         validation_config: validationConfig,
       })
       if (!response.success || !response.data) {

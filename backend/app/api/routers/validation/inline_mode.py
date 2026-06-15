@@ -50,6 +50,40 @@ from .router import router
 logger = logging.getLogger(__name__)
 
 
+def _infer_column_type(series: pd.Series) -> str | None:
+    """推断行内数据列的类型，无 Schema 声明时辅助数值比较等场景。
+
+    规则:
+    - 所有非空值均为整数格式时返回 "integer"
+    - 所有非空值均为数值格式（含小数）时返回 "decimal"
+    - 已经是 pandas 数值类型时直接返回对应类型
+    - 其他情况返回 None，保持原始字符串类型
+    """
+    if series.empty:
+        return None
+
+    non_null = series.dropna()
+    if non_null.empty:
+        return None
+
+    # 已经是 pandas 数值类型
+    if pd.api.types.is_numeric_dtype(non_null):
+        return "integer" if pd.api.types.is_integer_dtype(non_null) else "decimal"
+
+    str_values = non_null.astype(str)
+
+    # 整数格式
+    if str_values.str.fullmatch(r"^-?\d+$").all():
+        return "integer"
+
+    # 数值格式（含小数）
+    numeric = pd.to_numeric(str_values, errors="coerce")
+    if numeric.notna().all():
+        return "decimal"
+
+    return None
+
+
 @router.post(
     "/validate/inline",
     response_model=ValidationResponse,
@@ -112,13 +146,19 @@ def validate_data_inline(request: InlineValidationRequest):
 
         # 委托给共享流水线执行校验
         # 传递 column_data_type 让后端按 Schema 类型转换，保持与全量校验一致
+        # 若请求未提供类型，则根据目标列内容自动推断数值类型，避免行内数字字符串
+        # 在脚本/区间等数值比较场景下因类型错误而失败
+        column_data_type = request.column_data_type
+        if not column_data_type and request.target_column_name in df.columns:
+            column_data_type = _infer_column_type(df[request.target_column_name])
+
         return execute_dataframe_validation(
             df=df,
             validation_type=request.validation_type,
             target_column_name=request.target_column_name,
             validation_config=request.validation_config,
             allow_unsafe_eval=request.allow_unsafe_eval,
-            column_data_type=request.column_data_type,
+            column_data_type=column_data_type,
         )
 
     except Exception as e:

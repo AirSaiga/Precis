@@ -41,7 +41,6 @@
   }>()
 
   const validationError = ref('')
-  let validateTimer: ReturnType<typeof setTimeout> | null = null
 
   const display = computed(() => {
     if (props.value == null) return ''
@@ -65,12 +64,12 @@
   }
 
   function onInput(v: string) {
-    if (validateTimer) clearTimeout(validateTimer)
-    validateTimer = setTimeout(() => {
-      validationError.value = validateExpression(v)
-    }, 300)
-    validationError.value = ''
-    emit('commit', v)
+    // 同步校验：无效表达式不提交，避免错误数据存入节点（R3 修复）
+    const error = validateExpression(v)
+    validationError.value = error
+    if (!error) {
+      emit('commit', v)
+    }
   }
 </script>
 

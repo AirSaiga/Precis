@@ -18,6 +18,8 @@ register({
         validation_type: 'unique',
         target_column_name: ctx.columnName,
         rows: ctx.inlineRows,
+        column_names: ctx.inlineColumnNames,
+        column_data_type: ctx.columnDataType,
       })
       if (!response.success || !response.data) {
         return {

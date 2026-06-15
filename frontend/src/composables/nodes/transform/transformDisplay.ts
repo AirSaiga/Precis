@@ -36,30 +36,35 @@ export const TRANSFORM_TYPE_I18N_KEYS: Record<string, string> = {
 }
 
 /**
- * 获取参数区域的显示文本
+ * 获取参数区域的显示文本（节点卡片摘要）。
  *
- * 注意：此函数返回硬编码的中文文本，与原组件保持一致。
- * 后续可改为返回 i18n key 对象，由调用方翻译。
+ * @param t vue-i18n 的翻译函数，由调用方从 useI18n() 传入。
+ *   所有文案走 i18n，key 前缀为 inspector.transformNode.paramsDisplay。
  */
 export function getParamsDisplay(
   transformType: string,
-  params: Record<string, unknown> | undefined
+  params: Record<string, unknown> | undefined,
+  t: (key: string, named?: Record<string, unknown>) => string
 ): string {
   const p = params || {}
+  const k = (sub: string) => `inspector.transformNode.paramsDisplay.${sub}`
 
   switch (transformType) {
     case 'StringSplit': {
       const delimiter = (p.delimiter as string) || ','
       const maxsplit = (p.maxsplit as number) ?? -1
-      return `分隔符: "${delimiter}" | 最大分割: ${maxsplit === -1 ? '不限' : maxsplit}`
+      return t(k('delimiter'), {
+        delimiter,
+        maxsplit: maxsplit === -1 ? t(k('unlimited')) : maxsplit,
+      })
     }
     case 'MathExpr': {
       const expression = (p.expression as string) || ''
-      return expression ? `表达式: ${expression}` : ''
+      return expression ? t(k('expression'), { expr: expression }) : ''
     }
     case 'RegexExtract': {
       const pattern = (p.pattern as string) || ''
-      return pattern ? `模式: ${pattern}` : ''
+      return pattern ? t(k('pattern'), { pattern }) : ''
     }
     case 'DateFormat': {
       const inputFormat = (p.input_format as string) || '%Y-%m-%d'
@@ -69,85 +74,74 @@ export function getParamsDisplay(
     case 'Lookup': {
       const mapping = (p.mapping as Record<string, string>) || {}
       const keys = Object.keys(mapping)
-      return keys.length ? `映射: ${keys.length} 项` : ''
+      return keys.length ? t(k('mapping'), { count: keys.length }) : ''
     }
     case 'Strip': {
       const chars = (p.chars as string) || ''
-      return chars ? `去除: "${chars}"` : '去除首尾空白'
+      return chars ? t(k('stripChars'), { chars }) : t(k('stripDefault'))
     }
     case 'UpperCase':
-      return '转换为大写'
+      return t(k('toUpper'))
     case 'LowerCase':
-      return '转换为小写'
+      return t(k('toLower'))
     case 'Replace': {
       const oldStr = (p.old as string) || ''
       const newStr = (p.new as string) || ''
-      return oldStr ? `"${oldStr}" → "${newStr}"` : ''
+      return oldStr ? t(k('replace'), { old: oldStr, new: newStr }) : ''
     }
     case 'FilterRows': {
       const conds = (p.conditions as Array<{ column: string; op: string; value: string }>) || []
-      return conds.length ? `${conds.length} 个过滤条件` : ''
+      return conds.length ? t(k('filterCount'), { count: conds.length }) : ''
     }
     case 'FillNA': {
       const strategy = (p.strategy as string) || 'value'
-      const strategyMap: Record<string, string> = {
-        value: '指定值',
-        ffill: '前向填充',
-        bfill: '后向填充',
-        mean: '均值',
-        median: '中位数',
-      }
-      return strategyMap[strategy] || strategy
+      return t(k(`fillStrategy.${strategy}`))
     }
     case 'DropDuplicates': {
       const keep = String((p.keep as string) ?? 'first')
-      const keepMap: Record<string, string> = {
-        first: '保留第一条',
-        last: '保留最后一条',
-        false: '全部删除',
-      }
-      return keepMap[keep] || keep
+      return t(k(`keepStrategy.${keep}`))
     }
     case 'CastType': {
       const targetType = (p.target_type as string) || 'string'
-      return `转为 ${targetType}`
+      return t(k('castTo'), { type: targetType })
     }
     case 'Concat': {
-      const cols = (p.columns as string) || ''
+      const colsRaw = p.columns
+      const cols = Array.isArray(colsRaw) ? colsRaw.join(',') : (colsRaw as string) || ''
       const sep = (p.separator as string) || ''
-      return cols ? `拼接 ${cols}${sep ? ` (分隔: "${sep}")` : ''}` : ''
+      return cols ? t(k('concat'), { cols }) + (sep ? t(k('concatSep'), { sep }) : '') : ''
     }
     case 'Substring': {
       const start = (p.start as number) ?? 0
       const end = p.end as number | undefined
       const length = p.length as number | undefined
-      if (length != null) return `从 ${start} 开始，长度 ${length}`
-      if (end != null) return `从 ${start} 到 ${end}`
-      return `从 ${start} 开始`
+      if (length != null) return t(k('substringFromLength'), { start, length })
+      if (end != null) return t(k('substringFromEnd'), { start, end })
+      return t(k('substringFrom'), { start })
     }
     case 'Aggregate': {
       const aggs = (p.aggregations as Array<{ column: string; func: string }>) || []
-      return aggs.length ? `${aggs.length} 项聚合` : ''
+      return aggs.length ? t(k('aggregateCount'), { count: aggs.length }) : ''
     }
     case 'ConditionalAssign': {
       const conds = (p.conditions as Array<{ column: string; op: string; value: string }>) || []
-      return conds.length ? `${conds.length} 个条件 → 赋值` : ''
+      return conds.length ? t(k('conditionCount'), { count: conds.length }) : ''
     }
     case 'SortRows': {
       const sorts = (p.sort_by as Array<{ column: string; order: string }>) || []
-      return sorts.length ? `${sorts.length} 个排序列` : ''
+      return sorts.length ? t(k('sortCount'), { count: sorts.length }) : ''
     }
     case 'WeightedSum': {
       const weights = (p.weights as number[]) || []
-      return weights.length ? `${weights.length} 个权重` : ''
+      return weights.length ? t(k('weightCount'), { count: weights.length }) : ''
     }
     case 'Modulo': {
       const divisor = (p.divisor as number) ?? 1
-      return `除数: ${divisor}`
+      return t(k('divisor'), { divisor })
     }
     case 'MapValue': {
       const mapping = (p.mapping as Array<string | number>) || []
-      return mapping.length ? `映射: ${mapping.length} 项` : ''
+      return mapping.length ? t(k('mapping'), { count: mapping.length }) : ''
     }
     default:
       return ''

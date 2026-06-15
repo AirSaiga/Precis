@@ -59,6 +59,8 @@ export interface ConstraintValidationContext {
   columnDataType?: string
   /** 行内数据行（来自 TransformOutput / ManualData 等非文件数据源） */
   inlineRows?: string[][]
+  /** 行内数据列名（提供时 rows 全部视为数据行，不再将第一行视为表头） */
+  inlineColumnNames?: string[]
 }
 
 export interface ConstraintValidationResult {

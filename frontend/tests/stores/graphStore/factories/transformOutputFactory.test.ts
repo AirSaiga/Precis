@@ -44,6 +44,13 @@ describe('transformOutputFactory', () => {
     expect(node.data.parentTransformId).toBe('parent-1')
     expect(node.data.rows).toEqual(rows)
     expect(node.data.saveState).toBe('draft')
+    expect(node.data.columnDataType).toBeUndefined()
+  })
+
+  it('columnDataType 传入后写入节点 data', () => {
+    factory.createTransformOutputNode({ x: 0, y: 0 }, 'parent-1', 'col1', [], 'Integer')
+    const node = vi.mocked(addNodes).mock.calls[0][0]
+    expect(node.data.columnDataType).toBe('Integer')
   })
 
   it('不设置 selectedNodeId（无 selectedNodeId 传入）', () => {

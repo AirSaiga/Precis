@@ -18,6 +18,8 @@ register({
         validation_type: 'range',
         target_column_name: ctx.columnName,
         rows: ctx.inlineRows,
+        column_names: ctx.inlineColumnNames,
+        column_data_type: ctx.columnDataType,
         validation_config: {
           min_value: nodeData.minValue as number,
           max_value: nodeData.maxValue as number,

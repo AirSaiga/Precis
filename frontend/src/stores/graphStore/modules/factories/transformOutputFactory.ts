@@ -23,11 +23,13 @@ export function createTransformOutputFactoryModule(params: { nodes: Ref<CustomNo
     position: { x: number; y: number },
     parentTransformId: string,
     columnName: string,
-    rows: string[][]
+    rows: string[][],
+    columnDataType?: string
   ) {
     return createNode('transformOutput', position, {
       configName: columnName,
       columnName,
+      columnDataType,
       rows,
       parentTransformId,
       saveState: 'draft',

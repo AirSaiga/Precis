@@ -33,6 +33,8 @@ import {
   computeConditionalAssign,
   computeSummary,
   resolveOutputColumns,
+  mapMathExprOutputType,
+  mapCastTypeOutputType,
 } from './transformCalculations'
 
 /** 从上游节点获取数据行 */
@@ -44,6 +46,17 @@ function getUpstreamRows(upstreamNode: any): string[][] {
     return (upstreamNode.data as TransformOutputNodeData).rows
   }
   return []
+}
+
+/** 从上游节点获取列数据类型 */
+function getUpstreamColumnDataType(upstreamNode: any): string | undefined {
+  if (upstreamNode?.type === 'manualData') {
+    return (upstreamNode.data as ManualDataNodeData).columnDataType
+  }
+  if (upstreamNode?.type === 'transformOutput') {
+    return (upstreamNode.data as TransformOutputNodeData).columnDataType
+  }
+  return undefined
 }
 
 export function useTransformSave() {
@@ -79,6 +92,7 @@ export function useTransformSave() {
     if (upstreamType !== 'manualData' && upstreamType !== 'transformOutput') return
 
     const upstreamRows = getUpstreamRows(upstreamNode)
+    const upstreamColumnDataType = getUpstreamColumnDataType(upstreamNode)
     const oldOutputIds = transformData.outputNodeIds || []
     const basePosition = storeNode.position || { x: 0, y: 0 }
 
@@ -129,7 +143,7 @@ export function useTransformSave() {
         length: transformData.params?.length as number | undefined,
       })
       const baseName = transformData.inputColumn || 'result'
-      const columns = resolveOutputColumns(transformData, `${baseName}_substring`)
+      const columns = resolveOutputColumns(transformData, `${baseName}_result`)
       await createOutputNodes(nodeId, oldOutputIds, columns, [rows], basePosition)
       return
     }
@@ -184,14 +198,18 @@ export function useTransformSave() {
             type === 'Concat' ? 'concat_result' : `${baseName}_result`
           )
     let rows: string[][]
+    let outputDataType: string | undefined
 
     switch (type) {
-      case 'MathExpr':
+      case 'MathExpr': {
+        const outputType = (transformData.params?.output_type as string) || ''
         rows = computeMathExpr(upstreamRows, {
           expression: (transformData.params?.expression as string) || '',
-          outputType: (transformData.params?.output_type as string) || '',
+          outputType,
         })
+        outputDataType = outputType ? mapMathExprOutputType(outputType) : upstreamColumnDataType
         break
+      }
       case 'Replace':
         rows = computeReplace(upstreamRows, {
           old: (transformData.params?.old as string) || '',
@@ -213,6 +231,7 @@ export function useTransformSave() {
           inputFormat: (transformData.params?.input_format as string) || '%Y-%m-%d',
           outputFormat: (transformData.params?.output_format as string) || '%Y/%m/%d',
         })
+        outputDataType = 'Date'
         break
       case 'Lookup':
         rows = computeLookup(
@@ -222,10 +241,11 @@ export function useTransformSave() {
         )
         break
       case 'CastType':
-        rows = computeCastType(
-          upstreamRows,
-          (transformData.params?.target_type as string) || 'string'
-        )
+        {
+          const targetType = (transformData.params?.target_type as string) || 'string'
+          rows = computeCastType(upstreamRows, targetType)
+          outputDataType = mapCastTypeOutputType(targetType)
+        }
         break
       case 'Concat':
         rows = computeConcat(upstreamRows, {
@@ -252,7 +272,7 @@ export function useTransformSave() {
         break
     }
 
-    await createOutputNodes(nodeId, oldOutputIds, columns, [rows], basePosition)
+    await createOutputNodes(nodeId, oldOutputIds, columns, [rows], basePosition, outputDataType)
   }
 
   return { handleSave }
