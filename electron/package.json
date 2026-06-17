@@ -98,7 +98,7 @@
     "cross-env": "^10.1.0",
     "electron": "^35.0.0",
     "electron-builder": "^25.1.0",
-    "typescript": "~5.9.0",
+    "typescript": "~6.0.3",
     "vitest": "^4.1.4"
   },
   "dependencies": {
