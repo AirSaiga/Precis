@@ -13,7 +13,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -272,9 +272,15 @@ async def test_orchestrator_agent_mode_true_uses_runner():
         },
     )()
 
-    with patch(
-        "app.shared.services.ai.chat_agent_runner.ChatAgentRunner.run",
-        return_value=fake_result,
+    with (
+        patch(
+            "app.shared.services.llm.providers.create",
+            return_value=MagicMock(),
+        ),
+        patch(
+            "app.shared.services.ai.chat_agent_runner.ChatAgentRunner.run",
+            return_value=fake_result,
+        ),
     ):
         result = await orchestrator.execute_chat(
             message="test",
