@@ -112,8 +112,8 @@ test.describe('AI Chat Agent Mode', () => {
       expect(resp.ok).toBe(true)
       const data = await resp.json()
 
-      // 旧路径不应有 agent_meta（或为 null）
-      expect(data.agent_meta).toBeUndefined()
+      // 旧路径不应有 agent_meta（可为 null 或 undefined，Pydantic Optional 序列化为 null）
+      expect([null, undefined]).toContain(data.agent_meta)
 
       // 但仍保留核心契约字段
       expect(data).toHaveProperty('status')

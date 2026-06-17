@@ -423,13 +423,23 @@ class AIChatOrchestrator:
 
         # self._provider 是 AIProvider 配置对象，AgentExecutor 需要的是 Provider 实例（有 chat 方法）
         # 此处与 ConfigGenerationService._get_provider() 模式一致：用 create() 实例化
-        runner = ChatAgentRunner(
-            provider=create(self._provider),
-            project_path=project_path,
-            context_nodes=context_nodes,
-            max_iterations=options.max_agent_iterations,
-            max_history_tokens=options.max_history_tokens,
-        )
+        # 注意：create() 可能抛出 ImportError（如 openai 未安装），需在此捕获，
+        # 否则异常会穿透到 endpoint 的 try/except 导致 502，而非返回 200 + status=error
+        try:
+            runner = ChatAgentRunner(
+                provider=create(self._provider),
+                project_path=project_path,
+                context_nodes=context_nodes,
+                max_iterations=options.max_agent_iterations,
+                max_history_tokens=options.max_history_tokens,
+            )
+        except Exception as e:
+            logger.error(f"Agent 模式初始化失败: {e}")
+            return ChatExecutionResult(
+                success=False,
+                reply="",
+                error=f"AI 服务初始化失败: {e}",
+            )
 
         run_result = await runner.run(
             message=message,

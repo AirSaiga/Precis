@@ -357,3 +357,26 @@ async def test_orchestrator_agent_mode_without_project_falls_back():
 
     assert result.success is True
     assert result.reply == "请先打开项目"
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_agent_mode_provider_creation_failure():
+    """agent_mode=true 时 create() 抛异常（如 openai 未安装）应返回失败结果，而非 502。"""
+    provider = FakeProvider(responses=[])
+    orchestrator = AIChatOrchestrator(provider=provider.cfg)
+
+    with patch(
+        "app.shared.services.llm.providers.create",
+        side_effect=ImportError("openai 未安装，请运行 pip install openai"),
+    ):
+        result = await orchestrator.execute_chat(
+            message="test",
+            project_path="/fake/project",
+            context_nodes=[],
+            options=ChatOptions(agent_mode=True, max_agent_iterations=3),
+        )
+
+    # 关键断言：异常被捕获，返回失败结果（而非向上抛出导致 502）
+    assert result.success is False
+    assert result.error is not None
+    assert "openai" in result.error or "初始化" in result.error

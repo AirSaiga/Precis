@@ -100,6 +100,9 @@ async def chat(request: AiChatRequest, x_project_config_path: Optional[str] = He
         logging.getLogger(__name__).exception("AI chat failed")
         raise HTTPException(status_code=502, detail=f"AI 服务调用失败: {exc}")
 
+    # agent_meta 仅在 agent_mode=true 时填充，旧路径保持 None
+    agent_meta = AgentMeta(iterations=result.iterations, tool_steps=result.tool_steps) if request.agent_mode else None
+
     # 根据编排器结果组装响应
     if not result.success:
         return AiChatResponse(
@@ -107,7 +110,7 @@ async def chat(request: AiChatRequest, x_project_config_path: Optional[str] = He
             reply=result.reply or "",
             actions=[],
             frontend_instructions=[],
-            agent_meta=AgentMeta(iterations=result.iterations, tool_steps=result.tool_steps),
+            agent_meta=agent_meta,
             error=result.error,
         )
 
@@ -116,7 +119,7 @@ async def chat(request: AiChatRequest, x_project_config_path: Optional[str] = He
         reply=result.reply,
         actions=result.actions,
         frontend_instructions=result.frontend_instructions,
-        agent_meta=AgentMeta(iterations=result.iterations, tool_steps=result.tool_steps),
+        agent_meta=agent_meta,
         error=None,
     )
 
