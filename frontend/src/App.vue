@@ -110,7 +110,7 @@
               v-if="canvasStore.workspaces.length > 1"
               class="tab-close ui-icon-btn ui-icon-btn--sm ui-icon-btn--danger"
               type="button"
-              @click.stop="await canvasStore.closeWorkspace(workspace.id, graphStore)"
+              @click.stop="canvasStore.closeWorkspace(workspace.id, graphStore)"
             >
               ×
             </button>
