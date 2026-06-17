@@ -89,6 +89,13 @@ class AiChatRequest(BaseModel):
     agent_mode: bool = Field(default=True, description="是否启用 Agent 深度模式")
 
 
+class AgentMeta(BaseModel):
+    """Agent 模式执行元数据（仅 agent_mode=true 时填充）"""
+
+    iterations: int = 0
+    tool_steps: list[dict[str, Any]] = Field(default_factory=list, description="工具调用轨迹")
+
+
 class AiChatResponse(BaseModel):
     """AI Chat 响应输出 (对应前端期望)"""
 
@@ -96,6 +103,7 @@ class AiChatResponse(BaseModel):
     reply: str
     actions: list[Any]
     frontend_instructions: list[Any]
+    agent_meta: Optional[AgentMeta] = None
     error: Optional[str] = None
 
 

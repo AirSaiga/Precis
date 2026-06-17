@@ -24,6 +24,7 @@ from app.cli.shell.commands.config.check import ConfigCheckCommand
 from app.cli.shell.commands.config.edit import ConfigEditCommand
 from app.cli.shell.commands.config.get import ConfigGetCommand
 from app.cli.shell.commands.config.init import ConfigInitCommand
+from app.cli.shell.commands.config.inspect import ConfigInspectCommand
 from app.cli.shell.commands.config.list import ConfigListCommand
 from app.cli.shell.commands.config.set import ConfigSetCommand
 from app.cli.shell.commands.config.show import ConfigShowCommand
@@ -44,6 +45,7 @@ class ConfigCommand(Command):
         self._get_cmd = ConfigGetCommand()
         self._set_cmd = ConfigSetCommand()
         self._check_cmd = ConfigCheckCommand()
+        self._inspect_cmd = ConfigInspectCommand()
 
         # 注册子命令
         self.add_subcommand("show", self._show_cmd)
@@ -53,6 +55,7 @@ class ConfigCommand(Command):
         self.add_subcommand("get", self._get_cmd)
         self.add_subcommand("set", self._set_cmd)
         self.add_subcommand("check", self._check_cmd)
+        self.add_subcommand("inspect", self._inspect_cmd)
 
     @property
     def description(self) -> str:
@@ -60,7 +63,7 @@ class ConfigCommand(Command):
 
     @property
     def usage(self) -> str:
-        return "config <show|edit|list|init|get|set|check>"
+        return "config <show|edit|list|init|get|set|check|inspect>"
 
     def execute(self, args: list, context: CommandContext) -> CommandResult:
         """执行配置管理命令。
@@ -76,7 +79,7 @@ class ConfigCommand(Command):
         """
         if not args:
             return CommandResult.error(
-                "请指定子命令: show, edit, list, init, get, set, check\n"
+                "请指定子命令: show, edit, list, init, get, set, check, inspect\n"
                 "用法: config <subcommand> [options]\n\n"
                 "子命令说明:\n"
                 "  show    - 显示配置文件内容\n"
@@ -85,7 +88,8 @@ class ConfigCommand(Command):
                 "  init    - 初始化新配置文件\n"
                 "  get     - 获取配置项值\n"
                 "  set     - 设置配置项值\n"
-                "  check   - 检查配置文件语法格式"
+                "  check   - 检查配置文件语法格式\n"
+                "  inspect - 执行配置跨文件一致性自检"
             )
 
         subcommand = args[0]
@@ -99,6 +103,7 @@ class ConfigCommand(Command):
             "get": self._get_cmd,
             "set": self._set_cmd,
             "check": self._check_cmd,
+            "inspect": self._inspect_cmd,
         }
 
         if subcommand in subcommands:

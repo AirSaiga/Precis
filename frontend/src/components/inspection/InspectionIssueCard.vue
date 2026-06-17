@@ -121,8 +121,12 @@
         </div>
       </div>
 
-      <!-- 兜底：原始 message（高级用户排查用） -->
-      <details v-if="issue.message && issue.message !== titleText" class="raw-message">
+      <!-- 兜底：原始 message（高级用户排查用）。
+           当 message 已被用作 title/description 兜底时隐藏，避免重复展示 -->
+      <details
+        v-if="issue.message && issue.message !== titleText && issue.message !== descriptionText"
+        class="raw-message"
+      >
         <summary>{{ t('inspection.rawDetails') }}</summary>
         <pre>{{ issue.message }}</pre>
         <div v-if="issue.error_type" class="raw-meta">
@@ -153,7 +157,10 @@
     dismiss: [issueId: string]
     restore: [issueId: string]
     action: [issue: InspectionIssue, action: InspectionAction]
-    fixed: []
+    /** 用户从可用表列表中选择一个表来修正引用 */
+    selectFixTable: [issue: InspectionIssue, newTableId: string]
+    /** 用户从可用列列表中选择一个列来修正引用 */
+    selectFixColumn: [issue: InspectionIssue, newColumnId: string]
   }>()
 
   const { t } = useI18n()
@@ -199,16 +206,54 @@
     return fallback
   }
 
-  const titleText = computed(() =>
-    renderText(props.issue.title_key, props.issue.title, props.issue.message_params)
-  )
+  /**
+   * 预处理 message_params：把面向用户的文案里可能出现的 tableId/columnId
+   * 转成最友好的形式，避免暴露 UUID/编码串等对用户无意义的 id。
+   *
+   * tableId 的取值优先级（体现"优先用 name"原则）：
+   *   1. tableName 非空 → 用 name（表存在时后端会填 schema.name，最可读）
+   *   2. 否则若 id 是机器生成 → 用本地化中性词（machineIdLabel.table）
+   *   3. 否则（可读 id 如 "users"）→ 原样保留
+   * columnId 同理（列已删除时无 name 来源，机器 id 走中性词）。
+   *
+   * 原始 id 仍保留在 issue.message（折叠区）供高级用户排查。
+   */
+  const displayMessageParams = computed<Record<string, unknown>>(() => {
+    const raw = props.issue.message_params ?? {}
+    const params: Record<string, unknown> = { ...raw }
+    // tableId：优先 name
+    if (typeof raw.tableName === 'string' && raw.tableName.trim()) {
+      params.tableId = raw.tableName
+    } else if (raw.tableIdIsMachine && typeof raw.tableId === 'string') {
+      params.tableId = t('inspection.machineIdLabel.table')
+    }
+    // columnId：无 name 来源，机器 id 走中性词
+    if (raw.columnIdIsMachine && typeof raw.columnId === 'string') {
+      params.columnId = t('inspection.machineIdLabel.column')
+    }
+    return params
+  })
 
-  const descriptionText = computed(() =>
-    renderText(props.issue.description_key, props.issue.description, props.issue.message_params)
-  )
+  const titleText = computed(() => {
+    const rendered = renderText(props.issue.title_key, props.issue.title, displayMessageParams.value)
+    // title 和 key 都空时，回退到 error_type 或通用文案，避免卡片出现空白主标题
+    if (rendered) return rendered
+    if (props.issue.error_type) return props.issue.error_type
+    return t('inspection.issues.untitled')
+  })
+
+  const descriptionText = computed(() => {
+    const rendered = renderText(
+      props.issue.description_key,
+      props.issue.description,
+      displayMessageParams.value
+    )
+    // description 空时回退到 message（兜底），保证用户至少能看到一句说明
+    return rendered || props.issue.message || ''
+  })
 
   const fixHintText = computed(() =>
-    renderText(props.issue.fix_hint_key, props.issue.fix_hint, props.issue.message_params)
+    renderText(props.issue.fix_hint_key, props.issue.fix_hint, displayMessageParams.value)
   )
 
   function actionLabel(action: InspectionAction): string {
@@ -243,44 +288,14 @@
     }
   }
 
-  /** 点击可用表条目，修正当前 issue 的表引用 */
+  /** 点击可用表条目，请求修正当前 issue 的表引用 */
   function fixTableRef(schemaId: string): void {
-    const ctx = props.issue.context as Record<string, unknown> | undefined
-    if (!ctx) return
-    ctx._fixTableRef = schemaId
-    emit('fixed')
+    emit('selectFixTable', props.issue, schemaId)
   }
 
-  /** 点击可用列条目，修正当前 issue 的列引用 */
+  /** 点击可用列条目，请求修正当前 issue 的列引用 */
   function fixColumnRef(col: string): void {
-    const ctx = props.issue.context as Record<string, unknown> | undefined
-    if (!ctx) return
-    ctx._fixColumnRef = col
-    emit('fixed')
-  }
-
-  function _levenshtein(a: string, b: string): number {
-    const m = a.length
-    const n = b.length
-    const matrix: number[][] = []
-    for (let i = 0; i <= m; i++) {
-      matrix[i] = []
-      for (let j = 0; j <= n; j++) {
-        if (i === 0) {
-          matrix[i]![j] = j
-        } else if (j === 0) {
-          matrix[i]![j] = i
-        } else {
-          const cost = a[i - 1] === b[j - 1] ? 0 : 1
-          matrix[i]![j] = Math.min(
-            matrix[i - 1]![j]! + 1,
-            matrix[i]![j - 1]! + 1,
-            matrix[i - 1]![j - 1]! + cost
-          )
-        }
-      }
-    }
-    return matrix[m]![n]!
+    emit('selectFixColumn', props.issue, col)
   }
 </script>
 
@@ -293,6 +308,19 @@
     background: var(--ui-bg-elevated);
     overflow: hidden;
     transition: opacity 0.2s;
+    user-select: text;
+    -webkit-user-select: text;
+    cursor: text;
+  }
+  .issue-card * {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  .issue-card button,
+  .issue-card summary {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: pointer;
   }
 
   .issue-card.is-ignored {

@@ -36,7 +36,8 @@
           @dismiss="$emit('dismiss', $event)"
           @restore="$emit('restore', $event)"
           @action="(i, a) => $emit('action', i, a)"
-          @fixed="$emit('fixed')"
+          @select-fix-table="(i, newId) => $emit('selectFixTable', i, newId)"
+          @select-fix-column="(i, newId) => $emit('selectFixColumn', i, newId)"
         />
       </div>
     </Transition>
@@ -69,7 +70,10 @@
     restore: [issueId: string]
     dismissGroup: [issueIds: string[]]
     action: [issue: InspectionIssue, action: any]
-    fixed: []
+    /** 用户从可用表列表选择一个表来修正引用（转发给 Drawer 走 auto_fix） */
+    selectFixTable: [issue: InspectionIssue, newTableId: string]
+    /** 用户从可用列列表选择一个列来修正引用（转发给 Drawer 走 auto_fix） */
+    selectFixColumn: [issue: InspectionIssue, newColumnId: string]
   }>()
 
   const { t } = useI18n()

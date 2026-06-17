@@ -392,6 +392,19 @@ export interface AiChatRequest {
   agent_mode?: boolean
 }
 
+/** Agent 模式执行元数据（仅 agent_mode=true 时后端填充） */
+export interface AgentMeta {
+  /** 实际迭代轮数 */
+  iterations: number
+  /** 工具调用轨迹，每步含 tool 名、人类可读 label、turn 轮次 */
+  tool_steps: Array<{
+    tool: string
+    label: string
+    turn: number
+    action_count?: number
+  }>
+}
+
 /** AI 聊天响应体 */
 export interface AiChatResponse {
   /** 响应状态 */
@@ -402,6 +415,8 @@ export interface AiChatResponse {
   actions: unknown[]
   /** 前端渲染指令列表 */
   frontend_instructions: unknown[]
+  /** Agent 模式执行元数据（非 agent 模式为 null） */
+  agent_meta?: AgentMeta | null
   /** 错误信息（如有） */
   error?: string
 }

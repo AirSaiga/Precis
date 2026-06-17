@@ -110,6 +110,38 @@
   gap: 2px;
   min-width: 0;
   max-width: 85%;
+  position: relative;
+}
+
+/* 复制按钮：默认隐藏，悬停消息时显示 */
+.message-copy-btn {
+  position: absolute;
+  top: -3px;
+  right: -3px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-tertiary);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  z-index: 1;
+}
+
+.chat-message:hover .message-copy-btn {
+  opacity: 1;
+}
+
+.message-copy-btn:hover {
+  background: var(--ui-accent);
+  color: white;
 }
 
 .message-content {

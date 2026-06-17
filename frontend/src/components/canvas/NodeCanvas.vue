@@ -151,8 +151,10 @@
   // ========================================
   // Vue 核心导入
   // ========================================
-  import { ref } from 'vue'
+  import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import { eventBus } from '@/core/eventBus'
+  import { logger } from '@/core/utils/logger'
   import type { TransformTypeV2 } from '@/types/projectV2'
   import type { ConstraintKind } from '@/services/constraints/types'
 
@@ -279,6 +281,55 @@
   const handleTransformMenuClose = () => {
     showTransformMenu.value = false
   }
+
+  // ========================================
+  // 配置自检：响应"导入并聚焦"请求
+  // ========================================
+  // 自检抽屉等画布外组件通过事件总线请求把某资源导入画布并聚焦。
+  // 这里负责：算视口中心→导入→等待渲染→fitView+选中。
+  // 放在 NodeCanvas 是因为它持有 flowWrapper/project/fitView/store 全套能力。
+  const handleInspectionImportAndFocus = async (payload: {
+    resourceId: string
+    kind: 'schema' | 'constraint' | 'regex' | 'transform'
+  }): Promise<void> => {
+    const { resourceId, kind } = payload
+    // 用容器屏幕矩形算视口中心，再 project 转画布坐标
+    let position = { x: 0, y: 0 }
+    const el = flowWrapper.value
+    if (el) {
+      const rect = el.getBoundingClientRect()
+      position = project({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 })
+      // 偏移一点，避免新节点正中心盖住已有节点
+      position = { x: position.x - 120, y: position.y - 60 }
+    }
+    try {
+      const nodeId = await store.importV2ResourceToCanvas(kind, resourceId, position, {
+        includeDeps: false,
+        moveIfExists: true,
+      })
+      if (!nodeId) {
+        logger.warn('[NodeCanvas] inspection 导入未返回节点 id:', resourceId)
+        return
+      }
+      // 等待 VueFlow 完成节点渲染，再 fitView
+      await nextTick()
+      store.setSelectedNode(nodeId)
+      try {
+        fitView({ nodes: [nodeId], padding: 0.3, duration: 500 })
+      } catch (err) {
+        logger.warn('[NodeCanvas] inspection fitView 失败:', err)
+      }
+    } catch (err) {
+      logger.error('[NodeCanvas] inspection 导入失败:', err)
+    }
+  }
+
+  onMounted(() => {
+    eventBus.on('inspection-import-and-focus', handleInspectionImportAndFocus)
+  })
+  onBeforeUnmount(() => {
+    eventBus.off('inspection-import-and-focus', handleInspectionImportAndFocus)
+  })
 </script>
 
 <style scoped src="./NodeCanvas.styles.css"></style>

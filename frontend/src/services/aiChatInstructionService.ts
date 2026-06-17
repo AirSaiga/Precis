@@ -48,6 +48,75 @@ const CONSTRAINT_TYPE_MAP: Record<string, string> = {
   COMPOSITE: 'composite',
 }
 
+/**
+ * 解析约束指令的目标节点（前端兜底）
+ *
+ * 优先级：
+ * 1. targetNodeId 精确匹配（后端解析出的确定性 ID）
+ * 2. tableName 匹配节点的 data.tableName / data.configName / id
+ * 3. tableName 大小写不敏感包含匹配（宽松兜底）
+ *
+ * 应对"AI 二手观察画布 + 后端双出口"同步鸿沟的最后一道防线：
+ * 即使后端解析的 ID 与画布真实节点 ID 不同步（如未保存的新建节点、
+ * 多轮对话间画布状态变化），前端仍能用 tableName 找到正确节点。
+ */
+function resolveTargetNode(
+  nodes: VueFlowNode[],
+  targetNodeId: string,
+  tableName?: string
+): VueFlowNode | undefined {
+  // 策略 1：精确 ID 匹配
+  if (targetNodeId) {
+    const exact = nodes.find((n) => n.id === targetNodeId)
+    if (exact) return exact
+  }
+
+  // 无 tableName 则无法兜底
+  if (!tableName) return undefined
+  const query = tableName.toLowerCase()
+
+  // 策略 2：tableName 精确匹配节点的 tableName / configName / id
+  const byTableField = nodes.find((n) => {
+    const data = n.data as Record<string, unknown>
+    const candidates = [data.tableName, data.configName, n.id]
+      .filter((v): v is string => typeof v === 'string')
+      .map((v) => v.toLowerCase())
+    return candidates.includes(query)
+  })
+  if (byTableField) {
+    logger.info(
+      `[AI Chat] targetNodeId=${targetNodeId} 未命中，用 tableName=${tableName} 兜底匹配到节点 ${byTableField.id}`
+    )
+    return byTableField
+  }
+
+  // 策略 3：tableName 包含匹配（处理 "Orders Table" vs "orders" 等命名差异）
+  // 收紧原则：宁可漏匹配（最终返回 undefined 让上层报"节点未找到"），
+  // 也不要错匹配——错匹配会把约束加到错误的表上，后果比"没匹配到"严重得多。
+  // - 只保留"节点名包含 query"方向（query 来自 AI，通常较完整），
+  //   去掉危险的"query 包含节点名"方向（节点名仅 "a" 时会匹配所有含 a 的表）。
+  // - 要求 query 至少 3 字符，避免 "a"/"or" 这类过短词误命中大量表。
+  const MIN_FUZZY_LEN = 3
+  const byContain = query.length >= MIN_FUZZY_LEN
+    ? nodes.find((n) => {
+        const data = n.data as Record<string, unknown>
+        const candidates = [data.tableName, data.configName]
+          .filter((v): v is string => typeof v === 'string')
+          .map((v) => v.toLowerCase())
+        // 仅节点名包含 query；且节点名本身也要够长，否则短名噪声大
+        return candidates.some((v) => v.length >= MIN_FUZZY_LEN && v.includes(query))
+      })
+    : undefined
+  if (byContain) {
+    logger.info(
+      `[AI Chat] targetNodeId=${targetNodeId} 未命中，用 tableName=${tableName} 包含匹配到节点 ${byContain.id}`
+    )
+    return byContain
+  }
+
+  return undefined
+}
+
 const CONSTRAINT_ACTION_TYPES = new Set([
   'ADD_CONSTRAINT_NODE',
   'UPDATE_CONSTRAINT_NODE',
@@ -106,10 +175,12 @@ async function handleConstraintInstruction(instruction: FrontendInstruction): Pr
   const { constraintSpec } = instruction
   const { type, targetNodeId, tableName, targetColumn, constraintId, isInline } = constraintSpec
 
-  const targetNode = graphStore.nodes.find((n) => n.id === targetNodeId)
+  // 解析目标节点：targetNodeId 精确匹配失败时，用 tableName 多策略兜底
+  // 这是应对"AI 二手观察画布 + 后端双出口同步鸿沟"的最后一道防线
+  const targetNode = resolveTargetNode(graphStore.nodes, targetNodeId, tableName)
 
   if (!targetNode) {
-    logger.warn(`[AI Chat] 目标节点不存在: ${targetNodeId}`)
+    logger.warn(`[AI Chat] 目标节点不存在: targetNodeId=${targetNodeId}, tableName=${tableName}`)
     toastError(t('aiChat.targetNodeNotFound'))
     return
   }
@@ -196,29 +267,37 @@ function handleInlineConstraint(
     return
   }
 
-  const column = (nodeData.columns as unknown[]).find(
+  // 预检目标列是否存在（不存在则提示，避免静默失败）
+  const columnExists = (nodeData.columns as unknown[]).some(
     (c) => (c as Record<string, unknown>).columnName === columnName
-  ) as Record<string, unknown> | undefined
-  if (!column) {
+  )
+  if (!columnExists) {
     logger.warn(`[AI Chat] 目标节点没有列: ${columnName}`)
     toastError(t('aiChat.columnNotFound', { column: columnName }))
     return
   }
 
-  if (!column.constraints) {
-    column.constraints = {}
-  }
-
+  // 构造更新后的 columns 数组（不可变更新，避免直接修改响应式 proxy）
   const constraintKey = constraintType.toLowerCase()
-  ;(column.constraints as Record<string, unknown>)[constraintKey] = {
-    id: constraintId,
-    enabled: true,
-  }
+  const updatedColumns = (nodeData.columns as unknown[]).map((c) => {
+    const col = c as Record<string, unknown>
+    if (col.columnName !== columnName) return col
+    // 命中目标列，添加约束
+    const existingConstraints = (col.constraints as Record<string, unknown>) || {}
+    return {
+      ...col,
+      constraints: {
+        ...existingConstraints,
+        [constraintKey]: { id: constraintId, enabled: true },
+      },
+    }
+  })
 
-  const nodeIndex = graphStore.nodes.findIndex((n) => n.id === targetNode.id)
-  if (nodeIndex !== -1) {
-    graphStore.nodes[nodeIndex] = { ...targetNode }
-  }
+  // 通过 updateNodeData 统一入口更新（触发 Vue 响应式 + VueFlow 同步）
+  // 不直接操作 graphStore.nodes 数组下标，遵循 DAG 操作规范
+  graphStore.updateNodeData(targetNode.id, {
+    columns: updatedColumns,
+  } as Partial<import('@/types/graph').CustomNodeData>)
 }
 
 /**

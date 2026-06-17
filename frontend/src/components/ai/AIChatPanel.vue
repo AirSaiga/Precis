@@ -51,6 +51,42 @@
             {{ msg.content }}
           </div>
           <div v-else class="message-content ai-content" v-html="renderMarkdown(msg.content)"></div>
+          <!-- 复制按钮：悬停消息时显示 -->
+          <button
+            class="message-copy-btn"
+            :title="t('aiChat.copy')"
+            @click="copyMessage(msg.content, msg.id)"
+          >
+            <svg
+              v-if="copiedId !== msg.id"
+              xmlns="http://www.w3.org/2000/svg"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+            </svg>
+            <svg
+              v-else
+              xmlns="http://www.w3.org/2000/svg"
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </button>
           <div class="message-time">{{ formatTime(msg.timestamp) }}</div>
         </div>
       </div>
@@ -103,6 +139,7 @@
   import { ref, computed, nextTick, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useAiChatStore } from '@/stores/aiChatStore'
+  import { useMessageCopy } from '@/composables/useMessageCopy'
   import MarkdownIt from 'markdown-it'
   import DOMPurify from 'dompurify'
 
@@ -142,6 +179,8 @@
   const inputText = ref('')
   const inputRef = ref<HTMLTextAreaElement | null>(null)
   const messagesRef = ref<HTMLDivElement | null>(null)
+  // 当前已复制的消息 ID（用于按钮图标切换反馈）
+  const { copiedId, copyMessage } = useMessageCopy()
 
   const renderMarkdown = (content: string): string => {
     return DOMPurify.sanitize(md.render(content || ''))

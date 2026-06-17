@@ -21,6 +21,9 @@ const aiChat = {
   schemaDeleted: 'Schema "{name}" 已删除',
   regexCreated: 'Regex "{name}" 已创建',
   transformCreated: 'Transform "{name}" 已创建',
+  copy: '复制',
+  copied: '已复制到剪贴板',
+  copyFailed: '复制失败，请手动选择文本复制',
 }
 
 const aiConfigGenerator = {

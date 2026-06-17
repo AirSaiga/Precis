@@ -20,9 +20,11 @@
 from __future__ import annotations
 
 import logging
+import re
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from app.shared.core.project.loader.loader_parts import inspection_ids as ids
 from app.shared.core.project.loader.types import LoadingError
 
 logger = logging.getLogger(__name__)
@@ -33,6 +35,26 @@ if TYPE_CHECKING:
     from app.shared.core.project.regex.types import RegexNodeFile
     from app.shared.core.project.schema.types import ColumnSpec, TableSchemaFile
     from app.shared.core.project.transform.types import TransformFile
+
+
+_UUID_PATTERN = re.compile(r"^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
+
+def _is_machine_id(value: str) -> bool:
+    """判断一个 id 是否为机器生成的不可读标识（UUID 或冗长编码）。
+
+    这类 id 直接拼进面向用户的文案会变成噪音，应由 _friendly_id 转为中性占位。
+    """
+    if not value:
+        return False
+    # 标准 UUID
+    if _UUID_PATTERN.match(value):
+        return True
+    # 较长的 base64url / 编码串（schema id 常见形态，如 sc_ 后接 22 位编码）
+    stripped = value.split("_", 1)[-1] if value.startswith(("sc_", "c_", "r_", "t_")) else value
+    if len(stripped) >= 20 and re.fullmatch(r"[A-Za-z0-9_\-]+", stripped):
+        return True
+    return False
 
 
 _CONSTRAINT_LABELS: dict[str, str] = {
@@ -53,28 +75,64 @@ def _schema_display(schema_file: TableSchemaFile | None, fallback_id: str = "") 
     """生成数据表的友好显示名称。"""
     if schema_file is None:
         id_text = fallback_id or "未知"
-        return f"数据表（编号 {id_text}）"
+        return f"数据表「{id_text}」"
     name = getattr(schema_file, "name", None) or getattr(schema_file, "id", "")
     return f"数据表「{name}」"
 
 
+_PLACEHOLDER_NAMES = {
+    "新建",
+    "未命名",
+    "新建规则",
+    "新规则",
+    "约束",
+    "规则",
+    "脚本约束",
+    "新建脚本约束",
+    "未命名约束",
+    "新建正则",
+    "正则",
+    "constraint",
+    "rule",
+    "new rule",
+}
+# 形如"新建XXX规则/约束/正则"这类类型词堆叠、无实质内容的占位值
+_PLACEHOLDER_PATTERN = re.compile(r"(新建|未命名|新的?|新增)[\w\u4e00-\u9fa5]*(规则|约束|正则)?")
+
+
+def _is_meaningful_name(name: str | None) -> bool:
+    """判断 description/name 是否对用户有定位价值。
+
+    项目里约束的 description 常被填成"新建脚本约束""未命名规则"这类占位值，
+    把它们当"规则名"展示反而误导用户、无法定位。
+    """
+    if not name:
+        return False
+    text = name.strip()
+    if len(text) < 2:
+        return False
+    if text.lower() in _PLACEHOLDER_NAMES:
+        return False
+    if _PLACEHOLDER_PATTERN.fullmatch(text):
+        return False
+    return True
+
+
 def _constraint_display(cf: ConstraintFile | None) -> str:
-    """生成约束规则的友好显示名称。"""
+    """生成约束规则的友好显示名称。
+
+    优先用有信息量的 description；若 description 是占位垃圾值（如"新建脚本约束"），
+    则不展示名字，只给类型标签（如"脚本规则"），避免误导。
+    """
     if cf is None:
         return "未知规则"
     label = _CONSTRAINT_LABELS.get(getattr(cf, "type", ""), "规则")
-    name = getattr(cf, "description", None) or ""
-    refs = getattr(cf, "refs", None) or {}
-    if not name:
-        t = refs.get("table_id") or refs.get("from_table_id")
-        c = refs.get("column_id") or refs.get("column_ids") or refs.get("from_column_id")
-        if isinstance(c, list):
-            c = c[0] if c else None
-        if t and c:
-            name = f"{t}.{c}"
-    if not name:
-        name = getattr(cf, "id", "")
-    return f"{label}规则「{name}」"
+    desc = getattr(cf, "description", None)
+    # 仅当 description 有信息量时才展示名字；否则只给类型标签（如"脚本规则"），
+    # 避免用 UUID / 占位值凑名字误导用户。定位交给 navigate 动作。
+    if _is_meaningful_name(desc):
+        return f"{label}规则「{desc}」"
+    return f"{label}规则"
 
 
 def _regex_display(rf: RegexNodeFile | None) -> str:
@@ -148,6 +206,40 @@ def _default_actions_for_file(
     return actions
 
 
+def _actions_for_node_ref(node_id: str | None) -> list[dict]:
+    """为指向画布节点（约束/正则等）的问题生成动作列表。
+
+    核心是提供 navigate（定位到画布节点），让用户能直接跳转到出问题的规则，
+    解决"不知道是哪条约束"的定位难题。辅以复制 ID 和忽略。
+    """
+    actions: list[dict] = []
+    if node_id:
+        actions.append(
+            {
+                "type": "navigate",
+                "label": "定位到节点",
+                "label_key": "inspection.actions.navigateToNode",
+                "target": node_id,
+            }
+        )
+        actions.append(
+            {
+                "type": "copy",
+                "label": "复制 ID",
+                "label_key": "inspection.actions.copyId",
+                "text": node_id,
+            }
+        )
+    actions.append(
+        {
+            "type": "dismiss",
+            "label": "忽略",
+            "label_key": "inspection.actions.dismiss",
+        }
+    )
+    return actions
+
+
 def _build_id_mismatch_loading_error(
     resource_type: str,
     manifest_id: str,
@@ -158,15 +250,13 @@ def _build_id_mismatch_loading_error(
 ) -> LoadingError:
     """构建 ID 不一致类型的 LoadingError（通用）。"""
     return LoadingError(
-        id=f"id_mismatch_{resource_type}:{manifest_id}:{file_id}",
+        id=ids.id_mismatch(resource_type, manifest_id, file_id),
         severity="warning",
-        title="编号不一致",
+        title="名字对不上",
         description=(
-            f"项目配置中记录的（编号 {manifest_id}）"
-            f"与文件中的记录（编号 {file_id}）不一致。"
-            "编号不统一可能导致该资源无法正常生效。"
+            f"项目配置里记的名字（{manifest_id}）和文件里的名字（{file_id}）对不上，可能导致这条配置无法正常生效。"
         ),
-        fix_hint="请统一编号：建议以文件中的记录为准，更新项目配置中的编号。",
+        fix_hint="点「一键修正」让两边名字统一即可。",
         error_type="IdMismatchWarning",
         file_path=file_path,
         ref_id=manifest_id,
@@ -233,7 +323,7 @@ def inspect_id_consistency(
             if correct_ref_exists:
                 loading_errors.append(
                     LoadingError(
-                        id=f"id_mismatch_constraint:{ref.id}:{constraint_file.id}",
+                        id=ids.constraint_dup_ref(ref.id, constraint_file.id),
                         severity="warning",
                         title="同一条规则被重复登记",
                         description=(
@@ -325,20 +415,17 @@ def _check_table_missing(
     warnings.append(msg)
     loading_errors.append(
         LoadingError(
-            id=f"{error_prefix}:{constraint_id}:{table_id}",
+            id=ids.ref_table_missing(error_prefix, constraint_id, table_id),
             severity="blocker",
-            title=f"规则引用的{role_label}数据表已不存在",
-            description=(
-                f"{constraint_display} {role_label}的 {_schema_display(schema, fallback_id=table_id)}"
-                "已被删除或改名，当前无法找到。"
-            ),
-            fix_hint="请从下方列表中选择一张现有数据表进行关联，点击即可自动修正。",
+            title=f"规则要用的{role_label}表找不到了",
+            description=(f"{constraint_display} 要用到{role_label}表「{table_id}」，但这张表可能已被删除或改名了。"),
+            fix_hint="点选下方一张现有的表即可。",
             error_type="ReferenceIntegrityError",
             file_path="",
             ref_id=constraint_id,
             message=msg,
             suggestion=f"请检查约束关联的表是否正确，可用的表: {[s['id'] for s in available_schemas]}",
-            actions=_default_actions_for_file("", constraint_id),
+            actions=_actions_for_node_ref(constraint_id),
             context={"available_schemas": available_schemas, "missing_table_id": table_id},
             title_key=title_key,
             description_key=description_key,
@@ -346,8 +433,10 @@ def _check_table_missing(
             message_params={
                 "constraintId": constraint_id,
                 "tableId": table_id,
+                "tableName": getattr(schema, "name", "") or "",
                 "constraintDisplay": constraint_display,
                 "schemaDisplay": schema_display,
+                "tableIdIsMachine": _is_machine_id(table_id),
             },
             fix_api={
                 "method": "POST",
@@ -380,19 +469,19 @@ def _check_column_missing(
     warnings.append(msg)
     loading_errors.append(
         LoadingError(
-            id=f"{error_prefix}:{constraint_id}:{table_id}:{col_id}",
+            id=ids.ref_column_missing(error_prefix, constraint_id, table_id, col_id),
             severity="blocker",
-            title=f"规则引用的{role_label}列已不存在",
+            title=f"规则要用的{role_label}列找不到了",
             description=(
-                f"{constraint_display} {role_label}到 {_schema_display(schema)}的「{col_id}」列，但该列已被删除或改名。"
+                f"{constraint_display} 要用到{role_label}表「{table_id}」的「{col_id}」列，但这一列已不存在了。"
             ),
-            fix_hint="请从下方该表的可用列中选择一个进行关联，点击即可自动修正。",
+            fix_hint="点选下方一个现有的列即可。",
             error_type="ReferenceIntegrityError",
             file_path="",
             ref_id=constraint_id,
             message=msg,
             suggestion=f"请检查列编号是否正确，表 '{table_id}' 的可用列: {available_cols}",
-            actions=_default_actions_for_file("", constraint_id),
+            actions=_actions_for_node_ref(constraint_id),
             context={
                 "table_id": table_id,
                 "available_columns": available_cols,
@@ -404,9 +493,12 @@ def _check_column_missing(
             message_params={
                 "constraintId": constraint_id,
                 "tableId": table_id,
+                "tableName": getattr(schema, "name", "") or "",
                 "columnId": col_id,
                 "constraintDisplay": constraint_display,
                 "schemaDisplay": _schema_display(schema),
+                "tableIdIsMachine": _is_machine_id(table_id),
+                "columnIdIsMachine": _is_machine_id(col_id),
             },
             fix_api={
                 "method": "POST",
@@ -550,6 +642,101 @@ def inspect_reference_integrity(
                     column_ids_to_check.append(if_col)
 
         elif constraint_type == "Composite":
+            # Composite 有两层引用需要校验：
+            # 1. 外层 refs.table_id —— 复合约束本身的目标表
+            # 2. params.sub_constraints[] —— 每个子约束有自己的 type/refs
+            # 子约束禁止嵌套 Composite（由 factory 保证），故此处只处理叶子类型。
+            table_id = refs.get("table_id")
+
+            # 校验外层目标表（若指定）
+            if table_id and table_id not in schema_files:
+                constraint_display = _constraint_display(constraint_file)
+                _check_table_missing(
+                    table_id,
+                    constraint_id,
+                    constraint_display,
+                    schema_files,
+                    available_schemas,
+                    "composite_table_missing",
+                    "inspection.issues.ref.tableMissing.title",
+                    "inspection.issues.ref.tableMissing.description",
+                    "inspection.issues.ref.tableMissing.fixHint",
+                    loading_errors,
+                    warnings,
+                    "",
+                )
+            else:
+                # 校验每个子约束的引用完整性（递归叶子检查）
+                params = getattr(constraint_file, "params", None) or {}
+                sub_configs = params.get("sub_constraints", []) if isinstance(params, dict) else []
+                for idx, sub_cfg in enumerate(sub_configs):
+                    if not isinstance(sub_cfg, dict):
+                        continue
+                    sub_refs = sub_cfg.get("refs", {}) or {}
+                    sub_table_id = sub_refs.get("table_id")
+                    # 子约束的目标表缺失
+                    if sub_table_id and sub_table_id not in schema_files:
+                        constraint_display = _constraint_display(constraint_file)
+                        _check_table_missing(
+                            sub_table_id,
+                            constraint_id,
+                            constraint_display,
+                            schema_files,
+                            available_schemas,
+                            f"composite_sub_table_missing:{idx}",
+                            "inspection.issues.ref.tableMissing.title",
+                            "inspection.issues.ref.tableMissing.description",
+                            "inspection.issues.ref.tableMissing.fixHint",
+                            loading_errors,
+                            warnings,
+                            f"（子规则 #{idx + 1}）",
+                        )
+                        continue
+                    # 子约束的目标列缺失
+                    if sub_table_id and sub_table_id in schema_column_cache:
+                        sub_type = sub_cfg.get("type", "")
+                        sub_cols: list[str] = []
+                        # 复用主循环的列提取规则
+                        if sub_type == "Unique":
+                            cols = sub_refs.get("column_ids") or sub_refs.get("column_id")
+                            if isinstance(cols, str):
+                                cols = [cols]
+                            if cols:
+                                sub_cols.extend(cols)
+                        elif sub_type == "ForeignKey":
+                            # FK 的列单独处理
+                            for fk_col in (sub_refs.get("from_column_id"), sub_refs.get("to_column_id")):
+                                if fk_col:
+                                    sub_cols.append(fk_col)
+                        else:
+                            col = sub_refs.get("column_id")
+                            if col:
+                                sub_cols.append(col)
+                            # Conditional 的 then_column_id / if_column_id
+                            then_col = sub_refs.get("then_column_id")
+                            if then_col:
+                                sub_cols.append(then_col)
+
+                        valid_columns = schema_column_cache[sub_table_id]
+                        for col_id in sub_cols:
+                            if col_id not in valid_columns:
+                                constraint_display = _constraint_display(constraint_file)
+                                _check_column_missing(
+                                    col_id,
+                                    sub_table_id,
+                                    constraint_id,
+                                    constraint_display,
+                                    schema_files,
+                                    schema_column_cache,
+                                    f"composite_sub_col_missing:{idx}",
+                                    "inspection.issues.ref.colMissing.title",
+                                    "inspection.issues.ref.colMissing.description",
+                                    "inspection.issues.ref.colMissing.fixHint",
+                                    loading_errors,
+                                    warnings,
+                                    f"（子规则 #{idx + 1}）",
+                                )
+            # Composite 已自行完成引用校验，跳过下方通用逻辑
             continue
 
         if table_id and table_id not in schema_files:
@@ -619,20 +806,20 @@ def inspect_regex_reference_integrity(
             warnings.append(msg)
             loading_errors.append(
                 LoadingError(
-                    id=f"regex_table_missing:{regex_id}:{table_id}",
+                    id=ids.regex_table_missing(regex_id, table_id),
                     severity="blocker",
-                    title="正则规则引用的数据表已不存在",
+                    title="正则规则要用的表找不到了",
                     description=(
-                        f"{regex_display} 引用的 {_schema_display(None, fallback_id=table_id)}"
-                        "已被删除或改名，当前无法找到。"
+                        f"{regex_display} 要用到 {_schema_display(None, fallback_id=table_id)}，"
+                        "但这张表可能已被删除或改名了。"
                     ),
-                    fix_hint="请从下方列表中选择一张现有数据表进行关联，点击即可自动修正。",
+                    fix_hint="点选下方一张现有的表即可。",
                     error_type="ReferenceIntegrityError",
                     file_path="",
                     ref_id=regex_id,
                     message=msg,
                     suggestion="请检查正则节点关联的表是否正确",
-                    actions=_default_actions_for_file("", regex_id),
+                    actions=_actions_for_node_ref(regex_id),
                     context={"available_schemas": available_schemas, "missing_table_id": table_id},
                     title_key="inspection.issues.regex.tableMissing.title",
                     description_key="inspection.issues.regex.tableMissing.description",
@@ -640,7 +827,9 @@ def inspect_regex_reference_integrity(
                     message_params={
                         "regexId": regex_id,
                         "tableId": table_id,
+                        "tableName": "",
                         "regexDisplay": regex_display,
+                        "tableIdIsMachine": _is_machine_id(table_id),
                     },
                     fix_api={
                         "method": "POST",
@@ -658,20 +847,20 @@ def inspect_regex_reference_integrity(
             warnings.append(msg)
             loading_errors.append(
                 LoadingError(
-                    id=f"regex_col_missing:{regex_id}:{table_id}:{column_id}",
+                    id=ids.regex_column_missing(regex_id, table_id, column_id),
                     severity="blocker",
-                    title="正则规则引用的列已不存在",
+                    title="正则规则要用的列找不到了",
                     description=(
-                        f"{regex_display} 引用到 {_schema_display(schema_files.get(table_id))}"
-                        f"的「{column_id}」列，但该列已被删除或改名。"
+                        f"{regex_display} 要用到 {_schema_display(schema_files.get(table_id))}"
+                        f"的「{column_id}」列，但这一列已不存在了。"
                     ),
-                    fix_hint="请从下方该表的可用列中选择一个进行关联，点击即可自动修正。",
+                    fix_hint="点选下方一个现有的列即可。",
                     error_type="ReferenceIntegrityError",
                     file_path="",
                     ref_id=regex_id,
                     message=msg,
                     suggestion=f"请检查列编号是否正确，表 '{table_id}' 的可用列: {available_cols}",
-                    actions=_default_actions_for_file("", regex_id),
+                    actions=_actions_for_node_ref(regex_id),
                     context={
                         "table_id": table_id,
                         "available_columns": available_cols,
@@ -683,8 +872,11 @@ def inspect_regex_reference_integrity(
                     message_params={
                         "regexId": regex_id,
                         "tableId": table_id,
+                        "tableName": getattr(schema_files.get(table_id), "name", "") or "",
                         "columnId": column_id,
                         "regexDisplay": regex_display,
+                        "tableIdIsMachine": _is_machine_id(table_id),
+                        "columnIdIsMachine": _is_machine_id(column_id),
                     },
                     fix_api={
                         "method": "POST",
@@ -708,25 +900,54 @@ def inspect_schema_id_global_uniqueness(
     遍历所有 schema_files，构建 id → [table_ids] 索引。
     如果同一 schema id 出现在多个条目中，记录 blocker 级错误。
     """
-    id_counts: dict[str, int] = {}
+    # 先构建 id → 重复条目的 manifest ref key 列表，便于 navigate 定位
+    id_to_refs: dict[str, list[str]] = {}
     for sid, sdoc in schema_files.items():
         file_internal_id = getattr(sdoc, "id", None) or sid
-        id_counts[file_internal_id] = id_counts.get(file_internal_id, 0) + 1
+        id_to_refs.setdefault(file_internal_id, []).append(sid)
 
-    for sid, count in id_counts.items():
+    for sid, ref_keys in id_to_refs.items():
+        count = len(ref_keys)
         if count > 1:
+            primary_ref = ref_keys[0]
             loading_errors.append(
                 LoadingError(
-                    id=f"schema_id_duplicate:{sid}",
+                    id=ids.schema_id_duplicate(sid),
                     severity="blocker",
-                    title=f"Schema ID 重复: {sid}",
+                    title=f"有表重名了：{sid}",
                     description=f"Schema ID '{sid}' 被 {count} 个 schema 配置使用，可能导致约束引用指向错误的表。请确保每个 schema ID 唯一。",
                     fix_hint=f"请为重复的 schema 重新命名 ID（当前: {sid}），使其在项目内唯一。",
                     error_type="SchemaIdDuplicate",
                     file_path="",
                     ref_id=sid,
+                    message="",
                     suggestion="修改其中一个 schema 文件的 id 字段，使其与其他 schema 不同",
-                    actions=[],
+                    actions=[
+                        # 导航到画布中第一个重复 schema 节点，便于用户定位修改
+                        {
+                            "type": "navigate",
+                            "label": "定位到节点",
+                            "label_key": "inspection.actions.navigateToNode",
+                            "target": primary_ref,
+                        },
+                        # 复制重复 ID，便于排查
+                        {
+                            "type": "copy",
+                            "label": "复制 ID",
+                            "label_key": "inspection.actions.copyId",
+                            "text": sid,
+                        },
+                        # 允许忽略（此类问题需用户手动决策保留哪个，无法自动修复）
+                        {
+                            "type": "dismiss",
+                            "label": "忽略",
+                            "label_key": "inspection.actions.dismiss",
+                        },
+                    ],
+                    title_key="inspection.issues.schemaIdDuplicate.title",
+                    description_key="inspection.issues.schemaIdDuplicate.description",
+                    fix_hint_key="inspection.issues.schemaIdDuplicate.fixHint",
+                    message_params={"schemaId": sid, "count": count},
                 )
             )
 
@@ -760,18 +981,50 @@ def inspect_source_uniqueness(
             source_display = f"{path_str}"
             if sheet_str:
                 source_display += f" ({sheet_str})"
+            primary_ref = sids[0]
             loading_errors.append(
                 LoadingError(
-                    id=f"schema_source_duplicate:{path_str}:{sheet_str}",
+                    id=ids.schema_source_duplicate(path_str, sheet_str),
                     severity="blocker",
-                    title=f"数据源重复: {source_display}",
+                    title=f"有表指向了同一个数据文件：{source_display}",
                     description=f"数据源 '{source_display}' 被 {len(sids)} 个 schema 引用: {', '.join(sids)}。每个数据源只能被一个 schema 定义。请删除重复的 schema 或修改其 source.path。",
                     fix_hint=f"请保留其中一个 schema（如 {sids[0]}），删除或修改其他的。",
                     error_type="SchemaSourceDuplicate",
                     file_path="",
-                    ref_id=sids[0],
+                    ref_id=primary_ref,
+                    message="",
                     suggestion=f"保留 schema '{sids[0]}'，删除或修改: {', '.join(sids[1:])}",
-                    actions=[],
+                    actions=[
+                        # 导航到第一个重复 schema 节点
+                        {
+                            "type": "navigate",
+                            "label": "定位到节点",
+                            "label_key": "inspection.actions.navigateToNode",
+                            "target": primary_ref,
+                        },
+                        # 复制数据源路径，便于排查
+                        {
+                            "type": "copy",
+                            "label": "复制数据源",
+                            "label_key": "inspection.actions.copyFilePath",
+                            "text": source_display,
+                        },
+                        # 允许忽略（需用户手动决策保留哪个 schema）
+                        {
+                            "type": "dismiss",
+                            "label": "忽略",
+                            "label_key": "inspection.actions.dismiss",
+                        },
+                    ],
+                    title_key="inspection.issues.sourceDuplicate.title",
+                    description_key="inspection.issues.sourceDuplicate.description",
+                    fix_hint_key="inspection.issues.sourceDuplicate.fixHint",
+                    message_params={
+                        "sourceDisplay": source_display,
+                        "count": len(sids),
+                        "schemas": ", ".join(sids),
+                        "primarySchema": primary_ref,
+                    },
                 )
             )
 

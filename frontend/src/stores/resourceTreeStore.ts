@@ -509,7 +509,9 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
     // 状态
     loading,
     error,
-    searchQuery: searchStore.searchQuery,
+    // searchQuery 必须用 computed 桥接 searchStore，否则导出的是字符串快照、
+    // 外部（storeToRefs）拿不到响应式，setSearchQuery 后 UI 不会更新。
+    searchQuery: computed(() => searchStore.searchQuery),
     resources,
     folders,
 

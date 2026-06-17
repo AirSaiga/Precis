@@ -57,8 +57,13 @@ const inspection = {
     },
   },
   context: {
-    availableSchemas: 'Available tables in the project (click to fix reference)',
-    availableColumns: 'Available columns (click to fix reference)',
+    availableSchemas: 'Pick a table to use',
+    availableColumns: 'Pick a column to use',
+  },
+  /** Neutral label used to replace a raw id when it is machine-generated (UUID/encoded) */
+  machineIdLabel: {
+    table: 'a deleted table',
+    column: 'a deleted column',
   },
   rawDetails: 'Show raw details',
   errorType: 'Error type',
@@ -71,7 +76,7 @@ const inspection = {
   errors: {
     noProject: 'No project path set',
     noFixApi: 'Auto-fix not supported for this issue',
-    nodeNotFound: 'Target node not found',
+    nodeNotFound: 'This node is not on the canvas yet — drag it in from the resource tree first',
   },
   toast: {
     recheckDone: 'Check done: {count} issue(s)',
@@ -95,110 +100,129 @@ const inspection = {
    *   - constraintId / tableId / columnId (foreign key / generic reference)
    */
   issues: {
+    /** Fallback title when title is completely missing */
+    untitled: 'Configuration problem',
+    /** ID mismatch: the name recorded in the project config doesn't match the file */
     idMismatch: {
       schema: {
-        title: 'Table ID does not match the project manifest',
-        description:
-          'The project manifest registers this table as "{manifestDisplay}", but the file itself has ID "{fileDisplay}". This may break other references to this table.',
-        fixHint:
-          'Update the manifest to match the file, or change the file ID to match the manifest.',
+        title: 'Table name mismatch',
+        description: 'The project config records this table as "{fileDisplay}", but the file itself is named "{manifestDisplay}". The mismatch may break other references to this table.',
+        fixHint: 'Click "Auto fix" to make both sides match.',
       },
       constraint: {
-        title: 'Constraint ID does not match the project manifest',
-        description:
-          'The project manifest registers this constraint as "{manifestDisplay}", but the file itself has ID "{fileDisplay}". This may prevent the rule from being referenced correctly.',
-        fixHint:
-          'Update the manifest to match the file, or change the file ID to match the manifest.',
+        title: 'Rule name mismatch',
+        description: 'The project config records this rule as "{fileDisplay}", but the rule file is named "{manifestDisplay}". The mismatch may stop this rule from working.',
+        fixHint: 'Click "Auto fix" to make both sides match.',
       },
       regex: {
-        title: 'Regex rule ID does not match the project manifest',
-        description:
-          'The project manifest registers this regex rule as "{manifestDisplay}", but the file itself has ID "{fileDisplay}". This may prevent the rule from being referenced correctly.',
-        fixHint:
-          'Update the manifest to match the file, or change the file ID to match the manifest.',
+        title: 'Regex rule name mismatch',
+        description: 'The project config records this regex as "{fileDisplay}", but the file is named "{manifestDisplay}". The mismatch may stop this rule from working.',
+        fixHint: 'Click "Auto fix" to make both sides match.',
       },
       transform: {
-        title: 'Data transform ID does not match the project manifest',
-        description:
-          'The project manifest registers this transform as "{manifestDisplay}", but the file itself has ID "{fileDisplay}". This may prevent the transform from being referenced correctly.',
-        fixHint:
-          'Update the manifest to match the file, or change the file ID to match the manifest.',
+        title: 'Transform name mismatch',
+        description: 'The project config records this transform as "{fileDisplay}", but the file is named "{manifestDisplay}". The mismatch may stop it from working.',
+        fixHint: 'Click "Auto fix" to make both sides match.',
       },
     },
+    /** The same rule is registered twice in the project config */
     dupConstraintRef: {
-      title: 'A constraint is referenced multiple times',
-      description:
-        'The project manifest lists the same constraint file "{filePath}" twice, and one of the entries uses ID "{manifestDisplay}" which does not match the file\'s actual ID "{fileDisplay}". This will load the rule twice and may cause conflicts.',
-      fixHint:
-        'Click "Auto deduplicate" to clean up (recommended), or manually remove the redundant entry from the manifest.',
+      title: 'A rule is registered twice',
+      description: 'The rule file "{filePath}" appears twice in the project config, and one entry ({manifestDisplay}) does not match the file\'s name ({fileDisplay}). The duplicate will cause a conflict.',
+      fixHint: 'Click "Auto fix" to remove the redundant entry.',
     },
+    /** A foreign key references a table/column that no longer exists */
     fk: {
       srcTableMissing: {
-        title: 'Foreign key source table not found',
-        description:
-          'Foreign key rule "{constraintId}" tries to read data from source table "{tableId}", but this table no longer exists in the project (it may have been deleted or renamed).',
-        fixHint:
-          'Pick one from "Available tables in the project" below as the source table — click to fix reference.',
+        title: 'Foreign key source table is missing',
+        description: '{constraintDisplay} reads data from table "{tableId}", but this table may have been deleted or renamed.',
+        fixHint: 'Pick an existing table below as the source.',
       },
       srcColMissing: {
-        title: 'Foreign key source column not found',
-        description:
-          'Foreign key rule "{constraintId}" tries to read column "{columnId}" of source table "{tableId}", but this column no longer exists.',
-        fixHint:
-          'Pick one from "Available columns" below as the source column — click to fix reference.',
+        title: 'Foreign key source column is missing',
+        description: '{constraintDisplay} reads column "{columnId}" of table "{tableId}", but this column no longer exists.',
+        fixHint: 'Pick an existing column below as the source.',
       },
       dstTableMissing: {
-        title: 'Foreign key target table not found',
-        description:
-          'Foreign key rule "{constraintId}" references target table "{tableId}", but this table no longer exists in the project (it may have been deleted or renamed).',
-        fixHint:
-          'Pick one from "Available tables in the project" below as the target table — click to fix reference.',
+        title: 'Foreign key target table is missing',
+        description: '{constraintDisplay} points to table "{tableId}", but this table may have been deleted or renamed.',
+        fixHint: 'Pick an existing table below as the target.',
       },
       dstColMissing: {
-        title: 'Foreign key target column not found',
-        description:
-          'Foreign key rule "{constraintId}" references column "{columnId}" of target table "{tableId}", but this column no longer exists.',
-        fixHint:
-          'Pick one from "Available columns" below as the target column — click to fix reference.',
+        title: 'Foreign key target column is missing',
+        description: '{constraintDisplay} points to column "{columnId}" of table "{tableId}", but this column no longer exists.',
+        fixHint: 'Pick an existing column below as the target.',
       },
     },
+    /** A normal rule references a table/column that no longer exists */
     ref: {
       tableMissing: {
-        title: 'The table referenced by this rule no longer exists',
-        description:
-          'Rule "{constraintId}" references table "{tableId}", but this table no longer exists in the project (it may have been deleted or renamed).',
-        fixHint:
-          'Pick one from "Available tables in the project" below as the referenced table — click to fix reference.',
+        title: 'The table used by this rule is missing',
+        description: '{constraintDisplay} uses table "{tableId}", but this table may have been deleted or renamed.',
+        fixHint: 'Pick an existing table below.',
       },
       colMissing: {
-        title: 'The column referenced by this rule no longer exists',
-        description:
-          'Rule "{constraintId}" references column "{columnId}" of table "{tableId}", but this column no longer exists.',
-        fixHint:
-          'Pick one from "Available columns" below as the referenced column — click to fix reference.',
+        title: 'The column used by this rule is missing',
+        description: '{constraintDisplay} uses column "{columnId}" of table "{tableId}", but this column no longer exists.',
+        fixHint: 'Pick an existing column below.',
       },
     },
+    /** A regex rule references a table/column that no longer exists */
     regex: {
       tableMissing: {
-        title: 'The table referenced by this regex rule no longer exists',
-        description:
-          'Regex rule "{constraintId}" references table "{tableId}", but this table no longer exists in the project (it may have been deleted or renamed).',
-        fixHint:
-          'Pick one from "Available tables in the project" below as the referenced table — click to fix reference.',
+        title: 'The table used by this regex rule is missing',
+        description: '{regexDisplay} uses table "{tableId}", but this table may have been deleted or renamed.',
+        fixHint: 'Pick an existing table below.',
       },
       colMissing: {
-        title: 'The column referenced by this regex rule no longer exists',
-        description:
-          'Regex rule "{constraintId}" references column "{columnId}" of table "{tableId}", but this column no longer exists.',
-        fixHint:
-          'Pick one from "Available columns" below as the referenced column — click to fix reference.',
+        title: 'The column used by this regex rule is missing',
+        description: '{regexDisplay} uses column "{columnId}" of table "{tableId}", but this column no longer exists.',
+        fixHint: 'Pick an existing column below.',
       },
     },
     saveBlocked: {
-      title: 'Save blocked',
+      title: 'Cannot save right now',
       description: '{description}',
       fixHint: 'Please check the node configuration on the canvas',
       fixHintWithField: 'Please check field "{field}" of node "{nodeId}"',
+    },
+    /**
+     * Load-time errors (file not found / parse error / path issue / template expansion failure)
+     * Placeholders: resourceLabel (localized resource type), refId (reference id), filename, instanceId (template instance id)
+     */
+    load: {
+      pathValidation: {
+        title: '{resourceLabel} has a path problem',
+        description: 'The path to "{resourceLabel}" ({refId}) in the project config cannot be accessed. It may be wrong, or point outside the project folder.',
+        fixHint: 'Check the resource path and make sure it points to a file inside the project.',
+      },
+      notFound: {
+        title: '{resourceLabel} file is missing',
+        description: 'The file for "{resourceLabel}" ({refId}) — "{filename}" — does not exist. It may have been moved, deleted, or renamed.',
+        fixHint: 'Confirm the file still exists, or remove this stale reference from the project config.',
+      },
+      parseError: {
+        title: '{resourceLabel} file has a format problem',
+        description: 'The file for "{resourceLabel}" ({refId}) could not be parsed — usually a YAML syntax error or a missing required field.',
+        fixHint: 'Open the file and check indentation and required fields, referencing other configs of the same type.',
+      },
+      templateExpansion: {
+        title: 'Template could not be expanded',
+        description: 'A template on the canvas ({instanceId}) failed to expand into rules. The params may be incomplete or the template definition is wrong.',
+        fixHint: 'Check the template params and referenced columns/tables, or delete and recreate it.',
+      },
+    },
+    /** Multiple tables share the same name */
+    schemaIdDuplicate: {
+      title: 'Tables share the same name',
+      description: 'The table name "{schemaId}" is used by {count} tables. Other rules can get confused when looking up a table by name, so each name must be unique.',
+      fixHint: 'Rename one of the tables to something unique (click "Navigate to node" to jump and edit).',
+    },
+    /** Multiple tables point to the same data file */
+    sourceDuplicate: {
+      title: 'Tables point to the same data file',
+      description: 'The data file "{sourceDisplay}" is defined by {count} tables ({schemas}). A data file can only be defined by one table, otherwise reads will conflict.',
+      fixHint: 'Keep only one table and delete or change the others (click "Navigate to node" to jump and handle).',
     },
   },
 }

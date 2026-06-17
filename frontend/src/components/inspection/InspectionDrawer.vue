@@ -114,7 +114,8 @@
               @restore="store.restore"
               @dismiss-group="dismissGroup"
               @action="handleAction"
-              @fixed="onIssueFixed"
+              @select-fix-table="onSelectFixTable"
+              @select-fix-column="onSelectFixColumn"
             />
           </div>
         </aside>
@@ -143,6 +144,8 @@
   import { logger } from '@/core/utils/logger'
   import { toastError, toastSuccess } from '@/core/toast'
   import { useClipboard } from '@/composables/useClipboard'
+  import { useResourceTreeStore } from '@/stores/resourceTreeStore'
+  import { eventBus } from '@/core/eventBus'
   import InspectionSummaryCard from './InspectionSummaryCard.vue'
   import InspectionIssueGroup, { type IssueGroup } from './InspectionIssueGroup.vue'
   import InspectionIgnoredManager from './InspectionIgnoredManager.vue'
@@ -151,6 +154,7 @@
   const store = useInspectionStore()
   const projectStore = useProjectStore()
   const graphStore = useGraphStore()
+  const resourceTreeStore = useResourceTreeStore()
   const { t } = useI18n()
   const { copy: copyToClipboard } = useClipboard()
 
@@ -280,27 +284,69 @@
     }
   }
 
-  /** issue 卡片触发 fixed 事件后自动重新检查 */
-  function onIssueFixed(): void {
-    recheck()
+  /**
+   * 用户从可用表列表中选择一个表，修正当前 issue 的表引用
+   *
+   * 后端 fix_api.body 已预填 constraint_id / field / old_table_id，
+   * 这里补上 new_table_id，复用 runAutoFix 走统一修复路径。
+   */
+  function onSelectFixTable(issue: InspectionIssue, newTableId: string): void {
+    runAutoFix(issue, { new_table_id: newTableId })
   }
 
   /**
-   * 定位到画布中的指定节点，并关闭抽屉
+   * 用户从可用列列表中选择一个列，修正当前 issue 的列引用
+   *
+   * 后端 fix_api.body 已预填 constraint_id / field / table_id / old_column_id，
+   * 这里补上 new_column_id，复用 runAutoFix 走统一修复路径。
+   */
+  function onSelectFixColumn(issue: InspectionIssue, newColumnId: string): void {
+    runAutoFix(issue, { new_column_id: newColumnId })
+  }
+
+  /**
+   * 把资源 kind 映射成 importV2ResourceToCanvas 接受的 kind。
+   * 资源树里 regex 的 kind 是 'regex_node'/'pattern'，导入时统一为 'regex'。
+   */
+  function toImportKind(kind: string): 'schema' | 'constraint' | 'regex' | 'transform' | null {
+    if (kind === 'schema' || kind === 'constraint' || kind === 'transform') return kind
+    if (kind === 'regex_node' || kind === 'pattern' || kind === 'regex') return 'regex'
+    return null
+  }
+
+  /**
+   * 定位到指定节点：优先在画布上跳转；若节点不在画布，则自动导入到视口中心并跳转。
+   *
+   * 设计动机：约束/正则等节点是按需拖入画布的，可能尚未在画布上。
+   * 旧方案用"资源树搜索"代替——但搜索会污染搜索框、锁死资源树视图，且不会把节点放到画布，
+   * 用户反而困惑。改为直接请求画布把该资源导入到视口中心并聚焦，一步到位。
+   * 资源不存在时才报错。
    */
   function navigateToNode(nodeId: string): void {
     const node = graphStore.nodes.find((n) => n.id === nodeId)
-    if (!node) {
-      toastError(t('inspection.errors.nodeNotFound'), t('inspection.title'))
+    if (node) {
+      // 节点已在画布：跳转 + 选中 + 关闭抽屉
+      graphStore.setSelectedNode(nodeId)
+      try {
+        fitView({ nodes: [nodeId], padding: 0.3, duration: 500 })
+      } catch (err) {
+        logger.warn('[InspectionDrawer] fitView 失败:', err)
+      }
+      store.closeDrawer()
       return
     }
-    graphStore.setSelectedNode(nodeId)
-    try {
-      fitView({ nodes: [nodeId], padding: 0.3, duration: 500 })
-    } catch (err) {
-      logger.warn('[InspectionDrawer] fitView 失败:', err)
+    // 节点不在画布：查资源树拿 kind，请画布把它导入到视口中心并聚焦
+    const resource = resourceTreeStore.getResourceById(nodeId)
+    const importKind = resource ? toImportKind(resource.kind) : null
+    if (importKind) {
+      // 关闭抽屉，让画布有空间；导入+聚焦由画布侧监听执行
+      store.closeDrawer()
+      eventBus.emit('inspection-import-and-focus', { resourceId: nodeId, kind: importKind })
+      logger.info('[InspectionDrawer] 请求画布导入并聚焦:', nodeId, importKind)
+      return
     }
-    store.closeDrawer()
+    // 资源树里也找不到：才报错
+    toastError(t('inspection.errors.nodeNotFound'), t('inspection.title'))
   }
 
   /**
@@ -375,8 +421,15 @@
    *
    * 当前已实现的 fix_kind:
    * - deduplicate_constraint_refs: 删除 manifest 中的重复 constraint 引用
+   * - fix_table_ref / fix_column_ref: 用户从可用表/列中选择新值后修正引用
+   *
+   * @param bodyOverride 可选的 body 覆盖字段（如 new_table_id / new_column_id）。
+   *   后端 fix_api.body 已预填除新值外的所有字段，这里把新值合并进去。
    */
-  async function runAutoFix(issue: InspectionIssue): Promise<void> {
+  async function runAutoFix(
+    issue: InspectionIssue,
+    bodyOverride?: Record<string, unknown>
+  ): Promise<void> {
     if (!issue.fix_api) {
       toastError(t('inspection.errors.noFixApi'), t('inspection.title'))
       return
@@ -389,10 +442,12 @@
     store.markFixing(issue.id, true)
     try {
       const apiClient = (await import('@/core/services/httpClient')).default
+      // 合并后端预填 body 与用户选择的新值
+      const body = { ...(issue.fix_api.body ?? {}), ...(bodyOverride ?? {}) }
       const { data } = await apiClient.request({
         method: issue.fix_api.method,
         url: issue.fix_api.path,
-        data: issue.fix_api.body,
+        data: body,
         headers: { 'X-Project-Config-Path': path },
       })
       logger.info('[InspectionDrawer] auto_fix 成功:', data)
@@ -460,6 +515,18 @@
     box-shadow: -8px 0 24px rgba(0, 0, 0, 0.15);
     border-left: 1px solid var(--ui-border);
     overflow: hidden;
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  .drawer-panel * {
+    user-select: text;
+    -webkit-user-select: text;
+  }
+  .drawer-panel button,
+  .drawer-panel summary {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: pointer;
   }
 
   .drawer-header {

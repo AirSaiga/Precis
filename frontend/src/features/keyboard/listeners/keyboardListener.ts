@@ -178,6 +178,18 @@ export class KeyboardListenerImpl implements KeyboardListener {
       return
     }
 
+    // 当选区内有文本时，放行原生复制/剪切/全选，让浏览器默认行为处理
+    if (event.ctrlKey || event.metaKey) {
+      const selection = window.getSelection()
+      const hasSelectedText = selection && selection.toString().trim().length > 0
+      if (
+        hasSelectedText &&
+        (event.key.toLowerCase() === 'c' || event.key.toLowerCase() === 'x' || event.key.toLowerCase() === 'a')
+      ) {
+        return
+      }
+    }
+
     if (IGNORED_KEYS.has(event.key)) {
       return
     }

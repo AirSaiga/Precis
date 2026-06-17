@@ -65,7 +65,9 @@ class StatusCommand(Command):
         """
         project_path = ctx.project_path
         if not project_path:
-            return CommandResult(success=False, message="当前未选择任何项目。使用 'open <路径>' 或 'project open <路径>' 切换项目。")
+            return CommandResult(
+                success=False, message="当前未选择任何项目。使用 'open <路径>' 或 'project open <路径>' 切换项目。"
+            )
 
         # 检查清单文件
         manifest_path = os.path.join(project_path, "project.precis.yaml")

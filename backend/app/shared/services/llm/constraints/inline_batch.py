@@ -167,11 +167,14 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
                     filename_table = table_name or target_node_id or "unknown"
                     constraint_id = _generate_constraint_id(std_type, filename_table, target_column)
 
-                    # 构建内联约束结构
+                    # 构建内联约束结构（字段与其他约束保持一致）
+                    constraint_description = spec.get("description") or f"{constraint_id}"
                     inline_constraint = {
                         "id": constraint_id,
                         "column": column_id,
                         "type": std_type,
+                        "enabled": True,
+                        "description": constraint_description,
                     }
                     params = _build_constraint_params(std_type, spec)
                     if params:
@@ -198,7 +201,7 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
                             "action": action,
                             "success": True,
                             "message": f"inline:{constraint_id}",
-                            "frontendInstructions": generate_frontend_instructions(action),
+                            "frontendInstructions": generate_frontend_instructions(action, workspace_path),
                         }
                     )
 

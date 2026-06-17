@@ -19,6 +19,7 @@ from typing import Callable, TypeVar
 
 from app.shared.core.manifest_schema import is_supported_version
 from app.shared.core.project.constraint.factory import create_constraints
+from app.shared.core.project.loader.loader_parts import loading_error_messages
 from app.shared.core.project.loader.loader_parts.embedded_constraints import collect_constraints_from_schemas
 from app.shared.core.project.loader.loader_parts.file_loaders import (
     load_constraint_file,
@@ -71,8 +72,7 @@ def _load_referenced_files(
                     error_type=f"{file_type}PathValidationError",
                     file_path=str(file_path),
                     ref_id=ref.id,
-                    message=str(e),
-                    suggestion=f"请检查 manifest 中定义的 {file_type} 路径是否正确",
+                    **loading_error_messages.path_validation_error(file_type, ref.id, str(e)),
                 )
             )
             continue
@@ -85,8 +85,7 @@ def _load_referenced_files(
                     error_type=f"{file_type}NotFound",
                     file_path=str(file_path),
                     ref_id=ref.id,
-                    message=f"{file_type} 文件不存在: {file_path}",
-                    suggestion="请检查文件路径是否正确，或在 manifest 中移除该引用",
+                    **loading_error_messages.file_not_found_error(file_type, ref.id, str(file_path)),
                 )
             )
             print(f"[WARN] {warning_msg}")
@@ -100,8 +99,7 @@ def _load_referenced_files(
                     error_type=f"{file_type}ParseError",
                     file_path=str(file_path),
                     ref_id=ref.id,
-                    message=f"{file_type} 文件解析失败: {e}",
-                    suggestion="请检查 YAML 格式是否正确，必要字段是否完整",
+                    **loading_error_messages.parse_error(file_type, ref.id, str(file_path), e),
                 )
             )
             print(f"[WARN] {file_type} 加载失败: {ref.id}, {e}")
@@ -224,8 +222,7 @@ def load_project(manifest_path: str) -> LoadedProject:
                         error_type="TemplateExpansionError",
                         file_path="",
                         ref_id=instance.id,
-                        message=f"模板实例 '{instance.id}' 展开失败: {e}",
-                        suggestion="请检查模板参数是否完整、模板定义是否正确",
+                        **loading_error_messages.template_expansion_error(instance.id, e),
                     )
                 )
 

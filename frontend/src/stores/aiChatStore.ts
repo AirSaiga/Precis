@@ -18,7 +18,7 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import { useI18n } from 'vue-i18n'
-import { sendAiChatMessage, type ChatHistoryMessage } from '../core/services/httpClient'
+import { sendAiChatMessage, type AgentMeta, type ChatHistoryMessage } from '../core/services/httpClient'
 import { toastError } from '@/core/toast'
 import { processFrontendInstructions } from '@/services/aiChatInstructionService'
 
@@ -35,6 +35,8 @@ export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
   timestamp: string
+  /** Agent 模式执行元数据（仅 agent 模式的 assistant 消息可能携带） */
+  agentMeta?: AgentMeta | null
 }
 
 /**
@@ -234,14 +236,16 @@ export const useAiChatStore = defineStore('aiChat', () => {
    * 添加 AI 助手消息到聊天列表
    *
    * @param content - AI 回复的文本内容
+   * @param agentMeta - Agent 模式执行元数据（可选，用于展示工具轨迹）
    * @returns 新创建的消息对象
    */
-  function addAssistantMessage(content: string) {
+  function addAssistantMessage(content: string, agentMeta?: AgentMeta | null) {
     const message: ChatMessage = {
       id: uuidv4(),
       role: 'assistant',
       content,
       timestamp: new Date().toISOString(),
+      agentMeta: agentMeta ?? undefined,
     }
     // [safe-push] messages 是独立的响应式数组，非 Vue Flow 节点/边
     messages.value.push(message)
@@ -294,12 +298,12 @@ export const useAiChatStore = defineStore('aiChat', () => {
       const response = await sendAiChatMessage(content, context, history, agentMode.value)
 
       if (response.status === 'error') {
-        addAssistantMessage(response.reply)
+        addAssistantMessage(response.reply, response.agent_meta)
         if (response.error) {
           toastError(response.error)
         }
       } else {
-        addAssistantMessage(response.reply)
+        addAssistantMessage(response.reply, response.agent_meta)
 
         const instructions =
           response.frontend_instructions && response.frontend_instructions.length > 0

@@ -88,6 +88,8 @@ class ChatExecutionResult:
     updated_history: list[dict[str, str]] = field(default_factory=list)
     validation_result: dict[str, Any] | None = None
     action_results: list[dict[str, Any]] = field(default_factory=list)  # 动作执行结果
+    iterations: int = 0  # Agent 模式下的实际迭代轮数
+    tool_steps: list[dict[str, Any]] = field(default_factory=list)  # Agent 工具调用轨迹
 
 
 # =============================================================================
@@ -155,6 +157,18 @@ class AIChatOrchestrator:
         """
         options = options or ChatOptions()
 
+        # =====================================================================
+        # Agent 模式：走真正的工具循环（read/apply/validate 四件套）
+        # 与下方旧路径（LLM 直接输出 {reply,actions}）互斥，提前返回
+        # =====================================================================
+        if options.agent_mode and project_path:
+            return await self._execute_with_agent(message, project_path, context_nodes, options)
+
+        # 请求了 agent 模式但没有 project_path：无法运行工具循环，静默降级到旧路径。
+        # 记一条 warning 方便排查"为什么 agent 模式没生效"（如配置路径未透传）。
+        if options.agent_mode and not project_path:
+            logger.warning("agent_mode=True 但 project_path 为空，降级为非 agent 路径")
+
         # 步骤 1: 构建上下文数据（项目概览 + 选中节点）
         context_data = self._build_context_data(message, context_nodes, project_path)
         system_prompt = build_system_prompt(context_data)
@@ -206,20 +220,7 @@ class AIChatOrchestrator:
             if isinstance(actions, ChatExecutionResult):
                 return actions
 
-        # Agent 模式：把 action 执行结果回传给 LLM，获取最终回复
-        if options.agent_mode and action_results and project_path:
-            followup = await self._agent_followup(
-                system_prompt=system_prompt,
-                history=options.history,
-                user_message=message,
-                assistant_reply=reply,
-                actions=actions,
-                action_results=action_results,
-                options=options,
-            )
-            if followup:
-                reply = followup
-
+        # 非 agent 模式：process_actions 执行后直接返回（不再有 agent followup）
         return ChatExecutionResult(
             success=True,
             reply=reply,
@@ -390,56 +391,73 @@ class AIChatOrchestrator:
         if options.progress_callback:
             options.progress_callback(stage, message, data)
 
-    async def _agent_followup(
+    async def _execute_with_agent(
         self,
-        system_prompt: str,
-        history: list[dict[str, str]],
-        user_message: str,
-        assistant_reply: str,
-        actions: list[dict[str, Any]],
-        action_results: list[dict[str, Any]],
+        message: str,
+        project_path: str,
+        context_nodes: list[dict[str, Any]],
         options: ChatOptions,
-    ) -> str | None:
+    ) -> ChatExecutionResult:
         """
-        @methoddesc Agent 模式下的结果回传
+        @methoddesc Agent 模式执行路径
 
-        将动作执行结果回传给 LLM，获取最终回复。
+        走真正的工具循环：ChatAgentRunner 组装 4 个 chat 工具
+        (read_project/read_table/apply_actions/validate_table)，
+        调用 AgentExecutor 跑 plan→act→observe 循环，
+        对外仍返回 ChatExecutionResult，保持契约不变。
+
+        参数:
+            message: 用户消息
+            project_path: 项目路径
+            context_nodes: 选中上下文节点
+            options: Chat 执行选项
+
+        返回:
+            ChatExecutionResult: agent 产出的 reply + frontend_instructions
         """
-        import json
+        # 延迟导入，避免非 agent 模式下的额外加载
+        from app.shared.services.ai.chat_agent_runner import ChatAgentRunner
+        from app.shared.services.llm.providers import create
 
-        observation = {
-            "role": "user",
-            "content": (
-                "上一步操作已执行完成，结果如下：\n"
-                f"{json.dumps({'actions': actions, 'results': action_results}, ensure_ascii=False, indent=2)}\n"
-                "请根据执行结果给出最终回复，说明完成了什么、是否成功、是否需要用户进一步确认。"
-            ),
-        }
+        self._notify_progress(options, "agent_running", "AI 正在分析并操作...")
 
-        messages = self._build_messages(
-            system_prompt=system_prompt,
-            history=history,
-            user_message=user_message,
-            max_tokens=options.max_history_tokens,
+        # self._provider 是 AIProvider 配置对象，AgentExecutor 需要的是 Provider 实例（有 chat 方法）
+        # 此处与 ConfigGenerationService._get_provider() 模式一致：用 create() 实例化
+        runner = ChatAgentRunner(
+            provider=create(self._provider),
+            project_path=project_path,
+            context_nodes=context_nodes,
+            max_iterations=options.max_agent_iterations,
+            max_history_tokens=options.max_history_tokens,
         )
-        # 替换最后一条 user message 为对话链：user + assistant + observation
-        messages.pop()
-        messages.append({"role": "user", "content": user_message})
-        messages.append({"role": "assistant", "content": assistant_reply})
-        messages.append(observation)
 
-        self._notify_progress(options, "llm_calling", "正在根据执行结果生成回复...")
-        try:
-            chat_service = self._get_chat_service()
-            llm_response = chat_service.chat(messages=messages, temperature=options.temperature)
-        except Exception as e:
-            logger.error(f"Agent followup LLM 调用失败: {e}")
-            return None
+        run_result = await runner.run(
+            message=message,
+            history=options.history,
+        )
 
-        parsed = self._parse_llm_response(llm_response)
-        if parsed.get("valid"):
-            return parsed.get("reply", "")
-        return None
+        if not run_result.success:
+            return ChatExecutionResult(
+                success=False,
+                reply=run_result.reply,
+                frontend_instructions=run_result.frontend_instructions,
+                error=run_result.error,
+            )
+
+        # 更新对话历史（供 CLI 多轮对话使用）
+        updated_history = self._update_history(options.history, message, run_result.reply)
+
+        self._notify_progress(options, "completed", "AI 处理完成")
+
+        return ChatExecutionResult(
+            success=True,
+            reply=run_result.reply,
+            actions=run_result.actions,
+            frontend_instructions=run_result.frontend_instructions,
+            updated_history=updated_history,
+            iterations=run_result.iterations,
+            tool_steps=run_result.tool_steps,
+        )
 
     def _process_actions(
         self,

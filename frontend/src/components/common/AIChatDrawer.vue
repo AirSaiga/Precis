@@ -136,6 +136,57 @@
         </div>
         <div class="message-content">
           <div class="message-text">{{ message.content }}</div>
+          <!-- 复制按钮：悬停消息时显示 -->
+          <button
+            class="message-copy-btn"
+            :title="t('aiChat.copy')"
+            @click="copyMessage(message.content, message.id)"
+          >
+            <svg
+              v-if="copiedId !== message.id"
+              xmlns="http://www.w3.org/2000/svg"
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <rect width="14" height="14" x="8" y="8" rx="2" ry="2"></rect>
+              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"></path>
+            </svg>
+            <svg
+              v-else
+              xmlns="http://www.w3.org/2000/svg"
+              width="13"
+              height="13"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+          </button>
+          <!-- Agent 工具调用轨迹（仅 agent 模式且存在步骤时显示） -->
+          <div
+            v-if="message.role === 'assistant' && message.agentMeta && message.agentMeta.tool_steps.length > 0"
+            class="agent-trail"
+          >
+            <span class="agent-trail-label">🔧 {{ message.agentMeta.tool_steps.length }} 步</span>
+            <span
+              v-for="(step, idx) in message.agentMeta.tool_steps"
+              :key="idx"
+              class="agent-trail-chip"
+              :title="`${step.tool}${step.action_count ? ' · ' + step.action_count + ' 个动作' : ''}`"
+            >
+              {{ step.label }}{{ step.action_count ? `(${step.action_count})` : '' }}
+            </span>
+          </div>
           <div class="message-time">{{ formatTime(message.timestamp) }}</div>
         </div>
       </div>
@@ -244,6 +295,7 @@
   import { ref, watch, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useAiChatStore } from '../../stores/aiChatStore'
+  import { useMessageCopy } from '@/composables/useMessageCopy'
 
   const { t } = useI18n()
   const store = useAiChatStore()
@@ -251,6 +303,8 @@
   const inputText = ref('')
   const messagesContainer = ref<HTMLElement | null>(null)
   const isClosing = ref(false)
+  // 当前已复制的消息 ID（用于按钮图标切换反馈）
+  const { copiedId, copyMessage } = useMessageCopy()
 
   const formatTime = (timestamp: string): string => {
     const date = new Date(timestamp)

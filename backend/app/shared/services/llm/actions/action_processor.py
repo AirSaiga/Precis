@@ -271,7 +271,7 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
                 "action": action,
                 "success": success,
                 "message": message,
-                "frontendInstructions": generate_frontend_instructions(action)
+                "frontendInstructions": generate_frontend_instructions(action, workspace_path)
                 if success and action_type != "DELETE_CONSTRAINT_NODE"
                 else None,
             }
@@ -287,7 +287,7 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
                     "action": action,
                     "success": success,
                     "message": message,
-                    "frontendInstructions": generate_frontend_instructions(action) if success else None,
+                    "frontendInstructions": generate_frontend_instructions(action, workspace_path) if success else None,
                 }
             )
         else:

@@ -14,7 +14,8 @@ export default defineConfig(({ mode }) => {
   return {
     // 使用相对路径，确保 Electron 本地文件加载时能正确解析资源
     base: './',
-    plugins: [vue(), vueDevTools()],
+    // Vue DevTools 仅在开发模式加载，避免污染生产构建产物
+    plugins: [vue(), ...(mode !== 'production' ? [vueDevTools()] : [])],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),

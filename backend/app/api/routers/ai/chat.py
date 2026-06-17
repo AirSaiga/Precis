@@ -38,7 +38,7 @@ from fastapi.responses import StreamingResponse
 from ....shared.services.ai.chat_orchestrator import execute_ai_chat_unified
 from ....shared.services.llm.config import loader
 from ....shared.services.llm.providers import ChatMessage, ChatRequest, create
-from .models import AiChatRequest, AiChatResponse, ChatRequestInput
+from .models import AgentMeta, AiChatRequest, AiChatResponse, ChatRequestInput
 
 # 从 router 模块导入 router 实例（与旧代码保持一致）
 from .router import router
@@ -103,7 +103,12 @@ async def chat(request: AiChatRequest, x_project_config_path: Optional[str] = He
     # 根据编排器结果组装响应
     if not result.success:
         return AiChatResponse(
-            status="error", reply=result.reply or "", actions=[], frontend_instructions=[], error=result.error
+            status="error",
+            reply=result.reply or "",
+            actions=[],
+            frontend_instructions=[],
+            agent_meta=AgentMeta(iterations=result.iterations, tool_steps=result.tool_steps),
+            error=result.error,
         )
 
     return AiChatResponse(
@@ -111,6 +116,7 @@ async def chat(request: AiChatRequest, x_project_config_path: Optional[str] = He
         reply=result.reply,
         actions=result.actions,
         frontend_instructions=result.frontend_instructions,
+        agent_meta=AgentMeta(iterations=result.iterations, tool_steps=result.tool_steps),
         error=None,
     )
 

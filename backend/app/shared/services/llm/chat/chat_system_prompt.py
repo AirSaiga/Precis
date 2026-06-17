@@ -123,10 +123,10 @@ SYSTEM_PROMPT_JSON_FORMAT = """
             "actionType": "ADD_CONSTRAINT_NODE",
             "constraintSpec": {
                 "type": "NotNull",
-                "targetNodeId": "目标表格的ID（对应上下文中的节点ID）",
-                "tableName": "目标表格的名称",
-                "targetColumn": "目标列的名称",
-                "targetColumnId": "目标列的ID（对应可用字段中的ID）",
+                "targetNodeId": "目标表格的ID（可选；如不确定可留空，系统会从 tableName 自动解析）",
+                "tableName": "目标表格的名称（必填，系统据此解析目标表）",
+                "targetColumn": "目标列的名称（必填）",
+                "targetColumnId": "目标列的ID（可选；如不确定可留空，系统会从 targetColumn 解析）",
                 "isInline": true 或 false（默认false）,
                 "params": {
                     "min": 0,
@@ -329,7 +329,7 @@ def build_project_overview_section(overview: dict[str, Any]) -> str:
     lines = ["## 当前项目概览"]
 
     if schemas:
-        lines.append("\n### 数据表结构")
+        lines.append(f"\n### 数据表结构（共 {len(schemas)} 张表）")
         for schema in schemas:
             table_name = schema.get("name", schema.get("id", "未知表"))
             table_id = schema.get("id", table_name)
@@ -374,7 +374,7 @@ def build_project_overview_section(overview: dict[str, Any]) -> str:
 
     standalone_constraints = [c for c in constraints if not c.get("is_inline")]
     if standalone_constraints:
-        lines.append("\n### 独立约束规则（单独文件）")
+        lines.append(f"\n### 独立约束规则（单独文件，共 {len(standalone_constraints)} 条）")
         for constraint in standalone_constraints:
             constraint_type = constraint.get("type", "未知类型")
             table_id = constraint.get("table_id", "")
@@ -395,7 +395,7 @@ def build_project_overview_section(overview: dict[str, Any]) -> str:
                 lines.append(f"  - 说明: {description}")
 
     if regex_nodes:
-        lines.append("\n### 正则校验节点")
+        lines.append(f"\n### 正则校验节点（共 {len(regex_nodes)} 个）")
         for regex_node in regex_nodes:
             name = regex_node.get("name", regex_node.get("id", "未知"))
             pattern = regex_node.get("pattern", "")
@@ -408,7 +408,7 @@ def build_project_overview_section(overview: dict[str, Any]) -> str:
                 lines.append(f"  - 模式: `{display_pattern}`")
 
     if transforms:
-        lines.append("\n### 数据转换节点")
+        lines.append(f"\n### 数据转换节点（共 {len(transforms)} 个）")
         for transform in transforms:
             t_type = transform.get("type", "未知")
             t_id = transform.get("id", "")

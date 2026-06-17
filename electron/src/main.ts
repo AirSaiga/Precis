@@ -18,7 +18,7 @@
  * - [网络] 端口冲突检测机制确保服务可用性
  */
 
-import { app, BrowserWindow, ipcMain, shell, protocol, net as electronNet } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, protocol, net as electronNet, Menu } from 'electron';
 import { spawn, ChildProcess } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -478,6 +478,15 @@ function tryShowMainWindow(): void {
  * 5. 窗口关闭时清理引用
  */
 function createWindow(): void {
+  // 判断当前环境
+  // 检测逻辑:
+  // 1. 如果应用已打包 (app.isPackaged) -> 生产模式
+  // 2. 如果有前端构建文件 (hasFrontendBuild) -> 生产模式
+  // 3. 否则 -> 开发模式 (连接 Vite 开发服务器)
+  const indexPath = path.join(FRONTEND_PATH, 'index.html');
+  const hasFrontendBuild = fs.existsSync(indexPath);
+  const isDev = !app.isPackaged && !hasFrontendBuild;
+
   // 创建浏览器窗口实例
   mainWindow = new BrowserWindow({
     width: 1920,
@@ -491,19 +500,14 @@ function createWindow(): void {
       preload: path.join(__dirname, 'preload.js'),
     },
     titleBarStyle: 'default',  // 使用系统默认标题栏
+    autoHideMenuBar: !isDev,    // 生产环境隐藏传统菜单栏，开发环境保留方便调试
     show: false,               // 先创建后显示，避免闪烁
     backgroundColor: '#ffffff' // 白色背景避免透明闪烁
   });
 
-  // 判断当前环境
-  // 检测逻辑:
-  // 1. 如果应用已打包 (app.isPackaged) -> 生产模式
-  // 2. 如果有前端构建文件 (hasFrontendBuild) -> 生产模式
-  // 3. 否则 -> 开发模式 (连接 Vite 开发服务器)
-  const indexPath = path.join(FRONTEND_PATH, 'index.html');
-  const hasFrontendBuild = fs.existsSync(indexPath);
-  const isDev = !app.isPackaged && !hasFrontendBuild;
-   
+  // 默认应用菜单栏的隐藏统一在 app.whenReady() 中处理（生产环境 setApplicationMenu(null)），
+  // 此处不再重复设置，避免与 whenReady 内的逻辑冗余。
+
   // 调试信息
   console.log('[Main] __dirname:', __dirname);
   console.log('[Main] FRONTEND_PATH:', FRONTEND_PATH);
@@ -1271,6 +1275,24 @@ ipcMain.handle('get-cwd', async () => {
  * - 但不阻塞窗口创建
  */
 app.whenReady().then(async () => {
+  // 判断当前环境，用于决定是否隐藏系统菜单栏
+  // 检测逻辑:
+  // 1. 如果应用已打包 (app.isPackaged) -> 生产模式
+  // 2. 如果有前端构建文件 (hasFrontendBuild) -> 生产模式
+  // 3. 否则 -> 开发模式 (连接 Vite 开发服务器)
+  const indexPath = path.join(FRONTEND_PATH, 'index.html');
+  const hasFrontendBuild = fs.existsSync(indexPath);
+  const isDev = !app.isPackaged && !hasFrontendBuild;
+
+  // 尽早设置默认应用菜单栏: 生产环境隐藏, 开发环境保留默认菜单方便调试
+  // 业务场景: 应用通过前端 UI 提供全部操作入口, 无需系统菜单
+  // 平台差异:
+  // - Windows/Linux: 菜单栏默认隐藏
+  // - macOS: 屏幕顶部仍保留应用名菜单(系统强制), 但 File/Edit/View 等子菜单不再显示
+  if (!isDev) {
+    Menu.setApplicationMenu(null);
+  }
+
   // 注册 app:// 自定义协议处理器，将请求映射到前端构建目录
   protocol.handle('app', (request) => {
     const url = new URL(request.url);
@@ -1283,10 +1305,6 @@ app.whenReady().then(async () => {
 
   createWindow();
 
-  // 判断是否在打包环境（通过检查前端构建文件是否存在）
-  const indexPath = path.join(FRONTEND_PATH, 'index.html');
-  const hasFrontendBuild = fs.existsSync(indexPath);
-  
   if (hasFrontendBuild) {
     // 生产环境: 启动 Python 后端并等待其就绪
     console.log('[Main] 检测到打包环境，启动 Python 后端服务...');

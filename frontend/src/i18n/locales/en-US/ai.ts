@@ -21,6 +21,9 @@ const aiChat = {
   schemaDeleted: 'Schema "{name}" deleted',
   regexCreated: 'Regex "{name}" created',
   transformCreated: 'Transform "{name}" created',
+  copy: 'Copy',
+  copied: 'Copied to clipboard',
+  copyFailed: 'Copy failed, please select text manually',
 }
 
 const aiConfigGenerator = {
