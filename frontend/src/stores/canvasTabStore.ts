@@ -32,6 +32,7 @@ import type { CustomNode } from '@/types/graph'
 import { useI18n } from 'vue-i18n'
 import { logger } from '@/core/utils/logger'
 import { getV2Workspaces, putV2Workspaces } from '@/api/projectV2Api'
+import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useProjectStore } from './projectStore'
 
 /**
@@ -103,6 +104,7 @@ function safeClone<T>(obj: T): T {
 
 export const useCanvasTabStore = defineStore('canvasTab', () => {
   const { t } = useI18n()
+  const { showConfirm } = useGlobalConfirm()
 
   // --- 核心状态 ---
 
@@ -401,7 +403,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
    * @param tabId - 要关闭的工作区 ID
    * @param graphStore - 可选。传入时支持画布状态保存和自动创建 projectRoot
    */
-  function closeTab(tabId: string, graphStore?: GraphStoreLike) {
+  async function closeTab(tabId: string, graphStore?: GraphStoreLike) {
     const index = tabs.value.findIndex((w) => w.id === tabId)
     if (index === -1) return
 
@@ -409,7 +411,13 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
     const tab = tabs.value[index]
     if (!tab) return
     if (tab.hasUnsavedChanges) {
-      const confirmed = confirm(t('canvas.closeWorkspaceConfirm', { title: tab.title }))
+      const confirmed = await showConfirm({
+        title: t('common.confirmDialog.title'),
+        message: t('canvas.closeWorkspaceConfirm', { title: tab.title }),
+        confirmText: t('common.confirm'),
+        cancelText: t('common.cancel'),
+        type: 'warning',
+      })
       if (!confirmed) return
     }
 
@@ -441,7 +449,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
    * @param tabId - 目标工作区 ID
    * @param newTitle - 新标题。不传时弹出浏览器 prompt 让用户输入
    */
-  function renameTab(tabId: string, newTitle?: string) {
+  async function renameTab(tabId: string, newTitle?: string) {
     const tab = tabs.value.find((w) => w.id === tabId)
     if (!tab) return
 
@@ -449,6 +457,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
       tab.title = newTitle.trim()
       tab.hasUnsavedChanges = true
     } else if (newTitle === undefined) {
+      // TODO: 将 prompt() 替换为专用输入对话框组件，统一 UI 风格
       const userInput = prompt(t('canvas.renameWorkspacePrompt'), tab.title)
       if (userInput && userInput.trim()) {
         tab.title = userInput.trim()

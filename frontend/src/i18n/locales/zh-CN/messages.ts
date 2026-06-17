@@ -48,6 +48,7 @@ const messages = {
     electronApiFailed: 'Electron API 加载失败，请尝试重启应用',
     noFilesSelected: '未选择任何文件',
     clearFailed: '清空数据源失败，请稍后重试',
+    confirmClearAll: '确定要清空所有 {count} 个数据源吗？',
     removeFailed: '移除数据源失败，请稍后重试',
     filePathRequired: '无法打开文件：文件路径为空，请重新导入数据源',
     electronRequired: '无法打开文件：Electron 环境不可用',

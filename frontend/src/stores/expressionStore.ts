@@ -20,6 +20,7 @@ import { logger } from '@/core/utils/logger'
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { toastSuccess } from '@/core/toast'
 
 const mockApiData = {
   patterns: [
@@ -55,7 +56,7 @@ export const useExpressionStore = defineStore('expressions', () => {
     await new Promise((resolve) => setTimeout(resolve, 500))
     logger.debug('Saved data:', { patterns: patterns.value })
     isLoading.value = false
-    alert(t('messages.success.expressionSaved'))
+    toastSuccess(t('messages.success.expressionSaved'))
   }
 
   function addRule(type: 'patterns') {

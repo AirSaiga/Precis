@@ -22,6 +22,7 @@
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
   import { useAiConfigGeneratorStore } from '@/features/ai-config-generator/stores/aiConfigGeneratorStore'
   import { useScriptEditorStore } from '@/stores/scriptEditorStore'
+  import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useToast } from '@/composables/shared/useToast'
   import { eventBus } from '@/core/eventBus'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistryCore'
@@ -35,6 +36,7 @@
   const validationTaskStore = useValidationTaskStore()
   const aiConfigGeneratorStore = useAiConfigGeneratorStore()
   const scriptEditorStore = useScriptEditorStore()
+  const { showConfirm } = useGlobalConfirm()
   const toast = useToast()
   const isValidating = ref(false)
 
@@ -50,10 +52,10 @@
 
   const buttonLabel = computed(() => t(props.field.buttonLabelKey))
 
-  function handleAction() {
+  async function handleAction() {
     switch (props.field.action) {
       case 'validate':
-        handleValidate()
+        await handleValidate()
         break
       case 'fullValidation':
         handleFullValidation()
@@ -62,13 +64,13 @@
         handleAiGenerate()
         break
       case 'reload':
-        handleReload()
+        await handleReload()
         break
       case 'projectManagement':
         handleProjectManagement()
         break
       case 'closeProject':
-        handleCloseProject()
+        await handleCloseProject()
         break
       case 'openScriptEditor':
         handleOpenScriptEditor()
@@ -138,8 +140,15 @@
     settingsStore.open('project-info')
   }
 
-  function handleCloseProject() {
-    if (confirm(t('inspector.projectRoot.confirm.closeProject'))) {
+  async function handleCloseProject() {
+    const confirmed = await showConfirm({
+      title: t('common.confirmDialog.title'),
+      message: t('inspector.projectRoot.confirm.closeProject'),
+      confirmText: t('common.confirm'),
+      cancelText: t('common.cancel'),
+      type: 'warning',
+    })
+    if (confirmed) {
       store.clearProject()
       eventBus.emit('project-closed')
     }

@@ -20,9 +20,14 @@
 import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
 import { useGraphStore } from '@/stores/graphStore'
+import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import i18n from '@/i18n'
 import type { DataType } from '@/types/graph'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+
+// 模块顶层调用 composable，避免在 class 方法体内调用（违反 Vue composable 规范）。
+// useGlobalConfirm 仅操作模块级 ref，无 inject/provide 依赖，模块顶层调用是安全的。
+const { showConfirm: _showConfirm } = useGlobalConfirm()
 
 type StrategyType = 'schema' | 'sourcePreview' | 'regex' | 'constraint' | 'transform' | 'default'
 
@@ -257,8 +262,17 @@ export class NodeDeletionManager {
 
     const message = confirmMessage || this.getConfirmMessage(strategyType)
 
-    if (showConfirm && !confirm(message)) {
-      return false
+    if (showConfirm) {
+      const confirmed = await _showConfirm({
+        title: i18n.global.t('common.confirmDialog.title'),
+        message,
+        confirmText: i18n.global.t('common.confirm'),
+        cancelText: i18n.global.t('common.cancel'),
+        type: 'warning',
+      })
+      if (!confirmed) {
+        return false
+      }
     }
 
     if (onBeforeDelete) {

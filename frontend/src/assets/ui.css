@@ -1487,6 +1487,23 @@
   cursor: not-allowed;
 }
 
+/* 设置面板路径输入组：输入框与浏览按钮同行 */
+.settings-path-input-group {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-sm);
+  width: 100%;
+}
+
+.settings-path-input-group .settings-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.settings-path-input-group .ui-btn {
+  flex-shrink: 0;
+}
+
 /* 紧凑型 select */
 .settings-select {
   box-sizing: border-box;

@@ -22,6 +22,8 @@
 
 import { useI18n } from 'vue-i18n'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
+import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
+import { toastError, toastSuccess, toastInfo } from '@/core/toast'
 import { logger } from '@/core/utils/logger'
 import { isElectron, getElectronAPI } from '@/core/utils/electronDetector'
 import type { ExternalDataSource } from '@/types/graph'
@@ -36,6 +38,8 @@ export function useDataSourceFileOps() {
   const workspaceStore = useWorkspaceStore()
   const isElectronEnv = isElectron()
 
+  const { showConfirm } = useGlobalConfirm()
+
   /**
    * 打开本地数据源文件
    *
@@ -48,7 +52,7 @@ export function useDataSourceFileOps() {
     // 1. 检查是否为本地文件模式
     if (dataSource.sourceMode !== 'localfile' || !dataSource.localPath) {
       logger.warn('[useDataSourceFileOps] 打开失败：非本地文件模式')
-      alert(t('messages.common.filePathRequired'))
+      toastError(t('messages.common.filePathRequired'))
       return
     }
 
@@ -56,7 +60,7 @@ export function useDataSourceFileOps() {
     const api = getElectronAPI()
     if (!api) {
       logger.error('[useDataSourceFileOps] 打开失败：Electron API 不可用')
-      alert(t('messages.common.electronRequired'))
+      toastError(t('messages.common.electronRequired'))
       return
     }
 
@@ -70,15 +74,20 @@ export function useDataSourceFileOps() {
       } else {
         // 打开失败，可能是文件不存在
         logger.warn('[useDataSourceFileOps] 打开文件失败:', result.error)
-        const shouldReselect = confirm(
-          `无法打开文件：${dataSource.name}\n\n` +
+        const shouldReselect = await showConfirm({
+          title: t('common.confirmDialog.title'),
+          message:
+            `无法打开文件：${dataSource.name}\n\n` +
             `错误信息：${result.error || '未知错误'}\n\n` +
             `可能的原因：\n` +
             `• 文件已被移动或删除\n` +
             `• 路径已变更\n` +
             `• 没有关联的程序打开此文件类型\n\n` +
-            `是否重新选择文件？`
-        )
+            `是否重新选择文件？`,
+          confirmText: t('common.confirm'),
+          cancelText: t('common.cancel'),
+          type: 'warning',
+        })
 
         if (shouldReselect) {
           await handleReselectFile(dataSource)
@@ -90,7 +99,7 @@ export function useDataSourceFileOps() {
     } catch (error) {
       logger.error('[useDataSourceFileOps] 打开文件失败:', error)
       const errorMessage = error instanceof Error ? error.message : String(error)
-      alert(`打开文件失败：${errorMessage || '未知错误'}\n\n请尝试重新选择文件。`)
+      toastError(`打开文件失败：${errorMessage || '未知错误'}\n\n请尝试重新选择文件。`)
     }
   }
 
@@ -105,7 +114,7 @@ export function useDataSourceFileOps() {
     const api = getElectronAPI()
     if (!api) {
       logger.error('[useDataSourceFileOps] 重新选择失败：Electron API 不可用')
-      alert(t('messages.common.cannotReselectFile'))
+      toastError(t('messages.common.cannotReselectFile'))
       return
     }
 
@@ -151,11 +160,11 @@ export function useDataSourceFileOps() {
       await workspaceStore.updateDataSource(oldDataSource.id, updatedDataSource)
       logger.debug('[useDataSourceFileOps] 数据源已更新:', updatedDataSource.name)
 
-      alert(`文件已更新：${fileName}\n\n您现在可以将此数据源拖拽到画布中使用。`)
+      toastSuccess(`文件已更新：${fileName}\n\n您现在可以将此数据源拖拽到画布中使用。`)
     } catch (error) {
       logger.error('[useDataSourceFileOps] 重新选择文件失败:', error)
       const errorMessage = error instanceof Error ? error.message : String(error)
-      alert(`重新选择文件失败：${errorMessage || '未知错误'}`)
+      toastError(`重新选择文件失败：${errorMessage || '未知错误'}`)
     }
   }
 
@@ -169,12 +178,19 @@ export function useDataSourceFileOps() {
     if (!dataSources || dataSources.length === 0) return
 
     // 确认对话框
-    if (confirm(`确定要清空所有 ${dataSources.length} 个数据源吗？`)) {
+    const confirmed = await showConfirm({
+      title: t('common.confirmDialog.title'),
+      message: t('messages.confirmClearAll', { count: dataSources.length }),
+      confirmText: t('common.confirm'),
+      cancelText: t('common.cancel'),
+      type: 'warning',
+    })
+    if (confirmed) {
       try {
         await workspaceStore.clearAllDataSources()
       } catch (error) {
         logger.error('清空数据源失败:', error)
-        alert(t('messages.common.clearFailed'))
+        toastError(t('messages.common.clearFailed'))
       }
     }
   }
@@ -189,7 +205,7 @@ export function useDataSourceFileOps() {
       await workspaceStore.removeDataSource(dataSourceId)
     } catch (error) {
       logger.error('移除数据源失败:', error)
-      alert(t('messages.common.removeFailed'))
+      toastError(t('messages.common.removeFailed'))
     }
   }
 

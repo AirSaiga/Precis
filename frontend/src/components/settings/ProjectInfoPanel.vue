@@ -31,11 +31,20 @@
         <div class="settings-row__label">{{ t('settings.projectInfo.configPath') }}</div>
         <div class="settings-row__desc">{{ t('settings.projectInfo.pathHint') }}</div>
         <div class="settings-row__control settings-row__control--wide">
-          <div
-            class="settings-code"
-            :title="localConfigPath || t('settings.projectInfo.missingConfigPath')"
-          >
-            {{ localConfigPath || t('settings.projectInfo.missingConfigPath') }}
+          <div class="settings-path-input-group">
+            <input
+              v-model="localConfigPath"
+              class="settings-input"
+              type="text"
+              :placeholder="t('settings.projectInfo.missingConfigPath')"
+            />
+            <button
+              class="ui-btn ui-btn--secondary ui-btn--sm"
+              type="button"
+              @click="selectConfigPath"
+            >
+              {{ t('settings.projectInfo.browse') }}
+            </button>
           </div>
         </div>
       </div>
@@ -98,20 +107,30 @@
     </div>
 
     <!-- 操作 -->
-    <div v-if="projectStore.isProjectActive" class="settings-actions">
+    <div class="settings-actions">
+      <template v-if="projectStore.isProjectActive">
+        <button
+          class="ui-btn ui-btn--ghost ui-btn--sm"
+          :disabled="!hasChanges || isApplying"
+          @click="resetChanges"
+        >
+          {{ t('common.reset') }}
+        </button>
+        <button
+          class="ui-btn ui-btn--primary ui-btn--sm"
+          :disabled="!canApply || isApplying"
+          @click="applyChanges"
+        >
+          {{ isApplying ? t('settings.projectInfo.applying') : applyButtonText }}
+        </button>
+      </template>
       <button
-        class="ui-btn ui-btn--ghost ui-btn--sm"
-        :disabled="!hasChanges || isApplying"
-        @click="resetChanges"
-      >
-        {{ t('common.reset') }}
-      </button>
-      <button
+        v-else
         class="ui-btn ui-btn--primary ui-btn--sm"
-        :disabled="!canApply || isApplying"
+        :disabled="!localConfigPath.trim() || isApplying"
         @click="applyChanges"
       >
-        {{ isApplying ? t('settings.projectInfo.applying') : applyButtonText }}
+        {{ isApplying ? t('settings.projectInfo.applying') : t('settings.projectInfo.openProject') }}
       </button>
     </div>
   </div>

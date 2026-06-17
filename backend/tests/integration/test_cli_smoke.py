@@ -84,11 +84,17 @@ class TestProjectContext:
 class TestOpenCommand:
     """OpenCommand 顶层/子命令行为测试"""
 
-    def test_open_requires_project_path(self):
+    def test_open_no_args_uses_history_selection(self, tmp_path, monkeypatch):
+        """无参数不再报错，而是从历史选择（空历史时给出提示）。
+
+        原 '缺少项目路径参数' 的行为已改为方案A（交互选择）。
+        """
+        # 隔离历史文件为空，确保进入"空历史"分支而非阻塞在 readchar
+        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
         cmd = OpenCommand()
         result = cmd.execute([], ProjectContext())
-        assert result.success is False
-        assert "缺少项目路径参数" in result.message
+        assert result.success is True
+        assert "暂无项目打开历史" in result.message
 
     def test_open_rejects_nonexistent_path(self):
         cmd = OpenCommand()
@@ -104,7 +110,9 @@ class TestOpenCommand:
         assert result.success is False
         assert "路径不是目录" in result.message
 
-    def test_open_sets_context_project_path(self, tmp_path):
+    def test_open_sets_context_project_path(self, tmp_path, monkeypatch):
+        # 隔离历史文件，避免测试污染真实的 ~/.precis_project_history
+        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
         proj = tmp_path / "proj"
         proj.mkdir()
         cmd = OpenCommand()
@@ -114,7 +122,8 @@ class TestOpenCommand:
         assert ctx.is_project_open is True
         assert ctx.project_path == str(proj.resolve())
 
-    def test_open_detects_manifest(self, tmp_path):
+    def test_open_detects_manifest(self, tmp_path, monkeypatch):
+        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
         proj = tmp_path / "proj"
         proj.mkdir()
         (proj / "project.precis.yaml").write_text("project: {id: x, name: x}\n", encoding="utf-8")
@@ -123,11 +132,194 @@ class TestOpenCommand:
         assert result.success is True
         assert "检测到项目清单文件" in result.message
 
+    def test_open_loads_manifest_into_context(self, tmp_path, monkeypatch):
+        """打开项目时应加载清单到 ctx.project_config，使提示符能显示真实项目名。"""
+        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        proj = tmp_path / "proj"
+        proj.mkdir()
+        (proj / "project.precis.yaml").write_text(
+            "version: 2\nproject: {id: demo, name: DemoProject}\n", encoding="utf-8"
+        )
+        cmd = OpenCommand()
+        ctx = ProjectContext()
+        result = cmd.execute([str(proj)], ctx)
+        assert result.success is True
+        # project_config 应被填充为字典，且能取到真实项目名
+        assert ctx.project_config is not None
+        assert ctx.project_config["project"]["name"] == "DemoProject"
+
+    def test_open_manifest_parse_failure_does_not_block(self, tmp_path, monkeypatch):
+        """清单存在但格式非法时，不应阻断项目切换，仅给出警告并清空配置。"""
+        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        proj = tmp_path / "proj"
+        proj.mkdir()
+        # 缺少必填 project 字段 → load_manifest 校验失败
+        (proj / "project.precis.yaml").write_text("version: 2\n", encoding="utf-8")
+        cmd = OpenCommand()
+        ctx = ProjectContext()
+        result = cmd.execute([str(proj)], ctx)
+        assert result.success is True
+        # 项目仍切换成功
+        assert ctx.is_project_open is True
+        # 但配置未加载，避免消费侧拿到部分数据
+        assert ctx.project_config is None
+        assert "解析失败" in result.message
+
+    def test_open_real_qa_simple_loads_config(self, tmp_path, monkeypatch):
+        """针对仓库内置 qa_simple 项目验证真实清单加载。"""
+        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        if not QA_SIMPLE_ROOT.exists():
+            pytest.skip("qa_simple 测试项目不存在")
+        cmd = OpenCommand()
+        ctx = ProjectContext()
+        result = cmd.execute([str(QA_SIMPLE_ROOT)], ctx)
+        assert result.success is True
+        assert ctx.project_config is not None
+        # qa_simple 的清单 project.name 在仓库中是固定的
+        assert ctx.project_config["project"]["name"]
+
     def test_open_alias_registered_at_top_level(self):
         shell = CLIShell()
         cmd = shell.registry.get("o")
         assert cmd is not None
         assert cmd.name == "open"
+
+    # ------------------------------------------------------------------
+    # 方案A：open（无参数）从历史交互选择
+    # ------------------------------------------------------------------
+
+    def test_open_no_args_opens_selected_from_history(self, tmp_path, monkeypatch):
+        """无参数时弹出菜单，选中后打开对应项目。"""
+        # 隔离历史文件
+        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+
+        # 准备一个真实可打开的项目目录
+        proj = tmp_path / "proj"
+        proj.mkdir()
+        (proj / "project.precis.yaml").write_text(
+            "version: 2\nproject: {id: demo, name: DemoProject}\n", encoding="utf-8"
+        )
+
+        # 写入历史（顺序：最新在前）
+        from app.cli.shell.commands.open import _save_history
+
+        _save_history([{"path": str(proj), "last_opened": None}])
+
+        # mock InteractiveMenu.show 返回该项目路径（模拟用户选中第 1 项）
+        monkeypatch.setattr(
+            "app.cli.shell.interactive_menu.InteractiveMenu.show",
+            lambda self: str(proj),
+        )
+
+        cmd = OpenCommand()
+        ctx = ProjectContext()
+        result = cmd.execute([], ctx)
+        assert result.success is True
+        assert ctx.is_project_open is True
+        assert ctx.project_path == str(proj.resolve())
+        # 清单应被加载，配置填充
+        assert ctx.project_config is not None
+        assert ctx.project_config["project"]["name"] == "DemoProject"
+
+    def test_open_no_args_cancel_does_not_open(self, tmp_path, monkeypatch):
+        """用户在菜单中取消时返回提示，不打开任何项目。"""
+        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+
+        proj = tmp_path / "proj"
+        proj.mkdir()
+        from app.cli.shell.commands.open import _save_history
+
+        _save_history([{"path": str(proj), "last_opened": None}])
+
+        # 模拟用户取消（ESC/0/选取消项）→ show() 返回 None
+        monkeypatch.setattr(
+            "app.cli.shell.interactive_menu.InteractiveMenu.show",
+            lambda self: None,
+        )
+
+        cmd = OpenCommand()
+        ctx = ProjectContext()
+        result = cmd.execute([], ctx)
+        assert result.success is True
+        assert "已取消" in result.message
+        assert ctx.is_project_open is False
+
+    # ------------------------------------------------------------------
+    # 方案B：open <N> 按历史序号打开
+    # ------------------------------------------------------------------
+
+    def test_open_by_index_opens_nth(self, tmp_path, monkeypatch):
+        """open 1 打开历史第 1 项（最新）。"""
+        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+
+        proj1 = tmp_path / "proj1"
+        proj1.mkdir()
+        proj2 = tmp_path / "proj2"
+        proj2.mkdir()
+        from app.cli.shell.commands.open import _save_history
+
+        # 历史顺序：proj2 最新（第 1 项），proj1 次之（第 2 项）
+        _save_history(
+            [
+                {"path": str(proj2), "last_opened": None},
+                {"path": str(proj1), "last_opened": None},
+            ]
+        )
+
+        cmd = OpenCommand()
+        ctx = ProjectContext()
+        result = cmd.execute(["1"], ctx)
+        assert result.success is True
+        assert ctx.project_path == str(proj2.resolve())
+
+        # 验证第 2 项
+        ctx2 = ProjectContext()
+        result2 = cmd.execute(["2"], ctx2)
+        assert result2.success is True
+        assert ctx2.project_path == str(proj1.resolve())
+
+    def test_open_by_index_out_of_range_errors(self, tmp_path, monkeypatch):
+        """序号越界时报错并提示总数。"""
+        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+
+        proj = tmp_path / "proj"
+        proj.mkdir()
+        from app.cli.shell.commands.open import _save_history
+
+        _save_history([{"path": str(proj), "last_opened": None}])
+
+        cmd = OpenCommand()
+        ctx = ProjectContext()
+        result = cmd.execute(["99"], ctx)
+        assert result.success is False
+        assert "共 1 项" in result.message
+        assert ctx.is_project_open is False
+
+    def test_open_by_index_empty_history_errors(self, tmp_path, monkeypatch):
+        """无历史时按序号打开应报错提示。"""
+        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+
+        cmd = OpenCommand()
+        ctx = ProjectContext()
+        result = cmd.execute(["1"], ctx)
+        assert result.success is False
+        assert "暂无项目打开历史" in result.message
+
+    def test_open_relative_path_not_treated_as_index(self, tmp_path, monkeypatch):
+        """回归：open ./1 这类相对路径不应被当成序号（'./1'.isdigit() 为 False）。"""
+        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+
+        # 创建名为 "1" 的子目录，从 tmp_path 切过去用相对路径打开
+        target = tmp_path / "1"
+        target.mkdir()
+        # 切换工作目录到 tmp_path，使 "./1" 解析到 target
+        monkeypatch.chdir(tmp_path)
+
+        cmd = OpenCommand()
+        ctx = ProjectContext()
+        result = cmd.execute(["./1"], ctx)
+        assert result.success is True
+        assert ctx.project_path == str(target.resolve())
 
 
 class TestStandaloneArgsParser:

@@ -54,6 +54,7 @@
   import { useI18n } from 'vue-i18n'
   import { logger } from '@/core/utils/logger'
   import { eventBus } from '@/core/eventBus'
+  import { toastError } from '@/core/toast'
   import ToolboxPanel from './ToolboxPanel.vue'
   import ResourceExplorerPanel from './ResourceExplorerPanel.vue'
   import ResourceContextMenu from '../resource/ResourceContextMenu.vue'
@@ -132,7 +133,7 @@
 
   const handleEmbeddedConstraintClick = (schema: ResourceItem, embeddedConstraint: unknown) => {
     logger.debug('内嵌约束点击:', schema.name, (embeddedConstraint as { name?: string }).name)
-    alert(t('assetLibraryExtended.projectView.cannotDragEmbeddedConstraint'))
+    toastError(t('assetLibraryExtended.projectView.cannotDragEmbeddedConstraint'))
   }
 
   const openContextMenu = (

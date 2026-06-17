@@ -101,8 +101,9 @@ class AIChatCommand(Command):
         if filtered_args:
             return CommandResult.error(f"未知参数: {filtered_args}\n用法: {self.usage}")
 
-        # 获取项目名称用于显示
-        project_name = context.project_config.get("project", {}).get("name", "project")
+        # 获取项目名称用于显示（project_config 在 open 后可能尚未加载，做空值守卫）
+        config = context.project_config or {}
+        project_name = config.get("project", {}).get("name", "project")
 
         # 打印会话头信息
         print(Formatter.header("\nAI 助手交互模式"))

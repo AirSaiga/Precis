@@ -33,6 +33,7 @@ import { platformDetector } from '@/features/keyboard/platform'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { normalizePath, getPathBasename } from '@/core/utils/pathNormalization'
 import { eventBus } from '@/core/eventBus'
+import { toastError, toastSuccess, toastInfo } from '@/core/toast'
 import type { ExternalDataSource } from '@/types/graph'
 
 /**
@@ -157,7 +158,7 @@ export function useDataSourceImport() {
           continue
         } catch (error) {
           logger.error(`处理文件夹 ${file.name} 失败:`, error)
-          alert(`处理文件夹 ${file.name} 失败`)
+          toastError(`处理文件夹 ${file.name} 失败`)
           continue
         }
       }
@@ -183,7 +184,7 @@ export function useDataSourceImport() {
           fileList.push(dataSource)
         } catch (error) {
           logger.error(`处理文件 ${file.name} 失败:`, error)
-          alert(`处理文件 ${file.name} 失败，请确保文件路径有效`)
+          toastError(`处理文件 ${file.name} 失败，请确保文件路径有效`)
         }
       }
     }
@@ -207,7 +208,7 @@ export function useDataSourceImport() {
       } catch (error) {
         logger.error(`添加数据源 ${dataSource.name} 失败:`, error)
         const errorMessage = error instanceof Error ? error.message : String(error)
-        alert(`添加数据源 ${dataSource.name} 失败: ${errorMessage}`)
+        toastError(`添加数据源 ${dataSource.name} 失败: ${errorMessage}`)
       }
     }
   }
@@ -236,9 +237,9 @@ export function useDataSourceImport() {
         logger.warn('  3. BrowserWindow webPreferences 配置问题')
 
         if (!isElectron()) {
-          alert(t('messages.common.electronNotDetected'))
+          toastError(t('messages.common.electronNotDetected'))
         } else {
-          alert(t('messages.common.electronApiFailed'))
+          toastError(t('messages.common.electronApiFailed'))
         }
         return
       }
@@ -266,7 +267,7 @@ export function useDataSourceImport() {
 
       if (!result.filePaths || result.filePaths.length === 0) {
         logger.error('[useDataSourceImport] 文件路径为空:', result)
-        alert(t('messages.common.noFilesSelected'))
+        toastError(t('messages.common.noFilesSelected'))
         return
       }
 
@@ -331,11 +332,11 @@ export function useDataSourceImport() {
 
               if (filesInFolder.length === 0) {
                 logger.warn('[useDataSourceImport] 文件夹中没有找到数据文件:', filePath)
-                alert(`文件夹 "${fileName}" 中没有找到数据文件 (.xlsx, .xls, .csv)`)
+                toastError(`文件夹 "${fileName}" 中没有找到数据文件 (.xlsx, .xls, .csv)`)
               }
             } catch (scanError) {
               logger.error('[useDataSourceImport] 扫描文件夹失败:', scanError)
-              alert(`扫描文件夹失败: ${fileName}`)
+              toastError(`扫描文件夹失败: ${fileName}`)
             }
           } else {
             // 选择的是单个文件
@@ -373,7 +374,7 @@ export function useDataSourceImport() {
           } catch (error) {
             logger.error(`添加数据源 ${dataSource.name} 失败:`, error)
             const errorMessage = error instanceof Error ? error.message : String(error)
-            alert(`添加数据源 ${dataSource.name} 失败: ${errorMessage}`)
+            toastError(`添加数据源 ${dataSource.name} 失败: ${errorMessage}`)
           }
         }
       }
@@ -402,7 +403,7 @@ export function useDataSourceImport() {
         userMessage = `文件选择失败: ${errorMessage}`
       }
 
-      alert(userMessage)
+      toastError(userMessage)
       logger.warn('[useDataSourceImport] 调试建议:')
       logger.warn('  1. 检查开发者工具控制台是否有其他错误')
       logger.warn('  2. 确认 preload 脚本已正确加载')
@@ -420,13 +421,13 @@ export function useDataSourceImport() {
 
     if (!api) {
       logger.error('[useDataSourceImport] 文件夹导入失败：Electron API 不可用')
-      alert(t('messages.common.electronApiFailed'))
+      toastError(t('messages.common.electronApiFailed'))
       return
     }
 
     if (!folderPath || typeof folderPath !== 'string') {
       logger.error('[useDataSourceImport] 文件夹导入失败：无效的文件夹路径')
-      alert(t('messages.messages.invalidFolderPath'))
+      toastError(t('messages.messages.invalidFolderPath'))
       return
     }
 
@@ -437,7 +438,7 @@ export function useDataSourceImport() {
       logger.debug('[useDataSourceImport] 文件夹扫描结果:', filesInFolder)
 
       if (filesInFolder.length === 0) {
-        alert(`文件夹中没有找到数据文件 (.xlsx, .xls, .csv)`)
+        toastError(`文件夹中没有找到数据文件 (.xlsx, .xls, .csv)`)
         return
       }
 
@@ -509,14 +510,14 @@ export function useDataSourceImport() {
       }
 
       if (failCount > 0) {
-        alert(`文件夹导入完成：成功 ${successCount} 个，失败 ${failCount} 个`)
+        toastInfo(`文件夹导入完成：成功 ${successCount} 个，失败 ${failCount} 个`)
       } else {
         logger.debug(`[useDataSourceImport] 文件夹导入完成：共 ${successCount} 个文件`)
       }
     } catch (error) {
       logger.error('[useDataSourceImport] 文件夹导入失败:', error)
       const errorMessage = error instanceof Error ? error.message : String(error)
-      alert(`文件夹导入失败: ${errorMessage}`)
+      toastError(`文件夹导入失败: ${errorMessage}`)
     }
   }
 
@@ -597,7 +598,7 @@ export function useDataSourceImport() {
       }, 500)
     } catch (error) {
       logger.error('[useDataSourceImport] 处理重新加载文件失败:', error)
-      alert(t('messages.common.reloadFailed'))
+      toastError(t('messages.common.reloadFailed'))
     }
   }
 

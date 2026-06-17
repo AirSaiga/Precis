@@ -110,7 +110,7 @@
               v-if="canvasStore.workspaces.length > 1"
               class="tab-close ui-icon-btn ui-icon-btn--sm ui-icon-btn--danger"
               type="button"
-              @click.stop="canvasStore.closeWorkspace(workspace.id, graphStore)"
+              @click.stop="await canvasStore.closeWorkspace(workspace.id, graphStore)"
             >
               ×
             </button>
@@ -313,11 +313,11 @@
    * 空白标题视为无效输入，静默忽略（不修改标题也不弹 prompt）。
    * 将 renamingTabId 置 null 退出编辑模式，v-if 切换回 span 显示。
    */
-  const confirmRename = () => {
+  const confirmRename = async () => {
     if (!renamingTabId.value) return
     const trimmed = renameValue.value.trim()
     if (trimmed) {
-      canvasStore.renameWorkspace(renamingTabId.value, trimmed)
+      await canvasStore.renameWorkspace(renamingTabId.value, trimmed)
     }
     renamingTabId.value = null
   }

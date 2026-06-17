@@ -347,7 +347,9 @@ export async function updateDataSource(
  * @example
  * ```typescript
  * // 建议先让用户确认
- * if (confirm('确定要清空所有数据源吗？此操作不可撤销。')) {
+ * const { showConfirm } = useGlobalConfirm();
+ * const confirmed = await showConfirm('确定要清空所有数据源吗？此操作不可撤销。');
+ * if (confirmed) {
  *   await clearAllDataSources();
  *   logger.debug('所有数据源已清空');
  * }

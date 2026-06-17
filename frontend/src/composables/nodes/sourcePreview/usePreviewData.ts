@@ -32,6 +32,7 @@ import { useI18n } from 'vue-i18n'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useGraphStore } from '@/stores/graphStore'
 import { eventBus } from '@/core/eventBus'
+import { toastError, toastInfo } from '@/core/toast'
 import type { SourcePreviewNodeData } from '../types'
 import type { SourceMode } from '@/types/datasource'
 
@@ -359,7 +360,7 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
 
     if (!filePath) {
       logger.error('本地路径方式重载失败: 文件路径为空')
-      alert(t('messages.previewData.reloadEmptyPath'))
+      toastError(t('messages.previewData.reloadEmptyPath'))
       return
     }
 
@@ -389,7 +390,7 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
               (error?.message as string | undefined) ||
               '未知错误'
         logger.error('本地路径方式重载HTTP错误:', status, errorText)
-        alert(t('messages.previewData.reloadInvalidPath'))
+        toastError(t('messages.previewData.reloadInvalidPath'))
         return
       }
 
@@ -426,11 +427,11 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
         })
       } else {
         logger.error('本地路径方式重载失败:', data.error)
-        alert(`重载数据失败: ${data.error || '未知错误'}`)
+        toastError(`重载数据失败: ${data.error || '未知错误'}`)
       }
     } catch (error) {
       logger.error('本地路径方式重载错误:', error)
-      alert(t('messages.previewData.reloadErrorWithPath'))
+      toastError(t('messages.previewData.reloadErrorWithPath'))
     } finally {
       isReloading.value = false
     }
@@ -482,7 +483,7 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
           logger.debug('File upload event dispatched')
         } catch (error) {
           logger.error('Failed to process file:', error)
-          alert('Failed to process file')
+          toastError('Failed to process file')
         }
       }
     }

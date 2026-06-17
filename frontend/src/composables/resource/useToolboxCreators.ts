@@ -10,6 +10,7 @@
 import { logger } from '@/core/utils/logger'
 import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
+import { toastError } from '@/core/toast'
 import type { ConstraintKind } from '@/services/constraints/types'
 import type { TransformTypeV2 } from '@/types/projectV2'
 
@@ -26,7 +27,7 @@ export function useToolboxCreators() {
       store.createProjectRootNode(position)
     } catch (error) {
       logger.error('创建Project Root节点失败:', error)
-      alert(t('messages.common.createNodeFailed'))
+      toastError(t('messages.common.createNodeFailed'))
     }
   }
 
@@ -39,7 +40,7 @@ export function useToolboxCreators() {
       store.createSchemaNode(position, t('messages.canvas.newTable'))
     } catch (error) {
       logger.error('创建Schema节点失败:', error)
-      alert(t('messages.common.createNodeFailed'))
+      toastError(t('messages.common.createNodeFailed'))
     }
   }
 
@@ -52,7 +53,7 @@ export function useToolboxCreators() {
       store.createJsonSchemaNode(position, t('messages.canvas.newTable'))
     } catch (error) {
       logger.error('创建JSON Schema节点失败:', error)
-      alert(t('messages.common.createNodeFailed'))
+      toastError(t('messages.common.createNodeFailed'))
     }
   }
 
@@ -65,7 +66,7 @@ export function useToolboxCreators() {
       store.createRegexNode(position)
     } catch (error) {
       logger.error('创建正则表达式节点失败:', error)
-      alert(t('messages.common.createNodeFailed'))
+      toastError(t('messages.common.createNodeFailed'))
     }
   }
 
@@ -79,7 +80,7 @@ export function useToolboxCreators() {
       store.createConstraintNode(position, constraintType as ConstraintKind)
     } catch (error) {
       logger.error('创建约束节点失败:', error)
-      alert(t('messages.common.createNodeFailed'))
+      toastError(t('messages.common.createNodeFailed'))
     }
   }
 
@@ -93,7 +94,7 @@ export function useToolboxCreators() {
       store.createTransformNode(position, transformType)
     } catch (error) {
       logger.error('创建Transform节点失败:', error)
-      alert(t('messages.common.createNodeFailed'))
+      toastError(t('messages.common.createNodeFailed'))
     }
   }
 
@@ -106,7 +107,7 @@ export function useToolboxCreators() {
       store.createManualDataNode(position)
     } catch (error) {
       logger.error('创建手动数据节点失败:', error)
-      alert(t('messages.common.createNodeFailed'))
+      toastError(t('messages.common.createNodeFailed'))
     }
   }
 
@@ -119,7 +120,7 @@ export function useToolboxCreators() {
       store.createTemplateInstanceNode(position)
     } catch (error) {
       logger.error('创建模板实例节点失败:', error)
-      alert(t('messages.common.createNodeFailed'))
+      toastError(t('messages.common.createNodeFailed'))
     }
   }
 

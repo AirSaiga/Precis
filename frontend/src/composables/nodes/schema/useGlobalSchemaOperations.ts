@@ -7,6 +7,8 @@
 
 import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
+import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
+import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
 import type { SchemaNodeData } from '@/types/graph'
@@ -20,6 +22,8 @@ import type { SchemaNodeData } from '@/types/graph'
 export function useGlobalSchemaOperations() {
   // 获取全局图存储，用于访问和修改节点数据
   const store = useGraphStore()
+  const { showConfirm } = useGlobalConfirm()
+  const { t } = useI18n()
   // 从 VueFlow 获取节点和边的操作方法
   // getConnectedEdges: 获取连接到指定节点的边
   // findNode: 根据 ID 查找节点
@@ -90,13 +94,13 @@ export function useGlobalSchemaOperations() {
    * 如果用户确认，则调用 generateColumnsFromHeaderData 生成新列定义
    *
    * 设计考量：
-   * - 使用同步 confirm 对话框确保用户必须明确选择
+   * - 使用异步 confirm 对话框确保用户必须明确选择
    * - 避免意外覆盖用户已配置的列约束
    *
    * @param schemaNodeId - Schema 节点 ID
    * @param headerData - 新的表头数据数组
    */
-  const updateSchemaNodeFromHeaderChangeSafe = (schemaNodeId: string, headerData: any[]) => {
+  const updateSchemaNodeFromHeaderChangeSafe = async (schemaNodeId: string, headerData: any[]) => {
     // 查找目标 Schema 节点
     const schemaNode = store.nodes.find((n) => n.id === schemaNodeId)
     if (!schemaNode) {
@@ -111,9 +115,13 @@ export function useGlobalSchemaOperations() {
 
     // 如果已连接数据源，询问用户是否重新生成列定义
     if (sourceFile && sourceFilePath) {
-      const shouldRegenerate = confirm(
-        `检测到表头已变更，是否基于新表头 "${headerData.join(', ')}" 重新生成列定义？`
-      )
+      const shouldRegenerate = await showConfirm({
+        title: t('common.confirmDialog.title'),
+        message: `检测到表头已变更，是否基于新表头 "${headerData.join(', ')}" 重新生成列定义？`,
+        confirmText: t('common.confirm'),
+        cancelText: t('common.cancel'),
+        type: 'warning',
+      })
 
       // 如果用户确认，重新生成列定义
       if (shouldRegenerate) {

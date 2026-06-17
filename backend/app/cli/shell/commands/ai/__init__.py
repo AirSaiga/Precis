@@ -155,7 +155,9 @@ class AICommand(Command):
                 status_lines.append(Formatter.warning("[!] 未配置 AI Provider"))
 
             if context.is_project_open:
-                project_name = context.project_config.get("project", {}).get("name", "project")
+                # project_config 在 open 后可能尚未加载，做空值守卫避免 AttributeError
+                config = context.project_config or {}
+                project_name = config.get("project", {}).get("name", "project")
                 status_lines.append(Formatter.info(f"当前项目: {project_name}"))
             else:
                 status_lines.append(Formatter.warning("[!] 未打开项目"))

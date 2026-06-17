@@ -54,6 +54,7 @@ const messages = {
     electronApiFailed: 'Electron API failed to load, please try restarting the application',
     noFilesSelected: 'No files selected',
     clearFailed: 'Failed to clear data source, please try again later',
+    confirmClearAll: 'Are you sure you want to clear all {count} data sources?',
     removeFailed: 'Failed to remove data source, please try again later',
     filePathRequired: 'Cannot open file: file path is empty, please re-import the data source',
     electronRequired: 'Cannot open file: Electron environment is not available',

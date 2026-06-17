@@ -6,6 +6,8 @@
 
 import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
+import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
+import { useI18n } from 'vue-i18n'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
 import { useNodeSourceManager } from '../shared/useNodeSourceManager'
 import { syncSchemaResources } from '@/services/schemaResourceSync'
@@ -14,6 +16,8 @@ import type { SchemaNodeData, SourcePreviewNodeData } from '@/types/graph'
 
 export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData }, emit: any) {
   const store = useGraphStore()
+  const { showConfirm } = useGlobalConfirm()
+  const { t } = useI18n()
 
   // ============================================================================
   // Schema 特有方法
@@ -57,7 +61,7 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
   /**
    * 安全更新 Schema 节点的表头变更
    */
-  const updateSchemaNodeFromHeaderChangeSafe = (schemaNodeId: string, headerData: any[]) => {
+  const updateSchemaNodeFromHeaderChangeSafe = async (schemaNodeId: string, headerData: any[]) => {
     const schemaNode = store.nodes.find((n) => n.id === schemaNodeId)
     if (!schemaNode) {
       logger.warn(`Schema 节点 ${schemaNodeId} 不存在`)
@@ -69,9 +73,13 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
     const sourceFilePath = schemaNodeData?.sourceFilePath
 
     if (sourceFile && sourceFilePath) {
-      const shouldRegenerate = confirm(
-        `检测到表头已变更，是否基于新表头 "${headerData.join(', ')}" 重新生成列定义？`
-      )
+      const shouldRegenerate = await showConfirm({
+        title: t('common.confirmDialog.title'),
+        message: `检测到表头已变更，是否基于新表头 "${headerData.join(', ')}" 重新生成列定义？`,
+        confirmText: t('common.confirm'),
+        cancelText: t('common.cancel'),
+        type: 'warning',
+      })
 
       if (shouldRegenerate) {
         generateColumnsFromHeaderData(headerData, schemaNode)

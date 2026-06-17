@@ -167,7 +167,10 @@ class CLIShell:
     def _get_prompt(self) -> str:
         """获取命令提示符。"""
         if self.context.is_project_open:
-            project_name = self.context.project_config.get("project", {}).get("name", "project")
+            # project_config 在 open 命令后可能尚未加载（OpenCommand 只设置 project_path），
+            # 此处做空值守卫避免 AttributeError 导致 Shell 崩溃退出。
+            config = self.context.project_config or {}
+            project_name = config.get("project", {}).get("name", "project")
             return Formatter.colorize(f"precis:{project_name}> ", Colors.CYAN)
         return Formatter.colorize("precis> ", Colors.CYAN)
 
