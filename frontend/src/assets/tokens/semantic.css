@@ -41,11 +41,11 @@
   --text-muted: var(--color-slate-600);
   --text-subtle: var(--color-slate-400);
   --text-placeholder: var(--color-slate-300);
-  --text-on-accent: #ffffff;
-  --text-on-success: #ffffff;
+  --text-on-accent: var(--color-sky-950);
+  --text-on-success: var(--color-emerald-950);
   --text-on-warning: var(--color-amber-900);
-  --text-on-danger: #ffffff;
-  --text-on-info: #ffffff;
+  --text-on-danger: var(--color-rose-950);
+  --text-on-info: var(--color-blue-950);
 
   /* ============================================================
      边框
