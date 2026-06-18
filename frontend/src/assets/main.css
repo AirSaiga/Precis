@@ -3,20 +3,30 @@
 @import '@vue-flow/core/dist/style.css' layer(vendor);
 @import '@vue-flow/core/dist/theme-default.css' layer(vendor);
 @import './base.css' layer(reset);
+
+/* ============================================================
+   Phase 3: 三层令牌体系（已启用）
+   ============================================================ */
+/* 基础层：Primitive + Semantic + Component */
+@import './tokens/primitive.css' layer(tokens);
+@import './tokens/semantic.css' layer(tokens);
+@import './tokens/component.css' layer(tokens);
+
+/* 主题层：Light（默认，primitive 已定义）+ Dark + Liquid */
+@import './themes/light.css';
+@import './themes/dark.css';
+@import './themes/liquid.css';
+
+/* 兼容层：将旧变量名映射到新体系（保留一个版本周期） */
+@import './tokens/compat.css' layer(tokens);
+
+/* 旧体系：保留作为后备，compat 层优先级更高 */
 @import './theme.css' layer(tokens);
 @import './tokens/node-tokens.css' layer(tokens);
+
 @import './ui.css' layer(ui);
 @import './app-shell.css' layer(ui);
 @import './graph-node.css' layer(graph);
-
-/* Phase 3 启用：三层令牌体系 */
-/* @import './tokens/primitive.css' layer(tokens); */
-/* @import './tokens/semantic.css' layer(tokens); */
-/* @import './tokens/component.css' layer(tokens); */
-/* @import './tokens/compat.css' layer(tokens); */
-/* @import './themes/light.css' layer(tokens); */
-/* @import './themes/dark.css' layer(tokens); */
-/* @import './themes/liquid.css'; */
 
 /* Liquid 主题覆盖需要放在 layer 体系之外，才能覆盖 ui/graph 层以及组件 scoped 样式 */
 @import './theme-liquid.css';
