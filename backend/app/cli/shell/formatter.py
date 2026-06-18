@@ -257,6 +257,80 @@ class Formatter:
         return "\n".join(lines)
 
     @staticmethod
+    def format_validation_summary(
+        validation_details: dict[str, Any] | None,
+        raw_datasets: dict[str, Any] | None = None,
+    ) -> str:
+        """格式化校验摘要：证明 validate 确实加载了数据并执行了约束。
+
+        输出加载的表与行数、执行的约束检查数及各项通过/失败状态，
+        用于消除"通过=没跑"的疑虑。
+
+        Args:
+            validation_details: executor 返回的 validation_details 字典，
+                包含 format_checks / constraint_checks 两个列表；
+                为空或结构异常时返回提示性兜底文本
+            raw_datasets: executor 返回的原始数据集字典，用于统计每个表的行数；
+                为空时表行数显示为"-"
+
+        Returns:
+            格式化的校验摘要文本（rich 标记字符串）
+        """
+        mark_ok = "✓" if _supports_unicode() else "[OK]"
+        mark_fail = "✗" if _supports_unicode() else "[FAIL]"
+        bullet = "•" if _supports_unicode() else "-"
+
+        # 兜底：没有 validation_details 时无法证明执行情况，明确提示
+        if not validation_details:
+            return (
+                f"[yellow]{bullet} 未返回校验明细（validation_details 为空），"
+                "无法确认实际执行的检查项数[/yellow]"
+            )
+
+        # ---- 表/行数统计 ----
+        format_checks = validation_details.get("format_checks", []) or []
+        table_lines: list[str] = []
+        for fc in format_checks:
+            table = fc.get("table", "?")
+            # 从 raw_datasets 取行数（DataFrame），取不到则显示 "-"
+            ds = (raw_datasets or {}).get(table)
+            row_count = len(ds) if ds is not None and hasattr(ds, "__len__") else "-"
+            source = fc.get("source_file") or ""
+            src_hint = f" [dim]({source})[/dim]" if source else ""
+            table_lines.append(f"    {bullet} {table}: {row_count} 行{src_hint}")
+        tables_block = "\n".join(table_lines) if table_lines else "    (无)"
+
+        # ---- 约束检查统计 ----
+        constraint_checks = validation_details.get("constraint_checks", []) or []
+        total_checks = len(constraint_checks)
+        failed_checks = [c for c in constraint_checks if not c.get("passed", True)]
+        passed_count = total_checks - len(failed_checks)
+
+        lines = [
+            "",
+            "[bold]  ┌ 校验摘要 ┐[/bold]",
+            f"[bold]  数据表:[/bold] {len(format_checks)} 个",
+            tables_block,
+            f"[bold]  约束检查:[/bold] {total_checks} 项，"
+            + (f"全部通过 {mark_ok}" if not failed_checks else f"{passed_count} 通过 / {len(failed_checks)} 失败 {mark_fail}"),
+        ]
+
+        # 逐项约束结果（描述优先取 executor 提供的 description，否则用类型+表）
+        if constraint_checks:
+            lines.append("")
+            for c in constraint_checks:
+                passed = c.get("passed", True)
+                ctype = c.get("constraint_type", "Constraint").replace("Constraint", "").replace("s", "", 1) if c.get("constraint_type") else "Constraint"
+                # description 形如 "非空约束: users.email"，直接用作可读标签
+                desc = c.get("description") or f"{ctype}: {c.get('table', '?')}"
+                tag = f"[green]{mark_ok}[/green]" if passed else f"[red]{mark_fail}[/red]"
+                err_cnt = c.get("error_count", 0)
+                err_hint = f" [red]({err_cnt} 错误)[/red]" if err_cnt else ""
+                lines.append(f"    {bullet} {desc}  {tag}{err_hint}")
+
+        return "\n".join(lines)
+
+    @staticmethod
     def format_project_info(info: dict[str, Any]) -> str:
         lines = []
         lines.append("[bold]\n项目信息:[/bold]")

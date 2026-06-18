@@ -14,6 +14,7 @@
 """
 
 import logging
+import re
 import sys
 from typing import Optional
 
@@ -60,6 +61,25 @@ def _setup_encoding() -> None:
                     pass
 
 
+# 匹配 ANSI 颜色/样式转义序列（如 \x1b[36m、\x1b[0m）
+_ANSI_ESCAPE_RE = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _wrap_ansi_for_readline(prompt: str) -> str:
+    """将 ANSI 转义序列用 readline 非打印分隔符 \\x01/\\x02 包裹。
+
+    readline/pyreadline3 计算 prompt 可见宽度时会把 ANSI 颜色码误算为可见字符，
+    导致输入行光标错位。用 \\x01...\\x02 包裹后 readline 会跳过这些序列的宽度计算。
+
+    Args:
+        prompt: 含 ANSI 转义的原始 prompt 字符串
+
+    Returns:
+        包裹后的 prompt，颜色显示不变但 readline 宽度计算正确
+    """
+    return _ANSI_ESCAPE_RE.sub(lambda m: "\x01" + m.group(0) + "\x02", prompt)
+
+
 class CLIShell:
     """CLI Shell 主类。
 
@@ -70,6 +90,8 @@ class CLIShell:
         self.registry = CommandRegistry()
         self.context = ProjectContext()
         self._setup_commands()
+        # Tab 补全是否已激活（交互模式下由 _setup_readline 设置）
+        self._readline_active: bool = False
 
     def _setup_commands(self) -> None:
         """注册所有内置命令。"""
@@ -113,6 +135,9 @@ class CLIShell:
             return 0 if result.success else 1
 
         Formatter.print_welcome()
+
+        # 交互模式：尝试安装 Tab 补全（无 readline 后端时静默降级）
+        self._readline_active = self._setup_readline()
 
         while True:
             try:
@@ -165,14 +190,42 @@ class CLIShell:
         return 0
 
     def _get_prompt(self) -> str:
-        """获取命令提示符。"""
+        """获取命令提示符。
+
+        当 Tab 补全激活时（readline 后端接管 input），将 ANSI 转义序列用
+        \\x01/\\x02 非打印分隔符包裹，避免 readline/pyreadline3 计算 prompt
+        宽度时把颜色码计入可见字符导致光标错位。
+        """
         if self.context.is_project_open:
             # project_config 在 open 命令后可能尚未加载（OpenCommand 只设置 project_path），
             # 此处做空值守卫避免 AttributeError 导致 Shell 崩溃退出。
             config = self.context.project_config or {}
             project_name = config.get("project", {}).get("name", "project")
-            return Formatter.colorize(f"precis:{project_name}> ", Colors.CYAN)
-        return Formatter.colorize("precis> ", Colors.CYAN)
+            prompt = Formatter.colorize(f"precis:{project_name}> ", Colors.CYAN)
+        else:
+            prompt = Formatter.colorize("precis> ", Colors.CYAN)
+
+        if self._readline_active:
+            return _wrap_ansi_for_readline(prompt)
+        return prompt
+
+    def _setup_readline(self) -> bool:
+        """安装 Tab 补全到 readline 后端。
+
+        仅在交互模式下调用。Windows 用 pyreadline3，Unix 用 stdlib readline，
+        两者均不可用时返回 False（REPL 照常运行，仅无补全）。
+
+        Returns:
+            True 表示补全已激活；False 表示降级为无补全模式
+        """
+        # 延迟导入：避免在单次执行模式（非交互）下加载补全模块的依赖
+        from app.cli.shell.completer import install_readline_completer
+
+        try:
+            return install_readline_completer(self.registry)
+        except Exception:
+            # 任何意外异常都不应阻断 REPL 启动
+            return False
 
 
 def main(args: Optional[list] = None) -> int:

@@ -247,6 +247,14 @@ class ValidateCommand(Command):
 
             _console.print(f"\n校验完成，耗时: {duration_ms} ms")
 
+            # 输出校验摘要：列出加载的表/行数与每项约束的通过状态，
+            # 证明 validate 确实执行了校验（而非空转返回通过）。
+            summary = Formatter.format_validation_summary(
+                result.get("validation_details"),
+                result.get("raw_datasets"),
+            )
+            _console.print(summary)
+
             output = Formatter.format_validation_result(errors)
             _console.print(output)
 

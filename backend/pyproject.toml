@@ -64,9 +64,13 @@ ai = [
     "aiohttp>=3.9.0",
     "psutil>=5.9.6",
 ]
+# CLI Tab 补全 (仅 Windows 需要；Unix 使用 stdlib readline)
+completion = [
+    "pyreadline3>=0.1.8; sys_platform == 'win32'",
+]
 # 完整安装 (包含所有功能)
 full = [
-    "precis[api,ai]",
+    "precis[api,ai,completion]",
 ]
 # 开发依赖
 dev = [

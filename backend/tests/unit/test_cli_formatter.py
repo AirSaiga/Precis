@@ -123,6 +123,104 @@ class TestFormatter:
         result = Formatter.format_validation_result(errors, detailed=False)
         assert isinstance(result, str)
 
+    # ------------------------------------------------------------------
+    # format_validation_summary：校验摘要（证明 validate 确实执行了检查）
+    # ------------------------------------------------------------------
+
+    def test_format_validation_summary_all_passed(self):
+        """全部通过时应展示表/行数、约束数与各项 ✓。"""
+        from app.cli.shell.formatter import Formatter
+
+        class _DF(list):
+            """模拟 pandas DataFrame 的 len() 行为。"""
+
+        details = {
+            "format_checks": [
+                {"table": "users", "source_file": "data/users.csv"},
+                {"table": "orders", "source_file": "data/orders.csv"},
+            ],
+            "constraint_checks": [
+                {
+                    "constraint_type": "NotNullConstraint",
+                    "table": "users",
+                    "description": "非空约束: users.email",
+                    "error_count": 0,
+                    "passed": True,
+                },
+                {
+                    "constraint_type": "UniqueConstraint",
+                    "table": "users",
+                    "description": "唯一性约束: users.email",
+                    "error_count": 0,
+                    "passed": True,
+                },
+            ],
+        }
+        # 用 _DF 模拟 DataFrame，len() 返回 5
+        raw = {"users": _DF([1, 2, 3, 4, 5]), "orders": _DF([1, 2, 3, 4, 5])}
+
+        result = Formatter.format_validation_summary(details, raw)
+        assert isinstance(result, str)
+        # 表与行数
+        assert "2 个" in result
+        assert "users: 5 行" in result
+        assert "data/users.csv" in result
+        # 约束统计
+        assert "2 项" in result
+        assert "全部通过" in result
+        # 逐项约束标签出现
+        assert "非空约束: users.email" in result
+        assert "唯一性约束: users.email" in result
+
+    def test_format_validation_summary_with_failures(self):
+        """有失败项时应展示「N 通过 / M 失败」并标注每项错误数。"""
+        from app.cli.shell.formatter import Formatter
+
+        details = {
+            "format_checks": [{"table": "users"}],
+            "constraint_checks": [
+                {
+                    "constraint_type": "NotNullConstraint",
+                    "table": "users",
+                    "description": "非空约束: users.email",
+                    "error_count": 0,
+                    "passed": True,
+                },
+                {
+                    "constraint_type": "RangeConstraint",
+                    "table": "users",
+                    "description": "区间约束: users.age",
+                    "error_count": 2,
+                    "passed": False,
+                },
+            ],
+        }
+
+        result = Formatter.format_validation_summary(details, None)
+        assert "1 通过 / 1 失败" in result
+        # 失败项应显示错误数
+        assert "2 错误" in result
+
+    def test_format_validation_summary_empty_details(self):
+        """validation_details 为空时应返回兜底提示，而非崩溃。"""
+        from app.cli.shell.formatter import Formatter
+
+        result = Formatter.format_validation_summary(None, None)
+        assert isinstance(result, str)
+        assert "未返回校验明细" in result
+
+    def test_format_validation_summary_missing_rows(self):
+        """raw_datasets 缺少某表时，行数降级显示为 '-'。"""
+        from app.cli.shell.formatter import Formatter
+
+        details = {
+            "format_checks": [{"table": "users", "source_file": "data/users.csv"}],
+            "constraint_checks": [],
+        }
+        # raw_datasets 不含 users 键
+        result = Formatter.format_validation_summary(details, {})
+        assert "users: - 行" in result
+
     def test_print_table(self, capsys):
         from app.cli.shell.formatter import Formatter
 
