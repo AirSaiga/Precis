@@ -18,7 +18,7 @@
         <div class="settings-row__control settings-row__control--wide">
           <input
             v-model="localProjectName"
-            class="settings-input"
+            class="ui-input ui-input--compact"
             type="text"
             :placeholder="t('settings.projectInfo.namePlaceholder')"
             :disabled="!projectStore.isProjectActive && !localConfigPath"
@@ -34,7 +34,7 @@
           <div class="settings-path-input-group">
             <input
               v-model="localConfigPath"
-              class="settings-input"
+              class="ui-input ui-input--compact"
               type="text"
               :placeholder="t('settings.projectInfo.missingConfigPath')"
             />

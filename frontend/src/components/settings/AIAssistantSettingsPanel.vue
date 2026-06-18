@@ -68,20 +68,20 @@
             <div class="provider-card__edit-form">
               <div class="edit-row">
                 <label class="edit-label">{{ t('settings.aiAssistant.providerName') }}</label>
-                <input v-model="editForm.name" class="settings-input" type="text" />
+                <input v-model="editForm.name" class="ui-input ui-input--compact" type="text" />
               </div>
               <div class="edit-row">
                 <label class="edit-label">{{ t('settings.aiAssistant.apiKey') }}</label>
                 <input
                   v-model="editForm.apiKey"
-                  class="settings-input"
+                  class="ui-input ui-input--compact"
                   type="password"
                   :placeholder="t('settings.aiAssistant.apiKeyPlaceholder')"
                 />
               </div>
               <div class="edit-row">
                 <label class="edit-label">{{ t('settings.aiAssistant.model') }}</label>
-                <select v-model="editForm.model" class="settings-select">
+                <select v-model="editForm.model" class="ui-select ui-select--compact">
                   <option v-for="m in presetModels(p)" :key="m" :value="m">{{ m }}</option>
                   <option v-if="!presetModels(p).includes(editForm.model)" :value="editForm.model">
                     {{ editForm.model }}
@@ -271,14 +271,14 @@
             <label class="edit-label">{{ t('settings.aiAssistant.apiKey') }}</label>
             <input
               v-model="addForm.apiKey"
-              class="settings-input"
+              class="ui-input ui-input--compact"
               type="password"
               :placeholder="t('settings.aiAssistant.apiKeyPlaceholder')"
             />
           </div>
           <div class="edit-row">
             <label class="edit-label">{{ t('settings.aiAssistant.model') }}</label>
-            <select v-model="addForm.model" class="settings-select">
+            <select v-model="addForm.model" class="ui-select ui-select--compact">
               <option v-for="m in addFormModels" :key="m" :value="m">{{ m }}</option>
             </select>
           </div>
@@ -286,7 +286,7 @@
             <label class="edit-label">{{ t('settings.aiAssistant.providerName') }}</label>
             <input
               v-model="addForm.name"
-              class="settings-input"
+              class="ui-input ui-input--compact"
               type="text"
               :placeholder="t('settings.aiAssistant.providerNamePlaceholder')"
             />
@@ -830,8 +830,8 @@ defaults:
     flex-shrink: 0;
   }
 
-  .edit-row .settings-input,
-  .edit-row .settings-select {
+  .edit-row .ui-input.ui-input--compact,
+  .edit-row .ui-select.ui-select--compact {
     flex: 1;
   }
 

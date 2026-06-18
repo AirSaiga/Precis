@@ -1,0 +1,203 @@
+/**
+ * @file semantic.css
+ * @description 语义设计令牌 — 将基础值映射到语义用途
+ *
+ * 原则：
+ * - 引用 primitive.css 中的变量
+ * - 命名规范：--{purpose}-{variant}
+ *   例如：--surface-elevated, --text-muted, --border-focus
+ */
+
+:root {
+  /* ============================================================
+     背景 — 画布到表面
+     ============================================================ */
+  --surface-canvas: var(--color-slate-100);
+  --surface-base: var(--color-slate-100);
+  --surface-elevated: rgba(255, 255, 255, 0.95);
+  --surface-panel: rgba(255, 255, 255, 0.9);
+  --surface-subtle: color-mix(in srgb, var(--color-slate-50) 80%, transparent);
+  --surface-muted: var(--color-slate-200);
+  --surface-hover: color-mix(in srgb, var(--color-slate-100) 90%, transparent);
+  --surface-active: var(--color-slate-300);
+  --surface-accent: var(--color-sky-100);
+  --surface-accent-light: var(--color-sky-200);
+  --surface-success: var(--color-emerald-50);
+  --surface-warning: var(--color-amber-50);
+  --surface-danger: var(--color-rose-50);
+  --surface-info: var(--color-blue-50);
+  --surface-highlight: var(--color-amber-100);
+
+  /* ============================================================
+     文字 — 主到次
+     ============================================================ */
+  --text-primary: var(--color-slate-900);
+  --text-secondary: var(--color-slate-700);
+  --text-tertiary: var(--color-slate-600);
+  --text-quaternary: var(--color-slate-500);
+  --text-title: var(--color-slate-900);
+  --text-strong: var(--color-slate-900);
+  --text-body: var(--color-slate-700);
+  --text-muted: var(--color-slate-600);
+  --text-subtle: var(--color-slate-400);
+  --text-placeholder: var(--color-slate-300);
+  --text-on-accent: var(--color-sky-950);
+  --text-on-success: var(--color-emerald-950);
+  --text-on-warning: var(--color-amber-900);
+  --text-on-danger: var(--color-rose-950);
+  --text-on-info: var(--color-blue-950);
+
+  /* ============================================================
+     边框
+     ============================================================ */
+  --border-subtle: color-mix(in srgb, var(--color-slate-100) 80%, transparent);
+  --border-light: color-mix(in srgb, var(--color-slate-200) 80%, transparent);
+  --border-default: var(--color-slate-300);
+  --border-strong: var(--color-slate-400);
+  --border-focus: var(--color-sky-400);
+  --border-error: var(--color-rose-500);
+  --border-success: var(--color-emerald-500);
+  --border-warning: var(--color-amber-500);
+  --border-danger: var(--color-rose-500);
+  --border-info: var(--color-blue-500);
+
+  /* ============================================================
+     强调色
+     ============================================================ */
+  --accent: var(--color-sky-500);
+  --accent-hover: var(--color-sky-600);
+  --accent-light: var(--color-sky-400);
+  --accent-strong: var(--color-sky-700);
+  --accent-weak: color-mix(in srgb, var(--color-sky-500) 12%, transparent);
+  --accent-ring: color-mix(in srgb, var(--color-sky-500) 20%, transparent);
+  --accent-gradient: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+
+  /* ============================================================
+     语义状态色 — Success
+     ============================================================ */
+  --success: var(--color-emerald-400);
+  --success-light: var(--color-emerald-300);
+  --success-strong: var(--color-emerald-500);
+  --success-weak: color-mix(in srgb, var(--color-emerald-400) 12%, transparent);
+  --success-ring: color-mix(in srgb, var(--color-emerald-400) 20%, transparent);
+  --success-bg: var(--color-emerald-50);
+  --success-gradient: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+
+  /* ============================================================
+     语义状态色 — Warning
+     ============================================================ */
+  --warning: var(--color-amber-400);
+  --warning-light: var(--color-amber-300);
+  --warning-strong: var(--color-amber-500);
+  --warning-text: var(--color-amber-600);
+  --warning-weak: color-mix(in srgb, var(--color-amber-400) 12%, transparent);
+  --warning-ring: color-mix(in srgb, var(--color-amber-400) 20%, transparent);
+  --warning-bg: var(--color-amber-50);
+  --warning-gradient: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+
+  /* ============================================================
+     语义状态色 — Danger
+     ============================================================ */
+  --danger: var(--color-rose-400);
+  --danger-light: var(--color-rose-300);
+  --danger-strong: var(--color-rose-500);
+  --danger-weak: color-mix(in srgb, var(--color-rose-400) 12%, transparent);
+  --danger-soft: color-mix(in srgb, var(--color-rose-400) 18%, transparent);
+  --danger-ring: color-mix(in srgb, var(--color-rose-400) 20%, transparent);
+  --danger-bg: var(--color-rose-50);
+  --danger-gradient: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+
+  /* ============================================================
+     语义状态色 — Info
+     ============================================================ */
+  --info: var(--color-blue-400);
+  --info-light: var(--color-blue-300);
+  --info-strong: var(--color-blue-500);
+  --info-weak: color-mix(in srgb, var(--color-blue-400) 12%, transparent);
+  --info-ring: color-mix(in srgb, var(--color-blue-400) 20%, transparent);
+  --info-bg: var(--color-blue-50);
+  --info-gradient: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+
+  /* ============================================================
+     阴影
+     ============================================================ */
+  --shadow-xs: 0 1px 2px rgba(45, 42, 38, 0.03);
+  --shadow-sm: 0 1px 3px rgba(45, 42, 38, 0.04), 0 1px 2px rgba(45, 42, 38, 0.02);
+  --shadow-md: 0 4px 8px -1px rgba(45, 42, 38, 0.05), 0 2px 4px -2px rgba(45, 42, 38, 0.03);
+  --shadow-lg: 0 10px 20px -3px rgba(45, 42, 38, 0.06), 0 4px 8px -4px rgba(45, 42, 38, 0.04);
+  --shadow-xl: 0 20px 30px -5px rgba(45, 42, 38, 0.06), 0 8px 12px -6px rgba(45, 42, 38, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(45, 42, 38, 0.1);
+  --shadow-hover: 0 12px 24px -5px rgba(45, 42, 38, 0.08), 0 6px 12px -4px rgba(45, 42, 38, 0.05);
+  --shadow-active: 0 2px 4px rgba(45, 42, 38, 0.04);
+  --shadow-focus: 0 0 0 3px var(--accent-ring);
+  --shadow-glow: 0 0 0 4px rgba(90, 155, 199, 0.12);
+
+  /* 阴影层级变体 */
+  --shadow-elevation-sm: 0 1px 2px rgba(45, 42, 38, 0.04);
+  --shadow-elevation-md: 0 2px 4px rgba(45, 42, 38, 0.05), 0 1px 2px rgba(45, 42, 38, 0.03);
+  --shadow-elevation-lg: 0 4px 8px -1px rgba(45, 42, 38, 0.06), 0 2px 4px -2px rgba(45, 42, 38, 0.04);
+  --shadow-elevation-xl: 0 10px 20px -3px rgba(45, 42, 38, 0.06), 0 4px 8px -4px rgba(45, 42, 38, 0.04);
+
+  /* ============================================================
+     遮罩
+     ============================================================ */
+  --overlay-backdrop-soft: rgba(45, 42, 38, 0.24);
+  --overlay-backdrop: rgba(45, 42, 38, 0.4);
+  --overlay-backdrop-strong: rgba(45, 42, 38, 0.56);
+
+  /* ============================================================
+     Z-Index
+     ============================================================ */
+  --z-dropdown: 100;
+  --z-sidebar: 200;
+  --z-sticky: 300;
+  --z-fixed: 400;
+  --z-loading: 450;
+  --z-modal-backdrop: 500;
+  --z-modal: 600;
+  --z-popover: 700;
+  --z-tooltip: 800;
+  --z-notification: 900;
+}
+
+/* ============================================================
+   Dark 主题显式覆盖
+   ------------------------------------------------------------
+   这些 token 在 light 下是纯白/纯黑/暖棕色，dark.css 的 --color-*
+   反转无法覆盖它们（纯白面板无对应反转 primitive，暖棕阴影需转纯黑）。
+   因此在此显式提供 dark 值，使 dark.css 的 primitive 反转经 var() 链
+   能完整传递到这些 token。
+
+   值取自 legacy theme.css 的 [data-theme='dark'] 块（已验证的 dark 值）。
+   rgb(30,41,59) = #1e293b，刻意硬编码而非引用 --color-slate-800
+   （slate-800 在 dark.css 中反转为近白，会得到错误结果）。
+   ============================================================ */
+[data-theme='dark'] {
+  /* 表面层 — light 为纯白，dark 为 slate 深色 */
+  --surface-elevated: rgba(30, 41, 59, 0.95);
+  --surface-panel: rgba(30, 41, 59, 0.9);
+  /* hover 刻意比 elevated 浅一档（slate-700 等效），保证对比度 */
+  --surface-hover: rgba(51, 65, 85, 0.9);
+
+  /* 阴影 — light 为暖棕 rgba(45,42,38,...)，dark 转纯黑并提高不透明度 */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.25);
+  --shadow-md: 0 4px 8px -1px rgba(0, 0, 0, 0.45), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 10px 20px -3px rgba(0, 0, 0, 0.45), 0 4px 8px -4px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 20px 30px -5px rgba(0, 0, 0, 0.45), 0 8px 12px -6px rgba(0, 0, 0, 0.3);
+  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  --shadow-hover: 0 12px 24px -5px rgba(0, 0, 0, 0.5), 0 6px 12px -4px rgba(0, 0, 0, 0.35);
+  --shadow-active: 0 2px 4px rgba(0, 0, 0, 0.32);
+  --shadow-glow: 0 0 0 4px rgba(90, 155, 199, 0.18);
+
+  /* 阴影层级变体 */
+  --shadow-elevation-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
+  --shadow-elevation-md: 0 2px 4px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-elevation-lg: 0 4px 8px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --shadow-elevation-xl: 0 10px 20px -3px rgba(0, 0, 0, 0.5), 0 4px 8px -4px rgba(0, 0, 0, 0.3);
+
+  /* 遮罩 — light 为暖棕半透明，dark 转纯黑 */
+  --overlay-backdrop-soft: rgba(0, 0, 0, 0.34);
+  --overlay-backdrop: rgba(0, 0, 0, 0.5);
+  --overlay-backdrop-strong: rgba(0, 0, 0, 0.68);
+}

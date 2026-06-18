@@ -19,14 +19,14 @@
         <div class="settings-row__label">{{ t('settings.general.startup.loadRecent.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.general.startup.loadRecent.desc') }}</div>
         <div class="settings-row__control">
-          <label class="settings-switch">
+          <label class="ui-switch ui-switch--compact">
             <input
               v-model="localSettings.loadRecentProjectOnStartup"
               type="checkbox"
-              class="settings-switch__input"
+              class="ui-switch__input"
               @change="handleChange"
             />
-            <span class="settings-switch__track"></span>
+            <span class="ui-switch__track"></span>
           </label>
         </div>
       </div>
@@ -43,7 +43,7 @@
         <div class="settings-row__control">
           <select
             v-model="localSettings.language"
-            class="settings-select"
+            class="ui-select ui-select--compact"
             @change="handleLanguageChange"
           >
             <option value="zh-CN">{{ t('settings.general.appearance.language.zhCN') }}</option>
@@ -55,7 +55,7 @@
         <div class="settings-row__label">{{ t('settings.general.appearance.theme.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.general.appearance.theme.desc') }}</div>
         <div class="settings-row__control">
-          <select v-model="localSettings.theme" class="settings-select" @change="handleChange">
+          <select v-model="localSettings.theme" class="ui-select ui-select--compact" @change="handleChange">
             <option value="light">{{ t('settings.general.appearance.theme.light') }}</option>
             <option value="dark">{{ t('settings.general.appearance.theme.dark') }}</option>
             <option value="system">{{ t('settings.general.appearance.theme.system') }}</option>

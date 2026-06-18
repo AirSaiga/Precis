@@ -8,7 +8,7 @@
   <ConstraintNodeFrame
     class="datelogic-constraint-node constraint-node"
     :class="['status-' + validationStatus, { 'is-selected': selected }]"
-    theme="pink"
+    theme="teal"
     :state="resolveNodeState(validationStatus, selected)"
     :title="t('customNodes.constraintRules.dateLogicConstraintNode.title')"
     icon="📅"

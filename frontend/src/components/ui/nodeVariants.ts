@@ -15,6 +15,8 @@ export const NODE_THEMES = [
   'orange',
   'sky',
   'pink',
+  'cyan',
+  'teal',
   'script',
   'secondary',
 ] as const

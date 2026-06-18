@@ -8,7 +8,7 @@
   <ConstraintNodeFrame
     class="range-constraint-node constraint-node"
     :class="['status-' + validationStatus, { 'is-selected': selected }]"
-    theme="purple"
+    theme="cyan"
     :state="resolveNodeState(validationStatus, selected)"
     :title="t('customNodes.constraintRules.rangeConstraintNode.title')"
     icon="📏"

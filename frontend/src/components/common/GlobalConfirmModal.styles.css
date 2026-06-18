@@ -201,7 +201,8 @@
 }
 .global-confirm-content.warning .btn-confirm {
   background: var(--ui-warning-text); /* was #d97706 */
-  color: var(--ui-text-on-warning);
+  /* 深色 amber-600 背景需要白字才通过 WCAG AA；--ui-text-on-warning 是为浅背景设的深色 */
+  color: #ffffff;
   border-color: var(--ui-warning-text);
 }
 

@@ -100,7 +100,7 @@
   /* 辅助文字 */
   --node-muted-size: var(--ui-font-size-xs);
   --node-muted-weight: var(--ui-font-weight-normal);
-  --node-muted-color: var(--ui-text-muted);
+  --node-muted-color: var(--ui-text-secondary);
 
   /* 标签文字 */
   --node-label-size: var(--ui-font-size-xs);
@@ -267,8 +267,8 @@
   --node-type-constraint-unique: var(--ui-success);
   --node-type-constraint-unique-bg: var(--ui-success-bg);
 
-  --node-type-constraint-allowed: var(--theme-sky);
-  --node-type-constraint-allowed-bg: var(--theme-sky-bg);
+  --node-type-constraint-allowed: var(--ui-info);
+  --node-type-constraint-allowed-bg: var(--ui-info-bg);
 
   --node-type-constraint-foreign: var(--theme-purple);
   --node-type-constraint-foreign-bg: var(--theme-purple-bg);
@@ -279,14 +279,17 @@
   --node-type-constraint-scripted: var(--theme-script);
   --node-type-constraint-scripted-bg: var(--theme-script-bg);
 
-  --node-type-constraint-range: var(--theme-purple);
-  --node-type-constraint-range-bg: var(--theme-purple-bg);
+  --node-type-constraint-range: #06b6d4;
+  --node-type-constraint-range-bg: rgba(6, 182, 212, 0.1);
 
-  --node-type-constraint-charset: var(--theme-pink);
-  --node-type-constraint-charset-bg: var(--ui-bg-accent);
+  --node-type-constraint-charset: #ec4899;
+  --node-type-constraint-charset-bg: rgba(236, 72, 153, 0.1);
 
-  --node-type-constraint-datetime: var(--theme-pink);
-  --node-type-constraint-datetime-bg: var(--theme-pink-weak);
+  --node-type-constraint-datetime: #14b8a6;
+  --node-type-constraint-datetime-bg: rgba(20, 184, 166, 0.1);
+
+  --node-type-constraint-composite: #a855f7;
+  --node-type-constraint-composite-bg: rgba(168, 85, 247, 0.1);
 
   /* ========================================
      节点头部系统
@@ -543,10 +546,6 @@
   --crystal-shadow-selected:
     0 0 0 2px var(--ui-accent-ring), 0 4px 16px rgba(100, 120, 140, 0.15),
     inset 0 1px 2px rgba(255, 255, 255, 0.8);
-
-  /* 水晶模糊度 */
-  --crystal-blur: 12px;
-  --crystal-blur-strong: 16px;
 
   /* 水晶头部 */
   --crystal-header-bg: linear-gradient(
