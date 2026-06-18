@@ -6,4 +6,34 @@
  */
 
 /* Light 是默认主题，primitive.css 已定义默认值 */
-/* 此文件保留用于显式覆盖或未来扩展 */
+
+/* ============================================================
+   玻璃材质令牌（:root 兜底）
+   ------------------------------------------------------------
+   liquid.css 在 [data-theme='liquid'] 下覆盖这些值以实现
+   液态玻璃效果。此处为 light/dark 主题提供安全兜底，确保
+   任何引用 --glass-material-* 的地方都有合理值，避免透明。
+   ============================================================ */
+:root {
+  --glass-material-bg: rgba(255, 255, 255, 0.85);
+  --glass-material-bg-strong: rgba(255, 255, 255, 0.95);
+  --glass-material-bg-weak: rgba(255, 255, 255, 0.6);
+  --glass-material-border: rgba(255, 255, 255, 0.5);
+  --glass-material-border-strong: rgba(255, 255, 255, 0.7);
+  --glass-material-shadow: 0 8px 32px rgba(15, 23, 42, 0.08);
+  --glass-material-shadow-lg: 0 16px 48px rgba(15, 23, 42, 0.12);
+  --glass-material-backdrop: blur(12px) saturate(150%);
+  --glass-material-backdrop-strong: blur(20px) saturate(180%);
+  --glass-material-backdrop-weak: blur(8px) saturate(130%);
+}
+
+/* Dark 主题：玻璃材质使用暗色基底 */
+[data-theme='dark'] {
+  --glass-material-bg: rgba(30, 41, 59, 0.85);
+  --glass-material-bg-strong: rgba(30, 41, 59, 0.95);
+  --glass-material-bg-weak: rgba(30, 41, 59, 0.6);
+  --glass-material-border: rgba(148, 163, 184, 0.2);
+  --glass-material-border-strong: rgba(148, 163, 184, 0.35);
+  --glass-material-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  --glass-material-shadow-lg: 0 16px 48px rgba(0, 0, 0, 0.4);
+}
