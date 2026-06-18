@@ -9,10 +9,153 @@
  */
 
 :root {
-  /* 占位 — Phase 3 填充完整内容 */
-  /* 背景：--surface-canvas, --surface-base, --surface-elevated... */
-  /* 文字：--text-primary, --text-secondary, --text-muted... */
-  /* 边框：--border-subtle, --border-light, --border-default... */
-  /* 阴影：--shadow-1 ~ --shadow-5 */
-  /* Z-Index：--z-dropdown ~ --z-notification */
+  /* ============================================================
+     背景 — 画布到表面
+     ============================================================ */
+  --surface-canvas: var(--color-slate-100);
+  --surface-base: var(--color-slate-100);
+  --surface-elevated: rgba(255, 255, 255, 0.95);
+  --surface-panel: rgba(255, 255, 255, 0.9);
+  --surface-subtle: rgba(248, 250, 252, 0.8);
+  --surface-muted: var(--color-slate-200);
+  --surface-hover: rgba(241, 245, 249, 0.9);
+  --surface-active: var(--color-slate-300);
+  --surface-accent: var(--color-sky-100);
+  --surface-accent-light: var(--color-sky-200);
+  --surface-success: var(--color-emerald-50);
+  --surface-warning: var(--color-amber-50);
+  --surface-danger: var(--color-rose-50);
+  --surface-info: var(--color-blue-50);
+  --surface-highlight: var(--color-amber-100);
+
+  /* ============================================================
+     文字 — 主到次
+     ============================================================ */
+  --text-primary: var(--color-slate-900);
+  --text-secondary: var(--color-slate-700);
+  --text-tertiary: var(--color-slate-600);
+  --text-quaternary: var(--color-slate-500);
+  --text-title: var(--color-slate-900);
+  --text-strong: var(--color-slate-900);
+  --text-body: var(--color-slate-700);
+  --text-muted: var(--color-slate-500);
+  --text-subtle: var(--color-slate-400);
+  --text-placeholder: var(--color-slate-300);
+  --text-on-accent: #ffffff;
+  --text-on-success: #ffffff;
+  --text-on-warning: #ffffff;
+  --text-on-danger: #ffffff;
+  --text-on-info: #ffffff;
+
+  /* ============================================================
+     边框
+     ============================================================ */
+  --border-subtle: rgba(241, 245, 249, 0.8);
+  --border-light: rgba(226, 232, 240, 0.8);
+  --border-default: var(--color-slate-300);
+  --border-strong: var(--color-slate-400);
+  --border-focus: var(--color-sky-400);
+  --border-error: #fca5a5;
+  --border-success: #6ee7b7;
+  --border-warning: #fcd34d;
+  --border-danger: #fca5a5;
+  --border-info: #93c5fd;
+
+  /* ============================================================
+     强调色
+     ============================================================ */
+  --accent: var(--color-sky-500);
+  --accent-hover: var(--color-sky-600);
+  --accent-light: var(--color-sky-400);
+  --accent-strong: var(--color-sky-700);
+  --accent-weak: rgba(14, 165, 233, 0.12);
+  --accent-ring: rgba(14, 165, 233, 0.2);
+  --accent-gradient: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+
+  /* ============================================================
+     语义状态色 — Success
+     ============================================================ */
+  --success: var(--color-emerald-400);
+  --success-light: var(--color-emerald-300);
+  --success-strong: var(--color-emerald-500);
+  --success-weak: rgba(52, 211, 153, 0.12);
+  --success-ring: rgba(52, 211, 153, 0.2);
+  --success-bg: var(--color-emerald-50);
+  --success-gradient: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+
+  /* ============================================================
+     语义状态色 — Warning
+     ============================================================ */
+  --warning: var(--color-amber-400);
+  --warning-light: var(--color-amber-300);
+  --warning-strong: var(--color-amber-500);
+  --warning-text: var(--color-amber-600);
+  --warning-weak: rgba(251, 191, 36, 0.12);
+  --warning-ring: rgba(251, 191, 36, 0.2);
+  --warning-bg: var(--color-amber-50);
+  --warning-gradient: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+
+  /* ============================================================
+     语义状态色 — Danger
+     ============================================================ */
+  --danger: var(--color-rose-400);
+  --danger-light: var(--color-rose-300);
+  --danger-strong: var(--color-rose-500);
+  --danger-weak: rgba(248, 113, 113, 0.12);
+  --danger-soft: rgba(248, 113, 113, 0.18);
+  --danger-ring: rgba(248, 113, 113, 0.2);
+  --danger-bg: var(--color-rose-50);
+  --danger-gradient: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+
+  /* ============================================================
+     语义状态色 — Info
+     ============================================================ */
+  --info: var(--color-blue-400);
+  --info-light: var(--color-blue-300);
+  --info-strong: var(--color-blue-500);
+  --info-weak: rgba(96, 165, 250, 0.12);
+  --info-ring: rgba(96, 165, 250, 0.2);
+  --info-bg: var(--color-blue-50);
+  --info-gradient: linear-gradient(135deg, #3b82f6 0%, #60a5fa 100%);
+
+  /* ============================================================
+     阴影
+     ============================================================ */
+  --shadow-xs: 0 1px 2px rgba(45, 42, 38, 0.03);
+  --shadow-sm: 0 1px 3px rgba(45, 42, 38, 0.04), 0 1px 2px rgba(45, 42, 38, 0.02);
+  --shadow-md: 0 4px 8px -1px rgba(45, 42, 38, 0.05), 0 2px 4px -2px rgba(45, 42, 38, 0.03);
+  --shadow-lg: 0 10px 20px -3px rgba(45, 42, 38, 0.06), 0 4px 8px -4px rgba(45, 42, 38, 0.04);
+  --shadow-xl: 0 20px 30px -5px rgba(45, 42, 38, 0.06), 0 8px 12px -6px rgba(45, 42, 38, 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(45, 42, 38, 0.1);
+  --shadow-hover: 0 12px 24px -5px rgba(45, 42, 38, 0.08), 0 6px 12px -4px rgba(45, 42, 38, 0.05);
+  --shadow-active: 0 2px 4px rgba(45, 42, 38, 0.04);
+  --shadow-focus: 0 0 0 3px var(--accent-ring);
+  --shadow-glow: 0 0 0 4px rgba(90, 155, 199, 0.12);
+
+  /* 阴影层级变体 */
+  --shadow-elevation-sm: 0 1px 2px rgba(45, 42, 38, 0.04);
+  --shadow-elevation-md: 0 2px 4px rgba(45, 42, 38, 0.05), 0 1px 2px rgba(45, 42, 38, 0.03);
+  --shadow-elevation-lg: 0 4px 8px -1px rgba(45, 42, 38, 0.06), 0 2px 4px -2px rgba(45, 42, 38, 0.04);
+  --shadow-elevation-xl: 0 10px 20px -3px rgba(45, 42, 38, 0.06), 0 4px 8px -4px rgba(45, 42, 38, 0.04);
+
+  /* ============================================================
+     遮罩
+     ============================================================ */
+  --overlay-backdrop-soft: rgba(45, 42, 38, 0.24);
+  --overlay-backdrop: rgba(45, 42, 38, 0.4);
+  --overlay-backdrop-strong: rgba(45, 42, 38, 0.56);
+
+  /* ============================================================
+     Z-Index
+     ============================================================ */
+  --z-dropdown: 100;
+  --z-sidebar: 200;
+  --z-sticky: 300;
+  --z-fixed: 400;
+  --z-loading: 450;
+  --z-modal-backdrop: 500;
+  --z-modal: 600;
+  --z-popover: 700;
+  --z-tooltip: 800;
+  --z-notification: 900;
 }
