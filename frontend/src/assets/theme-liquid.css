@@ -262,9 +262,9 @@
   --node-bg-hover: rgba(255, 255, 255, 0.94);
   --node-bg-active: rgba(245, 247, 252, 0.96);
 
-  --node-glass-bg: rgba(255, 255, 255, 0.78);
-  --node-glass-bg-hover: rgba(255, 255, 255, 0.9);
-  --node-glass-bg-selected: rgba(255, 255, 255, 0.98);
+  --node-glass-bg: var(--glass-material-bg);
+  --node-glass-bg-hover: var(--glass-material-bg-strong);
+  --node-glass-bg-selected: var(--glass-material-bg-strong);
 
   --node-border: rgba(210, 220, 235, 0.78);
   --node-border-hover: rgba(180, 195, 215, 0.86);
@@ -448,8 +448,8 @@
 [data-theme='liquid'] .tab-bar,
 [data-theme='liquid'] .status-bar {
   background: var(--ui-bg-panel);
-  backdrop-filter: blur(var(--crystal-blur));
-  -webkit-backdrop-filter: blur(var(--crystal-blur));
+  backdrop-filter: var(--glass-material-backdrop);
+  -webkit-backdrop-filter: var(--glass-material-backdrop);
 }
 
 [data-theme='liquid'] .canvas-tabbed-container {
@@ -591,8 +591,8 @@
 [data-theme='liquid'] .panel .panel-header {
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.94) 100%);
   border-bottom-color: var(--crystal-border);
-  backdrop-filter: blur(var(--crystal-blur));
-  -webkit-backdrop-filter: blur(var(--crystal-blur));
+  backdrop-filter: var(--glass-material-backdrop);
+  -webkit-backdrop-filter: var(--glass-material-backdrop);
 }
 
 [data-theme='liquid'] .panel .panel-header::after {
@@ -617,8 +617,8 @@
   background: linear-gradient(135deg, rgba(255, 255, 255, 0.86) 0%, rgba(245, 249, 255, 0.82) 100%);
   border: 1px solid var(--crystal-border);
   box-shadow: var(--crystal-shadow);
-  backdrop-filter: blur(var(--crystal-blur));
-  -webkit-backdrop-filter: blur(var(--crystal-blur));
+  backdrop-filter: var(--glass-material-backdrop);
+  -webkit-backdrop-filter: var(--glass-material-backdrop);
   border-radius: var(--ui-radius-xl);
 }
 
@@ -657,8 +657,8 @@
   border-left: 3px solid var(--ui-accent-weak);
   border-radius: var(--ui-radius-lg);
   box-shadow: var(--crystal-shadow);
-  backdrop-filter: blur(var(--crystal-blur));
-  -webkit-backdrop-filter: blur(var(--crystal-blur));
+  backdrop-filter: var(--glass-material-backdrop);
+  -webkit-backdrop-filter: var(--glass-material-backdrop);
   transition:
     box-shadow var(--ui-transition-fast),
     border-color var(--ui-transition-fast);
@@ -1001,8 +1001,8 @@
 /* ---------- 设置中心 ---------- */
 [data-theme='liquid'] .settings-overlay {
   background: var(--ui-settings-overlay);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: var(--glass-material-backdrop-weak);
+  -webkit-backdrop-filter: var(--glass-material-backdrop-weak);
 }
 
 [data-theme='liquid'] .settings-overlay .settings-workbench {
@@ -1010,8 +1010,8 @@
   border-color: var(--ui-settings-shell-border);
   box-shadow: var(--ui-settings-shell-shadow);
   border-radius: var(--ui-radius-xl);
-  backdrop-filter: blur(var(--crystal-blur-strong));
-  -webkit-backdrop-filter: blur(var(--crystal-blur-strong));
+  backdrop-filter: var(--glass-material-backdrop-strong);
+  -webkit-backdrop-filter: var(--glass-material-backdrop-strong);
 }
 
 [data-theme='liquid'] .settings-overlay .settings-workbench__header {
@@ -1139,8 +1139,8 @@
 
 /* ---------- 画布节点与 Vue Flow 控件 ---------- */
 [data-theme='liquid'] .graph-node {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: var(--glass-material-backdrop-weak);
+  -webkit-backdrop-filter: var(--glass-material-backdrop-weak);
 }
 
 [data-theme='liquid'] .vue-flow__controls {
@@ -1148,8 +1148,8 @@
   border: 1px solid var(--crystal-border) !important;
   border-radius: var(--ui-radius-md) !important;
   box-shadow: var(--crystal-shadow) !important;
-  backdrop-filter: blur(var(--crystal-blur));
-  -webkit-backdrop-filter: blur(var(--crystal-blur));
+  backdrop-filter: var(--glass-material-backdrop);
+  -webkit-backdrop-filter: var(--glass-material-backdrop);
 }
 
 [data-theme='liquid'] .vue-flow__controls-button {
@@ -1171,8 +1171,8 @@
 [data-theme='liquid'] .data-library .data-view-header {
   background: var(--crystal-header-bg);
   border-bottom-color: var(--crystal-border);
-  backdrop-filter: blur(var(--crystal-blur));
-  -webkit-backdrop-filter: blur(var(--crystal-blur));
+  backdrop-filter: var(--glass-material-backdrop);
+  -webkit-backdrop-filter: var(--glass-material-backdrop);
 }
 
 [data-theme='liquid'] .data-library .data-source-count {
