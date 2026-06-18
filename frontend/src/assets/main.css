@@ -5,24 +5,30 @@
 @import './base.css' layer(reset);
 
 /* ============================================================
-   Phase 3: 三层令牌体系（已启用）
+   三层令牌体系
+   导入顺序至关重要（同 layer 内后导入者胜出）：
+   1. 新基础层：primitive → semantic → component
+   2. 遗留体系：theme.css + node-tokens.css（定义 --theme-*、遗留 --ui-* 硬编码）
+   3. 兼容层：compat.css 覆盖 --ui-* 映射到新体系（必须在遗留体系之后）
+   4. 主题层：dark/liquid 覆盖 primitive 颜色（惰性求值，经 var() 链生效）
    ============================================================ */
-/* 基础层：Primitive + Semantic + Component */
+
+/* 1. 新基础层：Primitive + Semantic + Component */
 @import './tokens/primitive.css' layer(tokens);
 @import './tokens/semantic.css' layer(tokens);
 @import './tokens/component.css' layer(tokens);
 
-/* 主题层：Light（默认，primitive 已定义）+ Dark + Liquid */
-@import './themes/light.css';
-@import './themes/dark.css';
-@import './themes/liquid.css';
-
-/* 兼容层：将旧变量名映射到新体系（保留一个版本周期） */
-@import './tokens/compat.css' layer(tokens);
-
-/* 旧体系：保留作为后备，compat 层优先级更高 */
+/* 2. 遗留体系（保留作为 --theme-* 等非 --ui-* 变量的来源） */
 @import './theme.css' layer(tokens);
 @import './tokens/node-tokens.css' layer(tokens);
+
+/* 3. 兼容层：将旧 --ui-* 名映射到新体系，覆盖遗留硬编码值 */
+@import './tokens/compat.css' layer(tokens);
+
+/* 4. 主题层：Light（默认）+ Dark + Liquid，覆盖 primitive 颜色 */
+@import './themes/light.css' layer(tokens);
+@import './themes/dark.css' layer(tokens);
+@import './themes/liquid.css' layer(tokens);
 
 @import './ui.css' layer(ui);
 @import './app-shell.css' layer(ui);
