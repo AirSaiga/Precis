@@ -53,7 +53,7 @@
   --input-bg-disabled: var(--surface-subtle);
   --input-font-size: var(--font-size-sm);
   --input-font-size-compact: var(--font-size-sm);
-  --input-placeholder-color: var(--text-placeholder);
+  --input-placeholder-color: var(--text-muted);
   --input-focus-ring: var(--shadow-focus);
 
   /* ============================================================

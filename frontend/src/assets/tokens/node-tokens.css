@@ -100,7 +100,7 @@
   /* 辅助文字 */
   --node-muted-size: var(--ui-font-size-xs);
   --node-muted-weight: var(--ui-font-weight-normal);
-  --node-muted-color: var(--ui-text-muted);
+  --node-muted-color: var(--ui-text-secondary);
 
   /* 标签文字 */
   --node-label-size: var(--ui-font-size-xs);

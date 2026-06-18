@@ -38,12 +38,12 @@
   --text-title: var(--color-slate-900);
   --text-strong: var(--color-slate-900);
   --text-body: var(--color-slate-700);
-  --text-muted: var(--color-slate-500);
+  --text-muted: var(--color-slate-600);
   --text-subtle: var(--color-slate-400);
   --text-placeholder: var(--color-slate-300);
   --text-on-accent: #ffffff;
   --text-on-success: #ffffff;
-  --text-on-warning: #ffffff;
+  --text-on-warning: var(--color-amber-900);
   --text-on-danger: #ffffff;
   --text-on-info: #ffffff;
 
