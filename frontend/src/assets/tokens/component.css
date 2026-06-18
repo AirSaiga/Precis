@@ -83,68 +83,12 @@
   --switch-radius: var(--radius-full);
 
   /* ============================================================
-     节点
+     节点（Node）令牌
+     ------------------------------------------------------------
+     节点令牌的权威定义在 node-tokens.css（后续导入，同 layer 内
+     后导入者胜出）。此处不再重复定义，避免死代码与隐性分歧。
+     如需新增节点令牌，请编辑 node-tokens.css。
      ============================================================ */
-  --node-min-width: 240px;
-  --node-radius: var(--radius-lg);
-  --node-border: var(--border-light);
-  --node-border-hover: var(--border-default);
-  --node-border-active: var(--border-strong);
-  --node-border-selected: var(--accent);
-  --node-border-error: var(--danger);
-  --node-border-success: var(--success);
-  --node-bg: var(--surface-elevated);
-  --node-bg-hover: rgba(255, 255, 255, 0.98);
-  --node-bg-active: var(--surface-hover);
-  --node-bg-selected: rgba(255, 255, 255, 1);
-  --node-header-bg: var(--surface-elevated);
-
-  /* 节点阴影 */
-  --node-shadow: var(--shadow-md);
-  --node-shadow-sm: var(--shadow-sm);
-  --node-shadow-md: var(--shadow-md);
-  --node-shadow-lg: var(--shadow-lg);
-  --node-shadow-hover: var(--shadow-hover);
-  --node-shadow-selected: 0 0 0 3px var(--accent-ring), var(--shadow-lg);
-  --node-shadow-error: 0 0 0 2px var(--danger-ring), var(--shadow-md);
-  --node-shadow-success: 0 0 0 2px var(--success-ring), var(--shadow-md);
-  --node-shadow-dragging: 0 24px 56px rgba(45, 55, 75, 0.16), 0 0 0 2px var(--accent-ring);
-
-  /* 节点类型色 */
-  --node-type-source: var(--success);
-  --node-type-source-bg: var(--success-weak);
-  --node-type-schema: var(--accent);
-  --node-type-schema-bg: var(--accent-weak);
-  --node-type-regex: #a78bfa;
-  --node-type-regex-bg: rgba(167, 139, 250, 0.1);
-  --node-type-pattern: #6ec3ff;
-  --node-type-pattern-bg: rgba(110, 195, 255, 0.1);
-  --node-type-constraint: var(--warning);
-  --node-type-constraint-bg: var(--warning-weak);
-  --node-type-constraint-notnull: var(--danger);
-  --node-type-constraint-notnull-bg: var(--danger-weak);
-  --node-type-constraint-unique: var(--success);
-  --node-type-constraint-unique-bg: var(--success-weak);
-  --node-type-constraint-allowed: var(--info);
-  --node-type-constraint-allowed-bg: var(--info-weak);
-  --node-type-constraint-foreign: #8b5cf6;
-  --node-type-constraint-foreign-bg: rgba(139, 92, 246, 0.1);
-  --node-type-constraint-conditional: #f59e0b;
-  --node-type-constraint-conditional-bg: var(--warning-weak);
-  --node-type-constraint-scripted: #f97316;
-  --node-type-constraint-scripted-bg: rgba(249, 115, 22, 0.1);
-  --node-type-constraint-range: #06b6d4;
-  --node-type-constraint-range-bg: rgba(6, 182, 212, 0.1);
-  --node-type-constraint-charset: #ec4899;
-  --node-type-constraint-charset-bg: rgba(236, 72, 153, 0.1);
-  --node-type-constraint-datetime: #14b8a6;
-  --node-type-constraint-datetime-bg: rgba(20, 184, 166, 0.1);
-  --node-type-constraint-composite: #a855f7;
-  --node-type-constraint-composite-bg: rgba(168, 85, 247, 0.1);
-  --node-type-transform: var(--info);
-  --node-type-transform-bg: var(--info-weak);
-  --node-type-manual: var(--danger);
-  --node-type-manual-bg: var(--danger-weak);
 
   /* ============================================================
      设置面板
