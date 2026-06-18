@@ -282,10 +282,7 @@ class Formatter:
 
         # 兜底：没有 validation_details 时无法证明执行情况，明确提示
         if not validation_details:
-            return (
-                f"[yellow]{bullet} 未返回校验明细（validation_details 为空），"
-                "无法确认实际执行的检查项数[/yellow]"
-            )
+            return f"[yellow]{bullet} 未返回校验明细（validation_details 为空），无法确认实际执行的检查项数[/yellow]"
 
         # ---- 表/行数统计 ----
         format_checks = validation_details.get("format_checks", []) or []
@@ -312,7 +309,11 @@ class Formatter:
             f"[bold]  数据表:[/bold] {len(format_checks)} 个",
             tables_block,
             f"[bold]  约束检查:[/bold] {total_checks} 项，"
-            + (f"全部通过 {mark_ok}" if not failed_checks else f"{passed_count} 通过 / {len(failed_checks)} 失败 {mark_fail}"),
+            + (
+                f"全部通过 {mark_ok}"
+                if not failed_checks
+                else f"{passed_count} 通过 / {len(failed_checks)} 失败 {mark_fail}"
+            ),
         ]
 
         # 逐项约束结果（描述优先取 executor 提供的 description，否则用类型+表）
@@ -320,7 +321,11 @@ class Formatter:
             lines.append("")
             for c in constraint_checks:
                 passed = c.get("passed", True)
-                ctype = c.get("constraint_type", "Constraint").replace("Constraint", "").replace("s", "", 1) if c.get("constraint_type") else "Constraint"
+                ctype = (
+                    c.get("constraint_type", "Constraint").replace("Constraint", "").replace("s", "", 1)
+                    if c.get("constraint_type")
+                    else "Constraint"
+                )
                 # description 形如 "非空约束: users.email"，直接用作可读标签
                 desc = c.get("description") or f"{ctype}: {c.get('table', '?')}"
                 tag = f"[green]{mark_ok}[/green]" if passed else f"[red]{mark_fail}[/red]"
