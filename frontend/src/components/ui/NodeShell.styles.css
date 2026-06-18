@@ -83,6 +83,16 @@
   --shell-accent-weak: var(--theme-pink-weak);
 }
 
+.node-shell.theme-cyan {
+  --shell-accent: var(--theme-cyan);
+  --shell-accent-weak: var(--theme-cyan-weak);
+}
+
+.node-shell.theme-teal {
+  --shell-accent: var(--theme-teal);
+  --shell-accent-weak: var(--theme-teal-weak);
+}
+
 .node-shell.theme-script {
   --shell-accent: var(--theme-script);
   --shell-accent-weak: var(--theme-script-weak);
