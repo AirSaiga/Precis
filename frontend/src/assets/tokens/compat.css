@@ -7,9 +7,15 @@
  */
 
 :root {
-  /* 占位 — Phase 3 填充完整映射 */
+  /* Phase 3 启用时，以下映射将替换为 semantic/component 层变量 */
   /* --ui-bg-canvas → --surface-canvas */
   /* --ui-text-body → --text-secondary */
   /* --ui-accent → --accent */
-  /* ... 全部 5,222 处引用的旧变量映射 */
+  /* --ui-space-xs → --space-1 */
+  /* --ui-space-sm → --space-2 */
+  /* --ui-space-md → --space-3 */
+  /* --ui-space-lg → --space-4 */
+  /* --ui-space-xl → --space-6 */
+  /* --ui-space-2xl → --space-8 */
+  /* --ui-space-3xl → --space-10 */
 }
