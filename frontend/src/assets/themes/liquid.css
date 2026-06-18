@@ -1,8 +1,139 @@
 /**
  * @file themes/liquid.css
- * @description Liquid 主题 — 覆盖 primitive 颜色值 + 特殊材质
+ * @description Liquid 主题 — 覆盖 primitive 颜色值 + 特殊材质令牌
+ *
+ * 原则：
+ * - 仅覆盖 --color-* 变量，不覆盖 semantic 或 component 层
+ * - 使用 pastel 低饱和色系，营造液态/玻璃质感
+ * - 添加材质令牌（glass-material-*）用于 glassmorphism 效果
+ * - 保留 Sky 色系但调整为更柔和的蓝绿色调
  */
 
 [data-theme='liquid'] {
-  /* 占位 — Phase 3 填充 Liquid 颜色覆盖和材质令牌 */
+  /* ============================================================
+     Slate 灰阶 — 调整为暖灰 pastel
+     ============================================================ */
+  --color-slate-50: #f8f7f6;
+  --color-slate-100: #f0eeec;
+  --color-slate-200: #e2dfdc;
+  --color-slate-300: #cdc9c4;
+  --color-slate-400: #a8a39d;
+  --color-slate-500: #8a857f;
+  --color-slate-600: #6b6762;
+  --color-slate-700: #504d49;
+  --color-slate-800: #363432;
+  --color-slate-900: #1f1e1d;
+  --color-slate-950: #0f0f0e;
+
+  /* ============================================================
+     Sky 强调色 — 调整为柔和蓝绿色（Teal-Sky 混合）
+     ============================================================ */
+  --color-sky-50: #f0fdfa;
+  --color-sky-100: #ccfbf1;
+  --color-sky-200: #99f6e4;
+  --color-sky-300: #5eead4;
+  --color-sky-400: #2dd4bf;
+  --color-sky-500: #14b8a6;
+  --color-sky-600: #0d9488;
+  --color-sky-700: #0f766e;
+  --color-sky-800: #115e59;
+  --color-sky-900: #134e4a;
+
+  /* ============================================================
+     语义色 — Emerald Success（更柔和）
+     ============================================================ */
+  --color-emerald-50: #f6fdf9;
+  --color-emerald-100: #e0f7e9;
+  --color-emerald-200: #c2eed3;
+  --color-emerald-300: #94e0b5;
+  --color-emerald-400: #5ecd91;
+  --color-emerald-500: #3cb371;
+  --color-emerald-600: #2e9a5e;
+  --color-emerald-700: #247a4a;
+  --color-emerald-800: #1f5f3a;
+  --color-emerald-900: #1a4e30;
+
+  /* ============================================================
+     语义色 — Amber Warning（更柔和）
+     ============================================================ */
+  --color-amber-50: #fffbf5;
+  --color-amber-100: #fef3d8;
+  --color-amber-200: #fde9b0;
+  --color-amber-300: #fcd980;
+  --color-amber-400: #f5c542;
+  --color-amber-500: #e6a817;
+  --color-amber-600: #c98f0e;
+  --color-amber-700: #a6740f;
+  --color-amber-800: #855c14;
+  --color-amber-900: #6e4c13;
+
+  /* ============================================================
+     语义色 — Rose Danger（更柔和）
+     ============================================================ */
+  --color-rose-50: #fff5f5;
+  --color-rose-100: #ffe0e0;
+  --color-rose-200: #ffc5c5;
+  --color-rose-300: #ff9e9e;
+  --color-rose-400: #f87171;
+  --color-rose-500: #ef4444;
+  --color-rose-600: #dc2626;
+  --color-rose-700: #b91c1c;
+  --color-rose-800: #991b1b;
+  --color-rose-900: #7f1d1d;
+
+  /* ============================================================
+     语义色 — Blue Info（更柔和）
+     ============================================================ */
+  --color-blue-50: #f5f8ff;
+  --color-blue-100: #e0e8ff;
+  --color-blue-200: #c5d5ff;
+  --color-blue-300: #9eb8ff;
+  --color-blue-400: #7c9aff;
+  --color-blue-500: #5b7fff;
+  --color-blue-600: #4a6de8;
+  --color-blue-700: #3d5bb8;
+  --color-blue-800: #344a8f;
+  --color-blue-900: #2d3d6e;
+
+  /* ============================================================
+     白色透明度 — 保持（liquid 主题使用 light 背景）
+     ============================================================ */
+  --color-white-10: rgba(255, 255, 255, 0.1);
+  --color-white-15: rgba(255, 255, 255, 0.15);
+  --color-white-20: rgba(255, 255, 255, 0.2);
+  --color-white-30: rgba(255, 255, 255, 0.3);
+  --color-white-40: rgba(255, 255, 255, 0.4);
+  --color-white-50: rgba(255, 255, 255, 0.5);
+  --color-white-60: rgba(255, 255, 255, 0.6);
+  --color-white-80: rgba(255, 255, 255, 0.8);
+  --color-white-90: rgba(255, 255, 255, 0.9);
+  --color-white-95: rgba(255, 255, 255, 0.95);
+
+  /* ============================================================
+     黑色透明度 — 降低强度（liquid 主题更轻盈）
+     ============================================================ */
+  --color-black-10: rgba(0, 0, 0, 0.06);
+  --color-black-15: rgba(0, 0, 0, 0.09);
+  --color-black-20: rgba(0, 0, 0, 0.12);
+  --color-black-30: rgba(0, 0, 0, 0.18);
+  --color-black-40: rgba(0, 0, 0, 0.24);
+  --color-black-50: rgba(0, 0, 0, 0.32);
+  --color-black-60: rgba(0, 0, 0, 0.42);
+  --color-black-80: rgba(0, 0, 0, 0.56);
+  --color-black-90: rgba(0, 0, 0, 0.72);
+  --color-black-95: rgba(0, 0, 0, 0.88);
+
+  /* ============================================================
+     材质令牌 — Glassmorphism 专用
+     ============================================================ */
+  --glass-material-bg: rgba(255, 255, 255, 0.72);
+  --glass-material-bg-strong: rgba(255, 255, 255, 0.85);
+  --glass-material-bg-weak: rgba(255, 255, 255, 0.45);
+  --glass-material-border: rgba(255, 255, 255, 0.5);
+  --glass-material-border-strong: rgba(255, 255, 255, 0.7);
+  --glass-material-shadow: 0 8px 32px rgba(31, 30, 29, 0.08);
+  --glass-material-shadow-lg: 0 16px 48px rgba(31, 30, 29, 0.12);
+  --glass-material-backdrop: blur(20px) saturate(180%);
+  --glass-material-backdrop-strong: blur(32px) saturate(200%);
+  --glass-material-backdrop-weak: blur(12px) saturate(150%);
 }

@@ -1,8 +1,127 @@
 /**
  * @file themes/dark.css
  * @description Dark 主题 — 覆盖 primitive 颜色值
+ *
+ * 原则：
+ * - 仅覆盖 --color-* 变量，不覆盖 semantic 或 component 层
+ * - Slate 灰阶反转（浅色变深，深色变浅）
+ * - Sky 强调色保持方向但降低亮度
+ * - 语义色（emerald/amber/rose/blue）保持方向但调整饱和度
+ * - 白/黑透明度反转（white → black 语义，black → white 语义）
  */
 
 [data-theme='dark'] {
-  /* 占位 — Phase 3 填充 Dark 颜色覆盖 */
+  /* ============================================================
+     Slate 灰阶 — 反转（light 的 50 变 950，950 变 50）
+     ============================================================ */
+  --color-slate-50: #0f172a;
+  --color-slate-100: #1e293b;
+  --color-slate-200: #334155;
+  --color-slate-300: #475569;
+  --color-slate-400: #64748b;
+  --color-slate-500: #94a3b8;
+  --color-slate-600: #cbd5e1;
+  --color-slate-700: #e2e8f0;
+  --color-slate-800: #f1f5f9;
+  --color-slate-900: #f8fafc;
+  --color-slate-950: #ffffff;
+
+  /* ============================================================
+     Sky 强调色 — 降低亮度，提高饱和度
+     ============================================================ */
+  --color-sky-50: #082f49;
+  --color-sky-100: #0c4a6e;
+  --color-sky-200: #075985;
+  --color-sky-300: #0369a1;
+  --color-sky-400: #0284c7;
+  --color-sky-500: #0ea5e9;
+  --color-sky-600: #38bdf8;
+  --color-sky-700: #7dd3fc;
+  --color-sky-800: #bae6fd;
+  --color-sky-900: #e0f2fe;
+
+  /* ============================================================
+     语义色 — Emerald Success
+     ============================================================ */
+  --color-emerald-50: #064e3b;
+  --color-emerald-100: #065f46;
+  --color-emerald-200: #047857;
+  --color-emerald-300: #059669;
+  --color-emerald-400: #10b981;
+  --color-emerald-500: #34d399;
+  --color-emerald-600: #6ee7b7;
+  --color-emerald-700: #a7f3d0;
+  --color-emerald-800: #d1fae5;
+  --color-emerald-900: #ecfdf5;
+
+  /* ============================================================
+     语义色 — Amber Warning
+     ============================================================ */
+  --color-amber-50: #78350f;
+  --color-amber-100: #92400e;
+  --color-amber-200: #b45309;
+  --color-amber-300: #d97706;
+  --color-amber-400: #f59e0b;
+  --color-amber-500: #fbbf24;
+  --color-amber-600: #fcd34d;
+  --color-amber-700: #fde68a;
+  --color-amber-800: #fef3c7;
+  --color-amber-900: #fffbeb;
+
+  /* ============================================================
+     语义色 — Rose Danger
+     ============================================================ */
+  --color-rose-50: #881337;
+  --color-rose-100: #9f1239;
+  --color-rose-200: #be123c;
+  --color-rose-300: #e11d48;
+  --color-rose-400: #f43f5e;
+  --color-rose-500: #fb7185;
+  --color-rose-600: #fda4af;
+  --color-rose-700: #fecdd3;
+  --color-rose-800: #ffe4e6;
+  --color-rose-900: #fff1f2;
+
+  /* ============================================================
+     语义色 — Blue Info
+     ============================================================ */
+  --color-blue-50: #1e3a8a;
+  --color-blue-100: #1e40af;
+  --color-blue-200: #1d4ed8;
+  --color-blue-300: #2563eb;
+  --color-blue-400: #3b82f6;
+  --color-blue-500: #60a5fa;
+  --color-blue-600: #93c5fd;
+  --color-blue-700: #bfdbfe;
+  --color-blue-800: #dbeafe;
+  --color-blue-900: #eff6ff;
+
+  /* ============================================================
+     白色透明度 — 语义反转（在 dark 中 "white" 指代亮色文字）
+     保持变量名不变，但值调整为适合 dark 背景的亮色透明度
+     ============================================================ */
+  --color-white-10: rgba(255, 255, 255, 0.04);
+  --color-white-15: rgba(255, 255, 255, 0.06);
+  --color-white-20: rgba(255, 255, 255, 0.08);
+  --color-white-30: rgba(255, 255, 255, 0.12);
+  --color-white-40: rgba(255, 255, 255, 0.16);
+  --color-white-50: rgba(255, 255, 255, 0.24);
+  --color-white-60: rgba(255, 255, 255, 0.32);
+  --color-white-80: rgba(255, 255, 255, 0.48);
+  --color-white-90: rgba(255, 255, 255, 0.64);
+  --color-white-95: rgba(255, 255, 255, 0.80);
+
+  /* ============================================================
+     黑色透明度 — 语义反转（在 dark 中 "black" 指代深色遮罩）
+     ============================================================ */
+  --color-black-10: rgba(0, 0, 0, 0.2);
+  --color-black-15: rgba(0, 0, 0, 0.3);
+  --color-black-20: rgba(0, 0, 0, 0.4);
+  --color-black-30: rgba(0, 0, 0, 0.5);
+  --color-black-40: rgba(0, 0, 0, 0.6);
+  --color-black-50: rgba(0, 0, 0, 0.7);
+  --color-black-60: rgba(0, 0, 0, 0.8);
+  --color-black-80: rgba(0, 0, 0, 0.9);
+  --color-black-90: rgba(0, 0, 0, 0.95);
+  --color-black-95: rgba(0, 0, 0, 0.98);
 }
