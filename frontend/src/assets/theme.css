@@ -198,13 +198,13 @@
   --ui-grid-size: 32px;
   --ui-grid-dot-size: 2px;
 
-  --ui-space-xs: 6px;
-  --ui-space-sm: 10px;
-  --ui-space-md: 14px;
-  --ui-space-lg: 18px;
+  --ui-space-xs: 4px;
+  --ui-space-sm: 8px;
+  --ui-space-md: 12px;
+  --ui-space-lg: 16px;
   --ui-space-xl: 24px;
   --ui-space-2xl: 32px;
-  --ui-space-3xl: 42px;
+  --ui-space-3xl: 40px;
 
   --ui-radius-sm: 8px;
   --ui-radius-md: 10px;
