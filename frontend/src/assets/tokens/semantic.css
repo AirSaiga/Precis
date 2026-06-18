@@ -1,0 +1,18 @@
+/**
+ * @file semantic.css
+ * @description 语义设计令牌 — 将基础值映射到语义用途
+ *
+ * 原则：
+ * - 引用 primitive.css 中的变量
+ * - 命名规范：--{purpose}-{variant}
+ *   例如：--surface-elevated, --text-muted, --border-focus
+ */
+
+:root {
+  /* 占位 — Phase 3 填充完整内容 */
+  /* 背景：--surface-canvas, --surface-base, --surface-elevated... */
+  /* 文字：--text-primary, --text-secondary, --text-muted... */
+  /* 边框：--border-subtle, --border-light, --border-default... */
+  /* 阴影：--shadow-1 ~ --shadow-5 */
+  /* Z-Index：--z-dropdown ~ --z-notification */
+}

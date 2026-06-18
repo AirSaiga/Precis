@@ -1,0 +1,8 @@
+/**
+ * @file themes/dark.css
+ * @description Dark 主题 — 覆盖 primitive 颜色值
+ */
+
+[data-theme='dark'] {
+  /* 占位 — Phase 3 填充 Dark 颜色覆盖 */
+}

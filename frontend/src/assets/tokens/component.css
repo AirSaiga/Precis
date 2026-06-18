@@ -1,0 +1,17 @@
+/**
+ * @file component.css
+ * @description 组件专用设计令牌 — 按钮、输入框、节点等组件尺寸
+ *
+ * 原则：
+ * - 引用 semantic.css 中的变量
+ * - 命名规范：--{component}-{property}-{variant}
+ *   例如：--button-height-md, --node-shadow-hover
+ */
+
+:root {
+  /* 占位 — Phase 3 填充完整内容 */
+  /* 按钮：--button-height-sm/md/lg, --button-padding-md... */
+  /* 输入框：--input-height-md, --input-border-focus... */
+  /* 节点：--node-min-width, --node-shadow-hover... */
+  /* 节点类型色：--node-type-schema, --node-type-constraint... */
+}

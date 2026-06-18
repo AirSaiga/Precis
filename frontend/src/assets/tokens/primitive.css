@@ -1,0 +1,18 @@
+/**
+ * @file primitive.css
+ * @description 基础设计令牌 — 颜色、间距、字体、动画的基础值
+ *
+ * 原则：
+ * - 只定义原始值，不做语义映射
+ * - 主题文件仅覆盖此层的颜色值
+ * - 命名规范：--{category}-{name}-{scale}
+ */
+
+:root {
+  /* 占位 — Phase 3 填充完整内容 */
+  /* 颜色：--color-slate-50 ~ --color-slate-950 */
+  /* 间距：--space-1 ~ --space-9 */
+  /* 字体：--font-sans, --font-mono, --font-size-xs ~ 3xl */
+  /* 圆角：--radius-sm ~ --radius-full */
+  /* 过渡：--transition-fast ~ --transition-spring */
+}

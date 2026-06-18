@@ -1,0 +1,8 @@
+/**
+ * @file themes/liquid.css
+ * @description Liquid 主题 — 覆盖 primitive 颜色值 + 特殊材质
+ */
+
+[data-theme='liquid'] {
+  /* 占位 — Phase 3 填充 Liquid 颜色覆盖和材质令牌 */
+}

@@ -1,0 +1,9 @@
+/**
+ * @file themes/light.css
+ * @description Light 主题 — 覆盖 primitive 颜色值
+ *
+ * 原则：仅覆盖 --color-* 变量，不覆盖 semantic 或 component 层
+ */
+
+/* Light 是默认主题，primitive.css 已定义默认值 */
+/* 此文件保留用于显式覆盖或未来扩展 */
