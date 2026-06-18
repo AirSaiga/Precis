@@ -29,9 +29,9 @@
         <div class="settings-row__label">{{ t('settings.script.enabled.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.script.enabled.desc') }}</div>
         <div class="settings-row__control">
-          <label class="settings-switch">
-            <input v-model="scriptEnabled" type="checkbox" class="settings-switch__input" />
-            <span class="settings-switch__track"></span>
+          <label class="ui-switch ui-switch--compact">
+            <input v-model="scriptEnabled" type="checkbox" class="ui-switch__input" />
+            <span class="ui-switch__track"></span>
           </label>
         </div>
       </div>
@@ -46,13 +46,13 @@
         <div class="settings-row__label">{{ t('settings.script.allowEval.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.script.allowEval.desc') }}</div>
         <div class="settings-row__control">
-          <label class="settings-switch">
+          <label class="ui-switch ui-switch--compact">
             <input
               v-model="localSettings.allow_eval"
               type="checkbox"
-              class="settings-switch__input"
+              class="ui-switch__input"
             />
-            <span class="settings-switch__track"></span>
+            <span class="ui-switch__track"></span>
           </label>
         </div>
       </div>
@@ -60,13 +60,13 @@
         <div class="settings-row__label">{{ t('settings.script.allowExec.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.script.allowExec.desc') }}</div>
         <div class="settings-row__control">
-          <label class="settings-switch">
+          <label class="ui-switch ui-switch--compact">
             <input
               v-model="localSettings.allow_exec"
               type="checkbox"
-              class="settings-switch__input"
+              class="ui-switch__input"
             />
-            <span class="settings-switch__track"></span>
+            <span class="ui-switch__track"></span>
           </label>
         </div>
       </div>
@@ -74,13 +74,13 @@
         <div class="settings-row__label">{{ t('settings.script.sandbox.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.script.sandbox.desc') }}</div>
         <div class="settings-row__control">
-          <label class="settings-switch">
+          <label class="ui-switch ui-switch--compact">
             <input
               v-model="localSettings.sandbox_mode"
               type="checkbox"
-              class="settings-switch__input"
+              class="ui-switch__input"
             />
-            <span class="settings-switch__track"></span>
+            <span class="ui-switch__track"></span>
           </label>
         </div>
       </div>
@@ -93,7 +93,7 @@
             type="number"
             min="1"
             max="300"
-            class="settings-input"
+            class="ui-input ui-input--compact"
           />
         </div>
       </div>

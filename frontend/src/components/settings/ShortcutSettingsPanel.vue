@@ -20,9 +20,9 @@
         <div class="settings-row__label">{{ t('shortcuts.settings.enabled') }}</div>
         <div class="settings-row__desc"></div>
         <div class="settings-row__control">
-          <label class="settings-switch">
-            <input v-model="shortcutStore.enabled" type="checkbox" class="settings-switch__input" />
-            <span class="settings-switch__track"></span>
+          <label class="ui-switch ui-switch--compact">
+            <input v-model="shortcutStore.enabled" type="checkbox" class="ui-switch__input" />
+            <span class="ui-switch__track"></span>
           </label>
         </div>
       </div>
@@ -30,13 +30,13 @@
         <div class="settings-row__label">{{ t('shortcuts.settings.showFeedback') }}</div>
         <div class="settings-row__desc"></div>
         <div class="settings-row__control">
-          <label class="settings-switch">
+          <label class="ui-switch ui-switch--compact">
             <input
               v-model="shortcutStore.showFeedback"
               type="checkbox"
-              class="settings-switch__input"
+              class="ui-switch__input"
             />
-            <span class="settings-switch__track"></span>
+            <span class="ui-switch__track"></span>
           </label>
         </div>
       </div>
@@ -47,7 +47,7 @@
       <div class="settings-row__control settings-row__control--wide">
         <input
           v-model="searchQuery"
-          class="settings-input"
+          class="ui-input ui-input--compact"
           type="text"
           :placeholder="t('shortcuts.settings.searchPlaceholder')"
         />
@@ -106,14 +106,14 @@
             </div>
 
             <div style="display: flex; align-items: center; gap: var(--ui-space-sm)">
-              <label class="settings-switch">
+              <label class="ui-switch ui-switch--compact">
                 <input
                   :checked="!isCommandDisabled(cmd.id)"
                   type="checkbox"
-                  class="settings-switch__input"
+                  class="ui-switch__input"
                   @change="toggleCommand(cmd.id)"
                 />
-                <span class="settings-switch__track"></span>
+                <span class="ui-switch__track"></span>
               </label>
 
               <button

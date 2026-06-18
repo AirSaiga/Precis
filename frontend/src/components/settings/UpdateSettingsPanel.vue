@@ -48,14 +48,14 @@
         <div class="settings-row__label">{{ t('settings.update.autoCheck.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.update.autoCheck.desc') }}</div>
         <div class="settings-row__control">
-          <label class="settings-switch">
+          <label class="ui-switch ui-switch--compact">
             <input
               v-model="localConfig.autoCheck"
               type="checkbox"
-              class="settings-switch__input"
+              class="ui-switch__input"
               @change="handleConfigChange"
             />
-            <span class="settings-switch__track"></span>
+            <span class="ui-switch__track"></span>
           </label>
         </div>
       </div>
@@ -63,14 +63,14 @@
         <div class="settings-row__label">{{ t('settings.update.autoDownload.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.update.autoDownload.desc') }}</div>
         <div class="settings-row__control">
-          <label class="settings-switch">
+          <label class="ui-switch ui-switch--compact">
             <input
               v-model="localConfig.autoDownload"
               type="checkbox"
-              class="settings-switch__input"
+              class="ui-switch__input"
               @change="handleConfigChange"
             />
-            <span class="settings-switch__track"></span>
+            <span class="ui-switch__track"></span>
           </label>
         </div>
       </div>
@@ -80,7 +80,7 @@
         <div class="settings-row__control">
           <select
             v-model="localConfig.sourceType"
-            class="settings-select"
+            class="ui-select ui-select--compact"
             @change="handleConfigChange"
           >
             <option value="github">{{ t('settings.update.sourceType.github') }}</option>
@@ -94,7 +94,7 @@
         <div class="settings-row__control settings-row__control--wide">
           <input
             v-model="localConfig.sourceUrl"
-            class="settings-input"
+            class="ui-input ui-input--compact"
             type="text"
             :placeholder="t('settings.update.sourceUrl.placeholder')"
             @blur="handleConfigChange"

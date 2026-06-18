@@ -21,7 +21,7 @@
             <div class="settings-row__control settings-row__control--wide">
               <input
                 v-model="ds.id"
-                class="settings-input"
+                class="ui-input ui-input--compact"
                 type="text"
                 :placeholder="t('settings.dataSources.idPlaceholder')"
                 :disabled="isSaving"
@@ -53,7 +53,7 @@
               <div style="display: flex; gap: var(--ui-space-sm); width: 100%">
                 <input
                   v-model="ds.path"
-                  class="settings-input"
+                  class="ui-input ui-input--compact"
                   type="text"
                   :placeholder="t('settings.dataSources.pathPlaceholder')"
                   :disabled="isSaving"
@@ -75,7 +75,7 @@
             <div class="settings-row__control">
               <select
                 v-model="ds.mode"
-                class="settings-select"
+                class="ui-select ui-select--compact"
                 :disabled="isSaving"
                 @change="handleChange"
               >
@@ -89,7 +89,7 @@
             <div class="settings-row__control settings-row__control--wide">
               <input
                 v-model="ds.description"
-                class="settings-input"
+                class="ui-input ui-input--compact"
                 type="text"
                 :placeholder="t('settings.dataSources.descriptionPlaceholder')"
                 :disabled="isSaving"

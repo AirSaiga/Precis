@@ -24,14 +24,14 @@
         <div class="settings-row__label">{{ t('settings.project.strictMode.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.project.strictMode.desc') }}</div>
         <div class="settings-row__control">
-          <label class="settings-switch">
+          <label class="ui-switch ui-switch--compact">
             <input
               v-model="validationSettings.strict_mode"
               type="checkbox"
-              class="settings-switch__input"
+              class="ui-switch__input"
               @change="handleValidationChange"
             />
-            <span class="settings-switch__track"></span>
+            <span class="ui-switch__track"></span>
           </label>
         </div>
       </div>
@@ -41,7 +41,7 @@
         <div class="settings-row__control">
           <select
             v-model="validationSettings.error_handling"
-            class="settings-select"
+            class="ui-select ui-select--compact"
             @change="handleValidationChange"
           >
             <option value="stop">{{ t('settings.project.errorHandling.stop') }}</option>
@@ -56,7 +56,7 @@
         <div class="settings-row__control">
           <input
             v-model.number="validationSettings.timeout_seconds"
-            class="settings-input"
+            class="ui-input ui-input--compact"
             type="number"
             min="1"
             max="300"
@@ -70,7 +70,7 @@
         <div class="settings-row__control">
           <input
             v-model.number="validationSettings.batch_max_files"
-            class="settings-input"
+            class="ui-input ui-input--compact"
             type="number"
             min="1"
             max="1000"
@@ -94,7 +94,7 @@
         <div class="settings-row__control">
           <select
             v-model="fileSettings.default_encoding"
-            class="settings-select"
+            class="ui-select ui-select--compact"
             @change="handleFileChange"
           >
             <option value="utf-8">UTF-8</option>
@@ -109,7 +109,7 @@
         <div class="settings-row__control">
           <select
             v-model="fileSettings.csv_delimiter"
-            class="settings-select"
+            class="ui-select ui-select--compact"
             @change="handleFileChange"
           >
             <option value=",">{{ t('settings.file.delimiter.comma') }} (,)</option>
@@ -125,7 +125,7 @@
         <div class="settings-row__control">
           <input
             v-model="customDelimiter"
-            class="settings-input"
+            class="ui-input ui-input--compact"
             type="text"
             maxlength="1"
             @change="handleFileChange"

@@ -1454,37 +1454,12 @@
   color: var(--ui-text-muted);
 }
 
-/* 紧凑型输入 */
-.settings-input {
-  box-sizing: border-box;
+/* 紧凑型输入 — 继承 .ui-input 基础，仅覆盖尺寸 */
+.ui-input.ui-input--compact {
   height: 34px;
   padding: 0 var(--ui-space-sm);
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-bg-elevated);
-  color: var(--ui-text-body);
   font-size: var(--ui-font-size-sm);
   line-height: 32px;
-  outline: none;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-  width: 100%;
-}
-
-.settings-input:focus {
-  border-color: var(--ui-accent);
-  box-shadow: 0 0 0 2px var(--ui-accent-ring);
-}
-
-.settings-input::placeholder {
-  color: var(--ui-text-muted);
-}
-
-.settings-input:disabled {
-  background: var(--ui-bg-subtle);
-  color: var(--ui-text-muted);
-  cursor: not-allowed;
 }
 
 /* 设置面板路径输入组：输入框与浏览按钮同行 */
@@ -1495,7 +1470,7 @@
   width: 100%;
 }
 
-.settings-path-input-group .settings-input {
+.settings-path-input-group .ui-input.ui-input--compact {
   flex: 1;
   min-width: 0;
 }
@@ -1504,86 +1479,29 @@
   flex-shrink: 0;
 }
 
-/* 紧凑型 select */
-.settings-select {
-  box-sizing: border-box;
+/* 紧凑型 select — 继承 .ui-select 基础，仅覆盖尺寸 */
+.ui-select.ui-select--compact {
   height: 34px;
-  padding: 0 28px 0 var(--ui-space-sm);
-  border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-md);
-  background: var(--ui-bg-elevated);
-  color: var(--ui-text-body);
+  padding-left: var(--ui-space-sm);
+  padding-right: 36px;
   font-size: var(--ui-font-size-sm);
   line-height: 32px;
-  outline: none;
-  cursor: pointer;
-  appearance: none;
-  -webkit-appearance: none;
-  -moz-appearance: none;
-  transition:
-    border-color 0.2s,
-    box-shadow 0.2s;
-  width: 100%;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%239aa0a6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 8px center;
-  background-size: 14px;
+  background-position: right 10px center;
 }
 
-.settings-select:focus {
-  border-color: var(--ui-accent);
-  box-shadow: 0 0 0 2px var(--ui-accent-ring);
-}
-
-/* 紧凑型开关 */
-.settings-switch {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
+/* 紧凑型开关 — 继承 .ui-switch 基础，仅覆盖尺寸 */
+.ui-switch.ui-switch--compact {
   width: 36px;
   height: 20px;
-  cursor: pointer;
-  flex-shrink: 0;
 }
 
-.settings-switch__input {
-  opacity: 0;
-  width: 0;
-  height: 0;
-}
-
-.settings-switch__track {
-  position: absolute;
-  inset: 0;
-  background: var(--ui-border);
-  border-radius: var(--ui-radius-full);
-  transition: background 0.2s;
-}
-
-.settings-switch__track::after {
-  content: '';
-  position: absolute;
-  top: 2px;
-  left: 2px;
+.ui-switch.ui-switch--compact .ui-switch__track::after {
   width: 16px;
   height: 16px;
-  background: white;
-  border-radius: 50%;
-  transition: transform 0.2s;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
-.settings-switch__input:checked + .settings-switch__track {
-  background: var(--ui-accent);
-}
-
-.settings-switch__input:checked + .settings-switch__track::after {
+.ui-switch.ui-switch--compact .ui-switch__input:checked + .ui-switch__track::after {
   transform: translateX(16px);
-}
-
-.settings-switch__input:disabled + .settings-switch__track {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 /* 行内按钮组 */
