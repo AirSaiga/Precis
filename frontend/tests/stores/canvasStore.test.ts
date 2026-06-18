@@ -4,6 +4,8 @@ import { useCanvasStore } from '@/stores/canvasStore'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
+  // canvasStore 经 useGlobalConfirm 间接引入 src/i18n/index.ts，后者顶层调用 createI18n
+  createI18n: () => ({ global: { t: (key: string) => key } }),
 }))
 
 describe('canvasStore zoom operations', () => {

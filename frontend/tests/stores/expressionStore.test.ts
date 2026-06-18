@@ -4,6 +4,8 @@ import { useExpressionStore } from '@/stores/expressionStore'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
+  // expressionStore 经 toast 间接引入 src/i18n/index.ts，后者顶层调用 createI18n
+  createI18n: () => ({ global: { t: (key: string) => key } }),
 }))
 
 describe('expressionStore', () => {
