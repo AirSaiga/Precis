@@ -245,3 +245,18 @@
      ============================================================ */
   --ui-theme-mode: light;
 }
+
+/* ============================================================
+   Dark 主题覆盖
+   ------------------------------------------------------------
+   --ui-bg-canvas-gradient 在 :root 是硬编码浅色渐变字面量（非 var() 别名），
+   无法经 var() 链响应主题。在此显式覆盖为 dark 渐变，使画布背景正确翻转。
+   值取自 legacy theme.css 的 [data-theme='dark'] 块。
+   ============================================================ */
+[data-theme='dark'] {
+  --ui-bg-canvas-gradient:
+    radial-gradient(at 0% 0%, rgba(14, 165, 233, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(15, 23, 42, 0.15) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(14, 165, 233, 0.15) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(15, 23, 42, 0.15) 0px, transparent 50%), #0f172a;
+}
