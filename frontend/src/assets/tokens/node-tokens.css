@@ -267,8 +267,8 @@
   --node-type-constraint-unique: var(--ui-success);
   --node-type-constraint-unique-bg: var(--ui-success-bg);
 
-  --node-type-constraint-allowed: var(--theme-sky);
-  --node-type-constraint-allowed-bg: var(--theme-sky-bg);
+  --node-type-constraint-allowed: var(--ui-info);
+  --node-type-constraint-allowed-bg: var(--ui-info-bg);
 
   --node-type-constraint-foreign: var(--theme-purple);
   --node-type-constraint-foreign-bg: var(--theme-purple-bg);
@@ -279,14 +279,17 @@
   --node-type-constraint-scripted: var(--theme-script);
   --node-type-constraint-scripted-bg: var(--theme-script-bg);
 
-  --node-type-constraint-range: var(--theme-purple);
-  --node-type-constraint-range-bg: var(--theme-purple-bg);
+  --node-type-constraint-range: #06b6d4;
+  --node-type-constraint-range-bg: rgba(6, 182, 212, 0.1);
 
-  --node-type-constraint-charset: var(--theme-pink);
-  --node-type-constraint-charset-bg: var(--ui-bg-accent);
+  --node-type-constraint-charset: #ec4899;
+  --node-type-constraint-charset-bg: rgba(236, 72, 153, 0.1);
 
-  --node-type-constraint-datetime: var(--theme-pink);
-  --node-type-constraint-datetime-bg: var(--theme-pink-weak);
+  --node-type-constraint-datetime: #14b8a6;
+  --node-type-constraint-datetime-bg: rgba(20, 184, 166, 0.1);
+
+  --node-type-constraint-composite: #a855f7;
+  --node-type-constraint-composite-bg: rgba(168, 85, 247, 0.1);
 
   /* ========================================
      节点头部系统

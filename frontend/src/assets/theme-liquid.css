@@ -307,8 +307,8 @@
   --node-type-constraint-unique: var(--ui-success);
   --node-type-constraint-unique-bg: var(--ui-success-bg);
 
-  --node-type-constraint-allowed: #6ec3ff;
-  --node-type-constraint-allowed-bg: rgba(110, 195, 255, 0.1);
+  --node-type-constraint-allowed: #7ec3ff;
+  --node-type-constraint-allowed-bg: rgba(126, 195, 255, 0.1);
 
   --node-type-constraint-foreign: #a78bfa;
   --node-type-constraint-foreign-bg: rgba(167, 139, 250, 0.1);
@@ -319,14 +319,17 @@
   --node-type-constraint-scripted: #ff9f6b;
   --node-type-constraint-scripted-bg: rgba(255, 159, 107, 0.1);
 
-  --node-type-constraint-range: #a78bfa;
-  --node-type-constraint-range-bg: rgba(167, 139, 250, 0.1);
+  --node-type-constraint-range: #22d3ee;
+  --node-type-constraint-range-bg: rgba(34, 211, 238, 0.1);
 
   --node-type-constraint-charset: #f472b6;
   --node-type-constraint-charset-bg: rgba(244, 114, 182, 0.08);
 
-  --node-type-constraint-datetime: #f472b6;
-  --node-type-constraint-datetime-bg: rgba(244, 114, 182, 0.08);
+  --node-type-constraint-datetime: #2dd4bf;
+  --node-type-constraint-datetime-bg: rgba(45, 212, 191, 0.08);
+
+  --node-type-constraint-composite: #c084fc;
+  --node-type-constraint-composite-bg: rgba(192, 132, 252, 0.1);
 
   /* 节点头部渐变：极淡的 tint */
   --node-header-gradient-primary: linear-gradient(
