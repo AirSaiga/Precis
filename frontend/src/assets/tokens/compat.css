@@ -7,15 +7,241 @@
  */
 
 :root {
-  /* Phase 3 启用时，以下映射将替换为 semantic/component 层变量 */
-  /* --ui-bg-canvas → --surface-canvas */
-  /* --ui-text-body → --text-secondary */
-  /* --ui-accent → --accent */
-  /* --ui-space-xs → --space-1 */
-  /* --ui-space-sm → --space-2 */
-  /* --ui-space-md → --space-3 */
-  /* --ui-space-lg → --space-4 */
-  /* --ui-space-xl → --space-6 */
-  /* --ui-space-2xl → --space-8 */
-  /* --ui-space-3xl → --space-10 */
+  /* ============================================================
+     背景 → surface
+     ============================================================ */
+  --ui-bg-canvas: var(--surface-canvas);
+  --ui-bg-canvas-gradient: radial-gradient(at 0% 0%, rgba(224, 242, 254, 0.4) 0px, transparent 50%), radial-gradient(at 100% 0%, rgba(241, 245, 249, 0.4) 0px, transparent 50%), radial-gradient(at 100% 100%, rgba(224, 242, 254, 0.4) 0px, transparent 50%), radial-gradient(at 0% 100%, rgba(241, 245, 249, 0.4) 0px, transparent 50%), #f8fafc;
+  --ui-bg-base: var(--surface-base);
+  --ui-bg-nav-primary: var(--surface-elevated);
+  --ui-bg-sidebar: var(--surface-elevated);
+  --ui-bg-sidebar-hover: var(--surface-hover);
+  --ui-bg-elevated: var(--surface-elevated);
+  --ui-bg-panel: var(--surface-panel);
+  --ui-bg-surface: var(--surface-elevated);
+  --ui-bg-node-header: var(--surface-elevated);
+  --ui-bg-subtle: var(--surface-subtle);
+  --ui-bg-muted: var(--surface-muted);
+  --ui-bg-hover: var(--surface-hover);
+  --ui-bg-active: var(--surface-active);
+  --ui-bg-accent: var(--surface-accent);
+  --ui-bg-accent-light: var(--surface-accent-light);
+  --ui-bg-highlight: var(--surface-highlight);
+  --ui-bg-success: var(--surface-success);
+  --ui-bg-warning: var(--surface-warning);
+  --ui-bg-danger: var(--surface-danger);
+  --ui-bg-info: var(--surface-info);
+
+  /* ============================================================
+     文字 → text
+     ============================================================ */
+  --ui-text-primary: var(--text-primary);
+  --ui-text-secondary: var(--text-secondary);
+  --ui-text-tertiary: var(--text-tertiary);
+  --ui-text-quaternary: var(--text-quaternary);
+  --ui-text-title: var(--text-title);
+  --ui-text-strong: var(--text-strong);
+  --ui-text-body: var(--text-body);
+  --ui-text: var(--text-body);
+  --ui-text-muted: var(--text-muted);
+  --ui-text-subtle: var(--text-subtle);
+  --ui-text-placeholder: var(--text-placeholder);
+  --ui-text-on-accent: var(--text-on-accent);
+  --ui-text-on-success: var(--text-on-success);
+  --ui-text-on-warning: var(--text-on-warning);
+  --ui-text-on-danger: var(--text-on-danger);
+  --ui-text-on-info: var(--text-on-info);
+
+  /* ============================================================
+     边框 → border
+     ============================================================ */
+  --ui-border-subtle: var(--border-subtle);
+  --ui-border-light: var(--border-light);
+  --ui-border: var(--border-default);
+  --ui-border-strong: var(--border-strong);
+  --ui-border-focus: var(--border-focus);
+  --ui-border-error: var(--border-error);
+  --ui-border-success: var(--border-success);
+  --ui-border-warning: var(--border-warning);
+  --ui-border-danger: var(--border-danger);
+  --ui-border-info: var(--border-info);
+
+  /* ============================================================
+     强调色 → accent
+     ============================================================ */
+  --ui-accent: var(--accent);
+  --ui-accent-primary: var(--accent);
+  --ui-accent-hover: var(--accent-hover);
+  --ui-accent-light: var(--accent-light);
+  --ui-accent-strong: var(--accent-strong);
+  --ui-accent-weak: var(--accent-weak);
+  --ui-accent-ring: var(--accent-ring);
+  --ui-accent-gradient: var(--accent-gradient);
+
+  /* ============================================================
+     语义状态色 → success/warning/danger/info
+     ============================================================ */
+  --ui-success: var(--success);
+  --ui-success-light: var(--success-light);
+  --ui-success-strong: var(--success-strong);
+  --ui-success-weak: var(--success-weak);
+  --ui-success-ring: var(--success-ring);
+  --ui-success-bg: var(--success-bg);
+  --ui-success-gradient: var(--success-gradient);
+
+  --ui-warning: var(--warning);
+  --ui-warning-light: var(--warning-light);
+  --ui-warning-strong: var(--warning-strong);
+  --ui-warning-text: var(--warning-text);
+  --ui-warning-weak: var(--warning-weak);
+  --ui-warning-ring: var(--warning-ring);
+  --ui-warning-bg: var(--warning-bg);
+  --ui-warning-gradient: var(--warning-gradient);
+
+  --ui-danger: var(--danger);
+  --ui-danger-light: var(--danger-light);
+  --ui-danger-strong: var(--danger-strong);
+  --ui-danger-weak: var(--danger-weak);
+  --ui-danger-soft: var(--danger-soft);
+  --ui-danger-ring: var(--danger-ring);
+  --ui-danger-bg: var(--danger-bg);
+  --ui-danger-gradient: var(--danger-gradient);
+
+  --ui-info: var(--info);
+  --ui-info-light: var(--info-light);
+  --ui-info-strong: var(--info-strong);
+  --ui-info-weak: var(--info-weak);
+  --ui-info-ring: var(--info-ring);
+  --ui-info-bg: var(--info-bg);
+  --ui-info-gradient: var(--info-gradient);
+
+  /* ============================================================
+     阴影 → shadow
+     ============================================================ */
+  --ui-shadow-xs: var(--shadow-xs);
+  --ui-shadow-sm: var(--shadow-sm);
+  --ui-shadow-md: var(--shadow-md);
+  --ui-shadow-lg: var(--shadow-lg);
+  --ui-shadow-xl: var(--shadow-xl);
+  --ui-shadow-2xl: var(--shadow-2xl);
+  --ui-shadow-hover: var(--shadow-hover);
+  --ui-shadow-active: var(--shadow-active);
+  --ui-shadow-focus: var(--shadow-focus);
+  --ui-shadow-glow: var(--shadow-glow);
+  --ui-focus-ring: var(--shadow-focus);
+  --ui-shadow-elevation-sm: var(--shadow-elevation-sm);
+  --ui-shadow-elevation-md: var(--shadow-elevation-md);
+  --ui-shadow-elevation-lg: var(--shadow-elevation-lg);
+  --ui-shadow-elevation-xl: var(--shadow-elevation-xl);
+
+  /* ============================================================
+     遮罩 → overlay
+     ============================================================ */
+  --ui-overlay-backdrop-soft: var(--overlay-backdrop-soft);
+  --ui-overlay-backdrop: var(--overlay-backdrop);
+  --ui-overlay-backdrop-strong: var(--overlay-backdrop-strong);
+
+  /* ============================================================
+     设置面板 → settings
+     ============================================================ */
+  --ui-settings-overlay: var(--settings-overlay);
+  --ui-settings-shell-bg: var(--settings-shell-bg);
+  --ui-settings-shell-top: var(--settings-shell-top);
+  --ui-settings-body-bg: var(--settings-body-bg);
+  --ui-settings-shell-border: var(--settings-shell-border);
+  --ui-settings-shell-shadow: var(--settings-shell-shadow);
+  --ui-settings-highlight: var(--settings-highlight);
+  --ui-settings-sidebar-bg: var(--settings-sidebar-bg);
+  --ui-settings-nav-hover: var(--settings-nav-hover);
+  --ui-settings-nav-border: var(--settings-nav-border);
+  --ui-settings-nav-active: var(--settings-nav-active);
+  --ui-settings-nav-active-border: var(--settings-nav-active-border);
+  --ui-settings-nav-icon-bg: var(--settings-nav-icon-bg);
+  --ui-settings-nav-icon-text: var(--settings-nav-icon-text);
+  --ui-settings-nav-icon-active-bg: var(--settings-nav-icon-active-bg);
+  --ui-settings-nav-icon-active-text: var(--settings-nav-icon-active-text);
+  --ui-settings-card-bg: var(--settings-card-bg);
+  --ui-settings-card-border: var(--settings-card-border);
+  --ui-settings-card-muted-bg: var(--settings-card-muted-bg);
+  --ui-settings-card-strong-bg: var(--settings-card-strong-bg);
+  --ui-settings-badge-bg: var(--settings-badge-bg);
+  --ui-settings-badge-text: var(--settings-badge-text);
+  --ui-settings-meta-bg: var(--settings-meta-bg);
+  --ui-settings-meta-border: var(--settings-meta-border);
+  --ui-settings-hero-bg: var(--settings-hero-bg);
+
+  /* ============================================================
+     画布网格 → canvas
+     ============================================================ */
+  --ui-grid-color: var(--canvas-grid-color);
+  --ui-grid-opacity: var(--canvas-grid-opacity);
+  --ui-grid-size: var(--canvas-grid-size);
+  --ui-grid-dot-size: var(--canvas-grid-dot-size);
+
+  /* ============================================================
+     间距 → space
+     ============================================================ */
+  --ui-space-xs: var(--space-1);
+  --ui-space-sm: var(--space-2);
+  --ui-space-md: var(--space-3);
+  --ui-space-lg: var(--space-4);
+  --ui-space-xl: var(--space-6);
+  --ui-space-2xl: var(--space-8);
+  --ui-space-3xl: var(--space-10);
+
+  /* ============================================================
+     圆角 → radius
+     ============================================================ */
+  --ui-radius-sm: var(--radius-sm);
+  --ui-radius-md: var(--radius-md);
+  --ui-radius-lg: var(--radius-lg);
+  --ui-radius-xl: var(--radius-xl);
+  --ui-radius-full: var(--radius-full);
+
+  /* ============================================================
+     字体 → font
+     ============================================================ */
+  --ui-font-family: var(--font-sans);
+  --ui-font-mono: var(--font-mono);
+  --ui-font-size-xs: var(--font-size-xs);
+  --ui-font-size-sm: var(--font-size-sm);
+  --ui-font-size-md: var(--font-size-md);
+  --ui-font-size-lg: var(--font-size-lg);
+  --ui-font-size-xl: var(--font-size-xl);
+  --ui-font-size-2xl: var(--font-size-2xl);
+  --ui-font-size-3xl: var(--font-size-3xl);
+  --ui-font-weight-normal: var(--font-weight-normal);
+  --ui-font-weight-medium: var(--font-weight-medium);
+  --ui-font-weight-semibold: var(--font-weight-semibold);
+  --ui-font-weight-bold: var(--font-weight-bold);
+  --ui-line-height-tight: var(--line-height-tight);
+  --ui-line-height-normal: var(--line-height-normal);
+  --ui-line-height-relaxed: var(--line-height-relaxed);
+
+  /* ============================================================
+     过渡 → transition
+     ============================================================ */
+  --ui-transition-fast: var(--transition-fast);
+  --ui-transition-normal: var(--transition-normal);
+  --ui-transition-slow: var(--transition-slow);
+  --ui-transition-spring: var(--transition-spring);
+
+  /* ============================================================
+     Z-Index → z
+     ============================================================ */
+  --ui-z-dropdown: var(--z-dropdown);
+  --ui-z-sidebar: var(--z-sidebar);
+  --ui-z-sticky: var(--z-sticky);
+  --ui-z-fixed: var(--z-fixed);
+  --ui-z-loading: var(--z-loading);
+  --ui-z-modal-backdrop: var(--z-modal-backdrop);
+  --ui-z-modal: var(--z-modal);
+  --ui-z-popover: var(--z-popover);
+  --ui-z-tooltip: var(--z-tooltip);
+  --ui-z-notification: var(--z-notification);
+
+  /* ============================================================
+     主题模式（保留，非映射）
+     ============================================================ */
+  --ui-theme-mode: light;
 }
