@@ -271,7 +271,14 @@ export function useDataSourceImport() {
 
           // 逐个添加数据源
           for (const ds of fileList) {
-            await workspaceStore.addDataSource(ds)
+            await workspaceStore.addDataSource(
+              ds.fileId,
+              ds.name,
+              ds.type,
+              ds.sourceMode,
+              ds.localPath,
+              ds.folderPath
+            )
           }
           toastSuccess(t('messages.common.importSuccess'))
 

@@ -39,6 +39,7 @@ export interface AppEvents {
     edgeId: string
   }
   'data-source-refreshed': { nodeId: string; fileId: string; fileName: string }
+  'data-source-changed': undefined
   'reload-file-uploaded': { file: File; nodeId: string; sourceName: string }
   schemaValidationCompleted: { nodeId: string; results: unknown }
   'validate-json-schema': { nodeId: string }

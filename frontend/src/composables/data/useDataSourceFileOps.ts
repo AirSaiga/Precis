@@ -76,8 +76,14 @@ export function useDataSourceFileOps() {
 
     try {
       // 3. 使用系统默认程序打开文件
-      logger.debug('[useDataSourceFileOps] 尝试用系统程序打开文件:', dataSource.localPath)
-      const result = await api.openFile(dataSource.localPath)
+      const localPath = dataSource.localPath
+      if (!localPath) {
+        logger.error('[useDataSourceFileOps] 数据源缺少 localPath')
+        toastError(t('messages.common.fileNotFound'))
+        return
+      }
+      logger.debug('[useDataSourceFileOps] 尝试用系统程序打开文件:', localPath)
+      const result = await api.openFile(localPath)
 
       if (result.success) {
         logger.debug('[useDataSourceFileOps] 文件已用系统程序打开:', dataSource.name)
