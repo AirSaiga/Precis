@@ -30,10 +30,19 @@ class TestGetProjectConfigPath:
 
     @pytest.mark.asyncio
     async def test_nonexistent_path_raises_404(self):
+        # 使用 os.path.abspath 构造一个当前平台下一定不存在的绝对路径
+        nonexistent_abs = os.path.abspath("/nonexistent/path/12345")
         with pytest.raises(HTTPException) as exc_info:
-            await get_project_config_path("/nonexistent/path/12345")
+            await get_project_config_path(nonexistent_abs)
         assert exc_info.value.status_code == 404
         assert "不存在" in exc_info.value.detail
+
+    @pytest.mark.asyncio
+    async def test_relative_path_raises_400(self):
+        with pytest.raises(HTTPException) as exc_info:
+            await get_project_config_path("relative/path/to/project")
+        assert exc_info.value.status_code == 400
+        assert "必须是一个绝对路径" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_path_traversal_normalization(self, tmp_path):

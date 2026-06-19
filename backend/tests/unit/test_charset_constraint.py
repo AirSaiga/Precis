@@ -80,8 +80,72 @@ class TestCharsetConstraint:
         c = CharsetConstraint(table="users", column="name", charset_mode="ascii", description="custom")
         assert c._get_description() == "custom"
 
+    def test_chinese_mixed_pass_with_chinese_and_ascii(self):
+        datasets = {"users": pd.DataFrame({"name": ["张三", "Alice123", "Hello 世界"]})}
+        c = CharsetConstraint(table="users", column="name", charset_mode="chinese_mixed")
+        result = c.validate(datasets)
+        assert result["errors"] == []
+
+    def test_chinese_mixed_pass_with_common_punctuation(self):
+        datasets = {"users": pd.DataFrame({"name": ["Hello, 世界!", "Test-123_456"]})}
+        c = CharsetConstraint(table="users", column="name", charset_mode="chinese_mixed")
+        result = c.validate(datasets)
+        assert result["errors"] == []
+
+    def test_chinese_mixed_fail_with_non_ascii_non_chinese(self):
+        datasets = {"users": pd.DataFrame({"name": ["日本語ひらがな", "café"]})}
+        c = CharsetConstraint(table="users", column="name", charset_mode="chinese_mixed")
+        result = c.validate(datasets)
+        assert len(result["errors"]) == 2
+        assert all(e["error_type"] == "CharsetViolation" for e in result["errors"])
+
     def test_unknown_mode_returns_true(self):
         datasets = {"users": pd.DataFrame({"name": ["anything", "123"]})}
         c = CharsetConstraint(table="users", column="name", charset_mode="unknown")
         result = c.validate(datasets)
         assert result["errors"] == []
+
+    def test_chinese_mixed_pass_with_letters_numbers_punctuation(self):
+        datasets = {
+            "users": pd.DataFrame(
+                {
+                    "memo": [
+                        "你好，world!",
+                        "测试123",
+                        "CJK与ASCII混合（ok）",
+                    ]
+                }
+            )
+        }
+        c = CharsetConstraint(table="users", column="memo", charset_mode="chinese_mixed")
+        result = c.validate(datasets)
+        assert result["errors"] == []
+
+    def test_chinese_mixed_fail_with_non_allowed_ascii_symbol(self):
+        datasets = {"users": pd.DataFrame({"memo": ["你好§world"]})}
+        c = CharsetConstraint(table="users", column="memo", charset_mode="chinese_mixed")
+        result = c.validate(datasets)
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["error_type"] == "CharsetViolation"
+
+    def test_chinese_mixed_fail_with_non_cjk_non_ascii(self):
+        datasets = {"users": pd.DataFrame({"memo": ["你好мир"]})}
+        c = CharsetConstraint(table="users", column="memo", charset_mode="chinese_mixed")
+        result = c.validate(datasets)
+        assert len(result["errors"]) == 1
+
+    def test_chinese_mixed_allows_pure_chinese(self):
+        datasets = {"users": pd.DataFrame({"memo": ["张三", "李四"]})}
+        c = CharsetConstraint(table="users", column="memo", charset_mode="chinese_mixed")
+        result = c.validate(datasets)
+        assert result["errors"] == []
+
+    def test_chinese_mixed_allows_pure_ascii_alphanumeric(self):
+        datasets = {"users": pd.DataFrame({"memo": ["hello", "WORLD123"]})}
+        c = CharsetConstraint(table="users", column="memo", charset_mode="chinese_mixed")
+        result = c.validate(datasets)
+        assert result["errors"] == []
+
+    def test_get_description_chinese_mixed(self):
+        c = CharsetConstraint(table="users", column="name", charset_mode="chinese_mixed")
+        assert "中文混合" in c._get_description()

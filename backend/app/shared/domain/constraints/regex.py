@@ -89,13 +89,37 @@ class RegexConstraint(Constraint):
 
         df = datasets.get(self.table)
         if df is None:
-            return {"valid": True, "errors": errors, "info": self.get_constraint_info()}
+            errors.append(
+                {
+                    "error_type": "ConstraintConfigError",
+                    "table": self.table,
+                    "column": self.column,
+                    "message": f"正则约束失败: 表 '{self.table}' 不在数据集中。",
+                }
+            )
+            return {"valid": False, "errors": errors, "info": self.get_constraint_info()}
 
         if self.column not in df.columns:
-            return {"valid": True, "errors": errors, "info": self.get_constraint_info()}
+            errors.append(
+                {
+                    "error_type": "ConstraintConfigError",
+                    "table": self.table,
+                    "column": self.column,
+                    "message": f"正则约束失败: 列 '{self.column}' 在表 '{self.table}' 中不存在。",
+                }
+            )
+            return {"valid": False, "errors": errors, "info": self.get_constraint_info()}
 
         if not self.pattern:
-            return {"valid": True, "errors": errors, "info": self.get_constraint_info()}
+            errors.append(
+                {
+                    "error_type": "ConstraintConfigError",
+                    "table": self.table,
+                    "column": self.column,
+                    "message": "正则约束失败: pattern 为空，未提供正则表达式。",
+                }
+            )
+            return {"valid": False, "errors": errors, "info": self.get_constraint_info()}
 
         try:
             # 解析正则表达式标志

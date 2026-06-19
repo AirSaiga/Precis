@@ -71,12 +71,16 @@ class CharsetConstraint(Constraint):
     @classdesc 字符集约束
 
     验证数据列中的值是否符合指定的字符集编码要求。
-    支持 ASCII(纯英文字符)和中文(纯中文字符)两种模式。
+    支持 ASCII(纯英文字符)、中文(纯中文字符)和中文混合(CJK + ASCII 字母/数字/常见标点)三种模式。
 
     业务场景:
     - 用户名、账号等字段要求纯 ASCII 字符
-    - 姓名、地址等字段要求中文或中英文混合
+    - 姓名、地址等字段要求纯中文字符
+    - 说明、备注等字段允许中文与英文数字及常见标点混合
     """
+
+    # 中文混合模式下允许的 ASCII 常见标点符号
+    _CHINESE_MIXED_PUNCTUATION = frozenset(" .,;:!?()[]{}'\"`-_/\\@#$%&*+=<>|~^")
 
     def __init__(self, table: str, column: str, charset_mode: str = "ascii", description: str | None = None):
         """
@@ -97,7 +101,12 @@ class CharsetConstraint(Constraint):
         """根据字符集模式生成描述字符串"""
         if self.description:
             return self.description
-        charset_name = "ASCII" if self.charset_mode == "ascii" else "中文"
+        charset_name_map = {
+            "ascii": "ASCII",
+            "chinese": "中文",
+            "chinese_mixed": "中文混合",
+        }
+        charset_name = charset_name_map.get(self.charset_mode, "未知")
         return f"字符集约束: {self.table}.{self.column} ({charset_name})"
 
     def validate(self, datasets: dict[str, pd.DataFrame], **kwargs) -> dict[str, Any]:
@@ -118,7 +127,7 @@ class CharsetConstraint(Constraint):
             4. 调用 _check_charset() 检查值是否符合指定字符集
             5. 为每个不符合的值生成错误记录
         """
-        errors = []
+        errors: list[dict[str, Any]] = []
 
         # 检查目标表是否存在
         if self.table not in datasets:
@@ -147,7 +156,12 @@ class CharsetConstraint(Constraint):
             return {"errors": errors, "info": self.get_constraint_info()}
 
         # 根据模式确定显示名称（用于错误消息）
-        charset_name = "ASCII" if self.charset_mode == "ascii" else "中文"
+        charset_name_map = {
+            "ascii": "ASCII",
+            "chinese": "中文",
+            "chinese_mixed": "中文混合",
+        }
+        charset_name = charset_name_map.get(self.charset_mode, self.charset_mode)
 
         # 遍历该列所有值，逐行检查
         for row_tuple in df[[self.column]].itertuples(index=True, name=None):
@@ -185,7 +199,7 @@ class CharsetConstraint(Constraint):
 
         参数:
             value: 要检查的字符串
-            mode: 字符集模式，"ascii" 或 "chinese"
+            mode: 字符集模式，"ascii"、"chinese" 或 "chinese_mixed"
 
         返回:
             True 表示符合指定字符集，False 表示不符合
@@ -194,6 +208,8 @@ class CharsetConstraint(Constraint):
             return self._is_ascii(value)
         elif mode == "chinese":
             return self._is_chinese(value)
+        elif mode == "chinese_mixed":
+            return self._is_chinese_mixed(value)
         return True
 
     def _is_ascii(self, value: str) -> bool:
@@ -214,6 +230,26 @@ class CharsetConstraint(Constraint):
             return True
         except UnicodeEncodeError:
             return False
+
+    def _is_chinese_char(self, char: str) -> bool:
+        """判断单个字符是否属于中文相关 Unicode 区块（CJK 及中文标点）。"""
+        if "\u4e00" <= char <= "\u9fff":
+            return True
+        if "\u3400" <= char <= "\u4dbf":
+            return True
+        if "\U00020000" <= char <= "\U0002a6df":
+            return True
+        if "\U0002a700" <= char <= "\U0002b73f":
+            return True
+        if "\U0002b740" <= char <= "\U0002b81f":
+            return True
+        if "\U0002b820" <= char <= "\U0002ceaf":
+            return True
+        if "\u3000" <= char <= "\u303f":
+            return True
+        if "\uff00" <= char <= "\uffef":
+            return True
+        return False
 
     def _is_chinese(self, value: str) -> bool:
         """
@@ -239,22 +275,26 @@ class CharsetConstraint(Constraint):
             True 表示所有字符都在中文相关 Unicode 区块内，False 表示包含其他字符
         """
         for char in value:
-            if "\u4e00" <= char <= "\u9fff":
-                continue
-            elif "\u3400" <= char <= "\u4dbf":
-                continue
-            elif "\U00020000" <= char <= "\U0002a6df":
-                continue
-            elif "\U0002a700" <= char <= "\U0002b73f":
-                continue
-            elif "\U0002b740" <= char <= "\U0002b81f":
-                continue
-            elif "\U0002b820" <= char <= "\U0002ceaf":
-                continue
-            elif "\u3000" <= char <= "\u303f":
-                continue
-            elif "\uff00" <= char <= "\uffef":
-                continue
-            else:
+            if not self._is_chinese_char(char):
                 return False
+        return len(value) > 0
+
+    def _is_chinese_mixed(self, value: str) -> bool:
+        """
+        检查字符串是否为中文混合字符
+
+        允许 CJK 中文相关字符，以及 ASCII 字母、数字和常见标点符号。
+
+        参数:
+            value: 要检查的字符串
+
+        返回:
+            True 表示符合中文混合字符集，False 表示包含其他字符
+        """
+        for char in value:
+            if self._is_chinese_char(char):
+                continue
+            if char.isascii() and (char.isalnum() or char in self._CHINESE_MIXED_PUNCTUATION):
+                continue
+            return False
         return len(value) > 0

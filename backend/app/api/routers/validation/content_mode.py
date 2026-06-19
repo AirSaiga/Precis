@@ -186,7 +186,7 @@ async def validate_data_with_file(
         file_name = file.filename or "unknown"
         file_ext = os.path.splitext(file_name)[1].lower()
         # 异步读取上传文件的二进制内容
-        content = file.read()
+        content = await file.read()
 
         # 如果文件内容为空，直接返回 400 错误
         if len(content) == 0:
