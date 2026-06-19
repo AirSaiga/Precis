@@ -30,6 +30,8 @@ import { useGraphStore } from '@/stores/graphStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { postExpandPaths } from '@/api/aiApi'
 import { getV2Manifest } from '@/api/projectV2Api'
+import { uploadFile } from '@/api/fileApi'
+import { isElectron } from '@/core/utils/electronDetector'
 
 export function useFileSelection(configPath: ComputedRef<string | undefined>) {
   const { t } = useI18n()
@@ -150,6 +152,15 @@ export function useFileSelection(configPath: ComputedRef<string | undefined>) {
    * 选择数据文件（支持多选）
    */
   const pickFiles = async () => {
+    if (isElectron()) {
+      await pickFilesElectron()
+    } else {
+      await pickFilesWeb()
+    }
+  }
+
+  /** Electron 原生文件选择对话框（支持多选） */
+  const pickFilesElectron = async () => {
     const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
       | { showOpenDialog?: (opts: unknown) => Promise<unknown> }
       | undefined
@@ -171,10 +182,27 @@ export function useFileSelection(configPath: ComputedRef<string | undefined>) {
     mergeSelectedPaths(paths)
   }
 
+  /** Web 浏览器文件选择（支持多选） */
+  const pickFilesWeb = async () => {
+    const paths = await webSelectFiles('.csv,.xlsx,.xls,.json')
+    if (paths.length > 0) {
+      mergeSelectedPaths(paths)
+    }
+  }
+
   /**
    * 选择数据文件夹（支持多选）
    */
   const pickFolders = async () => {
+    if (isElectron()) {
+      await pickFoldersElectron()
+    } else {
+      await pickFoldersWeb()
+    }
+  }
+
+  /** Electron 原生文件夹选择 */
+  const pickFoldersElectron = async () => {
     const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
       | { showOpenDialog?: (opts: unknown) => Promise<unknown> }
       | undefined
@@ -195,10 +223,22 @@ export function useFileSelection(configPath: ComputedRef<string | undefined>) {
     mergeSelectedPaths(paths)
   }
 
+  /** Web 浏览器文件夹选择 */
+  const pickFoldersWeb = async () => {
+    const dirs = await webSelectDirectories()
+    if (dirs.length > 0) {
+      mergeSelectedPaths(dirs)
+    }
+  }
+
   /**
    * 选择脚本文件（用于迁移）
    */
   const pickScriptFiles = async () => {
+    if (!isElectron()) {
+      return webSelectFiles('.py,.sql,.md,.txt,.js,.json,.yaml,.yml')
+    }
+
     const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
       | { showOpenDialog?: (opts: unknown) => Promise<unknown> }
       | undefined
@@ -229,6 +269,10 @@ export function useFileSelection(configPath: ComputedRef<string | undefined>) {
    * 选择脚本文件夹（用于迁移）
    */
   const pickScriptFolder = async () => {
+    if (!isElectron()) {
+      return webSelectDirectories()
+    }
+
     const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
       | { showOpenDialog?: (opts: unknown) => Promise<unknown> }
       | undefined
@@ -247,6 +291,80 @@ export function useFileSelection(configPath: ComputedRef<string | undefined>) {
       ? ((res as Record<string, unknown>).filePaths as string[])
       : []
     return paths
+  }
+
+  /**
+   * Web 模式：通过浏览器文件输入选择数据文件，上传到后端临时目录。
+   * 返回上传后的临时路径列表。
+   */
+  const webSelectFiles = async (accept: string): Promise<string[]> => {
+    return new Promise((resolve) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.multiple = true
+      input.accept = accept
+
+      input.onchange = async () => {
+        const files = input.files
+        if (!files || files.length === 0) {
+          resolve([])
+          return
+        }
+        try {
+          const paths = await Promise.all(
+            Array.from(files).map(async (f) => {
+              const result = await uploadFile(f)
+              return result.temp_path
+            }),
+          )
+          resolve(paths)
+        } catch (e) {
+          logger.error('[useFileSelection] Web 文件上传失败:', e)
+          window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.uploadFailed'))
+          resolve([])
+        }
+      }
+
+      input.oncancel = () => resolve([])
+      input.click()
+    })
+  }
+
+  /**
+   * Web 模式：通过浏览器目录选择器选择目录。
+   * 使用 webkitdirectory 属性让用户选择文件夹，上传其中所有文件。
+   */
+  const webSelectDirectories = async (): Promise<string[]> => {
+    return new Promise((resolve) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.setAttribute('webkitdirectory', '')
+      input.setAttribute('directory', '')
+
+      input.onchange = async () => {
+        const files = input.files
+        if (!files || files.length === 0) {
+          resolve([])
+          return
+        }
+        try {
+          const paths = await Promise.all(
+            Array.from(files).map(async (f) => {
+              const result = await uploadFile(f)
+              return result.temp_path
+            }),
+          )
+          resolve(paths)
+        } catch (e) {
+          logger.error('[useFileSelection] Web 目录选择失败:', e)
+          window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.uploadFailed'))
+          resolve([])
+        }
+      }
+
+      input.oncancel = () => resolve([])
+      input.click()
+    })
   }
 
   /**
