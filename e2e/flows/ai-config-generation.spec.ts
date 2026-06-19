@@ -24,14 +24,15 @@ test.describe('AI Config Generation Agent Mode', () => {
     const healthy = await apiHelper.healthCheck()
     test.skip(!healthy, '后端未启动，跳过 AI E2E 测试')
 
+    // 检查是否配置了可用 Provider（见 ai-chat-agent.spec.ts 的同类说明）。
     const providersResp = await apiHelper.get('/ai/providers')
-    if (providersResp.ok) {
-      const providers = await providersResp.json()
-      test.skip(
-        !Array.isArray(providers) || providers.length === 0,
-        '未配置 AI Provider，跳过 AI E2E 测试'
-      )
+    if (!providersResp.ok) {
+      test.skip(true, '无法读取 AI Provider 列表，跳过 AI E2E 测试')
+      return
     }
+    const providers = await providersResp.json()
+    const hasConfigured = Array.isArray(providers) && providers.some((p: { is_configured?: boolean }) => p.is_configured)
+    test.skip(!hasConfigured, '未配置可用的 AI Provider（缺少 API key），跳过 AI E2E 测试')
   })
 
   const makePayload = (overrides?: Record<string, unknown>) => ({

@@ -22,15 +22,18 @@ test.describe('AI Chat Agent Mode', () => {
     const healthy = await apiHelper.healthCheck()
     test.skip(!healthy, '后端未启动，跳过 AI Chat E2E 测试')
 
-    // 检查是否配置了 Provider
+    // 检查是否配置了可用 Provider。
+    // 注意：/ai/providers 总是返回所有已定义 provider（含未配置 key 的），
+    // 用 is_configured 字段标识哪个真正可用。CI 环境通常未配置 API key，
+    // 此时所有 provider 的 is_configured 均为 false，必须 skip 而非失败。
     const providersResp = await apiHelper.get('/ai/providers')
-    if (providersResp.ok) {
-      const providers = await providersResp.json()
-      test.skip(
-        !Array.isArray(providers) || providers.length === 0,
-        '未配置 AI Provider，跳过 AI Chat E2E 测试'
-      )
+    if (!providersResp.ok) {
+      test.skip(true, '无法读取 AI Provider 列表，跳过 AI Chat E2E 测试')
+      return
     }
+    const providers = await providersResp.json()
+    const hasConfigured = Array.isArray(providers) && providers.some((p: { is_configured?: boolean }) => p.is_configured)
+    test.skip(!hasConfigured, '未配置可用的 AI Provider（缺少 API key），跳过 AI Chat E2E 测试')
   })
 
   const makeChatPayload = (overrides?: Record<string, unknown>) => ({
