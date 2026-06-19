@@ -61,6 +61,7 @@ from .routers import (
     data_sources_router,
     preview_router,
     project_router,
+    projects_router,
     regex_router,
     reporting_router,
     validation_router,
@@ -211,6 +212,7 @@ app.add_middleware(RequestLoggingMiddleware)
 # 路由顺序不影响匹配，FastAPI 使用最长前缀匹配
 # 【路由列表】按功能模块分组，便于维护和扩展
 app.include_router(project_router)  # 项目管理路由（V2 配置读写）
+app.include_router(projects_router)  # 项目扫描路由（Web 模式）
 app.include_router(ai_router)  # AI 辅助路由（智能提示、生成）
 app.include_router(regex_router)  # 正则表达式路由（测试、验证）
 app.include_router(reporting_router)  # 报告路由（校验结果导出）

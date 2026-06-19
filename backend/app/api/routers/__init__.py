@@ -12,10 +12,12 @@ from .core.regex import router as regex_router
 from .core.reporting import router as reporting_router
 from .preview import router as preview_router
 from .project import router as project_router
+from .projects import router as projects_router
 from .validation import router as validation_router
 
 __all__ = [
     "project_router",
+    "projects_router",
     "connection_rules_router",
     "ai_router",
     "preview_router",
