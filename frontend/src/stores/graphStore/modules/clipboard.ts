@@ -23,7 +23,7 @@ export function createClipboardModule(params: {
   deleteNodes: (nodeIds: string[]) => void
   saveState: () => void
   pasteOffset?: { x: number; y: number }
-  reconcileAll: () => void
+  reconcileAll: () => void | Promise<void>
 }) {
   const {
     nodes,
@@ -219,7 +219,7 @@ export function createClipboardModule(params: {
       selectedNodeIds.value = newNodeIds
     }
 
-    reconcileAll()
+    await reconcileAll()
     return newNodeIds
   }
 
@@ -297,7 +297,7 @@ export function createClipboardModule(params: {
       remapConditionalEdgeIds(newNode.data as unknown as Record<string, unknown>, edgeIdMap)
     }
 
-    reconcileAll()
+    await reconcileAll()
     return newNode.id
   }
 

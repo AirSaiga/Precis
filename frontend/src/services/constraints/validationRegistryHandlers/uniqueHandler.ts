@@ -5,7 +5,7 @@
 
 import { defaultReset, register, requireSource, toResult } from '../validationRegistryCore'
 import { validateInline } from '@/api/validationApi'
-import { validateUnique } from '@/composables/nodes/constraints/useUnique'
+import { validateUnique } from '../validators/unique'
 
 register({
   kind: 'unique',

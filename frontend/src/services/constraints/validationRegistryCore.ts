@@ -141,11 +141,11 @@ import {
   validateRange,
   validateScripted,
 } from '@/api/validationApi'
-import { validateNotNull } from '@/composables/nodes/constraints/useNotNull'
-import { validateUnique } from '@/composables/nodes/constraints/useUnique'
 import { getApiBaseUrl } from '@/core/services/httpClient'
 import { logger } from '@/core/utils/logger'
-import { validateRegexNode } from '@/services/regex/regexValidationHandler'
+import { validateRegexNodesForSchema } from '@/services/regex/regexValidationHandler'
+export { buildValidationContext } from './validationContext'
+import { buildValidationContext } from './validationContext'
 import type {
   ConstraintKind,
   ConstraintNodeType,
@@ -154,7 +154,7 @@ import type {
   ConstraintValidationHandler,
   ConstraintValidationResult,
 } from './types'
-import { findJsonSchemaColumnById, extractJsonTargetValues } from '@/utils/nodes/json/columnFinder'
+import { extractJsonTargetValues } from '@/utils/nodes/json/columnFinder'
 
 export const CONSTRAINT_TYPES: ConstraintTypeMeta[] = [
   { nodeType: 'notNullConstraint', kind: 'notNull', v2Type: 'NotNull', requireInputHandle: false },
@@ -292,7 +292,8 @@ export const getTargetValues = (
       if (sourceNodeId) {
         const sourcePreviewNode = nodes.find((n) => n.id === sourceNodeId)
         if (sourcePreviewNode?.type === 'jsonSourcePreview') {
-          rawData = ((sourcePreviewNode.data || {}) as Record<string, unknown>)?.rawData as unknown[]
+          rawData = ((sourcePreviewNode.data || {}) as Record<string, unknown>)
+            ?.rawData as unknown[]
         }
       }
     }
@@ -331,7 +332,7 @@ export const getTargetValues = (
   return Array.from(new Set(values))
 }
 
-  // extractJsonTargetValues 委托给共享工具 columnFinder（含 50000 条上限保护）
+// extractJsonTargetValues 委托给共享工具 columnFinder（含 50000 条上限保护）
 
 export function register(handler: ConstraintValidationHandler) {
   handlers.set(handler.kind, handler)
@@ -368,51 +369,6 @@ export function getHandlerByNodeType(type: string | undefined): ConstraintValida
 
 export function getHandlerByKind(kind: ConstraintKind): ConstraintValidationHandler | null {
   return handlers.get(kind) || null
-}
-
-export function buildValidationContext(params: {
-  schemaNode: Node
-  constraintNode: Node
-  edge: Edge
-  nodes: Node[]
-}): ConstraintValidationContext | null {
-  const { schemaNode, constraintNode, edge } = params
-  const sourceHandle = edge.sourceHandle || ''
-  if (!sourceHandle.startsWith('source-right-')) return null
-  const columnId = sourceHandle.replace('source-right-', '')
-  const schemaData = (schemaNode.data || {}) as Record<string, unknown>
-
-  // 根据节点类型查找列：jsonSchema 支持嵌套 children，schema 保持平面查找
-  let column: Record<string, unknown> | undefined
-  if (schemaNode.type === 'jsonSchema') {
-    const found = findJsonSchemaColumnById(
-      schemaData.columns as import('@/types/graph').JsonSchemaColumn[],
-      columnId
-    )
-    column = found ? (found.column as unknown as Record<string, unknown>) : undefined
-  } else {
-    column = ((schemaData.columns || []) as unknown[]).find(
-      (c) => (c as Record<string, unknown>).id === columnId
-    ) as Record<string, unknown> | undefined
-  }
-  if (!column) return null
-
-  return {
-    nodes: params.nodes,
-    schemaNode,
-    constraintNode,
-    edge,
-    columnId,
-    columnName: column.columnName as string,
-    columnDataType: (column.dataType as string) || undefined,
-    sourceFilePath: (schemaData.localPath || schemaData.sourceFilePath) as string,
-    sourceFile: schemaData.sourceFile as string,
-    sheetName: schemaData.sheetName as string,
-    headerRow: typeof schemaData.headerRow === 'number' ? schemaData.headerRow : 0,
-    jsonPath: (schemaData.jsonPath as string) || undefined,
-    recordPath: (schemaData.recordPath as string) || undefined,
-    jsonFormat: (schemaData.format as string) || undefined,
-  }
 }
 
 export async function validateConstraintNode(params: {
@@ -521,41 +477,20 @@ export async function validateConstraintNodesForSchema(params: {
   // ====================================================================
   // Regex 节点校验（edge-driven）
   // ====================================================================
-  const regexEdges = schemaEdges.filter((e) => {
-    const node = nodes.find((n) => n.id === e.target)
-    return node?.type === 'regex'
+  const regexSummary = await validateRegexNodesForSchema({
+    schemaNode,
+    schemaEdges,
+    nodes,
+    edges,
+    updateNodeData,
   })
-
-  for (const edge of regexEdges) {
-    const regexNode = nodes.find((n) => n.id === edge.target)
-    if (!regexNode) continue
-    // extract 模式的正则节点会产生派生列写回副作用，
-    // 仅在用户显式点击校验时触发，全局/自动化校验跳过。
-    const regexData = (regexNode.data || {}) as Record<string, unknown>
-    if (regexData.matchMode === 'extract') continue
-    const ctx = buildValidationContext({ schemaNode, constraintNode: regexNode, edge, nodes })
-    if (!ctx) continue
-    const result = await validateRegexNode({
-      regexNode,
-      sourceNode: schemaNode,
-      columnName: ctx.columnName,
-      columnId: ctx.columnId,
-      nodes,
-      edges,
-      updateNodeData,
-    })
-    if (result) {
-      if (result.validationStatus === 'pass') {
-        totalValid++
-      } else if (result.validationStatus === 'error') {
-        totalInvalid++
-        totalErrorCount += result.errorCount || 0
-      }
-      if (result.errorCount && result.errorCount > 0) {
-        const existing = columnErrorMap.get(ctx.columnId) || []
-        const regexErrors = [`Regex: ${result.errorCount} errors`]
-        columnErrorMap.set(ctx.columnId, [...existing, ...regexErrors])
-      }
+  if (regexSummary) {
+    totalValid += regexSummary.totalValid
+    totalInvalid += regexSummary.totalInvalid
+    totalErrorCount += regexSummary.totalErrorCount
+    for (const [colId, errors] of regexSummary.columnErrorMap.entries()) {
+      const existing = columnErrorMap.get(colId) || []
+      columnErrorMap.set(colId, [...existing, ...errors])
     }
   }
 

@@ -40,9 +40,19 @@ export interface VueFlowApi {
 
 let _api: VueFlowApi | null = null
 
+/**
+ * Vue Flow API 尚未初始化时抛出的异常。
+ * 用于调用方区分“未初始化”与真正的 Vue Flow 运行时错误。
+ */
+export class VueFlowApiNotInitializedError extends Error {
+  constructor() {
+    super('[vueFlowApi] 未初始化。请在 NodeCanvas.vue setup 中调用 initVueFlowApi()。')
+    this.name = 'VueFlowApiNotInitializedError'
+  }
+}
+
 function requireApi(): VueFlowApi {
-  if (!_api)
-    throw new Error('[vueFlowApi] 未初始化。请在 NodeCanvas.vue setup 中调用 initVueFlowApi()。')
+  if (!_api) throw new VueFlowApiNotInitializedError()
   return _api
 }
 

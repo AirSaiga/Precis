@@ -11,17 +11,47 @@
  * - 单一入口 syncSchemaResources()
  * - 幂等：重复调用不会创建重复节点
  * - 异步：所有加载操作都是异步的，不阻塞 UI
+ * - 依赖注入：不直接引用 Pinia store，调用方传入所需依赖
  */
 
 import { nextTick } from 'vue'
 import { logger } from '@/core/utils/logger'
-import { useGraphStore } from '@/stores/graphStore'
-import { useProjectStore } from '@/stores/projectStore'
 import { getV2Schema, getV2FullConfig } from '@/api/projectV2Api'
 import { materializeV2EmbeddedConstraints } from '@/stores/graphStore/modules/v2/shared/embeddedConstraints'
 import { addNodes } from '@/services/canvas/vueFlowApi'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import type { SchemaNodeData } from '@/types/graph'
+import type { Edge } from '@vue-flow/core'
+import type { CustomNode, CustomNodeData } from '@/types/nodes'
+
+/** 依赖的 GraphStore 最小接口 */
+export interface SchemaSyncGraphStore {
+  nodes: CustomNode[]
+  edges: Edge[]
+  updateNodeData: (nodeId: string, data: Partial<CustomNodeData>) => void
+  createConnection: (
+    source: string,
+    target: string,
+    sourceHandle?: string,
+    targetHandle?: string,
+    options?: Record<string, unknown>
+  ) => any
+  importV2ResourceToCanvas: (
+    kind: 'schema' | 'constraint' | 'regex' | 'transform',
+    resourceId: string,
+    position: { x: number; y: number }
+  ) => Promise<string | null>
+}
+
+/** 依赖的 ProjectStore 最小接口 */
+export interface SchemaSyncProjectStore {
+  currentPaths?: { configPath?: string } | null
+}
+
+export interface SchemaResourceSyncDeps {
+  graphStore: SchemaSyncGraphStore
+  projectStore: SchemaSyncProjectStore
+}
 
 export interface SchemaResourceSyncOptions {
   /** 是否加载内嵌约束（默认 true） */
@@ -39,6 +69,7 @@ export interface SchemaResourceSyncOptions {
  */
 export async function syncSchemaResources(
   schemaNodeId: string,
+  deps: SchemaResourceSyncDeps,
   options: SchemaResourceSyncOptions = {}
 ): Promise<{
   success: boolean
@@ -56,12 +87,10 @@ export async function syncSchemaResources(
   } = options
 
   try {
-    const v2SchemaId = await resolveV2SchemaId(schemaNodeId)
+    const v2SchemaId = await resolveV2SchemaId(schemaNodeId, deps.graphStore, deps.projectStore)
     if (!v2SchemaId) {
       return { success: false, embeddedCount: 0, independentCount: 0, regexCount: 0 }
     }
-
-    const graphStore = useGraphStore()
 
     let embeddedCount = 0
     let independentCount = 0
@@ -69,17 +98,27 @@ export async function syncSchemaResources(
 
     // 1. 加载内嵌约束
     if (loadEmbedded) {
-      embeddedCount = await loadEmbeddedConstraints(schemaNodeId, v2SchemaId)
+      embeddedCount = await loadEmbeddedConstraints(schemaNodeId, v2SchemaId, deps.graphStore)
     }
 
-    // 2. 加载独立约束（占位：Phase 2 实现）
+    // 2. 加载独立约束
     if (loadIndependent) {
-      independentCount = await loadIndependentConstraints(schemaNodeId, v2SchemaId)
+      independentCount = await loadIndependentConstraints(
+        schemaNodeId,
+        v2SchemaId,
+        deps.graphStore,
+        deps.projectStore
+      )
     }
 
-    // 3. 加载正则（占位：Phase 2 实现）
+    // 3. 加载正则
     if (loadRegex) {
-      regexCount = await loadRegexNodes(schemaNodeId, v2SchemaId)
+      regexCount = await loadRegexNodes(
+        schemaNodeId,
+        v2SchemaId,
+        deps.graphStore,
+        deps.projectStore
+      )
     }
 
     // 4. 触发校验
@@ -89,9 +128,9 @@ export async function syncSchemaResources(
       await nextTick()
       triggerValidationForNode(
         schemaNodeId,
-        Array.from(graphStore.nodes),
-        Array.from(graphStore.edges),
-        (nodeId: string, data: any) => graphStore.updateNodeData(nodeId, data)
+        Array.from(deps.graphStore.nodes),
+        Array.from(deps.graphStore.edges),
+        (nodeId: string, data: any) => deps.graphStore.updateNodeData(nodeId, data)
       )
     }
 
@@ -121,11 +160,11 @@ export async function syncSchemaResources(
  * 用于在创建新 schema 节点前，判断是否应该复用已有的 V2 schema ID，
  * 避免画布节点 ID 与 V2 配置不一致导致后续资源同步时重复创建 schema。
  */
-export async function findV2SchemaIdByTableName(tableName: string): Promise<string | null> {
+export async function findV2SchemaIdByTableName(
+  tableName: string,
+  configPath: string | undefined
+): Promise<string | null> {
   if (!tableName) return null
-
-  const projectStore = useProjectStore()
-  const configPath = projectStore.currentPaths?.configPath
   if (!configPath) return null
 
   let fullConfig: Awaited<ReturnType<typeof getV2FullConfig>> | null = null
@@ -153,14 +192,17 @@ export async function findV2SchemaIdByTableName(tableName: string): Promise<stri
  * 1. 用 tableName 反查 V2 配置
  * 2. 回退到节点 ID 本身
  */
-export async function resolveV2SchemaId(schemaNodeId: string): Promise<string | null> {
-  const graphStore = useGraphStore()
-
+export async function resolveV2SchemaId(
+  schemaNodeId: string,
+  graphStore: SchemaSyncGraphStore,
+  projectStore: SchemaSyncProjectStore
+): Promise<string | null> {
   const schemaNode = graphStore.nodes.find((n) => n.id === schemaNodeId)
   if (!schemaNode) return null
 
   const schemaData = schemaNode.data as SchemaNodeData
-  const v2Id = await findV2SchemaIdByTableName(schemaData.tableName)
+  const configPath = projectStore.currentPaths?.configPath
+  const v2Id = await findV2SchemaIdByTableName(schemaData.tableName, configPath)
   return v2Id || schemaNodeId
 }
 
@@ -180,12 +222,15 @@ export function isV2SchemaId(_id: string): boolean {
 /**
  * 加载内嵌约束
  */
-async function loadEmbeddedConstraints(schemaNodeId: string, v2SchemaId: string): Promise<number> {
+async function loadEmbeddedConstraints(
+  schemaNodeId: string,
+  v2SchemaId: string,
+  graphStore: SchemaSyncGraphStore
+): Promise<number> {
   try {
     const schemaFile = await getV2Schema(v2SchemaId)
     if (!schemaFile?.constraints?.length) return 0
 
-    const graphStore = useGraphStore()
     const schemaNode = graphStore.nodes.find((n) => n.id === schemaNodeId)
     if (!schemaNode) return 0
 
@@ -239,16 +284,16 @@ async function loadEmbeddedConstraints(schemaNodeId: string, v2SchemaId: string)
  */
 async function loadIndependentConstraints(
   schemaNodeId: string,
-  v2SchemaId: string
+  v2SchemaId: string,
+  graphStore: SchemaSyncGraphStore,
+  projectStore: SchemaSyncProjectStore
 ): Promise<number> {
   try {
-    const projectStore = useProjectStore()
     const configPath = projectStore.currentPaths?.configPath
     if (!configPath) return 0
 
     const fullConfig = await getV2FullConfig(configPath)
     const constraints = fullConfig.constraints || {}
-    const graphStore = useGraphStore()
 
     const matchingConstraints = Object.values(constraints).filter((c) => {
       const refs = c.refs as Record<string, unknown>
@@ -285,15 +330,18 @@ async function loadIndependentConstraints(
  * 遍历 V2 配置中的 regex_nodes，加载 source_ref.table_id 匹配 v2SchemaId 的正则节点。
  * 幂等：已存在于画布上的节点不会重复创建。
  */
-async function loadRegexNodes(schemaNodeId: string, v2SchemaId: string): Promise<number> {
+async function loadRegexNodes(
+  schemaNodeId: string,
+  v2SchemaId: string,
+  graphStore: SchemaSyncGraphStore,
+  projectStore: SchemaSyncProjectStore
+): Promise<number> {
   try {
-    const projectStore = useProjectStore()
     const configPath = projectStore.currentPaths?.configPath
     if (!configPath) return 0
 
     const fullConfig = await getV2FullConfig(configPath)
     const regexNodes = fullConfig.regex_nodes || {}
-    const graphStore = useGraphStore()
 
     const matchingRegex = Object.values(regexNodes).filter((r) => {
       return r.source_ref?.table_id === v2SchemaId

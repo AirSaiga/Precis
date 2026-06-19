@@ -274,17 +274,14 @@ export function useNodeOrganizer() {
   }
 
   function applyPositions(positions: Map<string, { x: number; y: number }>): void {
-    const currentNodes = [...nodes.value]
-
-    for (const node of currentNodes) {
+    graphStore.nodes = nodes.value.map((node) => {
       const newPos = positions.get(node.id)
-      if (newPos) {
-        node.position.x = newPos.x
-        node.position.y = newPos.y
+      if (!newPos) return node
+      return {
+        ...node,
+        position: { x: newPos.x, y: newPos.y },
       }
-    }
-
-    graphStore.nodes = currentNodes
+    })
   }
 
   function toggleShowGroups(): void {
@@ -302,15 +299,17 @@ export function useNodeOrganizer() {
     group.x += dx
     group.y += dy
 
-    const currentNodes = [...nodes.value]
-    for (const nodeId of group.nodeIds) {
-      const node = currentNodes.find((n) => n.id === nodeId)
-      if (node) {
-        node.position.x += dx
-        node.position.y += dy
+    const nodeIdsToMove = new Set(group.nodeIds)
+    graphStore.nodes = nodes.value.map((node) => {
+      if (!nodeIdsToMove.has(node.id)) return node
+      return {
+        ...node,
+        position: {
+          x: node.position.x + dx,
+          y: node.position.y + dy,
+        },
       }
-    }
-    graphStore.nodes = currentNodes
+    })
   }
 
   async function toggleGroupCollapse(groupId: string): Promise<void> {

@@ -26,7 +26,7 @@ export interface NodeOpsDeps {
   edges: Ref<Edge[]>
   selectedNodeId: Ref<string | null>
   selectedNodeIds: Ref<string[]>
-  reconcileAll: () => void
+  reconcileAll: () => void | Promise<void>
   templateExpand: TemplateExpandLike
   sourceIndex?: { rebuild: () => void }
 }
@@ -98,8 +98,8 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
       selectedNodeId.value = null
     }
 
-    nextTick(() => {
-      reconcileAll()
+    nextTick(async () => {
+      await reconcileAll()
       onNodesRemoved()
     })
   }
@@ -132,8 +132,8 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
       selectedNodeId.value = null
     }
 
-    nextTick(() => {
-      reconcileAll()
+    nextTick(async () => {
+      await reconcileAll()
       onNodesRemoved()
     })
   }

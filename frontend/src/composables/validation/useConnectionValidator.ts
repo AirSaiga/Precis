@@ -61,6 +61,40 @@ export function useConnectionValidator(options: UseConnectionValidatorOptions = 
   }
 
   /**
+   * 判断 handle 是否匹配规则中的 handle 模式
+   *
+   * 支持两种模式：
+   * - 精确匹配：规则 handle 不含 `{...}`，直接比较字符串
+   * - 占位符匹配：规则 handle 包含 `{columnId}`、`{nodeId}` 等占位符，
+   *   匹配任意非空字符串。用于 Schema 列级 handle（如 source-right-{columnId}）
+   *   和约束节点输入 handle（如 target-input-{nodeId}）。
+   */
+  function isHandleMatchingPattern(handle: string, pattern: string): boolean {
+    if (!pattern.includes('{')) {
+      return pattern === handle
+    }
+
+    const escapeRegex = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    let regexSource = '^'
+    let lastIndex = 0
+    const placeholderRegex = /\{[^}]+\}/g
+    let match: RegExpExecArray | null
+
+    while ((match = placeholderRegex.exec(pattern)) !== null) {
+      regexSource += escapeRegex(pattern.slice(lastIndex, match.index)) + '(.+)'
+      lastIndex = placeholderRegex.lastIndex
+    }
+    regexSource += escapeRegex(pattern.slice(lastIndex)) + '$'
+
+    return new RegExp(regexSource).test(handle)
+  }
+
+  function isHandleAllowed(handle: string | undefined, allowedHandles: string[]): boolean {
+    if (handle === undefined) return false
+    return allowedHandles.some((pattern) => isHandleMatchingPattern(handle, pattern))
+  }
+
+  /**
    * 查找源节点和目标节点之间匹配连接规则
    *
    * 业务逻辑：
@@ -96,7 +130,7 @@ export function useConnectionValidator(options: UseConnectionValidatorOptions = 
       // 场景：某些规则可能只允许连接到特定的 Handle（如 "regex-input"）
       if (rule.target.handles && rule.target.handles.length > 0) {
         // 如果规则定义了目标 Handle，但提供的 Handle 不在允许列表中，则跳过
-        if (targetHandle && !rule.target.handles.includes(targetHandle)) {
+        if (targetHandle && !isHandleAllowed(targetHandle, rule.target.handles)) {
           continue
         }
       }
@@ -104,7 +138,7 @@ export function useConnectionValidator(options: UseConnectionValidatorOptions = 
       // 2.3: 检查源 Handle 是否符合规则约束
       // 场景：某些节点可能有多个输出 Handle，需要区分数据类型
       if (rule.source.handles && rule.source.handles.length > 0) {
-        if (sourceHandle && !rule.source.handles.includes(sourceHandle)) {
+        if (sourceHandle && !isHandleAllowed(sourceHandle, rule.source.handles)) {
           continue
         }
       }
@@ -202,9 +236,9 @@ export function useConnectionValidator(options: UseConnectionValidatorOptions = 
   ): { valid: boolean; errorCode?: ValidationErrorCode } {
     // 如果规则定义了源 Handle 约束
     if (rule.source.handles && rule.source.handles.length > 0) {
-      // 检查提供的 Handle 是否在允许列表中
+      // 检查提供的 Handle 是否匹配允许列表中的模式（支持 {columnId} 等占位符）
       // 注意：sourceHandle 为 undefined 在某些场景下是合法的（如不关心具体 Handle）
-      if (!sourceHandle || !rule.source.handles.includes(sourceHandle)) {
+      if (!sourceHandle || !isHandleAllowed(sourceHandle, rule.source.handles)) {
         return { valid: false, errorCode: 'SOURCE_HANDLE_NOT_ALLOWED' }
       }
     }
@@ -224,7 +258,7 @@ export function useConnectionValidator(options: UseConnectionValidatorOptions = 
   ): { valid: boolean; errorCode?: ValidationErrorCode } {
     // 如果规则定义了目标 Handle 约束
     if (rule.target.handles && rule.target.handles.length > 0) {
-      if (!targetHandle || !rule.target.handles.includes(targetHandle)) {
+      if (!targetHandle || !isHandleAllowed(targetHandle, rule.target.handles)) {
         return { valid: false, errorCode: 'TARGET_HANDLE_NOT_ALLOWED' }
       }
     }

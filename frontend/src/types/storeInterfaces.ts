@@ -9,6 +9,7 @@ import type { Ref } from 'vue'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { Edge } from '@vue-flow/core'
 import type { ProjectPaths } from '@/stores/projectStore'
+import type { ResourceItem } from '@/types/resource/types'
 
 /**
  * GraphStore 最小公共接口
@@ -36,4 +37,15 @@ export interface ProjectStoreLike {
   isProjectActive: boolean
   setProjectPaths: (newPaths: ProjectPaths) => void
   clearProject: () => void
+}
+
+/**
+ * ResourceTreeStore 最小公共接口
+ *
+ * 定义外部模块需要从 resourceTreeStore 获取的核心能力。
+ * 用于在 graphStore 模块中解耦对 resourceTreeStore 的直接导入。
+ */
+export interface ResourceTreeStoreLike {
+  getResourceById: (id: string) => ResourceItem | undefined
+  clear: () => void
 }

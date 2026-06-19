@@ -94,7 +94,7 @@ export function createHistoryModule(params: {
 
     if (reconcileAll) {
       await nextTick()
-      reconcileAll()
+      await reconcileAll()
     }
   }
 
@@ -124,7 +124,7 @@ export function createHistoryModule(params: {
 
     if (reconcileAll) {
       await nextTick()
-      reconcileAll()
+      await reconcileAll()
     }
   }
 

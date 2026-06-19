@@ -24,13 +24,14 @@
 
 <template>
   <!-- Web 模式下显示项目选择器 -->
-  <ProjectSelector
-    v-if="showProjectSelector"
-    @project-opened="handleProjectOpened"
-  />
+  <ProjectSelector v-if="showProjectSelector" @project-opened="handleProjectOpened" />
 
   <!-- 主应用布局 -->
-  <div v-else class="app-layout" :class="{ 'is-resizing': layout.isLayoutTransitionDisabled.value }">
+  <div
+    v-else
+    class="app-layout"
+    :class="{ 'is-resizing': layout.isLayoutTransitionDisabled.value }"
+  >
     <!-- Level 1: Activity Bar (导航条) -->
     <aside
       class="activity-bar"
@@ -304,6 +305,9 @@
       showProjectSelector.value = false
       localStorage.setItem('lastProjectPath', path)
       await continueBootstrapAfterProject(path)
+      // Web 模式下 onMounted 因显示 ProjectSelector 而提前 return，未注册全局监听；
+      // 项目打开后才具备画布交互环境，需在此补注册，避免 viewchange 等事件无人监听。
+      registerGlobalListeners()
     } catch (error) {
       logger.error('[App] Web 模式项目加载失败:', error)
       showProjectSelector.value = true
@@ -391,21 +395,12 @@
    * 项目关闭事件（由 ProjectManagementModal 触发）
    *
    * 遍历所有工作区，移除 projectRoot 节点及其关联的边。
+   * 活跃工作区走 graphStore.deleteNodes 增量删除路径；
+   * 其他工作区快照由 canvasStore 内部过滤，避免业务层直接赋值 workspace.nodes。
    * 保留其他类型的节点（schema、constraint 等），因为用户可能重新打开项目。
    */
   const handleProjectClosed = () => {
-    canvasStore.workspaces.forEach((workspace) => {
-      if (workspace.nodes) {
-        workspace.nodes = workspace.nodes.filter((node: any) => node.type !== 'projectRoot')
-      }
-      if (workspace.edges) {
-        workspace.edges = workspace.edges.filter((edge: any) => {
-          const sourceNode = workspace.nodes?.find((n: any) => n.id === edge.source)
-          const targetNode = workspace.nodes?.find((n: any) => n.id === edge.target)
-          return sourceNode?.type !== 'projectRoot' && targetNode?.type !== 'projectRoot'
-        })
-      }
-    })
+    canvasStore.removeNodesFromAllWorkspaces((node) => node.type === 'projectRoot', graphStore)
   }
 
   // --- 全局鼠标/窗口事件 ---

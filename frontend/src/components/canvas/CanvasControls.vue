@@ -30,31 +30,12 @@
 
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
-  import { useVueFlow } from '@vue-flow/core'
-  import { useGraphStore } from '@/stores/graphStore'
+  import { useCanvasLifecycle } from '@/composables/canvas/useCanvasLifecycle'
   import { useNodeOrganizer } from '@/features/node-layout-organizer/composables/useNodeOrganizer'
 
   const { t } = useI18n()
-  const store = useGraphStore()
   const nodeOrganizer = useNodeOrganizer()
-  const { fitView } = useVueFlow()
-
-  const focusToProjectRoot = () => {
-    store.nodes.forEach((node) => {
-      if ((node as unknown as Record<string, unknown>).hidden) {
-        ;(node as unknown as Record<string, unknown>).hidden = false
-      }
-    })
-
-    const projectNode = store.nodes.find((n) => n.type === 'projectRoot')
-    if (projectNode) {
-      fitView({
-        nodes: [projectNode.id],
-        padding: 0.5,
-        duration: 300,
-      })
-    }
-  }
+  const { focusToProjectRoot } = useCanvasLifecycle()
 </script>
 
 <style scoped>

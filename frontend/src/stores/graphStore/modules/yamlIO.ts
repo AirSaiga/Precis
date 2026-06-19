@@ -101,7 +101,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import type { Ref } from 'vue'
+import { nextTick, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { v4 as uuidv4 } from 'uuid'
 import yaml from 'js-yaml'
@@ -447,7 +447,10 @@ export function createYamlIOModule(params: {
     return yaml
   }
 
-  function importSchemaFromYAML(yamlContent: string, position: { x: number; y: number }): string {
+  async function importSchemaFromYAML(
+    yamlContent: string,
+    position: { x: number; y: number }
+  ): Promise<string> {
     try {
       const parsed = yaml.load(yamlContent) as Record<string, unknown> | null
       if (!parsed || typeof parsed !== 'object') {
@@ -513,6 +516,9 @@ export function createYamlIOModule(params: {
       }
 
       addNodes(newNode)
+      // addNodes 是 Vue Flow 增量 API，必须等待 nextTick 让内部状态与 store 同步后
+      // 再设置选中节点，否则外部通过 selectedNodeId 查找节点时可能还不可见。
+      await nextTick()
       selectedNodeId.value = newNode.id
 
       return newNode.id

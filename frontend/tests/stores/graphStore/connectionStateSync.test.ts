@@ -127,14 +127,14 @@ describe('connectionStateSync', () => {
   })
 
   describe('reconcileAll', () => {
-    it('从 edges 重建所有关系状态', () => {
+    it('从 edges 重建所有关系状态', async () => {
       const source = makeNode('sp1', 'sourcePreview', {})
       const schema = makeNode('s1', 'schema', { columns: [] })
       const constraint = makeNode('c1', 'notNullConstraint', {})
       const edges = [makeEdge('e1', 'sp1', 's1'), makeEdge('e2', 's1', 'c1')]
       const { module, nodesRef } = createTestContext([source, schema, constraint], edges)
 
-      module.reconcileAll()
+      await module.reconcileAll()
 
       const updatedSource = nodesRef.value.find((n) => n.id === 'sp1')
       const updatedSchema = nodesRef.value.find((n) => n.id === 's1')
@@ -146,29 +146,29 @@ describe('connectionStateSync', () => {
       expect((updatedConstraint?.data as Record<string, unknown>).parent).toBe('s1')
     })
 
-    it('schema 不被设置 parent（非 parent-capable 类型）', () => {
+    it('schema 不被设置 parent（非 parent-capable 类型）', async () => {
       const source = makeNode('sp1', 'sourcePreview', {})
       const schema = makeNode('s1', 'schema', { columns: [] })
       const edges = [makeEdge('e1', 'sp1', 's1')]
       const { module, nodesRef } = createTestContext([source, schema], edges)
 
-      module.reconcileAll()
+      await module.reconcileAll()
 
       const updatedSchema = nodesRef.value.find((n) => n.id === 's1')
       expect((updatedSchema?.data as Record<string, unknown>).parent).toBeUndefined()
     })
 
-    it('清除孤立的关系字段', () => {
+    it('清除孤立的关系字段', async () => {
       const schema = makeNode('s1', 'schema', { columns: [], children: ['orphan'] })
       const { module, nodesRef } = createTestContext([schema], [])
 
-      module.reconcileAll()
+      await module.reconcileAll()
 
       const updated = nodesRef.value.find((n) => n.id === 's1')
       expect((updated?.data as Record<string, unknown>).children).toBeUndefined()
     })
 
-    it('跳过瞬态边和 FK 展示边', () => {
+    it('跳过瞬态边和 FK 展示边', async () => {
       const schema = makeNode('s1', 'schema', { columns: [] })
       const constraint = makeNode('c1', 'notNullConstraint', {})
       const edges = [
@@ -177,25 +177,43 @@ describe('connectionStateSync', () => {
       ]
       const { module, nodesRef } = createTestContext([schema, constraint], edges)
 
-      module.reconcileAll()
+      await module.reconcileAll()
 
       const updatedSchema = nodesRef.value.find((n) => n.id === 's1')
       expect((updatedSchema?.data as Record<string, unknown>).children).toBeUndefined()
     })
 
-    it('幂等：多次调用结果一致', () => {
+    it('幂等：多次调用结果一致', async () => {
       const schema = makeNode('s1', 'schema', { columns: [] })
       const constraint = makeNode('c1', 'notNullConstraint', {})
       const edges = [makeEdge('e1', 's1', 'c1')]
       const { module, nodesRef } = createTestContext([schema, constraint], edges)
 
-      module.reconcileAll()
+      await module.reconcileAll()
       const first = JSON.stringify(nodesRef.value.map((n) => n.data))
 
-      module.reconcileAll()
+      await module.reconcileAll()
       const second = JSON.stringify(nodesRef.value.map((n) => n.data))
 
       expect(first).toBe(second)
+    })
+
+    it('通过 updateNodeData 逐节点应用补丁', async () => {
+      const source = makeNode('sp1', 'sourcePreview', {})
+      const schema = makeNode('s1', 'schema', { columns: [] })
+      const constraint = makeNode('c1', 'notNullConstraint', {})
+      const edges = [makeEdge('e1', 'sp1', 's1'), makeEdge('e2', 's1', 'c1')]
+      const { module, patches } = createTestContext([source, schema, constraint], edges)
+
+      await module.reconcileAll()
+
+      // 验证每个关系字段都通过 updateNodeData 入口写入（同一节点的字段合并为单次 patch）
+      expect(patches).toContainEqual({
+        nodeId: 'sp1',
+        data: { children: ['s1'], outputPortConnected: true },
+      })
+      expect(patches).toContainEqual({ nodeId: 's1', data: { children: ['c1'] } })
+      expect(patches).toContainEqual({ nodeId: 'c1', data: { parent: 's1' } })
     })
   })
 })

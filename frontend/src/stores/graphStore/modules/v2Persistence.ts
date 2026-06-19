@@ -11,6 +11,7 @@ import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
 import type { CustomNodeData } from '@/types/nodes'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
+import type { ProjectConfigStats } from '../setup/state'
 import { createV2StatsOps } from './v2/persistence/stats'
 import { createV2SaveOps } from './v2/persistence/save'
 import { createV2LoadOps } from './v2/persistence/load'
@@ -40,15 +41,7 @@ export function createV2PersistenceModule(params: {
   selectedNodeId: Ref<string | null>
   projectName: Ref<string>
   isProjectLoaded: Ref<boolean>
-  projectConfigStats: Ref<{
-    schemaCount: number
-    constraintCount: number
-    constraintStandaloneCount: number
-    constraintInlineCount: number
-    regexCount: number
-    transformCount: number
-    templateCount: number
-  }>
+  projectConfigStats: Ref<ProjectConfigStats>
   projectConfigStatsLoaded: Ref<boolean>
   projectConfigStatsConfigPath: Ref<string>
   lastFullValidationSummary: Ref<FullValidationSummary | null>

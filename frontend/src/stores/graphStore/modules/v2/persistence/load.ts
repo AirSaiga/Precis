@@ -72,6 +72,7 @@ import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
+import type { ProjectConfigStats } from '../../../setup/state'
 import { toastError, toastSuccess, toastWarning } from '@/core/toast'
 import { useI18n } from 'vue-i18n'
 import { useInspectionStore } from '@/stores/inspectionStore'
@@ -88,13 +89,7 @@ export function createV2LoadOps(params: {
   selectedNodeId: Ref<string | null>
   projectName: Ref<string>
   isProjectLoaded: Ref<boolean>
-  projectConfigStats: Ref<{
-    schemaCount: number
-    constraintCount: number
-    regexCount: number
-    transformCount: number
-    templateCount: number
-  }>
+  projectConfigStats: Ref<ProjectConfigStats>
   projectConfigStatsLoaded: Ref<boolean>
   projectConfigStatsConfigPath: Ref<string>
   lastFullValidationSummary: Ref<FullValidationSummary | null>
@@ -139,7 +134,8 @@ export function createV2LoadOps(params: {
       }
 
       const totalSchemas = config.manifest.schemas.length
-      let totalConstraints = config.manifest.constraints.length
+      const standaloneConstraints = config.manifest.constraints.length
+      let inlineConstraints = 0
       const totalRegex =
         ((config.manifest as unknown as Record<string, unknown>).regex_nodes as unknown[])
           ?.length || 0
@@ -149,7 +145,7 @@ export function createV2LoadOps(params: {
       config.manifest.schemas.forEach((s) => {
         const schema = config.schemas[s.id]
         if (schema && Array.isArray((schema as unknown as Record<string, unknown>).constraints)) {
-          totalConstraints += (
+          inlineConstraints += (
             (schema as unknown as Record<string, unknown>).constraints as unknown[]
           ).length
         }
@@ -157,7 +153,9 @@ export function createV2LoadOps(params: {
 
       projectConfigStats.value = {
         schemaCount: totalSchemas,
-        constraintCount: totalConstraints,
+        constraintCount: standaloneConstraints + inlineConstraints,
+        constraintStandaloneCount: standaloneConstraints,
+        constraintInlineCount: inlineConstraints,
         regexCount: totalRegex,
         transformCount: totalTransforms,
         templateCount: totalTemplates,

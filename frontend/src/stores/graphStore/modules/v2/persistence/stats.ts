@@ -21,17 +21,10 @@ import { logger } from '@/core/utils/logger'
 import type { Ref } from 'vue'
 import { getV2FullConfig } from '@/api/projectV2Api'
 import { calculateConstraintStatsFromManifest } from '@/utils/constraintCount'
+import type { ProjectConfigStats } from '../../../setup/state'
 
 export function createV2StatsOps(params: {
-  projectConfigStats: Ref<{
-    schemaCount: number
-    constraintCount: number
-    constraintStandaloneCount: number
-    constraintInlineCount: number
-    regexCount: number
-    transformCount: number
-    templateCount: number
-  }>
+  projectConfigStats: Ref<ProjectConfigStats>
   projectConfigStatsLoaded: Ref<boolean>
   projectConfigStatsConfigPath: Ref<string>
   normalizeConfigDir: (inputPath: string) => string

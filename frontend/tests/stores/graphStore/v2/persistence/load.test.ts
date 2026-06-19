@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
+import type { ProjectConfigStats } from '@/stores/graphStore/setup/state'
 
 vi.mock('@/core/utils/logger', () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
@@ -61,7 +62,7 @@ describe('createV2LoadOps', () => {
   let selectedNodeId: Ref<string | null>
   let projectName: Ref<string>
   let isProjectLoaded: Ref<boolean>
-  let projectConfigStats: Ref<any>
+  let projectConfigStats: Ref<ProjectConfigStats>
   let projectConfigStatsLoaded: Ref<boolean>
   let projectConfigStatsConfigPath: Ref<string>
   let lastFullValidationSummary: Ref<any>
@@ -74,9 +75,11 @@ describe('createV2LoadOps', () => {
     selectedNodeId = ref<string | null>(null)
     projectName = ref('')
     isProjectLoaded = ref(false)
-    projectConfigStats = ref({
+    projectConfigStats = ref<ProjectConfigStats>({
       schemaCount: 0,
       constraintCount: 0,
+      constraintStandaloneCount: 0,
+      constraintInlineCount: 0,
       regexCount: 0,
       transformCount: 0,
       templateCount: 0,
@@ -148,14 +151,22 @@ describe('createV2LoadOps', () => {
       config.manifest.constraints = [{ id: 'c1' }] as any
       config.manifest.regex_nodes = [{ id: 'r1' }] as any
       config.manifest.transforms = [{ id: 't1' }] as any
+      config.manifest.templates = [{ id: 'tpl1' }] as any
+      config.schemas = {
+        s1: { constraints: [{ id: 'inline1' }] },
+      } as any
       vi.mocked(getV2FullConfig).mockResolvedValue(config as any)
       vi.mocked(getV2ProjectView).mockResolvedValue({} as any)
 
       await loadOps.loadProjectFromV2()
 
       expect(projectConfigStats.value.schemaCount).toBe(1)
+      expect(projectConfigStats.value.constraintCount).toBe(2)
+      expect(projectConfigStats.value.constraintStandaloneCount).toBe(1)
+      expect(projectConfigStats.value.constraintInlineCount).toBe(1)
       expect(projectConfigStats.value.regexCount).toBe(1)
       expect(projectConfigStats.value.transformCount).toBe(1)
+      expect(projectConfigStats.value.templateCount).toBe(1)
       expect(projectConfigStatsLoaded.value).toBe(true)
     })
 

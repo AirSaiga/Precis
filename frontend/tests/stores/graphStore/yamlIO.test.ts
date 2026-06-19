@@ -440,7 +440,14 @@ describe('yamlIO module', () => {
   })
 
   describe('importSchemaFromYAML', () => {
-    it('从单层 YAML 导入 Schema', () => {
+    beforeEach(() => {
+      // 让 mock 的 addNodes 同时把节点写入本地 nodes，验证“导入后节点可查找”
+      vi.mocked(addNodes).mockImplementation((node: any) => {
+        nodes.value = [...nodes.value, node]
+      })
+    })
+
+    it('从单层 YAML 导入 Schema', async () => {
       const yaml = `
 table_name: imported_table
 sheet_name: Sheet1
@@ -450,7 +457,7 @@ columns:
   - column_name: name
     data_type: String
       `
-      const id = module.importSchemaFromYAML(yaml, { x: 100, y: 200 })
+      const id = await module.importSchemaFromYAML(yaml, { x: 100, y: 200 })
       expect(typeof id).toBe('string')
       expect(addNodes).toHaveBeenCalledTimes(1)
       const node = vi.mocked(addNodes).mock.calls[0][0] as CustomNode
@@ -462,7 +469,7 @@ columns:
       expect(selectedNodeId.value).toBe(id)
     })
 
-    it('从嵌套 YAML（schemas 格式）导入', () => {
+    it('从嵌套 YAML（schemas 格式）导入', async () => {
       const yaml = `
 schemas:
   my_table:
@@ -471,22 +478,26 @@ schemas:
       - column_name: col1
         data_type: String
       `
-      const id = module.importSchemaFromYAML(yaml, { x: 0, y: 0 })
+      const id = await module.importSchemaFromYAML(yaml, { x: 0, y: 0 })
       expect(typeof id).toBe('string')
       const node = vi.mocked(addNodes).mock.calls[0][0] as CustomNode
       expect(node.data.tableName).toBe('nested_table')
+      // 导入后节点应可在 store 中查找
+      expect(nodes.value.find((n) => n.id === id)).toBeDefined()
     })
 
-    it('空 schemas 对象抛出错误', () => {
+    it('空 schemas 对象抛出错误', async () => {
       const yaml = 'schemas: {}'
-      expect(() => module.importSchemaFromYAML(yaml, { x: 0, y: 0 })).toThrow()
+      await expect(module.importSchemaFromYAML(yaml, { x: 0, y: 0 })).rejects.toThrow()
     })
 
-    it('无效 YAML 抛出错误', () => {
-      expect(() => module.importSchemaFromYAML('not: valid: yaml: [', { x: 0, y: 0 })).toThrow()
+    it('无效 YAML 抛出错误', async () => {
+      await expect(
+        module.importSchemaFromYAML('not: valid: yaml: [', { x: 0, y: 0 })
+      ).rejects.toThrow()
     })
 
-    it('解析带 constraints 的列', () => {
+    it('解析带 constraints 的列', async () => {
       const yaml = `
 table_name: test
 columns:
@@ -499,7 +510,7 @@ columns:
       - a@b.com
       - c@d.com
       `
-      module.importSchemaFromYAML(yaml, { x: 0, y: 0 })
+      await module.importSchemaFromYAML(yaml, { x: 0, y: 0 })
       const node = vi.mocked(addNodes).mock.calls[0][0] as CustomNode
       const col = node.data.columns[0]
       expect(col.constraints.notNull).toBe(true)
@@ -507,15 +518,29 @@ columns:
       expect(col.constraints.allowedValues).toEqual(['a@b.com', 'c@d.com'])
     })
 
-    it('默认数据类型为 String', () => {
+    it('默认数据类型为 String', async () => {
       const yaml = `
 table_name: test
 columns:
   - column_name: x
       `
-      module.importSchemaFromYAML(yaml, { x: 0, y: 0 })
+      await module.importSchemaFromYAML(yaml, { x: 0, y: 0 })
       const node = vi.mocked(addNodes).mock.calls[0][0] as CustomNode
       expect(node.data.columns[0].dataType).toBe('String')
+    })
+
+    it('导入后节点可在 store 中查找', async () => {
+      const yaml = `
+table_name: findable
+columns:
+  - column_name: id
+    data_type: Integer
+      `
+      const id = await module.importSchemaFromYAML(yaml, { x: 10, y: 20 })
+      const found = nodes.value.find((n) => n.id === id)
+      expect(found).toBeDefined()
+      expect(found?.type).toBe('schema')
+      expect(selectedNodeId.value).toBe(id)
     })
   })
 })

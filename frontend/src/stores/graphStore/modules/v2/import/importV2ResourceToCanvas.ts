@@ -51,7 +51,7 @@ export function createV2ImportToCanvas(params: {
     configDir: string | undefined,
     relPath: string | undefined
   ) => string | undefined
-  reconcileAll: () => void
+  reconcileAll: () => void | Promise<void>
   /**
    * 查询引用指定 Schema 的独立约束 ID 列表。
    * 用于拖拽独立约束触发自动创建 Schema 时，连带创建该 Schema 关联的其他独立约束。
@@ -180,7 +180,7 @@ export function createV2ImportToCanvas(params: {
       // 因为内嵌约束物化可能已在之前的 Schema 导入中创建了节点但未建立完整关系
       if (normalizedKind !== 'schema') {
         await nextTick()
-        reconcileAll()
+        await reconcileAll()
         return existing.id
       }
     }
@@ -196,7 +196,7 @@ export function createV2ImportToCanvas(params: {
         sourceIndex?.rebuild()
         await nextTick()
         flushBufferedEdges()
-        reconcileAll()
+        await reconcileAll()
         // 导入后检测是否出现重复 source
         const schemaNode = nodes.value.find(
           (n) => n.id === nodeId && (n.type === 'schema' || n.type === 'jsonSchema')
@@ -236,7 +236,7 @@ export function createV2ImportToCanvas(params: {
         const nodeId = await importRegex(resourceId, position, { includeDeps, moveIfExists })
         await nextTick()
         flushBufferedEdges()
-        reconcileAll()
+        await reconcileAll()
         return nodeId
       }
 
@@ -244,7 +244,7 @@ export function createV2ImportToCanvas(params: {
         const nodeId = await importConstraint(resourceId, position, { includeDeps, moveIfExists })
         await nextTick()
         flushBufferedEdges()
-        reconcileAll()
+        await reconcileAll()
         return nodeId
       }
 
@@ -252,7 +252,7 @@ export function createV2ImportToCanvas(params: {
         const nodeId = await importTransform(resourceId, position, { includeDeps, moveIfExists })
         await nextTick()
         flushBufferedEdges()
-        reconcileAll()
+        await reconcileAll()
         return nodeId
       }
 

@@ -4,7 +4,7 @@
 
   功能职责：
   - 提供应用级的统一确认/取消/警示弹窗
-  - 支持纯文本或 HTML 内容的消息展示
+  - 仅支持纯文本消息展示（不允许 HTML，防止 XSS）
   - 提供确认、取消及额外替代操作三种按钮
   - 通过 Teleport 挂载到 body，确保层级最高
 
@@ -28,8 +28,7 @@
           </div>
 
           <div class="confirm-body">
-            <p v-if="options.allowHtml" class="confirm-message" v-html="options.message"></p>
-            <p v-else class="confirm-message">{{ options.message }}</p>
+            <p class="confirm-message">{{ options.message }}</p>
           </div>
 
           <div class="confirm-actions">
