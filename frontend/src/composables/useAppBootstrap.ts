@@ -15,7 +15,7 @@
  *   使工作区创建时能自动添加 projectRoot 节点
  *
  * 启动流程：
- * 1. bootstrapProjectPaths — Electron 模式下从主进程获取项目路径，创建项目并添加 projectRoot
+ * 1. bootstrapProjectPaths — 从能力抽象层恢复最近项目路径，创建项目并添加 projectRoot
  * 2. workspaceStore.initialize — 初始化数据源配置（非画布工作区）
  * 3. canvasStore.initialize — 初始化画布工作区系统，传入 graphStore 支持自动 projectRoot
  * 4. dragStore.initializeDragState — 初始化拖拽状态
@@ -23,8 +23,7 @@
  *
  * 注意事项：
  * - bootstrap 中各步骤有隐式依赖顺序，不可并行化
- * - bootstrapProjectPaths 仅在 Electron 模式（window.electronAPI 存在）时执行
- * - Web 开发模式下项目路径从 localStorage 恢复（projectStore 自行处理）
+ * - bootstrapProjectPaths 通过 appApi 统一恢复最近项目（Electron IPC / Web localStorage）
  */
 
 import { watch, type WatchStopHandle } from 'vue'
@@ -39,8 +38,7 @@ import type { Shortcut } from '@/features/keyboard/types'
 import { logger } from '@/core/utils/logger'
 import { useInspectionStore } from '@/stores/inspectionStore'
 import { getV2FullConfig, ProjectNotFoundError } from '@/api/projectV2Api'
-import { isElectron } from '@/core/utils/electronDetector'
-import { openProject as webOpenProject, getCurrentProject } from '@/api/projectApi'
+import { appApi } from '@/core/capabilities/appApi'
 
 /**
  * 提取路径的最后一层目录名作为项目名称
@@ -117,10 +115,9 @@ export function useAppBootstrap(): BootstrapResult {
   }
 
   /**
-   * 从 Electron 主进程恢复项目路径并初始化项目
+   * 从能力抽象层恢复最近项目路径并初始化项目
    *
-   * 仅在 Electron 模式（window.electronAPI.loadConfig 存在）时执行。
-   * 通过 IPC 从主进程获取上次打开的项目路径，然后：
+   * 通过 appApi.loadRecentProject 统一获取上次打开的项目路径（Electron IPC / Web localStorage），然后：
    * 1. 验证项目路径是否真实存在（调用后端 API 检查）
    * 2. 如果项目存在：设置 projectStore 路径并创建 projectRoot 节点
    * 3. 如果项目不存在（已删除/移动）：清理残留路径，避免显示无效项目
@@ -129,67 +126,55 @@ export function useAppBootstrap(): BootstrapResult {
    * 副作用：修改 projectStore、graphStore 的状态
    */
   const bootstrapProjectPaths = async (): Promise<boolean> => {
-    let configPath: string | undefined
-    let dataPath: string | undefined
+    // 优先从能力抽象层恢复最近项目（Electron IPC / Web localStorage）
+    const recent = await appApi.loadRecentProject()
+    let configPath = recent.configPath
+    let dataPath = recent.dataPath
 
-    if (window.electronAPI?.loadConfig) {
-      const result = await window.electronAPI.loadConfig()
-      configPath = result.configPath
-      dataPath = result.dataPath
-    }
-
-    // 如果没有从 Electron 获取到路径，尝试从 localStorage（projectStore）恢复
+    // 如果能力层未返回路径，再回退到当前 store 中的路径
     if (!configPath) {
       configPath = projectStore.currentPaths?.configPath || undefined
       dataPath = projectStore.currentPaths?.dataPath || undefined
     }
 
-    // Web 模式下如果没有已保存的项目路径，返回 false
-    // 由 ProjectSelector 替代处理
+    // 没有任何可用路径时返回 false，由调用方决定下一步
     if (!configPath) {
-      if (!isElectron()) {
-        return false
-      }
       return false
     }
 
-    if (configPath) {
-      try {
-        // 验证项目路径是否真实存在（后端能正常返回配置），同时执行配置自检
-        const fullConfig = await getV2FullConfig(configPath, { inspect: true })
-        // 项目存在，设置路径并创建 projectRoot
-        projectStore.setProjectPaths({ configPath, dataPath: dataPath || configPath })
+    try {
+      // 验证项目路径是否真实存在（后端能正常返回配置），同时执行配置自检
+      const fullConfig = await getV2FullConfig(configPath, { inspect: true })
+      // 项目存在，设置路径并创建 projectRoot
+      projectStore.setProjectPaths({ configPath, dataPath: dataPath || configPath })
+      await appApi.saveRecentProject({ configPath, dataPath: dataPath || configPath })
 
-        // 处理配置自检结果：
-        // - 写入 store，由 Header 徽章 + InspectionDrawer 渲染
-        // - 首次进入项目：如有 blocker 严重度问题，自动展开抽屉
-        const inspectionStore = useInspectionStore()
-        if (fullConfig.inspection) {
-          inspectionStore.setResult(fullConfig.inspection, { autoOpen: 'if-blocker' })
-          if (fullConfig.inspection.errors.length > 0) {
-            logger.warn(
-              '[AppBootstrap] 配置自检发现 %d 个问题',
-              fullConfig.inspection.errors.length
-            )
-          } else {
-            logger.info('[AppBootstrap] 配置自检通过')
-          }
+      // 处理配置自检结果：
+      // - 写入 store，由 Header 徽章 + InspectionDrawer 渲染
+      // - 首次进入项目：如有 blocker 严重度问题，自动展开抽屉
+      const inspectionStore = useInspectionStore()
+      if (fullConfig.inspection) {
+        inspectionStore.setResult(fullConfig.inspection, { autoOpen: 'if-blocker' })
+        if (fullConfig.inspection.errors.length > 0) {
+          logger.warn(
+            '[AppBootstrap] 配置自检发现 %d 个问题',
+            fullConfig.inspection.errors.length
+          )
+        } else {
+          logger.info('[AppBootstrap] 配置自检通过')
         }
-      } catch (error) {
-        if (error instanceof ProjectNotFoundError) {
-          // 项目已不存在（被删除或移动），清理残留路径
-          logger.warn('[AppBootstrap] 项目路径已失效，清理残留:', configPath)
-          projectStore.clearProject()
-          // 同时通知 Electron 主进程清理保存的路径（如果支持）
-          if (window.electronAPI?.saveConfig) {
-            await window.electronAPI.saveConfig('', '').catch(() => undefined)
-          }
-          return false
-        }
-        // 其他错误（如后端未启动）暂不清理路径，避免网络抖动导致状态丢失
-        logger.warn('[AppBootstrap] 验证项目路径时出错，保留路径待重试:', error)
-        projectStore.setProjectPaths({ configPath, dataPath: dataPath || configPath })
       }
+    } catch (error) {
+      if (error instanceof ProjectNotFoundError) {
+        // 项目已不存在（被删除或移动），清理残留路径
+        logger.warn('[AppBootstrap] 项目路径已失效，清理残留:', configPath)
+        projectStore.clearProject()
+        await appApi.saveRecentProject({ configPath: '', dataPath: '' }).catch(() => undefined)
+        return false
+      }
+      // 其他错误（如后端未启动）暂不清理路径，避免网络抖动导致状态丢失
+      logger.warn('[AppBootstrap] 验证项目路径时出错，保留路径待重试:', error)
+      projectStore.setProjectPaths({ configPath, dataPath: dataPath || configPath })
     }
     return true
   }
@@ -206,6 +191,9 @@ export function useAppBootstrap(): BootstrapResult {
       graphStore.createProject(basename(projectPath) || 'project', projectPath)
       graphStore.createProjectRootNode({ x: 80, y: 80 })
     }
+
+    // 加载项目配置、统计与自检信息，与 ProjectManagementModal.loadProject 行为保持一致
+    await graphStore.loadProjectFromV2()
 
     // 执行 bootstrap 中剩余的步骤 2-5
     await workspaceStore.initialize()

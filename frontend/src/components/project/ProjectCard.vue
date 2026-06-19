@@ -7,6 +7,7 @@ export interface ProjectCardProps {
   constraintCount: number
   lastModified: string
   path: string
+  disabled?: boolean
 }
 
 const props = defineProps<ProjectCardProps>()
@@ -36,18 +37,20 @@ function formatDate(iso: string): string {
 <template>
   <div
     class="project-card"
-    @click="emit('select', path)"
-    @keydown.enter="emit('select', path)"
-    tabindex="0"
+    :class="{ 'project-card--disabled': disabled }"
+    @click="!disabled && emit('select', path)"
+    @keydown.enter="!disabled && emit('select', path)"
+    :tabindex="disabled ? -1 : 0"
     role="button"
     :aria-label="name"
+    :aria-disabled="disabled"
   >
     <div class="project-card-icon">📁</div>
     <div class="project-card-title">{{ name }}</div>
     <div class="project-card-meta">
-      <span>{{ props.schemaCount }} schemas</span>
+      <span>{{ props.schemaCount }} {{ t('common.project.schemas') }}</span>
       <span>·</span>
-      <span>{{ props.constraintCount }} constraints</span>
+      <span>{{ props.constraintCount }} {{ t('common.project.constraints') }}</span>
     </div>
     <div class="project-card-date">{{ formatDate(lastModified) }}</div>
   </div>
@@ -67,6 +70,15 @@ function formatDate(iso: string): string {
 .project-card:focus-visible {
   border-color: var(--accent-color, #4a90d9);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+.project-card--disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.project-card--disabled:hover,
+.project-card--disabled:focus-visible {
+  border-color: var(--border-color, #e0e0e0);
+  box-shadow: none;
 }
 .project-card-icon {
   font-size: 32px;

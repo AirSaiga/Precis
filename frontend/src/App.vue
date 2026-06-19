@@ -237,7 +237,7 @@
 
   import { logger } from '@/core/utils/logger'
   import { eventBus } from '@/core/eventBus'
-  import { isElectron } from '@/core/utils/electronDetector'
+  import { appApi } from '@/core/capabilities/appApi'
   import AssetLibraryNav from '@/components/layout/AssetLibraryNav.vue'
   import AssetLibrary from '@/components/layout/AssetLibrary.vue'
   import InspectorPanel from '@/components/layout/InspectorPanel.vue'
@@ -254,10 +254,17 @@
 
   import { useCanvasStore, type Workspace } from '@/stores/canvasStore'
   import { useGraphStore } from '@/stores/graphStore'
+  import { useProjectStore } from '@/stores/projectStore'
   import { useResourceDragStore, type ResourceDragPayload } from '@/stores/resourceDragStore'
   // import { useAiChatStore } from '@/stores/aiChatStore'
 
   const { t } = useI18n()
+
+  // --- Store 实例 ---
+  const canvasStore = useCanvasStore()
+  const graphStore = useGraphStore()
+  const projectStore = useProjectStore()
+  const resourceDragStore = useResourceDragStore()
 
   // --- Composable 初始化 ---
   // useAppLayout: 管理侧边栏/检查器宽度、拖拽调宽、面板折叠状态
@@ -269,8 +276,8 @@
   useTheme()
 
   // --- Web 模式状态 ---
-  // Web 模式下（非 Electron），当没有已保存的项目时显示 ProjectSelector
-  const showProjectSelector = ref(!isElectron())
+  // 不支持自动恢复最近项目的环境（如 Web），当没有已激活的项目时显示 ProjectSelector
+  const showProjectSelector = ref(!appApi.canRestoreRecentProject && !projectStore.isProjectActive)
 
   // --- 局部状态 ---
 
@@ -281,11 +288,6 @@
 
   /** 拖拽 Ghost 的鼠标位置，实时跟随光标更新 */
   const mousePosition = ref({ x: 0, y: 0 })
-
-  // --- Store 实例 ---
-  const canvasStore = useCanvasStore()
-  const graphStore = useGraphStore()
-  const resourceDragStore = useResourceDragStore()
   // const aiChatStore = useAiChatStore()
 
   /** OverlayHost 组件引用，用于外部触发弹窗（如状态栏的"打开项目管理"） */
@@ -433,27 +435,46 @@
    * 事件监听使用 window.addEventListener（而非 EventBus），
    * 因为触发源是深层子组件或 Electron 主进程，需要跨组件层级通信。
    */
+  /**
+   * 处理项目关闭事件
+   * - 清理所有工作区中的 projectRoot 节点及关联边
+   * - Web 模式下关闭项目后返回项目选择页
+   */
+  const handleProjectClosedEvent = () => {
+    handleProjectClosed()
+    if (!appApi.canRestoreRecentProject) {
+      showProjectSelector.value = true
+    }
+  }
+
+  /** 注册全局事件监听 */
+  const registerGlobalListeners = () => {
+    window.addEventListener('mousemove', handleMouseMove as EventListener)
+    window.addEventListener('resize', handleResize)
+    eventBus.on('viewchange', handleViewChange)
+    eventBus.on('project-closed', handleProjectClosedEvent)
+  }
+
+  /** 移除全局事件监听 */
+  const removeGlobalListeners = () => {
+    eventBus.off('viewchange', handleViewChange)
+    eventBus.off('project-closed', handleProjectClosedEvent)
+    window.removeEventListener('mousemove', handleMouseMove as EventListener)
+    window.removeEventListener('resize', handleResize)
+  }
+
   onMounted(async () => {
     try {
       await bootstrap()
 
-      // Web 模式下，bootstrap 可能因为没有已保存项目而提前返回。
-      // 此时 showProjectSelector 保持 true，由用户选择项目。
-      if (showProjectSelector.value) {
-        // 不注册全局事件，等待用户选择项目
+      // 不支持自动恢复最近项目的环境下，根据项目激活状态决定是否显示 ProjectSelector
+      if (!appApi.canRestoreRecentProject && !projectStore.isProjectActive) {
+        showProjectSelector.value = true
         return
       }
+      showProjectSelector.value = false
 
-      window.addEventListener('mousemove', handleMouseMove as EventListener)
-      window.addEventListener('resize', handleResize)
-      eventBus.on('viewchange', handleViewChange)
-      eventBus.on('project-closed', () => {
-        handleProjectClosed()
-        // Web 模式下关闭项目后返回选择页
-        if (!isElectron()) {
-          showProjectSelector.value = true
-        }
-      })
+      registerGlobalListeners()
     } catch (error) {
       logger.error('初始化工作区失败:', error)
     }
@@ -465,10 +486,7 @@
     canvasStore.saveCurrentCanvasData(graphStore.nodes, graphStore.edges)
     canvasStore.syncWorkspacesToBackend()
 
-    eventBus.off('viewchange', handleViewChange)
-    eventBus.off('project-closed', handleProjectClosed)
-    window.removeEventListener('mousemove', handleMouseMove as EventListener)
-    window.removeEventListener('resize', handleResize)
+    removeGlobalListeners()
     cleanup()
   })
 </script>

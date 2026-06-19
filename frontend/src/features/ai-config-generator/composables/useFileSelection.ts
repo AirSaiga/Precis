@@ -7,20 +7,11 @@
  * - 调用后端展开文件夹为文件列表
  * - 维护文件勾选状态（全选/反选/单选）
  * - 从工作区和画布中自动收集已关联的数据源
- * - 支持 Electron 文件/文件夹选择对话框
+ * - 支持 Electron 文件/文件夹选择对话框与 Web 浏览器文件输入
  *
  * 架构设计:
- * - 依赖 Pinia store（graphStore / workspaceStore）获取现有数据源
- * - 依赖 configPath 计算属性向后端请求路径展开
- * - selectedPaths 变更时自动触发 expandedFiles 更新
- *
- * 输入示例:
- *   const fileSelection = useFileSelection(effectiveConfigPath)
- *   fileSelection.selectedPaths.value = ['/path/to/data.csv']
- *
- * 输出示例:
- *   fileSelection.expandedFiles.value   // ['C:\\project\\data.csv']
- *   fileSelection.checkedFiles.value    // Set { 'C:\\project\\data.csv' }
+ * - 通过 core/capabilities/dialogApi 统一选择文件/目录，屏蔽运行环境差异。
+ * - Electron 下调用原生对话框；Web 下使用 <input> / <input webkitdirectory> 并上传到后端临时目录。
  */
 import { logger } from '@/core/utils/logger'
 import { joinPath } from '@/core/utils/pathNormalization'
@@ -30,8 +21,7 @@ import { useGraphStore } from '@/stores/graphStore'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { postExpandPaths } from '@/api/aiApi'
 import { getV2Manifest } from '@/api/projectV2Api'
-import { uploadFile } from '@/api/fileApi'
-import { isElectron } from '@/core/utils/electronDetector'
+import { dialogApi } from '@/core/capabilities/dialogApi'
 
 export function useFileSelection(configPath: ComputedRef<string | undefined>) {
   const { t } = useI18n()
@@ -152,102 +142,42 @@ export function useFileSelection(configPath: ComputedRef<string | undefined>) {
    * 选择数据文件（支持多选）
    */
   const pickFiles = async () => {
-    if (isElectron()) {
-      await pickFilesElectron()
-    } else {
-      await pickFilesWeb()
-    }
-  }
-
-  /** Electron 原生文件选择对话框（支持多选） */
-  const pickFilesElectron = async () => {
-    const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
-      | { showOpenDialog?: (opts: unknown) => Promise<unknown> }
-      | undefined
-    if (!electronAPI?.showOpenDialog) {
-      window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.electronOnly'))
-      return
-    }
-
-    const res = await electronAPI.showOpenDialog({
+    const result = await dialogApi.selectFiles({
       title: t('aiConfigGenerator.dialog.title'),
       buttonLabel: t('aiConfigGenerator.dialog.confirm'),
       filters: [{ name: 'Data Files', extensions: ['csv', 'xlsx', 'xls'] }],
-      properties: ['openFile', 'multiSelections'],
+      multiple: true,
     })
 
-    const paths = Array.isArray((res as Record<string, unknown>)?.filePaths)
-      ? ((res as Record<string, unknown>).filePaths as string[])
-      : []
-    mergeSelectedPaths(paths)
-  }
-
-  /** Web 浏览器文件选择（支持多选） */
-  const pickFilesWeb = async () => {
-    const paths = await webSelectFiles('.csv,.xlsx,.xls,.json')
-    if (paths.length > 0) {
-      mergeSelectedPaths(paths)
+    if (!result.canceled && result.filePaths.length > 0) {
+      mergeSelectedPaths(result.filePaths)
     }
   }
 
   /**
    * 选择数据文件夹（支持多选）
+   *
+   * Electron 下返回目录路径，由后端 expand-paths 递归展开；
+   * Web 下通过 webkitdirectory 上传目录内文件，返回临时文件路径。
    */
   const pickFolders = async () => {
-    if (isElectron()) {
-      await pickFoldersElectron()
-    } else {
-      await pickFoldersWeb()
-    }
-  }
-
-  /** Electron 原生文件夹选择 */
-  const pickFoldersElectron = async () => {
-    const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
-      | { showOpenDialog?: (opts: unknown) => Promise<unknown> }
-      | undefined
-    if (!electronAPI?.showOpenDialog) {
-      window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.electronOnly'))
-      return
-    }
-
-    const res = await electronAPI.showOpenDialog({
+    const result = await dialogApi.selectDirectoryEntries({
       title: t('aiConfigGenerator.dialog.folderTitle'),
       buttonLabel: t('aiConfigGenerator.dialog.confirm'),
-      properties: ['openDirectory', 'multiSelections'],
+      extensions: ['.csv', '.xlsx', '.xls', '.json'],
+      multiple: true,
     })
 
-    const paths = Array.isArray((res as Record<string, unknown>)?.filePaths)
-      ? ((res as Record<string, unknown>).filePaths as string[])
-      : []
-    mergeSelectedPaths(paths)
-  }
-
-  /** Web 浏览器文件夹选择 */
-  const pickFoldersWeb = async () => {
-    const dirs = await webSelectDirectories()
-    if (dirs.length > 0) {
-      mergeSelectedPaths(dirs)
+    if (!result.canceled && result.filePaths.length > 0) {
+      mergeSelectedPaths(result.filePaths)
     }
   }
 
   /**
    * 选择脚本文件（用于迁移）
    */
-  const pickScriptFiles = async () => {
-    if (!isElectron()) {
-      return webSelectFiles('.py,.sql,.md,.txt,.js,.json,.yaml,.yml')
-    }
-
-    const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
-      | { showOpenDialog?: (opts: unknown) => Promise<unknown> }
-      | undefined
-    if (!electronAPI?.showOpenDialog) {
-      window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.electronOnly'))
-      return []
-    }
-
-    const res = await electronAPI.showOpenDialog({
+  const pickScriptFiles = async (): Promise<string[]> => {
+    const result = await dialogApi.selectFiles({
       title: t('aiConfigGenerator.migrate.dialog.title'),
       buttonLabel: t('aiConfigGenerator.dialog.confirm'),
       filters: [
@@ -256,115 +186,26 @@ export function useFileSelection(configPath: ComputedRef<string | undefined>) {
           extensions: ['py', 'sql', 'md', 'txt', 'js', 'json', 'yaml', 'yml'],
         },
       ],
-      properties: ['openFile', 'multiSelections'],
+      multiple: true,
     })
 
-    const paths = Array.isArray((res as Record<string, unknown>)?.filePaths)
-      ? ((res as Record<string, unknown>).filePaths as string[])
-      : []
-    return paths
+    return result.canceled ? [] : result.filePaths
   }
 
   /**
    * 选择脚本文件夹（用于迁移）
+   *
+   * Electron 下返回目录路径，调用方需自行递归读取；
+   * Web 下返回已上传的脚本文件临时路径列表。
    */
-  const pickScriptFolder = async () => {
-    if (!isElectron()) {
-      return webSelectDirectories()
-    }
-
-    const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
-      | { showOpenDialog?: (opts: unknown) => Promise<unknown> }
-      | undefined
-    if (!electronAPI?.showOpenDialog) {
-      window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.electronOnly'))
-      return []
-    }
-
-    const res = await electronAPI.showOpenDialog({
+  const pickScriptFolder = async (): Promise<string[]> => {
+    const result = await dialogApi.selectDirectoryEntries({
       title: t('aiConfigGenerator.migrate.dialog.folderTitle'),
       buttonLabel: t('aiConfigGenerator.dialog.confirm'),
-      properties: ['openDirectory'],
+      extensions: ['.py', '.sql', '.md', '.txt', '.js', '.json', '.yaml', '.yml'],
     })
 
-    const paths = Array.isArray((res as Record<string, unknown>)?.filePaths)
-      ? ((res as Record<string, unknown>).filePaths as string[])
-      : []
-    return paths
-  }
-
-  /**
-   * Web 模式：通过浏览器文件输入选择数据文件，上传到后端临时目录。
-   * 返回上传后的临时路径列表。
-   */
-  const webSelectFiles = async (accept: string): Promise<string[]> => {
-    return new Promise((resolve) => {
-      const input = document.createElement('input')
-      input.type = 'file'
-      input.multiple = true
-      input.accept = accept
-
-      input.onchange = async () => {
-        const files = input.files
-        if (!files || files.length === 0) {
-          resolve([])
-          return
-        }
-        try {
-          const paths = await Promise.all(
-            Array.from(files).map(async (f) => {
-              const result = await uploadFile(f)
-              return result.temp_path
-            }),
-          )
-          resolve(paths)
-        } catch (e) {
-          logger.error('[useFileSelection] Web 文件上传失败:', e)
-          window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.uploadFailed'))
-          resolve([])
-        }
-      }
-
-      input.oncancel = () => resolve([])
-      input.click()
-    })
-  }
-
-  /**
-   * Web 模式：通过浏览器目录选择器选择目录。
-   * 使用 webkitdirectory 属性让用户选择文件夹，上传其中所有文件。
-   */
-  const webSelectDirectories = async (): Promise<string[]> => {
-    return new Promise((resolve) => {
-      const input = document.createElement('input')
-      input.type = 'file'
-      input.setAttribute('webkitdirectory', '')
-      input.setAttribute('directory', '')
-
-      input.onchange = async () => {
-        const files = input.files
-        if (!files || files.length === 0) {
-          resolve([])
-          return
-        }
-        try {
-          const paths = await Promise.all(
-            Array.from(files).map(async (f) => {
-              const result = await uploadFile(f)
-              return result.temp_path
-            }),
-          )
-          resolve(paths)
-        } catch (e) {
-          logger.error('[useFileSelection] Web 目录选择失败:', e)
-          window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.uploadFailed'))
-          resolve([])
-        }
-      }
-
-      input.oncancel = () => resolve([])
-      input.click()
-    })
+    return result.canceled ? [] : result.filePaths
   }
 
   /**

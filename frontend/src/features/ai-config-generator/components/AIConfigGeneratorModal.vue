@@ -131,6 +131,7 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { getV2FullConfig, putV2FullConfig } from '@/api/projectV2Api'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
+  import * as fileApi from '@/core/capabilities/fileApi'
   import { useAiConfigGeneratorStore } from '../stores/aiConfigGeneratorStore'
   // import ConflictResolutionModal from '@/components/common/ConflictResolutionModal.vue'
 
@@ -246,20 +247,13 @@
   }
 
   /**
-   * 读取本地脚本文件内容
+   * 读取本地脚本文件内容（Electron 使用 IPC，Web 使用 HTTP 文件 API）
    */
   const readLocalScriptFiles = async (paths: string[]) => {
-    const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
-      | { readFile?: (path: string) => Promise<string | null> }
-      | undefined
-    if (!electronAPI?.readFile) {
-      window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.electronOnly'))
-      return
-    }
     const newSources = [...migrateSources.value]
     for (const p of paths) {
       try {
-        const content = await electronAPI.readFile(p)
+        const content = await fileApi.readFile(p)
         if (content != null) {
           newSources.push({
             content,
@@ -284,15 +278,20 @@
 
   /**
    * 处理选择脚本文件夹（递归查找）
+   *
+   * Electron 下返回目录路径，需递归扫描后读取；
+   * Web 下 pickScriptFolder 已通过 webkitdirectory 平铺上传目录内文件，
+   * 返回的是临时文件路径，直接读取即可。
    */
   const handlePickScriptFolder = async () => {
     const paths = await pickScriptFolder()
     if (!paths.length) return
-    const electronAPI = (window as unknown as Record<string, unknown>).electronAPI as
-      | { readdirRecursive?: (path: string, extensions: string[]) => Promise<string[]> }
-      | undefined
-    if (electronAPI?.readdirRecursive) {
-      const files = await electronAPI.readdirRecursive(paths[0] ?? '', [
+
+    // 如果返回的是目录路径（Electron），先递归扫描；如果已是文件路径（Web），直接读取
+    const firstPath = paths[0]
+    const isDirectoryPath = paths.length === 1 && firstPath && !firstPath.match(/\.(py|sql|md|txt|js|json|yaml|yml)$/i)
+    if (isDirectoryPath && firstPath) {
+      const files = await fileApi.readdirRecursive(firstPath, [
         '.py',
         '.sql',
         '.md',
@@ -304,7 +303,7 @@
       ])
       await readLocalScriptFiles(files)
     } else {
-      window.$toast?.error(t('common.error'), t('aiConfigGenerator.errors.electronOnly'))
+      await readLocalScriptFiles(paths)
     }
   }
 

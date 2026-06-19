@@ -222,6 +222,7 @@ const aiConfigGenerator = {
     noFiles: '请先选择至少一个数据文件或文件夹。',
     manifestMissing: '缺少项目清单信息',
     closeWhileGenerating: '生成中无法关闭弹窗，请先点击"中断生成"。',
+    uploadFailed: '文件上传失败，请稍后重试',
   },
   toast: {
     generated: '已生成配置预览',

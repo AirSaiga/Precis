@@ -103,7 +103,7 @@
       <transition name="fade" mode="out-in">
         <div class="action-group" v-if="isHover || dataSource.status === 'loading'">
           <button
-            v-if="isElectronEnv && dataSource.sourceMode === 'localfile'"
+            v-if="shellApi.canOpenLocalFile && dataSource.sourceMode === 'localfile'"
             class="icon-btn open-btn"
             @click.stop="$emit('open')"
             :title="t('assetLibraryExtended.dataView.buttons.open')"
@@ -147,7 +147,7 @@
 
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
-  import { isElectron } from '@/core/utils/electronDetector'
+  import { shellApi } from '@/core/capabilities/shellApi'
   import type { ExternalDataSource } from '@/types/graph'
 
   interface Props {
@@ -167,7 +167,6 @@
   }>()
 
   const { t } = useI18n()
-  const isElectronEnv = isElectron()
 
   /**
    * 获取数据源文件大小

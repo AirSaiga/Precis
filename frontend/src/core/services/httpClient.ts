@@ -16,8 +16,8 @@
  *
  * 环境适配策略:
  * 1. 开发环境 (import.meta.env.DEV): 使用 localhost:18000
- * 2. Electron 桌面环境: 从主进程动态获取端口
- * 3. 其他生产环境: 回退到 localhost:18000
+ * 2. Electron 桌面环境: 默认 127.0.0.1:18000，启动后由 appApi.initializeApiClient 更新为实际端口
+ * 3. 其他生产环境: 回退到 127.0.0.1:18000
  */
 
 import { logger } from '@/core/utils/logger'
@@ -46,17 +46,11 @@ let currentApiBaseUrl: string = ''
  *
  * [环境判断逻辑]
  * 1. 开发环境 (Vite): 使用 localhost:{VITE_BACKEND_PORT}，便于热重载调试
- * 2. Electron 桌面应用: 使用 127.0.0.1:{VITE_BACKEND_PORT}（初始值）
- *    - 实际端口会在应用启动后从主进程获取
+ * 2. 其他情况: 默认使用 127.0.0.1:{VITE_BACKEND_PORT}
+ *    - Electron 实际端口会在应用启动后由 appApi.initializeApiClient 更新
  *    - 为什么不用 localhost?
  *    - 某些系统配置下 localhost 解析可能有问题
  *    - 127.0.0.1 是更底层的 IP 地址，更可靠
- * 3. 其他情况: 默认使用 localhost:{VITE_BACKEND_PORT}
- *
- * [Electron 集成关键点]
- * - window.electronAPI 由 preload 脚本注入
- * - 检测该对象是否存在可判断是否运行在 Electron 环境中
- * - platform 属性提供操作系统信息（本函数未使用但可用于其他适配）
  *
  * @returns {string} API 服务器的基础地址
  */
@@ -72,15 +66,9 @@ const getBaseURL = (): string => {
     return `http://localhost:${DEFAULT_BACKEND_PORT}`
   }
 
-  // Electron 桌面环境检测
-  // [Electron] window.electronAPI 在 preload 脚本中注入
-  if (window.electronAPI && window.electronAPI.platform) {
-    // 初始使用默认端口，稍后会通过 IPC 获取实际端口
-    return `http://127.0.0.1:${DEFAULT_BACKEND_PORT}`
-  }
-
-  // 其他情况：默认使用 localhost
-  return `http://localhost:${DEFAULT_BACKEND_PORT}`
+  // 其他情况：默认使用 127.0.0.1
+  // Electron 环境下实际端口会在应用启动后通过 appApi.initializeApiClient 更新
+  return `http://127.0.0.1:${DEFAULT_BACKEND_PORT}`
 }
 
 /**
@@ -100,11 +88,11 @@ export const updateApiBaseUrl = (port: number): void => {
 }
 
 /**
- * 异步初始化 API 地址
+ * 异步初始化 API 默认地址
  *
  * 业务用途:
- * - Electron 环境下，从主进程获取实际端口
- * - 在应用启动时调用，确保使用正确的端口
+ * - 设置默认 API 基础地址
+ * - Electron 环境下实际端口由 appApi.initializeApiClient 负责更新
  *
  * @returns Promise<string> - 实际使用的 API 基础地址
  */
@@ -115,20 +103,8 @@ export const initApiBaseUrl = async (): Promise<string> => {
     return currentApiBaseUrl
   }
 
-  // Electron 环境下从主进程获取端口
-  if (window.electronAPI && window.electronAPI.getServerStatus) {
-    try {
-      const status = await window.electronAPI.getServerStatus()
-      if (status && status.port) {
-        updateApiBaseUrl(status.port)
-        return currentApiBaseUrl
-      }
-    } catch (error) {
-      logger.error('[API] 获取服务器状态失败:', error)
-    }
-  }
-
-  // 回退到默认地址
+  // Electron 动态端口获取已迁移到 appApi.initializeApiClient
+  // 此处仅做默认回退
   currentApiBaseUrl = `http://127.0.0.1:${DEFAULT_BACKEND_PORT}`
   return currentApiBaseUrl
 }
@@ -138,11 +114,11 @@ export const initApiBaseUrl = async (): Promise<string> => {
  *
  * [初始化时机]
  * - 在模块加载时执行一次 getBaseURL()
- * - Electron 环境下会在应用启动后通过 initApiBaseUrl 更新
+ * - Electron 环境下会在应用启动后通过 appApi.initializeApiClient 更新
  *
  * [动态更新]
  * - Electron 环境下，端口可能动态分配
- * - 使用 initApiBaseUrl() 获取实际端口
+ * - 使用 appApi.initializeApiClient() 获取实际端口
  */
 export function getApiBaseUrl(): string {
   return currentApiBaseUrl || getBaseURL()

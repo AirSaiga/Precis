@@ -17,6 +17,7 @@ import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
 import { initApiBaseUrl } from './core/services/httpClient'
+import { appApi } from '@/core/capabilities/appApi'
 import { applyThemePreference, getStoredThemePreference } from './core/utils/theme'
 
 /**
@@ -31,8 +32,9 @@ import { applyThemePreference, getStoredThemePreference } from './core/utils/the
 async function initApp() {
   applyThemePreference(getStoredThemePreference())
 
-  // 初始化 API 地址（支持 Electron 动态端口）
+  // 初始化 API 默认地址，再由能力抽象层处理 Electron 动态端口
   await initApiBaseUrl()
+  await appApi.initializeApiClient()
 
   const app = createApp(App)
   const pinia = createPinia()

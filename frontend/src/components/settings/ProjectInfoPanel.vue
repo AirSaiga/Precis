@@ -144,9 +144,10 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { useToast } from '@/composables/shared'
-  import { isElectron, getElectronAPI } from '@/core/utils/electronDetector'
   import { eventBus } from '@/core/eventBus'
   import { getV2Manifest, putV2Manifest } from '@/api/projectV2Api'
+  import { dialogApi } from '@/core/capabilities/dialogApi'
+  import { appApi } from '@/core/capabilities/appApi'
   import type { ProjectManifestV2 } from '@/types/projectV2'
 
   const { t } = useI18n()
@@ -298,33 +299,12 @@
   }
 
   const selectConfigPath = async () => {
-    const path = await selectDirectory(t('settings.projectInfo.selectConfigPath'))
-    if (path) {
-      localConfigPath.value = path
-    }
-  }
-
-  const selectDirectory = async (dialogTitle: string): Promise<string> => {
-    if (isElectron()) {
-      try {
-        const api = getElectronAPI()
-        if (api) {
-          const result = await api.showOpenDialog({
-            title: dialogTitle,
-            buttonLabel: t('settings.projectInfo.selectButton'),
-            properties: ['openDirectory'],
-          })
-          if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
-            return result.filePaths[0] ?? ''
-          }
-        }
-      } catch (error) {
-        logger.error('Electron 目录选择失败:', error)
-      }
-      return ''
-    } else {
-      warning(t('settings.projectInfo.directoryPickerUnavailable'), t('common.warning'))
-      return ''
+    const result = await dialogApi.selectDirectory({
+      title: t('settings.projectInfo.selectConfigPath'),
+      buttonLabel: t('settings.projectInfo.selectButton'),
+    })
+    if (!result.canceled && result.filePaths.length > 0) {
+      localConfigPath.value = result.filePaths[0] ?? ''
     }
   }
 
@@ -350,9 +330,7 @@
       const pathsChanged = configPath !== currentConfigPath
       const wasActive = projectStore.isProjectActive
 
-      if (window.electronAPI?.saveConfig) {
-        await window.electronAPI.saveConfig(configPath, configPath)
-      }
+      await appApi.saveRecentProject({ configPath, dataPath: configPath })
       projectStore.setProjectPaths({ configPath, dataPath: configPath })
 
       let loaded = true

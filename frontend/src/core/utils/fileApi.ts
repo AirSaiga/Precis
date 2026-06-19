@@ -1,14 +1,10 @@
-/**
- * Unified file operation layer.
- *
- * Electron mode: uses window.electronAPI (IPC to main process)
- * Web mode: uses HTTP API calls to the backend
- *
- * This provides a consistent interface regardless of environment.
- */
-
 import { isElectron } from './electronDetector'
 import * as webFileApi from '@/api/fileApi'
+import { getPathBasename, joinPath } from './pathNormalization'
+
+export function getFileDownloadUrl(path: string): string {
+  return webFileApi.getFileDownloadUrl(path)
+}
 
 export async function readFile(path: string): Promise<string | null> {
   if (isElectron()) {
@@ -38,15 +34,27 @@ export async function scanDirectory(
   extensions?: string[],
 ): Promise<Array<{ name: string; path: string; is_dir: boolean }>> {
   if (isElectron()) {
-    // Electron's scanDirectory returns string[] (relative paths)
-    // Convert to the unified format
+    // Electron's scanDirectory returns string[] (relative paths under `path`)
     const paths = await (await import('./electronDetector')).scanDirectory(path, extensions)
-    return paths.map((p) => ({ name: p, path: p, is_dir: false }))
+    return paths.map((p) => {
+      const fullPath = joinPath(path, p)
+      const name = getPathBasename(p) || p
+      // Electron scanDirectory only returns file paths that match extensions,
+      // so we treat them as files. Directories are not included in the result.
+      return { name, path: fullPath, is_dir: false }
+    })
   }
   return webFileApi.scanDirectory(path, extensions)
 }
 
-export async function uploadFile(file: File): Promise<{ temp_path: string; original_name: string }> {
+export async function makeDirectory(path: string): Promise<void> {
+  if (isElectron()) {
+    throw new Error('makeDirectory is only available in Web mode')
+  }
+  await webFileApi.makeDirectory(path)
+}
+
+export async function uploadFile(file: File): Promise<{ temp_path: string; original_name: string; size: number }> {
   if (isElectron()) {
     throw new Error('uploadFile is only available in Web mode (Electron uses native file paths)')
   }

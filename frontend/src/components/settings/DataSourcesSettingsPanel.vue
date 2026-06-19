@@ -60,6 +60,7 @@
                   @change="handleChange"
                 />
                 <button
+                  v-if="dialogApi.canSelectDirectory"
                   class="ui-btn ui-btn--secondary ui-btn--sm"
                   type="button"
                   :disabled="isSaving"
@@ -159,7 +160,7 @@
   import { useProjectStore } from '@/stores/projectStore'
   import { useGraphStore } from '@/stores/graphStore'
   import { getV2Manifest, putV2Manifest } from '@/api/projectV2Api'
-  import { isElectron, getElectronAPI } from '@/core/utils/electronDetector'
+  import { dialogApi } from '@/core/capabilities/dialogApi'
   import type { DataSourceRefV2, ProjectManifestV2 } from '@/types/projectV2'
 
   const { t } = useI18n()
@@ -211,37 +212,35 @@
   }
 
   async function selectDirectory(index: number): Promise<void> {
-    if (!isElectron()) {
+    if (!dialogApi.canSelectDirectory) {
       errorMessage.value = t('settings.dataSources.directorySelectionUnavailable')
       return
     }
 
     try {
-      const api = getElectronAPI()
-      if (!api) return
-
-      const result = await api.showOpenDialog({
+      const result = await dialogApi.selectDirectory({
         title: t('settings.dataSources.selectDirectory'),
-        properties: ['openDirectory'],
       })
 
-      if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
-        const selectedPath = result.filePaths[0]
-        if (!selectedPath) return
-        const configPath = projectStore.currentPaths?.configPath
-        const target = dataSources.value[index]
-        if (!target) return
-
-        if (configPath && selectedPath.startsWith(configPath)) {
-          const relativePath = selectedPath.substring(configPath.length).replace(/^[/\\]/, '')
-          target.path = relativePath
-          target.mode = 'relative'
-        } else {
-          target.path = selectedPath
-          target.mode = 'absolute'
-        }
-        handleChange()
+      if (result.canceled || result.filePaths.length === 0) {
+        return
       }
+
+      const selectedPath = result.filePaths[0]
+      if (!selectedPath) return
+      const configPath = projectStore.currentPaths?.configPath
+      const target = dataSources.value[index]
+      if (!target) return
+
+      if (configPath && selectedPath.startsWith(configPath)) {
+        const relativePath = selectedPath.substring(configPath.length).replace(/^[/\\]/, '')
+        target.path = relativePath
+        target.mode = 'relative'
+      } else {
+        target.path = selectedPath
+        target.mode = 'absolute'
+      }
+      handleChange()
     } catch (error) {
       logger.error('[DataSourcesSettingsPanel] 选择目录失败:', error)
       errorMessage.value = t('settings.dataSources.selectError')

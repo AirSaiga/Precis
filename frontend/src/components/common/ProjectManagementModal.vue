@@ -65,9 +65,10 @@
                       class="form-input ui-input"
                       type="text"
                       :placeholder="t('projectManagement.projectPathPlaceholder')"
-                      readonly
+                      :readonly="dialogApi.canSelectDirectoryEntries"
                     />
                     <button
+                      v-if="dialogApi.canSelectDirectoryEntries"
                       class="ui-btn ui-btn--secondary"
                       type="button"
                       @click="handleSelectDirectory"
@@ -92,12 +93,29 @@
                 {{ t('projectManagement.openExisting') }}
               </div>
               <button
+                v-if="dialogApi.canSelectDirectoryEntries"
                 class="ui-btn ui-btn--secondary ui-btn--full"
                 type="button"
                 @click="handleOpenProject"
               >
                 {{ t('projectManagement.selectProjectFolder') }}
               </button>
+              <div v-else class="web-open-project">
+                <input
+                  v-model="webOpenPath"
+                  class="form-input ui-input"
+                  type="text"
+                  :placeholder="t('projectManagement.webOpenPathPlaceholder')"
+                />
+                <button
+                  class="ui-btn ui-btn--secondary ui-btn--full"
+                  type="button"
+                  :disabled="!webOpenPath.trim()"
+                  @click="handleWebOpenProject"
+                >
+                  {{ t('projectManagement.openProject') }}
+                </button>
+              </div>
             </div>
 
             <div class="project-management-section recent-projects-section">
@@ -172,8 +190,9 @@
   import { useProjectStore } from '@/stores/projectStore'
   import { useCanvasStore } from '@/stores/canvasStore'
   import { projectStorageService, type ProjectInfo } from '@/services/projectStorage'
-  import { isElectron, getElectronAPI } from '@/core/utils/electronDetector'
+  import { isElectron } from '@/core/utils/electronDetector'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
+  import { dialogApi } from '@/core/capabilities/dialogApi'
 
   interface Props {
     modelValue: boolean
@@ -192,6 +211,7 @@
   const { showConfirm } = useGlobalConfirm()
 
   const recentProjects = ref<ProjectInfo[]>([])
+  const webOpenPath = ref('')
 
   const newProjectForm = ref({
     name: '',
@@ -239,19 +259,29 @@
   }
 
   async function handleSelectDirectory(): Promise<void> {
-    const dirPath = await selectDirectory(t('projectManagement.projectPath'))
-    if (dirPath) {
-      newProjectForm.value.path = dirPath
+    const result = await dialogApi.selectDirectory({
+      title: t('projectManagement.projectPath'),
+      buttonLabel: t('common.button.select'),
+    })
+    if (!result.canceled && result.filePaths.length > 0) {
+      newProjectForm.value.path = result.filePaths[0] ?? ''
     }
   }
 
-  function handleCreateProject(): void {
+  async function handleCreateProject(): Promise<void> {
     if (!canCreateProject.value) {
       return
     }
 
     const name = newProjectForm.value.name.trim()
     const path = newProjectForm.value.path.trim()
+
+    if (!isElectron()) {
+      // Web 模式下需要项目目录已存在，直接加载
+      // TODO: 后端提供 POST /projects/create 后，Web 也可真正创建新项目
+      await loadProject(path)
+      return
+    }
 
     graphStore.createProject(name, path)
 
@@ -268,70 +298,19 @@
   }
 
   async function handleOpenProject(): Promise<void> {
-    const dirPath = await selectDirectory(t('projectManagement.selectProjectFolder'))
-    if (dirPath) {
-      await loadProject(dirPath)
-    }
-  }
-
-  async function selectDirectory(dialogTitle: string): Promise<string> {
-    if (isElectron()) {
-      try {
-        const api = getElectronAPI()
-        if (api) {
-          const result = await api.showOpenDialog({
-            title: dialogTitle,
-            buttonLabel: t('common.button.select'),
-            properties: ['openDirectory'],
-          })
-          if (!result.canceled && result.filePaths && result.filePaths.length > 0) {
-            return result.filePaths[0] ?? ''
-          }
-        }
-      } catch (error) {
-        logger.error('[ProjectManagementModal] 选择目录失败:', error)
-      }
-      return ''
-    } else {
-      return selectDirectoryInBrowser(dialogTitle)
-    }
-  }
-
-  function selectDirectoryInBrowser(dialogTitle: string): Promise<string> {
-    return new Promise((resolve) => {
-      const input = document.createElement('input')
-      input.type = 'file'
-      input.webkitdirectory = true
-      input.multiple = false
-      input.style.display = 'none'
-      document.body.appendChild(input)
-
-      input.onchange = (event) => {
-        const target = event.target as HTMLInputElement
-        const files = target.files
-        document.body.removeChild(input)
-
-        if (files && files.length > 0) {
-          const first = files[0]
-          if (!first) {
-            resolve('')
-            return
-          }
-          const path = first.webkitRelativePath || ''
-          const dirPath = path.split('/')[0] ?? ''
-          resolve(dirPath)
-        } else {
-          resolve('')
-        }
-      }
-
-      input.onerror = () => {
-        document.body.removeChild(input)
-        resolve('')
-      }
-
-      input.click()
+    const result = await dialogApi.selectDirectory({
+      title: t('projectManagement.selectProjectFolder'),
+      buttonLabel: t('common.button.select'),
     })
+    if (!result.canceled && result.filePaths.length > 0) {
+      await loadProject(result.filePaths[0] ?? '')
+    }
+  }
+
+  async function handleWebOpenProject(): Promise<void> {
+    const dirPath = webOpenPath.value.trim()
+    if (!dirPath) return
+    await loadProject(dirPath)
   }
 
   async function handleOpenRecentProject(project: ProjectInfo): Promise<void> {
@@ -344,31 +323,42 @@
     })
   }
 
-  async function loadProject(projectPath: string): Promise<void> {
+  async function loadProject(projectPath: string): Promise<boolean> {
     const canvasStore = useCanvasStore()
-    graphStore.createProject('', projectPath)
+    try {
+      graphStore.createProject('', projectPath)
 
-    const loadSuccess = await graphStore.loadProjectFromV2()
+      const loadSuccess = await graphStore.loadProjectFromV2()
 
-    if (loadSuccess) {
-      // 加载项目对应的工作区配置
-      await canvasStore.loadWorkspaces(projectPath)
+      if (loadSuccess) {
+        // 加载项目对应的工作区配置
+        await canvasStore.loadWorkspaces(projectPath)
 
-      // 如果新项目没有保存的工作区，创建一个默认 Tab
-      if (canvasStore.workspaces.length === 0) {
-        canvasStore.createNewWorkspace(graphStore)
+        // 如果新项目没有保存的工作区，创建一个默认 Tab
+        if (canvasStore.workspaces.length === 0) {
+          canvasStore.createNewWorkspace(graphStore)
+        }
+
+        const parts = projectPath.replace(/\\/g, '/').split('/')
+        const projectName = parts[parts.length - 1] || 'Project'
+        projectStorageService.addRecentProject({
+          name: projectName,
+          path: projectPath,
+          lastOpened: Date.now(),
+        })
+
+        loadRecentProjects()
+        handleCloseModal()
+        return true
       }
-
-      const parts = projectPath.replace(/\\/g, '/').split('/')
-      const projectName = parts[parts.length - 1] || 'Project'
-      projectStorageService.addRecentProject({
-        name: projectName,
-        path: projectPath,
-        lastOpened: Date.now(),
-      })
-
-      loadRecentProjects()
-      handleCloseModal()
+      return false
+    } catch (error) {
+      logger.error('[ProjectManagementModal] 加载项目失败:', error)
+      window.$toast?.error(
+        t('common.error'),
+        error instanceof Error ? error.message : t('projectManagement.loadFailed')
+      )
+      return false
     }
   }
 

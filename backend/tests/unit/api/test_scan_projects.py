@@ -70,8 +70,8 @@ def test_scan_without_required_param():
 
 def test_scan_uses_env_var_fallback():
     """当不传 work_dir 时，应从 PRECIS_WORK_DIR 环境变量读取。"""
-    import tempfile
     import os
+    import tempfile
 
     with tempfile.TemporaryDirectory() as tmpdir:
         proj = os.path.join(tmpdir, "env-project")

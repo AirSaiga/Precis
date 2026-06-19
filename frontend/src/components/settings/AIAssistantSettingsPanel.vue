@@ -326,7 +326,7 @@
             </div>
             <div class="settings-row__control">
               <button
-                v-if="isElectronEnv"
+                v-if="shellApi.canOpenLocalFile"
                 class="ui-btn ui-btn--secondary ui-btn--sm"
                 type="button"
                 @click="openConfigFile"
@@ -361,6 +361,7 @@
   import { useI18n } from 'vue-i18n'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useToast } from '@/composables/shared'
+  import { shellApi } from '@/core/capabilities/shellApi'
   import type { CloudAIProviderResponse, ProviderPreset } from '@/types/ai'
   import {
     getCloudAIProviders,
@@ -383,7 +384,6 @@
   const presets = ref<ProviderPreset[]>([])
   const configPath = ref('')
   const copied = ref(false)
-  const isElectronEnv = ref(!!window.electronAPI)
 
   const testingProvider = ref<string | null>(null)
   const activatingProvider = ref<string | null>(null)
@@ -633,11 +633,9 @@ defaults:
   async function openConfigFile(): Promise<void> {
     const path = configPath.value || '~/.precis/ai_providers.yaml'
     try {
-      if (window.electronAPI?.openFile) {
-        const result = await window.electronAPI.openFile(path)
-        if (!result?.success) {
-          showError(t('settings.aiAssistant.openConfigFileFailed'))
-        }
+      const result = await shellApi.openFile(path)
+      if (!result.success) {
+        showError(t('settings.aiAssistant.openConfigFileFailed'))
       }
     } catch (error) {
       logger.error('[AIAssistantSettings] Failed to open config file:', error)

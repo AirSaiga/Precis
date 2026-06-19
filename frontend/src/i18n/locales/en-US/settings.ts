@@ -269,6 +269,8 @@ const settings = {
     statusDownloading: 'Downloading',
     statusDownloaded: 'Downloaded',
     statusError: 'Error',
+    electronOnly: 'This feature is only available in the Electron desktop app',
+    unavailable: 'Update feature is unavailable',
   },
   aiAssistant: {
     tab: 'Model Settings',
@@ -392,6 +394,16 @@ const settings = {
     descriptionPlaceholder: 'Enter description (optional)',
     browse: 'Browse',
     selectPath: 'Select Directory',
+    directorySelectionUnavailable:
+      'Directory selection is unavailable, please ensure the application is running correctly',
+    selectDirectory: 'Select Data Directory',
+    selectError: 'Failed to select directory',
+    loadError: 'Failed to load data source configuration',
+    saveError: 'Failed to save data source configuration',
+    saveSuccess: 'Data source configuration saved',
+    errorEmptyId: 'Data source ID cannot be empty',
+    errorEmptyPath: 'Data source path cannot be empty',
+    errorDuplicateId: 'Data source ID must be unique',
     validation: {
       idRequired: 'Please enter an identifier',
       idExists: 'Identifier already exists',

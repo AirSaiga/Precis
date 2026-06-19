@@ -225,6 +225,7 @@ const aiConfigGenerator = {
     manifestMissing: 'Project manifest is missing',
     noFiles: 'Please select at least one file or folder.',
     closeWhileGenerating: 'Cannot close while generating. Please click Cancel first.',
+    uploadFailed: 'File upload failed, please try again later',
   },
   toast: {
     generated: 'Preview generated',

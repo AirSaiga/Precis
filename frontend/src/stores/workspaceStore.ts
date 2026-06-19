@@ -12,7 +12,7 @@ import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import type { ExternalDataSource, WorkspaceConfig } from '@/types/graph'
 import i18n from '@/i18n'
-import { checkFileExists } from '@/core/utils/electronDetector'
+import { checkFileExists } from '@/core/utils/fileApi'
 import {
   loadWorkspaceConfig,
   saveWorkspaceConfig,

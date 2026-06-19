@@ -146,6 +146,7 @@
   import { useClipboard } from '@/composables/useClipboard'
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { eventBus } from '@/core/eventBus'
+  import { shellApi } from '@/core/capabilities/shellApi'
   import InspectionSummaryCard from './InspectionSummaryCard.vue'
   import InspectionIssueGroup, { type IssueGroup } from './InspectionIssueGroup.vue'
   import InspectionIgnoredManager from './InspectionIgnoredManager.vue'
@@ -396,24 +397,22 @@
   }
 
   /**
-   * 调 Electron 打开本地文件
+   * 打开本地文件
    *
-   * - Electron 模式: window.electronAPI.openInEditor(path)
-   * - 浏览器模式: fallback 到复制路径
+   * - Electron 模式: 通过 shellApi.openInEditor 调用系统编辑器
+   * - Web 模式: shellApi 自动降级为复制路径到剪贴板
    */
   async function openFile(path: string): Promise<void> {
-    const electronAPI = (window as any).electronAPI
-    if (electronAPI?.openInEditor) {
-      try {
-        await electronAPI.openInEditor(path)
-        return
-      } catch (err) {
-        logger.warn('[InspectionDrawer] Electron 打开文件失败，回退到复制路径:', err)
+    try {
+      const result = await shellApi.openInEditor(path)
+      if (!result.success) {
+        throw new Error(result.error || 'open failed')
       }
+    } catch (err) {
+      logger.warn('[InspectionDrawer] 打开文件失败，回退到复制路径:', err)
+      await copyToClipboard(path)
+      toastSuccess(t('inspection.toast.pathCopied'), t('inspection.action.openFile'))
     }
-    // 回退：复制路径
-    await copyToClipboard(path)
-    toastSuccess(t('inspection.toast.pathCopied'), t('inspection.action.openFile'))
   }
 
   /**

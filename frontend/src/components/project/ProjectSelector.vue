@@ -3,6 +3,7 @@ import { ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ProjectCard from './ProjectCard.vue'
 import { scanProjects, openProject, type ProjectInfo } from '@/api/projectApi'
+import { isAbsolutePath } from '@/core/utils/pathNormalization'
 
 const emit = defineEmits<{
   projectOpened: [path: string]
@@ -15,6 +16,7 @@ const error = ref('')
 const manualPath = ref('')
 const manualError = ref('')
 const manualLoading = ref(false)
+const openingPath = ref('')
 const workDir = ref('')
 
 onMounted(async () => {
@@ -30,26 +32,47 @@ onMounted(async () => {
   }
 })
 
+function extractErrorDetail(e: unknown): string {
+  if (e && typeof e === 'object' && 'response' in e) {
+    const detail = (e as Record<string, any>).response?.data?.detail
+    if (typeof detail === 'string' && detail.length > 0) {
+      return detail
+    }
+  }
+  if (e instanceof Error) {
+    return e.message
+  }
+  return String(e)
+}
+
 async function handleSelect(path: string) {
+  if (openingPath.value) return
+  openingPath.value = path
   try {
     await openProject(path)
     emit('projectOpened', path)
   } catch (e: unknown) {
-    manualError.value = t('common.project.invalidPath')
+    manualError.value = t('common.project.openFailed', { error: extractErrorDetail(e) })
     console.error('Failed to open project:', e)
+  } finally {
+    openingPath.value = ''
   }
 }
 
 async function handleManualOpen() {
   const path = manualPath.value.trim()
   if (!path) return
+  if (!isAbsolutePath(path)) {
+    manualError.value = t('common.project.absolutePathRequired')
+    return
+  }
   manualLoading.value = true
   manualError.value = ''
   try {
     await openProject(path)
     emit('projectOpened', path)
   } catch (e: unknown) {
-    manualError.value = t('common.project.invalidPath')
+    manualError.value = t('common.project.openFailed', { error: extractErrorDetail(e) })
   } finally {
     manualLoading.value = false
   }
@@ -88,6 +111,7 @@ async function handleManualOpen() {
           :constraint-count="project.constraint_count"
           :last-modified="project.last_modified"
           :path="project.path"
+          :disabled="openingPath === project.path"
           @select="handleSelect"
         />
       </div>

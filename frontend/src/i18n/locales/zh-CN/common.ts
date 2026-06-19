@@ -542,6 +542,9 @@ const common = {
     openProject: '打开项目',
     noProject: '无项目',
     shortcut: '打开项目管理中心',
+    webOpenPathPlaceholder: '输入项目绝对路径...',
+    loadFailed: '加载项目失败',
+    webCreateHint: 'Web 模式下请直接打开已存在的项目目录',
     confirmClose: {
       title: '确认关闭',
       message: '当前项目有未保存的更改，确定要关闭吗？',
@@ -591,6 +594,10 @@ const common = {
     loading: '正在扫描项目...',
     errorScan: '扫描项目失败',
     invalidPath: '路径无效或项目不存在',
+    openFailed: '打开项目失败：{error}',
+    absolutePathRequired: '请输入绝对路径',
+    schemas: 'schemas',
+    constraints: 'constraints',
   },
 
   // 数据源文件类型（通用）

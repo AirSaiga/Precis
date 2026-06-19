@@ -551,6 +551,9 @@ const common = {
     openProject: 'Open Project',
     noProject: 'No Project',
     shortcut: 'Open Project Management',
+    webOpenPathPlaceholder: 'Enter project absolute path...',
+    loadFailed: 'Failed to load project',
+    webCreateHint: 'In Web mode, please open an existing project directory',
     confirmClose: {
       title: 'Confirm Close',
       message: 'The current project has unsaved changes. Are you sure you want to close?',
@@ -601,6 +604,10 @@ const common = {
     loading: 'Scanning projects...',
     errorScan: 'Failed to scan projects',
     invalidPath: 'Invalid path or project not found',
+    openFailed: 'Failed to open project: {error}',
+    absolutePathRequired: 'Please enter an absolute path',
+    schemas: 'schemas',
+    constraints: 'constraints',
   },
 
   // Data source file types (global)

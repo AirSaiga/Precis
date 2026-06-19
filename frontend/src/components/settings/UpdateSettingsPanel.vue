@@ -40,7 +40,7 @@
     </div>
 
     <!-- 更新偏好 -->
-    <div class="settings-section">
+    <div v-if="updateApi.isSupported" class="settings-section">
       <div class="settings-section__header">
         <div class="settings-section__title">{{ t('settings.update.preferences') }}</div>
       </div>
@@ -104,7 +104,7 @@
     </div>
 
     <!-- 操作 -->
-    <div class="settings-section">
+    <div v-if="updateApi.isSupported" class="settings-section">
       <div class="settings-section__header">
         <div class="settings-section__title">{{ t('settings.update.actions') }}</div>
       </div>
@@ -194,27 +194,12 @@
   import { logger } from '@/core/utils/logger'
   import { ref, onMounted, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
-
-  type UpdateStatus =
-    | 'idle'
-    | 'checking'
-    | 'update-available'
-    | 'update-not-available'
-    | 'downloading'
-    | 'downloaded'
-    | 'error'
-
-  interface UpdateState {
-    status: string
-    version?: string
-    releaseDate?: string
-    releaseNotes?: string
-    progress?: number
-    bytesPerSecond?: number
-    transferred?: number
-    total?: number
-    error?: string
-  }
+  import { appApi } from '@/core/capabilities/appApi'
+  import {
+    updateApi,
+    type UpdateState,
+    type UpdateConfig,
+  } from '@/core/capabilities/updateApi'
 
   const { t } = useI18n()
 
@@ -231,8 +216,8 @@
     error: '',
   })
 
-  const localConfig = ref({
-    sourceType: 'github' as 'github' | 'custom',
+  const localConfig = ref<UpdateConfig>({
+    sourceType: 'github',
     sourceUrl: '',
     autoCheck: true,
     autoDownload: false,
@@ -288,77 +273,60 @@
   }
 
   async function loadVersion(): Promise<void> {
-    if (window.electronAPI) {
-      try {
-        currentVersion.value = await window.electronAPI.getAppVersion()
-      } catch (error) {
-        logger.warn('[UpdateSettings] 获取版本失败:', error)
-      }
-      return
-    }
-    // Web 模式：从后端 API 获取版本
     try {
-      const { getAppVersion } = await import('@/api/projectApi')
-      currentVersion.value = await getAppVersion()
+      currentVersion.value = await appApi.getAppVersion()
     } catch (error) {
-      logger.warn('[UpdateSettings] Web 模式获取版本失败:', error)
+      logger.warn('[UpdateSettings] 获取版本失败:', error)
     }
   }
 
   async function loadUpdateConfig(): Promise<void> {
-    if (window.electronAPI?.update) {
-      try {
-        const config = await window.electronAPI.update.getConfig()
+    if (!updateApi.isSupported) return
+
+    try {
+      const config = await updateApi.getConfig()
+      if (config) {
         localConfig.value = { ...localConfig.value, ...config }
-      } catch (error) {
-        logger.warn('[UpdateSettings] 获取配置失败:', error)
       }
+    } catch (error) {
+      logger.warn('[UpdateSettings] 获取配置失败:', error)
     }
   }
 
   async function loadUpdateStatus(): Promise<void> {
-    if (window.electronAPI?.update) {
-      try {
-        const state = await window.electronAPI.update.getStatus()
-        updateState.value = state
-      } catch (error) {
-        logger.warn('[UpdateSettings] 获取状态失败:', error)
-      }
+    if (!updateApi.isSupported) return
+
+    try {
+      const state = await updateApi.getStatus()
+      updateState.value = state
+    } catch (error) {
+      logger.warn('[UpdateSettings] 获取状态失败:', error)
     }
   }
 
   async function handleConfigChange(): Promise<void> {
-    if (window.electronAPI?.update) {
-      try {
-        await window.electronAPI.update.saveConfig(localConfig.value)
-      } catch (error) {
-        logger.error('[UpdateSettings] 保存配置失败:', error)
-      }
+    if (!updateApi.isSupported) return
+
+    try {
+      await updateApi.saveConfig(localConfig.value)
+    } catch (error) {
+      logger.error('[UpdateSettings] 保存配置失败:', error)
     }
   }
 
   async function handleCheckUpdate(): Promise<void> {
-    if (!window.electronAPI) {
+    if (!updateApi.isSupported) {
       updateState.value = {
         ...updateState.value,
         status: 'error',
-        error: '此功能仅在 Electron 桌面应用中可用',
-      }
-      return
-    }
-
-    if (!window.electronAPI.update) {
-      updateState.value = {
-        ...updateState.value,
-        status: 'error',
-        error: '更新功能不可用',
+        error: t('settings.update.electronOnly'),
       }
       return
     }
 
     isChecking.value = true
     try {
-      const state = await window.electronAPI.update.check()
+      const state = await updateApi.check()
       updateState.value = state
     } catch (error) {
       updateState.value = {
@@ -378,11 +346,11 @@
   }
 
   async function handleDownload(): Promise<void> {
-    if (!window.electronAPI?.update) return
+    if (!updateApi.isSupported) return
 
     isDownloading.value = true
     try {
-      const result = await window.electronAPI.update.download()
+      const result = await updateApi.download()
       if (!result.success) {
         updateState.value = {
           ...updateState.value,
@@ -398,33 +366,36 @@
   }
 
   async function handleInstall(): Promise<void> {
-    if (!window.electronAPI?.update) return
+    if (!updateApi.isSupported) return
 
     try {
-      await window.electronAPI.update.install()
+      await updateApi.install()
     } catch (error) {
       logger.error('[UpdateSettings] 安装更新失败:', error)
     }
   }
 
-  let statusPollInterval: number | null = null
+  let unsubscribeProgress: (() => void) | null = null
 
   onMounted(async () => {
     await loadVersion()
+
+    if (!updateApi.isSupported) {
+      return
+    }
+
     await loadUpdateConfig()
     await loadUpdateStatus()
 
-    statusPollInterval = window.setInterval(async () => {
-      if (updateState.value.status === 'downloading' || updateState.value.status === 'checking') {
-        await loadUpdateStatus()
-      }
-    }, 1000)
+    unsubscribeProgress = updateApi.onProgress((state) => {
+      updateState.value = state
+    })
   })
 
   onUnmounted(() => {
-    if (statusPollInterval) {
-      clearInterval(statusPollInterval)
-      statusPollInterval = null
+    if (unsubscribeProgress) {
+      unsubscribeProgress()
+      unsubscribeProgress = null
     }
   })
 </script>
