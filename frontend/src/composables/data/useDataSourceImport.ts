@@ -29,6 +29,7 @@ import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useGraphStore } from '@/stores/graphStore'
 import { logger } from '@/core/utils/logger'
 import { isElectron, getElectronAPI } from '@/core/utils/electronDetector'
+import { uploadFile } from '@/api/fileApi'
 import { platformDetector } from '@/features/keyboard/platform'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { normalizePath, getPathBasename } from '@/core/utils/pathNormalization'
@@ -220,7 +221,76 @@ export function useDataSourceImport() {
    */
   const handleImportFiles = async () => {
     logger.debug('[useDataSourceImport] 使用系统文件选择器')
-    await handleElectronFileSelect()
+    if (isElectron()) {
+      await handleElectronFileSelect()
+    } else {
+      await handleWebFileSelect()
+    }
+  }
+
+  /**
+   * Web 模式下的文件选择（浏览器标准文件输入）
+   * 用户选择文件后上传到后端临时目录，使用临时路径作为数据源路径。
+   */
+  const handleWebFileSelect = async (): Promise<void> => {
+    return new Promise((resolve) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.multiple = true
+      input.accept = '.xlsx,.xls,.csv,.json'
+
+      input.onchange = async () => {
+        const files = input.files
+        if (!files || files.length === 0) {
+          resolve()
+          return
+        }
+
+        try {
+          const fileList: ExternalDataSource[] = []
+          for (const file of Array.from(files)) {
+            const result = await uploadFile(file)
+            logger.debug('[useDataSourceImport] 文件上传成功:', result)
+
+            const dataSource: ExternalDataSource = {
+              id: `ds_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              name: result.original_name,
+              fileId: result.temp_path,
+              type: getFileTypeFromExtension(result.original_name),
+              status: 'ready',
+              lastUsed: new Date().toISOString(),
+              addedAt: new Date().toISOString(),
+              alias: undefined,
+              sourceMode: 'localfile',
+              localPath: result.temp_path,
+              folderPath: undefined,
+              isFolder: false,
+            }
+            fileList.push(dataSource)
+          }
+
+          // 逐个添加数据源
+          for (const ds of fileList) {
+            await workspaceStore.addDataSource(ds)
+          }
+          toastSuccess(t('messages.common.importSuccess'))
+
+          // 触发数据源变更事件
+          eventBus.emit('data-source-changed')
+        } catch (e) {
+          logger.error('[useDataSourceImport] 文件上传失败:', e)
+          toastError(t('messages.common.uploadFailed'))
+        } finally {
+          resolve()
+        }
+      }
+
+      input.oncancel = () => {
+        resolve()
+      }
+
+      input.click()
+    })
   }
 
   /**
