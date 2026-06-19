@@ -588,6 +588,21 @@ const common = {
     errorDuplicateId: 'Data source ID must be unique',
   },
 
+  // Project selection (Web mode)
+  project: {
+    selectTitle: 'Select a Project',
+    noProjects: 'No Precis projects found in the work directory',
+    openOther: 'Open Other Project...',
+    manualPathPlaceholder: 'Enter project absolute path...',
+    openButton: 'Open',
+    today: 'Today',
+    yesterday: 'Yesterday',
+    daysAgo: '{days} days ago',
+    loading: 'Scanning projects...',
+    errorScan: 'Failed to scan projects',
+    invalidPath: 'Invalid path or project not found',
+  },
+
   // Data source file types (global)
   dataSourceFileTypes: {
     csv: 'CSV',

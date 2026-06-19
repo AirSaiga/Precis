@@ -578,6 +578,21 @@ const common = {
     errorDuplicateId: '数据源标识符不能重复',
   },
 
+  // 项目选择（Web 模式）
+  project: {
+    selectTitle: '选择项目',
+    noProjects: '工作目录中未找到 Precis 项目',
+    openOther: '打开其他项目...',
+    manualPathPlaceholder: '输入项目绝对路径...',
+    openButton: '打开',
+    today: '今天',
+    yesterday: '昨天',
+    daysAgo: '{days} 天前',
+    loading: '正在扫描项目...',
+    errorScan: '扫描项目失败',
+    invalidPath: '路径无效或项目不存在',
+  },
+
   // 数据源文件类型（通用）
   dataSourceFileTypes: {
     csv: 'CSV',
