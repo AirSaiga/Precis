@@ -26,6 +26,7 @@ import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { toastError, toastSuccess, toastInfo } from '@/core/toast'
 import { logger } from '@/core/utils/logger'
 import { isElectron, getElectronAPI } from '@/core/utils/electronDetector'
+import { uploadFile, getFileDownloadUrl } from '@/api/fileApi'
 import type { ExternalDataSource } from '@/types/graph'
 
 /**
@@ -56,6 +57,15 @@ export function useDataSourceFileOps() {
       return
     }
 
+    if (isElectron()) {
+      await handleOpenDataSourceElectron(dataSource)
+    } else {
+      handleOpenDataSourceWeb(dataSource)
+    }
+  }
+
+  /** Electron 模式：使用系统默认程序打开文件 */
+  const handleOpenDataSourceElectron = async (dataSource: ExternalDataSource) => {
     // 2. 获取 Electron API
     const api = getElectronAPI()
     if (!api) {
@@ -103,6 +113,14 @@ export function useDataSourceFileOps() {
     }
   }
 
+  /** Web 模式：通过下载链接打开文件 */
+  const handleOpenDataSourceWeb = (dataSource: ExternalDataSource) => {
+    if (!dataSource.localPath) return
+    const url = getFileDownloadUrl(dataSource.localPath)
+    window.open(url, '_blank')
+    toastInfo(t('messages.common.fileDownloadStarted'))
+  }
+
   /**
    * 重新选择数据源文件
    *
@@ -111,6 +129,15 @@ export function useDataSourceFileOps() {
    * @param oldDataSource - 要替换的旧数据源
    */
   const handleReselectFile = async (oldDataSource: ExternalDataSource) => {
+    if (isElectron()) {
+      await handleReselectFileElectron(oldDataSource)
+    } else {
+      await handleReselectFileWeb(oldDataSource)
+    }
+  }
+
+  /** Electron 模式：使用原生对话框重新选择文件 */
+  const handleReselectFileElectron = async (oldDataSource: ExternalDataSource) => {
     const api = getElectronAPI()
     if (!api) {
       logger.error('[useDataSourceFileOps] 重新选择失败：Electron API 不可用')
@@ -166,6 +193,52 @@ export function useDataSourceFileOps() {
       const errorMessage = error instanceof Error ? error.message : String(error)
       toastError(`重新选择文件失败：${errorMessage || '未知错误'}`)
     }
+  }
+
+  /** Web 模式：通过浏览器文件输入重新选择文件，上传到临时目录 */
+  const handleReselectFileWeb = async (oldDataSource: ExternalDataSource) => {
+    return new Promise<void>((resolve) => {
+      const input = document.createElement('input')
+      input.type = 'file'
+      input.accept = '.xlsx,.xls,.csv,.json'
+
+      input.onchange = async () => {
+        const file = input.files?.[0]
+        if (!file) {
+          resolve()
+          return
+        }
+
+        try {
+          const result = await uploadFile(file)
+          const fileName = result.original_name
+          const fileType = getFileTypeFromExtension(fileName)
+
+          logger.debug('[useDataSourceFileOps] Web 模式重新选择了文件:', result.temp_path)
+
+          const updatedDataSource: ExternalDataSource = {
+            ...oldDataSource,
+            name: fileName,
+            fileId: result.temp_path,
+            localPath: result.temp_path,
+            sourceMode: 'localfile',
+            status: 'ready',
+          }
+
+          await workspaceStore.updateDataSource(oldDataSource.id, updatedDataSource)
+          logger.debug('[useDataSourceFileOps] 数据源已更新:', updatedDataSource.name)
+          toastSuccess(`文件已更新：${fileName}\n\n您现在可以将此数据源拖拽到画布中使用。`)
+        } catch (e) {
+          logger.error('[useDataSourceFileOps] Web 重新选择文件失败:', e)
+          toastError('重新选择文件失败')
+        } finally {
+          resolve()
+        }
+      }
+
+      input.oncancel = () => resolve()
+      input.click()
+    })
   }
 
   /**

@@ -294,6 +294,14 @@
       } catch (error) {
         logger.warn('[UpdateSettings] 获取版本失败:', error)
       }
+      return
+    }
+    // Web 模式：从后端 API 获取版本
+    try {
+      const { getAppVersion } = await import('@/api/projectApi')
+      currentVersion.value = await getAppVersion()
+    } catch (error) {
+      logger.warn('[UpdateSettings] Web 模式获取版本失败:', error)
     }
   }
 
