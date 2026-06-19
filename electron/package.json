@@ -20,9 +20,9 @@
     "dist": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Target dist",
     "release": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Target release",
     "setup:windows": "powershell -ExecutionPolicy Bypass -File scripts/enable-dev-mode.ps1",
-    "lint": "eslint --ext .ts,.js .",
+    "lint": "eslint src",
     "build:electron": "tsc",
-    "build:backend": "cd ../backend && python -m pip install -e .",
+    "build:backend": "cd ../backend && python -m pip install -e \".[api]\"",
     "build:frontend": "cd ../frontend && npm run build",
     "build:all": "npm run build:backend && npm run build:frontend && npm run build:electron && npm run dist",
     "update:local": "node scripts/create-local-update.js create",
@@ -45,19 +45,41 @@
     },
     "files": [
       "dist/**/*",
-      "assets/splash.html",
-      "backend/**/*",
-      "!backend/build_backend.py",
-      "!backend/requirements-build.txt",
-      "!backend/precis-backend.spec",
-      "!backend/__pycache__/**",
-      "!backend/**/__pycache__/**",
-      "!backend/app/**/__pycache__/**"
+      "assets/**/*"
     ],
     "extraResources": [
       {
         "from": "../frontend/dist",
         "to": "frontend/dist"
+      },
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!__pycache__",
+          "!__pycache__/**",
+          "!**/__pycache__",
+          "!**/__pycache__/**",
+          "!.mypy_cache",
+          "!.mypy_cache/**",
+          "!.pytest_cache",
+          "!.pytest_cache/**",
+          "!.ruff_cache",
+          "!.ruff_cache/**",
+          "!.coverage",
+          "!*.egg-info",
+          "!*.egg-info/**",
+          "!build",
+          "!build/**",
+          "!dist",
+          "!dist/**",
+          "!tests",
+          "!tests/**",
+          "!.git",
+          "!.git/**",
+          "!.gitignore"
+        ]
       }
     ],
     "publish": {
@@ -94,17 +116,22 @@
     }
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^22.18.6",
     "cross-env": "^10.1.0",
     "electron": "^35.0.0",
     "electron-builder": "^25.1.0",
+    "eslint": "^9.0.0",
+    "globals": "^16.0.0",
+    "png2icons": "^2.0.1",
     "typescript": "~5.9.0",
+    "typescript-eslint": "^8.0.0",
     "vitest": "^4.1.4"
   },
   "dependencies": {
     "chalk": "^5.6.2",
     "electron-updater": "^6.3.9",
-    "png2icons": "^2.0.1",
+    "js-yaml": "^4.1.0",
     "sharp": "^0.34.5"
   }
 }
