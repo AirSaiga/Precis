@@ -19,7 +19,7 @@
     带颜色高亮的 Provider 配置状态文本
 """
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.config_storage import get_cli_config
 from app.cli.shell.formatter import Formatter
 
@@ -42,12 +42,12 @@ class AIStatusCommand(Command):
     def usage(self) -> str:
         return "ai status"
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行状态查看命令。
 
         Args:
             args: 命令参数列表（此命令不需要参数）
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             格式化的配置状态文本

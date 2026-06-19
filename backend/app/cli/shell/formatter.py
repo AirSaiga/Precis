@@ -19,7 +19,7 @@ from typing import Any, Optional
 
 from rich.console import Console
 from rich.panel import Panel
-from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.progress import Progress, SpinnerColumn, TaskID, TextColumn
 from rich.table import Table
 from rich.text import Text
 
@@ -72,7 +72,7 @@ class Spinner:
         self.message = message
         self._success = True
         self._progress: Optional[Progress] = None
-        self._task_id = None
+        self._task_id: Optional[TaskID] = None
 
     def start(self) -> None:
         self._progress = Progress(

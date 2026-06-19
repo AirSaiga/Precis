@@ -27,7 +27,7 @@ from typing import Any
 
 import yaml
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
 
 class ConfigSetCommand(Command):
@@ -47,17 +47,18 @@ class ConfigSetCommand(Command):
     def usage(self) -> str:
         return "config set <config_file> <key_path> <value>"
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行设置配置项命令。
 
         Args:
             args: 命令参数列表，需要包含文件名、路径和值
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             设置成功或失败的结果
         """
-        if not context.is_project_open:
+        project_path = context.project_path
+        if project_path is None:
             return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
 
         if len(args) < 3:
@@ -69,7 +70,6 @@ class ConfigSetCommand(Command):
         config_file = args[0]
         key_path = args[1]
         value_str = args[2]
-        project_path = context.project_path
         config_path = os.path.join(project_path, config_file)
 
         if not os.path.isfile(config_path):

@@ -40,6 +40,7 @@ from typing import Any
 
 # 2. 项目内部导入
 from app.shared.domain.data_types_parts.base import DataType
+from app.shared.domain.expression_system import ExpressionPattern
 
 
 class ExpressionType(DataType):
@@ -129,17 +130,18 @@ class SpecificExpressionType(DataType):
         """
         self.registry = registry
         self.pattern_name = pattern
-        self.specific_pattern = None
+        specific_pattern: ExpressionPattern | None = None
         for p in registry._patterns:
             if p.name == pattern:
-                self.specific_pattern = p
+                specific_pattern = p
                 break
-        if self.specific_pattern is None:
+        if specific_pattern is None:
             raise ValueError(f"在注册表中未找到指定的模式: '{pattern}'")
-        if isinstance(self.specific_pattern.regex, str):
+        if isinstance(specific_pattern.regex, str):
             import re
 
-            self.specific_pattern.regex = re.compile(self.specific_pattern.regex)
+            specific_pattern.regex = re.compile(specific_pattern.regex)
+        self.specific_pattern = specific_pattern
 
     def validate(self, value: Any) -> tuple[bool, Any]:
         """

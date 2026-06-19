@@ -29,7 +29,7 @@ from app.cli.shell.commands.ai.delete import AIDeleteCommand
 from app.cli.shell.commands.ai.executor import execute_ai_chat
 from app.cli.shell.commands.ai.status import AIStatusCommand
 from app.cli.shell.commands.ai.switch import AISwitchCommand
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.commands.provider import ProviderCommand
 from app.cli.shell.config_storage import get_cli_config
 from app.cli.shell.formatter import Formatter
@@ -45,11 +45,11 @@ class AICommand(Command):
 
     def __init__(self):
         super().__init__("ai", aliases=["assistant"])
-        self._chat_cmd = AIChatCommand()
-        self._status_cmd = AIStatusCommand()
-        self._switch_cmd = AISwitchCommand()
-        self._provider_cmd = ProviderCommand()
-        self._delete_cmd = AIDeleteCommand()
+        self._chat_cmd: AIChatCommand = AIChatCommand()
+        self._status_cmd: AIStatusCommand = AIStatusCommand()
+        self._switch_cmd: AISwitchCommand = AISwitchCommand()
+        self._provider_cmd: ProviderCommand = ProviderCommand()
+        self._delete_cmd: AIDeleteCommand = AIDeleteCommand()
         self._cli_config = get_cli_config()
 
         # 注册子命令
@@ -96,7 +96,7 @@ class AICommand(Command):
   首次使用请先运行 'ai provider' 命令添加 Provider
         """.strip()
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行 AI 命令。
 
         无参数时显示交互式菜单；
@@ -133,7 +133,7 @@ class AICommand(Command):
             # 如果第一个参数不是子命令，则将其视为直接询问的消息
             return self._ask_direct(args, context)
 
-    def _show_interactive_menu(self, context: CommandContext) -> CommandResult:
+    def _show_interactive_menu(self, context: ProjectContext) -> CommandResult:
         """显示 AI 助手的交互式菜单（支持方向键导航）。
 
         循环显示菜单，直到用户选择退出或执行需要退出的子命令。
@@ -193,7 +193,7 @@ class AICommand(Command):
                 print(Formatter.info(self.help_text))
                 input(Formatter.info("\n按回车键继续..."))
 
-    def _ask_direct(self, args: list[str], context: CommandContext) -> CommandResult:
+    def _ask_direct(self, args: list[str], context: ProjectContext) -> CommandResult:
         """直接执行 AI 询问。
 
         将参数拼接为完整消息，调用 execute_ai_chat 非交互式执行。

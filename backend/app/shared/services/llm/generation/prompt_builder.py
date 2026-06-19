@@ -13,6 +13,8 @@
     (prompt_string, ["部分文件因 prompt 过长被省略: ..."])
 """
 
+from __future__ import annotations
+
 import logging
 
 logger = logging.getLogger(__name__)

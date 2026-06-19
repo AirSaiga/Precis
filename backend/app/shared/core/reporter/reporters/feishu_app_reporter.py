@@ -391,7 +391,7 @@ class FeishuReporter(Reporter):
         # 生成简要摘要信息
         # 从卡片内容中提取错误数量
         error_lines = card_content["elements"][0]["text"]["content"].splitlines()
-        len(error_lines) - 2 if len(error_lines) > 2 else 0
+        _summary_count = len(error_lines) - 2 if len(error_lines) > 2 else 0
 
         # 构建请求负载：将卡片内容序列化为 JSON 字符串
         # 服务端负责解析和发送飞书消息

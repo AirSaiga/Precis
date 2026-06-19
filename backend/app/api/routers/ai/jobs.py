@@ -14,6 +14,8 @@
 - 超过最大任务数时自动清理已完成任务
 """
 
+from __future__ import annotations
+
 import asyncio
 import threading
 import uuid
@@ -321,4 +323,4 @@ async def cancel_generate_job(
         if task and not task.done():
             task.cancel()
 
-    return ConfigGenerateJobStatus(**storage.load_status(job_id))
+    return ConfigGenerateJobStatus(**status_data)

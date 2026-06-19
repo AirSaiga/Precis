@@ -140,47 +140,47 @@ def _write_resource_files(
         payload: 全量配置请求
         config_path: 项目配置根目录
     """
-    for ref in payload.manifest.schemas:
-        schema = payload.schemas.get(ref.id)
+    for schema_ref in payload.manifest.schemas:
+        schema = payload.schemas.get(schema_ref.id)
         if not schema:
             continue
         try:
-            abs_path = _resolve_project_path(config_path, ref.path)
+            abs_path = _resolve_project_path(config_path, schema_ref.path)
         except ValueError as e:
-            logger.error(f"[put_v2_full_config] 非法 Schema 路径: {ref.path}, 错误: {e}")
+            logger.error(f"[put_v2_full_config] 非法 Schema 路径: {schema_ref.path}, 错误: {e}")
             continue
         write_yaml(Path(abs_path), schema.model_dump(exclude_none=True))
 
-    for ref in payload.manifest.constraints:
-        constraint = payload.constraints.get(ref.id)
+    for constraint_ref in payload.manifest.constraints:
+        constraint = payload.constraints.get(constraint_ref.id)
         if not constraint:
             continue
         try:
-            abs_path = _resolve_project_path(config_path, ref.path)
+            abs_path = _resolve_project_path(config_path, constraint_ref.path)
         except ValueError as e:
-            logger.error(f"[put_v2_full_config] 非法 Constraint 路径: {ref.path}, 错误: {e}")
+            logger.error(f"[put_v2_full_config] 非法 Constraint 路径: {constraint_ref.path}, 错误: {e}")
             continue
         write_yaml(Path(abs_path), constraint.model_dump(exclude_none=True))
 
-    for ref in payload.manifest.regex_nodes:
-        regex_node = payload.regex_nodes.get(ref.id)
+    for regex_ref in payload.manifest.regex_nodes:
+        regex_node = payload.regex_nodes.get(regex_ref.id)
         if not regex_node:
             continue
         try:
-            abs_path = _resolve_project_path(config_path, ref.path)
+            abs_path = _resolve_project_path(config_path, regex_ref.path)
         except ValueError as e:
-            logger.error(f"[put_v2_full_config] 非法 Regex 路径: {ref.path}, 错误: {e}")
+            logger.error(f"[put_v2_full_config] 非法 Regex 路径: {regex_ref.path}, 错误: {e}")
             continue
         write_yaml(Path(abs_path), regex_node.model_dump(exclude_none=True))
 
-    for ref in payload.manifest.transforms or []:
-        transform = payload.transforms.get(ref.id)
+    for transform_ref in payload.manifest.transforms or []:
+        transform = payload.transforms.get(transform_ref.id)
         if not transform:
             continue
         try:
-            abs_path = _resolve_project_path(config_path, ref.path)
+            abs_path = _resolve_project_path(config_path, transform_ref.path)
         except ValueError as e:
-            logger.error(f"[put_v2_full_config] 非法 Transform 路径: {ref.path}, 错误: {e}")
+            logger.error(f"[put_v2_full_config] 非法 Transform 路径: {transform_ref.path}, 错误: {e}")
             continue
         write_yaml(Path(abs_path), transform.model_dump(exclude_none=True))
 

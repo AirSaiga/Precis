@@ -22,8 +22,8 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 # 文件锁导入（跨平台支持）
-msvcrt = None
-fcntl = None
+msvcrt: Any = None
+fcntl: Any = None
 _HAS_FILE_LOCK = False
 
 try:
@@ -189,7 +189,7 @@ def atomic_write_yaml(file_path: Path, data: dict[str, Any], preserve_format: bo
     示例:
         >>> atomic_write_yaml(Path("config.yaml"), {"version": 2})
     """
-    import yaml
+    import yaml  # type: ignore[import-untyped]
 
     file_path = Path(file_path)
 

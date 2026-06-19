@@ -190,7 +190,7 @@ class ActionParser:
         code_block_pattern = r"```(?:json)?\s*\n?(.*?)\n?```"
         matches = re.findall(code_block_pattern, text, re.DOTALL)
         if matches:
-            return max(matches, key=len).strip()
+            return str(max(matches, key=len)).strip()
         first_brace = text.find("{")
         last_brace = text.rfind("}")
         if first_brace != -1 and last_brace != -1 and first_brace < last_brace:
@@ -341,4 +341,5 @@ class ActionParser:
 
     @staticmethod
     def extract_reply(llm_response: dict[str, Any]) -> str:
-        return llm_response.get("reply", "")
+        reply = llm_response.get("reply", "")
+        return str(reply) if reply is not None else ""

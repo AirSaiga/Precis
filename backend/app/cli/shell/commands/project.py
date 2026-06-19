@@ -30,7 +30,7 @@ import os
 from rich.console import Console
 from rich.table import Table
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.commands.open import OpenCommand, _load_history
 
 _console = Console()
@@ -53,12 +53,12 @@ class StatusCommand(Command):
     def usage(self) -> str:
         return "project status"
 
-    def execute(self, args: list[str], ctx: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], ctx: ProjectContext) -> CommandResult:
         """执行查看项目状态命令。
 
         Args:
             args: 命令参数列表（此命令不需要参数）
-            ctx: 命令上下文
+            ctx: 项目上下文
 
         Returns:
             包含项目状态信息的命令执行结果
@@ -115,12 +115,12 @@ class ProjectHistoryCommand(Command):
     def usage(self) -> str:
         return "project history"
 
-    def execute(self, args: list[str], ctx: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], ctx: ProjectContext) -> CommandResult:
         """执行查看项目历史命令。
 
         Args:
             args: 命令参数列表（此命令不需要参数）
-            ctx: 命令上下文
+            ctx: 项目上下文
 
         Returns:
             包含历史项目列表的命令执行结果
@@ -160,7 +160,7 @@ class ProjectCommand(Command):
     def usage(self) -> str:
         return "project <子命令>"
 
-    def execute(self, args: list[str], ctx: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], ctx: ProjectContext) -> CommandResult:
         """执行项目管理命令。
 
         根据第一个参数匹配对应的子命令并执行。
@@ -168,7 +168,7 @@ class ProjectCommand(Command):
 
         Args:
             args: 命令参数列表，第一个元素为子命令名
-            ctx: 命令上下文
+            ctx: 项目上下文
 
         Returns:
             子命令的执行结果，或错误提示

@@ -23,7 +23,7 @@
 from rich.console import Console
 from rich.table import Table
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.parser import CommandRegistry
 
 _console = Console()
@@ -47,7 +47,7 @@ class HelpCommand(Command):
     def usage(self) -> str:
         return "help [command]"
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         if not args:
             return self._show_all_commands()
         else:

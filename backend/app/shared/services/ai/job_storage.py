@@ -152,7 +152,7 @@ class AgentJobStorage:
         """
         with self._lock:
             data = self._load_raw(job_id)
-            checkpoints = data.get("checkpoints", [])
+            checkpoints: list[dict[str, Any]] = data.get("checkpoints", [])
             if checkpoints:
                 return checkpoints[-1]
             return None

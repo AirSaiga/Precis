@@ -138,7 +138,7 @@ class UniqueConstraint(Constraint):
             4. 使用 pandas duplicated() 找出重复的行（keep=False 表示所有重复行都标记）
             5. 为每个重复行生成错误记录
         """
-        errors = []
+        errors: list[dict[str, Any]] = []
 
         # 检查目标表是否存在
         if self.table not in datasets:

@@ -328,7 +328,7 @@ class DecimalType(DataType):
     - 需要精确小数表示的业务场景
     """
 
-    def __init__(self, precision: int = 28, scale: int = None):
+    def __init__(self, precision: int = 28, scale: int | None = None):
         """
         @methoddesc 初始化高精度小数类型
 
@@ -363,9 +363,11 @@ class DecimalType(DataType):
                 if total_digits > self.precision:
                     return False, f"'{value}' 超出精度限制（最大 {self.precision} 位）"
             if self.scale is not None:
-                decimal_places = -decimal_value.as_tuple().exponent
-                if decimal_places > self.scale:
-                    return False, f"'{value}' 小数位数超出限制（最大 {self.scale} 位）"
+                exponent = decimal_value.as_tuple().exponent
+                if isinstance(exponent, int):
+                    decimal_places = -exponent
+                    if decimal_places > self.scale:
+                        return False, f"'{value}' 小数位数超出限制（最大 {self.scale} 位）"
             return True, None
         except (InvalidOperation, ValueError, TypeError):
             return False, f"'{value}' 不是一个有效的数值。"

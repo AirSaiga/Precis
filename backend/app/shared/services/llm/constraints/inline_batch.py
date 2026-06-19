@@ -22,7 +22,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from app.shared.services.llm.constraints.constraint_builder import (
     CONSTRAINT_TYPE_MAP,
@@ -47,7 +47,8 @@ def _collect_target_schema_id(action: dict[str, Any]) -> str | None:
     """
     spec = action.get("constraintSpec", {})
     # 优先使用 tableName，其次是 targetNodeId
-    return spec.get("tableName") or spec.get("targetNodeId")
+    value = spec.get("tableName") or spec.get("targetNodeId")
+    return value if isinstance(value, str) else None
 
 
 def _is_inline_action(action: dict[str, Any]) -> bool:
@@ -63,7 +64,7 @@ def _is_inline_action(action: dict[str, Any]) -> bool:
         True 表示内联约束，False 表示独立约束
     """
     spec = action.get("constraintSpec", {})
-    return spec.get("isInline", False)
+    return bool(spec.get("isInline", False))
 
 
 def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> list[dict[str, Any]]:

@@ -35,6 +35,7 @@ from typing import Any
 
 import pandas as pd
 
+from app.shared.core.data_source.schema_info import DataSourceInfo
 from app.shared.core.project.schema.types import TableSchemaFile
 from app.shared.domain.dataset_schema import DataSetSchema, TableSchema
 
@@ -310,7 +311,14 @@ class ChunkedDataLoader:
                     try:
                         from app.shared.core.data_source.loader import load_grouped_sources
 
-                        file_to_schemas = {source_path: [table_schema]}
+                        info = DataSourceInfo(
+                            schema_id=table_id,
+                            name=getattr(table_schema, "name", table_id),
+                            sheet_name=getattr(table_schema, "sheet_name", None),
+                            header_row=getattr(table_schema, "header_row", 0),
+                            source_config=getattr(table_schema, "source_config", None) or {},
+                        )
+                        file_to_schemas = {source_path: [info]}
                         loaded, _ = load_grouped_sources(file_to_schemas)
                         if loaded:
                             df = next(iter(loaded.values()))
@@ -322,7 +330,14 @@ class ChunkedDataLoader:
                 try:
                     from app.shared.core.data_source.loader import load_grouped_sources
 
-                    file_to_schemas = {source_path: [table_schema]}
+                    info = DataSourceInfo(
+                        schema_id=table_id,
+                        name=getattr(table_schema, "name", table_id),
+                        sheet_name=getattr(table_schema, "sheet_name", None),
+                        header_row=getattr(table_schema, "header_row", 0),
+                        source_config=getattr(table_schema, "source_config", None) or {},
+                    )
+                    file_to_schemas = {source_path: [info]}
                     loaded, _ = load_grouped_sources(file_to_schemas)
                     if loaded:
                         df = next(iter(loaded.values()))

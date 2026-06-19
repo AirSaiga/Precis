@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +83,7 @@ def find_matching_schemas(workspace_path: str, query_name: str) -> list[dict[str
 
 
 def _resolve_id_from_name(
-    workspace_path: str, table_name: str, column_name: str = None
+    workspace_path: str, table_name: str, column_name: str | None = None
 ) -> tuple[str | None, str | None]:
     """
     @methoddesc 根据名称在本地 schema 文件中查找对应的 ID

@@ -116,7 +116,7 @@ class AllowedValuesConstraint(Constraint):
             4. 排除空值（空值不视为违规）
             5. 为每个违规行生成错误记录
         """
-        errors = []
+        errors: list[dict[str, Any]] = []
 
         # 步骤1: 检查目标表是否存在
         if self.table not in datasets:

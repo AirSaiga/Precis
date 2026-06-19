@@ -21,7 +21,7 @@
     CommandResult.error("没有已配置的 API Key")
 """
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.config_storage import get_cli_config
 from app.cli.shell.formatter import Colors, Formatter
 from app.cli.shell.interactive_menu import InteractiveMenu
@@ -60,12 +60,12 @@ class AIDeleteCommand(Command):
   使用 'ai status' 查看已配置的 Provider。
         """.strip()
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行删除命令。
 
         Args:
             args: 命令参数列表，可能包含 Provider ID
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             删除成功或失败的结果

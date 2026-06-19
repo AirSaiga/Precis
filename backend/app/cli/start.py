@@ -57,7 +57,9 @@ def _resolve_work_dir(arg_work_dir: str | None) -> str:
             with open(config_path, encoding="utf-8") as f:
                 config = yaml.safe_load(f)
             if isinstance(config, dict) and "work_dir" in config:
-                return os.path.abspath(config["work_dir"])
+                work_dir_value = config["work_dir"]
+                if isinstance(work_dir_value, str):
+                    return os.path.abspath(work_dir_value)
         except Exception:
             pass
 

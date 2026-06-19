@@ -24,7 +24,7 @@ import os
 
 import yaml
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.commands.config.base import find_config_file
 from app.cli.shell.formatter import Formatter
 
@@ -46,20 +46,19 @@ class ConfigShowCommand(Command):
     def usage(self) -> str:
         return "config show [config_file]"
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行显示配置命令。
 
         Args:
             args: 命令参数列表，可能包含要显示的文件名
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             配置文件内容或错误提示
         """
-        if not context.is_project_open:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
-
         project_path = context.project_path
+        if project_path is None:
+            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
 
         # 如果指定了具体文件，只显示该文件
         if args:

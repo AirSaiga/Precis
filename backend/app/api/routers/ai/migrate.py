@@ -262,4 +262,4 @@ async def cancel_migrate_job(
         if task and not task.done():
             task.cancel()
 
-    return ConfigGenerateJobStatus(**storage.load_status(job_id))
+    return ConfigGenerateJobStatus(**status_data)

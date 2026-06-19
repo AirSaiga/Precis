@@ -25,7 +25,7 @@ import os
 import subprocess
 import sys
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.commands.config.base import find_config_file
 from app.cli.shell.exceptions import EditorError
 
@@ -47,12 +47,12 @@ class ConfigEditCommand(Command):
     def usage(self) -> str:
         return "config edit [config_file]"
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行编辑命令。
 
         Args:
             args: 命令参数列表，可能包含要编辑的文件名
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             编辑成功或失败的结果
@@ -60,10 +60,9 @@ class ConfigEditCommand(Command):
         Raises:
             EditorError: 当编辑器发生异常时抛出
         """
-        if not context.is_project_open:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
-
         project_path = context.project_path
+        if project_path is None:
+            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
 
         config_file = args[0] if args else "project.precis.yaml"
         config_path = find_config_file(project_path, config_file)

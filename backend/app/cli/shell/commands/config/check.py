@@ -30,7 +30,7 @@ import yaml
 from rich.console import Console
 from rich.syntax import Syntax
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.commands.config.base import find_config_file
 from app.cli.shell.formatter import _supports_unicode
 
@@ -57,20 +57,19 @@ class ConfigCheckCommand(Command):
     def usage(self) -> str:
         return "config check [config_file] [--all]"
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行配置检查命令。
 
         Args:
             args: 命令参数列表，可能包含文件名或 --all 标志
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             检查结果，成功表示所有文件格式正确
         """
-        if not context.is_project_open:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
-
         project_path = context.project_path
+        if project_path is None:
+            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
 
         # 解析参数
         show_all = "--all" in args

@@ -115,7 +115,7 @@ class NotNullConstraint(Constraint):
             4. 对于字符串类型的列，额外检测仅包含空白字符的值
             5. 为每个空值行生成错误记录
         """
-        errors = []
+        errors: list[dict[str, Any]] = []
 
         # 检查目标表是否存在
         if self.table not in datasets:

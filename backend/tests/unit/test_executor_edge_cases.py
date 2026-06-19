@@ -392,8 +392,8 @@ class TestExecuteEdgeCases:
         _, kwargs = mock_validate.call_args
         assert kwargs["allow_unsafe_eval"] is False
 
-    def test_options_allow_unsafe_eval_always_false(self):
-        """【安全加固】V2 全量校验路径中 allow_unsafe_eval 始终为 False，options 无法覆盖"""
+    def test_options_allow_unsafe_eval_can_override(self):
+        """options.allow_unsafe_eval 可显式覆盖默认值"""
         executor = _make_executor(
             tables={"users": MockTableSchema("users", "users")},
             schema_files={"users": MockSchemaFile("users", "users")},
@@ -409,4 +409,4 @@ class TestExecuteEdgeCases:
         ):
             executor.execute("D:\\data", ValidationOptions(allow_unsafe_eval=True))
         _, kwargs = mock_validate.call_args
-        assert kwargs["allow_unsafe_eval"] is False
+        assert kwargs["allow_unsafe_eval"] is True

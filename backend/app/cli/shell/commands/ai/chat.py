@@ -32,7 +32,7 @@
 
 from app.cli.shell.commands.ai.base import build_context_data
 from app.cli.shell.commands.ai.executor import execute_ai_chat
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.config_storage import get_cli_config
 from app.cli.shell.formatter import Colors, Formatter
 from app.shared.services.ai.utils import (
@@ -67,7 +67,7 @@ class AIChatCommand(Command):
     def usage(self) -> str:
         return "ai chat [--stream | --no-stream]"
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行 AI 交互式对话命令。
 
         检查项目和 AI 配置，解析命令行参数，然后进入交互式输入循环。

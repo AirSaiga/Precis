@@ -23,7 +23,7 @@ import json
 import logging
 import os
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
 # 历史记录文件路径：存储在用户主目录下
 HISTORY_FILE = os.path.expanduser("~/.precis_project_history")
@@ -44,7 +44,10 @@ def _load_history() -> list[dict]:
         return []
     try:
         with open(HISTORY_FILE, encoding="utf-8") as f:
-            return json.load(f)
+            data = json.load(f)
+            if isinstance(data, list):
+                return data
+            return []
     except json.JSONDecodeError:
         # JSON 格式损坏，返回空列表
         return []
@@ -116,7 +119,7 @@ class OpenCommand(Command):
     def usage(self) -> str:
         return "open [项目路径 | 序号]（无参数则从历史选择）"
 
-    def execute(self, args: list[str], ctx: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], ctx: ProjectContext) -> CommandResult:
         """执行打开项目命令。
 
         支持三种调用方式：
@@ -126,7 +129,7 @@ class OpenCommand(Command):
 
         Args:
             args: 命令参数列表
-            ctx: 命令上下文，用于保存当前项目路径
+            ctx: 项目上下文，用于保存当前项目路径
 
         Returns:
             命令执行结果
@@ -143,7 +146,7 @@ class OpenCommand(Command):
         # 默认：按路径打开
         return self._do_open_path(os.path.abspath(args[0]), ctx)
 
-    def _do_open_path(self, project_path: str, ctx: CommandContext) -> CommandResult:
+    def _do_open_path(self, project_path: str, ctx: ProjectContext) -> CommandResult:
         """按绝对路径打开项目的公共逻辑（供方案A/B/路径模式复用）。
 
         执行：存在性校验 → 设 ctx.project_path → 写历史 → 加载清单 → 构造消息。
@@ -190,7 +193,7 @@ class OpenCommand(Command):
 
         return CommandResult(success=True, message=msg)
 
-    def _open_from_history(self, ctx: CommandContext) -> CommandResult:
+    def _open_from_history(self, ctx: ProjectContext) -> CommandResult:
         """方案A：无参数时从历史记录交互选择项目。
 
         使用 InteractiveMenu 渲染历史项目列表（光标默认停在最近项目，
@@ -234,7 +237,7 @@ class OpenCommand(Command):
 
         return self._do_open_path(selected_path, ctx)
 
-    def _open_by_index(self, index_str: str, ctx: CommandContext) -> CommandResult:
+    def _open_by_index(self, index_str: str, ctx: ProjectContext) -> CommandResult:
         """方案B：按历史序号打开项目（1-based）。
 
         Args:

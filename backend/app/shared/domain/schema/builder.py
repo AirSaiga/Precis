@@ -12,7 +12,7 @@
 约束注册表已迁移至 app.shared.core.project.constraint.registry
 """
 
-from typing import Any
+from typing import Any, Optional, cast
 
 # 1. 项目内部导入
 from app.shared.domain.data_types import (
@@ -73,7 +73,7 @@ TYPE_REGISTRY: dict[str, Any] = {
 }
 
 
-def build_type_from_config(config: Any, registries: dict[str, ExpressionRegistry] = None) -> DataType:
+def build_type_from_config(config: Any, registries: Optional[dict[str, ExpressionRegistry]] = None) -> DataType:
     """
     从配置构建数据类型实例。
 
@@ -168,10 +168,10 @@ def build_type_from_config(config: Any, registries: dict[str, ExpressionRegistry
         type_name = config
         if type_name not in TYPE_REGISTRY:
             raise ValueError(f"未知的类型名称: '{type_name}'")
-        return TYPE_REGISTRY[type_name]
+        return cast(DataType, TYPE_REGISTRY[type_name])
 
     elif isinstance(config, dict):
-        type_name = config.get("name")
+        type_name = cast(str, config.get("name"))
         if not type_name or type_name not in TYPE_REGISTRY:
             raise ValueError(f"类型配置字典中缺少或包含未知的类型名称: {config}")
 
@@ -196,7 +196,7 @@ def build_type_from_config(config: Any, registries: dict[str, ExpressionRegistry
             else:
                 raise ValueError(f"名为 '{registry_name}' 的表达式注册中心未提供。")
 
-        return type_class(**params)
+        return cast(DataType, type_class(**params))
 
     else:
         raise TypeError(f"无效的类型配置格式: {type(config)}")

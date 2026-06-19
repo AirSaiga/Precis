@@ -27,7 +27,7 @@
 import asyncio
 import getpass
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.config_storage import (
     get_cli_config,
     reload_providers_config,
@@ -85,12 +85,12 @@ class ProviderCommand(Command):
   - 查看配置文件路径和模板
         """.strip()
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行 provider 命令。
 
         Args:
             args: 命令参数列表
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             操作结果

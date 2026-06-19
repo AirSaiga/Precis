@@ -98,7 +98,7 @@ class ConditionalConstraint(Constraint):
         if_column: str = "",
         if_value: Any = None,
         then_column: str = "",
-        then_condition: dict | str = None,
+        then_condition: dict | str | None = None,
         if_conditions: list[dict] | None = None,
         if_logic: str = "and",
     ):
@@ -147,20 +147,21 @@ class ConditionalConstraint(Constraint):
             ValueError: 当 DSL 操作符不支持，或字符串函数名未注册时抛出
             TypeError: 当 then_condition 类型既不是字典也不是字符串时抛出
         """
-        if isinstance(self.then_condition_config, dict):
-            operator = self.then_condition_config.get("operator")
-            ref_column = self.then_condition_config.get("ref_column")
+        then_config = self.then_condition_config
+        if isinstance(then_config, dict):
+            operator = then_config.get("operator")
+            ref_column = then_config.get("ref_column")
 
             # 辅助函数：获取比较值（固定值或引用列）
             def _get_compared_value(x: Any, row: dict[str, Any] | None) -> Any:
                 if ref_column and row is not None:
                     return row.get(ref_column)
-                return self.then_condition_config.get("value")
+                return then_config.get("value")
 
             if operator == "not_null":
-                return lambda x, row=None: pd.notna(x) and x != ""
+                return lambda x, row=None: bool(pd.notna(x)) and x != ""
             if operator == "greater_than":
-                threshold = self.then_condition_config.get("value")
+                threshold = then_config.get("value")
 
                 def _safe_greater_than(x: Any, row: dict[str, Any] | None = None) -> bool:
                     compared = _get_compared_value(x, row) if ref_column else threshold
@@ -169,10 +170,10 @@ class ConditionalConstraint(Constraint):
                     if compared is None or compared == "":
                         return False
                     try:
-                        return x > compared
+                        return bool(x > compared)
                     except Exception:
                         try:
-                            return float(x) > float(compared)
+                            return bool(float(x) > float(compared))
                         except Exception:
                             logger.debug(
                                 f"greater_than 比较失败: x={x!r}, compared={compared!r}, "
@@ -182,7 +183,7 @@ class ConditionalConstraint(Constraint):
 
                 return _safe_greater_than
             if operator == "in":
-                values = self.then_condition_config.get("values", [])
+                values = then_config.get("values", [])
 
                 def _safe_in(x: Any, row: dict[str, Any] | None = None) -> bool:
                     if pd.isna(x) or x == "":
@@ -198,7 +199,7 @@ class ConditionalConstraint(Constraint):
 
                 return _safe_in
             if operator == "less_than":
-                threshold = self.then_condition_config.get("value")
+                threshold = then_config.get("value")
 
                 def _safe_less_than(x: Any, row: dict[str, Any] | None = None) -> bool:
                     compared = _get_compared_value(x, row) if ref_column else threshold
@@ -207,10 +208,10 @@ class ConditionalConstraint(Constraint):
                     if compared is None or compared == "":
                         return False
                     try:
-                        return x < compared
+                        return bool(x < compared)
                     except Exception:
                         try:
-                            return float(x) < float(compared)
+                            return bool(float(x) < float(compared))
                         except Exception:
                             logger.debug(
                                 f"less_than 比较失败: x={x!r}, compared={compared!r}, "
@@ -220,23 +221,23 @@ class ConditionalConstraint(Constraint):
 
                 return _safe_less_than
             if operator == "eq":
-                expected = self.then_condition_config.get("value")
+                expected = then_config.get("value")
 
                 def _safe_eq(x: Any, row: dict[str, Any] | None = None) -> bool:
                     compared = _get_compared_value(x, row) if ref_column else expected
                     if pd.isna(x) and compared is None:
                         return True
-                    return x == compared
+                    return bool(x == compared)
 
                 return _safe_eq
             if operator == "neq":
-                expected = self.then_condition_config.get("value")
+                expected = then_config.get("value")
 
                 def _safe_neq(x: Any, row: dict[str, Any] | None = None) -> bool:
                     compared = _get_compared_value(x, row) if ref_column else expected
                     if pd.isna(x) and compared is None:
                         return False
-                    return x != compared
+                    return bool(x != compared)
 
                 return _safe_neq
             raise ValueError(f"不支持的DSL操作符: '{operator}'")
@@ -245,8 +246,12 @@ class ConditionalConstraint(Constraint):
             # 从全局注册表中查找已注册的条件函数
             if self.then_condition_config in CONDITION_REGISTRY:
                 original = CONDITION_REGISTRY[self.then_condition_config]
+
                 # 包装为兼容新签名 (value, row=None) 的函数
-                return lambda x, row=None: original(x)
+                def _wrapped_condition(x: Any, row: dict[str, Any] | None = None) -> bool:
+                    return bool(original(x))
+
+                return _wrapped_condition
             raise ValueError(
                 f"未注册的条件函数名: '{self.then_condition_config}'. 可用: {list(CONDITION_REGISTRY.keys())}"
             )
@@ -285,7 +290,7 @@ class ConditionalConstraint(Constraint):
             4. 对每个触发行检查 then_column 是否满足条件
             5. 为不满足条件的行生成错误记录
         """
-        errors = []
+        errors: list[dict[str, Any]] = []
 
         # 检查目标表是否存在
         if self.table not in datasets:
@@ -343,7 +348,7 @@ class ConditionalConstraint(Constraint):
             if op == "greater_than":
                 # 大于: 先转为数值再比较
                 try:
-                    threshold = float(value)
+                    threshold = float(value) if value is not None else 0.0
                     return pd.to_numeric(s, errors="coerce") > threshold
                 except Exception:
                     logger.debug(f"greater_than 条件阈值转换失败: value={value!r}, table={self.table}, column={col}")
@@ -354,7 +359,7 @@ class ConditionalConstraint(Constraint):
             if op == "less_than":
                 # 小于: 先转为数值再比较
                 try:
-                    threshold = float(value)
+                    threshold = float(value) if value is not None else 0.0
                     return pd.to_numeric(s, errors="coerce") < threshold
                 except Exception:
                     logger.debug(f"less_than 条件阈值转换失败: value={value!r}, table={self.table}, column={col}")
@@ -423,7 +428,7 @@ class ConditionalConstraint(Constraint):
             if ref_column:
                 check_result = self._condition_func(value_to_check, row)
             else:
-                check_result = self._condition_func(value_to_check)
+                check_result = self._condition_func(value_to_check, None)
             if not check_result:
                 # 构建触发条件的信息，用于错误消息
                 if_value_payload: dict[str, Any] = {}

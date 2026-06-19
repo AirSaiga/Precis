@@ -121,7 +121,11 @@ def _display_detailed_diff(changed_files: dict[str, tuple[str, str]]) -> None:
     print("\n" + "=" * 70)
 
 
-def _display_execution_results(result, project_path: str, original_files_cache: dict[str, str] = None) -> None:
+def _display_execution_results(
+    result,
+    project_path: str,
+    original_files_cache: dict[str, str] | None = None,
+) -> None:
     """显示执行结果（CLI 交互模式）并处理 diff。
 
     判断 AI 返回的动作是否包含约束节点的增删改操作。

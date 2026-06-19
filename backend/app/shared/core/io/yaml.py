@@ -12,9 +12,9 @@ import os
 import tempfile
 import time
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 
 def read_yaml(path: Path) -> dict[str, Any]:
@@ -148,7 +148,7 @@ def read_yaml(path: Path) -> dict[str, Any]:
     :raises yaml.YAMLError: 当 YAML 格式错误时抛出
     """
     with open(path, encoding="utf-8") as f:
-        return yaml.safe_load(f)
+        return cast(dict[str, Any], yaml.safe_load(f))
 
 
 def write_yaml(path: Path, data: dict[str, Any]) -> None:

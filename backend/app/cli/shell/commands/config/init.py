@@ -23,7 +23,7 @@
 
 import os
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.commands.config.base import CONSTRAINT_TEMPLATE, PATTERNS_TEMPLATE, PROJECT_TEMPLATE
 
 
@@ -44,17 +44,18 @@ class ConfigInitCommand(Command):
     def usage(self) -> str:
         return "config init <project|constraint|pattern> [filename]"
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行初始化配置命令。
 
         Args:
             args: 命令参数列表，第一个为模板类型，第二个可选为文件名
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             创建成功或失败的结果
         """
-        if not context.is_project_open:
+        project_path = context.project_path
+        if project_path is None:
             return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
 
         if not args:
@@ -63,7 +64,6 @@ class ConfigInitCommand(Command):
             )
 
         template_type = args[0].lower()
-        project_path = context.project_path
 
         # 模板类型映射：类型 -> (默认文件名, 模板内容)
         templates = {

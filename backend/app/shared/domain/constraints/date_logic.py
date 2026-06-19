@@ -146,7 +146,7 @@ class DateLogicConstraint(Constraint):
         返回:
             验证结果字典，包含 errors（错误列表）和 info（约束信息）
         """
-        errors = []
+        errors: list[dict[str, Any]] = []
 
         # 检查目标表是否存在
         if self.table not in datasets:

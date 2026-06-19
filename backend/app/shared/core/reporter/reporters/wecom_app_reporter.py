@@ -74,7 +74,7 @@ class WeComAppReporter(Reporter):
         self.access_token = None  # 企业微信 API 访问令牌
         self.token_expires_at = 0  # 令牌过期时间戳
 
-    def configure(self, corp_id: str, corp_secret: str, agent_id: int, touser: str, **kwargs) -> bool:
+    def configure(self, **kwargs) -> bool:
         """
         @methoddesc 配置企业微信报告器参数
 
@@ -91,12 +91,21 @@ class WeComAppReporter(Reporter):
             bool: 配置是否成功
         """
         # 参数验证：确保所有必需参数都提供
+        corp_id = kwargs.get("corp_id")
+        corp_secret = kwargs.get("corp_secret")
+        agent_id = kwargs.get("agent_id")
+        touser = kwargs.get("touser")
         if not all([corp_id, corp_secret, agent_id, touser]):
             self.is_configured = False
             return False
 
         # 保存配置参数
-        self.config = {"corp_id": corp_id, "corp_secret": corp_secret, "agent_id": agent_id, "touser": touser}
+        self.config = {
+            "corp_id": str(corp_id),
+            "corp_secret": str(corp_secret),
+            "agent_id": int(agent_id),
+            "touser": str(touser),
+        }
         self.is_configured = True
         print(f"[{self.name}] ✓ 配置成功。")
         return True
