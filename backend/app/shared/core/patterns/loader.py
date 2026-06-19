@@ -3,6 +3,11 @@
 功能概述:
 - 从 patterns/ 目录加载 YAML 规则文件并编译为正则表达式
 - 将 ExpressionPattern 注册到 ExpressionRegistry 供系统使用
+
+架构设计:
+- 为避免 core 层反向依赖 domain.expression_system，
+  domain 相关类在函数内部延迟导入。
+- 返回类型使用字符串前向引用，满足类型注解需求。
 """
 
 from __future__ import annotations
@@ -13,16 +18,12 @@ import re
 
 logger = logging.getLogger(__name__)
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import Any
 
-from ...domain.expression_system import ExpressionPattern, ExpressionRegistry, create_templated_parser
 from ..io.yaml import read_yaml
 
-if TYPE_CHECKING:
-    from ...domain.expression_system import ExpressionRegistry
 
-
-def load_patterns_from_config(base_dir: str) -> ExpressionRegistry:
+def load_patterns_from_config(base_dir: str) -> Any:
     """
     从指定的配置目录加载所有 YAML 规则文件。
 
@@ -55,6 +56,9 @@ def load_patterns_from_config(base_dir: str) -> ExpressionRegistry:
         >>> registry = load_patterns_from_config("data/patterns")
         >>> print(f"已加载 {len(registry.patterns)} 条规则")
     """
+    # 延迟导入 domain 层类型，避免 core 层在模块导入时反向依赖 domain
+    from app.shared.domain.expression_system import ExpressionPattern, ExpressionRegistry, create_templated_parser
+
     # 创建空的 ExpressionRegistry 实例
     # 用于存储所有加载的表达式模式
     registry = ExpressionRegistry()

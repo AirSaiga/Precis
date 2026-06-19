@@ -18,7 +18,6 @@ from pathlib import Path
 from typing import Callable, TypeVar
 
 from app.shared.core.manifest_schema import is_supported_version
-from app.shared.core.project.constraint.factory import create_constraints
 from app.shared.core.project.loader.loader_parts import loading_error_messages
 from app.shared.core.project.loader.loader_parts.embedded_constraints import collect_constraints_from_schemas
 from app.shared.core.project.loader.loader_parts.file_loaders import (
@@ -29,10 +28,9 @@ from app.shared.core.project.loader.loader_parts.file_loaders import (
     load_transform_file,
 )
 from app.shared.core.project.loader.loader_parts.path_validation import validate_path_inside_project
-from app.shared.core.project.loader.loader_parts.runtime import build_registries, build_runtime_schemas
-from app.shared.core.project.loader.types import LoadedProject, LoadingError
+from app.shared.core.project.loader.loader_parts.runtime import build_registries
+from app.shared.core.project.loader.types import LoadedProject, LoadingError, SchemaBuilder
 from app.shared.core.project.manifest.reader import load_manifest
-from app.shared.domain import DataSetSchema
 
 T = TypeVar("T")
 
@@ -107,7 +105,10 @@ def _load_referenced_files(
     return result
 
 
-def load_project(manifest_path: str) -> LoadedProject:
+def load_project(
+    manifest_path: str,
+    schema_builder: SchemaBuilder | None = None,
+) -> LoadedProject:
     """@methoddesc 加载整个 Precis 项目配置。
 
     加载流程 (按顺序执行):
@@ -119,6 +120,12 @@ def load_project(manifest_path: str) -> LoadedProject:
     6. 加载所有 regex 文件
     7. 构建运行时 schema
     8. 创建运行时 constraints
+
+    :param manifest_path: manifest 文件路径
+    :param schema_builder: 运行时数据集 Schema 构建器（依赖注入）。
+        core 层不直接依赖 services，由调用方（services 层）注入构建器
+        完成 "core 文件对象 → domain 运行时对象" 的转换。
+        为 None 时 dataset_schema 字段保持为 None，由调用方自行处理。
     """
     manifest_file = Path(manifest_path)
     project_root = manifest_file.parent
@@ -227,11 +234,14 @@ def load_project(manifest_path: str) -> LoadedProject:
                 )
 
     # 阶段 5：构建运行时数据结构
-    runtime_tables = build_runtime_schemas(schema_files, registries)
-    runtime_constraints, constraint_warnings = create_constraints(constraint_files, schema_files)
-    warnings.extend(constraint_warnings)
-
-    dataset_schema = DataSetSchema(tables=runtime_tables, constraints=runtime_constraints)
+    # 通过依赖注入的 schema_builder 完成 "core 文件对象 → domain 运行时对象" 的转换，
+    # 避免 core 层反向依赖 services 层。调用方（services）传入构建器；
+    # 未注入时 dataset_schema 保持为 None，由调用方自行构建。
+    if schema_builder is not None:
+        dataset_schema, constraint_warnings = schema_builder(schema_files, constraint_files, registries)
+        warnings.extend(constraint_warnings)
+    else:
+        dataset_schema = None
 
     # 阶段 6：配置格式自检（ID 一致性、引用完整性等）
     from app.shared.core.project.loader.loader_parts.config_inspector import inspect_config

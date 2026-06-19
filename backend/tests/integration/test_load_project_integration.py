@@ -22,6 +22,7 @@ if _project_root not in sys.path:
 import pytest
 
 from app.shared.core.project.loader.loader_parts.main import load_project
+from app.shared.services.project_loader import build_dataset_schema
 from app.shared.services.validation.executor import ValidationExecutor, ValidationOptions
 
 QA_SIMPLE_ROOT = Path(__file__).resolve().parents[3] / "qa_test" / "qa_simple"
@@ -43,7 +44,8 @@ class TestLoadProjectIntegration:
         proj = _copy_qa_simple_into(tmp_path)
         manifest = str(proj / "project.precis.yaml")
 
-        result = load_project(manifest)
+        # 注入 schema_builder 以构建 dataset_schema（core 层不再自行依赖 services）
+        result = load_project(manifest, schema_builder=build_dataset_schema)
 
         # 基本元数据加载
         assert result.manifest.project.id == "qa_simple"

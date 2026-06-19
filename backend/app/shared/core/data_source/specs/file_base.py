@@ -182,6 +182,8 @@ class FileValidationMixin:
     所有方法返回 str | None：如果验证通过返回 None，失败返回错误信息字符串。
     """
 
+    path: str  # 由混入目标类提供
+
     def validate_file_exists(self) -> str | None:
         """
         @methoddesc 验证文件是否存在

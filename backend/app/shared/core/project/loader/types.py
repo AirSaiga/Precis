@@ -24,7 +24,7 @@
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional, Protocol
 
 # 直接导入 RegexNodeFile（类型明确，不会引起循环依赖）
 from ..regex.types import RegexNodeFile
@@ -32,8 +32,6 @@ from ..transform.types import TransformFile
 
 # 仅在类型检查阶段导入，避免运行时循环导入问题
 if TYPE_CHECKING:
-    from app.shared.domain import DataSetSchema
-
     from ..constraint.types import ConstraintFile
     from ..manifest.types import ProjectManifest
     from ..schema.types import TableSchemaFile
@@ -138,6 +136,34 @@ class LoadingError:
         }
 
 
+class SchemaBuilder(Protocol):
+    """@classdesc 运行时数据集 Schema 构建器协议（依赖注入用）
+
+    core 层的 load_project 不应直接依赖 services 层。通过此协议，
+    load_project 接收一个外部注入的构建器回调来完成
+    "core 文件对象 → domain 运行时对象" 的转换，
+    从而把层依赖方向保持为 services → core（而非 core → services）。
+
+    dataset_schema 的返回类型用 Any，使 core 层不静态依赖 domain。
+    具体实现由 services 层提供（见 services/project_loader.build_dataset_schema）。
+    """
+
+    def __call__(
+        self,
+        schema_files: dict[str, "TableSchemaFile"],
+        constraint_files: dict[str, "ConstraintFile"],
+        registries: dict[str, Any],
+    ) -> tuple[Any, list[str]]:
+        """构建运行时数据集 Schema。
+
+        :param schema_files: schema 配置文件字典
+        :param constraint_files: constraint 配置文件字典
+        :param registries: 表达式注册表等辅助对象
+        :return: (dataset_schema, 警告列表)
+        """
+        ...
+
+
 @dataclass(frozen=True)
 class LoadedProject:
     """@classdesc 已加载项目的完整数据结构
@@ -161,7 +187,7 @@ class LoadedProject:
     schema_files: dict[str, "TableSchemaFile"]
     constraint_files: dict[str, "ConstraintFile"]
     regex_node_files: dict[str, RegexNodeFile]
-    dataset_schema: "DataSetSchema"
+    dataset_schema: Any
     transform_files: dict[str, TransformFile] = None
     warnings: list[str] = None
     loading_errors: list[LoadingError] = None

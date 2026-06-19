@@ -29,8 +29,9 @@ from typing import Any, Optional, Union
 import pandas as pd
 
 from app.shared.core.data_source.loader import load_grouped_sources
+from app.shared.core.data_source.schema_info import DataSourceInfo
 from app.shared.core.project.schema.types import TableSchemaFile
-from app.shared.domain.dataset_schema import DataSetSchema, TableSchema
+from app.shared.domain.dataset_schema import DataSetSchema
 
 from .resolver import DataSourceResolver
 
@@ -155,7 +156,7 @@ class DataLoader:
             tables_to_load = self._collect_foreign_key_tables(filter_set)
 
         # Step 3: 按文件路径分组 Schema（同一文件多个 Sheet 合并加载）
-        file_to_schemas: dict[str, list[TableSchema]] = defaultdict(list)
+        file_to_schemas: dict[str, list[DataSourceInfo]] = defaultdict(list)
         file_to_sheet_names: dict[str, str] = {}
 
         for table_id, table_schema in self.dataset_schema.tables.items():
@@ -182,7 +183,17 @@ class DataLoader:
                 continue
 
             # 按文件路径分组，同一文件的不同 Sheet 放在一起加载
-            file_to_schemas[source_path].append(table_schema)
+            # 使用 DataSourceInfo DTO 将 domain TableSchema 转换为 core 层可用的最小信息
+            # 使用 getattr 以兼容测试中的 MockTableSchema 等不完整对象
+            file_to_schemas[source_path].append(
+                DataSourceInfo(
+                    schema_id=table_id,
+                    name=getattr(table_schema, "name", table_id),
+                    sheet_name=getattr(table_schema, "sheet_name", None),
+                    header_row=getattr(table_schema, "header_row", 0),
+                    source_config=getattr(table_schema, "source_config", None) or {},
+                )
+            )
             if sheet_name:
                 file_to_sheet_names[source_path] = sheet_name
 

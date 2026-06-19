@@ -24,6 +24,7 @@ from app.shared.core.project.constraint.registry import (
     filter_kwargs_for_class,
     get_supported_constraint_types,
     normalize_constraint_type,
+    resolve_constraint_class,
 )
 from app.shared.domain.constraints.unique import UniqueConstraint
 
@@ -93,10 +94,12 @@ class TestGetSupportedConstraintTypes:
 class TestConstraintRegistry:
     def test_registry_contains_unique(self):
         assert "Unique" in CONSTRAINT_REGISTRY
-        assert CONSTRAINT_REGISTRY["Unique"] is UniqueConstraint
+        assert resolve_constraint_class("Unique") is UniqueConstraint
 
     def test_registry_contains_all_standard_types(self):
         expected = sorted(CONSTRAINT_REGISTRY.keys())
         assert "Composite" in expected, "Composite not in registry"
         for name in expected:
             assert name in CONSTRAINT_REGISTRY, f"{name} not in registry"
+            # 每个注册的约束类型都应能正确解析为 domain 类
+            assert resolve_constraint_class(name) is not None, f"{name} 无法解析为 domain 类"

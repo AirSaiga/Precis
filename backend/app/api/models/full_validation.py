@@ -29,7 +29,7 @@
 
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, computed_field
 
 
 class CoverageRef(BaseModel):
@@ -289,6 +289,7 @@ class FullValidationOptions(BaseModel):
     Attributes:
         data_directory: 数据目录路径（用于解析相对路径的数据源）
         override_settings: 可选的配置覆盖项
+        allow_unsafe_eval: 是否允许执行含 eval 的脚本化约束
     """
 
     data_directory: Optional[str] = Field(
@@ -298,6 +299,10 @@ class FullValidationOptions(BaseModel):
         default=None,
         description="可选：覆盖 project.precis.yaml 中 settings 的部分字段（validation/file_processing/script_security）",
     )  # 临时覆盖项目配置，仅对本次全量校验任务生效
+    allow_unsafe_eval: Optional[bool] = Field(
+        default=None,
+        description="是否允许执行含 eval 的脚本化约束；None 表示使用项目默认配置",
+    )  # True 允许脚本化约束使用 eval，False 强制禁用，None 遵循项目配置
 
 
 class FullValidationRequest(BaseModel):
@@ -356,6 +361,11 @@ class FullValidationSummary(BaseModel):
         ..., description="总错误数量"
     )  # 所有阶段错误数量的总和（loading + format + constraint）
     duration_ms: int = Field(..., description="总耗时（毫秒）")  # 从校验开始到完成的总耗时，单位为毫秒
+
+    @computed_field
+    def error_count(self) -> int:
+        """总错误数量（兼容旧 API 字段名）。"""
+        return self.total_error_count
 
 
 class FullValidationErrorItem(BaseModel):

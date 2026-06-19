@@ -98,7 +98,11 @@ class HeaderRowChangedResponse(BaseModel):
     Attributes:
         success: 更新是否成功
         message: 更新结果消息
+        schema_name: 关联的 Schema 名称（可选）
+        updated_at: 更新时间（可选）
     """
 
     success: bool = Field(..., description="更新是否成功")
     message: str = Field(..., description="更新结果消息")
+    schema_name: Optional[str] = Field(default=None, description="关联的Schema名称")
+    updated_at: Optional[str] = Field(default=None, description="更新时间")
