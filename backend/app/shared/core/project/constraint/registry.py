@@ -12,62 +12,48 @@
 - 名称标准化: 支持标准命名、下划线命名、驼峰命名等多种风格
 - 参数过滤: 使用 inspect 模块获取类构造函数签名并过滤参数
 
-输入示例:
-    class_name = normalize_constraint_type("not_null")
-    constraint_cls = CONSTRAINT_REGISTRY[class_name]
-
-输出示例:
-    kwargs = filter_kwargs_for_class(constraint_cls, {"table_id": "users", "column_id": "email"})
+重要约定:
+- 为避免 core 层反向依赖 domain 层，本模块只保存约束类的导入路径字符串。
+- 真正的约束类通过 resolve_constraint_class() 在运行时延迟解析，由 services 层使用。
 """
 
 from __future__ import annotations
 
 # inspect 模块用于获取类构造函数的签名，实现参数过滤
+import importlib
 import inspect
 from typing import Any
-
-# 导入所有已实现的约束类，注册到映射表中供工厂使用
-from app.shared.domain import (
-    AllowedValuesConstraint,
-    CharsetConstraint,
-    CompositeConstraint,
-    ConditionalConstraint,
-    DateLogicConstraint,
-    ForeignKeyConstraints,
-    NotNullConstraint,
-    RangeConstraint,
-    ScriptedConstraint,
-    UniqueConstraint,
-)
 
 # ============================================================
 # 约束类型注册表
 # ============================================================
 # 键：约束类型标准名称（首字母大写）
-# 值：约束实现类（继承自基类 Constraint）
-# 用于在 factory.py 中根据类型名称获取对应的约束类
+# 值：约束类在项目中的完整导入路径（字符串）
+# 用于在 factory.py 中根据类型名称延迟解析对应的约束类
+#
+# 注意：此处不使用直接类引用，以保证 core 层不依赖 domain 层。
 
-# 唯一约束：支持单列或多列组合唯一
-CONSTRAINT_REGISTRY: dict[str, type] = {
-    "Unique": UniqueConstraint,
+CONSTRAINT_REGISTRY: dict[str, str] = {
+    # 唯一约束：支持单列或多列组合唯一
+    "Unique": "app.shared.domain.validation_constraints.UniqueConstraint",
     # 非空约束：列值不能为空
-    "NotNull": NotNullConstraint,
+    "NotNull": "app.shared.domain.validation_constraints.NotNullConstraint",
     # 允许值约束：列值必须来自预定义集合
-    "AllowedValues": AllowedValuesConstraint,
+    "AllowedValues": "app.shared.domain.validation_constraints.AllowedValuesConstraint",
     # 外键约束：参照完整性校验
-    "ForeignKey": ForeignKeyConstraints,
+    "ForeignKey": "app.shared.domain.validation_constraints.ForeignKeyConstraints",
     # 区间约束：数值/日期范围校验
-    "Range": RangeConstraint,
+    "Range": "app.shared.domain.validation_constraints.RangeConstraint",
     # 条件约束：满足 IF 条件时执行 THEN 规则
-    "Conditional": ConditionalConstraint,
+    "Conditional": "app.shared.domain.validation_constraints.ConditionalConstraint",
     # 脚本约束：执行自定义表达式
-    "Scripted": ScriptedConstraint,
+    "Scripted": "app.shared.domain.validation_constraints.ScriptedConstraint",
     # 字符集约束：校验 ASCII 或中文字符
-    "Charset": CharsetConstraint,
+    "Charset": "app.shared.domain.validation_constraints.CharsetConstraint",
     # 日期逻辑约束：日期比较和计算
-    "DateLogic": DateLogicConstraint,
+    "DateLogic": "app.shared.domain.validation_constraints.DateLogicConstraint",
     # 复合约束：包含多个子约束，按逻辑策略聚合结果
-    "Composite": CompositeConstraint,
+    "Composite": "app.shared.domain.validation_constraints.CompositeConstraint",
 }
 
 
@@ -127,6 +113,27 @@ def normalize_constraint_type(type_name: str) -> str:
     # 步骤3：小写匹配（支持混合大小写输入）
     lower = key.lower()
     return CONSTRAINT_TYPE_ALIASES.get(lower, key)
+
+
+def resolve_constraint_class(type_name: str) -> type | None:
+    """@methoddesc 根据标准约束类型名称延迟解析对应的 domain 约束类。
+
+    通过保存的导入路径字符串动态导入类，避免 core 层在导入时依赖 domain 层。
+
+    :param type_name: 标准约束类型名称（如 "Unique"）
+    :return: 对应的约束类；如果未注册则返回 None
+
+    示例：
+        >>> cls = resolve_constraint_class("Unique")
+        >>> cls.__name__
+        'UniqueConstraint'
+    """
+    path = CONSTRAINT_REGISTRY.get(type_name)
+    if not path:
+        return None
+    module_path, class_name = path.rsplit(".", 1)
+    module = importlib.import_module(module_path)
+    return getattr(module, class_name)
 
 
 def filter_kwargs_for_class(cls: type, kwargs: dict[str, Any]) -> dict[str, Any]:

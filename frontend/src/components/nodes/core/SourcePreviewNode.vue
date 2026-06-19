@@ -375,12 +375,9 @@ Schema 节点 */
    * 组件挂载时执行
    * 设置全局点击事件监听器（用于关闭右键菜单和 Sheet 菜单）
    */
+  let cleanupEventListeners: (() => void) | undefined
   onMounted(() => {
-    // 设置全局事件监听器，返回清理函数
-    const cleanup = setupEventListeners()
-
-    // 将清理函数存储起来，以便在卸载时调用
-    // 注意：composable 内部的 onUnmounted 已经处理了大部分清理
+    cleanupEventListeners = setupEventListeners()
   })
 
   /**
@@ -388,8 +385,7 @@ Schema 节点 */
    * 确保所有事件监听器和定时器被正确清理
    */
   onUnmounted(() => {
-    // 清理工作由 useSourcePreview composable 内部的 onUnmounted 处理
-    // 这里不需要额外操作
+    cleanupEventListeners?.()
   })
 
   /**

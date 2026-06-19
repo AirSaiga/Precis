@@ -14,6 +14,7 @@ if _project_root not in sys.path:
 import pytest
 
 from app.shared.core.project.loader.loader_parts.main import load_project
+from app.shared.services.project_loader import build_dataset_schema
 
 
 class TestLoadProject:
@@ -74,13 +75,59 @@ refs:
             encoding="utf-8",
         )
 
-        result = load_project(str(manifest))
+        # 注入 schema_builder 以构建 dataset_schema（core 层不再自行依赖 services）
+        result = load_project(str(manifest), schema_builder=build_dataset_schema)
         assert result.manifest.project.id == "test-project"
         assert "users" in result.schema_files
         assert result.schema_files["users"].name == "users"
         assert "notnull_name" in result.constraint_files
         assert result.dataset_schema is not None
         assert len(result.loading_errors) == 0
+
+    def test_top_level_sheet_fallback_without_source(self, tmp_path):
+        """无 source 但有顶层 sheet 字段时，dataset_schema 应回退使用顶层 sheet 名。
+
+        覆盖 schema_runtime_builder 的向后兼容逻辑（旧 runtime.py 曾处理此场景）。
+        source.sheet 与顶层 sheet 互斥，但单独的顶层 sheet 是合法配置。
+        """
+        manifest = tmp_path / "project.precis.yaml"
+        manifest.write_text(
+            """
+version: 2
+project:
+  id: test-project
+  name: Test Project
+schemas:
+  - id: orders
+    path: schemas/orders.schema.yaml
+""",
+            encoding="utf-8",
+        )
+
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        # 关键：无 source，只有顶层 sheet 字段
+        (schemas_dir / "orders.schema.yaml").write_text(
+            """
+version: 2
+id: orders
+name: orders
+sheet: SheetOrders
+columns:
+  - id: order_id
+    name: order_id
+    type: string
+    primary_key: true
+""",
+            encoding="utf-8",
+        )
+
+        result = load_project(str(manifest), schema_builder=build_dataset_schema)
+        table = result.dataset_schema.tables["orders"]
+        # 顶层 sheet 应被回退读取为 sheet_name
+        assert table.sheet_name == "SheetOrders"
+        # 无 source 时 source_file 应为 None
+        assert table.source_file is None
 
     def test_missing_schema(self, tmp_path):
         manifest = tmp_path / "project.precis.yaml"

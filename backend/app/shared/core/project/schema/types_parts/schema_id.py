@@ -45,7 +45,7 @@ def normalize_source_key(path: str, sheet: str | None) -> tuple[str, str | None]
         p = p[2:]
     p = p.lower()
 
-    s = (sheet or "").strip().lower()
+    s: str | None = (sheet or "").strip().lower()
     s = s or None
 
     return (p, s)

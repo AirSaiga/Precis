@@ -4,20 +4,20 @@
  * 提供按阶段过滤（all/loading/format/constraint）、搜索过滤、
  * 按表/阶段/类型/无分组的能力。
  */
-import { computed, ref } from 'vue'
+import { computed, ref, toValue, type MaybeRef } from 'vue'
 import type { FullValidationErrorItem } from '@/api/projectValidationApi'
 
 export type ErrorStageFilter = 'all' | 'loading' | 'format' | 'constraint'
 export type ErrorGroupBy = 'table' | 'stage' | 'type' | 'none'
 
 /** @returns stageFilter / groupBy / searchQuery 响应式状态及过滤/分组计算属性 */
-export function useValidationErrorFilter<T extends FullValidationErrorItem>(errors: T[]) {
+export function useValidationErrorFilter<T extends FullValidationErrorItem>(errors: MaybeRef<T[]>) {
   const stageFilter = ref<ErrorStageFilter>('all')
   const groupBy = ref<ErrorGroupBy>('table')
   const searchQuery = ref('')
 
   const filteredErrors = computed(() => {
-    let result = [...errors]
+    let result = [...toValue(errors)]
 
     // Stage filter
     if (stageFilter.value !== 'all') {

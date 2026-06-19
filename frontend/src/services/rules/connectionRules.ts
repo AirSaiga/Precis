@@ -60,7 +60,7 @@ export const connectionRules: ConnectionRule[] = [
     name: 'Schema to Regex',
     source: {
       nodeTypes: ['schema', 'jsonSchema'],
-      handles: undefined,
+      handles: ['source-right-{columnId}'],
     },
     target: {
       nodeTypes: ['regex'],
@@ -92,7 +92,7 @@ export const connectionRules: ConnectionRule[] = [
     name: 'Schema to Constraint',
     source: {
       nodeTypes: ['schema', 'jsonSchema'],
-      handles: undefined,
+      handles: ['source-right-{columnId}'],
     },
     target: {
       nodeTypes: [
@@ -107,7 +107,12 @@ export const connectionRules: ConnectionRule[] = [
         'dateLogicConstraint',
         'compositeConstraint',
       ],
-      handles: undefined,
+      handles: [
+        'target-input-{nodeId}',
+        'target-left',
+        'target-if-{nodeId}',
+        'target-then-{nodeId}',
+      ],
     },
     config: {
       allowMultiple: false,

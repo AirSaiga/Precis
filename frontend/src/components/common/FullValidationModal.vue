@@ -78,18 +78,8 @@
     })
   )
 
-  // 结果页筛选
-  const errorFilter = computed(() => {
-    if (!reportViewModel.value.errors.length) {
-      return {
-        stageFilter: ref('all' as const),
-        groupBy: ref('table' as const),
-        searchQuery: ref(''),
-        groupedErrors: ref({} as Record<string, any>),
-      }
-    }
-    return useValidationErrorFilter(reportViewModel.value.errors)
-  })
+  // 结果页筛选（在 setup 顶层调用 composable，errors 通过 computed 保持响应式）
+  const errorFilter = useValidationErrorFilter(computed(() => reportViewModel.value.errors))
 
   // 自动视图切换
   watch(running, (isRunning, wasRunning) => {

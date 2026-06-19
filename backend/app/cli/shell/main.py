@@ -153,10 +153,10 @@ class CLIShell:
                     print(Formatter.success("再见!"))
                     sys.exit(0)
 
-                result = self._execute_line(executor, input_line)
+                exit_code = self._execute_line(executor, input_line)
 
-                if result != 0:
-                    return result
+                if exit_code != 0:
+                    return exit_code
 
             except KeyboardInterrupt:
                 print()

@@ -122,7 +122,7 @@ class ForeignKeyConstraints(Constraint):
             4. 对源列（子表）的值进行规范化，检查是否都在有效键集合中
             5. 为不存在的键生成错误记录
         """
-        errors = []
+        errors: list[dict[str, Any]] = []
 
         def _normalize_fk_value(value: Any) -> Any:
             """

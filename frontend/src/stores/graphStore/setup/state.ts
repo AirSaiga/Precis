@@ -7,8 +7,28 @@ import { ref, nextTick } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData, TableAsset } from '@/types/graph'
 import type { FullValidationSummary, ValidationStatistics } from '../../../api/projectValidationApi'
-import { updateNodeData as updateVueFlowNodeData } from '@/services/canvas/vueFlowApi'
+import {
+  updateNodeData as updateVueFlowNodeData,
+  updateNode as updateVueFlowNode,
+  VueFlowApiNotInitializedError,
+} from '@/services/canvas/vueFlowApi'
 import { logger } from '@/core/utils/logger'
+
+/**
+ * 项目配置统计信息类型
+ *
+ * 包含 schema、constraint（独立+内嵌）、regex、transform、template 的完整计数，
+ * 用于项目根节点徽章、项目信息面板和资源树统计展示。
+ */
+export interface ProjectConfigStats {
+  schemaCount: number
+  constraintCount: number
+  constraintStandaloneCount: number
+  constraintInlineCount: number
+  regexCount: number
+  transformCount: number
+  templateCount: number
+}
 
 /** @returns 包含 nodes / edges / assets / selectedNodeId 等响应式状态的对象 */
 export function createGraphStoreState() {
@@ -40,7 +60,7 @@ export function createGraphStoreState() {
 
   const projectName = ref('')
 
-  const projectConfigStats = ref({
+  const projectConfigStats = ref<ProjectConfigStats>({
     schemaCount: 0,
     constraintCount: 0,
     constraintStandaloneCount: 0,
@@ -76,26 +96,74 @@ export function createGraphStoreState() {
    * 此策略避免 nodes.value 数组替换导致的 setNodes → createGraphNodes →
    * setEdges → createGraphEdges 连锁链，从而防止边被静默丢弃。
    */
-  function updateNodeData(nodeId: string, newData: Partial<CustomNodeData>) {
-    // 步骤 1：通过注入层调用 VueFlow 内置 updateNodeData（增量，安全）
-    try {
-      updateVueFlowNodeData(nodeId, newData as Record<string, unknown>)
-    } catch {
-      // VueFlow 尚未初始化（如 store 创建阶段），回退到直接 store mutation
-      const node = nodes.value.find((n) => n.id === nodeId)
-      if (node && node.data) {
-        Object.assign(node.data, newData)
+  type NodeLevelPatch = Partial<Pick<CustomNode, 'hidden' | 'position'>>
+
+  function updateNodeData(nodeId: string, newData: Partial<CustomNodeData & NodeLevelPatch>) {
+    // 将 patch 拆分为 data 级别与 node 级别属性
+    const nodeLevelKeys = new Set<keyof NodeLevelPatch>(['hidden', 'position'])
+    const dataPatch: Record<string, unknown> = {}
+    const nodePatch: NodeLevelPatch = {}
+    for (const [key, value] of Object.entries(newData)) {
+      if (nodeLevelKeys.has(key as keyof NodeLevelPatch)) {
+        ;(nodePatch as Record<string, unknown>)[key] = value
+      } else {
+        dataPatch[key] = value
       }
-      return
+    }
+
+    const hasDataPatch = Object.keys(dataPatch).length > 0
+    const hasNodeLevelPatch = Object.keys(nodePatch).length > 0
+
+    // 步骤 1：通过注入层调用 VueFlow 内置 API（增量，安全）
+    let vueFlowNotReady = false
+    try {
+      if (hasDataPatch) {
+        updateVueFlowNodeData(nodeId, dataPatch)
+      }
+      if (hasNodeLevelPatch) {
+        updateVueFlowNode(nodeId, nodePatch)
+      }
+    } catch (error) {
+      // VueFlow 尚未初始化（如 store 创建阶段或在 setup 之外调用），回退到直接 store mutation
+      if (error instanceof VueFlowApiNotInitializedError) {
+        vueFlowNotReady = true
+        const node = nodes.value.find((n) => n.id === nodeId)
+        if (node) {
+          if (hasDataPatch && node.data) {
+            Object.assign(node.data, dataPatch)
+          }
+          if (nodePatch.hidden !== undefined) {
+            node.hidden = nodePatch.hidden
+          }
+          if (nodePatch.position) {
+            node.position = { ...nodePatch.position }
+          }
+        }
+      } else {
+        // 真正的 VueFlow 更新异常需要向上抛，避免静默丢失状态
+        logger.error(`[updateNodeData] VueFlow 更新节点 ${nodeId} 失败:`, error)
+        throw error
+      }
     }
 
     // 步骤 2：nextTick 后同步 store 数据（不触发 v-model watcher）
+    // 即使 VueFlow 未初始化也要执行同步，保证 store 状态一致
     nextTick(() => {
       const node = nodes.value.find((n) => n.id === nodeId)
-      if (node && node.data) {
-        Object.assign(node.data, newData)
-      } else if (!node) {
-        logger.warn(`[updateNodeData] Node ${nodeId} not found in store after VueFlow update`)
+      if (!node) {
+        if (!vueFlowNotReady) {
+          logger.warn(`[updateNodeData] Node ${nodeId} not found in store after VueFlow update`)
+        }
+        return
+      }
+      if (hasDataPatch && node.data) {
+        Object.assign(node.data, dataPatch)
+      }
+      if (nodePatch.hidden !== undefined) {
+        node.hidden = nodePatch.hidden
+      }
+      if (nodePatch.position) {
+        node.position = { ...nodePatch.position }
       }
     })
   }

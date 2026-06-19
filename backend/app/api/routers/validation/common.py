@@ -36,6 +36,7 @@ from __future__ import annotations
 import pandas as pd
 
 from app.api.models import (
+    RegexValidationErrorRow,
     RegexValidationResult,
     ValidationErrorRow,
     ValidationResponse,
@@ -57,7 +58,7 @@ def _create_data_type(type_name: str | None) -> DataType | None:
     """根据类型名称创建对应的 DataType 实例。"""
     if not type_name:
         return None
-    type_map = {
+    type_map: dict[str, type[DataType]] = {
         "string": StringType,
         "integer": IntegerType,
         "decimal": DecimalType,
@@ -101,9 +102,13 @@ def convert_validation_result_to_regex(result) -> RegexValidationResult:
         2. 将原始错误行数据转换为字典列表格式
         3. 组装成 RegexValidationResult 对象返回，match_count 为空时默认补 0
     """
-    # 提取错误行信息：将原始错误行对象转换为前端需要的字典格式
+    # 提取错误行信息：将原始错误行对象转换为前端需要的错误行模型列表
     error_rows = [
-        {"row_index": err.get("row_index", 0), "cell_value": err.get("cell_value")} for err in result.error_rows
+        RegexValidationErrorRow(
+            row_index=err.get("row_index", 0),
+            cell_value=str(err.get("cell_value", "")),
+        )
+        for err in result.error_rows
     ]
     # 组装正则校验响应模型，match_count 为空时默认设置为 0
     return RegexValidationResult(

@@ -55,6 +55,7 @@ def _make_minimal_executor():
     executor.dataset_schema = MockDatasetSchema()
     executor.settings = MagicMock()
     executor.manifest = MagicMock()
+    executor.allow_unsafe_eval = None
     executor._schema_by_id = {}
     executor._resolver = MagicMock()
     executor._data_loader = MagicMock()

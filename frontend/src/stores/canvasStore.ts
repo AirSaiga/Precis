@@ -17,10 +17,19 @@
 
 import { ref } from 'vue'
 import { defineStore, storeToRefs } from 'pinia'
+import type { CustomNode } from '@/types/graph'
+import type { Edge } from '@vue-flow/core'
 import { useCanvasTabStore } from './canvasTabStore'
 
 /** 工作区数据类型（从 canvasTabStore.CanvasTab 重导出） */
 export type { CanvasTab as Workspace } from './canvasTabStore'
+
+/** graphStore 最小接口，用于批量删除时委托活跃工作区的删除操作 */
+interface GraphStoreLike {
+  nodes: CustomNode[]
+  edges: Edge[]
+  deleteNodes?: (ids: string[]) => void
+}
 
 export const useCanvasStore = defineStore('canvas', () => {
   const tabStore = useCanvasTabStore()
@@ -33,6 +42,42 @@ export const useCanvasStore = defineStore('canvas', () => {
     activeTab: activeWorkspace,
     unsavedTabsCount: unsavedWorkspacesCount,
   } = storeToRefs(tabStore)
+
+  // --- 工作区批量节点删除 ---
+
+  /**
+   * 从所有工作区中移除匹配 predicate 的节点及其关联边
+   *
+   * 对当前活跃工作区使用 graphStore.deleteNodes 走 Vue Flow 增量删除路径；
+   * 对其他工作区快照直接过滤数组（封装在 store 内部，避免业务层直接赋值）。
+   */
+  function removeNodesFromAllWorkspaces(
+    predicate: (node: CustomNode) => boolean,
+    graphStore: GraphStoreLike
+  ): void {
+    const activeId = activeWorkspaceId.value
+    tabStore.tabs.forEach((tab) => {
+      if (tab.id === activeId && graphStore.deleteNodes) {
+        const idsToRemove = graphStore.nodes.filter(predicate).map((n) => n.id)
+        if (idsToRemove.length > 0) {
+          graphStore.deleteNodes(idsToRemove)
+        }
+      }
+      if (tab.nodes) {
+        tab.nodes = tab.nodes.filter((node) => !predicate(node))
+      }
+      if (tab.edges) {
+        tab.edges = tab.edges.filter((edge) => {
+          const sourceNode = tab.nodes?.find((n) => n.id === edge.source)
+          const targetNode = tab.nodes?.find((n) => n.id === edge.target)
+          // 节点已被移除的边直接保留；仅当节点仍存在且匹配 predicate 时才移除该边
+          const shouldRemoveSource = sourceNode ? predicate(sourceNode) : false
+          const shouldRemoveTarget = targetNode ? predicate(targetNode) : false
+          return !shouldRemoveSource && !shouldRemoveTarget
+        })
+      }
+    })
+  }
 
   // --- 画布视图操作 ---
 
@@ -141,6 +186,9 @@ export const useCanvasStore = defineStore('canvas', () => {
     loadWorkspaces: tabStore.loadTabs,
     saveCurrentCanvasData: tabStore.saveCurrentCanvasData,
     loadCanvasDataFromWorkspace: tabStore.loadCanvasDataFromTab,
+
+    // 工作区批量节点删除
+    removeNodesFromAllWorkspaces,
 
     // 画布视图操作
     zoomIn,

@@ -777,7 +777,7 @@ DataSourceBindingOrchestrator（流程编排器）
 
 **约束类型**（10 种）: NotNull, Unique, AllowedValues, Range, ForeignKey, Conditional, Scripted, Charset, DateLogic, Composite
 
-**数据类型**: string, integer, decimal, boolean, datetime, date, time
+**数据类型**: string, integer, float, decimal, boolean, date
 
 ---
 

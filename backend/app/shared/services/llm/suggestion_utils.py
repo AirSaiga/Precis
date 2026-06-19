@@ -14,6 +14,8 @@
     "NotNull"
 """
 
+from __future__ import annotations
+
 from typing import Any
 
 # 支持的约束类型

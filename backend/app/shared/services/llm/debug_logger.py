@@ -31,8 +31,9 @@ logger.setLevel(logging.DEBUG)
 
 # 获取日志文件路径
 # 优先使用环境变量 AI_DEBUG_LOG_PATH，否则使用默认路径 ~/.precis/logs/ai_debug.log
-if os.environ.get("AI_DEBUG_LOG_PATH"):
-    log_file_path = os.environ.get("AI_DEBUG_LOG_PATH")
+_env_log_path = os.environ.get("AI_DEBUG_LOG_PATH")
+if _env_log_path:
+    log_file_path: str | Path = _env_log_path
 else:
     # 使用用户主目录下的 .precis/logs 目录
     log_dir = Path.home() / ".precis" / "logs"
@@ -57,7 +58,7 @@ except (OSError, PermissionError) as e:
     logger.warning(f"无法创建日志文件 {log_file_path}: {e}")
 
 
-def log_ai_response(prompt: str, response: str, parsed_json: str = None):
+def log_ai_response(prompt: str, response: str, parsed_json: str | None = None):
     """
     @methoddesc 记录 AI 响应调试日志
 

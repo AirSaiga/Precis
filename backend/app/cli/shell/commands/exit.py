@@ -18,7 +18,7 @@
     CommandResult.exit("再见!")
 """
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
 
 class ExitCommand(Command):
@@ -39,12 +39,12 @@ class ExitCommand(Command):
     def usage(self) -> str:
         return "exit"
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行退出命令。
 
         Args:
             args: 命令参数列表（此命令不需要参数）
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             带有 should_exit=True 的结果，触发 Shell 退出

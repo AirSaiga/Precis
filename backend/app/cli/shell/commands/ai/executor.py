@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import logging
 
-from app.cli.shell.commands.base import CommandContext, CommandResult
+from app.cli.shell.commands.base import CommandResult, ProjectContext
 from app.cli.shell.formatter import Formatter
 from app.shared.services.ai.chat_orchestrator import AIChatOrchestrator, ChatOptions
 
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 
 def execute_ai_chat(
     message: str,
-    context: CommandContext,
+    context: ProjectContext,
     interactive: bool = False,
     history: list[dict[str, str]] | None = None,
     use_streaming: bool = True,
@@ -160,7 +160,7 @@ def execute_ai_chat(
                 print(reply)
 
         # 在交互模式下显示执行结果和 diff
-        if interactive and actions:
+        if interactive and actions and project_path is not None:
             _display_execution_results(result, project_path, original_files_cache)
 
         return CommandResult.ok(

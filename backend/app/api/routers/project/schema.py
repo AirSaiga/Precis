@@ -474,7 +474,7 @@ def update_v2_schema_display_name(
     """
     schema = get_v2_schema(table_id, config_path)
     schema.name = payload.name
-    put_v2_schema(table_id, schema, config_path)
+    put_v2_schema(table_id, schema, config_path=config_path)
     return {"message": f"V2 schema '{table_id}' 展示名已更新。"}
 
 

@@ -28,12 +28,22 @@ jobs:
           - platform: windows-x64
             runner: windows-latest
             python-version: '3.12'
-            artifact: precis-windows-x64
+            artifact: precis-windows-x64.exe
             executable: precis.exe
           - platform: macos-arm64
             runner: macos-latest
             python-version: '3.12'
             artifact: precis-macos-arm64
+            executable: precis
+          - platform: macos-x64
+            runner: macos-13
+            python-version: '3.12'
+            artifact: precis-macos-x64
+            executable: precis
+          - platform: linux-x64
+            runner: ubuntu-latest
+            python-version: '3.12'
+            artifact: precis-linux-x64
             executable: precis
 
     steps:
@@ -101,11 +111,15 @@ jobs:
             --manifest ../../e2e/fixtures/test-project/project.precis.yaml \
             --data-directory ../../e2e/fixtures/test-project/data
 
+      - name: Rename executable with platform suffix
+        shell: bash
+        run: mv backend/dist/${{ matrix.executable }} backend/dist/${{ matrix.artifact }}
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
-          path: backend/dist/${{ matrix.executable }}
+          path: backend/dist/${{ matrix.artifact }}
           retention-days: 5
 
   release:
@@ -136,8 +150,10 @@ jobs:
 
       - name: Rename binaries with platform suffix
         run: |
-          mv release-assets/precis.exe release-assets/precis-${{ steps.version.outputs.version }}-windows-x64.exe
-          mv release-assets/precis release-assets/precis-${{ steps.version.outputs.version }}-macos-arm64
+          mv release-assets/precis-windows-x64.exe release-assets/precis-${{ steps.version.outputs.version }}-windows-x64.exe
+          mv release-assets/precis-macos-arm64 release-assets/precis-${{ steps.version.outputs.version }}-macos-arm64
+          mv release-assets/precis-macos-x64 release-assets/precis-${{ steps.version.outputs.version }}-macos-x64
+          mv release-assets/precis-linux-x64 release-assets/precis-${{ steps.version.outputs.version }}-linux-x64
 
       - name: Generate checksums
         run: |
@@ -161,6 +177,8 @@ jobs:
             |----------|------|
             | Windows x64 | `precis-${{ steps.version.outputs.version }}-windows-x64.exe` |
             | macOS ARM64 | `precis-${{ steps.version.outputs.version }}-macos-arm64` |
+            | macOS Intel | `precis-${{ steps.version.outputs.version }}-macos-x64` |
+            | Linux x64 | `precis-${{ steps.version.outputs.version }}-linux-x64` |
 
             ### Verify
 
@@ -174,9 +192,17 @@ jobs:
             # Windows
             precis-${{ steps.version.outputs.version }}-windows-x64.exe validate --manifest project.precis.yaml
 
-            # macOS
+            # macOS ARM64
             chmod +x precis-${{ steps.version.outputs.version }}-macos-arm64
             ./precis-${{ steps.version.outputs.version }}-macos-arm64 validate --manifest project.precis.yaml
+
+            # macOS Intel
+            chmod +x precis-${{ steps.version.outputs.version }}-macos-x64
+            ./precis-${{ steps.version.outputs.version }}-macos-x64 validate --manifest project.precis.yaml
+
+            # Linux
+            chmod +x precis-${{ steps.version.outputs.version }}-linux-x64
+            ./precis-${{ steps.version.outputs.version }}-linux-x64 validate --manifest project.precis.yaml
             ```
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

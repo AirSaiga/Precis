@@ -32,7 +32,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any
+from typing import Any, cast
 
 from app.shared.core.project.constraint.types.constraint_file import ConstraintFile
 from app.shared.core.project.regex.types import RegexNodeFile
@@ -105,8 +105,9 @@ def expand_template(
             # 根据类型创建对应文件
             if node.kind == "transform":
                 tf = TransformFile(
+                    version=2,
                     id=global_id,
-                    type=node.type,
+                    type=cast(Any, node.type),
                     enabled=True,
                     description=node.description,
                     input_from_node=effective_input,
@@ -118,8 +119,9 @@ def expand_template(
 
             elif node.kind == "constraint":
                 cf = ConstraintFile(
+                    version=2,
                     id=global_id,
-                    type=node.type,
+                    type=cast(Any, node.type),
                     enabled=True,
                     description=node.description,
                     refs=resolved_refs,
@@ -130,13 +132,21 @@ def expand_template(
 
             elif node.kind == "regex":
                 rf = RegexNodeFile(
+                    version=2,
                     id=global_id,
                     name=node.description or global_id,
+                    description=node.description,
                     pattern=resolved_node_params.get("pattern", ""),
+                    uses_pattern=None,
+                    match_mode="full",
+                    case_sensitive=False,
+                    flags="",
                     enabled=True,
                     input_from_node=effective_input,
                     input_column=resolved_input_col,
                     output_columns=resolved_output_cols,
+                    source_ref=None,
+                    source_column_name=None,
                 )
                 regex_nodes.append(rf)
 

@@ -52,8 +52,11 @@
     )
 """
 
+from __future__ import annotations
+
 import logging
 from abc import ABC, abstractmethod
+from typing import Any, Callable
 
 import pandas as pd
 
@@ -148,9 +151,9 @@ class BaseValidator(ABC):
         df: pd.DataFrame,
         column: str,
         constraint,
-        error_formatter: callable = None,
-        datasets: dict | None = None,
-        constraint_kwargs: dict | None = None,
+        error_formatter: Callable[..., Any] | None = None,
+        datasets: dict[str, pd.DataFrame] | None = None,
+        constraint_kwargs: dict[str, Any] | None = None,
     ) -> ValidationResult:
         """
         委托校验通用模板

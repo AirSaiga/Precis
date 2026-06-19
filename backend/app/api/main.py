@@ -24,34 +24,22 @@ Electron 集成说明:
 - 可通过环境变量 LOG_LEVEL 控制日志级别
 """
 
+import logging
 import os
 import sys
-
-# ============================================================================
-# 路径配置（必须最先执行！）
-# ============================================================================
-
-# 添加项目根目录到 Python 导入路径
-# __file__ = D:\8C39-1364\Precis-Community\backend\app\api\main.py
-# main.py → api → app → backend → Precis-Community
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
+from typing import cast
 
 # ============================================================================
 # 日志与输出配置
 # ============================================================================
 
-import logging
-
 logger = logging.getLogger(__name__)
 logger.info("[INIT] Precis Backend 启动中...")
 logger.info("[INIT] Python 版本: %s", sys.version)
-logger.info("[INIT] 项目根目录: %s", _project_root)
-logger.info("[INIT] sys.path[0]: %s", sys.path[0])
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.routing import APIRouter
 
 from .middleware.exception_handler import ExceptionHandlerMiddleware
 from .middleware.request_logging import RequestLoggingMiddleware
@@ -189,7 +177,7 @@ app.add_middleware(RequestLoggingMiddleware)
 app.include_router(project_router)  # 项目管理路由（V2 配置读写）
 app.include_router(projects_router)  # 项目扫描路由（Web 模式）
 app.include_router(files_router)  # 文件操作路由（Web 模式）
-app.include_router(ai_router)  # AI 辅助路由（智能提示、生成）
+app.include_router(cast(APIRouter, ai_router))  # AI 辅助路由（智能提示、生成）
 app.include_router(regex_router)  # 正则表达式路由（测试、验证）
 app.include_router(reporting_router)  # 报告路由（校验结果导出）
 app.include_router(preview_router)  # 预览路由（数据预览、Schema 预览）

@@ -19,11 +19,13 @@
     {"manifest": {...}, "schemas": {...}, "constraints": {...}, "yaml_preview": "..."}
 """
 
+from __future__ import annotations
+
 import os
 import re
-from typing import Any, Optional
+from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 
 from app.shared.core.utils.path_utils import make_relative, normalize_to_posix
 
@@ -31,11 +33,11 @@ from app.shared.core.utils.path_utils import make_relative, normalize_to_posix
 def build_config(
     project_id: str,
     project_name: str,
-    config_path: Optional[str],
+    config_path: str | None,
     profiling_data: list[dict],
     llm_result: dict,
     options: Any,
-    existing_config: Optional[dict[str, Any]],
+    existing_config: dict[str, Any] | None,
 ) -> dict[str, Any]:
     """
     @methoddesc 将 LLM 输出、画像数据和现有配置整合为最终的项目配置
@@ -116,7 +118,7 @@ def build_config(
                 return candidate
         return base
 
-    def _normalize_constraint(cdef: dict, schema_id: str, existing_ids: set) -> Optional[dict]:
+    def _normalize_constraint(cdef: dict, schema_id: str, existing_ids: set) -> dict[str, Any] | None:
         """将 LLM 输出的约束（简化或 V2 格式）统一转换为 V2 标准格式。
 
         支持两种输入：
@@ -200,7 +202,7 @@ def build_config(
             "params": params,
         }
 
-    def _normalize_regex_node(rdef: dict, existing_ids: set) -> Optional[dict]:
+    def _normalize_regex_node(rdef: dict, existing_ids: set) -> dict[str, Any] | None:
         """将 LLM 输出的正则节点标准化为 V2 格式。
 
         如果缺少 ID，则根据名称自动生成；如遇 ID 冲突则添加序号后缀。

@@ -19,11 +19,13 @@
  */
 
 import { app, BrowserWindow, ipcMain, shell, protocol, net as electronNet, Menu } from 'electron';
-import { spawn, ChildProcess } from 'child_process';
+import { spawn, ChildProcess, execSync, type SpawnOptions } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
 import * as net from 'net';
+import * as yaml from 'js-yaml';
 import { updateManager } from './update';
+import { getBackendPath, getFrontendPath } from './utils/paths';
 
 /**
  * Python 后端服务的默认起始端口
@@ -49,19 +51,34 @@ let currentPythonServerPort: number = PYTHON_SERVER_DEFAULT_PORT;
 const FRONTEND_DEV_PORT = parseInt(process.env.VITE_FRONTEND_PORT || '5173', 10);
 
 /**
+ * Python 后端启动信号超时时间（毫秒）
+ * 用于检测 stdout 中是否出现 Uvicorn 启动完成标志
+ */
+const PYTHON_STARTUP_SIGNAL_TIMEOUT_MS = 10000;
+
+/**
+ * Python 后端 API 真正就绪检测超时时间（毫秒）
+ * TCP 端口打开不代表 FastAPI 已可处理请求
+ */
+const PYTHON_API_READY_TIMEOUT_MS = 15000;
+
+/**
  * 后端代码库的基础路径
  * 用于定位 Python 启动脚本和后端资源文件
- * __dirname 在打包后指向 resources/app.asar.unpacked 目录
+ *
+ * 开发环境: __dirname 指向 electron/dist，backend 位于同级 ../backend
+ * 生产环境: backend 通过 extraResources 复制到 resources/backend
  */
-const BACKEND_PATH = path.join(__dirname, '..', 'backend');
+const BACKEND_PATH = getBackendPath(app.isPackaged, process.resourcesPath, __dirname);
 
 /**
  * 前端构建产物的路径
  * 生产环境下从此目录加载打包后的静态文件
- * 
- * 注意: 打包后 __dirname 指向 resources/app/dist，所以使用相对路径找到 frontend/dist
+ *
+ * 开发环境: __dirname 指向 electron/dist，frontend/dist 位于 ../frontend/dist
+ * 生产环境: frontend/dist 通过 extraResources 复制到 resources/frontend/dist
  */
-const FRONTEND_PATH = path.join(__dirname, '..', 'frontend', 'dist');
+const FRONTEND_PATH = getFrontendPath(app.isPackaged, process.resourcesPath, __dirname);
 
 // ============================================================================
 // 自定义协议注册（必须在 app.whenReady 之前）
@@ -257,6 +274,105 @@ async function waitForApiReady(port: number, timeout: number = 30000, interval: 
 }
 
 /**
+ * 递归终止整个进程树
+ * 
+ * 跨平台实现:
+ * - Windows: 使用 taskkill /T /F 强制终止子进程树
+ * - Unix: 启动时设置 detached 创建新进程组，通过负 PID 发送信号终止整组
+ * 
+ * @param pid - 子进程 PID
+ */
+async function killProcessTree(pid: number): Promise<void> {
+  return new Promise((resolve) => {
+    if (process.platform === 'win32') {
+      const taskkill = spawn('taskkill', ['/T', '/F', '/PID', pid.toString()], {
+        detached: true,
+        windowsHide: true,
+      });
+      taskkill.on('close', () => resolve());
+      taskkill.on('error', () => resolve());
+      return;
+    }
+
+    // Unix: 先 SIGTERM 整个进程组
+    try {
+      process.kill(-pid, 'SIGTERM');
+    } catch {
+      // 进程可能已经退出
+    }
+
+    // 短暂宽限期后 SIGKILL，避免僵尸进程
+    setTimeout(() => {
+      try {
+        process.kill(-pid, 'SIGKILL');
+      } catch {
+        // 进程已经退出
+      }
+      resolve();
+    }, 2000);
+  });
+}
+
+/**
+ * 同步终止 Python 进程树
+ * 
+ * 用途: 应用退出事件是同步的，需要立即发起终止指令。
+ * 无法等待异步结果，但 kill 命令本身会尽快生效。
+ * 
+ * @param processToKill - 要终止的子进程实例
+ */
+function stopPythonServerSync(processToKill: ChildProcess | null): void {
+  if (!processToKill) return;
+
+  const pid = processToKill.pid;
+  // 移除监听器，避免 kill 后回调继续操作全局状态
+  processToKill.removeAllListeners();
+  // 立即清空全局引用，防止重复清理
+  pythonProcess = null;
+
+  if (pid) {
+    console.log(`[Main] 同步终止 Python 进程树，PID: ${pid}`);
+    if (process.platform === 'win32') {
+      try {
+        execSync(`taskkill /T /F /PID ${pid}`, { windowsHide: true, timeout: 5000 });
+      } catch {
+        // 进程可能已经退出或权限不足
+      }
+    } else {
+      try {
+        process.kill(-pid, 'SIGTERM');
+      } catch {
+        // 进程可能已经退出
+      }
+    }
+  }
+
+  isPythonServerReady = false;
+}
+
+/**
+ * 异步终止 Python 进程树并等待清理完成
+ * 
+ * 用途: 重启服务前需要确保旧进程已完全退出，避免端口占用。
+ */
+async function stopPythonServer(): Promise<void> {
+  if (!pythonProcess) return;
+
+  const proc = pythonProcess;
+  const pid = proc.pid;
+  proc.removeAllListeners();
+  pythonProcess = null;
+  isPythonServerReady = false;
+
+  if (pid) {
+    console.log(`[Main] 终止 Python 进程树，PID: ${pid}`);
+    await killProcessTree(pid).catch((err) => {
+      console.error('[Main] 终止 Python 进程树失败:', err);
+    });
+  }
+}
+
+/**
  * 启动 Python 后端服务器
  * 
  * 业务逻辑:
@@ -276,107 +392,153 @@ async function waitForApiReady(port: number, timeout: number = 30000, interval: 
  * - Python 环境未配置: 进程会启动失败
  * - 依赖未安装: 后端可能无法正常启动
  * 
- * @returns Promise 解决表示启动流程完成（不代表服务器就绪）
+ * @returns 实际使用的端口号；启动失败（脚本缺失、spawn 失败、超时）会 reject
  */
-async function startPythonServer(): Promise<void> {
+async function startPythonServer(): Promise<number> {
+  // 若已有进程在运行，先彻底终止，避免端口和进程树泄漏
+  if (pythonProcess) {
+    await stopPythonServer();
+  }
+
   // 查找可用端口
   console.log(`[Main] 查找可用端口，起始端口: ${PYTHON_SERVER_DEFAULT_PORT}`);
   currentPythonServerPort = await findAvailablePort(PYTHON_SERVER_DEFAULT_PORT);
   console.log(`[Main] 找到可用端口: ${currentPythonServerPort}`);
-  
-  return new Promise<void>((resolve) => {
-    // 从环境变量读取 Python 路径，允许用户自定义
-    // 默认使用系统 PATH 中的 'python' 命令（macOS 通常只有 python3）
-    const pythonExecutable = process.env.PYTHON_PATH || (process.platform === 'darwin' ? 'python3' : 'python');
-    
-    // 定位后端启动脚本
-    const serverScript = path.join(BACKEND_PATH, 'app', 'start_server.py');
 
-    // 健壮性检查: 确保脚本存在
-    if (!fs.existsSync(serverScript)) {
-      console.error('Python server script not found:', serverScript);
-      resolve();
-      return;
-    }
+  // 从环境变量读取 Python 路径，允许用户自定义
+  // 默认使用系统 PATH 中的 'python' 命令（macOS 通常只有 python3）
+  const pythonExecutable = process.env.PYTHON_PATH || (process.platform === 'darwin' ? 'python3' : 'python');
 
-    // 构建命令行参数，使用动态分配的端口
-    const args = [serverScript, '--port', currentPythonServerPort.toString()];
-    
-    // 子进程配置
-    // cwd: 设置工作目录，确保 Python 导入路径正确
-    // stdio: 管道模式，允许我们读取子进程的输出
-    const options = {
-      cwd: BACKEND_PATH,
-      stdio: ['pipe', 'pipe', 'pipe'] as ['pipe', 'pipe', 'pipe']
-    };
+  // 定位后端启动脚本
+  const serverScript = path.join(BACKEND_PATH, 'app', 'start_server.py');
 
-    console.log(`Starting Python server: ${pythonExecutable} ${args.join(' ')}`);
+  // 健壮性检查: 确保脚本存在
+  if (!fs.existsSync(serverScript)) {
+    const errorMessage = `Python server script not found: ${serverScript}`;
+    console.error('[Main]', errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  // 构建命令行参数，使用动态分配的端口
+  const args = [serverScript, '--port', currentPythonServerPort.toString()];
+
+  // 子进程配置
+  // cwd: 设置工作目录，确保 Python 导入路径正确
+  // stdio: 管道模式，允许我们读取子进程的输出
+  // detached (Unix): 创建新进程组，便于整组清理
+  // windowsHide: 在 Windows 上隐藏命令行窗口
+  const options: SpawnOptions = {
+    cwd: BACKEND_PATH,
+    stdio: ['pipe', 'pipe', 'pipe'],
+    detached: process.platform !== 'win32',
+    windowsHide: true,
+  };
+
+  console.log(`[Main] Starting Python server: ${pythonExecutable} ${args.join(' ')}`);
+
+  return new Promise<number>((resolve, reject) => {
+    let resolved = false;
+    let stderrBuffer = '';
 
     // 启动子进程
     // [Node.js] spawn 返回 ChildProcess 对象，可用于后续控制
-    pythonProcess = spawn(pythonExecutable, args, options);
+    const proc = spawn(pythonExecutable, args, options);
+    pythonProcess = proc;
+
+    if (proc.pid) {
+      console.log(`[Main] Python 子进程已启动，PID: ${proc.pid}`);
+    }
+
+    // 启动信号超时保护：未在 stdout 看到就绪标志则视为失败
+    const startupTimeout = setTimeout(() => {
+      if (!resolved) {
+        const errorMessage = `Python server startup signal timeout after ${PYTHON_STARTUP_SIGNAL_TIMEOUT_MS}ms. stderr: ${stderrBuffer.trim() || 'none'}`;
+        cleanupAndReject(new Error(errorMessage));
+      }
+    }, PYTHON_STARTUP_SIGNAL_TIMEOUT_MS);
+
+    const cleanupAndReject = async (error: Error) => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(startupTimeout);
+
+      if (pythonProcess) {
+        const pid = pythonProcess.pid;
+        pythonProcess.removeAllListeners();
+        if (pid) {
+          await killProcessTree(pid).catch(() => {
+            // 忽略清理失败，确保 reject 优先返回给调用方
+          });
+        }
+        pythonProcess = null;
+      }
+
+      isPythonServerReady = false;
+      reject(error);
+    };
+
+    const cleanupAndResolve = () => {
+      if (resolved) return;
+      resolved = true;
+      clearTimeout(startupTimeout);
+      isPythonServerReady = true;
+      console.log('[Main] Python server is ready');
+      resolve(currentPythonServerPort);
+    };
 
     // 监听标准输出 - 捕获后端启动成功的消息
-    pythonProcess.stdout?.on('data', (data) => {
-      console.log(`Python stdout: ${data}`);
-      
+    proc.stdout?.on('data', (data) => {
+      const output = data.toString();
+      console.log(`Python stdout: ${output}`);
+
       // 检测后端就绪信号
       // start_server.py 会在启动完成后输出 "Application startup complete"
-      const output = data.toString();
-      if (output.includes('Application startup complete') ||
-          output.includes('Uvicorn running')) {
-        isPythonServerReady = true;
+      if (output.includes('Application startup complete') || output.includes('Uvicorn running')) {
+        cleanupAndResolve();
       }
     });
 
     // 监听标准错误 - 捕获后端的错误日志
-    pythonProcess.stderr?.on('data', (data) => {
-      console.error(`Python stderr: ${data}`);
+    proc.stderr?.on('data', (data) => {
+      const chunk = data.toString();
+      stderrBuffer += chunk;
+      console.error(`Python stderr: ${chunk}`);
     });
 
-    // 进程启动失败处理
-    pythonProcess.on('error', (error) => {
-      console.error('Failed to start Python server:', error);
+    // 进程启动失败处理（如 python 可执行文件不存在）
+    proc.on('error', (error) => {
+      console.error('[Main] Failed to start Python server:', error);
+      cleanupAndReject(new Error(`Failed to spawn Python server: ${error.message}`));
     });
 
-    // 进程退出处理
-    pythonProcess.on('exit', (code) => {
+    // 进程异常退出处理
+    proc.on('exit', (code) => {
+      if (!resolved) {
+        const errorMessage = `Python server exited unexpectedly with code ${code ?? 'unknown'}. stderr: ${stderrBuffer.trim() || 'none'}`;
+        cleanupAndReject(new Error(errorMessage));
+        return;
+      }
+
       if (code !== 0) {
-        console.error(`Python server exited with code ${code}`);
+        console.error(`[Main] Python server exited with code ${code}`);
       }
-      // 清理进程引用
       pythonProcess = null;
+      isPythonServerReady = false;
     });
 
-    // 轮询检查就绪状态
-    // 避免依赖单一输出消息，增加容错性
-    const checkReady = setInterval(() => {
-      if (isPythonServerReady) {
-        clearInterval(checkReady);
-        console.log('Python server is ready');
-        resolve();
-      }
-    }, 100);
-
-    // 超时保护: 10秒后强制继续
-    // 即使未检测到就绪信号，也允许尝试运行
-    setTimeout(() => {
-      clearInterval(checkReady);
-      if (!isPythonServerReady) {
-        console.log('Python server start timeout, continuing...');
-        resolve();
-      }
-    }, 10000);
-  }).then(async () => {
+    // 如果提前退出，清理超时器
+    proc.once('exit', () => clearTimeout(startupTimeout));
+  }).then(async (port) => {
     // 额外的 API 就绪检测：确保 FastAPI 真正准备好处理请求
     console.log('[Main] 等待 API 完全就绪...');
-    const apiReady = await waitForApiReady(currentPythonServerPort, 15000);
-    if (apiReady) {
-      console.log('[Main] API 已就绪');
-      isPythonServerReady = true;
-    } else {
-      console.log('[Main] API 就绪检测超时，但将继续尝试');
+    const apiReady = await waitForApiReady(port, PYTHON_API_READY_TIMEOUT_MS);
+    if (!apiReady) {
+      await stopPythonServer();
+      throw new Error(`Python server API did not become ready within ${PYTHON_API_READY_TIMEOUT_MS}ms on port ${port}`);
     }
+    console.log('[Main] API 已就绪');
+    isPythonServerReady = true;
+    return port;
   });
 }
 
@@ -600,24 +762,27 @@ ipcMain.handle('get-server-status', async () => {
  * - 端口可能变化，前端需要重新获取
  */
 ipcMain.handle('restart-python-server', async () => {
-  // 终止现有进程
-  if (pythonProcess) {
-    pythonProcess.kill();
-    pythonProcess = null;
+  console.log('[Main] 重启 Python 后端服务...');
+
+  // 彻底终止现有进程树，避免旧进程残留导致端口冲突
+  await stopPythonServer();
+
+  try {
+    // 重新启动（会自动查找新的可用端口）
+    const port = await startPythonServer();
+    return {
+      ready: true,
+      port,
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[Main] 重启 Python 服务失败:', errorMessage);
+    return {
+      ready: false,
+      error: errorMessage,
+      port: currentPythonServerPort,
+    };
   }
-  
-  // 重置状态
-  isPythonServerReady = false;
-  
-  // 重新启动（会自动查找新的可用端口）
-  await startPythonServer();
-  
-  // 等待服务器就绪（使用新的端口）
-  const ready = await waitForServer(currentPythonServerPort);
-  return {
-    ready,
-    port: currentPythonServerPort
-  };
 });
 
 /**
@@ -727,51 +892,30 @@ ipcMain.handle('save-config', async (event, configPath: string, dataPath: string
   // ============================================================================
   // Electron 启动配置文件路径
   // ============================================================================
-  // 新路径（推荐）: {项目根目录}/.precis/electron_launch.yaml
-  // 兼容路径: {electron目录}/electron_launch.yaml
-  // 获取项目根目录（electron 的上级目录）
-  const projectRoot = path.resolve(__dirname, '..');
-  const configDir = path.join(projectRoot, '.precis');
-  const newConfigFile = path.join(configDir, 'electron_launch.yaml');
-  const content = `# ============================================================================
-# Precis Electron 桌面版启动配置文件
-# 文件名: .precis/electron_launch.yaml
-#
-# 用途:
-#   存储桌面版启动时要加载的项目路径
-#   让用户双击桌面图标就能打开上次使用的项目
-#
-# 生成方式:
-#   1. 首次打开桌面版时，用户选择项目文件夹后自动生成
-#   2. 用户通过"打开其他项目"菜单切换项目时自动更新
-#
-# 生效方式:
-#   重启 Electron 应用后生效
-#
-# 注意事项:
-#   - 路径必须是绝对路径
-#   - 如果路径不存在，会提示用户重新选择
-#   - 删除此文件后，下次启动会提示选择项目
-# ============================================================================
+  // 使用用户数据目录下的 .precis/electron_launch.yaml，避免写入安装目录
+  // Windows: %APPDATA%/Precis/.precis/electron_launch.yaml
+  // macOS: ~/Library/Application Support/Precis/.precis/electron_launch.yaml
+  // Linux: ~/.config/Precis/.precis/electron_launch.yaml
+  const userDataDir = app.getPath('userData');
+  const configDir = path.join(userDataDir, '.precis');
+  const configFile = path.join(configDir, 'electron_launch.yaml');
 
-# 项目配置文件夹路径
-# 包含 project.precis.yaml 和所有 schema/constraint/regex 文件的目录
-configPath: "${configPath.replace(/\\/g, '\\\\')}"
-
-# 数据文件路径（通常与 configPath 相同）
-# 如果数据文件存放在不同目录，可以单独指定
-dataPath: "${dataPath.replace(/\\/g, '\\\\')}"
-`;
   try {
     // 确保 .precis 目录存在
     if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir, { recursive: true });
     }
 
-    // 写入新路径
-    fs.writeFileSync(newConfigFile, content, 'utf-8');
+    // 使用 js-yaml 序列化配置，避免手写 YAML 字符串和正则解析带来的安全风险
+    const payload = {
+      configPath,
+      dataPath,
+    };
+    const content = yaml.dump(payload);
 
-    console.log('[Main] 配置已保存:', newConfigFile);
+    fs.writeFileSync(configFile, content, 'utf-8');
+
+    console.log('[Main] 配置已保存:', configFile);
     return true;
   } catch (error) {
     console.error('[Main] 保存配置失败:', error);
@@ -780,20 +924,19 @@ dataPath: "${dataPath.replace(/\\/g, '\\\\')}"
 });
 
 ipcMain.handle('load-config', async () => {
-  const projectRoot = path.resolve(__dirname, '..');
-  const newConfigFile = path.join(projectRoot, '.precis', 'electron_launch.yaml');
+  const userDataDir = app.getPath('userData');
+  const configFile = path.join(userDataDir, '.precis', 'electron_launch.yaml');
 
-  if (!fs.existsSync(newConfigFile)) {
+  if (!fs.existsSync(configFile)) {
     console.log('[Main] 配置文件不存在');
     return { configPath: '', dataPath: '' };
   }
 
   try {
-    const content = fs.readFileSync(newConfigFile, 'utf-8');
-    const configPathMatch = content.match(/configPath:\s*"(.*)"/);
-    const dataPathMatch = content.match(/dataPath:\s*"(.*)"/);
-    const configPath = configPathMatch ? configPathMatch[1] : '';
-    const dataPath = dataPathMatch ? dataPathMatch[1] : '';
+    const content = fs.readFileSync(configFile, 'utf-8');
+    const parsed = yaml.load(content) as { configPath?: string; dataPath?: string } | null;
+    const configPath = parsed?.configPath || '';
+    const dataPath = parsed?.dataPath || '';
     console.log('[Main] 配置已加载:', { configPath, dataPath });
     return { configPath, dataPath };
   } catch (error) {
@@ -1296,7 +1439,21 @@ app.whenReady().then(async () => {
   // 注册 app:// 自定义协议处理器，将请求映射到前端构建目录
   protocol.handle('app', (request) => {
     const url = new URL(request.url);
-    const filePath = path.join(FRONTEND_PATH, url.pathname);
+    // 解码 pathname 中可能存在的编码字符（如 %2F -> /），防止编码绕过路径穿越校验
+    const decodedPathname = decodeURIComponent(url.pathname);
+    const filePath = path.normalize(path.join(FRONTEND_PATH, decodedPathname));
+
+    // 路径穿越校验：解析后的真实路径必须在 FRONTEND_PATH 范围内
+    const realFilePath = path.resolve(filePath);
+    const realFrontendPath = path.resolve(FRONTEND_PATH);
+    const isInside =
+      realFilePath === realFrontendPath ||
+      realFilePath.startsWith(realFrontendPath + path.sep);
+    if (!isInside) {
+      console.error('[Main] app:// 协议拒绝越界访问:', realFilePath);
+      return new Response('Forbidden', { status: 403, statusText: 'Forbidden' });
+    }
+
     return electronNet.fetch(`file://${filePath}`);
   });
 
@@ -1308,8 +1465,14 @@ app.whenReady().then(async () => {
   if (hasFrontendBuild) {
     // 生产环境: 启动 Python 后端并等待其就绪
     console.log('[Main] 检测到打包环境，启动 Python 后端服务...');
-    await startPythonServer();
-    console.log('[Main] 后端启动流程完成，验证 API 就绪...');
+    try {
+      await startPythonServer();
+      console.log('[Main] 后端启动流程完成，验证 API 就绪...');
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error('[Main] 后端启动失败:', errorMessage);
+      isPythonServerReady = false;
+    }
   } else {
     // 开发环境: 后端由用户手动启动，轮询等待其就绪
     console.log('[Main] 开发环境，等待外部后端服务就绪...');
@@ -1353,12 +1516,9 @@ app.whenReady().then(async () => {
  * - 避免僵尸进程
  */
 app.on('window-all-closed', () => {
-  // 终止 Python 后端进程
-  if (pythonProcess) {
-    pythonProcess.kill('SIGTERM');
-    pythonProcess = null;
-  }
-  
+  // 终止 Python 后端进程树，避免窗口关闭后残留僵尸进程
+  stopPythonServerSync(pythonProcess);
+
   // 非 macOS 平台直接退出应用
   // [macOS 约定] 应用应保持运行直到用户明确退出
   if (process.platform !== 'darwin') {
@@ -1377,8 +1537,14 @@ app.on('window-all-closed', () => {
  * - 适合执行最后的清理操作
  */
 app.on('before-quit', () => {
-  if (pythonProcess) {
-    pythonProcess.kill('SIGTERM');
-    pythonProcess = null;
-  }
+  stopPythonServerSync(pythonProcess);
+});
+
+/**
+ * 应用退出事件
+ * 
+ * 用途: 作为最后的保险，确保 Python 进程树已被清理
+ */
+app.on('quit', () => {
+  stopPythonServerSync(pythonProcess);
 });

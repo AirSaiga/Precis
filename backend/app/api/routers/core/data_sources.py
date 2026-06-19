@@ -28,7 +28,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # type: ignore[import-untyped]
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.dependencies import get_project_config_path

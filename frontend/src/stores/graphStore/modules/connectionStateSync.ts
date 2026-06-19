@@ -12,7 +12,7 @@
  * - reconcileAll 是幂等操作，可安全重复调用
  */
 
-import type { Ref } from 'vue'
+import { nextTick, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
@@ -214,10 +214,12 @@ export function createConnectionStateSyncModule(ctx: ConnectionStateSyncContext)
    *
    * 典型使用场景：V2 导入完成后。
    *
-   * 实现方式：收集所有补丁后通过 **单次** `nodes.value` 替换统一应用，
-   * 避免多次数组替换与 Vue Flow v-model:nodes 的异步回写产生竞态。
+   * 实现方式：收集所有补丁后通过统一的 `updateNodeData` 入口逐节点应用，
+   * 避免直接替换 `nodes.value` 全量数组导致 Vue Flow v-model:nodes 的异步回写
+   * 与 setEdges 重新验证产生竞态，从而防止边被静默丢弃。
+   * 批量更新结束后统一 `await nextTick()`，保证 Vue Flow 内部状态与 store 同步。
    */
-  function reconcileAll() {
+  async function reconcileAll() {
     logger.debug('[ConnectionStateSync] reconcileAll: 开始重建节点关系状态')
 
     // 收集所有需要应用的补丁: nodeId → accumulated patches
@@ -288,17 +290,18 @@ export function createConnectionStateSyncModule(ctx: ConnectionStateSyncContext)
       dataPatches.set(nodeId, p)
     }
 
-    // 单次批量更新 — 只做一次 nodes.value 替换
     if (dataPatches.size === 0) {
       logger.debug('[ConnectionStateSync] reconcileAll: 无需更新')
       return
     }
 
-    nodes.value = nodes.value.map((node) => {
-      const patch = dataPatches.get(node.id)
-      if (!patch) return node
-      return { ...node, data: { ...node.data, ...patch } } as CustomNode
-    })
+    // 逐节点通过 updateNodeData 应用补丁，避免全量数组替换
+    for (const [nodeId, patch] of dataPatches) {
+      updateNodeData(nodeId, patch as Partial<CustomNodeData>)
+    }
+
+    // 等待所有 updateNodeData 触发的 nextTick 同步完成
+    await nextTick()
 
     logger.debug('[ConnectionStateSync] reconcileAll: 完成')
   }

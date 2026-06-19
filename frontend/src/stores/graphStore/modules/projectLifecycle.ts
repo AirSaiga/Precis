@@ -70,11 +70,8 @@ import type { Edge } from '@vue-flow/core'
 import type { CustomNode, TableAsset } from '@/types/graph'
 import type { ProjectNodeData } from '@/types/nodes'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
-import type { ProjectStoreLike } from '@/types/storeInterfaces'
-
-interface ResourceTreeStoreLike {
-  clear: () => void
-}
+import type { ProjectStoreLike, ResourceTreeStoreLike } from '@/types/storeInterfaces'
+import type { ProjectConfigStats } from '../setup/state'
 
 export function createProjectLifecycleModule(params: {
   nodes: Ref<CustomNode[]>
@@ -85,12 +82,7 @@ export function createProjectLifecycleModule(params: {
   selectionBox: Ref<{ x: number; y: number; width: number; height: number } | null>
   projectName: Ref<string>
   isProjectLoaded: Ref<boolean>
-  projectConfigStats: Ref<{
-    schemaCount: number
-    constraintCount: number
-    regexCount: number
-    transformCount: number
-  }>
+  projectConfigStats: Ref<ProjectConfigStats>
   projectConfigStatsLoaded: Ref<boolean>
   projectConfigStatsConfigPath: Ref<string>
   lastFullValidationSummary: Ref<FullValidationSummary | null>
@@ -141,8 +133,11 @@ export function createProjectLifecycleModule(params: {
     projectConfigStats.value = {
       schemaCount: 0,
       constraintCount: 0,
+      constraintStandaloneCount: 0,
+      constraintInlineCount: 0,
       regexCount: 0,
       transformCount: 0,
+      templateCount: 0,
     }
     projectConfigStatsLoaded.value = false
     projectConfigStatsConfigPath.value = ''
@@ -170,8 +165,11 @@ export function createProjectLifecycleModule(params: {
     projectConfigStats.value = {
       schemaCount: 0,
       constraintCount: 0,
+      constraintStandaloneCount: 0,
+      constraintInlineCount: 0,
       regexCount: 0,
       transformCount: 0,
+      templateCount: 0,
     }
     projectConfigStatsLoaded.value = false
     projectConfigStatsConfigPath.value = ''

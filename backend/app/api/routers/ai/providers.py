@@ -67,7 +67,7 @@ def _provider_to_response(p: AIProvider, health: dict) -> ProviderResponse:
     return ProviderResponse(
         id=p.id,
         name=p.name,
-        provider=_get_type_str(p),
+        type=_get_type_str(p),
         deployment=_get_deployment_str(p),
         base_url=p.base_url,
         model=p.model,

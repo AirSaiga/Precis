@@ -151,15 +151,3 @@ class WorkspacesV2Model(BaseModel):
     version: int = Field(default=1, description="工作区文件版本")
     activeWorkspaceId: Optional[str] = Field(default=None, description="当前活跃工作区 ID")
     workspaces: list[WorkspaceV2Item] = Field(default_factory=list, description="工作区列表")
-
-
-class StandardResponse(BaseModel):
-    """
-    标准响应模型。
-
-    使用场景：
-    - 大多数不需要返回数据的 POST/PUT/DELETE 操作
-    - 保持 API 响应格式一致性
-    """
-
-    message: str

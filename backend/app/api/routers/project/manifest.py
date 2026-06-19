@@ -25,7 +25,7 @@
 import logging
 import os
 from pathlib import Path
-from typing import Union
+from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -56,7 +56,7 @@ _FIELD_LABEL_MAP: dict[str, str] = {
 }
 
 
-def _read_manifest(manifest_path: str) -> ProjectManifestV2 | None:
+def _read_manifest(manifest_path: str) -> Optional[ProjectManifestV2]:
     """
     @methoddesc 从文件读取并解析 manifest
 
@@ -130,7 +130,7 @@ def _upsert_manifest_ref(
         updated_manifest = existing_manifest.model_copy(update={field_name: items})
         write_yaml_atomic(Path(manifest_path), updated_manifest.model_dump(exclude_none=True))
 
-    return {"message": f"{label} 引用 '{ref.id}' 已更新"}
+    return StandardResponse(message=f"{label} 引用 '{ref.id}' 已更新")
 
 
 @router.get(

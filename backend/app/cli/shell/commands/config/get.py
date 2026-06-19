@@ -23,7 +23,7 @@ import os
 
 import yaml
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
 
 class ConfigGetCommand(Command):
@@ -43,17 +43,18 @@ class ConfigGetCommand(Command):
     def usage(self) -> str:
         return "config get <config_file> <key_path>"
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行获取配置项命令。
 
         Args:
             args: 命令参数列表，需要包含配置文件名和点号路径
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             配置项值或错误提示
         """
-        if not context.is_project_open:
+        project_path = context.project_path
+        if project_path is None:
             return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
 
         if len(args) < 2:
@@ -63,7 +64,6 @@ class ConfigGetCommand(Command):
 
         config_file = args[0]
         key_path = args[1]
-        project_path = context.project_path
         config_path = os.path.join(project_path, config_file)
 
         if not os.path.isfile(config_path):

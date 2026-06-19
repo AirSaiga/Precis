@@ -74,7 +74,7 @@ class DingTalkAppReporter(Reporter):
         self.access_token = None  # 钉钉 API 访问令牌
         self.token_expires_at = 0  # 令牌过期时间戳
 
-    def configure(self, app_key: str, app_secret: str, agent_id: int, userid_list: str, **kwargs) -> bool:
+    def configure(self, **kwargs) -> bool:
         """
         @methoddesc 配置钉钉报告器参数
 
@@ -91,12 +91,21 @@ class DingTalkAppReporter(Reporter):
             bool: 配置是否成功
         """
         # 参数验证：确保所有必需参数都提供
+        app_key = kwargs.get("app_key")
+        app_secret = kwargs.get("app_secret")
+        agent_id = kwargs.get("agent_id")
+        userid_list = kwargs.get("userid_list")
         if not all([app_key, app_secret, agent_id, userid_list]):
             self.is_configured = False
             return False
 
         # 保存配置参数
-        self.config = {"app_key": app_key, "app_secret": app_secret, "agent_id": agent_id, "userid_list": userid_list}
+        self.config = {
+            "app_key": str(app_key),
+            "app_secret": str(app_secret),
+            "agent_id": int(agent_id),
+            "userid_list": str(userid_list),
+        }
         self.is_configured = True
         print(f"[{self.name}] ✓ 配置成功。")
         return True

@@ -96,7 +96,9 @@ class StandardResponse(BaseModel):
     用于简单的文本响应场景，如确认消息、状态更新等。
 
     Attributes:
+        success: 操作是否成功，默认为 True
         message: 响应消息内容
     """
 
+    success: bool = True  # 操作是否成功，默认返回 True
     message: str  # 响应消息内容，通常用于操作成功确认或状态说明

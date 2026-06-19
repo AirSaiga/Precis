@@ -12,7 +12,12 @@ import { logger } from '@/core/utils/logger'
 import { defineStore, storeToRefs } from 'pinia'
 import { ref, computed } from 'vue'
 import type { Ref } from 'vue'
-import type { ResourceItem, FolderType, ResourceFolderMap } from '@/types/resource'
+import type {
+  ResourceItem,
+  FolderType,
+  ResourceFolderMap,
+  ConstraintResource,
+} from '@/types/resource'
 import { resourceService } from '@/services/resourceService'
 import { ProjectNotFoundError } from '@/api/projectV2Api'
 import { toastWarning } from '@/core/toast'
@@ -20,6 +25,36 @@ import { useI18n } from 'vue-i18n'
 import { useResourceFolderStore } from './resourceFolderStore'
 import { useResourceSearchStore } from './resourceSearchStore'
 import { useProjectStore } from './projectStore'
+
+/**
+ * 判断资源是否为约束资源
+ *
+ * @param resource - 任意资源项
+ * @returns 是否为约束类型资源
+ */
+function isConstraintResource(resource: ResourceItem): resource is ConstraintResource {
+  return resource.kind === 'constraint'
+}
+
+/**
+ * 判断约束资源是否为独立约束
+ *
+ * @param resource - 约束资源
+ * @returns constraintSource 是否为 'independent'
+ */
+function isIndependentConstraint(resource: ConstraintResource): boolean {
+  return resource.constraintSource === 'independent'
+}
+
+/**
+ * 判断约束资源是否为内嵌约束
+ *
+ * @param resource - 约束资源
+ * @returns constraintSource 是否为 'embedded'
+ */
+function isEmbeddedConstraint(resource: ConstraintResource): boolean {
+  return resource.constraintSource === 'embedded'
+}
 
 /**
  * 资源树 Store 工厂函数
@@ -95,15 +130,11 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
 
   /** 独立约束资源列表（constraintSource === 'independent'） */
   const independentConstraints = computed(() =>
-    constraints.value.filter(
-      (r) => (r as { constraintSource?: string }).constraintSource === 'independent'
-    )
+    constraints.value.filter((r) => isConstraintResource(r) && isIndependentConstraint(r))
   )
   /** 内嵌约束资源列表（constraintSource === 'embedded'） */
   const embeddedConstraints = computed(() =>
-    constraints.value.filter(
-      (r) => (r as { constraintSource?: string }).constraintSource === 'embedded'
-    )
+    constraints.value.filter((r) => isConstraintResource(r) && isEmbeddedConstraint(r))
   )
 
   /** 已列入 manifest 的独立约束数量 */
@@ -163,7 +194,7 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
 
     // 过滤独立约束（constraintSource === 'independent'）
     const targetIndependentConstraints = targetConstraints.filter(
-      (c) => (c as { constraintSource?: string }).constraintSource === 'independent'
+      (c) => isConstraintResource(c) && isIndependentConstraint(c)
     )
 
     return {
@@ -290,7 +321,7 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
       case 'constraints':
       case 'independentConstraints':
         return constraints.value.filter(
-          (c) => (c as { constraintSource?: string }).constraintSource === 'independent'
+          (c) => isConstraintResource(c) && isIndependentConstraint(c)
         )
       case 'dataModels':
         return schemas.value
@@ -337,7 +368,7 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
       )
 
       const independentConstraints = constraints.value.filter(
-        (c) => (c as { constraintSource?: string }).constraintSource === 'independent'
+        (c) => isConstraintResource(c) && isIndependentConstraint(c)
       )
 
       folderStore.updateFolderCounts({
@@ -355,24 +386,6 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
         regexNodes: regexNodes.value,
         templates: templates.value,
       })
-
-      // 兼容旧代码：schemas, patterns, regex_nodes, constraints 保持引用
-      ;(folders.value as unknown as Record<string, unknown>).schemas = {
-        resources: schemas.value,
-        count: schemas.value.length,
-      }
-      ;(folders.value as unknown as Record<string, unknown>).patterns = {
-        resources: patterns.value,
-        count: patterns.value.length,
-      }
-      ;(folders.value as unknown as Record<string, unknown>).regex_nodes = {
-        resources: regexNodes.value,
-        count: regexNodes.value.length,
-      }
-      ;(folders.value as unknown as Record<string, unknown>).constraints = {
-        resources: constraints.value,
-        count: constraints.value.length,
-      }
 
       // 提示配置文件解析错误
       const schemaErrors = fullConfig.schema_errors
@@ -485,7 +498,7 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
    */
   function initializeFolderResources(): void {
     const independentConstraints = constraints.value.filter(
-      (c) => (c as { constraintSource?: string }).constraintSource === 'independent'
+      (c) => isConstraintResource(c) && isIndependentConstraint(c)
     )
 
     folderStore.initializeFolderResources({

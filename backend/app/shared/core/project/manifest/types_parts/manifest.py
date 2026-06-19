@@ -154,7 +154,7 @@ class ProjectManifest(BaseModel):
         unique_schemas: list[SchemaRef] = []
         for schema in self.schemas:
             if schema.id in seen_schema_ids:
-                existing = seen_schema_ids[schema.id]
+                existing: SchemaRef = seen_schema_ids[schema.id]
                 warnings.append(f"Schema ID '{schema.id}' 重复，已跳过 '{schema.path}'，保留 '{existing.path}'")
             else:
                 seen_schema_ids[schema.id] = schema
@@ -165,7 +165,7 @@ class ProjectManifest(BaseModel):
         unique_constraints: list[ConstraintRef] = []
         for constraint in self.constraints:
             if constraint.id in seen_constraint_ids:
-                existing = seen_constraint_ids[constraint.id]
+                existing: ConstraintRef = seen_constraint_ids[constraint.id]
                 warnings.append(
                     f"Constraint ID '{constraint.id}' 重复，已跳过 '{constraint.path}'，保留 '{existing.path}'"
                 )
@@ -178,7 +178,7 @@ class ProjectManifest(BaseModel):
         unique_regex_nodes: list[RegexRef] = []
         for regex in self.regex_nodes:
             if regex.id in seen_regex_ids:
-                existing = seen_regex_ids[regex.id]
+                existing: RegexRef = seen_regex_ids[regex.id]
                 warnings.append(f"Regex ID '{regex.id}' 重复，已跳过 '{regex.path}'，保留 '{existing.path}'")
             else:
                 seen_regex_ids[regex.id] = regex
@@ -189,7 +189,7 @@ class ProjectManifest(BaseModel):
         unique_transforms: list[TransformRef] = []
         for transform in self.transforms:
             if transform.id in seen_transform_ids:
-                existing = seen_transform_ids[transform.id]
+                existing: TransformRef = seen_transform_ids[transform.id]
                 warnings.append(
                     f"Transform ID '{transform.id}' 重复，已跳过 '{transform.path}'，保留 '{existing.path}'"
                 )
@@ -202,7 +202,7 @@ class ProjectManifest(BaseModel):
         unique_data_sources: list[DataSourceRef] = []
         for ds in self.data_sources:
             if ds.id in seen_data_source_ids:
-                existing = seen_data_source_ids[ds.id]
+                existing: DataSourceRef = seen_data_source_ids[ds.id]
                 warnings.append(f"DataSource ID '{ds.id}' 重复，已跳过 '{ds.path}'，保留 '{existing.path}'")
             else:
                 seen_data_source_ids[ds.id] = ds
@@ -214,7 +214,7 @@ class ProjectManifest(BaseModel):
         unique_templates: list[TemplateRef] = []
         for tmpl in self.templates:
             if tmpl.id in seen_template_ids:
-                existing = seen_template_ids[tmpl.id]
+                existing: TemplateRef = seen_template_ids[tmpl.id]
                 warnings.append(f"Template ID '{tmpl.id}' 重复，已跳过 '{tmpl.path}'，保留 '{existing.path}'")
             else:
                 seen_template_ids[tmpl.id] = tmpl
@@ -226,7 +226,7 @@ class ProjectManifest(BaseModel):
         unique_instances: list[TemplateInstanceRef] = []
         for inst in self.template_instances:
             if inst.id in seen_instance_ids:
-                existing = seen_instance_ids[inst.id]
+                existing: TemplateInstanceRef = seen_instance_ids[inst.id]
                 warnings.append(
                     f"TemplateInstance ID '{inst.id}' 重复，"
                     f"已跳过 (template_id={inst.template_id})，"

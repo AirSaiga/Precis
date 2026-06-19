@@ -9,6 +9,7 @@
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
+import type { ResourceTreeStoreLike } from '@/types/storeInterfaces'
 import { createEnsureSchemaNodeFromV2 } from './v2/import/ensureSchemaNodeFromV2'
 import { createV2ImportToCanvas } from './v2/import/importV2ResourceToCanvas'
 
@@ -21,12 +22,11 @@ export function createV2ImportModule(params: {
     configDir: string | undefined,
     relPath: string | undefined
   ) => string | undefined
-  reconcileAll: () => void
+  reconcileAll: () => void | Promise<void>
   /**
-   * 查询引用指定 Schema 的独立约束 ID 列表。
-   * 透传给 createV2ImportToCanvas，用于拖拽独立约束触发自动创建 Schema 时连带创建其他独立约束。
+   * 资源树 Store 的最小接口，用于查询 Schema 关联的独立约束。
    */
-  getIndependentConstraintIdsForSchema?: (schemaId: string) => string[] | undefined
+  resourceTreeStore: ResourceTreeStoreLike
   sourceIndex?: {
     isDuplicateSource: (
       path: string,
@@ -48,9 +48,28 @@ export function createV2ImportModule(params: {
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     reconcileAll,
-    getIndependentConstraintIdsForSchema,
+    resourceTreeStore,
     sourceIndex,
   } = params
+
+  // 拖拽独立约束触发自动创建 Schema 时，连带创建该 Schema 关联的其他独立约束。
+  // 从 resourceTreeStore 查询 Schema 的 associatedConstraintIds，
+  // 过滤出 constraintSource === 'independent' 的约束（排除内嵌约束，
+  // 后者由 materializeEmbeddedConstraints 单独处理）。
+  const getIndependentConstraintIdsForSchema = (schemaId: string): string[] | undefined => {
+    const schemaResource = resourceTreeStore.getResourceById(schemaId)
+    if (!schemaResource || schemaResource.kind !== 'schema') return undefined
+    const associatedIds = schemaResource.associatedConstraintIds
+    if (!associatedIds || associatedIds.length === 0) return undefined
+    // 过滤出独立约束（内嵌约束通过 materializeEmbeddedConstraints 物化，不在此处理）
+    return associatedIds.filter((cId) => {
+      const cResource = resourceTreeStore.getResourceById(cId)
+      return (
+        cResource?.kind === 'constraint' &&
+        (cResource as { constraintSource?: string }).constraintSource === 'independent'
+      )
+    })
+  }
 
   const { ensureSchemaNodeFromV2 } = createEnsureSchemaNodeFromV2({
     nodes,

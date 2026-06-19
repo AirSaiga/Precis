@@ -80,9 +80,17 @@ def _compute_conflicts(existing: dict[str, Any], new: dict[str, Any]) -> list[st
                 if len(existing_cols) != len(new_cols):
                     conflict_fields.append(f"columns (数量: {len(existing_cols)} vs {len(new_cols)})")
                 else:
+                    column_conflicts = []
                     for i, (ec, nc) in enumerate(zip(existing_cols, new_cols)):
-                        if ec.get("id") != nc.get("id") or ec.get("name") != nc.get("name"):
-                            conflict_fields.append(f"columns[{i}]")
+                        if (
+                            ec.get("id") != nc.get("id")
+                            or ec.get("name") != nc.get("name")
+                            or ec.get("type") != nc.get("type")
+                        ):
+                            column_conflicts.append(f"columns[{i}]")
+                    if column_conflicts:
+                        conflict_fields.append("columns")
+                        conflict_fields.extend(column_conflicts)
             elif field == "constraints":
                 existing_constraints = existing.get("constraints", [])
                 new_constraints = new.get("constraints", [])

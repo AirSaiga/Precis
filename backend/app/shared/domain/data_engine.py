@@ -59,7 +59,7 @@ def _reconstruct_expand_columns(df: pd.DataFrame, table_schema: TableSchema) -> 
         reconstructed = []
         for _, row in df.iterrows():
             cell = {}
-            for child in col_schema.children:
+            for child in col_schema.children or []:
                 col_key = f"{col_name}.{child.name}"
                 if col_key in df.columns:
                     val = row.get(col_key)

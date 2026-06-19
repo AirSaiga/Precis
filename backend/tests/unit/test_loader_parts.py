@@ -20,9 +20,9 @@ from app.shared.core.project.loader.loader_parts.path_validation import validate
 from app.shared.core.project.loader.loader_parts.runtime import (
     build_registries,
     build_runtime_constraints,
-    build_runtime_schemas,
 )
 from app.shared.core.project.schema.types import ColumnSpec, ConstraintItem, TableSchemaFile
+from app.shared.services.schema_runtime_builder import build_runtime_schemas
 
 
 class TestBuildRegistries:

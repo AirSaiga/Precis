@@ -56,7 +56,7 @@
 
 from __future__ import annotations
 
-from typing import Literal, Union
+from typing import Any, Literal, Union
 
 from pydantic import BaseModel, Field
 
@@ -108,7 +108,7 @@ class JSONOptions(BaseModel):
 
     flatten: bool = Field(False, description="是否自动扁平化嵌套结构")
 
-    def to_loader_config(self) -> dict[str, any]:
+    def to_loader_config(self) -> dict[str, Any]:
         """@methoddesc 转换为加载器配置字典
 
         将 JSONOptions 对象转换为数据加载器可识别的配置字典。
@@ -173,7 +173,7 @@ class CSVOptions(BaseModel):
 
     on_bad_lines: Literal["error", "warn", "skip"] = Field("warn", description="遇到坏行的处理方式")
 
-    def to_loader_config(self) -> dict[str, any]:
+    def to_loader_config(self) -> dict[str, Any]:
         """@methoddesc 转换为加载器配置字典
 
         将 CSVOptions 对象转换为数据加载器可识别的配置字典。
@@ -223,7 +223,7 @@ class ExcelOptions(BaseModel):
 
     dtype_inference: bool = Field(True, description="是否自动推断数据类型")
 
-    def to_loader_config(self) -> dict[str, any]:
+    def to_loader_config(self) -> dict[str, Any]:
         """@methoddesc 转换为加载器配置字典
 
         将 ExcelOptions 对象转换为数据加载器可识别的配置字典。

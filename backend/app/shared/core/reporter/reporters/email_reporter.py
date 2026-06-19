@@ -42,7 +42,7 @@ import smtplib
 from email.header import Header
 from email.mime.text import MIMEText
 from email.utils import formataddr
-from typing import Any
+from typing import Any, Optional, cast
 
 from .base import Reporter
 
@@ -88,15 +88,7 @@ class EmailReporter(Reporter):
         self.config = {}
         self.is_configured = False
 
-    def configure(
-        self,
-        smtp_server: str,
-        smtp_port: int,
-        sender_email: str,
-        sender_password: str,
-        receiver_email: str,
-        **config: Any,
-    ) -> bool:
+    def configure(self, **config: Any) -> bool:
         """
         @methoddesc 配置邮件服务器参数并在配置阶段验证连接
 
@@ -119,29 +111,34 @@ class EmailReporter(Reporter):
             4. 如果连接成功，设置 is_configured 为 True
         """
         # 参数完整性检查：确保所有必需的配置都已提供
+        smtp_server = config.get("smtp_server")
+        smtp_port = config.get("smtp_port")
+        sender_email = config.get("sender_email")
+        sender_password = config.get("sender_password")
+        receiver_email = config.get("receiver_email")
         if not all([smtp_server, smtp_port, sender_email, sender_password, receiver_email]):
             print(f"[{self.name}] 邮件配置信息不完整, 无法启用。")
             return False
 
         # 将配置保存到实例变量中，供后续 report() 方法使用
         self.config = {
-            "smtp_server": smtp_server,
-            "smtp_port": smtp_port,
-            "sender_email": sender_email,
-            "sender_password": sender_password,
-            "receiver_email": receiver_email,
+            "smtp_server": str(smtp_server),
+            "smtp_port": int(smtp_port),
+            "sender_email": str(sender_email),
+            "sender_password": str(sender_password),
+            "receiver_email": str(receiver_email),
         }
 
         # 尝试连接和登录以验证配置的正确性
         # 使用 with 语句确保连接被正确关闭，即使发生异常
         try:
             # 建立 SMTP 连接，设置 10 秒超时防止阻塞
-            with smtplib.SMTP(smtp_server, smtp_port, timeout=10) as smtp:
+            with smtplib.SMTP(str(smtp_server), int(smtp_port), timeout=10) as smtp:
                 # 升级到 TLS 加密连接，这是现代 SMTP 服务的安全要求
                 # TLS 适用于端口 587，是比 SSL 更常用的选择
                 smtp.starttls()
                 # 使用提供的凭证登录
-                smtp.login(sender_email, sender_password)
+                smtp.login(str(sender_email), str(sender_password))
 
             # 配置验证成功，打印成功信息（不包含敏感密码）
             print(f"[{self.name}] ✓ 邮件服务配置验证成功，发件人: {sender_email}")
@@ -198,7 +195,7 @@ class EmailReporter(Reporter):
         msg = MIMEText(html_body, "html", "utf-8")
 
         # 使用 Header 对象编码邮件标题，确保中文正确显示
-        msg["Subject"] = Header(subject, "utf-8")
+        msg["Subject"] = cast(str, Header(subject, "utf-8"))
 
         # 使用 formataddr 正确格式化发件人和收件人地址
         # formataddr((友好名称, 邮件地址)) 格式
@@ -207,7 +204,7 @@ class EmailReporter(Reporter):
         msg["To"] = formataddr((Header("项目负责人", "utf-8").encode(), self.config["receiver_email"]))
 
         # 建立 SMTP 连接并发送邮件
-        smtp = None
+        smtp: Optional[smtplib.SMTP | smtplib.SMTP_SSL] = None
         try:
             # 根据端口号判断使用哪种连接方式：
             # - 端口 465 通常使用 SSL 加密的 SMTP_SSL
@@ -217,7 +214,8 @@ class EmailReporter(Reporter):
             else:
                 # 端口不是 465，使用普通 SMTP 然后升级到 TLS
                 smtp = smtplib.SMTP(self.config["smtp_server"], self.config["smtp_port"], timeout=10)
-                smtp.starttls()
+                if isinstance(smtp, smtplib.SMTP):
+                    smtp.starttls()
 
             # 使用配置中的凭证登录 SMTP 服务器
             smtp.login(self.config["sender_email"], self.config["sender_password"])

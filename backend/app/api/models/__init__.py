@@ -13,6 +13,7 @@
 输出示例:
     可直接访问所有聚合的模型类：
     - ProjectDetail, ProjectConfigModel, PathsModel, StandardResponse
+    - EndpointModel, ConnectionRuleModel, ConnectionRuleConfigModel, ConnectionRulesModel
     - ExternalDataSource, WorkspaceConfig, UIPreferences
     - SchemaSaveRequest, SchemaSaveResponse, HeaderRowChangedRequest
     - FilePreviewResponse
@@ -24,6 +25,16 @@
 # ============================================================================
 # 项目配置模型
 # ============================================================================
+# ============================================================================
+# 连接规则模型
+# ============================================================================
+from .connection_rules import (
+    ConnectionRuleConfigModel,
+    ConnectionRuleModel,
+    ConnectionRulesModel,
+    EndpointModel,
+)
+
 # ============================================================================
 # 全量校验模型
 # ============================================================================
@@ -92,6 +103,11 @@ __all__ = [
     "PathsModel",
     "ProjectConfigModel",
     "StandardResponse",
+    # 连接规则模型
+    "EndpointModel",
+    "ConnectionRuleConfigModel",
+    "ConnectionRuleModel",
+    "ConnectionRulesModel",
     # 工作区模型
     "ExternalDataSource",
     "UIPreferences",

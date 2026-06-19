@@ -33,7 +33,7 @@ jobs:
         run: npm ci
 
       - name: Lint
-        run: npm run lint
+        run: npm run lint:check
 
       - name: Type check
         run: npm run type-check
@@ -145,6 +145,11 @@ jobs:
       - name: Install E2E dependencies
         run: npm ci
 
+      - name: Install frontend dependencies
+        run: |
+          cd ../frontend
+          npm ci
+
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
@@ -173,8 +178,21 @@ jobs:
           done
           echo "Backend failed to start"
           exit 1
-        env:
-          E2E_SKIP_WEB_SERVER: 'true'
+
+      - name: Start frontend dev server
+        run: |
+          cd ../frontend
+          npm run dev &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:5173 > /dev/null 2>&1; then
+              echo "Frontend is ready"
+              exit 0
+            fi
+            echo "Waiting for frontend... ($i/30)"
+            sleep 1
+          done
+          echo "Frontend failed to start"
+          exit 1
 
       - name: Run E2E tests
         run: npx playwright test

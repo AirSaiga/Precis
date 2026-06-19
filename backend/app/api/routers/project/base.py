@@ -18,6 +18,7 @@
     可直接使用导入的类型、函数与常量构建 project 相关 API
 """
 
+from app.api.models.project import StandardResponse
 from app.api.routers.project.helpers import (
     V2_MANIFEST_FILENAME,
     V2_VIEW_FILENAME,
@@ -31,7 +32,6 @@ from app.api.routers.project.models import (
     DisplayNameUpdateRequest,
     FullConfigV2Request,
     ProjectViewV2Model,
-    StandardResponse,
     WorkspacesV2Model,
     WorkspaceV2Item,
 )

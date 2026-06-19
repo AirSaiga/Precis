@@ -9,16 +9,17 @@
 架构设计:
 - 使用类式加载器（CSVLoader, ExcelLoader, JSONLoader）
 - 每次调用均从磁盘读取最新数据，不使用缓存
+- core 层只依赖 DataSourceInfo DTO，不直接依赖 domain.TableSchema
 
 输入示例:
     file_to_schemas = {
-        "data/users.xlsx": [excel_spec1, excel_spec2],
-        "data/products.csv": [csv_spec]
+        "data/users.xlsx": [DataSourceInfo(schema_id="users", sheet_name="Sheet1", header_row=0)],
+        "data/products.csv": [DataSourceInfo(schema_id="products", header_row=0)]
     }
 
 输出示例:
     datasets, errors = load_grouped_sources(file_to_schemas)
-    # datasets: {"data/users.xlsx": pd.DataFrame, ...}
+    # datasets: {"users": pd.DataFrame, ...}
     # errors: ["data/products.csv: 文件不存在", ...]
 """
 
@@ -27,7 +28,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import pandas as pd
 
@@ -35,22 +36,19 @@ from app.shared.core.data_source.loaders.base import DataLoadError
 from app.shared.core.data_source.loaders.csv_loader import CSVLoader
 from app.shared.core.data_source.loaders.excel_loader import ExcelLoader
 from app.shared.core.data_source.loaders.json_loader import JSONLoader
+from app.shared.core.data_source.schema_info import DataSourceInfo
 from app.shared.core.data_source.specs.csv_source import CSVSourceSpec
 from app.shared.core.data_source.specs.excel_source import ExcelSourceSpec
 from app.shared.core.data_source.specs.json_source import JSONSourceSpec
 
-if TYPE_CHECKING:
-    from app.shared.domain import TableSchema
-
-
 logger = logging.getLogger(__name__)
 
 
-def _load_excel_with_new_loader(filepath: str, schemas: list[TableSchema]) -> dict[str, pd.DataFrame]:
+def _load_excel_with_new_loader(filepath: str, schemas: list[DataSourceInfo]) -> dict[str, pd.DataFrame]:
     """
     @methoddesc 使用新版 ExcelLoader 加载 Excel 文件（支持多 sheet）。
 
-    将 TableSchema 列表转换为 sheet 配置字典，
+    将 DataSourceInfo 列表转换为 sheet 配置字典，
     调用 ExcelLoader.load_multi_sheet() 实现一次性加载多个 sheet。
 
     Args:
@@ -62,14 +60,14 @@ def _load_excel_with_new_loader(filepath: str, schemas: list[TableSchema]) -> di
         如果 schemas 中没有有效的 sheet 配置，返回空字典
 
     示例:
-        >>> schemas = [TableSchema(id="users", sheet_name="Sheet1", header_row=0)]
+        >>> schemas = [DataSourceInfo(schema_id="users", sheet_name="Sheet1", header_row=0)]
         >>> result = _load_excel_with_new_loader("data.xlsx", schemas)
         >>> # result: {"users": DataFrame}
     """
     spec = ExcelSourceSpec(path=filepath)
     loader = ExcelLoader(spec)
     sheet_configs = {
-        s.id: {
+        s.schema_id: {
             "sheet_name": s.sheet_name,
             "header_row": s.header_row,
             "dtype_inference": s.source_config.get("dtype_inference", True),
@@ -84,7 +82,7 @@ def _load_excel_with_new_loader(filepath: str, schemas: list[TableSchema]) -> di
     return loader.load_multi_sheet(sheet_configs)
 
 
-def _load_csv_with_new_loader(filepath: str, schemas: list[TableSchema]) -> dict[str, pd.DataFrame]:
+def _load_csv_with_new_loader(filepath: str, schemas: list[DataSourceInfo]) -> dict[str, pd.DataFrame]:
     """
     @methoddesc 使用新版 CSVLoader 加载 CSV 文件。
 
@@ -100,7 +98,7 @@ def _load_csv_with_new_loader(filepath: str, schemas: list[TableSchema]) -> dict
         如果 schemas 数量不为 1，返回空字典
 
     示例:
-        >>> schemas = [TableSchema(id="orders", header_row=0)]
+        >>> schemas = [DataSourceInfo(schema_id="orders", header_row=0)]
         >>> result = _load_csv_with_new_loader("data.csv", schemas)
         >>> # result: {"orders": DataFrame}
     """
@@ -108,18 +106,18 @@ def _load_csv_with_new_loader(filepath: str, schemas: list[TableSchema]) -> dict
         logger.warning(f"CSV 文件 '{os.path.basename(filepath)}' 被多个 Schema 引用，这不被支持。跳过。")
         return {}
 
-    schema = schemas[0]
+    info = schemas[0]
     spec = CSVSourceSpec(
         path=filepath,
-        header_row=schema.header_row,
+        header_row=info.header_row,
         encoding="utf-8",
     )
     loader = CSVLoader(spec)
     df = loader.load()
-    return {schema.id: df}
+    return {info.schema_id: df}
 
 
-def _load_json_with_new_loader(filepath: str, schemas: list[TableSchema]) -> dict[str, pd.DataFrame]:
+def _load_json_with_new_loader(filepath: str, schemas: list[DataSourceInfo]) -> dict[str, pd.DataFrame]:
     """
     @methoddesc 使用新版 JSONLoader 加载 JSON 文件。
 
@@ -135,15 +133,15 @@ def _load_json_with_new_loader(filepath: str, schemas: list[TableSchema]) -> dic
         如果 schemas 为空，会抛出 IndexError（调用方应确保非空）
 
     示例:
-        >>> schemas = [TableSchema(id="users", source_config={"format": "auto", "json_path": "$.data"})]
+        >>> schemas = [DataSourceInfo(schema_id="users", source_config={"format": "auto", "json_path": "$.data"})]
         >>> result = _load_json_with_new_loader("data.json", schemas)
         >>> # result: {"users": DataFrame}
     """
     if len(schemas) > 1:
         logger.warning(f"JSON 文件 '{os.path.basename(filepath)}' 被多个 Schema 引用，只处理第一个。")
 
-    schema = schemas[0]
-    source_config = getattr(schema, "source_config", None) or {}
+    info = schemas[0]
+    source_config = info.source_config or {}
 
     spec = JSONSourceSpec(
         path=filepath,
@@ -157,7 +155,7 @@ def _load_json_with_new_loader(filepath: str, schemas: list[TableSchema]) -> dic
     )
     loader = JSONLoader(spec)
     df = loader.load()
-    return {schema.id: df}
+    return {info.schema_id: df}
 
 
 # 文件扩展名到加载函数的映射
@@ -187,7 +185,7 @@ def can_load(path: str) -> bool:
 
 
 def load_grouped_sources(
-    file_to_schemas: dict[str, list[TableSchema]],
+    file_to_schemas: dict[str, list[DataSourceInfo]],
     *,
     default_encoding: str = "utf-8",
     csv_delimiter: str = ",",
@@ -199,7 +197,7 @@ def load_grouped_sources(
     使用新版类式加载器（CSVLoader, ExcelLoader, JSONLoader），
     通过全局缓存机制避免重复加载。
 
-    :param file_to_schemas: 字典，键为文件路径，值为对应的 schema 列表
+    :param file_to_schemas: 字典，键为文件路径，值为对应的 DataSourceInfo 列表
     :param default_encoding: CSV 文件的默认编码，默认为 "utf-8"
     :param csv_delimiter: CSV 文件的分隔符，默认为 ","
     :param file_to_sheet_names: 可选，字典，键为文件路径，值为 sheet 名称

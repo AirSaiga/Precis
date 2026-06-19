@@ -28,6 +28,114 @@ import { i18n } from '@/i18n'
 import type { FrontendInstruction } from '@/stores/aiChatStore'
 import * as vueFlowApi from '@/services/canvas/vueFlowApi'
 import { fromBackendType } from '@/services/builders/schemaBuilder'
+import { useConnectionValidator } from '@/composables/validation/useConnectionValidator'
+
+/**
+ * AI 指令执行过程中遇到无法继续的非法连接时抛出的错误
+ */
+export class AIInstructionError extends Error {
+  constructor(
+    message: string,
+    public readonly code: string,
+    public readonly instruction?: FrontendInstruction
+  ) {
+    super(message)
+    this.name = 'AIInstructionError'
+  }
+}
+
+interface AINodeConnectionInput {
+  sourceNode: VueFlowNode
+  sourceColumnId?: string
+  targetNode: VueFlowNode
+  edges: Edge[]
+}
+
+/**
+ * 从 Schema/JsonSchema 节点中解析列 ID
+ *
+ * 优先使用 AI 直接提供的 targetColumnId；若未提供，则按 columnName 在 columns 中查找。
+ * 无法解析时返回 undefined，避免用不存在的列名创建非法连接。
+ */
+function resolveColumnId(node: VueFlowNode, columnNameOrId?: string): string | undefined {
+  if (!columnNameOrId) return undefined
+
+  const data = node.data as Record<string, unknown>
+  const columns = data.columns as Array<{ id?: string; columnName?: string }> | undefined
+  if (!columns || columns.length === 0) return undefined
+
+  const byId = columns.find((c) => c.id === columnNameOrId)
+  if (byId?.id) return byId.id
+
+  const byName = columns.find((c) => c.columnName === columnNameOrId)
+  if (byName?.id) return byName.id
+
+  return undefined
+}
+
+/**
+ * 根据目标节点类型解析目标 handle ID
+ *
+ * 与 connectionRules.ts 中的规则保持一致：
+ * - Regex / Transform / TemplateInstance 使用固定输入 handle
+ * - Schema/JsonSchema/ManualData/TransformOutput 使用 target-left
+ * - CompositeConstraint 使用 target-left
+ * - 其他约束节点使用 target-input-{nodeId}
+ */
+function resolveTargetHandle(targetNode: VueFlowNode): string | undefined {
+  switch (targetNode.type) {
+    case 'regex':
+      return 'regex-input'
+    case 'transform':
+      return 'transform-input'
+    case 'templateInstance':
+      return 'template-input'
+    case 'schema':
+    case 'jsonSchema':
+    case 'manualData':
+    case 'transformOutput':
+      return 'target-left'
+    case 'compositeConstraint':
+      return 'target-left'
+    default:
+      if (targetNode.type?.endsWith('Constraint')) {
+        return `target-input-${targetNode.id}`
+      }
+      return undefined
+  }
+}
+
+/**
+ * 创建 AI 生成的边，并在加入画布前通过连接规则验证
+ *
+ * 若验证失败，抛出 AIInstructionError，且不向 edges 添加非法边。
+ */
+function addValidatedAIConnection(input: AINodeConnectionInput): Edge {
+  const { sourceNode, sourceColumnId, targetNode, edges } = input
+  const sourceHandle = sourceColumnId ? `source-right-${sourceColumnId}` : undefined
+  const targetHandle = resolveTargetHandle(targetNode)
+
+  const { validateConnection } = useConnectionValidator({ existingConnections: edges })
+  const result = validateConnection(sourceNode, sourceHandle, targetNode, targetHandle)
+
+  if (!result.isValid) {
+    throw new AIInstructionError(
+      `[AI Chat] 连接验证失败: ${result.message || result.errorCode}`,
+      result.errorCode || 'CONNECTION_VALIDATION_FAILED'
+    )
+  }
+
+  const edge: Edge = {
+    id: uuidv4(),
+    source: sourceNode.id,
+    target: targetNode.id,
+    sourceHandle,
+    targetHandle,
+  }
+
+  vueFlowApi.addEdges(edge)
+  return edge
+}
 
 /**
  * AI 返回的约束类型到前端 ConstraintKind 的映射表
@@ -97,16 +205,17 @@ function resolveTargetNode(
   //   去掉危险的"query 包含节点名"方向（节点名仅 "a" 时会匹配所有含 a 的表）。
   // - 要求 query 至少 3 字符，避免 "a"/"or" 这类过短词误命中大量表。
   const MIN_FUZZY_LEN = 3
-  const byContain = query.length >= MIN_FUZZY_LEN
-    ? nodes.find((n) => {
-        const data = n.data as Record<string, unknown>
-        const candidates = [data.tableName, data.configName]
-          .filter((v): v is string => typeof v === 'string')
-          .map((v) => v.toLowerCase())
-        // 仅节点名包含 query；且节点名本身也要够长，否则短名噪声大
-        return candidates.some((v) => v.length >= MIN_FUZZY_LEN && v.includes(query))
-      })
-    : undefined
+  const byContain =
+    query.length >= MIN_FUZZY_LEN
+      ? nodes.find((n) => {
+          const data = n.data as Record<string, unknown>
+          const candidates = [data.tableName, data.configName]
+            .filter((v): v is string => typeof v === 'string')
+            .map((v) => v.toLowerCase())
+          // 仅节点名包含 query；且节点名本身也要够长，否则短名噪声大
+          return candidates.some((v) => v.length >= MIN_FUZZY_LEN && v.includes(query))
+        })
+      : undefined
   if (byContain) {
     logger.info(
       `[AI Chat] targetNodeId=${targetNodeId} 未命中，用 tableName=${tableName} 包含匹配到节点 ${byContain.id}`
@@ -224,16 +333,28 @@ async function handleConstraintInstruction(instruction: FrontendInstruction): Pr
 
   await nextTick()
 
-  const edgeId = uuidv4()
-  const newEdge: Edge = {
-    id: edgeId,
-    source: constraintNodeId,
-    target: targetNodeId,
-    sourceHandle: null,
-    targetHandle: `column-${targetColumn}`,
+  const columnId = constraintSpec.targetColumnId || resolveColumnId(targetNode, targetColumn)
+  if (!columnId) {
+    logger.warn(`[AI Chat] 无法解析目标列: ${targetColumn}`)
+    toastError(t('aiChat.columnNotFound', { column: targetColumn }))
+    return
   }
 
-  vueFlowApi.addEdges(newEdge)
+  try {
+    addValidatedAIConnection({
+      sourceNode: targetNode,
+      sourceColumnId: columnId,
+      targetNode: constraintNode,
+      edges: graphStore.edges,
+    })
+  } catch (error) {
+    if (error instanceof AIInstructionError) {
+      logger.error(error.message)
+      toastError(error.message)
+    } else {
+      throw error
+    }
+  }
 
   await nextTick()
 
@@ -414,19 +535,31 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
     vueFlowApi.addNodes(regexNode)
     await nextTick()
 
-    // 如果有关联的 Schema 节点，创建边
+    // 如果有关联的 Schema 节点，创建边（方向：Schema 列 -> Regex）
     if (spec.targetNodeId && spec.targetColumn) {
-      const targetNode = graphStore.nodes.find((n) => n.id === spec.targetNodeId)
-      if (targetNode) {
-        const edgeId = uuidv4()
-        const newEdge: Edge = {
-          id: edgeId,
-          source: regexId,
-          target: spec.targetNodeId,
-          sourceHandle: null,
-          targetHandle: `column-${spec.targetColumn}`,
+      const sourceNode = graphStore.nodes.find((n) => n.id === spec.targetNodeId)
+      if (sourceNode) {
+        const columnId = resolveColumnId(sourceNode, spec.targetColumn)
+        if (columnId) {
+          try {
+            addValidatedAIConnection({
+              sourceNode,
+              sourceColumnId: columnId,
+              targetNode: regexNode,
+              edges: graphStore.edges,
+            })
+          } catch (error) {
+            if (error instanceof AIInstructionError) {
+              logger.error(error.message)
+              toastError(error.message)
+            } else {
+              throw error
+            }
+          }
+        } else {
+          logger.warn(`[AI Chat] 无法解析 Regex 目标列: ${spec.targetColumn}`)
+          toastError(t('aiChat.columnNotFound', { column: spec.targetColumn }))
         }
-        vueFlowApi.addEdges(newEdge)
         await nextTick()
       }
     }

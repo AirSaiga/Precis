@@ -15,7 +15,7 @@
 
 from typing import Callable, Optional
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.exceptions import CommandNotFoundError
 
 
@@ -121,8 +121,8 @@ class CommandParser:
         Returns:
             参数列表
         """
-        tokens = []
-        current = []
+        tokens: list[str] = []
+        current: list[str] = []
         in_quote = False
         quote_char = None
 
@@ -152,7 +152,7 @@ class CommandExecutor:
     负责执行解析后的命令。
     """
 
-    def __init__(self, parser: CommandParser, context: CommandContext):
+    def __init__(self, parser: CommandParser, context: ProjectContext):
         self.parser = parser
         self.context = context
 
@@ -215,7 +215,7 @@ def command(name: str, aliases: Optional[list[str]] = None) -> Callable:
         装饰器函数
     """
 
-    def decorator(cls: type) -> type:
+    def decorator(cls: type[Command]) -> type[Command]:
         cls.name = name
         cls.aliases = aliases or []
         return cls

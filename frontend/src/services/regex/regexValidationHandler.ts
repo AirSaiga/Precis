@@ -13,7 +13,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import type { Edge } from '@vue-flow/core'
+import type { Edge, Node } from '@vue-flow/core'
 import type { CustomNode, SchemaNodeData, SourcePreviewNodeData, SchemaColumn } from '@/types/graph'
 import type { DataType } from '@/types/common'
 import { validateAndExtractRegex } from '@/features/regex/services/regexExtractService'
@@ -22,8 +22,12 @@ import {
   outputParamTypeToDataType,
   parseOutputMappingValue,
 } from '@/features/regex/services/regexOutputMapping'
-import { ensureUniqueColumnNames, removeDerivedColumns } from '@/features/regex/composables/regexExtractUtils'
+import {
+  ensureUniqueColumnNames,
+  removeDerivedColumns,
+} from '@/features/regex/composables/regexExtractUtils'
 import { findEdge } from '@/services/canvas/vueFlowApi'
+import { buildValidationContext } from '@/services/constraints/validationContext'
 
 export interface RegexValidationResult {
   validationStatus: 'pass' | 'error' | 'idle'
@@ -44,7 +48,8 @@ export async function validateRegexNode(params: {
   updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
   signal?: AbortSignal
 }): Promise<RegexValidationResult | null> {
-  const { regexNode, sourceNode, columnName, columnId, nodes, edges, updateNodeData, signal } = params
+  const { regexNode, sourceNode, columnName, columnId, nodes, edges, updateNodeData, signal } =
+    params
   const regexData = regexNode.data as unknown as Record<string, unknown>
 
   if (sourceNode.type === 'transformOutput' || sourceNode.type === 'manualData') {
@@ -112,7 +117,9 @@ export async function validateRegexNode(params: {
   if (!sourcePreviewNode) return null
 
   const sourceData = sourcePreviewNode.data as SourcePreviewNodeData
-  const tableData: unknown[][] = Array.isArray((sourceData as unknown as Record<string, unknown>).data)
+  const tableData: unknown[][] = Array.isArray(
+    (sourceData as unknown as Record<string, unknown>).data
+  )
     ? ((sourceData as unknown as Record<string, unknown>).data as unknown[][])
     : []
 
@@ -157,7 +164,10 @@ export async function validateRegexNode(params: {
   }
 
   try {
-    const data = (await validateAndExtractRegex(request, signal)) as unknown as Record<string, unknown>
+    const data = (await validateAndExtractRegex(request, signal)) as unknown as Record<
+      string,
+      unknown
+    >
     const status: 'pass' | 'error' = data.error_count === 0 ? 'pass' : 'error'
     updateNodeData(regexNode.id, {
       ...regexData,
@@ -168,7 +178,14 @@ export async function validateRegexNode(params: {
       lastValidationTime: new Date().toISOString(),
     })
     updateRegexConnectionEdgesForNode(regexNode.id, edges, status)
-    return buildResult(status, Number(data.error_count), Number(data.total_rows), Number(data.match_count), new Date().toISOString(), columnId)
+    return buildResult(
+      status,
+      Number(data.error_count),
+      Number(data.total_rows),
+      Number(data.match_count),
+      new Date().toISOString(),
+      columnId
+    )
   } catch (err: any) {
     if (err?.name === 'AbortError' || err?.message?.includes('aborted')) {
       return null
@@ -187,6 +204,90 @@ export async function validateRegexNode(params: {
   }
 }
 
+export interface RegexValidationSummary {
+  totalValid: number
+  totalInvalid: number
+  totalErrorCount: number
+  columnErrorMap: Map<string, string[]>
+}
+
+/**
+ * 对指定 Schema 的所有 Regex 边执行校验（从 validationRegistryCore 拆出）
+ *
+ * @param params.schemaNode - Schema 源节点
+ * @param params.schemaEdges - 从 Schema 出发的所有边
+ * @param params.nodes - 画布所有节点
+ * @param params.edges - 画布所有边
+ * @param params.updateNodeData - 更新节点数据的回调
+ * @returns 校验汇总结果；无 Regex 边时返回 null
+ */
+export async function validateRegexNodesForSchema(params: {
+  schemaNode: Node<any, any, string>
+  schemaEdges: Edge[]
+  nodes: Node<any, any, string>[]
+  edges: Edge[]
+  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
+}): Promise<RegexValidationSummary | null> {
+  const { schemaNode, schemaEdges, nodes, edges, updateNodeData } = params
+
+  const regexEdges = schemaEdges.filter((e) => {
+    const node = nodes.find((n) => n.id === e.target)
+    return node?.type === 'regex'
+  })
+
+  if (regexEdges.length === 0) return null
+
+  const columnErrorMap = new Map<string, string[]>()
+  let totalValid = 0
+  let totalInvalid = 0
+  let totalErrorCount = 0
+
+  for (const edge of regexEdges) {
+    const regexNode = nodes.find((n) => n.id === edge.target)
+    if (!regexNode) continue
+
+    const regexData = regexNode.data as Record<string, unknown>
+    // extract 模式的正则节点会产生派生列写回副作用，
+    // 仅在用户显式点击校验时触发，全局/自动化校验跳过。
+    if (regexData.matchMode === 'extract') continue
+
+    const ctx = buildValidationContext({ schemaNode, constraintNode: regexNode, edge, nodes })
+    if (!ctx) continue
+
+    const result = await validateRegexNode({
+      regexNode: regexNode as CustomNode,
+      sourceNode: schemaNode as CustomNode,
+      columnName: ctx.columnName,
+      columnId: ctx.columnId,
+      nodes: nodes as CustomNode[],
+      edges,
+      updateNodeData,
+    })
+
+    if (!result) continue
+
+    if (result.validationStatus === 'pass') {
+      totalValid++
+    } else if (result.validationStatus === 'error') {
+      totalInvalid++
+      totalErrorCount += result.errorCount || 0
+    }
+
+    if (result.errorCount && result.errorCount > 0) {
+      const existing = columnErrorMap.get(ctx.columnId) || []
+      const regexErrors = [`Regex: ${result.errorCount} errors`]
+      columnErrorMap.set(ctx.columnId, [...existing, ...regexErrors])
+    }
+  }
+
+  return {
+    totalValid,
+    totalInvalid,
+    totalErrorCount,
+    columnErrorMap,
+  }
+}
+
 function buildResult(
   status: 'pass' | 'error' | 'idle',
   errorCount: number | undefined,
@@ -195,7 +296,14 @@ function buildResult(
   lastValidationTime: string | undefined,
   columnId?: string
 ): RegexValidationResult {
-  return { validationStatus: status, errorCount, totalRows, matchCount, lastValidationTime, columnId }
+  return {
+    validationStatus: status,
+    errorCount,
+    totalRows,
+    matchCount,
+    lastValidationTime,
+    columnId,
+  }
 }
 
 async function validateRegexFromRows(params: {
@@ -208,7 +316,8 @@ async function validateRegexFromRows(params: {
   updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
   signal?: AbortSignal
 }): Promise<RegexValidationResult | null> {
-  const { regexNode, sourceNode, columnName, columnId, nodes, edges, updateNodeData, signal } = params
+  const { regexNode, sourceNode, columnName, columnId, nodes, edges, updateNodeData, signal } =
+    params
   const regexData = regexNode.data as unknown as Record<string, unknown>
 
   if (!String(regexData.pattern || '').trim()) {
@@ -226,11 +335,17 @@ async function validateRegexFromRows(params: {
 
   const sourceData = sourceNode.data as unknown as Record<string, unknown>
   const values = Array.isArray((sourceData as Record<string, unknown>).rows)
-    ? ((sourceData as Record<string, unknown>).rows as unknown[]).map((r) => String((r as unknown[])?.[0] ?? ''))
+    ? ((sourceData as Record<string, unknown>).rows as unknown[]).map((r) =>
+        String((r as unknown[])?.[0] ?? '')
+      )
     : []
 
   const matchMode: 'full' | 'partial' | 'extract' =
-    regexData.matchMode === 'extract' ? 'full' : regexData.matchMode === 'partial' ? 'partial' : 'full'
+    regexData.matchMode === 'extract'
+      ? 'full'
+      : regexData.matchMode === 'partial'
+        ? 'partial'
+        : 'full'
 
   const request = {
     regex_pattern: regexData.pattern as string,
@@ -241,7 +356,10 @@ async function validateRegexFromRows(params: {
   }
 
   try {
-    const data = (await validateAndExtractRegex(request, signal)) as unknown as Record<string, unknown>
+    const data = (await validateAndExtractRegex(request, signal)) as unknown as Record<
+      string,
+      unknown
+    >
     const status: 'pass' | 'error' = data.error_count === 0 ? 'pass' : 'error'
     updateNodeData(regexNode.id, {
       ...regexData,
@@ -252,7 +370,14 @@ async function validateRegexFromRows(params: {
       lastValidationTime: new Date().toISOString(),
     })
     updateRegexConnectionEdgesForNode(regexNode.id, edges, status)
-    return buildResult(status, Number(data.error_count), Number(data.total_rows), Number(data.match_count), new Date().toISOString(), columnId)
+    return buildResult(
+      status,
+      Number(data.error_count),
+      Number(data.total_rows),
+      Number(data.match_count),
+      new Date().toISOString(),
+      columnId
+    )
   } catch (err: any) {
     if (err?.name === 'AbortError' || err?.message?.includes('aborted')) {
       return null
@@ -288,7 +413,9 @@ function updateRegexConnectionEdgesForNode(
           .trim()
       }
       const updatedClassName =
-        validationStatus === 'idle' ? className : `${className} validation-${validationStatus}`.trim()
+        validationStatus === 'idle'
+          ? className
+          : `${className} validation-${validationStatus}`.trim()
       const vfEdge = findEdge(edge.id)
       if (vfEdge) {
         vfEdge.class = updatedClassName || undefined
@@ -309,7 +436,8 @@ async function tryUpdateExtractDerivedColumns(params: {
   updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
   signal?: AbortSignal
 }): Promise<RegexValidationResult | null> {
-  const { regexNode, schemaNode, columnName, columnId, nodes, edges, updateNodeData, signal } = params
+  const { regexNode, schemaNode, columnName, columnId, nodes, edges, updateNodeData, signal } =
+    params
   const regexData = regexNode.data as unknown as Record<string, unknown>
   const schemaData = schemaNode.data as SchemaNodeData
 
@@ -322,7 +450,9 @@ async function tryUpdateExtractDerivedColumns(params: {
   if (!sourcePreviewNode) return null
 
   const sourceData = sourcePreviewNode.data as SourcePreviewNodeData
-  const tableData: unknown[][] = Array.isArray((sourceData as unknown as Record<string, unknown>).data)
+  const tableData: unknown[][] = Array.isArray(
+    (sourceData as unknown as Record<string, unknown>).data
+  )
     ? ((sourceData as unknown as Record<string, unknown>).data as unknown[][])
     : []
 
@@ -400,29 +530,38 @@ async function tryUpdateExtractDerivedColumns(params: {
   const extractedColumns: Record<string, string[]> =
     (data.extracted_columns as Record<string, string[]> | undefined) || {}
 
-  const outputMapping = (regexData.rules as unknown[] | undefined)?.[0] as unknown as Record<string, unknown> | undefined
-  const outputEntries = Object.entries((outputMapping?.output as Record<string, unknown>) || {}).filter(
-    ([k]) => String(k ?? '').trim() !== ''
-  )
+  const outputMapping = (regexData.rules as unknown[] | undefined)?.[0] as unknown as
+    | Record<string, unknown>
+    | undefined
+  const outputEntries = Object.entries(
+    (outputMapping?.output as Record<string, unknown>) || {}
+  ).filter(([k]) => String(k ?? '').trim() !== '')
   const hasOutputMapping = outputEntries.length > 0
   if (!hasOutputMapping && groupNames.length === 0)
-    return buildResult(validationStatus, Number(data.error_count), Number(data.total_rows), Number(data.match_count), new Date().toISOString(), columnId)
+    return buildResult(
+      validationStatus,
+      Number(data.error_count),
+      Number(data.total_rows),
+      Number(data.match_count),
+      new Date().toISOString(),
+      columnId
+    )
 
   const { data: cleanedSourceData } = removeDerivedColumns(
     sourceData as unknown as Record<string, unknown>,
     regexNode.id,
     headerRowIndex
   )
-  const cleanedMatrix: unknown[][] = Array.isArray((cleanedSourceData as unknown as Record<string, unknown>).data)
+  const cleanedMatrix: unknown[][] = Array.isArray(
+    (cleanedSourceData as unknown as Record<string, unknown>).data
+  )
     ? ((cleanedSourceData as unknown as Record<string, unknown>).data as unknown[][])
     : []
   const cleanedHeader = (cleanedMatrix[headerRowIndex] || []).map((v) => String(v ?? '').trim())
   const existingNames = new Set(cleanedHeader)
   const suffix = String(regexNode.id).slice(0, 6)
 
-  const derivedSourceKeys = hasOutputMapping
-    ? outputEntries.map(([k]) => String(k))
-    : groupNames
+  const derivedSourceKeys = hasOutputMapping ? outputEntries.map(([k]) => String(k)) : groupNames
   const derivedColumnDataTypes: DataType[] = hasOutputMapping
     ? outputEntries.map(([, v]) => {
         const binding = parseOutputMappingValue(v)
@@ -480,7 +619,8 @@ async function tryUpdateExtractDerivedColumns(params: {
     totalCols: (nextMatrix[headerRowIndex] || []).length,
     previewColCount: (nextMatrix[headerRowIndex] || []).length,
     derivedColumnsByRegex: {
-      ...(((cleanedSourceData as unknown as Record<string, unknown>).derivedColumnsByRegex as Record<string, unknown>) || {}),
+      ...(((cleanedSourceData as unknown as Record<string, unknown>)
+        .derivedColumnsByRegex as Record<string, unknown>) || {}),
       [regexNode.id]: { columnNames: newColumnNames, groupNames: derivedSourceKeys },
     },
   }
@@ -488,7 +628,10 @@ async function tryUpdateExtractDerivedColumns(params: {
   updateNodeData(sourcePreviewNode.id, nextSourceData)
 
   const keptColumns = (schemaData.columns || []).filter(
-    (c) => !String((c as unknown as Record<string, unknown>).id || '').startsWith(`extract-${regexNode.id}-`)
+    (c) =>
+      !String((c as unknown as Record<string, unknown>).id || '').startsWith(
+        `extract-${regexNode.id}-`
+      )
   )
   const existingSchemaColumnNames = new Set(
     keptColumns.map((c) => (c as unknown as Record<string, unknown>).columnName as string)
@@ -527,5 +670,12 @@ async function tryUpdateExtractDerivedColumns(params: {
     updatedAt: new Date().toISOString(),
   })
 
-  return buildResult(validationStatus, Number(data.error_count), Number(data.total_rows), Number(data.match_count), new Date().toISOString(), columnId)
+  return buildResult(
+    validationStatus,
+    Number(data.error_count),
+    Number(data.total_rows),
+    Number(data.match_count),
+    new Date().toISOString(),
+    columnId
+  )
 }

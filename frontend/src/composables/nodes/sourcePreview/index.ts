@@ -69,14 +69,11 @@ export function useSourcePreview(props: { id: string; data: SourcePreviewNodeDat
     }
   }
 
-  // 组件卸载时的清理操作
+  // 组件卸载时的清理操作（resize 监听器由调用方通过 setupEventListeners 返回的 cleanup 统一移除）
   onUnmounted(() => {
     window.removeEventListener('mousemove', display.handleResize)
     window.removeEventListener('mouseup', display.stopResize)
   })
-
-  // 设置事件监听器
-  const cleanup = setupEventListeners()
 
   // 包装setHeaderRow，传入必要的参数
   const wrappedSetHeaderRow = (rowIndex: number) => {
@@ -123,9 +120,6 @@ export function useSourcePreview(props: { id: string; data: SourcePreviewNodeDat
     setHeaderRow: wrappedSetHeaderRow,
     copyRowToClipboard: wrappedCopyRowToClipboard,
     setAsHeaderRowViaMenu: wrappedSetAsHeaderRowViaMenu,
-
-    // 清理函数
-    cleanup,
 
     // 事件监听器设置函数
     setupEventListeners,

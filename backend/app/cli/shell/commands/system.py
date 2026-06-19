@@ -112,7 +112,11 @@ class LsCommand(Command):
         if args:
             target_path = args[0]
         elif context.is_project_open:
-            target_path = context.project_path
+            project_path = context.project_path
+            if project_path is None:
+                target_path = os.getcwd()
+            else:
+                target_path = project_path
         else:
             target_path = os.getcwd()
 

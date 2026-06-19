@@ -80,18 +80,18 @@ class MergeResultsTool:
                 table_id = refs.get("table_id", "")
                 column_id = refs.get("column_id", "")
                 column_ids = tuple(refs.get("column_ids", []))
-                key = (table_id, column_id or "_".join(column_ids), ctype)
-                if key in seen_constraints:
+                constraint_key: tuple[str, str, str] = (table_id, column_id or "_".join(column_ids), ctype)
+                if constraint_key in seen_constraints:
                     conflicts.append(
                         {
                             "rule_id": cid,
                             "type": ctype,
                             "reason": "重复约束",
-                            "key": key,
+                            "key": constraint_key,
                         }
                     )
                     continue
-                seen_constraints.add(key)
+                seen_constraints.add(constraint_key)
                 merged["constraints"][cid] = cdef
 
         # 合并 regex_nodes，按 pattern + source_ref 去重
@@ -99,18 +99,20 @@ class MergeResultsTool:
         for cfg in configs:
             for rid, rdef in cfg.get("regex_nodes", {}).items():
                 source_ref = rdef.get("source_ref", {})
-                key = f"{rdef.get('pattern', '')}|{source_ref.get('table_id', '')}|{source_ref.get('column_id', '')}"
-                if key in seen_regex:
+                regex_key = (
+                    f"{rdef.get('pattern', '')}|{source_ref.get('table_id', '')}|{source_ref.get('column_id', '')}"
+                )
+                if regex_key in seen_regex:
                     conflicts.append(
                         {
                             "rule_id": rid,
                             "type": "Regex",
                             "reason": "重复正则",
-                            "key": key,
+                            "key": regex_key,
                         }
                     )
                     continue
-                seen_regex.add(key)
+                seen_regex.add(regex_key)
                 merged["regex_nodes"][rid] = rdef
 
         if conflicts:

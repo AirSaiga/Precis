@@ -38,7 +38,7 @@ import os
 
 from rich.console import Console
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.exceptions import ValidationError
 from app.cli.shell.formatter import Formatter, Spinner
 
@@ -57,7 +57,7 @@ def _parse_standalone_args(args: list[str]) -> dict:
     Returns:
         包含 manifest、data_directory、table 键的字典，未提供的键值为 None
     """
-    result = {"manifest": None, "data_directory": None, "table": None}
+    result: dict[str, str | None] = {"manifest": None, "data_directory": None, "table": None}
     i = 0
     while i < len(args):
         arg = args[i]
@@ -97,7 +97,7 @@ class ValidateCommand(Command):
     def usage(self) -> str:
         return "validate [table_name]\n  validate --manifest <path> [--data-directory <path>] [--table <name>]"
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行数据校验命令。
 
         自动检测工作模式:
@@ -106,7 +106,7 @@ class ValidateCommand(Command):
 
         Args:
             args: 命令参数列表
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             校验结果，成功表示无错误，失败表示发现数据问题
@@ -122,7 +122,7 @@ class ValidateCommand(Command):
         # Shell 模式：要求已打开项目
         return self._execute_shell(args, context)
 
-    def _execute_shell(self, args: list[str], context: CommandContext) -> CommandResult:
+    def _execute_shell(self, args: list[str], context: ProjectContext) -> CommandResult:
         """Shell 模式执行校验。
 
         从项目上下文中读取路径和设置，执行校验。
@@ -134,10 +134,9 @@ class ValidateCommand(Command):
         Returns:
             校验结果
         """
-        if not context.is_project_open:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
-
         project_path = context.project_path
+        if project_path is None:
+            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
 
         # 获取可选的表名过滤参数（不指定则校验所有表）
         table_name = args[0] if args else None

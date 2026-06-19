@@ -123,7 +123,7 @@ class ScriptedConstraint(Constraint):
             7. 如果结果为 False，记录业务逻辑违规
             8. 如果表达式执行抛出异常，记录执行错误
         """
-        errors = []
+        errors: list[dict[str, Any]] = []
 
         # 安全检查: 必须显式开启 allow_unsafe_eval 才能执行脚本约束
         # 【安全加固】使用 is True 严格检查，防止 numpy bool 等意外 truthy 值绕过

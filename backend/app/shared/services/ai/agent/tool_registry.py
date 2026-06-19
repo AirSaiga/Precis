@@ -127,7 +127,7 @@ class ToolRegistry:
         results = await asyncio.gather(*[self.execute(c) for c in calls], return_exceptions=True)
         final: list[ToolResult] = []
         for r in results:
-            if isinstance(r, Exception):
+            if isinstance(r, BaseException):
                 final.append(ToolResult(call_id="", name="", success=False, observation="", error=str(r)))
             else:
                 final.append(r)

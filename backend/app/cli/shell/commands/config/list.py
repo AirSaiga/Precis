@@ -21,8 +21,9 @@
 
 import logging
 import os
+from typing import Any
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.formatter import Formatter
 
 
@@ -43,23 +44,22 @@ class ConfigListCommand(Command):
     def usage(self) -> str:
         return "config list"
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行列出配置命令。
 
         Args:
             args: 命令参数列表（此命令不需要参数）
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             配置文件列表或提示信息
         """
-        if not context.is_project_open:
+        project_path = context.project_path
+        if project_path is None:
             return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
 
-        project_path = context.project_path
-
         # 查找所有 YAML 配置文件
-        config_files = []
+        config_files: list[dict[str, Any]] = []
         for f in os.listdir(project_path):
             if f.endswith((".yaml", ".yml")):
                 config_path = os.path.join(project_path, f)

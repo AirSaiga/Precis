@@ -87,7 +87,7 @@ def _is_not_empty(value: Any) -> bool:
         True 表示值非空，False 表示值为空（None、NaN、空字符串）
     """
 
-    return pd.notna(value) and value != ""
+    return bool(pd.notna(value)) and value != ""
 
 
 @register_condition("is_positive_number")

@@ -6,6 +6,7 @@
 
 import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
+import { useProjectStore } from '@/stores/projectStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useI18n } from 'vue-i18n'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
@@ -16,6 +17,7 @@ import type { SchemaNodeData, SourcePreviewNodeData } from '@/types/graph'
 
 export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData }, emit: any) {
   const store = useGraphStore()
+  const projectStore = useProjectStore()
   const { showConfirm } = useGlobalConfirm()
   const { t } = useI18n()
 
@@ -252,7 +254,7 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
     eventName: 'sourcePreviewDataChanged',
     onSourceDataChanged: (data) => updateSchemaNodeFromSheetChange(props.id, data),
     nodeLabel: 'Schema',
-    onSourceConnected: () => syncSchemaResources(props.id),
+    onSourceConnected: () => syncSchemaResources(props.id, { graphStore: store, projectStore }),
   })
 
   return {

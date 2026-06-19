@@ -14,12 +14,12 @@ if _project_root not in sys.path:
 import pytest
 
 from app.shared.core.project.schema.reader import (
-    build_runtime_schema,
     load_schema,
     schema_column_id_by_name,
     schema_column_name_by_id,
 )
 from app.shared.core.project.schema.types import ColumnSpec, TableSchemaFile
+from app.shared.services.schema_runtime_builder import build_runtime_schema
 
 
 class TestSchemaColumnMappings:

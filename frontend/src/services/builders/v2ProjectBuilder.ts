@@ -45,7 +45,6 @@ import type {
   ProjectViewV2,
 } from '@/types/projectV2'
 import { toBackendType, buildJSONOptions, toJsonBackendType } from './schemaBuilder'
-import { i18n } from '@/i18n'
 import {
   getV2ConstraintTypeByNodeType,
   isConstraintNodeType,
@@ -76,9 +75,8 @@ export function buildV2ConstraintFile(
   nodes: CustomNode[],
   constraintNodeId: string
 ): ConstraintFileV2 {
-  const t = i18n.global.t
   const node = nodes.find((n) => n.id === constraintNodeId && isConstraintNodeType(n.type))
-  if (!node) throw new Error(t('messages.builder.constraintNodeNotFound'))
+  if (!node) throw new Error('未找到约束节点')
 
   const schemaIdByNodeId = buildSchemaIdByNodeId(nodes)
   const v2Type = getV2ConstraintTypeByNodeType(node.type)
@@ -129,7 +127,10 @@ export function buildV2RegexNodeFile(nodes: CustomNode[], regexNodeId: string): 
       (n) => n.id === data.sourceRef!.nodeId && (n.type === 'schema' || n.type === 'jsonSchema')
     )
     if (schemaNode) {
-      const columns = ((schemaNode.data as unknown as Record<string, unknown>).columns as unknown[] | undefined) || []
+      const columns =
+        ((schemaNode.data as unknown as Record<string, unknown>).columns as
+          | unknown[]
+          | undefined) || []
       const col = columns.find(
         (c) => (c as Record<string, unknown>).id === data.sourceRef!.columnId
       ) as Record<string, unknown> | undefined

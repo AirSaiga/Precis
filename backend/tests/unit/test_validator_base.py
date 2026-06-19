@@ -28,6 +28,42 @@ class BadValidator(BaseValidator):
         raise RuntimeError("boom")
 
 
+class DummyConstraint:
+    def validate(self, datasets, **kwargs):
+        return {
+            "errors": [
+                {"row_index": 1, "value": "bad", "message": "wrong"},
+            ]
+        }
+
+
+class TestDelegateValidation:
+    def test_delegate_without_formatter(self):
+        v = GoodValidator()
+        df = pd.DataFrame({"a": [1, 2]})
+        result = v._delegate_validation(df, "a", DummyConstraint())
+        assert result.is_valid is False
+        assert result.error_count == 1
+        assert result.error_rows[0]["cell_value"] == "bad"
+        assert result.error_rows[0]["error_message"] == "wrong"
+
+    def test_delegate_with_custom_formatter(self):
+        v = GoodValidator()
+        df = pd.DataFrame({"a": [1, 2]})
+
+        def formatter(err):
+            return {
+                "row_index": err["row_index"],
+                "cell_value": err["value"],
+                "error_message": f"custom: {err['message']}",
+            }
+
+        result = v._delegate_validation(df, "a", DummyConstraint(), error_formatter=formatter)
+        assert result.is_valid is False
+        assert result.error_count == 1
+        assert result.error_rows[0]["error_message"] == "custom: wrong"
+
+
 class TestValidateWithErrorHandling:
     def test_successful_validation(self):
         v = GoodValidator()

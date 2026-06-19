@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 from pydantic import ValidationError
 
@@ -165,7 +165,7 @@ def resolve_regex_pattern(regex_config: RegexNodeFile, registries: dict) -> re.P
             return re_module.compile(effective_pattern, flags)
 
         # 步骤7：无覆盖时返回原始编译后的正则表达式
-        return pattern.regex
+        return cast(re.Pattern, pattern.regex)
 
     # ========== 直接模式处理流程 ==========
     # 检查是否配置了直接模式的正则表达式

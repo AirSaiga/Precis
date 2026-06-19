@@ -26,10 +26,12 @@
     }
 """
 
+from __future__ import annotations
+
 import logging
 import os
 import time
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 
@@ -66,8 +68,8 @@ class ValidationOptions:
         timeout_seconds: int = 30,
         error_handling: str = "continue",
         strict_mode: bool = False,
-        allow_unsafe_eval: Optional[bool] = None,
-        table_filter: Optional[Union[str, list[str]]] = None,
+        allow_unsafe_eval: bool | None = None,
+        table_filter: str | list[str] | None = None,
         chunk_threshold_mb: float = 500,
         chunk_rows: int = 100_000,
     ):
@@ -97,6 +99,7 @@ class ValidationExecutor:
         self,
         manifest_path: str,
         settings_override: Any = None,
+        allow_unsafe_eval: bool | None = None,
     ):
         # 校验清单文件存在性
         # 【防御性编程】在初始化阶段即检查文件是否存在，避免后续操作失败
@@ -105,11 +108,18 @@ class ValidationExecutor:
 
         # 解析项目根目录并加载项目配置
         # 【数据流】manifest_path → project_root → load_project → LoadedProject
+        # 通过依赖注入把 build_dataset_schema 传入 core 的 load_project，
+        # 避免 core 层反向依赖 services（见 loader_parts/main.py 的 schema_builder 参数）。
         self.project_root = os.path.dirname(manifest_path)
-        self.loaded_project: LoadedProject = load_project(manifest_path)
+        from app.shared.services.project_loader import build_dataset_schema
+
+        self.loaded_project: LoadedProject = load_project(manifest_path, schema_builder=build_dataset_schema)
         self.dataset_schema: DataSetSchema = self.loaded_project.dataset_schema
         self.settings = self.loaded_project.manifest.settings
         self.manifest = self.loaded_project.manifest
+
+        # 执行器级别的脚本执行权限覆盖，优先级高于项目配置
+        self.allow_unsafe_eval = allow_unsafe_eval
 
         # 应用前端或 CLI 传入的设置覆盖值
         # 【配置优先级】settings_override > 项目配置 > 默认值
@@ -135,7 +145,7 @@ class ValidationExecutor:
         # 初始化内存监控器
         self._memory_monitor = MemoryMonitor()
         # 初始化分块数据加载器（惰性创建，仅在需要时使用）
-        self._chunked_loader: Optional[ChunkedDataLoader] = None
+        self._chunked_loader: ChunkedDataLoader | None = None
 
     def _get_chunked_loader(self, options: ValidationOptions) -> ChunkedDataLoader:
         """获取或创建分块数据加载器。"""
@@ -196,6 +206,32 @@ class ValidationExecutor:
                 if not hasattr(target, key):
                     raise ValueError(f"settings_override.{group_name} 包含未知字段: {key}")
                 setattr(target, key, value)
+
+    def _resolve_allow_unsafe_eval(self, options: ValidationOptions) -> bool:
+        """
+        @methoddesc 解析本次校验是否允许不安全脚本执行
+
+        优先级（高到低）：
+        1. 请求级选项 options.allow_unsafe_eval
+        2. 执行器实例级 self.allow_unsafe_eval
+        3. 项目配置：settings.script_security.allow_eval 且非沙箱模式
+
+        参数:
+            options: 当前校验执行选项
+
+        返回:
+            True 表示允许执行使用 eval 的脚本化约束
+        """
+        if options.allow_unsafe_eval is not None:
+            return options.allow_unsafe_eval
+        if self.allow_unsafe_eval is not None:
+            return self.allow_unsafe_eval
+        script_security = getattr(self.settings, "script_security", None)
+        if script_security is None:
+            return False
+        allow_eval = getattr(script_security, "allow_eval", False)
+        sandbox_mode = getattr(script_security, "sandbox_mode", True)
+        return bool(allow_eval and not sandbox_mode)
 
     def _build_table_source_map(self) -> dict[str, dict[str, str | None]]:
         """
@@ -300,7 +336,7 @@ class ValidationExecutor:
     def execute(
         self,
         data_directory: str,
-        options: ValidationOptions = None,
+        options: ValidationOptions | None = None,
     ) -> dict[str, Any]:
         """
         @methoddesc 执行完整校验流程
@@ -394,7 +430,7 @@ class ValidationExecutor:
             return result
 
         # Step 5: 确定脚本安全执行策略
-        allow_unsafe_eval = False
+        allow_unsafe_eval = self._resolve_allow_unsafe_eval(options)
 
         logger.debug(f"Starting validate_full_dataset with {len(raw_datasets)} datasets")
 
@@ -527,7 +563,7 @@ class ValidationExecutor:
             return result
 
         # 确定脚本安全策略
-        allow_unsafe_eval = False
+        allow_unsafe_eval = self._resolve_allow_unsafe_eval(options)
         deadline = started + options.timeout_seconds
 
         # 逐块执行校验，聚合结果
@@ -617,7 +653,7 @@ class ValidationExecutor:
         return result
 
 
-def create_executor(manifest_path: str, settings_override: dict[str, Any] = None) -> ValidationExecutor:
+def create_executor(manifest_path: str, settings_override: dict[str, Any] | None = None) -> ValidationExecutor:
     """
     @methoddesc 创建校验执行器工厂函数
 

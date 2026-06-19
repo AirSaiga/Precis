@@ -48,6 +48,9 @@ from .loader import (
 # DataLoadError: 统一的数据加载异常，包含文件路径、错误原因等上下文信息
 from .loaders import DataLoadError
 
+# 数据源 Schema 信息 DTO，用于 core 层与 domain 解耦
+from .schema_info import DataSourceInfo
+
 # 从 specs 子模块导入所有数据源规格类
 # DataSourceSpec / FileSourceSpec: 抽象基类，定义规格的通用接口
 # ExcelSpec / CSVSpec / JSONSpec: 向后兼容的别名导出
@@ -70,6 +73,8 @@ __all__ = [
     # 基础类型
     "DataSourceSpec",
     "FileSourceSpec",
+    # 数据源信息 DTO
+    "DataSourceInfo",
     # 具体规格（向后兼容别名 + 标准名称）
     "ExcelSpec",
     "CSVSpec",

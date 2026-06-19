@@ -22,7 +22,7 @@
 
 from __future__ import annotations
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.formatter import _supports_unicode
 from app.shared.core.project.loader.loader_parts.main import load_project
 from app.shared.core.project.loader.types import LoadingError
@@ -55,7 +55,7 @@ class ConfigInspectCommand(Command):
     def usage(self) -> str:
         return "config inspect"
 
-    def execute(self, args: list[str], context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行配置自检命令。
 
         通过 load_project 加载项目，复用其内置的 inspect_config 检查逻辑，
@@ -63,15 +63,14 @@ class ConfigInspectCommand(Command):
 
         Args:
             args: 命令参数列表（本命令不接收参数）
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             自检结果，成功表示无问题，失败表示发现问题
         """
-        if not context.is_project_open:
-            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
-
         project_path = context.project_path
+        if project_path is None:
+            return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
 
         # 定位 manifest 文件
         import os

@@ -18,7 +18,9 @@ import pytest
 # 直接加载 version.py 模块，绕过 schemas/__init__.py 中的循环导入
 _version_path = os.path.join(_project_root, "app", "shared", "core", "manifest_schema", "version.py")
 _version_spec = importlib.util.spec_from_file_location("version", _version_path)
+assert _version_spec is not None, f"无法创建模块 spec: {_version_path}"
 _version_mod = importlib.util.module_from_spec(_version_spec)
+assert _version_spec.loader is not None, f"模块 spec 没有 loader: {_version_path}"
 _version_spec.loader.exec_module(_version_mod)
 
 CURRENT_VERSION = _version_mod.CURRENT_VERSION

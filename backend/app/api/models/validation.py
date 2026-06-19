@@ -120,8 +120,10 @@ class RegexValidationResponse(BaseModel):
         None, description="校验结果"
     )  # 校验成功时返回的详细结果，失败时为 None
     error: Optional[str] = Field(None, description="错误信息")  # 请求处理失败时的错误描述，成功时为 None
-    schema_name: Optional[str] = Field(None, description="Schema名称")  # 关联的 Schema 名称，用于前端展示上下文，可选
-    updated_at: Optional[str] = Field(None, description="更新时间")  # 响应生成的时间戳，ISO 8601 格式，可选
+    schema_name: Optional[str] = Field(
+        default=None, description="Schema名称"
+    )  # 关联的 Schema 名称，用于前端展示上下文，可选
+    updated_at: Optional[str] = Field(default=None, description="更新时间")  # 响应生成的时间戳，ISO 8601 格式，可选
 
 
 # 统一使用 services 层的 ValidationType 作为唯一真相源

@@ -1,4 +1,6 @@
 # backend/app/cli/shell/commands/config/__init__.py
+from __future__ import annotations
+
 """
 @fileoverview CLI Shell 配置管理命令模块入口
 
@@ -19,7 +21,7 @@
     子命令的执行结果
 """
 
-from app.cli.shell.commands.base import Command, CommandContext, CommandResult
+from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.commands.config.check import ConfigCheckCommand
 from app.cli.shell.commands.config.edit import ConfigEditCommand
 from app.cli.shell.commands.config.get import ConfigGetCommand
@@ -65,14 +67,14 @@ class ConfigCommand(Command):
     def usage(self) -> str:
         return "config <show|edit|list|init|get|set|check|inspect>"
 
-    def execute(self, args: list, context: CommandContext) -> CommandResult:
+    def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行配置管理命令。
 
         校验参数并分发给对应的子命令执行。
 
         Args:
             args: 命令参数列表，第一个元素为子命令名
-            context: 命令上下文
+            context: 项目上下文
 
         Returns:
             子命令执行结果或错误提示
@@ -95,7 +97,7 @@ class ConfigCommand(Command):
         subcommand = args[0]
         sub_args = args[1:]
 
-        subcommands = {
+        subcommands: dict[str, Command] = {
             "show": self._show_cmd,
             "edit": self._edit_cmd,
             "list": self._list_cmd,

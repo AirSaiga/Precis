@@ -27,6 +27,8 @@ import re
 from pathlib import Path
 from typing import Any
 
+import yaml  # type: ignore[import-untyped]
+
 logger = logging.getLogger(__name__)
 
 
@@ -135,14 +137,12 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
     if not project_path:
         return overview
 
-    project_path = Path(project_path)
+    project_root = Path(project_path)
 
-    schemas_dir = project_path / "schemas"
+    schemas_dir = project_root / "schemas"
     if schemas_dir.exists():
         for schema_file in schemas_dir.glob("*.yaml"):
             try:
-                import yaml
-
                 with open(schema_file, encoding="utf-8") as f:
                     schema_data = yaml.safe_load(f) or {}
 
@@ -186,12 +186,10 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
             except Exception as e:
                 logger.debug(f"读取 schema 文件失败 {schema_file}: {e}")
 
-    constraints_dir = project_path / "constraints"
+    constraints_dir = project_root / "constraints"
     if constraints_dir.exists():
         for constraint_file in constraints_dir.glob("*.constraint.yaml"):
             try:
-                import yaml
-
                 with open(constraint_file, encoding="utf-8") as f:
                     constraint_data = yaml.safe_load(f) or {}
 
@@ -224,12 +222,10 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
 
     # 扫描 Regex 节点
     for dirname in ("regex_nodes", "regex"):
-        regex_dir = project_path / dirname
+        regex_dir = project_root / dirname
         if regex_dir.exists():
             for regex_file in regex_dir.glob("*.yaml"):
                 try:
-                    import yaml
-
                     with open(regex_file, encoding="utf-8") as f:
                         regex_data = yaml.safe_load(f) or {}
 
@@ -247,12 +243,10 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
                     logger.debug(f"读取 regex 文件失败 {regex_file}: {e}")
 
     # 扫描 Transform 节点
-    transforms_dir = project_path / "transforms"
+    transforms_dir = project_root / "transforms"
     if transforms_dir.exists():
         for transform_file in transforms_dir.glob("*.yaml"):
             try:
-                import yaml
-
                 with open(transform_file, encoding="utf-8") as f:
                     transform_data = yaml.safe_load(f) or {}
 
@@ -270,11 +264,9 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
                 logger.debug(f"读取 transform 文件失败 {transform_file}: {e}")
 
     # 读取项目设置
-    manifest_path = project_path / "project.precis.yaml"
+    manifest_path = project_root / "project.precis.yaml"
     if manifest_path.exists():
         try:
-            import yaml
-
             with open(manifest_path, encoding="utf-8") as f:
                 manifest_data = yaml.safe_load(f) or {}
 

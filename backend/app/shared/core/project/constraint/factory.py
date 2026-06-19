@@ -30,7 +30,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 # 导入约束注册表和工具函数，用于根据类型名称查找约束类并过滤参数
-from .registry import CONSTRAINT_REGISTRY, filter_kwargs_for_class, normalize_constraint_type
+from .registry import filter_kwargs_for_class, normalize_constraint_type, resolve_constraint_class
 from .types import ConstraintFile
 
 if TYPE_CHECKING:
@@ -66,13 +66,11 @@ def create_constraint(
         return None, None
 
     # 步骤2：规范化约束类型名称（如 "unique" -> "Unique"）
-    # 从注册表获取对应的约束类
+    # 从注册表延迟解析对应的约束类
     type_name = normalize_constraint_type(const.type)
-    if type_name not in CONSTRAINT_REGISTRY:
+    constraint_class = resolve_constraint_class(type_name)
+    if constraint_class is None:
         return None, f"不支持的约束类型: {const.type}（规范化后: {type_name}）"
-
-    # 获取约束类（如 UniqueConstraint、NotNullConstraint 等）
-    constraint_class = CONSTRAINT_REGISTRY[type_name]
 
     # 步骤3：提取 refs 和 params 数据
     refs = const.refs or {}

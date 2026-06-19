@@ -16,13 +16,11 @@
 import { nextTick } from 'vue'
 import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
+import { useProjectStore } from '@/stores/projectStore'
 import { tabularColumnGenerator } from '@/utils/nodes/columnGeneration/TabularColumnGenerator'
 import { jsonColumnGenerator } from '@/utils/nodes/columnGeneration/JsonColumnGenerator'
 import { previewDataFetcher } from '@/utils/nodes/preview/PreviewDataFetcher'
-import {
-  findV2SchemaIdByTableName,
-  syncSchemaResources,
-} from '@/services/schemaResourceSync'
+import { findV2SchemaIdByTableName, syncSchemaResources } from '@/services/schemaResourceSync'
 import type { CustomNodeData } from '@/types/graph'
 
 /**
@@ -54,6 +52,7 @@ export async function generateSchemaFromSource(): Promise<{ success: boolean; me
 
 async function generateSchemaFromSourceInternal(): Promise<{ success: boolean; message?: string }> {
   const graphStore = useGraphStore()
+  const projectStore = useProjectStore()
 
   // ========== 前置检查 ==========
 
@@ -97,7 +96,10 @@ async function generateSchemaFromSourceInternal(): Promise<{ success: boolean; m
       ''
     )
 
-  const existingV2SchemaId = await findV2SchemaIdByTableName(smartTableName)
+  const existingV2SchemaId = await findV2SchemaIdByTableName(
+    smartTableName,
+    projectStore.currentPaths?.configPath
+  )
   if (
     existingV2SchemaId &&
     graphStore.nodes.some(
@@ -234,7 +236,10 @@ async function generateSchemaFromSourceInternal(): Promise<{ success: boolean; m
   }
 
   // ========== 同步 V2 Schema 资源（约束、正则）==========
-  const syncResult = await syncSchemaResources(schemaNodeId)
+  const syncResult = await syncSchemaResources(schemaNodeId, {
+    graphStore,
+    projectStore,
+  })
   if (syncResult.success) {
     logger.debug(
       `✅ [Ctrl+G] 已同步 V2 Schema 资源: 内嵌${syncResult.embeddedCount} 独立${syncResult.independentCount} 正则${syncResult.regexCount}`

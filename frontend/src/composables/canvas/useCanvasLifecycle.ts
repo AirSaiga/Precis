@@ -41,7 +41,7 @@ export interface CanvasLifecycleOptions {
 export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
   const store = useGraphStore()
   const dragStore = useDragStore()
-  const { fitView, findNode, updateNode } = useVueFlow()
+  const { fitView, findNode } = useVueFlow()
 
   /**
    * @description 聚焦到项目根节点
@@ -51,7 +51,7 @@ export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
     // 恢复所有被隐藏的节点，确保项目根节点可见
     store.nodes.forEach((node) => {
       if (node.hidden) {
-        updateNode(node.id, { hidden: false })
+        store.updateNodeData(node.id, { hidden: false })
       }
     })
     // 查找项目根节点并将视口适配聚焦

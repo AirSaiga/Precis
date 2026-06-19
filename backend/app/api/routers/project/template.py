@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.api.dependencies import get_project_config_path
+from app.api.models.project import StandardResponse
 from app.shared.core.io.yaml import read_yaml, write_yaml_atomic
 from app.shared.core.project.template.expander import expand_template
 from app.shared.core.project.template.reader import load_template
@@ -63,13 +64,6 @@ class TemplateExpandResponse(BaseModel):
     transforms: list[dict[str, Any]]
     constraints: list[dict[str, Any]]
     regex_nodes: list[dict[str, Any]]
-
-
-class StandardResponse(BaseModel):
-    """标准操作响应"""
-
-    success: bool
-    message: str
 
 
 # ============================================================================
@@ -160,7 +154,7 @@ def create_template(template_data: dict, config_path: str = Depends(get_project_
     write_yaml_atomic(file_path, tmpl.model_dump(exclude_none=True))
 
     # 更新 manifest
-    manifest_path = _v2_manifest_path(config_path)
+    manifest_path = Path(_v2_manifest_path(config_path))
     with project_lock(config_path):
         manifest_data = read_yaml(manifest_path)
         templates_list = manifest_data.get("templates") or []
@@ -234,7 +228,7 @@ def delete_template(template_id: str, config_path: str = Depends(get_project_con
         if tmpl_path and tmpl_path.exists():
             tmpl_path.unlink()
 
-        manifest_path = _v2_manifest_path(config_path)
+        manifest_path = Path(_v2_manifest_path(config_path))
         manifest_data = read_yaml(manifest_path)
         templates_list = manifest_data.get("templates") or []
         manifest_data["templates"] = [t for t in templates_list if t.get("id") != template_id]

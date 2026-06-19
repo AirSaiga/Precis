@@ -160,14 +160,14 @@ class Command(ABC):
         return "\n".join(lines)
 
     @abstractmethod
-    def execute(self, args: list[str], context: "CommandContext") -> CommandResult:
+    def execute(self, args: list[str], context: "ProjectContext") -> CommandResult:
         """执行命令（抽象方法）。
 
         子类必须实现此方法，包含命令的核心业务逻辑。
 
         Args:
             args: 命令参数列表（按空格分割后的字符串数组）
-            context: 命令上下文，包含共享状态和项目信息
+            context: 项目上下文，包含共享状态和项目信息
 
         Returns:
             命令执行结果（CommandResult）

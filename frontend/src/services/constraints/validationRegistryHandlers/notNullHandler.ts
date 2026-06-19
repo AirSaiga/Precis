@@ -5,7 +5,7 @@
 
 import { defaultReset, register, requireSource, toResult } from '../validationRegistryCore'
 import { validateInline } from '@/api/validationApi'
-import { validateNotNull } from '@/composables/nodes/constraints/useNotNull'
+import { validateNotNull } from '../validators/notNull'
 
 register({
   kind: 'notNull',

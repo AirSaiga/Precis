@@ -23,6 +23,7 @@
 """
 
 import os
+from typing import Optional
 
 from fastapi import Header
 
@@ -61,7 +62,7 @@ def _expand_directory(dir_path: str, max_depth: int = _MAX_DEPTH) -> list[str]:
     return sorted(result)
 
 
-def _resolve_path(path: str, config_path: str | None) -> str:
+def _resolve_path(path: str, config_path: Optional[str]) -> str:
     """解析路径：如果为相对路径，则基于项目配置目录拼接
 
     :param path: 原始路径（可能是相对或绝对）
@@ -91,7 +92,7 @@ def _resolve_path(path: str, config_path: str | None) -> str:
 )
 def expand_paths(
     paths: list[str],
-    x_project_config_path: str | None = Header(None, alias="X-Project-Config-Path"),
+    x_project_config_path: Optional[str] = Header(None, alias="X-Project-Config-Path"),
 ) -> list[str]:
     """展开路径列表
 

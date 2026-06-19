@@ -32,8 +32,8 @@ import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
 import { useI18n } from 'vue-i18n'
 import type { SchemaNodeData } from '../types'
-import { validateNotNull } from '@/composables/nodes/constraints/useNotNull'
-import { validateUnique } from '@/composables/nodes/constraints/useUnique'
+import { validateNotNull } from '@/services/constraints/validators/notNull'
+import { validateUnique } from '@/services/constraints/validators/unique'
 
 /**
  * Schema验证Composable - 负责Schema数据节点的约束验证逻辑

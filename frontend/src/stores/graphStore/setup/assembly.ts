@@ -50,10 +50,14 @@ import { createScopeModule } from '../modules/scope'
 
 import type { GraphStoreState } from './state'
 import type { GraphStoreComputed } from './computed'
-import { useProjectStore } from '@/stores/projectStore'
-import { useResourceTreeStore } from '@/stores/resourceTreeStore'
+import type { ProjectStoreLike, ResourceTreeStoreLike } from '@/types/storeInterfaces'
 
-export function createGraphStoreAssembly(state: GraphStoreState, computed: GraphStoreComputed) {
+export function createGraphStoreAssembly(
+  state: GraphStoreState,
+  computed: GraphStoreComputed,
+  projectStore: ProjectStoreLike,
+  resourceTreeStore: ResourceTreeStoreLike
+) {
   const {
     nodes,
     edges,
@@ -79,9 +83,6 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
 
   // --- 项目管理 ---
 
-  const projectStore = useProjectStore()
-  const resourceTreeStore = useResourceTreeStore()
-
   const { normalizeConfigDir, resolveProjectRelativePath, getEffectiveProjectConfigPath } =
     createPathingModule({
       nodes,
@@ -104,24 +105,7 @@ export function createGraphStoreAssembly(state: GraphStoreState, computed: Graph
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     reconcileAll: connectionStateSync.reconcileAll,
-    // 拖拽独立约束触发自动创建 Schema 时，连带创建该 Schema 关联的其他独立约束。
-    // 从 resourceTreeStore 查询 Schema 的 associatedConstraintIds，
-    // 过滤出 constraintSource === 'independent' 的约束（排除内嵌约束，
-    // 后者由 materializeEmbeddedConstraints 单独处理）。
-    getIndependentConstraintIdsForSchema: (schemaId: string): string[] | undefined => {
-      const schemaResource = resourceTreeStore.getResourceById(schemaId)
-      if (!schemaResource || schemaResource.kind !== 'schema') return undefined
-      const associatedIds = schemaResource.associatedConstraintIds
-      if (!associatedIds || associatedIds.length === 0) return undefined
-      // 过滤出独立约束（内嵌约束通过 materializeEmbeddedConstraints 物化，不在此处理）
-      return associatedIds.filter((cId) => {
-        const cResource = resourceTreeStore.getResourceById(cId)
-        return (
-          cResource?.kind === 'constraint' &&
-          (cResource as { constraintSource?: string }).constraintSource === 'independent'
-        )
-      })
-    },
+    resourceTreeStore,
     sourceIndex,
   })
 

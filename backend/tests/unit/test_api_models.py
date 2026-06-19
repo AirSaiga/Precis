@@ -76,6 +76,7 @@ class TestProjectModels:
 
     def test_standard_response(self):
         r = StandardResponse(message="ok")
+        assert r.success is True
         assert r.message == "ok"
 
 
@@ -97,6 +98,13 @@ class TestSchemaModels:
     def test_header_row_changed_response(self):
         resp = HeaderRowChangedResponse(success=True, message="ok")
         assert resp.success is True
+
+    def test_header_row_changed_response_with_optional_fields(self):
+        resp = HeaderRowChangedResponse(
+            success=True, message="ok", schema_name="users", updated_at="2024-01-01T00:00:00Z"
+        )
+        assert resp.schema_name == "users"
+        assert resp.updated_at == "2024-01-01T00:00:00Z"
 
 
 class TestWorkspaceModels:
@@ -131,6 +139,13 @@ class TestValidationModels:
     def test_regex_validation_response(self):
         resp = RegexValidationResponse(success=True)
         assert resp.error is None
+        assert resp.schema_name is None
+        assert resp.updated_at is None
+
+    def test_regex_validation_response_with_optional_context(self):
+        resp = RegexValidationResponse(success=True, schema_name="users", updated_at="2024-01-01T00:00:00Z")
+        assert resp.schema_name == "users"
+        assert resp.updated_at == "2024-01-01T00:00:00Z"
 
     def test_validation_request(self):
         req = ValidationRequest(validation_type="regex", target_column_name="email", source_file_path="data.csv")
@@ -264,3 +279,45 @@ class TestFullValidationModels:
         assert resp.errors == []
         assert resp.passed_items == []
         assert resp.statistics is None
+
+
+class TestTemplateEndpoints:
+    def test_create_template_returns_standard_response(self, tmp_path, monkeypatch):
+        import yaml
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from app.api.dependencies import get_project_config_path
+        from app.api.routers.project import router as project_router
+
+        config_path = tmp_path / "project"
+        config_path.mkdir()
+        manifest = {
+            "version": 2,
+            "project": {"id": "p1", "name": "Test"},
+            "schemas": [],
+            "constraints": [],
+            "regex_nodes": [],
+            "templates": [],
+        }
+        with open(config_path / "project.precis.yaml", "w", encoding="utf-8") as f:
+            yaml.safe_dump(manifest, f)
+
+        app = FastAPI()
+        app.include_router(project_router)
+        app.dependency_overrides[get_project_config_path] = lambda: str(config_path)
+
+        client = TestClient(app)
+        payload = {
+            "id": "t1",
+            "name": "Template One",
+            "description": "",
+            "parameters": [],
+            "nodes": [],
+        }
+        response = client.post("/api/latest/project/template", json=payload)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["success"] is True
+        assert "t1" in data["message"]

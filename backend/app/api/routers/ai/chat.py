@@ -160,7 +160,7 @@ async def chat_completions(request: ChatRequestInput):
     # 构建聊天请求对象
     chat_req = ChatRequest(
         messages=[ChatMessage(role=m.role, content=m.content) for m in request.messages],
-        model=request.model,
+        model=request.model or provider_cfg.model,
         stream=request.stream,
         temperature=request.temperature,
     )

@@ -33,6 +33,16 @@ from app.shared.domain.dataset_schema import DataSetSchema
 logger = logging.getLogger(__name__)
 
 
+# Extracted 类型列需要的属性（使用 Protocol 避免直接依赖 domain 子类）
+class _ExtractedTypeProtocol:
+    """仅用于类型检查的 Extracted 数据类型协议。"""
+
+    name: str
+    source_column: str
+    extract_key: str
+    result_type: str | None
+
+
 def _extract_derived_columns(
     parsed_datasets: dict[str, pd.DataFrame],
     schema: DataSetSchema,
@@ -65,13 +75,14 @@ def _extract_derived_columns(
         for col in table_schema.columns.values():
             data_type = col.data_type
             logger.debug(f"Column {col.name} has data_type: {data_type}")
-            if hasattr(data_type, "name") and data_type.name == "Extracted":
+            if getattr(data_type, "name", None) == "Extracted":
+                extracted_type: _ExtractedTypeProtocol = data_type  # type: ignore[assignment]
                 extracted_columns.append(
                     {
                         "column_name": col.name,
-                        "source_column": data_type.source_column,
-                        "extract_key": data_type.extract_key,
-                        "result_type": getattr(data_type, "result_type", None),
+                        "source_column": extracted_type.source_column,
+                        "extract_key": extracted_type.extract_key,
+                        "result_type": getattr(extracted_type, "result_type", None),
                     }
                 )
 

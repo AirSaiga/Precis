@@ -16,23 +16,16 @@ vi.mock('@/core/utils/logger', () => ({
 import { getV2FullConfig } from '@/api/projectV2Api'
 import { calculateConstraintStatsFromManifest } from '@/utils/constraintCount'
 import { createV2StatsOps } from '@/stores/graphStore/modules/v2/persistence/stats'
+import type { ProjectConfigStats } from '@/stores/graphStore/setup/state'
 
 describe('createV2StatsOps', () => {
-  let projectConfigStats: Ref<{
-    schemaCount: number
-    constraintCount: number
-    constraintStandaloneCount: number
-    constraintInlineCount: number
-    regexCount: number
-    transformCount: number
-    templateCount: number
-  }>
+  let projectConfigStats: Ref<ProjectConfigStats>
   let projectConfigStatsLoaded: Ref<boolean>
   let projectConfigStatsConfigPath: Ref<string>
   let ops: ReturnType<typeof createV2StatsOps>
 
   beforeEach(() => {
-    projectConfigStats = ref({
+    projectConfigStats = ref<ProjectConfigStats>({
       schemaCount: 0,
       constraintCount: 0,
       constraintStandaloneCount: 0,

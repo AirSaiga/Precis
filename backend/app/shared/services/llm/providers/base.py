@@ -23,6 +23,8 @@
     # ChatResponse(content="你好！有什么可以帮您的？", model="gpt-4")
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -44,7 +46,7 @@ class ChatMessage:
 
     role: str
     content: str | None = None
-    tool_calls: list[dict] | None = None
+    tool_calls: list[dict[str, Any]] | None = None
     tool_call_id: str | None = None
 
 
@@ -62,11 +64,11 @@ class ChatRequest:
     """
 
     messages: list[ChatMessage]
-    model: str = None
+    model: str | None = None
     stream: bool = False
     temperature: float = 0.7
-    tools: list[dict] | None = None
-    tool_choice: str | dict | None = None
+    tools: list[dict[str, Any]] | None = None
+    tool_choice: str | dict[str, Any] | None = None
 
 
 @dataclass
@@ -80,8 +82,8 @@ class ChatResponse:
     """
 
     content: str | None = None
-    tool_calls: list[dict] | None = None
-    model: str = None
+    tool_calls: list[dict[str, Any]] | None = None
+    model: str | None = None
 
 
 class BaseProvider(ABC):
@@ -116,7 +118,7 @@ class BaseProvider(ABC):
         pass
 
     @abstractmethod
-    async def chat_stream(self, req: ChatRequest) -> AsyncIterator[str]:
+    def chat_stream(self, req: ChatRequest) -> AsyncIterator[str]:
         """
         @methoddesc 流式对话
         """
@@ -139,7 +141,7 @@ class BaseProvider(ABC):
         """
         pass
 
-    def _get_model(self, override: str = None) -> str:
+    def _get_model(self, override: str | None = None) -> str:
         """
         @methoddesc 获取实际使用的模型名称
 
