@@ -1,0 +1,9 @@
+version: 2
+id: t-strip
+type: Strip
+enabled: true
+input_from_node: sc_users
+input_column: name
+params: {}
+output_columns:
+- name_stripped

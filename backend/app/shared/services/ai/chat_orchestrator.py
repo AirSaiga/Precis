@@ -17,9 +17,9 @@ from app.shared.services.llm.actions.action_parser import (
     process_actions,
 )
 from app.shared.services.llm.actions.action_validator import ActionValidator
-from app.shared.services.llm.chat.chat_service import ChatLLMService
 from app.shared.services.llm.chat.chat_system_prompt import build_system_prompt
 from app.shared.services.llm.config.models import AIProvider
+from app.shared.services.llm.providers.base import ChatMessage, ChatRequest
 
 logger = logging.getLogger(__name__)
 
@@ -116,17 +116,6 @@ class AIChatOrchestrator:
             provider: AIProvider 配置对象（包含 api_key、base_url、model 等信息）
         """
         self._provider = provider
-        self._chat_service: Any | None = None
-
-    def _get_chat_service(self) -> Any:
-        """
-        @methoddesc 获取或创建 Chat 服务实例（懒加载）
-
-        直接使用 AIProvider 配置创建 ChatLLMService。
-        """
-        if self._chat_service is None:
-            self._chat_service = ChatLLMService(self._provider)
-        return self._chat_service
 
     async def execute_chat(
         self,
@@ -182,13 +171,25 @@ class AIChatOrchestrator:
         )
 
         # 步骤 3: 调用 LLM
+        # 直接 await provider.chat()，与 agent 路径（_execute_with_agent / agent/executor.py）对齐。
+        # 不再走 ChatLLMService 同步包装层 —— 后者在 async 上下文里会开子线程跑 asyncio.run()，
+        # 导致 httpx 连接池清理任务绑定到子线程的临时 loop，loop 关闭后泄漏
+        # "Task exception was never retrieved: RuntimeError: Event loop is closed"。
+        # create 用延迟导入，与 _execute_with_agent 一致，方便测试 patch providers.create。
         self._notify_progress(options, "llm_calling", "正在调用 AI...")
         try:
-            chat_service = self._get_chat_service()
-            llm_response = chat_service.chat(
-                messages=messages,
+            from app.shared.services.llm.providers import create
+
+            provider = create(self._provider)
+            chat_messages = [ChatMessage(role=m["role"], content=m["content"]) for m in messages]
+            req = ChatRequest(
+                messages=chat_messages,
+                model=self._provider.model,
                 temperature=options.temperature,
             )
+            resp = await provider.chat(req)
+            # resp.content 类型为 str | None（空响应场景），空字符串兜底交给后续解析阶段处理
+            llm_response = resp.content or ""
         except Exception as e:
             logger.error(f"LLM 调用失败: {e}")
             return ChatExecutionResult(success=False, reply="", error=f"AI 服务调用失败: {str(e)}")

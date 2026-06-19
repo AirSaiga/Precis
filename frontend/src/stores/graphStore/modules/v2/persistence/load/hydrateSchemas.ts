@@ -18,8 +18,8 @@
  */
 
 import type { Edge } from '@vue-flow/core'
-import type { CustomNode, SchemaNodeData } from '@/types/graph'
-import { fromBackendType } from '@/services/builders'
+import type { CustomNode, SchemaNodeData, JsonSchemaColumn, JsonSchemaNodeData } from '@/types/graph'
+import { fromBackendType, fromJsonBackendType } from '@/services/builders'
 import { materializeV2EmbeddedConstraints } from '../../shared/embeddedConstraints'
 import { logger } from '@/core/utils/logger'
 import { normalizePath } from '@/core/utils/pathNormalization'
@@ -44,32 +44,49 @@ export function hydrateSchemasFromV2Config(params: {
       logger.warn(`[hydrateSchemas] Schema ${id} 在配置中缺失，跳过`)
       return
     }
-    const cols = (schema.columns || []).map((col: any) => {
-      const dataType = fromBackendType(col.type)
-      const colResult: any = {
-        id: col.id,
-        columnName: col.name,
-        dataType,
-        validationErrors: [],
-        constraints: {},
-      }
-      // 如果类型是 Expr 对象配置，提取 boundPattern 和 boundRegistry
-      if (typeof col.type === 'object' && col.type?.name === 'Expr') {
-        colResult.boundRegistry = col.type.registry
-        colResult.boundPattern = col.type.pattern
-        colResult.isBound = !!col.type.pattern
-        colResult.expressionType = col.type.pattern ? 'explicit' : 'implicit'
-      }
-      // 如果类型是 Extracted 对象配置，提取 extractedConfig
-      if (typeof col.type === 'object' && col.type?.name === 'Extracted') {
-        colResult.extractedConfig = {
-          sourceColumn: col.type.source_column,
-          extractKey: col.type.extract_key,
-          resultType: col.type.result_type,
+    // 递归转换列定义，JSON schema 保留嵌套 children 与 json_path
+    const convertColumns = (columns: any[]): JsonSchemaColumn[] => {
+      return (columns || []).map((col: any) => {
+        const isJsonColumn = col.json_path !== undefined || (col.children && col.children.length > 0)
+        const dataType = isJsonColumn
+          ? (fromJsonBackendType(col.type) as JsonSchemaColumn['dataType'])
+          : (fromBackendType(col.type).toLowerCase() as JsonSchemaColumn['dataType'])
+
+        const colResult: any = {
+          id: col.id,
+          columnName: col.name,
+          dataType,
+          jsonPath: col.json_path || '',
+          nullable: col.nullable,
+          primaryKey: col.primary_key,
+          validationErrors: [],
+          constraints: {},
         }
-      }
-      return colResult
-    })
+        // 如果类型是 Expr 对象配置，提取 boundPattern 和 boundRegistry
+        if (typeof col.type === 'object' && col.type?.name === 'Expr') {
+          colResult.boundRegistry = col.type.registry
+          colResult.boundPattern = col.type.pattern
+          colResult.isBound = !!col.type.pattern
+          colResult.expressionType = col.type.pattern ? 'explicit' : 'implicit'
+        }
+        // 如果类型是 Extracted 对象配置，提取 extractedConfig
+        if (typeof col.type === 'object' && col.type?.name === 'Extracted') {
+          colResult.extractedConfig = {
+            sourceColumn: col.type.source_column,
+            extractKey: col.type.extract_key,
+            resultType: col.type.result_type,
+          }
+        }
+        // 递归处理嵌套子列
+        if (col.children && col.children.length > 0) {
+          colResult.children = convertColumns(col.children)
+          colResult.isExpanded = col.expand ?? false
+        }
+        return colResult
+      })
+    }
+
+    const cols = convertColumns(schema.columns || [])
     const configPath = getEffectiveProjectConfigPath()
     // 默认回退为 relative_file，防止后端返回的 mode 为空或未声明时 localPath 丢失
     const sourcePathMode = schema.source?.mode || 'relative_file'
@@ -84,8 +101,9 @@ export function hydrateSchemasFromV2Config(params: {
     // 检测是否为 JSON schema：根据文件扩展名判断（与后端 SourceSpec.is_json() 一致）
     const sourcePath = schema.source?.path || ''
     const isJsonSchema = /\.(json|jsonl|ndjson)$/i.test(sourcePath)
-    // 优先读取 source.sheet，兼容顶层 sheet 字段（后端 TableSchemaFile 支持两者）
-    const sheetName = schema.source?.sheet ?? schema.sheet
+    // JSON schema 不需要 sheet；tabular schema 优先读取 source.sheet，兼容顶层 sheet 字段
+    const sheetName = isJsonSchema ? undefined : (schema.source?.sheet ?? schema.sheet)
+    const jsonOptions = (schema.source?.options as any) || {}
 
     const schemaNode: CustomNode = {
       id,
@@ -102,7 +120,11 @@ export function hydrateSchemasFromV2Config(params: {
         localPath,
         columns: cols,
         saveState: 'saved',
-      } as SchemaNodeData,
+        sourceType: isJsonSchema ? 'json' : undefined,
+        format: isJsonSchema ? jsonOptions.format : undefined,
+        jsonPath: isJsonSchema ? jsonOptions.json_path : undefined,
+        recordPath: isJsonSchema ? jsonOptions.record_path : undefined,
+      } as SchemaNodeData | JsonSchemaNodeData,
     }
     nextNodes.push(schemaNode)
 

@@ -75,6 +75,24 @@ export function fromBackendType(typeConfig: unknown): DataType {
 }
 
 /**
+ * JSON 数据类型转换：后端类型 → 前端 JsonDataType
+ */
+export function fromJsonBackendType(typeConfig: unknown): string {
+  if (typeof typeConfig === 'string') {
+    const t = typeConfig.toLowerCase()
+    if (t === 'jsonobject' || t === 'json_object') return 'object'
+    if (t === 'jsonarray' || t === 'json_array') return 'array'
+    if (t === 'jsonnull' || t === 'json_null') return 'null'
+    if (t === 'str' || t === 'string') return 'string'
+    if (t === 'int' || t === 'integer') return 'number'
+    if (t === 'float' || t === 'decimal' || t === 'double') return 'number'
+    if (t === 'boolean' || t === 'bool') return 'boolean'
+    if (t === 'date' || t === 'datetime' || t === 'time' || t === 'timestamp') return 'string'
+  }
+  return 'string'
+}
+
+/**
  * JSON 数据类型转换：前端 JsonDataType → 后端类型
  */
 export function toJsonBackendType(dataType: string): string {

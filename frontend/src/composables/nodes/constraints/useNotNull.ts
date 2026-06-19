@@ -50,7 +50,8 @@ export async function validateNotNull(
   sourceFilePath: string,
   columnName: string,
   sheetName?: string,
-  headerRow?: number
+  headerRow?: number,
+  jsonOptions?: { jsonPath?: string; jsonFormat?: string; recordPath?: string }
 ): Promise<NotNullValidationResult> {
   logger.debug('🔄 执行非空验证:', columnName)
 
@@ -61,6 +62,9 @@ export async function validateNotNull(
       source_file_path: sourceFilePath,
       sheet_name: sheetName,
       header_row: headerRow,
+      json_path: jsonOptions?.jsonPath,
+      json_format: jsonOptions?.jsonFormat,
+      record_path: jsonOptions?.recordPath,
     }
 
     const response = await apiValidateNotNull(request)

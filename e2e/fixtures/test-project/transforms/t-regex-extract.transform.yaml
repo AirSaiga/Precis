@@ -1,0 +1,14 @@
+version: 2
+id: t-regex-extract
+type: RegexExtract
+enabled: true
+input_from_node: sc_users
+input_column: email
+params:
+  pattern: ^(.+)@(.+)$
+  group_names:
+  - user
+  - domain
+output_columns:
+- user
+- domain

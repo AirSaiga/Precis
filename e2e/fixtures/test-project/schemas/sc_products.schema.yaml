@@ -1,0 +1,22 @@
+version: 2
+id: sc_products
+name: products
+source:
+  mode: absolute_file
+  path: /data/products.csv
+  header_row: 0
+columns:
+- id: col-name
+  name: item_title
+  type: Str
+  primary_key: false
+  nullable: true
+  expand: false
+- id: col-price
+  name: price
+  type: Decimal
+  primary_key: false
+  nullable: true
+  expand: false
+constraints: []
+script_checks: []

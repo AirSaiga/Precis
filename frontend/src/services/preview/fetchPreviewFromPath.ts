@@ -89,5 +89,9 @@ export const fetchPreviewDataFromPath = async (
     file_name: result.file_name || filePath.split(/[/\\]/).pop() || 'unknown',
     size_mb: 0,
     modified_time: Date.now(),
+    raw_data: result.raw_data,
+    type_inference: result.type_inference,
+    field_count: result.field_count,
+    nest_depth: result.nest_depth,
   }
 }

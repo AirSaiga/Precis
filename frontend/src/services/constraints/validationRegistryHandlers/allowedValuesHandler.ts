@@ -57,6 +57,10 @@ register({
       sheet_name: ctx.sheetName,
       header_row: ctx.headerRow,
       validation_config: { allowed_values: allowedValues },
+      column_data_type: ctx.columnDataType,
+      json_path: ctx.jsonPath,
+      json_format: ctx.jsonFormat,
+      record_path: ctx.recordPath,
     })
     if (!response.success || !response.data) {
       return {

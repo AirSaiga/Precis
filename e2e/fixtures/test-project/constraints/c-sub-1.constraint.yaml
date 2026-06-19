@@ -1,0 +1,8 @@
+version: 2
+id: c-sub-1
+type: NotNull
+enabled: true
+refs:
+  table_id: sc_users
+  column_id: col-email
+params: {}

@@ -62,6 +62,7 @@ def _create_data_type(type_name: str | None) -> DataType | None:
         "integer": IntegerType,
         "decimal": DecimalType,
         "float": FloatType,
+        "number": FloatType,
         "boolean": BooleanType,
         "datetime": DateType,
         "date": DateType,
@@ -195,6 +196,7 @@ def execute_standard_validation(
     validation_config: dict | None = None,
     allow_unsafe_eval: bool = False,
     column_data_type: str | None = None,
+    source_config: dict | None = None,
 ) -> ValidationResponse:
     """
     标准数据校验执行流水线，被 content_mode 和 path_mode 共用。
@@ -211,15 +213,18 @@ def execute_standard_validation(
         validation_config: 校验配置字典，可选
         allow_unsafe_eval: 是否允许不安全的表达式求值，可选，默认为 False
         column_data_type: 目标列在 Schema 中声明的数据类型，可选
+        source_config: 数据源配置字典，用于传递 JSON 的 json_path/format/record_path 等
 
     返回值:
         ValidationResponse: 标准化校验响应
     """
-    # 从指定路径加载数据，支持 Excel/CSV 等格式
+    # 从指定路径加载数据，支持 Excel/CSV/JSON 等格式
+    # 对 JSON 数据源透传 json_path/json_format/record_path，保持与预览端点一致
     df = load_file_data(
         source_file_path=source_file_path,
         sheet_name=sheet_name,
         header_row=header_row if header_row is not None else 0,
+        source_config=source_config,
     )
 
     # 委托给 execute_dataframe_validation 执行实际校验

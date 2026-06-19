@@ -13,6 +13,7 @@ import {
   toResult,
 } from '../validationRegistryCore'
 import { validateForeignKey, validateInline } from '@/api/validationApi'
+import { findJsonSchemaColumnById } from '@/utils/nodes/json/columnFinder'
 
 register({
   kind: 'foreignKey',
@@ -33,13 +34,21 @@ register({
       const targetSchemaNode = targetNode?.find((n: Node) => n.id === targetNodeId)
       if (targetSchemaNode) {
         const targetSchemaData = (targetSchemaNode.data || {}) as Record<string, unknown>
-        const columns = (targetSchemaData.columns || []) as Array<{
-          id: string
-          columnName: string
-        }>
-        const foundColumn = columns.find((c) => c.id === targetColumnId)
-        if (foundColumn) {
-          targetColumn = foundColumn.columnName
+        if (targetSchemaNode.type === 'jsonSchema') {
+          const columns = (targetSchemaData.columns || []) as import('@/types/graph').JsonSchemaColumn[]
+          const found = findJsonSchemaColumnById(columns, targetColumnId)
+          if (found) {
+            targetColumn = found.column.columnName
+          }
+        } else {
+          const columns = (targetSchemaData.columns || []) as Array<{
+            id: string
+            columnName: string
+          }>
+          const foundColumn = columns.find((c) => c.id === targetColumnId)
+          if (foundColumn) {
+            targetColumn = foundColumn.columnName
+          }
         }
       }
     }
@@ -111,6 +120,10 @@ register({
       source_file_path: String(ctx.sourceFilePath),
       sheet_name: ctx.sheetName,
       header_row: ctx.headerRow,
+      column_data_type: ctx.columnDataType,
+      json_path: ctx.jsonPath,
+      json_format: ctx.jsonFormat,
+      record_path: ctx.recordPath,
       validation_config: {
         target_table: targetTable,
         target_column: targetColumn as string,

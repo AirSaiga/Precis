@@ -1,0 +1,10 @@
+version: 2
+id: e2e-range-age
+type: Range
+enabled: true
+refs:
+  table_id: sc_users
+  column_id: col-age
+params:
+  min: 20
+  max: 40

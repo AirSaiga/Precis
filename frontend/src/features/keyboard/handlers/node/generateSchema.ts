@@ -181,7 +181,7 @@ async function generateSchemaFromSourceInternal(): Promise<{ success: boolean; m
       tableName: smartTableName,
       sourceFile: displayFileName,
       sourceFilePath: displaySourcePath,
-      sourceType: 'json' as const,
+      sourceType: (sourceData.sourceType as 'excel' | 'csv') || 'csv',
       headerRow: (sourceData.headerRow as number) || 0,
       sheetName:
         (sourceData.currentSheet as string) ||
@@ -203,13 +203,13 @@ async function generateSchemaFromSourceInternal(): Promise<{ success: boolean; m
         if (schemaNodeType === 'jsonSchema') {
           // JSON: 使用 JsonColumnGenerator
           const existingColumns =
-            ((schemaNode.data as Record<string, unknown>)?.jsonColumns as unknown[]) || []
+            ((schemaNode.data as Record<string, unknown>)?.columns as unknown[]) || []
           const columns = jsonColumnGenerator.generate(previewData.rawData, existingColumns)
 
           if (columns.length > 0) {
             graphStore.updateNodeData(schemaNodeId, {
               ...(schemaNode.data || {}),
-              jsonColumns: columns,
+              columns,
             } as unknown as Partial<CustomNodeData>)
             logger.debug(`✅ [Ctrl+G] JSON 智能列填充完成！共 ${columns.length} 列`)
           }

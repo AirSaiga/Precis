@@ -46,7 +46,8 @@ export async function validateUnique(
   sourceFilePath: string,
   columnName: string,
   sheetName?: string,
-  headerRow?: number
+  headerRow?: number,
+  jsonOptions?: { jsonPath?: string; jsonFormat?: string; recordPath?: string }
 ): Promise<UniqueValidationResult> {
   // 记录开始执行唯一性验证的日志
   logger.debug('🔄 执行唯一性验证:', columnName)
@@ -60,6 +61,9 @@ export async function validateUnique(
       source_file_path: sourceFilePath,
       sheet_name: sheetName,
       header_row: headerRow,
+      json_path: jsonOptions?.jsonPath,
+      json_format: jsonOptions?.jsonFormat,
+      record_path: jsonOptions?.recordPath,
     }
 
     const response = await apiValidateUnique(request)

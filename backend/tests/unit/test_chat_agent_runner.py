@@ -300,15 +300,19 @@ async def test_orchestrator_agent_mode_true_uses_runner():
 @pytest.mark.asyncio
 async def test_orchestrator_agent_mode_false_uses_legacy_path():
     """agent_mode=false 时走旧路径（LLM 直接输出 {reply,actions}），不调 runner。"""
+    from app.shared.services.llm.providers.base import ChatResponse
+
     provider = FakeProvider(responses=[])
     orchestrator = AIChatOrchestrator(provider=provider.cfg)
 
-    # mock 旧路径的 ChatLLMService，避免真实 HTTP 请求
-    fake_chat_service = type(
-        "FakeChatService", (), {"chat": lambda self, messages, temperature=None: '{"reply": "有3张表", "actions": []}'}
-    )()
+    # mock 旧路径的 provider（旧路径直接 await provider.chat()，不再走 ChatLLMService）
+    class _FakeLegacyProvider:
+        async def chat(self, req):
+            return ChatResponse(content='{"reply": "有3张表", "actions": []}', model="fake")
+
+    fake_provider = _FakeLegacyProvider()
     with (
-        patch.object(orchestrator, "_get_chat_service", return_value=fake_chat_service),
+        patch("app.shared.services.llm.providers.create", return_value=fake_provider),
         patch(
             "app.shared.services.ai.chat_agent_runner.ChatAgentRunner.run",
             side_effect=AssertionError("agent_mode=false 不应调用 runner"),
@@ -333,16 +337,19 @@ async def test_orchestrator_agent_mode_false_uses_legacy_path():
 @pytest.mark.asyncio
 async def test_orchestrator_agent_mode_without_project_falls_back():
     """agent_mode=true 但无 project_path 时回退到旧路径（runner 需要项目路径）。"""
+    from app.shared.services.llm.providers.base import ChatResponse
+
     provider = FakeProvider(responses=[])
     orchestrator = AIChatOrchestrator(provider=provider.cfg)
 
-    fake_chat_service = type(
-        "FakeChatService",
-        (),
-        {"chat": lambda self, messages, temperature=None: '{"reply": "请先打开项目", "actions": []}'},
-    )()
+    # mock 旧路径的 provider（旧路径直接 await provider.chat()）
+    class _FakeLegacyProvider:
+        async def chat(self, req):
+            return ChatResponse(content='{"reply": "请先打开项目", "actions": []}', model="fake")
+
+    fake_provider = _FakeLegacyProvider()
     with (
-        patch.object(orchestrator, "_get_chat_service", return_value=fake_chat_service),
+        patch("app.shared.services.llm.providers.create", return_value=fake_provider),
         patch(
             "app.shared.services.ai.chat_agent_runner.ChatAgentRunner.run",
             side_effect=AssertionError("无 project_path 不应调用 runner"),
@@ -380,3 +387,63 @@ async def test_orchestrator_agent_mode_provider_creation_failure():
     assert result.success is False
     assert result.error is not None
     assert "openai" in result.error or "初始化" in result.error
+
+
+# =============================================================================
+# 回归测试：旧路径不得开子线程/新 event loop（防 "Event loop is closed" 复发）
+# =============================================================================
+#
+# 历史 bug：旧路径经 ChatLLMService.chat() → _run_async() 调用 LLM。
+# _run_async 在"已处于 event loop"时，会开 ThreadPoolExecutor 子线程跑 asyncio.run()，
+# 导致 httpx 连接池清理任务绑定到子线程的临时 loop，loop 关闭后泄漏
+# "Task exception was never retrieved: RuntimeError: Event loop is closed"。
+#
+# 修复后旧路径直接 await provider.chat()，provider.chat 在调用方所在的同一 event loop
+# 上运行。本测试通过在 fake_chat 内捕获运行 loop，断言它与测试 loop 是同一对象——
+# 若 bug 复发（开子线程跑 asyncio.run），fake_chat 会在另一个 loop 上执行。
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_legacy_path_runs_in_caller_event_loop():
+    """回归：旧路径必须在调用方的 event loop 上直接 await，不得开子线程/新 loop。
+
+    防止 "Event loop is closed" / "Task exception was never retrieved" 复发。
+    """
+    import asyncio
+
+    from app.shared.services.llm.providers.base import ChatResponse
+
+    # 测试自身运行的 loop —— provider.chat 应当就在这个 loop 上执行
+    test_loop = asyncio.get_running_loop()
+    captured_loop = {}
+
+    class _FakeLegacyProvider:
+        async def chat(self, req):
+            captured_loop["loop"] = asyncio.get_running_loop()
+            return ChatResponse(content='{"reply": "ok", "actions": []}', model="fake")
+
+    provider = FakeProvider(responses=[])
+    orchestrator = AIChatOrchestrator(provider=provider.cfg)
+    fake_provider = _FakeLegacyProvider()
+
+    with (
+        patch("app.shared.services.llm.providers.create", return_value=fake_provider),
+        patch(
+            "app.shared.services.ai.utils.get_project_overview",
+            return_value={"schemas": [], "constraints": [], "transforms": [], "regex_nodes": [], "settings": {}},
+        ),
+    ):
+        result = await orchestrator.execute_chat(
+            message="test",
+            project_path="/fake/project",
+            context_nodes=[],
+            options=ChatOptions(agent_mode=False),
+        )
+
+    # 功能正确：旧路径正常返回
+    assert result.success is True
+    assert result.reply == "ok"
+
+    # 核心回归断言：provider.chat 在调用方（测试）的同一 event loop 上执行，
+    # 而非子线程 asyncio.run() 创建的临时 loop。
+    assert captured_loop.get("loop") is test_loop

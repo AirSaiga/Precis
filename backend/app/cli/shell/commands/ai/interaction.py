@@ -70,7 +70,7 @@ def confirm_actions(actions: list[dict[str, Any]], reply: str) -> bool:
                 if len(tables) == 1:
                     display = f"校验表: {tables[0]}"
                 else:
-                    display = f"校验 {len(tables)} 个表"
+                    display = f"校验 {len(tables)} 张表: {', '.join(tables)}"
             elif table_name and table_name != "所有表":
                 display = f"校验表: {table_name}"
             else:

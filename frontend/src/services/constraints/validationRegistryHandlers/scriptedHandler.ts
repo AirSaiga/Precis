@@ -65,6 +65,9 @@ register({
       sheet_name: ctx.sheetName,
       header_row: ctx.headerRow,
       column_data_type: ctx.columnDataType,
+      json_path: ctx.jsonPath,
+      json_format: ctx.jsonFormat,
+      record_path: ctx.recordPath,
       validation_config: {
         script,
         script_name: String(nodeData.configName || 'custom_script'),

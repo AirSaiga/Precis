@@ -248,7 +248,6 @@
    */
   const defaultTypeOptions: TypeOption[] = [
     { value: 'string', label: 'String' },
-    { value: 'integer', label: 'Int' },
     { value: 'number', label: 'Number' },
     { value: 'boolean', label: 'Boolean' },
     { value: 'object', label: 'Object' },
@@ -261,7 +260,6 @@
    */
   const itemsTypeOptions: TypeOption[] = [
     { value: 'string', label: 'String' },
-    { value: 'integer', label: 'Int' },
     { value: 'number', label: 'Number' },
     { value: 'boolean', label: 'Boolean' },
     { value: 'object', label: 'Object' },

@@ -22,6 +22,7 @@ import { useConstraintBase } from './useConstraintBase'
 import { useGraphStore } from '@/stores/graphStore'
 import { validateAllowedValues } from '@/api/validationApi'
 import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
+import { findJsonSchemaColumnById } from '@/utils/nodes/json/columnFinder'
 import type { AllowedValuesConstraintNodeData } from '@/types/graph'
 
 /**
@@ -152,7 +153,14 @@ export function useAllowedValues(
    */
   const getSchemaColumnName = (schemaNodeId: string, columnId: string) => {
     const node = store.nodes.find((n) => n.id === schemaNodeId)
-    if (!node || node.type !== 'schema') return null
+    if (!node || (node.type !== 'schema' && node.type !== 'jsonSchema')) return null
+
+    if (node.type === 'jsonSchema') {
+      const columns = ((node.data as unknown as Record<string, unknown>).columns as import('@/types/graph').JsonSchemaColumn[]) || []
+      const found = findJsonSchemaColumnById(columns, columnId)
+      return found?.column.columnName || null
+    }
+
     const columns = (node.data as unknown as Record<string, unknown>).columns || []
     const col = (columns as Array<{ id: string; columnName: string }>).find(
       (c) => c.id === columnId
@@ -206,6 +214,7 @@ export function useAllowedValues(
 
       if (
         sourceNode.type !== 'schema' &&
+        sourceNode.type !== 'jsonSchema' &&
         sourceNode.type !== 'manualData' &&
         sourceNode.type !== 'transformOutput'
       ) {

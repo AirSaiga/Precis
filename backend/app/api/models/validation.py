@@ -27,7 +27,7 @@
     )
 """
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 
 from pydantic import BaseModel, Field
 
@@ -166,6 +166,26 @@ class ValidationRequest(BaseModel):
     column_data_type: Optional[str] = Field(
         None, description="目标列在 Schema 中声明的数据类型（如 string/integer/decimal）"
     )  # 用于单节点校验时按 Schema 类型转换目标列，保持与全量校验行为一致
+    json_path: Optional[str] = Field(
+        None, description="JSON 数据源的 JSONPath 表达式（可选）"
+    )  # 用于从嵌套 JSON 中提取目标记录数组
+    json_format: Optional[Literal["auto", "array", "lines", "object"]] = Field(
+        None, description="JSON 数据源格式：auto | array | lines | object（可选）"
+    )  # 用于指定 JSON 文件的解析方式
+    record_path: Optional[str] = Field(
+        None, description="JSON 数据源的 record_path，用于展开嵌套数组（可选）"
+    )  # 用于将嵌套 JSON 数组扁平化为 DataFrame 行
+
+    def to_source_config(self) -> Optional[dict[str, Any]]:
+        """构建 JSON 数据源配置字典，仅在有 JSON 相关字段时返回。"""
+        cfg: dict[str, Any] = {}
+        if self.json_path is not None:
+            cfg["json_path"] = self.json_path
+        if self.json_format is not None:
+            cfg["json_format"] = self.json_format
+        if self.record_path is not None:
+            cfg["record_path"] = self.record_path
+        return cfg if cfg else None
 
 
 class InlineValidationRequest(BaseModel):

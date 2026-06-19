@@ -121,11 +121,19 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
   // ---- 调用后端获取文件预览数据 ----
   let previewData: Record<string, unknown>
   try {
+    const jsonOptions = isJsonSchema
+      ? {
+          jsonPath: (schemaData as JsonSchemaNodeData).jsonPath,
+          jsonFormat: (schemaData as JsonSchemaNodeData).format,
+          recordPath: (schemaData as JsonSchemaNodeData).recordPath,
+        }
+      : undefined
     previewData = await fetchPreviewDataFromPath(
       resolvedLocalPath,
       65535,
       65535,
-      schemaData.sheetName
+      schemaData.sheetName,
+      jsonOptions
     )
     logger.debug('[bindDataSource] 预览数据获取成功')
   } catch (error: any) {

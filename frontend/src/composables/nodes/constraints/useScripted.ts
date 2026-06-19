@@ -23,6 +23,7 @@ import { useGraphStore } from '@/stores/graphStore'
 import { validateScripted } from '@/api/validationApi'
 import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
 import { useSettingsStore } from '@/stores/settingsStore'
+import { findJsonSchemaColumnById } from '@/utils/nodes/json/columnFinder'
 import type { ScriptedConstraintNodeData } from '@/types/constraints'
 
 /**
@@ -117,7 +118,14 @@ export function UseScripted(props: { id: string; data: ScriptedConstraintNodeDat
    */
   const getSchemaColumnName = (schemaNodeId: string, columnId: string): string | null => {
     const node = store.nodes.find((n) => n.id === schemaNodeId)
-    if (!node || node.type !== 'schema') return null
+    if (!node || (node.type !== 'schema' && node.type !== 'jsonSchema')) return null
+
+    if (node.type === 'jsonSchema') {
+      const columns = ((node.data as unknown as Record<string, unknown>).columns as import('@/types/graph').JsonSchemaColumn[]) || []
+      const found = findJsonSchemaColumnById(columns, columnId)
+      return found?.column.columnName || null
+    }
+
     const columns = (node.data as unknown as Record<string, unknown>).columns || []
     const col = (columns as Array<{ id: string; columnName: string }>).find(
       (c) => c.id === columnId
@@ -202,6 +210,7 @@ export function UseScripted(props: { id: string; data: ScriptedConstraintNodeDat
       // 验证源节点类型
       if (
         sourceNode.type !== 'schema' &&
+        sourceNode.type !== 'jsonSchema' &&
         sourceNode.type !== 'manualData' &&
         sourceNode.type !== 'transformOutput'
       ) {

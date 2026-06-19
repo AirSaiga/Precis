@@ -73,7 +73,7 @@ def load_file_data(
     - Excel (.xlsx, .xls): 使用 openpyxl 引擎，支持多 sheet
     - CSV (.csv): 默认 UTF-8 编码
     - JSON (.json): 支持对象数组和嵌套对象（自动扁平化）
-    - JSON Lines (.jsonl): 每行一个 JSON 对象，适合大文件
+    - JSON Lines (.jsonl, .ndjson): 每行一个 JSON 对象，适合大文件
 
     参数:
         source_file_path: 源文件路径
@@ -120,9 +120,10 @@ def load_file_data(
             encoding=sc.get("encoding", encoding),
             delimiter=sc.get("delimiter", delimiter),
         )
-    elif file_ext in [".json", ".jsonl"]:
-        fmt = sc.get("format", "auto")
-        if file_ext == ".jsonl":
+    elif file_ext in [".json", ".jsonl", ".ndjson"]:
+        # 前端使用 json_format 字段透传 JSON 解析格式，兼容 format 别名
+        fmt = sc.get("format") or sc.get("json_format") or "auto"
+        if file_ext in [".jsonl", ".ndjson"]:
             fmt = "lines"
         spec = JSONSourceSpec(
             path=source_file_path,

@@ -554,7 +554,7 @@ export function useCanvasNodeOperations(flowWrapper: Ref<HTMLElement | null>) {
                 fileName: fileName || name || fileId,
                 sourceMode: sourceMode as 'localfile',
                 localPath: localPath || fileId,
-                format: 'json',
+                format: 'auto' as const,
                 jsonPath: '',
                 recordPath: '',
               }

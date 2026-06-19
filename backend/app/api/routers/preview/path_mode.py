@@ -101,7 +101,7 @@ def preview_file_by_path(request: FilePathPreviewRequest):
             file_type = "excel"
         elif file_ext == ".csv":
             file_type = "csv"
-        elif file_ext == ".json":
+        elif file_ext in [".json", ".jsonl", ".ndjson"]:
             file_type = "json"
         else:
             raise HTTPException(status_code=400, detail=f"不支持的文件类型: {file_ext}")

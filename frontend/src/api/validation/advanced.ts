@@ -9,6 +9,7 @@ import apiClient from '@/core/services/httpClient'
 import { VALIDATION_API_PATH } from './core'
 import type {
   ValidationResponse,
+  ValidationRequestBase,
   AllowedValuesValidationRequest,
   ConditionalValidationRequest,
   ForeignKeyValidationRequest,
@@ -331,12 +332,8 @@ export async function validateCharset(
   }
 }
 
-export interface DateLogicValidationRequest {
+export interface DateLogicValidationRequest extends ValidationRequestBase {
   validation_type: 'date_logic'
-  target_column_name: string
-  source_file_path: string
-  sheet_name?: string
-  header_row?: number
   validation_config?: Record<string, unknown>
 }
 

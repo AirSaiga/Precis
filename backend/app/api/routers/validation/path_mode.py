@@ -123,6 +123,7 @@ def validate_data_with_path(request: ValidationRequest):
             target_column_name=request.target_column_name,
             validation_config=request.validation_config,
             column_data_type=request.column_data_type,
+            source_config=request.to_source_config(),
         )
 
         # 记录校验完成状态

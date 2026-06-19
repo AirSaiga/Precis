@@ -175,7 +175,7 @@ export function useJsonSchemaSourceManager(
       sheetName: sourceData.currentSheet,
       jsonPath: sourceData.jsonPath || '',
       recordPath: sourceData.recordPath || '',
-      format: sourceData.format || 'json',
+      format: sourceData.format || 'auto',
     }
 
     store.updateNodeData(props.id, updatedSchemaData)
@@ -217,7 +217,7 @@ export function useJsonSchemaSourceManager(
         localPath: sourceData.localPath,
         jsonPath: sourceData.jsonPath || '',
         recordPath: sourceData.recordPath || '',
-        format: sourceData.format || 'json',
+        format: sourceData.format || 'auto',
       }
     },
     generateColumns: (sourceNode, existingColumns) => {

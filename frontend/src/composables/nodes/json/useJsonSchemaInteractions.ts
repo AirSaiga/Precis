@@ -26,6 +26,10 @@ import { ref, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
 import type { JsonSchemaNodeData, JsonSchemaColumn } from '@/types/nodes'
+import {
+  findJsonSchemaColumnById,
+  updateJsonSchemaColumnsRecursive,
+} from '@/utils/nodes/json/columnFinder'
 import { useNodeColumnEditing } from '../shared/useNodeColumnEditing'
 
 export interface JsonSchemaInteractionsProps {
@@ -61,13 +65,14 @@ export function useJsonSchemaInteractions(
 
   const snappingColumnIds = ref<Set<string>>(new Set())
   const knownEdgeIds = ref<Set<string>>(new Set())
+  const unwatchers: (() => void)[] = []
 
   // ============================================================================
   // 列编辑通用逻辑
   // ============================================================================
 
   const genericEditing = useNodeColumnEditing<JsonSchemaColumn>(props, emit, {
-    findColumn: (id) => props.data.columns.find((c) => c.id === id),
+    findColumn: (id) => findColumnRecursive(props.data.columns, id),
     createColumn: (partial) =>
       ({
         id: partial.id || crypto.randomUUID(),
@@ -115,12 +120,29 @@ export function useJsonSchemaInteractions(
     notNullConstraint: 'notNull',
     uniqueConstraint: 'unique',
     allowedValuesConstraint: 'allowedValues',
+    rangeConstraint: 'range',
     foreignKeyConstraint: 'foreignKey',
     conditionalConstraint: 'conditional',
     scriptedConstraint: 'scripted',
     charsetConstraint: 'charset',
     dateLogicConstraint: 'dateLogic',
+    compositeConstraint: 'composite',
   }
+
+  /**
+   * 递归查找嵌套列（委托给共享工具 columnFinder）
+   */
+  const findColumnRecursive = (
+    columns: JsonSchemaColumn[],
+    id: string
+  ): JsonSchemaColumn | undefined => {
+    return findJsonSchemaColumnById(columns, id)?.column
+  }
+
+  /**
+   * 递归更新嵌套列数组（委托给共享工具 columnFinder）
+   */
+  const updateColumnsRecursive = updateJsonSchemaColumnsRecursive
 
   /**
    * 触发某一列的右端点吸附动画
@@ -151,7 +173,7 @@ export function useJsonSchemaInteractions(
    * 监视 Graph Store 中边列表的变化，检测新增连接
    */
   const watchConnectionChanges = () => {
-    watch(
+    const stop = watch(
       () => store.edges.map((e) => e.id),
       (newEdgeIdList) => {
         const currentKnown = knownEdgeIds.value
@@ -177,6 +199,7 @@ export function useJsonSchemaInteractions(
       },
       { deep: false }
     )
+    unwatchers.push(stop)
   }
 
   /**
@@ -218,7 +241,7 @@ export function useJsonSchemaInteractions(
     if (targetNode && targetNode.type !== 'schema' && targetNode.type !== 'jsonSchema') {
       const constraintType = targetNode.type ? constraintNodeTypeMap[targetNode.type] : undefined
       if (constraintType) {
-        const updatedColumns = props.data.columns.map((col) => {
+        const updatedColumns = updateColumnsRecursive(props.data.columns, (col) => {
           if (col.id === columnId) {
             const currentConstraints = col.constraints || {}
             return {
@@ -253,18 +276,52 @@ export function useJsonSchemaInteractions(
    * ```
    */
   const createTableRelation = (columnId: string, targetNodeId: string, targetColumnId?: string) => {
-    const sourceColumn = props.data.columns.find((col) => col.id === columnId)
+    const sourceColumn = findColumnRecursive(props.data.columns, columnId)
+
     if (sourceColumn) {
+      // 解析目标列名：优先从目标 Schema 节点中查找对应列
+      let targetColumnName = targetColumnId || targetNodeId
+      if (targetColumnId) {
+        const targetNode = store.nodes.find((n) => n.id === targetNodeId)
+        if (targetNode) {
+          const targetData = (targetNode.data || {}) as Record<string, unknown>
+          // 递归查找嵌套 JSON 列（支持 jsonSchema 的 children 树形结构）
+          const findTargetColumn = (
+            cols: Array<{ id: string; columnName: string; children?: unknown[] }>
+          ): { columnName: string } | undefined => {
+            for (const c of cols) {
+              if (c.id === targetColumnId) return c
+              if (c.children && c.children.length > 0) {
+                const found = findTargetColumn(
+                  c.children as Array<{ id: string; columnName: string; children?: unknown[] }>
+                )
+                if (found) return found
+              }
+            }
+            return undefined
+          }
+          const targetColumns = (targetData.columns || []) as Array<{
+            id: string
+            columnName: string
+            children?: unknown[]
+          }>
+          const targetColumn = findTargetColumn(targetColumns)
+          if (targetColumn) {
+            targetColumnName = targetColumn.columnName
+          }
+        }
+      }
+
       const relationData = {
         type: 'foreign_key',
         sourceColumn: sourceColumn.columnName,
-        targetColumn: targetNodeId,
+        targetColumn: targetColumnName,
         targetColumnId: targetColumnId,
         constraintName: `FK_${props.data.tableName}_${sourceColumn.columnName}`,
         relationType: 'many_to_one',
       }
       emit('constraint-create', relationData)
-      const updatedColumns = props.data.columns.map((col) =>
+      const updatedColumns = updateColumnsRecursive(props.data.columns, (col) =>
         col.id === columnId ? { ...col, relation: relationData, isForeignKey: true } : col
       )
       store.updateNodeData(props.id, {
@@ -308,7 +365,7 @@ export function useJsonSchemaInteractions(
     if (editingColumnName.value === columnId) {
       return ''
     }
-    const column = props.data.columns.find((col) => col.id === columnId)
+    const column = findColumnRecursive(props.data.columns, columnId)
     return column?.columnName || ''
   }
 
@@ -319,7 +376,7 @@ export function useJsonSchemaInteractions(
    * @param jsonPath - 新的 JSONPath
    */
   const updateColumnJsonPath = (columnId: string, jsonPath: string) => {
-    const updatedColumns = props.data.columns.map((col) =>
+    const updatedColumns = updateColumnsRecursive(props.data.columns, (col) =>
       col.id === columnId ? { ...col, jsonPath } : col
     )
     store.updateNodeData(props.id, {
@@ -342,7 +399,7 @@ export function useJsonSchemaInteractions(
     constraintType: 'notNull' | 'unique' | 'allowedValues',
     enabled: boolean
   ) => {
-    const updatedColumns = props.data.columns.map((col) => {
+    const updatedColumns = updateColumnsRecursive(props.data.columns, (col) => {
       if (col.id === columnId) {
         const currentConstraints = col.constraints || {}
         return {
@@ -425,7 +482,7 @@ export function useJsonSchemaInteractions(
    * 检测从 JsonSourcePreview 到当前节点的连接
    */
   const watchSourceConnection = () => {
-    watch(
+    const stop = watch(
       () => store.edges,
       (edges) => {
         const sourceEdge = edges.find(
@@ -451,6 +508,7 @@ export function useJsonSchemaInteractions(
       },
       { deep: true }
     )
+    unwatchers.push(stop)
   }
 
   /**
@@ -463,7 +521,7 @@ export function useJsonSchemaInteractions(
     columnId: string,
     patternData: { pattern: string; patternName?: string }
   ) => {
-    const updatedColumns = props.data.columns.map((col) => {
+    const updatedColumns = updateColumnsRecursive(props.data.columns, (col) => {
       if (col.id === columnId) {
         return {
           ...col,
@@ -494,6 +552,8 @@ export function useJsonSchemaInteractions(
     knownEdgeIds.value.clear()
     columnInputRefs.value = {}
     genericEditing.cancelColumnEdit()
+    unwatchers.forEach((stop) => stop())
+    unwatchers.length = 0
   }
 
   return {

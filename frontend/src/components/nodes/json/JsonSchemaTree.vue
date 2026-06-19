@@ -27,7 +27,7 @@
             :depth="item.level"
             :is-editing="editingId === item.id"
             :is-hovered="hoveredColumnId === item.id"
-            :show-constraint-menu="constraintMenuColumnId === item.id"
+            :show-constraint-menu="activeMenuColumnId === item.id && activeMenuType === 'constraint'"
             @start-edit="startEdit"
             @confirm-edit="confirmEdit"
             @cancel-edit="cancelEdit"
@@ -54,34 +54,32 @@
       </template>
     </div>
 
-    <!-- 类型选择下拉菜单（Teleport） -->
-    <Teleport to="body">
-      <div
-        v-if="activeTypeDropdown"
-        class="type-dropdown-menu"
-        :style="{ top: dropdownPosition.top + 'px', left: dropdownPosition.left + 'px' }"
-        @click.stop
-      >
-        <div
-          v-for="opt in typeOptions"
-          :key="opt"
-          class="type-option"
-          :class="'type-' + opt"
-          @click="selectType(activeTypeDropdown, opt)"
-        >
-          {{ opt }}
-        </div>
-      </div>
-    </Teleport>
+    <!-- 列操作下拉菜单（约束 / 类型 / 数组元素类型） -->
+    <JsonSchemaNodeColumnMenuDropdown
+      :show="!!activeMenuColumnId"
+      :menu-type="activeMenuType || 'constraint'"
+      :position="dropdownPosition"
+      :column-id="activeMenuColumnId || ''"
+      :constraints="activeColumn?.constraints"
+      :current-type="activeColumn?.dataType"
+      :current-items-type="activeColumn?.arrayItemType"
+      @close="closeDropdown"
+      @toggle-constraint="handleEnableConstraint"
+      @remove-all-constraints="handleRemoveAllConstraints"
+      @select-type="handleSelectType"
+      @select-items-type="handleSelectItemsType"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-  import { ref, computed } from 'vue'
+  import { ref, computed, onBeforeUnmount, onMounted } from 'vue'
   import { Handle, Position } from '@vue-flow/core'
   import type { JsonSchemaColumn } from '@/types/graph'
   import { useGraphStore } from '@/stores/graphStore'
+  import { findJsonSchemaColumnById } from '@/utils/nodes/json/columnFinder'
   import JsonSchemaNodeColumnRow from './components/JsonSchemaNodeColumnRow.vue'
+  import JsonSchemaNodeColumnMenuDropdown from './components/JsonSchemaNodeColumnMenuDropdown.vue'
   import '@/components/nodes/json/JsonSchemaTree.styles.css'
 
   const props = defineProps<{
@@ -97,10 +95,9 @@
   const editingId = ref<string | null>(null)
   const hoveredColumnId = ref<string | null>(null)
   const hoveredErrorColumn = ref<string | null>(null)
-  const constraintMenuColumnId = ref<string | null>(null)
-  const activeTypeDropdown = ref<string | null>(null)
+  const activeMenuColumnId = ref<string | null>(null)
+  const activeMenuType = ref<'constraint' | 'type' | 'itemsType' | null>(null)
   const dropdownPosition = ref({ top: 0, left: 0 })
-  const typeOptions = ['string', 'number', 'boolean', 'object', 'array', 'null']
 
   // ==================== 计算属性 ====================
 
@@ -153,6 +150,12 @@
     return nextLevel < currentLevel
   }
 
+  // 当前激活菜单对应的列
+  const activeColumn = computed(() => {
+    if (!activeMenuColumnId.value) return undefined
+    return findColumnById(props.columns, activeMenuColumnId.value)
+  })
+
   // 已连接的列 ID 集合
   const connectedColumnIds = computed(() => {
     const store = useGraphStore()
@@ -166,6 +169,14 @@
   })
 
   // ==================== 列操作 ====================
+
+  // 递归按 ID 查找列（委托给共享工具 columnFinder）
+  const findColumnById = (
+    cols: JsonSchemaColumn[],
+    id: string
+  ): JsonSchemaColumn | undefined => {
+    return findJsonSchemaColumnById(cols, id)?.column
+  }
 
   // 递归更新列
   const updateColumn = (
@@ -194,16 +205,59 @@
     editingId.value = columnId
   }
 
+  /**
+   * 递归更新所有后代列的 JSONPath 前缀
+   * 当父列名称变更时，子列路径前缀应同步更新
+   */
+  const updateDescendantPaths = (
+    children: JsonSchemaColumn[] | undefined,
+    oldPrefix: string,
+    newPrefix: string
+  ): JsonSchemaColumn[] | undefined => {
+    if (!children || children.length === 0) return children
+    return children.map((child) => {
+      const updatedPath = child.jsonPath.startsWith(oldPrefix + '.')
+        ? newPrefix + child.jsonPath.slice(oldPrefix.length)
+        : child.jsonPath
+      return {
+        ...child,
+        jsonPath: updatedPath,
+        children: updateDescendantPaths(child.children, oldPrefix, newPrefix),
+      }
+    })
+  }
+
+  /**
+   * 递归重命名列，并同步更新其所有后代列的 JSONPath
+   */
+  const renameColumnWithChildren = (
+    cols: JsonSchemaColumn[],
+    columnId: string,
+    newName: string
+  ): JsonSchemaColumn[] => {
+    return cols.map((c) => {
+      if (c.id === columnId) {
+        const oldPath = c.jsonPath
+        const lastDot = oldPath.lastIndexOf('.')
+        const newPath = lastDot > 0 ? oldPath.substring(0, lastDot) + '.' + newName : '$.' + newName
+        return {
+          ...c,
+          columnName: newName,
+          jsonPath: newPath,
+          children: updateDescendantPaths(c.children, oldPath, newPath),
+        }
+      }
+      if (c.children) {
+        return { ...c, children: renameColumnWithChildren(c.children, columnId, newName) }
+      }
+      return c
+    })
+  }
+
   const confirmEdit = (columnId: string, name: string) => {
     editingId.value = null
     if (name) {
-      const cols = updateColumn(props.columns, columnId, (c) => {
-        const oldPath = c.jsonPath
-        const lastDot = oldPath.lastIndexOf('.')
-        const newPath = lastDot > 0 ? oldPath.substring(0, lastDot) + '.' + name : '$.' + name
-        return { ...c, columnName: name, jsonPath: newPath }
-      })
-      emit('update', cols)
+      emit('update', renameColumnWithChildren(props.columns, columnId, name))
     }
   }
 
@@ -235,37 +289,91 @@
   // ==================== 菜单操作 ====================
 
   const toggleConstraintMenu = (columnId: string, event: MouseEvent) => {
-    constraintMenuColumnId.value = columnId
+    if (activeMenuColumnId.value === columnId && activeMenuType.value === 'constraint') {
+      activeMenuColumnId.value = null
+      activeMenuType.value = null
+      return
+    }
+    activeMenuColumnId.value = columnId
+    activeMenuType.value = 'constraint'
     const rect = (event.target as HTMLElement).getBoundingClientRect()
     dropdownPosition.value = { top: rect.bottom + 4, left: rect.left }
-    activeTypeDropdown.value = null
   }
 
   const toggleTypeDropdown = (columnId: string, event: MouseEvent) => {
-    activeTypeDropdown.value = columnId
+    if (activeMenuColumnId.value === columnId && activeMenuType.value === 'type') {
+      activeMenuColumnId.value = null
+      activeMenuType.value = null
+      return
+    }
+    activeMenuColumnId.value = columnId
+    activeMenuType.value = 'type'
     const rect = (event.target as HTMLElement).getBoundingClientRect()
     dropdownPosition.value = { top: rect.bottom + 4, left: rect.left }
-    constraintMenuColumnId.value = null
   }
 
-  const selectType = (id: string, type: string) => {
+  const handleSelectType = (id: string, type: string) => {
     const cols = updateColumn(props.columns, id, (c) => ({
       ...c,
       dataType: type as JsonSchemaColumn['dataType'],
     }))
     emit('update', cols)
-    activeTypeDropdown.value = null
+    activeMenuColumnId.value = null
+    activeMenuType.value = null
+  }
+
+  const handleEnableConstraint = (id: string, constraintType: 'notNull' | 'unique') => {
+    const cols = updateColumn(props.columns, id, (c) => ({
+      ...c,
+      constraints: {
+        ...c.constraints,
+        [constraintType]: true,
+      },
+    }))
+    emit('update', cols)
+    activeMenuColumnId.value = null
+    activeMenuType.value = null
+  }
+
+  const handleRemoveAllConstraints = (id: string) => {
+    const cols = updateColumn(props.columns, id, (c) => ({
+      ...c,
+      constraints: undefined,
+    }))
+    emit('update', cols)
+    activeMenuColumnId.value = null
+    activeMenuType.value = null
+  }
+
+  const handleSelectItemsType = (id: string, type: string) => {
+    const cols = updateColumn(props.columns, id, (c) => ({
+      ...c,
+      arrayItemType: type as JsonSchemaColumn['arrayItemType'],
+    }))
+    emit('update', cols)
+    activeMenuColumnId.value = null
+    activeMenuType.value = null
   }
 
   // 点击外部关闭下拉
   const closeDropdown = () => {
-    activeTypeDropdown.value = null
-    constraintMenuColumnId.value = null
+    activeMenuColumnId.value = null
+    activeMenuType.value = null
   }
 
-  if (typeof document !== 'undefined') {
-    document.addEventListener('click', closeDropdown)
+  const onDocumentClick = (event: MouseEvent) => {
+    const target = event.target as HTMLElement
+    if (target.closest('.json-tree')) return
+    closeDropdown()
   }
+
+  onMounted(() => {
+    document.addEventListener('click', onDocumentClick)
+  })
+
+  onBeforeUnmount(() => {
+    document.removeEventListener('click', onDocumentClick)
+  })
 
   // ==================== 暴露方法 ====================
 

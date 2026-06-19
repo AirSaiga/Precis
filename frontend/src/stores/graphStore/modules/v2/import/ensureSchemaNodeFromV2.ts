@@ -16,9 +16,9 @@
  */
 
 import type { Ref } from 'vue'
-import type { CustomNode, SchemaNodeData } from '@/types/graph'
+import type { CustomNode, SchemaNodeData, JsonSchemaColumn } from '@/types/graph'
 import { getV2Schema } from '@/api/projectV2Api'
-import { fromBackendType } from '@/services/builders'
+import { fromBackendType, fromJsonBackendType } from '@/services/builders'
 import { normalizePath } from '@/core/utils/pathNormalization'
 import { addNodes } from '@/services/canvas/vueFlowApi'
 
@@ -39,13 +39,34 @@ export function createEnsureSchemaNodeFromV2(params: {
     if (existing) return existing
 
     const schema = await getV2Schema(tableId)
-    const cols = (schema.columns || []).map((col) => ({
-      id: col.id,
-      columnName: col.name,
-      dataType: fromBackendType(col.type),
-      validationErrors: [],
-      constraints: {},
-    }))
+
+    // 递归转换列定义，JSON schema 保留嵌套 children 与 json_path
+    const convertColumns = (columns: any[]): JsonSchemaColumn[] => {
+      return (columns || []).map((col) => {
+        const isJsonColumn = col.json_path !== undefined || (col.children && col.children.length > 0)
+        const dataType = isJsonColumn
+          ? (fromJsonBackendType(col.type) as JsonSchemaColumn['dataType'])
+          : (fromBackendType(col.type).toLowerCase() as JsonSchemaColumn['dataType'])
+
+        const column: JsonSchemaColumn = {
+          id: col.id,
+          columnName: col.name,
+          dataType,
+          jsonPath: col.json_path || '',
+          nullable: col.nullable,
+          primaryKey: col.primary_key,
+          validationErrors: [],
+          constraints: {},
+        }
+        if (col.children && col.children.length > 0) {
+          column.children = convertColumns(col.children)
+          column.isExpanded = col.expand ?? false
+        }
+        return column
+      })
+    }
+
+    const cols = convertColumns(schema.columns || [])
 
     const configPath = getEffectiveProjectConfigPath()
     // 默认回退为 relative_file，防止后端返回的 mode 为空或未声明时 localPath 丢失

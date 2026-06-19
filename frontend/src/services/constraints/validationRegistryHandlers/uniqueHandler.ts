@@ -41,7 +41,13 @@ register({
       String(ctx.sourceFilePath),
       ctx.columnName,
       ctx.sheetName,
-      ctx.headerRow
+      ctx.headerRow,
+      {
+        jsonPath: ctx.jsonPath,
+        jsonFormat: ctx.jsonFormat,
+        recordPath: ctx.recordPath,
+        columnDataType: ctx.columnDataType,
+      }
     )
     return {
       status: result.errorCount > 0 ? 'error' : 'pass',

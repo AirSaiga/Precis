@@ -1,0 +1,12 @@
+version: 2
+id: t-1
+type: StringSplit
+enabled: true
+input_from_node: sc_users
+input_column: full_name
+params:
+  strategy: delimiter
+  delimiter: ' '
+output_columns:
+- first_name
+- last_name

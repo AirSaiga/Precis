@@ -184,7 +184,7 @@ export function useJsonSchemaSaving(props: { id: string; data: JsonSchemaNodeDat
     if (data.recordPath) {
       yamlLines.push(`  recordPath: ${data.recordPath}`)
     }
-    yamlLines.push(`  format: ${data.format || 'json'}`)
+    yamlLines.push(`  format: ${data.format || 'auto'}`)
     yamlLines.push('')
     yamlLines.push('columns:')
 
@@ -259,7 +259,7 @@ export function useJsonSchemaSaving(props: { id: string; data: JsonSchemaNodeDat
             jsonPath: String(c.jsonPath || ''),
             dataType: String(c.type || c.dataType || 'string') as JsonSchemaColumn['dataType'],
             nullable: c.nullable === false ? false : undefined,
-            primaryKey: !!c.primaryKey,
+            primaryKey: (c.primaryKey ?? c.primary_key) || undefined,
             description: c.description ? String(c.description) : undefined,
             constraints: constraints
               ? {

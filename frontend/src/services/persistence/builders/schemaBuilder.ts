@@ -152,50 +152,60 @@ function buildSourceSpec(node: CustomNode): TableSchemaFileV2['source'] {
  * Schema Builder 实现
  */
 /**
- * 从列定义的 constraints 标志构建内嵌约束项
+ * 从列定义的 constraints 标志构建内嵌约束项（支持嵌套 children）
  */
-function buildColumnConstraints(columns: SchemaColumn[]): ConstraintItemV2[] {
+function buildColumnConstraints(columns: SchemaColumn[] | JsonSchemaColumn[]): ConstraintItemV2[] {
   const result: ConstraintItemV2[] = []
-  for (const col of columns) {
-    if (!col.constraints) continue
 
-    if (col.constraints.notNull) {
-      result.push({
-        id: `${col.id || col.columnName}_notNull`,
-        type: 'NotNull',
-        enabled: true,
-        description: `NotNull constraint for ${col.columnName}`,
-        column: col.columnName,
-        params: {},
-      })
-    }
+  const walk = (cols: SchemaColumn[] | JsonSchemaColumn[]) => {
+    for (const col of cols) {
+      if (col.constraints) {
+        if (col.constraints.notNull) {
+          result.push({
+            id: `${col.id || col.columnName}_notNull`,
+            type: 'NotNull',
+            enabled: true,
+            description: `NotNull constraint for ${col.columnName}`,
+            column: col.columnName,
+            params: {},
+          })
+        }
 
-    if (col.constraints.unique) {
-      result.push({
-        id: `${col.id || col.columnName}_unique`,
-        type: 'Unique',
-        enabled: true,
-        description: `Unique constraint for ${col.columnName}`,
-        column: col.columnName,
-        params: {},
-      })
-    }
+        if (col.constraints.unique) {
+          result.push({
+            id: `${col.id || col.columnName}_unique`,
+            type: 'Unique',
+            enabled: true,
+            description: `Unique constraint for ${col.columnName}`,
+            column: col.columnName,
+            params: {},
+          })
+        }
 
-    if (
-      col.constraints.allowedValues &&
-      Array.isArray(col.constraints.allowedValues) &&
-      col.constraints.allowedValues.length > 0
-    ) {
-      result.push({
-        id: `${col.id || col.columnName}_allowedValues`,
-        type: 'AllowedValues',
-        enabled: true,
-        description: `AllowedValues constraint for ${col.columnName}`,
-        column: col.columnName,
-        params: { allowed_values: col.constraints.allowedValues.map(String) },
-      })
+        if (
+          col.constraints.allowedValues &&
+          Array.isArray(col.constraints.allowedValues) &&
+          col.constraints.allowedValues.length > 0
+        ) {
+          result.push({
+            id: `${col.id || col.columnName}_allowedValues`,
+            type: 'AllowedValues',
+            enabled: true,
+            description: `AllowedValues constraint for ${col.columnName}`,
+            column: col.columnName,
+            params: { allowed_values: col.constraints.allowedValues.map(String) },
+          })
+        }
+      }
+
+      // 递归处理 JSON 嵌套子列
+      if ('children' in col && col.children && col.children.length > 0) {
+        walk(col.children)
+      }
     }
   }
+
+  walk(columns)
   return result
 }
 
@@ -271,11 +281,11 @@ export const schemaBuilder: NodeBuilder<TableSchemaFileV2> = {
       ? flattenJsonColumns((data as JsonSchemaNodeData).columns)
       : columns
 
-    // 收集内嵌约束
-    const embeddedConstraints = isJsonSchema ? [] : collectEmbeddedConstraints(node, nodes)
-    const columnConstraints = isJsonSchema
-      ? []
-      : buildColumnConstraints((data as SchemaNodeData).columns)
+    // 收集内嵌约束（JSON schema 同样支持列级约束和子节点约束）
+    const embeddedConstraints = collectEmbeddedConstraints(node, nodes)
+    const columnConstraints = buildColumnConstraints(
+      isJsonSchema ? (data as JsonSchemaNodeData).columns : (data as SchemaNodeData).columns
+    )
 
     return {
       consumed: true,

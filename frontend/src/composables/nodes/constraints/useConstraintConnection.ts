@@ -18,7 +18,8 @@ import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
 import { dispatchValidation } from '@/services/constraints/orchestration/globalValidation'
 import { validateForInlineSource } from '@/services/constraints/validationRegistryCore'
-import type { SchemaNodeData } from '@/types/graph'
+import { findJsonSchemaColumnById } from '@/utils/nodes/json/columnFinder'
+import type { SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
 
 export interface ConstraintConnectionConfig {
   /** 约束类型标识，用于 dispatchValidation 和 addConstraintToColumn */
@@ -88,8 +89,17 @@ export function useConstraintConnection() {
       columnId = sourceHandle.startsWith('source-right-')
         ? sourceHandle.replace('source-right-', '')
         : sourceHandle
-      const schemaData = sourceNode.data as SchemaNodeData
-      const column = schemaData.columns.find((c: any) => c.id === columnId)
+      const schemaData = sourceNode.data as SchemaNodeData | JsonSchemaNodeData
+      let column: { columnName: string } | undefined
+      if (sourceNode.type === 'jsonSchema') {
+        const found = findJsonSchemaColumnById(
+          (schemaData as JsonSchemaNodeData).columns,
+          columnId
+        )
+        column = found ? found.column : undefined
+      } else {
+        column = schemaData.columns.find((c: any) => c.id === columnId)
+      }
       if (!column) {
         logger.warn('❌ 未找到连接的列:', columnId)
         return

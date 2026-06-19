@@ -1,0 +1,8 @@
+version: 2
+id: c-notnull
+type: NotNull
+enabled: true
+refs:
+  table_id: sc_users
+  column_id: col-name
+params: {}

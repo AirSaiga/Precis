@@ -1,0 +1,14 @@
+version: 2
+id: r-email
+name: Email Pattern
+description: Validates email format
+pattern_overrides: {}
+pattern: ^[\w.-]+@[\w.-]+\.\w+$
+match_mode: full
+case_sensitive: false
+flags: ''
+enabled: true
+parameters: []
+rules: []
+capture_groups: []
+output_columns: []

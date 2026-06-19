@@ -147,11 +147,6 @@ class JSONLoader(DataSourceLoader[JSONSourceSpec]):
                 else:
                     records = [extracted] if extracted is not None else []
 
-            # 支持 record_path 展开嵌套数组（B15）
-            record_path = getattr(self.spec, "record_path", None)
-            if record_path and isinstance(records, list):
-                records = self._apply_record_path(records, record_path)
-
             df = self._convert_to_dataframe(records)
 
             if self.spec.flatten and self._has_nested_structure(df):
@@ -220,6 +215,9 @@ class JSONLoader(DataSourceLoader[JSONSourceSpec]):
                 standardized.append({"value": record})
 
         # 支持 record_path 展开嵌套数组（B15）
+        # 设计说明：record_path 统一由 pd.json_normalize 处理，不再需要预标准化步骤。
+        # pd.json_normalize 的 record_path 参数会自动将嵌套数组展开为独立行，
+        # 与之前的手动 _apply_record_path 逻辑等价，且更可靠。
         record_path = getattr(self.spec, "record_path", None)
         if record_path:
             meta_prefix = getattr(self.spec, "meta_prefix", "meta.")
@@ -233,45 +231,6 @@ class JSONLoader(DataSourceLoader[JSONSourceSpec]):
         else:
             df = pd.json_normalize(standardized)
         return df
-
-    def _apply_record_path(self, records: list[dict], record_path: str) -> list[dict]:
-        """
-        @methoddesc 手动展开 record_path，用于在类型转换前处理嵌套数组（B15）。
-
-        例如，record_path="orders" 会将每条记录中的 orders 数组展开为多行，
-        每行包含原始记录字段和展开后的数组元素字段。
-
-        Args:
-            records: 原始记录列表
-            record_path: 要展开的嵌套属性路径，使用点号分隔（如 "orders" 或 "data.items"）
-
-        Returns:
-            展开后的记录列表。如果 record_path 不存在或目标不是列表，返回原始记录
-
-        示例:
-            >>> records = [{"id": 1, "orders": [{"price": 10}, {"price": 20}]}]
-            >>> result = loader._apply_record_path(records, "orders")
-            >>> # result: [{"id": 1, "price": 10}, {"id": 1, "price": 20}]
-        """
-        result: list[dict] = []
-        path_parts = record_path.split(".")
-        for record in records:
-            target = record
-            for part in path_parts:
-                if isinstance(target, dict) and part in target:
-                    target = target[part]
-                else:
-                    target = None
-                    break
-            if isinstance(target, list):
-                for item in target:
-                    if isinstance(item, dict):
-                        result.append({**record, **item})
-                    else:
-                        result.append({**record, record_path: item})
-            elif target is not None:
-                result.append(record)
-        return result if result else records
 
     def _has_nested_structure(self, df: pd.DataFrame) -> bool:
         """

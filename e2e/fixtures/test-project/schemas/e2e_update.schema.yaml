@@ -1,0 +1,40 @@
+version: 2
+id: sc_e2e_update
+name: Updated Schema
+source:
+  mode: relative_file
+  path: data/users.csv
+  header_row: 0
+columns:
+- id: col-id
+  name: id
+  type: Int
+  primary_key: false
+  nullable: true
+  expand: false
+- id: col-name
+  name: name
+  type: Str
+  primary_key: false
+  nullable: true
+  expand: false
+- id: col-email
+  name: email
+  type: Str
+  primary_key: false
+  nullable: true
+  expand: false
+- id: col-age
+  name: age
+  type: Int
+  primary_key: false
+  nullable: true
+  expand: false
+- id: col-phone
+  name: phone
+  type: Str
+  primary_key: false
+  nullable: true
+  expand: false
+constraints: []
+script_checks: []

@@ -59,8 +59,20 @@
 
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
-import type { CustomNode, CustomNodeData, RegexNodeData, SchemaNodeData } from '@/types/graph'
+import type {
+  CustomNode,
+  CustomNodeData,
+  RegexNodeData,
+  SchemaNodeData,
+  JsonSchemaNodeData,
+  JsonSchemaColumn,
+  SchemaColumn,
+} from '@/types/graph'
 import { addEdges, removeEdges } from '@/services/canvas/vueFlowApi'
+import {
+  findJsonSchemaColumnById,
+  updateJsonSchemaColumnsRecursive,
+} from '@/utils/nodes/json/columnFinder'
 
 export function createSchemaOpsModule(params: {
   nodes: Ref<CustomNode[]>
@@ -71,12 +83,20 @@ export function createSchemaOpsModule(params: {
   const { nodes, edges, updateNodeData, syncOnConnect } = params
 
   function bindRegexToSchemaColumn(schemaNodeId: string, columnId: string, regexNodeId: string) {
-    const schemaNode = nodes.value.find((n) => n.id === schemaNodeId && n.type === 'schema')
+    const schemaNode = nodes.value.find(
+      (n) => n.id === schemaNodeId && (n.type === 'schema' || n.type === 'jsonSchema')
+    )
     const regexNode = nodes.value.find((n) => n.id === regexNodeId && n.type === 'regex')
     if (!schemaNode || !regexNode) return false
 
-    const schemaData = schemaNode.data as SchemaNodeData
-    const columnName = (schemaData.columns || []).find((c) => c.id === columnId)?.columnName || ''
+    const schemaData = schemaNode.data as SchemaNodeData | JsonSchemaNodeData
+    let columnName = ''
+    if (schemaNode.type === 'jsonSchema') {
+      const found = findJsonSchemaColumnById((schemaData as JsonSchemaNodeData).columns, columnId)
+      columnName = found?.column.columnName || ''
+    } else {
+      columnName = (schemaData as SchemaNodeData).columns.find((c) => c.id === columnId)?.columnName || ''
+    }
 
     // 先通过 API 删除该 Regex 节点的旧入边（触发 onEdgesChange 清理链）
     const oldEdges = edges.value.filter(
@@ -118,9 +138,29 @@ export function createSchemaOpsModule(params: {
     constraintType: 'notNull' | 'unique'
   ) {
     const node = nodes.value.find((n) => n.id === schemaNodeId)
-    if (node && node.type === 'schema') {
+    if (!node) return
+
+    if (node.type === 'schema') {
       const schemaData = node.data as SchemaNodeData
       const updatedColumns = schemaData.columns.map((column) => {
+        if (column.id === columnId) {
+          return {
+            ...column,
+            constraints: {
+              ...column.constraints,
+              [constraintType]: true,
+            },
+          }
+        }
+        return column
+      })
+      updateNodeData(schemaNodeId, {
+        ...schemaData,
+        columns: updatedColumns,
+      })
+    } else if (node.type === 'jsonSchema') {
+      const schemaData = node.data as JsonSchemaNodeData
+      const updatedColumns = updateJsonSchemaColumnsRecursive(schemaData.columns, (column) => {
         if (column.id === columnId) {
           return {
             ...column,
@@ -145,18 +185,34 @@ export function createSchemaOpsModule(params: {
     constraintType: 'notNull' | 'unique'
   ) {
     const node = nodes.value.find((n) => n.id === schemaNodeId)
-    if (node && node.type === 'schema') {
+    if (!node) return
+
+    if (node.type === 'schema') {
       const schemaData = node.data as SchemaNodeData
       const updatedColumns = schemaData.columns.map((column) => {
         if (column.id === columnId && column.constraints) {
-          const updatedConstraints = {
-            ...column.constraints,
-          } as unknown as Record<string, unknown>
-          delete updatedConstraints[constraintType]
+          // 使用解构剔除模式替代 as unknown as + delete，保持类型安全
+          const { [constraintType]: _removed, ...rest } = column.constraints as Record<string, boolean>
           return {
             ...column,
-            constraints:
-              Object.keys(updatedConstraints).length > 0 ? updatedConstraints : undefined,
+            constraints: Object.keys(rest).length > 0 ? rest : undefined,
+          }
+        }
+        return column
+      })
+      updateNodeData(schemaNodeId, {
+        ...schemaData,
+        columns: updatedColumns,
+      })
+    } else if (node.type === 'jsonSchema') {
+      const schemaData = node.data as JsonSchemaNodeData
+      const updatedColumns = updateJsonSchemaColumnsRecursive(schemaData.columns, (column) => {
+        if (column.id === columnId && column.constraints) {
+          // 使用解构剔除模式替代 as unknown as + delete，保持类型安全
+          const { [constraintType]: _removed, ...rest } = column.constraints as Record<string, boolean>
+          return {
+            ...column,
+            constraints: Object.keys(rest).length > 0 ? rest : undefined,
           }
         }
         return column
@@ -174,53 +230,86 @@ export function createSchemaOpsModule(params: {
     constraintType: 'notNull' | 'unique'
   ): boolean {
     const node = nodes.value.find((n) => n.id === schemaNodeId)
-    if (node && node.type === 'schema') {
+    if (!node) return false
+
+    if (node.type === 'schema') {
       const schemaData = node.data as SchemaNodeData
       const column = schemaData.columns.find((col) => col.id === columnId)
       return column?.constraints?.[constraintType] === true
+    } else if (node.type === 'jsonSchema') {
+      const schemaData = node.data as JsonSchemaNodeData
+      const found = findJsonSchemaColumnById(schemaData.columns, columnId)
+      return found?.column.constraints?.[constraintType] === true
     }
     return false
   }
 
   function clearColumnValidationErrors(schemaNodeId: string, columnId: string): void {
     const node = nodes.value.find((n) => n.id === schemaNodeId)
-    if (!node || node.type !== 'schema') {
+    if (!node || (node.type !== 'schema' && node.type !== 'jsonSchema')) {
       return
     }
 
-    const schemaData = node.data as SchemaNodeData
-    const updatedColumns = schemaData.columns.map((col) => {
-      if (col.id === columnId) {
-        return {
-          ...col,
-          validationErrors: [],
+    if (node.type === 'schema') {
+      const schemaData = node.data as SchemaNodeData
+      const updatedColumns = schemaData.columns.map((col) => {
+        if (col.id === columnId) {
+          return {
+            ...col,
+            validationErrors: [],
+          }
         }
-      }
-      return col
-    })
-
-    updateNodeData(schemaNodeId, {
-      ...schemaData,
-      columns: updatedColumns,
-    })
+        return col
+      })
+      updateNodeData(schemaNodeId, {
+        ...schemaData,
+        columns: updatedColumns,
+      })
+    } else {
+      const schemaData = node.data as JsonSchemaNodeData
+      const updatedColumns = updateJsonSchemaColumnsRecursive(schemaData.columns, (col) => {
+        if (col.id === columnId) {
+          return {
+            ...col,
+            validationErrors: [],
+          }
+        }
+        return col
+      })
+      updateNodeData(schemaNodeId, {
+        ...schemaData,
+        columns: updatedColumns,
+      })
+    }
   }
 
   function clearAllValidationErrors(schemaNodeId: string): void {
     const node = nodes.value.find((n) => n.id === schemaNodeId)
-    if (!node || node.type !== 'schema') {
+    if (!node || (node.type !== 'schema' && node.type !== 'jsonSchema')) {
       return
     }
 
-    const schemaData = node.data as SchemaNodeData
-    const updatedColumns = schemaData.columns.map((col) => ({
-      ...col,
-      validationErrors: [],
-    }))
-
-    updateNodeData(schemaNodeId, {
-      ...schemaData,
-      columns: updatedColumns,
-    })
+    if (node.type === 'schema') {
+      const schemaData = node.data as SchemaNodeData
+      const updatedColumns = schemaData.columns.map((col) => ({
+        ...col,
+        validationErrors: [],
+      }))
+      updateNodeData(schemaNodeId, {
+        ...schemaData,
+        columns: updatedColumns,
+      })
+    } else {
+      const schemaData = node.data as JsonSchemaNodeData
+      const updatedColumns = updateJsonSchemaColumnsRecursive(schemaData.columns, (col) => ({
+        ...col,
+        validationErrors: [],
+      }))
+      updateNodeData(schemaNodeId, {
+        ...schemaData,
+        columns: updatedColumns,
+      })
+    }
   }
 
   return {

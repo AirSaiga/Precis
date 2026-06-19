@@ -32,45 +32,47 @@ export const VALIDATION_API_PATH = '/validate'
 // ========================================
 
 /**
- * 非空约束校验请求参数
- * 用于检查指定列是否存在空值
+ * 校验请求公共字段
  */
-export interface NotNullValidationRequest {
-  /** 校验类型标识，固定为 'not_null' */
-  validation_type: 'not_null'
+export interface ValidationRequestBase {
   /** 目标列名，需要校验的列名称 */
   target_column_name: string
-  /** 源文件路径，被校验的Excel或CSV文件路径 */
+  /** 源文件路径，被校验的Excel/CSV/JSON文件路径 */
   source_file_path: string
-  /** 工作表名称，Excel文件的工作表名称，CSV文件可省略 */
+  /** 工作表名称，Excel文件的工作表名称，CSV/JSON文件可省略 */
   sheet_name?: string
   /** 表头行号，表头所在行号，默认为0（第一行） */
   header_row?: number
-  /** 校验配置，可选的额外校验参数 */
-  validation_config?: Record<string, unknown>
   /** 目标列在 Schema 中声明的数据类型，用于单节点校验时按 Schema 类型转换 */
   column_data_type?: string
+  /** JSON 数据源的 JSONPath 表达式 */
+  json_path?: string
+  /** JSON 数据源格式：auto | array | lines | object */
+  json_format?: string
+  /** JSON 数据源的 record_path，用于展开嵌套数组 */
+  record_path?: string
+}
+
+/**
+ * 非空约束校验请求参数
+ * 用于检查指定列是否存在空值
+ */
+export interface NotNullValidationRequest extends ValidationRequestBase {
+  /** 校验类型标识，固定为 'not_null' */
+  validation_type: 'not_null'
+  /** 校验配置，可选的额外校验参数 */
+  validation_config?: Record<string, unknown>
 }
 
 /**
  * 唯一性约束校验请求参数
  * 用于检查指定列的值是否唯一（无重复）
  */
-export interface UniqueValidationRequest {
+export interface UniqueValidationRequest extends ValidationRequestBase {
   /** 校验类型标识，固定为 'unique' */
   validation_type: 'unique'
-  /** 目标列名，需要校验的列名称 */
-  target_column_name: string
-  /** 源文件路径，被校验的Excel或CSV文件路径 */
-  source_file_path: string
-  /** 工作表名称，Excel文件的工作表名称，CSV文件可省略 */
-  sheet_name?: string
-  /** 表头行号，表头所在行号，默认为0（第一行） */
-  header_row?: number
   /** 校验配置，可选的额外校验参数 */
   validation_config?: Record<string, unknown>
-  /** 目标列在 Schema 中声明的数据类型，用于单节点校验时按 Schema 类型转换 */
-  column_data_type?: string
 }
 
 // ========================================
@@ -242,12 +244,8 @@ export async function validateUnique(
  * 允许值约束校验请求参数
  * 检查列值是否在允许的值列表中
  */
-export interface AllowedValuesValidationRequest {
+export interface AllowedValuesValidationRequest extends ValidationRequestBase {
   validation_type: 'allowed_values'
-  target_column_name: string
-  source_file_path: string
-  sheet_name?: string
-  header_row?: number
   validation_config?: {
     /**
      * 允许值列表
@@ -259,19 +257,14 @@ export interface AllowedValuesValidationRequest {
      */
     allowed_values: Array<string | number | boolean>
   }
-  column_data_type?: string
 }
 
 /**
  * 条件约束校验请求参数
  * 根据条件逻辑执行校验
  */
-export interface ConditionalValidationRequest {
+export interface ConditionalValidationRequest extends ValidationRequestBase {
   validation_type: 'conditional'
-  target_column_name: string
-  source_file_path: string
-  sheet_name?: string
-  header_row?: number
   validation_config?: {
     if_column?: string
     if_value?: string | number | boolean
@@ -286,77 +279,56 @@ export interface ConditionalValidationRequest {
     then_condition?: Record<string, unknown> | string
     then_condition_config?: Record<string, unknown> | string
   }
-  column_data_type?: string
 }
 
 /**
  * 外键约束校验请求参数
  * 检查列值是否在参照表中存在
  */
-export interface ForeignKeyValidationRequest {
+export interface ForeignKeyValidationRequest extends ValidationRequestBase {
   validation_type: 'foreign_key'
-  target_column_name: string
-  source_file_path: string
-  sheet_name?: string
-  header_row?: number
   validation_config?: {
     target_table: string
     target_column: string
     target_values?: string[]
   }
-  column_data_type?: string
 }
 
 /**
  * 脚本约束校验请求参数
  * 使用自定义脚本执行校验
  */
-export interface ScriptedValidationRequest {
+export interface ScriptedValidationRequest extends ValidationRequestBase {
   validation_type: 'scripted'
-  target_column_name: string
-  source_file_path: string
-  sheet_name?: string
-  header_row?: number
   validation_config?: {
     script: string
     script_name?: string
   }
   allow_unsafe_eval?: boolean
-  column_data_type?: string
 }
 
 /**
  * 区间约束校验请求参数
  * 验证数值是否在指定范围内
  */
-export interface RangeValidationRequest {
+export interface RangeValidationRequest extends ValidationRequestBase {
   validation_type: 'range'
-  target_column_name: string
-  source_file_path: string
-  sheet_name?: string
-  header_row?: number
   validation_config?: {
     min_value?: number
     max_value?: number
     boundary_mode?: 'inclusive' | 'exclusive'
   }
-  column_data_type?: string
 }
 
 /**
  * 字符集约束校验请求参数
  * 验证字符串是否符合指定字符集要求
  */
-export interface CharsetValidationRequest {
+export interface CharsetValidationRequest extends ValidationRequestBase {
   validation_type: 'charset'
-  target_column_name: string
-  source_file_path: string
-  sheet_name?: string
-  header_row?: number
   validation_config?: {
     charset_mode?: 'ascii' | 'chinese'
   }
-  column_data_type?: string
 }
 
 // ========================================

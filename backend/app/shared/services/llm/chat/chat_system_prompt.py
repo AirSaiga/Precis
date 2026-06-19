@@ -112,6 +112,19 @@ SYSTEM_PROMPT_JSON_FORMAT = """
     ]
 }
 
+当用户指定校验多张表时（如"校验 orders 和 users 表"）：
+{
+    "reply": "我将校验 orders 和 users 表的数据",
+    "actions": [
+        {
+            "actionType": "VALIDATE_PROJECT",
+            "constraintSpec": {
+                "tables": ["orders", "users"]
+            }
+        }
+    ]
+}
+
 说明：你可以使用表名（如 "users"），系统会自动解析为对应的表ID。如果表名模糊匹配到多个表，用户会被提示选择正确的表。
 
 ### 示例 3：添加约束

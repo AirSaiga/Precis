@@ -154,6 +154,7 @@ import type {
   ConstraintValidationHandler,
   ConstraintValidationResult,
 } from './types'
+import { findJsonSchemaColumnById, extractJsonTargetValues } from '@/utils/nodes/json/columnFinder'
 
 export const CONSTRAINT_TYPES: ConstraintTypeMeta[] = [
   { nodeType: 'notNullConstraint', kind: 'notNull', v2Type: 'NotNull', requireInputHandle: false },
@@ -266,10 +267,39 @@ export const getTargetValues = (
 ): string[] => {
   if (
     !targetSchemaNode ||
-    (targetSchemaNode.type !== 'schema' && targetSchemaNode.type !== 'jsonSchema')
+    (targetSchemaNode.type !== 'schema' &&
+      targetSchemaNode.type !== 'jsonSchema' &&
+      targetSchemaNode.type !== 'sourcePreview' &&
+      targetSchemaNode.type !== 'jsonSourcePreview')
   )
     return []
+
   const targetSchemaData = (targetSchemaNode.data || {}) as Record<string, unknown>
+
+  // JSON 数据源：直接从 rawData 对象数组中提取字段值
+  if (targetSchemaNode.type === 'jsonSourcePreview') {
+    const rawData = (targetSchemaData?.rawData as unknown[]) || []
+    return extractJsonTargetValues(rawData, targetColumnName)
+  }
+
+  if (targetSchemaNode.type === 'jsonSchema') {
+    let rawData: unknown[] = []
+    if (Array.isArray(targetSchemaData?.originalData) || Array.isArray(targetSchemaData?.data)) {
+      rawData =
+        (targetSchemaData?.originalData as unknown[]) || (targetSchemaData?.data as unknown[]) || []
+    } else if (nodes) {
+      const sourceNodeId = targetSchemaData?.sourceNodeId as string | undefined
+      if (sourceNodeId) {
+        const sourcePreviewNode = nodes.find((n) => n.id === sourceNodeId)
+        if (sourcePreviewNode?.type === 'jsonSourcePreview') {
+          rawData = ((sourcePreviewNode.data || {}) as Record<string, unknown>)?.rawData as unknown[]
+        }
+      }
+    }
+    return extractJsonTargetValues(rawData, targetColumnName)
+  }
+
+  // Tabular 数据源
   let rows =
     (targetSchemaData?.originalData as unknown[]) || (targetSchemaData?.data as unknown[]) || []
 
@@ -300,6 +330,8 @@ export const getTargetValues = (
     .map((v) => String(v))
   return Array.from(new Set(values))
 }
+
+  // extractJsonTargetValues 委托给共享工具 columnFinder（含 50000 条上限保护）
 
 export function register(handler: ConstraintValidationHandler) {
   handlers.set(handler.kind, handler)
@@ -349,10 +381,22 @@ export function buildValidationContext(params: {
   if (!sourceHandle.startsWith('source-right-')) return null
   const columnId = sourceHandle.replace('source-right-', '')
   const schemaData = (schemaNode.data || {}) as Record<string, unknown>
-  const column = ((schemaData.columns || []) as unknown[]).find(
-    (c) => (c as Record<string, unknown>).id === columnId
-  ) as Record<string, unknown> | undefined
+
+  // 根据节点类型查找列：jsonSchema 支持嵌套 children，schema 保持平面查找
+  let column: Record<string, unknown> | undefined
+  if (schemaNode.type === 'jsonSchema') {
+    const found = findJsonSchemaColumnById(
+      schemaData.columns as import('@/types/graph').JsonSchemaColumn[],
+      columnId
+    )
+    column = found ? (found.column as unknown as Record<string, unknown>) : undefined
+  } else {
+    column = ((schemaData.columns || []) as unknown[]).find(
+      (c) => (c as Record<string, unknown>).id === columnId
+    ) as Record<string, unknown> | undefined
+  }
   if (!column) return null
+
   return {
     nodes: params.nodes,
     schemaNode,
@@ -365,6 +409,9 @@ export function buildValidationContext(params: {
     sourceFile: schemaData.sourceFile as string,
     sheetName: schemaData.sheetName as string,
     headerRow: typeof schemaData.headerRow === 'number' ? schemaData.headerRow : 0,
+    jsonPath: (schemaData.jsonPath as string) || undefined,
+    recordPath: (schemaData.recordPath as string) || undefined,
+    jsonFormat: (schemaData.format as string) || undefined,
   }
 }
 

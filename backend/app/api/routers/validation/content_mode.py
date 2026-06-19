@@ -113,6 +113,7 @@ def validate_data(request: ValidationRequest):
             validation_config=request.validation_config,
             allow_unsafe_eval=request.allow_unsafe_eval,
             column_data_type=request.column_data_type,
+            source_config=request.to_source_config(),
         )
 
     except FileNotFoundError as e:

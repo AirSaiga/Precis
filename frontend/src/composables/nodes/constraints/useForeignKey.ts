@@ -22,6 +22,7 @@ import type { ForeignKeyConstraintNodeData } from '../types'
 import { useGraphStore } from '@/stores/graphStore'
 import { validateForeignKey } from '@/api/validationApi'
 import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
+import { findJsonSchemaColumnById, extractJsonTargetValues } from '@/utils/nodes/json/columnFinder'
 
 /**
  * 外键校验结果
@@ -83,7 +84,14 @@ export function useForeignKey(
    */
   const getSchemaColumnName = (schemaNodeId: string, columnId: string) => {
     const node = store.nodes.find((n) => n.id === schemaNodeId)
-    if (!node || node.type !== 'schema') return null
+    if (!node || (node.type !== 'schema' && node.type !== 'jsonSchema')) return null
+
+    if (node.type === 'jsonSchema') {
+      const columns = ((node.data as unknown as Record<string, unknown>).columns as import('@/types/graph').JsonSchemaColumn[]) || []
+      const found = findJsonSchemaColumnById(columns, columnId)
+      return found?.column.columnName || null
+    }
+
     const columns = ((node.data as unknown as Record<string, unknown>).columns as unknown[]) || []
     const col = columns.find((c: any) => c.id === columnId) as Record<string, unknown> | undefined
     return (col?.columnName as string) || null
@@ -148,11 +156,29 @@ export function useForeignKey(
       return extractTargetValuesFromSourcePreview(targetNode.data, targetColumnName)
     }
 
+    if (targetNode.type === 'jsonSourcePreview') {
+      return extractJsonTargetValues(
+        ((targetNode.data as unknown as Record<string, unknown>)?.rawData as unknown[]) || [],
+        targetColumnName
+      )
+    }
+
     if (targetNode.type === 'schema') {
       const sourceNodeId = (targetNode.data as unknown as Record<string, unknown>).sourceNodeId
       const sourcePreviewNode = store.nodes.find((n) => n.id === sourceNodeId)
       if (sourcePreviewNode?.type === 'sourcePreview') {
         return extractTargetValuesFromSourcePreview(sourcePreviewNode.data, targetColumnName)
+      }
+    }
+
+    if (targetNode.type === 'jsonSchema') {
+      const sourceNodeId = (targetNode.data as unknown as Record<string, unknown>).sourceNodeId
+      const sourcePreviewNode = store.nodes.find((n) => n.id === sourceNodeId)
+      if (sourcePreviewNode?.type === 'jsonSourcePreview') {
+        return extractTargetValuesFromJsonData(
+          ((sourcePreviewNode.data as unknown as Record<string, unknown>)?.rawData as unknown[]) || [],
+          targetColumnName
+        )
       }
     }
     return []
@@ -170,9 +196,9 @@ export function useForeignKey(
    */
   const getTargetTableName = (targetNode: any) => {
     if (!targetNode) return props.data.targetTable || ''
-    if (targetNode.type === 'schema')
+    if (targetNode.type === 'schema' || targetNode.type === 'jsonSchema')
       return ((targetNode.data as unknown as Record<string, unknown>).tableName as string) || ''
-    if (targetNode.type === 'sourcePreview')
+    if (targetNode.type === 'sourcePreview' || targetNode.type === 'jsonSourcePreview')
       return (
         ((targetNode.data as unknown as Record<string, unknown>).sourceName as string) ||
         ((targetNode.data as unknown as Record<string, unknown>).fileName as string) ||
@@ -244,7 +270,7 @@ export function useForeignKey(
         return emptyResult
       }
 
-      if (sourceNode.type !== 'schema') {
+      if (sourceNode.type !== 'schema' && sourceNode.type !== 'jsonSchema') {
         store.updateNodeData(props.id, {
           validationStatus: 'missing',
           validationErrors: ['外键校验的源必须是 Schema 节点'],

@@ -138,6 +138,10 @@ register({
       source_file_path: String(ctx.sourceFilePath),
       sheet_name: ctx.sheetName,
       header_row: ctx.headerRow,
+      column_data_type: ctx.columnDataType,
+      json_path: ctx.jsonPath,
+      json_format: ctx.jsonFormat,
+      record_path: ctx.recordPath,
       validation_config: {
         if_logic: (nodeData.ifLogic as 'and' | 'or' | undefined) || 'and',
         if_conditions: normalizedIf,

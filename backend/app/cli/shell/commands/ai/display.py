@@ -194,6 +194,35 @@ def _display_results_without_diff(result, project_path: str) -> None:
     _display_constraint_results(results)
 
 
+def _format_validate_table_display(table_filter: str | list[str] | None) -> str:
+    """根据校验的 table_filter 推导出用于展示的"表"描述文案。
+
+    校验结果详情（validate_details）里的 table_filter 才是真实信息源：
+    - None/空 → 全量校验
+    - 字符串 → 单表校验
+    - 列表 → 多表校验
+
+    Args:
+        table_filter: validate_executor 返回的 details.table_filter 值
+
+    Returns:
+        适合直接拼接进 "✓ 表 '...' 数据校验通过" 的描述文案
+    """
+    # 全量校验（None 或空字符串/空列表）
+    if not table_filter:
+        return "全部表"
+    # 单表（字符串）
+    if isinstance(table_filter, str):
+        return table_filter
+    # 列表形式
+    tables = [t for t in table_filter if t]
+    if not tables:
+        return "全部表"
+    if len(tables) == 1:
+        return tables[0]
+    return f"{len(tables)} 张表（{', '.join(tables)}）"
+
+
 def _display_constraint_results(results: list[dict]) -> None:
     """显示操作结果。
 
@@ -224,8 +253,20 @@ def _display_constraint_results(results: list[dict]) -> None:
         msg = r.get("message", "")
         details = r.get("validate_details", {})
         has_errors = details.get("has_errors", False) if details else False
-        action_spec = r.get("action", {}).get("constraintSpec", {})
-        table_display = action_spec.get("tableName", "指定表")
+        # 展示文案优先取 action.constraintSpec 里的"原始表名"（用户友好）：
+        # - 多表：spec.tables（表名列表）
+        # - 单表：spec.tableName（表名，resolver 解析后仍保留原名）
+        # - 全量：两者都没有 → fallback 到 validate_details.table_filter（None）
+        # 注意：validate_details.table_filter 在 resolver 解析后会变成"表 ID"（加密串），
+        # 直接展示对用户不友好，故仅作兜底。
+        spec = r.get("action", {}).get("constraintSpec", {}) or {}
+        raw_tables = spec.get("tables")
+        if isinstance(raw_tables, list) and raw_tables:
+            table_display = _format_validate_table_display(raw_tables)
+        else:
+            single_name = spec.get("tableName")
+            fallback = single_name or (details.get("table_filter") if details else None)
+            table_display = _format_validate_table_display(fallback)
 
         if has_errors:
             print(Formatter.warning("\n" + "=" * 50))

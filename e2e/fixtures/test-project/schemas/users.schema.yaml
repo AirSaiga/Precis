@@ -1,21 +1,22 @@
-id: users
-name: Users Table
-description: E2E test user data
-
+version: 2
+id: sc_users
+name: users
 source:
-  mode: relative_file
-  path: data/users.csv
-
+  mode: absolute_file
+  path: /data/users.csv
+  header_row: 0
 columns:
-  - name: id
-    type: integer
-    description: User ID
-  - name: name
-    type: string
-    description: User name
-  - name: email
-    type: string
-    description: Email address
-  - name: age
-    type: integer
-    description: User age
+- id: col-name
+  name: name
+  type: Str
+  primary_key: false
+  nullable: true
+  expand: false
+- id: col-email
+  name: email
+  type: Str
+  primary_key: false
+  nullable: true
+  expand: false
+constraints: []
+script_checks: []

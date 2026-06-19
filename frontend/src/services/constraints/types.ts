@@ -57,6 +57,10 @@ export interface ConstraintValidationContext {
   headerRow?: number
   /** 目标列在 Schema 中声明的数据类型（如 String/Integer/Decimal） */
   columnDataType?: string
+  /** JSON 数据源特有选项 */
+  jsonPath?: string
+  recordPath?: string
+  jsonFormat?: string
   /** 行内数据行（来自 TransformOutput / ManualData 等非文件数据源） */
   inlineRows?: string[][]
   /** 行内数据列名（提供时 rows 全部视为数据行，不再将第一行视为表头） */

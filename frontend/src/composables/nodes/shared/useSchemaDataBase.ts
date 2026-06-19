@@ -11,7 +11,7 @@
  * - updateColumn 统一使用 Object.assign，兼容 reactive 嵌套对象
  */
 
-import { reactive, nextTick } from 'vue'
+import { reactive, nextTick, toRaw } from 'vue'
 import { useGraphStore } from '@/stores/graphStore'
 import type { BaseSchemaColumn, BaseSchemaNodeData } from '../types'
 
@@ -33,11 +33,12 @@ export function useSchemaDataBase<
 >(props: { id: string; data: TNodeData }, emit: any, options?: SchemaDataBaseOptions<TColumn>) {
   const store = useGraphStore()
 
-  const schemaData = reactive<TNodeData>(JSON.parse(JSON.stringify(props.data)))
+  const schemaData = reactive<TNodeData>(structuredClone(toRaw(props.data)))
 
   const notifyDataChanged = () => {
     nextTick(() => {
       emit('dataChanged', schemaData)
+      store.updateNodeData(props.id, structuredClone(toRaw(schemaData)) as Record<string, unknown>)
     })
   }
 
