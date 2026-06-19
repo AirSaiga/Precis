@@ -109,7 +109,7 @@ def main() -> int:
         print(f"  → Opening browser at {url}")
         webbrowser.open(url)
 
-    print(f"\n  Server starting... (Ctrl+C to stop)")
+    print("\n  Server starting... (Ctrl+C to stop)")
     print(f"  {url}")
     print()
 

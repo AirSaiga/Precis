@@ -2,14 +2,14 @@ from __future__ import annotations
 
 import os
 
-from fastapi import APIRouter, HTTPException, Request
 import yaml
+from fastapi import APIRouter, HTTPException, Request
 
 from app.api.models.projects import (
+    CloseProjectResponse,
+    CurrentProjectResponse,
     OpenProjectRequest,
     OpenProjectResponse,
-    CurrentProjectResponse,
-    CloseProjectResponse,
 )
 
 router = APIRouter(prefix="", tags=["Projects-Open"])

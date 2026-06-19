@@ -228,7 +228,7 @@ async def health():
     return {"status": "ok"}
 
 
-@app.get("/api/version", summary="获取应用版本号")
+@app.get("/api/latest/version", summary="获取应用版本号")
 def get_version():
     """
     @methoddesc 返回当前应用版本号

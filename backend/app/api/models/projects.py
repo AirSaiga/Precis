@@ -5,6 +5,7 @@ from pydantic import BaseModel
 
 class ProjectInfo(BaseModel):
     """Single project info returned by scan."""
+
     name: str
     path: str
     schema_count: int
@@ -14,17 +15,20 @@ class ProjectInfo(BaseModel):
 
 class ScanResponse(BaseModel):
     """Response from project scan endpoint."""
+
     work_dir: str
     projects: list[ProjectInfo]
 
 
 class OpenProjectRequest(BaseModel):
     """Request body for opening a project."""
+
     path: str
 
 
 class OpenProjectResponse(BaseModel):
     """Response from opening a project."""
+
     success: bool
     name: str
     path: str
@@ -32,6 +36,7 @@ class OpenProjectResponse(BaseModel):
 
 class CurrentProjectResponse(BaseModel):
     """Response for current project query."""
+
     has_current: bool
     path: str | None = None
     name: str | None = None
@@ -39,4 +44,5 @@ class CurrentProjectResponse(BaseModel):
 
 class CloseProjectResponse(BaseModel):
     """Response from closing a project."""
+
     success: bool

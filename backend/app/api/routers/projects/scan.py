@@ -3,8 +3,8 @@ from __future__ import annotations
 import os
 from datetime import datetime
 
-from fastapi import APIRouter, HTTPException, Query
 import yaml
+from fastapi import APIRouter, HTTPException, Query
 
 from app.api.models.projects import ProjectInfo, ScanResponse
 

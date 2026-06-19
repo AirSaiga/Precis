@@ -31,6 +31,6 @@ def test_upload_file():
 
 def test_version():
     client = TestClient(app)
-    response = client.get("/api/version")
+    response = client.get("/api/latest/version")
     assert response.status_code == 200
     assert "version" in response.json()

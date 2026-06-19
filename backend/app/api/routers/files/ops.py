@@ -5,16 +5,16 @@ import os
 from fastapi import APIRouter, HTTPException
 
 from app.api.models.files import (
-    ReadFileRequest,
-    ReadFileResponse,
-    WriteFileRequest,
-    WriteFileResponse,
-    FileExistsResponse,
-    ScanDirectoryRequest,
-    ScanDirectoryResponse,
     DirectoryEntry,
+    FileExistsResponse,
     MkdirRequest,
     MkdirResponse,
+    ReadFileRequest,
+    ReadFileResponse,
+    ScanDirectoryRequest,
+    ScanDirectoryResponse,
+    WriteFileRequest,
+    WriteFileResponse,
 )
 
 router = APIRouter(prefix="", tags=["Files-Ops"])
@@ -88,11 +88,13 @@ def scan_directory(request: ScanDirectoryRequest) -> ScanDirectoryResponse:
                 ext = os.path.splitext(name)[1].lower()
                 if ext not in request.extensions:
                     continue
-            entries.append(DirectoryEntry(
-                name=name,
-                path=os.path.abspath(entry.path),
-                is_dir=entry.is_dir(),
-            ))
+            entries.append(
+                DirectoryEntry(
+                    name=name,
+                    path=os.path.abspath(entry.path),
+                    is_dir=entry.is_dir(),
+                )
+            )
         entries.sort(key=lambda e: (not e.is_dir, e.name.lower()))
         return ScanDirectoryResponse(entries=entries)
     except PermissionError:
