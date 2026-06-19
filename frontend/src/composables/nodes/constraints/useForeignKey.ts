@@ -175,7 +175,7 @@ export function useForeignKey(
       const sourceNodeId = (targetNode.data as unknown as Record<string, unknown>).sourceNodeId
       const sourcePreviewNode = store.nodes.find((n) => n.id === sourceNodeId)
       if (sourcePreviewNode?.type === 'jsonSourcePreview') {
-        return extractTargetValuesFromJsonData(
+        return extractJsonTargetValues(
           ((sourcePreviewNode.data as unknown as Record<string, unknown>)?.rawData as unknown[]) || [],
           targetColumnName
         )

@@ -259,7 +259,7 @@ export function useJsonSchemaSaving(props: { id: string; data: JsonSchemaNodeDat
             jsonPath: String(c.jsonPath || ''),
             dataType: String(c.type || c.dataType || 'string') as JsonSchemaColumn['dataType'],
             nullable: c.nullable === false ? false : undefined,
-            primaryKey: (c.primaryKey ?? c.primary_key) || undefined,
+            primaryKey: (c.primaryKey ?? c.primary_key) == null ? undefined : !!(c.primaryKey ?? c.primary_key),
             description: c.description ? String(c.description) : undefined,
             constraints: constraints
               ? {

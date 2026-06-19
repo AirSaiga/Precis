@@ -2,8 +2,8 @@ version: 2
 id: sc_products
 name: products
 source:
-  mode: absolute_file
-  path: /data/products.csv
+  mode: relative_file
+  path: data/products.csv
   header_row: 0
 columns:
 - id: col-name
