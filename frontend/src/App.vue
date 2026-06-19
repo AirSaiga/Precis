@@ -23,7 +23,14 @@
 -->
 
 <template>
-  <div class="app-layout" :class="{ 'is-resizing': layout.isLayoutTransitionDisabled.value }">
+  <!-- Web 模式下显示项目选择器 -->
+  <ProjectSelector
+    v-if="showProjectSelector"
+    @project-opened="handleProjectOpened"
+  />
+
+  <!-- 主应用布局 -->
+  <div v-else class="app-layout" :class="{ 'is-resizing': layout.isLayoutTransitionDisabled.value }">
     <!-- Level 1: Activity Bar (导航条) -->
     <aside
       class="activity-bar"
@@ -230,6 +237,7 @@
 
   import { logger } from '@/core/utils/logger'
   import { eventBus } from '@/core/eventBus'
+  import { isElectron } from '@/core/utils/electronDetector'
   import AssetLibraryNav from '@/components/layout/AssetLibraryNav.vue'
   import AssetLibrary from '@/components/layout/AssetLibrary.vue'
   import InspectorPanel from '@/components/layout/InspectorPanel.vue'
@@ -238,6 +246,7 @@
   // import AIChatDrawer from '@/components/common/AIChatDrawer.vue'
   import AppStatusBar from '@/components/layout/AppStatusBar.vue'
   import AppOverlayHost from '@/components/layout/AppOverlayHost.vue'
+  import ProjectSelector from '@/components/project/ProjectSelector.vue'
 
   import { useAppLayout } from '@/composables/useAppLayout'
   import { useAppBootstrap } from '@/composables/useAppBootstrap'
@@ -255,9 +264,13 @@
   const layout = useAppLayout()
   // useAppBootstrap: 应用启动引导（项目路径恢复、工作区初始化、键盘快捷键）
   // 返回 bootstrap（onMounted 调用）和 cleanup（onUnmounted 调用）
-  const { bootstrap, cleanup } = useAppBootstrap()
+  const { bootstrap, cleanup, continueBootstrapAfterProject } = useAppBootstrap()
   // useTheme: 初始化主题系统（CSS 变量切换）
   useTheme()
+
+  // --- Web 模式状态 ---
+  // Web 模式下（非 Electron），当没有已保存的项目时显示 ProjectSelector
+  const showProjectSelector = ref(!isElectron())
 
   // --- 局部状态 ---
 
@@ -277,6 +290,23 @@
 
   /** OverlayHost 组件引用，用于外部触发弹窗（如状态栏的"打开项目管理"） */
   const overlayHostRef = ref<InstanceType<typeof AppOverlayHost> | null>(null)
+
+  // --- Web 模式：项目选择处理 ---
+
+  /**
+   * 用户通过 ProjectSelector 选择项目后的处理。
+   * 关闭选择器，继续执行后续引导流程。
+   */
+  const handleProjectOpened = async (path: string) => {
+    try {
+      showProjectSelector.value = false
+      localStorage.setItem('lastProjectPath', path)
+      await continueBootstrapAfterProject(path)
+    } catch (error) {
+      logger.error('[App] Web 模式项目加载失败:', error)
+      showProjectSelector.value = true
+    }
+  }
 
   // --- 工作区 Tab 内联重命名 ---
 
@@ -407,10 +437,23 @@
     try {
       await bootstrap()
 
+      // Web 模式下，bootstrap 可能因为没有已保存项目而提前返回。
+      // 此时 showProjectSelector 保持 true，由用户选择项目。
+      if (showProjectSelector.value) {
+        // 不注册全局事件，等待用户选择项目
+        return
+      }
+
       window.addEventListener('mousemove', handleMouseMove as EventListener)
       window.addEventListener('resize', handleResize)
       eventBus.on('viewchange', handleViewChange)
-      eventBus.on('project-closed', handleProjectClosed)
+      eventBus.on('project-closed', () => {
+        handleProjectClosed()
+        // Web 模式下关闭项目后返回选择页
+        if (!isElectron()) {
+          showProjectSelector.value = true
+        }
+      })
     } catch (error) {
       logger.error('初始化工作区失败:', error)
     }

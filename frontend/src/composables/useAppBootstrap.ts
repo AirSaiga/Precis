@@ -39,6 +39,8 @@ import type { Shortcut } from '@/features/keyboard/types'
 import { logger } from '@/core/utils/logger'
 import { useInspectionStore } from '@/stores/inspectionStore'
 import { getV2FullConfig, ProjectNotFoundError } from '@/api/projectV2Api'
+import { isElectron } from '@/core/utils/electronDetector'
+import { openProject as webOpenProject, getCurrentProject } from '@/api/projectApi'
 
 /**
  * 提取路径的最后一层目录名作为项目名称
@@ -62,6 +64,7 @@ const basename = (p: string): string => {
 export interface BootstrapResult {
   bootstrap: () => Promise<void>
   cleanup: () => void
+  continueBootstrapAfterProject: (projectPath: string) => Promise<void>
   keyboardManager: ReturnType<typeof useKeyboardShortcuts> | null
 }
 
@@ -125,7 +128,7 @@ export function useAppBootstrap(): BootstrapResult {
    * 幂等性：通过 !graphStore.isProjectLoaded 守卫，防止重复初始化
    * 副作用：修改 projectStore、graphStore 的状态
    */
-  const bootstrapProjectPaths = async () => {
+  const bootstrapProjectPaths = async (): Promise<boolean> => {
     let configPath: string | undefined
     let dataPath: string | undefined
 
@@ -139,6 +142,15 @@ export function useAppBootstrap(): BootstrapResult {
     if (!configPath) {
       configPath = projectStore.currentPaths?.configPath || undefined
       dataPath = projectStore.currentPaths?.dataPath || undefined
+    }
+
+    // Web 模式下如果没有已保存的项目路径，返回 false
+    // 由 ProjectSelector 替代处理
+    if (!configPath) {
+      if (!isElectron()) {
+        return false
+      }
+      return false
     }
 
     if (configPath) {
@@ -172,14 +184,65 @@ export function useAppBootstrap(): BootstrapResult {
           if (window.electronAPI?.saveConfig) {
             await window.electronAPI.saveConfig('', '').catch(() => undefined)
           }
-          return
+          return false
         }
         // 其他错误（如后端未启动）暂不清理路径，避免网络抖动导致状态丢失
         logger.warn('[AppBootstrap] 验证项目路径时出错，保留路径待重试:', error)
         projectStore.setProjectPaths({ configPath, dataPath: dataPath || configPath })
       }
     }
+    return true
+  }
 
+  /**
+   * 在用户通过 ProjectSelector 选择项目后，继续执行引导流程。
+   * 设置项目路径、创建 projectRoot 后进入标准初始化流程。
+   */
+  const continueBootstrapAfterProject = async (projectPath: string) => {
+    projectStore.setProjectPaths({ configPath: projectPath, dataPath: projectPath })
+
+    // 验证项目并创建 projectRoot
+    if (!graphStore.isProjectLoaded) {
+      graphStore.createProject(basename(projectPath) || 'project', projectPath)
+      graphStore.createProjectRootNode({ x: 80, y: 80 })
+    }
+
+    // 执行 bootstrap 中剩余的步骤 2-5
+    await workspaceStore.initialize()
+    await canvasStore.initialize(projectStore.currentPaths?.configPath, graphStore)
+    dragStore.initializeDragState()
+
+    // 初始化键盘快捷键
+    keyboardManager = useKeyboardShortcuts({
+      getExecutionContext: () => ({ showFeedback: shortcutStore.showFeedback }),
+      userConfig: {
+        customShortcuts: buildCustomShortcutMap(),
+        disabledCommands: [...shortcutStore.config.disabledCommands],
+      },
+    })
+    keyboardManager.updateWhen(() => shortcutStore.enabled)
+
+    stopShortcutConfigWatch = watch(
+      () => shortcutStore.config,
+      (cfg) => {
+        if (!keyboardManager) return
+        keyboardManager.applyUserConfig({
+          customShortcuts: buildCustomShortcutMap(),
+          disabledCommands: [...cfg.disabledCommands],
+        })
+      },
+      { deep: true }
+    )
+
+    logger.debug('[App] Web 模式项目已加载，键盘快捷键系统已启动')
+  }
+
+  /**
+   * 创建项目并添加 projectRoot 节点（在 bootstrapProjectPaths 之后调用）。
+   *
+   * 幂等性：通过 !graphStore.isProjectLoaded 守卫，防止重复初始化
+   */
+  const createProjectIfLoaded = () => {
     if (!graphStore.isProjectLoaded) {
       const activeConfigPath = projectStore.currentPaths?.configPath
       if (activeConfigPath) {
@@ -202,8 +265,18 @@ export function useAppBootstrap(): BootstrapResult {
    * - 创建 shortcutStore.config 的深度 watch（用户修改快捷键配置时实时生效）
    */
   const bootstrap = async () => {
-    // Step 1: 恢复项目路径（Electron 模式）并创建项目
-    await bootstrapProjectPaths()
+    // Step 1: 恢复项目路径（Electron 或 Web localStorage）并创建项目
+    const hasProject = await bootstrapProjectPaths()
+
+    if (!hasProject) {
+      // 没有已保存的项目路径，由 ProjectSelector 处理
+      // 不执行后续步骤，不等启动键盘快捷键
+      logger.info('[AppBootstrap] 无项目路径，等待用户选择')
+      return
+    }
+
+    // 创建项目节点（如果 bootstrapProjectPaths 已设置路径但未创建）
+    createProjectIfLoaded()
 
     // Step 2: 初始化数据源工作区（非画布 Tab 工作区，而是数据源配置）
     await workspaceStore.initialize()
@@ -265,6 +338,8 @@ export function useAppBootstrap(): BootstrapResult {
   return {
     // 启动主流程：串行初始化项目路径 → 工作区 → 画布 → 拖拽 → 快捷键
     bootstrap,
+    // Web 模式：用户在 ProjectSelector 中选择项目后继续引导
+    continueBootstrapAfterProject,
     // 清理函数：在 onUnmounted 中调用，防止内存泄漏
     cleanup,
     // 通过 getter 暴露 keyboardManager，使外部可访问但不可直接赋值
