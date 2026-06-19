@@ -64,4 +64,31 @@ def test_scan_nonexistent_directory():
 def test_scan_without_required_param():
     client = TestClient(app)
     response = client.get("/api/latest/projects/scan")
-    assert response.status_code == 422
+    assert response.status_code == 400
+    assert "请指定 work_dir" in response.json()["detail"]
+
+
+def test_scan_uses_env_var_fallback():
+    """当不传 work_dir 时，应从 PRECIS_WORK_DIR 环境变量读取。"""
+    import tempfile
+    import os
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        proj = os.path.join(tmpdir, "env-project")
+        os.makedirs(proj)
+        with open(os.path.join(proj, "project.precis.yaml"), "w", encoding="utf-8") as f:
+            f.write("project:\n  name: EnvProject\nschemas: []\n")
+
+        old_env = os.environ.get("PRECIS_WORK_DIR")
+        try:
+            os.environ["PRECIS_WORK_DIR"] = tmpdir
+            client = TestClient(app)
+            response = client.get("/api/latest/projects/scan")
+            assert response.status_code == 200
+            assert len(response.json()["projects"]) == 1
+            assert response.json()["projects"][0]["name"] == "EnvProject"
+        finally:
+            if old_env:
+                os.environ["PRECIS_WORK_DIR"] = old_env
+            else:
+                del os.environ["PRECIS_WORK_DIR"]

@@ -88,6 +88,7 @@ dev = [
 
 [project.scripts]
 precis = "app.cli.shell.main:main"
+precis-start = "app.cli.start:main"
 
 [project.urls]
 Homepage = "https://github.com/AirSaiga/Precis"

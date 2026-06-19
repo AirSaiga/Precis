@@ -17,9 +17,17 @@ router = APIRouter(prefix="", tags=["Projects-Scan"])
     summary="扫描工作目录下的所有 Precis 项目",
 )
 def scan_projects(
-    work_dir: str = Query(..., description="要扫描的工作目录绝对路径"),
+    work_dir: str | None = Query(None, description="要扫描的工作目录绝对路径"),
 ) -> ScanResponse:
     """扫描指定工作目录，找出所有包含 project.precis.yaml 的子目录。"""
+    if not work_dir:
+        work_dir = os.environ.get("PRECIS_WORK_DIR")
+    if not work_dir:
+        raise HTTPException(
+            status_code=400,
+            detail="请指定 work_dir 参数或设置 PRECIS_WORK_DIR 环境变量",
+        )
+
     if not os.path.isdir(work_dir):
         raise HTTPException(status_code=400, detail=f"工作目录不存在: {work_dir}")
 
