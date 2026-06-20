@@ -62,7 +62,8 @@
               { "labelKey": "inspector.constraint.dateLogic.lt", "value": "lt" },
               { "labelKey": "inspector.constraint.dateLogic.eq", "value": "eq" },
               { "labelKey": "inspector.constraint.dateLogic.gte", "value": "gte" },
-              { "labelKey": "inspector.constraint.dateLogic.lte", "value": "lte" }
+              { "labelKey": "inspector.constraint.dateLogic.lte", "value": "lte" },
+              { "labelKey": "inspector.constraint.dateLogic.range", "value": "range" }
             ]
           }
         },
@@ -139,6 +140,74 @@
                   }
                 ]
               }
+            ]
+          }
+        },
+        {
+          "id": "referenceTypeEnd",
+          "kind": "dateReferenceType",
+          "labelKey": "inspector.constraint.dateLogic.referenceTypeEnd",
+          "referenceDatePath": ["referenceDateEnd"],
+          "referenceColumnPath": ["referenceColumnEnd"],
+          "optionDateLabelKey": "inspector.constraint.dateLogic.fixedDateEnd",
+          "optionColumnLabelKey": "inspector.constraint.dateLogic.referenceColumnEnd",
+          "when": {
+            "op": "and",
+            "exprs": [
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["compareOp"] },
+                "value": "range"
+              },
+              {
+                "op": "or",
+                "exprs": [
+                  { "op": "exists", "source": { "source": "data", "path": ["referenceDateEnd"] } },
+                  { "op": "exists", "source": { "source": "data", "path": ["referenceColumnEnd"] } }
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "referenceDateEnd",
+          "kind": "date",
+          "labelKey": "inspector.constraint.dateLogic.referenceDateEnd",
+          "source": { "source": "data", "path": ["referenceDateEnd"] },
+          "when": {
+            "op": "and",
+            "exprs": [
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["compareOp"] },
+                "value": "range"
+              },
+              { "op": "exists", "source": { "source": "data", "path": ["referenceDateEnd"] } }
+            ]
+          }
+        },
+        {
+          "id": "referenceColumnEnd",
+          "kind": "text",
+          "labelKey": "inspector.constraint.dateLogic.referenceColumnEnd",
+          "placeholderKey": "inspector.constraint.dateLogic.referenceColumnEndPlaceholder",
+          "source": { "source": "data", "path": ["referenceColumnEnd"] },
+          "when": {
+            "op": "and",
+            "exprs": [
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["compareOp"] },
+                "value": "range"
+              },
+              {
+                "op": "not",
+                "expr": {
+                  "op": "exists",
+                  "source": { "source": "data", "path": ["referenceDateEnd"] }
+                }
+              },
+              { "op": "exists", "source": { "source": "data", "path": ["referenceColumnEnd"] } }
             ]
           }
         },

@@ -397,6 +397,10 @@ class DateLogicRefs(BaseModel):
     - 场景1: 日期比较
       出生日期必须晚于 2000-01-01。
 
+    - 场景2: 日期范围
+      订单日期必须在 2024-01-01 到 2024-12-31 之间。
+      此时 params 中 compare_op 为 "range"，并需要 reference_date_end / reference_column_end。
+
     :param table_id: 目标表 ID
     :param column_id: 目标列 ID
     """

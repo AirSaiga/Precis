@@ -37,16 +37,25 @@ function buildSubConstraintParams(subData: Record<string, unknown>): Record<stri
         name: subData.constraintName || subData.configName || '',
         expression: subData.script || '',
       }
-    case 'DateLogic':
-      return {
+    case 'DateLogic': {
+      const params: Record<string, unknown> = {
         logic_mode: subData.logicMode || 'compare',
         compare_op: subData.compareOp,
-        reference_date: subData.referenceDate,
-        reference_column: subData.referenceColumn,
-        calculation_type: subData.calculationType,
-        target_value: subData.targetValue,
-        target_column: subData.targetColumn,
       }
+      if (subData.compareOp === 'range') {
+        params.reference_date = subData.referenceDate
+        params.reference_column = subData.referenceColumn
+        params.reference_date_end = subData.referenceDateEnd
+        params.reference_column_end = subData.referenceColumnEnd
+      } else {
+        params.reference_date = subData.referenceDate
+        params.reference_column = subData.referenceColumn
+      }
+      params.calculation_type = subData.calculationType
+      params.target_value = subData.targetValue
+      params.target_column = subData.targetColumn
+      return params
+    }
     case 'Conditional':
       return {
         then_condition: subData.thenConditionConfig,

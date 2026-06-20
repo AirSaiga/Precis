@@ -131,6 +131,94 @@ class TestDateLogicConstraint:
         assert result["errors"][0]["error_type"] == "ConstraintConfigError"
         assert "不支持比较操作符" in result["errors"][0]["message"]
 
+    def test_compare_range_fixed_dates_pass(self):
+        c = DateLogicConstraint(
+            table="users",
+            column="birth_date",
+            logic_mode="compare",
+            compare_op="range",
+            reference_date="2000-01-01",
+            reference_date_end="2020-12-31",
+        )
+        df = pd.DataFrame({"birth_date": ["2005-06-15", "2010-01-01"]})
+        result = c.validate({"users": df})
+        assert len(result["errors"]) == 0
+
+    def test_compare_range_fixed_dates_fail(self):
+        c = DateLogicConstraint(
+            table="users",
+            column="birth_date",
+            logic_mode="compare",
+            compare_op="range",
+            reference_date="2000-01-01",
+            reference_date_end="2020-12-31",
+        )
+        df = pd.DataFrame({"birth_date": ["1990-01-01", "2025-01-01", "2005-06-15"]})
+        result = c.validate({"users": df})
+        assert len(result["errors"]) == 2
+        assert result["errors"][0]["row_index"] == 0
+        assert result["errors"][1]["row_index"] == 1
+        assert "不在" in result["errors"][0]["message"]
+
+    def test_compare_range_columns_pass(self):
+        c = DateLogicConstraint(
+            table="projects",
+            column="milestone_date",
+            logic_mode="compare",
+            compare_op="range",
+            reference_column="start_date",
+            reference_column_end="end_date",
+        )
+        df = pd.DataFrame(
+            {
+                "start_date": ["2024-01-01", "2024-06-01"],
+                "end_date": ["2024-01-31", "2024-06-30"],
+                "milestone_date": ["2024-01-15", "2024-06-15"],
+            }
+        )
+        result = c.validate({"projects": df})
+        assert len(result["errors"]) == 0
+
+    def test_compare_range_missing_end_boundary(self):
+        c = DateLogicConstraint(
+            table="users",
+            column="birth_date",
+            logic_mode="compare",
+            compare_op="range",
+            reference_date="2000-01-01",
+        )
+        df = pd.DataFrame({"birth_date": ["2024-01-01"]})
+        result = c.validate({"users": df})
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["error_type"] == "ConstraintConfigError"
+        assert "必须同时指定起点和终点" in result["errors"][0]["message"]
+
+    def test_compare_range_mixed_reference_type(self):
+        c = DateLogicConstraint(
+            table="users",
+            column="birth_date",
+            logic_mode="compare",
+            compare_op="range",
+            reference_date="2000-01-01",
+            reference_column_end="end_date",
+        )
+        df = pd.DataFrame({"birth_date": ["2024-01-01"], "end_date": ["2025-01-01"]})
+        result = c.validate({"users": df})
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["error_type"] == "ConstraintConfigError"
+        assert "类型一致" in result["errors"][0]["message"]
+
+    def test_get_description_range(self):
+        c = DateLogicConstraint(
+            table="users",
+            column="birth_date",
+            logic_mode="compare",
+            compare_op="range",
+            reference_date="2000-01-01",
+            reference_date_end="2020-12-31",
+        )
+        assert "range [2000-01-01, 2020-12-31]" in c._get_description()
+
     def test_calculation_age_pass(self):
         c = DateLogicConstraint(
             table="users",
@@ -230,6 +318,62 @@ class TestDateLogicValidator:
         assert result.is_valid is False
         assert "无效的参考日期" in result.error_rows[0]["error_message"]
 
+    def test_compare_range_fixed_dates_pass(self):
+        v = DateLogicValidator()
+        df = pd.DataFrame({"a": ["2024-01-15", "2024-01-20"]})
+        result = v.validate(
+            df,
+            "a",
+            logic_mode="compare",
+            compare_op="range",
+            reference_date="2024-01-01",
+            reference_date_end="2024-01-31",
+        )
+        assert result.is_valid is True
+        assert result.error_count == 0
+
+    def test_compare_range_fixed_dates_fail(self):
+        v = DateLogicValidator()
+        df = pd.DataFrame({"a": ["2024-01-15", "2023-12-01"]})
+        result = v.validate(
+            df,
+            "a",
+            logic_mode="compare",
+            compare_op="range",
+            reference_date="2024-01-01",
+            reference_date_end="2024-01-31",
+        )
+        assert result.is_valid is False
+        assert result.error_count == 1
+
+    def test_compare_range_invalid_end_date(self):
+        v = DateLogicValidator()
+        df = pd.DataFrame({"a": ["2024-01-15"]})
+        result = v.validate(
+            df,
+            "a",
+            logic_mode="compare",
+            compare_op="range",
+            reference_date="2024-01-01",
+            reference_date_end="bad-date",
+        )
+        assert result.is_valid is False
+        assert "无效的终点参考日期" in result.error_rows[0]["error_message"]
+
+    def test_compare_range_missing_end_column(self):
+        v = DateLogicValidator()
+        df = pd.DataFrame({"a": ["2024-01-15"], "start": ["2024-01-01"]})
+        result = v.validate(
+            df,
+            "a",
+            logic_mode="compare",
+            compare_op="range",
+            reference_column="start",
+            reference_column_end="missing",
+        )
+        assert result.is_valid is False
+        assert "终点参考列" in result.error_rows[0]["error_message"]
+
     def test_parse_date_invalid(self):
         v = DateLogicValidator()
         assert v._parse_date("not-a-date") is None
@@ -251,7 +395,8 @@ class TestDateLogicValidator:
         assert v._compare_dates(d1, d1, "eq") is True
         assert v._compare_dates(d1, d2, "gte") is True
         assert v._compare_dates(d1, d2, "lte") is False
-        assert v._compare_dates(d1, d1, "range") is True
+        # range 是区间语义，不能通过二元 _compare_dates 表达
+        assert v._compare_dates(d1, d1, "range") is False
         assert v._compare_dates(d1, d2, "unknown") is True
 
     def test_get_operator_name(self):

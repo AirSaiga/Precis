@@ -175,7 +175,7 @@ SYSTEM_PROMPT_JSON_FORMAT = """
 - **ForeignKey**: 外键约束。参数：`toTableId` (str), `toColumnId` (str)。
 - **Conditional**: 条件约束。参数：`ifConditions` (List), `thenValue` (Any)。
   - `ifConditions` 结构：`[{"ifColumnId": "列名", "operator": "eq/ne/gt/lt/in", "value": "比较值"}]`
-- **DateLogic**: 日期逻辑约束。参数：`logicMode` ("compare"/"calculation"), `compareOp` ("gt/lt/eq/gte/lte"), `referenceDate` (str, "YYYY-MM-DD")。
+- **DateLogic**: 日期逻辑约束。参数：`logicMode` ("compare"/"calculation"), `compareOp` ("gt/lt/eq/gte/lte/range"), `referenceDate` (str, "YYYY-MM-DD"), `referenceColumn` (str)。当 `compareOp` 为 "range" 时，必须同时提供 `referenceDateEnd` 或 `referenceColumnEnd`。
 
 ## 动作说明
 - ADD_CONSTRAINT_NODE: 添加约束节点。

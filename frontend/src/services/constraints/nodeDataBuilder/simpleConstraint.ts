@@ -90,6 +90,8 @@ function buildTypeExtras(
         compareOp: params.compare_op || 'gt',
         referenceDate: (params.reference_date as string) || '',
         referenceColumn: (params.reference_column as string) || '',
+        referenceDateEnd: (params.reference_date_end as string) || '',
+        referenceColumnEnd: (params.reference_column_end as string) || '',
         calculationType: (params.calculation_type as string) || 'age',
         targetType: (params.target_type as string) || 'value',
         targetValue: (params.target_value as string) || '',

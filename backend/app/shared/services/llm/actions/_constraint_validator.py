@@ -242,6 +242,26 @@ def validate_constraint_params(
     errors = []
     params = spec.get("params", {})
 
+    # DateLogic range 模式参数完整性检查（不依赖 required_params）
+    if constraint_type == "DateLogic":
+        logic_mode = params.get("logicMode", "compare")
+        compare_op = params.get("compareOp", "gt")
+        if logic_mode == "compare" and compare_op == "range":
+            has_date_start = "referenceDate" in params and params["referenceDate"] is not None
+            has_date_end = "referenceDateEnd" in params and params["referenceDateEnd"] is not None
+            has_col_start = "referenceColumn" in params and params["referenceColumn"] is not None
+            has_col_end = "referenceColumnEnd" in params and params["referenceColumnEnd"] is not None
+            if not ((has_date_start and has_date_end) or (has_col_start and has_col_end)):
+                errors.append(
+                    ValidationError(
+                        action_index=index,
+                        action_type=action_type,
+                        error_type="missing_required_param",
+                        message="DateLogic range 模式需要同时提供起点和终点（referenceDate + referenceDateEnd，或 referenceColumn + referenceColumnEnd）",
+                        suggestion="请添加 params.referenceDateEnd / params.referenceColumnEnd",
+                    )
+                )
+
     required = required_params.get(constraint_type, [])
     if required:
         if constraint_type == "Range":

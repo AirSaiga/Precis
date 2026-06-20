@@ -18,8 +18,16 @@ register({
       }
       if ((nodeData.logicMode || 'compare') === 'compare') {
         validationConfig.compare_op = nodeData.compareOp || 'gt'
-        if (nodeData.referenceDate) validationConfig.reference_date = nodeData.referenceDate
-        else validationConfig.reference_column = nodeData.referenceColumn
+        if (nodeData.compareOp === 'range') {
+          if (nodeData.referenceDate) validationConfig.reference_date = nodeData.referenceDate
+          else validationConfig.reference_column = nodeData.referenceColumn
+          if (nodeData.referenceDateEnd)
+            validationConfig.reference_date_end = nodeData.referenceDateEnd
+          else validationConfig.reference_column_end = nodeData.referenceColumnEnd
+        } else {
+          if (nodeData.referenceDate) validationConfig.reference_date = nodeData.referenceDate
+          else validationConfig.reference_column = nodeData.referenceColumn
+        }
       } else {
         validationConfig.calculation_type = nodeData.calculationType || 'age'
         if (nodeData.targetType === 'value') validationConfig.target_value = nodeData.targetValue
@@ -54,8 +62,16 @@ register({
     }
     if ((nodeData.logicMode || 'compare') === 'compare') {
       validationConfig.compare_op = nodeData.compareOp || 'gt'
-      if (nodeData.referenceDate) validationConfig.reference_date = nodeData.referenceDate
-      else validationConfig.reference_column = nodeData.referenceColumn
+      if (nodeData.compareOp === 'range') {
+        if (nodeData.referenceDate) validationConfig.reference_date = nodeData.referenceDate
+        else validationConfig.reference_column = nodeData.referenceColumn
+        if (nodeData.referenceDateEnd)
+          validationConfig.reference_date_end = nodeData.referenceDateEnd
+        else validationConfig.reference_column_end = nodeData.referenceColumnEnd
+      } else {
+        if (nodeData.referenceDate) validationConfig.reference_date = nodeData.referenceDate
+        else validationConfig.reference_column = nodeData.referenceColumn
+      }
     } else {
       validationConfig.calculation_type = nodeData.calculationType || 'age'
       if (nodeData.targetType === 'value') validationConfig.target_value = nodeData.targetValue

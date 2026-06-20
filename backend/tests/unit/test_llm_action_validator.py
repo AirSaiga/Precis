@@ -879,6 +879,71 @@ class TestValidateConstraintParams:
         )
         assert any(e.error_type == "foreign_key_column_not_found" for e in result.errors)
 
+    def test_date_logic_range_missing_end(self, tmp_path):
+        _create_schema_dir(
+            tmp_path,
+            [
+                {
+                    "version": 2,
+                    "id": "sc_users",
+                    "name": "users",
+                    "columns": [{"id": "sc_birth", "name": "birth", "type": "date"}],
+                }
+            ],
+        )
+        validator = ActionValidator(str(tmp_path))
+        result = validator.validate(
+            [
+                {
+                    "actionType": "ADD_CONSTRAINT_NODE",
+                    "constraintSpec": {
+                        "type": "DateLogic",
+                        "targetNodeId": "sc_users",
+                        "targetColumn": "birth",
+                        "params": {
+                            "logicMode": "compare",
+                            "compareOp": "range",
+                            "referenceDate": "2024-01-01",
+                        },
+                    },
+                }
+            ]
+        )
+        assert any(e.error_type == "missing_required_param" for e in result.errors)
+
+    def test_date_logic_range_valid(self, tmp_path):
+        _create_schema_dir(
+            tmp_path,
+            [
+                {
+                    "version": 2,
+                    "id": "sc_users",
+                    "name": "users",
+                    "columns": [{"id": "sc_birth", "name": "birth", "type": "date"}],
+                }
+            ],
+        )
+        validator = ActionValidator(str(tmp_path))
+        result = validator.validate(
+            [
+                {
+                    "actionType": "ADD_CONSTRAINT_NODE",
+                    "constraintSpec": {
+                        "type": "DateLogic",
+                        "targetNodeId": "sc_users",
+                        "targetColumn": "birth",
+                        "params": {
+                            "logicMode": "compare",
+                            "compareOp": "range",
+                            "referenceDate": "2024-01-01",
+                            "referenceDateEnd": "2024-12-31",
+                        },
+                    },
+                }
+            ]
+        )
+        assert result.all_valid is True
+
 
 # ============================================================
 # ActionValidator — _validate_type_compatibility

@@ -51,8 +51,10 @@ class DateLogicValidator(BaseValidator):
             **kwargs: 校验参数，包含:
                 - logic_mode: 逻辑模式，"compare" 或 "calculation"（默认 "compare"）
                 - compare_op: 比较操作符，"gt"/"lt"/"eq"/"gte"/"lte"/"range"（默认 "gt"）
-                - reference_date: 参考日期字符串（可选）
-                - reference_column: 参考日期列名（可选）
+                - reference_date: 参考日期字符串，比较模式下的区间起点（可选）
+                - reference_column: 参考日期列名，比较模式下的区间起点（可选）
+                - reference_date_end: 区间终点固定日期，仅 range 模式使用（可选）
+                - reference_column_end: 区间终点列名，仅 range 模式使用（可选）
                 - calculation_type: 计算类型，"age" 或 "days_diff"（默认 "age"）
                 - target_value: 目标计算值（可选）
                 - target_column: 目标计算列（可选）
@@ -67,6 +69,8 @@ class DateLogicValidator(BaseValidator):
         compare_op = kwargs.get("compare_op", "gt")
         reference_date = kwargs.get("reference_date")
         reference_column = kwargs.get("reference_column")
+        reference_date_end = kwargs.get("reference_date_end")
+        reference_column_end = kwargs.get("reference_column_end")
         calculation_type = kwargs.get("calculation_type", "age")
         target_value = kwargs.get("target_value")
         target_column = kwargs.get("target_column")
@@ -89,6 +93,18 @@ class DateLogicValidator(BaseValidator):
                 total_rows=len(df),
                 error_rows=[
                     {"row_index": 0, "cell_value": None, "error_message": f"参考列 '{reference_column}' 不存在"}
+                ],
+                validation_time=f"{time.time() - start_time:.3f}s",
+            )
+
+        # range 模式下检查终点参考列是否存在
+        if compare_op == "range" and reference_column_end and reference_column_end not in df.columns:
+            return ValidationResult(
+                is_valid=False,
+                error_count=1,
+                total_rows=len(df),
+                error_rows=[
+                    {"row_index": 0, "cell_value": None, "error_message": f"终点参考列 '{reference_column_end}' 不存在"}
                 ],
                 validation_time=f"{time.time() - start_time:.3f}s",
             )
@@ -140,6 +156,22 @@ class DateLogicValidator(BaseValidator):
                 validation_time=f"{time.time() - start_time:.3f}s",
             )
 
+        # range 模式下校验终点参考日期格式
+        if compare_op == "range" and reference_date_end and self._parse_date(str(reference_date_end)) is None:
+            return ValidationResult(
+                is_valid=False,
+                error_count=1,
+                total_rows=len(df),
+                error_rows=[
+                    {
+                        "row_index": 0,
+                        "cell_value": None,
+                        "error_message": f"无效的终点参考日期格式: {reference_date_end}",
+                    }
+                ],
+                validation_time=f"{time.time() - start_time:.3f}s",
+            )
+
         # 预检查：遍历所有日期值，找出无法解析的日期
         unparseable_errors = []
         for row_index, cell_value in df[column].items():
@@ -162,6 +194,8 @@ class DateLogicValidator(BaseValidator):
             compare_op=compare_op,
             reference_date=reference_date,
             reference_column=reference_column,
+            reference_date_end=reference_date_end,
+            reference_column_end=reference_column_end,
             calculation_type=calculation_type,
             target_value=target_value,
             target_column=target_column,
@@ -205,11 +239,12 @@ class DateLogicValidator(BaseValidator):
         @methoddesc 比较两个日期
 
         根据操作符比较两个日期对象的大小关系。
+        注意：range 是区间语义，需要起点和终点两个边界，不能通过本二元方法表达。
 
         参数:
             date1: 第一个日期
             date2: 第二个日期
-            operator: 操作符 (gt/lt/eq/gte/lte/range)
+            operator: 操作符 (gt/lt/eq/gte/lte)
 
         返回:
             比较结果布尔值
@@ -225,7 +260,7 @@ class DateLogicValidator(BaseValidator):
         elif operator == "lte":
             return date1 <= date2
         elif operator == "range":
-            return date1.date() == date2.date()
+            return False
         return True
 
     @staticmethod

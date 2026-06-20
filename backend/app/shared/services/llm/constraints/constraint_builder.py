@@ -128,11 +128,19 @@ def _build_constraint_params(constraint_type: str, constraint_spec: dict[str, An
             expression = f"re.match(r'{safe_pattern}', str(value)) is not None"
         return {"expression": expression or "True"}
     elif std_type == "DateLogic":
-        return {
+        result: dict[str, Any] = {
             "logic_mode": params.get("logicMode", "compare"),
             "compare_op": params.get("compareOp", "gt"),
-            "reference_date": params.get("referenceDate", ""),
         }
+        if params.get("compareOp") == "range":
+            result["reference_date"] = params.get("referenceDate", "")
+            result["reference_date_end"] = params.get("referenceDateEnd", "")
+            result["reference_column"] = params.get("referenceColumn", "")
+            result["reference_column_end"] = params.get("referenceColumnEnd", "")
+        else:
+            result["reference_date"] = params.get("referenceDate", "")
+            result["reference_column"] = params.get("referenceColumn", "")
+        return result
     elif std_type == "Conditional":
         return {"then_value": params.get("thenValue")}
     else:

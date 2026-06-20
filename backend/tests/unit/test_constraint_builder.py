@@ -108,6 +108,25 @@ class TestBuildConstraintParams:
         assert params["logic_mode"] == "compare"
         assert params["compare_op"] == "gt"
 
+    def test_date_logic_range(self):
+        from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
+
+        params = _build_constraint_params(
+            "DATE_LOGIC",
+            {
+                "params": {
+                    "logicMode": "compare",
+                    "compareOp": "range",
+                    "referenceDate": "2024-01-01",
+                    "referenceDateEnd": "2024-12-31",
+                }
+            },
+        )
+        assert params["logic_mode"] == "compare"
+        assert params["compare_op"] == "range"
+        assert params["reference_date"] == "2024-01-01"
+        assert params["reference_date_end"] == "2024-12-31"
+
     def test_conditional(self):
         from app.shared.services.llm.constraints.constraint_builder import _build_constraint_params
 

@@ -191,10 +191,14 @@ export interface DateLogicConstraintNodeData extends BaseConstraintNodeData {
   logicMode?: 'compare' | 'calculation'
   /** 日期比较操作符：gt（大于）/ lt（小于）/ eq（等于）/ gte（大于等于）/ lte（小于等于）/ range（范围） */
   compareOp?: 'gt' | 'lt' | 'eq' | 'gte' | 'lte' | 'range'
-  /** 参考日期（当使用固定日期时） */
+  /** 参考日期（当使用固定日期时，作为区间起点） */
   referenceDate?: string
-  /** 参考列（当使用列值作为参考时） */
+  /** 参考列（当使用列值作为参考时，作为区间起点） */
   referenceColumn?: string
+  /** 区间终点固定日期（仅 range 模式使用） */
+  referenceDateEnd?: string
+  /** 区间终点列名（仅 range 模式使用） */
+  referenceColumnEnd?: string
   /** 计算类型：age（年龄）/ days_diff（天数差） */
   calculationType?: 'age' | 'days_diff'
   /** 目标日期值 */

@@ -311,6 +311,26 @@ class TestCreateConstraint:
         assert error is None
         assert result.logic_mode == "compare"
 
+    def test_date_logic_range_success(self):
+        cf = ConstraintFile(
+            version=2,
+            id="c1",
+            type="DateLogic",
+            enabled=True,
+            refs={"table_id": "users", "column_id": "email"},
+            params={
+                "logic_mode": "compare",
+                "compare_op": "range",
+                "reference_date": "2024-01-01",
+                "reference_date_end": "2024-12-31",
+            },
+        )
+        result, error = create_constraint(cf, _make_schema_files())
+        assert error is None
+        assert result.compare_op == "range"
+        assert result.reference_date == "2024-01-01"
+        assert result.reference_date_end == "2024-12-31"
+
     def test_alias_type_name(self):
         cf = ConstraintFile.model_construct(
             version=2, id="c1", type="unique", enabled=True, refs={"table_id": "users", "column_ids": ["email"]}

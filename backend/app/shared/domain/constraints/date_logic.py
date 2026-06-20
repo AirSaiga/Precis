@@ -97,6 +97,8 @@ class DateLogicConstraint(Constraint):
         compare_op: str = "gt",
         reference_date: str | None = None,
         reference_column: str | None = None,
+        reference_date_end: str | None = None,
+        reference_column_end: str | None = None,
         calculation_type: str | None = None,
         target_value: int | float | str | None = None,
         target_column: str | None = None,
@@ -108,9 +110,11 @@ class DateLogicConstraint(Constraint):
             table: 目标表名
             column: 目标日期列名
             logic_mode: 逻辑模式，"compare"（比较）或 "calculation"（计算）
-            compare_op: 比较操作符，可选 gt/gte/lt/lte/eq
-            reference_date: 参考日期字符串（比较模式下使用）
-            reference_column: 参考列名（比较模式下使用，与 reference_date 互斥）
+            compare_op: 比较操作符，可选 gt/gte/lt/lte/eq/range
+            reference_date: 参考日期字符串（比较模式下使用，作为区间起点）
+            reference_column: 参考列名（比较模式下使用，与 reference_date 互斥，作为区间起点）
+            reference_date_end: 区间终点固定日期（仅 range 模式下使用）
+            reference_column_end: 区间终点列名（仅 range 模式下使用）
             calculation_type: 计算类型（计算模式下使用），如 "age" 或 "days_diff"
             target_value: 目标值（计算模式下使用），用于与计算结果比较
             target_column: 目标参考列（计算模式下 days_diff 使用）
@@ -121,6 +125,8 @@ class DateLogicConstraint(Constraint):
         self.compare_op = compare_op
         self.reference_date = reference_date
         self.reference_column = reference_column
+        self.reference_date_end = reference_date_end
+        self.reference_column_end = reference_column_end
         self.calculation_type = calculation_type
         self.target_value = target_value
         self.target_column = target_column
@@ -129,11 +135,61 @@ class DateLogicConstraint(Constraint):
         """生成约束描述"""
         desc = f"[委托] 日期逻辑约束: {self.table}.{self.column}"
         if self.logic_mode == "compare":
-            ref = self.reference_column or self.reference_date
-            desc += f" {self.compare_op} {ref}"
+            if self.compare_op == "range":
+                start = self.reference_column or self.reference_date
+                end = self.reference_column_end or self.reference_date_end
+                desc += f" range [{start}, {end}]"
+            else:
+                ref = self.reference_column or self.reference_date
+                desc += f" {self.compare_op} {ref}"
         elif self.logic_mode == "calculation":
             desc += f" {self.calculation_type} check"
         return desc
+
+    def _resolve_compare_boundary(
+        self,
+        df: pd.DataFrame,
+        date_attr: str,
+        column_attr: str,
+        boundary_name: str = "",
+    ) -> tuple[Any, list[dict[str, Any]]]:
+        """解析比较模式下的一个边界值（固定日期或列）。
+
+        返回:
+            (边界值, 错误列表)。若存在错误，边界值为 None。
+        """
+        errors: list[dict[str, Any]] = []
+        date_value = getattr(self, date_attr)
+        column_value = getattr(self, column_attr)
+        name_prefix = f"{boundary_name}" if boundary_name else ""
+
+        if column_value:
+            if column_value not in df.columns:
+                errors.append(
+                    {
+                        "error_type": "ColumnNotFoundError",
+                        "table": self.table,
+                        "column": column_value,
+                        "message": f"日期逻辑约束失败: {name_prefix}参考列 '{column_value}' 不在表 '{self.table}' 中。",
+                    }
+                )
+                return None, errors
+            return pd.to_datetime(df[column_value], errors="coerce"), errors
+
+        if date_value:
+            parsed = pd.to_datetime(date_value, errors="coerce")
+            if pd.isna(parsed):
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "message": f"日期逻辑约束失败: 无效的{name_prefix}参考日期 '{date_value}'。",
+                    }
+                )
+                return None, errors
+            return parsed, errors
+
+        return None, errors
 
     def validate(self, datasets: dict[str, pd.DataFrame], **kwargs) -> dict[str, Any]:
         """
@@ -180,110 +236,170 @@ class DateLogicConstraint(Constraint):
         # 比较模式: 比较日期与参考值
         # ============================================================================
         if self.logic_mode == "compare":
-            ref_values: Any = None
+            start_values, start_errors = self._resolve_compare_boundary(df, "reference_date", "reference_column")
+            if start_errors:
+                errors.extend(start_errors)
+                return {"errors": errors, "info": self.get_constraint_info()}
 
-            # 获取参考值: 可以是另一列的值，也可以是固定的日期字符串
-            if self.reference_column:
-                # 使用另一列作为参考值
-                if self.reference_column not in df.columns:
-                    errors.append(
-                        {
-                            "error_type": "ColumnNotFoundError",
-                            "table": self.table,
-                            "column": self.reference_column,
-                            "message": f"日期逻辑约束失败: 参考列 '{self.reference_column}' 不在表 '{self.table}' 中。",
-                        }
-                    )
-                    return {"errors": errors, "info": self.get_constraint_info()}
-                ref_values = pd.to_datetime(df[self.reference_column], errors="coerce")
-            elif self.reference_date:
-                # 使用固定日期字符串作为参考值
-                ref_values = pd.to_datetime(self.reference_date, errors="coerce")
-                if pd.isna(ref_values):
+            # range 模式需要单独解析终点边界
+            if self.compare_op == "range":
+                start_is_date = bool(self.reference_date)
+                end_is_date = bool(self.reference_date_end)
+                if start_values is None or (start_is_date != end_is_date):
                     errors.append(
                         {
                             "error_type": "ConstraintConfigError",
                             "table": self.table,
-                            "message": f"日期逻辑约束失败: 无效的参考日期 '{self.reference_date}'。",
+                            "column": self.column,
+                            "message": "日期逻辑约束失败: range 模式必须同时指定起点和终点，且两者类型一致（同为固定日期或同为列引用）。",
                         }
                     )
                     return {"errors": errors, "info": self.get_constraint_info()}
+
+                end_values, end_errors = self._resolve_compare_boundary(
+                    df, "reference_date_end", "reference_column_end", "终点"
+                )
+                if end_errors:
+                    errors.extend(end_errors)
+                    return {"errors": errors, "info": self.get_constraint_info()}
+                if end_values is None:
+                    errors.append(
+                        {
+                            "error_type": "ConstraintConfigError",
+                            "table": self.table,
+                            "column": self.column,
+                            "message": "日期逻辑约束失败: range 模式必须指定终点（reference_date_end 或 reference_column_end）。",
+                        }
+                    )
+                    return {"errors": errors, "info": self.get_constraint_info()}
+
+                # 创建有效值掩码: 目标值、起点、终点都必须是非空的有效日期
+                mask_valid = target_series.notna()
+                if isinstance(start_values, pd.Series):
+                    mask_valid &= start_values.notna()
+                if isinstance(end_values, pd.Series):
+                    mask_valid &= end_values.notna()
+
+                # 闭区间: start <= value <= end
+                mask_fail = pd.Series(False, index=df.index, dtype=bool)
+                if not isinstance(start_values, pd.Series) and not isinstance(end_values, pd.Series):
+                    mask_fail[mask_valid] = ~(
+                        (target_series[mask_valid] >= start_values) & (target_series[mask_valid] <= end_values)
+                    )
+                elif isinstance(start_values, pd.Series) and not isinstance(end_values, pd.Series):
+                    mask_fail[mask_valid] = ~(
+                        (target_series[mask_valid] >= start_values[mask_valid])
+                        & (target_series[mask_valid] <= end_values)
+                    )
+                elif not isinstance(start_values, pd.Series) and isinstance(end_values, pd.Series):
+                    mask_fail[mask_valid] = ~(
+                        (target_series[mask_valid] >= start_values)
+                        & (target_series[mask_valid] <= end_values[mask_valid])
+                    )
+                else:
+                    mask_fail[mask_valid] = ~(
+                        (target_series[mask_valid] >= start_values[mask_valid])
+                        & (target_series[mask_valid] <= end_values[mask_valid])
+                    )
+
+                # 收集失败的行并生成错误记录
+                failed_indices = df.index[mask_fail]
+                for idx in failed_indices:
+                    val = df.at[idx, self.column]
+                    start_val = df.at[idx, self.reference_column] if self.reference_column else self.reference_date
+                    end_val = (
+                        df.at[idx, self.reference_column_end] if self.reference_column_end else self.reference_date_end
+                    )
+                    errors.append(
+                        {
+                            "error_type": "DateLogicError",
+                            "table": self.table,
+                            "row_index": int(idx),
+                            "column": self.column,
+                            "value": str(val),
+                            "message": f"日期范围校验失败: {val} 不在 [{start_val}, {end_val}] 范围内",
+                        }
+                    )
             else:
-                errors.append(
-                    {
-                        "error_type": "ConstraintConfigError",
-                        "table": self.table,
-                        "message": "日期逻辑约束失败: 比较模式必须指定 reference_column 或 reference_date。",
-                    }
-                )
-                return {"errors": errors, "info": self.get_constraint_info()}
+                # 非 range 模式沿用单边界逻辑
+                if start_values is None:
+                    errors.append(
+                        {
+                            "error_type": "ConstraintConfigError",
+                            "table": self.table,
+                            "message": "日期逻辑约束失败: 比较模式必须指定 reference_column 或 reference_date。",
+                        }
+                    )
+                    return {"errors": errors, "info": self.get_constraint_info()}
 
-            # 创建有效值掩码: 目标值和参考值都必须是非空的有效日期
-            mask_valid = target_series.notna()
-            if isinstance(ref_values, pd.Series):
-                mask_valid &= ref_values.notna()
+                ref_values = start_values
 
-            # 初始化失败掩码（全 False）
-            mask_fail = pd.Series(False, index=df.index, dtype=bool)
+                # 创建有效值掩码: 目标值和参考值都必须是非空的有效日期
+                mask_valid = target_series.notna()
+                if isinstance(ref_values, pd.Series):
+                    mask_valid &= ref_values.notna()
 
-            # 根据比较操作符判断哪些行不满足条件
-            # ~ 表示取反，即"不满足比较条件"
-            if self.compare_op == "gt":
-                mask_fail[mask_valid] = ~(
-                    target_series[mask_valid] > ref_values
-                    if not isinstance(ref_values, pd.Series)
-                    else target_series[mask_valid] > ref_values[mask_valid]
-                )
-            elif self.compare_op == "lt":
-                mask_fail[mask_valid] = ~(
-                    target_series[mask_valid] < ref_values
-                    if not isinstance(ref_values, pd.Series)
-                    else target_series[mask_valid] < ref_values[mask_valid]
-                )
-            elif self.compare_op == "gte":
-                mask_fail[mask_valid] = ~(
-                    target_series[mask_valid] >= ref_values
-                    if not isinstance(ref_values, pd.Series)
-                    else target_series[mask_valid] >= ref_values[mask_valid]
-                )
-            elif self.compare_op == "lte":
-                mask_fail[mask_valid] = ~(
-                    target_series[mask_valid] <= ref_values
-                    if not isinstance(ref_values, pd.Series)
-                    else target_series[mask_valid] <= ref_values[mask_valid]
-                )
-            elif self.compare_op == "eq" or self.compare_op == "range":
-                mask_fail[mask_valid] = ~(
-                    target_series[mask_valid] == ref_values
-                    if not isinstance(ref_values, pd.Series)
-                    else target_series[mask_valid] == ref_values[mask_valid]
-                )
-            else:
-                errors.append(
-                    {
-                        "error_type": "ConstraintConfigError",
-                        "table": self.table,
-                        "column": self.column,
-                        "message": f"日期逻辑约束失败: 不支持比较操作符 '{self.compare_op}'，支持的操作符为 gt/gte/lt/lte/eq/range。",
-                    }
-                )
-                return {"errors": errors, "info": self.get_constraint_info()}
+                # 初始化失败掩码（全 False）
+                mask_fail = pd.Series(False, index=df.index, dtype=bool)
 
-            # 收集失败的行并生成错误记录
-            failed_indices = df.index[mask_fail]
-            for idx in failed_indices:
-                val = df.at[idx, self.column]
-                ref_val = df.at[idx, self.reference_column] if self.reference_column else self.reference_date
-                errors.append(
-                    {
-                        "error_type": "DateLogicError",
-                        "table": self.table,
-                        "row_index": int(idx),
-                        "column": self.column,
-                        "value": str(val),
-                        "message": f"日期比较失败: {val} 应该 {self.compare_op} {ref_val}",
-                    }
-                )
+                # 根据比较操作符判断哪些行不满足条件
+                # ~ 表示取反，即"不满足比较条件"
+                if self.compare_op == "gt":
+                    mask_fail[mask_valid] = ~(
+                        target_series[mask_valid] > ref_values
+                        if not isinstance(ref_values, pd.Series)
+                        else target_series[mask_valid] > ref_values[mask_valid]
+                    )
+                elif self.compare_op == "lt":
+                    mask_fail[mask_valid] = ~(
+                        target_series[mask_valid] < ref_values
+                        if not isinstance(ref_values, pd.Series)
+                        else target_series[mask_valid] < ref_values[mask_valid]
+                    )
+                elif self.compare_op == "gte":
+                    mask_fail[mask_valid] = ~(
+                        target_series[mask_valid] >= ref_values
+                        if not isinstance(ref_values, pd.Series)
+                        else target_series[mask_valid] >= ref_values[mask_valid]
+                    )
+                elif self.compare_op == "lte":
+                    mask_fail[mask_valid] = ~(
+                        target_series[mask_valid] <= ref_values
+                        if not isinstance(ref_values, pd.Series)
+                        else target_series[mask_valid] <= ref_values[mask_valid]
+                    )
+                elif self.compare_op == "eq":
+                    mask_fail[mask_valid] = ~(
+                        target_series[mask_valid] == ref_values
+                        if not isinstance(ref_values, pd.Series)
+                        else target_series[mask_valid] == ref_values[mask_valid]
+                    )
+                else:
+                    errors.append(
+                        {
+                            "error_type": "ConstraintConfigError",
+                            "table": self.table,
+                            "column": self.column,
+                            "message": f"日期逻辑约束失败: 不支持比较操作符 '{self.compare_op}'，支持的操作符为 gt/gte/lt/lte/eq/range。",
+                        }
+                    )
+                    return {"errors": errors, "info": self.get_constraint_info()}
+
+                # 收集失败的行并生成错误记录
+                failed_indices = df.index[mask_fail]
+                for idx in failed_indices:
+                    val = df.at[idx, self.column]
+                    ref_val = df.at[idx, self.reference_column] if self.reference_column else self.reference_date
+                    errors.append(
+                        {
+                            "error_type": "DateLogicError",
+                            "table": self.table,
+                            "row_index": int(idx),
+                            "column": self.column,
+                            "value": str(val),
+                            "message": f"日期比较失败: {val} 应该 {self.compare_op} {ref_val}",
+                        }
+                    )
 
         # ============================================================================
         # 计算模式: 基于日期进行计算

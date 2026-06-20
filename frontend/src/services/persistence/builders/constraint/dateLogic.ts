@@ -21,8 +21,15 @@ export const dateLogicBuilder: NodeBuilder<ConstraintFileV2> = {
 
     if (d.logicMode === 'compare') {
       params.compare_op = (d.compareOp as string) || 'gt'
-      if (d.referenceDate) params.reference_date = d.referenceDate
-      if (d.referenceColumn) params.reference_column = d.referenceColumn
+      if (d.compareOp === 'range') {
+        if (d.referenceDate) params.reference_date = d.referenceDate
+        if (d.referenceColumn) params.reference_column = d.referenceColumn
+        if (d.referenceDateEnd) params.reference_date_end = d.referenceDateEnd
+        if (d.referenceColumnEnd) params.reference_column_end = d.referenceColumnEnd
+      } else {
+        if (d.referenceDate) params.reference_date = d.referenceDate
+        if (d.referenceColumn) params.reference_column = d.referenceColumn
+      }
     } else {
       params.calculation_type = (d.calculationType as string) || 'age'
       if (d.targetValue) params.target_value = d.targetValue
