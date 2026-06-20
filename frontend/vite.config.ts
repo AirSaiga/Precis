@@ -114,7 +114,7 @@ export default defineConfig(({ mode }) => {
           'src/components/**',
         ],
         thresholds: {
-          lines: 47.5,
+          lines: 48,
           branches: 37,
           functions: 46,
           statements: 47,

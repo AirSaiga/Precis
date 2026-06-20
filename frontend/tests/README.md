@@ -75,4 +75,4 @@ frontend/tests/
 
 覆盖率只统计 `src/**/*.ts` 中的纯逻辑文件，已排除 `composables/`、`features/`（跨层）、`components/`、`types/`、`index.ts` 等。
 
-当前 `lines` 阈值设置为 **47.5%**（实际约 47.92%）。随着纯逻辑模块补全，应逐步提高阈值；Threshold 应始终略低于实际覆盖率，而不是高于它。
+当前 `lines` 阈值设置为 **48%**（实际约 48.24%）。随着纯逻辑模块补全，应逐步提高阈值；Threshold 应始终略低于实际覆盖率，而不是高于它。
