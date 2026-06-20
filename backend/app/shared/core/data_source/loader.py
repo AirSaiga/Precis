@@ -44,7 +44,13 @@ from app.shared.core.data_source.specs.json_source import JSONSourceSpec
 logger = logging.getLogger(__name__)
 
 
-def _load_excel_with_new_loader(filepath: str, schemas: list[DataSourceInfo]) -> dict[str, pd.DataFrame]:
+def _load_excel_with_new_loader(
+    filepath: str,
+    schemas: list[DataSourceInfo],
+    *,
+    file_to_sheet_names: dict[str, str] | None = None,
+    **kwargs: Any,
+) -> dict[str, pd.DataFrame]:
     """
     @methoddesc 使用新版 ExcelLoader 加载 Excel 文件（支持多 sheet）。
 
@@ -54,6 +60,7 @@ def _load_excel_with_new_loader(filepath: str, schemas: list[DataSourceInfo]) ->
     Args:
         filepath: Excel 文件的完整路径
         schemas: 引用该文件的 schema 列表，每个 schema 包含 sheet 名称和表头行号等配置
+        file_to_sheet_names: 可选，按文件路径提供默认 sheet 名称；当 schema 未指定 sheet_name 时作为回退
 
     Returns:
         字典，键为 schema_id，值为对应的 DataFrame
@@ -66,23 +73,31 @@ def _load_excel_with_new_loader(filepath: str, schemas: list[DataSourceInfo]) ->
     """
     spec = ExcelSourceSpec(path=filepath)
     loader = ExcelLoader(spec)
+    default_sheet = (file_to_sheet_names or {}).get(filepath)
     sheet_configs = {
         s.schema_id: {
-            "sheet_name": s.sheet_name,
+            "sheet_name": s.sheet_name or default_sheet,
             "header_row": s.header_row,
             "dtype_inference": s.source_config.get("dtype_inference", True),
             "skip_rows": s.source_config.get("skip_rows", 0),
             "nrows": s.source_config.get("nrows"),
         }
         for s in schemas
-        if s.sheet_name
+        if s.sheet_name or default_sheet
     }
     if not sheet_configs:
         return {}
     return loader.load_multi_sheet(sheet_configs)
 
 
-def _load_csv_with_new_loader(filepath: str, schemas: list[DataSourceInfo]) -> dict[str, pd.DataFrame]:
+def _load_csv_with_new_loader(
+    filepath: str,
+    schemas: list[DataSourceInfo],
+    *,
+    default_encoding: str = "utf-8",
+    csv_delimiter: str = ",",
+    **kwargs: Any,
+) -> dict[str, pd.DataFrame]:
     """
     @methoddesc 使用新版 CSVLoader 加载 CSV 文件。
 
@@ -92,6 +107,8 @@ def _load_csv_with_new_loader(filepath: str, schemas: list[DataSourceInfo]) -> d
     Args:
         filepath: CSV 文件的完整路径
         schemas: 引用该文件的 schema 列表（期望长度为 1）
+        default_encoding: CSV 文件默认编码
+        csv_delimiter: CSV 字段分隔符
 
     Returns:
         字典，键为 schema_id，值为对应的 DataFrame
@@ -110,14 +127,19 @@ def _load_csv_with_new_loader(filepath: str, schemas: list[DataSourceInfo]) -> d
     spec = CSVSourceSpec(
         path=filepath,
         header_row=info.header_row,
-        encoding="utf-8",
+        encoding=default_encoding,
+        delimiter=csv_delimiter,
     )
     loader = CSVLoader(spec)
     df = loader.load()
     return {info.schema_id: df}
 
 
-def _load_json_with_new_loader(filepath: str, schemas: list[DataSourceInfo]) -> dict[str, pd.DataFrame]:
+def _load_json_with_new_loader(
+    filepath: str,
+    schemas: list[DataSourceInfo],
+    **kwargs: Any,
+) -> dict[str, pd.DataFrame]:
     """
     @methoddesc 使用新版 JSONLoader 加载 JSON 文件。
 
@@ -194,13 +216,12 @@ def load_grouped_sources(
     """
     @methoddesc 批量加载多个数据源文件。
 
-    使用新版类式加载器（CSVLoader, ExcelLoader, JSONLoader），
-    通过全局缓存机制避免重复加载。
+    使用新版类式加载器（CSVLoader, ExcelLoader, JSONLoader）按文件类型分发加载。
 
     :param file_to_schemas: 字典，键为文件路径，值为对应的 DataSourceInfo 列表
     :param default_encoding: CSV 文件的默认编码，默认为 "utf-8"
     :param csv_delimiter: CSV 文件的分隔符，默认为 ","
-    :param file_to_sheet_names: 可选，字典，键为文件路径，值为 sheet 名称
+    :param file_to_sheet_names: 可选，字典，键为文件路径，值为 sheet 名称；Excel 加载时若 schema 未指定 sheet_name 则以此作为回退
     :return: 元组 (datasets, errors)
     """
     datasets: dict[str, pd.DataFrame] = {}
@@ -232,7 +253,13 @@ def load_grouped_sources(
         try:
             loader_fn = _LOADER_FNS[file_ext]
             logger.debug(f"[Load] 从磁盘加载 '{os.path.basename(full_path)}'...")
-            file_datasets = loader_fn(full_path, schemas_for_file)
+            file_datasets = loader_fn(
+                full_path,
+                schemas_for_file,
+                default_encoding=default_encoding,
+                csv_delimiter=csv_delimiter,
+                file_to_sheet_names=file_to_sheet_names,
+            )
             datasets.update(file_datasets)
 
         except DataLoadError as e:

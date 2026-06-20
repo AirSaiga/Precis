@@ -258,6 +258,16 @@ class DateLogicConstraint(Constraint):
                     if not isinstance(ref_values, pd.Series)
                     else target_series[mask_valid] == ref_values[mask_valid]
                 )
+            else:
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "column": self.column,
+                        "message": f"日期逻辑约束失败: 不支持比较操作符 '{self.compare_op}'，支持的操作符为 gt/gte/lt/lte/eq/range。",
+                    }
+                )
+                return {"errors": errors, "info": self.get_constraint_info()}
 
             # 收集失败的行并生成错误记录
             failed_indices = df.index[mask_fail]

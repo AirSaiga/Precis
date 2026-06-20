@@ -169,7 +169,7 @@ class TestUpdateYamlConfig:
         mock_delete.return_value = (True, "deleted_id")
         workspace = str(tmp_path)
         action = {
-            "actionType": "DeleteConstraint",
+            "actionType": "DELETE_CONSTRAINT_NODE",
             "constraintSpec": {
                 "type": "NotNull",
                 "targetColumn": "email",
@@ -201,7 +201,7 @@ class TestUpdateYamlConfig:
             yaml.safe_dump(schema_data, f)
 
         action = {
-            "actionType": "DeleteConstraint",
+            "actionType": "DELETE_CONSTRAINT_NODE",
             "constraintSpec": {
                 "type": "NotNull",
                 "targetColumn": "email",

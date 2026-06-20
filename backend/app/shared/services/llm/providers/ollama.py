@@ -147,6 +147,54 @@ class OllamaProvider(BaseProvider):
                 else:
                     raise
 
+    def _build_messages_payload(self, req: ChatRequest) -> list[dict[str, Any]]:
+        """构造 Ollama 对话消息 payload，支持 tool_calls 与 tool_call_id。"""
+        messages_payload: list[dict[str, Any]] = []
+        for m in req.messages:
+            msg: dict[str, Any] = {"role": m.role}
+            if m.content is not None:
+                msg["content"] = m.content
+            if m.tool_calls is not None:
+                msg["tool_calls"] = m.tool_calls
+            if m.tool_call_id is not None:
+                msg["tool_call_id"] = m.tool_call_id
+            messages_payload.append(msg)
+        return messages_payload
+
+    def _build_chat_options(self, req: ChatRequest) -> dict[str, Any]:
+        """构造 Ollama /api/chat 请求体，按需附加 tools/tool_choice。"""
+        data: dict[str, Any] = {
+            "model": self._get_model(req.model),
+            "messages": self._build_messages_payload(req),
+            "options": {"temperature": req.temperature},
+        }
+        if req.tools:
+            data["tools"] = req.tools
+            if req.tool_choice is not None:
+                data["tool_choice"] = req.tool_choice
+        return data
+
+    @staticmethod
+    def _parse_ollama_tool_calls(message: dict[str, Any]) -> list[dict[str, Any]] | None:
+        """从 Ollama 响应 message 中解析 tool_calls。"""
+        raw_tool_calls = message.get("tool_calls")
+        if not raw_tool_calls:
+            return None
+        tool_calls: list[dict[str, Any]] = []
+        for tc in raw_tool_calls:
+            function_info = tc.get("function", {})
+            tool_calls.append(
+                {
+                    "id": tc.get("id", ""),
+                    "type": tc.get("type", "function"),
+                    "function": {
+                        "name": function_info.get("name", ""),
+                        "arguments": function_info.get("arguments", ""),
+                    },
+                }
+            )
+        return tool_calls
+
     async def chat(self, req: ChatRequest) -> ChatResponse:
         """
         @methoddesc 发送非流式对话请求
@@ -160,19 +208,17 @@ class OllamaProvider(BaseProvider):
         异常:
             ValueError: 响应解析失败
         """
-        data = {
-            "model": self._get_model(req.model),
-            "messages": [{"role": m.role, "content": m.content} for m in req.messages],
-            "stream": False,
-            "options": {"temperature": req.temperature},
-        }
+        data = self._build_chat_options(req)
+        data["stream"] = False
         resp = await self._post("chat", data)
         try:
-            content = resp["message"]["content"]
+            message = resp["message"]
+            content = message.get("content", "")
             model = resp.get("model", self._get_model(req.model))
+            tool_calls = self._parse_ollama_tool_calls(message)
         except (KeyError, TypeError) as e:
             raise ValueError(f"解析 Ollama 响应失败: {e}, 响应: {resp}") from e
-        return ChatResponse(content=content or "", model=model)
+        return ChatResponse(content=content or "", tool_calls=tool_calls, model=model)
 
     async def chat_stream(self, req: ChatRequest) -> AsyncIterator[str]:
         """
@@ -187,12 +233,8 @@ class OllamaProvider(BaseProvider):
         if _aiohttp is None:
             raise ImportError("aiohttp 未安装，请运行 pip install aiohttp")
 
-        data = {
-            "model": self._get_model(req.model),
-            "messages": [{"role": m.role, "content": m.content} for m in req.messages],
-            "stream": True,
-            "options": {"temperature": req.temperature},
-        }
+        data = self._build_chat_options(req)
+        data["stream"] = True
         url = f"{self.cfg.base_url}/api/chat"
         session = await self._get_session()
         async with session.post(url, json=data) as resp:

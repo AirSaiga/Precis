@@ -121,6 +121,16 @@ class TestDateLogicConstraint:
         assert len(result["errors"]) == 1
         assert result["errors"][0]["row_index"] == 1
 
+    def test_compare_unsupported_operator(self):
+        c = DateLogicConstraint(
+            table="users", column="birth_date", logic_mode="compare", compare_op="unknown", reference_date="2000-01-01"
+        )
+        df = pd.DataFrame({"birth_date": ["2024-01-01"]})
+        result = c.validate({"users": df})
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["error_type"] == "ConstraintConfigError"
+        assert "不支持比较操作符" in result["errors"][0]["message"]
+
     def test_calculation_age_pass(self):
         c = DateLogicConstraint(
             table="users",

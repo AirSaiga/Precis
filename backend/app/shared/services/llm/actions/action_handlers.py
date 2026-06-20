@@ -196,7 +196,7 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
             logger.error(f"[updateYamlConfig] {error_msg}")
             return False, error_msg
 
-    elif action_type == "DeleteConstraint":
+    elif action_type == "DELETE_CONSTRAINT_NODE":
         # 删除独立约束文件
         success, message = delete_constraint_file(std_type, filename_table, filename_column, workspace_path)
         return success, message

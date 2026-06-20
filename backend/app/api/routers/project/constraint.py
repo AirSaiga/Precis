@@ -184,8 +184,8 @@ def put_v2_constraint(
         abs_constraint_path = _resolve_project_path(config_path, ref_path)
     except ValueError:
         raise HTTPException(status_code=400, detail="非法的 Constraint 文件路径")
-    write_yaml_atomic(Path(abs_constraint_path), constraint.model_dump(exclude_none=True))
     with project_lock(config_path):
+        write_yaml_atomic(Path(abs_constraint_path), constraint.model_dump(exclude_none=True))
         write_yaml_atomic(Path(manifest_path), manifest.model_dump(exclude_none=True))
     return {"message": f"V2 constraint '{constraint_id}' 已保存。"}
 
