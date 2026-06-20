@@ -162,11 +162,15 @@ class ConfigMigrationService(ConfigGenerationService):
         if progress_callback:
             progress_callback("generate_config", 0.45, {"iterations": 0})
 
+        provider = self._get_provider()
+        context_window = provider.get_context_window()
+        max_tokens = max(context_window - 8000, 4096)
         executor = AgentExecutor(
             provider=provider,
             registry=registry,
             system_prompt=self._build_migrate_system_prompt(),
             max_iterations=max_iterations,
+            max_tokens=max_tokens,
             progress_callback=lambda stage, progress, extra: (
                 progress_callback(stage, 0.5 + progress * 0.5, extra) if progress_callback else None
             ),

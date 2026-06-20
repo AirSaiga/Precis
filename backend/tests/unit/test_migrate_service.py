@@ -32,7 +32,9 @@ class TestConfigMigrationService:
         """重复的脚本内容只解析一次。"""
         service._setup_run = MagicMock()
         service._profile_files = AsyncMock(return_value={})
-        service._get_provider = MagicMock()
+        provider_mock = MagicMock()
+        provider_mock.get_context_window = MagicMock(return_value=128000)
+        service._get_provider = MagicMock(return_value=provider_mock)
         service._create_migrate_registry = MagicMock()
         service._build_migrate_system_prompt = MagicMock(return_value="")
         service._build_migrate_task_message = MagicMock(return_value="")

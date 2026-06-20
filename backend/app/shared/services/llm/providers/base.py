@@ -32,6 +32,43 @@ from typing import Any
 
 from ..config.models import AIProvider
 
+# 常见模型的上下文窗口（tokens）。Provider 子类可覆盖或扩展。
+DEFAULT_MODEL_CONTEXT_WINDOWS: dict[str, int] = {
+    # OpenAI
+    "gpt-4o": 128000,
+    "gpt-4o-mini": 128000,
+    "gpt-4-turbo": 128000,
+    "gpt-4": 8192,
+    "gpt-3.5-turbo": 16385,
+    # Anthropic（通过 OpenAI 兼容接口调用时常见命名）
+    "claude-3-5-sonnet": 200000,
+    "claude-3-5-sonnet-20241022": 200000,
+    "claude-3-opus": 200000,
+    "claude-3-haiku": 200000,
+    # DeepSeek
+    "deepseek-chat": 128000,
+    "deepseek-v4": 128000,
+    "deepseek-v4-flash": 128000,
+    "deepseek-coder": 128000,
+    # Qwen
+    "qwen-turbo": 131072,
+    "qwen-plus": 131072,
+    "qwen-max": 32768,
+    "qwen2.5": 131072,
+    # Ollama 常见本地模型
+    "llama3.2": 128000,
+    "llama3.1": 128000,
+    "llama3": 8192,
+    "mistral": 32768,
+    "mixtral": 32768,
+    "qwen2.5:7b": 131072,
+    "phi4": 16384,
+    "gemma2": 8192,
+}
+
+# 当模型无法识别时的安全回退值
+DEFAULT_FALLBACK_CONTEXT_WINDOW = 8192
+
 
 @dataclass
 class ChatMessage:
@@ -148,3 +185,66 @@ class BaseProvider(ABC):
         如果用户指定了覆盖值，则使用覆盖值；否则使用配置中的默认模型。
         """
         return override or self.cfg.model
+
+    def get_context_window(self, model: str | None = None) -> int:
+        """
+        @methoddesc 获取指定模型的上下文窗口大小
+
+        优先级：
+        1. AIProvider 配置中显式指定的 context_window
+        2. Provider 内置的模型上下文窗口表
+        3. 安全的默认回退值（8192 tokens）
+
+        Args:
+            model: 模型名称，None 则使用配置中的默认模型
+
+        Returns:
+            上下文窗口大小（tokens）
+        """
+        return get_context_window_for_provider(
+            self.cfg,
+            model=model,
+            registry=self.context_window_registry,
+        )
+
+    @property
+    def context_window_registry(self) -> dict[str, int]:
+        """
+        @methoddesc 返回当前 Provider 的模型上下文窗口表
+
+        子类可覆盖此属性以提供 Provider 特定的模型映射。
+        默认返回共享的 DEFAULT_MODEL_CONTEXT_WINDOWS。
+        """
+        return DEFAULT_MODEL_CONTEXT_WINDOWS
+
+
+def get_context_window_for_provider(
+    config: AIProvider,
+    model: str | None = None,
+    registry: dict[str, int] | None = None,
+) -> int:
+    """
+    @methoddesc 根据 AIProvider 配置获取上下文窗口大小
+
+    无需实例化 Provider 即可调用，适合 CLI 等只需要读取配置的场景。
+
+    Args:
+        config: AIProvider 配置对象
+        model: 模型名称，None 则使用 config.model
+        registry: 模型上下文窗口表，None 则使用默认表
+
+    Returns:
+        上下文窗口大小（tokens）
+    """
+    if config.context_window is not None:
+        return config.context_window
+
+    model_name = (model or config.model).lower().strip()
+    base_name = model_name.split(":")[0]
+    lookup = registry or DEFAULT_MODEL_CONTEXT_WINDOWS
+
+    for name in (model_name, base_name):
+        if name in lookup:
+            return lookup[name]
+
+    return DEFAULT_FALLBACK_CONTEXT_WINDOW

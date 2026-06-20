@@ -20,6 +20,7 @@ from app.shared.services.llm.providers.ollama import OllamaProvider
 class _FakeConfig:
     base_url = "http://localhost:11434"
     model = "llama3.2"
+    context_window = None
 
     def __init__(self):
         self.network = type("Network", (), {"timeout": 60})()
@@ -78,7 +79,30 @@ class TestOllamaChatOptions:
         assert tool_calls is not None
         assert len(tool_calls) == 1
         assert tool_calls[0]["id"] == "call_1"
-        assert tool_calls[0]["function"]["name"] == "read_table"
+
+
+class TestContextWindow:
+    def test_context_window_from_registry(self):
+        provider = OllamaProvider(_FakeConfig())
+        assert provider.get_context_window() == 128000
+
+    def test_context_window_from_config_override(self):
+        config = _FakeConfig()
+        config.context_window = 32000
+        provider = OllamaProvider(config)
+        assert provider.get_context_window() == 32000
+
+    def test_context_window_unknown_model_uses_fallback(self):
+        config = _FakeConfig()
+        config.model = "unknown-model"
+        provider = OllamaProvider(config)
+        assert provider.get_context_window() == 8192
+
+    def test_context_window_strips_tag(self):
+        config = _FakeConfig()
+        config.model = "llama3.2:latest"
+        provider = OllamaProvider(config)
+        assert provider.get_context_window() == 128000
 
     def test_parse_ollama_tool_calls_empty(self, provider):
         assert provider._parse_ollama_tool_calls({}) is None

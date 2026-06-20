@@ -40,6 +40,7 @@ from app.shared.services.ai.utils import (
     truncate_history_by_tokens,
 )
 from app.shared.services.llm.chat.chat_system_prompt import build_system_prompt
+from app.shared.services.llm.providers.base import get_context_window_for_provider
 
 
 class AIChatCommand(Command):
@@ -48,12 +49,12 @@ class AIChatCommand(Command):
     启动一个持续运行的对话会话，用户可以反复输入自然语言指令与 AI 交互。
     支持历史记录管理、Token 限制保护、内置快捷指令。
 
-    Attributes:
-        MAX_CONTEXT_TOKENS: 最大上下文 Token 数（128k 模型，预留 8k 给回复）
+    上下文窗口大小从 Provider 配置或内置模型表中自动获取，
+    不再硬编码为 120k。
     """
 
-    # 最大上下文 Token 数（128k 模型，留 8k 给回复）
-    MAX_CONTEXT_TOKENS = 120000
+    # 为模型回复预留的 token 预算
+    RESERVED_OUTPUT_TOKENS = 8000
 
     def __init__(self):
         super().__init__("chat")
@@ -105,13 +106,22 @@ class AIChatCommand(Command):
         config = context.project_config or {}
         project_name = config.get("project", {}).get("name", "project")
 
+        # 根据 Provider 配置和模型名获取上下文窗口
+        self._context_window = get_context_window_for_provider(provider)
+        self._max_context_tokens = max(self._context_window - self.RESERVED_OUTPUT_TOKENS, 4096)
+
         # 打印会话头信息
         print(Formatter.header("\nAI 助手交互模式"))
         print(Formatter.info(f"项目: {project_name}"))
         print(Formatter.info(f"Provider: {provider.name}"))
         print(Formatter.info(f"Model: {provider.model}"))
         print(Formatter.info(f"流式输出: {'开启' if use_streaming else '关闭'}"))
-        print(Formatter.info(f"上下文限制: {self.MAX_CONTEXT_TOKENS // 1000}k tokens"))
+        print(Formatter.info(f"上下文限制: {self._context_window:,} tokens"))
+        print(
+            Formatter.info(
+                f"历史预算: {self._max_context_tokens:,} tokens（预留 {self.RESERVED_OUTPUT_TOKENS:,} 给回复）"
+            )
+        )
         print(Formatter.info("\n提示: 输入 'exit' 或 'quit' 退出对话，'help' 查看帮助，'clear' 清空历史"))
         print(Formatter.header(""))
 
@@ -202,7 +212,7 @@ class AIChatCommand(Command):
                     context_data = build_context_data("", context)
                     system_prompt = build_system_prompt(context_data)
                     chat_history = truncate_history_by_tokens(
-                        chat_history, system_prompt, max_tokens=self.MAX_CONTEXT_TOKENS
+                        chat_history, system_prompt, max_tokens=self._max_context_tokens
                     )
                 elif not result.success:
                     # 处理错误情况
@@ -286,14 +296,15 @@ AI 助手帮助
         system_tokens = 2000  # 估算值
         total_with_system = total_tokens + system_tokens
 
-        # 计算使用率百分比
-        usage_percent = (total_with_system / self.MAX_CONTEXT_TOKENS) * 100
+        # 计算使用率百分比（基于完整上下文窗口）
+        context_window = getattr(self, "_context_window", 120000)
+        usage_percent = (total_with_system / context_window) * 100
 
         print(Formatter.info("\n对话历史统计:"))
         print(f"  消息总数: {total_messages}")
         print(f"    - 用户消息: {user_messages}")
         print(f"    - AI 回复: {assistant_messages}")
-        print(f"  估算 Token: {total_with_system:,} / {self.MAX_CONTEXT_TOKENS:,}")
+        print(f"  估算 Token: {total_with_system:,} / {context_window:,}")
         print(f"  使用率: {usage_percent:.1f}%")
 
         # 显示最近几条消息预览

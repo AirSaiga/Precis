@@ -94,6 +94,7 @@ class AIProvider(BaseModel):
         base_url: API 基础 URL（如 https://api.openai.com/v1）
         api_key: API 密钥，本地服务可设为 null
         model: 默认使用的模型名称（如 "gpt-4", "llama3.2"）
+        context_window: 模型最大上下文窗口（tokens），None 则自动推断
         deployment: 部署类型（LOCAL/REMOTE），根据 base_url 自动推断
         network: 网络连接配置（可选）
         meta: 额外元数据字典（可选）
@@ -108,6 +109,11 @@ class AIProvider(BaseModel):
     base_url: str = Field(..., description="API 基础 URL")
     api_key: Optional[str] = Field(default=None, description="API 密钥（本地服务可为 null）")
     model: str = Field(..., description="默认模型名称")
+    context_window: Optional[int] = Field(
+        default=None,
+        ge=1024,
+        description="模型最大上下文窗口（tokens），None 时由 Provider 根据模型名自动推断",
+    )
 
     # 运行时推断字段（不序列化到配置文件）
     deployment: Optional[DeploymentType] = Field(default=None, exclude=True, description="部署类型（自动推断）")

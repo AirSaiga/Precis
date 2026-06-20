@@ -254,11 +254,14 @@ class ConfigGenerationService:
         )
 
         provider = self._get_provider()
+        context_window = provider.get_context_window()
+        max_tokens = max(context_window - 8000, 4096)
         executor = AgentExecutor(
             provider=provider,
             registry=registry,
             system_prompt=self._build_agent_system_prompt(),
             max_iterations=max_iterations,
+            max_tokens=max_tokens,
             progress_callback=lambda stage, progress, extra: self._agent_progress_callback(
                 progress_callback, stage, progress, extra
             ),
