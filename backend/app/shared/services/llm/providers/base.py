@@ -45,10 +45,13 @@ DEFAULT_MODEL_CONTEXT_WINDOWS: dict[str, int] = {
     "claude-3-5-sonnet-20241022": 200000,
     "claude-3-opus": 200000,
     "claude-3-haiku": 200000,
-    # DeepSeek
+    # DeepSeek（V4 系列官方上下文窗口为 1M tokens）
     "deepseek-chat": 128000,
-    "deepseek-v4": 128000,
-    "deepseek-v4-flash": 128000,
+    "deepseek-reasoner": 64000,
+    "deepseek-v4": 1000000,
+    "deepseek-v4-pro": 1000000,
+    "deepseek-v4-flash": 1000000,
+    "deepseek-v4-flash-0325": 1000000,
     "deepseek-coder": 128000,
     # Qwen
     "qwen-turbo": 131072,

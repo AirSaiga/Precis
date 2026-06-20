@@ -117,11 +117,6 @@ class AIChatCommand(Command):
         print(Formatter.info(f"Model: {provider.model}"))
         print(Formatter.info(f"流式输出: {'开启' if use_streaming else '关闭'}"))
         print(Formatter.info(f"上下文限制: {self._context_window:,} tokens"))
-        print(
-            Formatter.info(
-                f"历史预算: {self._max_context_tokens:,} tokens（预留 {self.RESERVED_OUTPUT_TOKENS:,} 给回复）"
-            )
-        )
         print(Formatter.info("\n提示: 输入 'exit' 或 'quit' 退出对话，'help' 查看帮助，'clear' 清空历史"))
         print(Formatter.header(""))
 
