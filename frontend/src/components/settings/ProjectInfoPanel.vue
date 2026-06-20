@@ -75,13 +75,6 @@
           }}</span>
         </div>
         <div class="settings-stat">
-          <span class="settings-stat__label">{{ t('settings.dataSources.title') }}</span>
-          <strong class="settings-stat__value">{{ dataSourceCount }}</strong>
-          <span class="settings-stat__desc">{{
-            t('settings.projectInfo.dataSourcesSummaryDesc')
-          }}</span>
-        </div>
-        <div class="settings-stat">
           <span class="settings-stat__label">{{ t('settings.projectInfo.schemas') }}</span>
           <strong class="settings-stat__value">{{ schemaCountText }}</strong>
           <span class="settings-stat__desc">{{ t('settings.projectInfo.schemaDetail') }}</span>
@@ -130,7 +123,9 @@
         :disabled="!localConfigPath.trim() || isApplying"
         @click="applyChanges"
       >
-        {{ isApplying ? t('settings.projectInfo.applying') : t('settings.projectInfo.openProject') }}
+        {{
+          isApplying ? t('settings.projectInfo.applying') : t('settings.projectInfo.openProject')
+        }}
       </button>
     </div>
   </div>
@@ -161,18 +156,8 @@
   const originalProjectName = ref(graphStore.projectName || '')
   const localConfigPath = ref(projectStore.currentPaths?.configPath || '')
   const isApplying = ref(false)
-  const dataSourceCount = ref(0)
 
   // 监听外部变化
-  watch(
-    () => projectStore.isProjectActive,
-    (active) => {
-      if (active) {
-        loadDataSourceCount()
-      }
-    }
-  )
-
   watch(
     () => projectStore.currentPaths,
     (paths) => {
@@ -190,19 +175,6 @@
       originalProjectName.value = name || ''
     }
   )
-
-  async function loadDataSourceCount(): Promise<void> {
-    if (!projectStore.isProjectActive) {
-      dataSourceCount.value = 0
-      return
-    }
-    try {
-      const manifest: ProjectManifestV2 = await getV2Manifest()
-      dataSourceCount.value = (manifest.data_sources || []).length
-    } catch {
-      dataSourceCount.value = 0
-    }
-  }
 
   const schemaCountText = computed(() => {
     const total = resourceTreeStore.schemas.length
