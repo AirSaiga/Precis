@@ -1,16 +1,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { ShortcutRegistry } from '@/features/keyboard/registry/shortcutRegistry'
-import { logger } from '@/core/utils/logger'
 import type { Command, Shortcut } from '@/features/keyboard/types'
 
-vi.mock('@/core/utils/logger', () => ({
-  logger: {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  },
-}))
+beforeEach(() => {
+  vi.spyOn(console, 'warn').mockImplementation(() => {})
+})
 
 function mockNavigator(platform: string): void {
   Object.defineProperty(globalThis, 'navigator', {
@@ -285,7 +279,7 @@ describe('ShortcutRegistry - conflict handling', () => {
   })
 
   it('warns and keeps first registration on conflict (warn strategy)', () => {
-    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const registry = new ShortcutRegistry({ conflictStrategy: 'warn' })
     registry.register(makeCommand({ id: 'cmd.a', defaultShortcut: { key: 'a', ctrl: true } }))
     registry.register(makeCommand({ id: 'cmd.b', defaultShortcut: { key: 'a', ctrl: true } }))
@@ -294,7 +288,7 @@ describe('ShortcutRegistry - conflict handling', () => {
   })
 
   it('overrides previous binding on conflict (override strategy)', () => {
-    const warnSpy = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const registry = new ShortcutRegistry({ conflictStrategy: 'override' })
     registry.register(makeCommand({ id: 'cmd.a', defaultShortcut: { key: 'a', ctrl: true } }))
     registry.register(makeCommand({ id: 'cmd.b', defaultShortcut: { key: 'a', ctrl: true } }))
@@ -310,7 +304,7 @@ describe('ShortcutRegistry - conflict handling', () => {
   })
 
   it('invokes conflict callback when set', () => {
-    vi.spyOn(logger, 'warn').mockImplementation(() => {})
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
     const registry = new ShortcutRegistry({ conflictStrategy: 'warn' })
     const callback = vi.fn()
     registry.onConflict(callback)

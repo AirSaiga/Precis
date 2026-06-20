@@ -15,14 +15,7 @@ vi.mock('@/api/validationApi', () => ({
   validateNotNull: vi.fn(),
 }))
 
-vi.mock('@/core/utils/logger', () => ({
-  logger: {
-    debug: vi.fn(),
-    info: vi.fn(),
-    warn: vi.fn(),
-    error: vi.fn(),
-  },
-}))
+vi.spyOn(console, 'error').mockImplementation(() => {})
 
 describe('notNull validator', () => {
   it('将文件路径和列名转换为后端请求并返回格式化结果', async () => {
