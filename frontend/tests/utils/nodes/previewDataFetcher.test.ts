@@ -6,6 +6,8 @@ import {
   type PreviewSource,
 } from '@/utils/nodes/preview/PreviewDataFetcher'
 
+vi.spyOn(console, 'error').mockImplementation(() => {})
+
 const mockFetchPreviewDataFromPath = vi.fn()
 
 vi.mock('@/services/preview/fetchPreviewFromPath', () => ({

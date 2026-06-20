@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { CustomNode } from '@/types/graph'
 
+vi.spyOn(console, 'warn').mockImplementation(() => {})
+
 vi.mock('@/i18n', () => ({
   i18n: {
     global: {
