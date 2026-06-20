@@ -40,7 +40,7 @@ from app.shared.services.ai.utils import (
     truncate_history_by_tokens,
 )
 from app.shared.services.llm.chat.chat_system_prompt import build_system_prompt
-from app.shared.services.llm.providers.base import get_context_window_for_provider
+from app.shared.services.llm.providers.base import resolve_context_window
 
 
 class AIChatCommand(Command):
@@ -106,8 +106,8 @@ class AIChatCommand(Command):
         config = context.project_config or {}
         project_name = config.get("project", {}).get("name", "project")
 
-        # 根据 Provider 配置和模型名获取上下文窗口
-        self._context_window = get_context_window_for_provider(provider)
+        # 根据 Provider 配置和模型名获取上下文窗口（用户输入 > 自动探测 > 全局回退）
+        self._context_window = resolve_context_window(provider)
         self._max_context_tokens = max(self._context_window - self.RESERVED_OUTPUT_TOKENS, 4096)
 
         # 打印会话头信息

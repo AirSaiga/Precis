@@ -175,6 +175,7 @@ export interface CloudAIProviderResponse {
   provider: CloudAIProviderType
   base_url?: string
   model: string
+  context_window?: number | null
   api_version?: string
   azure_deployment?: string
   extra_params?: Record<string, string>
@@ -193,6 +194,7 @@ export interface CreateProviderRequest {
   base_url: string
   api_key?: string
   model: string
+  context_window?: number | null
 }
 
 /**
@@ -204,6 +206,7 @@ export interface UpdateProviderRequest {
   base_url?: string
   api_key?: string
   model?: string
+  context_window?: number | null
 }
 
 /**

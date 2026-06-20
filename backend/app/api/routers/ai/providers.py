@@ -71,6 +71,7 @@ def _provider_to_response(p: AIProvider, health: dict) -> ProviderResponse:
         deployment=_get_deployment_str(p),
         base_url=p.base_url,
         model=p.model,
+        context_window=p.context_window,
         health=health,
         is_configured=_is_configured(p),
     )
@@ -360,6 +361,7 @@ async def create_provider(req: CreateProviderRequest):
         base_url=req.base_url,
         api_key=req.api_key,
         model=req.model,
+        context_window=req.context_window,
     )
 
     config.providers.append(new_provider)

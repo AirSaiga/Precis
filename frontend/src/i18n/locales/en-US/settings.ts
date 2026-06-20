@@ -302,6 +302,8 @@ const settings = {
     apiKeyPlaceholder: 'Enter API Key',
     model: 'Model',
     selectModel: 'Select Model',
+    contextWindow: 'Context Window (tokens)',
+    contextWindowPlaceholder: 'Leave empty to auto-detect (default 200000)',
     providerName: 'Name',
     providerNamePlaceholder: 'Custom name (optional)',
     create: 'Add',

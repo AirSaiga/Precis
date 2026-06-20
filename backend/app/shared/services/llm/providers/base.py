@@ -32,45 +32,10 @@ from typing import Any
 
 from ..config.models import AIProvider
 
-# 常见模型的上下文窗口（tokens）。Provider 子类可覆盖或扩展。
-DEFAULT_MODEL_CONTEXT_WINDOWS: dict[str, int] = {
-    # OpenAI
-    "gpt-4o": 128000,
-    "gpt-4o-mini": 128000,
-    "gpt-4-turbo": 128000,
-    "gpt-4": 8192,
-    "gpt-3.5-turbo": 16385,
-    # Anthropic（通过 OpenAI 兼容接口调用时常见命名）
-    "claude-3-5-sonnet": 200000,
-    "claude-3-5-sonnet-20241022": 200000,
-    "claude-3-opus": 200000,
-    "claude-3-haiku": 200000,
-    # DeepSeek（V4 系列官方上下文窗口为 1M tokens）
-    "deepseek-chat": 128000,
-    "deepseek-reasoner": 64000,
-    "deepseek-v4": 1000000,
-    "deepseek-v4-pro": 1000000,
-    "deepseek-v4-flash": 1000000,
-    "deepseek-v4-flash-0325": 1000000,
-    "deepseek-coder": 128000,
-    # Qwen
-    "qwen-turbo": 131072,
-    "qwen-plus": 131072,
-    "qwen-max": 32768,
-    "qwen2.5": 131072,
-    # Ollama 常见本地模型
-    "llama3.2": 128000,
-    "llama3.1": 128000,
-    "llama3": 8192,
-    "mistral": 32768,
-    "mixtral": 32768,
-    "qwen2.5:7b": 131072,
-    "phi4": 16384,
-    "gemma2": 8192,
-}
-
-# 当模型无法识别时的安全回退值
-DEFAULT_FALLBACK_CONTEXT_WINDOW = 8192
+# 用户未指定 context_window 且无法自动探测时的全局回退值。
+# 云厂商的 /v1/models 接口普遍不暴露 context window，因此无法零维护地自动获取；
+# 统一使用一个保守而通用的回退值，避免维护易过期的硬编码模型表。
+DEFAULT_FALLBACK_CONTEXT_WINDOW = 200000
 
 
 @dataclass
@@ -193,10 +158,10 @@ class BaseProvider(ABC):
         """
         @methoddesc 获取指定模型的上下文窗口大小
 
-        优先级：
-        1. AIProvider 配置中显式指定的 context_window
-        2. Provider 内置的模型上下文窗口表
-        3. 安全的默认回退值（8192 tokens）
+        三层优先级：
+        1. AIProvider 配置中显式指定的 context_window（用户输入，权威）
+        2. 子类实现的 _resolve_context_window() 自动探测（如 Ollama 查询本地服务）
+        3. 全局回退值 DEFAULT_FALLBACK_CONTEXT_WINDOW（200000 tokens）
 
         Args:
             model: 模型名称，None 则使用配置中的默认模型
@@ -204,50 +169,73 @@ class BaseProvider(ABC):
         Returns:
             上下文窗口大小（tokens）
         """
-        return get_context_window_for_provider(
-            self.cfg,
-            model=model,
-            registry=self.context_window_registry,
-        )
+        if self.cfg.context_window is not None:
+            return self.cfg.context_window
 
-    @property
-    def context_window_registry(self) -> dict[str, int]:
+        resolved = self._resolve_context_window(model)
+        if resolved is not None:
+            return resolved
+        return DEFAULT_FALLBACK_CONTEXT_WINDOW
+
+    def _resolve_context_window(self, model: str | None) -> int | None:
         """
-        @methoddesc 返回当前 Provider 的模型上下文窗口表
+        @methoddesc 子类钩子：返回自动探测到的上下文窗口大小
 
-        子类可覆盖此属性以提供 Provider 特定的模型映射。
-        默认返回共享的 DEFAULT_MODEL_CONTEXT_WINDOWS。
+        基类默认返回 None（不探测），由 get_context_window 回退到全局默认值。
+        子类（如 OllamaProvider）可覆盖此方法，从 Provider 服务实时获取真实值。
+
+        Args:
+            model: 模型名称，None 则使用配置中的默认模型
+
+        Returns:
+            探测到的上下文窗口大小，探测不到则返回 None
         """
-        return DEFAULT_MODEL_CONTEXT_WINDOWS
+        return None
 
 
-def get_context_window_for_provider(
-    config: AIProvider,
-    model: str | None = None,
-    registry: dict[str, int] | None = None,
-) -> int:
+def get_context_window_for_provider(config: AIProvider, model: str | None = None) -> int:
     """
-    @methoddesc 根据 AIProvider 配置获取上下文窗口大小
+    @methoddesc 根据 AIProvider 配置获取上下文窗口大小（仅看配置，不探测）
 
     无需实例化 Provider 即可调用，适合 CLI 等只需要读取配置的场景。
+    仅解析两层：用户配置的 context_window > 全局回退值。
+    需要自动探测（如 Ollama）的场景应实例化对应 Provider 并调用 get_context_window()。
 
     Args:
         config: AIProvider 配置对象
-        model: 模型名称，None 则使用 config.model
-        registry: 模型上下文窗口表，None 则使用默认表
+        model: 模型名称（保留参数以兼容旧调用签名，当前实现未使用）
 
     Returns:
         上下文窗口大小（tokens）
     """
     if config.context_window is not None:
         return config.context_window
-
-    model_name = (model or config.model).lower().strip()
-    base_name = model_name.split(":")[0]
-    lookup = registry or DEFAULT_MODEL_CONTEXT_WINDOWS
-
-    for name in (model_name, base_name):
-        if name in lookup:
-            return lookup[name]
-
     return DEFAULT_FALLBACK_CONTEXT_WINDOW
+
+
+def resolve_context_window(config: AIProvider, model: str | None = None) -> int:
+    """
+    @methoddesc 统一的上下文窗口解析入口（同步）
+
+    适用于 CLI 等只持有 AIProvider 配置、无法直接拿到 Provider 实例的场景。
+    根据配置类型实例化对应 Provider 并调用 get_context_window()，
+    自动应用三层优先级（用户输入 > 自动探测 > 全局回退）。
+
+    Args:
+        config: AIProvider 配置对象
+        model: 模型名称，None 则使用配置中的默认模型
+
+    Returns:
+        上下文窗口大小（tokens）
+
+    说明:
+        若用户已在配置中显式指定 context_window，直接返回，避免实例化 Provider。
+        延迟导入 registry 以避免循环依赖。
+    """
+    if config.context_window is not None:
+        return config.context_window
+
+    from .registry import create
+
+    provider = create(config)
+    return provider.get_context_window(model)

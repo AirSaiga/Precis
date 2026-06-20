@@ -88,6 +88,17 @@
                   </option>
                 </select>
               </div>
+              <div class="edit-row">
+                <label class="edit-label">{{ t('settings.aiAssistant.contextWindow') }}</label>
+                <input
+                  v-model="editForm.contextWindow"
+                  class="ui-input ui-input--compact"
+                  type="number"
+                  min="1024"
+                  step="1024"
+                  :placeholder="t('settings.aiAssistant.contextWindowPlaceholder')"
+                />
+              </div>
             </div>
             <div class="provider-card__actions">
               <button
@@ -362,7 +373,7 @@
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useToast } from '@/composables/shared'
   import { shellApi } from '@/core/capabilities/shellApi'
-  import type { CloudAIProviderResponse, ProviderPreset } from '@/types/ai'
+  import type { CloudAIProviderResponse, ProviderPreset, UpdateProviderRequest } from '@/types/ai'
   import {
     getCloudAIProviders,
     getActiveCloudAIProvider,
@@ -414,6 +425,7 @@
     name: '',
     apiKey: '',
     model: '',
+    contextWindow: '',
   })
 
   const addFormModels = computed(() => {
@@ -581,6 +593,7 @@ defaults:
     editForm.name = provider.name
     editForm.apiKey = ''
     editForm.model = provider.model
+    editForm.contextWindow = provider.context_window ? String(provider.context_window) : ''
   }
 
   function cancelEdit(): void {
@@ -590,10 +603,15 @@ defaults:
   async function handleUpdate(providerId: string): Promise<void> {
     actionLoading.value = true
     try {
-      const req: Record<string, string> = {}
+      const req: UpdateProviderRequest = {}
       if (editForm.name) req.name = editForm.name
       if (editForm.apiKey) req.api_key = editForm.apiKey
       if (editForm.model) req.model = editForm.model
+      // context_window：填了数字才提交，空值不传（保持后端原值/自动探测）
+      const cw = Number(editForm.contextWindow)
+      if (editForm.contextWindow && Number.isFinite(cw) && cw >= 1024) {
+        req.context_window = cw
+      }
       await updateCloudAIProvider(providerId, req)
       showSuccess(t('settings.aiAssistant.updatedSuccess'), '')
       editingId.value = null

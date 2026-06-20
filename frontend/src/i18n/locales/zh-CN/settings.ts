@@ -291,6 +291,8 @@ const settings = {
     apiKeyPlaceholder: '请输入 API Key',
     model: '模型',
     selectModel: '选择模型',
+    contextWindow: '上下文窗口 (tokens)',
+    contextWindowPlaceholder: '留空则自动探测，默认 200000',
     providerName: '名称',
     providerNamePlaceholder: '自定义名称（可选）',
     create: '添加',

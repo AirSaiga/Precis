@@ -12,7 +12,7 @@ import logging
 from app.cli.shell.commands.base import CommandResult, ProjectContext
 from app.cli.shell.formatter import Formatter
 from app.shared.services.ai.chat_orchestrator import AIChatOrchestrator, ChatOptions
-from app.shared.services.llm.providers.base import get_context_window_for_provider
+from app.shared.services.llm.providers.base import resolve_context_window
 
 from .display import _display_execution_results
 from .executor_utils import (
@@ -21,11 +21,11 @@ from .executor_utils import (
     _get_provider_display,
     _get_provider_with_key,
 )
+from .interaction import confirm_actions as base_confirm_actions
+from .resolver import resolve_ambiguities as base_resolve_ambiguities
 
 # 为模型回复预留的 token 预算
 RESERVED_OUTPUT_TOKENS = 8000
-from .interaction import confirm_actions as base_confirm_actions
-from .resolver import resolve_ambiguities as base_resolve_ambiguities
 
 logger = logging.getLogger(__name__)
 
@@ -103,8 +103,8 @@ def execute_ai_chat(
             if spinner:
                 spinner.resume()
 
-    # 根据模型上下文窗口计算历史预算
-    context_window = get_context_window_for_provider(provider_config)
+    # 根据模型上下文窗口计算历史预算（用户输入 > 自动探测 > 全局回退）
+    context_window = resolve_context_window(provider_config)
     max_history_tokens = max(context_window - RESERVED_OUTPUT_TOKENS, 4096)
 
     # 配置对话选项

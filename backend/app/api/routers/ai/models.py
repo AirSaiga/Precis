@@ -118,6 +118,7 @@ class ProviderResponse(BaseModel):
     deployment: str
     base_url: str
     model: str
+    context_window: Optional[int] = Field(default=None, description="用户指定的上下文窗口，None 表示自动探测/回退")
     health: dict[str, Any]
     is_configured: bool = False
 
@@ -145,6 +146,11 @@ class CreateProviderRequest(BaseModel):
     base_url: str = Field(..., description="API 基础 URL")
     api_key: Optional[str] = Field(default=None, description="API 密钥，本地服务可留空")
     model: str = Field(..., description="默认模型名称")
+    context_window: Optional[int] = Field(
+        default=None,
+        ge=1024,
+        description="模型上下文窗口（tokens），留空则自动探测或回退到 200k",
+    )
 
 
 class UpdateProviderRequest(BaseModel):
@@ -155,6 +161,11 @@ class UpdateProviderRequest(BaseModel):
     base_url: Optional[str] = Field(default=None, description="API 基础 URL")
     api_key: Optional[str] = Field(default=None, description="API 密钥，传空字符串表示清空")
     model: Optional[str] = Field(default=None, description="默认模型名称")
+    context_window: Optional[int] = Field(
+        default=None,
+        ge=1024,
+        description="模型上下文窗口（tokens），不传则保持原值，传值则更新",
+    )
 
 
 class ProviderPresetResponse(BaseModel):

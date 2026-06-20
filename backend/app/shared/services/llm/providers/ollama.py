@@ -68,6 +68,8 @@ class OllamaProvider(BaseProvider):
         super().__init__(config)
         self.timeout_seconds = config.network.timeout if config.network else 60
         self._session = None
+        # 按模型名缓存探测到的上下文窗口，避免每次都发起 /api/show 请求
+        self._context_window_cache: dict[str, int] = {}
 
     async def _get_session(self):
         """
@@ -256,6 +258,111 @@ class OllamaProvider(BaseProvider):
                             yield chunk["message"].get("content", "")
                     except json.JSONDecodeError:
                         continue
+
+    def _resolve_context_window(self, model: str | None) -> int | None:
+        """
+        @methoddesc 通过 Ollama /api/show 同步探测模型的上下文窗口
+
+        查询本地 Ollama 服务获取模型真实 context_length，按模型名缓存到实例。
+        探测失败（服务不可达、响应格式异常、字段缺失）时静默返回 None，
+        由基类 get_context_window 回退到全局默认值。
+
+        使用标准库 urllib 发起同步请求（Ollama 通常运行在 localhost，延迟极低），
+        避免引入 requests 等额外依赖，也避免在同步调用上下文中处理 async。
+
+        Args:
+            model: 模型名称，None 则使用配置中的默认模型
+
+        Returns:
+            探测到的上下文窗口大小（tokens），探测不到返回 None
+        """
+        model_name = (model or self.cfg.model).strip()
+        if not model_name:
+            return None
+
+        # 命中缓存直接返回
+        if model_name in self._context_window_cache:
+            return self._context_window_cache[model_name]
+
+        url = f"{self.cfg.base_url}/api/show"
+        payload = json.dumps({"name": model_name}).encode("utf-8")
+
+        try:
+            import urllib.request
+
+            req = urllib.request.Request(
+                url,
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST",
+            )
+            with urllib.request.urlopen(req, timeout=self.timeout_seconds) as resp:  # noqa: S310
+                data = json.loads(resp.read().decode("utf-8"))
+
+            # Ollama /api/show 返回的 context_length 位置优先级：
+            # 1. model_info."llama.context_length"（GPTForCausalLM 等架构）
+            # 2. model_info."<arch>.context_length"（通用键名后缀匹配）
+            # 3. 顶层 parameters 里的 num_ctx（部分版本）
+            model_info = data.get("model_info", {}) or {}
+            context_length = self._extract_context_length(model_info)
+            if context_length is None:
+                # 部分旧版 Ollama 在 parameters 中暴露 num_ctx
+                params = data.get("parameters", "")
+                context_length = self._parse_num_ctx(params)
+
+            if context_length and context_length > 0:
+                self._context_window_cache[model_name] = context_length
+                return context_length
+
+            logger.debug("Ollama /api/show 未返回有效的 context_length: model=%s", model_name)
+            return None
+        except Exception as e:
+            # 探测失败是预期内的降级路径（服务未启动/模型未拉取），仅记 debug 日志
+            logger.debug("Ollama 上下文窗口探测失败，将回退到默认值: model=%s, error=%s", model_name, e)
+            return None
+
+    @staticmethod
+    def _extract_context_length(model_info: dict) -> int | None:
+        """
+        @methoddesc 从 Ollama model_info 中提取 context_length
+
+        Ollama 的键名因模型架构而异（如 llama.context_length、qwen2.context_length），
+        统一按后缀 ".context_length" 匹配。
+
+        Args:
+            model_info: /api/show 返回的 model_info 字典
+
+        Returns:
+            context_length 值，未找到返回 None
+        """
+        for key, value in model_info.items():
+            if key.endswith(".context_length") and isinstance(value, (int, float)):
+                return int(value)
+        return None
+
+    @staticmethod
+    def _parse_num_ctx(parameters: str | None) -> int | None:
+        """
+        @methoddesc 从 Ollama parameters 字符串中解析 num_ctx
+
+        parameters 形如 "num_ctx\t8192\\nstop\t<...>"，解析 num_ctx 行。
+
+        Args:
+            parameters: /api/show 返回的 parameters 字符串
+
+        Returns:
+            num_ctx 值，未找到或格式异常返回 None
+        """
+        if not parameters:
+            return None
+        for line in parameters.splitlines():
+            parts = line.split()
+            if len(parts) >= 2 and parts[0] == "num_ctx":
+                try:
+                    return int(parts[1])
+                except ValueError:
+                    return None
+        return None
 
     async def list_models(self) -> list[str]:
         """
