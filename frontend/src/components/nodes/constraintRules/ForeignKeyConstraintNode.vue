@@ -88,17 +88,15 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, ref, watch, nextTick, onBeforeUnmount } from 'vue'
+  import { computed, watch, nextTick, onBeforeUnmount } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
-  import NodeBadge from '@/components/ui/NodeBadge.vue'
   import ConstraintNodeFrame from './shared/ConstraintNodeFrame.vue'
   import ConstraintNodeLayout from './shared/ConstraintNodeLayout.vue'
   import { resolveNodeState } from '@/components/ui/nodeVariants'
   import type { ForeignKeyConstraintNodeData, SchemaNodeData } from '@/types/graph'
   import type { Edge } from '@vue-flow/core'
   import { useGraphStore } from '@/stores/graphStore'
-  import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
 
@@ -108,17 +106,16 @@
     selected?: boolean
   }>()
 
-  const emit = defineEmits<{
-    (e: 'schemaConnected', data: any): void
-    (e: 'schemaDisconnected', data: any): void
-    (e: 'validationCompleted', data: any): void
-    (e: 'validationErrors', data: any): void
-    (e: 'configUpdated', data: any): void
+  defineEmits<{
+    (e: 'schemaConnected', payload: { nodeId: string; columnId?: string }): void
+    (e: 'schemaDisconnected', payload: { nodeId: string; columnId?: string }): void
+    (e: 'validationCompleted', payload: { nodeId: string; status: string }): void
+    (e: 'validationErrors', payload: { nodeId: string; errors: string[] }): void
+    (e: 'configUpdated', payload: { nodeId: string; patch: Record<string, unknown> }): void
   }>()
 
   const { t } = useI18n()
   const store = useGraphStore()
-  const { showConfirm } = useGlobalConfirm()
 
   const performValidation = async () => {
     await validateConstraintNodeById(props.id, store.nodes, store.edges, store.updateNodeData)
@@ -157,7 +154,6 @@
   )
   const hasSource = computed(() => !!props.data.sourceRef?.nodeId)
   const hasTarget = computed(() => !!targetNodeId.value)
-  const hasTargetColumn = computed(() => !!props.data.targetRef?.columnId)
 
   const sourceDisplay = computed(() => {
     if (!hasSource.value)
@@ -191,13 +187,10 @@
   // ===== 展示边管理 =====
   // 规则：只要定义了目标表和目标列，自动创建虚线展示边，无需手动开关
 
-  const localTargetNodeId = ref<string>(targetNodeId.value || '')
-  const localTargetColumnId = ref<string>(props.data.targetRef?.columnId || '')
-
   const getDisplayTargetEdges = () => {
     const outputHandleId = `source-output-${props.id}`
     return store.edges.filter(
-      (e: any) =>
+      (e: Edge) =>
         e.source === props.id &&
         e.sourceHandle === outputHandleId &&
         e.targetHandle?.startsWith('source-right-')
@@ -205,7 +198,7 @@
   }
 
   const removeDisplayTargetEdges = () => {
-    getDisplayTargetEdges().forEach((e: any) => store.deleteConnection(e.id))
+    getDisplayTargetEdges().forEach((e: Edge) => store.deleteConnection(e.id))
   }
 
   const ensureDisplayTargetEdge = () => {
@@ -222,11 +215,11 @@
     const edges = getDisplayTargetEdges()
     // 清理指向其他列的旧边
     edges
-      .filter((e: any) => e.target !== targetNodeId.value || e.targetHandle !== targetHandleId)
-      .forEach((e: any) => store.deleteConnection(e.id))
+      .filter((e: Edge) => e.target !== targetNodeId.value || e.targetHandle !== targetHandleId)
+      .forEach((e: Edge) => store.deleteConnection(e.id))
 
     const alreadyExists = store.edges.some(
-      (e: any) =>
+      (e: Edge) =>
         e.source === props.id &&
         e.target === targetNodeId.value &&
         e.sourceHandle === outputHandleId &&
@@ -248,7 +241,6 @@
   watch(
     () => props.data.targetRef?.columnId,
     (next) => {
-      localTargetColumnId.value = next || ''
       if (next && hasSource.value) {
         scheduleValidation()
       }
@@ -260,8 +252,6 @@
   watch(
     () => props.data.targetRef?.nodeId,
     () => {
-      localTargetNodeId.value = targetNodeId.value || ''
-      localTargetColumnId.value = props.data.targetRef?.columnId || ''
       // 目标表变化时自动更新展示边
       ensureDisplayTargetEdge()
     }
@@ -269,11 +259,7 @@
 
   watch(
     () => targetNodeId.value,
-    (next) => {
-      localTargetNodeId.value = next || ''
-      if (!next) {
-        localTargetColumnId.value = ''
-      }
+    () => {
       // 自动创建展示边（无需手动开关）
       ensureDisplayTargetEdge()
     }

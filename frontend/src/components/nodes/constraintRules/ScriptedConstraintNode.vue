@@ -131,10 +131,7 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
   import type { ScriptedConstraintNodeData } from '@/types/constraints'
   import { useGraphStore } from '@/stores/graphStore'
   import { useSettingsStore } from '@/stores/settingsStore'
-  import { useScriptEditorStore } from '@/stores/scriptEditorStore'
-  import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
-  import { useConstraintSourceSelector } from '@/composables/nodes/constraints/useConstraintSourceSelector'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
 
   const props = defineProps<{
@@ -143,19 +140,17 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
     selected?: boolean
   }>()
 
-  const emit = defineEmits<{
-    (e: 'schemaConnected', data: any): void
-    (e: 'schemaDisconnected', data: any): void
-    (e: 'validationCompleted', data: any): void
-    (e: 'validationErrors', data: any): void
-    (e: 'configUpdated', data: any): void
+  defineEmits<{
+    (e: 'schemaConnected', payload: { nodeId: string; columnId?: string }): void
+    (e: 'schemaDisconnected', payload: { nodeId: string; columnId?: string }): void
+    (e: 'validationCompleted', payload: { nodeId: string; status: string }): void
+    (e: 'validationErrors', payload: { nodeId: string; errors: string[] }): void
+    (e: 'configUpdated', payload: { nodeId: string; patch: Record<string, unknown> }): void
   }>()
 
   const { t } = useI18n()
   const store = useGraphStore()
   const settingsStore = useSettingsStore()
-  const scriptEditorStore = useScriptEditorStore()
-  const { showConfirm } = useGlobalConfirm()
 
   const performValidation = async () => {
     await validateConstraintNodeById(props.id, store.nodes, store.edges, store.updateNodeData)
@@ -187,17 +182,6 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
     await performValidation().catch(() => undefined)
   }
 
-  const {
-    localSourceNodeId,
-    localSourceColumnId,
-    availableSourceTables,
-    availableSourceColumns,
-    handleSourceTableChange,
-    handleSourceColumnChange,
-  } = useConstraintSourceSelector(props, {
-    onSourceColumnChange: validateNow,
-  })
-
   const scriptEnabled = computed(() => settingsStore.isScriptEnabled)
 
   const hasSource = computed(
@@ -217,21 +201,6 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
     return props.data.column || ''
   })
 
-  const scriptPreview = computed(() => {
-    if (!props.data.script) return t('customNodes.constraintRules.scriptedConstraintNode.noScript')
-    if (props.data.script.length <= 60) return props.data.script
-    return props.data.script.substring(0, 60) + '...'
-  })
-
-  const showGuide = computed(() => {
-    if (validationStatus.value === 'error') return false
-    return !hasSource.value || !props.data.script
-  })
-
-  const canValidate = computed(() => {
-    return scriptEnabled.value && hasSource.value && !!props.data.script
-  })
-
   let validationTimer: number | undefined
   onBeforeUnmount(() => {
     if (validationTimer) clearTimeout(validationTimer)
@@ -241,10 +210,6 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
     validationTimer = window.setTimeout(() => {
       validateNow().catch(() => undefined)
     }, 300)
-  }
-
-  const openScriptEditor = () => {
-    scriptEditorStore.open(props.id)
   }
 
   watch(

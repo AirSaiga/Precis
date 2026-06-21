@@ -108,14 +108,12 @@
   import { computed, onBeforeUnmount, ref, watch, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
-  import NodeBadge from '@/components/ui/NodeBadge.vue'
   import ConstraintNodeFrame from './shared/ConstraintNodeFrame.vue'
   import ConstraintNodeLayout from './shared/ConstraintNodeLayout.vue'
   import { resolveNodeState } from '@/components/ui/nodeVariants'
   import type { AllowedValuesConstraintNodeData } from '@/types/graph'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { useGraphStore } from '@/stores/graphStore'
-  import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
 
   const props = defineProps<{
@@ -124,17 +122,16 @@
     selected?: boolean
   }>()
 
-  const emit = defineEmits<{
-    (e: 'schemaConnected', data: any): void
-    (e: 'schemaDisconnected', data: any): void
-    (e: 'validationCompleted', data: any): void
-    (e: 'validationErrors', data: any): void
-    (e: 'configUpdated', data: any): void
+  defineEmits<{
+    (e: 'schemaConnected', payload: { nodeId: string; columnId?: string }): void
+    (e: 'schemaDisconnected', payload: { nodeId: string; columnId?: string }): void
+    (e: 'validationCompleted', payload: { nodeId: string; status: string }): void
+    (e: 'validationErrors', payload: { nodeId: string; errors: string[] }): void
+    (e: 'configUpdated', payload: { nodeId: string; patch: Record<string, unknown> }): void
   }>()
 
   const { t } = useI18n()
   const store = useGraphStore()
-  const { showConfirm } = useGlobalConfirm()
 
   const performValidation = async () => {
     await validateConstraintNodeById(props.id, store.nodes, store.edges, store.updateNodeData)
@@ -163,16 +160,6 @@
   const hasSource = computed(
     () => !!props.data.sourceRef?.nodeId && !!props.data.sourceRef?.columnId
   )
-
-  const sourceDisplay = computed(() => {
-    if (!hasSource.value)
-      return t('customNodes.constraintRules.allowedValuesConstraintNode.waitingForSource')
-    const table = props.data.table || ''
-    const column = props.data.column || ''
-    if (!table && !column)
-      return t('customNodes.constraintRules.allowedValuesConstraintNode.waitingForSource')
-    return `${table}${table && column ? '.' : ''}${column}`
-  })
 
   const allowedValuesSummary = computed(() => {
     if (allowedValuesArray.value.length === 0)

@@ -122,15 +122,12 @@
   import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
-  import NodeBadge from '@/components/ui/NodeBadge.vue'
   import ConstraintNodeFrame from './shared/ConstraintNodeFrame.vue'
   import ConstraintNodeLayout from './shared/ConstraintNodeLayout.vue'
   import { resolveNodeState } from '@/components/ui/nodeVariants'
   import type { CharsetConstraintNodeData } from '@/types/graph'
   import { useGraphStore } from '@/stores/graphStore'
-  import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
-  import { useConstraintSourceSelector } from '@/composables/nodes/constraints/useConstraintSourceSelector'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
   import { useToast } from '@/composables/shared/useToast'
 
@@ -140,17 +137,16 @@
     selected?: boolean
   }>()
 
-  const emit = defineEmits<{
-    (e: 'schemaConnected', data: any): void
-    (e: 'schemaDisconnected', data: any): void
-    (e: 'validationCompleted', data: any): void
-    (e: 'validationErrors', data: any): void
-    (e: 'configUpdated', data: any): void
+  defineEmits<{
+    (e: 'schemaConnected', payload: { nodeId: string; columnId?: string }): void
+    (e: 'schemaDisconnected', payload: { nodeId: string; columnId?: string }): void
+    (e: 'validationCompleted', payload: { nodeId: string; status: string }): void
+    (e: 'validationErrors', payload: { nodeId: string; errors: string[] }): void
+    (e: 'configUpdated', payload: { nodeId: string; patch: Record<string, unknown> }): void
   }>()
 
   const { t } = useI18n()
   const store = useGraphStore()
-  const { showConfirm } = useGlobalConfirm()
   const toast = useToast()
 
   const {
@@ -177,17 +173,6 @@
     await performValidation()
   }
 
-  const {
-    localSourceNodeId,
-    localSourceColumnId,
-    availableSourceTables,
-    availableSourceColumns,
-    handleSourceTableChange,
-    handleSourceColumnChange,
-  } = useConstraintSourceSelector(props, {
-    onSourceColumnChange: validateNow,
-  })
-
   const hasSource = computed(
     () => !!props.data.sourceRef?.nodeId && !!props.data.sourceRef?.columnId
   )
@@ -210,11 +195,6 @@
       : t('customNodes.constraintRules.charsetConstraintNode.modeChinese')
   })
 
-  const showGuide = computed(() => {
-    if (validationStatus.value === 'error') return false
-    return !hasSource.value || !hasMode.value
-  })
-
   const performValidation = async () => {
     if (!hasSource.value || !hasMode.value) return
     await validateConstraintNodeById(props.id, store.nodes, store.edges, store.updateNodeData)
@@ -229,13 +209,6 @@
     validationTimer = window.setTimeout(() => {
       validateNow().catch(() => undefined)
     }, 300)
-  }
-
-  const handleModeChange = () => {
-    store.updateNodeData(props.id, {
-      charsetMode: localCharsetMode.value,
-    } as unknown as Partial<CharsetConstraintNodeData>)
-    scheduleValidation()
   }
 
   const handleValidate = async () => {

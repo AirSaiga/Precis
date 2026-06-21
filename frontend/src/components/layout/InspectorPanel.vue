@@ -93,11 +93,11 @@
 
     <!-- 复合约束子画布弹窗 -->
     <SubCanvasModal
-      v-if="node?.type === 'compositeConstraint'"
+      v-if="compositeData"
       :visible="showSubCanvas"
-      :title="(node.data as any)?.configName || 'Composite Constraint'"
-      :initial-nodes="(node.data as any)?.subGraph?.nodes || []"
-      :initial-edges="(node.data as any)?.subGraph?.edges || []"
+      :title="compositeData.title"
+      :initial-nodes="compositeData.nodes"
+      :initial-edges="compositeData.edges"
       @save="saveSubCanvas"
       @close="closeSubCanvas"
     />
@@ -110,6 +110,7 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import type { CustomNodeData } from '@/types/nodes'
+  import type { CompositeConstraintNodeData } from '@/types/constraints'
   import BaseInspector from './inspectors/configDriven/BaseInspector.vue'
   import { getInspectorConfig } from './inspectors/configDriven/configLoader'
   import SubCanvasModal from '@/components/canvas/SubCanvasModal.vue'
@@ -136,11 +137,23 @@
     subCanvasNodeId.value = null
   }
 
-  function saveSubCanvas(state: { nodes: any[]; edges: any[] }) {
+  function saveSubCanvas(state: { nodes: unknown[]; edges: unknown[] }) {
     if (subCanvasNodeId.value) {
-      store.updateNodeData(subCanvasNodeId.value, { subGraph: state })
+      store.updateNodeData(subCanvasNodeId.value, {
+        subGraph: state as NonNullable<CompositeConstraintNodeData['subGraph']>,
+      })
     }
   }
+
+  const compositeData = computed(() => {
+    if (node.value?.type !== 'compositeConstraint') return null
+    const data = node.value.data as CompositeConstraintNodeData
+    return {
+      title: data.configName || 'Composite Constraint',
+      nodes: data.subGraph?.nodes ?? [],
+      edges: data.subGraph?.edges ?? [],
+    }
+  })
 
   /**
    * 组件属性定义

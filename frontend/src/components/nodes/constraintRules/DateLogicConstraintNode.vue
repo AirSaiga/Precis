@@ -108,19 +108,15 @@
 </template>
 
 <script setup lang="ts">
-  import { logger } from '@/core/utils/logger'
   import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
-  import NodeBadge from '@/components/ui/NodeBadge.vue'
   import ConstraintNodeFrame from './shared/ConstraintNodeFrame.vue'
   import ConstraintNodeLayout from './shared/ConstraintNodeLayout.vue'
   import { resolveNodeState } from '@/components/ui/nodeVariants'
   import type { DateLogicConstraintNodeData } from '@/types/graph'
   import { useGraphStore } from '@/stores/graphStore'
-  import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
-  import { useConstraintSourceSelector } from '@/composables/nodes/constraints/useConstraintSourceSelector'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
 
   const props = defineProps<{
@@ -129,18 +125,16 @@
     selected?: boolean
   }>()
 
-  const emit = defineEmits<{
-    (e: 'schemaConnected', data: any): void
-    (e: 'schemaDisconnected', data: any): void
-    (e: 'validationCompleted', data: any): void
-    (e: 'validationErrors', data: any): void
-    (e: 'configUpdated', data: any): void
+  defineEmits<{
+    (e: 'schemaConnected', payload: { nodeId: string; columnId?: string }): void
+    (e: 'schemaDisconnected', payload: { nodeId: string; columnId?: string }): void
+    (e: 'validationCompleted', payload: { nodeId: string; status: string }): void
+    (e: 'validationErrors', payload: { nodeId: string; errors: string[] }): void
+    (e: 'configUpdated', payload: { nodeId: string; patch: Record<string, unknown> }): void
   }>()
 
   const { t } = useI18n()
   const store = useGraphStore()
-
-  const { showConfirm } = useGlobalConfirm()
 
   const {
     isSaving,
@@ -174,17 +168,6 @@
     await performValidation()
   }
 
-  const {
-    localSourceNodeId,
-    localSourceColumnId,
-    availableSourceTables,
-    availableSourceColumns,
-    handleSourceTableChange,
-    handleSourceColumnChange,
-  } = useConstraintSourceSelector(props, {
-    onSourceColumnChange: validateNow,
-  })
-
   const hasSource = computed(
     () => !!props.data.sourceRef?.nodeId && !!props.data.sourceRef?.columnId
   )
@@ -196,16 +179,6 @@
       if (localTargetType.value === 'value') return !!localTargetValue.value
       return !!localTargetColumn.value
     }
-  })
-
-  const sourceDisplay = computed(() => {
-    if (!hasSource.value)
-      return t('customNodes.constraintRules.dateLogicConstraintNode.waitingForSource')
-    const table = props.data.table || ''
-    const column = props.data.column || ''
-    if (!table && !column)
-      return t('customNodes.constraintRules.dateLogicConstraintNode.waitingForSource')
-    return `${table}${table && column ? '.' : ''}${column}`
   })
 
   const modeSummary = computed(() => {
@@ -269,11 +242,6 @@
     }
   })
 
-  const showGuide = computed(() => {
-    if (validationStatus.value === 'error') return false
-    return !hasSource.value || !hasConfig.value
-  })
-
   const performValidation = async () => {
     if (!hasSource.value || !hasConfig.value) return
     await validateConstraintNodeById(props.id, store.nodes, store.edges, store.updateNodeData)
@@ -288,44 +256,6 @@
     validationTimer = window.setTimeout(() => {
       validateNow().catch(() => undefined)
     }, 300)
-  }
-
-  const handleLogicModeChange = () => {
-    updateConfig()
-    scheduleValidation()
-  }
-
-  const handleConfigChange = () => {
-    updateConfig()
-    scheduleValidation()
-  }
-
-  const updateConfig = () => {
-    const updateData: any = {
-      logicMode: localLogicMode.value,
-    }
-
-    if (localLogicMode.value === 'compare') {
-      updateData.compareOp = localCompareOp.value
-      if (localReferenceType.value === 'date') {
-        updateData.referenceDate = localReferenceDate.value
-        updateData.referenceColumn = undefined
-      } else {
-        updateData.referenceColumn = localReferenceColumn.value
-        updateData.referenceDate = undefined
-      }
-    } else {
-      updateData.calculationType = localCalculationType.value
-      if (localTargetType.value === 'value') {
-        updateData.targetValue = localTargetValue.value
-        updateData.targetColumn = undefined
-      } else {
-        updateData.targetColumn = localTargetColumn.value
-        updateData.targetValue = undefined
-      }
-    }
-
-    store.updateNodeData(props.id, updateData)
   }
 
   watch(

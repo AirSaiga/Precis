@@ -235,7 +235,11 @@
   })
 
   const titleText = computed(() => {
-    const rendered = renderText(props.issue.title_key, props.issue.title, displayMessageParams.value)
+    const rendered = renderText(
+      props.issue.title_key,
+      props.issue.title,
+      displayMessageParams.value
+    )
     // title 和 key 都空时，回退到 error_type 或通用文案，避免卡片出现空白主标题
     if (rendered) return rendered
     if (props.issue.error_type) return props.issue.error_type
@@ -261,13 +265,13 @@
   }
 
   /** 上下文中的可用表列表（用于 FK 悬挂 / 表不存在） */
-  const availableSchemas = computed<Array<{ id: string; name: string }>>(() => {
+  const availableSchemas = computed<Array<{ id: string; name?: string }>>(() => {
     const ctx = props.issue.context as Record<string, unknown> | undefined
     const list = ctx?.available_schemas
     if (!Array.isArray(list)) return []
     return list.filter(
-      (x): x is { id: string; name: string } =>
-        typeof x === 'object' && x !== null && typeof (x as any).id === 'string'
+      (x): x is { id: string; name?: string } =>
+        typeof x === 'object' && x !== null && typeof (x as Record<string, unknown>).id === 'string'
     )
   })
 
