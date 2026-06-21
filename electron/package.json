@@ -18,6 +18,7 @@
     "dev": "electron .",
     "pack": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Target pack",
     "dist": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Target dist",
+    "dist:mac": "cd .. && bash scripts/build-mac.sh",
     "release": "powershell -ExecutionPolicy Bypass -File scripts/build.ps1 -Target release",
     "fetch-python": "node scripts/fetch-python.js",
     "install:backend-deps": "node scripts/install-backend-deps.js",
