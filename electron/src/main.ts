@@ -26,6 +26,7 @@ import * as net from 'net';
 import * as yaml from 'js-yaml';
 import { updateManager } from './update';
 import { getBackendPath, getFrontendPath } from './utils/paths';
+import { logger } from './logger';
 
 /**
  * Python 后端服务的默认起始端口
@@ -331,7 +332,7 @@ function stopPythonServerSync(processToKill: ChildProcess | null): void {
   pythonProcess = null;
 
   if (pid) {
-    console.log(`[Main] 同步终止 Python 进程树，PID: ${pid}`);
+    logger.debug(`[Main] 同步终止 Python 进程树，PID: ${pid}`);
     if (process.platform === 'win32') {
       try {
         execSync(`taskkill /T /F /PID ${pid}`, { windowsHide: true, timeout: 5000 });
@@ -365,9 +366,9 @@ async function stopPythonServer(): Promise<void> {
   isPythonServerReady = false;
 
   if (pid) {
-    console.log(`[Main] 终止 Python 进程树，PID: ${pid}`);
+    logger.debug(`[Main] 终止 Python 进程树，PID: ${pid}`);
     await killProcessTree(pid).catch((err) => {
-      console.error('[Main] 终止 Python 进程树失败:', err);
+      logger.error('[Main] 终止 Python 进程树失败:', err);
     });
   }
 }
@@ -426,13 +427,13 @@ async function startPythonServer(): Promise<number> {
   }
 
   // 查找可用端口
-  console.log(`[Main] 查找可用端口，起始端口: ${PYTHON_SERVER_DEFAULT_PORT}`);
+  logger.debug(`[Main] 查找可用端口，起始端口: ${PYTHON_SERVER_DEFAULT_PORT}`);
   currentPythonServerPort = await findAvailablePort(PYTHON_SERVER_DEFAULT_PORT);
-  console.log(`[Main] 找到可用端口: ${currentPythonServerPort}`);
+  logger.debug(`[Main] 找到可用端口: ${currentPythonServerPort}`);
 
   // 解析 Python 解释器路径（内嵌运行时 / 环境变量 / 系统默认）
   const pythonExecutable = resolvePythonExecutable();
-  console.log(`[Main] 使用 Python 解释器: ${pythonExecutable}`);
+  logger.debug(`[Main] 使用 Python 解释器: ${pythonExecutable}`);
 
   // 定位后端启动脚本
   const serverScript = path.join(BACKEND_PATH, 'app', 'start_server.py');
@@ -440,7 +441,7 @@ async function startPythonServer(): Promise<number> {
   // 健壮性检查: 确保脚本存在
   if (!fs.existsSync(serverScript)) {
     const errorMessage = `Python server script not found: ${serverScript}`;
-    console.error('[Main]', errorMessage);
+    logger.error('[Main]', errorMessage);
     throw new Error(errorMessage);
   }
 
@@ -459,7 +460,7 @@ async function startPythonServer(): Promise<number> {
     windowsHide: true,
   };
 
-  console.log(`[Main] Starting Python server: ${pythonExecutable} ${args.join(' ')}`);
+  logger.debug(`[Main] Starting Python server: ${pythonExecutable} ${args.join(' ')}`);
 
   return new Promise<number>((resolve, reject) => {
     let resolved = false;
@@ -471,7 +472,7 @@ async function startPythonServer(): Promise<number> {
     pythonProcess = proc;
 
     if (proc.pid) {
-      console.log(`[Main] Python 子进程已启动，PID: ${proc.pid}`);
+      logger.debug(`[Main] Python 子进程已启动，PID: ${proc.pid}`);
     }
 
     // 启动信号超时保护：未在 stdout 看到就绪标志则视为失败
@@ -507,14 +508,14 @@ async function startPythonServer(): Promise<number> {
       resolved = true;
       clearTimeout(startupTimeout);
       isPythonServerReady = true;
-      console.log('[Main] Python server is ready');
+      logger.debug('[Main] Python server is ready');
       resolve(currentPythonServerPort);
     };
 
     // 监听标准输出 - 捕获后端启动成功的消息
     proc.stdout?.on('data', (data) => {
       const output = data.toString();
-      console.log(`Python stdout: ${output}`);
+      logger.debug(`Python stdout: ${output}`);
 
       // 检测后端就绪信号
       // start_server.py 会在启动完成后输出 "Application startup complete"
@@ -527,12 +528,12 @@ async function startPythonServer(): Promise<number> {
     proc.stderr?.on('data', (data) => {
       const chunk = data.toString();
       stderrBuffer += chunk;
-      console.error(`Python stderr: ${chunk}`);
+      logger.error(`Python stderr: ${chunk}`);
     });
 
     // 进程启动失败处理（如 python 可执行文件不存在）
     proc.on('error', (error) => {
-      console.error('[Main] Failed to start Python server:', error);
+      logger.error('[Main] Failed to start Python server:', error);
       cleanupAndReject(new Error(`Failed to spawn Python server: ${error.message}`));
     });
 
@@ -545,7 +546,7 @@ async function startPythonServer(): Promise<number> {
       }
 
       if (code !== 0) {
-        console.error(`[Main] Python server exited with code ${code}`);
+        logger.error(`[Main] Python server exited with code ${code}`);
       }
       pythonProcess = null;
       isPythonServerReady = false;
@@ -555,13 +556,13 @@ async function startPythonServer(): Promise<number> {
     proc.once('exit', () => clearTimeout(startupTimeout));
   }).then(async (port) => {
     // 额外的 API 就绪检测：确保 FastAPI 真正准备好处理请求
-    console.log('[Main] 等待 API 完全就绪...');
+    logger.debug('[Main] 等待 API 完全就绪...');
     const apiReady = await waitForApiReady(port, PYTHON_API_READY_TIMEOUT_MS);
     if (!apiReady) {
       await stopPythonServer();
       throw new Error(`Python server API did not become ready within ${PYTHON_API_READY_TIMEOUT_MS}ms on port ${port}`);
     }
-    console.log('[Main] API 已就绪');
+    logger.debug('[Main] API 已就绪');
     isPythonServerReady = true;
     return port;
   });
@@ -696,20 +697,20 @@ function createWindow(): void {
   // 此处不再重复设置，避免与 whenReady 内的逻辑冗余。
 
   // 调试信息
-  console.log('[Main] __dirname:', __dirname);
-  console.log('[Main] FRONTEND_PATH:', FRONTEND_PATH);
-  console.log('[Main] indexPath:', indexPath);
-  console.log('[Main] hasFrontendBuild:', hasFrontendBuild);
-  console.log('[Main] isPackaged:', app.isPackaged);
-  console.log('[Main] NODE_ENV:', process.env.NODE_ENV);
-  console.log('[Main] isDev:', isDev);
+  logger.debug('[Main] __dirname:', __dirname);
+  logger.debug('[Main] FRONTEND_PATH:', FRONTEND_PATH);
+  logger.debug('[Main] indexPath:', indexPath);
+  logger.debug('[Main] hasFrontendBuild:', hasFrontendBuild);
+  logger.debug('[Main] isPackaged:', app.isPackaged);
+  logger.debug('[Main] NODE_ENV:', process.env.NODE_ENV);
+  logger.debug('[Main] isDev:', isDev);
 
   // 根据环境选择加载方式
   if (isDev) {
     // 开发环境: 连接到 Vite 开发服务器
     // 优势: 支持热重载、源文件映射
-    console.log('[Main] 开发模式: 连接到 Vite 开发服务器');
-    console.log('[Main] 开发服务器地址:', `http://localhost:${FRONTEND_DEV_PORT}`);
+    logger.debug('[Main] 开发模式: 连接到 Vite 开发服务器');
+    logger.debug('[Main] 开发服务器地址:', `http://localhost:${FRONTEND_DEV_PORT}`);
     mainWindow.loadURL(`http://localhost:${FRONTEND_DEV_PORT}`);
     
     // 自动打开开发者工具，便于调试
@@ -717,7 +718,7 @@ function createWindow(): void {
   } else {
     // 生产环境: 通过自定义 app:// 协议加载本地打包文件
     // 使用自定义协议替代 file://，避免 CORS 限制和 webSecurity 问题
-    console.log('[Main] 生产模式: 通过 app:// 协议加载本地文件');
+    logger.debug('[Main] 生产模式: 通过 app:// 协议加载本地文件');
     mainWindow.loadURL(`app://./index.html`);
     
     // 生产环境可选开发者工具
@@ -787,7 +788,7 @@ ipcMain.handle('get-server-status', async () => {
  * - 端口可能变化，前端需要重新获取
  */
 ipcMain.handle('restart-python-server', async () => {
-  console.log('[Main] 重启 Python 后端服务...');
+  logger.debug('[Main] 重启 Python 后端服务...');
 
   // 彻底终止现有进程树，避免旧进程残留导致端口冲突
   await stopPythonServer();
@@ -801,7 +802,7 @@ ipcMain.handle('restart-python-server', async () => {
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
-    console.error('[Main] 重启 Python 服务失败:', errorMessage);
+    logger.error('[Main] 重启 Python 服务失败:', errorMessage);
     return {
       ready: false,
       error: errorMessage,
@@ -940,10 +941,10 @@ ipcMain.handle('save-config', async (event, configPath: string, dataPath: string
 
     fs.writeFileSync(configFile, content, 'utf-8');
 
-    console.log('[Main] 配置已保存:', configFile);
+    logger.debug('[Main] 配置已保存:', configFile);
     return true;
   } catch (error) {
-    console.error('[Main] 保存配置失败:', error);
+    logger.error('[Main] 保存配置失败:', error);
     return false;
   }
 });
@@ -953,7 +954,7 @@ ipcMain.handle('load-config', async () => {
   const configFile = path.join(userDataDir, '.precis', 'electron_launch.yaml');
 
   if (!fs.existsSync(configFile)) {
-    console.log('[Main] 配置文件不存在');
+    logger.debug('[Main] 配置文件不存在');
     return { configPath: '', dataPath: '' };
   }
 
@@ -962,10 +963,10 @@ ipcMain.handle('load-config', async () => {
     const parsed = yaml.load(content) as { configPath?: string; dataPath?: string } | null;
     const configPath = parsed?.configPath || '';
     const dataPath = parsed?.dataPath || '';
-    console.log('[Main] 配置已加载:', { configPath, dataPath });
+    logger.debug('[Main] 配置已加载:', { configPath, dataPath });
     return { configPath, dataPath };
   } catch (error) {
-    console.error('[Main] 读取配置失败:', error);
+    logger.error('[Main] 读取配置失败:', error);
     return { configPath: '', dataPath: '' };
   }
 });
@@ -1047,7 +1048,7 @@ ipcMain.handle('check-file-exists', async (event, filePath: string) => {
       });
     });
   } catch (error) {
-    console.error('[Electron] 检查文件存在性失败:', error);
+    logger.error('[Electron] 检查文件存在性失败:', error);
     return false;
   }
 });
@@ -1126,15 +1127,15 @@ ipcMain.handle('open-file', async (event, filePath: string) => {
     // 使用系统默认程序打开文件
     const openError = await shell.openPath(filePath);
     if (openError) {
-      console.error('[Electron] 打开文件失败:', openError);
+      logger.error('[Electron] 打开文件失败:', openError);
       return { success: false, error: openError };
     }
 
-    console.log('[Electron] 已用系统程序打开文件:', filePath);
+    logger.debug('[Electron] 已用系统程序打开文件:', filePath);
     return { success: true };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : '未知错误';
-    console.error('[Electron] 打开文件失败:', errorMessage);
+    logger.error('[Electron] 打开文件失败:', errorMessage);
     return { success: false, error: errorMessage };
   }
 });
@@ -1158,7 +1159,7 @@ ipcMain.handle('save-text-file', async (event, fileName: string, content: string
     }
 
     if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
-      console.error('[Electron] save-text-file: 文件名包含非法字符:', fileName);
+      logger.error('[Electron] save-text-file: 文件名包含非法字符:', fileName);
       return false;
     }
 
@@ -1166,10 +1167,10 @@ ipcMain.handle('save-text-file', async (event, fileName: string, content: string
     const filePath = path.join(userDataPath, fileName);
     
     fs.writeFileSync(filePath, content, 'utf-8');
-    console.log('[Electron] 文件已保存:', filePath);
+    logger.debug('[Electron] 文件已保存:', filePath);
     return true;
   } catch (error) {
-    console.error('[Electron] 保存文件失败:', error);
+    logger.error('[Electron] 保存文件失败:', error);
     return false;
   }
 });
@@ -1192,7 +1193,7 @@ ipcMain.handle('load-text-file', async (event, fileName: string) => {
     }
 
     if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
-      console.error('[Electron] load-text-file: 文件名包含非法字符:', fileName);
+      logger.error('[Electron] load-text-file: 文件名包含非法字符:', fileName);
       return null;
     }
 
@@ -1200,15 +1201,15 @@ ipcMain.handle('load-text-file', async (event, fileName: string) => {
     const filePath = path.join(userDataPath, fileName);
 
     if (!fs.existsSync(filePath)) {
-      console.log('[Electron] 文件不存在:', filePath);
+      logger.debug('[Electron] 文件不存在:', filePath);
       return null;
     }
 
     const content = fs.readFileSync(filePath, 'utf-8');
-    console.log('[Electron] 文件已读取:', filePath);
+    logger.debug('[Electron] 文件已读取:', filePath);
     return content;
   } catch (error) {
-    console.error('[Electron] 读取文件失败:', error);
+    logger.error('[Electron] 读取文件失败:', error);
     return null;
   }
 });
@@ -1248,7 +1249,7 @@ function scanDirectoryRecursive(dirPath: string, allowedExtensions: string[], re
       }
     }
   } catch (error) {
-    console.error('[Electron] 扫描目录失败:', dirPath, error);
+    logger.error('[Electron] 扫描目录失败:', dirPath, error);
   }
 }
 
@@ -1279,30 +1280,30 @@ ipcMain.handle('scan-directory', async (event, options: {
   
   // 参数验证
   if (!dirPath || typeof dirPath !== 'string') {
-    console.error('[Electron] 无效的目录路径:', dirPath);
+    logger.error('[Electron] 无效的目录路径:', dirPath);
     return [];
   }
 
   // 验证目录是否存在
   if (!fs.existsSync(dirPath)) {
-    console.error('[Electron] 目录不存在:', dirPath);
+    logger.error('[Electron] 目录不存在:', dirPath);
     return [];
   }
 
   // 验证是否为目录
   const stats = fs.statSync(dirPath);
   if (!stats.isDirectory()) {
-    console.error('[Electron] 路径不是目录:', dirPath);
+    logger.error('[Electron] 路径不是目录:', dirPath);
     return [];
   }
 
-  console.log('[Electron] 开始扫描目录:', dirPath);
-  console.log('[Electron] 允许的扩展名:', allowedExtensions);
+  logger.debug('[Electron] 开始扫描目录:', dirPath);
+  logger.debug('[Electron] 允许的扩展名:', allowedExtensions);
 
   const result: string[] = [];
   scanDirectoryRecursive(dirPath, allowedExtensions, result);
 
-  console.log('[Electron] 扫描完成，找到', result.length, '个文件');
+  logger.debug('[Electron] 扫描完成，找到', result.length, '个文件');
   return result;
 });
 
@@ -1324,39 +1325,39 @@ ipcMain.handle('scan-directory', async (event, options: {
 ipcMain.handle('read-file', async (event, filePath: string) => {
   try {
     if (!filePath || typeof filePath !== 'string') {
-      console.error('[Electron] 无效的文件路径:', filePath);
+      logger.error('[Electron] 无效的文件路径:', filePath);
       return null;
     }
 
     const resolved = path.resolve(filePath);
     if (resolved !== filePath && resolved !== path.normalize(filePath)) {
-      console.error('[Electron] read-file: 路径包含非法穿越:', filePath);
+      logger.error('[Electron] read-file: 路径包含非法穿越:', filePath);
       return null;
     }
 
     if (!path.isAbsolute(filePath)) {
-      console.error('[Electron] 路径必须是绝对路径:', filePath);
+      logger.error('[Electron] 路径必须是绝对路径:', filePath);
       return null;
     }
 
     // 检查文件是否存在
     if (!fs.existsSync(filePath)) {
-      console.log('[Electron] 文件不存在:', filePath);
+      logger.debug('[Electron] 文件不存在:', filePath);
       return null;
     }
 
     // 检查是否为文件
     const stats = fs.statSync(filePath);
     if (!stats.isFile()) {
-      console.error('[Electron] 路径不是文件:', filePath);
+      logger.error('[Electron] 路径不是文件:', filePath);
       return null;
     }
 
     const content = fs.readFileSync(filePath, 'utf-8');
-    console.log('[Electron] 文件已读取:', filePath);
+    logger.debug('[Electron] 文件已读取:', filePath);
     return content;
   } catch (error) {
-    console.error('[Electron] 读取文件失败:', error);
+    logger.error('[Electron] 读取文件失败:', error);
     return null;
   }
 });
@@ -1381,18 +1382,18 @@ ipcMain.handle('read-file', async (event, filePath: string) => {
 ipcMain.handle('write-file', async (event, filePath: string, content: string) => {
   try {
     if (!filePath || typeof filePath !== 'string') {
-      console.error('[Electron] 无效的文件路径:', filePath);
+      logger.error('[Electron] 无效的文件路径:', filePath);
       return false;
     }
 
     const resolved = path.resolve(filePath);
     if (resolved !== filePath && resolved !== path.normalize(filePath)) {
-      console.error('[Electron] write-file: 路径包含非法穿越:', filePath);
+      logger.error('[Electron] write-file: 路径包含非法穿越:', filePath);
       return false;
     }
 
     if (!path.isAbsolute(filePath)) {
-      console.error('[Electron] 路径必须是绝对路径:', filePath);
+      logger.error('[Electron] 路径必须是绝对路径:', filePath);
       return false;
     }
 
@@ -1400,14 +1401,14 @@ ipcMain.handle('write-file', async (event, filePath: string, content: string) =>
     const dirPath = path.dirname(filePath);
     if (!fs.existsSync(dirPath)) {
       fs.mkdirSync(dirPath, { recursive: true });
-      console.log('[Electron] 创建目录:', dirPath);
+      logger.debug('[Electron] 创建目录:', dirPath);
     }
 
     fs.writeFileSync(filePath, content, 'utf-8');
-    console.log('[Electron] 文件已保存:', filePath);
+    logger.debug('[Electron] 文件已保存:', filePath);
     return true;
   } catch (error) {
-    console.error('[Electron] 写入文件失败:', error);
+    logger.error('[Electron] 写入文件失败:', error);
     return false;
   }
 });
@@ -1475,7 +1476,7 @@ app.whenReady().then(async () => {
       realFilePath === realFrontendPath ||
       realFilePath.startsWith(realFrontendPath + path.sep);
     if (!isInside) {
-      console.error('[Main] app:// 协议拒绝越界访问:', realFilePath);
+      logger.error('[Main] app:// 协议拒绝越界访问:', realFilePath);
       return new Response('Forbidden', { status: 403, statusText: 'Forbidden' });
     }
 
@@ -1489,26 +1490,26 @@ app.whenReady().then(async () => {
 
   if (hasFrontendBuild) {
     // 生产环境: 启动 Python 后端并等待其就绪
-    console.log('[Main] 检测到打包环境，启动 Python 后端服务...');
+    logger.debug('[Main] 检测到打包环境，启动 Python 后端服务...');
     try {
       await startPythonServer();
-      console.log('[Main] 后端启动流程完成，验证 API 就绪...');
+      logger.debug('[Main] 后端启动流程完成，验证 API 就绪...');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      console.error('[Main] 后端启动失败:', errorMessage);
+      logger.error('[Main] 后端启动失败:', errorMessage);
       isPythonServerReady = false;
     }
   } else {
     // 开发环境: 后端由用户手动启动，轮询等待其就绪
-    console.log('[Main] 开发环境，等待外部后端服务就绪...');
+    logger.debug('[Main] 开发环境，等待外部后端服务就绪...');
   }
 
   // 统一轮询后端 API，确保真正可响应后再显示主窗口
   const apiReady = await waitForApiReady(currentPythonServerPort, 60000);
   if (apiReady) {
-    console.log('[Main] 后端 API 已就绪');
+    logger.debug('[Main] 后端 API 已就绪');
   } else {
-    console.log('[Main] 后端 API 就绪检测超时，继续显示主窗口');
+    logger.debug('[Main] 后端 API 就绪检测超时，继续显示主窗口');
   }
   backendReady = true;
   tryShowMainWindow();

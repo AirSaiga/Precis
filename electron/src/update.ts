@@ -16,6 +16,7 @@ import { autoUpdater, UpdateInfo, ProgressInfo } from 'electron-updater';
 import { app, ipcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
+import { logger } from './logger';
 
 export type UpdateStatus =
   | 'idle'
@@ -76,7 +77,7 @@ class UpdateManager {
         this.config = { ...DEFAULT_UPDATE_CONFIG, ...JSON.parse(content) };
       }
     } catch (error) {
-      console.error('[UpdateManager] 加载配置失败:', error);
+      logger.error('[UpdateManager] 加载配置失败:', error);
     }
   }
 
@@ -90,9 +91,9 @@ class UpdateManager {
 
     try {
       fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2), 'utf-8');
-      console.log('[UpdateManager] 配置已保存');
+      logger.debug('[UpdateManager] 配置已保存');
     } catch (error) {
-      console.error('[UpdateManager] 保存配置失败:', error);
+      logger.error('[UpdateManager] 保存配置失败:', error);
     }
   }
 
@@ -106,7 +107,7 @@ class UpdateManager {
 
     autoUpdater.on('checking-for-update', () => {
       this.updateState({ status: 'checking' });
-      console.log('[UpdateManager] 正在检查更新...');
+      logger.debug('[UpdateManager] 正在检查更新...');
     });
 
     autoUpdater.on('update-available', (info: UpdateInfo) => {
@@ -124,7 +125,7 @@ class UpdateManager {
         releaseDate: info.releaseDate,
         releaseNotes,
       });
-      console.log('[UpdateManager] 发现新版本:', info.version);
+      logger.debug('[UpdateManager] 发现新版本:', info.version);
     });
 
     autoUpdater.on('update-not-available', (info: UpdateInfo) => {
@@ -132,7 +133,7 @@ class UpdateManager {
         status: 'update-not-available',
         version: info.version,
       });
-      console.log('[UpdateManager] 当前已是最新版本');
+      logger.debug('[UpdateManager] 当前已是最新版本');
     });
 
     autoUpdater.on('download-progress', (progress: ProgressInfo) => {
@@ -151,7 +152,7 @@ class UpdateManager {
         version: info.version,
         releaseDate: info.releaseDate,
       });
-      console.log('[UpdateManager] 更新已下载完成:', info.version);
+      logger.debug('[UpdateManager] 更新已下载完成:', info.version);
     });
 
     autoUpdater.on('error', (error: Error) => {
@@ -159,7 +160,7 @@ class UpdateManager {
         status: 'error',
         error: error.message,
       });
-      console.error('[UpdateManager] 更新错误:', error);
+      logger.error('[UpdateManager] 更新错误:', error);
     });
   }
 
@@ -179,7 +180,7 @@ class UpdateManager {
     });
 
     ipcMain.handle('update:check', async () => {
-      console.log('[UpdateManager] 收到检查更新请求');
+      logger.debug('[UpdateManager] 收到检查更新请求');
 
       try {
         await autoUpdater.checkForUpdates();
@@ -228,21 +229,21 @@ class UpdateManager {
    */
   public async checkForUpdatesIfAutoEnabled(): Promise<void> {
     if (!this.config.autoCheck) {
-      console.log('[UpdateManager] 自动检查更新已关闭，跳过');
+      logger.debug('[UpdateManager] 自动检查更新已关闭，跳过');
       return;
     }
 
     if (!app.isPackaged) {
-      console.log('[UpdateManager] 开发环境，跳过自动更新检查');
+      logger.debug('[UpdateManager] 开发环境，跳过自动更新检查');
       return;
     }
 
-    console.log('[UpdateManager] 启动时自动检查更新...');
+    logger.debug('[UpdateManager] 启动时自动检查更新...');
     try {
       await autoUpdater.checkForUpdates();
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : '未知错误';
-      console.error('[UpdateManager] 自动检查更新失败:', errorMessage);
+      logger.error('[UpdateManager] 自动检查更新失败:', errorMessage);
     }
   }
 }
