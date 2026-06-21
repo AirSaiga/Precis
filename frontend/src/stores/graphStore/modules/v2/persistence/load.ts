@@ -166,9 +166,14 @@ export function createV2LoadOps(params: {
       const nextNodes: CustomNode[] = []
       const nextEdges: Edge[] = []
 
-      let view: { nodes?: Record<string, { x: number; y: number }> } | undefined
+      let view:
+        | {
+            nodes?: Record<string, { x: number; y: number }>
+            nodeStates?: Record<string, { hidden?: boolean; expanded?: boolean }>
+          }
+        | undefined
       try {
-        view = await getV2ProjectView(configPath)
+        view = (await getV2ProjectView(configPath)) as typeof view
       } catch (e) {
         view = undefined
       }
@@ -200,9 +205,27 @@ export function createV2LoadOps(params: {
         } as unknown as CustomNodeData,
       })
 
-      // 模板实例节点不在加载时自动恢复到画布。
-      // 画布是用户的工作区，模板实例应由用户主动从资源树拖入或展开。
-      // 模板实例的元数据（template_instances）仍保留在 manifest 中，由 save 流程维护。
+      // 恢复 templateInstance 节点（自包含 DAG 的视图容器）
+      // 重载时统一重置为折叠态：展开子节点作为独立文件持久化，
+      // 但不自动恢复到画布。用户需重新点击"展开"从模板定义生成新节点。
+      const templateInstances = config.manifest.template_instances || []
+      for (const ref of templateInstances) {
+        const position = view?.nodes?.[ref.id] || { x: 300, y: 100 }
+        nextNodes.push({
+          id: ref.id,
+          type: 'templateInstance',
+          position,
+          data: {
+            configName: ref.id,
+            templateId: ref.template_id,
+            templateName: ref.template_id,
+            enabled: ref.enabled !== false,
+            expanded: false,
+            nodeCount: 0,
+            saveState: 'saved',
+          } as unknown as CustomNodeData,
+        })
+      }
 
       // 注意：不再自动水合所有资源到画布。
       // 画布是用户的工作区，资源应从左侧资源树手动拖拽。
@@ -231,6 +254,19 @@ export function createV2LoadOps(params: {
             | undefined
           if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
             n.position = { x: pos.x, y: pos.y }
+          }
+        })
+      }
+
+      // 应用 view.json 中保存的节点 UI 状态（hidden）
+      // 注意：expanded 状态不在重载时恢复——模板实例统一从折叠态开始，
+      // 用户需重新展开。这避免"已展开但无子节点"的空容器问题。
+      if (view?.nodeStates) {
+        nextNodes.forEach((n) => {
+          const state = view.nodeStates![n.id]
+          if (!state) return
+          if (typeof state.hidden === 'boolean') {
+            n.hidden = state.hidden
           }
         })
       }

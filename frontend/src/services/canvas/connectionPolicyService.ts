@@ -190,7 +190,7 @@ class ConnectionPolicyServiceClass {
       dateLogicConstraint: { max: 1, description: 'DateLogic 约束只能连接一个列' },
       rangeConstraint: { max: 1, description: 'Range 约束只能连接一个列' },
       compositeConstraint: { max: 1, description: 'Composite 约束只能连接一个输入' },
-      templateInstance: { max: 1, description: '模板实例只能接收一个数据源输入' },
+      templateInstance: { max: 0, description: '模板实例为自包含 DAG，不接受外部输入' },
     }
 
     return configs[nodeType] || { max: Infinity, description: '无限制' }

@@ -47,6 +47,7 @@ from pathlib import Path
 # 导入各子模块的读取函数和类型，用于委托实际加载工作
 from app.shared.core.project.constraint.reader import load_constraint
 from app.shared.core.project.constraint.types import ConstraintFile
+from app.shared.core.project.manual_data.types import ManualDataFile
 from app.shared.core.project.regex.reader import load_regex_node
 from app.shared.core.project.regex.types import RegexNodeFile
 from app.shared.core.project.schema.reader import load_schema
@@ -188,3 +189,24 @@ def load_template_file(template_path: Path) -> TemplateFile:
         )
     """
     return load_template(template_path)
+
+
+def load_manual_data_file(manual_data_path: Path) -> ManualDataFile:
+    """@methoddesc 加载 ManualData 配置文件
+
+    输入示例:
+        manual_data_path = Path("/path/to/project/manual_data/ti1__md1.yaml")
+
+    输出示例:
+        ManualDataFile(
+            id="ti1__md1",
+            column_name="age",
+            column_data_type="integer",
+            rows=[["18"], ["25"], ["65"]],
+        )
+    """
+    import yaml
+
+    with open(manual_data_path, encoding="utf-8") as f:
+        raw = yaml.safe_load(f) or {}
+    return ManualDataFile.model_validate(raw)

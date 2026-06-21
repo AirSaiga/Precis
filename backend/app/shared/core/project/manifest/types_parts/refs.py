@@ -117,3 +117,22 @@ class TransformRef(BaseModel):
 
     id: str = Field(..., description="Transform 节点 ID（与 transform 文件内 id 一致）")
     path: str = Field(..., description="transform 文件相对路径（相对于 manifest 所在目录）")
+
+
+class ManualDataRef(BaseModel):
+    """@classdesc ManualData 节点文件引用
+
+    用于在 manifest.yaml 中引用一个 ManualData 内联数据节点配置文件。
+
+    示例:
+        # manifest.yaml 中的定义
+        manual_data:
+          - id: ti1__md1
+            path: manual_data/ti1__md1.yaml
+
+        # 对应的 Python 对象
+        ManualDataRef(id="ti1__md1", path="manual_data/ti1__md1.yaml")
+    """
+
+    id: str = Field(..., description="ManualData 节点 ID（与 manual_data 文件内 id 一致）")
+    path: str = Field(..., description="manual_data 文件相对路径（相对于 manifest 所在目录）")

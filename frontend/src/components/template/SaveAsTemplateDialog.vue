@@ -2,8 +2,8 @@
   @file SaveAsTemplateDialog.vue
   @description 将画布选区打包为可复用模板的轻量对话框
 
-  从画布选中的节点自动提取内部 DAG，用户只需填写元信息和参数声明。
-  替代旧版 TemplateDesignerModal 的"手动填写内部节点"方式。
+  从画布选中的节点自动提取内部 DAG，用户只需填写元信息。
+  模板为自包含 DAG，内部以 manualData 作为输入起点。
 -->
 
 <template>
@@ -32,15 +32,15 @@
                 <span v-if="extraction.summary.regexNodes" class="summary-chip">
                   {{ extraction.summary.regexNodes }} Regex
                 </span>
+                <span v-if="extraction.summary.manualData" class="summary-chip">
+                  {{ extraction.summary.manualData }} ManualData
+                </span>
                 <span v-if="extraction.excludedCount > 0" class="summary-excluded">
                   ({{ t('template.excludedNodes', { count: extraction.excludedCount }) }})
                 </span>
               </div>
-              <div v-if="extraction.warnings.includes('multipleAnchors')" class="summary-warning">
-                {{ t('template.multipleAnchorsWarning') }}
-              </div>
-              <div v-if="extraction.inputAnchorId" class="anchor-info">
-                {{ t('template.inputAnchor') }}: {{ extraction.inputAnchorId }}
+              <div v-for="err in extraction.errors" :key="err" class="summary-error">
+                {{ t(`template.errors.${err}`) }}
               </div>
             </div>
 
@@ -53,6 +53,9 @@
                 class="form-input"
                 :placeholder="t('template.templateId')"
               />
+              <div v-if="form.id && !isIdValid" class="field-error">
+                {{ t('template.invalidIdFormat') }}
+              </div>
             </div>
 
             <div class="form-section">
@@ -73,82 +76,6 @@
                 rows="2"
                 :placeholder="t('template.description')"
               ></textarea>
-            </div>
-
-            <!-- 参数定义 -->
-            <div class="form-section">
-              <div class="form-section-header">
-                <div class="form-section-title">{{ t('template.parameters') }}</div>
-                <button type="button" class="btn-icon" @click="addParameter">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                  </svg>
-                </button>
-              </div>
-
-              <div v-if="form.parameters.length === 0" class="empty-hint">
-                {{ t('template.noParameters') }}
-              </div>
-
-              <div v-for="(param, index) in form.parameters" :key="index" class="list-item">
-                <div class="list-item-fields">
-                  <input
-                    v-model="param.id"
-                    type="text"
-                    class="form-input-small"
-                    :placeholder="t('template.parameterId')"
-                  />
-                  <select v-model="param.type" class="form-select">
-                    <option value="string">{{ t('template.string') }}</option>
-                    <option value="integer">{{ t('template.integer') }}</option>
-                    <option value="decimal">{{ t('template.decimal') }}</option>
-                    <option value="boolean">{{ t('template.boolean') }}</option>
-                  </select>
-                  <input
-                    v-model="param.label"
-                    type="text"
-                    class="form-input-small"
-                    :placeholder="t('template.parameterLabel')"
-                  />
-                  <label class="form-checkbox-label">
-                    <input v-model="param.required" type="checkbox" />
-                    {{ t('template.parameterRequired') }}
-                  </label>
-                  <input
-                    v-model="param.default"
-                    type="text"
-                    class="form-input-small"
-                    :placeholder="t('template.parameterDefault')"
-                  />
-                </div>
-                <button type="button" class="btn-icon danger" @click="removeParameter(index)">
-                  <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="14"
-                    height="14"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <line x1="18" y1="6" x2="6" y2="18"></line>
-                    <line x1="6" y1="6" x2="18" y2="18"></line>
-                  </svg>
-                </button>
-              </div>
             </div>
           </div>
 
@@ -207,32 +134,21 @@
     id: '',
     name: '',
     description: '',
-    parameters: [] as Array<{
-      id: string
-      type: 'string' | 'integer' | 'decimal' | 'boolean'
-      label: string
-      required: boolean
-      default: string
-    }>,
   })
+
+  const ID_PATTERN = /^[a-zA-Z0-9_-]+$/
+
+  const isIdValid = computed(() => ID_PATTERN.test(form.id.trim()))
 
   const canSave = computed(() => {
-    return form.id.trim() !== '' && form.name.trim() !== '' && extraction.value.eligibleCount > 0
+    return (
+      form.id.trim() !== '' &&
+      isIdValid.value &&
+      form.name.trim() !== '' &&
+      extraction.value.eligibleCount > 0 &&
+      extraction.value.errors.length === 0
+    )
   })
-
-  function addParameter() {
-    form.parameters.push({
-      id: '',
-      type: 'string',
-      label: '',
-      required: true,
-      default: '',
-    })
-  }
-
-  function removeParameter(index: number) {
-    form.parameters.splice(index, 1)
-  }
 
   function handleClose() {
     emit('close')
@@ -244,7 +160,6 @@
     try {
       const success = await saveTemplateFromSelection(
         { id: form.id, name: form.name, description: form.description },
-        form.parameters,
         extraction.value.templateNodes
       )
       if (success) {
@@ -256,7 +171,7 @@
     }
   }
 
-  // 打开对话框时重置表单
+  // 打开/关闭对话框时重置表单和加载状态
   watch(
     () => props.visible,
     (visible) => {
@@ -264,7 +179,7 @@
         form.id = ''
         form.name = ''
         form.description = ''
-        form.parameters = []
+        isLoading.value = false
 
         const handleKeydown = (e: KeyboardEvent) => {
           if (e.key === 'Escape') {
@@ -337,212 +252,143 @@
   }
 
   .modal-close:hover {
-    color: var(--ui-text-primary, #ccc);
+    color: var(--ui-text, #ccc);
   }
 
   .modal-body {
-    padding: 16px 20px;
+    padding: 20px;
     overflow-y: auto;
-    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
   }
 
   .form-section {
-    margin-bottom: 16px;
-  }
-
-  .form-section-header {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 8px;
+    flex-direction: column;
+    gap: 8px;
   }
 
   .form-section-title {
     font-size: 12px;
     font-weight: 600;
-    color: var(--ui-text-secondary, #9cdcfe);
-    margin-bottom: 6px;
-  }
-
-  .form-section-header .form-section-title {
-    margin-bottom: 0;
+    color: var(--ui-text-muted, #858585);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
 
   .form-input,
   .form-textarea {
     width: 100%;
-    padding: 6px 10px;
-    background: var(--ui-bg-canvas, #1e1e1e);
-    border: 1px solid var(--ui-border-subtle, #333);
-    border-radius: 4px;
-    color: var(--ui-text-primary, #ccc);
+    padding: 10px 12px;
+    border: 1px solid var(--ui-border, #3c3c3c);
+    border-radius: 6px;
+    background: var(--ui-bg, #252526);
+    color: var(--ui-text, #ccc);
     font-size: 13px;
     box-sizing: border-box;
-  }
-
-  .form-textarea {
-    resize: vertical;
-    font-family: inherit;
   }
 
   .form-input:focus,
   .form-textarea:focus {
     outline: none;
-    border-color: var(--ui-accent, #007acc);
+    border-color: var(--ui-accent-primary, #0e639c);
+  }
+
+  .form-textarea {
+    resize: vertical;
+    min-height: 60px;
+  }
+
+  .field-error {
+    font-size: 12px;
+    color: var(--ui-danger, #f44336);
   }
 
   .selection-summary {
     display: flex;
     flex-wrap: wrap;
-    gap: 6px;
+    gap: 8px;
     align-items: center;
   }
 
   .summary-chip {
-    display: inline-block;
-    padding: 2px 8px;
-    background: var(--ui-accent, #007acc);
-    color: white;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 12px;
+    background: var(--ui-bg-subtle, #333);
+    color: var(--ui-text, #ccc);
+    font-size: 12px;
   }
 
   .summary-excluded {
-    font-size: 11px;
+    font-size: 12px;
     color: var(--ui-text-muted, #858585);
   }
 
   .summary-warning {
-    margin-top: 6px;
-    font-size: 11px;
-    color: #d19a66;
+    font-size: 12px;
+    color: var(--ui-warning-strong, #ffcc00);
+  }
+
+  .summary-error {
+    font-size: 12px;
+    color: var(--ui-danger, #f44336);
   }
 
   .anchor-info {
-    margin-top: 6px;
-    font-size: 11px;
-    color: var(--ui-text-muted, #858585);
-  }
-
-  .empty-hint {
     font-size: 12px;
     color: var(--ui-text-muted, #858585);
-    font-style: italic;
-    padding: 8px 0;
-  }
-
-  .list-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 8px;
-  }
-
-  .list-item-fields {
-    flex: 1;
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    align-items: center;
-  }
-
-  .form-input-small {
-    padding: 4px 8px;
-    background: var(--ui-bg-canvas, #1e1e1e);
-    border: 1px solid var(--ui-border-subtle, #333);
-    border-radius: 4px;
-    color: var(--ui-text-primary, #ccc);
-    font-size: 12px;
-    width: 80px;
-  }
-
-  .form-input-small:focus {
-    outline: none;
-    border-color: var(--ui-accent, #007acc);
-  }
-
-  .form-select {
-    padding: 4px 8px;
-    background: var(--ui-bg-canvas, #1e1e1e);
-    border: 1px solid var(--ui-border-subtle, #333);
-    border-radius: 4px;
-    color: var(--ui-text-primary, #ccc);
-    font-size: 12px;
-  }
-
-  .form-checkbox-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 11px;
-    color: var(--ui-text-secondary, #9cdcfe);
-    white-space: nowrap;
-    cursor: pointer;
-  }
-
-  .btn-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border: none;
-    background: transparent;
-    color: var(--ui-text-muted, #858585);
-    cursor: pointer;
-    border-radius: 4px;
-    flex-shrink: 0;
-  }
-
-  .btn-icon:hover {
-    background: var(--ui-border-subtle, #333);
-    color: var(--ui-text-primary, #ccc);
-  }
-
-  .btn-icon.danger:hover {
-    color: #f44747;
   }
 
   .modal-footer {
     display: flex;
     justify-content: flex-end;
-    gap: 8px;
-    padding: 12px 20px;
+    gap: 12px;
+    padding: 16px 20px;
     border-top: 1px solid var(--ui-border-subtle, #333);
   }
 
-  .btn-secondary {
-    padding: 6px 16px;
-    background: transparent;
-    border: 1px solid var(--ui-border-subtle, #333);
-    border-radius: 4px;
-    color: var(--ui-text-primary, #ccc);
+  .btn-secondary,
+  .btn-primary {
+    padding: 8px 16px;
+    border-radius: 6px;
     font-size: 13px;
     cursor: pointer;
+    transition: all 0.15s ease;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    border: 1px solid var(--ui-border, #3c3c3c);
+    color: var(--ui-text, #ccc);
   }
 
   .btn-secondary:hover {
-    background: var(--ui-border-subtle, #333);
+    background: var(--ui-bg-subtle, #333);
   }
 
   .btn-primary {
-    padding: 6px 16px;
-    background: var(--ui-accent, #007acc);
-    border: none;
-    border-radius: 4px;
-    color: white;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
+    background: var(--ui-accent-primary, #0e639c);
+    border: 1px solid var(--ui-accent-primary, #0e639c);
+    color: #fff;
   }
 
   .btn-primary:hover:not(:disabled) {
-    background: var(--ui-accent-primary, #0e639c);
+    background: var(--ui-accent-primary-hover, #1177bb);
   }
 
   .btn-primary:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  .modal-fade-enter-active,
+  .modal-fade-leave-active {
+    transition: opacity 0.2s ease;
+  }
+
+  .modal-fade-enter-from,
+  .modal-fade-leave-to {
+    opacity: 0;
   }
 </style>

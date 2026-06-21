@@ -7,18 +7,19 @@
 
 import './registry'
 import { registerBuilder } from './registry'
-import { schemaBuilder } from './schemaBuilder'
-import { regexBuilder } from './regexBuilder'
-import { transformBuilder } from './transformBuilder'
-import { templateInstanceBuilder } from './templateInstanceBuilder'
 import './constraint'
+import { manualDataBuilder } from './manualDataBuilder'
+import { regexBuilder } from './regexBuilder'
+import { schemaBuilder } from './schemaBuilder'
+import { templateInstanceBuilder } from './templateInstanceBuilder'
+import { transformBuilder } from './transformBuilder'
 
 registerBuilder(schemaBuilder)
 registerBuilder(regexBuilder)
 registerBuilder(transformBuilder)
+registerBuilder(manualDataBuilder)
 registerBuilder(templateInstanceBuilder)
 
-export { schemaBuilder, regexBuilder, transformBuilder, templateInstanceBuilder }
-export * from './constraint'
+export { schemaBuilder, regexBuilder, transformBuilder, manualDataBuilder, templateInstanceBuilder }
 export * from './registry'
 export type * from '../types'

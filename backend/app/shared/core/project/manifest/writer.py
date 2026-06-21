@@ -25,14 +25,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 from app.shared.core.io.yaml import write_yaml
 
-from .types import ConstraintRef, ProjectManifest, RegexRef, SchemaRef
-
-if TYPE_CHECKING:
-    from .types import ConstraintRef, ProjectManifest, RegexRef, SchemaRef
+from .types import ConstraintRef, ManualDataRef, ProjectManifest, RegexRef, SchemaRef
 
 
 def save_manifest(manifest: ProjectManifest, manifest_path: str | Path) -> None:
@@ -221,4 +217,27 @@ def ensure_regex_ref(manifest: ProjectManifest, regex_id: str, default_path: str
     manifest.regex_nodes.append(new_ref)
 
     # Step 5: 返回引用
+    return new_ref
+
+
+def ensure_manual_data_ref(manifest: ProjectManifest, manual_data_id: str, default_path: str = None) -> ManualDataRef:
+    """@methoddesc 确保清单中包含指定 manual_data_id 的 ManualData 引用。
+
+    如果引用已存在则直接返回，否则创建新引用并添加到清单中。
+
+    参数:
+        manifest: 目标 ProjectManifest 对象
+        manual_data_id: ManualData 节点 ID
+        default_path: 默认路径（若为 None 则自动生成）
+
+    返回:
+        找到或创建的 ManualDataRef 对象
+    """
+    ref = next((md for md in manifest.manual_data if md.id == manual_data_id), None)
+
+    if ref:
+        return ref
+
+    new_ref = ManualDataRef(id=manual_data_id, path=default_path or f"manual_data/{manual_data_id}.manual_data.yaml")
+    manifest.manual_data.append(new_ref)
     return new_ref

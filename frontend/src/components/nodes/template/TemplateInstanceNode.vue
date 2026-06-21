@@ -24,10 +24,6 @@
     @delete="handleClose"
     @save="handleSave"
   >
-    <template #overlay>
-      <NodeHandle id="template-input" type="target" :position="Position.Left" color="primary" />
-    </template>
-
     <template #header>
       <NodeHeader :title="data.templateName || configName" icon="🧩" theme="purple" status="idle" />
       <NodeDivider theme="purple" spacing="sm" />
@@ -65,13 +61,6 @@
 
   <!-- ============ 展开态：容器框架 ============ -->
   <div v-else class="template-container" :class="{ 'is-selected': selected }" @click="onNodeClick">
-    <Handle
-      id="template-input"
-      type="target"
-      :position="Position.Left"
-      class="template-container__handle"
-    />
-
     <div class="template-container__header">
       <span class="template-container__icon">🧩</span>
       <span class="template-container__title">{{ data.templateName || configName }}</span>
@@ -117,12 +106,11 @@
 
 <script setup lang="ts">
   import { computed, ref } from 'vue'
-  import { Handle, Position, useNode } from '@vue-flow/core'
+  import { useNode } from '@vue-flow/core'
   import { useI18n } from 'vue-i18n'
   import NodeShell from '@/components/ui/NodeShell.vue'
   import NodeHeader from '@/components/ui/NodeHeader.vue'
   import NodeDivider from '@/components/ui/NodeDivider.vue'
-  import NodeHandle from '@/components/ui/NodeHandle.vue'
   import type { TemplateInstanceNodeData } from '@/types/nodes'
   import { useGraphStore } from '@/stores/graphStore'
 

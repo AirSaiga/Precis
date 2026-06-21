@@ -43,7 +43,6 @@ describe('templateInstanceFactory', () => {
     const node = vi.mocked(addNodes).mock.calls[0][0]
     expect(node.data.templateId).toBe('')
     expect(node.data.templateName).toBe('')
-    expect(node.data.parameters).toEqual({})
     expect(node.data.nodeCount).toBe(0)
     expect(node.data.expanded).toBe(false)
     expect(node.data.saveState).toBe('draft')
@@ -53,8 +52,6 @@ describe('templateInstanceFactory', () => {
   it('支持自定义参数', () => {
     factory.createTemplateInstanceNode({ x: 0, y: 0 }, 'tpl-1', 'MyTpl', {
       nodeId: 'custom-id',
-      parameters: { key: 'val' },
-      inputFromNode: 'node-a',
       enabled: false,
       saveState: 'saved',
     })
@@ -62,8 +59,6 @@ describe('templateInstanceFactory', () => {
     expect(node.id).toBe('custom-id')
     expect(node.data.templateId).toBe('tpl-1')
     expect(node.data.templateName).toBe('MyTpl')
-    expect(node.data.parameters).toEqual({ key: 'val' })
-    expect(node.data.inputFromNode).toBe('node-a')
     expect(node.data.enabled).toBe(false)
     expect(node.data.saveState).toBe('saved')
   })

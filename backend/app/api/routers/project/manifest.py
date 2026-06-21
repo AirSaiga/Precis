@@ -368,7 +368,7 @@ def update_manifest_template_instance_ref(
     - 如果不存在，则添加新引用
 
     参数:
-        instance_ref: 模板实例引用（id + template_id + enabled + input_from_node + params）
+        instance_ref: 模板实例引用（id + template_id + enabled）
         config_path: 项目配置根目录
 
     返回:

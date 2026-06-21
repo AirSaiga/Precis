@@ -452,8 +452,6 @@ export function createV2SaveOps(params: {
             id: nodeId,
             template_id: data.templateId || '',
             enabled: data.enabled !== false,
-            input_from_node: data.inputFromNode || '',
-            params: data.parameters || {},
           }
         })()
 

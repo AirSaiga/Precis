@@ -20,8 +20,6 @@ export const templateInstanceBuilder: NodeBuilder<TemplateInstanceRefV2> = {
         id: node.id,
         template_id: data.templateId || '',
         enabled: data.enabled !== false,
-        input_from_node: data.inputFromNode || '',
-        params: data.parameters || {},
       },
     }
   },

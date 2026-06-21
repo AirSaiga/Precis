@@ -212,9 +212,13 @@ class ValidateCommand(Command):
             if timeout_seconds <= 0:
                 timeout_seconds = 30
 
-            allow_unsafe_eval = bool(
-                script_security.get("allow_eval", False) or script_security.get("allow_exec", False)
-            )
+            # 脚本执行权限：显式传入时优先使用传入值，否则回退到项目配置
+            allow_eval = script_security.get("allow_eval")
+            allow_exec = script_security.get("allow_exec")
+            if allow_eval is None and allow_exec is None:
+                allow_unsafe_eval = None
+            else:
+                allow_unsafe_eval = bool(allow_eval or allow_exec)
 
             options = ValidationOptions(
                 timeout_seconds=timeout_seconds,

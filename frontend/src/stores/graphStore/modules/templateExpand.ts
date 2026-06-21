@@ -33,7 +33,7 @@ import { addNodes, addEdges, removeNodes, removeEdges } from '@/services/canvas/
 /** API 返回的单个展开节点（解析后的中间表示） */
 interface ExpandItem {
   id: string
-  kind: 'transform' | 'constraint' | 'regex'
+  kind: 'transform' | 'constraint' | 'regex' | 'manualData'
   type: string
   inputFromNode: string | null
   data: Record<string, unknown>
@@ -135,8 +135,7 @@ export function createTemplateExpandModule(params: {
     if (items.length === 0) return
 
     // Stage 2: 构建 DAG 规划（含合成节点）
-    const instanceInputFrom = getInstanceInputFrom(instanceNode)
-    const { dagNodes, dagEdges } = buildDagPlan(items, instanceInputFrom)
+    const { dagNodes, dagEdges } = buildDagPlan(items)
 
     // Stage 3: 计算拓扑布局（子节点使用容器内相对坐标）
     const containerSize = computeLayout(dagNodes, dagEdges)
@@ -148,7 +147,7 @@ export function createTemplateExpandModule(params: {
     await nextTick()
 
     // Stage 5: 创建边 + 回写 inputFromNode
-    materializeEdges(dagEdges)
+    materializeEdges(dagEdges, dagNodes)
 
     // 先用估算尺寸设置容器（确保子节点在容器内）
     if (containerSize) {
@@ -211,6 +210,15 @@ export function createTemplateExpandModule(params: {
         data: r,
       })
     }
+    for (const md of result.manual_data) {
+      items.push({
+        id: md.id as string,
+        kind: 'manualData',
+        type: 'ManualData',
+        inputFromNode: (md.input_from_node as string) || null,
+        data: md,
+      })
+    }
 
     return items
   }
@@ -226,10 +234,7 @@ export function createTemplateExpandModule(params: {
    * 3. 无外部输入时，插入 manualData 合成节点
    * 4. 生成完整的 DagEdge 列表
    */
-  function buildDagPlan(
-    items: ExpandItem[],
-    instanceInputFrom: string | undefined
-  ): { dagNodes: DagNode[]; dagEdges: DagEdge[] } {
+  function buildDagPlan(items: ExpandItem[]): { dagNodes: DagNode[]; dagEdges: DagEdge[] } {
     const dagNodes: DagNode[] = []
     const dagEdges: DagEdge[] = []
     const itemIdSet = new Set(items.map((i) => i.id))
@@ -292,31 +297,15 @@ export function createTemplateExpandModule(params: {
       })
     }
 
-    // ---- 2d: 确定数据源（无外部输入时创建 defaultManualData） ----
-    let dataSourceId: string | undefined = instanceInputFrom
-    const rootItems = items.filter((i) => !i.inputFromNode)
-
-    if (!dataSourceId && rootItems.length > 0) {
-      const firstItem = rootItems[0]
-      if (!firstItem) {
-        return { dagNodes, dagEdges }
-      }
-      const manualNodeId = `manual-input-${firstItem.id}`
-      dagNodes.push({
-        id: manualNodeId,
-        origin: 'synthetic',
-        kind: 'manualData',
-        syntheticData: {
-          configName: 'Manual Input',
-          columnName: 'Column1',
-          rows: [['value1'], ['value2'], ['value3']],
-        },
-      })
-      dataSourceId = manualNodeId
-    }
+    // ---- 2d: 实例自包含，无外部数据源 ----
+    // manualData 节点是模板自带的输入起点，不需要外部数据源。
+    // 只有非 manualData 的根节点需要数据源，但实例自包含后不再有外部输入。
 
     // ---- 2e: 为每个节点生成边 ----
     for (const item of items) {
+      // manualData 是 DAG 起点，不需要入边
+      if (item.kind === 'manualData') continue
+
       // 解析源节点 ID
       let sourceId: string | undefined
 
@@ -325,12 +314,12 @@ export function createTemplateExpandModule(params: {
           // 源是展开图中的节点
           sourceId = item.inputFromNode
         } else {
-          // 源是外部节点，用数据源替代
-          sourceId = dataSourceId
+          // 源是外部节点（保留向后兼容，但实例自包含后通常不会出现）
+          sourceId = undefined
         }
       } else {
-        // 根节点（无 inputFromNode），用数据源
-        sourceId = dataSourceId
+        // 根节点（无 inputFromNode），实例自包含后无外部数据源
+        sourceId = undefined
       }
 
       if (!sourceId) continue
@@ -599,25 +588,45 @@ export function createTemplateExpandModule(params: {
   // Stage 5: 创建边
   // --------------------------------------------------------------------------
 
-  function materializeEdges(dagEdges: DagEdge[]): void {
+  function materializeEdges(dagEdges: DagEdge[], dagNodes: DagNode[]): void {
     const newEdges: Edge[] = []
+    const dagNodeMap = new Map(dagNodes.map((n) => [n.id, n]))
 
     for (const dagEdge of dagEdges) {
+      const sourceNode = nodes.value.find((n) => n.id === dagEdge.sourceId)
+      const dagTarget = dagNodeMap.get(dagEdge.targetId)
+
+      // 从 DAG 规划中补全 schema → constraint 边的 sourceHandle
+      // 使验证上下文能正确识别目标列
+      let sourceHandle = dagEdge.sourceHandle
+      if (
+        !sourceHandle &&
+        (sourceNode?.type === 'schema' || sourceNode?.type === 'jsonSchema') &&
+        dagTarget?.kind === 'constraint'
+      ) {
+        const refs = (dagTarget.item?.data.refs || {}) as Record<string, unknown>
+        const inputColumn = (dagTarget.item?.data.input_column as string) || ''
+        const columnId =
+          (refs.column_id as string) || (refs.column_ids as string[])?.[0] || inputColumn
+        if (columnId) {
+          sourceHandle = `source-right-${columnId}`
+        }
+      }
+
       newEdges.push({
         id: `e-expand-${dagEdge.sourceId}-${dagEdge.targetId}`,
         source: dagEdge.sourceId,
         target: dagEdge.targetId,
-        sourceHandle: dagEdge.sourceHandle,
+        sourceHandle,
         targetHandle: dagEdge.targetHandle,
       })
 
-      const targetNode = nodes.value.find((n) => n.id === dagEdge.targetId)
-      if (targetNode) {
-        updateNodeData(dagEdge.targetId, {
-          ...targetNode.data,
-          inputFromNode: dagEdge.sourceId,
-        })
-      }
+      // 回写 inputFromNode 到目标节点，使保存时 input_from_node 字段正确序列化。
+      // dagEdge.sourceId 可能是合成 transformOutput 节点（当 transform→constraint 路由经过时），
+      // 只有此处知道实际边源 ID，因此必须在此回写。
+      updateNodeData(dagEdge.targetId, {
+        inputFromNode: dagEdge.sourceId,
+      } as Partial<CustomNodeData>)
     }
 
     if (newEdges.length > 0) {
@@ -639,7 +648,6 @@ export function createTemplateExpandModule(params: {
         configName: (item.data.description as string) || item.id,
         transformType: item.type,
         description: item.data.description,
-        inputFromNode: undefined,
         inputColumn: item.data.input_column || undefined,
         params: (item.data.params || {}) as Record<string, unknown>,
         outputColumns: item.data.output_columns || [],
@@ -665,6 +673,11 @@ export function createTemplateExpandModule(params: {
     const tableId = refs.table_id || refs.tableId || ''
     const columnId = refs.column_id || refs.columnId || ''
     const columnIds = refs.column_ids || refs.columnIds
+    const inputColumn = (item.data.input_column as string) || ''
+
+    // 兼容仅通过 input_column 指定目标列的模板
+    const effectiveColumnId = columnId || inputColumn
+    const effectiveColumnIds = Array.isArray(columnIds) ? columnIds : []
 
     const base: Record<string, unknown> = {
       configName: (item.data.description as string) || item.id,
@@ -672,19 +685,30 @@ export function createTemplateExpandModule(params: {
       saveState: 'draft',
       _expandedFromInstanceId: instanceNodeId,
       table: tableId,
+      // inputColumn 用于 inline 数据源场景（manualData / transformOutput），
+      // 明确告诉行内校验应该以哪一列作为目标列。
+      inputColumn: effectiveColumnId || effectiveColumnIds[0] || undefined,
+    }
+
+    // 写入 sourceRef，使单约束校验和重验能定位到源节点/列
+    if (tableId && (effectiveColumnId || effectiveColumnIds.length > 0)) {
+      base.sourceRef = {
+        nodeId: tableId,
+        columnId: effectiveColumnId || effectiveColumnIds[0],
+      }
     }
 
     switch (kind) {
       case 'notNull':
-        base.column = columnId
+        base.column = effectiveColumnId
         break
 
       case 'unique':
-        base.column = columnIds || columnId
+        base.column = effectiveColumnIds.length > 0 ? effectiveColumnIds : effectiveColumnId
         break
 
       case 'allowedValues':
-        base.column = columnId
+        base.column = effectiveColumnId
         base.allowedValues = params.allowed_values || []
         break
 
@@ -693,10 +717,16 @@ export function createTemplateExpandModule(params: {
         base.sourceColumn = refs.from_column_id || ''
         base.targetTable = refs.to_table_id || ''
         base.targetColumn = refs.to_column_id || ''
+        if (base.sourceTable && base.sourceColumn) {
+          base.sourceRef = {
+            nodeId: base.sourceTable as string,
+            columnId: base.sourceColumn as string,
+          }
+        }
         break
 
       case 'range':
-        base.column = columnId
+        base.column = effectiveColumnId
         base.minValue = params.min ?? 0
         base.maxValue = params.max ?? 100
         base.boundaryMode = params.boundary_mode || 'inclusive'
@@ -711,17 +741,17 @@ export function createTemplateExpandModule(params: {
         break
 
       case 'scripted':
-        base.column = columnId
+        base.column = effectiveColumnId
         base.expression = params.expression || ''
         break
 
       case 'charset':
-        base.column = columnId
+        base.column = effectiveColumnId
         base.charsetMode = params.charset_mode || 'ascii'
         break
 
       case 'dateLogic':
-        base.column = columnId
+        base.column = effectiveColumnId
         base.logicMode = params.logic_mode || 'compare'
         break
 
@@ -772,6 +802,22 @@ export function createTemplateExpandModule(params: {
   }
 
   function buildManualDataData(dagNode: DagNode): { type: string; data: Record<string, unknown> } {
+    // real origin: 从模板展开结果中读取数据
+    if (dagNode.item) {
+      const d = dagNode.item.data
+      return {
+        type: 'manualData',
+        data: {
+          configName: (d.column_name as string) || 'Column1',
+          columnName: (d.column_name as string) || 'Column1',
+          columnDataType: (d.column_data_type as string) || 'string',
+          rows: (d.rows as string[][]) || [],
+          saveState: 'draft',
+          _expandedFromInstanceId: undefined,
+        },
+      }
+    }
+    // synthetic origin（向后兼容）
     const sd = dagNode.syntheticData || {}
     return {
       type: 'manualData',
@@ -782,17 +828,6 @@ export function createTemplateExpandModule(params: {
         saveState: 'draft',
       },
     }
-  }
-
-  // --------------------------------------------------------------------------
-  // Utilities
-  // --------------------------------------------------------------------------
-
-  /** 从实例节点 data 中提取 inputFromNode */
-  function getInstanceInputFrom(instanceNode: CustomNode): string | undefined {
-    return (instanceNode.data as unknown as Record<string, unknown>).inputFromNode as
-      | string
-      | undefined
   }
 
   // --------------------------------------------------------------------------

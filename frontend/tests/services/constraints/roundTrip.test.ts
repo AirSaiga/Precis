@@ -679,7 +679,7 @@ describe('Round-Trip - JsonSchema', () => {
 // ============================================================================
 
 describe('Round-Trip - TemplateInstance', () => {
-  it('standalone 保存保留 template_id 和 input_from_node', async () => {
+  it('standalone 保存保留 template_id 和 enabled', async () => {
     const node: CustomNode = {
       id: 'ti-1',
       type: 'templateInstance',
@@ -687,8 +687,6 @@ describe('Round-Trip - TemplateInstance', () => {
         configName: '默认模板',
         templateId: 'tpl-default',
         enabled: true,
-        inputFromNode: 'schema-1',
-        parameters: { threshold: 0.8 },
       } as any,
       position: { x: 0, y: 0 },
     } as CustomNode
@@ -706,8 +704,6 @@ describe('Round-Trip - TemplateInstance', () => {
     expect(file.id).toBe('ti-1')
     expect(file.template_id).toBe('tpl-default')
     expect(file.enabled).toBe(true)
-    expect(file.input_from_node).toBe('schema-1')
-    expect(file.params).toEqual({ threshold: 0.8 })
   })
 })
 

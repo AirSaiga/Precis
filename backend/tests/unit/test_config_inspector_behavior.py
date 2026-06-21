@@ -38,7 +38,7 @@ class TestConfigInspector:
         warnings: list[str] = []
         errors: list[LoadingError] = []
 
-        inspect_config(Path("."), manifest, {"manifest_id": schema_file}, {}, {}, {}, warnings, errors)
+        inspect_config(Path("."), manifest, {"manifest_id": schema_file}, {}, {}, {}, {}, warnings, errors)
 
         assert len(warnings) == 1
         assert "ID 不一致" in warnings[0]
@@ -65,6 +65,7 @@ class TestConfigInspector:
             manifest,
             {"users": schema_file},
             {"nn_1": constraint},
+            {},
             {},
             {},
             warnings,
@@ -95,6 +96,7 @@ class TestConfigInspector:
             manifest,
             {"users": schema_file},
             {"nn_1": constraint},
+            {},
             {},
             {},
             warnings,

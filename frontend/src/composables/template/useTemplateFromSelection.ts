@@ -3,9 +3,9 @@
  * @description 从画布选区提取模板定义 - 将选中的节点 DAG 打包为可复用模板
  *
  * 核心职责：
- * - 从选中的画布节点中过滤出 eligible 节点（transform / constraint / regex）
+ * - 从选中的画布节点中过滤出 eligible 节点（transform / constraint / regex / manualData）
  * - 将每个节点映射为后端 TemplateNode 格式
- * - 检测输入锚点（接收外部输入的入口节点）
+ * - 校验模板自包含性（非 manualData 节点的 inputFromNode 必须指向模板内部）
  * - 构建 API payload 并调用 createV2Template
  */
 
@@ -27,7 +27,7 @@ type CustomNode = Node<CustomNodeData>
 
 interface TemplateNode {
   id: string
-  kind: 'transform' | 'constraint' | 'regex'
+  kind: 'transform' | 'constraint' | 'regex' | 'manualData'
   type: string
   input_from_node: string | null
   input_column?: string | null
@@ -36,14 +36,10 @@ interface TemplateNode {
   refs: Record<string, unknown>
   enabled: boolean
   description?: string | null
-}
-
-interface TemplateParameter {
-  id: string
-  type: 'string' | 'integer' | 'decimal' | 'boolean'
-  label: string
-  required: boolean
-  default: unknown
+  // manualData 专用字段
+  column_name?: string
+  rows?: string[][]
+  column_data_type?: string
 }
 
 interface ExtractionResult {
@@ -51,8 +47,10 @@ interface ExtractionResult {
   inputAnchorId: string | null
   eligibleCount: number
   excludedCount: number
-  summary: { transforms: number; constraints: number; regexNodes: number }
+  summary: { transforms: number; constraints: number; regexNodes: number; manualData: number }
   warnings: string[]
+  /** 结构合法性错误（阻断模板创建） */
+  errors: string[]
 }
 
 // === 辅助函数 ===
@@ -61,7 +59,9 @@ interface ExtractionResult {
 function isEligibleNode(node: CustomNode): boolean {
   const type = node.type
   if (!type) return false
-  return type === 'transform' || type === 'regex' || isConstraintNodeType(type)
+  return (
+    type === 'transform' || type === 'regex' || type === 'manualData' || isConstraintNodeType(type)
+  )
 }
 
 /** 提取 Transform 节点 */
@@ -147,21 +147,44 @@ function extractRegexNode(node: CustomNode): TemplateNode {
   }
 }
 
+/** 提取 ManualData 节点 */
+function extractManualDataNode(node: CustomNode): TemplateNode {
+  const d = (node.data || {}) as Record<string, unknown>
+  return {
+    id: node.id,
+    kind: 'manualData',
+    type: 'ManualData',
+    input_from_node: (d.inputFromNode as string) || null,
+    input_column: null,
+    params: {},
+    output_columns: [],
+    refs: {},
+    enabled: d.enabled !== false,
+    description: (d.configName as string) || null,
+    column_name: (d.columnName as string) || 'Column1',
+    rows: (d.rows as string[][]) || [],
+    column_data_type: (d.columnDataType as string) || 'string',
+  }
+}
+
 /**
- * 检测输入锚点：找出 inputFromNode 指向选区外部节点的 eligible 节点
- * 这些节点是模板的入口，展开时由 TemplateInstance 的 input_from_node 绑定
+ * 检测外部引用：非 manualData 节点的 inputFromNode 指向模板外部时，
+ * 模板无法自包含，应阻断保存。
  */
-function detectInputAnchors(eligibleNodes: CustomNode[], selectedIdSet: Set<string>): string[] {
-  const anchors: string[] = []
+function detectExternalReferences(
+  eligibleNodes: CustomNode[],
+  eligibleIdSet: Set<string>
+): string[] {
+  const errors: string[] = []
   for (const node of eligibleNodes) {
+    if (node.type === 'manualData') continue
     const d = node.data as unknown as Record<string, unknown> | undefined
     const inputFrom = d?.inputFromNode as string | undefined
-    // inputFromNode 存在且指向选区外的节点 → 此节点是入口
-    if (inputFrom && !selectedIdSet.has(inputFrom)) {
-      anchors.push(node.id)
+    if (inputFrom && !eligibleIdSet.has(inputFrom)) {
+      errors.push(node.id)
     }
   }
-  return anchors
+  return errors
 }
 
 // === 核心导出 ===
@@ -171,51 +194,55 @@ function detectInputAnchors(eligibleNodes: CustomNode[], selectedIdSet: Set<stri
  */
 export function extractTemplateFromSelection(nodes: CustomNode[], edges: Edge[]): ExtractionResult {
   const eligibleNodes = nodes.filter(isEligibleNode)
-  const selectedIdSet = new Set(nodes.map((n) => n.id))
+  const eligibleIdSet = new Set(eligibleNodes.map((n) => n.id))
   const excludedCount = nodes.length - eligibleNodes.length
 
   // 映射为 TemplateNode
   const templateNodes: TemplateNode[] = eligibleNodes.map((node) => {
     if (node.type === 'transform') return extractTransformNode(node)
     if (node.type === 'regex') return extractRegexNode(node)
+    if (node.type === 'manualData') return extractManualDataNode(node)
     return extractConstraintNode(node, nodes)
   })
 
-  // 检测输入锚点
-  const anchors = detectInputAnchors(eligibleNodes, selectedIdSet)
-  const inputAnchorId = anchors.length > 0 ? (anchors[0] ?? null) : null
-
-  // 锚点节点的 input_from_node 设为 null（展开时由实例绑定）
-  if (inputAnchorId) {
-    const anchorNode = templateNodes.find((n) => n.id === inputAnchorId)
-    if (anchorNode) {
-      anchorNode.input_from_node = null
-    }
-  }
+  // 检测外部引用：模板必须自包含
+  const externalRefs = detectExternalReferences(eligibleNodes, eligibleIdSet)
 
   // 统计
   const summary = {
     transforms: templateNodes.filter((n) => n.kind === 'transform').length,
     constraints: templateNodes.filter((n) => n.kind === 'constraint').length,
     regexNodes: templateNodes.filter((n) => n.kind === 'regex').length,
+    manualData: templateNodes.filter((n) => n.kind === 'manualData').length,
   }
 
   // 警告
   const warnings: string[] = []
-  if (anchors.length > 1) {
-    warnings.push('multipleAnchors')
-  }
   if (excludedCount > 0) {
     warnings.push('excludedNodes')
   }
 
+  // 结构合法性校验
+  const errors: string[] = []
+  const enabledTemplateNodes = templateNodes.filter((n) => n.enabled !== false)
+  if (!enabledTemplateNodes.some((n) => n.kind === 'manualData')) {
+    errors.push('missingManualData')
+  }
+  if (!enabledTemplateNodes.some((n) => n.kind === 'constraint')) {
+    errors.push('missingConstraint')
+  }
+  if (externalRefs.length > 0) {
+    errors.push('externalInputReference')
+  }
+
   return {
     templateNodes,
-    inputAnchorId,
+    inputAnchorId: null,
     eligibleCount: eligibleNodes.length,
     excludedCount,
     summary,
     warnings,
+    errors,
   }
 }
 
@@ -224,7 +251,6 @@ export function extractTemplateFromSelection(nodes: CustomNode[], edges: Edge[])
  */
 export async function saveTemplateFromSelection(
   meta: { id: string; name: string; description: string },
-  parameters: TemplateParameter[],
   templateNodes: TemplateNode[],
   configPath?: string
 ): Promise<boolean> {
@@ -236,19 +262,10 @@ export async function saveTemplateFromSelection(
     id: meta.id.trim(),
     name: meta.name.trim(),
     description: meta.description.trim(),
-    parameters: parameters.map((p) => ({
-      ...p,
-      default: p.default === '' ? null : p.default,
-    })),
     nodes: templateNodes.map((n) => ({
       ...n,
       input_from_node: n.input_from_node || null,
     })),
-    input_anchor: {
-      id: 'input_anchor',
-      label: '数据源入口',
-      accepts: ['schema', 'transformOutput', 'manualData'],
-    },
   }
 
   try {

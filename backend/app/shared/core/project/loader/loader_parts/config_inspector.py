@@ -32,6 +32,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from app.shared.core.project.constraint.types import ConstraintFile
     from app.shared.core.project.manifest.types import ProjectManifest
+    from app.shared.core.project.manual_data.types import ManualDataFile
     from app.shared.core.project.regex.types import RegexNodeFile
     from app.shared.core.project.schema.types import ColumnSpec, TableSchemaFile
     from app.shared.core.project.transform.types import TransformFile
@@ -149,6 +150,14 @@ def _transform_display(tf: TransformFile | None) -> str:
         return "未知转换规则"
     name = getattr(tf, "name", None) or getattr(tf, "id", "")
     return f"转换规则「{name}」"
+
+
+def _manual_data_display(mdf: ManualDataFile | None) -> str:
+    """生成 ManualData 节点的友好显示名称。"""
+    if mdf is None:
+        return "未知 ManualData 节点"
+    name = getattr(mdf, "column_name", None) or getattr(mdf, "id", "")
+    return f"ManualData 节点「{name}」"
 
 
 def _collect_column_identifiers(columns: list[ColumnSpec]) -> set[str]:
@@ -285,6 +294,7 @@ def inspect_id_consistency(
     constraint_files: dict[str, ConstraintFile],
     regex_node_files: dict[str, RegexNodeFile],
     transform_files: dict[str, TransformFile],
+    manual_data_files: dict[str, ManualDataFile],
     warnings: list[str],
     loading_errors: list[LoadingError],
 ) -> None:
@@ -390,6 +400,22 @@ def inspect_id_consistency(
             loading_errors.append(
                 _build_id_mismatch_loading_error(
                     "transform", ref.id, transform_file.id, ref.path, manifest_display, file_display
+                )
+            )
+
+    for ref in manifest.manual_data or []:
+        manual_data_file = manual_data_files.get(ref.id)
+        if manual_data_file and manual_data_file.id != ref.id:
+            manifest_display = _manual_data_display(manual_data_files.get(ref.id))
+            file_display = _manual_data_display(manual_data_file)
+            msg = (
+                f"ManualData ID 不一致: manifest 引用 ID '{ref.id}' "
+                f"与文件内部 id '{manual_data_file.id}' 不匹配 (文件: {ref.path})"
+            )
+            warnings.append(msg)
+            loading_errors.append(
+                _build_id_mismatch_loading_error(
+                    "manual_data", ref.id, manual_data_file.id, ref.path, manifest_display, file_display
                 )
             )
 
@@ -1036,24 +1062,33 @@ def inspect_config(
     constraint_files: dict[str, ConstraintFile],
     regex_node_files: dict[str, RegexNodeFile],
     transform_files: dict[str, TransformFile],
+    manual_data_files: dict[str, ManualDataFile],
     warnings: list[str],
     loading_errors: list[LoadingError],
 ) -> None:
     """配置文件格式自检主入口。"""
     logger.info("[配置自检] 开始检查项目配置: %s", manifest_path.parent.name)
     logger.info(
-        "[配置自检] 检查范围: %d schemas, %d constraints, %d regex, %d transforms",
+        "[配置自检] 检查范围: %d schemas, %d constraints, %d regex, %d transforms, %d manual_data",
         len(schema_files),
         len(constraint_files),
         len(regex_node_files),
         len(transform_files),
+        len(manual_data_files),
     )
 
     errors_before = len(loading_errors)
     warnings_before = len(warnings)
 
     inspect_id_consistency(
-        manifest, schema_files, constraint_files, regex_node_files, transform_files, warnings, loading_errors
+        manifest,
+        schema_files,
+        constraint_files,
+        regex_node_files,
+        transform_files,
+        manual_data_files,
+        warnings,
+        loading_errors,
     )
 
     inspect_schema_id_global_uniqueness(schema_files, loading_errors)

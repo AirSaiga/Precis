@@ -34,6 +34,7 @@ from ..transform.types import TransformFile
 if TYPE_CHECKING:
     from ..constraint.types import ConstraintFile
     from ..manifest.types import ProjectManifest
+    from ..manual_data.types import ManualDataFile
     from ..schema.types import TableSchemaFile
 
 
@@ -189,6 +190,7 @@ class LoadedProject:
     regex_node_files: dict[str, RegexNodeFile]
     dataset_schema: Any
     transform_files: dict[str, TransformFile] = None
+    manual_data_files: dict[str, "ManualDataFile"] = None
     warnings: list[str] = None
     loading_errors: list[LoadingError] = None
 
@@ -200,6 +202,8 @@ class LoadedProject:
             object.__setattr__(self, "loading_errors", [])
         if self.transform_files is None:
             object.__setattr__(self, "transform_files", {})
+        if self.manual_data_files is None:
+            object.__setattr__(self, "manual_data_files", {})
 
 
 @dataclass(frozen=True)

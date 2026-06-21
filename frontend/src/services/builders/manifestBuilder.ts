@@ -88,8 +88,6 @@ export function buildV2Manifest(
         id: n.id,
         template_id: String(d.templateId || ''),
         enabled: d.enabled !== false,
-        input_from_node: String(d.inputFromNode || ''),
-        params: (d.parameters as Record<string, unknown>) || {},
       }
     })
 

@@ -71,6 +71,7 @@ function makeExpandResult(overrides: Partial<TemplateExpandResult> = {}): Templa
     transforms: [],
     constraints: [],
     regex_nodes: [],
+    manual_data: [],
     ...overrides,
   } as TemplateExpandResult
 }
@@ -323,6 +324,8 @@ describe('templateExpand module', () => {
       expect((node.data as any).configName).toBe('NN Email')
       expect((node.data as any).table).toBe('t1')
       expect((node.data as any).column).toBe('c1')
+      expect((node.data as any).inputColumn).toBe('c1')
+      expect((node.data as any).sourceRef).toEqual({ nodeId: 't1', columnId: 'c1' })
     })
 
     it('创建 transform 节点', async () => {
@@ -420,17 +423,25 @@ describe('templateExpand module', () => {
       expect(edgeIds.length).toBeGreaterThan(0)
     })
 
-    it('无外部输入时插入 manualData 合成节点', async () => {
+    it('展开结果中的 manualData 节点被正确创建', async () => {
       nodes.value = [makeNode('ti-1', 'templateInstance', {})]
 
       await module.expandOnCanvas(
         'ti-1',
         makeExpandResult({
+          manual_data: [
+            {
+              id: 'md1',
+              column_name: 'age',
+              column_data_type: 'integer',
+              rows: [['18'], ['25'], ['65']],
+            },
+          ],
           constraints: [
             {
               id: 'c1',
               type: 'NotNull',
-              input_from_node: null,
+              input_from_node: 'md1',
               description: 'NN',
               refs: { table_id: 't1', column_id: 'c1' },
               params: {},
@@ -439,57 +450,13 @@ describe('templateExpand module', () => {
         })
       )
 
-      const types = addNodes.mock.calls.map((c) => (c[0] as CustomNode).type)
-      expect(types).toContain('manualData')
-    })
-
-    it('使用实例节点的 inputFromNode 作为数据源', async () => {
-      nodes.value = [makeNode('ti-1', 'templateInstance', { inputFromNode: 'schema-1' })]
-
-      await module.expandOnCanvas(
-        'ti-1',
-        makeExpandResult({
-          constraints: [
-            {
-              id: 'c1',
-              type: 'NotNull',
-              input_from_node: null,
-              description: 'NN',
-              refs: { table_id: 't1', column_id: 'c1' },
-              params: {},
-            },
-          ],
-        })
-      )
-
-      // 有外部输入时，不创建 manualData
-      const types = addNodes.mock.calls.map((c) => (c[0] as CustomNode).type)
-      expect(types).not.toContain('manualData')
-    })
-
-    it('外部 inputFromNode 不在展开图中时回退到数据源', async () => {
-      nodes.value = [makeNode('ti-1', 'templateInstance', { inputFromNode: 'schema-1' })]
-
-      await module.expandOnCanvas(
-        'ti-1',
-        makeExpandResult({
-          constraints: [
-            {
-              id: 'c1',
-              type: 'NotNull',
-              input_from_node: 'external-node',
-              description: 'NN',
-              refs: { table_id: 't1', column_id: 'c1' },
-              params: {},
-            },
-          ],
-        })
-      )
-
-      // 边的 source 应该是 schema-1（外部数据源替代）
-      const edges = addEdges.mock.calls[0][0] as Edge[]
-      const edge = edges.find((e) => e.target === 'c1')
-      expect(edge?.source).toBe('schema-1')
+      const createdNodes = addNodes.mock.calls.map((c) => c[0] as CustomNode)
+      const mdNode = createdNodes.find((n) => n.type === 'manualData')
+      expect(mdNode).toBeDefined()
+      expect(mdNode!.id).toBe('md1')
+      expect((mdNode!.data as Record<string, unknown>).columnName).toBe('age')
+      expect((mdNode!.data as Record<string, unknown>).columnDataType).toBe('integer')
+      expect((mdNode!.data as Record<string, unknown>).rows).toEqual([['18'], ['25'], ['65']])
     })
 
     it('更新实例节点 expanded 和 nodeCount', async () => {
@@ -692,17 +659,25 @@ describe('templateExpand module', () => {
       expect(types).not.toContain('UnknownType')
     })
 
-    it('边创建时回写 inputFromNode', async () => {
+    it('内部边创建时不向 constraint 回写 inputFromNode', async () => {
       nodes.value = [makeNode('ti-1', 'templateInstance', {})]
 
       await module.expandOnCanvas(
         'ti-1',
         makeExpandResult({
+          manual_data: [
+            {
+              id: 'md1',
+              column_name: 'age',
+              column_data_type: 'integer',
+              rows: [['18']],
+            },
+          ],
           constraints: [
             {
               id: 'c1',
               type: 'NotNull',
-              input_from_node: null,
+              input_from_node: 'md1',
               description: 'NN',
               refs: { table_id: 't1', column_id: 'c1' },
               params: {},
@@ -714,6 +689,12 @@ describe('templateExpand module', () => {
       expect(addEdges).toHaveBeenCalled()
       const createdEdges = addEdges.mock.calls[0][0] as Edge[]
       expect(createdEdges.length).toBeGreaterThan(0)
+
+      // 自包含 DAG 中，constraint 节点不应被写入 inputFromNode
+      const allAddedNodes = addNodes.mock.calls.flatMap((call) => call[0] as CustomNode[])
+      const constraint = allAddedNodes.find((n) => n.id === 'c1')
+      expect(constraint).toBeDefined()
+      expect((constraint!.data as Record<string, unknown>).inputFromNode).toBeUndefined()
     })
   })
 })

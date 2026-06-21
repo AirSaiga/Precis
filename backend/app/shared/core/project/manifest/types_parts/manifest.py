@@ -67,7 +67,13 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from app.shared.core.project.manifest.types_parts.constants import V2_VERSION
 from app.shared.core.project.manifest.types_parts.data_source import DataSourceRef
 from app.shared.core.project.manifest.types_parts.info import ProjectInfo
-from app.shared.core.project.manifest.types_parts.refs import ConstraintRef, RegexRef, SchemaRef, TransformRef
+from app.shared.core.project.manifest.types_parts.refs import (
+    ConstraintRef,
+    ManualDataRef,
+    RegexRef,
+    SchemaRef,
+    TransformRef,
+)
 from app.shared.core.project.manifest.types_parts.settings import ProjectSettings
 from app.shared.core.project.manifest.types_parts.template import TemplateInstanceRef, TemplateRef
 
@@ -124,6 +130,7 @@ class ProjectManifest(BaseModel):
     constraints: list[ConstraintRef] = Field(default_factory=list, description="Constraint 文件索引")
     regex_nodes: list[RegexRef] = Field(default_factory=list, description="Regex 节点文件索引")
     transforms: list[TransformRef] = Field(default_factory=list, description="Transform 功能节点文件索引")
+    manual_data: list[ManualDataRef] = Field(default_factory=list, description="ManualData 内联数据节点文件索引")
     data_sources: list[DataSourceRef] = Field(default_factory=list, description="数据源目录索引")
     templates: list[TemplateRef] = Field(default_factory=list, description="模板定义文件索引")
     template_instances: list[TemplateInstanceRef] = Field(default_factory=list, description="模板实例索引")
@@ -135,6 +142,7 @@ class ProjectManifest(BaseModel):
         "constraints",
         "regex_nodes",
         "transforms",
+        "manual_data",
         "data_sources",
         "templates",
         "template_instances",
@@ -197,6 +205,18 @@ class ProjectManifest(BaseModel):
                 seen_transform_ids[transform.id] = transform
                 unique_transforms.append(transform)
         self.transforms = unique_transforms
+
+        # ManualData ID 去重
+        seen_manual_data_ids: dict[str, ManualDataRef] = {}
+        unique_manual_data: list[ManualDataRef] = []
+        for md in self.manual_data:
+            if md.id in seen_manual_data_ids:
+                existing: ManualDataRef = seen_manual_data_ids[md.id]
+                warnings.append(f"ManualData ID '{md.id}' 重复，已跳过 '{md.path}'，保留 '{existing.path}'")
+            else:
+                seen_manual_data_ids[md.id] = md
+                unique_manual_data.append(md)
+        self.manual_data = unique_manual_data
 
         seen_data_source_ids: dict[str, DataSourceRef] = {}
         unique_data_sources: list[DataSourceRef] = []

@@ -22,9 +22,9 @@ from app.shared.core.project.loader.loader_parts import loading_error_messages
 from app.shared.core.project.loader.loader_parts.embedded_constraints import collect_constraints_from_schemas
 from app.shared.core.project.loader.loader_parts.file_loaders import (
     load_constraint_file,
+    load_manual_data_file,
     load_regex_node_file,
     load_schema_file,
-    load_template_file,
     load_transform_file,
 )
 from app.shared.core.project.loader.loader_parts.path_validation import validate_path_inside_project
@@ -189,49 +189,15 @@ def load_project(
         loading_errors,
     )
 
-    # 阶段 4c：加载模板定义文件
-    template_files = _load_referenced_files(
+    # 阶段 4b2：加载 ManualData 节点文件
+    manual_data_files = _load_referenced_files(
         project_root,
-        manifest.templates,
-        load_template_file,
-        "Template",
+        manifest.manual_data,
+        load_manual_data_file,
+        "ManualData",
         warnings,
         loading_errors,
     )
-
-    # 阶段 4d：展开模板实例
-    if template_files and manifest.template_instances:
-        from app.shared.core.project.template.expander import expand_template
-
-        for instance in manifest.template_instances:
-            if not instance.enabled:
-                continue
-            template_def = template_files.get(instance.template_id)
-            if not template_def:
-                warnings.append(f"模板实例 '{instance.id}' 引用的模板 '{instance.template_id}' 不存在，跳过")
-                continue
-            try:
-                exp_transforms, exp_constraints, exp_regex = expand_template(
-                    template_def,
-                    instance.id,
-                    instance.params,
-                    instance.input_from_node,
-                )
-                for t in exp_transforms:
-                    transform_files[t.id] = t
-                for c in exp_constraints:
-                    constraint_files[c.id] = c
-                for r in exp_regex:
-                    regex_files[r.id] = r
-            except Exception as e:
-                loading_errors.append(
-                    LoadingError(
-                        error_type="TemplateExpansionError",
-                        file_path="",
-                        ref_id=instance.id,
-                        **loading_error_messages.template_expansion_error(instance.id, e),
-                    )
-                )
 
     # 阶段 5：构建运行时数据结构
     # 通过依赖注入的 schema_builder 完成 "core 文件对象 → domain 运行时对象" 的转换，
@@ -253,6 +219,7 @@ def load_project(
         constraint_files,
         regex_files,
         transform_files,
+        manual_data_files,
         warnings,
         loading_errors,
     )
@@ -264,6 +231,7 @@ def load_project(
         constraint_files=constraint_files,
         regex_node_files=regex_files,
         transform_files=transform_files,
+        manual_data_files=manual_data_files,
         dataset_schema=dataset_schema,
         warnings=warnings,
         loading_errors=loading_errors,

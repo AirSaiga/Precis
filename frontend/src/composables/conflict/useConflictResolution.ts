@@ -233,6 +233,7 @@ export function useConflictResolution(
       constraints: {},
       regex_nodes: {},
       transforms: {},
+      manual_data: {},
     }
 
     finalConfig.manifest.schemas = finalConfig.manifest.schemas || []

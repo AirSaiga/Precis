@@ -21,8 +21,6 @@ export function createTemplateInstanceFactoryModule(params: {
     templateName?: string,
     options?: {
       nodeId?: string
-      parameters?: Record<string, unknown>
-      inputFromNode?: string
       enabled?: boolean
       saveState?: 'draft' | 'saved'
     }
@@ -34,8 +32,6 @@ export function createTemplateInstanceFactoryModule(params: {
         configName: templateName || i18n.global.t('messages.canvas.newTemplateInstance'),
         templateId: templateId || '',
         templateName: templateName || '',
-        parameters: options?.parameters || {},
-        inputFromNode: options?.inputFromNode || undefined,
         enabled: options?.enabled !== false,
         nodeCount: 0,
         summaryText: '',

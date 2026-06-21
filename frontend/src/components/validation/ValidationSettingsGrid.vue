@@ -70,23 +70,38 @@
         <!-- 错误处理 -->
         <div class="setting-row">
           <span class="setting-name">{{ t('settings.project.errorHandling.label') }}</span>
-          <select
-            :value="settings.error_handling"
-            class="ui-select ui-select--compact"
-            @change="
-              emit('update:settings', {
-                ...settings,
-                error_handling: ($event.target as HTMLSelectElement).value as
-                  | 'stop'
-                  | 'continue'
-                  | 'report',
-              })
-            "
-          >
-            <option value="stop">{{ t('settings.project.errorHandling.stop') }}</option>
-            <option value="continue">{{ t('settings.project.errorHandling.continue') }}</option>
-            <option value="report">{{ t('settings.project.errorHandling.report') }}</option>
-          </select>
+          <div class="select-wrapper">
+            <select
+              :value="settings.error_handling"
+              class="ui-select ui-select--compact ui-select--wrapped"
+              @change="
+                emit('update:settings', {
+                  ...settings,
+                  error_handling: ($event.target as HTMLSelectElement).value as
+                    | 'stop'
+                    | 'continue'
+                    | 'report',
+                })
+              "
+            >
+              <option value="stop">{{ t('settings.project.errorHandling.stop') }}</option>
+              <option value="continue">{{ t('settings.project.errorHandling.continue') }}</option>
+              <option value="report">{{ t('settings.project.errorHandling.report') }}</option>
+            </select>
+            <svg
+              class="select-arrow"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
         </div>
 
         <!-- 超时 -->
@@ -152,27 +167,42 @@
           <span class="setting-name">{{
             t('common.fullValidation.task.options.missingResources')
           }}</span>
-          <select
-            :value="missingStrategy"
-            class="ui-select ui-select--compact"
-            @change="
-              emit(
-                'update:missingStrategy',
-                ($event.target as HTMLSelectElement).value as
-                  | 'ask'
-                  | 'merge_then_run'
-                  | 'run_directly'
-              )
-            "
-          >
-            <option value="ask">{{ t('common.fullValidation.task.options.ask') }}</option>
-            <option value="merge_then_run">
-              {{ t('common.fullValidation.task.options.mergeThenRun') }}
-            </option>
-            <option value="run_directly">
-              {{ t('common.fullValidation.task.options.runDirectly') }}
-            </option>
-          </select>
+          <div class="select-wrapper">
+            <select
+              :value="missingStrategy"
+              class="ui-select ui-select--compact ui-select--wrapped"
+              @change="
+                emit(
+                  'update:missingStrategy',
+                  ($event.target as HTMLSelectElement).value as
+                    | 'ask'
+                    | 'merge_then_run'
+                    | 'run_directly'
+                )
+              "
+            >
+              <option value="ask">{{ t('common.fullValidation.task.options.ask') }}</option>
+              <option value="merge_then_run">
+                {{ t('common.fullValidation.task.options.mergeThenRun') }}
+              </option>
+              <option value="run_directly">
+                {{ t('common.fullValidation.task.options.runDirectly') }}
+              </option>
+            </select>
+            <svg
+              class="select-arrow"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </div>
         </div>
       </div>
     </div>
@@ -287,11 +317,51 @@
     color: var(--ui-text-muted);
   }
 
+  .setting-row .ui-select.ui-select--compact {
+    min-width: 140px;
+    width: auto;
+    flex-shrink: 0;
+  }
+
+  .select-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+  }
+
+  .select-wrapper .ui-select--wrapped {
+    padding-right: 36px;
+    background-image: none;
+  }
+
+  .select-arrow {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+    color: var(--ui-text-muted);
+    flex-shrink: 0;
+  }
+
   @media (max-width: 480px) {
     .setting-row {
       flex-direction: column;
       align-items: flex-start;
       gap: var(--ui-space-xs);
+    }
+
+    .setting-row .ui-select.ui-select--compact {
+      width: 100%;
+      min-width: unset;
+    }
+
+    .select-wrapper {
+      width: 100%;
+    }
+
+    .select-wrapper .ui-select--wrapped {
+      width: 100%;
     }
   }
 </style>

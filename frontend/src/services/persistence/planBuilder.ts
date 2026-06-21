@@ -6,7 +6,7 @@
  * 处理流程：
  * 1. 过滤持久化节点（排除模板展开预览）
  * 2. 构建 schema ID 映射
- * 3. 分类 schema/constraint/regex/transform/templateInstance 节点
+ * 3. 分类 schema/constraint/regex/transform/manualData/templateInstance 节点
  * 4. 约束节点进一步分为内嵌（写入 schema）和独立（写入 constraints/）
  * 5. 使用注册的 builder 逐个构建 V2 文件对象
  * 6. 组装 manifest
@@ -41,6 +41,7 @@ export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions
   )
   const regexNodes = persistentNodes.filter((n) => n.type === 'regex')
   const transformNodes = persistentNodes.filter((n) => n.type === 'transform')
+  const manualDataNodes = persistentNodes.filter((n) => n.type === 'manualData')
   const templateInstanceNodes = persistentNodes.filter((n) => n.type === 'templateInstance')
 
   // 约束分类：内嵌 vs 独立
@@ -166,6 +167,21 @@ export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions
     }
   }
 
+  // 构建 manual_data 文件
+  const manualData = new Map<string, import('@/types/projectV2').ManualDataFileV2>()
+  const manualDataBuilder = findBuildersByKind('manualData')[0]
+  if (manualDataBuilder) {
+    for (const node of manualDataNodes) {
+      const { file } = manualDataBuilder.build({
+        nodes: persistentNodes,
+        node,
+        schemaIdByNodeId,
+        configPath: options.projectPath,
+      }) as { consumed: boolean; file: import('@/types/projectV2').ManualDataFileV2 }
+      manualData.set(file.id, file)
+    }
+  }
+
   // 构建 template instance 引用
   const templateInstances = new Map<string, import('@/types/projectV2').TemplateInstanceRefV2>()
   const templateInstanceBuilder = findBuildersByKind('templateInstance')[0]
@@ -227,6 +243,10 @@ export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions
       id,
       path: `transforms/${id}.transform.yaml`,
     })),
+    manual_data: Array.from(manualData.keys()).map((id) => ({
+      id,
+      path: `manual_data/${id}.manual_data.yaml`,
+    })),
     template_instances:
       templateInstances.size > 0 ? Array.from(templateInstances.values()) : undefined,
     patterns_dir: 'patterns',
@@ -238,6 +258,7 @@ export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions
     constraints,
     regexes,
     transforms,
+    manualData,
     templateInstances,
     errors,
   }
@@ -249,7 +270,7 @@ export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions
  * 例如：
  * - 约束节点 → 引用的 schema 节点
  * - schema 节点 → 其内嵌约束节点
- * - transform/templateInstance → input_from_node 引用的节点
+ * - transform → inputFromNode 引用的节点
  */
 function collectDependencies(targetNode: CustomNode, allNodes: CustomNode[]): Set<string> {
   const visited = new Set<string>()
@@ -281,12 +302,6 @@ function collectDependencies(targetNode: CustomNode, allNodes: CustomNode[]): Se
     const inputFromNode = data.inputFromNode as string | undefined
     if (inputFromNode && !visited.has(inputFromNode)) {
       queue.push(inputFromNode)
-    }
-
-    // TemplateInstance：inputFromNode → 前置节点
-    const templateInput = data.inputFromNode as string | undefined
-    if (templateInput && !visited.has(templateInput)) {
-      queue.push(templateInput)
     }
 
     // Conditional：thenRef / ifRef → schema 节点
@@ -327,6 +342,7 @@ function buildFullManifest(nodes: CustomNode[], options: BuildSavePlanOptions): 
   )
   const regexNodes = persistent.filter((n) => n.type === 'regex')
   const transformNodes = persistent.filter((n) => n.type === 'transform')
+  const manualDataNodes = persistent.filter((n) => n.type === 'manualData')
   const templateInstanceNodes = persistent.filter((n) => n.type === 'templateInstance')
 
   const { embedded: embeddedConstraintNodes } = classifyConstraints(constraintNodes, schemaNodes)
@@ -347,14 +363,16 @@ function buildFullManifest(nodes: CustomNode[], options: BuildSavePlanOptions): 
     id: n.id,
     path: `transforms/${n.id}.transform.yaml`,
   }))
+  const manualDataRefs = manualDataNodes.map((n) => ({
+    id: n.id,
+    path: `manual_data/${n.id}.manual_data.yaml`,
+  }))
   const templateRefs = templateInstanceNodes.map((n) => {
     const data = (n.data || {}) as Record<string, unknown>
     return {
       id: n.id,
       template_id: (data.templateId as string) || '',
       enabled: data.enabled !== false,
-      input_from_node: (data.inputFromNode as string) || '',
-      params: (data.parameters as Record<string, unknown>) || {},
     }
   })
 
@@ -391,6 +409,7 @@ function buildFullManifest(nodes: CustomNode[], options: BuildSavePlanOptions): 
     constraints,
     regex_nodes: regexRefs,
     transforms: transformRefs,
+    manual_data: manualDataRefs,
     template_instances: templateRefs.length > 0 ? templateRefs : undefined,
     patterns_dir: 'patterns',
   }

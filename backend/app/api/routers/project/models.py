@@ -34,6 +34,7 @@ from app.shared.core.project.constraint.types import ConstraintFileV2
 from app.shared.core.project.manifest.types import (
     ProjectManifestV2,
 )
+from app.shared.core.project.manual_data.types import ManualDataFileV2
 from app.shared.core.project.regex.types import RegexNodeFileV2
 from app.shared.core.project.schema.types import TableSchemaFileV2
 from app.shared.core.project.transform.types import TransformFileV2
@@ -86,6 +87,9 @@ class FullConfigV2Request(BaseModel):
     )
     transforms: dict[str, TransformFileV2] = Field(
         default_factory=dict, description="transforms 映射：transform_id -> transform"
+    )
+    manual_data: dict[str, ManualDataFileV2] = Field(
+        default_factory=dict, description="manual_data 映射：manual_data_id -> manual_data"
     )
 
 

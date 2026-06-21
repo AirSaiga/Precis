@@ -312,8 +312,23 @@ class TestTemplateEndpoints:
             "id": "t1",
             "name": "Template One",
             "description": "",
-            "parameters": [],
-            "nodes": [],
+            "nodes": [
+                {
+                    "id": "md1",
+                    "kind": "manualData",
+                    "type": "ManualData",
+                    "column_name": "age",
+                    "rows": [["18"]],
+                },
+                {
+                    "id": "c1",
+                    "kind": "constraint",
+                    "type": "Range",
+                    "input_from_node": "md1",
+                    "refs": {"table_id": "users", "column_id": "age"},
+                    "params": {"min": 0, "max": 120},
+                },
+            ],
         }
         response = client.post("/api/latest/project/template", json=payload)
 

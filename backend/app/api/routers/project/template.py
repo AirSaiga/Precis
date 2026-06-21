@@ -25,7 +25,7 @@ from app.api.dependencies import get_project_config_path
 from app.api.models.project import StandardResponse
 from app.shared.core.io.yaml import read_yaml, write_yaml_atomic
 from app.shared.core.project.template.expander import expand_template
-from app.shared.core.project.template.reader import load_template
+from app.shared.core.project.template.reader import load_template, validate_template_structure
 from app.shared.core.project.template.types import TemplateFile
 
 from .helpers import _resolve_project_path, _v2_manifest_path, project_lock
@@ -54,8 +54,6 @@ class TemplateExpandRequest(BaseModel):
     """模板展开预览请求"""
 
     instance_id: str
-    params: dict[str, Any] = {}
-    input_from_node: str = ""
 
 
 class TemplateExpandResponse(BaseModel):
@@ -64,6 +62,7 @@ class TemplateExpandResponse(BaseModel):
     transforms: list[dict[str, Any]]
     constraints: list[dict[str, Any]]
     regex_nodes: list[dict[str, Any]]
+    manual_data: list[dict[str, Any]]
 
 
 # ============================================================================
@@ -94,7 +93,6 @@ def list_templates(config_path: str = Depends(get_project_config_path)):
                         "id": tmpl.id,
                         "name": tmpl.name,
                         "description": tmpl.description,
-                        "parameter_count": len(tmpl.parameters),
                         "node_count": len(tmpl.nodes),
                         "path": ref.path,
                     }
@@ -139,6 +137,7 @@ def create_template(template_data: dict, config_path: str = Depends(get_project_
     # 验证数据
     try:
         tmpl = TemplateFile.model_validate(template_data)
+        validate_template_structure(tmpl)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"模板数据验证失败: {e}")
 
@@ -202,6 +201,7 @@ def update_template(
     # 验证数据
     try:
         tmpl = TemplateFile.model_validate(template_data)
+        validate_template_structure(tmpl)
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"模板数据验证失败: {e}")
 
@@ -261,7 +261,7 @@ def preview_template_expand(
 
     参数:
         template_id: 模板唯一标识
-        request: 包含 instance_id / params / input_from_node 的请求
+        request: 包含 instance_id 的请求
         config_path: 项目配置路径
 
     返回:
@@ -273,16 +273,11 @@ def preview_template_expand(
 
     tmpl = load_template(tmpl_path)
 
-    logger.debug(
-        f"模板展开请求: template_id={template_id}, instance_id={request.instance_id}, "
-        f"params={request.params}, input_from_node={request.input_from_node}"
-    )
+    logger.debug(f"模板展开请求: template_id={template_id}, instance_id={request.instance_id}")
     try:
-        transforms, constraints, regex_nodes = expand_template(
+        transforms, constraints, regex_nodes, manual_data_files = expand_template(
             tmpl,
             request.instance_id,
-            request.params,
-            request.input_from_node,
         )
     except ValueError as e:
         logger.warning(f"模板展开 ValueError: {e}")
@@ -292,4 +287,5 @@ def preview_template_expand(
         transforms=[t.model_dump(exclude_none=True) for t in transforms],
         constraints=[c.model_dump(exclude_none=True) for c in constraints],
         regex_nodes=[r.model_dump(exclude_none=True) for r in regex_nodes],
+        manual_data=[md.model_dump(exclude_none=True) for md in manual_data_files],
     )

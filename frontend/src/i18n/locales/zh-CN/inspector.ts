@@ -678,20 +678,35 @@ const inspector = (() => {
 
     // 模板实例节点属性检查器
     templateInstance: {
-      configName: '配置名称',
-      templateId: '引用模板',
+      badgeEditable: '可编辑',
+      badgeReadOnly: '只读',
+      groups: {
+        config: '基础配置',
+        template: '模板引用',
+        actions: '操作',
+        status: '保存状态',
+      },
+      labels: {
+        configName: '配置名称',
+        templateId: '引用模板',
+        enabled: '启用',
+        currentStatus: '当前状态',
+      },
+      placeholders: {
+        configName: '请输入配置名称',
+      },
       selectTemplate: '请选择模板',
       noTemplates: '暂无可用模板，请在画布中选中节点后右键"保存为模板"',
-      enabled: '启用',
-      parameters: '参数配置',
       previewExpand: '预览展开结果',
       expanding: '展开中...',
       expandResult: '展开结果',
-      saveState: '保存状态',
-      noParams: '未配置参数',
+      expandFailed: '展开失败',
+      expandErrorDetail: '展开预览失败：{message}',
       nodeCount: '个节点',
       unsaved: '未保存',
       saved: '已保存',
+      noParams: '暂无参数',
+      error: '错误',
     },
   }
   return Object.assign(base, inspectorConstraints)

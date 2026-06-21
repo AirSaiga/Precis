@@ -721,7 +721,13 @@ export async function validateForInlineSource(params: {
   // 从 TransformOutput / ManualData 节点提取行数据
   const sourceData = sourceNode.data as Record<string, unknown>
   const rawRows = (sourceData.rows as string[][]) || []
-  const columnName = (sourceData.columnName as string) || 'Column1'
+  const sourceColumnName = (sourceData.columnName as string) || 'Column1'
+
+  // 约束节点自身可能指定了目标列（例如模板展开的参数），优先使用；
+  // 否则回退到数据源节点的列名。
+  const constraintData = (constraintNode.data || {}) as Record<string, unknown>
+  const columnName =
+    (constraintData.inputColumn as string) || (constraintData.column as string) || sourceColumnName
 
   const handler = getHandlerByNodeType(constraintNode.type)
   if (!handler) {

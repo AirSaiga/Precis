@@ -24,27 +24,19 @@
  * 6. 构建项目视图
  */
 
-import type {
-  CustomNode,
-  SchemaNodeData,
-  RegexNodeData,
-  TransformNodeData,
-  JsonSchemaNodeData,
-  JsonSchemaColumn,
-} from '@/types/graph'
+import type { CustomNode, RegexNodeData, TransformNodeData } from '@/types/graph'
 import type {
   ProjectManifestV2,
   TableSchemaFileV2,
-  ColumnSpecV2,
   ConstraintFileV2,
-  ConstraintItemV2,
   ConstraintTypeV2,
   RegexNodeFileV2,
   TransformFileV2,
+  ManualDataFileV2,
   FullConfigV2Request,
   ProjectViewV2,
 } from '@/types/projectV2'
-import { toBackendType, buildJSONOptions, toJsonBackendType } from './schemaBuilder'
+import { toBackendType } from './schemaBuilder'
 import {
   getV2ConstraintTypeByNodeType,
   isConstraintNodeType,
@@ -128,9 +120,8 @@ export function buildV2RegexNodeFile(nodes: CustomNode[], regexNodeId: string): 
     )
     if (schemaNode) {
       const columns =
-        ((schemaNode.data as unknown as Record<string, unknown>).columns as
-          | unknown[]
-          | undefined) || []
+        (((schemaNode.data || {}) as Record<string, unknown>).columns as unknown[] | undefined) ||
+        []
       const col = columns.find(
         (c) => (c as Record<string, unknown>).id === data.sourceRef!.columnId
       ) as Record<string, unknown> | undefined
@@ -232,7 +223,9 @@ export function buildV2FullConfig(
     transforms[ref.id] = buildV2TransformFile(nodes, ref.id)
   }
 
-  return { manifest, schemas, constraints, regex_nodes, transforms }
+  const manual_data: Record<string, ManualDataFileV2> = {}
+
+  return { manifest, schemas, constraints, regex_nodes, transforms, manual_data }
 }
 
 /**
@@ -249,12 +242,24 @@ export function buildV2FullConfig(
  */
 export function buildV2ProjectView(nodes: CustomNode[]): ProjectViewV2 {
   const nodePositions: Record<string, { x: number; y: number }> = {}
+  const nodeStates: Record<string, { hidden?: boolean; expanded?: boolean }> = {}
   const schemaIdByNodeId = buildSchemaIdByNodeId(nodes)
   for (const node of nodes) {
     // schema/jsonSchema 节点在 reload 后 ID 会变成 schema ID，
     // 因此保存视图时用 schema ID 作为 key，确保 reload 时能正确恢复位置
     const key = schemaIdByNodeId[node.id] || node.id
     nodePositions[key] = { x: node.position.x, y: node.position.y }
+
+    const data = (node.data || {}) as Record<string, unknown>
+    const hidden = data.hidden === true
+    const expanded = data.expanded === true
+    if (hidden || expanded) {
+      nodeStates[key] = { hidden, expanded }
+    }
   }
-  return { version: 1, nodes: nodePositions }
+  return {
+    version: 1,
+    nodes: nodePositions,
+    nodeStates: Object.keys(nodeStates).length > 0 ? nodeStates : undefined,
+  }
 }

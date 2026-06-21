@@ -166,6 +166,7 @@ class TestTemplateApi:
         proj.mkdir()
         (proj / "schemas").mkdir()
         (proj / "templates").mkdir()
+        (proj / "manual_data").mkdir()
         (proj / "data").mkdir()
         (proj / "project.precis.yaml").write_text(
             "version: 2\nproject:\n  id: proj\n  name: Proj\nschemas: []\ntemplates: []\n",
@@ -174,7 +175,7 @@ class TestTemplateApi:
         return proj
 
     def test_create_list_get_template(self, tmp_path):
-        """创建模板后 list / get 应返回正确内容。"""
+        """创建自包含模板后 list / get 应返回正确内容。"""
         client = TestClient(app)
         proj = self._create_minimal_project(tmp_path)
         header = {"X-Project-Config-Path": str(proj)}
@@ -185,17 +186,23 @@ class TestTemplateApi:
                 "version": 2,
                 "id": "age_check",
                 "name": "年龄校验",
-                "parameters": [
-                    {"id": "min_age", "type": "integer", "label": "最小年龄", "required": True, "default": 18}
-                ],
                 "nodes": [
+                    {
+                        "id": "md_age",
+                        "kind": "manualData",
+                        "type": "ManualData",
+                        "column_name": "age",
+                        "column_data_type": "integer",
+                        "rows": [["18"]],
+                    },
                     {
                         "id": "check_range",
                         "kind": "constraint",
                         "type": "Range",
+                        "input_from_node": "md_age",
                         "refs": {"table_id": "users", "column_id": "age"},
-                        "params": {"min": "{{min_age}}"},
-                    }
+                        "params": {"min": 0, "max": 120},
+                    },
                 ],
             },
             headers=header,
@@ -214,7 +221,7 @@ class TestTemplateApi:
         assert get_resp.json()["id"] == "age_check"
 
     def test_expand_template_preview(self, tmp_path):
-        """expand 接口应返回展开后的约束/转换/正则节点。"""
+        """expand 接口应返回展开后的 manualData / constraint 节点。"""
         client = TestClient(app)
         proj = self._create_minimal_project(tmp_path)
         header = {"X-Project-Config-Path": str(proj)}
@@ -223,31 +230,73 @@ class TestTemplateApi:
             "/api/latest/project/template",
             json={
                 "version": 2,
-                "id": "email_regex",
-                "name": "邮箱正则",
-                "parameters": [],
+                "id": "age_check",
+                "name": "年龄校验",
                 "nodes": [
                     {
-                        "id": "extract_email",
-                        "kind": "regex",
-                        "type": "RegexExtract",
-                        "input_from_node": "{{input_anchor}}",
-                        "input_column": "contact",
-                        "params": {"pattern": r"[\w\.]+@[\w\.]+"},
-                        "output_columns": ["email"],
-                    }
+                        "id": "md_age",
+                        "kind": "manualData",
+                        "type": "ManualData",
+                        "column_name": "age",
+                        "column_data_type": "integer",
+                        "rows": [["18"]],
+                    },
+                    {
+                        "id": "check_range",
+                        "kind": "constraint",
+                        "type": "Range",
+                        "input_from_node": "md_age",
+                        "refs": {"table_id": "users", "column_id": "age"},
+                        "params": {"min": 0, "max": 120},
+                    },
                 ],
             },
             headers=header,
         )
 
         resp = client.post(
-            "/api/latest/project/template/email_regex/expand",
-            json={"instance_id": "inst_1", "params": {}, "input_from_node": "users"},
+            "/api/latest/project/template/age_check/expand",
+            json={"instance_id": "inst_1"},
             headers=header,
         )
         assert resp.status_code == 200
         body = resp.json()
-        assert len(body["regex_nodes"]) == 1
-        assert body["regex_nodes"][0]["id"] == "inst_1__extract_email"
-        assert body["regex_nodes"][0]["input_from_node"] == "users"
+        assert len(body["constraints"]) == 1
+        assert body["constraints"][0]["id"] == "inst_1__check_range"
+        assert len(body["manual_data"]) == 1
+        assert body["manual_data"][0]["id"] == "inst_1__md_age"
+
+    def test_create_template_rejects_external_reference(self, tmp_path):
+        """模板包含指向外部节点的引用时应拒绝创建。"""
+        client = TestClient(app)
+        proj = self._create_minimal_project(tmp_path)
+        header = {"X-Project-Config-Path": str(proj)}
+
+        resp = client.post(
+            "/api/latest/project/template",
+            json={
+                "version": 2,
+                "id": "bad_template",
+                "name": "非法模板",
+                "nodes": [
+                    {
+                        "id": "md_age",
+                        "kind": "manualData",
+                        "type": "ManualData",
+                        "column_name": "age",
+                        "column_data_type": "integer",
+                        "rows": [["18"]],
+                    },
+                    {
+                        "id": "check_range",
+                        "kind": "constraint",
+                        "type": "Range",
+                        "input_from_node": "external_node",
+                        "refs": {"table_id": "users", "column_id": "age"},
+                        "params": {"min": 0, "max": 120},
+                    },
+                ],
+            },
+            headers=header,
+        )
+        assert resp.status_code == 400

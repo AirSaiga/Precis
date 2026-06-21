@@ -9,6 +9,7 @@ import type { CustomNode } from '@/types/graph'
 import type {
   ConstraintFileV2,
   ConstraintItemV2,
+  ManualDataFileV2,
   ProjectManifestV2,
   RegexNodeFileV2,
   TableSchemaFileV2,
@@ -50,7 +51,7 @@ export interface BuilderResult<T> {
  */
 export interface NodeBuilder<T> {
   /** builder 类型标识 */
-  kind: 'schema' | 'constraint' | 'regex' | 'transform' | 'templateInstance'
+  kind: 'schema' | 'constraint' | 'regex' | 'transform' | 'templateInstance' | 'manualData'
   /** 判断该 builder 是否能处理指定节点 */
   matches: (node: CustomNode) => boolean
   /** 构建 V2 配置文件对象 */
@@ -92,6 +93,7 @@ export interface SavePlan {
   constraints: Map<string, ConstraintFileV2>
   regexes: Map<string, RegexNodeFileV2>
   transforms: Map<string, TransformFileV2>
+  manualData: Map<string, ManualDataFileV2>
   templateInstances: Map<string, TemplateInstanceRefV2>
   errors: PreValidationError[]
 }

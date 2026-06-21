@@ -1,97 +1,102 @@
 <template>
   <div class="template-instance-inspector">
-    <div class="inspector-section">
-      <label>{{ t('inspector.templateInstance.configName') }}</label>
-      <input v-model="localData.configName" type="text" @change="emitUpdate" />
-    </div>
+    <!-- 基础配置 -->
+    <BaseInspector
+      :title="t('inspector.templateInstance.groups.config')"
+      :badge="t('inspector.templateInstance.badgeEditable')"
+      badge-class="editable"
+    >
+      <InspectorField
+        :label="t('inspector.templateInstance.labels.configName')"
+        :model-value="localData.configName"
+        :editable="true"
+        :placeholder="t('inspector.templateInstance.placeholders.configName')"
+        @update:model-value="(v) => onConfigNameChange(v)"
+      />
+    </BaseInspector>
 
-    <div class="inspector-section">
-      <label>{{ t('inspector.templateInstance.templateId') }}</label>
-      <div v-if="availableTemplates.length > 0">
-        <select :value="localData.templateId" class="template-select" @change="onTemplateSelect">
+    <!-- 模板引用 -->
+    <BaseInspector
+      :title="t('inspector.templateInstance.groups.template')"
+      :badge="t('inspector.templateInstance.badgeEditable')"
+      badge-class="editable"
+    >
+      <div class="field">
+        <label class="field-label">{{ t('inspector.templateInstance.labels.templateId') }}</label>
+        <select
+          :value="localData.templateId"
+          class="field-input template-select"
+          :disabled="availableTemplates.length === 0"
+          @change="onTemplateSelect"
+        >
           <option value="" disabled>{{ t('inspector.templateInstance.selectTemplate') }}</option>
           <option v-for="tmpl in availableTemplates" :key="tmpl.id" :value="tmpl.id">
             {{ tmpl.name || tmpl.id }}
           </option>
         </select>
-      </div>
-      <div v-else class="readonly-field readonly-field--hint">
-        {{ t('inspector.templateInstance.noTemplates') }}
-      </div>
-    </div>
-
-    <div class="inspector-section">
-      <label>{{ t('inspector.templateInstance.enabled') }}</label>
-      <input v-model="localData.enabled" type="checkbox" @change="emitUpdate" />
-    </div>
-
-    <!-- 参数配置区 -->
-    <div v-if="templateParams.length > 0" class="inspector-section">
-      <label>{{ t('inspector.templateInstance.parameters') }}</label>
-      <div class="params-list">
-        <div v-for="param in templateParams" :key="param.id" class="param-item">
-          <div class="param-label">
-            {{ param.label || param.id }}
-            <span v-if="param.required" class="param-required">*</span>
-          </div>
-          <input
-            v-if="param.type === 'string'"
-            v-model="localData.parameters[param.id]"
-            type="text"
-            :placeholder="param.default != null ? String(param.default) : ''"
-            @change="emitUpdate"
-          />
-          <input
-            v-else-if="param.type === 'integer'"
-            v-model.number="localData.parameters[param.id]"
-            type="number"
-            step="1"
-            :placeholder="param.default != null ? String(param.default) : ''"
-            @change="emitUpdate"
-          />
-          <input
-            v-else-if="param.type === 'decimal'"
-            v-model.number="localData.parameters[param.id]"
-            type="number"
-            step="0.01"
-            :placeholder="param.default != null ? String(param.default) : ''"
-            @change="emitUpdate"
-          />
-          <label v-else-if="param.type === 'boolean'" class="checkbox-label">
-            <input v-model="localData.parameters[param.id]" type="checkbox" @change="emitUpdate" />
-          </label>
+        <div v-if="availableTemplates.length === 0" class="field-hint">
+          {{ t('inspector.templateInstance.noTemplates') }}
         </div>
       </div>
-    </div>
 
-    <!-- 展开预览 -->
-    <div class="inspector-section">
-      <button class="expand-btn" :disabled="expanding" @click="previewExpand">
+      <div class="field field-layout-row">
+        <label class="field-label">{{ t('inspector.templateInstance.labels.enabled') }}</label>
+        <input v-model="localData.enabled" type="checkbox" class="toggle" @change="emitUpdate" />
+      </div>
+    </BaseInspector>
+
+    <!-- 操作 -->
+    <BaseInspector
+      :title="t('inspector.templateInstance.groups.actions')"
+      :badge="t('inspector.templateInstance.badgeEditable')"
+      badge-class="editable"
+    >
+      <button
+        class="preview-btn"
+        :disabled="expanding || !localData.templateId"
+        @click="previewExpand"
+      >
         {{
           expanding
             ? t('inspector.templateInstance.expanding')
             : t('inspector.templateInstance.previewExpand')
         }}
       </button>
-    </div>
+    </BaseInspector>
 
-    <div class="inspector-section">
-      <label>{{ t('inspector.templateInstance.saveState') }}</label>
-      <span class="save-state">{{ localData.saveState || 'draft' }}</span>
-    </div>
+    <!-- 保存状态 -->
+    <BaseInspector
+      :title="t('inspector.templateInstance.groups.status')"
+      :badge="t('inspector.templateInstance.badgeReadOnly')"
+      badge-class="read-only"
+    >
+      <div class="field">
+        <label class="field-label">{{
+          t('inspector.templateInstance.labels.currentStatus')
+        }}</label>
+        <div class="status-indicator" :class="localData.saveState || 'draft'">
+          <span class="status-icon">{{ getStatusIcon(localData.saveState) }}</span>
+          <span class="status-text">{{ getStatusText(localData.saveState) }}</span>
+        </div>
+      </div>
+    </BaseInspector>
   </div>
 </template>
 
 <script setup lang="ts">
-  import { reactive, ref, onMounted, computed } from 'vue'
+  import { reactive, ref, computed, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import BaseInspector from './BaseInspector.vue'
+  import { InspectorField } from '@/components/ui/inspector'
   import type { TemplateInstanceNodeData } from '@/types/nodes'
-  import { getV2Template, expandV2Template } from '@/api/projectV2Api'
+  import { expandV2Template } from '@/api/projectV2Api'
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { useGraphStore } from '@/stores/graphStore'
+  import { useToast } from '@/composables/shared/useToast'
 
   const { t } = useI18n()
   const graphStore = useGraphStore()
+  const toast = useToast()
 
   interface Props {
     data: TemplateInstanceNodeData
@@ -109,7 +114,7 @@
   const availableTemplates = computed(() =>
     resourceTreeStore.templates.map((r) => ({
       id: r.id,
-      name: (r.meta as { name?: string } | undefined)?.name || r.id,
+      name: (r.meta?.name as string | undefined) || r.id,
     }))
   )
 
@@ -118,91 +123,60 @@
     templateId: props.data.templateId || '',
     templateName: props.data.templateName || '',
     enabled: props.data.enabled !== false,
-    parameters: { ...(props.data.parameters || {}) } as Record<string, unknown>,
     saveState: props.data.saveState || ('draft' as const),
   })
 
-  interface TemplateParam {
-    id: string
-    type: 'string' | 'integer' | 'decimal' | 'boolean'
-    label: string
-    required: boolean
-    default: unknown
-  }
+  watch(
+    () => props.data,
+    (newData) => {
+      localData.configName = newData.configName || ''
+      localData.templateId = newData.templateId || ''
+      localData.templateName = newData.templateName || ''
+      localData.enabled = newData.enabled !== false
+      localData.saveState = newData.saveState || 'draft'
+    },
+    { deep: true }
+  )
 
-  const templateParams = ref<TemplateParam[]>([])
   const expanding = ref(false)
 
-  async function loadTemplateParams(templateId: string): Promise<void> {
-    try {
-      const tmpl = await getV2Template(templateId)
-      // 防御性检查：确保 parameters 是数组类型
-      const params = Array.isArray(tmpl.parameters) ? tmpl.parameters : []
-      templateParams.value = params.map((p: Record<string, unknown>) => ({
-        id: String(p.id || ''),
-        type: String(p.type || 'string') as TemplateParam['type'],
-        label: String(p.label || p.id || ''),
-        required: p.required !== false,
-        default: p.default,
-      }))
-
-      // 对还没有绑定值的参数，应用默认值
-      for (const param of templateParams.value) {
-        if (localData.parameters[param.id] === undefined && param.default != null) {
-          localData.parameters[param.id] = param.default
-        }
-      }
-    } catch {
-      // 模板加载失败（可能尚未创建），静默忽略
-    }
+  function onConfigNameChange(value: string) {
+    localData.configName = value
+    emitUpdate()
   }
-
-  onMounted(() => {
-    if (!localData.templateId) return
-    loadTemplateParams(localData.templateId)
-  })
 
   function onTemplateSelect(e: Event) {
     const select = e.target as HTMLSelectElement
     const newId = select.value
     if (!newId) return
 
-    const matched = availableTemplates.value.find((t) => t.id === newId)
+    const matched = availableTemplates.value.find((item) => item.id === newId)
     localData.templateId = newId
     localData.templateName = matched?.name || newId
-    localData.parameters = {}
-    templateParams.value = []
 
     // 清除旧模板的展开节点
     graphStore.clearExpansion(props.nodeId)
 
-    // 加载新模板的参数定义并同步到节点
-    loadTemplateParams(newId).then(() => {
-      emitUpdate()
-      emit('update:data', {
-        templateId: newId,
-        templateName: localData.templateName,
-        configName: localData.templateName,
-        parameters: { ...localData.parameters },
-      })
+    emitUpdate()
+    emit('update:data', {
+      templateId: newId,
+      templateName: localData.templateName,
+      configName: localData.templateName,
     })
   }
 
   function emitUpdate() {
-    const summaryParts: string[] = []
-    for (const [key, value] of Object.entries(localData.parameters)) {
-      if (value !== undefined && value !== '') {
-        summaryParts.push(`${key}=${value}`)
-      }
-    }
-    const summaryText = summaryParts.join(', ')
-
     emit('update:data', {
       configName: localData.configName,
       enabled: localData.enabled,
-      parameters: { ...localData.parameters },
-      summaryText,
     })
+  }
+
+  function getExpandErrorMessage(err: unknown): string {
+    if (err instanceof Error) {
+      return err.message
+    }
+    return String(err)
   }
 
   async function previewExpand() {
@@ -216,152 +190,212 @@
 
     expanding.value = true
     try {
-      // 从 store 实时读取 inputFromNode（props.data 可能在连接后未更新）
-      const currentNode = graphStore.nodes.find((n) => n.id === props.nodeId)
-      const inputFromNode =
-        ((currentNode?.data as Record<string, unknown>)?.inputFromNode as string) || ''
-      const result = await expandV2Template(
-        localData.templateId,
-        props.nodeId,
-        { ...localData.parameters },
-        inputFromNode
-      )
+      const result = await expandV2Template(localData.templateId, props.nodeId)
       // 在画布上渲染展开后的 DAG 节点
       graphStore.expandOnCanvas(props.nodeId, result)
       emit('update:data', {
-        nodeCount: result.transforms.length + result.constraints.length + result.regex_nodes.length,
+        nodeCount:
+          result.transforms.length +
+          result.constraints.length +
+          result.regex_nodes.length +
+          result.manual_data.length,
       })
     } catch (err) {
+      const message = getExpandErrorMessage(err)
       console.error('[TemplateInstanceInspector] 展开预览失败:', err)
+      toast.error(
+        t('inspector.templateInstance.expandFailed'),
+        t('inspector.templateInstance.expandErrorDetail', { message })
+      )
     } finally {
       expanding.value = false
+    }
+  }
+
+  function getStatusIcon(state: string | undefined): string {
+    switch (state) {
+      case 'saved':
+        return '✓'
+      case 'draft':
+        return '●'
+      case 'error':
+        return '✗'
+      default:
+        return '?'
+    }
+  }
+
+  function getStatusText(state: string | undefined): string {
+    switch (state) {
+      case 'saved':
+        return t('inspector.templateInstance.saved')
+      case 'error':
+        return t('inspector.templateInstance.error')
+      case 'draft':
+      default:
+        return t('inspector.templateInstance.unsaved')
     }
   }
 </script>
 
 <style scoped>
   .template-instance-inspector {
-    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
   }
 
-  .inspector-section {
-    margin-bottom: 16px;
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
 
-  .inspector-section label {
-    display: block;
-    font-size: 12px;
-    font-weight: 600;
-    color: var(--ui-text-secondary);
-    margin-bottom: 6px;
-  }
-
-  .inspector-section input[type='text'],
-  .inspector-section input[type='number'] {
-    width: 100%;
-    padding: 6px 10px;
-    border: 1px solid var(--ui-border-subtle);
-    border-radius: 4px;
-    background: var(--ui-bg-elevated);
-    color: var(--ui-text-primary);
-    font-size: 13px;
-  }
-
-  .inspector-section input[type='checkbox'] {
-    width: auto;
-    margin-top: 4px;
-  }
-
-  .readonly-field {
-    padding: 6px 10px;
-    background: var(--ui-bg-canvas, #1e1e1e);
-    border-radius: 4px;
-    font-size: 13px;
+  .field-label {
+    font-weight: 500;
+    font-size: 11px;
     color: var(--ui-text-muted);
+    user-select: text;
+    -webkit-user-select: text;
   }
 
-  .readonly-field--hint {
+  .field-layout-row {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-bg-panel);
+  }
+
+  .field-layout-row .field-label {
+    padding: 0;
+    color: var(--ui-text);
+  }
+
+  .field-input {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-md);
+    background: var(--ui-bg-elevated);
+    color: var(--ui-text);
+    font-size: 13px;
+    outline: none;
+    box-sizing: border-box;
+    transition:
+      border-color var(--ui-transition-fast),
+      box-shadow var(--ui-transition-fast),
+      background var(--ui-transition-fast);
+  }
+
+  .field-input:hover {
+    border-color: var(--ui-border-strong);
+  }
+
+  .field-input:focus {
+    border-color: var(--ui-border-focus);
+    background: var(--ui-bg-elevated);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-border-focus) 15%, transparent);
+  }
+
+  .field-input::placeholder {
+    color: var(--ui-text-placeholder);
+  }
+
+  .template-select:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: var(--ui-bg-subtle);
+  }
+
+  .field-hint {
+    font-size: 12px;
+    color: var(--ui-text-muted);
     font-style: italic;
   }
 
-  .template-select {
-    width: 100%;
-    padding: 6px 10px;
-    border: 1px solid var(--ui-border-subtle);
-    border-radius: 4px;
-    background: var(--ui-bg-elevated);
-    color: var(--ui-text-primary);
-    font-size: 13px;
-    cursor: pointer;
-    appearance: auto;
-  }
-
-  .template-select:focus {
-    outline: 1px solid var(--ui-accent);
-    border-color: var(--ui-accent);
-  }
-
-  .params-list {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .param-item {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-  }
-
-  .param-label {
+  .field-help {
     font-size: 11px;
-    color: var(--ui-text-secondary);
+    color: var(--ui-text-muted);
+    line-height: 1.4;
   }
 
-  .param-required {
-    color: #f44747;
+  .toggle {
+    accent-color: var(--ui-accent);
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  .param-boolean {
+    justify-content: flex-end;
+    min-height: 40px;
+  }
+
+  .required-mark {
+    color: var(--ui-danger, #f44336);
     margin-left: 2px;
   }
 
-  .checkbox-label {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    cursor: pointer;
-  }
-
-  .expand-btn {
+  .preview-btn {
     width: 100%;
-    padding: 8px;
-    background: var(--ui-accent);
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    font-size: 13px;
+    padding: 8px 12px;
+    border: 1px solid var(--ui-border-subtle);
+    border-radius: var(--ui-radius-md);
+    font-size: 12px;
     font-weight: 600;
+    cursor: pointer;
+    transition: all var(--ui-transition-fast);
+    background: color-mix(in srgb, var(--ui-accent-primary, #0e639c) 10%, transparent);
+    color: var(--ui-accent-primary, #0e639c);
+    border-color: color-mix(in srgb, var(--ui-accent-primary, #0e639c) 30%, transparent);
   }
 
-  .expand-btn:hover:not(:disabled) {
-    background: var(--ui-accent-primary);
+  .preview-btn:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--ui-accent-primary, #0e639c) 18%, transparent);
   }
 
-  .expand-btn:disabled {
-    opacity: 0.6;
+  .preview-btn:disabled {
+    opacity: 0.5;
     cursor: not-allowed;
   }
 
-  .expand-summary {
+  .status-indicator {
     display: flex;
-    flex-wrap: wrap;
+    align-items: center;
     gap: 8px;
-    font-size: 12px;
-    color: var(--ui-text-secondary);
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-weight: 500;
   }
 
-  .save-state {
-    font-size: 12px;
-    color: var(--ui-text-muted);
-    text-transform: uppercase;
+  .status-indicator.saved {
+    background: var(--ui-success-weak);
+    color: var(--ui-success);
+    border: 1px solid var(--ui-success);
+  }
+
+  .status-indicator.draft {
+    background: var(--ui-warning-weak);
+    color: var(--ui-warning-strong);
+    border: 1px solid var(--ui-warning);
+  }
+
+  .status-indicator.error {
+    background: var(--ui-danger-weak);
+    color: var(--ui-danger);
+    border: 1px solid var(--ui-danger);
+  }
+
+  .status-icon {
+    font-size: 14px;
+  }
+
+  .status-text {
+    font-size: 14px;
   }
 </style>

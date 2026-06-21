@@ -20,7 +20,7 @@ import os
 from pathlib import Path
 
 from app.shared.core.io.yaml import read_yaml, write_yaml
-from app.shared.core.project.manifest.types import ProjectManifestV2
+from app.shared.core.project.manifest.types import ManualDataRefV2, ProjectManifestV2
 
 from .base import (
     ConstraintRefV2,
@@ -67,6 +67,9 @@ def _merge_manifest_references(
 
     if not (payload.manifest.transforms or []) and existing_manifest and existing_manifest.transforms:
         final_manifest = final_manifest.model_copy(update={"transforms": existing_manifest.transforms})
+
+    if not (payload.manifest.manual_data or []) and existing_manifest and existing_manifest.manual_data:
+        final_manifest = final_manifest.model_copy(update={"manual_data": existing_manifest.manual_data})
 
     if not final_manifest.schemas:
         schemas_dir = os.path.join(config_path, "schemas")
@@ -124,6 +127,20 @@ def _merge_manifest_references(
             if transform_refs:
                 logger.info(f"[put_v2_full_config] 从 transforms/ 目录扫描到 {len(transform_refs)} 个 transform 文件")
                 final_manifest = final_manifest.model_copy(update={"transforms": transform_refs})
+
+    if not (final_manifest.manual_data or []):
+        manual_data_dir = os.path.join(config_path, "manual_data")
+        if os.path.isdir(manual_data_dir):
+            manual_data_refs = []
+            for filename in os.listdir(manual_data_dir):
+                if filename.endswith(".manual_data.yaml"):
+                    manual_data_id = filename[: -len(".manual_data.yaml")]
+                    manual_data_refs.append(ManualDataRefV2(id=manual_data_id, path=f"manual_data/{filename}"))
+            if manual_data_refs:
+                logger.info(
+                    f"[put_v2_full_config] 从 manual_data/ 目录扫描到 {len(manual_data_refs)} 个 manual_data 文件"
+                )
+                final_manifest = final_manifest.model_copy(update={"manual_data": manual_data_refs})
 
     return final_manifest
 
@@ -183,6 +200,17 @@ def _write_resource_files(
             logger.error(f"[put_v2_full_config] 非法 Transform 路径: {transform_ref.path}, 错误: {e}")
             continue
         write_yaml(Path(abs_path), transform.model_dump(exclude_none=True))
+
+    for manual_data_ref in payload.manifest.manual_data or []:
+        manual_data = payload.manual_data.get(manual_data_ref.id)
+        if not manual_data:
+            continue
+        try:
+            abs_path = _resolve_project_path(config_path, manual_data_ref.path)
+        except ValueError as e:
+            logger.error(f"[put_v2_full_config] 非法 ManualData 路径: {manual_data_ref.path}, 错误: {e}")
+            continue
+        write_yaml(Path(abs_path), manual_data.model_dump(exclude_none=True))
 
 
 def write_v2_full_config(

@@ -289,7 +289,8 @@
 
     // 如果返回的是目录路径（Electron），先递归扫描；如果已是文件路径（Web），直接读取
     const firstPath = paths[0]
-    const isDirectoryPath = paths.length === 1 && firstPath && !firstPath.match(/\.(py|sql|md|txt|js|json|yaml|yml)$/i)
+    const isDirectoryPath =
+      paths.length === 1 && firstPath && !firstPath.match(/\.(py|sql|md|txt|js|json|yaml|yml)$/i)
     if (isDirectoryPath && firstPath) {
       const files = await fileApi.readdirRecursive(firstPath, [
         '.py',
@@ -352,6 +353,7 @@
         constraints: cfg.constraints || {},
         regex_nodes: cfg.regex_nodes || {},
         transforms: cfg.transforms || {},
+        manual_data: cfg.manual_data || {},
       }
       await putV2FullConfig(payload, effectiveConfigPath.value)
       window.$toast?.success(t('common.success'), t('aiConfigGenerator.toast.applied'))

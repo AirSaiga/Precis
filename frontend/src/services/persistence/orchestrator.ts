@@ -231,6 +231,7 @@ export class SaveOrchestrator {
       constraints: Object.fromEntries(plan.constraints),
       regex_nodes: Object.fromEntries(plan.regexes),
       transforms: Object.fromEntries(plan.transforms),
+      manual_data: Object.fromEntries(plan.manualData),
     }
   }
 
@@ -247,6 +248,7 @@ export class SaveOrchestrator {
       'jsonSchema',
       'regex',
       'transform',
+      'manualData',
       'templateInstance',
       'notNullConstraint',
       'uniqueConstraint',

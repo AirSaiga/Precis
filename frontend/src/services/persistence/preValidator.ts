@@ -491,15 +491,6 @@ export class PreValidator {
           field: 'template_id',
         })
       }
-
-      if (ref.input_from_node && !this.plan.schemas.has(ref.input_from_node)) {
-        this.addError({
-          severity: 'WARNING',
-          nodeId: instanceId,
-          message: `TemplateInstance 引用的输入节点 ${ref.input_from_node} 不在当前保存计划中`,
-          field: 'input_from_node',
-        })
-      }
     }
   }
 }

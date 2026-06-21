@@ -109,11 +109,20 @@ def make_manifest(**overrides) -> ProjectManifest:
     return ProjectManifest(**(base | overrides))  # type: ignore[call-arg, arg-type]
 
 
-def run_inspect_id(manifest, schema_files, constraint_files, regex_files, transform_files):
+def run_inspect_id(manifest, schema_files, constraint_files, regex_files, transform_files, manual_data_files=None):
     """执行 inspect_id_consistency 并返回 (warnings, errors)。"""
     warnings: list[str] = []
     errors: list[LoadingError] = []
-    inspect_id_consistency(manifest, schema_files, constraint_files, regex_files, transform_files, warnings, errors)
+    inspect_id_consistency(
+        manifest,
+        schema_files,
+        constraint_files,
+        regex_files,
+        transform_files,
+        manual_data_files or {},
+        warnings,
+        errors,
+    )
     return warnings, errors
 
 
@@ -537,7 +546,7 @@ class TestInspectConfigMain:
         errors: list[LoadingError] = []
         manifest = make_manifest()
         schema_files = {"users": make_schema()}
-        inspect_config(Path("/tmp"), manifest, schema_files, {}, {}, {}, warnings, errors)
+        inspect_config(Path("/tmp"), manifest, schema_files, {}, {}, {}, {}, warnings, errors)
         assert errors == []
         assert warnings == []
 
@@ -551,7 +560,7 @@ class TestInspectConfigMain:
         )
         schema_files = {"users_ref": make_schema(id="users")}
         constraint_files = {"c1": make_constraint(refs={"table_id": "ghost", "column_id": "email"})}
-        inspect_config(Path("/tmp"), manifest, schema_files, constraint_files, {}, {}, warnings, errors)
+        inspect_config(Path("/tmp"), manifest, schema_files, constraint_files, {}, {}, {}, warnings, errors)
 
         # 至少两条: 一条 ID 不一致 warning + 一条引用缺失 blocker
         severities = [e.severity for e in errors]

@@ -686,21 +686,36 @@ const inspector = {
 
   // Template Instance node inspector
   templateInstance: {
-    configName: 'Config Name',
-    templateId: 'Template',
+    badgeEditable: 'Editable',
+    badgeReadOnly: 'Read Only',
+    groups: {
+      config: 'Basic Config',
+      template: 'Template Reference',
+      actions: 'Actions',
+      status: 'Save State',
+    },
+    labels: {
+      configName: 'Config Name',
+      templateId: 'Template',
+      enabled: 'Enabled',
+      currentStatus: 'Current Status',
+    },
+    placeholders: {
+      configName: 'Enter config name',
+    },
     selectTemplate: 'Select a template',
     noTemplates:
       'No templates available. Select nodes on the canvas and right-click "Save as Template".',
-    enabled: 'Enabled',
-    parameters: 'Parameters',
     previewExpand: 'Preview Expansion',
     expanding: 'Expanding...',
     expandResult: 'Expansion Result',
-    saveState: 'Save State',
-    noParams: 'No parameters configured',
+    expandFailed: 'Expansion Failed',
+    expandErrorDetail: 'Failed to preview expansion: {message}',
     nodeCount: 'nodes',
     unsaved: 'Unsaved',
     saved: 'Saved',
+    noParams: 'No parameters',
+    error: 'Error',
   },
 }
 

@@ -145,7 +145,7 @@ class ObjectParser:
         if isinstance(data, dict):
             arrays = self._find_deepest_arrays(data)
             if arrays:
-                return arrays
+                return [item if isinstance(item, dict) else {"value": item} for item in arrays]
             return [data]
 
         return [{"value": data}]
@@ -191,7 +191,7 @@ class ObjectParser:
         except (json.JSONDecodeError, ValueError):
             return False
 
-    def _find_deepest_arrays(self, obj: Any, current_depth: int = 0) -> list[dict]:
+    def _find_deepest_arrays(self, obj: Any, current_depth: int = 0) -> list[Any]:
         """
         @methoddesc 递归查找最深层的数组
 
@@ -205,8 +205,8 @@ class ObjectParser:
 
         特殊情况处理：
         - 空数组：忽略，继续查找
-        - 非字典数组元素：忽略
-        - 混合类型数组：只取字典类型元素
+        - 非字典数组元素：保留，由上层调用方统一包装
+        - 混合类型数组：整体返回，由上层调用方统一包装
 
         Args:
             obj: 当前检查的对象
@@ -230,20 +230,27 @@ class ObjectParser:
             return result if result else obj[:1] if obj else []
 
         if isinstance(obj, dict):
-            arrays_found: list[tuple[int, list[dict]]] = []
+            arrays_found: list[tuple[int, list[Any]]] = []
 
             for key, value in obj.items():
                 if isinstance(value, list):
                     if not value:
                         continue
 
+                    # 优先查找列表元素中是否包含更深的数组
+                    deeper_arrays: list[list[Any]] = []
                     for item in value:
                         if isinstance(item, dict):
                             nested = self._find_deepest_arrays(item, current_depth + 1)
                             if nested:
-                                arrays_found.append((current_depth + 2, nested))
-                            else:
-                                arrays_found.append((current_depth + 1, [item]))
+                                deeper_arrays.append(nested)
+
+                    if deeper_arrays:
+                        for nested in deeper_arrays:
+                            arrays_found.append((current_depth + 2, nested))
+                    else:
+                        # 当前列表本身即是最深层数组，整体返回
+                        arrays_found.append((current_depth + 1, list(value)))
 
                 elif isinstance(value, dict):
                     nested = self._find_deepest_arrays(value, current_depth + 1)

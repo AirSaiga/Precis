@@ -13,7 +13,6 @@ export interface TemplateListItem {
   id: string
   name: string
   description?: string
-  parameter_count: number
   node_count: number
   path: string
 }
@@ -25,6 +24,7 @@ export interface TemplateExpandResult {
   transforms: Record<string, unknown>[]
   constraints: Record<string, unknown>[]
   regex_nodes: Record<string, unknown>[]
+  manual_data: Record<string, unknown>[]
 }
 
 export async function listV2Templates(configPath?: string): Promise<TemplateListItem[]> {
@@ -88,16 +88,12 @@ export async function deleteV2Template(
 export async function expandV2Template(
   templateId: string,
   instanceId: string,
-  params: Record<string, unknown>,
-  inputFromNode?: string,
   configPath?: string
 ): Promise<TemplateExpandResult> {
   const { data } = await apiClient.post<TemplateExpandResult>(
     `/project/template/${encodeURIComponent(templateId)}/expand`,
     {
       instance_id: instanceId,
-      params,
-      input_from_node: inputFromNode || '',
     },
     withConfigPathHeader(configPath)
   )
@@ -112,8 +108,6 @@ export async function updateV2ManifestTemplateInstanceRef(
     id: string
     template_id: string
     enabled: boolean
-    input_from_node: string
-    params: Record<string, unknown>
   },
   configPath?: string
 ): Promise<void> {

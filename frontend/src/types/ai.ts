@@ -9,6 +9,7 @@
 
 import type {
   ConstraintFileV2,
+  ManualDataFileV2,
   ProjectManifestV2,
   RegexNodeFileV2,
   TableSchemaFileV2,
@@ -66,6 +67,7 @@ export interface AiGenerateV2ConfigResponse {
   constraints: Record<string, ConstraintFileV2>
   regex_nodes: Record<string, RegexNodeFileV2>
   transforms?: Record<string, TransformFileV2>
+  manual_data?: Record<string, ManualDataFileV2>
   error?: string
 }
 

@@ -79,6 +79,7 @@ export function useConflictApply(
           constraints: generatedConfig.value.constraints || {},
           regex_nodes: generatedConfig.value.regex_nodes || {},
           transforms: generatedConfig.value.transforms || {},
+          manual_data: generatedConfig.value.manual_data || {},
         },
         configPath.value
       )

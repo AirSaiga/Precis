@@ -513,7 +513,8 @@ export function useConnections() {
       // Schema 列 → ManualData：提取该列数据到手动数据节点
       if (sourceNode.type === 'schema' && targetNode.type === 'manualData') {
         const schemaData = sourceNode.data as Record<string, unknown>
-        const columns = (schemaData.columns as Array<{ id: string; columnName: string; dataType?: string }>) || []
+        const columns =
+          (schemaData.columns as Array<{ id: string; columnName: string; dataType?: string }>) || []
 
         // 从 sourceHandle 解析列 ID，例如 "source-right-col-0" → "col-0"
         let columnId = ''
@@ -670,20 +671,6 @@ export function useConnections() {
         }
       }
 
-      // templateInstance 输入连接：设置 inputFromNode
-      if (targetNode.type === 'templateInstance') {
-        tx.patchNodeData(targetNode.id, {
-          ...((targetNode.data || {}) as Record<string, unknown>),
-          inputFromNode: sourceNode.id,
-          saveState: 'draft',
-        })
-        logger.debug('🔗 数据源 → 模板实例:', {
-          sourceType: sourceNode.type,
-          sourceId: sourceNode.id,
-          instanceId: targetNode.id,
-        })
-      }
-
       if (sourceNode.type === 'schema' && targetNode.type === 'regex') {
         if (sourceHandle) {
           await regexConnection.handleSchemaToRegexConnection(
@@ -713,14 +700,6 @@ export function useConnections() {
         } else if (sourceNode.type === 'transformOutput') {
           const outputData = sourceNode.data as Record<string, unknown>
           inputColumn = (outputData.columnName as string) || 'Column1'
-        } else if (sourceNode.type === 'schema' || sourceNode.type === 'jsonSchema') {
-          if (sourceHandle && sourceHandle.startsWith('source-right-')) {
-            const columnId = sourceHandle.replace('source-right-', '')
-            const schemaData = sourceNode.data as Record<string, unknown>
-            const columns = (schemaData.columns as Array<{ id: string; columnName: string }>) || []
-            const column = columns.find((c) => c.id === columnId)
-            inputColumn = column?.columnName
-          }
         }
 
         const transformData = targetNode.data as Record<string, unknown>
