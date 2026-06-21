@@ -64,6 +64,18 @@ class TemplateNode(BaseModel):
     column_data_type: str = "string"
 
 
+class TemplateParameter(BaseModel):
+    """@classdesc 模板参数声明
+
+    字段说明:
+        - name: 参数名（对应节点值中的 {{name}} 占位符）
+        - default: 参数默认值（实例未提供该参数时使用）
+    """
+
+    name: str
+    default: Any = None
+
+
 class TemplateFile(BaseModel):
     """@classdesc 模板定义文件根模型
 
@@ -75,6 +87,7 @@ class TemplateFile(BaseModel):
         - id: 模板唯一标识
         - name: 模板显示名称
         - description: 模板描述
+        - parameters: 参数声明列表（展开时对节点值中的 {{param}} 占位符做替换）
         - nodes: 内部 DAG 节点列表
     """
 
@@ -82,4 +95,5 @@ class TemplateFile(BaseModel):
     id: str = Field(..., description="模板唯一标识")
     name: str = Field(..., description="模板显示名称")
     description: str | None = Field(None, description="模板描述")
+    parameters: list[TemplateParameter] = Field(default_factory=list, description="参数声明列表")
     nodes: list[TemplateNode] = Field(default_factory=list, description="内部 DAG 节点列表")

@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.api.dependencies import get_project_config_path
 from app.api.models.project import StandardResponse
@@ -54,6 +54,8 @@ class TemplateExpandRequest(BaseModel):
     """模板展开预览请求"""
 
     instance_id: str
+    params: dict[str, Any] = Field(default_factory=dict, description="参数绑定值（覆盖模板默认值）")
+    input_from_node: str | None = Field(None, description="实例级上游节点 ID（通常指向 Schema）")
 
 
 class TemplateExpandResponse(BaseModel):
@@ -278,6 +280,8 @@ def preview_template_expand(
         transforms, constraints, regex_nodes, manual_data_files = expand_template(
             tmpl,
             request.instance_id,
+            params=request.params,
+            input_from_node=request.input_from_node,
         )
     except ValueError as e:
         logger.warning(f"模板展开 ValueError: {e}")

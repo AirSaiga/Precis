@@ -12,6 +12,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -34,6 +36,8 @@ class TemplateInstanceRef(BaseModel):
         - id: 实例唯一标识（全局唯一）
         - template_id: 引用的模板 ID
         - enabled: 是否启用
+        - params: 参数绑定值（覆盖模板声明的默认值，展开时对 {{param}} 占位符做替换）
+        - input_from_node: 实例级上游节点 ID（通常指向 Schema，覆盖节点级 input_from_node）
 
     展开行为:
         加载时由 expander 将此实例展开为一组 TransformFile / ConstraintFile / RegexNodeFile / ManualDataFile，
@@ -43,3 +47,5 @@ class TemplateInstanceRef(BaseModel):
     id: str = Field(..., description="实例 ID（全局唯一）")
     template_id: str = Field(..., description="引用的模板 ID")
     enabled: bool = Field(True, description="是否启用")
+    params: dict[str, Any] = Field(default_factory=dict, description="参数绑定值")
+    input_from_node: str | None = Field(None, description="实例级上游节点 ID（通常指向 Schema）")
