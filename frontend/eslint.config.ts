@@ -16,11 +16,11 @@ export default defineConfigWithVueTs(
 
   {
     rules: {
-      // 关闭基础从未使用的变量检查
+      // TODO: 待专项清理后开启
+      // 当前代码库约 376 处 any（96 文件 :any + 31 文件 as any），
+      // 开启 error 会 CI 全红。清理路径：按目录分批替换为精确类型/unknown + 类型守卫。
       'no-unused-vars': 'off',
-      // 关闭 TypeScript 从未使用的变量检查
       '@typescript-eslint/no-unused-vars': 'off',
-      // 当前代码库仍存在较多 any 使用场景，关闭以避免 CI 噪音
       '@typescript-eslint/no-explicit-any': 'off',
       // 允许单文件小组件使用单词组件名
       'vue/multi-word-component-names': 'off',
