@@ -75,6 +75,7 @@ dev = [
     "debugpy>=1.8.0",
     "ruff>=0.4.0",
     "mypy>=1.10.0",
+    "types-PyYAML>=6.0.0",
     "pytest>=9.0.3",
     "pytest-asyncio>=0.23.0",
     "pytest-cov>=5.0.0",
@@ -165,16 +166,6 @@ exclude = [
     "build",
     "dist",
 ]
-
-# app.shared / app/api 存在历史类型债务（约 517 处 mypy 错误），
-# 暂时忽略以避免阻塞 cli/tests 的类型检查。这些错误待专项清理任务逐步修复后移除。
-[[tool.mypy.overrides]]
-module = "app.shared.*"
-ignore_errors = true
-
-[[tool.mypy.overrides]]
-module = "app.api.*"
-ignore_errors = true
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
