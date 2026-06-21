@@ -772,11 +772,11 @@
   color: #db2777;
 }
 
-[data-theme='liquid'] .component-tile .tile-action :deep(svg) {
+[data-theme='liquid'] .component-tile .tile-action svg {
   color: var(--ui-text-tertiary);
 }
 
-[data-theme='liquid'] .component-tile:hover .tile-action :deep(svg) {
+[data-theme='liquid'] .component-tile:hover .tile-action svg {
   color: var(--ui-accent);
 }
 
