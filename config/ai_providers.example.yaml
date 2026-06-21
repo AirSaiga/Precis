@@ -1,3 +1,10 @@
+# ⚠️ 安全提示：
+# - api_key 是敏感凭据，必须通过环境变量（${VAR}）注入，禁止明文写入配置文件
+# - 复制此文件到 ~/.precis/ai_providers.yaml 后，建议设置文件权限为 600（chmod 600）
+# - 切勿将含真实 key 的配置提交到版本控制
+# - 公有云 key（openai/aliyun 等）按 token 计费，请在云控制台设置消费上限并定期轮换
+# - verify_ssl: false 仅限隔离内网测试，会跳过 TLS 验证，生产环境必须开启
+
 # Precis AI Provider 配置示例 (v2.0)
 # 复制此文件到 ~/.precis/ai_providers.yaml 并修改
 
@@ -33,7 +40,7 @@ providers:
     model: company-llm-7b
     network:
       timeout: 120
-      verify_ssl: false
+      verify_ssl: false  # ⚠️ 生产环境必须设为 true，避免中间人攻击
     meta:
       description: "企业内部部署的大模型"
 

@@ -205,6 +205,8 @@ if __name__ == "__main__":
     # 一个好的实践是使用环境变量存储密码，但为方便测试，我们直接写入文件。
     # 在生产环境中，应避免将密码明文存储。
     reporting_config_content = """
+# 所有 reporter 的敏感字段（密码、secret、token）建议用 ${ENV_VAR} 环境变量注入，
+# 避免明文写入配置文件后泄露或被意外提交到版本控制。
 reporters:
   local_file:
     enabled: true
@@ -212,6 +214,8 @@ reporters:
 
   email:
     enabled: false # 改为 true 来测试邮件功能
+    # 安全提示：sender_password 应为应用专用密码（Gmail/Outlook 强制），
+    # 而非账号登录密码；SMTP 凭据授予发信权限，泄露后可被滥用发信。
     smtp_server: ""      # !!! 替换为你的SMTP服务器地址
     smtp_port: 587                   # !!! 替换为你的SMTP端口 (587 for TLS, 465 for SSL)
     sender_email: "" # !!! 替换为你的发件人邮箱
@@ -220,6 +224,8 @@ reporters:
 
   wecom:
     enabled: false # 改为 true 来测试
+    # 安全提示：corp_secret 授予整个企业应用的 API 访问权，必须来自环境变量；
+    # 泄露后可被冒充发送消息，请在企微管理后台定期轮换。
     corp_id: "" # !!! 你的企业ID
     corp_secret: "" # !!! 你的应用Secret
     agent_id: 0 # !!! 你的应用ID
@@ -227,6 +233,8 @@ reporters:
 
   feishu:
     enabled: false # 改为 true 来测试
+    # 安全提示：app_id + app_secret 成对验证应用身份，应作为密钥对管理；
+    # 泄露后可被冒充推送消息，请在飞书开发者后台定期轮换。
     app_id: "" # !!! 你的应用App ID
     app_secret: "" # !!! 你的应用App Secret
     receive_id_type: "open_id" # 接收者ID类型
@@ -234,6 +242,8 @@ reporters:
 
   dingtalk:
     enabled: false # 改为 true 来测试
+    # 安全提示：app_key + app_secret 是应用身份标识，泄露后可冒充机器人发消息；
+    # 请在钉钉开放平台定期轮换。
     app_key: "" # !!! 你的应用AppKey
     app_secret: "" # !!! 你的应用AppSecret
     agent_id: 0 # !!! 你的应用AgentId
