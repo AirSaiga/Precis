@@ -5,6 +5,11 @@
 
 import { defaultReset, register, requireSource, toResult } from '../validationRegistryCore'
 import { validateConditional, validateInline } from '@/api/validationApi'
+import type { ConditionalValidationRequest } from '@/api/validation/core'
+
+type IfCondition = NonNullable<
+  NonNullable<ConditionalValidationRequest['validation_config']>['if_conditions']
+>[number]
 
 register({
   kind: 'conditional',
@@ -44,12 +49,15 @@ register({
           Array.isArray(nodeData.ifConditions) && nodeData.ifConditions.length > 0
             ? nodeData.ifConditions
             : [{ ref: nodeData.ifRef, operator: 'eq', value: nodeData.ifValue }]
-        const normalizedIf = rawIfConditions.map((c: any) => ({
-          if_column: ctx.columnName,
-          operator: c?.operator || 'eq',
-          value: c?.value,
-          values: Array.isArray(c?.values) ? c.values : undefined,
-        }))
+        const normalizedIf = rawIfConditions.map((c) => {
+          const cond = c as { operator?: string; value?: unknown; values?: unknown[] }
+          return {
+            if_column: ctx.columnName,
+            operator: cond.operator || 'eq',
+            value: cond.value,
+            values: Array.isArray(cond.values) ? cond.values : undefined,
+          }
+        })
         validationConfig.if_conditions = normalizedIf
         validationConfig.if_column = normalizedIf[0]?.if_column
         validationConfig.if_value = normalizedIf[0]?.value
@@ -87,15 +95,12 @@ register({
     if (!hasIf || !hasThen) {
       return { status: 'idle', validationErrors: [], lastValidation: undefined }
     }
+    type ColumnLike = { id?: string; columnName?: string }
     const schemaColumns = (((ctx.schemaNode.data || {}) as Record<string, unknown>).columns ||
-      []) as unknown[]
-    const thenColumnName = (
-      schemaColumns.find(
-        (c) =>
-          (c as Record<string, unknown>).id ===
-          (nodeData.thenRef as Record<string, unknown>)?.columnId
-      ) as Record<string, unknown>
-    )?.columnName as string | undefined
+      []) as ColumnLike[]
+    const thenColumnName = schemaColumns.find(
+      (c) => c.id === (nodeData.thenRef as Record<string, unknown>)?.columnId
+    )?.columnName
     if (!thenColumnName) {
       return {
         status: 'missing',
@@ -114,17 +119,23 @@ register({
             },
           ]
     )
-      .map((c: any) => ({
-        if_column: (
-          schemaColumns.find((x: any) => x.id === c?.ref?.columnId) as
-            | Record<string, unknown>
-            | undefined
-        )?.columnName as string,
-        operator: c?.operator,
-        value: c?.value,
-        values: Array.isArray(c?.values) ? c.values : undefined,
-      }))
-      .filter((c: any) => !!c.if_column)
+      .map((c) => {
+        const cond = c as {
+          ref?: { columnId?: string }
+          operator?: string
+          value?: unknown
+          values?: unknown[]
+        }
+        return {
+          if_column: schemaColumns.find((x) => x.id === cond.ref?.columnId)?.columnName || '',
+          operator: cond.operator as 'eq' | 'neq' | 'in' | 'not_null' | 'greater_than',
+          value: cond.value as string | number | boolean | undefined,
+          values: Array.isArray(cond.values)
+            ? (cond.values as (string | number | boolean)[])
+            : undefined,
+        }
+      })
+      .filter((c) => !!c.if_column) as IfCondition[]
     if (normalizedIf.length === 0) {
       return {
         status: 'missing',

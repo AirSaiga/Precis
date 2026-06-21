@@ -22,11 +22,13 @@ register({
       const subGraph = (nodeData.subGraph || {}) as Record<string, unknown>
       const subNodes = (subGraph.nodes || []) as unknown[]
       targetIds = subNodes
-        .filter((n: any) => {
-          const t = String(n?.type || '')
+        .filter((n) => {
+          const nodeLike = n as Record<string, unknown>
+          const t = String(nodeLike.type || '')
           return t.endsWith('Constraint') && t !== 'compositeConstraint'
         })
-        .map((n: any) => n.id as string)
+        .map((n) => String((n as Record<string, unknown>).id || ''))
+        .filter((id) => id.length > 0)
     }
 
     if (targetIds.length === 0) {

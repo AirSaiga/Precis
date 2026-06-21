@@ -7,6 +7,9 @@
  * - 重置 validationStatus 为 idle
  */
 import { registerDisconnectHandler } from '../registryCore'
+import type { ConditionalConstraintNodeData } from '@/types/graph'
+
+type IfCondition = NonNullable<ConditionalConstraintNodeData['ifConditions']>[number]
 
 registerDisconnectHandler({
   priority: 50,
@@ -27,21 +30,24 @@ registerDisconnectHandler({
       const removedColumnId = parseColumnId(edge.sourceHandle)
       const removedNodeId = edge.source
 
-      const baseConditions =
+      const baseConditions: IfCondition[] =
         Array.isArray(data.ifConditions) && data.ifConditions.length > 0
-          ? data.ifConditions.slice()
+          ? (data.ifConditions.slice() as IfCondition[])
           : [
               {
-                operator: 'eq' as const,
-                value: data.ifValue || '',
-                column: data.ifColumn || '',
+                operator: 'eq',
+                value: (data.ifValue as string | undefined) || '',
+                column: (data.ifColumn as string | undefined) || '',
                 ref: data.ifRef
-                  ? { nodeId: (data.ifRef as any).nodeId, columnId: (data.ifRef as any).columnId }
+                  ? ({
+                      nodeId: (data.ifRef as { nodeId?: string }).nodeId,
+                      columnId: (data.ifRef as { columnId?: string }).columnId,
+                    } as IfCondition['ref'])
                   : undefined,
               },
             ]
 
-      const nextConditions = baseConditions.filter((c: any) => {
+      const nextConditions = baseConditions.filter((c) => {
         if (c.edgeId && c.edgeId === edge.id) return false
         if (
           removedColumnId &&
@@ -52,14 +58,14 @@ registerDisconnectHandler({
         return true
       })
 
-      const safeConditions =
-        nextConditions.length > 0 ? nextConditions : [{ operator: 'eq' as const, value: '' }]
+      const safeConditions: IfCondition[] =
+        nextConditions.length > 0 ? nextConditions : [{ operator: 'eq', value: '' }]
       const first = safeConditions[0]
 
       ctx.updateNodeData(target.id, {
         ...data,
         ifConditions: safeConditions,
-        ifLogic: (data.ifLogic as any) || 'and',
+        ifLogic: (data.ifLogic as ConditionalConstraintNodeData['ifLogic']) || 'and',
         ifRef: first?.ref,
         ifColumn: first?.column || '',
         ifValue: typeof first?.value === 'string' ? first.value : '',

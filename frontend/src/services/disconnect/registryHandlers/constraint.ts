@@ -11,6 +11,7 @@ import {
   isConstraintNodeType,
   buildDisconnectReset,
 } from '@/services/constraints/validationRegistry'
+import type { SchemaColumn } from '@/types/graph'
 
 registerDisconnectHandler({
   priority: 60,
@@ -62,7 +63,7 @@ registerDisconnectHandler({
       })
       ctx.updateNodeData(source.id, {
         ...schemaData,
-        columns: updatedColumns as any[],
+        columns: updatedColumns as unknown as SchemaColumn[],
       })
     }
   },

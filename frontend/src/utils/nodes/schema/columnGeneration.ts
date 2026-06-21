@@ -5,7 +5,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import type { SchemaNodeData } from '@/types/graph'
+import type { SchemaNodeData, SchemaColumn, DataType } from '@/types/graph'
 import { inferDataType } from './typeInference'
 
 /**
@@ -40,26 +40,29 @@ interface GenerateColumnsOptions {
  * @returns 新生成的列定义数组
  */
 export function generateColumnsFromSource(
-  sourceHeaderRow: any[],
-  existingColumns: any[] = [],
-  sampleDataRow?: any[],
+  sourceHeaderRow: unknown[],
+  existingColumns: unknown[] = [],
+  sampleDataRow?: unknown[],
   options: GenerateColumnsOptions = {}
-): any[] {
+): SchemaColumn[] {
   if (!sourceHeaderRow) return []
 
   // 1. 构建列名到原列定义的映射，用于快速查找
-  const originalColumnMap = new Map<string, any>()
-  existingColumns.forEach((col: any) => {
-    originalColumnMap.set(String(col.columnName).trim(), col)
+  const originalColumnMap = new Map<string, SchemaColumn>()
+  existingColumns.forEach((raw) => {
+    const col = raw as Partial<SchemaColumn>
+    if (col.columnName) {
+      originalColumnMap.set(col.columnName.trim(), col as SchemaColumn)
+    }
   })
 
   // 2. 获取源数据的列名列表
-  const sourceColumnNames = sourceHeaderRow.map((header: any, index: number) => {
+  const sourceColumnNames = sourceHeaderRow.map((header, index) => {
     const headerText = String(header).trim()
     return headerText || `column_${index + 1}`
   })
 
-  const columns: any[] = []
+  const columns: SchemaColumn[] = []
   const processedColumnNames = new Set<string>()
 
   // 3. 第一遍：处理源数据中的列
@@ -70,7 +73,7 @@ export function generateColumnsFromSource(
     const existingColumn = originalColumnMap.get(columnName)
 
     // 推断数据类型（如果需要）
-    let inferredDataType: string | undefined
+    let inferredDataType: DataType | undefined
     if (sampleDataRow && sampleDataRow[index] !== undefined) {
       inferredDataType = inferDataType(sampleDataRow[index])
     }
@@ -81,7 +84,7 @@ export function generateColumnsFromSource(
       // logger.debug(`  ✅ 保留原有列定义: ${columnName} (id: ${existingColumn.id})`);
 
       // 确定最终的数据类型
-      let finalDataType: string
+      let finalDataType: DataType
       if (options.forceReinferTypes && inferredDataType) {
         // 强制重新推断类型
         finalDataType = inferredDataType
@@ -99,7 +102,7 @@ export function generateColumnsFromSource(
       // logger.debug(`  🆕 新增列: ${columnName}`);
 
       // 推断数据类型
-      const dataType = inferredDataType || 'String'
+      const dataType: DataType = inferredDataType || 'String'
 
       columns.push({
         id: columnName, // 新列使用列名作为 ID
@@ -113,8 +116,9 @@ export function generateColumnsFromSource(
   })
 
   // 4. 第二遍：保留源数据中没有但 Schema 中有的列（来自其他节点，如 Regex）
-  existingColumns.forEach((col: any) => {
-    const colName = String(col.columnName).trim()
+  existingColumns.forEach((raw) => {
+    const col = raw as Partial<SchemaColumn>
+    const colName = String(col.columnName ?? '').trim()
 
     // 如果该列已经在第一遍（源数据）中处理过，跳过
     if (processedColumnNames.has(colName)) {
@@ -130,7 +134,7 @@ export function generateColumnsFromSource(
     const isExtracted = !!col.extractedConfig
 
     if (isDerived || isBound || isExtracted) {
-      columns.push(col)
+      columns.push(col as SchemaColumn)
     }
   })
 

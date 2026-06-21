@@ -79,7 +79,8 @@ export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions
   for (const node of embeddedConstraintNodes) {
     try {
       const item = buildEmbeddedConstraintItem(node)
-      const sourceRef = (node.data as any).sourceRef
+      const nodeData = (node.data || {}) as Record<string, unknown>
+      const sourceRef = nodeData.sourceRef as { nodeId?: string } | undefined
       const targetSchemaNode = sourceRef?.nodeId
         ? schemaNodes.find((n) => n.id === sourceRef.nodeId)
         : undefined
@@ -433,12 +434,12 @@ export function buildIncrementalSavePlan(
 
   // 如果是 schema 节点，还要包含其内嵌约束
   if (targetNode.type === 'schema' || targetNode.type === 'jsonSchema') {
-    const embeddedConstraints = nodes.filter(
-      (n) =>
-        typeof n.type === 'string' &&
-        n.type.endsWith('Constraint') &&
-        (n.data as any)?.sourceRef?.nodeId === targetNode.id
-    )
+    const embeddedConstraints = nodes.filter((n) => {
+      if (typeof n.type !== 'string' || !n.type.endsWith('Constraint')) return false
+      const nData = (n.data || {}) as Record<string, unknown>
+      const sourceRef = nData.sourceRef as { nodeId?: string } | undefined
+      return sourceRef?.nodeId === targetNode.id
+    })
     for (const ec of embeddedConstraints) {
       if (!dependencyIds.has(ec.id)) {
         relatedNodes.push(ec)

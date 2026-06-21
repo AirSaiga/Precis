@@ -26,7 +26,6 @@
  * - scriptedConstraint: 脚本约束
  */
 import type { Connection, Node } from '@vue-flow/core'
-import { getConstraintNodeTypes as getConstraintNodeTypesFromRegistry } from '@/services/constraints/validationRegistry'
 import type { ConstraintNodeType } from '@/services/constraints/types'
 
 export type NodeType =

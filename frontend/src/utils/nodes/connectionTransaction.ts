@@ -22,7 +22,7 @@ import type { CustomNode, CustomNodeData } from '@/types/graph'
 type UndoFn = () => void
 
 export interface ConnectionTransaction {
-  patchNodeData: (nodeId: string, patch: Partial<CustomNodeData>) => void
+  patchNodeData: (_nodeId: string, _patch: Partial<CustomNodeData>) => void
   commit: () => void
   rollback: () => void
 }
@@ -34,7 +34,7 @@ interface NodeSnapshot {
 
 export function createConnectionTransaction(params: {
   nodes: CustomNode[]
-  updateNodeData: (nodeId: string, data: Partial<CustomNodeData>) => void
+  updateNodeData: (_nodeId: string, _data: Partial<CustomNodeData>) => void
 }): ConnectionTransaction {
   const { nodes, updateNodeData } = params
   const undoStack: UndoFn[] = []
@@ -44,7 +44,7 @@ export function createConnectionTransaction(params: {
     const node = nodes.find((n) => n.id === nodeId)
     if (!node) return
 
-    const before: Record<string, any> = {}
+    const before: Record<string, unknown> = {}
     const nodeData = node.data ?? {}
     for (const key of Object.keys(patch)) {
       const k = key as keyof CustomNodeData

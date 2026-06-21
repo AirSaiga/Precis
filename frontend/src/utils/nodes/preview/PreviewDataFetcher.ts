@@ -120,7 +120,7 @@ export class FilePreviewFetcher implements PreviewDataFetcher {
 
       if (isJson) {
         // JSON 数据：result.data 可能包含 raw_data 等字段（后端 API 返回结构）
-        const rawData = (result as any).raw_data as unknown[] | undefined
+        const rawData = result.raw_data
         if (rawData && Array.isArray(rawData)) {
           const firstRecord = rawData[0]
           const fields =
@@ -134,9 +134,9 @@ export class FilePreviewFetcher implements PreviewDataFetcher {
             fields,
             format: source.format || 'json',
             metadata: {
-              typeInference: (result as any).type_inference,
-              fieldCount: (result as any).field_count,
-              nestDepth: (result as any).nest_depth,
+              typeInference: result.type_inference,
+              fieldCount: result.field_count,
+              nestDepth: result.nest_depth,
             },
           }
         }

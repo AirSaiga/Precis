@@ -16,8 +16,13 @@
  * - 外键约束需要额外处理 targetRef 和 sourceInfo
  */
 
-import type { CustomNode, SchemaNodeData } from '@/types/graph'
+import type { Node } from '@vue-flow/core'
+import type { ConditionalConstraintNodeData, CustomNode, SchemaNodeData } from '@/types/graph'
 import type { ConstraintTypeV2 } from '@/types/projectV2'
+import type { AnyRecord } from '@/types/utility'
+
+/** 通用节点引用结构 */
+type RefLike = { nodeId?: string; columnId?: string }
 
 function resolveSchemaAndColumnIdByName(
   nodes: CustomNode[],
@@ -39,33 +44,39 @@ export function buildConstraintExportPayload(params: {
   nodes: CustomNode[]
   constraintNodeId: string
   v2Type: ConstraintTypeV2
-  data: any
+  data: AnyRecord
   schemaIdByNodeId: Record<string, string>
-}): { refs: Record<string, unknown>; params: Record<string, unknown> } {
+}): { refs: AnyRecord; params: AnyRecord } {
   const { nodes, constraintNodeId, v2Type, data, schemaIdByNodeId } = params
-  const refs: Record<string, unknown> = {}
-  const outputParams: Record<string, unknown> = {}
+  const refs: AnyRecord = {}
+  const outputParams: AnyRecord = {}
   const normalizeSchemaId = (value?: string) => (value ? schemaIdByNodeId[value] || value : value)
 
   switch (v2Type) {
     case 'AllowedValues': {
-      const sourceRef = data.sourceRef
+      const sourceRef = data.sourceRef as RefLike | undefined
       if (sourceRef?.nodeId && sourceRef?.columnId) {
         refs.table_id = normalizeSchemaId(sourceRef.nodeId)
         refs.column_id = sourceRef.columnId
       } else {
-        const resolved = resolveSchemaAndColumnIdByName(nodes, data.table, data.column)
+        const resolved = resolveSchemaAndColumnIdByName(
+          nodes,
+          String(data.table || ''),
+          String(data.column || '')
+        )
         if (resolved) {
           refs.table_id = resolved.tableId
           refs.column_id = resolved.columnId
         }
       }
-      outputParams.allowed_values = Array.from(data.allowedValues || []).map((v: any) => String(v))
+      outputParams.allowed_values = Array.from((data.allowedValues as Iterable<unknown>) || []).map(
+        (v) => String(v)
+      )
       break
     }
     case 'ForeignKey': {
-      const sRef = data.sourceRef
-      const tRef = data.targetRef
+      const sRef = data.sourceRef as RefLike | undefined
+      const tRef = data.targetRef as RefLike | undefined
       if (sRef?.nodeId && sRef?.columnId && tRef?.nodeId && tRef?.columnId) {
         refs.from_table_id = normalizeSchemaId(sRef.nodeId)
         refs.from_column_id = sRef.columnId
@@ -75,18 +86,20 @@ export function buildConstraintExportPayload(params: {
       break
     }
     case 'Unique': {
-      const sourceRef = data.sourceRef
+      const sourceRef = data.sourceRef as RefLike | undefined
       if (sourceRef?.nodeId && sourceRef?.columnId) {
         refs.table_id = normalizeSchemaId(sourceRef.nodeId)
         refs.column_ids = [sourceRef.columnId]
       } else {
+        const tableName = String(data.table || '')
         const tableResolved = nodes.find(
-          (n) => n.type === 'schema' && (n.data as SchemaNodeData).tableName === data.table
+          (n) => n.type === 'schema' && (n.data as SchemaNodeData).tableName === tableName
         )
         if (tableResolved) {
           refs.table_id = schemaIdByNodeId[tableResolved.id] || tableResolved.id
           const schemaData = tableResolved.data as SchemaNodeData
-          const found = schemaData.columns.find((c) => c.columnName === data.column)
+          const columnName = String(data.column || '')
+          const found = schemaData.columns.find((c) => c.columnName === columnName)
           if (found) refs.column_ids = [found.id]
         }
       }
@@ -96,12 +109,16 @@ export function buildConstraintExportPayload(params: {
     case 'Range':
     case 'Charset':
     case 'DateLogic': {
-      const sourceRef = data.sourceRef
+      const sourceRef = data.sourceRef as RefLike | undefined
       if (sourceRef?.nodeId && sourceRef?.columnId) {
         refs.table_id = normalizeSchemaId(sourceRef.nodeId)
         refs.column_id = sourceRef.columnId
       } else {
-        const resolved = resolveSchemaAndColumnIdByName(nodes, data.table, data.column)
+        const resolved = resolveSchemaAndColumnIdByName(
+          nodes,
+          String(data.table || ''),
+          String(data.column || '')
+        )
         if (resolved) {
           refs.table_id = resolved.tableId
           refs.column_id = resolved.columnId
@@ -129,12 +146,9 @@ export function buildConstraintExportPayload(params: {
       break
     }
     case 'Conditional': {
-      const thenRef = data.thenRef
-      const ifRef = data.ifRef
-      const firstCondRef = Array.isArray(data.ifConditions)
-        ? data.ifConditions.find((c: any) => c?.ref?.nodeId)?.ref
-        : undefined
-      const schemaId = String(thenRef?.nodeId || ifRef?.nodeId || firstCondRef?.nodeId || '')
+      const cd = data as Partial<ConditionalConstraintNodeData>
+      const firstCondRef = cd.ifConditions?.find((c) => c.ref?.nodeId)?.ref
+      const schemaId = String(cd.thenRef?.nodeId || cd.ifRef?.nodeId || firstCondRef?.nodeId || '')
       if (schemaId) {
         refs.table_id = normalizeSchemaId(schemaId)
         const schemaNode = nodes.find((n) => n.id === schemaId && n.type === 'schema')
@@ -143,82 +157,90 @@ export function buildConstraintExportPayload(params: {
           schemaData ? schemaData.columns.find((c) => c.id === colId)?.columnName || '' : ''
         const resolveColumnIdByName = (colName?: string) =>
           schemaData ? schemaData.columns.find((c) => c.columnName === colName)?.id : undefined
-        const thenColumnId = thenRef?.columnId || resolveColumnIdByName(data.thenColumn)
+        const thenColumnId = cd.thenRef?.columnId || resolveColumnIdByName(cd.thenColumn)
         if (thenColumnId) refs.then_column_id = thenColumnId
-        refs.if_logic = data.ifLogic || 'and'
-        const ifConditions = Array.isArray(data.ifConditions) ? data.ifConditions : []
-        refs.if_conditions = ifConditions
-          .filter((cond: any) => cond?.operator)
-          .map((cond: any) => ({
+        refs.if_logic = cd.ifLogic || 'and'
+        refs.if_conditions = (cd.ifConditions || [])
+          .filter((cond) => cond.operator)
+          .map((cond) => ({
             if_column_id: String(
-              cond?.ref?.columnId || ifRef?.columnId || resolveColumnIdByName(cond?.column) || ''
+              cond.ref?.columnId || cd.ifRef?.columnId || resolveColumnIdByName(cond.column) || ''
             ),
             operator: cond.operator,
             value: cond.value,
             values: cond.values,
           }))
-          .filter((x: any) => !!x.if_column_id)
-        if (!data.thenColumn && thenColumnId) {
+          .filter((x) => !!x.if_column_id)
+        if (!cd.thenColumn && thenColumnId) {
           const resolved = resolveColumnNameById(thenColumnId)
-          if (resolved) data.thenColumn = resolved
+          if (resolved) cd.thenColumn = resolved
         }
       }
-      outputParams.then_condition = data.thenConditionConfig
+      outputParams.then_condition = cd.thenConditionConfig
       break
     }
     case 'Scripted': {
-      const schemaIdFromRef = data.sourceRef?.nodeId
+      const sourceRef = data.sourceRef as RefLike | undefined
+      const schemaIdFromRef = sourceRef?.nodeId
       if (schemaIdFromRef) {
         refs.table_id = normalizeSchemaId(schemaIdFromRef)
-        if (data.sourceRef?.columnId) refs.column_id = data.sourceRef.columnId
+        if (sourceRef?.columnId) refs.column_id = sourceRef.columnId
       } else {
+        const tableName = String(data.table || '')
         const schemaNode = nodes.find(
-          (n) => n.type === 'schema' && (n.data as SchemaNodeData).tableName === data.table
+          (n) => n.type === 'schema' && (n.data as SchemaNodeData).tableName === tableName
         )
         if (schemaNode) refs.table_id = schemaIdByNodeId[schemaNode.id] || schemaNode.id
       }
-      outputParams.name = data.constraintName || data.configName || constraintNodeId
-      outputParams.expression = data.script || ''
+      outputParams.name =
+        (data.constraintName as string | undefined) ||
+        (data.configName as string | undefined) ||
+        constraintNodeId
+      outputParams.expression = (data.script as string | undefined) || ''
       break
     }
     case 'Composite': {
-      const sourceRef = data.sourceRef
+      const sourceRef = data.sourceRef as RefLike | undefined
       if (sourceRef?.nodeId && sourceRef?.columnId) {
         refs.table_id = normalizeSchemaId(sourceRef.nodeId)
         refs.column_id = sourceRef.columnId
       }
-      outputParams.logic = data.logic || 'all'
+      outputParams.logic = (data.logic as string | undefined) || 'all'
 
       // 优先使用 includedNodeIds（引用主画布上的独立约束节点）
-      const includedNodeIds: string[] = data.includedNodeIds || []
+      const includedNodeIds: string[] = (data.includedNodeIds as string[] | undefined) || []
       if (includedNodeIds.length > 0) {
         outputParams.sub_constraints = includedNodeIds
-          .map((nodeId: string) => {
+          .map((nodeId) => {
             const subNode = nodes.find((n) => n.id === nodeId)
             if (!subNode || !subNode.type?.endsWith('Constraint')) return null
             const subData = (subNode.data || {}) as Record<string, unknown>
             const subV2Type = subNode.type.replace('Constraint', '')
             const subRefs: Record<string, unknown> = {}
-            if ((subData as any).table) {
+            if (typeof subData.table === 'string') {
               const resolved = resolveSchemaAndColumnIdByName(
                 nodes,
-                (subData as any).table as string,
-                ((subData as any).column as string) || ''
+                String(subData.table),
+                String(subData.column || '')
               )
               if (resolved) {
                 subRefs.table_id = resolved.tableId
                 subRefs.column_id = resolved.columnId
               }
             }
-            if ((subData as any).sourceRef?.nodeId && (subData as any).sourceRef?.columnId) {
-              subRefs.table_id = normalizeSchemaId((subData as any).sourceRef.nodeId)
-              subRefs.column_id = (subData as any).sourceRef.columnId
+            const subSourceRef = subData.sourceRef as RefLike | undefined
+            if (subSourceRef?.nodeId && subSourceRef?.columnId) {
+              subRefs.table_id = normalizeSchemaId(subSourceRef.nodeId)
+              subRefs.column_id = subSourceRef.columnId
             }
             return {
               id: subNode.id,
               type: subV2Type.charAt(0).toUpperCase() + subV2Type.slice(1),
-              enabled: (subData as any).enabled !== false,
-              description: (subData as any).configName || (subData as any).description || undefined,
+              enabled: (subData.enabled as boolean | undefined) !== false,
+              description:
+                (subData.configName as string | undefined) ||
+                (subData.description as string | undefined) ||
+                undefined,
               refs: subRefs,
               params: {},
             }
@@ -226,33 +248,38 @@ export function buildConstraintExportPayload(params: {
           .filter(Boolean)
       } else {
         // 向后兼容：从 subGraph.nodes 导出
-        const subNodes = data.subGraph?.nodes || []
+        const subGraph = data.subGraph as { nodes?: Node[] } | undefined
+        const subNodes = subGraph?.nodes || []
         outputParams.sub_constraints = subNodes
-          .filter((subNode: any) => subNode.type && subNode.type.endsWith('Constraint'))
-          .map((subNode: any) => {
-            const subData = subNode.data || {}
-            const subV2Type = subNode.type.replace('Constraint', '')
+          .filter((subNode) => subNode.type && subNode.type.endsWith('Constraint'))
+          .map((subNode) => {
+            const subData = (subNode.data || {}) as Record<string, unknown>
+            const subV2Type = String(subNode.type).replace('Constraint', '')
             const subRefs: Record<string, unknown> = {}
-            if (subData.table) {
+            if (typeof subData.table === 'string') {
               const resolved = resolveSchemaAndColumnIdByName(
                 nodes,
-                subData.table,
-                subData.column || ''
+                String(subData.table),
+                String(subData.column || '')
               )
               if (resolved) {
                 subRefs.table_id = resolved.tableId
                 subRefs.column_id = resolved.columnId
               }
             }
-            if (subData.sourceRef?.nodeId && subData.sourceRef?.columnId) {
-              subRefs.table_id = normalizeSchemaId(subData.sourceRef.nodeId)
-              subRefs.column_id = subData.sourceRef.columnId
+            const subSourceRef = subData.sourceRef as RefLike | undefined
+            if (subSourceRef?.nodeId && subSourceRef?.columnId) {
+              subRefs.table_id = normalizeSchemaId(subSourceRef.nodeId)
+              subRefs.column_id = subSourceRef.columnId
             }
             return {
               id: subNode.id,
               type: subV2Type.charAt(0).toUpperCase() + subV2Type.slice(1),
-              enabled: subData.enabled !== false,
-              description: subData.configName || subData.description || undefined,
+              enabled: (subData.enabled as boolean | undefined) !== false,
+              description:
+                (subData.configName as string | undefined) ||
+                (subData.description as string | undefined) ||
+                undefined,
               refs: subRefs,
               params: {},
             }

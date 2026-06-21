@@ -19,6 +19,7 @@
 
 import type { Edge, Node } from '@vue-flow/core'
 import type { ConstraintTypeV2 } from '@/types/projectV2'
+import type { AnyRecord } from '@/types/utility'
 
 export type ConstraintKind =
   | 'notNull'
@@ -80,7 +81,7 @@ export interface ConstraintValidationResult {
 export interface ConstraintValidationHandler {
   kind: ConstraintKind
   validate: (ctx: ConstraintValidationContext) => Promise<ConstraintValidationResult>
-  resetOnDisconnect: (nodeData: any) => Record<string, any>
+  resetOnDisconnect: (nodeData: AnyRecord) => AnyRecord
 }
 
 export interface ConstraintTypeMeta {

@@ -20,7 +20,6 @@ function buildConditional(input: BuildInput): BuildResult {
     ifLogic,
     thenRef,
     thenConditionConfig,
-    columnRef,
   } = input
 
   const resolvedIfLogic = ifLogic || 'and'

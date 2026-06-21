@@ -13,10 +13,10 @@
 import { logger } from '@/core/utils/logger'
 import { getSchemaNodeSourceInfo } from './validationCollector'
 import type { Node, Edge } from '@vue-flow/core'
+import type { CustomNodeData } from '@/types/graph'
 import {
   validateConstraintNodesForSchema,
   validateConstraintNode,
-  isConstraintNodeType,
   getConstraintMetaByKind,
   syncColumnErrorsForSourceRef,
   type ValidationSummary,
@@ -41,7 +41,7 @@ export async function validateAllConstraints(
   schemaNodeId: string,
   nodes: Node[],
   edges: Edge[],
-  updateNodeData: (nodeId: string, data: any) => void
+  updateNodeData: (_nodeId: string, _data: Partial<CustomNodeData>) => void
 ): Promise<ValidationSummary> {
   logger.debug(`🔍 开始全表校验: ${schemaNodeId}`)
 
@@ -74,7 +74,7 @@ export function triggerValidationForNode(
   schemaNodeId: string,
   nodes: Node[],
   edges: Edge[],
-  updateNodeData: (nodeId: string, data: any) => void
+  updateNodeData: (_nodeId: string, _data: Partial<CustomNodeData>) => void
 ): void {
   validateAllConstraints(schemaNodeId, nodes, edges, updateNodeData).catch((error) => {
     logger.error(`❌ 全表校验失败: ${schemaNodeId}`, error)
@@ -100,7 +100,7 @@ export async function dispatchValidation(
   columnId: string,
   nodes: Node[],
   edges: Edge[],
-  updateNodeData: (nodeId: string, data: any) => void
+  updateNodeData: (_nodeId: string, _data: Partial<CustomNodeData>) => void
 ): Promise<void> {
   const sourceInfo = getSchemaNodeSourceInfo(schemaNodeId, nodes, edges)
 

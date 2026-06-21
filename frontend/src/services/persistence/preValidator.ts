@@ -6,6 +6,7 @@
  */
 
 import type { CustomNode } from '@/types/graph'
+import type { ConstraintFileV2 } from '@/types/projectV2'
 import type { SavePlan, PreValidationError, ValidationSeverity } from './types'
 
 export interface PreValidatorOptions {
@@ -372,8 +373,10 @@ export class PreValidator {
   /**
    * Composite 约束循环引用检测
    */
-  private validateCompositeConstraint(constraintId: string, file: any): void {
-    const subConstraints = (file.params?.sub_constraints as any[]) || []
+  private validateCompositeConstraint(constraintId: string, file: ConstraintFileV2): void {
+    const subConstraints = Array.isArray(file.params?.sub_constraints)
+      ? (file.params.sub_constraints as Array<{ id?: string }>)
+      : []
     if (subConstraints.length === 0) {
       this.addError({
         severity: 'WARNING',

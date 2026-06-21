@@ -27,13 +27,19 @@ import type { BuilderContext, NodeBuilder } from '../types'
  * 构建 Schema 列定义
  */
 function buildColumnSpec(column: SchemaColumn): ColumnSpecV2 {
+  // 运行时列对象可能携带 primaryKey / nullable / expand 等额外字段
+  const col = column as SchemaColumn & {
+    primaryKey?: boolean
+    nullable?: boolean
+    expand?: boolean
+  }
   const base: ColumnSpecV2 = {
-    id: column.id,
-    name: column.columnName,
-    type: toBackendType(column.dataType, column),
-    primary_key: (column as any).primaryKey || false,
-    nullable: (column as any).nullable,
-    expand: (column as any).expand || false,
+    id: col.id,
+    name: col.columnName,
+    type: toBackendType(col.dataType, col),
+    primary_key: col.primaryKey || false,
+    nullable: col.nullable,
+    expand: col.expand || false,
   }
 
   if (column.extractedConfig) {
@@ -134,7 +140,7 @@ function buildSourceSpec(node: CustomNode): TableSchemaFileV2['source'] {
     const jsonData = data as JsonSchemaNodeData
     return {
       ...source,
-      options: buildJSONOptions(jsonData as any),
+      options: buildJSONOptions(jsonData),
     }
   }
 
@@ -239,7 +245,7 @@ function collectEmbeddedConstraints(
     .filter((n) => {
       if (!n.type || !isConstraintNodeType(n.type)) return false
       const d = (n.data || {}) as Record<string, unknown>
-      const embedded = (d as any).embedded === true
+      const embedded = d.embedded === true
       if (!embedded) return false
       const sourceRef = d.sourceRef as { nodeId?: string } | undefined
       const thenRef = d.thenRef as { nodeId?: string } | undefined

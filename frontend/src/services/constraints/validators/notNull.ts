@@ -9,6 +9,7 @@
 
 import { logger } from '@/core/utils/logger'
 import { validateNotNull as apiValidateNotNull } from '@/api/validationApi'
+import type { ValidationErrorRow } from '@/api/validation/core'
 
 export interface NotNullValidationResult {
   /** 检测到的空值数量 */
@@ -69,7 +70,7 @@ export async function validateNotNull(
       return {
         errorCount: response.data.error_count,
         totalRows: response.data.total_rows,
-        errors: response.data.error_rows.map((err: any) => ({
+        errors: response.data.error_rows.map((err: ValidationErrorRow) => ({
           row: err.row_index,
           value: err.cell_value,
           message: '值不能为空',

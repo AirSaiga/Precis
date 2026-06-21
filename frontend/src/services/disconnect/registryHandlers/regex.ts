@@ -7,6 +7,7 @@
  */
 import { registerDisconnectHandler } from '../registryCore'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import type { SchemaColumn } from '@/types/graph'
 
 registerDisconnectHandler({
   priority: 50,
@@ -65,7 +66,7 @@ registerDisconnectHandler({
       })
       ctx.updateNodeData(source.id, {
         ...schemaData,
-        columns: updatedColumns as any[],
+        columns: updatedColumns as unknown as SchemaColumn[],
       })
     }
   },

@@ -50,7 +50,7 @@ export function getSchemaNodeSourceInfo(
   const schemaNode = nodes.find(
     (n) => n.id === schemaNodeId && (n.type === 'schema' || n.type === 'jsonSchema')
   )
-  const schemaData = schemaNode?.data as Record<string, any>
+  const schemaData = schemaNode?.data as Record<string, unknown>
 
   const schemaLocalPath = schemaData?.localPath as string | undefined
   const schemaSourceFilePath = schemaData?.sourceFilePath as string | undefined
@@ -65,7 +65,7 @@ export function getSchemaNodeSourceInfo(
       sourceFilePath: schemaSourceFilePath || schemaLocalPath || '',
       sourceFile: schemaSourceFile || '',
       sheetName: schemaSheetName,
-      sourceNodeId: schemaData?.sourceNodeId,
+      sourceNodeId: schemaData?.sourceNodeId as string | undefined,
       headerRow: schemaHeaderRow,
       sourceMode: schemaSourceMode || 'localfile',
       localPath: schemaLocalPath,
@@ -105,15 +105,18 @@ export function getSchemaNodeSourceInfo(
     return null
   }
 
-  const sourceData = (sourcePreviewNode.data as Record<string, any>) || {}
+  const sourceData = (sourcePreviewNode.data as Record<string, unknown>) || {}
 
   return {
-    sourceFilePath: sourceData.localPath || '',
-    sourceFile: sourceData.sourceName || sourceData.fileName || '',
-    sheetName: sourceData.currentSheet,
+    sourceFilePath: (sourceData.localPath as string | undefined) || '',
+    sourceFile:
+      (sourceData.sourceName as string | undefined) ||
+      (sourceData.fileName as string | undefined) ||
+      '',
+    sheetName: sourceData.currentSheet as string | undefined,
     sourceNodeId: sourcePreviewNode.id,
-    headerRow: sourceData.headerRow,
-    sourceMode: sourceData.sourceMode,
-    localPath: sourceData.localPath,
+    headerRow: sourceData.headerRow as number | undefined,
+    sourceMode: sourceData.sourceMode as 'localfile' | undefined,
+    localPath: sourceData.localPath as string | undefined,
   }
 }

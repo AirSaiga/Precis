@@ -15,13 +15,15 @@ export function shouldEmbedInSchema(node: CustomNode, schemaNodes: CustomNode[])
     return false
   }
 
+  const nodeData = (node.data || {}) as Record<string, unknown>
+
   // 规则 1: 显式标记为内嵌
-  if ((node.data as any).embedded === true) {
+  if (nodeData.embedded === true) {
     return true
   }
 
   // 规则 2: 有 sourceRef 且指向 schema 节点
-  const sourceRef = (node.data as any).sourceRef
+  const sourceRef = nodeData.sourceRef as { nodeId?: string } | undefined
   if (sourceRef?.nodeId) {
     const target = schemaNodes.find((n) => n.id === sourceRef.nodeId)
     if (target && (target.type === 'schema' || target.type === 'jsonSchema')) {

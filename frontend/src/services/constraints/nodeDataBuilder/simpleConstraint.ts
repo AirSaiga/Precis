@@ -103,8 +103,8 @@ function buildTypeExtras(
       return {
         logic: params.logic || 'all',
         includedNodeIds: subConstraints
-          .map((s: any) => s?.id)
-          .filter((id: any): id is string => !!id),
+          .map((s) => (s as { id?: string }).id)
+          .filter((id): id is string => !!id),
         enabled: true,
       }
 

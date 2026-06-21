@@ -9,7 +9,7 @@
 import type { ConstraintKind } from '../types'
 import type { BuildInput, BuildResult } from './types'
 
-type BuilderFn = (input: BuildInput) => BuildResult
+type BuilderFn = (_input: BuildInput) => BuildResult
 
 const builders = new Map<ConstraintKind, BuilderFn>()
 

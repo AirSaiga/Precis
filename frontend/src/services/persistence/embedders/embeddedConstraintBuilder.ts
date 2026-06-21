@@ -6,7 +6,7 @@
  * 引用直接在顶层通过 column / from_table / to_table 等字段表达。
  */
 
-import type { CustomNode } from '@/types/graph'
+import type { ConditionalConstraintNodeData, CustomNode } from '@/types/graph'
 import type { ConstraintItemV2, ConstraintTypeV2 } from '@/types/projectV2'
 import { getV2ConstraintTypeByNodeType } from '@/services/constraints/validationRegistry'
 
@@ -65,20 +65,20 @@ export function buildEmbeddedConstraintItem(node: CustomNode): ConstraintItemV2 
     }
 
     case 'Conditional': {
-      const thenRef = d.thenRef as { columnId?: string } | undefined
-      const ifRef = d.ifRef as { columnId?: string } | undefined
-      const thenColumnId = thenRef?.columnId || (d.thenColumn as string)
+      const cd = d as unknown as ConditionalConstraintNodeData
+      const thenColumnId = cd.thenRef?.columnId || cd.thenColumn
       if (thenColumnId) base.column = thenColumnId
 
       const params: Record<string, unknown> = {
-        then_condition: d.thenConditionConfig,
+        then_condition: cd.thenConditionConfig,
       }
 
-      if (d.ifLogic) params.if_logic = d.ifLogic
-      if (Array.isArray(d.ifConditions)) {
-        const validConditions = (d.ifConditions as any[])
-          .filter((c: any) => {
-            if (!c?.operator) {
+      if (cd.ifLogic) params.if_logic = cd.ifLogic
+      const ifConditions = cd.ifConditions || []
+      if (ifConditions.length > 0) {
+        const validConditions = ifConditions
+          .filter((c) => {
+            if (!c.operator) {
               console.warn(
                 `[EmbeddedConstraintBuilder] Conditional ${node.id}: 跳过缺少 operator 的条件`
               )
@@ -86,13 +86,13 @@ export function buildEmbeddedConstraintItem(node: CustomNode): ConstraintItemV2 
             }
             return true
           })
-          .map((c: any) => ({
-            if_column_id: c.ref?.columnId || ifRef?.columnId || c.column || '',
+          .map((c) => ({
+            if_column_id: c.ref?.columnId || cd.ifRef?.columnId || c.column || '',
             operator: c.operator,
             value: c.value,
             values: c.values,
           }))
-          .filter((c: any) => {
+          .filter((c) => {
             if (!c.if_column_id) {
               console.warn(
                 `[EmbeddedConstraintBuilder] Conditional ${node.id}: 跳过缺少 if_column_id 的条件 (operator=${c.operator})`
@@ -102,9 +102,9 @@ export function buildEmbeddedConstraintItem(node: CustomNode): ConstraintItemV2 
             return true
           })
 
-        if (validConditions.length < (d.ifConditions as any[]).length) {
+        if (validConditions.length < ifConditions.length) {
           console.warn(
-            `[EmbeddedConstraintBuilder] Conditional ${node.id}: ${(d.ifConditions as any[]).length - validConditions.length} 个条件被丢弃，仅保留 ${validConditions.length} 个有效条件`
+            `[EmbeddedConstraintBuilder] Conditional ${node.id}: ${ifConditions.length - validConditions.length} 个条件被丢弃，仅保留 ${validConditions.length} 个有效条件`
           )
         }
 
