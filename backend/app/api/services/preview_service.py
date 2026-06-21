@@ -37,7 +37,7 @@ def detect_file_type(file_ext: str) -> str:
         file_ext: 文件扩展名（包含点号，如 .xlsx）
 
     Returns:
-        "excel" | "csv"
+        "excel" | "csv" | "json"
 
     Raises:
         HTTPException: 不支持的文件类型
@@ -46,6 +46,8 @@ def detect_file_type(file_ext: str) -> str:
         return "excel"
     if file_ext == ".csv":
         return "csv"
+    if file_ext in [".json", ".jsonl", ".ndjson"]:
+        return "json"
     raise HTTPException(status_code=400, detail=f"不支持的文件类型: {file_ext}")
 
 
@@ -134,6 +136,15 @@ def preview_from_path(
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"读取Excel文件失败: {str(e)}") from e
 
+    # JSON
+    if file_type == "json":
+        try:
+            df, _ = load_preview_data(file_path=file_path, file_type="json", max_rows=max_rows)
+            data = df_to_list(df, max_cols)
+            return data, file_type, len(df), None, None
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"读取JSON文件失败: {str(e)}") from e
+
     # CSV
     try:
         df, _ = load_preview_data(file_path=file_path, file_type="csv", max_rows=max_rows)
@@ -198,6 +209,15 @@ def preview_from_content(
                 import gc
 
                 gc.collect()
+
+        # JSON
+        if file_type == "json":
+            try:
+                df, _ = load_preview_data(file_path=tmp_path, file_type="json", max_rows=max_rows)
+                data = df_to_list(df, max_cols)
+                return data, file_type, len(df), None, None
+            except Exception as e:
+                raise HTTPException(status_code=500, detail=f"读取JSON文件失败: {str(e)}") from e
 
         # CSV
         try:

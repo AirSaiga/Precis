@@ -38,11 +38,20 @@ class TestDetectFileType:
     def test_csv_returns_csv(self):
         assert detect_file_type(".csv") == "csv"
 
+    def test_json_returns_json(self):
+        assert detect_file_type(".json") == "json"
+
+    def test_jsonl_returns_json(self):
+        assert detect_file_type(".jsonl") == "json"
+
+    def test_ndjson_returns_json(self):
+        assert detect_file_type(".ndjson") == "json"
+
     def test_unsupported_extension_raises_400(self):
         with pytest.raises(HTTPException) as exc_info:
-            detect_file_type(".json")
+            detect_file_type(".pdf")
         assert exc_info.value.status_code == 400
-        assert ".json" in exc_info.value.detail
+        assert ".pdf" in exc_info.value.detail
 
     def test_empty_extension_raises_400(self):
         with pytest.raises(HTTPException) as exc_info:
@@ -146,8 +155,8 @@ class TestPreviewFromPath:
         assert exc_info.value.status_code == 404
 
     def test_unsupported_extension_raises_400(self, tmp_path):
-        f = tmp_path / "data.json"
-        f.write_text("{}")
+        f = tmp_path / "data.pdf"
+        f.write_bytes(b"%PDF-1.4")
         with pytest.raises(HTTPException) as exc_info:
             preview_from_path(
                 file_path=str(f),
@@ -361,6 +370,47 @@ class TestPreviewFromPath:
         )
         assert len(data[0]) == 2
 
+    def test_json_success(self, tmp_path):
+        import json
+
+        f = tmp_path / "records.json"
+        f.write_text(
+            json.dumps([{"id": 1, "name": "alice"}, {"id": 2, "name": "bob"}]),
+            encoding="utf-8",
+        )
+        data, ftype, total, sheets, cur_sheet = preview_from_path(
+            file_path=str(f),
+            max_rows=10,
+            max_cols=10,
+        )
+        assert ftype == "json"
+        assert total == 2
+        assert sheets is None
+        assert cur_sheet is None
+
+    def test_jsonl_success(self, tmp_path):
+        f = tmp_path / "log.jsonl"
+        f.write_text('{"a":1}\n{"a":2}\n', encoding="utf-8")
+        data, ftype, total, sheets, _ = preview_from_path(
+            file_path=str(f),
+            max_rows=10,
+            max_cols=10,
+        )
+        assert ftype == "json"
+        assert total == 2
+
+    def test_json_generic_error_raises_500(self, tmp_path, monkeypatch):
+        f = tmp_path / "bad.json"
+        f.write_text("{not valid json", encoding="utf-8")
+
+        with pytest.raises(HTTPException) as exc_info:
+            preview_from_path(
+                file_path=str(f),
+                max_rows=10,
+                max_cols=10,
+            )
+        assert exc_info.value.status_code == 500
+
 
 class TestPreviewFromContent:
     """preview_from_content 单元测试。"""
@@ -434,6 +484,49 @@ class TestPreviewFromContent:
         assert data == [["1", "2"]]
         assert captured["file_type"] == "csv"
         # 临时文件应在 finally 中被清理
+        assert not fake_tmp.exists()
+
+    def test_json_success(self, tmp_path, monkeypatch):
+        sample_df = pd.DataFrame({"id": ["1"], "name": ["alice"]})
+
+        def fake_load(file_path, file_type, max_rows, sheet_name=None, source_config=None):
+            assert file_type == "json"
+            return sample_df, None
+
+        monkeypatch.setattr(
+            "app.api.services.preview_service.load_preview_data",
+            fake_load,
+        )
+
+        fake_tmp = tmp_path / "upload.json"
+        fake_tmp.write_text('[{"id":1,"name":"alice"}]', encoding="utf-8")
+
+        import tempfile as _tempfile
+
+        class FakeNamedTemporaryFile:
+            def __init__(self, suffix=None, delete=False):
+                self.name = str(fake_tmp)
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                pass
+
+            def write(self, data):
+                pass
+
+        monkeypatch.setattr(_tempfile, "NamedTemporaryFile", FakeNamedTemporaryFile)
+
+        data, ftype, total, sheets, cur_sheet = preview_from_content(
+            content=b'[{"id":1,"name":"alice"}]',
+            file_ext=".json",
+            max_rows=10,
+            max_cols=10,
+        )
+        assert ftype == "json"
+        assert total == 1
+        assert data == [["1", "alice"]]
         assert not fake_tmp.exists()
 
     def test_excel_success(self, tmp_path, monkeypatch):
