@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from datetime import datetime
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from fastapi import APIRouter, HTTPException, Query
 
 from app.api.models.projects import ProjectInfo, ScanResponse

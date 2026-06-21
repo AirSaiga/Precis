@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import os
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from fastapi import APIRouter, HTTPException, Request
 
 from app.api.models.projects import (

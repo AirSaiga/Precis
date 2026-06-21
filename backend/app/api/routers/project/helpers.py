@@ -23,7 +23,7 @@
 import os
 from contextlib import contextmanager
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from filelock import FileLock
 
 V2_MANIFEST_FILENAME = "project.precis.yaml"

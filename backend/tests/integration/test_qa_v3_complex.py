@@ -142,7 +142,8 @@ class TestQaV3ComplexTemplateExpansion:
         instance_id = "a3e7b2c1-5d4e-4f8a-9b6c-1d2e3f4a5b6c"
         expanded_id_prefix = f"{instance_id}__"
         expanded_constraints = [c for c in result.constraint_files.values() if c.id.startswith(expanded_id_prefix)]
-        expanded_transforms = [t for t in result.transform_files.values() if t.id.startswith(expanded_id_prefix)]
+        transform_files = result.transform_files or {}
+        expanded_transforms = [t for t in transform_files.values() if t.id.startswith(expanded_id_prefix)]
         # 模板定义包含 4 个 constraint + 1 个 transform
         assert len(expanded_constraints) >= 3, f"应展开至少 3 个约束，实际: {len(expanded_constraints)}"
         assert len(expanded_transforms) >= 1, f"应展开至少 1 个 transform，实际: {len(expanded_transforms)}"

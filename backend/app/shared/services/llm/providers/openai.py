@@ -29,13 +29,17 @@
 import asyncio
 import logging
 from collections.abc import AsyncIterator
+from typing import TYPE_CHECKING
 
-try:
+if TYPE_CHECKING:
     from openai import APIConnectionError, APIStatusError, AsyncOpenAI
-except ImportError:
-    APIConnectionError = None  # type: ignore[assignment,misc]
-    APIStatusError = None  # type: ignore[assignment,misc]
-    AsyncOpenAI = None  # type: ignore[assignment,misc]
+else:
+    try:
+        from openai import APIConnectionError, APIStatusError, AsyncOpenAI
+    except ImportError:
+        APIConnectionError = None
+        APIStatusError = None
+        AsyncOpenAI = None
 
 from .base import BaseProvider, ChatRequest, ChatResponse
 

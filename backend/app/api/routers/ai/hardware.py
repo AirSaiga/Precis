@@ -28,12 +28,15 @@
 
 import logging
 import platform
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-try:
+if TYPE_CHECKING:
     import psutil
-except ImportError:
-    psutil = None  # type: ignore[assignment]
+else:
+    try:
+        import psutil
+    except ImportError:
+        psutil = None
 
 from .models import HardwareDiagnoseResponse, HardwareInfo, HardwareRequirement
 from .router import router

@@ -53,7 +53,7 @@ from app.shared.core.project.transform.types import TransformFile
 def make_column(**overrides) -> ColumnSpec:
     """构造列定义。"""
     base = {"id": "id", "name": "id", "type": "integer"}
-    return ColumnSpec(**(base | overrides))  # type: ignore[call-arg]
+    return ColumnSpec(**(base | overrides))
 
 
 def make_schema(**overrides) -> TableSchemaFile:
@@ -62,11 +62,11 @@ def make_schema(**overrides) -> TableSchemaFile:
         "id": "users",
         "name": "users",
         "columns": [
-            ColumnSpec(id="id", name="id", type="integer"),  # type: ignore[call-arg]
-            ColumnSpec(id="email", name="email", type="string"),  # type: ignore[call-arg]
+            ColumnSpec(id="id", name="id", type="integer"),
+            ColumnSpec(id="email", name="email", type="string"),
         ],
     }
-    return TableSchemaFile(**(base | overrides))  # type: ignore[call-arg]
+    return TableSchemaFile(**(base | overrides))
 
 
 def make_constraint(**overrides) -> ConstraintFile:
@@ -76,7 +76,7 @@ def make_constraint(**overrides) -> ConstraintFile:
         "type": "NotNull",
         "refs": {"table_id": "users", "column_id": "email"},
     }
-    return ConstraintFile(**(base | overrides))  # type: ignore[call-arg]
+    return ConstraintFile(**(base | overrides))
 
 
 def make_regex(**overrides) -> RegexNodeFile:
@@ -88,13 +88,13 @@ def make_regex(**overrides) -> RegexNodeFile:
         "match_mode": "full",
         "source_ref": RegexSourceRef(table_id="users", column_id="email"),
     }
-    return RegexNodeFile(**(base | overrides))  # type: ignore[call-arg, arg-type]
+    return RegexNodeFile(**(base | overrides))
 
 
 def make_transform(**overrides) -> TransformFile:
     """构造 transform 文件对象。"""
     base = {"id": "t_split", "name": "拆分", "type": "StringSplit"}
-    return TransformFile(**(base | overrides))  # type: ignore[call-arg]
+    return TransformFile(**(base | overrides))
 
 
 def make_manifest(**overrides) -> ProjectManifest:
@@ -106,7 +106,7 @@ def make_manifest(**overrides) -> ProjectManifest:
         "regex_nodes": [],
         "transforms": [],
     }
-    return ProjectManifest(**(base | overrides))  # type: ignore[call-arg, arg-type]
+    return ProjectManifest(**(base | overrides))
 
 
 def run_inspect_id(manifest, schema_files, constraint_files, regex_files, transform_files, manual_data_files=None):

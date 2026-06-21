@@ -18,7 +18,7 @@ import os
 from datetime import datetime
 from pathlib import Path
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from fastapi import Depends
 
 from app.api.dependencies import get_project_config_path

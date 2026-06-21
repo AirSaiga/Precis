@@ -189,7 +189,7 @@ def atomic_write_yaml(file_path: Path, data: dict[str, Any], preserve_format: bo
     示例:
         >>> atomic_write_yaml(Path("config.yaml"), {"version": 2})
     """
-    import yaml  # type: ignore[import-untyped]
+    import yaml
 
     file_path = Path(file_path)
 

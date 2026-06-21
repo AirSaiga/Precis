@@ -27,7 +27,7 @@
 import os
 from pathlib import Path
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, EmailStr, Field
 

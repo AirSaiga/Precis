@@ -32,12 +32,15 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-try:
+if TYPE_CHECKING:
     import aiohttp as _aiohttp
-except ImportError:
-    _aiohttp = None  # type: ignore[assignment]
+else:
+    try:
+        import aiohttp as _aiohttp
+    except ImportError:
+        _aiohttp = None
 
 from .base import BaseProvider, ChatRequest, ChatResponse
 

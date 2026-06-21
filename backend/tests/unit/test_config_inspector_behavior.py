@@ -23,10 +23,10 @@ class TestConfigInspector:
 
     def _make_column(self, col_id: str, name: str) -> ColumnSpec:
         # 测试工厂仅使用业务相关字段，共享模型字段由其他任务维护；忽略 mypy 参数缺失提示。
-        return ColumnSpec(id=col_id, name=name, type="string")  # type: ignore[call-arg]
+        return ColumnSpec(id=col_id, name=name, type="string")
 
     def _make_schema(self, table_id: str, name: str, columns: list[ColumnSpec]) -> TableSchemaFile:
-        return TableSchemaFile(id=table_id, name=name, columns=columns)  # type: ignore[call-arg]
+        return TableSchemaFile(id=table_id, name=name, columns=columns)
 
     def test_id_mismatch_schema_generates_warning(self):
         col = self._make_column("c1", "name")

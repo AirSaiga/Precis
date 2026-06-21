@@ -17,7 +17,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
 

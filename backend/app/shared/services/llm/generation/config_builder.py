@@ -25,7 +25,7 @@ import os
 import re
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from app.shared.core.utils.path_utils import make_relative, normalize_to_posix
 

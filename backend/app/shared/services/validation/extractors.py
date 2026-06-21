@@ -25,6 +25,7 @@
 """
 
 import logging
+from typing import cast
 
 import pandas as pd
 
@@ -76,7 +77,7 @@ def _extract_derived_columns(
             data_type = col.data_type
             logger.debug(f"Column {col.name} has data_type: {data_type}")
             if getattr(data_type, "name", None) == "Extracted":
-                extracted_type: _ExtractedTypeProtocol = data_type  # type: ignore[assignment]
+                extracted_type = cast(_ExtractedTypeProtocol, data_type)
                 extracted_columns.append(
                     {
                         "column_name": col.name,

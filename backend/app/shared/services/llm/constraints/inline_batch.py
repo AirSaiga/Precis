@@ -22,7 +22,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
-import yaml  # type: ignore[import-untyped]
+import yaml
 
 from app.shared.services.llm.constraints.constraint_builder import (
     CONSTRAINT_TYPE_MAP,
