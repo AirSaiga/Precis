@@ -26,12 +26,14 @@ from app.shared.core.project.loader.loader_parts.file_loaders import (
     load_manual_data_file,
     load_regex_node_file,
     load_schema_file,
+    load_template_file,
     load_transform_file,
 )
 from app.shared.core.project.loader.loader_parts.path_validation import validate_path_inside_project
 from app.shared.core.project.loader.loader_parts.runtime import build_registries
 from app.shared.core.project.loader.types import LoadedProject, LoadingError, SchemaBuilder
 from app.shared.core.project.manifest.reader import load_manifest
+from app.shared.core.project.template.expander import expand_template
 
 T = TypeVar("T")
 
@@ -199,6 +201,56 @@ def load_project(
         warnings,
         loading_errors,
     )
+
+    # 阶段 4c：加载模板定义并展开 template_instances
+    # 模板实例展开为带命名空间 ID 的 constraint/transform/regex/manual_data，合并进对应字典
+    template_files = _load_referenced_files(
+        project_root,
+        manifest.templates,
+        load_template_file,
+        "Template",
+        warnings,
+        loading_errors,
+    )
+    for instance in manifest.template_instances:
+        if not instance.enabled:
+            continue
+        tmpl = template_files.get(instance.template_id)
+        if tmpl is None:
+            loading_errors.append(
+                LoadingError(
+                    error_type="TemplateInstanceMissingTemplate",
+                    ref_id=instance.id,
+                    **loading_error_messages.template_expansion_error(
+                        instance.id,
+                        ValueError(f"模板 '{instance.template_id}' 未找到"),
+                    ),
+                )
+            )
+            continue
+        try:
+            t_list, c_list, r_list, m_list = expand_template(
+                tmpl,
+                instance.id,
+                params=instance.params,
+                input_from_node=instance.input_from_node,
+            )
+            for f in t_list:
+                transform_files[f.id] = f
+            for f in c_list:
+                constraint_files[f.id] = f
+            for f in r_list:
+                regex_files[f.id] = f
+            for f in m_list:
+                manual_data_files[f.id] = f
+        except Exception as e:
+            loading_errors.append(
+                LoadingError(
+                    error_type="TemplateExpansionError",
+                    ref_id=instance.id,
+                    **loading_error_messages.template_expansion_error(instance.id, e),
+                )
+            )
 
     # 阶段 5：构建运行时数据结构
     # 通过依赖注入的 schema_builder 完成 "core 文件对象 → domain 运行时对象" 的转换，

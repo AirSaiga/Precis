@@ -26,9 +26,41 @@ export interface DateLogicValidationResult {
   }>
 }
 
+/**
+ * 根据节点数据构造 validation_config（camelCase → snake_case）。
+ * 与 dateLogicHandler.ts 保持一致的映射逻辑。
+ */
+function buildValidationConfig(data: DateLogicConstraintNodeData): Record<string, unknown> {
+  const config: Record<string, unknown> = {
+    logic_mode: data.logicMode || 'compare',
+  }
+
+  if ((data.logicMode || 'compare') === 'compare') {
+    config.compare_op = data.compareOp || 'gt'
+    if (data.compareOp === 'range') {
+      if (data.referenceDate) config.reference_date = data.referenceDate
+      else config.reference_column = data.referenceColumn
+      if (data.referenceDateEnd) config.reference_date_end = data.referenceDateEnd
+      else config.reference_column_end = data.referenceColumnEnd
+    } else {
+      if (data.referenceDate) config.reference_date = data.referenceDate
+      else config.reference_column = data.referenceColumn
+    }
+  } else {
+    config.calculation_type = data.calculationType || 'age'
+    // targetType 决定目标是固定值还是列（类型中为隐式字段，与 handler 对齐）
+    const nodeData = data as unknown as Record<string, unknown>
+    if (nodeData.targetType === 'value') config.target_value = data.targetValue
+    else config.target_column = data.targetColumn
+  }
+
+  return config
+}
+
 export async function validateDateLogic(
   sourceFilePath: string,
   columnName: string,
+  nodeData: DateLogicConstraintNodeData,
   sheetName?: string,
   headerRow?: number
 ): Promise<DateLogicValidationResult> {
@@ -57,6 +89,9 @@ export async function validateDateLogic(
       source_file_path: sourceFilePath,
       sheet_name: sheetName,
       header_row: headerRow,
+      // 补全 validation_config，否则后端缺少 compare_op/reference_date 等参数，
+      // 会落到默认分支返回 ConstraintConfigError 而非逐行校验结果
+      validation_config: buildValidationConfig(nodeData),
     }
 
     const response = await apiValidateDateLogic(request)
@@ -116,6 +151,7 @@ export function useDateLogic(props: { id: string; data: DateLogicConstraintNodeD
     return await validateDateLogic(
       actualFilePath,
       props.data.column,
+      props.data,
       base.sourceInfo.value.sheetName,
       base.sourceInfo.value.headerRow
     )

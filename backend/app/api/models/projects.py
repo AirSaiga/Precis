@@ -34,6 +34,21 @@ class OpenProjectResponse(BaseModel):
     path: str
 
 
+class CreateProjectRequest(BaseModel):
+    """Request body for creating a new project scaffold."""
+
+    path: str
+    name: str
+
+
+class CreateProjectResponse(BaseModel):
+    """Response from creating a project."""
+
+    success: bool
+    name: str
+    path: str
+
+
 class CurrentProjectResponse(BaseModel):
     """Response for current project query."""
 

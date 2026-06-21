@@ -11,6 +11,8 @@
 
 from __future__ import annotations
 
+import os
+
 from fastapi.testclient import TestClient
 
 from app.api.main import app
@@ -118,6 +120,121 @@ class TestFullValidation:
         )
         assert resp.status_code == 404
         assert "未找到" in resp.json()["detail"]
+
+
+class TestSingleFileValidation:
+    """单文件全量校验 API 行为（target.type=single_file）"""
+
+    def test_single_file_resolves_to_matching_table(self, tmp_path):
+        client = TestClient(app)
+        proj_dir = _make_project(tmp_path)
+        # users schema 的数据文件相对路径是 data/users.csv
+        data_abs = os.path.join(proj_dir, "data", "users.csv")
+        resp = client.post(
+            "/api/latest/project/validate/full",
+            json={
+                "target": {"type": "single_file", "file_path": data_abs},
+                "options": {"data_directory": proj_dir},
+            },
+            headers={"X-Project-Config-Path": proj_dir},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["success"] is True
+        # 应加载了 users 表对应的数据
+        assert body["summary"]["files_loaded"] >= 1
+
+    def test_single_file_relative_path_resolves(self, tmp_path):
+        client = TestClient(app)
+        proj_dir = _make_project(tmp_path)
+        # 传相对路径，由后端基于 config_path 解析
+        resp = client.post(
+            "/api/latest/project/validate/full",
+            json={
+                "target": {"type": "single_file", "file_path": "data/users.csv"},
+                "options": {"data_directory": proj_dir},
+            },
+            headers={"X-Project-Config-Path": proj_dir},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
+
+    def test_single_file_not_found_returns_404(self, tmp_path):
+        client = TestClient(app)
+        proj_dir = _make_project(tmp_path)
+        resp = client.post(
+            "/api/latest/project/validate/full",
+            json={
+                "target": {"type": "single_file", "file_path": "/nonexistent/file.csv"},
+                "options": {"data_directory": proj_dir},
+            },
+            headers={"X-Project-Config-Path": proj_dir},
+        )
+        assert resp.status_code == 404
+
+    def test_single_file_no_matching_schema_returns_404(self, tmp_path):
+        client = TestClient(app)
+        proj_dir = _make_project(tmp_path)
+        # 创建一个不在任何 schema 引用中的文件
+        orphan = os.path.join(proj_dir, "data", "orphan.csv")
+        with open(orphan, "w", encoding="utf-8") as fh:
+            fh.write("x\n1\n")
+        resp = client.post(
+            "/api/latest/project/validate/full",
+            json={
+                "target": {"type": "single_file", "file_path": orphan},
+                "options": {"data_directory": proj_dir},
+            },
+            headers={"X-Project-Config-Path": proj_dir},
+        )
+        assert resp.status_code == 404
+
+    def test_single_file_filters_to_only_matching_table(self, tmp_path):
+        """单文件校验应只加载匹配的表，不影响其他表。"""
+        client = TestClient(app)
+        proj_dir = _make_project(tmp_path)
+        # 额外添加第二个表 orders，引用 data/orders.csv
+        with open(os.path.join(proj_dir, "schemas", "orders.schema.yaml"), "w", encoding="utf-8") as fh:
+            fh.write(
+                "version: 2\n"
+                "id: orders\n"
+                "name: orders\n"
+                "source:\n"
+                "  mode: relative_file\n"
+                "  path: data/orders.csv\n"
+                "columns:\n"
+                "  - id: oid\n"
+                "    name: oid\n"
+                "    type: integer\n"
+            )
+        with open(os.path.join(proj_dir, "data", "orders.csv"), "w", encoding="utf-8") as fh:
+            fh.write("oid\n1\n")
+        # 追加 orders schema 引用到 manifest
+        manifest_path = os.path.join(proj_dir, "project.precis.yaml")
+        with open(manifest_path, encoding="utf-8") as fh:
+            content = fh.read()
+        content = content.replace(
+            "constraints:\n",
+            "  - id: orders\n    path: schemas/orders.schema.yaml\nconstraints:\n",
+        )
+        with open(manifest_path, "w", encoding="utf-8") as fh:
+            fh.write(content)
+
+        # 只校验 users.csv → table_filter 应为 users，orders 不应被加载
+        users_csv = os.path.join(proj_dir, "data", "users.csv")
+        resp = client.post(
+            "/api/latest/project/validate/full",
+            json={
+                "target": {"type": "single_file", "file_path": users_csv},
+                "options": {"data_directory": proj_dir},
+            },
+            headers={"X-Project-Config-Path": proj_dir},
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["success"] is True
+        # 只加载了 users 一张表的数据
+        assert body["summary"]["files_loaded"] == 1
 
 
 class TestInlineValidation:

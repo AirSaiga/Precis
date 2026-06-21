@@ -174,10 +174,6 @@ export async function validateV2Full(
 export async function validateValidationTask(
   payload: ValidationTaskRequest
 ): Promise<FullValidationResponse> {
-  if (payload.target.type === 'single_file') {
-    throw new Error(`当前版本暂不支持 ${payload.target.type} 校验任务`)
-  }
-
   return validateV2Full({
     target: payload.target,
     options: {

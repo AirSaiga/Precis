@@ -24,6 +24,12 @@ export interface OpenProjectResponse {
   path: string
 }
 
+export interface CreateProjectResponse {
+  success: boolean
+  name: string
+  path: string
+}
+
 export interface CurrentProjectResponse {
   has_current: boolean
   path?: string
@@ -39,6 +45,11 @@ export async function scanProjects(workDir?: string): Promise<ScanResponse> {
 
 export async function openProject(path: string): Promise<OpenProjectResponse> {
   const { data } = await apiClient.post<OpenProjectResponse>('/projects/open', { path })
+  return data
+}
+
+export async function createProject(path: string, name: string): Promise<CreateProjectResponse> {
+  const { data } = await apiClient.post<CreateProjectResponse>('/projects/create', { path, name })
   return data
 }
 

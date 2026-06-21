@@ -35,6 +35,7 @@ import pandas as pd
 from app.shared.core.data_source.loaders import load_source_data
 from app.shared.core.data_source.specs.csv_source import CSVSourceSpec
 from app.shared.core.data_source.specs.excel_source import ExcelSourceSpec
+from app.shared.core.data_source.specs.json_source import JSONSourceSpec
 
 logger = logging.getLogger(__name__)
 
@@ -51,7 +52,7 @@ def load_preview_data(
 
     使用新版 Spec + load_source_data 架构加载预览数据。
     - Excel/CSV：在加载时限制 nrows，不做空值清洗，保持原始数据供前端展示
-    - JSON：当前未实现，保持手动解析逻辑或未来将迁移到 JSONSourceSpec
+    - JSON：复用 JSONSourceSpec 加载（无 nrows 字段，加载后按 max_rows 截断）
 
     参数:
         file_path: 待加载文件的完整路径
@@ -66,7 +67,6 @@ def load_preview_data(
         - sheet_names: 仅在 Excel 格式时返回工作表名称列表，其他格式返回 None
 
     异常:
-        NotImplementedError: 当 file_type 为 json 时抛出
         ValueError: 当 file_type 为不支持的类型时抛出
         FileNotFoundError: 当文件不存在时抛出
     """
@@ -102,11 +102,20 @@ def load_preview_data(
         df = load_source_data(spec)
         return df, None
 
-    # ======== JSON 格式处理（暂未实现） ========
+    # ======== JSON 格式处理（复用 JSONSourceSpec + load_source_data 管线） ========
     if file_type == "json":
-        raise NotImplementedError(
-            "JSON preview 当前保持现有手动解析逻辑，未来可评估迁移到 JSONSourceSpec + load_source_data"
+        # 从 source_config 提取 JSON 格式与 json_path，默认走自动检测
+        sc = source_config or {}
+        spec = JSONSourceSpec(
+            path=file_path,
+            format=sc.get("json_format", "auto"),
+            json_path=sc.get("json_path"),
         )
+        df = load_source_data(spec)
+        # JSONSourceSpec 无 nrows 字段，加载后截断到预览行数上限
+        if len(df) > max_rows:
+            df = df.head(max_rows)
+        return df, None
 
     # 如果走到这里，说明传入的文件类型不在支持列表中
     raise ValueError(f"不支持的文件类型: {file_type}")
