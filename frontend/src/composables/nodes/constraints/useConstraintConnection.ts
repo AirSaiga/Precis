@@ -20,6 +20,7 @@ import { dispatchValidation } from '@/services/constraints/orchestration/globalV
 import { validateForInlineSource } from '@/services/constraints/validationRegistryCore'
 import { findJsonSchemaColumnById } from '@/utils/nodes/json/columnFinder'
 import type { SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
+import type { CustomNode } from '@/types/nodes'
 
 export interface ConstraintConnectionConfig {
   /** 约束类型标识，用于 dispatchValidation 和 addConstraintToColumn */
@@ -57,11 +58,11 @@ export function useConstraintConnection() {
     sourceNodeId: string,
     targetNodeId: string,
     sourceHandle: string,
-    targetHandle: string | null | undefined,
+    _targetHandle: string | null | undefined,
     config: ConstraintConnectionConfig
   ): Promise<void> => {
-    const sourceNode = store.nodes.find((n: any) => n.id === sourceNodeId)
-    const targetNode = store.nodes.find((n: any) => n.id === targetNodeId)
+    const sourceNode = store.nodes.find((n: CustomNode) => n.id === sourceNodeId)
+    const targetNode = store.nodes.find((n: CustomNode) => n.id === targetNodeId)
     if (!sourceNode || !targetNode) return
 
     const isSchema = isSchemaType(sourceNode.type)
@@ -92,13 +93,10 @@ export function useConstraintConnection() {
       const schemaData = sourceNode.data as SchemaNodeData | JsonSchemaNodeData
       let column: { columnName: string } | undefined
       if (sourceNode.type === 'jsonSchema') {
-        const found = findJsonSchemaColumnById(
-          (schemaData as JsonSchemaNodeData).columns,
-          columnId
-        )
+        const found = findJsonSchemaColumnById((schemaData as JsonSchemaNodeData).columns, columnId)
         column = found ? found.column : undefined
       } else {
-        column = schemaData.columns.find((c: any) => c.id === columnId)
+        column = schemaData.columns.find((c) => c.id === columnId)
       }
       if (!column) {
         logger.warn('❌ 未找到连接的列:', columnId)

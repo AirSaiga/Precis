@@ -22,7 +22,11 @@ import { logger } from '@/core/utils/logger'
 import { useConstraintBase } from './useConstraintBase'
 import type { ConditionalConstraintNodeData } from '../types'
 import { useGraphStore } from '@/stores/graphStore'
-import { validateConditional, type ConditionalValidationRequest } from '@/api/validationApi'
+import {
+  validateConditional,
+  type ConditionalValidationRequest,
+  type ValidationErrorRow,
+} from '@/api/validationApi'
 import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
 
 /**
@@ -161,9 +165,20 @@ function isDataSourceNode(type: string | undefined): boolean {
   return type === 'schema' || type === 'transformOutput' || type === 'manualData'
 }
 
+type ConstraintNodeEmit = {
+  (
+    event: 'schemaConnected',
+    payload: { nodeId: string; schemaNodeId: string; columnId: string; columnName: string }
+  ): void
+  (event: 'schemaDisconnected', payload: { nodeId: string }): void
+  (event: 'validationCompleted', payload: { nodeId: string; result: unknown }): void
+  (event: 'validationErrors', payload: { nodeId: string; errors: unknown[] }): void
+  (event: 'configUpdated', payload: { nodeId: string; config: Record<string, unknown> }): void
+}
+
 export function useConditional(
   props: { id: string; data: ConditionalConstraintNodeData },
-  emit: any
+  emit: ConstraintNodeEmit
 ) {
   const base = useConstraintBase(props, emit)
   const store = useGraphStore()
@@ -393,7 +408,7 @@ export function useConditional(
       const totalRows = response.data.total_rows || 0
       const matchCount = Math.max(0, totalRows - errorCount)
 
-      const formattedErrors = errorRows.map((err: any) => ({
+      const formattedErrors = errorRows.map((err: ValidationErrorRow) => ({
         row: err.row_index,
         value: err.cell_value,
         message: err.error_message,
@@ -425,7 +440,14 @@ export function useConditional(
     }
   }
 
-  const formatConditionalErrors = (errors: any[]): string[] => {
+  type ConditionalErrorItem = {
+    row?: number
+    row_index?: number
+    message?: string
+    error_message?: string
+  }
+
+  const formatConditionalErrors = (errors: ConditionalErrorItem[]): string[] => {
     return (errors || []).map((err) => {
       const rowIndex = typeof err.row === 'number' ? err.row : err.row_index
       const msg = err.message || err.error_message || '不满足条件'

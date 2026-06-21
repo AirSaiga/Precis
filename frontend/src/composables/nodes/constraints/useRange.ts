@@ -15,7 +15,7 @@
 import { logger } from '@/core/utils/logger'
 import { useConstraintBase } from './useConstraintBase'
 import type { RangeConstraintNodeData } from '@/types/constraints'
-import { validateRange as apiValidateRange } from '@/api/validationApi'
+import { validateRange as apiValidateRange, type ValidationErrorRow } from '@/api/validationApi'
 
 export interface RangeValidationResult {
   errorCount: number
@@ -52,7 +52,7 @@ export async function validateRange(
       return {
         errorCount: response.data.error_count,
         totalRows: response.data.total_rows,
-        errors: response.data.error_rows.map((err: any) => ({
+        errors: response.data.error_rows.map((err: ValidationErrorRow) => ({
           row: err.row_index,
           value: err.cell_value,
           message: '数值不在允许范围内',
@@ -71,7 +71,21 @@ export async function validateRange(
   }
 }
 
-export function useRange(props: { id: string; data: RangeConstraintNodeData }, emit: any) {
+type ConstraintNodeEmit = {
+  (
+    event: 'schemaConnected',
+    payload: { nodeId: string; schemaNodeId: string; columnId: string; columnName: string }
+  ): void
+  (event: 'schemaDisconnected', payload: { nodeId: string }): void
+  (event: 'validationCompleted', payload: { nodeId: string; result: unknown }): void
+  (event: 'validationErrors', payload: { nodeId: string; errors: unknown[] }): void
+  (event: 'configUpdated', payload: { nodeId: string; config: Record<string, unknown> }): void
+}
+
+export function useRange(
+  props: { id: string; data: RangeConstraintNodeData },
+  emit: ConstraintNodeEmit
+) {
   const base = useConstraintBase(props, emit)
 
   const performValidation = async () => {
@@ -107,7 +121,7 @@ export function useRange(props: { id: string; data: RangeConstraintNodeData }, e
     )
   }
 
-  const formatRangeErrors = (errors: any[]): string[] => {
+  const formatRangeErrors = (errors: Array<{ row: number }>): string[] => {
     return errors.map((err) => `第 ${err.row + 1} 行: 数值不在允许范围内`)
   }
 

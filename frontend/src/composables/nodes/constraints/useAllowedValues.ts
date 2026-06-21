@@ -24,6 +24,7 @@ import { validateAllowedValues } from '@/api/validationApi'
 import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
 import { findJsonSchemaColumnById } from '@/utils/nodes/json/columnFinder'
 import type { AllowedValuesConstraintNodeData } from '@/types/graph'
+import type { ValidationErrorRow } from '@/api/validationApi'
 
 /**
  * 格式化数值为字符串
@@ -127,9 +128,20 @@ const buildAllowedValuesPayload = (strings: string[]): AllowedValuesPayloadScala
  * @param emit - Vue的emit函数，用于通知父组件
  * @returns 允许值约束相关的方法和状态
  */
+type ConstraintNodeEmit = {
+  (
+    event: 'schemaConnected',
+    payload: { nodeId: string; schemaNodeId: string; columnId: string; columnName: string }
+  ): void
+  (event: 'schemaDisconnected', payload: { nodeId: string }): void
+  (event: 'validationCompleted', payload: { nodeId: string; result: unknown }): void
+  (event: 'validationErrors', payload: { nodeId: string; errors: unknown[] }): void
+  (event: 'configUpdated', payload: { nodeId: string; config: Record<string, unknown> }): void
+}
+
 export function useAllowedValues(
   props: { id: string; data: AllowedValuesConstraintNodeData },
-  emit: any
+  emit: ConstraintNodeEmit
 ) {
   /**
    * 复用约束通用能力（事件协调、基础结构）
@@ -156,7 +168,9 @@ export function useAllowedValues(
     if (!node || (node.type !== 'schema' && node.type !== 'jsonSchema')) return null
 
     if (node.type === 'jsonSchema') {
-      const columns = ((node.data as unknown as Record<string, unknown>).columns as import('@/types/graph').JsonSchemaColumn[]) || []
+      const columns =
+        ((node.data as unknown as Record<string, unknown>)
+          .columns as import('@/types/graph').JsonSchemaColumn[]) || []
       const found = findJsonSchemaColumnById(columns, columnId)
       return found?.column.columnName || null
     }
@@ -301,7 +315,7 @@ export function useAllowedValues(
       const totalRows = response.data.total_rows || 0
       const matchCount = Math.max(0, totalRows - errorCount)
 
-      const formattedErrors = errorRows.map((err: any) => ({
+      const formattedErrors = errorRows.map((err: ValidationErrorRow) => ({
         row: err.row_index,
         value: err.cell_value,
         message: err.error_message,
@@ -342,7 +356,13 @@ export function useAllowedValues(
    * @param errors - 错误行数组
    * @returns 格式化后的错误信息字符串数组
    */
-  const formatAllowedValuesErrors = (errors: any[]): string[] => {
+  type FormattedAllowedValuesError = {
+    row: number
+    value: unknown
+    message?: string
+  }
+
+  const formatAllowedValuesErrors = (errors: FormattedAllowedValuesError[]): string[] => {
     return errors.map((err) => {
       const rowNumber = Number(err.row)
       const valueText =

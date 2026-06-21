@@ -11,7 +11,7 @@
  */
 import { useGraphStore } from '@/stores/graphStore'
 import type { SchemaNodeData } from '@/types/graph'
-import type { TransformOutputNodeData } from '@/types/nodes'
+import type { TransformOutputNodeData, CustomNode } from '@/types/nodes'
 import type { ConditionalConstraintNodeData } from '@/types/constraints'
 
 export function useConditionalConnection() {
@@ -31,8 +31,8 @@ export function useConditionalConnection() {
     targetHandleId?: string | null,
     edgeId?: string
   ): Promise<void> => {
-    const sourceNode = store.nodes.find((n: any) => n.id === sourceNodeId)
-    const targetNode = store.nodes.find((n: any) => n.id === targetNodeId)
+    const sourceNode = store.nodes.find((n: CustomNode) => n.id === sourceNodeId)
+    const targetNode = store.nodes.find((n: CustomNode) => n.id === targetNodeId)
     if (!sourceNode || !targetNode) return
 
     if (!isValidSourceType(sourceNode?.type) || targetNode?.type !== 'conditionalConstraint') return
@@ -61,7 +61,7 @@ export function useConditionalConnection() {
       tableName = sourceData.configName || columnName
     } else {
       const sourceData = sourceNode.data as SchemaNodeData
-      const column = sourceData.columns.find((c: any) => c.id === columnId)
+      const column = sourceData.columns.find((c) => c.id === columnId)
       if (!column) return
       columnName = column.columnName
       tableName = sourceData.tableName

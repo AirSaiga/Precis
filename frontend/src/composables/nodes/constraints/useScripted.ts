@@ -25,6 +25,7 @@ import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineVa
 import { useSettingsStore } from '@/stores/settingsStore'
 import { findJsonSchemaColumnById } from '@/utils/nodes/json/columnFinder'
 import type { ScriptedConstraintNodeData } from '@/types/constraints'
+import type { ValidationErrorRow } from '@/api/validationApi'
 
 /**
  * 脚本约束节点数据
@@ -75,7 +76,21 @@ import type { ScriptedConstraintNodeData } from '@/types/constraints'
  * @returns {Function} returns.getAvailableVariables - 获取可用的变量列表
  * @returns {Object} returns...base - 基础约束功能（来自 useConstraintBase）
  */
-export function UseScripted(props: { id: string; data: ScriptedConstraintNodeData }, emit: any) {
+type ConstraintNodeEmit = {
+  (
+    event: 'schemaConnected',
+    payload: { nodeId: string; schemaNodeId: string; columnId: string; columnName: string }
+  ): void
+  (event: 'schemaDisconnected', payload: { nodeId: string }): void
+  (event: 'validationCompleted', payload: { nodeId: string; result: unknown }): void
+  (event: 'validationErrors', payload: { nodeId: string; errors: unknown[] }): void
+  (event: 'configUpdated', payload: { nodeId: string; config: Record<string, unknown> }): void
+}
+
+export function UseScripted(
+  props: { id: string; data: ScriptedConstraintNodeData },
+  emit: ConstraintNodeEmit
+) {
   const base = useConstraintBase(props, emit)
   const store = useGraphStore()
   const settingsStore = useSettingsStore()
@@ -121,7 +136,9 @@ export function UseScripted(props: { id: string; data: ScriptedConstraintNodeDat
     if (!node || (node.type !== 'schema' && node.type !== 'jsonSchema')) return null
 
     if (node.type === 'jsonSchema') {
-      const columns = ((node.data as unknown as Record<string, unknown>).columns as import('@/types/graph').JsonSchemaColumn[]) || []
+      const columns =
+        ((node.data as unknown as Record<string, unknown>)
+          .columns as import('@/types/graph').JsonSchemaColumn[]) || []
       const found = findJsonSchemaColumnById(columns, columnId)
       return found?.column.columnName || null
     }
@@ -294,7 +311,7 @@ export function UseScripted(props: { id: string; data: ScriptedConstraintNodeDat
       const totalRows = response.data.total_rows || 0
       const matchCount = Math.max(0, totalRows - errorCount)
 
-      const formattedErrors = errorRows.map((err: any) => ({
+      const formattedErrors = errorRows.map((err: ValidationErrorRow) => ({
         row: err.row_index,
         value: err.cell_value,
         message: err.error_message,
@@ -338,10 +355,15 @@ export function UseScripted(props: { id: string; data: ScriptedConstraintNodeDat
    * @param {Array<{row: number; value: unknown; message?: string}>} errors - 原始错误数组
    * @returns {string[]} 格式化后的错误信息数组
    */
-  const formatScriptedErrors = (errors: any[]): string[] => {
+  type FormattedScriptedError = {
+    row: number
+    value: unknown
+    message?: string
+  }
+
+  const formatScriptedErrors = (errors: FormattedScriptedError[]): string[] => {
     return errors.map((err) => {
       const rowNumber = Number(err.row)
-      const valueText = err.value === null || err.value === undefined ? '' : String(err.value)
       const fallbackMessage = `脚本校验失败`
       return `第 ${Number.isFinite(rowNumber) ? rowNumber + 1 : '-'} 行: ${err.message || fallbackMessage}`
     })

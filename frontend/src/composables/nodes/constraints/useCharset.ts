@@ -15,7 +15,7 @@
 import { logger } from '@/core/utils/logger'
 import { useConstraintBase } from './useConstraintBase'
 import type { CharsetConstraintNodeData } from '@/types/constraints'
-import { validateCharset as apiValidateCharset } from '@/api/validationApi'
+import { validateCharset as apiValidateCharset, type ValidationErrorRow } from '@/api/validationApi'
 
 export interface CharsetValidationResult {
   errorCount: number
@@ -50,7 +50,7 @@ export async function validateCharset(
       return {
         errorCount: response.data.error_count,
         totalRows: response.data.total_rows,
-        errors: response.data.error_rows.map((err: any) => ({
+        errors: response.data.error_rows.map((err: ValidationErrorRow) => ({
           row: err.row_index,
           value: err.cell_value,
           message: '字符集校验失败',
@@ -69,7 +69,21 @@ export async function validateCharset(
   }
 }
 
-export function useCharset(props: { id: string; data: CharsetConstraintNodeData }, emit: any) {
+type ConstraintNodeEmit = {
+  (
+    event: 'schemaConnected',
+    payload: { nodeId: string; schemaNodeId: string; columnId: string; columnName: string }
+  ): void
+  (event: 'schemaDisconnected', payload: { nodeId: string }): void
+  (event: 'validationCompleted', payload: { nodeId: string; result: unknown }): void
+  (event: 'validationErrors', payload: { nodeId: string; errors: unknown[] }): void
+  (event: 'configUpdated', payload: { nodeId: string; config: Record<string, unknown> }): void
+}
+
+export function useCharset(
+  props: { id: string; data: CharsetConstraintNodeData },
+  emit: ConstraintNodeEmit
+) {
   const base = useConstraintBase(props, emit)
 
   const performValidation = async () => {
@@ -104,7 +118,7 @@ export function useCharset(props: { id: string; data: CharsetConstraintNodeData 
     )
   }
 
-  const formatCharsetErrors = (errors: any[]): string[] => {
+  const formatCharsetErrors = (errors: Array<{ row: number }>): string[] => {
     return errors.map((err) => `第 ${err.row + 1} 行: 字符集校验失败`)
   }
 
