@@ -319,7 +319,7 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
             >>> print(df.head())
         """
         try:
-            read_kwargs = {
+            read_kwargs: dict[str, Any] = {
                 "nrows": nrows,
                 "header": self.spec.header_row if self.spec.header_enabled else None,
                 "engine": self.spec.engine,

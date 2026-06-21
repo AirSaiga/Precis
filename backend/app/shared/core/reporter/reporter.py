@@ -97,7 +97,7 @@ class ReportService:
         self.config_path = os.path.join(base_dir, config_filename)
 
         # 报告者注册表：将配置中的名称映射到对应的报告者类
-        self._reporter_registry: dict[str, Reporter.__class__] = {
+        self._reporter_registry: dict[str, type[Reporter]] = {
             "local_file": LocalFileReporter,
             "email": EmailReporter,
             "wecom": WeComAppReporter,

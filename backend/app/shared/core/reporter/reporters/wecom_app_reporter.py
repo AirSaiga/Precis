@@ -99,6 +99,11 @@ class WeComAppReporter(Reporter):
             self.is_configured = False
             return False
 
+        # 显式处理 None，避免 mypy 将 Any | None 传给 int() 时报错
+        if agent_id is None:
+            self.is_configured = False
+            return False
+
         # 保存配置参数
         self.config = {
             "corp_id": str(corp_id),

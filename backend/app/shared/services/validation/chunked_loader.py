@@ -234,7 +234,14 @@ class ChunkedDataLoader:
             if not loader_fn:
                 raise ValueError(f"不支持的文件格式: {ext}")
 
-            full_datasets = loader_fn(file_path, [schema])
+            info = DataSourceInfo(
+                schema_id=getattr(schema, "id", None) or getattr(schema, "name", None) or "",
+                name=getattr(schema, "name", None),
+                sheet_name=getattr(schema, "sheet_name", None),
+                header_row=getattr(schema, "header_row", 0),
+                source_config=getattr(schema, "source_config", {}),
+            )
+            full_datasets = loader_fn(file_path, [info])
             if not full_datasets:
                 return []
 

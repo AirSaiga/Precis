@@ -17,6 +17,7 @@ from typing import Any
 
 from app.shared.core.patterns.loader import load_patterns_from_config
 from app.shared.core.project.constraint.types import ConstraintFile
+from app.shared.core.project.manifest.types import ProjectManifest
 from app.shared.core.project.schema.types import TableSchemaFile
 
 from .path_validation import validate_path_inside_project
@@ -52,7 +53,7 @@ def build_runtime_constraints(constraint_files: dict[str, ConstraintFile], schem
 # ============================================================================
 
 
-def build_registries(project_root: Path, manifest: object) -> dict[str, Any]:
+def build_registries(project_root: Path, manifest: ProjectManifest) -> dict[str, Any]:
     """@methoddesc 构建 Patterns 注册表
 
     从 manifest.patterns_dir 指定的目录加载表达式模式。

@@ -255,7 +255,7 @@ class FeishuReporter(Reporter):
             card_content: 飞书消息卡片内容字典
         """
         # 构建消息负载：包含卡片类型和内容
-        payload = {"msg_type": "interactive", "card": card_content}
+        payload: dict[str, Any] = {"msg_type": "interactive", "card": card_content}
 
         # 可选：添加签名验证（如果配置了 secret）
         secret = self.config.get("secret")

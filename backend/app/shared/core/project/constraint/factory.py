@@ -82,7 +82,7 @@ def create_constraint(
     # 构建 column_id -> column_name 映射表（按 table_id 分组）
     # 结构：{table_id: {column_id: column_name, ...}, ...}
     column_name_by_table_id: dict[str, dict[str, str]] = {
-        sid: {c.id: c.name for c in s.columns} for sid, s in schema_files.items()
+        sid: {c.id: c.name for c in s.columns if c.id is not None} for sid, s in schema_files.items()
     }
 
     # 检查约束引用的表是否存在
@@ -99,6 +99,8 @@ def create_constraint(
     if type_name == "Unique":
         table_id = refs.get("table_id")
         col_id = refs.get("column_ids") or refs.get("column_id")
+        if not isinstance(table_id, str):
+            return None, "缺少 table_id"
         # 确保 col_id 是列表
         if isinstance(col_id, str):
             col_id = [col_id]
@@ -108,7 +110,7 @@ def create_constraint(
         # 直接使用 table_id（保证稳定性）
         kwargs["table"] = table_id
         # 映射 column_ids -> column_names
-        mapped_cols = [column_name_by_table_id.get(table_id, {}).get(cid) for cid in col_id]
+        mapped_cols = [column_name_by_table_id.get(table_id, {}).get(str(cid)) for cid in col_id]
         if None in mapped_cols:
             invalid_cols = [cid for cid, name in zip(col_id, mapped_cols) if name is None]
             return None, f"引用的列不存在: {invalid_cols}"
@@ -163,8 +165,8 @@ def create_constraint(
         if from_table_id is None or to_table_id is None:
             return None, "缺少必要的表引用"
 
-        from_col_name = column_name_by_table_id.get(from_table_id, {}).get(from_col_id)
-        to_col_name = column_name_by_table_id.get(to_table_id, {}).get(to_col_id)
+        from_col_name = column_name_by_table_id.get(from_table_id, {}).get(str(from_col_id))
+        to_col_name = column_name_by_table_id.get(to_table_id, {}).get(str(to_col_id))
 
         if from_col_name is None:
             return None, f"引用的列 '{from_col_id}' 不存在于表 '{from_table_id}' 中"
@@ -276,8 +278,8 @@ def create_constraint(
         # 从 params 中提取脚本表达式
         kwargs["expression"] = params.get("expression", "")
         # column_id 是可选的
-        if col_id:
-            kwargs["column"] = column_name_by_table_id.get(table_id, {}).get(col_id)
+        if col_id and isinstance(table_id, str):
+            kwargs["column"] = column_name_by_table_id.get(table_id, {}).get(str(col_id))
 
     # === 复合约束（Composite）处理 ===
     # refs: {table_id} 等
@@ -290,7 +292,7 @@ def create_constraint(
             if sub_type == "Composite":
                 # 禁止递归嵌套 Composite
                 continue
-            sub_file = ConstraintFile(
+            sub_file = ConstraintFile.model_construct(
                 version=sub_cfg.get("version", 2),
                 id=sub_cfg.get("id", ""),
                 type=sub_cfg.get("type", ""),

@@ -407,8 +407,9 @@ class ValidationExecutor:
         result["loading_errors"] = loading_errors
 
         # 追加项目加载阶段的错误
-        for err in self.loaded_project.loading_errors:
-            result["loading_errors"].append(err.to_dict())
+        if self.loaded_project.loading_errors:
+            for err in self.loaded_project.loading_errors:
+                result["loading_errors"].append(err.to_dict())
 
         result["warnings"] = self.loaded_project.warnings
 
@@ -528,8 +529,9 @@ class ValidationExecutor:
             return result
 
         # 追加项目加载阶段的错误
-        for err in self.loaded_project.loading_errors:
-            result["loading_errors"].append(err.to_dict())
+        if self.loaded_project.loading_errors:
+            for err in self.loaded_project.loading_errors:
+                result["loading_errors"].append(err.to_dict())
         result["warnings"] = self.loaded_project.warnings
 
         if not chunked_datasets:
@@ -593,6 +595,9 @@ class ValidationExecutor:
                     break
 
                 try:
+                    parsed_datasets: dict[str, pd.DataFrame]
+                    validation_errors: list[dict]
+                    validation_details: dict[str, list[dict]]
                     parsed_datasets, validation_errors, validation_details = validate_full_dataset(
                         {table_id: chunk_df},
                         self.dataset_schema,
@@ -612,9 +617,9 @@ class ValidationExecutor:
                         all_parsed_datasets[tid].append(parsed_df)
 
                     # 聚合错误（添加分块信息）
-                    for err in validation_errors:
-                        err["chunk_index"] = chunk_idx
-                        all_errors.append(err)
+                    for chunk_err in validation_errors:
+                        chunk_err["chunk_index"] = chunk_idx
+                        all_errors.append(chunk_err)
 
                     # 聚合校验详情
                     for check in validation_details.get("format_checks", []):

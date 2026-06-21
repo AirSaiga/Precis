@@ -137,7 +137,10 @@ class OllamaProvider(BaseProvider):
                             status=resp.status,
                             message=f"请求失败({resp.status}): {text[:200]}",
                         )
-                    return await resp.json()
+                    data = await resp.json()
+                    if not isinstance(data, dict):
+                        raise ValueError(f"Ollama 返回非 JSON 对象: {data!r}")
+                    return data
             except (TimeoutError, _aiohttp.ClientConnectionError, _aiohttp.ClientResponseError) as e:
                 should_retry = isinstance(e, (_aiohttp.ClientConnectionError, asyncio.TimeoutError)) or (
                     isinstance(e, _aiohttp.ClientResponseError) and e.status in (429, 500, 502, 503)
@@ -148,6 +151,9 @@ class OllamaProvider(BaseProvider):
                     await asyncio.sleep(delay)
                 else:
                     raise
+
+        # 所有重试已耗尽且未正常返回，理论上不会到达此处
+        raise RuntimeError("Ollama 请求在重试后仍未完成")
 
     def _build_messages_payload(self, req: ChatRequest) -> list[dict[str, Any]]:
         """构造 Ollama 对话消息 payload，支持 tool_calls 与 tool_call_id。"""

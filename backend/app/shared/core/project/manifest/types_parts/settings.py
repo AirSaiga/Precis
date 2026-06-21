@@ -72,10 +72,6 @@ class ProjectSettings(BaseModel):
             encoding: gbk
     """
 
-    validation: ValidationSettings = Field(default_factory=lambda: ValidationSettings(), description="校验行为设置")
-    file_processing: FileProcessingSettings = Field(
-        default_factory=lambda: FileProcessingSettings(), description="文件处理设置"
-    )
-    script_security: ScriptSecuritySettings = Field(
-        default_factory=lambda: ScriptSecuritySettings(), description="脚本安全设置"
-    )
+    validation: ValidationSettings = Field(default_factory=ValidationSettings, description="校验行为设置")
+    file_processing: FileProcessingSettings = Field(default_factory=FileProcessingSettings, description="文件处理设置")
+    script_security: ScriptSecuritySettings = Field(default_factory=ScriptSecuritySettings, description="脚本安全设置")

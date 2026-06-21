@@ -137,7 +137,7 @@ class ActionValidator:
         if self._project_schema is not None:
             return self._project_schema
 
-        schema = {
+        schema: dict[str, Any] = {
             "tables": {},
             "table_name_to_id": {},
         }

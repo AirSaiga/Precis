@@ -114,7 +114,7 @@ def execute_transform_dag(
             if not rfile or not rfile.enabled:
                 continue
 
-            input_node_id = rfile.input_from_node
+            input_node_id = rfile.input_from_node or ""
             if not input_node_id and rfile.source_ref:
                 input_node_id = rfile.source_ref.table_id
 

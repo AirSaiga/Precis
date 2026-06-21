@@ -52,7 +52,8 @@ from .types import ValidationResult
 logger = logging.getLogger(__name__)
 
 if TYPE_CHECKING:
-    from app.shared.services.validation.service import FileProcessingSettings, ValidationSettings
+    from app.shared.core.project.manifest.types_parts.settings_file_processing import FileProcessingSettings
+    from app.shared.core.project.manifest.types_parts.settings_validation import ValidationSettings
 
 
 def load_file_data(
@@ -89,9 +90,12 @@ def load_file_data(
         raise FileNotFoundError(f"文件不存在: {source_file_path}")
 
     from app.shared.core.data_source.loaders import load_source_data
+    from app.shared.core.data_source.specs.base import DataSourceSpec
     from app.shared.core.data_source.specs.csv_source import CSVSourceSpec
     from app.shared.core.data_source.specs.excel_source import ExcelSourceSpec
     from app.shared.core.data_source.specs.json_source import JSONSourceSpec
+
+    spec: DataSourceSpec
 
     file_ext = os.path.splitext(source_file_path)[1].lower()
     sc = source_config or {}

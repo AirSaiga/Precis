@@ -80,11 +80,11 @@ def save_schema(schema: TableSchemaFile, schema_path: str | Path) -> None:
 
 
 def ensure_schema_file(
-    schema_files: dict,
+    schema_files: dict[str, TableSchemaFile],
     table_id: str,
     name: str,
-    columns: list = None,
-    source: dict = None,
+    columns: list | None = None,
+    source: dict | None = None,
 ) -> TableSchemaFile:
     """
     @methoddesc 确保 schema_files 字典中包含指定 table_id 的 schema。
@@ -117,7 +117,7 @@ def ensure_schema_file(
 
     # 步骤3：构建新的 TableSchemaFile 对象
     # 使用字典解包方式创建列定义列表
-    schema = TableSchemaFile(
+    schema = TableSchemaFile.model_construct(
         id=table_id,
         name=name,
         # 将列配置字典列表转换为 ColumnSpec 对象列表

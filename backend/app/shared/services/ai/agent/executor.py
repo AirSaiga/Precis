@@ -18,8 +18,7 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from app.shared.services.llm.config.models import AIProvider
-from app.shared.services.llm.providers.base import ChatMessage, ChatRequest
+from app.shared.services.llm.providers.base import BaseProvider, ChatMessage, ChatRequest
 
 from .memory import AgentMemory
 from .tool_registry import ToolRegistry
@@ -60,7 +59,7 @@ class AgentExecutor:
 
     def __init__(
         self,
-        provider: AIProvider,
+        provider: BaseProvider,
         registry: ToolRegistry,
         system_prompt: str | None = None,
         max_iterations: int = 5,
@@ -243,12 +242,10 @@ class AgentExecutor:
             if not tr.success:
                 continue
             observation = tr.observation
-            if (
-                isinstance(observation, dict)
-                and observation.get("success")
-                and isinstance(observation.get("config"), dict)
-            ):
-                return observation["config"]
+            if isinstance(observation, dict) and observation.get("success"):
+                config = observation.get("config")
+                if isinstance(config, dict):
+                    return config
         return None
 
     def _make_checkpoint(
@@ -308,7 +305,7 @@ class AgentExecutor:
                 balance -= 1
                 if balance == 0:
                     try:
-                        parsed = json.loads(text[start : i + 1])
+                        parsed: Any = json.loads(text[start : i + 1])
                         if isinstance(parsed, dict):
                             return parsed
                     except json.JSONDecodeError:

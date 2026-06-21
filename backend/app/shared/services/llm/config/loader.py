@@ -21,13 +21,14 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
+from typing import Any
 
 import yaml
 
 from app.shared.core.config import ConfigPaths
 
 from .crypto import decrypt_api_key, encrypt_api_key, is_encrypted
-from .models import AIConfig
+from .models import AIConfig, AIProvider
 
 
 class ConfigLoader:
@@ -70,7 +71,7 @@ class ConfigLoader:
         """用户级配置路径（save 的写入目标）"""
         return self.config_path
 
-    def _expand_env(self, value: any) -> any:
+    def _expand_env(self, value: Any) -> Any:
         """
         @methoddesc 递归替换字符串中的环境变量 ${VAR}
 
@@ -85,10 +86,10 @@ class ConfigLoader:
             return [self._expand_env(v) for v in value]
         return value
 
-    def _decrypt_api_keys(self, data: any) -> any:
+    def _decrypt_api_keys(self, data: Any) -> Any:
         """递归解密 api_key 字段中的加密值。"""
         if isinstance(data, dict):
-            result = {}
+            result: dict[Any, Any] = {}
             for k, v in data.items():
                 if k == "api_key" and isinstance(v, str) and is_encrypted(v):
                     result[k] = decrypt_api_key(v)
@@ -99,10 +100,10 @@ class ConfigLoader:
             return [self._decrypt_api_keys(item) for item in data]
         return data
 
-    def _encrypt_api_keys(self, data: any) -> any:
+    def _encrypt_api_keys(self, data: Any) -> Any:
         """递归加密 api_key 字段中的明文值。"""
         if isinstance(data, dict):
-            result = {}
+            result: dict[Any, Any] = {}
             for k, v in data.items():
                 if k == "api_key" and isinstance(v, str) and v and not is_encrypted(v) and not re.search(r"\$\{", v):
                     result[k] = encrypt_api_key(v)
@@ -195,22 +196,22 @@ class ConfigLoader:
         """创建默认配置模板（DeepSeek + Ollama Local）。"""
         return AIConfig(
             providers=[
-                {
-                    "id": "deepseek",
-                    "name": "DeepSeek",
-                    "type": "openai",
-                    "base_url": "https://api.deepseek.com",
-                    "api_key": "${DEEPSEEK_API_KEY}",
-                    "model": "deepseek-v4-pro",
-                },
-                {
-                    "id": "ollama-local",
-                    "name": "Ollama Local",
-                    "type": "ollama",
-                    "base_url": "http://localhost:11434",
-                    "api_key": None,
-                    "model": "llama3.2",
-                },
+                AIProvider(
+                    id="deepseek",
+                    name="DeepSeek",
+                    type="openai",
+                    base_url="https://api.deepseek.com",
+                    api_key="${DEEPSEEK_API_KEY}",
+                    model="deepseek-v4-pro",
+                ),
+                AIProvider(
+                    id="ollama-local",
+                    name="Ollama Local",
+                    type="ollama",
+                    base_url="http://localhost:11434",
+                    api_key=None,
+                    model="llama3.2",
+                ),
             ],
             defaults={"chat": "deepseek"},
         )

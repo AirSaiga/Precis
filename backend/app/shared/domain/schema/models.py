@@ -253,7 +253,7 @@ class TableSchema:
     ):
         self.id = id
         self.name = name
-        self.columns: dict[str, ColumnSchema] = {col.name: col for col in columns}
+        self.columns: dict[str, ColumnSchema] = {col.name: col for col in (columns or [])}
         self.source_file = source_file
         self.sheet_name = sheet_name
         self.header_row = header_row

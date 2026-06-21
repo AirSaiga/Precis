@@ -120,6 +120,10 @@ class EmailReporter(Reporter):
             print(f"[{self.name}] 邮件配置信息不完整, 无法启用。")
             return False
 
+        # 显式处理 None，避免 mypy 将 Any | None 传给 int() 时报错
+        if smtp_port is None:
+            return False
+
         # 将配置保存到实例变量中，供后续 report() 方法使用
         self.config = {
             "smtp_server": str(smtp_server),

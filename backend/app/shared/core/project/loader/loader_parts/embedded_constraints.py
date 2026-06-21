@@ -66,7 +66,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from app.shared.core.project.constraint.registry import normalize_constraint_type
 from app.shared.core.project.constraint.types import ConstraintFile
@@ -192,10 +192,10 @@ def collect_constraints_from_schemas(
                 params = constraint_item.params or {}
 
             # 构建 ConstraintFile 对象，将内嵌约束转换为独立约束文件格式
-            cf = ConstraintFile(
+            cf = ConstraintFile.model_construct(
                 version=2,
                 id=f"{schema.id}_{constraint_item.id}",  # 使用 "{table_id}_{constraint_id}" 确保全局唯一
-                type=constraint_type,
+                type=cast(Any, constraint_type),
                 enabled=constraint_item.enabled,
                 refs=refs,
                 params=params,

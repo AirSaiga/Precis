@@ -189,10 +189,10 @@ class LoadedProject:
     constraint_files: dict[str, "ConstraintFile"]
     regex_node_files: dict[str, RegexNodeFile]
     dataset_schema: Any
-    transform_files: dict[str, TransformFile] = None
-    manual_data_files: dict[str, "ManualDataFile"] = None
-    warnings: list[str] = None
-    loading_errors: list[LoadingError] = None
+    transform_files: dict[str, TransformFile] | None = None
+    manual_data_files: dict[str, "ManualDataFile"] | None = None
+    warnings: list[str] | None = None
+    loading_errors: list[LoadingError] | None = None
 
     def __post_init__(self):
         # frozen=True 表示实例创建后不可变，因此必须通过 object.__setattr__ 来修改属性

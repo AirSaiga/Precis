@@ -142,7 +142,7 @@ def schema_column_name_by_id(schema: TableSchemaFile) -> dict[str, str]:
     :param schema: TableSchemaFile 对象
     :return: Dict[str, str]，列 ID -> 列名 映射
     """
-    return {c.id: c.name for c in schema.columns}
+    return {c.id: c.name for c in schema.columns if c.id is not None}
 
 
 def schema_column_id_by_name(schema: TableSchemaFile) -> dict[str, str]:
@@ -152,4 +152,4 @@ def schema_column_id_by_name(schema: TableSchemaFile) -> dict[str, str]:
     :param schema: TableSchemaFile 对象
     :return: Dict[str, str]，列名 -> 列 ID 映射
     """
-    return {c.name: c.id for c in schema.columns}
+    return {c.name: c.id for c in schema.columns if c.id is not None}

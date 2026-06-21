@@ -142,6 +142,8 @@ def _expand_structured_columns(df: pd.DataFrame, table_schema: TableSchema) -> p
             continue
 
         if is_json_object_with_children:
+            if not col_schema.children:
+                continue
             child_names = [child.name for child in col_schema.children]
             normalized_data = pd.json_normalize(df_to_process[col_name].fillna({}).tolist())
             normalized_data = normalized_data.reindex(columns=child_names)

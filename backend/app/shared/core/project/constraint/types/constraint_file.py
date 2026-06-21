@@ -33,6 +33,19 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
+ConstraintType = Literal[
+    "Unique",
+    "NotNull",
+    "AllowedValues",
+    "ForeignKey",
+    "Conditional",
+    "Scripted",
+    "Range",
+    "Charset",
+    "DateLogic",
+    "Composite",
+]
+
 
 class ConstraintFile(BaseModel):
     """
@@ -205,18 +218,7 @@ class ConstraintFile(BaseModel):
     # 约束 ID（稳定标识），在项目中应保持不变
     id: str = Field(..., description="约束 ID（稳定标识）")
     # 约束类型，对应注册表中的键（如 Unique、NotNull 等）
-    type: Literal[
-        "Unique",
-        "NotNull",
-        "AllowedValues",
-        "ForeignKey",
-        "Conditional",
-        "Scripted",
-        "Range",
-        "Charset",
-        "DateLogic",
-        "Composite",
-    ] = Field(..., description="约束类型（注册表键）")
+    type: ConstraintType = Field(..., description="约束类型（注册表键）")
     # 是否启用该约束
     enabled: bool = Field(True, description="是否启用")
     # 约束描述信息，供 UI 显示

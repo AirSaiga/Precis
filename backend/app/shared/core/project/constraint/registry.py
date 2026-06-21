@@ -133,10 +133,13 @@ def resolve_constraint_class(type_name: str) -> type | None:
         return None
     module_path, class_name = path.rsplit(".", 1)
     module = importlib.import_module(module_path)
-    return getattr(module, class_name)
+    cls = getattr(module, class_name)
+    if isinstance(cls, type):
+        return cls
+    return None
 
 
-def filter_kwargs_for_class(cls: type, kwargs: dict[str, Any]) -> dict[str, Any]:
+def filter_kwargs_for_class(cls: type[Any], kwargs: dict[str, Any]) -> dict[str, Any]:
     """
     @methoddesc 按类构造函数签名过滤参数。
 
@@ -159,7 +162,7 @@ def filter_kwargs_for_class(cls: type, kwargs: dict[str, Any]) -> dict[str, Any]
         # "extra" 被过滤掉
     """
     # 获取类的构造函数签名
-    sig = inspect.signature(cls.__init__)
+    sig = inspect.signature(cls)
 
     # 提取构造函数接受的参数名集合
     allowed = set(sig.parameters.keys())

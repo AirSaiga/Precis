@@ -94,6 +94,8 @@ def _extract_derived_columns(
         for ext_info in extracted_columns:
             col_name = ext_info["column_name"]
             source_column = ext_info["source_column"]
+            if not isinstance(source_column, str):
+                continue
             extract_key = ext_info["extract_key"]
             result_type = ext_info.get("result_type")
 

@@ -160,7 +160,11 @@ class ConditionalConstraint(Constraint):
                 return then_config.get("value")
 
             if operator == "not_null":
-                return lambda x, row=None: bool(pd.notna(x)) and x != ""
+
+                def _not_null(x: Any, row: dict[str, Any] | None = None) -> bool:
+                    return bool(pd.notna(x)) and x != ""
+
+                return _not_null
             if operator == "greater_than":
                 threshold = then_config.get("value")
 

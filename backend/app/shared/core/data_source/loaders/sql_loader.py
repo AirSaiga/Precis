@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Any
 
 import pandas as pd
 
+from ..specs.sql_source import SQLSourceSpec
 from .base import DataLoadError, DataSourceLoader
 from .registry import register_loader
 
@@ -72,7 +73,7 @@ class SQLLoader(DataSourceLoader["SQLSourceSpec"]):
     支持多种数据库后端（通过 SQLAlchemy）。
     """
 
-    spec_class = None  # 类型由泛型指定
+    spec_class = SQLSourceSpec  # 类型由泛型指定
 
     def _get_engine(self, connection_string: str) -> Any:
         """

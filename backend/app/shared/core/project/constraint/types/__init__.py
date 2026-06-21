@@ -17,7 +17,7 @@
     可直接使用导入的类型构建约束配置
 """
 
-from .constraint_file import ConstraintFile, ConstraintFileV2
+from .constraint_file import ConstraintFile, ConstraintFileV2, ConstraintType
 from .refs import (
     AllowedValuesRefs,
     CharsetRefs,
@@ -34,6 +34,7 @@ from .refs import (
 __all__ = [
     "ConstraintFile",
     "ConstraintFileV2",
+    "ConstraintType",
     "AllowedValuesRefs",
     "CharsetRefs",
     "ConditionalIfCondition",

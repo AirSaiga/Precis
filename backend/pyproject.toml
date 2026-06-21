@@ -161,6 +161,7 @@ warn_unused_configs = true
 ignore_missing_imports = true
 explicit_package_bases = true
 disable_error_code = ["import-untyped"]
+plugins = ["pydantic.mypy"]
 exclude = [
     ".venv",
     "build",

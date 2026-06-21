@@ -209,14 +209,19 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
         try:
             # 构建约束配置
             constraint_config = ConstraintFile(
+                version=2,
                 id=constraint_id,
                 type=std_type,
-                refs=_build_constraint_refs(constraint_spec),
+                enabled=True,
+                description=None,
+                refs=_build_constraint_refs(std_type, table_name, target_column, constraint_spec, workspace_path),
                 params=_build_constraint_params(std_type, constraint_spec),
+                input_from_node=None,
+                input_column=None,
             )
 
             # 保存约束文件
-            save_constraint(str(constraint_file_path), constraint_config)
+            save_constraint(constraint_config, str(constraint_file_path))
             logger.info(f"[updateYamlConfig] 成功保存约束: {constraint_id}")
             return True, constraint_id
 

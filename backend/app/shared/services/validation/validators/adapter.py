@@ -97,10 +97,11 @@ class ConstraintAdapter(BaseValidator):
                     validation_time=f"{time.time() - start_time:.3f}s",
                 )
 
+        params: dict[str, Any]
         if self.kwargs_builder:
             params = self.kwargs_builder(column, kwargs)
         else:
-            params: dict[str, Any] = {"table": "temp", self.column_param: column}
+            params = {"table": "temp", self.column_param: column}
             params.update(self.extra_params)
             for validator_kwarg, constraint_param in self.kwargs_mapping.items():
                 if validator_kwarg in kwargs:

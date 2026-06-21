@@ -69,7 +69,7 @@ def save_manifest(manifest: ProjectManifest, manifest_path: str | Path) -> None:
     write_yaml(Path(manifest_path), manifest.model_dump(exclude_none=True))
 
 
-def ensure_schema_ref(manifest: ProjectManifest, table_id: str, default_path: str = None) -> SchemaRef:
+def ensure_schema_ref(manifest: ProjectManifest, table_id: str, default_path: str | None = None) -> SchemaRef:
     """
     @methoddesc 确保清单中包含指定 table_id 的 schema 引用。
 
@@ -120,7 +120,9 @@ def ensure_schema_ref(manifest: ProjectManifest, table_id: str, default_path: st
     return new_ref
 
 
-def ensure_constraint_ref(manifest: ProjectManifest, constraint_id: str, default_path: str = None) -> ConstraintRef:
+def ensure_constraint_ref(
+    manifest: ProjectManifest, constraint_id: str, default_path: str | None = None
+) -> ConstraintRef:
     """
     @methoddesc 确保清单中包含指定 constraint_id 的约束引用。
 
@@ -170,7 +172,7 @@ def ensure_constraint_ref(manifest: ProjectManifest, constraint_id: str, default
     return new_ref
 
 
-def ensure_regex_ref(manifest: ProjectManifest, regex_id: str, default_path: str = None) -> RegexRef:
+def ensure_regex_ref(manifest: ProjectManifest, regex_id: str, default_path: str | None = None) -> RegexRef:
     """
     @methoddesc 确保清单中包含指定 regex_id 的正则节点引用。
 
@@ -220,7 +222,9 @@ def ensure_regex_ref(manifest: ProjectManifest, regex_id: str, default_path: str
     return new_ref
 
 
-def ensure_manual_data_ref(manifest: ProjectManifest, manual_data_id: str, default_path: str = None) -> ManualDataRef:
+def ensure_manual_data_ref(
+    manifest: ProjectManifest, manual_data_id: str, default_path: str | None = None
+) -> ManualDataRef:
     """@methoddesc 确保清单中包含指定 manual_data_id 的 ManualData 引用。
 
     如果引用已存在则直接返回，否则创建新引用并添加到清单中。

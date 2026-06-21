@@ -121,6 +121,7 @@ def _add_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
             version=2,
             id=transform_id,
             type=transform_type,
+            enabled=True,
             description=description,
             input_from_node=input_from_node,
             input_column=input_column,

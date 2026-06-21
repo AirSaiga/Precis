@@ -179,4 +179,6 @@ class SpecificExpressionType(DataType):
             包含 type 和 value 的字典
         """
         match = self.specific_pattern.regex.fullmatch(value.strip())
+        if not match:
+            return {"type": self.specific_pattern.name, "value": None}
         return {"type": self.specific_pattern.name, "value": self.specific_pattern.parser_func(match.groupdict())}

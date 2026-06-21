@@ -69,8 +69,8 @@ class AutoDetectParser:
 
     def __init__(self):
         """初始化自动检测解析器，注册所有支持的子解析器"""
-        self._lines_parser = LinesParser()
-        self._array_parser = StandardJSONParser()
+        self._lines_parser: LinesParser = LinesParser()
+        self._array_parser: StandardJSONParser = StandardJSONParser()
 
     def parse(self, content: str) -> list[dict]:
         """
@@ -107,10 +107,12 @@ class AutoDetectParser:
         stripped_content = content.strip()
 
         if self._lines_parser.can_parse(stripped_content):
-            return self._lines_parser.parse(stripped_content)
+            lines_result: list[dict] = self._lines_parser.parse(stripped_content)
+            return lines_result
 
         if self._array_parser.can_parse(stripped_content):
-            return self._array_parser.parse(stripped_content)
+            array_result: list[dict] = self._array_parser.parse(stripped_content)
+            return array_result
 
         return self._parse_nested_object(stripped_content)
 

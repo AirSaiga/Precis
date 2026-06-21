@@ -216,11 +216,10 @@ class AIChatOrchestrator:
         action_results: list[dict[str, Any]] = []
 
         if actions and project_path and not options.skip_action_processing:
-            actions, validation_result, action_results, frontend_instructions = self._process_actions(
-                actions, project_path, reply, options, updated_history
-            )
-            if isinstance(actions, ChatExecutionResult):
-                return actions
+            process_result = self._process_actions(actions, project_path, reply, options, updated_history)
+            if isinstance(process_result, ChatExecutionResult):
+                return process_result
+            actions, validation_result, action_results, frontend_instructions = process_result
 
         # 非 agent 模式：process_actions 执行后直接返回（不再有 agent followup）
         return ChatExecutionResult(
@@ -576,8 +575,8 @@ async def execute_ai_chat_unified(
     message: str,
     project_path: str | None,
     provider: AIProvider,
-    context_nodes: list[dict[str, Any]] = None,
-    history: list[dict[str, str]] = None,
+    context_nodes: list[dict[str, Any]] | None = None,
+    history: list[dict[str, str]] | None = None,
     agent_mode: bool = True,
 ) -> ChatExecutionResult:
     """

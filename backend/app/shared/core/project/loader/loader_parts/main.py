@@ -235,14 +235,14 @@ def load_project(
                 params=instance.params,
                 input_from_node=instance.input_from_node,
             )
-            for f in t_list:
-                transform_files[f.id] = f
-            for f in c_list:
-                constraint_files[f.id] = f
-            for f in r_list:
-                regex_files[f.id] = f
-            for f in m_list:
-                manual_data_files[f.id] = f
+            for tf in t_list:
+                transform_files[tf.id] = tf
+            for cf in c_list:
+                constraint_files[cf.id] = cf
+            for rf in r_list:
+                regex_files[rf.id] = rf
+            for mf in m_list:
+                manual_data_files[mf.id] = mf
         except Exception as e:
             loading_errors.append(
                 LoadingError(

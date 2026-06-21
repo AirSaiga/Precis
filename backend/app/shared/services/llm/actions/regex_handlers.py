@@ -22,7 +22,7 @@ import yaml
 
 from app.shared.core.project.manifest.reader import load_manifest
 from app.shared.core.project.manifest.writer import ensure_regex_ref, save_manifest
-from app.shared.core.project.regex.types import RegexNodeFile
+from app.shared.core.project.regex.types import RegexNodeFile, RegexSourceRef
 from app.shared.core.project.regex.writer import save_regex_node
 from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
 
@@ -98,7 +98,7 @@ def _add_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     # 构建 source_ref
     source_ref = None
     if target_node_id and target_column:
-        source_ref = {"table_id": target_node_id, "column_id": target_column}
+        source_ref = RegexSourceRef(table_id=target_node_id, column_id=target_column)
 
     try:
         regex_node = RegexNodeFile(
@@ -110,6 +110,10 @@ def _add_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
             case_sensitive=case_sensitive,
             description=description,
             enabled=True,
+            uses_pattern=None,
+            flags="",
+            input_from_node=None,
+            input_column=None,
             source_ref=source_ref,
             source_column_name=target_column,
         )

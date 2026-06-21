@@ -153,8 +153,8 @@ class ConfigGenerationService:
         project_name: str,
         project_id: str,
         config_path: str | None = None,
-        profiling_options: ProfilingOptions = None,
-        generation_options: GenerationOptions = None,
+        profiling_options: ProfilingOptions | None = None,
+        generation_options: GenerationOptions | None = None,
         progress_callback: Callable[[str, float], None] | None = None,
     ) -> dict[str, Any]:
         """
@@ -209,8 +209,8 @@ class ConfigGenerationService:
         project_name: str,
         project_id: str,
         config_path: str | None = None,
-        profiling_options: ProfilingOptions = None,
-        generation_options: GenerationOptions = None,
+        profiling_options: ProfilingOptions | None = None,
+        generation_options: GenerationOptions | None = None,
         max_iterations: int = 2,
         validation_sample_size: int = 1000,
         auto_chunking: bool = True,
@@ -354,7 +354,7 @@ class ConfigGenerationService:
 
     def _check_cancelled(
         self,
-        progress_callback: Callable[[str, float], None] | None,
+        progress_callback: Callable[..., None] | None,
         stage: str,
         progress: float,
     ) -> None:
@@ -365,7 +365,7 @@ class ConfigGenerationService:
 
     def _notify_progress(
         self,
-        progress_callback: Callable[[str, float], None] | None,
+        progress_callback: Callable[..., None] | None,
         stage: str,
         progress: float,
     ) -> None:
@@ -836,7 +836,7 @@ class ConfigGenerationService:
                     col_data = df[col_name]
 
                     # 获取样本值（处理复杂类型如列表、字典）
-                    sample_values = []
+                    sample_values: list[str] = []
                     for v in col_data.dropna():
                         if len(sample_values) >= options.sample_values_per_column:
                             break

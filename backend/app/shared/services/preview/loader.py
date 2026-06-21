@@ -73,7 +73,7 @@ def load_preview_data(
     # ======== Excel 格式处理 ========
     if file_type == "excel":
         # 构造 Excel 数据源规格，关闭表头识别、限制读取行数
-        spec = ExcelSourceSpec(
+        spec: ExcelSourceSpec | CSVSourceSpec | JSONSourceSpec = ExcelSourceSpec(
             path=file_path,
             sheet=sheet_name,
             header_enabled=False,

@@ -71,7 +71,7 @@ def _load_excel_with_new_loader(
         >>> result = _load_excel_with_new_loader("data.xlsx", schemas)
         >>> # result: {"users": DataFrame}
     """
-    spec = ExcelSourceSpec(path=filepath)
+    spec = ExcelSourceSpec.model_construct(path=filepath)
     loader = ExcelLoader(spec)
     default_sheet = (file_to_sheet_names or {}).get(filepath)
     sheet_configs = {
@@ -124,7 +124,7 @@ def _load_csv_with_new_loader(
         return {}
 
     info = schemas[0]
-    spec = CSVSourceSpec(
+    spec = CSVSourceSpec.model_construct(
         path=filepath,
         header_row=info.header_row,
         encoding=default_encoding,
@@ -165,7 +165,7 @@ def _load_json_with_new_loader(
     info = schemas[0]
     source_config = info.source_config or {}
 
-    spec = JSONSourceSpec(
+    spec = JSONSourceSpec.model_construct(
         path=filepath,
         format=source_config.get("format", "auto"),
         json_path=source_config.get("json_path"),

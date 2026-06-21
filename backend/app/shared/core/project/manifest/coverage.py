@@ -216,28 +216,28 @@ def compute_manifest_coverage(config_path: str, manifest: ProjectManifestV2) -> 
     # ============================================================================
     # 遍历 manifest 中所有 schema 引用，检查对应的文件是否存在于磁盘
     dangling_schemas: list[CoverageRef] = []
-    for ref in manifest.schemas or []:
+    for schema_ref in manifest.schemas or []:
         # 如果文件不存在，标记为悬空引用
-        if not os.path.isfile(os.path.join(config_path, ref.path)):
-            dangling_schemas.append(CoverageRef(id=ref.id, path=ref.path))
+        if not os.path.isfile(os.path.join(config_path, schema_ref.path)):
+            dangling_schemas.append(CoverageRef(id=schema_ref.id, path=schema_ref.path))
     dangling_schemas.sort(key=lambda r: r.id)
 
     # ============================================================================
     # 第七步：检查 dangling constraints（清单引用但磁盘缺失）
     # ============================================================================
     dangling_constraints: list[CoverageRef] = []
-    for ref in manifest.constraints or []:
-        if not os.path.isfile(os.path.join(config_path, ref.path)):
-            dangling_constraints.append(CoverageRef(id=ref.id, path=ref.path))
+    for constraint_ref in manifest.constraints or []:
+        if not os.path.isfile(os.path.join(config_path, constraint_ref.path)):
+            dangling_constraints.append(CoverageRef(id=constraint_ref.id, path=constraint_ref.path))
     dangling_constraints.sort(key=lambda r: r.id)
 
     # ============================================================================
     # 第八步：检查 dangling regex nodes（清单引用但磁盘缺失）
     # ============================================================================
     dangling_regex_nodes: list[CoverageRef] = []
-    for ref in manifest.regex_nodes or []:
-        if not os.path.isfile(os.path.join(config_path, ref.path)):
-            dangling_regex_nodes.append(CoverageRef(id=ref.id, path=ref.path))
+    for regex_ref in manifest.regex_nodes or []:
+        if not os.path.isfile(os.path.join(config_path, regex_ref.path)):
+            dangling_regex_nodes.append(CoverageRef(id=regex_ref.id, path=regex_ref.path))
     dangling_regex_nodes.sort(key=lambda r: r.id)
 
     # ============================================================================

@@ -88,7 +88,7 @@ class ConfigMigrationService(ConfigGenerationService):
             self._existing_config = self._load_existing_config(config_path)
 
         # 统一转换为批量来源；若 script_content 与 sources 中首个内容相同，避免重复解析
-        migrate_sources = []
+        migrate_sources: list[dict[str, Any]] = []
         seen_contents = set()
         if sources:
             for s in sources:

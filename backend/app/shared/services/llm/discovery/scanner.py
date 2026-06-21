@@ -31,6 +31,7 @@
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -66,7 +67,7 @@ class ServiceScanner:
     """
 
     # 服务类型 -> 检测配置
-    SCANS = {
+    SCANS: dict[str, dict[str, Any]] = {
         "ollama": {"ports": [11434], "health_path": "/api/tags", "model_field": "models", "model_name_field": "name"},
         "openai": {
             "ports": [1234, 8080, 8000],
@@ -76,7 +77,7 @@ class ServiceScanner:
         },
     }
 
-    async def scan(self, hosts: list[str] = None) -> list[DiscoveredService]:
+    async def scan(self, hosts: list[str] | None = None) -> list[DiscoveredService]:
         """
         @methoddesc 扫描本地运行的 AI 服务
 
@@ -129,8 +130,9 @@ class ServiceScanner:
             import aiohttp
 
             # 使用 aiohttp 发送异步 GET 请求，超时 5 秒
+            timeout = aiohttp.ClientTimeout(total=5)
             async with aiohttp.ClientSession() as session:
-                async with session.get(f"{url}{path}", timeout=5) as resp:
+                async with session.get(f"{url}{path}", timeout=timeout) as resp:
                     if resp.status != 200:
                         return None
 

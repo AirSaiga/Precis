@@ -164,8 +164,10 @@ def _collect_column_identifiers(columns: list[ColumnSpec]) -> set[str]:
     """递归收集 schema 中所有列的 id 和 name（包括嵌套子列）。"""
     ids: set[str] = set()
     for c in columns or []:
-        ids.add(c.id)
-        ids.add(c.name)
+        if c.id is not None:
+            ids.add(c.id)
+        if c.name is not None:
+            ids.add(c.name)
         if c.children:
             ids |= _collect_column_identifiers(c.children)
     return ids
@@ -299,62 +301,62 @@ def inspect_id_consistency(
     loading_errors: list[LoadingError],
 ) -> None:
     """检查 manifest 引用 ID 与文件内部 ID 的一致性。"""
-    for ref in manifest.schemas or []:
-        schema_file = schema_files.get(ref.id)
-        if schema_file and schema_file.id != ref.id:
-            manifest_display = _schema_display(schema_files.get(ref.id))
+    for schema_ref in manifest.schemas or []:
+        schema_file = schema_files.get(schema_ref.id)
+        if schema_file and schema_file.id != schema_ref.id:
+            manifest_display = _schema_display(schema_files.get(schema_ref.id))
             file_display = _schema_display(schema_file)
             msg = (
-                f"Schema ID 不一致: manifest 引用 ID '{ref.id}' "
-                f"与文件内部 id '{schema_file.id}' 不匹配 (文件: {ref.path})"
+                f"Schema ID 不一致: manifest 引用 ID '{schema_ref.id}' "
+                f"与文件内部 id '{schema_file.id}' 不匹配 (文件: {schema_ref.path})"
             )
             warnings.append(msg)
             loading_errors.append(
                 _build_id_mismatch_loading_error(
-                    "schema", ref.id, schema_file.id, ref.path, manifest_display, file_display
+                    "schema", schema_ref.id, schema_file.id, schema_ref.path, manifest_display, file_display
                 )
             )
 
-    for ref in manifest.constraints or []:
-        constraint_file = constraint_files.get(ref.id)
-        if constraint_file and constraint_file.id != ref.id:
-            manifest_display = _constraint_display(constraint_files.get(ref.id))
+    for constraint_ref in manifest.constraints or []:
+        constraint_file = constraint_files.get(constraint_ref.id)
+        if constraint_file and constraint_file.id != constraint_ref.id:
+            manifest_display = _constraint_display(constraint_files.get(constraint_ref.id))
             file_display = _constraint_display(constraint_file)
             msg = (
-                f"Constraint ID 不一致: manifest 引用 ID '{ref.id}' "
-                f"与文件内部 id '{constraint_file.id}' 不匹配 (文件: {ref.path})"
+                f"Constraint ID 不一致: manifest 引用 ID '{constraint_ref.id}' "
+                f"与文件内部 id '{constraint_file.id}' 不匹配 (文件: {constraint_ref.path})"
             )
             warnings.append(msg)
             correct_ref_exists = any(
                 other_ref.id == constraint_file.id
                 for other_ref in (manifest.constraints or [])
-                if other_ref.id != ref.id
+                if other_ref.id != constraint_ref.id
             )
             if correct_ref_exists:
                 loading_errors.append(
                     LoadingError(
-                        id=ids.constraint_dup_ref(ref.id, constraint_file.id),
+                        id=ids.constraint_dup_ref(constraint_ref.id, constraint_file.id),
                         severity="warning",
                         title="同一条规则被重复登记",
                         description=(
-                            f"项目配置中，规则文件「{ref.path}」被登记了两次，"
-                            f"其中一条的编号「{ref.id}」与文件中实际编号「{constraint_file.id}」不一致。"
+                            f"项目配置中，规则文件「{constraint_ref.path}」被登记了两次，"
+                            f"其中一条的编号「{constraint_ref.id}」与文件中实际编号「{constraint_file.id}」不一致。"
                             "重复登记会导致这条规则加载冲突。"
                         ),
                         fix_hint="点击「一键去重」自动清理重复记录（推荐），或手动从项目配置中删除多余条目。",
                         error_type="IdMismatchWarning",
                         file_path="project.precis.yaml",
-                        ref_id=ref.id,
+                        ref_id=constraint_ref.id,
                         message=msg,
                         suggestion="请更新项目配置中的引用编号，或修改文件内部的编号使其一致",
-                        actions=_default_actions_for_file("project.precis.yaml", ref.id),
+                        actions=_default_actions_for_file("project.precis.yaml", constraint_ref.id),
                         title_key="inspection.issues.dupConstraintRef.title",
                         description_key="inspection.issues.dupConstraintRef.description",
                         fix_hint_key="inspection.issues.dupConstraintRef.fixHint",
                         message_params={
-                            "manifestId": ref.id,
+                            "manifestId": constraint_ref.id,
                             "fileId": constraint_file.id,
-                            "filePath": ref.path,
+                            "filePath": constraint_ref.path,
                             "manifestDisplay": manifest_display,
                             "fileDisplay": file_display,
                         },
@@ -367,55 +369,65 @@ def inspect_id_consistency(
             else:
                 loading_errors.append(
                     _build_id_mismatch_loading_error(
-                        "constraint", ref.id, constraint_file.id, ref.path, manifest_display, file_display
+                        "constraint",
+                        constraint_ref.id,
+                        constraint_file.id,
+                        constraint_ref.path,
+                        manifest_display,
+                        file_display,
                     )
                 )
 
-    for ref in manifest.regex_nodes or []:
-        regex_file = regex_node_files.get(ref.id)
-        if regex_file and regex_file.id != ref.id:
-            manifest_display = _regex_display(regex_node_files.get(ref.id))
+    for regex_ref in manifest.regex_nodes or []:
+        regex_file = regex_node_files.get(regex_ref.id)
+        if regex_file and regex_file.id != regex_ref.id:
+            manifest_display = _regex_display(regex_node_files.get(regex_ref.id))
             file_display = _regex_display(regex_file)
             msg = (
-                f"Regex ID 不一致: manifest 引用 ID '{ref.id}' "
-                f"与文件内部 id '{regex_file.id}' 不匹配 (文件: {ref.path})"
+                f"Regex ID 不一致: manifest 引用 ID '{regex_ref.id}' "
+                f"与文件内部 id '{regex_file.id}' 不匹配 (文件: {regex_ref.path})"
             )
             warnings.append(msg)
             loading_errors.append(
                 _build_id_mismatch_loading_error(
-                    "regex", ref.id, regex_file.id, ref.path, manifest_display, file_display
+                    "regex", regex_ref.id, regex_file.id, regex_ref.path, manifest_display, file_display
                 )
             )
 
-    for ref in manifest.transforms or []:
-        transform_file = transform_files.get(ref.id)
-        if transform_file and transform_file.id != ref.id:
-            manifest_display = _transform_display(transform_files.get(ref.id))
+    for transform_ref in manifest.transforms or []:
+        transform_file = transform_files.get(transform_ref.id)
+        if transform_file and transform_file.id != transform_ref.id:
+            manifest_display = _transform_display(transform_files.get(transform_ref.id))
             file_display = _transform_display(transform_file)
             msg = (
-                f"Transform ID 不一致: manifest 引用 ID '{ref.id}' "
-                f"与文件内部 id '{transform_file.id}' 不匹配 (文件: {ref.path})"
+                f"Transform ID 不一致: manifest 引用 ID '{transform_ref.id}' "
+                f"与文件内部 id '{transform_file.id}' 不匹配 (文件: {transform_ref.path})"
             )
             warnings.append(msg)
             loading_errors.append(
                 _build_id_mismatch_loading_error(
-                    "transform", ref.id, transform_file.id, ref.path, manifest_display, file_display
+                    "transform", transform_ref.id, transform_file.id, transform_ref.path, manifest_display, file_display
                 )
             )
 
-    for ref in manifest.manual_data or []:
-        manual_data_file = manual_data_files.get(ref.id)
-        if manual_data_file and manual_data_file.id != ref.id:
-            manifest_display = _manual_data_display(manual_data_files.get(ref.id))
+    for manual_data_ref in manifest.manual_data or []:
+        manual_data_file = manual_data_files.get(manual_data_ref.id)
+        if manual_data_file and manual_data_file.id != manual_data_ref.id:
+            manifest_display = _manual_data_display(manual_data_files.get(manual_data_ref.id))
             file_display = _manual_data_display(manual_data_file)
             msg = (
-                f"ManualData ID 不一致: manifest 引用 ID '{ref.id}' "
-                f"与文件内部 id '{manual_data_file.id}' 不匹配 (文件: {ref.path})"
+                f"ManualData ID 不一致: manifest 引用 ID '{manual_data_ref.id}' "
+                f"与文件内部 id '{manual_data_file.id}' 不匹配 (文件: {manual_data_ref.path})"
             )
             warnings.append(msg)
             loading_errors.append(
                 _build_id_mismatch_loading_error(
-                    "manual_data", ref.id, manual_data_file.id, ref.path, manifest_display, file_display
+                    "manual_data",
+                    manual_data_ref.id,
+                    manual_data_file.id,
+                    manual_data_ref.path,
+                    manifest_display,
+                    file_display,
                 )
             )
 
@@ -548,8 +560,8 @@ def inspect_reference_integrity(
 ) -> None:
     """检查约束引用的完整性。"""
     schema_column_cache: dict[str, set[str]] = {}
-    for table_id, schema_file in schema_files.items():
-        schema_column_cache[table_id] = _collect_column_identifiers(schema_file.columns)
+    for schema_id, schema_file in schema_files.items():
+        schema_column_cache[schema_id] = _collect_column_identifiers(schema_file.columns)
 
     available_schemas: list[dict] = [{"id": sid, "name": s.name} for sid, s in schema_files.items()]
 
@@ -558,7 +570,7 @@ def inspect_reference_integrity(
         if not refs:
             continue
 
-        table_id = None
+        table_id: str | None = None
         column_ids_to_check: list[str] = []
 
         constraint_type = constraint_file.type

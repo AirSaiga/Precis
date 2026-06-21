@@ -153,6 +153,9 @@ class OpenAIProvider(BaseProvider):
             except (IndexError, AttributeError, TypeError) as e:
                 raise ValueError(f"解析 API 响应失败: {e}") from e
 
+        # 所有重试已耗尽且未正常返回，理论上不会到达此处
+        raise RuntimeError("OpenAI 请求在重试后仍未完成")
+
     async def chat_stream(self, req: ChatRequest) -> AsyncIterator[str]:
         """
         @methoddesc 发送流式对话请求，逐块返回内容

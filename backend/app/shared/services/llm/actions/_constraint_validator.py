@@ -187,7 +187,7 @@ def validate_validate_action(action: dict[str, Any], schema: dict[str, Any], ind
 
     检查动作中指定的表是否存在。
     """
-    errors = []
+    errors: list[ValidationError] = []
     action_type = action.get("actionType", "")
     spec = action.get("constraintSpec", {})
 
@@ -234,7 +234,7 @@ def validate_constraint_params(
     index: int,
     action_type: str,
     required_params: dict[str, list[str]],
-    foreign_key_check: callable,
+    foreign_key_check: Callable[..., list[ValidationError]],
 ) -> list[ValidationError]:
     """验证约束参数完整性
 
