@@ -9,7 +9,6 @@
  * @param props - 组件属性
  * @returns 节点操作相关的方法
  */
-import { logger } from '@/core/utils/logger'
 import { NodeDeletionManager } from '@/services/managers/nodeDeletionManager'
 
 export function usePreviewOperations(props: { id: string }) {
@@ -21,15 +20,7 @@ export function usePreviewOperations(props: { id: string }) {
     await manager.delete(props.id)
   }
 
-  /**
-   * 节点复制（预留）
-   */
-  const handleCopy = () => {
-    logger.debug('节点复制功能待实现')
-  }
-
   return {
     handleRemove,
-    handleCopy,
   }
 }
