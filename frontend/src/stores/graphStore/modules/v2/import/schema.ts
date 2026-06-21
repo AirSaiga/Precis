@@ -17,7 +17,7 @@
 
 import type { Ref } from 'vue'
 import type { CustomNode, SchemaNodeData, JsonSchemaColumn } from '@/types/graph'
-import type { TableSchemaFileV2 } from '@/types/projectV2'
+import type { ColumnSpecV2, JSONOptionsV2, TableSchemaFileV2 } from '@/types/projectV2'
 import { getV2Schema } from '@/api/projectV2Api'
 import { fromBackendType, fromJsonBackendType } from '@/services/builders'
 import { materializeV2EmbeddedConstraints } from '../shared/embeddedConstraints'
@@ -75,10 +75,11 @@ export function createV2SchemaImporter(params: {
     const schema = schemaFile || (await getV2Schema(tableId))
 
     // 递归转换列定义，支持嵌套 children
-    const convertColumns = (columns: any[]): JsonSchemaColumn[] => {
+    const convertColumns = (columns: ColumnSpecV2[] | undefined): JsonSchemaColumn[] => {
       return (columns || []).map((col) => {
         // JSON schema 使用 JSON 专属反向映射，避免 JsonObject/JsonArray/JsonNull 被降级为 String
-        const isJsonColumn = col.json_path !== undefined || (col.children && col.children.length > 0)
+        const isJsonColumn =
+          col.json_path !== undefined || (col.children && col.children.length > 0)
         const jsonDataType = isJsonColumn
           ? (fromJsonBackendType(col.type) as JsonSchemaColumn['dataType'])
           : (fromBackendType(col.type).toLowerCase() as JsonSchemaColumn['dataType'])
@@ -138,9 +139,9 @@ export function createV2SchemaImporter(params: {
         columns: cols,
         saveState: 'saved',
         sourceType: isJsonSchema ? 'json' : undefined,
-        format: (schema.source?.options as any)?.format,
-        jsonPath: (schema.source?.options as any)?.json_path,
-        recordPath: (schema.source?.options as any)?.record_path,
+        format: (schema.source?.options as JSONOptionsV2 | undefined)?.format,
+        jsonPath: (schema.source?.options as JSONOptionsV2 | undefined)?.json_path,
+        recordPath: (schema.source?.options as JSONOptionsV2 | undefined)?.record_path,
       },
     }
     addNodes(schemaNode)

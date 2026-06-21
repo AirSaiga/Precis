@@ -18,9 +18,10 @@
 
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, TransformNodeData } from '@/types/graph'
+import type { FullConfigV2Response, TransformFileV2 } from '@/types/projectV2'
 
 export function hydrateTransformNodesFromV2Config(params: {
-  config: any
+  config: FullConfigV2Response
   existingNodes: CustomNode[]
 }) {
   const { config, existingNodes } = params
@@ -29,15 +30,15 @@ export function hydrateTransformNodesFromV2Config(params: {
   const nextEdges: Edge[] = []
 
   const transformRefs = config.manifest.transforms || []
-  transformRefs.forEach((ref: { id: string; path?: string }, idx: number) => {
-    const tData = config.transforms?.[ref.id]
+  transformRefs.forEach((ref, idx) => {
+    const tData = config.transforms[ref.id] as TransformFileV2 | undefined
     if (!tData) return
 
     const nodeId = ref.id
     const pos = { x: 980 + (idx % 3) * 420, y: 80 + Math.floor(idx / 3) * 240 }
 
-    const inputFromNode = (tData.input_from_node as string) || undefined
-    const inputColumn = (tData.input_column as string) || undefined
+    const inputFromNode = tData.input_from_node || undefined
+    const inputColumn = tData.input_column || undefined
 
     nextNodes.push({
       id: nodeId,
@@ -49,8 +50,8 @@ export function hydrateTransformNodesFromV2Config(params: {
         description: tData.description || '',
         inputFromNode,
         inputColumn,
-        params: (tData.params as Record<string, unknown>) || {},
-        outputColumns: (tData.output_columns as string[]) || [],
+        params: tData.params || {},
+        outputColumns: tData.output_columns || [],
         enabled: tData.enabled !== false,
         saveState: 'saved',
       } as TransformNodeData,

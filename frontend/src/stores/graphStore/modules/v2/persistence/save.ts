@@ -80,7 +80,13 @@ import type {
   TemplateInstanceNodeData,
 } from '@/types/graph'
 import type { CustomNodeData } from '@/types/nodes'
-import type { TableSchemaFileV2 } from '@/types/projectV2'
+import type {
+  ConstraintFileV2,
+  RegexNodeFileV2,
+  TableSchemaFileV2,
+  TemplateInstanceRefV2,
+  TransformFileV2,
+} from '@/types/projectV2'
 import { toastError, toastSuccess } from '@/core/toast'
 import { useI18n } from 'vue-i18n'
 import { useInspectionStore } from '@/stores/inspectionStore'
@@ -120,6 +126,7 @@ export function createV2SaveOps(params: {
   updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
 }) {
   const { nodes, projectName, getEffectiveProjectConfigPath, updateNodeData } = params
+  // edges 由 SaveOrchestrator 通过 params.edges 读取，本层直接逻辑中不使用
   const { t } = useI18n()
 
   async function saveProject(): Promise<boolean> {
@@ -320,10 +327,10 @@ export function createV2SaveOps(params: {
 
       const configPath = getEffectiveProjectConfigPath()
       // Phase 8: 使用新 persistence builder 替代旧 builder
-      const file =
-        buildNodeFile(node, nodes.value, configPath || '') ||
+      const file: ConstraintFileV2 =
+        (buildNodeFile(node, nodes.value, configPath || '') as ConstraintFileV2 | undefined) ??
         buildV2ConstraintFile(nodes.value, nodeId)
-      await putV2Constraint(nodeId, file as any, configPath)
+      await putV2Constraint(nodeId, file, configPath)
       await updateV2ManifestConstraintRef(
         { id: nodeId, path: `constraints/${nodeId}.constraint.yaml` },
         configPath
@@ -358,10 +365,10 @@ export function createV2SaveOps(params: {
 
       const configPath = getEffectiveProjectConfigPath()
       // Phase 8: 使用新 persistence builder 替代旧 builder
-      const file =
-        buildNodeFile(node, nodes.value, configPath || '') ||
+      const file: RegexNodeFileV2 =
+        (buildNodeFile(node, nodes.value, configPath || '') as RegexNodeFileV2 | undefined) ??
         buildV2RegexNodeFile(nodes.value, nodeId)
-      await putV2RegexNode(nodeId, file as any, configPath)
+      await putV2RegexNode(nodeId, file, configPath)
       await updateV2ManifestRegexRef({ id: nodeId, path: `regex/${nodeId}.regex.yaml` }, configPath)
       updateNodeData(nodeId, {
         ...node.data,
@@ -407,10 +414,10 @@ export function createV2SaveOps(params: {
 
       const configPath = getEffectiveProjectConfigPath()
       // Phase 8: 使用新 persistence builder 替代旧 builder
-      const file =
-        buildNodeFile(node, nodes.value, configPath || '') ||
+      const file: TransformFileV2 =
+        (buildNodeFile(node, nodes.value, configPath || '') as TransformFileV2 | undefined) ??
         buildV2TransformFile(nodes.value, nodeId)
-      await putV2TransformNode(nodeId, file as any, configPath)
+      await putV2TransformNode(nodeId, file, configPath)
       await updateV2ManifestTransformRef(
         { id: nodeId, path: `transforms/${nodeId}.transform.yaml` },
         configPath
@@ -444,8 +451,8 @@ export function createV2SaveOps(params: {
 
       const configPath = getEffectiveProjectConfigPath()
       // 收尾: 使用新 persistence builder 构建 ref
-      const ref =
-        buildNodeFile(node, nodes.value, configPath || '') ||
+      const ref: TemplateInstanceRefV2 =
+        (buildNodeFile(node, nodes.value, configPath || '') as TemplateInstanceRefV2 | undefined) ??
         (() => {
           const data = node.data as TemplateInstanceNodeData
           return {
@@ -455,7 +462,7 @@ export function createV2SaveOps(params: {
           }
         })()
 
-      await updateV2ManifestTemplateInstanceRef(ref as any, configPath)
+      await updateV2ManifestTemplateInstanceRef(ref, configPath)
       updateNodeData(nodeId, {
         ...(node.data as TemplateInstanceNodeData),
         saveState: 'saved',

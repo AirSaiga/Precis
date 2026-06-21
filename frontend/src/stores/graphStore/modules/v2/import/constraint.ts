@@ -65,7 +65,7 @@ export function createV2ConstraintImporter(params: {
 }) {
   const {
     nodes,
-    edges,
+    edges: _edges,
     selectedNodeId,
     ensureSchemaNode,
     ensureSchemaToConstraintEdge,
@@ -161,12 +161,10 @@ export function createV2ConstraintImporter(params: {
       // Conditional 有 IF 条件 + THEN 列
       const tableId = refs.table_id as string
       const schemaNode = includeDeps
-        ? await ensureSchemaNode(
-            tableId,
-            { x: position.x - 420, y: position.y },
-            undefined,
-            { importRelatedConstraints: true, excludeConstraintId: resourceId }
-          )
+        ? await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y }, undefined, {
+            importRelatedConstraints: true,
+            excludeConstraintId: resourceId,
+          })
         : nodes.value.find((n) => n.id === tableId)
 
       const thenColId = refs.then_column_id as string
@@ -211,12 +209,10 @@ export function createV2ConstraintImporter(params: {
       const tableId = refs.table_id as string
       const colIds = Array.isArray(refs.column_ids) ? (refs.column_ids as string[]) : []
       const schemaNode = includeDeps
-        ? await ensureSchemaNode(
-            tableId,
-            { x: position.x - 420, y: position.y },
-            undefined,
-            { importRelatedConstraints: true, excludeConstraintId: resourceId }
-          )
+        ? await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y }, undefined, {
+            importRelatedConstraints: true,
+            excludeConstraintId: resourceId,
+          })
         : nodes.value.find((n) => n.id === tableId)
 
       buildInput = {
@@ -242,12 +238,10 @@ export function createV2ConstraintImporter(params: {
       const colId = (refs.column_id as string) || ''
       const schemaNode =
         tableId && includeDeps
-          ? await ensureSchemaNode(
-              tableId,
-              { x: position.x - 420, y: position.y },
-              undefined,
-              { importRelatedConstraints: true, excludeConstraintId: resourceId }
-            )
+          ? await ensureSchemaNode(tableId, { x: position.x - 420, y: position.y }, undefined, {
+              importRelatedConstraints: true,
+              excludeConstraintId: resourceId,
+            })
           : nodes.value.find((n) => n.id === tableId)
 
       buildInput = {

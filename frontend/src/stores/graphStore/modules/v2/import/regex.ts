@@ -17,6 +17,7 @@
 import type { Ref } from 'vue'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { SchemaNodeData } from '@/types/nodes'
+import type { ConstraintKind } from '@/services/constraints/types'
 import { getV2RegexNode } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
 import { addNodes } from '@/services/canvas/vueFlowApi'
@@ -32,12 +33,13 @@ function resolveColumnNameById(schemaNode: CustomNode | undefined, columnId: str
 }
 
 /** 按列名在当前 schema 中查找实际列 ID */
-function resolveColumnIdByName(schemaNode: CustomNode | undefined, columnName: string): string | null {
+function resolveColumnIdByName(
+  schemaNode: CustomNode | undefined,
+  columnName: string
+): string | null {
   if (!schemaNode || !columnName) return null
   const cols = (schemaNode.data as SchemaNodeData | undefined)?.columns || []
-  const found = cols.find(
-    (x) => (x as { columnName?: string }).columnName === columnName
-  )
+  const found = cols.find((x) => (x as { columnName?: string }).columnName === columnName)
   return (found as { id?: string } | undefined)?.id || null
 }
 
@@ -83,18 +85,16 @@ export function createV2RegexImporter(params: {
     // Ctrl+G 时 TabularColumnGenerator 从 CSV header 生成的列 ID 不同。
     // 而 source_column_name 是实际列名，可与 schema 的 columns 按名称匹配。
     const actualColumnIdFromName = resolveColumnIdByName(schemaNode, v2ColumnName)
-    const actualColumnId =
-      actualColumnIdFromName || (v2SourceRef?.v2ColumnId || '')
+    const actualColumnId = actualColumnIdFromName || v2SourceRef?.v2ColumnId || ''
 
-    const resolvedColumnName =
-      v2ColumnName || resolveColumnNameById(schemaNode, actualColumnId)
+    const resolvedColumnName = v2ColumnName || resolveColumnNameById(schemaNode, actualColumnId)
 
     const sourceRef = v2SourceRef
       ? { nodeId: v2SourceRef.nodeId, columnId: actualColumnId }
       : undefined
 
     // 构建 BuildInput — 将 RegexNodeFileV2 的字段打包到 params 中
-    const result = buildNodeData('regex' as any, {
+    const result = buildNodeData('regex' as unknown as ConstraintKind, {
       mode: 'import',
       configName: r.name || 'Regex',
       schemaNodeId: sourceRef?.nodeId || '',

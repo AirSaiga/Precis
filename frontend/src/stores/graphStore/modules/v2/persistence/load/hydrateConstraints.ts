@@ -18,12 +18,13 @@
  */
 
 import type { Edge } from '@vue-flow/core'
-import type { CustomNode, CustomNodeData } from '@/types/graph'
+import type { CustomNode, CustomNodeData, SubGraphData } from '@/types/graph'
+import type { ConstraintFileV2, FullConfigV2Response } from '@/types/projectV2'
 import type { SchemaNodeData } from '@/types/nodes'
 import { getConstraintNodeTypeByV2Type } from '@/services/constraints/validationRegistry'
 
 export function hydrateManifestConstraintsFromV2Config(params: {
-  config: any
+  config: FullConfigV2Response
   existingNodes: CustomNode[]
 }) {
   const { config, existingNodes } = params
@@ -32,24 +33,15 @@ export function hydrateManifestConstraintsFromV2Config(params: {
   const nextEdges: Edge[] = []
 
   const constraintRefs = config.manifest.constraints || []
-  constraintRefs.forEach((ref: { id?: string }, idx: number) => {
-    const c = (
-      (config as Record<string, unknown>).constraints as Record<string, unknown> | undefined
-    )?.[ref.id || ''] as unknown as
-      | {
-          type?: string
-          description?: string
-          refs?: Record<string, unknown>
-          params?: Record<string, unknown>
-        }
-      | undefined
+  constraintRefs.forEach((ref, idx) => {
+    const c = config.constraints[ref.id]
     if (!c) return
 
-    const nodeId = ref.id as string
-    const nodeType = getConstraintNodeTypeByV2Type(c.type as string) ?? 'constraint'
+    const nodeId = ref.id
+    const nodeType = getConstraintNodeTypeByV2Type(c.type) ?? 'constraint'
     const pos = { x: 560 + (idx % 3) * 420, y: 80 + Math.floor(idx / 3) * 240 }
 
-    if ((c.type as string) === 'AllowedValues') {
+    if (c.type === 'AllowedValues') {
       const tableId = (c.refs as Record<string, unknown>).table_id as string
       const colId = (c.refs as Record<string, unknown>).column_id as string
       const schemaNode = existingNodes.find((n) => n.id === tableId && n.type === 'schema')
@@ -87,7 +79,7 @@ export function hydrateManifestConstraintsFromV2Config(params: {
       return
     }
 
-    if ((c.type as string) === 'ForeignKey') {
+    if (c.type === 'ForeignKey') {
       const fromTableId = (c.refs as Record<string, unknown>).from_table_id as string
       const fromColId = (c.refs as Record<string, unknown>).from_column_id as string
       const toTableId = (c.refs as Record<string, unknown>).to_table_id as string
@@ -165,7 +157,7 @@ export function hydrateManifestConstraintsFromV2Config(params: {
       return
     }
 
-    if ((c.type as string) === 'NotNull') {
+    if (c.type === 'NotNull') {
       const refs = c.refs ?? {}
       const tableId = refs.table_id as string
       const colId = refs.column_id as string
@@ -200,7 +192,7 @@ export function hydrateManifestConstraintsFromV2Config(params: {
       return
     }
 
-    if ((c.type as string) === 'Unique') {
+    if (c.type === 'Unique') {
       const refs = c.refs ?? {}
       const tableId = refs.table_id as string
       const colIds = Array.isArray(refs.column_ids) ? (refs.column_ids as string[]) : []
@@ -240,7 +232,7 @@ export function hydrateManifestConstraintsFromV2Config(params: {
       return
     }
 
-    if ((c.type as string) === 'Conditional') {
+    if (c.type === 'Conditional') {
       const refs = c.refs ?? {}
       const tableId = refs.table_id as string
       const schemaNode = existingNodes.find((n) => n.id === tableId && n.type === 'schema')
@@ -303,7 +295,7 @@ export function hydrateManifestConstraintsFromV2Config(params: {
       return
     }
 
-    if ((c.type as string) === 'Scripted') {
+    if (c.type === 'Scripted') {
       const refs = c.refs ?? {}
       const tableId = refs.table_id as string
       const colId = (refs.column_id as string) || ''
@@ -345,7 +337,7 @@ export function hydrateManifestConstraintsFromV2Config(params: {
     }
 
     // Range / Charset / DateLogic 约束的显式处理
-    if ((c.type as string) === 'Range') {
+    if (c.type === 'Range') {
       const refs = c.refs ?? {}
       const tableId = refs.table_id as string
       const colId = (refs.column_id as string) || ''
@@ -388,7 +380,7 @@ export function hydrateManifestConstraintsFromV2Config(params: {
       return
     }
 
-    if ((c.type as string) === 'Charset') {
+    if (c.type === 'Charset') {
       const refs = c.refs ?? {}
       const tableId = refs.table_id as string
       const colId = (refs.column_id as string) || ''
@@ -429,7 +421,7 @@ export function hydrateManifestConstraintsFromV2Config(params: {
       return
     }
 
-    if ((c.type as string) === 'DateLogic') {
+    if (c.type === 'DateLogic') {
       const refs = c.refs ?? {}
       const tableId = refs.table_id as string
       const colId = (refs.column_id as string) || ''
@@ -484,7 +476,7 @@ export function hydrateManifestConstraintsFromV2Config(params: {
       return
     }
 
-    if ((c.type as string) === 'Composite') {
+    if (c.type === 'Composite') {
       const refs = c.refs ?? {}
       const tableId = refs.table_id as string
       const colId = (refs.column_id as string) || ''
@@ -496,7 +488,7 @@ export function hydrateManifestConstraintsFromV2Config(params: {
         data: {
           configName: c.description || 'Composite',
           logic: String(params.logic || 'all') as 'all' | 'any' | 'none',
-          subGraph: (params.sub_graph as { nodes: any[]; edges: any[] }) || {
+          subGraph: (params.sub_graph as SubGraphData | undefined) || {
             nodes: [],
             edges: [],
           },
@@ -523,7 +515,10 @@ export function hydrateManifestConstraintsFromV2Config(params: {
       id: nodeId,
       type: nodeType,
       position: pos,
-      data: { ...(c as Record<string, unknown>), saveState: 'saved' } as unknown as CustomNodeData,
+      data: {
+        ...(c as unknown as Record<string, unknown>),
+        saveState: 'saved',
+      } as unknown as CustomNodeData,
     })
   })
 

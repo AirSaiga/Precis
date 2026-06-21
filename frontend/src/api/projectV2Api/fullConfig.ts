@@ -45,7 +45,7 @@ export async function inspectV2Config(configPath?: string): Promise<InspectionRe
       ...(configPath ? { headers: { 'X-Project-Config-Path': configPath } } : {}),
     })
     return (
-      (data as any).inspection || {
+      data.inspection || {
         inspected_at: new Date().toISOString(),
         errors: [],
       }
