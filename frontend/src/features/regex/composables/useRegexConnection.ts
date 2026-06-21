@@ -212,12 +212,12 @@ export function useRegexConnection() {
 
         // 先写入 Regex 节点的源信息，确保后续编辑弹窗可获取列上下文
         store.updateNodeData(regexNode.id, {
-          ...(regexNode.data as Record<string, unknown>),
+          ...(regexNode.data as unknown as RegexNodeData),
           sourceRef: { nodeId: schemaNode.id, columnId: sourceColumnId },
           saveState: 'draft',
           validationStatus: 'idle',
           lastValidationTime: new Date().toISOString(),
-        } as RegexNodeData)
+        } as unknown as RegexNodeData)
 
         // =====================================================
         // 步骤 4：从数据源获取样例数据
@@ -283,13 +283,13 @@ export function useRegexConnection() {
    */
   const fetchSampleDataForRegexEdit = async (options?: {
     regexNodeId?: string
-    schemaNode?: any
+    schemaNode?: CustomNode
     sourceColumnId?: string
   }) => {
     // 声明两个变量用于存储后续找到的节点和列ID
     // schemaNode: Schema 节点对象，用于访问列结构
     // sourceColumnId: 源列 ID，用于精确定位要提取的列
-    let schemaNode: any
+    let schemaNode: CustomNode | undefined
     let sourceColumnId: string
 
     // =====================================================
@@ -308,12 +308,9 @@ export function useRegexConnection() {
         return
       }
 
-      // 从 Regex 节点的数据中获取源信息
-      // 这些信息在建立连接时已经保存到这里
-      const regexData = regexNode.data as Record<string, unknown>
       // 约定：Regex 与"表结构"绑定，数据源变化由 Schema 统一管理。
       // 通过 edges 解析上游绑定，不依赖 node data 中被删除的 sourceNodeId 字段。
-      const source = resolveRegexSource(options.regexNodeId, store.nodes, store.edges as any)
+      const source = resolveRegexSource(options.regexNodeId, store.nodes, store.edges)
       if (!source || (source.sourceType !== 'schema' && source.sourceType !== 'jsonSchema')) {
         logger.warn('正则节点没有关联的数据源信息（无可用的 schema 边）')
         return
@@ -331,7 +328,7 @@ export function useRegexConnection() {
         return
       }
 
-      const schemaData = schemaNode.data as Record<string, unknown>
+      const schemaData = schemaNode.data as unknown as Record<string, unknown>
       const sourcePreviewNodeId = schemaData.sourceNodeId
       if (!sourcePreviewNodeId) {
         logger.warn('Schema 节点没有关联的数据源节点 ID')
@@ -368,7 +365,7 @@ export function useRegexConnection() {
     sourceColumnId = pending.sourceColumnId
 
     // 获取 Schema 节点的数据对象
-    const schemaData = schemaNode.data as Record<string, unknown>
+    const schemaData = schemaNode.data as unknown as Record<string, unknown>
 
     // =====================================================
     // 2.1 从 Schema 节点获取数据源节点 ID
@@ -390,7 +387,7 @@ export function useRegexConnection() {
     // =====================================================
     // 根据 sourceNodeId 查找 SourcePreview 节点
     const sourcePreviewNode = store.nodes.find(
-      (n: any) => n.id === sourceNodeId && n.type === 'sourcePreview'
+      (n) => n.id === sourceNodeId && n.type === 'sourcePreview'
     )
 
     // 验证 SourcePreview 节点是否存在
@@ -432,8 +429,8 @@ export function useRegexConnection() {
    * @param sourceColumnId - 源列 ID，用于定位具体列
    */
   const extractSampleDataFromNode = (
-    sourcePreviewNode: any,
-    schemaNode: any,
+    sourcePreviewNode: CustomNode,
+    schemaNode: CustomNode,
     sourceColumnId: string
   ) => {
     // =====================================================
@@ -441,7 +438,7 @@ export function useRegexConnection() {
     // =====================================================
     // 从 SourcePreview 节点中提取数据对象
     // sourcePreviewNode.data 包含节点的所有数据
-    const sourceData = sourcePreviewNode.data as Record<string, unknown>
+    const sourceData = sourcePreviewNode.data as unknown as Record<string, unknown>
 
     // tableData 是实际的表格数据，二维数组结构
     // tableData[0] 是表头行（列名）
@@ -469,7 +466,7 @@ export function useRegexConnection() {
     // 在 columns 数组中查找与 sourceColumnId 匹配的列对象
     // 列对象包含列的元数据：id、columnName、dataType 等
     const targetColumn = (schemaData.columns as unknown[] | undefined)?.find(
-      (col: any) => col.id === sourceColumnId
+      (col: unknown) => (col as Record<string, unknown>).id === sourceColumnId
     ) as Record<string, unknown> | undefined
 
     // 如果找不到对应的列定义，说明列 ID 无效
@@ -649,11 +646,11 @@ export function useRegexConnection() {
     // 步骤 7：显示成功提示
     // =====================================================
     // 使用国际化方法获取本地化的成功消息
+    const regexName = (regexNode.data as unknown as RegexNodeData).configName || 'Regex'
     showToastMessage(
       t('canvas.nodeCanvas.regexConnectionSuccess', {
         column: sourceColumn.columnName,
-        regex:
-          ((regexNode.data as unknown as Record<string, unknown>).configName as string) || 'Regex',
+        regex: regexName,
       }),
       'success'
     )
@@ -661,8 +658,7 @@ export function useRegexConnection() {
     // 记录连接建立的详细信息，用于调试
     logger.debug('✅ 正则校验连接已建立:', {
       columnName: sourceColumn.columnName,
-      regexName:
-        ((regexNode.data as unknown as Record<string, unknown>).configName as string) || 'Regex',
+      regexName,
     })
   }
 

@@ -35,7 +35,12 @@ import type {
   JsonSchemaNodeData,
   JsonSourcePreviewNodeData,
   CustomNodeData,
+  CustomNode,
 } from '@/types/graph'
+
+interface ToastApiLike {
+  info: (message: string) => void
+}
 
 function basename(filePath: string): string {
   return filePath.split(/[/\\]/).pop() || filePath
@@ -71,7 +76,10 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
 
   const schemaNode = graphStore.nodes.find((n) => n.id === graphStore.selectedNodeId)
   const supportedSchemaTypes = ['schema', 'jsonSchema'] as const
-  if (!schemaNode || !supportedSchemaTypes.includes(schemaNode.type as any)) {
+  if (
+    !schemaNode ||
+    !supportedSchemaTypes.includes(schemaNode.type as unknown as 'schema' | 'jsonSchema')
+  ) {
     logger.debug('[bindDataSource] 选中节点不是 schema/jsonSchema 类型:', schemaNode?.type)
     return { success: false, message: 'shortcuts.feedback.schemaOnly' }
   }
@@ -92,7 +100,11 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
   const alreadyConnected = graphStore.edges.some(
     (e) =>
       e.target === schemaNode.id &&
-      sourceTypes.includes(graphStore.nodes.find((n) => n.id === e.source)?.type as any)
+      sourceTypes.includes(
+        graphStore.nodes.find((n) => n.id === e.source)?.type as unknown as
+          | 'sourcePreview'
+          | 'jsonSourcePreview'
+      )
   )
   if (alreadyConnected) {
     logger.debug('[bindDataSource] 已存在数据源连接')
@@ -136,8 +148,8 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       jsonOptions
     )
     logger.debug('[bindDataSource] 预览数据获取成功')
-  } catch (error: any) {
-    const errorText = String(error?.message || error)
+  } catch (error: unknown) {
+    const errorText = error instanceof Error ? error.message : String(error)
     logger.error('[bindDataSource] 预览数据获取失败:', errorText)
     if (
       errorText.includes('404') &&
@@ -174,8 +186,9 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       )
       dataSource = workspaceStore.findDataSourceByPath(resolvedLocalPath)
 
-      if ((window as any).$toast) {
-        ;(window as any).$toast.info(
+      const toastApi = (window as unknown as { $toast?: ToastApiLike }).$toast
+      if (toastApi) {
+        toastApi.info(
           i18n.global.t('canvas.nodeCanvas.externalDataAdded', {
             name: basename(resolvedLocalPath),
           })
@@ -229,7 +242,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       fileName: basename(resolvedLocalPath),
       fileType: 'json',
       sourceType: 'json',
-      format: (jsonSchemaData.format as any) || 'auto',
+      format: jsonSchemaData.format || 'auto',
       jsonPath: jsonSchemaData.jsonPath || '',
       recordPath: jsonSchemaData.recordPath || '',
       rawData: (previewData.raw_data as unknown[]) || [],
@@ -256,7 +269,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
         type: 'jsonSourcePreview',
         position: { x: schemaNode.position.x - 450, y: schemaNode.position.y },
         data: nodeData,
-      } as any,
+      } as unknown as CustomNode,
     ])
   } else {
     const nodeData: SourcePreviewNodeData = {
@@ -293,7 +306,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
         type: 'sourcePreview',
         position: { x: schemaNode.position.x - 450, y: schemaNode.position.y },
         data: nodeData,
-      } as any,
+      } as unknown as CustomNode,
     ])
   }
 
@@ -318,7 +331,11 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
     (e) =>
       e.target === schemaNode.id &&
       e.source !== sourcePreviewNodeId &&
-      sourceTypes.includes(graphStore.nodes.find((n) => n.id === e.source)?.type as any)
+      sourceTypes.includes(
+        graphStore.nodes.find((n) => n.id === e.source)?.type as unknown as
+          | 'sourcePreview'
+          | 'jsonSourcePreview'
+      )
   )
   for (const edge of oldEdges) {
     graphStore.deleteConnection(edge.id)
@@ -361,7 +378,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       localPath: resolvedLocalPath,
       jsonPath: jsonSchemaData.jsonPath || '',
       recordPath: jsonSchemaData.recordPath || '',
-      format: (jsonSchemaData.format as any) || 'auto',
+      format: jsonSchemaData.format || 'auto',
     } as Partial<CustomNodeData>)
     graphStore.schemaSourceIndex?.rebuild()
   } else {

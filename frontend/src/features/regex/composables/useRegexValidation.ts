@@ -34,7 +34,7 @@ export function useRegexValidation() {
       return
     }
 
-    const source = resolveRegexSource(regexNodeId, store.nodes, store.edges as any)
+    const source = resolveRegexSource(regexNodeId, store.nodes, store.edges)
     if (!source) {
       showError(t('regexNode.validation.sourceNotConnected'))
       return
@@ -43,8 +43,8 @@ export function useRegexValidation() {
     await performRegexValidation(regexNodeId)
   }
 
-  const handleRegexBadgeClick = (regexNodeId: string) => {
-    void regexNodeId
+  const handleRegexBadgeClick = (_regexNodeId: string) => {
+    // 当前仅作为回调占位，无需实现
   }
 
   const performRegexValidation = async (
@@ -59,17 +59,20 @@ export function useRegexValidation() {
       const regexNode = store.nodes.find((node) => node.id === regexNodeId)
       if (!regexNode) return
 
-      const source = resolveRegexSource(regexNodeId, store.nodes, store.edges as any)
+      const source = resolveRegexSource(regexNodeId, store.nodes, store.edges)
       if (!source) return
 
-      const result = await validateRegexNode({
+      await validateRegexNode({
         regexNode,
         sourceNode: source.sourceNode,
         columnName: source.columnName,
         columnId: source.columnId,
         nodes: store.nodes,
         edges: store.edges,
-        updateNodeData: store.updateNodeData as any,
+        updateNodeData: store.updateNodeData as unknown as (
+          nodeId: string,
+          data: Record<string, unknown>
+        ) => void,
         signal: currentAbortController.signal,
       })
     } catch (error) {
@@ -83,7 +86,7 @@ export function useRegexValidation() {
     const regexNode = store.nodes.find((n) => n.id === nodeId && n.type === 'regex')
     if (!regexNode) return
 
-    const source = resolveRegexSource(nodeId, store.nodes, store.edges as any)
+    const source = resolveRegexSource(nodeId, store.nodes, store.edges)
     if (!source) return
 
     await performRegexValidation(nodeId)
