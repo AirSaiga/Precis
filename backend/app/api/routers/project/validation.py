@@ -34,6 +34,45 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="", tags=["Project-Validation"])
 
 
+def _resolve_table_filter_from_file_path(config_path: str, file_path: str) -> str | list[str] | None:
+    """根据数据文件绝对路径反查所属 schema table id。
+
+    遍历 manifest 的 schemas，解析每个 schema 的 source.path（相对 config_path），
+    匹配到的 schema 的 id 作为校验过滤器。
+
+    Args:
+        config_path: 项目配置根目录
+        file_path: 数据文件绝对路径（已归一化）
+
+    Returns:
+        匹配的 table id（单个返回 str，多个返回 list），无匹配返回 None
+    """
+    norm_target = os.path.normpath(os.path.abspath(file_path))
+    manifest_path = _v2_manifest_path(config_path)
+    manifest_data = read_yaml(Path(manifest_path))
+    matched: list[str] = []
+    for schema_ref in manifest_data.get("schemas", []) or []:
+        schema_id = schema_ref.get("id")
+        schema_rel = schema_ref.get("path")
+        if not schema_id or not schema_rel:
+            continue
+        schema_abs = os.path.normpath(os.path.join(config_path, schema_rel))
+        try:
+            schema_data = read_yaml(Path(schema_abs))
+        except Exception:
+            continue
+        source = schema_data.get("source") or {}
+        src_path = source.get("path")
+        if not src_path:
+            continue
+        norm_src = os.path.normpath(os.path.abspath(os.path.join(config_path, src_path)))
+        if norm_src == norm_target:
+            matched.append(schema_id)
+    if not matched:
+        return None
+    return matched[0] if len(matched) == 1 else matched
+
+
 @router.post(
     "/validate/full",
     response_model=FullValidationResponse,
@@ -41,7 +80,6 @@ router = APIRouter(prefix="", tags=["Project-Validation"])
     responses={
         400: {"description": "请求参数错误"},
         404: {"description": "Manifest 不存在"},
-        501: {"description": "功能暂未实现"},
         500: {"description": "服务器内部错误"},
     },
 )
@@ -103,7 +141,20 @@ def validate_v2_full(
     table_filter = None
     if request.target:
         if request.target.type == "single_file":
-            raise HTTPException(status_code=501, detail="当前版本暂不支持单文件全量校验")
+            file_path = (request.target.file_path or "").strip()
+            if not file_path:
+                raise HTTPException(status_code=400, detail="单文件校验缺少 file_path")
+            # 若传入相对路径，基于 config_path 解析为绝对路径
+            if not os.path.isabs(file_path):
+                file_path = os.path.normpath(os.path.join(config_path, file_path))
+            if not os.path.isfile(file_path):
+                raise HTTPException(status_code=404, detail=f"数据文件不存在: {file_path}")
+            table_filter = _resolve_table_filter_from_file_path(config_path, file_path)
+            if table_filter is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"未找到引用该文件的 schema: {file_path}",
+                )
         if request.target.type == "single_table":
             table_filter = (request.target.table_id or "").strip()
             if not table_filter:
