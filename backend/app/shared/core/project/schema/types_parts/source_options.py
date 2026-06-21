@@ -56,7 +56,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Literal, Union
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -245,9 +245,9 @@ class ExcelOptions(BaseModel):
 
 
 # 格式选项联合类型
-# 使用 Union 实现多态，支持不同格式的特定配置
+# 使用联合类型实现多态，支持不同格式的特定配置
 # 这意味着一个变量可以是 JSONOptions、CSVOptions 或 ExcelOptions 中的任意一种
-FormatOptions = Union[JSONOptions, CSVOptions, ExcelOptions]
+FormatOptions = JSONOptions | CSVOptions | ExcelOptions
 
 
 def create_format_options(file_ext: str, options_dict: dict | None = None) -> FormatOptions | None:

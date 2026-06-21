@@ -24,7 +24,6 @@
 
 import logging
 import os
-from typing import Optional
 
 from app.shared.core.project.manifest.types import ProjectManifestV2
 from app.shared.core.project.schema.types import TableSchemaFile
@@ -56,7 +55,7 @@ class DataSourceResolver:
         self.manifest = manifest
         self._schema_by_id = schema_by_id
 
-    def resolve_first_data_source(self) -> Optional[str]:
+    def resolve_first_data_source(self) -> str | None:
         """
         @methoddesc 解析 manifest 中配置的第一个数据源目录
 
@@ -86,9 +85,7 @@ class DataSourceResolver:
                 logger.warning(f"[DataSourceResolver] 数据源目录不存在（相对路径）: {relative_path}")
                 return None
 
-    def resolve_source_path(
-        self, data_directory: str, schema_file: TableSchemaFile
-    ) -> tuple[Optional[str], Optional[str]]:
+    def resolve_source_path(self, data_directory: str, schema_file: TableSchemaFile) -> tuple[str | None, str | None]:
         """
         @methoddesc 根据 Schema 定义解析数据源文件路径
 

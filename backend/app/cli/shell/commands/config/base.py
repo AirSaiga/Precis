@@ -19,7 +19,6 @@
 """
 
 import os
-from typing import Optional
 
 from app.shared.core.utils.path_utils import paths_equal
 
@@ -85,7 +84,7 @@ patterns:
 """
 
 
-def find_config_file(project_path: str, filename: str) -> Optional[str]:
+def find_config_file(project_path: str, filename: str) -> str | None:
     """查找配置文件。
 
     首先尝试直接拼接路径，如果失败则在项目目录下递归查找。

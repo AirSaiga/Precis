@@ -30,7 +30,6 @@
 """
 
 import logging
-from typing import Optional
 
 from fastapi import Header, HTTPException
 from fastapi.responses import StreamingResponse
@@ -54,7 +53,7 @@ from .router import router
         502: {"description": "AI 服务调用失败"},
     },
 )
-async def chat(request: AiChatRequest, x_project_config_path: Optional[str] = Header(None)):
+async def chat(request: AiChatRequest, x_project_config_path: str | None = Header(None)):
     """
     与前端对齐的 AI 聊天接口
 

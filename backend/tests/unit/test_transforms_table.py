@@ -203,9 +203,7 @@ class TestAggregateRunner:
     def test_group_by_as_list(self):
         """前端 tags 产出数组格式，后端必须兼容"""
         runner = AggregateRunner()
-        df = pd.DataFrame(
-            {"region": ["北", "北", "南"], "dept": ["A", "B", "A"], "value": [1, 2, 3]}
-        )
+        df = pd.DataFrame({"region": ["北", "北", "南"], "dept": ["A", "B", "A"], "value": [1, 2, 3]})
         result = runner.execute(
             df,
             "value",

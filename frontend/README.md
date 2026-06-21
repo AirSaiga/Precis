@@ -13,7 +13,7 @@ Vue 3 + TypeScript 可视化编辑器，基于 Vue Flow 画布引擎。
 | 技术               | 用途                      |
 | ------------------ | ------------------------- |
 | Vue 3 + TypeScript | 框架                      |
-| Vite 7             | 构建工具                  |
+| Vite 8             | 构建工具                  |
 | Pinia              | 状态管理                  |
 | Vue Flow           | 画布/DAG 引擎             |
 | Vue Router         | 路由                      |
@@ -93,22 +93,30 @@ src/
 │   ├── managers/           # 服务管理器
 │   ├── registry/           # 服务注册表
 │   ├── reportExport/       # 报告导出
-│   ├── rules/              # 连接规则（~25 条）
+│   ├── rules/              # 连接规则（20 条）
 │   └── validationReportViewModel.ts
 ├── stores/                 # Pinia 状态管理
 │   ├── graphStore/         # 画布核心 Store（Setup Store + 工厂模块）
 │   │   ├── setup/           # 入口（state.ts + computed.ts + assembly.ts + index.ts）
 │   │   └── modules/        # 工厂模块（factories/ v2/ clipboard/ history/ ...）
-│   ├── canvasStore.ts      # 多标签画布
+│   ├── canvasStore.ts      # 画布状态
+│   ├── canvasTabStore.ts   # 多标签画布
 │   ├── workspaceStore.ts   # 数据源工作区
 │   ├── resourceTreeStore.ts # 资源树
 │   ├── resourceFolderStore.ts # 资源树展开状态
 │   ├── resourceSearchStore.ts # 资源搜索
+│   ├── resourceDragStore.ts # 资源拖拽状态
 │   ├── dragStore.ts        # 拖拽状态
 │   ├── projectStore.ts     # 项目状态
+│   ├── projectSettingsStore.ts # 项目设置
 │   ├── settingsStore.ts    # 设置状态
+│   ├── settingsPreferencesStore.ts # 偏好设置
+│   ├── settingsNavStore.ts # 设置导航
 │   ├── aiChatStore.ts      # AI 聊天
+│   ├── expressionStore.ts  # 表达式管理
+│   ├── scriptEditorStore.ts # 脚本编辑器
 │   ├── validationTaskStore.ts # 校验任务
+│   ├── inspectionStore.ts  # 检查/校验结果
 │   └── ...
 ├── types/                  # TypeScript 类型定义
 │   ├── graph.ts            # 节点/边核心类型
@@ -140,7 +148,7 @@ src/
 
 ### 连接系统
 
-连接规则定义在 `services/rules/connectionRules.ts`（~25 条规则），通过 `connectionPolicyService` 验证连线合法性，`useCanvasConnectionWatcher` 监听边变化并同步状态。
+连接规则定义在 `services/rules/connectionRules.ts`（20 条规则），通过 `connectionPolicyService` 验证连线合法性，`useCanvasConnectionWatcher` 监听边变化并同步状态。
 
 ---
 

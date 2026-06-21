@@ -1,5 +1,5 @@
 # Precis 后端依赖锁定文件
-# Python 版本要求: >=3.9, <3.14
+# Python 版本要求: >=3.12, <3.14
 #
 # 注意: 本文件包含 pyproject.toml [project.dependencies] + [project.optional-dependencies].full
 #       的所有直接依赖的精确锁定版本。开发依赖（ruff, mypy, pytest）不在此列。

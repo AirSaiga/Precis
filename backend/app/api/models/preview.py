@@ -22,8 +22,6 @@
     )
 """
 
-from typing import Optional
-
 from pydantic import BaseModel
 
 
@@ -46,11 +44,11 @@ class FilePreviewResponse(BaseModel):
     """
 
     success: bool
-    data: Optional[list[list[str]]] = None
+    data: list[list[str]] | None = None
     file_type: str
     file_name: str
-    total_rows: Optional[int] = None
-    total_cols: Optional[int] = None
-    sheets: Optional[list[str]] = None
-    current_sheet: Optional[str] = None
-    error: Optional[str] = None
+    total_rows: int | None = None
+    total_cols: int | None = None
+    sheets: list[str] | None = None
+    current_sheet: str | None = None
+    error: str | None = None

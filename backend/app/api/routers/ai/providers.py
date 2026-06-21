@@ -19,7 +19,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Optional
 
 from fastapi import HTTPException
 
@@ -144,7 +143,7 @@ async def list_providers():
 
 @router.get(
     "/providers/active",
-    response_model=Optional[ProviderResponse],
+    response_model=ProviderResponse | None,
     summary="获取当前活动的 Provider",
     responses={
         500: {"description": "服务器内部错误"},

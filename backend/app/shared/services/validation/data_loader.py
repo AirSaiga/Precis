@@ -24,7 +24,7 @@
 import logging
 import os
 from collections import defaultdict
-from typing import Any, Optional, Union
+from typing import Any
 
 import pandas as pd
 
@@ -110,7 +110,7 @@ class DataLoader:
     def load_data_sources(
         self,
         data_directory: str,
-        table_filter: Optional[Union[str, list[str]]] = None,
+        table_filter: str | list[str] | None = None,
     ) -> tuple[dict[str, pd.DataFrame], list[dict]]:
         """
         @methoddesc 批量加载数据文件
@@ -143,7 +143,7 @@ class DataLoader:
             return {}, loading_errors
 
         # Step 2: 处理表过滤条件
-        filter_set: Optional[set] = None
+        filter_set: set | None = None
         if table_filter:
             if isinstance(table_filter, str):
                 filter_set = {table_filter}
@@ -151,7 +151,7 @@ class DataLoader:
                 filter_set = set(table_filter)
 
         # 收集需要加载的表（含外键关联表）
-        tables_to_load: Optional[set] = None
+        tables_to_load: set | None = None
         if filter_set:
             tables_to_load = self._collect_foreign_key_tables(filter_set)
 

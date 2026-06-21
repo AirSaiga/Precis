@@ -27,7 +27,7 @@
     )
 """
 
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
@@ -102,15 +102,13 @@ class ValidationSettingsOverride(BaseModel):
 
     model_config = ConfigDict(extra="forbid")  # 禁止额外字段，防止传入未定义的配置项
 
-    auto_validate: Optional[bool] = Field(default=None)  # True 表示加载数据后自动执行校验，None 表示使用项目默认配置
-    strict_mode: Optional[bool] = Field(
-        default=None
-    )  # True 表示遇到首个错误即停止校验，False 表示继续执行并汇总所有错误
-    error_handling: Optional[Literal["stop", "continue", "report"]] = Field(
+    auto_validate: bool | None = Field(default=None)  # True 表示加载数据后自动执行校验，None 表示使用项目默认配置
+    strict_mode: bool | None = Field(default=None)  # True 表示遇到首个错误即停止校验，False 表示继续执行并汇总所有错误
+    error_handling: Literal["stop", "continue", "report"] | None = Field(
         default=None
     )  # 错误处理策略：stop（停止）、continue（继续）、report（仅报告）
-    timeout_seconds: Optional[int] = Field(default=None, ge=1, le=300)  # 校验任务超时时间（秒），最小 1 秒，最大 300 秒
-    batch_max_files: Optional[int] = Field(
+    timeout_seconds: int | None = Field(default=None, ge=1, le=300)  # 校验任务超时时间（秒），最小 1 秒，最大 300 秒
+    batch_max_files: int | None = Field(
         default=None, ge=1, le=1000
     )  # 批量加载文件时的最大文件数量限制，最小 1，最大 1000
 
@@ -128,10 +126,10 @@ class FileProcessingSettingsOverride(BaseModel):
 
     model_config = ConfigDict(extra="forbid")  # 禁止额外字段，确保配置严格受控
 
-    default_encoding: Optional[Literal["utf-8", "gbk", "auto"]] = Field(
+    default_encoding: Literal["utf-8", "gbk", "auto"] | None = Field(
         default=None
     )  # 文件编码：utf-8、gbk 或自动检测（auto）
-    csv_delimiter: Optional[str] = Field(default=None)  # CSV 文件列分隔符，如 "," ";" "\t"，None 表示使用项目默认配置
+    csv_delimiter: str | None = Field(default=None)  # CSV 文件列分隔符，如 "," ";" "\t"，None 表示使用项目默认配置
 
 
 class ScriptSecuritySettingsOverride(BaseModel):
@@ -150,10 +148,10 @@ class ScriptSecuritySettingsOverride(BaseModel):
 
     model_config = ConfigDict(extra="forbid")  # 禁止额外字段，防止安全配置被绕过
 
-    allow_eval: Optional[bool] = Field(default=None)  # True 允许在校验中使用 eval 执行动态表达式，存在代码注入风险
-    allow_exec: Optional[bool] = Field(default=None)  # True 允许在校验中使用 exec 执行代码块，安全风险较高
-    sandbox_mode: Optional[bool] = Field(default=None)  # True 启用沙箱隔离，限制脚本执行环境访问范围
-    timeout_seconds: Optional[int] = Field(
+    allow_eval: bool | None = Field(default=None)  # True 允许在校验中使用 eval 执行动态表达式，存在代码注入风险
+    allow_exec: bool | None = Field(default=None)  # True 允许在校验中使用 exec 执行代码块，安全风险较高
+    sandbox_mode: bool | None = Field(default=None)  # True 启用沙箱隔离，限制脚本执行环境访问范围
+    timeout_seconds: int | None = Field(
         default=None, ge=1, le=60
     )  # 单个脚本执行的最大允许时间（秒），最小 1 秒，最大 60 秒
 
@@ -173,13 +171,9 @@ class ProjectSettingsOverride(BaseModel):
 
     model_config = ConfigDict(extra="forbid")  # 禁止额外字段，保持配置结构清晰
 
-    validation: Optional[ValidationSettingsOverride] = Field(default=None)  # 校验行为设置覆盖，如严格模式、超时等
-    file_processing: Optional[FileProcessingSettingsOverride] = Field(
-        default=None
-    )  # 文件处理设置覆盖，如编码、分隔符等
-    script_security: Optional[ScriptSecuritySettingsOverride] = Field(
-        default=None
-    )  # 脚本安全策略覆盖，如 eval/exec 权限
+    validation: ValidationSettingsOverride | None = Field(default=None)  # 校验行为设置覆盖，如严格模式、超时等
+    file_processing: FileProcessingSettingsOverride | None = Field(default=None)  # 文件处理设置覆盖，如编码、分隔符等
+    script_security: ScriptSecuritySettingsOverride | None = Field(default=None)  # 脚本安全策略覆盖，如 eval/exec 权限
 
 
 class ValidationTaskTarget(BaseModel):
@@ -201,15 +195,13 @@ class ValidationTaskTarget(BaseModel):
     type: Literal["full_project", "single_table", "single_file"] = Field(
         ..., description="校验目标类型"
     )  # 校验范围：全项目、单表、单文件
-    table_id: Optional[str] = Field(
+    table_id: str | None = Field(
         default=None, description="单表校验时的表 ID"
     )  # 当 type 为 single_table 时，指定目标表的 ID
-    file_path: Optional[str] = Field(
+    file_path: str | None = Field(
         default=None, description="单文件校验时的文件路径"
     )  # 当 type 为 single_file 时，指定目标文件路径
-    display_name: Optional[str] = Field(
-        default=None, description="前端展示名称"
-    )  # 任务在前端界面中显示的友好名称，可选
+    display_name: str | None = Field(default=None, description="前端展示名称")  # 任务在前端界面中显示的友好名称，可选
 
 
 class ValidationTaskRunOptions(BaseModel):
@@ -225,10 +217,10 @@ class ValidationTaskRunOptions(BaseModel):
 
     model_config = ConfigDict(extra="forbid")  # 禁止额外字段，防止传入无效运行参数
 
-    data_directory: Optional[str] = Field(
+    data_directory: str | None = Field(
         default=None, description="数据目录（用于解析 relative_file source.path）"
     )  # 数据文件根目录，relative_file 类型的数据源路径基于此解析
-    override_settings: Optional[ProjectSettingsOverride] = Field(
+    override_settings: ProjectSettingsOverride | None = Field(
         default=None,
         description="可选：覆盖 project.precis.yaml 中 settings 的部分字段",
     )  # 临时覆盖项目配置，仅对本次校验任务生效
@@ -292,14 +284,14 @@ class FullValidationOptions(BaseModel):
         allow_unsafe_eval: 是否允许执行含 eval 的脚本化约束
     """
 
-    data_directory: Optional[str] = Field(
+    data_directory: str | None = Field(
         None, description="数据目录（用于解析 relative_file source.path）"
     )  # 数据文件根目录，relative_file 类型的数据源路径基于此解析
-    override_settings: Optional[ProjectSettingsOverride] = Field(
+    override_settings: ProjectSettingsOverride | None = Field(
         default=None,
         description="可选：覆盖 project.precis.yaml 中 settings 的部分字段（validation/file_processing/script_security）",
     )  # 临时覆盖项目配置，仅对本次全量校验任务生效
-    allow_unsafe_eval: Optional[bool] = Field(
+    allow_unsafe_eval: bool | None = Field(
         default=None,
         description="是否允许执行含 eval 的脚本化约束；None 表示使用项目默认配置",
     )  # True 允许脚本化约束使用 eval，False 强制禁用，None 遵循项目配置
@@ -316,10 +308,10 @@ class FullValidationRequest(BaseModel):
         options: 全量校验选项
     """
 
-    target: Optional[ValidationTaskTarget] = Field(
+    target: ValidationTaskTarget | None = Field(
         default=None, description="校验目标"
     )  # 校验目标定义，None 表示默认校验整个项目
-    options: Optional[FullValidationOptions] = Field(
+    options: FullValidationOptions | None = Field(
         default=None, description="全量校验选项"
     )  # 校验执行选项，None 表示使用项目默认配置
 
@@ -394,31 +386,31 @@ class FullValidationErrorItem(BaseModel):
     error_type: str = Field(
         ..., description="错误类型"
     )  # 错误的具体类型标识，如 FileNotFound、MissingColumn、NotNullViolation 等
-    check_type: Optional[str] = Field(
+    check_type: str | None = Field(
         default=None, description="检查类型"
     )  # 触发错误的检查类型，如 NotNull、Unique、Range 等，预检/加载阶段可能为空
     message: str = Field(..., description="错误说明")  # 面向用户的错误描述文本，说明错误原因和影响
-    table: Optional[str] = Field(
+    table: str | None = Field(
         default=None, description="表名（运行时 name）"
     )  # 错误关联的数据表运行时名称（解析后的名称），可选
-    table_id: Optional[str] = Field(
+    table_id: str | None = Field(
         default=None, description="表 ID（schema 文件中的 id）"
     )  # 错误关联的数据表在 schema 配置文件中的原始 ID，可选
-    column: Optional[str] = Field(default=None, description="列名")  # 错误关联的数据列运行时名称，可选
-    column_id: Optional[str] = Field(
+    column: str | None = Field(default=None, description="列名")  # 错误关联的数据列运行时名称，可选
+    column_id: str | None = Field(
         default=None, description="列 ID"
     )  # 错误关联的数据列在 schema 配置文件中的原始 ID，可选
-    row_index: Optional[int] = Field(
+    row_index: int | None = Field(
         default=None, description="行索引（从0开始）"
     )  # 错误发生的行索引（数据行，从 0 开始计数），可选
-    value: Optional[str] = Field(default=None, description="相关值（可选）")  # 触发错误的单元格原始值或相关数据，可选
-    source_path: Optional[str] = Field(
+    value: str | None = Field(default=None, description="相关值（可选）")  # 触发错误的单元格原始值或相关数据，可选
+    source_path: str | None = Field(
         default=None, description="相关源文件路径（可选）"
     )  # 错误关联的源数据文件绝对路径，可选
-    source_file: Optional[str] = Field(
+    source_file: str | None = Field(
         default=None, description="配置文件内定义的数据源文件名（可选）"
     )  # schema 配置中 source.path 定义的原始文件名，可选
-    source_sheet: Optional[str] = Field(
+    source_sheet: str | None = Field(
         default=None, description="配置文件内定义的 Excel Sheet 名（可选）"
     )  # schema 配置中 source.sheet 定义的 Excel 工作表名称，可选
 
@@ -447,23 +439,21 @@ class ValidationPassedItem(BaseModel):
         ..., description="检查类型"
     )  # 通过检查的类型标识，如 NotNull、Unique、AllowedValues、Regex 等
     message: str = Field(..., description="通过说明")  # 面向用户的通过说明文本，描述检查内容和结果
-    table: Optional[str] = Field(
-        default=None, description="表名（运行时 name）"
-    )  # 通过检查关联的数据表运行时名称，可选
-    table_id: Optional[str] = Field(
+    table: str | None = Field(default=None, description="表名（运行时 name）")  # 通过检查关联的数据表运行时名称，可选
+    table_id: str | None = Field(
         default=None, description="表 ID（schema 文件中的 id）"
     )  # 通过检查关联的数据表在 schema 配置文件中的原始 ID，可选
-    column: Optional[str] = Field(default=None, description="列名")  # 通过检查关联的数据列运行时名称，可选
-    column_id: Optional[str] = Field(
+    column: str | None = Field(default=None, description="列名")  # 通过检查关联的数据列运行时名称，可选
+    column_id: str | None = Field(
         default=None, description="列 ID"
     )  # 通过检查关联的数据列在 schema 配置文件中的原始 ID，可选
-    source_path: Optional[str] = Field(
+    source_path: str | None = Field(
         default=None, description="相关源文件路径（可选）"
     )  # 通过检查关联的源数据文件绝对路径，可选
-    source_file: Optional[str] = Field(
+    source_file: str | None = Field(
         default=None, description="配置文件内定义的数据源文件名（可选）"
     )  # schema 配置中 source.path 定义的原始文件名，可选
-    source_sheet: Optional[str] = Field(
+    source_sheet: str | None = Field(
         default=None, description="配置文件内定义的 Excel Sheet 名（可选）"
     )  # schema 配置中 source.sheet 定义的 Excel 工作表名称，可选
 
@@ -525,15 +515,15 @@ class FullValidationResponse(BaseModel):
     passed_items: list[ValidationPassedItem] = Field(
         default_factory=list, description="通过项列表"
     )  # 校验通过的所有检查项明细列表，用于展示完整校验覆盖情况
-    statistics: Optional[ValidationStatistics] = Field(
+    statistics: ValidationStatistics | None = Field(
         default=None, description="详细统计信息"
     )  # 校验的详细统计信息，包含按类型和按表的分组统计，可选
-    error: Optional[str] = Field(
+    error: str | None = Field(
         default=None, description="致命错误信息（可选）"
     )  # 当 success 为 False 时的致命错误描述，如任务启动失败、配置解析异常等
     warnings: list[str] = Field(
         default_factory=list, description="警告信息列表（可选）"
     )  # 校验过程中的非致命警告信息列表，如建议优化项、已自动修复的问题等
-    coverage: Optional[ValidationCoverage] = Field(
+    coverage: ValidationCoverage | None = Field(
         default=None, description="清单一致性覆盖信息（可选）"
     )  # 项目清单与磁盘文件的一致性检查结果，可选

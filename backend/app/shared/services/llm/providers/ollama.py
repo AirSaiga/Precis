@@ -138,7 +138,7 @@ class OllamaProvider(BaseProvider):
                             message=f"请求失败({resp.status}): {text[:200]}",
                         )
                     return await resp.json()
-            except (_aiohttp.ClientConnectionError, asyncio.TimeoutError, _aiohttp.ClientResponseError) as e:
+            except (TimeoutError, _aiohttp.ClientConnectionError, _aiohttp.ClientResponseError) as e:
                 should_retry = isinstance(e, (_aiohttp.ClientConnectionError, asyncio.TimeoutError)) or (
                     isinstance(e, _aiohttp.ClientResponseError) and e.status in (429, 500, 502, 503)
                 )

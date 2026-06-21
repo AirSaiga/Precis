@@ -25,7 +25,6 @@
 import logging
 import os
 from pathlib import Path
-from typing import Optional, Union
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -46,7 +45,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="", tags=["Project-Manifest"])
 
 # 引用类型联合，用于 _upsert_manifest_ref 的参数类型标注
-_Ref = Union[SchemaRef, ConstraintRef, RegexRef]
+_Ref = SchemaRef | ConstraintRef | RegexRef
 
 # manifest 中引用列表字段名到资源类型中文标签的映射
 _FIELD_LABEL_MAP: dict[str, str] = {
@@ -56,7 +55,7 @@ _FIELD_LABEL_MAP: dict[str, str] = {
 }
 
 
-def _read_manifest(manifest_path: str) -> Optional[ProjectManifestV2]:
+def _read_manifest(manifest_path: str) -> ProjectManifestV2 | None:
     """
     @methoddesc 从文件读取并解析 manifest
 

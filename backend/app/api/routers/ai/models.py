@@ -24,7 +24,7 @@
         manifest: Optional[dict[str, Any]] = None
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -43,10 +43,10 @@ class ChatMessageInput(BaseModel):
 class ChatRequestInput(BaseModel):
     """聊天请求输入"""
 
-    provider_id: Optional[str] = Field(default=None, description="指定 Provider，不指定则使用默认")
+    provider_id: str | None = Field(default=None, description="指定 Provider，不指定则使用默认")
     messages: list[ChatMessageInput]
     stream: bool = False
-    model: Optional[str] = Field(default=None, description="覆盖默认模型")
+    model: str | None = Field(default=None, description="覆盖默认模型")
     temperature: float = 0.7
 
 
@@ -63,7 +63,7 @@ class AiChatContextNode(BaseModel):
     id: str
     type: str
     data: dict[str, Any]
-    label: Optional[str] = None
+    label: str | None = None
 
 
 class AiChatContext(BaseModel):
@@ -85,7 +85,7 @@ class AiChatRequest(BaseModel):
 
     message: str
     context: AiChatContext
-    history: Optional[list[AiChatHistoryMessage]] = None
+    history: list[AiChatHistoryMessage] | None = None
     agent_mode: bool = Field(default=True, description="是否启用 Agent 深度模式")
 
 
@@ -103,8 +103,8 @@ class AiChatResponse(BaseModel):
     reply: str
     actions: list[Any]
     frontend_instructions: list[Any]
-    agent_meta: Optional[AgentMeta] = None
-    error: Optional[str] = None
+    agent_meta: AgentMeta | None = None
+    error: str | None = None
 
 
 class ProviderResponse(BaseModel):
@@ -118,7 +118,7 @@ class ProviderResponse(BaseModel):
     deployment: str
     base_url: str
     model: str
-    context_window: Optional[int] = Field(default=None, description="用户指定的上下文窗口，None 表示自动探测/回退")
+    context_window: int | None = Field(default=None, description="用户指定的上下文窗口，None 表示自动探测/回退")
     health: dict[str, Any]
     is_configured: bool = False
 
@@ -144,9 +144,9 @@ class CreateProviderRequest(BaseModel):
     name: str = Field(..., description="显示名称")
     type: str = Field(default="openai", description="Provider 类型（openai 或 ollama）")
     base_url: str = Field(..., description="API 基础 URL")
-    api_key: Optional[str] = Field(default=None, description="API 密钥，本地服务可留空")
+    api_key: str | None = Field(default=None, description="API 密钥，本地服务可留空")
     model: str = Field(..., description="默认模型名称")
-    context_window: Optional[int] = Field(
+    context_window: int | None = Field(
         default=None,
         ge=1024,
         description="模型上下文窗口（tokens），留空则自动探测或回退到 200k",
@@ -156,12 +156,12 @@ class CreateProviderRequest(BaseModel):
 class UpdateProviderRequest(BaseModel):
     """更新 Provider 请求（所有字段可选，仅传递需要更新的字段）"""
 
-    name: Optional[str] = Field(default=None, description="显示名称")
-    type: Optional[str] = Field(default=None, description="Provider 类型")
-    base_url: Optional[str] = Field(default=None, description="API 基础 URL")
-    api_key: Optional[str] = Field(default=None, description="API 密钥，传空字符串表示清空")
-    model: Optional[str] = Field(default=None, description="默认模型名称")
-    context_window: Optional[int] = Field(
+    name: str | None = Field(default=None, description="显示名称")
+    type: str | None = Field(default=None, description="Provider 类型")
+    base_url: str | None = Field(default=None, description="API 基础 URL")
+    api_key: str | None = Field(default=None, description="API 密钥，传空字符串表示清空")
+    model: str | None = Field(default=None, description="默认模型名称")
+    context_window: int | None = Field(
         default=None,
         ge=1024,
         description="模型上下文窗口（tokens），不传则保持原值，传值则更新",
@@ -195,7 +195,7 @@ class ConfigGenerateOptions(BaseModel):
     generate_constraints: bool = Field(default=True, description="生成约束规则")
     generate_regex_nodes: bool = Field(default=False, description="生成正则节点")
     keep_existing: bool = Field(default=True, description="保留现有配置")
-    target_files: Optional[list[str]] = Field(default=None, description="指定目标文件")
+    target_files: list[str] | None = Field(default=None, description="指定目标文件")
     agent_mode: bool = Field(default=True, description="启用 Agent 多轮优化模式")
     max_iterations: int = Field(default=2, ge=1, le=5, description="Agent 最大迭代轮数")
     validation_sample_size: int = Field(default=1000, ge=100, le=10000, description="校验采样行数")
@@ -210,7 +210,7 @@ class ConfigGenerateRequest(BaseModel):
     file_paths: list[str] = Field(..., description="数据文件路径列表")
     project_name: str = Field(..., description="项目名称")
     project_id: str = Field(..., description="项目标识")
-    provider_id: Optional[str] = Field(default=None, description="指定AI Provider，不指定使用默认")
+    provider_id: str | None = Field(default=None, description="指定AI Provider，不指定使用默认")
     options: ConfigGenerateOptions = Field(default_factory=ConfigGenerateOptions)
 
 
@@ -219,14 +219,14 @@ class ConfigGenerateResponse(BaseModel):
 
     success: bool
     yaml_preview: str = Field(..., description="生成的配置YAML预览")
-    manifest: Optional[dict[str, Any]] = Field(default=None, description="项目清单")
-    schemas: Optional[dict[str, Any]] = Field(default=None, description="表结构定义")
-    constraints: Optional[dict[str, Any]] = Field(default=None, description="约束规则")
-    regex_nodes: Optional[dict[str, Any]] = Field(default=None, description="正则节点")
+    manifest: dict[str, Any] | None = Field(default=None, description="项目清单")
+    schemas: dict[str, Any] | None = Field(default=None, description="表结构定义")
+    constraints: dict[str, Any] | None = Field(default=None, description="约束规则")
+    regex_nodes: dict[str, Any] | None = Field(default=None, description="正则节点")
     warnings: list[str] = Field(default_factory=list)
-    error: Optional[str] = None
-    iterations: Optional[int] = Field(default=None, description="Agent 迭代轮数")
-    metrics: Optional[dict[str, Any]] = Field(default=None, description="Agent 校验指标")
+    error: str | None = None
+    iterations: int | None = Field(default=None, description="Agent 迭代轮数")
+    metrics: dict[str, Any] | None = Field(default=None, description="Agent 校验指标")
 
 
 class ConfigMigrateSource(BaseModel):
@@ -234,7 +234,7 @@ class ConfigMigrateSource(BaseModel):
 
     content: str = Field(..., description="脚本内容或自然语言描述")
     language: str = Field(default="python", description="脚本类型: python/natural_language/excel_formula/sql")
-    name: Optional[str] = Field(default=None, description="来源名称或文件路径，用于展示")
+    name: str | None = Field(default=None, description="来源名称或文件路径，用于展示")
 
 
 class ConfigMigrateRequest(BaseModel):
@@ -242,11 +242,11 @@ class ConfigMigrateRequest(BaseModel):
 
     script_content: str = Field(default="", description="脚本内容或自然语言描述（兼容单来源）")
     language: str = Field(default="python", description="脚本类型: python/natural_language/excel_formula/sql")
-    sources: Optional[list[ConfigMigrateSource]] = Field(default=None, description="批量脚本来源列表")
+    sources: list[ConfigMigrateSource] | None = Field(default=None, description="批量脚本来源列表")
     file_paths: list[str] = Field(default_factory=list, description="数据文件路径列表")
     project_name: str = Field(..., description="项目名称")
     project_id: str = Field(..., description="项目标识")
-    provider_id: Optional[str] = Field(default=None, description="指定AI Provider，不指定使用默认")
+    provider_id: str | None = Field(default=None, description="指定AI Provider，不指定使用默认")
     options: ConfigGenerateOptions = Field(default_factory=ConfigGenerateOptions)
 
 
@@ -266,19 +266,19 @@ class ConfigGenerateJobStatus(BaseModel):
 
     job_id: str
     status: str = Field(..., description="pending/running/completed/failed/cancelled")
-    stage: Optional[str] = Field(default=None, description="当前阶段")
-    message: Optional[str] = Field(default=None, description="状态消息")
-    progress: Optional[float] = Field(default=None, description="进度 0-100")
-    iterations: Optional[int] = Field(default=None, description="当前已执行迭代轮数")
-    max_iterations: Optional[int] = Field(default=None, description="最大迭代轮数")
-    metrics: Optional[dict[str, Any]] = Field(default=None, description="校验指标")
-    current_plan: Optional[list[dict[str, Any]]] = Field(default=None, description="当前执行计划")
-    checkpoints: Optional[list[dict[str, Any]]] = Field(default=None, description="已保存的 checkpoints")
+    stage: str | None = Field(default=None, description="当前阶段")
+    message: str | None = Field(default=None, description="状态消息")
+    progress: float | None = Field(default=None, description="进度 0-100")
+    iterations: int | None = Field(default=None, description="当前已执行迭代轮数")
+    max_iterations: int | None = Field(default=None, description="最大迭代轮数")
+    metrics: dict[str, Any] | None = Field(default=None, description="校验指标")
+    current_plan: list[dict[str, Any]] | None = Field(default=None, description="当前执行计划")
+    checkpoints: list[dict[str, Any]] | None = Field(default=None, description="已保存的 checkpoints")
     created_at: str
     updated_at: str
     warnings: list[str] = Field(default_factory=list)
-    error: Optional[str] = None
-    result: Optional[ConfigGenerateResponse] = None
+    error: str | None = None
+    result: ConfigGenerateResponse | None = None
 
 
 # =============================================================================
@@ -298,7 +298,7 @@ class HardwareRequirement(BaseModel):
 
     name: str
     required: str
-    current: Optional[str] = None
+    current: str | None = None
     satisfied: bool = False
 
 
@@ -306,9 +306,9 @@ class HardwareDiagnoseResponse(BaseModel):
     """硬件诊断响应"""
 
     platform: str
-    cpu: Optional[HardwareInfo] = None
-    memory: Optional[HardwareInfo] = None
-    disk: Optional[HardwareInfo] = None
-    gpu: Optional[list[HardwareInfo]] = None
+    cpu: HardwareInfo | None = None
+    memory: HardwareInfo | None = None
+    disk: HardwareInfo | None = None
+    gpu: list[HardwareInfo] | None = None
     requirements: list[HardwareRequirement] = Field(default_factory=list)
     recommendations: list[str] = Field(default_factory=list)

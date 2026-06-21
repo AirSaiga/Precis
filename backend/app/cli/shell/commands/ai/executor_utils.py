@@ -44,7 +44,6 @@ import logging
 import threading
 import time
 from pathlib import Path
-from typing import Optional
 
 from app.cli.shell.commands.ai.base import (
     mask_api_key,
@@ -72,7 +71,7 @@ class SpinnerController:
     def __init__(self):
         self._stop_event = threading.Event()
         self._pause_event = threading.Event()
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
         # Unicode Braille 点字图案，用于终端旋转动画
         self._chars = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"]
 
@@ -122,7 +121,7 @@ class SpinnerController:
             time.sleep(0.1)
 
 
-def _get_provider_with_key() -> Optional[AIProvider]:
+def _get_provider_with_key() -> AIProvider | None:
     """
     获取包含完整 API Key 的 Provider 配置。
 
@@ -139,7 +138,7 @@ def _get_provider_with_key() -> Optional[AIProvider]:
     return None
 
 
-def _get_provider_display() -> Optional[dict[str, object]]:
+def _get_provider_display() -> dict[str, object] | None:
     """获取用于显示的 Provider 配置（API Key 脱敏）。
 
     将 API Key 替换为掩码形式（如 abc123...xyz），避免在终端泄露密钥。

@@ -20,7 +20,6 @@
 """
 
 import os
-from typing import Optional
 
 from app.shared.core.project.manifest.types import (
     ConstraintRefV2,
@@ -29,7 +28,7 @@ from app.shared.core.project.manifest.types import (
 )
 
 
-def _scan_constraint_file(constraint_id: str, config_path: str) -> Optional[ConstraintRefV2]:
+def _scan_constraint_file(constraint_id: str, config_path: str) -> ConstraintRefV2 | None:
     """
     扫描 constraints 目录查找指定 ID 的 constraint 引用。
 
@@ -63,7 +62,7 @@ def _scan_constraint_file(constraint_id: str, config_path: str) -> Optional[Cons
     return None
 
 
-def _scan_schema_file(table_id: str, config_path: str) -> Optional[SchemaRefV2]:
+def _scan_schema_file(table_id: str, config_path: str) -> SchemaRefV2 | None:
     """
     扫描 schemas 目录查找指定 ID 的 schema 引用。
 
@@ -101,7 +100,7 @@ def _scan_regex_node_file(
     config_path: str,
     patterns_dir: str = "patterns",
     regex_dir: str = "regex",
-) -> Optional[RegexNodeRefV2]:
+) -> RegexNodeRefV2 | None:
     """
     扫描 patterns 和 regex 目录查找指定 ID 的 regex_node 引用。
 

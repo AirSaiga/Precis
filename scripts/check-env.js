@@ -61,7 +61,7 @@ async function main() {
   console.log('');
 
   const results = {
-    python: { ok: false, version: null, required: '3.10.0' },
+    python: { ok: false, version: null, required: '3.12.0' },
     node: { ok: false, version: null, required: '20.19.0' },
     npm: { ok: false, version: null, required: '10.0.0' },
     venv: { ok: false, exists: false },
@@ -212,7 +212,7 @@ async function main() {
     console.log('');
     
     const missing = [];
-    if (!results.python.ok) missing.push('Python 3.10+');
+    if (!results.python.ok) missing.push('Python 3.12+');
     if (!results.node.ok) missing.push('Node.js 20.19+');
     if (!results.venv.exists || !results.backendDeps.ok) missing.push('后端依赖');
     if (!results.frontendDeps.ok) missing.push('前端依赖');
@@ -220,7 +220,7 @@ async function main() {
     
     log('cyan', `缺失: ${missing.join(', ')}`);
     console.log('');
-    log('cyan', 'Python 3.10 安装指南:');
+    log('cyan', 'Python 3.12 安装指南:');
     if (process.platform === 'win32') {
       console.log(`  ${colors.white}# 使用 pyenv-win (推荐)${colors.reset}`);
       console.log(`  ${colors.white}pyenv install 3.12.9${colors.reset}`);

@@ -32,7 +32,7 @@
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
@@ -86,8 +86,8 @@ class SchemaConflictInfo(BaseModel):
     file_path: str
     has_conflict: bool
     conflict_fields: list[str] = []
-    existing_schema: Optional[dict[str, Any]] = None
-    new_schema: Optional[dict[str, Any]] = None
+    existing_schema: dict[str, Any] | None = None
+    new_schema: dict[str, Any] | None = None
 
 
 @router.get(

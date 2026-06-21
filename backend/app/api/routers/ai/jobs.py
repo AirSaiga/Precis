@@ -19,7 +19,7 @@ from __future__ import annotations
 import asyncio
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import Depends, HTTPException
@@ -69,7 +69,7 @@ def _serialize_result(result: dict[str, Any] | None) -> dict[str, Any] | None:
 
 def _now_iso() -> str:
     """返回当前 UTC 时间 ISO 字符串。"""
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 @router.post(

@@ -81,7 +81,7 @@ npm run cli:validate                 # CLI 校验测试套件
 | 前端代码质量 | ESLint + Prettier + lint-staged + Husky |
 | 后端代码质量 | Ruff（lint + format + import 排序） |
 
-**运行环境要求**: Node.js `^20.19.0 || >=22.12.0`，Python `>=3.9,<3.14`
+**运行环境要求**: Node.js `^20.19.0 || >=22.12.0`，Python `>=3.12,<3.14`
 
 ---
 
@@ -320,7 +320,7 @@ expandOnCanvas(instanceNodeId)
 ```
 
 **关键文件**：
-- 规则定义: `services/rules/connectionRules.ts`（~25 条规则）
+- 规则定义: `services/rules/connectionRules.ts`（20 条规则）
 - 规则类型: `services/rules/connectionRuleTypes.ts`（ConnectionRule 等类型定义）
 - 策略服务: `services/canvas/connectionPolicyService.ts`
 - 连接监听: `composables/canvas/useCanvasConnectionWatcher.ts`
@@ -756,13 +756,13 @@ DataSourceBindingOrchestrator（流程编排器）
 
 **判断标准**：跨层 + 独立内聚 + 用户可感知。不满足条件的内容放 `components/`, `composables/`, `stores/`, `types/` 等对应目录。
 
-**已有模块**: `keyboard/`, `regex/`, `node-layout-organizer/`
+**已有模块**: `ai-config-generator/`, `keyboard/`, `regex/`, `node-layout-organizer/`
 
 ---
 
 ## V2 Configuration File Standards
 
-> 完整格式规范见 [`docs/v2-config-format.md`](docs/v2-config-format.md)，包含所有文件类型的字段定义、ID 编码规则和 10 种约束类型的 refs/params 结构。
+> 完整格式规范待补充，当前以本节摘要为准。详见后端 `backend/app/shared/` 中的 Schema/Constraint 类型定义。
 
 项目配置使用 V2 YAML 格式，入口文件为 `project.precis.yaml`。
 

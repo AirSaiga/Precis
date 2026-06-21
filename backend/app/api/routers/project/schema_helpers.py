@@ -23,12 +23,12 @@
 """
 
 import os
-from typing import Any, Optional
+from typing import Any
 
 from app.shared.core.project.manifest.types import ProjectManifestV2
 
 
-def _get_schema_path(manifest: ProjectManifestV2, table_id: str, config_path: str) -> Optional[str]:
+def _get_schema_path(manifest: ProjectManifestV2, table_id: str, config_path: str) -> str | None:
     """
     获取 schema 文件路径。
 

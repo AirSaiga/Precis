@@ -24,8 +24,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 # 1. 标准库导入
-from typing import Any, Callable
+from typing import Any
 
 # 2. 第三方库导入
 import pandas as pd

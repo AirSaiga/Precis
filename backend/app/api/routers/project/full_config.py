@@ -23,6 +23,7 @@
 
 import logging
 import os
+from datetime import UTC
 from pathlib import Path
 from typing import Any
 
@@ -253,7 +254,7 @@ def get_v2_full_config(
 
     # 仅当 inspect=true 时执行配置文件格式自检
     if inspect:
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         inspection_warnings: list[str] = []
         inspection_errors: list[LoadingError] = []
@@ -269,7 +270,7 @@ def get_v2_full_config(
             inspection_errors,
         )
         result["inspection"] = {
-            "inspected_at": datetime.now(timezone.utc).isoformat(),
+            "inspected_at": datetime.now(UTC).isoformat(),
             "errors": [e.to_dict() for e in inspection_errors],
         }
 

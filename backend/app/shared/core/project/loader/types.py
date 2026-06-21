@@ -24,7 +24,7 @@
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Optional, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 # 直接导入 RegexNodeFile（类型明确，不会引起循环依赖）
 from ..regex.types import RegexNodeFile
@@ -70,7 +70,7 @@ class LoadingError:
 
     error_type: str  # SchemaNotFound, SchemaParseError, ConstraintNotFound, etc.
     file_path: str  # 出错的文件路径
-    ref_id: Optional[str] = None  # 引用ID
+    ref_id: str | None = None  # 引用ID
     message: str = ""  # 错误信息
     suggestion: str = ""  # 修复建议
 
@@ -81,7 +81,7 @@ class LoadingError:
     description: str = ""  # 根因说明
     fix_hint: str = ""  # 修复建议（突出显示）
     actions: list[dict] = field(default_factory=list)  # 可执行动作列表
-    fix_api: Optional[dict] = None  # 一键修复 API 描述
+    fix_api: dict | None = None  # 一键修复 API 描述
     context: dict = field(default_factory=dict)  # 上下文数据（用于渲染对比表等）
 
     # === i18n 渲染字段（可选，前端有 key 时优先使用） ===
@@ -221,5 +221,5 @@ class LoadedRegexNode:
 
     config: RegexNodeFile
     pattern: re.Pattern
-    source_table: Optional[str]
-    source_column: Optional[str]
+    source_table: str | None
+    source_column: str | None

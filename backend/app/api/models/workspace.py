@@ -22,8 +22,6 @@
     )
 """
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -57,12 +55,12 @@ class ExternalDataSource(BaseModel):
     status: str = Field(default="ready", description="数据源状态 (ready/missing/loading)")
     addedAt: str = Field(default="", description="添加时间")
     lastUsed: str = Field(default="", description="最后使用时间")
-    alias: Optional[str] = Field(None, description="数据源别名")
-    error: Optional[str] = Field(None, description="错误信息")
-    size: Optional[int] = Field(None, description="文件大小(字节)")
-    sourceMode: Optional[str] = Field(None, description="数据来源模式 (indexeddb/localfile)")
-    localPath: Optional[str] = Field(None, description="本地文件路径（Electron 模式专用）")
-    folderPath: Optional[str] = Field(None, description="文件夹路径（用于分组显示）")
+    alias: str | None = Field(None, description="数据源别名")
+    error: str | None = Field(None, description="错误信息")
+    size: int | None = Field(None, description="文件大小(字节)")
+    sourceMode: str | None = Field(None, description="数据来源模式 (indexeddb/localfile)")
+    localPath: str | None = Field(None, description="本地文件路径（Electron 模式专用）")
+    folderPath: str | None = Field(None, description="文件夹路径（用于分组显示）")
 
 
 class UIPreferences(BaseModel):

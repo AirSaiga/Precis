@@ -57,10 +57,10 @@ if TYPE_CHECKING:
 
 def load_file_data(
     source_file_path: str,
-    sheet_name: Optional[str] = None,
+    sheet_name: str | None = None,
     header_row: int = 0,
     settings: Optional["FileProcessingSettings"] = None,
-    source_config: Optional[dict[str, Any]] = None,
+    source_config: dict[str, Any] | None = None,
 ) -> pd.DataFrame:
     """
     @methoddesc 加载数据文件为基础 DataFrame
@@ -151,8 +151,8 @@ def run_validation(
     validation_type: str,
     source_file_path: str,
     target_column_name: str,
-    sheet_name: Optional[str] = None,
-    header_columns: Optional[list[str]] = None,
+    sheet_name: str | None = None,
+    header_columns: list[str] | None = None,
     use_custom_header: bool = False,
     **validation_config,
 ) -> ValidationResult:

@@ -23,8 +23,6 @@
     )
 """
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -83,10 +81,10 @@ class HeaderRowChangedRequest(BaseModel):
 
     action: str = Field(..., description="操作类型，固定为'header_row_changed'")
     node_id: str = Field(..., description="源预览节点ID")
-    header_row: Optional[int] = Field(None, description="新的表头行索引")
-    old_header_row: Optional[int] = Field(None, description="旧的表头行索引")
-    row_data: Optional[dict] = Field(None, description="表头行数据")
-    schema_name: Optional[str] = Field(None, description="关联的Schema名称")
+    header_row: int | None = Field(None, description="新的表头行索引")
+    old_header_row: int | None = Field(None, description="旧的表头行索引")
+    row_data: dict | None = Field(None, description="表头行数据")
+    schema_name: str | None = Field(None, description="关联的Schema名称")
 
 
 class HeaderRowChangedResponse(BaseModel):
@@ -104,5 +102,5 @@ class HeaderRowChangedResponse(BaseModel):
 
     success: bool = Field(..., description="更新是否成功")
     message: str = Field(..., description="更新结果消息")
-    schema_name: Optional[str] = Field(default=None, description="关联的Schema名称")
-    updated_at: Optional[str] = Field(default=None, description="更新时间")
+    schema_name: str | None = Field(default=None, description="关联的Schema名称")
+    updated_at: str | None = Field(default=None, description="更新时间")

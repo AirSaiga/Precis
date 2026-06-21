@@ -22,7 +22,6 @@
 
 import logging
 import os
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -47,8 +46,8 @@ class CreatePatternRequest(BaseModel):
 
     name: str = Field(..., description="Pattern 名称")
     regex: str = Field(..., description="正则表达式")
-    description: Optional[str] = Field(None, description="描述信息")
-    output: Optional[dict] = Field(None, description="输出配置")
+    description: str | None = Field(None, description="描述信息")
+    output: dict | None = Field(None, description="输出配置")
     overwrite: bool = Field(False, description="是否覆盖已存在的 Pattern")
 
 

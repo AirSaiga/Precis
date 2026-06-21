@@ -12,7 +12,7 @@
 约束注册表已迁移至 app.shared.core.project.constraint.registry
 """
 
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 # 1. 项目内部导入
 from app.shared.domain.data_types import (
@@ -73,7 +73,7 @@ TYPE_REGISTRY: dict[str, Any] = {
 }
 
 
-def build_type_from_config(config: Any, registries: Optional[dict[str, ExpressionRegistry]] = None) -> DataType:
+def build_type_from_config(config: Any, registries: dict[str, ExpressionRegistry] | None = None) -> DataType:
     """
     从配置构建数据类型实例。
 

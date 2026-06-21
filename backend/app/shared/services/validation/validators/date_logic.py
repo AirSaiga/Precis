@@ -13,7 +13,6 @@
 
 import time
 from datetime import datetime
-from typing import Optional
 
 import pandas as pd
 
@@ -213,7 +212,7 @@ class DateLogicValidator(BaseValidator):
     ]
 
     @classmethod
-    def _parse_date(cls, date_str: str) -> Optional[datetime]:
+    def _parse_date(cls, date_str: str) -> datetime | None:
         """
         @methoddesc 解析日期字符串
 

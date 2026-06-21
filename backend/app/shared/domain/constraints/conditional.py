@@ -70,7 +70,8 @@ from __future__ import annotations
 
 # 1. 标准库导入
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 # 2. 第三方库导入
 import pandas as pd

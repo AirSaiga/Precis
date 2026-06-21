@@ -27,7 +27,7 @@
     )
 """
 
-from typing import Any, Literal, Optional
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -49,7 +49,7 @@ class RegexValidationRequest(BaseModel):
     """
 
     regex_pattern: str = Field(..., description="正则表达式模式")  # 用于匹配的正则表达式字符串，必填
-    regex_flags: Optional[str] = Field(None, description="正则表达式标志")  # 正则标志（如 g, i, m），可选
+    regex_flags: str | None = Field(None, description="正则表达式标志")  # 正则标志（如 g, i, m），可选
     match_mode: str = Field(
         default="full", description="匹配模式: full/partial/extract"
     )  # 匹配模式：full（全匹配）、partial（部分匹配）、extract（提取）
@@ -60,7 +60,7 @@ class RegexValidationRequest(BaseModel):
     source_file_path: str = Field(
         ..., description="数据源文件路径"
     )  # 数据源文件（Excel/CSV/JSON）的绝对或相对路径，必填
-    sheet_name: Optional[str] = Field(None, description="Excel工作表名称")  # 当数据源为 Excel 时指定工作表名称，可选
+    sheet_name: str | None = Field(None, description="Excel工作表名称")  # 当数据源为 Excel 时指定工作表名称，可选
 
 
 class RegexValidationErrorRow(BaseModel):
@@ -116,14 +116,12 @@ class RegexValidationResponse(BaseModel):
     """
 
     success: bool = Field(..., description="请求是否成功")  # True 表示请求处理成功，False 表示接口层面出错
-    data: Optional[RegexValidationResult] = Field(
-        None, description="校验结果"
-    )  # 校验成功时返回的详细结果，失败时为 None
-    error: Optional[str] = Field(None, description="错误信息")  # 请求处理失败时的错误描述，成功时为 None
-    schema_name: Optional[str] = Field(
+    data: RegexValidationResult | None = Field(None, description="校验结果")  # 校验成功时返回的详细结果，失败时为 None
+    error: str | None = Field(None, description="错误信息")  # 请求处理失败时的错误描述，成功时为 None
+    schema_name: str | None = Field(
         default=None, description="Schema名称"
     )  # 关联的 Schema 名称，用于前端展示上下文，可选
-    updated_at: Optional[str] = Field(default=None, description="更新时间")  # 响应生成的时间戳，ISO 8601 格式，可选
+    updated_at: str | None = Field(default=None, description="更新时间")  # 响应生成的时间戳，ISO 8601 格式，可选
 
 
 # 统一使用 services 层的 ValidationType 作为唯一真相源
@@ -155,30 +153,30 @@ class ValidationRequest(BaseModel):
     source_file_path: str = Field(
         ..., description="数据源文件路径"
     )  # 数据源文件（Excel/CSV/JSON）的绝对或相对路径，必填
-    sheet_name: Optional[str] = Field(None, description="Excel工作表名称")  # 当数据源为 Excel 时指定工作表名称，可选
-    header_row: Optional[int] = Field(
+    sheet_name: str | None = Field(None, description="Excel工作表名称")  # 当数据源为 Excel 时指定工作表名称，可选
+    header_row: int | None = Field(
         None, description="表头行索引，0表示第一行"
     )  # 指定表头所在行索引，0 表示第一行，可选
-    validation_config: Optional[dict] = Field(
+    validation_config: dict | None = Field(
         default={}, description="校验特定配置"
     )  # 各类校验的特定配置参数（如 allowed_values 的值列表），默认为空字典
     allow_unsafe_eval: bool = Field(
         False, description="是否允许执行脚本化校验（eval模式）"
     )  # True 允许执行脚本化校验（存在安全风险），默认关闭
-    column_data_type: Optional[str] = Field(
+    column_data_type: str | None = Field(
         None, description="目标列在 Schema 中声明的数据类型（如 string/integer/decimal）"
     )  # 用于单节点校验时按 Schema 类型转换目标列，保持与全量校验行为一致
-    json_path: Optional[str] = Field(
+    json_path: str | None = Field(
         None, description="JSON 数据源的 JSONPath 表达式（可选）"
     )  # 用于从嵌套 JSON 中提取目标记录数组
-    json_format: Optional[Literal["auto", "array", "lines", "object"]] = Field(
+    json_format: Literal["auto", "array", "lines", "object"] | None = Field(
         None, description="JSON 数据源格式：auto | array | lines | object（可选）"
     )  # 用于指定 JSON 文件的解析方式
-    record_path: Optional[str] = Field(
+    record_path: str | None = Field(
         None, description="JSON 数据源的 record_path，用于展开嵌套数组（可选）"
     )  # 用于将嵌套 JSON 数组扁平化为 DataFrame 行
 
-    def to_source_config(self) -> Optional[dict[str, Any]]:
+    def to_source_config(self) -> dict[str, Any] | None:
         """构建 JSON 数据源配置字典，仅在有 JSON 相关字段时返回。"""
         cfg: dict[str, Any] = {}
         if self.json_path is not None:
@@ -216,13 +214,13 @@ class InlineValidationRequest(BaseModel):
     column_names: list[str] = Field(
         default=[], description="列名列表（提供时 rows 全部视为数据行）"
     )  # 显式指定列名时，rows 全部视为数据行（不再将第一行作为表头）
-    validation_config: Optional[dict] = Field(
+    validation_config: dict | None = Field(
         default={}, description="校验特定配置"
     )  # 各类校验的特定配置参数，默认为空字典
     allow_unsafe_eval: bool = Field(
         False, description="是否允许执行脚本化校验（eval模式）"
     )  # True 允许执行脚本化校验（存在安全风险），默认关闭
-    column_data_type: Optional[str] = Field(
+    column_data_type: str | None = Field(
         None, description="目标列在 Schema 中声明的数据类型（如 string/integer/decimal）"
     )  # 用于单节点校验时按 Schema 类型转换目标列，保持与全量校验行为一致
 
@@ -241,7 +239,7 @@ class ValidationErrorRow(BaseModel):
 
     row_index: int = Field(..., description="行索引")  # 数据行在源文件或行内数据中的索引位置，从 0 开始计数
     cell_value: str = Field(..., description="单元格值")  # 该校验失败的单元格原始值
-    error_message: Optional[str] = Field(
+    error_message: str | None = Field(
         None, description="错误信息"
     )  # 校验失败的具体错误描述，如"值不在允许列表中"，可选
 
@@ -264,9 +262,7 @@ class ValidationResult(BaseModel):
     is_valid: bool = Field(..., description="校验是否通过")  # True 表示全部通过，False 表示存在错误行
     error_count: int = Field(..., description="错误数量")  # 校验失败的行数
     total_rows: int = Field(..., description="总行数")  # 参与校验的数据总行数（不含表头）
-    match_count: Optional[int] = Field(
-        None, description="匹配数量"
-    )  # 匹配成功的行数（部分校验类型适用，如 regex），可选
+    match_count: int | None = Field(None, description="匹配数量")  # 匹配成功的行数（部分校验类型适用，如 regex），可选
     error_rows: list[ValidationErrorRow] = Field(default=[], description="错误行列表")  # 校验失败的详细行信息列表
     validation_time: str = Field(..., description="校验耗时")  # 校验执行耗时，通常以毫秒或秒为单位的字符串
 
@@ -288,5 +284,5 @@ class ValidationResponse(BaseModel):
     validation_type: str = Field(
         ..., description="执行的校验类型"
     )  # 实际执行的校验类型标识，与请求中的 validation_type 对应
-    data: Optional[ValidationResult] = Field(None, description="校验结果")  # 校验成功时返回的详细结果，失败时为 None
-    error: Optional[str] = Field(None, description="错误信息")  # 请求处理失败时的错误描述，成功时为 None
+    data: ValidationResult | None = Field(None, description="校验结果")  # 校验成功时返回的详细结果，失败时为 None
+    error: str | None = Field(None, description="错误信息")  # 请求处理失败时的错误描述，成功时为 None

@@ -32,7 +32,7 @@
 """
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -107,20 +107,20 @@ class AIProvider(BaseModel):
     type: ProviderType = Field(..., description="Provider 类型")
 
     base_url: str = Field(..., description="API 基础 URL")
-    api_key: Optional[str] = Field(default=None, description="API 密钥（本地服务可为 null）")
+    api_key: str | None = Field(default=None, description="API 密钥（本地服务可为 null）")
     model: str = Field(..., description="默认模型名称")
-    context_window: Optional[int] = Field(
+    context_window: int | None = Field(
         default=None,
         ge=1024,
         description="模型最大上下文窗口（tokens），None 时由 Provider 根据模型名自动推断",
     )
 
     # 运行时推断字段（不序列化到配置文件）
-    deployment: Optional[DeploymentType] = Field(default=None, exclude=True, description="部署类型（自动推断）")
+    deployment: DeploymentType | None = Field(default=None, exclude=True, description="部署类型（自动推断）")
 
     # 可选扩展配置
-    network: Optional[NetworkConfig] = Field(default=None, description="网络配置")
-    meta: Optional[dict[str, Any]] = Field(default=None, description="额外元数据")
+    network: NetworkConfig | None = Field(default=None, description="网络配置")
+    meta: dict[str, Any] | None = Field(default=None, description="额外元数据")
 
     @model_validator(mode="after")
     def _infer_deployment(self) -> "AIProvider":

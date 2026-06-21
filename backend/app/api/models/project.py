@@ -22,8 +22,6 @@
     )
 """
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 
@@ -46,7 +44,7 @@ class ProjectDetail(BaseModel):
     project_name: str  # 项目显示名称，面向用户的可读名称
     schemas_count: int  # 项目中已定义的 Schema（表结构）数量
     constraints_count: int  # 项目中已定义的约束规则数量
-    last_validated: Optional[str] = None  # 最后一次执行校验的时间戳，ISO 8601 格式，可选
+    last_validated: str | None = None  # 最后一次执行校验的时间戳，ISO 8601 格式，可选
 
 
 class PathsModel(BaseModel):
@@ -66,7 +64,7 @@ class PathsModel(BaseModel):
     constraints: str = Field(
         ..., title="约束规则 (Constraints) 路径"
     )  # Constraints 约束规则文件相对于项目根目录的存放路径，必填
-    patterns: Optional[str] = Field(
+    patterns: str | None = Field(
         None, title="模式 (Patterns) 路径"
     )  # Patterns 模式匹配规则文件相对于项目根目录的存放路径，可选
 

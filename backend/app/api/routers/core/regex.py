@@ -20,7 +20,7 @@
 """
 
 import re
-from typing import Literal, Optional, Union
+from typing import Literal
 
 from fastapi import APIRouter
 from pydantic import BaseModel, Field
@@ -42,9 +42,9 @@ class PatternPart(BaseModel):
     """
 
     type: Literal["static", "param"]
-    text: Union[str, None] = None
-    name: Union[str, None] = None
-    param_type: Union[str, None] = None
+    text: str | None = None
+    name: str | None = None
+    param_type: str | None = None
 
 
 class ParsePatternRequest(BaseModel):
@@ -146,7 +146,7 @@ class TestRegexResponse(BaseModel):
 
     is_match: bool
     groups: dict[str, str] = Field(default_factory=dict)
-    error: Union[str, None] = None
+    error: str | None = None
 
 
 @router.post(
@@ -232,8 +232,8 @@ class RegexValidateExtractResponse(BaseModel):
     """
 
     success: bool
-    data: Optional[RegexValidateExtractData] = None
-    error: Optional[str] = None
+    data: RegexValidateExtractData | None = None
+    error: str | None = None
 
 
 @router.post(

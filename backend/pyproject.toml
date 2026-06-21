@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Precis - 可配置数据校验工具 CLI"
 readme = "README.md"
 license = {text = "Apache-2.0"}
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.12,<3.14"
 authors = [
     {name = "Precis Team"},
 ]
@@ -17,8 +17,6 @@ classifiers = [
     "Intended Audience :: Developers",
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Quality Assurance",
@@ -111,7 +109,7 @@ app = ["providers.yaml"]
 # ============================================================================
 
 [tool.ruff]
-target-version = "py39"
+target-version = "py312"
 line-length = 120
 exclude = [
     ".venv",
@@ -141,6 +139,10 @@ ignore = [
     "E501",  # line too long (handled by formatter or tolerated)
     "E402",  # module import not at top (project uses sys.path injection pattern)
     "N815",  # mixedCase variable in class scope (Pydantic API model fields match frontend JSON)
+    # 以下 UP 规则在 py312 target 下偏激进，且存在运行时兼容风险，暂不强制：
+    "UP042", # class Foo(str, Enum) -> StrEnum：与 pydantic v2 序列化/openapi 生成存在细微差异
+    "UP046", # Generic 类改用 PEP 695 类型参数语法：3.12 独有，转换需逐个确认泛型语义
+    "UP047", # Generic 函数改用 PEP 695 类型参数语法：同上
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -152,7 +154,7 @@ ignore = [
 convention = "google"
 
 [tool.mypy]
-python_version = "3.10"
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true

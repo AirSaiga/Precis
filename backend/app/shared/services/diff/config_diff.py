@@ -28,7 +28,7 @@
 
 import logging
 from enum import Enum
-from typing import Any, Optional, Union
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -60,8 +60,8 @@ class PropertyDiff(BaseModel):
     """
 
     key: str
-    oldValue: Optional[Any] = None
-    newValue: Optional[Any] = None
+    oldValue: Any | None = None
+    newValue: Any | None = None
     type: DiffType
 
 
@@ -76,8 +76,8 @@ class ConfigItemDiff(BaseModel):
     id: str
     name: str
     type: DiffType
-    original: Optional[dict[str, Any]] = None
-    generated: Optional[dict[str, Any]] = None
+    original: dict[str, Any] | None = None
+    generated: dict[str, Any] | None = None
     changes: list[PropertyDiff] = Field(default_factory=list)
 
 
@@ -243,7 +243,7 @@ class ConfigDiffService:
         return changes
 
     @classmethod
-    def _diff_recursive(cls, old: Any, new: Any, path: list[Union[str, int]]) -> list[Any]:
+    def _diff_recursive(cls, old: Any, new: Any, path: list[str | int]) -> list[Any]:
         """
         @methoddesc 递归比对任意数据结构
 

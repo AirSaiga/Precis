@@ -24,7 +24,6 @@
 """
 
 import os
-from typing import Optional
 
 import yaml
 from rich.console import Console
@@ -151,7 +150,7 @@ class ConfigCheckCommand(Command):
                 output += f"\n\n错误详情:\n{error_msg}"
             return CommandResult.error(output)
 
-    def _check_file(self, config_path: str) -> tuple[bool, Optional[str]]:
+    def _check_file(self, config_path: str) -> tuple[bool, str | None]:
         """检查文件，返回 (是否有效, 错误信息)。
 
         Args:

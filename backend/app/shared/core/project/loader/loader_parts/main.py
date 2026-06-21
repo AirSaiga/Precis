@@ -14,8 +14,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, TypeVar
+from typing import TypeVar
 
 from app.shared.core.manifest_schema import is_supported_version
 from app.shared.core.project.loader.loader_parts import loading_error_messages

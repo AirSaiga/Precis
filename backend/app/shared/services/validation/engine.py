@@ -30,7 +30,6 @@
 
 import logging
 import time
-from typing import Optional, Union
 
 import pandas as pd
 
@@ -49,10 +48,10 @@ def validate_full_dataset(
     raw_datasets: dict[str, pd.DataFrame],
     schema: DataSetSchema,
     allow_unsafe_eval: bool = False,
-    table_filter: Optional[Union[str, list[str]]] = None,
-    transform_files: Optional[dict[str, TransformFile]] = None,
-    regex_files: Optional[dict[str, RegexNodeFile]] = None,
-    deadline: Optional[float] = None,
+    table_filter: str | list[str] | None = None,
+    transform_files: dict[str, TransformFile] | None = None,
+    regex_files: dict[str, RegexNodeFile] | None = None,
+    deadline: float | None = None,
 ) -> tuple[dict[str, pd.DataFrame], list[dict], dict[str, list[dict]]]:
     """
     @methoddesc 执行完整的验证流程，包括格式解析和约束校验
@@ -189,7 +188,7 @@ def validate_full_dataset(
 
     # 处理 table_filter 参数（只接受表ID）
     # 【类型适配】支持字符串或列表形式，统一转换为集合便于成员检查
-    filter_tables: Optional[set] = None
+    filter_tables: set | None = None
     if table_filter:
         if isinstance(table_filter, str):
             filter_tables = {table_filter}

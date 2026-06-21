@@ -52,11 +52,11 @@ class CommandResult:
 
     success: bool
     message: str
-    data: Optional[dict[str, Any]] = None
+    data: dict[str, Any] | None = None
     should_exit: bool = False
 
     @staticmethod
-    def ok(message: str, data: Optional[dict[str, Any]] = None) -> "CommandResult":
+    def ok(message: str, data: dict[str, Any] | None = None) -> "CommandResult":
         """创建成功结果。
 
         Args:
@@ -69,7 +69,7 @@ class CommandResult:
         return CommandResult(success=True, message=message, data=data)
 
     @staticmethod
-    def error(message: str, data: Optional[dict[str, Any]] = None) -> "CommandResult":
+    def error(message: str, data: dict[str, Any] | None = None) -> "CommandResult":
         """创建错误结果。
 
         Args:
@@ -108,7 +108,7 @@ class Command(ABC):
         _subcommands: 子命令字典，键为子命令名，值为子命令实例
     """
 
-    def __init__(self, name: str, aliases: Optional[list[str]] = None):
+    def __init__(self, name: str, aliases: list[str] | None = None):
         """初始化命令。
 
         Args:
@@ -266,11 +266,11 @@ class ProjectContext(CommandContext):
 
     def __init__(self):
         super().__init__()
-        self._project_path: Optional[str] = None
-        self._project_config: Optional[dict[str, Any]] = None
+        self._project_path: str | None = None
+        self._project_config: dict[str, Any] | None = None
 
     @property
-    def project_path(self) -> Optional[str]:
+    def project_path(self) -> str | None:
         """当前项目路径。
 
         Returns:
@@ -279,7 +279,7 @@ class ProjectContext(CommandContext):
         return self._project_path
 
     @project_path.setter
-    def project_path(self, path: Optional[str]) -> None:
+    def project_path(self, path: str | None) -> None:
         """设置当前项目路径。
 
         同时自动同步到上下文字典中，便于统一访问。
@@ -291,7 +291,7 @@ class ProjectContext(CommandContext):
         self.set("project_path", path)
 
     @property
-    def project_config(self) -> Optional[dict[str, Any]]:
+    def project_config(self) -> dict[str, Any] | None:
         """当前项目配置。
 
         Returns:
@@ -301,7 +301,7 @@ class ProjectContext(CommandContext):
         return self._project_config
 
     @project_config.setter
-    def project_config(self, config: Optional[dict[str, Any]]) -> None:
+    def project_config(self, config: dict[str, Any] | None) -> None:
         """设置当前项目配置。
 
         同时自动同步到上下文字典中。

@@ -16,7 +16,8 @@ import asyncio
 import inspect
 import json
 import logging
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 
 from app.shared.services.ai.agent.types import ToolCall, ToolResult
 

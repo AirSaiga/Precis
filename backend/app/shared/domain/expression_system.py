@@ -24,9 +24,10 @@
 
 # 1. 标准库导入
 import re
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Callable, Optional
+from typing import Any
 
 # ============================================================================
 # 类型转换器
@@ -318,7 +319,7 @@ class ExpressionRegistry:
         # 将模式追加到内部列表，后续 find_match 会按此顺序遍历
         self._patterns.append(pattern)
 
-    def find_match(self, value: str) -> Optional[tuple[ExpressionPattern, re.Match]]:
+    def find_match(self, value: str) -> tuple[ExpressionPattern, re.Match] | None:
         """
         查找匹配的模式。
 

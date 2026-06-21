@@ -22,7 +22,7 @@
     schema: 完整的数据集 Schema 对象，可用于驱动 process_dataframe 和约束校验
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from app.shared.domain.constraints.base import Constraint
 
@@ -156,9 +156,9 @@ class ColumnSchema:
         is_primary_key: bool = False,
         expand: bool = False,
         nullable: bool = True,
-        id: Optional[str] = None,
-        json_path: Optional[str] = None,
-        children: Optional[list["ColumnSchema"]] = None,
+        id: str | None = None,
+        json_path: str | None = None,
+        children: list["ColumnSchema"] | None = None,
     ):
         self.name = name
         self.data_type = data_type
@@ -242,14 +242,14 @@ class TableSchema:
 
     def __init__(
         self,
-        id: Optional[str] = None,
-        name: Optional[str] = None,
-        columns: Optional[list[ColumnSchema]] = None,
-        source_file: Optional[str] = None,
-        sheet_name: Optional[str] = None,
+        id: str | None = None,
+        name: str | None = None,
+        columns: list[ColumnSchema] | None = None,
+        source_file: str | None = None,
+        sheet_name: str | None = None,
         header_row: int = 0,
-        script_checks: Optional[list[dict]] = None,
-        source_config: Optional[dict[str, Any]] = None,
+        script_checks: list[dict] | None = None,
+        source_config: dict[str, Any] | None = None,
     ):
         self.id = id
         self.name = name
@@ -260,7 +260,7 @@ class TableSchema:
         self.script_checks = script_checks or []
         self.source_config = source_config or {}
 
-    def get_column(self, name: str) -> Optional[ColumnSchema]:
+    def get_column(self, name: str) -> ColumnSchema | None:
         """
         @methoddesc 根据列名获取列定义
 

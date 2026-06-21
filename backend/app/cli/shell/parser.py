@@ -13,7 +13,7 @@
 - CommandExecutor 协调解析与上下文执行
 """
 
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.exceptions import CommandNotFoundError
@@ -51,7 +51,7 @@ class CommandRegistry:
                 self._aliases.pop(alias, None)
             self._commands.pop(name)
 
-    def get(self, name: str) -> Optional[Command]:
+    def get(self, name: str) -> Command | None:
         """获取命令。
 
         Args:
@@ -84,7 +84,7 @@ class CommandParser:
     def __init__(self, registry: CommandRegistry):
         self.registry = registry
 
-    def parse(self, input_line: str) -> tuple[Optional[Command], list[str]]:
+    def parse(self, input_line: str) -> tuple[Command | None, list[str]]:
         """解析输入行。
 
         Args:
@@ -202,7 +202,7 @@ class CommandExecutor:
             return CommandResult.error(f"命令执行失败: {e}")
 
 
-def command(name: str, aliases: Optional[list[str]] = None) -> Callable:
+def command(name: str, aliases: list[str] | None = None) -> Callable:
     """命令装饰器。
 
     用于注册命令类的装饰器。

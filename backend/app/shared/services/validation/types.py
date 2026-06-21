@@ -37,8 +37,6 @@
     ]
 """
 
-from typing import Optional
-
 
 class ValidationType:
     """
@@ -141,8 +139,8 @@ class ValidationResult:
         is_valid: bool,
         error_count: int,
         total_rows: int,
-        match_count: Optional[int] = None,
-        error_rows: Optional[list[dict]] = None,
+        match_count: int | None = None,
+        error_rows: list[dict] | None = None,
         validation_time: str = "0.000s",
     ):
         """

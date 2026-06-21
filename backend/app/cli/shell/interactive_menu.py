@@ -13,7 +13,6 @@
 """
 
 import sys
-from typing import Optional
 
 import readchar
 
@@ -125,7 +124,7 @@ class InteractiveMenu:
         # 提示（不换行，保持在同一行）
         print(f"{self.COLOR_GRAY}↑/↓ 选择, Enter 确认, ESC/0 取消{self.COLOR_RESET}", end="", flush=True)
 
-    def show(self) -> Optional[str]:
+    def show(self) -> str | None:
         """
         显示菜单并等待用户选择
 
@@ -188,7 +187,7 @@ class InteractiveMenu:
             sys.stdout.write(self.SHOW_CURSOR)
             sys.stdout.flush()
 
-    def show_with_status(self, status_lines: list[str]) -> Optional[str]:
+    def show_with_status(self, status_lines: list[str]) -> str | None:
         """
         显示带状态信息的菜单
 
@@ -311,7 +310,7 @@ class InteractiveMenu:
         sys.stdout.flush()
 
 
-def show_simple_menu(title: str, options: list[tuple[str, str, str]]) -> Optional[str]:
+def show_simple_menu(title: str, options: list[tuple[str, str, str]]) -> str | None:
     """
     快速显示简单菜单
 

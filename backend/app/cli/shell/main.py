@@ -16,7 +16,6 @@
 import logging
 import re
 import sys
-from typing import Optional
 
 from app.cli.shell.commands import (
     AICommand,
@@ -106,7 +105,7 @@ class CLIShell:
         self.registry.register(LsCommand())
         self.registry.register(ExitCommand())
 
-    def run(self, initial_args: Optional[list] = None) -> int:
+    def run(self, initial_args: list | None = None) -> int:
         """运行 CLI Shell。
 
         Args:
@@ -228,7 +227,7 @@ class CLIShell:
             return False
 
 
-def main(args: Optional[list] = None) -> int:
+def main(args: list | None = None) -> int:
     """CLI 主入口函数。
 
     Args:

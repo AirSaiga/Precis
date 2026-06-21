@@ -31,7 +31,6 @@
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass
@@ -107,7 +106,7 @@ class ServiceScanner:
 
     async def _detect(
         self, svc_type: str, host: str, port: int, path: str, model_field: str, name_field: str
-    ) -> Optional[DiscoveredService]:
+    ) -> DiscoveredService | None:
         """
         @methoddesc 检测单个地址是否运行着指定的 AI 服务
 

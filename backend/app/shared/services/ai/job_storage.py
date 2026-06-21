@@ -29,7 +29,7 @@ import json
 import logging
 import os
 import threading
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -111,7 +111,7 @@ class AgentJobStorage:
             data = self._load_raw(job_id)
             data["job_id"] = job_id
             data["status"] = status
-            data["updated_at"] = datetime.now(timezone.utc).isoformat()
+            data["updated_at"] = datetime.now(UTC).isoformat()
             self._save_raw(job_id, data)
 
     def save_checkpoint(
@@ -132,12 +132,12 @@ class AgentJobStorage:
             data = self._load_raw(job_id)
             data["job_id"] = job_id
             checkpoints: list[dict[str, Any]] = data.get("checkpoints", [])
-            checkpoint["saved_at"] = datetime.now(timezone.utc).isoformat()
+            checkpoint["saved_at"] = datetime.now(UTC).isoformat()
             checkpoints.append(checkpoint)
             if len(checkpoints) > max_checkpoints:
                 checkpoints = checkpoints[-max_checkpoints:]
             data["checkpoints"] = checkpoints
-            data["updated_at"] = datetime.now(timezone.utc).isoformat()
+            data["updated_at"] = datetime.now(UTC).isoformat()
             self._save_raw(job_id, data)
 
     def load_latest_checkpoint(self, job_id: str) -> dict[str, Any] | None:
@@ -211,7 +211,7 @@ class AgentJobStorage:
             清理的文件数量
         """
         self._ensure_dir()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
         removed = 0
         try:
             for path in self._jobs_dir.glob("*.json"):

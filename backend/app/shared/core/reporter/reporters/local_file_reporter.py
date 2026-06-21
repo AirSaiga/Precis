@@ -48,7 +48,7 @@
 import json
 import os
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from .base import Reporter
 
@@ -85,7 +85,7 @@ class LocalFileReporter(Reporter):
         初始化日志目录为 None，需要通过 configure() 方法设置。
         """
         super().__init__("LocalFileReporter")
-        self.log_dir: Optional[str] = None
+        self.log_dir: str | None = None
 
     def configure(self, **config: Any) -> bool:
         """

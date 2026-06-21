@@ -26,8 +26,6 @@
         regex_nodes: dict[str, RegexNodeFileV2]
 """
 
-from typing import Optional
-
 from pydantic import BaseModel, Field
 
 from app.shared.core.project.constraint.types import ConstraintFileV2
@@ -60,7 +58,7 @@ class ProjectViewV2Model(BaseModel):
 
     version: int = Field(default=1, description="视图文件版本")
     nodes: dict[str, dict[str, float]] = Field(default_factory=dict, description="节点坐标：node_id -> {x,y}")
-    viewport: Optional[dict[str, float]] = Field(default=None, description="视口信息：{x,y,zoom}")
+    viewport: dict[str, float] | None = Field(default=None, description="视口信息：{x,y,zoom}")
 
 
 class FullConfigV2Request(BaseModel):
@@ -134,7 +132,7 @@ class WorkspaceV2Item(BaseModel):
     createdAt: str = Field(default="", description="创建时间 ISO 字符串")
     lastActiveAt: str = Field(default="", description="最后活跃时间 ISO 字符串")
     visibleNodeIds: list[str] = Field(default_factory=list, description="可见节点 ID 列表")
-    viewport: Optional[dict[str, float]] = Field(default=None, description="视口信息：{x,y,zoom}")
+    viewport: dict[str, float] | None = Field(default=None, description="视口信息：{x,y,zoom}")
     nodes: list[dict] = Field(default_factory=list, description="画布节点完整数据")
     edges: list[dict] = Field(default_factory=list, description="画布边完整数据")
 
@@ -153,5 +151,5 @@ class WorkspacesV2Model(BaseModel):
     """
 
     version: int = Field(default=1, description="工作区文件版本")
-    activeWorkspaceId: Optional[str] = Field(default=None, description="当前活跃工作区 ID")
+    activeWorkspaceId: str | None = Field(default=None, description="当前活跃工作区 ID")
     workspaces: list[WorkspaceV2Item] = Field(default_factory=list, description="工作区列表")

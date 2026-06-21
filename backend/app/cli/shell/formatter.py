@@ -15,7 +15,7 @@
 """
 
 import sys
-from typing import Any, Optional
+from typing import Any
 
 from rich.console import Console
 from rich.panel import Panel
@@ -71,8 +71,8 @@ class Spinner:
     def __init__(self, message: str = "处理中"):
         self.message = message
         self._success = True
-        self._progress: Optional[Progress] = None
-        self._task_id: Optional[TaskID] = None
+        self._progress: Progress | None = None
+        self._task_id: TaskID | None = None
 
     def start(self) -> None:
         self._progress = Progress(

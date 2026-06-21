@@ -48,9 +48,9 @@ Currently an actively developed prototype. Interfaces, config formats, and CLI p
    
   Clipboard (copy/paste/duplicate) and undo/redo
 
-- 连接规则验证系统（~25 条规则）
-   
-  Connection validation system (~25 rules)
+- 连接规则验证系统（20 条规则）
+    
+  Connection validation system (20 rules)
 
 - 校验历史面板
    

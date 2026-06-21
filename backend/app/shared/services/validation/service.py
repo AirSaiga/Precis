@@ -40,7 +40,6 @@
 """
 
 import logging
-from typing import Optional
 
 import pandas as pd
 
@@ -128,7 +127,7 @@ class UnifiedValidationService:
         cls._validators[validation_type] = validator
 
     @classmethod
-    def get_validator(cls, validation_type: str) -> Optional[BaseValidator]:
+    def get_validator(cls, validation_type: str) -> BaseValidator | None:
         """
         @methoddesc 获取指定类型的校验器
 

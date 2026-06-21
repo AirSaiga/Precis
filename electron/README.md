@@ -11,7 +11,7 @@
 - `electron-builder` 通过 `build.extraResources` 将 `../backend` 复制到打包后的 `resources/backend`。
 - `electron-builder` 通过 `build.extraResources` 将 `../frontend/dist` 复制到 `resources/frontend/dist`。
 - 生产环境下，`electron/src/main.ts` 使用 `process.resourcesPath` 定位上述资源目录。
-- 用户首次运行前，需在目标机器安装 Python `>=3.10,<3.14`，并在 `resources/backend` 目录执行：
+- 用户首次运行前，需在目标机器安装 Python `>=3.12,<3.14`，并在 `resources/backend` 目录执行：
 
 ```bash
 pip install -e ".[api]"

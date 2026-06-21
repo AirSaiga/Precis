@@ -42,7 +42,7 @@ import smtplib
 from email.header import Header
 from email.mime.text import MIMEText
 from email.utils import formataddr
-from typing import Any, Optional, cast
+from typing import Any, cast
 
 from .base import Reporter
 
@@ -204,7 +204,7 @@ class EmailReporter(Reporter):
         msg["To"] = formataddr((Header("项目负责人", "utf-8").encode(), self.config["receiver_email"]))
 
         # 建立 SMTP 连接并发送邮件
-        smtp: Optional[smtplib.SMTP | smtplib.SMTP_SSL] = None
+        smtp: smtplib.SMTP | smtplib.SMTP_SSL | None = None
         try:
             # 根据端口号判断使用哪种连接方式：
             # - 端口 465 通常使用 SSL 加密的 SMTP_SSL

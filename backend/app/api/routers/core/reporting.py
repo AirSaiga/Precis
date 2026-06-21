@@ -26,7 +26,6 @@
 
 import os
 from pathlib import Path
-from typing import Optional
 
 import yaml  # type: ignore[import-untyped]
 from fastapi import APIRouter, Depends, HTTPException
@@ -67,11 +66,11 @@ class EmailConfig(BaseModel):
     """
 
     enabled: bool
-    smtp_server: Optional[str] = None
-    smtp_port: Optional[int] = None
-    sender_email: Optional[EmailStr] = None
-    sender_password: Optional[str] = None
-    receiver_email: Optional[EmailStr] = None
+    smtp_server: str | None = None
+    smtp_port: int | None = None
+    sender_email: EmailStr | None = None
+    sender_password: str | None = None
+    receiver_email: EmailStr | None = None
 
 
 class WeComAppConfig(BaseModel):
@@ -88,10 +87,10 @@ class WeComAppConfig(BaseModel):
     """
 
     enabled: bool
-    corp_id: Optional[str] = Field(None, description="企业ID")
-    corp_secret: Optional[str] = Field(None, description="应用Secret")
-    agent_id: Optional[int] = Field(None, description="应用ID")
-    touser: Optional[str] = Field("@all", description="接收消息的成员ID列表，多个用'|'分隔")
+    corp_id: str | None = Field(None, description="企业ID")
+    corp_secret: str | None = Field(None, description="应用Secret")
+    agent_id: int | None = Field(None, description="应用ID")
+    touser: str | None = Field("@all", description="接收消息的成员ID列表，多个用'|'分隔")
 
 
 class FeishuAppConfig(BaseModel):
@@ -108,10 +107,10 @@ class FeishuAppConfig(BaseModel):
     """
 
     enabled: bool
-    app_id: Optional[str] = Field(None, description="应用App ID")
-    app_secret: Optional[str] = Field(None, description="应用App Secret")
-    receive_id_type: Optional[str] = Field("open_id", description="接收者ID类型, 例如: open_id, user_id, email")
-    receive_ids: Optional[str] = Field(None, description="接收者ID, 多个用','分隔")
+    app_id: str | None = Field(None, description="应用App ID")
+    app_secret: str | None = Field(None, description="应用App Secret")
+    receive_id_type: str | None = Field("open_id", description="接收者ID类型, 例如: open_id, user_id, email")
+    receive_ids: str | None = Field(None, description="接收者ID, 多个用','分隔")
 
 
 class DingTalkAppConfig(BaseModel):
@@ -128,10 +127,10 @@ class DingTalkAppConfig(BaseModel):
     """
 
     enabled: bool
-    app_key: Optional[str] = Field(None, description="应用AppKey (client_id)")
-    app_secret: Optional[str] = Field(None, description="应用AppSecret (client_secret)")
-    agent_id: Optional[int] = Field(None, description="应用AgentId")
-    userid_list: Optional[str] = Field(None, description="接收者的用户ID列表, 多个用','分隔")
+    app_key: str | None = Field(None, description="应用AppKey (client_id)")
+    app_secret: str | None = Field(None, description="应用AppSecret (client_secret)")
+    agent_id: int | None = Field(None, description="应用AgentId")
+    userid_list: str | None = Field(None, description="接收者的用户ID列表, 多个用','分隔")
 
 
 class ReportersConfig(BaseModel):
