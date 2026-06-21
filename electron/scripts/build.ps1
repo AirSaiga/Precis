@@ -15,6 +15,14 @@ Write-Host "ELECTRON_BUILDER_BINARIES_MIRROR: $env:ELECTRON_BUILDER_BINARIES_MIR
 
 switch ($Target) {
     "pack" { npx electron-builder --dir }
-    "dist" { npx electron-builder }
-    "release" { npx electron-builder --publish=always }
+    "dist" {
+        npm run fetch-python
+        npm run install:backend-deps
+        npx electron-builder
+    }
+    "release" {
+        npm run fetch-python
+        npm run install:backend-deps
+        npx electron-builder --publish=always
+    }
 }

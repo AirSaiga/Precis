@@ -126,6 +126,7 @@ lerna-debug.log*
 # 本地配置与生成物
 /electron/.precis/
 /electron/local-updates/
+/electron/resources/python-runtime/
 /backend/coverage_report.txt
 
 

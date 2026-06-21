@@ -394,6 +394,31 @@ async function stopPythonServer(): Promise<void> {
  * 
  * @returns 实际使用的端口号；启动失败（脚本缺失、spawn 失败、超时）会 reject
  */
+
+/**
+ * 解析用于启动后端的 Python 解释器路径
+ *
+ * 优先级：
+ * 1. PYTHON_PATH 环境变量（用户自定义）
+ * 2. 打包后使用内嵌的 python-build-standalone 运行时
+ * 3. 开发模式回退到系统 Python
+ */
+function resolvePythonExecutable(): string {
+  if (process.env.PYTHON_PATH) {
+    return process.env.PYTHON_PATH;
+  }
+  if (app.isPackaged) {
+    const runtimeDir = path.join(process.resourcesPath, 'python-runtime');
+    const ext = process.platform === 'win32' ? '.exe' : '';
+    const pythonBin =
+      process.platform === 'win32'
+        ? path.join(runtimeDir, 'python', `python${ext}`)
+        : path.join(runtimeDir, 'bin', `python3${ext}`);
+    return pythonBin;
+  }
+  return process.platform === 'darwin' ? 'python3' : 'python';
+}
+
 async function startPythonServer(): Promise<number> {
   // 若已有进程在运行，先彻底终止，避免端口和进程树泄漏
   if (pythonProcess) {
@@ -405,9 +430,9 @@ async function startPythonServer(): Promise<number> {
   currentPythonServerPort = await findAvailablePort(PYTHON_SERVER_DEFAULT_PORT);
   console.log(`[Main] 找到可用端口: ${currentPythonServerPort}`);
 
-  // 从环境变量读取 Python 路径，允许用户自定义
-  // 默认使用系统 PATH 中的 'python' 命令（macOS 通常只有 python3）
-  const pythonExecutable = process.env.PYTHON_PATH || (process.platform === 'darwin' ? 'python3' : 'python');
+  // 解析 Python 解释器路径（内嵌运行时 / 环境变量 / 系统默认）
+  const pythonExecutable = resolvePythonExecutable();
+  console.log(`[Main] 使用 Python 解释器: ${pythonExecutable}`);
 
   // 定位后端启动脚本
   const serverScript = path.join(BACKEND_PATH, 'app', 'start_server.py');

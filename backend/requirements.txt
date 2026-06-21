@@ -39,11 +39,17 @@ openai==2.30.0
 # 安全
 cryptography==46.0.7
 
+# 文件锁
+filelock==3.18.0
+
 # 安全表达式求值 (替代 eval)
 simpleeval==1.0.7
 
 # CLI 交互
 readchar==4.2.1
+
+# CLI 输出美化
+rich==14.0.0
 
 # 系统监控
 psutil==7.2.2

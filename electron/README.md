@@ -4,26 +4,21 @@
 
 ## 打包策略
 
-当前采用**方案 B**：Electron 安装包内包含后端源码，运行时依赖用户自行安装的 Python 环境。
+当前采用**方案 A**：Electron 安装包内包含后端源码以及内嵌的 Python 运行时与依赖，用户无需自行安装 Python。
 
-### 方案 B（当前实现）
+### 方案 A（当前实现）
 
-- `electron-builder` 通过 `build.extraResources` 将 `../backend` 复制到打包后的 `resources/backend`。
-- `electron-builder` 通过 `build.extraResources` 将 `../frontend/dist` 复制到 `resources/frontend/dist`。
-- 生产环境下，`electron/src/main.ts` 使用 `process.resourcesPath` 定位上述资源目录。
-- 用户首次运行前，需在目标机器安装 Python `>=3.12,<3.14`，并在 `resources/backend` 目录执行：
+- 构建时通过 `electron/scripts/fetch-python.js` 下载目标平台的 `python-build-standalone` 到 `electron/resources/python-runtime/`。
+- 通过 `electron/scripts/install-backend-deps.js` 使用内嵌解释器安装 `../backend/requirements.txt` 到其 site-packages。
+- `electron-builder` 通过 `build.extraResources` 将运行时、后端源码、`../frontend/dist` 复制到打包后的 `resources/`。
+- 生产环境下，`electron/src/main.ts` 的 `resolvePythonExecutable()` 优先使用 `resources/python-runtime/` 中的解释器。
+- 开发模式仍回退到系统 Python，便于调试。
 
-```bash
-pip install -e ".[api]"
-```
+### 方案 B（已弃用）
 
-> 注：安装包内不包含 Python 解释器和第三方依赖。后续可升级为方案 A（预安装 Python 并打包解释器 + 依赖）。
-
-### 方案 A（推荐，待实现）
-
-- 在构建机上准备目标平台 Python 解释器（如 `python-build-standalone` 或系统 Python）。
-- 将解释器与 `site-packages` 一并打包到 `resources/backend/runtime`。
-- `main.ts` 中 `pythonExecutable` 指向打包后的解释器，无需用户安装 Python。
+- Electron 安装包内仅包含后端源码，运行时依赖用户自行安装的 Python 环境。
+- 用户需在目标机器安装 Python `>=3.12,<3.14` 并执行 `pip install -e ".[api]"`。
+- 该方案在桌面端交付中体验较差，已不再使用。
 
 ## 开发运行
 

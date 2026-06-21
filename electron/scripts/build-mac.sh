@@ -23,6 +23,12 @@ cd electron
 npm ci
 npm run build:electron
 
+# 拉取并安装内嵌 Python 运行时与后端依赖
+echo "[build-mac] Fetching embedded Python runtime..."
+npm run fetch-python
+echo "[build-mac] Installing backend dependencies..."
+npm run install:backend-deps
+
 # 打包 DMG（显式禁用签名）
 echo "[build-mac] Packaging DMG..."
 npx electron-builder --mac --config.mac.identity=null
