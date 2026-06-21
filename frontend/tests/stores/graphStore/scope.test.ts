@@ -74,11 +74,4 @@ describe('createScopeModule', () => {
       expect(stats.totalNodes).toBe(1)
     })
   })
-
-  describe('switchScope', () => {
-    it('不抛出异常', () => {
-      expect(() => module.switchScope('scope1')).not.toThrow()
-      expect(() => module.switchScope(null)).not.toThrow()
-    })
-  })
 })

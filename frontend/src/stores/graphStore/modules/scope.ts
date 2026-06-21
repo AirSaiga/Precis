@@ -1,20 +1,11 @@
 /**
  * @file scope.ts
- * @description 作用域管理模块 - 管理画布的分组/分区视图
+ * @description 子图统计辅助模块
  *
  * ====================================================================
  * 功能概述
  * ====================================================================
- * 1. switchScope: 切换当前的作用域/分组视图
- * 2. getSubGraphStats: 获取指定节点下的子图统计信息
- *
- * ====================================================================
- * 作用域概念
- * ====================================================================
- * 作用域用于在复杂项目中组织和隔离节点：
- * - 可以按功能模块划分节点
- * - 可以按项目结构划分节点
- * - 方便在大型项目中管理节点
+ * getSubGraphStats: 获取指定节点下的子图统计信息（供 Set 节点徽标显示）
  *
  * ====================================================================
  * getSubGraphStats 统计维度
@@ -38,27 +29,12 @@
  * ====================================================================
  * 架构设计
  * ====================================================================
- * - 轻量级模块，只关注统计和切换
+ * - 轻量级模块，只关注统计
  * - 使用依赖注入获取响应式状态
- * - switchScope 目前是占位实现
- *
- * ====================================================================
- * 潜在扩展方向
- * ====================================================================
- * - 实现节点分组/折叠功能
- * - 实现作用域隔离（只显示作用域内节点）
- * - 实现跨作用域连接可视化
- *
- * ====================================================================
- * 副作用说明
- * ====================================================================
- * - 目前无明显副作用
- * - switchScope 待实现具体逻辑
  *
  * @module graphStore/modules
  */
 
-import { logger } from '@/core/utils/logger'
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
@@ -66,10 +42,6 @@ import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 
 export function createScopeModule(params: { nodes: Ref<CustomNode[]>; edges: Ref<Edge[]> }) {
   const { nodes, edges } = params
-
-  function switchScope(scopeId: string | null) {
-    logger.debug('切换作用域:', scopeId)
-  }
 
   function getSubGraphStats(nodeId: string) {
     const children = nodes.value.filter((n) =>
@@ -92,7 +64,6 @@ export function createScopeModule(params: { nodes: Ref<CustomNode[]>; edges: Ref
   }
 
   return {
-    switchScope,
     getSubGraphStats,
   }
 }
