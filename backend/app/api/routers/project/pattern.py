@@ -22,21 +22,24 @@
 
 import logging
 import os
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-logger = logging.getLogger(__name__)
-
 from app.api.dependencies import get_project_config_path
+from app.shared.core.io.yaml import read_yaml
 from app.shared.core.patterns.writer import (
     PatternFile,
     check_pattern_exists,
+    delete_pattern_file,
     generate_unique_pattern_name,
     save_pattern_file,
 )
 
 from .manifest import get_v2_manifest
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="", tags=["Project-Pattern"])
 
@@ -154,3 +157,96 @@ def check_pattern_name_exists(
         "pattern_name": pattern_name,
         "exists": exists,
     }
+
+
+@router.get(
+    "/pattern",
+    response_model=list[dict],
+    summary="列出所有 Pattern 规则",
+    responses={
+        500: {"description": "服务器内部错误"},
+    },
+)
+def list_v2_patterns(
+    config_path: str = Depends(get_project_config_path),
+):
+    """列出项目 patterns/ 目录下的所有 Pattern。"""
+    manifest = get_v2_manifest(config_path)
+    patterns_dir = os.path.join(config_path, manifest.patterns_dir or "patterns")
+    result: list[dict] = []
+    if not os.path.isdir(patterns_dir):
+        return result
+    for fname in sorted(os.listdir(patterns_dir)):
+        if not (fname.endswith(".yaml") or fname.endswith(".yml")):
+            continue
+        fpath = os.path.join(patterns_dir, fname)
+        try:
+            data = read_yaml(Path(fpath))
+            if isinstance(data, dict) and data.get("name"):
+                result.append(data)
+        except Exception as e:
+            logger.warning(f"[Pattern API] 读取 pattern 文件失败: {fpath}, {e}")
+    return result
+
+
+@router.put(
+    "/pattern/{pattern_name}",
+    response_model=CreatePatternResponse,
+    summary="更新已存在的 Pattern",
+    responses={
+        404: {"description": "Pattern 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
+def update_v2_pattern(
+    pattern_name: str,
+    payload: CreatePatternRequest,
+    config_path: str = Depends(get_project_config_path),
+):
+    """更新已存在的 Pattern 文件（覆盖写）。"""
+    manifest = get_v2_manifest(config_path)
+    patterns_dir = os.path.join(config_path, manifest.patterns_dir or "patterns")
+
+    if not check_pattern_exists(patterns_dir, pattern_name):
+        raise HTTPException(status_code=404, detail=f"Pattern '{pattern_name}' 不存在")
+
+    # 以路径中的名称为准（payload.name 应与 pattern_name 一致）
+    pattern_file = PatternFile(
+        name=pattern_name,
+        regex=payload.regex,
+        description=payload.description,
+        output=payload.output,
+    )
+    filepath = save_pattern_file(pattern_file, patterns_dir)
+    logger.info(f"[Pattern API] Pattern 已更新: {filepath}")
+
+    return CreatePatternResponse(
+        message=f"Pattern '{pattern_name}' 已更新",
+        pattern_path=filepath,
+        pattern_name=pattern_name,
+    )
+
+
+@router.delete(
+    "/pattern/{pattern_name}",
+    response_model=dict,
+    summary="删除 Pattern",
+    responses={
+        404: {"description": "Pattern 不存在"},
+        500: {"description": "服务器内部错误"},
+    },
+)
+def delete_v2_pattern(
+    pattern_name: str,
+    config_path: str = Depends(get_project_config_path),
+):
+    """删除指定 Pattern 文件。"""
+    manifest = get_v2_manifest(config_path)
+    patterns_dir = os.path.join(config_path, manifest.patterns_dir or "patterns")
+
+    deleted = delete_pattern_file(patterns_dir, pattern_name)
+    if not deleted:
+        raise HTTPException(status_code=404, detail=f"Pattern '{pattern_name}' 不存在")
+
+    logger.info(f"[Pattern API] Pattern 已删除: {pattern_name}")
+    return {"pattern_name": pattern_name, "deleted": True}
