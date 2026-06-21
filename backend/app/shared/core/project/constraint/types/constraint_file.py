@@ -230,6 +230,9 @@ class ConstraintFile(BaseModel):
     # 数据流输入：指定上游节点 ID，优先于 refs 的 Schema 引用
     # 若存在，约束节点从该上游节点获取数据列执行校验；否则回退到传统 refs 方式
     input_from_node: str | None = Field(None, description="上游数据流节点 ID（优先于 Schema 引用）")
+    # 目标输出列名：当上游为多列 transform（如 StringSplit/RegexExtract）时，
+    # 指定约束作用于该 transform 的哪一列输出。模板展开时用于把约束路由到对应列的输出节点。
+    input_column: str | None = Field(None, description="目标输出列名（多列 transform 下游约束定位列）")
 
 
 # ============================================================

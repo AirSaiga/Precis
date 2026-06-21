@@ -133,6 +133,60 @@ class TestExpandTemplate:
         assert constraints == []
         assert regex_nodes == []
 
+    def test_constraint_input_column_propagated(self):
+        """约束的 input_column 透传到 ConstraintFile，用于多列 transform 下游定位列"""
+        template = TemplateFile(
+            id="t_col",
+            name="T",
+            nodes=[
+                TemplateNode(
+                    id="t1",
+                    kind="transform",
+                    type="StringSplit",
+                    input_from_node=None,
+                    input_column="full_name",
+                    output_columns=["first", "last"],
+                ),
+                TemplateNode(
+                    id="c1",
+                    kind="constraint",
+                    type="NotNull",
+                    input_from_node="t1",
+                    input_column="last",
+                ),
+            ],
+        )
+        _, constraints, _, _ = expand_template(template, "inst1")
+        assert len(constraints) == 1
+        # input_column 必须透传，前端据此把约束路由到对应列的 transformOutput 节点
+        assert constraints[0].input_column == "last"
+        assert constraints[0].input_from_node == "inst1__t1"
+
+    def test_constraint_input_column_none_when_absent(self):
+        """未声明 input_column 时默认 None，不影响既有模板"""
+        template = TemplateFile(
+            id="t_nocol",
+            name="T",
+            nodes=[
+                TemplateNode(
+                    id="md1",
+                    kind="manualData",
+                    type="ManualData",
+                    column_name="age",
+                    rows=[["18"]],
+                ),
+                TemplateNode(
+                    id="c1",
+                    kind="constraint",
+                    type="Range",
+                    input_from_node="md1",
+                ),
+            ],
+        )
+        _, constraints, _, _ = expand_template(template, "i1")
+        assert len(constraints) == 1
+        assert constraints[0].input_column is None
+
     def test_manual_data_disabled_skipped(self):
         """disabled 的 manualData 节点不展开"""
         template = TemplateFile(

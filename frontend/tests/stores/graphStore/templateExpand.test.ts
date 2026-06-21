@@ -41,6 +41,12 @@ vi.mock('@/services/constraints/validationRegistry', () => ({
     }
     return map[v2Type] || undefined
   }),
+  isConstraintNodeType: vi.fn(() => false),
+}))
+
+vi.mock('@/services/templateExpand', () => ({
+  executeTemplateExpandHooks: vi.fn().mockResolvedValue(undefined),
+  resetRelationshipSyncRound: vi.fn(),
 }))
 
 import { createTemplateExpandModule } from '@/stores/graphStore/modules/templateExpand'
@@ -421,6 +427,87 @@ describe('templateExpand module', () => {
       expect(addEdges).toHaveBeenCalled()
       const edgeIds = addEdges.mock.calls[0][0] as Edge[]
       expect(edgeIds.length).toBeGreaterThan(0)
+    })
+
+    it('多列 transform 为每列创建独立 transformOutput，约束按 input_column 路由', async () => {
+      nodes.value = [makeNode('ti-1', 'templateInstance', { inputFromNode: 'schema-1' })]
+
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          transforms: [
+            {
+              id: 't1',
+              type: 'StringSplit',
+              input_from_node: null,
+              description: '拆分姓名',
+              input_column: 'full_name',
+              output_columns: ['first', 'last'],
+            },
+          ],
+          constraints: [
+            {
+              id: 'c-last',
+              type: 'NotNull',
+              input_from_node: 't1',
+              input_column: 'last',
+              description: '校验 last 列',
+              refs: {},
+              params: {},
+            },
+          ],
+        })
+      )
+
+      // 应为两列各创建一个 transformOutput：output-t1-0 / output-t1-1
+      const created = addNodes.mock.calls.map((c) => c[0] as CustomNode)
+      const outputs = created.filter((n) => n.type === 'transformOutput')
+      expect(outputs.map((n) => n.id).sort()).toEqual(['output-t1-0', 'output-t1-1'])
+      // 每个合成节点的 columnName 对应各自列
+      const colNames = outputs.map((n) => (n.data as any).columnName).sort()
+      expect(colNames).toEqual(['first', 'last'])
+
+      // 约束 c-last 声明 input_column='last'（第 2 列）→ 边应连到 output-t1-1
+      const allEdges = addEdges.mock.calls[0][0] as Edge[]
+      const constraintEdge = allEdges.find((e) => e.target === 'c-last')
+      expect(constraintEdge).toBeDefined()
+      expect(constraintEdge!.source).toBe('output-t1-1')
+
+      // transform → 两列各一条边
+      const t2oEdges = allEdges.filter((e) => e.source === 't1')
+      expect(t2oEdges.map((e) => e.target).sort()).toEqual(['output-t1-0', 'output-t1-1'])
+    })
+
+    it('多列 transform 的约束未声明 input_column 时回退到首列', async () => {
+      nodes.value = [makeNode('ti-1', 'templateInstance', {})]
+
+      await module.expandOnCanvas(
+        'ti-1',
+        makeExpandResult({
+          transforms: [
+            {
+              id: 't1',
+              type: 'StringSplit',
+              input_from_node: null,
+              output_columns: ['first', 'last'],
+            },
+          ],
+          constraints: [
+            {
+              id: 'c1',
+              type: 'NotNull',
+              input_from_node: 't1',
+              refs: {},
+              params: {},
+            },
+          ],
+        })
+      )
+
+      const allEdges = addEdges.mock.calls[0][0] as Edge[]
+      const constraintEdge = allEdges.find((e) => e.target === 'c1')
+      // 无 input_column → 回退到 output-t1-0（首列）
+      expect(constraintEdge!.source).toBe('output-t1-0')
     })
 
     it('展开结果中的 manualData 节点被正确创建', async () => {

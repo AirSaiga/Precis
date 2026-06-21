@@ -2,12 +2,18 @@
  * @file templateExpand.ts
  * @description 模板展开画布渲染模块 — 将 expand API 结果转换为画布上的 DAG 节点和边
  *
- * 架构设计 (5 阶段管线):
- *   Stage 1: collectExpandItems   — 解析 API 结果为 ExpandItem[]
- *   Stage 2: buildDagPlan         — 补全合成节点(transformOutput/manualData)，确定边
- *   Stage 3: computeLayout        — 对所有节点(含合成)做拓扑排序布局
- *   Stage 4: materializeNodes     — DagNode → CustomNode 推入 nodes.value
- *   Stage 5: materializeEdges     — DagEdge → Edge 推入 edges.value
+ * 架构设计 (6 阶段管线):
+ *   Stage 1: collectExpandItems     — 解析 API 结果为 ExpandItem[]
+ *   Stage 2: buildDagPlan           — 补全合成节点(transformOutput/manualData)，确定边
+ *   Stage 3: computeLayout          — 对所有节点(含合成)做拓扑排序布局
+ *   Stage 4: materializeNodes       — DagNode → CustomNode 推入 nodes.value
+ *   Stage 5: materializeEdges       — DagEdge → Edge 推入 edges.value
+ *   Stage 6: executePostExpandHooks — 调用已注册的 type-agnostic 后置钩子
+ *                                     （Transform 计算、约束校验、关系同步等）
+ *
+ * Stage 6 的具体逻辑由 `services/templateExpand/registryHandlers/*` 通过
+ * `registerTemplateExpandHandler` 自注册，模板展开模块本身不感知节点类型。
+ * 新增节点类型只需新增一个 handler 文件，无需修改本模块。
  *
  * 设计原则:
  * - 先确定所有节点，再布局，最后连线
@@ -25,6 +31,7 @@ import {
 } from '@/services/constraints/validationRegistry'
 import type { ConstraintKind } from '@/services/constraints/types'
 import { addNodes, addEdges, removeNodes, removeEdges } from '@/services/canvas/vueFlowApi'
+import { executeTemplateExpandHooks, resetRelationshipSyncRound } from '@/services/templateExpand'
 
 // ============================================================================
 // 数据结构
@@ -71,8 +78,14 @@ export function createTemplateExpandModule(params: {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>
   updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
+  /**
+   * 重建 parent/children/outputPortConnected 关系。
+   * 模板展开不走 useConnections.onConnect，需要手动调用 reconcileAll。
+   * 由 registryHandlers/relationshipSync.ts 在 Stage 6 中通过 ctx 间接调用。
+   */
+  reconcileAll?: () => Promise<void>
 }) {
-  const { nodes, edges, updateNodeData } = params
+  const { nodes, edges, updateNodeData, reconcileAll } = params
 
   // instanceNodeId → [expanded node ids]
   const expandedNodeIds = new Map<string, string[]>()
@@ -120,7 +133,7 @@ export function createTemplateExpandModule(params: {
   }
 
   // --------------------------------------------------------------------------
-  // Main orchestrator — 5 阶段管线
+  // Main orchestrator — 6 阶段管线
   // --------------------------------------------------------------------------
 
   async function expandOnCanvas(instanceNodeId: string, expandResult: TemplateExpandResult) {
@@ -148,6 +161,21 @@ export function createTemplateExpandModule(params: {
 
     // Stage 5: 创建边 + 回写 inputFromNode
     materializeEdges(dagEdges, dagNodes)
+
+    // 等待 Vue Flow 完成 handle 注册（边路径计算依赖）
+    await nextTick()
+
+    // Stage 6: 调用已注册的后置钩子（type-agnostic，自动执行子节点逻辑）
+    //   - Transform 计算、约束校验、关系同步等
+    //   - 由 services/templateExpand/registryHandlers/* 通过自注册提供
+    //   - 新增节点类型只需新增 handler，无需修改本模块
+    resetRelationshipSyncRound()
+    await executeTemplateExpandHooks(dagNodes, {
+      nodes,
+      edges,
+      updateNodeData,
+      reconcileAll,
+    })
 
     // 先用估算尺寸设置容器（确保子节点在容器内）
     if (containerSize) {
@@ -248,7 +276,7 @@ export function createTemplateExpandModule(params: {
     // ---- 2b: 检测需要 transformOutput 的 transform 节点 ----
     // 规则：constraint 的 source 是 transform 时，中间需要 transformOutput
     const transformsNeedingOutput = new Set<string>()
-    const transformOutputMap = new Map<string, string>() // transformId → outputNodeId
+    const transformOutputMap = new Map<string, string[]>() // transformId → 每列的 outputNodeId[]
 
     for (const item of items) {
       if (item.kind !== 'constraint' || !item.inputFromNode) continue
@@ -260,41 +288,57 @@ export function createTemplateExpandModule(params: {
       }
     }
 
-    // ---- 2c: 创建 transformOutput 合成节点 ----
+    // ---- 2c: 创建 transformOutput 合成节点（每列一个）----
+    // 多列 transform（StringSplit/RegexExtract）会产出 N 列，需为每列创建独立 output 节点，
+    // 否则只有首列数据能被后续约束消费，其余列被静默丢弃。
     for (const transformId of transformsNeedingOutput) {
       const transformItem = itemMap.get(transformId)!
       const outputColumns = (transformItem.data.output_columns as string[]) || []
+      // 列名列表（空数组时退化为单节点，保持向后兼容）
+      const colNames = outputColumns.length > 0 ? outputColumns : ['output']
 
-      // 检查画布上是否已有该 transform 的 output 节点（复用场景）
-      const existingOutput = nodes.value.find(
+      // 检查画布上是否已有该 transform 的 output 节点（复用场景，按列名匹配）
+      const existingOutputs = nodes.value.filter(
         (n) =>
           n.type === 'transformOutput' &&
           (n.data as unknown as Record<string, unknown>)?.parentTransformId === transformId
       )
+      const existingByColName = new Map(
+        existingOutputs.map((n) => [
+          (n.data as unknown as Record<string, unknown>)?.columnName as string | undefined,
+          n,
+        ])
+      )
 
-      const outputNodeId = existingOutput?.id || `output-${transformId}`
+      const outputNodeIds: string[] = []
+      colNames.forEach((colName, i) => {
+        const existing = existingByColName.get(colName)
+        const outputNodeId = existing?.id || `output-${transformId}-${i}`
 
-      dagNodes.push({
-        id: outputNodeId,
-        origin: 'synthetic',
-        kind: 'transformOutput',
-        existsOnCanvas: !!existingOutput,
-        syntheticData: {
-          parentTransformId: transformId,
-          columnName: outputColumns[0] || 'output',
-          outputColumns,
-        },
+        dagNodes.push({
+          id: outputNodeId,
+          origin: 'synthetic',
+          kind: 'transformOutput',
+          existsOnCanvas: !!existing,
+          syntheticData: {
+            parentTransformId: transformId,
+            columnName: colName,
+            outputColumnIndex: i,
+          },
+        })
+
+        outputNodeIds.push(outputNodeId)
+
+        // transform → transformOutput 边（每列一条）
+        dagEdges.push({
+          sourceId: transformId,
+          targetId: outputNodeId,
+          sourceHandle: 'transform-output',
+          targetHandle: 'target-left',
+        })
       })
 
-      transformOutputMap.set(transformId, outputNodeId)
-
-      // transform → transformOutput 边
-      dagEdges.push({
-        sourceId: transformId,
-        targetId: outputNodeId,
-        sourceHandle: 'transform-output',
-        targetHandle: 'target-left',
-      })
+      transformOutputMap.set(transformId, outputNodeIds)
     }
 
     // ---- 2d: 实例自包含，无外部数据源 ----
@@ -330,14 +374,22 @@ export function createTemplateExpandModule(params: {
       // 如果源是 transform 且目标是 constraint，路由经过 transformOutput
       const sourceItem = itemMap.get(sourceId)
       if (sourceItem?.kind === 'transform' && item.kind === 'constraint') {
-        const outputNodeId = transformOutputMap.get(sourceId)
-        if (outputNodeId) {
-          dagEdges.push({
-            sourceId: outputNodeId,
-            targetId: item.id,
-            targetHandle,
-          })
-          continue
+        const outputNodeIds = transformOutputMap.get(sourceId) || []
+        if (outputNodeIds.length > 0) {
+          // 多列 transform：按约束声明的 input_column 路由到对应列的 output 节点。
+          // 未声明或不匹配时回退到首列（保持向后兼容）。
+          const outputColumns = (sourceItem.data.output_columns as string[]) || []
+          const inputColumn = (item.data.input_column as string) || ''
+          const colIndex = inputColumn ? outputColumns.indexOf(inputColumn) : 0
+          const targetOutputId = outputNodeIds[colIndex >= 0 ? colIndex : 0]
+          if (targetOutputId) {
+            dagEdges.push({
+              sourceId: targetOutputId,
+              targetId: item.id,
+              targetHandle,
+            })
+            continue
+          }
         }
       }
 

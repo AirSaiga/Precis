@@ -637,3 +637,177 @@ export function computeSummary(
   const summaryRows = upstreamRows.map(() => [`${transformType} 预览: ${upstreamRows.length} 行`])
   return { columnName: colName, rows: summaryRows }
 }
+
+// ============================================================================
+// computeTransformResult — 统一分发入口
+// ============================================================================
+
+/**
+ * 按 transformType 分发计算，返回输出列名和行数据。
+ *
+ * 供 useTransformSave（创建输出节点）和 templateExpand handler（就地写入 rows）
+ * 共用，消除 22 种 transformType 的重复分发逻辑。
+ */
+export function computeTransformResult(
+  type: string,
+  upstreamRows: string[][],
+  params: Record<string, unknown>,
+  meta: { inputColumn?: string; outputColumns?: string[] }
+): { columns: string[]; rowsByColumn: string[][][]; outputDataType?: string } {
+  const dataLike = {
+    inputColumn: meta.inputColumn,
+    outputColumns: meta.outputColumns,
+  } as { inputColumn?: string; outputColumns?: string[] }
+
+  if (type === 'StringSplit') {
+    const result = computeStringSplit(upstreamRows, {
+      delimiter: (params.delimiter as string) || ',',
+      maxsplit: (params.maxsplit as number) ?? -1,
+    })
+    return {
+      columns: resolveOutputColumns(dataLike as any, result.columns),
+      rowsByColumn: result.rowsByColumn,
+    }
+  }
+
+  if (type === 'RegexExtract') {
+    const outputColumns =
+      meta.outputColumns && meta.outputColumns.length > 0 ? meta.outputColumns : ['extract_1']
+    return {
+      columns: outputColumns,
+      rowsByColumn: computeRegexExtract(
+        upstreamRows,
+        { pattern: (params.pattern as string) || '', flags: (params.flags as string) || '' },
+        outputColumns
+      ),
+    }
+  }
+
+  if (type === 'Digits') {
+    return {
+      columns: resolveOutputColumns(dataLike as any, 'digits'),
+      rowsByColumn: [computeDigits(upstreamRows)],
+    }
+  }
+
+  if (type === 'Substring') {
+    const rows = computeSubstring(upstreamRows, {
+      start: (params.start as number) ?? 0,
+      end: params.end as number | undefined,
+      length: params.length as number | undefined,
+    })
+    return {
+      columns: resolveOutputColumns(dataLike as any, `${meta.inputColumn || 'result'}_result`),
+      rowsByColumn: [rows],
+    }
+  }
+
+  if (type === 'WeightedSum') {
+    return {
+      columns: resolveOutputColumns(dataLike as any, 'weighted_sum'),
+      rowsByColumn: [computeWeightedSum(upstreamRows, (params.weights as number[]) || [])],
+    }
+  }
+
+  if (type === 'Modulo') {
+    const divisor = parseFloat(String((params.divisor as number) ?? 1)) || 1
+    return {
+      columns: resolveOutputColumns(dataLike as any, 'modulo_result'),
+      rowsByColumn: [computeModulo(upstreamRows, divisor)],
+    }
+  }
+
+  if (type === 'MapValue') {
+    return {
+      columns: resolveOutputColumns(dataLike as any, 'mapped'),
+      rowsByColumn: [
+        computeMapValue(upstreamRows, (params.mapping as Array<string | number>) || []),
+      ],
+    }
+  }
+
+  if (ROW_CHANGING_TRANSFORMS.has(type)) {
+    const summary = computeSummary(upstreamRows, type)
+    return { columns: [summary.columnName], rowsByColumn: [summary.rows] }
+  }
+
+  const baseName = meta.inputColumn || 'result'
+  const concatOutputColumn = (params.output_column as string) || ''
+  const columns =
+    type === 'Concat' && concatOutputColumn
+      ? [concatOutputColumn]
+      : resolveOutputColumns(
+          dataLike as any,
+          type === 'Concat' ? 'concat_result' : `${baseName}_result`
+        )
+
+  let rows: string[][]
+  let outputDataType: string | undefined
+  switch (type) {
+    case 'MathExpr': {
+      const outputType = (params.output_type as string) || ''
+      rows = computeMathExpr(upstreamRows, {
+        expression: (params.expression as string) || '',
+        outputType,
+      })
+      if (outputType) outputDataType = mapMathExprOutputType(outputType)
+      break
+    }
+    case 'Replace':
+      rows = computeReplace(upstreamRows, {
+        old: (params.old as string) || '',
+        new: (params.new as string) || '',
+        count: (params.count as number) ?? -1,
+      })
+      break
+    case 'Strip':
+      rows = computeStrip(upstreamRows, (params.chars as string) || '')
+      break
+    case 'UpperCase':
+      rows = computeUpperCase(upstreamRows)
+      break
+    case 'LowerCase':
+      rows = computeLowerCase(upstreamRows)
+      break
+    case 'DateFormat':
+      rows = computeDateFormat(upstreamRows, {
+        inputFormat: (params.input_format as string) || '%Y-%m-%d',
+        outputFormat: (params.output_format as string) || '%Y/%m/%d',
+      })
+      outputDataType = 'Date'
+      break
+    case 'Lookup':
+      rows = computeLookup(
+        upstreamRows,
+        (params.mapping as Record<string, string>) || {},
+        (params.default as string) ?? undefined
+      )
+      break
+    case 'CastType': {
+      const targetType = (params.target_type as string) || 'string'
+      rows = computeCastType(upstreamRows, targetType)
+      outputDataType = mapCastTypeOutputType(targetType)
+      break
+    }
+    case 'Concat':
+      rows = computeConcat(upstreamRows, {
+        columns: (params.columns as string) || '',
+        separator: (params.separator as string) || '',
+      })
+      break
+    case 'ConditionalAssign':
+      rows = computeConditionalAssign(upstreamRows, {
+        conditions:
+          (params.conditions as Array<{ column: string; op: string; value: string }>) || [],
+        logic: (params.logic as string) || 'and',
+        then_value: (params.then_value as string) ?? '',
+        else_value: (params.else_value as string) ?? undefined,
+      })
+      break
+    default:
+      rows = upstreamRows
+      break
+  }
+
+  return { columns, rowsByColumn: [rows], outputDataType }
+}

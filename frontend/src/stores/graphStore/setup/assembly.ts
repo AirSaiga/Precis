@@ -147,6 +147,7 @@ export function createGraphStoreAssembly(
     nodes,
     edges,
     updateNodeData,
+    reconcileAll: connectionStateSync.reconcileAll,
   })
 
   const v2Persistence = createV2PersistenceModule({

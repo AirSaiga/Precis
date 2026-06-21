@@ -101,6 +101,7 @@ def expand_template(
                     refs=node.refs,
                     params=node.params,
                     input_from_node=effective_input,
+                    input_column=node.input_column,
                 )
                 constraints.append(cf)
 
