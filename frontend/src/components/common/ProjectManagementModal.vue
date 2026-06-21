@@ -193,6 +193,7 @@
   import { isElectron } from '@/core/utils/electronDetector'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { dialogApi } from '@/core/capabilities/dialogApi'
+  import { createProject } from '@/api/projectApi'
 
   interface Props {
     modelValue: boolean
@@ -277,8 +278,13 @@
     const path = newProjectForm.value.path.trim()
 
     if (!isElectron()) {
-      // Web 模式下需要项目目录已存在，直接加载
-      // TODO: 后端提供 POST /projects/create 后，Web 也可真正创建新项目
+      // Web 模式：调用后端创建项目脚手架后再加载
+      try {
+        await createProject(path, name)
+      } catch (e) {
+        // 后端返回 400（manifest 已存在）等，退化为直接加载已有项目
+        logger.warn('createProject 失败，回退为直接加载项目:', e)
+      }
       await loadProject(path)
       return
     }
