@@ -202,3 +202,28 @@ def generate_unique_pattern_name(patterns_dir: str, base_name: str) -> str:
 
         # 继续尝试下一个数字
         counter += 1
+
+
+def get_pattern_filepath(patterns_dir: str, pattern_name: str) -> str:
+    """根据 pattern 名称推导其文件路径（与 save 的命名规则一致）。
+
+    :param patterns_dir: patterns 目录路径
+    :param pattern_name: Pattern 名称
+    :return: 完整文件路径
+    """
+    safe_name = "".join(c if c.isalnum() or c in "-_" else "_" for c in pattern_name)
+    return os.path.join(patterns_dir, f"{safe_name}.yaml")
+
+
+def delete_pattern_file(patterns_dir: str, pattern_name: str) -> bool:
+    """删除指定 Pattern 文件。
+
+    :param patterns_dir: patterns 目录路径
+    :param pattern_name: Pattern 名称
+    :return: 删除成功返回 True，文件不存在返回 False
+    """
+    filepath = get_pattern_filepath(patterns_dir, pattern_name)
+    if not os.path.isfile(filepath):
+        return False
+    os.remove(filepath)
+    return True

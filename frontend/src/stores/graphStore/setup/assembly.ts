@@ -309,7 +309,7 @@ export function createGraphStoreAssembly(
     createSchemaNode,
   })
 
-  const { switchScope, getSubGraphStats } = createScopeModule({ nodes, edges })
+  const { getSubGraphStats } = createScopeModule({ nodes, edges })
 
   return {
     nodes,
@@ -425,8 +425,6 @@ export function createGraphStoreAssembly(
 
     saveCanvasAsAsset,
     loadAssetToCanvas,
-
-    switchScope,
 
     getSubGraphStats,
 

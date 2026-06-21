@@ -37,3 +37,44 @@ export async function checkV2PatternExists(
   )
   return data
 }
+
+/**
+ * 列出所有 Pattern 规则
+ */
+export async function listV2Patterns(configPath?: string): Promise<Record<string, unknown>[]> {
+  const { data } = await apiClient.get<Record<string, unknown>[]>(
+    '/project/pattern',
+    withConfigPathHeader(configPath)
+  )
+  return data
+}
+
+/**
+ * 更新已存在的 Pattern（覆盖写）
+ */
+export async function updateV2Pattern(
+  patternName: string,
+  payload: CreatePatternRequest,
+  configPath?: string
+): Promise<CreatePatternResponse> {
+  const { data } = await apiClient.put<CreatePatternResponse>(
+    `/project/pattern/${encodeURIComponent(patternName)}`,
+    payload,
+    withConfigPathHeader(configPath)
+  )
+  return data
+}
+
+/**
+ * 删除 Pattern
+ */
+export async function deleteV2Pattern(
+  patternName: string,
+  configPath?: string
+): Promise<{ pattern_name: string; deleted: boolean }> {
+  const { data } = await apiClient.delete<{ pattern_name: string; deleted: boolean }>(
+    `/project/pattern/${encodeURIComponent(patternName)}`,
+    withConfigPathHeader(configPath)
+  )
+  return data
+}
