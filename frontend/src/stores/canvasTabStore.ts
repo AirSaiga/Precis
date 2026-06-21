@@ -449,20 +449,13 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
    * @param tabId - 目标工作区 ID
    * @param newTitle - 新标题。不传时弹出浏览器 prompt 让用户输入
    */
-  async function renameTab(tabId: string, newTitle?: string) {
+  async function renameTab(tabId: string, newTitle: string) {
     const tab = tabs.value.find((w) => w.id === tabId)
     if (!tab) return
 
-    if (newTitle !== undefined && newTitle.trim()) {
+    if (newTitle.trim()) {
       tab.title = newTitle.trim()
       tab.hasUnsavedChanges = true
-    } else if (newTitle === undefined) {
-      // TODO: 将 prompt() 替换为专用输入对话框组件，统一 UI 风格
-      const userInput = prompt(t('canvas.renameWorkspacePrompt'), tab.title)
-      if (userInput && userInput.trim()) {
-        tab.title = userInput.trim()
-        tab.hasUnsavedChanges = true
-      }
     }
 
     syncTabsToBackend()
