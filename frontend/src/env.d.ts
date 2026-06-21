@@ -92,9 +92,9 @@ declare module 'electron' {
     getVersion(): string
   }
   export const ipcRenderer: {
-    on(channel: string, listener: (...args: any[]) => void): void
-    send(channel: string, ...args: any[]): void
-    invoke(channel: string, ...args: any[]): Promise<any>
+    on(channel: string, listener: (...args: unknown[]) => void): void
+    send(channel: string, ...args: unknown[]): void
+    invoke(channel: string, ...args: unknown[]): Promise<unknown>
   }
   export const shell: {
     openPath(path: string): Promise<string>

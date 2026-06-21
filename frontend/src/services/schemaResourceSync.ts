@@ -35,7 +35,7 @@ export interface SchemaSyncGraphStore {
     sourceHandle?: string,
     targetHandle?: string,
     options?: Record<string, unknown>
-  ) => any
+  ) => void
   importV2ResourceToCanvas: (
     kind: 'schema' | 'constraint' | 'regex' | 'transform',
     resourceId: string,
@@ -130,7 +130,8 @@ export async function syncSchemaResources(
         schemaNodeId,
         Array.from(deps.graphStore.nodes),
         Array.from(deps.graphStore.edges),
-        (nodeId: string, data: any) => deps.graphStore.updateNodeData(nodeId, data)
+        (nodeId: string, data: Partial<CustomNodeData>) =>
+          deps.graphStore.updateNodeData(nodeId, data)
       )
     }
 
@@ -176,10 +177,12 @@ export async function findV2SchemaIdByTableName(
   }
 
   const schemas = fullConfig.schemas || {}
-  const byName = Object.values(schemas).find(
-    (s: any) => s.name?.toLowerCase() === tableName.toLowerCase()
-  )
-  return byName?.id ? (byName.id as string) : null
+  const byName = Object.values(schemas).find((s) => {
+    const record = s as unknown as Record<string, unknown>
+    return typeof record.name === 'string' && record.name.toLowerCase() === tableName.toLowerCase()
+  })
+  const record = byName as unknown as Record<string, unknown> | undefined
+  return record && typeof record.id === 'string' ? record.id : null
 }
 
 /**
@@ -247,12 +250,14 @@ async function loadEmbeddedConstraints(
     }> = []
 
     materializeV2EmbeddedConstraints({
-      schemaNode: schemaNode as any,
+      schemaNode: schemaNode as unknown as Parameters<
+        typeof materializeV2EmbeddedConstraints
+      >[0]['schemaNode'],
       schemaTableName: schemaData.tableName,
       embeddedConstraints: schemaFile.constraints,
       colNameToId,
       hasNode: (id: string) => graphStore.nodes.some((n) => n.id === id),
-      addNode: (node: any) => addNodes(node),
+      addNode: (node) => addNodes(node as unknown as CustomNode),
       addConstraintEdge: (tableId: string, constraintId: string, columnId: string) => {
         bufferedEdges.push({ tableId, constraintId, columnId })
       },

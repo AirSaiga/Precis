@@ -89,17 +89,18 @@ function safeClone<T>(obj: T): T {
   }
 
   // 处理对象
-  const result: any = {}
-  for (const key in raw) {
-    if (Object.prototype.hasOwnProperty.call(raw, key)) {
-      const value = (raw as any)[key]
+  const result: Record<string, unknown> = {}
+  const recordRaw = raw as Record<string, unknown>
+  for (const key in recordRaw) {
+    if (Object.prototype.hasOwnProperty.call(recordRaw, key)) {
+      const value = recordRaw[key]
       if (typeof value === 'function' || typeof value === 'symbol') {
         continue
       }
       result[key] = safeClone(value)
     }
   }
-  return result
+  return result as unknown as T
 }
 
 export const useCanvasTabStore = defineStore('canvasTab', () => {
