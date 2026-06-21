@@ -166,9 +166,8 @@ exclude = [
     "dist",
 ]
 
-# 以下模块属于其他 mypy 修复任务（core/domain/services/api）的范围，
-# 为避免 cli/tests 任务的 mypy 结果受未修复的共享模块阻塞，先临时忽略其错误。
-# 这些忽略应在对应任务完成后移除。
+# app.shared / app/api 存在历史类型债务（约 517 处 mypy 错误），
+# 暂时忽略以避免阻塞 cli/tests 的类型检查。这些错误待专项清理任务逐步修复后移除。
 [[tool.mypy.overrides]]
 module = "app.shared.*"
 ignore_errors = true

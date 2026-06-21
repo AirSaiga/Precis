@@ -80,6 +80,9 @@ jobs:
       - name: Ruff format check
         run: python -m ruff format --check app
 
+      - name: mypy type check
+        run: python -m mypy app
+
       - name: Audit dependencies
         run: |
           pip install pip-audit
