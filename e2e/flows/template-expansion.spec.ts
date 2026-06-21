@@ -1,19 +1,16 @@
 /**
  * @fileoverview E2E 模板展开验证测试
  *
- * 验证 templateInstance 节点导入 → 展开 → 收起 → 重新展开 → 清理
- * 的完整生命周期，以及后端 expand API 的契约正确性：
+ * 验证「自包含 DAG 蓝图」模板模型的 API 契约：
+ * 模板由 manualData → transform* → constraint+ 组成，节点携带完整默认值，
+ * 无参数占位符替换、无 input_anchor。展开时仅做命名空间 ID 改写
+ * （{instance_id}__{local_id}）与内部引用解析。
  *
- * 1. 创建模板定义文件 + 模板实例引用
- * 2. 触发展开 API：返回的 constraints/transforms/regex_nodes 结构
- * 3. 验证展开节点数量、类型、命名空间 ID、参数替换
- * 4. 验证多个模板实例可同时存在且互不干扰
- * 5. 验证缺少必填参数时 API 返回 400 而非崩溃
- * 6. 验证加载项目时模板实例被自动展开（contract 验证）
- *
- * 模板展开（template expansion）将一个模板定义 + 参数绑定值
- * 展开为标准的 TransformFile / ConstraintFile / RegexNodeFile 列表，
- * 节点 ID 格式为 `{instance_id}__{local_node_id}`。
+ * 覆盖：
+ * 1. Template CRUD：创建（校验自包含）→ 列出 → 读取 → 不存在 404
+ * 2. Expand API 契约：命名空间 ID、节点原样透传、manual_data 数组、
+ *    非法模板 400、多实例命名空间隔离、不存在模板 404
+ * 3. manifest template-instance：PUT upsert 语义 + 读取
  */
 
 import { test, expect } from '../fixtures/base'
@@ -39,7 +36,8 @@ function createTemplateProject(
   files: Record<string, string> = {}
 ): string {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `precis-tpl-${suffix}-`))
-  const dirs = ['schemas', 'constraints', 'data', 'templates']
+  // 对齐后端 _create_minimal_project：manual_data 目录用于新模型
+  const dirs = ['schemas', 'constraints', 'data', 'templates', 'manual_data']
   for (const d of dirs) {
     fs.mkdirSync(path.join(tmpDir, d), { recursive: true })
   }
@@ -61,707 +59,98 @@ function cleanupProject(projectDir: string) {
 }
 
 /**
- * 基础年龄范围模板（单节点 Range 约束）
+ * 基础年龄范围模板（自包含 DAG：manualData → Range 约束，2 节点）
  */
 const AGE_CHECK_TEMPLATE = `version: 2
 id: age_check
 name: 年龄范围校验
 description: 校验年龄是否在指定范围内
-parameters:
-  - id: source_column
-    type: string
-    label: 校验列名
-    required: true
-  - id: min_age
-    type: integer
-    label: 最小年龄
-    required: true
-  - id: max_age
-    type: integer
-    label: 最大年龄
-    required: false
-    default: 120
 nodes:
-  - id: age_range
+  - id: md_input
+    kind: manualData
+    type: ManualData
+    column_name: age
+    column_data_type: integer
+    rows:
+      - ["18"]
+      - ["25"]
+      - ["65"]
+    enabled: true
+    description: 输入数据起点
+  - id: check_range
     kind: constraint
     type: Range
-    input_from_node: "{{input_anchor}}"
+    input_from_node: md_input
     refs:
-      table_id: "{{input_anchor}}"
-      column_id: "{{source_column}}"
+      table_id: md_input
+      column_id: age
     params:
-      min: "{{min_age}}"
-      max: "{{max_age}}"
-    description: 年龄范围校验
+      min: 0
+      max: 120
+      boundary_mode: inclusive
     enabled: true
-input_anchor:
-  id: input_anchor
-  label: 数据源入口
-  accepts:
-    - schema
-    - transformOutput
-    - manualData
+    description: 年龄范围 [0, 120]
 `
 
 /**
- * 复合模板（包含 transform + 多个约束）
+ * 复合模板（manualData → transform → AllowedValues；另含一条 NotNull 直连 manualData，4 节点）
  */
 const USER_QUALITY_TEMPLATE = `version: 2
 id: user_quality_check
 name: 用户数据质量综合校验
-description: 对用户表进行多维度质量校验
-parameters:
-  - id: age_column
-    type: string
-    label: 年龄列名
-    required: true
-  - id: email_column
-    type: string
-    label: 邮箱列名
-    required: true
-  - id: min_age
-    type: integer
-    label: 最小年龄
-    required: true
-  - id: max_age
-    type: integer
-    label: 最大年龄
-    required: false
-    default: 120
-  - id: gender_column
-    type: string
-    label: 性别列名
-    required: false
-    default: gender
+description: 对输入做标准化后多维度质量校验
 nodes:
-  - id: age_range
-    kind: constraint
-    type: Range
-    input_from_node: "{{input_anchor}}"
-    refs:
-      table_id: "{{input_anchor}}"
-      column_id: "{{age_column}}"
-    params:
-      min: "{{min_age}}"
-      max: "{{max_age}}"
-    description: 年龄范围校验
+  - id: md_input
+    kind: manualData
+    type: ManualData
+    column_name: text_field
+    column_data_type: string
+    rows:
+      - ["cn"]
+      - ["us"]
+      - ["uk"]
     enabled: true
-  - id: email_notnull
-    kind: constraint
-    type: NotNull
-    input_from_node: "{{input_anchor}}"
-    refs:
-      table_id: "{{input_anchor}}"
-      column_id: "{{email_column}}"
+    description: 输入数据起点
+  - id: normalize
+    kind: transform
+    type: UpperCase
+    input_from_node: md_input
+    input_column: text_field
+    output_columns:
+      - text_upper
     params: {}
-    description: 邮箱非空校验
     enabled: true
-  - id: gender_allowed
+    description: 将输入列转为大写
+  - id: check_allowed
     kind: constraint
     type: AllowedValues
-    input_from_node: "{{input_anchor}}"
+    input_from_node: normalize
+    input_column: text_upper
     refs:
-      table_id: "{{input_anchor}}"
-      column_id: "{{gender_column}}"
+      table_id: normalize
+      column_id: text_upper
     params:
       allowed_values:
-        - male
-        - female
-        - other
-    description: 性别枚举值校验
+        - CN
+        - US
+        - UK
+        - JP
     enabled: true
-  - id: age_classify
-    kind: transform
-    type: MathExpr
-    input_from_node: "{{input_anchor}}"
+    description: 校验标准化后的枚举值
+  - id: check_notnull
+    kind: constraint
+    type: NotNull
+    input_from_node: md_input
     refs:
-      table_id: "{{input_anchor}}"
-    params:
-      expression: "{{age_column}} >= 18 ? 1 : 0"
-    output_columns:
-      - is_adult
-    description: 年龄分类
+      table_id: md_input
+      column_id: text_field
+    params: {}
     enabled: true
-input_anchor:
-  id: input_anchor
-  label: 用户数据源
-  accepts:
-    - schema
-    - transformOutput
-    - manualData
-`
-
-/**
- * 基础 users schema
- */
-const USERS_SCHEMA_YAML = `version: 2
-id: sc_users
-name: users
-source:
-  mode: relative_file
-  path: data/users.csv
-columns:
-  - id: col-id
-    name: id
-    type: integer
-  - id: col-name
-    name: name
-    type: string
-  - id: col-age
-    name: age
-    type: integer
-  - id: col-email
-    name: email
-    type: string
+    description: 原始字段非空校验
 `
 
 /**
  * 基础 manifest with users schema
- */
-function buildBaseManifest(projectId: string, projectName: string, extras: Record<string, unknown> = {}) {
-  return {
-    version: 2,
-    project: { id: projectId, name: projectName },
-    settings: {
-      validation: { auto_validate: true, strict_mode: false, error_handling: 'continue', timeout_seconds: 30, batch_max_files: 100 },
-      file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
-      script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
-    },
-    schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
-    ...extras,
-  }
-}
-
-test.describe('Template Expansion E2E', () => {
-  test.describe('Template CRUD', () => {
-    test('创建模板 → 读取 → 列出', async ({ apiHelper }) => {
-      const project = createTemplateProject(
-        'create',
-        `version: 2
-project:
-  id: tpl_create
-  name: Template Create
-schemas: []
-templates:
-  - id: age_check
-    path: templates/age_check.template.yaml
-`,
-        { 'templates/age_check.template.yaml': AGE_CHECK_TEMPLATE }
-      )
-      try {
-        // 1. 列出模板（应能读到 age_check）
-        const listResp = await apiHelper.get('/project/template')
-        const templates = await listResp.json()
-        // 至少应包含 1 个模板（前提是 X-Project-Config-Path 生效，否则为空）
-        // 因为 base fixture 指向 test-project，新创建的临时项目不可见
-        // 我们用直接 fetch 验证
-        const directResp = await fetch(`${BACKEND_URL}/api/latest/project/template`, {
-          headers: { 'X-Project-Config-Path': project },
-        })
-        expect(directResp.ok).toBe(true)
-        const directTemplates = await directResp.json()
-        expect(directTemplates.length).toBe(1)
-        expect(directTemplates[0].id).toBe('age_check')
-        expect(directTemplates[0].name).toBe('年龄范围校验')
-        expect(directTemplates[0].node_count).toBe(1)
-        expect(directTemplates[0].parameter_count).toBe(3)
-
-        // 2. 按 ID 读取模板
-        const getResp = await fetch(`${BACKEND_URL}/api/latest/project/template/age_check`, {
-          headers: { 'X-Project-Config-Path': project },
-        })
-        expect(getResp.ok).toBe(true)
-        const tpl = await getResp.json()
-        expect(tpl.id).toBe('age_check')
-        expect(tpl.parameters).toBeDefined()
-        expect(tpl.parameters.length).toBe(3)
-        expect(tpl.nodes).toBeDefined()
-        expect(tpl.nodes.length).toBe(1)
-        expect(tpl.nodes[0].type).toBe('Range')
-        // 输入锚点定义
-        expect(tpl.input_anchor).toBeDefined()
-        expect(tpl.input_anchor.accepts).toContain('schema')
-      } finally {
-        cleanupProject(project)
-      }
-    })
-
-    test('读取不存在的模板返回 404', async ({ apiHelper }) => {
-      const project = createTemplateProject(
-        'ghost',
-        `version: 2\nproject:\n  id: tpl_ghost\n  name: Ghost\nschemas: []\n`
-      )
-      try {
-        const resp = await fetch(
-          `${BACKEND_URL}/api/latest/project/template/__nonexistent_template__`,
-          { headers: { 'X-Project-Config-Path': project } }
-        )
-        expect(resp.status).toBe(404)
-        const body = await resp.json()
-        expect(body.detail).toContain('不存在')
-      } finally {
-        cleanupProject(project)
-      }
-    })
-  })
-
-  test.describe('Expand API 契约', () => {
-    test('展开 age_check 模板 → 1 个 Range 约束 + 命名空间 ID + 参数替换', async ({ apiHelper }) => {
-        const project = createTemplateProject(
-        'age-expand',
-        buildBaseManifestProjectYaml('tpl_age_expand', 'Age Expand', [
-          { id: 'age_check', path: 'templates/age_check.template.yaml' },
-        ]),
-        {
-          'schemas/users.schema.yaml': USERS_SCHEMA_YAML,
-          'templates/age_check.template.yaml': AGE_CHECK_TEMPLATE,
-        }
-      )
-      try {
-        // 调用 expand API
-        const expandResp = await fetch(
-          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Project-Config-Path': project,
-            },
-            body: JSON.stringify({
-              instance_id: 'age_check_inst',
-              params: { source_column: 'age', min_age: 18, max_age: 100 },
-              input_from_node: 'sc_users',
-            }),
-          }
-        )
-        expect(expandResp.ok).toBe(true)
-        const result = await expandResp.json()
-        expect(result.transforms).toEqual([])
-        expect(result.regex_nodes).toEqual([])
-        expect(result.constraints.length).toBe(1)
-
-        const ageRange = result.constraints[0]
-        expect(ageRange.type).toBe('Range')
-        // 命名空间 ID 格式：{instance_id}__{local_id}
-        expect(ageRange.id).toBe('age_check_inst__age_range')
-        // 参数被正确替换
-        expect(ageRange.params.min).toBe(18)
-        expect(ageRange.params.max).toBe(100)
-        // refs 中的 {{source_column}} 被替换为 'age'
-        expect(ageRange.refs.column_id).toBe('age')
-        // refs 中的 {{input_anchor}} 被替换为 sc_users
-        expect(ageRange.refs.table_id).toBe('sc_users')
-        // input_from_node 替换为外部上游节点
-        expect(ageRange.input_from_node).toBe('sc_users')
-      } finally {
-        cleanupProject(project)
-      }
-    })
-
-    test('展开 user_quality_check 模板 → 多个约束 + transform', async ({ apiHelper }) => {
-      const project = createTemplateProject(
-        'quality-expand',
-        buildBaseManifestProjectYaml('tpl_quality', 'Quality Expand', [
-          { id: 'user_quality_check', path: 'templates/user_quality_check.template.yaml' },
-        ]),
-        {
-          'schemas/users.schema.yaml': USERS_SCHEMA_YAML,
-          'templates/user_quality_check.template.yaml': USER_QUALITY_TEMPLATE,
-        }
-      )
-      try {
-        const expandResp = await fetch(
-          `${BACKEND_URL}/api/latest/project/template/user_quality_check/expand`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Project-Config-Path': project,
-            },
-            body: JSON.stringify({
-              instance_id: 'quality_inst',
-              params: {
-                age_column: 'age',
-                email_column: 'email',
-                min_age: 0,
-                max_age: 150,
-              },
-              input_from_node: 'sc_users',
-            }),
-          }
-        )
-        expect(expandResp.ok).toBe(true)
-        const result = await expandResp.json()
-
-        // 模板定义 3 个 constraint + 1 个 transform
-        expect(result.constraints.length).toBe(3)
-        expect(result.transforms.length).toBe(1)
-        expect(result.regex_nodes.length).toBe(0)
-
-        // 验证约束类型集合
-        const constraintTypes = new Set(result.constraints.map((c: any) => c.type))
-        expect(constraintTypes.has('AllowedValues')).toBe(true)
-        expect(constraintTypes.has('Range')).toBe(true)
-        expect(constraintTypes.has('NotNull')).toBe(true)
-
-        // 验证 transform 类型
-        const transform = result.transforms[0]
-        expect(transform.type).toBe('MathExpr')
-        expect(transform.id).toBe('quality_inst__age_classify')
-        // 表达式中的 {{age_column}} 应被替换
-        expect(transform.params.expression).toBe('age >= 18 ? 1 : 0')
-        // 依赖 transform 的约束（None）input_from_node 应指向 transform 命名空间 ID
-        // 该模板中 email_notnull 直接挂在 input_anchor 上，不依赖 transform
-        // 但 age_classify 的 input_from_node 应是 sc_users
-        expect(transform.input_from_node).toBe('sc_users')
-
-        // 所有展开的 ID 都有命名空间前缀
-        for (const c of result.constraints) {
-          expect(c.id.startsWith('quality_inst__')).toBe(true)
-        }
-      } finally {
-        cleanupProject(project)
-      }
-    })
-
-    test('展开模板时使用默认值（不传 required=false 参数）', async ({ apiHelper }) => {
-      const project = createTemplateProject(
-        'default-val',
-        buildBaseManifestProjectYaml('tpl_default', 'Default Value', [
-          { id: 'age_check', path: 'templates/age_check.template.yaml' },
-        ]),
-        {
-          'schemas/users.schema.yaml': USERS_SCHEMA_YAML,
-          'templates/age_check.template.yaml': AGE_CHECK_TEMPLATE,
-        }
-      )
-      try {
-        // 不传 max_age（required=false，default=120）
-        const expandResp = await fetch(
-          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Project-Config-Path': project,
-            },
-            body: JSON.stringify({
-              instance_id: 'default_inst',
-              params: { source_column: 'age', min_age: 18 }, // 无 max_age
-              input_from_node: 'sc_users',
-            }),
-          }
-        )
-        expect(expandResp.ok).toBe(true)
-        const result = await expandResp.json()
-        expect(result.constraints[0].params.min).toBe(18)
-        expect(result.constraints[0].params.max).toBe(120) // default
-      } finally {
-        cleanupProject(project)
-      }
-    })
-
-    test('展开模板缺少必填参数时返回 400', async ({ apiHelper }) => {
-      const project = createTemplateProject(
-        'missing-req',
-        buildBaseManifestProjectYaml('tpl_missing', 'Missing Required', [
-          { id: 'age_check', path: 'templates/age_check.template.yaml' },
-        ]),
-        {
-          'schemas/users.schema.yaml': USERS_SCHEMA_YAML,
-          'templates/age_check.template.yaml': AGE_CHECK_TEMPLATE,
-        }
-      )
-      try {
-        // 缺少必填参数 min_age
-        const expandResp = await fetch(
-          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-Project-Config-Path': project,
-            },
-            body: JSON.stringify({
-              instance_id: 'missing_inst',
-              params: { source_column: 'age' }, // 缺 min_age
-              input_from_node: 'sc_users',
-            }),
-          }
-        )
-        expect(expandResp.status).toBe(400)
-        const body = await expandResp.json()
-        expect(body.detail).toContain('min_age')
-      } finally {
-        cleanupProject(project)
-      }
-    })
-
-    test('两个不同 instance_id 的展开互不干扰（命名空间隔离）', async ({ apiHelper }) => {
-      const project = createTemplateProject(
-        'multi-inst',
-        buildBaseManifestProjectYaml('tpl_multi', 'Multi Instance', [
-          { id: 'age_check', path: 'templates/age_check.template.yaml' },
-        ]),
-        {
-          'schemas/users.schema.yaml': USERS_SCHEMA_YAML,
-          'templates/age_check.template.yaml': AGE_CHECK_TEMPLATE,
-        }
-      )
-      try {
-        // 展开 instance A
-        const respA = await fetch(
-          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
-            body: JSON.stringify({
-              instance_id: 'inst_a',
-              params: { source_column: 'age', min_age: 0, max_age: 50 },
-              input_from_node: 'sc_users',
-            }),
-          }
-        )
-        const dataA = await respA.json()
-        // 展开 instance B
-        const respB = await fetch(
-          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
-            body: JSON.stringify({
-              instance_id: 'inst_b',
-              params: { source_column: 'age', min_age: 60, max_age: 120 },
-              input_from_node: 'sc_users',
-            }),
-          }
-        )
-        const dataB = await respB.json()
-
-        // A 范围 0-50
-        expect(dataA.constraints[0].id).toBe('inst_a__age_range')
-        expect(dataA.constraints[0].params.min).toBe(0)
-        expect(dataA.constraints[0].params.max).toBe(50)
-        // B 范围 60-120
-        expect(dataB.constraints[0].id).toBe('inst_b__age_range')
-        expect(dataB.constraints[0].params.min).toBe(60)
-        expect(dataB.constraints[0].params.max).toBe(120)
-
-        // 两个 ID 必须不同（无碰撞）
-        expect(dataA.constraints[0].id).not.toBe(dataB.constraints[0].id)
-      } finally {
-        cleanupProject(project)
-      }
-    })
-
-    test('展开不存在的模板返回 404', async ({ apiHelper }) => {
-      const project = createTemplateProject(
-        'no-template',
-        buildBaseManifestProjectYaml('tpl_notfound', 'Not Found'),
-        { 'schemas/users.schema.yaml': USERS_SCHEMA_YAML }
-      )
-      try {
-        const resp = await fetch(
-          `${BACKEND_URL}/api/latest/project/template/__ghost_template__/expand`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
-            body: JSON.stringify({
-              instance_id: 'x',
-              params: {},
-              input_from_node: 'sc_users',
-            }),
-          }
-        )
-        expect(resp.status).toBe(404)
-      } finally {
-        cleanupProject(project)
-      }
-    })
-  })
-
-  test.describe('Template Instance 加载时自动展开', () => {
-    test('通过 manifest.template_instances 触发自动展开（contract 验证）', async ({ apiHelper }) => {
-      // 这个测试验证：当前端将模板实例保存到 manifest.template_instances 后，
-      // 重新加载项目配置时，模板实例的展开结果应反映在 manifest 读取 + expand API 上。
-      const project = createTemplateProject(
-        'inst-load',
-        `version: 2
-project:
-  id: tpl_inst_load
-  name: Instance Load
-schemas:
-  - id: sc_users
-    path: schemas/users.schema.yaml
-templates:
-  - id: age_check
-    path: templates/age_check.template.yaml
-template_instances:
-  - id: inst-load-uuid
-    template_id: age_check
-    enabled: true
-    input_from_node: sc_users
-    params:
-      source_column: age
-      min_age: 18
-      max_age: 100
-`,
-        {
-          'schemas/users.schema.yaml': USERS_SCHEMA_YAML,
-          'templates/age_check.template.yaml': AGE_CHECK_TEMPLATE,
-        }
-      )
-      try {
-        // 1. 读取 manifest，确认 template_instances 存在
-        const manifestResp = await fetch(`${BACKEND_URL}/api/latest/project/manifest`, {
-          headers: { 'X-Project-Config-Path': project },
-        })
-        expect(manifestResp.ok).toBe(true)
-        const manifest = await manifestResp.json()
-        expect(manifest.template_instances).toBeDefined()
-        expect(manifest.template_instances.length).toBe(1)
-        expect(manifest.template_instances[0].id).toBe('inst-load-uuid')
-        expect(manifest.template_instances[0].template_id).toBe('age_check')
-        expect(manifest.template_instances[0].input_from_node).toBe('sc_users')
-        expect(manifest.template_instances[0].params.min_age).toBe(18)
-        expect(manifest.template_instances[0].params.max_age).toBe(100)
-
-        // 2. 单独调用 expand API 验证展开契约仍然正确
-        const expandResp = await fetch(
-          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
-            body: JSON.stringify({
-              instance_id: 'inst-load-uuid',
-              params: manifest.template_instances[0].params,
-              input_from_node: manifest.template_instances[0].input_from_node,
-            }),
-          }
-        )
-        expect(expandResp.ok).toBe(true)
-        const result = await expandResp.json()
-        expect(result.constraints.length).toBe(1)
-        expect(result.constraints[0].id).toBe('inst-load-uuid__age_range')
-        expect(result.constraints[0].params.min).toBe(18)
-        expect(result.constraints[0].params.max).toBe(100)
-      } finally {
-        cleanupProject(project)
-      }
-    })
-
-    test('通过 PUT /manifest/template-instance 更新实例', async ({ apiHelper }) => {
-      const project = createTemplateProject(
-        'update-inst',
-        `version: 2
-project:
-  id: tpl_update_inst
-  name: Update Instance
-schemas:
-  - id: sc_users
-    path: schemas/users.schema.yaml
-templates:
-  - id: age_check
-    path: templates/age_check.template.yaml
-`,
-        {
-          'schemas/users.schema.yaml': USERS_SCHEMA_YAML,
-          'templates/age_check.template.yaml': AGE_CHECK_TEMPLATE,
-        }
-      )
-      try {
-        // 1. 添加 template_instance
-        const putResp = await fetch(
-          `${BACKEND_URL}/api/latest/project/manifest/template-instance`,
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
-            body: JSON.stringify({
-              id: 'update-uuid',
-              template_id: 'age_check',
-              enabled: true,
-              input_from_node: 'sc_users',
-              params: { source_column: 'age', min_age: 18, max_age: 65 },
-            }),
-          }
-        )
-        expect(putResp.ok).toBe(true)
-
-        // 2. 读取 manifest 验证
-        const manifestResp = await fetch(`${BACKEND_URL}/api/latest/project/manifest`, {
-          headers: { 'X-Project-Config-Path': project },
-        })
-        const manifest = await manifestResp.json()
-        expect(manifest.template_instances.length).toBe(1)
-        expect(manifest.template_instances[0].params.max_age).toBe(65)
-
-        // 3. 更新 instance（PUT 是 upsert 语义）
-        const putResp2 = await fetch(
-          `${BACKEND_URL}/api/latest/project/manifest/template-instance`,
-          {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
-            body: JSON.stringify({
-              id: 'update-uuid',
-              template_id: 'age_check',
-              enabled: true,
-              input_from_node: 'sc_users',
-              params: { source_column: 'age', min_age: 21, max_age: 60 },
-            }),
-          }
-        )
-        expect(putResp2.ok).toBe(true)
-
-        // 4. 重新读取应反映更新
-        const manifestResp2 = await fetch(`${BACKEND_URL}/api/latest/project/manifest`, {
-          headers: { 'X-Project-Config-Path': project },
-        })
-        const manifest2 = await manifestResp2.json()
-        expect(manifest2.template_instances.length).toBe(1) // 仍然 1 个（更新而非新增）
-        expect(manifest2.template_instances[0].params.min_age).toBe(21)
-        expect(manifest2.template_instances[0].params.max_age).toBe(60)
-      } finally {
-        cleanupProject(project)
-      }
-    })
-
-    test('模板实例 input_from_node 引用不存在的上游节点时，展开仍可成功（仅前端连线失败）', async ({ apiHelper }) => {
-      // 模板展开是 schema-agnostic 的：它只做参数替换，不会校验 input_from_node
-      // 是否真实存在于项目中。前端拿到展开结果后再处理连线错误。
-      const project = createTemplateProject(
-        'dangling-anchor',
-        buildBaseManifestProjectYaml('tpl_dangling', 'Dangling Anchor', [
-          { id: 'age_check', path: 'templates/age_check.template.yaml' },
-        ]),
-        { 'templates/age_check.template.yaml': AGE_CHECK_TEMPLATE }
-      )
-      try {
-        const expandResp = await fetch(
-          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
-            body: JSON.stringify({
-              instance_id: 'dangling_inst',
-              params: { source_column: 'age', min_age: 0, max_age: 100 },
-              input_from_node: '__nonexistent_schema__',
-            }),
-          }
-        )
-        expect(expandResp.ok).toBe(true)
-        const result = await expandResp.json()
-        // 展开本身成功，但 input_from_node 保留为不存在的 ID
-        expect(result.constraints[0].input_from_node).toBe('__nonexistent_schema__')
-        expect(result.constraints[0].refs.table_id).toBe('__nonexistent_schema__')
-      } finally {
-        cleanupProject(project)
-      }
-    })
-  })
-})
-
-/**
- * 构造一个最小 manifest yaml（含 users schema + 空 constraints/regex + 可选 templates）
  */
 function buildBaseManifestProjectYaml(
   projectId: string,
@@ -797,3 +186,425 @@ ${templatesYaml}settings:
     timeout_seconds: 10
 `
 }
+
+test.describe('Template Expansion E2E', () => {
+  test.describe('Template CRUD', () => {
+    test('创建模板 → 读取 → 列出', async () => {
+      const project = createTemplateProject(
+        'create',
+        `version: 2
+project:
+  id: tpl_create
+  name: Template Create
+schemas: []
+templates:
+  - id: age_check
+    path: templates/age_check.template.yaml
+`,
+        { 'templates/age_check.template.yaml': AGE_CHECK_TEMPLATE }
+      )
+      try {
+        // 1. 列出模板（直接 fetch，X-Project-Config-Path 指向临时项目）
+        const listResp = await fetch(`${BACKEND_URL}/api/latest/project/template`, {
+          headers: { 'X-Project-Config-Path': project },
+        })
+        expect(listResp.ok).toBe(true)
+        const directTemplates = await listResp.json()
+        expect(directTemplates.length).toBe(1)
+        expect(directTemplates[0].id).toBe('age_check')
+        expect(directTemplates[0].name).toBe('年龄范围校验')
+        // 自包含 DAG 模型：列表项只有 node_count（节点数），无 parameter_count
+        expect(directTemplates[0].node_count).toBe(2)
+        expect(directTemplates[0].path).toBe('templates/age_check.template.yaml')
+
+        // 2. 按 ID 读取模板
+        const getResp = await fetch(`${BACKEND_URL}/api/latest/project/template/age_check`, {
+          headers: { 'X-Project-Config-Path': project },
+        })
+        expect(getResp.ok).toBe(true)
+        const tpl = await getResp.json()
+        expect(tpl.id).toBe('age_check')
+        expect(tpl.name).toBe('年龄范围校验')
+        // 新模型：返回 nodes（DAG 节点），无 parameters / input_anchor
+        expect(Array.isArray(tpl.nodes)).toBe(true)
+        expect(tpl.nodes.length).toBe(2)
+        const kinds = tpl.nodes.map((n: any) => n.kind)
+        expect(kinds).toContain('manualData')
+        expect(kinds).toContain('constraint')
+        const rangeNode = tpl.nodes.find((n: any) => n.kind === 'constraint')
+        expect(rangeNode.type).toBe('Range')
+      } finally {
+        cleanupProject(project)
+      }
+    })
+
+    test('读取不存在的模板返回 404', async () => {
+      const project = createTemplateProject(
+        'ghost',
+        `version: 2\nproject:\n  id: tpl_ghost\n  name: Ghost\nschemas: []\n`
+      )
+      try {
+        const resp = await fetch(
+          `${BACKEND_URL}/api/latest/project/template/__nonexistent_template__`,
+          { headers: { 'X-Project-Config-Path': project } }
+        )
+        expect(resp.status).toBe(404)
+        const body = await resp.json()
+        expect(body.detail).toContain('不存在')
+      } finally {
+        cleanupProject(project)
+      }
+    })
+  })
+
+  test.describe('Expand API 契约', () => {
+    test('展开 age_check 模板 → 命名空间 ID + 节点原样透传', async () => {
+      const project = createTemplateProject(
+        'age-expand',
+        buildBaseManifestProjectYaml('tpl_age_expand', 'Age Expand', [
+          { id: 'age_check', path: 'templates/age_check.template.yaml' },
+        ]),
+        { 'templates/age_check.template.yaml': AGE_CHECK_TEMPLATE }
+      )
+      try {
+        // 新模型 expand 请求体仅含 instance_id（无 params / input_from_node）
+        const expandResp = await fetch(
+          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Project-Config-Path': project,
+            },
+            body: JSON.stringify({ instance_id: 'age_check_inst' }),
+          }
+        )
+        expect(expandResp.ok).toBe(true)
+        const result = await expandResp.json()
+
+        // 1 个 manualData + 1 个 constraint，无 transform / regex
+        expect(result.manual_data.length).toBe(1)
+        expect(result.constraints.length).toBe(1)
+        expect(result.transforms).toEqual([])
+        expect(result.regex_nodes).toEqual([])
+
+        // 命名空间 ID 格式：{instance_id}__{local_id}
+        expect(result.manual_data[0].id).toBe('age_check_inst__md_input')
+        expect(result.constraints[0].id).toBe('age_check_inst__check_range')
+
+        // 节点值原样透传（非占位符替换）
+        expect(result.constraints[0].type).toBe('Range')
+        expect(result.constraints[0].params.min).toBe(0)
+        expect(result.constraints[0].params.max).toBe(120)
+        // 内部引用 input_from_node 改写为命名空间 ID
+        expect(result.constraints[0].input_from_node).toBe('age_check_inst__md_input')
+
+        // manualData 数据原样
+        expect(result.manual_data[0].column_name).toBe('age')
+        expect(result.manual_data[0].column_data_type).toBe('integer')
+        expect(result.manual_data[0].rows).toEqual([['18'], ['25'], ['65']])
+      } finally {
+        cleanupProject(project)
+      }
+    })
+
+    test('展开 user_quality_check 模板 → transform + 多约束', async () => {
+      const project = createTemplateProject(
+        'quality-expand',
+        buildBaseManifestProjectYaml('tpl_quality', 'Quality Expand', [
+          { id: 'user_quality_check', path: 'templates/user_quality_check.template.yaml' },
+        ]),
+        { 'templates/user_quality_check.template.yaml': USER_QUALITY_TEMPLATE }
+      )
+      try {
+        const expandResp = await fetch(
+          `${BACKEND_URL}/api/latest/project/template/user_quality_check/expand`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Project-Config-Path': project,
+            },
+            body: JSON.stringify({ instance_id: 'quality_inst' }),
+          }
+        )
+        expect(expandResp.ok).toBe(true)
+        const result = await expandResp.json()
+
+        // 4 个节点展开：1 manualData + 1 transform + 2 constraint
+        expect(result.manual_data.length).toBe(1)
+        expect(result.transforms.length).toBe(1)
+        expect(result.constraints.length).toBe(2)
+        expect(result.regex_nodes).toEqual([])
+
+        // 验证约束类型集合
+        const constraintTypes = new Set(result.constraints.map((c: any) => c.type))
+        expect(constraintTypes.has('AllowedValues')).toBe(true)
+        expect(constraintTypes.has('NotNull')).toBe(true)
+
+        // 验证 transform：input_from_node 指向 manualData 命名空间 ID
+        const transform = result.transforms[0]
+        expect(transform.type).toBe('UpperCase')
+        expect(transform.id).toBe('quality_inst__normalize')
+        expect(transform.input_from_node).toBe('quality_inst__md_input')
+        // output_columns 原样
+        expect(transform.output_columns).toEqual(['text_upper'])
+
+        // 依赖 transform 的约束：input_from_node 指向 transform 命名空间 ID
+        const allowedConstraint = result.constraints.find((c: any) => c.type === 'AllowedValues')
+        expect(allowedConstraint.input_from_node).toBe('quality_inst__normalize')
+
+        // 直连 manualData 的约束：input_from_node 指向 manualData 命名空间 ID
+        const notNullConstraint = result.constraints.find((c: any) => c.type === 'NotNull')
+        expect(notNullConstraint.input_from_node).toBe('quality_inst__md_input')
+
+        // 所有展开的 ID 都有命名空间前缀
+        for (const c of result.constraints) {
+          expect(c.id.startsWith('quality_inst__')).toBe(true)
+        }
+      } finally {
+        cleanupProject(project)
+      }
+    })
+
+    test('展开模板 → 返回 manual_data 数组（字段完整）', async () => {
+      const project = createTemplateProject(
+        'manual-data',
+        buildBaseManifestProjectYaml('tpl_md', 'Manual Data', [
+          { id: 'age_check', path: 'templates/age_check.template.yaml' },
+        ]),
+        { 'templates/age_check.template.yaml': AGE_CHECK_TEMPLATE }
+      )
+      try {
+        const expandResp = await fetch(
+          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
+            body: JSON.stringify({ instance_id: 'md_inst' }),
+          }
+        )
+        expect(expandResp.ok).toBe(true)
+        const result = await expandResp.json()
+
+        // manual_data 数组必须存在且字段完整
+        expect(Array.isArray(result.manual_data)).toBe(true)
+        expect(result.manual_data.length).toBe(1)
+        const md = result.manual_data[0]
+        expect(md.id).toBe('md_inst__md_input')
+        expect(md.column_name).toBe('age')
+        expect(md.column_data_type).toBe('integer')
+        expect(md.rows).toEqual([['18'], ['25'], ['65']])
+        expect(md.enabled).toBe(true)
+      } finally {
+        cleanupProject(project)
+      }
+    })
+
+    test('创建非法模板（缺少 manualData 节点）返回 400', async () => {
+      const project = createTemplateProject('no-manualdata', buildBaseManifestProjectYaml('tpl_nm', 'No ManualData'))
+      try {
+        // 只有 constraint 的模板：违反「至少 1 个 manualData」规则
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/template`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
+          body: JSON.stringify({
+            version: 2,
+            id: 'bad_no_manual',
+            name: '非法模板',
+            nodes: [
+              {
+                id: 'c1',
+                kind: 'constraint',
+                type: 'NotNull',
+                input_from_node: 'md1',
+                refs: {},
+                params: {},
+              },
+            ],
+          }),
+        })
+        expect(resp.status).toBe(400)
+        const body = await resp.json()
+        expect(body.detail).toContain('manualData')
+      } finally {
+        cleanupProject(project)
+      }
+    })
+
+    test('创建非法模板（引用外部节点）返回 400', async () => {
+      const project = createTemplateProject('ext-ref', buildBaseManifestProjectYaml('tpl_ext', 'External Ref'))
+      try {
+        // constraint 引用模板外部节点：违反「模板必须自包含」规则
+        const resp = await fetch(`${BACKEND_URL}/api/latest/project/template`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
+          body: JSON.stringify({
+            version: 2,
+            id: 'bad_external',
+            name: '非法模板',
+            nodes: [
+              {
+                id: 'md_age',
+                kind: 'manualData',
+                type: 'ManualData',
+                column_name: 'age',
+                column_data_type: 'integer',
+                rows: [['18']],
+              },
+              {
+                id: 'check_range',
+                kind: 'constraint',
+                type: 'Range',
+                input_from_node: 'external_node',
+                refs: {},
+                params: { min: 0, max: 120 },
+              },
+            ],
+          }),
+        })
+        expect(resp.status).toBe(400)
+        const body = await resp.json()
+        expect(body.detail).toContain('自包含')
+      } finally {
+        cleanupProject(project)
+      }
+    })
+
+    test('两个不同 instance_id 的展开互不干扰（命名空间隔离）', async () => {
+      const project = createTemplateProject(
+        'multi-inst',
+        buildBaseManifestProjectYaml('tpl_multi', 'Multi Instance', [
+          { id: 'age_check', path: 'templates/age_check.template.yaml' },
+        ]),
+        { 'templates/age_check.template.yaml': AGE_CHECK_TEMPLATE }
+      )
+      try {
+        // 展开 instance A
+        const respA = await fetch(
+          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
+            body: JSON.stringify({ instance_id: 'inst_a' }),
+          }
+        )
+        expect(respA.ok).toBe(true)
+        const dataA = await respA.json()
+        // 展开 instance B
+        const respB = await fetch(
+          `${BACKEND_URL}/api/latest/project/template/age_check/expand`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
+            body: JSON.stringify({ instance_id: 'inst_b' }),
+          }
+        )
+        expect(respB.ok).toBe(true)
+        const dataB = await respB.json()
+
+        // 命名空间前缀不同：A 用 inst_a__，B 用 inst_b__
+        expect(dataA.constraints[0].id).toBe('inst_a__check_range')
+        expect(dataB.constraints[0].id).toBe('inst_b__check_range')
+        // 两个 ID 必须不同（无碰撞）
+        expect(dataA.constraints[0].id).not.toBe(dataB.constraints[0].id)
+        // 节点值相同（来自同一模板），但命名空间隔离
+        expect(dataA.constraints[0].params.min).toBe(0)
+        expect(dataB.constraints[0].params.min).toBe(0)
+      } finally {
+        cleanupProject(project)
+      }
+    })
+
+    test('展开不存在的模板返回 404', async () => {
+      const project = createTemplateProject('no-template', buildBaseManifestProjectYaml('tpl_notfound', 'Not Found'))
+      try {
+        const resp = await fetch(
+          `${BACKEND_URL}/api/latest/project/template/__ghost_template__/expand`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
+            body: JSON.stringify({ instance_id: 'x' }),
+          }
+        )
+        expect(resp.status).toBe(404)
+      } finally {
+        cleanupProject(project)
+      }
+    })
+  })
+
+  test.describe('Template Instance（manifest）', () => {
+    test('PUT /manifest/template-instance upsert + 读取', async () => {
+      const project = createTemplateProject(
+        'update-inst',
+        `version: 2
+project:
+  id: tpl_update_inst
+  name: Update Instance
+schemas:
+  - id: sc_users
+    path: schemas/users.schema.yaml
+templates:
+  - id: age_check
+    path: templates/age_check.template.yaml
+`,
+        { 'templates/age_check.template.yaml': AGE_CHECK_TEMPLATE }
+      )
+      try {
+        // 1. 添加 template_instance（新模型 TemplateInstanceRef 仅 {id, template_id, enabled}）
+        const putResp = await fetch(
+          `${BACKEND_URL}/api/latest/project/manifest/template-instance`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
+            body: JSON.stringify({
+              id: 'update-uuid',
+              template_id: 'age_check',
+              enabled: true,
+            }),
+          }
+        )
+        expect(putResp.ok).toBe(true)
+
+        // 2. 读取 manifest 验证
+        const manifestResp = await fetch(`${BACKEND_URL}/api/latest/project/manifest`, {
+          headers: { 'X-Project-Config-Path': project },
+        })
+        expect(manifestResp.ok).toBe(true)
+        const manifest = await manifestResp.json()
+        expect(manifest.template_instances).toBeDefined()
+        expect(manifest.template_instances.length).toBe(1)
+        const inst = manifest.template_instances[0]
+        expect(inst.id).toBe('update-uuid')
+        expect(inst.template_id).toBe('age_check')
+        expect(inst.enabled).toBe(true)
+
+        // 3. 更新 instance（PUT 是 upsert 语义）：改 enabled=false
+        const putResp2 = await fetch(
+          `${BACKEND_URL}/api/latest/project/manifest/template-instance`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'X-Project-Config-Path': project },
+            body: JSON.stringify({
+              id: 'update-uuid',
+              template_id: 'age_check',
+              enabled: false,
+            }),
+          }
+        )
+        expect(putResp2.ok).toBe(true)
+
+        // 4. 重新读取应反映更新（仍 1 条，upsert 而非新增）
+        const manifestResp2 = await fetch(`${BACKEND_URL}/api/latest/project/manifest`, {
+          headers: { 'X-Project-Config-Path': project },
+        })
+        const manifest2 = await manifestResp2.json()
+        expect(manifest2.template_instances.length).toBe(1)
+        expect(manifest2.template_instances[0].enabled).toBe(false)
+      } finally {
+        cleanupProject(project)
+      }
+    })
+  })
+})
