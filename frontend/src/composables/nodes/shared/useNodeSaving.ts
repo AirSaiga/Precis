@@ -30,15 +30,21 @@ import { NodeDeletionManager } from '@/services/managers/nodeDeletionManager'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { useGraphStore } from '@/stores/graphStore'
 import { eventBus } from '@/core/eventBus'
+import type { AppEvents } from '@/core/eventBus'
+import type { BaseSchemaColumn, BaseSchemaNodeData } from '@/types/nodes'
 
 export interface NodeSavingOptions {
   nodeId: string
-  nodeData: any
-  emit: any
+  nodeData: BaseSchemaNodeData<BaseSchemaColumn>
+  emit: (event: string, ...args: unknown[]) => void
   eventPrefix: string
   shouldConfirmClose?: () => boolean
   onSaveSuccess?: () => void
-  onPatternBind?: (columnId: string, patternData: any, columns: any[]) => any[]
+  onPatternBind?: (
+    columnId: string,
+    patternData: Record<string, unknown>,
+    columns: BaseSchemaColumn[]
+  ) => BaseSchemaColumn[]
   addConstraint?: (columnId: string, type: string) => void
   getTargetColumnId?: () => string | null
   nodeType?: string
@@ -125,7 +131,10 @@ export function useNodeSaving(options: NodeSavingOptions) {
           cancelled?: boolean
         }) => {
           if (detail.nodeId === nodeId) {
-            eventBus.off(saveCompleteEventName as any, _handleSaveComplete as any)
+            eventBus.off(
+              saveCompleteEventName as unknown as keyof AppEvents,
+              _handleSaveComplete as unknown as (payload: AppEvents[keyof AppEvents]) => void
+            )
 
             isSaving.value = false
 
@@ -151,8 +160,14 @@ export function useNodeSaving(options: NodeSavingOptions) {
 
         logger.debug(`📤 分发${saveEventName}事件:`, { nodeId, nodeData })
 
-        eventBus.on(saveCompleteEventName as any, _handleSaveComplete as any)
-        eventBus.emit(saveEventName as any, { nodeId, nodeData } as any)
+        eventBus.on(
+          saveCompleteEventName as unknown as keyof AppEvents,
+          _handleSaveComplete as unknown as (payload: AppEvents[keyof AppEvents]) => void
+        )
+        eventBus.emit(
+          saveEventName as unknown as keyof AppEvents,
+          { nodeId, nodeData } as unknown as AppEvents[keyof AppEvents]
+        )
       } catch (error) {
         isSaving.value = false
         saveError.value = true
@@ -272,19 +287,21 @@ export function useNodeSaving(options: NodeSavingOptions) {
       const payloadStr = v2Str || jsonStr
       if (!payloadStr) return
 
-      const droppedData = JSON.parse(payloadStr)
+      const droppedData = JSON.parse(payloadStr) as Record<string, unknown>
       const targetColumnId =
         (getTargetColumnId ? getTargetColumnId() : hoveredColumnId.value) || nodeData.columns[0]?.id
 
       if (targetColumnId) {
         if (droppedData.type === 'pattern' && droppedData.source === 'projectResources') {
-          const patternId = String(droppedData?.meta?.id || '')
+          const patternId = String(
+            ((droppedData.meta as Record<string, unknown> | undefined)?.id) || ''
+          )
           if (!patternId) return
 
           const foundNode = nodeType
-            ? store.nodes.find((n: any) => n.id === nodeId && n.type === nodeType)
-            : store.nodes.find((n: any) => n.id === nodeId)
-          const idx = (nodeData.columns || []).findIndex((c: any) => c.id === targetColumnId)
+            ? store.nodes.find((n) => n.id === nodeId && n.type === nodeType)
+            : store.nodes.find((n) => n.id === nodeId)
+          const idx = (nodeData.columns || []).findIndex((c) => c.id === targetColumnId)
           const basePos = foundNode
             ? {
                 x: foundNode.position.x + 420,
@@ -305,7 +322,7 @@ export function useNodeSaving(options: NodeSavingOptions) {
         if (droppedData.type === 'pattern') {
           bindPatternToColumn(targetColumnId, droppedData)
         } else if (droppedData.type === 'constraint') {
-          addConstraintToColumn(targetColumnId, droppedData.constraintType)
+          addConstraintToColumn(targetColumnId, String(droppedData.constraintType))
         }
       }
     } catch (error) {
@@ -317,13 +334,14 @@ export function useNodeSaving(options: NodeSavingOptions) {
    * 绑定Pattern到列
    */
   const bindPatternToColumn = (columnId: string, patternData: Record<string, unknown>) => {
-    let updatedColumns = nodeData.columns.map((col: any) =>
+    let updatedColumns = nodeData.columns.map((col) =>
       col.id === columnId
         ? {
             ...col,
-            boundPattern: patternData.patternName || patternData.name,
-            boundRegistry: patternData.registry || 'expression_registry',
-            patternType: patternData.patternType || 'regex',
+            boundPattern:
+              (patternData.patternName as string | undefined) || (patternData.name as string | undefined),
+            boundRegistry: (patternData.registry as string | undefined) || 'expression_registry',
+            patternType: (patternData.patternType as string | undefined) || 'regex',
             isBound: true,
             expressionType: 'explicit' as const,
             validationErrors: [],
@@ -339,7 +357,7 @@ export function useNodeSaving(options: NodeSavingOptions) {
       ...nodeData,
       columns: updatedColumns,
       updatedAt: new Date().toISOString(),
-    })
+    } as unknown as Record<string, unknown>)
 
     emit('pattern-bind', columnId, patternData)
   }
