@@ -127,22 +127,39 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
 
     // IF 条件
     if (d.ifLogic) params.if_logic = d.ifLogic
-    if (Array.isArray(d.ifConditions)) {
-      const validConditions = d.ifConditions
-        .filter((c: any) => {
+    interface ConditionalConditionInput {
+      operator?: string
+      ref?: { columnId?: string }
+      column?: string
+      value?: unknown
+      values?: unknown
+    }
+    interface ConditionalConditionOutput {
+      if_column_id: string
+      operator: string
+      value?: unknown
+      values?: unknown
+    }
+    const ifConditions = d.ifConditions as unknown as ConditionalConditionInput[] | undefined
+    if (Array.isArray(ifConditions)) {
+      const validConditions = ifConditions
+        .filter((c): c is ConditionalConditionInput & { operator: string } => {
           if (!c?.operator) {
             console.warn(`[schemaBuilder] Conditional ${node.id}: 跳过缺少 operator 的条件`)
             return false
           }
           return true
         })
-        .map((c: any) => ({
-          if_column_id: c.ref?.columnId || c.column || '',
-          operator: c.operator,
-          ...(c.value !== undefined && { value: c.value }),
-          ...(c.values && { values: c.values }),
-        }))
-        .filter((c: any) => {
+        .map((c): ConditionalConditionOutput => {
+          const result: ConditionalConditionOutput = {
+            if_column_id: c.ref?.columnId || c.column || '',
+            operator: c.operator,
+          }
+          if (c.value !== undefined) result.value = c.value
+          if (c.values) result.values = c.values
+          return result
+        })
+        .filter((c) => {
           if (!c.if_column_id) {
             console.warn(
               `[schemaBuilder] Conditional ${node.id}: 跳过缺少 if_column_id 的条件 (operator=${c.operator})`
@@ -152,9 +169,9 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
           return true
         })
 
-      if (validConditions.length < d.ifConditions.length) {
+      if (validConditions.length < ifConditions.length) {
         console.warn(
-          `[schemaBuilder] Conditional ${node.id}: ${d.ifConditions.length - validConditions.length} 个条件被丢弃，仅保留 ${validConditions.length} 个有效条件`
+          `[schemaBuilder] Conditional ${node.id}: ${ifConditions.length - validConditions.length} 个条件被丢弃，仅保留 ${validConditions.length} 个有效条件`
         )
       }
 
