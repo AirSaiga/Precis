@@ -289,21 +289,9 @@
     addColumn,
     updateColumn,
     deleteColumn: deleteColumnFromData,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    updateSchemaData,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    addChildColumn,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    updateChildColumn,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    deleteChildColumn,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    toggleColumnExpansion,
     batchUpdateColumns,
     expandAll,
     collapseAll,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    notifyDataChanged,
   } = useJsonSchemaData(props, emit)
 
   /**
@@ -314,26 +302,7 @@
    * - 列级别校验
    * - 全量校验
    */
-  const {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateColumn,
-    validateAllColumns,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateNotNull,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateUnique,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateAllowedValues,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateDataType,
-    validateJsonPath,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    collectValidationErrors,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    isColumnConfigValid,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateTreeStructure,
-  } = useJsonSchemaValidation(props)
+  const { validateAllColumns, validateJsonPath } = useJsonSchemaValidation(props)
 
   /**
    * useJsonSchemaUI - UI 状态管理
@@ -343,27 +312,7 @@
    * - 悬停状态
    * - 错误信息格式化
    */
-  const {
-    nodeClasses,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    hasValidationErrors,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    hasScrolledOutColumns,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    formatErrorMessage,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    formatColumnErrors,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    getErrorPopoverPosition,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    getTypeDisplayText,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateColumnName,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateJsonPath: validateJsonPathUI,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    getAllValidationErrors,
-  } = useJsonSchemaUI(props)
+  const { nodeClasses } = useJsonSchemaUI(props)
 
   /**
    * useJsonSchemaInteractions - 交互逻辑
@@ -373,47 +322,7 @@
    * - 输入引用管理
    * - 连接处理
    */
-  const {
-    handleKeydown,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    onColumnEnter,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    onColumnTab,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    editingColumnName,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    startColumnEdit,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    confirmColumnEdit,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    cancelColumnEdit,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    columnInputRefs,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    setInputRef,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    isColumnSnapping,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    isColumnEditing,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    getColumnName,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    updateColumnJsonPath,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    updateColumnDataType,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    updateColumnConstraint,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    addColumn: addColumnFromInteraction,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    deleteColumn: deleteColumnFromInteraction,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    handleSourceConnect,
-    watchSourceConnection,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    handlePatternDrop: handlePatternDropToColumn,
-    cleanup,
-  } = useJsonSchemaInteractions(props, emit)
+  const { handleKeydown, watchSourceConnection, cleanup } = useJsonSchemaInteractions(props, emit)
 
   /**
    * useJsonSchemaSaving - 保存逻辑
@@ -424,21 +333,11 @@
    * - 关闭确认流程
    */
   const {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    isSaving,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    saveSuccess,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    saveError,
     showCloseConfirm,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    handleSave,
     handleClose: handleCloseFromSaving,
     saveAndClose,
     confirmCloseWithoutSave,
     cancelClose,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    markDirty,
     handlePatternDragOver: handlePatternDragOverFromSaving,
     handlePatternDrop: handlePatternDropFromSaving,
   } = useJsonSchemaSaving(props, emit as (event: string, ...args: unknown[]) => void)
