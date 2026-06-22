@@ -315,9 +315,18 @@ async function validateRegexFromRows(params: {
   updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
   signal?: AbortSignal
 }): Promise<RegexValidationResult | null> {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { regexNode, sourceNode, columnName, columnId, nodes, edges, updateNodeData, signal } =
-    params
+  const {
+    regexNode,
+    sourceNode,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
+    columnName,
+    columnId,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
+    nodes,
+    edges,
+    updateNodeData,
+    signal,
+  } = params
   const regexData = regexNode.data as unknown as Record<string, unknown>
 
   if (!String(regexData.pattern || '').trim()) {
@@ -436,8 +445,18 @@ async function tryUpdateExtractDerivedColumns(params: {
   updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
   signal?: AbortSignal
 }): Promise<RegexValidationResult | null> {
-  const { regexNode, schemaNode, columnName, columnId, nodes, edges, updateNodeData, signal } =
-    params
+  const {
+    regexNode,
+    schemaNode,
+
+    columnName,
+    columnId,
+
+    nodes,
+    edges,
+    updateNodeData,
+    signal,
+  } = params
   const regexData = regexNode.data as unknown as Record<string, unknown>
   const schemaData = schemaNode.data as SchemaNodeData
 

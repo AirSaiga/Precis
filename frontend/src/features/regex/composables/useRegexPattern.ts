@@ -33,7 +33,6 @@
  */
 
 import { ref, computed } from 'vue'
-import { useI18n } from 'vue-i18n'
 import type { RegexNodeData } from '@/features/regex/types'
 import { eventBus } from '@/core/eventBus'
 /**
@@ -70,8 +69,6 @@ export function useRegexPattern(
    * 【用途】
    * 获取本地化的文本内容，用于界面显示和错误信息。
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { t } = useI18n()
 
   /**
    * 正则表达式模式

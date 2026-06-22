@@ -103,8 +103,7 @@ export function useJsonSchemaSaving(
    * 处理 JSON SourcePreviewNode 断开连接
    */
   const handleSourceNodeDisconnected = (event: CustomEvent) => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    const { sourceNodeId, targetNodeId } = event.detail
+    const { targetNodeId } = event.detail
 
     if (targetNodeId === props.id) {
       store.updateNodeData(props.id, {

@@ -340,8 +340,6 @@ Schema 节点 */
     potentialHeaderRow,
 
     // 计算属性
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    previewHeaders,
     previewRows,
 
     // 方法
@@ -363,8 +361,6 @@ Schema 节点 */
     onRowIndicatorLeave,
     isHeaderRow,
     setupEventListeners,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    notifyDataChange,
   } = useSourcePreview(props, emit)
 
   /**

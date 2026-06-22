@@ -130,8 +130,7 @@
   /**
    * 树形结构相关
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { collapsedFolders, dataSourcesTree, toggleFolder } = useDataSourceTree()
+  const { dataSourcesTree, toggleFolder } = useDataSourceTree()
 
   /**
    * 导入相关
@@ -153,9 +152,7 @@
   /**
    * 文件操作相关
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { handleOpenDataSource, handleReselectFile, handleClearAll, handleRemoveDataSource } =
-    useDataSourceFileOps()
+  const { handleOpenDataSource, handleClearAll, handleRemoveDataSource } = useDataSourceFileOps()
 
   /**
    * 当前悬停的数据源 ID

@@ -16,8 +16,7 @@ export interface BaseFactoryContext {
 }
 
 export function createBaseNodeFactory(ctx: BaseFactoryContext) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { nodes, selectedNodeId } = ctx
+  const { selectedNodeId } = ctx
 
   return function createNode<TData extends Record<string, unknown>>(
     type: string,
