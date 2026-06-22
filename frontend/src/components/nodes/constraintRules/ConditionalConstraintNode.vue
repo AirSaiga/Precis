@@ -157,8 +157,6 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  import NodeBadge from '@/components/ui/NodeBadge.vue'
   import ConstraintNodeFrame from './shared/ConstraintNodeFrame.vue'
   import ConstraintNodeLayout from './shared/ConstraintNodeLayout.vue'
   import { resolveNodeState } from '@/components/ui/nodeVariants'
@@ -257,92 +255,6 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
    * 计算配置概览显示
    * 显示当前条件配置的关键信息
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const configOverview = computed(() => {
-    const data = props.data
-    if (!data.ifRef?.columnId && !data.thenRef?.columnId) {
-      return null
-    }
-
-    const result: {
-      ifColumn?: string
-      ifOperator?: string
-      ifValue?: string
-      thenColumn?: string
-      conditionMode?: string
-    } = {}
-
-    // IF 列
-    if (data.ifRef?.columnId) {
-      const nodeId = data.ifRef.nodeId
-      const sourceNode = store.nodes.find((n) => n.id === nodeId)
-      if (sourceNode && sourceNode.type === 'schema') {
-        const columns = (sourceNode.data as unknown as Record<string, unknown>).columns as
-          | Array<{ id: string; columnName: string }>
-          | undefined
-        const col = (columns || []).find((c) => c.id === data.ifRef!.columnId)
-        result.ifColumn = col?.columnName || data.ifColumn || ''
-      } else if (sourceNode && sourceNode.type === 'transformOutput') {
-        result.ifColumn =
-          ((sourceNode.data as Record<string, unknown>).columnName as string) || data.ifColumn || ''
-      } else {
-        result.ifColumn = data.ifColumn || ''
-      }
-    }
-
-    // IF 操作符和值
-    const firstCondition = normalizedIfConditions.value[0]
-    if (firstCondition) {
-      const opMap: Record<string, string> = {
-        eq: '=',
-        neq: '!=',
-        not_null: 'Not Null',
-        greater_than: '>',
-        in: 'In',
-      }
-      result.ifOperator = opMap[firstCondition.operator] || firstCondition.operator
-
-      if (firstCondition.operator === 'in' && firstCondition.values?.length) {
-        result.ifValue = `[${firstCondition.values.join(', ')}]`
-      } else if (firstCondition.operator !== 'not_null' && firstCondition.value) {
-        result.ifValue = String(firstCondition.value)
-      }
-    }
-
-    // THEN 列
-    if (data.thenRef?.columnId) {
-      const nodeId = data.thenRef.nodeId
-      const sourceNode = store.nodes.find((n) => n.id === nodeId)
-      if (sourceNode && sourceNode.type === 'schema') {
-        const columns = (sourceNode.data as unknown as Record<string, unknown>).columns as
-          | Array<{ id: string; columnName: string }>
-          | undefined
-        const col = (columns || []).find((c) => c.id === data.thenRef!.columnId)
-        result.thenColumn = col?.columnName || data.thenColumn || ''
-      } else if (sourceNode && sourceNode.type === 'transformOutput') {
-        result.thenColumn =
-          ((sourceNode.data as Record<string, unknown>).columnName as string) ||
-          data.thenColumn ||
-          ''
-      } else {
-        result.thenColumn = data.thenColumn || ''
-      }
-    }
-
-    // THEN 条件模式
-    const cfg = data.thenConditionConfig
-    if (typeof cfg === 'string' && cfg.trim()) {
-      result.conditionMode = `${t('customNodes.constraintRules.conditionalConstraintNode.function')}: ${cfg}`
-    } else if (cfg && typeof cfg === 'object') {
-      const cfgObj = cfg as { operator?: string; value?: string | number; values?: string[] }
-      if (cfgObj.operator) {
-        const modeText = formatCondition(cfg)
-        result.conditionMode = `${t('customNodes.constraintRules.conditionalConstraintNode.dslMode')}: ${modeText}`
-      }
-    }
-
-    return Object.keys(result).length > 0 ? result : null
-  })
 
   // --- 数据标准化 (Normalization) ---
 
@@ -415,19 +327,6 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
 
   // --- 数据源查找 ---
 
-  /**
-   * 计算可用的源表列表
-   * 来源：图存储中所有类型为 'schema' 的节点
-   */
-  const availableSourceTables = computed(() => {
-    return store.nodes
-      .filter((n) => n.type === 'schema')
-      .map((n) => ({
-        id: n.id,
-        tableName: ((n.data as unknown as Record<string, unknown>)?.tableName as string) || n.id,
-      }))
-  })
-
   // --- 本地状态 (Local State) ---
   // 用于在编辑过程中暂存用户的输入，直到触发更新或校验
   const localSourceNodeId = ref<string>('') // 当前选中的源表 ID
@@ -435,14 +334,6 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   const localIfLogic = ref<'and' | 'or'>((props.data.ifLogic as 'and' | 'or') || 'and')
 
   type IfOperator = 'eq' | 'neq' | 'in' | 'not_null' | 'greater_than'
-  type IfConditionConfig = {
-    ref?: { nodeId: string; columnId: string }
-    column?: string
-    operator: IfOperator
-    value?: string
-    values?: string[]
-    edgeId?: string
-  }
   // IF 条件列表的本地副本，支持动态增删改
   const localIfConditions = ref<
     Array<{
@@ -467,19 +358,6 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   const localFunctionName = ref<string>(
     typeof props.data.thenConditionConfig === 'string' ? props.data.thenConditionConfig : ''
   )
-
-  // 查找当前关联的源节点对象
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const sourceNode = computed(() => {
-    // 优先级：本地选择 > props.thenRef > props.ifRef > 第一个条件
-    const nodeId =
-      localSourceNodeId.value ||
-      props.data.thenRef?.nodeId ||
-      normalizedIfConditions.value[0]?.ref?.nodeId ||
-      props.data.ifRef?.nodeId
-    if (!nodeId) return null
-    return store.nodes.find((n) => n.id === nodeId) || null
-  })
 
   // 根据当前源节点，获取可用的列列表
   const availableSourceColumns = computed(() => {
@@ -589,11 +467,6 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   })
 
   // 控制是否显示引导步骤 (当配置未完成时显示)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const showGuide = computed(() => {
-    if (validationStatus.value === 'error') return false // 出错时优先显示错误
-    return !hasIf.value || !hasThen.value || !hasIfValue.value || !hasThenCondition.value
-  })
 
   // 辅助函数：获取当前上下文中的 Schema 节点 ID
   const getSchemaNodeIdForEdges = () => {
@@ -720,152 +593,13 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
    * 处理源表变更
    * 当用户切换源表时，需要清空所有关联的连线和配置
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const handleSourceTableChange = () => {
-    const selectedTable = availableSourceTables.value.find((t) => t.id === localSourceNodeId.value)
-    // 查找并删除所有连接到本节点的输入边
-    const removed = store.edges.filter(
-      (e) =>
-        e.target === props.id &&
-        (e.targetHandle === `target-if-${props.id}` ||
-          e.targetHandle === `target-then-${props.id}` ||
-          e.targetHandle === `target-input-${props.id}`)
-    )
-    removed.forEach((e) => {
-      e.data = { ...(e.data || {}), transient: true }
-      store.deleteConnection(e.id)
-    })
-
-    // 重置节点数据
-    store.updateNodeData(props.id, {
-      table: selectedTable?.tableName || props.data.table,
-      ifRef: undefined,
-      thenRef: undefined,
-      ifColumn: '',
-      thenColumn: '',
-      ifValue: '',
-      ifLogic: 'and',
-      ifConditions: [{ operator: 'eq', value: '' }],
-      thenConditionConfig: { operator: 'not_null' },
-      validationStatus: 'idle',
-      validationErrors: [],
-      lastValidation: undefined,
-    })
-    // 重置本地状态
-    localThenColumnId.value = ''
-    localIfConditions.value = localIfConditions.value.map((c) => ({ ...c, edgeId: undefined }))
-  }
 
   /**
    * 处理 THEN 列变更
    * 更新数据并自动创建连线
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const handleThenColumnChange = async () => {
-    if (!localThenColumnId.value) return
-    const selectedCol = availableSourceColumns.value.find((c) => c.id === localThenColumnId.value)
-    const schemaNodeId = getSchemaNodeIdForEdges()
-    if (!schemaNodeId) return
-    const sourceHandle = `source-right-${localThenColumnId.value}`
-    const targetHandle = `target-then-${props.id}`
-
-    // 清理旧的 THEN 连线
-    const existingThenEdges = store.edges.filter(
-      (e) =>
-        e.target === props.id &&
-        (e.targetHandle === `target-then-${props.id}` ||
-          e.targetHandle === `target-input-${props.id}`)
-    )
-    existingThenEdges.forEach((e) => {
-      e.data = { ...(e.data || {}), transient: true }
-      store.deleteConnection(e.id)
-    })
-
-    // 创建新连线 (虚线样式表示 THEN 关系)
-    store.createConnection(schemaNodeId, props.id, sourceHandle, targetHandle, {
-      type: 'smoothstep',
-      animated: true,
-      label: 'THEN',
-      style: { stroke: 'var(--edge-conditional-then)', strokeWidth: 2.2, strokeDasharray: '4 6' }, // was #0ea5e9
-    })
-
-    // 更新 Store
-    store.updateNodeData(props.id, {
-      thenRef: { nodeId: schemaNodeId, columnId: localThenColumnId.value },
-      table:
-        availableSourceTables.value.find((t) => t.id === schemaNodeId)?.tableName ||
-        props.data.table,
-      thenColumn: selectedCol?.columnName || props.data.thenColumn,
-      validationStatus: 'idle',
-      validationErrors: [],
-      lastValidation: undefined,
-    })
-    await validateNow()
-  }
 
   // 确保 THEN 边存在 (用于点击下拉框时恢复可能误删的连线)
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const ensureThenEdge = () => {
-    const schemaNodeId = getSchemaNodeIdForEdges()
-    const columnId = localThenColumnId.value || props.data.thenRef?.columnId || ''
-    if (!schemaNodeId || !columnId) return
-
-    const sourceHandle = `source-right-${columnId}`
-    const targetHandle = `target-then-${props.id}`
-    const legacyTargetHandle = `target-input-${props.id}`
-    const existing = store.edges.find(
-      (e) =>
-        e.source === schemaNodeId &&
-        e.target === props.id &&
-        e.sourceHandle === sourceHandle &&
-        (e.targetHandle === targetHandle || e.targetHandle === legacyTargetHandle)
-    )
-    if (existing) return
-
-    // 如果没有找到，清理旧的并重建
-    const existingThenEdges = store.edges.filter(
-      (e) =>
-        e.target === props.id &&
-        (e.targetHandle === targetHandle || e.targetHandle === legacyTargetHandle)
-    )
-    existingThenEdges.forEach((e) => {
-      e.data = { ...(e.data || {}), transient: true }
-      store.deleteConnection(e.id)
-    })
-
-    store.createConnection(schemaNodeId, props.id, sourceHandle, targetHandle, {
-      type: 'smoothstep',
-      animated: true,
-      label: 'THEN',
-      style: { stroke: 'var(--edge-conditional-then)', strokeWidth: 2.2, strokeDasharray: '4 6' }, // was #0ea5e9
-    })
-  }
-
-  /**
-   * 构建要保存到 Store 的 IF 条件对象
-   * 过滤空值并将 UI 状态转换为数据模型
-   */
-  const buildIfConditionsForStore = (): IfConditionConfig[] => {
-    const nodeId = getSchemaNodeIdForEdges() || ''
-    const next: IfConditionConfig[] = localIfConditions.value.map((c) => {
-      const col = availableSourceColumns.value.find((x) => x.id === c.columnId)
-      return {
-        ref: nodeId && c.columnId ? { nodeId, columnId: c.columnId } : undefined,
-        column: col?.columnName,
-        operator: c.operator,
-        value: c.operator === 'in' || c.operator === 'not_null' ? undefined : c.value,
-        values:
-          c.operator === 'in'
-            ? c.valuesText
-                .split(',')
-                .map((s) => s.trim())
-                .filter(Boolean)
-            : undefined,
-        edgeId: c.edgeId,
-      }
-    })
-    return next.length > 0 ? next : [{ operator: 'eq', value: '' }]
-  }
 
   /**
    * 确保指定行的 IF 连线存在
@@ -1001,150 +735,6 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   )
 
   // --- 统一更新逻辑 ---
-
-  /**
-   * 应用 IF 条件的更新
-   * 将本地状态写入 Store 并触发校验
-   */
-  const applyIfConditionsUpdate = () => {
-    const nextConditions = buildIfConditionsForStore()
-    const first = nextConditions[0]
-    store.updateNodeData(props.id, {
-      ifLogic: localIfLogic.value,
-      ifConditions: nextConditions,
-      ifRef: first?.ref, // 兼容旧版字段
-      ifColumn: first?.column || '',
-      ifValue: typeof first?.value === 'string' ? first.value : '',
-      validationStatus: 'idle',
-      validationErrors: [],
-      lastValidation: undefined,
-    })
-    scheduleValidation()
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const handleIfLogicChange = () => {
-    applyIfConditionsUpdate()
-  }
-
-  // 高阶函数：生成特定索引的处理函数
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const handleIfConditionColumnChange = (idx: number) => () => {
-    if (!localIfConditions.value[idx]) return
-    ensureIfEdgeForRow(idx)
-    applyIfConditionsUpdate()
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const handleIfConditionOperatorChange = (idx: number) => () => {
-    const cond = localIfConditions.value[idx]
-    if (!cond) return
-    cond.value = ''
-    cond.valuesText = ''
-    applyIfConditionsUpdate()
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const handleIfConditionValueInput = (idx: number) => () => {
-    if (!localIfConditions.value[idx]) return
-    applyIfConditionsUpdate()
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const handleIfConditionValuesInput = (idx: number) => () => {
-    if (!localIfConditions.value[idx]) return
-    applyIfConditionsUpdate()
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const addIfCondition = () => {
-    localIfConditions.value.push({
-      columnId: '',
-      operator: 'eq',
-      value: '',
-      valuesText: '',
-      edgeId: undefined,
-    })
-    applyIfConditionsUpdate()
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const removeIfCondition = (idx: number) => {
-    if (localIfConditions.value.length <= 1) return
-    const removed = localIfConditions.value[idx]
-    // 移除对应的连线
-    if (removed?.edgeId) {
-      const edge = store.edges.find((e) => e.id === removed.edgeId)
-      if (edge) edge.data = { ...(edge.data || {}), transient: true }
-      store.deleteConnection(removed.edgeId)
-    }
-    localIfConditions.value.splice(idx, 1)
-    applyIfConditionsUpdate()
-  }
-
-  // --- THEN 条件配置更新 ---
-
-  const setThenConditionConfig = (next: ConditionalConstraintNodeData['thenConditionConfig']) => {
-    store.updateNodeData(props.id, {
-      thenConditionConfig: next,
-      validationStatus: 'idle',
-      validationErrors: [],
-      lastValidation: undefined,
-    })
-    scheduleValidation()
-  }
-
-  // 切换 DSL/Function 模式
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const handleConditionModeChange = () => {
-    if (localConditionMode.value === 'function') {
-      setThenConditionConfig(localFunctionName.value.trim())
-    } else {
-      setThenConditionConfig({ operator: localOperator.value })
-    }
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const handleOperatorChange = () => {
-    if (localOperator.value === 'not_null') {
-      setThenConditionConfig({ operator: 'not_null' })
-      return
-    }
-    if (localOperator.value === 'greater_than') {
-      setThenConditionConfig({ operator: 'greater_than', value: localGreaterThanValue.value })
-      return
-    }
-    // in 操作符需要数组
-    setThenConditionConfig({
-      operator: 'in',
-      values: localInValues.value
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-    })
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const handleGreaterThanInput = () => {
-    setThenConditionConfig({ operator: 'greater_than', value: localGreaterThanValue.value })
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const handleInValuesInput = () => {
-    setThenConditionConfig({
-      operator: 'in',
-      values: localInValues.value
-        .split(',')
-        .map((s) => s.trim())
-        .filter(Boolean),
-    })
-  }
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const handleFunctionInput = () => {
-    if (localConditionMode.value !== 'function') return
-    setThenConditionConfig(localFunctionName.value.trim())
-  }
 </script>
 
 <style scoped src="./ConditionalConstraintNode.styles.css"></style>
