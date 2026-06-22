@@ -37,7 +37,7 @@ uritemplate==4.2.0
 openai==2.30.0
 
 # 安全
-cryptography==46.0.7
+cryptography==49.0.0
 
 # 文件锁
 filelock==3.18.0
