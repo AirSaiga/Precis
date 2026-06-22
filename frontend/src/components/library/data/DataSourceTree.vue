@@ -18,6 +18,7 @@
   - remove: 移除数据源
   - open: 打开数据源文件
 -->
+
 <template>
   <div class="data-sources-list-new custom-scrollbar space-y-1">
     <transition-group name="list">
@@ -49,6 +50,7 @@
   import DataSourceTreeFolder from './DataSourceTreeFolder.vue'
   import DataSourceTreeFile from './DataSourceTreeFile.vue'
   import type { TreeNodeItem } from '@/composables/data/useDataSourceTree'
+  import type { ExternalDataSource } from '@/types/graph'
 
   interface Props {
     treeData: TreeNodeItem[]
@@ -60,10 +62,10 @@
   defineEmits<{
     'toggle-folder': [folderPath: string]
     'hover-item': [dataSourceId: string | null]
-    'drag-start': [event: DragEvent, dataSource: any]
+    'drag-start': [event: DragEvent, dataSource: ExternalDataSource]
     'drag-end': []
     remove: [dataSourceId: string]
-    open: [dataSource: any]
+    open: [dataSource: ExternalDataSource]
   }>()
 </script>
 

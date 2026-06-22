@@ -167,7 +167,7 @@
         <span class="warning-text">
           {{ localData.validationMismatches.length }} 个字段类型与 Schema 定义不匹配
         </span>
-        <button class="warning-detail-btn" @click="showValidationDetails = true">查看</button>
+        <button class="warning-detail-btn" @click="_showValidationDetails = true">查看</button>
       </div>
 
       <div v-if="localData.rawData && localData.rawData.length > 0" class="preview-footer">
@@ -216,13 +216,26 @@
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
-  import apiClient from '@/core/services/httpClient'
+  import apiClient, { isAxiosError } from '@/core/services/httpClient'
   import { Handle, Position } from '@vue-flow/core'
   import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
   import type { JsonSourcePreviewNodeData } from '@/types/graph'
   import { useGraphStore } from '@/stores/graphStore'
   import JsonDataTree from './JsonDataTree.vue'
+
+  /** JSON 文件预览 API 响应结构 */
+  interface JsonPreviewApiResponse {
+    success: boolean
+    error?: string
+    raw_data?: unknown[]
+    data?: string[][]
+    total_rows?: number
+    total_cols?: number
+    type_inference?: Record<string, string>
+    field_count?: number
+    nest_depth?: number
+  }
 
   const { t } = useI18n()
 
@@ -253,7 +266,7 @@
   const isLoading = ref(false)
   const loadError = ref<string | null>(null)
   const isReloading = ref(false)
-  const showValidationDetails = ref(false)
+  const _showValidationDetails = ref(false)
 
   // debounce 定时器
   let configChangeTimer: ReturnType<typeof setTimeout> | null = null
@@ -316,7 +329,7 @@
     const schemaNode = store.nodes.find((n) => n.id === connectedEdge.target)
     if (!schemaNode || schemaNode.type !== 'jsonSchema') return
 
-    const schemaData = schemaNode.data as Record<string, unknown>
+    const schemaData = schemaNode.data as unknown as Record<string, unknown>
     const columns = (schemaData.columns || []) as Array<Record<string, unknown>>
     if (columns.length === 0) return
 
@@ -393,19 +406,26 @@
         requestBody.record_path = localData.value.recordPath.trim()
       }
 
-      let result: any
+      let result: JsonPreviewApiResponse
       try {
-        const response = await apiClient.post('/preview/file/path', requestBody)
+        const response = await apiClient.post<JsonPreviewApiResponse>(
+          '/preview/file/path',
+          requestBody
+        )
         result = response.data
-      } catch (error: any) {
-        const status = error?.response?.status
-        const data = error?.response?.data
+      } catch (error: unknown) {
+        let status: number | undefined
+        let data: unknown
+        if (isAxiosError(error)) {
+          status = error.response?.status
+          data = error.response?.data
+        }
         const errorText =
           typeof data === 'string'
             ? data
-            : (data?.error as string | undefined) ||
-              (data?.message as string | undefined) ||
-              (error?.message as string | undefined) ||
+            : ((data as Record<string, unknown> | undefined)?.error as string | undefined) ||
+              ((data as Record<string, unknown> | undefined)?.message as string | undefined) ||
+              (error instanceof Error ? error.message : undefined) ||
               '未知错误'
         throw new Error(`HTTP错误 ${status ?? ''}: ${errorText}`.trim())
       }
