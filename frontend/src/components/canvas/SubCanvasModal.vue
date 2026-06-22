@@ -61,16 +61,17 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, markRaw } from 'vue'
+  import { markRaw } from 'vue'
   import { VueFlow, SelectionMode, useVueFlow } from '@vue-flow/core'
   import { Background, BackgroundVariant } from '@vue-flow/background'
   import { Controls } from '@vue-flow/controls'
-  import type { NodeComponent } from '@vue-flow/core'
+  import type { NodeComponent, Edge } from '@vue-flow/core'
   import { useI18n } from 'vue-i18n'
   import { useSubGraphStore } from '@/composables/canvas/useSubGraphStore'
   import { constraintNodeRegistry } from '@/services/registry/constraintNodeRegistry'
   import { getConstraintMetaByKind } from '@/services/constraints/validationRegistry'
   import type { ConstraintKind } from '@/services/constraints/types'
+  import type { CustomNode } from '@/types/graph'
   import SubSchemaInputNode from '@/components/nodes/composite/SubSchemaInputNode.vue'
 
   const { t } = useI18n()
@@ -79,8 +80,8 @@
   interface Props {
     visible: boolean
     title?: string
-    initialNodes?: any[]
-    initialEdges?: any[]
+    initialNodes?: CustomNode[]
+    initialEdges?: Edge[]
   }
 
   const props = withDefaults(defineProps<Props>(), {
@@ -90,7 +91,7 @@
   })
 
   const emit = defineEmits<{
-    save: [state: { nodes: any[]; edges: any[] }]
+    save: [state: { nodes: CustomNode[]; edges: Edge[] }]
     close: []
   }>()
 
@@ -166,7 +167,7 @@
   }
 
   function handleSave() {
-    emit('save', subStore.getState())
+    emit('save', subStore.getState() as unknown as { nodes: CustomNode[]; edges: Edge[] })
   }
 
   function handleClose() {
