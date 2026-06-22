@@ -85,8 +85,7 @@
     status?: NodeState
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const props = withDefaults(defineProps<Props>(), {
+  withDefaults(defineProps<Props>(), {
     icon: '',
     title: '',
     subtitle: '',

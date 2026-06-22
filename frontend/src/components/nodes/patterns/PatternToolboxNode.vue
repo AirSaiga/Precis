@@ -43,8 +43,7 @@ List：模式条目列表（每个条目有独立输出 Handle） */
 
   const { t } = useI18n()
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const props = defineProps<{
+  defineProps<{
     data: {
       scope: string
       patterns: Array<{ id: string; name: string }>

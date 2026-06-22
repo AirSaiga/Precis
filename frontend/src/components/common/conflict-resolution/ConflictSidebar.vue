@@ -222,8 +222,7 @@
 
   defineProps<Props>()
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const emit = defineEmits<{
+  defineEmits<{
     'select-item': [item: ConfigItemDiff<unknown>, type: 'schema' | 'constraint' | 'regex']
     'update:searchText': [value: string]
     'update:statusFilter': [value: string]
