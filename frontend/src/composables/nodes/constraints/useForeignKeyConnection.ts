@@ -12,9 +12,15 @@
  * 3) ForeignKeyConstraint -> Schema(target-left)：写入 targetRef/config.targetNodeId 等参照关系
  */
 
-import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
-import type { SchemaNodeData, ForeignKeyConstraintNodeData } from '@/types/graph'
+import type {
+  CustomNode,
+  SchemaNodeData,
+  JsonSchemaNodeData,
+  ForeignKeyConstraintNodeData,
+  TransformOutputNodeData,
+  ManualDataNodeData,
+} from '@/types/graph'
 import type { Edge } from '@vue-flow/core'
 import { validateForInlineSource } from '@/services/constraints/validationRegistryCore'
 
@@ -52,8 +58,8 @@ export function useForeignKeyConnection() {
     targetHandle: string | undefined,
     edgeOptions?: Partial<Edge>
   ): string | null => {
-    const sourceNode = store.nodes.find((n: any) => n.id === sourceNodeId)
-    const targetNode = store.nodes.find((n: any) => n.id === targetNodeId)
+    const sourceNode = store.nodes.find((n: CustomNode) => n.id === sourceNodeId)
+    const targetNode = store.nodes.find((n: CustomNode) => n.id === targetNodeId)
     if (!sourceNode || !targetNode) return null
 
     // 防御性校验：只处理 Schema/JsonSchema -> Schema/JsonSchema 的 target-left 连接
@@ -73,8 +79,8 @@ export function useForeignKeyConnection() {
     if (!sourceColumnId) return null
 
     // 读取源/目标表信息
-    const sourceSchemaData = sourceNode.data as SchemaNodeData & Record<string, unknown>
-    const targetSchemaData = targetNode.data as SchemaNodeData & Record<string, unknown>
+    const sourceSchemaData = sourceNode.data as SchemaNodeData | JsonSchemaNodeData
+    const targetSchemaData = targetNode.data as SchemaNodeData | JsonSchemaNodeData
 
     const sourceColumns = sourceSchemaData.columns || []
     const sourceColumn = sourceColumns.find((c) => c.id === sourceColumnId)
@@ -145,8 +151,8 @@ export function useForeignKeyConnection() {
     sourceHandleId: string,
     targetHandleId?: string | null
   ): Promise<void> => {
-    const sourceNode = store.nodes.find((n: any) => n.id === sourceNodeId)
-    const targetNode = store.nodes.find((n: any) => n.id === targetNodeId)
+    const sourceNode = store.nodes.find((n: CustomNode) => n.id === sourceNodeId)
+    const targetNode = store.nodes.find((n: CustomNode) => n.id === targetNodeId)
     if (!sourceNode || !targetNode) return
 
     // 只处理 Schema/JsonSchema -> foreignKeyConstraint
@@ -157,7 +163,7 @@ export function useForeignKeyConnection() {
       return
 
     if (isPureDataSourceType(sourceNode?.type)) {
-      const sourceData = sourceNode.data as Record<string, unknown>
+      const sourceData = sourceNode.data as TransformOutputNodeData | ManualDataNodeData
       const columnName = (sourceData.columnName as string) || 'Column1'
       const configName = (sourceData.configName as string) || columnName
 
@@ -187,7 +193,7 @@ export function useForeignKeyConnection() {
       ? sourceHandleId.replace('source-right-', '')
       : sourceHandleId
 
-    const sourceData = sourceNode.data as SchemaNodeData
+    const sourceData = sourceNode.data as SchemaNodeData | JsonSchemaNodeData
     const column = sourceData.columns.find((c) => c.id === columnId)
     if (!column) return
 
@@ -222,15 +228,15 @@ export function useForeignKeyConnection() {
     targetSchemaNodeId: string,
     targetHandle: string | undefined
   ): void => {
-    const fkNode = store.nodes.find((n: any) => n.id === fkNodeId)
-    const targetSchemaNode = store.nodes.find((n: any) => n.id === targetSchemaNodeId)
+    const fkNode = store.nodes.find((n: CustomNode) => n.id === fkNodeId)
+    const targetSchemaNode = store.nodes.find((n: CustomNode) => n.id === targetSchemaNodeId)
     if (!fkNode || !targetSchemaNode) return
 
     // 只处理 FK -> Schema/JsonSchema 的 target-left（把 schema 作为参照目标表）
     if (fkNode?.type !== 'foreignKeyConstraint' || !isSchemaType(targetSchemaNode?.type)) return
     if (targetHandle !== 'target-left') return
 
-    const targetSchemaData = targetSchemaNode.data as SchemaNodeData
+    const targetSchemaData = targetSchemaNode.data as SchemaNodeData | JsonSchemaNodeData
 
     // 用户手工连线 FK->Schema 设置目标表
     // 展示边由 ForeignKeyConstraintNode 自动管理（有目标表+目标列时自动创建）
@@ -259,11 +265,11 @@ export function useForeignKeyConnection() {
     targetColumnId: string,
     targetColumnName: string
   ): void => {
-    const fkNode = store.nodes.find((n: any) => n.id === fkNodeId)
-    const targetSchemaNode = store.nodes.find((n: any) => n.id === targetSchemaNodeId)
+    const fkNode = store.nodes.find((n: CustomNode) => n.id === fkNodeId)
+    const targetSchemaNode = store.nodes.find((n: CustomNode) => n.id === targetSchemaNodeId)
     if (!fkNode || !targetSchemaNode) return
 
-    const targetSchemaData = targetSchemaNode.data as SchemaNodeData
+    const targetSchemaData = targetSchemaNode.data as SchemaNodeData | JsonSchemaNodeData
 
     // 设置目标表和目标列
     store.updateNodeData(fkNodeId, {
