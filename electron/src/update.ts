@@ -104,6 +104,10 @@ class UpdateManager {
   private setupAutoUpdater(): void {
     autoUpdater.autoDownload = this.config.autoDownload;
     autoUpdater.autoInstallOnAppQuit = true;
+    // Alpha 阶段未签名：关闭差分下载（要求签名一致性）+ 允许降级
+    // 正式签名后可移除这两行
+    autoUpdater.disableDifferentialDownload = true;
+    autoUpdater.allowDowngrade = true;
 
     autoUpdater.on('checking-for-update', () => {
       this.updateState({ status: 'checking' });
