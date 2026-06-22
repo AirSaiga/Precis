@@ -6,7 +6,6 @@
 
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
-import { useGraphStore } from '@/stores/graphStore'
 import type { SchemaNodeData, DataType, SchemaColumn } from '@/types/graph'
 import { useNodeUI } from '@/composables/nodes/shared/useNodeUI'
 /**
@@ -19,9 +18,6 @@ export function useSchemaUI(props: { id: string; data: SchemaNodeData; selected?
   const { t } = useI18n()
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { updateNodeInternals } = useVueFlow()
-
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const store = useGraphStore()
 
   /**
    * 常量：数据类型选项

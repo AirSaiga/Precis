@@ -87,7 +87,6 @@
   import ConstraintNodeLayout from './shared/ConstraintNodeLayout.vue'
   import { resolveNodeState } from '@/components/ui/nodeVariants'
   import type { UniqueConstraintNodeData } from '@/types/graph'
-  import { useGraphStore } from '@/stores/graphStore'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   const props = defineProps<{
@@ -102,8 +101,6 @@
   }>()
 
   const { t } = useI18n()
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const store = useGraphStore()
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { showConfirm } = useGlobalConfirm()
 

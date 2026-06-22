@@ -5,15 +5,12 @@
  * 节点不存在时尝试通过 V2 导入逻辑创建；存在时直接聚焦 + 居中。
  */
 import { useGraphStore } from '@/stores/graphStore'
-import { useProjectStore } from '@/stores/projectStore'
 import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
 import type { FullValidationErrorItem } from '@/api/projectValidationApi'
 /** @returns navigateErrorToCanvas / focusNode / resolveErrorNodeId 等导航方法 */
 export function useValidationErrorNavigator() {
   const graphStore = useGraphStore()
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const projectStore = useProjectStore()
 
   /**
    * 将验证错误定位到画布节点

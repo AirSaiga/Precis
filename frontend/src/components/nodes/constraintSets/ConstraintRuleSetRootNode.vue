@@ -36,7 +36,6 @@
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
-  import { useGraphStore } from '@/stores/graphStore'
   import type { ConstraintRuleSetRootNodeData } from '@/types/graph'
   import GraphNodeFrame from '@/components/nodes/shared/GraphNodeFrame.vue'
 
@@ -46,8 +45,6 @@
     data: ConstraintRuleSetRootNodeData
   }>()
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const store = useGraphStore()
   const { t } = useI18n()
 </script>
 
