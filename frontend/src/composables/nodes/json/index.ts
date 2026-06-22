@@ -14,7 +14,20 @@ import { useJsonSchemaResizable } from './useJsonSchemaResizable'
 import { useJsonSchemaSaving } from './useJsonSchemaSaving'
 import { useJsonSchemaDrag } from './useJsonSchemaDrag'
 import { useJsonSchemaConnectionHandler } from './useJsonSchemaConnectionHandler'
-import type { JsonSchemaNodeData } from '@/types/nodes'
+import type { JsonSchemaNodeData, JsonSchemaColumn } from '@/types/nodes'
+import type { EmitFn } from 'vue'
+import type { ConstraintCreateData } from './useJsonSchemaInteractions'
+
+type JsonSchemaNodeEmits = {
+  save: [JsonSchemaNodeData]
+  'remove-node': [string]
+  dataChanged: [JsonSchemaNodeData]
+  'column-add': []
+  'column-update': [{ columnId: string; updates: Partial<JsonSchemaColumn> }]
+  'column-delete': [string]
+  'constraint-create': [ConstraintCreateData]
+  'source-connect': [{ sourceNodeId: string; targetNodeId: string }]
+}
 
 /**
  * JSON Schema节点统一入口
@@ -30,14 +43,20 @@ import type { JsonSchemaNodeData } from '@/types/nodes'
  * @param emit - Vue 的 emit 函数，用于向上层组件通知事件
  * @returns 包含所有状态和方法的响应式对象
  */
-export function useJsonSchemaNode(props: { id: string; data: JsonSchemaNodeData }, emit: any) {
+export function useJsonSchemaNode(
+  props: { id: string; data: JsonSchemaNodeData },
+  emit: EmitFn<JsonSchemaNodeEmits>
+) {
   // JSON Schema数据管理
   // 处理 JSON Schema 节点的数据初始化、更新、同步等核心功能
   const data = useJsonSchemaData(props, emit)
 
   // JSON Schema数据源连接管理
   // 处理 JSON Schema 节点与数据源节点的连接状态管理
-  const sourceManager = useJsonSchemaSourceManager(props, emit)
+  const sourceManager = useJsonSchemaSourceManager(
+    props,
+    emit as (event: string, ...args: unknown[]) => void
+  )
 
   // JSON Schema验证
   // 提供列验证、约束检查等功能
@@ -49,7 +68,10 @@ export function useJsonSchemaNode(props: { id: string; data: JsonSchemaNodeData 
 
   // JSON Schema交互
   // 处理拖拽、键盘事件、列连接等交互行为
-  const interactions = useJsonSchemaInteractions(props, emit)
+  const interactions = useJsonSchemaInteractions(
+    props,
+    emit as (event: string, ...args: unknown[]) => void
+  )
 
   // JSON Schema调整大小
   // 处理节点的宽度和高度调整
@@ -57,11 +79,14 @@ export function useJsonSchemaNode(props: { id: string; data: JsonSchemaNodeData 
 
   // JSON Schema保存
   // 处理 JSON Schema 节点的保存逻辑，包括本地状态和远程同步
-  const saving = useJsonSchemaSaving(props, emit)
+  const saving = useJsonSchemaSaving(props, emit as (event: string, ...args: unknown[]) => void)
 
   // JSON Schema拖拽
   // 处理节点和列的拖拽排序
-  const drag = useJsonSchemaDrag(props, emit)
+  const drag = useJsonSchemaDrag(
+    props,
+    emit as unknown as EmitFn<{ columnReorder: [Record<string, unknown>] }>
+  )
 
   return {
     // JSON Schema数据管理

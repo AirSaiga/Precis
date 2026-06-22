@@ -87,6 +87,19 @@
   import { useDataSourceImport } from '@/composables/data/useDataSourceImport'
   import { useDataSourceDrag } from '@/composables/data/useDataSourceDrag'
   import { useDataSourceFileOps } from '@/composables/data/useDataSourceFileOps'
+
+  interface DataSourceDragPayload {
+    type: string
+    source: string
+    fileId: string
+    fileName: string
+    name: string
+    fileType: string
+    sourceId: string
+    label: string
+    sourceMode: string
+    localPath?: string
+  }
   import DataSourceImportZone from './data/DataSourceImportZone.vue'
   import DataSourceTree from './data/DataSourceTree.vue'
   import DataSourceEmptyState from './data/DataSourceEmptyState.vue'
@@ -111,7 +124,7 @@
    * 组件事件定义
    */
   const emit = defineEmits<{
-    dragstart: [payload: any]
+    dragstart: [payload: DataSourceDragPayload]
     dragend: []
   }>()
 

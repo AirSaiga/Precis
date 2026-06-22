@@ -6,6 +6,7 @@
 
 import { logger } from '@/core/utils/logger'
 import { reactive } from 'vue'
+import type { EmitFn } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useDragStore, type DragEventPayload } from '@/stores/dragStore'
 import type { SourcePreviewNodeData } from '../types'
@@ -26,7 +27,10 @@ interface ContextMenuState {
  * @param emit - Vue的emit函数
  * @returns 交互逻辑相关的方法和状态
  */
-export function usePreviewInteraction(props: { data: SourcePreviewNodeData }, emit: any) {
+export function usePreviewInteraction(
+  props: { data: SourcePreviewNodeData },
+  emit: EmitFn<{ dragstart: [DragEventPayload]; dragend: [] }>
+) {
   const { t } = useI18n()
   const dragStore = useDragStore()
 

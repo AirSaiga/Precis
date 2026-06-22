@@ -46,11 +46,13 @@ export function buildV2RegexNodeFile(nodeId: string, data: RegexNodeData): Regex
           column_id: data.sourceRef.columnId,
         }
       : undefined,
-    parameters: (data.parameters || []).map((param: any) => ({
-      name: param.name,
-      type: param.type,
-      description: param.description || '',
-    })),
+    parameters: (data.parameters || []).map(
+      (param: { name: string; type: string; description?: string }) => ({
+        name: param.name,
+        type: param.type,
+        description: param.description || '',
+      })
+    ),
     rules: data.rules || [],
   }
 }

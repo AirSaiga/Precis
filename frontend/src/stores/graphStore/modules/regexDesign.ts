@@ -115,11 +115,11 @@ export function createRegexDesignModule(params: {
         return
       }
 
-      const mergedData: any = {
+      const mergedData: Partial<RegexNodeData> & { saveState: 'draft' } = {
         ...currentNode.data,
         ...updatedData,
         saveState: 'draft',
-      }
+      } as Partial<RegexNodeData> & { saveState: 'draft' }
 
       if (updatedData.rules && updatedData.rules.length > 0) {
         const activeRule = updatedData.rules[0]

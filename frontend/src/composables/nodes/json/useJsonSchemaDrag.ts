@@ -5,6 +5,7 @@
  */
 
 import { ref } from 'vue'
+import type { EmitFn } from 'vue'
 import { useGraphStore } from '@/stores/graphStore'
 import type { JsonSchemaNodeData } from '@/types/nodes'
 
@@ -14,7 +15,10 @@ import type { JsonSchemaNodeData } from '@/types/nodes'
  * @param emit - Vue emit 函数
  * @returns 拖拽相关的方法和状态
  */
-export function useJsonSchemaDrag(props: { id: string; data: JsonSchemaNodeData }, emit: any) {
+export function useJsonSchemaDrag(
+  props: { id: string; data: JsonSchemaNodeData },
+  emit: EmitFn<{ columnReorder: [Record<string, unknown>] }>
+) {
   const store = useGraphStore()
 
   const isDragging = ref(false)

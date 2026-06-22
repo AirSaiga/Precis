@@ -136,10 +136,10 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * 【数据流】
    * SourcePreview(原始数据) → Schema(表结构) → Regex(正则校验) → 输出结果
    *
- * 1. 左侧 Handle (regex-input): 接收来自 Schema 或 Pattern 节点的连接
- *    - 通过 sourceRef 关联到上游 Schema 节点
- *    - 通过 sourceRef.columnId / columnName 关联到具体的列
- *    - Pattern 连接时自动应用正则表达式内容
+   * 1. 左侧 Handle (regex-input): 接收来自 Schema 或 Pattern 节点的连接
+   *    - 通过 sourceRef 关联到上游 Schema 节点
+   *    - 通过 sourceRef.columnId / columnName 关联到具体的列
+   *    - Pattern 连接时自动应用正则表达式内容
    *
    * 【组件职责】
    * 1. 展示正则节点的核心信息：
@@ -396,7 +396,8 @@ Row：校验结果指标（总行数、匹配数、错误数） */
     if (!props.data.sourceRef?.nodeId) return null
     return (
       store.nodes.find(
-        (n) => (n.type === 'schema' || n.type === 'jsonSchema') && n.id === props.data.sourceRef?.nodeId
+        (n) =>
+          (n.type === 'schema' || n.type === 'jsonSchema') && n.id === props.data.sourceRef?.nodeId
       ) || null
     )
   })
@@ -430,8 +431,13 @@ Row：校验结果指标（总行数、匹配数、错误数） */
       )
       return t('customNodes.regexNode.unregisteredTable')
     }
-    const columnObj = ((schemaNode.value?.data as unknown as Record<string, unknown>)?.columns as unknown[] | undefined)
-        ?.find((c: any) => c.id === srcRef.columnId) as Record<string, unknown> | undefined
+    const columnObj = (
+      (schemaNode.value?.data as unknown as Record<string, unknown>)?.columns as
+        | unknown[]
+        | undefined
+    )?.find((c) => (c as Record<string, unknown>).id === srcRef.columnId) as
+      | Record<string, unknown>
+      | undefined
     const col = (columnObj?.columnName as string) || ''
     if (!col) return `${tableName}.${t('customNodes.regexNode.columnNotSelected')}`
     return `${tableName}.${col}`

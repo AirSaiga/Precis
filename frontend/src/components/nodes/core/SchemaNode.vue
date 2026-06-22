@@ -379,6 +379,7 @@
 
   // 数据源预览创建
   import { usePreviewCreation } from '@/composables/nodes/sourcePreview/usePreviewCreation'
+  import type { FilePreviewResult } from '@/composables/nodes/sourcePreview/usePreviewCreation'
   import type { ExternalDataSource, SourceMode } from '@/types/datasource'
 
   // ==================== Props 定义 ====================
@@ -804,7 +805,7 @@
       // 4. 如果是 Excel 文件，获取预览数据并解析 sheets
       // 优先使用 Schema 节点已配置的 sheetName（如从 YAML 加载的非默认 sheet）
       let currentSheet: string | undefined = undefined
-      let previewData: any = null
+      let previewData: FilePreviewResult | null = null
       const schemaData = schemaNode.data as SchemaNodeData
       const preferredSheet = schemaData.sheetName
 

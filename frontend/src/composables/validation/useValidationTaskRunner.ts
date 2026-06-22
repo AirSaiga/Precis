@@ -643,7 +643,7 @@ export function useValidationTaskRunner() {
           summary: summaryWithPassRate as unknown as Record<string, unknown>,
           by_type: (response.statistics?.by_type ?? {}) as Record<string, Record<string, number>>,
           by_table: (response.statistics?.by_table ?? {}) as Record<string, Record<string, number>>,
-          errors: (response.errors ?? []).map((e: any) => ({
+          errors: (response.errors ?? []).map((e) => ({
             stage: e.stage ?? '',
             error_type: e.error_type ?? '',
             check_type: e.check_type ?? '',

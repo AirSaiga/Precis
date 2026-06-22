@@ -9,10 +9,14 @@
  * - 批量更新与验证
  */
 
+import type { EmitFn } from 'vue'
 import type { JsonSchemaNodeData, JsonSchemaColumn } from '../types'
 import { useSchemaDataBase } from '../shared/useSchemaDataBase'
 
-export function useJsonSchemaData(props: { id: string; data: JsonSchemaNodeData }, emit: any) {
+export function useJsonSchemaData(
+  props: { id: string; data: JsonSchemaNodeData },
+  emit: EmitFn<{ dataChanged: [JsonSchemaNodeData] }>
+) {
   const findColumnRecursive = (
     columns: JsonSchemaColumn[],
     columnId: string

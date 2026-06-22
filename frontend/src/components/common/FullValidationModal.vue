@@ -16,6 +16,7 @@
   import { useValidationErrorFilter } from '@/composables/validation/useValidationErrorFilter'
   import { useValidationErrorNavigator } from '@/composables/validation/useValidationErrorNavigator'
   import { createValidationReportViewModel } from '@/services/validationReportViewModel'
+  import type { FullValidationErrorItem } from '@/api/projectValidationApi'
   import ValidationScopeCards from '@/components/validation/ValidationScopeCards.vue'
   import ValidationContextBar from '@/components/validation/ValidationContextBar.vue'
   import ValidationSettingsGrid from '@/components/validation/ValidationSettingsGrid.vue'
@@ -147,7 +148,7 @@
     await exportValidationReport(result.value, format, graphStore.projectName)
   }
 
-  const handleNavigateError = async (error: any) => {
+  const handleNavigateError = async (error: FullValidationErrorItem) => {
     close()
     await navigateErrorToCanvas(error)
   }

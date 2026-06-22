@@ -6,9 +6,13 @@
  * 底层逻辑已提取至 useSchemaDataBase，本文件仅做类型特化包装。
  */
 
+import type { EmitFn } from 'vue'
 import type { SchemaNodeData, SchemaColumn } from '../types'
 import { useSchemaDataBase } from '../shared/useSchemaDataBase'
 
-export function useSchemaData(props: { id: string; data: SchemaNodeData }, emit: any) {
+export function useSchemaData(
+  props: { id: string; data: SchemaNodeData },
+  emit: EmitFn<{ dataChanged: [SchemaNodeData] }>
+) {
   return useSchemaDataBase<SchemaColumn, SchemaNodeData>(props, emit)
 }

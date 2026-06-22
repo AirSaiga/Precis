@@ -48,7 +48,7 @@
   import { computed, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import InspectionIssueCard from './InspectionIssueCard.vue'
-  import type { InspectionIssue } from '@/types/projectV2'
+  import type { InspectionAction, InspectionIssue } from '@/types/projectV2'
 
   export interface IssueGroup {
     key: string
@@ -69,7 +69,7 @@
     dismiss: [issueId: string]
     restore: [issueId: string]
     dismissGroup: [issueIds: string[]]
-    action: [issue: InspectionIssue, action: any]
+    action: [issue: InspectionIssue, action: InspectionAction]
     /** 用户从可用表列表选择一个表来修正引用（转发给 Drawer 走 auto_fix） */
     selectFixTable: [issue: InspectionIssue, newTableId: string]
     /** 用户从可用列列表选择一个列来修正引用（转发给 Drawer 走 auto_fix） */

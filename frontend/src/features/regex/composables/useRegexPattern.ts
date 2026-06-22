@@ -61,7 +61,10 @@ import { eventBus } from '@/core/eventBus'
  * @param emit - Vue 的 emit 函数，用于向上层组件通知事件
  * @returns 包含模式管理方法和状态的对象
  */
-export function useRegexPattern(props: { id: string; data: RegexNodeData }, emit: any) {
+export function useRegexPattern(
+  props: { id: string; data: RegexNodeData },
+  emit: (event: string, ...args: unknown[]) => void
+) {
   /**
    * 国际化支持
    *

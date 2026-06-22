@@ -56,7 +56,7 @@ export function usePreviewDisplay(props: { data: SourcePreviewNodeData }) {
    * @param value - 单元格值
    * @returns 格式化后的值
    */
-  const formatCellValue = (value: any): any => {
+  const formatCellValue = (value: unknown): unknown => {
     if (value === null || value === undefined) {
       return '(空)'
     }
@@ -77,11 +77,11 @@ export function usePreviewDisplay(props: { data: SourcePreviewNodeData }) {
       return props.data.data.slice(0, displayRows.value).map((row) => {
         const limit = displayCols.value
         if (Array.isArray(row)) {
-          return row.slice(0, limit).map((cell) => formatCellValue(cell))
+          return row.slice(0, limit).map((cell) => formatCellValue(cell) as string)
         } else if (typeof row === 'object') {
           return Object.values(row)
             .slice(0, limit)
-            .map((cell) => formatCellValue(cell))
+            .map((cell) => formatCellValue(cell) as string)
         }
         return [String(row)]
       })

@@ -5,6 +5,7 @@
  */
 
 import { ref, watch, onMounted, onUnmounted } from 'vue'
+import type { EmitFn } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
@@ -16,7 +17,10 @@ import type { SchemaNodeData, SchemaColumn } from '@/types/graph'
  * @param emit - Vue emit 函数
  * @returns 交互相关的方法和状态
  */
-export function useSchemaInteractions(props: { id: string; data: SchemaNodeData }, emit: any) {
+export function useSchemaInteractions(
+  props: { id: string; data: SchemaNodeData },
+  emit: EmitFn<{ 'constraint-create': [Record<string, unknown>] }>
+) {
   const { t } = useI18n()
   const { findNode } = useVueFlow()
   const store = useGraphStore()

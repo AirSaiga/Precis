@@ -63,7 +63,7 @@
   import GlobalConfirmModal from '@/components/common/GlobalConfirmModal.vue'
   import InspectionDrawer from '@/components/inspection/InspectionDrawer.vue'
   import ShortcutSettingsPanel from '@/components/settings/ShortcutSettingsPanel.vue'
-  import type { RegexNodeData } from '@/types/graph'
+  import type { RegexNodeData, RegexDesignUpdateData } from '@/types/graph'
   import { useGraphStore } from '@/stores/graphStore'
   import { useScriptEditorStore } from '@/stores/scriptEditorStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
@@ -100,9 +100,9 @@
   const saveAsTemplateVisible = ref(false)
   const { t } = useI18n()
 
-  const handleRegexDesignSave = (updatedData: any) => {
+  const handleRegexDesignSave = (updatedData: RegexNodeData) => {
     if (graphStore.activeRegexNodeId) {
-      graphStore.saveRegexDesign(graphStore.activeRegexNodeId, updatedData)
+      graphStore.saveRegexDesign(graphStore.activeRegexNodeId, updatedData as RegexDesignUpdateData)
     }
   }
 

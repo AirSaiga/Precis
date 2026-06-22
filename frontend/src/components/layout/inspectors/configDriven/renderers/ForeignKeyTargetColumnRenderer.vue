@@ -94,7 +94,9 @@
     const columnId = target.value
     if (!columnId) return
 
-    const selectedColumn = targetColumns.value.find((c: any) => c.id === columnId)
+    const selectedColumn = targetColumns.value.find(
+      (c: { id: string; columnName: string }) => c.id === columnId
+    )
     if (selectedColumn) {
       // 提交一个 patch 对象，同时更新多个字段
       emit('commit', {

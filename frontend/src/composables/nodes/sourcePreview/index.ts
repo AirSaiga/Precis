@@ -5,6 +5,7 @@
  */
 
 import { onUnmounted } from 'vue'
+import type { EmitFn } from 'vue'
 import { usePreviewData } from './usePreviewData'
 import { usePreviewDisplay } from './usePreviewDisplay'
 import { useHeaderRow } from './useHeaderRow'
@@ -13,6 +14,16 @@ import { usePreviewOperations } from './usePreviewOperations'
 import { usePreviewCreation } from './usePreviewCreation'
 import { useSourcePreviewEvents } from './useSourcePreviewEvents'
 import type { SourcePreviewNodeData } from '../types'
+import type { DragEventPayload } from '@/stores/dragStore'
+
+type SourcePreviewNodeEmits = {
+  headerRowChanged: [
+    { nodeId: string; headerRow: number; oldHeaderRow: number | undefined; rowData: string[] },
+  ]
+  dragstart: [DragEventPayload]
+  dragend: []
+  dataChanged: [SourcePreviewNodeData]
+}
 
 /**
  * 数据源预览节点统一入口
@@ -20,15 +31,18 @@ import type { SourcePreviewNodeData } from '../types'
  * @param emit - Vue的emit函数
  * @returns 包含所有状态和方法的响应式对象
  */
-export function useSourcePreview(props: { id: string; data: SourcePreviewNodeData }, emit: any) {
+export function useSourcePreview(
+  props: { id: string; data: SourcePreviewNodeData },
+  emit: EmitFn<SourcePreviewNodeEmits>
+) {
   // 数据管理
-  const data = usePreviewData(props, emit)
+  const data = usePreviewData(props, emit as (event: string, ...args: unknown[]) => void)
 
   // 显示控制
   const display = usePreviewDisplay(props)
 
   // 表头管理
-  const header = useHeaderRow(props, emit)
+  const header = useHeaderRow(props, emit as (event: string, ...args: unknown[]) => void)
 
   // 交互逻辑
   const interaction = usePreviewInteraction(props, emit)
@@ -40,7 +54,7 @@ export function useSourcePreview(props: { id: string; data: SourcePreviewNodeDat
   const creation = usePreviewCreation()
 
   // SourcePreview事件处理
-  const events = useSourcePreviewEvents(props, emit)
+  const events = useSourcePreviewEvents(props, emit as (event: string, ...args: unknown[]) => void)
 
   // 设置全局点击事件监听器
   const setupEventListeners = () => {

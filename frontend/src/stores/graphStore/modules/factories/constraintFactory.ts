@@ -248,7 +248,10 @@ export function createConstraintFactoryModule(params: {
         return createNode(nodeType, position, {
           configName,
           logic: (data?.logic as 'all' | 'any' | 'none') || 'all',
-          subGraph: (data?.subGraph as { nodes: any[]; edges: any[] }) || { nodes: [], edges: [] },
+          subGraph: (data?.subGraph as { nodes: unknown[]; edges: unknown[] }) || {
+            nodes: [],
+            edges: [],
+          },
           inputColumn: (data?.inputColumn as string) || undefined,
           inputFromNode: (data?.inputFromNode as string) || undefined,
           constraintName: data?.constraintName as string | undefined,

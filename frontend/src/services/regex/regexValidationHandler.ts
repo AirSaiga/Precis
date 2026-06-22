@@ -186,8 +186,8 @@ export async function validateRegexNode(params: {
       new Date().toISOString(),
       columnId
     )
-  } catch (err: any) {
-    if (err?.name === 'AbortError' || err?.message?.includes('aborted')) {
+  } catch (err: unknown) {
+    if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'))) {
       return null
     }
     const totalRows = values.length
@@ -222,9 +222,9 @@ export interface RegexValidationSummary {
  * @returns 校验汇总结果；无 Regex 边时返回 null
  */
 export async function validateRegexNodesForSchema(params: {
-  schemaNode: Node<any, any, string>
+  schemaNode: CustomNode
   schemaEdges: Edge[]
-  nodes: Node<any, any, string>[]
+  nodes: CustomNode[]
   edges: Edge[]
   updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
 }): Promise<RegexValidationSummary | null> {
@@ -246,7 +246,7 @@ export async function validateRegexNodesForSchema(params: {
     const regexNode = nodes.find((n) => n.id === edge.target)
     if (!regexNode) continue
 
-    const regexData = regexNode.data as Record<string, unknown>
+    const regexData = regexNode.data as unknown as Record<string, unknown>
     // extract 模式的正则节点会产生派生列写回副作用，
     // 仅在用户显式点击校验时触发，全局/自动化校验跳过。
     if (regexData.matchMode === 'extract') continue
@@ -378,8 +378,8 @@ async function validateRegexFromRows(params: {
       new Date().toISOString(),
       columnId
     )
-  } catch (err: any) {
-    if (err?.name === 'AbortError' || err?.message?.includes('aborted')) {
+  } catch (err: unknown) {
+    if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'))) {
       return null
     }
     const totalRows = values.length
@@ -498,8 +498,8 @@ async function tryUpdateExtractDerivedColumns(params: {
   let data: Record<string, unknown>
   try {
     data = (await validateAndExtractRegex(request, signal)) as unknown as Record<string, unknown>
-  } catch (err: any) {
-    if (err?.name === 'AbortError' || err?.message?.includes('aborted')) {
+  } catch (err: unknown) {
+    if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'))) {
       return null
     }
     const totalRows = values.length

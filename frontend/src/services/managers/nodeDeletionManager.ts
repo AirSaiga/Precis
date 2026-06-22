@@ -22,6 +22,7 @@ import { eventBus } from '@/core/eventBus'
 import { useGraphStore } from '@/stores/graphStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import i18n from '@/i18n'
+import type { Edge } from '@vue-flow/core'
 import type { DataType } from '@/types/graph'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 
@@ -198,7 +199,7 @@ export class NodeDeletionManager {
 
     // 清理父 Schema 节点的 children 引用（通过 incoming edge 查找）
     const incomingEdge = this.graphStore.edges.find(
-      (e: any) => e.target === nodeId && (e.targetHandle === 'regex-input' || !e.targetHandle)
+      (e: Edge) => e.target === nodeId && (e.targetHandle === 'regex-input' || !e.targetHandle)
     )
     const sourceNodeId = incomingEdge?.source as string | undefined
     if (sourceNodeId) {
