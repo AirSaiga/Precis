@@ -14,8 +14,13 @@ import { useNodeSourceManager } from '../shared/useNodeSourceManager'
 import { syncSchemaResources } from '@/services/schemaResourceSync'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import type { SchemaNodeData, SourcePreviewNodeData } from '@/types/graph'
+import type { CustomNode, SchemaColumn } from '@/types/nodes'
+import type { AnyRecord } from '@/types/utility'
 
-export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData }, emit: any) {
+export function useSchemaSourceManager(
+  props: { id: string; data: SchemaNodeData },
+  emit: (event: string, ...args: unknown[]) => void
+) {
   const store = useGraphStore()
   const projectStore = useProjectStore()
   const { showConfirm } = useGlobalConfirm()
@@ -29,9 +34,9 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
    * 从表头数据生成列定义
    */
   const generateColumnsFromHeaderData = (
-    headerData: any[],
-    schemaNode: any,
-    tableData?: any[][],
+    headerData: unknown[],
+    schemaNode: CustomNode,
+    tableData?: unknown[][],
     headerRowIndex?: number
   ) => {
     if (!headerData || headerData.length === 0) {
@@ -39,31 +44,32 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
       return
     }
 
-    let sampleDataRow: any[] | undefined
+    let sampleDataRow: unknown[] | undefined
     if (tableData && typeof headerRowIndex === 'number' && headerRowIndex + 1 < tableData.length) {
       sampleDataRow = tableData[headerRowIndex + 1]
     }
 
-    const columns = generateColumnsFromSource(
-      headerData,
-      schemaNode.data.columns || [],
-      sampleDataRow,
-      { forceReinferTypes: true }
-    )
+    const schemaData = schemaNode.data as SchemaNodeData
+    const columns = generateColumnsFromSource(headerData, schemaData.columns || [], sampleDataRow, {
+      forceReinferTypes: true,
+    })
 
     const updatedSchemaData = {
-      ...schemaNode.data,
+      ...schemaData,
       columns,
     }
 
-    store.updateNodeData(schemaNode.id, updatedSchemaData)
+    store.updateNodeData(schemaNode.id, updatedSchemaData as unknown as Partial<SchemaNodeData>)
     logger.debug(`✅ 智能列生成完成！共 ${columns.length} 列`)
   }
 
   /**
    * 安全更新 Schema 节点的表头变更
    */
-  const updateSchemaNodeFromHeaderChangeSafe = async (schemaNodeId: string, headerData: any[]) => {
+  const updateSchemaNodeFromHeaderChangeSafe = async (
+    schemaNodeId: string,
+    headerData: unknown[]
+  ) => {
     const schemaNode = store.nodes.find((n) => n.id === schemaNodeId)
     if (!schemaNode) {
       logger.warn(`Schema 节点 ${schemaNodeId} 不存在`)
@@ -92,20 +98,21 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
   /**
    * 从工作表变更更新 Schema 节点
    */
-  const updateSchemaNodeFromSheetChange = (schemaNodeId: string, sheetData: any) => {
+  const updateSchemaNodeFromSheetChange = (schemaNodeId: string, sheetData: AnyRecord) => {
     const schemaNode = store.nodes.find((n) => n.id === schemaNodeId)
     if (!schemaNode) {
       logger.warn(`Schema 节点 ${schemaNodeId} 不存在`)
       return
     }
 
-    if (!sheetData || !sheetData.data || sheetData.data.length === 0) {
+    const sourceData = sheetData as unknown as SourcePreviewNodeData
+
+    if (!sourceData.data || sourceData.data.length === 0) {
       logger.warn('工作表数据为空')
       return
     }
 
     // 1. 准备元数据
-    const sourceData = sheetData
     const displayFileName = sourceData.sourceName || sourceData.fileName || 'Unknown'
     const smartTableName =
       sourceData.currentSheet ||
@@ -126,7 +133,7 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
       sheetName: sourceData.currentSheet,
     }
 
-    store.updateNodeData(schemaNodeId, updatedSchemaData)
+    store.updateNodeData(schemaNodeId, updatedSchemaData as unknown as Partial<SchemaNodeData>)
     logger.debug(`✅ Schema "${smartTableName}" 已更新`)
 
     // 3. 智能列生成判断逻辑
@@ -148,7 +155,9 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
       regenerateReason = `Sheet名称变更: ${currentSheetName} → ${newSheetName}`
     } else {
       const existingColumns = (schemaNode.data as SchemaNodeData).columns || []
-      const oldColumnNames = existingColumns.map((col: any) => String(col.columnName).trim())
+      const oldColumnNames = existingColumns.map((col: SchemaColumn) =>
+        String(col.columnName).trim()
+      )
       const newColumnNames = (headerData as unknown[]).map((cell) => String(cell).trim())
 
       const columnCountChanged = oldColumnNames.length !== newColumnNames.length
@@ -167,7 +176,7 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
     if (shouldRegenerateColumns) {
       logger.debug('🔄 自动重新生成列定义...', { reason: regenerateReason })
       const targetNode = store.nodes.find((n) => n.id === schemaNodeId)
-      if (targetNode) {
+      if (targetNode && headerData) {
         generateColumnsFromHeaderData(headerData, targetNode, sourceData.data, headerRowIndex)
       }
     } else {
@@ -185,8 +194,8 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
         schemaNodeId,
         Array.from(store.nodes),
         Array.from(store.edges),
-        (nodeId: string, data: any) => {
-          store.updateNodeData(nodeId, data)
+        (nodeId: string, data: AnyRecord) => {
+          store.updateNodeData(nodeId, data as unknown as Partial<SchemaNodeData>)
         }
       )
     }
@@ -200,23 +209,24 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
     sourceNodeType: 'sourcePreview',
     schemaNodePrefix: 'schema-',
     extractMetadata: (_sourceNodeId, sourceData) => {
-      const displayFileName = sourceData.sourceName || sourceData.fileName || 'Unknown'
+      const previewData = sourceData as unknown as SourcePreviewNodeData
+      const displayFileName = previewData.sourceName || previewData.fileName || 'Unknown'
       const smartTableName =
-        sourceData.currentSheet ||
-        sourceData.sourceName?.replace(/\.[^/.]+$/, '') ||
-        sourceData.fileName?.replace(/\.[^/.]+$/, '') ||
+        previewData.currentSheet ||
+        previewData.sourceName?.replace(/\.[^/.]+$/, '') ||
+        previewData.fileName?.replace(/\.[^/.]+$/, '') ||
         'Table'
-      const displaySourcePath = sourceData.fileName || displayFileName
+      const displaySourcePath = previewData.fileName || displayFileName
       return {
         tableName: smartTableName,
         sourceFile: displayFileName,
         sourceFilePath: displaySourcePath,
-        sourceType: sourceData.sourceType,
-        headerRow: sourceData.headerRow || 0,
+        sourceType: previewData.sourceType,
+        headerRow: previewData.headerRow || 0,
         // 仅使用实际的工作表名称；若缺失则保持 undefined，绝不回退到文件名
-        sheetName: sourceData.currentSheet,
-        sourceMode: sourceData.sourceMode,
-        localPath: sourceData.localPath,
+        sheetName: previewData.currentSheet,
+        sourceMode: previewData.sourceMode,
+        localPath: previewData.localPath,
       }
     },
     generateColumns: (sourceNode, existingColumns) => {
@@ -240,7 +250,7 @@ export function useSchemaSourceManager(props: { id: string; data: SchemaNodeData
       const headerRowIndex = sourceData.headerRow ?? 0
       const headerRow = tableData[headerRowIndex]
       if (!headerRow) return undefined
-      return headerRow.map((h: any) => String(h).trim())
+      return headerRow.map((h: unknown) => String(h).trim())
     },
     disconnectFields: [
       'sourceFile',

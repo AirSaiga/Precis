@@ -23,7 +23,12 @@ import { useGraphStore } from '@/stores/graphStore'
 import { useToast } from '@/composables/shared/useToast'
 import { generateJsonColumnsFromSource } from '@/utils/nodes/json/columnGeneration'
 import { useNodeSourceManager } from '../shared/useNodeSourceManager'
-import type { JsonSchemaNodeData, JsonSourcePreviewNodeData } from '@/types/nodes'
+import type {
+  CustomNode,
+  JsonSchemaColumn,
+  JsonSchemaNodeData,
+  JsonSourcePreviewNodeData,
+} from '@/types/nodes'
 
 export function useJsonSchemaSourceManager(
   props: { id: string; data: JsonSchemaNodeData },
@@ -186,7 +191,12 @@ export function useJsonSchemaSourceManager(
 
     if (currentSheetName && newSheetName && currentSheetName !== newSheetName) {
       logger.debug('🔄 Sheet 变更，自动重新生成列定义...')
-      generic.autoGenerateColumns({ id: props.data.sourceNodeId, data: sourceData })
+      if (props.data.sourceNodeId) {
+        generic.autoGenerateColumns({
+          id: props.data.sourceNodeId,
+          data: sourceData,
+        } as unknown as CustomNode)
+      }
     }
   }
 
@@ -198,26 +208,28 @@ export function useJsonSchemaSourceManager(
     sourceNodeType: 'jsonSourcePreview',
     schemaNodePrefix: 'json-schema-',
     extractMetadata: (sourceNodeId, sourceData) => {
-      const displayFileName = sourceData.sourceName || sourceData.fileName || 'Unknown'
-      const smartTableName = (sourceData.sourceName || sourceData.fileName || 'JsonTable').replace(
-        /\.[^/.]+$/,
-        ''
-      )
-      const displaySourcePath = sourceData.localPath || sourceData.fileName || displayFileName
+      const previewData = sourceData as unknown as JsonSourcePreviewNodeData
+      const displayFileName = previewData.sourceName || previewData.fileName || 'Unknown'
+      const smartTableName = (
+        previewData.sourceName ||
+        previewData.fileName ||
+        'JsonTable'
+      ).replace(/\.[^/.]+$/, '')
+      const displaySourcePath = previewData.localPath || previewData.fileName || displayFileName
       return {
         tableName: smartTableName,
         sourceFile: displayFileName,
         sourceFilePath: displaySourcePath,
         sourceType: 'json',
-        headerRow: sourceData.headerRow || 0,
+        headerRow: previewData.headerRow || 0,
         // 仅使用实际的工作表名称；若缺失则保持 undefined，绝不回退到文件名
-        sheetName: sourceData.currentSheet,
+        sheetName: previewData.currentSheet,
         sourceNodeId: sourceNodeId,
-        sourceMode: sourceData.sourceMode,
-        localPath: sourceData.localPath,
-        jsonPath: sourceData.jsonPath || '',
-        recordPath: sourceData.recordPath || '',
-        format: sourceData.format || 'auto',
+        sourceMode: previewData.sourceMode,
+        localPath: previewData.localPath,
+        jsonPath: previewData.jsonPath || '',
+        recordPath: previewData.recordPath || '',
+        format: previewData.format || 'auto',
       }
     },
     generateColumns: (sourceNode, existingColumns) => {
@@ -226,7 +238,11 @@ export function useJsonSchemaSourceManager(
       if (!rawData || !Array.isArray(rawData) || rawData.length === 0) {
         return existingColumns
       }
-      return generateJsonColumnsFromSource(rawData, existingColumns, { forceReinferTypes: true })
+      return generateJsonColumnsFromSource(
+        rawData,
+        existingColumns as unknown as JsonSchemaColumn[],
+        { forceReinferTypes: true }
+      ) as unknown as JsonSchemaColumn[]
     },
     getSourceFields: (sourceNode) => {
       const sourceData = sourceNode.data as JsonSourcePreviewNodeData
