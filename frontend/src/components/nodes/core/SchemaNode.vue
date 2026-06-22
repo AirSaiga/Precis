@@ -471,15 +471,11 @@
     dropdownPosition,
     constraintMenuColumnId,
     constraintDropdownPosition,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    errorPopoverPosition,
     showSourceDropdown,
     sourceDropdownPosition,
     dataSourceTree,
     nodeClasses,
     getErrorPopoverPosition,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateColumnName,
     toggleTypeDropdown,
     toggleConstraintMenu,
     closeConstraintMenu,
@@ -505,8 +501,6 @@
   const {
     snappingColumnIds,
     editingColumnName,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    triggerColumnSnapAnimation,
     handleColumnOutputConnect,
     createTableRelation,
     watchConnectionChanges,
@@ -541,82 +535,26 @@
    * - 保存逻辑
    */
   const {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    schemaData,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    addColumn,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    updateColumn,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    deleteColumn: deleteColumnFromSchema,
     updateSchemaData,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    notifyDataChanged,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    handleSourceConnection,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    disconnectSource,
     autoGenerateColumns,
     showSmartFillDialog,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    inferDataType,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    inferColumnTypes,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    generateColumnsFromHeader,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    generateColumnsFromSource,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    mergeColumns,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateAllColumns,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateColumn,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateNotNull,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateUnique,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    validateAllowedValues,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    showValidationResults,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    generateColumnsFromHeaderData,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    updateSchemaNodeFromHeaderChangeSafe,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    updateSchemaNodeFromSheetChange,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    findConnectedSchemaNodes,
     editingColumn,
     columnInputRefs,
     startColumnEdit,
     confirmColumnEdit,
     cancelColumnEdit,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    showColumnError,
     deleteColumn: deleteColumnFromEditing,
     toggleConstraint,
     removeAllConstraints,
     updateColumnType,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    addConstraintToColumn,
     bindPatternToColumn,
     onColumnEnter,
     onColumnTab,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    setInputRef,
     isSaving,
     saveSuccess,
     saveError,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    saveBtnHovered,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    closeBtnHovered,
     showCloseConfirm,
     handleSave,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    handleSaveComplete,
     handleSaveCompleteDOM,
     handleClose,
     confirmCloseWithoutSave,
