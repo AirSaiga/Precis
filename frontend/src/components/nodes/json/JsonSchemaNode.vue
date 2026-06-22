@@ -403,7 +403,7 @@
     markDirty,
     handlePatternDragOver: handlePatternDragOverFromSaving,
     handlePatternDrop: handlePatternDropFromSaving,
-  } = useJsonSchemaSaving(props, emit)
+  } = useJsonSchemaSaving(props, emit as (event: string, ...args: unknown[]) => void)
 
   /**
    * useJsonSchemaResizable - 缩放逻辑

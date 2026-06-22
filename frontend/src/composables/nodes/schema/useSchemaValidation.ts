@@ -31,9 +31,10 @@
 import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
 import { useI18n } from 'vue-i18n'
-import type { SchemaNodeData } from '../types'
+import type { SchemaNodeData, SchemaColumn } from '../types'
 import { validateNotNull } from '@/services/constraints/validators/notNull'
 import { validateUnique } from '@/services/constraints/validators/unique'
+import { validateAllowedValues as validateAllowedValuesApi } from '@/api/validation/allowedValues'
 
 /**
  * Schema验证Composable - 负责Schema数据节点的约束验证逻辑
@@ -50,7 +51,10 @@ import { validateUnique } from '@/services/constraints/validators/unique'
  * - 会触发Vue组件事件（emit）和DOM自定义事件（document.dispatchEvent），通知验证完成
  * - 验证过程中会向后端API发起请求（allowedValues验证）或读取本地文件（notNull/unique验证）
  */
-export function useSchemaValidation(props: { id: string; data: SchemaNodeData }, emit: any) {
+export function useSchemaValidation(
+  props: { id: string; data: SchemaNodeData },
+  emit: (event: string, ...args: unknown[]) => void
+) {
   const { t } = useI18n()
 
   /**
@@ -179,8 +183,8 @@ export function useSchemaValidation(props: { id: string; data: SchemaNodeData },
       }
 
       const constraints = (column.constraints ?? {}) as {
-        notNull?: unknown
-        unique?: unknown
+        notNull?: boolean
+        unique?: boolean
         allowedValues?: unknown
       }
 
@@ -259,11 +263,15 @@ export function useSchemaValidation(props: { id: string; data: SchemaNodeData },
    *   - 发起HTTP POST请求到后端验证接口
    * - 验证失败时返回空结果而非抛出异常，这是一种容错设计，避免单个约束验证失败导致整体验证中断
    */
-  const validateAllowedValues = async (column: any) => {
+  const validateAllowedValues = async (column: SchemaColumn) => {
     logger.debug('🔄 验证允许值约束:', column.columnName)
 
     try {
       const sourceFilePath = getEffectiveSourcePath()
+
+      const allowedValues = Array.isArray(column.constraints?.allowedValues)
+        ? (column.constraints.allowedValues as string[])
+        : []
 
       const request = {
         validation_type: 'allowed_values' as const,
@@ -272,34 +280,34 @@ export function useSchemaValidation(props: { id: string; data: SchemaNodeData },
         sheet_name: props.data.sheetName,
         header_row: 0,
         validation_config: {
-          allowed_values: Array.isArray(column.constraints.allowedValues)
-            ? column.constraints.allowedValues
-            : Array.from(column.constraints.allowedValues),
+          allowed_values: allowedValues,
         },
       }
 
-      const response = await validateAllowedValues(request)
+      const response = await validateAllowedValuesApi(request)
 
       if (response.success && response.data) {
         return {
           errorCount: response.data.error_count,
-          errors: response.data.error_rows.map((err: any) => ({
-            row: err.row_index,
-            value: err.cell_value,
-            message: `值必须是以下之一: ${column.constraints.allowedValues.join(', ')}`,
-          })),
+          errors: response.data.error_rows.map(
+            (err: { row_index: number; cell_value: string }) => ({
+              row: err.row_index,
+              value: err.cell_value,
+              message: `值必须是以下之一: ${allowedValues.join(', ')}`,
+            })
+          ),
         }
       }
 
       return {
         errorCount: 0,
-        errors: [],
+        errors: [] as Array<{ row: number; value: string; message: string }>,
       }
     } catch (error) {
       logger.error('验证允许值约束失败:', error)
       return {
         errorCount: 0,
-        errors: [],
+        errors: [] as Array<{ row: number; value: string; message: string }>,
       }
     }
   }
@@ -332,7 +340,7 @@ export function useSchemaValidation(props: { id: string; data: SchemaNodeData },
    * - 触发名为'schemaValidationCompleted'的DOM自定义事件，任何监听该事件的脚本都能收到通知
    * - 事件中包含nodeId，用于标识验证结果属于哪个Schema节点
    */
-  const showValidationResults = (results: any) => {
+  const showValidationResults = (results: Record<string, unknown>) => {
     logger.debug('📊 验证结果:', results)
 
     emit('validationCompleted', {

@@ -46,9 +46,9 @@ export function useGlobalSchemaOperations() {
    * @param headerRowIndex - 表头行索引，指示哪一行是表头（可选，默认为 0）
    */
   const generateColumnsFromHeaderData = (
-    headerData: any[],
+    headerData: unknown[],
     schemaNodeId: string,
-    tableData?: any[][],
+    tableData?: unknown[][],
     headerRowIndex?: number
   ) => {
     // 在 store 的 nodes 数组中查找目标 Schema 节点
@@ -67,7 +67,7 @@ export function useGlobalSchemaOperations() {
     }
 
     // 获取样本数据行（下一行）
-    let sampleDataRow: any[] | undefined
+    let sampleDataRow: unknown[] | undefined
     if (tableData && typeof headerRowIndex === 'number' && headerRowIndex + 1 < tableData.length) {
       sampleDataRow = tableData[headerRowIndex + 1]
     }
@@ -100,7 +100,10 @@ export function useGlobalSchemaOperations() {
    * @param schemaNodeId - Schema 节点 ID
    * @param headerData - 新的表头数据数组
    */
-  const updateSchemaNodeFromHeaderChangeSafe = async (schemaNodeId: string, headerData: any[]) => {
+  const updateSchemaNodeFromHeaderChangeSafe = async (
+    schemaNodeId: string,
+    headerData: unknown[]
+  ) => {
     // 查找目标 Schema 节点
     const schemaNode = store.nodes.find((n) => n.id === schemaNodeId)
     if (!schemaNode) {
@@ -137,7 +140,10 @@ export function useGlobalSchemaOperations() {
    * @param schemaNodeId - Schema 节点 ID
    * @param sheetData - 工作表数据对象，包含新工作表的信息
    */
-  const updateSchemaNodeFromSheetChange = (schemaNodeId: string, sheetData: any) => {
+  const updateSchemaNodeFromSheetChange = (
+    schemaNodeId: string,
+    sheetData: Record<string, unknown>
+  ) => {
     // 查找目标 Schema 节点
     const schemaNode = store.nodes.find((n) => n.id === schemaNodeId)
     if (!schemaNode) {
@@ -146,7 +152,7 @@ export function useGlobalSchemaOperations() {
     }
 
     // 检查工作表数据是否有效
-    if (!sheetData || !sheetData.data || sheetData.data.length === 0) {
+    if (!sheetData || !Array.isArray(sheetData.data) || sheetData.data.length === 0) {
       logger.warn('工作表数据为空')
       return
     }
@@ -154,19 +160,20 @@ export function useGlobalSchemaOperations() {
     // 提取工作表数据
     const sourceData = sheetData
     // 生成表名：优先使用当前工作表名，否则使用文件名去掉扩展名
-    const smartTableName =
-      sourceData.currentSheet || sourceData.fileName?.replace(/\.[^/.]+$/, '') || 'Table'
+    const currentSheet = typeof sourceData.currentSheet === 'string' ? sourceData.currentSheet : ''
+    const fileName = typeof sourceData.fileName === 'string' ? sourceData.fileName : ''
+    const smartTableName = currentSheet || fileName.replace(/\.[^/.]+$/, '') || 'Table'
 
     // 构建更新后的 Schema 数据对象
     const updatedSchemaData = {
       ...schemaNode.data, // 保留现有数据
       tableName: smartTableName, // 更新表名
-      sourceFile: sourceData.fileName, // 更新源文件名
-      sourceFilePath: sourceData.localPath, // 更新源文件路径
+      sourceFile: fileName, // 更新源文件名
+      sourceFilePath: typeof sourceData.localPath === 'string' ? sourceData.localPath : undefined, // 更新源文件路径
       sourceType: sourceData.sourceType, // 更新源类型
-      headerRow: sourceData.headerRow || 0, // 更新表头行号
+      headerRow: typeof sourceData.headerRow === 'number' ? sourceData.headerRow : 0, // 更新表头行号
       // 仅使用实际的工作表名称；若缺失则保持 undefined，绝不回退到文件名
-      sheetName: sourceData.currentSheet, // 更新工作表名
+      sheetName: currentSheet || undefined, // 更新工作表名
     }
 
     // 更新节点数据

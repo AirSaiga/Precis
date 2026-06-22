@@ -6,7 +6,7 @@
 
 import { logger } from '@/core/utils/logger'
 import { useI18n } from 'vue-i18n'
-import type { DataType, SchemaColumn } from '../types'
+import type { DataType, SchemaColumn, SchemaNodeData } from '../types'
 import { inferDataType, inferColumnType } from '@/utils/nodes/schema/typeInference'
 
 /**
@@ -14,7 +14,7 @@ import { inferDataType, inferColumnType } from '@/utils/nodes/schema/typeInferen
  * @param props - 组件属性
  * @returns 列生成相关的方法
  */
-export function useColumnGeneration(props: { data: any }) {
+export function useColumnGeneration(props: { data: SchemaNodeData }) {
   const { t } = useI18n()
 
   // 使用统一的类型推断工具
@@ -25,7 +25,7 @@ export function useColumnGeneration(props: { data: any }) {
    * @param columnData - 列数据数组
    * @returns 推断的数据类型
    */
-  const inferColumnTypes = (columnData: any[]): DataType => {
+  const inferColumnTypes = (columnData: unknown[]): DataType => {
     return inferColumnType(columnData)
   }
 
@@ -37,8 +37,8 @@ export function useColumnGeneration(props: { data: any }) {
    * @returns 列定义数组
    */
   const generateColumnsFromHeader = (
-    headerData: any[],
-    tableData?: any[][],
+    headerData: unknown[],
+    tableData?: unknown[][],
     headerRowIndex?: number
   ): SchemaColumn[] => {
     if (!headerData || headerData.length === 0) {
@@ -46,7 +46,7 @@ export function useColumnGeneration(props: { data: any }) {
       return []
     }
 
-    const columns = headerData.map((header: any, index: number) => {
+    const columns = headerData.map((header: unknown, index: number) => {
       const headerText = String(header).trim()
       const columnName = headerText || `column_${index + 1}`
 
@@ -80,21 +80,22 @@ export function useColumnGeneration(props: { data: any }) {
    * @param sourceData - 数据源数据
    * @returns 列定义数组
    */
-  const generateColumnsFromSource = (sourceData: any): SchemaColumn[] => {
-    if (!sourceData || !sourceData.data || sourceData.data.length === 0) {
+  const generateColumnsFromSource = (sourceData: Record<string, unknown>): SchemaColumn[] => {
+    if (!sourceData || !Array.isArray(sourceData.data) || sourceData.data.length === 0) {
       logger.error('数据源为空')
       return []
     }
 
-    const headerRowIndex = sourceData.headerRow ?? 0
-    const headerRow = sourceData.data[headerRowIndex]
+    const headerRowIndex = typeof sourceData.headerRow === 'number' ? sourceData.headerRow : 0
+    const rows = sourceData.data as unknown[]
+    const headerRow = rows[headerRowIndex]
 
-    if (!headerRow) {
+    if (!Array.isArray(headerRow)) {
       logger.error('表头行数据不存在')
       return []
     }
 
-    return generateColumnsFromHeader(headerRow, sourceData.data, headerRowIndex)
+    return generateColumnsFromHeader(headerRow, rows as unknown[][], headerRowIndex)
   }
 
   /**

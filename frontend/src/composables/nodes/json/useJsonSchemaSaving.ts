@@ -30,7 +30,10 @@ import { useNodeSaving } from '../shared/useNodeSaving'
  * @param emit - Vue 的 emit 函数
  * @returns 保存相关的方法和状态
  */
-export function useJsonSchemaSaving(props: { id: string; data: JsonSchemaNodeData }, emit: any) {
+export function useJsonSchemaSaving(
+  props: { id: string; data: JsonSchemaNodeData },
+  emit: (event: string, ...args: unknown[]) => void
+) {
   const { t } = useI18n()
   const store = useGraphStore()
 
@@ -88,7 +91,10 @@ export function useJsonSchemaSaving(props: { id: string; data: JsonSchemaNodeDat
       })
       markDirty()
     },
-    getTargetColumnId: () => (emit as any)?.columnId || props.data.columns[0]?.id,
+    getTargetColumnId: () =>
+      ((emit as unknown as Record<string, unknown>).columnId as string | undefined) ||
+      props.data.columns[0]?.id ||
+      null,
     nodeType: 'jsonSchema',
     onSaveShortcut: () => nodeSaving.handleSave(),
   })
@@ -259,7 +265,10 @@ export function useJsonSchemaSaving(props: { id: string; data: JsonSchemaNodeDat
             jsonPath: String(c.jsonPath || ''),
             dataType: String(c.type || c.dataType || 'string') as JsonSchemaColumn['dataType'],
             nullable: c.nullable === false ? false : undefined,
-            primaryKey: (c.primaryKey ?? c.primary_key) == null ? undefined : !!(c.primaryKey ?? c.primary_key),
+            primaryKey:
+              (c.primaryKey ?? c.primary_key) == null
+                ? undefined
+                : !!(c.primaryKey ?? c.primary_key),
             description: c.description ? String(c.description) : undefined,
             constraints: constraints
               ? {

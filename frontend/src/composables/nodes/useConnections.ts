@@ -28,7 +28,7 @@ import type { Connection, OnConnectStartParams } from '@vue-flow/core'
 
 import { useGraphStore } from '@/stores/graphStore'
 import { useProjectStore } from '@/stores/projectStore'
-import type { SchemaNodeData } from '@/types/graph'
+import type { SchemaNodeData, CustomNodeData } from '@/types/graph'
 import { useSchemaConnectionHandler } from './schema/useSchemaConnectionHandler'
 import { useRegexConnection } from '@/features/regex/composables'
 import { useForeignKeyConnection } from './constraints/useForeignKeyConnection'
@@ -502,10 +502,10 @@ export function useConnections() {
                   validationErrors: [],
                   constraints: {},
                 },
-              ] as any,
+              ],
               tableName: (manualData.configName as string) || 'ManualData',
               sourceNodeId: source,
-            })
+            } as unknown as Partial<CustomNodeData>)
           }
         }
       }
@@ -558,11 +558,11 @@ export function useConnections() {
 
         tx.patchNodeData(target, {
           columnName,
-          columnDataType: columnDataType as any,
+          columnDataType,
           rows: extractedRows,
           configName: columnName,
           saveState: 'draft',
-        })
+        } as unknown as Partial<CustomNodeData>)
       }
 
       // ManualData → Regex：手动数据作为正则校验的数据源

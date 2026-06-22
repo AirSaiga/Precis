@@ -39,13 +39,13 @@ export type BatchMode = 'safeDefault' | 'keepAll' | 'useAll' | 'useAddedOnly'
  * @param path - 点分路径字符串
  * @returns 路径对应的值，未找到时返回 undefined
  */
-export const getValueByPath = (obj: any, path: string) => {
+export const getValueByPath = (obj: Record<string, unknown>, path: string) => {
   if (!obj) return undefined
   const parts = path.split('.')
-  let current = obj
+  let current: unknown = obj
   for (const part of parts) {
     if (current === null || current === undefined) return undefined
-    current = current[part]
+    current = (current as Record<string, unknown>)[part]
   }
   return current
 }
@@ -60,22 +60,23 @@ export const getValueByPath = (obj: any, path: string) => {
  * @param path - 点分路径字符串
  * @param value - 要设置的值
  */
-export const setValueByPath = (obj: any, path: string, value: any) => {
+export const setValueByPath = (obj: Record<string, unknown>, path: string, value: unknown) => {
   if (!obj) return
   const parts = path.split('.')
-  let current = obj
+  let current: unknown = obj
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i]
     if (part === undefined) return
-    if (current[part] === undefined || current[part] === null) {
+    const currentRecord = current as Record<string, unknown>
+    if (currentRecord[part] === undefined || currentRecord[part] === null) {
       const nextPart = parts[i + 1]
-      current[part] = /^\d+$/.test(nextPart ?? '') ? [] : {}
+      currentRecord[part] = /^\d+$/.test(nextPart ?? '') ? [] : {}
     }
-    current = current[part]
+    current = currentRecord[part]
   }
   const lastKey = parts[parts.length - 1]
   if (lastKey !== undefined) {
-    current[lastKey] = value
+    ;(current as Record<string, unknown>)[lastKey] = value
   }
 }
 
@@ -88,7 +89,7 @@ export const setValueByPath = (obj: any, path: string, value: any) => {
  * @param obj - 目标对象
  * @param path - 点分路径字符串
  */
-export const removeValueByPath = (obj: any, path: string) => {
+export const removeValueByPath = (obj: Record<string, unknown> | unknown[], path: string) => {
   if (!obj) return
   const parts = path.split('.')
   let current = obj
@@ -248,7 +249,7 @@ export function useConflictResolution(
       generatedManifestList: { id: string; path: string }[]
     ) => {
       const safeOriginalList = originalManifestList || []
-      const getGeneratedRef = (id: string) => generatedManifestList.find((x: any) => x.id === id)
+      const getGeneratedRef = (id: string) => generatedManifestList.find((x) => x.id === id)
 
       for (const item of list) {
         const choice =

@@ -11,13 +11,17 @@
 import type { TransformNodeData } from '@/types/nodes'
 import { ROW_CHANGING_TRANSFORMS, ROW_CHANGING_TYPE_LABELS } from './transformTypeRegistry'
 
+interface OutputColumnsLike {
+  outputColumns?: string[]
+}
+
 // ============================================================================
 // 通用工具
 // ============================================================================
 
 /** 解析默认输出列名 */
 export function resolveOutputColumns(
-  transformData: TransformNodeData,
+  transformData: OutputColumnsLike,
   fallback: string | string[]
 ): string[] {
   if (transformData.outputColumns && transformData.outputColumns.length > 0) {
@@ -665,7 +669,7 @@ export function computeTransformResult(
       maxsplit: (params.maxsplit as number) ?? -1,
     })
     return {
-      columns: resolveOutputColumns(dataLike as any, result.columns),
+      columns: resolveOutputColumns(dataLike, result.columns),
       rowsByColumn: result.rowsByColumn,
     }
   }
@@ -685,7 +689,7 @@ export function computeTransformResult(
 
   if (type === 'Digits') {
     return {
-      columns: resolveOutputColumns(dataLike as any, 'digits'),
+      columns: resolveOutputColumns(dataLike, 'digits'),
       rowsByColumn: [computeDigits(upstreamRows)],
     }
   }
@@ -697,14 +701,14 @@ export function computeTransformResult(
       length: params.length as number | undefined,
     })
     return {
-      columns: resolveOutputColumns(dataLike as any, `${meta.inputColumn || 'result'}_result`),
+      columns: resolveOutputColumns(dataLike, `${meta.inputColumn || 'result'}_result`),
       rowsByColumn: [rows],
     }
   }
 
   if (type === 'WeightedSum') {
     return {
-      columns: resolveOutputColumns(dataLike as any, 'weighted_sum'),
+      columns: resolveOutputColumns(dataLike, 'weighted_sum'),
       rowsByColumn: [computeWeightedSum(upstreamRows, (params.weights as number[]) || [])],
     }
   }
@@ -712,14 +716,14 @@ export function computeTransformResult(
   if (type === 'Modulo') {
     const divisor = parseFloat(String((params.divisor as number) ?? 1)) || 1
     return {
-      columns: resolveOutputColumns(dataLike as any, 'modulo_result'),
+      columns: resolveOutputColumns(dataLike, 'modulo_result'),
       rowsByColumn: [computeModulo(upstreamRows, divisor)],
     }
   }
 
   if (type === 'MapValue') {
     return {
-      columns: resolveOutputColumns(dataLike as any, 'mapped'),
+      columns: resolveOutputColumns(dataLike, 'mapped'),
       rowsByColumn: [
         computeMapValue(upstreamRows, (params.mapping as Array<string | number>) || []),
       ],
@@ -736,10 +740,7 @@ export function computeTransformResult(
   const columns =
     type === 'Concat' && concatOutputColumn
       ? [concatOutputColumn]
-      : resolveOutputColumns(
-          dataLike as any,
-          type === 'Concat' ? 'concat_result' : `${baseName}_result`
-        )
+      : resolveOutputColumns(dataLike, type === 'Concat' ? 'concat_result' : `${baseName}_result`)
 
   let rows: string[][]
   let outputDataType: string | undefined

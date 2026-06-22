@@ -36,6 +36,21 @@ import { toastError, toastInfo } from '@/core/toast'
 import type { SourcePreviewNodeData } from '../types'
 import type { SourceMode } from '@/types/datasource'
 
+interface PreviewReloadResponse {
+  success: boolean
+  data?: unknown[][]
+  total_rows?: number
+  total_cols?: number
+  sheets?: string[]
+  current_sheet?: string
+  file_name?: string
+  error?: string
+}
+
+function isPreviewReloadResponse(data: unknown): data is PreviewReloadResponse {
+  return typeof data === 'object' && data !== null && 'success' in data
+}
+
 /**
  * 数据源预览数据管理 Composable
  *
@@ -59,7 +74,10 @@ import type { SourceMode } from '@/types/datasource'
  * @param emit - Vue emit 函数，用于通知父组件数据变更
  * @returns 包含数据状态和操作方法的对象
  */
-export function usePreviewData(props: { id: string; data: SourcePreviewNodeData }, emit: any) {
+export function usePreviewData(
+  props: { id: string; data: SourcePreviewNodeData },
+  emit: (event: string, ...args: unknown[]) => void
+) {
   // 国际化支持，用于显示确认对话框文本
   const { t } = useI18n()
   const { showConfirm } = useGlobalConfirm()
@@ -375,40 +393,49 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
         sheet_name: localData.value.currentSheet || null,
       }
 
-      let data: any
+      let data: unknown
       try {
         const response = await apiClient.post('/preview/file/path', requestBody)
         data = response.data
-      } catch (error: any) {
-        const status = error?.response?.status
-        const respData = error?.response?.data
+      } catch (error: unknown) {
+        const err = error as Record<string, unknown>
+        const response = (err.response ?? {}) as Record<string, unknown>
+        const status = response.status as number | undefined
+        const respData = response.data
         const errorText =
           typeof respData === 'string'
             ? respData
-            : (respData?.error as string | undefined) ||
-              (respData?.message as string | undefined) ||
-              (error?.message as string | undefined) ||
+            : ((respData as Record<string, unknown>)?.error as string | undefined) ||
+              ((respData as Record<string, unknown>)?.message as string | undefined) ||
+              (err.message as string | undefined) ||
               '未知错误'
         logger.error('本地路径方式重载HTTP错误:', status, errorText)
         toastError(t('messages.previewData.reloadInvalidPath'))
         return
       }
 
-      if (data.success) {
+      const responseData = isPreviewReloadResponse(data) ? data : null
+      if (!responseData) {
+        logger.error('本地路径方式重载返回数据格式异常')
+        toastError(t('messages.previewData.reloadErrorWithPath'))
+        return
+      }
+
+      if (responseData.success) {
         const updatedData: SourcePreviewNodeData = {
           ...localData.value,
-          data: data.data || [],
-          totalRows: data.total_rows || 0,
-          totalCols: data.total_cols || 0,
-          actualRowCount: data.total_rows || 0,
-          actualColCount: data.total_cols || 0,
-          rowCount: data.total_rows || 0,
-          colCount: data.total_cols || 0,
-          previewRowCount: data.total_rows || 0,
-          previewColCount: data.total_cols || 0,
-          sheets: data.sheets || localData.value.sheets,
-          currentSheet: data.current_sheet || localData.value.currentSheet,
-          fileName: data.file_name || localData.value.fileName,
+          data: (responseData.data as string[][]) || [],
+          totalRows: responseData.total_rows || 0,
+          totalCols: responseData.total_cols || 0,
+          actualRowCount: responseData.total_rows || 0,
+          actualColCount: responseData.total_cols || 0,
+          rowCount: responseData.total_rows || 0,
+          colCount: responseData.total_cols || 0,
+          previewRowCount: responseData.total_rows || 0,
+          previewColCount: responseData.total_cols || 0,
+          sheets: (responseData.sheets as string[]) || localData.value.sheets,
+          currentSheet: responseData.current_sheet || localData.value.currentSheet,
+          fileName: responseData.file_name || localData.value.fileName,
         }
 
         localData.value = updatedData
@@ -426,8 +453,8 @@ export function usePreviewData(props: { id: string; data: SourcePreviewNodeData 
           sheets: updatedData.sheets,
         })
       } else {
-        logger.error('本地路径方式重载失败:', data.error)
-        toastError(`重载数据失败: ${data.error || '未知错误'}`)
+        logger.error('本地路径方式重载失败:', responseData.error)
+        toastError(`重载数据失败: ${responseData.error || '未知错误'}`)
       }
     } catch (error) {
       logger.error('本地路径方式重载错误:', error)

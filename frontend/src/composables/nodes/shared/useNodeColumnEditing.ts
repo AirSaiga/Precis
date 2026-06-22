@@ -69,7 +69,7 @@ export interface UseNodeColumnEditingOptions<TColumn extends { id: string; colum
 
 export function useNodeColumnEditing<TColumn extends { id: string; columnName: string }>(
   props: { id: string; data: { columns: TColumn[] } },
-  _emit: any,
+  _emit: unknown,
   options: UseNodeColumnEditingOptions<TColumn>
 ) {
   // ============================================================================
@@ -244,7 +244,10 @@ export function useNodeColumnEditing<TColumn extends { id: string; columnName: s
     if (parentId && options.supportsNested) {
       const updatedColumns = props.data.columns.map((col) => {
         if (col.id === parentId) {
-          return { ...col, children: [...((col as any).children || []), newColumn] }
+          return {
+            ...col,
+            children: [...((col as unknown as { children?: TColumn[] }).children || []), newColumn],
+          }
         }
         return col
       })
