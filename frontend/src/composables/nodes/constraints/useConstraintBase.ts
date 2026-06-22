@@ -8,8 +8,23 @@
 import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
 import { reactive, ref } from 'vue'
-import { useI18n } from 'vue-i18n'
-import type { ConstraintNodeData, SchemaNodeSourceInfo } from '../types'
+import type { Node } from '@vue-flow/core'
+import type {
+  ConstraintNodeData,
+  JsonSchemaNodeData,
+  SchemaNodeData,
+  SchemaNodeSourceInfo,
+} from '../types'
+
+/**
+ * 约束校验结果通用形状
+ * 子类实现的 performValidation 应返回至少包含 errorCount 的对象
+ */
+interface ValidationResultLike {
+  errorCount?: number
+  totalRows?: number
+  errors?: unknown[]
+}
 
 /**
  * 约束基础逻辑
@@ -19,9 +34,13 @@ import type { ConstraintNodeData, SchemaNodeSourceInfo } from '../types'
  * @param emit - Vue 的 emit 函数，用于向上层组件通知事件
  * @returns 包含约束状态、连接信息和操作方法的对象
  */
-export function useConstraintBase(props: { id: string; data: ConstraintNodeData }, emit: any) {
-  // 国际化支持
-  const { t } = useI18n()
+export function useConstraintBase<TEmit>(
+  props: { id: string; data: ConstraintNodeData },
+  emit: TEmit
+) {
+  // 将外部传入的 emit（可能是 Vue defineEmits 生成的具体事件类型）
+  // 转换为通用调用签名，避免在参数中使用 any
+  const emitFn = emit as unknown as (event: string, ...args: unknown[]) => void
 
   // 约束验证状态，使用 reactive 确保响应式
   // validationStatus: 验证状态，idle=空闲/未验证，pass=通过，error=失败
@@ -46,12 +65,15 @@ export function useConstraintBase(props: { id: string; data: ConstraintNodeData 
    * @param schemaNode - Schema 节点对象
    * @param columnId - 被连接的列 ID
    */
-  const handleSchemaConnection = (schemaNode: any, columnId: string) => {
+  const handleSchemaConnection = (
+    schemaNode: Node<SchemaNodeData | JsonSchemaNodeData>,
+    columnId: string
+  ) => {
     // 记录连接开始的日志
     logger.debug('🔄 Schema连接:', schemaNode.id, columnId)
 
     // 从 Schema 节点的 columns 数组中查找被连接的列
-    const column = schemaNode.data.columns.find((col: any) => col.id === columnId)
+    const column = schemaNode.data!.columns.find((col) => col.id === columnId)
 
     // 如果列不存在，记录错误并返回
     if (!column) {
@@ -64,17 +86,17 @@ export function useConstraintBase(props: { id: string; data: ConstraintNodeData 
     // sourceFile 用于判断源表是否显式连接了数据源（区分残留路径）
     // columnDataType 用于单节点校验时按 Schema 类型转换目标列，保持与全量校验一致
     sourceInfo.value = {
-      sourceFilePath: schemaNode.data.sourceFilePath || '',
-      sourceFile: schemaNode.data.sourceFile, // 同步显式连接标识
-      sheetName: schemaNode.data.sheetName,
-      headerRow: schemaNode.data.headerRow,
-      sourceMode: schemaNode.data.sourceMode, // localfile
-      localPath: schemaNode.data.localPath, // 本地文件路径（Electron 环境专用）
+      sourceFilePath: schemaNode.data!.sourceFilePath || '',
+      sourceFile: schemaNode.data!.sourceFile, // 同步显式连接标识
+      sheetName: schemaNode.data!.sheetName,
+      headerRow: schemaNode.data!.headerRow,
+      sourceMode: schemaNode.data!.sourceMode, // localfile
+      localPath: schemaNode.data!.localPath, // 本地文件路径（Electron 环境专用）
       columnDataType: column.dataType, // 目标列的 Schema 类型
     }
 
     // 向上层组件通知连接建立事件
-    emit('schemaConnected', {
+    emitFn('schemaConnected', {
       nodeId: props.id,
       schemaNodeId: schemaNode.id,
       columnId: columnId,
@@ -99,7 +121,7 @@ export function useConstraintBase(props: { id: string; data: ConstraintNodeData 
     sourceInfo.value = null
 
     // 向上层组件通知连接断开事件
-    emit('schemaDisconnected', {
+    emitFn('schemaDisconnected', {
       nodeId: props.id,
     })
 
@@ -161,19 +183,19 @@ export function useConstraintBase(props: { id: string; data: ConstraintNodeData 
    * 更新约束状态并通知父组件
    * @param result - 验证结果对象
    */
-  const handleValidationResult = (result: any) => {
+  const handleValidationResult = (result: ValidationResultLike) => {
     // 记录验证结果的日志
     logger.debug('📊 验证结果:', result)
 
     // 更新约束状态
     constraintState.errorCount = result.errorCount || 0
     // 根据错误数量确定验证状态
-    constraintState.validationStatus = result.errorCount > 0 ? 'error' : 'pass'
+    constraintState.validationStatus = (result.errorCount || 0) > 0 ? 'error' : 'pass'
     // 记录最后验证时间
     constraintState.lastValidationTime = new Date().toISOString()
 
     // 向上层组件通知验证完成事件
-    emit('validationCompleted', {
+    emitFn('validationCompleted', {
       nodeId: props.id,
       result: result,
     })
@@ -187,12 +209,12 @@ export function useConstraintBase(props: { id: string; data: ConstraintNodeData 
    * @param errors - 验证错误数组
    * @returns 无返回值
    */
-  const showValidationErrors = (errors: any[]) => {
+  const showValidationErrors = (errors: unknown[]) => {
     // 记录验证错误的日志
     logger.debug('❌ 验证错误:', errors)
 
     // 向上层组件通知验证错误事件
-    emit('validationErrors', {
+    emitFn('validationErrors', {
       nodeId: props.id,
       errors: errors,
     })
@@ -209,7 +231,7 @@ export function useConstraintBase(props: { id: string; data: ConstraintNodeData 
     logger.debug('🔄 更新配置:', config)
 
     // 向上层组件通知配置更新事件
-    emit('configUpdated', {
+    emitFn('configUpdated', {
       nodeId: props.id,
       config: config,
     })

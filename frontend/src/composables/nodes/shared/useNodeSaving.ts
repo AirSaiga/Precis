@@ -52,7 +52,7 @@ export interface NodeSavingOptions {
 }
 
 export function useNodeSaving(options: NodeSavingOptions) {
-  const { t } = useI18n()
+  const { t: _t } = useI18n()
   const store = useGraphStore()
   const updateNodeData = store.updateNodeData
 
