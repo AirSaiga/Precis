@@ -121,7 +121,9 @@ jobs:
 
       - name: Install project dependencies
         working-directory: backend
-        run: pip install -e .
+        # 必须安装 [dev] extra：pytest / pytest-asyncio / httpx 等测试依赖在此分组中，
+        # 否则下一步 "Run tests" 会报 No module named pytest。
+        run: pip install -e ".[dev]"
 
       - name: Run tests
         working-directory: backend
