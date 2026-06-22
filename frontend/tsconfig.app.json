@@ -12,7 +12,6 @@
   "exclude": ["src/**/__tests__/*", "src/废弃/**"],
   "compilerOptions": {
     "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
-    "baseUrl": ".", // 必须配置，通常为项目根目录
     "paths": {
       "@/*": ["./src/*"]
     },
