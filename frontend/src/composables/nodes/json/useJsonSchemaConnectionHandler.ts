@@ -19,13 +19,19 @@ import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
 import { nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { Edge } from '@vue-flow/core'
 
 import { useGraphStore } from '@/stores/graphStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useToast } from '@/composables/shared/useToast'
 import { generateJsonColumnsFromSource } from '@/utils/nodes/json/columnGeneration'
 import { compareColumns } from '@/utils/nodes/schema/columnValidation'
-import type { JsonSchemaNodeData, JsonSourcePreviewNodeData } from '@/types/nodes'
+import type { CustomNode, JsonSchemaNodeData, JsonSourcePreviewNodeData } from '@/types/nodes'
+
+/**
+ * 允许传入完整节点对象或节点 data 对象的通用输入类型
+ */
+type NodeInput<T> = { id?: string; data?: T } | T
 
 /**
  * JSON Schema 节点连接处理器
@@ -43,7 +49,6 @@ export function useJsonSchemaConnectionHandler() {
   const { showConfirm } = useGlobalConfirm()
   const toast = useToast()
   const success = toast.success
-  const showError = toast.error
   const info = toast.info
 
   const store = useGraphStore()
@@ -56,9 +61,14 @@ export function useJsonSchemaConnectionHandler() {
    * @param schemaNode - Schema 节点（包含 id 和 data）
    * @returns 是否执行了列生成操作
    */
-  const showSmartFillDialog = async (sourceNode: any, schemaNode: any) => {
-    const sourceData = sourceNode?.data ?? sourceNode
-    const schemaData = schemaNode?.data ?? schemaNode
+  const showSmartFillDialog = async (
+    sourceNode: NodeInput<JsonSourcePreviewNodeData>,
+    schemaNode: NodeInput<JsonSchemaNodeData>
+  ) => {
+    const sourceData = ((sourceNode as { data?: unknown }).data ??
+      sourceNode) as unknown as JsonSourcePreviewNodeData
+    const schemaData = ((schemaNode as { data?: unknown }).data ??
+      schemaNode) as unknown as JsonSchemaNodeData
 
     const sourceName = sourceData?.sourceName || sourceData?.fileName || 'Unknown'
     const schemaName = schemaData?.tableName || 'JsonSchema'
@@ -70,7 +80,7 @@ export function useJsonSchemaConnectionHandler() {
       return false
     }
 
-    const firstRecord = rawData[0]
+    const firstRecord: unknown = rawData[0]
     if (!firstRecord || typeof firstRecord !== 'object') {
       logger.warn('🎯 [showSmartFillDialog] JSON 第一条记录不是对象，跳过智能填充')
       info(t('canvas.nodeCanvas.jsonSourceInvalid'))
@@ -79,12 +89,7 @@ export function useJsonSchemaConnectionHandler() {
 
     const sourceColumnNames = Object.keys(firstRecord)
 
-    const schemaColumns = (schemaData?.columns || []) as {
-      columnName: string
-      expressionType?: string
-      isBound?: boolean
-      extractedConfig?: unknown
-    }[]
+    const schemaColumns = schemaData?.columns || []
     const comparison = compareColumns(sourceColumnNames, schemaColumns)
 
     logger.debug('🎯 [showSmartFillDialog] JSON 列比较结果:', comparison)
@@ -104,7 +109,7 @@ export function useJsonSchemaConnectionHandler() {
       logger.debug('🎯 [showSmartFillDialog] 用户选择:', userConfirmed ? '✅ 确认生成' : '❌ 取消')
 
       if (userConfirmed) {
-        generateColumnsFromSource(schemaNode.id, sourceData)
+        generateColumnsFromSource((schemaNode as { id: string }).id, sourceData)
         return true
       }
     } else if (comparison.needsAction) {
@@ -151,7 +156,7 @@ export function useJsonSchemaConnectionHandler() {
       )
 
       if (result === true) {
-        generateColumnsFromSource(schemaNode.id, sourceData)
+        generateColumnsFromSource((schemaNode as { id: string }).id, sourceData)
         return true
       }
     } else {
@@ -167,17 +172,20 @@ export function useJsonSchemaConnectionHandler() {
    * @param schemaNodeId - Schema 节点 ID
    * @param sourceNodeData - 数据源节点数据
    */
-  const generateColumnsFromSource = (schemaNodeId: string, sourceNodeData: any) => {
+  const generateColumnsFromSource = (
+    schemaNodeId: string,
+    sourceNodeData: JsonSourcePreviewNodeData
+  ) => {
     logger.debug('🎯 [generateColumnsFromSource] 开始生成 JSON 列定义！')
     logger.debug('  - schemaNodeId:', schemaNodeId)
 
-    const schemaNode = store.nodes.find((n) => n.id === schemaNodeId)
+    const schemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
     if (!schemaNode) {
       throw new Error(`Schema 节点 ${schemaNodeId} 不存在`)
     }
 
-    const schemaData = schemaNode.data as JsonSchemaNodeData
-    const sourceData = sourceNodeData as JsonSourcePreviewNodeData
+    const schemaData = schemaNode.data as unknown as JsonSchemaNodeData
+    const sourceData = sourceNodeData
     const rawData = sourceData.rawData
 
     if (!rawData || !Array.isArray(rawData) || rawData.length === 0) {
@@ -217,8 +225,8 @@ export function useJsonSchemaConnectionHandler() {
   const handleSourceConnection = async (connection: { source: string; target: string }) => {
     const { source: sourcePreviewNodeId, target: schemaNodeId } = connection
 
-    const sourcePreviewNode = store.nodes.find((n) => n.id === sourcePreviewNodeId)
-    const schemaNode = store.nodes.find((n) => n.id === schemaNodeId)
+    const sourcePreviewNode = store.nodes.find((n: CustomNode) => n.id === sourcePreviewNodeId)
+    const schemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
     if (!sourcePreviewNode || !schemaNode) {
       throw new Error('源节点或目标节点不存在')
     }
@@ -226,28 +234,32 @@ export function useJsonSchemaConnectionHandler() {
     logger.debug('🔌 [handleSourceConnection] 开始处理 JSON 连接')
     logger.debug(
       '  - jsonSchemaNode 当前列定义数量:',
-      (schemaNode.data as JsonSchemaNodeData).columns?.length || 0
+      (schemaNode.data as unknown as JsonSchemaNodeData).columns?.length || 0
     )
 
-    const sourceData = sourcePreviewNode.data as JsonSourcePreviewNodeData
+    const sourceData = sourcePreviewNode.data as unknown as JsonSourcePreviewNodeData
 
     const displayFileName = sourceData.sourceName || sourceData.fileName || 'Unknown'
 
     const existingEdges = store.edges.filter(
-      (edge: any) =>
+      (edge: Edge) =>
         edge.target === schemaNodeId &&
         edge.source !== sourcePreviewNodeId &&
-        store.nodes.find((n: any) => n.id === edge.source)?.type === 'jsonSourcePreview'
+        store.nodes.find((n: CustomNode) => n.id === edge.source)?.type === 'jsonSourcePreview'
     )
 
     if (existingEdges.length > 0) {
       logger.debug(`🔄 断开目标 JsonSchemaNode 的旧数据源连接，数量: ${existingEdges.length}`)
 
       for (const edge of existingEdges) {
-        const oldSourceNode = store.nodes.find((n: any) => n.id === edge.source)
+        const oldSourceNode = store.nodes.find((n: CustomNode) => n.id === edge.source)
         if (oldSourceNode) {
           logger.debug(
-            `  - 断开与 "${(oldSourceNode.data as unknown as Record<string, unknown>)?.sourceName || (oldSourceNode.data as unknown as Record<string, unknown>)?.fileName || oldSourceNode.id}" 的连接`
+            `  - 断开与 "${
+              (oldSourceNode.data as unknown as Record<string, unknown>)?.sourceName ||
+              (oldSourceNode.data as unknown as Record<string, unknown>)?.fileName ||
+              oldSourceNode.id
+            }" 的连接`
           )
         }
         store.deleteConnection(edge.id)
@@ -294,18 +306,23 @@ export function useJsonSchemaConnectionHandler() {
     logger.debug('🔌 [handleSourceConnection] 连接处理完成，准备弹出确认对话框')
 
     await nextTick()
-    const latestSourceNode = store.nodes.find((n: any) => n.id === sourcePreviewNodeId)
-    const latestSchemaNode = store.nodes.find((n: any) => n.id === schemaNodeId)
+    const latestSourceNode = store.nodes.find((n: CustomNode) => n.id === sourcePreviewNodeId)
+    const latestSchemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
 
     if (latestSourceNode && latestSchemaNode) {
       try {
-        const sourceDataSnapshot = JSON.parse(JSON.stringify(latestSourceNode.data))
+        const sourceDataSnapshot: JsonSourcePreviewNodeData = JSON.parse(
+          JSON.stringify(latestSourceNode.data as unknown as JsonSourcePreviewNodeData)
+        )
         await showSmartFillDialog(
           { id: sourcePreviewNodeId, data: sourceDataSnapshot },
-          { id: schemaNodeId, data: latestSchemaNode.data }
+          { id: schemaNodeId, data: latestSchemaNode.data as unknown as JsonSchemaNodeData }
         )
-      } catch (error: any) {
-        if (error.message?.includes('JSON 数据源为空') || error.message?.includes('格式不正确')) {
+      } catch (error: unknown) {
+        if (
+          error instanceof Error &&
+          (error.message.includes('JSON 数据源为空') || error.message.includes('格式不正确'))
+        ) {
           logger.warn('🎯 [handleSourceConnection] 智能填充业务跳过:', error.message)
         } else {
           throw error
