@@ -39,7 +39,6 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { useI18n } from 'vue-i18n'
 import type { JsonSchemaNodeData, JsonSchemaColumn, JsonDataType } from '@/types/nodes'
 export interface JsonValidationError {
   columnId: string
@@ -63,9 +62,6 @@ const JSONPATH_REGEX =
 const VALID_JSON_TYPES: JsonDataType[] = ['string', 'number', 'boolean', 'object', 'array', 'null']
 
 export function useJsonSchemaValidation(props: { id: string; data: JsonSchemaNodeData }) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { t } = useI18n()
-
   /**
    * 验证JSONPath格式的正确性
    *

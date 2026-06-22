@@ -33,7 +33,7 @@ import { useGraphStore } from '@/stores/graphStore'
 import { eventBus } from '@/core/eventBus'
 import { toastError } from '@/core/toast'
 import type { SourcePreviewNodeData } from '../types'
-import type { SourceMode } from '@/types/datasource'
+
 interface PreviewReloadResponse {
   success: boolean
   data?: unknown[][]
@@ -127,28 +127,6 @@ export function usePreviewData(
    *
    * @returns 'localfile'（当前唯一支持的模式）
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const getSourceMode = (): SourceMode => {
-    // 2026年3月：始终返回 localfile，IndexedDB 模式已移除
-    return 'localfile'
-  }
-
-  /**
-   * 判断是否为本地路径模式
-   *
-   * 【使用场景】
-   * - 在 selectSheet、reloadFrom* 等方法中判断调用哪个实现
-   * - 简化条件判断逻辑
-   *
-   * 【变更历史】
-   * 2026年3月：始终返回 true，因为 IndexedDB 模式已移除
-   *
-   * @returns true 表示本地路径模式（Electron 环境）
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const isLocalFileMode = (): boolean => {
-    return true
-  }
 
   /**
    * 通知父组件数据变更
@@ -461,61 +439,6 @@ export function usePreviewData(
     } finally {
       isReloading.value = false
     }
-  }
-
-  /**
-   * 触发文件选择器
-   *
-   * 【使用场景】
-   * - 用户需要替换当前数据源
-   * - 浏览器环境下的手动重载方式
-   *
-   * 【事件流】
-   * input.onchange -> CustomEvent('reload-file-uploaded') -> DataLibrary 处理
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const triggerFileSelection = () => {
-    const input = document.createElement('input')
-    input.type = 'file'
-    const getAcceptExtensions = () => {
-      switch (localData.value.sourceType) {
-        case 'excel':
-          return '.xlsx,.xls'
-        case 'csv':
-          return '.csv'
-        case 'json':
-          return '.json'
-        default:
-          return '.xlsx,.xls,.csv,.json'
-      }
-    }
-    input.accept = getAcceptExtensions()
-    input.multiple = false
-
-    input.onchange = async (e: Event) => {
-      const target = e.target as HTMLInputElement
-      const files = target.files
-
-      if (files && files.length > 0) {
-        const file = files[0]
-        if (!file) return
-        logger.debug('User selected file:', file.name)
-
-        try {
-          eventBus.emit('reload-file-uploaded', {
-            file: file,
-            nodeId: props.id,
-            sourceName: localData.value.sourceName || '',
-          })
-          logger.debug('File upload event dispatched')
-        } catch (error) {
-          logger.error('Failed to process file:', error)
-          toastError('Failed to process file')
-        }
-      }
-    }
-
-    input.click()
   }
 
   /**

@@ -8,12 +8,9 @@
  * - 生成拖拽幽灵元素
  */
 
-import { useI18n } from 'vue-i18n'
 import { useResourceDragStore, type ResourceDragPayload } from '@/stores/resourceDragStore'
 import type { ResourceItem, ResourceDragType, SchemaResource } from '@/types/resource'
 export function useResourceDrag() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { t } = useI18n()
   const dragStore = useResourceDragStore()
 
   /**

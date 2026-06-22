@@ -175,17 +175,6 @@
   )
   const hasMode = computed(() => !!localCharsetMode.value)
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const sourceDisplay = computed(() => {
-    if (!hasSource.value)
-      return t('customNodes.constraintRules.charsetConstraintNode.waitingForSource')
-    const table = props.data.table || ''
-    const column = props.data.column || ''
-    if (!table && !column)
-      return t('customNodes.constraintRules.charsetConstraintNode.waitingForSource')
-    return `${table}${table && column ? '.' : ''}${column}`
-  })
-
   const modeSummary = computed(() => {
     const mode = localCharsetMode.value
     return mode === 'ascii'

@@ -71,13 +71,6 @@ export function hydrateRegexNodesFromV2Config(params: {
       ? { nodeId: v2SourceRef.nodeId, columnId: actualColumnId }
       : undefined
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    const resolvedColumnName =
-      v2ColumnName ||
-      resolvedColByName?.columnName ||
-      schemaColumns?.find((x) => x.id === v2SourceRef?.v2ColumnId)?.columnName ||
-      ''
-
     nextNodes.push({
       id: nodeId,
       type: 'regex',

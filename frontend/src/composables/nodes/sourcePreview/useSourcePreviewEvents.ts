@@ -425,8 +425,6 @@ export function useSourcePreviewEvents(
 
       // 尝试多种路径匹配方式
       const sourceFilePath = d.fileName || d.localPath
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-      const fileName = d.fileName || ''
 
       let schemaNodes = store.nodes.filter(
         (n) =>

@@ -67,8 +67,7 @@ export { fetchPreviewDataFromPath, type JsonPreviewOptions, type FilePreviewResu
  * };
  */
 export function usePreviewCreation() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { addNodes, project } = useVueFlow()
+  const { addNodes } = useVueFlow()
   const store = useGraphStore()
 
   /**

@@ -110,17 +110,6 @@
    * @param type - 工具箱类型：atomic 或 patterns
    * @returns 对应的CSS类名
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  function getTypeClass(type?: string): string {
-    switch (type) {
-      case 'atomic':
-        return 'type-atomic'
-      case 'patterns':
-        return 'type-patterns'
-      default:
-        return 'type-unknown'
-    }
-  }
 
   /**
    * 获取类型对应的显示文本

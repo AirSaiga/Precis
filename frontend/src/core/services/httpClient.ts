@@ -139,53 +139,6 @@ export const API_BASE_URL = getApiBaseUrl()
  * - 更成熟的错误处理机制
  * - 更广泛的生态系统
  */
-/**
- * 请求重试配置
- *
- * 业务场景:
- * - 应用启动时后端可能尚未完全就绪
- * - 网络瞬时故障需要自动恢复
- * - 避免用户看到不必要的错误提示
- */
-/**
- * 请求重试配置接口
- *
- * 定义重试策略的参数结构，用于控制请求失败后的自动重试行为。
- */
-interface RetryConfig {
-  /** 最大重试次数 */
-  maxRetries: number
-  /** 重试间隔（毫秒） */
-  retryDelay: number
-  /** 判断是否应该重试的谓词函数 */
-  shouldRetry: (error: AxiosError) => boolean
-}
-
-/**
- * 默认重试配置
- *
- * 策略说明：
- * - 最大重试 3 次，初始间隔 1 秒，指数退避
- * - 仅对网络错误（无响应）和 5xx 服务器错误进行重试
- * - 4xx 客户端错误不重试（请求本身有问题）
- */
-const defaultRetryConfig: RetryConfig = {
-  maxRetries: 3,
-  retryDelay: 1000,
-  shouldRetry: (error: AxiosError) => {
-    // 只对网络错误（后端未就绪）进行重试
-    // 不 retry 4xx 客户端错误
-    if (!error.response) {
-      return true // 网络错误（ECONNREFUSED 等）
-    }
-    // 5xx 服务器错误也可以重试
-    if (error.response.status >= 500) {
-      return true
-    }
-    return false
-  },
-}
-
 const apiClient: AxiosInstance = axios.create({
   baseURL: API_BASE_URL ? `${API_BASE_URL}/api/latest` : undefined,
   timeout: 30000, // 30秒超时
@@ -212,56 +165,6 @@ const apiClient: AxiosInstance = axios.create({
  * - 仅当有激活项目时才注入头信息
  * - 避免在项目选择界面发出无效的 X-Project-Config-Path
  */
-/**
- * 带重试的请求包装函数
- *
- * @param config - Axios 请求配置
- * @param retryConfig - 重试配置
- * @returns Promise
- */
-/**
- * 带重试的请求包装函数
- *
- * 对 Axios 请求进行包装，在失败时根据重试配置自动重试，
- * 采用指数退避策略避免对后端造成压力。
- *
- * @param config - Axios 请求配置
- * @param retryConfig - 重试配置（默认使用 defaultRetryConfig）
- * @returns 请求响应数据
- * @throws 最后一次重试失败的错误
- */
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-const requestWithRetry = async <T = unknown>(
-  config: Parameters<AxiosInstance['request']>[0],
-  retryConfig: RetryConfig = defaultRetryConfig
-): Promise<T> => {
-  let lastError: AxiosError | undefined
-
-  for (let attempt = 0; attempt <= retryConfig.maxRetries; attempt++) {
-    try {
-      const response = await apiClient.request<T>(config)
-      return response.data
-    } catch (error) {
-      lastError = error as AxiosError
-
-      // 检查是否应该重试
-      if (attempt < retryConfig.maxRetries && retryConfig.shouldRetry(lastError)) {
-        const delay = retryConfig.retryDelay * Math.pow(2, attempt) // 指数退避
-        logger.debug(
-          `[API] 请求失败，${delay}ms 后重试 (${attempt + 1}/${retryConfig.maxRetries})...`
-        )
-        await new Promise((resolve) => setTimeout(resolve, delay))
-        continue
-      }
-
-      // 不重试，抛出错误
-      throw error
-    }
-  }
-
-  throw lastError
-}
-
 apiClient.interceptors.request.use(
   (config) => {
     let configPath: string | undefined

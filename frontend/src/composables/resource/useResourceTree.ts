@@ -191,9 +191,6 @@ export function useResourceTree() {
     resource: ResourceItem,
     customPosition?: { x: number; y: number }
   ): Promise<string | null> => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    const position = customPosition || { x: 240, y: 120 }
-
     switch (resource.kind) {
       case 'schema':
         return loadSchemaToCanvas(resource)

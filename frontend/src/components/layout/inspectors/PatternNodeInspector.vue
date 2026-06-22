@@ -148,12 +148,6 @@
    *
    * @returns 模式类型的 CSS 类名
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  function getPatternTypeClass(): string {
-    const type = getPatternType()
-    return `type-${type}`
-  }
-
   /**
    * 获取模式类型
    * 根据 patternId 判断模式类型
@@ -165,24 +159,6 @@
       return 'atomic'
     }
     return 'combination'
-  }
-
-  /**
-   * 获取模式类型的图标
-   *
-   * @returns 模式类型对应的图标
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  function getPatternTypeIcon(): string {
-    const type = getPatternType()
-    switch (type) {
-      case 'atomic':
-        return '⚛'
-      case 'combination':
-        return '🔗'
-      default:
-        return '?'
-    }
   }
 
   /**

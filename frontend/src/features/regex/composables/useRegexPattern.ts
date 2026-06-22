@@ -310,15 +310,6 @@ export function useRegexPattern(
    * - regexPatternUpdated: 供 useRegexValidation 监听自动校验
    */
   const savePattern = () => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    const updatedData = {
-      ...props.data,
-      pattern: pattern.value,
-      flags: flags.value,
-      matchMode: matchMode.value,
-      caseSensitive: caseSensitive.value,
-    }
-
     emit('patternSaved', {
       nodeId: props.id,
       pattern: pattern.value,

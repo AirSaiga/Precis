@@ -16,7 +16,6 @@
 
 import { logger } from '@/core/utils/logger'
 import { ref } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { v4 as uuidv4 } from 'uuid'
 import { useGraphStore } from '@/stores/graphStore'
 import type { JsonSchemaColumn, JsonSchemaNodeData } from '@/types/nodes'
@@ -33,8 +32,6 @@ export function useJsonSchemaSaving(
   props: { id: string; data: JsonSchemaNodeData },
   emit: (event: string, ...args: unknown[]) => void
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { t } = useI18n()
   const store = useGraphStore()
 
   // 保存状态

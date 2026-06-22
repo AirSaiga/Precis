@@ -80,7 +80,6 @@
   import {
     TRANSFORM_CATEGORIES,
     getCategoryIcon,
-    getCategoryForType,
   } from '@/composables/nodes/transform/transformCategory'
   const { t } = useI18n()
   const { showConfirm } = useGlobalConfirm()
@@ -206,8 +205,6 @@
       return
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    const newCategory = getCategoryForType(newType)
     const newTypeName = getTypeLabel(newType)
 
     // 弹出确认（使用项目自定义 confirm，避免 Electron 原生 confirm 问题）

@@ -81,14 +81,9 @@ export function createSchemaOpsModule(params: {
     if (!schemaNode || !regexNode) return false
 
     const schemaData = schemaNode.data as SchemaNodeData | JsonSchemaNodeData
-    let columnName = ''
-    if (schemaNode.type === 'jsonSchema') {
-      const found = findJsonSchemaColumnById((schemaData as JsonSchemaNodeData).columns, columnId)
-      columnName = found?.column.columnName || ''
-    } else {
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-      columnName =
-        (schemaData as SchemaNodeData).columns.find((c) => c.id === columnId)?.columnName || ''
+    if (schemaNode.type !== 'jsonSchema') {
+      // 用于校验列存在性，副作用：列不存在时静默忽略
+      void (schemaData as SchemaNodeData).columns.find((c) => c.id === columnId)?.columnName
     }
 
     // 先通过 API 删除该 Regex 节点的旧入边（触发 onEdgesChange 清理链）

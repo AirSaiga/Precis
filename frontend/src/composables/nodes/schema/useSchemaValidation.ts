@@ -30,7 +30,6 @@
 
 import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
-import { useI18n } from 'vue-i18n'
 import type { SchemaNodeData, SchemaColumn } from '../types'
 import { validateNotNull } from '@/services/constraints/validators/notNull'
 import { validateUnique } from '@/services/constraints/validators/unique'
@@ -54,9 +53,6 @@ export function useSchemaValidation(
   props: { id: string; data: SchemaNodeData },
   emit: (event: string, ...args: unknown[]) => void
 ) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { t } = useI18n()
-
   /**
    * 获取实际的数据源文件路径
    *

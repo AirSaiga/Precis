@@ -16,9 +16,6 @@
  * - 使用 i18n 提供本地化默认名称
  */
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-import i18n from '@/i18n'
-
 export function createMiscFactoryModule(params: {
   createSchemaNode: (position: { x: number; y: number }, name?: string) => string
   createRegexNode: (position: { x: number; y: number }, pattern?: string, name?: string) => string

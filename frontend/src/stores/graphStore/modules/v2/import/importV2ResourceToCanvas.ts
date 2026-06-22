@@ -282,13 +282,10 @@ export function createV2ImportToCanvas(params: {
 
     let patternData: unknown = null
     let registry: PatternRegistryTypeV2 = 'patterns'
-    let patternKey = ''
 
     for (const [key, value] of Object.entries(registries || {})) {
       if (key === patternId || key.endsWith(`/${patternId}`)) {
         patternData = value
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-        patternKey = key
         registry = 'patterns'
         break
       }

@@ -425,8 +425,6 @@ export function createTemplateExpandModule(params: {
     dagEdges: DagEdge[]
   ): { width: number; height: number } | null {
     const nodeIds = new Set(dagNodes.map((n) => n.id))
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    const nodeMap = new Map(dagNodes.map((n) => [n.id, n]))
 
     // 基于 DagEdge 构建入度表（仅统计 DAG 内部边）
     const inDegree = new Map<string, number>()

@@ -26,7 +26,6 @@
  */
 
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import type { JsonSchemaNodeData, JsonSchemaColumn, JsonDataType } from '@/types/nodes'
 import { useNodeUI } from '@/composables/nodes/shared/useNodeUI'
@@ -41,15 +40,7 @@ export function useJsonSchemaUI(props: {
   data: JsonSchemaNodeData
   selected?: boolean
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { t } = useI18n()
   const { updateNodeInternals } = useVueFlow()
-
-  /**
-   * 防止无限递归的标志
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const isInitializing = false
 
   /**
    * 展开的列ID集合（用于树形结构）

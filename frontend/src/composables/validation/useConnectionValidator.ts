@@ -43,9 +43,6 @@ const ERROR_MESSAGES: Record<ValidationErrorCode, string> = {
 }
 
 export function useConnectionValidator(options: UseConnectionValidatorOptions = {}) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { enableI18n = false } = options
-
   // 将外部传入的连接数组转换为响应式计算属性
   // 目的：确保当外部连接数组变化时，验证结果会自动更新
   const existingConnections = computed(() => options.existingConnections || [])

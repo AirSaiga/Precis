@@ -1,5 +1,4 @@
 import { ref, reactive } from 'vue'
-import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
 import { useProjectStore } from '@/stores/projectStore'
 /**
@@ -38,9 +37,6 @@ import { useProjectStore } from '@/stores/projectStore'
  * - stores/graphStore: 项目数据状态管理
  */
 export function useProjectManagement() {
-  // 国际化支持
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { t } = useI18n()
   // 获取全局图存储，用于访问和修改项目数据
   const store = useGraphStore()
   const projectStore = useProjectStore()

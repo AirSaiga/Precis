@@ -242,8 +242,6 @@ Row：校验结果指标（总行数、匹配数、错误数） */
   const isSaving = ref(false)
   const showFillAnimation = ref(false)
   const previousPattern = ref('')
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const showRegisterAsPattern = ref(false)
   const patternName = ref('')
 
   watch(
@@ -700,10 +698,6 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * 【实现逻辑】
    * 直接委托给 handleRegexValidate 执行实际校验。
    */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  async function performNodeValidation() {
-    await handleRegexValidate(props.id)
-  }
 </script>
 
 <style scoped src="./RegexNode.styles.css" />

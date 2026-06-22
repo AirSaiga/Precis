@@ -328,8 +328,6 @@ export class ShortcutRegistry {
    */
   private handleConflict(command1: Command, command2: Command): void {
     const shortcut1 = platformAdapter.formatShortcut(this.getCommandShortcut(command1))
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    const shortcut2 = platformAdapter.formatShortcut(this.getCommandShortcut(command2))
 
     switch (this.config.conflictStrategy) {
       case 'error':

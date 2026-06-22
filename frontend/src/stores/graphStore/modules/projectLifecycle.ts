@@ -114,8 +114,6 @@ export function createProjectLifecycleModule(params: {
     regexEditSampleData,
     copiedNodes,
     normalizeConfigDir,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    refreshProjectConfigStats,
     projectStore,
     resourceTreeStore,
   } = params

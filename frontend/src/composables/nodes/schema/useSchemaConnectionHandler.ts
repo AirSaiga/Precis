@@ -17,7 +17,6 @@ import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
-import type { Node } from '@vue-flow/core'
 import type { SchemaColumn, SchemaNodeData } from '@/types/graph'
 import type { TableSchemaFileV2 } from '@/types/projectV2'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
@@ -235,9 +234,8 @@ export function useSchemaConnectionHandler() {
   const info = toast.info
 
   // 从 VueFlow 获取边的操作方法
-  // getConnectedEdges: 获取连接指定节点的边
   // updateNodeInternals: 更新节点内部状态（重新生成 handle）
-  const { getConnectedEdges, updateNodeInternals } = useVueFlow()
+  const { updateNodeInternals } = useVueFlow()
   // 获取全局图存储，用于访问和修改节点/边数据
   const store = useGraphStore()
 
@@ -580,57 +578,6 @@ export function useSchemaConnectionHandler() {
   }
 
   /**
-   * 检查数据源列名与 Schema 定义是否匹配
-   * 如果 Schema 中定义的列在数据源中不存在，弹出警告提示
-   * @param sourcePreviewNode - 数据源预览节点
-   * @param schemaNode - Schema 节点
-   */
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const checkColumnMismatch = async (
-    sourcePreviewNode: { data: Record<string, unknown> },
-    schemaNode: { data: Record<string, unknown> }
-  ) => {
-    const sourceData = sourcePreviewNode.data
-    const tableData = sourceData.data as unknown[][]
-    if (!tableData || tableData.length === 0) return
-
-    const headerRowIndex = (sourceData.headerRow as number) ?? 0
-    const headerRow = tableData[headerRowIndex]
-    if (!headerRow) return
-
-    // 获取源数据列名（转为字符串并去除空白）
-    const sourceColumns = (headerRow as unknown[]).map((h) => String(h).trim())
-    // 获取 Schema 现有列名
-    const schemaColumns = (schemaNode.data as Record<string, unknown>).columns || []
-
-    if ((schemaColumns as unknown[]).length === 0) return
-
-    // 找出缺失的列
-    const missingColumns = (schemaColumns as unknown[])
-      .map((c) => (c as Record<string, unknown>).columnName as string)
-      .filter((name) => !sourceColumns.includes(name))
-
-    if (missingColumns.length > 0) {
-      const missingCount = missingColumns.length
-      const previewMissing = missingColumns.slice(0, 5).join(', ')
-      const suffix = missingColumns.length > 5 ? '...' : ''
-
-      logger.warn(`⚠️ 列不匹配警告: 缺少 ${missingCount} 列`, missingColumns)
-
-      await showConfirm({
-        title: t('canvas.nodeCanvas.columnMismatch.title'),
-        message: t('canvas.nodeCanvas.columnMismatch.message', {
-          schemaCount: (schemaColumns as unknown[]).length,
-          missingCount: missingCount,
-          missingColumns: `${previewMissing}${suffix}`,
-        }),
-        confirmText: t('canvas.nodeCanvas.columnMismatch.confirm'),
-        cancelText: t('common.cancel'),
-      })
-    }
-  }
-
-  /**
    * 从数据源自动生成列定义
    *
    * 核心功能：
@@ -673,10 +620,6 @@ export function useSchemaConnectionHandler() {
       // 保存原有列数据和约束连接
       const originalColumns =
         ((schemaNode.data as Record<string, unknown>).columns as unknown[]) || []
-
-      // 获取与当前 Schema 节点相关的所有约束连接
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-      const relatedEdges = getConnectedEdges([schemaNode as unknown as Node])
 
       // 获取表头行数据
       const headerRowIndex = (sourceData.headerRow as number) ?? 0

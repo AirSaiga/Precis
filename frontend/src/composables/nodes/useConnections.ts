@@ -567,8 +567,6 @@ export function useConnections() {
       if (sourceNode.type === 'manualData' && targetNode.type === 'regex') {
         const manualData = sourceNode.data as Record<string, unknown>
         const columnName = (manualData.columnName as string) || 'Column1'
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-        const rows = (manualData.rows as string[][]) || []
 
         // 更新 regex 节点的数据源信息
         tx.patchNodeData(target, {
@@ -681,8 +679,6 @@ export function useConnections() {
       }
 
       if (sourceNode.type === 'transformOutput' && targetNode.type === 'regex') {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-        const outputData = sourceNode.data as Record<string, unknown>
         tx.patchNodeData(target, {
           sourceRef: { nodeId: source, columnId: '0' },
           saveState: 'draft',
