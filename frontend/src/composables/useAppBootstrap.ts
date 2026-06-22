@@ -39,6 +39,7 @@ import { logger } from '@/core/utils/logger'
 import { useInspectionStore } from '@/stores/inspectionStore'
 import { getV2FullConfig, ProjectNotFoundError } from '@/api/projectV2Api'
 import { appApi } from '@/core/capabilities/appApi'
+import { eventBus } from '@/core/eventBus'
 /**
  * 提取路径的最后一层目录名作为项目名称
  *
@@ -191,6 +192,11 @@ export function useAppBootstrap(): BootstrapResult {
     // 加载项目配置、统计与自检信息，与 ProjectManagementModal.loadProject 行为保持一致
     await graphStore.loadProjectFromV2()
 
+    // 通知资源树加载项目资源（与 bootstrap 路径保持一致）。
+    // 用户通过 ProjectSelector 选项目时，useResourceTree.onMounted 早已执行完毕，
+    // 此时 isProjectActive 才刚变为 true，资源树不会自行刷新，需显式 emit 事件。
+    eventBus.emit('project-applied')
+
     // 执行 bootstrap 中剩余的步骤 2-5
     await workspaceStore.initialize()
     await canvasStore.initialize(projectStore.currentPaths?.configPath, graphStore)
@@ -261,6 +267,13 @@ export function useAppBootstrap(): BootstrapResult {
 
     // 创建项目节点（如果 bootstrapProjectPaths 已设置路径但未创建）
     createProjectIfLoaded()
+
+    // 通知资源树等监听方加载项目资源。
+    // useResourceTree.onMounted 在 bootstrap 的 async 部分完成前就已执行，
+    // 此时 isProjectActive 仍为 false（localStorage 在新装应用上为空），
+    // 因此不会自行触发 loadProjectResources。这里显式 emit 'project-applied'，
+    // 复用与用户主动打开项目一致的事件路径，确保资源树加载 schema/constraint 列表。
+    eventBus.emit('project-applied')
 
     // Step 2: 初始化数据源工作区（非画布 Tab 工作区，而是数据源配置）
     await workspaceStore.initialize()
