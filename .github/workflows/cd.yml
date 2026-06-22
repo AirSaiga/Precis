@@ -18,6 +18,65 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  build-electron:
+    name: Build Electron (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            runner: windows-latest
+          - platform: macos-arm64
+            runner: macos-latest
+          - platform: macos-x64
+            runner: macos-13
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      # Windows 路径
+      - name: Build & publish (Windows)
+        if: matrix.platform == 'windows-x64'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          ELECTRON_BUILDER_BINARIES_MIRROR: https://npmmirror.com/mirrors/electron-builder-binaries/
+        run: |
+          cd frontend
+          npm ci
+          npm run build-only
+          cd ../electron
+          npm ci
+          npm run build:electron
+          npm run fetch-python
+          npm run install:backend-deps
+          npx electron-builder --win --publish always
+
+      # macOS 路径（禁用签名，Alpha 阶段）
+      - name: Build & publish (macOS)
+        if: startsWith(matrix.platform, 'macos')
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          cd frontend
+          npm ci
+          npm run build-only
+          cd ../electron
+          npm ci
+          npm run build:electron
+          npm run fetch-python
+          npm run install:backend-deps
+          npx electron-builder --mac --config.mac.identity=null --publish always
+
   build-cli:
     name: Build CLI (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
@@ -125,7 +184,7 @@ jobs:
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [build-cli]
+    needs: [build-cli, build-electron]
     steps:
       - uses: actions/checkout@v4
 
