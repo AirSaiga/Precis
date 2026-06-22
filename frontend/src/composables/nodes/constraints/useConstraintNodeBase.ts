@@ -6,7 +6,7 @@
  * 使各组件只保留约束类型特有的逻辑。
  *
  * 统一提取的内容：
- * - validationStatus / validationErrors / displayErrors
+ * - validationStatus / displayErrors
  * - errorCount / showDetails / statusText / metrics
  * - handleSave / handleDelete
  */
@@ -32,7 +32,6 @@ export interface ConstraintNodeBaseOptions<TData extends BaseConstraintNodeData>
 export interface ConstraintNodeBaseResult {
   isSaving: Ref<boolean>
   validationStatus: ComputedRef<string>
-  validationErrors: ComputedRef<string[]>
   displayErrors: ComputedRef<string[]>
   errorCount: ComputedRef<number>
   showDetails: ComputedRef<boolean>
@@ -59,13 +58,9 @@ export function useConstraintNodeBase<TData extends BaseConstraintNodeData>(
     return props.data.validationStatus || 'idle'
   })
 
-  const validationErrors = computed(() =>
-    (props.data.validationErrors || []).filter((msg): msg is string => !!msg)
-  )
-
   const displayErrors = computed(() => {
     if (validationStatus.value === 'missing') return []
-    return validationErrors.value.filter((msg): msg is string => !!msg)
+    return (props.data.validationErrors || []).filter((msg): msg is string => !!msg)
   })
 
   const errorCount = computed(() => {
@@ -77,7 +72,7 @@ export function useConstraintNodeBase<TData extends BaseConstraintNodeData>(
   const showDetails = computed(() => {
     if (props.selected) return true
     if (validationStatus.value === 'error') return true
-    return !!props.data.lastValidation || validationErrors.value.length > 0
+    return !!props.data.lastValidation || (props.data.validationErrors || []).length > 0
   })
 
   const prefix = options.statusI18nPrefix
@@ -136,7 +131,6 @@ export function useConstraintNodeBase<TData extends BaseConstraintNodeData>(
   return {
     isSaving,
     validationStatus,
-    validationErrors,
     displayErrors,
     errorCount,
     showDetails,
