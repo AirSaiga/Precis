@@ -27,9 +27,7 @@
   import { eventBus } from '@/core/eventBus'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistryCore'
   import type { InspectorContext } from '../utils'
-  import { getByPath } from '../utils'
   import type { InspectorActionButtonField } from '../types'
-
   const { t } = useI18n()
   const store = useGraphStore()
   const settingsStore = useSettingsStore()

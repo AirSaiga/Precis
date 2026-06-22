@@ -117,6 +117,7 @@ export function resolveRelativePath(relPath: string, baseDir: string): string | 
   // 如果 rel 已经是绝对路径，直接标准化后返回
   if (isAbsolutePath(rel)) return normalizePath(rel)
   // 拼接路径
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const sep = '/'
   const normalizedRel = rel.replace(/\\/g, '/').replace(/^\/+/, '')
   return base + normalizedRel

@@ -16,14 +16,31 @@ export default defineConfigWithVueTs(
 
   {
     rules: {
-      // TODO: 待专项清理后开启
-      // 当前代码库约 376 处 any（96 文件 :any + 31 文件 as any），
-      // 开启 error 会 CI 全红。清理路径：按目录分批替换为精确类型/unknown + 类型守卫。
+      // A2 专项：any 已清理完毕，开启 error 防止回退
+      '@typescript-eslint/no-explicit-any': 'error',
+      // 关闭基础 no-unused-vars，使用 TypeScript 版本避免 enum/interface 误报
       'no-unused-vars': 'off',
-      '@typescript-eslint/no-unused-vars': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        {
+          vars: 'all',
+          args: 'none',
+          ignoreRestSiblings: true,
+          caughtErrors: 'none',
+          varsIgnorePattern: '^_',
+        },
+      ],
       // 允许单文件小组件使用单词组件名
       'vue/multi-word-component-names': 'off',
+    },
+  },
+
+  // 测试文件暂不强制 no-unused-vars / no-explicit-any
+  {
+    files: ['tests/**/*.{ts,mts,tsx,vue}'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
     },
   },
 

@@ -477,13 +477,7 @@
   import { useI18n } from 'vue-i18n'
   import { useGraphStore } from '@/stores/graphStore'
   import ResourceTreeItem from './ResourceTreeItem.vue'
-  import type {
-    ResourceItem,
-    SchemaResource,
-    ResourceFolder,
-    ResourceFolderMap,
-  } from '@/types/resource'
-
+  import type { ResourceItem, SchemaResource, ResourceFolderMap } from '@/types/resource'
   interface Props {
     filteredFolders: ResourceFolderMap
     expandedSchemas: Set<string>

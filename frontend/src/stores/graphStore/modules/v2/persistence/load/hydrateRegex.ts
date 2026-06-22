@@ -19,7 +19,6 @@
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, RegexNodeData } from '@/types/graph'
 import type { FullConfigV2Response, RegexNodeFileV2 } from '@/types/projectV2'
-
 interface ColumnLike {
   id?: string
   columnName?: string
@@ -72,6 +71,7 @@ export function hydrateRegexNodesFromV2Config(params: {
       ? { nodeId: v2SourceRef.nodeId, columnId: actualColumnId }
       : undefined
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     const resolvedColumnName =
       v2ColumnName ||
       resolvedColByName?.columnName ||

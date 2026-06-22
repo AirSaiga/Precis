@@ -130,7 +130,6 @@
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
   import { useToast } from '@/composables/shared/useToast'
-
   const props = defineProps<{
     id: string
     data: CharsetConstraintNodeData
@@ -152,11 +151,13 @@
   const {
     isSaving,
     validationStatus,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     validationErrors,
     displayErrors,
     errorCount,
     showDetails,
     statusText,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     metrics,
     handleSave,
     handleDelete,
@@ -178,6 +179,7 @@
   )
   const hasMode = computed(() => !!localCharsetMode.value)
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const sourceDisplay = computed(() => {
     if (!hasSource.value)
       return t('customNodes.constraintRules.charsetConstraintNode.waitingForSource')

@@ -70,7 +70,6 @@
   import { useSettingsStore } from '@/stores/settingsStore'
   import { useAiConfigGeneratorStore } from '@/features/ai-config-generator/stores/aiConfigGeneratorStore'
   import { useI18n } from 'vue-i18n'
-
   const SettingsModal = defineAsyncComponent(() => import('@/components/common/SettingsModal.vue'))
   const FullValidationModal = defineAsyncComponent(
     () => import('@/components/common/FullValidationModal.vue')
@@ -98,6 +97,7 @@
   const aiConfigGeneratorStore = useAiConfigGeneratorStore()
   const projectManagementVisible = ref(false)
   const saveAsTemplateVisible = ref(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { t } = useI18n()
 
   const handleRegexDesignSave = (updatedData: RegexNodeData) => {

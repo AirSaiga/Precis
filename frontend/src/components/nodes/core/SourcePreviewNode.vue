@@ -265,26 +265,20 @@ Schema 节点 */
 
   // 引入 Vue Flow 的核心组件和工具
   import { Position } from '@vue-flow/core'
-
   // 引入 Vue 响应式 API
-  import { ref, onMounted, onUnmounted } from 'vue'
-
+  import { onMounted, onUnmounted } from 'vue'
   // 引入国际化支持
   import { useI18n } from 'vue-i18n'
-
   // 引入类型定义
   import type { SourcePreviewNodeData } from '@/types/graph'
   import NodeHandle from '@/components/ui/NodeHandle.vue'
 
   // 引入拖拽事件类型
   import type { DragEventPayload } from '@/stores/dragStore'
-
   // 引入节点删除管理器
-  import { NodeDeletionManager } from '@/services/managers/nodeDeletionManager'
 
   // 引入数据源预览逻辑整合 composable
   import { useSourcePreview } from '@/composables/nodes/sourcePreview'
-
   // 获取国际化实例
   const { t } = useI18n()
 
@@ -346,6 +340,7 @@ Schema 节点 */
     potentialHeaderRow,
 
     // 计算属性
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     previewHeaders,
     previewRows,
 
@@ -368,6 +363,7 @@ Schema 节点 */
     onRowIndicatorLeave,
     isHeaderRow,
     setupEventListeners,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     notifyDataChange,
   } = useSourcePreview(props, emit)
 

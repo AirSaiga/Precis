@@ -5,8 +5,7 @@
  */
 
 import { useGraphStore } from '@/stores/graphStore'
-import type { CustomNode, JsonSchemaNodeData, JsonSchemaColumn } from '@/types/nodes'
-
+import type { CustomNode, JsonSchemaNodeData } from '@/types/nodes'
 /**
  * 全局JSON Schema操作Composable
  * 提供跨节点的全局JSON Schema操作能力

@@ -129,7 +129,7 @@
   import { storeToRefs } from 'pinia'
   import { useProjectStore } from '@/stores/projectStore'
   import { useGraphStore } from '@/stores/graphStore'
-  import { getV2FullConfig, putV2FullConfig } from '@/api/projectV2Api'
+  import { putV2FullConfig } from '@/api/projectV2Api'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import * as fileApi from '@/core/capabilities/fileApi'
   import { useAiConfigGeneratorStore } from '../stores/aiConfigGeneratorStore'
@@ -139,7 +139,6 @@
   import { useGenerationJob } from '../composables/useGenerationJob'
   import { useMigrationJob } from '../composables/useMigrationJob'
   import { useHardwarePrecheck } from '../composables/useHardwarePrecheck'
-
   import ConfigPanel from './config-panel/ConfigPanel.vue'
   import MigratePanel from './migrate-panel/MigratePanel.vue'
   import PreviewPanel from './preview-panel/PreviewPanel.vue'

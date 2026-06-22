@@ -17,16 +17,11 @@ import type {
   ZoneGroup,
   SubGroup,
 } from '../types'
-import { NodeCategory, NODE_TYPE_TO_CATEGORY } from '../types'
-import { GROUP_COLORS, LAYOUT_CONSTANTS, NODE_TYPE_COLORS, NODE_TYPE_NAMES } from '../constants'
-import {
-  getDefaultDimension,
-  getNodeDimensionsFromDOM,
-  type NodeDimension,
-} from '../utils/nodeDimensionHelper'
-import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import { NodeCategory } from '../types'
+import { GROUP_COLORS, LAYOUT_CONSTANTS } from '../constants'
+import { getNodeDimensionsFromDOM, type NodeDimension } from '../utils/nodeDimensionHelper'
+import type { CustomNode } from '@/types/nodes'
 import { layoutFamily, calculateBoundsFromPositions, getFallbackDimension } from './familyLayout'
-
 export class SchemaCentricStrategy implements ILayoutStrategy {
   calculate(
     classification: NodeClassification,
@@ -497,7 +492,7 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
   private assignNodesByParentChildren(
     nodeIds: string[],
     schemaIds: string[],
-    nodeDataById: Map<string, any>,
+    nodeDataById: Map<string, CustomNode>,
     adjacency: Map<string, string[]>,
     excludedNodeIds: Set<string>
   ): {
@@ -518,7 +513,9 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
       if (schemaSet.has(nodeId)) continue
 
       const nodeData = nodeDataById.get(nodeId)
-      const parentId = nodeData?.data?.parent
+      const parentId = (nodeData?.data as unknown as Record<string, unknown>)?.parent as
+        | string
+        | undefined
 
       if (parentId && schemaSet.has(parentId)) {
         assignedSchemaByNode.set(nodeId, parentId)

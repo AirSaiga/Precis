@@ -18,12 +18,10 @@ import type {
   AiMigrateV2ConfigRequest,
   AiModelModes,
   CloudAIProviderResponse,
-  CloudAIProviderTestResponse,
   CreateProviderRequest,
   ProviderPreset,
   UpdateProviderRequest,
 } from '@/types/ai'
-
 /**
  * 获取 Ollama 服务健康状态
  *

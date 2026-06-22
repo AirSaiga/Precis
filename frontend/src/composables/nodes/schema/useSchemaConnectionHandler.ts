@@ -17,7 +17,7 @@ import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
-import type { Node, Edge } from '@vue-flow/core'
+import type { Node } from '@vue-flow/core'
 import type { SchemaColumn, SchemaNodeData } from '@/types/graph'
 import type { TableSchemaFileV2 } from '@/types/projectV2'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
@@ -34,7 +34,6 @@ import { eventBus } from '@/core/eventBus'
 import { i18n } from '@/i18n'
 import { useVirtualAnchorEdges } from './useVirtualAnchorEdges'
 import { toastWarning } from '@/core/toast'
-
 function convertColumnsFromConfig(columns: TableSchemaFileV2['columns']): SchemaColumn[] {
   return (columns || []).map((col) => ({
     id: col.id,
@@ -586,6 +585,7 @@ export function useSchemaConnectionHandler() {
    * @param sourcePreviewNode - 数据源预览节点
    * @param schemaNode - Schema 节点
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const checkColumnMismatch = async (
     sourcePreviewNode: { data: Record<string, unknown> },
     schemaNode: { data: Record<string, unknown> }
@@ -675,6 +675,7 @@ export function useSchemaConnectionHandler() {
         ((schemaNode.data as Record<string, unknown>).columns as unknown[]) || []
 
       // 获取与当前 Schema 节点相关的所有约束连接
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
       const relatedEdges = getConnectedEdges([schemaNode as unknown as Node])
 
       // 获取表头行数据

@@ -13,11 +13,10 @@ import { watch, type WatchStopHandle, ref, readonly } from 'vue'
 import { useNodeOrganizer } from './useNodeOrganizer'
 import { useSettingsStore } from '@/stores/settingsStore'
 import { useGraphStore } from '@/stores/graphStore'
-import type { OrganizeOptions } from '../types'
-
 export function useAutoOrganize() {
   const settingsStore = useSettingsStore()
   const graphStore = useGraphStore()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { organizeNodes, organizeOptions } = useNodeOrganizer()
 
   const isAutoOrganizeEnabled = ref(false)

@@ -8,13 +8,13 @@ import { logger } from '@/core/utils/logger'
 import { useI18n } from 'vue-i18n'
 import type { DataType, SchemaColumn, SchemaNodeData } from '../types'
 import { inferDataType, inferColumnType } from '@/utils/nodes/schema/typeInference'
-
 /**
  * 列生成
  * @param props - 组件属性
  * @returns 列生成相关的方法
  */
 export function useColumnGeneration(props: { data: SchemaNodeData }) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { t } = useI18n()
 
   // 使用统一的类型推断工具

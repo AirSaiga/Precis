@@ -10,13 +10,13 @@ import type { Ref } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import { addNodes } from '@/services/canvas/vueFlowApi'
-
 export interface BaseFactoryContext {
   nodes: Ref<CustomNode[]>
   selectedNodeId?: Ref<string | null>
 }
 
 export function createBaseNodeFactory(ctx: BaseFactoryContext) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { nodes, selectedNodeId } = ctx
 
   return function createNode<TData extends Record<string, unknown>>(

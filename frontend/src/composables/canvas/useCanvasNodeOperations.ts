@@ -40,7 +40,6 @@ import { useSourcePreview } from '../nodes/sourcePreview'
 import { toastError, toastSuccess, toastInfo } from '@/core/toast'
 import type { SourcePreviewNodeData } from '@/types/datasource'
 import type { ConstraintKind } from '@/services/constraints/types'
-
 /**
  * 画布节点操作组合式函数
  * 负责节点创建、拖拽等画布级别的操作
@@ -54,6 +53,8 @@ export function useCanvasNodeOperations(flowWrapper: Ref<HTMLElement | null>) {
 
   // 从 VueFlow 获取画布操作方法
   // addNodes: 添加节点, findNode: 查找节点, project: 坐标投影转换
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { addNodes, findNode, project } = useVueFlow()
 
   // 获取全局图存储，存储节点和连接状态

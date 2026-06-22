@@ -117,10 +117,9 @@ Schema节点数据源绑定/切换 */
    * 3. 处理数据源切换逻辑
    */
 
-  import { ref, computed } from 'vue'
+  import { ref } from 'vue'
   import { useI18n } from 'vue-i18n'
   import type { ExternalDataSource } from '@/types/datasource'
-
   /**
    * 树状数据源项接口
    */

@@ -25,7 +25,6 @@ import i18n from '@/i18n'
 import type { Edge } from '@vue-flow/core'
 import type { DataType } from '@/types/graph'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
-
 // 模块顶层调用 composable，避免在 class 方法体内调用（违反 Vue composable 规范）。
 // useGlobalConfirm 仅操作模块级 ref，无 inject/provide 依赖，模块顶层调用是安全的。
 const { showConfirm: _showConfirm } = useGlobalConfirm()
@@ -70,6 +69,7 @@ interface SchemaData {
   children?: string[]
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
 interface RegexData {
   sourceNodeId?: string
   sourceColumnName?: string

@@ -59,21 +59,12 @@
 
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
-import type {
-  CustomNode,
-  CustomNodeData,
-  RegexNodeData,
-  SchemaNodeData,
-  JsonSchemaNodeData,
-  JsonSchemaColumn,
-  SchemaColumn,
-} from '@/types/graph'
+import type { CustomNode, CustomNodeData, SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
 import { addEdges, removeEdges } from '@/services/canvas/vueFlowApi'
 import {
   findJsonSchemaColumnById,
   updateJsonSchemaColumnsRecursive,
 } from '@/utils/nodes/json/columnFinder'
-
 export function createSchemaOpsModule(params: {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>
@@ -95,7 +86,9 @@ export function createSchemaOpsModule(params: {
       const found = findJsonSchemaColumnById((schemaData as JsonSchemaNodeData).columns, columnId)
       columnName = found?.column.columnName || ''
     } else {
-      columnName = (schemaData as SchemaNodeData).columns.find((c) => c.id === columnId)?.columnName || ''
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
+      columnName =
+        (schemaData as SchemaNodeData).columns.find((c) => c.id === columnId)?.columnName || ''
     }
 
     // 先通过 API 删除该 Regex 节点的旧入边（触发 onEdgesChange 清理链）
@@ -192,7 +185,10 @@ export function createSchemaOpsModule(params: {
       const updatedColumns = schemaData.columns.map((column) => {
         if (column.id === columnId && column.constraints) {
           // 使用解构剔除模式替代 as unknown as + delete，保持类型安全
-          const { [constraintType]: _removed, ...rest } = column.constraints as Record<string, boolean>
+          const { [constraintType]: _removed, ...rest } = column.constraints as Record<
+            string,
+            boolean
+          >
           return {
             ...column,
             constraints: Object.keys(rest).length > 0 ? rest : undefined,
@@ -209,7 +205,10 @@ export function createSchemaOpsModule(params: {
       const updatedColumns = updateJsonSchemaColumnsRecursive(schemaData.columns, (column) => {
         if (column.id === columnId && column.constraints) {
           // 使用解构剔除模式替代 as unknown as + delete，保持类型安全
-          const { [constraintType]: _removed, ...rest } = column.constraints as Record<string, boolean>
+          const { [constraintType]: _removed, ...rest } = column.constraints as Record<
+            string,
+            boolean
+          >
           return {
             ...column,
             constraints: Object.keys(rest).length > 0 ? rest : undefined,

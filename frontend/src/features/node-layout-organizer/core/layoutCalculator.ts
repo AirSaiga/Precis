@@ -12,14 +12,12 @@ import type {
   NodeClassification,
   ConnectionInfo,
   LayoutContext,
-  GroupedLayout,
   ZoneGroup,
 } from '../types'
 import type { CustomNode } from '@/types/nodes'
 import { NodeCategory, NODE_TYPE_TO_CATEGORY } from '../types'
 import { LAYOUT_CONSTANTS } from '../constants'
 import { SchemaCentricStrategy } from '../strategies/schemaCentricStrategy'
-
 export class LayoutCalculator {
   private context: LayoutContext
   private classification: NodeClassification

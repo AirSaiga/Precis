@@ -35,7 +35,6 @@ import type { SchemaNodeData, SchemaColumn } from '../types'
 import { validateNotNull } from '@/services/constraints/validators/notNull'
 import { validateUnique } from '@/services/constraints/validators/unique'
 import { validateAllowedValues as validateAllowedValuesApi } from '@/api/validation/allowedValues'
-
 /**
  * Schema验证Composable - 负责Schema数据节点的约束验证逻辑
  *
@@ -55,6 +54,7 @@ export function useSchemaValidation(
   props: { id: string; data: SchemaNodeData },
   emit: (event: string, ...args: unknown[]) => void
 ) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { t } = useI18n()
 
   /**

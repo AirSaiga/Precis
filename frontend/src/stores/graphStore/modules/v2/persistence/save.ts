@@ -92,12 +92,9 @@ import { useI18n } from 'vue-i18n'
 import { useInspectionStore } from '@/stores/inspectionStore'
 import {
   putV2Constraint,
-  putV2FullConfig,
-  putV2ProjectView,
   putV2RegexNode,
   putV2TransformNode,
   putV2Schema,
-  updateV2ManifestSchemaRef,
   updateV2ManifestConstraintRef,
   updateV2ManifestRegexRef,
   updateV2ManifestTransformRef,
@@ -105,19 +102,15 @@ import {
 } from '@/api/projectV2Api'
 import {
   buildV2ConstraintFile,
-  buildV2FullConfig,
   buildV2Manifest,
-  buildV2ProjectView,
   buildV2RegexNodeFile,
   buildV2TransformFile,
   buildV2SchemaFile,
 } from '@/services/builders'
 import { SaveOrchestrator, buildNodeFile, SchemaConflictResolver } from '@/services/persistence'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
-import type { SchemaSaveMode } from '@/types/projectV2'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 import { platformDetector } from '@/features/keyboard/platform'
-
 export function createV2SaveOps(params: {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>
@@ -239,6 +232,7 @@ export function createV2SaveOps(params: {
       )
       if (!node) throw new Error(t('messages.builder.schemaNodeNotFound'))
 
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
       const isJsonSchema = node.type === 'jsonSchema'
       const schemaData = node.data as SchemaNodeData | JsonSchemaNodeData
       const configPath = getEffectiveProjectConfigPath()

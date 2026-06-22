@@ -22,10 +22,8 @@ import {
   getConstraintKindByV2Type,
   getConstraintNodeTypeByV2Type,
 } from '@/services/constraints/validationRegistry'
-import type { ConstraintKind } from '@/services/constraints/types'
 import type { BuildInput } from '@/services/constraints/nodeDataBuilder'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
-
 interface EmbeddedConstraintItem {
   id?: string | number
   type?: string

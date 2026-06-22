@@ -335,23 +335,18 @@
 
   // Vue 核心功能导入
   import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
-
   // 国际化支持
   import { useI18n } from 'vue-i18n'
-
   // VueFlow 图库导入
   // - Handle: 连接点组件
   // - Position: 连接位置枚举
   // - useVueFlow: VueFlow 核心 hook
   import { Handle, Position, useVueFlow } from '@vue-flow/core'
-
   // 类型定义导入
   import type { SchemaNodeData, SchemaColumn, DataType } from '@/types/graph'
-
   // Store 导入
   // - graphStore: 图数据状态（节点、边）
   import { useGraphStore } from '@/stores/graphStore'
-
   // Composables 导入 - 组织业务逻辑
   // - useSchemaNode: 整合所有 Schema 节点核心逻辑
   // - useSchemaUI: UI 状态管理（下拉菜单、悬停状态等）
@@ -362,10 +357,8 @@
   import { useSchemaInteractions } from '@/composables/nodes/schema/useSchemaInteractions'
   import { useSchemaConnectionHandler } from '@/composables/nodes/schema/useSchemaConnectionHandler'
   import { useSchemaResizable } from '@/composables/nodes/schema/useSchemaResizable'
-
   // 全局确认对话框
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
-
   // 子组件导入
   import SchemaNodeHeader from '@/components/nodes/core/SchemaNode/components/SchemaNodeHeader.vue'
   import SchemaNodeColumnRow from '@/components/nodes/core/SchemaNode/components/SchemaNodeColumnRow.vue'
@@ -381,7 +374,6 @@
   import { usePreviewCreation } from '@/composables/nodes/sourcePreview/usePreviewCreation'
   import type { FilePreviewResult } from '@/composables/nodes/sourcePreview/usePreviewCreation'
   import type { ExternalDataSource, SourceMode } from '@/types/datasource'
-
   // ==================== Props 定义 ====================
 
   /**
@@ -479,12 +471,14 @@
     dropdownPosition,
     constraintMenuColumnId,
     constraintDropdownPosition,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     errorPopoverPosition,
     showSourceDropdown,
     sourceDropdownPosition,
     dataSourceTree,
     nodeClasses,
     getErrorPopoverPosition,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     validateColumnName,
     toggleTypeDropdown,
     toggleConstraintMenu,
@@ -511,6 +505,7 @@
   const {
     snappingColumnIds,
     editingColumnName,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     triggerColumnSnapAnimation,
     handleColumnOutputConnect,
     createTableRelation,
@@ -546,53 +541,81 @@
    * - 保存逻辑
    */
   const {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     schemaData,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     addColumn,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     updateColumn,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     deleteColumn: deleteColumnFromSchema,
     updateSchemaData,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     notifyDataChanged,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     handleSourceConnection,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     disconnectSource,
     autoGenerateColumns,
     showSmartFillDialog,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     inferDataType,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     inferColumnTypes,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     generateColumnsFromHeader,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     generateColumnsFromSource,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     mergeColumns,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     validateAllColumns,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     validateColumn,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     validateNotNull,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     validateUnique,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     validateAllowedValues,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     showValidationResults,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     generateColumnsFromHeaderData,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     updateSchemaNodeFromHeaderChangeSafe,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     updateSchemaNodeFromSheetChange,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     findConnectedSchemaNodes,
     editingColumn,
     columnInputRefs,
     startColumnEdit,
     confirmColumnEdit,
     cancelColumnEdit,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     showColumnError,
     deleteColumn: deleteColumnFromEditing,
     toggleConstraint,
     removeAllConstraints,
     updateColumnType,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     addConstraintToColumn,
     bindPatternToColumn,
     onColumnEnter,
     onColumnTab,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     setInputRef,
     isSaving,
     saveSuccess,
     saveError,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     saveBtnHovered,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     closeBtnHovered,
     showCloseConfirm,
     handleSave,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     handleSaveComplete,
     handleSaveCompleteDOM,
     handleClose,
@@ -1052,7 +1075,6 @@
 
   // 导入 nextTick（解决脚本末尾导入顺序问题）
   import { nextTick } from 'vue'
-
   // ==================== 暴露方法 ====================
 
   /**

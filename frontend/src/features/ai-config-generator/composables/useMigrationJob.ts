@@ -6,7 +6,7 @@
  * - 提交 AI 配置迁移异步任务（从旧脚本迁移）
  * - 复用 useGenerationJob 的轮询和状态管理
  */
-import { ref, type ComputedRef, type Ref } from 'vue'
+import { type ComputedRef, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isAxiosError } from '@/core/services/httpClient'
 import {
@@ -20,7 +20,6 @@ import type {
   AiGenerateV2ConfigResponse,
   CloudAIProviderResponse,
 } from '@/types/ai'
-
 export function useMigrationJob(
   configPath: ComputedRef<string | undefined>,
   checkedFiles: Ref<Set<string>>,

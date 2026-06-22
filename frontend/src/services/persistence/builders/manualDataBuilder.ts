@@ -5,10 +5,9 @@
  */
 
 import type { DataType } from '@/types/common'
-import type { CustomNode, ManualDataNodeData } from '@/types/graph'
+import type { ManualDataNodeData } from '@/types/graph'
 import type { ManualDataFileV2 } from '@/types/projectV2'
 import type { BuilderContext, NodeBuilder } from '../types'
-
 const DATA_TYPE_TO_FILE_TYPE: Record<DataType, ManualDataFileV2['column_data_type']> = {
   String: 'string',
   Integer: 'integer',

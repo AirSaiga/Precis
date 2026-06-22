@@ -13,7 +13,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import type { Edge, Node } from '@vue-flow/core'
+import type { Edge } from '@vue-flow/core'
 import type { CustomNode, SchemaNodeData, SourcePreviewNodeData, SchemaColumn } from '@/types/graph'
 import type { DataType } from '@/types/common'
 import { validateAndExtractRegex } from '@/features/regex/services/regexExtractService'
@@ -28,7 +28,6 @@ import {
 } from '@/features/regex/composables/regexExtractUtils'
 import { findEdge } from '@/services/canvas/vueFlowApi'
 import { buildValidationContext } from '@/services/constraints/validationContext'
-
 export interface RegexValidationResult {
   validationStatus: 'pass' | 'error' | 'idle'
   errorCount: number | undefined
@@ -316,6 +315,7 @@ async function validateRegexFromRows(params: {
   updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
   signal?: AbortSignal
 }): Promise<RegexValidationResult | null> {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { regexNode, sourceNode, columnName, columnId, nodes, edges, updateNodeData, signal } =
     params
   const regexData = regexNode.data as unknown as Record<string, unknown>

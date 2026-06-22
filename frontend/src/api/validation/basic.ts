@@ -7,13 +7,7 @@ import { logger } from '@/core/utils/logger'
 import { isAxiosError } from 'axios'
 import apiClient from '@/core/services/httpClient'
 import { VALIDATION_API_PATH } from './core'
-import type {
-  ValidationResponse,
-  NotNullValidationRequest,
-  RangeValidationRequest,
-  UniqueValidationRequest,
-} from './core'
-
+import type { ValidationResponse, NotNullValidationRequest, RangeValidationRequest } from './core'
 /** 非空约束校验 */
 export async function validateNotNull(
   request: NotNullValidationRequest

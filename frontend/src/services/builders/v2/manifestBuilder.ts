@@ -9,33 +9,9 @@
  * 1. buildV2Manifest: 构建项目清单
  */
 
-import type {
-  CustomNode,
-  SchemaNodeData,
-  RegexNodeData,
-  JsonSchemaNodeData,
-  JsonSchemaColumn,
-} from '@/types/graph'
-import type {
-  ProjectManifestV2,
-  TableSchemaFileV2,
-  ColumnSpecV2,
-  ConstraintFileV2,
-  ConstraintItemV2,
-  ConstraintTypeV2,
-  RegexNodeFileV2,
-  FullConfigV2Request,
-  ProjectViewV2,
-  TemplateInstanceRefV2,
-} from '@/types/projectV2'
-import { toBackendType, buildJSONOptions, toJsonBackendType } from '../schemaBuilder'
-import { i18n } from '@/i18n'
-import {
-  getV2ConstraintTypeByNodeType,
-  isConstraintNodeType,
-} from '@/services/constraints/validationRegistry'
-import { buildConstraintExportPayload } from '@/services/constraints/constraintExportAdapter'
-
+import type { CustomNode, SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
+import type { ProjectManifestV2 } from '@/types/projectV2'
+import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 /**
  * 构建 canvas node ID -> schema ID 的映射
  *

@@ -20,7 +20,6 @@ import { resourceService } from '@/services/resourceService'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useToast } from '@/composables/shared'
 import type { ResourceItem, FolderType } from '@/types/resource'
-
 export function useResourceTree() {
   const { t } = useI18n()
 
@@ -192,6 +191,7 @@ export function useResourceTree() {
     resource: ResourceItem,
     customPosition?: { x: number; y: number }
   ): Promise<string | null> => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     const position = customPosition || { x: 240, y: 120 }
 
     switch (resource.kind) {

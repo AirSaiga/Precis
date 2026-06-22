@@ -12,14 +12,12 @@ import { logger } from '@/core/utils/logger'
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
-  exportReport as exportReportService,
   exportHtmlReport,
   exportPdfReport,
   previewHtmlReport,
   type ReportGenerateOptions,
 } from '@/services/reportExportService'
 import type { FullValidationResponse } from '@/api/projectValidationApi'
-
 /**
  * 导出格式类型
  */

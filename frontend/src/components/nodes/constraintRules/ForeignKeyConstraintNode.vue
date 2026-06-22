@@ -99,7 +99,6 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
-
   const props = defineProps<{
     id: string
     data: ForeignKeyConstraintNodeData
@@ -135,6 +134,7 @@
   const {
     isSaving,
     validationStatus,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     validationErrors,
     displayErrors,
     errorCount,

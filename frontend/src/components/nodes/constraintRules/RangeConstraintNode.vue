@@ -89,7 +89,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, onBeforeUnmount, ref, watch, nextTick } from 'vue'
+  import { computed, onBeforeUnmount, watch, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
   import ConstraintNodeFrame from './shared/ConstraintNodeFrame.vue'
@@ -99,7 +99,6 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
-
   const props = defineProps<{
     id: string
     data: RangeConstraintNodeData
@@ -120,6 +119,7 @@
   const {
     isSaving,
     validationStatus,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     validationErrors,
     displayErrors,
     errorCount,

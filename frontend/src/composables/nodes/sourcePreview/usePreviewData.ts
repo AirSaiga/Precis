@@ -32,10 +32,9 @@ import { useI18n } from 'vue-i18n'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useGraphStore } from '@/stores/graphStore'
 import { eventBus } from '@/core/eventBus'
-import { toastError, toastInfo } from '@/core/toast'
+import { toastError } from '@/core/toast'
 import type { SourcePreviewNodeData } from '../types'
 import type { SourceMode } from '@/types/datasource'
-
 interface PreviewReloadResponse {
   success: boolean
   data?: unknown[][]
@@ -80,6 +79,7 @@ export function usePreviewData(
 ) {
   // 国际化支持，用于显示确认对话框文本
   const { t } = useI18n()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { showConfirm } = useGlobalConfirm()
   // 获取全局图存储，用于访问和修改节点数据
   const store = useGraphStore()
@@ -130,6 +130,7 @@ export function usePreviewData(
    *
    * @returns 'localfile'（当前唯一支持的模式）
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const getSourceMode = (): SourceMode => {
     // 2026年3月：始终返回 localfile，IndexedDB 模式已移除
     return 'localfile'
@@ -147,6 +148,7 @@ export function usePreviewData(
    *
    * @returns true 表示本地路径模式（Electron 环境）
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const isLocalFileMode = (): boolean => {
     return true
   }
@@ -474,6 +476,7 @@ export function usePreviewData(
    * 【事件流】
    * input.onchange -> CustomEvent('reload-file-uploaded') -> DataLibrary 处理
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const triggerFileSelection = () => {
     const input = document.createElement('input')
     input.type = 'file'

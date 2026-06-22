@@ -48,15 +48,15 @@
   )
 
   // 定义组件的事件
-  import type { DataSourceDragPayload } from '@/composables/data/useDataSourceDrag'
-  import type { ResourceDragPayload } from '@/stores/resourceDragStore'
 
+  import type { ResourceDragPayload } from '@/stores/resourceDragStore'
   const emit = defineEmits<{
     dragstart: [payload: ResourceDragPayload]
     dragend: []
   }>()
 
   // 定义Props
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const props = defineProps<{
     currentView: 'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'data'
   }>()

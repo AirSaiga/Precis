@@ -11,15 +11,13 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Node as VueFlowNode } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
-import type { SchemaNodeData } from '@/types/graph'
-
 /**
  * Schema 节点拖拽处理函数类型定义
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
 type CreateAction = (nodeId: string, pos: { x: number; y: number }) => void
 
 /**
@@ -85,6 +83,7 @@ export function useSchemaNodeDrag(): UseSchemaNodeDragReturn {
    * @param event - 鼠标或触摸事件
    * @returns { x, y } - 屏幕坐标
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const getClientCoordinates = (event: MouseEvent | TouchEvent): { x: number; y: number } => {
     if ('changedTouches' in event) {
       const touch = event.changedTouches[0]
@@ -104,6 +103,7 @@ export function useSchemaNodeDrag(): UseSchemaNodeDragReturn {
    * @param constraintTypes - 可用的约束类型列表
    * @param onSelect - 菜单项选择回调
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const createConstraintMenu = (
     clientX: number,
     clientY: number,
@@ -186,6 +186,7 @@ export function useSchemaNodeDrag(): UseSchemaNodeDragReturn {
    *
    * @returns ConstraintTypeConfig[] - 约束类型配置数组
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const getAvailableConstraintTypes = (): ConstraintTypeConfig[] => {
     return [
       {

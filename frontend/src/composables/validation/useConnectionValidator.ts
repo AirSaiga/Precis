@@ -21,14 +21,12 @@ import { logger } from '@/core/utils/logger'
 import { computed } from 'vue'
 import type { Node, Connection } from '@vue-flow/core'
 import {
-  connectionRules,
   getRulesForSourceNodeType,
   type ConnectionRule,
   type ValidationResult,
   type ValidationErrorCode,
   type ConnectionValidationContext,
 } from '@/services/rules'
-
 export interface UseConnectionValidatorOptions {
   existingConnections?: Connection[]
   enableI18n?: boolean
@@ -45,6 +43,7 @@ const ERROR_MESSAGES: Record<ValidationErrorCode, string> = {
 }
 
 export function useConnectionValidator(options: UseConnectionValidatorOptions = {}) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { enableI18n = false } = options
 
   // 将外部传入的连接数组转换为响应式计算属性

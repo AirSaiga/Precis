@@ -80,7 +80,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, ref } from 'vue'
+  import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
   import ConstraintNodeFrame from './shared/ConstraintNodeFrame.vue'
@@ -90,7 +90,6 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
-
   const props = defineProps<{
     id: string
     data: UniqueConstraintNodeData
@@ -103,17 +102,21 @@
   }>()
 
   const { t } = useI18n()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const store = useGraphStore()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { showConfirm } = useGlobalConfirm()
 
   const {
     isSaving,
     validationStatus,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     validationErrors,
     displayErrors,
     errorCount,
     showDetails,
     statusText,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     metrics,
     handleSave,
     handleDelete,

@@ -12,10 +12,10 @@
  */
 
 import { isElectron, getElectronAPI, type FileFilter } from '@/core/utils/electronDetector'
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
 import { selectFilesInBrowser, type FileInputOptions } from '@/core/utils/fileInput'
 import { uploadFile } from '@/core/utils/fileApi'
 import { logger } from '@/core/utils/logger'
-
 export interface SelectFilesOptions {
   /** 对话框标题 */
   title?: string
@@ -177,9 +177,8 @@ class WebDialogAdapter implements DialogApi {
 
   async selectFiles(options?: SelectFilesOptions): Promise<SelectResult> {
     const accept =
-      options?.filters
-        ?.flatMap((filter) => filter.extensions.map((ext) => `.${ext}`))
-        .join(',') || ''
+      options?.filters?.flatMap((filter) => filter.extensions.map((ext) => `.${ext}`)).join(',') ||
+      ''
 
     const files = await selectFilesInBrowser({
       accept,
@@ -196,7 +195,9 @@ class WebDialogAdapter implements DialogApi {
 
   async selectDirectory(): Promise<SelectResult> {
     // Web 下无法直接获取服务器目录路径；业务层应使用手动输入或其他方式
-    logger.warn('[dialogApi] Web 下不支持直接选择目录路径，请使用 selectDirectoryEntries 或手动输入')
+    logger.warn(
+      '[dialogApi] Web 下不支持直接选择目录路径，请使用 selectDirectoryEntries 或手动输入'
+    )
     return { canceled: true, filePaths: [] }
   }
 
@@ -245,4 +246,6 @@ class WebDialogAdapter implements DialogApi {
 /**
  * 全局文件/目录选择能力实例
  */
-export const dialogApi: DialogApi = isElectron() ? new ElectronDialogAdapter() : new WebDialogAdapter()
+export const dialogApi: DialogApi = isElectron()
+  ? new ElectronDialogAdapter()
+  : new WebDialogAdapter()

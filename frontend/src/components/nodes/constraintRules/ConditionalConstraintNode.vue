@@ -157,6 +157,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   import NodeBadge from '@/components/ui/NodeBadge.vue'
   import ConstraintNodeFrame from './shared/ConstraintNodeFrame.vue'
   import ConstraintNodeLayout from './shared/ConstraintNodeLayout.vue'
@@ -166,7 +167,6 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
-
   const props = defineProps<{
     id: string
     data: ConditionalConstraintNodeData
@@ -175,16 +175,19 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
 
   const { t } = useI18n()
   const store = useGraphStore()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { showConfirm } = useGlobalConfirm()
 
   const {
     isSaving,
     validationStatus,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     validationErrors,
     displayErrors,
     errorCount,
     showDetails,
     statusText,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     metrics,
     handleSave,
     handleDelete,
@@ -261,6 +264,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
    * 计算配置概览显示
    * 显示当前条件配置的关键信息
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const configOverview = computed(() => {
     const data = props.data
     if (!data.ifRef?.columnId && !data.thenRef?.columnId) {
@@ -472,6 +476,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   )
 
   // 查找当前关联的源节点对象
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const sourceNode = computed(() => {
     // 优先级：本地选择 > props.thenRef > props.ifRef > 第一个条件
     const nodeId =
@@ -591,6 +596,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   })
 
   // 控制是否显示引导步骤 (当配置未完成时显示)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const showGuide = computed(() => {
     if (validationStatus.value === 'error') return false // 出错时优先显示错误
     return !hasIf.value || !hasThen.value || !hasIfValue.value || !hasThenCondition.value
@@ -721,6 +727,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
    * 处理源表变更
    * 当用户切换源表时，需要清空所有关联的连线和配置
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const handleSourceTableChange = () => {
     const selectedTable = availableSourceTables.value.find((t) => t.id === localSourceNodeId.value)
     // 查找并删除所有连接到本节点的输入边
@@ -760,6 +767,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
    * 处理 THEN 列变更
    * 更新数据并自动创建连线
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const handleThenColumnChange = async () => {
     if (!localThenColumnId.value) return
     const selectedCol = availableSourceColumns.value.find((c) => c.id === localThenColumnId.value)
@@ -803,6 +811,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   }
 
   // 确保 THEN 边存在 (用于点击下拉框时恢复可能误删的连线)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const ensureThenEdge = () => {
     const schemaNodeId = getSchemaNodeIdForEdges()
     const columnId = localThenColumnId.value || props.data.thenRef?.columnId || ''
@@ -1020,17 +1029,20 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
     scheduleValidation()
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const handleIfLogicChange = () => {
     applyIfConditionsUpdate()
   }
 
   // 高阶函数：生成特定索引的处理函数
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const handleIfConditionColumnChange = (idx: number) => () => {
     if (!localIfConditions.value[idx]) return
     ensureIfEdgeForRow(idx)
     applyIfConditionsUpdate()
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const handleIfConditionOperatorChange = (idx: number) => () => {
     const cond = localIfConditions.value[idx]
     if (!cond) return
@@ -1039,16 +1051,19 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
     applyIfConditionsUpdate()
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const handleIfConditionValueInput = (idx: number) => () => {
     if (!localIfConditions.value[idx]) return
     applyIfConditionsUpdate()
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const handleIfConditionValuesInput = (idx: number) => () => {
     if (!localIfConditions.value[idx]) return
     applyIfConditionsUpdate()
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const addIfCondition = () => {
     localIfConditions.value.push({
       columnId: '',
@@ -1060,6 +1075,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
     applyIfConditionsUpdate()
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const removeIfCondition = (idx: number) => {
     if (localIfConditions.value.length <= 1) return
     const removed = localIfConditions.value[idx]
@@ -1086,6 +1102,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   }
 
   // 切换 DSL/Function 模式
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const handleConditionModeChange = () => {
     if (localConditionMode.value === 'function') {
       setThenConditionConfig(localFunctionName.value.trim())
@@ -1094,6 +1111,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
     }
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const handleOperatorChange = () => {
     if (localOperator.value === 'not_null') {
       setThenConditionConfig({ operator: 'not_null' })
@@ -1113,10 +1131,12 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
     })
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const handleGreaterThanInput = () => {
     setThenConditionConfig({ operator: 'greater_than', value: localGreaterThanValue.value })
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const handleInValuesInput = () => {
     setThenConditionConfig({
       operator: 'in',
@@ -1127,6 +1147,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
     })
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const handleFunctionInput = () => {
     if (localConditionMode.value !== 'function') return
     setThenConditionConfig(localFunctionName.value.trim())

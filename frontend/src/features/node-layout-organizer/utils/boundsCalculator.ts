@@ -9,8 +9,6 @@
  * - 迭代式重叠消解算法
  */
 import type { NodePosition } from '../types'
-import { NODE_DIMENSIONS } from '../constants'
-
 export interface Bounds {
   minX: number
   minY: number

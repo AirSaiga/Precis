@@ -10,8 +10,7 @@
 
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import type { ResourceFolder, ResourceFolderMap, ResourceItem } from '@/types/resource'
-
+import type { ResourceFolderMap, ResourceItem } from '@/types/resource'
 /**
  * 从 localStorage 读取文件夹展开状态
  *

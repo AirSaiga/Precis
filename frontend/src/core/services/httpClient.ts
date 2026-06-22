@@ -230,6 +230,7 @@ const apiClient: AxiosInstance = axios.create({
  * @returns 请求响应数据
  * @throws 最后一次重试失败的错误
  */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
 const requestWithRetry = async <T = unknown>(
   config: Parameters<AxiosInstance['request']>[0],
   retryConfig: RetryConfig = defaultRetryConfig

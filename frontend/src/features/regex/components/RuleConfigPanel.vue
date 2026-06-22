@@ -178,14 +178,12 @@
 </template>
 
 <script setup lang="ts">
-  import { logger } from '@/core/utils/logger'
   import { ref, watch, computed, reactive, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
   import type { Rule } from '@/features/regex/types'
   import SelectionPopover from './SelectionPopover.vue'
   import ParamDefinitionModal from './ParamDefinitionModal.vue'
   import { useToast } from '@/composables/shared/useToast'
-
   const props = defineProps<{
     rule: Rule
     sampleText?: string

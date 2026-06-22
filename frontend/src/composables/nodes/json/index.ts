@@ -13,11 +13,9 @@ import { useJsonSchemaInteractions } from './useJsonSchemaInteractions'
 import { useJsonSchemaResizable } from './useJsonSchemaResizable'
 import { useJsonSchemaSaving } from './useJsonSchemaSaving'
 import { useJsonSchemaDrag } from './useJsonSchemaDrag'
-import { useJsonSchemaConnectionHandler } from './useJsonSchemaConnectionHandler'
 import type { JsonSchemaNodeData, JsonSchemaColumn } from '@/types/nodes'
 import type { EmitFn } from 'vue'
 import type { ConstraintCreateData } from './useJsonSchemaInteractions'
-
 type JsonSchemaNodeEmits = {
   save: [JsonSchemaNodeData]
   'remove-node': [string]

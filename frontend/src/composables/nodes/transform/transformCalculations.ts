@@ -8,9 +8,7 @@
  * 每个导出函数对应一种 TransformType 的前端预览计算逻辑。
  */
 
-import type { TransformNodeData } from '@/types/nodes'
 import { ROW_CHANGING_TRANSFORMS, ROW_CHANGING_TYPE_LABELS } from './transformTypeRegistry'
-
 interface OutputColumnsLike {
   outputColumns?: string[]
 }

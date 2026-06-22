@@ -33,6 +33,7 @@
 
   const { t } = useI18n()
   const graphStore = useGraphStore()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const settingsStore = useSettingsStore()
   const { exportReport: exportValidationReport } = useValidationReportExport()
   const { navigateErrorToCanvas } = useValidationErrorNavigator()

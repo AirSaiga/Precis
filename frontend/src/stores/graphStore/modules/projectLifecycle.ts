@@ -72,7 +72,6 @@ import type { ProjectNodeData } from '@/types/nodes'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
 import type { ProjectStoreLike, ResourceTreeStoreLike } from '@/types/storeInterfaces'
 import type { ProjectConfigStats } from '../setup/state'
-
 export function createProjectLifecycleModule(params: {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>
@@ -115,6 +114,7 @@ export function createProjectLifecycleModule(params: {
     regexEditSampleData,
     copiedNodes,
     normalizeConfigDir,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     refreshProjectConfigStats,
     projectStore,
     resourceTreeStore,

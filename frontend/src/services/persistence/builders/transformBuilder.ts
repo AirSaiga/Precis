@@ -4,10 +4,9 @@
  * 将 transform 节点转换为 TransformFileV2。
  */
 
-import type { CustomNode, TransformNodeData } from '@/types/graph'
+import type { TransformNodeData } from '@/types/graph'
 import type { TransformFileV2 } from '@/types/projectV2'
 import type { BuilderContext, NodeBuilder } from '../types'
-
 export const transformBuilder: NodeBuilder<TransformFileV2> = {
   kind: 'transform',
   matches: (node) => node.type === 'transform',

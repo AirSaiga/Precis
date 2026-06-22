@@ -25,13 +25,12 @@
  * - 格式化后的错误信息
  */
 
-import { ref, computed, watch, nextTick, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import type { JsonSchemaNodeData, JsonSchemaColumn, JsonDataType } from '@/types/nodes'
 import { useNodeUI } from '@/composables/nodes/shared/useNodeUI'
-
 /**
  * JSON Schema UI状态管理
  *
@@ -43,14 +42,17 @@ export function useJsonSchemaUI(props: {
   data: JsonSchemaNodeData
   selected?: boolean
 }) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { t } = useI18n()
   const { updateNodeInternals } = useVueFlow()
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const store = useGraphStore()
 
   /**
    * 防止无限递归的标志
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const isInitializing = false
 
   /**

@@ -5,7 +5,6 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
@@ -13,7 +12,6 @@ import type { SchemaNodeData, SchemaColumn, DataType } from '@/types/graph'
 import { dispatchValidation } from '@/services/constraints/orchestration/globalValidation'
 import { getSchemaNodeSourceInfo } from '@/services/constraints/orchestration/validationCollector'
 import { useNodeColumnEditing } from '../shared/useNodeColumnEditing'
-
 export function useSchemaEditing(
   props: { id: string; data: SchemaNodeData },
   emit: (event: string, ...args: unknown[]) => void

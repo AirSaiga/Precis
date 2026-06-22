@@ -19,10 +19,9 @@
 
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData, SubGraphData } from '@/types/graph'
-import type { ConstraintFileV2, FullConfigV2Response } from '@/types/projectV2'
+import type { FullConfigV2Response } from '@/types/projectV2'
 import type { SchemaNodeData } from '@/types/nodes'
 import { getConstraintNodeTypeByV2Type } from '@/services/constraints/validationRegistry'
-
 export function hydrateManifestConstraintsFromV2Config(params: {
   config: FullConfigV2Response
   existingNodes: CustomNode[]

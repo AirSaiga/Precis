@@ -34,11 +34,13 @@ Header：根节点图标、标题 * - Content：表集合内容区域 */
   import type { TableSetRootNodeData } from '@/types/graph'
   import GraphNodeFrame from '@/components/nodes/shared/GraphNodeFrame.vue'
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const props = defineProps<{
     id: string
     data: TableSetRootNodeData
   }>()
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const store = useGraphStore()
   const { t } = useI18n()
 </script>

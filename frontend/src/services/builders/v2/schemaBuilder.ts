@@ -10,31 +10,19 @@
  * 2. buildV2JsonSchemaFile: 构建 JSON Schema 文件
  */
 
-import type {
-  CustomNode,
-  SchemaNodeData,
-  RegexNodeData,
-  JsonSchemaNodeData,
-  JsonSchemaColumn,
-} from '@/types/graph'
+import type { CustomNode, SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
 import type {
   TableSchemaFileV2,
   ColumnSpecV2,
   ConstraintItemV2,
   ConstraintTypeV2,
 } from '@/types/projectV2'
-import {
-  toBackendType,
-  buildJSONOptions,
-  toJsonBackendType,
-  flattenJsonColumns,
-} from '../schemaBuilder'
+import { toBackendType, buildJSONOptions, flattenJsonColumns } from '../schemaBuilder'
 import { i18n } from '@/i18n'
 import {
   getV2ConstraintTypeByNodeType,
   isConstraintNodeType,
 } from '@/services/constraints/validationRegistry'
-
 function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null {
   const d = (node.data || {}) as Record<string, unknown>
   const v2Type = getV2ConstraintTypeByNodeType(node.type)

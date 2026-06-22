@@ -2,10 +2,9 @@
  * @file constraintNodeRegistry.ts
  * @description 约束节点注册中心
  */
-import { markRaw } from 'vue'
+
 import type { NodeComponent } from '@vue-flow/core'
 import type { ConstraintKind } from '@/services/constraints/types'
-
 /**
  * 约束节点类型定义
  */

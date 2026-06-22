@@ -9,9 +9,8 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { reactive, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { storeToRefs } from 'pinia'
 import yaml from 'js-yaml'
 import { useResourceTreeStore } from '@/stores/resourceTreeStore'
 import { useGraphStore } from '@/stores/graphStore'
@@ -27,7 +26,6 @@ import type {
   ContextMenuAction,
   RenameValidationResult,
 } from '@/types/resource'
-
 export function useResourceContextMenu() {
   const { t } = useI18n()
 

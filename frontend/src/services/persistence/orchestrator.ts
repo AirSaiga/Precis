@@ -16,8 +16,7 @@ import { putV2FullConfig, putV2ProjectView } from '@/api/projectV2Api'
 import { buildV2ProjectView } from '@/services/builders'
 import { buildSavePlan, buildIncrementalSavePlan } from './planBuilder'
 import { PreValidator } from './preValidator'
-import type { SavePlan, SaveResult, PreValidationError, AutoFixRecord } from './types'
-
+import type { SavePlan, SaveResult, AutoFixRecord } from './types'
 export interface OrchestratorDeps {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>

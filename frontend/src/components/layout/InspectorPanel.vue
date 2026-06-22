@@ -159,6 +159,7 @@
    * 组件属性定义
    * @param collapsed - 控制面板是否折叠
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const props = defineProps<{
     collapsed?: boolean
   }>()

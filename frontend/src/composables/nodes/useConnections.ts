@@ -25,7 +25,6 @@
 import { logger } from '@/core/utils/logger'
 import { ref } from 'vue'
 import type { Connection, OnConnectStartParams } from '@vue-flow/core'
-
 import { useGraphStore } from '@/stores/graphStore'
 import { useProjectStore } from '@/stores/projectStore'
 import type { SchemaNodeData, CustomNodeData } from '@/types/graph'
@@ -45,7 +44,6 @@ import {
 import { validateForInlineSource } from '@/services/constraints/validationRegistryCore'
 import { createConnectionTransaction } from '@/utils/nodes/connectionTransaction'
 import { updateEdgeData } from '@/services/canvas/vueFlowApi'
-
 export function useConnections() {
   const store = useGraphStore()
 
@@ -569,6 +567,7 @@ export function useConnections() {
       if (sourceNode.type === 'manualData' && targetNode.type === 'regex') {
         const manualData = sourceNode.data as Record<string, unknown>
         const columnName = (manualData.columnName as string) || 'Column1'
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
         const rows = (manualData.rows as string[][]) || []
 
         // 更新 regex 节点的数据源信息
@@ -682,6 +681,7 @@ export function useConnections() {
       }
 
       if (sourceNode.type === 'transformOutput' && targetNode.type === 'regex') {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
         const outputData = sourceNode.data as Record<string, unknown>
         tx.patchNodeData(target, {
           sourceRef: { nodeId: source, columnId: '0' },

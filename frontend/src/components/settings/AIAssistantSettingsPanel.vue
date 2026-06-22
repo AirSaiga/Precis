@@ -385,7 +385,6 @@
     updateCloudAIProvider,
     deleteCloudAIProvider,
   } from '@/api/aiApi'
-
   const { t } = useI18n()
   const { success: showSuccess, error: showError } = useToast()
   const { showConfirm } = useGlobalConfirm()
@@ -556,6 +555,7 @@ defaults:
     showAddForm.value = false
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   function onPresetChange(): void {
     const preset = presets.value.find((p) => p.id === addForm.presetId)
     if (preset) {

@@ -121,7 +121,7 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
    * - 自动触发后端校验，并在节点内展示状态、指标与错误明细
    */
 
-  import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+  import { computed, nextTick, onBeforeUnmount, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { Position } from '@vue-flow/core'
   import NodeBadge from '@/components/ui/NodeBadge.vue'
@@ -133,7 +133,6 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
   import { useSettingsStore } from '@/stores/settingsStore'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
-
   const props = defineProps<{
     id: string
     data: ScriptedConstraintNodeData
@@ -159,11 +158,13 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
   const {
     isSaving,
     validationStatus,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     validationErrors,
     displayErrors,
     errorCount,
     showDetails,
     statusText,
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
     metrics,
     handleSave,
     handleDelete,

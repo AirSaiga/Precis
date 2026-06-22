@@ -22,7 +22,7 @@
  *   job.generatedConfig.value   // AiGenerateV2ConfigResponse | null
  *   job.elapsedTimeText.value   // "01:23"
  */
-import { logger } from '@/core/utils/logger'
+
 import { computed, onUnmounted, ref, type ComputedRef, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isAxiosError } from '@/core/services/httpClient'
@@ -39,7 +39,6 @@ import type {
   AiGenerateV2ConfigResponse,
   CloudAIProviderResponse,
 } from '@/types/ai'
-
 export function useGenerationJob(
   configPath: ComputedRef<string | undefined>,
   checkedFiles: Ref<Set<string>>,

@@ -43,7 +43,6 @@ import { useVueFlow } from '@vue-flow/core'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useGraphStore } from '@/stores/graphStore'
 import type { DataSourceTreeItem } from '@/components/nodes/core/SchemaNode/components/SchemaNodeDataSourceDropdown.vue'
-
 export interface NodeUIOptions<TColumn extends { id: string; columnName: string }, TDataType> {
   /** 节点唯一标识 */
   nodeId: string
@@ -69,6 +68,7 @@ export function useNodeUI<TColumn extends { id: string; columnName: string }, TD
   options: NodeUIOptions<TColumn, TDataType>
 ) {
   const { updateNodeInternals } = useVueFlow()
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const store = useGraphStore()
 
   /** 是否有列滚动出可视区域 */

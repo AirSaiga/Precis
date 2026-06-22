@@ -140,10 +140,7 @@
 
   import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
   import { useI18n } from 'vue-i18n'
-  import type { TransformTypeV2 } from '@/types/projectV2'
-  import type { ConstraintKind } from '@/services/constraints/types'
   import { TRANSFORM_CATEGORIES as SHARED_TRANSFORM_CATEGORIES } from '@/composables/nodes/transform/transformCategory'
-
   // ============================================================================
   // Props & Emits
   // ============================================================================

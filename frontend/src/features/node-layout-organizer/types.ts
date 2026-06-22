@@ -3,6 +3,8 @@
  * @description 节点布局组织器类型定义
  */
 
+import type { CustomNode } from '@/types/nodes'
+
 /**
  * 节点大类枚举
  */
@@ -127,7 +129,7 @@ export interface LayoutContext {
   canvasHeight: number
   viewportZoom?: number
   nodes: NodePosition[]
-  nodeDataById: Map<string, any>
+  nodeDataById: Map<string, CustomNode>
   connections: ConnectionInfo[]
   gap: number
 }

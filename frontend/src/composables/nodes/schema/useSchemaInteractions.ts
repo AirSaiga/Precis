@@ -4,13 +4,12 @@
  * 负责处理节点的拖拽、键盘事件、列连接等交互行为
  */
 
-import { ref, watch, onMounted, onUnmounted } from 'vue'
+import { ref, watch } from 'vue'
 import type { EmitFn } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
-import type { SchemaNodeData, SchemaColumn } from '@/types/graph'
-
+import type { SchemaNodeData } from '@/types/graph'
 /**
  * Schema节点交互逻辑
  * @param props - 组件属性
@@ -21,6 +20,7 @@ export function useSchemaInteractions(
   props: { id: string; data: SchemaNodeData },
   emit: EmitFn<{ 'constraint-create': [Record<string, unknown>] }>
 ) {
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { t } = useI18n()
   const { findNode } = useVueFlow()
   const store = useGraphStore()

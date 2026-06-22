@@ -11,15 +11,12 @@
 import type {
   ResourceItem,
   SchemaResource,
-  PatternResource,
-  ConstraintResource,
   RegexNodeResource,
   TemplateResource,
-  ResourceOperationResult,
   EmbeddedConstraintResource,
   ColumnImplicitRegexInfo,
 } from '@/types/resource'
-import type { FullConfigV2Response, ProjectManifestV2 } from '@/types/projectV2'
+import type { FullConfigV2Response } from '@/types/projectV2'
 import * as projectV2Api from '@/api/projectV2Api'
 
 /**

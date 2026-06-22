@@ -33,13 +33,12 @@ import { useCanvasStore } from '@/stores/canvasStore'
 import { useDragStore } from '@/stores/dragStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useShortcutStore } from '@/features/keyboard/stores/shortcutStore'
-import { useKeyboardShortcuts, platformDetector } from '@/features/keyboard'
+import { useKeyboardShortcuts } from '@/features/keyboard'
 import type { Shortcut } from '@/features/keyboard/types'
 import { logger } from '@/core/utils/logger'
 import { useInspectionStore } from '@/stores/inspectionStore'
 import { getV2FullConfig, ProjectNotFoundError } from '@/api/projectV2Api'
 import { appApi } from '@/core/capabilities/appApi'
-
 /**
  * 提取路径的最后一层目录名作为项目名称
  *
@@ -156,10 +155,7 @@ export function useAppBootstrap(): BootstrapResult {
       if (fullConfig.inspection) {
         inspectionStore.setResult(fullConfig.inspection, { autoOpen: 'if-blocker' })
         if (fullConfig.inspection.errors.length > 0) {
-          logger.warn(
-            '[AppBootstrap] 配置自检发现 %d 个问题',
-            fullConfig.inspection.errors.length
-          )
+          logger.warn('[AppBootstrap] 配置自检发现 %d 个问题', fullConfig.inspection.errors.length)
         } else {
           logger.info('[AppBootstrap] 配置自检通过')
         }

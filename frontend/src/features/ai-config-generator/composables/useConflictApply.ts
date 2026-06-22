@@ -23,7 +23,6 @@
  */
 import { ref, type ComputedRef, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { logger } from '@/core/utils/logger'
 import { putV2FullConfig, getV2FullConfig, compareV2FullConfig } from '@/api/projectV2Api'
 import type { AiGenerateV2ConfigResponse } from '@/types/ai'
 import type { ConfigComparison } from '@/api/types/conflict'
@@ -33,7 +32,6 @@ import type {
   FullConfigV2Response,
   ProjectManifestV2,
 } from '@/types/projectV2'
-
 export function useConflictApply(
   configPath: ComputedRef<string | undefined>,
   generatedConfig: Ref<AiGenerateV2ConfigResponse | null>

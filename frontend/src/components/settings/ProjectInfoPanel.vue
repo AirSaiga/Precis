@@ -143,8 +143,6 @@
   import { getV2Manifest, putV2Manifest } from '@/api/projectV2Api'
   import { dialogApi } from '@/core/capabilities/dialogApi'
   import { appApi } from '@/core/capabilities/appApi'
-  import type { ProjectManifestV2 } from '@/types/projectV2'
-
   const { t } = useI18n()
   const projectStore = useProjectStore()
   const graphStore = useGraphStore()

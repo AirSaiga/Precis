@@ -116,7 +116,6 @@
   import ConflictDiffPane from './ConflictDiffPane.vue'
   import type { ConfigItemDiff } from '@/api/types/conflict'
   import type { DiffLine } from '@/composables/conflict/useConflictDiffEngine'
-
   interface Props {
     selectedItem: ConfigItemDiff<unknown>
     resolutions: Record<string, string>
@@ -129,6 +128,7 @@
 
   defineProps<Props>()
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const emit = defineEmits<{
     'set-resolution': [id: string, resolution: 'original' | 'generated']
     'set-line-resolution': [id: string, keyPath: string, side: 'original' | 'generated']

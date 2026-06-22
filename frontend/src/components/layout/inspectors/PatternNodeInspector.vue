@@ -107,11 +107,9 @@
 </template>
 
 <script setup lang="ts">
-  import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
   import BaseInspector from './BaseInspector.vue'
   import { InspectorField } from '@/components/ui/inspector'
-
   const { t } = useI18n()
 
   /**
@@ -150,6 +148,7 @@
    *
    * @returns 模式类型的 CSS 类名
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   function getPatternTypeClass(): string {
     const type = getPatternType()
     return `type-${type}`
@@ -173,6 +172,7 @@
    *
    * @returns 模式类型对应的图标
    */
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   function getPatternTypeIcon(): string {
     const type = getPatternType()
     switch (type) {

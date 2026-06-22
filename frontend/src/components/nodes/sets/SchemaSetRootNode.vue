@@ -34,6 +34,7 @@ Header：根节点图标、标题 * - Content：Schema 集合内容区域 */
   import type { SchemaSetRootNodeData } from '@/types/graph'
   import GraphNodeFrame from '@/components/nodes/shared/GraphNodeFrame.vue'
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const props = defineProps<{
     id: string
     data: SchemaSetRootNodeData

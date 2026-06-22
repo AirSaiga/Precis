@@ -16,13 +16,12 @@ import type {
 import { ShortcutRegistry } from './registry'
 import { CommandExecutor } from './executor'
 import { KeyboardListenerImpl } from './listeners'
-import { DEFAULT_LISTENER_CONFIG, DEFAULT_REGISTRY_CONFIG } from './constants'
+import { DEFAULT_REGISTRY_CONFIG } from './constants'
 import { platformAdapter } from './platform'
 import { platformDetector } from './platform'
 import { getBaseCommands } from './commands/baseCommands'
 import { getCanvasCommands } from './commands/canvasCommands'
 import { getHelpCommands } from './commands/helpCommands'
-
 /**
  * 快捷键管理器接口
  */

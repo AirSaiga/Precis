@@ -16,13 +16,12 @@
  */
 
 import type { Ref } from 'vue'
-import type { CustomNode, SchemaNodeData, JsonSchemaColumn } from '@/types/graph'
+import type { CustomNode, JsonSchemaColumn } from '@/types/graph'
 import type { ColumnSpecV2, JSONOptionsV2 } from '@/types/projectV2'
 import { getV2Schema } from '@/api/projectV2Api'
 import { fromBackendType, fromJsonBackendType } from '@/services/builders'
 import { normalizePath } from '@/core/utils/pathNormalization'
 import { addNodes } from '@/services/canvas/vueFlowApi'
-
 export function createEnsureSchemaNodeFromV2(params: {
   nodes: Ref<CustomNode[]>
   getEffectiveProjectConfigPath: () => string | undefined

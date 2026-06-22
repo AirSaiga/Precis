@@ -26,7 +26,6 @@
 
 import type { CustomNode, RegexNodeData, TransformNodeData } from '@/types/graph'
 import type {
-  ProjectManifestV2,
   TableSchemaFileV2,
   ConstraintFileV2,
   ConstraintTypeV2,
@@ -36,13 +35,11 @@ import type {
   FullConfigV2Request,
   ProjectViewV2,
 } from '@/types/projectV2'
-import { toBackendType } from './schemaBuilder'
 import {
   getV2ConstraintTypeByNodeType,
   isConstraintNodeType,
 } from '@/services/constraints/validationRegistry'
 import { buildConstraintExportPayload } from '@/services/constraints/constraintExportAdapter'
-
 export { buildV2Manifest } from './v2/manifestBuilder'
 export { buildV2SchemaFile, buildV2JsonSchemaFile } from './v2/schemaBuilder'
 export { buildSchemaIdByNodeId } from './v2/manifestBuilder'
@@ -50,7 +47,6 @@ export { buildSchemaIdByNodeId } from './v2/manifestBuilder'
 import { buildV2Manifest as _buildV2Manifest } from './v2/manifestBuilder'
 import { buildV2SchemaFile as _buildV2SchemaFile } from './v2/schemaBuilder'
 import { buildSchemaIdByNodeId } from './v2/manifestBuilder'
-
 const buildV2Manifest = _buildV2Manifest
 const buildV2SchemaFile = _buildV2SchemaFile
 

@@ -206,7 +206,6 @@
   import { useI18n } from 'vue-i18n'
   import type { ConfigItemDiff } from '@/api/types/conflict'
   import type { BatchMode } from '@/composables/conflict/useConflictResolution'
-
   interface Props {
     schemas: ConfigItemDiff<unknown>[]
     constraints: ConfigItemDiff<unknown>[]
@@ -223,6 +222,7 @@
 
   defineProps<Props>()
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const emit = defineEmits<{
     'select-item': [item: ConfigItemDiff<unknown>, type: 'schema' | 'constraint' | 'regex']
     'update:searchText': [value: string]

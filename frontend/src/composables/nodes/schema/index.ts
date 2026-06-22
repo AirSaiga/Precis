@@ -12,12 +12,9 @@ import { useSchemaValidation } from './useSchemaValidation'
 import { useSchemaEditing } from './useSchemaEditing'
 import { useSchemaSaving } from './useSchemaSaving'
 import { useSchemaUI } from './useSchemaUI'
-import { useSchemaConnectionHandler } from './useSchemaConnectionHandler'
 import { useSchemaEvents } from './useSchemaEvents'
-import { useSchemaNodeDrag } from './useSchemaNodeDrag'
 import type { SchemaNodeData } from '../types'
 import type { EmitFn } from 'vue'
-
 type SchemaNodeEmits = {
   save: [SchemaNodeData]
   'delete-column': [string]

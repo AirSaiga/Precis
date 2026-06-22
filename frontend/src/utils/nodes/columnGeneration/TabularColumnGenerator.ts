@@ -5,10 +5,8 @@
  * 从二维数组表头生成 SchemaColumn 定义，支持类型推断和列合并。
  */
 
-import { logger } from '@/core/utils/logger'
 import { inferDataType } from '../schema/typeInference'
 import type { ColumnGenerationStrategy, ColumnComparisonResult } from './types'
-
 interface TabularGenerateOptions {
   /** 是否强制重新推断类型 */
   forceReinferTypes?: boolean

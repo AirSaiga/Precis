@@ -33,7 +33,6 @@ import { createV2ConstraintImporter } from './constraint'
 import { getV2FullConfig } from '@/api/projectV2Api'
 import type { PatternRegistryTypeV2 } from '@/types/projectV2'
 import { addNodes } from '@/services/canvas/vueFlowApi'
-
 export type ProjectResourceKind =
   | 'schema'
   | 'constraint'
@@ -288,6 +287,7 @@ export function createV2ImportToCanvas(params: {
     for (const [key, value] of Object.entries(registries || {})) {
       if (key === patternId || key.endsWith(`/${patternId}`)) {
         patternData = value
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
         patternKey = key
         registry = 'patterns'
         break

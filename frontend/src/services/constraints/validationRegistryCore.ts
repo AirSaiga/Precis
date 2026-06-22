@@ -133,15 +133,7 @@
  */
 
 import type { Edge, Node } from '@vue-flow/core'
-import {
-  validateAllowedValues,
-  validateCharset,
-  validateConditional,
-  validateForeignKey,
-  validateRange,
-  validateScripted,
-} from '@/api/validationApi'
-import { getApiBaseUrl } from '@/core/services/httpClient'
+
 import { logger } from '@/core/utils/logger'
 import { validateRegexNodesForSchema } from '@/services/regex/regexValidationHandler'
 export { buildValidationContext } from './validationContext'
@@ -155,7 +147,6 @@ import type {
   ConstraintValidationResult,
 } from './types'
 import { extractJsonTargetValues } from '@/utils/nodes/json/columnFinder'
-
 export const CONSTRAINT_TYPES: ConstraintTypeMeta[] = [
   { nodeType: 'notNullConstraint', kind: 'notNull', v2Type: 'NotNull', requireInputHandle: false },
   { nodeType: 'uniqueConstraint', kind: 'unique', v2Type: 'Unique', requireInputHandle: false },

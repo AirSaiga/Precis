@@ -6,10 +6,9 @@
  * 采用"依赖注入"方式接入 graphStore，避免反向依赖 store 造成循环引用。
  */
 
-import { ref, shallowRef, toRaw, nextTick, type Ref } from 'vue'
+import { shallowRef, toRaw, nextTick, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
-
 /**
  * @description 历史快照数据结构
  * @property {CustomNode[]} nodes - 某一时刻画布上的所有节点副本

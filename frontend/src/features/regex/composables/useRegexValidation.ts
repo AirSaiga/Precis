@@ -10,13 +10,11 @@
 
 import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
-import type { RegexNodeData } from '@/types/graph'
 import { resolveRegexSource } from '@/services/regex/regexEdgeResolver'
 import { validateRegexNode } from '@/services/regex/regexValidationHandler'
 import { useToast } from '@/composables/shared'
 import { useI18n } from 'vue-i18n'
 import { findEdge } from '@/services/canvas/vueFlowApi'
-
 /**
  * 正则校验逻辑组合式函数
  */

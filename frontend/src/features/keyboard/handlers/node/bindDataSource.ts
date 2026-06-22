@@ -24,7 +24,6 @@ import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { tabularColumnGenerator } from '@/utils/nodes/columnGeneration/TabularColumnGenerator'
 import { jsonColumnGenerator } from '@/utils/nodes/columnGeneration/JsonColumnGenerator'
 import { previewDataFetcher } from '@/utils/nodes/preview/PreviewDataFetcher'
-import { extractColumnNamesFromHeader, compareColumns } from '@/utils/nodes/schema/columnValidation'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import { revalidateConstraintsReferencingSchema } from '@/services/constraints/validationRegistryCore'
 import { i18n } from '@/i18n'
@@ -37,7 +36,6 @@ import type {
   CustomNodeData,
   CustomNode,
 } from '@/types/graph'
-
 interface ToastApiLike {
   info: (message: string) => void
 }

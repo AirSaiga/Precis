@@ -12,13 +12,7 @@ import { triggerValidationForNode } from '@/services/constraints/orchestration/g
 import { validateConstraintNodesForSchema } from '@/services/constraints/validationRegistry'
 import { toastSuccess, toastError, toastInfo, toastWarning } from '@/core/toast'
 import type { AppEvents } from '@/core/eventBus'
-import type {
-  SourcePreviewNodeData,
-  SchemaNodeData,
-  JsonSchemaColumn,
-  CustomNodeData,
-} from '../types'
-
+import type { SourcePreviewNodeData, JsonSchemaColumn, CustomNodeData } from '../types'
 /**
  * SourcePreview节点事件处理
  * 管理 SourcePreview 节点的事件监听和处理逻辑
@@ -405,7 +399,7 @@ export function useSourcePreviewEvents(
   const handleSourcePreviewDataChanged = async (detail: AppEvents['sourcePreviewDataChanged']) => {
     try {
       const { nodeId, data } = detail
-      const d = data as Record<string, any>
+      const d = data as unknown as SourcePreviewNodeData
 
       if (!nodeId || !data) {
         logger.warn('⚠️ SourcePreview数据变更事件数据不完整:', detail)
@@ -431,6 +425,7 @@ export function useSourcePreviewEvents(
 
       // 尝试多种路径匹配方式
       const sourceFilePath = d.fileName || d.localPath
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
       const fileName = d.fileName || ''
 
       let schemaNodes = store.nodes.filter(

@@ -23,13 +23,11 @@ import {
   getConstraintKindByV2Type,
   getConstraintNodeTypeByV2Type,
 } from '@/services/constraints/validationRegistry'
-import type { ConstraintKind } from '@/services/constraints/types'
 import type { BuildInput, EdgeDescriptor } from '@/services/constraints/nodeDataBuilder'
 import { getV2Constraint } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
 import { logger } from '@/core/utils/logger'
 import { addNodes } from '@/services/canvas/vueFlowApi'
-
 /** 从 Schema 节点中查找列名 */
 function resolveColumnName(schemaNode: CustomNode | undefined, columnId: string): string {
   if (!schemaNode) return ''

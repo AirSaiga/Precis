@@ -448,7 +448,6 @@
   } from '@/composables/resource/useConstraintTypes'
   import { useToolboxCreators } from '@/composables/resource/useToolboxCreators'
   import { useResourceDrag } from '@/composables/resource'
-
   const { t } = useI18n()
   const { attributeConstraints, relationConstraints, logicConstraints, isConstraintDisabled } =
     useConstraintTypes()
@@ -686,6 +685,7 @@
       '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>',
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const emit = defineEmits<{
     dragstart: [payload: { type: string; source: string; meta?: Record<string, unknown> }]
     dragend: []
