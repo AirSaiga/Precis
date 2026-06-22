@@ -9,13 +9,18 @@
  * 这是 TransformNode.vue 中 handleSave + 所有 generate*Output 函数的统一替代。
  */
 
-import type { TransformNodeData, ManualDataNodeData, TransformOutputNodeData } from '@/types/nodes'
+import type {
+  CustomNode,
+  TransformNodeData,
+  ManualDataNodeData,
+  TransformOutputNodeData,
+} from '@/types/nodes'
 import { useGraphStore } from '@/stores/graphStore'
 import { useTransformOutputManager } from './useTransformOutputManager'
 import { computeTransformResult } from './transformCalculations'
 
 /** 从上游节点获取数据行 */
-function getUpstreamRows(upstreamNode: any): string[][] {
+function getUpstreamRows(upstreamNode: CustomNode): string[][] {
   if (upstreamNode?.type === 'manualData') {
     return (upstreamNode.data as ManualDataNodeData).rows
   }
@@ -26,7 +31,7 @@ function getUpstreamRows(upstreamNode: any): string[][] {
 }
 
 /** 从上游节点获取列数据类型 */
-function getUpstreamColumnDataType(upstreamNode: any): string | undefined {
+function getUpstreamColumnDataType(upstreamNode: CustomNode): string | undefined {
   if (upstreamNode?.type === 'manualData') {
     return (upstreamNode.data as ManualDataNodeData).columnDataType
   }
@@ -65,7 +70,8 @@ export function useTransformSave() {
     if (!transformData.inputFromNode) return
 
     const upstreamNode = graphStore.nodes.find((n) => n.id === transformData.inputFromNode)
-    const upstreamType = upstreamNode?.type
+    if (!upstreamNode) return
+    const upstreamType = upstreamNode.type
     if (upstreamType !== 'manualData' && upstreamType !== 'transformOutput') return
 
     const upstreamRows = getUpstreamRows(upstreamNode)

@@ -28,7 +28,10 @@ export { validateNotNull }
  * @param emit - Vue的emit函数，用于通知父组件
  * @returns 非空约束相关的方法和状态
  */
-export function useNotNull(props: { id: string; data: NotNullConstraintNodeData }, emit: any) {
+export function useNotNull(
+  props: { id: string; data: NotNullConstraintNodeData },
+  emit: (event: string, ...args: unknown[]) => void
+) {
   const base = useConstraintBase(props, emit)
 
   /**
@@ -85,7 +88,7 @@ export function useNotNull(props: { id: string; data: NotNullConstraintNodeData 
    * @param errors - 错误列表
    * @returns 格式化后的错误信息数组
    */
-  const formatNotNullErrors = (errors: any[]): string[] => {
+  const formatNotNullErrors = (errors: Array<{ row: number }>): string[] => {
     return errors.map((err) => `第 ${err.row + 1} 行: 值不能为空`)
   }
 

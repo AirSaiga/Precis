@@ -121,7 +121,10 @@ export async function validateDateLogic(
   }
 }
 
-export function useDateLogic(props: { id: string; data: DateLogicConstraintNodeData }, emit: any) {
+export function useDateLogic(
+  props: { id: string; data: DateLogicConstraintNodeData },
+  emit: (event: string, ...args: unknown[]) => void
+) {
   const base = useConstraintBase(props, emit)
 
   const performValidation = async () => {
@@ -157,7 +160,7 @@ export function useDateLogic(props: { id: string; data: DateLogicConstraintNodeD
     )
   }
 
-  const formatDateLogicErrors = (errors: any[]): string[] => {
+  const formatDateLogicErrors = (errors: Array<{ row: number }>): string[] => {
     return errors.map((err) => `第 ${err.row + 1} 行: 日期逻辑校验失败`)
   }
 

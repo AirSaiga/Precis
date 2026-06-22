@@ -48,8 +48,11 @@
   )
 
   // 定义组件的事件
+  import type { DataSourceDragPayload } from '@/composables/data/useDataSourceDrag'
+  import type { ResourceDragPayload } from '@/stores/resourceDragStore'
+
   const emit = defineEmits<{
-    dragstart: [payload: any]
+    dragstart: [payload: ResourceDragPayload]
     dragend: []
   }>()
 
@@ -59,8 +62,8 @@
   }>()
 
   // 处理子组件的拖拽事件
-  const handleDragStart = (payload: any) => {
-    emit('dragstart', payload)
+  const handleDragStart = (payload: unknown) => {
+    emit('dragstart', payload as unknown as ResourceDragPayload)
   }
 
   const handleDragEnd = () => {

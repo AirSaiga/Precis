@@ -11,13 +11,24 @@ import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { SourcePreviewNodeData } from '../types'
 
+interface HeaderRowChangedRequest {
+  action: 'header_row_changed'
+  node_id: string
+  header_row: number
+  old_header_row: number | undefined
+  row_data: Record<string, unknown>
+}
+
 /**
  * 表头行管理
  * @param props - 组件属性
  * @param emit - Vue的emit函数
  * @returns 表头管理相关的方法和状态
  */
-export function useHeaderRow(props: { id: string; data: SourcePreviewNodeData }, emit: any) {
+export function useHeaderRow(
+  props: { id: string; data: SourcePreviewNodeData },
+  emit: (event: string, ...args: unknown[]) => void
+) {
   const { t } = useI18n()
 
   // 潜在的表头行索引
@@ -87,7 +98,7 @@ export function useHeaderRow(props: { id: string; data: SourcePreviewNodeData },
       return
     }
 
-    const notifyHeaderRowChanged = async (request: any) => {
+    const notifyHeaderRowChanged = async (request: HeaderRowChangedRequest) => {
       const response = await apiClient.post('/preview/header-row-changed', request)
       return response.data
     }
@@ -95,7 +106,7 @@ export function useHeaderRow(props: { id: string; data: SourcePreviewNodeData },
     try {
       const targetRow = previewRows[rowIndex] ?? []
       const request = {
-        action: 'header_row_changed',
+        action: 'header_row_changed' as const,
         node_id: props.id,
         header_row: rowIndex,
         old_header_row: oldHeaderRow,

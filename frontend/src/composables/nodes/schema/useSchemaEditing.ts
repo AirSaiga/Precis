@@ -14,7 +14,10 @@ import { dispatchValidation } from '@/services/constraints/orchestration/globalV
 import { getSchemaNodeSourceInfo } from '@/services/constraints/orchestration/validationCollector'
 import { useNodeColumnEditing } from '../shared/useNodeColumnEditing'
 
-export function useSchemaEditing(props: { id: string; data: SchemaNodeData }, emit: any) {
+export function useSchemaEditing(
+  props: { id: string; data: SchemaNodeData },
+  emit: (event: string, ...args: unknown[]) => void
+) {
   const { t } = useI18n()
   const { showConfirm } = useGlobalConfirm()
   const store = useGraphStore()
@@ -196,7 +199,7 @@ export function useSchemaEditing(props: { id: string; data: SchemaNodeData }, em
       return
     }
 
-    const column = props.data.columns.find((col: any) => col.id === columnId)
+    const column = props.data.columns.find((col: SchemaColumn) => col.id === columnId)
     if (!column) {
       logger.warn(`❌ 未找到列: ${columnId}`)
       return
@@ -208,8 +211,8 @@ export function useSchemaEditing(props: { id: string; data: SchemaNodeData }, em
       columnId,
       Array.from(store.nodes),
       Array.from(store.edges),
-      (nodeId: string, data: any) => {
-        updateNodeData(nodeId, data)
+      (nodeId: string, data: Record<string, unknown>) => {
+        updateNodeData(nodeId, data as unknown as Partial<SchemaNodeData>)
       }
     )
   }

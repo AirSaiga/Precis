@@ -31,9 +31,24 @@ import type { ExternalDataSource } from '@/types/graph'
  * @param emit - 组件 emit 函数，用于通知父组件拖拽事件
  * @returns 拖拽事件处理器
  */
-export function useDataSourceDrag(
-  emit: ((event: 'dragstart', payload: any) => void) | ((event: 'dragend') => void)
-) {
+export interface DataSourceDragPayload {
+  type: string
+  source: string
+  fileId: string
+  fileName: string
+  name: string
+  fileType: string
+  sourceId: string
+  label: string
+  sourceMode: string
+  localPath?: string
+}
+
+export type DataSourceDragEmit =
+  | ((event: 'dragstart', payload: DataSourceDragPayload) => void)
+  | ((event: 'dragend') => void)
+
+export function useDataSourceDrag(emit: DataSourceDragEmit) {
   /**
    * 处理数据源拖拽开始
    *
@@ -80,7 +95,7 @@ export function useDataSourceDrag(
     if (event.dataTransfer) {
       event.dataTransfer.setData('application/json', JSON.stringify(payload))
       event.dataTransfer.effectAllowed = 'copy'
-      ;(emit as (event: 'dragstart', payload: any) => void)('dragstart', payload)
+      ;(emit as (event: 'dragstart', payload: DataSourceDragPayload) => void)('dragstart', payload)
 
       logger.debug('🔄 数据源拖拽开始，使用emit触发事件:', payload)
     }

@@ -6,6 +6,7 @@
 
 import { useGraphStore } from '@/stores/graphStore'
 import type { SchemaNodeData } from '@/types/graph'
+import type { BaseSchemaColumn } from '@/types/nodes'
 import { useNodeSaving } from '../shared/useNodeSaving'
 
 /**
@@ -17,7 +18,7 @@ import { useNodeSaving } from '../shared/useNodeSaving'
  */
 export function useSchemaSaving(
   props: { id: string; data: SchemaNodeData },
-  emit: any,
+  emit: (event: string, ...args: unknown[]) => void,
   hoveredColumn: { value: string | null }
 ) {
   const store = useGraphStore()
@@ -30,7 +31,7 @@ export function useSchemaSaving(
     eventPrefix: 'schema-node',
     shouldConfirmClose: () => props.data.saveState === 'draft',
     onPatternBind: (columnId, patternData, columns) =>
-      columns.map((col: any) =>
+      columns.map((col: BaseSchemaColumn) =>
         col.id === columnId ? { ...col, dataType: 'Expression' as const } : col
       ),
     addConstraint: (columnId, constraintType) => {
