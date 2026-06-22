@@ -11,17 +11,17 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { watch, nextTick } from 'vue'
+import { nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
-import type { Node, Edge, Connection } from '@vue-flow/core'
+import type { Node, Edge } from '@vue-flow/core'
 import type { SchemaColumn, SchemaNodeData } from '@/types/graph'
 import type { TableSchemaFileV2 } from '@/types/projectV2'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
-import { addEdges, addNodes, removeEdges } from '@/services/canvas/vueFlowApi'
+import { addNodes } from '@/services/canvas/vueFlowApi'
 import { extractColumnNamesFromHeader, compareColumns } from '@/utils/nodes/schema/columnValidation'
 import { useToast } from '@/composables/shared/useToast'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
@@ -237,9 +237,8 @@ export function useSchemaConnectionHandler() {
 
   // 从 VueFlow 获取边的操作方法
   // getConnectedEdges: 获取连接指定节点的边
-  // findNode: 根据 ID 查找节点
-  // addEdges: 添加边
-  const { getConnectedEdges, findNode, addEdges, updateNodeInternals } = useVueFlow()
+  // updateNodeInternals: 更新节点内部状态（重新生成 handle）
+  const { getConnectedEdges, updateNodeInternals } = useVueFlow()
   // 获取全局图存储，用于访问和修改节点/边数据
   const store = useGraphStore()
 
@@ -458,8 +457,8 @@ export function useSchemaConnectionHandler() {
    *
    * 设计考量：使用同步对话框可以避免异步代码执行顺序问题
    * 同时让用户对列生成操作有完全的控制权
-   * @param source - 数据源节点，格式为 { id: string; data: any }
-   * @param schema - Schema 节点，格式为 { id: string; data: any }
+   * @param source - 数据源节点，格式为 { id: string; data: Record<string, unknown> }
+   * @param schema - Schema 节点，格式为 { id: string; data: Record<string, unknown> }
    */
   const showSmartFillDialog = async (
     source: { id: string; data: Record<string, unknown> } | Record<string, unknown>,

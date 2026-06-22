@@ -32,10 +32,10 @@ import type {
 
 export function useJsonSchemaSourceManager(
   props: { id: string; data: JsonSchemaNodeData },
-  emit: any
+  emit: unknown
 ) {
   const { t } = useI18n()
-  const { findNode } = useVueFlow()
+  const { findNode: _findNode } = useVueFlow()
   const store = useGraphStore()
   const toast = useToast()
   const success = toast.success
@@ -159,15 +159,18 @@ export function useJsonSchemaSourceManager(
     }
   }
 
-  const updateFromSourceChange = (sourceData: any) => {
-    if (!sourceData || !sourceData.rawData) return
+  const updateFromSourceChange = (sourceData: Record<string, unknown>) => {
+    if (!sourceData) return
 
-    const displayFileName = sourceData.sourceName || sourceData.fileName || 'Unknown'
-    const smartTableName = (sourceData.sourceName || sourceData.fileName || 'JsonTable').replace(
+    const previewData = sourceData as unknown as JsonSourcePreviewNodeData
+    if (!previewData.rawData) return
+
+    const displayFileName = previewData.sourceName || previewData.fileName || 'Unknown'
+    const smartTableName = (previewData.sourceName || previewData.fileName || 'JsonTable').replace(
       /\.[^/.]+$/,
       ''
     )
-    const displaySourcePath = sourceData.fileName || displayFileName
+    const displaySourcePath = previewData.fileName || displayFileName
 
     const updatedSchemaData = {
       ...props.data,
@@ -175,19 +178,19 @@ export function useJsonSchemaSourceManager(
       sourceFile: displayFileName,
       sourceFilePath: displaySourcePath,
       sourceType: 'json',
-      headerRow: sourceData.headerRow || 0,
+      headerRow: previewData.headerRow || 0,
       // 仅使用实际的工作表名称；若缺失则保持 undefined，绝不回退到文件名
-      sheetName: sourceData.currentSheet,
-      jsonPath: sourceData.jsonPath || '',
-      recordPath: sourceData.recordPath || '',
-      format: sourceData.format || 'auto',
+      sheetName: previewData.currentSheet,
+      jsonPath: previewData.jsonPath || '',
+      recordPath: previewData.recordPath || '',
+      format: previewData.format || 'auto',
     }
 
     store.updateNodeData(props.id, updatedSchemaData)
     logger.debug(`✅ JsonSchema "${smartTableName}" 已更新`)
 
     const currentSheetName = props.data.sheetName
-    const newSheetName = sourceData.currentSheet
+    const newSheetName = previewData.currentSheet
 
     if (currentSheetName && newSheetName && currentSheetName !== newSheetName) {
       logger.debug('🔄 Sheet 变更，自动重新生成列定义...')

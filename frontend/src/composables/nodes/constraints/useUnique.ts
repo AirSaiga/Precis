@@ -28,7 +28,7 @@ export { validateUnique }
  * @param emit - Vue的emit函数，用于通知父组件
  * @returns 唯一性约束相关的方法和状态
  */
-export function useUnique(props: { id: string; data: UniqueConstraintNodeData }, emit: any) {
+export function useUnique(props: { id: string; data: UniqueConstraintNodeData }, emit: unknown) {
   const base = useConstraintBase(props, emit)
 
   /**
@@ -84,7 +84,7 @@ export function useUnique(props: { id: string; data: UniqueConstraintNodeData },
    * @param errors - 错误列表
    * @returns 格式化后的错误信息数组
    */
-  const formatUniqueErrors = (errors: any[]): string[] => {
+  const formatUniqueErrors = (errors: UniqueValidationResult['errors']): string[] => {
     return errors.map((err) => `第 ${err.row + 1} 行: 值 "${err.value}" 重复`)
   }
 
