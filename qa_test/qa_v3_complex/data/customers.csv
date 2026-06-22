@@ -1,0 +1,4 @@
+customer_id,customer_name,email,phone,age,registration_date
+1,Alice,alice@test.com,13800000001,28,2020-01-15
+2,Bob,bob@test.com,13800000002,35,2019-06-20
+3,Carol,carol@test.com,13800000003,42,2021-03-10

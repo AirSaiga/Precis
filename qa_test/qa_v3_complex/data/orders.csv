@@ -1,0 +1,4 @@
+order_id,customer_id,product_id,quantity,order_date,total_amount
+1001,1,501,2,2021-05-01,199.98
+1002,2,502,1,2021-05-02,49.99
+1003,3,503,5,2021-05-03,250.00

@@ -1,0 +1,4 @@
+emp_id,emp_name,dept,hire_date,salary,bonus,level,city,email,phone,status
+1,Alice,Eng,2020-01-01,15000,2000,P5,Beijing,a@x.com,13800000001,active
+2,Bob,Sales,2019-06-01,12000,1500,P4,Shanghai,b@x.com,13800000002,active
+3,Carol,Eng,2021-03-01,16000,2500,P6,Shenzhen,c@x.com,13800000003,inactive

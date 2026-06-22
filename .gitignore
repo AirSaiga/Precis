@@ -185,10 +185,14 @@ $RECYCLE.BIN/
 *.csv
 # 但保留 E2E 测试 fixtures 中的 CSV
 !/e2e/fixtures/**/*.csv
+# 同时保留 qa_v3_complex fixture 中的 CSV（CI 必需）
+!/qa_test/qa_v3_complex/**/*.csv
 
 # Excel 文件
 *.xlsx
 *.xls
+!/qa_test/qa_v3_complex/**/*.xlsx
+!/qa_test/qa_v3_complex/**/*.xls
 
 # 压缩包
 *.zip
