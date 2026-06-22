@@ -54,7 +54,10 @@ export function removeDerivedColumns(
   regexNodeId: string,
   headerRowIndex: number
 ): { data: Record<string, unknown>; removedColumnNames: string[] } {
-  const derivedInfo = currentData?.derivedColumnsByRegex?.[regexNodeId]
+  const derivedColumnsByRegex = currentData.derivedColumnsByRegex as
+    | Record<string, { columnNames?: string[] }>
+    | undefined
+  const derivedInfo = derivedColumnsByRegex?.[regexNodeId]
   const columnNames: string[] = Array.isArray(derivedInfo?.columnNames)
     ? derivedInfo.columnNames
     : []

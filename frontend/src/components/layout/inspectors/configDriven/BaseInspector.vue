@@ -22,7 +22,7 @@
           :help="field.helpKey ? t(field.helpKey) : undefined"
           :placeholder="getPlaceholder(field)"
           :readonly="isReadonly(field)"
-          @commit="(payload) => commitField(field, payload)"
+          @commit="(payload: unknown) => commitField(field, payload)"
         />
       </div>
     </div>

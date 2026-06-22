@@ -92,12 +92,14 @@ export const setValueByPath = (obj: Record<string, unknown>, path: string, value
 export const removeValueByPath = (obj: Record<string, unknown> | unknown[], path: string) => {
   if (!obj) return
   const parts = path.split('.')
-  let current = obj
+  let current: Record<string, unknown> | unknown[] = obj
   for (let i = 0; i < parts.length - 1; i++) {
     const part = parts[i]
     if (part === undefined) return
-    if (current[part] === undefined || current[part] === null) return
-    current = current[part]
+    const next = (current as Record<string, unknown>)[part]
+    if (next === undefined || next === null) return
+    if (typeof next !== 'object') return
+    current = next as Record<string, unknown> | unknown[]
   }
   const lastKey = parts[parts.length - 1]
   if (lastKey === undefined) return

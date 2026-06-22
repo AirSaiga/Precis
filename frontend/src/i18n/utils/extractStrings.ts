@@ -617,6 +617,7 @@ export function extractStringsFromFile(content: string): string[] {
   for (const pattern of patterns) {
     let match
     while ((match = pattern.exec(content)) !== null) {
+      if (match[1] === undefined) continue
       const str = match[1].trim()
       if (str.length > 0 && str.length < 200) {
         extractedStrings.add(str)

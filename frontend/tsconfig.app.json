@@ -20,15 +20,14 @@
     // 将 strict 改为 false，或者保持 true 但手动关闭以下细节：
     "strict": true,
 
-    // 1. 允许隐式的 any 类型
-    // 开启这个后，如果你没写类型，TS 不会报错，而是默认它是 any
-    "noImplicitAny": false,
+    // 1. 不允许隐式的 any 类型
+    // 开启这个后，如果你没写类型，TS 会报错，要求显式标注
+    "noImplicitAny": true,
 
-    // 2. 关闭严格空检查 (最推荐关闭这个缓解痛苦)
-    // 开启必须处理 null/undefined。关闭后，object.prop 不会报 "可能是 undefined"
+    // 2. 开启严格空检查
     "strictNullChecks": true,
 
-    // 3. 允许 this 推断为 any
-    "noImplicitThis": false
+    // 3. 不允许 this 推断为 any
+    "noImplicitThis": true
   }
 }

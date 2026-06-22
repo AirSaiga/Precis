@@ -444,7 +444,7 @@ export function useRegexConnection() {
     // tableData[0] 是表头行（列名）
     // tableData[1] 及以后是数据行
     const tableData = (sourceData as unknown as Record<string, unknown>).data as
-      | unknown[]
+      | unknown[][]
       | undefined
 
     // =====================================================

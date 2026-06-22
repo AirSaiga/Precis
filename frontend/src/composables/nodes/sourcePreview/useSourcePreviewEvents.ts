@@ -150,8 +150,9 @@ export function useSourcePreviewEvents(
     }
 
     if (schemaNodes.length > 0) {
-      const headerRowData = data.data?.[headerRow] || []
-      const tableData = data.data
+      const dataTable = data.data as unknown[][] | undefined
+      const headerRowData = dataTable?.[headerRow] || []
+      const tableData = dataTable
 
       for (const schemaNode of schemaNodes) {
         // 保存旧的列ID列表

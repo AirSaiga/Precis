@@ -298,7 +298,9 @@ export function computeMathExpr(upstreamRows: string[][], options: MathExprOptio
   const refPattern = /@(\w+)/g
   let refMatch
   while ((refMatch = refPattern.exec(expression)) !== null) {
-    columnRefs.add(refMatch[1])
+    if (refMatch[1] !== undefined) {
+      columnRefs.add(refMatch[1])
+    }
   }
 
   const columnIndex = 0
