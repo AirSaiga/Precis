@@ -1,0 +1,17 @@
+version: 2
+id: regex_users-users_email
+name: 邮箱格式正则
+description: 校验邮箱地址格式
+pattern: '^(?P<local>[^@]+)@(?P<domain>[^@]+)$'
+match_mode: extract
+case_sensitive: false
+flags: ""
+enabled: true
+input_from_node: users-users
+input_column: email
+output_columns:
+  - local
+  - domain
+source_ref:
+  table_id: users-users
+  column_id: email

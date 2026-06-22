@@ -1,0 +1,33 @@
+version: 2
+id: age_check
+name: 年龄检查模板
+description: 校验年龄列是否落在指定范围内
+parameters:
+  - {name: source_column, default: age}
+  - {name: min_age, default: 0}
+  - {name: max_age, default: 150}
+  - {name: input_from_node, default: ""}
+nodes:
+  - id: md_input
+    kind: manualData
+    type: ManualData
+    column_name: "{{source_column}}"
+    column_data_type: integer
+    rows:
+      - ["25"]
+      - ["40"]
+    enabled: true
+    description: 年龄输入占位数据
+  - id: check_age
+    kind: constraint
+    type: Range
+    input_from_node: "{{input_from_node}}"
+    refs:
+      table_id: "{{input_from_node}}"
+      column_id: "{{source_column}}"
+    params:
+      min: "{{min_age}}"
+      max: "{{max_age}}"
+      boundary_mode: inclusive
+    enabled: true
+    description: 年龄范围约束

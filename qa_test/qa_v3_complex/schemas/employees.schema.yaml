@@ -1,0 +1,37 @@
+version: 2
+id: employees
+name: employees
+description: 员工表（11 列，5 个约束）
+source:
+  mode: relative_file
+  path: data/employees.csv
+columns:
+  - {id: emp_id, name: emp_id, type: integer, primary_key: true, nullable: false}
+  - {id: emp_name, name: emp_name, type: string, nullable: false}
+  - {id: dept, name: dept, type: string}
+  - {id: hire_date, name: hire_date, type: date}
+  - {id: salary, name: salary, type: decimal}
+  - {id: bonus, name: bonus, type: decimal}
+  - {id: level, name: level, type: string}
+  - {id: city, name: city, type: string}
+  - {id: email, name: email, type: string, nullable: false}
+  - {id: phone, name: phone, type: string}
+  - {id: status, name: status, type: string}
+constraints:
+  - id: c_employees_id_unique
+    type: Unique
+    column: emp_id
+  - id: c_employees_name_nn
+    type: NotNull
+    column: emp_name
+  - id: c_employees_email_nn
+    type: NotNull
+    column: email
+  - id: c_employees_salary_range
+    type: Range
+    column: salary
+    params: {min: 0, max: 1000000, boundary_mode: inclusive}
+  - id: c_employees_status_allowed
+    type: AllowedValues
+    column: status
+    params: {allowed_values: [active, inactive, pending]}

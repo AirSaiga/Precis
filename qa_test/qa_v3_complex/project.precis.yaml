@@ -1,0 +1,110 @@
+version: 2
+project:
+  id: project_071ae9c5
+  name: QA V3 Complex 测试工程
+settings:
+  validation:
+    auto_validate: false
+    strict_mode: false
+    error_handling: continue
+    timeout_seconds: 30
+  file_processing:
+    default_encoding: utf-8
+    csv_delimiter: ','
+  script_security:
+    allow_eval: false
+    allow_exec: false
+    sandbox_mode: false
+    timeout_seconds: 10
+schemas:
+  - id: users-users
+    path: schemas/users-users.schema.yaml
+  - id: customers
+    path: schemas/customers.schema.yaml
+  - id: categories
+    path: schemas/categories.schema.yaml
+  - id: inventory
+    path: schemas/inventory.schema.yaml
+  - id: orders-csv
+    path: schemas/orders-csv.schema.yaml
+  - id: employees
+    path: schemas/employees.schema.yaml
+  - id: order_items
+    path: schemas/order_items.schema.yaml
+  - id: products
+    path: schemas/products.schema.yaml
+  - id: releases
+    path: schemas/releases.schema.yaml
+  - id: logs
+    path: schemas/logs.schema.yaml
+constraints: []
+regex_nodes:
+  - id: regex_01
+    path: regex/regex_01.regex.yaml
+  - id: regex_02
+    path: regex/regex_02.regex.yaml
+  - id: regex_03
+    path: regex/regex_03.regex.yaml
+  - id: regex_04
+    path: regex/regex_04.regex.yaml
+  - id: regex_05
+    path: regex/regex_05.regex.yaml
+  - id: regex_06
+    path: regex/regex_06.regex.yaml
+  - id: regex_07
+    path: regex/regex_07.regex.yaml
+  - id: regex_08
+    path: regex/regex_08.regex.yaml
+  - id: regex_09
+    path: regex/regex_09.regex.yaml
+  - id: regex_10
+    path: regex/regex_10.regex.yaml
+  - id: regex_11
+    path: regex/regex_11.regex.yaml
+  - id: regex_12
+    path: regex/regex_12.regex.yaml
+  - id: regex_13
+    path: regex/regex_13.regex.yaml
+  - id: regex_14
+    path: regex/regex_14.regex.yaml
+  - id: regex_15
+    path: regex/regex_15.regex.yaml
+  - id: regex_16
+    path: regex/regex_16.regex.yaml
+  - id: regex_users-users_email
+    path: regex/regex_users-users_email.regex.yaml
+constraints:
+  - id: orders_fk_ghost
+    path: constraints/orders_fk_ghost.constraint.yaml
+transforms: []
+data_sources:
+  - id: primary
+    path: data
+    mode: relative
+    description: 主数据目录
+templates:
+  - id: age_check
+    path: templates/age_check.template.yaml
+  - id: user_quality_check
+    path: templates/user_quality_check.template.yaml
+template_instances:
+  - id: 19dcc6f3-c8ca-4487-8f61-9ba9f1fa2ce6
+    template_id: age_check
+    enabled: true
+    params:
+      source_column: age
+      min_age: 18
+      max_age: 100
+    input_from_node: users-users
+  - id: a3e7b2c1-5d4e-4f8a-9b6c-1d2e3f4a5b6c
+    template_id: user_quality_check
+    enabled: true
+    params:
+      age_column: age
+      email_column: email
+      min_age: 0
+      max_age: 150
+      gender_column: status
+    input_from_node: users-users
+patterns_dir: patterns
+warnings: []

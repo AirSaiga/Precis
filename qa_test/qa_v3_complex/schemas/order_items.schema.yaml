@@ -1,0 +1,32 @@
+version: 2
+id: order_items
+name: order_items
+description: 订单明细表（4 个 Range 约束）
+source:
+  mode: relative_file
+  path: data/order_items.csv
+columns:
+  - {id: item_id, name: item_id, type: integer, primary_key: true, nullable: false}
+  - {id: order_id, name: order_id, type: integer}
+  - {id: product_name, name: product_name, type: string}
+  - {id: quantity, name: quantity, type: integer}
+  - {id: unit_price, name: unit_price, type: decimal}
+  - {id: discount, name: discount, type: decimal}
+  - {id: tax_rate, name: tax_rate, type: decimal}
+constraints:
+  - id: oi_qty_range
+    type: Range
+    column: quantity
+    params: {min: 1, max: 1000, boundary_mode: inclusive}
+  - id: oi_price_range
+    type: Range
+    column: unit_price
+    params: {min: 0, max: 100000, boundary_mode: inclusive}
+  - id: oi_discount_range
+    type: Range
+    column: discount
+    params: {min: 0, max: 100, boundary_mode: inclusive}
+  - id: oi_tax_range
+    type: Range
+    column: tax_rate
+    params: {min: 0, max: 1, boundary_mode: inclusive}

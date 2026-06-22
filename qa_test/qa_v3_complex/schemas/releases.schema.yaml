@@ -1,0 +1,15 @@
+version: 2
+id: releases
+name: releases
+description: 发布版本表
+source:
+  mode: relative_file
+  path: data/releases.csv
+columns:
+  - {id: release_id, name: release_id, type: integer, primary_key: true, nullable: false}
+  - {id: version, name: version, type: string}
+  - {id: release_date, name: release_date, type: date}
+constraints:
+  - id: rel_version_nn
+    type: NotNull
+    column: version

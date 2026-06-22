@@ -1,0 +1,16 @@
+version: 2
+id: regex_09
+name: 正则规则 09
+description: QA 测试用正则节点 09
+pattern: '^(?P<value>[A-Za-z0-9]+)$'
+match_mode: extract
+case_sensitive: false
+flags: ""
+enabled: true
+input_from_node: users-users
+input_column: email
+output_columns:
+  - value
+source_ref:
+  table_id: users-users
+  column_id: email

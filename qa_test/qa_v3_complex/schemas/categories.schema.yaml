@@ -1,0 +1,16 @@
+version: 2
+id: categories
+name: categories
+description: 分类表（Range 约束）
+source:
+  mode: relative_file
+  path: data/categories.csv
+columns:
+  - {id: category_id, name: category_id, type: integer, primary_key: true, nullable: false}
+  - {id: category_name, name: category_name, type: string}
+  - {id: display_order, name: display_order, type: integer}
+constraints:
+  - id: c_categories_order_range
+    type: Range
+    column: display_order
+    params: {min: 0, max: 999, boundary_mode: inclusive}

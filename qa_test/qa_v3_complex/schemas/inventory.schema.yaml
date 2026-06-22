@@ -1,0 +1,21 @@
+version: 2
+id: inventory
+name: inventory
+description: 库存表（JSON 嵌套源 + ForeignKey）
+source:
+  mode: relative_file
+  path: data/inventory_nested.json
+  options:
+    format: object
+    json_path: "$.warehouse_data.inventory"
+columns:
+  - {id: item_id, name: item_id, type: string, primary_key: true, nullable: false}
+  - {id: name, name: name, type: string}
+  - {id: stock, name: stock, type: integer}
+  - {id: warehouse, name: warehouse, type: string}
+constraints:
+  - id: inv_fk_product
+    type: ForeignKey
+    from_column: item_id
+    to_table: products
+    to_column: product_id

@@ -1,0 +1,10 @@
+version: 2
+id: orders_fk_ghost
+type: ForeignKey
+enabled: true
+description: 故意引用不存在的表（触发引用完整性警告）
+refs:
+  from_table_id: orders-csv
+  from_column_id: customer_id
+  to_table_id: ghost_table
+  to_column_id: ghost_id

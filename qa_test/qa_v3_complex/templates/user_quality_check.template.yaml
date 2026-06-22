@@ -1,0 +1,69 @@
+version: 2
+id: user_quality_check
+name: 用户质量检查模板
+description: 校验用户多个字段的质量（年龄范围、邮箱非空、性别合法、邮箱提取域名）
+parameters:
+  - {name: age_column, default: age}
+  - {name: email_column, default: email}
+  - {name: min_age, default: 0}
+  - {name: max_age, default: 150}
+  - {name: gender_column, default: gender}
+  - {name: input_from_node, default: ""}
+nodes:
+  - id: md_seed
+    kind: manualData
+    type: ManualData
+    column_name: seed
+    column_data_type: string
+    rows:
+      - ["x"]
+    enabled: true
+    description: 占位输入数据
+  - id: extract_email_domain
+    kind: transform
+    type: Substring
+    input_from_node: "{{input_from_node}}"
+    input_column: "{{email_column}}"
+    output_columns:
+      - email_domain
+    params:
+      start: 0
+      length: 10
+    enabled: true
+    description: 提取邮箱前缀作为域名
+  - id: age_range
+    kind: constraint
+    type: Range
+    input_from_node: "{{input_from_node}}"
+    refs:
+      table_id: "{{input_from_node}}"
+      column_id: "{{age_column}}"
+    params:
+      min: "{{min_age}}"
+      max: "{{max_age}}"
+      boundary_mode: inclusive
+    enabled: true
+    description: 年龄范围约束
+  - id: email_not_null
+    kind: constraint
+    type: NotNull
+    input_from_node: "{{input_from_node}}"
+    refs:
+      table_id: "{{input_from_node}}"
+      column_id: "{{email_column}}"
+    enabled: true
+    description: 邮箱非空约束
+  - id: gender_allowed
+    kind: constraint
+    type: AllowedValues
+    input_from_node: "{{input_from_node}}"
+    refs:
+      table_id: "{{input_from_node}}"
+      column_id: "{{gender_column}}"
+    params:
+      allowed_values:
+        - male
+        - female
+        - other
+    enabled: true
+    description: 性别取值约束

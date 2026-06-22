@@ -1,0 +1,19 @@
+version: 2
+id: orders-csv
+name: orders-csv
+description: 订单表（CSV 源）
+source:
+  mode: relative_file
+  path: data/orders.csv
+columns:
+  - {id: order_id, name: order_id, type: integer, primary_key: true, nullable: false}
+  - {id: customer_id, name: customer_id, type: integer}
+  - {id: product_id, name: product_id, type: integer}
+  - {id: quantity, name: quantity, type: integer}
+  - {id: order_date, name: order_date, type: date}
+  - {id: total_amount, name: total_amount, type: decimal}
+constraints:
+  - id: order_qty_range
+    type: Range
+    column: quantity
+    params: {min: 1, max: 1000, boundary_mode: inclusive}

@@ -1,0 +1,19 @@
+version: 2
+id: customers
+name: customers
+description: 客户表（customer_id 主键）
+source:
+  mode: relative_file
+  path: data/customers.csv
+columns:
+  - {id: customer_id, name: customer_id, type: integer, primary_key: true, nullable: false}
+  - {id: customer_name, name: customer_name, type: string}
+  - {id: email, name: email, type: string}
+  - {id: phone, name: phone, type: string}
+  - {id: age, name: age, type: integer}
+  - {id: registration_date, name: registration_date, type: date}
+constraints:
+  - id: c_customers_age_range
+    type: Range
+    column: age
+    params: {min: 18, max: 120, boundary_mode: inclusive}

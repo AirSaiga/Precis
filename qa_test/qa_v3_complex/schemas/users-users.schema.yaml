@@ -1,0 +1,23 @@
+version: 2
+id: users-users
+name: users-users
+description: 用户表（8 列，Unique + NotNull 内嵌约束）
+source:
+  mode: relative_file
+  path: data/users-users.csv
+columns:
+  - {id: id, name: id, type: integer, primary_key: true, nullable: false}
+  - {id: name, name: name, type: string}
+  - {id: email, name: email, type: string, nullable: false}
+  - {id: age, name: age, type: integer}
+  - {id: status, name: status, type: string}
+  - {id: birth_date, name: birth_date, type: date}
+  - {id: phone, name: phone, type: string}
+  - {id: username, name: username, type: string}
+constraints:
+  - id: c_users-users_user_id_unique
+    type: Unique
+    column: email
+  - id: c_users-users_email_not_null
+    type: NotNull
+    column: email
