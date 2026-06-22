@@ -96,7 +96,8 @@ def _memory_total_bytes() -> int:
             stat = _MEMORYSTATUSEX()
             stat.dwLength = ctypes.sizeof(_MEMORYSTATUSEX)
             # 调用 Windows API 获取内存状态
-            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)) == 0:
+            # windll 是 Windows 专属属性，非 Windows 平台 typeshed 无此定义
+            if ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat)) == 0:  # type: ignore[attr-defined]
                 return 0
             return int(stat.ullTotalPhys)
         except Exception:
