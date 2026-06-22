@@ -18,7 +18,15 @@
 
 import { logger } from '@/core/utils/logger'
 import { useConstraintBase } from './useConstraintBase'
-import type { ForeignKeyConstraintNodeData } from '../types'
+import type {
+  CustomNode,
+  ForeignKeyConstraintNodeData,
+  JsonSchemaNodeData,
+  JsonSourcePreviewNodeData,
+  SchemaNodeData,
+  SourcePreviewNodeData,
+  ValidationErrorRow,
+} from '../types'
 import { useGraphStore } from '@/stores/graphStore'
 import { validateForeignKey } from '@/api/validationApi'
 import { tryInlineValidation } from '@/composables/nodes/constraints/tryInlineValidation'
@@ -68,7 +76,7 @@ interface ValidationResult {
  */
 export function useForeignKey(
   props: { id: string; data: ForeignKeyConstraintNodeData },
-  emit: any
+  emit: (event: string, ...args: unknown[]) => void
 ) {
   const base = useConstraintBase(props, emit)
   const store = useGraphStore()
@@ -87,14 +95,14 @@ export function useForeignKey(
     if (!node || (node.type !== 'schema' && node.type !== 'jsonSchema')) return null
 
     if (node.type === 'jsonSchema') {
-      const columns = ((node.data as unknown as Record<string, unknown>).columns as import('@/types/graph').JsonSchemaColumn[]) || []
-      const found = findJsonSchemaColumnById(columns, columnId)
+      const data = node.data as JsonSchemaNodeData
+      const found = findJsonSchemaColumnById(data.columns, columnId)
       return found?.column.columnName || null
     }
 
-    const columns = ((node.data as unknown as Record<string, unknown>).columns as unknown[]) || []
-    const col = columns.find((c: any) => c.id === columnId) as Record<string, unknown> | undefined
-    return (col?.columnName as string) || null
+    const data = node.data as SchemaNodeData
+    const col = data.columns.find((c) => c.id === columnId)
+    return col?.columnName || null
   }
 
   /**
@@ -112,7 +120,7 @@ export function useForeignKey(
    * - 自动处理 null/undefined 值
    */
   const extractTargetValuesFromSourcePreview = (
-    sourcePreviewData: any,
+    sourcePreviewData: SourcePreviewNodeData,
     targetColumnName: string
   ) => {
     const tableData: string[][] | undefined = sourcePreviewData?.data
@@ -149,34 +157,40 @@ export function useForeignKey(
    * - 如果目标节点是 SourcePreview，直接从其数据中提取
    * - 如果目标节点是 Schema，先找到关联的 SourcePreview 节点再提取
    */
-  const getTargetValues = (targetNode: any, targetColumnName: string) => {
+  const getTargetValues = (targetNode: CustomNode | undefined, targetColumnName: string) => {
     if (!targetNode || !targetColumnName) return []
 
     if (targetNode.type === 'sourcePreview') {
-      return extractTargetValuesFromSourcePreview(targetNode.data, targetColumnName)
+      return extractTargetValuesFromSourcePreview(
+        targetNode.data as SourcePreviewNodeData,
+        targetColumnName
+      )
     }
 
     if (targetNode.type === 'jsonSourcePreview') {
       return extractJsonTargetValues(
-        ((targetNode.data as unknown as Record<string, unknown>)?.rawData as unknown[]) || [],
+        (targetNode.data as JsonSourcePreviewNodeData).rawData || [],
         targetColumnName
       )
     }
 
     if (targetNode.type === 'schema') {
-      const sourceNodeId = (targetNode.data as unknown as Record<string, unknown>).sourceNodeId
+      const sourceNodeId = (targetNode.data as SchemaNodeData).sourceNodeId
       const sourcePreviewNode = store.nodes.find((n) => n.id === sourceNodeId)
       if (sourcePreviewNode?.type === 'sourcePreview') {
-        return extractTargetValuesFromSourcePreview(sourcePreviewNode.data, targetColumnName)
+        return extractTargetValuesFromSourcePreview(
+          sourcePreviewNode.data as SourcePreviewNodeData,
+          targetColumnName
+        )
       }
     }
 
     if (targetNode.type === 'jsonSchema') {
-      const sourceNodeId = (targetNode.data as unknown as Record<string, unknown>).sourceNodeId
+      const sourceNodeId = (targetNode.data as JsonSchemaNodeData).sourceNodeId
       const sourcePreviewNode = store.nodes.find((n) => n.id === sourceNodeId)
       if (sourcePreviewNode?.type === 'jsonSourcePreview') {
         return extractJsonTargetValues(
-          ((sourcePreviewNode.data as unknown as Record<string, unknown>)?.rawData as unknown[]) || [],
+          (sourcePreviewNode.data as JsonSourcePreviewNodeData).rawData || [],
           targetColumnName
         )
       }
@@ -194,16 +208,16 @@ export function useForeignKey(
    * - Schema 节点：使用 tableName
    * - SourcePreview 节点：使用 sourceName 或 fileName
    */
-  const getTargetTableName = (targetNode: any) => {
+  const getTargetTableName = (targetNode: CustomNode | undefined) => {
     if (!targetNode) return props.data.targetTable || ''
-    if (targetNode.type === 'schema' || targetNode.type === 'jsonSchema')
-      return ((targetNode.data as unknown as Record<string, unknown>).tableName as string) || ''
-    if (targetNode.type === 'sourcePreview' || targetNode.type === 'jsonSourcePreview')
-      return (
-        ((targetNode.data as unknown as Record<string, unknown>).sourceName as string) ||
-        ((targetNode.data as unknown as Record<string, unknown>).fileName as string) ||
-        ''
-      )
+    if (targetNode.type === 'schema' || targetNode.type === 'jsonSchema') {
+      const data = targetNode.data as SchemaNodeData | JsonSchemaNodeData
+      return data.tableName || ''
+    }
+    if (targetNode.type === 'sourcePreview' || targetNode.type === 'jsonSourcePreview') {
+      const data = targetNode.data as SourcePreviewNodeData | JsonSourcePreviewNodeData
+      return data.sourceName || data.fileName || ''
+    }
     return props.data.targetTable || ''
   }
 
@@ -279,11 +293,11 @@ export function useForeignKey(
         return emptyResult
       }
 
-      const sourceSchemaData = sourceNode.data as unknown as Record<string, unknown>
+      const sourceSchemaData = sourceNode.data as SchemaNodeData | JsonSchemaNodeData
       const sourceFilePath = sourceSchemaData.sourceFilePath
       const localPath = sourceSchemaData.localPath
-      const sheetName = sourceSchemaData.sheetName as string
-      const headerRow = sourceSchemaData.headerRow as number
+      const sheetName = sourceSchemaData.sheetName
+      const headerRow = sourceSchemaData.headerRow
 
       if (!sourceSchemaData.sourceFile) {
         return emptyResult
@@ -367,7 +381,7 @@ export function useForeignKey(
       const totalRows = response.data.total_rows || 0
       const matchCount = Math.max(0, totalRows - errorCount)
 
-      const formattedErrors = errorRows.map((err: any) => ({
+      const formattedErrors = errorRows.map((err: ValidationErrorRow) => ({
         row: err.row_index,
         value: err.cell_value,
         message: err.error_message,
@@ -418,7 +432,7 @@ export function useForeignKey(
    * // ['第 6 行: 值不存在']
    * ```
    */
-  const formatForeignKeyErrors = (errors: any[]): string[] => {
+  const formatForeignKeyErrors = (errors: Array<{ row: number; message?: string }>): string[] => {
     return errors.map((err) => `第 ${Number(err.row) + 1} 行: ${err.message}`)
   }
 
