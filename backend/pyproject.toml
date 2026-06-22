@@ -36,7 +36,7 @@ dependencies = [
     # CLI 输出美化
     "rich>=13.0.0",
     # CLI 交互
-    "readchar>=4.2.0",
+    "readchar>=4.2.2",
     # 安全
     "cryptography>=44.0.0",
     # 安全表达式求值 (替代 eval)

@@ -46,7 +46,7 @@ filelock==3.18.0
 simpleeval==1.0.7
 
 # CLI 交互
-readchar==4.2.1
+readchar==4.2.2
 
 # CLI 输出美化
 rich==14.0.0
