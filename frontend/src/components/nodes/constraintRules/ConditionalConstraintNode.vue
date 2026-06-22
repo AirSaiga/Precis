@@ -164,7 +164,6 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   import { resolveNodeState } from '@/components/ui/nodeVariants'
   import type { ConditionalConstraintNodeData } from '@/types/graph'
   import { useGraphStore } from '@/stores/graphStore'
-  import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
   const props = defineProps<{
@@ -175,8 +174,6 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
 
   const { t } = useI18n()
   const store = useGraphStore()
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { showConfirm } = useGlobalConfirm()
 
   const {
     isSaving,

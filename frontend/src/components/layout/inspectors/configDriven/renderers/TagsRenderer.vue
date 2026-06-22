@@ -75,13 +75,10 @@
 
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue'
-  import { useI18n } from 'vue-i18n'
   import type { InspectorContext } from '../utils'
   import { getUpstreamColumns, getUpstreamRows } from '../utils'
   import type { InspectorTagsField } from '../types'
   import { computeStringSplit } from '@/composables/nodes/transform/transformCalculations'
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { t } = useI18n()
 
   const props = defineProps<{
     field: InspectorTagsField

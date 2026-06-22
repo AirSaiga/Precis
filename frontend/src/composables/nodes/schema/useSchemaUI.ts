@@ -4,7 +4,6 @@
  * 负责UI状态（下拉菜单、悬停状态、确认弹窗、位置计算、滚动处理）
  */
 
-import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import type { SchemaNodeData, DataType, SchemaColumn } from '@/types/graph'
 import { useNodeUI } from '@/composables/nodes/shared/useNodeUI'
@@ -14,8 +13,6 @@ import { useNodeUI } from '@/composables/nodes/shared/useNodeUI'
  * @returns Schema UI相关的方法和状态
  */
 export function useSchemaUI(props: { id: string; data: SchemaNodeData; selected?: boolean }) {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { t } = useI18n()
   // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
   const { updateNodeInternals } = useVueFlow()
 

@@ -29,7 +29,6 @@ import { logger } from '@/core/utils/logger'
 import apiClient from '@/core/services/httpClient'
 import { ref, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useGraphStore } from '@/stores/graphStore'
 import { eventBus } from '@/core/eventBus'
 import { toastError } from '@/core/toast'
@@ -79,8 +78,6 @@ export function usePreviewData(
 ) {
   // 国际化支持，用于显示确认对话框文本
   const { t } = useI18n()
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-  const { showConfirm } = useGlobalConfirm()
   // 获取全局图存储，用于访问和修改节点数据
   const store = useGraphStore()
 
