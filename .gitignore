@@ -221,7 +221,7 @@ $RECYCLE.BIN/
 /backend/.precis/
 
 # E2E 测试运行时产物（agent job 状态文件）
-e2e/fixtures/test-project/.precis/agent_jobs/
+qa_test/qa_simple/.precis/agent_jobs/
 
 .python-version
 

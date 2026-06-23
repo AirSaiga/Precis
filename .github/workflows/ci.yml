@@ -95,8 +95,8 @@ jobs:
         run: |
           cd ..
           python -B -m app.cli validate \
-            --manifest e2e/fixtures/test-project/project.precis.yaml \
-            --data-directory e2e/fixtures/test-project/data
+            --manifest qa_test/qa_simple/project.precis.yaml \
+            --data-directory qa_test/qa_simple/data
 
       - name: Upload coverage report
         if: always()
