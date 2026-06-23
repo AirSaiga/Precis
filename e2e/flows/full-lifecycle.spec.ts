@@ -419,16 +419,19 @@ test.describe('Stage 5 — 保存 Roundtrip', () => {
     expect(singleSchema.columns.length).toBe(schemaInConfig.columns.length)
   })
 
-  test.fixme('Regex 文件通过全量配置重读完整性 — 待修（根因 C-2）', async ({ isolatedProjectPath }) => {
-    // 暂挂原因：断言 regex 的 source_ref 字段存在，实际 undefined。
-    // 待查后端 regex schema 是否有 source_ref 字段。
+  test('Regex 文件通过全量配置重读完整性', async ({ isolatedProjectPath }) => {
+    // 后端契约：regex 节点可用 source_ref（{table_id,column_id}）或 input_from_node
+    // 两种方式绑定上游表/列，模型文档明确 input_from_node 优先于 source_ref。
+    // 前端 schemaResourceSync 也按 source_ref?.table_id 可选处理。故两者居其一即可。
     const configResp = await apiGet('/project/config/full', isolatedProjectPath)
     const config = await configResp.json()
 
     for (const [regexId, regexData] of Object.entries(config.regex_nodes || {})) {
-      expect((regexData as Record<string, unknown>).id).toBe(regexId)
-      expect((regexData as Record<string, unknown>).pattern).toBeTruthy()
-      expect((regexData as Record<string, unknown>).source_ref).toBeDefined()
+      const r = regexData as Record<string, unknown>
+      expect(r.id).toBe(regexId)
+      expect(r.pattern).toBeTruthy()
+      // 必须有一种上游绑定方式（source_ref 或 input_from_node），否则连线无法重建
+      expect(r.source_ref || r.input_from_node).toBeTruthy()
     }
   })
 
@@ -549,23 +552,25 @@ test.describe('综合 — 完整性验证', () => {
     }
   })
 
-  test.fixme('项目完整配置可被加载并包含所有必需端 — 待修（根因 C-3）', async ({ isolatedProjectPath }) => {
-    // 暂挂原因：完整性端点响应 regex 计数与 manifest 不符（loaded vs manifestRegexCount）。
-    // 待查后端该端点实现。
+  test('项目完整配置可被加载且加载数量与 effective_manifest 一致', async ({ isolatedProjectPath }) => {
+    // 后端行为：/config/full 的 schemas/regex_nodes 字典从 effective_manifest
+    // （声明 + 磁盘上未入清单的文件）加载，故加载数应等于 effective_manifest 数，
+    // 而非仅 manifest 声明数（manifest 只含已声明的）。
     const configResp = await apiGet('/project/config/full', isolatedProjectPath)
     const config = await configResp.json()
 
     // 验证全量配置包含所有 section
     expect(config.manifest).toBeDefined()
+    expect(config.effective_manifest).toBeDefined()
 
-    // schemas 计数应与 manifest 中 schemas 数量一致
-    const manifestSchemaCount = config.manifest?.schemas?.length || 0
+    // schemas：加载数应与 effective_manifest 中的 schemas 数一致
+    const effectiveSchemaCount = config.effective_manifest?.schemas?.length || 0
     const loadedSchemaCount = Object.keys(config.schemas || {}).length
-    expect(loadedSchemaCount).toBeGreaterThanOrEqual(manifestSchemaCount)
+    expect(loadedSchemaCount).toBe(effectiveSchemaCount)
 
-    // regex 计数
-    const manifestRegexCount = config.manifest?.regex_nodes?.length || 0
+    // regex：加载数应与 effective_manifest 中的 regex_nodes 数一致
+    const effectiveRegexCount = config.effective_manifest?.regex_nodes?.length || 0
     const loadedRegexCount = Object.keys(config.regex_nodes || {}).length
-    expect(loadedRegexCount).toBe(manifestRegexCount)
+    expect(loadedRegexCount).toBe(effectiveRegexCount)
   })
 })
