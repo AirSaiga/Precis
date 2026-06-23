@@ -91,11 +91,8 @@ jobs:
       - name: Run unit + integration tests with coverage
         run: python -m pytest --cov=app --cov-fail-under=67 --cov-report=html --cov-report=term-missing
 
-      - name: Smoke test CLI validate against real fixture
-        run: |
-          python -B -m app.cli validate \
-            --manifest ../qa_test/qa_simple/project.precis.yaml \
-            --data-directory ../qa_test/qa_simple/data
+      - name: Golden-check CLI validate against qa_simple
+        run: python -B -m scripts.qa_simple_golden_check
 
       - name: Upload coverage report
         if: always()
