@@ -93,10 +93,9 @@ jobs:
 
       - name: Smoke test CLI validate against real fixture
         run: |
-          cd ..
           python -B -m app.cli validate \
-            --manifest qa_test/qa_simple/project.precis.yaml \
-            --data-directory qa_test/qa_simple/data
+            --manifest ../qa_test/qa_simple/project.precis.yaml \
+            --data-directory ../qa_test/qa_simple/data
 
       - name: Upload coverage report
         if: always()
