@@ -55,7 +55,8 @@ test.describe('Validation API', () => {
     expect(data.data.is_valid).toBe(true)
   })
 
-  test('validation handles missing column gracefully', async ({ apiHelper }) => {
+  test('validation handles missing column gracefully', async ({ apiHelper, testProjectPath }) => {
+    const USERS_CSV = path.join(testProjectPath, 'data', 'users.csv')
     const resp = await apiHelper.post('/validate', {
       source_file_path: USERS_CSV,
       validation_type: 'not_null',
