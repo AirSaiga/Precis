@@ -171,11 +171,9 @@ $RECYCLE.BIN/
 # 7. 测试与 QA 数据目录
 # ============================================================================
 # qa_test/ 下的测试数据默认不入库
-# qa_simple — 主测试集（E2E + CLI smoke test），必须入库
-# qa_v3_complex — 复杂场景集成测试（template expansion、多 schema），必须入库
+# qa_simple — 统一测试集（E2E + CLI smoke test + 复杂场景集成测试），必须入库
 /qa_test/*
 !/qa_test/qa_simple/
-!/qa_test/qa_v3_complex/
 
 # ============================================================================
 # 8. 数据文件（项目特定）
@@ -187,13 +185,10 @@ $RECYCLE.BIN/
 *.csv
 # 保留测试 fixture 中的 CSV
 !/qa_test/qa_simple/**/*.csv
-!/qa_test/qa_v3_complex/**/*.csv
 
 # Excel 文件
 *.xlsx
 *.xls
-!/qa_test/qa_v3_complex/**/*.xlsx
-!/qa_test/qa_v3_complex/**/*.xls
 
 # 压缩包
 *.zip

@@ -1,4 +1,0 @@
-id,name,email,age,status,birth_date,phone,country
-1,alice,alice@x.com,30,active,1995-01-01,13800001111,CN
-2,bob,bob@x.com,25,inactive,2000-05-05,13900002222,US
-3,carol,carol@x.com,40,pending,1985-12-12,13700003333,CN

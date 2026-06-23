@@ -19,7 +19,7 @@
  *   3. 每个匹配项都能通过 V2 单个资源 API 加载
  *   4. 二次过滤结果一致（幂等性）
  *
- * fixture：使用类似 qa_v3_complex 的复杂结构
+ * fixture：使用类似 qa_simple 的复杂结构
  * - 1 个 schema
  * - 2 个独立约束（refs.table_id 指向该 schema）
  * - 2 个 regex_nodes（source_ref.table_id 指向该 schema）

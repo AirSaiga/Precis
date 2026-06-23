@@ -1,7 +1,0 @@
-name: semver
-regex: '^v(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)$'
-output:
-  type: semver
-  major: "{major:int}"
-  minor: "{minor:int}"
-  patch: "{patch:int}"

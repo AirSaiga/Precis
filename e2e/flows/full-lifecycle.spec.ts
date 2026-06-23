@@ -1,7 +1,7 @@
 /**
- * @fileoverview E2E 全链路冒烟测试（qa_v3_complex 端到端）
+ * @fileoverview E2E 全链路冒烟测试（qa_simple 端到端）
  *
- * 使用最复杂的 qa fixture（10 Schema + 16 Regex + 模板实例）验证完整生命周期：
+ * 使用统一 qa fixture（12 Schema + 18 Regex + 5 Template + 模板实例）验证完整生命周期：
  * 1. 项目加载 — manifest 完整性
  * 2. 资源导入 — Schema + 内嵌约束 + Regex 验证
  * 3. 数据源绑定 — 数据文件访问与预览
@@ -9,14 +9,14 @@
  * 5. 保存 roundtrip — 配置保存与重载一致性
  * 6. 错误导航 — 校验错误包含导航线索字段
  *
- * T46 — 全链路冒烟测试（qa_v3_complex 端到端）
+ * T46 — 全链路冒烟测试（qa_simple 端到端）
  */
 
 import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import { BACKEND_URL } from '../config'
-const QA_PROJECT_PATH = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_v3_complex')
+const QA_PROJECT_PATH = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
 
 // 辅助函数：向后端发起带 project path 的请求
 async function apiGet(endpoint: string): Promise<Response> {
@@ -49,13 +49,13 @@ async function apiPut(endpoint: string, body: unknown): Promise<Response> {
 
 test.beforeAll(() => {
   if (!fs.existsSync(QA_PROJECT_PATH)) {
-    test.skip(true, `qa_v3_complex fixture 目录不存在: ${QA_PROJECT_PATH}`)
+    test.skip(true, `qa_simple fixture 目录不存在: ${QA_PROJECT_PATH}`)
   }
   // 验证关键目录存在
-  const missing = ['schemas', 'data', 'regex', 'templates']
+  const missing = ['schemas', 'data', 'regex_nodes', 'templates']
     .filter(d => !fs.existsSync(path.join(QA_PROJECT_PATH, d)))
   if (missing.length > 0) {
-    test.skip(true, `qa_v3_complex 缺少子目录: ${missing.join(', ')}`)
+    test.skip(true, `qa_simple 缺少子目录: ${missing.join(', ')}`)
   }
 })
 
@@ -70,7 +70,7 @@ test.describe('Stage 1 — 项目加载', () => {
     const manifest = await resp.json()
     expect(manifest.version).toBe(2)
     expect(manifest.project).toBeDefined()
-    expect(manifest.project.id).toBe('project_071ae9c5')
+    expect(manifest.project.id).toBe('qa_simple')
 
     // 验证 schemas 引用
     const schemaIds = manifest.schemas.map((s: { id: string }) => s.id)
@@ -82,7 +82,7 @@ test.describe('Stage 1 — 项目加载', () => {
 
     // 验证 regex_nodes 引用
     const regexIds = manifest.regex_nodes?.map((r: { id: string }) => r.id) || []
-    expect(regexIds.length).toBeGreaterThanOrEqual(16)
+    expect(regexIds.length).toBeGreaterThanOrEqual(18)
 
     // 验证 templates 引用
     const templateIds = manifest.templates?.map((t: { id: string }) => t.id) || []
@@ -91,7 +91,7 @@ test.describe('Stage 1 — 项目加载', () => {
 
     // 验证 template_instances
     const instances = manifest.template_instances || []
-    expect(instances.length).toBe(2)
+    expect(instances.length).toBe(5)
   })
 
   test('schemas 目录包含所有 schema 文件', () => {
@@ -101,15 +101,15 @@ test.describe('Stage 1 — 项目加载', () => {
   })
 
   test('regex 目录包含所有 regex 文件', () => {
-    const regexDir = path.join(QA_PROJECT_PATH, 'regex')
+    const regexDir = path.join(QA_PROJECT_PATH, 'regex_nodes')
     const files = fs.readdirSync(regexDir).filter(f => f.endsWith('.regex.yaml'))
-    expect(files.length).toBeGreaterThanOrEqual(16)
+    expect(files.length).toBeGreaterThanOrEqual(18)
   })
 
   test('templates 目录包含模板文件', () => {
     const templatesDir = path.join(QA_PROJECT_PATH, 'templates')
     const files = fs.readdirSync(templatesDir).filter(f => f.endsWith('.template.yaml'))
-    expect(files.length).toBe(2)
+    expect(files.length).toBe(5)
   })
 
   test('data 目录包含所有数据文件', () => {
@@ -397,7 +397,7 @@ test.describe('Stage 5 — 保存 Roundtrip', () => {
     // regex_nodes 字典
     expect(config.regex_nodes).toBeDefined()
     const regexKeys = Object.keys(config.regex_nodes || {})
-    expect(regexKeys.length).toBeGreaterThanOrEqual(16)
+    expect(regexKeys.length).toBeGreaterThanOrEqual(18)
   })
 
   test('Schema 文件重读与初始加载一致', async () => {
@@ -524,13 +524,13 @@ test.describe('综合 — 完整性验证', () => {
       path.join(QA_PROJECT_PATH, 'project.precis.yaml'),
       'utf-8'
     )
-    const pathMatches = manifestContent.matchAll(/path:\s*regex\/([\w-]+\.regex\.yaml)/g)
+    const pathMatches = manifestContent.matchAll(/path:\s*regex_nodes\/([\w-]+\.regex\.yaml)/g)
     const referencedPaths = Array.from(pathMatches, m => m[1])
 
-    expect(referencedPaths.length).toBeGreaterThanOrEqual(16)
+    expect(referencedPaths.length).toBeGreaterThanOrEqual(18)
 
     for (const regexPath of referencedPaths) {
-      const fullPath = path.join(QA_PROJECT_PATH, 'regex', regexPath)
+      const fullPath = path.join(QA_PROJECT_PATH, 'regex_nodes', regexPath)
       expect(fs.existsSync(fullPath)).toBe(true)
     }
   })
