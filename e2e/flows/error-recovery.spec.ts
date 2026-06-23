@@ -15,8 +15,6 @@ import { BACKEND_URL } from '../config'
  * - 数据文件不存在时的校验错误
  */
 
-const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
-
 /**
  * 创建临时损坏项目目录
  */
@@ -115,9 +113,9 @@ test.describe('Corrupted Configuration Recovery', () => {
       }
     })
 
-    test('missing data file reports not-found in validation', async ({ apiHelper }) => {
+    test('missing data file reports not-found in validation', async ({ apiHelper, isolatedProjectPath }) => {
       // 使用 qa_simple 的 validate 端点，指向不存在的文件
-      const missingFile = path.join(projectPath, 'data', 'nonexistent_file.csv')
+      const missingFile = path.join(isolatedProjectPath, 'data', 'nonexistent_file.csv')
       const resp = await apiHelper.post('/validate', {
         source_file_path: missingFile,
         validation_type: 'not_null',

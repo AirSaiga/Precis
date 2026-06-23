@@ -8,21 +8,21 @@
  * 4. 验证匹配/不匹配结果
  */
 
-import { test, expect } from '../fixtures/base'
+import { test, expect, QA_SIMPLE_SOURCE } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import { BACKEND_URL } from '../config'
-const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
-const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
 
 test.beforeAll(() => {
-  if (!fs.existsSync(projectPath)) {
-    test.skip(true, `E2E fixture 目录不存在: ${projectPath}`)
+  if (!fs.existsSync(QA_SIMPLE_SOURCE)) {
+    test.skip(true, `E2E fixture 目录不存在: ${QA_SIMPLE_SOURCE}`)
   }
 })
 
 test.describe('Regex Creation & Validation', () => {
-  test('创建 Regex 节点并通过 API 校验 — 匹配邮箱格式', async ({ apiHelper }) => {
+  test('创建 Regex 节点并通过 API 校验 — 匹配邮箱格式', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
+    const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
     const regexId = 'e2e-regex-email'
 
     // 创建 regex 节点配置
@@ -77,7 +77,9 @@ test.describe('Regex Creation & Validation', () => {
     }
   })
 
-  test('正则校验检测不匹配的行', async ({ apiHelper }) => {
+  test('正则校验检测不匹配的行', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
+    const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
     // 用纯数字 pattern 校验 name 列 — 全部应不匹配
     const validateResp = await apiHelper.post('/regex', {
       source_file_path: USERS_CSV,
@@ -98,7 +100,9 @@ test.describe('Regex Creation & Validation', () => {
     expect(data.data.match_count).toBe(0)
   })
 
-  test('修改 pattern 后重新校验结果更新', async ({ apiHelper }) => {
+  test('修改 pattern 后重新校验结果更新', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
+    const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
     // 第一轮：匹配以 A/B/C 开头的名字 — Alice, Bob, Charlie 应匹配
     const resp1 = await apiHelper.post('/regex', {
       source_file_path: USERS_CSV,
@@ -135,7 +139,9 @@ test.describe('Regex Creation & Validation', () => {
     expect(data2.data.is_valid).toBe(true)
   })
 
-  test('Regex 节点保存和加载 roundtrip', async ({ apiHelper }) => {
+  test('Regex 节点保存和加载 roundtrip', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
+    const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
     const regexId = 'e2e-regex-roundtrip'
 
     const regexNode = {
@@ -180,7 +186,9 @@ test.describe('Regex Creation & Validation', () => {
     }
   })
 
-  test('正则校验处理大小写不敏感模式', async ({ apiHelper }) => {
+  test('正则校验处理大小写不敏感模式', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
+    const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
     // case_sensitive=false，匹配 alice/Alice/ALICE 等
     const resp = await apiHelper.post('/regex', {
       source_file_path: USERS_CSV,
@@ -215,7 +223,9 @@ test.describe('Regex Creation & Validation', () => {
     expect(data2.data.error_count).toBe(5)
   })
 
-  test('正则校验处理不存在的列', async ({ apiHelper }) => {
+  test('正则校验处理不存在的列', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
+    const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
     const resp = await apiHelper.post('/regex', {
       source_file_path: USERS_CSV,
       regex_pattern: '.*',
@@ -228,7 +238,9 @@ test.describe('Regex Creation & Validation', () => {
     expect(data.error).toBeDefined()
   })
 
-  test('通过全量配置创建多个 Regex 节点并批量加载', async ({ apiHelper }) => {
+  test('通过全量配置创建多个 Regex 节点并批量加载', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
+    const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
     const regexIds = ['e2e-regex-batch-1', 'e2e-regex-batch-2']
 
     const fullConfig = {

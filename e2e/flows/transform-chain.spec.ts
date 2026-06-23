@@ -7,15 +7,13 @@
  * 3. 配合 NotNull 约束完成数据校验链路
  */
 
-import { test, expect } from '../fixtures/base'
+import { test, expect, QA_SIMPLE_SOURCE } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 
-const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
-
 test.beforeAll(() => {
-  if (!fs.existsSync(projectPath)) {
-    test.skip(true, `E2E fixture 目录不存在: ${projectPath}`)
+  if (!fs.existsSync(QA_SIMPLE_SOURCE)) {
+    test.skip(true, `E2E fixture 目录不存在: ${QA_SIMPLE_SOURCE}`)
   }
 })
 
@@ -33,7 +31,8 @@ function buildBaseManifest(projectId: string, projectName: string, extras: Recor
 }
 
 test.describe('Transform Chain E2E', () => {
-  test('创建 StringSplit Transform 并保存到 transforms/ 目录', async ({ apiHelper }) => {
+  test('创建 StringSplit Transform 并保存到 transforms/ 目录', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
 
     const fullConfig = {
       manifest: buildBaseManifest('transform-split', 'Transform Split', {
@@ -134,7 +133,8 @@ test.describe('Transform Chain E2E', () => {
     expect(transform.enabled).toBe(true)
   })
 
-  test('Schema → Transform → Constraint 完整校验链路', async ({ apiHelper }) => {
+  test('Schema → Transform → Constraint 完整校验链路', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
 
     const fullConfig = {
       manifest: buildBaseManifest('transform-validate', 'Transform Validate', {

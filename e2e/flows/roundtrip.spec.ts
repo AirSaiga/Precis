@@ -15,21 +15,20 @@
  * - Transform 完整字段
  */
 
-import { test, expect } from '../fixtures/base'
+import { test, expect, QA_SIMPLE_SOURCE } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import { BACKEND_URL } from '../config'
 
-const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
-
 test.beforeAll(() => {
-  if (!fs.existsSync(projectPath)) {
-    test.skip(true, `E2E fixture 目录不存在: ${projectPath}`)
+  if (!fs.existsSync(QA_SIMPLE_SOURCE)) {
+    test.skip(true, `E2E fixture 目录不存在: ${QA_SIMPLE_SOURCE}`)
   }
 })
 
 test.describe('Save/Load Round-Trip', () => {
-  test('Charset 约束往返不丢失 allowedChars/disallowedChars', async ({ apiHelper }) => {
+  test('Charset 约束往返不丢失 allowedChars/disallowedChars', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
 
     // 1. 构建包含 Charset 约束的完整配置
     const fullConfig = {
@@ -98,7 +97,8 @@ test.describe('Save/Load Round-Trip', () => {
     expect(charsetConstraint.params.charset_mode).toBe('custom')
   })
 
-  test('Range 约束往返不丢失 boundary_mode', async ({ apiHelper }) => {
+  test('Range 约束往返不丢失 boundary_mode', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
 
     const fullConfig = {
       manifest: {
@@ -147,7 +147,8 @@ test.describe('Save/Load Round-Trip', () => {
     expect(loadedConfig.constraints?.['c-range']?.params?.boundary_mode).toBe('exclusive')
   })
 
-  test('Composite 约束往返不丢失 logic/sub_constraints', async ({ apiHelper }) => {
+  test('Composite 约束往返不丢失 logic/sub_constraints', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
 
     const fullConfig = {
       manifest: {
@@ -228,7 +229,8 @@ test.describe('Save/Load Round-Trip', () => {
     expect(composite?.params?.sub_constraints).toHaveLength(2)
   })
 
-  test('Transform 文件保存到 transforms/ 目录', async ({ apiHelper }) => {
+  test('Transform 文件保存到 transforms/ 目录', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
 
     const fullConfig = {
       manifest: {
@@ -272,7 +274,8 @@ test.describe('Save/Load Round-Trip', () => {
     expect(loadedConfig.transforms?.['t-1']?.output_columns).toEqual(['first_name', 'last_name'])
   })
 
-  test('多节点保存/恢复 — Schema + Constraint + Regex 完整配置', async ({ apiHelper }) => {
+  test('多节点保存/恢复 — Schema + Constraint + Regex 完整配置', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
 
     const fullConfig = {
       manifest: {
@@ -340,7 +343,8 @@ test.describe('Save/Load Round-Trip', () => {
     expect(loadedConfig.regex_nodes?.['r-email']?.pattern).toBe('^[\\w.-]+@[\\w.-]+\\.\\w+$')
   })
 
-  test('修改后保存 — Schema 列名修改持久化', async ({ apiHelper }) => {
+  test('修改后保存 — Schema 列名修改持久化', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
 
     const fullConfig = {
       manifest: {
@@ -401,7 +405,8 @@ test.describe('Save/Load Round-Trip', () => {
     expect(loadedConfig.schemas?.sc_products?.columns[0]?.name).toBe('item_title')
   })
 
-  test('draft 状态节点未保存 — 未调用保存 API 的资源不存在于磁盘', async ({ apiHelper }) => {
+  test('draft 状态节点未保存 — 未调用保存 API 的资源不存在于磁盘', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
 
     const loadResp = await apiHelper.get('/project/config/full')
     expect(loadResp.status).toBeLessThan(300)

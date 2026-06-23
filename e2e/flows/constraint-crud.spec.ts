@@ -11,20 +11,20 @@
  * 通过 V2 API 完成全量配置的保存/加载往返验证。
  */
 
-import { test, expect } from '../fixtures/base'
+import { test, expect, QA_SIMPLE_SOURCE } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import { BACKEND_URL } from '../config'
-const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
 
 test.beforeAll(() => {
-  if (!fs.existsSync(projectPath)) {
-    test.skip(true, `E2E fixture 目录不存在: ${projectPath}`)
+  if (!fs.existsSync(QA_SIMPLE_SOURCE)) {
+    test.skip(true, `E2E fixture 目录不存在: ${QA_SIMPLE_SOURCE}`)
   }
 })
 
 test.describe('Constraint CRUD Roundtrip', () => {
-  test('创建 NotNull 约束并校验', async ({ apiHelper }) => {
+  test('创建 NotNull 约束并校验', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
     const constraintId = 'e2e-notnull-name'
     const fullConfig = {
       manifest: {
@@ -109,7 +109,8 @@ test.describe('Constraint CRUD Roundtrip', () => {
     }
   })
 
-  test('创建 Unique 约束并校验', async ({ apiHelper }) => {
+  test('创建 Unique 约束并校验', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
     const constraintId = 'e2e-unique-email'
     const fullConfig = {
       manifest: {
@@ -185,7 +186,8 @@ test.describe('Constraint CRUD Roundtrip', () => {
     }
   })
 
-  test('创建 Range 约束并编辑参数后重新校验', async ({ apiHelper }) => {
+  test('创建 Range 约束并编辑参数后重新校验', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
     const constraintId = 'e2e-range-age'
     const csvPath = path.join(projectPath, 'data', 'users.csv')
 
@@ -292,7 +294,8 @@ test.describe('Constraint CRUD Roundtrip', () => {
     }
   })
 
-  test('删除约束后配置中不再包含该约束', async ({ apiHelper }) => {
+  test('删除约束后配置中不再包含该约束', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
     const constraintId = 'e2e-delete-test'
 
     // 先创建约束
@@ -358,7 +361,8 @@ test.describe('Constraint CRUD Roundtrip', () => {
     }
   })
 
-  test('多个约束类型同时保存和加载', async ({ apiHelper }) => {
+  test('多个约束类型同时保存和加载', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
     const constraintIds = ['e2e-multi-notnull', 'e2e-multi-unique', 'e2e-multi-range']
 
     const fullConfig = {

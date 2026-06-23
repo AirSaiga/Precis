@@ -9,21 +9,21 @@
  * 通过 V2 API 完成配置的保存/加载/校验全流程。
  */
 
-import { test, expect } from '../fixtures/base'
+import { test, expect, QA_SIMPLE_SOURCE } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import { BACKEND_URL } from '../config'
-const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
-const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
 
 test.beforeAll(() => {
-  if (!fs.existsSync(projectPath)) {
-    test.skip(true, `E2E fixture 目录不存在: ${projectPath}`)
+  if (!fs.existsSync(QA_SIMPLE_SOURCE)) {
+    test.skip(true, `E2E fixture 目录不存在: ${QA_SIMPLE_SOURCE}`)
   }
 })
 
 test.describe('Schema Import → Bind Data Source → Validate', () => {
-  test('读取已有 Schema 并验证列信息', async ({ apiHelper }) => {
+  test('读取已有 Schema 并验证列信息', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
+    const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
     const resp = await apiHelper.get('/schemas/users')
     if (!resp.ok) {
       test.skip(true, 'Schema "users" 不存在，可能被其他测试修改')
@@ -44,7 +44,9 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
     expect(columnNames).toContain('age')
   })
 
-  test('通过全量配置更新 Schema 并验证持久化', async ({ apiHelper }) => {
+  test('通过全量配置更新 Schema 并验证持久化', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
+    const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
     const schemaId = 'sc_e2e_update'
 
     const fullConfig = {
@@ -112,7 +114,9 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
     }
   })
 
-  test('绑定 CSV 数据源并预览数据', async ({ apiHelper }) => {
+  test('绑定 CSV 数据源并预览数据', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
+    const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
     // 使用 preview API 预览 CSV 数据
     const previewResp = await apiHelper.post('/preview/content', {
       source_file_path: USERS_CSV,
@@ -136,7 +140,9 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
     expect(data.data.total_rows).toBe(5)
   })
 
-  test('完整校验流程：Schema + NotNull 约束 + 校验', async ({ apiHelper }) => {
+  test('完整校验流程：Schema + NotNull 约束 + 校验', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
+    const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
     const schemaId = 'sc_e2e_validate'
     const constraintId = 'c_e2e_validate_notnull'
 
@@ -211,7 +217,9 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
     if (fs.existsSync(constraintPath)) fs.unlinkSync(constraintPath)
   })
 
-  test('Schema 列修改后重新校验', async ({ apiHelper }) => {
+  test('Schema 列修改后重新校验', async ({ apiHelper, isolatedProjectPath }) => {
+    const projectPath = isolatedProjectPath
+    const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
     const schemaId = 'sc_e2e_col_edit'
 
     // 第一版 Schema：4 列

@@ -21,17 +21,15 @@
  * - 推断失败 → 返回 false + 日志 warning
  */
 
-import { test, expect } from '../fixtures/base'
+import { test, expect, QA_SIMPLE_SOURCE } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
 import { BACKEND_URL } from '../config'
 
-const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
-
 test.beforeAll(() => {
-  if (!fs.existsSync(projectPath)) {
-    test.skip(true, `E2E fixture 目录不存在: ${projectPath}`)
+  if (!fs.existsSync(QA_SIMPLE_SOURCE)) {
+    test.skip(true, `E2E fixture 目录不存在: ${QA_SIMPLE_SOURCE}`)
   }
 })
 
