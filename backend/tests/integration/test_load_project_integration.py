@@ -49,11 +49,11 @@ class TestLoadProjectIntegration:
 
         # 基本元数据加载
         assert result.manifest.project.id == "qa_simple"
-        assert result.manifest.project.name == "QA Simple 测试工程"
+        assert result.manifest.project.name == "QA 测试工程（统一测试集）"
 
-        # schemas 应被全部解析（当前 fixture 为 2 个）
+        # schemas 应被全部解析（统一测试集含 12 个 schema）
         schema_ids = set(result.schema_files.keys())
-        assert len(schema_ids) >= 2
+        assert len(schema_ids) >= 10
 
         # constraints 应被全部解析
         assert len(result.constraint_files) >= 1
@@ -116,8 +116,8 @@ schemas:
 class TestValidationExecutorIntegration:
     """ValidationExecutor 真实执行（不 mock）测试"""
 
-    def test_execute_qa_simple_returns_clean(self, tmp_path):
-        """对 qa_simple 真实数据执行校验，应无错误。"""
+    def test_execute_qa_simple_returns_result(self, tmp_path):
+        """对 qa_simple 真实数据执行校验，应返回结构化结果（含故意违规的错误）。"""
         proj = _copy_qa_simple_into(tmp_path)
         manifest = str(proj / "project.precis.yaml")
         data_dir = str(proj / "data")
@@ -129,9 +129,10 @@ class TestValidationExecutorIntegration:
         assert "errors" in result
         assert "duration_ms" in result
 
-        # qa_simple 的 fixture 数据应当无错误
+        # qa_simple 包含故意违规数据（ghost FK、列缺失等），errors 非空是预期的
         errors = result.get("errors") or []
-        assert errors == [], f"qa_simple should be clean, got: {errors[:3]}"
+        assert isinstance(errors, list)
+        assert len(errors) > 0, "qa_simple 含故意违规，应至少有 1 条错误"
 
     def test_execute_qa_simple_with_table_filter_by_id(self, tmp_path):
         """table_filter 只接受表 ID（不是 display name）。"""
