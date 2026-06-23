@@ -77,6 +77,80 @@ class TestSaveRegexNode:
             save_regex_node(node, path)
             assert os.path.exists(path)
 
+    def test_save_preserves_all_fields_roundtrip(self):
+        """save→load roundtrip 必须保留 RegexNodeFile 的全部业务字段。
+
+        历史 bug：writer 用手动白名单挑字段，丢失了 source_ref / input_from_node /
+        input_column / output_columns / capture_groups / rules / parameters /
+        case_sensitive / flags / source_column_name。本测试覆盖全部字段。
+        """
+        from app.shared.core.project.regex.reader import load_regex_node
+
+        node = RegexNodeFile(
+            version=2,
+            id="full_node",
+            name="完整节点",
+            description="测试全字段保留",
+            pattern=r"^\d+$",
+            match_mode="extract",
+            case_sensitive=True,
+            flags="im",
+            enabled=True,
+            parameters=[{"key": "limit", "value": 10}],
+            rules=[{"id": "r1", "type": "literal"}],
+            input_from_node="users",
+            input_column="phone",
+            capture_groups=[{"name": "area", "group_index": 1}],
+            output_columns=["area", "number"],
+            source_ref={"table_id": "users", "column_id": "phone"},
+            source_column_name="phone",
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "full_node.regex.yaml")
+            save_regex_node(node, path)
+            reloaded = load_regex_node(path)
+
+        # 逐字段验证 roundtrip 保留
+        assert reloaded.id == "full_node"
+        assert reloaded.name == "完整节点"
+        assert reloaded.description == "测试全字段保留"
+        assert reloaded.pattern == r"^\d+$"
+        assert reloaded.match_mode == "extract"
+        assert reloaded.case_sensitive is True
+        assert reloaded.flags == "im"
+        assert reloaded.enabled is True
+        assert reloaded.parameters == [{"key": "limit", "value": 10}]
+        assert reloaded.rules == [{"id": "r1", "type": "literal"}]
+        assert reloaded.input_from_node == "users"
+        assert reloaded.input_column == "phone"
+        assert reloaded.capture_groups == [{"name": "area", "group_index": 1}]
+        assert reloaded.output_columns == ["area", "number"]
+        assert reloaded.source_ref is not None
+        assert reloaded.source_ref.table_id == "users"
+        assert reloaded.source_ref.column_id == "phone"
+        assert reloaded.source_column_name == "phone"
+
+    def test_save_preserves_uses_pattern_mode_roundtrip(self):
+        """引用模式（uses_pattern + pattern_overrides）也应完整保留。"""
+        from app.shared.core.project.regex.reader import load_regex_node
+
+        node = RegexNodeFile(
+            id="ref_node",
+            name="引用节点",
+            uses_pattern=PatternRef(registry="patterns", pattern_name="phone_cn"),
+            pattern_overrides={"flags": "i"},
+            match_mode="full",
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            path = os.path.join(tmpdir, "ref_node.regex.yaml")
+            save_regex_node(node, path)
+            reloaded = load_regex_node(path)
+
+        assert reloaded.uses_pattern is not None
+        assert reloaded.uses_pattern.pattern_name == "phone_cn"
+        assert reloaded.uses_pattern.registry == "patterns"
+        assert reloaded.pattern_overrides == {"flags": "i"}
+
 
 class TestFindPatternByName:
     def test_find_existing(self):
