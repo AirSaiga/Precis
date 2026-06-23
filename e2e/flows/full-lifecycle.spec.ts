@@ -12,48 +12,47 @@
  * T46 — 全链路冒烟测试（qa_simple 端到端）
  */
 
-import { test, expect } from '../fixtures/base'
+import { test, expect, QA_SIMPLE_SOURCE } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import { BACKEND_URL } from '../config'
-const QA_PROJECT_PATH = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
 
-// 辅助函数：向后端发起带 project path 的请求
-async function apiGet(endpoint: string): Promise<Response> {
+// 辅助函数：向后端发起带 project path 的请求（configPath 必须显式传入，指向副本）
+async function apiGet(endpoint: string, configPath: string): Promise<Response> {
   return fetch(`${BACKEND_URL}/api/latest${endpoint}`, {
-    headers: { 'X-Project-Config-Path': QA_PROJECT_PATH },
+    headers: { 'X-Project-Config-Path': configPath },
   })
 }
 
-async function apiPost(endpoint: string, body: unknown): Promise<Response> {
+async function apiPost(endpoint: string, body: unknown, configPath: string): Promise<Response> {
   return fetch(`${BACKEND_URL}/api/latest${endpoint}`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'X-Project-Config-Path': QA_PROJECT_PATH,
+      'X-Project-Config-Path': configPath,
     },
     body: JSON.stringify(body),
   })
 }
 
-async function apiPut(endpoint: string, body: unknown): Promise<Response> {
+async function apiPut(endpoint: string, body: unknown, configPath: string): Promise<Response> {
   return fetch(`${BACKEND_URL}/api/latest${endpoint}`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
-      'X-Project-Config-Path': QA_PROJECT_PATH,
+      'X-Project-Config-Path': configPath,
     },
     body: JSON.stringify(body),
   })
 }
 
 test.beforeAll(() => {
-  if (!fs.existsSync(QA_PROJECT_PATH)) {
-    test.skip(true, `qa_simple fixture 目录不存在: ${QA_PROJECT_PATH}`)
+  if (!fs.existsSync(QA_SIMPLE_SOURCE)) {
+    test.skip(true, `qa_simple fixture 目录不存在: ${QA_SIMPLE_SOURCE}`)
   }
   // 验证关键目录存在
   const missing = ['schemas', 'data', 'regex_nodes', 'templates']
-    .filter(d => !fs.existsSync(path.join(QA_PROJECT_PATH, d)))
+    .filter(d => !fs.existsSync(path.join(QA_SIMPLE_SOURCE, d)))
   if (missing.length > 0) {
     test.skip(true, `qa_simple 缺少子目录: ${missing.join(', ')}`)
   }
@@ -63,8 +62,8 @@ test.beforeAll(() => {
 // Stage 1: 项目加载
 // ============================================================================
 test.describe('Stage 1 — 项目加载', () => {
-  test('manifest 包含所有 schema 引用', async () => {
-    const resp = await apiGet('/project/manifest')
+  test('manifest 包含所有 schema 引用', async ({ isolatedProjectPath }) => {
+    const resp = await apiGet('/project/manifest', isolatedProjectPath)
     expect(resp.status).toBeLessThan(300)
 
     const manifest = await resp.json()
@@ -95,25 +94,25 @@ test.describe('Stage 1 — 项目加载', () => {
   })
 
   test('schemas 目录包含所有 schema 文件', () => {
-    const schemasDir = path.join(QA_PROJECT_PATH, 'schemas')
+    const schemasDir = path.join(QA_SIMPLE_SOURCE, 'schemas')
     const files = fs.readdirSync(schemasDir).filter(f => f.endsWith('.schema.yaml'))
     expect(files.length).toBeGreaterThanOrEqual(10)
   })
 
   test('regex 目录包含所有 regex 文件', () => {
-    const regexDir = path.join(QA_PROJECT_PATH, 'regex_nodes')
+    const regexDir = path.join(QA_SIMPLE_SOURCE, 'regex_nodes')
     const files = fs.readdirSync(regexDir).filter(f => f.endsWith('.regex.yaml'))
     expect(files.length).toBeGreaterThanOrEqual(18)
   })
 
   test('templates 目录包含模板文件', () => {
-    const templatesDir = path.join(QA_PROJECT_PATH, 'templates')
+    const templatesDir = path.join(QA_SIMPLE_SOURCE, 'templates')
     const files = fs.readdirSync(templatesDir).filter(f => f.endsWith('.template.yaml'))
     expect(files.length).toBe(5)
   })
 
   test('data 目录包含所有数据文件', () => {
-    const dataDir = path.join(QA_PROJECT_PATH, 'data')
+    const dataDir = path.join(QA_SIMPLE_SOURCE, 'data')
     const files = fs.readdirSync(dataDir)
     // 应有至少 10 个数据文件
     const dataFiles = files.filter(f =>
@@ -127,15 +126,15 @@ test.describe('Stage 1 — 项目加载', () => {
 // Stage 2: 资源导入
 // ============================================================================
 test.describe('Stage 2 — 资源导入', () => {
-  test('导入 users Schema 并验证内嵌约束', async () => {
-    const manifestResp = await apiGet('/project/manifest')
+  test('导入 users Schema 并验证内嵌约束', async ({ isolatedProjectPath }) => {
+    const manifestResp = await apiGet('/project/manifest', isolatedProjectPath)
     const manifest = await manifestResp.json()
     const usersSchemaRef = manifest.schemas.find((s: { id: string }) =>
       s.id === 'users-users'
     )
     expect(usersSchemaRef).toBeDefined()
 
-    const schemaResp = await apiGet(`/project/schemas/${usersSchemaRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${usersSchemaRef.id}`, isolatedProjectPath)
     expect(schemaResp.status).toBeLessThan(300)
 
     const schema = await schemaResp.json()
@@ -153,15 +152,15 @@ test.describe('Stage 2 — 资源导入', () => {
     expect(constraintTypes).toContain('NotNull')
   })
 
-  test('导入 customers Schema 并验证列映射', async () => {
-    const manifestResp = await apiGet('/project/manifest')
+  test('导入 customers Schema 并验证列映射', async ({ isolatedProjectPath }) => {
+    const manifestResp = await apiGet('/project/manifest', isolatedProjectPath)
     const manifest = await manifestResp.json()
     const customersRef = manifest.schemas.find((s: { id: string }) =>
       s.id === 'customers'
     )
     expect(customersRef).toBeDefined()
 
-    const schemaResp = await apiGet(`/project/schemas/${customersRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${customersRef.id}`, isolatedProjectPath)
     expect(schemaResp.status).toBeLessThan(300)
 
     const schema = await schemaResp.json()
@@ -179,14 +178,14 @@ test.describe('Stage 2 — 资源导入', () => {
     expect(idCol.primary_key || idCol.primaryKey).toBe(true)
   })
 
-  test('关联 Regex 可通过 V2 API 获取', async () => {
-    const manifestResp = await apiGet('/project/manifest')
+  test('关联 Regex 可通过 V2 API 获取', async ({ isolatedProjectPath }) => {
+    const manifestResp = await apiGet('/project/manifest', isolatedProjectPath)
     const manifest = await manifestResp.json()
     const regexIds = manifest.regex_nodes.map((r: { id: string }) => r.id)
 
     // 验证至少第一个 regex 可获取
     const firstRegexId = regexIds[0]
-    const regexResp = await apiGet(`/project/regex/${firstRegexId}`)
+    const regexResp = await apiGet(`/project/regex/${firstRegexId}`, isolatedProjectPath)
     expect(regexResp.status).toBeLessThan(300)
 
     const regex = await regexResp.json()
@@ -195,15 +194,15 @@ test.describe('Stage 2 — 资源导入', () => {
     expect(regex.name).toBeTruthy()
   })
 
-  test('导入 categories Schema 并验证 Range 约束参数', async () => {
-    const manifestResp = await apiGet('/project/manifest')
+  test('导入 categories Schema 并验证 Range 约束参数', async ({ isolatedProjectPath }) => {
+    const manifestResp = await apiGet('/project/manifest', isolatedProjectPath)
     const manifest = await manifestResp.json()
     const catRef = manifest.schemas.find((s: { id: string }) =>
       s.id === 'categories'
     )
     expect(catRef).toBeDefined()
 
-    const schemaResp = await apiGet(`/project/schemas/${catRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${catRef.id}`, isolatedProjectPath)
     const schema = await schemaResp.json()
 
     const constraints = schema.constraints || []
@@ -217,15 +216,15 @@ test.describe('Stage 2 — 资源导入', () => {
     expect(range.params.max).toBeDefined()
   })
 
-  test('导入 JSON Schema（inventory）并验证嵌套源', async () => {
-    const manifestResp = await apiGet('/project/manifest')
+  test('导入 JSON Schema（inventory）并验证嵌套源', async ({ isolatedProjectPath }) => {
+    const manifestResp = await apiGet('/project/manifest', isolatedProjectPath)
     const manifest = await manifestResp.json()
     const jsonRef = manifest.schemas.find((s: { id: string }) =>
       s.id === 'inventory'
     )
     expect(jsonRef).toBeDefined()
 
-    const schemaResp = await apiGet(`/project/schemas/${jsonRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${jsonRef.id}`, isolatedProjectPath)
     expect(schemaResp.status).toBeLessThan(300)
 
     const schema = await schemaResp.json()
@@ -244,14 +243,14 @@ test.describe('Stage 2 — 资源导入', () => {
 // Stage 3: 数据源绑定
 // ============================================================================
 test.describe('Stage 3 — 数据源绑定', () => {
-  test('绑定 CSV 数据文件并预览', async () => {
-    const customersPath = path.join(QA_PROJECT_PATH, 'data', 'customers.csv')
+  test('绑定 CSV 数据文件并预览', async ({ isolatedProjectPath }) => {
+    const customersPath = path.join(isolatedProjectPath, 'data', 'customers.csv')
     expect(fs.existsSync(customersPath)).toBe(true)
 
     const previewResp = await apiPost('/preview/content', {
       source_file_path: customersPath,
       header_row: 0,
-    })
+    }, isolatedProjectPath)
 
     // 预览可能失败（依赖后端实现），但不应崩溃
     if (previewResp.ok) {
@@ -262,8 +261,8 @@ test.describe('Stage 3 — 数据源绑定', () => {
     }
   })
 
-  test('验证 Schema source 路径对应的数据文件存在', async () => {
-    const manifestResp = await apiGet('/project/manifest')
+  test('验证 Schema source 路径对应的数据文件存在', async ({ isolatedProjectPath }) => {
+    const manifestResp = await apiGet('/project/manifest', isolatedProjectPath)
     const manifest = await manifestResp.json()
 
     // 检查 orders-csv schema 指向 data/orders.csv
@@ -272,18 +271,18 @@ test.describe('Stage 3 — 数据源绑定', () => {
     )
     expect(ordersRef).toBeDefined()
 
-    const schemaResp = await apiGet(`/project/schemas/${ordersRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${ordersRef.id}`, isolatedProjectPath)
     const schema = await schemaResp.json()
     expect(schema.source).toBeDefined()
     expect(schema.source.path).toBeTruthy()
 
-    // 数据文件应存在
-    const dataPath = path.join(QA_PROJECT_PATH, schema.source.path)
+    // 数据文件应存在（读副本，保证隔离一致）
+    const dataPath = path.join(isolatedProjectPath, schema.source.path)
     expect(fs.existsSync(dataPath)).toBe(true)
   })
 
   test('JSON 数据源文件存在且可读', () => {
-    const inventoryPath = path.join(QA_PROJECT_PATH, 'data', 'inventory_nested.json')
+    const inventoryPath = path.join(QA_SIMPLE_SOURCE, 'data', 'inventory_nested.json')
     expect(fs.existsSync(inventoryPath)).toBe(true)
 
     const content = fs.readFileSync(inventoryPath, 'utf-8')
@@ -299,8 +298,8 @@ test.describe('Stage 3 — 数据源绑定', () => {
 // Stage 4: 校验执行
 // ============================================================================
 test.describe('Stage 4 — 校验执行', () => {
-  test('全量校验触发成功并返回结构化结果', async () => {
-    const resp = await apiPost('/project/validate/full', {})
+  test('全量校验触发成功并返回结构化结果', async ({ isolatedProjectPath }) => {
+    const resp = await apiPost('/project/validate/full', {}, isolatedProjectPath)
     expect(resp.status).toBeLessThan(300)
 
     const result = await resp.json()
@@ -314,8 +313,8 @@ test.describe('Stage 4 — 校验执行', () => {
     expect(typeof result.summary.constraint_error_count).toBe('number')
   })
 
-  test('校验结果中的错误包含阶段分类', async () => {
-    const resp = await apiPost('/project/validate/full', {})
+  test('校验结果中的错误包含阶段分类', async ({ isolatedProjectPath }) => {
+    const resp = await apiPost('/project/validate/full', {}, isolatedProjectPath)
     const result = await resp.json()
 
     for (const err of result.errors) {
@@ -326,8 +325,8 @@ test.describe('Stage 4 — 校验执行', () => {
     }
   })
 
-  test('employees Schema 校验不崩溃', async () => {
-    const manifestResp = await apiGet('/project/manifest')
+  test('employees Schema 校验不崩溃', async ({ isolatedProjectPath }) => {
+    const manifestResp = await apiGet('/project/manifest', isolatedProjectPath)
     const manifest = await manifestResp.json()
     const empRef = manifest.schemas.find((s: { id: string }) =>
       s.id === 'employees'
@@ -335,7 +334,7 @@ test.describe('Stage 4 — 校验执行', () => {
     expect(empRef).toBeDefined()
 
     // 单独获取 schema 验证其结构完整
-    const schemaResp = await apiGet(`/project/schemas/${empRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${empRef.id}`, isolatedProjectPath)
     const schema = await schemaResp.json()
     expect(schema.columns.length).toBe(11)
 
@@ -344,15 +343,15 @@ test.describe('Stage 4 — 校验执行', () => {
     expect(constraints.length).toBeGreaterThanOrEqual(5)
   })
 
-  test('order_items Schema 校验 Range 参数正确', async () => {
-    const manifestResp = await apiGet('/project/manifest')
+  test('order_items Schema 校验 Range 参数正确', async ({ isolatedProjectPath }) => {
+    const manifestResp = await apiGet('/project/manifest', isolatedProjectPath)
     const manifest = await manifestResp.json()
     const oiRef = manifest.schemas.find((s: { id: string }) =>
       s.id === 'order_items'
     )
     expect(oiRef).toBeDefined()
 
-    const schemaResp = await apiGet(`/project/schemas/${oiRef.id}`)
+    const schemaResp = await apiGet(`/project/schemas/${oiRef.id}`, isolatedProjectPath)
     const schema = await schemaResp.json()
     const rangeConstraints = (schema.constraints || []).filter(
       (c: { type: string }) => c.type === 'Range'
@@ -361,8 +360,8 @@ test.describe('Stage 4 — 校验执行', () => {
     expect(rangeConstraints.length).toBeGreaterThanOrEqual(4)
   })
 
-  test('全量校验 summary 与 errors 列表一致性', async () => {
-    const resp = await apiPost('/project/validate/full', {})
+  test('全量校验 summary 与 errors 列表一致性', async ({ isolatedProjectPath }) => {
+    const resp = await apiPost('/project/validate/full', {}, isolatedProjectPath)
     const result = await resp.json()
 
     const actualLoading = result.errors.filter((e: { stage: string }) => e.stage === 'loading').length
@@ -380,8 +379,8 @@ test.describe('Stage 4 — 校验执行', () => {
 // Stage 5: 保存 Roundtrip
 // ============================================================================
 test.describe('Stage 5 — 保存 Roundtrip', () => {
-  test('完整配置加载并解析为有效结构', async () => {
-    const loadResp = await apiGet('/project/config/full')
+  test('完整配置加载并解析为有效结构', async ({ isolatedProjectPath }) => {
+    const loadResp = await apiGet('/project/config/full', isolatedProjectPath)
     expect(loadResp.status).toBeLessThan(300)
 
     const config = await loadResp.json()
@@ -400,12 +399,12 @@ test.describe('Stage 5 — 保存 Roundtrip', () => {
     expect(regexKeys.length).toBeGreaterThanOrEqual(18)
   })
 
-  test('Schema 文件重读与初始加载一致', async () => {
+  test('Schema 文件重读与初始加载一致', async ({ isolatedProjectPath }) => {
     // 通过全量配置获取 schema
-    const configResp = await apiGet('/project/config/full')
+    const configResp = await apiGet('/project/config/full', isolatedProjectPath)
     const config = await configResp.json()
 
-    const manifestResp = await apiGet('/project/manifest')
+    const manifestResp = await apiGet('/project/manifest', isolatedProjectPath)
     const manifest = await manifestResp.json()
 
     const firstSchemaRef = manifest.schemas[0]
@@ -413,17 +412,17 @@ test.describe('Stage 5 — 保存 Roundtrip', () => {
     expect(schemaInConfig).toBeDefined()
 
     // 通过单个 API 读取
-    const singleResp = await apiGet(`/project/schemas/${firstSchemaRef.id}`)
+    const singleResp = await apiGet(`/project/schemas/${firstSchemaRef.id}`, isolatedProjectPath)
     const singleSchema = await singleResp.json()
 
     // 列数应一致
     expect(singleSchema.columns.length).toBe(schemaInConfig.columns.length)
   })
 
-  test.fixme('Regex 文件通过全量配置重读完整性 — 待修（根因 C-2）', async () => {
+  test.fixme('Regex 文件通过全量配置重读完整性 — 待修（根因 C-2）', async ({ isolatedProjectPath }) => {
     // 暂挂原因：断言 regex 的 source_ref 字段存在，实际 undefined。
     // 待查后端 regex schema 是否有 source_ref 字段。
-    const configResp = await apiGet('/project/config/full')
+    const configResp = await apiGet('/project/config/full', isolatedProjectPath)
     const config = await configResp.json()
 
     for (const [regexId, regexData] of Object.entries(config.regex_nodes || {})) {
@@ -433,8 +432,8 @@ test.describe('Stage 5 — 保存 Roundtrip', () => {
     }
   })
 
-  test('project.view.json 可读且格式正确', async () => {
-    const viewResp = await apiGet('/project/view')
+  test('project.view.json 可读且格式正确', async ({ isolatedProjectPath }) => {
+    const viewResp = await apiGet('/project/view', isolatedProjectPath)
     // view 可能存在也可能不存在（取决于后端实现）
     if (viewResp.ok) {
       const view = await viewResp.json()
@@ -449,12 +448,12 @@ test.describe('Stage 5 — 保存 Roundtrip', () => {
 // Stage 6: 错误导航
 // ============================================================================
 test.describe('Stage 6 — 错误导航', () => {
-  test('所有 schema 资源可通过 getV2Schema 访问', async () => {
-    const manifestResp = await apiGet('/project/manifest')
+  test('所有 schema 资源可通过 getV2Schema 访问', async ({ isolatedProjectPath }) => {
+    const manifestResp = await apiGet('/project/manifest', isolatedProjectPath)
     const manifest = await manifestResp.json()
 
     for (const schemaRef of manifest.schemas) {
-      const schemaResp = await apiGet(`/project/schemas/${schemaRef.id}`)
+      const schemaResp = await apiGet(`/project/schemas/${schemaRef.id}`, isolatedProjectPath)
       expect(schemaResp.status).toBeLessThan(300)
 
       const schema = await schemaResp.json()
@@ -465,13 +464,13 @@ test.describe('Stage 6 — 错误导航', () => {
     }
   })
 
-  test('不存在的 schema 返回 404（navigator 降级路径）', async () => {
-    const resp = await apiGet('/project/schemas/sc_nonexistent_abcdef')
+  test('不存在的 schema 返回 404（navigator 降级路径）', async ({ isolatedProjectPath }) => {
+    const resp = await apiGet('/project/schemas/sc_nonexistent_abcdef', isolatedProjectPath)
     expect(resp.status).toBe(404)
   })
 
-  test('校验错误应包含导航所需字段', async () => {
-    const resp = await apiPost('/project/validate/full', {})
+  test('校验错误应包含导航所需字段', async ({ isolatedProjectPath }) => {
+    const resp = await apiPost('/project/validate/full', {}, isolatedProjectPath)
     const result = await resp.json()
 
     const constraintErrors = result.errors.filter(
@@ -486,12 +485,12 @@ test.describe('Stage 6 — 错误导航', () => {
     }
   })
 
-  test('所有 regex 资源可通过 getV2Regex 访问', async () => {
-    const manifestResp = await apiGet('/project/manifest')
+  test('所有 regex 资源可通过 getV2Regex 访问', async ({ isolatedProjectPath }) => {
+    const manifestResp = await apiGet('/project/manifest', isolatedProjectPath)
     const manifest = await manifestResp.json()
 
     for (const regexRef of manifest.regex_nodes) {
-      const regexResp = await apiGet(`/project/regex/${regexRef.id}`)
+      const regexResp = await apiGet(`/project/regex/${regexRef.id}`, isolatedProjectPath)
       expect(regexResp.status).toBeLessThan(300)
 
       const regex = await regexResp.json()
@@ -506,7 +505,7 @@ test.describe('Stage 6 — 错误导航', () => {
 test.describe('综合 — 完整性验证', () => {
   test('manifest 引用的 schema 文件在磁盘上实际存在', () => {
     const manifestContent = fs.readFileSync(
-      path.join(QA_PROJECT_PATH, 'project.precis.yaml'),
+      path.join(QA_SIMPLE_SOURCE, 'project.precis.yaml'),
       'utf-8'
     )
     // 解析 manifest 中的 schema path 引用
@@ -516,14 +515,14 @@ test.describe('综合 — 完整性验证', () => {
     expect(referencedPaths.length).toBeGreaterThanOrEqual(10)
 
     for (const schemaPath of referencedPaths) {
-      const fullPath = path.join(QA_PROJECT_PATH, 'schemas', schemaPath)
+      const fullPath = path.join(QA_SIMPLE_SOURCE, 'schemas', schemaPath)
       expect(fs.existsSync(fullPath)).toBe(true)
     }
   })
 
   test('manifest 引用的 regex 文件在磁盘上实际存在', () => {
     const manifestContent = fs.readFileSync(
-      path.join(QA_PROJECT_PATH, 'project.precis.yaml'),
+      path.join(QA_SIMPLE_SOURCE, 'project.precis.yaml'),
       'utf-8'
     )
     const pathMatches = manifestContent.matchAll(/path:\s*regex_nodes\/([\w-]+\.regex\.yaml)/g)
@@ -532,13 +531,13 @@ test.describe('综合 — 完整性验证', () => {
     expect(referencedPaths.length).toBeGreaterThanOrEqual(18)
 
     for (const regexPath of referencedPaths) {
-      const fullPath = path.join(QA_PROJECT_PATH, 'regex_nodes', regexPath)
+      const fullPath = path.join(QA_SIMPLE_SOURCE, 'regex_nodes', regexPath)
       expect(fs.existsSync(fullPath)).toBe(true)
     }
   })
 
   test('所有数据源文件存在且非空', () => {
-    const dataDir = path.join(QA_PROJECT_PATH, 'data')
+    const dataDir = path.join(QA_SIMPLE_SOURCE, 'data')
     const dataFiles = fs.readdirSync(dataDir).filter(f =>
       f.endsWith('.csv') || f.endsWith('.xlsx') || f.endsWith('.json')
     )
@@ -550,10 +549,10 @@ test.describe('综合 — 完整性验证', () => {
     }
   })
 
-  test.fixme('项目完整配置可被加载并包含所有必需端 — 待修（根因 C-3）', async () => {
+  test.fixme('项目完整配置可被加载并包含所有必需端 — 待修（根因 C-3）', async ({ isolatedProjectPath }) => {
     // 暂挂原因：完整性端点响应 regex 计数与 manifest 不符（loaded vs manifestRegexCount）。
     // 待查后端该端点实现。
-    const configResp = await apiGet('/project/config/full')
+    const configResp = await apiGet('/project/config/full', isolatedProjectPath)
     const config = await configResp.json()
 
     // 验证全量配置包含所有 section
