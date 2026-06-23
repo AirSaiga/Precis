@@ -2,17 +2,17 @@
 
 > ⚠️ **项目状态声明 / Project Status**
 >
-> Precis 目前处于**超早期原型阶段（Prototype / Pre-Alpha）**。
-> - 核心功能框架已就绪，**测试基线已建立，但核心引擎与边界场景覆盖仍不足**，已知存在大量 Bug
-> - 本仓库**开源仅为展示方向、收集需求反馈**，暂不寻求外部代码贡献
-> - **不建议**在生产环境或关键数据场景中使用
-> - 代码随时可能大规模重构，接口和行为均不保证稳定
+> Precis 目前处于 **Alpha 阶段**。
+> - 核心功能已成型并配套完整测试（后端 2500+ / 前端 1400+ / E2E 130+ 用例，CI 全绿），但稳定性仍在打磨，边界场景覆盖持续完善
+> - 本仓库**开源以收集真实使用反馈、验证边界场景**，暂不寻求外部代码贡献
+> - **暂不建议**在生产环境或关键数据场景中使用
+> - 接口和行为仍可能调整，尚未完全冻结
 >
-> Precis is currently in **ultra-early prototype stage (Prototype / Pre-Alpha)**.
-> - Core framework is ready, **test coverage baseline established, but core engine and edge case coverage still insufficient**, many bugs are known
-> - Open-sourced **only to showcase direction and collect feedback**, not seeking external contributions
+> Precis is currently in **Alpha stage**.
+> - Core features are implemented and covered by a full test suite (backend 2500+ / frontend 1400+ / E2E 130+ cases, CI green), but stability is still being polished and edge-case coverage is continuously improving
+> - Open-sourced **to collect real-world feedback and validate edge cases**, not seeking external contributions at this stage
 > - **Not recommended** for production or critical data scenarios
-> - Code may be massively refactored at any time; interfaces and behaviors are not stable
+> - Interfaces and behaviors may still change; not yet fully frozen
 
 ---
 
@@ -75,9 +75,9 @@ This project uses numerous third-party open-source libraries, each under its own
 
 ## 免责声明 / Disclaimer
 
-本项目按"原样"提供，不附带任何明示或暗示的担保。当前为超早期原型，可能存在数据丢失、崩溃或其他不可预期的问题。详见 `LICENSE` 文件第 7、8 条。
+本项目按"原样"提供，不附带任何明示或暗示的担保。当前为 Alpha 阶段，可能存在数据丢失、崩溃或其他不可预期的问题。详见 `LICENSE` 文件第 7、8 条。
 
-This project is provided "as is", without warranty of any kind, express or implied. As an ultra-early prototype, data loss, crashes, or other unexpected issues may occur. See Sections 7 and 8 of the `LICENSE` file.
+This project is provided "as is", without warranty of any kind, express or implied. As Alpha-stage software, data loss, crashes, or other unexpected issues may occur. See Sections 7 and 8 of the `LICENSE` file.
 
 ## 联系方式 / Contact
 

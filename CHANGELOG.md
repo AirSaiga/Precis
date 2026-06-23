@@ -1,8 +1,8 @@
 # 变更日志 / Changelog
 
-> ⚠️ 本项目处于超早期原型阶段，变更频繁且可能不兼容。以下记录仅供参考。
+> ⚠️ 本项目处于 Alpha 阶段，核心功能已成型但仍可能有不兼容变更。以下记录仅供参考。
 >
-> This project is in an ultra-early prototype stage. Changes are frequent and may be incompatible. The following records are for reference only.
+> This project is in Alpha stage. Core features are implemented but breaking changes may still occur. The following records are for reference only.
 
 ## [Unreleased]
 

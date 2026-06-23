@@ -15,9 +15,9 @@ We are committed to providing an open and friendly environment for communication
 
 ## 当前阶段的特别说明 / Special Note for Current Stage
 
-Precis 目前处于**超早期原型阶段**，开源的主要目的是**展示方向、收集需求反馈**。
+Precis 目前处于 **Alpha 阶段**，核心功能已成型并配套完整测试，开源的主要目的是**收集真实使用反馈、验证边界场景**。
 
-Precis is currently in **ultra-early prototype stage**. The main purpose of open-sourcing is to **showcase direction and collect feedback**.
+Precis is currently in **Alpha stage**. Core features are implemented and covered by a full test suite. The main purpose of open-sourcing is to **collect real-world feedback and validate edge cases**.
 
 - 讨论请集中在"这个工具有没有用"、"你遇到哪些类似痛点"
 - 目前不是正式的协作社区，请理解维护者回复可能不及时

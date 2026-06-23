@@ -6,13 +6,13 @@ body:
   - type: markdown
     attributes:
       value: |
-        👋 感谢你的关注！Precis 目前处于**超早期原型阶段**。
+        👋 感谢你的关注！Precis 目前处于 **Alpha 阶段**。
 
-        👋 Thanks for your interest! Precis is currently in **ultra-early prototype stage**.
+        👋 Thanks for your interest! Precis is currently in **Alpha stage**.
 
-        我们**接受**功能建议，但请理解：超早期阶段架构不稳定，部分功能可能因重构调整或被放弃。
+        我们**接受**功能建议，但请理解：Alpha 阶段接口仍可能调整，部分功能可能因方向调整而被推迟或放弃。
 
-        We **accept** feature suggestions, but please understand: during this ultra-early stage the architecture is unstable, and some features may be adjusted or dropped due to refactoring.
+        We **accept** feature suggestions, but please understand: during Alpha stage interfaces may still change, and some features may be deferred or dropped due to direction adjustments.
 
   - type: textarea
     id: problem

@@ -2,7 +2,7 @@
 
 This file provides guidance to Qoder (qoder.com) when working with code in this repository.
 
-> **项目状态**: 早期开发阶段（Pre-Alpha）。修改代码时仍需保证正确性，但不必刻意追求最小改动；应结合具体业务场景，必要时进行合理重构以保持代码健康。
+> **项目状态**: Alpha 阶段。核心功能已成型并配套完整测试（后端 2500+ / 前端 1400+ / E2E 130+ 用例，CI 全绿），但仍在打磨稳定性，API 与配置格式可能调整。修改代码时需保证正确性并维护测试；应结合具体业务场景，必要时进行合理重构以保持代码健康。
 
 ## Build & Run Commands
 

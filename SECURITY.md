@@ -1,9 +1,9 @@
 # 安全说明 / Security Notice
 
-> ⚠️ **超早期原型警告 / Ultra-Early Prototype Warning**
+> ⚠️ **Alpha 阶段安全提示 / Alpha-Stage Security Notice**
 >
-> Precis 目前处于超早期开发阶段，**尚未经过安全审计**，**不建议处理敏感或生产数据**。
-> Precis is in ultra-early development, **has not undergone security auditing**, and **is not recommended for handling sensitive or production data**.
+> Precis 目前处于 Alpha 阶段，**尚未经过安全审计**，**不建议处理敏感或生产数据**。
+> Precis is in Alpha stage, **has not undergone security auditing**, and **is not recommended for handling sensitive or production data**.
 >
 > 以下安全实践为计划中的设计，而非已完成的安全保证。
 > The security practices below are planned designs, not completed security guarantees.
@@ -47,6 +47,6 @@ If you discover a potential security issue:
 
 ## 免责声明 / Disclaimer
 
-由于项目处于超早期阶段，我们**无法对任何数据泄露、代码执行或系统损害承担责任**。请仅在隔离的本地环境中试用。
+由于项目处于 Alpha 阶段且未经过安全审计，我们**无法对任何数据泄露、代码执行或系统损害承担责任**。请仅在隔离的本地环境中试用。
 
-As the project is in an ultra-early stage, we **cannot be held liable for any data breaches, code execution, or system damage**. Please trial only in an isolated local environment.
+As the project is in Alpha stage and has not been security-audited, we **cannot be held liable for any data breaches, code execution, or system damage**. Please trial only in an isolated local environment.

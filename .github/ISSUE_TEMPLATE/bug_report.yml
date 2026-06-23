@@ -5,11 +5,11 @@ body:
   - type: markdown
     attributes:
       value: |
-        ⚠️ **注意 / Note：Precis 目前处于超早期原型阶段，已知存在大量 Bug。**
+        ⚠️ **注意 / Note：Precis 目前处于 Alpha 阶段，稳定性仍在打磨，可能存在已知问题。**
 
-        我们**接受** Bug 报告，但请理解核心功能尚未稳定，部分问题可能在重构过程中逐步解决。
+        我们**接受** Bug 报告，但请理解部分边界场景尚未完全稳定，部分问题会在持续打磨中逐步解决。
 
-        We **accept** bug reports, but please understand core features are not yet stable; some issues may be resolved gradually during refactoring.
+        We **accept** bug reports, but please understand some edge cases are not yet fully stable; some issues may be resolved gradually as we continue polishing.
 
         如果你发现的是**安全漏洞**，请勿公开提交，请通过 GitHub Security Advisories 私下报告。
 

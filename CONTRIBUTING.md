@@ -6,13 +6,13 @@ Thank you for your interest in the Precis project!
 
 ## 当前阶段说明 / Current Stage
 
-Precis 目前处于**超早期原型阶段**。核心功能框架已就绪，测试基线已建立，但核心引擎与边界场景覆盖仍不足，已知存在大量 Bug，接口随时可能重构。
+Precis 目前处于 **Alpha 阶段**。核心功能已成型并配套完整测试（后端 2500+ / 前端 1400+ / E2E 130+ 用例，CI 全绿），但稳定性仍在打磨，边界场景覆盖持续完善中，接口可能调整。
 
-Precis is currently in **ultra-early prototype stage**. The core framework is ready, a test coverage baseline has been established, but core engine and edge case coverage are still insufficient, many bugs are known, and interfaces may be refactored at any time.
+Precis is currently in **Alpha stage**. Core features are implemented and covered by a full test suite (backend 2500+ / frontend 1400+ / E2E 130+ cases, CI green), but stability is still being polished, edge-case coverage is continuously improving, and interfaces may change.
 
-**因此，本项目现阶段暂不寻求外部代码贡献。**
+**因此，本项目现阶段仍暂不寻求外部代码贡献。**
 
-**Therefore, this project is not seeking external code contributions at this stage.**
+**Therefore, this project is still not seeking external code contributions at this stage.**
 
 - ❌ **不接受外部 Pull Request** / No external Pull Requests accepted
 - ✅ **欢迎提交 Issue**（Bug 报告、功能建议、使用反馈）/ Issues welcome (bugs, features, feedback)

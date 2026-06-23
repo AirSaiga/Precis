@@ -6,7 +6,7 @@
 
 Visual DAG Editor · Schema-Aware Validation · Local-First
 
-[![Status](https://img.shields.io/badge/status-Pre--Alpha-critical)](https://github.com/AirSaiga/Precis)
+[![Status](https://img.shields.io/badge/status-Alpha-orange)](https://github.com/AirSaiga/Precis)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%5E20.19.0%20%7C%7C%20%3E%3D22.12.0-green.svg)](https://nodejs.org/)
 [![Python](https://img.shields.io/badge/python-%3E%3D3.12-blue.svg)](https://python.org/)
@@ -15,11 +15,11 @@ Visual DAG Editor · Schema-Aware Validation · Local-First
 
 </div>
 
-> **⚠️ Pre-Alpha** — 方向验证与技术原型阶段，配置格式与 API 可能随时变更，不适合生产环境。
-> 当前阶段**不接受外部 Pull Request**，欢迎 [Issues](https://github.com/AirSaiga/Precis/issues) 与 [Discussions](https://github.com/AirSaiga/Precis/discussions)。
+> **⚠️ Alpha** — 核心功能已成型并配套完整测试（后端 2500+ / 前端 1400+ / E2E 130+ 用例，CI 全绿），但仍在打磨稳定性，API 与配置格式可能调整，暂不建议生产环境使用。
+> 当前阶段**暂不接受外部 Pull Request**，欢迎 [Issues](https://github.com/AirSaiga/Precis/issues) 与 [Discussions](https://github.com/AirSaiga/Precis/discussions)。
 >
-> Ultra-early prototype. Config formats and APIs may change without notice. **No external PRs accepted** at this stage.
-> [Issues](https://github.com/AirSaiga/Precis/issues) and [Discussions](https://github.com/AirSaiga/Precis/discussions) welcome.
+> Core features are implemented and covered by a full test suite (backend 2500+ / frontend 1400+ / E2E 130+ cases, CI green). Still stabilizing; APIs and config formats may change. **Not recommended for production.**
+> **No external PRs accepted** at this stage. [Issues](https://github.com/AirSaiga/Precis/issues) and [Discussions](https://github.com/AirSaiga/Precis/discussions) welcome.
 
 ---
 
@@ -116,7 +116,7 @@ Precis/
 
 ## 常见问题
 
-**可以用于生产环境吗？** 不可以。Pre-Alpha 原型，API 与配置格式随时可能变更。
+**可以用于生产环境吗？** 暂不建议。Alpha 阶段，核心功能可用但稳定性仍在打磨，API 与配置格式可能调整。
 
 **接受外部贡献吗？** 当前不接受外部 PR，欢迎 Issue 和 Discussion。
 
@@ -219,7 +219,7 @@ Precis/
 
 ## FAQ
 
-**Can it be used in production?** No. Pre-Alpha prototype; APIs and config formats may change without notice.
+**Can it be used in production?** Not yet recommended. Alpha stage: core features work, but stability is still being polished and APIs/config formats may change.
 
 **Do you accept external contributions?** No external PRs at this stage. Issues and Discussions welcome.
 

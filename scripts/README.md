@@ -1,8 +1,8 @@
 # Precis 部署与启动指南 / Deployment & Startup Guide
 
-> ⚠️ **超早期原型警告 / Ultra-Early Prototype Warning**
+> ⚠️ **Alpha 阶段提示 / Alpha-Stage Notice**
 >
-> 以下脚本和指南仅供技术预览。项目可能存在启动失败、数据异常或其他未预期行为。建议在隔离环境（非生产环境）中使用。
+> 以下脚本和指南适用于 Alpha 阶段试用。项目稳定性仍在打磨，可能存在启动失败、数据异常或其他未预期行为。建议在隔离环境（非生产环境）中使用。
 >
 > The following scripts and guides are for technical preview only. The project may experience startup failures, data anomalies, or other unexpected behaviors. Use in an isolated environment (non-production) is recommended.
 
