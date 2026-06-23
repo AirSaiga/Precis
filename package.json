@@ -25,6 +25,7 @@
     "build:all": "npm run backend:build && npm run frontend:build && cd electron && npm run build:electron && npm run dist",
     "cli": "cd backend && python -B -m app.cli",
     "cli:validate": "cd backend && python -B -m app.cli validate --manifest ../qa_test/qa_simple/project.precis.yaml --data-directory ../qa_test/qa_simple/data",
+    "cli:validate:check": "cd backend && python -B -m scripts.qa_simple_golden_check",
     "setup": "node scripts/check-env.js && echo 'Run setup.ps1 (Windows) or setup.sh (Mac/Linux) for full deployment'",
     "setup:win": "powershell -ExecutionPolicy Bypass -File scripts/setup.ps1",
     "setup:mac": "bash scripts/setup.sh",
