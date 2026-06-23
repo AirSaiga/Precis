@@ -182,8 +182,8 @@ jobs:
           cd backend/dist
           chmod +x ./${{ matrix.executable }}
           ./${{ matrix.executable }} validate \
-            --manifest ../../qa_test/qa_simple/project.precis.yaml \
-            --data-directory ../../qa_test/qa_simple/data
+            --manifest ../../qa_test/cli_smoke/project.precis.yaml \
+            --data-directory ../../qa_test/cli_smoke/data
 
       - name: Rename executable with platform suffix
         shell: bash

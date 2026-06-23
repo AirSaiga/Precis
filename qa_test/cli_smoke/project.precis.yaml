@@ -1,0 +1,7 @@
+version: 2
+project:
+  id: cli_smoke
+  name: CLI Smoke Test
+schemas:
+- id: smoke
+  path: schemas/smoke.schema.yaml
