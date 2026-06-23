@@ -1,0 +1,19 @@
+# ============================================================
+# Constraint: users_username_ascii
+# 类型: Charset
+# 说明: 用户名必须是纯 ASCII 字符
+# ============================================================
+
+version: 2
+
+id: users_username_ascii
+type: Charset
+enabled: true
+description: 用户名必须是纯 ASCII 字符
+
+refs:
+  table_id: users
+  column_id: username
+
+params:
+  charset_mode: ascii

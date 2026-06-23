@@ -1,0 +1,40 @@
+# ============================================================
+# Template: numeric_range 数值范围检查
+# ============================================================
+# 单节点模板：为指定数值列生成 Range 约束。
+# 模板内部含 manualData 作为输入起点，展开后用户连接
+# Schema 列注入真实数据。
+# ============================================================
+
+version: 2
+
+id: numeric_range
+name: 数值范围检查
+description: 检查指定数值列是否落在闭区间内
+
+nodes:
+  - id: md_input
+    kind: manualData
+    type: ManualData
+    column_name: numeric_field
+    column_data_type: integer
+    rows:
+      - ["25"]
+      - ["30"]
+      - ["45"]
+    enabled: true
+    description: 输入数据（连接 Schema 列注入真实数据）
+
+  - id: check_range
+    kind: constraint
+    type: Range
+    input_from_node: md_input
+    refs:
+      table_id: md_input
+      column_id: numeric_field
+    params:
+      min: 0
+      max: 120
+      boundary_mode: inclusive
+    enabled: true
+    description: 由模板生成的范围约束 [0, 120]

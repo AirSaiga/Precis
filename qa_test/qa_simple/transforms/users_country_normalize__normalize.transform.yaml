@@ -1,0 +1,19 @@
+# ============================================================
+# Transform: users_country_normalize__normalize
+# 类型: UpperCase
+# 说明: 由模板 normalize_enum 展开生成的大写转换
+#       模板实例 users_country_normalize 展开后独立持久化
+# ============================================================
+
+version: 2
+
+id: users_country_normalize__normalize
+type: UpperCase
+enabled: true
+description: 由模板 normalize_enum 生成的大写转换（users.country → country_upper）
+
+input_from_node: users
+input_column: country
+output_columns:
+  - country_upper
+params: {}

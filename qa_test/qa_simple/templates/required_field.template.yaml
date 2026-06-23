@@ -1,0 +1,37 @@
+# ============================================================
+# Template: required_field 必填字段检查
+# ============================================================
+# 单节点模板：为指定列生成 NotNull 约束。
+# 模板内部含 manualData 作为输入起点，展开后用户连接
+# Schema 列注入真实数据。
+# ============================================================
+
+version: 2
+
+id: required_field
+name: 必填字段检查
+description: 检查指定列是否非空
+
+nodes:
+  - id: md_input
+    kind: manualData
+    type: ManualData
+    column_name: target_field
+    column_data_type: string
+    rows:
+      - ["value1"]
+      - ["value2"]
+      - [""]
+    enabled: true
+    description: 输入数据（连接 Schema 列注入真实数据）
+
+  - id: check_not_null
+    kind: constraint
+    type: NotNull
+    input_from_node: md_input
+    refs:
+      table_id: md_input
+      column_id: target_field
+    params: {}
+    enabled: true
+    description: 由模板生成的非空约束

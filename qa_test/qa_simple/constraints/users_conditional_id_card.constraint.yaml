@@ -1,0 +1,25 @@
+# ============================================================
+# Constraint: users_conditional_id_card
+# 类型: Conditional
+# 说明: 当 country = CN 时，id_card 必须非空
+# ============================================================
+
+version: 2
+
+id: users_conditional_id_card
+type: Conditional
+enabled: true
+description: 中国用户必须填写身份证号
+
+refs:
+  table_id: users
+  then_column_id: id_card
+  if_conditions:
+    - if_column_id: country
+      operator: eq
+      value: CN
+  if_logic: and
+
+params:
+  then_condition:
+    operator: not_null

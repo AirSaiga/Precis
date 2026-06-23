@@ -1,0 +1,22 @@
+# ============================================================
+# Regex Node: extract_email_domain
+# 说明: 从 users.email 中提取本地部分和域名，演示 regex_node extract 模式
+# ============================================================
+
+version: 2
+
+id: extract_email_domain
+name: 提取邮箱域名
+description: 从邮箱地址中提取本地部分和域名
+
+pattern: '^(?P<local>[^@]+)@(?P<domain>[^@]+)$'
+match_mode: extract
+case_sensitive: false
+flags: ""
+enabled: true
+
+input_from_node: users
+input_column: email
+output_columns:
+  - email_local
+  - email_domain

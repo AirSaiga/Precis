@@ -1,0 +1,24 @@
+# ============================================================
+# Constraint: orders_amount_range 订单金额区间约束（独立文件）
+# ============================================================
+# 独立约束文件示例（通过 manifest constraints 引用）。
+# refs + params 分离设计:
+#   refs:   { table_id, column_id } 指向目标表/列
+#   params: { min, max, boundary_mode } 区间参数
+# ============================================================
+
+version: 2
+
+id: orders_amount_range
+type: Range
+enabled: true
+description: 订单金额必须在 0 - 100000 之间
+
+refs:
+  table_id: orders
+  column_id: amount
+
+params:
+  min: 0
+  max: 100000
+  boundary_mode: inclusive

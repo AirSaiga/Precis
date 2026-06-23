@@ -1,0 +1,21 @@
+# ============================================================
+# Constraint: users_birth_date_check
+# 类型: DateLogic
+# 说明: 用户出生日期必须晚于 1900-01-01
+# ============================================================
+
+version: 2
+
+id: users_birth_date_check
+type: DateLogic
+enabled: true
+description: 出生日期必须晚于 1900-01-01
+
+refs:
+  table_id: users
+  column_id: birth_date
+
+params:
+  logic_mode: compare
+  compare_op: gt
+  reference_date: "1900-01-01"

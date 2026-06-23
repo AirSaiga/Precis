@@ -1,0 +1,24 @@
+# ============================================================
+# Constraint: users_country_normalize__check_allowed
+# 类型: AllowedValues
+# 说明: 由模板 normalize_enum 展开生成的枚举校验
+#       模板实例 users_country_normalize 展开后独立持久化
+# ============================================================
+
+version: 2
+
+id: users_country_normalize__check_allowed
+type: AllowedValues
+enabled: true
+description: 由模板 normalize_enum 生成的枚举校验（country_upper ∈ {CN, US, UK, JP}）
+
+refs:
+  table_id: users
+  column_id: country_upper
+
+params:
+  allowed_values:
+    - CN
+    - US
+    - UK
+    - JP

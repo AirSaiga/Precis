@@ -1,0 +1,36 @@
+# ============================================================
+# Constraint: users_email_composite
+# 类型: Composite
+# 说明: 邮箱必须同时满足非空且唯一（演示复合约束）
+# ============================================================
+
+version: 2
+
+id: users_email_composite
+type: Composite
+enabled: true
+description: 邮箱必须非空且唯一
+
+refs:
+  table_id: users
+
+params:
+  logic: all
+  sub_constraints:
+    - version: 2
+      id: users_email_not_null
+      type: NotNull
+      enabled: true
+      refs:
+        table_id: users
+        column_id: email
+      params: {}
+    - version: 2
+      id: users_email_unique
+      type: Unique
+      enabled: true
+      refs:
+        table_id: users
+        column_ids:
+          - email
+      params: {}

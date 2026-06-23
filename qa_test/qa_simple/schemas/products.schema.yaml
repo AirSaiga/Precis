@@ -1,0 +1,47 @@
+# ============================================================
+# Schema: products 产品表
+# ============================================================
+# 数据源: data/products.json（嵌套 JSON，通过 json_path 提取）
+# 覆盖:
+#   - JSON 数据源 + json_path 提取
+#   - 浮点/布尔类型列
+#   - 独立 Range 约束
+# ============================================================
+
+version: 2
+
+id: products
+name: products
+description: 产品表（JSON 数据源示例）
+
+source:
+  mode: relative_file
+  path: data/products.json
+  options:
+    format: object
+    json_path: "$.data.items"
+
+columns:
+  - id: id
+    name: id
+    type: integer
+    primary_key: true
+    nullable: false
+  - id: name
+    name: name
+    type: string
+  - id: price
+    name: price
+    type: decimal
+  - id: active
+    name: active
+    type: boolean
+
+constraints:
+  - id: products_price_range
+    type: Range
+    column: price
+    params:
+      min: 0
+      max: 100000
+      boundary_mode: inclusive

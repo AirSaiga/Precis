@@ -1,0 +1,18 @@
+# ============================================================
+# Transform: normalize_status
+# 类型: UpperCase
+# 说明: 将 users.status 转为大写，演示 Transform DAG
+# ============================================================
+
+version: 2
+
+id: normalize_status
+name: 状态标准化
+type: UpperCase
+enabled: true
+description: 将用户状态字段转为大写
+
+input_from_node: users
+input_column: status
+output_columns:
+  - status_upper

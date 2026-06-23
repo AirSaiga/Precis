@@ -1,0 +1,6 @@
+id,name,email,age,status,birth_date,phone,country,id_card,username,country_upper
+1,Alice,alice@example.com,30,active,1990-05-15,13800138000,CN,110101199001011234,alice,CN
+2,Bob,bob@example.com,25,inactive,1995-03-20,13900139000,CN,310101199503201234,bob,CN
+3,Carol,carol@example.com,35,pending,1988-11-10,13700137000,US,,carol,US
+4,David,david@example.com,28,active,1992-07-08,13600136000,UK,,david,UK
+5,Eve,eve@example.com,22,pending,2000-01-01,13500135000,CN,440101200001011234,eve,CN

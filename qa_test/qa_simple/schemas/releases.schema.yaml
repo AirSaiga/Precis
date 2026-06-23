@@ -1,0 +1,41 @@
+# ============================================================
+# Schema: releases 版本表
+# ============================================================
+# 数据源: data/releases.csv
+# 覆盖:
+#   - Expr 表达式类型（引用 patterns 注册表）
+#   - Extracted 派生列（从 Expr 列正则提取）
+# ============================================================
+
+version: 2
+
+id: releases
+name: releases
+description: 版本表（表达式类型 + 派生列示例）
+
+source:
+  mode: relative_file
+  path: data/releases.csv
+
+columns:
+  - id: id
+    name: id
+    type: integer
+    primary_key: true
+    nullable: false
+  - id: version
+    name: version
+    type:
+      name: Expr
+      registry: expression_registry
+  - id: major_version
+    name: major_version
+    type:
+      name: Extracted
+      source_column: version
+      extract_key: major
+
+constraints:
+  - id: unique_release_id
+    type: Unique
+    column: id

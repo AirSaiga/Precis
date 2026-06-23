@@ -1,0 +1,22 @@
+# ============================================================
+# Constraint: users_age_range_tmpl__check_range
+# 类型: Range
+# 说明: 由模板 numeric_range 展开生成的范围约束
+#       模板实例 users_age_range_tmpl 展开后独立持久化
+# ============================================================
+
+version: 2
+
+id: users_age_range_tmpl__check_range
+type: Range
+enabled: true
+description: 由模板 numeric_range 生成的范围约束（users.age [0, 120]）
+
+refs:
+  table_id: users
+  column_id: age
+
+params:
+  min: 0
+  max: 120
+  boundary_mode: inclusive

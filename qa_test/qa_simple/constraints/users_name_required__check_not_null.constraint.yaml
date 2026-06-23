@@ -1,0 +1,19 @@
+# ============================================================
+# Constraint: users_name_required__check_not_null
+# 类型: NotNull
+# 说明: 由模板 required_field 展开生成的非空约束
+#       模板实例 users_name_required 展开后独立持久化
+# ============================================================
+
+version: 2
+
+id: users_name_required__check_not_null
+type: NotNull
+enabled: true
+description: 由模板 required_field 生成的非空约束（users.name）
+
+refs:
+  table_id: users
+  column_id: name
+
+params: {}

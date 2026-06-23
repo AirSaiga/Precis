@@ -1,0 +1,93 @@
+# ============================================================
+# Schema: users 用户表
+# ============================================================
+# 数据源: data/users.csv
+# 内嵌约束:
+#   - not_null_email    NotNull      email
+#   - unique_email      Unique       email
+#   - status_allowed    AllowedValues status [active, inactive, pending]
+#   - users_age_range   Range        age [0, 120]
+# 独立约束（manifest 引用）:
+#   - users_birth_date_check  DateLogic    birth_date > 1900-01-01
+#   - users_username_ascii    Charset      username (ASCII)
+#   - users_conditional_id_card  Conditional  country=CN -> id_card not null
+#   - users_phone_format      Scripted     phone 11 digits
+#   - users_email_composite   Composite    email not null & unique
+# 模板展开后独立持久化的约束:
+#   - users_name_required__check_not_null     NotNull      name   (required_field 模板)
+#   - users_age_range_tmpl__check_range       Range        age [0, 120] (numeric_range 模板)
+#   - users_country_normalize__check_allowed  AllowedValues  country_upper (normalize_enum 模板)
+# ============================================================
+
+version: 2
+
+id: users
+name: users
+description: 用户表（QA 全功能覆盖测试数据）
+
+source:
+  mode: relative_file
+  path: data/users.csv
+
+columns:
+  - id: id
+    name: id
+    type: integer
+    primary_key: true
+    nullable: false
+  - id: name
+    name: name
+    type: string
+  - id: email
+    name: email
+    type: string
+    nullable: false
+  - id: age
+    name: age
+    type: integer
+  - id: status
+    name: status
+    type: string
+  - id: birth_date
+    name: birth_date
+    type: date
+  - id: phone
+    name: phone
+    type: string
+  - id: country
+    name: country
+    type: string
+  - id: id_card
+    name: id_card
+    type: string
+  - id: username
+    name: username
+    type: string
+  - id: country_upper
+    name: country_upper
+    type: string
+    nullable: true
+    description: 由 normalize_enum 模板生成的标准化国家代码（大写）
+
+constraints:
+  - id: not_null_email
+    type: NotNull
+    column: email
+  - id: unique_email
+    type: Unique
+    column: email
+  - id: status_allowed
+    type: AllowedValues
+    column: status
+    params:
+      allowed_values:
+        - active
+        - inactive
+        - pending
+  - id: users_age_range
+    type: Range
+    column: age
+    params:
+      min: 0
+      max: 120
+      boundary_mode: inclusive

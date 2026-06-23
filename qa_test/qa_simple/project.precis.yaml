@@ -1,0 +1,83 @@
+version: 2
+project:
+  id: qa_simple
+  name: QA Simple 测试工程
+settings:
+  validation:
+    auto_validate: true
+    strict_mode: false
+    error_handling: continue
+    timeout_seconds: 30
+    batch_max_files: 100
+  file_processing:
+    default_encoding: utf-8
+    csv_delimiter: ','
+  script_security:
+    # 为演示 Scripted 约束，允许执行受限脚本表达式
+    allow_eval: true
+    allow_exec: false
+    sandbox_mode: false
+    timeout_seconds: 10
+schemas:
+- id: users
+  path: schemas/users.schema.yaml
+- id: orders
+  path: schemas/orders.schema.yaml
+- id: products
+  path: schemas/products.schema.yaml
+- id: releases
+  path: schemas/releases.schema.yaml
+constraints:
+- id: orders_amount_range
+  path: constraints/orders_amount_range.constraint.yaml
+- id: users_birth_date_check
+  path: constraints/users_birth_date_check.constraint.yaml
+- id: users_username_ascii
+  path: constraints/users_username_ascii.constraint.yaml
+- id: users_conditional_id_card
+  path: constraints/users_conditional_id_card.constraint.yaml
+- id: users_phone_format
+  path: constraints/users_phone_format.constraint.yaml
+- id: users_email_composite
+  path: constraints/users_email_composite.constraint.yaml
+# 模板展开后独立持久化的约束
+- id: users_name_required__check_not_null
+  path: constraints/users_name_required__check_not_null.constraint.yaml
+- id: users_age_range_tmpl__check_range
+  path: constraints/users_age_range_tmpl__check_range.constraint.yaml
+- id: users_country_normalize__check_allowed
+  path: constraints/users_country_normalize__check_allowed.constraint.yaml
+regex_nodes:
+- id: extract_email_domain
+  path: regex_nodes/extract_email_domain.regex.yaml
+transforms:
+- id: normalize_status
+  path: transforms/normalize_status.transform.yaml
+# 模板展开后独立持久化的转换
+- id: users_country_normalize__normalize
+  path: transforms/users_country_normalize__normalize.transform.yaml
+data_sources:
+- id: primary
+  path: data
+  mode: relative
+  description: 主数据目录
+templates:
+- id: required_field
+  path: templates/required_field.template.yaml
+- id: numeric_range
+  path: templates/numeric_range.template.yaml
+- id: normalize_enum
+  path: templates/normalize_enum.template.yaml
+
+template_instances:
+- id: users_name_required
+  template_id: required_field
+  enabled: true
+- id: users_age_range_tmpl
+  template_id: numeric_range
+  enabled: true
+- id: users_country_normalize
+  template_id: normalize_enum
+  enabled: true
+patterns_dir: patterns
+warnings: []

@@ -1,0 +1,49 @@
+# ============================================================
+# Schema: orders 订单表
+# ============================================================
+# 数据源: data/orders.csv
+# 内嵌约束:
+#   - unique_order_id     Unique      id
+#   - not_null_order_date NotNull     order_date
+#   - fk_order_user       ForeignKey  orders.user_id -> users.id
+# ============================================================
+
+version: 2
+
+id: orders
+name: orders
+description: 订单表（QA 测试数据）
+
+source:
+  mode: relative_file
+  path: data/orders.csv
+
+columns:
+  - id: id
+    name: id
+    type: integer
+    primary_key: true
+    nullable: false
+  - id: user_id
+    name: user_id
+    type: integer
+  - id: amount
+    name: amount
+    type: decimal
+  - id: order_date
+    name: order_date
+    type: date
+    nullable: false
+
+constraints:
+  - id: unique_order_id
+    type: Unique
+    column: id
+  - id: not_null_order_date
+    type: NotNull
+    column: order_date
+  - id: fk_order_user
+    type: ForeignKey
+    from_column: user_id
+    to_table: users
+    to_column: id
