@@ -15,7 +15,7 @@ import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import { BACKEND_URL } from '../config'
-const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
+const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
 
 test.beforeAll(() => {
   if (!fs.existsSync(projectPath)) {
@@ -35,20 +35,20 @@ test.describe('Constraint CRUD Roundtrip', () => {
           file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
           script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
         },
-        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        schemas: [{ id: 'users', path: 'schemas/users.schema.yaml' }],
         constraints: [{ id: constraintId, path: `constraints/${constraintId}.constraint.yaml` }],
       },
       schemas: {
-        sc_users: {
+        users: {
           version: 2,
-          id: 'sc_users',
+          id: 'users',
           name: 'users',
           source: { mode: 'absolute_file' as const, path: path.join(projectPath, 'data', 'users.csv'), header_row: 0 },
           columns: [
-            { id: 'col-id', name: 'id', type: 'Int' },
-            { id: 'col-name', name: 'name', type: 'Str' },
-            { id: 'col-email', name: 'email', type: 'Str' },
-            { id: 'col-age', name: 'age', type: 'Int' },
+            { id: 'id', name: 'id', type: 'Int' },
+            { id: 'name', name: 'name', type: 'Str' },
+            { id: 'email', name: 'email', type: 'Str' },
+            { id: 'age', name: 'age', type: 'Int' },
           ],
           constraints: [],
           script_checks: [],
@@ -60,7 +60,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
           id: constraintId,
           type: 'NotNull',
           enabled: true,
-          refs: { table_id: 'sc_users', column_id: 'col-name' },
+          refs: { table_id: 'users', column_id: 'name' },
           params: {},
         },
       },
@@ -84,8 +84,8 @@ test.describe('Constraint CRUD Roundtrip', () => {
     const constraint = loadedConfig.constraints?.[constraintId]
     expect(constraint).toBeDefined()
     expect(constraint.type).toBe('NotNull')
-    expect(constraint.refs.table_id).toBe('sc_users')
-    expect(constraint.refs.column_id).toBe('col-name')
+    expect(constraint.refs.table_id).toBe('users')
+    expect(constraint.refs.column_id).toBe('name')
 
     // 执行校验 — name 列全部非空，应通过
     const validateResp = await apiHelper.post('/validate', {
@@ -120,20 +120,20 @@ test.describe('Constraint CRUD Roundtrip', () => {
           file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
           script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
         },
-        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        schemas: [{ id: 'users', path: 'schemas/users.schema.yaml' }],
         constraints: [{ id: constraintId, path: `constraints/${constraintId}.constraint.yaml` }],
       },
       schemas: {
-        sc_users: {
+        users: {
           version: 2,
-          id: 'sc_users',
+          id: 'users',
           name: 'users',
           source: { mode: 'absolute_file' as const, path: path.join(projectPath, 'data', 'users.csv'), header_row: 0 },
           columns: [
-            { id: 'col-id', name: 'id', type: 'Int' },
-            { id: 'col-name', name: 'name', type: 'Str' },
-            { id: 'col-email', name: 'email', type: 'Str' },
-            { id: 'col-age', name: 'age', type: 'Int' },
+            { id: 'id', name: 'id', type: 'Int' },
+            { id: 'name', name: 'name', type: 'Str' },
+            { id: 'email', name: 'email', type: 'Str' },
+            { id: 'age', name: 'age', type: 'Int' },
           ],
           constraints: [],
           script_checks: [],
@@ -145,7 +145,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
           id: constraintId,
           type: 'Unique',
           enabled: true,
-          refs: { table_id: 'sc_users', column_ids: ['col-email'] },
+          refs: { table_id: 'users', column_ids: ['email'] },
           params: {},
         },
       },
@@ -189,7 +189,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
     const constraintId = 'e2e-range-age'
     const csvPath = path.join(projectPath, 'data', 'users.csv')
 
-    // 第一轮：Range min=20, max=40 — age=42(Eve) 应失败
+    // 第一轮：Range min=20, max=25 — age=30,35,28(Alice,Carol,David) 应失败
     const fullConfig1 = {
       manifest: {
         version: 2,
@@ -199,20 +199,20 @@ test.describe('Constraint CRUD Roundtrip', () => {
           file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
           script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
         },
-        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        schemas: [{ id: 'users', path: 'schemas/users.schema.yaml' }],
         constraints: [{ id: constraintId, path: `constraints/${constraintId}.constraint.yaml` }],
       },
       schemas: {
-        sc_users: {
+        users: {
           version: 2,
-          id: 'sc_users',
+          id: 'users',
           name: 'users',
           source: { mode: 'absolute_file' as const, path: csvPath, header_row: 0 },
           columns: [
-            { id: 'col-id', name: 'id', type: 'Int' },
-            { id: 'col-name', name: 'name', type: 'Str' },
-            { id: 'col-email', name: 'email', type: 'Str' },
-            { id: 'col-age', name: 'age', type: 'Int' },
+            { id: 'id', name: 'id', type: 'Int' },
+            { id: 'name', name: 'name', type: 'Str' },
+            { id: 'email', name: 'email', type: 'Str' },
+            { id: 'age', name: 'age', type: 'Int' },
           ],
           constraints: [],
           script_checks: [],
@@ -224,8 +224,8 @@ test.describe('Constraint CRUD Roundtrip', () => {
           id: constraintId,
           type: 'Range',
           enabled: true,
-          refs: { table_id: 'sc_users', column_id: 'col-age' },
-          params: { min: 20, max: 40 },
+          refs: { table_id: 'users', column_id: 'age' },
+          params: { min: 20, max: 25 },
         },
       },
     }
@@ -239,14 +239,14 @@ test.describe('Constraint CRUD Roundtrip', () => {
     expect(fs.existsSync(constraintPath)).toBe(true)
     let savedContent = fs.readFileSync(constraintPath, 'utf-8')
     expect(savedContent).toContain('min: 20')
-    expect(savedContent).toContain('max: 40')
+    expect(savedContent).toContain('max: 25')
 
-    // 校验 — age 值: 30,25,35,28,42 → 42 超出 max=40
+    // 校验 — age 值: 30,25,35,28,22 → 30,35,28 超出 max=25
     const validateResp1 = await apiHelper.post('/validate', {
       source_file_path: csvPath,
       validation_type: 'range',
       target_column_name: 'age',
-      validation_config: { min: 20, max: 40 },
+      validation_config: { min: 20, max: 25 },
     })
     expect(validateResp1.ok).toBe(true)
     const data1 = await validateResp1.json()
@@ -305,20 +305,20 @@ test.describe('Constraint CRUD Roundtrip', () => {
           file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
           script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
         },
-        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        schemas: [{ id: 'users', path: 'schemas/users.schema.yaml' }],
         constraints: [{ id: constraintId, path: `constraints/${constraintId}.constraint.yaml` }],
       },
       schemas: {
-        sc_users: {
+        users: {
           version: 2,
-          id: 'sc_users',
+          id: 'users',
           name: 'users',
           source: { mode: 'absolute_file' as const, path: path.join(projectPath, 'data', 'users.csv'), header_row: 0 },
           columns: [
-            { id: 'col-id', name: 'id', type: 'Int' },
-            { id: 'col-name', name: 'name', type: 'Str' },
-            { id: 'col-email', name: 'email', type: 'Str' },
-            { id: 'col-age', name: 'age', type: 'Int' },
+            { id: 'id', name: 'id', type: 'Int' },
+            { id: 'name', name: 'name', type: 'Str' },
+            { id: 'email', name: 'email', type: 'Str' },
+            { id: 'age', name: 'age', type: 'Int' },
           ],
           constraints: [],
           script_checks: [],
@@ -330,7 +330,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
           id: constraintId,
           type: 'NotNull',
           enabled: true,
-          refs: { table_id: 'sc_users', column_id: 'col-name' },
+          refs: { table_id: 'users', column_id: 'name' },
           params: {},
         },
       },
@@ -370,20 +370,20 @@ test.describe('Constraint CRUD Roundtrip', () => {
           file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
           script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
         },
-        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        schemas: [{ id: 'users', path: 'schemas/users.schema.yaml' }],
         constraints: constraintIds.map(id => ({ id, path: `constraints/${id}.constraint.yaml` })),
       },
       schemas: {
-        sc_users: {
+        users: {
           version: 2,
-          id: 'sc_users',
+          id: 'users',
           name: 'users',
           source: { mode: 'absolute_file' as const, path: path.join(projectPath, 'data', 'users.csv'), header_row: 0 },
           columns: [
-            { id: 'col-id', name: 'id', type: 'Int' },
-            { id: 'col-name', name: 'name', type: 'Str' },
-            { id: 'col-email', name: 'email', type: 'Str' },
-            { id: 'col-age', name: 'age', type: 'Int' },
+            { id: 'id', name: 'id', type: 'Int' },
+            { id: 'name', name: 'name', type: 'Str' },
+            { id: 'email', name: 'email', type: 'Str' },
+            { id: 'age', name: 'age', type: 'Int' },
           ],
           constraints: [],
           script_checks: [],
@@ -395,7 +395,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
           id: 'e2e-multi-notnull',
           type: 'NotNull',
           enabled: true,
-          refs: { table_id: 'sc_users', column_id: 'col-name' },
+          refs: { table_id: 'users', column_id: 'name' },
           params: {},
         },
         'e2e-multi-unique': {
@@ -403,7 +403,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
           id: 'e2e-multi-unique',
           type: 'Unique',
           enabled: true,
-          refs: { table_id: 'sc_users', column_ids: ['col-email'] },
+          refs: { table_id: 'users', column_ids: ['email'] },
           params: {},
         },
         'e2e-multi-range': {
@@ -411,7 +411,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
           id: 'e2e-multi-range',
           type: 'Range',
           enabled: true,
-          refs: { table_id: 'sc_users', column_id: 'col-age' },
+          refs: { table_id: 'users', column_id: 'age' },
           params: { min: 0, max: 100 },
         },
       },

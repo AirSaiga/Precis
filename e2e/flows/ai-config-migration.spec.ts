@@ -1,8 +1,7 @@
 import * as path from 'path'
 import { test, expect } from '../fixtures/base'
 
-const FIXTURES_DIR = path.join(__dirname, '..', 'fixtures')
-const USERS_CSV = path.join(FIXTURES_DIR, 'test-project', 'data', 'users.csv')
+const USERS_CSV = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple', 'data', 'users.csv')
 
 /**
  * AI 配置迁移 E2E 测试

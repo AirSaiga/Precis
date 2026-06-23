@@ -13,7 +13,7 @@ import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import { BACKEND_URL } from '../config'
-const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
+const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
 const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
 
 test.beforeAll(() => {
@@ -35,7 +35,7 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
     expect(schema.id).toBe('users')
     expect(schema.name).toBe('Users Table')
     expect(schema.columns).toBeDefined()
-    expect(schema.columns.length).toBe(4)
+    expect(schema.columns.length).toBe(11)
 
     const columnNames = schema.columns.map((c: { name: string }) => c.name)
     expect(columnNames).toContain('id')
@@ -66,11 +66,11 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
           name: 'Updated Schema',
           source: { mode: 'absolute_file' as const, path: USERS_CSV, header_row: 0 },
           columns: [
-            { id: 'col-id', name: 'id', type: 'Int', description: 'User ID' },
-            { id: 'col-name', name: 'name', type: 'Str', description: 'User name' },
-            { id: 'col-email', name: 'email', type: 'Str', description: 'Email' },
-            { id: 'col-age', name: 'age', type: 'Int', description: 'Age' },
-            { id: 'col-phone', name: 'phone', type: 'Str', description: 'Phone number' },
+            { id: 'id', name: 'id', type: 'Int', description: 'User ID' },
+            { id: 'name', name: 'name', type: 'Str', description: 'User name' },
+            { id: 'email', name: 'email', type: 'Str', description: 'Email' },
+            { id: 'age', name: 'age', type: 'Int', description: 'Age' },
+            { id: 'phone', name: 'phone', type: 'Str', description: 'Phone number' },
           ],
           constraints: [],
           script_checks: [],
@@ -159,10 +159,10 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
           name: 'Validate Schema',
           source: { mode: 'absolute_file' as const, path: USERS_CSV, header_row: 0 },
           columns: [
-            { id: 'col-id', name: 'id', type: 'Int' },
-            { id: 'col-name', name: 'name', type: 'Str' },
-            { id: 'col-email', name: 'email', type: 'Str' },
-            { id: 'col-age', name: 'age', type: 'Int' },
+            { id: 'id', name: 'id', type: 'Int' },
+            { id: 'name', name: 'name', type: 'Str' },
+            { id: 'email', name: 'email', type: 'Str' },
+            { id: 'age', name: 'age', type: 'Int' },
           ],
           constraints: [],
           script_checks: [],
@@ -174,7 +174,7 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
           id: constraintId,
           type: 'NotNull',
           enabled: true,
-          refs: { table_id: schemaId, column_id: 'col-name' },
+          refs: { table_id: schemaId, column_id: 'name' },
           params: {},
         },
       },
@@ -234,10 +234,10 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
           name: 'Col Edit Schema',
           source: { mode: 'absolute_file' as const, path: USERS_CSV, header_row: 0 },
           columns: [
-            { id: 'col-id', name: 'id', type: 'Int' },
-            { id: 'col-name', name: 'name', type: 'Str' },
-            { id: 'col-email', name: 'email', type: 'Str' },
-            { id: 'col-age', name: 'age', type: 'Int' },
+            { id: 'id', name: 'id', type: 'Int' },
+            { id: 'name', name: 'name', type: 'Str' },
+            { id: 'email', name: 'email', type: 'Str' },
+            { id: 'age', name: 'age', type: 'Int' },
           ],
           constraints: [],
           script_checks: [],

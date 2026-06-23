@@ -11,7 +11,7 @@ import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 
-const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
+const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
 
 test.beforeAll(() => {
   if (!fs.existsSync(projectPath)) {
@@ -37,18 +37,18 @@ test.describe('Transform Chain E2E', () => {
 
     const fullConfig = {
       manifest: buildBaseManifest('transform-split', 'Transform Split', {
-        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        schemas: [{ id: 'users', path: 'schemas/users.schema.yaml' }],
         transforms: [{ id: 't-split-name', path: 'transforms/t-split-name.transform.yaml' }],
       }),
       schemas: {
-        sc_users: {
+        users: {
           version: 2,
-          id: 'sc_users',
+          id: 'users',
           name: 'users',
           source: { mode: 'absolute_file' as const, path: '/data/users.csv', header_row: 0 },
           columns: [
-            { id: 'col-id', name: 'id', type: 'Int' },
-            { id: 'col-name', name: 'name', type: 'Str' },
+            { id: 'id', name: 'id', type: 'Int' },
+            { id: 'name', name: 'name', type: 'Str' },
           ],
           constraints: [],
           script_checks: [],
@@ -60,7 +60,7 @@ test.describe('Transform Chain E2E', () => {
           id: 't-split-name',
           type: 'StringSplit',
           enabled: true,
-          input_from_node: 'sc_users',
+          input_from_node: 'users',
           input_column: 'name',
           params: { strategy: 'delimiter', delimiter: ' ' },
           output_columns: ['first_name', 'last_name'],
@@ -80,24 +80,24 @@ test.describe('Transform Chain E2E', () => {
     expect(savedContent).toContain('first_name')
     expect(savedContent).toContain('last_name')
     expect(savedContent).toContain('input_from_node')
-    expect(savedContent).toContain('sc_users')
+    expect(savedContent).toContain('users')
   })
 
   test('Schema → Transform 保存/加载 roundtrip 保留完整字段', async ({ apiHelper }) => {
 
     const fullConfig = {
       manifest: buildBaseManifest('transform-roundtrip', 'Transform RoundTrip', {
-        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        schemas: [{ id: 'users', path: 'schemas/users.schema.yaml' }],
         transforms: [{ id: 't-regex-extract', path: 'transforms/t-regex-extract.transform.yaml' }],
       }),
       schemas: {
-        sc_users: {
+        users: {
           version: 2,
-          id: 'sc_users',
+          id: 'users',
           name: 'users',
           source: { mode: 'absolute_file' as const, path: '/data/users.csv', header_row: 0 },
           columns: [
-            { id: 'col-email', name: 'email', type: 'Str' },
+            { id: 'email', name: 'email', type: 'Str' },
           ],
           constraints: [],
           script_checks: [],
@@ -109,7 +109,7 @@ test.describe('Transform Chain E2E', () => {
           id: 't-regex-extract',
           type: 'RegexExtract',
           enabled: true,
-          input_from_node: 'sc_users',
+          input_from_node: 'users',
           input_column: 'email',
           params: { pattern: '^(.+)@(.+)$', group_names: ['user', 'domain'] },
           output_columns: ['user', 'domain'],
@@ -127,7 +127,7 @@ test.describe('Transform Chain E2E', () => {
     const transform = loaded.transforms?.['t-regex-extract']
     expect(transform).toBeDefined()
     expect(transform.type).toBe('RegexExtract')
-    expect(transform.input_from_node).toBe('sc_users')
+    expect(transform.input_from_node).toBe('users')
     expect(transform.input_column).toBe('email')
     expect(transform.params.pattern).toBe('^(.+)@(.+)$')
     expect(transform.output_columns).toEqual(['user', 'domain'])
@@ -138,19 +138,19 @@ test.describe('Transform Chain E2E', () => {
 
     const fullConfig = {
       manifest: buildBaseManifest('transform-validate', 'Transform Validate', {
-        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        schemas: [{ id: 'users', path: 'schemas/users.schema.yaml' }],
         transforms: [{ id: 't-strip', path: 'transforms/t-strip.transform.yaml' }],
         constraints: [{ id: 'c-notnull-name', path: 'constraints/c-notnull-name.constraint.yaml' }],
       }),
       schemas: {
-        sc_users: {
+        users: {
           version: 2,
-          id: 'sc_users',
+          id: 'users',
           name: 'users',
           source: { mode: 'absolute_file' as const, path: '/data/users.csv', header_row: 0 },
           columns: [
-            { id: 'col-name', name: 'name', type: 'Str' },
-            { id: 'col-email', name: 'email', type: 'Str' },
+            { id: 'name', name: 'name', type: 'Str' },
+            { id: 'email', name: 'email', type: 'Str' },
           ],
           constraints: [],
           script_checks: [],
@@ -162,7 +162,7 @@ test.describe('Transform Chain E2E', () => {
           id: 't-strip',
           type: 'Strip',
           enabled: true,
-          input_from_node: 'sc_users',
+          input_from_node: 'users',
           input_column: 'name',
           params: {},
           output_columns: ['name_stripped'],
@@ -174,7 +174,7 @@ test.describe('Transform Chain E2E', () => {
           id: 'c-notnull-name',
           type: 'NotNull',
           enabled: true,
-          refs: { table_id: 'sc_users', column_id: 'col-name' },
+          refs: { table_id: 'users', column_id: 'name' },
           params: {},
         },
       },
@@ -187,11 +187,11 @@ test.describe('Transform Chain E2E', () => {
     expect(loadResp.status).toBeLessThan(300)
     const loaded = await loadResp.json()
 
-    expect(loaded.schemas?.sc_users).toBeDefined()
+    expect(loaded.schemas?.users).toBeDefined()
     expect(loaded.transforms?.['t-strip']).toBeDefined()
     expect(loaded.constraints?.['c-notnull-name']).toBeDefined()
-    expect(loaded.constraints?.['c-notnull-name']?.refs?.table_id).toBe('sc_users')
-    expect(loaded.constraints?.['c-notnull-name']?.refs?.column_id).toBe('col-name')
+    expect(loaded.constraints?.['c-notnull-name']?.refs?.table_id).toBe('users')
+    expect(loaded.constraints?.['c-notnull-name']?.refs?.column_id).toBe('name')
 
     const constraintPath = path.join(projectPath, 'constraints', 'c-notnull-name.constraint.yaml')
     expect(fs.existsSync(constraintPath)).toBe(true)

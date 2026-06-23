@@ -12,9 +12,8 @@ import { BACKEND_URL, API_PREFIX } from '../config'
  * - apiHelper: 后端 API 调用辅助
  */
 
-// 测试项目 fixture 路径
-const FIXTURES_DIR = path.join(__dirname, '..', 'fixtures')
-const TEST_PROJECT_DIR = path.join(FIXTURES_DIR, 'test-project')
+// 测试项目 fixture 路径 — 统一使用 qa_test/qa_simple 作为测试数据源
+const TEST_PROJECT_DIR = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
 
 type Fixtures = {
   projectPage: import('@playwright/test').Page

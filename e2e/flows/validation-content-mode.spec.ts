@@ -3,9 +3,9 @@ import * as fs from 'fs'
 import * as os from 'os'
 import { test, expect } from '../fixtures/base'
 import { BACKEND_URL } from '../config'
-const FIXTURES_DIR = path.join(__dirname, '..', 'fixtures')
-const USERS_CSV = path.join(FIXTURES_DIR, 'test-project', 'data', 'users.csv')
-const USERS_SCHEMA = path.join(FIXTURES_DIR, 'test-project', 'schemas', 'users.schema.yaml')
+const QA_SIMPLE_DIR = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
+const USERS_CSV = path.join(QA_SIMPLE_DIR, 'data', 'users.csv')
+const USERS_SCHEMA = path.join(QA_SIMPLE_DIR, 'schemas', 'users.schema.yaml')
 
 function createTempProject(suffix: string): string {
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), `precis-val-content-${suffix}-`))

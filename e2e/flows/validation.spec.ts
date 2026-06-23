@@ -1,9 +1,6 @@
 import * as path from 'path'
 import { test, expect } from '../fixtures/base'
 
-const FIXTURES_DIR = path.join(__dirname, '..', 'fixtures')
-const USERS_CSV = path.join(FIXTURES_DIR, 'test-project', 'data', 'users.csv')
-
 /**
  * 数据校验 E2E 测试
  *
@@ -14,7 +11,8 @@ const USERS_CSV = path.join(FIXTURES_DIR, 'test-project', 'data', 'users.csv')
  */
 
 test.describe('Validation API', () => {
-  test('POST /validate returns validation result', async ({ apiHelper }) => {
+  test('POST /validate returns validation result', async ({ apiHelper, testProjectPath }) => {
+    const USERS_CSV = path.join(testProjectPath, 'data', 'users.csv')
     const resp = await apiHelper.post('/validate', {
       source_file_path: USERS_CSV,
       validation_type: 'not_null',
@@ -27,7 +25,8 @@ test.describe('Validation API', () => {
     expect(data).toHaveProperty('validation_type', 'not_null')
   })
 
-  test('NotNull validation passes for complete column', async ({ apiHelper }) => {
+  test('NotNull validation passes for complete column', async ({ apiHelper, testProjectPath }) => {
+    const USERS_CSV = path.join(testProjectPath, 'data', 'users.csv')
     const resp = await apiHelper.post('/validate', {
       source_file_path: USERS_CSV,
       validation_type: 'not_null',
@@ -41,7 +40,8 @@ test.describe('Validation API', () => {
     expect(data.data.error_count).toBe(0)
   })
 
-  test('Unique validation detects duplicates', async ({ apiHelper }) => {
+  test('Unique validation detects duplicates', async ({ apiHelper, testProjectPath }) => {
+    const USERS_CSV = path.join(testProjectPath, 'data', 'users.csv')
     const resp = await apiHelper.post('/validate', {
       source_file_path: USERS_CSV,
       validation_type: 'unique',

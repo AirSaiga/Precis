@@ -226,7 +226,7 @@ test.describe('画布真实 UI 交互', () => {
     const viewPayload = {
       version: 2,
       nodes: {
-        sc_users: { x: savedX, y: savedY },
+        users: { x: savedX, y: savedY },
       },
       viewport: null,
     }
@@ -248,9 +248,9 @@ test.describe('画布真实 UI 交互', () => {
     const viewContent = JSON.parse(fs.readFileSync(viewPath, 'utf-8'))
     expect(viewContent.version).toBe(2)
     expect(viewContent.nodes).toBeDefined()
-    expect(viewContent.nodes.sc_users).toBeDefined()
-    expect(viewContent.nodes.sc_users.x).toBe(savedX)
-    expect(viewContent.nodes.sc_users.y).toBe(savedY)
+    expect(viewContent.nodes.users).toBeDefined()
+    expect(viewContent.nodes.users.x).toBe(savedX)
+    expect(viewContent.nodes.users.y).toBe(savedY)
 
     // 再读回（GET）验证持久化一致
     const getResp = await fetch(`${BACKEND}/api/latest/project/view`, {
@@ -258,7 +258,7 @@ test.describe('画布真实 UI 交互', () => {
     })
     expect(getResp.ok).toBe(true)
     const readBack = await getResp.json()
-    expect(readBack.nodes.sc_users.x).toBe(savedX)
-    expect(readBack.nodes.sc_users.y).toBe(savedY)
+    expect(readBack.nodes.users.x).toBe(savedX)
+    expect(readBack.nodes.users.y).toBe(savedY)
   })
 })

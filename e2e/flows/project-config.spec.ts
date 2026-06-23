@@ -38,6 +38,6 @@ test.describe('Project Configuration', () => {
     expect(fs.existsSync(dataPath)).toBe(true)
 
     const content = fs.readFileSync(dataPath, 'utf-8')
-    expect(content).toContain('id,name,email,age')
+    expect(content).toContain('id,name,email')
   })
 })

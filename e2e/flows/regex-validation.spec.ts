@@ -12,7 +12,7 @@ import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as path from 'path'
 import { BACKEND_URL } from '../config'
-const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
+const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
 const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
 
 test.beforeAll(() => {
@@ -240,20 +240,20 @@ test.describe('Regex Creation & Validation', () => {
           file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
           script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
         },
-        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        schemas: [{ id: 'users', path: 'schemas/users.schema.yaml' }],
         regex_nodes: regexIds.map(id => ({ id, path: `regex/${id}.regex.yaml` })),
       },
       schemas: {
-        sc_users: {
+        users: {
           version: 2,
-          id: 'sc_users',
+          id: 'users',
           name: 'users',
           source: { mode: 'absolute_file' as const, path: USERS_CSV, header_row: 0 },
           columns: [
-            { id: 'col-id', name: 'id', type: 'Int' },
-            { id: 'col-name', name: 'name', type: 'Str' },
-            { id: 'col-email', name: 'email', type: 'Str' },
-            { id: 'col-age', name: 'age', type: 'Int' },
+            { id: 'id', name: 'id', type: 'Int' },
+            { id: 'name', name: 'name', type: 'Str' },
+            { id: 'email', name: 'email', type: 'Str' },
+            { id: 'age', name: 'age', type: 'Int' },
           ],
           constraints: [],
           script_checks: [],

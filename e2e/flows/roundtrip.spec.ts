@@ -20,7 +20,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import { BACKEND_URL } from '../config'
 
-const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
+const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
 
 test.beforeAll(() => {
   if (!fs.existsSync(projectPath)) {
@@ -41,17 +41,17 @@ test.describe('Save/Load Round-Trip', () => {
           file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
           script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
         },
-        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        schemas: [{ id: 'users', path: 'schemas/users.schema.yaml' }],
         constraints: [{ id: 'c-charset', path: 'constraints/c-charset.constraint.yaml' }],
       },
       schemas: {
-        sc_users: {
+        users: {
           version: 2,
-          id: 'sc_users',
+          id: 'users',
           name: 'users',
           source: { mode: 'absolute_file' as const, path: '/data/users.csv', header_row: 0 },
           columns: [
-            { id: 'col-status', name: 'status', type: 'Str' },
+            { id: 'status', name: 'status', type: 'Str' },
           ],
           constraints: [],
           script_checks: [],
@@ -63,7 +63,7 @@ test.describe('Save/Load Round-Trip', () => {
           id: 'c-charset',
           type: 'Charset',
           enabled: true,
-          refs: { table_id: 'sc_users', column_id: 'col-status' },
+          refs: { table_id: 'users', column_id: 'status' },
           params: {
             charset_mode: 'custom',
             allowed_chars: '0123456789',
@@ -109,16 +109,16 @@ test.describe('Save/Load Round-Trip', () => {
           file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
           script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
         },
-        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        schemas: [{ id: 'users', path: 'schemas/users.schema.yaml' }],
         constraints: [{ id: 'c-range', path: 'constraints/c-range.constraint.yaml' }],
       },
       schemas: {
-        sc_users: {
+        users: {
           version: 2,
-          id: 'sc_users',
+          id: 'users',
           name: 'users',
           source: { mode: 'absolute_file' as const, path: '/data/users.csv', header_row: 0 },
-          columns: [{ id: 'col-age', name: 'age', type: 'Int' }],
+          columns: [{ id: 'age', name: 'age', type: 'Int' }],
           constraints: [],
           script_checks: [],
         },
@@ -129,7 +129,7 @@ test.describe('Save/Load Round-Trip', () => {
           id: 'c-range',
           type: 'Range',
           enabled: true,
-          refs: { table_id: 'sc_users', column_id: 'col-age' },
+          refs: { table_id: 'users', column_id: 'age' },
           params: { min: 0, max: 150, boundary_mode: 'exclusive' },
         },
       },
@@ -158,7 +158,7 @@ test.describe('Save/Load Round-Trip', () => {
           file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
           script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
         },
-        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        schemas: [{ id: 'users', path: 'schemas/users.schema.yaml' }],
         constraints: [
           { id: 'c-sub-1', path: 'constraints/c-sub-1.constraint.yaml' },
           { id: 'c-sub-2', path: 'constraints/c-sub-2.constraint.yaml' },
@@ -166,14 +166,14 @@ test.describe('Save/Load Round-Trip', () => {
         ],
       },
       schemas: {
-        sc_users: {
+        users: {
           version: 2,
-          id: 'sc_users',
+          id: 'users',
           name: 'users',
           source: { mode: 'absolute_file' as const, path: '/data/users.csv', header_row: 0 },
           columns: [
-            { id: 'col-email', name: 'email', type: 'Str' },
-            { id: 'col-age', name: 'age', type: 'Int' },
+            { id: 'email', name: 'email', type: 'Str' },
+            { id: 'age', name: 'age', type: 'Int' },
           ],
           constraints: [],
           script_checks: [],
@@ -185,7 +185,7 @@ test.describe('Save/Load Round-Trip', () => {
           id: 'c-sub-1',
           type: 'NotNull',
           enabled: true,
-          refs: { table_id: 'sc_users', column_id: 'col-email' },
+          refs: { table_id: 'users', column_id: 'email' },
           params: {},
         },
         'c-sub-2': {
@@ -193,7 +193,7 @@ test.describe('Save/Load Round-Trip', () => {
           id: 'c-sub-2',
           type: 'Range',
           enabled: true,
-          refs: { table_id: 'sc_users', column_id: 'col-age' },
+          refs: { table_id: 'users', column_id: 'age' },
           params: { min: 0, max: 150 },
         },
         'c-composite': {
@@ -205,8 +205,8 @@ test.describe('Save/Load Round-Trip', () => {
           params: {
             logic: 'all',
             sub_constraints: [
-              { id: 'c-sub-1', type: 'NotNull', enabled: true, refs: { table_id: 'sc_users', column_id: 'col-email' }, params: {} },
-              { id: 'c-sub-2', type: 'Range', enabled: true, refs: { table_id: 'sc_users', column_id: 'col-age' }, params: { min: 0, max: 150 } },
+              { id: 'c-sub-1', type: 'NotNull', enabled: true, refs: { table_id: 'users', column_id: 'email' }, params: {} },
+              { id: 'c-sub-2', type: 'Range', enabled: true, refs: { table_id: 'users', column_id: 'age' }, params: { min: 0, max: 150 } },
             ],
           },
         },
@@ -247,7 +247,7 @@ test.describe('Save/Load Round-Trip', () => {
           id: 't-1',
           type: 'StringSplit',
           enabled: true,
-          input_from_node: 'sc_users',
+          input_from_node: 'users',
           input_column: 'full_name',
           params: { strategy: 'delimiter', delimiter: ' ' },
           output_columns: ['first_name', 'last_name'],
@@ -283,19 +283,19 @@ test.describe('Save/Load Round-Trip', () => {
           file_processing: { default_encoding: 'utf-8', csv_delimiter: ',', null_value_strategy: 'null', date_format: '%Y-%m-%d' },
           script_security: { allow_eval: false, allow_exec: false, sandbox_mode: true, timeout_seconds: 10 },
         },
-        schemas: [{ id: 'sc_users', path: 'schemas/users.schema.yaml' }],
+        schemas: [{ id: 'users', path: 'schemas/users.schema.yaml' }],
         constraints: [{ id: 'c-notnull', path: 'constraints/c-notnull.constraint.yaml' }],
         regex_nodes: [{ id: 'r-email', path: 'regex/r-email.regex.yaml' }],
       },
       schemas: {
-        sc_users: {
+        users: {
           version: 2,
-          id: 'sc_users',
+          id: 'users',
           name: 'users',
           source: { mode: 'absolute_file' as const, path: '/data/users.csv', header_row: 0 },
           columns: [
-            { id: 'col-name', name: 'name', type: 'Str' },
-            { id: 'col-email', name: 'email', type: 'Str' },
+            { id: 'name', name: 'name', type: 'Str' },
+            { id: 'email', name: 'email', type: 'Str' },
           ],
           constraints: [],
           script_checks: [],
@@ -307,7 +307,7 @@ test.describe('Save/Load Round-Trip', () => {
           id: 'c-notnull',
           type: 'NotNull',
           enabled: true,
-          refs: { table_id: 'sc_users', column_id: 'col-name' },
+          refs: { table_id: 'users', column_id: 'name' },
           params: {},
         },
       },
@@ -329,12 +329,12 @@ test.describe('Save/Load Round-Trip', () => {
     expect(loadResp.status).toBeLessThan(300)
     const loadedConfig = await loadResp.json()
 
-    expect(loadedConfig.schemas?.sc_users).toBeDefined()
-    expect(loadedConfig.schemas?.sc_users.columns).toHaveLength(2)
+    expect(loadedConfig.schemas?.users).toBeDefined()
+    expect(loadedConfig.schemas?.users.columns).toHaveLength(2)
 
     expect(loadedConfig.constraints?.['c-notnull']).toBeDefined()
     expect(loadedConfig.constraints?.['c-notnull']?.type).toBe('NotNull')
-    expect(loadedConfig.constraints?.['c-notnull']?.refs?.column_id).toBe('col-name')
+    expect(loadedConfig.constraints?.['c-notnull']?.refs?.column_id).toBe('name')
 
     expect(loadedConfig.regex_nodes?.['r-email']).toBeDefined()
     expect(loadedConfig.regex_nodes?.['r-email']?.pattern).toBe('^[\\w.-]+@[\\w.-]+\\.\\w+$')

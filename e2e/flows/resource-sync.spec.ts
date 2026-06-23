@@ -32,7 +32,7 @@ import * as path from 'path'
 import * as os from 'os'
 import { BACKEND_URL } from '../config'
 
-const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
+const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
 
 test.beforeAll(() => {
   if (!fs.existsSync(projectPath)) {

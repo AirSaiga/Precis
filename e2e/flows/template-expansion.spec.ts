@@ -19,7 +19,7 @@ import * as path from 'path'
 import * as os from 'os'
 import { BACKEND_URL } from '../config'
 
-const projectPath = path.join(__dirname, '..', 'fixtures', 'test-project')
+const projectPath = path.resolve(__dirname, '..', '..', 'qa_test', 'qa_simple')
 
 test.beforeAll(() => {
   if (!fs.existsSync(projectPath)) {
@@ -165,7 +165,7 @@ project:
   id: ${projectId}
   name: ${projectName}
 schemas:
-  - id: sc_users
+  - id: users
     path: schemas/users.schema.yaml
 ${templatesYaml}settings:
   validation:
@@ -543,7 +543,7 @@ project:
   id: tpl_update_inst
   name: Update Instance
 schemas:
-  - id: sc_users
+  - id: users
     path: schemas/users.schema.yaml
 templates:
   - id: age_check
