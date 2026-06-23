@@ -8,12 +8,13 @@ import { BACKEND_URL, API_PREFIX } from '../config'
  * E2E 测试共享 Fixture
  *
  * 隔离原则：原件 qa_test/qa_simple 永远只作为拷贝源，任何测试都不通过
- * X-Project-Config-Path 指向它。每个 spec 文件级别拷贝一份副本到 OS 临时目录，
+ * X-Project-Config-Path 指向它。每个测试拷贝一份副本到 OS 临时目录，
  * apiHelper 的 X-Project-Config-Path 指向副本，原件不再被 API 写入。
  *
  * 实现细节：
- * - isolatedProjectPath 是 worker 级 fixture（每文件一个 worker，串行执行），
- *   每个 spec 文件获得独立的 qa_simple 副本，写测试随意改写不污染原件、不互相踩。
+ * - isolatedProjectPath 是 test 级 fixture（每个测试一份副本）。
+ *   注意：workers=1 下 scope:'worker' 会让所有 spec 共享一个副本（跨 spec 污染），
+ *   故必须用 test 级，确保每个测试独立、零共享状态。
  * - testProjectPath 为兼容别名，语义=isolatedProjectPath（副本）。
  */
 
@@ -30,37 +31,29 @@ type ApiHelper = {
 
 type Fixtures = {
   projectPage: import('@playwright/test').Page
-  // 副本路径（每个 spec 文件一份），写测试可随意改写而不污染原件
+  // 副本路径（每个测试一份），写测试可随意改写而不污染原件、不互相踩
   isolatedProjectPath: string
   // testProjectPath 为兼容别名，语义=isolatedProjectPath（副本）
   testProjectPath: string
   apiHelper: ApiHelper & { configPath: string }
 }
 
-// worker 级副本：每个 spec 文件（workers=1、fullyParallel=false 下即每个 worker）
-// 获得独立的 qa_simple 副本目录。
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
-const workerFixture = base.extend<{ isolatedProjectPath: string }, { workerCopyPath: string }>({
-  workerCopyPath: [async ({}, use) => {
-    const copyDir = fs.mkdtempSync(path.join(os.tmpdir(), `precis-e2e-w${process.pid}-`))
-    fs.cpSync(QA_SIMPLE_SOURCE, copyDir, { recursive: true })
-    await use(copyDir)
-    // worker 结束后清理本副本
-    try { fs.rmSync(copyDir, { recursive: true, force: true }) } catch {}
-  }, { scope: 'worker', auto: true }],
-
-  isolatedProjectPath: [async ({ workerCopyPath }, use) => {
-    await use(workerCopyPath)
-  }, { scope: 'worker', auto: true }],
-
-  testProjectPath: [async ({ isolatedProjectPath }, use) => {
-    await use(isolatedProjectPath)
-  }, { scope: 'worker', auto: true }],
-})
-
-export const test = workerFixture.extend<Fixtures>({
+export const test = base.extend<Fixtures>({
   projectPage: async ({ page }, use) => {
     await use(page)
+  },
+
+  isolatedProjectPath: async ({}, use) => {
+    // 每个测试一份独立副本，零跨测试/跨 spec 共享
+    const copyDir = fs.mkdtempSync(path.join(os.tmpdir(), `precis-e2e-${process.pid}-`))
+    fs.cpSync(QA_SIMPLE_SOURCE, copyDir, { recursive: true })
+    await use(copyDir)
+    // 测试结束后清理本副本
+    try { fs.rmSync(copyDir, { recursive: true, force: true }) } catch {}
+  },
+
+  testProjectPath: async ({ isolatedProjectPath }, use) => {
+    await use(isolatedProjectPath)
   },
 
   apiHelper: async ({ isolatedProjectPath }, use) => {
