@@ -35,6 +35,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Determine and sync version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "Building version: ${VERSION}"
+          cd electron
+          npm pkg set "version=${VERSION}"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
