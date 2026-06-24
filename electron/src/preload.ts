@@ -320,6 +320,24 @@ contextBridge.exposeInMainWorld('electronAPI', {
     */
    writeFile: (filePath: string, content: string) => ipcRenderer.invoke('write-file', filePath, content),
 
+  /**
+   * 读取主进程日志文件尾部内容
+   *
+   * 业务用途:
+   * - 在应用内展示日志面板，便于用户/排障查看
+   * - 配合启动失败错误对话框中的日志路径，提供应用内查看能力
+   *
+   * @returns Promise<string> - 日志尾部文本（最多约 256KB），文件不存在时为空串
+   */
+  readLogs: () => ipcRenderer.invoke('logs:read'),
+
+  /**
+   * 获取日志文件的绝对路径
+   *
+   * @returns Promise<string> - 日志文件路径，userData 未就绪时为空串
+   */
+  getLogFilePath: () => ipcRenderer.invoke('logs:path'),
+
   update: {
     getStatus: () => ipcRenderer.invoke('update:get-status'),
     getConfig: () => ipcRenderer.invoke('update:get-config'),

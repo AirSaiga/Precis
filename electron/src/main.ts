@@ -18,7 +18,7 @@
  * - [网络] 端口冲突检测机制确保服务可用性
  */
 
-import { app, BrowserWindow, ipcMain, shell, protocol, net as electronNet, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, protocol, net as electronNet, Menu, dialog } from 'electron';
 import { spawn, ChildProcess, execSync, type SpawnOptions } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
@@ -26,7 +26,7 @@ import * as net from 'net';
 import * as yaml from 'js-yaml';
 import { updateManager } from './update';
 import { getBackendPath, getFrontendPath } from './utils/paths';
-import { logger } from './logger';
+import { logger, getLogFilePath, readLogFile, flushLogs } from './logger';
 
 /**
  * Python 后端服务的默认起始端口
@@ -55,7 +55,7 @@ const FRONTEND_DEV_PORT = parseInt(process.env.VITE_FRONTEND_PORT || '5173', 10)
  * Python 后端启动信号超时时间（毫秒）
  * 用于检测 stdout 中是否出现 Uvicorn 启动完成标志
  */
-const PYTHON_STARTUP_SIGNAL_TIMEOUT_MS = 10000;
+const PYTHON_STARTUP_SIGNAL_TIMEOUT_MS = 30000;
 
 /**
  * Python 后端 API 真正就绪检测超时时间（毫秒）
@@ -139,6 +139,45 @@ let pythonProcess: ChildProcess | null = null;
  * 触发条件: 解析 Python 进程的 stdout，检测特定的成功消息
  */
 let isPythonServerReady = false;
+
+/**
+ * ============================================================================
+ * 后端启动信号检测（纯函数，便于单元测试）
+ * ============================================================================
+ *
+ * Uvicorn 的就绪日志（"Application startup complete." / "Uvicorn running on ..."）
+ * 默认输出到 stderr，且可能被 Node 的 data 事件切成多个 chunk。因此检测时不能
+ * 只看单个 chunk，而应扫描缓冲区的滚动尾窗口。
+ */
+
+/** 后端就绪信号片段，匹配任一即认为服务已启动 */
+const STARTUP_SIGNALS = ['Application startup complete', 'Uvicorn running'] as const;
+
+/** stderr 中标识真实错误的关键词，命中则按 error 级别记录 */
+const STDERR_ERROR_MARKERS = ['Traceback', 'Error:', 'CRITICAL', 'Exception'] as const;
+
+/** 滚动窗口扫描就绪信号时保留的尾部字符数（足够覆盖被分块切断的信号串） */
+const SIGNAL_SCAN_TAIL_CHARS = 256;
+
+/**
+ * 判断一段文本是否包含后端就绪信号。
+ *
+ * @param text - 待扫描的文本（通常是 stderr/stdout 缓冲区的尾部窗口）
+ * @returns 含就绪信号返回 true
+ */
+function containsStartupSignal(text: string): boolean {
+  return STARTUP_SIGNALS.some((s) => text.includes(s));
+}
+
+/**
+ * 判断一段 stderr 文本是否疑似真实错误（而非 Uvicorn 常规 INFO 日志）。
+ *
+ * @param text - 单个 data chunk 的文本
+ * @returns 命中错误标记返回 true，应按 error 级别记录
+ */
+function looksLikeStderrError(text: string): boolean {
+  return STDERR_ERROR_MARKERS.some((m) => text.includes(m));
+}
 
 /**
  * 查找可用端口的工具函数
@@ -464,7 +503,9 @@ async function startPythonServer(): Promise<number> {
 
   return new Promise<number>((resolve, reject) => {
     let resolved = false;
+    // 累积 stdout/stderr 输出，用于滚动窗口扫描就绪信号，以及失败时回溯诊断
     let stderrBuffer = '';
+    let stdoutBuffer = '';
 
     // 启动子进程
     // [Node.js] spawn 返回 ChildProcess 对象，可用于后续控制
@@ -508,27 +549,39 @@ async function startPythonServer(): Promise<number> {
       resolved = true;
       clearTimeout(startupTimeout);
       isPythonServerReady = true;
-      logger.debug('[Main] Python server is ready');
+      logger.info('[Main] Python server is ready');
       resolve(currentPythonServerPort);
     };
 
     // 监听标准输出 - 捕获后端启动成功的消息
+    // 就绪信号检测扫描 stdoutBuffer 的滚动尾窗口（SIGNAL_SCAN_TAIL_CHARS），
+    // 而非单个 data chunk，避免信号串被 Node 分块切断时漏检。
     proc.stdout?.on('data', (data) => {
       const output = data.toString();
+      stdoutBuffer += output;
       logger.debug(`Python stdout: ${output}`);
-
-      // 检测后端就绪信号
-      // start_server.py 会在启动完成后输出 "Application startup complete"
-      if (output.includes('Application startup complete') || output.includes('Uvicorn running')) {
+      const tail = stdoutBuffer.slice(-SIGNAL_SCAN_TAIL_CHARS);
+      if (containsStartupSignal(tail)) {
         cleanupAndResolve();
       }
     });
 
-    // 监听标准错误 - 捕获后端的错误日志
+    // 监听标准错误 - 捕获后端的日志与就绪信号
+    // Uvicorn 默认将 INFO 级别日志（含就绪信号）输出到 stderr，因此同样要在这里检测；
+    // 同时对疑似真实错误（Traceback/Error/CRITICAL 等）按 error 级别记录，
+    // 避免后端崩溃 traceback 被压成无害的 info 日志。
     proc.stderr?.on('data', (data) => {
       const chunk = data.toString();
       stderrBuffer += chunk;
-      logger.error(`Python stderr: ${chunk}`);
+      if (looksLikeStderrError(chunk)) {
+        logger.error(`Python stderr: ${chunk}`);
+      } else {
+        logger.info(`Python stderr: ${chunk}`);
+      }
+      const tail = stderrBuffer.slice(-SIGNAL_SCAN_TAIL_CHARS);
+      if (containsStartupSignal(tail)) {
+        cleanupAndResolve();
+      }
     });
 
     // 进程启动失败处理（如 python 可执行文件不存在）
@@ -1426,6 +1479,28 @@ ipcMain.handle('get-cwd', async () => {
   return process.cwd();
 });
 
+/**
+ * [IPC] 读取主进程日志文件尾部内容
+ *
+ * 业务用途:
+ * - 前端展示日志面板 / 用户复制日志用于反馈
+ * - 配合错误对话框中的日志路径，提供应用内查看能力
+ *
+ * @returns Promise<string> - 日志尾部文本（最多 256KB），文件不存在时为空串
+ */
+ipcMain.handle('logs:read', async () => {
+  return readLogFile();
+});
+
+/**
+ * [IPC] 获取日志文件绝对路径
+ *
+ * @returns Promise<string> - 日志文件路径，userData 未就绪时为空串
+ */
+ipcMain.handle('logs:path', async () => {
+  return getLogFilePath();
+});
+
 // ============================================================================
 // 应用生命周期事件处理
 // ============================================================================
@@ -1486,32 +1561,59 @@ app.whenReady().then(async () => {
   // 先显示 Splash Screen，让用户立即看到反馈
   createSplashWindow();
 
-  createWindow();
-
+  // [启动顺序关键修复]
+  // 必须先启动 Python 后端并确定实际端口，再创建/加载主窗口。
+  // 否则渲染进程可能在后端端口尚未分配时就调用 getServerStatus()，
+  // 拿到默认端口 18000 而无法连接，导致前端 Network Error。
   if (hasFrontendBuild) {
     // 生产环境: 启动 Python 后端并等待其就绪
-    logger.debug('[Main] 检测到打包环境，启动 Python 后端服务...');
+    logger.info('[Main] 检测到打包环境，启动 Python 后端服务...');
     try {
       await startPythonServer();
-      logger.debug('[Main] 后端启动流程完成，验证 API 就绪...');
+      logger.info('[Main] 后端启动流程完成，验证 API 就绪...');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('[Main] 后端启动失败:', errorMessage);
       isPythonServerReady = false;
+
+      // 后端启动失败属于致命错误，应明确告知用户，而不是显示空白主窗口
+      closeSplashWindow();
+      dialog.showErrorBox(
+        '后端服务启动失败',
+        `Precis 无法启动本地后端服务，应用将无法使用。\n\n错误信息：${errorMessage}\n\n请尝试以下步骤：\n1. 检查是否有安全软件阻止了应用运行；\n2. 重新安装应用；\n3. 如问题持续，请将日志文件发送给开发团队。\n\n日志位置：${getLogFilePath() || '未知'}`
+      );
+      app.quit();
+      return;
     }
   } else {
     // 开发环境: 后端由用户手动启动，轮询等待其就绪
-    logger.debug('[Main] 开发环境，等待外部后端服务就绪...');
+    logger.info('[Main] 开发环境，等待外部后端服务就绪...');
   }
 
-  // 统一轮询后端 API，确保真正可响应后再显示主窗口
+  // 统一轮询后端 API，确保真正可响应后再创建主窗口
   const apiReady = await waitForApiReady(currentPythonServerPort, 60000);
   if (apiReady) {
-    logger.debug('[Main] 后端 API 已就绪');
+    logger.info('[Main] 后端 API 已就绪，端口:', currentPythonServerPort);
+    backendReady = true;
+  } else if (hasFrontendBuild) {
+    // 生产环境：API 未就绪属于致命错误，直接退出并提示用户
+    logger.error('[Main] 后端 API 就绪检测超时，端口:', currentPythonServerPort);
+    closeSplashWindow();
+    dialog.showErrorBox(
+      '后端服务未就绪',
+      `Precis 后端服务未能在预期时间内响应请求（端口：${currentPythonServerPort}）。\n\n请尝试重新启动应用。如果问题持续，请检查是否有其他程序占用了端口，或安全软件阻止了后端进程。`
+    );
+    app.quit();
+    return;
   } else {
-    logger.debug('[Main] 后端 API 就绪检测超时，继续显示主窗口');
+    // 开发环境：后端可能由用户手动启动，允许继续并显示主窗口
+    logger.warn('[Main] 开发环境后端 API 未就绪，继续显示主窗口');
+    backendReady = true;
   }
-  backendReady = true;
+
+  // 后端已就绪且端口已确定，再创建主窗口并加载前端
+  createWindow();
+
   tryShowMainWindow();
 
   // 应用启动时自动检查更新（仅在打包环境）
@@ -1564,6 +1666,8 @@ app.on('window-all-closed', () => {
  */
 app.on('before-quit', () => {
   stopPythonServerSync(pythonProcess);
+  // 刷新文件日志流，确保退出前最后一批日志落盘
+  flushLogs();
 });
 
 /**

@@ -59,3 +59,10 @@ class TestApiHealth:
             "http://127.0.0.1:12345",
             "*",
         )
+
+    def test_cors_headers_present_for_electron_protocols(self):
+        """Electron 自定义协议及 null Origin 应被 CORS 允许。"""
+        client = TestClient(app)
+        for origin in ("app://.", "electron://.", "null"):
+            resp = client.get("/", headers={"Origin": origin})
+            assert resp.headers.get("access-control-allow-origin") == origin

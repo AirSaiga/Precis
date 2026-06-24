@@ -1,3 +1,17 @@
+# ============================================================================
+# Precis 后端运行时依赖锁定清单
+# ----------------------------------------------------------------------------
+# 用途：为 Electron 打包提供离线/可复现的传递依赖快照（install-backend-deps.js
+#       用内嵌 Python 解释器 pip install -r 本文件，把依赖装入运行时 site-packages）。
+#
+# 注意：
+# - 本文件只应包含【第三方运行时依赖】及其传递依赖。
+# - 禁止出现 -e 可编辑安装：precis 自身包在打包环境由 start_server.py 的 sys.path
+#   注入提供，在开发环境由 `pip install -e .` 提供，永远不该写进 requirements.txt。
+# - 开发工具（pytest/ruff/mypy 等）请通过 `pip install -e ".[dev]"` 安装，
+#   不要冻结到本文件，避免被打进用户安装包。
+# - 重新生成本文件时建议：在干净的 venv 中 `pip install -e ".[full]"` 后 `pip freeze`。
+# ============================================================================
 aiohappyeyeballs==2.6.1
 aiohttp==3.14.1
 aiosignal==1.4.0
@@ -67,7 +81,6 @@ pip_audit==2.10.0
 pipdeptree==2.35.1
 platformdirs==4.9.6
 pluggy==1.6.0
--e git+https://github.com/AirSaiga/Precis.git@6918162e066ffa140c9b490db9fb0b8b4938a868#egg=precis&subdirectory=backend
 propcache==0.4.1
 psutil==7.2.2
 py-serializable==2.1.0

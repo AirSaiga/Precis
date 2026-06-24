@@ -14,9 +14,9 @@
 - 模块化路由: 路由按功能模块分组（project, utils, reporting 等）
 
 Electron 集成说明:
-- 添加了 electron://. 和 app://. 到 CORS 白名单
-- 支持 Electron 渲染进程的本地文件访问
-- 127.0.0.1:8000 用于后端自检
+- DynamicPortCORSMiddleware 放行 Electron 自定义协议（app:// / electron://）及 null Origin
+- 支持 127.0.0.1 / localhost 的任意端口（动态端口分配）
+- 桌面应用经内嵌窗口加载前端，无跨站风险
 
 日志配置:
 - 配置 logging 以显示 HTTP 请求和响应信息
@@ -26,6 +26,7 @@ Electron 集成说明:
 
 import logging
 import os
+import re
 import sys
 from typing import cast
 
@@ -104,11 +105,17 @@ configure_logging()
 
 class DynamicPortCORSMiddleware(CORSMiddleware):
     """
-    支持动态端口的 CORS 中间件
+    支持动态端口与桌面应用协议的 CORS 中间件
 
     功能:
     - 允许 127.0.0.1 和 localhost 的任意端口访问（支持动态端口分配）
+    - 放行 Electron 自定义协议（app:// / electron://）下浏览器发送的 null/空 Origin
     - 保留原有 CORS 中间件的所有功能
+
+    [安全考量]
+    - null Origin 放行仅在【本服务绑定 loopback 且仅供打包桌面应用使用】的前提下成立：
+      桌面应用经内嵌窗口加载前端，不存在跨站/跨源攻击面。
+    - 若未来该 API 暴露到网络（非 127.0.0.1），必须移除此放行。
     """
 
     def is_allowed_origin(self, origin: str) -> bool:
@@ -117,15 +124,22 @@ class DynamicPortCORSMiddleware(CORSMiddleware):
 
         业务用途:
         - 在 CORS 握手阶段决定是否在响应中回写 Access-Control-Allow-Origin
-        - 在标准 allow_origins 之外，额外放行 127.0.0.1/localhost 的任意端口
+        - 在标准 allow_origins 之外，额外放行桌面应用场景下的特殊 Origin
 
         参数:
-            origin: 浏览器请求头中的 Origin 字段（形如 ``http://127.0.0.1:5173``）
+            origin: 浏览器请求头中的 Origin 字段（形如 ``http://127.0.0.1:5173``、
+                    ``app://.`` 或 ``null``）
 
         返回:
             True 表示允许该 Origin 的跨域请求，False 表示拒绝
         """
-        # 首先检查是否在明确允许列表中
+        # Electron 自定义协议（app://, electron://）下浏览器会发送 Origin: null，
+        # 部分隐私/沙箱场景也可能发送空 Origin。桌面应用经内嵌窗口加载前端，
+        # 不存在跨站风险，故放行（前提见类 docstring 的安全考量）。
+        if origin == "null" or origin == "":
+            return True
+
+        # 检查是否在明确允许列表中
         if origin in self.allow_origins:
             return True
 
@@ -139,17 +153,13 @@ class DynamicPortCORSMiddleware(CORSMiddleware):
 
 # 定义允许的跨域来源列表
 # [设计说明]
-# - 明确列出允许的来源，而非使用通配符
-# - 便于追踪和审计谁可以访问 API
-# - 提高安全性
-# - 支持动态端口：使用正则表达式匹配 127.0.0.1 和 localhost 的任意端口
-# [安全考量] 生产环境应限制为具体域名，避免开放过多来源
-import re
-
+# - 明确列出允许的来源，而非使用通配符，便于审计
+# - 127.0.0.1 / localhost 的任意端口及 null/空 Origin 由中间件逻辑放行（见上）
+# - [安全考量] 生产环境应限制为具体域名，避免开放过多来源
 origins = [
     # 后端自检（动态端口范围）
     "http://127.0.0.1:8000",
-    # macOS Electron 应用协议
+    # macOS Electron 应用协议（前端打包后以 app://./index.html 加载）
     "app://.",
     # Electron 通用协议
     "electron://.",

@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 /**
- * @fileoverview 为内嵌 Python 运行时安装后端依赖
+ * @fileoverview 为内嵌 Python 运行时安装后端运行时依赖
  *
- * 依赖清单来自 ../backend/requirements.txt，安装到内嵌 Python 的 site-packages 中。
- * 开发模式下若未下载内嵌运行时，则直接跳过。
+ * 依赖清单来自 ../backend/requirements.txt（仅含第三方运行时依赖 + 传递依赖，
+ * 禁止含 -e 自身可编辑安装——详见该文件顶部注释），直接 pip install 到内嵌
+ * Python 的 site-packages 中。开发模式下若未下载内嵌运行时，则跳过。
  */
 
 const fs = require('fs');
 const path = require('path');
-const { execFileSync } = require('child_process');
 const os = require('os');
+const { execFileSync } = require('child_process');
 
+/** 内嵌 Python 解释器路径：Win 为 python-runtime/python/python.exe，其余为 bin/python3 */
 function getPythonExecutable(runtimeDir) {
   const platform = os.platform();
   if (platform === 'win32') {
@@ -38,15 +40,10 @@ function main() {
   console.log(`[install-backend-deps] 使用解释器: ${pythonExe}`);
   console.log(`[install-backend-deps] 安装依赖: ${requirementsPath}`);
 
-  try {
-    execFileSync(
-      pythonExe,
-      ['-m', 'pip', 'install', '-r', requirementsPath],
-      { stdio: 'inherit' }
-    );
-  } catch (err) {
-    throw new Error(`依赖安装失败: ${err.message}`);
-  }
+  // requirements.txt 已是纯净的运行时依赖快照（无 -e 自身安装），直接安装即可
+  execFileSync(pythonExe, ['-m', 'pip', 'install', '-r', requirementsPath], {
+    stdio: 'inherit',
+  });
 
   console.log('[install-backend-deps] 完成');
 }

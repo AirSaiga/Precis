@@ -460,7 +460,53 @@ describe('writeFile', () => {
 })
 
 // ============================================================================
-// 20-24. update.* 子模块
+// 20. readLogs
+// ============================================================================
+describe('readLogs', () => {
+  it('正常路径：返回日志尾部内容', async () => {
+    mockInvoke.mockResolvedValue('[2026-06-24] [INFO] backend ready')
+    const fn = exposedApi.readLogs as () => Promise<string>
+    const result = await fn()
+    expect(mockInvoke).toHaveBeenCalledWith('logs:read')
+    expect(typeof result).toBe('string')
+  })
+
+  it('异常路径：日志文件不存在时返回空串', async () => {
+    mockInvoke.mockResolvedValue('')
+    const fn = exposedApi.readLogs as () => Promise<string>
+    const result = await fn()
+    expect(result).toBe('')
+  })
+
+  it('异常路径：IPC 调用失败', async () => {
+    mockInvoke.mockRejectedValue(new Error('userData not ready'))
+    const fn = exposedApi.readLogs as () => Promise<string>
+    await expect(fn()).rejects.toThrow('userData not ready')
+  })
+})
+
+// ============================================================================
+// 21. getLogFilePath
+// ============================================================================
+describe('getLogFilePath', () => {
+  it('正常路径：返回日志文件绝对路径', async () => {
+    mockInvoke.mockResolvedValue('/home/user/.config/Precis/logs/main.log')
+    const fn = exposedApi.getLogFilePath as () => Promise<string>
+    const result = await fn()
+    expect(mockInvoke).toHaveBeenCalledWith('logs:path')
+    expect(typeof result).toBe('string')
+  })
+
+  it('异常路径：userData 未就绪时返回空串', async () => {
+    mockInvoke.mockResolvedValue('')
+    const fn = exposedApi.getLogFilePath as () => Promise<string>
+    const result = await fn()
+    expect(result).toBe('')
+  })
+})
+
+// ============================================================================
+// 22-26. update.* 子模块
 // ============================================================================
 describe('update', () => {
   let updateApi: Record<string, unknown>

@@ -276,9 +276,10 @@
   // useTheme: 初始化主题系统（CSS 变量切换）
   useTheme()
 
-  // --- Web 模式状态 ---
-  // 不支持自动恢复最近项目的环境（如 Web），当没有已激活的项目时显示 ProjectSelector
-  const showProjectSelector = ref(!appApi.canRestoreRecentProject && !projectStore.isProjectActive)
+  // --- 首启/无项目状态 ---
+  // 当没有已激活的项目时显示 ProjectSelector；Electron 下若未保存最近项目，
+  // 也需要让用户选择项目，避免空画布触发大量失败请求
+  const showProjectSelector = ref(!projectStore.isProjectActive)
 
   // --- 局部状态 ---
 
@@ -462,8 +463,8 @@
     try {
       await bootstrap()
 
-      // 不支持自动恢复最近项目的环境下，根据项目激活状态决定是否显示 ProjectSelector
-      if (!appApi.canRestoreRecentProject && !projectStore.isProjectActive) {
+      // 无论 Electron 还是 Web，只要没有激活项目就显示 ProjectSelector
+      if (!projectStore.isProjectActive) {
         showProjectSelector.value = true
         return
       }
