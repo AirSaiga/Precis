@@ -182,10 +182,10 @@
     if (!detailsText.value) return
     try {
       await navigator.clipboard.writeText(detailsText.value)
-      window.$toast?.success(t('feedback.copySuccess'))
+      window.$toast?.success(t('common.success'), t('feedback.copySuccess'))
     } catch (e) {
       logger.error('[CrashFeedbackModal] 复制失败:', e)
-      window.$toast?.error(t('feedback.copyFailed'))
+      window.$toast?.error(t('common.error'), t('feedback.copyFailed'))
     }
   }
 
@@ -193,10 +193,10 @@
     if (!report.value) return
     try {
       await feedbackApi.exportReport(report.value)
-      window.$toast?.success(t('feedback.exportSuccess'))
+      window.$toast?.success(t('common.success'), t('feedback.exportSuccess'))
     } catch (e) {
       logger.error('[CrashFeedbackModal] 导出失败:', e)
-      window.$toast?.error(t('feedback.exportFailed'))
+      window.$toast?.error(t('common.error'), t('feedback.exportFailed'))
     }
   }
 
