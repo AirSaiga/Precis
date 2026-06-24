@@ -6,6 +6,7 @@
 import commonLocales from './common'
 import shortcuts from './shortcuts'
 import inspection from './inspection'
+import feedback from './feedback'
 
 import { app, navigation, dashboard, assetLibrary } from './core'
 import { canvas, nodeTypeMenu, statusBar } from './canvas'
@@ -63,6 +64,7 @@ const zhCN = {
   common: commonLocales,
   shortcuts,
   inspection,
+  feedback,
 }
 
 export default zhCN

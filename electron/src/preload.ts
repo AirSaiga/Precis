@@ -338,6 +338,22 @@ contextBridge.exposeInMainWorld('electronAPI', {
    */
   getLogFilePath: () => ipcRenderer.invoke('logs:path'),
 
+  /**
+   * 崩溃反馈 API 命名空间
+   *
+   * 业务用途:
+   * - persistCrashLog: 每次崩溃保底写入 userData/feedback/ 崩溃日志
+   * - exportReport: 导出反馈文件并在文件管理器高亮
+   * - readPendingCrash: 启动时读取上次渲染进程崩溃的待补弹记录
+   * - clearPendingCrash: 补弹后清除该记录
+   */
+  feedback: {
+    persistCrashLog: (report: unknown) => ipcRenderer.invoke('feedback:persist', report),
+    exportReport: (report: unknown) => ipcRenderer.invoke('feedback:export', report),
+    readPendingCrash: () => ipcRenderer.invoke('feedback:read-pending'),
+    clearPendingCrash: () => ipcRenderer.invoke('feedback:clear-pending'),
+  },
+
   update: {
     getStatus: () => ipcRenderer.invoke('update:get-status'),
     getConfig: () => ipcRenderer.invoke('update:get-config'),

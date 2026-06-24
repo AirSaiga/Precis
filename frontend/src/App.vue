@@ -230,6 +230,10 @@
       :mouse-position="mousePosition"
     />
   </div>
+
+  <!-- 崩溃反馈弹窗:独立于 app-layout(v-else 分支)渲染,
+       确保任何界面状态(含项目选择阶段)都能弹出全局崩溃反馈 -->
+  <CrashFeedbackModal />
 </template>
 
 <script setup lang="ts">
@@ -248,6 +252,7 @@
   import AppStatusBar from '@/components/layout/AppStatusBar.vue'
   import AppOverlayHost from '@/components/layout/AppOverlayHost.vue'
   import ProjectSelector from '@/components/project/ProjectSelector.vue'
+  import CrashFeedbackModal from '@/components/shared/CrashFeedbackModal.vue'
 
   import { useAppLayout } from '@/composables/useAppLayout'
   import { useAppBootstrap } from '@/composables/useAppBootstrap'
@@ -257,6 +262,7 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { useProjectStore } from '@/stores/projectStore'
   import { useResourceDragStore, type ResourceDragPayload } from '@/stores/resourceDragStore'
+  import { useFeedbackStore } from '@/stores/feedbackStore'
   // import { useAiChatStore } from '@/stores/aiChatStore'
 
   const { t } = useI18n()
@@ -266,6 +272,7 @@
   const graphStore = useGraphStore()
   const projectStore = useProjectStore()
   const resourceDragStore = useResourceDragStore()
+  const feedbackStore = useFeedbackStore()
 
   // --- Composable 初始化 ---
   // useAppLayout: 管理侧边栏/检查器宽度、拖拽调宽、面板折叠状态
@@ -461,6 +468,10 @@
 
   onMounted(async () => {
     try {
+      // 启动时补弹上次渲染进程崩溃的待处理记录(Electron 特有)
+      // 放在 bootstrap 之前,确保即使 bootstrap 出错崩溃补弹仍有机会展示
+      void feedbackStore.loadPendingFromMain()
+
       await bootstrap()
 
       // 无论 Electron 还是 Web，只要没有激活项目就显示 ProjectSelector

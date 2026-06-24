@@ -798,6 +798,44 @@ function createWindow(): void {
     shell.openExternal(url);
     return { action: 'deny' };
   });
+
+  // 渲染进程崩溃监听:此时 Vue 已死,只能用原生 dialog 兜底。
+  // 将崩溃记录写入 pending-crash.json,重启后由前端读出并补弹反馈窗口。
+  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+    logger.error('[Main] 渲染进程崩溃:', details.reason, 'exitCode:', details.exitCode);
+    try {
+      ensureFeedbackDir();
+      const pending = {
+        source: 'main-process',
+        message: `渲染进程意外退出 (${details.reason})`,
+        timestamp: new Date().toISOString(),
+        exitCode: details.exitCode,
+      };
+      fs.writeFileSync(getPendingCrashPath(), JSON.stringify(pending, null, 2), 'utf-8');
+    } catch (err) {
+      logger.error('[Main] 写入 pending crash 失败:', err);
+    }
+
+    const choice = dialog.showMessageBoxSync(mainWindow!, {
+      type: 'error',
+      title: '应用遇到问题',
+      message: '渲染进程意外退出',
+      detail: `原因: ${details.reason}\n崩溃记录已保存,重启后将提示您导出反馈。`,
+      buttons: ['重启应用', '退出'],
+      noLink: true,
+    });
+    if (choice === 0) {
+      app.relaunch();
+      app.exit(0);
+    } else {
+      app.quit();
+    }
+  });
+
+  // 渲染进程无响应监听(可能是长任务卡死,不强制退出,仅记录)
+  mainWindow.webContents.on('unresponsive', () => {
+    logger.warn('[Main] 渲染进程无响应');
+  });
 }
 
 // ============================================================================
@@ -1499,6 +1537,125 @@ ipcMain.handle('logs:read', async () => {
  */
 ipcMain.handle('logs:path', async () => {
   return getLogFilePath();
+});
+
+// ============================================================================
+// 崩溃反馈:辅助函数 + IPC
+// ============================================================================
+
+/** 反馈文件目录(userData/feedback/) */
+function getFeedbackDir(): string {
+  return path.join(app.getPath('userData'), 'feedback');
+}
+
+/** pending crash 文件路径(渲染进程崩溃时写入,前端启动读取补弹) */
+function getPendingCrashPath(): string {
+  return path.join(getFeedbackDir(), 'pending-crash.json');
+}
+
+/** 确保 feedback 目录存在 */
+function ensureFeedbackDir(): void {
+  const dir = getFeedbackDir();
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+/** 格式化时间戳为文件名安全字符串 */
+function formatTimestampForFile(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
+/** 格式化崩溃报告为反馈文件纯文本(含错误信息 + 堆栈 + 主进程日志尾部) */
+function formatFeedbackText(report: unknown): string {
+  const r = report as Record<string, unknown>;
+  const logTail = readLogFile();
+  return [
+    '===== Precis 崩溃反馈 =====',
+    `应用版本: ${r.appVersion ?? 'unknown'}`,
+    `平台: ${process.platform}`,
+    `时间: ${r.timestamp ?? new Date().toISOString()}`,
+    '',
+    '--- 错误信息 ---',
+    `来源: ${r.source ?? 'unknown'}`,
+    `消息: ${r.message ?? ''}`,
+    r.url ? `URL: ${r.url}` : '',
+    '',
+    '--- 错误堆栈 ---',
+    (r.stack as string) ?? '(无堆栈)',
+    '',
+    '--- 主进程日志尾部 ---',
+    logTail,
+    '============================',
+  ]
+    .filter((line) => line !== '')
+    .join('\n');
+}
+
+/**
+ * [IPC] 持久化崩溃日志到 userData/feedback/(保底记录,即使用户不点导出)
+ *
+ * 文件命名:crash-{时间戳}-{指纹前8位}.txt
+ */
+ipcMain.handle('feedback:persist', async (_event, report: unknown) => {
+  try {
+    ensureFeedbackDir();
+    const r = report as Record<string, unknown>;
+    const ts = (r.timestamp as string) ?? new Date().toISOString();
+    const fp = String(r.fingerprint ?? 'unknown').slice(0, 8);
+    const filename = `crash-${formatTimestampForFile(ts)}-${fp}.txt`;
+    const filepath = path.join(getFeedbackDir(), filename);
+    fs.writeFileSync(filepath, formatFeedbackText(report), 'utf-8');
+  } catch (err) {
+    logger.error('[Main] 持久化崩溃日志失败:', err);
+  }
+});
+
+/**
+ * [IPC] 导出反馈文件并在文件管理器高亮
+ *
+ * 文件命名:precis-feedback-{时间戳}.txt
+ */
+ipcMain.handle('feedback:export', async (_event, report: unknown) => {
+  ensureFeedbackDir();
+  const r = report as Record<string, unknown>;
+  const ts = (r.timestamp as string) ?? new Date().toISOString();
+  const filename = `precis-feedback-${formatTimestampForFile(ts)}.txt`;
+  const filepath = path.join(getFeedbackDir(), filename);
+  fs.writeFileSync(filepath, formatFeedbackText(report), 'utf-8');
+  // 在文件管理器中高亮该文件,方便用户定位并发送
+  shell.showItemInFolder(filepath);
+});
+
+/**
+ * [IPC] 读取渲染进程崩溃的待补弹记录(无则返回 null)
+ */
+ipcMain.handle('feedback:read-pending', async () => {
+  try {
+    const p = getPendingCrashPath();
+    if (!fs.existsSync(p)) return null;
+    const content = fs.readFileSync(p, 'utf-8');
+    return JSON.parse(content);
+  } catch (err) {
+    logger.error('[Main] 读取 pending crash 失败:', err);
+    return null;
+  }
+});
+
+/**
+ * [IPC] 清除待补弹记录
+ */
+ipcMain.handle('feedback:clear-pending', async () => {
+  try {
+    const p = getPendingCrashPath();
+    if (fs.existsSync(p)) {
+      fs.unlinkSync(p);
+    }
+  } catch (err) {
+    logger.error('[Main] 清除 pending crash 失败:', err);
+  }
 });
 
 // ============================================================================
