@@ -609,6 +609,13 @@ describe('综合 IPC 接口验证', () => {
         expect(updateMethods).toContain('check')
         expect(updateMethods).toContain('download')
         expect(updateMethods).toContain('install')
+      } else if (key === 'feedback') {
+        expect(typeof exposedApi[key]).toBe('object')
+        const feedbackMethods = Object.keys(exposedApi[key] as Record<string, unknown>)
+        expect(feedbackMethods).toContain('persistCrashLog')
+        expect(feedbackMethods).toContain('exportReport')
+        expect(feedbackMethods).toContain('readPendingCrash')
+        expect(feedbackMethods).toContain('clearPendingCrash')
       } else {
         expect(typeof exposedApi[key]).toBe('function')
       }
