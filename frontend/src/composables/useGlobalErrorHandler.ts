@@ -12,6 +12,7 @@
  */
 
 import type { App } from 'vue'
+import { getActivePinia } from 'pinia'
 import { useFeedbackStore } from '@/stores/feedbackStore'
 import { logger } from '@/core/utils/logger'
 import type { ErrorInfo } from '@/types/feedback'
@@ -21,6 +22,14 @@ import type { ErrorInfo } from '@/types/feedback'
  * @param app Vue 应用实例(pinia 已挂载)
  */
 export function installGlobalErrorHandler(app: App): void {
+  // 捕获 app 的 pinia 实例:错误处理器回调在事件循环中异步触发(非组件 setup 期间),
+  // 此时 getActivePinia() 可能返回 null,导致 useFeedbackStore() 创建/取到错误的 store 实例。
+  // 显式传入捕获的 pinia,保证回调里与组件用的是同一个 store 实例。
+  const pinia = getActivePinia()
+
+  /** 从捕获的 pinia 取 feedbackStore(回调安全) */
+  const getStore = () => useFeedbackStore(pinia)
+
   // ① Vue 组件内未处理异常
   app.config.errorHandler = (err, _instance, info) => {
     try {
@@ -31,7 +40,7 @@ export function installGlobalErrorHandler(app: App): void {
         componentInfo: info,
       }
       logger.error('[globalErrorHandler] Vue 异常:', err)
-      useFeedbackStore().reportCrash(report)
+      getStore().reportCrash(report)
     } catch (e) {
       // 监听器内绝不再抛出,避免二次崩溃
       console.error('[globalErrorHandler] errorHandler 内部失败:', e)
@@ -44,7 +53,7 @@ export function installGlobalErrorHandler(app: App): void {
   window.addEventListener('error', (e) => {
     try {
       if (!e.error) return
-      useFeedbackStore().reportCrash({
+      getStore().reportCrash({
         source: 'renderer',
         message: e.message,
         stack: e.error.stack,
@@ -59,7 +68,7 @@ export function installGlobalErrorHandler(app: App): void {
   window.addEventListener('unhandledrejection', (e) => {
     try {
       const reason = e.reason
-      useFeedbackStore().reportCrash({
+      getStore().reportCrash({
         source: 'unhandled-rejection',
         message: reason instanceof Error ? reason.message : String(reason),
         stack: reason instanceof Error ? reason.stack : undefined,

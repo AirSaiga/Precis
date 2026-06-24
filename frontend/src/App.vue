@@ -230,6 +230,10 @@
       :mouse-position="mousePosition"
     />
   </div>
+
+  <!-- 崩溃反馈弹窗:独立于 app-layout(v-else 分支)渲染,
+       确保任何界面状态(含项目选择阶段)都能弹出全局崩溃反馈 -->
+  <CrashFeedbackModal />
 </template>
 
 <script setup lang="ts">
@@ -248,6 +252,7 @@
   import AppStatusBar from '@/components/layout/AppStatusBar.vue'
   import AppOverlayHost from '@/components/layout/AppOverlayHost.vue'
   import ProjectSelector from '@/components/project/ProjectSelector.vue'
+  import CrashFeedbackModal from '@/components/shared/CrashFeedbackModal.vue'
 
   import { useAppLayout } from '@/composables/useAppLayout'
   import { useAppBootstrap } from '@/composables/useAppBootstrap'
