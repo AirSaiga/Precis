@@ -19,6 +19,7 @@ import i18n from './i18n'
 import { initApiBaseUrl } from './core/services/httpClient'
 import { appApi } from '@/core/capabilities/appApi'
 import { applyThemePreference, getStoredThemePreference } from './core/utils/theme'
+import { installGlobalErrorHandler } from './composables/useGlobalErrorHandler'
 
 /**
  * 初始化应用
@@ -42,6 +43,9 @@ async function initApp() {
   app.use(pinia)
   app.use(router)
   app.use(i18n) // 集成 i18n 到应用
+
+  // 注册全局错误处理器(必须在 pinia 挂载后、mount 前,以便 feedbackStore 可用)
+  installGlobalErrorHandler(app)
 
   app.mount('#app')
 
