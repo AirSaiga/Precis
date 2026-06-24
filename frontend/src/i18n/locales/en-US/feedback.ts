@@ -1,0 +1,23 @@
+export default {
+  title: 'Application Problem',
+  description:
+    'An unexpected error occurred. Details have been recorded automatically. You can export a feedback file to send to the developer.',
+  errorLabel: 'Error',
+  timeLabel: 'Time',
+  sourceLabel: 'Source',
+  sourceRenderer: 'Frontend Exception',
+  sourceMainProcess: 'Renderer Process Crash',
+  sourceUnhandledRejection: 'Unhandled Async Error',
+  viewDetails: 'View details',
+  hideDetails: 'Hide details',
+  detailsStack: 'Error stack',
+  detailsLog: 'Main process log tail',
+  copyButton: 'Copy to clipboard',
+  copySuccess: 'Copied to clipboard',
+  copyFailed: 'Copy failed',
+  exportButton: 'Export feedback file',
+  exportSuccess: 'Feedback file exported and highlighted in file manager',
+  exportFailed: 'Export failed',
+  reloadButton: 'Reload page',
+  closeButton: 'Close',
+}
