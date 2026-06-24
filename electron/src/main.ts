@@ -490,11 +490,20 @@ async function startPythonServer(): Promise<number> {
   // 子进程配置
   // cwd: 设置工作目录，确保 Python 导入路径正确
   // stdio: 管道模式，允许我们读取子进程的输出
+  // env: 强制 Python 无缓冲 + UTF-8 输出
+  //   - PYTHONUNBUFFERED=1: stdout/stderr 立即 flush,避免管道块缓冲导致
+  //     就绪信号迟迟读不到而误判超时(曾出现"stderr: none"的间歇性启动失败)
+  //   - PYTHONIOENCODING=utf-8: Windows 默认 GBK,会导致 uvicorn/rich 的中文日志乱码
   // detached (Unix): 创建新进程组，便于整组清理
   // windowsHide: 在 Windows 上隐藏命令行窗口
   const options: SpawnOptions = {
     cwd: BACKEND_PATH,
     stdio: ['pipe', 'pipe', 'pipe'],
+    env: {
+      ...process.env,
+      PYTHONUNBUFFERED: '1',
+      PYTHONIOENCODING: 'utf-8',
+    },
     detached: process.platform !== 'win32',
     windowsHide: true,
   };
