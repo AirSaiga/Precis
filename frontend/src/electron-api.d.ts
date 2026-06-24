@@ -55,6 +55,35 @@ type UpdateStatus =
   | 'error'
 
 /**
+ * 崩溃报告(主进程崩溃日志/反馈导出用)
+ *
+ * 与 frontend/src/types/feedback.ts 的 CrashReport 保持结构一致;
+ * 此处为 .d.ts 内联声明,避免跨目录 import。
+ */
+interface CrashReport {
+  id: string
+  timestamp: string
+  source: 'renderer' | 'main-process' | 'unhandled-rejection'
+  fingerprint: string
+  message: string
+  stack?: string
+  appVersion: string
+  platform: string
+  url?: string
+  componentInfo?: string
+}
+
+/**
+ * 渲染进程崩溃待补弹记录(主进程写 pending-crash.json,前端启动读取)
+ */
+interface PendingCrash {
+  source: 'main-process'
+  message: string
+  timestamp: string
+  exitCode?: number
+}
+
+/**
  * 自动更新状态对象
  *
  * 业务用途:
@@ -470,6 +499,44 @@ interface ElectronAPI {
    * @returns Promise<boolean> - 写入是否成功
    */
   writeFile: (filePath: string, content: string) => Promise<boolean>
+
+  /**
+   * 读取主进程日志文件尾部内容
+   *
+   * 业务用途:
+   * - 崩溃反馈窗口展示日志尾部,辅助定位后端错误
+   * - 配合启动失败错误对话框中的日志路径
+   *
+   * @returns Promise<string> - 日志尾部文本(最多约 256KB),文件不存在时为空串
+   */
+  readLogs: () => Promise<string>
+
+  /**
+   * 获取日志文件的绝对路径
+   *
+   * @returns Promise<string> - 日志文件路径,userData 未就绪时为空串
+   */
+  getLogFilePath: () => Promise<string>
+
+  /**
+   * 崩溃反馈 API 命名空间
+   *
+   * 功能说明:
+   * - persistCrashLog: 每次崩溃保底写入 userData/feedback/ 崩溃日志
+   * - exportReport: 导出反馈文件并在文件管理器高亮
+   * - readPendingCrash: 启动时读取上次渲染进程崩溃的待补弹记录
+   * - clearPendingCrash: 补弹后清除该记录
+   */
+  feedback: {
+    /** 持久化崩溃日志到 userData/feedback/(保底记录) */
+    persistCrashLog: (report: CrashReport) => Promise<void>
+    /** 导出反馈文件并在文件管理器高亮 */
+    exportReport: (report: CrashReport) => Promise<void>
+    /** 读取渲染进程崩溃的待补弹记录(无则 null) */
+    readPendingCrash: () => Promise<PendingCrash | null>
+    /** 清除待补弹记录 */
+    clearPendingCrash: () => Promise<void>
+  }
 
   /**
    * 自动更新相关 API
