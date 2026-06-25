@@ -11,7 +11,7 @@
 }
 
 .search-container {
-  padding: 8px 16px;
+  padding: var(--ui-space-sm) var(--ui-space-lg);
   flex-shrink: 0;
   background-color: transparent;
   z-index: 10;
@@ -20,10 +20,10 @@
 
 .search-input {
   width: 100%;
-  padding: 8px 12px 8px 34px;
+  padding: var(--ui-space-sm) var(--ui-space-md) var(--ui-space-sm) 34px;
   border: 1px solid rgba(200, 192, 182, 0.5);
-  border-radius: var(--ui-radius-md);
-  font-size: 13px;
+  border-radius: var(--ui-radius-sm);
+  font-size: var(--ui-font-size-md);
   outline: none;
   transition: all var(--ui-transition-fast);
   background: rgba(255, 255, 255, 0.6);
@@ -61,5 +61,5 @@
   flex-direction: column;
   background: transparent;
   overflow: hidden;
-  padding: 0 12px 0 16px;
+  padding: 0 var(--ui-space-md) 0 var(--ui-space-lg);
 }

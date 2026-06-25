@@ -5,10 +5,10 @@
  * - 柔和 hover 反馈
  */
 .inspector-section {
-  margin-bottom: 16px;
+  margin-bottom: var(--ui-space-lg);
   background: var(--ui-bg-elevated);
   border-radius: var(--ui-radius-lg);
-  padding: 16px;
+  padding: var(--ui-space-lg);
   border: 1px solid var(--ui-border-light);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
   transition:
@@ -25,14 +25,14 @@
  * 区块标题样式
  */
 .section-title {
-  margin: 0 0 16px 0;
-  font-size: 13px;
+  margin: 0 0 var(--ui-space-lg) 0;
+  font-size: var(--ui-font-size-md);
   font-weight: 600;
   color: var(--ui-text-strong);
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding-bottom: 10px;
+  padding-bottom: var(--ui-space-md);
   border-bottom: 1px solid var(--ui-border-subtle);
 }
 
@@ -45,9 +45,9 @@
  * - 字间距
  */
 .section-badge {
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-size: 11px;
+  padding: 2px var(--ui-space-sm);
+  border-radius: var(--ui-radius-full);
+  font-size: var(--ui-font-size-xs);
   font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.5px;
@@ -83,5 +83,5 @@
 .section-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--ui-space-md);
 }
