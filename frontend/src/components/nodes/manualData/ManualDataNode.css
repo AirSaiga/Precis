@@ -5,7 +5,7 @@
   box-shadow: var(--node-shadow);
   overflow: hidden;
   font-family: var(--ui-font-family);
-  font-size: 12px;
+  font-size: var(--node-text-size);
   color: var(--ui-text-primary);
   cursor: default;
   user-select: none;
@@ -54,7 +54,7 @@
 }
 
 .header-icon {
-  font-size: 16px;
+  font-size: var(--ui-font-size-lg);
   flex-shrink: 0;
   display: flex;
   align-items: center;
@@ -72,7 +72,7 @@
 
 .node-name {
   font-weight: 600;
-  font-size: 13px;
+  font-size: var(--node-text-size);
   color: var(--ui-text-strong);
   white-space: nowrap;
   overflow: hidden;
@@ -81,7 +81,7 @@
 }
 
 .node-meta {
-  font-size: 11px;
+  font-size: var(--node-muted-size);
   color: var(--ui-text-muted);
   font-weight: 400;
 }
@@ -94,7 +94,7 @@
   background: transparent;
   border: none;
   color: var(--ui-text-muted);
-  font-size: 14px;
+  font-size: var(--ui-font-size-md);
   font-weight: 600;
   cursor: pointer;
   width: 20px;
@@ -102,7 +102,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
+  border-radius: var(--node-btn-radius-xs);
   line-height: 1;
   padding: 0;
   z-index: 10;
@@ -140,7 +140,7 @@
 }
 
 .data-column-header {
-  font-size: 11px;
+  font-size: var(--node-muted-size);
   font-weight: 600;
   color: var(--ui-text-secondary);
   text-transform: uppercase;
@@ -178,7 +178,7 @@
 
 .data-body::-webkit-scrollbar-thumb {
   background: var(--ui-border-strong);
-  border-radius: 2px;
+  border-radius: var(--node-btn-radius-xs);
 }
 
 .data-body::-webkit-scrollbar-thumb:hover {
@@ -212,7 +212,7 @@
 
 /* 行号 */
 .row-number {
-  font-size: 10px;
+  font-size: var(--node-muted-size);
   color: var(--ui-text-muted);
   font-family: var(--ui-font-mono);
   flex-shrink: 0;
@@ -224,7 +224,7 @@
 /* 数据值 */
 .data-value {
   flex: 1;
-  font-size: 12px;
+  font-size: var(--node-text-size);
   color: var(--ui-text-body);
   white-space: nowrap;
   overflow: hidden;
@@ -244,7 +244,7 @@
 
 .data-footer {
   padding: 6px 10px;
-  font-size: 11px;
+  font-size: var(--node-muted-size);
   color: var(--ui-text-muted);
   text-align: center;
   font-weight: 400;

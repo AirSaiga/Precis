@@ -103,19 +103,19 @@
   }
 
   .logic-label {
-    font-size: 12px;
+    font-size: var(--node-text-size);
     font-weight: 600;
     color: var(--ui-text-secondary);
   }
 
   .sub-count {
-    font-size: 11px;
+    font-size: var(--node-muted-size);
     color: var(--ui-text-muted);
   }
 
   .composite-desc {
     margin-top: 4px;
-    font-size: 11px;
+    font-size: var(--node-muted-size);
     color: var(--ui-text-muted);
     overflow: hidden;
     text-overflow: ellipsis;

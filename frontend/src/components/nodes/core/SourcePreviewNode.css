@@ -73,7 +73,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  font-size: 14px;
+  font-size: var(--ui-font-size-md);
 }
 
 .header-content {
@@ -85,7 +85,7 @@
 }
 
 .source-name {
-  font-size: 13px;
+  font-size: var(--node-text-size);
   font-weight: 600;
   white-space: nowrap;
   overflow: hidden;
@@ -102,12 +102,12 @@
 
 .status-connected {
   color: var(--ui-success);
-  font-size: 12px;
+  font-size: var(--node-text-size);
 }
 
 .status-disconnected {
   color: var(--ui-text-muted);
-  font-size: 12px;
+  font-size: var(--node-text-size);
 }
 
 /* Sheet 工具栏 */
@@ -137,7 +137,7 @@
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-sm);
   color: var(--ui-text-body);
-  font-size: 11px;
+  font-size: var(--node-muted-size);
   font-weight: 500;
   cursor: pointer;
   outline: none;
@@ -155,7 +155,7 @@
 }
 
 .sheet-chevron {
-  font-size: 10px;
+  font-size: var(--node-muted-size);
   opacity: 0.8;
 }
 
@@ -168,7 +168,7 @@
 }
 
 .sheet-chevron {
-  font-size: 10px;
+  font-size: var(--node-muted-size);
   opacity: 0.8;
 }
 
@@ -182,13 +182,13 @@
   background: transparent;
   border: none;
   color: var(--ui-text-muted);
-  font-size: 12px;
+  font-size: var(--node-text-size);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10;
-  border-radius: 4px;
+  border-radius: var(--node-btn-radius-xs);
 }
 
 .reload-btn:hover:not(:disabled) {
@@ -223,14 +223,14 @@
   background: transparent;
   border: none;
   color: var(--ui-text-muted);
-  font-size: 14px;
+  font-size: var(--ui-font-size-md);
   font-weight: 600;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10;
-  border-radius: 4px;
+  border-radius: var(--node-btn-radius-xs);
 }
 
 .remove-btn:hover {
@@ -262,7 +262,7 @@
 
 .preview-table-container::-webkit-scrollbar-thumb {
   background: var(--ui-border-strong);
-  border-radius: 3px;
+  border-radius: var(--node-btn-radius-xs);
 }
 
 .preview-table-container::-webkit-scrollbar-thumb:hover {
@@ -327,7 +327,7 @@
 
 .preview-cell {
   padding: 0 8px;
-  font-size: 11px;
+  font-size: var(--node-muted-size);
   color: var(--ui-text-body);
   flex: 1 1 0px;
   width: 0;
@@ -372,7 +372,7 @@
   top: 50%;
   transform: translateY(-50%);
   color: var(--ui-warning);
-  font-size: 12px;
+  font-size: var(--node-text-size);
   font-weight: var(--ui-font-weight-bold);
   text-shadow: 0 1px 2px color-mix(in srgb, var(--ui-text-primary) 10%, transparent);
   z-index: 2;
@@ -384,7 +384,7 @@
   right: 6px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 10px;
+  font-size: var(--node-muted-size);
   color: var(--ui-text-subtle);
   cursor: pointer;
   z-index: 10;
@@ -420,7 +420,7 @@
   top: 50%;
   transform: translateY(-50%);
   color: var(--ui-text-subtle);
-  font-size: 8px;
+  font-size: var(--node-muted-size);
   opacity: 0;
   transition: opacity var(--ui-transition-fast);
 }
@@ -469,7 +469,7 @@
   align-items: center;
   justify-content: flex-end;
   padding: 0 12px;
-  font-size: 10px;
+  font-size: var(--node-muted-size);
   color: var(--ui-text-muted);
   font-weight: 400;
   position: relative;
@@ -550,7 +550,7 @@
 
 .menu-icon {
   margin-right: var(--ui-space-sm);
-  font-size: 14px;
+  font-size: var(--ui-font-size-md);
 }
 
 .menu-divider {
@@ -600,7 +600,7 @@
   gap: 8px;
   padding: 8px 10px;
   color: var(--ui-text-body);
-  font-size: 13px;
+  font-size: var(--node-text-size);
   line-height: 1.4;
   cursor: pointer;
   border-radius: var(--ui-radius-sm);
@@ -624,7 +624,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 12px;
+  font-size: var(--node-text-size);
   color: var(--node-special-source-accent);
   flex-shrink: 0;
 }
@@ -658,7 +658,7 @@
   position: absolute;
   top: 2px;
   right: 2px;
-  font-size: 10px;
+  font-size: var(--node-muted-size);
   opacity: 0.8;
 }
 
@@ -694,7 +694,7 @@
 }
 
 .filter-icon {
-  font-size: 12px;
+  font-size: var(--node-text-size);
 }
 
 @keyframes filterIndicatorPulse {
@@ -717,8 +717,8 @@
   background: color-mix(in srgb, var(--ui-danger) 88%, var(--ui-bg-elevated));
   color: var(--ui-text-on-danger);
   padding: 4px 6px;
-  border-radius: 8px;
-  font-size: 10px;
+  border-radius: var(--node-radius-sm);
+  font-size: var(--node-muted-size);
   font-weight: bold;
   z-index: 5;
   box-shadow: var(--ui-shadow-sm);

@@ -46,7 +46,7 @@
 
 .confirm-title {
   margin: 0;
-  font-size: 16px;
+  font-size: var(--ui-font-size-lg);
   font-weight: 600;
   color: var(--ui-text, #4a453f);
 }
@@ -58,7 +58,7 @@
 .confirm-message {
   margin: 0;
   color: var(--ui-text-muted, #8a847c);
-  font-size: 14px;
+  font-size: var(--ui-font-size-md);
   line-height: 1.5;
 }
 
@@ -75,7 +75,7 @@
   height: 32px;
   padding: 0 12px;
   border-radius: var(--ui-radius-sm, 6px);
-  font-size: 14px;
+  font-size: var(--ui-font-size-md);
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;

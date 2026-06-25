@@ -58,7 +58,7 @@
   }
 
   .title {
-    font-size: 13px;
+    font-size: var(--node-text-size);
   }
 
   .stat-row {

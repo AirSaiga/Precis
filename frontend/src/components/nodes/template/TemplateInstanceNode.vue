@@ -175,7 +175,7 @@
   }
 
   .template-label {
-    font-size: 10px;
+    font-size: var(--node-muted-size);
     font-weight: 600;
     color: var(--ui-text-muted, #858585);
     text-transform: uppercase;
@@ -185,7 +185,7 @@
   }
 
   .template-value {
-    font-size: 12px;
+    font-size: var(--node-text-size);
     font-weight: 500;
     color: var(--ui-text-primary, #cccccc);
     overflow: hidden;
@@ -199,7 +199,7 @@
   }
 
   .template-empty {
-    font-size: 11px;
+    font-size: var(--node-muted-size);
     color: var(--ui-text-muted, #858585);
     font-style: italic;
     padding: 2px 0;
@@ -214,16 +214,16 @@
   }
 
   .template-count {
-    font-size: 11px;
+    font-size: var(--node-muted-size);
     color: var(--ui-text-muted, #858585);
     font-weight: 500;
   }
 
   .template-badge {
-    font-size: 10px;
+    font-size: var(--node-muted-size);
     font-weight: 600;
     padding: 2px 8px;
-    border-radius: 10px;
+    border-radius: var(--node-radius-sm);
     line-height: 1.3;
   }
 
@@ -303,10 +303,10 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
+    border-radius: var(--node-radius-sm);
     background: color-mix(in srgb, var(--theme-purple, #805ad5) 12%, var(--ui-bg-elevated));
     border: 1px solid color-mix(in srgb, var(--theme-purple, #805ad5) 22%, transparent);
-    font-size: 12px;
+    font-size: var(--node-text-size);
     flex-shrink: 0;
     box-shadow: var(--node-shadow-sm);
   }
@@ -355,7 +355,7 @@
     background: transparent;
     color: var(--ui-text-muted, #858585);
     cursor: pointer;
-    font-size: 12px;
+    font-size: var(--node-text-size);
     line-height: 1;
     padding: 0;
     transition:

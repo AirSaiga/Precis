@@ -218,7 +218,7 @@
   border: 1px dashed var(--node-border);
   background: var(--ui-bg-subtle);
   color: var(--node-muted-color);
-  font-size: 14px;
+  font-size: var(--ui-font-size-md);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -275,7 +275,7 @@
 }
 
 .type-capsule .dropdown-arrow {
-  font-size: 8px;
+  font-size: var(--node-muted-size);
   opacity: 0.6;
 }
 
@@ -347,7 +347,7 @@
 .action-btn {
   background: none;
   border: none;
-  font-size: 18px;
+  font-size: var(--ui-font-size-xl);
   color: var(--node-muted-color);
   cursor: pointer;
   padding: 0 2px;

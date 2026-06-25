@@ -28,7 +28,7 @@
 }
 
 .handle-info {
-  font-size: 9px;
+  font-size: var(--node-muted-size);
   color: var(--node-muted-color);
   text-align: center;
   transition: all var(--node-transition-fast);

@@ -27,7 +27,7 @@
 
 .constraint-menu-header {
   padding: 8px 12px;
-  font-size: 11px;
+  font-size: var(--node-muted-size);
   font-weight: 600;
   color: var(--ui-text-muted);
   border-bottom: 1px solid var(--ui-bg-subtle);
@@ -36,7 +36,7 @@
 
 .constraint-menu-item {
   padding: 8px 12px;
-  font-size: 12px;
+  font-size: var(--node-text-size);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -77,8 +77,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: 4px;
-  font-size: 10px;
+  border-radius: var(--node-btn-radius-xs);
+  font-size: var(--node-muted-size);
 }
 
 .not-null-icon {
@@ -96,7 +96,7 @@
 }
 
 .check-icon {
-  font-size: 10px;
+  font-size: var(--node-muted-size);
   color: var(--ui-accent);
 }
 
@@ -131,9 +131,9 @@
   justify-content: center;
   height: 22px;
   padding: 0 10px;
-  border-radius: 4px;
+  border-radius: var(--node-btn-radius-xs);
   border: 1px solid transparent;
-  font-size: 10px;
+  font-size: var(--node-muted-size);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
   font-weight: 600;
   cursor: pointer;

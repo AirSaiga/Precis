@@ -203,7 +203,7 @@
 }
 
 :deep(.guide-hint-icon) {
-  font-size: 14px;
+  font-size: var(--ui-font-size-md);
   flex-shrink: 0;
   color: var(--ui-accent, #007acc);
 }

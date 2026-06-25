@@ -165,7 +165,7 @@
     display: flex;
     align-items: center;
     gap: 8px;
-    font-size: 12px;
+    font-size: var(--node-text-size);
   }
 
   .summary-label {
@@ -200,10 +200,10 @@
     display: block;
     background: var(--ui-bg-elevated);
     border: 1px solid var(--ui-border-subtle);
-    border-radius: 4px;
+    border-radius: var(--node-btn-radius-xs);
     padding: 6px 8px;
     font-family: 'Consolas', 'Monaco', monospace;
-    font-size: 11px;
+    font-size: var(--node-muted-size);
     color: var(--ui-text-primary);
     white-space: pre-wrap;
     word-break: break-all;

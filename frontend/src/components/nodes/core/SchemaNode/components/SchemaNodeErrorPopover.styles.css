@@ -26,14 +26,14 @@
   padding: 8px 12px;
   background: var(--ui-danger-bg);
   border-bottom: 1px solid color-mix(in srgb, var(--ui-danger) 18%, transparent);
-  font-size: 12px;
+  font-size: var(--node-text-size);
   font-weight: 600;
   color: var(--ui-danger);
 }
 
 .error-detail-content {
   padding: 8px 12px;
-  font-size: 11px;
+  font-size: var(--node-muted-size);
   color: var(--ui-text-muted);
   white-space: pre-wrap;
   max-height: 200px;

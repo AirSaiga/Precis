@@ -18,8 +18,8 @@
   padding: 0 24px 0 8px;
   background: var(--ui-bg-canvas, #f5f3ef);
   border: 1px solid var(--ui-border, #e8e4dc);
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: var(--node-btn-radius-xs);
+  font-size: var(--node-text-size);
   color: var(--ui-text, #4a453f);
   outline: none;
 }
@@ -34,7 +34,7 @@
   right: 16px;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 11px;
+  font-size: var(--node-muted-size);
   color: var(--ui-text-muted, #8a847c);
   cursor: pointer;
   padding: 2px 4px;
@@ -52,7 +52,7 @@
   padding: 8px 12px;
   background: var(--ui-bg-canvas, #f5f3ef);
   border-bottom: 1px solid var(--ui-border, #e8e4dc);
-  font-size: 12px;
+  font-size: var(--node-text-size);
   overflow-x: auto;
   white-space: nowrap;
   scrollbar-width: none;
@@ -66,7 +66,7 @@
 .breadcrumb-text {
   cursor: pointer;
   padding: 2px 6px;
-  border-radius: 4px;
+  border-radius: var(--node-btn-radius-xs);
   color: var(--ui-text-secondary, #6b655d);
   transition: all 0.15s;
 }
@@ -98,7 +98,7 @@
 
 .level-view {
   font-family: var(--node-mono-family, 'Fira Code', monospace);
-  font-size: 12px;
+  font-size: var(--node-text-size);
 }
 
 .tree-row {
@@ -194,9 +194,9 @@
 
 /* 类型标签 */
 .type-badge {
-  font-size: 10px;
+  font-size: var(--node-muted-size);
   padding: 1px 5px;
-  border-radius: 3px;
+  border-radius: var(--node-btn-radius-xs);
   margin-left: 6px;
   font-weight: 500;
   text-transform: lowercase;
@@ -246,7 +246,7 @@
   border-right: none;
   border-bottom: none;
   color: var(--ui-text-secondary, #6b655d);
-  font-size: 12px;
+  font-size: var(--node-text-size);
   cursor: pointer;
   transition: all 0.15s;
 }
