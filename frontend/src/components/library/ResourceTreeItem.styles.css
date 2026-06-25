@@ -1,12 +1,12 @@
 .tree-row {
   display: flex;
   align-items: center;
-  padding: 6px 10px;
-  gap: 10px;
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  gap: var(--ui-space-md);
   cursor: pointer;
   transition: all var(--ui-transition-fast);
-  border-radius: var(--ui-radius-md);
-  font-size: 13px;
+  border-radius: var(--ui-radius-sm);
+  font-size: var(--ui-font-size-md);
   line-height: 20px;
   min-height: 32px;
   box-sizing: border-box;
@@ -103,10 +103,10 @@
 }
 
 .manifest-tag {
-  margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  font-size: 11px;
+  margin-left: var(--ui-space-sm);
+  padding: 1px var(--ui-space-sm);
+  border-radius: var(--ui-radius-full);
+  font-size: var(--ui-font-size-xs);
   line-height: 16px;
   color: #8b6914;
   background: rgba(245, 200, 100, 0.15);
@@ -115,10 +115,10 @@
 }
 
 .parse-error-tag {
-  margin-left: 6px;
-  padding: 1px 6px;
-  border-radius: 999px;
-  font-size: 11px;
+  margin-left: var(--ui-space-sm);
+  padding: 1px var(--ui-space-sm);
+  border-radius: var(--ui-radius-full);
+  font-size: var(--ui-font-size-xs);
   line-height: 16px;
   color: #c0392b;
   background: rgba(231, 76, 60, 0.12);

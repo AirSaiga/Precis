@@ -7,12 +7,12 @@
 .tree-row {
   display: flex;
   align-items: center;
-  padding: 6px 10px;
-  gap: 10px;
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  gap: var(--ui-space-md);
   cursor: pointer;
   transition: all var(--ui-transition-fast);
-  border-radius: var(--ui-radius-md);
-  font-size: 13px;
+  border-radius: var(--ui-radius-sm);
+  font-size: var(--ui-font-size-md);
   line-height: 20px;
   min-height: 32px;
   box-sizing: border-box;
@@ -42,14 +42,14 @@
 
 /* Root Items */
 .root-item {
-  margin-top: 4px;
+  margin-top: var(--ui-space-xs);
 }
 
 .root-item > .folder-name,
 .root-item > .file-name {
   font-weight: 600;
   color: var(--ui-text-primary);
-  font-size: 13px;
+  font-size: var(--ui-font-size-md);
 }
 
 .root-item .folder-icon,
@@ -128,10 +128,10 @@
 
 .folder-count {
   margin-left: auto;
-  padding: 2px 8px;
-  border-radius: 12px;
+  padding: 2px var(--ui-space-sm);
+  border-radius: var(--ui-radius-full);
   background: rgba(0, 0, 0, 0.04);
-  font-size: 11px;
+  font-size: var(--ui-font-size-sm);
   color: var(--ui-text-tertiary);
   font-weight: 400;
   min-width: 16px;
@@ -139,11 +139,11 @@
 }
 
 .tree-empty {
-  padding: 8px 12px;
-  font-size: 12px;
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  font-size: var(--ui-font-size-sm);
   color: var(--ui-text-tertiary);
   font-style: italic;
-  margin-left: 4px;
+  margin-left: var(--ui-space-xs);
 }
 
 .canvas-indicator {
@@ -182,12 +182,12 @@
 .embedded-constraint-row {
   display: flex;
   align-items: center;
-  padding: 4px 8px;
+  padding: var(--ui-space-xs) var(--ui-space-sm);
   padding-left: 26px;
-  gap: 6px;
+  gap: var(--ui-space-sm);
   cursor: pointer;
-  border-radius: 4px;
-  font-size: 12px;
+  border-radius: var(--ui-radius-sm);
+  font-size: var(--ui-font-size-sm);
   color: var(--ui-text-secondary);
   min-height: 28px;
 }
