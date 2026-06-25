@@ -10,15 +10,20 @@
 
 :root {
   /* ============================================================
+     面板结构
+     ============================================================ */
+  --ui-header-height: 56px;
+
+  /* ============================================================
      按钮
      ============================================================ */
-  --button-height-sm: 28px;
+  --button-height-sm: 32px;
   --button-height-md: 36px;
-  --button-height-lg: 44px;
+  --button-height-lg: 40px;
   --button-padding-sm: 0 var(--space-3);
   --button-padding-md: 0 var(--space-4);
   --button-padding-lg: 0 var(--space-6);
-  --button-radius: var(--radius-md);
+  --button-radius: var(--radius-sm);
   --button-font-size-sm: var(--font-size-xs);
   --button-font-size-md: var(--font-size-sm);
   --button-font-size-lg: var(--font-size-md);
@@ -41,10 +46,10 @@
      输入框
      ============================================================ */
   --input-height-md: 36px;
-  --input-height-compact: 34px;
+  --input-height-compact: 32px;
   --input-padding: 0 var(--space-3);
   --input-padding-compact: 0 var(--space-2);
-  --input-radius: var(--radius-md);
+  --input-radius: var(--radius-sm);
   --input-border: var(--border-default);
   --input-border-hover: var(--border-strong);
   --input-border-focus: var(--border-focus);
@@ -60,10 +65,10 @@
      选择框
      ============================================================ */
   --select-height-md: 36px;
-  --select-height-compact: 34px;
+  --select-height-compact: 32px;
   --select-padding: 0 var(--space-3);
   --select-padding-compact: 0 var(--space-2) 0 var(--space-2);
-  --select-radius: var(--radius-md);
+  --select-radius: var(--radius-sm);
   --select-border: var(--border-default);
   --select-bg: var(--surface-elevated);
   --select-font-size: var(--font-size-sm);
