@@ -31,7 +31,7 @@
 
 .target-handle {
   left: var(--node-handle-offset-left) !important;
-  top: 44px !important;
+  top: 48px !important;
   width: var(--node-handle-size-md) !important;
   height: var(--node-handle-size-md) !important;
   background: var(--json-accent) !important;
@@ -51,7 +51,7 @@
 
 .output-handle {
   right: var(--node-handle-offset-right) !important;
-  top: 44px !important;
+  top: 48px !important;
   width: var(--node-handle-size-md) !important;
   height: var(--node-handle-size-md) !important;
   background: var(--json-accent) !important;
@@ -72,7 +72,7 @@
 .source-status-badge {
   position: absolute;
   left: 8px;
-  top: 44px;
+  top: 48px;
   display: flex;
   align-items: center;
   justify-content: center;

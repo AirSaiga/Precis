@@ -85,25 +85,25 @@
      节点文字系统
      ======================================== */
 
-  /* 标题文字 */
-  --node-title-size: var(--ui-font-size-sm);
+  /* 标题文字 — 与外部面板 header 标题(14px)对齐 */
+  --node-title-size: var(--ui-font-size-md);
   --node-title-weight: var(--ui-font-weight-semibold);
   --node-title-color: var(--ui-text-primary);
   --node-title-line-height: var(--ui-line-height-tight);
 
-  /* 正文文字 */
-  --node-text-size: var(--ui-font-size-sm);
+  /* 正文文字 — 与外部面板正文(14px)对齐 */
+  --node-text-size: var(--ui-font-size-md);
   --node-text-weight: var(--ui-font-weight-normal);
   --node-text-color: var(--ui-text-body);
   --node-text-line-height: var(--ui-line-height-normal);
 
-  /* 辅助文字 */
-  --node-muted-size: var(--ui-font-size-xs);
+  /* 辅助文字 — 从过小的 xs(11px) 提升到可读的 sm(13px) */
+  --node-muted-size: var(--ui-font-size-sm);
   --node-muted-weight: var(--ui-font-weight-normal);
   --node-muted-color: var(--ui-text-secondary);
 
-  /* 标签文字 */
-  --node-label-size: var(--ui-font-size-xs);
+  /* 标签文字 — 同步提升可读性 */
+  --node-label-size: var(--ui-font-size-sm);
   --node-label-weight: var(--ui-font-weight-medium);
   --node-label-color: var(--ui-text-secondary);
 
@@ -163,14 +163,14 @@
   /* 最小/最大宽度 */
   --node-min-width: 200px;
   --node-max-width: 400px;
-  --node-width-default: 280px;
+  --node-width-default: 300px;
 
   /* 最小/最大高度 */
   --node-min-height: 60px;
   --node-max-height: 600px;
 
   /* 头部高度 */
-  --node-header-height: 36px;
+  --node-header-height: 40px;
   --node-row-height: 36px;
 
   /* ========================================
@@ -531,8 +531,8 @@
   --node-badge-radius-full: var(--ui-radius-full);
 
   /* 徽章字号 */
-  --node-badge-font-size-xs: 10px;
-  --node-badge-font-size-sm: 11px;
+  --node-badge-font-size-xs: var(--node-muted-size);
+  --node-badge-font-size-sm: var(--node-text-size);
 
   /* 徽章字重 */
   --node-badge-font-weight: var(--ui-font-weight-bold);
