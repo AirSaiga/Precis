@@ -29,8 +29,8 @@
 .panel-header {
   display: flex;
   align-items: center;
-  padding: 0 16px;
-  height: 53px;
+  padding: 0 var(--ui-space-xl);
+  height: var(--ui-header-height);
   background: var(--ui-bg-elevated);
   border-bottom: 1px solid var(--ui-border-light);
   position: relative;
@@ -40,8 +40,8 @@
   margin: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 14px;
+  gap: var(--ui-space-sm);
+  font-size: var(--ui-font-size-md);
   font-weight: 600;
   color: var(--ui-text-title);
 }
@@ -59,8 +59,8 @@
  * - 自定义滚动条样式
  */
 .panel-content {
-  padding: 16px;
-  height: calc(100vh - 53px);
+  padding: var(--ui-space-lg);
+  height: calc(100vh - var(--ui-header-height));
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--ui-border-light) transparent;
