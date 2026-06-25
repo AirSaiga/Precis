@@ -229,3 +229,4 @@ qa_test/qa_simple/.precis/
 # 11. Git Worktrees
 # ============================================================================
 .worktrees/
+.superpowers/
