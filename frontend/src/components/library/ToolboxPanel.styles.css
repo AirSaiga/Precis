@@ -7,28 +7,28 @@
 }
 
 .toolbox-content {
-  padding: 16px;
+  padding: var(--ui-space-lg);
   overflow-y: auto;
 }
 
 .toolbox-section {
-  margin-bottom: 24px;
+  margin-bottom: var(--ui-space-2xl);
 }
 
 .subsection-header {
-  font-size: 11px;
+  font-size: var(--ui-font-size-sm);
   font-weight: 700;
   color: var(--ui-text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  margin-bottom: 12px;
+  margin-bottom: var(--ui-space-md);
   padding-left: 2px;
 }
 
 .component-tiles {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: var(--ui-space-md);
 }
 
 .tile-expand-icon {
@@ -73,8 +73,8 @@
 }
 
 .constraint-category-title {
-  padding: 4px 12px;
-  font-size: 10px;
+  padding: var(--ui-space-xs) var(--ui-space-md);
+  font-size: var(--ui-font-size-xs);
   font-weight: 600;
   color: var(--ui-text-tertiary);
   text-transform: uppercase;
@@ -84,8 +84,8 @@
 .constraint-type-item {
   display: flex;
   align-items: center;
-  padding: 6px 12px;
-  gap: 10px;
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  gap: var(--ui-space-md);
   cursor: grab;
   transition: all var(--ui-transition-fast);
   height: 32px;
@@ -121,7 +121,7 @@
 
 .constraint-type-name {
   flex: 1;
-  font-size: 12px;
+  font-size: var(--ui-font-size-sm);
   font-weight: 500;
   color: var(--ui-text-primary);
 }

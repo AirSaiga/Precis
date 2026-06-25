@@ -1,8 +1,8 @@
 .component-tile {
   display: flex;
   align-items: center;
-  padding: 10px 12px;
-  gap: 12px;
+  padding: var(--ui-space-md);
+  gap: var(--ui-space-md);
   background: var(--ui-bg-elevated);
   border: 1px solid var(--ui-border-light);
   border-radius: var(--ui-radius-md);
@@ -65,7 +65,7 @@
 
 .tile-label {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--ui-font-size-md);
   font-weight: 500;
   color: var(--ui-text-primary);
 }
