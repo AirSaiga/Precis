@@ -476,14 +476,14 @@
   --constraint-padding-md: 10px;
   --constraint-padding-lg: 14px;
 
-  /* 字体 */
-  --constraint-font-xs: 11px;
-  --constraint-font-sm: 12px;
-  --constraint-font-md: 14px;
+  /* 字体 — 桥接到全局节点字号体系，随主题统一 */
+  --constraint-font-xs: var(--node-muted-size);
+  --constraint-font-sm: var(--node-text-size);
+  --constraint-font-md: var(--ui-font-size-md);
 
-  /* 圆角 */
-  --constraint-radius-sm: 4px;
-  --constraint-radius-md: 8px;
+  /* 圆角 — 桥接到全局半径阶梯 */
+  --constraint-radius-sm: var(--node-btn-radius-xs);
+  --constraint-radius-md: var(--node-radius-sm);
 
   /* 颜色语义映射 - 供布局组件使用 */
   --constraint-text-primary: var(--ui-text-primary);

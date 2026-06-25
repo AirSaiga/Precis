@@ -35,7 +35,7 @@
 }
 
 .header-title {
-  font-size: 11px;
+  font-size: var(--node-muted-size);
   font-weight: 600;
   color: var(--ui-text-secondary);
 }
@@ -67,8 +67,8 @@
 }
 
 .item-icon {
-  font-size: 14px;
-  margin-right: 8px;
+  font-size: var(--ui-font-size-md);
+  margin-right: var(--ui-space-sm);
   flex-shrink: 0;
 }
 
@@ -78,7 +78,7 @@
 }
 
 .item-title {
-  font-size: 12px;
+  font-size: var(--node-text-size);
   font-weight: 500;
   color: var(--ui-text-primary);
   white-space: nowrap;
@@ -87,7 +87,7 @@
 }
 
 .item-subtitle {
-  font-size: 10px;
+  font-size: var(--node-muted-size);
   color: var(--ui-text-muted);
   white-space: nowrap;
   overflow: hidden;
@@ -138,12 +138,12 @@
 }
 
 .folder-icon {
-  font-size: 14px;
+  font-size: var(--ui-font-size-md);
   flex-shrink: 0;
 }
 
 .folder-name {
-  font-size: 12px;
+  font-size: var(--node-text-size);
   font-weight: 500;
   color: var(--ui-text-secondary);
   white-space: nowrap;
@@ -171,12 +171,12 @@
 }
 
 .file-icon {
-  font-size: 14px;
+  font-size: var(--ui-font-size-md);
   flex-shrink: 0;
 }
 
 .file-name {
-  font-size: 12px;
+  font-size: var(--node-text-size);
   color: var(--ui-text-primary);
   white-space: nowrap;
   overflow: hidden;
