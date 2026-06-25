@@ -63,7 +63,7 @@
   height: 36px;
   font-size: var(--ui-font-size-sm);
   font-weight: var(--ui-font-weight-medium);
-  border-radius: var(--ui-radius-md);
+  border-radius: var(--ui-radius-sm);
   border: 1px solid transparent;
   cursor: pointer;
   transition: all var(--ui-transition-normal);
@@ -224,7 +224,7 @@
   height: 32px;
   padding: 0;
   border: 1px solid transparent;
-  border-radius: var(--ui-radius-md);
+  border-radius: var(--ui-radius-sm);
   background: transparent;
   color: var(--ui-text-muted);
   cursor: pointer;
@@ -271,7 +271,7 @@
   color: var(--ui-text-body);
   background: var(--ui-bg-elevated);
   border: 1px solid var(--ui-border-light);
-  border-radius: var(--ui-radius-md);
+  border-radius: var(--ui-radius-sm);
   transition: all var(--ui-transition-fast);
   box-sizing: border-box;
   box-shadow: var(--ui-shadow-elevation-sm);
@@ -336,7 +336,7 @@
   color: var(--ui-text);
   background: var(--ui-bg-elevated);
   border: 1px solid var(--ui-border);
-  border-radius: var(--ui-radius-md);
+  border-radius: var(--ui-radius-sm);
   transition: all var(--ui-transition-fast);
   resize: vertical;
   box-sizing: border-box;
@@ -367,7 +367,7 @@
   color: var(--ui-text-body);
   background: var(--ui-bg-elevated);
   border: 1px solid var(--ui-border-light);
-  border-radius: var(--ui-radius-md);
+  border-radius: var(--ui-radius-sm);
   transition: all var(--ui-transition-fast);
   cursor: pointer;
   appearance: none;
