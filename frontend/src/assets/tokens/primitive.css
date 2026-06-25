@@ -118,6 +118,34 @@
   --color-black-95: rgba(0, 0, 0, 0.95);
 
   /* ============================================================
+     阴影色 — RGB 三通道，供 rgba(var(--shadow-color), alpha) 使用
+     ------------------------------------------------------------
+     主题文件仅覆盖此值即可让所有 shadow/overlay 颜色响应主题。
+     light 默认偏暖深棕灰（视觉柔和），dark 覆盖为纯黑，
+     liquid 覆盖为中性灰（对齐玻璃材质）。
+     ============================================================ */
+  --shadow-color: 45, 42, 38;
+
+  /* ============================================================
+     材质令牌 — 主题视觉风格的统一表达层
+     ------------------------------------------------------------
+     组件用 var(--material-*) 引用,获得"Light/Dark 实色,Liquid 玻璃"
+     的自动主题响应。liquid 主题文件覆盖这些 token 为玻璃值;
+     light/dark 不需覆盖,默认穿透到标准 surface。
+
+     当前使用范围（样板）：
+     - .ui-btn--secondary/ghost/toolbar: surface bg + border
+     - 后续回流扩展至 .panel-header / .search-input / .component-tile
+       等使用 --crystal-* 的组件,逐步收敛 themes/liquid/ 中
+       重复的 [data-theme='liquid'] .xxx 块。
+     ============================================================ */
+  --material-surface-bg: var(--surface-elevated);
+  --material-surface-bg-hover: var(--surface-subtle);
+  --material-surface-border: var(--border-default);
+  --material-surface-border-hover: var(--border-strong);
+  --material-backdrop: none;
+
+  /* ============================================================
      间距 — 4px 基准
      ============================================================ */
   --space-1: 4px;

@@ -1,0 +1,13 @@
+/* ---------- 数据源库头部 ---------- */
+[data-theme='liquid'] .data-library .data-view-header {
+  background: var(--crystal-header-bg);
+  border-bottom-color: var(--crystal-border);
+  backdrop-filter: var(--glass-material-backdrop);
+  -webkit-backdrop-filter: var(--glass-material-backdrop);
+}
+
+[data-theme='liquid'] .data-library .data-source-count {
+  background: rgba(255, 255, 255, 0.7);
+  color: var(--ui-text-muted);
+  border: 1px solid var(--crystal-border);
+}

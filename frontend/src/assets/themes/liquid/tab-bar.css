@@ -1,0 +1,31 @@
+/* ---------- Tab Bar ---------- */
+[data-theme='liquid'] .tab-bar {
+  background: transparent;
+  border-bottom-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .tab-bar .tab-item {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: var(--ui-radius-md);
+  background: rgba(255, 255, 255, 0.45);
+  border: 1px solid transparent;
+  color: var(--ui-text-muted);
+}
+
+[data-theme='liquid'] .tab-bar .tab-item:hover {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--crystal-border);
+  color: var(--ui-text-body);
+}
+
+[data-theme='liquid'] .tab-bar .tab-item.active {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--crystal-border);
+  color: var(--ui-text-strong);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .tab-bar .tab-add:hover {
+  color: var(--ui-accent);
+}

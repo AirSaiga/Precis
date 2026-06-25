@@ -1,0 +1,148 @@
+/* ---------- 资源浏览器搜索框 ---------- */
+[data-theme='liquid'] .resources-content .search-input {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--crystal-border);
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .resources-content .search-input:focus {
+  background: rgba(255, 255, 255, 0.96);
+  border-color: var(--ui-accent);
+  box-shadow:
+    0 0 0 3px var(--ui-accent-ring),
+    var(--crystal-shadow-hover);
+}
+
+/* ---------- 右侧检查器面板 ---------- */
+[data-theme='liquid'] .panel .panel-header {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 251, 255, 0.94) 100%);
+  border-bottom-color: var(--crystal-border);
+  backdrop-filter: var(--glass-material-backdrop);
+  -webkit-backdrop-filter: var(--glass-material-backdrop);
+}
+
+[data-theme='liquid'] .panel .panel-header::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--crystal-border) 20%,
+    var(--crystal-border) 80%,
+    transparent 100%
+  );
+}
+
+[data-theme='liquid'] .panel .panel-content {
+  scrollbar-color: var(--crystal-border) transparent;
+}
+
+[data-theme='liquid'] .panel .panel-content::-webkit-scrollbar-thumb {
+  background: var(--crystal-border);
+}
+
+[data-theme='liquid'] .panel .placeholder {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.86) 0%, rgba(245, 249, 255, 0.82) 100%);
+  border: 1px solid var(--crystal-border);
+  box-shadow: var(--crystal-shadow);
+  backdrop-filter: var(--glass-material-backdrop);
+  -webkit-backdrop-filter: var(--glass-material-backdrop);
+  border-radius: var(--ui-radius-xl);
+}
+
+[data-theme='liquid'] .panel .placeholder-content {
+  gap: 16px;
+}
+
+[data-theme='liquid'] .panel .placeholder-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 64px;
+  border-radius: var(--ui-radius-xl);
+  font-size: 32px;
+  color: var(--ui-accent);
+  background: linear-gradient(135deg, rgba(58, 160, 255, 0.12) 0%, rgba(76, 215, 168, 0.08) 100%);
+  box-shadow: var(--crystal-shadow);
+  opacity: 1;
+}
+
+[data-theme='liquid'] .panel .placeholder-title {
+  color: var(--ui-text-strong);
+  font-style: normal;
+}
+
+[data-theme='liquid'] .panel .placeholder-hint {
+  color: var(--ui-text-muted);
+  font-style: normal;
+}
+
+/* ---------- 检查器 Section（旧版） ---------- */
+[data-theme='liquid'] .panel-content .inspector-section {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84) 0%, rgba(245, 249, 255, 0.78) 100%);
+  border: 1px solid var(--crystal-border);
+  border-left: 3px solid var(--ui-accent-weak);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--crystal-shadow);
+  backdrop-filter: var(--glass-material-backdrop);
+  -webkit-backdrop-filter: var(--glass-material-backdrop);
+  transition:
+    box-shadow var(--ui-transition-fast),
+    border-color var(--ui-transition-fast);
+}
+
+[data-theme='liquid'] .panel-content .inspector-section:hover {
+  box-shadow: var(--crystal-shadow-hover);
+  border-left-color: var(--ui-accent-light);
+}
+
+[data-theme='liquid'] .panel-content .inspector-section .section-title {
+  color: var(--ui-text-strong);
+  border-bottom-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .panel-content .inspector-section .section-badge.editable {
+  background: var(--ui-success-weak);
+  color: var(--ui-success-strong);
+  border-color: var(--ui-success-border);
+}
+
+[data-theme='liquid'] .panel-content .inspector-section .section-badge.read-only {
+  background: rgba(100, 116, 139, 0.1);
+  color: var(--ui-text-muted);
+  border-color: rgba(100, 116, 139, 0.18);
+}
+
+/* ---------- 检查器 Section（JSON 驱动版） ---------- */
+[data-theme='liquid'] .panel-content .base-inspector .base-title {
+  font-size: 15px;
+  font-weight: var(--ui-font-weight-semibold);
+  color: var(--ui-text-strong);
+  margin-bottom: 4px;
+}
+
+[data-theme='liquid'] .panel-content .base-inspector .section {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.84) 0%, rgba(245, 249, 255, 0.78) 100%);
+  border: 1px solid var(--crystal-border);
+  border-left: 3px solid var(--ui-accent-weak);
+  border-radius: var(--ui-radius-lg);
+  box-shadow: var(--crystal-shadow);
+  transition:
+    box-shadow var(--ui-transition-fast),
+    border-color var(--ui-transition-fast);
+}
+
+[data-theme='liquid'] .panel-content .base-inspector .section:hover {
+  box-shadow: var(--crystal-shadow-hover);
+  border-left-color: var(--ui-accent-light);
+}
+
+[data-theme='liquid'] .panel-content .base-inspector .section-title {
+  color: var(--ui-text-strong);
+  border-bottom-color: var(--crystal-border);
+  font-weight: var(--ui-font-weight-semibold);
+}
+
+[data-theme='liquid'] .panel-content .base-inspector .section-desc {
+  color: var(--ui-text-muted);
+}

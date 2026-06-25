@@ -1,0 +1,9 @@
+/* ---------- 通用空状态 ---------- */
+[data-theme='liquid'] .ui-empty__icon {
+  color: var(--ui-accent);
+  opacity: 0.65;
+}
+
+[data-theme='liquid'] .ui-empty__title {
+  color: var(--ui-text-strong);
+}

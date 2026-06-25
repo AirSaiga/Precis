@@ -1,0 +1,29 @@
+/* ---------- 画布节点与 Vue Flow 控件 ---------- */
+[data-theme='liquid'] .graph-node {
+  backdrop-filter: var(--glass-material-backdrop-weak);
+  -webkit-backdrop-filter: var(--glass-material-backdrop-weak);
+}
+
+[data-theme='liquid'] .vue-flow__controls {
+  background: var(--crystal-section-bg) !important;
+  border: 1px solid var(--crystal-border) !important;
+  border-radius: var(--ui-radius-md) !important;
+  box-shadow: var(--crystal-shadow) !important;
+  backdrop-filter: var(--glass-material-backdrop);
+  -webkit-backdrop-filter: var(--glass-material-backdrop);
+}
+
+[data-theme='liquid'] .vue-flow__controls-button {
+  background: transparent !important;
+  color: var(--ui-text-secondary) !important;
+  border-bottom-color: var(--crystal-border) !important;
+}
+
+[data-theme='liquid'] .vue-flow__controls-button:hover {
+  background: rgba(255, 255, 255, 0.6) !important;
+  color: var(--ui-text-primary) !important;
+}
+
+[data-theme='liquid'] .vue-flow__controls-button svg {
+  fill: currentColor;
+}

@@ -126,6 +126,18 @@
   /* ============================================================
      材质令牌 — Glassmorphism 专用
      ============================================================ */
+  --shadow-color: 31, 30, 29;
+  /* 桥接通用 --material-* 材质层：让所有 var(--material-*) 引用在 liquid 下
+     自动获得玻璃效果。light/dark 不覆盖，默认穿透到 primitive 定义。
+     bg 桥接到 glass-material-* (纯白半透), border 桥接到 crystal-* (蓝灰),
+     近似原 .ui-btn--secondary 等 liquid 组件的视觉（hover 透明度取
+     --glass-material-bg-strong=0.85，较原 .ui-btn--secondary:hover 的 0.92
+     略透，属可接受的整体收敛，避免为单一组件新增专用 token）。 */
+  --material-surface-bg: var(--glass-material-bg);
+  --material-surface-bg-hover: var(--glass-material-bg-strong);
+  --material-surface-border: var(--crystal-border);
+  --material-surface-border-hover: var(--crystal-border-hover);
+  --material-backdrop: var(--glass-material-backdrop);
   --glass-material-bg: rgba(255, 255, 255, 0.72);
   --glass-material-bg-strong: rgba(255, 255, 255, 0.85);
   --glass-material-bg-weak: rgba(255, 255, 255, 0.45);

@@ -81,6 +81,7 @@
   --success-weak: color-mix(in srgb, var(--color-emerald-400) 12%, transparent);
   --success-ring: color-mix(in srgb, var(--color-emerald-400) 20%, transparent);
   --success-bg: var(--color-emerald-50);
+  --success-border: var(--color-emerald-400);
   --success-gradient: linear-gradient(135deg, #10b981 0%, #34d399 100%);
 
   /* ============================================================
@@ -121,29 +122,38 @@
   /* ============================================================
      阴影
      ============================================================ */
-  --shadow-xs: 0 1px 2px rgba(45, 42, 38, 0.03);
-  --shadow-sm: 0 1px 3px rgba(45, 42, 38, 0.04), 0 1px 2px rgba(45, 42, 38, 0.02);
-  --shadow-md: 0 4px 8px -1px rgba(45, 42, 38, 0.05), 0 2px 4px -2px rgba(45, 42, 38, 0.03);
-  --shadow-lg: 0 10px 20px -3px rgba(45, 42, 38, 0.06), 0 4px 8px -4px rgba(45, 42, 38, 0.04);
-  --shadow-xl: 0 20px 30px -5px rgba(45, 42, 38, 0.06), 0 8px 12px -6px rgba(45, 42, 38, 0.04);
-  --shadow-2xl: 0 25px 50px -12px rgba(45, 42, 38, 0.1);
-  --shadow-hover: 0 12px 24px -5px rgba(45, 42, 38, 0.08), 0 6px 12px -4px rgba(45, 42, 38, 0.05);
-  --shadow-active: 0 2px 4px rgba(45, 42, 38, 0.04);
+  --shadow-xs: 0 1px 2px rgba(var(--shadow-color), 0.03);
+  --shadow-sm: 0 1px 3px rgba(var(--shadow-color), 0.04), 0 1px 2px rgba(var(--shadow-color), 0.02);
+  --shadow-md:
+    0 4px 8px -1px rgba(var(--shadow-color), 0.05), 0 2px 4px -2px rgba(var(--shadow-color), 0.03);
+  --shadow-lg:
+    0 10px 20px -3px rgba(var(--shadow-color), 0.06), 0 4px 8px -4px rgba(var(--shadow-color), 0.04);
+  --shadow-xl:
+    0 20px 30px -5px rgba(var(--shadow-color), 0.06),
+    0 8px 12px -6px rgba(var(--shadow-color), 0.04);
+  --shadow-2xl: 0 25px 50px -12px rgba(var(--shadow-color), 0.1);
+  --shadow-hover:
+    0 12px 24px -5px rgba(var(--shadow-color), 0.08),
+    0 6px 12px -4px rgba(var(--shadow-color), 0.05);
+  --shadow-active: 0 2px 4px rgba(var(--shadow-color), 0.04);
   --shadow-focus: 0 0 0 3px var(--accent-ring);
   --shadow-glow: 0 0 0 4px rgba(90, 155, 199, 0.12);
 
   /* 阴影层级变体 */
-  --shadow-elevation-sm: 0 1px 2px rgba(45, 42, 38, 0.04);
-  --shadow-elevation-md: 0 2px 4px rgba(45, 42, 38, 0.05), 0 1px 2px rgba(45, 42, 38, 0.03);
-  --shadow-elevation-lg: 0 4px 8px -1px rgba(45, 42, 38, 0.06), 0 2px 4px -2px rgba(45, 42, 38, 0.04);
-  --shadow-elevation-xl: 0 10px 20px -3px rgba(45, 42, 38, 0.06), 0 4px 8px -4px rgba(45, 42, 38, 0.04);
+  --shadow-elevation-sm: 0 1px 2px rgba(var(--shadow-color), 0.04);
+  --shadow-elevation-md:
+    0 2px 4px rgba(var(--shadow-color), 0.05), 0 1px 2px rgba(var(--shadow-color), 0.03);
+  --shadow-elevation-lg:
+    0 4px 8px -1px rgba(var(--shadow-color), 0.06), 0 2px 4px -2px rgba(var(--shadow-color), 0.04);
+  --shadow-elevation-xl:
+    0 10px 20px -3px rgba(var(--shadow-color), 0.06), 0 4px 8px -4px rgba(var(--shadow-color), 0.04);
 
   /* ============================================================
      遮罩
      ============================================================ */
-  --overlay-backdrop-soft: rgba(45, 42, 38, 0.24);
-  --overlay-backdrop: rgba(45, 42, 38, 0.4);
-  --overlay-backdrop-strong: rgba(45, 42, 38, 0.56);
+  --overlay-backdrop-soft: rgba(var(--shadow-color), 0.24);
+  --overlay-backdrop: rgba(var(--shadow-color), 0.4);
+  --overlay-backdrop-strong: rgba(var(--shadow-color), 0.56);
 
   /* ============================================================
      Z-Index
@@ -171,6 +181,10 @@
    值取自 legacy theme.css 的 [data-theme='dark'] 块（已验证的 dark 值）。
    rgb(30,41,59) = #1e293b，刻意硬编码而非引用 --color-slate-800
    （slate-800 在 dark.css 中反转为近白，会得到错误结果）。
+
+   阴影色通过 --shadow-color 转纯黑（与原 rgba(0,0,0,...) 等价），
+   alpha 仍由各 --shadow-* / --overlay-backdrop-* 逐条覆盖（dark 下
+   需提高 alpha 才能在深色背景上保持视觉层次）。
    ============================================================ */
 [data-theme='dark'] {
   /* 表面层 — light 为纯白，dark 为 slate 深色 */
@@ -179,25 +193,36 @@
   /* hover 刻意比 elevated 浅一档（slate-700 等效），保证对比度 */
   --surface-hover: rgba(51, 65, 85, 0.9);
 
-  /* 阴影 — light 为暖棕 rgba(45,42,38,...)，dark 转纯黑并提高不透明度 */
-  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.35);
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.25);
-  --shadow-md: 0 4px 8px -1px rgba(0, 0, 0, 0.45), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-  --shadow-lg: 0 10px 20px -3px rgba(0, 0, 0, 0.45), 0 4px 8px -4px rgba(0, 0, 0, 0.3);
-  --shadow-xl: 0 20px 30px -5px rgba(0, 0, 0, 0.45), 0 8px 12px -6px rgba(0, 0, 0, 0.3);
-  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
-  --shadow-hover: 0 12px 24px -5px rgba(0, 0, 0, 0.5), 0 6px 12px -4px rgba(0, 0, 0, 0.35);
-  --shadow-active: 0 2px 4px rgba(0, 0, 0, 0.32);
+  /* 阴影色 — light 为暖棕 (45,42,38)，dark 转纯黑。
+     颜色经 var() 链传递，alpha 仍在各 --shadow-* 覆盖中显式控制。 */
+  --shadow-color: 0, 0, 0;
+
+  /* 阴影 alpha 覆盖 — dark 下提高以保证深色背景视觉层次 */
+  --shadow-xs: 0 1px 2px rgba(var(--shadow-color), 0.35);
+  --shadow-sm: 0 1px 3px rgba(var(--shadow-color), 0.4), 0 1px 2px rgba(var(--shadow-color), 0.25);
+  --shadow-md:
+    0 4px 8px -1px rgba(var(--shadow-color), 0.45), 0 2px 4px -2px rgba(var(--shadow-color), 0.3);
+  --shadow-lg:
+    0 10px 20px -3px rgba(var(--shadow-color), 0.45), 0 4px 8px -4px rgba(var(--shadow-color), 0.3);
+  --shadow-xl:
+    0 20px 30px -5px rgba(var(--shadow-color), 0.45), 0 8px 12px -6px rgba(var(--shadow-color), 0.3);
+  --shadow-2xl: 0 25px 50px -12px rgba(var(--shadow-color), 0.5);
+  --shadow-hover:
+    0 12px 24px -5px rgba(var(--shadow-color), 0.5), 0 6px 12px -4px rgba(var(--shadow-color), 0.35);
+  --shadow-active: 0 2px 4px rgba(var(--shadow-color), 0.32);
   --shadow-glow: 0 0 0 4px rgba(90, 155, 199, 0.18);
 
   /* 阴影层级变体 */
-  --shadow-elevation-sm: 0 1px 2px rgba(0, 0, 0, 0.5);
-  --shadow-elevation-md: 0 2px 4px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-elevation-lg: 0 4px 8px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
-  --shadow-elevation-xl: 0 10px 20px -3px rgba(0, 0, 0, 0.5), 0 4px 8px -4px rgba(0, 0, 0, 0.3);
+  --shadow-elevation-sm: 0 1px 2px rgba(var(--shadow-color), 0.5);
+  --shadow-elevation-md:
+    0 2px 4px rgba(var(--shadow-color), 0.5), 0 1px 2px rgba(var(--shadow-color), 0.3);
+  --shadow-elevation-lg:
+    0 4px 8px -1px rgba(var(--shadow-color), 0.5), 0 2px 4px -2px rgba(var(--shadow-color), 0.3);
+  --shadow-elevation-xl:
+    0 10px 20px -3px rgba(var(--shadow-color), 0.5), 0 4px 8px -4px rgba(var(--shadow-color), 0.3);
 
-  /* 遮罩 — light 为暖棕半透明，dark 转纯黑 */
-  --overlay-backdrop-soft: rgba(0, 0, 0, 0.34);
-  --overlay-backdrop: rgba(0, 0, 0, 0.5);
-  --overlay-backdrop-strong: rgba(0, 0, 0, 0.68);
+  /* 遮罩 */
+  --overlay-backdrop-soft: rgba(var(--shadow-color), 0.34);
+  --overlay-backdrop: rgba(var(--shadow-color), 0.5);
+  --overlay-backdrop-strong: rgba(var(--shadow-color), 0.68);
 }

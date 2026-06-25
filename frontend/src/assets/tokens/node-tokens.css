@@ -116,25 +116,30 @@
      ======================================== */
 
   /* 默认阴影 */
-  --node-shadow: 0 2px 8px rgba(45, 42, 38, 0.06), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
+  --node-shadow:
+    0 2px 8px rgba(var(--shadow-color), 0.06), 0 0 0 1px rgba(255, 255, 255, 0.5) inset;
   --node-shadow-sm: var(--ui-shadow-sm);
   --node-shadow-md: var(--ui-shadow-md);
   --node-shadow-lg: var(--ui-shadow-lg);
 
   /* 悬浮阴影 */
-  --node-shadow-hover: 0 8px 20px rgba(45, 42, 38, 0.1), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
+  --node-shadow-hover:
+    0 8px 20px rgba(var(--shadow-color), 0.1), 0 0 0 1px rgba(255, 255, 255, 0.6) inset;
 
   /* 选中阴影 - 发光效果 */
-  --node-shadow-selected: 0 0 0 3px var(--ui-accent-ring), 0 12px 24px rgba(45, 42, 38, 0.12);
+  --node-shadow-selected:
+    0 0 0 3px var(--ui-accent-ring), 0 12px 24px rgba(var(--shadow-color), 0.12);
 
   /* 错误阴影 */
-  --node-shadow-error: 0 0 0 2px var(--ui-danger-ring), 0 4px 8px rgba(45, 42, 38, 0.08);
+  --node-shadow-error: 0 0 0 2px var(--ui-danger-ring), 0 4px 8px rgba(var(--shadow-color), 0.08);
 
   /* 成功阴影 */
-  --node-shadow-success: 0 0 0 2px var(--ui-success-ring), 0 4px 8px rgba(45, 42, 38, 0.08);
+  --node-shadow-success:
+    0 0 0 2px var(--ui-success-ring), 0 4px 8px rgba(var(--shadow-color), 0.08);
 
   /* 拖拽阴影 */
-  --node-shadow-dragging: 0 16px 32px rgba(45, 42, 38, 0.15), 0 0 0 2px var(--ui-accent-ring);
+  --node-shadow-dragging:
+    0 16px 32px rgba(var(--shadow-color), 0.15), 0 0 0 2px var(--ui-accent-ring);
 
   /* ========================================
      节点尺寸系统
@@ -192,6 +197,57 @@
   /* ========================================
      节点主题变体
      ======================================== */
+
+  /* 节点专用色板 — 主题色（原 theme.css 迁移）
+     ------------------------------------------------------------
+     这些变量是节点组件类型的语义色（绿/紫/橙/青/粉/茶等），
+     独立于通用 --ui-* 语义色。命名沿用 --theme-* 以避免一次性
+     批量替换 240+ 处引用，后续正名 --node-color-* 由独立 PR 处理。
+     dark 覆盖见文件末尾 [data-theme='dark'] 块。 */
+  --theme-green: #059669;
+  --theme-green-strong: #047857;
+  --theme-green-weak: rgba(5, 150, 105, 0.12);
+  --theme-green-bg: #f0fdf4;
+  --theme-green-border: #3b82f6;
+  --theme-blue: #3b82f6;
+  --theme-blue-light: #60a5fa;
+  --theme-purple: #8b5cf6;
+  --theme-purple-strong: #7c3aed;
+  --theme-purple-weak: rgba(139, 92, 246, 0.12);
+  --theme-purple-bg: #f5f3ff;
+  --theme-sky: #0ea5e9;
+  --theme-sky-strong: #0284c7;
+  --theme-sky-weak: rgba(14, 165, 233, 0.12);
+  --theme-sky-bg: #f0f9ff;
+  --theme-orange: #f59e0b;
+  --theme-orange-strong: #d97706;
+  --theme-orange-weak: rgba(245, 158, 11, 0.12);
+  --theme-orange-bg: #fffbeb;
+  --theme-pink: #db2777;
+  --theme-pink-bg: #fdf2f8;
+  --theme-pink-weak: rgba(219, 39, 119, 0.12);
+  --theme-pink-ring: rgba(219, 39, 119, 0.3);
+  --theme-script: #fd7e14;
+  --theme-script-strong: #e8590c;
+  --theme-script-weak: rgba(253, 126, 20, 0.12);
+  --theme-script-bg: #fff7ed;
+  --theme-script-ring: rgba(253, 126, 20, 0.3);
+  --theme-cyan: #06b6d4;
+  --theme-cyan-strong: #0891b2;
+  --theme-cyan-weak: rgba(6, 182, 212, 0.12);
+  --theme-cyan-bg: #ecfeff;
+  --theme-cyan-ring: rgba(6, 182, 212, 0.3);
+  --theme-teal: #14b8a6;
+  --theme-teal-strong: #0d9488;
+  --theme-teal-weak: rgba(20, 184, 166, 0.12);
+  --theme-teal-bg: #f0fdfa;
+  --theme-teal-ring: rgba(20, 184, 166, 0.3);
+  --theme-amber: #f59e0b;
+  --theme-amber-strong: #d97706;
+  --theme-orange-ring: rgba(245, 158, 11, 0.3);
+  --theme-purple-ring: rgba(139, 92, 246, 0.3);
+  --theme-sky-ring: rgba(14, 165, 233, 0.3);
+  --theme-green-ring: rgba(5, 150, 105, 0.3);
 
   /* 主题颜色映射 */
   --node-theme-primary: var(--ui-accent);
@@ -571,6 +627,19 @@
 
 /* 深色主题覆盖 */
 [data-theme='dark'] {
+  /* 节点主题色 dark 覆盖（原 theme.css 迁移） */
+  --theme-green-bg: rgba(80, 170, 120, 0.2);
+  --theme-purple-bg: rgba(160, 130, 220, 0.2);
+  --theme-sky-bg: rgba(100, 170, 210, 0.2);
+  --theme-orange-bg: rgba(220, 170, 90, 0.2);
+  --theme-script-bg: rgba(230, 150, 90, 0.2);
+  --theme-pink-bg: rgba(210, 100, 150, 0.2);
+  --theme-pink-weak: rgba(210, 100, 150, 0.2);
+  --theme-cyan-bg: rgba(80, 200, 220, 0.2);
+  --theme-cyan-weak: rgba(80, 200, 220, 0.18);
+  --theme-teal-bg: rgba(80, 200, 180, 0.2);
+  --theme-teal-weak: rgba(80, 200, 180, 0.18);
+
   /* 节点背景 */
   --node-bg: var(--ui-bg-elevated);
   --node-bg-hover: var(--ui-bg-hover);
@@ -580,8 +649,10 @@
   --node-border-hover: rgba(255, 255, 255, 0.15);
 
   /* 节点阴影 */
-  --node-shadow: 0 2px 8px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
-  --node-shadow-hover: 0 8px 20px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
+  --node-shadow:
+    0 2px 8px rgba(var(--shadow-color), 0.3), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
+  --node-shadow-hover:
+    0 8px 20px rgba(var(--shadow-color), 0.4), 0 0 0 1px rgba(255, 255, 255, 0.08) inset;
 
   /* 毛玻璃效果已通过 root 中的 color-mix 实现自适应 */
   --node-selection-fill: rgba(90, 155, 199, 0.15);

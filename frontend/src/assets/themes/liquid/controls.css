@@ -1,0 +1,95 @@
+/* ---------- 全局按钮 ---------- */
+[data-theme='liquid'] .ui-btn {
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .ui-btn--primary {
+  background: var(--ui-accent-gradient);
+  border-color: transparent;
+  color: var(--ui-text-on-accent);
+}
+
+[data-theme='liquid'] .ui-btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #5eb4ff 0%, #91cfff 100%);
+  box-shadow: 0 6px 18px rgba(58, 160, 255, 0.28);
+}
+
+[data-theme='liquid'] .ui-btn--ghost {
+  background: rgba(255, 255, 255, 0.45);
+  border-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .ui-btn--ghost:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.72);
+}
+
+[data-theme='liquid'] .ui-btn--toolbar {
+  background: rgba(255, 255, 255, 0.55);
+  border-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .ui-btn--toolbar:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.82);
+}
+
+[data-theme='liquid'] .ui-icon-btn {
+  border-radius: var(--ui-radius-md);
+}
+
+[data-theme='liquid'] .ui-icon-btn:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--crystal-border);
+  color: var(--ui-text-body);
+}
+
+/* ---------- 全局表单控件 ---------- */
+[data-theme='liquid'] .ui-input,
+[data-theme='liquid'] .ui-select,
+[data-theme='liquid'] .ui-textarea {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--crystal-border);
+  border-radius: var(--ui-radius-md);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .ui-input:hover,
+[data-theme='liquid'] .ui-select:hover,
+[data-theme='liquid'] .ui-textarea:hover {
+  border-color: var(--crystal-border-hover);
+}
+
+[data-theme='liquid'] .ui-input:focus,
+[data-theme='liquid'] .ui-select:focus,
+[data-theme='liquid'] .ui-textarea:focus {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: var(--ui-accent);
+  box-shadow: 0 0 0 3px var(--ui-accent-ring);
+}
+
+[data-theme='liquid'] .ui-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23475569' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+[data-theme='liquid'] .ui-switch__track {
+  background: rgba(195, 208, 225, 0.65);
+}
+
+[data-theme='liquid'] .ui-switch__track::after {
+  background: white;
+  box-shadow: 0 1px 3px rgba(45, 55, 75, 0.18);
+}
+
+[data-theme='liquid'] .ui-switch__input:checked + .ui-switch__track {
+  background: var(--ui-accent-gradient);
+}
+
+[data-theme='liquid'] .ui-checkbox__box {
+  background: rgba(255, 255, 255, 0.72);
+  border-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .ui-checkbox__input:checked + .ui-checkbox__box {
+  background: var(--ui-accent-gradient);
+  border-color: transparent;
+}

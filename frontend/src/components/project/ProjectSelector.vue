@@ -153,7 +153,7 @@
     justify-content: center;
     min-height: 100vh;
     padding: 40px 20px;
-    background: var(--app-bg, #f5f5f5);
+    background: var(--surface-base);
   }
   .project-selector-header {
     text-align: center;
@@ -164,13 +164,13 @@
     margin: 0 0 8px;
   }
   .project-selector-subtitle {
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
     margin: 0 0 4px;
   }
   .project-selector-workdir {
     font-size: 12px;
-    color: var(--text-tertiary, #999);
-    font-family: monospace;
+    color: var(--text-tertiary);
+    font-family: var(--font-mono);
     margin: 0;
   }
   .project-selector-loading,
@@ -178,7 +178,7 @@
   .project-selector-empty {
     text-align: center;
     padding: 40px;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
   }
   .project-selector-grid {
     display: grid;
@@ -191,12 +191,12 @@
   .project-selector-manual {
     max-width: 500px;
     width: 100%;
-    border-top: 1px solid var(--border-color, #e0e0e0);
+    border-top: 1px solid var(--border-default);
     padding-top: 24px;
   }
   .project-selector-manual-label {
     font-size: 13px;
-    color: var(--text-secondary, #666);
+    color: var(--text-secondary);
     margin-bottom: 8px;
   }
   .project-selector-manual-input-row {
@@ -206,21 +206,21 @@
   .project-selector-input {
     flex: 1;
     padding: 8px 12px;
-    border: 1px solid var(--border-color, #e0e0e0);
-    border-radius: 4px;
+    border: 1px solid var(--border-default);
+    border-radius: var(--radius-md);
     font-size: 14px;
-    background: var(--input-bg, #fff);
-    color: var(--text-color, #333);
+    background: var(--surface-elevated);
+    color: var(--text-primary);
   }
   .project-selector-input::placeholder {
-    color: var(--text-tertiary, #aaa);
+    color: var(--text-subtle);
   }
   .project-selector-open-btn {
     padding: 8px 20px;
     border: none;
-    border-radius: 4px;
-    background: var(--accent-color, #4a90d9);
-    color: #fff;
+    border-radius: var(--radius-md);
+    background: var(--accent);
+    color: var(--text-on-accent);
     cursor: pointer;
     font-size: 14px;
   }
@@ -229,7 +229,7 @@
     cursor: not-allowed;
   }
   .project-selector-manual-error {
-    color: #e74c3c;
+    color: var(--danger);
     font-size: 12px;
     margin-top: 6px;
   }

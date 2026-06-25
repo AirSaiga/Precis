@@ -1,0 +1,87 @@
+/* ---------- 工具箱磁贴 ---------- */
+[data-theme='liquid'] .component-tile {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.82) 0%, rgba(248, 251, 255, 0.78) 100%);
+  border: 1px solid var(--crystal-border);
+  box-shadow: var(--crystal-shadow);
+  border-radius: var(--ui-radius-md);
+  transition: all var(--ui-transition-fast);
+}
+
+[data-theme='liquid'] .component-tile:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(245, 250, 255, 0.92) 100%);
+  border-color: var(--crystal-border-hover);
+  box-shadow: var(--crystal-shadow-hover);
+  transform: translateY(-2px);
+}
+
+[data-theme='liquid'] .component-tile:active {
+  transform: scale(0.98);
+}
+
+[data-theme='liquid'] .component-tile .tile-icon {
+  border-radius: 10px;
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .component-tile .tile-icon-blue,
+[data-theme='liquid'] .component-tile .tile-icon-purple {
+  background: linear-gradient(135deg, rgba(58, 160, 255, 0.14) 0%, rgba(126, 195, 255, 0.1) 100%);
+  color: var(--ui-accent-strong);
+}
+
+[data-theme='liquid'] .component-tile .tile-icon-amber {
+  background: linear-gradient(135deg, rgba(249, 198, 107, 0.18) 0%, rgba(252, 214, 138, 0.12) 100%);
+  color: #c68a1e;
+}
+
+[data-theme='liquid'] .component-tile .tile-icon-green {
+  background: linear-gradient(135deg, rgba(76, 215, 168, 0.14) 0%, rgba(120, 228, 192, 0.1) 100%);
+  color: var(--ui-success-strong);
+}
+
+[data-theme='liquid'] .component-tile .tile-icon-sky {
+  background: linear-gradient(135deg, rgba(110, 195, 255, 0.14) 0%, rgba(143, 196, 255, 0.1) 100%);
+  color: var(--ui-info-strong);
+}
+
+[data-theme='liquid'] .component-tile .tile-icon-pink {
+  background: linear-gradient(135deg, rgba(244, 114, 182, 0.14) 0%, rgba(249, 166, 200, 0.1) 100%);
+  color: #db2777;
+}
+
+[data-theme='liquid'] .component-tile .tile-action svg {
+  color: var(--ui-text-tertiary);
+}
+
+[data-theme='liquid'] .component-tile:hover .tile-action svg {
+  color: var(--ui-accent);
+}
+
+[data-theme='liquid'] .constraint-panel {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.78) 0%, rgba(248, 251, 255, 0.72) 100%);
+  border-color: var(--crystal-border);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .constraint-type-item:hover {
+  background: rgba(58, 160, 255, 0.06);
+  border-radius: 8px;
+}
+
+[data-theme='liquid'] .constraint-type-item.disabled {
+  opacity: 0.35;
+}
+
+[data-theme='liquid'] .constraint-type-item.disabled:hover {
+  background: transparent;
+}
+
+[data-theme='liquid'] .constraint-category {
+  border-bottom-color: var(--crystal-border);
+}
+
+[data-theme='liquid'] .subsection-header,
+[data-theme='liquid'] .constraint-category-title {
+  color: var(--ui-text-muted);
+  letter-spacing: 0.08em;
+}

@@ -1,0 +1,50 @@
+/* ---------- 资源树行 ---------- */
+[data-theme='liquid'] .resource-tree .tree-row {
+  border: 1px solid transparent;
+  border-radius: 10px;
+  margin-bottom: 3px;
+  transition: all var(--ui-transition-fast);
+}
+
+[data-theme='liquid'] .resource-tree .tree-row:hover {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.92) 0%, rgba(245, 249, 255, 0.86) 100%);
+  border-color: var(--crystal-border);
+  box-shadow: var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .resource-tree .tree-row.selected {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(232, 244, 255, 0.92) 100%);
+  border-color: var(--ui-accent-ring);
+  box-shadow:
+    0 0 0 2px var(--ui-accent-ring),
+    var(--crystal-shadow);
+}
+
+[data-theme='liquid'] .resource-tree .folder-count {
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--ui-text-muted);
+  border: 1px solid var(--crystal-border);
+  font-weight: var(--ui-font-weight-medium);
+}
+
+[data-theme='liquid'] .resource-tree .tree-folder.nested::before,
+[data-theme='liquid'] .resource-tree .tree-children::before,
+[data-theme='liquid'] .resource-tree .tree-children.embedded-constraints {
+  border-left-color: rgba(195, 208, 225, 0.4);
+}
+
+[data-theme='liquid'] .resource-tree .embedded-constraint-row {
+  border-radius: 8px;
+  border: 1px solid transparent;
+  transition: all var(--ui-transition-fast);
+}
+
+[data-theme='liquid'] .resource-tree .embedded-constraint-row:hover {
+  background: rgba(167, 139, 250, 0.08);
+  border-color: rgba(167, 139, 250, 0.16);
+}
+
+[data-theme='liquid'] .resource-tree .embedded-constraint-row.selected {
+  background: rgba(58, 160, 255, 0.1);
+  border-color: var(--ui-accent-ring);
+}

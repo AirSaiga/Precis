@@ -1,0 +1,40 @@
+/**
+ * @file themes/liquid/index.css
+ * @description Liquid 主题 — 子模块聚合入口
+ *
+ * 拆分动机：
+ * theme-liquid.css 单文件 1193 行难以维护。
+ * 按功能域拆为 12 个子文件 + 1 个 index，
+ * 每个子文件聚焦一类组件样式，物理上便于导航与代码评审。
+ *
+ * 导入顺序至关重要（同 layer 内后导入者胜出）：
+ * 1. tokens — Liquid 主题的所有 token 覆盖（应用层 + 节点 + 顶层布局）
+ * 2. layout — 顶部/侧边栏 shell
+ * 3. inspector — 资源浏览器搜索框 + 检查器面板
+ * 4. toolbox — 工具箱磁贴 + 约束面板
+ * 5. resource-tree — 资源树（晚段，覆盖早段重复定义）
+ * 6. tab-bar — Tab 栏
+ * 7. controls — 全局按钮/表单/switch/checkbox
+ * 8. settings — 设置中心
+ * 9. status — 状态栏 + 项目芯片
+ * 10. node — 画布节点 + Vue Flow 控件
+ * 11. data-library — 数据源库头部
+ * 12. empty — 通用空状态
+ *
+ * 注意：layout.css 与 resource-tree.css 各自定义了 .resource-tree .tree-row 等
+ * 重复选择器（前者来自早期版本，后者为后续重构更新版），后者在文件中
+ * 位置靠后实际生效，前者在 layer 内被覆盖为死代码。保留以避免改动
+ * CSS 优先级，TODO 后续清理。
+ */
+@import './tokens.css';
+@import './layout.css';
+@import './inspector.css';
+@import './toolbox.css';
+@import './resource-tree.css';
+@import './tab-bar.css';
+@import './controls.css';
+@import './settings.css';
+@import './status.css';
+@import './node.css';
+@import './data-library.css';
+@import './empty.css';

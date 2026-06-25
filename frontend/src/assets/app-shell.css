@@ -302,7 +302,7 @@
   align-items: center;
   background: var(--ui-bg-elevated);
   border-top: 1px solid var(--ui-border-light);
-  box-shadow: 0 -1px 3px rgba(45, 42, 38, 0.04);
+  box-shadow: 0 -1px 3px rgba(var(--shadow-color), 0.04);
   color: var(--ui-text-tertiary);
   font-size: var(--ui-font-size-xs);
   z-index: var(--ui-z-sticky);

@@ -107,13 +107,13 @@
 }
 
 .ui-btn--secondary {
-  background: var(--ui-bg-elevated);
+  background: var(--material-surface-bg);
   color: var(--ui-text-body);
-  border-color: var(--ui-border);
+  border-color: var(--material-surface-border);
 }
 
 .ui-btn--secondary:hover:not(:disabled) {
-  background: var(--ui-bg-subtle);
+  background: var(--material-surface-bg-hover);
   border-color: var(--ui-text-muted);
 }
 
