@@ -28,12 +28,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: var(--ui-space-md) var(--ui-space-lg);
+  height: var(--ui-header-height);
+  padding: 0 var(--ui-space-lg);
   border-bottom: 1px solid var(--ui-border);
 }
 
 .project-management-close {
-  font-size: 24px;
+  font-size: var(--ui-font-size-xl);
   color: var(--ui-text-subtle);
   line-height: 1;
 }
@@ -57,7 +58,7 @@
 }
 
 .section-title {
-  font-size: 14px;
+  font-size: var(--ui-font-size-md);
   font-weight: 600;
   color: var(--ui-text-strong);
 }
@@ -85,7 +86,7 @@
   padding: var(--ui-space-lg);
   text-align: center;
   color: var(--ui-text-muted);
-  font-size: 13px;
+  font-size: var(--ui-font-size-md);
 }
 
 .recent-projects-section {
@@ -123,7 +124,7 @@
 }
 
 .project-name {
-  font-size: 13px;
+  font-size: var(--ui-font-size-md);
   font-weight: 500;
   color: var(--ui-text);
   white-space: nowrap;
@@ -132,7 +133,7 @@
 }
 
 .project-path {
-  font-size: 11px;
+  font-size: var(--ui-font-size-sm);
   color: var(--ui-text-muted);
   white-space: nowrap;
   overflow: hidden;
