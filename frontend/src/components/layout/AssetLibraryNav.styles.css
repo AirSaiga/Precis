@@ -77,7 +77,7 @@
 }
 
 .view-label {
-  font-size: 10px;
+  font-size: var(--ui-font-size-xs);
   font-weight: 500;
   line-height: 1;
   text-transform: uppercase;
@@ -138,7 +138,7 @@
 
 .language-badge {
   font-family: monospace;
-  font-size: 11px;
+  font-size: var(--ui-font-size-sm);
   font-weight: 600;
   color: var(--ui-text-tertiary);
   letter-spacing: 0.5px;
@@ -177,12 +177,12 @@
   left: 100%;
   top: 50%;
   transform: translateY(-50%);
-  margin-left: 8px;
+  margin-left: var(--ui-space-sm);
   background: var(--ui-bg-elevated);
   color: var(--ui-text-primary);
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 12px;
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  border-radius: var(--ui-radius-sm);
+  font-size: var(--ui-font-size-sm);
   white-space: nowrap;
   z-index: 1000;
   opacity: 0;
