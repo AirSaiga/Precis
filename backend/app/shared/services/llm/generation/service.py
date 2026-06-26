@@ -788,15 +788,20 @@ class ConfigGenerationService:
             table_name = os.path.splitext(os.path.basename(path))[0]
 
             try:
-                # 根据文件类型读取数据
-                sheet_name = None
+                # 收集该文件的所有 sheets：(sheet_name, df) 列表。
+                # Excel 可能多 sheet，每个 sheet 作为独立 table 画像；其他类型单 sheet（sheet_name=None）
+                sheets: list[tuple[str | None, pd.DataFrame]] = []
                 if ext in [".xlsx", ".xls"]:
-                    # 读取第一个 sheet 的名称
                     xl = pd.ExcelFile(path)
-                    sheet_name = xl.sheet_names[0] if xl.sheet_names else "Sheet1"
-                    df = pd.read_excel(path, sheet_name=sheet_name, nrows=options.sample_rows)
+                    if not xl.sheet_names:
+                        continue
+                    # 读取所有 sheet（修复：原仅读 sheet_names[0]，多 sheet Excel 会丢数据）
+                    for sn in xl.sheet_names:
+                        sheet_df = pd.read_excel(path, sheet_name=sn, nrows=options.sample_rows)
+                        sheets.append((sn, sheet_df))
                 elif ext == ".csv":
                     df = pd.read_csv(path, nrows=options.sample_rows, encoding="utf-8")
+                    sheets.append((None, df))
                 elif ext == ".json":
                     # JSON 文件处理
                     with open(path, encoding="utf-8") as f:
@@ -814,7 +819,7 @@ class ConfigGenerationService:
                     else:
                         continue
                     # 限制行数
-                    df = df.head(options.sample_rows)
+                    sheets.append((None, df.head(options.sample_rows)))
                 elif ext == ".jsonl":
                     # JSON Lines 文件处理
                     records = []
@@ -825,47 +830,54 @@ class ConfigGenerationService:
                             line = line.strip()
                             if line:
                                 records.append(json.loads(line))
-                    df = pd.json_normalize(records)
+                    sheets.append((None, pd.json_normalize(records)))
                 else:
                     # 不支持的文件类型
                     continue
 
-                # 分析列信息
-                columns = []
-                for col_name in df.columns:
-                    if self._cancelled:
-                        raise CancelledError("Generation cancelled")
-                    col_data = df[col_name]
+                # 每个 sheet 独立构建画像结果（Excel 多 sheet 会产出多个 table 画像）
+                multi_sheet = len(sheets) > 1
+                for sheet_name, df in sheets:
+                    if df is None or df.empty:
+                        continue
+                    # 分析列信息
+                    columns = []
+                    for col_name in df.columns:
+                        if self._cancelled:
+                            raise CancelledError("Generation cancelled")
+                        col_data = df[col_name]
 
-                    # 获取样本值（处理复杂类型如列表、字典）
-                    # 使用 dict.fromkeys 保序去重，避免 list 的 O(n) in 查找导致的 O(n²) 开销
-                    seen: dict[str, None] = {}
-                    max_samples = options.sample_values_per_column
-                    for v in col_data.dropna():
-                        if len(seen) >= max_samples:
-                            break
-                        # 处理复杂类型并截断
-                        v_str = str(v)[: options.max_cell_chars]
-                        if v_str not in seen:
-                            seen[v_str] = None
-                    sample_values: list[str] = list(seen.keys())
+                        # 获取样本值（处理复杂类型如列表、字典）
+                        # 使用 dict.fromkeys 保序去重，避免 list 的 O(n) in 查找导致的 O(n²) 开销
+                        seen: dict[str, None] = {}
+                        max_samples = options.sample_values_per_column
+                        for v in col_data.dropna():
+                            if len(seen) >= max_samples:
+                                break
+                            # 处理复杂类型并截断
+                            v_str = str(v)[: options.max_cell_chars]
+                            if v_str not in seen:
+                                seen[v_str] = None
+                        sample_values: list[str] = list(seen.keys())
 
-                    columns.append(
-                        {
-                            "name": str(col_name),
-                            "dtype": str(col_data.dtype),
-                            "null_count": int(col_data.isna().sum()),
-                            "sample_values": sample_values,
-                        }
-                    )
+                        columns.append(
+                            {
+                                "name": str(col_name),
+                                "dtype": str(col_data.dtype),
+                                "null_count": int(col_data.isna().sum()),
+                                "sample_values": sample_values,
+                            }
+                        )
 
-                result = {
-                    "path": path,
-                    "table_name": table_name,
-                    "sheet_name": sheet_name,
-                    "columns": columns,
-                }
-                results.append(result)
+                    # 多 sheet Excel 时用 "文件名_sheet名" 作为 table_name 区分，避免多表同名
+                    effective_table_name = f"{table_name}_{sheet_name}" if (multi_sheet and sheet_name) else table_name
+                    result = {
+                        "path": path,
+                        "table_name": effective_table_name,
+                        "sheet_name": sheet_name,
+                        "columns": columns,
+                    }
+                    results.append(result)
 
             except Exception as e:
                 # 读取失败，记录警告并跳过，不影响其他文件的处理
