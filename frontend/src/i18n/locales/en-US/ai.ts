@@ -24,6 +24,13 @@ const aiChat = {
   copy: 'Copy',
   copied: 'Copied to clipboard',
   copyFailed: 'Copy failed, please select text manually',
+  // Tool trail card
+  trailRunning: 'Running · {done}/{total} steps done',
+  trailDone: 'Completed {total} steps',
+  trailDoneWithFail: 'Completed {total} steps ({failed} failed)',
+  trailCancelled: 'Cancelled · {steps} steps executed',
+  trailCancelledNote: 'Task cancelled ({turns} turns). Persisted changes are kept.',
+  cancel: 'Stop',
 }
 
 const aiConfigGenerator = {

@@ -360,3 +360,49 @@
 .send-btn:not(:disabled):hover {
   opacity: 0.85;
 }
+
+/* 流式光标 */
+.streaming-cursor {
+  display: inline-block;
+  color: var(--color-primary, #2563eb);
+  animation: blink 1s infinite;
+  margin-left: 2px;
+  font-size: 13px;
+}
+
+@keyframes blink {
+  0%,
+  50% {
+    opacity: 1;
+  }
+  51%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* 流式输出态内容边框高亮 */
+.ai-content.is-streaming {
+  border-left: 2px solid var(--color-primary, #2563eb);
+  padding-left: 8px;
+}
+
+/* 取消按钮 */
+.cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  background: var(--color-error, #ef4444);
+  color: white;
+  border: none;
+  border-radius: var(--ui-radius-sm);
+  cursor: pointer;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+}
+
+.cancel-btn:hover {
+  opacity: 0.85;
+}

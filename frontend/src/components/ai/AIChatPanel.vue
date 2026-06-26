@@ -47,10 +47,23 @@
           <span v-else>AI</span>
         </div>
         <div class="message-body">
+          <!-- 工具轨迹折叠卡（仅有步骤时显示） -->
+          <ToolTrailCard
+            v-if="msg.role === 'assistant' && hasTrailSteps(msg)"
+            :steps="getTrailSteps(msg)"
+            :status="getTrailStatus(msg)"
+            :completed-turns="getCompletedTurns(msg)"
+          />
           <div v-if="msg.role === 'user'" class="message-content user-content">
             {{ msg.content }}
           </div>
-          <div v-else class="message-content ai-content" v-html="renderMarkdown(msg.content)"></div>
+          <div
+            v-else
+            class="message-content ai-content"
+            :class="{ 'is-streaming': isStreaming(msg) }"
+            v-html="renderMarkdown(msg.content)"
+          ></div>
+          <span v-if="isStreaming(msg)" class="streaming-cursor">▋</span>
           <!-- 复制按钮：悬停消息时显示 -->
           <button
             class="message-copy-btn"
@@ -117,8 +130,21 @@
         :placeholder="t('aiChat.inputPlaceholder')"
         @keydown="handleKeydown"
         rows="3"
+        :disabled="loading"
       ></textarea>
-      <button class="send-btn" @click="handleSend" :disabled="!inputText.trim() || loading">
+      <button v-if="loading" class="cancel-btn" :title="t('aiChat.cancel')" @click="handleCancel">
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+        >
+          <rect x="6" y="6" width="12" height="12" rx="1"></rect>
+        </svg>
+      </button>
+      <button v-else class="send-btn" @click="handleSend" :disabled="!inputText.trim() || loading">
         <svg
           width="18"
           height="18"
@@ -139,9 +165,12 @@
   import { ref, computed, nextTick, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useAiChatStore } from '@/stores/aiChatStore'
+  import type { ChatMessage } from '@/stores/aiChatStore'
+  import type { ToolStep } from '@/composables/shared/useStreamingMessage'
   import { useMessageCopy } from '@/composables/useMessageCopy'
   import MarkdownIt from 'markdown-it'
   import DOMPurify from 'dompurify'
+  import ToolTrailCard from './ToolTrailCard.vue'
 
   const { t } = useI18n()
   const aiChatStore = useAiChatStore()
@@ -207,6 +236,55 @@
     if (!text || loading.value) return
     inputText.value = ''
     await aiChatStore.sendMessage(text)
+  }
+
+  /** 取消当前流式对话（软取消） */
+  const handleCancel = () => {
+    void aiChatStore.cancelSendMessage()
+  }
+
+  /** 消息是否正在流式输出 */
+  const isStreaming = (msg: ChatMessage): boolean => {
+    return !!msg.streaming?.isStreaming
+  }
+
+  /** 消息是否有工具轨迹步骤可展示 */
+  const hasTrailSteps = (msg: ChatMessage): boolean => {
+    // 流式中或已有轨迹（含取消态）都展示
+    if (msg.streaming && msg.streaming.toolSteps.length > 0) return true
+    if (msg.streaming && msg.streaming.status === 'cancelled') return true
+    // 已完成的消息看 agentMeta.tool_steps
+    if (!msg.streaming && msg.agentMeta && msg.agentMeta.tool_steps.length > 0) return true
+    return false
+  }
+
+  /** 获取消息的工具轨迹步骤 */
+  const getTrailSteps = (msg: ChatMessage): ToolStep[] => {
+    if (msg.streaming) {
+      return msg.streaming.toolSteps
+    }
+    // 已完成：从 agentMeta 转换
+    if (msg.agentMeta?.tool_steps) {
+      return msg.agentMeta.tool_steps.map((s) => ({
+        tool: s.tool,
+        label: s.label,
+        turn: s.turn,
+        actionCount: s.action_count,
+        status: 'success' as const,
+      }))
+    }
+    return []
+  }
+
+  /** 获取轨迹卡的状态 */
+  const getTrailStatus = (msg: ChatMessage): 'streaming' | 'completed' | 'cancelled' | 'error' => {
+    if (msg.streaming) return msg.streaming.status
+    return 'completed'
+  }
+
+  /** 获取取消时的已执行轮次 */
+  const getCompletedTurns = (msg: ChatMessage): number => {
+    return msg.streaming?.completedTurns ?? 0
   }
 
   const handleKeydown = (e: KeyboardEvent) => {

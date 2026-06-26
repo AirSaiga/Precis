@@ -18,12 +18,12 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import { useI18n } from 'vue-i18n'
+import { type AgentMeta, type ChatHistoryMessage } from '../core/services/httpClient'
+import { createSSEClient, type SSEClient } from '@/core/services/sseClient'
 import {
-  sendAiChatMessage,
-  type AgentMeta,
-  type ChatHistoryMessage,
-} from '../core/services/httpClient'
-import { toastError } from '@/core/toast'
+  useStreamingMessage,
+  type StreamingMessage,
+} from '@/composables/shared/useStreamingMessage'
 import { processFrontendInstructions } from '@/services/aiChatInstructionService'
 
 /**
@@ -33,6 +33,8 @@ import { processFrontendInstructions } from '@/services/aiChatInstructionService
  * @property role - 消息发送者角色：user 为用户，assistant 为 AI
  * @property content - 消息文本内容
  * @property timestamp - 消息创建时间（ISO 8601 格式）
+ * @property agentMeta - Agent 模式执行元数据（仅 agent 模式的 assistant 消息可能携带）
+ * @property streaming - 流式状态（仅流式进行中的 assistant 消息携带，完成后为 null）
  */
 export interface ChatMessage {
   id: string
@@ -41,6 +43,8 @@ export interface ChatMessage {
   timestamp: string
   /** Agent 模式执行元数据（仅 agent 模式的 assistant 消息可能携带） */
   agentMeta?: AgentMeta | null
+  /** 流式状态引用（流式中由 UI 实时读取，完成后置 null） */
+  streaming?: StreamingMessage | null
 }
 
 /**
@@ -164,6 +168,8 @@ export const useAiChatStore = defineStore('aiChat', () => {
   const loading = ref(false)
   /** 是否启用 Agent 深度模式 */
   const agentMode = ref(true)
+  /** 当前流式会话的 SSE 客户端（用于取消） */
+  let currentSSEClient: SSEClient | null = null
 
   // --- 计算属性 ---
   /** 是否有选中的上下文节点 */
@@ -279,9 +285,11 @@ export const useAiChatStore = defineStore('aiChat', () => {
   }
 
   /**
-   * 发送消息给 AI 并处理响应
+   * 发送消息给 AI 并处理响应（流式 SSE 版本）
    *
-   * 完整流程：添加用户消息 → 发送请求 → 添加 AI 回复 → 执行前端指令。
+   * 完整流程：添加用户消息 → 创建 placeholder assistant 消息（流式状态）
+   * → SSE 连接 /ai/chat/stream → 事件实时更新消息 content/轨迹
+   * → completed/cancelled/error 终止处理 frontend_instructions（画布双写）。
    * 空消息或正在加载时忽略请求。
    *
    * @param content - 用户输入的消息文本
@@ -292,37 +300,102 @@ export const useAiChatStore = defineStore('aiChat', () => {
     addUserMessage(content)
     loading.value = true
 
+    // 创建流式状态机 + placeholder assistant 消息（UI 实时读取 streaming 字段）
+    const { message: streamingMsg, handleEvent, start } = useStreamingMessage()
+    start()
+    const assistantMessage: ChatMessage = {
+      id: uuidv4(),
+      role: 'assistant',
+      content: '',
+      timestamp: new Date().toISOString(),
+      agentMeta: null,
+      streaming: streamingMsg,
+    }
+    // [safe-push] messages 是独立的响应式数组，非 Vue Flow 节点/边
+    messages.value.push(assistantMessage)
+
+    // 创建 SSE 客户端
+    const sseClient = createSSEClient()
+    currentSSEClient = sseClient
+
     try {
-      const context: ChatContext = {
-        hasContext: hasContext.value,
-        selectedNodes: contextNodes.value,
+      const body = {
+        message: content,
+        context: {
+          hasContext: hasContext.value,
+          selectedNodes: contextNodes.value,
+        },
+        history: buildChatHistory(),
+        agent_mode: agentMode.value,
       }
 
-      const history = buildChatHistory()
-      const response = await sendAiChatMessage(content, context, history, agentMode.value)
+      await sseClient.connect('/ai/chat/stream', body, {
+        onEvent: (event, id, data) => {
+          handleEvent(event, id, data)
+        },
+        onError: (err) => {
+          logger.error('SSE 错误:', err)
+        },
+        onClose: () => {
+          // SSE 流正常关闭（含终止事件）
+        },
+      })
 
-      if (response.status === 'error') {
-        addAssistantMessage(response.reply, response.agent_meta)
-        if (response.error) {
-          toastError(response.error)
-        }
-      } else {
-        addAssistantMessage(response.reply, response.agent_meta)
+      // 流结束后，根据 streaming 状态最终化消息
+      assistantMessage.content = streamingMsg.content
+      assistantMessage.streaming = null
 
-        const instructions =
-          response.frontend_instructions && response.frontend_instructions.length > 0
-            ? response.frontend_instructions
-            : response.actions || []
+      if (streamingMsg.status === 'error') {
+        assistantMessage.content = streamingMsg.errorMessage || t('aiChat.errorMessage')
+      } else if (streamingMsg.status === 'cancelled') {
+        // 软取消：content 保留已生成的部分，添加取消提示
+        const cancelledSuffix = `\n\n_(${t('aiChat.trailCancelledNote', { turns: streamingMsg.completedTurns })})_`
+        assistantMessage.content = (streamingMsg.content || '') + cancelledSuffix
+      }
 
-        if (instructions.length > 0) {
-          await processFrontendInstructions(instructions as FrontendInstruction[])
-        }
+      // 处理 frontend_instructions（画布双写）
+      const result = streamingMsg.result
+      if (result?.frontend_instructions && result.frontend_instructions.length > 0) {
+        await processFrontendInstructions(result.frontend_instructions as FrontendInstruction[])
+      }
+
+      // 填充 agentMeta（轨迹展示）
+      assistantMessage.agentMeta = {
+        iterations: result?.iterations ?? 0,
+        tool_steps: streamingMsg.toolSteps.map((s) => ({
+          tool: s.tool,
+          label: s.label,
+          turn: s.turn,
+          action_count: s.actionCount,
+        })),
       }
     } catch (error) {
-      logger.error('AI Chat error:', error)
-      addAssistantMessage(t('aiChat.errorMessage'))
+      logger.error('AI Chat SSE error:', error)
+      assistantMessage.streaming = null
+      if (!streamingMsg.content) {
+        assistantMessage.content = t('aiChat.errorMessage')
+      }
     } finally {
       loading.value = false
+      currentSSEClient = null
+    }
+  }
+
+  /**
+   * 取消当前正在进行的流式 AI 对话（软取消）。
+   *
+   * 已落盘的 apply_actions 改动保留，前端轨迹如实显示已执行步数。
+   * 无进行中的对话时无操作。
+   */
+  async function cancelSendMessage() {
+    if (!currentSSEClient) return
+    try {
+      // 发送取消信号给后端，后端在下一个检查点中断 Agent 循环
+      // job_id 由后端生成，前端无法直接获知；这里关闭客户端连接即可
+      // 后端 SSE 流会因连接断开而结束，已写入 journal 的事件保留
+      currentSSEClient.close()
+    } catch (error) {
+      logger.error('取消 AI 对话失败:', error)
     }
   }
 
@@ -350,5 +423,6 @@ export const useAiChatStore = defineStore('aiChat', () => {
     addAssistantMessage,
     clearMessages,
     sendMessage,
+    cancelSendMessage,
   }
 })

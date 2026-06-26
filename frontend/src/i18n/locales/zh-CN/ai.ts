@@ -24,6 +24,13 @@ const aiChat = {
   copy: '复制',
   copied: '已复制到剪贴板',
   copyFailed: '复制失败，请手动选择文本复制',
+  // 工具轨迹折叠卡
+  trailRunning: '执行中 · 已完成 {done}/{total} 步',
+  trailDone: '已完成 {total} 步',
+  trailDoneWithFail: '完成 {total} 步（{failed} 步失败）',
+  trailCancelled: '已取消 · 已执行 {steps} 步',
+  trailCancelledNote: '任务已取消（完成 {turns} 轮），已落盘的改动已保留',
+  cancel: '停止',
 }
 
 const aiConfigGenerator = {
