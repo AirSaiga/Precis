@@ -6,6 +6,7 @@ StreamingOrchestrator（包装 service 为事件流）与 SSE 响应封装在后
 
 from .event_journal import EventJournal
 from .orchestrator import StreamingOrchestrator
+from .sse_response import format_sse_event, sse_event_stream
 from .types import (
     EVENT_CANCELLED,
     EVENT_COMPLETED,
@@ -22,6 +23,8 @@ from .types import (
 __all__ = [
     "EventJournal",
     "StreamingOrchestrator",
+    "format_sse_event",
+    "sse_event_stream",
     "EVENT_STARTED",
     "EVENT_PROGRESS",
     "EVENT_TURN_START",
