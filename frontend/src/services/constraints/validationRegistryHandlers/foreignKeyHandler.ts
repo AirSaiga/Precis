@@ -35,7 +35,8 @@ register({
       if (targetSchemaNode) {
         const targetSchemaData = (targetSchemaNode.data || {}) as Record<string, unknown>
         if (targetSchemaNode.type === 'jsonSchema') {
-          const columns = (targetSchemaData.columns || []) as import('@/types/graph').JsonSchemaColumn[]
+          const columns = (targetSchemaData.columns ||
+            []) as import('@/types/graph').JsonSchemaColumn[]
           const found = findJsonSchemaColumnById(columns, targetColumnId)
           if (found) {
             targetColumn = found.column.columnName

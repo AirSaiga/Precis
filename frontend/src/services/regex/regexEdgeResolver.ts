@@ -35,7 +35,14 @@ export interface RegexSourceInfo {
 export function resolveRegexSource(
   regexNodeId: string,
   nodes: CustomNode[],
-  edges: { id: string; source: string; target: string; sourceHandle?: string | null; targetHandle?: string | null; [key: string]: unknown }[]
+  edges: {
+    id: string
+    source: string
+    target: string
+    sourceHandle?: string | null
+    targetHandle?: string | null
+    [key: string]: unknown
+  }[]
 ): RegexSourceInfo | null {
   const incomingEdge = edges.find(
     (e) => e.target === regexNodeId && (e.targetHandle === 'regex-input' || !e.targetHandle)
@@ -53,9 +60,9 @@ export function resolveRegexSource(
     const columnId = sourceHandle.replace('source-right-', '')
     const schemaData = sourceNode.data as unknown as Record<string, unknown>
     const columns = (schemaData.columns as unknown[] | undefined) || []
-    const column = columns.find(
-      (c) => (c as Record<string, unknown>).id === columnId
-    ) as Record<string, unknown> | undefined
+    const column = columns.find((c) => (c as Record<string, unknown>).id === columnId) as
+      | Record<string, unknown>
+      | undefined
     if (!column) return null
     return {
       sourceNodeId: sourceNode.id,

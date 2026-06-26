@@ -79,6 +79,75 @@ const config = {
     save: 'Save',
     cancel: 'Cancel',
   },
+  patternNode: {
+    badgeReadOnly: 'Read Only',
+    groups: {
+      config: 'Pattern Config',
+      regex: 'Regular Expression',
+      source: 'Source Info',
+      status: 'Validation Status',
+    },
+    labels: {
+      patternName: 'Pattern Name',
+      patternType: 'Pattern Type',
+      description: 'Description',
+      pattern: 'Regular Expression',
+      flags: 'Flags',
+      caseSensitive: 'Case Sensitive',
+      registry: 'Registry Type',
+      sourceFile: 'Source File',
+      validationStatus: 'Validation Status',
+      matchCount: 'Match Count',
+      matchRate: 'Match Rate',
+    },
+    values: {
+      caseSensitive: 'Case Sensitive',
+      caseInsensitive: 'Case Insensitive',
+      matches: 'matches',
+    },
+    types: {
+      atomic: 'Atomic',
+      combination: 'Combination',
+      unknown: 'Unknown',
+    },
+    status: {
+      pass: 'Pass',
+      error: 'Error',
+      idle: 'Idle',
+    },
+  },
+  projectRoot: {
+    badgeReadOnly: 'Read Only',
+    groups: {
+      basicInfo: 'Basic Info',
+      statistics: 'Statistics',
+      quickActions: 'Quick Actions',
+    },
+    labels: {
+      projectName: 'Project Name',
+      projectPath: 'Project Path',
+      configPath: 'Config Path',
+      lastOpenTime: 'Last Open Time',
+    },
+    stats: {
+      schemaCount: 'Schema Count',
+      constraintCount: 'Constraint Count',
+      regexCount: 'Regex Count',
+      passRate: 'Pass Rate',
+      errorCount: 'Error Count',
+    },
+    actions: {
+      fullValidation: 'Full Validation',
+      export: 'Export Full Config',
+      aiGenerate: 'AI Initialize Config',
+      reload: 'Reload Project',
+      projectManagement: 'Project Management',
+      closeProject: 'Close Project',
+    },
+    confirm: {
+      closeProject: 'Are you sure you want to close this project?',
+    },
+  },
 }
 
 const connectionValidation = {

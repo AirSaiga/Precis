@@ -672,6 +672,7 @@ const customNodes = {
     formatObject: '嵌套对象',
     fields: '字段',
     nestDepth: '层嵌套',
+    recordPath: '记录路径',
     jsonPathPlaceholder: '例如: $.data.items',
     recordPathPlaceholder: '例如: items',
     jsonPathError: 'JSONPath 必须以 "$" 开头',

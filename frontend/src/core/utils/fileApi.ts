@@ -31,7 +31,7 @@ export async function checkFileExists(path: string): Promise<boolean> {
 
 export async function scanDirectory(
   path: string,
-  extensions?: string[],
+  extensions?: string[]
 ): Promise<Array<{ name: string; path: string; is_dir: boolean }>> {
   if (isElectron()) {
     // Electron's scanDirectory returns string[] (relative paths under `path`)
@@ -54,7 +54,9 @@ export async function makeDirectory(path: string): Promise<void> {
   await webFileApi.makeDirectory(path)
 }
 
-export async function uploadFile(file: File): Promise<{ temp_path: string; original_name: string; size: number }> {
+export async function uploadFile(
+  file: File
+): Promise<{ temp_path: string; original_name: string; size: number }> {
   if (isElectron()) {
     throw new Error('uploadFile is only available in Web mode (Electron uses native file paths)')
   }

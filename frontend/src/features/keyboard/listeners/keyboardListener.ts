@@ -184,7 +184,9 @@ export class KeyboardListenerImpl implements KeyboardListener {
       const hasSelectedText = selection && selection.toString().trim().length > 0
       if (
         hasSelectedText &&
-        (event.key.toLowerCase() === 'c' || event.key.toLowerCase() === 'x' || event.key.toLowerCase() === 'a')
+        (event.key.toLowerCase() === 'c' ||
+          event.key.toLowerCase() === 'x' ||
+          event.key.toLowerCase() === 'a')
       ) {
         return
       }

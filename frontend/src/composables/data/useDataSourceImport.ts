@@ -170,7 +170,9 @@ export function useDataSourceImport() {
       } catch (error) {
         logger.error(`添加数据源 ${dataSource.name} 失败:`, error)
         const errorMessage = error instanceof Error ? error.message : String(error)
-        toastError(t('messages.common.addDataSourceFailed', { name: dataSource.name, error: errorMessage }))
+        toastError(
+          t('messages.common.addDataSourceFailed', { name: dataSource.name, error: errorMessage })
+        )
       }
     }
   }
@@ -195,7 +197,12 @@ export function useDataSourceImport() {
           const folderPath = electronFile.path!
           logger.debug(`[useDataSourceImport] 检测到文件夹拖拽: ${file.name}, 路径: ${folderPath}`)
           try {
-            const entries = await readLocalDirectoryEntries(folderPath, ['.csv', '.xlsx', '.xls', '.json'])
+            const entries = await readLocalDirectoryEntries(folderPath, [
+              '.csv',
+              '.xlsx',
+              '.xls',
+              '.json',
+            ])
             for (const entryPath of entries) {
               const entryName = getPathBasename(entryPath) || 'unknown'
               const relativeFolder = inferFolderPath(entryPath)
@@ -215,7 +222,9 @@ export function useDataSourceImport() {
 
         const resolved = await resolveFileReference(file)
         const folderPath = inferFolderPath(resolved.path)
-        fileList.push(buildExternalDataSource(resolved.path, resolved.name, resolved.size, folderPath))
+        fileList.push(
+          buildExternalDataSource(resolved.path, resolved.name, resolved.size, folderPath)
+        )
       } catch (error) {
         logger.error(`处理文件 ${file.name} 失败:`, error)
         const errorMessage = error instanceof Error ? error.message : String(error)

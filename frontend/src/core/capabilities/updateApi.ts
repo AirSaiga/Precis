@@ -191,4 +191,6 @@ class WebUpdateAdapter implements UpdateApi {
 /**
  * 全局自动更新能力实例
  */
-export const updateApi: UpdateApi = isElectron() ? new ElectronUpdateAdapter() : new WebUpdateAdapter()
+export const updateApi: UpdateApi = isElectron()
+  ? new ElectronUpdateAdapter()
+  : new WebUpdateAdapter()

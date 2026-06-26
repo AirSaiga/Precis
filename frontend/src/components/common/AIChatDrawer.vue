@@ -174,7 +174,11 @@
           </button>
           <!-- Agent 工具调用轨迹（仅 agent 模式且存在步骤时显示） -->
           <div
-            v-if="message.role === 'assistant' && message.agentMeta && message.agentMeta.tool_steps.length > 0"
+            v-if="
+              message.role === 'assistant' &&
+              message.agentMeta &&
+              message.agentMeta.tool_steps.length > 0
+            "
             class="agent-trail"
           >
             <span class="agent-trail-label">🔧 {{ message.agentMeta.tool_steps.length }} 步</span>

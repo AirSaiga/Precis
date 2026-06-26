@@ -99,7 +99,10 @@
           "kind": "readonly",
           "labelKey": "inspector.regexNode.labels.targetColumn",
           "source": { "source": "data", "path": ["sourceRef", "columnId"] },
-          "when": { "op": "exists", "source": { "source": "data", "path": ["sourceRef", "columnId"] } }
+          "when": {
+            "op": "exists",
+            "source": { "source": "data", "path": ["sourceRef", "columnId"] }
+          }
         }
       ]
     }

@@ -214,7 +214,7 @@ export interface RegexParameter {
  * - 包含完整的配置和状态信息
  *
  * 【与其他节点的关联】
-   * - sourceRef: 关联上游 Schema 列信息（{ nodeId, columnId, columnName? }）
+ * - sourceRef: 关联上游 Schema 列信息（{ nodeId, columnId, columnName? }）
  */
 export interface RegexNodeData {
   /**

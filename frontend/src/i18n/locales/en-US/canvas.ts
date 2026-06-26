@@ -125,6 +125,12 @@ const canvas = {
       },
     },
   },
+  // Sub-Canvas (SubCanvasModal)
+  subCanvas: {
+    save: 'Save',
+    close: 'Close',
+    addConstraint: 'Add Constraint',
+  },
 }
 
 const nodeTypeMenu = {

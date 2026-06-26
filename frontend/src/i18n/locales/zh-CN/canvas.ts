@@ -119,6 +119,12 @@ const canvas = {
       },
     },
   },
+  // 子画布（SubCanvasModal）
+  subCanvas: {
+    save: '保存',
+    close: '关闭',
+    addConstraint: '添加约束',
+  },
 }
 
 const nodeTypeMenu = {

@@ -7,10 +7,10 @@
           <h3 class="toolbar-title">{{ title }}</h3>
           <div class="toolbar-actions">
             <button class="toolbar-btn" @click="handleSave">
-              {{ t('subCanvas.save') }}
+              {{ t('canvas.subCanvas.save') }}
             </button>
             <button class="toolbar-btn secondary" @click="handleClose">
-              {{ t('subCanvas.close') }}
+              {{ t('canvas.subCanvas.close') }}
             </button>
           </div>
         </div>
@@ -45,7 +45,7 @@
 
         <!-- 底部约束类型快捷添加栏 -->
         <div class="sub-canvas-bottom-bar">
-          <span class="bar-label">{{ t('subCanvas.addConstraint') }}:</span>
+          <span class="bar-label">{{ t('canvas.subCanvas.addConstraint') }}:</span>
           <button
             v-for="kind in availableConstraintKinds"
             :key="kind"

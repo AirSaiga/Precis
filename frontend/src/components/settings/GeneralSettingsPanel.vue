@@ -55,7 +55,11 @@
         <div class="settings-row__label">{{ t('settings.general.appearance.theme.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.general.appearance.theme.desc') }}</div>
         <div class="settings-row__control">
-          <select v-model="localSettings.theme" class="ui-select ui-select--compact" @change="handleChange">
+          <select
+            v-model="localSettings.theme"
+            class="ui-select ui-select--compact"
+            @change="handleChange"
+          >
             <option value="light">{{ t('settings.general.appearance.theme.light') }}</option>
             <option value="dark">{{ t('settings.general.appearance.theme.dark') }}</option>
             <option value="system">{{ t('settings.general.appearance.theme.system') }}</option>

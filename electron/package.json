@@ -28,6 +28,7 @@
     "build:backend": "cd ../backend && python -m pip install -e \".[api]\"",
     "build:frontend": "cd ../frontend && npm run build",
     "build:all": "npm run build:backend && npm run build:frontend && npm run build:electron && npm run dist",
+    "icon": "node scripts/convert-icon.mjs",
     "update:local": "node scripts/create-local-update.js create",
     "serve:updates": "node scripts/serve-updates.js",
     "test": "vitest run",

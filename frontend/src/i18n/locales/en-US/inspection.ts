@@ -106,51 +106,60 @@ const inspection = {
     idMismatch: {
       schema: {
         title: 'Table name mismatch',
-        description: 'The project config records this table as "{fileDisplay}", but the file itself is named "{manifestDisplay}". The mismatch may break other references to this table.',
+        description:
+          'The project config records this table as "{fileDisplay}", but the file itself is named "{manifestDisplay}". The mismatch may break other references to this table.',
         fixHint: 'Click "Auto fix" to make both sides match.',
       },
       constraint: {
         title: 'Rule name mismatch',
-        description: 'The project config records this rule as "{fileDisplay}", but the rule file is named "{manifestDisplay}". The mismatch may stop this rule from working.',
+        description:
+          'The project config records this rule as "{fileDisplay}", but the rule file is named "{manifestDisplay}". The mismatch may stop this rule from working.',
         fixHint: 'Click "Auto fix" to make both sides match.',
       },
       regex: {
         title: 'Regex rule name mismatch',
-        description: 'The project config records this regex as "{fileDisplay}", but the file is named "{manifestDisplay}". The mismatch may stop this rule from working.',
+        description:
+          'The project config records this regex as "{fileDisplay}", but the file is named "{manifestDisplay}". The mismatch may stop this rule from working.',
         fixHint: 'Click "Auto fix" to make both sides match.',
       },
       transform: {
         title: 'Transform name mismatch',
-        description: 'The project config records this transform as "{fileDisplay}", but the file is named "{manifestDisplay}". The mismatch may stop it from working.',
+        description:
+          'The project config records this transform as "{fileDisplay}", but the file is named "{manifestDisplay}". The mismatch may stop it from working.',
         fixHint: 'Click "Auto fix" to make both sides match.',
       },
     },
     /** The same rule is registered twice in the project config */
     dupConstraintRef: {
       title: 'A rule is registered twice',
-      description: 'The rule file "{filePath}" appears twice in the project config, and one entry ({manifestDisplay}) does not match the file\'s name ({fileDisplay}). The duplicate will cause a conflict.',
+      description:
+        'The rule file "{filePath}" appears twice in the project config, and one entry ({manifestDisplay}) does not match the file\'s name ({fileDisplay}). The duplicate will cause a conflict.',
       fixHint: 'Click "Auto fix" to remove the redundant entry.',
     },
     /** A foreign key references a table/column that no longer exists */
     fk: {
       srcTableMissing: {
         title: 'Foreign key source table is missing',
-        description: '{constraintDisplay} reads data from table "{tableId}", but this table may have been deleted or renamed.',
+        description:
+          '{constraintDisplay} reads data from table "{tableId}", but this table may have been deleted or renamed.',
         fixHint: 'Pick an existing table below as the source.',
       },
       srcColMissing: {
         title: 'Foreign key source column is missing',
-        description: '{constraintDisplay} reads column "{columnId}" of table "{tableId}", but this column no longer exists.',
+        description:
+          '{constraintDisplay} reads column "{columnId}" of table "{tableId}", but this column no longer exists.',
         fixHint: 'Pick an existing column below as the source.',
       },
       dstTableMissing: {
         title: 'Foreign key target table is missing',
-        description: '{constraintDisplay} points to table "{tableId}", but this table may have been deleted or renamed.',
+        description:
+          '{constraintDisplay} points to table "{tableId}", but this table may have been deleted or renamed.',
         fixHint: 'Pick an existing table below as the target.',
       },
       dstColMissing: {
         title: 'Foreign key target column is missing',
-        description: '{constraintDisplay} points to column "{columnId}" of table "{tableId}", but this column no longer exists.',
+        description:
+          '{constraintDisplay} points to column "{columnId}" of table "{tableId}", but this column no longer exists.',
         fixHint: 'Pick an existing column below as the target.',
       },
     },
@@ -158,12 +167,14 @@ const inspection = {
     ref: {
       tableMissing: {
         title: 'The table used by this rule is missing',
-        description: '{constraintDisplay} uses table "{tableId}", but this table may have been deleted or renamed.',
+        description:
+          '{constraintDisplay} uses table "{tableId}", but this table may have been deleted or renamed.',
         fixHint: 'Pick an existing table below.',
       },
       colMissing: {
         title: 'The column used by this rule is missing',
-        description: '{constraintDisplay} uses column "{columnId}" of table "{tableId}", but this column no longer exists.',
+        description:
+          '{constraintDisplay} uses column "{columnId}" of table "{tableId}", but this column no longer exists.',
         fixHint: 'Pick an existing column below.',
       },
     },
@@ -171,12 +182,14 @@ const inspection = {
     regex: {
       tableMissing: {
         title: 'The table used by this regex rule is missing',
-        description: '{regexDisplay} uses table "{tableId}", but this table may have been deleted or renamed.',
+        description:
+          '{regexDisplay} uses table "{tableId}", but this table may have been deleted or renamed.',
         fixHint: 'Pick an existing table below.',
       },
       colMissing: {
         title: 'The column used by this regex rule is missing',
-        description: '{regexDisplay} uses column "{columnId}" of table "{tableId}", but this column no longer exists.',
+        description:
+          '{regexDisplay} uses column "{columnId}" of table "{tableId}", but this column no longer exists.',
         fixHint: 'Pick an existing column below.',
       },
     },
@@ -193,36 +206,47 @@ const inspection = {
     load: {
       pathValidation: {
         title: '{resourceLabel} has a path problem',
-        description: 'The path to "{resourceLabel}" ({refId}) in the project config cannot be accessed. It may be wrong, or point outside the project folder.',
+        description:
+          'The path to "{resourceLabel}" ({refId}) in the project config cannot be accessed. It may be wrong, or point outside the project folder.',
         fixHint: 'Check the resource path and make sure it points to a file inside the project.',
       },
       notFound: {
         title: '{resourceLabel} file is missing',
-        description: 'The file for "{resourceLabel}" ({refId}) — "{filename}" — does not exist. It may have been moved, deleted, or renamed.',
-        fixHint: 'Confirm the file still exists, or remove this stale reference from the project config.',
+        description:
+          'The file for "{resourceLabel}" ({refId}) — "{filename}" — does not exist. It may have been moved, deleted, or renamed.',
+        fixHint:
+          'Confirm the file still exists, or remove this stale reference from the project config.',
       },
       parseError: {
         title: '{resourceLabel} file has a format problem',
-        description: 'The file for "{resourceLabel}" ({refId}) could not be parsed — usually a YAML syntax error or a missing required field.',
-        fixHint: 'Open the file and check indentation and required fields, referencing other configs of the same type.',
+        description:
+          'The file for "{resourceLabel}" ({refId}) could not be parsed — usually a YAML syntax error or a missing required field.',
+        fixHint:
+          'Open the file and check indentation and required fields, referencing other configs of the same type.',
       },
       templateExpansion: {
         title: 'Template could not be expanded',
-        description: 'A template on the canvas ({instanceId}) failed to expand into rules. The params may be incomplete or the template definition is wrong.',
-        fixHint: 'Check the template params and referenced columns/tables, or delete and recreate it.',
+        description:
+          'A template on the canvas ({instanceId}) failed to expand into rules. The params may be incomplete or the template definition is wrong.',
+        fixHint:
+          'Check the template params and referenced columns/tables, or delete and recreate it.',
       },
     },
     /** Multiple tables share the same name */
     schemaIdDuplicate: {
       title: 'Tables share the same name',
-      description: 'The table name "{schemaId}" is used by {count} tables. Other rules can get confused when looking up a table by name, so each name must be unique.',
-      fixHint: 'Rename one of the tables to something unique (click "Navigate to node" to jump and edit).',
+      description:
+        'The table name "{schemaId}" is used by {count} tables. Other rules can get confused when looking up a table by name, so each name must be unique.',
+      fixHint:
+        'Rename one of the tables to something unique (click "Navigate to node" to jump and edit).',
     },
     /** Multiple tables point to the same data file */
     sourceDuplicate: {
       title: 'Tables point to the same data file',
-      description: 'The data file "{sourceDisplay}" is defined by {count} tables ({schemas}). A data file can only be defined by one table, otherwise reads will conflict.',
-      fixHint: 'Keep only one table and delete or change the others (click "Navigate to node" to jump and handle).',
+      description:
+        'The data file "{sourceDisplay}" is defined by {count} tables ({schemas}). A data file can only be defined by one table, otherwise reads will conflict.',
+      fixHint:
+        'Keep only one table and delete or change the others (click "Navigate to node" to jump and handle).',
     },
   },
 }

@@ -129,6 +129,12 @@ lerna-debug.log*
 /electron/resources/python-runtime/
 /backend/coverage_report.txt
 
+# 图标源文件与中间产物(由 scripts/convert-icon.mjs 生成)
+# 仅 icon.ico/icon.png/icon.icns 入库供构建使用,源图与 1024 中间产物不入库
+/electron/assets/precis_source.png
+/electron/assets/icon-1024.png
+/electron/assets/backup_old_icon/
+
 
 # ============================================================================
 # 5. 环境配置与密钥

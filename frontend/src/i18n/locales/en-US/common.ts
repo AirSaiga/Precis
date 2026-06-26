@@ -432,6 +432,10 @@ const common = {
       directorySelectionUnavailable:
         'Directory selection is unavailable, please ensure the application is running correctly',
     },
+    dataSources: {
+      title: 'Data Source Configuration',
+      noConfig: 'No data source configured, will use project directory as default data source',
+    },
     settings: {
       title: 'Run Settings (from Settings panel)',
       timeout: 'Timeout',

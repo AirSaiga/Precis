@@ -286,7 +286,7 @@
     const result: SettingsNavGroup[] = []
     for (const group of navigationConfig.value) {
       const matchedItems = group.items.filter(
-        (item) => !HIDDEN_NAV_ITEMS.has(item.id) && item.label.toLowerCase().includes(query),
+        (item) => !HIDDEN_NAV_ITEMS.has(item.id) && item.label.toLowerCase().includes(query)
       )
       if (matchedItems.length > 0) {
         result.push({ ...group, items: matchedItems })

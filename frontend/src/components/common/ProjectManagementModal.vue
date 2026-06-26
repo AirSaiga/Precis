@@ -189,6 +189,7 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { useProjectStore } from '@/stores/projectStore'
   import { useCanvasStore } from '@/stores/canvasStore'
+  import { useWorkspaceStore } from '@/stores/workspaceStore'
   import { projectStorageService, type ProjectInfo } from '@/services/projectStorage'
   import { isElectron } from '@/core/utils/electronDetector'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
@@ -337,6 +338,10 @@
       const loadSuccess = await graphStore.loadProjectFromV2()
 
       if (loadSuccess) {
+        // 重新加载外部数据源工作区（从新项目的 .precis/data_sources.yaml 读取）
+        const workspaceStore = useWorkspaceStore()
+        await workspaceStore.initialize()
+
         // 加载项目对应的工作区配置
         await canvasStore.loadWorkspaces(projectPath)
 

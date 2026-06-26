@@ -27,7 +27,9 @@
             :depth="item.level"
             :is-editing="editingId === item.id"
             :is-hovered="hoveredColumnId === item.id"
-            :show-constraint-menu="activeMenuColumnId === item.id && activeMenuType === 'constraint'"
+            :show-constraint-menu="
+              activeMenuColumnId === item.id && activeMenuType === 'constraint'
+            "
             @start-edit="startEdit"
             @confirm-edit="confirmEdit"
             @cancel-edit="cancelEdit"
@@ -171,10 +173,7 @@
   // ==================== 列操作 ====================
 
   // 递归按 ID 查找列（委托给共享工具 columnFinder）
-  const findColumnById = (
-    cols: JsonSchemaColumn[],
-    id: string
-  ): JsonSchemaColumn | undefined => {
+  const findColumnById = (cols: JsonSchemaColumn[], id: string): JsonSchemaColumn | undefined => {
     return findJsonSchemaColumnById(cols, id)?.column
   }
 

@@ -18,7 +18,11 @@ import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import { useI18n } from 'vue-i18n'
-import { sendAiChatMessage, type AgentMeta, type ChatHistoryMessage } from '../core/services/httpClient'
+import {
+  sendAiChatMessage,
+  type AgentMeta,
+  type ChatHistoryMessage,
+} from '../core/services/httpClient'
 import { toastError } from '@/core/toast'
 import { processFrontendInstructions } from '@/services/aiChatInstructionService'
 

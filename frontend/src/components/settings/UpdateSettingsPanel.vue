@@ -195,11 +195,7 @@
   import { ref, onMounted, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { appApi } from '@/core/capabilities/appApi'
-  import {
-    updateApi,
-    type UpdateState,
-    type UpdateConfig,
-  } from '@/core/capabilities/updateApi'
+  import { updateApi, type UpdateState, type UpdateConfig } from '@/core/capabilities/updateApi'
 
   const { t } = useI18n()
 

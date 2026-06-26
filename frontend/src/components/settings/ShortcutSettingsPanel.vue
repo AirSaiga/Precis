@@ -31,11 +31,7 @@
         <div class="settings-row__desc"></div>
         <div class="settings-row__control">
           <label class="ui-switch ui-switch--compact">
-            <input
-              v-model="shortcutStore.showFeedback"
-              type="checkbox"
-              class="ui-switch__input"
-            />
+            <input v-model="shortcutStore.showFeedback" type="checkbox" class="ui-switch__input" />
             <span class="ui-switch__track"></span>
           </label>
         </div>

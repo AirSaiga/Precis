@@ -726,6 +726,9 @@ const fallbackInspector = {
   nodeId: 'Node ID',
   nodeData: 'Node Data',
   json: 'JSON',
+  csv: 'CSV',
+  excel: 'Excel',
+  unknown: 'Unknown',
 }
 
 export { inspector }

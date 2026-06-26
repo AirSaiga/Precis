@@ -43,6 +43,7 @@
     "start:desktop:mac": "bash scripts/mac/start-electron.sh",
     "start:cli:mac": "bash scripts/mac/start-cli.sh",
     "check": "node scripts/check-env.js",
+    "icon": "cd electron && node scripts/convert-icon.mjs",
     "dev": "node -e \"require('dotenv').config(); require('child_process').spawn('npx', ['concurrently', '--kill-others', '--names', 'BACKEND,FRONTEND', '--prefix-colors', 'cyan,green', 'cd backend && python app/start_server.py', 'cd frontend && npm run dev'], { stdio: 'inherit', shell: true });\"",
     "prepare": "husky",
     "lint:all": "cd frontend && npm run lint && cd ../backend && python -m ruff check .",

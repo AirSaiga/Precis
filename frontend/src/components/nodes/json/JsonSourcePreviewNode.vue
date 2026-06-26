@@ -117,7 +117,7 @@
         }}</span>
       </div>
       <div v-if="localData.format !== 'lines'" class="path-config-item">
-        <label class="config-label">Record Path</label>
+        <label class="config-label">{{ t('customNodes.jsonSourcePreviewNode.recordPath') }}</label>
         <input
           type="text"
           class="config-input"

@@ -138,6 +138,7 @@
   import { useProjectStore } from '@/stores/projectStore'
   import { useGraphStore } from '@/stores/graphStore'
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
+  import { useWorkspaceStore } from '@/stores/workspaceStore'
   import { useToast } from '@/composables/shared'
   import { eventBus } from '@/core/eventBus'
   import { getV2Manifest, putV2Manifest } from '@/api/projectV2Api'
@@ -147,6 +148,7 @@
   const projectStore = useProjectStore()
   const graphStore = useGraphStore()
   const resourceTreeStore = useResourceTreeStore()
+  const workspaceStore = useWorkspaceStore()
   const { success, warning } = useToast()
 
   // 本地状态
@@ -339,6 +341,7 @@
 
       localStorage.setItem('resourceTreeExpanded', 'true')
       eventBus.emit('project-applied')
+      await workspaceStore.initialize()
     } catch (error) {
       logger.error('[ProjectInfoPanel] 应用路径更改失败:', error)
       warning(t('settings.projectInfo.applyFailed'), t('common.error'))

@@ -294,7 +294,7 @@ export function useNodeSaving(options: NodeSavingOptions) {
       if (targetColumnId) {
         if (droppedData.type === 'pattern' && droppedData.source === 'projectResources') {
           const patternId = String(
-            ((droppedData.meta as Record<string, unknown> | undefined)?.id) || ''
+            (droppedData.meta as Record<string, unknown> | undefined)?.id || ''
           )
           if (!patternId) return
 
@@ -339,7 +339,8 @@ export function useNodeSaving(options: NodeSavingOptions) {
         ? {
             ...col,
             boundPattern:
-              (patternData.patternName as string | undefined) || (patternData.name as string | undefined),
+              (patternData.patternName as string | undefined) ||
+              (patternData.name as string | undefined),
             boundRegistry: (patternData.registry as string | undefined) || 'expression_registry',
             patternType: (patternData.patternType as string | undefined) || 'regex',
             isBound: true,

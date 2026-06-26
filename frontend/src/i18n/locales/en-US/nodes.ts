@@ -153,6 +153,7 @@ const customNodes = {
     formatObject: 'Nested Object',
     fields: 'fields',
     nestDepth: 'depth',
+    recordPath: 'Record Path',
     jsonPathPlaceholder: 'e.g., $.data.items',
     recordPathPlaceholder: 'e.g., items',
     jsonPathError: 'JSONPath must start with "$"',

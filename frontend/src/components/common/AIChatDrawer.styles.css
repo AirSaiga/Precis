@@ -172,7 +172,10 @@
   color: var(--ui-text-tertiary);
   cursor: pointer;
   opacity: 0;
-  transition: opacity 0.15s ease, background 0.15s ease, color 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    background 0.15s ease,
+    color 0.15s ease;
 }
 
 .message:hover .message-copy-btn {

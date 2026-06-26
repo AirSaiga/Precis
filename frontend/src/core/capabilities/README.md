@@ -11,13 +11,13 @@
 
 ## 能力清单
 
-| 能力文件 | 用途 | Electron 实现 | Web 实现 | 能力探测 |
-|---------|------|--------------|---------|---------|
-| `appApi.ts` | 应用级能力：版本、后端端口/状态、最近项目持久化、后端重启 | IPC (`getAppVersion` / `getServerStatus` / `loadConfig` / `saveConfig` / `restartPythonServer`) | HTTP API + `localStorage` | `canRestoreRecentProject` |
-| `dialogApi.ts` | 文件/目录选择 | `showOpenDialog` | `<input type="file">` / `webkitdirectory` + 上传 | `canSelectFiles` / `canSelectDirectory` / `canSelectDirectoryEntries` |
-| `fileApi.ts` | 文件读写、上传、扫描目录 | 本地文件 API | HTTP 文件 API | 无（通过结果判断） |
-| `shellApi.ts` | 用系统程序/编辑器打开文件、打开外部链接 | `openFile` / `openInEditor` | 下载文件 / 复制路径 | `canOpenLocalFile` / `canOpenInEditor` |
-| `updateApi.ts` | 自动更新检查/下载/安装 | `electron-updater` IPC | 返回不支持 | `isSupported` |
+| 能力文件       | 用途                                                      | Electron 实现                                                                                   | Web 实现                                         | 能力探测                                                              |
+| -------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------- |
+| `appApi.ts`    | 应用级能力：版本、后端端口/状态、最近项目持久化、后端重启 | IPC (`getAppVersion` / `getServerStatus` / `loadConfig` / `saveConfig` / `restartPythonServer`) | HTTP API + `localStorage`                        | `canRestoreRecentProject`                                             |
+| `dialogApi.ts` | 文件/目录选择                                             | `showOpenDialog`                                                                                | `<input type="file">` / `webkitdirectory` + 上传 | `canSelectFiles` / `canSelectDirectory` / `canSelectDirectoryEntries` |
+| `fileApi.ts`   | 文件读写、上传、扫描目录                                  | 本地文件 API                                                                                    | HTTP 文件 API                                    | 无（通过结果判断）                                                    |
+| `shellApi.ts`  | 用系统程序/编辑器打开文件、打开外部链接                   | `openFile` / `openInEditor`                                                                     | 下载文件 / 复制路径                              | `canOpenLocalFile` / `canOpenInEditor`                                |
+| `updateApi.ts` | 自动更新检查/下载/安装                                    | `electron-updater` IPC                                                                          | 返回不支持                                       | `isSupported`                                                         |
 
 ## 使用规范
 

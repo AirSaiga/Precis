@@ -28,13 +28,13 @@ export function useRegexValidation() {
   const handleRegexValidate = async (regexNodeId: string): Promise<void> => {
     const regexNode = store.nodes.find((node) => node.id === regexNodeId)
     if (!regexNode) {
-      showError(t('regexNode.validation.nodeNotFound'))
+      showError(t('inspector.regexNode.validation.nodeNotFound'))
       return
     }
 
     const source = resolveRegexSource(regexNodeId, store.nodes, store.edges)
     if (!source) {
-      showError(t('regexNode.validation.sourceNotConnected'))
+      showError(t('inspector.regexNode.validation.sourceNotConnected'))
       return
     }
 
