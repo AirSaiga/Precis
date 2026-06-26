@@ -181,13 +181,14 @@ async def chat_completions(request: ChatRequestInput):
             yield '{"id":"chatcmpl-start","object":"chat.completion.chunk","choices":[{"delta":{"role":"assistant"}}]}\n\n'
 
             try:
-                # 逐块获取流式输出
+                # 逐块获取流式输出，提取 delta 文本（该端点为纯文本兼容流，不处理 tool_calls）
                 async for chunk in provider.chat_stream(chat_req):
-                    # 构建 SSE 数据包，格式与 OpenAI 兼容
-                    data = {"object": "chat.completion.chunk", "choices": [{"delta": {"content": chunk}}]}
-                    import json
+                    if chunk.type == "delta" and chunk.text:
+                        # 构建 SSE 数据包，格式与 OpenAI 兼容
+                        data = {"object": "chat.completion.chunk", "choices": [{"delta": {"content": chunk.text}}]}
+                        import json
 
-                    yield f"data: {json.dumps(data)}\n\n"
+                        yield f"data: {json.dumps(data)}\n\n"
             except Exception as exc:
                 logging.getLogger(__name__).exception("Chat stream failed")
                 yield f"data: {json.dumps({'error': str(exc)})}\n\n"

@@ -41,7 +41,7 @@ else:
         APIStatusError = None
         AsyncOpenAI = None
 
-from .base import BaseProvider, ChatRequest, ChatResponse
+from .base import BaseProvider, ChatRequest, ChatResponse, StreamChunk
 
 logger = logging.getLogger(__name__)
 
@@ -160,15 +160,19 @@ class OpenAIProvider(BaseProvider):
         # 所有重试已耗尽且未正常返回，理论上不会到达此处
         raise RuntimeError("OpenAI 请求在重试后仍未完成")
 
-    async def chat_stream(self, req: ChatRequest) -> AsyncIterator[str]:
+    async def chat_stream(self, req: ChatRequest) -> AsyncIterator[StreamChunk]:
         """
-        @methoddesc 发送流式对话请求，逐块返回内容
+        @methoddesc 发送流式对话请求（支持 tools 与 tool_calls 分片累积），逐块返回统一 StreamChunk
+
+        统一输出契约:
+        - delta 文本 → StreamChunk(type="delta", text=...)
+        - tool_calls（分片累积， finish_reason="tool_calls" 时） → StreamChunk(type="tool_calls", tool_calls=[...原始格式]）
 
         参数:
             req: 对话请求对象
 
         返回:
-            异步生成器，每个内容块字符串（逐字或逐句）
+            AsyncIterator[StreamChunk]: 统一流式输出单元
 
         异常:
             APIConnectionError: 网络连接失败
@@ -176,19 +180,70 @@ class OpenAIProvider(BaseProvider):
             ValueError: 流式响应解析异常
         """
         try:
-            stream = await self.client.chat.completions.create(
-                model=self._get_model(req.model),
-                messages=[{"role": m.role, "content": m.content} for m in req.messages],
-                temperature=req.temperature,
-                stream=True,
-            )
-            # 逐块读取流式响应，过滤空块
+            # 构造 messages payload，与非流式 chat 一致（支持 tool_calls/tool_call_id 上下文）
+            messages_payload = []
+            for m in req.messages:
+                msg: dict = {"role": m.role}
+                if m.content is not None:
+                    msg["content"] = m.content
+                if m.tool_calls is not None:
+                    msg["tool_calls"] = m.tool_calls
+                if m.tool_call_id is not None:
+                    msg["tool_call_id"] = m.tool_call_id
+                messages_payload.append(msg)
+
+            kwargs: dict = {
+                "model": self._get_model(req.model),
+                "messages": messages_payload,
+                "temperature": req.temperature,
+                "stream": True,
+            }
+            if req.tools:
+                kwargs["tools"] = req.tools
+                kwargs["tool_choice"] = req.tool_choice if req.tool_choice is not None else "auto"
+
+            stream = await self.client.chat.completions.create(**kwargs)
+
+            # tool_calls 分片累积器: {index: {"id":"", "name":"", "arguments":""}}
+            tc_acc: dict[int, dict[str, str]] = {}
             async for chunk in stream:
                 if not chunk.choices:
                     continue
-                delta = chunk.choices[0].delta
+                choice = chunk.choices[0]
+                delta = choice.delta
+
+                # 1. 文本增量 → 立即 yield
                 if delta and delta.content:
-                    yield delta.content
+                    yield StreamChunk(type="delta", text=delta.content)
+
+                # 2. tool_calls 分片 → 累积（不立即 yield）
+                if delta and delta.tool_calls:
+                    for tc in delta.tool_calls:
+                        slot = tc_acc.setdefault(tc.index, {"id": "", "name": "", "arguments": ""})
+                        if getattr(tc, "id", None):
+                            slot["id"] = tc.id
+                        if getattr(tc.function, "name", None):
+                            slot["name"] = tc.function.name
+                        slot["arguments"] += tc.function.arguments or ""
+
+                # 3. finish_reason="tool_calls" → 一次性 yield 完整 tool_calls（OpenAI 原始格式）
+                if choice.finish_reason == "tool_calls":
+                    yield StreamChunk(
+                        type="tool_calls",
+                        tool_calls=[
+                            {
+                                "id": v["id"],
+                                "type": "function",
+                                "function": {
+                                    "name": v["name"],
+                                    "arguments": v["arguments"],
+                                },
+                            }
+                            for v in tc_acc.values()
+                        ],
+                    )
+                    tc_acc.clear()
+                # finish_reason="stop" → 流自然结束（循环结束），无需特殊处理
         except (APIConnectionError, APIStatusError):
             raise
         except Exception as e:

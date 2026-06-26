@@ -123,9 +123,11 @@ class BaseProvider(ABC):
         pass
 
     @abstractmethod
-    def chat_stream(self, req: ChatRequest) -> AsyncIterator[str]:
+    def chat_stream(self, req: ChatRequest) -> AsyncIterator[StreamChunk]:
         """
         @methoddesc 流式对话
+
+        所有 Provider 必须返回 AsyncIterator[StreamChunk] 统一输出契约。
         """
         pass
 
