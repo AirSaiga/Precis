@@ -9,11 +9,8 @@
 import { type ComputedRef, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isAxiosError } from '@/core/services/httpClient'
-import {
-  getAiMigrateV2ConfigJob,
-  postAiMigrateV2ConfigJob,
-  postCancelAiMigrateV2ConfigJob,
-} from '@/api/aiApi'
+import { createSSEClient, type SSEClient } from '@/core/services/sseClient'
+import { postCancelAiMigrateV2ConfigJob } from '@/api/aiApi'
 import type {
   AiGenerateV2ConfigJobStatus,
   AiGenerateV2ConfigOptions,
@@ -54,6 +51,57 @@ export function useMigrationJob(
     if (jobState.elapsedTimer.value) {
       window.clearInterval(jobState.elapsedTimer.value)
       jobState.elapsedTimer.value = null
+    }
+  }
+
+  /** 当前 SSE 客户端（SSE 模式下用于取消/关闭） */
+  let currentSSEClient: SSEClient | null = null
+
+  /** 处理 SSE 事件（替代轮询的 handleJobStatus） */
+  const handleSSEEvent = (event: string, data: unknown) => {
+    const d = (data ?? {}) as Record<string, unknown>
+    if (event === 'progress') {
+      jobState.currentStage.value = (d.stage as string) || ''
+      jobState.progressMessage.value = (d.message as string) || ''
+      return
+    }
+    if (event === 'completed') {
+      const result = d.result as AiGenerateV2ConfigResponse | undefined
+      if (result) {
+        jobState.generatedConfig.value = result
+        jobState.yamlPreview.value = result.yaml_preview || ''
+        window.$toast?.success(t('common.success'), t('aiConfigGenerator.toast.generated'))
+      }
+      jobState.generating.value = false
+      jobState.canceling.value = false
+      if (jobState.generateStartedAt.value != null)
+        jobState.lastElapsedMs.value = Date.now() - jobState.generateStartedAt.value
+      jobState.generateStartedAt.value = null
+      stopElapsed()
+      currentSSEClient = null
+      return
+    }
+    if (event === 'error') {
+      const msg = (d.message as string) || t('aiConfigGenerator.toast.generateFailed')
+      jobState.generating.value = false
+      jobState.canceling.value = false
+      if (jobState.generateStartedAt.value != null)
+        jobState.lastElapsedMs.value = Date.now() - jobState.generateStartedAt.value
+      jobState.generateStartedAt.value = null
+      stopElapsed()
+      window.$toast?.error(t('aiConfigGenerator.toast.generateFailed'), msg)
+      currentSSEClient = null
+      return
+    }
+    if (event === 'cancelled') {
+      jobState.generating.value = false
+      jobState.canceling.value = false
+      if (jobState.generateStartedAt.value != null)
+        jobState.lastElapsedMs.value = Date.now() - jobState.generateStartedAt.value
+      jobState.generateStartedAt.value = null
+      stopElapsed()
+      window.$toast?.info(t('common.info'), t('aiConfigGenerator.toast.canceled'))
+      currentSSEClient = null
     }
   }
 
@@ -101,31 +149,6 @@ export function useMigrationJob(
       jobState.generateStartedAt.value = null
       stopElapsed()
       window.$toast?.info(t('common.info'), t('aiConfigGenerator.toast.canceled'))
-    }
-  }
-
-  const pollJob = async () => {
-    if (!configPath.value || !jobState.jobId.value) return
-    try {
-      const status = await getAiMigrateV2ConfigJob(jobState.jobId.value, configPath.value)
-      handleJobStatus(status)
-    } catch (e) {
-      let msg = e instanceof Error ? e.message : String(e)
-      if (isAxiosError(e)) {
-        const data = e.response?.data as unknown
-        if (typeof data === 'string' && data.trim()) {
-          msg = data
-        } else if (data && typeof data === 'object') {
-          const obj = data as Record<string, unknown>
-          if (obj.detail) msg = String(obj.detail)
-          else if (obj.error) msg = String(obj.error)
-          else if (e.message) msg = e.message
-        }
-      }
-      jobState.generating.value = false
-      jobState.canceling.value = false
-      stopPolling()
-      window.$toast?.error(t('aiConfigGenerator.toast.generateFailed'), msg)
     }
   }
 
@@ -182,11 +205,27 @@ export function useMigrationJob(
         provider_id: activeProvider.value?.id,
         options: options.value,
       }
-      const created = await postAiMigrateV2ConfigJob(payload, configPath.value)
-      jobState.jobId.value = created.job_id
-      stopPolling()
-      jobState.pollTimer.value = window.setInterval(pollJob, 600)
-      await pollJob()
+      // SSE 流式模式：连接 migrate/stream，事件实时更新状态
+      const sseClient = createSSEClient()
+      currentSSEClient = sseClient
+      await sseClient.connect('/ai/config/migrate/stream', payload, {
+        onEvent: (event, _id, eventData) => {
+          handleSSEEvent(event, eventData)
+        },
+        onError: (err) => {
+          jobState.generating.value = false
+          jobState.canceling.value = false
+          currentSSEClient = null
+          if (jobState.generateStartedAt.value != null)
+            jobState.lastElapsedMs.value = Date.now() - jobState.generateStartedAt.value
+          jobState.generateStartedAt.value = null
+          stopElapsed()
+          window.$toast?.error(t('aiConfigGenerator.toast.generateFailed'), err.message)
+        },
+        onClose: () => {
+          currentSSEClient = null
+        },
+      })
     } catch (e) {
       let msg = e instanceof Error ? e.message : String(e)
       if (isAxiosError(e)) {
@@ -220,12 +259,18 @@ export function useMigrationJob(
   }
 
   const cancelMigration = async () => {
-    if (!configPath.value || !jobState.jobId.value) return
     if (jobState.canceling.value) return
     jobState.canceling.value = true
     try {
-      const status = await postCancelAiMigrateV2ConfigJob(jobState.jobId.value, configPath.value)
-      handleJobStatus(status)
+      // SSE 模式：关闭客户端连接
+      if (currentSSEClient) {
+        currentSSEClient.close()
+      }
+      // 兼容：若仍有 jobId（旧轮询残留），调用取消端点
+      if (jobState.jobId.value && configPath.value) {
+        const status = await postCancelAiMigrateV2ConfigJob(jobState.jobId.value, configPath.value)
+        handleJobStatus(status)
+      }
     } catch (e) {
       jobState.canceling.value = false
       const msg = e instanceof Error ? e.message : String(e)

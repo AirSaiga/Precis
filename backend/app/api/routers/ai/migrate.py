@@ -10,10 +10,11 @@ from __future__ import annotations
 import asyncio
 import threading
 import uuid
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, Header, HTTPException
 
 from app.api.dependencies import get_project_config_path
 from app.shared.services.ai.job_storage import AgentJobStorage
@@ -84,8 +85,23 @@ async def create_migrate_job(
     return ConfigGenerateJobCreateResponse(job_id=job_id)
 
 
-async def _run_migrate_job(job_id: str, payload: ConfigMigrateRequest, config_path: str):
-    """后台执行迁移任务"""
+async def _run_migrate_job(
+    job_id: str,
+    payload: ConfigMigrateRequest,
+    config_path: str,
+    emit: Callable[[str, dict[str, Any]], None] | None = None,
+):
+    """后台执行迁移任务
+
+    参数:
+        emit: 可选的 SSE 事件推送回调 (event_type, data_dict)。
+    """
+
+    def emit_status(event_type: str, **fields: Any) -> None:
+        """持久化状态变更的同时推 SSE 事件（若 emit 已注入）。"""
+        if emit is not None:
+            emit(event_type, {k: v for k, v in fields.items() if v is not None})
+
     storage = _get_storage(config_path)
 
     def update_status(
@@ -118,6 +134,23 @@ async def _run_migrate_job(job_id: str, payload: ConfigMigrateRequest, config_pa
             data["result"] = result
         job_status = ConfigGenerateJobStatus(**data)
         storage.save_status(job_id, job_status.model_dump())
+
+        # 同时推 SSE 事件（若 emit 已注入）
+        if status == "completed":
+            emit_status("completed", reply="", result=data.get("result"), iterations=iterations)
+        elif status == "failed":
+            emit_status("error", message=error or "迁移失败")
+        elif status == "cancelled":
+            emit_status("cancelled", completed_turns=iterations or 0, partial=True)
+        else:
+            emit_status(
+                "progress",
+                stage=stage,
+                progress=progress,
+                message=message,
+                iterations=iterations,
+                metrics=metrics,
+            )
         return job_status
 
     update_status("running", stage="initializing", progress=0.0)
@@ -229,6 +262,78 @@ async def get_migrate_job(job_id: str, config_path: str = Depends(get_project_co
     if not status_data:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
     return ConfigGenerateJobStatus(**status_data)
+
+
+@router.post(
+    "/config/migrate/stream",
+    summary="AI 配置迁移流式接口(SSE)",
+)
+async def migrate_stream(
+    payload: ConfigMigrateRequest,
+    config_path: str = Depends(get_project_config_path),
+    last_event_id: int = Header(default=0, alias="Last-Event-ID"),
+):
+    """@methoddesc 脚本迁移流式端点
+
+    创建 migrate job task 并通过 SSE 实时推送进度与终态。
+    复用 _run_migrate_job 逻辑，通过 emit 回调桥接到 EventJournal + 事件队列。
+    """
+    from fastapi.responses import StreamingResponse
+
+    from app.shared.services.ai.streaming.event_journal import EventJournal
+    from app.shared.services.ai.streaming.sse_response import sse_event_stream
+
+    job_id = f"job_migrate_{uuid.uuid4().hex[:12]}"
+    now = _now_iso()
+
+    storage = _get_storage(config_path)
+    storage.cleanup_old_jobs(max_age_hours=_JOB_TTL_HOURS)
+    job_status = ConfigGenerateJobStatus(
+        job_id=job_id,
+        status="pending",
+        stage="initializing",
+        progress=0.0,
+        iterations=0,
+        max_iterations=payload.options.max_iterations,
+        created_at=now,
+        updated_at=now,
+        warnings=[],
+    )
+    storage.save_status(job_id, job_status.model_dump())
+
+    journal_dir = _journal_dir_for(config_path)
+    journal = EventJournal(job_id=job_id, journal_dir=journal_dir)
+    event_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+
+    def emit(event: str, data: dict[str, Any]) -> None:
+        eid = journal.append(event, data)
+        try:
+            event_queue.put_nowait({"id": eid, "event": event, "data": data})
+        except asyncio.QueueFull:
+            pass
+
+    task = asyncio.create_task(_run_migrate_job(job_id, payload, config_path, emit=emit))
+    with _job_tasks_lock:
+        _job_tasks[job_id] = task
+
+    async def _sse_generator():
+        async for frame in sse_event_stream(
+            journal=journal,
+            last_event_id=last_event_id,
+            event_queue=event_queue,
+        ):
+            yield frame
+
+    return StreamingResponse(_sse_generator(), media_type="text/event-stream")
+
+
+def _journal_dir_for(config_path: str) -> str:
+    """根据项目路径返回 journal 目录（复用 .precis/stream_jobs 约定）。"""
+    import os
+
+    if config_path:
+        return os.path.join(config_path, ".precis", "stream_jobs")
+    return os.path.join(os.path.expanduser("~"), ".precis", "stream_jobs")
 
 
 @router.post(

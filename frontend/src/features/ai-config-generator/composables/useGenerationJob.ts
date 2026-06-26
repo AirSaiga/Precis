@@ -26,12 +26,9 @@
 import { computed, onUnmounted, ref, type ComputedRef, type Ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { isAxiosError } from '@/core/services/httpClient'
+import { createSSEClient, type SSEClient } from '@/core/services/sseClient'
 import { useGraphStore } from '@/stores/graphStore'
-import {
-  getAiGenerateV2ConfigJob,
-  postAiGenerateV2ConfigJob,
-  postCancelAiGenerateV2ConfigJob,
-} from '@/api/aiApi'
+import { postCancelAiGenerateV2ConfigJob } from '@/api/aiApi'
 import type {
   AiGenerateV2ConfigJobStatus,
   AiGenerateV2ConfigMetrics,
@@ -90,8 +87,11 @@ export function useGenerationJob(
   /** 当前用于计算耗时的实时时间戳 */
   const elapsedNow = ref<number>(Date.now())
 
-  /** 轮询定时器句柄 */
+  /** 轮询定时器句柄（保留用于取消端点轮询兼容，SSE 模式下不再使用） */
   const pollTimer = ref<number | null>(null)
+
+  /** 当前 SSE 客户端（SSE 模式下用于取消/关闭） */
+  let currentSSEClient: SSEClient | null = null
 
   /** 计时器句柄 */
   const elapsedTimer = ref<number | null>(null)
@@ -204,33 +204,66 @@ export function useGenerationJob(
   }
 
   /**
-   * 轮询任务状态
+   * 处理 SSE 事件（替代轮询的 handleJobStatus）
+   *
+   * 事件类型：
+   * - progress: 中间态，更新 currentStage/progressMessage/iterations/metrics/currentPlan
+   * - completed: 终态，设置 generatedConfig/yamlPreview，停止生成
+   * - error: 终态，提示失败
+   * - cancelled: 终态，提示已取消
    */
-  const pollJob = async () => {
-    if (!configPath.value || !jobId.value) return
-    try {
-      const status = await getAiGenerateV2ConfigJob(jobId.value, configPath.value)
-      handleJobStatus(status)
-    } catch (e) {
-      let msg = e instanceof Error ? e.message : String(e)
-      if (isAxiosError(e)) {
-        const data = e.response?.data as unknown
-        if (typeof data === 'string' && data.trim()) {
-          msg = data
-        } else if (data && typeof data === 'object') {
-          const obj = data as Record<string, unknown>
-          if (obj.detail) msg = String(obj.detail)
-          else if (obj.error) msg = String(obj.error)
-          else if (e.message) msg = e.message
-        }
+  const handleSSEEvent = (event: string, data: unknown) => {
+    const d = (data ?? {}) as Record<string, unknown>
+    if (event === 'progress') {
+      warnings.value = [] // progress 事件不携带 warnings，保持现有
+      currentStage.value = (d.stage as string) || ''
+      progressMessage.value = (d.message as string) || ''
+      iterations.value = typeof d.iterations === 'number' ? d.iterations : iterations.value
+      if (d.metrics) metrics.value = d.metrics as AiGenerateV2ConfigMetrics
+      if (d.current_plan) currentPlan.value = d.current_plan as Array<Record<string, unknown>>
+      return
+    }
+
+    if (event === 'completed') {
+      const result = d.result as AiGenerateV2ConfigResponse | undefined
+      if (result) {
+        generatedConfig.value = result
+        yamlPreview.value = result.yaml_preview || ''
+        window.$toast?.success(t('common.success'), t('aiConfigGenerator.toast.generated'))
       }
       generating.value = false
       canceling.value = false
-      stopPolling()
+      if (generateStartedAt.value != null)
+        lastElapsedMs.value = Date.now() - generateStartedAt.value
+      generateStartedAt.value = null
+      stopElapsed()
+      return
+    }
+
+    if (event === 'error') {
+      const msg = (d.message as string) || t('aiConfigGenerator.toast.generateFailed')
+      generating.value = false
+      canceling.value = false
+      if (generateStartedAt.value != null)
+        lastElapsedMs.value = Date.now() - generateStartedAt.value
+      generateStartedAt.value = null
+      stopElapsed()
       window.$toast?.error(t('aiConfigGenerator.toast.generateFailed'), msg)
+      return
+    }
+
+    if (event === 'cancelled') {
+      generating.value = false
+      canceling.value = false
+      if (generateStartedAt.value != null)
+        lastElapsedMs.value = Date.now() - generateStartedAt.value
+      generateStartedAt.value = null
+      stopElapsed()
+      window.$toast?.info(t('common.info'), t('aiConfigGenerator.toast.canceled'))
     }
   }
 
+  /**
   /**
    * 启动生成任务
    * @param onBeforeSubmit - 提交前的回调（如硬件预检、缓存加载）
@@ -283,11 +316,28 @@ export function useGenerationJob(
         },
       }
 
-      const created = await postAiGenerateV2ConfigJob(payload, configPath.value)
-      jobId.value = created.job_id
-      stopPolling()
-      pollTimer.value = window.setInterval(pollJob, 600)
-      await pollJob()
+      // SSE 流式模式：连接 generate/stream，事件实时更新状态
+      const sseClient = createSSEClient()
+      currentSSEClient = sseClient
+      await sseClient.connect('/ai/config/generate/stream', payload, {
+        onEvent: (event, _id, data) => {
+          handleSSEEvent(event, data)
+        },
+        onError: (err) => {
+          const msg = err.message
+          generating.value = false
+          canceling.value = false
+          currentSSEClient = null
+          if (generateStartedAt.value != null)
+            lastElapsedMs.value = Date.now() - generateStartedAt.value
+          generateStartedAt.value = null
+          stopElapsed()
+          window.$toast?.error(t('aiConfigGenerator.toast.generateFailed'), msg)
+        },
+        onClose: () => {
+          currentSSEClient = null
+        },
+      })
     } catch (e) {
       let msg = e instanceof Error ? e.message : String(e)
       if (isAxiosError(e)) {
@@ -314,15 +364,24 @@ export function useGenerationJob(
   }
 
   /**
-   * 取消当前生成任务
+   * 取消当前生成任务（软取消）
+   *
+   * SSE 模式：关闭 SSE 客户端连接，后端检测到连接断开后中断。
+   * 兼容旧模式：若有 jobId 则同时调用取消端点。
    */
   const cancelGenerate = async () => {
-    if (!configPath.value || !jobId.value) return
     if (canceling.value) return
     canceling.value = true
     try {
-      const status = await postCancelAiGenerateV2ConfigJob(jobId.value, configPath.value)
-      handleJobStatus(status)
+      // SSE 模式：关闭客户端连接
+      if (currentSSEClient) {
+        currentSSEClient.close()
+      }
+      // 兼容：若仍有 jobId（旧轮询残留），调用取消端点
+      if (jobId.value && configPath.value) {
+        const status = await postCancelAiGenerateV2ConfigJob(jobId.value, configPath.value)
+        handleJobStatus(status)
+      }
     } catch (e) {
       canceling.value = false
       const msg = e instanceof Error ? e.message : String(e)
@@ -333,6 +392,7 @@ export function useGenerationJob(
   onUnmounted(() => {
     stopPolling()
     stopElapsed()
+    currentSSEClient?.close()
   })
 
   return {
@@ -361,5 +421,6 @@ export function useGenerationJob(
     stopPolling,
     stopElapsed,
     handleJobStatus,
+    handleSSEEvent,
   }
 }
