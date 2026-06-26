@@ -239,3 +239,24 @@ def resolve_context_window(config: AIProvider, model: str | None = None) -> int:
 
     provider = create(config)
     return provider.get_context_window(model)
+
+
+@dataclass
+class StreamChunk:
+    """@classdesc chat_stream 的统一输出单元
+
+    所有 Provider 的 chat_stream 必须返回 AsyncIterator[StreamChunk]。
+    统一两边输出契约，上层 AgentExecutor 只消费此类型，不关心 Provider 差异。
+
+    Attributes:
+        type: "delta"(文本增量) 或 "tool_calls"(完整工具调用集，一次性产出)
+        text: type="delta" 时的文本增量，其余为 None
+        tool_calls: type="tool_calls" 时的 OpenAI 原始格式 tool_call dict 列表，
+            格式与 parse_tool_call 期望一致: [{"id":..., "function":{"name":..., "arguments":"<json str>"}}],
+            其余为 None。注意: 必须是原始 dict 而非项目内 ToolCall dataclass，
+            以便直接喂给 registry.parse_tool_call() 复用。
+    """
+
+    type: str  # Literal["delta", "tool_calls"] 用 str 避免循环导入
+    text: str | None = None
+    tool_calls: list[dict[str, Any]] | None = None
