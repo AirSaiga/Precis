@@ -25,6 +25,7 @@ import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData, TransformNodeData } from '@/types/graph'
 import { useI18n } from 'vue-i18n'
+import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { toastError, toastWarning } from '@/core/toast'
 import { createV2ImportEdges } from './edges'
 import { createV2SchemaImporter } from './schema'
@@ -82,6 +83,7 @@ export function createV2ImportToCanvas(params: {
     sourceIndex,
   } = params
   const { t } = useI18n()
+  const { showConfirm } = useGlobalConfirm()
 
   const { ensureSchemaToRegexEdge, ensureSchemaToConstraintEdge, bufferEdge, flushBufferedEdges } =
     createV2ImportEdges({ edges })
@@ -192,6 +194,38 @@ export function createV2ImportToCanvas(params: {
       if (normalizedKind === 'schema') {
         const nodeId = await importSchema(resourceId, position)
         selectedNodeId.value = nodeId
+
+        // 检测引用该 Schema 的关联独立约束，询问用户是否一并导入。
+        // 仅当存在「尚未在画布上」的关联独立约束时才弹窗（智能跳过，零打扰）。
+        // 设计背景：拖拽 Schema 默认只物化内嵌约束，独立约束需用户决策是否连带，
+        // 避免自动连带造成「拖一个出现一堆」的雪崩。详见
+        // docs/superpowers/specs/2026-06-26-schema-import-related-constraints-prompt-design.md
+        if (getIndependentConstraintIdsForSchema) {
+          const pendingIds =
+            getIndependentConstraintIdsForSchema(resourceId)?.filter(
+              (cId) => !nodes.value.some((n) => n.id === cId)
+            ) || []
+
+          if (pendingIds.length > 0) {
+            const importAll = await showConfirm({
+              title: t('canvas.nodeCanvas.relatedConstraintsTitle'),
+              message: t('canvas.nodeCanvas.relatedConstraintsMessage', {
+                schema: resourceId,
+                count: pendingIds.length,
+                constraints: pendingIds.join(', '),
+              }),
+              confirmText: t('canvas.nodeCanvas.relatedConstraintsImportAll'),
+              cancelText: t('canvas.nodeCanvas.relatedConstraintsSchemaOnly'),
+              type: 'info',
+            })
+            // 用户选「全部导入」→ 连带创建关联独立约束（复用已有能力，幂等且避免雪崩）
+            // 用户选「只导 Schema」/关闭弹窗 → 跳过，保持当前行为
+            if (importAll === true) {
+              await importRelatedIndependentConstraints(resourceId, '', position)
+            }
+          }
+        }
+
         sourceIndex?.rebuild()
         await nextTick()
         flushBufferedEdges()

@@ -124,6 +124,29 @@ async function dragSchemaToCanvas(
   throw new Error(`dragSchemaToCanvas 失败（已重试 3 次）: ${lastError}`)
 }
 
+/**
+ * 处理拖拽 Schema 后可能弹出的“发现关联的独立约束”确认框。
+ *
+ * 拖拽有独立约束引用的 Schema 时，前端会弹窗询问是否一并导入。
+ * 该 helper 根据传入的选择，点击对应按钮：
+ * - 'importAll' → 点“全部导入”（连带创建独立约束）
+ * - 'schemaOnly' → 点“只导 Schema”（仅物化内嵌约束）
+ * 若弹窗未出现（如该 Schema 无关联独立约束），直接返回，保证幂等。
+ */
+async function handleRelatedConstraintsPrompt(
+  page: import('@playwright/test').Page,
+  choice: 'importAll' | 'schemaOnly'
+) {
+  const overlay = page.locator('.global-confirm-overlay')
+  // 给弹窗一点时间出现（拖拽后异步触发）
+  await page.waitForTimeout(600)
+  if (!(await overlay.isVisible().catch(() => false))) return
+
+  const btnText = choice === 'importAll' ? /全部导入/ : /只导 Schema/
+  await overlay.getByRole('button', { name: btnText }).click()
+  await expect(overlay).toBeHidden({ timeout: 5000 })
+}
+
 test.describe('画布真实 UI 交互', () => {
   test.beforeEach(async ({ projectPage, testProjectPath }) => {
     // 每个测试从干净状态开始：打开项目、并清理之前可能残留的 view.json
@@ -172,16 +195,52 @@ test.describe('画布真实 UI 交互', () => {
     await expect(schemaItem).toBeVisible({ timeout: 10000 })
 
     await dragSchemaToCanvas(page, 'users')
+    // users 被 8 个独立约束引用（见 constraints/*.constraint.yaml），拖拽后会弹
+    // “发现关联的独立约束”确认框。这里选“只导 Schema”，验证仅物化内嵌约束（保持导入范围可控）。
+    await handleRelatedConstraintsPrompt(page, 'schemaOnly')
 
-    // 拖拽 Schema 时应自动带出关联约束（fixture users 在 manifest 中声明了独立 NotNull）。
-    // 注意 Vue Flow 节点类名是 camelCase（notNullConstraint），且同一 Schema 会带出多个约束
-    // （本 fixture 实测会带出 7 个），因此只断言“至少出现一个约束节点”，不锁死具体数量。
+    // 拖拽 Schema 时应自动物化内嵌约束（users.schema.yaml 内嵌了 NotNull/Unique 等）。
+    // 注意 Vue Flow 节点类名是 camelCase（notNullConstraint），且同一 Schema 会物化多个内嵌约束，
+    // 因此只断言“至少出现一个约束节点”，不锁死具体数量。
     // 说明：约束节点会被创建，但 Schema↔约束 的连线（edge）不会在拖拽导入时自动建立
     // （连线是用户后续手动操作），故此处不验证 edge。
     const constraintNode = page.locator(
       '.vue-flow__node-notNullConstraint, .vue-flow__node-charsetConstraint, .vue-flow__node-rangeConstraint'
     )
     await expect(constraintNode.first()).toBeVisible({ timeout: 15000 })
+  })
+
+  test('拖拽 Schema 选择“全部导入”会连带创建独立约束', async ({ projectPage }) => {
+    const page = projectPage
+    await expandSchemasFolder(page, 'users')
+    await dragSchemaToCanvas(page, 'users')
+
+    // 弹窗应出现，且文案包含被引用的独立约束信息
+    const overlay = page.locator('.global-confirm-overlay')
+    await expect(overlay).toBeVisible({ timeout: 10000 })
+    await expect(overlay).toContainText(/独立约束/)
+
+    // 选“全部导入”→ 连带创建引用 users 的独立约束节点
+    await overlay.getByRole('button', { name: /全部导入/ }).click()
+    await expect(overlay).toBeHidden({ timeout: 5000 })
+
+    // users 的独立约束包含 DateLogic（users_birth_date_check）、Charset（users_username_ascii）、
+    // Conditional（users_conditional_id_card）等。至少应出现一个这些类型的约束节点。
+    // （内嵌约束物化同样会产生 NotNull/Unique/Range/AllowedValues，这里用独立约束独有的类型
+    //   DateLogic/Charset/Conditional 来区分“全部导入”与“只导 Schema”。）
+    await page.waitForTimeout(1500) // 等待连带约束异步创建
+    const independentConstraintNode = page.locator(
+      '.vue-flow__node-dateLogicConstraint, .vue-flow__node-charsetConstraint, .vue-flow__node-conditionalConstraint'
+    )
+    await expect(independentConstraintNode.first()).toBeVisible({ timeout: 15000 })
+
+    // 验证约束节点数量多于“只导 Schema”路径（内嵌只有 4 个，全部导入后必然更多）
+    const totalConstraints = await page
+      .locator(
+        '[class*="vue-flow__node-"][class*="Constraint"]'
+      )
+      .count()
+    expect(totalConstraints).toBeGreaterThan(4)
   })
 
   test('点击“全量校验”按钮，验证结果面板显示', async ({ projectPage }) => {

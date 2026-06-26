@@ -105,6 +105,11 @@ const canvas = {
       '数据源 "{source}" 已被其他 Schema 节点使用（{nodes}），请避免重复绑定。',
     duplicateSourceImportMessage:
       '导入的 Schema "{resourceId}" 与已有 Schema 节点使用同一数据源（{nodes}），请检查重复。',
+    relatedConstraintsTitle: '发现关联的独立约束',
+    relatedConstraintsMessage:
+      'Schema "{schema}" 被 {count} 个独立约束引用：{constraints}。是否一并导入并自动连线？',
+    relatedConstraintsImportAll: '全部导入',
+    relatedConstraintsSchemaOnly: '只导 Schema',
     sheetNotFound: 'Sheet "{sheet}" 不存在于目标文件中，请在 Schema 属性面板中修正工作表名称',
     sheetNotFoundWithList:
       'Sheet "{sheet}" 不存在于目标文件中。文件拥有的工作表: {list}。请在 Schema 属性面板中修正工作表名称',

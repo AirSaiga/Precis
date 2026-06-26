@@ -104,6 +104,11 @@ const canvas = {
       'Data source "{source}" is already used by other Schema node(s) ({nodes}). Please avoid duplicate binding.',
     duplicateSourceImportMessage:
       'Imported Schema "{resourceId}" uses the same data source as existing Schema node(s) ({nodes}). Please check for duplicates.',
+    relatedConstraintsTitle: 'Related Independent Constraints Found',
+    relatedConstraintsMessage:
+      'Schema "{schema}" is referenced by {count} independent constraint(s): {constraints}. Import them and auto-connect?',
+    relatedConstraintsImportAll: 'Import All',
+    relatedConstraintsSchemaOnly: 'Schema Only',
     sheetNotFound:
       'Sheet "{sheet}" does not exist in the target file, please correct the sheet name in the Schema property panel',
     sheetNotFoundWithList:
