@@ -83,6 +83,37 @@ def test_parse_natural_language_not_null():
     assert any(i["type"] == "NotNull" for i in result["intents"])
 
 
+def test_parse_natural_language_range():
+    """自然语言范围约束识别。"""
+    tool = ScriptParseTool(service=None)
+    result = tool.run(
+        {
+            "script_content": "年龄列在 0-120 之间",
+            "language": "natural_language",
+        }
+    )
+    assert result["success"] is True
+    range_intents = [i for i in result["intents"] if i["type"] == "Range"]
+    assert len(range_intents) == 1
+    assert range_intents[0]["min"] == 0
+    assert range_intents[0]["max"] == 120
+
+
+def test_parse_natural_language_allowed_values():
+    """自然语言枚举约束识别。"""
+    tool = ScriptParseTool(service=None)
+    result = tool.run(
+        {
+            "script_content": "状态列只能是 A、B、C",
+            "language": "natural_language",
+        }
+    )
+    assert result["success"] is True
+    enum_intents = [i for i in result["intents"] if i["type"] == "AllowedValues"]
+    assert len(enum_intents) == 1
+    assert set(enum_intents[0]["values"]) == {"A", "B", "C"}
+
+
 def test_parse_empty_script():
     tool = ScriptParseTool(service=None)
     result = tool.run({"script_content": "   ", "language": "python"})

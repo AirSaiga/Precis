@@ -266,8 +266,12 @@ class ScriptParseTool:
         return intents
 
     def _parse_natural_language(self, content: str, context: str) -> list[dict[str, Any]]:
-        """解析自然语言描述（通过 LLM）。"""
-        # 简单规则匹配作为 fallback
+        """解析自然语言描述（当前为关键词正则匹配，LLM 兜底待实现）。
+
+        当前实现基于关键词正则匹配（非空/唯一/范围/枚举等常见表述），
+        置信度固定为 0.6（低于结构化语言的 0.7~0.9）。
+        未来可增强为：正则置信度低时调用 LLM 做语义解析，需将本方法异步化并接入 provider。
+        """
         intents: list[dict[str, Any]] = []
 
         # 非空
@@ -293,6 +297,38 @@ class ScriptParseTool:
                     "description": "自然语言：唯一约束",
                 }
             )
+
+        # 范围（如"年龄在 0-120 之间"、"金额大于 0"）
+        range_match = re.search(
+            r"([\w\u4e00-\u9fa5]+)\s*(?:列|字段)?\s*(?:在|介于)?\s*(\d+(?:\.\d+)?)\s*[-~到至]\s*(\d+(?:\.\d+)?)",
+            content,
+        )
+        if range_match:
+            intents.append(
+                {
+                    "type": "Range",
+                    "column": range_match.group(1),
+                    "min": float(range_match.group(2)),
+                    "max": float(range_match.group(3)),
+                    "confidence": 0.6,
+                    "description": "自然语言：范围约束",
+                }
+            )
+
+        # 枚举（如"状态只能是 A、B、C"）
+        enum_match = re.search(r"([\w\u4e00-\u9fa5]+)\s*(?:列|字段)?\s*(?:只能|必须)是\s*([^，。,\.]+)", content)
+        if enum_match and "、" in enum_match.group(2):
+            values = [v.strip() for v in enum_match.group(2).split("、") if v.strip()]
+            if len(values) >= 2:
+                intents.append(
+                    {
+                        "type": "AllowedValues",
+                        "column": enum_match.group(1),
+                        "values": values,
+                        "confidence": 0.55,
+                        "description": "自然语言：枚举约束",
+                    }
+                )
 
         return intents
 
