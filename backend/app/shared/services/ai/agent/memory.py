@@ -143,13 +143,16 @@ class AgentMemory:
 
     @staticmethod
     def _estimate_tokens(text: str) -> int:
-        """粗略估算 token 数。"""
+        """粗略估算 token 数。
+
+        委托给 utils.estimate_tokens 统一实现（中文/英文词/数字/标点分类加权），
+        避免项目内两套不一致的 token 估算系数。延迟导入防循环依赖。
+        """
         if not text:
             return 0
-        # 中文按 1.5 token/字，其他按 0.25 token/char
-        chinese_chars = sum(1 for c in text if "\u4e00" <= c <= "\u9fff")
-        other_chars = len(text) - chinese_chars
-        return int(chinese_chars * 1.5 + other_chars * 0.25) + 1
+        from app.shared.services.ai.utils import estimate_tokens
+
+        return estimate_tokens(text)
 
     @classmethod
     def _estimate_message_tokens(cls, msg: dict[str, Any]) -> int:
