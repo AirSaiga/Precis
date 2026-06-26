@@ -128,7 +128,6 @@ class ConfigMigrationService(ConfigGenerationService):
         if self._cancelled:
             raise CancelledError()
 
-        provider = self._get_provider()
         registry = self._create_migrate_registry(validation_sample_size)
 
         # 批量解析每个来源的意图

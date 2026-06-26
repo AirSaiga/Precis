@@ -836,17 +836,17 @@ class ConfigGenerationService:
                     col_data = df[col_name]
 
                     # 获取样本值（处理复杂类型如列表、字典）
-                    sample_values: list[str] = []
+                    # 使用 dict.fromkeys 保序去重，避免 list 的 O(n) in 查找导致的 O(n²) 开销
+                    seen: dict[str, None] = {}
+                    max_samples = options.sample_values_per_column
                     for v in col_data.dropna():
-                        if len(sample_values) >= options.sample_values_per_column:
+                        if len(seen) >= max_samples:
                             break
-                        # 处理复杂类型
-                        if isinstance(v, (list, dict)):
-                            v_str = str(v)[: options.max_cell_chars]
-                        else:
-                            v_str = str(v)[: options.max_cell_chars]
-                        if v_str not in sample_values:
-                            sample_values.append(v_str)
+                        # 处理复杂类型并截断
+                        v_str = str(v)[: options.max_cell_chars]
+                        if v_str not in seen:
+                            seen[v_str] = None
+                    sample_values: list[str] = list(seen.keys())
 
                     columns.append(
                         {
