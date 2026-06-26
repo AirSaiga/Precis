@@ -126,20 +126,50 @@ class AgentMemory:
 
     @staticmethod
     def _truncate(text: str, max_chars: int = _MAX_MESSAGE_CHARS) -> str:
-        """截断超长文本。"""
+        """截断超长文本（最终兜底）。"""
         if len(text) <= max_chars:
             return text
         return text[:max_chars] + f"\n... [truncated {len(text) - max_chars} chars]"
 
     @staticmethod
+    def _summarize_dict(data: dict[str, Any], max_field_chars: int = 1500) -> dict[str, Any]:
+        """对工具结果的 dict 做智能裁剪。
+
+        策略：小字段（< max_field_chars）完整保留；大字段（长列表/长字符串）截断，
+        保留关键摘要信息（如 errors 列表的前几条、success 标志等）。
+        相比直接对 JSON 文本硬截断，避免在字段中间被切断导致 agent 误解。
+        """
+        summarized: dict[str, Any] = {}
+        for key, value in data.items():
+            # 关键小字段始终完整保留
+            if key in {"success", "error", "message", "total_rules", "passed", "issues"}:
+                summarized[key] = value
+                continue
+            if isinstance(value, str):
+                summarized[key] = value if len(value) <= max_field_chars else value[:max_field_chars] + "...[truncated]"
+            elif isinstance(value, list):
+                # 列表：保留前 5 项 + 计数提示
+                if len(value) <= 5:
+                    summarized[key] = value
+                else:
+                    summarized[key] = value[:5] + [f"...[{len(value) - 5} more items]"]
+            elif isinstance(value, dict):
+                # 嵌套 dict 递归裁剪（降阈值避免嵌套膨胀）
+                summarized[key] = AgentMemory._summarize_dict(value, max_field_chars // 2)
+            else:
+                summarized[key] = value
+        return summarized
+
+    @staticmethod
     def _dict_to_observation(data: dict[str, Any]) -> str:
-        """将字典转为 observation 文本。"""
+        """将字典转为 observation 文本（先智能裁剪大字段，避免 JSON 中途被硬截断）。"""
         import json
 
+        summarized = AgentMemory._summarize_dict(data)
         try:
-            return json.dumps(data, ensure_ascii=False, indent=2)
+            return json.dumps(summarized, ensure_ascii=False, indent=2)
         except (TypeError, ValueError):
-            return str(data)
+            return str(summarized)
 
     @staticmethod
     def _estimate_tokens(text: str) -> int:
