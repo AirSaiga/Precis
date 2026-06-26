@@ -1,0 +1,176 @@
+"""@fileoverview StreamingOrchestrator 单元测试
+
+验证 run_chat 包装 runner 为事件流、emit 落盘、取消检测、终止事件、回调桥接。
+"""
+
+from __future__ import annotations
+
+import asyncio
+from pathlib import Path
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
+
+from app.shared.services.ai.streaming.event_journal import EventJournal
+from app.shared.services.ai.streaming.orchestrator import StreamingOrchestrator
+
+
+@pytest.fixture
+def orchestrator(tmp_path: Path) -> StreamingOrchestrator:
+    """每个测试用独立的临时 journal 目录与 cancel_event。"""
+    journal = EventJournal(job_id="job_test", journal_dir=str(tmp_path))
+    cancel_event = asyncio.Event()
+    return StreamingOrchestrator(job_id="job_test", journal=journal, cancel_event=cancel_event)
+
+
+def _make_fake_runner(reply="完成", success=True, iterations=1, error=None, side_effect=None):
+    """构造 mock runner，run 用 AsyncMock（因为 run_chat 里 await runner.run）。"""
+    fake_result = MagicMock()
+    fake_result.reply = reply
+    fake_result.frontend_instructions = []
+    fake_result.actions = []
+    fake_result.tool_steps = [{"tool": "noop", "label": "无操作", "turn": 1}]
+    fake_result.iterations = iterations
+    fake_result.success = success
+    fake_result.error = error
+
+    fake_runner = MagicMock()
+    if side_effect is not None:
+        fake_runner.run = AsyncMock(side_effect=side_effect)
+    else:
+        fake_runner.run = AsyncMock(return_value=fake_result)
+    return fake_runner
+
+
+def test_emit_appends_to_journal(orchestrator: StreamingOrchestrator):
+    """emit 把事件追加到 journal。"""
+    eid = orchestrator.emit("delta", {"text": "a"})
+    assert eid == 1
+    events = orchestrator.journal.read_all()
+    assert len(events) == 1
+    assert events[0] == (1, "delta", {"text": "a"})
+
+
+def test_emit_returns_incrementing_ids(orchestrator: StreamingOrchestrator):
+    """多次 emit 返回递增 id。"""
+    assert orchestrator.emit("started", {}) == 1
+    assert orchestrator.emit("delta", {"text": "a"}) == 2
+    assert orchestrator.emit("completed", {}) == 3
+
+
+@pytest.mark.asyncio
+async def test_run_chat_emits_started_delta_completed(orchestrator: StreamingOrchestrator):
+    """run_chat 包装 runner,发出 started → delta(逐字) → completed 事件。"""
+    fake_runner = _make_fake_runner(reply="完成")
+
+    with patch("app.shared.services.ai.streaming.orchestrator.ChatAgentRunner", return_value=fake_runner):
+        await orchestrator.run_chat(
+            message="测试",
+            history=None,
+            provider=MagicMock(),
+            project_path="/tmp",
+            context_nodes=[],
+        )
+
+    # 验证事件序列
+    events = orchestrator.journal.read_all()
+    event_types = [e[1] for e in events]
+    assert event_types[0] == "started"
+    assert event_types[-1] == "completed"
+    # completed 应携带完整快照
+    completed_data = events[-1][2]
+    assert completed_data["reply"] == "完成"
+    assert completed_data["tool_steps"] == [{"tool": "noop", "label": "无操作", "turn": 1}]
+
+
+@pytest.mark.asyncio
+async def test_run_chat_emits_cancelled_on_cancel(orchestrator: StreamingOrchestrator):
+    """cancel_event 被 set 后,run_chat 发出 cancelled 事件。"""
+    # runner 返回 success=False 但 iterations=2（模拟中途取消）
+    fake_runner = _make_fake_runner(reply="", success=False, iterations=2)
+
+    with patch("app.shared.services.ai.streaming.orchestrator.ChatAgentRunner", return_value=fake_runner):
+        # 设置取消信号
+        orchestrator.cancel_event.set()
+        await orchestrator.run_chat(
+            message="测试",
+            history=None,
+            provider=MagicMock(),
+            project_path="/tmp",
+            context_nodes=[],
+        )
+
+    events = orchestrator.journal.read_all()
+    event_types = [e[1] for e in events]
+    assert event_types[-1] == "cancelled"
+    cancelled_data = events[-1][2]
+    assert cancelled_data["completed_turns"] == 2
+    assert cancelled_data["partial"] is True
+
+
+@pytest.mark.asyncio
+async def test_run_chat_emits_error_on_exception(orchestrator: StreamingOrchestrator):
+    """runner 抛异常时,run_chat 发出 error 事件。"""
+    fake_runner = _make_fake_runner(side_effect=RuntimeError("LLM 挂了"))
+
+    with patch("app.shared.services.ai.streaming.orchestrator.ChatAgentRunner", return_value=fake_runner):
+        await orchestrator.run_chat(
+            message="测试",
+            history=None,
+            provider=MagicMock(),
+            project_path="/tmp",
+            context_nodes=[],
+        )
+
+    events = orchestrator.journal.read_all()
+    assert events[-1][1] == "error"
+    assert "LLM 挂了" in events[-1][2]["message"]
+
+
+@pytest.mark.asyncio
+async def test_run_chat_emits_error_on_failed_result(orchestrator: StreamingOrchestrator):
+    """runner 返回 success=False 且未取消时,run_chat 发出 error 事件。"""
+    fake_runner = _make_fake_runner(reply="", success=False, iterations=0, error="LLM 拒绝响应")
+
+    with patch("app.shared.services.ai.streaming.orchestrator.ChatAgentRunner", return_value=fake_runner):
+        await orchestrator.run_chat(
+            message="测试",
+            history=None,
+            provider=MagicMock(),
+            project_path="/tmp",
+            context_nodes=[],
+        )
+
+    events = orchestrator.journal.read_all()
+    assert events[-1][1] == "error"
+    assert events[-1][2]["message"] == "LLM 拒绝响应"
+
+
+@pytest.mark.asyncio
+async def test_run_chat_injects_callbacks_to_runner(orchestrator: StreamingOrchestrator):
+    """run_chat 通过 configure_callbacks 把 emit 桥接注入 runner。"""
+    fake_runner = _make_fake_runner(reply="ok")
+
+    with patch("app.shared.services.ai.streaming.orchestrator.ChatAgentRunner", return_value=fake_runner):
+        await orchestrator.run_chat(
+            message="测试",
+            history=None,
+            provider=MagicMock(),
+            project_path="/tmp",
+            context_nodes=[],
+        )
+
+    # 验证 configure_callbacks 被调用
+    fake_runner.configure_callbacks.assert_called_once()
+    callbacks = fake_runner.configure_callbacks.call_args.kwargs
+    # 应包含所有回调键
+    assert "on_chunk" in callbacks
+    assert "on_turn" in callbacks
+    assert "on_tool_call" in callbacks
+    assert "on_tool_result" in callbacks
+    assert "cancelled" in callbacks
+    # on_chunk 回调应能触发 emit(产生 delta 事件)
+    callbacks["on_chunk"]("片段")
+    events = orchestrator.journal.read_all()
+    delta_events = [e for e in events if e[1] == "delta"]
+    assert any(e[2].get("text") == "片段" for e in delta_events)
