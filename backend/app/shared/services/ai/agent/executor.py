@@ -71,6 +71,7 @@ class AgentExecutor:
         on_chunk: Callable[[str], None] | None = None,
         on_turn: Callable[[int], None] | None = None,
         on_tool_call: Callable[[str, str, int], None] | None = None,
+        final_output_tool: str | None = FINAL_OUTPUT_TOOL,
     ):
         """
         @methoddesc 初始化 Agent 执行器
@@ -101,6 +102,8 @@ class AgentExecutor:
         self.on_chunk = on_chunk or (lambda text: None)
         self.on_turn = on_turn or (lambda turn: None)
         self.on_tool_call = on_tool_call or (lambda name, call_id, turn: None)
+        # 最终输出工具名：generation agent 用 "generate_config"，chat agent 传 None 跳过最终配置提取
+        self.final_output_tool = final_output_tool
         self._chat_service: Any | None = None
         self._memory: AgentMemory | None = None
 
@@ -263,9 +266,14 @@ class AgentExecutor:
         return result
 
     def _extract_final_config(self, tool_results: list[ToolResult]) -> dict[str, Any] | None:
-        """从工具结果中提取最终配置（generate_config 工具的返回值）。"""
+        """从工具结果中提取最终配置（final_output_tool 指定工具的返回值）。
+
+        若 final_output_tool 为 None（如 chat agent），直接返回 None，跳过最终配置提取。
+        """
+        if not self.final_output_tool:
+            return None
         for tr in tool_results:
-            if tr.name != FINAL_OUTPUT_TOOL:
+            if tr.name != self.final_output_tool:
                 continue
             if not tr.success:
                 continue

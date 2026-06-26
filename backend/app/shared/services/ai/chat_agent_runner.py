@@ -346,6 +346,8 @@ class ChatAgentRunner:
             on_tool_call=self._callbacks.get("on_tool_call"),
             on_tool_result=self._callbacks.get("on_tool_result"),
             cancelled_callback=self._callbacks.get("cancelled"),
+            # chat agent 无最终输出工具，跳过最终配置提取（chat 靠无 tool_calls 自然终止）
+            final_output_tool=None,
         )
 
         try:
