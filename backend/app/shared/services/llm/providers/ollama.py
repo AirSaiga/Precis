@@ -42,7 +42,7 @@ else:
     except ImportError:
         _aiohttp = None
 
-from .base import BaseProvider, ChatRequest, ChatResponse
+from .base import BaseProvider, ChatRequest, ChatResponse, StreamChunk
 
 logger = logging.getLogger(__name__)
 
@@ -231,15 +231,19 @@ class OllamaProvider(BaseProvider):
             raise ValueError(f"解析 Ollama 响应失败: {e}, 响应: {resp}") from e
         return ChatResponse(content=content or "", tool_calls=tool_calls, model=model)
 
-    async def chat_stream(self, req: ChatRequest) -> AsyncIterator[str]:
+    async def chat_stream(self, req: ChatRequest) -> AsyncIterator[StreamChunk]:
         """
-        @methoddesc 发送流式对话请求
+        @methoddesc 发送流式对话请求（支持 tool_calls），逐块返回统一 StreamChunk
+
+        统一输出契约:
+        - delta 文本 → StreamChunk(type="delta", text=...)
+        - tool_calls（单 chunk 完整体到达时） → StreamChunk(type="tool_calls", tool_calls=[...OpenAI 格式])
 
         参数:
             req: 对话请求对象
 
         返回:
-            异步生成器，逐块返回 AI 回复内容
+            AsyncIterator[StreamChunk]: 统一流式输出单元
         """
         if _aiohttp is None:
             raise ImportError("aiohttp 未安装，请运行 pip install aiohttp")
@@ -258,15 +262,25 @@ class OllamaProvider(BaseProvider):
                     message=f"流式请求失败({resp.status}): {text[:200]}",
                 )
             async for line in resp.content:
-                if line:
-                    try:
-                        chunk = json.loads(line)
-                        if "error" in chunk:
-                            raise ValueError(f"Ollama 流式错误: {chunk['error']}")
-                        if "message" in chunk:
-                            yield chunk["message"].get("content", "")
-                    except json.JSONDecodeError:
-                        continue
+                if not line:
+                    continue
+                try:
+                    chunk = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if "error" in chunk:
+                    raise ValueError(f"Ollama 流式错误: {chunk['error']}")
+                if "message" not in chunk:
+                    continue
+                message = chunk["message"]
+                # 1. 文本增量 → yield delta
+                content = message.get("content", "")
+                if content:
+                    yield StreamChunk(type="delta", text=content)
+                # 2. tool_calls 完整体 → yield tool_calls（复用已有解析逻辑，转 OpenAI 格式）
+                parsed_tcs = self._parse_ollama_tool_calls(message)
+                if parsed_tcs:
+                    yield StreamChunk(type="tool_calls", tool_calls=parsed_tcs)
 
     def _resolve_context_window(self, model: str | None) -> int | None:
         """
