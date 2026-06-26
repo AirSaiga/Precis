@@ -83,6 +83,8 @@ class AgentResult:
     plan: AgentPlan | None = None
     error: str | None = None
     iterations: int = 0
+    # 取消标记:True 表示任务被软取消（区别于失败）。软取消时已落盘的 apply_actions 改动保留。
+    cancelled: bool = False
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -94,6 +96,7 @@ class AgentResult:
             "plan": {"chunks": self.plan.chunks, "reason": self.plan.reason} if self.plan else None,
             "error": self.error,
             "iterations": self.iterations,
+            "cancelled": self.cancelled,
         }
 
     @staticmethod

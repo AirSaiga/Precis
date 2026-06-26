@@ -24,7 +24,7 @@ from app.shared.services.ai.chat_orchestrator import (
     ChatOptions,
 )
 from app.shared.services.llm.config.models import AIProvider, ProviderType
-from app.shared.services.llm.providers.base import BaseProvider, ChatRequest, ChatResponse
+from app.shared.services.llm.providers.base import BaseProvider, ChatRequest, ChatResponse, StreamChunk
 
 # =============================================================================
 # FakeProvider（复用 test_agent_executor 的成熟模式）
@@ -61,8 +61,16 @@ class FakeProvider(BaseProvider):
             model="fake",
         )
 
-    async def chat_stream(self, req: ChatRequest) -> AsyncIterator[str]:
-        yield ""
+    async def chat_stream(self, req: ChatRequest) -> AsyncIterator[StreamChunk]:
+        """按顺序消费 responses，转为 StreamChunk 序列（与 executor 新契约对齐）。"""
+        response = self.responses[self.call_index]
+        self.call_index += 1
+        content = response.get("content")
+        if content:
+            yield StreamChunk(type="delta", text=content)
+        tool_calls = response.get("tool_calls")
+        if tool_calls:
+            yield StreamChunk(type="tool_calls", tool_calls=tool_calls)
 
     async def list_models(self) -> list[str]:
         return ["fake"]

@@ -68,6 +68,9 @@ class AgentExecutor:
         checkpoint_callback: Callable[[dict[str, Any]], None] | None = None,
         cancelled_callback: Callable[[], bool] | None = None,
         on_tool_result: Callable[[ToolResult], None] | None = None,
+        on_chunk: Callable[[str], None] | None = None,
+        on_turn: Callable[[int], None] | None = None,
+        on_tool_call: Callable[[str, str, int], None] | None = None,
     ):
         """
         @methoddesc 初始化 Agent 执行器
@@ -82,6 +85,9 @@ class AgentExecutor:
             checkpoint_callback: checkpoint 保存回调
             cancelled_callback: 取消检查回调
             on_tool_result: 工具结果回调，用于提取 metrics
+            on_chunk: 流式文本增量回调（逐字触发），用于 SSE 流式输出
+            on_turn: 新轮次开始回调，参数为轮次序号
+            on_tool_call: 工具调用开始回调，参数为 (tool_name, call_id, turn)
         """
         self.provider = provider
         self.registry = registry
@@ -92,6 +98,9 @@ class AgentExecutor:
         self.checkpoint_callback = checkpoint_callback or (lambda x: None)
         self.cancelled_callback = cancelled_callback or default_cancelled_callback
         self.on_tool_result = on_tool_result or default_on_tool_result
+        self.on_chunk = on_chunk or (lambda text: None)
+        self.on_turn = on_turn or (lambda turn: None)
+        self.on_tool_call = on_tool_call or (lambda name, call_id, turn: None)
         self._chat_service: Any | None = None
         self._memory: AgentMemory | None = None
 
@@ -118,11 +127,14 @@ class AgentExecutor:
         result = AgentResult(success=True, iterations=0)
 
         for turn_idx in range(1, self.max_iterations + 1):
+            # 取消检查点 1: turn 开始
             if self.cancelled_callback():
                 result.success = False
+                result.cancelled = True
                 result.error = "任务已取消"
                 return result
 
+            self.on_turn(turn_idx)
             self.progress_callback(
                 f"agent_turn_{turn_idx}",
                 turn_idx / self.max_iterations,
@@ -150,16 +162,29 @@ class AgentExecutor:
                 tool_choice="auto",
             )
 
+            # 流式调用: 累积文本 + tool_calls，逐字触发 on_chunk
+            # chat_stream 是 async generator function（async def + yield），直接 async for 即可
+            content = ""
+            raw_tool_calls: list[dict[str, Any]] = []
             try:
-                llm_response = await self.provider.chat(req)
+                async for chunk in self.provider.chat_stream(req):
+                    # 取消检查点 2: 流内 chunk 间
+                    if self.cancelled_callback():
+                        result.success = False
+                        result.cancelled = True
+                        result.error = "任务已取消"
+                        return result
+                    if chunk.type == "delta":
+                        content += chunk.text or ""
+                        self.on_chunk(chunk.text or "")
+                    elif chunk.type == "tool_calls" and chunk.tool_calls:
+                        raw_tool_calls.extend(chunk.tool_calls)
             except Exception as e:
-                logger.error(f"Agent LLM 调用失败: {e}")
+                logger.error(f"Agent LLM 流式调用失败: {e}")
                 result.success = False
                 result.error = f"AI 服务调用失败: {e}"
                 return result
 
-            content = llm_response.content
-            raw_tool_calls = llm_response.tool_calls or []
             tool_calls = [self.registry.parse_tool_call(tc) for tc in raw_tool_calls]
 
             self._memory.add_assistant_message(content=content or None, tool_calls=raw_tool_calls or None)
@@ -171,6 +196,9 @@ class AgentExecutor:
             )
 
             if tool_calls:
+                # 触发工具调用开始回调
+                for tc in tool_calls:
+                    self.on_tool_call(tc.name, tc.id, turn_idx)
                 # 执行工具
                 self.progress_callback("agent_executing_tools", turn_idx / self.max_iterations, None)
                 tool_results = await self.registry.execute_many(tool_calls)

@@ -12,11 +12,15 @@ import pytest
 from app.shared.services.ai.agent.executor import AgentExecutor
 from app.shared.services.ai.agent.tool_registry import ToolRegistry
 from app.shared.services.llm.config.models import AIProvider, ProviderType
-from app.shared.services.llm.providers.base import BaseProvider, ChatRequest, ChatResponse
+from app.shared.services.llm.providers.base import BaseProvider, ChatRequest, ChatResponse, StreamChunk
 
 
 class FakeProvider(BaseProvider):
-    """模拟 Provider，用于测试"""
+    """模拟 Provider，用于测试。
+
+    responses 是一个列表，每个元素是一个 dict: {"content": str, "tool_calls": list[dict]}。
+    chat_stream 按顺序消费 responses，转为 StreamChunk 序列（与 executor 新契约对齐）。
+    """
 
     def __init__(self, responses):
         super().__init__(
@@ -49,8 +53,22 @@ class FakeProvider(BaseProvider):
             model="fake",
         )
 
-    async def chat_stream(self, req: ChatRequest) -> AsyncIterator[str]:
-        yield ""
+    async def chat_stream(self, req: ChatRequest) -> AsyncIterator[StreamChunk]:
+        """按顺序消费 responses，转为 StreamChunk 序列。
+
+        每个 response: 若有 tool_calls 则先 yield delta(若有 content) 再 yield tool_calls；
+        否则只 yield delta(content)。与真实 Provider 流式行为一致。
+        """
+        response = self.responses[self.call_index]
+        self.call_index += 1
+        self.last_messages = req.messages
+        self.last_tools = req.tools
+        content = response.get("content")
+        if content:
+            yield StreamChunk(type="delta", text=content)
+        tool_calls = response.get("tool_calls")
+        if tool_calls:
+            yield StreamChunk(type="tool_calls", tool_calls=tool_calls)
 
     async def list_models(self) -> list[str]:
         return ["fake"]
