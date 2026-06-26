@@ -187,8 +187,23 @@ class ChatAgentRunner:
         # apply_actions 工具持有此列表引用，append 后 runner 最终读取
         self.collected_instructions: list[Any] = []
 
+        # 流式回调容器：由 StreamingOrchestrator 通过 configure_callbacks 注入，
+        # run 时透传给 AgentExecutor（未配置时为空，executor 用默认 noop）。
+        self._callbacks: dict[str, Any] = {}
+
         # 组装系统提示词（含上下文）
         self.system_prompt = self._build_system_prompt()
+
+    def configure_callbacks(self, **kwargs: Any) -> None:
+        """@methoddesc 配置流式回调，run 时透传给 AgentExecutor。
+
+        由 StreamingOrchestrator 调用，把 on_chunk/on_turn/on_tool_call/on_tool_result/cancelled
+        注入，实现 service 输出 → 事件流的桥接。未配置的回调在 executor 内部使用默认 noop。
+
+        参数:
+            **kwargs: 回调键值对，支持的键: on_chunk, on_turn, on_tool_call, on_tool_result, cancelled
+        """
+        self._callbacks = kwargs
 
     def _build_system_prompt(self) -> str:
         """
@@ -325,6 +340,12 @@ class ChatAgentRunner:
             system_prompt=self.system_prompt,
             max_iterations=self.max_iterations,
             max_tokens=self.max_history_tokens,
+            # 流式回调透传（未配置时为 None，AgentExecutor 内部用默认 noop）
+            on_chunk=self._callbacks.get("on_chunk"),
+            on_turn=self._callbacks.get("on_turn"),
+            on_tool_call=self._callbacks.get("on_tool_call"),
+            on_tool_result=self._callbacks.get("on_tool_result"),
+            cancelled_callback=self._callbacks.get("cancelled"),
         )
 
         try:
