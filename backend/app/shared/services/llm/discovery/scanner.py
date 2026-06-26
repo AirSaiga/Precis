@@ -30,6 +30,7 @@
     ]
 """
 
+import asyncio
 from dataclasses import dataclass
 from typing import Any
 
@@ -92,16 +93,20 @@ class ServiceScanner:
         if hosts is None:
             hosts = ["localhost", "127.0.0.1"]
 
-        results = []
-        # 遍历所有服务类型（ollama / openai）和主机/端口组合
+        # 收集所有 (svc_type, host, port) 探测任务，并发执行（替代串行三层嵌套循环）
+        tasks = []
         for svc_type, cfg in self.SCANS.items():
             for host in hosts:
                 for port in cfg["ports"]:
-                    service = await self._detect(
-                        svc_type, host, port, cfg["health_path"], cfg["model_field"], cfg["model_name_field"]
+                    tasks.append(
+                        self._detect(
+                            svc_type, host, port, cfg["health_path"], cfg["model_field"], cfg["model_name_field"]
+                        )
                     )
-                    if service:
-                        results.append(service)
+
+        # 并发探测所有地址，过滤掉未发现的（None）
+        raw_results = await asyncio.gather(*tasks, return_exceptions=True)
+        results = [r for r in raw_results if isinstance(r, DiscoveredService)]
 
         return results
 

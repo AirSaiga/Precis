@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any
 
@@ -162,7 +163,8 @@ class ConfigMigrationService(ConfigGenerationService):
             progress_callback("generate_config", 0.45, {"iterations": 0})
 
         provider = self._get_provider()
-        context_window = provider.get_context_window()
+        # get_context_window 内部可能调用 Ollama 的同步 urllib 探测，放到线程池避免阻塞事件循环
+        context_window = await asyncio.to_thread(provider.get_context_window)
         max_tokens = max(context_window - 8000, 4096)
         executor = AgentExecutor(
             provider=provider,
