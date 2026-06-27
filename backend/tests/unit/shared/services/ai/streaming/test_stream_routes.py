@@ -57,20 +57,38 @@ class _NoopProvider(BaseProvider):
 
 @pytest.fixture
 def app() -> FastAPI:
+    """创建挂载了 AI 路由的 FastAPI app。
+
+    显式导入所有 AI 子模块，确保 router.py 的 `from . import ...` 副作用完整执行
+    （避免测试执行顺序或 import 缓存导致部分子模块未注册）。
+    """
+    # 显式导入子模块，触发路由注册副作用
+    from app.api.routers.ai import (  # noqa: F401
+        chat,
+        generate,
+        hardware,
+        jobs,
+        migrate,
+        ollama,
+        providers,
+        stream,
+        utils,
+    )
+
     app = FastAPI()
     app.include_router(router)
     return app
 
 
 def test_chat_stream_endpoint_registered(app: FastAPI):
-    """chat/stream 端点已注册。"""
+    """chat/stream 与 cancel 端点已注册到 app。"""
     paths: list[str] = []
     for r in app.routes:
         if hasattr(r, "path"):
             paths.append(r.path)
         elif hasattr(r, "routes"):
             paths.extend(sr.path for sr in r.routes if hasattr(sr, "path"))
-    assert "/api/latest/ai/chat/stream" in paths
+    assert "/api/latest/ai/chat/stream" in paths, f"chat/stream 未注册。app 路由数={len(paths)}，前 10 个: {paths[:10]}"
     assert "/api/latest/ai/jobs/{job_id}/cancel" in paths
 
 
@@ -111,8 +129,10 @@ def test_unregister_cancel_event_removes_entry():
 
 
 def test_journal_dir_for_project_path():
-    """_journal_dir_for 按 project_path 返回项目本地目录。"""
-    assert (
-        stream_module._journal_dir_for("/my/project") == r"/my/project\.precis\stream_jobs"
-        or stream_module._journal_dir_for("/my/project") == "/my/project/.precis/stream_jobs"
-    )
+    """_journal_dir_for 按 project_path 返回项目本地目录（跨平台）。"""
+    import os
+
+    result = stream_module._journal_dir_for("/my/project")
+    # 跨平台：用 os.path.join 拼接，断言路径组成部分而非硬编码分隔符
+    expected = os.path.join("/my/project", ".precis", "stream_jobs")
+    assert result == expected
