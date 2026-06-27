@@ -4,11 +4,19 @@
 功能概述:
 - 聚合并导出所有子模块的路由器实例
 - 统一暴露项目、AI、预览、校验、工作空间等路由
-- AI 路由采用懒加载代理，避免在主应用导入时立即触发 heavy/optional 依赖
+
+说明:
+- 所有路由器（含 AI）均在包导入时直接实例化并注册端点，确保 `app.include_router`
+  在任意环境（Linux/Windows、Py3.12/3.13）下都能确定性地拷贝到全部路由。
+- 此前曾用 `_LazyAIRouter` 代理延迟加载 AI 路由，但其 `__getattr__` 转发在
+  CI(Linux) 环境下会导致 stream.py 等子模块的端点不稳定地漏注册（manifest 为
+  /ai/jobs/{id}/cancel、/ai/chat/{id}/confirm 等返回 404）。AI 子模块的可选依赖
+  (openai/aiohttp/psutil) 均已在各自模块内做懒加载守卫，启动期直接导入安全。
 """
 
 from __future__ import annotations
 
+from .ai import router as ai_router
 from .core.connection_rules import router as connection_rules_router
 from .core.data_sources import router as data_sources_router
 from .core.regex import router as regex_router
@@ -31,30 +39,3 @@ __all__ = [
     "regex_router",
     "reporting_router",
 ]
-
-
-class _LazyAIRouter:
-    """
-    AI 路由懒加载代理。
-
-    `app.api.routers.ai` 模块可能依赖可选的 AI 包（如 openai）。
-    通过此代理，仅在 FastAPI `include_router` 真正访问路由属性
-    （如 `.routes`、`.prefix`、`.tags`）时才触发实际导入，
-    避免在普通启动路径中无条件加载 AI 模块。
-    """
-
-    def __init__(self) -> None:
-        self._router: object | None = None
-
-    def _load(self) -> object:
-        if self._router is None:
-            from .ai import router as _router
-
-            self._router = _router
-        return self._router
-
-    def __getattr__(self, name: str) -> object:
-        return getattr(self._load(), name)
-
-
-ai_router = _LazyAIRouter()
