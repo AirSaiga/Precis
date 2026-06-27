@@ -76,10 +76,30 @@ print("ok")
         assert result.returncode == 0, result.stderr
 
     def test_routes_mounted_on_app(self, python: str, project_root: Path):
-        """app.include_router 后，stream.py 端点出现在 app.routes 上（HTTP 可达）。"""
+        """app.include_router 后，stream.py 端点可被 app 服务（HTTP 可达）。
+
+        注意：FastAPI >= 0.138 将 include_router 的结果封装为 _IncludedRouter，
+        子路由不再平铺到 app.routes 列表中，而是通过 original_router.routes 持有。
+        因此需要递归收集路径，确保该测试在新旧 FastAPI 版本下均有效。
+        """
         code = """
 from app.api.main import app
-paths = {getattr(r, 'path', None) for r in app.routes}
+
+
+def _collect_paths(routes):
+    paths = set()
+    for route in routes:
+        path = getattr(route, "path", None)
+        if path:
+            paths.add(path)
+        # FastAPI >= 0.138 将 include_router 的结果封装为 _IncludedRouter
+        original = getattr(route, "original_router", None)
+        if original is not None:
+            paths.update(_collect_paths(original.routes))
+    return paths
+
+
+paths = _collect_paths(app.routes)
 for required in (
     '/api/latest/ai/jobs/{job_id}/cancel',
     '/api/latest/ai/chat/{job_id}/confirm',
