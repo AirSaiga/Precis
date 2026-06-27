@@ -89,6 +89,12 @@ class AiChatRequest(BaseModel):
     agent_mode: bool = Field(default=True, description="是否启用 Agent 深度模式")
 
 
+class AiChatConfirmRequest(BaseModel):
+    """AI Chat apply_actions 确认/拒绝请求"""
+
+    decision: str = Field(..., description="confirm(确认并落盘)或 reject(拒绝,不落盘)")
+
+
 class AgentMeta(BaseModel):
     """Agent 模式执行元数据（仅 agent_mode=true 时填充）"""
 
