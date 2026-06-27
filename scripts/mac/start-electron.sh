@@ -51,15 +51,15 @@ fi
 ok "后端依赖已安装"
 echo ""
 
-# 编译 Electron 主进程 TypeScript
-USE_TS_NODE=""
+# 编译 Electron 主进程 TypeScript（项目 main 指向 dist/main.js，必须先编译）
 if [ ! -f "${ELECTRON_DIR}/dist/main.js" ]; then
     info "编译 Electron TypeScript..."
     if ( cd "${ELECTRON_DIR}" && npm run build:electron ); then
         ok "Electron 编译完成"
     else
-        warn "Electron 编译失败，将使用 electron-forge start (ts-node) 直接运行"
-        USE_TS_NODE=1
+        error "Electron TypeScript 编译失败，无法启动（main 指向 dist/main.js，需要先成功编译）"
+        info "请检查 electron/src 下的 TypeScript 错误后重试"
+        prompt_exit 1
     fi
     echo ""
 fi
@@ -78,11 +78,7 @@ if ! npx concurrently --version &> /dev/null; then
     prompt_exit 1
 fi
 
-if [ -n "${USE_TS_NODE}" ]; then
-    ELECTRON_CMD="npx wait-on --delay 1000 --timeout 60000 http://127.0.0.1:${BACKEND_PORT}/docs http://localhost:${FRONTEND_PORT} && cd electron && npx electron-forge start"
-else
-    ELECTRON_CMD="npx wait-on --delay 1000 --timeout 60000 http://127.0.0.1:${BACKEND_PORT}/docs http://localhost:${FRONTEND_PORT} && cd electron && npm start"
-fi
+ELECTRON_CMD="npx wait-on --delay 1000 --timeout 60000 http://127.0.0.1:${BACKEND_PORT}/docs http://localhost:${FRONTEND_PORT} && cd electron && npm start"
 
 npx concurrently --kill-others \
     --names "BACKEND,FRONTEND,ELECTRON" \

@@ -72,9 +72,29 @@ async function main() {
 
   // 1. 检查 Python
   log('cyan', '检查 Python...');
-  const pythonCmd = process.platform === 'win32' ? 'python' : 'python3';
-  const pythonVersion = runCommand(`${pythonCmd} --version`);
-  
+  // Windows: 优先尝试 `py -3` 启动器（避开 Microsoft Store 占位符），失败再回退 `python`。
+  // 其它平台直接使用 `python3`，再回退 `python`。
+  let pythonCmd = null;
+  let pythonVersion = null;
+  if (process.platform === 'win32') {
+    const pyOut = runCommand('py -3 --version');
+    if (pyOut && /Python \d+\.\d+\.\d+/.test(pyOut)) {
+      pythonCmd = 'py -3';
+      pythonVersion = pyOut;
+    } else {
+      pythonVersion = runCommand('python --version');
+      if (pythonVersion) pythonCmd = 'python';
+    }
+  } else {
+    pythonVersion = runCommand('python3 --version');
+    if (pythonVersion) {
+      pythonCmd = 'python3';
+    } else {
+      pythonVersion = runCommand('python --version');
+      if (pythonVersion) pythonCmd = 'python';
+    }
+  }
+
   if (pythonVersion) {
     const match = pythonVersion.match(/Python (\d+\.\d+\.\d+)/);
     if (match) {
@@ -140,12 +160,19 @@ async function main() {
   // 5. 检查后端依赖
   log('cyan', '检查后端依赖...');
   try {
-    const pythonPath = results.venv.exists 
-      ? path.join(venvPath, process.platform === 'win32' ? 'Scripts\\python.exe' : 'bin/python')
-      : pythonCmd;
-    
-    if (fs.existsSync(pythonPath) || pythonCmd) {
-      const check = runCommand(`"${pythonPath}" -c "import fastapi,pydantic,pandas,yaml;print('OK')" 2>&1`);
+    // 优先使用虚拟环境中的 python；否则使用前面检测到的 pythonCmd
+    // （pythonCmd 在 Windows 上可能是 "py -3"，不可直接 fs.existsSync）
+    let pythonPath = null;
+    if (results.venv.exists) {
+      const candidate = path.join(venvPath, process.platform === 'win32' ? 'Scripts\\python.exe' : 'bin/python');
+      if (fs.existsSync(candidate)) pythonPath = `"${candidate}"`;
+    }
+    if (!pythonPath && pythonCmd) {
+      pythonPath = pythonCmd; // 已是可执行命令字符串（如 python / python3 / py -3）
+    }
+
+    if (pythonPath) {
+      const check = runCommand(`${pythonPath} -c "import fastapi,pydantic,pandas,yaml;print('OK')" 2>&1`);
       if (check === 'OK') {
         results.backendDeps.installed = true;
         results.backendDeps.ok = true;
@@ -201,11 +228,11 @@ async function main() {
     separator();
     console.log('');
     log('cyan', '可用命令:');
-    console.log(`  ${colors.white}npm run start:cli:win${colors.reset}      - 启动 CLI (Windows)`);
-    console.log(`  ${colors.white}npm run start:cli:mac${colors.reset}      - 启动 CLI (Mac/Linux)`);
-    console.log(`  ${colors.white}npm run start:desktop:win${colors.reset}  - 启动桌面版 (Windows)`);
-    console.log(`  ${colors.white}npm run start:desktop:mac${colors.reset}  - 启动桌面版 (Mac/Linux)`);
-    console.log(`  ${colors.white}npm run dev${colors.reset}                - 启动开发服务器`);
+    console.log(`  ${colors.white}npm run start:cli:win${colors.reset}        - 启动 CLI (Windows)`);
+    console.log(`  ${colors.white}npm run start:cli:mac${colors.reset}        - 启动 CLI (Mac/Linux)`);
+    console.log(`  ${colors.white}npm run start:electron:win${colors.reset}   - 启动桌面版 (Windows)`);
+    console.log(`  ${colors.white}npm run start:desktop:mac${colors.reset}   - 启动桌面版 (Mac/Linux)`);
+    console.log(`  ${colors.white}npm run dev${colors.reset}                  - 启动开发服务器`);
   } else {
     log('yellow', '⚠ 环境检查未通过');
     separator();

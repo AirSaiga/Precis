@@ -7,8 +7,10 @@ set "PROJECT_ROOT=%~dp0\..\.."
 cd /d "%PROJECT_ROOT%"
 
 :: Prefer backend venv Python when available
-if exist "backend\.venv\Scripts\python.exe" (
-    set "PYTHON_CMD=backend\.venv\Scripts\python.exe"
+:: 注意: 必须使用相对 PROJECT_ROOT 的绝对路径，因为后续会 `cd backend`，
+:: 此时相对路径 backend\.venv\... 会被解析成 backend\backend\.venv\... 而失效。
+if exist "%PROJECT_ROOT%\backend\.venv\Scripts\python.exe" (
+    set "PYTHON_CMD=%PROJECT_ROOT%\backend\.venv\Scripts\python.exe"
 ) else (
     set "PYTHON_CMD=python"
 )
