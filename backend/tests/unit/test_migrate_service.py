@@ -39,22 +39,21 @@ class TestConfigMigrationService:
         service._build_migrate_system_prompt = MagicMock(return_value="")
         service._build_migrate_task_message = MagicMock(return_value="")
         service._format_profiling_for_agent = MagicMock(return_value="")
+        service._generate_config_for_scope = AsyncMock(return_value={"schemas": {"users": {}}, "constraints": {}})
+        service._optional_refine_via_agent = AsyncMock(side_effect=lambda cfg, **kwargs: cfg)
 
-        executor_mock = MagicMock()
-        executor_mock.run = AsyncMock(
-            return_value=MagicMock(
-                success=True,
-                config={"schemas": {"users": {}}, "constraints": {}},
-                content="",
-                iterations=1,
-                error=None,
+        with patch("app.shared.services.ai.migrate_service.MergeResultsTool") as merge_cls:
+            merge_instance = MagicMock()
+            merge_instance.run = MagicMock(
+                return_value={
+                    "success": True,
+                    "config": {"schemas": {"users": {}}, "constraints": {}},
+                    "warnings": [],
+                    "conflicts": [],
+                }
             )
-        )
+            merge_cls.return_value = merge_instance
 
-        with patch(
-            "app.shared.services.ai.migrate_service.AgentExecutor",
-            return_value=executor_mock,
-        ):
             result = await service.migrate_from_script(
                 script_content="print(1)",
                 language="python",
@@ -70,11 +69,12 @@ class TestConfigMigrationService:
 
         assert result["success"] is True
         # 两个不同内容的来源：print(1) 和 print(2)
-        assert service._build_migrate_task_message.call_count == 1
-        call_args = service._build_migrate_task_message.call_args[0][0]
-        assert len(call_args) == 2
-        names = {item["name"] for item in call_args}
-        assert names == {"a.py", "c.py"}
+        # 默认启用分片，single 分片只调用一次生成
+        assert service._generate_config_for_scope.call_count == 1
+        instructions = service._generate_config_for_scope.call_args.kwargs["instructions"]
+        assert "a.py" in instructions
+        assert "c.py" in instructions
+        assert "b.py" not in instructions
 
     @pytest.mark.asyncio
     async def test_migrate_respects_cancel_during_parse(self, service):

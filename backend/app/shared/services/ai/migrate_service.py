@@ -18,11 +18,14 @@ import logging
 from typing import Any
 
 from app.shared.services.ai.agent import AgentExecutor
+from app.shared.services.ai.agent.planner import build_source_chunk_plan
 from app.shared.services.ai.agent.tool_registry import ToolRegistry
 from app.shared.services.ai.agent.tools import (
     ConfigGenerateTool,
     ConfigRefineTool,
     ConfigValidateTool,
+    MergeResultsTool,
+    PlanChunksTool,
     ScriptParseTool,
 )
 from app.shared.services.llm.generation import CancelledError
@@ -53,6 +56,9 @@ class ConfigMigrationService(ConfigGenerationService):
         progress_callback=None,
         checkpoint_callback=None,
         sources: list[dict[str, Any]] | None = None,
+        chunk_max_sources: int = 5,
+        chunk_max_tokens: int = 8000,
+        enable_chunking: bool = True,
     ) -> dict[str, Any]:
         """
         @methoddesc 从脚本迁移生成配置
@@ -71,6 +77,9 @@ class ConfigMigrationService(ConfigGenerationService):
             progress_callback: 进度回调(stage, progress, extra)
             checkpoint_callback: checkpoint 回调
             sources: 批量脚本来源列表，每个元素含 content/language/name
+            chunk_max_sources: 每个分片最大来源数
+            chunk_max_tokens: 每个分片最大估算 token 数
+            enable_chunking: 是否启用按源分片
 
         返回:
             完整配置字典
@@ -159,11 +168,149 @@ class ConfigMigrationService(ConfigGenerationService):
                 }
             )
 
+        # 按源分片规划
+        source_plan = build_source_chunk_plan(
+            parsed_intents,
+            max_sources_per_chunk=chunk_max_sources,
+            max_tokens_per_chunk=chunk_max_tokens,
+        )
+        chunk_total = len(source_plan.chunks)
+        if progress_callback:
+            progress_callback(
+                "source_planning",
+                0.35,
+                {"iterations": 0, "chunk_total": chunk_total, "strategy": source_plan.strategy},
+            )
+
+        if not enable_chunking:
+            # 显式关闭分片时走原有单次 Agent 路径，保持完全零回归
+            return await self._migrate_single(
+                parsed_intents,
+                registry,
+                max_iterations,
+                progress_callback,
+                checkpoint_callback,
+            )
+
+        provider = self._get_provider()
+        # get_context_window 内部可能调用 Ollama 的同步 urllib 探测，放到线程池避免阻塞事件循环
+        context_window = await asyncio.to_thread(provider.get_context_window)
+        max_tokens = max(context_window - 8000, 4096)
+
+        # 分片生成
+        partial_configs: list[dict[str, Any]] = []
+        for ci, chunk in enumerate(source_plan.chunks):
+            if self._cancelled:
+                raise CancelledError()
+            chunk_index = ci + 1
+            if progress_callback:
+                progress_callback(
+                    "chunk_generate",
+                    0.35 + (ci / max(chunk_total, 1)) * 0.45,
+                    {
+                        "iterations": len(partial_configs),
+                        "chunk_index": chunk_index,
+                        "chunk_total": chunk_total,
+                    },
+                )
+
+            chunk_intents = [parsed_intents[idx] for idx in chunk.source_indices]
+            instructions = self._build_chunk_task_instructions(
+                chunk_intents,
+                chunk_total,
+                chunk_index,
+            )
+            try:
+                partial = await self._generate_for_chunk(instructions, previous_config=None)
+            except Exception as e:
+                logger.warning(f"分片 {chunk.chunk_id} 生成失败: {e}")
+                partial = {}
+            if partial.get("schemas") or partial.get("constraints") or partial.get("regex_nodes"):
+                partial_configs.append(partial)
+
+        if not partial_configs:
+            return {
+                "success": False,
+                "error": "未能从脚本中解析出有效配置",
+                "yaml_preview": "",
+                "manifest": None,
+                "schemas": {},
+                "constraints": {},
+                "regex_nodes": {},
+                "warnings": [],
+                "iterations": 0,
+            }
+
+        if progress_callback:
+            progress_callback(
+                "merge_results",
+                0.85,
+                {"iterations": len(partial_configs), "merged_chunks": chunk_total},
+            )
+
+        merge_tool = MergeResultsTool()
+        merge_result = merge_tool.run({"configs": partial_configs})
+        config = merge_result.get("config", {})
+        warnings = list(merge_result.get("warnings", []))
+
+        # 多分片时进行校验 + 精修兜底
+        if chunk_total > 1:
+            if progress_callback:
+                progress_callback(
+                    "refine_config",
+                    0.9,
+                    {
+                        "iterations": len(partial_configs),
+                        "metrics": {
+                            "schemas": len(config.get("schemas", {})),
+                            "constraints": len(config.get("constraints", {})),
+                        },
+                    },
+                )
+            try:
+                config = await self._optional_refine_via_agent(
+                    config,
+                    registry=registry,
+                    merge_warnings=warnings,
+                    max_iterations=max_iterations,
+                    max_tokens=max_tokens,
+                    progress_callback=progress_callback,
+                    checkpoint_callback=checkpoint_callback,
+                )
+            except Exception as e:
+                logger.warning(f"精修阶段失败，使用合并结果: {e}")
+
+        if not config.get("schemas") and not config.get("constraints"):
+            return {
+                "success": False,
+                "error": "未能从脚本中解析出有效配置",
+                "yaml_preview": "",
+                "manifest": None,
+                "schemas": {},
+                "constraints": {},
+                "regex_nodes": {},
+                "warnings": warnings,
+                "iterations": len(partial_configs),
+            }
+
+        config["success"] = True
+        config["iterations"] = len(partial_configs)
+        config["warnings"] = config.get("warnings", []) + warnings
+        return config
+
+    async def _migrate_single(
+        self,
+        parsed_intents: list[dict[str, Any]],
+        registry: ToolRegistry,
+        max_iterations: int,
+        progress_callback,
+        checkpoint_callback,
+    ) -> dict[str, Any]:
+        """单次 Agent 生成路径（显式关闭分片时的零回归路径）。"""
         if progress_callback:
             progress_callback("generate_config", 0.45, {"iterations": 0})
 
         provider = self._get_provider()
-        # get_context_window 内部可能调用 Ollama 的同步 urllib 探测，放到线程池避免阻塞事件循环
         context_window = await asyncio.to_thread(provider.get_context_window)
         max_tokens = max(context_window - 8000, 4096)
         executor = AgentExecutor(
@@ -217,9 +364,120 @@ class ConfigMigrationService(ConfigGenerationService):
         config["warnings"] = config.get("warnings", [])
         return config
 
+    async def _generate_for_chunk(
+        self,
+        instructions: str,
+        previous_config: dict[str, Any] | None,
+    ) -> dict[str, Any]:
+        """为单个分片生成配置，复用父类 _generate_config_for_scope。"""
+        return await self._generate_config_for_scope(
+            file_paths=self._file_paths,
+            instructions=instructions,
+            previous_config=previous_config,
+            scope={"file_paths": self._file_paths},
+        )
+
+    def _build_chunk_task_instructions(
+        self,
+        chunk_intents: list[dict[str, Any]],
+        chunk_total: int,
+        chunk_index: int,
+    ) -> str:
+        """构建分片生成指令。"""
+        intent_sections = []
+        for item in chunk_intents:
+            intent_sections.append(f"### 来源: {item['name']} ({item['language']})\n{item['intent']}")
+        intents_text = "\n\n".join(intent_sections)
+
+        parts = [
+            f"这是第 {chunk_index}/{chunk_total} 个分片，请仅基于本分片包含的来源意图生成配置。",
+            "",
+            "## 本分片已解析的迁移意图",
+            intents_text,
+            "",
+            "## 数据画像（全量上下文可见）",
+            self._format_profiling_for_agent(),
+            "",
+            "## 要求",
+            "- 仅生成本分片来源涉及的表、列、约束和正则",
+            "- 保持与数据画像一致",
+            "- 返回完整 JSON 配置（schemas、constraints、regex_nodes）",
+        ]
+        return "\n".join(parts)
+
+    async def _optional_refine_via_agent(
+        self,
+        config: dict[str, Any],
+        registry: ToolRegistry,
+        merge_warnings: list[str],
+        max_iterations: int,
+        max_tokens: int,
+        progress_callback,
+        checkpoint_callback,
+    ) -> dict[str, Any]:
+        """多分片合并后，通过 Agent 做校验 + 精修兜底。"""
+        provider = self._get_provider()
+        executor = AgentExecutor(
+            provider=provider,
+            registry=registry,
+            system_prompt=self._build_migrate_system_prompt(),
+            max_iterations=max_iterations,
+            max_tokens=max_tokens,
+            progress_callback=lambda stage, progress, extra: (
+                progress_callback(stage, 0.9 + progress * 0.05, extra) if progress_callback else None
+            ),
+            checkpoint_callback=checkpoint_callback,
+            cancelled_callback=lambda: self._cancelled,
+        )
+
+        parts = [
+            "以下配置由多个来源分片分别生成后合并而来，请做最终校验与精修。",
+            "",
+            "## 合并后配置",
+            self._summarize_config(config),
+            "",
+            "## 合并阶段警告",
+            "\n".join(merge_warnings) if merge_warnings else "无",
+            "",
+            "## 要求",
+            "- 检查跨来源冲突、重复约束、遗漏规则",
+            "- 调用 validate_config 校验",
+            "- 必要时调用 refine_config 修正",
+            "- 最终调用 generate_config 输出完整配置",
+        ]
+        task_message = "\n".join(parts)
+        agent_result = await executor.run(task_message)
+
+        if agent_result.success and agent_result.config:
+            return agent_result.config
+
+        # 精修失败或没有输出时，回退到合并结果
+        return config
+
     def _create_migrate_registry(self, validation_sample_size: int) -> ToolRegistry:
         """创建迁移工具注册表。"""
         registry = ToolRegistry()
+
+        plan_tool = PlanChunksTool(
+            profiling_data=self._profiling_data,
+            file_paths=self._file_paths,
+            chunk_max_columns=20,
+            chunk_max_files=5,
+        )
+        registry.register(
+            name=plan_tool.NAME,
+            description=plan_tool.get_definition()["function"]["description"],
+            parameters=plan_tool.get_definition()["function"]["parameters"],
+            handler=lambda args: plan_tool.run(args),
+        )
+
+        merge_tool = MergeResultsTool()
+        registry.register(
+            name=merge_tool.NAME,
+            description=merge_tool.get_definition()["function"]["description"],
+            parameters=merge_tool.get_definition()["function"]["parameters"],
+            handler=lambda args: merge_tool.run(args),
+        )
 
         parse_tool = ScriptParseTool(self)
         registry.register(
@@ -264,13 +522,16 @@ class ConfigMigrationService(ConfigGenerationService):
         return """你是一个数据治理专家 Agent，擅长从旧脚本或业务描述中迁移生成 Precis V2 数据验证配置。
 
 可用工具：
-1. parse_script: 解析旧脚本或自然语言描述，输出规则意图。
-2. generate_config: 根据数据画像和规则意图生成配置。
-3. validate_config: 校验生成的配置。
-4. refine_config: 根据校验问题修正配置。
+1. plan_chunks: 根据数据画像生成分块计划（大数据量时先调用）。
+2. merge_results: 合并多个分片生成的配置（分块生成后使用）。
+3. parse_script: 解析旧脚本或自然语言描述，输出规则意图。
+4. generate_config: 根据数据画像和规则意图生成配置。这是最终输出工具，调用后任务即结束。
+5. validate_config: 校验生成的配置。
+6. refine_config: 根据校验问题修正配置。
 
 工作原则：
-- 输入中已包含所有来源的解析意图，直接综合调用 generate_config 生成统一配置。
+- 当来源数量少时，直接综合调用 generate_config 生成统一配置。
+- 当来源数量大时，服务层已按源拆分为多个分片分别生成并合并；你的职责是校验合并结果、处理冲突并精修。
 - 如多个来源对同一表/列定义冲突，以数据画像为准并保留所有不冲突规则。
 - 生成后校验并精修。
 - 最终返回完整 JSON 配置。"""
