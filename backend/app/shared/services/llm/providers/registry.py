@@ -22,6 +22,7 @@
 
 from ..config.models import AIProvider, ProviderType
 from .base import BaseProvider
+from .cached_provider import CachedProvider
 from .ollama import OllamaProvider
 from .openai import OpenAIProvider
 
@@ -48,12 +49,13 @@ def create(config: AIProvider) -> BaseProvider:
     @methoddesc 根据配置创建对应的 Provider 实例
 
     工厂模式：根据 config.type 从注册表中查找实现类并实例化。
+    如果全局 AIConfig 启用了缓存，则用 CachedProvider 包装。
 
     参数:
         config: AIProvider 配置对象
 
     返回:
-        BaseProvider 子类实例
+        BaseProvider 子类实例（可能被 CachedProvider 包装）
 
     异常:
         ValueError: 未注册的 Provider 类型
@@ -64,7 +66,26 @@ def create(config: AIProvider) -> BaseProvider:
     cls = _registry.get(config.type)
     if not cls:
         raise ValueError(f"Unknown provider type: {config.type}")
-    return cls(config)
+    real = cls(config)
+
+    # 尝试从全局配置加载缓存设置
+    try:
+        from ..config import loader as _loader
+
+        ai_config = _loader.load()
+        cache_cfg = ai_config.cache
+        if cache_cfg.enabled:
+            from ..cache.response_cache import ResponseCache
+
+            cache = ResponseCache(
+                max_entries=cache_cfg.max_entries,
+                ttl_seconds=cache_cfg.ttl_seconds,
+            )
+            return CachedProvider(real, cache, cache_cfg.cache_temperature_above_zero)
+    except Exception:
+        pass  # 配置加载失败时降级为无缓存
+
+    return real
 
 
 # 注册内置 Provider

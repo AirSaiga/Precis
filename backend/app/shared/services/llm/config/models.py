@@ -80,6 +80,27 @@ class NetworkConfig(BaseModel):
     verify_ssl: bool = Field(default=True, description="是否验证 SSL 证书")
 
 
+class AICacheConfig(BaseModel):
+    """
+    @classdesc LLM 响应缓存配置
+
+    控制 CachedProvider 的缓存行为。默认关闭，显式开启才生效。
+
+    Attributes:
+        enabled: 是否启用缓存，默认 False
+        ttl_seconds: 缓存条目过期时间（秒），默认 3600
+        max_entries: 缓存最大条目数（LRU 驱逐），默认 100
+        cache_temperature_above_zero: 是否缓存 temperature > 0 的请求，默认 False
+    """
+
+    model_config = ConfigDict(use_enum_values=True)
+
+    enabled: bool = Field(default=False, description="是否启用 LLM 响应缓存")
+    ttl_seconds: float = Field(default=3600, ge=1, description="缓存条目过期时间（秒）")
+    max_entries: int = Field(default=100, ge=1, description="缓存最大条目数")
+    cache_temperature_above_zero: bool = Field(default=False, description="是否缓存 temperature > 0 的请求")
+
+
 class AIProvider(BaseModel):
     """
     @classdesc AI Provider 配置模型
@@ -161,3 +182,6 @@ class AIConfig(BaseModel):
     defaults: dict[str, str] = Field(
         default_factory=dict, description="各场景默认 Provider，如 {'chat': 'ollama-local'}"
     )
+
+    # LLM 响应缓存配置（默认关闭）
+    cache: AICacheConfig = Field(default_factory=AICacheConfig, description="LLM 响应缓存配置")
