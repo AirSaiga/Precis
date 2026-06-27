@@ -198,6 +198,17 @@ async def _run_job(
 
     update_status("running", stage="initializing", progress=0.0)
 
+    # 存储 payload 元数据供 resume 重建
+    raw = storage._load_raw(job_id)
+    raw["payload"] = {
+        "file_paths": payload.file_paths,
+        "project_name": payload.project_name,
+        "project_id": payload.project_id,
+        "provider_id": payload.provider_id,
+        "max_iterations": payload.options.max_iterations,
+    }
+    storage._save_raw(job_id, raw)
+
     service = ConfigGenerationService(provider_id=payload.provider_id)
 
     profiling_opts = ProfilingOptions(
@@ -463,17 +474,18 @@ async def resume_job(
     if not status_data:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
 
-    # 从 status 恢复 payload(简化: 从 checkpoint 重建最小 payload)
-    # 实际场景应从持久化的 payload 恢复，这里用 checkpoint 中的信息
+    # 从持久化的 payload 元数据重建请求
+    raw = storage.load_full(job_id)
+    meta = raw.get("payload", {})
     from .models import ConfigGenerateOptions
 
     payload = ConfigGenerateRequest(
-        file_paths=status_data.get("file_paths", []),
-        project_name=status_data.get("project_name", ""),
-        project_id=status_data.get("project_id", ""),
-        provider_id=status_data.get("provider_id"),
+        file_paths=meta.get("file_paths", []),
+        project_name=meta.get("project_name", ""),
+        project_id=meta.get("project_id", ""),
+        provider_id=meta.get("provider_id"),
         options=ConfigGenerateOptions(
-            max_iterations=status_data.get("max_iterations", 2),
+            max_iterations=meta.get("max_iterations", 2),
         ),
     )
 
@@ -489,16 +501,3 @@ async def resume_job(
         _job_tasks[job_id] = task
 
     return {"status": "resuming", "turn": cp.get("turn", 0)}
-
-    status_data["status"] = "cancelled"
-    status_data["stage"] = "cancelled"
-    status_data["updated_at"] = _now_iso()
-    storage.save_status(job_id, status_data)
-
-    # 真正取消运行中的任务
-    with _job_tasks_lock:
-        task = _job_tasks.get(job_id)
-        if task and not task.done():
-            task.cancel()
-
-    return ConfigGenerateJobStatus(**status_data)

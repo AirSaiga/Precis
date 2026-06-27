@@ -53,6 +53,7 @@ class ConfigMigrationService(ConfigGenerationService):
         progress_callback=None,
         checkpoint_callback=None,
         sources: list[dict[str, Any]] | None = None,
+        initial_checkpoint: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         @methoddesc 从脚本迁移生成配置
@@ -180,7 +181,7 @@ class ConfigMigrationService(ConfigGenerationService):
         )
 
         task_message = self._build_migrate_task_message(parsed_intents)
-        agent_result = await executor.run(task_message)
+        agent_result = await executor.run(task_message, initial_checkpoint=initial_checkpoint)
 
         if not agent_result.success:
             return {
