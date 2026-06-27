@@ -85,6 +85,10 @@ class StreamingOrchestrator:
                 logger.warning(f"事件队列已满，丢弃实时事件 {event} (job={self.job_id})")
         return eid
 
+    def _emit_apply(self, event: str, payload: dict[str, Any]) -> None:
+        """@methoddesc 桥接 apply 事件回调（丢弃 emit 返回值以匹配 Callable[..., None]）。"""
+        self.emit(event, payload)
+
     async def run_chat(
         self,
         message: str,
@@ -114,9 +118,9 @@ class StreamingOrchestrator:
 
         # 创建 apply 事件桥接回调
         apply_callbacks = ApplyCallbacks(
-            on_apply_pending=lambda payload: self.emit(EVENT_APPLY_PENDING, payload),
-            on_apply_confirmed=lambda payload: self.emit(EVENT_APPLY_CONFIRMED, payload),
-            on_apply_rejected=lambda payload: self.emit(EVENT_APPLY_REJECTED, payload),
+            on_apply_pending=lambda payload: self._emit_apply(EVENT_APPLY_PENDING, payload),
+            on_apply_confirmed=lambda payload: self._emit_apply(EVENT_APPLY_CONFIRMED, payload),
+            on_apply_rejected=lambda payload: self._emit_apply(EVENT_APPLY_REJECTED, payload),
         )
 
         runner = ChatAgentRunner(

@@ -49,9 +49,6 @@
   // 折叠状态：流式中默认展开（看实时进度），完成后自动折叠
   const isExpanded = ref(true)
 
-  // 折叠状态：流式中默认展开（看实时进度），完成后自动折叠
-  const isExpanded = ref(true)
-
   // 完成后自动折叠（watch 监听 status 变化，避免 computed 副作用）
   watch(
     () => props.status,

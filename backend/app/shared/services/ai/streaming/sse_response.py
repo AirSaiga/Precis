@@ -22,7 +22,7 @@ import asyncio
 import json
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
+from typing import Any, cast
 
 from .event_journal import EventJournal
 
@@ -117,9 +117,9 @@ async def sse_event_stream(
             yield format_sse_event(event_id=None, event=None, data=None, heartbeat=True)
             continue
 
-        eid = entry.get("id")
-        event = entry.get("event")
-        data = entry.get("data")
-        yield format_sse_event(event_id=eid, event=event, data=data)
-        if event in TERMINAL_EVENTS:
+        rt_eid = cast("int | None", entry.get("id"))
+        rt_event = cast("str | None", entry.get("event"))
+        rt_data = cast("dict[str, Any] | None", entry.get("data"))
+        yield format_sse_event(event_id=rt_eid, event=rt_event, data=rt_data)
+        if rt_event in TERMINAL_EVENTS:
             terminated = True

@@ -115,6 +115,11 @@ class BaseProvider(ABC):
         """
         pass
 
+    @property
+    def model(self) -> str:
+        """@methoddesc 当前配置的模型名称。"""
+        return self.cfg.model
+
     @abstractmethod
     async def chat(self, req: ChatRequest) -> ChatResponse:
         """

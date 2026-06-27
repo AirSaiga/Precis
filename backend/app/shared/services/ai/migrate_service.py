@@ -252,7 +252,7 @@ class ConfigMigrationService(ConfigGenerationService):
 
         merge_tool = MergeResultsTool()
         merge_result = merge_tool.run({"configs": partial_configs})
-        config = merge_result.get("config", {})
+        config: dict[str, Any] = merge_result.get("config", {})
         warnings = list(merge_result.get("warnings", []))
 
         # 多分片时进行校验 + 精修兜底
@@ -297,7 +297,7 @@ class ConfigMigrationService(ConfigGenerationService):
 
         config["success"] = True
         config["iterations"] = len(partial_configs)
-        config["warnings"] = config.get("warnings", []) + warnings
+        config["warnings"] = list(config.get("warnings", [])) + warnings
         return config
 
     async def _migrate_single(

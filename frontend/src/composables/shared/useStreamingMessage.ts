@@ -182,14 +182,17 @@ export function useStreamingMessage() {
           .findIndex((s) => s.tool === name && s.status === 'running')
         if (idx !== -1) {
           const realIdx = message.toolSteps.length - 1 - idx
-          message.toolSteps[realIdx].status = data.success === false ? 'failed' : 'success'
-          if (data.error) message.toolSteps[realIdx].error = data.error
+          const step = message.toolSteps[realIdx]
+          if (step) {
+            step.status = data.success === false ? 'failed' : 'success'
+            if (data.error) step.error = data.error
+          }
         }
         break
       }
       case 'apply_pending': {
         message.pendingApply = {
-          files: Array.isArray(data.files) ? data.files : [],
+          files: Array.isArray(data.files) ? (data.files as PendingFileDiff[]) : [],
           summary: (data.summary ?? {}) as Record<string, number>,
           success: data.success !== false,
           error: typeof data.error === 'string' ? data.error : undefined,

@@ -92,9 +92,10 @@ class EventJournal:
         返回:
             分配的事件 id（从 1 开始递增）
         """
-        entry = {"id": 0, "event": event, "data": data, "ts": time.time()}
+        entry: dict[str, Any] = {"id": 0, "event": event, "data": data, "ts": time.time()}
         with self._lock:
             entry["id"] = self._next_id
+            eid: int = self._next_id
             self._next_id += 1
             line = json.dumps(entry, ensure_ascii=False)
             try:
@@ -105,7 +106,7 @@ class EventJournal:
                     os.fsync(f.fileno())
             except OSError as e:
                 logger.warning(f"追加 journal 事件失败 {self.journal_path}: {e}")
-        return entry["id"]
+        return eid
 
     def _read_all_unlocked(self) -> list[tuple[int, str, dict[str, Any]]]:
         """读取全部事件（不加锁，调用方自行加锁或保证无并发写）。"""

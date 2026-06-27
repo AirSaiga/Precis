@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
+from typing import cast
 
 from app.shared.services.llm.cache.response_cache import ResponseCache, cache_key
 
@@ -38,7 +39,7 @@ class CachedProvider(BaseProvider):
         key = cache_key(req)
         cached = self._cache.get(key)
         if cached is not None:
-            return cached
+            return cast(ChatResponse, cached)
         resp = await self._real.chat(req)
         if resp.content or resp.tool_calls:
             self._cache.put(key, resp)
