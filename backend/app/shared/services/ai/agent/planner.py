@@ -159,3 +159,109 @@ def plan_to_dict(plan: ChunkPlan) -> dict[str, Any]:
             for c in plan.chunks
         ],
     }
+
+
+# ===== 按源(source)分块（迁移专用，不影响 generation 主路径）=====
+
+
+@dataclass
+class SourceChunk:
+    """单个来源分片"""
+
+    chunk_id: str
+    source_names: list[str] = field(default_factory=list)
+    source_indices: list[int] = field(default_factory=list)  # 指向 parsed_intents 原始列表
+    reason: str = ""
+
+
+@dataclass
+class SourceChunkPlan:
+    """来源分块计划"""
+
+    chunks: list[SourceChunk] = field(default_factory=list)
+    strategy: str = ""  # single | by_source
+    reason: str = ""
+
+
+def _estimate_intent_tokens(intent_text: str) -> int:
+    """保守估算意图文本 token 数。"""
+    return max(1, len(intent_text or "") // 3)
+
+
+def build_source_chunk_plan(
+    parsed_intents: list[dict],
+    max_sources_per_chunk: int = 5,
+    max_tokens_per_chunk: int = 8000,
+) -> SourceChunkPlan:
+    """
+    @methoddesc 构建按源分块计划
+
+    参数:
+        parsed_intents: 解析后的来源意图列表，每个元素含 name/intent
+        max_sources_per_chunk: 每个分片最大来源数
+        max_tokens_per_chunk: 每个分片最大估算 token 数
+
+    返回:
+        SourceChunkPlan 分块计划
+    """
+    n = len(parsed_intents)
+    if n == 0:
+        return SourceChunkPlan(chunks=[], strategy="single", reason="无来源，无需分片")
+
+    total_tokens = sum(_estimate_intent_tokens(it.get("intent", "")) for it in parsed_intents)
+    if n <= max_sources_per_chunk and total_tokens <= max_tokens_per_chunk:
+        return SourceChunkPlan(
+            chunks=[
+                SourceChunk(
+                    chunk_id="source_single",
+                    source_names=[it.get("name") or f"source_{idx + 1}" for idx, it in enumerate(parsed_intents)],
+                    source_indices=list(range(n)),
+                    reason=f"来源数 {n}、估算 {total_tokens} token，单次处理",
+                )
+            ],
+            strategy="single",
+            reason=f"共 {n} 个来源，单次处理",
+        )
+
+    chunks: list[SourceChunk] = []
+    current = SourceChunk(chunk_id="source_chunk_1")
+    current_tokens = 0
+    for idx, it in enumerate(parsed_intents):
+        it_tokens = _estimate_intent_tokens(it.get("intent", ""))
+        over_sources = len(current.source_indices) >= max_sources_per_chunk
+        over_tokens = current_tokens + it_tokens > max_tokens_per_chunk and current.source_indices
+        if over_sources or over_tokens:
+            current.reason = f"分片含 {len(current.source_indices)} 个来源，约 {current_tokens} token"
+            chunks.append(current)
+            current = SourceChunk(chunk_id=f"source_chunk_{len(chunks) + 1}")
+            current_tokens = 0
+        current.source_indices.append(idx)
+        current.source_names.append(it.get("name", f"source_{idx + 1}"))
+        current_tokens += it_tokens
+
+    if current.source_indices:
+        current.reason = f"分片含 {len(current.source_indices)} 个来源，约 {current_tokens} token"
+        chunks.append(current)
+
+    return SourceChunkPlan(
+        chunks=chunks,
+        strategy="by_source",
+        reason=f"共 {n} 个来源、约 {total_tokens} token，按源拆分为 {len(chunks)} 个分片",
+    )
+
+
+def source_plan_to_dict(plan: SourceChunkPlan) -> dict[str, Any]:
+    """将 SourceChunkPlan 转为可 JSON 序列化的字典。"""
+    return {
+        "strategy": plan.strategy,
+        "reason": plan.reason,
+        "chunks": [
+            {
+                "chunk_id": c.chunk_id,
+                "source_names": c.source_names,
+                "source_indices": c.source_indices,
+                "reason": c.reason,
+            }
+            for c in plan.chunks
+        ],
+    }
