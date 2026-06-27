@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 import uuid
 from collections.abc import Callable
@@ -37,6 +38,8 @@ from app.shared.services.llm.generation import (
 
 from .models import ConfigGenerateJobCreateResponse, ConfigGenerateJobStatus, ConfigGenerateRequest
 from .router import router
+
+logger = logging.getLogger(__name__)
 
 # 内存中的任务句柄（仅用于取消运行中的任务）
 _job_tasks: dict[str, asyncio.Task] = {}
@@ -122,6 +125,7 @@ async def _run_job(
     payload: ConfigGenerateRequest,
     config_path: str,
     emit: Callable[[str, dict[str, Any]], None] | None = None,
+    initial_checkpoint: dict[str, Any] | None = None,
 ):
     """后台执行任务
 
@@ -238,6 +242,13 @@ async def _run_job(
             current_plan=extra.get("current_plan"),
         )
 
+    def on_checkpoint(cp: dict[str, Any]) -> None:
+        """checkpoint 落盘回调，异常不中断任务。"""
+        try:
+            storage.save_checkpoint(job_id, cp)
+        except Exception:
+            logger.warning("checkpoint 落盘失败", exc_info=True)
+
     try:
         from .models import ConfigGenerateResponse
 
@@ -255,6 +266,8 @@ async def _run_job(
                 chunk_max_columns=payload.options.chunk_max_columns,
                 chunk_max_files=payload.options.chunk_max_files,
                 progress_callback=progress_callback,
+                checkpoint_callback=on_checkpoint,
+                initial_checkpoint=initial_checkpoint,
             )
         else:
             result = await service.generate(
@@ -424,6 +437,58 @@ async def cancel_generate_job(
 
     if status_data.get("status") in ("completed", "failed", "cancelled"):
         return ConfigGenerateJobStatus(**status_data)
+
+
+@router.post(
+    "/config/generate/jobs/{job_id}/resume",
+    summary="从最近 checkpoint 续跑任务",
+    responses={
+        404: {"description": "无可用 checkpoint"},
+    },
+)
+async def resume_job(
+    job_id: str,
+    config_path: str = Depends(get_project_config_path),
+) -> dict[str, Any]:
+    """从最近 checkpoint 续跑任务
+
+    加载最新的 checkpoint 并在后台重启 executor.run(initial_checkpoint=cp)。
+    """
+    storage = _get_storage(config_path)
+    cp = storage.load_latest_checkpoint(job_id)
+    if not cp:
+        raise HTTPException(status_code=404, detail="无可用 checkpoint")
+
+    status_data = storage.load_status(job_id)
+    if not status_data:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+
+    # 从 status 恢复 payload(简化: 从 checkpoint 重建最小 payload)
+    # 实际场景应从持久化的 payload 恢复，这里用 checkpoint 中的信息
+    from .models import ConfigGenerateOptions
+
+    payload = ConfigGenerateRequest(
+        file_paths=status_data.get("file_paths", []),
+        project_name=status_data.get("project_name", ""),
+        project_id=status_data.get("project_id", ""),
+        provider_id=status_data.get("provider_id"),
+        options=ConfigGenerateOptions(
+            max_iterations=status_data.get("max_iterations", 2),
+        ),
+    )
+
+    # 更新状态为 resuming
+    status_data["status"] = "running"
+    status_data["stage"] = "resuming"
+    status_data["updated_at"] = _now_iso()
+    storage.save_status(job_id, status_data)
+
+    # 后台重启任务
+    task = asyncio.create_task(_run_job(job_id, payload, config_path, initial_checkpoint=cp))
+    with _job_tasks_lock:
+        _job_tasks[job_id] = task
+
+    return {"status": "resuming", "turn": cp.get("turn", 0)}
 
     status_data["status"] = "cancelled"
     status_data["stage"] = "cancelled"

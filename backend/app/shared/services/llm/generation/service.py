@@ -219,6 +219,7 @@ class ConfigGenerationService:
         chunk_max_files: int = 5,
         progress_callback: Callable[[str, float, dict[str, Any] | None], None] | None = None,
         checkpoint_callback: Callable[[dict[str, Any]], None] | None = None,
+        initial_checkpoint: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """
         @methoddesc Agent 多轮优化生成配置
@@ -279,7 +280,7 @@ class ConfigGenerationService:
             chunk_max_files=chunk_max_files,
         )
 
-        agent_result = await executor.run(task_message)
+        agent_result = await executor.run(task_message, initial_checkpoint=initial_checkpoint)
 
         if not agent_result.success:
             return {
