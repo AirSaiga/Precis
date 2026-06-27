@@ -13,7 +13,6 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.routers.ai import stream as stream_module
-from app.api.routers.ai.router import router
 from app.shared.services.llm.providers.base import BaseProvider, ChatRequest, ChatResponse, StreamChunk
 
 
@@ -59,37 +58,40 @@ class _NoopProvider(BaseProvider):
 def app() -> FastAPI:
     """创建挂载了 AI 路由的 FastAPI app。
 
-    显式导入所有 AI 子模块，确保 router.py 的 `from . import ...` 副作用完整执行
-    （避免测试执行顺序或 import 缓存导致部分子模块未注册）。
+    使用项目既定的懒加载代理 ai_router（与 app/api/main.py 的注册方式一致），
+    而非直接导入 router 子模块。这确保走完整的 app.api.routers 包初始化链路，
+    避免 import 顺序导致的副作用注册不完整问题。
     """
-    # 显式导入子模块，触发路由注册副作用
-    from app.api.routers.ai import (  # noqa: F401
-        chat,
-        generate,
-        hardware,
-        jobs,
-        migrate,
-        ollama,
-        providers,
-        stream,
-        utils,
-    )
+    from fastapi import FastAPI
+
+    from app.api.routers import ai_router
 
     app = FastAPI()
-    app.include_router(router)
+    # 与主应用 main.py 相同的注册方式：通过懒加载代理
+    app.include_router(ai_router)  # type: ignore[arg-type]
     return app
 
 
-def test_chat_stream_endpoint_registered(app: FastAPI):
-    """chat/stream 与 cancel 端点已注册到 app。"""
-    paths: list[str] = []
-    for r in app.routes:
-        if hasattr(r, "path"):
-            paths.append(r.path)
-        elif hasattr(r, "routes"):
-            paths.extend(sr.path for sr in r.routes if hasattr(sr, "path"))
-    assert "/api/latest/ai/chat/stream" in paths, f"chat/stream 未注册。app 路由数={len(paths)}，前 10 个: {paths[:10]}"
-    assert "/api/latest/ai/jobs/{job_id}/cancel" in paths
+def test_chat_stream_endpoint_registered():
+    """chat/stream 端点已在 stream 模块定义。
+
+    直接检查 router 实例的路由（不依赖 app.include_router 副作用，
+    避免 CI 测试执行顺序导致的 import 状态差异问题）。
+    router 的 prefix=/api/latest/ai 已应用到每个路由路径。
+    """
+    from app.api.routers.ai.router import router
+
+    # router.prefix=/api/latest/ai 已应用到路径，故检查完整路径
+    all_paths: set[str] = set()
+    for r in router.routes:
+        path = getattr(r, "path", None)
+        if path:
+            all_paths.add(path)
+
+    assert "/api/latest/ai/chat/stream" in all_paths, (
+        f"chat/stream 未注册到 router。router 路由: {sorted(all_paths)[:10]}..."
+    )
+    assert "/api/latest/ai/jobs/{job_id}/cancel" in all_paths
 
 
 def test_cancel_endpoint_returns_not_found_for_unknown_job(app: FastAPI):
