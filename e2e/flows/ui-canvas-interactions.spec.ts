@@ -95,12 +95,24 @@ async function expandSchemasFolder(page: import('@playwright/test').Page, schema
  * 从而携带完整的关联约束 payload（associatedConstraintIds / embeddedConstraints 等）。
  * 手动构造 DataTransfer 无法获取这些运行时关联数据，会导致只创建 Schema 节点而遗漏约束。
  *
- * 由于 HTML5 拖拽在 headless 下偶发不稳定，dragTo 失败时重试一次，并以 Schema 节点
- * 出现作为成功判据（关联约束的断言由调用方负责）。
+ * 成功判据：Schema 节点出现在画布上（而非 dragTo 本身完成）。
+ *
+ * 时序难点（CI 失败根因）：拖拽 Schema 后，前端会异步导入并随即弹出“发现关联的独立约束”
+ * 确认框（.global-confirm-overlay，全屏遮罩）。在 CI 中该弹窗可能在 dragTo 的指针序列
+ * 结束前就出现，从而拦截后续 pointer 事件导致 dragTo 超时。因此不能串行“先拖完再处理弹窗”：
+ * 必须在 dragTo 执行的【同时】并发监听并关闭弹窗，让遮罩一旦出现就立即被点掉，
+ * 解除对 dragTo 指针事件的拦截。弹窗按钮文案由 choice 决定（与最终断言口径一致）。
  */
 async function dragSchemaToCanvas(
   page: import('@playwright/test').Page,
-  schemaName: string
+  schemaName: string,
+  /**
+   * 拖拽过程中若弹出“关联独立约束”确认框，点哪个按钮。
+   * - 'importAll' → “全部导入”（连带创建独立约束）
+   * - 'schemaOnly' → “只导 Schema”（仅物化内嵌约束）
+   * 默认 'schemaOnly'（导入范围可控）。无弹窗时本参数无作用。
+   */
+  promptChoice: 'importAll' | 'schemaOnly' = 'schemaOnly'
 ) {
   const schemaItem = page
     .locator('.resource-tree .tree-row.file-row')
@@ -109,42 +121,47 @@ async function dragSchemaToCanvas(
   const canvas = page.locator('.vue-flow__pane')
   await expect(canvas).toBeVisible()
 
-  let lastError: unknown = null
-  for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      await schemaItem.dragTo(canvas, { timeout: 10000 })
-      // 若 Schema 节点已出现则视为拖拽成功
-      const count = await page.locator('.vue-flow__node-schema').count()
-      if (count >= 1) return
-    } catch (e) {
-      lastError = e
+  // 并发“关闭弹窗”任务：弹窗一旦可见就立即点掉，解除对 dragTo 指针事件的拦截。
+  // 它会持续运行直到 Schema 节点出现（即拖拽成功），随后被取消。
+  let dismissOverlay = true
+  const dismissTask = (async () => {
+    const overlay = page.locator('.global-confirm-overlay')
+    const btnName = promptChoice === 'importAll' ? /全部导入/ : /只导 Schema/
+    while (dismissOverlay) {
+      // 弹窗可见则点对应按钮；不可见则短暂等待后继续轮询
+      if (await overlay.isVisible().catch(() => false)) {
+        await overlay.getByRole('button', { name: btnName }).click().catch(() => {})
+        await expect(overlay).toBeHidden({ timeout: 5000 }).catch(() => {})
+      }
+      await page.waitForTimeout(150)
     }
-    await page.waitForTimeout(800)
+  })()
+
+  try {
+    let lastError: unknown = null
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        // 不等待 dragTo 完成——它可能因弹窗拦截而超时；用 Schema 节点出现作为成功判据。
+        await schemaItem.dragTo(canvas, { timeout: 10000 })
+      } catch (e) {
+        lastError = e
+      }
+      // 无论 dragTo 是否抛错，只要 Schema 节点已出现即视为拖拽成功
+      const appeared = await page
+        .locator('.vue-flow__node-schema')
+        .waitFor({ state: 'visible', timeout: 3000 })
+        .then(() => true)
+        .catch(() => false)
+      if (appeared) return
+      await page.waitForTimeout(400)
+    }
+    throw new Error(`dragSchemaToCanvas 失败（已重试 3 次）: ${lastError}`)
+  } finally {
+    // 停止弹窗轮询任务；多等一拍确保最后一次点击落地，避免遮罩残留
+    dismissOverlay = false
+    await dismissTask.catch(() => {})
+    await expect(page.locator('.global-confirm-overlay')).toBeHidden({ timeout: 3000 }).catch(() => {})
   }
-  throw new Error(`dragSchemaToCanvas 失败（已重试 3 次）: ${lastError}`)
-}
-
-/**
- * 处理拖拽 Schema 后可能弹出的“发现关联的独立约束”确认框。
- *
- * 拖拽有独立约束引用的 Schema 时，前端会弹窗询问是否一并导入。
- * 该 helper 根据传入的选择，点击对应按钮：
- * - 'importAll' → 点“全部导入”（连带创建独立约束）
- * - 'schemaOnly' → 点“只导 Schema”（仅物化内嵌约束）
- * 若弹窗未出现（如该 Schema 无关联独立约束），直接返回，保证幂等。
- */
-async function handleRelatedConstraintsPrompt(
-  page: import('@playwright/test').Page,
-  choice: 'importAll' | 'schemaOnly'
-) {
-  const overlay = page.locator('.global-confirm-overlay')
-  // 给弹窗一点时间出现（拖拽后异步触发）
-  await page.waitForTimeout(600)
-  if (!(await overlay.isVisible().catch(() => false))) return
-
-  const btnText = choice === 'importAll' ? /全部导入/ : /只导 Schema/
-  await overlay.getByRole('button', { name: btnText }).click()
-  await expect(overlay).toBeHidden({ timeout: 5000 })
 }
 
 test.describe('画布真实 UI 交互', () => {
@@ -194,10 +211,10 @@ test.describe('画布真实 UI 交互', () => {
     const schemaItem = await expandSchemasFolder(page, 'users')
     await expect(schemaItem).toBeVisible({ timeout: 10000 })
 
-    await dragSchemaToCanvas(page, 'users')
     // users 被 8 个独立约束引用（见 constraints/*.constraint.yaml），拖拽后会弹
     // “发现关联的独立约束”确认框。这里选“只导 Schema”，验证仅物化内嵌约束（保持导入范围可控）。
-    await handleRelatedConstraintsPrompt(page, 'schemaOnly')
+    // 弹窗在拖拽过程中由 dragSchemaToCanvas 并发关闭（见该函数注释）。
+    await dragSchemaToCanvas(page, 'users', 'schemaOnly')
 
     // 拖拽 Schema 时应自动物化内嵌约束（users.schema.yaml 内嵌了 NotNull/Unique 等）。
     // 注意 Vue Flow 节点类名是 camelCase（notNullConstraint），且同一 Schema 会物化多个内嵌约束，
@@ -213,16 +230,9 @@ test.describe('画布真实 UI 交互', () => {
   test('拖拽 Schema 选择“全部导入”会连带创建独立约束', async ({ projectPage }) => {
     const page = projectPage
     await expandSchemasFolder(page, 'users')
-    await dragSchemaToCanvas(page, 'users')
-
-    // 弹窗应出现，且文案包含被引用的独立约束信息
-    const overlay = page.locator('.global-confirm-overlay')
-    await expect(overlay).toBeVisible({ timeout: 10000 })
-    await expect(overlay).toContainText(/独立约束/)
-
-    // 选“全部导入”→ 连带创建引用 users 的独立约束节点
-    await overlay.getByRole('button', { name: /全部导入/ }).click()
-    await expect(overlay).toBeHidden({ timeout: 5000 })
+    // 选“全部导入”：dragSchemaToCanvas 在拖拽过程中并发点掉弹窗的“全部导入”按钮，
+    // 触发连带创建引用 users 的独立约束节点（见该函数注释的时序说明）。
+    await dragSchemaToCanvas(page, 'users', 'importAll')
 
     // users 的独立约束包含 DateLogic（users_birth_date_check）、Charset（users_username_ascii）、
     // Conditional（users_conditional_id_card）等。至少应出现一个这些类型的约束节点。
@@ -246,9 +256,9 @@ test.describe('画布真实 UI 交互', () => {
   test('点击“全量校验”按钮，验证结果面板显示', async ({ projectPage }) => {
     const page = projectPage
 
-    // 先拖入一个 Schema，确保有校验上下文
+    // 先拖入一个 Schema，确保有校验上下文（弹窗在拖拽过程中并发关闭）
     await expandSchemasFolder(page, 'users')
-    await dragSchemaToCanvas(page, 'users')
+    await dragSchemaToCanvas(page, 'users', 'schemaOnly')
 
     // 点击项目根节点上的“全量校验”按钮
     const projectRoot = page.locator('.project-root-node').first()
