@@ -11,9 +11,16 @@ import tempfile
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from app.api.main import app
+from app.api.routers.ai.jobs import router as jobs_router
+
+
+def _app() -> FastAPI:
+    app = FastAPI()
+    app.include_router(jobs_router)
+    return app
 
 
 @pytest.fixture
@@ -75,8 +82,6 @@ def test_run_job_checkpoint_callback_saves_to_storage(temp_config_path):
 
 def test_resume_endpoint_with_checkpoint_returns_200(temp_config_path):
     """/resume 端点: 有 checkpoint → 返回 200 + resuming 状态。"""
-    client = TestClient(app)
-
     mock_storage = MagicMock()
     mock_storage.load_latest_checkpoint.return_value = {"turn": 2, "messages": [{"role": "user", "content": "test"}]}
     mock_storage.load_status.return_value = {
@@ -98,6 +103,7 @@ def test_resume_endpoint_with_checkpoint_returns_200(temp_config_path):
         patch("app.api.routers.ai.jobs._get_storage", return_value=mock_storage),
         patch("app.api.routers.ai.jobs._run_job") as mock_run,
     ):
+        client = TestClient(_app())
         response = client.post(
             "/api/latest/ai/config/generate/jobs/job_test/resume",
             headers={"X-Project-Config-Path": temp_config_path},
@@ -116,7 +122,7 @@ def test_resume_endpoint_with_checkpoint_returns_200(temp_config_path):
 
 def test_resume_endpoint_without_checkpoint_returns_404(temp_config_path):
     """/resume 端点: 无 checkpoint → 返回 404。"""
-    client = TestClient(app)
+    client = TestClient(_app())
 
     mock_storage = MagicMock()
     mock_storage.load_latest_checkpoint.return_value = None

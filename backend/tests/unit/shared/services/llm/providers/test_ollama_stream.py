@@ -2,13 +2,20 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.shared.services.llm.config.models import AIProvider
 from app.shared.services.llm.providers.base import ChatMessage, ChatRequest
 from app.shared.services.llm.providers.ollama import OllamaProvider
+
+
+@pytest.fixture(autouse=True)
+def _mock_aiohttp():
+    """确保 _aiohttp 不为 None，绕过 chat_stream 的导入守卫。"""
+    with patch("app.shared.services.llm.providers.ollama._aiohttp", MagicMock()):
+        yield
 
 
 def _make_provider() -> OllamaProvider:

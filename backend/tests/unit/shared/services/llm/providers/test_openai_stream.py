@@ -2,13 +2,24 @@
 
 from __future__ import annotations
 
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from app.shared.services.llm.config.models import AIProvider
 from app.shared.services.llm.providers.base import ChatMessage, ChatRequest
 from app.shared.services.llm.providers.openai import OpenAIProvider
+
+
+@pytest.fixture(autouse=True)
+def _mock_openai_deps():
+    """确保 AsyncOpenAI 不为 None，绕过 OpenAIProvider.__init__ 的导入守卫。"""
+    with (
+        patch("app.shared.services.llm.providers.openai.AsyncOpenAI", MagicMock()),
+        patch("app.shared.services.llm.providers.openai.APIConnectionError", Exception),
+        patch("app.shared.services.llm.providers.openai.APIStatusError", Exception),
+    ):
+        yield
 
 
 def _make_provider() -> OpenAIProvider:

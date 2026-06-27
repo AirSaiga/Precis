@@ -64,7 +64,12 @@ def app() -> FastAPI:
 
 def test_chat_stream_endpoint_registered(app: FastAPI):
     """chat/stream 端点已注册。"""
-    paths = [r.path for r in app.routes]
+    paths: list[str] = []
+    for r in app.routes:
+        if hasattr(r, "path"):
+            paths.append(r.path)
+        elif hasattr(r, "routes"):
+            paths.extend(sr.path for sr in r.routes if hasattr(sr, "path"))
     assert "/api/latest/ai/chat/stream" in paths
     assert "/api/latest/ai/jobs/{job_id}/cancel" in paths
 
