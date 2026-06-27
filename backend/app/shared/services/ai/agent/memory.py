@@ -44,6 +44,7 @@ class AgentMemory:
         self.max_tokens = max_tokens
         self._messages: list[dict[str, Any]] = []
         self._turns: list[AgentTurn] = []
+        self._turn_count: int = 0
         if system_prompt:
             self._messages.append({"role": "system", "content": system_prompt})
 
@@ -81,6 +82,7 @@ class AgentMemory:
     def add_turn(self, turn: AgentTurn) -> None:
         """记录完整 turn。"""
         self._turns.append(turn)
+        self._turn_count += 1
 
     def get_messages(self) -> list[dict[str, Any]]:
         """
@@ -117,12 +119,32 @@ class AgentMemory:
         return self._turns
 
     def create_checkpoint(self) -> dict[str, Any]:
-        """创建当前记忆 checkpoint（只保存 summary，不保存完整历史）。"""
+        """创建当前记忆 checkpoint（含完整 messages，支持跨进程恢复）。"""
         return {
             "system_prompt": self.system_prompt,
+            "max_tokens": self.max_tokens,
             "message_count": len(self._messages),
-            "turn_count": len(self._turns),
+            "turn_count": self._turn_count,
+            "messages": [dict(m) for m in self._messages],
         }
+
+    @classmethod
+    def restore_from_checkpoint(cls, checkpoint: dict[str, Any]) -> AgentMemory:
+        """从 checkpoint 重建 memory 状态。
+
+        参数:
+            checkpoint: create_checkpoint 返回的字典
+
+        返回:
+            重建的 AgentMemory 实例
+        """
+        mem = cls(
+            system_prompt=checkpoint.get("system_prompt", ""),
+            max_tokens=checkpoint.get("max_tokens", DEFAULT_MAX_TOKENS),
+        )
+        mem._messages = [dict(m) for m in checkpoint.get("messages", [])]
+        mem._turn_count = checkpoint.get("turn_count", 0)
+        return mem
 
     @staticmethod
     def _truncate(text: str, max_chars: int = _MAX_MESSAGE_CHARS) -> str:

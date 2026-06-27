@@ -31,6 +31,15 @@ const aiChat = {
   trailCancelled: '已取消 · 已执行 {steps} 步',
   trailCancelledNote: '任务已取消（完成 {turns} 轮），已落盘的改动已保留',
   cancel: '停止',
+  // apply_actions 两阶段确认卡
+  confirmPending: '将修改 {total} 个文件 · 等待确认',
+  confirmNoFiles: '无文件变更',
+  confirmCreated: '新增',
+  confirmDeleted: '删除',
+  confirmModified: '修改',
+  confirmApply: '确认修改',
+  confirmReject: '拒绝',
+  confirmDeciding: '处理中...',
 }
 
 const aiConfigGenerator = {

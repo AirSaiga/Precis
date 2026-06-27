@@ -25,6 +25,23 @@ export interface ToolStep {
   error?: string
 }
 
+/** apply_pending 事件携带的单个文件 diff */
+export interface PendingFileDiff {
+  path: string
+  status: 'modified' | 'created' | 'deleted'
+  diff: string
+  before_preview?: string
+  after_preview?: string
+}
+
+/** apply_pending 事件数据 */
+export interface PendingApply {
+  files: PendingFileDiff[]
+  summary: Record<string, number>
+  success: boolean
+  error?: string
+}
+
 /** 流式消息状态 */
 export interface StreamingMessage {
   content: string
@@ -36,6 +53,10 @@ export interface StreamingMessage {
   /** 取消/失败时的元信息 */
   errorMessage: string
   completedTurns: number
+  /** 流式任务 ID（started 事件捕获，供 confirm 端点使用） */
+  jobId: string
+  /** 挂起的 apply_actions 改动（apply_pending 事件填充） */
+  pendingApply: PendingApply | null
 }
 
 /** 终止事件的完整快照（completed/cancelled 携带） */
@@ -49,6 +70,7 @@ export interface StreamingResult {
 /** SSE 事件 data 的结构（与后端 types.py 对齐） */
 interface EventData {
   text?: string
+  job_id?: string
   turn?: number
   tool?: string
   call_id?: string
@@ -65,6 +87,10 @@ interface EventData {
   partial?: boolean
   message?: string
   code?: string
+  files?: unknown[]
+  summary?: Record<string, number>
+  reason?: string
+  decision?: string
 }
 
 /**
@@ -87,6 +113,8 @@ export function useStreamingMessage() {
     result: null,
     errorMessage: '',
     completedTurns: 0,
+    jobId: '',
+    pendingApply: null,
   })
 
   /** 开始一次新的流式会话（重置状态） */
@@ -98,6 +126,8 @@ export function useStreamingMessage() {
     message.result = null
     message.errorMessage = ''
     message.completedTurns = 0
+    message.jobId = ''
+    message.pendingApply = null
   }
 
   /** 重置为初始空状态 */
@@ -109,6 +139,8 @@ export function useStreamingMessage() {
     message.result = null
     message.errorMessage = ''
     message.completedTurns = 0
+    message.jobId = ''
+    message.pendingApply = null
   }
 
   /** 处理一个 SSE 事件，更新状态 */
@@ -116,6 +148,12 @@ export function useStreamingMessage() {
     const data = (rawData ?? {}) as EventData
 
     switch (event) {
+      case 'started': {
+        if (typeof data.job_id === 'string') {
+          message.jobId = data.job_id
+        }
+        break
+      }
       case 'delta': {
         if (typeof data.text === 'string') {
           message.content += data.text
@@ -147,6 +185,23 @@ export function useStreamingMessage() {
           message.toolSteps[realIdx].status = data.success === false ? 'failed' : 'success'
           if (data.error) message.toolSteps[realIdx].error = data.error
         }
+        break
+      }
+      case 'apply_pending': {
+        message.pendingApply = {
+          files: Array.isArray(data.files) ? data.files : [],
+          summary: (data.summary ?? {}) as Record<string, number>,
+          success: data.success !== false,
+          error: typeof data.error === 'string' ? data.error : undefined,
+        }
+        break
+      }
+      case 'apply_confirmed': {
+        message.pendingApply = null
+        break
+      }
+      case 'apply_rejected': {
+        message.pendingApply = null
         break
       }
       case 'completed': {

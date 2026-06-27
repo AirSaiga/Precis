@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import threading
 import uuid
 from collections.abc import Callable
@@ -33,6 +34,8 @@ from .models import (
     ConfigMigrateRequest,
 )
 from .router import router
+
+logger = logging.getLogger(__name__)
 
 _job_tasks: dict[str, asyncio.Task] = {}
 _job_tasks_lock = threading.Lock()
@@ -90,6 +93,7 @@ async def _run_migrate_job(
     payload: ConfigMigrateRequest,
     config_path: str,
     emit: Callable[[str, dict[str, Any]], None] | None = None,
+    initial_checkpoint: dict[str, Any] | None = None,
 ):
     """后台执行迁移任务
 
@@ -155,6 +159,19 @@ async def _run_migrate_job(
 
     update_status("running", stage="initializing", progress=0.0)
 
+    # 存储 payload 元数据供 resume 重建
+    raw = storage._load_raw(job_id)
+    raw["payload"] = {
+        "script_content": payload.script_content,
+        "language": payload.language,
+        "file_paths": payload.file_paths,
+        "project_name": payload.project_name,
+        "project_id": payload.project_id,
+        "provider_id": payload.provider_id,
+        "max_iterations": payload.options.max_iterations,
+    }
+    storage._save_raw(job_id, raw)
+
     service = ConfigMigrationService(provider_id=payload.provider_id)
 
     profiling_opts = ProfilingOptions(
@@ -185,6 +202,12 @@ async def _run_migrate_job(
             metrics=extra.get("metrics"),
         )
 
+    def on_checkpoint(cp: dict[str, Any]) -> None:
+        try:
+            storage.save_checkpoint(job_id, cp)
+        except Exception:
+            logger.warning("checkpoint 落盘失败", exc_info=True)
+
     try:
         result = await service.migrate_from_script(
             script_content=payload.script_content,
@@ -198,6 +221,8 @@ async def _run_migrate_job(
             max_iterations=payload.options.max_iterations,
             validation_sample_size=payload.options.validation_sample_size,
             progress_callback=progress_callback,
+            checkpoint_callback=on_checkpoint,
+            initial_checkpoint=initial_checkpoint,
             sources=[s.model_dump() for s in payload.sources] if payload.sources else None,
         )
 
@@ -368,3 +393,53 @@ async def cancel_migrate_job(
             task.cancel()
 
     return ConfigGenerateJobStatus(**status_data)
+
+
+@router.post(
+    "/config/migrate/jobs/{job_id}/resume",
+    summary="从最近 checkpoint 续跑迁移任务",
+    responses={
+        404: {"description": "无可用 checkpoint"},
+    },
+)
+async def resume_migrate_job(
+    job_id: str,
+    config_path: str = Depends(get_project_config_path),
+) -> dict[str, Any]:
+    """从最近 checkpoint 续跑迁移任务"""
+    storage = _get_storage(config_path)
+    cp = storage.load_latest_checkpoint(job_id)
+    if not cp:
+        raise HTTPException(status_code=404, detail="无可用 checkpoint")
+
+    status_data = storage.load_status(job_id)
+    if not status_data:
+        raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+
+    # 从持久化的 payload 元数据重建请求
+    raw = storage.load_full(job_id)
+    meta = raw.get("payload", {})
+    from .models import ConfigGenerateOptions
+
+    payload = ConfigMigrateRequest(
+        script_content=meta.get("script_content", ""),
+        language=meta.get("language", "python"),
+        file_paths=meta.get("file_paths", []),
+        project_name=meta.get("project_name", ""),
+        project_id=meta.get("project_id", ""),
+        provider_id=meta.get("provider_id"),
+        options=ConfigGenerateOptions(
+            max_iterations=meta.get("max_iterations", 2),
+        ),
+    )
+
+    status_data["status"] = "running"
+    status_data["stage"] = "resuming"
+    status_data["updated_at"] = _now_iso()
+    storage.save_status(job_id, status_data)
+
+    task = asyncio.create_task(_run_migrate_job(job_id, payload, config_path, initial_checkpoint=cp))
+    with _job_tasks_lock:
+        _job_tasks[job_id] = task
+
+    return {"status": "resuming", "turn": cp.get("turn", 0)}

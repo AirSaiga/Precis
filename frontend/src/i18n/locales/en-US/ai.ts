@@ -31,6 +31,15 @@ const aiChat = {
   trailCancelled: 'Cancelled · {steps} steps executed',
   trailCancelledNote: 'Task cancelled ({turns} turns). Persisted changes are kept.',
   cancel: 'Stop',
+  // apply_actions two-phase confirm card
+  confirmPending: 'Will modify {total} files · Awaiting confirmation',
+  confirmNoFiles: 'No file changes',
+  confirmCreated: 'Created',
+  confirmDeleted: 'Deleted',
+  confirmModified: 'Modified',
+  confirmApply: 'Apply Changes',
+  confirmReject: 'Reject',
+  confirmDeciding: 'Processing...',
 }
 
 const aiConfigGenerator = {

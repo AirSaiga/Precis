@@ -54,6 +54,12 @@
             :status="getTrailStatus(msg)"
             :completed-turns="getCompletedTurns(msg)"
           />
+          <!-- apply_actions 改动确认卡（两阶段确认） -->
+          <ApplyConfirmCard
+            v-if="msg.role === 'assistant' && msg.streaming?.pendingApply"
+            :apply="msg.streaming.pendingApply"
+            :on-decide="handleApplyDecide"
+          />
           <div v-if="msg.role === 'user'" class="message-content user-content">
             {{ msg.content }}
           </div>
@@ -171,6 +177,7 @@
   import MarkdownIt from 'markdown-it'
   import DOMPurify from 'dompurify'
   import ToolTrailCard from './ToolTrailCard.vue'
+  import ApplyConfirmCard from './ApplyConfirmCard.vue'
 
   const { t } = useI18n()
   const aiChatStore = useAiChatStore()
@@ -241,6 +248,11 @@
   /** 取消当前流式对话（软取消） */
   const handleCancel = () => {
     void aiChatStore.cancelSendMessage()
+  }
+
+  /** 处理 apply_actions 确认/拒绝决策 */
+  const handleApplyDecide = async (decision: 'confirm' | 'reject') => {
+    await aiChatStore.confirmApply(decision)
   }
 
   /** 消息是否正在流式输出 */

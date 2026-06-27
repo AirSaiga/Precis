@@ -27,11 +27,12 @@ from fastapi.responses import StreamingResponse
 
 from app.shared.services.ai.streaming.event_journal import EventJournal
 from app.shared.services.ai.streaming.orchestrator import StreamingOrchestrator
+from app.shared.services.ai.streaming.pending_apply_store import get_global_pending_store
 from app.shared.services.ai.streaming.sse_response import sse_event_stream
 from app.shared.services.llm.config import loader
 from app.shared.services.llm.providers.registry import create
 
-from .models import AiChatRequest
+from .models import AiChatConfirmRequest, AiChatRequest
 from .router import router
 
 logger = logging.getLogger(__name__)
@@ -159,6 +160,7 @@ async def cancel_job(job_id: str) -> dict[str, str]:
 
     设置 cancel_event 后,orchestrator/executor 在下一个检查点(turn 开始/chunk 间)中断。
     已落盘的 apply_actions 改动保留,前端轨迹如实显示已执行步数。
+    同步 resolve 挂起的 apply_actions 确认门为 reject。
 
     参数:
         job_id: 任务 ID
@@ -170,5 +172,34 @@ async def cancel_job(job_id: str) -> dict[str, str]:
         ev = _cancel_events.get(job_id)
     if ev is not None:
         ev.set()
+        # 同步 resolve 挂起的 apply 确认为 reject（取消 = 拒绝）
+        pending_store = get_global_pending_store()
+        controller = pending_store.get(job_id)
+        if controller is not None and not controller.is_resolved:
+            controller.resolve("reject")
         return {"status": "cancelling"}
     return {"status": "not_found"}
+
+
+@router.post("/chat/{job_id}/confirm", summary="确认/拒绝挂起的 apply_actions 改动")
+async def confirm_apply(job_id: str, request: AiChatConfirmRequest) -> dict[str, str]:
+    """@methoddesc 确认端点
+
+    用户在前端点击"确认"或"拒绝"后调用。
+    decide 后 resolve ConfirmController 唤醒挂起的 apply_actions 协程。
+
+    参数:
+        job_id: 任务 ID
+        request: 含 decision 字段("confirm" 或 "reject")
+
+    返回:
+        {"status": "resolved", "decision": "confirm"} 或 404
+    """
+    pending_store = get_global_pending_store()
+    controller = pending_store.get(job_id)
+    if controller is None:
+        raise HTTPException(404, detail="无挂起的改动(可能已决策或任务已结束)")
+    if controller.is_resolved:
+        return {"status": "already_resolved", "decision": controller.decision or "unknown"}
+    controller.resolve(request.decision)
+    return {"status": "resolved", "decision": request.decision}

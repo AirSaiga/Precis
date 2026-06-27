@@ -170,6 +170,8 @@ export const useAiChatStore = defineStore('aiChat', () => {
   const agentMode = ref(true)
   /** 当前流式会话的 SSE 客户端（用于取消） */
   let currentSSEClient: SSEClient | null = null
+  /** 当前流式任务的 job_id（started 事件捕获，供 confirm 端点使用） */
+  const currentStreamingJobId = ref<string>('')
 
   // --- 计算属性 ---
   /** 是否有选中的上下文节点 */
@@ -330,8 +332,16 @@ export const useAiChatStore = defineStore('aiChat', () => {
       }
 
       await sseClient.connect('/ai/chat/stream', body, {
-        onEvent: (event, id, data) => {
-          handleEvent(event, id, data)
+        onEvent: (event, _id, data) => {
+          // 捕获 job_id 供 confirm 端点使用
+          if (
+            event === 'started' &&
+            data &&
+            typeof (data as Record<string, unknown>).job_id === 'string'
+          ) {
+            currentStreamingJobId.value = (data as Record<string, unknown>).job_id as string
+          }
+          handleEvent(event, _id, data)
         },
         onError: (err) => {
           logger.error('SSE 错误:', err)
@@ -378,21 +388,46 @@ export const useAiChatStore = defineStore('aiChat', () => {
     } finally {
       loading.value = false
       currentSSEClient = null
+      currentStreamingJobId.value = ''
+    }
+  }
+
+  /**
+   * 确认或拒绝挂起的 apply_actions 改动（两阶段确认）。
+   *
+   * @param decision - "confirm" 确认落盘 或 "reject" 拒绝不写
+   */
+  async function confirmApply(decision: 'confirm' | 'reject') {
+    const jobId = currentStreamingJobId.value
+    if (!jobId) {
+      logger.warn('confirmApply: 无当前 job_id，无法确认')
+      return
+    }
+    try {
+      const baseUrl = (await import('@/core/services/httpClient')).getApiBaseUrl()
+      await fetch(`${baseUrl}/ai/chat/${jobId}/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision }),
+      })
+    } catch (error) {
+      logger.error('确认 apply_actions 失败:', error)
     }
   }
 
   /**
    * 取消当前正在进行的流式 AI 对话（软取消）。
    *
+   * 先同步 resolve 挂起的 apply 确认门为 reject（避免协程挂起），再关闭连接。
    * 已落盘的 apply_actions 改动保留，前端轨迹如实显示已执行步数。
    * 无进行中的对话时无操作。
    */
   async function cancelSendMessage() {
     if (!currentSSEClient) return
     try {
-      // 发送取消信号给后端，后端在下一个检查点中断 Agent 循环
-      // job_id 由后端生成，前端无法直接获知；这里关闭客户端连接即可
-      // 后端 SSE 流会因连接断开而结束，已写入 journal 的事件保留
+      // 先同步 resolve 挂起的 apply 确认为 reject
+      await confirmApply('reject')
+      // 再关闭 SSE 连接
       currentSSEClient.close()
     } catch (error) {
       logger.error('取消 AI 对话失败:', error)
@@ -424,5 +459,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
     clearMessages,
     sendMessage,
     cancelSendMessage,
+    confirmApply,
+    currentStreamingJobId,
   }
 })

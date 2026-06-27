@@ -29,6 +29,7 @@ from app.shared.services.ai.agent.chat_tools import (
     ReadTableTool,
     ValidateTableTool,
 )
+from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyCallbacks
 from app.shared.services.ai.agent.executor import AgentExecutor
 from app.shared.services.ai.agent.tool_registry import ToolRegistry
 from app.shared.services.llm.chat.chat_system_prompt import SYSTEM_PROMPT_CORE
@@ -166,6 +167,9 @@ class ChatAgentRunner:
         context_nodes: list[dict[str, Any]],
         max_iterations: int = 3,
         max_history_tokens: int = 120000,
+        confirm_controller: Any | None = None,
+        apply_callbacks: ApplyCallbacks | None = None,
+        dry_run_enabled: bool = False,
     ):
         """
         @methoddesc 初始化 Chat Agent Runner
@@ -176,12 +180,18 @@ class ChatAgentRunner:
             context_nodes: 前端选中的上下文节点列表
             max_iterations: Agent 最大迭代轮数
             max_history_tokens: 历史消息 token 预算
+            confirm_controller: 确认门控制器（两阶段确认模式注入）
+            apply_callbacks: apply_* 事件回调集合
+            dry_run_enabled: 是否启用两阶段确认模式
         """
         self.provider = provider
         self.project_path = project_path
         self.context_nodes = context_nodes
         self.max_iterations = max_iterations
         self.max_history_tokens = max_history_tokens
+        self.confirm_controller = confirm_controller
+        self.apply_callbacks = apply_callbacks or ApplyCallbacks()
+        self.dry_run_enabled = dry_run_enabled
 
         # 关键：frontend_instructions 的旁路累积容器
         # apply_actions 工具持有此列表引用，append 后 runner 最终读取
@@ -261,10 +271,13 @@ class ChatAgentRunner:
             handler=lambda args: read_table_tool.run(args),
         )
 
-        # 关键：apply_actions 注入 collected_instructions 共享引用
+        # 关键：apply_actions 注入 collected_instructions 共享引用 + 两阶段确认参数
         apply_actions_tool = ApplyActionsTool(
             project_path=self.project_path,
             collected_instructions=self.collected_instructions,
+            dry_run_enabled=self.dry_run_enabled,
+            confirm_controller=self.confirm_controller,
+            apply_callbacks=self.apply_callbacks,
         )
         registry.register(
             name=apply_actions_tool.NAME,

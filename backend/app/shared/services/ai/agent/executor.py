@@ -117,19 +117,25 @@ class AgentExecutor:
 
         参数:
             task_message: 用户任务描述
-            initial_checkpoint: 可选的初始 checkpoint 数据
+            initial_checkpoint: 可选的初始 checkpoint 数据,含 messages 时从断点续跑
 
         返回:
             AgentResult 执行结果
         """
-        self._memory = AgentMemory(self.system_prompt, max_tokens=self.max_tokens)
-        self._memory.set_task(task_message)
+        # 续跑:从 checkpoint 恢复 memory,而非新建
+        if initial_checkpoint and initial_checkpoint.get("messages"):
+            self._memory = AgentMemory.restore_from_checkpoint(initial_checkpoint)
+            start_turn = initial_checkpoint.get("turn", 0) + 1
+        else:
+            self._memory = AgentMemory(self.system_prompt, max_tokens=self.max_tokens)
+            self._memory.set_task(task_message)
+            start_turn = 1
 
         tools = self.registry.get_definitions()
 
         result = AgentResult(success=True, iterations=0)
 
-        for turn_idx in range(1, self.max_iterations + 1):
+        for turn_idx in range(start_turn, self.max_iterations + 1):
             # 取消检查点 1: turn 开始
             if self.cancelled_callback():
                 result.success = False
@@ -217,7 +223,10 @@ class AgentExecutor:
                     self._memory.add_turn(turn)
                     result.turns.append(turn)
                     final_checkpoint = self._make_checkpoint(turn_idx, turn, result.metrics.to_dict())
-                    self.checkpoint_callback(final_checkpoint)
+                    try:
+                        self.checkpoint_callback(final_checkpoint)
+                    except Exception:
+                        logger.warning("checkpoint_callback 异常，已忽略", exc_info=True)
                     return result
 
                 for tr in tool_results:
@@ -229,12 +238,16 @@ class AgentExecutor:
                         observation_text = str(observation)
                     self._memory.add_tool_result(tr.call_id, tr.name, observation_text)
 
-                # 更新 checkpoint
-                checkpoint = self._make_checkpoint(turn_idx, turn, None)
-                self.checkpoint_callback(checkpoint)
                 self._memory.add_turn(turn)
                 result.turns.append(turn)
                 result.iterations = turn_idx
+
+                # 更新 checkpoint
+                checkpoint = self._make_checkpoint(turn_idx, turn, None)
+                try:
+                    self.checkpoint_callback(checkpoint)
+                except Exception:
+                    logger.warning("checkpoint_callback 异常，已忽略", exc_info=True)
                 continue
 
             # 没有 tool_calls 且 content 非空，视为最终结果
@@ -250,7 +263,10 @@ class AgentExecutor:
                     result.config = config
 
                 final_checkpoint = self._make_checkpoint(turn_idx, turn, result.metrics.to_dict())
-                self.checkpoint_callback(final_checkpoint)
+                try:
+                    self.checkpoint_callback(final_checkpoint)
+                except Exception:
+                    logger.warning("checkpoint_callback 异常，已忽略", exc_info=True)
                 break
 
             # content 为空且无 tool_calls，记录 turn 后继续
@@ -290,8 +306,10 @@ class AgentExecutor:
         agent_turn: AgentTurn,
         metrics: dict[str, Any] | None,
     ) -> dict[str, Any]:
-        """构造 checkpoint。"""
+        """构造 checkpoint（含完整 messages，支持续跑）。"""
+        memory_checkpoint = self._memory.create_checkpoint() if self._memory else {}
         return {
+            **memory_checkpoint,
             "turn": turn,
             "content": agent_turn.content,
             "tool_calls": [{"id": c.id, "name": c.name, "arguments": c.arguments} for c in agent_turn.tool_calls],

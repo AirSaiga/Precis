@@ -8,6 +8,7 @@
 - emit 是唯一事件出口: 同时落盘 EventJournal（支持续传）+ 推给内存队列（实时 SSE）
 - finally 注销取消信号: 无论成功/取消/失败都清理，防止内存泄漏
 - 终止事件携带完整快照: 即使中途 delta 丢失，前端也能渲染完整结果
+- apply_actions 两阶段确认: 创建 ConfirmController 注册 store，桥接 apply_* 事件
 """
 
 from __future__ import annotations
@@ -16,11 +17,16 @@ import asyncio
 import logging
 from typing import Any
 
+from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyCallbacks
 from app.shared.services.ai.agent.types import ToolResult
 from app.shared.services.ai.chat_agent_runner import ChatAgentRunner
+from app.shared.services.ai.streaming.pending_apply_store import ConfirmController, get_global_pending_store
 
 from .event_journal import EventJournal
 from .types import (
+    EVENT_APPLY_CONFIRMED,
+    EVENT_APPLY_PENDING,
+    EVENT_APPLY_REJECTED,
     EVENT_CANCELLED,
     EVENT_COMPLETED,
     EVENT_DELTA,
@@ -90,6 +96,7 @@ class StreamingOrchestrator:
         """@methoddesc 包装 ChatAgentRunner 为流式事件流
 
         流程: started → (delta/turn_start/tool_call/tool_result 经回调) → completed/cancelled/error
+        新增: apply_pending → await 用户确认 → apply_confirmed/apply_rejected
 
         参数:
             message: 用户消息
@@ -100,10 +107,25 @@ class StreamingOrchestrator:
         """
         self.emit(EVENT_STARTED, {"job_id": self.job_id, "kind": "chat"})
 
+        # 创建两阶段确认控制器并注册到全局 store
+        confirm_controller = ConfirmController(request_id=self.job_id)
+        pending_store = get_global_pending_store()
+        pending_store.put(self.job_id, confirm_controller)
+
+        # 创建 apply 事件桥接回调
+        apply_callbacks = ApplyCallbacks(
+            on_apply_pending=lambda payload: self.emit(EVENT_APPLY_PENDING, payload),
+            on_apply_confirmed=lambda payload: self.emit(EVENT_APPLY_CONFIRMED, payload),
+            on_apply_rejected=lambda payload: self.emit(EVENT_APPLY_REJECTED, payload),
+        )
+
         runner = ChatAgentRunner(
             provider=provider,
             project_path=project_path,
             context_nodes=context_nodes,
+            confirm_controller=confirm_controller,
+            apply_callbacks=apply_callbacks,
+            dry_run_enabled=True,
         )
 
         # 工具 label 映射（与 ChatAgentRunner._TOOL_LABELS 一致，供 tool_call 事件使用）
@@ -149,6 +171,12 @@ class StreamingOrchestrator:
             logger.exception(f"StreamingOrchestrator run_chat 失败 (job={self.job_id})")
             self.emit(EVENT_ERROR, {"message": f"Agent 执行失败: {e}", "code": "RUNNER_ERROR"})
             return
+        finally:
+            # 兜底清理：确保协程不会永久挂起
+            controller = pending_store.pop(self.job_id)
+            if controller is not None and not controller.is_resolved:
+                logger.warning(f"run_chat finally 兜底 resolve reject (job={self.job_id})")
+                controller.resolve("reject")
 
         if self.cancel_event.is_set() or (hasattr(result, "success") and not result.success and result.iterations > 0):
             # 软取消：已落盘的 apply_actions 改动保留，轨迹如实显示
