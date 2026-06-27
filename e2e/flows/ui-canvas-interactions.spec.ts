@@ -123,7 +123,13 @@ async function dragSchemaToCanvas(
 
   // 并发“关闭弹窗”任务：弹窗一旦可见就立即点掉，解除对 dragTo 指针事件的拦截。
   // 它会持续运行直到 Schema 节点出现（即拖拽成功），随后被取消。
+  //
+  // 时序说明（产品代码已调整为弹窗严格早于 Schema 节点出现）：
+  // 关联独立约束的确认框（.global-confirm-overlay）现在在 importSchema 创建节点
+  // 【之前】弹出，因此 dismissTask 必然能在 Schema 节点出现前捕获并关闭它，
+  // 不存在「节点先出现→dismissTask 被提前停掉→弹窗无人处理」的竞态。
   let dismissOverlay = true
+  let overlayWasHandled = false // 记录弹窗是否被成功点掉（importAll/schemaOnly 期望它出现）
   const dismissTask = (async () => {
     const overlay = page.locator('.global-confirm-overlay')
     const btnName = promptChoice === 'importAll' ? /全部导入/ : /只导 Schema/
@@ -132,6 +138,7 @@ async function dragSchemaToCanvas(
       if (await overlay.isVisible().catch(() => false)) {
         await overlay.getByRole('button', { name: btnName }).click().catch(() => {})
         await expect(overlay).toBeHidden({ timeout: 5000 }).catch(() => {})
+        overlayWasHandled = true
       }
       await page.waitForTimeout(150)
     }
@@ -146,7 +153,8 @@ async function dragSchemaToCanvas(
       } catch (e) {
         lastError = e
       }
-      // 无论 dragTo 是否抛错，只要 Schema 节点已出现即视为拖拽成功
+      // 无论 dragTo 是否抛错，只要 Schema 节点已出现即视为拖拽成功。
+      // 由于弹窗早于节点出现，此时 dismissTask 已点掉弹窗（overlayWasHandled=true）。
       const appeared = await page
         .locator('.vue-flow__node-schema')
         .waitFor({ state: 'visible', timeout: 3000 })
@@ -161,6 +169,10 @@ async function dragSchemaToCanvas(
     dismissOverlay = false
     await dismissTask.catch(() => {})
     await expect(page.locator('.global-confirm-overlay')).toBeHidden({ timeout: 3000 }).catch(() => {})
+    // 防御性断言：importAll 路径必须真的点过弹窗（若没点过，说明竞态又出现了，及早暴露）
+    if (promptChoice === 'importAll' && !overlayWasHandled) {
+      throw new Error('dragSchemaToCanvas(importAll) 未捕获到关联约束弹窗——产品代码时序可能已变化')
+    }
   }
 }
 

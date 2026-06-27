@@ -192,14 +192,20 @@ export function createV2ImportToCanvas(params: {
       }
 
       if (normalizedKind === 'schema') {
-        const nodeId = await importSchema(resourceId, position)
-        selectedNodeId.value = nodeId
-
         // 检测引用该 Schema 的关联独立约束，询问用户是否一并导入。
         // 仅当存在「尚未在画布上」的关联独立约束时才弹窗（智能跳过，零打扰）。
         // 设计背景：拖拽 Schema 默认只物化内嵌约束，独立约束需用户决策是否连带，
         // 避免自动连带造成「拖一个出现一堆」的雪崩。详见
         // docs/superpowers/specs/2026-06-26-schema-import-related-constraints-prompt-design.md
+        //
+        // 时序要点：弹窗必须在 Schema 节点创建【之前】弹出。
+        // 早期实现把 showConfirm 放在 importSchema 之后，导致「确认弹窗」比 Schema 节点
+        // 晚出现约 9ms——这与依赖「Schema 节点出现」作为成功信号的拖拽自动化（及外部
+        // 并发关弹窗逻辑）形成极端竞态，在较慢环境（CI）下弹窗来不及被处理。
+        // 改为「先问（记下决定）→ 始终建节点 → 决定为真才连带创建」，让弹窗严格早于节点，
+        // 从源头消除竞态。getIndependentConstraintIdsForSchema 仅读资源树、不读画布节点，
+        // 可安全前置；连带约束创建（依赖 Schema 节点存在以解析列名）仍保留在节点创建之后。
+        let shouldImportRelated = false
         if (getIndependentConstraintIdsForSchema) {
           const pendingIds =
             getIndependentConstraintIdsForSchema(resourceId)?.filter(
@@ -207,23 +213,32 @@ export function createV2ImportToCanvas(params: {
             ) || []
 
           if (pendingIds.length > 0) {
-            const importAll = await showConfirm({
-              title: t('canvas.nodeCanvas.relatedConstraintsTitle'),
-              message: t('canvas.nodeCanvas.relatedConstraintsMessage', {
-                schema: resourceId,
-                count: pendingIds.length,
-                constraints: pendingIds.join(', '),
-              }),
-              confirmText: t('canvas.nodeCanvas.relatedConstraintsImportAll'),
-              cancelText: t('canvas.nodeCanvas.relatedConstraintsSchemaOnly'),
-              type: 'info',
-            })
             // 用户选「全部导入」→ 连带创建关联独立约束（复用已有能力，幂等且避免雪崩）
             // 用户选「只导 Schema」/关闭弹窗 → 跳过，保持当前行为
-            if (importAll === true) {
-              await importRelatedIndependentConstraints(resourceId, '', position)
-            }
+            shouldImportRelated =
+              (await showConfirm({
+                title: t('canvas.nodeCanvas.relatedConstraintsTitle'),
+                message: t('canvas.nodeCanvas.relatedConstraintsMessage', {
+                  schema: resourceId,
+                  count: pendingIds.length,
+                  constraints: pendingIds.join(', '),
+                }),
+                confirmText: t('canvas.nodeCanvas.relatedConstraintsImportAll'),
+                cancelText: t('canvas.nodeCanvas.relatedConstraintsSchemaOnly'),
+                type: 'info',
+              })) === true
           }
+        }
+
+        // 始终创建 Schema 节点（无论用户在弹窗中选择什么）。
+        // 「只导 Schema」/关闭弹窗时 Schema 仍要落画布，这是用户的主体操作意图。
+        const nodeId = await importSchema(resourceId, position)
+        selectedNodeId.value = nodeId
+
+        // 仅当用户选「全部导入」才连带创建：必须 Schema 节点已存在，
+        // 否则 importConstraint(includeDeps:false) 拿不到 schema 节点、列名解析会丢失。
+        if (shouldImportRelated) {
+          await importRelatedIndependentConstraints(resourceId, '', position)
         }
 
         sourceIndex?.rebuild()
