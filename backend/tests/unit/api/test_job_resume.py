@@ -84,6 +84,14 @@ def test_resume_endpoint_with_checkpoint_returns_200(temp_config_path):
         "created_at": "2026-01-01T00:00:00",
         "max_iterations": 2,
     }
+    mock_storage.load_full.return_value = {
+        "payload": {
+            "file_paths": ["test.xlsx"],
+            "project_name": "Test",
+            "project_id": "test-001",
+            "max_iterations": 2,
+        }
+    }
     mock_storage.save_status = MagicMock()
 
     with (

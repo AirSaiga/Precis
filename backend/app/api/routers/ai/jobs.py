@@ -449,6 +449,19 @@ async def cancel_generate_job(
     if status_data.get("status") in ("completed", "failed", "cancelled"):
         return ConfigGenerateJobStatus(**status_data)
 
+    status_data["status"] = "cancelled"
+    status_data["stage"] = "cancelled"
+    status_data["updated_at"] = _now_iso()
+    storage.save_status(job_id, status_data)
+
+    # 真正取消运行中的任务
+    with _job_tasks_lock:
+        task = _job_tasks.get(job_id)
+        if task and not task.done():
+            task.cancel()
+
+    return ConfigGenerateJobStatus(**status_data)
+
 
 @router.post(
     "/config/generate/jobs/{job_id}/resume",
