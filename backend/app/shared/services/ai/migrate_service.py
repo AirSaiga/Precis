@@ -449,7 +449,11 @@ class ConfigMigrationService(ConfigGenerationService):
         agent_result = await executor.run(task_message)
 
         if agent_result.success and agent_result.config:
-            return agent_result.config
+            refined = agent_result.config
+            # Agent 直接输出 JSON 时 schemas 可能是 list，需要归一化为 build_config 格式
+            if isinstance(refined.get("schemas"), list):
+                refined = self._build_config_from_llm_result(refined)
+            return refined
 
         # 精修失败或没有输出时，回退到合并结果
         return config
