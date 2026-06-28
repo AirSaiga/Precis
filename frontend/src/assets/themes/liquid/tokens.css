@@ -234,11 +234,13 @@
     sans-serif;
   --ui-font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
 
-  /* 过渡 */
-  --ui-transition-fast: 0.15s cubic-bezier(0.32, 0.72, 0, 1);
-  --ui-transition-normal: 0.22s cubic-bezier(0.32, 0.72, 0, 1);
-  --ui-transition-slow: 0.32s cubic-bezier(0.32, 0.72, 0, 1);
-  --ui-transition-spring: 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* 过渡：覆盖原子层（时长 + 缓动），组合令牌与别名自动继承，避免别名链断裂 */
+  --dur-fast: 150ms;
+  --dur-normal: 220ms;
+  --dur-slow: 320ms;
+  --dur-xslow: 400ms;
+  --ease-out: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
 
   /* 灰阶：带一点蓝调，更柔和 */
   --ui-gray-50: #f7f9fc;
@@ -464,6 +466,13 @@
   inset: 0;
   pointer-events: none;
   background: var(--ui-bg-aurora-1), var(--ui-bg-aurora-2), var(--ui-bg-aurora-3);
+  /* B 层：放大背景尺寸使 background-position 可位移，配合 aurora-drift 缓慢漂移 */
+  background-size: 180% 180%;
+  background-position:
+    0% 0%,
+    100% 100%,
+    50% 50%;
+  animation: aurora-drift 22s ease-in-out infinite;
   opacity: 0.7;
   z-index: 0;
 }
