@@ -63,23 +63,25 @@
 | 状态 | 触发 | 视觉 | transition |
 |---|---|---|---|
 | 基础态 | 默认 | `--node-shadow` | `--dur-fast --ease-out` |
-| hover | 鼠标悬停 | `translateY(-2px)` + `--node-shadow-hover` | `--dur-fast --ease-out` |
+| hover | 鼠标悬停 | 纯阴影/边框变化（**不位移**） | `--dur-fast --ease-out` |
 | selected | Vue Flow `.selected` | `scale(1.025)` + `--node-shadow-selected` | `--dur-slow --ease-spring` |
 | dragging | Vue Flow `.dragging` | `scale(1.03)` + `--node-shadow-dragging` + `opacity:0.95` | `--dur-slow --ease-spring` |
 | has-error | `.has-error` | `--node-shadow-error` + 危险色边框 | `--dur-fast --ease-out` |
 
-### hover 与 selected 的 transform 冲突解决方案
+### hover / selected 的 transform 冲突解决方案
 
-**关键设计**：selected 状态的 transform **组合** hover 的 translateY，而非替换：
+**关键设计：彻底去掉上浮（translateY）**。hover 只改阴影/边框，不位移；selected/dragging 只用 scale 放大。这样：
+
+- hover 和 selected 不再争 transform（hover 根本不用 transform）
+- 节点不会上下抖动（上浮会让连接线错位、视觉割裂）
+- 视觉反馈通过阴影层次 + 缩放体现，更克制稳定
 
 ```css
-.vue-flow__node.selected .node-shell {
-  transform: translateY(-2px) scale(1.025);  /* hover 上浮 + 选中放大 */
-  box-shadow: var(--node-shadow-selected);
-}
+.vue-flow__node:hover .node-shell { box-shadow: var(--node-shadow-hover); }  /* 无 transform */
+.vue-flow__node.selected .node-shell { transform: scale(1.025); }            /* 纯放大 */
 ```
 
-这样 hover+selected 共存时，节点既上浮又放大，不再互斥。dragging 同理（dragging 时优先级最高，覆盖 selected/hover）。
+dragging 时优先级最高（源顺序最后），覆盖 selected 的 scale。
 
 ### 状态优先级（CSS 源顺序 + 特异性）
 
@@ -139,10 +141,10 @@
               border-color var(--dur-fast) var(--ease-out);
 }
 
-/* hover */
+/* hover（纯阴影反馈，不位移——避免连接线错位/视觉抖动） */
 .vue-flow__node:hover {shell} {
-  transform: var(--node-transform-hover, translateY(-2px));
   box-shadow: var(--node-shadow-hover);
+  border-color: var(--node-border-hover);
 }
 
 /* has-error（通用错误态） */
@@ -151,16 +153,16 @@
   box-shadow: var(--node-shadow-error);
 }
 
-/* selected（组合 hover 的上浮 + 选中放大，spring 回弹） */
+/* selected（纯放大，不上浮；spring 回弹） */
 .vue-flow__node.selected {shell} {
-  transform: translateY(-2px) scale(1.025);
+  transform: scale(1.025);
   box-shadow: var(--node-shadow-selected);
   transition: transform var(--dur-slow) var(--ease-spring),
               box-shadow var(--dur-slow) var(--ease-spring),
               border-color var(--dur-slow) var(--ease-spring);
 }
 
-/* dragging（优先级最高） */
+/* dragging（优先级最高，纯放大） */
 .vue-flow__node.dragging {shell} {
   transform: scale(1.03);
   box-shadow: var(--node-shadow-dragging);
