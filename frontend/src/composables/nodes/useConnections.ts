@@ -462,7 +462,11 @@ export function useConnections() {
       edgeStyle.style = { stroke: 'var(--edge-data-flow)', strokeWidth: 2 }
     }
 
-    edgeStyle.data = { ...(edgeStyle.data as Record<string, unknown>), status: 'pending' }
+    edgeStyle.data = {
+      ...(edgeStyle.data as Record<string, unknown>),
+      status: 'pending',
+      validationStatus: 'idle',
+    }
     const edgeId = store.createConnection(
       source,
       target,

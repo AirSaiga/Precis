@@ -25,6 +25,10 @@
   border-color: var(--node-border-selected, var(--ui-accent));
   border-width: var(--node-border-selected-width, 2px);
   box-shadow: var(--node-shadow-selected);
+  /* A 层：选中过渡用 spring，吸附有弹性 */
+  transition:
+    box-shadow var(--dur-fast) var(--ease-spring),
+    border-color var(--dur-fast) var(--ease-spring);
 }
 
 .node-shell.has-error {
@@ -36,6 +40,10 @@
   box-shadow: var(--node-shadow-dragging);
   transform: scale(1.02);
   opacity: 0.95;
+  /* A 层：拖拽起落用 spring，松手回弹自然 */
+  transition:
+    transform var(--dur-fast) var(--ease-spring),
+    box-shadow var(--dur-fast) var(--ease-spring);
 }
 
 .node-shell.theme-primary {

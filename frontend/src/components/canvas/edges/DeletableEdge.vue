@@ -4,9 +4,10 @@
 -->
 
 <script setup lang="ts">
-  import { ref, computed } from 'vue'
+  import { ref, computed, watch } from 'vue'
   import { getSmoothStepPath, BaseEdge, useVueFlow } from '@vue-flow/core'
   import type { EdgeProps } from '@vue-flow/core'
+  import { getParticleColorClass, shouldRenderParticles } from '@/utils/edgeParticleColor'
   const props = defineProps<EdgeProps>()
 
   const { removeEdges } = useVueFlow()
@@ -18,6 +19,25 @@
     if (data.transient) return false
     if (data.kind === 'fkDisplay') return false
     return true
+  })
+
+  // C 层：边校验状态（从 props.data 读取，默认 idle）
+  const particleStatus = computed(() => {
+    const data = props.data as Record<string, unknown> | undefined
+    return (data?.validationStatus as 'idle' | 'pass' | 'error' | 'missing' | undefined) ?? 'idle'
+  })
+  const showParticles = computed(() => shouldRenderParticles(particleStatus.value))
+  const particleClass = computed(() => getParticleColorClass(particleStatus.value))
+
+  // C 层：到达爆裂——validationStatus 变化为非 idle 时，触发一次性光环。
+  // 任何校验完成（含 pass→error 等重校验）都触发，每次校验都有视觉反馈。
+  const burstKey = ref(0)
+  const burstClass = ref('')
+  watch(particleStatus, (newStatus, oldStatus) => {
+    if (newStatus !== 'idle' && newStatus !== oldStatus) {
+      burstClass.value = `edge-burst--${newStatus}`
+      burstKey.value++ // 重置 key，强制重新挂载以重播动画
+    }
   })
 
   const pathData = computed(() => {
@@ -65,6 +85,29 @@
       :label-bg-border-radius="props.labelBgBorderRadius"
     />
 
+    <!-- C 层：校验状态粒子流（idle 态不渲染，边保持静态线） -->
+    <g v-if="showParticles" class="edge-particles">
+      <circle v-for="i in 3" :key="i" r="3" :class="['edge-particle', particleClass]">
+        <animateMotion
+          :path="pathData.path"
+          dur="2s"
+          repeatCount="indefinite"
+          :begin="`${(i - 1) * 0.5}s`"
+        />
+      </circle>
+    </g>
+
+    <!-- C 层：校验到达爆裂光环（一次性，target 端） -->
+    <circle
+      v-if="burstClass"
+      :key="burstKey"
+      :cx="props.targetX"
+      :cy="props.targetY"
+      r="10"
+      :class="['edge-burst', burstClass]"
+      @animationend="burstClass = ''"
+    />
+
     <g
       v-if="isHovered && isDeletable"
       class="edge-delete-button"
@@ -98,5 +141,42 @@
     stroke: white;
     stroke-width: 2;
     stroke-linecap: round;
+  }
+
+  /* C 层：边粒子颜色由 class 驱动（reduced-motion 下停止流动但仍着色） */
+  .edge-particle {
+    filter: drop-shadow(0 0 3px currentColor);
+  }
+  .edge-particle.particle--pass {
+    fill: #34d399;
+    color: #4cd7a8;
+  }
+  .edge-particle.particle--error {
+    fill: #fb7185;
+    color: #ff8a8a;
+  }
+  .edge-particle.particle--missing {
+    fill: #f59e0b;
+    color: #f9c66b;
+  }
+
+  /* C 层：到达爆裂光环（引用全局 animations.css 的 edge-burst keyframe） */
+  .edge-burst {
+    fill: none;
+    stroke-width: 2;
+    animation: edge-burst 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    pointer-events: none;
+  }
+  .edge-burst--pass {
+    stroke: #4cd7a8;
+    filter: drop-shadow(0 0 6px rgba(76, 215, 168, 0.6));
+  }
+  .edge-burst--error {
+    stroke: #ff8a8a;
+    filter: drop-shadow(0 0 6px rgba(255, 138, 138, 0.6));
+  }
+  .edge-burst--missing {
+    stroke: #f9c66b;
+    filter: drop-shadow(0 0 6px rgba(249, 198, 107, 0.6));
   }
 </style>
