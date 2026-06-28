@@ -361,13 +361,16 @@
   opacity: 0.85;
 }
 
-/* 流式光标 */
+/* 流式光标 - 使用细竖线 */
 .streaming-cursor {
   display: inline-block;
-  color: var(--color-primary, #2563eb);
+  width: 1.5px;
+  height: 1.2em;
+  background: var(--color-primary, #2563eb);
   animation: blink 1s infinite;
   margin-left: 2px;
-  font-size: 13px;
+  vertical-align: text-bottom;
+  border-radius: 0.5px;
 }
 
 @keyframes blink {
@@ -405,4 +408,133 @@
 
 .cancel-btn:hover {
   opacity: 0.85;
+}
+
+/* === 批次4 视觉优化追加 === */
+
+/* avatar 角色区分 */
+.message-avatar.user {
+  background: var(--ui-bg-muted);
+  color: var(--ui-text-secondary);
+}
+.message-avatar.assistant {
+  background: var(--ui-accent);
+  color: var(--ui-text-on-accent);
+}
+.message-avatar.assistant svg {
+  opacity: 0.9;
+}
+
+/* 空状态示例 prompt 按钮 */
+.empty-prompts {
+  display: flex;
+  flex-direction: column;
+  gap: var(--ui-space-sm);
+  margin-top: var(--ui-space-md);
+  width: 100%;
+  max-width: 320px;
+}
+.empty-prompt-btn {
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  background: var(--ui-bg-elevated);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-md);
+  color: var(--ui-text-body);
+  font-size: var(--ui-font-size-sm);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.15s,
+    background 0.15s;
+}
+.empty-prompt-btn:hover {
+  border-color: var(--ui-accent-weak);
+  background: var(--ui-bg-hover);
+}
+
+/* textarea 自适应 */
+.chat-input-area textarea {
+  resize: none;
+  min-height: 36px;
+  max-height: 144px;
+  overflow-y: auto;
+}
+
+/* 流式光标修正：内联紧跟内容（使用 inline 而非 block） */
+.streaming-cursor {
+  display: inline-block;
+  width: 7px;
+  height: 1em;
+  vertical-align: text-bottom;
+  background: var(--ui-accent);
+  margin-left: 2px;
+  animation: blink 1s infinite;
+}
+
+/* 流式输出态用 token 而非硬编码 */
+.ai-content.is-streaming {
+  border-left: 2px solid var(--ui-accent);
+  padding-left: var(--ui-space-sm);
+}
+
+/* 取消按钮用 token */
+.cancel-btn {
+  background: var(--ui-danger);
+}
+
+/* === highlight.js 代码高亮主题（适配项目 dark/light token） === */
+.message-content pre.hljs {
+  background: var(--ui-bg-base);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
+  padding: var(--ui-space-sm) var(--ui-space-md);
+  overflow-x: auto;
+  margin: var(--ui-space-sm) 0;
+  font-family: var(--ui-font-mono);
+  font-size: var(--ui-font-size-xs);
+  line-height: 1.5;
+}
+.message-content code {
+  font-family: var(--ui-font-mono);
+}
+/* 行内 code */
+.message-content :not(pre) > code {
+  background: var(--ui-bg-muted);
+  padding: 1px 4px;
+  border-radius: var(--ui-radius-sm);
+  font-size: 0.9em;
+  color: var(--ui-accent-strong);
+}
+/* hljs 语法着色（用 token 系列色，dark/light 自适应） */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in {
+  color: var(--ui-accent-strong);
+}
+.hljs-string,
+.hljs-attr,
+.hljs-template-tag {
+  color: var(--ui-success);
+}
+.hljs-number,
+.hljs-literal {
+  color: var(--ui-warning);
+}
+.hljs-comment,
+.hljs-quote {
+  color: var(--ui-text-quaternary);
+  font-style: italic;
+}
+.hljs-title,
+.hljs-function .hljs-title,
+.hljs-section {
+  color: var(--ui-info);
+}
+.hljs-type,
+.hljs-class .hljs-title {
+  color: var(--ui-warning-text);
+}
+.hljs-variable,
+.hljs-name {
+  color: var(--ui-text-primary);
 }

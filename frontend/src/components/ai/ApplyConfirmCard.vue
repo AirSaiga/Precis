@@ -53,7 +53,7 @@
   const props = defineProps<Props>()
   const { t } = useI18n()
 
-  const isExpanded = ref(true)
+  const isExpanded = ref(false) // 默认折叠，避免 diff 占用过多空间
   const deciding = ref(false)
 
   function toggle() {
@@ -88,28 +88,28 @@
 </script>
 
 <style scoped>
-  .apply-confirm-card {
-    margin: 4px 0;
-    border: 1px solid #f59e0b;
-    border-radius: 6px;
+  .confirm-card {
+    margin: var(--ui-space-sm) 0;
+    border: 1px solid var(--ui-border-warning);
+    border-radius: var(--ui-radius-sm);
     overflow: hidden;
-    font-size: 12px;
-    background: rgba(245, 158, 11, 0.05);
+    font-size: var(--ui-font-size-sm);
+    background: var(--ui-bg-warning);
   }
   .confirm-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--ui-space-sm);
     width: 100%;
-    padding: 6px 10px;
+    padding: var(--ui-space-sm) 10px;
     background: transparent;
     border: none;
-    color: #f59e0b;
+    color: var(--ui-warning-text);
     cursor: pointer;
     text-align: left;
   }
   .confirm-icon {
-    font-size: 14px;
+    font-size: var(--ui-font-size-md);
   }
   .confirm-summary {
     flex: 1;
@@ -121,97 +121,102 @@
     transform: rotate(180deg);
   }
   .confirm-body {
-    padding: 8px 10px;
-    border-top: 1px solid rgba(245, 158, 11, 0.2);
+    padding: var(--ui-space-sm) 10px;
+    border-top: 1px solid var(--ui-border-warning);
   }
   .confirm-empty {
-    color: var(--text-secondary, #9ca3af);
-    padding: 4px 0;
+    color: var(--ui-text-secondary);
+    padding: var(--ui-space-xs) 0;
   }
   .confirm-file {
-    margin-bottom: 8px;
-    border: 1px solid var(--border-color, #333);
-    border-radius: 4px;
+    margin-bottom: var(--ui-space-sm);
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
     overflow: hidden;
   }
   .file-header {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 8px;
-    background: rgba(0, 0, 0, 0.15);
+    gap: var(--ui-space-sm);
+    padding: var(--ui-space-xs) var(--ui-space-sm);
+    background: var(--ui-bg-muted);
   }
   .file-status {
     font-weight: bold;
-    font-size: 10px;
+    font-size: var(--ui-font-size-xs);
     text-transform: uppercase;
-    padding: 1px 4px;
-    border-radius: 3px;
+    padding: 1px var(--ui-space-xs);
+    border-radius: var(--ui-radius-sm);
   }
   .file-status.created {
-    color: #34d399;
-    background: rgba(52, 211, 153, 0.15);
+    color: var(--ui-success);
+    background: var(--ui-success-bg);
   }
   .file-status.deleted {
-    color: #f87171;
-    background: rgba(248, 113, 113, 0.15);
+    color: var(--ui-danger);
+    background: var(--ui-danger-bg);
   }
   .file-status.modified {
-    color: #fbbf24;
-    background: rgba(251, 191, 36, 0.15);
+    color: var(--ui-warning-text);
+    background: var(--ui-warning-bg);
   }
   .file-path {
-    color: var(--text-primary, #e0e0e0);
-    font-family: monospace;
-    font-size: 11px;
+    color: var(--ui-text-primary);
+    font-family: var(--ui-font-mono);
+    font-size: var(--ui-font-size-xs);
   }
   .file-diff {
     margin: 0;
-    padding: 4px 8px;
-    max-height: 200px;
+    padding: var(--ui-space-xs) var(--ui-space-sm);
+    max-height: 240px;
     overflow: auto;
-    background: rgba(0, 0, 0, 0.2);
-    font-size: 10px;
-    line-height: 1.4;
+    background: var(--ui-bg-base);
+    font-size: var(--ui-font-size-xs);
+    line-height: 1.5;
     white-space: pre-wrap;
-    color: var(--text-secondary, #9ca3af);
+    color: var(--ui-text-secondary);
+    font-family: var(--ui-font-mono);
   }
-  .file-diff code {
-    font-family: 'Cascadia Code', 'Fira Code', monospace;
+  /* diff 行级着色 */
+  .file-diff :deep(.diff-add) {
+    color: var(--ui-success);
+  }
+  .file-diff :deep(.diff-del) {
+    color: var(--ui-danger);
   }
   .confirm-actions {
     display: flex;
-    gap: 8px;
+    gap: var(--ui-space-sm);
     justify-content: flex-end;
-    margin-top: 8px;
-    padding-top: 8px;
-    border-top: 1px solid var(--border-color, #333);
+    margin-top: var(--ui-space-sm);
+    padding-top: var(--ui-space-sm);
+    border-top: 1px solid var(--ui-border);
   }
   .btn-reject,
   .btn-confirm {
-    padding: 4px 12px;
-    border-radius: 4px;
+    padding: var(--ui-space-xs) 12px;
+    border-radius: var(--ui-radius-sm);
     border: 1px solid;
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
     cursor: pointer;
     transition: opacity 0.15s;
   }
   .btn-reject {
     background: transparent;
-    color: #f87171;
-    border-color: #f87171;
+    color: var(--ui-danger);
+    border-color: var(--ui-danger-weak);
   }
   .btn-reject:hover:not(:disabled) {
-    background: rgba(248, 113, 113, 0.1);
+    background: var(--ui-danger-bg);
   }
   .btn-confirm {
-    background: #f59e0b;
-    color: #000;
-    border-color: #f59e0b;
-    font-weight: bold;
+    background: var(--ui-accent);
+    color: var(--ui-text-on-accent);
+    border-color: var(--ui-accent);
+    font-weight: var(--ui-font-weight-semibold);
   }
   .btn-confirm:hover:not(:disabled) {
-    background: #fbbf24;
+    background: var(--ui-accent-hover);
   }
   .btn-reject:disabled,
   .btn-confirm:disabled {

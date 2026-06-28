@@ -23,7 +23,7 @@
     </div>
 
     <!-- 消息列表 -->
-    <div class="chat-messages" ref="messagesRef">
+    <div class="chat-messages" ref="messagesRef" @scroll="handleScroll">
       <div v-if="messages.length === 0" class="chat-empty">
         <div class="empty-icon">
           <svg
@@ -39,12 +39,30 @@
           </svg>
         </div>
         <p class="empty-text">{{ t('aiChat.emptyMessages') }}</p>
+        <div class="empty-prompts">
+          <button
+            v-for="prompt in suggestedPrompts"
+            :key="prompt"
+            class="empty-prompt-btn"
+            @click="useSuggestedPrompt(prompt)"
+          >
+            {{ prompt }}
+          </button>
+        </div>
       </div>
 
       <div v-for="msg in messages" :key="msg.id" class="chat-message" :class="msg.role">
-        <div class="message-avatar">
-          <span v-if="msg.role === 'user'">U</span>
-          <span v-else>AI</span>
+        <div class="message-avatar" :class="msg.role">
+          <svg
+            v-if="msg.role === 'assistant'"
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+          >
+            <path d="M12 2L9.5 9.5L2 12l7.5 2.5L12 22l2.5-7.5L22 12l-7.5-2.5L12 2z"></path>
+          </svg>
+          <span v-else>U</span>
         </div>
         <div class="message-body">
           <!-- 工具轨迹折叠卡（仅有步骤时显示） -->
@@ -64,17 +82,18 @@
             {{ msg.content }}
           </div>
           <div
-            v-else
+            v-else-if="displayContent(msg) || !isStreaming(msg)"
             class="message-content ai-content"
             :class="{ 'is-streaming': isStreaming(msg) }"
-            v-html="renderMarkdown(msg.content)"
+            v-html="renderMarkdown(displayContent(msg))"
           ></div>
-          <span v-if="isStreaming(msg)" class="streaming-cursor">▋</span>
+          <!-- 流式光标：内联在内容末尾，紧跟文字 -->
+          <span v-if="isStreaming(msg)" class="streaming-cursor"></span>
           <!-- 复制按钮：悬停消息时显示 -->
           <button
             class="message-copy-btn"
             :title="t('aiChat.copy')"
-            @click="copyMessage(msg.content, msg.id)"
+            @click="copyMessage(displayContent(msg), msg.id)"
           >
             <svg
               v-if="copiedId !== msg.id"
@@ -110,8 +129,8 @@
         </div>
       </div>
 
-      <!-- Loading 指示器 -->
-      <div v-if="loading" class="chat-message assistant">
+      <!-- Loading 指示器：仅在非流式等待时显示（流式消息本身已带光标） -->
+      <div v-if="loading && !hasStreamingMessage" class="chat-message assistant">
         <div class="message-avatar">AI</div>
         <div class="message-body">
           <div class="typing-indicator"><span></span><span></span><span></span></div>
@@ -135,19 +154,13 @@
         v-model="inputText"
         :placeholder="t('aiChat.inputPlaceholder')"
         @keydown="handleKeydown"
-        rows="3"
+        @input="autoResize"
+        rows="1"
         :disabled="loading"
       ></textarea>
       <button v-if="loading" class="cancel-btn" :title="t('aiChat.cancel')" @click="handleCancel">
-        <svg
-          width="18"
-          height="18"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="2"
-        >
-          <rect x="6" y="6" width="12" height="12" rx="1"></rect>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="6" width="12" height="12" rx="2"></rect>
         </svg>
       </button>
       <button v-else class="send-btn" @click="handleSend" :disabled="!inputText.trim() || loading">
@@ -176,8 +189,23 @@
   import { useMessageCopy } from '@/composables/useMessageCopy'
   import MarkdownIt from 'markdown-it'
   import DOMPurify from 'dompurify'
+  import hljs from 'highlight.js/lib/core'
+  // 按需注册常用语言（避免全量引入增大体积）
+  import javascript from 'highlight.js/lib/languages/javascript'
+  import python from 'highlight.js/lib/languages/python'
+  import sql from 'highlight.js/lib/languages/sql'
+  import yaml from 'highlight.js/lib/languages/yaml'
+  import json from 'highlight.js/lib/languages/json'
+  import bash from 'highlight.js/lib/languages/bash'
   import ToolTrailCard from './ToolTrailCard.vue'
   import ApplyConfirmCard from './ApplyConfirmCard.vue'
+
+  hljs.registerLanguage('javascript', javascript)
+  hljs.registerLanguage('python', python)
+  hljs.registerLanguage('sql', sql)
+  hljs.registerLanguage('yaml', yaml)
+  hljs.registerLanguage('json', json)
+  hljs.registerLanguage('bash', bash)
 
   const { t } = useI18n()
   const aiChatStore = useAiChatStore()
@@ -187,6 +215,18 @@
     linkify: true,
     typographer: true,
     breaks: true,
+    highlight(str: string, lang: string): string {
+      // 代码语法高亮：尝试用 highlight.js，失败则转义返回
+      const language = lang && hljs.getLanguage(lang) ? lang : ''
+      if (language) {
+        try {
+          return `<pre class="hljs"><code>${hljs.highlight(str, { language }).value}</code></pre>`
+        } catch {
+          // fall through to default
+        }
+      }
+      return `<pre class="hljs"><code>${md.utils.escapeHtml(str)}</code></pre>`
+    },
   })
 
   // 覆盖链接渲染规则，过滤危险协议（javascript:/data:/vbscript:）
@@ -211,6 +251,10 @@
   const messages = computed(() => aiChatStore.messages)
   const loading = computed(() => aiChatStore.loading)
   const contextNodes = computed(() => aiChatStore.contextNodes)
+  /** 是否存在正在流式输出的 AI 消息（此时由光标指示进度，不再额外显示 typing-indicator） */
+  const hasStreamingMessage = computed(() =>
+    messages.value.some((msg) => msg.role === 'assistant' && msg.streaming?.isStreaming)
+  )
 
   const inputText = ref('')
   const inputRef = ref<HTMLTextAreaElement | null>(null)
@@ -227,9 +271,20 @@
     return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   }
 
+  // 滚动锁定：用户在底部附近时自动滚，上滚查看历史时不强制拉回
+  const isNearBottom = ref(true)
+
+  const handleScroll = () => {
+    if (messagesRef.value) {
+      const { scrollTop, scrollHeight, clientHeight } = messagesRef.value
+      // 距底 < 100px 视为"在底部附近"
+      isNearBottom.value = scrollHeight - scrollTop - clientHeight < 100
+    }
+  }
+
   const scrollToBottom = () => {
     nextTick(() => {
-      if (messagesRef.value) {
+      if (messagesRef.value && isNearBottom.value) {
         messagesRef.value.scrollTop = messagesRef.value.scrollHeight
       }
     })
@@ -238,10 +293,32 @@
   watch(() => messages.value.length, scrollToBottom)
   watch(loading, scrollToBottom)
 
+  // textarea 自适应高度（1-6 行）
+  const autoResize = () => {
+    if (inputRef.value) {
+      inputRef.value.style.height = 'auto'
+      inputRef.value.style.height = `${Math.min(inputRef.value.scrollHeight, 144)}px`
+    }
+  }
+
+  // 示例 prompt 快捷按钮
+  const suggestedPrompts = [
+    t('aiChat.suggestion1'),
+    t('aiChat.suggestion2'),
+    t('aiChat.suggestion3'),
+  ]
+  const useSuggestedPrompt = (prompt: string) => {
+    inputText.value = prompt
+    autoResize()
+    inputRef.value?.focus()
+  }
+
   const handleSend = async () => {
     const text = inputText.value.trim()
     if (!text || loading.value) return
     inputText.value = ''
+    // 重置 textarea 高度
+    if (inputRef.value) inputRef.value.style.height = 'auto'
     await aiChatStore.sendMessage(text)
   }
 
@@ -258,6 +335,11 @@
   /** 消息是否正在流式输出 */
   const isStreaming = (msg: ChatMessage): boolean => {
     return !!msg.streaming?.isStreaming
+  }
+
+  /** 获取消息用于展示的内容：流式中优先读取 streaming.content，完成后用 msg.content */
+  const displayContent = (msg: ChatMessage): string => {
+    return msg.streaming?.content ?? msg.content
   }
 
   /** 消息是否有工具轨迹步骤可展示 */

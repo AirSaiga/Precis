@@ -94,26 +94,26 @@
 
 <style scoped>
   .tool-trail-card {
-    margin: 4px 0;
-    border: 1px solid var(--border-color, #333);
-    border-radius: 6px;
+    margin: var(--ui-space-sm) 0;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
     overflow: hidden;
-    font-size: 12px;
+    font-size: var(--ui-font-size-sm);
   }
   .trail-header {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--ui-space-sm);
     width: 100%;
-    padding: 6px 10px;
+    padding: var(--ui-space-sm) 10px;
     background: transparent;
     border: none;
-    color: var(--text-secondary, #9ca3af);
+    color: var(--ui-text-secondary);
     cursor: pointer;
     text-align: left;
   }
   .trail-icon {
-    font-size: 11px;
+    font-size: var(--ui-font-size-xs);
   }
   .trail-summary {
     flex: 1;
@@ -125,43 +125,43 @@
     transform: rotate(180deg);
   }
   .trail-body {
-    padding: 4px 10px 8px 24px;
-    border-top: 1px solid var(--border-color, #333);
+    padding: var(--ui-space-xs) 10px var(--ui-space-sm) 24px;
+    border-top: 1px solid var(--ui-border);
   }
   .trail-step {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--ui-space-sm);
     margin: 3px 0;
-    color: var(--text-primary, #e0e0e0);
+    color: var(--ui-text-primary);
   }
   .step-indicator {
     width: 14px;
     font-weight: bold;
   }
   .trail-step.success .step-indicator {
-    color: #34d399;
+    color: var(--ui-success);
   }
   .trail-step.running .step-indicator {
-    color: #fbbf24;
+    color: var(--ui-warning);
   }
   .trail-step.failed .step-indicator {
-    color: #f87171;
+    color: var(--ui-danger);
   }
   .step-count {
-    color: var(--text-secondary, #9ca3af);
-    font-size: 11px;
+    color: var(--ui-text-secondary);
+    font-size: var(--ui-font-size-xs);
   }
   .step-error {
-    color: #f87171;
-    font-size: 11px;
-    margin-left: 4px;
+    color: var(--ui-danger);
+    font-size: var(--ui-font-size-xs);
+    margin-left: var(--ui-space-sm);
   }
   .trail-cancelled-note {
-    margin-top: 6px;
-    padding-top: 6px;
-    border-top: 1px dashed var(--border-color, #444);
-    color: var(--text-secondary, #9ca3af);
+    margin-top: var(--ui-space-sm);
+    padding-top: var(--ui-space-sm);
+    border-top: 1px dashed var(--ui-border-light);
+    color: var(--ui-text-secondary);
     font-style: italic;
   }
 </style>
