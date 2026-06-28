@@ -25,10 +25,6 @@
   border-color: var(--node-border-selected, var(--ui-accent));
   border-width: var(--node-border-selected-width, 2px);
   box-shadow: var(--node-shadow-selected);
-  /* A 层：选中过渡用 spring，吸附有弹性 */
-  transition:
-    box-shadow var(--dur-fast) var(--ease-spring),
-    border-color var(--dur-fast) var(--ease-spring);
 }
 
 .node-shell.has-error {
@@ -36,14 +32,33 @@
   box-shadow: var(--node-shadow-error);
 }
 
-.node-shell.is-dragging {
-  box-shadow: var(--node-shadow-dragging);
-  transform: scale(1.02);
-  opacity: 0.95;
-  /* A 层：拖拽起落用 spring，松手回弹自然 */
+/* ============================================================
+   A 层：选中 / 拖拽 spring 反馈
+
+   关键约束：
+   1. 用 Vue Flow 原生 .vue-flow__node.selected/.dragging class（NodeShell 的
+      isDragging ref 从未被赋值，is-dragging 永不触发；is-selected 虽触发但
+      transition 被本文件 base .node-shell 的 unlayered transition 覆盖）。
+   2. 必须写在 unlayered 的 scoped 文件里用 :global() 选 Vue Flow 包装层——
+      graph-node.css 在 layer(graph)，其规则会被本文件 unlayered 样式压制。
+   3. 作用于内层 .node-shell（带 scoped 哈希），避开 Vue Flow 包装的 translate 定位。
+   选中/拖拽加 scale 放大 + 阴影增强，spring 回弹明显可感。
+   ============================================================ */
+:global(.vue-flow__node.selected) .node-shell {
+  transform: scale(1.015);
   transition:
-    transform var(--dur-fast) var(--ease-spring),
-    box-shadow var(--dur-fast) var(--ease-spring);
+    transform var(--dur-slow) var(--ease-spring),
+    box-shadow var(--dur-slow) var(--ease-spring),
+    border-color var(--dur-slow) var(--ease-spring);
+}
+
+:global(.vue-flow__node.dragging) .node-shell {
+  transform: scale(1.03);
+  box-shadow: var(--node-shadow-dragging);
+  opacity: 0.95;
+  transition:
+    transform var(--dur-slow) var(--ease-spring),
+    box-shadow var(--dur-slow) var(--ease-spring);
 }
 
 .node-shell.theme-primary {
