@@ -2,30 +2,8 @@
   background: var(--node-glass-bg);
   border: 1px solid var(--node-border);
   border-radius: var(--node-border-radius);
-  box-shadow: var(--node-shadow);
-  transition:
-    background var(--node-transition-fast),
-    border-color var(--node-transition-fast),
-    box-shadow var(--node-transition-fast),
-    transform var(--node-transition-fast);
-}
-
-.graph-node:hover {
-  background: var(--node-glass-bg-hover);
-  border-color: var(--node-border-hover);
-  box-shadow: var(--node-shadow-hover);
-  transform: var(--node-transform-hover);
-}
-
-.graph-node.is-selected {
-  background: var(--node-glass-bg-selected);
-  border-color: var(--node-border-selected);
-  border-width: var(--node-border-selected-width);
-  box-shadow: var(--node-shadow-selected);
-  /* A 层：选中过渡用 spring，吸附有弹性 */
-  transition:
-    box-shadow var(--dur-fast) var(--ease-spring),
-    border-color var(--dur-fast) var(--ease-spring);
+  /* box-shadow / transition / :hover / .is-selected 已上交 node-shell-contract.css
+     统一管理，本文件不再声明 */
 }
 
 /* 节点整理动画过渡：仅在整理期间生效，避免影响拖拽手感 */
