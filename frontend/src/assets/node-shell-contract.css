@@ -1,0 +1,79 @@
+/**
+ * @file node-shell-contract.css
+ * @description 节点外壳样式契约——所有节点 transform/box-shadow/transition 的唯一真相源
+ *
+ * 设计文档: docs/superpowers/specs/2026-06-29-node-shell-style-contract-design.md
+ *
+ * 关键约束：
+ * 1. 必须在 main.css 末尾 unlayered 引入（源顺序晚于所有 scoped 样式，
+ *    同特异性下后定义者胜）。各节点组件不得再自行声明这些属性。
+ * 2. 覆盖所有节点外壳类型（node-shell / graph-node / schema-node 等），
+ *    统一 hover / selected / dragging / has-error 行为，杜绝多套系统冲突。
+ * 3. 去掉上浮（translateY）——hover 纯阴影反馈，selected/dragging 纯放大，
+ *    避免连接线错位与视觉抖动。
+ */
+
+/* 统一选择器组：所有节点外壳类型。
+   逗号分隔，新增节点类型时在此处加即可，各节点组件无需改动。 */
+.vue-flow__node .node-shell,
+.vue-flow__node .graph-node,
+.vue-flow__node .schema-node,
+.vue-flow__node .source-preview-node,
+.vue-flow__node .manual-data-node,
+.vue-flow__node .project-root-node {
+  box-shadow: var(--node-shadow);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+
+/* hover：纯阴影/边框反馈，不位移（避免连接线错位/视觉抖动） */
+.vue-flow__node:hover .node-shell,
+.vue-flow__node:hover .graph-node,
+.vue-flow__node:hover .schema-node,
+.vue-flow__node:hover .source-preview-node,
+.vue-flow__node:hover .manual-data-node,
+.vue-flow__node:hover .project-root-node {
+  box-shadow: var(--node-shadow-hover);
+  border-color: var(--node-border-hover);
+}
+
+/* has-error：通用错误态（危险色边框 + 错误阴影） */
+.vue-flow__node .node-shell.has-error,
+.vue-flow__node .graph-node.has-error,
+.vue-flow__node .schema-node.has-error,
+.vue-flow__node .source-preview-node.has-error {
+  border-color: var(--node-border-error, var(--ui-danger));
+  box-shadow: var(--node-shadow-error);
+}
+
+/* selected：纯放大（不上浮），spring 回弹。源顺序在 hover 之后，覆盖 hover。 */
+.vue-flow__node.selected .node-shell,
+.vue-flow__node.selected .graph-node,
+.vue-flow__node.selected .schema-node,
+.vue-flow__node.selected .source-preview-node,
+.vue-flow__node.selected .manual-data-node,
+.vue-flow__node.selected .project-root-node {
+  transform: scale(1.025);
+  box-shadow: var(--node-shadow-selected);
+  transition:
+    transform var(--dur-slow) var(--ease-spring),
+    box-shadow var(--dur-slow) var(--ease-spring),
+    border-color var(--dur-slow) var(--ease-spring);
+}
+
+/* dragging：优先级最高（源顺序最后），纯放大 + 拖拽阴影 + 半透明 */
+.vue-flow__node.dragging .node-shell,
+.vue-flow__node.dragging .graph-node,
+.vue-flow__node.dragging .schema-node,
+.vue-flow__node.dragging .source-preview-node,
+.vue-flow__node.dragging .manual-data-node,
+.vue-flow__node.dragging .project-root-node {
+  transform: scale(1.03);
+  box-shadow: var(--node-shadow-dragging);
+  opacity: 0.95;
+  transition:
+    transform var(--dur-slow) var(--ease-spring),
+    box-shadow var(--dur-slow) var(--ease-spring);
+}

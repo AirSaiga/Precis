@@ -36,3 +36,7 @@
 
 /* Liquid 主题覆盖需要放在 layer 体系之外，才能覆盖 ui/graph 层以及组件 scoped 样式 */
 @import './themes/liquid/index.css';
+
+/* 节点外壳样式契约——所有节点 transform/box-shadow/transition 的唯一真相源。
+   必须放在最后（源顺序晚于所有 scoped 样式，同特异性下后定义者胜）。 */
+@import './node-shell-contract.css';
