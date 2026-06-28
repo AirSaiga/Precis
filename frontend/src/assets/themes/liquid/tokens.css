@@ -30,20 +30,21 @@
     #f8f9fc 100%
   );
 
-  /* 动态光晕装饰：可在 body/pseudo 元素上使用 */
+  /* 动态光晕装饰：可在 body/pseudo 元素上使用。
+     alpha 提至 0.38/0.32/0.30(原 0.22/0.18/0.16 过弱,肉眼几乎不可见) */
   --ui-bg-aurora-1: radial-gradient(
     ellipse at 10% 10%,
-    rgba(120, 180, 255, 0.22) 0%,
+    rgba(120, 180, 255, 0.38) 0%,
     transparent 50%
   );
   --ui-bg-aurora-2: radial-gradient(
     ellipse at 90% 20%,
-    rgba(180, 160, 255, 0.18) 0%,
+    rgba(180, 160, 255, 0.32) 0%,
     transparent 45%
   );
   --ui-bg-aurora-3: radial-gradient(
     ellipse at 80% 90%,
-    rgba(130, 220, 200, 0.16) 0%,
+    rgba(130, 220, 200, 0.3) 0%,
     transparent 45%
   );
 
@@ -466,13 +467,13 @@
   inset: 0;
   pointer-events: none;
   background: var(--ui-bg-aurora-1), var(--ui-bg-aurora-2), var(--ui-bg-aurora-3);
-  /* B 层：放大背景尺寸使 background-position 可位移，配合 aurora-drift 缓慢漂移 */
+  /* B 层：放大背景尺寸使 background-position 可位移，配合 aurora-drift 漂移 */
   background-size: 180% 180%;
   background-position:
     0% 0%,
     100% 100%,
     50% 50%;
-  animation: aurora-drift 22s ease-in-out infinite;
-  opacity: 0.7;
+  animation: aurora-drift 16s ease-in-out infinite;
+  opacity: 1;
   z-index: 0;
 }
