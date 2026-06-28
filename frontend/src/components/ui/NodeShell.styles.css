@@ -45,7 +45,8 @@
    选中/拖拽加 scale 放大 + 阴影增强，spring 回弹明显可感。
    ============================================================ */
 :global(.vue-flow__node.selected) .node-shell {
-  transform: scale(1.015);
+  transform: scale(1.025);
+  box-shadow: var(--node-shadow-selected);
   transition:
     transform var(--dur-slow) var(--ease-spring),
     box-shadow var(--dur-slow) var(--ease-spring),
