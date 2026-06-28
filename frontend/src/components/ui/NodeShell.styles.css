@@ -5,61 +5,10 @@
   background: var(--node-bg, var(--ui-bg-elevated));
   border: 1px solid var(--node-border, var(--ui-border-subtle));
   border-radius: var(--node-border-radius, var(--ui-radius-lg));
-  box-shadow: var(--node-shadow);
-  transition:
-    box-shadow var(--node-transition-fast, var(--ui-transition-fast)),
-    transform var(--node-transition-fast, var(--ui-transition-fast)),
-    border-color var(--node-transition-fast, var(--ui-transition-fast)),
-    background var(--node-transition-fast, var(--ui-transition-fast));
   min-width: var(--node-min-width, 200px);
   overflow: visible;
-}
-
-.node-shell:hover {
-  box-shadow: var(--node-shadow-hover);
-  border-color: var(--node-border-hover, var(--ui-border-light));
-  transform: var(--node-transform-hover, translateY(-2px));
-}
-
-.node-shell.is-selected {
-  border-color: var(--node-border-selected, var(--ui-accent));
-  border-width: var(--node-border-selected-width, 2px);
-  box-shadow: var(--node-shadow-selected);
-}
-
-.node-shell.has-error {
-  border-color: var(--node-border-error, var(--ui-danger));
-  box-shadow: var(--node-shadow-error);
-}
-
-/* ============================================================
-   A 层：选中 / 拖拽 spring 反馈
-
-   关键约束：
-   1. 用 Vue Flow 原生 .vue-flow__node.selected/.dragging class（NodeShell 的
-      isDragging ref 从未被赋值，is-dragging 永不触发；is-selected 虽触发但
-      transition 被本文件 base .node-shell 的 unlayered transition 覆盖）。
-   2. 必须写在 unlayered 的 scoped 文件里用 :global() 选 Vue Flow 包装层——
-      graph-node.css 在 layer(graph)，其规则会被本文件 unlayered 样式压制。
-   3. 作用于内层 .node-shell（带 scoped 哈希），避开 Vue Flow 包装的 translate 定位。
-   选中/拖拽加 scale 放大 + 阴影增强，spring 回弹明显可感。
-   ============================================================ */
-:global(.vue-flow__node.selected) .node-shell {
-  transform: scale(1.025);
-  box-shadow: var(--node-shadow-selected);
-  transition:
-    transform var(--dur-slow) var(--ease-spring),
-    box-shadow var(--dur-slow) var(--ease-spring),
-    border-color var(--dur-slow) var(--ease-spring);
-}
-
-:global(.vue-flow__node.dragging) .node-shell {
-  transform: scale(1.03);
-  box-shadow: var(--node-shadow-dragging);
-  opacity: 0.95;
-  transition:
-    transform var(--dur-slow) var(--ease-spring),
-    box-shadow var(--dur-slow) var(--ease-spring);
+  /* transform / box-shadow / transition / :hover / .is-selected / .has-error
+     已上交给 node-shell-contract.css 统一管理，本文件不再声明 */
 }
 
 .node-shell.theme-primary {
