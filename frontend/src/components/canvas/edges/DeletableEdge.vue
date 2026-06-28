@@ -97,16 +97,35 @@
       </circle>
     </g>
 
-    <!-- C 层：校验到达爆裂光环（一次性，target 端） -->
+    <!-- C 层：校验到达爆裂光环（一次性，target 端）。
+         用 SMIL <animate> 动 r（半径）+ opacity，而非 CSS transform: scale——
+         SVG 元素的 CSS transform 原点默认是画布原点(0,0)，scale 会让 circle 飞离 target 位置。
+         SMIL animate r 是纯 SVG 原生，以 circle 自身中心扩散，位置正确。 -->
     <circle
       v-if="burstClass"
       :key="burstKey"
       :cx="props.targetX"
       :cy="props.targetY"
-      r="10"
       :class="['edge-burst', burstClass]"
-      @animationend="burstClass = ''"
-    />
+    >
+      <animate
+        attributeName="r"
+        values="4;10;26"
+        keyTimes="0;0.4;1"
+        dur="0.8s"
+        repeatCount="1"
+        fill="freeze"
+      />
+      <animate
+        attributeName="opacity"
+        values="0;0.9;0"
+        keyTimes="0;0.4;1"
+        dur="0.8s"
+        repeatCount="1"
+        fill="freeze"
+        @end="burstClass = ''"
+      />
+    </circle>
 
     <g
       v-if="isHovered && isDeletable"
@@ -160,11 +179,11 @@
     color: #f9c66b;
   }
 
-  /* C 层：到达爆裂光环（引用全局 animations.css 的 edge-burst keyframe） */
+  /* C 层：到达爆裂光环——r/opacity 由 SMIL <animate> 驱动，此处仅定义描边/发光。
+     不用 CSS animation（SVG transform 原点会导致 scale 飞位）。 */
   .edge-burst {
     fill: none;
     stroke-width: 2;
-    animation: edge-burst 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
     pointer-events: none;
   }
   .edge-burst--pass {
