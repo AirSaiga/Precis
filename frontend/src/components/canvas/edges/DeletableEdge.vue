@@ -4,7 +4,7 @@
 -->
 
 <script setup lang="ts">
-  import { ref, computed } from 'vue'
+  import { ref, computed, watch } from 'vue'
   import { getSmoothStepPath, BaseEdge, useVueFlow } from '@vue-flow/core'
   import type { EdgeProps } from '@vue-flow/core'
   import { getParticleColorClass, shouldRenderParticles } from '@/utils/edgeParticleColor'
@@ -28,6 +28,16 @@
   })
   const showParticles = computed(() => shouldRenderParticles(particleStatus.value))
   const particleClass = computed(() => getParticleColorClass(particleStatus.value))
+
+  // C 层：到达爆裂——validationStatus 从 idle 跳变到非 idle 时，触发一次性光环
+  const burstKey = ref(0)
+  const burstClass = ref('')
+  watch(particleStatus, (newStatus, oldStatus) => {
+    if (oldStatus === 'idle' && newStatus !== 'idle') {
+      burstClass.value = `edge-burst--${newStatus}`
+      burstKey.value++ // 重置 key，确保每次校验都能重新触发动画
+    }
+  })
 
   const pathData = computed(() => {
     const [path, labelX, labelY] = getSmoothStepPath({
@@ -86,6 +96,17 @@
       </circle>
     </g>
 
+    <!-- C 层：校验到达爆裂光环（一次性，target 端） -->
+    <circle
+      v-if="burstClass"
+      :key="burstKey"
+      :cx="props.targetX"
+      :cy="props.targetY"
+      r="10"
+      :class="['edge-burst', burstClass]"
+      @animationend="burstClass = ''"
+    />
+
     <g
       v-if="isHovered && isDeletable"
       class="edge-delete-button"
@@ -136,5 +157,25 @@
   .edge-particle.particle--missing {
     fill: #fbbf24;
     color: #f9c66b;
+  }
+
+  /* C 层：到达爆裂光环（引用全局 animations.css 的 edge-burst keyframe） */
+  .edge-burst {
+    fill: none;
+    stroke-width: 2;
+    animation: edge-burst 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+    pointer-events: none;
+  }
+  .edge-burst--pass {
+    stroke: #4cd7a8;
+    filter: drop-shadow(0 0 6px rgba(76, 215, 168, 0.6));
+  }
+  .edge-burst--error {
+    stroke: #ff8a8a;
+    filter: drop-shadow(0 0 6px rgba(255, 138, 138, 0.6));
+  }
+  .edge-burst--missing {
+    stroke: #f9c66b;
+    filter: drop-shadow(0 0 6px rgba(249, 198, 107, 0.6));
   }
 </style>
