@@ -23,7 +23,6 @@
     :class="{
       'is-selected': selected,
       'has-error': resolvedHasError,
-      'is-dragging': isDragging,
       [`state-${resolvedState}`]: true,
       [`theme-${theme}`]: true,
     }"
@@ -112,7 +111,7 @@
    * </NodeShell>
    */
 
-  import { ref, computed } from 'vue'
+  import { computed } from 'vue'
   import NodeBadge from './NodeBadge.vue'
   import type { NodeState, NodeTheme } from './nodeVariants'
 
@@ -155,8 +154,6 @@
     'mouse-enter': []
     'mouse-leave': []
   }>()
-
-  const isDragging = ref(false)
 
   const resolvedHasError = computed(() => {
     return props.hasError || props.state === 'error' || props.errorCount > 0
