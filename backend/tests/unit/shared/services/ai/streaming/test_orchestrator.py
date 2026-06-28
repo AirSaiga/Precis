@@ -11,6 +11,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from app.shared.services.ai.chat_agent_runner import ChatAgentRunResult
 from app.shared.services.ai.streaming.event_journal import EventJournal
 from app.shared.services.ai.streaming.orchestrator import StreamingOrchestrator
 
@@ -23,16 +24,32 @@ def orchestrator(tmp_path: Path) -> StreamingOrchestrator:
     return StreamingOrchestrator(job_id="job_test", journal=journal, cancel_event=cancel_event)
 
 
-def _make_fake_runner(reply="完成", success=True, iterations=1, error=None, side_effect=None):
-    """构造 mock runner，run 用 AsyncMock（因为 run_chat 里 await runner.run）。"""
-    fake_result = MagicMock()
-    fake_result.reply = reply
-    fake_result.frontend_instructions = []
-    fake_result.actions = []
-    fake_result.tool_steps = [{"tool": "noop", "label": "无操作", "turn": 1}]
-    fake_result.iterations = iterations
-    fake_result.success = success
-    fake_result.error = error
+def _make_fake_runner(
+    reply="完成",
+    success=True,
+    iterations=1,
+    error=None,
+    cancelled=False,
+    side_effect=None,
+):
+    """构造 mock runner，run 用 AsyncMock。
+
+    用真实的 ChatAgentRunResult dataclass（而非 MagicMock）构造结果，
+    避免 MagicMock 的 getattr 在不同 Python 版本上对 cancelled 等字段的歧义。
+    """
+    # 用真实 dataclass，确保 getattr(result, "cancelled", False) 行为确定
+    fake_result = ChatAgentRunResult(
+        reply=reply,
+        frontend_instructions=[],
+        actions=[],
+        tool_steps=[{"tool": "noop", "label": "无操作", "turn": 1}],
+        iterations=iterations,
+        success=success,
+        error=error,
+    )
+    # ChatAgentRunResult 没有 cancelled 字段，用对象属性附加（getattr 默认值兜底）
+    # 注意：orchestrator 用 getattr(result, "cancelled", False)，dataclass 无此属性 → 返回 False
+    # 若需要模拟取消，应设置 cancel_event 而非 result.cancelled
 
     fake_runner = MagicMock()
     if side_effect is not None:
