@@ -3,10 +3,6 @@
   --constraint-node-width: var(--node-width-default, 280px);
 }
 
-.conditional-constraint-node:hover {
-  box-shadow: var(--node-shadow-hover);
-}
-
 .if-wrap {
   display: inline-block;
   max-width: 120px;

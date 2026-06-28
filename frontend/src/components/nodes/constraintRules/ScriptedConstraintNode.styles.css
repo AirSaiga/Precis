@@ -3,10 +3,6 @@
   --constraint-node-width: var(--node-width-default, 300px);
 }
 
-.scripted-constraint-node:hover {
-  box-shadow: var(--node-shadow-hover);
-}
-
 .script-badge {
   display: inline-flex;
   align-items: center;

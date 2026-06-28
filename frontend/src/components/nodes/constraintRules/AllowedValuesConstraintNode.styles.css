@@ -3,10 +3,6 @@
   --constraint-node-width: var(--node-width-default, 280px);
 }
 
-.allowed-values-constraint-node:hover {
-  box-shadow: var(--node-shadow-hover);
-}
-
 /* 预览区标签样式 - 消费全局令牌 */
 .preview-tags {
   display: flex;

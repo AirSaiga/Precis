@@ -3,10 +3,6 @@
   --constraint-node-width: var(--node-width-default, 280px);
 }
 
-.charset-constraint-node:hover {
-  box-shadow: var(--node-shadow-hover);
-}
-
 /* 开始校验按钮区 */
 .charset-validate-section {
   padding: 0 var(--node-content-padding-x, 12px) var(--node-padding-md, 12px);

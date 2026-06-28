@@ -3,10 +3,6 @@
   --constraint-node-width: var(--node-width-default, 280px);
 }
 
-.not-null-constraint-node:hover {
-  box-shadow: var(--node-shadow-hover);
-}
-
 .details-more {
   font-size: var(--constraint-font-xs);
   color: var(--constraint-text-muted);
