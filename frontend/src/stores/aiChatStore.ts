@@ -388,6 +388,8 @@ export const useAiChatStore = defineStore('aiChat', () => {
         },
         {
           headers: configPath ? { 'X-Project-Config-Path': configPath } : undefined,
+          // 聊天流禁用自动重连：流断开即结束，避免幽灵后台任务 + 重发完整 body 等同重开对话
+          noReconnect: true,
         }
       )
 
@@ -438,9 +440,18 @@ export const useAiChatStore = defineStore('aiChat', () => {
    * @param decision - "confirm" 确认落盘 或 "reject" 拒绝不写
    */
   async function confirmApply(decision: 'confirm' | 'reject') {
-    const jobId = currentStreamingJobId.value
+    // jobId 优先从 store ref 取（started 事件写入），兜底从最近 streaming 消息取
+    let jobId = currentStreamingJobId.value
     if (!jobId) {
-      logger.warn('confirmApply: 无当前 job_id，无法确认')
+      // 从最近一条 assistant 消息的 streaming 状态兜底
+      const lastStreamingMsg = [...messages.value]
+        .reverse()
+        .find((m) => m.role === 'assistant' && m.streaming)
+      jobId = lastStreamingMsg?.streaming?.jobId ?? ''
+    }
+    if (!jobId) {
+      logger.warn('confirmApply: 无当前 job_id（started 事件可能丢失）')
+      toastError(t('aiChat.sessionErrorRetry'))
       return
     }
     try {
@@ -458,19 +469,33 @@ export const useAiChatStore = defineStore('aiChat', () => {
   /**
    * 取消当前正在进行的流式 AI 对话（软取消）。
    *
-   * 先同步 resolve 挂起的 apply 确认门为 reject（避免协程挂起），再关闭连接。
+   * 先发 cancel 端点通知后端停止（让 executor 在检查点中断），
+   * 再 resolve 挂起的 apply 确认门为 reject（避免协程挂起），最后关闭连接。
    * 已落盘的 apply_actions 改动保留，前端轨迹如实显示已执行步数。
-   * 无进行中的对话时无操作。
    */
   async function cancelSendMessage() {
     if (!currentSSEClient) return
+    // jobId 优先从 store ref 取，兜底从 streaming 消息取
+    let jobId = currentStreamingJobId.value
+    if (!jobId) {
+      const lastStreamingMsg = [...messages.value]
+        .reverse()
+        .find((m) => m.role === 'assistant' && m.streaming)
+      jobId = lastStreamingMsg?.streaming?.jobId ?? ''
+    }
     try {
-      // 先同步 resolve 挂起的 apply 确认为 reject
+      // 先 resolve 挂起的 apply 确认为 reject（若有挂起）
       await confirmApply('reject')
+      // 发 cancel 端点通知后端停止（与 generation/migration 行为一致）
+      if (jobId) {
+        await currentSSEClient.cancel(jobId)
+      }
       // 再关闭 SSE 连接
       currentSSEClient.close()
     } catch (error) {
       logger.error('取消 AI 对话失败:', error)
+      // 即使取消端点失败，也确保关闭连接
+      currentSSEClient.close()
     }
   }
 

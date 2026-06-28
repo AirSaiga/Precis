@@ -16,11 +16,23 @@
 
 import { getApiBaseUrl } from './httpClient'
 
+/** API 路径前缀，与 Axios 实例的 baseURL 保持一致 */
+const API_PREFIX = '/api/latest'
+
 /** SSE 事件帧解析结果 */
 export interface SSEEvent {
   id: number | null
   event: string
   data: string
+}
+
+/** SSE 连接选项 */
+export interface SSEConnectOptions {
+  /** 额外请求头（如 X-Project-Config-Path） */
+  headers?: Record<string, string>
+  /** 禁用自动重连。聊天流（非幂等）应设为 true，流断开即结束。
+   * 生成/迁移（幂等）可保留 false（默认）启用重连续传。 */
+  noReconnect?: boolean
 }
 
 /** SSE 客户端回调 */
@@ -105,7 +117,12 @@ function parseSSEFrame(frame: string): SSEEvent | null {
  * ```
  */
 export interface SSEClient {
-  connect: (url: string, body: unknown, callbacks: SSEClientCallbacks) => Promise<void>
+  connect: (
+    url: string,
+    body: unknown,
+    callbacks: SSEClientCallbacks,
+    options?: SSEConnectOptions
+  ) => Promise<void>
   cancel: (jobId: string) => Promise<void>
   close: () => void
   getLastEventId: () => number | null
@@ -119,6 +136,7 @@ export function createSSEClient(): SSEClient {
   let connectUrl = ''
   let connectBody: unknown = null
   let callbacksRef: SSEClientCallbacks | null = null
+  let connectOptions: SSEConnectOptions | undefined = undefined
 
   /** 实际发起一次 fetch 连接并处理流 */
   async function doConnect(): Promise<void> {
@@ -126,6 +144,7 @@ export function createSSEClient(): SSEClient {
     abortController = new AbortController()
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...(connectOptions?.headers ?? {}),
     }
     if (lastEventId !== null) {
       headers['Last-Event-ID'] = String(lastEventId)
@@ -133,7 +152,7 @@ export function createSSEClient(): SSEClient {
 
     let response: Response
     try {
-      response = await fetch(`${getApiBaseUrl()}${connectUrl}`, {
+      response = await fetch(`${getApiBaseUrl()}${API_PREFIX}${connectUrl}`, {
         method: 'POST',
         headers,
         body: JSON.stringify(connectBody),
@@ -146,7 +165,30 @@ export function createSSEClient(): SSEClient {
     }
 
     if (!response.ok || !response.body) {
-      handleReconnect(new Error(`SSE 响应异常: ${response.status}`))
+      // 尝试读取错误响应体提取 detail（后端 HTTPException 会返回 JSON detail）
+      let errorDetail = `SSE 响应异常: ${response.status}`
+      try {
+        const errorBody = await response.text()
+        if (errorBody) {
+          try {
+            const parsed = JSON.parse(errorBody)
+            if (typeof parsed.detail === 'string') {
+              errorDetail = parsed.detail
+            }
+          } catch {
+            // 非 JSON 响应保持原样
+          }
+        }
+      } catch {
+        // 读取 body 失败忽略
+      }
+      // 4xx 客户端错误不重试（如 400 未配置 Provider），直接报错
+      if (response.status >= 400 && response.status < 500) {
+        callbacksRef?.onError?.(new Error(errorDetail))
+        callbacksRef?.onClose?.()
+        return
+      }
+      handleReconnect(new Error(errorDetail))
       return
     }
 
@@ -194,9 +236,15 @@ export function createSSEClient(): SSEClient {
     }
   }
 
-  /** 处理重连（指数退避，达到上限后报错） */
+  /** 处理重连（指数退避，达到上限后报错）。noReconnect 模式下直接报错不重连。 */
   function handleReconnect(err: Error): void {
     if (aborted) return
+    // noReconnect 模式（聊天流）：流断开即结束，直接报错，不产生幽灵后台任务
+    if (connectOptions?.noReconnect) {
+      callbacksRef?.onError?.(err)
+      callbacksRef?.onClose?.()
+      return
+    }
     if (reconnectCount >= MAX_RECONNECT) {
       callbacksRef?.onError?.(err)
       callbacksRef?.onClose?.()
@@ -210,23 +258,27 @@ export function createSSEClient(): SSEClient {
   }
 
   return {
-    async connect(url, body, callbacks) {
+    async connect(url, body, callbacks, options) {
       connectUrl = url
       connectBody = body
       callbacksRef = callbacks
+      connectOptions = options
       reconnectCount = 0
       aborted = false
       await doConnect()
     },
     async cancel(jobId) {
-      await fetch(`${getApiBaseUrl()}/ai/jobs/${jobId}/cancel`, {
+      await fetch(`${getApiBaseUrl()}${API_PREFIX}/ai/jobs/${jobId}/cancel`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       })
     },
     close() {
+      if (aborted) return // 已关闭，幂等
       aborted = true
       abortController?.abort()
+      // 显式触发 onClose，让依赖它做清理的调用方（如 generation/migration）能收到回调
+      callbacksRef?.onClose?.()
     },
     getLastEventId() {
       return lastEventId

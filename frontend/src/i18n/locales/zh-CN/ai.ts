@@ -12,6 +12,8 @@ const aiChat = {
   agentMode: '深度模式',
   addToChat: '添加到 AI 对话',
   errorMessage: '抱歉，发生了错误，请稍后重试',
+  noProviderConfigured: '未配置 AI Provider，请先在设置中配置 AI 模型',
+  serviceUnavailable: 'AI 服务不可用，请检查网络连接或稍后重试',
   targetNodeNotFound: '未找到目标节点，请确保该表节点已在画布上',
   constraintCreated: '已为 {table}.{column} 创建独立约束',
   inlineConstraintCreated: '已为 {table}.{column} 添加内联约束',
@@ -31,6 +33,7 @@ const aiChat = {
   trailCancelled: '已取消 · 已执行 {steps} 步',
   trailCancelledNote: '任务已取消（完成 {turns} 轮），已落盘的改动已保留',
   cancel: '停止',
+  sessionErrorRetry: '会话状态异常，请重新发送消息',
   // apply_actions 两阶段确认卡
   confirmPending: '将修改 {total} 个文件 · 等待确认',
   confirmNoFiles: '无文件变更',

@@ -12,6 +12,9 @@ const aiChat = {
   agentMode: 'Deep Mode',
   addToChat: 'Add to AI Chat',
   errorMessage: 'Sorry, an error occurred. Please try again later.',
+  noProviderConfigured: 'No AI provider configured. Please set up an AI model in Settings first.',
+  serviceUnavailable:
+    'AI service is unavailable. Please check your network connection or try again later.',
   targetNodeNotFound: 'Target node not found. Please ensure the table node is on the canvas.',
   constraintCreated: 'Created standalone constraint for {table}.{column}',
   inlineConstraintCreated: 'Added inline constraint for {table}.{column}',
@@ -31,6 +34,7 @@ const aiChat = {
   trailCancelled: 'Cancelled · {steps} steps executed',
   trailCancelledNote: 'Task cancelled ({turns} turns). Persisted changes are kept.',
   cancel: 'Stop',
+  sessionErrorRetry: 'Session state error, please resend the message',
   // apply_actions two-phase confirm card
   confirmPending: 'Will modify {total} files · Awaiting confirmation',
   confirmNoFiles: 'No file changes',
