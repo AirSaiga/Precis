@@ -29,13 +29,14 @@
   const showParticles = computed(() => shouldRenderParticles(particleStatus.value))
   const particleClass = computed(() => getParticleColorClass(particleStatus.value))
 
-  // C 层：到达爆裂——validationStatus 从 idle 跳变到非 idle 时，触发一次性光环
+  // C 层：到达爆裂——validationStatus 变化为非 idle 时，触发一次性光环。
+  // 任何校验完成（含 pass→error 等重校验）都触发，每次校验都有视觉反馈。
   const burstKey = ref(0)
   const burstClass = ref('')
   watch(particleStatus, (newStatus, oldStatus) => {
-    if (oldStatus === 'idle' && newStatus !== 'idle') {
+    if (newStatus !== 'idle' && newStatus !== oldStatus) {
       burstClass.value = `edge-burst--${newStatus}`
-      burstKey.value++ // 重置 key，确保每次校验都能重新触发动画
+      burstKey.value++ // 重置 key，强制重新挂载以重播动画
     }
   })
 
@@ -155,7 +156,7 @@
     color: #ff8a8a;
   }
   .edge-particle.particle--missing {
-    fill: #fbbf24;
+    fill: #f59e0b;
     color: #f9c66b;
   }
 
