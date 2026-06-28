@@ -42,6 +42,10 @@ logger = logging.getLogger(__name__)
 _cancel_events: dict[str, asyncio.Event] = {}
 _cancel_events_lock = threading.Lock()
 
+# 后台 orchestrator task 的强引用集合：防止 task 被 GC 回收（Python asyncio 已知行为）
+# task 完成后通过 add_done_callback 自动从集合移除
+_background_tasks: set[asyncio.Task[None]] = set()
+
 # journal 存储目录基础(按项目 config_path 分片),复用 AgentJobStorage 的 .precis 约定
 # 实际路径在端点中按 project_path 拼接
 
@@ -139,17 +143,24 @@ async def chat_stream(
         finally:
             _unregister_cancel_event(job_id)
 
-    # 启动后台 task(不 await,与 SSE 响应并发)
-    asyncio.create_task(_run_orchestrator())
+    # 启动后台 task：持有强引用防 GC，完成回调中移除
+    task = asyncio.create_task(_run_orchestrator())
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
 
     # 返回 SSE 流: 先回放 journal(续传), 再实时推送队列
     async def _sse_generator():
-        async for frame in sse_event_stream(
-            journal=journal,
-            last_event_id=last_event_id,
-            event_queue=event_queue,
-        ):
-            yield frame
+        try:
+            async for frame in sse_event_stream(
+                journal=journal,
+                last_event_id=last_event_id,
+                event_queue=event_queue,
+            ):
+                yield frame
+        finally:
+            # 客户端断连时（StreamingResponse 被取消），通知后台 task 停止
+            # 这让 executor 在下一个取消检查点中断，避免后台 task 泄漏
+            cancel_event.set()
 
     return StreamingResponse(_sse_generator(), media_type="text/event-stream")
 
@@ -176,7 +187,7 @@ async def cancel_job(job_id: str) -> dict[str, str]:
         pending_store = get_global_pending_store()
         controller = pending_store.get(job_id)
         if controller is not None and not controller.is_resolved:
-            controller.resolve("reject")
+            await controller.resolve("reject")
         return {"status": "cancelling"}
     return {"status": "not_found"}
 
@@ -201,5 +212,5 @@ async def confirm_apply(job_id: str, request: AiChatConfirmRequest) -> dict[str,
         raise HTTPException(404, detail="无挂起的改动(可能已决策或任务已结束)")
     if controller.is_resolved:
         return {"status": "already_resolved", "decision": controller.decision or "unknown"}
-    controller.resolve(request.decision)
+    await controller.resolve(request.decision)
     return {"status": "resolved", "decision": request.decision}

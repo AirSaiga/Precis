@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from typing import Any
@@ -175,23 +176,53 @@ class AgentExecutor:
             # chat_stream 是 async generator function（async def + yield），直接 async for 即可
             content = ""
             raw_tool_calls: list[dict[str, Any]] = []
+            cancelled_in_stream = False
+            received_any_chunk = False  # 追踪是否收到过任何 chunk（区分"空流"与"返回但内容空"）
             try:
-                async for chunk in self.provider.chat_stream(req):
-                    # 取消检查点 2: 流内 chunk 间
-                    if self.cancelled_callback():
-                        result.success = False
-                        result.cancelled = True
-                        result.error = "任务已取消"
-                        return result
-                    if chunk.type == "delta":
-                        content += chunk.text or ""
-                        self.on_chunk(chunk.text or "")
-                    elif chunk.type == "tool_calls" and chunk.tool_calls:
-                        raw_tool_calls.extend(chunk.tool_calls)
+                # 用 wait_for 包裹整体流式读取，防止 provider 阻塞时取消信号永不触发
+                stream_timeout = getattr(self.provider, "timeout_seconds", None) or 120
+
+                async def _consume_stream() -> None:
+                    nonlocal content, raw_tool_calls, cancelled_in_stream, received_any_chunk
+                    async for chunk in self.provider.chat_stream(req):
+                        received_any_chunk = True
+                        # 取消检查点 2: 流内 chunk 间
+                        if self.cancelled_callback():
+                            cancelled_in_stream = True
+                            return
+                        if chunk.type == "delta":
+                            content += chunk.text or ""
+                            self.on_chunk(chunk.text or "")
+                        elif chunk.type == "tool_calls" and chunk.tool_calls:
+                            raw_tool_calls.extend(chunk.tool_calls)
+
+                await asyncio.wait_for(_consume_stream(), timeout=stream_timeout)
+            except TimeoutError:
+                logger.error(f"Agent LLM 流式调用超时({stream_timeout}s)")
+                result.success = False
+                result.error = f"AI 服务响应超时({stream_timeout}s)"
+                return result
             except Exception as e:
                 logger.error(f"Agent LLM 流式调用失败: {e}")
                 result.success = False
                 result.error = f"AI 服务调用失败: {e}"
+                return result
+
+            # 流内取消：保留已累积的 content 到 result（让 cancelled 事件携带 partial reply）
+            if cancelled_in_stream:
+                result.success = False
+                result.cancelled = True
+                result.error = "任务已取消"
+                result.content = content  # 保留部分内容
+                return result
+
+            # 空流检测：provider 没有返回任何 chunk（连空的 delta/tool_calls 都没有）
+            # 这才是真正的异常空流，避免注入非法空 assistant 消息导致后续轮次 provider 400 错误
+            # 注意：content 为空但有 tool_calls（或收到过空 delta）是合法的，不算空流
+            if not received_any_chunk:
+                logger.warning(f"Agent 第 {turn_idx} 轮 LLM 返回空响应（无任何 chunk）")
+                result.success = False
+                result.error = "LLM 返回空响应，请检查模型配置或重试"
                 return result
 
             tool_calls = [self.registry.parse_tool_call(tc) for tc in raw_tool_calls]

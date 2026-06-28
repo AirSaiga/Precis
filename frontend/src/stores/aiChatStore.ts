@@ -25,6 +25,8 @@ import {
   type StreamingMessage,
 } from '@/composables/shared/useStreamingMessage'
 import { processFrontendInstructions } from '@/services/aiChatInstructionService'
+import { toastError } from '@/core/toast'
+import { useProjectStore } from '@/stores/projectStore'
 
 /**
  * 聊天消息结构，用于 UI 渲染
@@ -90,10 +92,18 @@ export interface ConstraintSpec {
 /**
  * Schema 规格参数（Schema 指令的 spec 部分）
  */
+export interface SchemaColumnSpec {
+  name: string
+  type: string
+  id?: string
+  constraints?: Record<string, unknown>
+}
+
 export interface SchemaSpec {
   name: string
   schemaId?: string
-  columns?: Array<{ name: string; type: string; id?: string }>
+  columns?: Array<SchemaColumnSpec>
+  constraints?: Array<Record<string, unknown>>
   source?: Record<string, unknown>
   action?: 'add' | 'update' | 'delete'
 }
@@ -156,6 +166,7 @@ export interface FrontendInstruction {
  */
 export const useAiChatStore = defineStore('aiChat', () => {
   const { t } = useI18n()
+  const projectStore = useProjectStore()
 
   // --- 核心状态 ---
   /** 抽屉（侧边面板）是否可见 */
@@ -302,6 +313,9 @@ export const useAiChatStore = defineStore('aiChat', () => {
     addUserMessage(content)
     loading.value = true
 
+    // 在 push placeholder 之前构建 history，避免空 assistant 占位消息 + 用户消息双发污染 prompt
+    const history = buildChatHistory()
+
     // 创建流式状态机 + placeholder assistant 消息（UI 实时读取 streaming 字段）
     const { message: streamingMsg, handleEvent, start } = useStreamingMessage()
     start()
@@ -327,29 +341,55 @@ export const useAiChatStore = defineStore('aiChat', () => {
           hasContext: hasContext.value,
           selectedNodes: contextNodes.value,
         },
-        history: buildChatHistory(),
+        history: history,
         agent_mode: agentMode.value,
       }
 
-      await sseClient.connect('/ai/chat/stream', body, {
-        onEvent: (event, _id, data) => {
-          // 捕获 job_id 供 confirm 端点使用
-          if (
-            event === 'started' &&
-            data &&
-            typeof (data as Record<string, unknown>).job_id === 'string'
-          ) {
-            currentStreamingJobId.value = (data as Record<string, unknown>).job_id as string
-          }
-          handleEvent(event, _id, data)
+      const configPath = projectStore.currentPaths?.configPath
+      await sseClient.connect(
+        '/ai/chat/stream',
+        body,
+        {
+          onEvent: (event, _id, data) => {
+            // 捕获 job_id 供 confirm 端点使用
+            if (
+              event === 'started' &&
+              data &&
+              typeof (data as Record<string, unknown>).job_id === 'string'
+            ) {
+              currentStreamingJobId.value = (data as Record<string, unknown>).job_id as string
+            }
+            handleEvent(event, _id, data)
+          },
+          onError: (err) => {
+            logger.error('SSE 错误:', err)
+            // 将后端错误映射为用户友好的 i18n 消息
+            const msg = err.message || ''
+            const isNoProvider =
+              msg.includes('No default provider') ||
+              msg.includes('no provider') ||
+              msg.includes('Provider not found')
+            const isNotFound = msg === 'Not Found' || msg.includes('404')
+            const userMessage = isNoProvider
+              ? t('aiChat.noProviderConfigured')
+              : isNotFound
+                ? t('aiChat.serviceUnavailable')
+                : msg || t('aiChat.errorMessage')
+            // 将错误信息写入流式状态，connect 返回后由最终化逻辑处理
+            streamingMsg.status = 'error'
+            streamingMsg.errorMessage = userMessage
+            streamingMsg.isStreaming = false
+            // 显示 toast 提示用户
+            toastError(userMessage)
+          },
+          onClose: () => {
+            // SSE 流正常关闭（含终止事件）
+          },
         },
-        onError: (err) => {
-          logger.error('SSE 错误:', err)
-        },
-        onClose: () => {
-          // SSE 流正常关闭（含终止事件）
-        },
-      })
+        {
+          headers: configPath ? { 'X-Project-Config-Path': configPath } : undefined,
+        }
+      )
 
       // 流结束后，根据 streaming 状态最终化消息
       assistantMessage.content = streamingMsg.content
@@ -405,7 +445,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
     }
     try {
       const baseUrl = (await import('@/core/services/httpClient')).getApiBaseUrl()
-      await fetch(`${baseUrl}/ai/chat/${jobId}/confirm`, {
+      await fetch(`${baseUrl}/api/latest/ai/chat/${jobId}/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ decision }),

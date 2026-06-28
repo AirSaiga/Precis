@@ -170,7 +170,7 @@ class TestTwoPhaseConfirm:
 
         async def resolve_later():
             await asyncio.sleep(0.01)
-            ctrl.resolve("confirm")
+            await ctrl.resolve("confirm")
 
         task = asyncio.create_task(resolve_later())
 
@@ -229,7 +229,7 @@ class TestTwoPhaseConfirm:
 
         async def resolve_later():
             await asyncio.sleep(0.01)
-            ctrl.resolve("confirm")
+            await ctrl.resolve("confirm")
 
         task = asyncio.create_task(resolve_later())
 
@@ -252,7 +252,7 @@ class TestTwoPhaseConfirm:
         """用户拒绝后，第二个 to_thread 不被调用(不写盘)。"""
         ws = make_test_workspace(tmp_path)
         ctrl = ConfirmController("job-test-reject")
-        ctrl.resolve("reject")
+        await ctrl.resolve("reject")
 
         rejected_payloads: list = []
         callbacks = ApplyCallbacks(
@@ -273,7 +273,8 @@ class TestTwoPhaseConfirm:
             mock_thread.return_value = make_diff_result(success=True)
             result = await tool.run({"actions": [action]})
 
-        assert result["success"] is True
+        # 拒绝后返回明确的非成功状态（success=False），避免 LLM 误报"已添加约束"
+        assert result["success"] is False
         assert result.get("skipped") is True
         # to_thread 只调用了一次(dry-run)
         assert mock_thread.call_count == 1

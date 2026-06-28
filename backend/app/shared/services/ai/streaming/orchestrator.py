@@ -177,12 +177,15 @@ class StreamingOrchestrator:
             return
         finally:
             # 兜底清理：确保协程不会永久挂起
+            # 注意：apply 挂起时 finally 不可达（await 未返回），由 await_decision 超时兜底
             controller = pending_store.pop(self.job_id)
             if controller is not None and not controller.is_resolved:
                 logger.warning(f"run_chat finally 兜底 resolve reject (job={self.job_id})")
-                controller.resolve("reject")
+                await controller.resolve("reject")
 
-        if self.cancel_event.is_set() or (hasattr(result, "success") and not result.success and result.iterations > 0):
+        # 终态判定：用 result.cancelled 显式字段（而非 success+iterations 启发式）
+        # cancel_event.is_set() 覆盖外部取消信号；result.cancelled 覆盖 executor 内部取消
+        if self.cancel_event.is_set() or getattr(result, "cancelled", False):
             # 软取消：已落盘的 apply_actions 改动保留，轨迹如实显示
             self.emit(
                 EVENT_CANCELLED,

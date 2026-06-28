@@ -133,15 +133,45 @@ async def test_agent_returns_direct_content():
 
 @pytest.mark.asyncio
 async def test_agent_respects_max_iterations():
-    """达到最大迭代轮数仍未结束时，返回错误。"""
+    """达到最大迭代轮数仍未结束时，返回错误。
+
+    用持续调用工具但不产出 final config 来模拟不终止的多轮（真实场景），
+    而非空响应（空响应现在会被空流检测提前终止）。
+    """
     registry = ToolRegistry()
-    provider = FakeProvider(responses=[{"content": ""}] * 5)
+    registry.register(
+        name="noop_tool",
+        description="A no-op tool that never produces final output",
+        parameters={"type": "object", "properties": {}},
+        handler=lambda args: {"success": True, "value": 1},
+    )
+    # 每轮都调用 noop_tool（有 tool_calls 但无 final_output_tool），不自然终止
+    import json
+
+    def _tc(call_id: str, name: str, args: dict) -> dict:
+        return {"id": call_id, "function": {"name": name, "arguments": json.dumps(args)}}
+
+    provider = FakeProvider(responses=[{"content": "", "tool_calls": [_tc("c1", "noop_tool", {})]}] * 5)
 
     executor = AgentExecutor(provider=provider, registry=registry, max_iterations=3)
     result = await executor.run("test task")
 
     assert result.success is False
     assert "最大迭代" in result.error
+
+
+@pytest.mark.asyncio
+async def test_agent_empty_stream_detected():
+    """空流（provider 不返回任何 chunk）被检测为错误，而非误报达到最大迭代。"""
+    registry = ToolRegistry()
+    # content="" 且无 tool_calls → FakeProvider.chat_stream 不 yield 任何 chunk
+    provider = FakeProvider(responses=[{"content": ""}])
+
+    executor = AgentExecutor(provider=provider, registry=registry, max_iterations=3)
+    result = await executor.run("test task")
+
+    assert result.success is False
+    assert "空响应" in result.error
 
 
 @pytest.mark.asyncio

@@ -108,10 +108,12 @@ class ApplyActionsTool:
                 "name": self.NAME,
                 "description": (
                     "执行配置修改动作。当用户明确要求添加/修改/删除约束、表结构、"
-                    "正则节点、转换节点或修改项目设置时调用此工具。"
+                    "正则节点、转换节点、把已有资源放到画布上或修改项目设置时调用此工具。"
                     "actions 数组中的每个元素必须包含 actionType 和对应的 spec 字段。"
                     "执行成功后，改动会立即写入项目文件并同步到画布。"
                     "如果是纯查询类问题（如'有哪些表'），不要调用此工具，改用 read_project。"
+                    "注意：项目配置文件里存在的表/约束/正则，不一定已经在画布上显示；"
+                    "当用户说'拖到画布'、'放到画布'、'显示在画布上'时，应使用本工具的 ADD 动作。"
                 ),
                 "parameters": {
                     "type": "object",
@@ -224,11 +226,12 @@ class ApplyActionsTool:
         decision = await self._confirm_controller.await_decision()
 
         if decision != "confirm":
-            # 拒绝：不写盘，返回跳过标记
+            # 拒绝/超时：不写盘，返回明确的非成功状态（success=False）
+            # 避免 LLM 看到 success=True 误报"已为您添加约束"
             if self._apply_callbacks.on_apply_rejected:
                 self._apply_callbacks.on_apply_rejected({"reason": "user_rejected", "decision": decision})
             return {
-                "success": True,
+                "success": False,
                 "skipped": True,
                 "reason": f"用户选择{decision}，未写入文件",
                 "results": [],
