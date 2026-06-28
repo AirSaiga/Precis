@@ -15,7 +15,8 @@ import { v4 as uuidv4 } from 'uuid'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import { executeDisconnectCleanup } from '@/services/disconnect'
 import type { DisconnectContext } from '@/services/disconnect'
-import { addEdges, removeEdges } from '@/services/canvas/vueFlowApi'
+import { addEdges, removeEdges, findEdge } from '@/services/canvas/vueFlowApi'
+import { EDGE_DRAW_DURATION_MS, EDGE_DRAWING_CLASS } from '@/services/canvas/animationDurations'
 
 export function createConnectionOpsModule(params: {
   nodes: Ref<CustomNode[]>
@@ -25,6 +26,21 @@ export function createConnectionOpsModule(params: {
   syncOnDisconnect: (edge: Edge) => void
 }) {
   const { nodes, edges, updateNodeData, clearAllValidationErrors, syncOnDisconnect } = params
+
+  /**
+   * 清除边上的临时动画 class。
+   *
+   * 关键约束：必须用 findEdge 增量改 Vue Flow 内部响应式 GraphEdge 的 class，
+   * 不能用 edges.value = [...] 全量替换——全量替换会走 setEdges，触发对每条边
+   * 重新 findNode 校验，导致边被静默丢弃（边消失）并触发 onEdgesChange remove 链路。
+   * 此处的直接赋值是增量更新，与 useVirtualAnchorEdges / regexValidationHandler 一致。
+   */
+  function clearEdgeClass(edgeId: string, className: string): void {
+    const vfEdge = findEdge(edgeId)
+    if (vfEdge && vfEdge.class === className) {
+      vfEdge.class = undefined
+    }
+  }
 
   function createConnection(
     sourceNodeId: string,
@@ -47,10 +63,14 @@ export function createConnectionOpsModule(params: {
       target: targetNodeId,
       sourceHandle,
       targetHandle,
+      // 标记绘制渐入动画；Vue Flow 原生支持 edge.class，渲染时附加到边元素
+      class: EDGE_DRAWING_CLASS,
       ...options,
     }
 
     addEdges(newEdge)
+    // 动画结束后清除 class（仅作用于交互连线；批量程序化连线不触发）
+    setTimeout(() => clearEdgeClass(newEdge.id, EDGE_DRAWING_CLASS), EDGE_DRAW_DURATION_MS)
     logger.debug('✅ 连接创建成功')
     return newEdge.id
   }

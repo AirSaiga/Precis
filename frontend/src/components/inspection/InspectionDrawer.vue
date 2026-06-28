@@ -141,6 +141,7 @@
   import { useProjectStore } from '@/stores/projectStore'
   import { useGraphStore } from '@/stores/graphStore'
   import { fitView } from '@/services/canvas/vueFlowApi'
+  import { FITVIEW_DURATION_MS } from '@/services/canvas/animationDurations'
   import { logger } from '@/core/utils/logger'
   import { toastError, toastSuccess } from '@/core/toast'
   import { useClipboard } from '@/composables/useClipboard'
@@ -329,7 +330,7 @@
       // 节点已在画布：跳转 + 选中 + 关闭抽屉
       graphStore.setSelectedNode(nodeId)
       try {
-        fitView({ nodes: [nodeId], padding: 0.3, duration: 500 })
+        fitView({ nodes: [nodeId], padding: 0.3, duration: FITVIEW_DURATION_MS })
       } catch (err) {
         logger.warn('[InspectionDrawer] fitView 失败:', err)
       }

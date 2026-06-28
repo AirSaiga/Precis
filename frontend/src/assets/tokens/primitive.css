@@ -198,9 +198,34 @@
 
   /* ============================================================
      过渡
+
+     采用「分离式令牌」结构：先定义纯时长与纯缓动原子，
+     再由原子组装出组合令牌（duration + easing）。
+     这样允许任意场景单独替换时长或缓动，避免硬编码。
      ============================================================ */
-  --transition-fast: 0.15s ease-out;
-  --transition-normal: 0.2s ease-out;
-  --transition-slow: 0.3s ease-out;
-  --transition-spring: 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ---- 纯时长原子 ---- */
+  --dur-instant: 100ms;
+  --dur-fast: 150ms;
+  --dur-normal: 200ms;
+  --dur-slow: 300ms;
+  --dur-xslow: 400ms;
+
+  /* 场景语义时长：直接命名用途，开发者无需硬编码 */
+  --dur-enter: 300ms; /* 节点入场动画 */
+  --dur-organize: 400ms; /* 布局整理（与 DEFAULT_ORGANIZE_OPTIONS.animateDuration 同源） */
+  --dur-edge-draw: 200ms; /* 边绘制渐入 */
+  --dur-fitview: 400ms; /* fitView 过渡 */
+
+  /* ---- 纯缓动原子 ---- */
+  --ease-out: ease-out;
+  --ease-standard: cubic-bezier(0.4, 0, 0.2, 1); /* 通用标准缓动 */
+  --ease-emphasized: cubic-bezier(0.2, 0, 0, 1); /* 强调进入 */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* 带回弹（吸附感） */
+
+  /* ---- 组合令牌（向后兼容，由原子组装） ---- */
+  --transition-fast: var(--dur-fast) var(--ease-out);
+  --transition-normal: var(--dur-normal) var(--ease-out);
+  --transition-slow: var(--dur-slow) var(--ease-out);
+  --transition-spring: var(--dur-xslow) var(--ease-spring);
 }

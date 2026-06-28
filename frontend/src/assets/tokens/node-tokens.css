@@ -177,14 +177,13 @@
      节点状态系统
      ======================================== */
 
-  /* 过渡时长 */
+  /* 过渡时长（沿用兼容层别名） */
   --node-transition-fast: var(--ui-transition-fast);
   --node-transition-normal: var(--ui-transition-normal);
   --node-transition-slow: var(--ui-transition-slow);
 
-  /* 过渡缓动 */
-  --node-ease-default: ease-out;
-  --node-ease-bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  /* 整理动画错峰间隔（介于 30ms 与 100ms 之间，避免大群节点同时启停） */
+  --organize-stagger: 60ms;
 
   /* 变换 */
   --node-transform-hover: translateY(-2px);

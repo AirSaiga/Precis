@@ -17,6 +17,7 @@ import { useDragStore } from '@/stores/dragStore'
 import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
 import type { AppEvents } from '@/core/eventBus'
+import { FITVIEW_DURATION_MS } from '@/services/canvas/animationDurations'
 
 export interface CanvasLifecycleOptions {
   /** 项目创建对话框打开回调 */
@@ -57,7 +58,7 @@ export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
     // 查找项目根节点并将视口适配聚焦
     const projectNode = store.nodes.find((n) => n.type === 'projectRoot')
     if (projectNode) {
-      fitView({ nodes: [projectNode.id], padding: 0.5, duration: 300 })
+      fitView({ nodes: [projectNode.id], padding: 0.5, duration: FITVIEW_DURATION_MS })
     }
   }
 
@@ -76,7 +77,7 @@ export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
     store.setSelection(nodeIds)
     const focusNodeIds = nodeIds.filter((id) => findNode(id))
     if (focusNodeIds.length > 0) {
-      fitView({ nodes: focusNodeIds, padding: 0.25 })
+      fitView({ nodes: focusNodeIds, padding: 0.25, duration: FITVIEW_DURATION_MS })
     }
   }
 

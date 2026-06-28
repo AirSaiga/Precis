@@ -90,3 +90,24 @@
     opacity: 0.8;
   }
 }
+
+/**
+ * 新建边绘制渐入动画（一次性）。
+ *
+ * 边创建后 path 瞬间全长出现显得生硬，故用一次性 opacity 渐入柔化。
+ * 仅作用于 .edge-drawing（交互连线创建时由 connectionOps 打上的临时 class），
+ * 不影响外键展示边（fk-display-edge 有自己的连续动画）。
+ * 程序化批量连线（粘贴/导入/展开）不走 connectionOps.createConnection，故不会触发。
+ */
+@keyframes edge-draw {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+:deep(.vue-flow__edge.edge-drawing .vue-flow__edge-path) {
+  animation: edge-draw var(--dur-edge-draw) var(--ease-out);
+}

@@ -13,6 +13,7 @@
 
 import type {
   GraphEdge,
+  GraphNode,
   AddNodes,
   AddEdges,
   RemoveNodes,
@@ -20,6 +21,7 @@ import type {
   UpdateNodeInternals,
   UpdateEdgeData,
   FindEdge,
+  FindNode,
   UpdateNodeData,
   UpdateNode,
   FitView,
@@ -33,6 +35,7 @@ export interface VueFlowApi {
   updateNodeInternals: UpdateNodeInternals
   updateEdgeData: UpdateEdgeData
   findEdge: FindEdge
+  findNode: FindNode
   updateNodeData: UpdateNodeData
   updateNode: UpdateNode
   fitView: FitView
@@ -86,6 +89,10 @@ export function updateEdgeData(...args: Parameters<UpdateEdgeData>) {
 
 export function findEdge(...args: Parameters<FindEdge>): GraphEdge | undefined {
   return requireApi().findEdge(...args)
+}
+
+export function findNode(...args: Parameters<FindNode>): GraphNode | undefined {
+  return requireApi().findNode(...args)
 }
 
 export function updateNodeData(...args: Parameters<UpdateNodeData>) {

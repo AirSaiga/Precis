@@ -9,7 +9,8 @@
 import type { Ref } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
-import { addNodes } from '@/services/canvas/vueFlowApi'
+import { addNodes, findNode } from '@/services/canvas/vueFlowApi'
+import { NODE_ENTER_DURATION_MS, NODE_ENTERING_CLASS } from '@/services/canvas/animationDurations'
 export interface BaseFactoryContext {
   nodes: Ref<CustomNode[]>
   selectedNodeId?: Ref<string | null>
@@ -17,6 +18,21 @@ export interface BaseFactoryContext {
 
 export function createBaseNodeFactory(ctx: BaseFactoryContext) {
   const { selectedNodeId } = ctx
+
+  /**
+   * 清除节点上的临时动画 class。
+   *
+   * 关键约束：必须用 findNode 增量改 Vue Flow 内部响应式 GraphNode 的 class，
+   * 不能用 nodes.value = [...] 全量替换——全量替换会走 setNodes，绕过 Vue Flow
+   * 的增量 hooks，在节点→边关联场景下可能导致隐性状态不一致。此处的直接赋值是
+   * 增量更新，与边动画清理（findEdge）保持同一模式。
+   */
+  function clearNodeClass(nodeId: string, className: string): void {
+    const vfNode = findNode(nodeId)
+    if (vfNode && vfNode.class === className) {
+      vfNode.class = undefined
+    }
+  }
 
   return function createNode<TData extends Record<string, unknown>>(
     type: string,
@@ -29,9 +45,15 @@ export function createBaseNodeFactory(ctx: BaseFactoryContext) {
       type,
       position,
       data: data as unknown as CustomNodeData,
+      // 标记入场动画；Vue Flow 原生支持 node.class，渲染时即附加到包装元素
+      class: NODE_ENTERING_CLASS,
     }
 
     addNodes(newNode)
+
+    // 动画结束后清除 class（仅作用于手动新增 / 资源树拖入 / AI 生成路径；
+    // 项目加载直接构建 nodes.value，不经 createNode，故不会触发入场动画）
+    setTimeout(() => clearNodeClass(newNode.id, NODE_ENTERING_CLASS), NODE_ENTER_DURATION_MS)
 
     if (options?.autoSelect !== false && selectedNodeId) {
       selectedNodeId.value = newNode.id

@@ -18,6 +18,66 @@ import { getDefaultDimension, getNodeDimensionsFromDOM } from '../utils/nodeDime
 import { useVueFlow } from '@vue-flow/core'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 
+/**
+ * 计算整理动画的错峰索引（纯函数，便于单测）。
+ *
+ * 策略：先求参与整理节点的质心，再按各节点到质心的距离升序排序，
+ * 归一化到 0..1。距中心越近的节点 index 越小（先动），
+ * 从而产生"从中心向外涟漪"的吸附感，而非所有节点同时启停。
+ *
+ * @param targetPositions 参与整理的节点目标位置（含 id）
+ * @param nodes  当前画布全部节点（用于读取各节点当前位置）
+ * @returns nodeId -> 归一化错峰索引 [0, 1]
+ */
+export function computeStaggerIndices(
+  targetPositions: Map<string, { x: number; y: number }>,
+  nodes: Array<{ id: string; position: { x: number; y: number } }>
+): Map<string, number> {
+  const result = new Map<string, number>()
+  if (targetPositions.size === 0) return result
+
+  // 收集参与节点当前位置
+  const nodePosMap = new Map<string, { x: number; y: number }>()
+  for (const n of nodes) {
+    if (targetPositions.has(n.id)) nodePosMap.set(n.id, n.position)
+  }
+  if (nodePosMap.size === 0) {
+    // 兜底：无位置信息时全部立即启动
+    for (const id of targetPositions.keys()) result.set(id, 0)
+    return result
+  }
+
+  // 计算质心
+  let cx = 0
+  let cy = 0
+  for (const p of nodePosMap.values()) {
+    cx += p.x
+    cy += p.y
+  }
+  cx /= nodePosMap.size
+  cy /= nodePosMap.size
+
+  // 按到质心距离升序排序
+  const ordered = [...nodePosMap.entries()].sort((a, b) => {
+    const da = (a[1].x - cx) ** 2 + (a[1].y - cy) ** 2
+    const db = (b[1].x - cx) ** 2 + (b[1].y - cy) ** 2
+    return da - db
+  })
+
+  // 归一化到 0..1
+  const maxIdx = ordered.length - 1
+  for (let i = 0; i < ordered.length; i++) {
+    const entry = ordered[i]
+    if (!entry) continue
+    const normalized = maxIdx > 0 ? i / maxIdx : 0
+    result.set(entry[0], normalized)
+  }
+  return result
+}
+
+/** 默认错峰间隔（ms），当 CSS 变量无法读取时兜底 */
+const DEFAULT_STAGGER_MS = 60
+
 export function useNodeOrganizer() {
   const graphStore = useGraphStore()
   const { viewport } = useVueFlow()
@@ -135,9 +195,10 @@ export function useNodeOrganizer() {
 
       if (mergedOptions.animate) {
         await applyAnimation(targetPositions, mergedOptions.animateDuration)
+      } else {
+        applyPositions(targetPositions)
       }
 
-      applyPositions(targetPositions)
       lastOrganizeTime.value = Date.now()
     } catch (error) {
       logger.error('[useNodeOrganizer] 整理选中节点失败:', error)
@@ -246,11 +307,23 @@ export function useNodeOrganizer() {
     }
   }
 
+  /** 读取 --organize-stagger CSS 变量（毫秒），读不到则回退默认值 */
+  function resolveStaggerMs(): number {
+    const raw = getComputedStyle(document.documentElement)
+      .getPropertyValue('--organize-stagger')
+      .trim()
+    const parsed = parseFloat(raw)
+    return Number.isFinite(parsed) ? parsed : DEFAULT_STAGGER_MS
+  }
+
   async function applyAnimation(
     targetPositions: Map<string, { x: number; y: number }>,
     duration: number
   ): Promise<void> {
     const elements: HTMLElement[] = []
+
+    // 预计算各节点错峰索引（按到质心距离排序，0..1），产生"从中心向外涟漪"的吸附感
+    const staggerIndexMap = computeStaggerIndices(targetPositions, nodes.value)
 
     for (const [nodeId] of targetPositions) {
       const element =
@@ -258,6 +331,10 @@ export function useNodeOrganizer() {
         (document.querySelector(`[data-id="${nodeId}"] .vue-flow__node`) as HTMLElement | null)
       if (element) {
         element.classList.add('layout-organizing')
+        // 将用户设置的 duration 写入元素，修复与 CSS transition 的脱钩（P0c）
+        element.style.setProperty('--organize-duration', `${duration}ms`)
+        // 写入归一化错峰索引，CSS 用 calc(var(--organize-index) * var(--organize-stagger))
+        element.style.setProperty('--organize-index', String(staggerIndexMap.get(nodeId) ?? 0))
         elements.push(element)
       }
     }
@@ -265,11 +342,15 @@ export function useNodeOrganizer() {
     applyPositions(targetPositions)
 
     if (elements.length > 0) {
-      await new Promise<void>((resolve) => setTimeout(resolve, duration))
+      // 等待动画 + 最大错峰全部完成（错峰总量 = 1 * stagger）
+      const maxStaggerMs = resolveStaggerMs()
+      await new Promise<void>((resolve) => setTimeout(resolve, duration + maxStaggerMs))
     }
 
     for (const el of elements) {
       el.classList.remove('layout-organizing')
+      el.style.removeProperty('--organize-duration')
+      el.style.removeProperty('--organize-index')
     }
   }
 

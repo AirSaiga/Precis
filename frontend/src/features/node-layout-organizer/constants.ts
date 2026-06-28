@@ -31,17 +31,6 @@ export const NODE_DIMENSIONS = {
 }
 
 /**
- * 动画常量
- */
-export const ANIMATION_CONSTANTS = {
-  DEFAULT_DURATION: 400,
-  MAX_DURATION: 1000,
-  MIN_DURATION: 100,
-  STAGGER_DELAY: 30,
-  MAX_STAGGER_DELAY: 100,
-}
-
-/**
  * 布局常量
  */
 export const LAYOUT_CONSTANTS = {
@@ -131,15 +120,4 @@ export const NODE_TYPE_COLORS: Record<string, string> = {
   charsetConstraint: '#66BB6A',
   dateLogicConstraint: '#FFA726',
   compositeConstraint: '#78909C',
-}
-
-/**
- * 缓动函数
- */
-export const EASING_FUNCTIONS = {
-  linear: (t: number): number => t,
-  easeIn: (t: number): number => t * t,
-  easeOut: (t: number): number => t * (2 - t),
-  easeInOut: (t: number): number => (t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t),
-  cubic: (t: number): number => (t < 0.5 ? 4 * t * t * t : (t - 1) * (2 * t - 2) * (2 * t - 2) + 1),
 }

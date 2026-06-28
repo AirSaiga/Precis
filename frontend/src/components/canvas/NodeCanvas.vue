@@ -174,6 +174,7 @@
   import { useNodeTypeRegistry } from '@/composables/canvas/useNodeTypeRegistry'
   import { useCanvasConnectionWatcher } from '@/composables/canvas/useCanvasConnectionWatcher'
   import { initVueFlowApi } from '@/services/canvas/vueFlowApi'
+  import { FITVIEW_DURATION_MS } from '@/services/canvas/animationDurations'
   import { useCanvasContextMenu } from '@/composables/canvas/useCanvasContextMenu'
   import { useConnections } from '@/composables/nodes/useConnections'
   import { useCanvasNodeOperations } from '@/composables/canvas/useCanvasNodeOperations'
@@ -212,6 +213,7 @@
     updateNodeInternals,
     updateEdgeData,
     findEdge,
+    findNode,
     updateNodeData,
     updateNode,
     fitView,
@@ -224,6 +226,7 @@
     updateNodeInternals,
     updateEdgeData,
     findEdge,
+    findNode,
     updateNodeData,
     updateNode,
     fitView,
@@ -315,7 +318,7 @@
       await nextTick()
       store.setSelectedNode(nodeId)
       try {
-        fitView({ nodes: [nodeId], padding: 0.3, duration: 500 })
+        fitView({ nodes: [nodeId], padding: 0.3, duration: FITVIEW_DURATION_MS })
       } catch (err) {
         logger.warn('[NodeCanvas] inspection fitView 失败:', err)
       }

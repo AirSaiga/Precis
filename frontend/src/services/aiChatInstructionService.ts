@@ -26,9 +26,12 @@ import { nextTick } from 'vue'
 import { useGraphStore } from '@/stores/graphStore'
 import { i18n } from '@/i18n'
 import type { FrontendInstruction } from '@/stores/aiChatStore'
+import type { CustomNode } from '@/types/graph'
 import * as vueFlowApi from '@/services/canvas/vueFlowApi'
+import { FITVIEW_DURATION_MS } from '@/services/canvas/animationDurations'
 import { fromBackendType } from '@/services/builders/schemaBuilder'
 import { useConnectionValidator } from '@/composables/validation/useConnectionValidator'
+import { materializeV2EmbeddedConstraints } from '@/stores/graphStore/modules/v2/shared/embeddedConstraints'
 
 /**
  * AI 指令执行过程中遇到无法继续的非法连接时抛出的错误
@@ -361,7 +364,7 @@ async function handleConstraintInstruction(instruction: FrontendInstruction): Pr
   graphStore.reconcileAll()
 
   setTimeout(() => {
-    fitView({ nodes: [constraintNodeId], padding: 0.25, duration: 300 })
+    fitView({ nodes: [constraintNodeId], padding: 0.25, duration: FITVIEW_DURATION_MS })
   }, 100)
 
   toastSuccess(t('aiChat.constraintCreated', { table: tableName, column: targetColumn }))
@@ -448,7 +451,7 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
       columnName: col.name,
       dataType: fromBackendType(col.type),
       validationErrors: [],
-      constraints: {},
+      constraints: col.constraints || {},
     }))
 
     const position = computePlacementPosition(graphStore)
@@ -467,10 +470,61 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
 
     vueFlowApi.addNodes(schemaNode)
     await nextTick()
+
+    // 物化内嵌约束节点与边，行为与从资源树拖拽 Schema 保持一致
+    const embeddedConstraints = spec.constraints || []
+    if (embeddedConstraints.length > 0) {
+      const createdSchemaNode = graphStore.nodes.find((n) => n.id === schemaId)
+      if (createdSchemaNode) {
+        const schemaData = createdSchemaNode.data as Record<string, unknown>
+        const colNameToId = new Map<string, string>(
+          ((schemaData.columns as Array<{ id?: string; columnName?: string }>) || []).map((c) => [
+            c.columnName || '',
+            c.id || '',
+          ])
+        )
+        const createdConstraintIds: string[] = []
+        materializeV2EmbeddedConstraints({
+          schemaNode: createdSchemaNode as CustomNode,
+          schemaTableName: String(schemaData.tableName || schemaName),
+          embeddedConstraints,
+          colNameToId,
+          hasNode: (id: string) => graphStore.nodes.some((n) => n.id === id),
+          addNode: (node: CustomNode) => {
+            vueFlowApi.addNodes(node as VueFlowNode)
+            createdConstraintIds.push(node.id)
+          },
+          addConstraintEdge: (tableId: string, constraintId: string, columnId: string) => {
+            const edgeId = `e-${tableId}-${constraintId}-${columnId}`
+            if (graphStore.edges.some((e) => e.id === edgeId)) return
+            vueFlowApi.addEdges({
+              id: edgeId,
+              source: tableId,
+              target: constraintId,
+              sourceHandle: `source-right-${columnId}`,
+              targetHandle: `target-input-${constraintId}`,
+              type: 'smoothstep',
+            } as Edge)
+          },
+        })
+        await nextTick()
+        graphStore.reconcileAll()
+        if (createdConstraintIds.length > 0) {
+          setTimeout(() => {
+            fitView({
+              nodes: [schemaId, ...createdConstraintIds],
+              padding: 0.25,
+              duration: FITVIEW_DURATION_MS,
+            })
+          }, 100)
+        }
+      }
+    }
+
     graphStore.reconcileAll()
 
     setTimeout(() => {
-      fitView({ nodes: [schemaId], padding: 0.25, duration: 300 })
+      fitView({ nodes: [schemaId], padding: 0.25, duration: FITVIEW_DURATION_MS })
     }, 100)
 
     toastSuccess(t('aiChat.schemaCreated', { name: schemaName }))
@@ -567,7 +621,7 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
     graphStore.reconcileAll()
 
     setTimeout(() => {
-      fitView({ nodes: [regexId], padding: 0.25, duration: 300 })
+      fitView({ nodes: [regexId], padding: 0.25, duration: FITVIEW_DURATION_MS })
     }, 100)
 
     toastSuccess(t('aiChat.regexCreated', { name: regexName }))
@@ -621,7 +675,7 @@ async function handleTransformInstruction(instruction: FrontendInstruction): Pro
     graphStore.reconcileAll()
 
     setTimeout(() => {
-      fitView({ nodes: [transformId], padding: 0.25, duration: 300 })
+      fitView({ nodes: [transformId], padding: 0.25, duration: FITVIEW_DURATION_MS })
     }, 100)
 
     toastSuccess(t('aiChat.transformCreated', { name: transformType }))
