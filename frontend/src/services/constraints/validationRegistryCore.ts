@@ -136,6 +136,7 @@ import type { Edge, Node } from '@vue-flow/core'
 
 import { logger } from '@/core/utils/logger'
 import { validateRegexNodesForSchema } from '@/services/regex/regexValidationHandler'
+import { updateEdgeData } from '@/services/canvas/vueFlowApi'
 export { buildValidationContext } from './validationContext'
 import { buildValidationContext } from './validationContext'
 import type {
@@ -383,6 +384,8 @@ export async function validateConstraintNode(params: {
     validationErrors: result.validationErrors,
     lastValidation: result.lastValidation,
   })
+  // 同步校验状态到边，驱动粒子着色（C 层）
+  updateEdgeData(edge.id, { validationStatus: result.status })
 }
 
 export interface ValidationSummary {
@@ -447,6 +450,8 @@ export async function validateConstraintNodesForSchema(params: {
         validationErrors: result.validationErrors,
         lastValidation: result.lastValidation,
       })
+      // 同步校验状态到边，驱动粒子着色（C 层）
+      updateEdgeData(edge.id, { validationStatus: result.status })
 
       if (result.status === 'pass') {
         totalValid++
