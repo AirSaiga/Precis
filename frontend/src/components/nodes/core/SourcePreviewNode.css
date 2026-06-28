@@ -2,17 +2,14 @@
   background: color-mix(in srgb, var(--node-special-source-accent-bg) 12%, var(--node-glass-bg));
   border: 1px solid color-mix(in srgb, var(--node-special-source-accent) 14%, var(--node-border));
   border-radius: var(--node-border-radius);
-  box-shadow: var(--node-shadow);
   min-width: 400px;
   font-family: var(--ui-font-family);
   position: relative;
   overflow: visible;
   display: flex;
   flex-direction: column;
-  transition:
-    box-shadow var(--node-transition-normal),
-    border-color var(--node-transition-normal),
-    background var(--node-transition-fast);
+  /* box-shadow / transition 已上交 node-shell-contract.css 统一管理。
+     hover/selected 的 background/border 色调变化保留（节点特色）。 */
 }
 
 .source-preview-node:hover {
@@ -21,12 +18,10 @@
     var(--node-special-source-accent-bg) 18%,
     var(--node-glass-bg-hover)
   );
-  box-shadow: var(--node-shadow-hover);
   border-color: color-mix(in srgb, var(--node-special-source-accent) 20%, var(--node-border-hover));
 }
 
 .source-preview-node.is-selected {
-  box-shadow: var(--node-special-outline-success), var(--node-shadow-selected);
   border-color: var(--node-special-source-accent);
 }
 

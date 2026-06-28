@@ -10,29 +10,18 @@
   );
   border: 1px solid color-mix(in srgb, var(--node-special-project-accent) 18%, var(--ui-border));
   border-radius: var(--ui-radius-xl);
-  box-shadow:
-    0 2px 8px rgba(0, 0, 0, 0.06),
-    0 0 0 1px color-mix(in srgb, var(--node-special-project-accent) 8%, transparent) inset;
   position: relative;
   overflow: hidden;
-  transition:
-    box-shadow var(--ui-transition-fast),
-    border-color var(--ui-transition-fast),
-    transform var(--ui-transition-fast);
+  /* box-shadow / transition 已上交 node-shell-contract.css 统一管理。
+     hover/selected 的 border 色调变化保留（节点特色）。 */
 }
 
 .project-root-node:hover {
   border-color: color-mix(in srgb, var(--node-special-project-accent) 32%, var(--ui-border));
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.08),
-    0 0 0 1px color-mix(in srgb, var(--node-special-project-accent) 16%, transparent) inset;
 }
 
 .project-root-node.is-selected {
   border-color: color-mix(in srgb, var(--node-special-project-accent) 48%, var(--ui-border));
-  box-shadow:
-    0 4px 16px rgba(0, 0, 0, 0.1),
-    0 0 0 2px color-mix(in srgb, var(--node-special-project-accent) 24%, transparent) inset;
 }
 
 .project-root-node::before {

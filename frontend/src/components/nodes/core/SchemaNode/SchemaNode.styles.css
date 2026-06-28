@@ -12,25 +12,21 @@
   min-width: var(--node-min-width, 300px);
   min-height: 200px;
   font-family: var(--ui-font-family);
-  box-shadow: var(--node-shadow);
   display: flex;
   flex-direction: column;
   position: relative;
-  transition:
-    box-shadow var(--node-transition-normal),
-    border-color var(--node-transition-normal);
+  /* box-shadow / transition 已上交 node-shell-contract.css 统一管理。
+     hover/selected 的 background/border 色调变化保留（节点特色）。 */
 }
 
 .schema-node:hover {
   background: var(--node-glass-bg-hover);
-  box-shadow: var(--node-shadow-hover);
   border-color: var(--node-border-hover);
 }
 
 .schema-node.is-selected {
   background: var(--node-glass-bg-selected);
   border-color: var(--node-border-selected);
-  box-shadow: var(--node-shadow-selected);
 }
 
 .schema-node.is-drag-over {
@@ -40,7 +36,6 @@
 
 .schema-node.has-error {
   border-color: var(--node-border-error);
-  box-shadow: var(--node-shadow-error);
 }
 
 .schema-node.is-draft {

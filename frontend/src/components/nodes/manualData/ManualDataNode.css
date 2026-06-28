@@ -2,25 +2,21 @@
   background: color-mix(in srgb, var(--theme-orange-weak) 12%, var(--node-glass-bg));
   border: 1px solid color-mix(in srgb, var(--theme-orange) 14%, var(--node-border));
   border-radius: var(--node-border-radius);
-  box-shadow: var(--node-shadow);
   overflow: hidden;
   font-family: var(--ui-font-family);
   font-size: var(--node-text-size);
   color: var(--ui-text-primary);
   cursor: default;
   user-select: none;
-  transition:
-    box-shadow var(--node-transition-normal),
-    border-color var(--node-transition-normal),
-    background var(--node-transition-fast);
   position: relative;
   padding-bottom: 6px;
   min-width: 200px;
+  /* box-shadow / transition / :hover 的 box-shadow / .is-selected 的 box-shadow
+     已上交 node-shell-contract.css 统一管理。hover 的 background/border 色调变化保留。 */
 }
 
 .manual-data-node:hover {
   background: color-mix(in srgb, var(--theme-orange-weak) 18%, var(--node-glass-bg-hover));
-  box-shadow: var(--node-shadow-hover);
   border-color: color-mix(in srgb, var(--theme-orange) 20%, var(--node-border-hover));
 }
 
@@ -38,7 +34,6 @@
 
 .manual-data-node.is-selected {
   border-color: var(--theme-orange);
-  box-shadow: var(--node-special-outline-orange), var(--node-shadow-selected);
 }
 
 .manual-data-header {

@@ -116,6 +116,6 @@
 
   .transform-output-node.is-selected {
     border-color: var(--ui-accent);
-    box-shadow: 0 0 0 2px rgba(14, 165, 233, 0.3);
+    /* box-shadow 已上交 node-shell-contract.css 统一管理 */
   }
 </style>
