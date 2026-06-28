@@ -194,7 +194,15 @@ class AgentExecutor:
                             content += chunk.text or ""
                             self.on_chunk(chunk.text or "")
                         elif chunk.type == "tool_calls" and chunk.tool_calls:
-                            raw_tool_calls.extend(chunk.tool_calls)
+                            # 去重：按 tool_call id 防止 Ollama 多行重复导致同一动作多次执行
+                            for tc in chunk.tool_calls:
+                                tc_id = tc.get("id") if isinstance(tc, dict) else None
+                                if tc_id and any(
+                                    (existing.get("id") if isinstance(existing, dict) else None) == tc_id
+                                    for existing in raw_tool_calls
+                                ):
+                                    continue
+                                raw_tool_calls.append(tc)
 
                 await asyncio.wait_for(_consume_stream(), timeout=stream_timeout)
             except TimeoutError:

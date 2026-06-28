@@ -20,6 +20,8 @@ export interface ToolStep {
   tool: string
   label: string
   turn: number
+  /** 工具调用 ID，用于精确匹配 tool_result（无则用 tool+turn 退化匹配） */
+  callId?: string
   actionCount?: number
   status: 'running' | 'success' | 'failed'
   error?: string
@@ -104,6 +106,32 @@ interface EventData {
  * handleEvent('completed', 9, { reply: '你好世界', tool_steps: [...] })
  * ```
  */
+/**
+ * 合并后端 tool_steps 快照与本地已有步骤，保留已有 status（不强制全标 success）。
+ *
+ * 后端 tool_steps 是权威的完整列表，但不含 status 信息（只有 tool/label/turn/action_count）。
+ * 本地步骤在流式过程中已通过 tool_result 更新了 status（success/failed）。
+ * 合并策略：以后端快照为基准，若本地有同 tool+turn 的步骤，沿用其 status。
+ */
+function mergeToolSteps(
+  existingSteps: ToolStep[],
+  backendSteps: Array<{ tool: string; label: string; turn: number; action_count?: number }>
+): ToolStep[] {
+  return backendSteps.map((bs) => {
+    // 查找本地已有的同 tool+turn 步骤
+    const local = existingSteps.find((s) => s.tool === bs.tool && s.turn === bs.turn)
+    return {
+      tool: bs.tool,
+      label: bs.label,
+      turn: bs.turn,
+      actionCount: bs.action_count,
+      // 沿用本地已有的 status（可能已通过 tool_result 更新为 failed），默认 success
+      status: local?.status ?? ('success' as const),
+      error: local?.error,
+    }
+  })
+}
+
 export function useStreamingMessage() {
   const message = reactive<StreamingMessage>({
     content: '',
@@ -165,28 +193,41 @@ export function useStreamingMessage() {
         break
       }
       case 'tool_call': {
+        // 去重：同 callId 的步骤不重复 push（防止重连重放）
+        const callId = data.call_id ?? undefined
+        if (callId && message.toolSteps.some((s) => s.callId === callId)) {
+          break
+        }
         message.toolSteps.push({
           tool: data.tool ?? 'unknown',
           label: data.label ?? data.tool ?? 'unknown',
           turn: data.turn ?? 0,
+          callId,
           actionCount: data.action_count,
           status: 'running',
         })
         break
       }
       case 'tool_result': {
-        // 更新对应工具步骤的状态。按 name+turn 匹配最近一个 running 步骤
-        const name = data.name ?? data.tool
-        const idx = [...message.toolSteps]
-          .reverse()
-          .findIndex((s) => s.tool === name && s.status === 'running')
-        if (idx !== -1) {
-          const realIdx = message.toolSteps.length - 1 - idx
-          const step = message.toolSteps[realIdx]
-          if (step) {
-            step.status = data.success === false ? 'failed' : 'success'
-            if (data.error) step.error = data.error
+        // 优先用 call_id 精确匹配，无 call_id 时退化 name+turn 匹配最近 running 步骤
+        const callId = data.call_id ?? undefined
+        let targetStep: ToolStep | undefined
+        if (callId) {
+          targetStep = message.toolSteps.find((s) => s.callId === callId)
+        }
+        if (!targetStep) {
+          // 退化匹配：按 name 找最近一个 running 步骤
+          const name = data.name ?? data.tool
+          const idx = [...message.toolSteps]
+            .reverse()
+            .findIndex((s) => s.tool === name && s.status === 'running')
+          if (idx !== -1) {
+            targetStep = message.toolSteps[message.toolSteps.length - 1 - idx]
           }
+        }
+        if (targetStep) {
+          targetStep.status = data.success === false ? 'failed' : 'success'
+          if (data.error) targetStep.error = data.error
         }
         break
       }
@@ -220,15 +261,9 @@ export function useStreamingMessage() {
         if (typeof data.reply === 'string') {
           message.content = data.reply
         }
-        // 用完整 tool_steps 覆盖（后端 audit trail 更权威）
+        // 用完整 tool_steps 覆盖，但保留已有 status（不强制全标 success）
         if (Array.isArray(data.tool_steps)) {
-          message.toolSteps = data.tool_steps.map((s) => ({
-            tool: s.tool,
-            label: s.label,
-            turn: s.turn,
-            actionCount: s.action_count,
-            status: 'success' as const,
-          }))
+          message.toolSteps = mergeToolSteps(message.toolSteps, data.tool_steps)
         }
         break
       }
@@ -236,15 +271,15 @@ export function useStreamingMessage() {
         message.isStreaming = false
         message.status = 'cancelled'
         message.completedTurns = data.completed_turns ?? 0
-        // cancelled 也可能携带已执行的工具步骤和部分回复
+        // cancelled 也写 result（携带已执行的 frontend_instructions/iterations）
+        message.result = {
+          reply: data.reply,
+          frontend_instructions: data.frontend_instructions,
+          tool_steps: data.tool_steps,
+          iterations: data.completed_turns,
+        }
         if (Array.isArray(data.tool_steps)) {
-          message.toolSteps = data.tool_steps.map((s) => ({
-            tool: s.tool,
-            label: s.label,
-            turn: s.turn,
-            actionCount: s.action_count,
-            status: 'success' as const,
-          }))
+          message.toolSteps = mergeToolSteps(message.toolSteps, data.tool_steps)
         }
         break
       }

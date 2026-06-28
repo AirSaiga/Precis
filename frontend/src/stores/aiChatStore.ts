@@ -394,24 +394,31 @@ export const useAiChatStore = defineStore('aiChat', () => {
       )
 
       // 流结束后，根据 streaming 状态最终化消息
-      assistantMessage.content = streamingMsg.content
       assistantMessage.streaming = null
 
       if (streamingMsg.status === 'error') {
-        assistantMessage.content = streamingMsg.errorMessage || t('aiChat.errorMessage')
+        // 错误时保留已累积的部分内容（如果有），追加错误提示而非覆盖
+        const partialContent = streamingMsg.content || ''
+        const errorMsg = streamingMsg.errorMessage || t('aiChat.errorMessage')
+        assistantMessage.content = partialContent
+          ? `${partialContent}\n\n⚠️ _${errorMsg}_`
+          : errorMsg
       } else if (streamingMsg.status === 'cancelled') {
         // 软取消：content 保留已生成的部分，添加取消提示
         const cancelledSuffix = `\n\n_(${t('aiChat.trailCancelledNote', { turns: streamingMsg.completedTurns })})_`
         assistantMessage.content = (streamingMsg.content || '') + cancelledSuffix
+      } else {
+        // completed 或其他：用 streaming 累积的内容
+        assistantMessage.content = streamingMsg.content
       }
 
-      // 处理 frontend_instructions（画布双写）
+      // 处理 frontend_instructions（画布双写）——error/cancelled 也尝试处理已收到的指令
       const result = streamingMsg.result
       if (result?.frontend_instructions && result.frontend_instructions.length > 0) {
         await processFrontendInstructions(result.frontend_instructions as FrontendInstruction[])
       }
 
-      // 填充 agentMeta（轨迹展示）
+      // 填充 agentMeta（轨迹展示）——error/cancelled 也填充（iterations 从 result 取，无则 0）
       assistantMessage.agentMeta = {
         iterations: result?.iterations ?? 0,
         tool_steps: streamingMsg.toolSteps.map((s) => ({

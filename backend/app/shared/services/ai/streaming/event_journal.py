@@ -79,15 +79,20 @@ class EventJournal:
             logger.warning(f"恢复 journal next_id 失败 {self.journal_path}: {e}")
         return max_id + 1
 
-    def append(self, event: str, data: dict[str, Any]) -> int:
+    def append(self, event: str, data: dict[str, Any], *, force_fsync: bool = False) -> int:
         """
         @methoddesc 追加一个事件，返回分配的递增 id
 
-        线程安全（文件锁 + 实例锁）。追加写入后立即 flush，保证断电能恢复。
+        线程安全（文件锁 + 实例锁）。
+
+        性能优化：默认只 flush 不 fsync（避免每个 delta 字符阻塞事件循环）。
+        终止事件（completed/error/cancelled）应传 force_fsync=True 确保持久化。
+        force_fsync=True 的非终止事件（如 apply_pending）也建议 fsync。
 
         参数:
             event: 事件类型（见 types.py 常量）
             data: 事件数据（需可 JSON 序列化）
+            force_fsync: 是否强制 fsync（终止事件/关键事件设 True）
 
         返回:
             分配的事件 id（从 1 开始递增）
@@ -103,7 +108,9 @@ class EventJournal:
                 with open(self.journal_path, "a", encoding="utf-8") as f:
                     f.write(line + "\n")
                     f.flush()
-                    os.fsync(f.fileno())
+                    # 仅终止/关键事件 fsync，避免高频 delta 阻塞事件循环（性能优化）
+                    if force_fsync:
+                        os.fsync(f.fileno())
             except OSError as e:
                 logger.warning(f"追加 journal 事件失败 {self.journal_path}: {e}")
         return eid
