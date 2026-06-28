@@ -4,7 +4,7 @@
  *
  * 集中定义被多处复用的 keyframe，消除冗余（此前 spin 重复 9 次、pulse 4 次）。
  * 组件文件应引用此处定义，而非本地重复声明。
- * 本设计新增的 edge-burst / aurora-drift 也定义于此。
+ * 本设计新增的 edge-burst 也定义于此。
  */
 
 /* 旋转（加载 spinner 等通用旋转） */
@@ -48,23 +48,6 @@
   100% {
     transform: scale(2.6);
     opacity: 0;
-  }
-}
-
-/* === B 层：liquid 主题背景 aurora 缓慢漂移 === */
-@keyframes aurora-drift {
-  0%,
-  100% {
-    background-position:
-      0% 0%,
-      100% 100%,
-      50% 50%;
-  }
-  50% {
-    background-position:
-      30% 20%,
-      70% 80%,
-      40% 60%;
   }
 }
 

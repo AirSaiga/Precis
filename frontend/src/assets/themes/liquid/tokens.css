@@ -30,21 +30,20 @@
     #f8f9fc 100%
   );
 
-  /* 动态光晕装饰：可在 body/pseudo 元素上使用。
-     alpha 提至 0.38/0.32/0.30(原 0.22/0.18/0.16 过弱,肉眼几乎不可见) */
+  /* 静态光晕装饰：可在 body/pseudo 元素上使用（已砍掉漂移动画，纯静态氛围） */
   --ui-bg-aurora-1: radial-gradient(
     ellipse at 10% 10%,
-    rgba(120, 180, 255, 0.38) 0%,
+    rgba(120, 180, 255, 0.22) 0%,
     transparent 50%
   );
   --ui-bg-aurora-2: radial-gradient(
     ellipse at 90% 20%,
-    rgba(180, 160, 255, 0.32) 0%,
+    rgba(180, 160, 255, 0.18) 0%,
     transparent 45%
   );
   --ui-bg-aurora-3: radial-gradient(
     ellipse at 80% 90%,
-    rgba(130, 220, 200, 0.3) 0%,
+    rgba(130, 220, 200, 0.16) 0%,
     transparent 45%
   );
 
@@ -460,20 +459,14 @@
   background: transparent;
 }
 
-/* 画布区加上微弱动态光晕（通过伪元素实现，不依赖 JS） */
+/* 画布区静态光晕装饰（纯静态，无动画——画布是长时间凝视的精确工作区，
+   背景持续运动会引发晕动不适，故砍掉 B 层漂移动效，仅保留色彩氛围） */
 [data-theme='liquid'] .canvas-area::before {
   content: '';
   position: absolute;
   inset: 0;
   pointer-events: none;
   background: var(--ui-bg-aurora-1), var(--ui-bg-aurora-2), var(--ui-bg-aurora-3);
-  /* B 层：放大背景尺寸使 background-position 可位移，配合 aurora-drift 漂移 */
-  background-size: 180% 180%;
-  background-position:
-    0% 0%,
-    100% 100%,
-    50% 50%;
-  animation: aurora-drift 16s ease-in-out infinite;
   opacity: 1;
   z-index: 0;
 }
