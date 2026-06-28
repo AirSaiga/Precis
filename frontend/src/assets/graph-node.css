@@ -22,11 +22,43 @@
   border-color: var(--node-border-selected);
   border-width: var(--node-border-selected-width);
   box-shadow: var(--node-shadow-selected);
+  /* A 层：选中过渡用 spring，吸附有弹性 */
+  transition:
+    box-shadow var(--dur-fast) var(--ease-spring),
+    border-color var(--dur-fast) var(--ease-spring);
 }
 
 /* 节点整理动画过渡：仅在整理期间生效，避免影响拖拽手感 */
 .vue-flow__node.layout-organizing {
-  transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  /* 时长由 JS 按用户设置写入 --organize-duration（修复 P0c 脱钩），默认回退令牌 */
+  transition: transform var(--organize-duration, var(--dur-organize)) var(--ease-spring);
+  /* 错峰延迟：JS 按到质心距离写入 --organize-index（0..1），产生涟漪吸附感 */
+  transition-delay: calc(var(--organize-index, 0) * var(--organize-stagger, 0ms));
+}
+
+/* ============================================================
+   节点入场动画（P0a）
+
+   关键约束：Vue Flow 在 .vue-flow__node 包装元素上设内联
+   transform: translate(x,y) 做定位。若在包装上跑 scale() 会
+   覆盖 translate，导致节点跳到原点。故入场动画必须落在内层
+   .node-shell / .graph-node（它们的 transform 仅用于 hover）。
+   包装只负责拿 class 标记状态。
+   ============================================================ */
+@keyframes node-enter {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.vue-flow__node.node-entering .node-shell,
+.vue-flow__node.node-entering .graph-node {
+  animation: node-enter var(--dur-enter) var(--ease-spring);
 }
 
 .vue-flow__nodesselection-rect {
