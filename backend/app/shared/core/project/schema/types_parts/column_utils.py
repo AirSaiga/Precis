@@ -13,7 +13,7 @@ from app.shared.core.project.schema.types_parts.column import ColumnSpec
 
 
 def iter_all_columns(columns: list[ColumnSpec] | None) -> Iterator[ColumnSpec]:
-    """递归遍历列(含嵌套 children),深度优先优先遍历父节点本身。
+    """递归遍历列(含嵌套 children),深度优先遍历父节点本身。
 
     对无 children 的平面列,等价于直接遍历顶层(行为不变)。
 

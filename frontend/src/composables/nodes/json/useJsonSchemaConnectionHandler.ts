@@ -77,7 +77,8 @@ export function useJsonSchemaConnectionHandler() {
         columnName: col.name,
         jsonPath: col.json_path ?? `$.${col.name}`,
         dataType: (col.type as JsonSchemaColumn['dataType']) || 'string',
-        nullable: true,
+        // 保留后端配置的 nullable(默认 true,与后端 ColumnSpec.nullable 一致)
+        nullable: col.nullable !== false,
       }
       // 递归还原嵌套子列
       if (col.children && col.children.length > 0) {
@@ -200,7 +201,12 @@ export function useJsonSchemaConnectionHandler() {
 
       await nextTick()
       updateNodeInternals([schemaNodeId])
+      // 建边前去重,与 syncJsonSchemaResources 保持对称,防御 onSourceConnected 与
+      // tryLoadJsonSchemaConfig 触发边界变化时产生重复边
       for (const edge of bufferedEdges) {
+        if (store.edges.some((e) => e.source === edge.tableId && e.target === edge.constraintId)) {
+          continue
+        }
         store.createConnection(
           edge.tableId,
           edge.constraintId,
