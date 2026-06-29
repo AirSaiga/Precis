@@ -29,9 +29,29 @@ def iter_all_columns(columns: list[ColumnSpec] | None) -> Iterator[ColumnSpec]:
 def build_column_id_to_name_map(columns: list[ColumnSpec] | None) -> dict[str, str]:
     """递归构建 column_id -> column_name 映射。
 
-    用于约束工厂解析 column_id 引用,确保嵌套子列上的约束也能命中。
+    嵌套子列用「父.子」全限定名(与 json_normalize 展平后的点分列一致),
+    使约束能直接 df['profile.name'] 取值。
+    平面列(无父)映射为自身名。
 
     :param columns: 顶层列列表
-    :return: {column_id: column_name},跳过 id 为 None 的列
+    :return: {column_id: 全限定列名},跳过 id 为 None 的列
     """
-    return {c.id: c.name for c in iter_all_columns(columns) if c.id is not None}
+    result: dict[str, str] = {}
+    _collect_qualified_names(columns or [], "", result)
+    return result
+
+
+def _collect_qualified_names(columns: list[ColumnSpec], parent_path: str, result: dict[str, str]) -> None:
+    """递归收集 column_id -> 全限定列名。
+
+    :param columns: 当前层级的列列表
+    :param parent_path: 父级全限定路径(空串表示顶层)
+    :param result: 累积结果的字典
+    """
+    prefix = f"{parent_path}." if parent_path else ""
+    for col in columns:
+        qualified_name = f"{prefix}{col.name}"
+        if col.id is not None:
+            result[col.id] = qualified_name
+        if col.children:
+            _collect_qualified_names(col.children, qualified_name, result)

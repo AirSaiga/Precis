@@ -67,10 +67,39 @@ class TestBuildColumnIdToNameMap:
         assert result == {
             "age": "age",
             "user": "user",
-            "user_name": "name",
-            "address": "address",
-            "address_city": "city",
-            "address_zip": "zip",
+            "user_name": "user.name",
+            "address": "user.address",
+            "address_city": "user.address.city",
+            "address_zip": "user.address.zip",
+        }
+
+    def test_flat_map_still_works(self):
+        """平面列(无 children)映射为自身名,向后兼容。"""
+        cols = [ColumnSpec(id="a", name="name_a", type="string")]
+        assert build_column_id_to_name_map(cols) == {"a": "name_a"}
+
+    def test_deeply_nested_qualified_name(self):
+        """3 层嵌套叶子列应生成完整全限定名。"""
+        cols = [
+            ColumnSpec(
+                id="root",
+                name="root",
+                type="object",
+                children=[
+                    ColumnSpec(
+                        id="mid",
+                        name="mid",
+                        type="object",
+                        children=[ColumnSpec(id="leaf", name="leaf", type="string")],
+                    ),
+                ],
+            ),
+        ]
+        result = build_column_id_to_name_map(cols)
+        assert result == {
+            "root": "root",
+            "mid": "root.mid",
+            "leaf": "root.mid.leaf",
         }
 
     def test_skips_none_id(self):

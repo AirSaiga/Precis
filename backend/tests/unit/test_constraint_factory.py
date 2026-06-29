@@ -425,7 +425,7 @@ class TestCreateConstraintNestedColumns:
     """验证约束能作用于 JSON 嵌套子列(深层 children)。"""
 
     def test_not_null_on_nested_child(self):
-        """NotNull 挂在 2 层嵌套子列 address.city 上应成功解析。"""
+        """NotNull 挂在 2 层嵌套子列 address.city 上应解析为全限定名。"""
         cf = ConstraintFile(
             version=2,
             id="c1",
@@ -437,10 +437,10 @@ class TestCreateConstraintNestedColumns:
         assert error is None, f"嵌套子列约束应成功,但返回错误: {error}"
         assert result is not None
         assert result.table == "users"
-        assert result.column == "city"
+        assert result.column == "profile.address.city"
 
     def test_unique_on_nested_child(self):
-        """Unique 挂在 1 层嵌套子列 profile.name 上应成功解析。"""
+        """Unique 挂在 1 层嵌套子列 profile.name 上应解析为全限定名。"""
         cf = ConstraintFile(
             version=2,
             id="c1",
@@ -450,10 +450,10 @@ class TestCreateConstraintNestedColumns:
         )
         result, error = create_constraint(cf, _make_nested_schema_files())
         assert error is None
-        assert result.columns == ["name"]
+        assert result.columns == ["profile.name"]
 
     def test_not_null_on_deeply_nested_grandchild(self):
-        """NotNull 挂在 3 层深度的 address.city 上(column_id=address_city)。"""
+        """NotNull 挂在 3 层深度的 address.city 上应解析为 3 段全限定名。"""
         cf = ConstraintFile(
             version=2,
             id="c1",
@@ -463,7 +463,7 @@ class TestCreateConstraintNestedColumns:
         )
         result, error = create_constraint(cf, _make_nested_schema_files())
         assert error is None
-        assert result.column == "city"
+        assert result.column == "profile.address.city"
 
     def test_flat_schema_still_works(self):
         """回归:平面 schema(无 children)的约束行为不变。"""
