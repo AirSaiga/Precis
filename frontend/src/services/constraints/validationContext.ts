@@ -48,7 +48,9 @@ export function buildValidationContext(params: {
     sourceFile: schemaData.sourceFile as string,
     sheetName: schemaData.sheetName as string,
     headerRow: typeof schemaData.headerRow === 'number' ? schemaData.headerRow : 0,
-    jsonPath: (schemaData.jsonPath as string) || undefined,
+    // 优先使用列级 jsonPath(精确到嵌套叶子字段,如 $.user.address.city),
+    // 回退到节点级 jsonPath(用于整体 JSON 路径)
+    jsonPath: (column.jsonPath as string) || (schemaData.jsonPath as string) || undefined,
     recordPath: (schemaData.recordPath as string) || undefined,
     jsonFormat: (schemaData.format as string) || undefined,
   }
