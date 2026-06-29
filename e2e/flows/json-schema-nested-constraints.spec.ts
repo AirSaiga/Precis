@@ -9,14 +9,11 @@
  * 而非 /validate(单约束直接传 column_name,绕过列 ID 解析)。
  * 这样能端到端验证"约束列引用 → 解析 → 校验执行"完整链路。
  *
- * 重要范围说明:
- * JSON「嵌套对象」字段(如 $.profile.name)的「数据加载/列展平」存在独立的既有缺陷
- * (data_engine format 阶段报"缺少列"),非本次约束列解析修复的范围。
- * 因此本测试用「扁平 JSON 字段」+「平面 CSV schema」验证约束列解析链路,
- * 这些场景的数据加载正常,能聚焦验证约束列 ID 解析的正确性。
- * 「嵌套子列的 column_id 解析」本身由后端 pytest 覆盖
- * (test_constraint_factory.py::TestCreateConstraintNestedColumns、
- *  test_embedded_constraints_nested.py)。
+ * 覆盖场景:
+ * - JSON schema 嵌套对象字段(profile.name)约束:data_engine 递归校验 + factory 全限定名
+ * - JSON schema 扁平字段独立约束(column_id):factory 列映射
+ * - CSV schema 内嵌约束(列名):embedded_constraints 列名→ID 解析
+ * - 无约束回归基线
  *
  * 测试隔离:使用自建临时项目(非 qa_simple 副本),避免 fixture 污染。
  */
@@ -259,6 +256,78 @@ test.describe('JSON Schema 约束列解析全量校验', () => {
     const violations = notNullViolations(result.errors)
     expect(violations.length).toBe(1)
     expect(violations[0].column).toBe('name')
+  })
+
+  test('JSON schema 嵌套对象字段(profile.name)约束被全量校验执行', async () => {
+    const schemaId = 'json_nested_object'
+    const constraintId = 'nn_nested_name'
+    // 嵌套对象:profile.name 第 2 条为 null
+    const jsonDataPath = path.join(tmpDir, 'data', 'nested.json')
+    fs.writeFileSync(
+      jsonDataPath,
+      JSON.stringify([
+        { id: 1, profile: { name: 'Alice' } },
+        { id: 2, profile: { name: null } },
+      ]),
+      'utf-8'
+    )
+
+    const fullConfig = {
+      manifest: {
+        version: 2,
+        project: { id: 'test-json-constraint', name: 'Test Nested Object' },
+        settings: standardSettings(),
+        schemas: [{ id: schemaId, path: `schemas/${schemaId}.schema.yaml` }],
+        constraints: [{ id: constraintId, path: `constraints/${constraintId}.constraint.yaml` }],
+      },
+      schemas: {
+        [schemaId]: {
+          version: 2,
+          id: schemaId,
+          name: 'Nested JSON',
+          source: {
+            mode: 'absolute_file' as const,
+            path: jsonDataPath,
+            header_row: 0,
+            options: { format: 'array' },
+          },
+          columns: [
+            { id: 'col-id', name: 'id', type: 'Int', json_path: '$.id' },
+            {
+              id: 'col-profile',
+              name: 'profile',
+              type: 'JsonObject',
+              json_path: '$.profile',
+              children: [
+                { id: 'col-profile-name', name: 'name', type: 'Str', json_path: '$.profile.name' },
+              ],
+            },
+          ],
+          constraints: [],
+          script_checks: [],
+        },
+      },
+      constraints: {
+        [constraintId]: {
+          version: 2,
+          id: constraintId,
+          type: 'NotNull',
+          enabled: true,
+          // 独立约束用 column_id 引用嵌套子列(factory 解析为全限定名 profile.name)
+          refs: { table_id: schemaId, column_id: 'col-profile-name' },
+          params: {},
+        },
+      },
+    }
+
+    await putFullConfig(tmpDir, fullConfig)
+
+    const result = await validateFull(tmpDir)
+    // 嵌套对象字段 profile.name 的约束应被执行,检测到第 2 条 null
+    // (修复前:format 阶段报"缺少列 profile"阻断;修复后:跳过 profile、递归校验 profile.name)
+    const violations = notNullViolations(result.errors)
+    expect(violations.length).toBe(1)
+    expect(violations[0].column).toBe('profile.name')
   })
 
   test('平面 schema 无约束时全量校验无 NotNull 违规(回归基线)', async () => {
