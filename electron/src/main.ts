@@ -694,7 +694,12 @@ function createSplashWindow(): void {
     // 生产环境紧接 'starting'(后端 spawn 前的漫长阶段),开发环境跳过。
     sendSplashStage('initializing');
     if (isBackendSpawnEnvironment) {
+      // 生产环境:紧接 'starting'(后端 spawn 前的漫长阶段)
       sendSplashStage('starting');
+    } else {
+      // 开发环境:不 spawn 后端,'connecting' 是首个真实状态(等待用户手动启动的后端)。
+      // 在此发送而非启动流程中,避免 createSplashWindow 的 loadFile 尚未完成时竞态丢消息。
+      sendSplashStage('connecting');
     }
   });
 
@@ -1819,7 +1824,11 @@ app.whenReady().then(async () => {
   }
 
   // 统一轮询后端 API，确保真正可响应后再创建主窗口
-  sendSplashStage('connecting');
+  // 生产环境在此推送 'connecting'(后端已 spawn,转为等待 API 就绪);
+  // 开发环境已在 splash ready-to-show 中推送过,此处跳过避免重复。
+  if (isBackendSpawnEnvironment) {
+    sendSplashStage('connecting');
+  }
   const apiReady = await waitForApiReady(currentPythonServerPort, 60000);
   if (apiReady) {
     logger.info('[Main] 后端 API 已就绪，端口:', currentPythonServerPort);
