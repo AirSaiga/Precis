@@ -322,7 +322,15 @@
    * - 输入引用管理
    * - 连接处理
    */
-  const { handleKeydown, watchSourceConnection, cleanup } = useJsonSchemaInteractions(props, emit)
+  const {
+    handleKeydown,
+    watchSourceConnection,
+    cleanup,
+    handleColumnOutputConnect,
+    createTableRelation,
+    watchConnectionChanges,
+    initKnownEdgeIds,
+  } = useJsonSchemaInteractions(props, emit)
 
   /**
    * useJsonSchemaSaving - 保存逻辑
@@ -485,6 +493,8 @@
   onMounted(() => {
     eventBus.on('validate-json-schema', handleValidateJsonSchema)
     watchSourceConnection()
+    initKnownEdgeIds()
+    watchConnectionChanges()
   })
 
   /**
@@ -513,6 +523,8 @@
     deleteColumn: deleteColumnFromData,
     handleAddRootField,
     handleClose,
+    handleColumnOutputConnect,
+    createTableRelation,
     expandAll,
     collapseAll,
   })

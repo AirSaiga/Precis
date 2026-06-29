@@ -162,83 +162,95 @@ export function useJsonSchemaSaving(
   }
 
   /**
-   * 转换为 YAML 格式
+   * 转换为 YAML 格式(对齐后端 V2 schema 格式)
+   *
+   * 格式约定(与 backend ColumnSpec / ConstraintItem 一致):
+   * - JSON 选项放 source.options(snake_case): json_path / record_path / format
+   * - 列级 json_path(而非 jsonPath)
+   * - 内嵌约束为表级 constraints 列表,每项 {id, type, column, enabled, params}
    */
   const convertToYaml = (data: JsonSchemaNodeData): string => {
-    const yamlLines: string[] = []
-
-    yamlLines.push('# ============================================================')
-    yamlLines.push('# JSON Schema 配置文件')
-    yamlLines.push('# ============================================================')
-    yamlLines.push('')
-    yamlLines.push('version: 2')
-    yamlLines.push('')
-    yamlLines.push(`id: ${(data.tableName || 'json_schema').toLowerCase().replace(/\s+/g, '_')}`)
-    yamlLines.push(`name: ${data.tableName || 'JsonSchema'}`)
-    yamlLines.push('')
-    yamlLines.push('source:')
-    yamlLines.push(`  mode: ${data.sourcePathMode || 'relative_file'}`)
-    if (data.sourceFile) {
-      yamlLines.push(`  path: ${data.sourceFile}`)
-    }
-    if (data.jsonPath) {
-      yamlLines.push(`  jsonPath: ${data.jsonPath}`)
-    }
-    if (data.recordPath) {
-      yamlLines.push(`  recordPath: ${data.recordPath}`)
-    }
-    yamlLines.push(`  format: ${data.format || 'auto'}`)
-    yamlLines.push('')
-    yamlLines.push('columns:')
-
-    for (const column of data.columns || []) {
-      yamlLines.push(`  - id: ${column.id}`)
-      yamlLines.push(`    name: ${column.columnName}`)
-      if (column.jsonPath) {
-        yamlLines.push(`    jsonPath: ${column.jsonPath}`)
-      }
-      yamlLines.push(`    type: ${column.dataType || 'string'}`)
-      if (column.nullable === false) {
-        yamlLines.push(`    nullable: false`)
-      }
-      if (column.primaryKey) {
-        yamlLines.push(`    primary_key: true`)
-      }
-      if (column.description) {
-        yamlLines.push(`    description: "${column.description}"`)
-      }
-
-      if (column.constraints && Object.keys(column.constraints).length > 0) {
-        yamlLines.push('    constraints:')
-        if (column.constraints.notNull) {
-          yamlLines.push('      notNull: true')
-        }
-        if (column.constraints.unique) {
-          yamlLines.push('      unique: true')
-        }
-        if (column.constraints.allowedValues && column.constraints.allowedValues.length > 0) {
-          yamlLines.push(`      allowedValues: [${column.constraints.allowedValues.join(', ')}]`)
-        }
-      }
-
-      if (column.children && column.children.length > 0) {
-        yamlLines.push('    children:')
-        for (const child of column.children) {
-          yamlLines.push(`      - id: ${child.id}`)
-          yamlLines.push(`        name: ${child.columnName}`)
-          if (child.jsonPath) {
-            yamlLines.push(`        jsonPath: ${child.jsonPath}`)
+    // 收集表级内嵌约束(从列上的 constraints 标记转后端 ConstraintItem 格式)
+    const embeddedConstraints: Record<string, unknown>[] = []
+    const walkColumnsForConstraints = (columns: JsonSchemaColumn[]) => {
+      for (const col of columns) {
+        if (col.constraints) {
+          if (col.constraints.notNull) {
+            embeddedConstraints.push({
+              id: `${col.id}_notNull`,
+              type: 'NotNull',
+              enabled: true,
+              column: col.columnName,
+            })
           }
-          yamlLines.push(`        type: ${child.dataType || 'string'}`)
+          if (col.constraints.unique) {
+            embeddedConstraints.push({
+              id: `${col.id}_unique`,
+              type: 'Unique',
+              enabled: true,
+              column: col.columnName,
+            })
+          }
+          if (
+            col.constraints.allowedValues &&
+            Array.isArray(col.constraints.allowedValues) &&
+            col.constraints.allowedValues.length > 0
+          ) {
+            embeddedConstraints.push({
+              id: `${col.id}_allowedValues`,
+              type: 'AllowedValues',
+              enabled: true,
+              column: col.columnName,
+              params: { allowed_values: col.constraints.allowedValues.map(String) },
+            })
+          }
+        }
+        if (col.children && col.children.length > 0) {
+          walkColumnsForConstraints(col.children)
         }
       }
     }
+    walkColumnsForConstraints(data.columns || [])
 
-    return yamlLines.join('\n')
+    // 序列化列(递归含 children,字段名对齐后端 json_path)
+    const serializeColumn = (col: JsonSchemaColumn): Record<string, unknown> => {
+      const spec: Record<string, unknown> = {
+        id: col.id,
+        name: col.columnName,
+        type: col.dataType || 'string',
+      }
+      if (col.jsonPath) spec.json_path = col.jsonPath
+      if (col.nullable === false) spec.nullable = false
+      if (col.primaryKey) spec.primary_key = true
+      if (col.description) spec.description = col.description
+      if (col.children && col.children.length > 0) {
+        spec.children = col.children.map(serializeColumn)
+      }
+      return spec
+    }
+
+    const schemaObj: Record<string, unknown> = {
+      version: 2,
+      id: (data.tableName || 'json_schema').toLowerCase().replace(/\s+/g, '_'),
+      name: data.tableName || 'JsonSchema',
+      source: {
+        mode: data.sourcePathMode || 'relative_file',
+        ...(data.sourceFile ? { path: data.sourceFile } : {}),
+        options: {
+          format: data.format || 'auto',
+          ...(data.jsonPath ? { json_path: data.jsonPath } : {}),
+          ...(data.recordPath ? { record_path: data.recordPath } : {}),
+        },
+      },
+      columns: (data.columns || []).map(serializeColumn),
+      ...(embeddedConstraints.length > 0 ? { constraints: embeddedConstraints } : {}),
+    }
+
+    return yaml.dump(schemaObj, { indent: 2, lineWidth: 120 })
   }
 
   /**
-   * 导入 YAML 配置
+   * 导入 YAML 配置(对齐后端 V2 schema 格式,向后兼容旧内联格式)
    */
   const importFromYaml = async (yamlContent: string) => {
     try {
@@ -248,18 +260,59 @@ export function useJsonSchemaSaving(
       }
 
       const source = (parsed.source || {}) as Record<string, unknown>
+      const options = (source.options || {}) as Record<string, unknown>
+
+      // 从表级 constraints 列表(后端 ConstraintItem 格式)收集列约束标记
+      // key: columnName, value: 该列的约束标记
+      const constraintMarksByColumn = new Map<string, JsonSchemaColumn['constraints']>()
+      const tableConstraints = parsed.constraints as unknown[] | undefined
+      if (Array.isArray(tableConstraints)) {
+        for (const item of tableConstraints) {
+          const c = item as Record<string, unknown>
+          const colName = String(c.column ?? c.columns ?? '')
+          if (!colName) continue
+          const type = String(c.type ?? '')
+          const enabled = c.enabled !== false // 默认启用
+          if (!enabled) continue
+          const existing = constraintMarksByColumn.get(colName) || {}
+          if (type === 'NotNull') existing.notNull = true
+          else if (type === 'Unique') existing.unique = true
+          else if (type === 'AllowedValues') {
+            const params = (c.params || {}) as Record<string, unknown>
+            const vals = params.allowed_values
+            if (Array.isArray(vals)) existing.allowedValues = (vals as unknown[]).map(String)
+          }
+          constraintMarksByColumn.set(colName, existing)
+        }
+      }
 
       function parseColumns(raw: unknown[]): JsonSchemaColumn[] {
         if (!Array.isArray(raw)) return []
         return raw.map((col: unknown) => {
           const c = col as Record<string, unknown>
-          const constraints = c.constraints as Record<string, unknown> | undefined
+          // 兼容旧内联约束格式(列上直接 notNull/unique)与新表级约束列表
+          const inlineConstraints = c.constraints as Record<string, unknown> | undefined
           const children = c.children as unknown[] | undefined
+          const colName = String(c.name || c.columnName || '')
+
+          const tableLevelConstraints = constraintMarksByColumn.get(colName)
+          // 优先用表级约束标记,回退内联(向后兼容)
+          const merged = tableLevelConstraints
+            ? { ...tableLevelConstraints }
+            : inlineConstraints
+              ? {
+                  notNull: !!inlineConstraints.notNull,
+                  unique: !!inlineConstraints.unique,
+                  allowedValues: Array.isArray(inlineConstraints.allowedValues)
+                    ? (inlineConstraints.allowedValues as string[])
+                    : undefined,
+                }
+              : undefined
 
           return {
             id: String(c.id || uuidv4()),
-            columnName: String(c.name || c.columnName || ''),
-            jsonPath: String(c.jsonPath || ''),
+            columnName: colName,
+            jsonPath: String(c.json_path ?? c.jsonPath ?? ''),
             dataType: String(c.type || c.dataType || 'string') as JsonSchemaColumn['dataType'],
             nullable: c.nullable === false ? false : undefined,
             primaryKey:
@@ -267,15 +320,7 @@ export function useJsonSchemaSaving(
                 ? undefined
                 : !!(c.primaryKey ?? c.primary_key),
             description: c.description ? String(c.description) : undefined,
-            constraints: constraints
-              ? {
-                  notNull: !!constraints.notNull,
-                  unique: !!constraints.unique,
-                  allowedValues: Array.isArray(constraints.allowedValues)
-                    ? (constraints.allowedValues as string[])
-                    : undefined,
-                }
-              : undefined,
+            constraints: merged,
             children: children ? parseColumns(children) : undefined,
           }
         })
@@ -286,10 +331,17 @@ export function useJsonSchemaSaving(
         sourcePathMode:
           (source.mode as 'relative_file' | 'absolute_file') || props.data.sourcePathMode,
         sourceFile: source.path ? String(source.path) : props.data.sourceFile,
-        jsonPath: source.jsonPath ? String(source.jsonPath) : props.data.jsonPath,
-        recordPath: source.recordPath ? String(source.recordPath) : props.data.recordPath,
+        jsonPath: options.json_path
+          ? String(options.json_path)
+          : (source.jsonPath as string) || props.data.jsonPath,
+        recordPath: options.record_path
+          ? String(options.record_path)
+          : (source.recordPath as string) || props.data.recordPath,
         format:
-          (source.format as 'auto' | 'array' | 'lines' | 'object') || props.data.format || 'auto',
+          (options.format as 'auto' | 'array' | 'lines' | 'object') ||
+          (source.format as 'auto' | 'array' | 'lines' | 'object') ||
+          props.data.format ||
+          'auto',
         columns: parseColumns(parsed.columns as unknown[]),
         saveState: 'draft',
       }

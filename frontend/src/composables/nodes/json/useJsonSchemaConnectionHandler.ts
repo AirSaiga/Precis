@@ -16,17 +16,33 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { eventBus } from '@/core/eventBus'
 import { nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useVueFlow } from '@vue-flow/core'
 import type { Edge } from '@vue-flow/core'
 
 import { useGraphStore } from '@/stores/graphStore'
+import { useProjectStore } from '@/stores/projectStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useToast } from '@/composables/shared/useToast'
 import { generateJsonColumnsFromSource } from '@/utils/nodes/json/columnGeneration'
+import { findMatchingJsonSchema } from '@/utils/nodes/json/findMatchingJsonSchema'
 import { compareColumns } from '@/utils/nodes/schema/columnValidation'
-import type { CustomNode, JsonSchemaNodeData, JsonSourcePreviewNodeData } from '@/types/nodes'
+import { getV2FullConfig } from '@/api/projectV2Api'
+import { materializeV2EmbeddedConstraints } from '@/stores/graphStore/modules/v2/shared/embeddedConstraints'
+import { addNodes } from '@/services/canvas/vueFlowApi'
+import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
+import { revalidateConstraintsReferencingSchema } from '@/services/constraints/validationRegistryCore'
+import { resolveRelativePath } from '@/core/utils/pathNormalization'
+import { toastWarning } from '@/core/toast'
+import { i18n } from '@/i18n'
+import type {
+  CustomNode,
+  JsonSchemaColumn,
+  JsonSchemaNodeData,
+  JsonSourcePreviewNodeData,
+} from '@/types/nodes'
+import type { TableSchemaFileV2 } from '@/types/projectV2'
 
 /**
  * 允许传入完整节点对象或节点 data 对象的通用输入类型
@@ -52,6 +68,159 @@ export function useJsonSchemaConnectionHandler() {
   const info = toast.info
 
   const store = useGraphStore()
+
+  /** 从 V2 配置的 columns 递归还原 JsonSchemaColumn(含 children) */
+  function convertJsonColumnsFromConfig(columns: TableSchemaFileV2['columns']): JsonSchemaColumn[] {
+    return (columns || []).map((col) => {
+      const converted: JsonSchemaColumn = {
+        id: col.id ?? col.name,
+        columnName: col.name,
+        jsonPath: col.json_path ?? `$.${col.name}`,
+        dataType: (col.type as JsonSchemaColumn['dataType']) || 'string',
+        // 保留后端配置的 nullable(默认 true,与后端 ColumnSpec.nullable 一致)
+        nullable: col.nullable !== false,
+      }
+      // 递归还原嵌套子列
+      if (col.children && col.children.length > 0) {
+        converted.children = convertJsonColumnsFromConfig(col.children)
+      }
+      return converted
+    })
+  }
+
+  /** 从已保存的 V2 配置恢复 JSON Schema 的列定义 + 物化内嵌约束 */
+  async function tryLoadJsonSchemaConfig(params: {
+    schemaNodeId: string
+    localPath: string | undefined
+    recordPath: string | undefined | null
+    configPath: string | undefined
+    store: ReturnType<typeof useGraphStore>
+    updateNodeInternals: (nodeIds?: string[]) => void
+  }): Promise<boolean> {
+    const { schemaNodeId, localPath, recordPath, configPath, store, updateNodeInternals } = params
+    if (!localPath || !configPath) return false
+
+    const resolvedLocalPath = resolveRelativePath(localPath, configPath) ?? localPath
+
+    let fullConfig: Awaited<ReturnType<typeof getV2FullConfig>>
+    try {
+      fullConfig = await getV2FullConfig(configPath)
+    } catch {
+      logger.debug('🔌 [tryLoadJsonSchemaConfig] 无法加载 V2 配置')
+      return false
+    }
+
+    const schemas = fullConfig.schemas || {}
+    const match = findMatchingJsonSchema(schemas, resolvedLocalPath, recordPath, configPath)
+    if (!match) {
+      logger.debug(
+        `🔌 [tryLoadJsonSchemaConfig] 未找到匹配的 schema (localPath=${localPath}, recordPath=${recordPath})`
+      )
+      return false
+    }
+
+    const { id: tableId, schema: schemaFile } = match
+    const cols = convertJsonColumnsFromConfig(schemaFile.columns || [])
+
+    store.updateNodeData(schemaNodeId, {
+      columns: cols,
+      saveState: 'saved',
+    } as unknown as Record<string, unknown>)
+
+    if (schemaNodeId !== tableId) {
+      store.updateNodeData(schemaNodeId, {
+        configName: tableId,
+        saveState: 'modified',
+      } as unknown as Record<string, unknown>)
+      logger.warn(
+        `[tryLoadJsonSchemaConfig] schema node ID ${schemaNodeId} differs from file ID ${tableId}`
+      )
+    }
+
+    // 检测重复数据源(JSON 用 recordPath 作为额外键)
+    const sourcePath = schemaFile.source?.path
+    if (
+      sourcePath &&
+      store.schemaSourceIndex?.isDuplicateSource(sourcePath, recordPath ?? undefined, schemaNodeId)
+    ) {
+      const conflict = store.schemaSourceIndex.getConflictForSource(
+        sourcePath,
+        recordPath ?? undefined,
+        schemaNodeId
+      )
+      const otherIds = conflict?.nodeIds.filter((id) => id !== schemaNodeId) || []
+      toastWarning(
+        i18n.global.t('canvas.nodeCanvas.duplicateSourceMessage', {
+          source: sourcePath,
+          nodes: otherIds.join(', '),
+        }),
+        i18n.global.t('canvas.nodeCanvas.duplicateSourceTitle')
+      )
+    }
+    store.schemaSourceIndex?.rebuild()
+
+    await nextTick()
+    updateNodeInternals([schemaNodeId])
+
+    // 物化内嵌约束(复用已支持 jsonSchema 的 materializeV2EmbeddedConstraints)
+    const schemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
+    if (!schemaNode) return true
+
+    const schemaData = schemaNode.data as unknown as JsonSchemaNodeData
+    // 递归构建 columnName -> columnId 映射(含嵌套)
+    const colNameToId = new Map<string, string>()
+    const walkNames = (cols: JsonSchemaColumn[]) => {
+      for (const c of cols) {
+        colNameToId.set(c.columnName, c.id)
+        if (c.children) walkNames(c.children)
+      }
+    }
+    walkNames(schemaData.columns || [])
+
+    const embedded = Array.isArray(schemaFile.constraints) ? schemaFile.constraints : []
+    if (embedded.length > 0) {
+      const bufferedEdges: Array<{
+        tableId: string
+        constraintId: string
+        columnId: string
+      }> = []
+
+      materializeV2EmbeddedConstraints({
+        schemaNode: schemaNode as unknown as import('@/types/graph').CustomNode,
+        schemaTableName: schemaData.tableName,
+        embeddedConstraints: embedded as Parameters<
+          typeof materializeV2EmbeddedConstraints
+        >[0]['embeddedConstraints'],
+        colNameToId,
+        hasNode: (id: string) => store.nodes.some((n) => n.id === id),
+        addNode: (node: import('@/types/graph').CustomNode) => addNodes(node),
+        addConstraintEdge: (tId: string, cId: string, colId: string) => {
+          bufferedEdges.push({ tableId: tId, constraintId: cId, columnId: colId })
+        },
+      })
+
+      await nextTick()
+      updateNodeInternals([schemaNodeId])
+      // 建边前去重,与 syncJsonSchemaResources 保持对称,防御 onSourceConnected 与
+      // tryLoadJsonSchemaConfig 触发边界变化时产生重复边
+      for (const edge of bufferedEdges) {
+        if (store.edges.some((e) => e.source === edge.tableId && e.target === edge.constraintId)) {
+          continue
+        }
+        store.createConnection(
+          edge.tableId,
+          edge.constraintId,
+          `source-right-${edge.columnId}`,
+          `target-input-${edge.constraintId}`
+        )
+      }
+    }
+
+    logger.debug(
+      `🔌 [tryLoadJsonSchemaConfig] 已从 V2 恢复: ${cols.length} 列, ${embedded.length} 内嵌约束`
+    )
+    return true
+  }
 
   /**
    * 显示智能填充询问对话框
@@ -303,37 +472,69 @@ export function useJsonSchemaConnectionHandler() {
       outputPortConnected: true,
     })
 
-    logger.debug('🔌 [handleSourceConnection] 连接处理完成，准备弹出确认对话框')
+    logger.debug('🔌 [handleSourceConnection] 连接处理完成，准备恢复配置或弹出确认对话框')
 
-    await nextTick()
-    const latestSourceNode = store.nodes.find((n: CustomNode) => n.id === sourcePreviewNodeId)
-    const latestSchemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
+    const { updateNodeInternals } = useVueFlow()
+    const projectStore = useProjectStore()
+    const configPath = projectStore.currentPaths?.configPath
 
-    if (latestSourceNode && latestSchemaNode) {
-      try {
-        const sourceDataSnapshot: JsonSourcePreviewNodeData = JSON.parse(
-          JSON.stringify(latestSourceNode.data as unknown as JsonSourcePreviewNodeData)
-        )
-        await showSmartFillDialog(
-          { id: sourcePreviewNodeId, data: sourceDataSnapshot },
-          { id: schemaNodeId, data: latestSchemaNode.data as unknown as JsonSchemaNodeData }
-        )
-      } catch (error: unknown) {
-        if (
-          error instanceof Error &&
-          (error.message.includes('JSON 数据源为空') || error.message.includes('格式不正确'))
-        ) {
-          logger.warn('🎯 [handleSourceConnection] 智能填充业务跳过:', error.message)
-        } else {
-          throw error
+    // 步骤4:尝试从 V2 配置恢复
+    const loadedFromConfig = await tryLoadJsonSchemaConfig({
+      schemaNodeId,
+      localPath: sourceData.localPath,
+      recordPath: sourceData.recordPath,
+      configPath,
+      store,
+      updateNodeInternals,
+    })
+
+    if (!loadedFromConfig) {
+      // 未恢复则回退智能填充对话框
+      await nextTick()
+      const latestSourceNode = store.nodes.find((n: CustomNode) => n.id === sourcePreviewNodeId)
+      const latestSchemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
+
+      if (latestSourceNode && latestSchemaNode) {
+        try {
+          const sourceDataSnapshot: JsonSourcePreviewNodeData = JSON.parse(
+            JSON.stringify(latestSourceNode.data as unknown as JsonSourcePreviewNodeData)
+          )
+          await showSmartFillDialog(
+            { id: sourcePreviewNodeId, data: sourceDataSnapshot },
+            { id: schemaNodeId, data: latestSchemaNode.data as unknown as JsonSchemaNodeData }
+          )
+        } catch (error: unknown) {
+          if (
+            error instanceof Error &&
+            (error.message.includes('JSON 数据源为空') || error.message.includes('格式不正确'))
+          ) {
+            logger.warn('🎯 [handleSourceConnection] 智能填充业务跳过:', error.message)
+          } else {
+            throw error
+          }
         }
       }
-
-      setTimeout(() => {
-        logger.debug('🔄 [handleSourceConnection] 触发 JSON Schema 自动校验')
-        eventBus.emit('validate-json-schema', { nodeId: schemaNodeId })
-      }, 500)
     }
+
+    // 步骤5:触发全局约束校验 + 重验引用该 schema 的约束
+    const currentSchemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
+    const hasColumns = (currentSchemaNode?.data as unknown as JsonSchemaNodeData)?.columns?.length
+    if (currentSchemaNode && hasColumns) {
+      triggerValidationForNode(
+        schemaNodeId,
+        store.nodes,
+        store.edges,
+        (nodeId: string, data: Record<string, unknown>) => store.updateNodeData(nodeId, data)
+      )
+    }
+
+    await revalidateConstraintsReferencingSchema({
+      schemaNodeId,
+      nodes: store.nodes,
+      edges: store.edges,
+      updateNodeData: (nodeId: string, data: Record<string, unknown>) =>
+        store.updateNodeData(nodeId, data),
+    })
   }
 
   return {

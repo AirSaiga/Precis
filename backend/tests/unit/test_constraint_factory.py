@@ -391,3 +391,89 @@ class TestCreateConstraints:
             assert "boom" in warnings[0]
         finally:
             factory_module.create_constraint = original
+
+
+def _make_nested_schema_files():
+    """构造含嵌套子列的 schema,用于测试约束引用深层字段。"""
+    return {
+        "users": TableSchemaFile(
+            version=2,
+            id="users",
+            name="users",
+            columns=[
+                ColumnSpec(id="email", name="email", type="string"),
+                ColumnSpec(
+                    id="profile",
+                    name="profile",
+                    type="object",
+                    children=[
+                        ColumnSpec(id="profile_name", name="name", type="string"),
+                        ColumnSpec(
+                            id="address",
+                            name="address",
+                            type="object",
+                            children=[ColumnSpec(id="address_city", name="city", type="string")],
+                        ),
+                    ],
+                ),
+            ],
+        ),
+    }
+
+
+class TestCreateConstraintNestedColumns:
+    """验证约束能作用于 JSON 嵌套子列(深层 children)。"""
+
+    def test_not_null_on_nested_child(self):
+        """NotNull 挂在 2 层嵌套子列 address.city 上应成功解析。"""
+        cf = ConstraintFile(
+            version=2,
+            id="c1",
+            type="NotNull",
+            enabled=True,
+            refs={"table_id": "users", "column_id": "address_city"},
+        )
+        result, error = create_constraint(cf, _make_nested_schema_files())
+        assert error is None, f"嵌套子列约束应成功,但返回错误: {error}"
+        assert result is not None
+        assert result.table == "users"
+        assert result.column == "city"
+
+    def test_unique_on_nested_child(self):
+        """Unique 挂在 1 层嵌套子列 profile.name 上应成功解析。"""
+        cf = ConstraintFile(
+            version=2,
+            id="c1",
+            type="Unique",
+            enabled=True,
+            refs={"table_id": "users", "column_id": "profile_name"},
+        )
+        result, error = create_constraint(cf, _make_nested_schema_files())
+        assert error is None
+        assert result.columns == ["name"]
+
+    def test_not_null_on_deeply_nested_grandchild(self):
+        """NotNull 挂在 3 层深度的 address.city 上(column_id=address_city)。"""
+        cf = ConstraintFile(
+            version=2,
+            id="c1",
+            type="NotNull",
+            enabled=True,
+            refs={"table_id": "users", "column_id": "address_city"},
+        )
+        result, error = create_constraint(cf, _make_nested_schema_files())
+        assert error is None
+        assert result.column == "city"
+
+    def test_flat_schema_still_works(self):
+        """回归:平面 schema(无 children)的约束行为不变。"""
+        cf = ConstraintFile(
+            version=2,
+            id="c1",
+            type="NotNull",
+            enabled=True,
+            refs={"table_id": "users", "column_id": "email"},
+        )
+        result, error = create_constraint(cf, _make_schema_files())
+        assert error is None
+        assert result.column == "email"

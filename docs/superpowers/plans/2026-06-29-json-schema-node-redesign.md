@@ -1967,9 +1967,29 @@ Expected: 现有 E2E 无回归(新增 JSON 嵌套约束 E2E 视项目 E2E 策略
 
 ## 实施完成检查清单
 
-- [ ] Phase 1:后端嵌套约束修复(4 Tasks)— pytest 全绿
-- [ ] Phase 2:JsonSchemaNode 死代码接线(1 Task)— type-check 通过
-- [ ] Phase 3:V2 恢复/同步/校验联动(3 Tasks)— type-check 通过
-- [ ] Phase 4:公共层抽取(4 Tasks)— 现有连接 E2E 无回归
-- [ ] Phase 5:清理 + 文档(3 Tasks)— 全量测试通过
+- [x] Phase 1:后端嵌套约束修复(4 Tasks)— pytest 全绿(2699 passed)
+- [x] Phase 2:JsonSchemaNode 死代码接线(1 Task)— type-check 通过
+- [x] Phase 3:V2 恢复/同步/校验联动(3 Tasks)— type-check 通过
+- [~] Phase 4:公共层抽取(4 Tasks)— Task 4.3(findMatchingSchema 抽出)完成;
+       Task 4.1/4.2/4.4(Profile/base/handler 瘦身)**暂缓**,原因见下
+- [x] Phase 5:清理 + 文档(3 Tasks)— Task 5.1(注释修正)/5.2(YAML 重写)/5.3(AGENTS.md) 完成
+- [x] Task 6.1:全量回归 — 后端 2699 + 前端 1466 全绿,type-check/lint/ruff 通过
+
+---
+
+## Phase 4 (4.1/4.2/4.4) 暂缓说明
+
+**状态**:主动暂缓,非永久放弃。
+
+**原因**:这三个任务是纯结构重构(抽取 Profile + base + handler 瘦身),无功能性收益。
+执行它们的核心阻碍是:**composable 层无单测护栏**(AGENTS.md 规定 composables 由 E2E 覆盖),
+而 `showSmartFillDialog` 在 table(jsonPath/headerRow 提取)与 jsonSchema(rawData 提取)间存在
+真实结构差异,统一化改动面约 400 行编排逻辑。无 E2E 验证下强行抽取有破坏现有 table 连接的回归风险。
+
+**已完成的替代收益**:
+- Task 4.3(findMatchingSchema 抽出为独立工具)已完成,两个 handler 现在都通过独立工具函数匹配 V2 配置。
+- 所有功能性 P0/P1/P2 缺陷已通过 Phase 1-3 完整修复。
+
+**恢复条件**:在能运行 E2E 的环境(后端 + Chromium)中,按 Task 4.1→4.2→4.4 顺序实施,
+每个 Task 完成后跑 `cd e2e && npx playwright test` 确认无回归,再进入下一个。
 - [ ] Task 6.1:最终全量回归全绿

@@ -71,6 +71,7 @@ from typing import Any, cast
 from app.shared.core.project.constraint.registry import normalize_constraint_type
 from app.shared.core.project.constraint.types import ConstraintFile
 from app.shared.core.project.schema.types import TableSchemaFile
+from app.shared.core.project.schema.types_parts.column_utils import iter_all_columns
 
 
 def collect_constraints_from_schemas(
@@ -137,16 +138,17 @@ def collect_constraints_from_schemas(
             refs: dict[str, Any] = {"table_id": schema.id}
             # 如果约束指定了单列名称，则查找对应的列 ID
             if constraint_item.column:
-                # 在 schema.columns 中搜索 name 匹配的列，返回其 id；若找不到则保留原名称
+                # 递归遍历列(含嵌套 children)搜索 name 匹配的列,返回其 id
                 column_id = next(
-                    (c.id for c in schema.columns if c.name == constraint_item.column), constraint_item.column
+                    (c.id for c in iter_all_columns(schema.columns) if c.name == constraint_item.column),
+                    constraint_item.column,
                 )
                 refs["column_id"] = column_id
             # 如果约束指定了多列名称，则逐个查找对应的列 ID
             elif constraint_item.columns:
                 column_ids = []
                 for col_name in constraint_item.columns:
-                    col_id = next((c.id for c in schema.columns if c.name == col_name), col_name)
+                    col_id = next((c.id for c in iter_all_columns(schema.columns) if c.name == col_name), col_name)
                     column_ids.append(col_id)
                 refs["column_ids"] = column_ids
 
@@ -155,7 +157,7 @@ def collect_constraints_from_schemas(
                 # 查找源列名称对应的列 ID（若找不到则保留原名称）
                 from_col_id = (
                     next(
-                        (c.id for c in schema.columns if c.name == constraint_item.from_column),
+                        (c.id for c in iter_all_columns(schema.columns) if c.name == constraint_item.from_column),
                         constraint_item.from_column,
                     )
                     if constraint_item.from_column
@@ -168,7 +170,7 @@ def collect_constraints_from_schemas(
                     to_schema = schema_files.get(constraint_item.to_table)
                     if to_schema:
                         to_col_id = next(
-                            (c.id for c in to_schema.columns if c.name == constraint_item.to_column),
+                            (c.id for c in iter_all_columns(to_schema.columns) if c.name == constraint_item.to_column),
                             constraint_item.to_column,
                         )
 

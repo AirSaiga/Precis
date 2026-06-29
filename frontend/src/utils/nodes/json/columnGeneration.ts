@@ -1,7 +1,16 @@
 /**
  * @file columnGeneration.ts
- * @description JSON Schema 列生成工具函数
- * @deprecated 迁移至 columnGeneration/JsonColumnGenerator.ts
+ * @description JSON Schema 列生成编排函数（连接流程专用）
+ *
+ * 定位说明：
+ * 本文件提供 generateJsonColumnsFromSource，是「数据源连接 / 智能填充」流程的列生成入口，
+ * 支持 forceReinferTypes / maxDepth 等编排选项（默认保留现有列类型）。
+ *
+ * 与 columnGeneration/JsonColumnGenerator.ts 的关系：
+ * - JsonColumnGenerator（策略类，实现 ColumnGenerationStrategy）：供键盘绑定 / 生成 schema 等
+ *   场景通过统一策略接口调用，硬编码 forceReinferTypes=true。
+ * - generateJsonColumnsFromSource（本文件）：供连接处理器 / 源管理器调用，保留 options 灵活性。
+ * 两者并行、各司其职，不存在废弃迁移关系。
  */
 
 import type { JsonSchemaColumn, JsonDataType } from '@/types/nodes'
