@@ -143,7 +143,12 @@ function sendSplashStage(stage: SplashStage, error: boolean = false): void {
 let mainWindowReady = false;
 let backendReady = false;
 
-
+/**
+ * 是否处于需要本地启动后端的环境(打包/有前端构建产物)。
+ * 用于 splash 状态机:仅在 true 时向 splash 推送 'starting' 阶段。
+ * 在 createSplashWindow 之前于 app.whenReady 中赋值。
+ */
+let isBackendSpawnEnvironment = false;
 
 /**
  * Python 子进程的引用
@@ -685,8 +690,12 @@ function createSplashWindow(): void {
 
   splashWindow.once('ready-to-show', () => {
     splashWindow?.show();
-    // splash 渲染进程就绪后,推送初始状态(此时 IPC 监听已注册)
+    // splash 渲染进程就绪后,推送初始状态(此时 IPC 监听已注册)。
+    // 生产环境紧接 'starting'(后端 spawn 前的漫长阶段),开发环境跳过。
     sendSplashStage('initializing');
+    if (isBackendSpawnEnvironment) {
+      sendSplashStage('starting');
+    }
   });
 
   splashWindow.on('closed', () => {
@@ -1740,6 +1749,8 @@ app.whenReady().then(async () => {
   const indexPath = path.join(FRONTEND_PATH, 'index.html');
   const hasFrontendBuild = fs.existsSync(indexPath);
   const isDev = !app.isPackaged && !hasFrontendBuild;
+  // 标记是否需要本地启动后端,供 splash 状态机判断是否推送 'starting' 阶段
+  isBackendSpawnEnvironment = hasFrontendBuild;
 
   // 尽早设置默认应用菜单栏: 生产环境隐藏, 开发环境保留默认菜单方便调试
   // 业务场景: 应用通过前端 UI 提供全部操作入口, 无需系统菜单
@@ -1781,7 +1792,6 @@ app.whenReady().then(async () => {
   if (hasFrontendBuild) {
     // 生产环境: 启动 Python 后端并等待其就绪
     logger.info('[Main] 检测到打包环境，启动 Python 后端服务...');
-    sendSplashStage('starting');
     try {
       await startPythonServer();
       logger.info('[Main] 后端启动流程完成，验证 API 就绪...');
