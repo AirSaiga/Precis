@@ -31,7 +31,7 @@ import pandas as pd
 # 2. 项目内部导入
 from app.shared.domain.data_types import ExpressionType
 from app.shared.domain.data_types_parts.json_types import JsonObjectType
-from app.shared.domain.dataset_schema import TableSchema
+from app.shared.domain.dataset_schema import ColumnSchema, TableSchema
 
 
 def _reconstruct_expand_columns(df: pd.DataFrame, table_schema: TableSchema) -> pd.DataFrame:
@@ -165,6 +165,63 @@ def _expand_structured_columns(df: pd.DataFrame, table_schema: TableSchema) -> p
     return df_to_process
 
 
+def _process_columns_recursive(
+    df: pd.DataFrame,
+    schema_columns: dict[str, ColumnSchema],
+    parent_path: str,
+    parsed_data: dict[str, list],
+    errors: list[dict],
+    num_rows: int,
+) -> None:
+    """递归处理 schema 列。
+
+    JsonObject 列(有 children)跳过自身列检查,递归处理叶子子列。
+    叶子列以「父.子」全限定名参与校验(对应 json_normalize 点分列)。
+    平面列(无父)全限定名即自身名,行为不变。
+
+    :param df: 待处理的 DataFrame
+    :param schema_columns: 当前层级的列字典 {name: ColumnSchema}
+    :param parent_path: 父级全限定路径(空串表示顶层)
+    :param parsed_data: 累积解析列数据的字典
+    :param errors: 累积错误的列表
+    :param num_rows: 原始行数(用于缺失列填充)
+    """
+    prefix = f"{parent_path}." if parent_path else ""
+    for col_name, col_schema in schema_columns.items():
+        # 跳过派生列(Extracted 类型),它们不存在于原始数据中
+        if hasattr(col_schema.data_type, "name") and col_schema.data_type.name == "Extracted":
+            continue
+
+        qualified = f"{prefix}{col_name}"
+
+        # JsonObject 列(有 children):递归处理子列,跳过自身列检查
+        # children 是 list[ColumnSchema],转为 {name: col} dict 以复用递归
+        if isinstance(col_schema.data_type, JsonObjectType) and col_schema.children:
+            child_dict = {c.name: c for c in col_schema.children}
+            _process_columns_recursive(df, child_dict, qualified, parsed_data, errors, num_rows)
+            continue
+
+        # 叶子列(含平面列和嵌套叶子):按全限定名检查存在性
+        if qualified not in df.columns:
+            errors.append(
+                {
+                    "row_index": None,
+                    "column": qualified,
+                    "value": None,
+                    "error_type": "MissingColumn",
+                    "error_message": f"数据表中缺少必需的列 '{qualified}'",
+                }
+            )
+            parsed_data[qualified] = [None] * num_rows
+            continue
+
+        # 类型校验(用全限定名取列)
+        nullable = getattr(col_schema, "nullable", True)
+        parsed_series, col_errors = col_schema.data_type.process_column(df[qualified], qualified, nullable=nullable)
+        parsed_data[qualified] = parsed_series
+        errors.extend(col_errors)
+
+
 def process_dataframe(df: pd.DataFrame, schema: TableSchema) -> tuple[pd.DataFrame, list[dict]]:
     """
     处理 DataFrame，执行类型验证和解析。
@@ -273,36 +330,8 @@ def process_dataframe(df: pd.DataFrame, schema: TableSchema) -> tuple[pd.DataFra
     # 记录原始 DataFrame 的行数，用于缺失列时填充空值
     num_rows = len(df)
 
-    # 按 schema 定义的顺序逐列处理
-    for col_name, col_schema in schema.columns.items():
-        # 跳过派生列（Extracted 类型），它们不存在于原始数据中，由后续提取逻辑生成
-        if hasattr(col_schema.data_type, "name") and col_schema.data_type.name == "Extracted":
-            continue
-
-        # 情况 1：schema 中定义的列在原始数据中不存在
-        if col_name not in df.columns:
-            # 记录 MissingColumn 错误，row_index 为 None 表示整列缺失
-            errors.append(
-                {
-                    "row_index": None,
-                    "column": col_name,
-                    "value": None,
-                    "error_type": "MissingColumn",
-                    "error_message": f"数据表中缺少必需的列 '{col_name}'",
-                }
-            )
-            # 用 None 填充整列，保持解析后 DataFrame 的列数与 schema 一致
-            parsed_data[col_name] = [None] * num_rows
-            continue
-
-        # 从列 schema 中读取 nullable 属性，默认为 True（向后兼容）
-        nullable = getattr(col_schema, "nullable", True)
-
-        # 使用 DataType 的 process_column 进行向量化验证和解析
-        # 向量化处理比逐行循环性能更高，且统一收集该列的全部错误
-        parsed_series, col_errors = col_schema.data_type.process_column(df[col_name], col_name, nullable=nullable)
-        parsed_data[col_name] = parsed_series
-        errors.extend(col_errors)
+    # 递归处理列:JsonObject 列跳过自身检查、递归叶子子列(全限定名校验)
+    _process_columns_recursive(df, schema.columns, "", parsed_data, errors, num_rows)
 
     # 将解析后的列数据组装为 DataFrame，保留原始索引以维持行号对应关系
     parsed_df = pd.DataFrame(parsed_data, index=df.index)

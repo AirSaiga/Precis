@@ -271,3 +271,63 @@ class TestProcessDataframe:
         parsed, errors = process_dataframe(df, schema)
         assert len(parsed) == 0
         assert any(e["error_type"] == "MissingColumn" for e in errors)
+
+    def test_json_object_column_not_missing(self):
+        """JsonObject 顶层列(有 children)经 json_normalize 展平后不应报 MissingColumn。
+
+        场景:profile 是 JsonObject 列,数据经 json_normalize 展平为 profile.name 点分列。
+        改动前:报"缺少列 'profile'"(顶层列消失)。
+        改动后:跳过 profile 顶层列检查,递归校验叶子子列 profile.name。
+        """
+        # 模拟 json_normalize 展平后的 DataFrame(点分列)
+        df = pd.DataFrame({"id": [1, 2], "profile.name": ["Alice", "Bob"]})
+        schema = TableSchema(
+            name="t",
+            columns=[
+                ColumnSchema(name="id", data_type=IntegerType()),
+                ColumnSchema(
+                    name="profile",
+                    data_type=JsonObjectType(),
+                    children=[ColumnSchema(name="name", data_type=StringType())],
+                ),
+            ],
+        )
+        parsed, errors = process_dataframe(df, schema)
+        # 不应有针对 'profile' 的 MissingColumn 错误
+        missing = [e for e in errors if e["error_type"] == "MissingColumn"]
+        assert missing == [], f"不应有 MissingColumn 错误,实际: {missing}"
+        # 叶子子列 profile.name 应被校验(存在于 parsed)
+        assert "profile.name" in parsed.columns
+
+    def test_nested_leaf_column_validated(self):
+        """嵌套叶子子列(profile.name)应通过类型校验。"""
+        df = pd.DataFrame({"id": [1], "profile.name": ["Alice"]})
+        schema = TableSchema(
+            name="t",
+            columns=[
+                ColumnSchema(name="id", data_type=IntegerType()),
+                ColumnSchema(
+                    name="profile",
+                    data_type=JsonObjectType(),
+                    children=[ColumnSchema(name="name", data_type=StringType())],
+                ),
+            ],
+        )
+        parsed, errors = process_dataframe(df, schema)
+        assert "profile.name" in parsed.columns
+        assert len(errors) == 0
+
+    def test_flat_column_missing_still_reported(self):
+        """回归:平面列缺失仍报 MissingColumn(确保递归改动不破坏平面场景)。"""
+        df = pd.DataFrame({"id": [1]})
+        schema = TableSchema(
+            name="t",
+            columns=[
+                ColumnSchema(name="id", data_type=IntegerType()),
+                ColumnSchema(name="name", data_type=StringType()),
+            ],
+        )
+        parsed, errors = process_dataframe(df, schema)
+        missing = [e for e in errors if e["error_type"] == "MissingColumn"]
+        assert len(missing) == 1
+        assert missing[0]["column"] == "name"
