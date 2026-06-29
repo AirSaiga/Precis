@@ -116,6 +116,30 @@ let mainWindow: BrowserWindow | null = null;
 
 let splashWindow: BrowserWindow | null = null;
 
+/**
+ * Splash 启动状态机的阶段类型(线性推进)
+ *
+ * 状态流:
+ * - 生产环境: initializing → starting → connecting → loading → done
+ * - 开发环境: initializing → connecting → loading → done(跳过 starting)
+ * - 失败时: 任意阶段 → error
+ */
+type SplashStage = 'initializing' | 'starting' | 'connecting' | 'loading' | 'done' | 'error';
+
+/**
+ * 向 Splash 窗口推送当前启动阶段状态
+ *
+ * 安全守卫:splash 窗口可能未创建或已销毁,此时静默丢弃消息(可接受,
+ * 因为初始状态已是 initializing,splash.html 默认显示该状态)。
+ *
+ * @param stage - 启动阶段
+ * @param error - 是否为错误状态(失败时 spinner 变红)
+ */
+function sendSplashStage(stage: SplashStage, error: boolean = false): void {
+  if (!splashWindow || splashWindow.isDestroyed()) return;
+  splashWindow.webContents.send('splash:stage', { stage, error });
+}
+
 let mainWindowReady = false;
 let backendReady = false;
 
@@ -652,6 +676,7 @@ function createSplashWindow(): void {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
+      preload: path.join(__dirname, 'splash-preload.js'), // Splash 专用 preload,暴露 splashAPI
     },
   });
 
@@ -660,6 +685,8 @@ function createSplashWindow(): void {
 
   splashWindow.once('ready-to-show', () => {
     splashWindow?.show();
+    // splash 渲染进程就绪后,推送初始状态(此时 IPC 监听已注册)
+    sendSplashStage('initializing');
   });
 
   splashWindow.on('closed', () => {
@@ -683,17 +710,26 @@ function closeSplashWindow(): void {
 }
 
 /**
- * 尝试关闭 Splash Screen 并显示主窗口
+ * 尝试关闭 Splash 并显示主窗口
  *
- * 只有当主窗口渲染完成 AND 后端就绪（或开发环境无需后端）时才执行。
+ * 改造点(原为同步立即关闭 splash):
+ * 1. 先 sendSplashStage('done') —— 触发 splash 渲染进程启动淡出动画(CSS opacity → 0)
+ * 2. 主窗口立即 show + focus —— 用户立即获得可交互界面,无需等待 splash 动画
+ * 3. 延迟销毁 splash(setTimeout 320ms)—— 等淡出动画(~300ms)跑完再销毁窗口
+ *
+ * splash 在淡出期间仍 alwaysOnTop 覆盖在主窗口之上,属预期行为(半透明渐隐,不遮挡交互)。
  */
 function tryShowMainWindow(): void {
   if (!mainWindowReady) return;
   if (!backendReady) return;
   if (!mainWindow) return;
-  closeSplashWindow();
+  sendSplashStage('done');
   mainWindow.show();
   mainWindow.focus();
+  // 延迟销毁 splash,让淡出动画跑完(~300ms 动画 + 20ms 余量)
+  setTimeout(() => {
+    closeSplashWindow();
+  }, 320);
 }
 
 /**
@@ -919,6 +955,17 @@ ipcMain.handle('restart-python-server', async () => {
  * [Electron] 版本来自 package.json 的 version 字段
  */
 ipcMain.handle('get-app-version', async () => {
+  return app.getVersion();
+});
+
+/**
+ * [IPC] 获取应用版本号(供 Splash 窗口显示)
+ *
+ * Splash 在启动早期需要显示版本号,但其自身无 app 引用,
+ * 通过此 IPC 从主进程查询。与 get-app-version 逻辑相同,
+ * 但走独立通道以保持 splash IPC 命名空间隔离(splash:*)。
+ */
+ipcMain.handle('splash:get-version', async () => {
   return app.getVersion();
 });
 
@@ -1734,6 +1781,7 @@ app.whenReady().then(async () => {
   if (hasFrontendBuild) {
     // 生产环境: 启动 Python 后端并等待其就绪
     logger.info('[Main] 检测到打包环境，启动 Python 后端服务...');
+    sendSplashStage('starting');
     try {
       await startPythonServer();
       logger.info('[Main] 后端启动流程完成，验证 API 就绪...');
@@ -1741,6 +1789,10 @@ app.whenReady().then(async () => {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('[Main] 后端启动失败:', errorMessage);
       isPythonServerReady = false;
+
+      // 发送错误状态让 splash 变红提示,停顿让用户看清后再弹原生错误框
+      sendSplashStage('error', true);
+      await new Promise((resolve) => setTimeout(resolve, 800));
 
       // 后端启动失败属于致命错误，应明确告知用户，而不是显示空白主窗口
       closeSplashWindow();
@@ -1757,6 +1809,7 @@ app.whenReady().then(async () => {
   }
 
   // 统一轮询后端 API，确保真正可响应后再创建主窗口
+  sendSplashStage('connecting');
   const apiReady = await waitForApiReady(currentPythonServerPort, 60000);
   if (apiReady) {
     logger.info('[Main] 后端 API 已就绪，端口:', currentPythonServerPort);
@@ -1764,6 +1817,8 @@ app.whenReady().then(async () => {
   } else if (hasFrontendBuild) {
     // 生产环境：API 未就绪属于致命错误，直接退出并提示用户
     logger.error('[Main] 后端 API 就绪检测超时，端口:', currentPythonServerPort);
+    sendSplashStage('error', true);
+    await new Promise((resolve) => setTimeout(resolve, 800));
     closeSplashWindow();
     dialog.showErrorBox(
       '后端服务未就绪',
@@ -1778,6 +1833,7 @@ app.whenReady().then(async () => {
   }
 
   // 后端已就绪且端口已确定，再创建主窗口并加载前端
+  sendSplashStage('loading');
   createWindow();
 
   tryShowMainWindow();
