@@ -29,6 +29,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from ..schema.types_parts.column_utils import build_column_id_to_name_map
+
 # 导入约束注册表和工具函数，用于根据类型名称查找约束类并过滤参数
 from .registry import filter_kwargs_for_class, normalize_constraint_type, resolve_constraint_class
 from .types import ConstraintFile
@@ -79,10 +81,11 @@ def create_constraint(
     # 初始化 kwargs 字典，用于构造约束类实例
     kwargs: dict[str, Any] = {}
 
-    # 构建 column_id -> column_name 映射表（按 table_id 分组）
+    # 构建 column_id -> column_name 映射表（按 table_id 分组,递归含嵌套 children）
     # 结构：{table_id: {column_id: column_name, ...}, ...}
+    # 注:递归遍历确保 JSON 嵌套子列上的约束也能解析列引用
     column_name_by_table_id: dict[str, dict[str, str]] = {
-        sid: {c.id: c.name for c in s.columns if c.id is not None} for sid, s in schema_files.items()
+        sid: build_column_id_to_name_map(s.columns) for sid, s in schema_files.items()
     }
 
     # 检查约束引用的表是否存在
