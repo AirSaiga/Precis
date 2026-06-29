@@ -22,6 +22,7 @@ import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import { useToast } from '@/composables/shared/useToast'
 import { generateJsonColumnsFromSource } from '@/utils/nodes/json/columnGeneration'
+import { syncJsonSchemaResources } from '@/services/jsonSchemaResourceSync'
 import { useNodeSourceManager } from '../shared/useNodeSourceManager'
 import type {
   CustomNode,
@@ -266,6 +267,13 @@ export function useJsonSchemaSourceManager(
     ],
     eventName: 'jsonSourcePreviewDataChanged',
     onSourceDataChanged: (data) => updateFromSourceChange(data),
+    onSourceConnected: () => {
+      // 数据源连接成功后,从 V2 配置同步关联的内嵌约束节点到画布
+      // 注:回调参数是 sourceNodeId,但同步需要的是 schema 节点 id(props.id)
+      syncJsonSchemaResources(props.id).catch((err) => {
+        logger.warn('🔄 [useJsonSchemaSourceManager] 资源同步失败:', err)
+      })
+    },
     resetOldSourcePort: true,
     nodeLabel: 'JsonSchema',
     onColumnsGenerated: (columns) => {
