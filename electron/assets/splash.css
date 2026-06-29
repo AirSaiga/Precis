@@ -1,0 +1,194 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+/* ===== 卡片容器(B 精致浅色风格)===== */
+.card {
+  width: 100%;
+  height: 100%;
+  /* 玻璃浅色背景 */
+  background: linear-gradient(165deg, rgba(255,255,255,0.92), rgba(248,250,252,0.88));
+  border: 1px solid rgba(255,255,255,0.9);
+  border-radius: 20px;
+  /* 多层柔和阴影:蓝色辉光 + 黑色投影 + 内高光 */
+  box-shadow:
+    0 20px 50px rgba(14,165,233,0.15),
+    0 8px 20px rgba(0,0,0,0.06),
+    inset 0 1px 0 rgba(255,255,255,0.95);
+  backdrop-filter: blur(20px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  animation: cardEnter 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes cardEnter {
+  from { opacity: 0; transform: scale(0.94) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+/* 淡出(done 状态触发,由 splash.js 添加 .fade-out 类) */
+.card.fade-out {
+  opacity: 0;
+  transform: scale(0.98);
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+}
+
+/* ===== 蓝色径向光晕(装饰)===== */
+.glow-orb {
+  position: absolute;
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(14,165,233,0.22), transparent 60%);
+  top: -140px;
+  right: -80px;
+  pointer-events: none;
+}
+
+/* ===== Logo ===== */
+.logo {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: linear-gradient(145deg, #0ea5e9, #0284c7);
+  box-shadow: 0 6px 18px rgba(14,165,233,0.4);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 28px;
+  margin-bottom: 18px;
+  position: relative;
+  z-index: 1;
+  animation: logoEnter 0.5s cubic-bezier(0.16, 1, 0.3, 1) 0.15s both;
+}
+
+@keyframes logoEnter {
+  from { opacity: 0; transform: scale(0.7); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+/* ===== 产品名 ===== */
+.title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #0f172a;
+  letter-spacing: -0.3px;
+  margin-bottom: 16px;
+  position: relative;
+  z-index: 1;
+  animation: textEnter 0.4s ease-out 0.25s both;
+}
+
+/* ===== 状态行 ===== */
+.status-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin-bottom: 14px;
+  position: relative;
+  z-index: 1;
+  animation: textEnter 0.4s ease-out 0.3s both;
+}
+
+.status-zh {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1e293b;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  /* 文字切换动画 */
+  transition: opacity 0.15s ease-out;
+}
+
+.status-en {
+  font-size: 10.5px;
+  font-weight: 400;
+  color: #64748b;
+  letter-spacing: 0.2px;
+  transition: opacity 0.15s ease-out;
+}
+
+/* 文字切换时(splash.js 临时添加 .switching) */
+.status-zh.switching, .status-en.switching {
+  opacity: 0;
+}
+
+@keyframes textEnter {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Spinner(当前状态前的转圈)===== */
+.spinner {
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgba(14,165,233,0.25);
+  border-top-color: #0ea5e9;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+/* 错误状态:Spinner 变红 */
+.spinner.error {
+  border: 2px solid rgba(244,63,94,0.25);
+  border-top-color: #f43f5e;
+}
+
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ===== 不确定进度条(渐变块左右循环)===== */
+.bar-track {
+  width: 110px;
+  height: 3px;
+  border-radius: 3px;
+  overflow: hidden;
+  background: #e2e8f0;
+  position: relative;
+  z-index: 1;
+  animation: textEnter 0.4s ease-out 0.4s both;
+}
+
+.bar-fill {
+  position: absolute;
+  height: 100%;
+  width: 38px;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, #0ea5e9, transparent);
+  animation: flow 1.6s ease-in-out infinite;
+}
+
+@keyframes flow {
+  0%   { left: -38px; }
+  50%  { left: 110px; }
+  100% { left: -38px; }
+}
+
+/* ===== 版本号(右下角)===== */
+.version {
+  position: absolute;
+  bottom: 12px;
+  right: 14px;
+  font-size: 9.5px;
+  font-family: 'JetBrains Mono', 'Fira Code', Consolas, monospace;
+  color: rgba(100,116,139,0.6);
+  z-index: 1;
+}
