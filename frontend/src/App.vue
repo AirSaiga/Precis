@@ -26,65 +26,121 @@
   <!-- Web 模式下显示项目选择器 -->
   <ProjectSelector v-if="showProjectSelector" @project-opened="handleProjectOpened" />
 
-  <!-- Agent 模式：AI 对话 + 画布双栏布局（隐藏工具箱） -->
-  <AgentLayout v-else-if="appModeStore.isAgentMode" />
+  <!-- IDE/Agent 布局切换：out-in 淡入淡出过渡，旧布局先淡出再淡入新布局，
+       避免两布局在 flex 容器中重叠导致的尺寸抖动。after-enter 后触发画布重 fitView，
+       消除 NodeCanvas 重挂载导致的视口跳变。 -->
+  <Transition v-else name="layout-fade" mode="out-in" @after-enter="onLayoutEntered">
+    <!-- Agent 模式：AI 对话 + 画布双栏布局（隐藏工具箱） -->
+    <AgentLayout v-if="appModeStore.isAgentMode" />
 
-  <!-- IDE 模式：主应用布局（ActivityBar + Sidebar + Canvas + Inspector） -->
-  <div
-    v-else
-    class="app-layout"
-    :class="{ 'is-resizing': layout.isLayoutTransitionDisabled.value }"
-  >
-    <!-- 顶部模式切换浮层（绝对定位居中，悬浮于 tab-bar 之上，避免破坏四栏 flex 布局） -->
-    <div class="app-mode-toggle-floating">
-      <ModeToggle />
-    </div>
-
-    <!-- Level 1: Activity Bar (导航条) -->
-    <aside
-      class="activity-bar"
-      :style="{ width: layout.activityBarCollapsed.value ? '0px' : '64px' }"
-    >
-      <AssetLibraryNav />
-    </aside>
-
-    <!-- Level 2: Dynamic Sidebar (侧边面板) -->
+    <!-- IDE 模式：主应用布局（ActivityBar + Sidebar + Canvas + Inspector） -->
     <div
-      class="sidebar-panel-container"
-      :style="{
-        width: layout.sidebarCollapsed.value ? '0px' : layout.sidebarWidth.value + 'px',
-        marginLeft: layout.activityBarCollapsed.value ? '-64px' : '0px',
-      }"
+      v-else
+      class="app-layout"
+      :class="{ 'is-resizing': layout.isLayoutTransitionDisabled.value }"
     >
-      <AssetLibrary
-        :current-view="currentView"
-        @dragstart="handleDragStart"
-        @dragend="handleDragEnd"
-      />
-    </div>
+      <!-- 顶部模式切换浮层（绝对定位居中，悬浮于 tab-bar 之上，避免破坏四栏 flex 布局） -->
+      <div class="app-mode-toggle-floating">
+        <ModeToggle />
+      </div>
 
-    <!-- 左侧面板拖拽调宽分隔条 -->
-    <div
-      v-if="!layout.sidebarCollapsed.value"
-      class="panel-resize-divider left-resize-divider"
-      :class="{ 'is-dragging': layout.isDraggingSidebar.value }"
-      @mousedown="(e) => layout.handleMouseDown('sidebar', e)"
-    ></div>
+      <!-- Level 1: Activity Bar (导航条) -->
+      <aside
+        class="activity-bar"
+        :style="{ width: layout.activityBarCollapsed.value ? '0px' : '64px' }"
+      >
+        <AssetLibraryNav />
+      </aside>
 
-    <!-- Level 3: Tabbed Canvas Area (标签式画布区域) -->
-    <div class="canvas-tabbed-container" :style="layout.canvasStyle.value">
-      <!-- Tab 导航栏 -->
-      <div class="tab-bar">
-        <div class="tab-list">
-          <div
-            v-for="(workspace, idx) in canvasStore.workspaces"
-            :key="workspace.id"
-            class="tab-item"
-            :class="{ active: canvasStore.activeWorkspaceId === workspace.id }"
-            @click="canvasStore.setActiveWorkspace(workspace.id, graphStore)"
-            @dblclick.stop="startRename(workspace)"
-          >
-            <span class="tab-icon">
+      <!-- Level 2: Dynamic Sidebar (侧边面板) -->
+      <div
+        class="sidebar-panel-container"
+        :style="{
+          width: layout.sidebarCollapsed.value ? '0px' : layout.sidebarWidth.value + 'px',
+          marginLeft: layout.activityBarCollapsed.value ? '-64px' : '0px',
+        }"
+      >
+        <AssetLibrary
+          :current-view="currentView"
+          @dragstart="handleDragStart"
+          @dragend="handleDragEnd"
+        />
+      </div>
+
+      <!-- 左侧面板拖拽调宽分隔条 -->
+      <div
+        v-if="!layout.sidebarCollapsed.value"
+        class="panel-resize-divider left-resize-divider"
+        :class="{ 'is-dragging': layout.isDraggingSidebar.value }"
+        @mousedown="(e) => layout.handleMouseDown('sidebar', e)"
+      ></div>
+
+      <!-- Level 3: Tabbed Canvas Area (标签式画布区域) -->
+      <div class="canvas-tabbed-container" :style="layout.canvasStyle.value">
+        <!-- Tab 导航栏 -->
+        <div class="tab-bar">
+          <div class="tab-list">
+            <div
+              v-for="(workspace, idx) in canvasStore.workspaces"
+              :key="workspace.id"
+              class="tab-item"
+              :class="{ active: canvasStore.activeWorkspaceId === workspace.id }"
+              @click="canvasStore.setActiveWorkspace(workspace.id, graphStore)"
+              @dblclick.stop="startRename(workspace)"
+            >
+              <span class="tab-icon">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+                  <polyline points="2 17 12 22 22 17"></polyline>
+                  <polyline points="2 12 12 17 22 12"></polyline>
+                </svg>
+              </span>
+              <!-- 内联重命名输入框：v-if 保证同一时刻最多只有一个渲染 -->
+              <input
+                v-if="renamingTabId === workspace.id"
+                id="tab-rename-input"
+                v-model="renameValue"
+                class="tab-rename-input"
+                @keydown.enter="confirmRename"
+                @keydown.escape="cancelRename"
+                @blur="confirmRename"
+                @click.stop
+              />
+              <!-- 默认标题：优先显示用户自定义标题，回退到 "工作区 N" 格式 -->
+              <span v-else class="tab-title">{{
+                workspace.title ||
+                t('canvas.workspaceWithIndex', {
+                  name: t('canvas.workspace'),
+                  index: workspace.index ?? idx + 1,
+                })
+              }}</span>
+              <span v-if="workspace.hasUnsavedChanges" class="tab-dirty">●</span>
+              <!-- 仅多工作区时显示关闭按钮，防止最后一个工作区被关闭导致空白 -->
+              <button
+                v-if="canvasStore.workspaces.length > 1"
+                class="tab-close ui-icon-btn ui-icon-btn--sm ui-icon-btn--danger"
+                type="button"
+                @click.stop="canvasStore.closeWorkspace(workspace.id, graphStore)"
+              >
+                ×
+              </button>
+            </div>
+            <button
+              class="tab-add ui-btn ui-btn--ghost ui-btn--icon ui-btn--sm"
+              type="button"
+              @click="canvasStore.createNewWorkspace(graphStore)"
+              :title="t('canvas.newWorkspace')"
+            >
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="14"
@@ -96,109 +152,57 @@
                 stroke-linecap="round"
                 stroke-linejoin="round"
               >
-                <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
-                <polyline points="2 17 12 22 22 17"></polyline>
-                <polyline points="2 12 12 17 22 12"></polyline>
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
               </svg>
-            </span>
-            <!-- 内联重命名输入框：v-if 保证同一时刻最多只有一个渲染 -->
-            <input
-              v-if="renamingTabId === workspace.id"
-              id="tab-rename-input"
-              v-model="renameValue"
-              class="tab-rename-input"
-              @keydown.enter="confirmRename"
-              @keydown.escape="cancelRename"
-              @blur="confirmRename"
-              @click.stop
-            />
-            <!-- 默认标题：优先显示用户自定义标题，回退到 "工作区 N" 格式 -->
-            <span v-else class="tab-title">{{
-              workspace.title ||
-              t('canvas.workspaceWithIndex', {
-                name: t('canvas.workspace'),
-                index: workspace.index ?? idx + 1,
-              })
-            }}</span>
-            <span v-if="workspace.hasUnsavedChanges" class="tab-dirty">●</span>
-            <!-- 仅多工作区时显示关闭按钮，防止最后一个工作区被关闭导致空白 -->
-            <button
-              v-if="canvasStore.workspaces.length > 1"
-              class="tab-close ui-icon-btn ui-icon-btn--sm ui-icon-btn--danger"
-              type="button"
-              @click.stop="canvasStore.closeWorkspace(workspace.id, graphStore)"
-            >
-              ×
             </button>
           </div>
-          <button
-            class="tab-add ui-btn ui-btn--ghost ui-btn--icon ui-btn--sm"
-            type="button"
-            @click="canvasStore.createNewWorkspace(graphStore)"
-            :title="t('canvas.newWorkspace')"
-          >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            >
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
-          </button>
+        </div>
+
+        <!-- 画布容器 -->
+        <div class="canvas-area">
+          <NodeCanvas />
         </div>
       </div>
 
-      <!-- 画布容器 -->
-      <div class="canvas-area">
-        <NodeCanvas />
+      <!-- 右侧面板拖拽调宽分隔条 -->
+      <div
+        v-if="!layout.rightCollapsed.value"
+        class="panel-resize-divider right-resize-divider"
+        :class="{ 'is-dragging': layout.isDraggingRight.value }"
+        @mousedown="(e) => layout.handleMouseDown('right', e)"
+      ></div>
+
+      <!-- 左侧Sidebar Panel切换按钮 -->
+      <div class="panel-toggle left-toggle" :style="layout.leftToggleStyle.value">
+        <button class="toggle-btn" type="button" @click="layout.toggleSidebar">
+          <span class="arrow" :class="{ 'rotate-180': !layout.sidebarCollapsed.value }"> ▶ </span>
+        </button>
       </div>
-    </div>
 
-    <!-- 右侧面板拖拽调宽分隔条 -->
-    <div
-      v-if="!layout.rightCollapsed.value"
-      class="panel-resize-divider right-resize-divider"
-      :class="{ 'is-dragging': layout.isDraggingRight.value }"
-      @mousedown="(e) => layout.handleMouseDown('right', e)"
-    ></div>
+      <!-- 右侧面板切换按钮 -->
+      <div class="panel-toggle right-toggle" :style="layout.rightToggleStyle.value">
+        <button class="toggle-btn" type="button" @click="layout.toggleRightPanel">
+          <span class="arrow" :class="{ 'rotate-180': layout.rightCollapsed.value }"> ▶ </span>
+        </button>
+      </div>
 
-    <!-- 左侧Sidebar Panel切换按钮 -->
-    <div class="panel-toggle left-toggle" :style="layout.leftToggleStyle.value">
-      <button class="toggle-btn" type="button" @click="layout.toggleSidebar">
-        <span class="arrow" :class="{ 'rotate-180': !layout.sidebarCollapsed.value }"> ▶ </span>
-      </button>
-    </div>
+      <!-- 右侧面板容器 (属性检查器) -->
+      <div class="panel-container right-panel" :style="layout.rightPanelStyle.value">
+        <InspectorPanel :collapsed="layout.rightCollapsed.value" />
+      </div>
 
-    <!-- 右侧面板切换按钮 -->
-    <div class="panel-toggle right-toggle" :style="layout.rightToggleStyle.value">
-      <button class="toggle-btn" type="button" @click="layout.toggleRightPanel">
-        <span class="arrow" :class="{ 'rotate-180': layout.rightCollapsed.value }"> ▶ </span>
-      </button>
-    </div>
+      <!-- AI 侧边栏容器（暂时隐藏，使用侧边栏 AI 助手面板替代） -->
+      <!-- <AIChatDrawer class="ai-chat-panel" /> -->
 
-    <!-- 右侧面板容器 (属性检查器) -->
-    <div class="panel-container right-panel" :style="layout.rightPanelStyle.value">
-      <InspectorPanel :collapsed="layout.rightCollapsed.value" />
-    </div>
+      <!-- 全局 Overlay 挂载点 -->
+      <AppOverlayHost />
 
-    <!-- AI 侧边栏容器（暂时隐藏，使用侧边栏 AI 助手面板替代） -->
-    <!-- <AIChatDrawer class="ai-chat-panel" /> -->
+      <!-- 状态栏 -->
+      <AppStatusBar @open-project-management="() => overlayHostRef?.openProjectManagement?.()" />
 
-    <!-- 全局 Overlay 挂载点 -->
-    <AppOverlayHost />
-
-    <!-- 状态栏 -->
-    <AppStatusBar @open-project-management="() => overlayHostRef?.openProjectManagement?.()" />
-
-    <!-- AI 悬浮按钮（暂时隐藏） -->
-    <!--
+      <!-- AI 悬浮按钮（暂时隐藏） -->
+      <!--
     <button
       v-if="!aiChatStore.drawerVisible"
       class="ai-chat-fab ui-icon-btn ui-icon-btn--lg"
@@ -231,13 +235,14 @@
     </button>
     -->
 
-    <!-- 拖拽 Ghost：跟随鼠标的资源拖拽预览 -->
-    <DragGhost
-      v-if="resourceDragStore.isDragging && resourceDragStore.payload"
-      :payload="resourceDragStore.payload"
-      :mouse-position="mousePosition"
-    />
-  </div>
+      <!-- 拖拽 Ghost：跟随鼠标的资源拖拽预览 -->
+      <DragGhost
+        v-if="resourceDragStore.isDragging && resourceDragStore.payload"
+        :payload="resourceDragStore.payload"
+        :mouse-position="mousePosition"
+      />
+    </div>
+  </Transition>
 
   <!-- 崩溃反馈弹窗:独立于 app-layout(v-else 分支)渲染,
        确保任何界面状态(含项目选择阶段)都能弹出全局崩溃反馈 -->
@@ -251,6 +256,8 @@
   import { logger } from '@/core/utils/logger'
   import { eventBus } from '@/core/eventBus'
   import { appApi } from '@/core/capabilities/appApi'
+  import { fitView } from '@/services/canvas/vueFlowApi'
+  import { FITVIEW_DURATION_MS } from '@/services/canvas/animationDurations'
   import AssetLibraryNav from '@/components/layout/AssetLibraryNav.vue'
   import AssetLibrary from '@/components/layout/AssetLibrary.vue'
   import InspectorPanel from '@/components/layout/InspectorPanel.vue'
@@ -332,6 +339,25 @@
       logger.error('[App] Web 模式项目加载失败:', error)
       showProjectSelector.value = true
     }
+  }
+
+  /**
+   * 布局过渡完成回调（IDE ↔ Agent 切换的 <Transition @after-enter>）。
+   *
+   * 切换布局时 NodeCanvas 会重挂载，Vue Flow 视口（pan/zoom）随之重置为默认值。
+   * 此处在过渡动画结束后、新布局的 NodeCanvas 已就绪时，调用 vueFlowApi.fitView
+   * 让画布重新自适应内容，消除重挂载导致的视口跳变（节点偏出视野）。
+   * 用 vueFlowApi 桥接（而非 useVueFlow），因为本回调在 store 上下文外执行。
+   */
+  const onLayoutEntered = () => {
+    nextTick(() => {
+      try {
+        fitView({ padding: 0.2, duration: FITVIEW_DURATION_MS })
+      } catch (e) {
+        // vueFlowApi 未初始化（如尚无画布实例）时静默忽略，不影响切换
+        logger.debug('[App] 布局过渡后 fitView 跳过（画布未就绪）:', e)
+      }
+    })
   }
 
   // --- 工作区 Tab 内联重命名 ---

@@ -26,6 +26,19 @@
   pointer-events: auto;
 }
 
+/* IDE ↔ Agent 布局过渡：out-in 淡入淡出。
+   mode="out-in" 保证旧布局先淡出再淡入新布局，避免 flex 容器中两布局重叠抖动。
+   仅过渡 opacity（不动画尺寸），保证过渡流畅且可预测。 */
+.layout-fade-enter-active,
+.layout-fade-leave-active {
+  transition: opacity var(--ui-transition-slow, 0.25s) ease;
+}
+
+.layout-fade-enter-from,
+.layout-fade-leave-to {
+  opacity: 0;
+}
+
 .activity-bar {
   flex-shrink: 0;
   background: var(--ui-bg-nav-primary);
