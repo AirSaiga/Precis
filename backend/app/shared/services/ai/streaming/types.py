@@ -14,6 +14,12 @@ EVENT_DELTA = "delta"  # 流式文本块（增量，前端累积）
 EVENT_TOOL_CALL = "tool_call"  # 工具调用开始
 EVENT_TOOL_RESULT = "tool_result"  # 工具执行完成
 
+# 非终止事件类型：流式画布生长（Agent 模式）
+# apply_actions 落盘后，逐条 emit 单条 frontend_instruction，
+# 前端收到即立即执行 processFrontendInstructions + fitView，实现画布实时生长。
+# completed 事件仍携带全量 instructions 作为兜底。
+EVENT_FRONTEND_INSTRUCTION = "frontend_instruction"  # 单条前端指令已落盘
+
 # 非终止事件类型：apply_actions 两阶段确认
 EVENT_APPLY_PENDING = "apply_pending"  # dry-run diff 已就绪，等待用户确认
 EVENT_APPLY_CONFIRMED = "apply_confirmed"  # 用户确认，已落盘
@@ -35,6 +41,7 @@ __all__ = [
     "EVENT_DELTA",
     "EVENT_TOOL_CALL",
     "EVENT_TOOL_RESULT",
+    "EVENT_FRONTEND_INSTRUCTION",
     "EVENT_APPLY_PENDING",
     "EVENT_APPLY_CONFIRMED",
     "EVENT_APPLY_REJECTED",

@@ -37,6 +37,9 @@ class ApplyCallbacks:
     on_apply_pending: Callable[[dict[str, Any]], None] | None = None
     on_apply_confirmed: Callable[[dict[str, Any]], None] | None = None
     on_apply_rejected: Callable[[dict[str, Any]], None] | None = None
+    # 流式画布生长：确认落盘后逐条 emit 单条 frontend_instruction，
+    # payload 形如 {"instruction": {...单条指令对象...}}，前端收到即执行 + fitView。
+    on_frontend_instruction: Callable[[dict[str, Any]], None] | None = None
 
 
 def _summarize_results(raw_results: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -253,6 +256,16 @@ class ApplyActionsTool:
         # 收集 dry-run 阶段的 frontend_instructions（写盘后可能已变化，但仍保留）
         for fi in diff_result.frontend_instructions:
             self._collected_instructions.append(fi)
+
+        # 流式画布生长：逐条 emit 写盘产出的 frontend_instruction。
+        # 仅取 raw_results 中实际落盘的单条指令（已 disk-committed），
+        # 每条 payload 形如 {"instruction": {...}}，前端收到即 processFrontendInstructions + fitView。
+        # 注意：completed 事件仍携带全量 instructions 作为兜底，前端负责去重避免重复应用。
+        if self._apply_callbacks.on_frontend_instruction:
+            for r in raw_results:
+                fi = r.get("frontendInstructions")
+                if fi:
+                    self._apply_callbacks.on_frontend_instruction({"instruction": fi})
 
         # 通过回调 emit apply_confirmed 事件
         if self._apply_callbacks.on_apply_confirmed:

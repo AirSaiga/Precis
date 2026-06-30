@@ -248,6 +248,109 @@ class TestTwoPhaseConfirm:
         assert confirmed_payloads[0]["success"] is True
 
     @pytest.mark.asyncio
+    async def test_confirm_emits_frontend_instruction_per_result(self, tmp_path):
+        """确认落盘后，逐条 emit frontend_instruction（每条 raw_result 的指令各发一次）。
+
+        验证流式画布生长契约：
+        - 只对成功落盘且含 frontendInstructions 的 raw_result 发事件
+        - 无指令的 result（如 DELETE / VALIDATE）不发事件
+        - payload 形如 {"instruction": {...}}，前端据此 processFrontendInstructions + fitView
+        """
+        ws = make_test_workspace(tmp_path)
+        ctrl = ConfirmController("job-test-fi")
+        fi_payloads: list = []
+
+        callbacks = ApplyCallbacks(
+            on_frontend_instruction=lambda p: fi_payloads.append(p),
+        )
+
+        tool = ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=[],
+            dry_run_enabled=True,
+            confirm_controller=ctrl,
+            apply_callbacks=callbacks,
+        )
+
+        action = make_inline_not_null_action()
+
+        import asyncio
+
+        async def resolve_later():
+            await asyncio.sleep(0.01)
+            await ctrl.resolve("confirm")
+
+        task = asyncio.create_task(resolve_later())
+
+        with patch("app.shared.services.ai.agent.chat_tools.apply_actions.asyncio.to_thread") as mock_thread:
+            mock_thread.side_effect = [
+                make_diff_result(success=True),
+                {
+                    "success": True,
+                    "results": [
+                        # 带指令的 result（应 emit 1 次）
+                        {
+                            "action": action,
+                            "success": True,
+                            "message": "完成",
+                            "frontendInstructions": {"actionType": "ADD_CONSTRAINT_NODE"},
+                        },
+                        # 无指令的 result（不应 emit）
+                        {
+                            "action": {"actionType": "DELETE_CONSTRAINT_NODE"},
+                            "success": True,
+                            "message": "删除完成",
+                            "frontendInstructions": None,
+                        },
+                        # 第二条带指令的 result（应 emit 1 次）
+                        {
+                            "action": action,
+                            "success": True,
+                            "message": "完成",
+                            "frontendInstructions": {"actionType": "ADD_SCHEMA"},
+                        },
+                    ],
+                },
+            ]
+            await tool.run({"actions": [action]})
+
+        await task
+
+        # 两条含指令的 result 各 emit 一次
+        assert len(fi_payloads) == 2
+        # payload 形状：{"instruction": {...}}，且顺序与 raw_results 一致
+        assert fi_payloads[0]["instruction"] == {"actionType": "ADD_CONSTRAINT_NODE"}
+        assert fi_payloads[1]["instruction"] == {"actionType": "ADD_SCHEMA"}
+
+    @pytest.mark.asyncio
+    async def test_reject_does_not_emit_frontend_instruction(self, tmp_path):
+        """用户拒绝时，不写盘也不 emit 任何 frontend_instruction。"""
+        ws = make_test_workspace(tmp_path)
+        ctrl = ConfirmController("job-test-fi-reject")
+        await ctrl.resolve("reject")
+
+        fi_payloads: list = []
+        callbacks = ApplyCallbacks(
+            on_frontend_instruction=lambda p: fi_payloads.append(p),
+        )
+
+        tool = ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=[],
+            dry_run_enabled=True,
+            confirm_controller=ctrl,
+            apply_callbacks=callbacks,
+        )
+
+        action = make_inline_not_null_action()
+
+        with patch("app.shared.services.ai.agent.chat_tools.apply_actions.asyncio.to_thread") as mock_thread:
+            mock_thread.return_value = make_diff_result(success=True)
+            await tool.run({"actions": [action]})
+
+        assert fi_payloads == []
+
+    @pytest.mark.asyncio
     async def test_reject_skips_write(self, tmp_path):
         """用户拒绝后，第二个 to_thread 不被调用(不写盘)。"""
         ws = make_test_workspace(tmp_path)

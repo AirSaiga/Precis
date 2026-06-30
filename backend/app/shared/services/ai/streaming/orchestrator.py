@@ -31,6 +31,7 @@ from .types import (
     EVENT_COMPLETED,
     EVENT_DELTA,
     EVENT_ERROR,
+    EVENT_FRONTEND_INSTRUCTION,
     EVENT_STARTED,
     EVENT_TOOL_CALL,
     EVENT_TOOL_RESULT,
@@ -125,6 +126,7 @@ class StreamingOrchestrator:
             on_apply_pending=lambda payload: self._emit_apply(EVENT_APPLY_PENDING, payload),
             on_apply_confirmed=lambda payload: self._emit_apply(EVENT_APPLY_CONFIRMED, payload),
             on_apply_rejected=lambda payload: self._emit_apply(EVENT_APPLY_REJECTED, payload),
+            on_frontend_instruction=lambda payload: self._emit_apply(EVENT_FRONTEND_INSTRUCTION, payload),
         )
 
         runner = ChatAgentRunner(

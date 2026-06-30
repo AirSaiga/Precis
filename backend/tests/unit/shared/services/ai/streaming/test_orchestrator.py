@@ -191,3 +191,40 @@ async def test_run_chat_injects_callbacks_to_runner(orchestrator: StreamingOrche
     events = orchestrator.journal.read_all()
     delta_events = [e for e in events if e[1] == "delta"]
     assert any(e[2].get("text") == "片段" for e in delta_events)
+
+
+@pytest.mark.asyncio
+async def test_run_chat_bridges_frontend_instruction(orchestrator: StreamingOrchestrator):
+    """run_chat 把 apply_actions 的 on_frontend_instruction 桥接为 frontend_instruction 事件。
+
+    验证流式画布生长的编排层桥接：
+    - ChatAgentRunner 接收的 apply_callbacks 含 on_frontend_instruction
+    - 调用该回调时，orchestrator emit 一个 frontend_instruction 事件，
+      payload 形如 {"instruction": {...}}
+    """
+    fake_runner = _make_fake_runner(reply="ok")
+
+    with patch(
+        "app.shared.services.ai.streaming.orchestrator.ChatAgentRunner", return_value=fake_runner
+    ) as mock_runner_cls:
+        await orchestrator.run_chat(
+            message="测试",
+            history=None,
+            provider=MagicMock(),
+            project_path="/tmp",
+            context_nodes=[],
+        )
+
+    # 从被 patch 的类构造调用中提取 apply_callbacks（mock_runner_cls 记录 ChatAgentRunner(...) 调用）
+    init_kwargs = mock_runner_cls.call_args.kwargs
+    apply_callbacks = init_kwargs["apply_callbacks"]
+    assert apply_callbacks.on_frontend_instruction is not None
+
+    # 调用桥接回调，验证 emit 出 frontend_instruction 事件
+    sample_instruction = {"actionType": "ADD_CONSTRAINT_NODE"}
+    apply_callbacks.on_frontend_instruction({"instruction": sample_instruction})
+
+    events = orchestrator.journal.read_all()
+    fi_events = [e for e in events if e[1] == "frontend_instruction"]
+    assert len(fi_events) == 1
+    assert fi_events[0][2] == {"instruction": sample_instruction}
