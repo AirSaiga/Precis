@@ -126,6 +126,10 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
     读取项目下的 schemas/ 和 constraints/ 目录中的 YAML 文件，
     汇总所有表结构、字段信息以及约束规则，供 AI 上下文使用。
 
+    本函数以 manifest 为权威来源：磁盘上存在但未登记到 manifest 的孤儿文件
+    会标注 unlisted=True，避免 AI 视角与用户资源树视角产生偏差（前者纯 glob，
+    后者走 manifest）。
+
     参数:
         project_path: 项目根目录路径
 
@@ -138,6 +142,20 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
         return overview
 
     project_root = Path(project_path)
+
+    # 读取 manifest 的 schemas 白名单，用于标注孤儿文件
+    listed_schema_paths: set[str] = set()
+    manifest_path = project_root / "project.precis.yaml"
+    if manifest_path.exists():
+        try:
+            with open(manifest_path, encoding="utf-8") as f:
+                manifest_data = yaml.safe_load(f) or {}
+            for ref in manifest_data.get("schemas", []) or []:
+                p = ref.get("path") if isinstance(ref, dict) else None
+                if isinstance(p, str) and p:
+                    listed_schema_paths.add(p.replace("\\", "/").lower())
+        except Exception as e:
+            logger.debug(f"读取 manifest schemas 失败 {manifest_path}: {e}")
 
     schemas_dir = project_root / "schemas"
     if schemas_dir.exists():
@@ -161,7 +179,17 @@ def get_project_overview(project_path: str) -> dict[str, Any]:
                     column_map[col_id] = col_name
 
                 if table_name or table_id:
-                    overview["schemas"].append({"id": table_id, "name": table_name, "columns": column_list})
+                    # 标注该 schema 是否登记在 manifest 中，孤儿文件 unlisted=True
+                    rel_path = f"schemas/{schema_file.name}".replace("\\", "/").lower()
+                    overview["schemas"].append(
+                        {
+                            "id": table_id,
+                            "name": table_name,
+                            "columns": column_list,
+                            "unlisted": rel_path not in listed_schema_paths,
+                            "path": f"schemas/{schema_file.name}",
+                        }
+                    )
 
                 for ic in inline_constraints:
                     col_id = ic.get("column", "")

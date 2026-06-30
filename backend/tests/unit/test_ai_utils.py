@@ -218,3 +218,48 @@ settings:
         result = get_project_overview(str(tmp_path))
         # Should not crash, just skip the bad file
         assert result["schemas"] == []
+
+    def test_orphan_schema_marked_unlisted(self, tmp_path):
+        """孤儿文件（未登记 manifest）应标注 unlisted=True。"""
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "users.schema.yaml").write_text(
+            "id: users\nname: users\ncolumns:\n  - id: id\n    name: id\n    type: integer\n",
+            encoding="utf-8",
+        )
+        # 写一个 manifest，但不登记 users → users 成为孤儿
+        (tmp_path / "project.precis.yaml").write_text(
+            "version: 2\nproject:\n  id: p\n  name: P\nschemas: []\n",
+            encoding="utf-8",
+        )
+
+        result = get_project_overview(str(tmp_path))
+        assert len(result["schemas"]) == 1
+        assert result["schemas"][0]["unlisted"] is True
+
+    def test_listed_schema_not_marked_unlisted(self, tmp_path):
+        """登记到 manifest 的 schema 应标注 unlisted=False。"""
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "users.schema.yaml").write_text(
+            "id: users\nname: users\ncolumns:\n  - id: id\n    name: id\n    type: integer\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "project.precis.yaml").write_text(
+            "version: 2\nproject:\n  id: p\n  name: P\nschemas:\n  - id: users\n    path: schemas/users.schema.yaml\n",
+            encoding="utf-8",
+        )
+
+        result = get_project_overview(str(tmp_path))
+        assert len(result["schemas"]) == 1
+        assert result["schemas"][0]["unlisted"] is False
+
+    def test_no_manifest_all_schemas_unlisted(self, tmp_path):
+        """无 manifest 时，所有 schema 视为孤儿（unlisted=True）。"""
+        schemas_dir = tmp_path / "schemas"
+        schemas_dir.mkdir()
+        (schemas_dir / "users.schema.yaml").write_text("id: users\nname: users\ncolumns: []\n", encoding="utf-8")
+
+        result = get_project_overview(str(tmp_path))
+        assert len(result["schemas"]) == 1
+        assert result["schemas"][0]["unlisted"] is True

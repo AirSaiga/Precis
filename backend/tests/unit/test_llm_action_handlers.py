@@ -300,7 +300,7 @@ class TestProcessSchemaAction:
         with open(manifest_path, "w") as f:
             import yaml
 
-            yaml.safe_dump({"version": 2, "project": {"id": "p1"}, "schemas": []}, f)
+            yaml.safe_dump({"version": 2, "project": {"id": "p1", "name": "p1"}, "schemas": []}, f)
 
         result = process_schema_action(
             {
@@ -328,7 +328,7 @@ class TestProcessSchemaAction:
         with open(manifest_path, "w") as f:
             import yaml
 
-            yaml.safe_dump({"version": 2, "project": {"id": "p1"}, "schemas": []}, f)
+            yaml.safe_dump({"version": 2, "project": {"id": "p1", "name": "p1"}, "schemas": []}, f)
 
         result = process_schema_action(
             {
@@ -533,8 +533,8 @@ class TestProcessSchemaAction:
 
         manifest_data = {
             "version": 2,
-            "project": {"id": "p1"},
-            "schemas": [{"id": "to_delete", "file": "schemas/to_delete.schema.yaml"}],
+            "project": {"id": "p1", "name": "p1"},
+            "schemas": [{"id": "to_delete", "path": "schemas/to_delete.schema.yaml"}],
         }
         with open(manifest_path, "w") as f:
             yaml.safe_dump(manifest_data, f)
@@ -571,6 +571,68 @@ class TestProcessSchemaAction:
         )
         assert result["success"] is False
         assert "缺少" in result["message"]
+
+    def test_add_schema_rolls_back_on_manifest_failure(self, tmp_path):
+        """manifest 更新失败时应回滚已写入的 schema 文件，避免产生孤儿文件。"""
+        workspace = str(tmp_path)
+        manifest_path = os.path.join(workspace, "project.precis.yaml")
+        import yaml
+
+        # 写一个合法的 manifest，但 mock save_manifest 抛异常模拟更新失败
+        with open(manifest_path, "w") as f:
+            yaml.safe_dump({"version": 2, "project": {"id": "p1"}, "schemas": []}, f)
+
+        with patch(
+            "app.shared.services.llm.actions.schema_handlers.save_manifest", side_effect=RuntimeError("disk full")
+        ):
+            result = process_schema_action(
+                {
+                    "actionType": "ADD_SCHEMA",
+                    "schemaSpec": {"name": "orphan_candidate", "schemaId": "orphan_candidate"},
+                },
+                workspace,
+            )
+
+        # 应返回失败
+        assert result["success"] is False
+        assert "manifest" in result["message"]
+        # schema 文件应被回滚删除，不残留为孤儿
+        schema_file = os.path.join(workspace, "schemas", "orphan_candidate.schema.yaml")
+        assert not os.path.isfile(schema_file)
+
+    def test_delete_schema_reports_manifest_failure(self, tmp_path):
+        """manifest 移除引用失败时应返回失败（而非静默吞错留下 dangling 引用）。"""
+        workspace = str(tmp_path)
+        schemas_dir = os.path.join(workspace, "schemas")
+        os.makedirs(schemas_dir)
+        manifest_path = os.path.join(workspace, "project.precis.yaml")
+        import yaml
+
+        schema_file = os.path.join(schemas_dir, "to_delete.schema.yaml")
+        with open(schema_file, "w", encoding="utf-8") as f:
+            yaml.safe_dump({"version": 2, "id": "to_delete", "name": "to_delete", "columns": []}, f)
+        with open(manifest_path, "w") as f:
+            yaml.safe_dump(
+                {
+                    "version": 2,
+                    "project": {"id": "p1"},
+                    "schemas": [{"id": "to_delete", "path": "schemas/to_delete.schema.yaml"}],
+                },
+                f,
+            )
+
+        with patch(
+            "app.shared.services.llm.actions.schema_handlers.save_manifest", side_effect=RuntimeError("io error")
+        ):
+            result = process_schema_action(
+                {"actionType": "DELETE_SCHEMA", "schemaSpec": {"schemaId": "to_delete"}},
+                workspace,
+            )
+
+        # 文件已删除，但 manifest 更新失败应上报（非静默成功）
+        assert result["success"] is False
+        assert "manifest" in result["message"]
+        assert not os.path.isfile(schema_file)
 
 
 # ============================================================

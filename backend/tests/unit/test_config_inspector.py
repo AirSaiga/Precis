@@ -30,6 +30,7 @@ from app.shared.core.project.loader.loader_parts.config_inspector import (
     inspect_reference_integrity,
     inspect_regex_reference_integrity,
     inspect_schema_id_global_uniqueness,
+    inspect_schema_id_orphan_conflict,
     inspect_source_uniqueness,
 )
 from app.shared.core.project.loader.types import LoadingError
@@ -244,6 +245,111 @@ class TestInspectSchemaIdGlobalUniqueness:
         assert "dismiss" in action_types
         # 无 fix_api（此类问题需用户手动决策，无法自动修复）
         assert err.fix_api is None
+
+
+# ============================================================================
+# inspect_schema_id_orphan_conflict 测试（孤儿文件与 manifest 内文件 ID 冲突）
+# ============================================================================
+
+
+class TestInspectSchemaIdOrphanConflict:
+    """检测孤儿文件（未登记 manifest）与 manifest 内文件的 ID 冲突（blocker）。"""
+
+    def test_orphan_with_conflicting_id_generates_blocker(self, tmp_path):
+        """孤儿文件 id 与 manifest 内文件 id 冲突 → blocker。"""
+        # manifest 登记了 users.csv.schema.yaml (id=users)
+        (tmp_path / "schemas").mkdir()
+        (tmp_path / "schemas" / "users.csv.schema.yaml").write_text(
+            "version: 2\nid: users\nname: users\ncolumns:\n  - id: id\n    name: id\n    type: integer\n",
+            encoding="utf-8",
+        )
+        # 孤儿文件 users.schema.yaml (id 也是 users)
+        (tmp_path / "schemas" / "users.schema.yaml").write_text(
+            "version: 2\nid: users\nname: users\ncolumns:\n  - id: email\n    name: email\n    type: string\n",
+            encoding="utf-8",
+        )
+
+        # manifest 只登记 users.csv.schema.yaml，users.schema.yaml 是孤儿
+        manifest = make_manifest(schemas=[SchemaRef(id="users", path="schemas/users.csv.schema.yaml")])
+        # schema_files 模拟 load_project 只加载 manifest 白名单（仅含一个 users）
+        schema_files = {"users": make_schema(id="users")}
+        errors: list[LoadingError] = []
+        inspect_schema_id_orphan_conflict(tmp_path, manifest, schema_files, errors)
+
+        assert len(errors) == 1
+        err = errors[0]
+        assert err.severity == "blocker"
+        assert err.error_type == "SchemaIdDuplicate"
+        assert "users" in err.title
+
+    def test_orphan_with_distinct_id_no_error(self, tmp_path):
+        """孤儿文件 id 不冲突 → 不报错（单纯孤儿由 coverage 上报）。"""
+        (tmp_path / "schemas").mkdir()
+        # manifest 内文件
+        (tmp_path / "schemas" / "users.schema.yaml").write_text(
+            "version: 2\nid: users\nname: users\ncolumns:\n  - id: id\n    name: id\n    type: integer\n",
+            encoding="utf-8",
+        )
+        # 孤儿文件，id 不同
+        (tmp_path / "schemas" / "orders.schema.yaml").write_text(
+            "version: 2\nid: orders\nname: orders\ncolumns:\n  - id: id\n    name: id\n    type: integer\n",
+            encoding="utf-8",
+        )
+
+        manifest = make_manifest(schemas=[SchemaRef(id="users", path="schemas/users.schema.yaml")])
+        schema_files = {"users": make_schema(id="users")}
+        errors: list[LoadingError] = []
+        inspect_schema_id_orphan_conflict(tmp_path, manifest, schema_files, errors)
+
+        assert errors == []
+
+    def test_no_schemas_dir_returns_silently(self, tmp_path):
+        """无 schemas 目录 → 安全返回，不报错。"""
+        manifest = make_manifest()
+        schema_files = {"users": make_schema(id="users")}
+        errors: list[LoadingError] = []
+        inspect_schema_id_orphan_conflict(tmp_path, manifest, schema_files, errors)
+        assert errors == []
+
+    def test_orphan_file_unreadable_skipped(self, tmp_path):
+        """孤儿文件内容损坏无法解析 → 跳过，不误报。"""
+        (tmp_path / "schemas").mkdir()
+        (tmp_path / "schemas" / "users.schema.yaml").write_text(
+            "version: 2\nid: users\nname: users\ncolumns:\n  - id: id\n    name: id\n    type: integer\n",
+            encoding="utf-8",
+        )
+        # 损坏的 YAML（非法语法）
+        (tmp_path / "schemas" / "broken.schema.yaml").write_text("{ invalid yaml", encoding="utf-8")
+
+        manifest = make_manifest(schemas=[SchemaRef(id="users", path="schemas/users.schema.yaml")])
+        schema_files = {"users": make_schema(id="users")}
+        errors: list[LoadingError] = []
+        inspect_schema_id_orphan_conflict(tmp_path, manifest, schema_files, errors)
+
+        assert errors == []
+
+    def test_clean_project_no_false_positive(self, tmp_path):
+        """干净项目（manifest 文件齐全、无孤儿）→ 不报错。"""
+        (tmp_path / "schemas").mkdir()
+        (tmp_path / "schemas" / "users.schema.yaml").write_text(
+            "version: 2\nid: users\nname: users\ncolumns:\n  - id: id\n    name: id\n    type: integer\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "schemas" / "orders.schema.yaml").write_text(
+            "version: 2\nid: orders\nname: orders\ncolumns:\n  - id: id\n    name: id\n    type: integer\n",
+            encoding="utf-8",
+        )
+        # 两个都在 manifest 内
+        manifest = make_manifest(
+            schemas=[
+                SchemaRef(id="users", path="schemas/users.schema.yaml"),
+                SchemaRef(id="orders", path="schemas/orders.schema.yaml"),
+            ]
+        )
+        schema_files = {"users": make_schema(id="users"), "orders": make_schema(id="orders")}
+        errors: list[LoadingError] = []
+        inspect_schema_id_orphan_conflict(tmp_path, manifest, schema_files, errors)
+        assert errors == []
 
 
 # ============================================================================

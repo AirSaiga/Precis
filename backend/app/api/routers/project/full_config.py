@@ -141,7 +141,17 @@ def get_v2_full_config(
             try:
                 schema_obj = TableSchemaFileV2.model_validate(read_yaml(Path(schema_path)))
                 schema_objects[ref.id] = schema_obj
-                schemas[ref.id] = schema_obj.model_dump(exclude_none=True)
+                # 防止同 id 冲突时静默覆盖：记录冲突错误，第一个 schema 保留在 id key 上
+                if ref.id in schemas:
+                    logger.warning(
+                        f"[get_v2_full_config] Schema ID 冲突: '{ref.id}' 已存在，"
+                        f"文件 {ref.path} 的数据未被加载（已存在: {schemas[ref.id].get('source', {}).get('path', '?')}）"
+                    )
+                    schema_errors[ref.id] = (
+                        f"Schema ID '{ref.id}' 被多个文件使用，当前仅加载了首个。冲突文件: {ref.path}"
+                    )
+                else:
+                    schemas[ref.id] = schema_obj.model_dump(exclude_none=True)
             except Exception as e:
                 error_msg = str(e)
                 logger.error(f"[get_v2_full_config] 解析 Schema 文件失败: {schema_path}, 错误: {error_msg}")

@@ -20,6 +20,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -944,6 +945,18 @@ def inspect_schema_id_global_uniqueness(
         file_internal_id = getattr(sdoc, "id", None) or sid
         id_to_refs.setdefault(file_internal_id, []).append(sid)
 
+    _report_schema_id_duplicates(id_to_refs, loading_errors)
+
+
+def _report_schema_id_duplicates(
+    id_to_refs: dict[str, list[str]],
+    loading_errors: list[LoadingError],
+) -> None:
+    """根据 id → refs 索引上报重复 id 的 blocker 错误。
+
+    被 inspect_schema_id_global_uniqueness（manifest 内文件去重）
+    与 inspect_schema_id_orphan_conflict（孤儿文件冲突）共用。
+    """
     for sid, ref_keys in id_to_refs.items():
         count = len(ref_keys)
         if count > 1:
@@ -988,6 +1001,88 @@ def inspect_schema_id_global_uniqueness(
                     message_params={"schemaId": sid, "count": count},
                 )
             )
+
+
+def inspect_schema_id_orphan_conflict(
+    config_path: Path,
+    manifest: ProjectManifest,
+    schema_files: dict[str, TableSchemaFile],
+    loading_errors: list[LoadingError],
+) -> None:
+    """检测孤儿文件（未登记到 manifest）与 manifest 内文件的 ID 冲突（blocker）。
+
+    背景:
+        inspect_schema_id_global_uniqueness 只看 manifest 白名单内的 schema_files，
+        无法覆盖磁盘上「未登记但 id 重复」的孤儿文件。本函数扫磁盘找孤儿文件，
+        把孤儿 id 与 manifest 内 id 合并做全局唯一性检查。
+
+        判定孤儿的标准是 path 维度（与 compute_manifest_coverage 一致）：
+        磁盘上文件路径不在 manifest.schemas 的 path 集合内，即为孤儿。
+        不能用 id 维度判定，因为冲突场景下多个文件 id 相同，只有一个是登记的。
+
+    参数:
+        config_path: 项目根目录（manifest 所在目录）
+        manifest: 项目清单（提供已登记的 schema path 白名单）
+        schema_files: load_project 加载的 manifest 白名单内 schema
+        loading_errors: 错误收集列表（会被修改）
+    """
+    schemas_dir = config_path / "schemas"
+    if not schemas_dir.is_dir():
+        return
+
+    # 收集 manifest 已登记的 schema path（小写归一化，与 coverage 匹配逻辑一致）
+    listed_paths: set[str] = set()
+    for ref in manifest.schemas or []:
+        if ref.path:
+            listed_paths.add(ref.path.replace("\\", "/").lower())
+
+    # 扫磁盘，按 path 白名单识别孤儿文件，读其内部 id
+    from app.shared.core.io.yaml import read_yaml
+
+    orphan_id_to_paths: dict[str, list[str]] = {}
+    for filename in os.listdir(schemas_dir):
+        if not filename.lower().endswith(".schema.yaml"):
+            continue
+        rel_path = f"schemas/{filename}"
+        # path 在 manifest 白名单内 → 已登记，跳过
+        if rel_path.replace("\\", "/").lower() in listed_paths:
+            continue
+        # 否则视为孤儿候选，读其内部 id
+        abs_path = schemas_dir / filename
+        try:
+            raw = read_yaml(abs_path)
+        except Exception:
+            continue
+        if not isinstance(raw, dict):
+            continue
+        file_id = raw.get("id")
+        if not isinstance(file_id, str) or not file_id.strip():
+            continue
+        orphan_id_to_paths.setdefault(file_id.strip(), []).append(rel_path)
+
+    # 构建合并索引:manifest 内 id → refs ∪ 孤儿 id → paths
+    # 对 manifest 内文件，复用 schema_files 的 id 索引
+    id_to_refs: dict[str, list[str]] = {}
+    for sdoc in schema_files.values():
+        fid = getattr(sdoc, "id", None)
+        if fid:
+            id_to_refs.setdefault(fid, []).append(f"<manifest>:{fid}")
+
+    for oid, paths in orphan_id_to_paths.items():
+        id_to_refs.setdefault(oid, []).extend(f"<orphan>:{p}" for p in paths)
+
+    # 仅上报「manifest 内 id 与孤儿 id 冲突」的情况
+    # （纯孤儿但 id 不冲突的不在此处报，由 coverage 的 unlisted 上报）
+    conflict_index = {
+        sid: refs
+        for sid, refs in id_to_refs.items()
+        if len(refs) > 1
+        and any(r.startswith("<manifest>:") for r in refs)
+        and any(r.startswith("<orphan>:") for r in refs)
+    }
+
+    if conflict_index:
+        _report_schema_id_duplicates(conflict_index, loading_errors)
 
 
 def inspect_source_uniqueness(
@@ -1104,6 +1199,10 @@ def inspect_config(
     )
 
     inspect_schema_id_global_uniqueness(schema_files, loading_errors)
+
+    # 孤儿文件（未登记 manifest）与 manifest 内文件的 ID 冲突检测
+    # 补齐 inspect_schema_id_global_uniqueness 只看 manifest 白名单的盲区
+    inspect_schema_id_orphan_conflict(manifest_path.parent, manifest, schema_files, loading_errors)
 
     inspect_source_uniqueness(schema_files, loading_errors)
 

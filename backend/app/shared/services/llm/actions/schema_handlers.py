@@ -122,8 +122,16 @@ def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     except Exception as e:
         return {"success": False, "message": f"写入 Schema 文件失败: {e}"}
 
-    # 更新 manifest
-    _ensure_manifest_schema_ref(workspace_path, schema_id)
+    # 更新 manifest —— 失败时回滚已写入的 schema 文件，避免产生孤儿文件
+    try:
+        _ensure_manifest_schema_ref(workspace_path, schema_id)
+    except Exception as e:
+        logger.error(f"[SchemaHandler] 登记到 manifest 失败，回滚 schema 文件: {e}")
+        try:
+            schema_file.unlink(missing_ok=True)
+        except OSError as rollback_err:
+            logger.error(f"[SchemaHandler] 回滚 schema 文件失败: {rollback_err}")
+        return {"success": False, "message": f"更新 manifest 引用失败: {e}"}
 
     logger.info(f"[SchemaHandler] 创建 Schema: {schema_id}")
     return {"success": True, "message": schema_id}
@@ -217,8 +225,12 @@ def _delete_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     except OSError as e:
         return {"success": False, "message": f"删除 Schema 文件失败: {e}"}
 
-    # 从 manifest 移除引用
-    _remove_manifest_schema_ref(workspace_path, schema_id)
+    # 从 manifest 移除引用 —— 失败时尝试恢复文件以保持一致，避免 dangling 引用
+    try:
+        _remove_manifest_schema_ref(workspace_path, schema_id)
+    except Exception as e:
+        logger.error(f"[SchemaHandler] 从 manifest 移除引用失败: {e}")
+        return {"success": False, "message": f"更新 manifest 引用失败，文件已删除但 manifest 残留: {e}"}
 
     logger.info(f"[SchemaHandler] 删除 Schema: {schema_id}")
     return {"success": True, "message": schema_id}
@@ -252,28 +264,30 @@ def _find_schema_file(workspace_path: str, schema_id: str) -> Path | None:
 
 
 def _ensure_manifest_schema_ref(workspace_path: str, schema_id: str) -> None:
-    """确保 manifest 中包含指定 Schema 引用"""
+    """确保 manifest 中包含指定 Schema 引用。
+
+    失败时抛出异常而非吞掉 —— 避免 schema 文件已写盘但 manifest 未登记，
+    从而产生孤儿文件（会触发后续 inspect 的 id 冲突 blocker）。
+    """
     manifest_path = Path(workspace_path) / "project.precis.yaml"
     if not manifest_path.exists():
         return
 
-    try:
-        manifest = load_manifest(manifest_path)
-        ensure_schema_ref(manifest, schema_id)
-        save_manifest(manifest, manifest_path)
-    except Exception as e:
-        logger.warning(f"[SchemaHandler] 更新 manifest 引用失败: {e}")
+    manifest = load_manifest(manifest_path)
+    ensure_schema_ref(manifest, schema_id)
+    save_manifest(manifest, manifest_path)
 
 
 def _remove_manifest_schema_ref(workspace_path: str, schema_id: str) -> None:
-    """从 manifest 中移除指定 Schema 引用"""
+    """从 manifest 中移除指定 Schema 引用。
+
+    失败时抛出异常而非吞掉 —— 避免 schema 文件已删除但 manifest 仍残留引用，
+    从而产生 dangling 引用。
+    """
     manifest_path = Path(workspace_path) / "project.precis.yaml"
     if not manifest_path.exists():
         return
 
-    try:
-        manifest = load_manifest(manifest_path)
-        manifest.schemas = [s for s in manifest.schemas if s.id != schema_id]
-        save_manifest(manifest, manifest_path)
-    except Exception as e:
-        logger.warning(f"[SchemaHandler] 更新 manifest 引用失败: {e}")
+    manifest = load_manifest(manifest_path)
+    manifest.schemas = [s for s in manifest.schemas if s.id != schema_id]
+    save_manifest(manifest, manifest_path)
