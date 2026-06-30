@@ -1009,45 +1009,35 @@ def inspect_schema_id_orphan_conflict(
     schema_files: dict[str, TableSchemaFile],
     loading_errors: list[LoadingError],
 ) -> None:
-    """检测孤儿文件（未登记到 manifest）与 manifest 内文件的 ID 冲突（blocker）。
+    """检测磁盘上多个 schema 文件使用同一 ID（blocker）。
 
     背景:
-        inspect_schema_id_global_uniqueness 只看 manifest 白名单内的 schema_files，
-        无法覆盖磁盘上「未登记但 id 重复」的孤儿文件。本函数扫磁盘找孤儿文件，
-        把孤儿 id 与 manifest 内 id 合并做全局唯一性检查。
+        inspect_schema_id_global_uniqueness 只看已加载的 schema_files dict，
+        而该 dict 按 id 做 key，冲突时后者会被吞掉，永远检测不到重复。
+        本函数直接扫磁盘所有 .schema.yaml 文件，按「文件内 id」建索引，
+        同一 id 被 ≥2 个文件使用即报 blocker。
 
-        判定孤儿的标准是 path 维度（与 compute_manifest_coverage 一致）：
-        磁盘上文件路径不在 manifest.schemas 的 path 集合内，即为孤儿。
-        不能用 id 维度判定，因为冲突场景下多个文件 id 相同，只有一个是登记的。
+        这种基于磁盘的检测不依赖 manifest 白名单，因此在两条路径下都生效：
+        - load_project（运行时校验，schema_files 只含 manifest 白名单文件）
+        - get_v2_full_config（前端资源树，schema_files 含 effective_manifest 合并的孤儿）
 
     参数:
         config_path: 项目根目录（manifest 所在目录）
-        manifest: 项目清单（提供已登记的 schema path 白名单）
-        schema_files: load_project 加载的 manifest 白名单内 schema
+        manifest: 项目清单（保留参数，当前实现基于磁盘扫描，不依赖白名单）
+        schema_files: 已加载的 schema dict（保留参数，兼容 inspect_config 调用签名）
         loading_errors: 错误收集列表（会被修改）
     """
     schemas_dir = config_path / "schemas"
     if not schemas_dir.is_dir():
         return
 
-    # 收集 manifest 已登记的 schema path（小写归一化，与 coverage 匹配逻辑一致）
-    listed_paths: set[str] = set()
-    for ref in manifest.schemas or []:
-        if ref.path:
-            listed_paths.add(ref.path.replace("\\", "/").lower())
-
-    # 扫磁盘，按 path 白名单识别孤儿文件，读其内部 id
     from app.shared.core.io.yaml import read_yaml
 
-    orphan_id_to_paths: dict[str, list[str]] = {}
+    # 扫磁盘所有 .schema.yaml，按「文件内 id」索引到文件路径
+    id_to_paths: dict[str, list[str]] = {}
     for filename in os.listdir(schemas_dir):
         if not filename.lower().endswith(".schema.yaml"):
             continue
-        rel_path = f"schemas/{filename}"
-        # path 在 manifest 白名单内 → 已登记，跳过
-        if rel_path.replace("\\", "/").lower() in listed_paths:
-            continue
-        # 否则视为孤儿候选，读其内部 id
         abs_path = schemas_dir / filename
         try:
             raw = read_yaml(abs_path)
@@ -1058,28 +1048,10 @@ def inspect_schema_id_orphan_conflict(
         file_id = raw.get("id")
         if not isinstance(file_id, str) or not file_id.strip():
             continue
-        orphan_id_to_paths.setdefault(file_id.strip(), []).append(rel_path)
+        id_to_paths.setdefault(file_id.strip(), []).append(f"schemas/{filename}")
 
-    # 构建合并索引:manifest 内 id → refs ∪ 孤儿 id → paths
-    # 对 manifest 内文件，复用 schema_files 的 id 索引
-    id_to_refs: dict[str, list[str]] = {}
-    for sdoc in schema_files.values():
-        fid = getattr(sdoc, "id", None)
-        if fid:
-            id_to_refs.setdefault(fid, []).append(f"<manifest>:{fid}")
-
-    for oid, paths in orphan_id_to_paths.items():
-        id_to_refs.setdefault(oid, []).extend(f"<orphan>:{p}" for p in paths)
-
-    # 仅上报「manifest 内 id 与孤儿 id 冲突」的情况
-    # （纯孤儿但 id 不冲突的不在此处报，由 coverage 的 unlisted 上报）
-    conflict_index = {
-        sid: refs
-        for sid, refs in id_to_refs.items()
-        if len(refs) > 1
-        and any(r.startswith("<manifest>:") for r in refs)
-        and any(r.startswith("<orphan>:") for r in refs)
-    }
+    # 同一 id 被 ≥2 个文件使用 → 冲突
+    conflict_index = {sid: paths for sid, paths in id_to_paths.items() if len(paths) > 1}
 
     if conflict_index:
         _report_schema_id_duplicates(conflict_index, loading_errors)

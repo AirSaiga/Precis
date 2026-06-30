@@ -95,6 +95,34 @@ class TestFullConfigSchemaIdConflict:
             assert "users" not in result.get("schema_errors", {})
             assert "orders" not in result.get("schema_errors", {})
 
+    def test_inspect_reports_blocker_on_conflict(self):
+        """inspect=true 时，同 id 冲突应在 inspection.errors 中上报 blocker。
+
+        回归场景:之前 inspect_schema_id_orphan_conflict 依赖 manifest 白名单
+        判定孤儿，但 get_v2_full_config 传入的是 effective_manifest（已合并孤儿），
+        导致检测失效、面板无 blocker 可显示。改用磁盘扫描后应稳定上报。
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            # 两个文件 id 都是 users，一个登记、一个孤儿
+            _write_schema(tmp / "schemas" / "users.csv.schema.yaml", "users", "users", "email")
+            _write_schema(tmp / "schemas" / "users.schema.yaml", "users", "users_alt", "phone")
+            _write_manifest(
+                tmp / "project.precis.yaml",
+                [{"id": "users", "path": "schemas/users.csv.schema.yaml"}],
+            )
+
+            result = get_v2_full_config(config_path=tmpdir, inspect=True)
+
+            assert "inspection" in result
+            blockers = [
+                e
+                for e in result["inspection"]["errors"]
+                if e.get("severity") == "blocker" and e.get("error_type") == "SchemaIdDuplicate"
+            ]
+            assert len(blockers) == 1
+            assert "users" in blockers[0]["title"]
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
