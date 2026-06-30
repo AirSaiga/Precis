@@ -24,9 +24,7 @@
 
     <!-- 消息列表 -->
     <div class="chat-messages" ref="messagesRef" @scroll="handleScroll">
-      <!-- hideEmptyState 时隐藏内置空状态（Agent 模式由画布侧引导承担首次提示，
-           避免左侧聊天空状态与右侧画布空状态同时出现、重复引导） -->
-      <div v-if="messages.length === 0 && !hideEmptyState" class="chat-empty">
+      <div v-if="messages.length === 0" class="chat-empty">
         <div class="empty-icon">
           <svg
             width="48"
@@ -211,15 +209,6 @@
 
   const { t } = useI18n()
   const aiChatStore = useAiChatStore()
-
-  // Props：defineProps 编译宏自动把 prop 名暴露给模板（模板用裸名 hideEmptyState）
-  withDefaults(
-    defineProps<{
-      /** 隐藏内置空状态（.chat-empty）。Agent 模式由画布侧统一引导，避免双空状态重复。 */
-      hideEmptyState?: boolean
-    }>(),
-    { hideEmptyState: false }
-  )
 
   const md = new MarkdownIt({
     html: false,

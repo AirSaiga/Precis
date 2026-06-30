@@ -53,13 +53,6 @@ const aiChat = {
   modeToggleTitle: 'Switch IDE / Agent mode',
   modeIdeHint: 'Manual canvas editing',
   modeAgentHint: 'AI fully-driven',
-  // Agent mode empty-canvas guidance (nested keys, mirroring aiConfigGenerator)
-  emptyCanvas: {
-    title: 'Let AI build your validation config',
-    hint: 'Describe your needs on the left — the canvas grows live as AI acts',
-    prompt1: 'Analyze the project and suggest validation rules',
-    prompt2: 'Generate constraints for the users table',
-  },
 }
 
 const aiConfigGenerator = {
