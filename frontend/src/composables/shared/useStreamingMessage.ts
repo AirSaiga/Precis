@@ -59,6 +59,12 @@ export interface StreamingMessage {
   jobId: string
   /** 挂起的 apply_actions 改动（apply_pending 事件填充） */
   pendingApply: PendingApply | null
+  /**
+   * 流式画布生长：apply_actions 落盘后逐条收到的 frontend_instruction 事件累积。
+   * 每条已由 aiChatStore 实时执行（processFrontendInstructions + fitView），
+   * 完成后供 completed 兜底批量路径去重，避免重复应用同一指令。
+   */
+  streamedInstructions: unknown[]
 }
 
 /** 终止事件的完整快照（completed/cancelled 携带） */
@@ -93,6 +99,8 @@ interface EventData {
   summary?: Record<string, number>
   reason?: string
   decision?: string
+  /** frontend_instruction 事件携带的单条前端指令（流式画布生长） */
+  instruction?: unknown
 }
 
 /**
@@ -143,6 +151,7 @@ export function useStreamingMessage() {
     completedTurns: 0,
     jobId: '',
     pendingApply: null,
+    streamedInstructions: [],
   })
 
   /** 开始一次新的流式会话（重置状态） */
@@ -156,6 +165,7 @@ export function useStreamingMessage() {
     message.completedTurns = 0
     message.jobId = ''
     message.pendingApply = null
+    message.streamedInstructions = []
   }
 
   /** 重置为初始空状态 */
@@ -169,6 +179,7 @@ export function useStreamingMessage() {
     message.completedTurns = 0
     message.jobId = ''
     message.pendingApply = null
+    message.streamedInstructions = []
   }
 
   /** 处理一个 SSE 事件，更新状态 */
@@ -246,6 +257,15 @@ export function useStreamingMessage() {
       }
       case 'apply_rejected': {
         message.pendingApply = null
+        break
+      }
+      case 'frontend_instruction': {
+        // 流式画布生长：累积 apply_actions 落盘的单条指令。
+        // 纯状态累积，实际执行（processFrontendInstructions + fitView）由 aiChatStore 在
+        // onEvent 处理时完成；此处记录供 completed 兜底批量路径去重。
+        if (data.instruction) {
+          message.streamedInstructions.push(data.instruction)
+        }
         break
       }
       case 'completed': {

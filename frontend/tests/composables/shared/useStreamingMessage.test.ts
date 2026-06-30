@@ -139,4 +139,33 @@ describe('useStreamingMessage', () => {
     handleEvent('delta', 1, {})
     expect(message.content).toBe('')
   })
+
+  it('frontend_instruction 事件累积指令到 streamedInstructions', () => {
+    const { message, handleEvent } = useStreamingMessage()
+    const inst1 = { actionType: 'ADD_CONSTRAINT_NODE', constraintSpec: { type: 'NotNull' } }
+    const inst2 = { actionType: 'ADD_SCHEMA', schemaSpec: { name: 'users' } }
+    handleEvent('frontend_instruction', 1, { instruction: inst1 })
+    handleEvent('frontend_instruction', 2, { instruction: inst2 })
+    expect(message.streamedInstructions).toHaveLength(2)
+    expect(message.streamedInstructions[0]).toEqual(inst1)
+    expect(message.streamedInstructions[1]).toEqual(inst2)
+  })
+
+  it('frontend_instruction 缺失 instruction 字段不报错且不累积', () => {
+    const { message, handleEvent } = useStreamingMessage()
+    handleEvent('frontend_instruction', 1, {})
+    expect(message.streamedInstructions).toHaveLength(0)
+  })
+
+  it('start/reset 清空 streamedInstructions', () => {
+    const { message, handleEvent, start, reset } = useStreamingMessage()
+    handleEvent('frontend_instruction', 1, { instruction: { actionType: 'ADD_SCHEMA' } })
+    expect(message.streamedInstructions).toHaveLength(1)
+    start()
+    expect(message.streamedInstructions).toHaveLength(0)
+    handleEvent('frontend_instruction', 2, { instruction: { actionType: 'ADD_SCHEMA' } })
+    expect(message.streamedInstructions).toHaveLength(1)
+    reset()
+    expect(message.streamedInstructions).toHaveLength(0)
+  })
 })

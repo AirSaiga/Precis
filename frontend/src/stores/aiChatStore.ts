@@ -159,6 +159,80 @@ export interface FrontendInstruction {
 }
 
 /**
+ * 流式画布生长去重：从终态全量指令中剔除已通过 frontend_instruction 事件实时应用的指令。
+ *
+ * 后端 completed 事件携带全量 frontend_instructions 作为兜底（含流式期间已逐条发送的 +
+ * dry-result 阶段的兜底产物）。流式期间已应用的指令若再次执行会重复创建画布节点（如约束），
+ * 因此需按内容去重。
+ *
+ * 去重键：以序列化文本（stable stringify）作为身份标识。stable stringify 通过预排序对象键，
+ * 使键顺序不同但内容相同的指令视为相等。序列化失败（含循环引用）的指令直接保留（不去重），
+ * 以安全兜底——宁可重复应用一条，也不误删未执行的指令。
+ *
+ * @param all - 终态全量指令（completed/cancelled 携带）
+ * @param streamed - 流式期间已实时应用的指令（来自 frontend_instruction 事件）
+ * @returns 待执行的"新增"指令（流式期间未处理过的）
+ */
+export function dedupeStreamedInstructions(
+  all: FrontendInstruction[],
+  streamed: unknown[]
+): FrontendInstruction[] {
+  if (streamed.length === 0) return [...all]
+  const streamedKeys = new Set<string>()
+  for (const s of streamed) {
+    const key = stableStringify(s)
+    if (key !== null) streamedKeys.add(key)
+  }
+  const result: FrontendInstruction[] = []
+  for (const inst of all) {
+    const key = stableStringify(inst)
+    // 流式指令集合为空（全部序列化失败）或本条无法序列化时，保留本条（安全兜底）
+    if (key === null || streamedKeys.size === 0) {
+      result.push(inst)
+      continue
+    }
+    if (!streamedKeys.has(key)) {
+      result.push(inst)
+    }
+  }
+  return result
+}
+
+/**
+ * 稳定序列化：递归排序对象键后 JSON.stringify，使键顺序不影响相等性。
+ * 无法序列化（循环引用 / BigInt / 函数 / undefined）时返回 null。
+ *
+ * 注意：不能用 JSON.stringify(value, keys) 的数组 replacer 形式——它会作为键白名单
+ * 递归过滤嵌套对象，破坏深层结构。改为先递归构造"键已排序"的副本，再序列化。
+ */
+function stableStringify(value: unknown): string | null {
+  try {
+    return JSON.stringify(sortKeysDeep(value))
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 递归构造键已排序的副本（深拷贝 + 排序），供稳定序列化使用。
+ * 遇到无法 JSON 化的值（undefined / 函数 / symbol / BigInt）会让外层 JSON.stringify 抛错，
+ * 由 stableStringify 捕获并返回 null。
+ */
+function sortKeysDeep(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    return value.map(sortKeysDeep)
+  }
+  if (value !== null && typeof value === 'object') {
+    const sorted: Record<string, unknown> = {}
+    for (const key of Object.keys(value as Record<string, unknown>).sort()) {
+      sorted[key] = sortKeysDeep((value as Record<string, unknown>)[key])
+    }
+    return sorted
+  }
+  return value
+}
+
+/**
  * AI 聊天 Store 工厂函数
  *
  * 使用 Pinia Setup Store 模式，提供 AI 聊天相关的完整状态管理。
@@ -359,6 +433,19 @@ export const useAiChatStore = defineStore('aiChat', () => {
             ) {
               currentStreamingJobId.value = (data as Record<string, unknown>).job_id as string
             }
+            // 流式画布生长：apply_actions 落盘后逐条收到 frontend_instruction，
+            // 立即执行单条指令（processFrontendInstructions 内部触发 addNodes + 节点级 fitView），
+            // 实现 Agent 模式画布实时生长。handleEvent 同时把指令累积到 streamedInstructions，
+            // 供 completed 兜底批量路径去重，避免重复应用同一指令。
+            if (event === 'frontend_instruction' && data) {
+              const instruction = (data as Record<string, unknown>).instruction
+              if (instruction) {
+                // 异步执行，不阻塞 SSE 事件循环；每条指令独立触发节点级 fitView（相机跟随新节点）
+                void processFrontendInstructions([instruction] as FrontendInstruction[]).catch(
+                  (e) => logger.error('流式执行 frontend_instruction 失败:', e)
+                )
+              }
+            }
             handleEvent(event, _id, data)
           },
           onError: (err) => {
@@ -412,10 +499,18 @@ export const useAiChatStore = defineStore('aiChat', () => {
         assistantMessage.content = streamingMsg.content
       }
 
-      // 处理 frontend_instructions（画布双写）——error/cancelled 也尝试处理已收到的指令
+      // 处理 frontend_instructions（画布双写）——error/cancelled 也尝试处理已收到的指令。
+      // 流式画布生长：已在前端通过 frontend_instruction 事件实时执行的指令会累积在
+      // streamedInstructions 中，此处需去重，避免对同一指令二次应用（如重复创建约束节点）。
+      // 仅处理流式期间未收到的新增指令（含 dry-result 兜底产物）；去重失败时退化为全量应用。
       const result = streamingMsg.result
       if (result?.frontend_instructions && result.frontend_instructions.length > 0) {
-        await processFrontendInstructions(result.frontend_instructions as FrontendInstruction[])
+        const allInstructions = result.frontend_instructions as FrontendInstruction[]
+        const streamed = streamingMsg.streamedInstructions
+        const pending = dedupeStreamedInstructions(allInstructions, streamed)
+        if (pending.length > 0) {
+          await processFrontendInstructions(pending)
+        }
       }
 
       // 填充 agentMeta（轨迹展示）——error/cancelled 也填充（iterations 从 result 取，无则 0）
