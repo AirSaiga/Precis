@@ -3,25 +3,21 @@
   background: var(--node-bg, var(--ui-bg-elevated));
   border: var(--node-border, 1px solid var(--ui-border));
   border-radius: var(--node-border-radius, var(--ui-radius-md));
-  box-shadow: var(--node-shadow, var(--ui-shadow-sm));
   position: relative;
   overflow: visible;
   display: flex;
   flex-direction: column;
-  transition:
-    box-shadow var(--node-transition-fast),
-    border-color var(--node-transition-fast);
+  /* box-shadow / transition 已上交 node-shell-contract.css 统一管理（scale/shadow 统一）。
+     hover/selected 的 border 色调变化保留（节点特色）。 */
   --json-source-accent: var(--node-type-source);
   --json-source-accent-bg: var(--node-type-source-bg);
 }
 
 .json-source-preview-node:hover {
-  box-shadow: var(--node-shadow-hover);
   border-color: var(--node-border-hover);
 }
 
 .json-source-preview-node.is-selected {
-  box-shadow: var(--node-shadow-selected);
   border-color: var(--json-source-accent);
 }
 

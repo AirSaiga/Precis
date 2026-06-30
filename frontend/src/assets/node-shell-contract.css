@@ -19,6 +19,8 @@
 .vue-flow__node .graph-node,
 .vue-flow__node .schema-node,
 .vue-flow__node .source-preview-node,
+.vue-flow__node .json-schema-node,
+.vue-flow__node .json-source-preview-node,
 .vue-flow__node .manual-data-node,
 .vue-flow__node .project-root-node {
   box-shadow: var(--node-shadow);
@@ -33,6 +35,8 @@
 .vue-flow__node:hover .graph-node,
 .vue-flow__node:hover .schema-node,
 .vue-flow__node:hover .source-preview-node,
+.vue-flow__node:hover .json-schema-node,
+.vue-flow__node:hover .json-source-preview-node,
 .vue-flow__node:hover .manual-data-node,
 .vue-flow__node:hover .project-root-node {
   box-shadow: var(--node-shadow-hover);
@@ -53,6 +57,8 @@
 .vue-flow__node.selected .graph-node,
 .vue-flow__node.selected .schema-node,
 .vue-flow__node.selected .source-preview-node,
+.vue-flow__node.selected .json-schema-node,
+.vue-flow__node.selected .json-source-preview-node,
 .vue-flow__node.selected .manual-data-node,
 .vue-flow__node.selected .project-root-node {
   transform: scale(1.025);
@@ -68,6 +74,8 @@
 .vue-flow__node.dragging .graph-node,
 .vue-flow__node.dragging .schema-node,
 .vue-flow__node.dragging .source-preview-node,
+.vue-flow__node.dragging .json-schema-node,
+.vue-flow__node.dragging .json-source-preview-node,
 .vue-flow__node.dragging .manual-data-node,
 .vue-flow__node.dragging .project-root-node {
   transform: scale(1.03);

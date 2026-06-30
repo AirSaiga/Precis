@@ -286,8 +286,11 @@ async function loadEmbeddedConstraints(
  *
  * 遍历 V2 配置中的 constraints，加载 refs.table_id 匹配 v2SchemaId 的独立约束节点。
  * 幂等：已存在于画布上的节点不会重复创建。
+ *
+ * 注意:此函数是格式无关的(table/json 共用),仅以 table_id 为键匹配。
+ * json 版 syncJsonSchemaResources 复用此函数实现对称资源同步。
  */
-async function loadIndependentConstraints(
+export async function loadIndependentConstraints(
   schemaNodeId: string,
   v2SchemaId: string,
   graphStore: SchemaSyncGraphStore,
@@ -334,8 +337,11 @@ async function loadIndependentConstraints(
  *
  * 遍历 V2 配置中的 regex_nodes，加载 source_ref.table_id 匹配 v2SchemaId 的正则节点。
  * 幂等：已存在于画布上的节点不会重复创建。
+ *
+ * 注意:此函数是格式无关的(table/json 共用),仅以 table_id 为键匹配。
+ * json 版 syncJsonSchemaResources 复用此函数实现对称资源同步。
  */
-async function loadRegexNodes(
+export async function loadRegexNodes(
   schemaNodeId: string,
   v2SchemaId: string,
   graphStore: SchemaSyncGraphStore,

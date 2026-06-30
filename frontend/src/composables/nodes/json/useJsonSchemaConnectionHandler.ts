@@ -66,6 +66,7 @@ export function useJsonSchemaConnectionHandler() {
   const toast = useToast()
   const success = toast.success
   const info = toast.info
+  const error = toast.error
 
   const store = useGraphStore()
 
@@ -396,145 +397,155 @@ export function useJsonSchemaConnectionHandler() {
 
     const sourcePreviewNode = store.nodes.find((n: CustomNode) => n.id === sourcePreviewNodeId)
     const schemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
-    if (!sourcePreviewNode || !schemaNode) {
-      throw new Error('源节点或目标节点不存在')
-    }
+    if (!sourcePreviewNode || !schemaNode) return
 
-    logger.debug('🔌 [handleSourceConnection] 开始处理 JSON 连接')
-    logger.debug(
-      '  - jsonSchemaNode 当前列定义数量:',
-      (schemaNode.data as unknown as JsonSchemaNodeData).columns?.length || 0
-    )
+    // 与 table 版 useSchemaConnectionHandler 对称:整体 try/catch 防止连接流程中任意
+    // 抛错(列生成/配置恢复/校验联动)导致画布停留在"边已建、元数据半写、端口已连"
+    // 的半连接状态且无用户可见反馈。catch 中记录日志并提示失败。
+    try {
+      logger.debug('🔌 [handleSourceConnection] 开始处理 JSON 连接')
+      logger.debug(
+        '  - jsonSchemaNode 当前列定义数量:',
+        (schemaNode.data as unknown as JsonSchemaNodeData).columns?.length || 0
+      )
 
-    const sourceData = sourcePreviewNode.data as unknown as JsonSourcePreviewNodeData
+      const sourceData = sourcePreviewNode.data as unknown as JsonSourcePreviewNodeData
 
-    const displayFileName = sourceData.sourceName || sourceData.fileName || 'Unknown'
+      const displayFileName = sourceData.sourceName || sourceData.fileName || 'Unknown'
 
-    const existingEdges = store.edges.filter(
-      (edge: Edge) =>
-        edge.target === schemaNodeId &&
-        edge.source !== sourcePreviewNodeId &&
-        store.nodes.find((n: CustomNode) => n.id === edge.source)?.type === 'jsonSourcePreview'
-    )
+      const existingEdges = store.edges.filter(
+        (edge: Edge) =>
+          edge.target === schemaNodeId &&
+          edge.source !== sourcePreviewNodeId &&
+          store.nodes.find((n: CustomNode) => n.id === edge.source)?.type === 'jsonSourcePreview'
+      )
 
-    if (existingEdges.length > 0) {
-      logger.debug(`🔄 断开目标 JsonSchemaNode 的旧数据源连接，数量: ${existingEdges.length}`)
+      if (existingEdges.length > 0) {
+        logger.debug(`🔄 断开目标 JsonSchemaNode 的旧数据源连接，数量: ${existingEdges.length}`)
 
-      for (const edge of existingEdges) {
-        const oldSourceNode = store.nodes.find((n: CustomNode) => n.id === edge.source)
-        if (oldSourceNode) {
-          logger.debug(
-            `  - 断开与 "${
-              (oldSourceNode.data as unknown as Record<string, unknown>)?.sourceName ||
-              (oldSourceNode.data as unknown as Record<string, unknown>)?.fileName ||
-              oldSourceNode.id
-            }" 的连接`
-          )
+        for (const edge of existingEdges) {
+          const oldSourceNode = store.nodes.find((n: CustomNode) => n.id === edge.source)
+          if (oldSourceNode) {
+            logger.debug(
+              `  - 断开与 "${
+                (oldSourceNode.data as unknown as Record<string, unknown>)?.sourceName ||
+                (oldSourceNode.data as unknown as Record<string, unknown>)?.fileName ||
+                oldSourceNode.id
+              }" 的连接`
+            )
+          }
+          store.deleteConnection(edge.id)
         }
-        store.deleteConnection(edge.id)
+
+        info(t('canvas.nodeCanvas.disconnectedOldSource', { sourceName: displayFileName }))
+      }
+      const smartTableName = (sourceData.sourceName || sourceData.fileName || 'Table').replace(
+        /\.[^/.]+$/,
+        ''
+      )
+
+      const updatedSchemaData = {
+        ...schemaNode.data,
+        tableName: smartTableName,
+        sourceFile: displayFileName,
+        sourceFilePath: sourceData.localPath || sourceData.fileName,
+        sourceType: 'json' as const,
+        headerRow: sourceData.headerRow || 0,
+        sourceNodeId: sourcePreviewNodeId,
+        sourceMode: sourceData.sourceMode,
+        localPath: sourceData.localPath,
+        jsonPath: sourceData.jsonPath || '',
+        recordPath: sourceData.recordPath || '',
+        format: sourceData.format || 'json',
       }
 
-      info(t('canvas.nodeCanvas.disconnectedOldSource', { sourceName: displayFileName }))
-    }
-    const smartTableName = (sourceData.sourceName || sourceData.fileName || 'Table').replace(
-      /\.[^/.]+$/,
-      ''
-    )
+      store.updateNodeData(schemaNodeId, updatedSchemaData)
 
-    const updatedSchemaData = {
-      ...schemaNode.data,
-      tableName: smartTableName,
-      sourceFile: displayFileName,
-      sourceFilePath: sourceData.localPath || sourceData.fileName,
-      sourceType: 'json' as const,
-      headerRow: sourceData.headerRow || 0,
-      sourceNodeId: sourcePreviewNodeId,
-      sourceMode: sourceData.sourceMode,
-      localPath: sourceData.localPath,
-      jsonPath: sourceData.jsonPath || '',
-      recordPath: sourceData.recordPath || '',
-      format: sourceData.format || 'json',
-    }
+      logger.debug('🔌 [handleSourceConnection] 已更新 JsonSchemaNode 元数据')
 
-    store.updateNodeData(schemaNodeId, updatedSchemaData)
+      success(
+        t('canvas.nodeCanvas.connectionSuccess', {
+          source: displayFileName,
+          target: smartTableName,
+        })
+      )
 
-    logger.debug('🔌 [handleSourceConnection] 已更新 JsonSchemaNode 元数据')
-
-    success(
-      t('canvas.nodeCanvas.connectionSuccess', {
-        source: displayFileName,
-        target: smartTableName,
+      store.updateNodeData(sourcePreviewNodeId, {
+        ...sourceData,
+        outputPortConnected: true,
       })
-    )
 
-    store.updateNodeData(sourcePreviewNodeId, {
-      ...sourceData,
-      outputPortConnected: true,
-    })
+      logger.debug('🔌 [handleSourceConnection] 连接处理完成，准备恢复配置或弹出确认对话框')
 
-    logger.debug('🔌 [handleSourceConnection] 连接处理完成，准备恢复配置或弹出确认对话框')
+      const { updateNodeInternals } = useVueFlow()
+      const projectStore = useProjectStore()
+      const configPath = projectStore.currentPaths?.configPath
 
-    const { updateNodeInternals } = useVueFlow()
-    const projectStore = useProjectStore()
-    const configPath = projectStore.currentPaths?.configPath
+      // 步骤4:尝试从 V2 配置恢复
+      const loadedFromConfig = await tryLoadJsonSchemaConfig({
+        schemaNodeId,
+        localPath: sourceData.localPath,
+        recordPath: sourceData.recordPath,
+        configPath,
+        store,
+        updateNodeInternals,
+      })
 
-    // 步骤4:尝试从 V2 配置恢复
-    const loadedFromConfig = await tryLoadJsonSchemaConfig({
-      schemaNodeId,
-      localPath: sourceData.localPath,
-      recordPath: sourceData.recordPath,
-      configPath,
-      store,
-      updateNodeInternals,
-    })
+      if (!loadedFromConfig) {
+        // 未恢复则回退智能填充对话框
+        await nextTick()
+        const latestSourceNode = store.nodes.find((n: CustomNode) => n.id === sourcePreviewNodeId)
+        const latestSchemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
 
-    if (!loadedFromConfig) {
-      // 未恢复则回退智能填充对话框
-      await nextTick()
-      const latestSourceNode = store.nodes.find((n: CustomNode) => n.id === sourcePreviewNodeId)
-      const latestSchemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
-
-      if (latestSourceNode && latestSchemaNode) {
-        try {
-          const sourceDataSnapshot: JsonSourcePreviewNodeData = JSON.parse(
-            JSON.stringify(latestSourceNode.data as unknown as JsonSourcePreviewNodeData)
-          )
-          await showSmartFillDialog(
-            { id: sourcePreviewNodeId, data: sourceDataSnapshot },
-            { id: schemaNodeId, data: latestSchemaNode.data as unknown as JsonSchemaNodeData }
-          )
-        } catch (error: unknown) {
-          if (
-            error instanceof Error &&
-            (error.message.includes('JSON 数据源为空') || error.message.includes('格式不正确'))
-          ) {
-            logger.warn('🎯 [handleSourceConnection] 智能填充业务跳过:', error.message)
-          } else {
-            throw error
+        if (latestSourceNode && latestSchemaNode) {
+          try {
+            const sourceDataSnapshot: JsonSourcePreviewNodeData = JSON.parse(
+              JSON.stringify(latestSourceNode.data as unknown as JsonSourcePreviewNodeData)
+            )
+            await showSmartFillDialog(
+              { id: sourcePreviewNodeId, data: sourceDataSnapshot },
+              { id: schemaNodeId, data: latestSchemaNode.data as unknown as JsonSchemaNodeData }
+            )
+          } catch (error: unknown) {
+            if (
+              error instanceof Error &&
+              (error.message.includes('JSON 数据源为空') || error.message.includes('格式不正确'))
+            ) {
+              logger.warn('🎯 [handleSourceConnection] 智能填充业务跳过:', error.message)
+            } else {
+              throw error
+            }
           }
         }
       }
-    }
 
-    // 步骤5:触发全局约束校验 + 重验引用该 schema 的约束
-    const currentSchemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
-    const hasColumns = (currentSchemaNode?.data as unknown as JsonSchemaNodeData)?.columns?.length
-    if (currentSchemaNode && hasColumns) {
-      triggerValidationForNode(
+      // 步骤5:触发全局约束校验 + 重验引用该 schema 的约束
+      const currentSchemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
+      const hasColumns = (currentSchemaNode?.data as unknown as JsonSchemaNodeData)?.columns?.length
+      if (currentSchemaNode && hasColumns) {
+        triggerValidationForNode(
+          schemaNodeId,
+          store.nodes,
+          store.edges,
+          (nodeId: string, data: Record<string, unknown>) => store.updateNodeData(nodeId, data)
+        )
+      }
+
+      await revalidateConstraintsReferencingSchema({
         schemaNodeId,
-        store.nodes,
-        store.edges,
-        (nodeId: string, data: Record<string, unknown>) => store.updateNodeData(nodeId, data)
+        nodes: store.nodes,
+        edges: store.edges,
+        updateNodeData: (nodeId: string, data: Record<string, unknown>) =>
+          store.updateNodeData(nodeId, data),
+      })
+    } catch (err) {
+      // 捕获并记录错误,显示失败提示(对称 useSchemaConnectionHandler 的 catch)
+      logger.error(
+        '❌ [handleSourceConnection] 处理 JsonSourcePreview 到 JsonSchema 连线失败:',
+        err
       )
+      error(t('canvas.nodeCanvas.connectionFailed'))
     }
-
-    await revalidateConstraintsReferencingSchema({
-      schemaNodeId,
-      nodes: store.nodes,
-      edges: store.edges,
-      updateNodeData: (nodeId: string, data: Record<string, unknown>) =>
-        store.updateNodeData(nodeId, data),
-    })
   }
 
   return {

@@ -8,10 +8,15 @@
   import { getSmoothStepPath, BaseEdge, useVueFlow } from '@vue-flow/core'
   import type { EdgeProps } from '@vue-flow/core'
   import { getParticleColorClass, shouldRenderParticles } from '@/utils/edgeParticleColor'
+  import { useReducedMotion } from '@/composables/useReducedMotion'
   const props = defineProps<EdgeProps>()
 
   const { removeEdges } = useVueFlow()
   const isHovered = ref(false)
+
+  // C 层无障碍：SMIL 动画不受 CSS @media (prefers-reduced-motion) 影响，
+  // 需在此显式判断。开启时：粒子停止流动但仍着色，爆裂光环不触发。
+  const reducedMotion = useReducedMotion()
 
   const isDeletable = computed(() => {
     const data = props.data as Record<string, unknown> | undefined
@@ -34,6 +39,8 @@
   const burstKey = ref(0)
   const burstClass = ref('')
   watch(particleStatus, (newStatus, oldStatus) => {
+    // 减少动态效果模式下不触发一次性爆裂光环（纯装饰，无静态等效态）
+    if (reducedMotion.value) return
     if (newStatus !== 'idle' && newStatus !== oldStatus) {
       burstClass.value = `edge-burst--${newStatus}`
       burstKey.value++ // 重置 key，强制重新挂载以重播动画
@@ -85,10 +92,12 @@
       :label-bg-border-radius="props.labelBgBorderRadius"
     />
 
-    <!-- C 层：校验状态粒子流（idle 态不渲染，边保持静态线） -->
+    <!-- C 层：校验状态粒子流（idle 态不渲染，边保持静态线）。
+         reduced-motion 下粒子停止流动但仍着色——只渲染 circle，不挂 <animateMotion>。 -->
     <g v-if="showParticles" class="edge-particles">
       <circle v-for="i in 3" :key="i" r="3" :class="['edge-particle', particleClass]">
         <animateMotion
+          v-if="!reducedMotion"
           :path="pathData.path"
           dur="2s"
           repeatCount="indefinite"

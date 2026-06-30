@@ -196,7 +196,13 @@ def _process_columns_recursive(
 
         # JsonObject 列(有 children):递归处理子列,跳过自身列检查
         # children 是 list[ColumnSchema],转为 {name: col} dict 以复用递归
-        if isinstance(col_schema.data_type, JsonObjectType) and col_schema.children:
+        #
+        # 例外:expand=True 时不递归。该路径下 process_dataframe 已先调用
+        # _reconstruct_expand_columns 把点分子列(specs.brand)折叠回单列 dict 列
+        # (specs),交由后续 _expand_structured_columns 重新展开。若此处仍递归,
+        # 子列的全限定名已不在 df.columns 中,会误报 MissingColumn。改为按父列
+        # 全限定名做存在性检查(折叠后的 dict 列存在),与历史行为一致。
+        if isinstance(col_schema.data_type, JsonObjectType) and col_schema.children and not col_schema.expand:
             child_dict = {c.name: c for c in col_schema.children}
             _process_columns_recursive(df, child_dict, qualified, parsed_data, errors, num_rows)
             continue

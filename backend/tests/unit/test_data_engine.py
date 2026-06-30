@@ -331,3 +331,36 @@ class TestProcessDataframe:
         missing = [e for e in errors if e["error_type"] == "MissingColumn"]
         assert len(missing) == 1
         assert missing[0]["column"] == "name"
+
+    def test_expand_true_json_object_no_spurious_missing(self):
+        """回归:expand=True 的 JsonObject 列不应因折叠后子列消失而误报 MissingColumn。
+
+        场景:schema 声明 specs 为 JsonObject + expand=True + children[brand,model]。
+        process_dataframe 先用 _reconstruct_expand_columns 把点分子列折叠回单列 dict
+        列 specs,再交由 _expand_structured_columns 展开。若 _process_columns_recursive
+        仍递归进 children,会因 specs.brand/specs.model 已被折叠而误报 MissingColumn。
+        此测试锁定:该路径下父列 specs 作为叶子参与校验,无 MissingColumn 错误。
+        """
+        df = pd.DataFrame({"id": [1], "specs": [{"brand": "X", "model": "Y"}]})
+        schema = TableSchema(
+            name="t",
+            columns=[
+                ColumnSchema(name="id", data_type=IntegerType()),
+                ColumnSchema(
+                    name="specs",
+                    data_type=JsonObjectType(),
+                    expand=True,
+                    children=[
+                        ColumnSchema(name="brand", data_type=StringType()),
+                        ColumnSchema(name="model", data_type=StringType()),
+                    ],
+                ),
+            ],
+        )
+        parsed, errors = process_dataframe(df, schema)
+        missing = [e for e in errors if e["error_type"] == "MissingColumn"]
+        assert missing == [], f"expand=True 路径不应误报 MissingColumn,实际: {missing}"
+        # 父列 specs 经 _expand_structured_columns 展开后,子列以 父_子 形式存在
+        # (与 test_json_object_with_children_expand 的展开命名一致)
+        assert "specs_brand" in parsed.columns
+        assert "specs_model" in parsed.columns
