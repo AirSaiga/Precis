@@ -54,6 +54,9 @@ if not exist "electron\dist\main.js" (
 for /f "tokens=*" %%a in ('node -e "try { require('dotenv').config(); } catch(e) {} console.log(process.env.VITE_BACKEND_PORT || '18000')"') do set BACKEND_PORT=%%a
 for /f "tokens=*" %%a in ('node -e "try { require('dotenv').config(); } catch(e) {} console.log(process.env.VITE_FRONTEND_PORT || '5173')"') do set FRONTEND_PORT=%%a
 
+:: 启动前清理后端端口残留进程，避免 [Errno 10048] 端口占用
+call "%~dp0\free-port.bat" %BACKEND_PORT%
+
 call npx concurrently --kill-others --names "BACKEND,FRONTEND,ELECTRON" --prefix-colors "cyan,green,magenta" "cd backend && %PYTHON_CMD% -m uvicorn app.api.main:app --reload --port %BACKEND_PORT%" "cd frontend && npm run dev" "npx wait-on --delay 1000 --timeout 60000 http://127.0.0.1:%BACKEND_PORT%/docs http://localhost:%FRONTEND_PORT% && cd electron && npm start"
 
 echo.

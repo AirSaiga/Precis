@@ -30,6 +30,10 @@ echo.
 
 cd backend
 for /f "tokens=*" %%a in ('node -e "try { require('dotenv').config(); } catch(e) {} console.log(process.env.VITE_BACKEND_PORT || '18000')"') do set BACKEND_PORT=%%a
+
+:: 启动前清理端口残留进程，避免 [Errno 10048] 端口占用
+call "%~dp0\free-port.bat" %BACKEND_PORT%
+
 "%PYTHON_CMD%" -m uvicorn app.api.main:app --reload --port %BACKEND_PORT%
 
 echo.
