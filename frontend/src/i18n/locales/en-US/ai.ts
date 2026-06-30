@@ -47,6 +47,12 @@ const aiChat = {
   confirmApply: 'Apply Changes',
   confirmReject: 'Reject',
   confirmDeciding: 'Processing...',
+  // App mode toggle (IDE ↔ Agent)
+  modeIde: 'IDE',
+  modeAgent: 'Agent',
+  modeToggleTitle: 'Switch IDE / Agent mode',
+  modeIdeHint: 'Manual canvas editing',
+  modeAgentHint: 'AI fully-driven',
 }
 
 const aiConfigGenerator = {

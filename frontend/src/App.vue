@@ -26,12 +26,20 @@
   <!-- Web 模式下显示项目选择器 -->
   <ProjectSelector v-if="showProjectSelector" @project-opened="handleProjectOpened" />
 
-  <!-- 主应用布局 -->
+  <!-- Agent 模式：AI 对话 + 画布双栏布局（隐藏工具箱） -->
+  <AgentLayout v-else-if="appModeStore.isAgentMode" />
+
+  <!-- IDE 模式：主应用布局（ActivityBar + Sidebar + Canvas + Inspector） -->
   <div
     v-else
     class="app-layout"
     :class="{ 'is-resizing': layout.isLayoutTransitionDisabled.value }"
   >
+    <!-- 顶部模式切换浮层（绝对定位居中，悬浮于 tab-bar 之上，避免破坏四栏 flex 布局） -->
+    <div class="app-mode-toggle-floating">
+      <ModeToggle />
+    </div>
+
     <!-- Level 1: Activity Bar (导航条) -->
     <aside
       class="activity-bar"
@@ -246,6 +254,8 @@
   import AssetLibraryNav from '@/components/layout/AssetLibraryNav.vue'
   import AssetLibrary from '@/components/layout/AssetLibrary.vue'
   import InspectorPanel from '@/components/layout/InspectorPanel.vue'
+  import AgentLayout from '@/components/layout/AgentLayout.vue'
+  import ModeToggle from '@/components/layout/ModeToggle.vue'
   import NodeCanvas from '@/components/canvas/NodeCanvas.vue'
   import DragGhost from '@/components/canvas/DragGhost.vue'
   // import AIChatDrawer from '@/components/common/AIChatDrawer.vue'
@@ -260,6 +270,7 @@
 
   import { useCanvasStore, type Workspace } from '@/stores/canvasStore'
   import { useGraphStore } from '@/stores/graphStore'
+  import { useAppModeStore } from '@/stores/appModeStore'
   import { useProjectStore } from '@/stores/projectStore'
   import { useResourceDragStore, type ResourceDragPayload } from '@/stores/resourceDragStore'
   import { useFeedbackStore } from '@/stores/feedbackStore'
@@ -270,6 +281,7 @@
   // --- Store 实例 ---
   const canvasStore = useCanvasStore()
   const graphStore = useGraphStore()
+  const appModeStore = useAppModeStore()
   const projectStore = useProjectStore()
   const resourceDragStore = useResourceDragStore()
   const feedbackStore = useFeedbackStore()

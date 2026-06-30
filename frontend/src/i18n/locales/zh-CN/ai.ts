@@ -46,6 +46,12 @@ const aiChat = {
   confirmApply: '确认修改',
   confirmReject: '拒绝',
   confirmDeciding: '处理中...',
+  // 应用模式切换（IDE ↔ Agent）
+  modeIde: 'IDE',
+  modeAgent: 'Agent',
+  modeToggleTitle: '切换 IDE / Agent 模式',
+  modeIdeHint: '手动操作画布',
+  modeAgentHint: 'AI 全自动驱动',
 }
 
 const aiConfigGenerator = {

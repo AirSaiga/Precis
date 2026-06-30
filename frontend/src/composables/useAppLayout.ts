@@ -6,14 +6,11 @@
  * - 管理四栏布局的展开/收起状态
  * - 面板拖拽调宽交互（RAF 批量更新）
  * - 响应式计算各区域样式
- * - 监听 AI 面板变化，同步布局
  */
 
-import { ref, computed, watch, onUnmounted, type Ref } from 'vue'
-import { useAiChatStore } from '@/stores/aiChatStore'
+import { ref, computed, onUnmounted, type Ref } from 'vue'
 
 const ACTIVITY_BAR_WIDTH = 64
-const AI_CHAT_DRAWER_WIDTH = 400
 const MIN_SIDEBAR_WIDTH = 150
 const MAX_SIDEBAR_WIDTH = 500
 const MIN_RIGHT_WIDTH = 200
@@ -67,9 +64,6 @@ export interface AppLayoutState {
 }
 
 export function useAppLayout(): AppLayoutState {
-  // AI 聊天 Store，用于监听 AI 面板展开/收起状态，同步布局计算
-  const aiChatStore = useAiChatStore()
-
   // === 面板折叠状态 ===
   const activityBarCollapsed = ref(false)
   const sidebarCollapsed = ref(false)
@@ -82,8 +76,6 @@ export function useAppLayout(): AppLayoutState {
   // === 拖拽与过渡状态 ===
   const isDraggingSidebar = ref(false)
   const isDraggingRight = ref(false)
-  // AI 面板正在切换中，临时禁用过渡动画
-  const isAiPanelToggling = ref(false)
   // 当前视口宽度，用于计算右侧面板拖拽边界
   const viewportWidth = ref(window.innerWidth)
 
@@ -95,18 +87,7 @@ export function useAppLayout(): AppLayoutState {
   let pendingRightWidth: number | null = null
 
   const isLayoutTransitionDisabled = computed(
-    () => isDraggingSidebar.value || isDraggingRight.value || isAiPanelToggling.value
-  )
-
-  // 监听 AI 面板展开/收起，临时禁用过渡动画确保 toggle 按钮位置同步
-  watch(
-    () => aiChatStore.drawerVisible,
-    () => {
-      isAiPanelToggling.value = true
-      requestAnimationFrame(() => {
-        isAiPanelToggling.value = false
-      })
-    }
+    () => isDraggingSidebar.value || isDraggingRight.value
   )
 
   const leftToggleStyle = computed(() => ({
@@ -116,12 +97,9 @@ export function useAppLayout(): AppLayoutState {
       'px',
   }))
 
-  const rightToggleStyle = computed(() => {
-    const aiChatWidth = aiChatStore.drawerVisible ? AI_CHAT_DRAWER_WIDTH : 0
-    return {
-      right: rightCollapsed.value ? aiChatWidth + 'px' : rightWidth.value + aiChatWidth + 'px',
-    }
-  })
+  const rightToggleStyle = computed(() => ({
+    right: rightCollapsed.value ? '0px' : rightWidth.value + 'px',
+  }))
 
   const rightPanelStyle = computed(() => ({
     width: rightCollapsed.value ? '0px' : rightWidth.value + 'px',
@@ -141,8 +119,7 @@ export function useAppLayout(): AppLayoutState {
       (activityBarCollapsed.value ? 0 : ACTIVITY_BAR_WIDTH) +
       (sidebarCollapsed.value ? 0 : sidebarWidth.value)
     const rightWidthCalc = rightCollapsed.value ? 0 : rightWidth.value
-    const aiChatWidth = aiChatStore.drawerVisible ? AI_CHAT_DRAWER_WIDTH : 0
-    const totalSideWidth = leftWidth + rightWidthCalc + aiChatWidth
+    const totalSideWidth = leftWidth + rightWidthCalc
     return {
       flex: `0 0 calc(100vw - ${totalSideWidth}px)`,
     }
@@ -224,8 +201,7 @@ export function useAppLayout(): AppLayoutState {
         pendingSidebarWidth = newWidth
       }
     } else if (isDraggingRight.value && !rightCollapsed.value) {
-      const aiChatWidth = aiChatStore.drawerVisible ? AI_CHAT_DRAWER_WIDTH : 0
-      const newRightWidth = viewportWidth.value - evt.clientX - aiChatWidth
+      const newRightWidth = viewportWidth.value - evt.clientX
       if (newRightWidth >= MIN_RIGHT_WIDTH && newRightWidth <= MAX_RIGHT_WIDTH) {
         pendingRightWidth = newRightWidth
       }

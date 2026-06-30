@@ -7,6 +7,7 @@
  *
  * 导出的 Store 包括：
  * - 应用设置：useSettingsStore
+ * - 应用模式（IDE/Agent）：useAppModeStore
  * - 画布图状态：useGraphStore
  * - 工作区：useWorkspaceStore
  * - 画布视图：useCanvasStore
@@ -27,6 +28,7 @@
  */
 
 export { useSettingsStore, default as useSettingsStoreDefault } from './settingsStore'
+export { useAppModeStore } from './appModeStore'
 export { useGraphStore } from './graphStore'
 export { useWorkspaceStore } from './workspaceStore'
 export { useCanvasStore } from './canvasStore'

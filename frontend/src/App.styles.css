@@ -8,6 +8,24 @@
   position: relative;
 }
 
+/* IDE/Agent 模式切换浮层：绝对定位居中，悬浮于 tab-bar 之上。
+   采用浮层而非改 flex 方向，避免破坏既有四栏水平布局逻辑。 */
+.app-mode-toggle-floating {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  /* 给浮层一点垂直内边距，使其与 32px 高的 tab-bar 视觉对齐且不遮挡关闭按钮 */
+  padding: 2px 0;
+  pointer-events: none; /* 容器不拦截事件 */
+}
+
+/* 切换控件本身需要恢复事件接收 */
+.app-mode-toggle-floating > :deep(*) {
+  pointer-events: auto;
+}
+
 .activity-bar {
   flex-shrink: 0;
   background: var(--ui-bg-nav-primary);
