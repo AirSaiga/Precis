@@ -3,9 +3,9 @@
   @description Agent 模式主布局
 
   Agent 模式下隐藏 ActivityBar / Sidebar / Inspector 工具箱，
-  改为「对话为主 + 画布为辅」的双栏布局：
-  - 左侧 45%：AI 对话面板（复用 AIChatPanel.vue，AI 全自动驱动画布）
-  - 右侧 55%：实时生长的画布（NodeCanvas，随 AI 指令逐条生长）
+  改为「对话 + 画布」的双栏布局（画布为主舞台）：
+  - 左侧 35%：AI 对话面板（复用 AIChatPanel.vue，AI 全自动驱动画布）
+  - 右侧 65%：实时生长的画布（NodeCanvas，随 AI 指令逐条生长）
 
   与 IDE 布局的切换过渡由父级 App.vue 控制（flex-basis/width/opacity 的 CSS transition）。
   顶部 ModeToggle 始终可见，确保随时可切回 IDE 模式。
@@ -13,11 +13,11 @@
   布局结构：
   ┌──────────────────────────────────────────────────────────────┐
   │                       ModeToggle（顶部）                       │
-  ├───────────────────────────────┬──────────────────────────────┤
-  │  AI 对话面板 (45%)             │  画布 (55%)                  │
-  │  · 消息列表                    │  · NodeCanvas（实时生长）     │
-  │  · 输入框                      │                              │
-  └───────────────────────────────┴──────────────────────────────┘
+  ├───────────────────────┬──────────────────────────────────────┤
+  │  AI 对话面板 (35%)     │  画布 (65%)                          │
+  │  · 消息列表            │  · NodeCanvas（实时生长）             │
+  │  · 输入框              │                                      │
+  └───────────────────────┴──────────────────────────────────────┘
 -->
 
 <template>
@@ -29,9 +29,10 @@
 
     <!-- 双栏主体：对话 + 画布 -->
     <div class="agent-layout-body">
-      <!-- 左侧：AI 对话面板（复用现有 AIChatPanel，去掉 Sidebar 尺寸约束） -->
+      <!-- 左侧：AI 对话面板（复用现有 AIChatPanel，去掉 Sidebar 尺寸约束）。
+           hideEmptyState：Agent 模式由画布侧统一引导，避免左侧空状态与画布空状态重复 -->
       <section class="agent-chat-pane">
-        <AIChatPanel />
+        <AIChatPanel hide-empty-state />
       </section>
 
       <!-- 分隔线（视觉边界，不可拖拽调宽——Agent 模式固定 45/55 比例） -->
@@ -148,11 +149,13 @@
     min-height: 0;
   }
 
+  /* 聊天面板占 35%：Agent 模式画布是主舞台（实时生长），聊天仅为输入区，
+     收窄聊天面板让画布获得更大展示空间（55% → 65%）。 */
   .agent-chat-pane {
-    flex: 0 0 45%;
+    flex: 0 0 35%;
     display: flex;
     flex-direction: column;
-    min-width: 320px;
+    min-width: 300px;
     overflow: hidden;
     /* 复用 AIChatPanel.vue，外层容器负责边界与尺寸 */
     background: var(--ui-bg-base);
@@ -238,9 +241,9 @@
   }
 
   @media (max-width: 768px) {
-    /* 窄屏下对话面板收窄到 320px，让画布保留更多空间 */
+    /* 窄屏下对话面板收窄到 300px，让画布保留更多空间 */
     .agent-chat-pane {
-      flex-basis: 320px;
+      flex-basis: 300px;
     }
   }
 </style>
