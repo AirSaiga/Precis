@@ -28,7 +28,11 @@ import { i18n } from '@/i18n'
 import type { FrontendInstruction } from '@/stores/aiChatStore'
 import type { CustomNode } from '@/types/graph'
 import * as vueFlowApi from '@/services/canvas/vueFlowApi'
-import { FITVIEW_DURATION_MS } from '@/services/canvas/animationDurations'
+import {
+  FITVIEW_DURATION_MS,
+  NODE_ENTER_DURATION_MS,
+  NODE_ENTERING_CLASS,
+} from '@/services/canvas/animationDurations'
 import { fromBackendType } from '@/services/builders/schemaBuilder'
 import { useConnectionValidator } from '@/composables/validation/useConnectionValidator'
 import { materializeV2EmbeddedConstraints } from '@/stores/graphStore/modules/v2/shared/embeddedConstraints'
@@ -45,6 +49,25 @@ export class AIInstructionError extends Error {
     super(message)
     this.name = 'AIInstructionError'
   }
+}
+
+/**
+ * 给 AI 新建的节点安排入场动画 class 的清理。
+ *
+ * 与 createBaseNodeFactory.clearNodeClass 同一模式：用 findNode 增量改 Vue Flow
+ * 内部响应式 GraphNode 的 class，不能用 nodes.value = [...] 全量替换（会绕过 Vue Flow
+ * 增量 hooks，在节点→边关联场景下可能引发隐性状态不一致）。
+ *
+ * AI 指令路径（独立于手动工厂）直接构造裸节点对象，调用方需在节点对象上预设
+ * `class: NODE_ENTERING_CLASS`，再调用本助手在动画结束后清除。
+ */
+function attachEnteringClass(nodeId: string): void {
+  setTimeout(() => {
+    const vfNode = vueFlowApi.findNode(nodeId)
+    if (vfNode && vfNode.class === NODE_ENTERING_CLASS) {
+      vfNode.class = undefined
+    }
+  }, NODE_ENTER_DURATION_MS)
 }
 
 interface AINodeConnectionInput {
@@ -320,6 +343,8 @@ async function handleConstraintInstruction(instruction: FrontendInstruction): Pr
     id: constraintNodeId,
     type: `${constraintKind}Constraint`,
     position: nodePosition,
+    // 标记入场动画，画布生长时淡入而非生硬闪现
+    class: NODE_ENTERING_CLASS,
     data: {
       configName: `${constraintId}`,
       table: tableName,
@@ -333,6 +358,8 @@ async function handleConstraintInstruction(instruction: FrontendInstruction): Pr
   }
 
   vueFlowApi.addNodes(constraintNode)
+  // 动画结束后清除入场 class（增量更新，不触发全量替换）
+  attachEnteringClass(constraintNodeId)
 
   await nextTick()
 
@@ -460,6 +487,8 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
       id: schemaId,
       type: 'schema',
       position,
+      // 标记入场动画，画布生长时淡入而非生硬闪现
+      class: NODE_ENTERING_CLASS,
       data: {
         configName: `Schema_${schemaName}`,
         tableName: schemaName,
@@ -469,6 +498,8 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
     }
 
     vueFlowApi.addNodes(schemaNode)
+    // 动画结束后清除入场 class（增量更新，不触发全量替换）
+    attachEnteringClass(schemaId)
     await nextTick()
 
     // 物化内嵌约束节点与边，行为与从资源树拖拽 Schema 保持一致
@@ -509,6 +540,16 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
         })
         await nextTick()
         graphStore.reconcileAll()
+        // 内嵌约束节点由 materializeV2EmbeddedConstraints 构造，本身不带入场 class。
+        // 此处为每个已创建的内嵌约束节点增量补上入场动画 class，并安排清理，
+        // 使其与主 Schema 节点一同淡入（画布生长）。
+        for (const cid of createdConstraintIds) {
+          const vfConstraintNode = vueFlowApi.findNode(cid)
+          if (vfConstraintNode && !vfConstraintNode.class) {
+            vfConstraintNode.class = NODE_ENTERING_CLASS
+          }
+          attachEnteringClass(cid)
+        }
         if (createdConstraintIds.length > 0) {
           setTimeout(() => {
             fitView({
@@ -574,6 +615,8 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
       id: regexId,
       type: 'regex',
       position,
+      // 标记入场动画，画布生长时淡入而非生硬闪现
+      class: NODE_ENTERING_CLASS,
       data: {
         configName: regexName,
         description: spec.description || '',
@@ -587,6 +630,8 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
     }
 
     vueFlowApi.addNodes(regexNode)
+    // 动画结束后清除入场 class（增量更新，不触发全量替换）
+    attachEnteringClass(regexId)
     await nextTick()
 
     // 如果有关联的 Schema 节点，创建边（方向：Schema 列 -> Regex）
@@ -657,6 +702,8 @@ async function handleTransformInstruction(instruction: FrontendInstruction): Pro
       id: transformId,
       type: 'transform',
       position,
+      // 标记入场动画，画布生长时淡入而非生硬闪现
+      class: NODE_ENTERING_CLASS,
       data: {
         configName: `${transformType}_${transformId}`,
         transformType,
@@ -671,6 +718,8 @@ async function handleTransformInstruction(instruction: FrontendInstruction): Pro
     }
 
     vueFlowApi.addNodes(transformNode)
+    // 动画结束后清除入场 class（增量更新，不触发全量替换）
+    attachEnteringClass(transformId)
     await nextTick()
     graphStore.reconcileAll()
 

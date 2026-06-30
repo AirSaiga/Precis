@@ -52,6 +52,13 @@ const aiChat = {
   modeToggleTitle: '切换 IDE / Agent 模式',
   modeIdeHint: '手动操作画布',
   modeAgentHint: 'AI 全自动驱动',
+  // Agent 模式空画布引导（嵌套键，沿用 aiConfigGenerator 先例）
+  emptyCanvas: {
+    title: '让 AI 为你搭建校验配置',
+    hint: '在左侧描述需求，画布会随 AI 指令实时生长',
+    prompt1: '分析当前项目并建议校验规则',
+    prompt2: '为 users 表生成约束',
+  },
 }
 
 const aiConfigGenerator = {
