@@ -37,14 +37,14 @@ def _tool_call_signature(tc: Any) -> str:
     """
     if not isinstance(tc, dict):
         return ""
-    tc_id = tc.get("id", "")
+    tc_id: str = str(tc.get("id", ""))
     if tc_id:
         return tc_id
     func = tc.get("function", {})
     if not isinstance(func, dict):
         return ""
-    name = func.get("name", "")
-    args = func.get("arguments", "")
+    name: str = str(func.get("name", ""))
+    args: str = str(func.get("arguments", ""))
     return f"{name}:{args}"
 
 
