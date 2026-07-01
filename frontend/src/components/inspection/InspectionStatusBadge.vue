@@ -3,11 +3,12 @@
   @description 状态栏徽章 — Header 右上角常驻
 
   行为:
-  - 无问题且无忽略时完全隐藏
+  - 尚未自检（currentResult 为 null）：不显示
+  - 已自检且无问题：显示绿色全通过徽章（✅），点击可打开抽屉查看"全部通过"详情
   - 有未解决问题：显示数字徽章（最严重级别颜色）
   - 全部已忽略但 inspection result 仍有问题：显示静默徽章（🔕 + 忽略数），保留打开抽屉的入口
   - 点击打开 InspectionDrawer
-  - hover 提示：列出最高严重度 + 数量 / 已忽略数
+  - hover 提示：列出最高严重度 + 数量 / 已忽略数 / 通过
 -->
 <template>
   <button
@@ -18,7 +19,7 @@
     @click="store.openDrawer()"
   >
     <span class="badge-icon">{{ badgeIcon }}</span>
-    <span class="badge-count">{{ badgeCount }}</span>
+    <span v-if="!isPassed" class="badge-count">{{ badgeCount }}</span>
   </button>
 </template>
 
@@ -39,14 +40,26 @@
   // 全部已忽略：当前 inspection 有问题，但都被忽略了
   const isIgnoredOnly = computed(() => store.unresolvedCount === 0 && store.allIssues.length > 0)
 
-  const hasContent = computed(() => store.unresolvedCount > 0 || isIgnoredOnly.value)
+  // 已自检且无任何问题（含未被忽略的）：绿色全通过态
+  const isPassed = computed(
+    () => store.currentResult !== null && store.unresolvedCount === 0 && !isIgnoredOnly.value
+  )
+
+  // 已自检后任何状态都应显示徽章（含全通过绿点）；尚未自检则隐藏
+  const hasContent = computed(
+    () =>
+      store.currentResult !== null &&
+      (store.unresolvedCount > 0 || isIgnoredOnly.value || isPassed.value)
+  )
 
   const badgeClass = computed(() => {
+    if (isPassed.value) return 'severity-passed'
     if (isIgnoredOnly.value) return 'severity-muted'
     return `severity-${store.maxSeverity ?? 'warning'}`
   })
 
   const badgeIcon = computed(() => {
+    if (isPassed.value) return '✅'
     if (isIgnoredOnly.value) return '🔕'
     return SEVERITY_ICONS[store.maxSeverity ?? 'warning'] ?? '⚠️'
   })
@@ -56,6 +69,9 @@
   )
 
   const tooltipText = computed(() => {
+    if (isPassed.value) {
+      return t('inspection.badge.passedTooltip')
+    }
     if (isIgnoredOnly.value) {
       return t('inspection.badge.ignoredTooltip', { count: store.allIssues.length })
     }
@@ -113,6 +129,16 @@
   }
   .severity-info:hover {
     background: var(--ui-info, #3b82f6);
+    color: var(--ui-text-on-accent, #fff);
+  }
+
+  .severity-passed {
+    background: var(--ui-success-subtle, rgba(34, 197, 94, 0.12));
+    color: var(--ui-success, #22c55e);
+    border-color: transparent;
+  }
+  .severity-passed:hover {
+    background: var(--ui-success, #22c55e);
     color: var(--ui-text-on-accent, #fff);
   }
 

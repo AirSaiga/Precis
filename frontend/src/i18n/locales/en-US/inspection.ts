@@ -7,6 +7,7 @@ const inspection = {
   badge: {
     tooltip: '{count} configuration issue(s) found',
     ignoredTooltip: '{count} issue(s) ignored, click to review',
+    passedTooltip: 'Configuration check passed, no issues found',
   },
   severity: {
     blocker: 'Blocker',
