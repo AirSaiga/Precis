@@ -120,6 +120,7 @@
 
 <script setup lang="ts">
   import { ref, computed, onMounted, onUnmounted } from 'vue'
+  import { useI18n } from 'vue-i18n'
   import { eventBus } from '@/core/eventBus'
   import { useAiChatStore } from '@/stores/aiChatStore'
   import { useLanguageToggle } from '@/composables/shared'
@@ -130,6 +131,7 @@
   import ModeToggle from '@/components/layout/ModeToggle.vue'
   import AgentStatusBar from '@/components/ai/AgentStatusBar.vue'
 
+  const { t } = useI18n()
   const aiChatStore = useAiChatStore()
   const { currentLang, toggleLanguage } = useLanguageToggle()
 
