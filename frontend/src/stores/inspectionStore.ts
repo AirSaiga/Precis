@@ -122,6 +122,17 @@ export const useInspectionStore = defineStore('inspection', () => {
     drawerVisible.value = false
   }
 
+  /**
+   * 重置 inspection 状态（currentResult 置空 + 关闭抽屉）
+   *
+   * 调用时机: 项目切换（关闭旧项目）时,避免旧项目的检测结果残留到新项目。
+   * 注意:不清理 ignoredIds —— 忽略列表跨会话持久化,与具体项目无关。
+   */
+  function reset(): void {
+    currentResult.value = null
+    drawerVisible.value = false
+  }
+
   /** 切换分组模式 */
   function setGroupBy(mode: 'file' | 'severity'): void {
     groupBy.value = mode
@@ -189,6 +200,7 @@ export const useInspectionStore = defineStore('inspection', () => {
     setResult,
     openDrawer,
     closeDrawer,
+    reset,
     setGroupBy,
     dismiss,
     restore,

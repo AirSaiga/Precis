@@ -930,32 +930,13 @@ def inspect_regex_reference_integrity(
             )
 
 
-def inspect_schema_id_global_uniqueness(
-    schema_files: dict[str, TableSchemaFile],
-    loading_errors: list[LoadingError],
-) -> None:
-    """检测多个 schema 文件使用了同一个 ID（blocker）。
-
-    遍历所有 schema_files，构建 id → [table_ids] 索引。
-    如果同一 schema id 出现在多个条目中，记录 blocker 级错误。
-    """
-    # 先构建 id → 重复条目的 manifest ref key 列表，便于 navigate 定位
-    id_to_refs: dict[str, list[str]] = {}
-    for sid, sdoc in schema_files.items():
-        file_internal_id = getattr(sdoc, "id", None) or sid
-        id_to_refs.setdefault(file_internal_id, []).append(sid)
-
-    _report_schema_id_duplicates(id_to_refs, loading_errors)
-
-
 def _report_schema_id_duplicates(
     id_to_refs: dict[str, list[str]],
     loading_errors: list[LoadingError],
 ) -> None:
     """根据 id → refs 索引上报重复 id 的 blocker 错误。
 
-    被 inspect_schema_id_global_uniqueness（manifest 内文件去重）
-    与 inspect_schema_id_orphan_conflict（孤儿文件冲突）共用。
+    被 inspect_schema_id_orphan_conflict 调用,基于磁盘扫描结果上报。
     """
     for sid, ref_keys in id_to_refs.items():
         count = len(ref_keys)
@@ -1011,15 +992,15 @@ def inspect_schema_id_orphan_conflict(
 ) -> None:
     """检测磁盘上多个 schema 文件使用同一 ID（blocker）。
 
-    背景:
-        inspect_schema_id_global_uniqueness 只看已加载的 schema_files dict，
-        而该 dict 按 id 做 key，冲突时后者会被吞掉，永远检测不到重复。
-        本函数直接扫磁盘所有 .schema.yaml 文件，按「文件内 id」建索引，
-        同一 id 被 ≥2 个文件使用即报 blocker。
+    本函数是 schema ID 唯一性检测的唯一入口（取代旧的
+    inspect_schema_id_global_uniqueness）。直接扫磁盘所有 .schema.yaml 文件，
+    按「文件内 id」建索引，同一 id 被 ≥2 个文件使用即报 blocker。
 
-        这种基于磁盘的检测不依赖 manifest 白名单，因此在两条路径下都生效：
-        - load_project（运行时校验，schema_files 只含 manifest 白名单文件）
-        - get_v2_full_config（前端资源树，schema_files 含 effective_manifest 合并的孤儿）
+    旧实现遍历 schema_files dict，但该 dict 按 id 做 key，冲突时后者会被吞掉，
+    永远检测不到重复。基于磁盘的检测不依赖 manifest 白名单，因此在两条路径下
+    都生效：
+    - load_project（运行时校验，schema_files 只含 manifest 白名单文件）
+    - get_v2_full_config（前端资源树，schema_files 含 effective_manifest 合并的孤儿）
 
     参数:
         config_path: 项目根目录（manifest 所在目录）
@@ -1170,10 +1151,8 @@ def inspect_config(
         loading_errors,
     )
 
-    inspect_schema_id_global_uniqueness(schema_files, loading_errors)
-
-    # 孤儿文件（未登记 manifest）与 manifest 内文件的 ID 冲突检测
-    # 补齐 inspect_schema_id_global_uniqueness 只看 manifest 白名单的盲区
+    # Schema ID 全局唯一性检测（基于磁盘扫描）
+    # 同时覆盖 manifest 内文件冲突与孤儿文件冲突，避免重复上报
     inspect_schema_id_orphan_conflict(manifest_path.parent, manifest, schema_files, loading_errors)
 
     inspect_source_uniqueness(schema_files, loading_errors)

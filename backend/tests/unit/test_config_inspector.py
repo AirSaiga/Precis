@@ -4,7 +4,7 @@
 覆盖范围:
 - inspect_config 主入口及 5 个子检查函数的输入→输出映射
 - inspect_id_consistency: schema/constraint/regex/transform 四类 ID 不一致
-- inspect_schema_id_global_uniqueness: 多 schema 复用同一 ID
+- inspect_schema_id_orphan_conflict: 磁盘扫描检测多文件复用同一 ID
 - inspect_source_uniqueness: 多 schema 指向同一数据源
 - inspect_reference_integrity: 各约束类型引用的表/列缺失
 - inspect_regex_reference_integrity: 正则节点 source_ref 引用缺失
@@ -29,7 +29,6 @@ from app.shared.core.project.loader.loader_parts.config_inspector import (
     inspect_id_consistency,
     inspect_reference_integrity,
     inspect_regex_reference_integrity,
-    inspect_schema_id_global_uniqueness,
     inspect_schema_id_orphan_conflict,
     inspect_source_uniqueness,
 )
@@ -208,47 +207,7 @@ class TestInspectIdConsistency:
 
 
 # ============================================================================
-# inspect_schema_id_global_uniqueness 测试
-# ============================================================================
-
-
-class TestInspectSchemaIdGlobalUniqueness:
-    """检测多个 schema 复用同一 ID（blocker）。"""
-
-    def test_unique_ids_no_error(self):
-        errors: list[LoadingError] = []
-        schema_files = {"s1": make_schema(id="users"), "s2": make_schema(id="orders")}
-        inspect_schema_id_global_uniqueness(schema_files, errors)
-        assert errors == []
-
-    def test_duplicate_id_generates_blocker(self):
-        errors: list[LoadingError] = []
-        # 两个不同 manifest ref key，但文件内部 id 相同
-        schema_files = {
-            "ref_a": make_schema(id="users"),
-            "ref_b": make_schema(id="users"),
-        }
-        inspect_schema_id_global_uniqueness(schema_files, errors)
-
-        assert len(errors) == 1
-        err = errors[0]
-        assert err.severity == "blocker"
-        assert err.error_type == "SchemaIdDuplicate"
-        assert "users" in err.title
-        # P2: 应携带 i18n key、message_params 与可执行 actions
-        assert err.title_key == "inspection.issues.schemaIdDuplicate.title"
-        assert err.message_params["schemaId"] == "users"
-        assert err.message_params["count"] == 2
-        # actions 应包含 navigate（定位到节点）和 dismiss（允许忽略）
-        action_types = {a["type"] for a in err.actions}
-        assert "navigate" in action_types
-        assert "dismiss" in action_types
-        # 无 fix_api（此类问题需用户手动决策，无法自动修复）
-        assert err.fix_api is None
-
-
-# ============================================================================
-# inspect_schema_id_orphan_conflict 测试（孤儿文件与 manifest 内文件 ID 冲突）
+# inspect_schema_id_orphan_conflict 测试（磁盘 ID 冲突检测）
 # ============================================================================
 
 

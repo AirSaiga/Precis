@@ -52,8 +52,12 @@ def _write_manifest(path: Path, schemas: list[dict]) -> None:
 class TestFullConfigSchemaIdConflict:
     """两个 schema 文件使用同一 id 时，get_v2_full_config 不应静默覆盖。"""
 
-    def test_conflicting_ids_recorded_in_schema_errors(self):
-        """两个文件 id 都是 'users' → schemas dict 只保留首个，schema_errors 记录冲突。"""
+    def test_conflicting_ids_first_wins_no_silent_overwrite(self):
+        """两个文件 id 都是 'users' → schemas dict 只保留首个，不静默覆盖。
+
+        ID 冲突不写入 schema_errors（那是 YAML 解析错误的专属通道），
+        由 inspect 的 SchemaIdDuplicate blocker 统一上报，避免双重提示。
+        """
         with tempfile.TemporaryDirectory() as tmpdir:
             tmp = Path(tmpdir)
             # 第一个文件登记在 manifest
@@ -67,11 +71,10 @@ class TestFullConfigSchemaIdConflict:
 
             result = get_v2_full_config(config_path=tmpdir)
 
-            # schemas dict 仍只含一个 users（第一个胜出）
+            # schemas dict 仍只含一个 users（第一个胜出，未被第二个覆盖）
             assert "users" in result["schemas"]
-            # 冲突应被记录到 schema_errors（而非静默覆盖）
-            assert "users" in result["schema_errors"]
-            assert "冲突" in result["schema_errors"]["users"] or "多个" in result["schema_errors"]["users"]
+            # ID 冲突不应写入 schema_errors（避免与 inspect blocker 双重提示）
+            assert "users" not in result.get("schema_errors", {})
 
     def test_distinct_ids_no_conflict_error(self):
         """两个文件 id 不同 → 正常加载，无 schema_errors 记录。"""

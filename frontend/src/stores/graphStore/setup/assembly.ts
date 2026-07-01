@@ -6,6 +6,7 @@
  */
 
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import { useInspectionStore } from '@/stores/inspectionStore'
 import '@/services/disconnect' // side-effect: 触发所有断开清理处理器的自注册
 import {
   listV2Templates,
@@ -187,11 +188,18 @@ export function createGraphStoreAssembly(
 
   const {
     createProject,
-    clearProject,
+    clearProject: clearProjectBase,
     resetCanvas,
     createProjectConsoleNode,
     createProjectRootNode,
   } = projectLifecycle
+
+  // 包装 clearProject:在清理画布/项目状态后,同步重置 inspection 结果,
+  // 避免旧项目的检测结果(红点/绿点)残留到新项目
+  const clearProject = () => {
+    clearProjectBase()
+    useInspectionStore().reset()
+  }
 
   const schemaOps = createSchemaOpsModule({
     nodes,

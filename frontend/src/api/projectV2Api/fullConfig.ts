@@ -37,6 +37,10 @@ export async function getV2FullConfig(
 
 /**
  * 执行配置文件格式自检
+ *
+ * 注意:后端在 inspect=true 时应始终返回 inspection 字段。
+ * 若缺失(后端异常/版本不匹配),抛错而非静默返回空结果 ——
+ * 否则 recheck 会用空结果覆盖 store,让徽章错误地显示绿色"全通过"。
  */
 export async function inspectV2Config(configPath?: string): Promise<InspectionResultV2> {
   try {
@@ -44,12 +48,10 @@ export async function inspectV2Config(configPath?: string): Promise<InspectionRe
       params: { inspect: true },
       ...(configPath ? { headers: { 'X-Project-Config-Path': configPath } } : {}),
     })
-    return (
-      data.inspection || {
-        inspected_at: new Date().toISOString(),
-        errors: [],
-      }
-    )
+    if (!data.inspection) {
+      throw new Error('后端未返回 inspection 结果')
+    }
+    return data.inspection
   } catch (e) {
     if (isProjectNotFound(e)) {
       throw new ProjectNotFoundError(configPath)

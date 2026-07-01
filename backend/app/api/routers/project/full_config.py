@@ -140,14 +140,14 @@ def get_v2_full_config(
         if os.path.isfile(schema_path):
             try:
                 schema_obj = TableSchemaFileV2.model_validate(read_yaml(Path(schema_path)))
-                # 防止同 id 冲突时静默覆盖：记录冲突错误，第一个 schema 保留在 id/schema_objects key 上
+                # 同 id 冲突时仅保留首个，记录 warning 日志。
+                # 注意：不写入 schema_errors —— schema_errors 语义是「YAML 解析失败」，
+                # 用于资源树标记 + toast 提示；ID 冲突应由 inspect 的 SchemaIdDuplicate
+                # blocker 统一上报（避免同一问题触发 toast + 徽章双重提示）。
                 if ref.id in schemas:
                     logger.warning(
                         f"[get_v2_full_config] Schema ID 冲突: '{ref.id}' 已存在，"
                         f"文件 {ref.path} 的数据未被加载（已存在: {schemas[ref.id].get('source', {}).get('path', '?')}）"
-                    )
-                    schema_errors[ref.id] = (
-                        f"Schema ID '{ref.id}' 被多个文件使用，当前仅加载了首个。冲突文件: {ref.path}"
                     )
                 else:
                     schema_objects[ref.id] = schema_obj
