@@ -35,6 +35,13 @@ const aiChat = {
   trailDoneWithFail: '完成 {total} 步（{failed} 步失败）',
   trailCancelled: '已取消 · 已执行 {steps} 步',
   trailCancelledNote: '任务已取消（完成 {turns} 轮），已落盘的改动已保留',
+  // Agent 状态条（AgentStatusBar）
+  statusThinking: '思考中',
+  statusToolRunning: '调用工具中 · {label}',
+  statusPendingApply: '等待确认 · {count} 个文件',
+  statusError: '出错',
+  statusCancelled: '已取消',
+  statusCompleted: '已完成',
   cancel: '停止',
   sessionErrorRetry: '会话状态异常，请重新发送消息',
   // apply_actions 两阶段确认卡

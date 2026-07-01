@@ -36,6 +36,13 @@ const aiChat = {
   trailDoneWithFail: 'Completed {total} steps ({failed} failed)',
   trailCancelled: 'Cancelled · {steps} steps executed',
   trailCancelledNote: 'Task cancelled ({turns} turns). Persisted changes are kept.',
+  // Agent status bar (AgentStatusBar)
+  statusThinking: 'Thinking',
+  statusToolRunning: 'Calling tool · {label}',
+  statusPendingApply: 'Awaiting confirmation · {count} file(s)',
+  statusError: 'Error',
+  statusCancelled: 'Cancelled',
+  statusCompleted: 'Completed',
   cancel: 'Stop',
   sessionErrorRetry: 'Session state error, please resend the message',
   // apply_actions two-phase confirm card

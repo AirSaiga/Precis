@@ -20,7 +20,7 @@
 
 import { logger } from '@/core/utils/logger'
 import { toastError, toastSuccess } from '@/core/toast'
-import { useVueFlow, type Edge, type Node as VueFlowNode } from '@vue-flow/core'
+import { type Edge, type Node as VueFlowNode } from '@vue-flow/core'
 import { v4 as uuidv4 } from 'uuid'
 import { nextTick } from 'vue'
 import { useGraphStore } from '@/stores/graphStore'
@@ -38,6 +38,67 @@ import { useConnectionValidator } from '@/composables/validation/useConnectionVa
 import { materializeV2EmbeddedConstraints } from '@/stores/graphStore/modules/v2/shared/embeddedConstraints'
 
 /**
+ * fitView 防抖
+ *
+ * 多个 handler 连续创建节点时（如 Schema + 子约束），各自触发 fitView 会导致画布
+ * 连续跳动。防抖窗口内累加所有调用方传入的节点 id（取并集，而非覆盖），最终只执行
+ * 一次 fitView，框住整批节点。
+ *
+ * 跨 handler 共享同一 timer，防抖窗口 500ms。
+ *
+ * 注意：入场动画与 fitView 不做时序拆分——曾尝试「先 fitView 再延迟加 enter class」，
+ * 但节点创建时缺少 opacity:0 初始态，延迟加 class 反而造成「先可见→闪没→淡入」
+ * 的闪现回归。改为节点创建即带 NODE_ENTERING_CLASS（详见 attachEnteringClass）。
+ */
+let fitViewTimer: ReturnType<typeof setTimeout> | null = null
+let pendingFitViewNodes = new Set<string>()
+
+/**
+ * 防抖 fitView：累加节点 id，500ms 窗口结束后执行一次 fitView 框住全部节点
+ *
+ * @param nodes 本次调用要纳入视野的节点 id
+ * @param options padding / duration 覆盖（最后一次生效）
+ */
+export function debouncedFitView(
+  nodes: string[],
+  options: { padding?: number; duration?: number } = {}
+): void {
+  for (const n of nodes) pendingFitViewNodes.add(n)
+  if (fitViewTimer) {
+    clearTimeout(fitViewTimer)
+  }
+  fitViewTimer = setTimeout(() => {
+    fitViewTimer = null
+    const nodeIds = [...pendingFitViewNodes]
+    pendingFitViewNodes = new Set()
+    if (nodeIds.length === 0) return
+    vueFlowApi.fitView({
+      nodes: nodeIds,
+      padding: options.padding ?? 0.25,
+      duration: options.duration ?? FITVIEW_DURATION_MS,
+    })
+  }, 500)
+}
+
+/**
+ * 给 AI 新建的节点安排入场动画 class 的清理。
+ *
+ * 与 createBaseNodeFactory.clearNodeClass 同一模式：用 findNode 增量改 Vue Flow
+ * 内部响应式 GraphNode 的 class，不能用 nodes.value = [...] 全量替换（会绕过 Vue Flow
+ * 增量 hooks，在节点→边关联场景下可能引发隐性状态不一致）。
+ *
+ * 调用方在节点对象上预设 `class: NODE_ENTERING_CLASS`，再调用本助手在动画结束后清除。
+ */
+function attachEnteringClass(nodeId: string): void {
+  setTimeout(() => {
+    const vfNode = vueFlowApi.findNode(nodeId)
+    if (vfNode && vfNode.class === NODE_ENTERING_CLASS) {
+      vfNode.class = undefined
+    }
+  }, NODE_ENTER_DURATION_MS)
+}
+
+/**
  * AI 指令执行过程中遇到无法继续的非法连接时抛出的错误
  */
 export class AIInstructionError extends Error {
@@ -49,25 +110,6 @@ export class AIInstructionError extends Error {
     super(message)
     this.name = 'AIInstructionError'
   }
-}
-
-/**
- * 给 AI 新建的节点安排入场动画 class 的清理。
- *
- * 与 createBaseNodeFactory.clearNodeClass 同一模式：用 findNode 增量改 Vue Flow
- * 内部响应式 GraphNode 的 class，不能用 nodes.value = [...] 全量替换（会绕过 Vue Flow
- * 增量 hooks，在节点→边关联场景下可能引发隐性状态不一致）。
- *
- * AI 指令路径（独立于手动工厂）直接构造裸节点对象，调用方需在节点对象上预设
- * `class: NODE_ENTERING_CLASS`，再调用本助手在动画结束后清除。
- */
-function attachEnteringClass(nodeId: string): void {
-  setTimeout(() => {
-    const vfNode = vueFlowApi.findNode(nodeId)
-    if (vfNode && vfNode.class === NODE_ENTERING_CLASS) {
-      vfNode.class = undefined
-    }
-  }, NODE_ENTER_DURATION_MS)
 }
 
 interface AINodeConnectionInput {
@@ -305,7 +347,6 @@ export async function processFrontendInstructions(
 async function handleConstraintInstruction(instruction: FrontendInstruction): Promise<void> {
   const { t } = i18n.global
   const graphStore = useGraphStore()
-  const { fitView } = useVueFlow()
 
   const { constraintSpec } = instruction
   const { type, targetNodeId, tableName, targetColumn, constraintId, isInline } = constraintSpec
@@ -343,7 +384,7 @@ async function handleConstraintInstruction(instruction: FrontendInstruction): Pr
     id: constraintNodeId,
     type: `${constraintKind}Constraint`,
     position: nodePosition,
-    // 标记入场动画，画布生长时淡入而非生硬闪现
+    // 入场动画：创建即带 class，动画结束后由 attachEnteringClass 清除
     class: NODE_ENTERING_CLASS,
     data: {
       configName: `${constraintId}`,
@@ -358,8 +399,6 @@ async function handleConstraintInstruction(instruction: FrontendInstruction): Pr
   }
 
   vueFlowApi.addNodes(constraintNode)
-  // 动画结束后清除入场 class（增量更新，不触发全量替换）
-  attachEnteringClass(constraintNodeId)
 
   await nextTick()
 
@@ -390,9 +429,8 @@ async function handleConstraintInstruction(instruction: FrontendInstruction): Pr
 
   graphStore.reconcileAll()
 
-  setTimeout(() => {
-    fitView({ nodes: [constraintNodeId], padding: 0.25, duration: FITVIEW_DURATION_MS })
-  }, 100)
+  attachEnteringClass(constraintNodeId)
+  debouncedFitView([constraintNodeId])
 
   toastSuccess(t('aiChat.constraintCreated', { table: tableName, column: targetColumn }))
 }
@@ -461,7 +499,6 @@ function handleInlineConstraint(
 async function handleSchemaInstruction(instruction: FrontendInstruction): Promise<void> {
   const { t } = i18n.global
   const graphStore = useGraphStore()
-  const { fitView } = useVueFlow()
 
   const spec = instruction.schemaSpec
   if (!spec) return
@@ -487,7 +524,7 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
       id: schemaId,
       type: 'schema',
       position,
-      // 标记入场动画，画布生长时淡入而非生硬闪现
+      // 入场动画：创建即带 class，动画结束后由 attachEnteringClass 清除
       class: NODE_ENTERING_CLASS,
       data: {
         configName: `Schema_${schemaName}`,
@@ -498,8 +535,6 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
     }
 
     vueFlowApi.addNodes(schemaNode)
-    // 动画结束后清除入场 class（增量更新，不触发全量替换）
-    attachEnteringClass(schemaId)
     await nextTick()
 
     // 物化内嵌约束节点与边，行为与从资源树拖拽 Schema 保持一致
@@ -540,33 +575,18 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
         })
         await nextTick()
         graphStore.reconcileAll()
-        // 内嵌约束节点由 materializeV2EmbeddedConstraints 构造，本身不带入场 class。
-        // 此处为每个已创建的内嵌约束节点增量补上入场动画 class，并安排清理，
-        // 使其与主 Schema 节点一同淡入（画布生长）。
+        // 内嵌约束节点入场动画清理 + 纳入防抖 fitView
         for (const cid of createdConstraintIds) {
-          const vfConstraintNode = vueFlowApi.findNode(cid)
-          if (vfConstraintNode && !vfConstraintNode.class) {
-            vfConstraintNode.class = NODE_ENTERING_CLASS
-          }
           attachEnteringClass(cid)
-        }
-        if (createdConstraintIds.length > 0) {
-          setTimeout(() => {
-            fitView({
-              nodes: [schemaId, ...createdConstraintIds],
-              padding: 0.25,
-              duration: FITVIEW_DURATION_MS,
-            })
-          }, 100)
+          debouncedFitView([cid])
         }
       }
     }
 
     graphStore.reconcileAll()
 
-    setTimeout(() => {
-      fitView({ nodes: [schemaId], padding: 0.25, duration: FITVIEW_DURATION_MS })
-    }, 100)
+    attachEnteringClass(schemaId)
+    debouncedFitView([schemaId])
 
     toastSuccess(t('aiChat.schemaCreated', { name: schemaName }))
     return
@@ -598,7 +618,6 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
 async function handleRegexInstruction(instruction: FrontendInstruction): Promise<void> {
   const { t } = i18n.global
   const graphStore = useGraphStore()
-  const { fitView } = useVueFlow()
 
   const spec = instruction.regexSpec
   if (!spec) return
@@ -615,7 +634,7 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
       id: regexId,
       type: 'regex',
       position,
-      // 标记入场动画，画布生长时淡入而非生硬闪现
+      // 入场动画：创建即带 class，动画结束后由 attachEnteringClass 清除
       class: NODE_ENTERING_CLASS,
       data: {
         configName: regexName,
@@ -630,8 +649,6 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
     }
 
     vueFlowApi.addNodes(regexNode)
-    // 动画结束后清除入场 class（增量更新，不触发全量替换）
-    attachEnteringClass(regexId)
     await nextTick()
 
     // 如果有关联的 Schema 节点，创建边（方向：Schema 列 -> Regex）
@@ -665,9 +682,8 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
 
     graphStore.reconcileAll()
 
-    setTimeout(() => {
-      fitView({ nodes: [regexId], padding: 0.25, duration: FITVIEW_DURATION_MS })
-    }, 100)
+    attachEnteringClass(regexId)
+    debouncedFitView([regexId])
 
     toastSuccess(t('aiChat.regexCreated', { name: regexName }))
     return
@@ -685,7 +701,6 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
 async function handleTransformInstruction(instruction: FrontendInstruction): Promise<void> {
   const { t } = i18n.global
   const graphStore = useGraphStore()
-  const { fitView } = useVueFlow()
 
   const spec = instruction.transformSpec
   if (!spec) return
@@ -702,7 +717,7 @@ async function handleTransformInstruction(instruction: FrontendInstruction): Pro
       id: transformId,
       type: 'transform',
       position,
-      // 标记入场动画，画布生长时淡入而非生硬闪现
+      // 入场动画：创建即带 class，动画结束后由 attachEnteringClass 清除
       class: NODE_ENTERING_CLASS,
       data: {
         configName: `${transformType}_${transformId}`,
@@ -718,14 +733,11 @@ async function handleTransformInstruction(instruction: FrontendInstruction): Pro
     }
 
     vueFlowApi.addNodes(transformNode)
-    // 动画结束后清除入场 class（增量更新，不触发全量替换）
-    attachEnteringClass(transformId)
     await nextTick()
     graphStore.reconcileAll()
 
-    setTimeout(() => {
-      fitView({ nodes: [transformId], padding: 0.25, duration: FITVIEW_DURATION_MS })
-    }, 100)
+    attachEnteringClass(transformId)
+    debouncedFitView([transformId])
 
     toastSuccess(t('aiChat.transformCreated', { name: transformType }))
     return

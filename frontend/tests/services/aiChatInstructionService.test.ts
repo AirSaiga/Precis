@@ -7,10 +7,10 @@
  * - 非法边被拒绝，不会调用 vueFlowApi.addEdges
  * - 合法边的方向与 sourceHandle/targetHandle 格式符合 connectionRules
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { Edge, Node as VueFlowNode } from '@vue-flow/core'
 import type { FrontendInstruction } from '@/stores/aiChatStore'
-import { processFrontendInstructions } from '@/services/aiChatInstructionService'
+import { processFrontendInstructions, debouncedFitView } from '@/services/aiChatInstructionService'
 
 const mocks = vi.hoisted(() => ({
   validateConnection: vi.fn(),
@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   addNodes: vi.fn(),
   removeNodes: vi.fn(),
   fitView: vi.fn(),
+  findNode: vi.fn(),
   toastError: vi.fn(),
   toastSuccess: vi.fn(),
   loggerError: vi.fn(),
@@ -37,6 +38,8 @@ vi.mock('@/services/canvas/vueFlowApi', () => ({
   addEdges: mocks.addEdges,
   addNodes: mocks.addNodes,
   removeNodes: mocks.removeNodes,
+  fitView: mocks.fitView,
+  findNode: mocks.findNode,
 }))
 
 vi.mock('@/composables/validation/useConnectionValidator', () => ({
@@ -45,10 +48,6 @@ vi.mock('@/composables/validation/useConnectionValidator', () => ({
 
 vi.mock('@/stores/graphStore', () => ({
   useGraphStore: vi.fn(() => mocks.graphStore),
-}))
-
-vi.mock('@vue-flow/core', () => ({
-  useVueFlow: vi.fn(() => ({ fitView: mocks.fitView })),
 }))
 
 vi.mock('@/i18n', () => ({
@@ -118,11 +117,54 @@ describe('aiChatInstructionService', () => {
     mocks.addNodes.mockReset()
     mocks.removeNodes.mockReset()
     mocks.fitView.mockReset()
+    mocks.findNode.mockReset()
     mocks.toastError.mockReset()
     mocks.toastSuccess.mockReset()
     mocks.loggerError.mockReset()
     mocks.loggerWarn.mockReset()
     mocks.loggerInfo.mockReset()
+  })
+
+  describe('debouncedFitView', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('防抖窗口内多次调用只 fitView 一次', () => {
+      debouncedFitView(['a'])
+      debouncedFitView(['b'])
+      debouncedFitView(['c'])
+
+      expect(mocks.fitView).not.toHaveBeenCalled()
+      vi.advanceTimersByTime(500)
+      expect(mocks.fitView).toHaveBeenCalledTimes(1)
+    })
+
+    it('多次调用的 nodes 取并集,而非覆盖(schema + 子约束不应只框 schema)', () => {
+      // 模拟 schema+约束场景:scheduleEnteringClass(c1)→[c1], 后续 debouncedFitView([schema, c1, c2])
+      debouncedFitView(['c1'])
+      debouncedFitView(['schema', 'c1', 'c2'])
+
+      vi.advanceTimersByTime(500)
+      expect(mocks.fitView).toHaveBeenCalledTimes(1)
+      // 并集应包含全部三个节点,而非最后一次覆盖
+      const calledNodes = mocks.fitView.mock.calls[0][0].nodes as string[]
+      expect(calledNodes.sort()).toEqual(['c1', 'c2', 'schema'])
+    })
+
+    it('防抖窗口结束后再次调用会触发新的 fitView', () => {
+      debouncedFitView(['a'])
+      vi.advanceTimersByTime(500)
+      expect(mocks.fitView).toHaveBeenCalledTimes(1)
+
+      // 窗口结束后的新批次
+      debouncedFitView(['b'])
+      vi.advanceTimersByTime(500)
+      expect(mocks.fitView).toHaveBeenCalledTimes(2)
+    })
   })
 
   describe('ADD_CONSTRAINT_NODE', () => {

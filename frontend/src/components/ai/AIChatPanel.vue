@@ -357,14 +357,16 @@
     if (msg.streaming) {
       return msg.streaming.toolSteps
     }
-    // 已完成：从 agentMeta 转换
+    // 已完成：从 agentMeta 转换。保留持久化的 status/error（B3 修复），
+    // 旧数据无 status 时兜底为 success，避免历史消息显示未知状态
     if (msg.agentMeta?.tool_steps) {
       return msg.agentMeta.tool_steps.map((s) => ({
         tool: s.tool,
         label: s.label,
         turn: s.turn,
         actionCount: s.action_count,
-        status: 'success' as const,
+        status: s.status ?? 'success',
+        error: s.error,
       }))
     }
     return []
