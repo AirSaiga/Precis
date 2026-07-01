@@ -354,8 +354,10 @@ class TestExecuteActions:
 
     @patch("app.shared.services.llm.actions.action_processor.update_yaml_config")
     @patch("app.shared.services.llm.actions.action_processor.generate_frontend_instructions")
-    def test_delete_constraint_no_frontend(self, mock_gen, mock_update, tmp_path):
+    def test_delete_constraint_generates_frontend(self, mock_gen, mock_update, tmp_path):
+        """DELETE_CONSTRAINT_NODE 现在也生成前端指令（前端据此删除画布节点，保持画布与磁盘同步）。"""
         mock_update.return_value = (True, "deleted_id")
+        mock_gen.return_value = {"actionType": "DELETE_CONSTRAINT_NODE"}
 
         actions = [
             {
@@ -370,7 +372,7 @@ class TestExecuteActions:
         results = _execute_actions(actions, str(tmp_path))
         assert len(results) == 1
         assert results[0]["success"] is True
-        assert results[0]["frontendInstructions"] is None
+        assert results[0]["frontendInstructions"] is not None
 
     @patch("app.shared.services.llm.actions.action_processor.update_yaml_config")
     @patch("app.shared.services.llm.actions.action_processor.generate_frontend_instructions")
@@ -434,7 +436,8 @@ class TestExecuteActions:
         results = _execute_actions(actions, str(tmp_path))
         assert len(results) == 1
         assert results[0]["success"] is True
-        assert results[0]["frontendInstructions"] is None
+        # Schema 动作现在也生成前端指令（前端据此建/刷/删画布节点）
+        assert results[0]["frontendInstructions"] is not None
 
     @patch("app.shared.services.llm.actions.action_processor.process_regex_action")
     def test_regex_actions_dispatched(self, mock_regex, tmp_path):
@@ -611,3 +614,84 @@ class TestExecuteActions:
         assert len(results) == 1
         mock_update.assert_called()
         mock_batch.assert_not_called()
+
+
+# =============================================================================
+# P4 子批2: 写入原子性 #8 — 回滚必须删除新建文件（避免孤儿 YAML）
+# =============================================================================
+
+
+class TestRollbackDeletesCreatedFiles:
+    """#8: 批次中途失败时，回滚不仅要恢复已备份文件，还要删除本次新建的文件。"""
+
+    def test_rollback_deletes_newly_created_constraint_file(self, tmp_path):
+        """ADD 独立约束成功 + 同批另一动作失败 → 新建的约束文件应被删除。"""
+        import yaml
+
+        workspace = str(tmp_path)
+        os.makedirs(os.path.join(workspace, "constraints"))
+        os.makedirs(os.path.join(workspace, "schemas"))
+        # manifest
+        with open(os.path.join(workspace, "project.precis.yaml"), "w", encoding="utf-8") as f:
+            yaml.safe_dump({"version": 2, "project": {"id": "t", "name": "T"}, "schemas": [], "constraints": []}, f)
+        # 一个 schema 供 UPDATE_SCHEMA（会失败：列不存在）
+        with open(os.path.join(workspace, "schemas", "users.schema.yaml"), "w", encoding="utf-8") as f:
+            yaml.safe_dump(
+                {"id": "sc_users", "name": "users", "columns": [{"id": "c1", "name": "email", "type": "string"}]}, f
+            )
+
+        # ADD 独立约束（会成功创建文件）+ UPDATE_SCHEMA 指向不存在的列（失败）
+        actions = [
+            {
+                "actionType": "ADD_CONSTRAINT_NODE",
+                "constraintSpec": {
+                    "type": "Unique",
+                    "targetColumn": "email",
+                    "tableName": "users",
+                    "targetNodeId": "sc_users",
+                    "targetColumnId": "c1",
+                    "isInline": False,
+                },
+            },
+            {
+                "actionType": "UPDATE_SCHEMA",
+                "schemaSpec": {
+                    "name": "users",
+                    "schemaId": "sc_users",
+                    "columns": [{"name": "ghost_col", "type": "string"}],
+                },
+            },
+        ]
+        # 注意：UPDATE_SCHEMA 实际不会因 ghost_col 失败（它会合并），故需构造真正失败的动作
+        # 改用一个会失败的内联约束（列不存在）
+        actions = [
+            {
+                "actionType": "ADD_CONSTRAINT_NODE",
+                "constraintSpec": {
+                    "type": "Unique",
+                    "targetColumn": "email",
+                    "tableName": "users",
+                    "targetNodeId": "sc_users",
+                    "targetColumnId": "c1",
+                    "isInline": False,
+                },
+            },
+            {
+                "actionType": "ADD_CONSTRAINT_NODE",
+                "constraintSpec": {
+                    "type": "NotNull",
+                    "targetColumn": "nonexistent_col",
+                    "tableName": "users",
+                    "targetNodeId": "sc_users",
+                    "isInline": True,
+                },
+            },
+        ]
+
+        result = process_actions(actions, workspace)
+        assert result["success"] is False  # 第二个动作失败
+
+        # 关键：成功的那个动作新建的独立约束文件应被回滚删除（不残留孤儿）
+        constraints_dir = os.path.join(workspace, "constraints")
+        remaining = os.listdir(constraints_dir) if os.path.isdir(constraints_dir) else []
+        assert remaining == [], f"回滚后应无残留约束文件，但有: {remaining}"

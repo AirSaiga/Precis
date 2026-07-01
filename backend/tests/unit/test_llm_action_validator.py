@@ -1418,6 +1418,38 @@ class TestMultiActionScenarios:
             )
             assert result.all_valid is True, f"Alias {alias} should be valid"
 
+    def test_charset_and_composite_are_accepted(self, tmp_path):
+        """Charset 和 Composite 在 SYSTEM_PROMPT_CORE 中被列为支持，校验器必须接受。
+
+        此前 _constraint_validator 的接收集遗漏了这两类，导致 LLM 按提示词生成的合法动作被拒收。
+        """
+        _create_schema_dir(
+            tmp_path,
+            [
+                {
+                    "version": 2,
+                    "id": "sc_users",
+                    "name": "users",
+                    "columns": [{"id": "sc_email", "name": "email", "type": "string"}],
+                }
+            ],
+        )
+        validator = ActionValidator(str(tmp_path))
+        for ctype in ["Charset", "Composite"]:
+            result = validator.validate(
+                [
+                    {
+                        "actionType": "ADD_CONSTRAINT_NODE",
+                        "constraintSpec": {
+                            "type": ctype,
+                            "targetNodeId": "sc_users",
+                            "targetColumn": "email",
+                        },
+                    }
+                ]
+            )
+            assert result.all_valid is True, f"{ctype} 应被接受，但得到 errors: {result.errors}"
+
     def test_ambiguous_table_name_is_error(self, tmp_path):
         _create_schema_dir(
             tmp_path,

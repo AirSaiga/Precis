@@ -20,7 +20,7 @@ from typing import Any
 from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyCallbacks
 from app.shared.services.ai.agent.types import ToolResult
 from app.shared.services.ai.chat_agent_runner import ChatAgentRunner
-from app.shared.services.ai.streaming.pending_apply_store import ConfirmController, get_global_pending_store
+from app.shared.services.ai.streaming.pending_apply_store import get_global_pending_store
 
 from .event_journal import EventJournal
 from .types import (
@@ -116,10 +116,8 @@ class StreamingOrchestrator:
         """
         self.emit(EVENT_STARTED, {"job_id": self.job_id, "kind": "chat"})
 
-        # 创建两阶段确认控制器并注册到全局 store
-        confirm_controller = ConfirmController(request_id=self.job_id)
-        pending_store = get_global_pending_store()
-        pending_store.put(self.job_id, confirm_controller)
+        # apply 的确认控制器现在由 ApplyActionsTool 每次 apply 时独立创建（按 apply_id 键控），
+        # 不再在 job 级创建单一控制器（避免第 2 个 apply 复用旧决策）。
 
         # 创建 apply 事件桥接回调
         apply_callbacks = ApplyCallbacks(
@@ -133,9 +131,9 @@ class StreamingOrchestrator:
             provider=provider,
             project_path=project_path,
             context_nodes=context_nodes,
-            confirm_controller=confirm_controller,
             apply_callbacks=apply_callbacks,
             dry_run_enabled=True,
+            job_id=self.job_id,
         )
 
         # 工具 label 映射（与 ChatAgentRunner._TOOL_LABELS 一致，供 tool_call 事件使用）
@@ -182,12 +180,15 @@ class StreamingOrchestrator:
             self.emit(EVENT_ERROR, {"message": f"Agent 执行失败: {e}", "code": "RUNNER_ERROR"})
             return
         finally:
-            # 兜底清理：确保协程不会永久挂起
+            # 兜底清理：拒绝该 job 下所有未决议的 apply 控制器（每次 apply 各自独立，可能有多个）
             # 注意：apply 挂起时 finally 不可达（await 未返回），由 await_decision 超时兜底
-            controller = pending_store.pop(self.job_id)
-            if controller is not None and not controller.is_resolved:
-                logger.warning(f"run_chat finally 兜底 resolve reject (job={self.job_id})")
-                await controller.resolve("reject")
+            pending_store = get_global_pending_store()
+            for controller in pending_store.pop_by_job_prefix(self.job_id):
+                if not controller.is_resolved:
+                    logger.warning(
+                        f"run_chat finally 兜底 resolve reject (job={self.job_id}, apply={controller.request_id})"
+                    )
+                    await controller.resolve("reject")
 
         # 终态判定：用 result.cancelled 显式字段（而非 success+iterations 启发式）
         # cancel_event.is_set() 覆盖外部取消信号；result.cancelled 覆盖 executor 内部取消

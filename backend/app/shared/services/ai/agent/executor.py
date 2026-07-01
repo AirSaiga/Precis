@@ -27,6 +27,27 @@ from .types import AgentMetrics, AgentResult, AgentTurn, ToolResult
 
 logger = logging.getLogger(__name__)
 
+
+def _tool_call_signature(tc: Any) -> str:
+    """提取 tool_call 的去重签名。
+
+    用于防止同一动作被重复执行（Ollama 多行重复场景）。
+    - id 非空：用 id（OpenAI 等提供稳定 id 的 provider 走快路径）
+    - id 为空：用 function.name + arguments 的组合签名（Ollama 的 id 通常为空）
+    """
+    if not isinstance(tc, dict):
+        return ""
+    tc_id = tc.get("id", "")
+    if tc_id:
+        return tc_id
+    func = tc.get("function", {})
+    if not isinstance(func, dict):
+        return ""
+    name = func.get("name", "")
+    args = func.get("arguments", "")
+    return f"{name}:{args}"
+
+
 # 默认系统提示词
 DEFAULT_SYSTEM_PROMPT = """你是一个数据治理专家 Agent，擅长分析数据文件并生成数据验证配置。
 你可以调用工具来完成任务。每一步请根据观察结果决定下一步行动。
@@ -194,13 +215,13 @@ class AgentExecutor:
                             content += chunk.text or ""
                             self.on_chunk(chunk.text or "")
                         elif chunk.type == "tool_calls" and chunk.tool_calls:
-                            # 去重：按 tool_call id 防止 Ollama 多行重复导致同一动作多次执行
+                            # 去重：防止 Ollama 多行重复导致同一动作多次执行。
+                            # 关键：Ollama 的 tool_call id 通常为空，旧守卫 `if tc_id and ...`
+                            # 对空 id 短路失效，恰在它要防的 Ollama 场景上漏过。
+                            # 修复：id 非空用 id（快路径）；否则用 name+arguments 签名兜底。
                             for tc in chunk.tool_calls:
-                                tc_id = tc.get("id") if isinstance(tc, dict) else None
-                                if tc_id and any(
-                                    (existing.get("id") if isinstance(existing, dict) else None) == tc_id
-                                    for existing in raw_tool_calls
-                                ):
+                                sig = _tool_call_signature(tc)
+                                if sig and any(_tool_call_signature(existing) == sig for existing in raw_tool_calls):
                                     continue
                                 raw_tool_calls.append(tc)
 

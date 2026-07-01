@@ -146,6 +146,8 @@ def validate_constraint_action(
             "Conditional",
             "Scripted",
             "DateLogic",
+            "Charset",
+            "Composite",
             "NOT_NULL",
             "UNIQUE",
             "RANGE",
@@ -363,7 +365,11 @@ def validate_type_compatibility(
     errors = []
     col_type = column_info.get("type", "string").lower()
 
-    numeric_constraints = {"Range", "DATE_LOGIC"}
+    # Range 是数值范围约束，需数值类型。
+    # 注：DateLogic 历史上被误列入此集合（且比对 "DATE_LOGIC" 大写形式永不命中 = 死代码），
+    # 实际它是日期约束，应允许 date/datetime 类型。这里移出 numeric_constraints，
+    # 保持其原有"不做数值类型限制"的实际行为（消除死代码，不改变语义）。
+    numeric_constraints = {"Range"}
     numeric_types = {"integer", "int", "decimal", "float", "number", "numeric"}
 
     if constraint_type in numeric_constraints and col_type not in numeric_types:

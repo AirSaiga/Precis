@@ -50,6 +50,18 @@ def make_add_constraint_action(table_name: str = "users", column: str = "email")
     }
 
 
+def write_users_schema_with_email(ws: str) -> None:
+    """写入含 email 列的 users schema（供断言"成功落盘"的测试使用）。
+
+    action_handlers 现在对"列不存在"返回失败（不再静默成功），
+    故需要真实列才能让 ADD_CONSTRAINT_NODE 产生 modified diff。
+    """
+    schema_path = os.path.join(ws, "schemas", "users.schema.yaml")
+    os.makedirs(os.path.dirname(schema_path), exist_ok=True)
+    with open(schema_path, "w", encoding="utf-8") as f:
+        f.write("name: users\ncolumns:\n  - id: col_email\n    name: email\n    type: string\n")
+
+
 def sha256_file(path: str) -> str:
     """计算文件的 SHA-256 hash。"""
     h = hashlib.sha256()
@@ -137,10 +149,7 @@ class TestComputeActionDiff:
     def test_diff_result_success_with_modified_files(self, tmp_path):
         """合法 action 产生 modified diff。"""
         ws = make_workspace(tmp_path)
-        schema_path = os.path.join(ws, "schemas", "users.schema.yaml")
-        os.makedirs(os.path.dirname(schema_path), exist_ok=True)
-        with open(schema_path, "w", encoding="utf-8") as f:
-            f.write("name: users\ncolumns: []\n")
+        write_users_schema_with_email(ws)
 
         action = make_add_constraint_action("users", "email")
 
@@ -197,10 +206,7 @@ class TestComputeActionDiff:
     def test_summary_counts_correctly(self, tmp_path):
         """summary 中 modified 计数正确。"""
         ws = make_workspace(tmp_path)
-        schema_path = os.path.join(ws, "schemas", "users.schema.yaml")
-        os.makedirs(os.path.dirname(schema_path), exist_ok=True)
-        with open(schema_path, "w", encoding="utf-8") as f:
-            f.write("name: users\ncolumns: []\n")
+        write_users_schema_with_email(ws)
 
         action = make_add_constraint_action("users", "email")
         result = compute_action_diff([action], ws)
@@ -217,3 +223,52 @@ class TestComputeActionDiff:
         action = make_add_constraint_action("users", "email")
         result = compute_action_diff([action], ws)
         assert isinstance(result.frontend_instructions, list)
+
+
+# =============================================================================
+# P4 子批2: diff 完整性 #9 — dry-run 必须包含新建文件
+# =============================================================================
+
+
+class TestDiffIncludesCreatedFiles:
+    """#9: 新增独立约束/Schema 时，diff 必须显示新建文件（旧逻辑只遍历已存在文件，遗漏新建）。"""
+
+    def test_add_standalone_constraint_shows_created_file(self, tmp_path):
+        """ADD 独立约束 → diff 应含 created 状态的约束文件（而非仅 manifest）。"""
+        ws = make_workspace(tmp_path)
+        # 准备 schema（约束将引用它）
+        import yaml as _yaml
+
+        schemas_dir = os.path.join(ws, "schemas")
+        os.makedirs(schemas_dir, exist_ok=True)
+        with open(os.path.join(schemas_dir, "users.schema.yaml"), "w", encoding="utf-8") as f:
+            _yaml.safe_dump(
+                {
+                    "id": "sc_users",
+                    "name": "users",
+                    "columns": [{"id": "col_email", "name": "email", "type": "string"}],
+                },
+                f,
+            )
+
+        # ADD 独立约束（非内联）→ 会新建 constraints/*.constraint.yaml
+        action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Unique",
+                "targetColumn": "email",
+                "tableName": "users",
+                "targetNodeId": "sc_users",
+                "targetColumnId": "col_email",
+                "isInline": False,
+            },
+        }
+        result = compute_action_diff([action], ws)
+
+        assert result.success is True
+        # 关键：应有 created 状态的文件（新建的约束文件）
+        statuses = {f.status for f in result.files}
+        assert "created" in statuses, f"新建约束文件应出现在 diff（created），但 statuses={statuses}"
+        # 约束文件路径应含 constraints/
+        constraint_files = [f for f in result.files if "constraints" in f.path and f.status == "created"]
+        assert len(constraint_files) >= 1, f"应至少有一个新建的约束文件，files={[f.path for f in result.files]}"

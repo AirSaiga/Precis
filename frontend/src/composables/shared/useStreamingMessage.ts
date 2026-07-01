@@ -38,6 +38,8 @@ export interface PendingFileDiff {
 
 /** apply_pending 事件数据 */
 export interface PendingApply {
+  /** 本次 apply 的 ID（{job_id}#{seq}），回传给 confirm 端点定位具体待确认项 */
+  applyId?: string
   files: PendingFileDiff[]
   summary: Record<string, number>
   success: boolean
@@ -97,6 +99,8 @@ interface EventData {
   code?: string
   files?: unknown[]
   summary?: Record<string, number>
+  /** apply_pending 携带的本次 apply ID（{job_id}#{seq}） */
+  apply_id?: string
   reason?: string
   decision?: string
   /** frontend_instruction 事件携带的单条前端指令（流式画布生长） */
@@ -244,6 +248,7 @@ export function useStreamingMessage() {
       }
       case 'apply_pending': {
         message.pendingApply = {
+          applyId: typeof data.apply_id === 'string' ? data.apply_id : undefined,
           files: Array.isArray(data.files) ? (data.files as PendingFileDiff[]) : [],
           summary: (data.summary ?? {}) as Record<string, number>,
           success: data.success !== false,

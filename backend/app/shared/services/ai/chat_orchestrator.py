@@ -535,9 +535,23 @@ class AIChatOrchestrator:
                         validation_result=validation_result,
                     )
 
-            # 过滤掉有错误的动作
-            if validation_result_obj.valid_actions:
-                actions = validation_result_obj.valid_actions
+            # 校验失败处理：有 error 时直接返回失败 + 错误清单，不执行（all-or-nothing 语义）
+            # 修复 #5：旧逻辑 `if valid_actions:` 在全部非法时（valid_actions==[]）走 else
+            # 把原始的全部非法动作交给 process_actions 写盘，造成校验绕过。
+            if validation_result_obj.has_errors:
+                from app.shared.services.llm.actions.validation_types import format_validation_result
+
+                formatted = format_validation_result(validation_result_obj)
+                logger.warning(f"[chat_orchestrator] 预校验失败，拒绝执行：\n{formatted}")
+                return ChatExecutionResult(
+                    success=False,
+                    reply=f"动作预校验失败，未执行任何修改：\n{formatted}",
+                    actions=[],
+                    error=formatted,
+                    updated_history=updated_history,
+                    validation_result=validation_result,
+                )
+            actions = validation_result_obj.valid_actions
 
         # 6.3 执行动作
         self._notify_progress(options, "executing", "执行操作...")

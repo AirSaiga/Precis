@@ -49,6 +49,23 @@ def _is_configured(p: AIProvider) -> bool:
     return bool(p.api_key and p.api_key.strip())
 
 
+def _validate_base_url(base_url: str | None) -> None:
+    """校验 Provider base_url，防止 SSRF（修复 #11）。
+
+    允许：http/https scheme；localhost/127.0.0.1（本地 Ollama 合法）。
+    拒绝：非 http(s) scheme；链路本地地址 169.254.x（云元数据端点）。
+    """
+    if not base_url:
+        return  # 本地 Provider 可无 base_url
+    lowered = base_url.strip().lower()
+    # 必须是 http/https（拒绝 file://、gopher://、dict:// 等）
+    if not (lowered.startswith("http://") or lowered.startswith("https://")):
+        raise HTTPException(400, detail=f"base_url 必须是 http:// 或 https:// 开头: {base_url}")
+    # 拒绝链路本地地址（AWS/GCP/Azure 元数据端点 169.254.169.254）
+    if "169.254." in lowered:
+        raise HTTPException(400, detail="base_url 不允许指向链路本地地址 169.254.x（元数据端点，疑似 SSRF）")
+
+
 def _get_type_str(p: AIProvider) -> str:
     """安全获取 Provider 类型字符串"""
     return p.type.value if hasattr(p.type, "value") else str(p.type)
@@ -267,6 +284,9 @@ async def test_provider(provider_id: str):
     if not provider_cfg:
         raise HTTPException(404, detail=f"Provider not found: {provider_id}")
 
+    # SSRF 防护：测试连接前校验 base_url（防止 /test 被用作 SSRF 探针）
+    _validate_base_url(provider_cfg.base_url)
+
     provider = create(provider_cfg)
 
     health = await provider.health()
@@ -353,6 +373,8 @@ async def create_provider(req: CreateProviderRequest):
     except ValueError:
         raise HTTPException(400, detail=f"Unsupported provider type: {req.type}. Supported: openai, ollama")
 
+    _validate_base_url(req.base_url)  # SSRF 防护
+
     new_provider = AIProvider(
         id=new_id,
         name=req.name,
@@ -398,6 +420,10 @@ async def update_provider(provider_id: str, req: UpdateProviderRequest):
             update_data["type"] = ProviderType(update_data["type"])
         except ValueError:
             raise HTTPException(400, detail=f"Unsupported provider type: {update_data['type']}")
+
+    # SSRF 防护：若更新了 base_url 则校验
+    if "base_url" in update_data:
+        _validate_base_url(update_data.get("base_url"))
 
     updated_provider = existing.model_copy(update=update_data)
     config.providers[idx] = updated_provider

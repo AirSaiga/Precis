@@ -19,7 +19,11 @@ import tempfile
 from dataclasses import dataclass, field
 from typing import Any
 
-from app.shared.services.llm.actions.action_processor import _collect_affected_files, process_actions
+from app.shared.services.llm.actions.action_processor import (
+    _collect_affected_files,
+    _snapshot_resource_files,
+    process_actions,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +89,18 @@ def compute_action_diff(actions: list[dict[str, Any]], workspace_path: str) -> D
             msgs = [r.get("message", "") for r in proc.get("results", []) if not r.get("success")]
             result.error = "; ".join(msgs) if msgs else "process_actions 失败"
             return result
+
+        # dry-run 后用资源文件快照对比检测新建文件（比按 spec 收集可靠——
+        # spec 可能不含 constraintFile，而 handler 内部派生的路径不在 _collect_affected_files 结果中）
+        pre_snapshot = _snapshot_resource_files(workspace_path)
+        post_snapshot = _snapshot_resource_files(tmp_root)
+        created_in_tmp = post_snapshot - pre_snapshot
+        for abs_p in created_in_tmp:
+            rel = os.path.relpath(abs_p, tmp_root)
+            if rel not in before_contents:
+                rel_paths.append(rel)
+                # 新建文件执行前不存在
+                before_contents[rel] = None
 
         for rel in rel_paths:
             tmp_p = os.path.join(tmp_root, rel)

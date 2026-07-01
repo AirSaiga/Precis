@@ -169,6 +169,30 @@ def _restore_backups(backups: dict[str, str]) -> None:
             logger.error(f"回滚文件失败: {original_path} -> {e}")
 
 
+def _snapshot_resource_files(workspace_path: str) -> set[str]:
+    """快照工作区内的资源文件（constraints/schemas/regex*/transforms 目录下的 yaml）。
+
+    用于回滚时对比前后差异，检测本次新建的文件。比按 spec 推断路径更可靠——
+    spec 可能不含 constraintFile 字段，而 handler 内部用 _generate_constraint_id 派生路径。
+    """
+    snapshot: set[str] = set()
+    for sub in ("constraints", "schemas", "regex_nodes", "regex", "transforms"):
+        d = os.path.join(workspace_path, sub)
+        if os.path.isdir(d):
+            for name in os.listdir(d):
+                if name.endswith((".yaml", ".yml")):
+                    snapshot.add(os.path.join(d, name))
+    return snapshot
+
+
+def _detect_created_files(pre_snapshot: set[str], post_snapshot: set[str]) -> set[str]:
+    """检测本次执行新建的文件：执行后快照中存在、执行前快照中不存在的部分。
+
+    用于回滚时删除新建文件（避免孤儿 YAML）。
+    """
+    return post_snapshot - pre_snapshot
+
+
 def process_actions(actions: list[dict[str, Any]], workspace_path: str = "") -> dict[str, Any]:
     """
     @methoddesc 处理动作列表（支持批量优化和文件级备份回滚）
@@ -180,7 +204,7 @@ def process_actions(actions: list[dict[str, Any]], workspace_path: str = "") -> 
 
     备份回滚策略：
     - 执行前备份所有可能受影响的文件到临时目录
-    - 如果任何动作执行失败，恢复所有备份文件
+    - 如果任何动作执行失败，恢复所有备份文件，并删除本次新建的文件
     - 无论成功失败，最后清理临时目录
 
     参数:
@@ -190,8 +214,9 @@ def process_actions(actions: list[dict[str, Any]], workspace_path: str = "") -> 
     返回:
         处理结果字典，格式为 {"success": bool, "results": [...]}
     """
-    # 执行前备份受影响的文件
+    # 执行前备份受影响的文件（仅含已存在的文件）
     affected_files = _collect_affected_files(actions, workspace_path)
+    pre_snapshot = _snapshot_resource_files(workspace_path)  # 执行前资源文件快照
     backup_dir = ""
     backups: dict[str, str] = {}
     if affected_files:
@@ -205,11 +230,21 @@ def process_actions(actions: list[dict[str, Any]], workspace_path: str = "") -> 
         # 检查是否有失败的动作
         all_success = all(r["success"] for r in results)
 
-        if not all_success and backups:
-            # 有动作失败，回滚所有已备份的文件
+        if not all_success:
+            # 有动作失败，回滚：恢复已备份文件 + 删除本次新建的文件（避免孤儿）
             failed_count = sum(1 for r in results if not r["success"])
-            logger.warning(f"[process_actions] {failed_count} 个动作执行失败，正在回滚 {len(backups)} 个文件")
-            _restore_backups(backups)
+            logger.warning(f"[process_actions] {failed_count} 个动作执行失败，正在回滚")
+            if backups:
+                _restore_backups(backups)
+            # 检测本次新建的文件（快照对比，可靠捕获 spec 未声明路径的新文件）
+            post_snapshot = _snapshot_resource_files(workspace_path)
+            created = _detect_created_files(pre_snapshot, post_snapshot)
+            for f in created:
+                try:
+                    os.remove(f)
+                    logger.info(f"[process_actions] 回滚删除新建文件: {f}")
+                except OSError as e:
+                    logger.warning(f"[process_actions] 删除新建文件失败: {f} -> {e}")
 
         return {"success": all_success, "results": results}
     finally:
@@ -271,9 +306,8 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
                 "action": action,
                 "success": success,
                 "message": message,
-                "frontendInstructions": generate_frontend_instructions(action, workspace_path)
-                if success and action_type != "DELETE_CONSTRAINT_NODE"
-                else None,
+                # ADD/UPDATE/DELETE 均生成指令：前端据此增/改/删画布节点（保持画布与磁盘同步）
+                "frontendInstructions": generate_frontend_instructions(action, workspace_path) if success else None,
             }
         )
 
@@ -303,7 +337,10 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
                 "action": action,
                 "success": result["success"],
                 "message": result["message"],
-                "frontendInstructions": None,
+                # ADD/UPDATE/DELETE 均生成指令：前端据此建/刷/删画布 Schema 节点
+                "frontendInstructions": generate_frontend_instructions(action, workspace_path)
+                if result["success"]
+                else None,
             }
         )
 
@@ -315,7 +352,10 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
                 "action": action,
                 "success": result["success"],
                 "message": result["message"],
-                "frontendInstructions": None,
+                # ADD/UPDATE/DELETE 均生成指令：前端据此建/刷/删画布 Regex 节点
+                "frontendInstructions": generate_frontend_instructions(action, workspace_path)
+                if result["success"]
+                else None,
             }
         )
 
@@ -327,7 +367,10 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
                 "action": action,
                 "success": result["success"],
                 "message": result["message"],
-                "frontendInstructions": None,
+                # ADD/UPDATE/DELETE 均生成指令：前端据此建/刷/删画布 Transform 节点
+                "frontendInstructions": generate_frontend_instructions(action, workspace_path)
+                if result["success"]
+                else None,
             }
         )
 

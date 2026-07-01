@@ -28,6 +28,8 @@ import yaml
 
 from app.shared.core.project.constraint.types import ConstraintFile
 from app.shared.core.project.constraint.writer import save_constraint
+from app.shared.core.project.manifest.reader import load_manifest
+from app.shared.core.project.manifest.writer import ensure_constraint_ref, save_manifest
 from app.shared.services.llm.actions.regex_handlers import process_regex_action
 from app.shared.services.llm.actions.schema_handlers import process_schema_action
 from app.shared.services.llm.actions.settings_handlers import process_settings_action
@@ -64,6 +66,35 @@ __all__ = [
     "process_transform_action",
     "process_settings_action",
 ]
+
+
+def _ensure_manifest_constraint_ref(workspace_path: str, constraint_id: str) -> None:
+    """确保 manifest 中包含指定独立约束的引用（镜像 _ensure_manifest_schema_ref）。
+
+    失败时抛出异常 —— 避免约束文件已写盘但 manifest 未登记，
+    导致校验引擎永不加载该约束（C1：静默失效）。
+    """
+    manifest_path = Path(workspace_path) / "project.precis.yaml"
+    if not manifest_path.exists():
+        return
+
+    manifest = load_manifest(manifest_path)
+    ensure_constraint_ref(manifest, constraint_id)
+    save_manifest(manifest, manifest_path)
+
+
+def _remove_manifest_constraint_ref(workspace_path: str, constraint_id: str) -> None:
+    """从 manifest 中移除指定独立约束的引用（镜像 _remove_manifest_schema_ref）。
+
+    失败时抛出异常 —— 避免约束文件已删除但 manifest 仍残留引用（dangling ref）。
+    """
+    manifest_path = Path(workspace_path) / "project.precis.yaml"
+    if not manifest_path.exists():
+        return
+
+    manifest = load_manifest(manifest_path)
+    manifest.constraints = [c for c in manifest.constraints if c.id != constraint_id]
+    save_manifest(manifest, manifest_path)
 
 
 def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[bool, str]:
@@ -128,8 +159,11 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
                     break
 
             if not schema_file:
-                logger.warning(f"[updateYamlConfig] 未找到 schema 文件: {target_table_id}")
-                return True, f"inline:{constraint_id}"
+                # 找不到匹配的 schema 文件时必须返回失败，否则会静默成功
+                # 并触发前端生成幽灵节点（画布有、文件无）。对齐 process_inline_batch 的行为。
+                error_msg = f"未找到 schema 文件: {target_table_id}"
+                logger.warning(f"[updateYamlConfig] {error_msg}")
+                return False, error_msg
 
             # 使用文件锁保护写入操作
             with FileLock(str(schema_file)):
@@ -150,8 +184,10 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
                             break
 
                 if not column_id:
-                    logger.warning(f"[updateYamlConfig] 未找到列 ID: {target_column}")
-                    return True, f"inline:{constraint_id}"
+                    # 目标列不存在时必须返回失败，否则会静默成功（与 process_inline_batch 对齐）。
+                    error_msg = f"未找到列: {target_column}"
+                    logger.warning(f"[updateYamlConfig] {error_msg}")
+                    return False, error_msg
 
                 # 构建内联约束结构
                 inline_constraint = {
@@ -199,6 +235,14 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
     elif action_type == "DELETE_CONSTRAINT_NODE":
         # 删除独立约束文件
         success, message = delete_constraint_file(std_type, filename_table, filename_column, workspace_path)
+        # 同步从 manifest 移除引用（避免 dangling ref）
+        if success:
+            try:
+                deleted_constraint_id = _generate_constraint_id(std_type, filename_table or "inline", filename_column)
+                _remove_manifest_constraint_ref(workspace_path, deleted_constraint_id)
+            except Exception as e:
+                # 文件已删成功，manifest 清理失败仅告警（不回滚文件删除）
+                logger.warning(f"[updateYamlConfig] 删除 manifest 引用失败（文件已删）: {e}")
         return success, message
 
     else:
@@ -222,6 +266,13 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
 
             # 保存约束文件
             save_constraint(constraint_config, str(constraint_file_path))
+            # 注册到 manifest（C1 修复：否则约束文件成为孤儿，校验引擎永不加载）
+            try:
+                _ensure_manifest_constraint_ref(workspace_path, constraint_id)
+            except Exception as e:
+                logger.error(f"[updateYamlConfig] 登记 manifest 失败，回滚约束文件: {e}")
+                constraint_file_path.unlink(missing_ok=True)
+                return False, f"更新 manifest 引用失败: {e}"
             logger.info(f"[updateYamlConfig] 成功保存约束: {constraint_id}")
             return True, constraint_id
 

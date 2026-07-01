@@ -24,7 +24,7 @@
 
 import os
 
-from fastapi import Header
+from fastapi import Header, HTTPException
 
 from .router import router
 
@@ -33,6 +33,40 @@ _DATA_EXTENSIONS = {".xlsx", ".xls", ".csv", ".json", ".jsonl"}
 
 # 递归遍历时跳过的目录
 _SKIP_DIRS = {"node_modules", "__pycache__", ".git", ".venv", "venv", ".idea"}
+
+
+def validate_project_path(raw_path: str | None) -> str:
+    """校验 X-Project-Config-Path Header 值是否为合法 Precis 项目根。
+
+    修复 #10：旧逻辑直接用 Header 值作 project_path，无边界校验 → 任意目录读写。
+    要求：
+    - 非空
+    - 不含 ".."（normpath 后仍不含）
+    - 必须是存在的目录
+    - 必须含 project.precis.yaml（合法项目根标识）
+
+    参数:
+        raw_path: Header 原始值
+
+    返回:
+        规范化后的绝对路径
+
+    抛出:
+        HTTPException(400): 校验失败
+    """
+    if not raw_path:
+        raise HTTPException(status_code=400, detail="缺少 X-Project-Config-Path 头")
+    normalized = os.path.normpath(os.path.abspath(raw_path))
+    # 拒绝路径穿越（normpath 后仍出现 .. 说明超出根）
+    if ".." in normalized.split(os.sep):
+        raise HTTPException(status_code=400, detail="项目路径不允许包含 .. 目录穿越")
+    if not os.path.isdir(normalized):
+        raise HTTPException(status_code=400, detail=f"项目路径不存在或非目录: {normalized}")
+    manifest = os.path.join(normalized, "project.precis.yaml")
+    if not os.path.isfile(manifest):
+        raise HTTPException(status_code=400, detail="项目路径下未找到 project.precis.yaml（非合法 Precis 项目根）")
+    return normalized
+
 
 _MAX_DEPTH = 5
 _MAX_FILES = 1000

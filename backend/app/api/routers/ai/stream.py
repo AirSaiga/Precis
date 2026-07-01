@@ -92,6 +92,11 @@ async def chat_stream(
     """
     config = loader.load()
 
+    # 校验项目路径（修复 #10：防止 X-Project-Config-Path 任意目录读写）
+    from .utils import validate_project_path
+
+    safe_project_path = validate_project_path(x_project_config_path)
+
     # 获取默认 provider(与 /chat 端点逻辑一致)
     provider_id = config.defaults.get("chat")
     if not provider_id:
@@ -109,7 +114,7 @@ async def chat_stream(
 
     # 创建 job 资源
     job_id = f"stream_{uuid.uuid4().hex[:12]}"
-    journal_dir = _journal_dir_for(x_project_config_path)
+    journal_dir = _journal_dir_for(safe_project_path)
     journal = EventJournal(job_id=job_id, journal_dir=journal_dir)
 
     cancel_event = asyncio.Event()
@@ -137,7 +142,7 @@ async def chat_stream(
                 message=request.message,
                 history=history,
                 provider=provider,
-                project_path=x_project_config_path or "",
+                project_path=safe_project_path,
                 context_nodes=context_nodes,
             )
         finally:
@@ -183,11 +188,11 @@ async def cancel_job(job_id: str) -> dict[str, str]:
         ev = _cancel_events.get(job_id)
     if ev is not None:
         ev.set()
-        # 同步 resolve 挂起的 apply 确认为 reject（取消 = 拒绝）
+        # 同步 resolve 该 job 下所有挂起的 apply 确认为 reject（每次 apply 各自独立，可能有多个）
         pending_store = get_global_pending_store()
-        controller = pending_store.get(job_id)
-        if controller is not None and not controller.is_resolved:
-            await controller.resolve("reject")
+        for controller in pending_store.pop_by_job_prefix(job_id):
+            if not controller.is_resolved:
+                await controller.resolve("reject")
         return {"status": "cancelling"}
     return {"status": "not_found"}
 
@@ -207,7 +212,9 @@ async def confirm_apply(job_id: str, request: AiChatConfirmRequest) -> dict[str,
         {"status": "resolved", "decision": "confirm"} 或 404
     """
     pending_store = get_global_pending_store()
-    controller = pending_store.get(job_id)
+    # 优先用 apply_id 精确查找；为空时回退到 job 维度（兼容单 apply 场景）
+    lookup_key = request.apply_id if request.apply_id else job_id
+    controller = pending_store.get(lookup_key)
     if controller is None:
         raise HTTPException(404, detail="无挂起的改动(可能已决策或任务已结束)")
     if controller.is_resolved:

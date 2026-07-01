@@ -181,7 +181,7 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, nextTick, watch } from 'vue'
+  import { ref, computed, nextTick, watch, onBeforeUnmount } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useAiChatStore } from '@/stores/aiChatStore'
   import type { ChatMessage } from '@/stores/aiChatStore'
@@ -326,6 +326,14 @@
   const handleCancel = () => {
     void aiChatStore.cancelSendMessage()
   }
+
+  // 组件卸载时（切模式 / 路由切换 / 关闭），若流式仍在进行则取消，
+  // 避免 SSE 连接泄漏 + loading 永久锁死（后端会在 TCP 断开后自取消）。
+  onBeforeUnmount(() => {
+    if (aiChatStore.loading) {
+      void aiChatStore.cancelSendMessage()
+    }
+  })
 
   /** 处理 apply_actions 确认/拒绝决策 */
   const handleApplyDecide = async (decision: 'confirm' | 'reject') => {

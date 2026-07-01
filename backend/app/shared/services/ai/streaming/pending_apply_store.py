@@ -87,23 +87,55 @@ class PendingApplyStore(Protocol):
 
 
 class InMemoryPendingApplyStore:
-    """进程内 dict 实现。executor 串行确保每 job 至多 1 挂起。"""
+    """进程内 dict 实现。
+
+    键语义：apply_id（格式 "{job_id}#{seq}"），支持同一 job 内多次 apply_actions 各自独立确认。
+    兼容旧用法：get/pop 仍接受 job_id，内部回退到该 job 的唯一/首个挂起项。
+    """
 
     def __init__(self) -> None:
         self._store: dict[str, ConfirmController] = {}
         self._lock = threading.Lock()
 
-    def put(self, job_id: str, controller: ConfirmController) -> None:
+    def put(self, apply_id: str, controller: ConfirmController) -> None:
         with self._lock:
-            self._store[job_id] = controller
+            self._store[apply_id] = controller
 
-    def get(self, job_id: str) -> ConfirmController | None:
+    def get(self, apply_id: str) -> ConfirmController | None:
         with self._lock:
-            return self._store.get(job_id)
+            # 精确匹配 apply_id
+            if apply_id in self._store:
+                return self._store[apply_id]
+            # 兼容回退：传入的是 job_id，找该 job 下唯一未决议项
+            pending = [c for aid, c in self._store.items() if aid.startswith(f"{apply_id}#") and not c.is_resolved]
+            return pending[0] if len(pending) == 1 else None
 
-    def pop(self, job_id: str) -> ConfirmController | None:
+    def pop(self, apply_id: str) -> ConfirmController | None:
         with self._lock:
-            return self._store.pop(job_id, None)
+            if apply_id in self._store:
+                return self._store.pop(apply_id)
+            # 兼容回退
+            matches = [
+                (aid, c) for aid, c in self._store.items() if aid.startswith(f"{apply_id}#") and not c.is_resolved
+            ]
+            if len(matches) == 1:
+                return self._store.pop(matches[0][0])
+            return None
+
+    def get_all_by_job(self, job_id: str) -> list[ConfirmController]:
+        """获取某 job 下所有挂起的确认控制器（用于 cancel 时批量 reject）。"""
+        with self._lock:
+            prefix = f"{job_id}#"
+            return [c for aid, c in self._store.items() if aid.startswith(prefix)]
+
+    def pop_by_job_prefix(self, job_id: str) -> list[ConfirmController]:
+        """弹出某 job 下所有挂起的确认控制器。"""
+        with self._lock:
+            prefix = f"{job_id}#"
+            matched = [(aid, c) for aid, c in self._store.items() if aid.startswith(prefix)]
+            for aid, _ in matched:
+                self._store.pop(aid, None)
+            return [c for _, c in matched]
 
 
 _global_store: PendingApplyStore = InMemoryPendingApplyStore()

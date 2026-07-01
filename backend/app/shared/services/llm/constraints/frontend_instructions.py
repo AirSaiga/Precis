@@ -11,10 +11,29 @@
 
 from __future__ import annotations
 
+import logging
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 from app.shared.services.llm.constraints.constraint_id import _generate_constraint_id
 from app.shared.services.llm.schema_resolver import _resolve_id_from_name
+
+logger = logging.getLogger(__name__)
+
+
+def _read_yaml_file(path: Path) -> dict[str, Any] | None:
+    """安全读取 YAML 文件，失败返回 None（仅用于 UPDATE 指令重读磁盘真实结果）。"""
+    try:
+        if not path.exists():
+            return None
+        with open(path, encoding="utf-8") as f:
+            return yaml.safe_load(f) or {}
+    except Exception as e:
+        logger.warning(f"[frontend_instructions] 重读文件失败 {path}: {e}")
+        return None
+
 
 CONSTRAINT_ACTION_TYPES = {"ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"}
 SCHEMA_ACTION_TYPES = {"ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"}
@@ -42,11 +61,11 @@ def generate_frontend_instructions(action: dict[str, Any], workspace_path: str =
     if action_type in CONSTRAINT_ACTION_TYPES:
         return _generate_constraint_instruction(action, workspace_path)
     elif action_type in SCHEMA_ACTION_TYPES:
-        return _generate_schema_instruction(action)
+        return _generate_schema_instruction(action, workspace_path)
     elif action_type in REGEX_ACTION_TYPES:
-        return _generate_regex_instruction(action)
+        return _generate_regex_instruction(action, workspace_path)
     elif action_type in TRANSFORM_ACTION_TYPES:
-        return _generate_transform_instruction(action)
+        return _generate_transform_instruction(action, workspace_path)
     elif action_type == "UPDATE_SETTINGS":
         return _generate_settings_instruction(action)
     else:
@@ -103,54 +122,114 @@ def _generate_constraint_instruction(action: dict[str, Any], workspace_path: str
     }
 
 
-def _generate_schema_instruction(action: dict[str, Any]) -> dict[str, Any]:
-    """生成 Schema 类前端指令"""
+def _generate_schema_instruction(action: dict[str, Any], workspace_path: str = "") -> dict[str, Any]:
+    """生成 Schema 类前端指令。
+
+    ADD：回声输入（输入即落盘结果）。
+    UPDATE：重读磁盘，返回合并后的真实完整列/源（避免回声仅含 LLM 增量导致画布丢列）。
+    DELETE：只需 id/name 用于前端定位，不重读（文件已删）。
+    """
     action_type = action.get("actionType")
     spec = action.get("schemaSpec", {})
+    schema_id = spec.get("schemaId") or spec.get("id", "")
+    name = spec.get("name", "")
+
+    columns = spec.get("columns", [])
+    source = spec.get("source")
+
+    # UPDATE 时重读磁盘真实结果（_update_schema 会保留未列出的列，回声会丢列）
+    if action_type == "UPDATE_SCHEMA" and workspace_path:
+        schemas_dir = Path(workspace_path) / "schemas"
+        # 按与 handler 一致的方式定位文件：先按 id，再按 name
+        candidates = list(schemas_dir.glob("*.yaml")) if schemas_dir.exists() else []
+        for sf in candidates:
+            data = _read_yaml_file(sf)
+            if data and (data.get("id") == schema_id or (name and data.get("name") == name)):
+                columns = data.get("columns", columns)
+                source = data.get("source", source)
+                break
+
     return {
         "actionType": action_type,
         "schemaSpec": {
-            "name": spec.get("name", ""),
-            "schemaId": spec.get("schemaId") or spec.get("id", ""),
-            "columns": spec.get("columns", []),
-            "source": spec.get("source"),
+            "name": name,
+            "schemaId": schema_id,
+            "columns": columns,
+            "source": source,
         },
     }
 
 
-def _generate_regex_instruction(action: dict[str, Any]) -> dict[str, Any]:
-    """生成 Regex 类前端指令"""
+def _generate_regex_instruction(action: dict[str, Any], workspace_path: str = "") -> dict[str, Any]:
+    """生成 Regex 类前端指令。
+
+    ADD：回声输入。UPDATE：重读磁盘真实 pattern/matchMode 等（整段替换，回声≈结果，重读为一致性）。
+    DELETE：只需 id/name 定位，不重读。
+    """
     action_type = action.get("actionType")
     spec = action.get("regexSpec", {})
+    regex_id = spec.get("regexId") or spec.get("id", "")
+    name = spec.get("name", "")
+
+    pattern = spec.get("pattern", "")
+    match_mode = spec.get("matchMode", "full")
+    case_sensitive = spec.get("caseSensitive", False)
+    description = spec.get("description")
+
+    if action_type == "UPDATE_REGEX" and workspace_path and regex_id:
+        data = _read_yaml_file(Path(workspace_path) / "regex" / f"{regex_id}.regex.yaml")
+        if data:
+            pattern = data.get("pattern", pattern)
+            match_mode = data.get("matchMode", match_mode)
+            case_sensitive = data.get("caseSensitive", case_sensitive)
+            description = data.get("description", description)
+
     return {
         "actionType": action_type,
         "regexSpec": {
-            "name": spec.get("name", ""),
-            "regexId": spec.get("regexId") or spec.get("id", ""),
-            "pattern": spec.get("pattern", ""),
-            "matchMode": spec.get("matchMode", "full"),
-            "caseSensitive": spec.get("caseSensitive", False),
+            "name": name,
+            "regexId": regex_id,
+            "pattern": pattern,
+            "matchMode": match_mode,
+            "caseSensitive": case_sensitive,
             "targetNodeId": spec.get("targetNodeId"),
             "targetColumn": spec.get("targetColumn"),
-            "description": spec.get("description"),
+            "description": description,
         },
     }
 
 
-def _generate_transform_instruction(action: dict[str, Any]) -> dict[str, Any]:
-    """生成 Transform 类前端指令"""
+def _generate_transform_instruction(action: dict[str, Any], workspace_path: str = "") -> dict[str, Any]:
+    """生成 Transform 类前端指令。
+
+    ADD：回声输入。UPDATE：重读磁盘真实 params 等（整段替换，回声≈结果，重读为一致性）。
+    DELETE：只需 id 定位，不重读。
+    """
     action_type = action.get("actionType")
     spec = action.get("transformSpec", {})
+    transform_id = spec.get("transformId") or spec.get("id", "")
+
+    params = spec.get("params", {})
+    output_columns = spec.get("outputColumns", [])
+    description = spec.get("description")
+
+    if action_type == "UPDATE_TRANSFORM" and workspace_path and transform_id:
+        data = _read_yaml_file(Path(workspace_path) / "transforms" / f"{transform_id}.transform.yaml")
+        if data:
+            params = data.get("params", params)
+            output_columns = data.get("outputColumns", output_columns)
+            description = data.get("description", description)
+
     return {
         "actionType": action_type,
         "transformSpec": {
-            "transformId": spec.get("transformId") or spec.get("id", ""),
+            "transformId": transform_id,
             "type": spec.get("type", ""),
-            "description": spec.get("description"),
+            "description": description,
             "inputFromNode": spec.get("inputFromNode"),
             "inputColumn": spec.get("inputColumn"),
-            "params": spec.get("params", {}),
-            "outputColumns": spec.get("outputColumns", []),
+            "params": params,
+            "outputColumns": output_columns,
         },
     }
 

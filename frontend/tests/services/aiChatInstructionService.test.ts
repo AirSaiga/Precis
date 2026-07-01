@@ -321,4 +321,213 @@ describe('aiChatInstructionService', () => {
       expect(mocks.toastError).toHaveBeenCalled()
     })
   })
+
+  // ============================================================
+  // DELETE 画布镜像（P1：约束文件已由后端删除，前端须同步删节点）
+  // ============================================================
+  describe('DELETE_CONSTRAINT_NODE', () => {
+    it('独立约束：按 (类型, table, column) 定位并删除节点', async () => {
+      // 画布上已有一个 notNullConstraint 节点
+      mocks.graphStore.nodes = [
+        makeSchemaNode('schema-1', [{ id: 'col_email', columnName: 'email' }]),
+        {
+          id: 'constraint-node-1',
+          type: 'notNullConstraint',
+          position: { x: 100, y: 0 },
+          data: { configName: 'nn1', table: 'Users', column: 'email' },
+        } as VueFlowNode,
+      ]
+
+      const instruction = makeConstraintInstruction({
+        type: 'NOT_NULL',
+        tableName: 'Users',
+        targetColumn: 'email',
+        isInline: false,
+      })
+      instruction.actionType = 'DELETE_CONSTRAINT_NODE'
+
+      await processFrontendInstructions([instruction])
+
+      expect(mocks.removeNodes).toHaveBeenCalledWith(['constraint-node-1'])
+      expect(mocks.graphStore.reconcileAll).toHaveBeenCalled()
+    })
+
+    it('内联约束：从列移除约束', async () => {
+      mocks.graphStore.nodes = [
+        makeSchemaNode('schema-1', [{ id: 'col_email', columnName: 'email' } as never]),
+      ]
+      // 先用内联结构模拟列上有约束
+      ;(mocks.graphStore.nodes[0].data as { columns: Array<Record<string, unknown>> }).columns[0] =
+        {
+          id: 'col_email',
+          columnName: 'email',
+          // CONSTRAINT_TYPE_MAP 把 'NOT_NULL' 映射为 'notNull'，toLowerCase 后键为 'not_null'
+          constraints: { not_null: { id: 'nn1', enabled: true } },
+        }
+
+      const instruction = makeConstraintInstruction({
+        type: 'NOT_NULL',
+        targetNodeId: 'schema-1',
+        tableName: 'Users',
+        targetColumn: 'email',
+        isInline: true,
+      })
+      instruction.actionType = 'DELETE_CONSTRAINT_NODE'
+
+      await processFrontendInstructions([instruction])
+
+      expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith(
+        'schema-1',
+        expect.objectContaining({ columns: expect.any(Array) })
+      )
+    })
+  })
+
+  describe('DELETE_SCHEMA', () => {
+    it('精确 id 匹配删除', async () => {
+      mocks.graphStore.nodes = [makeSchemaNode('sc_users')]
+
+      const instruction = {
+        actionType: 'DELETE_SCHEMA',
+        schemaSpec: { name: 'users', schemaId: 'sc_users' },
+      } as unknown as FrontendInstruction
+
+      await processFrontendInstructions([instruction])
+
+      expect(mocks.removeNodes).toHaveBeenCalledWith('sc_users')
+    })
+
+    it('id 不匹配时按 tableName 兜底删除', async () => {
+      // 节点 id 是 sc_xxx，但指令只给 name
+      mocks.graphStore.nodes = [makeSchemaNode('sc_users_id')]
+
+      const instruction = {
+        actionType: 'DELETE_SCHEMA',
+        schemaSpec: { name: 'Users' }, // 无 schemaId，靠 tableName 兜底
+      } as unknown as FrontendInstruction
+
+      await processFrontendInstructions([instruction])
+
+      expect(mocks.removeNodes).toHaveBeenCalledWith('sc_users_id')
+    })
+  })
+
+  describe('DELETE_REGEX / DELETE_TRANSFORM', () => {
+    it('DELETE_REGEX 按 configName 兜底删除', async () => {
+      mocks.graphStore.nodes = [
+        {
+          id: 'some-other-id',
+          type: 'regex',
+          position: { x: 0, y: 0 },
+          data: { configName: 'emailRegex' },
+        } as VueFlowNode,
+      ]
+
+      const instruction = {
+        actionType: 'DELETE_REGEX',
+        regexSpec: { name: 'emailRegex', regexId: 'missing-id' },
+      } as unknown as FrontendInstruction
+
+      await processFrontendInstructions([instruction])
+
+      expect(mocks.removeNodes).toHaveBeenCalledWith('some-other-id')
+    })
+
+    it('DELETE_TRANSFORM 按 id 删除', async () => {
+      mocks.graphStore.nodes = [
+        {
+          id: 'tf-1',
+          type: 'transform',
+          position: { x: 0, y: 0 },
+          data: { configName: 'CastType_tf-1' },
+        } as VueFlowNode,
+      ]
+
+      const instruction = {
+        actionType: 'DELETE_TRANSFORM',
+        transformSpec: { transformId: 'tf-1', type: 'CastType' },
+      } as unknown as FrontendInstruction
+
+      await processFrontendInstructions([instruction])
+
+      expect(mocks.removeNodes).toHaveBeenCalledWith('tf-1')
+    })
+  })
+
+  // ============================================================
+  // UPDATE 画布刷新（P1：后端已改 YAML，前端刷新节点数据）
+  // ============================================================
+  describe('UPDATE_SCHEMA / UPDATE_REGEX / UPDATE_TRANSFORM', () => {
+    it('UPDATE_SCHEMA 刷新列结构', async () => {
+      mocks.graphStore.nodes = [makeSchemaNode('sc_users')]
+
+      const instruction = {
+        actionType: 'UPDATE_SCHEMA',
+        schemaSpec: {
+          name: 'Users',
+          schemaId: 'sc_users',
+          columns: [{ name: 'phone', type: 'string' }],
+        },
+      } as unknown as FrontendInstruction
+
+      await processFrontendInstructions([instruction])
+
+      expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith(
+        'sc_users',
+        expect.objectContaining({ columns: expect.any(Array) })
+      )
+    })
+
+    it('UPDATE_REGEX 刷新 pattern', async () => {
+      mocks.graphStore.nodes = [
+        {
+          id: 'regex-1',
+          type: 'regex',
+          position: { x: 0, y: 0 },
+          data: { configName: 'emailRegex' },
+        } as VueFlowNode,
+      ]
+
+      const instruction = {
+        actionType: 'UPDATE_REGEX',
+        regexSpec: {
+          name: 'emailRegex',
+          regexId: 'regex-1',
+          pattern: '^\\d+$',
+          matchMode: 'full',
+          caseSensitive: true,
+        },
+      } as unknown as FrontendInstruction
+
+      await processFrontendInstructions([instruction])
+
+      expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith(
+        'regex-1',
+        expect.objectContaining({ pattern: '^\\d+$' })
+      )
+    })
+
+    it('UPDATE_TRANSFORM 刷新 params', async () => {
+      mocks.graphStore.nodes = [
+        {
+          id: 'tf-1',
+          type: 'transform',
+          position: { x: 0, y: 0 },
+          data: { configName: 'CastType_tf-1' },
+        } as VueFlowNode,
+      ]
+
+      const instruction = {
+        actionType: 'UPDATE_TRANSFORM',
+        transformSpec: { transformId: 'tf-1', type: 'CastType', params: { to: 'integer' } },
+      } as unknown as FrontendInstruction
+
+      await processFrontendInstructions([instruction])
+
+      expect(mocks.graphStore.updateNodeData).toHaveBeenCalledWith(
+        'tf-1',
+        expect.objectContaining({ params: { to: 'integer' } })
+      )
+    })
+  })
 })

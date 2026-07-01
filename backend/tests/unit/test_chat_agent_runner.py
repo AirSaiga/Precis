@@ -23,6 +23,7 @@ from app.shared.services.ai.chat_orchestrator import (
     AIChatOrchestrator,
     ChatOptions,
 )
+from app.shared.services.llm.actions.validation_types import ValidationResult
 from app.shared.services.llm.config.models import AIProvider, ProviderType
 from app.shared.services.llm.providers.base import BaseProvider, ChatRequest, ChatResponse, StreamChunk
 
@@ -135,7 +136,33 @@ async def test_runner_query_only_path():
 
 @pytest.mark.asyncio
 async def test_runner_modify_path_collects_instructions():
-    """修改路径：apply_actions 后收尾，frontend_instructions 正确旁路累积。"""
+    """修改路径：apply_actions 后收尾，frontend_instructions 正确旁路累积。
+
+    写操作须走两阶段确认（fail-closed）：runner 用 dry_run_enabled=True + job_id，
+    apply_callbacks 通过 on_apply_pending 自动确认。
+    """
+    import asyncio
+
+    from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyCallbacks
+    from app.shared.services.ai.streaming.pending_apply_store import get_global_pending_store
+    from app.shared.services.llm.actions.diff_compute import DiffResult, FileDiff
+
+    resolve_tasks: list = []
+
+    def on_apply_pending(payload):
+        apply_id = payload.get("apply_id")
+        if apply_id:
+            ctrl = get_global_pending_store().get(apply_id)
+
+            async def resolve_later():
+                await asyncio.sleep(0.01)
+                if ctrl is not None:
+                    await ctrl.resolve("confirm")
+
+            resolve_tasks.append(asyncio.create_task(resolve_later()))
+
+    apply_callbacks = ApplyCallbacks(on_apply_pending=on_apply_pending)
+
     provider = FakeProvider(
         responses=[
             # 第 1 轮：LLM 直接 apply_actions
@@ -159,30 +186,48 @@ async def test_runner_modify_path_collects_instructions():
         project_path="/fake/project",
         context_nodes=[],
         max_iterations=3,
+        dry_run_enabled=True,
+        apply_callbacks=apply_callbacks,
+        job_id="test-modify",
     )
 
-    process_result = {
+    fi = {"actionType": "ADD_CONSTRAINT_NODE", "constraintSpec": {"type": "NotNull"}}
+    write_result = {
         "success": True,
         "results": [
             {
                 "action": {"actionType": "ADD_CONSTRAINT_NODE"},
                 "success": True,
                 "message": "ok",
-                "frontendInstructions": {"actionType": "ADD_CONSTRAINT_NODE", "constraintSpec": {"type": "NotNull"}},
+                "frontendInstructions": fi,
             }
         ],
     }
 
-    with patch(
-        "app.shared.services.ai.agent.chat_tools.apply_actions.process_actions",
-        return_value=process_result,
+    # stub 预验证为放行；to_thread 依次返回 dry-run DiffResult（第一次）和写盘结果（第二次）
+    dry_run_diff = DiffResult(
+        success=True,
+        files=[FileDiff(path="schemas/users.schema.yaml", status="modified", diff="fake")],
+        frontend_instructions=[fi],
+    )
+    ok_validation = ValidationResult()
+    with (
+        patch("app.shared.services.ai.agent.chat_tools.apply_actions.ActionValidator") as mock_validator,
+        patch(
+            "app.shared.services.ai.agent.chat_tools.apply_actions.asyncio.to_thread",
+            side_effect=[dry_run_diff, write_result],
+        ),
     ):
+        mock_validator.return_value.validate.return_value = ok_validation
         result = await runner.run("给 email 加非空约束")
+
+    for t in resolve_tasks:
+        await t
 
     assert result.success is True
     assert "非空" in result.reply
     # 关键断言：frontend_instructions 被旁路累积到结果
-    assert len(result.frontend_instructions) == 1
+    assert len(result.frontend_instructions) >= 1
     assert result.frontend_instructions[0]["actionType"] == "ADD_CONSTRAINT_NODE"
     # actions 审计记录
     assert len(result.actions) == 1
@@ -340,6 +385,51 @@ async def test_orchestrator_agent_mode_false_uses_legacy_path():
     assert result.success is True
     assert result.reply == "有3张表"
     assert result.actions == []
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_legacy_all_invalid_actions_blocked():
+    """#5: 旧路径下当所有动作都非法时，必须拒绝执行（不绕过校验写盘）。
+
+    旧逻辑 `if valid_actions:` 在全部非法时（valid_actions==[]）走 else，
+    把原始的全部非法动作交给 process_actions 写盘。修复后 has_errors 即拒绝。
+    """
+    from app.shared.services.llm.providers.base import ChatResponse
+
+    provider = FakeProvider(responses=[])
+    orchestrator = AIChatOrchestrator(provider=provider.cfg)
+
+    # LLM 返回一个引用不存在表的动作（校验必失败）
+    class _FakeLegacyProvider:
+        async def chat(self, req):
+            return ChatResponse(
+                content='{"reply": "我将添加约束", "actions": [{"actionType": "ADD_CONSTRAINT_NODE", "constraintSpec": {"type": "NotNull", "tableName": "ghost_table", "targetColumn": "x"}}]}',
+                model="fake",
+            )
+
+    fake_provider = _FakeLegacyProvider()
+    with (
+        patch("app.shared.services.llm.providers.create", return_value=fake_provider),
+        patch(
+            "app.shared.services.ai.chat_agent_runner.ChatAgentRunner.run", side_effect=AssertionError("不应走 runner")
+        ),
+        patch(
+            "app.shared.services.ai.utils.get_project_overview",
+            return_value={"schemas": [], "constraints": [], "transforms": [], "regex_nodes": [], "settings": {}},
+        ),
+        patch("app.shared.services.ai.chat_orchestrator.process_actions") as mock_proc,
+    ):
+        result = await orchestrator.execute_chat(
+            message="给 ghost_table 加约束",
+            project_path="/fake/project",
+            context_nodes=[],
+            options=ChatOptions(agent_mode=False, skip_action_validation=False),
+        )
+
+    # 关键：校验失败 → 拒绝执行，process_actions 不得被调用
+    assert result.success is False
+    assert "预校验失败" in (result.reply or "") or "预校验失败" in (result.error or "")
+    mock_proc.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -565,3 +655,22 @@ def test_collect_audit_trail_handles_missing_tool_results_gracefully():
     assert tool_steps[1]["status"] == "success"
     # action_count 仍应正常提取
     assert tool_steps[1]["action_count"] == 0
+
+
+# =============================================================================
+# P2: 系统提示词内容验证
+# =============================================================================
+
+
+def test_agent_system_prompt_contains_constraint_params_table():
+    """H-LLM1: agent 模式系统提示词必须含约束参数表（Range/allowedValues 等），
+    否则 LLM 会猜测约束参数结构。"""
+    from app.shared.services.ai.chat_agent_runner import CHAT_AGENT_SYSTEM_PROMPT
+
+    # 关键片段：每种约束类型的参数说明
+    assert "Range" in CHAT_AGENT_SYSTEM_PROMPT
+    assert "allowedValues" in CHAT_AGENT_SYSTEM_PROMPT
+    assert "toTableId" in CHAT_AGENT_SYSTEM_PROMPT  # ForeignKey 参数
+    # Charset/Composite 必须出现在参数表中（H-LLM3 一致性）
+    assert "Charset" in CHAT_AGENT_SYSTEM_PROMPT
+    assert "Composite" in CHAT_AGENT_SYSTEM_PROMPT

@@ -271,6 +271,10 @@ export const useAiChatStore = defineStore('aiChat', () => {
 
   /** 关闭 AI 聊天抽屉 */
   function closeDrawer() {
+    // 流式进行中关闭抽屉时，先取消发送（abort SSE + 通知后端停止），避免僵尸后端 + loading 锁死
+    if (loading.value) {
+      void cancelSendMessage()
+    }
     drawerVisible.value = false
   }
 
@@ -558,12 +562,17 @@ export const useAiChatStore = defineStore('aiChat', () => {
       toastError(t('aiChat.sessionErrorRetry'))
       return
     }
+    // 从最近 streaming 消息取 apply_id（每次 apply 独立，定位具体待确认项）
+    const lastStreamingMsg = [...messages.value]
+      .reverse()
+      .find((m) => m.role === 'assistant' && m.streaming)
+    const applyId = lastStreamingMsg?.streaming?.pendingApply?.applyId
     try {
       const baseUrl = (await import('@/core/services/httpClient')).getApiBaseUrl()
       await fetch(`${baseUrl}/api/latest/ai/chat/${jobId}/confirm`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision }),
+        body: JSON.stringify({ decision, ...(applyId ? { apply_id: applyId } : {}) }),
       })
     } catch (error) {
       logger.error('确认 apply_actions 失败:', error)
@@ -600,6 +609,10 @@ export const useAiChatStore = defineStore('aiChat', () => {
       logger.error('取消 AI 对话失败:', error)
       // 即使取消端点失败，也确保关闭连接
       currentSSEClient.close()
+    } finally {
+      // 安全兜底：无论 sendMessage 的 SSE promise 是否 settle，取消路径都释放 loading。
+      // 否则若 SSE 卡住且组件已卸载，loading 会永久 true 导致输入框永久禁用。
+      loading.value = false
     }
   }
 

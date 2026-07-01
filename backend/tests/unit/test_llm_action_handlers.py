@@ -11,6 +11,7 @@ import os
 from unittest.mock import patch
 
 import pytest
+import yaml
 
 from app.shared.services.llm.actions.action_handlers import update_yaml_config
 from app.shared.services.llm.actions.regex_handlers import (
@@ -72,6 +73,7 @@ class TestUpdateYamlConfig:
         assert "无效" in msg
 
     def test_inline_constraint_no_schema_file(self, tmp_path):
+        """找不到匹配的 schema 文件时必须返回失败（不可静默成功，否则会生成幽灵节点）。"""
         workspace = str(tmp_path)
         os.makedirs(os.path.join(workspace, "schemas"))
         action = {
@@ -85,8 +87,40 @@ class TestUpdateYamlConfig:
             },
         }
         success, msg = update_yaml_config(action, workspace)
-        assert success is True
-        assert msg.startswith("inline:")
+        assert success is False
+        assert "未找到 schema 文件" in msg
+
+    def test_inline_constraint_column_not_found(self, tmp_path):
+        """schema 文件存在但目标列不存在时必须返回失败（对齐 process_inline_batch 行为）。"""
+        workspace = str(tmp_path)
+        schemas_dir = os.path.join(workspace, "schemas")
+        os.makedirs(schemas_dir)
+
+        import yaml
+
+        # schema 存在但只有 name 列，没有 email 列
+        schema_data = {
+            "version": 2,
+            "id": "sc_users",
+            "name": "users",
+            "columns": [{"id": "col_name", "name": "name", "type": "string"}],
+        }
+        with open(os.path.join(schemas_dir, "users.schema.yaml"), "w", encoding="utf-8") as f:
+            yaml.safe_dump(schema_data, f)
+
+        action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "NotNull",
+                "targetColumn": "email",  # 不存在
+                "tableName": "users",
+                "targetNodeId": "sc_users",
+                "isInline": True,
+            },
+        }
+        success, msg = update_yaml_config(action, workspace)
+        assert success is False
+        assert "未找到列" in msg
 
     def test_inline_constraint_with_matching_schema(self, tmp_path):
         workspace = str(tmp_path)
@@ -257,6 +291,78 @@ class TestUpdateYamlConfig:
         success, msg = update_yaml_config(action, workspace)
         assert success is False
         assert "失败" in msg
+
+    @patch("app.shared.services.llm.actions.action_handlers._build_constraint_refs")
+    @patch("app.shared.services.llm.actions.action_handlers.save_constraint")
+    def test_standalone_constraint_registers_manifest(self, mock_save, mock_refs, tmp_path):
+        """C1 修复：独立约束 ADD 后必须注册到 manifest，否则校验引擎永不加载（静默失效）。"""
+        mock_save.return_value = None
+        mock_refs.return_value = {"table_id": "sc_users", "column_id": "sc_email"}
+        workspace = str(tmp_path)
+        os.makedirs(os.path.join(workspace, "constraints"))
+        # 创建 manifest（含 constraints 列表）
+        manifest_path = os.path.join(workspace, "project.precis.yaml")
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            yaml.safe_dump({"version": 2, "project": {"id": "t", "name": "T"}, "schemas": [], "constraints": []}, f)
+
+        action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Unique",
+                "targetColumn": "email",
+                "tableName": "users",
+                "targetNodeId": "sc_users",
+                "targetColumnId": "sc_email",
+                "isInline": False,
+            },
+        }
+        success, msg = update_yaml_config(action, workspace)
+        assert success is True
+
+        # 验证 manifest 已注册该约束
+        with open(manifest_path, encoding="utf-8") as f:
+            m = yaml.safe_load(f)
+        constraint_ids = [c["id"] for c in m.get("constraints", [])]
+        assert msg in constraint_ids, f"约束 {msg} 未注册到 manifest: {constraint_ids}"
+
+    @patch("app.shared.services.llm.actions.action_handlers.delete_constraint_file")
+    def test_delete_constraint_removes_manifest_ref(self, mock_delete, tmp_path):
+        """C1 修复：DELETE 独立约束后必须从 manifest 移除引用（避免 dangling ref）。"""
+        mock_delete.return_value = (True, "deleted")
+        workspace = str(tmp_path)
+        os.makedirs(os.path.join(workspace, "constraints"))
+        manifest_path = os.path.join(workspace, "project.precis.yaml")
+        # manifest 中已有一个约束引用
+        with open(manifest_path, "w", encoding="utf-8") as f:
+            yaml.safe_dump(
+                {
+                    "version": 2,
+                    "project": {"id": "t", "name": "T"},
+                    "schemas": [],
+                    "constraints": [
+                        {"id": "unique_users_email", "path": "constraints/unique_users_email.constraint.yaml"}
+                    ],
+                },
+                f,
+            )
+
+        action = {
+            "actionType": "DELETE_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Unique",
+                "targetColumn": "email",
+                "tableName": "users",
+                "isInline": False,
+            },
+        }
+        success, _ = update_yaml_config(action, workspace)
+        assert success is True
+
+        # 验证 manifest 中该约束引用已被移除
+        with open(manifest_path, encoding="utf-8") as f:
+            m = yaml.safe_load(f)
+        constraint_ids = [c["id"] for c in m.get("constraints", [])]
+        assert "unique_users_email" not in constraint_ids, f"约束引用未被移除: {constraint_ids}"
 
 
 # ============================================================

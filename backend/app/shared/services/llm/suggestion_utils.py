@@ -72,6 +72,8 @@ def normalize_constraint_type(constraint_type: str) -> str:
         "conditional": "Conditional",
         "scripted": "Scripted",
         "datelogic": "DateLogic",
+        "charset": "Charset",
+        "composite": "Composite",
         "regex": "Scripted",  # 别名
     }
 
@@ -161,7 +163,7 @@ def suggest_similar_constraint_type(constraint_type: str) -> str | None:
 
     if suggestions:
         return f"是否指: {', '.join(suggestions[:3])}?"
-    return "支持的约束类型: NotNull, Unique, Range, AllowedValues, ForeignKey, Conditional, Scripted, DateLogic"
+    return "支持的约束类型: NotNull, Unique, Range, AllowedValues, ForeignKey, Conditional, Scripted, DateLogic, Charset, Composite"
 
 
 def suggest_constraints_for_type(col_type: str) -> str:

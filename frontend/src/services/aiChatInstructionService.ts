@@ -26,7 +26,7 @@ import { nextTick } from 'vue'
 import { useGraphStore } from '@/stores/graphStore'
 import { i18n } from '@/i18n'
 import type { FrontendInstruction } from '@/stores/aiChatStore'
-import type { CustomNode } from '@/types/graph'
+import type { CustomNode, CustomNodeData } from '@/types/graph'
 import * as vueFlowApi from '@/services/canvas/vueFlowApi'
 import {
   FITVIEW_DURATION_MS,
@@ -361,6 +361,37 @@ async function handleConstraintInstruction(instruction: FrontendInstruction): Pr
     return
   }
 
+  // DELETE 分支：约束文件已由后端删除，此处镜像到画布
+  if (instruction.actionType === 'DELETE_CONSTRAINT_NODE') {
+    if (isInline) {
+      // 内联删除：从目标列移除该约束（handleInlineConstraint 的逆操作）
+      removeInlineConstraint(targetNode, type, targetColumn)
+    } else {
+      // 独立删除：按 (约束节点类型, table, column) 三元组定位节点
+      // 独立约束节点 id 是前端 uuidv4()，与后端 constraintId 无关，故不能按 id 删
+      const constraintKind = CONSTRAINT_TYPE_MAP[type]
+      if (constraintKind) {
+        const nodeType = `${constraintKind}Constraint`
+        const toRemove = graphStore.nodes.filter((n) => {
+          if (n.type !== nodeType) return false
+          const d = n.data as Record<string, unknown>
+          return d.table === tableName && d.column === targetColumn
+        })
+        if (toRemove.length > 0) {
+          vueFlowApi.removeNodes(toRemove.map((n) => n.id))
+          await nextTick()
+          graphStore.reconcileAll()
+          toastSuccess(t('aiChat.constraintDeleted', { table: tableName, column: targetColumn }))
+        } else {
+          logger.info(
+            `[AI Chat] 画布上未找到匹配的约束节点: ${type} on ${tableName}.${targetColumn}`
+          )
+        }
+      }
+    }
+    return
+  }
+
   if (isInline) {
     handleInlineConstraint(targetNode, type, targetColumn, constraintId)
     toastSuccess(t('aiChat.inlineConstraintCreated', { table: tableName, column: targetColumn }))
@@ -490,6 +521,49 @@ function handleInlineConstraint(
 }
 
 /**
+ * 移除内嵌约束（handleInlineConstraint 的逆操作）
+ *
+ * 从目标列的 constraints 字典中删除指定类型的约束。
+ */
+function removeInlineConstraint(
+  targetNode: VueFlowNode,
+  constraintType: string,
+  columnName: string
+) {
+  const { t } = i18n.global
+  const graphStore = useGraphStore()
+
+  const nodeData = targetNode.data as unknown as Record<string, unknown>
+  if (!nodeData.columns) {
+    logger.warn(`[AI Chat] 目标节点没有 columns 数组`)
+    return
+  }
+
+  const constraintKey = constraintType.toLowerCase()
+  let removed = false
+  const updatedColumns = (nodeData.columns as unknown[]).map((c) => {
+    const col = c as Record<string, unknown>
+    if (col.columnName !== columnName) return col
+    const existingConstraints = (col.constraints as Record<string, unknown>) || {}
+    if (!(constraintKey in existingConstraints)) return col
+    removed = true
+    const next = { ...existingConstraints }
+    delete next[constraintKey]
+    return { ...col, constraints: next }
+  })
+
+  if (!removed) {
+    logger.info(`[AI Chat] 内联约束不存在，无需删除: ${constraintType} on ${columnName}`)
+    return
+  }
+
+  graphStore.updateNodeData(targetNode.id, {
+    columns: updatedColumns,
+  } as Partial<import('@/types/graph').CustomNodeData>)
+  toastSuccess(t('aiChat.inlineConstraintDeleted', { column: columnName }))
+}
+
+/**
  * 处理 Schema 指令 — 在画布上创建/更新/删除 Schema 节点
  *
  * ADD_SCHEMA: 创建 Schema 节点，包含列定义
@@ -593,20 +667,55 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
   }
 
   if (actionType === 'DELETE_SCHEMA') {
+    // schemaId 可能是 sc_xxx，AI 通常只知道 name；两者都尝试，并加 tableName/configName 兜底
     const schemaId = spec.schemaId || spec.name
-    const existing = graphStore.nodes.find((n) => n.id === schemaId)
+    let existing = graphStore.nodes.find((n) => n.id === schemaId)
+    if (!existing) {
+      existing = graphStore.nodes.find((n) => {
+        if (n.type !== 'schema') return false
+        const d = n.data as Record<string, unknown>
+        return d.tableName === spec.name || d.configName === spec.name || d.tableName === schemaId
+      })
+    }
     if (existing) {
-      vueFlowApi.removeNodes(schemaId)
+      vueFlowApi.removeNodes(existing.id)
       await nextTick()
       graphStore.reconcileAll()
       toastSuccess(t('aiChat.schemaDeleted', { name: spec.name || schemaId }))
+    } else {
+      logger.info(`[AI Chat] 画布上未找到 Schema 节点: ${schemaId}`)
     }
     return
   }
 
-  // UPDATE_SCHEMA — 后端已修改 YAML，前端无需画布操作
-  // 用户下次从资源树拖入即可看到更新
-  logger.info(`[AI Chat] Schema 更新已由后端处理: ${spec.name}`)
+  if (actionType === 'UPDATE_SCHEMA') {
+    // UPDATE：刷新画布节点的列结构（后端已合并，指令携带合并后的完整 columns）
+    const schemaId = spec.schemaId || spec.name
+    let existing = graphStore.nodes.find((n) => n.id === schemaId)
+    if (!existing) {
+      existing = graphStore.nodes.find((n) => {
+        if (n.type !== 'schema') return false
+        const d = n.data as Record<string, unknown>
+        return d.tableName === spec.name || d.configName === spec.name
+      })
+    }
+    if (existing && spec.columns) {
+      const cols = spec.columns.map((col) => ({
+        id: col.id || col.name,
+        columnName: col.name,
+        dataType: fromBackendType(col.type),
+        validationErrors: [],
+        constraints: col.constraints || {},
+      }))
+      graphStore.updateNodeData(existing.id, { columns: cols } as Partial<CustomNodeData>)
+      toastSuccess(t('aiChat.schemaUpdated', { name: spec.name || schemaId }))
+    } else {
+      logger.info(`[AI Chat] UPDATE_SCHEMA: 画布上无对应节点或无列数据: ${schemaId}`)
+    }
+    return
+  }
+
+  logger.warn(`[AI Chat] 未知的 Schema 动作类型: ${actionType}`)
 }
 
 /**
@@ -689,7 +798,36 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
     return
   }
 
-  logger.info(`[AI Chat] Regex ${actionType}: 后端已处理`)
+  // DELETE/UPDATE：定位现有 Regex 节点（按 id 或 configName=name）
+  const regexId = spec.regexId || spec.name
+  let existing = graphStore.nodes.find((n) => n.id === regexId)
+  if (!existing) {
+    existing = graphStore.nodes.find(
+      (n) => n.type === 'regex' && (n.data as Record<string, unknown>).configName === spec.name
+    )
+  }
+
+  if (existing && actionType === 'DELETE_REGEX') {
+    vueFlowApi.removeNodes(existing.id)
+    await nextTick()
+    graphStore.reconcileAll()
+    toastSuccess(t('aiChat.regexDeleted', { name: spec.name || regexId }))
+    return
+  }
+
+  if (existing && actionType === 'UPDATE_REGEX') {
+    // 刷新 pattern/matchMode/caseSensitive/description（数据来自后端重读的真实结果）
+    graphStore.updateNodeData(existing.id, {
+      pattern: spec.pattern,
+      matchMode: spec.matchMode,
+      caseSensitive: spec.caseSensitive,
+      description: spec.description,
+    } as Partial<CustomNodeData>)
+    toastSuccess(t('aiChat.regexUpdated', { name: spec.name || regexId }))
+    return
+  }
+
+  logger.info(`[AI Chat] Regex ${actionType}: 画布上无对应节点 (${spec.name || regexId})`)
 }
 
 /**
@@ -743,7 +881,38 @@ async function handleTransformInstruction(instruction: FrontendInstruction): Pro
     return
   }
 
-  logger.info(`[AI Chat] Transform ${actionType}: 后端已处理`)
+  // DELETE/UPDATE：定位现有 Transform 节点（按 id；无 name 字段，兜底用 configName 前缀）
+  const transformId = spec.transformId || ''
+  let existing = graphStore.nodes.find((n) => n.id === transformId)
+  if (!existing && transformId) {
+    existing = graphStore.nodes.find(
+      (n) =>
+        n.type === 'transform' &&
+        typeof (n.data as Record<string, unknown>).configName === 'string' &&
+        ((n.data as Record<string, unknown>).configName as string).includes(transformId)
+    )
+  }
+
+  if (existing && actionType === 'DELETE_TRANSFORM') {
+    vueFlowApi.removeNodes(existing.id)
+    await nextTick()
+    graphStore.reconcileAll()
+    toastSuccess(t('aiChat.transformDeleted', { name: transformId }))
+    return
+  }
+
+  if (existing && actionType === 'UPDATE_TRANSFORM') {
+    // 刷新 params/outputColumns/description（数据来自后端重读的真实结果）
+    graphStore.updateNodeData(existing.id, {
+      params: spec.params,
+      outputColumns: spec.outputColumns,
+      description: spec.description,
+    } as Partial<CustomNodeData>)
+    toastSuccess(t('aiChat.transformUpdated', { name: transformId }))
+    return
+  }
+
+  logger.info(`[AI Chat] Transform ${actionType}: 画布上无对应节点 (${transformId})`)
 }
 
 /**

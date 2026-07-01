@@ -69,6 +69,11 @@ async def chat(request: AiChatRequest, x_project_config_path: str | None = Heade
     """
     config = loader.load()
 
+    # 校验项目路径（修复 #10：防止 X-Project-Config-Path 任意目录读写）
+    from .utils import validate_project_path
+
+    safe_project_path = validate_project_path(x_project_config_path)
+
     # 获取默认 provider
     provider_id = config.defaults.get("chat")
     if not provider_id:
@@ -89,7 +94,7 @@ async def chat(request: AiChatRequest, x_project_config_path: str | None = Heade
     try:
         result = await execute_ai_chat_unified(
             message=request.message,
-            project_path=x_project_config_path,
+            project_path=safe_project_path,
             provider=provider_cfg,
             context_nodes=context_nodes,
             history=history,

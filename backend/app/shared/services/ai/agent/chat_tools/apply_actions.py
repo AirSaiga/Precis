@@ -22,7 +22,12 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.shared.services.llm.actions.action_processor import process_actions
+from app.shared.services.llm.actions.action_validator import ActionValidator
 from app.shared.services.llm.actions.diff_compute import compute_action_diff
+from app.shared.services.llm.actions.validation_types import format_validation_result
+
+# 延迟导入以避免循环依赖（streaming/__init__ → orchestrator → apply_actions → streaming）
+# 在 _run_two_phase 内部 import ConfirmController / get_global_pending_store
 
 logger = logging.getLogger(__name__)
 
@@ -60,6 +65,10 @@ def _summarize_results(raw_results: list[dict[str, Any]]) -> list[dict[str, Any]
     return summarized
 
 
+# 纯读动作（无副作用），允许在无确认环境（非流式 /chat、CLI）直接执行
+_READ_ONLY_ACTION_TYPES = {"VALIDATE_PROJECT"}
+
+
 def _collect_instructions(raw_results: list[dict[str, Any]], target_list: list[Any]) -> None:
     """从 raw_results 中提取 frontendInstructions 并追加到 target_list。"""
     for r in raw_results:
@@ -85,6 +94,7 @@ class ApplyActionsTool:
         dry_run_enabled: bool = _DRY_RUN_ENABLED_DEFAULT,
         confirm_controller: Any | None = None,
         apply_callbacks: ApplyCallbacks | None = None,
+        job_id: str = "",
     ):
         """
         @methoddesc 初始化工具
@@ -94,14 +104,17 @@ class ApplyActionsTool:
             collected_instructions: runner 持有的累积列表引用，工具会把
                 frontendInstructions 追加到此列表（共享可变引用）
             dry_run_enabled: 是否启用两阶段确认模式
-            confirm_controller: 确认门控制器（两阶段模式必需）
+            confirm_controller: （已废弃）旧的单 job 控制器；保留兼容但不再用于门控
             apply_callbacks: 事件回调集合（两阶段模式用）
+            job_id: 当前任务 ID，用于生成 apply_id（"{job_id}#{seq}"）键控每次 apply 的独立确认
         """
         self.project_path = project_path
         self._collected_instructions = collected_instructions
         self._dry_run_enabled = dry_run_enabled
-        self._confirm_controller = confirm_controller
         self._apply_callbacks = apply_callbacks or ApplyCallbacks()
+        self._job_id = job_id
+        # 每次 _run_two_phase 自增，保证同一 job 内多次 apply 各有独立 apply_id
+        self._apply_counter = 0
 
     def get_definition(self) -> dict[str, Any]:
         """返回 OpenAI tool 定义。"""
@@ -123,16 +136,41 @@ class ApplyActionsTool:
                     "properties": {
                         "actions": {
                             "type": "array",
-                            "description": "要执行的动作列表",
+                            "description": (
+                                "要执行的动作列表。每个元素必须含 actionType 和对应的 spec 字段：\n"
+                                "- 约束动作（actionType=ADD/UPDATE/DELETE_CONSTRAINT_NODE）→ constraintSpec\n"
+                                "- Schema 动作（actionType=ADD/UPDATE/DELETE_SCHEMA）→ schemaSpec\n"
+                                "- 正则动作（actionType=ADD/UPDATE/DELETE_REGEX）→ regexSpec\n"
+                                "- 转换动作（actionType=ADD/UPDATE/DELETE_TRANSFORM）→ transformSpec\n"
+                                "- 设置动作（actionType=UPDATE_SETTINGS）→ settingsSpec\n"
+                                "- 校验动作（actionType=VALIDATE_PROJECT）→ constraintSpec（含 tableName）\n"
+                                "注意字段名是 constraintSpec/schemaSpec 等（不是 spec）。"
+                            ),
                             "items": {
                                 "type": "object",
-                                "description": (
-                                    "单个动作，必须含 actionType 字段。"
-                                    "动作类型: ADD/UPDATE/DELETE_CONSTRAINT_NODE, "
-                                    "ADD/UPDATE/DELETE_SCHEMA, ADD/UPDATE/DELETE_REGEX, "
-                                    "ADD/UPDATE/DELETE_TRANSFORM, UPDATE_SETTINGS, VALIDATE_PROJECT。"
-                                    "约束动作需 constraintSpec，Schema 动作需 schemaSpec，以此类推。"
-                                ),
+                                "properties": {
+                                    "actionType": {
+                                        "type": "string",
+                                        "enum": [
+                                            "ADD_CONSTRAINT_NODE",
+                                            "UPDATE_CONSTRAINT_NODE",
+                                            "DELETE_CONSTRAINT_NODE",
+                                            "ADD_SCHEMA",
+                                            "UPDATE_SCHEMA",
+                                            "DELETE_SCHEMA",
+                                            "ADD_REGEX",
+                                            "UPDATE_REGEX",
+                                            "DELETE_REGEX",
+                                            "ADD_TRANSFORM",
+                                            "UPDATE_TRANSFORM",
+                                            "DELETE_TRANSFORM",
+                                            "UPDATE_SETTINGS",
+                                            "VALIDATE_PROJECT",
+                                        ],
+                                        "description": "动作类型（14 种）。",
+                                    },
+                                },
+                                "required": ["actionType"],
                             },
                         }
                     },
@@ -159,16 +197,41 @@ class ApplyActionsTool:
         if not self.project_path:
             return {"success": False, "error": "未配置项目路径", "results": []}
 
-        # 判断是否进入两阶段确认模式
-        two_phase = self._dry_run_enabled and self._confirm_controller is not None
+        # 预验证：在 dry-run / 写盘前拦截非法动作（表/列不存在、约束类型不支持、参数缺失等）。
+        # 采用全有或全无语义——任一动作有 error 即整批拒绝，把含 "did you mean" 建议的错误清单
+        # 回灌给 LLM 以便自我修正。warnings 不阻止执行（对齐 ValidationResult 设计）。
+        validator = ActionValidator(self.project_path)
+        validation = validator.validate(actions)
+        if validation.has_errors:
+            formatted = format_validation_result(validation)
+            logger.warning(f"[apply_actions] 预验证失败，拒绝执行：\n{formatted}")
+            return {
+                "success": False,
+                "error": f"动作预验证失败，未执行任何修改：\n{formatted}",
+                "results": [],
+                "validation_errors": len(validation.errors),
+            }
+
+        # 判断是否进入两阶段确认模式（dry_run_enabled 即两阶段；不再依赖单 job controller）
+        two_phase = self._dry_run_enabled
 
         if not two_phase:
+            # 无确认环境（非流式 /chat、CLI ai ask）：对写操作 fail-closed
+            has_write = any(a.get("actionType", "") not in _READ_ONLY_ACTION_TYPES for a in actions)
+            if has_write:
+                logger.warning("[apply_actions] 无确认环境拒绝写操作（fail-closed）")
+                return {
+                    "success": False,
+                    "error": "此环境不支持自动写盘（无确认门），请在对话界面操作以获得用户确认。",
+                    "results": [],
+                }
+            # 纯读动作（VALIDATE_PROJECT）允许直接执行
             return await self._run_legacy(actions)
 
         return await self._run_two_phase(actions)
 
     async def _run_legacy(self, actions: list[dict[str, Any]]) -> dict[str, Any]:
-        """legacy 直写模式：直接 process_actions 落盘（行为与改造前一致）。"""
+        """legacy 直写模式：仅用于纯读动作（VALIDATE_PROJECT），直接执行。"""
         try:
             process_result = await asyncio.to_thread(process_actions, actions, self.project_path)
         except Exception as e:
@@ -190,95 +253,119 @@ class ApplyActionsTool:
     async def _run_two_phase(self, actions: list[dict[str, Any]]) -> dict[str, Any]:
         """两阶段确认模式：dry-run → await 用户决策 → 落盘/跳过。
 
+        每次 apply_actions 调用创建独立的 ConfirmController（按 apply_id 键控），
+        避免旧实现"每 job 一个 controller + Event 单次锁存"导致第 2 个 apply 免确认。
+
         阶段 1: shadow-copy dry-run 计算 diff（不碰真实项目）
         阶段 2: 用户 confirm 后真实写盘；reject 则不写
         """
-        # 阶段 1: dry-run 计算 diff
+        # 为本次 apply 生成独立 apply_id，创建全新 controller（不复用旧决策）
+        self._apply_counter += 1
+        apply_id = f"{self._job_id}#{self._apply_counter}" if self._job_id else f"apply#{self._apply_counter}"
+        # 延迟导入避免循环依赖（streaming 包 init 链 → apply_actions）
+        from app.shared.services.ai.streaming.pending_apply_store import (
+            ConfirmController,
+            get_global_pending_store,
+        )
+
+        controller = ConfirmController(request_id=apply_id)
+        pending_store = get_global_pending_store()
+        pending_store.put(apply_id, controller)
+
         try:
-            diff_result = await asyncio.to_thread(compute_action_diff, actions, self.project_path)
-        except Exception as e:
-            logger.exception("apply_actions dry-run 失败")
-            return {"success": False, "error": f"dry-run 失败: {e}", "results": []}
+            # 阶段 1: dry-run 计算 diff
+            try:
+                diff_result = await asyncio.to_thread(compute_action_diff, actions, self.project_path)
+            except Exception as e:
+                logger.exception("apply_actions dry-run 失败")
+                return {"success": False, "error": f"dry-run 失败: {e}", "results": []}
 
-        if not diff_result.success:
-            return {"success": False, "error": diff_result.error or "dry-run 失败", "results": []}
+            if not diff_result.success:
+                return {"success": False, "error": diff_result.error or "dry-run 失败", "results": []}
 
-        # 构建 pending payload，发给前端展示
-        pending_payload: dict[str, Any] = {
-            "files": [
-                {
-                    "path": f.path,
-                    "status": f.status,
-                    "diff": f.diff,
-                    "before_preview": f.before_preview,
-                    "after_preview": f.after_preview,
-                }
-                for f in diff_result.files
-            ],
-            "summary": diff_result.summary,
-            "success": diff_result.success,
-            "error": diff_result.error,
-        }
-
-        # 通过回调 emit apply_pending 事件（非阻塞）
-        if self._apply_callbacks.on_apply_pending:
-            self._apply_callbacks.on_apply_pending(pending_payload)
-
-        # 等待用户决策（协程挂起）
-        assert self._confirm_controller is not None
-        decision = await self._confirm_controller.await_decision()
-
-        if decision != "confirm":
-            # 拒绝/超时：不写盘，返回明确的非成功状态（success=False）
-            # 避免 LLM 看到 success=True 误报"已为您添加约束"
-            if self._apply_callbacks.on_apply_rejected:
-                self._apply_callbacks.on_apply_rejected({"reason": "user_rejected", "decision": decision})
-            return {
-                "success": False,
-                "skipped": True,
-                "reason": f"用户选择{decision}，未写入文件",
-                "results": [],
+            # 构建 pending payload，发给前端展示（含 apply_id 供前端回传）
+            pending_payload: dict[str, Any] = {
+                "apply_id": apply_id,
+                "files": [
+                    {
+                        "path": f.path,
+                        "status": f.status,
+                        "diff": f.diff,
+                        "before_preview": f.before_preview,
+                        "after_preview": f.after_preview,
+                    }
+                    for f in diff_result.files
+                ],
+                "summary": diff_result.summary,
+                "success": diff_result.success,
+                "error": diff_result.error,
             }
 
-        # 确认：真实写盘
-        try:
-            process_result = await asyncio.to_thread(process_actions, actions, self.project_path)
-        except Exception as e:
-            logger.exception("apply_actions 确认后写盘失败")
-            return {"success": False, "error": f"写盘失败: {e}", "results": []}
+            # 通过回调 emit apply_pending 事件（非阻塞）
+            if self._apply_callbacks.on_apply_pending:
+                self._apply_callbacks.on_apply_pending(pending_payload)
 
-        all_success = process_result.get("success", False)
-        raw_results = process_result.get("results", [])
+            # 等待用户决策（协程挂起）——每次调用独立 controller，不受历史决策影响
+            decision = await controller.await_decision()
 
-        _collect_instructions(raw_results, self._collected_instructions)
-        summarized_results = _summarize_results(raw_results)
-
-        # 收集 dry-run 阶段的 frontend_instructions（写盘后可能已变化，但仍保留）
-        for fi in diff_result.frontend_instructions:
-            self._collected_instructions.append(fi)
-
-        # 流式画布生长：逐条 emit 写盘产出的 frontend_instruction。
-        # 仅取 raw_results 中实际落盘的单条指令（已 disk-committed），
-        # 每条 payload 形如 {"instruction": {...}}，前端收到即 processFrontendInstructions + fitView。
-        # 注意：completed 事件仍携带全量 instructions 作为兜底，前端负责去重避免重复应用。
-        if self._apply_callbacks.on_frontend_instruction:
-            for r in raw_results:
-                fi = r.get("frontendInstructions")
-                if fi:
-                    self._apply_callbacks.on_frontend_instruction({"instruction": fi})
-
-        # 通过回调 emit apply_confirmed 事件
-        if self._apply_callbacks.on_apply_confirmed:
-            self._apply_callbacks.on_apply_confirmed(
-                {
-                    "success": all_success,
-                    "actions_count": len(actions),
-                    "results": [{"actionType": r["actionType"], "success": r["success"]} for r in summarized_results],
+            if decision != "confirm":
+                # 拒绝/超时：不写盘，返回明确的非成功状态（success=False）
+                # 避免 LLM 看到 success=True 误报"已为您添加约束"
+                if self._apply_callbacks.on_apply_rejected:
+                    self._apply_callbacks.on_apply_rejected({"reason": "user_rejected", "decision": decision})
+                return {
+                    "success": False,
+                    "skipped": True,
+                    "reason": f"用户选择{decision}，未写入文件",
+                    "results": [],
                 }
-            )
 
-        return {
-            "success": all_success,
-            "results": summarized_results,
-            "instructions_collected": len(self._collected_instructions),
-        }
+            # 确认：真实写盘
+            try:
+                process_result = await asyncio.to_thread(process_actions, actions, self.project_path)
+            except Exception as e:
+                logger.exception("apply_actions 确认后写盘失败")
+                return {"success": False, "error": f"写盘失败: {e}", "results": []}
+
+            all_success = process_result.get("success", False)
+            raw_results = process_result.get("results", [])
+
+            _collect_instructions(raw_results, self._collected_instructions)
+            summarized_results = _summarize_results(raw_results)
+
+            # 收集 dry-run 阶段的 frontend_instructions（写盘后可能已变化，但仍保留）
+            for fi in diff_result.frontend_instructions:
+                self._collected_instructions.append(fi)
+
+            # 流式画布生长：逐条 emit 写盘产出的 frontend_instruction。
+            # 仅取 raw_results 中实际落盘的单条指令（已 disk-committed），
+            # 每条 payload 形如 {"instruction": {...}}，前端收到即 processFrontendInstructions + fitView。
+            # 注意：completed 事件仍携带全量 instructions 作为兜底，前端负责去重避免重复应用。
+            if self._apply_callbacks.on_frontend_instruction:
+                for r in raw_results:
+                    fi = r.get("frontendInstructions")
+                    if fi:
+                        self._apply_callbacks.on_frontend_instruction({"instruction": fi})
+
+            # 通过回调 emit apply_confirmed 事件
+            # 注意：用 .get("actionType", "validate") 容缺（validate_details 条目无 actionType，否则 KeyError）
+            if self._apply_callbacks.on_apply_confirmed:
+                self._apply_callbacks.on_apply_confirmed(
+                    {
+                        "success": all_success,
+                        "actions_count": len(actions),
+                        "results": [
+                            {"actionType": r.get("actionType", "validate"), "success": r.get("success", False)}
+                            for r in summarized_results
+                        ],
+                    }
+                )
+
+            return {
+                "success": all_success,
+                "results": summarized_results,
+                "instructions_collected": len(self._collected_instructions),
+            }
+        finally:
+            # 无论 confirm/reject/timeout/异常，都清理本次 apply 的 controller（避免 store 泄漏）
+            pending_store.pop(apply_id)

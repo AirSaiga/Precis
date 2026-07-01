@@ -93,6 +93,10 @@ class AiChatConfirmRequest(BaseModel):
     """AI Chat apply_actions 确认/拒绝请求"""
 
     decision: str = Field(..., description="confirm(确认并落盘)或 reject(拒绝,不落盘)")
+    apply_id: str | None = Field(
+        default=None,
+        description="本次 apply 的 ID（{job_id}#{seq}）。为空时回退到该 job 当前唯一挂起项。",
+    )
 
 
 class AgentMeta(BaseModel):

@@ -24,6 +24,7 @@ from app.shared.services.ai.agent.chat_tools import (
     ReadTableTool,
     ValidateTableTool,
 )
+from app.shared.services.llm.actions.validation_types import ValidationResult
 
 # =============================================================================
 # Factory 函数
@@ -147,9 +148,41 @@ async def test_read_table_clamps_sample_rows():
 
 @pytest.mark.asyncio
 async def test_apply_actions_collects_frontend_instructions():
-    """apply_actions 把 process_actions 产出的 frontendInstructions 旁路累积到共享列表。"""
+    """apply_actions 把 process_actions 产出的 frontendInstructions 旁路累积到共享列表。
+
+    本测试聚焦"指令收集"机制。写操作须走两阶段确认（fail-closed），
+    预验证 stub 为放行，apply_pending 回调自动确认。
+    """
+    import asyncio
+
+    from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyCallbacks
+    from app.shared.services.ai.streaming.pending_apply_store import get_global_pending_store
+
     collected: list = []
-    tool = ApplyActionsTool(project_path="/fake/project", collected_instructions=collected)
+
+    # auto-confirm：on_apply_pending 捕获 apply_id 后异步 resolve
+    resolve_tasks: list = []
+
+    def on_apply_pending(payload):
+        apply_id = payload.get("apply_id")
+        if apply_id:
+            ctrl = get_global_pending_store().get(apply_id)
+
+            async def resolve_later():
+                await asyncio.sleep(0.01)
+                if ctrl is not None:
+                    await ctrl.resolve("confirm")
+
+            resolve_tasks.append(asyncio.create_task(resolve_later()))
+
+    callbacks = ApplyCallbacks(on_apply_pending=on_apply_pending)
+    tool = ApplyActionsTool(
+        project_path="/fake/project",
+        collected_instructions=collected,
+        dry_run_enabled=True,
+        apply_callbacks=callbacks,
+        job_id="test-collect",
+    )
 
     process_result = {
         "success": True,
@@ -163,19 +196,36 @@ async def test_apply_actions_collects_frontend_instructions():
         ],
     }
 
-    with patch(
-        "app.shared.services.ai.agent.chat_tools.apply_actions.process_actions",
-        return_value=process_result,
+    # stub 预验证为放行；to_thread 依次返回 dry-run DiffResult（第一次）和写盘结果（第二次）
+    from app.shared.services.llm.actions.diff_compute import DiffResult, FileDiff
+
+    dry_run_diff = DiffResult(
+        success=True,
+        files=[FileDiff(path="schemas/users.schema.yaml", status="modified", diff="fake")],
+        frontend_instructions=[{"actionType": "ADD_CONSTRAINT_NODE", "data": "instr1"}],
+    )
+    ok_validation = ValidationResult()
+    with (
+        patch("app.shared.services.ai.agent.chat_tools.apply_actions.ActionValidator") as mock_validator,
+        patch(
+            "app.shared.services.ai.agent.chat_tools.apply_actions.asyncio.to_thread",
+            side_effect=[dry_run_diff, process_result],
+        ),
     ):
+        mock_validator.return_value.validate.return_value = ok_validation
         result = await tool.run({"actions": [{"actionType": "ADD_CONSTRAINT_NODE"}]})
+
+    for t in resolve_tasks:
+        await t
 
     # 返回给 LLM 的 observation 只含摘要
     assert result["success"] is True
     assert "frontendInstructions" not in str(result["results"])
     assert result["results"][0]["actionType"] == "ADD_CONSTRAINT_NODE"
 
-    # frontendInstructions 已旁路累积到共享列表
-    assert len(collected) == 1
+    # frontendInstructions 已旁路累积到共享列表（dry-run + 写盘各累积一次，≥1）
+    assert len(collected) >= 1
+    assert any(c.get("data") == "instr1" for c in collected)
     assert collected[0]["data"] == "instr1"
 
 
@@ -278,3 +328,45 @@ async def test_validate_table_no_project_path():
     result = await tool.run({})
 
     assert result["success"] is False
+
+
+# =============================================================================
+# P2: apply_actions tool schema 验证
+# =============================================================================
+
+
+def test_apply_actions_schema_has_action_type_enum():
+    """H-LLM2: apply_actions 的 actionType 必须有 enum，否则 LLM 要猜枚举值。"""
+    tool = ApplyActionsTool(project_path="/fake", collected_instructions=[])
+    definition = tool.get_definition()
+    items = definition["function"]["parameters"]["properties"]["actions"]["items"]
+    assert "actionType" in items["properties"]
+    enum_values = items["properties"]["actionType"]["enum"]
+    # 必须包含全部 14 种动作类型
+    expected = {
+        "ADD_CONSTRAINT_NODE",
+        "UPDATE_CONSTRAINT_NODE",
+        "DELETE_CONSTRAINT_NODE",
+        "ADD_SCHEMA",
+        "UPDATE_SCHEMA",
+        "DELETE_SCHEMA",
+        "ADD_REGEX",
+        "UPDATE_REGEX",
+        "DELETE_REGEX",
+        "ADD_TRANSFORM",
+        "UPDATE_TRANSFORM",
+        "DELETE_TRANSFORM",
+        "UPDATE_SETTINGS",
+        "VALIDATE_PROJECT",
+    }
+    assert set(enum_values) == expected, f"enum 不完整: 缺少 {expected - set(enum_values)}"
+
+
+def test_apply_actions_schema_documents_spec_field_names():
+    """H-LLM2: schema 描述必须明确字段名是 constraintSpec/schemaSpec（而非 spec）。"""
+    tool = ApplyActionsTool(project_path="/fake", collected_instructions=[])
+    description = tool.get_definition()["function"]["parameters"]["properties"]["actions"]["description"]
+    # 关键：明确各 spec 字段名，修正 "spec" 歧义
+    assert "constraintSpec" in description
+    assert "schemaSpec" in description
+    assert "regexSpec" in description

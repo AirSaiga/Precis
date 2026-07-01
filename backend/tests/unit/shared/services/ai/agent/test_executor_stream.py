@@ -182,3 +182,109 @@ async def test_executor_cancel_mid_stream():
 
     assert result.success is False
     assert result.cancelled is True
+
+
+# =============================================================================
+# D1: tool_call 去重守卫（防 Ollama 无 id 多行重复导致同一动作多次执行）
+# =============================================================================
+
+
+@pytest.mark.asyncio
+async def test_dedup_same_tool_no_id_executed_once():
+    """D1: 同一 StreamChunk 内两条相同 name+args 但无 id 的 tool_call → 只执行一次。
+
+    模拟 Ollama 多行重复场景（Ollama 的 tool_call id 通常为空）。
+    """
+    call_count = 0
+
+    async def counter(args):  # noqa: ARG001
+        nonlocal call_count
+        call_count += 1
+        return {"success": True}
+
+    provider = _StreamFakeProvider(
+        responses=[
+            [
+                StreamChunk(
+                    type="tool_calls",
+                    tool_calls=[
+                        {"id": "", "function": {"name": "counter", "arguments": "{}"}},
+                        {"id": "", "function": {"name": "counter", "arguments": "{}"}},
+                    ],
+                )
+            ],
+            [StreamChunk(type="delta", text="完成")],
+        ]
+    )
+    registry = ToolRegistry()
+    registry.register("counter", "计数工具", {"type": "object", "properties": {}}, counter)
+
+    executor = AgentExecutor(provider=provider, registry=registry)
+    await executor.run("测试")
+
+    assert call_count == 1, f"重复的无 id tool_call 应去重，但执行了 {call_count} 次"
+
+
+@pytest.mark.asyncio
+async def test_dedup_different_args_no_id_both_executed():
+    """D1: 无 id 但 args 不同的两条 tool_call → 都执行（不过度去重）。"""
+    seen_args = []
+
+    async def recorder(args):
+        seen_args.append(args)
+        return {"success": True}
+
+    provider = _StreamFakeProvider(
+        responses=[
+            [
+                StreamChunk(
+                    type="tool_calls",
+                    tool_calls=[
+                        {"id": "", "function": {"name": "recorder", "arguments": '{"x": 1}'}},
+                        {"id": "", "function": {"name": "recorder", "arguments": '{"x": 2}'}},
+                    ],
+                )
+            ],
+            [StreamChunk(type="delta", text="完成")],
+        ]
+    )
+    registry = ToolRegistry()
+    registry.register("recorder", "记录工具", {"type": "object", "properties": {}}, recorder)
+
+    executor = AgentExecutor(provider=provider, registry=registry)
+    await executor.run("测试")
+
+    assert len(seen_args) == 2, f"不同 args 应都执行，但只执行了 {len(seen_args)} 次"
+
+
+@pytest.mark.asyncio
+async def test_dedup_same_id_fast_path():
+    """D1: 有 id 的重复走快路径去重（id 优先）。"""
+    call_count = 0
+
+    async def counter(args):  # noqa: ARG001
+        nonlocal call_count
+        call_count += 1
+        return {"success": True}
+
+    provider = _StreamFakeProvider(
+        responses=[
+            [
+                StreamChunk(
+                    type="tool_calls",
+                    tool_calls=[
+                        {"id": "call_1", "function": {"name": "counter", "arguments": "{}"}},
+                        {"id": "call_1", "function": {"name": "counter", "arguments": "{}"}},
+                    ],
+                )
+            ],
+            [StreamChunk(type="delta", text="完成")],
+        ]
+    )
+    registry = ToolRegistry()
+    registry.register("counter", "计数工具", {"type": "object", "properties": {}}, counter)
+
+    executor = AgentExecutor(provider=provider, registry=registry)
+    await executor.run("测试")
+
+    assert call_count == 1, f"相同 id 应去重，但执行了 {call_count} 次"

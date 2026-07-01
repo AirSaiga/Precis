@@ -117,7 +117,37 @@ actionType 可选值（17种）：
 - 正则动作 → regexSpec (含 name, pattern, matchMode)
 - 转换动作 → transformSpec (含 type, inputColumn, params, outputColumns)
 - 设置动作 → settingsSpec (含 category, settings)
-- 校验动作 → constraintSpec (含 tableName，可选)"""
+- 校验动作 → constraintSpec (含 tableName，可选)
+
+## 约束类型与参数说明（关键）
+
+调用 ADD_CONSTRAINT_NODE / UPDATE_CONSTRAINT_NODE 时，constraintSpec.type 必须是以下之一，
+constraintSpec.params 按类型填充对应字段：
+
+- **NotNull**: 非空约束。参数：无。
+- **Unique**: 唯一约束。参数：无。
+- **AllowedValues**: 允许值约束。参数：`allowedValues` (List[Any])。
+- **Range**: 范围约束。参数：`min` (float/int), `max` (float/int)。
+- **Scripted**: 脚本/正则约束。二选一：`expression` (str, 代码表达式) 或 `pattern` (str, 正则)。
+- **ForeignKey**: 外键约束。参数：`toTableId` (str), `toColumnId` (str)。
+- **Conditional**: 条件约束。参数：`ifConditions` (List), `thenValue` (Any)。
+  - `ifConditions` 结构：`[{{"ifColumnId": "列名", "operator": "eq/ne/gt/lt/in", "value": "比较值"}}]`
+- **DateLogic**: 日期逻辑约束。参数：`logicMode` ("compare"/"calculation"), `compareOp` ("gt/lt/eq/gte/lte/range"), `referenceDate` (str, "YYYY-MM-DD"), `referenceColumn` (str)。当 `compareOp` 为 "range" 时，必须同时提供 `referenceDateEnd` 或 `referenceColumnEnd`。
+- **Charset**: 字符集约束。
+- **Composite**: 组合约束（多列联合）。
+
+## 字段解析约定
+
+- `tableName` / `targetColumn`：可使用表名/列名（中文或英文），系统会自动解析为对应 ID。
+- 如不确定 ID，留空 `targetNodeId` / `targetColumnId`，系统从 `tableName` / `targetColumn` 解析。
+- `isInline`：默认 true（内联约束，存入表配置）。仅当用户明确要求"独立约束/单独文件"时设 false。
+
+## 使用策略
+
+- **默认创建内联约束** (`isInline: true`)：内联约束直接存储在表配置中，轻量且易于管理
+- **只有当用户明确要求"创建独立约束"、"独立节点"或"单独文件"时**，才设置 `isInline: false`
+- 如果用户说"删除 XXX 约束"，请使用 DELETE_CONSTRAINT_NODE
+- 必须确保 `tableName` 和 `targetColumn` 准确无误"""
 
 
 # =============================================================================
@@ -170,6 +200,7 @@ class ChatAgentRunner:
         confirm_controller: Any | None = None,
         apply_callbacks: ApplyCallbacks | None = None,
         dry_run_enabled: bool = False,
+        job_id: str = "",
     ):
         """
         @methoddesc 初始化 Chat Agent Runner
@@ -180,9 +211,10 @@ class ChatAgentRunner:
             context_nodes: 前端选中的上下文节点列表
             max_iterations: Agent 最大迭代轮数
             max_history_tokens: 历史消息 token 预算
-            confirm_controller: 确认门控制器（两阶段确认模式注入）
+            confirm_controller: （已废弃）旧的单 job 控制器；保留兼容但不再用于门控
             apply_callbacks: apply_* 事件回调集合
             dry_run_enabled: 是否启用两阶段确认模式
+            job_id: 当前任务 ID，供 ApplyActionsTool 生成 apply_id
         """
         self.provider = provider
         self.project_path = project_path
@@ -192,6 +224,7 @@ class ChatAgentRunner:
         self.confirm_controller = confirm_controller
         self.apply_callbacks = apply_callbacks or ApplyCallbacks()
         self.dry_run_enabled = dry_run_enabled
+        self.job_id = job_id
 
         # 关键：frontend_instructions 的旁路累积容器
         # apply_actions 工具持有此列表引用，append 后 runner 最终读取
@@ -272,12 +305,13 @@ class ChatAgentRunner:
         )
 
         # 关键：apply_actions 注入 collected_instructions 共享引用 + 两阶段确认参数
+        # job_id 用于生成 apply_id（"{job_id}#{seq}"），每次 apply 创建独立确认控制器
         apply_actions_tool = ApplyActionsTool(
             project_path=self.project_path,
             collected_instructions=self.collected_instructions,
             dry_run_enabled=self.dry_run_enabled,
-            confirm_controller=self.confirm_controller,
             apply_callbacks=self.apply_callbacks,
+            job_id=self.job_id,
         )
         registry.register(
             name=apply_actions_tool.NAME,
