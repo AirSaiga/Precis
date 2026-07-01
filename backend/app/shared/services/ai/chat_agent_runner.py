@@ -310,14 +310,29 @@ class ChatAgentRunner:
 
         返回两个列表：
         - executed_actions: 所有 apply_actions 工具调用中的 actions 参数（扁平化）
-        - tool_steps: 工具调用轨迹（每步含 tool 名、标签、轮次），供前端展示
+        - tool_steps: 工具调用轨迹（每步含 tool 名、标签、轮次、成败），供前端展示
+
+        成败信息取自与 tool_calls 同序的 tool_results（executor 用 asyncio.gather
+        保持顺序挂载）。按下标对齐匹配，而非 name/call_id——因为 execute_many 的
+        异常兜底分支产生的 ToolResult 其 call_id/name 为空，无法用字段匹配。
+        缺失对应 result 时（边界情况）回退为 success，避免历史数据显示未知状态。
         """
         executed: list[dict[str, Any]] = []
         tool_steps: list[dict[str, Any]] = []
         for turn in agent_result.turns:
-            for tc in turn.tool_calls:
+            results = turn.tool_results
+            for i, tc in enumerate(turn.tool_calls):
                 label = self._TOOL_LABELS.get(tc.name, tc.name)
-                step = {"tool": tc.name, "label": label, "turn": turn.turn}
+                step: dict[str, Any] = {"tool": tc.name, "label": label, "turn": turn.turn}
+                # 按下标取同序 tool_result，提取成败（B3 路径 A：后端保留成败）
+                if i < len(results):
+                    tr = results[i]
+                    step["status"] = "success" if tr.success else "failed"
+                    if tr.error:
+                        step["error"] = tr.error
+                else:
+                    # 缺失 result 回退为 success（边界兜底）
+                    step["status"] = "success"
                 # apply_actions 额外记录动作数量
                 if tc.name == ApplyActionsTool.NAME:
                     args = tc.arguments

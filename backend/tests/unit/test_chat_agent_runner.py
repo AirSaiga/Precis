@@ -455,3 +455,113 @@ async def test_orchestrator_legacy_path_runs_in_caller_event_loop():
     # 核心回归断言：provider.chat 在调用方（测试）的同一 event loop 上执行，
     # 而非子线程 asyncio.run() 创建的临时 loop。
     assert captured_loop.get("loop") is test_loop
+
+
+# =============================================================================
+# _collect_audit_trail 成败提取测试（B3 路径 A：后端 tool_steps 保留成败）
+# =============================================================================
+
+
+def _build_runner_for_audit() -> ChatAgentRunner:
+    """构造一个最小可用的 runner,仅用于调用 _collect_audit_trail。
+
+    不跑真实 LLM/工具循环,直接喂手搓的 AgentResult。
+    """
+    provider = FakeProvider(responses=[])
+    return ChatAgentRunner(provider=provider, project_path="/fake/project", context_nodes=[])
+
+
+def test_collect_audit_trail_extracts_success_status_from_tool_results():
+    """tool_steps 应从同序 tool_results 提取 success,而非缺失或恒为成功。"""
+    from app.shared.services.ai.agent.types import AgentResult, AgentTurn, ToolCall, ToolResult
+
+    runner = _build_runner_for_audit()
+    agent_result = AgentResult(
+        success=True,
+        turns=[
+            AgentTurn(
+                turn=1,
+                tool_calls=[
+                    ToolCall(id="c1", name="read_project", arguments={}),
+                    ToolCall(id="c2", name="apply_actions", arguments={"actions": []}),
+                ],
+                # tool_results 与 tool_calls 同序
+                tool_results=[
+                    ToolResult(call_id="c1", name="read_project", success=True, observation={"success": True}),
+                    ToolResult(call_id="c2", name="apply_actions", success=True, observation={"success": True}),
+                ],
+            )
+        ],
+    )
+
+    _executed, tool_steps = runner._collect_audit_trail(agent_result)
+
+    assert len(tool_steps) == 2
+    assert tool_steps[0]["status"] == "success"
+    assert tool_steps[1]["status"] == "success"
+
+
+def test_collect_audit_trail_extracts_failed_status_and_error():
+    """失败工具应记 status='failed' 并保留 error 原因。"""
+    from app.shared.services.ai.agent.types import AgentResult, AgentTurn, ToolCall, ToolResult
+
+    runner = _build_runner_for_audit()
+    agent_result = AgentResult(
+        success=True,
+        turns=[
+            AgentTurn(
+                turn=1,
+                tool_calls=[
+                    ToolCall(id="c1", name="read_project", arguments={}),
+                    ToolCall(id="c2", name="apply_actions", arguments={"actions": []}),
+                ],
+                tool_results=[
+                    ToolResult(call_id="c1", name="read_project", success=True, observation={}),
+                    ToolResult(
+                        call_id="c2",
+                        name="apply_actions",
+                        success=False,
+                        observation="",
+                        error="Schema 文件不存在",
+                    ),
+                ],
+            )
+        ],
+    )
+
+    _executed, tool_steps = runner._collect_audit_trail(agent_result)
+
+    assert tool_steps[0]["status"] == "success"
+    assert tool_steps[1]["status"] == "failed"
+    assert tool_steps[1]["error"] == "Schema 文件不存在"
+
+
+def test_collect_audit_trail_handles_missing_tool_results_gracefully():
+    """tool_results 数量不足时(如 gather 兜底产生的空 ToolResult),缺失项应回退为 success。"""
+    from app.shared.services.ai.agent.types import AgentResult, AgentTurn, ToolCall, ToolResult
+
+    runner = _build_runner_for_audit()
+    agent_result = AgentResult(
+        success=True,
+        turns=[
+            AgentTurn(
+                turn=1,
+                tool_calls=[
+                    ToolCall(id="c1", name="read_project", arguments={}),
+                    ToolCall(id="c2", name="apply_actions", arguments={"actions": []}),
+                ],
+                # 仅 1 个 result(对应 c1),c2 的 result 缺失
+                tool_results=[
+                    ToolResult(call_id="c1", name="read_project", success=True, observation={}),
+                ],
+            )
+        ],
+    )
+
+    _executed, tool_steps = runner._collect_audit_trail(agent_result)
+
+    assert tool_steps[0]["status"] == "success"
+    # 缺失 result 的步骤回退为 success(避免历史/边界数据因缺字段显示未知)
+    assert tool_steps[1]["status"] == "success"
+    # action_count 仍应正常提取
+    assert tool_steps[1]["action_count"] == 0
