@@ -4,3 +4,4 @@
  */
 
 export { useToast, isToastAvailable } from './useToast'
+export { useLanguageToggle } from './useLanguageToggle'

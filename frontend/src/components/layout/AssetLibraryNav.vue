@@ -201,24 +201,16 @@
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
   import { eventBus } from '@/core/eventBus'
-  import { ref, onMounted, onUnmounted, computed } from 'vue'
+  import { ref, onMounted, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import { useLanguageToggle } from '@/composables/shared'
 
   // 当前视图状态
   const currentView = ref<'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'data'>(
     'toolbox'
   )
-  const { t, locale } = useI18n()
-
-  // 当前语言状态
-  const currentLang = computed(() => locale.value)
-
-  // 切换语言
-  const toggleLanguage = () => {
-    const newLang = currentLang.value === 'zh-CN' ? 'en-US' : 'zh-CN'
-    locale.value = newLang
-    logger.debug(`[Language] Switched to ${newLang}`)
-  }
+  const { t } = useI18n()
+  const { currentLang, toggleLanguage } = useLanguageToggle()
 
   // 设置当前视图
   const setCurrentView = (
