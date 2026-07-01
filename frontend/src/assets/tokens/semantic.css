@@ -83,6 +83,8 @@
   --success-bg: var(--color-emerald-50);
   --success-border: var(--color-emerald-400);
   --success-gradient: linear-gradient(135deg, #10b981 0%, #34d399 100%);
+  /* rgb 三元组,供 rgba(var(--success-rgb), a) 透明度叠加使用(diff 行着色等) */
+  --success-rgb: 52, 211, 153;
 
   /* ============================================================
      语义状态色 — Warning
@@ -107,6 +109,8 @@
   --danger-ring: color-mix(in srgb, var(--color-rose-400) 20%, transparent);
   --danger-bg: var(--color-rose-50);
   --danger-gradient: linear-gradient(135deg, #ef4444 0%, #f87171 100%);
+  /* rgb 三元组,供 rgba(var(--danger-rgb), a) 透明度叠加使用(diff 行着色等) */
+  --danger-rgb: 251, 113, 133;
 
   /* ============================================================
      语义状态色 — Info

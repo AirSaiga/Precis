@@ -521,6 +521,8 @@ export const useAiChatStore = defineStore('aiChat', () => {
           label: s.label,
           turn: s.turn,
           action_count: s.actionCount,
+          status: s.status,
+          error: s.error,
         })),
       }
     } catch (error) {

@@ -17,7 +17,7 @@
           ? projectStore.currentPaths?.configPath
           : t('common.projectManagement.openProject')
       "
-      @click="emit('openProjectManagement')"
+      @click="openProjectManagement"
     >
       <span v-if="projectStore.isProjectActive" class="project-dot" />
       <span class="project-icon">{{ projectStore.isProjectActive ? '📂' : '📁' }}</span>
@@ -35,15 +35,16 @@
 
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
+  import { eventBus } from '@/core/eventBus'
   import { useGraphStore } from '@/stores/graphStore'
   import { useProjectStore } from '@/stores/projectStore'
   import InspectionStatusBadge from '@/components/inspection/InspectionStatusBadge.vue'
 
-  const emit = defineEmits<{
-    openProjectManagement: []
-  }>()
-
   const { t } = useI18n()
   const graphStore = useGraphStore()
   const projectStore = useProjectStore()
+
+  const openProjectManagement = () => {
+    eventBus.emit('open-project-management')
+  }
 </script>

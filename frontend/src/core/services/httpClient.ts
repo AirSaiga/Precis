@@ -282,6 +282,10 @@ export interface AgentMeta {
     label: string
     turn: number
     action_count?: number
+    /** 步骤执行状态（前端流式期间保留，历史消息可读取） */
+    status?: 'running' | 'success' | 'failed'
+    /** 失败时的错误信息 */
+    error?: string
   }>
 }
 

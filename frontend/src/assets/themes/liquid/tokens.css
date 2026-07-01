@@ -75,6 +75,7 @@
 
   /* 语义色：柔和 pastel */
   --ui-success: #4cd7a8;
+  --ui-success-rgb: 76, 215, 168;
   --ui-success-light: #78e4c0;
   --ui-success-strong: #2db88a;
   --ui-success-weak: rgba(76, 215, 168, 0.12);
@@ -92,6 +93,7 @@
   --ui-warning-gradient: linear-gradient(135deg, #e5b044 0%, #f9d07a 100%);
 
   --ui-danger: #ff8a8a;
+  --ui-danger-rgb: 255, 138, 138;
   --ui-danger-light: #ffb3b3;
   --ui-danger-strong: #e85d5d;
   --ui-danger-weak: rgba(255, 138, 138, 0.12);

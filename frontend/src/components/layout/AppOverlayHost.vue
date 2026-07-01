@@ -127,14 +127,4 @@
     eventBus.off('open-project-management', handleOpenProjectManagement)
     eventBus.off('open-save-as-template-dialog', handleOpenSaveAsTemplate)
   })
-
-  // 暴露方法给父组件，用于外部触发打开某些 overlay
-  defineExpose({
-    openAiConfigGenerator: () => {
-      aiConfigGeneratorStore.open()
-    },
-    openProjectManagement: () => {
-      projectManagementVisible.value = true
-    },
-  })
 </script>

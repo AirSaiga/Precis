@@ -93,6 +93,7 @@
   --ui-success-bg: var(--success-bg);
   --ui-success-border: var(--success-border);
   --ui-success-gradient: var(--success-gradient);
+  --ui-success-rgb: var(--success-rgb);
 
   --ui-warning: var(--warning);
   --ui-warning-light: var(--warning-light);
@@ -111,6 +112,7 @@
   --ui-danger-ring: var(--danger-ring);
   --ui-danger-bg: var(--danger-bg);
   --ui-danger-gradient: var(--danger-gradient);
+  --ui-danger-rgb: var(--danger-rgb);
 
   --ui-info: var(--info);
   --ui-info-light: var(--info-light);

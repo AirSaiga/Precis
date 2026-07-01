@@ -3,7 +3,7 @@
   @description apply_actions 改动确认卡
 
   形态参照 ToolTrailCard（折叠卡），展示：
-  - 折叠态：单行 "📝 将修改 N 个文件 · 等待确认"
+  - 折叠态：单行 "将修改 N 个文件 · 等待确认"
   - 展开态：文件列表 + unified diff + 确认/拒绝按钮
 
   Props:
@@ -13,7 +13,25 @@
 <template>
   <div v-if="apply" class="apply-confirm-card">
     <button class="confirm-header" type="button" @click="toggle">
-      <span class="confirm-icon">📝</span>
+      <span class="confirm-icon">
+        <!-- 文件-diff SVG 图标 -->
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+        >
+          <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+          <polyline points="14 2 14 8 20 8" />
+          <path d="M12 18v-6" />
+          <path d="m9 15 3 3 3-3" />
+        </svg>
+      </span>
       <span class="confirm-summary">{{ summaryText }}</span>
       <span class="confirm-toggle" :class="{ expanded: isExpanded }">▾</span>
     </button>
@@ -21,12 +39,27 @@
       <div v-if="fileList.length === 0" class="confirm-empty">
         {{ t('aiChat.confirmNoFiles') }}
       </div>
-      <div v-for="file in fileList" :key="file.path" class="confirm-file">
-        <div class="file-header">
+      <div v-for="(file, index) in fileList" :key="file.path" class="confirm-file">
+        <div class="file-header" @click="toggleFile(index)">
           <span class="file-status" :class="file.status">{{ statusLabel(file.status) }}</span>
           <span class="file-path">{{ file.path }}</span>
+          <span class="file-toggle" :class="{ expanded: expandedFiles.has(index) }">▾</span>
         </div>
-        <pre v-if="file.diff" class="file-diff"><code>{{ file.diff }}</code></pre>
+        <div v-if="expandedFiles.has(index) && file.diff" class="file-diff-container">
+          <div
+            v-for="(line, lineIndex) in parseDiffLines(file.diff)"
+            :key="lineIndex"
+            class="diff-line"
+            :class="`diff-${line.type}`"
+          >
+            <span class="diff-prefix">{{
+              line.type === 'add' ? '+' : line.type === 'delete' ? '-' : ' '
+            }}</span>
+            <span class="diff-content">{{
+              line.type === 'meta' ? line.content : line.content.slice(1)
+            }}</span>
+          </div>
+        </div>
       </div>
       <div class="confirm-actions">
         <button class="btn-reject" :disabled="deciding" @click="handleDecide('reject')">
@@ -44,6 +77,7 @@
   import { computed, ref } from 'vue'
   import { useI18n } from 'vue-i18n'
   import type { PendingApply, PendingFileDiff } from '@/composables/shared/useStreamingMessage'
+  import { parseDiffLines } from '@/utils/parseDiffLines'
 
   interface Props {
     apply: PendingApply | null
@@ -55,9 +89,30 @@
 
   const isExpanded = ref(false) // 默认折叠，避免 diff 占用过多空间
   const deciding = ref(false)
+  /** 已展开的文件索引集合 */
+  const expandedFiles = ref<Set<number>>(new Set())
 
   function toggle() {
     isExpanded.value = !isExpanded.value
+    // 展开时自动展开前 2 个文件
+    if (isExpanded.value && expandedFiles.value.size === 0) {
+      const initialExpanded = new Set<number>()
+      const maxExpand = Math.min(2, fileList.value.length)
+      for (let i = 0; i < maxExpand; i++) {
+        initialExpanded.add(i)
+      }
+      expandedFiles.value = initialExpanded
+    }
+  }
+
+  function toggleFile(index: number) {
+    const newSet = new Set(expandedFiles.value)
+    if (newSet.has(index)) {
+      newSet.delete(index)
+    } else {
+      newSet.add(index)
+    }
+    expandedFiles.value = newSet
   }
 
   const fileList = computed<PendingFileDiff[]>(() => {
@@ -88,7 +143,7 @@
 </script>
 
 <style scoped>
-  .confirm-card {
+  .apply-confirm-card {
     margin: var(--ui-space-sm) 0;
     border: 1px solid var(--ui-border-warning);
     border-radius: var(--ui-radius-sm);
@@ -109,7 +164,10 @@
     text-align: left;
   }
   .confirm-icon {
-    font-size: var(--ui-font-size-md);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ui-warning-text);
   }
   .confirm-summary {
     flex: 1;
@@ -140,6 +198,10 @@
     gap: var(--ui-space-sm);
     padding: var(--ui-space-xs) var(--ui-space-sm);
     background: var(--ui-bg-muted);
+    cursor: pointer;
+  }
+  .file-header:hover {
+    background: var(--ui-bg-hover);
   }
   .file-status {
     font-weight: bold;
@@ -164,25 +226,56 @@
     color: var(--ui-text-primary);
     font-family: var(--ui-font-mono);
     font-size: var(--ui-font-size-xs);
+    flex: 1;
   }
-  .file-diff {
+  .file-toggle {
+    transition: transform 0.15s;
+    font-size: var(--ui-font-size-xs);
+  }
+  .file-toggle.expanded {
+    transform: rotate(180deg);
+  }
+  .file-diff-container {
     margin: 0;
     padding: var(--ui-space-xs) var(--ui-space-sm);
     max-height: 240px;
     overflow: auto;
     background: var(--ui-bg-base);
+    font-family: var(--ui-font-mono);
     font-size: var(--ui-font-size-xs);
     line-height: 1.5;
+  }
+  .diff-line {
+    display: flex;
+    white-space: pre;
+  }
+  .diff-prefix {
+    user-select: none;
+    width: 1em;
+    flex-shrink: 0;
+    text-align: center;
+  }
+  .diff-content {
+    flex: 1;
     white-space: pre-wrap;
-    color: var(--ui-text-secondary);
-    font-family: var(--ui-font-mono);
+    word-break: break-all;
   }
   /* diff 行级着色 */
-  .file-diff :deep(.diff-add) {
+  .diff-add {
+    background: rgba(var(--ui-success-rgb), 0.12);
     color: var(--ui-success);
   }
-  .file-diff :deep(.diff-del) {
+  .diff-delete {
+    background: rgba(var(--ui-danger-rgb), 0.12);
     color: var(--ui-danger);
+  }
+  .diff-context {
+    color: var(--ui-text-secondary);
+  }
+  .diff-meta {
+    color: var(--ui-text-tertiary);
+    background: var(--ui-bg-elevated);
+    font-weight: var(--ui-font-weight-semibold);
   }
   .confirm-actions {
     display: flex;

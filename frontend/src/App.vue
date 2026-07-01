@@ -199,7 +199,7 @@
       <AppOverlayHost />
 
       <!-- 状态栏 -->
-      <AppStatusBar @open-project-management="() => overlayHostRef?.openProjectManagement?.()" />
+      <AppStatusBar />
 
       <!-- AI 悬浮按钮（暂时隐藏） -->
       <!--
@@ -317,9 +317,6 @@
   /** 拖拽 Ghost 的鼠标位置，实时跟随光标更新 */
   const mousePosition = ref({ x: 0, y: 0 })
   // const aiChatStore = useAiChatStore()
-
-  /** OverlayHost 组件引用，用于外部触发弹窗（如状态栏的"打开项目管理"） */
-  const overlayHostRef = ref<InstanceType<typeof AppOverlayHost> | null>(null)
 
   // --- Web 模式：项目选择处理 ---
 
