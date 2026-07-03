@@ -3,67 +3,32 @@
 功能概述:
 - 提供统一的文件路径安全校验工具，供所有涉及文件系统操作的 HTTP 端点使用
 - 两层校验策略:
-  1. assert_no_traversal: 反穿越硬化（拒绝 `..` 相对成分、拒绝绝对路径逃逸到系统敏感区），
+  1. assert_no_traversal: 反穿越校验（拒绝 `..` 相对成分 + resolve 解析 symlink），
      适用于用户在项目外选择的数据文件场景（preview/validation/files-ops），保留任意数据文件能力
   2. assert_path_within_root: 限定到指定根目录（白名单语义），
      适用于临时文件（TEMP_DIR）、校验历史（configPath）等有明确归属的场景
 
 设计原则:
+- 只做必要的防御:拒绝 `..` 穿越和 resolve 符号链接。不做系统目录黑名单之类的
+  额外层——应用层重复 OS 权限边界既不完整(挡不住 ~/.ssh)又增加误伤与维护负担。
 - 校验失败统一抛 HTTPException（403 拒绝 / 400 参数错误 / 404 不存在）
 - 基于 Path.resolve() 解析符号链接与 `..`，避免 abspath+normpath 无法防 symlink 的缺陷
-- 系统敏感目录（Windows 系统目录、/etc、/usr 等）无条件拒绝，即便用户用合法路径访问
 """
 
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 from fastapi import HTTPException
 
-# 系统敏感目录黑名单：无论以何种方式到达都拒绝访问
-# Windows: 系统目录（C:\Windows、C:\Program Files 等）
-# Unix: 系统配置与可执行目录
-if sys.platform == "win32":
-    _SYSTEM_BLOCKED = (
-        str(Path("C:/Windows").resolve()).lower(),
-        str(Path("C:/Program Files").resolve()).lower(),
-        str(Path("C:/Program Files (x86)").resolve()).lower(),
-        str(Path("C:/ProgramData").resolve()).lower(),
-    )
-else:
-    _SYSTEM_BLOCKED = (
-        str(Path("/etc").resolve()),
-        str(Path("/usr").resolve()),
-        str(Path("/bin").resolve()),
-        str(Path("/sbin").resolve()),
-        str(Path("/boot").resolve()),
-        str(Path("/root").resolve()),
-    )
-
-
-def _is_in_blocked_system_dir(resolved_path: Path) -> bool:
-    """判断解析后的路径是否落入系统敏感目录（黑名单匹配）。"""
-    try:
-        resolved_str = str(resolved_path.resolve())
-    except OSError:
-        return True  # 解析失败（如断链 symlink）按拒绝处理
-    normalized = resolved_str.lower() if sys.platform == "win32" else resolved_str
-    for blocked in _SYSTEM_BLOCKED:
-        if normalized == blocked or normalized.startswith(blocked + os.sep):
-            return True
-    return False
-
 
 def assert_no_traversal(file_path: str, *, must_exist: bool = True) -> str:
     """
-    @methoddesc 反穿越硬化校验，不限根目录
+    @methoddesc 反穿越校验，不限根目录
 
     适用于用户在项目外选择的数据文件场景（preview/validation/files-ops）。
-    保留访问任意合法数据文件的能力，但阻止:
-    - 路径穿越（`..` 相对成分）
-    - 访问系统敏感目录（C:\\Windows、/etc 等）
+    保留访问任意合法数据文件的能力，仅阻止路径穿越（`..` 相对成分）。
 
     参数:
         file_path: 待校验的文件路径（原始字符串）
@@ -73,15 +38,14 @@ def assert_no_traversal(file_path: str, *, must_exist: bool = True) -> str:
         解析后的绝对路径字符串
 
     抛出:
-        HTTPException: 400 路径为空/相对路径逃逸; 403 系统敏感目录; 404 文件不存在
+        HTTPException: 400 路径为空/含穿越成分; 404 文件不存在
     """
     if not file_path or not file_path.strip():
         raise HTTPException(status_code=400, detail="文件路径不能为空")
 
     raw = file_path.strip()
 
-    # 拒绝显式 `..` 段：即使是合法绝对路径，包含 `..` 成分也按可疑拒绝
-    # （数据文件访问场景不应需要 `..`；用户应直接提供目标文件绝对路径）
+    # 拒绝显式 `..` 段：数据文件访问场景不应需要 `..`，用户应直接提供目标文件绝对路径
     path_obj = Path(raw)
     if any(part == ".." for part in path_obj.parts):
         raise HTTPException(
@@ -91,13 +55,9 @@ def assert_no_traversal(file_path: str, *, must_exist: bool = True) -> str:
 
     # resolve() 解析符号链接与剩余相对成分，得到真实绝对路径
     try:
-        resolved = path_obj.resolve() if path_obj.is_absolute() else Path(raw).resolve()
+        resolved = path_obj.resolve()
     except OSError as e:
         raise HTTPException(status_code=400, detail=f"路径解析失败: {e}")
-
-    # 系统敏感目录黑名单
-    if _is_in_blocked_system_dir(resolved):
-        raise HTTPException(status_code=403, detail="拒绝访问系统敏感目录。")
 
     if must_exist and not resolved.exists():
         raise HTTPException(status_code=404, detail=f"文件未找到: {file_path}")

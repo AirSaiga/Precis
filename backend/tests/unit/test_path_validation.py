@@ -1,7 +1,7 @@
 """path_validation 模块单元测试
 
 覆盖:
-- assert_no_traversal: 反穿越硬化(拒绝 `..`、系统敏感目录)
+- assert_no_traversal: 反穿越校验(拒绝 `..`、resolve 解析 symlink)
 - assert_path_within_root: 白名单语义(限定到指定根)
 - validate_file_access: 兼容入口(委托 assert_no_traversal)
 """
@@ -9,7 +9,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 import pytest
@@ -65,20 +64,6 @@ class TestAssertNoTraversal:
         with pytest.raises(HTTPException) as exc_info:
             assert_no_traversal(traversing)
         assert exc_info.value.status_code == 400
-
-    @pytest.mark.skipif(sys.platform != "win32", reason="Windows 系统目录黑名单")
-    def test_windows_system_dir_blocked(self):
-        """Windows 系统目录被黑名单拒绝"""
-        with pytest.raises(HTTPException) as exc_info:
-            assert_no_traversal("C:\\Windows\\System32\\drivers\\etc\\hosts", must_exist=False)
-        assert exc_info.value.status_code == 403
-
-    @pytest.mark.skipif(sys.platform == "win32", reason="Unix 系统目录黑名单")
-    def test_unix_system_dir_blocked(self):
-        """Unix 系统目录被黑名单拒绝"""
-        with pytest.raises(HTTPException) as exc_info:
-            assert_no_traversal("/etc/passwd", must_exist=False)
-        assert exc_info.value.status_code == 403
 
     def test_project_external_file_allowed(self, tmp_path):
         """用户在项目外选择的合法数据文件应被允许(核心用例)"""
