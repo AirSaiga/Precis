@@ -7,6 +7,8 @@ import uuid
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
+from app.shared.services.preview.path_validation import assert_path_within_root
+
 router = APIRouter(prefix="", tags=["Files-Transfer"])
 
 # 临时文件存储目录
@@ -40,13 +42,15 @@ async def upload_file(file: UploadFile = File(...)) -> dict:
 
 @router.get(
     "/download",
-    summary="下载文件",
+    summary="下载临时文件",
 )
 def download_file(path: str) -> FileResponse:
-    """下载指定路径的文件。"""
-    resolved = os.path.abspath(os.path.normpath(path))
-    if not os.path.isfile(resolved):
-        raise HTTPException(status_code=404, detail=f"文件不存在: {resolved}")
+    """
+    下载指定的临时上传文件。
+
+    安全约束：仅允许下载 TEMP_DIR 内的文件，防止任意文件下载。
+    """
+    resolved = assert_path_within_root(path, TEMP_DIR, must_exist=True)
     filename = os.path.basename(resolved)
     return FileResponse(resolved, filename=filename, media_type="application/octet-stream")
 
@@ -56,14 +60,25 @@ def download_file(path: str) -> FileResponse:
     summary="清理临时文件",
 )
 def delete_temp_file(file_id: str) -> dict:
-    """删除临时目录中的文件。"""
-    file_path = os.path.join(TEMP_DIR, file_id)
-    if os.path.isfile(file_path):
-        os.unlink(file_path)
+    """
+    删除临时目录中的文件。
+
+    安全约束：file_id 经反穿越校验后限定在 TEMP_DIR 内，防止 `..` 逃逸。
+    """
+    # file_id 来自 path 参数，可能含 `..`；先组装再用 assert_path_within_root 限定到 TEMP_DIR
+    candidate = os.path.join(TEMP_DIR, file_id)
+    try:
+        resolved = assert_path_within_root(candidate, TEMP_DIR, must_exist=False)
+    except HTTPException:
+        raise
+    # 精确匹配
+    if os.path.isfile(resolved):
+        os.unlink(resolved)
         return {"success": True}
-    # 尝试匹配前缀（file_id 可能不含扩展名）
+    # 尝试匹配前缀（file_id 可能不含扩展名），前缀比对基于 basename 防止逃逸
+    target_prefix = os.path.basename(resolved)
     for f in os.listdir(TEMP_DIR):
-        if f.startswith(file_id):
+        if f.startswith(target_prefix):
             os.unlink(os.path.join(TEMP_DIR, f))
             return {"success": True}
     raise HTTPException(status_code=404, detail="临时文件未找到")

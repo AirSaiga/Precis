@@ -229,8 +229,8 @@
     loading.value = true
     try {
       const [historyRes, statsRes] = await Promise.all([
-        fetchValidationHistory(projectPath.value, 50, 0),
-        fetchValidationStats(projectPath.value, 10),
+        fetchValidationHistory(50, 0),
+        fetchValidationStats(10),
       ])
       runs.value = historyRes.items || []
       stats.value = statsRes
@@ -244,9 +244,9 @@
   const handleDelete = async (runId: string) => {
     if (!projectPath.value) return
     try {
-      await deleteValidationRun(runId, projectPath.value)
+      await deleteValidationRun(runId)
       runs.value = runs.value.filter((r) => r.id !== runId)
-      const statsRes = await fetchValidationStats(projectPath.value, 10)
+      const statsRes = await fetchValidationStats(10)
       stats.value = statsRes
     } catch (e) {
       logger.error('[ValidationHistoryPanel] 删除失败:', e)

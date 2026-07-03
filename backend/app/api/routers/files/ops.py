@@ -16,6 +16,7 @@ from app.api.models.files import (
     WriteFileRequest,
     WriteFileResponse,
 )
+from app.shared.services.preview.path_validation import assert_no_traversal
 
 router = APIRouter(prefix="", tags=["Files-Ops"])
 
@@ -27,7 +28,7 @@ router = APIRouter(prefix="", tags=["Files-Ops"])
 )
 def read_file(request: ReadFileRequest) -> ReadFileResponse:
     """读取指定路径的文件内容。"""
-    path = os.path.abspath(os.path.normpath(request.path))
+    path = assert_no_traversal(request.path, must_exist=False)
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail=f"文件不存在: {path}")
     try:
@@ -47,7 +48,8 @@ def read_file(request: ReadFileRequest) -> ReadFileResponse:
 )
 def write_file(request: WriteFileRequest) -> WriteFileResponse:
     """写入内容到指定文件（自动创建父目录）。"""
-    path = os.path.abspath(os.path.normpath(request.path))
+    # 写入场景允许目标不存在，故 must_exist=False
+    path = assert_no_traversal(request.path, must_exist=False)
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -66,7 +68,7 @@ def write_file(request: WriteFileRequest) -> WriteFileResponse:
 )
 def check_file_exists(path: str) -> FileExistsResponse:
     """检查指定路径的文件是否存在。"""
-    resolved = os.path.abspath(os.path.normpath(path))
+    resolved = assert_no_traversal(path, must_exist=False)
     return FileExistsResponse(exists=os.path.isfile(resolved) or os.path.isdir(resolved))
 
 
@@ -77,7 +79,7 @@ def check_file_exists(path: str) -> FileExistsResponse:
 )
 def scan_directory(request: ScanDirectoryRequest) -> ScanDirectoryResponse:
     """扫描指定目录，返回文件和子目录列表。"""
-    path = os.path.abspath(os.path.normpath(request.path))
+    path = assert_no_traversal(request.path, must_exist=False)
     if not os.path.isdir(path):
         raise HTTPException(status_code=404, detail=f"目录不存在: {path}")
     try:
@@ -108,7 +110,7 @@ def scan_directory(request: ScanDirectoryRequest) -> ScanDirectoryResponse:
 )
 def make_directory(request: MkdirRequest) -> MkdirResponse:
     """递归创建目录。"""
-    path = os.path.abspath(os.path.normpath(request.path))
+    path = assert_no_traversal(request.path, must_exist=False)
     try:
         os.makedirs(path, exist_ok=True)
         return MkdirResponse(success=True)

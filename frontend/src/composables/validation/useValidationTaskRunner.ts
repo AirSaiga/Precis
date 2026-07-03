@@ -638,7 +638,7 @@ export function useValidationTaskRunner() {
           failed_count: response.statistics?.failed_count ?? 0,
           total_checks: response.statistics?.total_checks ?? 0,
         }
-        saveValidationRun(projectPath, {
+        saveValidationRun({
           duration_ms: response.summary.duration_ms ?? 0,
           summary: summaryWithPassRate as unknown as Record<string, unknown>,
           by_type: (response.statistics?.by_type ?? {}) as Record<string, Record<string, number>>,
