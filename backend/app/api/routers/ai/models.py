@@ -71,6 +71,9 @@ class AiChatContext(BaseModel):
 
     hasContext: bool
     selectedNodes: list[AiChatContextNode]
+    # 画布全部业务节点快照（前端 serializeCanvasForAI 裁剪后携带），
+    # 供 read_canvas 工具查询画布真实状态。默认空 list 保证旧请求/CLI 不破坏。
+    canvasNodes: list[AiChatContextNode] = Field(default_factory=list)
 
 
 class AiChatHistoryMessage(BaseModel):

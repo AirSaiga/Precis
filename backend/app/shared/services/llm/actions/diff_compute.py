@@ -111,7 +111,9 @@ def compute_action_diff(actions: list[dict[str, Any]], workspace_path: str) -> D
                 after = None
 
             before = before_contents.get(rel)
-            result.files.append(_build_file_diff(rel, before, after))
+            fd = _build_file_diff(rel, before, after)
+            if fd is not None:  # None = 无变化，跳过（避免确认框噪音）
+                result.files.append(fd)
 
         for fd in result.files:
             result.summary[fd.status] = result.summary.get(fd.status, 0) + 1
@@ -141,8 +143,12 @@ def _shadow_copy(src_workspace: str, dst: str) -> None:
             shutil.copy2(s, d)
 
 
-def _build_file_diff(rel: str, before: str | None, after: str | None) -> FileDiff:
-    """对比 before/after 生成 FileDiff。"""
+def _build_file_diff(rel: str, before: str | None, after: str | None) -> FileDiff | None:
+    """对比 before/after 生成 FileDiff。
+
+    返回 None 表示该文件无变化（before==after），调用方应跳过，
+    避免在确认框中显示"修改 → 无文本差异"误导用户。
+    """
     if before is None and after is not None:
         return FileDiff(
             path=rel, status="created", diff=f"--- /dev/null\n+++ {rel}\n{after}", after_preview=after[:500]
@@ -150,6 +156,11 @@ def _build_file_diff(rel: str, before: str | None, after: str | None) -> FileDif
 
     if after is None and before is not None:
         return FileDiff(path=rel, status="deleted", diff=f"--- {rel}\n+++ /dev/null\n", before_preview=before[:500])
+
+    # before 和 after 都存在（或都不存在）：计算真实 diff
+    if before == after:
+        # 内容完全一致——无变化，不生成 FileDiff（避免确认框出现"无文本差异"噪音）
+        return None
 
     diff = "".join(
         difflib.unified_diff(
@@ -159,6 +170,7 @@ def _build_file_diff(rel: str, before: str | None, after: str | None) -> FileDif
             tofile=f"b/{rel}",
         )
     )
+    # diff 为空但内容不同（如仅末尾换行差异）——仍算 modified 但标注
     return FileDiff(
         path=rel,
         status="modified",

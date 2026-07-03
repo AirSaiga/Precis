@@ -33,6 +33,12 @@ from app.shared.services.llm.actions.action_handlers import (
     update_yaml_config,
 )
 from app.shared.services.llm.actions.regex_handlers import process_regex_action
+from app.shared.services.llm.actions.registry import (
+    CONSTRAINT_ACTION_TYPES,
+    REGEX_ACTION_TYPES,
+    SCHEMA_ACTION_TYPES,
+    TRANSFORM_ACTION_TYPES,
+)
 from app.shared.services.llm.actions.schema_handlers import process_schema_action
 from app.shared.services.llm.actions.settings_handlers import process_settings_action
 from app.shared.services.llm.actions.transform_handlers import process_transform_action
@@ -68,10 +74,11 @@ def _collect_affected_files(actions: list[dict[str, Any]], workspace_path: str) 
             return None
         return os.path.basename(resource_id)
 
-    schema_action_types = {"ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"}
-    regex_action_types = {"ADD_REGEX", "UPDATE_REGEX", "DELETE_REGEX"}
-    transform_action_types = {"ADD_TRANSFORM", "UPDATE_TRANSFORM", "DELETE_TRANSFORM"}
-    constraint_action_types = {"ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"}
+    # 从注册表派生分类集合（单一事实源），避免本地硬编码与注册表不同步
+    schema_action_types = SCHEMA_ACTION_TYPES
+    regex_action_types = REGEX_ACTION_TYPES
+    transform_action_types = TRANSFORM_ACTION_TYPES
+    constraint_action_types = CONSTRAINT_ACTION_TYPES
 
     for action in actions:
         action_type = action.get("actionType", "")
@@ -265,12 +272,14 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
     regex_actions: list[dict[str, Any]] = []
     transform_actions: list[dict[str, Any]] = []
     settings_actions: list[dict[str, Any]] = []
+    canvas_actions: list[dict[str, Any]] = []
     other_actions: list[dict[str, Any]] = []
 
-    constraint_types = {"ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"}
-    schema_types = {"ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"}
-    regex_types = {"ADD_REGEX", "UPDATE_REGEX", "DELETE_REGEX"}
-    transform_types = {"ADD_TRANSFORM", "UPDATE_TRANSFORM", "DELETE_TRANSFORM"}
+    # 从注册表派生分类集合（单一事实源）
+    constraint_types = CONSTRAINT_ACTION_TYPES
+    schema_types = SCHEMA_ACTION_TYPES
+    regex_types = REGEX_ACTION_TYPES
+    transform_types = TRANSFORM_ACTION_TYPES
 
     for action in actions:
         action_type = action.get("actionType")
@@ -292,6 +301,9 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
             transform_actions.append(action)
         elif action_type == "UPDATE_SETTINGS":
             settings_actions.append(action)
+        elif action_type == "ADD_TO_CANVAS":
+            # ADD_TO_CANVAS 是纯读动作（只读现有配置 + 发指令，不写盘），独立处理
+            canvas_actions.append(action)
         else:
             other_actions.append(action)
 
@@ -386,7 +398,26 @@ def _execute_actions(actions: list[dict[str, Any]], workspace_path: str) -> list
             }
         )
 
-    # 7. 处理 VALIDATE_PROJECT 等其他动作
+    # 7. 处理 ADD_TO_CANVAS 动作（纯读：不写盘，只读现有配置生成 frontendInstructions）
+    # 语义：把项目配置里已存在的资源"显示到画布"，区别于 ADD_*（创建新配置文件）。
+    # 复用 generate_frontend_instructions 的重读逻辑，确保画布拿到磁盘真实数据。
+    for action in canvas_actions:
+        action_type = action.get("actionType", "ADD_TO_CANVAS")
+        spec = action.get("canvasSpec", {})
+        resource_kind = spec.get("resourceKind", "")
+        resource_id = spec.get("resourceId") or spec.get("resourceName") or spec.get("name", "")
+        logger.info(f"[process_actions] ADD_TO_CANVAS: {resource_kind} '{resource_id}'（只读，不写盘）")
+        results.append(
+            {
+                "action": action,
+                "success": True,
+                "message": f"已生成显示到画布指令: {resource_kind} '{resource_id}'",
+                # 重读磁盘真实配置，生成前端指令（前端委托 importV2ResourceToCanvas 创建节点）
+                "frontendInstructions": generate_frontend_instructions(action, workspace_path),
+            }
+        )
+
+    # 8. 处理 VALIDATE_PROJECT 等其他动作
     for action in other_actions:
         action_type = action.get("actionType", "UNKNOWN")
 

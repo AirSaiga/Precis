@@ -26,7 +26,8 @@ from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
 
 logger = logging.getLogger(__name__)
 
-VALID_DATA_TYPES = {"string", "integer", "decimal", "boolean", "datetime", "date", "time", "float"}
+# 数据类型白名单从注册表派生（单一事实源）
+from app.shared.services.llm.actions.registry import DATA_TYPES as VALID_DATA_TYPES
 
 
 def _sanitize_resource_id(resource_id: str) -> str:
@@ -86,7 +87,16 @@ def _add_schema(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
     # 检查是否已存在同名 Schema
     schema_file = schemas_dir / f"{schema_id}.schema.yaml"
     if schema_file.exists():
-        return {"success": False, "message": f"Schema 文件已存在: {schema_id}.schema.yaml"}
+        # 提示 Agent 改用 ADD_TO_CANVAS：用户的意图很可能是"把已存在的资源显示到画布"
+        # 而非"创建新文件"。把建议写进 message 让 LLM 自我修正。
+        return {
+            "success": False,
+            "message": (
+                f"Schema 文件已存在: {schema_id}.schema.yaml。"
+                f"若用户想把已存在的资源显示到画布，请改用 actionType=ADD_TO_CANVAS"
+                f"（canvasSpec.resourceKind='schema'），它不会重复创建文件。"
+            ),
+        }
 
     # 构建列定义
     column_defs = []

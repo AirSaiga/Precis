@@ -9,32 +9,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.shared.services.llm.actions.registry import TRANSFORM_SUB_TYPES
 from app.shared.services.llm.actions.validation_types import ValidationError
 
-VALID_TRANSFORM_TYPE_NAMES = {
-    "StringSplit",
-    "RegexExtract",
-    "MathExpr",
-    "DateFormat",
-    "Lookup",
-    "Strip",
-    "UpperCase",
-    "LowerCase",
-    "Replace",
-    "FilterRows",
-    "FillNA",
-    "DropDuplicates",
-    "CastType",
-    "Concat",
-    "Substring",
-    "Aggregate",
-    "ConditionalAssign",
-    "SortRows",
-    "Digits",
-    "WeightedSum",
-    "Modulo",
-    "MapValue",
-}
+# 转换子类型白名单从注册表派生（单一事实源）
+VALID_TRANSFORM_TYPE_NAMES = TRANSFORM_SUB_TYPES
 
 
 def validate_transform_action(action: dict[str, Any], index: int) -> list[ValidationError]:

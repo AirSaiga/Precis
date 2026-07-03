@@ -274,10 +274,21 @@
           </div>
           <div class="provider-card__info">
             <div class="provider-card__name">{{ t('settings.aiAssistant.addProvider') }}</div>
-            <div class="provider-card__meta">DeepSeek</div>
+            <div class="provider-card__meta">{{ selectedPresetName }}</div>
           </div>
         </div>
         <div class="provider-card__edit-form">
+          <div class="edit-row">
+            <label class="edit-label">{{ t('settings.aiAssistant.selectPreset') }}</label>
+            <select v-model="addForm.presetId" class="ui-select ui-select--compact">
+              <option value="" disabled>
+                {{ t('settings.aiAssistant.selectPresetPlaceholder') }}
+              </option>
+              <option v-for="p in presets" :key="p.id" :value="p.id">
+                {{ p.name }}
+              </option>
+            </select>
+          </div>
           <div class="edit-row">
             <label class="edit-label">{{ t('settings.aiAssistant.apiKey') }}</label>
             <input
@@ -368,7 +379,7 @@
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
-  import { computed, onMounted, reactive, ref } from 'vue'
+  import { computed, onMounted, reactive, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useToast } from '@/composables/shared'
@@ -431,6 +442,24 @@
     const preset = presets.value.find((p) => p.id === addForm.presetId)
     return preset?.models ?? []
   })
+
+  // 当前选中的预设名（添加表单头部展示）
+  const selectedPresetName = computed(() => {
+    const preset = presets.value.find((p) => p.id === addForm.presetId)
+    return preset?.name ?? ''
+  })
+
+  // 切换预设时，重置模型/名称为该预设的默认值
+  watch(
+    () => addForm.presetId,
+    (newId) => {
+      const preset = presets.value.find((p) => p.id === newId)
+      if (preset) {
+        addForm.model = preset.default_model
+        addForm.name = preset.name
+      }
+    }
+  )
 
   const configTemplate = computed(
     () => `# ${t('settings.aiAssistant.configTemplateHeader')}
@@ -544,11 +573,12 @@ defaults:
 
   function openAddForm(): void {
     showAddForm.value = true
-    const deepseekPreset = presets.value.find((p) => p.id === 'deepseek')
-    addForm.presetId = deepseekPreset?.id ?? presets.value[0]?.id ?? ''
+    // 默认选中第一个预设（切换预设时 watch 会重置 model/name）
+    const defaultPreset = presets.value[0]
     addForm.apiKey = ''
-    addForm.model = deepseekPreset?.default_model ?? 'deepseek-v4-pro'
-    addForm.name = deepseekPreset?.name ?? 'DeepSeek'
+    addForm.presetId = defaultPreset?.id ?? ''
+    addForm.model = defaultPreset?.default_model ?? ''
+    addForm.name = defaultPreset?.name ?? ''
   }
 
   function cancelAdd(): void {

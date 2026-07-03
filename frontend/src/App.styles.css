@@ -226,6 +226,8 @@
   right: 0;
   bottom: 32px;
   z-index: 100;
+  /* IDE 模式下浮动于画布之上，加左侧分隔线明确边界 */
+  border-left: 1px solid var(--ui-border-subtle);
 }
 
 .ai-chat-fab {

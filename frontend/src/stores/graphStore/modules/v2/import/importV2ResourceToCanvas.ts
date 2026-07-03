@@ -164,7 +164,7 @@ export function createV2ImportToCanvas(params: {
     kind: ProjectResourceKind,
     resourceId: string,
     position: { x: number; y: number },
-    options?: { includeDeps?: boolean; moveIfExists?: boolean }
+    options?: { includeDeps?: boolean; moveIfExists?: boolean; skipRelatedConstraints?: boolean }
   ): Promise<string | null> {
     const normalizedKind: ProjectResourceKind =
       kind === 'pattern' || kind === 'regex_node' ? 'regex' : kind
@@ -206,7 +206,9 @@ export function createV2ImportToCanvas(params: {
         // 从源头消除竞态。getIndependentConstraintIdsForSchema 仅读资源树、不读画布节点，
         // 可安全前置；连带约束创建（依赖 Schema 节点存在以解析列名）仍保留在节点创建之后。
         let shouldImportRelated = false
-        if (getIndependentConstraintIdsForSchema) {
+        // AI 驱动的导入（skipRelatedConstraints=true）跳过确认弹窗——AI 流程中无人响应弹窗，
+        // 且 AI 默认只显示用户点名的资源，不连带（用户可后续手动连带）。
+        if (!options?.skipRelatedConstraints && getIndependentConstraintIdsForSchema) {
           const pendingIds =
             getIndependentConstraintIdsForSchema(resourceId)?.filter(
               (cId) => !nodes.value.some((n) => n.id === cId)

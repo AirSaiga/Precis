@@ -159,7 +159,7 @@
         :disabled="loading"
       ></textarea>
       <button v-if="loading" class="cancel-btn" :title="t('aiChat.cancel')" @click="handleCancel">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
           <rect x="6" y="6" width="12" height="12" rx="2"></rect>
         </svg>
       </button>

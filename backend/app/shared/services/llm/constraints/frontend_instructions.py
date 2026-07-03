@@ -35,10 +35,13 @@ def _read_yaml_file(path: Path) -> dict[str, Any] | None:
         return None
 
 
-CONSTRAINT_ACTION_TYPES = {"ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"}
-SCHEMA_ACTION_TYPES = {"ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"}
-REGEX_ACTION_TYPES = {"ADD_REGEX", "UPDATE_REGEX", "DELETE_REGEX"}
-TRANSFORM_ACTION_TYPES = {"ADD_TRANSFORM", "UPDATE_TRANSFORM", "DELETE_TRANSFORM"}
+# 动作分类集合从注册表派生（单一事实源），避免本地硬编码与注册表不同步
+from app.shared.services.llm.actions.registry import (
+    CONSTRAINT_ACTION_TYPES,
+    REGEX_ACTION_TYPES,
+    SCHEMA_ACTION_TYPES,
+    TRANSFORM_ACTION_TYPES,
+)
 
 
 def generate_frontend_instructions(action: dict[str, Any], workspace_path: str = "") -> dict[str, Any]:
@@ -68,6 +71,8 @@ def generate_frontend_instructions(action: dict[str, Any], workspace_path: str =
         return _generate_transform_instruction(action, workspace_path)
     elif action_type == "UPDATE_SETTINGS":
         return _generate_settings_instruction(action)
+    elif action_type == "ADD_TO_CANVAS":
+        return _generate_canvas_instruction(action, workspace_path)
     else:
         return {"actionType": action_type}
 
@@ -243,5 +248,61 @@ def _generate_settings_instruction(action: dict[str, Any]) -> dict[str, Any]:
         "settingsSpec": {
             "category": spec.get("category", ""),
             "settings": spec.get("settings", {}),
+        },
+    }
+
+
+def _generate_canvas_instruction(action: dict[str, Any], workspace_path: str = "") -> dict[str, Any]:
+    """生成 ADD_TO_CANVAS 前端指令（重读磁盘真实配置）
+
+    与 ADD_*（回声输入）不同：ADD_TO_CANVAS 的语义是"显示已存在的配置到画布"，
+    故重读磁盘拿到真实数据（columns/source/pattern 等），保证画布显示与配置一致，
+    而非依赖 LLM 输入（可能不完整或与磁盘不同步）。
+
+    前端收到后委托 graphStore.importV2ResourceToCanvas 创建节点（幂等）。
+    """
+    spec = action.get("canvasSpec", {})
+    resource_kind = spec.get("resourceKind", "")
+    resource_id = spec.get("resourceId", "")
+    resource_name = spec.get("resourceName") or spec.get("name", "")
+
+    # 定位磁盘配置文件并重读真实数据
+    # dir_map 与 _canvas_validator._list_existing_resource_ids 保持一致
+    dir_map = {
+        "schema": ("schemas", "*.schema.yaml"),
+        "regex": ("regex", "*.regex.yaml"),
+        "constraint": ("constraints", "*.constraint.yaml"),
+        "transform": ("transforms", "*.transform.yaml"),
+    }
+    real_config: dict[str, Any] = {}
+    if workspace_path and resource_kind in dir_map:
+        subdir, pattern = dir_map[resource_kind]
+        target_dir = Path(workspace_path) / subdir
+        if target_dir.exists():
+            for f in target_dir.glob(pattern):
+                data = _read_yaml_file(f)
+                if not data:
+                    continue
+                # 按 id 或 name 匹配目标资源
+                fid = data.get("id", "")
+                fname = data.get("name", "")
+                if (resource_id and str(fid) == str(resource_id)) or (
+                    resource_name and str(fname) == str(resource_name)
+                ):
+                    real_config = data
+                    # 同步补全 resourceId（若 LLM 只给了 name）
+                    if not resource_id and fid:
+                        resource_id = str(fid)
+                    break
+
+    return {
+        "actionType": "ADD_TO_CANVAS",
+        "canvasSpec": {
+            "resourceKind": resource_kind,
+            "resourceId": resource_id,
+            "name": resource_name,
+            # 透传重读的真实配置，前端可据此直接构建节点（importV2ResourceToCanvas 也会独立重读，
+            # 但携带 config 可让前端在不依赖 API 往返时也能渲染）
+            "config": real_config,
         },
     }

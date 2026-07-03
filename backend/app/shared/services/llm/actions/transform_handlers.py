@@ -29,30 +29,8 @@ from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
 
 logger = logging.getLogger(__name__)
 
-VALID_TRANSFORM_TYPES = {
-    "StringSplit",
-    "RegexExtract",
-    "MathExpr",
-    "DateFormat",
-    "Lookup",
-    "Strip",
-    "UpperCase",
-    "LowerCase",
-    "Replace",
-    "FilterRows",
-    "FillNA",
-    "DropDuplicates",
-    "CastType",
-    "Concat",
-    "Substring",
-    "Aggregate",
-    "ConditionalAssign",
-    "SortRows",
-    "Digits",
-    "WeightedSum",
-    "Modulo",
-    "MapValue",
-}
+# 转换子类型白名单从注册表派生（单一事实源）
+from app.shared.services.llm.actions.registry import TRANSFORM_SUB_TYPES as VALID_TRANSFORM_TYPES
 
 
 def _sanitize_resource_id(resource_id: str) -> str:
@@ -114,7 +92,15 @@ def _add_transform(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
 
     transform_file = transforms_dir / f"{transform_id}.transform.yaml"
     if transform_file.exists():
-        return {"success": False, "message": f"Transform 文件已存在: {transform_id}.transform.yaml"}
+        # 提示 Agent 改用 ADD_TO_CANVAS（同 schema_handlers 的引导逻辑）
+        return {
+            "success": False,
+            "message": (
+                f"Transform 文件已存在: {transform_id}.transform.yaml。"
+                f"若用户想把已存在的资源显示到画布，请改用 actionType=ADD_TO_CANVAS"
+                f"（canvasSpec.resourceKind='transform'），它不会重复创建文件。"
+            ),
+        }
 
     try:
         transform = TransformFile(

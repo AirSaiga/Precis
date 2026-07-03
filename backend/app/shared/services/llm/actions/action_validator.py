@@ -47,6 +47,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from app.shared.services.llm.actions._canvas_validator import validate_canvas_action
 from app.shared.services.llm.actions._constraint_validator import (
     validate_constraint_action,
     validate_foreign_key_reference,
@@ -57,6 +58,15 @@ from app.shared.services.llm.actions._regex_validator import validate_regex_acti
 from app.shared.services.llm.actions._schema_validator import validate_schema_action
 from app.shared.services.llm.actions._settings_validator import validate_settings_action
 from app.shared.services.llm.actions._transform_validator import validate_transform_action
+from app.shared.services.llm.actions.registry import (
+    ALL_CONSTRAINT_TYPES,
+    REGEX_ACTION_TYPES,
+    SCHEMA_ACTION_TYPES,
+    SETTINGS_CATEGORIES,
+    TRANSFORM_ACTION_TYPES,
+)
+from app.shared.services.llm.actions.registry import CONSTRAINT_REQUIRED_PARAMS as CONSTRAINT_REQUIRED_PARAMS_REGISTRY
+from app.shared.services.llm.actions.specs import SpecParseError, parse_action_spec
 from app.shared.services.llm.actions.validation_types import (
     ValidationError,
     ValidationResult,
@@ -86,43 +96,16 @@ class ActionValidator:
         _project_schema: 缓存的项目结构信息
     """
 
-    # 支持的约束类型
-    VALID_CONSTRAINT_TYPES = {
-        "NotNull",
-        "Unique",
-        "Range",
-        "AllowedValues",
-        "ForeignKey",
-        "Conditional",
-        "Scripted",
-        "DateLogic",
-        "Charset",
-        "Composite",
-        # 别名兼容
-        "NOT_NULL",
-        "UNIQUE",
-        "RANGE",
-        "ALLOWED_VALUES",
-        "FOREIGN_KEY",
-        "CONDITIONAL",
-        "DATE_LOGIC",
-        "CHARSET",
-        "COMPOSITE",
-        "REGEX",
-    }
+    # 以下白名单均从动作注册表（单一事实源）派生，禁止本地硬编码。
+    # 保留类属性形式以兼容现有引用（如 _constraint_validator 经回调注入使用）。
+    VALID_CONSTRAINT_TYPES = set(ALL_CONSTRAINT_TYPES)
+    VALID_SCHEMA_TYPES = set(SCHEMA_ACTION_TYPES)
+    VALID_REGEX_TYPES = set(REGEX_ACTION_TYPES)
+    VALID_TRANSFORM_TYPES = set(TRANSFORM_ACTION_TYPES)
+    VALID_SETTINGS_CATEGORIES = set(SETTINGS_CATEGORIES)
 
-    VALID_SCHEMA_TYPES = {"ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"}
-    VALID_REGEX_TYPES = {"ADD_REGEX", "UPDATE_REGEX", "DELETE_REGEX"}
-    VALID_TRANSFORM_TYPES = {"ADD_TRANSFORM", "UPDATE_TRANSFORM", "DELETE_TRANSFORM"}
-
-    VALID_SETTINGS_CATEGORIES = {"validation", "fileProcessing", "scriptSecurity"}
-
-    # 需要特定参数的约束类型
-    CONSTRAINT_REQUIRED_PARAMS = {
-        "Range": ["min", "max"],
-        "AllowedValues": ["allowedValues"],
-        "ForeignKey": ["toTableId", "toColumnId"],
-    }
+    # 需要特定参数的约束类型（从注册表派生）
+    CONSTRAINT_REQUIRED_PARAMS = dict(CONSTRAINT_REQUIRED_PARAMS_REGISTRY)
 
     def __init__(self, project_path: str):
         self.project_path = Path(project_path)
@@ -212,6 +195,24 @@ class ActionValidator:
         for index, action in enumerate(actions):
             action_type = action.get("actionType", "")
 
+            # 结构校验前置（Pydantic）：枚举、必填、Range min<=max 等不依赖项目状态的规则。
+            # 失败则跳过该动作的上下文校验（数据已非法，上下文校验无意义），直接标记无效。
+            # 这是 specs.py 与各 validator 的分工：specs 管结构，validator 管上下文（表/列/FK 存在性）。
+            try:
+                parse_action_spec(action)
+            except SpecParseError as e:
+                result.errors.append(
+                    ValidationError(
+                        action_index=index,
+                        action_type=action_type,
+                        error_type="spec_structure_invalid",
+                        message=e.message,
+                        suggestion="请检查 spec 字段结构（类型枚举、必填字段、参数关系）",
+                    )
+                )
+                result.invalid_action_indices.add(index)
+                continue
+
             if action_type in [
                 "ADD_CONSTRAINT_NODE",
                 "UPDATE_CONSTRAINT_NODE",
@@ -265,6 +266,15 @@ class ActionValidator:
 
             elif action_type == "UPDATE_SETTINGS":
                 errors = validate_settings_action(action, index)
+                result.errors.extend(errors)
+                if errors:
+                    result.invalid_action_indices.add(index)
+                else:
+                    result.valid_actions.append(action)
+
+            elif action_type == "ADD_TO_CANVAS":
+                # ADD_TO_CANVAS 不写盘，但仍需校验目标资源真实存在（避免显示不存在的资源）
+                errors = validate_canvas_action(action, index, str(self.project_path))
                 result.errors.extend(errors)
                 if errors:
                     result.invalid_action_indices.add(index)

@@ -24,6 +24,11 @@ from typing import Any
 from app.shared.services.llm.actions.action_processor import process_actions
 from app.shared.services.llm.actions.action_validator import ActionValidator
 from app.shared.services.llm.actions.diff_compute import compute_action_diff
+from app.shared.services.llm.actions.registry import (
+    ACTION_COUNT,
+    ACTION_ENUM,
+    READ_ONLY_ACTION_TYPES,
+)
 from app.shared.services.llm.actions.validation_types import format_validation_result
 
 # 延迟导入以避免循环依赖（streaming/__init__ → orchestrator → apply_actions → streaming）
@@ -65,8 +70,9 @@ def _summarize_results(raw_results: list[dict[str, Any]]) -> list[dict[str, Any]
     return summarized
 
 
-# 纯读动作（无副作用），允许在无确认环境（非流式 /chat、CLI）直接执行
-_READ_ONLY_ACTION_TYPES = {"VALIDATE_PROJECT"}
+# 纯读动作（无副作用），允许在无确认环境（非流式 /chat、CLI）直接执行。
+# 从动作注册表派生，避免硬编码集合与注册表不同步。
+_READ_ONLY_ACTION_TYPES = READ_ONLY_ACTION_TYPES
 
 
 def _collect_instructions(raw_results: list[dict[str, Any]], target_list: list[Any]) -> None:
@@ -144,6 +150,7 @@ class ApplyActionsTool:
                                 "- 转换动作（actionType=ADD/UPDATE/DELETE_TRANSFORM）→ transformSpec\n"
                                 "- 设置动作（actionType=UPDATE_SETTINGS）→ settingsSpec\n"
                                 "- 校验动作（actionType=VALIDATE_PROJECT）→ constraintSpec（含 tableName）\n"
+                                "- 显示到画布（actionType=ADD_TO_CANVAS）→ canvasSpec（把已存在的配置显示到画布，不写盘）\n"
                                 "注意字段名是 constraintSpec/schemaSpec 等（不是 spec）。"
                             ),
                             "items": {
@@ -151,23 +158,9 @@ class ApplyActionsTool:
                                 "properties": {
                                     "actionType": {
                                         "type": "string",
-                                        "enum": [
-                                            "ADD_CONSTRAINT_NODE",
-                                            "UPDATE_CONSTRAINT_NODE",
-                                            "DELETE_CONSTRAINT_NODE",
-                                            "ADD_SCHEMA",
-                                            "UPDATE_SCHEMA",
-                                            "DELETE_SCHEMA",
-                                            "ADD_REGEX",
-                                            "UPDATE_REGEX",
-                                            "DELETE_REGEX",
-                                            "ADD_TRANSFORM",
-                                            "UPDATE_TRANSFORM",
-                                            "DELETE_TRANSFORM",
-                                            "UPDATE_SETTINGS",
-                                            "VALIDATE_PROJECT",
-                                        ],
-                                        "description": "动作类型（14 种）。",
+                                        # enum 从注册表派生，新增动作自动出现，消灭"漏条目"bug
+                                        "enum": list(ACTION_ENUM),
+                                        "description": f"动作类型（{ACTION_COUNT} 种）。",
                                     },
                                 },
                                 "required": ["actionType"],
@@ -215,20 +208,47 @@ class ApplyActionsTool:
         # 判断是否进入两阶段确认模式（dry_run_enabled 即两阶段；不再依赖单 job controller）
         two_phase = self._dry_run_enabled
 
+        # 分流只读动作（ADD_TO_CANVAS / VALIDATE_PROJECT）：无论是否 two_phase，
+        # 只读动作都不写盘、不需用户确认，直接执行。
+        # 这避免"拖入画布"这类只读操作弹出不必要的确认框（且确认框内容为空 diff，令人困惑）。
+        read_only_actions = [a for a in actions if a.get("actionType", "") in _READ_ONLY_ACTION_TYPES]
+        write_actions = [a for a in actions if a.get("actionType", "") not in _READ_ONLY_ACTION_TYPES]
+
+        # 先执行只读动作（如果有），结果累积到 combined
+        combined_results: list[dict[str, Any]] = []
+        read_only_result: dict[str, Any] | None = None
+        if read_only_actions:
+            read_only_result = await self._run_legacy(read_only_actions)
+            if read_only_result.get("success"):
+                combined_results.extend(read_only_result.get("results", []))
+            else:
+                # 只读动作失败则整体返回（全有或全无语义）
+                return read_only_result
+
+        # 无写盘动作：只读动作已执行完毕，直接返回合并结果
+        if not write_actions:
+            return {
+                "success": True,
+                "results": combined_results,
+                "instructions_collected": len(self._collected_instructions),
+            }
+
         if not two_phase:
             # 无确认环境（非流式 /chat、CLI ai ask）：对写操作 fail-closed
-            has_write = any(a.get("actionType", "") not in _READ_ONLY_ACTION_TYPES for a in actions)
-            if has_write:
-                logger.warning("[apply_actions] 无确认环境拒绝写操作（fail-closed）")
-                return {
-                    "success": False,
-                    "error": "此环境不支持自动写盘（无确认门），请在对话界面操作以获得用户确认。",
-                    "results": [],
-                }
-            # 纯读动作（VALIDATE_PROJECT）允许直接执行
-            return await self._run_legacy(actions)
+            logger.warning("[apply_actions] 无确认环境拒绝写操作（fail-closed）")
+            return {
+                "success": False,
+                "error": "此环境不支持自动写盘（无确认门），请在对话界面操作以获得用户确认。",
+                "results": combined_results,
+            }
 
-        return await self._run_two_phase(actions)
+        # 写盘动作走两阶段确认；只读动作的结果已累积，最终合并返回
+        write_result = await self._run_two_phase(write_actions)
+        # 合并只读 + 写盘的结果
+        if combined_results:
+            merged_results = combined_results + write_result.get("results", [])
+            write_result["results"] = merged_results
+        return write_result
 
     async def _run_legacy(self, actions: list[dict[str, Any]]) -> dict[str, Any]:
         """legacy 直写模式：仅用于纯读动作（VALIDATE_PROJECT），直接执行。"""

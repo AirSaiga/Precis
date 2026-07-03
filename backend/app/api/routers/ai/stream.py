@@ -123,6 +123,8 @@ async def chat_stream(
 
     # 上下文节点与历史转换(与 /chat 端点一致)
     context_nodes = [node.model_dump() for node in request.context.selectedNodes]
+    # 画布节点快照（供 read_canvas 工具查询画布真实状态）
+    canvas_nodes = [node.model_dump() for node in request.context.canvasNodes]
     history = [{"role": h.role, "content": h.content} for h in (request.history or [])]
 
     # 实时事件队列: orchestrator emit 时推入, sse_event_stream 消费
@@ -144,6 +146,7 @@ async def chat_stream(
                 provider=provider,
                 project_path=safe_project_path,
                 context_nodes=context_nodes,
+                canvas_nodes=canvas_nodes,
             )
         finally:
             _unregister_cancel_event(job_id)

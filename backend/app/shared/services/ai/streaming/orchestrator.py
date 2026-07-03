@@ -101,6 +101,7 @@ class StreamingOrchestrator:
         provider: Any,
         project_path: str,
         context_nodes: list[dict[str, Any]],
+        canvas_nodes: list[dict[str, Any]] | None = None,
     ) -> None:
         """@methoddesc 包装 ChatAgentRunner 为流式事件流
 
@@ -113,6 +114,7 @@ class StreamingOrchestrator:
             provider: Provider 实例
             project_path: 项目配置目录
             context_nodes: 选中上下文节点
+            canvas_nodes: 画布全部业务节点快照（供 read_canvas 工具查询）
         """
         self.emit(EVENT_STARTED, {"job_id": self.job_id, "kind": "chat"})
 
@@ -134,6 +136,7 @@ class StreamingOrchestrator:
             apply_callbacks=apply_callbacks,
             dry_run_enabled=True,
             job_id=self.job_id,
+            canvas_nodes=canvas_nodes,
         )
 
         # 工具 label 映射（与 ChatAgentRunner._TOOL_LABELS 一致，供 tool_call 事件使用）

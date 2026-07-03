@@ -87,6 +87,9 @@ async def chat(request: AiChatRequest, x_project_config_path: str | None = Heade
     # 转换上下文节点（将 Pydantic 模型转为字典）
     context_nodes = [node.model_dump() for node in request.context.selectedNodes]
 
+    # 转换画布节点快照（供 read_canvas 工具查询画布真实状态）
+    canvas_nodes = [node.model_dump() for node in request.context.canvasNodes]
+
     # 转换对话历史（将 Pydantic 模型转为简单字典列表）
     history = [{"role": h.role, "content": h.content} for h in (request.history or [])]
 
@@ -99,6 +102,7 @@ async def chat(request: AiChatRequest, x_project_config_path: str | None = Heade
             context_nodes=context_nodes,
             history=history,
             agent_mode=request.agent_mode,
+            canvas_nodes=canvas_nodes,
         )
     except Exception as exc:
         logging.getLogger(__name__).exception("AI chat failed")

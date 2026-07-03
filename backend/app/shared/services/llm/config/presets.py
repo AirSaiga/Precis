@@ -43,6 +43,14 @@ PROVIDER_PRESETS: dict[str, dict[str, Any]] = {
         "default_model": "llama3.2",
         "models": [],
     },
+    "mimo": {
+        "id": "mimo",
+        "name": "Xiaomi MiMo",
+        "type": "openai",
+        "base_url": "https://api.xiaomimimo.com/v1",
+        "default_model": "mimo-v2.5",
+        "models": ["mimo-v2.5", "mimo-v2.5-pro"],
+    },
 }
 
 

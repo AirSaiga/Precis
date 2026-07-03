@@ -44,13 +44,15 @@ CONSTRAINT_TYPE_MAP = {
     "DATE_LOGIC": "DateLogic",
 }
 
-# 重新导出 ActionParser 和 process_actions，保持向后兼容
+# 重新导出 process_actions，保持向后兼容。
+# 注意：ActionParser 不在此 re-export——它在 response_parser.py 定义，
+# 而 response_parser 现在依赖 actions.registry，re-export 会形成循环导入
+# （response_parser → actions.registry → actions/__init__ → action_parser → response_parser）。
+# 调用方应直接 from app.shared.services.llm.chat.response_parser import ActionParser。
 from app.shared.services.llm.actions.action_processor import process_actions
-from app.shared.services.llm.chat.response_parser import ActionParser
 from app.shared.services.llm.yaml_io import ActionParseError
 
 __all__ = [
-    "ActionParser",
     "ActionParseError",
     "CONSTRAINT_TYPE_MAP",
     "process_actions",

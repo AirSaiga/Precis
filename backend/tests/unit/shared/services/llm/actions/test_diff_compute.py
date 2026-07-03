@@ -109,10 +109,12 @@ class TestBuildFileDiff:
         assert "+line3" in fd.diff
 
     def test_no_change_file(self):
-        """before 和 after 完全相同 → modified 但 diff 为空提示。"""
+        """before 和 after 完全相同 → 返回 None（无变化，应被调用方跳过）。
+
+        无变化的文件不应出现在确认框中，避免"修改 → 无文本差异"误导用户。
+        """
         fd = _build_file_diff("unchanged.yaml", "same", "same")
-        assert fd.status == "modified"
-        assert "(无文本差异)" in fd.diff
+        assert fd is None
 
 
 # =============================================================================

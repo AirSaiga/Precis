@@ -80,6 +80,18 @@ class TestListPresets:
         assert "deepseek-v4-flash" in ds["models"]
 
     @pytest.mark.asyncio
+    async def test_returns_mimo_preset(self):
+        # MIMO 预设（mimo-v2.5 / mimo-v2.5-pro）必须可被前端和 CLI 获取
+        result = await list_presets()
+        mimo = next(p for p in result if p["id"] == "mimo")
+        assert mimo["name"] == "Xiaomi MiMo"
+        assert mimo["type"] == "openai"
+        assert mimo["base_url"] == "https://api.xiaomimimo.com/v1"
+        assert mimo["default_model"] == "mimo-v2.5"
+        assert "mimo-v2.5" in mimo["models"]
+        assert "mimo-v2.5-pro" in mimo["models"]
+
+    @pytest.mark.asyncio
     async def test_preset_has_required_fields(self):
         result = await list_presets()
         for p in result:
@@ -109,6 +121,34 @@ class TestCreateProvider:
         assert result.is_configured is True
         assert len(saved) == 1
         assert len(saved[0].providers) == 1
+
+    @pytest.mark.asyncio
+    async def test_create_first_provider_auto_activates(self, patch_loader, empty_config):
+        # 无默认 Provider 时，新建后应自动设为默认，避免 "No default provider configured"
+        saved = patch_loader(empty_config)
+        req = CreateProviderRequest(
+            name="Xiaomi MiMo",
+            type="openai",
+            base_url="https://api.xiaomimimo.com/v1",
+            api_key="sk-abc",
+            model="mimo-v2.5",
+        )
+        await create_provider(req)
+        assert saved[0].defaults.get("chat") == "xiaomi-mimo"
+
+    @pytest.mark.asyncio
+    async def test_create_does_not_override_existing_default(self, patch_loader, config_with_deepseek):
+        # 已存在默认 Provider 时，新建不应抢占默认
+        saved = patch_loader(config_with_deepseek)
+        req = CreateProviderRequest(
+            name="Xiaomi MiMo",
+            type="openai",
+            base_url="https://api.xiaomimimo.com/v1",
+            api_key="sk-abc",
+            model="mimo-v2.5",
+        )
+        await create_provider(req)
+        assert saved[0].defaults.get("chat") == "deepseek"
 
     @pytest.mark.asyncio
     async def test_create_with_duplicate_id_gets_suffix(self, patch_loader, config_with_deepseek):

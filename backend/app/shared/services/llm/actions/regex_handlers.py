@@ -93,7 +93,15 @@ def _add_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
 
     regex_file = regex_dir / f"{regex_id}.regex.yaml"
     if regex_file.exists():
-        return {"success": False, "message": f"Regex 文件已存在: {regex_id}.regex.yaml"}
+        # 提示 Agent 改用 ADD_TO_CANVAS（同 schema_handlers 的引导逻辑）
+        return {
+            "success": False,
+            "message": (
+                f"Regex 文件已存在: {regex_id}.regex.yaml。"
+                f"若用户想把已存在的资源显示到画布，请改用 actionType=ADD_TO_CANVAS"
+                f"（canvasSpec.resourceKind='regex'），它不会重复创建文件。"
+            ),
+        }
 
     # 构建 source_ref
     source_ref = None

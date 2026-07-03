@@ -16,14 +16,16 @@ from app.shared.services.llm.actions.action_handlers import update_yaml_config
 from app.shared.services.llm.actions.action_parser import (
     CONSTRAINT_TYPE_MAP,
     ActionParseError,
-    ActionParser,
     process_actions,
 )
 from app.shared.services.llm.actions.action_validator import ActionValidator, ValidationResult
 
+# 注意：ActionParser 不在此 re-export。它定义在 chat.response_parser，
+# 而 response_parser 依赖 actions.registry，re-export 会形成循环导入。
+# 调用方直接 from app.shared.services.llm.chat.response_parser import ActionParser。
+
 __all__ = [
     "ActionParseError",
-    "ActionParser",
     "ActionValidator",
     "CONSTRAINT_TYPE_MAP",
     "ValidationResult",

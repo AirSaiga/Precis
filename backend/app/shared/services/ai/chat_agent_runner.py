@@ -4,7 +4,7 @@ Chat mini-agent 的编排器。在 agent_mode=true 时，
 让 Chat 路径真正跑起 plan→act→observe 工具循环。
 
 核心职责:
-- 组装 4 个 chat 专用工具(read_project/read_table/apply_actions/validate_table)
+- 组装 5 个 chat 专用工具(read_project/read_table/apply_actions/validate_table/read_canvas)
 - 构建 chat agent 系统提示词
 - 调用 AgentExecutor 跑工具循环
 - 从循环结果提取 reply + 旁路收集的 frontend_instructions
@@ -25,6 +25,7 @@ from typing import Any
 
 from app.shared.services.ai.agent.chat_tools import (
     ApplyActionsTool,
+    ReadCanvasTool,
     ReadProjectTool,
     ReadTableTool,
     ValidateTableTool,
@@ -32,19 +33,28 @@ from app.shared.services.ai.agent.chat_tools import (
 from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyCallbacks
 from app.shared.services.ai.agent.executor import AgentExecutor
 from app.shared.services.ai.agent.tool_registry import ToolRegistry
+from app.shared.services.llm.actions.registry import (
+    ACTION_COUNT,
+    READ_ONLY_ACTION_TYPES,
+    build_action_type_list_text,
+    build_spec_field_mapping_text,
+)
 from app.shared.services.llm.chat.chat_system_prompt import SYSTEM_PROMPT_CORE
 
 logger = logging.getLogger(__name__)
+
+# 只读动作类型集合（用于动态标签判断，从注册表派生）
+_READ_ONLY_LABEL_TYPES = READ_ONLY_ACTION_TYPES
 
 
 # =============================================================================
 # 系统提示词
 # =============================================================================
 
-# 工具使用指引：定义 LLM 如何使用 4 个工具完成查-改-验闭环
+# 工具使用指引：定义 LLM 如何使用 5 个工具完成查-改-验闭环
 _CHAT_AGENT_TOOL_GUIDE = """## 工具使用指引
 
-你有以下 4 个工具可用。请根据用户需求自主决定调用顺序和次数：
+你有以下 5 个工具可用。请根据用户需求自主决定调用顺序和次数：
 
 ### 1. read_project（查询，无参数）
 读取当前项目的完整概览：所有表结构、约束、转换、正则节点、设置。
@@ -57,11 +67,24 @@ _CHAT_AGENT_TOOL_GUIDE = """## 工具使用指引
 ### 3. apply_actions（修改，参数: actions）
 执行配置修改动作。actions 是动作列表，每个动作含 actionType 和对应 spec。
 **使用时机**：用户明确要求添加/修改/删除约束、表结构、正则、转换或设置时。
+**关键区分**：
+- 想创建新配置文件（磁盘上没有）→ 用 ADD_SCHEMA/ADD_REGEX 等。
+- 想"把已存在的资源显示到画布上"（配置文件已有，但画布上没显示）→ 用 **ADD_TO_CANVAS**
+  （actionType=ADD_TO_CANVAS，spec 含 resourceKind: schema/regex/constraint/transform
+  和 resourceId/resourceName）。ADD_TO_CANVAS 不写盘，只把现有配置显示到画布。
 **注意**：纯查询类问题绝不调用此工具。
 
 ### 4. validate_table（校验，参数: table_name?）
 执行数据校验，返回错误数量和列表。不传 table_name 校验所有表。
 **使用时机**：用户要求"校验项目/表"，或在 apply_actions 后想验证改动效果。
+
+### 5. read_canvas（查询，无参数）
+读取当前**画布上实际显示**的节点列表（Schema、约束、正则、转换等），含各类数量摘要。
+**与 read_project 的关键区别**：read_project 读项目配置文件，read_canvas 读画布快照——
+项目配置里有的表/约束不一定已拖到画布上，两者会不一致。
+**使用时机**：当用户说"画布上有没有 X"、"把 Y 放到画布/拖到画布"、"画布上现在有什么"、
+或你需要判断某节点是否已在画布上显示时，先调用本工具确认画布真实状态，再决定是否需要 ADD 动作。
+判断"画布上是否存在某节点"必须用 read_canvas，不能用 read_project。
 
 ## 工作流程
 
@@ -72,6 +95,11 @@ _CHAT_AGENT_TOOL_GUIDE = """## 工具使用指引
    - 可选：validate_table 验证效果
    - 用自然语言总结结果
 3. **校验类问题**（如"校验数据"）：直接 validate_table → 用自然语言汇报结果。
+4. **画布显示类问题**（如"把 users 表拖到画布"、"显示 orders 约束"）：
+   - 先 read_canvas 确认画布真实状态（可能已经显示了）
+   - 若画布上没有但配置里有（read_project 确认）→ apply_actions 用 **ADD_TO_CANVAS** 显示
+   - 若配置里也没有 → 用 ADD_SCHEMA 等先创建
+   - 不要用 read_project 推断画布内容
 
 ## 终止条件
 
@@ -87,14 +115,18 @@ _WORDING_RULES = """## 措辞规范
 - 当汇报校验结果时：客观陈述错误数量和内容，不夸大不缩小。"""
 
 # 完整的 chat agent 系统提示词
+# 注意：SYSTEM_PROMPT_CORE 现已剥离 JSON 输出指令（移至 SYSTEM_PROMPT_JSON_OUTPUT，
+# 仅非 Agent 路径用），故 Agent 路径无需 verbal override，直接继承 CORE 的领域能力描述。
 CHAT_AGENT_SYSTEM_PROMPT = f"""{SYSTEM_PROMPT_CORE}
 
 ---
 
 # Chat Agent 模式说明
 
-你现在处于 Agent 工具调用模式。与直接输出 JSON 不同，你可以通过调用工具来
-查询项目信息、修改配置、校验数据。请根据用户需求自主决定如何组合使用工具。
+你现在处于 Agent 工具调用模式。你不直接输出 JSON，而是：
+- 调用工具完成查-改-验，最后用**自然语言文本**（不带 tool_calls）回复用户。
+
+你可以通过调用工具查询项目信息、修改配置、校验数据。请根据用户需求自主决定如何组合使用工具。
 
 {_CHAT_AGENT_TOOL_GUIDE}
 
@@ -102,22 +134,25 @@ CHAT_AGENT_SYSTEM_PROMPT = f"""{SYSTEM_PROMPT_CORE}
 
 ## actions 格式说明
 
-调用 apply_actions 时，actions 数组中每个元素的格式与下方"动作说明"一致。
-actionType 可选值（17种）：
-- 约束: ADD_CONSTRAINT_NODE / UPDATE_CONSTRAINT_NODE / DELETE_CONSTRAINT_NODE
-- Schema: ADD_SCHEMA / UPDATE_SCHEMA / DELETE_SCHEMA
-- 正则: ADD_REGEX / UPDATE_REGEX / DELETE_REGEX
-- 转换: ADD_TRANSFORM / UPDATE_TRANSFORM / DELETE_TRANSFORM
-- 设置: UPDATE_SETTINGS
-- 校验: VALIDATE_PROJECT
+调用 apply_actions 时，actions 数组中每个元素必须含 actionType 和对应的 spec 字段。
+actionType 可选值（{ACTION_COUNT}种）：
+{build_action_type_list_text()}
 
 每个动作需带对应 spec 字段：
-- 约束动作 → constraintSpec (含 type, tableName, targetColumn, isInline, params 等)
-- Schema 动作 → schemaSpec (含 name, columns)
-- 正则动作 → regexSpec (含 name, pattern, matchMode)
-- 转换动作 → transformSpec (含 type, inputColumn, params, outputColumns)
-- 设置动作 → settingsSpec (含 category, settings)
-- 校验动作 → constraintSpec (含 tableName，可选)
+{build_spec_field_mapping_text()}
+
+## ADD_TO_CANVAS vs ADD_* 的关键区分（最容易出错，务必牢记）
+
+- **ADD_TO_CANVAS**：项目配置文件里**已有**该资源，只是没显示在画布上 → 只读，不写盘。
+- **ADD_SCHEMA / ADD_REGEX 等**：项目配置文件里**没有**该资源，需要**新建文件** → 会写盘。
+
+判断流程（用户说"把 X 拖到/放到/显示在画布"时）：
+1. 先 read_project 确认 X 在配置文件里是否已存在。
+2. 已存在 → 用 **ADD_TO_CANVAS**（绝不写盘，不弹写盘确认）。
+3. 不存在 → 用 ADD_SCHEMA 等创建（会写盘，需用户确认）。
+
+❌ 错误：配置里已有 users 表，用户说"拖到画布"，却调 ADD_SCHEMA（会触发"文件已存在"失败或无谓的写盘确认）。
+✅ 正确：配置里已有 users 表，用户说"拖到画布" → 调 ADD_TO_CANVAS。
 
 ## 约束类型与参数说明（关键）
 
@@ -195,12 +230,13 @@ class ChatAgentRunner:
         provider: Any,
         project_path: str,
         context_nodes: list[dict[str, Any]],
-        max_iterations: int = 3,
+        max_iterations: int = 5,
         max_history_tokens: int = 120000,
         confirm_controller: Any | None = None,
         apply_callbacks: ApplyCallbacks | None = None,
         dry_run_enabled: bool = False,
         job_id: str = "",
+        canvas_nodes: list[dict[str, Any]] | None = None,
     ):
         """
         @methoddesc 初始化 Chat Agent Runner
@@ -215,6 +251,8 @@ class ChatAgentRunner:
             apply_callbacks: apply_* 事件回调集合
             dry_run_enabled: 是否启用两阶段确认模式
             job_id: 当前任务 ID，供 ApplyActionsTool 生成 apply_id
+            canvas_nodes: 前端请求体携带的画布节点快照（已裁剪），供 read_canvas 工具查询。
+                区别于 context_nodes（用户右键选中的少数节点），canvas_nodes 是全部画布业务节点。
         """
         self.provider = provider
         self.project_path = project_path
@@ -225,6 +263,7 @@ class ChatAgentRunner:
         self.apply_callbacks = apply_callbacks or ApplyCallbacks()
         self.dry_run_enabled = dry_run_enabled
         self.job_id = job_id
+        self.canvas_nodes = canvas_nodes or []
 
         # 关键：frontend_instructions 的旁路累积容器
         # apply_actions 工具持有此列表引用，append 后 runner 最终读取
@@ -283,8 +322,10 @@ class ChatAgentRunner:
         """
         @methoddesc 创建并注册 chat 工具集
 
-        4 个工具全部注入 project_path，apply_actions 额外注入
-        collected_instructions 共享引用。
+        5 个工具：read_project/read_table/apply_actions/validate_table 注入 project_path，
+        read_canvas 注入画布节点快照
+        （apply_actions 额外注入 collected_instructions 共享引用），
+        read_canvas 注入前端带来的画布节点快照。
         """
         registry = ToolRegistry()
 
@@ -328,6 +369,15 @@ class ChatAgentRunner:
             handler=lambda args: validate_tool.run(args),
         )
 
+        # read_canvas：注入前端请求体携带的画布节点快照，供 LLM 查询画布真实状态
+        read_canvas_tool = ReadCanvasTool(canvas_nodes=self.canvas_nodes)
+        registry.register(
+            name=read_canvas_tool.NAME,
+            description=read_canvas_tool.get_definition()["function"]["description"],
+            parameters=read_canvas_tool.get_definition()["function"]["parameters"],
+            handler=lambda args: read_canvas_tool.run(args),
+        )
+
         return registry
 
     # 工具名到人类可读标签的映射，用于前端展示轨迹
@@ -336,6 +386,7 @@ class ChatAgentRunner:
         ReadTableTool.NAME: "查看数据",
         ApplyActionsTool.NAME: "修改配置",
         ValidateTableTool.NAME: "校验数据",
+        ReadCanvasTool.NAME: "读取画布",
     }
 
     def _collect_audit_trail(self, agent_result: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -367,7 +418,7 @@ class ChatAgentRunner:
                 else:
                     # 缺失 result 回退为 success（边界兜底）
                     step["status"] = "success"
-                # apply_actions 额外记录动作数量
+                # apply_actions 额外记录动作数量与动态标签
                 if tc.name == ApplyActionsTool.NAME:
                     args = tc.arguments
                     if isinstance(args, dict):
@@ -375,6 +426,17 @@ class ChatAgentRunner:
                         if isinstance(actions, list):
                             executed.extend(actions)
                             step["action_count"] = len(actions)
+                            # 动态标签：全是只读动作时显示"显示到画布"，而非笼统的"修改配置"
+                            # 避免用户看到"拖入画布"操作却显示"修改配置"的困惑
+                            action_types = [a.get("actionType", "") for a in actions if isinstance(a, dict)]
+                            if action_types and all(t in _READ_ONLY_LABEL_TYPES for t in action_types):
+                                # 进一步细分：全是 ADD_TO_CANVAS 显示"显示到画布"，全是 VALIDATE 显示"校验数据"
+                                if all(t == "ADD_TO_CANVAS" for t in action_types):
+                                    step["label"] = "显示到画布"
+                                elif all(t == "VALIDATE_PROJECT" for t in action_types):
+                                    step["label"] = "校验数据"
+                                else:
+                                    step["label"] = "查询操作"
                 tool_steps.append(step)
         return executed, tool_steps
 

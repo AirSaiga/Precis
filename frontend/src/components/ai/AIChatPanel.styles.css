@@ -4,7 +4,8 @@
   height: 100%;
   padding-bottom: 28px;
   box-sizing: border-box;
-  background: var(--ui-bg-base);
+  /* 用 panel 层而非 base 层，使 AI 面板明显浮于画布之上（base 与 canvas 同值，无层次） */
+  background: var(--ui-bg-panel);
 }
 
 /* Header */
@@ -165,6 +166,8 @@
 .ai-content {
   background: var(--ui-bg-elevated);
   color: var(--ui-text-primary);
+  /* 面板提亮后，elevated 与 panel 在 dark/liquid 下仅差 alpha，加细边框保证气泡可辨识 */
+  border: 1px solid var(--ui-border-subtle);
   border-bottom-left-radius: var(--ui-radius-sm);
 }
 
@@ -237,6 +240,7 @@
   background: var(--ui-bg-elevated);
   border-radius: var(--ui-radius-md);
   border-bottom-left-radius: var(--ui-radius-sm);
+  border: 1px solid var(--ui-border-subtle);
 }
 
 .typing-indicator span {
@@ -361,7 +365,30 @@
   opacity: 0.85;
 }
 
-/* === 批次4 视觉优化追加 === */
+.cancel-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: var(--ui-danger);
+  color: white;
+  border-radius: var(--ui-radius-full);
+  cursor: pointer;
+  transition:
+    background 0.15s,
+    transform 0.1s;
+  flex-shrink: 0;
+}
+
+.cancel-btn:hover {
+  background: var(--ui-danger-strong);
+}
+
+.cancel-btn:active {
+  transform: scale(0.95);
+}
 
 /* avatar 角色区分 */
 .message-avatar.user {
@@ -411,13 +438,14 @@
   overflow-y: auto;
 }
 
-/* 流式光标修正：内联紧跟内容（使用 inline 而非 block） */
+/* 流式光标修正：内联细竖线（2px 宽 + 圆角），更像文本输入光标 */
 .streaming-cursor {
   display: inline-block;
-  width: 7px;
-  height: 1em;
+  width: 2px;
+  height: 1.1em;
   vertical-align: text-bottom;
   background: var(--ui-accent);
+  border-radius: 2px;
   margin-left: 2px;
   animation: breathe 1.6s ease-in-out infinite;
 }
@@ -437,11 +465,6 @@
 .ai-content.is-streaming {
   border-left: 2px solid var(--ui-accent);
   padding-left: var(--ui-space-sm);
-}
-
-/* 取消按钮用 token */
-.cancel-btn {
-  background: var(--ui-danger);
 }
 
 /* === highlight.js 代码高亮主题（适配项目 dark/light token） === */

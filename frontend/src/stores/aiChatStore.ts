@@ -27,6 +27,8 @@ import {
 import { processFrontendInstructions } from '@/services/aiChatInstructionService'
 import { toastError } from '@/core/toast'
 import { useProjectStore } from '@/stores/projectStore'
+import { useGraphStore } from '@/stores/graphStore'
+import { serializeCanvasForAI } from '@/utils/ai/serializeCanvasForAI'
 
 /**
  * 聊天消息结构，用于 UI 渲染
@@ -68,11 +70,13 @@ export interface ContextNode {
  * 发送给后端的聊天上下文
  *
  * @property hasContext - 是否有选中的上下文节点
- * @property selectedNodes - 用户选中的画布节点列表
+ * @property selectedNodes - 用户右键选中的画布节点列表
+ * @property canvasNodes - 画布全部业务节点快照（供 read_canvas 工具查询画布真实状态）
  */
 export interface ChatContext {
   hasContext: boolean
   selectedNodes: ContextNode[]
+  canvasNodes?: ContextNode[]
 }
 
 /**
@@ -156,6 +160,25 @@ export interface FrontendInstruction {
   regexSpec?: RegexSpec
   transformSpec?: TransformSpec
   settingsSpec?: SettingsSpec
+  canvasSpec?: CanvasSpec
+}
+
+/**
+ * 画布显示规格参数（ADD_TO_CANVAS 指令的 spec）
+ *
+ * 把项目配置里已存在的资源显示到画布上（不写盘）。
+ * 前端委托 graphStore.importV2ResourceToCanvas 创建节点。
+ *
+ * @property resourceKind - 资源类型 schema/regex/constraint/transform
+ * @property resourceId - 资源 ID（后端重读解析，确定性）
+ * @property name - 资源名称（兜底匹配用）
+ * @property config - 后端重读的真实配置（前端可不依赖 API 往返直接构建节点）
+ */
+export interface CanvasSpec {
+  resourceKind: string
+  resourceId: string
+  name?: string
+  config?: Record<string, unknown>
 }
 
 /**
@@ -241,6 +264,8 @@ function sortKeysDeep(value: unknown): unknown {
 export const useAiChatStore = defineStore('aiChat', () => {
   const { t } = useI18n()
   const projectStore = useProjectStore()
+  // 延迟取 graphStore：sendMessage 时按需读取最新画布快照，避免循环依赖与初始化时序问题
+  const getGraphStore = () => useGraphStore()
 
   // --- 核心状态 ---
   /** 抽屉（侧边面板）是否可见 */
@@ -418,6 +443,9 @@ export const useAiChatStore = defineStore('aiChat', () => {
         context: {
           hasContext: hasContext.value,
           selectedNodes: contextNodes.value,
+          // Agent 模式下携带画布全量业务节点快照，供 read_canvas 工具查询画布真实状态。
+          // 非 agent 模式无需画布状态，传空数组以省流量。
+          canvasNodes: agentMode.value ? serializeCanvasForAI(getGraphStore().nodes) : [],
         },
         history: history,
         agent_mode: agentMode.value,

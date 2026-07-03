@@ -136,9 +136,10 @@
   const { currentLang, toggleLanguage } = useLanguageToggle()
 
   const CHAT_PANE_WIDTH_KEY = 'agentChatPaneWidth'
+  const WIDTH_RESET_KEY = 'agentChatPaneWidthReset_v2'
   const MIN_CHAT_WIDTH = 280
   const MAX_CHAT_RATIO = 0.5
-  const DEFAULT_RATIO = 0.35
+  const DEFAULT_RATIO = 0.28
 
   /** 聊天面板宽度（px） */
   const chatPaneWidth = ref(0)
@@ -165,8 +166,15 @@
   })
 
   /** 从 localStorage 恢复宽度，无则使用默认比例。
-   *  持久化值超出当前窗口约束时 clamp 而非丢弃,保留用户偏好的相对宽度。 */
+   *  持久化值超出当前窗口约束时 clamp 而非丢弃,保留用户偏好的相对宽度。
+   *  WIDTH_RESET_KEY 提供一次性迁移入口：手动清除该 key 即可强制所有客户端
+   *  下次启动时丢弃旧的持久化宽度、回退到当前默认比例（用于调整 DEFAULT_RATIO 后让旧值失效）。 */
   function restoreWidth(): void {
+    // 一次性迁移：若 WIDTH_RESET_KEY 不存在，说明触发了"重置宽度"动作，丢弃旧持久化值
+    if (!localStorage.getItem(WIDTH_RESET_KEY)) {
+      localStorage.removeItem(CHAT_PANE_WIDTH_KEY)
+      localStorage.setItem(WIDTH_RESET_KEY, '1')
+    }
     const stored = localStorage.getItem(CHAT_PANE_WIDTH_KEY)
     const maxWidth = viewportWidth.value * MAX_CHAT_RATIO
     if (stored) {
@@ -324,7 +332,8 @@
     flex-direction: column;
     min-width: 280px;
     overflow: hidden;
-    background: var(--ui-bg-base);
+    /* panel 层与画布层区分，避免 AI 面板与画布同色 */
+    background: var(--ui-bg-panel);
   }
 
   /* 可拖拽分隔线 */
@@ -334,7 +343,7 @@
     align-items: center;
     justify-content: center;
     cursor: col-resize;
-    background: var(--ui-bg-base);
+    background: var(--ui-bg-panel);
     border-left: 1px solid var(--ui-border-subtle);
     border-right: 1px solid var(--ui-border-subtle);
     transition: background 0.15s;

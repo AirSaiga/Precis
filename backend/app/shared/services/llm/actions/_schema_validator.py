@@ -9,9 +9,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from app.shared.services.llm.actions.registry import DATA_TYPES
 from app.shared.services.llm.actions.validation_types import ValidationError
 
-VALID_DATA_TYPES = {"string", "integer", "decimal", "boolean", "datetime", "date", "time", "float"}
+# 数据类型白名单从注册表派生（单一事实源）
+VALID_DATA_TYPES = DATA_TYPES
 
 
 def validate_schema_action(action: dict[str, Any], index: int) -> list[ValidationError]:

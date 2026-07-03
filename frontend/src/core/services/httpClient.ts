@@ -256,10 +256,17 @@ export default apiClient
 export interface AiChatRequest {
   /** 用户输入的消息内容 */
   message: string
-  /** 上下文信息（包含选中节点状态） */
+  /** 上下文信息（包含选中节点状态与画布快照） */
   context: {
     hasContext: boolean
     selectedNodes: Array<{
+      id: string
+      type: string
+      data: Record<string, unknown>
+      label?: string
+    }>
+    /** 画布全部业务节点快照（供 read_canvas 工具查询画布真实状态） */
+    canvasNodes?: Array<{
       id: string
       type: string
       data: Record<string, unknown>

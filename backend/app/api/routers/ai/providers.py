@@ -250,6 +250,10 @@ async def add_discovered_service(service_id: str):
     config.providers = [p for p in config.providers if p.id != target.id]
     config.providers.append(new_provider)
 
+    # 若当前没有默认 Provider，则自动设为默认
+    if not config.defaults.get("chat"):
+        config.defaults["chat"] = new_provider.id
+
     loader.save(config)
 
     return {
@@ -386,6 +390,12 @@ async def create_provider(req: CreateProviderRequest):
     )
 
     config.providers.append(new_provider)
+
+    # 若当前没有默认 Provider，则自动将新 Provider 设为默认，
+    # 避免用户添加后仍因 "No default provider configured" 无法对话。
+    if not config.defaults.get("chat"):
+        config.defaults["chat"] = new_id
+
     loader.save(config)
 
     return _provider_to_response(new_provider, {})

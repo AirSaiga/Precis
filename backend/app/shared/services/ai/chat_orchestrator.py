@@ -14,11 +14,11 @@ from typing import Any, Protocol
 
 from app.shared.services.llm.actions.action_parser import (
     ActionParseError,
-    ActionParser,
     process_actions,
 )
 from app.shared.services.llm.actions.action_validator import ActionValidator
 from app.shared.services.llm.chat.chat_system_prompt import build_system_prompt
+from app.shared.services.llm.chat.response_parser import ActionParser
 from app.shared.services.llm.config.models import AIProvider
 from app.shared.services.llm.providers.base import ChatMessage, ChatRequest
 
@@ -74,7 +74,10 @@ class ChatOptions:
     skip_action_processing: bool = False
     return_frontend_instructions: bool = True
     agent_mode: bool = False
-    max_agent_iterations: int = 3
+    # 默认 5 轮：覆盖典型多步工作流（read_canvas → read_project → apply_actions → validate）
+    max_agent_iterations: int = 5
+    # 画布节点快照（前端请求体携带，供 read_canvas 工具查询画布真实状态）
+    canvas_nodes: list[dict[str, Any]] = field(default_factory=list)
 
 
 @dataclass
@@ -402,8 +405,8 @@ class AIChatOrchestrator:
         """
         @methoddesc Agent 模式执行路径
 
-        走真正的工具循环：ChatAgentRunner 组装 4 个 chat 工具
-        (read_project/read_table/apply_actions/validate_table)，
+        走真正的工具循环：ChatAgentRunner 组装 5 个 chat 工具
+        (read_project/read_table/apply_actions/validate_table/read_canvas)，
         调用 AgentExecutor 跑 plan→act→observe 循环，
         对外仍返回 ChatExecutionResult，保持契约不变。
 
@@ -433,6 +436,7 @@ class AIChatOrchestrator:
                 context_nodes=context_nodes,
                 max_iterations=options.max_agent_iterations,
                 max_history_tokens=options.max_history_tokens,
+                canvas_nodes=options.canvas_nodes,
             )
         except Exception as e:
             logger.error(f"Agent 模式初始化失败: {e}")
@@ -592,17 +596,24 @@ async def execute_ai_chat_unified(
     context_nodes: list[dict[str, Any]] | None = None,
     history: list[dict[str, str]] | None = None,
     agent_mode: bool = True,
+    canvas_nodes: list[dict[str, Any]] | None = None,
+    max_agent_iterations: int = 5,
 ) -> ChatExecutionResult:
     """
     @methoddesc 便捷的统一 AI Chat 执行函数（用于 API 场景）
 
     参数:
+        max_agent_iterations: Agent 最大迭代轮数，默认 5（覆盖多步工作流：
+            read_canvas → read_project → apply_actions → validate）。
+
+    参数:
         message: 用户消息
         project_path: 项目路径
         provider: AIProvider 配置对象
-        context_nodes: 上下文节点
+        context_nodes: 上下文节点（用户右键选中的少数节点）
         history: 对话历史
         agent_mode: 是否启用 Agent 深度模式
+        canvas_nodes: 画布全部业务节点快照（供 read_canvas 工具查询）
 
     返回:
         ChatExecutionResult: 执行结果
@@ -613,7 +624,8 @@ async def execute_ai_chat_unified(
         enable_interactive=False,  # API 模式禁用交互
         return_frontend_instructions=True,
         agent_mode=agent_mode,
-        max_agent_iterations=3,
+        max_agent_iterations=max_agent_iterations,
+        canvas_nodes=canvas_nodes or [],
     )
 
     return await orchestrator.execute_chat(

@@ -517,3 +517,163 @@ class TestValidationGuard:
         assert result["success"] is False
         # 合法的动作也不应被执行（整批拒绝）
         mock_proc.assert_not_called()
+
+
+# =============================================================================
+# 只读动作分流测试（流式路径下 ADD_TO_CANVAS/VALIDATE_PROJECT 绕过确认门）
+# =============================================================================
+
+
+class TestReadOnlyBypass:
+    """流式路径（dry_run_enabled=True）下，只读动作不应走两阶段确认。
+
+    核心场景：用户"拖入画布"调 ADD_TO_CANVAS，不该弹确认框、不该显示"修改配置"。
+    只读动作直接走 legacy 执行（process_actions），写盘动作仍走确认门。
+    """
+
+    @pytest.mark.asyncio
+    async def test_readonly_add_to_canvas_skips_confirmation(self, tmp_path):
+        """ADD_TO_CANVAS 在流式路径下不走确认门（不触发 on_apply_pending 回调）。"""
+        ws = make_test_workspace(tmp_path)
+        collected: list = []
+        pending_called = False
+
+        callbacks = ApplyCallbacks(
+            on_apply_pending=lambda payload: None,
+        )
+
+        def track_pending(payload):
+            nonlocal pending_called
+            pending_called = True
+
+        callbacks.on_apply_pending = track_pending
+
+        tool = ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=collected,
+            dry_run_enabled=True,
+            apply_callbacks=callbacks,
+            job_id="test-job",
+        )
+
+        canvas_action = {
+            "actionType": "ADD_TO_CANVAS",
+            "canvasSpec": {"resourceKind": "schema", "resourceId": "sc_users"},
+        }
+        with patch(PATCH_PROC) as mock_proc:
+            mock_proc.return_value = {
+                "success": True,
+                "results": [{"action": canvas_action, "success": True, "message": "ok"}],
+            }
+            result = await tool.run({"actions": [canvas_action]})
+
+        # 只读动作应成功执行
+        assert result["success"] is True
+        # 关键：不该触发确认门（用户"拖入画布"不应弹确认框）
+        assert pending_called is False, "ADD_TO_CANVAS 不应触发 on_apply_pending 确认回调"
+        # 应直接走 process_actions 执行
+        mock_proc.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_readonly_validate_skips_confirmation(self, tmp_path):
+        """VALIDATE_PROJECT 在流式路径下不走确认门。"""
+        ws = make_test_workspace(tmp_path)
+        pending_triggered = {"value": False}
+        callbacks = ApplyCallbacks()
+
+        def track_pending(_payload):
+            pending_triggered["value"] = True
+
+        callbacks.on_apply_pending = track_pending
+
+        tool = ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=[],
+            dry_run_enabled=True,
+            apply_callbacks=callbacks,
+            job_id="test-job",
+        )
+
+        validate_action = {"actionType": "VALIDATE_PROJECT", "constraintSpec": {}}
+        with patch(PATCH_PROC) as mock_proc:
+            mock_proc.return_value = {
+                "success": True,
+                "results": [{"action": validate_action, "success": True, "message": "ok"}],
+            }
+            result = await tool.run({"actions": [validate_action]})
+
+        assert result["success"] is True
+        assert pending_triggered["value"] is False, "VALIDATE_PROJECT 不应触发确认回调"
+        mock_proc.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_mixed_batch_splits_readonly_and_write(self, tmp_path):
+        """混合批次（只读+写盘）：只读动作直接执行，写盘动作走确认门。"""
+        ws = make_test_workspace(tmp_path)
+        collected: list = []
+        callbacks = ApplyCallbacks()
+        tool, resolve_tasks = TestTwoPhaseConfirm()._make_tool_with_auto_confirm(ws, collected, callbacks, "confirm")
+
+        readonly_action = {
+            "actionType": "ADD_TO_CANVAS",
+            "canvasSpec": {"resourceKind": "schema", "resourceId": "sc_users"},
+        }
+        write_action = make_inline_not_null_action()
+
+        # process_actions 被 _run_legacy（只读）和 _run_two_phase（写盘确认后）调用
+        process_call_args: list = []
+
+        def tracking_process(actions, path):
+            process_call_args.append(actions)
+            return {
+                "success": True,
+                "results": [{"action": a, "success": True, "message": "ok"} for a in actions],
+            }
+
+        from app.shared.services.llm.actions.diff_compute import DiffResult, FileDiff
+
+        diff_result = DiffResult(
+            success=True,
+            files=[FileDiff(path="schemas/users.schema.yaml", status="modified", diff="d")],
+            summary={"modified": 1},
+            frontend_instructions=[],
+            error=None,
+        )
+
+        with (
+            patch(PATCH_PROC, side_effect=tracking_process),
+            patch(
+                "app.shared.services.ai.agent.chat_tools.apply_actions.compute_action_diff",
+                return_value=diff_result,
+            ),
+        ):
+            result = await tool.run({"actions": [readonly_action, write_action]})
+
+        # 混合批次应成功
+        assert result["success"] is True
+        # process_actions 至少被调用（只读动作直接执行 + 写盘确认后执行）
+        assert len(process_call_args) >= 1
+        # 只读动作的结果应在 results 中（合并返回）
+        assert len(result.get("results", [])) >= 1
+
+    @pytest.mark.asyncio
+    async def test_readonly_failure_aborts_batch(self, tmp_path):
+        """只读动作失败时整批返回（全有或全无语义）。"""
+        ws = make_test_workspace(tmp_path)
+        tool = ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=[],
+            dry_run_enabled=True,
+            apply_callbacks=ApplyCallbacks(),
+            job_id="test-job",
+        )
+
+        readonly_action = {
+            "actionType": "ADD_TO_CANVAS",
+            "canvasSpec": {"resourceKind": "schema", "resourceId": "sc_users"},
+        }
+        with patch(PATCH_PROC, side_effect=RuntimeError("boom")):
+            result = await tool.run({"actions": [readonly_action]})
+
+        assert result["success"] is False
+        assert "boom" in result["error"]

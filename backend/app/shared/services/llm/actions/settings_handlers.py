@@ -23,7 +23,8 @@ from app.shared.services.llm.yaml_io import FileLock, atomic_write_yaml
 
 logger = logging.getLogger(__name__)
 
-VALID_SETTINGS_CATEGORIES = {"validation", "fileProcessing", "scriptSecurity"}
+# 设置分类白名单从注册表派生（单一事实源）
+from app.shared.services.llm.actions.registry import SETTINGS_CATEGORIES as VALID_SETTINGS_CATEGORIES
 
 CATEGORY_TO_YAML_KEY = {
     "validation": "validation",
