@@ -1,19 +1,25 @@
 /**
  * @file columnGeneration.ts
- * @description 智能列生成工具函数
- * @deprecated 迁移至 columnGeneration/TabularColumnGenerator.ts
- */
-
-import type { SchemaColumn, DataType } from '@/types/graph'
-import { inferDataType } from './typeInference'
-/**
- * 智能列生成工具函数
+ * @description Schema(table)列生成编排函数（连接流程专用）
  *
- * 统一处理从数据源生成 Schema 列定义的逻辑
+ * 定位说明：
+ * 本文件提供 generateColumnsFromSource，是「数据源连接 / 智能填充」流程的列生成入口，
+ * 支持 forceReinferTypes / skipColumn1Filter 等编排选项（默认保留现有列类型）。
+ *
+ * 与 columnGeneration/TabularColumnGenerator.ts 的关系：
+ * - TabularColumnGenerator（策略类，实现 ColumnGenerationStrategy）：供键盘绑定 / 生成 schema 等
+ *   场景通过统一策略接口调用，硬编码 forceReinferTypes=true。
+ * - generateColumnsFromSource（本文件）：供连接处理器 / 源管理器 / 全局操作调用，
+ *   接收分开的 headerRow/sampleDataRow，保留 options 灵活性。
+ * 两者并行、各司其职，不存在废弃迁移关系（与 json 侧 generateJsonColumnsFromSource 对称）。
+ *
  * 核心策略：Merge/Update (合并/更新)
  * 1. 源数据中存在的列：优先复用 Schema 中已有的同名列（保留 ID、约束、类型），否则创建新列
  * 2. 源数据中不存在的列：保留（视为用户添加的计算列或正则提取列），但过滤掉未修改的默认 column_1
  */
+
+import type { SchemaColumn, DataType } from '@/types/graph'
+import { inferDataType } from './typeInference'
 
 interface GenerateColumnsOptions {
   /**
