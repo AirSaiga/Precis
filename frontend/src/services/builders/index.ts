@@ -21,10 +21,7 @@ export {
 
 export { toBackendType, fromBackendType, fromJsonBackendType } from './schemaBuilder'
 
-export {
-  buildV2ConstraintFile as buildV2ConstraintFileFromType,
-  resolveSchemaAndColumnIdByName as resolveSchemaAndColumnIdByNameFromType,
-} from './constraintBuilder'
+export { buildV2ConstraintFile as buildV2ConstraintFileFromType } from './constraintBuilder'
 
 export { buildV2RegexNodeFile as buildV2RegexNodeFileFromType } from '@/features/regex/services/regexBuilder'
 

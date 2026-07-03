@@ -20,25 +20,11 @@ import type { Node } from '@vue-flow/core'
 import type { ConditionalConstraintNodeData, CustomNode, SchemaNodeData } from '@/types/graph'
 import type { ConstraintTypeV2 } from '@/types/projectV2'
 import type { AnyRecord } from '@/types/utility'
+// resolveSchemaAndColumnIdByName 单一定义在 persistence/builders/constraint/helpers
+import { resolveSchemaAndColumnIdByName } from '@/services/persistence/builders/constraint/helpers'
 
 /** 通用节点引用结构 */
 type RefLike = { nodeId?: string; columnId?: string }
-
-function resolveSchemaAndColumnIdByName(
-  nodes: CustomNode[],
-  tableName: string,
-  columnName: string
-): { tableId: string; columnId: string } | null {
-  const schemaNode = nodes.find(
-    (n) => n.type === 'schema' && (n.data as SchemaNodeData).tableName === tableName
-  )
-  if (!schemaNode) return null
-  const schemaData = schemaNode.data as SchemaNodeData
-  const col = schemaData.columns.find((c) => c.columnName === columnName)
-  if (!col) return null
-  // 语义化 ID：节点 ID 即 schema ID
-  return { tableId: schemaNode.id, columnId: col.id }
-}
 
 export function buildConstraintExportPayload(params: {
   nodes: CustomNode[]

@@ -11,7 +11,7 @@
  * 3. 构建约束参数配置
  */
 
-import type { CustomNode, SchemaNodeData } from '@/types/graph'
+import type { CustomNode } from '@/types/graph'
 import type { ConstraintFileV2, ConstraintTypeV2 } from '@/types/projectV2'
 import { buildConstraintExportPayload } from '@/services/constraints/constraintExportAdapter'
 import {
@@ -19,26 +19,8 @@ import {
   isConstraintNodeType,
 } from '@/services/constraints/validationRegistry'
 import { buildSchemaIdByNodeId } from '@/services/builders/v2/manifestBuilder'
-
-/**
- * 根据表名和列名查找对应的节点和列 ID
- */
-export function resolveSchemaAndColumnIdByName(
-  nodes: CustomNode[],
-  tableName: string,
-  columnName: string
-): { tableId: string; columnId: string } | null {
-  const schemaIdByNodeId = buildSchemaIdByNodeId(nodes)
-  const schemaNode = nodes.find(
-    (n) => n.type === 'schema' && (n.data as SchemaNodeData).tableName === tableName
-  )
-  if (!schemaNode) return null
-  const schemaData = schemaNode.data as SchemaNodeData
-  const col = schemaData.columns.find((c) => c.columnName === columnName)
-  if (!col) return null
-  const tableId = schemaIdByNodeId[schemaNode.id] || schemaNode.id
-  return { tableId, columnId: col.id }
-}
+// resolveSchemaAndColumnIdByName 单一定义在 persistence/builders/constraint/helpers
+// (语义化 ID 方案下,节点 ID 即 schema ID,无需 buildSchemaIdByNodeId 兜底)
 
 /**
  * 构建 V2 Constraint 文件
