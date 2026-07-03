@@ -20,7 +20,6 @@
  *   generateColumns: (sourceNode, existingColumns) => [...],
  *   getSourceFields: (sourceNode) => ['col1', 'col2'],
  *   disconnectFields: ['sourceFile', 'sourceType'],
- *   eventName: 'sourcePreviewDataChanged',
  *   onSourceDataChanged: (data) => updateNodeFromChange(data),
  * })
  * ```
@@ -69,8 +68,6 @@ export interface UseNodeSourceManagerOptions {
   getSourceFields: (sourceNode: CustomNode) => string[] | undefined
   /** 断开连接时需要清除的字段名列表 */
   disconnectFields: string[]
-  /** 数据源变更事件名 */
-  eventName: string
   /** 数据源变更后的自定义更新回调（可选） */
   onSourceDataChanged?: (data: AnyRecord) => void
   /** 是否在断开旧连接时重置旧源节点的 outputPortConnected */
@@ -451,6 +448,10 @@ export function useNodeSourceManager<TNodeData extends BaseSchemaNodeData<BaseSc
   }
 
   onMounted(() => {
+    // 数据源预览数据变更事件统一为 'sourcePreviewDataChanged'(sourcePreview 与
+    // jsonSourcePreview 节点共用 usePreviewData,emit 端固定用此事件名)。
+    // handleSourcePreviewDataChanged 内部通过 edge.source===nodeId 过滤,确保
+    // 每个 schema 节点只响应连到自己的源节点,不会串扰。
     eventBus.on('sourcePreviewDataChanged', handleSourcePreviewDataChanged)
   })
 

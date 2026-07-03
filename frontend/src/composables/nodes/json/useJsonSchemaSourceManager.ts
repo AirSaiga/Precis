@@ -265,7 +265,6 @@ export function useJsonSchemaSourceManager(
       'sourceMode',
       'localPath',
     ],
-    eventName: 'jsonSourcePreviewDataChanged',
     onSourceDataChanged: (data) => updateFromSourceChange(data),
     onSourceConnected: () => {
       // 数据源连接成功后,从 V2 配置同步关联的内嵌约束节点到画布

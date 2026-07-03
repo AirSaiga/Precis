@@ -261,7 +261,6 @@ export function useSchemaSourceManager(
       'sourceMode',
       'localPath',
     ],
-    eventName: 'sourcePreviewDataChanged',
     onSourceDataChanged: (data) => updateSchemaNodeFromSheetChange(props.id, data),
     nodeLabel: 'Schema',
     onSourceConnected: () => syncSchemaResources(props.id, { graphStore: store, projectStore }),
