@@ -245,8 +245,10 @@ export function createV2SaveOps(params: {
       }
 
       // 收尾: 优先使用新 persistence builder，fallback 旧 builder
+      // 注意:用 ??(空值合并)而非 || —— buildNodeFile 可能返回 undefined(无注册 builder),
+      // 此时才 fallback。|| 会因对象恒 truthy 让 fallback 永不执行(曾为 bug)。
       const schemaFile =
-        (buildNodeFile(node, nodes.value, configPath || '') as TableSchemaFileV2) ||
+        (buildNodeFile(node, nodes.value, configPath || '') as TableSchemaFileV2 | undefined) ??
         buildV2SchemaFile(nodes.value, nodeId)
       const tableName = schemaData.tableName
       const schemaId = schemaFile.id
