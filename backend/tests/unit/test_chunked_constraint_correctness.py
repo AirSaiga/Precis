@@ -265,3 +265,109 @@ class TestValidateConstraintsIsolated:
         unique_errors = [e for e in errors if "unique" in str(e.get("error_type", "")).lower()]
         assert len(unique_errors) >= 1
         assert any(c["passed"] is False for c in details["constraint_checks"])
+
+
+class TestTransformDagChunkedCorrectness:
+    """分块模式下 Transform DAG 正确性
+
+    修复前:行变 transform(DropDuplicates/FilterRows)在分块下逐块执行,
+    跨块去重失效,结果与全量不一致。修复后 DAG 移到 concat 全量 parsed 后执行。
+    """
+
+    def _make_schema_for_dedup(self) -> tuple[DataSetSchema, str]:
+        """构造 users 表(id 列)的 schema,返回 (schema, table_id)"""
+        schema = DataSetSchema(
+            tables={
+                "users": TableSchema(
+                    id="users",
+                    name="Users",
+                    columns=[ColumnSchema(name="id", id="id", data_type=StringType())],
+                ),
+            },
+            constraints=[],
+        )
+        return schema, "users"
+
+    def test_chunked_dedup_removes_cross_chunk_duplicates(self):
+        """DropDuplicates 应跨块去重:两块各有重复值,全量去重后行数正确"""
+        from app.shared.core.project.transform.types import TransformFile
+
+        schema, table_id = self._make_schema_for_dedup()
+        executor = _make_minimal_executor(schema)
+
+        # 构造 DropDuplicates transform(对全列去重)
+        tfile = TransformFile(
+            id="t_dedup",
+            type="DropDuplicates",
+            input_from_node=table_id,
+            params={"subset": "id", "keep": "first"},
+            output_columns=[],
+        )
+        executor.loaded_project.transform_files = {"t_dedup.yaml": tfile}
+        executor.loaded_project.regex_node_files = None
+
+        chunked_loader = MagicMock()
+        # 两块:chunk0=[u1,u2],chunk1=[u1,u3];u1 跨块重复
+        chunked_loader.load_chunked_sources.return_value = {
+            "users": [
+                pd.DataFrame({"id": ["u1", "u2"]}),
+                pd.DataFrame({"id": ["u1", "u3"]}),
+            ],
+        }
+        executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
+
+        import time
+
+        result = executor._execute_chunked(
+            "D:\\data", ValidationOptions(timeout_seconds=300), time.monotonic(), _make_result_dict()
+        )
+
+        # 全量去重后应剩 3 行(u1,u2,u3),修复前会剩 4 行(块内各去重一次,u1 在两块各保留)
+        parsed = result["parsed_datasets"].get("users")
+        assert parsed is not None, "DAG 执行后 parsed_datasets 应含 users 表"
+        assert len(parsed) == 3, (
+            f"跨块去重失败:期望 3 行(u1,u2,u3),实际 {len(parsed)} 行。"
+            f"修复前会因逐块去重保留 4 行(块0去重后[u1,u2],块1去重后[u1,u3])。"
+        )
+        assert set(parsed["id"].tolist()) == {"u1", "u2", "u3"}
+
+    def test_chunked_dedup_equivalent_to_full(self):
+        """分块去重结果应与全量去重等价"""
+        from app.shared.core.project.transform.types import TransformFile
+        from app.shared.services.validation.engine import validate_full_dataset
+
+        schema, table_id = self._make_schema_for_dedup()
+        tfile = TransformFile(
+            id="t_dedup",
+            type="DropDuplicates",
+            input_from_node=table_id,
+            params={"subset": "id", "keep": "first"},
+            output_columns=[],
+        )
+
+        # 全量:一次性传入所有数据 + transform_files
+        full_raw = {"users": pd.DataFrame({"id": ["u1", "u2", "u1", "u3", "u2"]})}
+        full_parsed, _, _ = validate_full_dataset(full_raw, schema, transform_files={"t_dedup.yaml": tfile})
+        full_count = len(full_parsed["users"])
+
+        # 分块:拆成两块
+        executor = _make_minimal_executor(schema)
+        executor.loaded_project.transform_files = {"t_dedup.yaml": tfile}
+        executor.loaded_project.regex_node_files = None
+        chunked_loader = MagicMock()
+        chunked_loader.load_chunked_sources.return_value = {
+            "users": [
+                pd.DataFrame({"id": ["u1", "u2", "u1"]}),
+                pd.DataFrame({"id": ["u3", "u2"]}),
+            ],
+        }
+        executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
+
+        import time
+
+        result = executor._execute_chunked(
+            "D:\\data", ValidationOptions(timeout_seconds=300), time.monotonic(), _make_result_dict()
+        )
+        chunked_count = len(result["parsed_datasets"]["users"])
+
+        assert full_count == chunked_count == 3, f"分块与全量去重不一致:全量={full_count},分块={chunked_count},期望=3"

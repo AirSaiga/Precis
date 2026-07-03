@@ -41,7 +41,7 @@ from app.shared.domain.dataset_schema import DataSetSchema
 
 from .chunked_loader import ChunkedDataLoader
 from .data_loader import DataLoader
-from .engine import validate_constraints, validate_full_dataset
+from .engine import execute_dag_if_needed, validate_constraints, validate_full_dataset
 from .memory_monitor import MemoryMonitor
 from .resolver import DataSourceResolver
 
@@ -598,21 +598,18 @@ class ValidationExecutor:
                     parsed_datasets: dict[str, pd.DataFrame]
                     validation_errors: list[dict]
                     validation_details: dict[str, list[dict]]
-                    # 【分块解析】skip_constraints=True：每块只跑格式解析+派生列+Transform DAG，
-                    # 不跑约束校验。跨表 FK / 跨块 Unique 等需要全局数据的约束，
-                    # 在下方 concat 全量 parsed 后统一执行（validate_constraints），
-                    # 以避免分块模式下的假阳性（FK 缺目标表）与假阴性（跨块重复漏检）。
+                    # 【分块解析】每块只跑格式解析+派生列，跳过 Transform DAG 和约束校验。
+                    # 行变 transform（FilterRows/DropDuplicates）与跨表/跨块约束都需要全局数据，
+                    # 在下方 concat 全量 parsed 后统一执行（execute_dag_if_needed + validate_constraints），
+                    # 以避免分块模式下的结果错误（行变 transform 块内失效、FK 假阳性、Unique 假阴性）。
                     parsed_datasets, validation_errors, validation_details = validate_full_dataset(
                         {table_id: chunk_df},
                         self.dataset_schema,
                         allow_unsafe_eval=allow_unsafe_eval,
                         table_filter=options.table_filter,
-                        transform_files=getattr(self.loaded_project, "transform_files", None)
-                        if self.loaded_project
-                        else None,
-                        regex_files=getattr(self.loaded_project, "regex_node_files", None)
-                        if self.loaded_project
-                        else None,
+                        # 分块解析阶段不传 transform/regex 文件，跳过 DAG
+                        transform_files=None,
+                        regex_files=None,
                         deadline=deadline,
                         skip_constraints=True,
                     )
@@ -645,16 +642,24 @@ class ValidationExecutor:
                     )
 
         # 合并分块的解析结果
-        # 【设计意图】分块仅用于"加载与格式解析省内存"；约束校验需要全局数据，
-        # 因此在所有块解析完成后 concat 为全量 parsed，再统一跑约束阶段。
+        # 【设计意图】分块仅用于"加载与格式解析省内存"；Transform DAG 与约束校验
+        # 都需要全局数据，因此在所有块解析完成后 concat 为全量 parsed，再统一执行。
         merged_parsed: dict[str, pd.DataFrame] = {}
         for table_id, dfs in all_parsed_datasets.items():
             if dfs:
                 merged_parsed[table_id] = pd.concat(dfs, ignore_index=True)
+
+        # 【全量 Transform DAG】行变 transform（FilterRows/DropDuplicates/Aggregate）在
+        # 分块下逐块执行会导致结果与全量不一致，故 DAG 移到 concat 后统一执行。
+        # 必须在约束校验之前，因约束可能依赖 transform 产生的派生列。
+        merged_parsed = execute_dag_if_needed(
+            merged_parsed,
+            transform_files=getattr(self.loaded_project, "transform_files", None) if self.loaded_project else None,
+            regex_files=getattr(self.loaded_project, "regex_node_files", None) if self.loaded_project else None,
+        )
         result["parsed_datasets"] = merged_parsed
 
-        # 【全量约束校验】对 concat 后的全量 parsed 执行阶段二约束校验。
-        # 此前分块循环已用 skip_constraints=True 跳过约束，这里统一执行，
+        # 【全量约束校验】对 concat（+DAG）后的全量 parsed 执行阶段二约束校验，
         # 修复跨表 ForeignKey（不再缺目标表）与跨块 Unique（整列去重）的正确性。
         if merged_parsed:
             constraint_errors, constraint_details = validate_constraints(

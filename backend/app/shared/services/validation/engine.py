@@ -44,6 +44,38 @@ from .dag import build_transform_dag, execute_transform_dag
 from .extractors import _extract_derived_columns
 
 
+def execute_dag_if_needed(
+    parsed_datasets: dict[str, pd.DataFrame],
+    *,
+    transform_files: dict[str, TransformFile] | None = None,
+    regex_files: dict[str, RegexNodeFile] | None = None,
+) -> dict[str, pd.DataFrame]:
+    """
+    @methoddesc 按需构建并执行 Transform DAG，返回更新后的 parsed_datasets
+
+    抽离此函数是为了让分块加载路径能在 concat 全量 parsed 后单独执行 DAG，
+    修复分块模式下行变 transform（FilterRows/DropDuplicates/Aggregate 等）
+    只在块内生效、结果与全量不一致的正确性问题。
+
+    参数:
+        parsed_datasets: 已解析的 DataFrame 字典
+        transform_files: transform 配置文件字典
+        regex_files: regex 节点配置文件字典
+
+    返回:
+        经 DAG 处理后的 parsed_datasets
+    """
+    if not (transform_files or regex_files):
+        return parsed_datasets
+    logger.debug("执行 Transform DAG")
+    dag = build_transform_dag(
+        transform_files or {},
+        set(parsed_datasets.keys()),
+        regex_files,
+    )
+    return execute_transform_dag(dag, parsed_datasets)
+
+
 def validate_full_dataset(
     raw_datasets: dict[str, pd.DataFrame],
     schema: DataSetSchema,
@@ -164,12 +196,11 @@ def validate_full_dataset(
     # 只有当存在 transform_files 或 regex_files 时才需要执行
     if transform_files or regex_files:
         logger.debug("开始阶段一续二: 执行 Transform DAG")
-        dag = build_transform_dag(
-            transform_files or {},
-            set(parsed_datasets.keys()),
-            regex_files,
+        parsed_datasets = execute_dag_if_needed(
+            parsed_datasets,
+            transform_files=transform_files,
+            regex_files=regex_files,
         )
-        parsed_datasets = execute_transform_dag(dag, parsed_datasets)
 
     # ========================
     # 阶段二：逻辑约束验证
