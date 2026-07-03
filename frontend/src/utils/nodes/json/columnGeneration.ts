@@ -14,6 +14,11 @@
  */
 
 import type { JsonSchemaColumn, JsonDataType } from '@/types/nodes'
+// inferJsonDataType / inferArrayItemType / mergeJsonStructure 单一定义在 ./jsonColumnCore
+// 此处 re-export inferJsonDataType / mergeJsonStructure 保持 barrel (composables/nodes/json/index.ts)
+// 的对外契约不变;inferArrayItemType 仅内部使用。
+export { inferJsonDataType, mergeJsonStructure } from './jsonColumnCore'
+import { inferJsonDataType, inferArrayItemType, mergeJsonStructure } from './jsonColumnCore'
 
 /**
  * 列生成配置选项
@@ -37,117 +42,6 @@ export interface GenerateColumnsOptions {
  */
 function generateId(): string {
   return `col_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-}
-
-/**
- * 推断单个值的 JSON 数据类型
- *
- * @param value - 要推断类型的值
- * @returns 推断出的 JsonDataType
- */
-export function inferJsonDataType(value: unknown): JsonDataType {
-  if (value === null || value === undefined) {
-    return 'null'
-  }
-
-  if (Array.isArray(value)) {
-    return 'array'
-  }
-
-  const jsType = typeof value
-
-  switch (jsType) {
-    case 'string':
-      return 'string'
-    case 'number':
-      return 'number'
-    case 'boolean':
-      return 'boolean'
-    case 'object':
-      return 'object'
-    default:
-      return 'string'
-  }
-}
-
-/**
- * 合并多条记录的 key 结构
- */
-export function mergeJsonStructure(records: unknown[]): Record<string, unknown> {
-  if (!records || records.length === 0) {
-    return {}
-  }
-
-  const merged: Record<string, unknown> = {}
-
-  for (const record of records) {
-    if (
-      record === null ||
-      record === undefined ||
-      typeof record !== 'object' ||
-      Array.isArray(record)
-    ) {
-      continue
-    }
-
-    const obj = record as Record<string, unknown>
-
-    for (const key of Object.keys(obj)) {
-      const existingValue = merged[key]
-      const newValue = obj[key]
-
-      if (existingValue === undefined || existingValue === null) {
-        merged[key] = newValue
-      } else if (
-        typeof existingValue === 'object' &&
-        !Array.isArray(existingValue) &&
-        typeof newValue === 'object' &&
-        !Array.isArray(newValue) &&
-        newValue !== null
-      ) {
-        merged[key] = mergeJsonStructure([existingValue, newValue])
-      }
-    }
-  }
-
-  return merged
-}
-
-/**
- * 推断数组元素类型
- */
-function inferArrayItemType(arr: unknown[]): JsonDataType {
-  if (!arr || arr.length === 0) {
-    return 'null'
-  }
-
-  const types = new Set<JsonDataType>()
-  for (const item of arr) {
-    const itemType = inferJsonDataType(item)
-    if (itemType !== 'null') {
-      types.add(itemType)
-    }
-  }
-
-  if (types.size === 0) {
-    return 'null'
-  }
-
-  if (types.size === 1) {
-    const first = types.values().next().value
-    if (first) return first
-  }
-
-  if (types.has('object')) {
-    return 'object'
-  }
-  if (types.has('array')) {
-    return 'array'
-  }
-
-  const first = types.values().next().value
-  if (first) return first
-  return 'null'
 }
 
 /**

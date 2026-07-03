@@ -99,43 +99,11 @@ export function inferObjectStructure(value: unknown): Record<string, JsonDataTyp
 /**
  * 推断数组元素类型
  *
- * @param arr - 要分析的数组
- * @returns 数组元素类型
+ * 实现已统一至 ./jsonColumnCore(避免与 JsonColumnGenerator/json columnGeneration
+ * 的同名函数漂移),此处仅保留 re-export 以维持 barrel 契约。
  */
-export function inferArrayItemType(arr: unknown[]): JsonDataType {
-  if (!arr || arr.length === 0) {
-    return 'null'
-  }
-
-  const types = new Set<JsonDataType>()
-
-  for (const item of arr) {
-    const type = inferDataType(item)
-    if (type !== 'null') {
-      types.add(type)
-    }
-  }
-
-  if (types.size === 0) {
-    return 'null'
-  }
-
-  if (types.size === 1) {
-    const first = types.values().next().value
-    if (first) return first
-  }
-
-  if (types.has('object')) {
-    return 'object'
-  }
-  if (types.has('array')) {
-    return 'array'
-  }
-
-  const first = types.values().next().value
-  if (first) return first
-  return 'null'
-}
+export { inferArrayItemType } from './jsonColumnCore'
+import { inferArrayItemType } from './jsonColumnCore'
 
 /**
  * 检查值是否符合指定类型

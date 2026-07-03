@@ -7,6 +7,8 @@
 
 import type { JsonSchemaColumn, JsonDataType } from '@/types/nodes'
 import type { ColumnGenerationStrategy, ColumnComparisonResult } from './types'
+// inferJsonDataType / inferArrayItemType / mergeJsonStructure 单一定义在 ../json/jsonColumnCore
+import { inferJsonDataType, inferArrayItemType, mergeJsonStructure } from '../json/jsonColumnCore'
 
 interface JsonGenerateOptions {
   /** 是否强制重新推断类型 */
@@ -17,81 +19,6 @@ interface JsonGenerateOptions {
 
 function generateId(): string {
   return `col_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`
-}
-
-function inferJsonDataType(value: unknown): JsonDataType {
-  if (value === null || value === undefined) return 'null'
-  if (Array.isArray(value)) return 'array'
-
-  const jsType = typeof value
-  switch (jsType) {
-    case 'string':
-      return 'string'
-    case 'number':
-      return 'number'
-    case 'boolean':
-      return 'boolean'
-    case 'object':
-      return 'object'
-    default:
-      return 'string'
-  }
-}
-
-function inferArrayItemType(arr: unknown[]): JsonDataType {
-  if (!arr || arr.length === 0) return 'null'
-
-  const types = new Set<JsonDataType>()
-  for (const item of arr) {
-    const itemType = inferJsonDataType(item)
-    if (itemType !== 'null') types.add(itemType)
-  }
-
-  if (types.size === 0) return 'null'
-  if (types.size === 1) {
-    const first = types.values().next().value
-    if (first) return first
-  }
-  if (types.has('object')) return 'object'
-  if (types.has('array')) return 'array'
-  const first = types.values().next().value
-  if (first) return first
-  return 'null'
-}
-
-function mergeJsonStructure(records: unknown[]): Record<string, unknown> {
-  const merged: Record<string, unknown> = {}
-
-  for (const record of records) {
-    if (
-      record === null ||
-      record === undefined ||
-      typeof record !== 'object' ||
-      Array.isArray(record)
-    ) {
-      continue
-    }
-
-    const obj = record as Record<string, unknown>
-    for (const key of Object.keys(obj)) {
-      const existingValue = merged[key]
-      const newValue = obj[key]
-
-      if (existingValue === undefined || existingValue === null) {
-        merged[key] = newValue
-      } else if (
-        typeof existingValue === 'object' &&
-        !Array.isArray(existingValue) &&
-        typeof newValue === 'object' &&
-        !Array.isArray(newValue) &&
-        newValue !== null
-      ) {
-        merged[key] = mergeJsonStructure([existingValue, newValue])
-      }
-    }
-  }
-
-  return merged
 }
 
 function inferTypeFromRecords(records: unknown[], key: string): JsonDataType {
