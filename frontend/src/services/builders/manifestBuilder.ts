@@ -15,21 +15,9 @@
 import type { CustomNode, SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
 import type { ProjectManifestV2, ProjectSettings, TemplateInstanceRefV2 } from '@/types/projectV2'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
-
-/**
- * 获取有效的项目 ID
- *
- * 清理用户输入的项目名称，移除不安全字符
- * @param projectPath - 项目路径
- * @param projectName - 项目名称
- * @returns 清理后的项目 ID
- */
-export function sanitizeV2Id(input: string): string {
-  return (input || 'project')
-    .trim()
-    .replace(/\s+/g, '_')
-    .replace(/[\\/:"*?<>|]+/g, '_')
-}
+// sanitizeV2Id 单一定义在 @/utils/typeHelpers,此处 re-export 供 @/services/builders 调用方使用
+export { sanitizeV2Id } from '@/utils/typeHelpers'
+import { sanitizeV2Id } from '@/utils/typeHelpers'
 
 /**
  * 构建 V2 项目清单

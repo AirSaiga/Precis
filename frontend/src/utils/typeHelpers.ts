@@ -41,31 +41,6 @@ export function toBackendType(dataType: DataType): string {
 }
 
 /**
- * 数据类型：后端 → 前端
- *
- * 将后端返回的类型字符串解析为前端 DataType 枚举。
- *
- * @param typeConfig - 后端类型配置（字符串或对象）
- * @returns 前端数据类型枚举值
- */
-export function fromBackendType(typeConfig: unknown): DataType {
-  if (typeof typeConfig === 'string') {
-    const t = typeConfig.toLowerCase()
-    if (t === 'int' || t === 'integer') return 'Integer'
-    if (t === 'float') return 'Float'
-    if (t === 'decimal') return 'Float'
-    if (t === 'str' || t === 'string') return 'String'
-    if (t === 'boolean' || t === 'bool') return 'Boolean'
-    if (t === 'date' || t === 'datetime' || t === 'time') return 'Date'
-    if (t === 'expr' || t === 'compositeexpr') return 'Expression'
-    if (t === 'jsonobject' || t === 'json_object') return 'String'
-    if (t === 'jsonarray' || t === 'json_array') return 'String'
-    if (t === 'jsonnull' || t === 'json_null') return 'String'
-  }
-  return 'String'
-}
-
-/**
  * 清理 V2 项目 ID
  *
  * 移除不安全字符（如路径分隔符、冒号、星号等），
