@@ -40,8 +40,11 @@ function fmtStringList(items) {
   return items.map((t) => `  | '${t}'`).join('\n')
 }
 
+// 格式化为 prettier 友好的多行数组(每元素一行),保证生成物与 prettier 格式化后一致,
+// 避免 CI 的 codegen diff 校验因格式漂移失败。
 function fmtArray(items) {
-  return `[${items.map((t) => `'${t}'`).join(', ')}]`
+  const inner = items.map((t) => `  '${t}'`).join(',\n')
+  return `[\n${inner},\n]`
 }
 
 function generate(data) {
