@@ -100,6 +100,18 @@ jobs:
         with:
           name: backend-coverage
           path: backend/htmlcov/
+
+      - name: Verify frontend codegen in sync
+        # 校验 frontend/src/types/generated/actions.ts 与后端 registry 一致。
+        # codegen.mjs 仅用 node 内置模块,无需 npm install。
+        # 后端依赖已在上一步安装,registry 可 import。
+        run: |
+          node ../frontend/scripts/codegen.mjs
+          if ! git diff --exit-code ../frontend/src/types/generated/; then
+            echo "::error::前端 codegen 产物与后端 registry 不同步,请跑 'npm run codegen' 后提交"
+            git diff -- ../frontend/src/types/generated/
+            exit 1
+          fi
           retention-days: 7
 
   electron:

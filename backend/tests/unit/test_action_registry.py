@@ -170,3 +170,43 @@ def test_agent_prompt_has_no_json_only_instructions():
     # 这些是 JSON 直出模式专用指令，不应出现在 Agent 路径
     assert "绝对禁止返回纯文本" not in CHAT_AGENT_SYSTEM_PROMPT
     assert "必须返回 JSON！必须返回 JSON" not in CHAT_AGENT_SYSTEM_PROMPT
+
+
+def test_export_for_codegen_structure():
+    """export_for_codegen 返回 JSON 兼容结构，供前端 codegen 使用。"""
+    data = registry.export_for_codegen()
+
+    # 顶层键齐全
+    assert set(data.keys()) == {
+        "actions",
+        "all_action_types",
+        "by_category",
+        "read_only_action_types",
+        "write_action_types",
+    }
+
+    # actions 数量与 ACTIONS 一致，且每项字段齐全
+    assert len(data["actions"]) == len(registry.ACTIONS)
+    for item in data["actions"]:
+        assert set(item.keys()) == {"type", "spec_field", "category", "read_only"}
+
+    # all_action_types 与 ALL_ACTION_TYPES 一致
+    assert data["all_action_types"] == registry.ALL_ACTION_TYPES
+
+    # by_category 各值为 sorted list（顺序稳定，便于 codegen diff）
+    for cat, types in data["by_category"].items():
+        assert isinstance(types, list)
+        assert types == sorted(types)
+        assert set(types) == registry.BY_CATEGORY[cat]
+
+    # 只读/写盘集合互为补集
+    assert set(data["read_only_action_types"]) == set(registry.READ_ONLY_ACTION_TYPES)
+    assert set(data["write_action_types"]) == set(registry.WRITE_ACTION_TYPES)
+    assert set(data["read_only_action_types"]).isdisjoint(data["write_action_types"])
+
+
+def test_export_for_codegen_is_json_serializable():
+    """export_for_codegen 结果可被 json 序列化（codegen 通过 subprocess 读取）。"""
+    import json
+
+    json.dumps(registry.export_for_codegen())  # 不抛异常即可

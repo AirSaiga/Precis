@@ -31,6 +31,7 @@
     "preview": "vite preview",
     "build-only": "vite build",
     "audit:styles": "node ./scripts/audit-hardcoded-styles.mjs",
+    "codegen": "node ./scripts/codegen.mjs",
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix && npm run audit:styles",
     "lint:check": "eslint . --max-warnings=0 && npm run audit:styles",

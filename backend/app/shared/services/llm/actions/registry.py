@@ -270,3 +270,44 @@ def build_spec_field_mapping_text() -> str:
             note = "含 tableName，可选"
         lines.append(f"- {label}动作 → {spec_field} ({note})" if note else f"- {label}动作 → {spec_field}")
     return "\n".join(lines)
+
+
+# =============================================================================
+# Codegen 导出（供 frontend/scripts/codegen.mjs 通过 subprocess 读取）
+# =============================================================================
+
+
+def export_for_codegen() -> dict[str, object]:
+    """将动作类型单一事实源序列化为 JSON-friendly dict，供前端 codegen 生成 TS 类型。
+
+    设计要点:
+    - frozenset 统一转 sorted list，保证顺序稳定（生成的 TS 文件可 diff）
+    - 仅导出 codegen 所需字段（type/spec_field/category/read_only + 派生集合）
+    - 纯函数、零 IO、零副作用，可在 subprocess 中安全 import 调用
+
+    返回结构（JSON 兼容）::
+
+        {
+            "actions": [ {type, spec_field, category, read_only}, ... ],  # 按 ACTIONS 插入序
+            "all_action_types": [...],
+            "by_category": { "constraint": [...], ... },
+            "read_only_action_types": [...],
+            "write_action_types": [...],
+        }
+    """
+    return {
+        # 按 ACTIONS 插入序保留（dict 保序），便于生成稳定 TS
+        "actions": [
+            {
+                "type": a.type,
+                "spec_field": a.spec_field,
+                "category": a.category,
+                "read_only": a.read_only,
+            }
+            for a in ACTIONS.values()
+        ],
+        "all_action_types": list(ALL_ACTION_TYPES),
+        "by_category": {k: sorted(v) for k, v in BY_CATEGORY.items()},
+        "read_only_action_types": sorted(READ_ONLY_ACTION_TYPES),
+        "write_action_types": sorted(WRITE_ACTION_TYPES),
+    }

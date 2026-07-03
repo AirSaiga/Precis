@@ -37,6 +37,13 @@ import { fromBackendType } from '@/services/builders/schemaBuilder'
 import { useConnectionValidator } from '@/composables/validation/useConnectionValidator'
 import { materializeV2EmbeddedConstraints } from '@/stores/graphStore/modules/v2/shared/embeddedConstraints'
 import type { ProjectResourceKind } from '@/stores/graphStore/modules/v2/import/importV2ResourceToCanvas'
+// 动作类型分类集合由 codegen 从后端 registry 生成,消除前后端硬编码漂移
+import {
+  CONSTRAINT_ACTION_TYPES,
+  SCHEMA_ACTION_TYPES,
+  REGEX_ACTION_TYPES,
+  TRANSFORM_ACTION_TYPES,
+} from '@/types/generated/actions'
 
 /**
  * fitView 防抖
@@ -294,18 +301,6 @@ function resolveTargetNode(
 
   return undefined
 }
-
-const CONSTRAINT_ACTION_TYPES = new Set([
-  'ADD_CONSTRAINT_NODE',
-  'UPDATE_CONSTRAINT_NODE',
-  'DELETE_CONSTRAINT_NODE',
-])
-
-const SCHEMA_ACTION_TYPES = new Set(['ADD_SCHEMA', 'UPDATE_SCHEMA', 'DELETE_SCHEMA'])
-
-const REGEX_ACTION_TYPES = new Set(['ADD_REGEX', 'UPDATE_REGEX', 'DELETE_REGEX'])
-
-const TRANSFORM_ACTION_TYPES = new Set(['ADD_TRANSFORM', 'UPDATE_TRANSFORM', 'DELETE_TRANSFORM'])
 
 /**
  * 处理前端渲染指令，按 actionType 分发到对应 handler

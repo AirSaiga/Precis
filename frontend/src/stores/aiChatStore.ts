@@ -29,6 +29,7 @@ import { toastError } from '@/core/toast'
 import { useProjectStore } from '@/stores/projectStore'
 import { useGraphStore } from '@/stores/graphStore'
 import { serializeCanvasForAI } from '@/utils/ai/serializeCanvasForAI'
+import type { ActionType } from '@/types/generated/actions'
 
 /**
  * 聊天消息结构，用于 UI 渲染
@@ -154,7 +155,7 @@ export interface SettingsSpec {
  * @property constraintSpec - 约束规格参数（兼容旧字段名）
  */
 export interface FrontendInstruction {
-  actionType: string
+  actionType: ActionType
   constraintSpec: ConstraintSpec
   schemaSpec?: SchemaSpec
   regexSpec?: RegexSpec
