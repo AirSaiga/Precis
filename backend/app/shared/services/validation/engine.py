@@ -52,6 +52,7 @@ def validate_full_dataset(
     transform_files: dict[str, TransformFile] | None = None,
     regex_files: dict[str, RegexNodeFile] | None = None,
     deadline: float | None = None,
+    skip_constraints: bool = False,
 ) -> tuple[dict[str, pd.DataFrame], list[dict], dict[str, list[dict]]]:
     """
     @methoddesc 执行完整的验证流程，包括格式解析和约束校验
@@ -66,6 +67,9 @@ def validate_full_dataset(
         allow_unsafe_eval: 是否允许执行不安全的脚本化约束。默认为 False（安全模式）
         table_filter: 只验证与这些表相关的约束
         deadline: 超时截止时间（time.monotonic 绝对时间），超过此时间后跳过剩余约束
+        skip_constraints: 仅执行阶段一（格式解析+派生列+Transform DAG），跳过阶段二约束校验。
+            供分块加载路径使用——分块时每块只解析格式，约束在 concat 全量 parsed 后统一执行
+            （见 validate_constraints），以避免跨表 ForeignKey 假阳性与跨块 Unique 假阴性。
 
     返回:
         元组 (parsed_datasets, all_errors, validation_details)
@@ -178,13 +182,65 @@ def validate_full_dataset(
     # - ConditionalConstraint: 条件约束（基于条件的规则）
     # - ScriptedConstraint: 脚本化约束（自定义脚本逻辑）
     logger.debug("开始阶段二: 逻辑约束验证")
+    if skip_constraints:
+        # 分块加载路径：每块只解析格式，约束校验在 concat 全量 parsed 后由调用方统一执行
+        logger.debug("skip_constraints=True，跳过阶段二约束校验（分块解析模式）")
+        return parsed_datasets, all_errors, validation_details
+    all_errors, validation_details = validate_constraints(
+        parsed_datasets,
+        schema,
+        all_errors=all_errors,
+        validation_details=validation_details,
+        allow_unsafe_eval=allow_unsafe_eval,
+        table_filter=table_filter,
+        deadline=deadline,
+    )
+
+    # 返回解析后的数据集、所有错误和校验详情
+    # 【结果说明】前端可以根据 is_empty(all_errors) 判断验证是否通过
+    # validation_details 用于展示所有校验过程的详细信息
+    return parsed_datasets, all_errors, validation_details
+
+
+def validate_constraints(
+    parsed_datasets: dict[str, pd.DataFrame],
+    schema: DataSetSchema,
+    *,
+    all_errors: list[dict] | None = None,
+    validation_details: dict[str, list[dict]] | None = None,
+    allow_unsafe_eval: bool = False,
+    table_filter: str | list[str] | None = None,
+    deadline: float | None = None,
+) -> tuple[list[dict], dict[str, list[dict]]]:
+    """
+    @methoddesc 仅执行阶段二（逻辑约束验证），对已解析数据跑所有约束
+
+    抽离此函数是为了让分块加载路径能在 concat 全量 parsed 后单独重跑约束，
+    修复分块模式下跨表 ForeignKey（假阳性）与跨块 Unique（假阴性）的正确性问题。
+
+    参数:
+        parsed_datasets: 已解析的 DataFrame 字典（键为 table_id）
+        schema: 完整的数据集 Schema 定义
+        all_errors: 已有错误列表（会在此基础上追加），默认新建
+        validation_details: 已有校验详情（会在此基础上追加），默认新建
+        allow_unsafe_eval: 是否允许执行不安全的脚本化约束
+        table_filter: 只验证与这些表相关的约束
+        deadline: 超时截止时间
+
+    返回:
+        元组 (all_errors, validation_details)
+    """
+    if all_errors is None:
+        all_errors = []
+    if validation_details is None:
+        validation_details = {"format_checks": [], "constraint_checks": []}
 
     # 如果所有表都为空，跳过约束验证以避免无意义计算和边界错误（M3）
-    # 【防御性编程】空数据集无需执行约束校验，直接返回阶段一结果
+    # 【防御性编程】空数据集无需执行约束校验，直接返回
     has_any_data = any(not df.empty for df in parsed_datasets.values())
     if not has_any_data:
         logger.debug("所有解析后的表均为空，跳过阶段二约束验证")
-        return parsed_datasets, all_errors, validation_details
+        return all_errors, validation_details
 
     # 处理 table_filter 参数（只接受表ID）
     # 【类型适配】支持字符串或列表形式，统一转换为集合便于成员检查
@@ -290,7 +346,4 @@ def validate_full_dataset(
             f"约束 {i + 1} ({constraint.__class__.__name__}) 验证完成。发现 {len(constraint_errors)} 个逻辑错误。"
         )
 
-    # 返回解析后的数据集、所有错误和校验详情
-    # 【结果说明】前端可以根据 is_empty(all_errors) 判断验证是否通过
-    # validation_details 用于展示所有校验过程的详细信息
-    return parsed_datasets, all_errors, validation_details
+    return all_errors, validation_details

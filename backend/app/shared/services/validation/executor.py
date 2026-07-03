@@ -41,7 +41,7 @@ from app.shared.domain.dataset_schema import DataSetSchema
 
 from .chunked_loader import ChunkedDataLoader
 from .data_loader import DataLoader
-from .engine import validate_full_dataset
+from .engine import validate_constraints, validate_full_dataset
 from .memory_monitor import MemoryMonitor
 from .resolver import DataSourceResolver
 
@@ -598,6 +598,10 @@ class ValidationExecutor:
                     parsed_datasets: dict[str, pd.DataFrame]
                     validation_errors: list[dict]
                     validation_details: dict[str, list[dict]]
+                    # 【分块解析】skip_constraints=True：每块只跑格式解析+派生列+Transform DAG，
+                    # 不跑约束校验。跨表 FK / 跨块 Unique 等需要全局数据的约束，
+                    # 在下方 concat 全量 parsed 后统一执行（validate_constraints），
+                    # 以避免分块模式下的假阳性（FK 缺目标表）与假阴性（跨块重复漏检）。
                     parsed_datasets, validation_errors, validation_details = validate_full_dataset(
                         {table_id: chunk_df},
                         self.dataset_schema,
@@ -610,6 +614,7 @@ class ValidationExecutor:
                         if self.loaded_project
                         else None,
                         deadline=deadline,
+                        skip_constraints=True,
                     )
 
                     # 收集解析后的数据
@@ -640,9 +645,33 @@ class ValidationExecutor:
                     )
 
         # 合并分块的解析结果
+        # 【设计意图】分块仅用于"加载与格式解析省内存"；约束校验需要全局数据，
+        # 因此在所有块解析完成后 concat 为全量 parsed，再统一跑约束阶段。
+        merged_parsed: dict[str, pd.DataFrame] = {}
         for table_id, dfs in all_parsed_datasets.items():
             if dfs:
-                result["parsed_datasets"][table_id] = pd.concat(dfs, ignore_index=True)
+                merged_parsed[table_id] = pd.concat(dfs, ignore_index=True)
+        result["parsed_datasets"] = merged_parsed
+
+        # 【全量约束校验】对 concat 后的全量 parsed 执行阶段二约束校验。
+        # 此前分块循环已用 skip_constraints=True 跳过约束，这里统一执行，
+        # 修复跨表 ForeignKey（不再缺目标表）与跨块 Unique（整列去重）的正确性。
+        if merged_parsed:
+            constraint_errors, constraint_details = validate_constraints(
+                merged_parsed,
+                self.dataset_schema,
+                all_errors=[],  # 约束阶段独立计错误，避免与分块格式错误混排
+                validation_details={
+                    "format_checks": [],  # 占位，下方合并时只取 constraint_checks
+                    "constraint_checks": [],
+                },
+                allow_unsafe_eval=allow_unsafe_eval,
+                table_filter=options.table_filter,
+                deadline=deadline,
+            )
+            all_errors.extend(constraint_errors)
+            # 用全量约束结果替换分块阶段（分块循环 skip 了约束，constraint_checks 原本为空）
+            all_validation_details["constraint_checks"] = constraint_details.get("constraint_checks", [])
 
         result["errors"] = all_errors
         result["validation_details"] = all_validation_details

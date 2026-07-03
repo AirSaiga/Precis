@@ -41,8 +41,10 @@ class MockTableSchema:
 
 
 class MockDatasetSchema:
-    def __init__(self, tables=None):
+    def __init__(self, tables=None, constraints=None):
         self.tables = tables or {}
+        # constraints 默认空列表（无约束），供 validate_constraints 遍历
+        self.constraints = constraints or []
 
 
 def _make_minimal_executor():
@@ -106,9 +108,12 @@ class TestExecuteChunked:
                 "D:\\data", ValidationOptions(timeout_seconds=300), started, _make_result_dict()
             )
 
-        assert len(result["errors"]) == 2  # 2 chunks, each produces 1 error
+        assert len(result["errors"]) == 2  # 2 chunks, each produces 1 format error
         assert result["validation_details"]["format_checks"] == [{"check": "fmt"}, {"check": "fmt"}]
-        assert result["validation_details"]["constraint_checks"] == [{"check": "con"}, {"check": "con"}]
+        # 修复后:分块只跑格式解析,约束校验在 concat 全量 parsed 后统一执行。
+        # MockDatasetSchema.constraints 为空,故全量约束阶段无 constraint_checks。
+        # (旧实现错误地在每块都跑约束,产生 [{"check":"con"},{"check":"con"}])
+        assert result["validation_details"]["constraint_checks"] == []
         assert "users" in result["parsed_datasets"]
         # Each chunk's validate returns a 2-row df, concat gives 4 rows
         assert len(result["parsed_datasets"]["users"]) == 4
