@@ -45,10 +45,9 @@ vi.mock('@/i18n', () => ({
   i18n: { global: { t: (key: string) => key } },
 }))
 
-import {
-  resolveSchemaAndColumnIdByName,
-  buildV2ConstraintFile,
-} from '@/services/builders/constraintBuilder'
+import { buildV2ConstraintFile } from '@/services/builders/constraintBuilder'
+// resolveSchemaAndColumnIdByName 单一定义在 persistence/builders/constraint/helpers
+import { resolveSchemaAndColumnIdByName } from '@/services/persistence/builders/constraint/helpers'
 
 function schemaNode(overrides: Record<string, unknown> = {}): CustomNode {
   return {

@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
   toBackendType,
-  fromBackendType,
   sanitizeV2Id,
   getFileName,
   formatFileSize,
@@ -10,6 +9,8 @@ import {
   isEmpty,
   normalizeSourceKey,
 } from '@/utils/typeHelpers'
+// fromBackendType 单一定义在 schemaBuilder(typeHelpers 的副本已移除)
+import { fromBackendType } from '@/services/builders/schemaBuilder'
 
 describe('toBackendType', () => {
   it('String → Str', () => {
