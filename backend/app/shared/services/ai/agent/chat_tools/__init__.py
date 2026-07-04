@@ -15,6 +15,7 @@
 """
 
 from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyActionsTool
+from app.shared.services.ai.agent.chat_tools.ask_user import AskUserTool
 from app.shared.services.ai.agent.chat_tools.read_canvas import ReadCanvasTool
 from app.shared.services.ai.agent.chat_tools.read_project import ReadProjectTool
 from app.shared.services.ai.agent.chat_tools.read_table import ReadTableTool
@@ -22,6 +23,7 @@ from app.shared.services.ai.agent.chat_tools.validate_table import ValidateTable
 
 __all__ = [
     "ApplyActionsTool",
+    "AskUserTool",
     "ReadCanvasTool",
     "ReadProjectTool",
     "ReadTableTool",
