@@ -24,6 +24,12 @@ export interface GraphStoreLike {
   isProjectLoaded: Ref<boolean>
   updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
   deleteConnection: (edgeId: string) => void
+  /**
+   * 从当前 edges 重建全部关系元数据（parent/children/outputPortConnected）。
+   * 全量数组替换（setNodes/setEdges）不触发 hooks，需手动调用此方法以保证
+   * 节点关系状态与实际边一致。可选，因并非所有消费方都需要。
+   */
+  reconcileAll?: () => void | Promise<void>
 }
 
 /**

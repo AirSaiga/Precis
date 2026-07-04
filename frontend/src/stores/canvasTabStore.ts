@@ -24,7 +24,7 @@
  *   必须使用 .length > 0 而非简单的 truthy 检查
  */
 
-import { ref, computed, toRaw, isProxy } from 'vue'
+import { ref, computed, toRaw, isProxy, nextTick } from 'vue'
 import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import type { Edge } from '@vue-flow/core'
@@ -65,6 +65,12 @@ interface GraphStoreLike {
   resetCanvas: () => void
   isProjectLoaded?: boolean
   createProjectRootNode?: (position: { x: number; y: number }) => string
+  /**
+   * 从当前 edges 重建全部关系元数据（parent/children/outputPortConnected）。
+   * 全量数组替换（setNodes/setEdges）不触发 hooks，需手动调用此方法以保证
+   * 节点关系状态与实际边一致。可选，因并非所有注入方都需要。
+   */
+  reconcileAll?: () => void | Promise<void>
 }
 
 /**
@@ -351,7 +357,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
    * @param tabId - 目标工作区 ID
    * @param graphStore - 可选。传入时支持画布状态保存/恢复和 projectRoot 自动创建
    */
-  function setActiveTab(tabId: string, graphStore?: GraphStoreLike) {
+  async function setActiveTab(tabId: string, graphStore?: GraphStoreLike) {
     const tab = tabs.value.find((w) => w.id === tabId)
     if (!tab) return
 
@@ -379,6 +385,15 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
       }
       // 恢复快照后确保 projectRoot 存在（快照可能在 project-closed 时被移除）
       ensureProjectRootInCanvas(graphStore)
+
+      // 全量替换（nodes/edges 赋值）经 setNodes/setEdges，不触发 hooks，
+      // parent/children/outputPortConnected 元数据不会被重建，
+      // 需手动 reconcile，否则连接元数据与实际边不一致。
+      // 分支 B（空画布 + projectRoot）无关系需重建，故不调用。
+      if (graphStore.reconcileAll) {
+        await nextTick()
+        await graphStore.reconcileAll()
+      }
     } else if (graphStore) {
       // 分支 B：目标 Tab 无画布数据，重置画布并创建 projectRoot
       graphStore.resetCanvas()
@@ -431,7 +446,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
         const newIndex = index < tabs.value.length ? index : index - 1
         const nextTab = tabs.value[newIndex]
         if (nextTab) {
-          setActiveTab(nextTab.id, graphStore)
+          await setActiveTab(nextTab.id, graphStore)
         }
       } else {
         // 最后一个 Tab 被关闭，自动创建新的空 Tab
