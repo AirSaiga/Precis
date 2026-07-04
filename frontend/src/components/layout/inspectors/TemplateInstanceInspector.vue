@@ -145,7 +145,7 @@
     emitUpdate()
   }
 
-  function onTemplateSelect(e: Event) {
+  async function onTemplateSelect(e: Event) {
     const select = e.target as HTMLSelectElement
     const newId = select.value
     if (!newId) return
@@ -154,8 +154,9 @@
     localData.templateId = newId
     localData.templateName = matched?.name || newId
 
-    // 清除旧模板的展开节点
-    graphStore.clearExpansion(props.nodeId)
+    // 清除旧模板的展开节点（await 保证 removeNodes 回写后再复位容器，
+    // 避免被全量替换写回导致删除的子节点残留）
+    await graphStore.clearExpansion(props.nodeId)
 
     emitUpdate()
     emit('update:data', {

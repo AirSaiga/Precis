@@ -124,8 +124,8 @@ describe('templateExpand module', () => {
   // clearExpansion
   // --------------------------------------------------------------------------
   describe('clearExpansion', () => {
-    it('无展开节点时不操作', () => {
-      module.clearExpansion('ti-1')
+    it('无展开节点时不操作', async () => {
+      await module.clearExpansion('ti-1')
       expect(removeNodes).not.toHaveBeenCalled()
       expect(removeEdges).not.toHaveBeenCalled()
     })
@@ -160,11 +160,82 @@ describe('templateExpand module', () => {
       vi.mocked(addEdges).mockClear()
       vi.mocked(removeNodes).mockClear()
       vi.mocked(removeEdges).mockClear()
+      updateNodeDataCalls = []
 
-      module.clearExpansion('ti-1')
+      await module.clearExpansion('ti-1')
 
       expect(removeEdges).toHaveBeenCalled()
       expect(removeNodes).toHaveBeenCalled()
+    })
+
+    // Regression: clearExpansion 必须是 async 并 await nextTick，
+    // 否则紧随 removeNodes 的全量 map 会把刚删的子节点重新写回 nodes.value，
+    // 触发 Vue Flow setNodes 拒绝 remove 的竞态（review finding #1, P0）。
+    it('clearExpansion 是 async 函数（返回 Promise）', async () => {
+      nodes.value = [makeNode('inst1', 'templateInstance', { expanded: true })]
+
+      // 让模块追踪 child1 属于 inst1
+      await module.expandOnCanvas(
+        'inst1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'child1',
+              type: 'NotNull',
+              input_from_node: null,
+              description: 'nn',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
+
+      const ret = module.clearExpansion('inst1')
+      // 契约变更：函数现在返回 Promise（即变为 async），防止竞态
+      expect(ret).toBeInstanceOf(Promise)
+      await ret
+    })
+
+    it('clearExpansion 通过 updateNodeData 复位 expanded（保证 saveState 同步）', async () => {
+      nodes.value = [
+        makeNode('inst1', 'templateInstance', { expanded: true }),
+        makeNode('child1', 'notNullConstraint', {}, { parentNode: 'inst1' }),
+      ]
+
+      // 让模块追踪 child1 属于 inst1
+      await module.expandOnCanvas(
+        'inst1',
+        makeExpandResult({
+          constraints: [
+            {
+              id: 'child1',
+              type: 'NotNull',
+              input_from_node: null,
+              description: 'nn',
+              refs: { table_id: 't1', column_id: 'c1' },
+              params: {},
+            },
+          ],
+        })
+      )
+
+      updateNodeDataCalls = []
+
+      await module.clearExpansion('inst1')
+
+      // expanded 复位必须走 updateNodeData 入口（saveState 同步），而非埋在 map 里
+      const expandedResetCall = updateNodeDataCalls.find(
+        (c) => c.nodeId === 'inst1' && c.data.expanded === false
+      )
+      expect(expandedResetCall).toBeDefined()
+
+      // expandedNodeIds 已清理
+      expect(module.getExpandedIds('inst1')).toHaveLength(0)
+
+      // 容器表现层属性复位
+      const inst = nodes.value.find((n) => n.id === 'inst1')
+      expect((inst?.data as Record<string, unknown>).expanded).toBe(false)
     })
   })
 

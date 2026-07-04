@@ -92,7 +92,7 @@ export function createTemplateExpandModule(params: {
   // Public API
   // --------------------------------------------------------------------------
 
-  function clearExpansion(instanceNodeId: string) {
+  async function clearExpansion(instanceNodeId: string) {
     const ids = expandedNodeIds.get(instanceNodeId)
     if (!ids || ids.length === 0) return
 
@@ -106,7 +106,15 @@ export function createTemplateExpandModule(params: {
 
     expandedNodeIds.delete(instanceNodeId)
 
-    // 恢复容器为折叠态
+    // 关键：等 removeNodes 的 store 回写完成（pausable watcher 在 nextTick 后回写），
+    // 再更新容器，否则紧接着的 map 会把刚删的子节点重新写回 nodes.value，
+    // Vue Flow setNodes 可能拒绝执行 remove。
+    await nextTick()
+
+    // 容器恢复折叠态：统一走 updateNodeData 入口，保证 saveState 同步
+    updateNodeData(instanceNodeId, { expanded: false } as Partial<CustomNodeData>)
+
+    // style/width/height 是 Vue Flow 节点表现层属性，需通过数组 map 更新
     const instanceNode = nodes.value.find((n) => n.id === instanceNodeId)
     if (instanceNode) {
       nodes.value = nodes.value.map((n) => {
@@ -116,7 +124,6 @@ export function createTemplateExpandModule(params: {
           style: {},
           width: undefined,
           height: undefined,
-          data: { ...n.data, expanded: false },
         } as CustomNode
       })
     }
@@ -136,7 +143,7 @@ export function createTemplateExpandModule(params: {
 
   async function expandOnCanvas(instanceNodeId: string, expandResult: TemplateExpandResult) {
     // 0. 清除旧展开
-    clearExpansion(instanceNodeId)
+    await clearExpansion(instanceNodeId)
 
     const instanceNode = nodes.value.find((n) => n.id === instanceNodeId)
     if (!instanceNode) return
