@@ -18,6 +18,7 @@ import logging
 from typing import Any
 
 from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyCallbacks
+from app.shared.services.ai.agent.chat_tools.ask_user import AskCallbacks
 from app.shared.services.ai.agent.types import ToolResult
 from app.shared.services.ai.chat_agent_runner import ChatAgentRunner
 from app.shared.services.ai.streaming.pending_interaction_store import (
@@ -40,6 +41,8 @@ from .types import (
     EVENT_TOOL_CALL,
     EVENT_TOOL_RESULT,
     EVENT_TURN_START,
+    EVENT_USER_INPUT_REQUESTED,
+    EVENT_USER_RESPONDED,
 )
 
 logger = logging.getLogger(__name__)
@@ -133,11 +136,18 @@ class StreamingOrchestrator:
             on_frontend_instruction=lambda payload: self._emit_apply(EVENT_FRONTEND_INSTRUCTION, payload),
         )
 
+        # ask_user 事件桥接回调（与 apply_callbacks 平行）
+        ask_callbacks = AskCallbacks(
+            on_user_input_requested=lambda payload: self._emit_apply(EVENT_USER_INPUT_REQUESTED, payload),
+            on_user_responded=lambda payload: self._emit_apply(EVENT_USER_RESPONDED, payload),
+        )
+
         runner = ChatAgentRunner(
             provider=provider,
             project_path=project_path,
             context_nodes=context_nodes,
             apply_callbacks=apply_callbacks,
+            ask_callbacks=ask_callbacks,
             dry_run_enabled=True,
             job_id=self.job_id,
             canvas_nodes=canvas_nodes,
