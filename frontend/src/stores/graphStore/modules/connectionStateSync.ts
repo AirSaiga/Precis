@@ -3,8 +3,8 @@
  *
  * 功能概述:
  * - syncOnConnect: 连接建立后，统一更新 source.children / target.parent / outputPortConnected
- * - syncOnDisconnect: 连接断开后，统一清理上述字段
- * - reconcileAll: 从现有 edges 重建所有关系状态（用于 V2 导入后）
+ * - syncOnDisconnect: 连接断开后，清理 source.children / target.parent（outputPortConnected 由 reconcileAll 维护，避免批量删边竞态）
+ * - reconcileAll: 从现有 edges 重建所有关系状态（用于 V2 导入后、批量删边后）
  *
  * 架构设计:
  * - 本模块是 parent/children/outputPortConnected 维护的唯一入口（Single Source of Truth）
@@ -112,6 +112,21 @@ export function createConnectionStateSyncModule(ctx: ConnectionStateSyncContext)
 
     // 更新 target.parent
     if (isParentCapableType(targetNode.type)) {
+      const oldParentId = targetData.parent as string | undefined
+      if (oldParentId && oldParentId !== sourceId) {
+        // 旧 parent 是 children-capable 类型时，从其 children 移除 target
+        const oldParent = nodes.value.find((n) => n.id === oldParentId)
+        if (oldParent && isChildrenCapableType(oldParent.type)) {
+          const oldParentData = oldParent.data as unknown as Record<string, unknown>
+          const oldChildren = (oldParentData.children as string[]) || []
+          if (oldChildren.includes(targetId)) {
+            const newOldChildren = oldChildren.filter((id) => id !== targetId)
+            patchFn(oldParentId, {
+              children: newOldChildren.length > 0 ? newOldChildren : undefined,
+            })
+          }
+        }
+      }
       if (targetData.parent !== sourceId) {
         patchFn(targetId, { parent: sourceId })
       }
@@ -153,7 +168,10 @@ export function createConnectionStateSyncModule(ctx: ConnectionStateSyncContext)
   // ========================================================================
 
   /**
-   * 连接断开后调用 — 统一清理 children/parent/outputPortConnected。
+   * 连接断开后调用 — 清理 children/parent。
+   *
+   * 注：outputPortConnected 不在此处维护（避免批量删边时读到 stale edges 的竞态），
+   * 由 reconcileAll() 统一重建。
    *
    * 注意：调用者应已跳过瞬态边。FK 展示边由本函数内部跳过。
    */
@@ -186,22 +204,11 @@ export function createConnectionStateSyncModule(ctx: ConnectionStateSyncContext)
       }
     }
 
-    // 清理 outputPortConnected：仅当数据源节点不再有任何 schema 类型的下游连接时重置
-    if (isDataSourceType(sourceNode.type)) {
-      const hasRemainingSchemaConnection = edges.value.some(
-        (e) =>
-          e.source === edge.source &&
-          e.id !== edge.id &&
-          !shouldSkipEdge(e) &&
-          nodes.value.find((n) => n.id === e.target)?.type !== undefined &&
-          isSchemaType(nodes.value.find((n) => n.id === e.target)?.type)
-      )
-      if (!hasRemainingSchemaConnection) {
-        updateNodeData(edge.source, {
-          outputPortConnected: false,
-        } as Partial<CustomNodeData>)
-      }
-    }
+    // 注：outputPortConnected 不在此处维护。
+    // 批量删边时 edges.value 的回写有 nextTick 延迟,此处的 some() 判断会读到 stale 边,
+    // 导致 outputPortConnected 错误地保持 true。
+    // outputPortConnected 由 reconcileAll() 统一重建（阶段 1 清 false,阶段 2 按现存边重建）,
+    // deleteNode/deleteNodes 末尾会调用 reconcileAll。
   }
 
   // ========================================================================

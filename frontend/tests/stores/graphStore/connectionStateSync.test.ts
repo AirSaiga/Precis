@@ -83,6 +83,24 @@ describe('connectionStateSync', () => {
       )
       expect(childPatch).toBeUndefined()
     })
+
+    it('目标已有不同 parent 时,新连接应从旧 parent 的 children 移除 target', () => {
+      const oldParent = makeNode('old-p', 'schema', { children: ['c1'], columns: [] })
+      const newParent = makeNode('new-p', 'schema', { children: [], columns: [] })
+      const constraint = makeNode('c1', 'notNullConstraint', { parent: 'old-p' })
+      const { module, patches } = createTestContext([oldParent, newParent, constraint], [])
+
+      module.syncOnConnect('new-p', 'c1')
+
+      // new-p 的 children 应包含 c1
+      expect(patches).toContainEqual({ nodeId: 'new-p', data: { children: ['c1'] } })
+      // old-p 的 children 应移除 c1（变为空 → undefined）
+      const oldParentPatch = patches.find((p) => p.nodeId === 'old-p')
+      expect(oldParentPatch).toBeDefined()
+      expect(oldParentPatch!.data.children).toBeUndefined()
+      // target.parent 更新为新 parent
+      expect(patches).toContainEqual({ nodeId: 'c1', data: { parent: 'new-p' } })
+    })
   })
 
   describe('syncOnDisconnect', () => {
@@ -109,7 +127,7 @@ describe('connectionStateSync', () => {
       expect(patches).toHaveLength(0)
     })
 
-    it('断开数据源连接时重置 outputPortConnected（无剩余连接）', () => {
+    it('断开数据源连接时不再重置 outputPortConnected（下沉至 reconcileAll）', () => {
       const source = makeNode('sp1', 'sourcePreview', { outputPortConnected: true })
       const schema = makeNode('s1', 'schema', { columns: [] })
       const edge = makeEdge('e1', 'sp1', 's1')
@@ -117,12 +135,11 @@ describe('connectionStateSync', () => {
 
       module.syncOnDisconnect(edgesRef.value[0])
 
+      // outputPortConnected 不再由 syncOnDisconnect 维护（避免批量删边时读到 stale edges）；
+      // 该字段由 reconcileAll() 统一重建。
       expect(
-        patches.find(
-          (p) =>
-            p.nodeId === 'sp1' && (p.data as Record<string, unknown>).outputPortConnected === false
-        )
-      ).toBeDefined()
+        patches.find((p) => 'outputPortConnected' in (p.data as Record<string, unknown>))
+      ).toBeUndefined()
     })
   })
 
@@ -214,6 +231,18 @@ describe('connectionStateSync', () => {
       })
       expect(patches).toContainEqual({ nodeId: 's1', data: { children: ['c1'] } })
       expect(patches).toContainEqual({ nodeId: 'c1', data: { parent: 's1' } })
+    })
+
+    it('reconcileAll 重建后,无 schema 连接的数据源 outputPortConnected 为 false', async () => {
+      const source = makeNode('sp1', 'sourcePreview', { outputPortConnected: true })
+      const schema = makeNode('s1', 'schema', { columns: [] })
+      // edges 为空（边已删）—— 模拟批量删边后的状态
+      const { module, nodesRef } = createTestContext([source, schema], [])
+
+      await module.reconcileAll()
+
+      const sp = nodesRef.value.find((n) => n.id === 'sp1')
+      expect((sp!.data as Record<string, unknown>).outputPortConnected).toBe(false)
     })
   })
 })
