@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ref, reactive, type Ref } from 'vue'
+import { ref, reactive, toRaw, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import { createHistoryModule } from '@/stores/graphStore/modules/history'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
@@ -153,6 +153,8 @@ describe('history module', () => {
   })
 
   describe('snapshot isolation', () => {
+    // 回归守护：验证 redoStack 快照与活跃 nodes 相互隔离
+    // （undo 当前态经 cloneCurrent 深拷贝入 redoStack，而非直接引用）
     it('undo 后修改当前节点 data 不会污染 redoStack 快照', async () => {
       const n1 = makeNode('n1', 'A')
       nodes.value = [n1]
@@ -166,6 +168,22 @@ describe('history module', () => {
 
       const redoSnapshot = module.redoStack.value[0]
       expect(redoSnapshot.nodes[0].data.configName).toBe('B')
+    })
+
+    it('undo 恢复的节点是历史快照的深拷贝,非同一引用', async () => {
+      const v0 = makeNode('n1', 'A')
+      nodes.value = [v0]
+      module.saveState()
+      nodes.value = [makeNode('n1', 'B')]
+
+      const snapshotBefore = module.undoStack.value[0]
+      await module.undo()
+
+      // ref<CustomNode[]> 会对元素施加深层响应式代理，nodes.value[0] 永远是 proxy，
+      // 直接做 !== 会恒为真而无法暴露是否深克隆。因此用 toRaw 剥离代理后再比较底层引用：
+      // 若 undo 做了 structuredClone，toRaw(nodes.value[0]) 与快照中的节点应是不同对象。
+      expect(toRaw(nodes.value[0])).not.toBe(snapshotBefore.nodes[0])
+      expect(toRaw(toRaw(nodes.value[0]).data)).not.toBe(snapshotBefore.nodes[0].data)
     })
 
     it('支持 reactive 嵌套 proxy 的深克隆（不抛 DataCloneError）', () => {
