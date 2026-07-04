@@ -56,7 +56,7 @@
 
 **Files:**
 - Create: `frontend/src/assets/animations.css`
-- Modify: `frontend/src/assets/base.css`（在顶部 @import 区引入）
+- Modify: `frontend/src/assets/main.css`（真正的 CSS 入口，含 @import 与 @layer 声明；base.css 无 import 块）
 - Test: 无单测（纯 CSS，由 E2E 覆盖）
 
 - [ ] **Step 1: 创建全局 keyframe 注册表**
@@ -143,13 +143,15 @@ Create `frontend/src/assets/animations.css`:
 
 注：粒子着色由 CSS class（`.particle--pass` 等）驱动 `fill`/`filter`，与 `animation` 解耦——reduced-motion 下粒子停止流动但仍显示颜色，状态信息可读。
 
-- [ ] **Step 2: 在 base.css 引入注册表**
+- [ ] **Step 2: 在 main.css 引入注册表**
 
-在 `frontend/src/assets/base.css` 顶部现有 `@import` 区（token 文件之后）追加一行：
+Read `frontend/src/assets/main.css`（真正的 CSS 入口，使用 `@layer reset, vendor, tokens, ui, graph`）。在 ui 层 import 区（`@import './ui.css' layer(ui);` 附近，约 32 行）追加，归入 `ui` 层：
 
 ```css
-@import './animations.css';
+@import './animations.css' layer(ui);
 ```
+
+注：keyframe 定义与 reduced-motion 媒体查询（含 !important）不依赖级联样式生效，layer(ui) 仅作语义归类。
 
 - [ ] **Step 3: 验证构建无报错**
 

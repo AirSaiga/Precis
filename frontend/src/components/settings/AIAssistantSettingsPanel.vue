@@ -591,7 +591,7 @@ defaults:
 
     actionLoading.value = true
     try {
-      await createCloudAIProvider({
+      const newProvider = await createCloudAIProvider({
         name: addForm.name || preset.name,
         type: preset.type as 'openai' | 'ollama',
         base_url: preset.base_url,
@@ -600,6 +600,22 @@ defaults:
       })
       showSuccess(t('settings.aiAssistant.createdSuccess'), '')
       showAddForm.value = false
+
+      // 如果当前没有默认 Provider，自动将新创建的设为默认
+      if (!activeProviderId.value && newProvider?.id) {
+        try {
+          await activateCloudAIProvider(newProvider.id)
+          activeProviderId.value = newProvider.id
+          showSuccess(
+            t('settings.aiAssistant.autoActivatedTitle'),
+            t('settings.aiAssistant.autoActivatedDesc')
+          )
+        } catch (activateError) {
+          logger.warn('[AIAssistantSettings] 自动设置默认 Provider 失败:', activateError)
+          // 非致命错误，不阻断主流程
+        }
+      }
+
       await loadProviders()
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error)

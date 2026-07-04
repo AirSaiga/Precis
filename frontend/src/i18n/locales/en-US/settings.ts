@@ -315,6 +315,9 @@ const settings = {
       'Are you sure you want to delete this AI model configuration? This cannot be undone.',
     createdSuccess: 'AI model added successfully',
     createdFailed: 'Failed to add',
+    autoActivatedTitle: 'Auto-set as Default',
+    autoActivatedDesc:
+      'The newly added AI model has been automatically set as the default provider',
     updatedSuccess: 'AI model updated successfully',
     updatedFailed: 'Failed to update',
     deletedSuccess: 'AI model deleted',

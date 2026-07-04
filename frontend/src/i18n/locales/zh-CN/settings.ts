@@ -303,6 +303,8 @@ const settings = {
     deleteConfirm: '确定删除此 AI 模型配置？删除后不可恢复。',
     createdSuccess: 'AI 模型添加成功',
     createdFailed: '添加失败',
+    autoActivatedTitle: '已自动设为默认',
+    autoActivatedDesc: '新添加的 AI 模型已自动设为默认 Provider',
     updatedSuccess: 'AI 模型更新成功',
     updatedFailed: '更新失败',
     deletedSuccess: 'AI 模型已删除',
