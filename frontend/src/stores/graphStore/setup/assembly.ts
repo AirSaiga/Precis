@@ -311,6 +311,7 @@ export function createGraphStoreAssembly(
     assets,
     clearCanvas,
     createSchemaNode,
+    updateNodeData,
   })
 
   const { getSubGraphStats } = createScopeModule({ nodes, edges })

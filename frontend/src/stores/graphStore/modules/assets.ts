@@ -17,7 +17,13 @@
 
 import type { Ref } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
-import type { CustomNode, DataType, SchemaNodeData, TableAsset } from '@/types/graph'
+import type {
+  CustomNode,
+  CustomNodeData,
+  DataType,
+  SchemaNodeData,
+  TableAsset,
+} from '@/types/graph'
 import type { SchemaColumn } from '@/types/nodes'
 
 /**
@@ -27,6 +33,7 @@ import type { SchemaColumn } from '@/types/nodes'
  * @param {Ref<TableAsset[]>} params.assets - 资产列表的响应式引用
  * @param {() => void} params.clearCanvas - 清空画布的回调函数
  * @param {(position: { x: number; y: number }, name?: string) => string} params.createSchemaNode - 创建 Schema 节点的工厂函数，返回新节点 ID
+ * @param {(nodeId: string, newData: Partial<CustomNodeData>) => void} params.updateNodeData - 节点数据写入统一入口（同步 saveState/撤销历史）
  * @returns {Object} 包含 saveCanvasAsAsset 和 loadAssetToCanvas 方法的对象
  */
 export function createAssetsModule(params: {
@@ -34,8 +41,9 @@ export function createAssetsModule(params: {
   assets: Ref<TableAsset[]>
   clearCanvas: () => void
   createSchemaNode: (position: { x: number; y: number }, name?: string) => string
+  updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
 }) {
-  const { nodes, assets, clearCanvas, createSchemaNode } = params
+  const { nodes, assets, clearCanvas, createSchemaNode, updateNodeData } = params
 
   /**
    * @description 将当前画布上的 Schema 节点保存为资产
@@ -95,20 +103,19 @@ export function createAssetsModule(params: {
 
     // 在固定位置创建新的 Schema 节点
     const schemaNodeId = createSchemaNode({ x: 100, y: 100 }, asset.configName)
-    const schemaNode = nodes.value.find((n) => n.id === schemaNodeId)
 
-    // 若节点创建成功，将资产数据回填到节点中
-    if (schemaNode) {
-      const schemaData = schemaNode.data as SchemaNodeData
-      schemaData.tableName = asset.tableName
-      schemaData.sheetName = asset.sheetName
-      schemaData.columns = asset.columns.map((col) => ({
-        id: col.columnName,
-        columnName: col.columnName,
-        dataType: col.dataType as DataType,
-        validationErrors: [],
-      })) as SchemaColumn[]
-    }
+    // 统一通过 updateNodeData 入口写入资产数据，确保 saveState 同步（可撤销）
+    const columns: SchemaColumn[] = asset.columns.map((col) => ({
+      id: col.columnName,
+      columnName: col.columnName,
+      dataType: col.dataType as DataType,
+      validationErrors: [],
+    }))
+    updateNodeData(schemaNodeId, {
+      tableName: asset.tableName,
+      sheetName: asset.sheetName,
+      columns,
+    } as Partial<CustomNodeData>)
   }
 
   return {

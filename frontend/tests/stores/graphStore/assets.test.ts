@@ -32,6 +32,7 @@ describe('createAssetsModule', () => {
   let module: ReturnType<typeof createAssetsModule>
   const mockClearCanvas = vi.fn()
   const mockCreateSchemaNode = vi.fn()
+  const mockUpdateNodeData = vi.fn()
 
   beforeEach(() => {
     nodes = ref<CustomNode[]>([])
@@ -42,9 +43,11 @@ describe('createAssetsModule', () => {
       assets,
       clearCanvas: mockClearCanvas,
       createSchemaNode: mockCreateSchemaNode,
+      updateNodeData: mockUpdateNodeData,
     })
     mockClearCanvas.mockClear()
     mockCreateSchemaNode.mockClear()
+    mockUpdateNodeData.mockClear()
   })
 
   describe('saveCanvasAsAsset', () => {
@@ -98,6 +101,38 @@ describe('createAssetsModule', () => {
     it('不存在的资产不操作', () => {
       module.loadAssetToCanvas('nonexistent')
       expect(mockClearCanvas).not.toHaveBeenCalled()
+    })
+
+    it('loadAssetToCanvas 通过 updateNodeData 写入资产数据（触发 saveState）', () => {
+      assets.value = [
+        {
+          id: 'a1',
+          configName: 'MyAsset',
+          tableName: 'users',
+          sheetName: 'Sheet1',
+          columns: [{ columnName: 'email', dataType: 'string' }],
+        },
+      ]
+      nodes.value = [makeSchemaNode('new-schema-id', '')]
+
+      module.loadAssetToCanvas('a1')
+
+      // 必须通过统一入口 updateNodeData 写入资产数据,
+      // 直接 mutate node.data 会绕过 saveState（无撤销历史）
+      expect(mockUpdateNodeData).toHaveBeenCalledWith(
+        'new-schema-id',
+        expect.objectContaining({
+          tableName: 'users',
+          sheetName: 'Sheet1',
+          columns: expect.arrayContaining([
+            expect.objectContaining({
+              id: 'email',
+              columnName: 'email',
+              dataType: 'string',
+            }),
+          ]),
+        })
+      )
     })
   })
 })
