@@ -171,6 +171,8 @@ describe('templateExpand module', () => {
     // Regression: clearExpansion 必须是 async 并 await nextTick，
     // 否则紧随 removeNodes 的全量 map 会把刚删的子节点重新写回 nodes.value，
     // 触发 Vue Flow setNodes 拒绝 remove 的竞态（review finding #1, P0）。
+    // 注：removeNodes 在本测试中被 mock 为 no-op,无法复现真实的 nextTick 竞态。
+    // 此处锁定 async + Promise 返回契约（防止误改回同步）。真实竞态由 E2E template-expansion.spec.ts 覆盖。
     it('clearExpansion 是 async 函数（返回 Promise）', async () => {
       nodes.value = [makeNode('inst1', 'templateInstance', { expanded: true })]
 

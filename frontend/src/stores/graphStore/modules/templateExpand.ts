@@ -106,7 +106,7 @@ export function createTemplateExpandModule(params: {
 
     expandedNodeIds.delete(instanceNodeId)
 
-    // 关键：等 removeNodes 的 store 回写完成（pausable watcher 在 nextTick 后回写），
+    // 关键：等 removeNodes 触发的 Vue Flow v-model 回写完成（v-model:nodes 双向绑定在 nextTick 后回写到 store ref），
     // 再更新容器，否则紧接着的 map 会把刚删的子节点重新写回 nodes.value，
     // Vue Flow setNodes 可能拒绝执行 remove。
     await nextTick()
