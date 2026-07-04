@@ -149,7 +149,7 @@ export class NodeDeletionManager {
     for (const constraintNode of constraintNodes) {
       const constraintData = constraintNode.data as unknown as ConstraintData
       if (constraintData.schemaNodeId === nodeId) {
-        this.graphStore.deleteNode(constraintNode.id)
+        await this.graphStore.deleteNode(constraintNode.id)
       }
     }
   }
@@ -180,7 +180,7 @@ export class NodeDeletionManager {
     for (const outputId of outputNodeIds) {
       const outputNode = this.graphStore.nodes.find((n) => n.id === outputId)
       if (outputNode) {
-        this.graphStore.deleteNode(outputId)
+        await this.graphStore.deleteNode(outputId)
       }
     }
   }
@@ -276,7 +276,7 @@ export class NodeDeletionManager {
       this.deletionStrategies.get(strategyType) || this.deletionStrategies.get('default')!
     await strategy(nodeId)
 
-    this.graphStore.deleteNode(nodeId)
+    await this.graphStore.deleteNode(nodeId)
 
     if (onAfterDelete) {
       onAfterDelete(nodeId, strategyType)

@@ -18,7 +18,7 @@ export function createClipboardModule(params: {
   selectedNodeId: Ref<string | null>
   selectedNodeIds: Ref<string[]>
   copiedNodes: Ref<CustomNode[]>
-  deleteNode: (nodeId: string) => void
+  deleteNode: (nodeId: string) => void | Promise<void>
   deleteNodes: (nodeIds: string[]) => void
   saveState: () => void
   pasteOffset?: { x: number; y: number }

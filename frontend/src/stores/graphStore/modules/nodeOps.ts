@@ -16,9 +16,11 @@ import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
 import { removeEdges, removeNodes, updateNode } from '@/services/canvas/vueFlowApi'
+import { logger } from '@/core/utils/logger'
 
 interface TemplateExpandLike {
   getExpandedIds(instanceNodeId: string): string[]
+  clearExpansion(instanceNodeId: string): void | Promise<void>
 }
 
 export interface NodeOpsDeps {
@@ -28,6 +30,7 @@ export interface NodeOpsDeps {
   selectedNodeIds: Ref<string[]>
   reconcileAll: () => void | Promise<void>
   templateExpand: TemplateExpandLike
+  clearExpansion: (instanceNodeId: string) => void | Promise<void>
   sourceIndex?: { rebuild: () => void }
 }
 
@@ -39,6 +42,7 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
     selectedNodeIds,
     reconcileAll,
     templateExpand,
+    clearExpansion,
     sourceIndex,
   } = deps
 
@@ -74,10 +78,15 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
     return Array.from(new Set([nodeId, ...outputNodeIds, ...childIdsByParentRef]))
   }
 
-  function deleteNode(nodeId: string) {
+  async function deleteNode(nodeId: string) {
     const node = nodes.value.find((n) => n.id === nodeId)
     if (node?.type === 'projectRoot') {
       return
+    }
+
+    // templateInstance 删除前清理展开追踪状态(expandedNodeIds Map、expanded 标志)
+    if (node?.type === 'templateInstance') {
+      await clearExpansion(nodeId)
     }
 
     const deleteIds = collectCascadeNodeIds(nodeId)
@@ -152,11 +161,12 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
       x: node.position.x + deltaX,
       y: node.position.y + deltaY,
     }
-
+    // position 是 Node 级字段(不在 data 中),统一通过 updateNode 入口同步给 Vue Flow
     try {
       updateNode(node.id, { position: nextPosition })
-    } catch {
-      node.position = nextPosition
+    } catch (e) {
+      // Vue Flow 未初始化时不再 fallback 到直接 mutate node.position(违例)
+      logger.warn('[nodeOps] moveSelectedNode: Vue Flow API 未初始化,跳过移动', e)
     }
   }
 
@@ -174,8 +184,8 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
 
         try {
           updateNode(node.id, { position: nextPosition })
-        } catch {
-          node.position = nextPosition
+        } catch (e) {
+          logger.warn('[nodeOps] moveSelectedNodes: Vue Flow API 未初始化,跳过移动', e)
         }
       }
     }

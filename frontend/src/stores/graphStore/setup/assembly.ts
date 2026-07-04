@@ -223,6 +223,7 @@ export function createGraphStoreAssembly(
     selectedNodeIds,
     reconcileAll: connectionStateSync.reconcileAll,
     templateExpand,
+    clearExpansion: templateExpand.clearExpansion,
     sourceIndex,
   })
   const { deleteNode, moveSelectedNode, moveSelectedNodes } = nodeOps

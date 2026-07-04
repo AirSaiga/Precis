@@ -50,7 +50,7 @@ export async function deleteNode(): Promise<{
   if (idsToDelete.length === 1) {
     const id = idsToDelete[0]
     if (id) {
-      graphStore.deleteNode(id)
+      await graphStore.deleteNode(id)
     }
     return { success: true, message: 'shortcuts.feedback.deleted', count: 1 }
   } else {
