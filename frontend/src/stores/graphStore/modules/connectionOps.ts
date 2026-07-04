@@ -29,6 +29,22 @@ export function createConnectionOpsModule(params: {
   const { nodes, edges, updateNodeData, clearAllValidationErrors, syncOnDisconnect, reconcileAll } =
     params
 
+  // 合并同 tick 内的 reconcileAll 调度,避免批量删边时 K+1 次冗余调用。
+  // 标志在 reconcileAll 实际执行后被清除(下一个 tick 可再次调度)。
+  let reconcileScheduledThisTick = false
+
+  function scheduleReconcileOnNextTick() {
+    if (reconcileScheduledThisTick) return
+    reconcileScheduledThisTick = true
+    nextTick(async () => {
+      try {
+        await reconcileAll()
+      } finally {
+        reconcileScheduledThisTick = false
+      }
+    })
+  }
+
   /**
    * 清除边上的临时动画 class。
    *
@@ -111,9 +127,10 @@ export function createConnectionOpsModule(params: {
       (sourceNode.type === 'sourcePreview' || sourceNode.type === 'jsonSourcePreview') &&
       (targetNode.type === 'schema' || targetNode.type === 'jsonSchema')
     if (isDataSourceToSchema) {
-      nextTick(async () => {
-        await reconcileAll()
-      })
+      // 合并:同一 tick 内多条边断开(如批量删节点)只调度一次 reconcileAll,
+      // 避免 K+1 次冗余重建(K = 被删 data-source→schema 边数)。
+      // reconcileAll 本身幂等,这只是性能优化。
+      scheduleReconcileOnNextTick()
     }
   }
 

@@ -193,18 +193,17 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
       return
     }
 
+    const selectedIdSet = new Set(selectedNodeIds.value)
     for (const node of nodes.value) {
-      if (selectedNodeIds.value.includes(node.id)) {
-        const nextPosition = {
-          x: node.position.x + deltaX,
-          y: node.position.y + deltaY,
-        }
-
-        try {
-          updateNode(node.id, { position: nextPosition })
-        } catch (e) {
-          logger.warn('[nodeOps] moveSelectedNodes: Vue Flow API 未初始化,跳过移动', e)
-        }
+      if (!selectedIdSet.has(node.id)) continue
+      const nextPosition = {
+        x: node.position.x + deltaX,
+        y: node.position.y + deltaY,
+      }
+      try {
+        updateNode(node.id, { position: nextPosition })
+      } catch (e) {
+        logger.warn('[nodeOps] moveSelectedNodes: Vue Flow API 未初始化,跳过移动', e)
       }
     }
   }
