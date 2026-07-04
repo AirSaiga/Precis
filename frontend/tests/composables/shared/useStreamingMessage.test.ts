@@ -168,4 +168,155 @@ describe('useStreamingMessage', () => {
     reset()
     expect(message.streamedInstructions).toHaveLength(0)
   })
+
+  // ---- ask_user 交互事件 ----
+
+  it('初始状态 pendingAsk 为 null、askAnswered 为 false', () => {
+    const { message } = useStreamingMessage()
+    expect(message.pendingAsk).toBeNull()
+    expect(message.askAnswered).toBe(false)
+    expect(message.lastAskSummary).toBeNull()
+  })
+
+  it('user_input_requested 填充 pendingAsk（free_text）', () => {
+    const { message, handleEvent } = useStreamingMessage()
+    handleEvent('user_input_requested', 1, {
+      ask_id: 'job-1#ask#1',
+      question_type: 'free_text',
+      prompt: '选哪个方案?',
+      placeholder: '输入回答',
+    })
+    expect(message.pendingAsk).not.toBeNull()
+    expect(message.pendingAsk?.askId).toBe('job-1#ask#1')
+    expect(message.pendingAsk?.questionType).toBe('free_text')
+    expect(message.pendingAsk?.prompt).toBe('选哪个方案?')
+    expect(message.pendingAsk?.placeholder).toBe('输入回答')
+    expect(message.askAnswered).toBe(false)
+  })
+
+  it('user_input_requested 映射 choice 的 options 与 multiple', () => {
+    const { message, handleEvent } = useStreamingMessage()
+    handleEvent('user_input_requested', 1, {
+      ask_id: 'job-1#ask#1',
+      question_type: 'choice',
+      prompt: '选列',
+      options: [
+        { label: '列 A', value: 'col_a', description: '第一列' },
+        { label: '列 B', value: 'col_b' },
+      ],
+      multiple: true,
+    })
+    expect(message.pendingAsk?.options).toHaveLength(2)
+    expect(message.pendingAsk?.options?.[0].value).toBe('col_a')
+    expect(message.pendingAsk?.options?.[0].description).toBe('第一列')
+    expect(message.pendingAsk?.multiple).toBe(true)
+  })
+
+  it('user_input_requested 映射 value 的 valueType 与 optional', () => {
+    const { message, handleEvent } = useStreamingMessage()
+    handleEvent('user_input_requested', 1, {
+      ask_id: 'job-1#ask#1',
+      question_type: 'value',
+      prompt: '输入数字',
+      value_type: 'integer',
+      optional: false,
+    })
+    expect(message.pendingAsk?.valueType).toBe('integer')
+    expect(message.pendingAsk?.optional).toBe(false)
+  })
+
+  it('user_responded 清 pendingAsk、置 askAnswered、填 lastAskSummary（正常回答）', () => {
+    const { message, handleEvent } = useStreamingMessage()
+    handleEvent('user_input_requested', 1, {
+      ask_id: 'job-1#ask#1',
+      question_type: 'free_text',
+      prompt: 'x',
+    })
+    expect(message.pendingAsk).not.toBeNull()
+    handleEvent('user_responded', 2, {
+      ask_id: 'job-1#ask#1',
+      response: { answer: '用户回答' },
+    })
+    expect(message.pendingAsk).toBeNull()
+    expect(message.askAnswered).toBe(true)
+    expect(message.lastAskSummary).toBe('用户回答')
+  })
+
+  it('user_responded 跳过回答摘要为 skipped:reason', () => {
+    const { message, handleEvent } = useStreamingMessage()
+    handleEvent('user_input_requested', 1, {
+      ask_id: 'job-1#ask#1',
+      question_type: 'free_text',
+      prompt: 'x',
+    })
+    handleEvent('user_responded', 2, {
+      ask_id: 'job-1#ask#1',
+      response: { skipped: true, reason: 'user_skipped' },
+    })
+    expect(message.askAnswered).toBe(true)
+    expect(message.lastAskSummary).toBe('skipped:user_skipped')
+  })
+
+  it('user_responded 超时回答摘要为 skipped:timeout', () => {
+    const { message, handleEvent } = useStreamingMessage()
+    handleEvent('user_input_requested', 1, {
+      ask_id: 'job-1#ask#1',
+      question_type: 'confirm',
+      prompt: 'x',
+    })
+    handleEvent('user_responded', 2, {
+      ask_id: 'job-1#ask#1',
+      response: { skipped: true, reason: 'timeout' },
+    })
+    expect(message.lastAskSummary).toBe('skipped:timeout')
+  })
+
+  it('ask 事件与 apply 状态独立不互相干扰', () => {
+    const { message, handleEvent } = useStreamingMessage()
+    // 先设置 apply pending
+    handleEvent('apply_pending', 1, {
+      apply_id: 'job-1#apply#1',
+      files: [],
+      summary: {},
+      success: true,
+    })
+    expect(message.pendingApply).not.toBeNull()
+    // 再设置 ask pending（理论上不会同时，但验证字段独立）
+    handleEvent('user_input_requested', 2, {
+      ask_id: 'job-1#ask#1',
+      question_type: 'choice',
+      prompt: '选哪个?',
+      options: [{ label: 'A', value: 'a' }],
+    })
+    expect(message.pendingApply).not.toBeNull() // apply 不受影响
+    expect(message.pendingAsk).not.toBeNull() // ask 独立设置
+    // apply 确认不影响 ask
+    handleEvent('apply_confirmed', 3, {})
+    expect(message.pendingApply).toBeNull()
+    expect(message.pendingAsk).not.toBeNull() // ask 仍在
+  })
+
+  it('start/reset 清空 ask 状态', () => {
+    const { message, handleEvent, start, reset } = useStreamingMessage()
+    handleEvent('user_input_requested', 1, {
+      ask_id: 'job-1#ask#1',
+      question_type: 'free_text',
+      prompt: 'x',
+    })
+    handleEvent('user_responded', 2, { ask_id: 'job-1#ask#1', response: { answer: 'a' } })
+    expect(message.askAnswered).toBe(true)
+    start()
+    expect(message.pendingAsk).toBeNull()
+    expect(message.askAnswered).toBe(false)
+    expect(message.lastAskSummary).toBeNull()
+    // 再测 reset
+    handleEvent('user_input_requested', 3, {
+      ask_id: 'job-1#ask#1',
+      question_type: 'free_text',
+      prompt: 'y',
+    })
+    reset()
+    expect(message.pendingAsk).toBeNull()
+    expect(message.askAnswered).toBe(false)
+  })
 })

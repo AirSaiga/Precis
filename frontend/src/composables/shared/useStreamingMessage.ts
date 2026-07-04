@@ -46,6 +46,30 @@ export interface PendingApply {
   error?: string
 }
 
+/** user_input_requested 事件中 choice 类型的候选项 */
+export interface PendingAskOption {
+  label: string
+  value: string
+  description?: string
+}
+
+/** user_input_requested 事件数据（ask_user 提问） */
+export interface PendingAsk {
+  /** 本次 ask 的 ID（{job_id}#ask#{seq}），回传给 /respond 端点 */
+  askId: string
+  questionType: 'free_text' | 'choice' | 'value' | 'confirm'
+  prompt: string
+  /** choice 类型必填：候选项 */
+  options?: PendingAskOption[]
+  /** choice 类型：是否多选（默认 false） */
+  multiple?: boolean
+  /** value 类型必填：期望值类型 */
+  valueType?: 'string' | 'integer' | 'float' | 'boolean'
+  placeholder?: string
+  /** value 类型：是否允许留空（默认 false） */
+  optional?: boolean
+}
+
 /** 流式消息状态 */
 export interface StreamingMessage {
   content: string
@@ -61,6 +85,12 @@ export interface StreamingMessage {
   jobId: string
   /** 挂起的 apply_actions 改动（apply_pending 事件填充） */
   pendingApply: PendingApply | null
+  /** 挂起的 ask_user 提问（user_input_requested 事件填充，与 pendingApply 独立） */
+  pendingAsk: PendingAsk | null
+  /** ask 是否已回答（user_responded 事件后置 true，卡片转已答态） */
+  askAnswered: boolean
+  /** 已答态展示的回答摘要（由 user_responded 事件携带，前端渲染用） */
+  lastAskSummary: string | null
   /**
    * 流式画布生长：apply_actions 落盘后逐条收到的 frontend_instruction 事件累积。
    * 每条已由 aiChatStore 实时执行（processFrontendInstructions + fitView），
@@ -101,6 +131,23 @@ interface EventData {
   summary?: Record<string, number>
   /** apply_pending 携带的本次 apply ID（{job_id}#{seq}） */
   apply_id?: string
+  /** user_input_requested 携带的本次 ask ID（{job_id}#ask#{seq}） */
+  ask_id?: string
+  /** user_input_requested 的提问类型 */
+  question_type?: 'free_text' | 'choice' | 'value' | 'confirm'
+  /** user_input_requested 的问题文本 */
+  prompt?: string
+  /** choice 类型的候选项 */
+  options?: PendingAskOption[]
+  /** choice 类型：是否多选 */
+  multiple?: boolean
+  /** value 类型的期望值类型 */
+  value_type?: 'string' | 'integer' | 'float' | 'boolean'
+  placeholder?: string
+  /** value 类型：是否允许留空 */
+  optional?: boolean
+  /** user_responded 携带的用户回答（{answer:...} 或 {skipped:true,reason:...}） */
+  response?: Record<string, unknown>
   reason?: string
   decision?: string
   /** frontend_instruction 事件携带的单条前端指令（流式画布生长） */
@@ -118,6 +165,29 @@ interface EventData {
  * handleEvent('completed', 9, { reply: '你好世界', tool_steps: [...] })
  * ```
  */
+/**
+ * 把 ask 回答 response 转为简短摘要字符串（用于已答态卡片展示）。
+ *
+ * 返回值约定：
+ * - skipped 回答返回 `skipped:${reason}` 前缀，前端据此映射 i18n（超时/跳过）
+ * - 正常回答返回值的字符串形式（字符串原样、数字/布尔转字符串、数组 join）
+ * - 空/异常返回空串（前端兜底显示通用"已回答"）
+ */
+function summarizeAskResponse(response: unknown): string {
+  if (!response || typeof response !== 'object') return ''
+  const r = response as Record<string, unknown>
+  if (r.skipped === true) {
+    return typeof r.reason === 'string' ? `skipped:${r.reason}` : 'skipped'
+  }
+  if ('answer' in r) {
+    const ans = r.answer
+    if (typeof ans === 'string') return ans
+    if (typeof ans === 'number' || typeof ans === 'boolean') return String(ans)
+    if (Array.isArray(ans)) return ans.join(', ')
+  }
+  return ''
+}
+
 /**
  * 合并后端 tool_steps 快照与本地已有步骤，保留已有 status（不强制全标 success）。
  *
@@ -155,6 +225,9 @@ export function useStreamingMessage() {
     completedTurns: 0,
     jobId: '',
     pendingApply: null,
+    pendingAsk: null,
+    askAnswered: false,
+    lastAskSummary: null,
     streamedInstructions: [],
   })
 
@@ -169,6 +242,9 @@ export function useStreamingMessage() {
     message.completedTurns = 0
     message.jobId = ''
     message.pendingApply = null
+    message.pendingAsk = null
+    message.askAnswered = false
+    message.lastAskSummary = null
     message.streamedInstructions = []
   }
 
@@ -183,6 +259,9 @@ export function useStreamingMessage() {
     message.completedTurns = 0
     message.jobId = ''
     message.pendingApply = null
+    message.pendingAsk = null
+    message.askAnswered = false
+    message.lastAskSummary = null
     message.streamedInstructions = []
   }
 
@@ -262,6 +341,28 @@ export function useStreamingMessage() {
       }
       case 'apply_rejected': {
         message.pendingApply = null
+        break
+      }
+      case 'user_input_requested': {
+        // ask_user 工具请求用户输入：填充 pendingAsk，前端渲染 AskUserCard
+        message.pendingAsk = {
+          askId: typeof data.ask_id === 'string' ? data.ask_id : '',
+          questionType: (data.question_type ?? 'free_text') as PendingAsk['questionType'],
+          prompt: typeof data.prompt === 'string' ? data.prompt : '',
+          options: Array.isArray(data.options) ? (data.options as PendingAskOption[]) : undefined,
+          multiple: typeof data.multiple === 'boolean' ? data.multiple : undefined,
+          valueType: data.value_type as PendingAsk['valueType'] | undefined,
+          placeholder: typeof data.placeholder === 'string' ? data.placeholder : undefined,
+          optional: typeof data.optional === 'boolean' ? data.optional : undefined,
+        }
+        message.askAnswered = false
+        break
+      }
+      case 'user_responded': {
+        // 用户已回答（或超时/skip）：清掉 pendingAsk，记录摘要，卡片转已答态
+        message.lastAskSummary = summarizeAskResponse(data.response)
+        message.pendingAsk = null
+        message.askAnswered = true
         break
       }
       case 'frontend_instruction': {
