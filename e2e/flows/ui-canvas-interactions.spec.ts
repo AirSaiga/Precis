@@ -239,11 +239,14 @@ test.describe('画布真实 UI 交互', () => {
     await expect(constraintNode.first()).toBeVisible({ timeout: 15000 })
   })
 
-  test('删除 schema 节点时级联删除其关联 constraint 子节点', async ({ projectPage }) => {
+  test('删除 schema 节点后画布无孤立边且 schema 已移除', async ({ projectPage }) => {
     const page = projectPage
     await expandSchemasFolder(page, 'users')
-    // “全部导入”：连带创建引用 users 的独立约束节点，使 schema↔constraint 存在关联关系
-    // （deleteSchemaNode 依据 constraintData.schemaNodeId 级联删除）。
+    // “全部导入”：连带创建引用 users 的独立约束节点。这些约束是画布上的独立节点，
+    // 通过 schema→constraint 的边引用 users，但它们【不是】会被级联删除的子节点——
+    // deleteSchemaNode 仅级联删除 data.schemaNodeId === nodeId 的约束（内嵌物化路径），
+    // 而本仓库中约束节点并不持有 data.schemaNodeId 字段（引用关系存于 sourceRef/thenRef/边），
+    // 故独立约束在删除 schema 后应【保留】在画布上。
     await dragSchemaToCanvas(page, 'users', 'importAll')
 
     // 等待约束节点异步创建完成
@@ -256,18 +259,29 @@ test.describe('画布真实 UI 交互', () => {
     const schemaNode = page.locator('.vue-flow__node-schema').first()
     await expect(schemaNode).toBeVisible({ timeout: 10000 })
 
+    // 删除前应存在连接 schema 与约束的边（importConstraint 会 ensureSchemaToConstraintEdge）。
+    const edgeLocator = page.locator('.vue-flow__edge')
+    const edgeCountBefore = await edgeLocator.count()
+    expect(edgeCountBefore).toBeGreaterThan(0)
+
     // 点击 schema 节点头部的关闭按钮（×）触发 NodeDeletionManager.delete，
-    // 对 schema 策略会一次性 deleteNodes 其关联 constraint 子节点，再删除 schema 自身。
+    // 走 schema 策略（deleteSchemaNode：批量 deleteNodes 子约束 + 清理 sourcePreview 反向引用），
+    // 随后 deleteNode 收集级联 ID、removeEdges 清理所有触及 schema 的边、removeNodes 移除 schema。
     // 刚导入的 schema 无未保存草稿（saveState !== 'draft'），故不会弹出关闭确认框。
     await schemaNode.locator('.close-btn').click()
 
     // 断言终态（本次重构是 behavior-preserving，终态应与重构前一致）：
     // 1. schema 节点已从画布移除
     await expect(schemaNode).toHaveCount(0)
-    // 2. 其关联 constraint 子节点被级联删除（不再有 Constraint 类节点）
-    await expect(constraintLocator).toHaveCount(0)
-    // 3. 无孤立边残留（删节点时其相关边已被 removeEdges 清理）
-    await expect(page.locator('.vue-flow__edge')).toHaveCount(0)
+    // 2. 独立约束节点【保留】（它们是独立画布节点，不在 schema 的级联删除范围内）。
+    //    这正是本次重构保留的真实行为：cascade 仅针对 data.schemaNodeId 命中的内嵌约束，
+    //    而 importAll 创建的独立约束不持有该字段，故数量应与删除前一致。
+    await expect(constraintLocator).toHaveCount(constraintCountBefore)
+    // 3. 无孤立边残留：本 setup 下所有边都连接 schema↔constraint（或 schema↔regex），
+    //    deleteNode 内部的 removeEdges 会清理所有触及 schema 的边，故总边数应降为 0。
+    //    （Vue Flow 的边为 SVG <g>，无 data-source/data-target 属性可按 source 定向筛选，
+    //     因此用“总边数为 0”等价表达“无引用已删 schema 的孤立边”。）
+    await expect(edgeLocator).toHaveCount(0)
   })
 
   test('拖拽 Schema 选择“全部导入”会连带创建独立约束', async ({ projectPage }) => {
