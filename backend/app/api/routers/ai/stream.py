@@ -36,7 +36,7 @@ from app.shared.services.ai.streaming.sse_response import sse_event_stream
 from app.shared.services.llm.config import loader
 from app.shared.services.llm.providers.registry import create
 
-from .models import AiChatConfirmRequest, AiChatRequest
+from .models import AiChatConfirmRequest, AiChatRequest, AiChatRespondRequest
 from .router import router
 
 logger = logging.getLogger(__name__)
@@ -235,3 +235,30 @@ async def confirm_apply(job_id: str, request: AiChatConfirmRequest) -> dict[str,
         return {"status": "already_resolved", "decision": controller.decision or "unknown"}
     await controller.resolve(request.decision)
     return {"status": "resolved", "decision": request.decision}
+
+
+@router.post("/chat/{job_id}/respond", summary="回答 agent 的 ask_user 提问")
+async def respond_to_ask(job_id: str, request: AiChatRespondRequest) -> dict[str, Any]:
+    """@methoddesc 回答端点
+
+    用户在前端 AskUserCard 提交回答后调用。
+    resolve InteractionController 唤醒挂起的 ask_user 协程。
+
+    参数:
+        job_id: 任务 ID
+        request: 含 ask_id 和 response 字段
+
+    返回:
+        {"ok": true, "already_resolved": false} 或 404（ask_id 不存在）/ 409（类型不符）
+    """
+    pending_store = get_global_pending_interaction_store()
+    controller = pending_store.get(request.ask_id)
+    if controller is None:
+        raise HTTPException(404, detail="提问已过期或不存在(可能已回答或任务已结束)")
+    # /respond 只处理 ask 交互（InteractionController）；若拿到 ConfirmController 说明 key 冲突，拒绝
+    if not isinstance(controller, InteractionController):
+        raise HTTPException(409, detail="该交互不是 ask 提问类型，无法用 /respond 处理")
+    if controller.is_resolved:
+        return {"ok": True, "already_resolved": True}
+    await controller.resolve(request.response)
+    return {"ok": True, "already_resolved": False}

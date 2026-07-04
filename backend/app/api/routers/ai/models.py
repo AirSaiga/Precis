@@ -102,6 +102,16 @@ class AiChatConfirmRequest(BaseModel):
     )
 
 
+class AiChatRespondRequest(BaseModel):
+    """AI Chat ask_user 提问的回答请求"""
+
+    ask_id: str = Field(..., description="本次 ask 的 ID（{job_id}#ask#{seq}）")
+    response: dict[str, Any] = Field(
+        ...,
+        description="用户回答。形如 {answer: ...} 或 {skipped: true, reason: ...}",
+    )
+
+
 class AgentMeta(BaseModel):
     """Agent 模式执行元数据（仅 agent_mode=true 时填充）"""
 
