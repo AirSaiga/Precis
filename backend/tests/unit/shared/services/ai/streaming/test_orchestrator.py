@@ -228,3 +228,52 @@ async def test_run_chat_bridges_frontend_instruction(orchestrator: StreamingOrch
     fi_events = [e for e in events if e[1] == "frontend_instruction"]
     assert len(fi_events) == 1
     assert fi_events[0][2] == {"instruction": sample_instruction}
+
+
+@pytest.mark.asyncio
+async def test_run_chat_bridges_ask_user_events(orchestrator: StreamingOrchestrator):
+    """run_chat 把 ask_user 的回调桥接为 user_input_requested / user_responded 事件。
+
+    验证 ask 交互的编排层桥接（与 frontend_instruction 桥接对称）：
+    - ChatAgentRunner 接收的 ask_callbacks 含 on_user_input_requested / on_user_responded
+    - 调用这些回调时，orchestrator emit 对应 SSE 事件
+    """
+    fake_runner = _make_fake_runner(reply="ok")
+
+    with patch(
+        "app.shared.services.ai.streaming.orchestrator.ChatAgentRunner", return_value=fake_runner
+    ) as mock_runner_cls:
+        await orchestrator.run_chat(
+            message="测试",
+            history=None,
+            provider=MagicMock(),
+            project_path="/tmp",
+            context_nodes=[],
+        )
+
+    # 从被 patch 的类构造调用中提取 ask_callbacks
+    init_kwargs = mock_runner_cls.call_args.kwargs
+    ask_callbacks = init_kwargs["ask_callbacks"]
+    assert ask_callbacks.on_user_input_requested is not None
+    assert ask_callbacks.on_user_responded is not None
+
+    # 调用 on_user_input_requested 桥接回调，验证 emit 出 user_input_requested 事件
+    request_payload = {
+        "ask_id": "job_test#ask#1",
+        "question_type": "choice",
+        "prompt": "选哪个?",
+        "options": [{"label": "A", "value": "a"}],
+    }
+    ask_callbacks.on_user_input_requested(request_payload)
+
+    # 调用 on_user_responded 桥接回调，验证 emit 出 user_responded 事件
+    responded_payload = {"ask_id": "job_test#ask#1", "response": {"answer": "a"}}
+    ask_callbacks.on_user_responded(responded_payload)
+
+    events = orchestrator.journal.read_all()
+    req_events = [e for e in events if e[1] == "user_input_requested"]
+    resp_events = [e for e in events if e[1] == "user_responded"]
+    assert len(req_events) == 1
+    assert req_events[0][2] == request_payload
+    assert len(resp_events) == 1
+    assert resp_events[0][2] == responded_payload
