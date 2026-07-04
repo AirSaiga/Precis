@@ -32,7 +32,7 @@ from app.shared.services.llm.actions.registry import (
 from app.shared.services.llm.actions.validation_types import format_validation_result
 
 # 延迟导入以避免循环依赖（streaming/__init__ → orchestrator → apply_actions → streaming）
-# 在 _run_two_phase 内部 import ConfirmController / get_global_pending_store
+# 在 _run_two_phase 内部 import ConfirmController / get_global_pending_interaction_store
 
 logger = logging.getLogger(__name__)
 
@@ -281,15 +281,16 @@ class ApplyActionsTool:
         """
         # 为本次 apply 生成独立 apply_id，创建全新 controller（不复用旧决策）
         self._apply_counter += 1
-        apply_id = f"{self._job_id}#{self._apply_counter}" if self._job_id else f"apply#{self._apply_counter}"
+        # 加 #apply# 类型前缀，与 ask 的 "{job_id}#ask#{seq}" 对称，便于 store 按 job 维度批量清理
+        apply_id = f"{self._job_id}#apply#{self._apply_counter}" if self._job_id else f"apply#{self._apply_counter}"
         # 延迟导入避免循环依赖（streaming 包 init 链 → apply_actions）
-        from app.shared.services.ai.streaming.pending_apply_store import (
+        from app.shared.services.ai.streaming.pending_interaction_store import (
             ConfirmController,
-            get_global_pending_store,
+            get_global_pending_interaction_store,
         )
 
         controller = ConfirmController(request_id=apply_id)
-        pending_store = get_global_pending_store()
+        pending_store = get_global_pending_interaction_store()
         pending_store.put(apply_id, controller)
 
         try:

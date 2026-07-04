@@ -144,7 +144,7 @@ async def test_runner_modify_path_collects_instructions():
     import asyncio
 
     from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyCallbacks
-    from app.shared.services.ai.streaming.pending_apply_store import get_global_pending_store
+    from app.shared.services.ai.streaming.pending_interaction_store import get_global_pending_interaction_store
     from app.shared.services.llm.actions.diff_compute import DiffResult, FileDiff
 
     resolve_tasks: list = []
@@ -152,7 +152,7 @@ async def test_runner_modify_path_collects_instructions():
     def on_apply_pending(payload):
         apply_id = payload.get("apply_id")
         if apply_id:
-            ctrl = get_global_pending_store().get(apply_id)
+            ctrl = get_global_pending_interaction_store().get(apply_id)
 
             async def resolve_later():
                 await asyncio.sleep(0.01)

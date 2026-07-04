@@ -14,7 +14,7 @@ from unittest.mock import patch
 import pytest
 
 from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyActionsTool, ApplyCallbacks
-from app.shared.services.ai.streaming.pending_apply_store import ConfirmController
+from app.shared.services.ai.streaming.pending_interaction_store import ConfirmController
 from app.shared.services.llm.actions.diff_compute import DiffResult
 
 
@@ -149,7 +149,7 @@ class TestTwoPhaseConfirm:
         """
         import asyncio
 
-        from app.shared.services.ai.streaming.pending_apply_store import get_global_pending_store
+        from app.shared.services.ai.streaming.pending_interaction_store import get_global_pending_interaction_store
 
         original_pending = callbacks.on_apply_pending
         resolve_tasks: list = []
@@ -159,7 +159,7 @@ class TestTwoPhaseConfirm:
                 original_pending(payload)
             apply_id = payload.get("apply_id")
             if apply_id:
-                store = get_global_pending_store()
+                store = get_global_pending_interaction_store()
                 ctrl = store.get(apply_id)
 
                 async def resolve_later():

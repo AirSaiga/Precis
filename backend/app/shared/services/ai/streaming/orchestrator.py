@@ -20,7 +20,11 @@ from typing import Any
 from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyCallbacks
 from app.shared.services.ai.agent.types import ToolResult
 from app.shared.services.ai.chat_agent_runner import ChatAgentRunner
-from app.shared.services.ai.streaming.pending_apply_store import get_global_pending_store
+from app.shared.services.ai.streaming.pending_interaction_store import (
+    ConfirmController,
+    InteractionController,
+    get_global_pending_interaction_store,
+)
 
 from .event_journal import EventJournal
 from .types import (
@@ -185,13 +189,21 @@ class StreamingOrchestrator:
         finally:
             # 兜底清理：拒绝该 job 下所有未决议的 apply 控制器（每次 apply 各自独立，可能有多个）
             # 注意：apply 挂起时 finally 不可达（await 未返回），由 await_decision 超时兜底
-            pending_store = get_global_pending_store()
+            pending_store = get_global_pending_interaction_store()
             for controller in pending_store.pop_by_job_prefix(self.job_id):
                 if not controller.is_resolved:
-                    logger.warning(
-                        f"run_chat finally 兜底 resolve reject (job={self.job_id}, apply={controller.request_id})"
-                    )
-                    await controller.resolve("reject")
+                    # store 同时持有 apply（ConfirmController）和 ask（InteractionController），
+                    # 两类 resolve 签名不同：apply 接 str（confirm/reject），ask 接 dict。
+                    if isinstance(controller, ConfirmController):
+                        logger.warning(
+                            f"run_chat finally 兜底 resolve reject (job={self.job_id}, apply={controller.request_id})"
+                        )
+                        await controller.resolve("reject")
+                    elif isinstance(controller, InteractionController):
+                        logger.warning(
+                            f"run_chat finally 兜底 resolve skip (job={self.job_id}, ask={controller.request_id})"
+                        )
+                        await controller.resolve({"skipped": True, "reason": "cancelled"})
 
         # 终态判定：用 result.cancelled 显式字段（而非 success+iterations 启发式）
         # cancel_event.is_set() 覆盖外部取消信号；result.cancelled 覆盖 executor 内部取消

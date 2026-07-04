@@ -27,7 +27,11 @@ from fastapi.responses import StreamingResponse
 
 from app.shared.services.ai.streaming.event_journal import EventJournal
 from app.shared.services.ai.streaming.orchestrator import StreamingOrchestrator
-from app.shared.services.ai.streaming.pending_apply_store import get_global_pending_store
+from app.shared.services.ai.streaming.pending_interaction_store import (
+    ConfirmController,
+    InteractionController,
+    get_global_pending_interaction_store,
+)
 from app.shared.services.ai.streaming.sse_response import sse_event_stream
 from app.shared.services.llm.config import loader
 from app.shared.services.llm.providers.registry import create
@@ -191,11 +195,15 @@ async def cancel_job(job_id: str) -> dict[str, str]:
         ev = _cancel_events.get(job_id)
     if ev is not None:
         ev.set()
-        # 同步 resolve 该 job 下所有挂起的 apply 确认为 reject（每次 apply 各自独立，可能有多个）
-        pending_store = get_global_pending_store()
+        # 同步 resolve 该 job 下所有挂起的交互门（apply→reject, ask→skipped）。
+        # store 同时持有两类 controller，resolve 签名不同，按 isinstance 分别处理。
+        pending_store = get_global_pending_interaction_store()
         for controller in pending_store.pop_by_job_prefix(job_id):
             if not controller.is_resolved:
-                await controller.resolve("reject")
+                if isinstance(controller, ConfirmController):
+                    await controller.resolve("reject")
+                elif isinstance(controller, InteractionController):
+                    await controller.resolve({"skipped": True, "reason": "cancelled"})
         return {"status": "cancelling"}
     return {"status": "not_found"}
 
@@ -214,12 +222,15 @@ async def confirm_apply(job_id: str, request: AiChatConfirmRequest) -> dict[str,
     返回:
         {"status": "resolved", "decision": "confirm"} 或 404
     """
-    pending_store = get_global_pending_store()
+    pending_store = get_global_pending_interaction_store()
     # 优先用 apply_id 精确查找；为空时回退到 job 维度（兼容单 apply 场景）
     lookup_key = request.apply_id if request.apply_id else job_id
     controller = pending_store.get(lookup_key)
     if controller is None:
         raise HTTPException(404, detail="无挂起的改动(可能已决策或任务已结束)")
+    # /confirm 只处理 apply 确认（ConfirmController）；若拿到 InteractionController 说明 key 冲突，拒绝
+    if not isinstance(controller, ConfirmController):
+        raise HTTPException(409, detail="该交互不是 apply 确认类型，无法用 /confirm 处理")
     if controller.is_resolved:
         return {"status": "already_resolved", "decision": controller.decision or "unknown"}
     await controller.resolve(request.decision)
