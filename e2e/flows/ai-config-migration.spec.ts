@@ -85,6 +85,10 @@ test.describe('AI Config Migration', () => {
   })
 
   test('natural language migration reaches completed or failed', async ({ apiHelper }) => {
+    // AI 任务真实调用 LLM,完成时间可能远超 Playwright 默认 30s 超时。
+    // 对齐内部轮询 deadline(120s),避免因环境性能波动导致的假失败。
+    test.setTimeout(130_000)
+
     const createResp = await apiHelper.post(
       '/ai/config/migrate/jobs',
       makePayload('Name cannot be empty. Email must be unique.', 'natural_language')
@@ -104,6 +108,9 @@ test.describe('AI Config Migration', () => {
   })
 
   test('python pandas migration reaches completed or failed', async ({ apiHelper }) => {
+    // 同上:AI 任务真实调用 LLM,放宽超时对齐内部 120s 轮询。
+    test.setTimeout(130_000)
+
     const script = `import pandas as pd
 
 df = pd.read_csv('${USERS_CSV.replace(/\\/g, '\\\\')}')

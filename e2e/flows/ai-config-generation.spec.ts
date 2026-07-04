@@ -66,6 +66,10 @@ test.describe('AI Config Generation Agent Mode', () => {
   })
 
   test('agent generation job reaches completed or failed', async ({ apiHelper }) => {
+    // AI 任务真实调用 LLM,完成时间可能远超 Playwright 默认 30s 超时。
+    // 对齐内部轮询 deadline(120s),避免因环境性能波动导致的假失败。
+    test.setTimeout(130_000)
+
     const createResp = await apiHelper.post('/ai/config/generate/jobs', makePayload())
     expect(createResp.ok).toBe(true)
     const { job_id: jobId } = await createResp.json()
@@ -97,6 +101,9 @@ test.describe('AI Config Generation Agent Mode', () => {
   })
 
   test('single-shot mode also completes or fails', async ({ apiHelper }) => {
+    // 同上:AI 任务真实调用 LLM,放宽超时对齐内部 120s 轮询。
+    test.setTimeout(130_000)
+
     const createResp = await apiHelper.post('/ai/config/generate/jobs', makePayload({ agent_mode: false }))
     expect(createResp.ok).toBe(true)
     const { job_id: jobId } = await createResp.json()
