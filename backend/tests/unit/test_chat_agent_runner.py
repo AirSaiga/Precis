@@ -299,6 +299,30 @@ async def test_runner_handles_agent_failure():
     assert result.reply  # 有兜底文本
 
 
+def test_registry_includes_ask_user_tool():
+    """ask_user 工具应被注册为第 6 个 chat tool。
+
+    覆盖 Task 5 的核心契约：_create_registry 必须注册 ask_user，
+    使 LLM 在 loop 中途可调用它向用户提问。
+    """
+    provider = FakeProvider(responses=[])
+    runner = ChatAgentRunner(
+        provider=provider,
+        project_path="/fake/project",
+        context_nodes=[],
+        job_id="test-ask",
+    )
+
+    registry = runner._create_registry()
+    definitions = registry.get_definitions()
+    names = {d["function"]["name"] for d in definitions}
+
+    # ask_user 已注册
+    assert "ask_user" in names
+    # 共 6 个工具：read_project/read_table/apply_actions/validate_table/read_canvas/ask_user
+    assert len(definitions) == 6
+
+
 # =============================================================================
 # ChatOrchestrator agent_mode 路径分流测试
 # =============================================================================

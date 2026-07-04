@@ -25,12 +25,14 @@ from typing import Any
 
 from app.shared.services.ai.agent.chat_tools import (
     ApplyActionsTool,
+    AskUserTool,
     ReadCanvasTool,
     ReadProjectTool,
     ReadTableTool,
     ValidateTableTool,
 )
 from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyCallbacks
+from app.shared.services.ai.agent.chat_tools.ask_user import AskCallbacks
 from app.shared.services.ai.agent.executor import AgentExecutor
 from app.shared.services.ai.agent.tool_registry import ToolRegistry
 from app.shared.services.llm.actions.registry import (
@@ -114,6 +116,25 @@ _WORDING_RULES = """## 措辞规范
   ✅ 正确："我将为 email 添加唯一约束"
 - 当汇报校验结果时：客观陈述错误数量和内容，不夸大不缩小。"""
 
+# ask_user 工具使用指引
+_ASK_USER_GUIDE = """## 何时使用 ask_user
+
+ask_user 用于获取无法自行查到的信息或让用户做决策。**能自己查到的不要问**。
+
+该问的情况：
+- 用户意图存在多方案需要抉择（"用 A 还是 B？"）→ choice 类型
+- 关键参数缺失且无法从 read_project/read_table/read_canvas 推断（如目标列名歧义）→ value 或 choice 类型
+- 执行不可逆的批量非写盘操作前确认意图 → confirm 类型
+- 需要用户提供开放式信息（如业务规则说明）→ free_text 类型
+
+不该问的情况：
+- 能通过 read_project 查到的表/列信息
+- 能通过 read_table 推断的数据特征
+- 答案在 context.selectedNodes 或 canvas 已有信息里
+
+返回值：observation 含 answer 字段。用户可能跳过（skipped:true）——此时不要反复追问，
+基于已知信息尽力继续或明确说明无法完成的原因。"""
+
 # 完整的 chat agent 系统提示词
 # 注意：SYSTEM_PROMPT_CORE 现已剥离 JSON 输出指令（移至 SYSTEM_PROMPT_JSON_OUTPUT，
 # 仅非 Agent 路径用），故 Agent 路径无需 verbal override，直接继承 CORE 的领域能力描述。
@@ -131,6 +152,8 @@ CHAT_AGENT_SYSTEM_PROMPT = f"""{SYSTEM_PROMPT_CORE}
 {_CHAT_AGENT_TOOL_GUIDE}
 
 {_WORDING_RULES}
+
+{_ASK_USER_GUIDE}
 
 ## actions 格式说明
 
@@ -234,6 +257,7 @@ class ChatAgentRunner:
         max_history_tokens: int = 120000,
         confirm_controller: Any | None = None,
         apply_callbacks: ApplyCallbacks | None = None,
+        ask_callbacks: AskCallbacks | None = None,
         dry_run_enabled: bool = False,
         job_id: str = "",
         canvas_nodes: list[dict[str, Any]] | None = None,
@@ -249,6 +273,7 @@ class ChatAgentRunner:
             max_history_tokens: 历史消息 token 预算
             confirm_controller: （已废弃）旧的单 job 控制器；保留兼容但不再用于门控
             apply_callbacks: apply_* 事件回调集合
+            ask_callbacks: ask_user 事件回调集合（仅流式路径启用交互）
             dry_run_enabled: 是否启用两阶段确认模式
             job_id: 当前任务 ID，供 ApplyActionsTool 生成 apply_id
             canvas_nodes: 前端请求体携带的画布节点快照（已裁剪），供 read_canvas 工具查询。
@@ -261,6 +286,7 @@ class ChatAgentRunner:
         self.max_history_tokens = max_history_tokens
         self.confirm_controller = confirm_controller
         self.apply_callbacks = apply_callbacks or ApplyCallbacks()
+        self.ask_callbacks = ask_callbacks or AskCallbacks()
         self.dry_run_enabled = dry_run_enabled
         self.job_id = job_id
         self.canvas_nodes = canvas_nodes or []
@@ -322,10 +348,9 @@ class ChatAgentRunner:
         """
         @methoddesc 创建并注册 chat 工具集
 
-        5 个工具：read_project/read_table/apply_actions/validate_table 注入 project_path，
-        read_canvas 注入画布节点快照
-        （apply_actions 额外注入 collected_instructions 共享引用），
-        read_canvas 注入前端带来的画布节点快照。
+        6 个工具：read_project/read_table/apply_actions/validate_table 注入 project_path，
+        read_canvas 注入画布节点快照，ask_user 注入交互回调（仅流式路径启用）。
+        apply_actions 额外注入 collected_instructions 共享引用。
         """
         registry = ToolRegistry()
 
@@ -378,6 +403,19 @@ class ChatAgentRunner:
             handler=lambda args: read_canvas_tool.run(args),
         )
 
+        # ask_user：交互问答工具，注入 ask_callbacks 与 dry_run_enabled
+        ask_tool = AskUserTool(
+            job_id=self.job_id,
+            ask_callbacks=self.ask_callbacks,
+            dry_run_enabled=self.dry_run_enabled,
+        )
+        registry.register(
+            name=ask_tool.NAME,
+            description=ask_tool.get_definition()["function"]["description"],
+            parameters=ask_tool.get_definition()["function"]["parameters"],
+            handler=lambda args: ask_tool.run(args),
+        )
+
         return registry
 
     # 工具名到人类可读标签的映射，用于前端展示轨迹
@@ -387,6 +425,7 @@ class ChatAgentRunner:
         ApplyActionsTool.NAME: "修改配置",
         ValidateTableTool.NAME: "校验数据",
         ReadCanvasTool.NAME: "读取画布",
+        AskUserTool.NAME: "询问用户",
     }
 
     def _collect_audit_trail(self, agent_result: Any) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
