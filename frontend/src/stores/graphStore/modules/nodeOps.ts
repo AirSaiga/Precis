@@ -112,7 +112,13 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
     }
 
     nextTick(async () => {
-      await reconcileAll()
+      // 防御性 try/catch:reconcileAll 失败不应导致未处理的 Promise 拒绝
+      // (deleteNode 多由 fire-and-forget 的 UI 事件处理器调用,无调用方接住 rejection)
+      try {
+        await reconcileAll()
+      } catch (e) {
+        logger.warn('[nodeOps] deleteNode: reconcileAll 失败', e)
+      }
       onNodesRemoved()
     })
   }
@@ -160,7 +166,12 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
     }
 
     nextTick(async () => {
-      await reconcileAll()
+      // 防御性 try/catch:同 deleteNode,避免 fire-and-forget 调用方的未处理 rejection
+      try {
+        await reconcileAll()
+      } catch (e) {
+        logger.warn('[nodeOps] deleteNodes: reconcileAll 失败', e)
+      }
       onNodesRemoved()
     })
   }
