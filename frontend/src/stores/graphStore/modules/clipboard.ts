@@ -19,7 +19,7 @@ export function createClipboardModule(params: {
   selectedNodeIds: Ref<string[]>
   copiedNodes: Ref<CustomNode[]>
   deleteNode: (nodeId: string) => void | Promise<void>
-  deleteNodes: (nodeIds: string[]) => void
+  deleteNodes: (nodeIds: string[]) => void | Promise<void>
   saveState: () => void
   pasteOffset?: { x: number; y: number }
   reconcileAll: () => void | Promise<void>
@@ -116,7 +116,7 @@ export function createClipboardModule(params: {
 
     saveState()
     copiedNodes.value = nodesToCopy.map((node) => structuredClone(node))
-    deleteNodes(nodesToCopy.map((n) => n.id))
+    await deleteNodes(nodesToCopy.map((n) => n.id))
   }
 
   /**

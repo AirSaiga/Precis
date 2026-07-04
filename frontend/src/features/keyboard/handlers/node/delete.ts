@@ -54,7 +54,7 @@ export async function deleteNode(): Promise<{
     }
     return { success: true, message: 'shortcuts.feedback.deleted', count: 1 }
   } else {
-    graphStore.deleteNodes(idsToDelete)
+    await graphStore.deleteNodes(idsToDelete)
     return {
       success: true,
       message: 'shortcuts.feedback.deletedMultiple',

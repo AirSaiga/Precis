@@ -20,7 +20,6 @@ import { logger } from '@/core/utils/logger'
 
 interface TemplateExpandLike {
   getExpandedIds(instanceNodeId: string): string[]
-  clearExpansion(instanceNodeId: string): void | Promise<void>
 }
 
 export interface NodeOpsDeps {
@@ -85,8 +84,13 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
     }
 
     // templateInstance 删除前清理展开追踪状态(expandedNodeIds Map、expanded 标志)
+    // 防御性 try/catch: clearExpansion 失败不应阻断节点删除本身
     if (node?.type === 'templateInstance') {
-      await clearExpansion(nodeId)
+      try {
+        await clearExpansion(nodeId)
+      } catch (e) {
+        logger.warn('[nodeOps] deleteNode: clearExpansion 失败,继续删除节点', e)
+      }
     }
 
     const deleteIds = collectCascadeNodeIds(nodeId)
@@ -113,7 +117,7 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
     })
   }
 
-  function deleteNodes(nodeIds: string[]) {
+  async function deleteNodes(nodeIds: string[]) {
     const filteredIds = nodeIds.filter((id) => {
       const node = nodes.value.find((n) => n.id === id)
       return node?.type !== 'projectRoot'
@@ -121,6 +125,20 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
 
     if (filteredIds.length === 0) {
       return
+    }
+
+    // templateInstance 节点删除前清理展开追踪状态(与 deleteNode 单条路径对称)
+    // 必须在 collectCascadeNodeIds 之前执行,否则 getExpandedIds 仍返回子节点造成重复收集
+    // 防御性 try/catch: clearExpansion 失败不应阻断节点删除本身
+    for (const id of filteredIds) {
+      const node = nodes.value.find((n) => n.id === id)
+      if (node?.type === 'templateInstance') {
+        try {
+          await clearExpansion(id)
+        } catch (e) {
+          logger.warn('[nodeOps] deleteNodes: clearExpansion 失败,继续删除节点', e)
+        }
+      }
     }
 
     const deleteIds = Array.from(new Set(filteredIds.flatMap((id) => collectCascadeNodeIds(id))))

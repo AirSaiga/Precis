@@ -90,6 +90,37 @@ describe('nodeOps', () => {
     })
   })
 
+  describe('deleteNodes - templateInstance', () => {
+    it('批量删除含 templateInstance 时对每个实例调用 clearExpansion', async () => {
+      const { nodes, templateExpand, clearExpansion, module } = makeModule({
+        templateExpand: { getExpandedIds: () => ['child1'] },
+      })
+      nodes.value = [
+        makeNode('inst1', 'templateInstance', { expanded: true }),
+        makeNode('inst2', 'templateInstance', { expanded: true }),
+        makeNode('s1', 'schema', { columns: [] }),
+        makeNode('child1', 'transform', {}),
+      ]
+
+      await module.deleteNodes(['inst1', 'inst2', 's1'])
+
+      expect(clearExpansion).toHaveBeenCalledWith('inst1')
+      expect(clearExpansion).toHaveBeenCalledWith('inst2')
+    })
+
+    it('批量删除不含 templateInstance 时不调用 clearExpansion', async () => {
+      const { nodes, clearExpansion, module } = makeModule()
+      nodes.value = [
+        makeNode('s1', 'schema', { columns: [] }),
+        makeNode('c1', 'notNullConstraint', {}),
+      ]
+
+      await module.deleteNodes(['s1', 'c1'])
+
+      expect(clearExpansion).not.toHaveBeenCalled()
+    })
+  })
+
   describe('moveSelectedNode', () => {
     it('Vue Flow API 初始化时通过 updateNode 移动,不直接 mutate node.position', () => {
       const { nodes, selectedNodeId, module } = makeModule()

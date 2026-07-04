@@ -28,7 +28,7 @@ export type { CanvasTab as Workspace } from './canvasTabStore'
 interface GraphStoreLike {
   nodes: CustomNode[]
   edges: Edge[]
-  deleteNodes?: (ids: string[]) => void
+  deleteNodes?: (ids: string[]) => void | Promise<void>
 }
 
 export const useCanvasStore = defineStore('canvas', () => {
