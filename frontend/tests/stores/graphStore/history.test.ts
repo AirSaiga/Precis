@@ -7,7 +7,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ref, type Ref } from 'vue'
+import { ref, reactive, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import { createHistoryModule } from '@/stores/graphStore/modules/history'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
@@ -149,6 +149,40 @@ describe('history module', () => {
 
       const after = JSON.stringify(nodes.value.map((n) => n.data))
       expect(after).not.toBe(original)
+    })
+  })
+
+  describe('snapshot isolation', () => {
+    it('undo 后修改当前节点 data 不会污染 redoStack 快照', async () => {
+      const n1 = makeNode('n1', 'A')
+      nodes.value = [n1]
+      module.saveState()
+      nodes.value = [{ ...n1, data: { configName: 'B' } as CustomNodeData } as CustomNode]
+
+      await module.undo()
+
+      const current = nodes.value[0]
+      ;(current.data as { configName: string }).configName = 'MUTATED'
+
+      const redoSnapshot = module.redoStack.value[0]
+      expect(redoSnapshot.nodes[0].data.configName).toBe('B')
+    })
+
+    it('支持 reactive 嵌套 proxy 的深克隆（不抛 DataCloneError）', () => {
+      // 模拟 Vue Flow 富化后的真实情况：node.data 本身成为深层 reactive proxy。
+      // 仅用 reactive() 包裹外层数组不会让既有的 plain data 对象变成 proxy，
+      // 因此必须单独对 data 调用 reactive() 才能复现 DataCloneError。
+      const reactiveData = reactive({ configName: 'R' }) as CustomNodeData
+      const reactiveNode = {
+        id: 'rn1',
+        type: 'schema',
+        position: { x: 0, y: 0 },
+        data: reactiveData,
+      } as unknown as CustomNode
+      nodes.value = [reactiveNode]
+
+      expect(() => module.saveState()).not.toThrow()
+      expect(module.undoStack.value[0].nodes[0].data.configName).toBe('R')
     })
   })
 })
