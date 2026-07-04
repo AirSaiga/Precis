@@ -101,6 +101,48 @@ describe('connectionStateSync', () => {
       // target.parent 更新为新 parent
       expect(patches).toContainEqual({ nodeId: 'c1', data: { parent: 'new-p' } })
     })
+
+    it('目标无 prior parent 时,不产生旧 parent 清理补丁', () => {
+      const newParent = makeNode('new-p', 'schema', { children: [], columns: [] })
+      const constraint = makeNode('c1', 'notNullConstraint', {}) // 无 parent 字段
+      const { module, patches } = createTestContext([newParent, constraint], [])
+
+      module.syncOnConnect('new-p', 'c1')
+
+      // 正常设置 new parent
+      expect(patches).toContainEqual({ nodeId: 'new-p', data: { children: ['c1'] } })
+      expect(patches).toContainEqual({ nodeId: 'c1', data: { parent: 'new-p' } })
+      // 不应有任何针对不存在旧 parent 的补丁
+      expect(patches.every((p) => p.nodeId !== 'old-p')).toBe(true)
+    })
+
+    it('旧 parent 与新 source 相同时,不重复清理', () => {
+      // target 已经 parent = 'p1',再次连到 p1
+      const parent = makeNode('p1', 'schema', { children: ['c1'], columns: [] })
+      const constraint = makeNode('c1', 'notNullConstraint', { parent: 'p1' })
+      const { module, patches } = createTestContext([parent, constraint], [])
+
+      module.syncOnConnect('p1', 'c1')
+
+      // children 已含 c1,不应触发 children 补丁(去重);parent 已是 p1,不应触发 parent 补丁
+      const childrenPatch = patches.find((p) => p.nodeId === 'p1' && 'children' in p.data)
+      // p1 的 children 已含 c1,applyConnectState 不会重复添加 → 无 children 补丁
+      expect(childrenPatch).toBeUndefined()
+    })
+
+    it('旧 parent 节点已不存在时,安全跳过清理', () => {
+      // target.parent 指向一个不在 nodes 中的 ID(数据不一致场景)
+      const newParent = makeNode('new-p', 'schema', { children: [], columns: [] })
+      const constraint = makeNode('c1', 'notNullConstraint', { parent: 'ghost-p' })
+      const { module, patches } = createTestContext([newParent, constraint], [])
+
+      module.syncOnConnect('new-p', 'c1')
+
+      // 正常设置新 parent
+      expect(patches).toContainEqual({ nodeId: 'c1', data: { parent: 'new-p' } })
+      // 不应抛错,不应产生针对 ghost-p 的补丁
+      expect(patches.every((p) => p.nodeId !== 'ghost-p')).toBe(true)
+    })
   })
 
   describe('syncOnDisconnect', () => {
@@ -136,7 +178,7 @@ describe('connectionStateSync', () => {
       module.syncOnDisconnect(edgesRef.value[0])
 
       // outputPortConnected 不再由 syncOnDisconnect 维护（避免批量删边时读到 stale edges）；
-      // 该字段由 reconcileAll() 统一重建。
+      // 该字段由 handleEdgeRemoved(单条边路径)和 reconcileAll(批量路径)重建。
       expect(
         patches.find((p) => 'outputPortConnected' in (p.data as Record<string, unknown>))
       ).toBeUndefined()

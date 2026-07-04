@@ -9,7 +9,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import type { Ref } from 'vue'
+import { nextTick, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import { v4 as uuidv4 } from 'uuid'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
@@ -24,8 +24,10 @@ export function createConnectionOpsModule(params: {
   updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
   clearAllValidationErrors: (schemaNodeId: string) => void
   syncOnDisconnect: (edge: Edge) => void
+  reconcileAll: () => void | Promise<void>
 }) {
-  const { nodes, edges, updateNodeData, clearAllValidationErrors, syncOnDisconnect } = params
+  const { nodes, edges, updateNodeData, clearAllValidationErrors, syncOnDisconnect, reconcileAll } =
+    params
 
   /**
    * 清除边上的临时动画 class。
@@ -99,6 +101,20 @@ export function createConnectionOpsModule(params: {
       clearAllValidationErrors,
     }
     executeDisconnectCleanup(edge, sourceNode, targetNode, ctx)
+
+    // 数据源 → schema 边断开后,outputPortConnected 由 reconcileAll 重建
+    // (syncOnDisconnect 不再维护该字段,以避免批量删边时的 stale edges 竞态;
+    //  单条边断开路径不经过 deleteNode 的 reconcileAll,需在此补一次)
+    const isDataSourceToSchema =
+      sourceNode &&
+      targetNode &&
+      (sourceNode.type === 'sourcePreview' || sourceNode.type === 'jsonSourcePreview') &&
+      (targetNode.type === 'schema' || targetNode.type === 'jsonSchema')
+    if (isDataSourceToSchema) {
+      nextTick(async () => {
+        await reconcileAll()
+      })
+    }
   }
 
   return {

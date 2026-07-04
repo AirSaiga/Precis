@@ -272,6 +272,7 @@ export function createGraphStoreAssembly(
     updateNodeData,
     clearAllValidationErrors,
     syncOnDisconnect: connectionStateSync.syncOnDisconnect,
+    reconcileAll: connectionStateSync.reconcileAll,
   })
 
   function clearCanvas() {

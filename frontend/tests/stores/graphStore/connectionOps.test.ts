@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { ref, type Ref } from 'vue'
+import { ref, nextTick, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 
@@ -35,6 +35,7 @@ describe('createConnectionOpsModule', () => {
   const mockUpdateNodeData = vi.fn()
   const mockClearValidation = vi.fn()
   const mockSyncOnDisconnect = vi.fn()
+  const mockReconcileAll = vi.fn()
 
   beforeEach(() => {
     nodes = ref<CustomNode[]>([])
@@ -45,11 +46,13 @@ describe('createConnectionOpsModule', () => {
       updateNodeData: mockUpdateNodeData,
       clearAllValidationErrors: mockClearValidation,
       syncOnDisconnect: mockSyncOnDisconnect,
+      reconcileAll: mockReconcileAll,
     })
     vi.mocked(addEdges).mockClear()
     vi.mocked(removeEdges).mockClear()
     vi.mocked(executeDisconnectCleanup).mockClear()
     mockSyncOnDisconnect.mockClear()
+    mockReconcileAll.mockClear()
   })
 
   describe('createConnection', () => {
@@ -112,6 +115,29 @@ describe('createConnectionOpsModule', () => {
 
       expect(mockSyncOnDisconnect).not.toHaveBeenCalled()
       expect(executeDisconnectCleanup).not.toHaveBeenCalled()
+    })
+
+    it('数据源→schema 边断开后,在 nextTick 触发 reconcileAll 重建 outputPortConnected', async () => {
+      nodes.value = [makeNode('sp1', 'sourcePreview'), makeNode('s1', 'schema')]
+      const edge = makeEdge('e1', 'sp1', 's1')
+
+      module.handleEdgeRemoved(edge)
+      // reconcileAll 在 nextTick 中调度
+      expect(mockReconcileAll).not.toHaveBeenCalled()
+
+      await nextTick()
+
+      expect(mockReconcileAll).toHaveBeenCalledTimes(1)
+    })
+
+    it('非数据源→schema 边断开,不触发 reconcileAll', async () => {
+      nodes.value = [makeNode('s1', 'schema'), makeNode('c1', 'notNullConstraint')]
+      const edge = makeEdge('e1', 's1', 'c1')
+
+      module.handleEdgeRemoved(edge)
+      await nextTick()
+
+      expect(mockReconcileAll).not.toHaveBeenCalled()
     })
   })
 })
