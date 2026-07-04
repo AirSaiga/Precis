@@ -61,6 +61,17 @@ const aiChat = {
   confirmApply: 'Apply Changes',
   confirmReject: 'Reject',
   confirmDeciding: 'Processing...',
+  // ask_user interaction card
+  askTitle: 'Input needed',
+  askPlaceholder: 'Type your answer...',
+  askSubmit: 'Submit',
+  askSkip: 'Skip',
+  askAnswered: 'Answered',
+  askSkipped: 'Skipped',
+  askTimeout: 'Timed out',
+  askInvalidValue: 'Please enter a valid {type}',
+  askMustSelect: 'Please select at least one',
+  statusPendingAsk: 'Awaiting your answer',
   // App mode toggle (IDE ↔ Agent)
   modeIde: 'IDE',
   modeAgent: 'Agent',

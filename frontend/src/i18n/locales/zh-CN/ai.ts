@@ -60,6 +60,17 @@ const aiChat = {
   confirmApply: '确认修改',
   confirmReject: '拒绝',
   confirmDeciding: '处理中...',
+  // ask_user 交互问答卡
+  askTitle: '需要你的输入',
+  askPlaceholder: '在此输入回答...',
+  askSubmit: '提交',
+  askSkip: '跳过',
+  askAnswered: '已回答',
+  askSkipped: '已跳过',
+  askTimeout: '已超时',
+  askInvalidValue: '请输入有效的{type}值',
+  askMustSelect: '请至少选择一项',
+  statusPendingAsk: '等待你的回答',
   // 应用模式切换（IDE ↔ Agent）
   modeIde: 'IDE',
   modeAgent: 'Agent',

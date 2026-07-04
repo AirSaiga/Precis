@@ -30,6 +30,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { useGraphStore } from '@/stores/graphStore'
 import { serializeCanvasForAI } from '@/utils/ai/serializeCanvasForAI'
 import type { ActionType } from '@/types/generated/actions'
+import type { AskResponseBody } from '@/components/ai/AskUserCard.vue'
 
 /**
  * 聊天消息结构，用于 UI 渲染
@@ -609,6 +610,38 @@ export const useAiChatStore = defineStore('aiChat', () => {
   }
 
   /**
+   * 回答 agent 的 ask_user 提问。
+   *
+   * POST /respond 把用户回答回传后端，resolve InteractionController 唤醒挂起的 ask_user 协程。
+   * 不在此清 pendingAsk——等 user_responded SSE 事件来清（与 confirmApply 一致，保证后端确认后才转态）。
+   */
+  async function respondToAsk(askId: string, response: AskResponseBody) {
+    // jobId 优先从 store ref 取，兜底从最近 streaming 消息取
+    let jobId = currentStreamingJobId.value
+    if (!jobId) {
+      const lastStreamingMsg = [...messages.value]
+        .reverse()
+        .find((m) => m.role === 'assistant' && m.streaming)
+      jobId = lastStreamingMsg?.streaming?.jobId ?? ''
+    }
+    if (!jobId) {
+      logger.warn('respondToAsk: 无当前 job_id（started 事件可能丢失）')
+      return
+    }
+    try {
+      const baseUrl = (await import('@/core/services/httpClient')).getApiBaseUrl()
+      await fetch(`${baseUrl}/api/latest/ai/chat/${jobId}/respond`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ask_id: askId, response }),
+      })
+      // 不在此清 pendingAsk——等 user_responded SSE 事件来清（与 confirmApply 一致）
+    } catch (error) {
+      logger.error('回答 ask_user 失败:', error)
+    }
+  }
+
+  /**
    * 取消当前正在进行的流式 AI 对话（软取消）。
    *
    * 先发 cancel 端点通知后端停止（让 executor 在检查点中断），
@@ -628,6 +661,14 @@ export const useAiChatStore = defineStore('aiChat', () => {
     try {
       // 先 resolve 挂起的 apply 确认为 reject（若有挂起）
       await confirmApply('reject')
+      // ask 的清理由后端 cancel 端点统一处理（pop_by_job_prefix + resolve skipped），
+      // 但前端立即清 pendingAsk（job 已终止，不再等 user_responded 事件）
+      const lastStreamingMsgForAsk = [...messages.value]
+        .reverse()
+        .find((m) => m.role === 'assistant' && m.streaming)
+      if (lastStreamingMsgForAsk?.streaming) {
+        lastStreamingMsgForAsk.streaming.pendingAsk = null
+      }
       // 发 cancel 端点通知后端停止（与 generation/migration 行为一致）
       if (jobId) {
         await currentSSEClient.cancel(jobId)
@@ -671,6 +712,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
     sendMessage,
     cancelSendMessage,
     confirmApply,
+    respondToAsk,
     currentStreamingJobId,
   }
 })

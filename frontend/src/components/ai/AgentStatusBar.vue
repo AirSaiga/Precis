@@ -62,11 +62,15 @@
       return props.loading ? t('aiChat.statusThinking') : ''
     }
 
-    const { status, toolSteps, pendingApply } = props.streaming
+    const { status, toolSteps, pendingApply, pendingAsk } = props.streaming
 
     if (pendingApply) {
       const fileCount = pendingApply.files.length
       return t('aiChat.statusPendingApply', { count: fileCount })
+    }
+
+    if (pendingAsk) {
+      return t('aiChat.statusPendingAsk')
     }
 
     if (status === 'error') {
@@ -106,8 +110,8 @@
     if (!props.streaming) {
       return lastCompleted.value ? 'status-completed' : 'status-idle'
     }
-    const { status, pendingApply } = props.streaming
-    if (pendingApply) return 'status-pending'
+    const { status, pendingApply, pendingAsk } = props.streaming
+    if (pendingApply || pendingAsk) return 'status-pending'
     if (status === 'error') return 'status-error'
     if (status === 'cancelled') return 'status-cancelled'
     if (status === 'completed') return 'status-completed'
@@ -119,8 +123,8 @@
     if (!props.streaming) {
       return lastCompleted.value ? 'indicator-success' : 'indicator-idle'
     }
-    const { status, pendingApply } = props.streaming
-    if (pendingApply) return 'indicator-warning'
+    const { status, pendingApply, pendingAsk } = props.streaming
+    if (pendingApply || pendingAsk) return 'indicator-warning'
     if (status === 'error') return 'indicator-danger'
     if (status === 'cancelled') return 'indicator-idle'
     if (status === 'completed') return 'indicator-success'

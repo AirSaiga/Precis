@@ -78,6 +78,16 @@
             :apply="msg.streaming.pendingApply"
             :on-decide="handleApplyDecide"
           />
+          <!-- ask_user 交互问答卡 -->
+          <AskUserCard
+            v-if="
+              msg.role === 'assistant' && (msg.streaming?.pendingAsk || msg.streaming?.askAnswered)
+            "
+            :ask="msg.streaming?.pendingAsk ?? null"
+            :answered="msg.streaming?.askAnswered ?? false"
+            :answer-summary="msg.streaming?.lastAskSummary ?? null"
+            @respond="handleAskRespond"
+          />
           <div v-if="msg.role === 'user'" class="message-content user-content">
             {{ msg.content }}
           </div>
@@ -199,6 +209,8 @@
   import bash from 'highlight.js/lib/languages/bash'
   import ToolTrailCard from './ToolTrailCard.vue'
   import ApplyConfirmCard from './ApplyConfirmCard.vue'
+  import AskUserCard from './AskUserCard.vue'
+  import type { AskResponseBody } from './AskUserCard.vue'
 
   hljs.registerLanguage('javascript', javascript)
   hljs.registerLanguage('python', python)
@@ -338,6 +350,11 @@
   /** 处理 apply_actions 确认/拒绝决策 */
   const handleApplyDecide = async (decision: 'confirm' | 'reject') => {
     await aiChatStore.confirmApply(decision)
+  }
+
+  /** 处理 ask_user 用户回答 */
+  const handleAskRespond = async (askId: string, response: AskResponseBody) => {
+    await aiChatStore.respondToAsk(askId, response)
   }
 
   /** 消息是否正在流式输出 */
