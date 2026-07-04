@@ -74,7 +74,7 @@ precis> exit
 | `validate` | `check` | 运行校验 |
 | `project` | `p` | 项目管理 |
 | `config` | — | 配置管理（8 个子命令） |
-| `ai` | `assistant` | AI 助手（6 个子命令） |
+| `ai` | `assistant` | AI 助手（8 个子命令） |
 | `provider` | — | AI 提供商管理 |
 | `help` | `?` | 显示帮助 |
 | `pwd` | `cwd` | 显示当前路径 |
@@ -178,16 +178,52 @@ precis> config inspect            # 跨文件一致性自检
 
 ### ai
 
-AI 助手聚合命令。
+AI 助手聚合命令。默认启用 Agent 深度模式，AI 会通过 `read_project`、`apply_actions`、`validate_table` 等工具循环完成查-改-验。
 
 ```
-precis> ai chat                   # 进入交互式 AI 对话
-precis> ai ask <message>          # 一次性 AI 问答
-precis> ai status                 # 显示 AI 配置状态
-precis> ai switch <provider>      # 切换默认 AI 提供商
-precis> ai provider               # 管理 AI 提供商（等同于 provider 命令）
-precis> ai delete [provider]      # 删除已配置的提供商
+precis> ai chat                              # 进入交互式 AI 对话（Agent 模式）
+precis> ai chat --no-agent-mode              # 关闭 Agent，降级为旧 JSON actions 路径
+precis> ai ask "给 users.email 加唯一约束"   # 一次性 AI 问答
+precis> ai generate data/users.xlsx          # 从数据文件预览生成配置
+precis> ai generate data/*.xlsx --apply      # 生成并写入项目
+precis> ai migrate scripts/legacy.sql data/users.xlsx --apply  # 从旧脚本迁移配置
+precis> ai status                            # 显示 AI 配置状态
+precis> ai switch <provider>                 # 切换默认 AI 提供商
+precis> ai provider                          # 管理 AI 提供商（等同于 provider 命令）
+precis> ai delete [provider]                 # 删除已配置的提供商
 ```
+
+**ai chat 参数**：
+
+| 参数 | 说明 |
+|------|------|
+| `--stream` | 启用流式输出 |
+| `--no-stream` | 禁用流式输出（默认） |
+| `--no-agent-mode` | 关闭 Agent 深度模式，使用旧 JSON actions 路径 |
+
+**ai generate 参数**：
+
+| 参数 | 说明 |
+|------|------|
+| `[files...]` | 数据文件路径，支持通配符；缺省扫描项目 `data/` 目录 |
+| `--apply` | 将生成的配置写入项目（默认仅预览） |
+| `--no-agent-mode` | 使用单次快速生成，不走 Agent 优化 |
+| `--max-iterations N` | Agent 最大迭代次数（默认 2，范围 1-5） |
+| `--sample-rows N` | 每文件采样行数（默认 100） |
+| `--sample-values N` | 每列采样值数量（默认 100） |
+| `--generate-regex` | 同时生成正则节点 |
+
+**ai migrate 参数**：
+
+| 参数 | 说明 |
+|------|------|
+| `<script_file>` | 旧脚本文件路径（.py/.sql/.txt 等） |
+| `[data_files...]` | 数据文件路径，支持通配符 |
+| `--apply` | 将迁移的配置写入项目（默认仅预览） |
+| `--language <lang>` | 脚本类型：python / sql / excel_formula / natural_language |
+| `--max-iterations N` | Agent 最大迭代次数（默认 2） |
+| `--sample-rows N` | 每文件采样行数（默认 100） |
+| `--sample-values N` | 每列采样值数量（默认 100） |
 
 ### provider
 

@@ -14,7 +14,7 @@ from app.cli.shell.formatter import Formatter
 from app.shared.services.ai.chat_orchestrator import AIChatOrchestrator, ChatOptions
 from app.shared.services.llm.providers.base import resolve_context_window
 
-from .display import _display_execution_results
+from .display import _display_execution_results, _display_tool_trail
 from .executor_utils import (
     SpinnerController,
     _collect_all_config_files,
@@ -36,6 +36,7 @@ def execute_ai_chat(
     interactive: bool = False,
     history: list[dict[str, str]] | None = None,
     use_streaming: bool = True,
+    agent_mode: bool = True,
 ) -> CommandResult:
     """执行 AI 对话（统一版本）。
 
@@ -52,6 +53,7 @@ def execute_ai_chat(
         interactive: 是否为交互模式（显示 spinner、提示确认等）
         history: 对话历史记录列表，每个元素包含 role 和 content
         use_streaming: 是否使用流式输出（当前参数保留但默认由交互模式控制）
+        agent_mode: 是否启用 Agent 深度模式（默认 True），CLI 无画布时仍走 Agent 工具循环
 
     Returns:
         命令执行结果，成功时 data 包含 reply、actions 和 frontend_instructions
@@ -116,6 +118,9 @@ def execute_ai_chat(
         return_frontend_instructions=True,
         confirm_callback=confirm_actions_wrapper if interactive else None,
         ambiguity_resolver=ambiguity_resolver_wrapper if interactive else None,
+        agent_mode=agent_mode,
+        max_agent_iterations=5,
+        canvas_nodes=[],
     )
 
     try:
@@ -166,6 +171,10 @@ def execute_ai_chat(
         if interactive:
             if reply:
                 print(reply)
+
+        # 在交互模式下显示 Agent 工具轨迹（仅 Agent 模式有 tool_steps）
+        if interactive and agent_mode and result.tool_steps:
+            _display_tool_trail(result.tool_steps)
 
         # 在交互模式下显示执行结果和 diff
         if interactive and actions and project_path is not None:

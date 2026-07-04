@@ -81,6 +81,7 @@ def confirm_actions(actions: list[dict[str, Any]], reply: str) -> bool:
 
         # 通用动作描述映射
         action_desc = {
+            "ADD_TO_CANVAS": "显示到画布（只读）",
             "ADD_CONSTRAINT_NODE": "添加约束",
             "UPDATE_CONSTRAINT_NODE": "更新约束",
             "DELETE_CONSTRAINT_NODE": "删除约束",
@@ -97,7 +98,12 @@ def confirm_actions(actions: list[dict[str, Any]], reply: str) -> bool:
         }.get(action_type, action_type)
 
         # 根据动作类型提取展示信息
-        if action_type in ("ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"):
+        if action_type == "ADD_TO_CANVAS":
+            spec = action.get("canvasSpec", {})
+            resource_kind = spec.get("resourceKind", "未知")
+            resource_name = spec.get("name", spec.get("resourceId", "未知"))
+            print(f"  {i}. {action_desc}: {resource_kind} / {resource_name}")
+        elif action_type in ("ADD_CONSTRAINT_NODE", "UPDATE_CONSTRAINT_NODE", "DELETE_CONSTRAINT_NODE"):
             spec = action.get("constraintSpec", {})
             constraint_type = spec.get("type", "Unknown")
             table_name = spec.get("tableName", spec.get("targetNodeId", "未知"))

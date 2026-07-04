@@ -27,6 +27,8 @@
 from app.cli.shell.commands.ai.chat import AIChatCommand
 from app.cli.shell.commands.ai.delete import AIDeleteCommand
 from app.cli.shell.commands.ai.executor import execute_ai_chat
+from app.cli.shell.commands.ai.generate import AIGenerateCommand
+from app.cli.shell.commands.ai.migrate import AIMigrateCommand
 from app.cli.shell.commands.ai.status import AIStatusCommand
 from app.cli.shell.commands.ai.switch import AISwitchCommand
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
@@ -50,10 +52,14 @@ class AICommand(Command):
         self._switch_cmd: AISwitchCommand = AISwitchCommand()
         self._provider_cmd: ProviderCommand = ProviderCommand()
         self._delete_cmd: AIDeleteCommand = AIDeleteCommand()
+        self._generate_cmd: AIGenerateCommand = AIGenerateCommand()
+        self._migrate_cmd: AIMigrateCommand = AIMigrateCommand()
         self._cli_config = get_cli_config()
 
         # 注册子命令
         self.add_subcommand("chat", self._chat_cmd)
+        self.add_subcommand("generate", self._generate_cmd)
+        self.add_subcommand("migrate", self._migrate_cmd)
         self.add_subcommand("status", self._status_cmd)
         self.add_subcommand("switch", self._switch_cmd)
         self.add_subcommand("delete", self._delete_cmd)
@@ -65,7 +71,7 @@ class AICommand(Command):
 
     @property
     def usage(self) -> str:
-        return "ai [chat|status|switch|provider|delete|ask <message>]"
+        return "ai [chat|generate|migrate|status|switch|provider|delete|ask <message>]"
 
     @property
     def help_text(self) -> str:
@@ -73,16 +79,22 @@ class AICommand(Command):
 用法: ai [子命令] [参数]
 
 子命令:
-  chat              进入交互式 AI 对话模式
+  chat              进入交互式 AI 对话模式（默认 Agent 深度模式）
   ask <message>     直接执行 AI 指令（如: ai ask "添加非空约束到用户表的email字段"）
+  generate          从数据文件生成 Precis V2 配置
+  migrate           从旧脚本迁移生成 Precis V2 配置
   status            显示 AI 配置状态
   switch <provider> 切换默认 AI Provider
   provider          管理 AI Provider（添加/编辑/删除/测试）
   delete [provider] 删除已配置的 Provider
 
 示例:
-  ai chat                           # 进入交互式对话
+  ai chat                           # 进入交互式对话（Agent 模式）
+  ai chat --no-agent-mode           # 关闭 Agent，使用旧 JSON actions 路径
   ai ask "创建非空约束到users表的email列"   # 直接执行
+  ai generate data/users.xlsx       # 预览生成的配置
+  ai generate data/*.xlsx --apply   # 生成并写入项目
+  ai migrate scripts/legacy.sql data/users.xlsx --apply  # 迁移并写入项目
   ai status                         # 查看 AI 配置状态
   ai switch kimi                    # 切换到 Kimi
   ai provider                       # 管理 AI Provider
@@ -90,8 +102,10 @@ class AICommand(Command):
 
 说明:
   AI 助手可以帮你通过自然语言修改项目配置，包括：
-  - 添加、更新、删除约束（NOT_NULL, UNIQUE, RANGE, ALLOWED_VALUES, REGEX）
+  - 添加、更新、删除约束（NOT_NULL, UNIQUE, RANGE, ALLOWED_VALUES, REGEX 等）
   - 查看和解释当前配置
+  - 从数据文件生成完整配置
+  - 从旧脚本迁移业务规则
 
   首次使用请先运行 'ai provider' 命令添加 Provider
         """.strip()
@@ -121,6 +135,10 @@ class AICommand(Command):
             return self._chat_cmd.execute(sub_args, context)
         elif subcommand == "ask":
             return self._ask_direct(sub_args, context)
+        elif subcommand == "generate":
+            return self._generate_cmd.execute(sub_args, context)
+        elif subcommand == "migrate":
+            return self._migrate_cmd.execute(sub_args, context)
         elif subcommand == "status":
             return self._status_cmd.execute(sub_args, context)
         elif subcommand == "switch":
@@ -165,6 +183,8 @@ class AICommand(Command):
             # 创建交互式菜单
             menu = InteractiveMenu("AI 助手")
             menu.add_item("chat", "chat", "进入交互式对话模式")
+            menu.add_item("generate", "generate", "从数据文件生成配置")
+            menu.add_item("migrate", "migrate", "从旧脚本迁移配置")
             menu.add_item("status", "status", "查看 AI 配置状态")
             menu.add_item("switch", "switch", "切换 AI Provider")
             menu.add_item("provider", "provider", "管理 AI Provider")
@@ -179,6 +199,16 @@ class AICommand(Command):
                 result = self._chat_cmd.execute([], context)
                 if result.should_exit:
                     return result
+            elif choice == "generate":
+                result = self._generate_cmd.execute([], context)
+                if result.should_exit:
+                    return result
+                input(Formatter.info("\n按回车键返回菜单..."))
+            elif choice == "migrate":
+                result = self._migrate_cmd.execute([], context)
+                if result.should_exit:
+                    return result
+                input(Formatter.info("\n按回车键返回菜单..."))
             elif choice == "status":
                 result = self._status_cmd.execute([], context)
                 print(result.message)

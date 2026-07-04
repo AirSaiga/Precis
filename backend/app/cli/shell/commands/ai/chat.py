@@ -66,7 +66,7 @@ class AIChatCommand(Command):
 
     @property
     def usage(self) -> str:
-        return "ai chat [--stream | --no-stream]"
+        return "ai chat [--stream | --no-stream] [--no-agent-mode]"
 
     def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行 AI 交互式对话命令。
@@ -90,12 +90,15 @@ class AIChatCommand(Command):
 
         # 解析命令行参数
         use_streaming = False  # 默认禁用流式输出，显示 loading spinner
+        agent_mode = True  # 默认启用 Agent 深度模式
         filtered_args = []
         for arg in args:
             if arg == "--stream":
                 use_streaming = True
             elif arg == "--no-stream":
                 use_streaming = False
+            elif arg == "--no-agent-mode":
+                agent_mode = False
             else:
                 filtered_args.append(arg)
 
@@ -115,6 +118,7 @@ class AIChatCommand(Command):
         print(Formatter.info(f"项目: {project_name}"))
         print(Formatter.info(f"Provider: {provider.name}"))
         print(Formatter.info(f"Model: {provider.model}"))
+        print(Formatter.info(f"Agent 模式: {'开启' if agent_mode else '关闭'}"))
         print(Formatter.info(f"流式输出: {'开启' if use_streaming else '关闭'}"))
         print(Formatter.info(f"上下文限制: {self._context_window:,} tokens"))
         print(Formatter.info("\n提示: 输入 'exit' 或 'quit' 退出对话，'help' 查看帮助，'clear' 清空历史"))
@@ -195,6 +199,7 @@ class AIChatCommand(Command):
                     interactive=True,
                     history=chat_history,
                     use_streaming=use_streaming,
+                    agent_mode=agent_mode,
                 )
 
                 if result.success and result.data:
@@ -244,8 +249,9 @@ AI 助手帮助
   qq           - 直接退出整个程序（全局可用）
 
 启动选项:
-  --stream     - 启用流式输出
-  --no-stream  - 禁用流式输出（默认，显示 loading spinner）
+    --stream         - 启用流式输出
+    --no-stream      - 禁用流式输出（默认，显示 loading spinner）
+    --no-agent-mode  - 关闭 Agent 深度模式（降级为旧 JSON actions 路径）
 
 你可以用自然语言描述你的需求，例如:
   - "在 users 表的 email 列上添加非空约束"

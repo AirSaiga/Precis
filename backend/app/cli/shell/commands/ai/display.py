@@ -33,6 +33,43 @@ from .diff import _generate_diff
 logger = logging.getLogger(__name__)
 
 
+# 工具名到中文标签的映射（与 ChatAgentRunner._TOOL_LABELS 保持一致）
+_TOOL_LABELS = {
+    "read_project": "读取项目",
+    "read_table": "查看数据",
+    "apply_actions": "修改配置",
+    "validate_table": "校验数据",
+    "read_canvas": "读取画布",
+}
+
+
+def _display_tool_trail(tool_steps: list[dict]) -> None:
+    """显示 Agent 工具调用轨迹。
+
+    在 CLI 交互模式下，当 AI 使用 Agent 工具循环完成查-改-验后，
+    输出简要的工具步骤摘要，让用户感知 AI 的思考与操作路径。
+
+    Args:
+        tool_steps: ChatAgentRunResult.tool_steps 列表，每个元素含 tool/label/turn/action_count/status
+    """
+    if not tool_steps:
+        return
+
+    print(Formatter.header("\n🔧 Agent 工具轨迹"))
+    for step in tool_steps:
+        label = step.get("label") or _TOOL_LABELS.get(step.get("tool", ""), step.get("tool", "未知"))
+        action_count = step.get("action_count")
+        status = step.get("status", "success")
+        error = step.get("error")
+
+        count_str = f"({action_count})" if action_count else ""
+        status_marker = "✓" if status == "success" else "✗" if status == "failed" else "•"
+        line = f"  {status_marker} {label}{count_str}"
+        if error:
+            line += f" — {error}"
+        print(Formatter.info(line))
+
+
 def _show_diff_summary(changed_files: dict[str, tuple[str, str]]) -> bool:
     """显示修改文件的 diff 摘要，并询问用户是否查看详细 diff。
 
