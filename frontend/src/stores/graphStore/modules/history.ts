@@ -32,15 +32,15 @@ interface HistorySnapshot {
  * 到 nodes.value 仍引用的同一活跃对象，造成未声明的副作用。
  */
 function deepToRaw<T>(arr: T[]): T[] {
-  return arr.map((item) => {
+  return arr.map((item): T => {
     if (item === null || typeof item !== 'object') return item
     const raw = toRaw(item) as Record<string, unknown>
     if (raw && typeof raw.data === 'object' && raw.data !== null) {
       // 返回新对象,避免就地 mutate 活跃的 reactive target
       // (toRaw 返回的是 proxy 的底层对象,直接赋值会穿透到原始引用)
-      return { ...raw, data: toRaw(raw.data as object) }
+      return { ...raw, data: toRaw(raw.data as object) } as T
     }
-    return raw
+    return raw as T
   })
 }
 
