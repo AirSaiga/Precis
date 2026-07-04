@@ -20,6 +20,25 @@ interface HistorySnapshot {
 }
 
 /**
+ * 递归剥离 Vue reactive proxy：toRaw 只解包最外层，嵌套对象仍是 proxy，
+ * 直接 structuredClone 会抛 DataCloneError。必须逐元素解包。
+ *
+ * 仅处理 node/edge 结构中常见的 `data` 嵌套字段（Vue Flow 富化后会使其成为深层 proxy）。
+ * 这里就地替换 raw.data 为 toRaw(data)，返回的元素是脱离 proxy 的原始对象。
+ */
+function deepToRaw<T>(arr: T[]): T[] {
+  return arr.map((item) => {
+    if (item === null || typeof item !== 'object') return item
+    const raw = toRaw(item)
+    const node = raw as unknown as { data?: unknown }
+    if (node && typeof node.data === 'object' && node.data !== null) {
+      ;(node as { data: unknown }).data = toRaw(node.data as object)
+    }
+    return raw
+  })
+}
+
+/**
  * @description 创建画布历史记录管理模块
  * @param {Object} params - 依赖注入参数对象
  * @param {Ref<CustomNode[]>} params.nodes - 画布节点列表的响应式引用
@@ -31,7 +50,7 @@ export function createHistoryModule(params: {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>
   maxHistoryLength?: number
-  reconcileAll?: () => void
+  reconcileAll?: () => void | Promise<void>
 }) {
   const { nodes, edges, reconcileAll } = params
   // 若未传入最大历史长度，默认保留 50 条记录
@@ -43,7 +62,10 @@ export function createHistoryModule(params: {
   const redoStack = shallowRef<HistorySnapshot[]>([])
 
   function cloneCurrent(): HistorySnapshot {
-    return structuredClone({ nodes: toRaw(nodes.value), edges: toRaw(edges.value) })
+    return structuredClone({
+      nodes: deepToRaw(toRaw(nodes.value)),
+      edges: deepToRaw(toRaw(edges.value)),
+    })
   }
 
   /**
@@ -88,8 +110,11 @@ export function createHistoryModule(params: {
     undoStack.value = undoStack.value.slice(0, -1)
 
     if (!previousState) return
-    nodes.value = previousState.nodes
-    edges.value = previousState.edges
+    // 深克隆恢复源快照，避免后续对 nodes.value 的就地修改（如 Object.assign(node.data, ...)）
+    // 回写污染历史栈中仍可能被引用的同一快照对象。
+    const restored = structuredClone(previousState)
+    nodes.value = restored.nodes
+    edges.value = restored.edges
 
     if (reconcileAll) {
       await nextTick()
@@ -118,8 +143,10 @@ export function createHistoryModule(params: {
     redoStack.value = redoStack.value.slice(0, -1)
 
     if (!nextState) return
-    nodes.value = nextState.nodes
-    edges.value = nextState.edges
+    // 深克隆恢复源快照，避免后续对 nodes.value 的就地修改回写污染重做栈中的同一快照对象。
+    const restored = structuredClone(nextState)
+    nodes.value = restored.nodes
+    edges.value = restored.edges
 
     if (reconcileAll) {
       await nextTick()
