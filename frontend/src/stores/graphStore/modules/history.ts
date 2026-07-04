@@ -23,16 +23,22 @@ interface HistorySnapshot {
  * 递归剥离 Vue reactive proxy：toRaw 只解包最外层，嵌套对象仍是 proxy，
  * 直接 structuredClone 会抛 DataCloneError。必须逐元素解包。
  *
- * 仅处理 node/edge 结构中常见的 `data` 嵌套字段（Vue Flow 富化后会使其成为深层 proxy）。
- * 这里就地替换 raw.data 为 toRaw(data)，返回的元素是脱离 proxy 的原始对象。
+ * 仅处理 node/edge 结构中常见的 `data` 嵌套字段（Vue Flow 富化后会使其成为深层 proxy），
+ * 其中 edge.data 用于存放瞬时标记（如 selected/拖拽态），同样由本逻辑覆盖。
+ *
+ * 该函数是**纯函数**：对于含 `data` 字段的元素会返回一个**新对象**
+ * （`{ ...raw, data: toRaw(raw.data) }`），不就地修改源元素。
+ * 这很关键——因为 toRaw 返回的是 proxy 的底层 target，直接对其赋值会穿透回写
+ * 到 nodes.value 仍引用的同一活跃对象，造成未声明的副作用。
  */
 function deepToRaw<T>(arr: T[]): T[] {
   return arr.map((item) => {
     if (item === null || typeof item !== 'object') return item
-    const raw = toRaw(item)
-    const node = raw as unknown as { data?: unknown }
-    if (node && typeof node.data === 'object' && node.data !== null) {
-      ;(node as { data: unknown }).data = toRaw(node.data as object)
+    const raw = toRaw(item) as Record<string, unknown>
+    if (raw && typeof raw.data === 'object' && raw.data !== null) {
+      // 返回新对象,避免就地 mutate 活跃的 reactive target
+      // (toRaw 返回的是 proxy 的底层对象,直接赋值会穿透到原始引用)
+      return { ...raw, data: toRaw(raw.data as object) }
     }
     return raw
   })
