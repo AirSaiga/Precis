@@ -22,7 +22,6 @@ import { eventBus } from '@/core/eventBus'
 import { useGraphStore } from '@/stores/graphStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import i18n from '@/i18n'
-import type { Edge } from '@vue-flow/core'
 import type { DataType } from '@/types/graph'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 // 模块顶层调用 composable，避免在 class 方法体内调用（违反 Vue composable 规范）。
@@ -128,6 +127,7 @@ export class NodeDeletionManager {
   }
 
   private async deleteSchemaNode(nodeId: string): Promise<void> {
+    // 清理 sourcePreview 的 sourceNodeId 反向引用（保留原逻辑，与级联删除无关）
     const connectedSources = this.graphStore.edges
       .filter((edge) => edge.target === nodeId && edge.targetHandle === undefined)
       .map((edge) => edge.source)
@@ -145,12 +145,20 @@ export class NodeDeletionManager {
       }
     })
 
-    const constraintNodes = this.graphStore.nodes.filter((n) => n.type === 'constraint')
-    for (const constraintNode of constraintNodes) {
-      const constraintData = constraintNode.data as unknown as ConstraintData
-      if (constraintData.schemaNodeId === nodeId) {
-        await this.graphStore.deleteNode(constraintNode.id)
-      }
+    // 收集所有指向该 schema 的 constraint 子节点 ID，一次性批量删除。
+    // 逐个 deleteNode 会各自触发 removeEdges/removeNodes + 一次 nextTick(reconcileAll)，
+    // 产生多次中间不一致状态，并重复 collectCascadeNodeIds 已覆盖的级联收集逻辑；
+    // deleteNodes 单次收集所有级联 ID 并在末尾只 reconcile 一次。
+    const childConstraintIds = this.graphStore.nodes
+      .filter((n) => {
+        if (n.type !== 'constraint') return false
+        const constraintData = n.data as unknown as ConstraintData
+        return constraintData.schemaNodeId === nodeId
+      })
+      .map((n) => n.id)
+
+    if (childConstraintIds.length > 0) {
+      await this.graphStore.deleteNodes(childConstraintIds)
     }
   }
 
@@ -174,14 +182,14 @@ export class NodeDeletionManager {
     if (!transformNode) return
 
     const transformData = transformNode.data as { outputNodeIds?: string[] }
-    const outputNodeIds = transformData.outputNodeIds || []
+    // 只收集仍存在于画布上的 transformOutput 子节点，一次性批量删除，
+    // 避免逐个 deleteNode 触发多次 reconcileAll 与中间不一致状态（同 deleteSchemaNode）。
+    const outputNodeIds = (transformData.outputNodeIds || []).filter((id) =>
+      this.graphStore.nodes.some((n) => n.id === id)
+    )
 
-    // 级联删除绑定的 transformOutput 子节点
-    for (const outputId of outputNodeIds) {
-      const outputNode = this.graphStore.nodes.find((n) => n.id === outputId)
-      if (outputNode) {
-        await this.graphStore.deleteNode(outputId)
-      }
+    if (outputNodeIds.length > 0) {
+      await this.graphStore.deleteNodes(outputNodeIds)
     }
   }
 
@@ -189,22 +197,12 @@ export class NodeDeletionManager {
     const regexNode = this.graphStore.nodes.find((n) => n.id === nodeId)
     if (!regexNode) return
 
-    // 清理父 Schema 节点的 children 引用（通过 incoming edge 查找）
-    const incomingEdge = this.graphStore.edges.find(
-      (e: Edge) => e.target === nodeId && (e.targetHandle === 'regex-input' || !e.targetHandle)
-    )
-    const sourceNodeId = incomingEdge?.source as string | undefined
-    if (sourceNodeId) {
-      const schemaNode = this.graphStore.nodes.find((n) => n.id === sourceNodeId)
-      if (schemaNode?.type === 'schema') {
-        const schemaData = schemaNode.data as SchemaData
-        const updatedChildren = (schemaData.children || []).filter((id) => id !== nodeId)
-        this.graphStore.updateNodeData(sourceNodeId, {
-          ...schemaData,
-          children: updatedChildren,
-        })
-      }
-    }
+    // 不再手动维护父 schema.children ——
+    // regex 节点删除时，其入边会被 deleteNodes/deleteNode 内部的 removeEdges 清理，
+    // 进而触发 syncOnDisconnect 自动维护父 schema 的 children/parent 关系。
+    // 手动维护与 syncOnDisconnect 重复，会导致 transient 不一致（两套写入竞争同一字段）。
+    //
+    // 保留方法骨架以供未来 regex 特有的反向引用清理扩展。
   }
 
   private async deleteConstraintNode(nodeId: string): Promise<void> {

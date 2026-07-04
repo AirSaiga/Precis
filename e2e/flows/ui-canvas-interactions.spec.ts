@@ -239,6 +239,37 @@ test.describe('画布真实 UI 交互', () => {
     await expect(constraintNode.first()).toBeVisible({ timeout: 15000 })
   })
 
+  test('删除 schema 节点时级联删除其关联 constraint 子节点', async ({ projectPage }) => {
+    const page = projectPage
+    await expandSchemasFolder(page, 'users')
+    // “全部导入”：连带创建引用 users 的独立约束节点，使 schema↔constraint 存在关联关系
+    // （deleteSchemaNode 依据 constraintData.schemaNodeId 级联删除）。
+    await dragSchemaToCanvas(page, 'users', 'importAll')
+
+    // 等待约束节点异步创建完成
+    const constraintLocator = page.locator('[class*="vue-flow__node-"][class*="Constraint"]')
+    await expect(constraintLocator.first()).toBeVisible({ timeout: 15000 })
+    const constraintCountBefore = await constraintLocator.count()
+    expect(constraintCountBefore).toBeGreaterThan(0)
+
+    // 记录删除前的 schema 节点，便于删除后断言其消失
+    const schemaNode = page.locator('.vue-flow__node-schema').first()
+    await expect(schemaNode).toBeVisible({ timeout: 10000 })
+
+    // 点击 schema 节点头部的关闭按钮（×）触发 NodeDeletionManager.delete，
+    // 对 schema 策略会一次性 deleteNodes 其关联 constraint 子节点，再删除 schema 自身。
+    // 刚导入的 schema 无未保存草稿（saveState !== 'draft'），故不会弹出关闭确认框。
+    await schemaNode.locator('.close-btn').click()
+
+    // 断言终态（本次重构是 behavior-preserving，终态应与重构前一致）：
+    // 1. schema 节点已从画布移除
+    await expect(schemaNode).toHaveCount(0)
+    // 2. 其关联 constraint 子节点被级联删除（不再有 Constraint 类节点）
+    await expect(constraintLocator).toHaveCount(0)
+    // 3. 无孤立边残留（删节点时其相关边已被 removeEdges 清理）
+    await expect(page.locator('.vue-flow__edge')).toHaveCount(0)
+  })
+
   test('拖拽 Schema 选择“全部导入”会连带创建独立约束', async ({ projectPage }) => {
     const page = projectPage
     await expandSchemasFolder(page, 'users')
