@@ -479,15 +479,23 @@ export function useJsonSchemaInteractions(
    * 检测从 JsonSourcePreview 到当前节点的连接
    */
   const watchSourceConnection = () => {
+    // 记录上次处理过的 sourceNodeId，避免回调内重复写入相同值导致死循环
+    // （Maximum recursive updates exceeded：edges deep watch 回调里调 updateNodeData
+    //  会触发 Vue Flow 内部状态更新，再次触发本 watcher）
+    let lastSourceNodeId: string | undefined = undefined
     const stop = watch(
       () => store.edges,
       (edges) => {
         const sourceEdge = edges.find(
           (edge) => edge.target === props.id && edge.targetHandle === 'target-left'
         )
-        if (sourceEdge) {
+        const currentSourceId = sourceEdge?.source
+        // 幂等：仅当 sourceNodeId 实际变化时才写入，避免无谓 updateNodeData 触发循环
+        if (sourceEdge && currentSourceId !== lastSourceNodeId) {
+          lastSourceNodeId = currentSourceId
           handleSourceConnect(sourceEdge.source)
-        } else if (props.data.sourceNodeId) {
+        } else if (!sourceEdge && props.data.sourceNodeId && lastSourceNodeId !== undefined) {
+          lastSourceNodeId = undefined
           store.updateNodeData(props.id, {
             ...props.data,
             sourceNodeId: undefined,
