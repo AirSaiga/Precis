@@ -698,3 +698,19 @@ def test_agent_system_prompt_contains_constraint_params_table():
     # Charset/Composite 必须出现在参数表中（H-LLM3 一致性）
     assert "Charset" in CHAT_AGENT_SYSTEM_PROMPT
     assert "Composite" in CHAT_AGENT_SYSTEM_PROMPT
+
+
+def test_agent_system_prompt_contains_intent_guardrails():
+    """H-LLM2: agent 模式系统提示词必须包含防止越界修改的强约束。"""
+    from app.shared.services.ai.chat_agent_runner import CHAT_AGENT_SYSTEM_PROMPT
+
+    # 关键 guardrails：只改用户明确要求、不创建无关约束、不照搬示例参数
+    assert "只改用户明确要求的资源" in CHAT_AGENT_SYSTEM_PROMPT
+    assert "一次只做一个明确修改" in CHAT_AGENT_SYSTEM_PROMPT
+    assert "禁止照搬示例参数" in CHAT_AGENT_SYSTEM_PROMPT
+    assert '不要把"拖到画布"误用为 ADD_SCHEMA' in CHAT_AGENT_SYSTEM_PROMPT
+    # 明确包含 email 格式校验示例，防止 LLM 混淆
+    assert "为 email 添加格式校验" in CHAT_AGENT_SYSTEM_PROMPT
+    # P2-1：必须包含 intent_scope 填写引导，让 LLM 自报意图范围
+    assert "intent_scope" in CHAT_AGENT_SYSTEM_PROMPT
+    assert "写动作必填" in CHAT_AGENT_SYSTEM_PROMPT

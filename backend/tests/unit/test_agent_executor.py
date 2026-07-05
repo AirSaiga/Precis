@@ -311,3 +311,241 @@ async def test_agent_tool_failure():
     assert result.success is True
     assert result.content == "Recovered"
     assert result.turns[0].tool_results[0].success is False
+    # 失败原因必须回灌给 LLM（否则 LLM 看到空 tool 回复无法自我修正）
+    assert result.turns[0].tool_results[0].error == "工具执行异常: boom"
+    # 第二轮请求的 messages 里应含一条 tool 消息，且 content 包含 [ERROR] 前缀和原异常信息
+    tool_msgs = [m for m in (provider.last_messages or []) if m.role == "tool"]
+    assert tool_msgs, "失败工具的 observation 应作为 tool 消息回灌给 LLM"
+    assert "[ERROR]" in (tool_msgs[-1].content or "")
+    assert "boom" in (tool_msgs[-1].content or "")
+
+
+@pytest.mark.asyncio
+async def test_unknown_tool_error_visible_to_llm():
+    """LLM 调用了未注册的工具 → '未知工具' 错误也必须回灌给 LLM。"""
+    registry = ToolRegistry()  # 空注册表，任何工具名都算未知
+
+    provider = FakeProvider(
+        responses=[
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_x",
+                        "type": "function",
+                        "function": {"name": "ghost_tool", "arguments": "{}"},
+                    }
+                ],
+            },
+            {"content": "给用户一个友好的回复"},
+        ]
+    )
+
+    executor = AgentExecutor(provider=provider, registry=registry, max_iterations=3)
+    result = await executor.run("test task")
+
+    assert result.success is True
+    # 未知工具错误进 messages，LLM 第二轮能看到失败原因
+    tool_msgs = [m for m in (provider.last_messages or []) if m.role == "tool"]
+    assert tool_msgs
+    assert "未知工具" in (tool_msgs[-1].content or "")
+    assert "ghost_tool" in (tool_msgs[-1].content or "")
+
+
+@pytest.mark.asyncio
+async def test_business_error_in_dict_reaches_llm():
+    """工具返回 {"success": False, "error": "..."} 形式的业务错误时，error 字段应回灌给 LLM。
+
+    模拟 apply_actions 预验证失败的返回形态：工具执行本身没抛异常，但业务逻辑
+    判定失败并返回结构化错误（如"列不存在，did you mean xxx"）。这类错误此前同样
+    被 executor 的 observation="" 逻辑吞掉，did-you-mean 建议无法传达 LLM。
+    """
+    registry = ToolRegistry()
+    # 模拟 apply_actions 预验证失败的 handler：返回 dict 形式的业务错误
+    registry.register(
+        name="apply_actions",
+        description="模拟 apply_actions",
+        parameters={"type": "object", "properties": {}},
+        handler=lambda args: {
+            "success": False,
+            "error": "列 'emial' 不存在，did you mean: email",
+            "results": [],
+        },
+    )
+
+    provider = FakeProvider(
+        responses=[
+            {
+                "content": "",
+                "tool_calls": [
+                    {
+                        "id": "call_1",
+                        "type": "function",
+                        "function": {"name": "apply_actions", "arguments": "{}"},
+                    }
+                ],
+            },
+            {"content": "已为你修正为 email 列"},
+        ]
+    )
+
+    executor = AgentExecutor(provider=provider, registry=registry, max_iterations=3)
+    result = await executor.run("为 emial 加非空约束")
+
+    assert result.success is True
+    # 业务错误（含 did-you-mean 建议）必须能被下一轮 LLM 看到，驱动自我修正
+    tool_msgs = [m for m in (provider.last_messages or []) if m.role == "tool"]
+    assert tool_msgs
+    content = tool_msgs[-1].content or ""
+    assert "[ERROR]" in content
+    assert "did you mean" in content
+    assert "email" in content
+
+
+# =============================================================================
+# P1-2 循环收敛引导测试
+# =============================================================================
+
+
+class _RecordingProvider(FakeProvider):
+    """记录每次 chat_stream 调用时的 messages，用于验证 reminder 注入时机。"""
+
+    def __init__(self, responses):
+        super().__init__(responses)
+        self.all_messages: list[list] = []
+
+    async def chat_stream(self, req: ChatRequest) -> AsyncIterator[StreamChunk]:
+        # 记录本轮 LLM 收到的 messages 快照
+        self.all_messages.append(list(req.messages))
+        async for chunk in super().chat_stream(req):
+            yield chunk
+
+
+@pytest.mark.asyncio
+async def test_convergence_reminder_injected_at_last_turn():
+    """达到 max_iterations 时注入收敛 reminder，提示 LLM 不再调工具。
+
+    构造 max_iterations=2，LLM 两轮都调工具（不收敛）。第 2 轮（最后一轮）的
+    请求 messages 中应含收敛 reminder。
+    """
+    registry = ToolRegistry()
+    registry.register(
+        name="noop",
+        description="Noop",
+        parameters={"type": "object", "properties": {}},
+        handler=lambda args: {"success": True},
+    )
+
+    provider = _RecordingProvider(
+        responses=[
+            {
+                "content": "",
+                "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "noop", "arguments": "{}"}}],
+            },
+            {
+                "content": "",
+                "tool_calls": [{"id": "c2", "type": "function", "function": {"name": "noop", "arguments": "{}"}}],
+            },
+        ]
+    )
+
+    executor = AgentExecutor(provider=provider, registry=registry, max_iterations=2)
+    await executor.run("test")
+
+    # 至少调用了 2 轮（第 2 轮是最后一轮）
+    assert len(provider.all_messages) >= 2
+    last_turn_messages = provider.all_messages[-1]
+    # 最后一轮的 messages 中应含收敛 reminder（在最后一条 user 消息里）
+    reminder_texts = [
+        (m.content or "") for m in last_turn_messages if m.role == "user" and "工具调用预算" in (m.content or "")
+    ]
+    assert reminder_texts, "最后一轮应注入收敛 reminder，提示 LLM 不再调工具"
+
+
+@pytest.mark.asyncio
+async def test_repeated_tool_call_triggers_warning():
+    """连续两轮调用同一工具同一参数 → 第二轮请求前注入重复调用 warning。
+
+    第 1 轮记录签名，第 1 轮 tool_calls 确定后注入 warning（供第 2 轮 LLM 看到）。
+    所以第 2 轮的请求 messages 中应含 warning。
+    """
+    registry = ToolRegistry()
+    registry.register(
+        name="query",
+        description="Query",
+        parameters={"type": "object", "properties": {}},
+        handler=lambda args: {"success": True, "data": "ok"},
+    )
+
+    provider = _RecordingProvider(
+        responses=[
+            {
+                "content": "",
+                "tool_calls": [
+                    {"id": "c1", "type": "function", "function": {"name": "query", "arguments": '{"q":"x"}'}}
+                ],
+            },
+            {
+                "content": "",
+                "tool_calls": [
+                    {"id": "c2", "type": "function", "function": {"name": "query", "arguments": '{"q":"x"}'}}
+                ],
+            },
+            {"content": "完成"},
+        ]
+    )
+
+    executor = AgentExecutor(provider=provider, registry=registry, max_iterations=3)
+    await executor.run("test")
+
+    # 第 1 轮记录签名（_prev_tool_signatures 初始为空，不命中）；
+    # 第 2 轮 tool_calls 确定后命中重复 → 注入 warning，供第 3 轮 LLM 看到。
+    assert len(provider.all_messages) >= 3, "重复检测需至少 3 轮才能验证 warning 可见性"
+    third_turn_messages = provider.all_messages[2]
+    warning_texts = [
+        (m.content or "") for m in third_turn_messages if m.role == "user" and "已经调用过" in (m.content or "")
+    ]
+    assert warning_texts, "第三轮应看到上一轮注入的重复调用 warning"
+    # warning 应提到重复的工具名
+    assert "query" in warning_texts[0]
+
+
+@pytest.mark.asyncio
+async def test_different_args_no_false_warning():
+    """连续两轮调同一工具但参数不同 → 不触发重复调用 warning。"""
+    registry = ToolRegistry()
+    registry.register(
+        name="query",
+        description="Query",
+        parameters={"type": "object", "properties": {}},
+        handler=lambda args: {"success": True, "data": "ok"},
+    )
+
+    provider = _RecordingProvider(
+        responses=[
+            {
+                "content": "",
+                "tool_calls": [
+                    {"id": "c1", "type": "function", "function": {"name": "query", "arguments": '{"q":"a"}'}}
+                ],
+            },
+            {
+                "content": "",
+                "tool_calls": [
+                    {"id": "c2", "type": "function", "function": {"name": "query", "arguments": '{"q":"b"}'}}
+                ],
+            },
+            {"content": "完成"},
+        ]
+    )
+
+    executor = AgentExecutor(provider=provider, registry=registry, max_iterations=3)
+    await executor.run("test")
+
+    # 第 2 轮参数不同 → 签名不同 → 不命中 → 第 3 轮 messages 不含重复 warning
+    assert len(provider.all_messages) >= 3
+    third_turn_messages = provider.all_messages[2]
+    warning_texts = [
+        (m.content or "") for m in third_turn_messages if m.role == "user" and "已经调用过" in (m.content or "")
+    ]
+    assert not warning_texts, "不同参数的调用不应触发重复 warning"

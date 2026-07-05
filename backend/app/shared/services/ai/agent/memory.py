@@ -79,6 +79,23 @@ class AgentMemory:
             }
         )
 
+    def add_system_reminder(self, content: str) -> None:
+        """注入一条系统级提醒消息（用 user role，带 _is_reminder 标记）。
+
+        为什么不用 role="system"：get_messages 会跳过所有 role=="system" 的非首条消息，
+        导致 reminder 被丢弃。用 user role 可确保它进入 LLM 的上下文。
+
+        用途（P1-2 收敛引导）：
+        - 接近 max_iterations 时提醒 LLM 直接回复、停止调工具
+        - 检测到跨轮重复调用同一工具同参数时提醒 LLM 使用已有结果
+
+        参数:
+            content: 提醒文本
+        """
+        if not content:
+            return
+        self._messages.append({"role": "user", "content": self._truncate(content), "_is_reminder": True})
+
     def add_turn(self, turn: AgentTurn) -> None:
         """记录完整 turn。"""
         self._turns.append(turn)

@@ -20,19 +20,6 @@
   min-width: 0;
 }
 
-.json-icon {
-  font-family: var(--node-mono-family);
-  font-size: var(--ui-font-size-md);
-  font-weight: 700;
-  color: var(--node-theme-primary);
-  background: var(--ui-bg-accent);
-  padding: 2px 6px;
-  border-radius: var(--node-radius-sm);
-  border: 1px solid var(--ui-accent-light);
-  flex-shrink: 0;
-  user-select: none;
-}
-
 .title-input-container {
   flex: 1;
   min-width: 0;

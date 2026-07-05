@@ -12,6 +12,7 @@
  */
 
 import type { DataType } from '@/types/graph'
+import { toRaw } from 'vue'
 
 /**
  * 数据类型：前端 → 后端
@@ -170,6 +171,47 @@ export function generateId(prefix: string = 'id'): string {
  */
 export function deepClone<T>(obj: T): T {
   return structuredClone(obj)
+}
+
+/**
+ * 递归剥离 Vue reactive / readonly proxy。
+ *
+ * `toRaw` 只能解包最外层代理，嵌套对象仍可能是 proxy；本函数逐层递归解包，
+ * 避免 `structuredClone` 抛出 DataCloneError。
+ *
+ * 对于 structuredClone 支持的内置对象（Date、RegExp、Map、Set、ArrayBuffer 等）
+ * 保持原样返回，不做递归展开。
+ *
+ * @param value - 可能包含 Vue proxy 的值
+ * @returns 完全解包后的纯对象
+ */
+export function deepToRaw<T>(value: T): T {
+  if (value === null || typeof value !== 'object') {
+    return value
+  }
+
+  const raw = toRaw(value as object)
+
+  if (
+    raw instanceof Date ||
+    raw instanceof RegExp ||
+    raw instanceof Map ||
+    raw instanceof Set ||
+    raw instanceof ArrayBuffer ||
+    ArrayBuffer.isView(raw)
+  ) {
+    return raw as T
+  }
+
+  if (Array.isArray(raw)) {
+    return raw.map(deepToRaw) as T
+  }
+
+  const result: Record<string, unknown> = {}
+  for (const key of Object.keys(raw)) {
+    result[key] = deepToRaw((raw as Record<string, unknown>)[key])
+  }
+  return result as T
 }
 
 /**

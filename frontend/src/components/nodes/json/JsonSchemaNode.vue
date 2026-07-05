@@ -105,7 +105,6 @@
     <!-- 头部 -->
     <div class="node-header">
       <div class="header-left">
-        <span class="json-icon">{ }</span>
         <span class="table-name">{{ data.tableName || 'JSON' }}</span>
         <span v-if="data.sourceFile" class="source-tag">{{ data.sourceFile }}</span>
       </div>

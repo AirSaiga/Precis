@@ -46,7 +46,13 @@
   color: var(--ui-text-tertiary);
 }
 
-.trash-button {
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--ui-space-xs);
+}
+
+.header-action-button {
   width: 32px;
   height: 32px;
   display: flex;
@@ -60,12 +66,12 @@
   transition: all 0.2s ease;
 }
 
-.trash-button:hover:not(:disabled) {
+.header-action-button:hover:not(:disabled) {
   background-color: var(--ui-bg-hover);
   color: var(--ui-text-secondary);
 }
 
-.trash-button:disabled {
+.header-action-button:disabled {
   opacity: 0.3;
   cursor: not-allowed;
 }

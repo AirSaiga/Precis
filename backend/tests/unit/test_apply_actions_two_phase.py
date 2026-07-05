@@ -677,3 +677,309 @@ class TestReadOnlyBypass:
 
         assert result["success"] is False
         assert "boom" in result["error"]
+
+
+# =============================================================================
+# 意图范围校验测试（防止 LLM 越界修改）
+# =============================================================================
+
+
+def make_test_workspace_with_email_and_age(tmp_path) -> str:
+    """创建含 users 表（email、age 两列）的临时项目目录。"""
+    ws = tmp_path / "project"
+    ws.mkdir()
+    (ws / "project.precis.yaml").write_text(
+        "version: 2\nproject:\n  id: test\n  name: Test\nschemas: []\n", encoding="utf-8"
+    )
+    schemas_dir = ws / "schemas"
+    schemas_dir.mkdir()
+    (schemas_dir / "users.schema.yaml").write_text(
+        "id: sc_users\nname: users\ncolumns:\n"
+        "  - id: col_email\n    name: email\n    type: string\n"
+        "  - id: col_age\n    name: age\n    type: integer\n",
+        encoding="utf-8",
+    )
+    return str(ws)
+
+
+class TestIntentScopeGuard:
+    """意图范围校验（P2-1）：基于 LLM 自填的 intent_scope 做一致性比对。
+
+    改造前用 user_message 子串匹配列/表名（中文场景失效、通用词误判）；
+    P2-1 改为 LLM 在 tool 参数里自报 intent_scope，后端做确定性比对。
+    """
+
+    @pytest.mark.asyncio
+    async def test_rejects_unrelated_column_action(self, tmp_path):
+        """intent_scope 声明 email，却混入 age 的约束 -> 意图校验拒绝。"""
+        ws = make_test_workspace_with_email_and_age(tmp_path)
+        tool = ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=[],
+            dry_run_enabled=False,
+        )
+
+        email_action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Scripted",
+                "tableName": "users",
+                "targetColumn": "email",
+                "isInline": True,
+                "params": {"pattern": r"^[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}$"},
+            },
+        }
+        age_action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Range",
+                "tableName": "users",
+                "targetColumn": "age",
+                "isInline": True,
+                "params": {"min": 0, "max": 100},
+            },
+        }
+        # LLM 自报 scope 只含 email 列
+        intent_scope = {"tables": ["users"], "columns": [{"table": "users", "column": "email"}]}
+
+        with patch(PATCH_PROC) as mock_proc:
+            result = await tool.run({"actions": [email_action, age_action], "intent_scope": intent_scope})
+
+        assert result["success"] is False
+        assert "超出用户请求范围" in result.get("error", "")
+        assert "age" in result.get("error", "")
+        # 关键：越界动作不得触达 process_actions
+        mock_proc.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_allows_related_column_action(self, tmp_path):
+        """intent_scope 声明 email，只有 email 动作 -> 通过意图校验（继续走后续确认门）。"""
+        ws = make_test_workspace_with_email_and_age(tmp_path)
+        tool = ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=[],
+            dry_run_enabled=False,
+        )
+
+        email_action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Scripted",
+                "tableName": "users",
+                "targetColumn": "email",
+                "isInline": True,
+                "params": {"pattern": r"^[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}$"},
+            },
+        }
+        intent_scope = {"tables": ["users"], "columns": [{"table": "users", "column": "email"}]}
+
+        with patch(PATCH_PROC) as mock_proc:
+            result = await tool.run({"actions": [email_action], "intent_scope": intent_scope})
+
+        # 意图校验通过，但无确认环境仍对写操作 fail-closed
+        assert "超出用户请求范围" not in result.get("error", "")
+        assert result["success"] is False
+        assert "不支持自动写盘" in result.get("error", "")
+        mock_proc.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_readonly_actions_not_blocked_by_intent_guard(self, tmp_path):
+        """意图校验只阻断写动作；只读动作（VALIDATE_PROJECT）不因此被拦。"""
+        ws = make_test_workspace_with_email_and_age(tmp_path)
+        tool = ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=[],
+            dry_run_enabled=False,
+        )
+
+        validate_action = {"actionType": "VALIDATE_PROJECT", "constraintSpec": {}}
+        # 即便 intent_scope 很窄（只含 email），只读动作也不受 scope 限制
+        intent_scope = {"columns": [{"table": "users", "column": "email"}]}
+        with patch(PATCH_PROC) as mock_proc:
+            mock_proc.return_value = {
+                "success": True,
+                "results": [{"action": validate_action, "success": True, "message": "ok"}],
+            }
+            result = await tool.run({"actions": [validate_action], "intent_scope": intent_scope})
+
+        assert result["success"] is True
+        mock_proc.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_allows_multiple_declared_columns(self, tmp_path):
+        """intent_scope 同时声明 email 和 age 时，允许对这两列的写动作。"""
+        ws = make_test_workspace_with_email_and_age(tmp_path)
+        tool = ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=[],
+            dry_run_enabled=False,
+        )
+
+        email_action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Scripted",
+                "tableName": "users",
+                "targetColumn": "email",
+                "isInline": True,
+                "params": {"pattern": r"^[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}$"},
+            },
+        }
+        age_action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Range",
+                "tableName": "users",
+                "targetColumn": "age",
+                "isInline": True,
+                "params": {"min": 0, "max": 100},
+            },
+        }
+        # LLM 同时声明了两列
+        intent_scope = {
+            "tables": ["users"],
+            "columns": [
+                {"table": "users", "column": "email"},
+                {"table": "users", "column": "age"},
+            ],
+        }
+
+        with patch(PATCH_PROC) as mock_proc:
+            result = await tool.run({"actions": [email_action, age_action], "intent_scope": intent_scope})
+
+        # 意图校验通过，但无确认环境仍 fail-closed
+        assert "超出用户请求范围" not in result.get("error", "")
+        assert result["success"] is False
+        assert "不支持自动写盘" in result.get("error", "")
+        mock_proc.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_rejects_unrelated_schema_action(self, tmp_path):
+        """intent_scope 声明 users，却生成 ADD_SCHEMA 创建无关表 orders -> 意图校验拒绝。"""
+        ws = make_test_workspace_with_email_and_age(tmp_path)
+        tool = ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=[],
+            dry_run_enabled=False,
+        )
+
+        unrelated_schema_action = {
+            "actionType": "ADD_SCHEMA",
+            "schemaSpec": {
+                "name": "orders",
+                "columns": [{"name": "id", "type": "integer"}],
+            },
+        }
+        # LLM 声明 scope 只含 users 表
+        intent_scope = {"tables": ["users"]}
+
+        with patch(PATCH_PROC) as mock_proc:
+            result = await tool.run({"actions": [unrelated_schema_action], "intent_scope": intent_scope})
+
+        assert result["success"] is False
+        assert "超出用户请求范围" in result.get("error", "")
+        assert "orders" in result.get("error", "")
+        mock_proc.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_empty_intent_scope_skips_guard(self, tmp_path):
+        """intent_scope 为空/未填时，意图校验跳过，保持向后兼容（不破坏老调用）。"""
+        ws = make_test_workspace_with_email_and_age(tmp_path)
+        tool = ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=[],
+            dry_run_enabled=False,
+        )
+
+        age_action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Range",
+                "tableName": "users",
+                "targetColumn": "age",
+                "isInline": True,
+                "params": {"min": 0, "max": 100},
+            },
+        }
+
+        with patch(PATCH_PROC) as mock_proc:
+            # 不传 intent_scope
+            result = await tool.run({"actions": [age_action]})
+
+        # 无 intent_scope，校验跳过；但无确认环境仍 fail-closed
+        assert "超出用户请求范围" not in result.get("error", "")
+        assert result["success"] is False
+        assert "不支持自动写盘" in result.get("error", "")
+        mock_proc.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_regex_action_not_blocked_by_column_scope(self, tmp_path):
+        """Regex 独立节点无表/列目标，不参与 scope 比对 → 即使 scope 很窄也放行。
+
+        这是 P2-1 对旧方案的改进点之一：旧方案 Regex 直接 return None, None 跳过校验
+        但依赖 user_message 匹配；新方案统一为"无法提取目标 = 不参与比对 = 放行"，
+        且完全基于 intent_scope，不再依赖 user_message 文本。
+        """
+        ws = make_test_workspace_with_email_and_age(tmp_path)
+        tool = ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=[],
+            dry_run_enabled=False,
+        )
+
+        regex_action = {
+            "actionType": "ADD_REGEX",
+            "regexSpec": {
+                "name": "email_pattern",
+                "pattern": r"^[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}$",
+                "match_mode": "full",
+            },
+        }
+        # scope 很窄（只声明 email 列），但 Regex 无目标，放行
+        intent_scope = {"columns": [{"table": "users", "column": "email"}]}
+
+        with patch(PATCH_PROC) as mock_proc:
+            result = await tool.run({"actions": [regex_action], "intent_scope": intent_scope})
+
+        # Regex 放行（不参与 scope 比对），无确认环境仍 fail-closed
+        assert "超出用户请求范围" not in result.get("error", "")
+        assert result["success"] is False
+        assert "不支持自动写盘" in result.get("error", "")
+        mock_proc.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_chinese_intent_mapped_to_column(self, tmp_path):
+        """中文意图场景：用户说'邮箱'，LLM 把它映射成 email 写进 intent_scope → 命中放行。
+
+        这是 P2-1 对旧方案的核心修复：旧方案在 user_message 里 substring 匹配列名，
+        中文'邮箱'永远匹配不到列名'email'导致校验失效；新方案由 LLM 完成中文字段映射，
+        后端只做精确比对，中文场景真正可用。
+        """
+        ws = make_test_workspace_with_email_and_age(tmp_path)
+        tool = ApplyActionsTool(
+            project_path=ws,
+            collected_instructions=[],
+            dry_run_enabled=False,
+        )
+
+        email_action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Scripted",
+                "tableName": "users",
+                "targetColumn": "email",
+                "isInline": True,
+                "params": {"pattern": r"^[\w.-]+@[\w.-]+\.[a-zA-Z]{2,}$"},
+            },
+        }
+        # LLM 把中文'邮箱'理解成 email，正确填进 scope（后端只比对 scope，不读 user_message）
+        intent_scope = {"tables": ["users"], "columns": [{"table": "users", "column": "email"}]}
+
+        with patch(PATCH_PROC) as mock_proc:
+            # 即使 user_message 是纯中文，校验也能正确放行（不依赖 user_message）
+            result = await tool.run({"actions": [email_action], "intent_scope": intent_scope})
+
+        assert "超出用户请求范围" not in result.get("error", "")
+        assert result["success"] is False
+        assert "不支持自动写盘" in result.get("error", "")
+        mock_proc.assert_not_called()

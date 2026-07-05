@@ -33,6 +33,9 @@ from app.shared.services.ai.agent.chat_tools import (
 )
 from app.shared.services.ai.agent.chat_tools.apply_actions import ApplyCallbacks
 from app.shared.services.ai.agent.chat_tools.ask_user import AskCallbacks
+
+# P1-1：各工具入参的 Pydantic 校验模型，注册时按工具名查表绑定
+from app.shared.services.ai.agent.chat_tools.schemas import MODEL_FOR_TOOL
 from app.shared.services.ai.agent.executor import AgentExecutor
 from app.shared.services.ai.agent.tool_registry import ToolRegistry
 from app.shared.services.llm.actions.registry import (
@@ -205,7 +208,19 @@ constraintSpec.params 按类型填充对应字段：
 - **默认创建内联约束** (`isInline: true`)：内联约束直接存储在表配置中，轻量且易于管理
 - **只有当用户明确要求"创建独立约束"、"独立节点"或"单独文件"时**，才设置 `isInline: false`
 - 如果用户说"删除 XXX 约束"，请使用 DELETE_CONSTRAINT_NODE
-- 必须确保 `tableName` 和 `targetColumn` 准确无误"""
+- 必须确保 `tableName` 和 `targetColumn` 准确无误
+
+## 防止误操作（务必遵守）
+
+- **只改用户明确要求的资源**：不要主动添加、修改或删除无关的约束、表结构、正则节点、转换节点或设置。
+- **不要重命名或重建 schema 文件**：除非用户明确要求重命名，否则使用现有 schema 的 tableName/id，直接修改对应文件。
+- **不要删除已有约束**：除非用户明确说"删除"、"替换"或"去掉"，否则保留已有约束。
+- **不要重复创建**：如果某列已存在同类型约束，请在回复中说明，不要再次创建。
+- **格式校验优先用约束**："为 X 添加格式校验"应使用 ADD_CONSTRAINT_NODE（type=Scripted，params.pattern 为正则）或 ADD_REGEX，仅操作目标列。
+- **一次只做一个明确修改**：如果用户只提到一个字段（如"为 email 添加格式校验"），你的 actions 列表中只能包含针对该字段的写操作。严禁同时添加 age 的 Range 约束、重建 users schema 或删除其他约束。若该字段已存在同类型约束，直接说明即可，不要生成新动作。
+- **禁止照搬示例参数**：示例中的 `min: 0, max: 100` 只是参数格式说明，不要为未提及的字段创建 Range 约束。
+- **不要把"拖到画布"误用为 ADD_SCHEMA**：当用户想把已存在的资源显示到画布时，使用 ADD_TO_CANVAS；只有资源不存在时才使用 ADD_SCHEMA/ADD_REGEX/ADD_TRANSFORM。
+- **填写 intent_scope（写动作必填）**：调用 apply_actions 时，凡含写动作（ADD/UPDATE/DELETE_*），必须在 intent_scope 中声明你理解的用户意图所涉及的表和列。这是防止越界修改的安全门——后端会校验 actions 的写目标是否全部在 intent_scope 内，越界将被拒绝。例：用户说"给邮箱加格式校验"（邮箱=email），intent_scope 填 `{{"tables":["users"],"columns":[{{"table":"users","column":"email"}}]}}`；用户说"删除 users 表的所有约束"，intent_scope 填 `{{"tables":["users"]}}`。中文到字段名的映射（邮箱→email）由你完成，后端只做精确比对。"""
 
 
 # =============================================================================
@@ -344,13 +359,13 @@ class ChatAgentRunner:
 
         return "\n\n".join(parts)
 
-    def _create_registry(self) -> ToolRegistry:
+    def _create_registry(self, user_message: str = "") -> ToolRegistry:
         """
         @methoddesc 创建并注册 chat 工具集
 
         6 个工具：read_project/read_table/apply_actions/validate_table 注入 project_path，
         read_canvas 注入画布节点快照，ask_user 注入交互回调（仅流式路径启用）。
-        apply_actions 额外注入 collected_instructions 共享引用。
+        apply_actions 额外注入 collected_instructions 共享引用 + 当前用户消息（用于意图范围校验）。
         """
         registry = ToolRegistry()
 
@@ -360,6 +375,8 @@ class ChatAgentRunner:
             description=read_project_tool.get_definition()["function"]["description"],
             parameters=read_project_tool.get_definition()["function"]["parameters"],
             handler=lambda args: read_project_tool.run(args),
+            args_model=MODEL_FOR_TOOL.get(read_project_tool.NAME),
+            read_only=True,
         )
 
         read_table_tool = ReadTableTool(project_path=self.project_path)
@@ -368,22 +385,28 @@ class ChatAgentRunner:
             description=read_table_tool.get_definition()["function"]["description"],
             parameters=read_table_tool.get_definition()["function"]["parameters"],
             handler=lambda args: read_table_tool.run(args),
+            args_model=MODEL_FOR_TOOL.get(read_table_tool.NAME),
+            read_only=True,
         )
 
         # 关键：apply_actions 注入 collected_instructions 共享引用 + 两阶段确认参数
+        # 同时传入 user_message，用于工具内部做意图范围校验，防止 LLM 越界修改。
         # job_id 用于生成 apply_id（"{job_id}#{seq}"），每次 apply 创建独立确认控制器
+        # apply_actions 是写盘工具（read_only 默认 False），execute_many 会串行化同轮多个 apply
         apply_actions_tool = ApplyActionsTool(
             project_path=self.project_path,
             collected_instructions=self.collected_instructions,
             dry_run_enabled=self.dry_run_enabled,
             apply_callbacks=self.apply_callbacks,
             job_id=self.job_id,
+            user_message=user_message,
         )
         registry.register(
             name=apply_actions_tool.NAME,
             description=apply_actions_tool.get_definition()["function"]["description"],
             parameters=apply_actions_tool.get_definition()["function"]["parameters"],
             handler=lambda args: apply_actions_tool.run(args),
+            args_model=MODEL_FOR_TOOL.get(apply_actions_tool.NAME),
         )
 
         validate_tool = ValidateTableTool(project_path=self.project_path)
@@ -392,6 +415,8 @@ class ChatAgentRunner:
             description=validate_tool.get_definition()["function"]["description"],
             parameters=validate_tool.get_definition()["function"]["parameters"],
             handler=lambda args: validate_tool.run(args),
+            args_model=MODEL_FOR_TOOL.get(validate_tool.NAME),
+            read_only=True,
         )
 
         # read_canvas：注入前端请求体携带的画布节点快照，供 LLM 查询画布真实状态
@@ -401,9 +426,12 @@ class ChatAgentRunner:
             description=read_canvas_tool.get_definition()["function"]["description"],
             parameters=read_canvas_tool.get_definition()["function"]["parameters"],
             handler=lambda args: read_canvas_tool.run(args),
+            args_model=MODEL_FOR_TOOL.get(read_canvas_tool.NAME),
+            read_only=True,
         )
 
         # ask_user：交互问答工具，注入 ask_callbacks 与 dry_run_enabled
+        # ask_user 不写盘（标 read_only），与其他工具同轮调用时并发安全
         ask_tool = AskUserTool(
             job_id=self.job_id,
             ask_callbacks=self.ask_callbacks,
@@ -414,6 +442,8 @@ class ChatAgentRunner:
             description=ask_tool.get_definition()["function"]["description"],
             parameters=ask_tool.get_definition()["function"]["parameters"],
             handler=lambda args: ask_tool.run(args),
+            args_model=MODEL_FOR_TOOL.get(ask_tool.NAME),
+            read_only=True,
         )
 
         return registry
@@ -492,7 +522,7 @@ class ChatAgentRunner:
         返回:
             ChatAgentRunResult: 含 reply、frontend_instructions、actions 等
         """
-        registry = self._create_registry()
+        registry = self._create_registry(user_message=message)
 
         # 构建任务消息：用户消息 + 历史摘要
         task_message = self._build_task_message(message, history)

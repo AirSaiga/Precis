@@ -54,7 +54,7 @@ export function useDataSourceFileOps() {
     logger.warn('[useDataSourceFileOps] 打开文件失败:', result.error)
     const shouldReselect = await showConfirm({
       title: t('common.confirmDialog.title'),
-      message: t('messages.confirmReselectFile', {
+      message: t('messages.common.confirmReselectFile', {
         name: dataSource.name,
         error: result.error || t('common.unknownError'),
       }),
@@ -123,7 +123,7 @@ export function useDataSourceFileOps() {
 
     const confirmed = await showConfirm({
       title: t('common.confirmDialog.title'),
-      message: t('messages.confirmClearAll', { count: dataSources.length }),
+      message: t('messages.common.confirmClearAll', { count: dataSources.length }),
       confirmText: t('common.confirm'),
       cancelText: t('common.cancel'),
       type: 'warning',

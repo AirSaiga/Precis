@@ -168,6 +168,12 @@ class OpenAIProvider(BaseProvider):
         - delta 文本 → StreamChunk(type="delta", text=...)
         - tool_calls（分片累积， finish_reason="tool_calls" 时） → StreamChunk(type="tool_calls", tool_calls=[...原始格式]）
 
+        重试策略（与 chat 对齐）：
+        - 网络错误（APIConnectionError）或限流/服务端错误（429/500/502/503）触发指数退避重试，最多 _MAX_RETRIES 次。
+        - **关键安全门**：只在"尚未 yield 任何 chunk 前"重试。一旦已经向下游输出过 token，
+          即使后续流中断也不重试（避免重复输出导致内容错乱，且无法回收已发出的 chunk）。
+        - 已 yield 后的异常直接抛出，由上层 executor 处理。
+
         参数:
             req: 对话请求对象
 
@@ -175,79 +181,109 @@ class OpenAIProvider(BaseProvider):
             AsyncIterator[StreamChunk]: 统一流式输出单元
 
         异常:
-            APIConnectionError: 网络连接失败
-            APIStatusError: 服务端返回错误
+            APIConnectionError: 网络连接失败（重试耗尽后）
+            APIStatusError: 服务端返回错误（重试耗尽后）
             ValueError: 流式响应解析异常
         """
-        try:
-            # 构造 messages payload，与非流式 chat 一致（支持 tool_calls/tool_call_id 上下文）
-            messages_payload = []
-            for m in req.messages:
-                msg: dict = {"role": m.role}
-                if m.content is not None:
-                    msg["content"] = m.content
-                if m.tool_calls is not None:
-                    msg["tool_calls"] = m.tool_calls
-                if m.tool_call_id is not None:
-                    msg["tool_call_id"] = m.tool_call_id
-                messages_payload.append(msg)
+        # 构造 messages payload（与非流式 chat 一致，支持 tool_calls/tool_call_id 上下文）
+        messages_payload = []
+        for m in req.messages:
+            msg: dict = {"role": m.role}
+            if m.content is not None:
+                msg["content"] = m.content
+            if m.tool_calls is not None:
+                msg["tool_calls"] = m.tool_calls
+            if m.tool_call_id is not None:
+                msg["tool_call_id"] = m.tool_call_id
+            messages_payload.append(msg)
 
-            kwargs: dict = {
-                "model": self._get_model(req.model),
-                "messages": messages_payload,
-                "temperature": req.temperature,
-                "stream": True,
-            }
-            if req.tools:
-                kwargs["tools"] = req.tools
-                kwargs["tool_choice"] = req.tool_choice if req.tool_choice is not None else "auto"
+        kwargs: dict = {
+            "model": self._get_model(req.model),
+            "messages": messages_payload,
+            "temperature": req.temperature,
+            "stream": True,
+        }
+        if req.tools:
+            kwargs["tools"] = req.tools
+            kwargs["tool_choice"] = req.tool_choice if req.tool_choice is not None else "auto"
 
-            stream = await self.client.chat.completions.create(**kwargs)
+        last_exc: Exception | None = None
+        for attempt in range(_MAX_RETRIES):
+            # 本轮标志：是否已向下游 yield 过任何 chunk。决定异常时能否重试。
+            yielded_any = False
+            try:
+                stream = await self.client.chat.completions.create(**kwargs)
 
-            # tool_calls 分片累积器: {index: {"id":"", "name":"", "arguments":""}}
-            tc_acc: dict[int, dict[str, str]] = {}
-            async for chunk in stream:
-                if not chunk.choices:
-                    continue
-                choice = chunk.choices[0]
-                delta = choice.delta
+                # tool_calls 分片累积器: {index: {"id":"", "name":"", "arguments":""}}
+                tc_acc: dict[int, dict[str, str]] = {}
+                async for chunk in stream:
+                    if not chunk.choices:
+                        continue
+                    choice = chunk.choices[0]
+                    delta = choice.delta
 
-                # 1. 文本增量 → 立即 yield
-                if delta and delta.content:
-                    yield StreamChunk(type="delta", text=delta.content)
+                    # 1. 文本增量 → 立即 yield
+                    if delta and delta.content:
+                        yielded_any = True
+                        yield StreamChunk(type="delta", text=delta.content)
 
-                # 2. tool_calls 分片 → 累积（不立即 yield）
-                if delta and delta.tool_calls:
-                    for tc in delta.tool_calls:
-                        slot = tc_acc.setdefault(tc.index, {"id": "", "name": "", "arguments": ""})
-                        if getattr(tc, "id", None):
-                            slot["id"] = tc.id
-                        if getattr(tc.function, "name", None):
-                            slot["name"] = tc.function.name
-                        slot["arguments"] += tc.function.arguments or ""
+                    # 2. tool_calls 分片 → 累积（不立即 yield）
+                    if delta and delta.tool_calls:
+                        for tc in delta.tool_calls:
+                            slot = tc_acc.setdefault(tc.index, {"id": "", "name": "", "arguments": ""})
+                            if getattr(tc, "id", None):
+                                slot["id"] = tc.id
+                            if getattr(tc.function, "name", None):
+                                slot["name"] = tc.function.name
+                            slot["arguments"] += tc.function.arguments or ""
 
-                # 3. finish_reason="tool_calls" → 一次性 yield 完整 tool_calls（OpenAI 原始格式）
-                if choice.finish_reason == "tool_calls":
-                    yield StreamChunk(
-                        type="tool_calls",
-                        tool_calls=[
-                            {
-                                "id": v["id"],
-                                "type": "function",
-                                "function": {
-                                    "name": v["name"],
-                                    "arguments": v["arguments"],
-                                },
-                            }
-                            for v in tc_acc.values()
-                        ],
-                    )
-                    tc_acc.clear()
-                # finish_reason="stop" → 流自然结束（循环结束），无需特殊处理
-        except (APIConnectionError, APIStatusError):
-            raise
-        except Exception as e:
-            raise ValueError(f"流式响应异常: {e}") from e
+                    # 3. finish_reason="tool_calls" → 一次性 yield 完整 tool_calls（OpenAI 原始格式）
+                    if choice.finish_reason == "tool_calls":
+                        yielded_any = True
+                        yield StreamChunk(
+                            type="tool_calls",
+                            tool_calls=[
+                                {
+                                    "id": v["id"],
+                                    "type": "function",
+                                    "function": {
+                                        "name": v["name"],
+                                        "arguments": v["arguments"],
+                                    },
+                                }
+                                for v in tc_acc.values()
+                            ],
+                        )
+                        tc_acc.clear()
+                    # finish_reason="stop" → 流自然结束（循环结束），无需特殊处理
+                # 流正常耗尽，返回
+                return
+            except (APIConnectionError, APIStatusError) as e:
+                last_exc = e
+                # 非可重试状态码直接抛出（与 chat 一致）
+                if isinstance(e, APIStatusError) and e.status_code not in (429, 500, 502, 503):
+                    raise
+                # 已 yield 出 chunk 则不再重试（无法回收已发出的内容）
+                if yielded_any:
+                    raise
+                # 未达最大重试次数 → 指数退避后重试
+                if attempt < _MAX_RETRIES - 1:
+                    delay = _RETRY_BASE_DELAY * (2**attempt)
+                    logger.warning(f"[OpenAI] 流式请求失败（第 {attempt + 1} 次），{delay:.1f}s 后重试: {e}")
+                    await asyncio.sleep(delay)
+                else:
+                    raise
+            except Exception as e:
+                # 已 yield 出 chunk 后的非预期异常：不可重试（无法回收）
+                if yielded_any:
+                    raise ValueError(f"流式响应异常（已输出部分内容）: {e}") from e
+                # 未 yield 前的解析类异常：不重试，直接抛出（与 chat 的 IndexError/AttributeError 分支对齐）
+                raise ValueError(f"流式响应异常: {e}") from e
+
+        # 理论上不会到达（重试耗尽会在循环内 raise）
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("OpenAI 流式请求在重试后仍未完成")
 
     async def list_models(self) -> list[str]:
         """

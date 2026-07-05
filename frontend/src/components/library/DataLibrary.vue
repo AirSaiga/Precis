@@ -27,27 +27,50 @@
             {{ workspaceStore.dataSources.length }}
           </span>
         </div>
-        <button
-          class="trash-button"
-          @click="handleClearAll"
-          :disabled="workspaceStore.dataSources.length === 0"
-          :title="t('assetLibraryExtended.dataView.buttons.clear')"
-        >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-            stroke-linecap="round"
-            stroke-linejoin="round"
+        <div class="header-actions">
+          <button
+            v-if="canSelectDirectory"
+            class="header-action-button folder-import-button"
+            @click="handleImportFolder"
+            :title="t('assetLibraryExtended.dataView.buttons.importFolder')"
           >
-            <path
-              d="M19 7L18.1327 19.1425C18.0579 20.1891 17.187 21 16.1378 21H7.86224C6.81296 21 5.94208 20.1891 5.86732 19.1425L5 7M10 11V17M14 11V17M15 7V4C15 3.44772 14.5523 3 14 3H10C9.44772 3 9 3.44772 9 4V7M4 7H20"
-            />
-          </svg>
-        </button>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"
+              />
+            </svg>
+          </button>
+          <button
+            class="header-action-button trash-button"
+            @click="handleClearAll"
+            :disabled="workspaceStore.dataSources.length === 0"
+            :title="t('assetLibraryExtended.dataView.buttons.clear')"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path
+                d="M19 7L18.1327 19.1425C18.0579 20.1891 17.187 21 16.1378 21H7.86224C6.81296 21 5.94208 20.1891 5.86732 19.1425L5 7M10 11V17M14 11V17M15 7V4C15 3.44772 14.5523 3 14 3H10C9.44772 3 9 3.44772 9 4V7M4 7H20"
+              />
+            </svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -87,6 +110,7 @@
   import { useDataSourceImport } from '@/composables/data/useDataSourceImport'
   import { useDataSourceDrag } from '@/composables/data/useDataSourceDrag'
   import { useDataSourceFileOps } from '@/composables/data/useDataSourceFileOps'
+  import { dialogApi } from '@/core/capabilities/dialogApi'
   interface DataSourceDragPayload {
     type: string
     source: string
@@ -141,8 +165,12 @@
     handleDragLeave,
     handleExternalFileDrop,
     handleImportFiles,
+    handleImportFolder,
     handleReloadFileUploaded,
   } = useDataSourceImport()
+
+  /** 是否支持目录选择（用于控制导入文件夹按钮显隐） */
+  const canSelectDirectory = dialogApi.canSelectDirectoryEntries
 
   /**
    * 拖拽相关

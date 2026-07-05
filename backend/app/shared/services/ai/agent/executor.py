@@ -48,6 +48,24 @@ def _tool_call_signature(tc: Any) -> str:
     return f"{name}:{args}"
 
 
+def _cross_turn_signature(tc: Any) -> str:
+    """跨轮重复检测专用签名：只看 name + arguments，不看 id。
+
+    与 _tool_call_signature 的区别：跨轮场景下 id 必然不同（LLM 每次新生成），
+    若用 id 会导致"同工具同参数"的重复调用无法被识别。本函数专注于"做了同样的事"。
+
+    用于 P1-2 收敛引导的跨轮重复检测。
+    """
+    if not isinstance(tc, dict):
+        return ""
+    func = tc.get("function", {})
+    if not isinstance(func, dict):
+        return ""
+    name: str = str(func.get("name", ""))
+    args: str = str(func.get("arguments", ""))
+    return f"{name}:{args}"
+
+
 # 默认系统提示词
 DEFAULT_SYSTEM_PROMPT = """你是一个数据治理专家 Agent，擅长分析数据文件并生成数据验证配置。
 你可以调用工具来完成任务。每一步请根据观察结果决定下一步行动。
@@ -128,6 +146,8 @@ class AgentExecutor:
         self.final_output_tool = final_output_tool
         self._chat_service: Any | None = None
         self._memory: AgentMemory | None = None
+        # P1-2 跨轮 tool_call 重复检测：记录上一轮的工具调用签名，本轮命中时注入提醒
+        self._prev_tool_signatures: set[str] = set()
 
     async def run(
         self,
@@ -153,6 +173,9 @@ class AgentExecutor:
             self._memory.set_task(task_message)
             start_turn = 1
 
+        # P1-2：每次 run 重置跨轮签名集合，避免跨任务污染
+        self._prev_tool_signatures = set()
+
         tools = self.registry.get_definitions()
 
         result = AgentResult(success=True, iterations=0)
@@ -171,6 +194,14 @@ class AgentExecutor:
                 turn_idx / self.max_iterations,
                 {"iterations": turn_idx, "max_iterations": self.max_iterations},
             )
+
+            # P1-2 收敛引导：在最后一轮（达到 max_iterations）提醒 LLM 直接回复，
+            # 避免它继续调工具导致循环用尽后直接 fail。reminder 在 get_messages 前注入。
+            if turn_idx >= self.max_iterations:
+                self._memory.add_system_reminder(
+                    f"注意：你已用尽全部 {self.max_iterations} 轮工具调用预算。"
+                    "请立即基于已获取的信息给出最终回复，不要再调用任何工具。"
+                )
 
             messages = self._memory.get_messages()
             logger.debug(f"Agent turn {turn_idx}, messages={len(messages)}")
@@ -256,6 +287,11 @@ class AgentExecutor:
 
             tool_calls = [self.registry.parse_tool_call(tc) for tc in raw_tool_calls]
 
+            # P1-2 跨轮重复检测：若本轮存在与上一轮完全相同的 tool_call（同工具同参数），
+            # 为下一轮注入提醒，避免 LLM 反复调同一工具同参数空转。
+            # 注意：reminder 追加到 memory 末尾，下一轮 get_messages 时 LLM 可见。
+            self._check_repeated_tool_calls(raw_tool_calls)
+
             self._memory.add_assistant_message(content=content or None, tool_calls=raw_tool_calls or None)
 
             turn = AgentTurn(
@@ -296,6 +332,10 @@ class AgentExecutor:
                         observation_text = self._dict_to_text(observation)
                     else:
                         observation_text = str(observation)
+                    # 失败时把 error 回灌给 LLM，否则 tool 消息 content 会是空串，
+                    # LLM 无法得知失败原因（apply_actions 的 did-you-mean 建议等也会丢失）。
+                    if not tr.success and tr.error:
+                        observation_text = (observation_text + "\n" if observation_text else "") + f"[ERROR] {tr.error}"
                     self._memory.add_tool_result(tr.call_id, tr.name, observation_text)
 
                 self._memory.add_turn(turn)
@@ -340,6 +380,37 @@ class AgentExecutor:
             result.error = f"达到最大迭代轮数 {self.max_iterations}，仍未获得最终结果"
 
         return result
+
+    def _check_repeated_tool_calls(self, raw_tool_calls: list[dict[str, Any]]) -> None:
+        """P1-2 跨轮重复调用检测。
+
+        比对本轮 tool_calls 与上一轮的签名集合：若存在完全相同的调用（同工具同参数），
+        为下一轮注入提醒，避免 LLM 反复调用同一工具同一参数空转浪费预算。
+        无论是否命中，都把本轮签名更新到集合，供下一轮比对。
+
+        参数:
+            raw_tool_calls: 本轮 LLM 返回的原始 tool_calls（OpenAI dict 格式）
+        """
+        if not raw_tool_calls:
+            return
+        current_signatures = {_cross_turn_signature(tc) for tc in raw_tool_calls}
+        # 去掉空签名（无法识别的 tool_call 不参与检测）
+        current_signatures.discard("")
+        if not current_signatures:
+            return
+
+        repeated = current_signatures & self._prev_tool_signatures
+        if repeated:
+            # 构造友好提示，列出重复的工具名（从签名解析，格式 "name:args"）
+            names = sorted({sig.split(":", 1)[0] for sig in repeated if ":" in sig})
+            tool_list = "、".join(names) if names else "同一工具"
+            self._memory.add_system_reminder(
+                f"提示：你刚才已经调用过 {tool_list}（相同参数），请勿重复调用同一工具同一参数。"
+                "请直接使用已有的工具结果继续推理，或在必要时更换参数/工具。"
+            )
+
+        # 更新签名集合供下一轮比对
+        self._prev_tool_signatures = current_signatures
 
     def _extract_final_config(self, tool_results: list[ToolResult]) -> dict[str, Any] | None:
         """从工具结果中提取最终配置（final_output_tool 指定工具的返回值）。

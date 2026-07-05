@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { reactive, isReactive } from 'vue'
 import {
   toBackendType,
   sanitizeV2Id,
@@ -8,6 +9,7 @@ import {
   generateId,
   isEmpty,
   normalizeSourceKey,
+  deepToRaw,
 } from '@/utils/typeHelpers'
 // fromBackendType 单一定义在 schemaBuilder(typeHelpers 的副本已移除)
 import { fromBackendType } from '@/services/builders/schemaBuilder'
@@ -223,5 +225,39 @@ describe('normalizeSourceKey', () => {
   it('保留 Windows 驱动器前缀', () => {
     const [path] = normalizeSourceKey('D:\\\\Data\\\\..\\\\users.csv', null)
     expect(path).toBe('d:/users.csv')
+  })
+})
+
+describe('deepToRaw', () => {
+  it('递归解包嵌套 reactive proxy，使 structuredClone 可用', () => {
+    const original = {
+      columns: [{ id: '1', name: reactive({ value: 'col1' }) }],
+      meta: reactive({ count: 1 }),
+    }
+    const state = reactive(original)
+
+    expect(isReactive(state)).toBe(true)
+
+    const raw = deepToRaw(state)
+
+    expect(isReactive(raw)).toBe(false)
+    expect(isReactive(raw.columns[0].name)).toBe(false)
+    expect(isReactive(raw.meta)).toBe(false)
+    expect(structuredClone(raw)).toEqual({
+      columns: [{ id: '1', name: { value: 'col1' } }],
+      meta: { count: 1 },
+    })
+  })
+
+  it('保留 structuredClone 支持的内置对象', () => {
+    const date = new Date('2024-01-01')
+    const raw = deepToRaw({ createdAt: date })
+    expect(raw.createdAt).toBe(date)
+  })
+
+  it('处理 null 和 primitive 值', () => {
+    expect(deepToRaw(null)).toBeNull()
+    expect(deepToRaw(1)).toBe(1)
+    expect(deepToRaw('hello')).toBe('hello')
   })
 })

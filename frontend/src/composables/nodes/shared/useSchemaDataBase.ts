@@ -14,6 +14,7 @@
 import { reactive, nextTick, toRaw } from 'vue'
 import type { EmitFn } from 'vue'
 import { useGraphStore } from '@/stores/graphStore'
+import { deepToRaw } from '@/utils/typeHelpers'
 import type { BaseSchemaColumn, BaseSchemaNodeData } from '../types'
 
 export interface SchemaDataBaseOptions<TColumn extends BaseSchemaColumn> {
@@ -38,12 +39,15 @@ export function useSchemaDataBase<
 ) {
   const store = useGraphStore()
 
-  const schemaData = reactive<TNodeData>(structuredClone(toRaw(props.data)))
+  const schemaData = reactive<TNodeData>(structuredClone(deepToRaw(props.data)))
 
   const notifyDataChanged = () => {
     nextTick(() => {
       emit('dataChanged', toRaw(schemaData) as TNodeData)
-      store.updateNodeData(props.id, structuredClone(toRaw(schemaData)) as Record<string, unknown>)
+      store.updateNodeData(
+        props.id,
+        structuredClone(deepToRaw(schemaData)) as Record<string, unknown>
+      )
     })
   }
 

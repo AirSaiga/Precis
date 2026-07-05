@@ -42,7 +42,7 @@ const messages = {
     deleteConfirm: '此操作不可撤销，确定要删除吗？',
     switchProject: '切换项目将丢失当前所有未保存的更改',
   },
-  messages: {
+  common: {
     createNodeFailed: '创建节点失败，请检查控制台错误信息',
     electronNotDetected: '无法检测到 Electron 环境，请确保应用已正确启动',
     electronApiFailed: 'Electron API 加载失败，请尝试重启应用',
@@ -74,12 +74,12 @@ const messages = {
     ipcFailed: 'IPC 通信失败，请尝试重启应用',
     dialogOpenFailed: '文件对话框打开失败，请检查应用权限',
     networkRequestFailed: '网络请求失败，请检查网络连接',
-    dialog: {
-      reselectFileTitle: '重新选择数据文件',
-      reselectFileButton: '确认选择',
-      dataFiles: '数据文件',
-      allFiles: '所有文件',
-    },
+  },
+  dialog: {
+    reselectFileTitle: '重新选择数据文件',
+    reselectFileButton: '确认选择',
+    dataFiles: '数据文件',
+    allFiles: '所有文件',
   },
   projectLibrary: {
     createSchemaNodeFailed: '创建 Schema 节点失败',

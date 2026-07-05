@@ -101,6 +101,7 @@ class ApplyActionsTool:
         confirm_controller: Any | None = None,
         apply_callbacks: ApplyCallbacks | None = None,
         job_id: str = "",
+        user_message: str = "",
     ):
         """
         @methoddesc 初始化工具
@@ -113,14 +114,152 @@ class ApplyActionsTool:
             confirm_controller: （已废弃）旧的单 job 控制器；保留兼容但不再用于门控
             apply_callbacks: 事件回调集合（两阶段模式用）
             job_id: 当前任务 ID，用于生成 apply_id（"{job_id}#{seq}"）键控每次 apply 的独立确认
+            user_message: 用户当前输入的原始消息，用于意图范围校验（防止 LLM 添加无关修改）
         """
         self.project_path = project_path
         self._collected_instructions = collected_instructions
         self._dry_run_enabled = dry_run_enabled
         self._apply_callbacks = apply_callbacks or ApplyCallbacks()
         self._job_id = job_id
+        # user_message 保留注入（向后兼容 chat_agent_runner 调用），但 P2-1 后意图校验
+        # 改用 LLM 自填的 intent_scope 做一致性比对，不再依赖 user_message 做关键词匹配。
+        self._user_message = user_message or ""
         # 每次 _run_two_phase 自增，保证同一 job 内多次 apply 各有独立 apply_id
         self._apply_counter = 0
+
+    def _extract_action_target(self, action: dict[str, Any]) -> tuple[str | None, str | None]:
+        """从动作中提取目标表名和列名（如可提取）。"""
+        action_type = action.get("actionType", "")
+        spec: dict[str, Any] = {}
+        table: str | None = None
+        column: str | None = None
+
+        if action_type in (
+            "ADD_CONSTRAINT_NODE",
+            "UPDATE_CONSTRAINT_NODE",
+            "DELETE_CONSTRAINT_NODE",
+        ):
+            spec = action.get("constraintSpec", {}) or {}
+            table = spec.get("tableName") or spec.get("targetNodeId")
+            column = spec.get("targetColumn") or spec.get("targetColumnId")
+        elif action_type in ("ADD_SCHEMA", "UPDATE_SCHEMA", "DELETE_SCHEMA"):
+            spec = action.get("schemaSpec", {}) or {}
+            table = spec.get("name") or spec.get("schemaId") or spec.get("id")
+        elif action_type in ("ADD_TRANSFORM", "UPDATE_TRANSFORM", "DELETE_TRANSFORM"):
+            spec = action.get("transformSpec", {}) or {}
+            table = spec.get("inputFromNode") or spec.get("inputNodeId")
+            column = spec.get("inputColumn")
+        elif action_type in ("ADD_REGEX", "UPDATE_REGEX", "DELETE_REGEX"):
+            # Regex 节点通常不直接绑定到具体表/列，不做强校验
+            return None, None
+
+        # 清洗字符串
+        if table and isinstance(table, str):
+            table = table.strip()
+        if column and isinstance(column, str):
+            column = column.strip()
+        return table, column
+
+    def _check_actions_match_intent(
+        self, actions: list[dict[str, Any]], intent_scope: dict[str, Any] | None
+    ) -> tuple[bool, str]:
+        """意图范围校验（P2-1）：基于 LLM 自填的 intent_scope 做一致性比对。
+
+        设计原则（替代旧的 user_message 关键词匹配）：
+        - LLM 在调用 apply_actions 时显式声明 intent_scope（它理解的用户意图所涉及的表/列），
+          后端只做确定性比对：每个写动作的 target 必须落在 LLM 自报的 scope 内。
+        - 把"理解自然语言意图"的工作交给 LLM（它的强项），后端只做机械比对，彻底解决
+          旧方案在中文场景（"邮箱"≠"email"）、通用词列名（id/name）、Regex 绕过等问题。
+        - 幻觉性越界的 LLM 同样会老实填 intent_scope（它不知道自己在越界），后端比对恰好能抓出。
+        - 只阻断写动作；只读动作（VALIDATE_PROJECT / ADD_TO_CANVAS）不阻断。
+        - intent_scope 为空/未填时跳过校验（保持向后兼容，不破坏老调用）。
+        - 校验失败时返回明确错误，帮助 LLM 自我修正（配合 P0-1 错误回灌）。
+
+        参数:
+            actions: 待执行的动作列表
+            intent_scope: LLM 自报的意图范围，形如
+                {"tables": ["users"], "columns": [{"table": "users", "column": "email"}]}
+
+        返回:
+            (ok, error)：ok=False 时 error 含越界详情
+        """
+        # intent_scope 未填或为空 → 不限制（保持向后兼容）
+        if not intent_scope:
+            return True, ""
+
+        scope_tables_raw = intent_scope.get("tables") or []
+        scope_columns_raw = intent_scope.get("columns") or []
+
+        # 归一化 scope 表名集合（小写比对，消除大小写差异）
+        scope_tables: set[str] = {str(t).strip().lower() for t in scope_tables_raw if str(t).strip()}
+        # 归一化 scope 列集合：{(table_lower, column_lower)}
+        scope_columns: set[tuple[str, str]] = set()
+        for col_entry in scope_columns_raw:
+            if isinstance(col_entry, dict):
+                tbl = str(col_entry.get("table", "")).strip().lower()
+                col = str(col_entry.get("column", "")).strip().lower()
+                if tbl and col:
+                    scope_columns.add((tbl, col))
+            elif isinstance(col_entry, str):
+                # 宽容格式："table.column"
+                if "." in col_entry:
+                    tbl, col = col_entry.split(".", 1)
+                    scope_columns.add((tbl.strip().lower(), col.strip().lower()))
+
+        # scope 全空（LLM 填了字段但没内容）→ 不限制，避免误拦
+        if not scope_tables and not scope_columns:
+            return True, ""
+
+        # 检查每个写动作的 target 是否落在 scope 内
+        for action in actions:
+            action_type = action.get("actionType", "")
+            if action_type in _READ_ONLY_ACTION_TYPES:
+                continue
+
+            target_table, target_column = self._extract_action_target(action)
+            # 无法提取目标（如 Regex 独立节点）→ 不参与 scope 比对，放行
+            if not target_table and not target_column:
+                continue
+
+            target_table_lower = (target_table or "").lower()
+            target_column_lower = (target_column or "").lower()
+
+            # 命中规则（按 scope 粒度从严到宽）：
+            # 1) scope 含列级声明 + 动作有列目标 → 必须精确命中列级 (table, column)。
+            #    表级放行在此场景无效，否则"用户提到 email 列"时 age 列会因同表被误放行。
+            # 2) 动作只有表级目标（如 ADD_SCHEMA）→ 命中 scope_tables，或在 scope_columns 的表集合内。
+            # 3) 动作有列目标但 scope 只声明了表级 → 命中 scope_tables 即放行（列级未声明不强制）。
+            scope_column_tables = {tbl for tbl, _ in scope_columns}
+            in_column_scope = (
+                bool(target_table_lower)
+                and bool(target_column_lower)
+                and (target_table_lower, target_column_lower) in scope_columns
+            )
+            in_table_scope = bool(target_table_lower) and target_table_lower in scope_tables
+            in_column_table_scope = bool(target_table_lower) and target_table_lower in scope_column_tables
+
+            # scope 含列级声明 且 动作有列目标 → 必须命中列级（最严）
+            requires_column_match = bool(scope_columns) and bool(target_column_lower)
+            ok = in_column_scope if requires_column_match else (in_table_scope or in_column_table_scope)
+
+            if not ok:
+                # 构造越界错误信息，列出 LLM 自报的 scope 帮助它理解边界
+                scope_desc_parts: list[str] = []
+                if scope_tables:
+                    scope_desc_parts.append(f"表 {sorted(scope_tables)}")
+                if scope_columns:
+                    cols_desc = [f"{t}.{c}" for t, c in sorted(scope_columns)]
+                    scope_desc_parts.append(f"列 {cols_desc}")
+                scope_desc = "、".join(scope_desc_parts)
+                target_desc = target_column_lower or target_table_lower
+                return (
+                    False,
+                    f"动作 {action_type} 针对的 '{target_desc}' 不在你声明的 intent_scope 内"
+                    f"（scope: {scope_desc}）。请只修改 intent_scope 内的资源，"
+                    "或更新 intent_scope 以覆盖该动作的目标。",
+                )
+
+        return True, ""
 
     def get_definition(self) -> dict[str, Any]:
         """返回 OpenAI tool 定义。"""
@@ -135,7 +274,10 @@ class ApplyActionsTool:
                     "执行成功后，改动会立即写入项目文件并同步到画布。"
                     "如果是纯查询类问题（如'有哪些表'），不要调用此工具，改用 read_project。"
                     "注意：项目配置文件里存在的表/约束/正则，不一定已经在画布上显示；"
-                    "当用户说'拖到画布'、'放到画布'、'显示在画布上'时，应使用本工具的 ADD 动作。"
+                    "当用户说'拖到画布'、'放到画布'、'显示在画布上'时，"
+                    "必须显式使用 actionType=ADD_TO_CANVAS（不是 ADD_SCHEMA/ADD_REGEX 等）。"
+                    "重要约束：actions 列表只能包含用户当前明确请求的修改，"
+                    "禁止主动添加、修改或删除无关的约束、表、正则节点或转换节点。"
                 ),
                 "parameters": {
                     "type": "object",
@@ -165,7 +307,38 @@ class ApplyActionsTool:
                                 },
                                 "required": ["actionType"],
                             },
-                        }
+                        },
+                        "intent_scope": {
+                            "type": "object",
+                            "description": (
+                                "本次请求的目标范围声明（强烈建议填写，用于防止越界修改）。"
+                                "声明你理解的用户意图所涉及的表和列，后端会校验 actions 中的写动作"
+                                "目标是否全部落在此范围内——这是防止你误加无关修改的安全门。\n"
+                                "例：用户说'给 email 加格式校验'，intent_scope 应填 "
+                                '{"tables":["users"],"columns":[{"table":"users","column":"email"}]}\n'
+                                "注意：把自然语言理解（如中文'邮箱'='email'）的工作放在你这里完成，"
+                                "后端只做表名/列名的精确比对。"
+                            ),
+                            "properties": {
+                                "tables": {
+                                    "type": "array",
+                                    "items": {"type": "string"},
+                                    "description": "涉及的表名（schema 的 name 或 id）",
+                                },
+                                "columns": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "table": {"type": "string", "description": "表名"},
+                                            "column": {"type": "string", "description": "列名"},
+                                        },
+                                        "required": ["table", "column"],
+                                    },
+                                    "description": "涉及的精确列（table + column）",
+                                },
+                            },
+                        },
                     },
                     "required": ["actions"],
                 },
@@ -189,6 +362,18 @@ class ApplyActionsTool:
 
         if not self.project_path:
             return {"success": False, "error": "未配置项目路径", "results": []}
+
+        # 意图范围校验（P2-1）：基于 LLM 自填的 intent_scope 做一致性比对，
+        # 防止 LLM 越界修改无关资源。intent_scope 为空时跳过（向后兼容）。
+        intent_scope = arguments.get("intent_scope")
+        intent_ok, intent_error = self._check_actions_match_intent(actions, intent_scope)
+        if not intent_ok:
+            logger.warning(f"[apply_actions] 意图范围校验失败：{intent_error}")
+            return {
+                "success": False,
+                "error": f"动作超出用户请求范围：{intent_error}",
+                "results": [],
+            }
 
         # 预验证：在 dry-run / 写盘前拦截非法动作（表/列不存在、约束类型不支持、参数缺失等）。
         # 采用全有或全无语义——任一动作有 error 即整批拒绝，把含 "did you mean" 建议的错误清单

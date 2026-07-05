@@ -47,7 +47,7 @@ const messages = {
     deleteConfirm: 'This operation cannot be undone, are you sure to delete?',
     switchProject: 'Switching projects will lose all unsaved changes',
   },
-  messages: {
+  common: {
     createNodeFailed: 'Failed to create node, please check console error messages',
     electronNotDetected:
       'Cannot detect Electron environment, please ensure the application is running correctly',
@@ -80,12 +80,12 @@ const messages = {
     ipcFailed: 'IPC communication failed, please try restarting the application',
     dialogOpenFailed: 'Failed to open file dialog, please check application permissions',
     networkRequestFailed: 'Network request failed, please check your network connection',
-    dialog: {
-      reselectFileTitle: 'Reselect Data File',
-      reselectFileButton: 'Confirm Selection',
-      dataFiles: 'Data Files',
-      allFiles: 'All Files',
-    },
+  },
+  dialog: {
+    reselectFileTitle: 'Reselect Data File',
+    reselectFileButton: 'Confirm Selection',
+    dataFiles: 'Data Files',
+    allFiles: 'All Files',
   },
   projectLibrary: {
     createSchemaNodeFailed: 'Failed to create Schema node',

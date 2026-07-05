@@ -98,6 +98,75 @@ async def test_read_project_handles_backend_error():
     assert "boom" in result["error"]
 
 
+@pytest.mark.asyncio
+async def test_read_project_truncates_large_overview():
+    """大项目概览被语义截断：列表前 N 项 + truncated_*_count，避免 observation 被 memory 硬切。"""
+    from app.shared.services.ai.agent.chat_tools import read_project as rp_module
+
+    # 构造大项目：schemas 数量、columns 数量都超过阈值
+    big_schemas = [
+        {
+            "id": f"t{i}",
+            "name": f"table_{i}",
+            "columns": [{"id": f"c{j}", "name": f"col_{j}", "type": "string"} for j in range(100)],
+        }
+        for i in range(50)
+    ]
+    big_constraints = [{"id": f"ct{k}", "type": "NotNull", "table_name": "t0"} for k in range(60)]
+    overview = make_overview(schemas=big_schemas, constraints=big_constraints)
+    tool = ReadProjectTool(project_path="/fake/project")
+
+    with patch(
+        "app.shared.services.ai.agent.chat_tools.read_project.get_project_overview",
+        return_value=overview,
+    ):
+        result = await tool.run({})
+
+    assert result["success"] is True
+    ov = result["overview"]
+    # schemas 截断到阈值
+    assert len(ov["schemas"]) == rp_module._MAX_SCHEMAS_IN_OBSERVATION
+    # 每个 schema 的 columns 也被截断
+    assert all(len(s["columns"]) == rp_module._MAX_COLUMNS_PER_SCHEMA for s in ov["schemas"])
+    # constraints 截断
+    assert len(ov["constraints"]) == rp_module._MAX_CONSTRAINTS_IN_OBSERVATION
+    # truncated_*_count 反映真实超出量
+    assert ov["truncated_schema_count"] == 50 - rp_module._MAX_SCHEMAS_IN_OBSERVATION
+    assert ov["truncated_constraint_count"] == 60 - rp_module._MAX_CONSTRAINTS_IN_OBSERVATION
+    # 每张表都被截掉了 (100 - 阈值) 列，共 threshold 张表
+    expected_col_truncated = rp_module._MAX_SCHEMAS_IN_OBSERVATION * (100 - rp_module._MAX_COLUMNS_PER_SCHEMA)
+    assert ov["truncated_column_count"] == expected_col_truncated
+    # summary 反映真实规模（截断前的数量）
+    assert result["summary"]["schema_count"] == 50
+    assert result["summary"]["constraint_count"] == 60
+    # 截断后仍是可 json.dumps 的合法结构
+    import json
+
+    json.dumps(ov)  # 不抛异常即可
+
+
+@pytest.mark.asyncio
+async def test_read_project_small_project_not_truncated():
+    """小项目（各项均未超阈值）原样返回，truncated_*_count 全为 0。"""
+    overview = make_overview()  # 1 schema / 1 column / 0 constraints
+    tool = ReadProjectTool(project_path="/fake/project")
+
+    with patch(
+        "app.shared.services.ai.agent.chat_tools.read_project.get_project_overview",
+        return_value=overview,
+    ):
+        result = await tool.run({})
+
+    ov = result["overview"]
+    # 内容不变（小项目不触发截断）
+    assert ov["schemas"] == overview["schemas"]
+    assert ov["constraints"] == overview["constraints"]
+    # truncated 计数全 0
+    assert ov["truncated_schema_count"] == 0
+    assert ov["truncated_constraint_count"] == 0
+    assert ov["truncated_column_count"] == 0
+
+
 # =============================================================================
 # ReadTableTool 测试
 # =============================================================================

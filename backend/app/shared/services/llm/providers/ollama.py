@@ -239,6 +239,12 @@ class OllamaProvider(BaseProvider):
         - delta 文本 → StreamChunk(type="delta", text=...)
         - tool_calls（单 chunk 完整体到达时） → StreamChunk(type="tool_calls", tool_calls=[...OpenAI 格式])
 
+        重试策略（与 chat/_post 对齐）：
+        - 连接错误（ClientConnectionError/TimeoutError）或限流/服务端错误（429/500/502/503）触发指数退避重试，最多 _MAX_RETRIES 次。
+        - **关键安全门**：只在"尚未 yield 任何 chunk 前"重试。一旦已经向下游输出过 token，
+          即使后续流中断也不重试（避免重复输出导致内容错乱）。
+        - 已 yield 后的异常直接抛出，由上层 executor 处理。
+
         参数:
             req: 对话请求对象
 
@@ -251,36 +257,75 @@ class OllamaProvider(BaseProvider):
         data = self._build_chat_options(req)
         data["stream"] = True
         url = f"{self.cfg.base_url}/api/chat"
-        session = await self._get_session()
-        async with session.post(url, json=data) as resp:
-            if resp.status >= 400:
-                text = await resp.text()
-                raise _aiohttp.ClientResponseError(
-                    request_info=resp.request_info,
-                    history=resp.history,
-                    status=resp.status,
-                    message=f"流式请求失败({resp.status}): {text[:200]}",
+
+        last_exc: Exception | None = None
+        for attempt in range(_MAX_RETRIES):
+            # 本轮标志：是否已向下游 yield 过任何 chunk。决定异常时能否重试。
+            yielded_any = False
+            try:
+                session = await self._get_session()
+                async with session.post(url, json=data) as resp:
+                    if resp.status >= 400:
+                        text = await resp.text()
+                        raise _aiohttp.ClientResponseError(
+                            request_info=resp.request_info,
+                            history=resp.history,
+                            status=resp.status,
+                            message=f"流式请求失败({resp.status}): {text[:200]}",
+                        )
+                    async for line in resp.content:
+                        if not line:
+                            continue
+                        try:
+                            chunk = json.loads(line)
+                        except json.JSONDecodeError:
+                            continue
+                        if "error" in chunk:
+                            raise ValueError(f"Ollama 流式错误: {chunk['error']}")
+                        if "message" not in chunk:
+                            continue
+                        message = chunk["message"]
+                        # 1. 文本增量 → yield delta
+                        content = message.get("content", "")
+                        if content:
+                            yielded_any = True
+                            yield StreamChunk(type="delta", text=content)
+                        # 2. tool_calls 完整体 → yield tool_calls（复用已有解析逻辑，转 OpenAI 格式）
+                        parsed_tcs = self._parse_ollama_tool_calls(message)
+                        if parsed_tcs:
+                            yielded_any = True
+                            yield StreamChunk(type="tool_calls", tool_calls=parsed_tcs)
+                # 流正常耗尽，返回
+                return
+            except (TimeoutError, _aiohttp.ClientConnectionError, _aiohttp.ClientResponseError) as e:
+                last_exc = e
+                # 判断是否可重试：连接错误/超时，或状态码在 429/500/502/503
+                should_retry = isinstance(e, (_aiohttp.ClientConnectionError, asyncio.TimeoutError)) or (
+                    isinstance(e, _aiohttp.ClientResponseError) and e.status in (429, 500, 502, 503)
                 )
-            async for line in resp.content:
-                if not line:
-                    continue
-                try:
-                    chunk = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if "error" in chunk:
-                    raise ValueError(f"Ollama 流式错误: {chunk['error']}")
-                if "message" not in chunk:
-                    continue
-                message = chunk["message"]
-                # 1. 文本增量 → yield delta
-                content = message.get("content", "")
-                if content:
-                    yield StreamChunk(type="delta", text=content)
-                # 2. tool_calls 完整体 → yield tool_calls（复用已有解析逻辑，转 OpenAI 格式）
-                parsed_tcs = self._parse_ollama_tool_calls(message)
-                if parsed_tcs:
-                    yield StreamChunk(type="tool_calls", tool_calls=parsed_tcs)
+                if not should_retry:
+                    raise
+                # 已 yield 出 chunk 则不再重试（无法回收已发出的内容）
+                if yielded_any:
+                    raise
+                # 未达最大重试次数 → 指数退避后重试
+                if attempt < _MAX_RETRIES - 1:
+                    delay = _RETRY_BASE_DELAY * (2**attempt)
+                    logger.warning(f"[Ollama] 流式请求失败（第 {attempt + 1} 次），{delay:.1f}s 后重试: {e}")
+                    await asyncio.sleep(delay)
+                else:
+                    raise
+            except Exception as e:
+                # 已 yield 出 chunk 后的非预期异常：不可重试
+                if yielded_any:
+                    raise ValueError(f"Ollama 流式响应异常（已输出部分内容）: {e}") from e
+                # 未 yield 前的解析类异常：不重试
+                raise ValueError(f"Ollama 流式响应异常: {e}") from e
+
+        # 理论上不会到达（重试耗尽会在循环内 raise）
+        if last_exc is not None:
+            raise last_exc
+        raise RuntimeError("Ollama 流式请求在重试后仍未完成")
 
     def _resolve_context_window(self, model: str | None) -> int | None:
         """
