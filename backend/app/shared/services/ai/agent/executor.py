@@ -232,7 +232,11 @@ class AgentExecutor:
             received_any_chunk = False  # 追踪是否收到过任何 chunk（区分"空流"与"返回但内容空"）
             try:
                 # 用 wait_for 包裹整体流式读取，防止 provider 阻塞时取消信号永不触发
-                stream_timeout = getattr(self.provider, "timeout_seconds", None) or 120
+                # 注意：timeout_seconds 仅 OllamaProvider 提供；对 mock/未实现的 provider 用 120 兜底。
+                # 必须校验为实数，否则 wait_for 在某些 Python 版本下会让内部协程进入未 await 状态
+                # （MagicMock 等任意对象会被 getattr 误判为真值）。
+                raw_timeout = getattr(self.provider, "timeout_seconds", None)
+                stream_timeout = raw_timeout if isinstance(raw_timeout, (int, float)) else 120
 
                 async def _consume_stream() -> None:
                     nonlocal content, raw_tool_calls, cancelled_in_stream, received_any_chunk

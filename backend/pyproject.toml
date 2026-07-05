@@ -71,7 +71,7 @@ full = [
 ]
 # 开发依赖
 dev = [
-    "precis[api]",
+    "precis[api,ai]",
     "debugpy>=1.8.0",
     "ruff>=0.4.0",
     "mypy>=1.10.0",
