@@ -177,6 +177,8 @@ const customNodes = {
     collapse: 'Collapse',
     addChild: 'Add child field',
     itemsType: 'Array Item Type',
+    draft: 'Draft',
+    draftTooltip: 'Unsaved changes. Constraints will use the latest config after saving',
     virtualAnchor: {
       top: 'Virtual anchor (top, connects fields scrolled out of view)',
       bottom: 'Virtual anchor (bottom, connects fields scrolled out of view)',

@@ -696,6 +696,8 @@ const customNodes = {
     collapse: '折叠',
     addChild: '添加子字段',
     itemsType: '数组元素类型',
+    draft: '未保存',
+    draftTooltip: '当前有未保存的更改，保存后约束校验将使用最新配置',
     virtualAnchor: {
       top: '虚拟锚点（顶部，连接滚动出视区的字段）',
       bottom: '虚拟锚点（底部，连接滚动出视区的字段）',
