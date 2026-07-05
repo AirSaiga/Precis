@@ -264,7 +264,6 @@
   const {
     // 数据管理
     schemaData,
-    addColumn,
     updateColumn,
     deleteColumn: deleteColumnFromData,
     batchUpdateColumns,
@@ -336,34 +335,58 @@
 
   /**
    * 添加根级字段
-   * addColumn(parentId, partial)：parentId=null 表示根级，createColumn 会补全 id 等字段
+   *
+   * 注意：必须通过 batchUpdateColumns（直接改 schemaData + notifyDataChanged）
+   * 而非 useNodeColumnEditing.addColumn。因为 schemaData 是 useSchemaDataBase 创建的
+   * 一次性快照副本（reactive(structuredClone(props.data))），而 addColumn 的
+   * updateColumns 只调 store.updateNodeData，不同步 schemaData 快照，会导致
+   * 绑定 schemaData.columns 的 JsonSchemaTree 渲染层看不到新字段。
    */
   const handleAddRootField = () => {
     const seq = schemaData.columns.length + 1
-    addColumn(null, {
+    const newCol: JsonSchemaColumn = {
+      id: crypto.randomUUID(),
       columnName: `field_${seq}`,
       jsonPath: `$.field_${seq}`,
-      dataType: 'string',
+      dataType: 'string' as const,
       nullable: true,
-    })
+      isExpanded: true,
+    }
+    batchUpdateColumns([...schemaData.columns, newCol])
     emit('column-add')
   }
 
   /**
    * 添加子字段（object/array 列的嵌套子字段）
    * 由 JsonSchemaNodeColumnRow 在 object/array 列上触发 @addChild 冒泡到此
-   * addColumn(parentId, partial)：自动把新字段插入到父列的 children 并展开父列
+   * 同样走 batchUpdateColumns 路径，递归插入到父列的 children 并展开父列
    */
   const handleAddChildField = (parentId: string) => {
     const parent = findJsonSchemaColumnById(schemaData.columns, parentId)?.column
-    const baseName = 'field_1'
-    const newPath = `${parent?.jsonPath ?? '$'}.${baseName}`
-    addColumn(parentId, {
+    if (!parent) return
+    const baseName = `field_1`
+    const newPath = `${parent.jsonPath}.${baseName}`
+    const newCol: JsonSchemaColumn = {
+      id: crypto.randomUUID(),
       columnName: baseName,
       jsonPath: newPath,
-      dataType: 'string',
+      dataType: 'string' as const,
       nullable: true,
-    })
+      isExpanded: true,
+    }
+    // 递归插入子列到目标父列的 children，并展开父列
+    const insertChild = (columns: JsonSchemaColumn[]): JsonSchemaColumn[] =>
+      columns.map((c) => {
+        if (c.id === parentId) {
+          return {
+            ...c,
+            isExpanded: true,
+            children: [...(c.children || []), newCol],
+          }
+        }
+        return c.children ? { ...c, children: insertChild(c.children) } : c
+      })
+    batchUpdateColumns(insertChild(schemaData.columns))
     emit('column-add')
   }
 
@@ -564,13 +587,18 @@
   // ==================== 生命周期 ====================
   onMounted(() => {
     // 空列时初始化一个默认列（对齐 SchemaNode 行为）
+    // 必须走 batchUpdateColumns（直接改 schemaData + notifyDataChanged），
+    // 不能走 addColumn（它只改 store 不同步 schemaData 快照，会导致渲染层看不到）
     if (!schemaData.columns || schemaData.columns.length === 0) {
-      addColumn(null, {
+      const initialCol: JsonSchemaColumn = {
+        id: crypto.randomUUID(),
         columnName: 'field_1',
         jsonPath: '$.field_1',
-        dataType: 'string',
+        dataType: 'string' as const,
         nullable: true,
-      })
+        isExpanded: true,
+      }
+      batchUpdateColumns([initialCol])
     }
 
     eventBus.on('validate-json-schema', handleValidateJsonSchema)
@@ -601,7 +629,6 @@
     validateAllColumns,
     hasSourceConnection,
     schemaData,
-    addColumn,
     updateColumn,
     deleteColumn: deleteColumnFromData,
     handleAddRootField,
