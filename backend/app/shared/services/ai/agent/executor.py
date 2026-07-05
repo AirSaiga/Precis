@@ -391,7 +391,9 @@ class AgentExecutor:
         参数:
             raw_tool_calls: 本轮 LLM 返回的原始 tool_calls（OpenAI dict 格式）
         """
-        if not raw_tool_calls:
+        # _memory 类型为 AgentMemory | None，但在 run() 中已保证调用本方法前完成初始化；
+        # 此处防御性判断同时为 mypy 提供 None 收敛，与 _create_checkpoint 中的写法保持一致。
+        if not self._memory or not raw_tool_calls:
             return
         current_signatures = {_cross_turn_signature(tc) for tc in raw_tool_calls}
         # 去掉空签名（无法识别的 tool_call 不参与检测）
