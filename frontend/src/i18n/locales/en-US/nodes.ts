@@ -166,6 +166,7 @@ const customNodes = {
   jsonSchemaNode: {
     title: 'JSON Schema Node',
     dragForDataSource: 'Drag to connect JSON data source',
+    dragToTransform: 'Drag to connect downstream nodes like Transform',
     sourceConnected: 'Connected to data source',
     dragToConnect: 'Drag a data source node here to connect',
     tableNamePlaceholder: 'Enter table name',
@@ -174,7 +175,12 @@ const customNodes = {
     closeTooltip: 'Remove from canvas',
     expand: 'Expand',
     collapse: 'Collapse',
+    addChild: 'Add child field',
     itemsType: 'Array Item Type',
+    virtualAnchor: {
+      top: 'Virtual anchor (top, connects fields scrolled out of view)',
+      bottom: 'Virtual anchor (bottom, connects fields scrolled out of view)',
+    },
     source: {
       label: 'Source',
       notConnected: 'Not Connected',

@@ -15,7 +15,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { ref } from 'vue'
+import { ref, type Ref } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import { useGraphStore } from '@/stores/graphStore'
 import type { JsonSchemaColumn, JsonSchemaNodeData } from '@/types/nodes'
@@ -26,11 +26,13 @@ import { useNodeSaving } from '../shared/useNodeSaving'
  *
  * @param props - 组件属性
  * @param emit - Vue 的 emit 函数
+ * @param hoveredColumn - 当前悬停列 ID 的响应式引用（用于 Pattern 拖放定位目标列）
  * @returns 保存相关的方法和状态
  */
 export function useJsonSchemaSaving(
   props: { id: string; data: JsonSchemaNodeData },
-  emit: (event: string, ...args: unknown[]) => void
+  emit: (event: string, ...args: unknown[]) => void,
+  hoveredColumn?: Ref<string | null>
 ) {
   const store = useGraphStore()
 
@@ -88,10 +90,7 @@ export function useJsonSchemaSaving(
       })
       markDirty()
     },
-    getTargetColumnId: () =>
-      ((emit as unknown as Record<string, unknown>).columnId as string | undefined) ||
-      props.data.columns[0]?.id ||
-      null,
+    getTargetColumnId: () => hoveredColumn?.value ?? props.data.columns[0]?.id ?? null,
     nodeType: 'jsonSchema',
     onSaveShortcut: () => nodeSaving.handleSave(),
   })

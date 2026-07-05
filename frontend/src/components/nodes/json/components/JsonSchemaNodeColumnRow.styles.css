@@ -361,3 +361,17 @@
   background: var(--node-theme-danger-weak);
   border-radius: var(--node-radius-sm);
 }
+
+/* "添加子字段"按钮：使用主题强调色（绿）与删除按钮（红）区分 */
+.add-child-btn:hover {
+  color: var(--node-theme-success, var(--json-accent, var(--ui-accent)));
+  background: var(--node-theme-success-weak, var(--ui-bg-accent));
+}
+
+/* 数组元素类型未设置时的虚化样式（提示用户可点击设置） */
+.items-type-badge.unset {
+  background: transparent;
+  border-style: dashed;
+  color: var(--node-muted-color);
+  font-weight: var(--node-label-weight);
+}

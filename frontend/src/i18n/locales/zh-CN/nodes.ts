@@ -685,6 +685,7 @@ const customNodes = {
   jsonSchemaNode: {
     title: 'JSON Schema 节点',
     dragForDataSource: '拖拽连接到 JSON 数据源',
+    dragToTransform: '拖拽连接到 Transform 等下游节点',
     sourceConnected: '已连接到数据源',
     dragToConnect: '拖拽数据源节点到此处连接',
     tableNamePlaceholder: '输入表名',
@@ -693,7 +694,12 @@ const customNodes = {
     closeTooltip: '从画布中移除',
     expand: '展开',
     collapse: '折叠',
+    addChild: '添加子字段',
     itemsType: '数组元素类型',
+    virtualAnchor: {
+      top: '虚拟锚点（顶部，连接滚动出视区的字段）',
+      bottom: '虚拟锚点（底部，连接滚动出视区的字段）',
+    },
     source: {
       label: '源',
       notConnected: '未连接数据源',

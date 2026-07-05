@@ -1,0 +1,374 @@
+/**
+ * @file JsonSchemaNodeInspector.css
+ * @description JSON Schema 节点检查器样式
+ *
+ * 样式约定与 SchemaNodeInspector.css 保持视觉一致（同样的色板与圆角），
+ * 根容器为 .json-schema-inspector。新增 JSON 专属样式：
+ * - .jsonpath-readonly：jsonPath 只读展示
+ * - .row-toggle / .row-toggle-spacer：嵌套行的折叠指示
+ * - .constraint-toggle.primary-key / .nullable：JSON 独有的 PK / nullable 切换
+ */
+
+.json-schema-inspector {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* ============ 通用表单组 ============ */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.form-group label {
+  font-size: 12px;
+  color: var(--ui-text-secondary, #666);
+  font-weight: 500;
+}
+
+/* ============ 字段计数徽标 ============ */
+.column-count-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--ui-bg-accent, #e8f0fe);
+  border-radius: 12px;
+  align-self: flex-start;
+}
+
+.column-count-number {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ui-accent, #1a73e8);
+}
+
+.column-count-unit {
+  font-size: 11px;
+  color: var(--ui-text-secondary, #666);
+}
+
+/* ============ 校验任务区块 ============ */
+.validation-task-copy {
+  font-size: 12px;
+  color: var(--ui-text-secondary, #666);
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.validate-table-btn {
+  padding: 6px 14px;
+  background: var(--ui-accent, #1a73e8);
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.validate-table-btn:hover {
+  background: var(--ui-accent-strong, #1557b0);
+}
+
+/* ============ 字段编辑列表 ============ */
+.columns-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.json-field-row {
+  border: 1px solid var(--ui-border-subtle, #e0e0e0);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--ui-bg-subtle, #fafafa);
+}
+
+.column-edit-row-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.row-toggle {
+  font-size: 10px;
+  color: var(--ui-text-secondary, #666);
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.row-toggle-spacer {
+  width: 14px;
+  flex-shrink: 0;
+}
+
+.column-name-input {
+  flex: 1;
+  padding: 3px 6px;
+  border: 1px solid var(--ui-border-subtle, #e0e0e0);
+  border-radius: 3px;
+  font-size: 12px;
+  min-width: 0;
+}
+
+.column-name-input:focus {
+  outline: none;
+  border-color: var(--ui-accent, #1a73e8);
+}
+
+.column-name-input::placeholder {
+  color: var(--ui-text-disabled, #bbb);
+}
+
+.column-delete-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border: none;
+  background: transparent;
+  color: var(--ui-text-secondary, #666);
+  cursor: pointer;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+
+.column-delete-btn:hover {
+  color: var(--ui-danger, #d93025);
+  background: var(--ui-danger-weak, #fce8e6);
+}
+
+.column-edit-row-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 20px;
+}
+
+.column-edit-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.column-edit-label {
+  font-size: 10px;
+  color: var(--ui-text-secondary, #888);
+  font-weight: 500;
+}
+
+.jsonpath-readonly {
+  font-family: var(--ui-font-mono, 'Consolas', monospace);
+  font-size: 11px;
+  color: var(--ui-text-secondary, #666);
+  background: var(--ui-bg, #f5f5f5);
+  padding: 2px 6px;
+  border-radius: 3px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.column-type-select {
+  padding: 3px 6px;
+  border: 1px solid var(--ui-border-subtle, #e0e0e0);
+  border-radius: 3px;
+  font-size: 12px;
+  background: #fff;
+}
+
+.column-type-select:focus {
+  outline: none;
+  border-color: var(--ui-accent, #1a73e8);
+}
+
+/* ============ 属性 / 约束切换按钮组 ============ */
+.column-edit-constraints {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.constraint-toggles {
+  display: flex;
+  gap: 4px;
+}
+
+.constraint-toggle {
+  padding: 2px 8px;
+  border: 1px solid var(--ui-border-subtle, #e0e0e0);
+  border-radius: 3px;
+  background: #fff;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--ui-text-secondary, #888);
+  transition: all 0.15s;
+}
+
+.constraint-toggle:hover {
+  border-color: var(--ui-accent, #1a73e8);
+}
+
+/* nullable (?) 激活：中性蓝 */
+.constraint-toggle.nullable.active {
+  background: var(--ui-bg-accent, #e8f0fe);
+  border-color: var(--ui-accent, #1a73e8);
+  color: var(--ui-accent, #1a73e8);
+}
+
+/* primary-key (PK) 激活：金 */
+.constraint-toggle.primary-key.active {
+  background: #fef7e0;
+  border-color: #f9ab00;
+  color: #b06000;
+}
+
+/* not-null (NN) 激活：红 */
+.constraint-toggle.not-null.active {
+  background: var(--ui-danger-weak, #fce8e6);
+  border-color: var(--ui-danger, #d93025);
+  color: var(--ui-danger, #d93025);
+}
+
+/* unique (UQ) 激活：绿 */
+.constraint-toggle.unique.active {
+  background: #e6f4ea;
+  border-color: #188038;
+  color: #188038;
+}
+
+/* ============ 添加字段按钮 ============ */
+.add-column-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  padding: 6px;
+  border: 1px dashed var(--ui-border, #ccc);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--ui-text-secondary, #666);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.add-column-btn:hover {
+  border-color: var(--ui-accent, #1a73e8);
+  color: var(--ui-accent, #1a73e8);
+}
+
+/* ============ 连接的约束列表 ============ */
+.connected-constraints-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.connected-constraint-item {
+  border: 1px solid var(--ui-border-subtle, #e0e0e0);
+  border-radius: 4px;
+  padding: 6px 8px;
+}
+
+.constraint-item-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.constraint-type-badge {
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.constraint-type-badge.ctype-NotNull {
+  background: var(--ui-danger-weak, #fce8e6);
+  color: var(--ui-danger, #d93025);
+}
+.constraint-type-badge.ctype-Unique {
+  background: #e6f4ea;
+  color: #188038;
+}
+.constraint-type-badge.ctype-ForeignKey {
+  background: #fef7e0;
+  color: #b06000;
+}
+.constraint-type-badge.ctype-AllowedValues {
+  background: var(--ui-bg-accent, #e8f0fe);
+  color: var(--ui-accent, #1a73e8);
+}
+
+.constraint-name {
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.constraint-item-detail {
+  display: flex;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--ui-text-secondary, #666);
+}
+
+.constraint-detail-label {
+  color: var(--ui-text-disabled, #999);
+}
+
+.constraint-status-badge {
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+.constraint-status-badge.status-pass {
+  background: #e6f4ea;
+  color: #188038;
+}
+.constraint-status-badge.status-error {
+  background: var(--ui-danger-weak, #fce8e6);
+  color: var(--ui-danger, #d93025);
+}
+.constraint-status-badge.status-missing {
+  background: #fef7e0;
+  color: #b06000;
+}
+
+.no-constraints {
+  font-size: 12px;
+  color: var(--ui-text-disabled, #999);
+  font-style: italic;
+}
+
+/* ============ 保存状态 ============ */
+.save-status-display {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.save-status-display .status-icon {
+  font-size: 14px;
+}
+
+.save-status-display.status-saved {
+  color: #188038;
+}
+.save-status-display.status-draft {
+  color: #b06000;
+}
+.save-status-display.status-error {
+  color: var(--ui-danger, #d93025);
+}

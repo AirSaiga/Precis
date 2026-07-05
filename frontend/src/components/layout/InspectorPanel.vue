@@ -190,6 +190,8 @@
     switch (node.value.type) {
       case 'schema':
         return defineAsyncComponent(() => import('./inspectors/SchemaNodeInspector.vue'))
+      case 'jsonSchema':
+        return defineAsyncComponent(() => import('./inspectors/JsonSchemaNodeInspector.vue'))
       case 'pattern':
         return defineAsyncComponent(() => import('./inspectors/PatternNodeInspector.vue'))
       case 'patternToolbox':
@@ -217,8 +219,8 @@
     if (!node.value) return
     // 调用 GraphStore 的 updateNodeData 方法更新节点数据
     store.updateNodeData(node.value.id, newData)
-    // 同步更新资源树显示名称（仅 schema 节点的 tableName 变更时）
-    if (node.value.type === 'schema') {
+    // 同步更新资源树显示名称（schema / jsonSchema 节点的 tableName 变更时）
+    if (node.value.type === 'schema' || node.value.type === 'jsonSchema') {
       const tableName = (newData as Record<string, unknown>).tableName
       if (tableName) {
         resourceTreeStore.updateResourceName(node.value.id, tableName as string)

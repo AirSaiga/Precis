@@ -11,9 +11,10 @@
 import { useCanvasLifecycle } from './useCanvasLifecycle'
 import { useConnectionDispatcher } from './useConnectionDispatcher'
 import { useSchemaEvents } from '@/composables/nodes/schema/useSchemaEvents'
+import { useJsonSchemaEvents } from '@/composables/nodes/json/useJsonSchemaEvents'
 import { useSourcePreviewEvents } from '@/composables/nodes/sourcePreview/useSourcePreviewEvents'
 import { useRegexValidation } from '@/features/regex/composables'
-import type { SchemaNodeData, SourcePreviewNodeData } from '@/types/graph'
+import type { SchemaNodeData, JsonSchemaNodeData, SourcePreviewNodeData } from '@/types/graph'
 
 export interface CanvasEventSetupOptions {
   /** 打开创建项目对话框回调 */
@@ -32,6 +33,12 @@ export function useCanvasEventSetup(options: CanvasEventSetupOptions) {
     { id: '', data: {} } as unknown as { id: string; data: SchemaNodeData },
     () => {}
   )
+
+  // 初始化 JSON Schema 节点事件处理器（同上，仅处理保存事件的持久化）
+  const { handleJsonSchemaNodeSave } = useJsonSchemaEvents({ id: '', data: {} } as unknown as {
+    id: string
+    data: JsonSchemaNodeData
+  })
 
   // 初始化 SourcePreview 节点事件处理器
   const { handleHeaderRowChanged, handleSourcePreviewDataChanged } = useSourcePreviewEvents(
@@ -55,6 +62,7 @@ export function useCanvasEventSetup(options: CanvasEventSetupOptions) {
     onHeaderRowChanged: handleHeaderRowChanged,
     onSourcePreviewDataChanged: handleSourcePreviewDataChanged,
     onSchemaNodeSave: (detail) => handleNodeSave(detail),
+    onJsonSchemaNodeSave: (detail) => handleJsonSchemaNodeSave(detail),
     onRegexPatternUpdated: handleRegexPatternUpdated,
   })
 
@@ -63,5 +71,6 @@ export function useCanvasEventSetup(options: CanvasEventSetupOptions) {
     onConnectFromDispatcher,
     onConnectEndFromDispatcher,
     handleNodeSave,
+    handleJsonSchemaNodeSave,
   }
 }

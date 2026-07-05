@@ -5,11 +5,26 @@
 -->
 <template>
   <div class="json-tree">
-    <div class="tree-body">
+    <!--
+      tree-body 是滚动容器
+      - :ref 绑定到 scrollRef（由父节点 JsonSchemaNode 传入的 columnsSectionRef）
+        使 useNodeUI 的 getScrolledOutColumnsBySide 能基于此 DOM 计算可视区
+      - @scroll 透传给父节点的 handleColumnsScroll（rAF 节流 + updateNodeInternals）
+    -->
+    <div
+      class="tree-body"
+      :ref="(el) => assignScrollRef(el as HTMLElement | null)"
+      @scroll="emit('scroll', $event)"
+    >
       <template v-for="(item, index) in visibleItems" :key="item.id">
-        <!-- 树行包装器（包含 Handle 和分组样式） -->
+        <!--
+          树行包装器
+          - 同时挂 'column-row' 和 'tree-row-wrapper' 类：
+            * 'column-row' 对齐 useNodeUI 的 DOM 选择器 .column-row[data-column-id]
+            * 'tree-row-wrapper' 承载树形分组样式
+        -->
         <div
-          class="tree-row-wrapper"
+          class="tree-row-wrapper column-row"
           :class="{
             'is-parent': item.canHaveChildren,
             'is-expanded': item.isExpanded,
@@ -36,16 +51,18 @@
             @delete="remove"
             @hover="hoveredColumnId = $event"
             @unhover="hoveredColumnId = null"
-            @hover-error="hoveredErrorColumn = $event"
-            @unhover-error="hoveredErrorColumn = null"
+            @hover-error="(id) => ((hoveredErrorColumn = id), emit('hoverError', id))"
+            @unhover-error="() => ((hoveredErrorColumn = null), emit('unhoverError'))"
             @toggle-constraint-menu="toggleConstraintMenu"
             @toggle-type-dropdown="toggleTypeDropdown"
+            @toggle-items-type-dropdown="toggleItemsTypeDropdown"
             @toggle-expand="toggle"
+            @add-child="handleAddChild"
             @enter="handleEnter"
             @tab="handleTab"
           />
 
-          <!-- Vue Flow 连接点 Handle -->
+          <!-- Vue Flow 连接点 Handle（前缀 source-right- 与虚拟锚点系统约定一致） -->
           <Handle
             :id="'source-right-' + item.id"
             type="source"
@@ -86,10 +103,24 @@
 
   const props = defineProps<{
     columns: JsonSchemaColumn[]
+    /**
+     * 父节点传入的滚动容器 ref（columnsSectionRef）。
+     * 本组件的 .tree-body 会把它绑定到自身 DOM，使 useNodeUI 能基于此计算滚动出可视区的列。
+     * 类型用 unknown 避免与 Vue 的 ref 函数签名产生协变冲突；运行时只是赋值给 DOM。
+     */
+    scrollRef?: unknown
   }>()
 
   const emit = defineEmits<{
     update: [columns: JsonSchemaColumn[]]
+    /** 滚动事件透传（父节点接 handleColumnsScroll） */
+    scroll: [event: Event]
+    /** 添加子字段（object/array 列触发，父节点接 useJsonSchemaData.addChildColumn） */
+    addChild: [parentId: string]
+    /** 鼠标进入有错误的字段（父节点用于显示错误 popover） */
+    hoverError: [columnId: string]
+    /** 鼠标离开错误字段 */
+    unhoverError: []
   }>()
 
   // ==================== 状态 ====================
@@ -100,6 +131,19 @@
   const activeMenuColumnId = ref<string | null>(null)
   const activeMenuType = ref<'constraint' | 'type' | 'itemsType' | null>(null)
   const dropdownPosition = ref({ top: 0, left: 0 })
+
+  /**
+   * 把 .tree-body 的 DOM 元素绑定到父节点传入的 columnsSectionRef
+   * （Vue 的函数式 ref 写法，元素挂载/卸载时都会调用）
+   */
+  const assignScrollRef = (el: HTMLElement | null) => {
+    // useNodeUI.columnsSectionRef 是一个 Ref<HTMLElement | null>，
+    // 父节点通过 props.scrollRef 透传过来；此处把它指向当前 .tree-body
+    const refObj = props.scrollRef as { value: HTMLElement | null } | undefined
+    if (refObj && 'value' in refObj) {
+      refObj.value = el
+    }
+  }
 
   // ==================== 计算属性 ====================
 
@@ -309,6 +353,29 @@
     activeMenuType.value = 'type'
     const rect = (event.target as HTMLElement).getBoundingClientRect()
     dropdownPosition.value = { top: rect.bottom + 4, left: rect.left }
+  }
+
+  /**
+   * 切换"数组元素类型"下拉菜单（仅 array 类型列触发）
+   * 走 'itemsType' 菜单分支（JsonSchemaNodeColumnMenuDropdown 已实现）
+   */
+  const toggleItemsTypeDropdown = (columnId: string, event: MouseEvent) => {
+    if (activeMenuColumnId.value === columnId && activeMenuType.value === 'itemsType') {
+      activeMenuColumnId.value = null
+      activeMenuType.value = null
+      return
+    }
+    activeMenuColumnId.value = columnId
+    activeMenuType.value = 'itemsType'
+    const rect = (event.target as HTMLElement).getBoundingClientRect()
+    dropdownPosition.value = { top: rect.bottom + 4, left: rect.left }
+  }
+
+  /**
+   * 为 object/array 列添加子字段（冒泡给父节点，由父节点调用 useJsonSchemaData.addChildColumn）
+   */
+  const handleAddChild = (parentId: string) => {
+    emit('addChild', parentId)
   }
 
   const handleSelectType = (id: string, type: string) => {

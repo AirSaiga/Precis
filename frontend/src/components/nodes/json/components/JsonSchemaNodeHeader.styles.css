@@ -167,3 +167,36 @@
     transform: rotate(360deg);
   }
 }
+
+/* ==========================================
+   保存状态徽标（草稿角标，对齐 SchemaNodeHeader）
+   ========================================== */
+.save-state-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--node-badge-radius-full);
+  font-size: var(--node-badge-font-size-xs);
+  font-weight: var(--node-badge-font-weight);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.save-state-badge.draft-badge {
+  background: var(--ui-warning-weak);
+  color: var(--ui-warning-strong);
+  border: 1px solid var(--ui-warning-strong);
+}
+
+.save-state-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.save-state-text {
+  font-size: var(--node-muted-size);
+}

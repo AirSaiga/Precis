@@ -13,6 +13,7 @@ import { useJsonSchemaInteractions } from './useJsonSchemaInteractions'
 import { useJsonSchemaResizable } from './useJsonSchemaResizable'
 import { useJsonSchemaSaving } from './useJsonSchemaSaving'
 import { useJsonSchemaDrag } from './useJsonSchemaDrag'
+import { useJsonSchemaEvents } from './useJsonSchemaEvents'
 import type { JsonSchemaNodeData, JsonSchemaColumn } from '@/types/nodes'
 import type { EmitFn } from 'vue'
 import type { ConstraintCreateData } from './useJsonSchemaInteractions'
@@ -77,7 +78,12 @@ export function useJsonSchemaNode(
 
   // JSON Schema保存
   // 处理 JSON Schema 节点的保存逻辑，包括本地状态和远程同步
-  const saving = useJsonSchemaSaving(props, emit as (event: string, ...args: unknown[]) => void)
+  // 依赖 ui.hoveredColumn 进行 Pattern 拖放的目标列定位（修复历史 bug：原从 emit 对象上读 columnId 恒为 undefined）
+  const saving = useJsonSchemaSaving(
+    props,
+    emit as (event: string, ...args: unknown[]) => void,
+    ui.hoveredColumn
+  )
 
   // JSON Schema拖拽
   // 处理节点和列的拖拽排序
@@ -85,6 +91,11 @@ export function useJsonSchemaNode(
     props,
     emit as unknown as EmitFn<{ columnReorder: [Record<string, unknown>] }>
   )
+
+  // JSON Schema事件
+  // 处理保存事件的持久化（监听 json-schema-node-save，派发 json-schema-node-save-complete）
+  // 注意：实际监听器在 useCanvasEventSetup 中注册；本聚合器仅暴露 handler 供外部使用
+  const events = useJsonSchemaEvents(props)
 
   return {
     // JSON Schema数据管理
@@ -110,6 +121,9 @@ export function useJsonSchemaNode(
 
     // JSON Schema拖拽
     ...drag,
+
+    // JSON Schema事件
+    ...events,
   }
 }
 
@@ -123,6 +137,7 @@ export * from './useJsonSchemaInteractions'
 export * from './useJsonSchemaResizable'
 export * from './useJsonSchemaSaving'
 export * from './useJsonSchemaDrag'
+export * from './useJsonSchemaEvents'
 export * from './useJsonSchemaConnectionHandler'
 
 // 导出工具函数

@@ -199,7 +199,12 @@ export function useJsonSchemaValidation(props: { id: string; data: JsonSchemaNod
     }
 
     if (data === undefined || data === null) {
-      return column.nullable === true
+      // 双层判据（与全局校验编排器 notNullHandler 语义对齐）：
+      // 1. nullable === false：类型层禁止 null（对应后端 ColumnSpec.nullable）
+      // 2. constraints.notNull === true：约束层禁止 null（对应后端 NotNull ConstraintItem）
+      // 任一成立即视为违反非空约束
+      const disallowNull = column.nullable === false || column.constraints?.notNull === true
+      return !disallowNull
     }
 
     return true

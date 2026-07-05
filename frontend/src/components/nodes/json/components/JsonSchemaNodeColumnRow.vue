@@ -165,17 +165,25 @@
 
       <!--
         ========================================
-        数组元素类型显示（仅当类型为array时显示）
+        数组元素类型显示与设置入口（仅当类型为 array 时显示）
         ========================================
-        显示数组元素的数据类型
+        - 已设置 arrayItemType：显示徽标，点击可重新选择
+        - 未设置 arrayItemType：显示"设置元素类型"按钮
+        点击触发 itemsType 菜单（JsonSchemaNodeColumnMenuDropdown 已实现该菜单分支）
       -->
-      <div
-        v-if="props.column.dataType === 'array' && props.column.arrayItemType"
+      <button
+        v-if="props.column.dataType === 'array'"
         class="items-type-badge"
+        :class="{ unset: !props.column.arrayItemType }"
+        @click.stop="(e) => emit('toggleItemsTypeDropdown', props.column.id, e)"
         :title="t('customNodes.jsonSchemaNode.dataTypes.arrayItem')"
       >
-        <span class="items-type-text">{{ getTypeDisplayText(props.column.arrayItemType) }}</span>
-      </div>
+        <span class="items-type-text">{{
+          props.column.arrayItemType
+            ? getTypeDisplayText(props.column.arrayItemType)
+            : t('customNodes.jsonSchemaNode.itemsType')
+        }}</span>
+      </button>
     </div>
 
     <!--
@@ -224,10 +232,19 @@
       行操作区域
       ========================================
       包含：
-      1. 源连接点：用于从该列拖出连接到其他节点
+      1. 添加子字段按钮：仅 object/array 列显示（JSON 嵌套结构核心能力）
       2. 删除按钮：悬停或编辑时显示，用于删除该列
     -->
     <div class="row-actions">
+      <button
+        v-if="canHaveChildren"
+        v-show="props.isHovered || props.isEditing"
+        class="action-btn add-child-btn"
+        @click="emit('addChild', props.column.id)"
+        :title="t('customNodes.jsonSchemaNode.addChild')"
+      >
+        +
+      </button>
       <button
         v-show="props.isHovered || props.isEditing"
         class="action-btn delete-btn"
@@ -374,6 +391,17 @@
      */
     (e: 'toggleExpand', columnId: string): void
     /**
+     * 打开/关闭数组元素类型下拉菜单（仅 array 类型列触发）
+     * @param columnId - 操作的列ID
+     * @param event - 鼠标事件
+     */
+    (e: 'toggleItemsTypeDropdown', columnId: string, event: MouseEvent): void
+    /**
+     * 为 object/array 列添加子字段
+     * @param columnId - 父列ID
+     */
+    (e: 'addChild', columnId: string): void
+    /**
      * 在编辑时按下Enter键
      */
     (e: 'enter'): void
@@ -424,6 +452,14 @@
    */
   const hasChildren = computed(() => {
     return props.column.children && props.column.children.length > 0
+  })
+
+  /**
+   * 检查该列是否允许拥有子列（object/array 类型才能嵌套）
+   * 这是 JSON 嵌套结构的核心判据，控制"添加子字段"按钮的显隐
+   */
+  const canHaveChildren = computed(() => {
+    return props.column.dataType === 'object' || props.column.dataType === 'array'
   })
 
   /**

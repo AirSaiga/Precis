@@ -12,9 +12,42 @@
 .json-tree .tree-body {
   flex: 1;
   min-height: 120px;
+  /* 高度上限：让树真正可滚动，避免深层 JSON 撑爆节点（对齐 SchemaNode columns-section 量级） */
+  max-height: 360px;
   overflow-y: auto;
   padding: 0;
   background: var(--node-bg);
+}
+
+/* ==========================================
+   虚拟锚点（列滚动出可视区时显示）
+   复用 SchemaNode 的同名机制：代理边会路由到这两个 Handle
+   ========================================== */
+.json-tree .virtual-anchor-layer {
+  position: relative;
+  height: 0;
+  pointer-events: none;
+}
+
+.json-tree .virtual-anchor {
+  position: absolute !important;
+  right: 2px !important;
+  width: var(--node-handle-size-md) !important;
+  height: var(--node-handle-size-md) !important;
+  border-radius: 50% !important;
+  background: var(--node-muted-color) !important;
+  border: 2px dashed var(--node-border-hover) !important;
+  opacity: 0.7 !important;
+  z-index: var(--node-z-hover) !important;
+  pointer-events: auto;
+}
+
+.json-tree .virtual-anchor-top {
+  top: -8px !important;
+}
+
+.json-tree .virtual-anchor-bottom {
+  bottom: -8px !important;
 }
 
 /* ==========================================
@@ -95,12 +128,6 @@
   box-shadow:
     0 0 0 3px rgba(34, 197, 94, 0.3),
     0 2px 6px rgba(0, 0, 0, 0.12);
-}
-
-.json-tree .column-handle::before {
-  content: '';
-  position: absolute;
-  inset: -6px;
 }
 
 .json-tree .tree-row-wrapper:hover .column-handle {

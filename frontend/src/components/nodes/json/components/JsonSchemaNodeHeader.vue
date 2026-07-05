@@ -70,6 +70,22 @@
 
       <!--
         ========================================
+        保存状态指示（草稿角标）
+        ========================================
+        当 saveState === 'draft' 时显示，提示用户有未保存更改
+        对齐 SchemaNodeHeader 的草稿徽标
+      -->
+      <div
+        v-if="props.saveState === 'draft'"
+        class="save-state-badge draft-badge"
+        :title="t('customNodes.jsonSchemaNode.draftTooltip')"
+      >
+        <span class="save-state-dot"></span>
+        <span class="save-state-text">{{ t('customNodes.jsonSchemaNode.draft') }}</span>
+      </div>
+
+      <!--
+        ========================================
         数据源连接状态显示
         ========================================
         显示当前Schema节点连接的数据源信息：
@@ -213,6 +229,14 @@
      * 错误时显示感叹号图标
      */
     saveError: boolean
+    /**
+     * 节点保存状态
+     * 'draft' = 草稿（未保存，显示角标提示）
+     * 'saved' = 已保存
+     * 'error' = 保存出错
+     * 对齐 SchemaNodeHeader 的草稿徽标
+     */
+    saveState?: 'draft' | 'saved' | 'error'
   }>()
 
   // ============================================================================

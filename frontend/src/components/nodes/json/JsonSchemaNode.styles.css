@@ -181,6 +181,34 @@
   letter-spacing: 0.5px;
 }
 
+/**
+ * 列区容器：包裹树体与虚拟锚点层。
+ * overflow: hidden 让内部 .tree-body 独立滚动；position: relative 给虚拟锚点定位基准。
+ */
+.json-schema-node .columns-section-wrapper {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/**
+ * 虚拟锚点层：列滚动出可视区时显示顶部/底部两个代理 Handle。
+ * 视觉样式由 JsonSchemaTree.styles.css 的 .virtual-anchor-* 提供（树体内部），
+ * 这里仅给节点层同名容器一个定位上下文（与 SchemaNode 行为一致）。
+ */
+.json-schema-node .virtual-anchor-layer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: var(--node-z-hover);
+}
+
 .json-schema-node .col-h-expand {
   width: 24px;
   flex-shrink: 0;
