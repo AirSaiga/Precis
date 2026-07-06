@@ -9,7 +9,7 @@
     theme="danger"
     :state="resolveNodeState(validationStatus, selected)"
     :title="t('customNodes.constraintRules.notNullConstraintNode.title')"
-    icon="🚫"
+    icon-name="constraint-notNull"
     :help-text="t('customNodes.constraintRules.notNullConstraintNode.helpTooltip')"
     :error-count="errorCount"
     :show-save="true"

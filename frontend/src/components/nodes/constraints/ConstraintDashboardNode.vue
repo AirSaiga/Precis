@@ -5,7 +5,7 @@
 <template>
   <div class="constraint-dashboard-node graph-node" :class="{ 'is-selected': selected }">
     <div class="header">
-      <span class="icon">📋</span>
+      <span class="icon"><AppIcon name="clipboard" :size="16" /></span>
       <span class="title">{{ t('customNodes.constraintDashboardNode.title') }}</span>
       <span v-if="data.items?.length" class="count">{{ data.items.length }}</span>
     </div>
@@ -35,6 +35,7 @@
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
   import { eventBus } from '@/core/eventBus'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   const { t } = useI18n()
 

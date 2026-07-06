@@ -11,7 +11,7 @@
     theme="pink"
     :state="resolveNodeState(validationStatus, selected)"
     :title="t('customNodes.constraintRules.charsetConstraintNode.title')"
-    icon="🔤"
+    icon-name="constraint-charset"
     :help-text="t('customNodes.constraintRules.charsetConstraintNode.helpTooltip')"
     :error-count="errorCount"
     :show-save="true"

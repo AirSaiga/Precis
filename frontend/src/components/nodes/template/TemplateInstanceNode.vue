@@ -25,7 +25,12 @@
     @save="handleSave"
   >
     <template #header>
-      <NodeHeader :title="data.templateName || configName" icon="🧩" theme="purple" status="idle" />
+      <NodeHeader
+        :title="data.templateName || configName"
+        icon-name="puzzle"
+        theme="purple"
+        status="idle"
+      />
       <NodeDivider theme="purple" spacing="sm" />
     </template>
 

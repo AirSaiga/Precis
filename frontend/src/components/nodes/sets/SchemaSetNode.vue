@@ -11,7 +11,7 @@ Header：集合图标、名称、Schema 数量 * - Content：Schema 节点列表
     class="schema-set-node graph-node"
     :selected="selected"
     theme="info"
-    icon="🗄️"
+    icon-name="archive"
     :title="data.setName"
     :shell-title="data.setName"
     :handles="[

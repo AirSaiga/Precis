@@ -241,7 +241,9 @@
               @dragend="handleDragEnd"
               @click="handleTransformTypeClick(tItem)"
             >
-              <span class="constraint-type-icon" v-html="tItem.icon"></span>
+              <span class="constraint-type-icon"
+                ><AppIcon :name="getCategoryIcon(tItem.transformType)" :size="14"
+              /></span>
               <span class="constraint-type-name">{{ t(tItem.nameKey) }}</span>
               <span class="constraint-type-grip">
                 <svg
@@ -317,7 +319,9 @@
                 @dragend="handleDragEnd"
                 @click="handleConstraintTypeClick(constraint)"
               >
-                <span class="constraint-type-icon" v-html="constraint.icon"></span>
+                <span class="constraint-type-icon"
+                  ><AppIcon :name="constraint.icon" :size="14"
+                /></span>
                 <span class="constraint-type-name">{{ constraint.name }}</span>
                 <span class="constraint-type-grip">
                   <svg
@@ -357,7 +361,9 @@
                 @dragend="handleDragEnd"
                 @click="handleConstraintTypeClick(constraint)"
               >
-                <span class="constraint-type-icon" v-html="constraint.icon"></span>
+                <span class="constraint-type-icon"
+                  ><AppIcon :name="constraint.icon" :size="14"
+                /></span>
                 <span class="constraint-type-name">{{ constraint.name }}</span>
                 <span class="constraint-type-grip">
                   <svg
@@ -397,7 +403,9 @@
                 @dragend="handleDragEnd"
                 @click="handleConstraintTypeClick(constraint)"
               >
-                <span class="constraint-type-icon" v-html="constraint.icon"></span>
+                <span class="constraint-type-icon"
+                  ><AppIcon :name="constraint.icon" :size="14"
+                /></span>
                 <span class="constraint-type-name">{{ constraint.name }}</span>
                 <span class="constraint-type-grip">
                   <svg
@@ -438,6 +446,8 @@
 <script setup lang="ts">
   import { ref } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
+  import { getCategoryIcon } from '@/composables/nodes/transform/transformCategory'
   import ToolboxTile from './ToolboxTile.vue'
   import ConstraintRuleTypeMenu, {
     type ConstraintRuleTypeOption,
@@ -515,7 +525,6 @@
       | 'WeightedSum'
       | 'Modulo'
       | 'MapValue'
-    icon: string
   }
 
   const transformTypes: TransformTypeItem[] = [
@@ -523,133 +532,111 @@
       id: 'string-split',
       nameKey: 'customNodes.transformNode.types.stringSplit',
       transformType: 'StringSplit',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"></path><path d="M12 4v16"></path></svg>',
     },
     {
       id: 'regex-extract',
       nameKey: 'customNodes.transformNode.types.regexExtract',
       transformType: 'RegexExtract',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
     },
     {
       id: 'math-expr',
       nameKey: 'customNodes.transformNode.types.mathExpr',
       transformType: 'MathExpr',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path></svg>',
     },
     {
       id: 'date-format',
       nameKey: 'customNodes.transformNode.types.dateFormat',
       transformType: 'DateFormat',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>',
     },
     {
       id: 'lookup',
       nameKey: 'customNodes.transformNode.types.lookup',
       transformType: 'Lookup',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
     },
     {
       id: 'strip',
       nameKey: 'customNodes.transformNode.types.strip',
       transformType: 'Strip',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"></path></svg>',
     },
     {
       id: 'upper-case',
       nameKey: 'customNodes.transformNode.types.upperCase',
       transformType: 'UpperCase',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path></svg>',
     },
     {
       id: 'lower-case',
       nameKey: 'customNodes.transformNode.types.lowerCase',
       transformType: 'LowerCase',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path></svg>',
     },
     {
       id: 'replace',
       nameKey: 'customNodes.transformNode.types.replace',
       transformType: 'Replace',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>',
     },
     {
       id: 'filter-rows',
       nameKey: 'customNodes.transformNode.types.filterRows',
       transformType: 'FilterRows',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>',
     },
     {
       id: 'fill-na',
       nameKey: 'customNodes.transformNode.types.fillNA',
       transformType: 'FillNA',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>',
     },
     {
       id: 'drop-duplicates',
       nameKey: 'customNodes.transformNode.types.dropDuplicates',
       transformType: 'DropDuplicates',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"></path><path d="m6 6 12 12"></path></svg>',
     },
     {
       id: 'cast-type',
       nameKey: 'customNodes.transformNode.types.castType',
       transformType: 'CastType',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"></path><path d="M9 20h6"></path><path d="M12 4v16"></path></svg>',
     },
     {
       id: 'concat',
       nameKey: 'customNodes.transformNode.types.concat',
       transformType: 'Concat',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"></path></svg>',
     },
     {
       id: 'substring',
       nameKey: 'customNodes.transformNode.types.substring',
       transformType: 'Substring',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"></path><path d="M9 20h6"></path><path d="M12 4v16"></path><path d="M8 12h8"></path></svg>',
     },
     {
       id: 'aggregate',
       nameKey: 'customNodes.transformNode.types.aggregate',
       transformType: 'Aggregate',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"></path><path d="m19 9-5 5-4-4-3 3"></path></svg>',
     },
     {
       id: 'conditional-assign',
       nameKey: 'customNodes.transformNode.types.conditionalAssign',
       transformType: 'ConditionalAssign',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>',
     },
     {
       id: 'sort-rows',
       nameKey: 'customNodes.transformNode.types.sortRows',
       transformType: 'SortRows',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 16 4 4 4-4"></path><path d="M7 20V4"></path><path d="m21 8-4-4-4 4"></path><path d="M17 4v16"></path></svg>',
     },
     {
       id: 'digits',
       nameKey: 'customNodes.transformNode.types.digits',
       transformType: 'Digits',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path></svg>',
     },
     {
       id: 'weighted-sum',
       nameKey: 'customNodes.transformNode.types.weightedSum',
       transformType: 'WeightedSum',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7V4h16v3"></path><path d="M9 20h6"></path><path d="M12 4v16"></path><path d="M8 12h8"></path></svg>',
     },
     {
       id: 'modulo',
       nameKey: 'customNodes.transformNode.types.modulo',
       transformType: 'Modulo',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h16"></path><path d="M12 4v16"></path></svg>',
     },
     {
       id: 'map-value',
       nameKey: 'customNodes.transformNode.types.mapValue',
       transformType: 'MapValue',
-      icon: '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
     },
   ]
 

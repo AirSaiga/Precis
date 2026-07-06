@@ -20,9 +20,10 @@
       { 'has-help': showHelp, 'has-subtitle': !!subtitle },
     ]"
   >
-    <div v-if="icon" class="node-header__icon">
+    <div v-if="iconName || icon || $slots.icon" class="node-header__icon">
       <slot name="icon">
-        {{ icon }}
+        <AppIcon v-if="iconName" :name="iconName" :size="16" />
+        <span v-else-if="icon">{{ icon }}</span>
       </slot>
     </div>
 
@@ -74,8 +75,12 @@
    * </NodeHeader>
    */
 
+  import AppIcon from '../icons/AppIcon.vue'
   import type { NodeState, NodeTheme } from './nodeVariants'
   interface Props {
+    /** 业务图标名（对应 iconRegistry），优先使用 */
+    iconName?: string
+    /** @deprecated 请改用 iconName */
     icon?: string
     title: string
     subtitle?: string
@@ -85,7 +90,8 @@
     status?: NodeState
   }
 
-  withDefaults(defineProps<Props>(), {
+  const props = withDefaults(defineProps<Props>(), {
+    iconName: '',
     icon: '',
     title: '',
     subtitle: '',
@@ -94,6 +100,10 @@
     helpText: '',
     status: 'idle',
   })
+
+  if (import.meta.env.DEV && props.icon && !props.iconName) {
+    console.warn('[NodeHeader] `icon` prop 已废弃，请改用 `icon-name` 并传入业务图标名。')
+  }
 
   const emit = defineEmits<{
     'help-click': []

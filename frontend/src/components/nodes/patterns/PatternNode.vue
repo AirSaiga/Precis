@@ -12,7 +12,7 @@ Preview：正则表达式截断预览 * - 右侧输出 Handle：连接到 Regex 
     class="pattern-node"
     :selected="selected"
     theme="sky"
-    icon="📋"
+    icon-name="clipboard"
     :title="data.name"
     :shell-title="data.name"
     :handles="[

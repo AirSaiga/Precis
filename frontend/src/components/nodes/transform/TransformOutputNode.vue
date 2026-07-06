@@ -29,7 +29,7 @@
     <!-- 头部 -->
     <div class="manual-data-header">
       <div class="header-icon">
-        <span>📤</span>
+        <AppIcon name="upload" :size="18" />
       </div>
       <div class="header-content">
         <div class="node-name">{{ data.columnName }}</div>
@@ -86,6 +86,7 @@
   import { ref, computed } from 'vue'
   import type { TransformOutputNodeData } from '@/types/nodes'
   import NodeHandle from '@/components/ui/NodeHandle.vue'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   const props = defineProps<{
     id: string

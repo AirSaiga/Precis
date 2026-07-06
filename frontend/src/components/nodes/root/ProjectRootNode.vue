@@ -11,7 +11,9 @@
     @dblclick="openSettings"
   >
     <div class="header">
-      <div class="icon">🔬</div>
+      <div class="icon">
+        <AppIcon name="project-root" :size="18" />
+      </div>
       <div class="header-text">
         <div class="title">{{ data.projectName }}</div>
         <div class="subtitle" :title="data.projectPath || '-'">{{ projectPathShort }}</div>
@@ -22,7 +24,7 @@
           class="status-indicator loading"
           :title="t('customNodes.projectRootNode.status.loading')"
         >
-          ⏳
+          <AppIcon name="clock" :size="14" />
         </span>
         <span
           v-if="hasUnsavedChanges"
@@ -78,6 +80,7 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import { useGraphStore } from '@/stores/graphStore'
   import { useSettingsStore } from '@/stores/settingsStore'
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'

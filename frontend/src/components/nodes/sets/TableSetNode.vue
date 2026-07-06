@@ -11,7 +11,7 @@ Header：集合图标、名称、表数量 * - Content：表列表预览 */
     class="table-set-node graph-node"
     :selected="selected"
     theme="primary"
-    icon="📦"
+    icon-name="constraint-composite"
     :title="data.setName"
     :shell-title="data.setName"
     :handles="[

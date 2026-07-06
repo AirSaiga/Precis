@@ -9,7 +9,7 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
     theme="script"
     :state="resolveNodeState(validationStatus, selected)"
     :title="t('customNodes.constraintRules.scriptedConstraintNode.title')"
-    icon="📜"
+    icon-name="constraint-scripted"
     :help-text="t('customNodes.constraintRules.scriptedConstraintNode.helpTooltip')"
     :error-count="errorCount"
     :show-save="true"

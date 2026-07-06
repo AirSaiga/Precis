@@ -5,7 +5,7 @@
   <GraphNodeFrame
     class="constraint-rule-set-root-node graph-node"
     theme="danger"
-    icon="🔒"
+    icon-name="lock"
     :title="data.setName"
     :shell-title="data.setName"
     :handles="[

@@ -203,7 +203,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
           id: w.id,
           index: w.index,
           title: w.title,
-          icon: '🖼️',
+          icon: 'image',
           hasUnsavedChanges: false,
           createdAt: w.createdAt,
           lastActiveAt: w.lastActiveAt,

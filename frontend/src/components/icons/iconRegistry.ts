@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Circle,
+  Clock,
   Clipboard,
   Database,
   ExternalLink,
@@ -70,6 +71,7 @@ export const ICON_REGISTRY: Record<string, Component> = {
   alert: TriangleAlert,
   info: Info,
   'check-circle': CheckCircle2,
+  clock: Clock,
   'circle-danger': Circle, // blocker 严重度，颜色由 CSS 控制
   'circle-warning': Circle, // warning 严重度
   'circle-info': Circle, // info 严重度
@@ -148,7 +150,7 @@ export function getIcon(name: string): Component | undefined {
 }
 
 /** 约束类型 → 图标名（供 ConstraintNodeLibrary 等数据层使用） */
-export const CONSTRAINT_ICON_NAMES: Record<string, string> = {
+export const CONSTRAINT_ICON_NAMES = {
   notNull: 'constraint-notNull',
   unique: 'constraint-unique',
   foreignKey: 'constraint-foreignKey',
@@ -159,13 +161,13 @@ export const CONSTRAINT_ICON_NAMES: Record<string, string> = {
   charset: 'constraint-charset',
   dateLogic: 'constraint-dateLogic',
   composite: 'constraint-composite',
-}
+} as const satisfies Record<string, string>
 
 /** 转换分类 id → 图标名（供 transformCategory.ts 等使用） */
-export const TRANSFORM_CATEGORY_ICON_NAMES: Record<string, string> = {
+export const TRANSFORM_CATEGORY_ICON_NAMES = {
   text: 'transform-text',
   numeric: 'transform-numeric',
   cleaning: 'transform-cleaning',
   structure: 'transform-structure',
   date: 'transform-date',
-}
+} as const satisfies Record<string, string>

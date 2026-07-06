@@ -13,6 +13,7 @@
  */
 
 import type { TransformTypeV2 } from '@/types/projectV2'
+import { TRANSFORM_CATEGORY_ICON_NAMES } from '@/components/icons/iconRegistry'
 
 /**
  * Transform 分类标识。
@@ -33,7 +34,7 @@ export type TransformSemantic = 'singleColumn' | 'multiColumn' | 'rowChanging' |
 export interface TransformCategory {
   /** 分类唯一标识 */
   id: TransformCategoryId
-  /** 分类图标（emoji） */
+  /** 分类图标名（对应 iconRegistry） */
   icon: string
   /** 分类名称 i18n key */
   labelKey: string
@@ -52,7 +53,7 @@ export interface TransformCategory {
 export const TRANSFORM_CATEGORIES: TransformCategory[] = [
   {
     id: 'text',
-    icon: '📄',
+    icon: TRANSFORM_CATEGORY_ICON_NAMES.text,
     labelKey: 'inspector.transformNode.categories.text',
     types: [
       'StringSplit',
@@ -68,25 +69,25 @@ export const TRANSFORM_CATEGORIES: TransformCategory[] = [
   },
   {
     id: 'numeric',
-    icon: '🔢',
+    icon: TRANSFORM_CATEGORY_ICON_NAMES.numeric,
     labelKey: 'inspector.transformNode.categories.numeric',
     types: ['MathExpr', 'WeightedSum', 'Modulo', 'Digits'],
   },
   {
     id: 'cleaning',
-    icon: '🧹',
+    icon: TRANSFORM_CATEGORY_ICON_NAMES.cleaning,
     labelKey: 'inspector.transformNode.categories.cleaning',
     types: ['FilterRows', 'FillNA', 'DropDuplicates', 'CastType', 'SortRows'],
   },
   {
     id: 'structure',
-    icon: '🏗️',
+    icon: TRANSFORM_CATEGORY_ICON_NAMES.structure,
     labelKey: 'inspector.transformNode.categories.structure',
     types: ['Aggregate', 'ConditionalAssign', 'MapValue'],
   },
   {
     id: 'date',
-    icon: '📅',
+    icon: TRANSFORM_CATEGORY_ICON_NAMES.date,
     labelKey: 'inspector.transformNode.categories.date',
     types: ['DateFormat'],
   },
@@ -142,7 +143,7 @@ export function getCategoryForType(type: TransformTypeV2): TransformCategory | u
  * 获取 transformType 所属分类的图标。
  */
 export function getCategoryIcon(type: TransformTypeV2): string {
-  return getCategoryForType(type)?.icon ?? '⚙️'
+  return getCategoryForType(type)?.icon ?? 'gear'
 }
 
 /**

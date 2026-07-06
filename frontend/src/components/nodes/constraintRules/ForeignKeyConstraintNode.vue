@@ -11,7 +11,7 @@
     theme="purple"
     :state="resolveNodeState(data.validationStatus, selected)"
     :title="t('customNodes.constraintRules.foreignKeyConstraintNode.title')"
-    icon="🔗"
+    icon-name="constraint-foreignKey"
     :help-text="t('customNodes.constraintRules.foreignKeyConstraintNode.helpTooltip')"
     :error-count="errorCount"
     :show-save="true"

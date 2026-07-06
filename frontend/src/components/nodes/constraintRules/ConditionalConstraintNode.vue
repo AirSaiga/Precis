@@ -10,7 +10,7 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
     theme="orange"
     :state="resolveNodeState(validationStatus, selected)"
     :title="t('customNodes.constraintRules.conditionalConstraintNode.title')"
-    icon="🔀"
+    icon-name="constraint-conditional"
     :help-text="t('customNodes.constraintRules.conditionalConstraintNode.helpTooltip')"
     :error-count="errorCount"
     :show-save="true"

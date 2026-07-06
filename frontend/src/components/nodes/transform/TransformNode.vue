@@ -24,7 +24,7 @@
     theme="sky"
     state="idle"
     :title="data.configName || t('customNodes.transformNode.title')"
-    icon="⚙️"
+    icon-name="gear"
     :help-text="t('customNodes.transformNode.helpTooltip')"
     :show-save="true"
     :is-saving="isSaving"

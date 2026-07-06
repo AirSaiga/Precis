@@ -8,7 +8,7 @@ List：模式条目列表（每个条目有独立输出 Handle） */
     class="pattern-toolbox-node graph-node"
     :selected="selected"
     theme="sky"
-    icon="🧰"
+    icon-name="pattern-toolbox"
     :title="titleText"
     :shell-title="titleText"
   >

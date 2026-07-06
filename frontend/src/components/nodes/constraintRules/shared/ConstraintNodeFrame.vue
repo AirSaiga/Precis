@@ -46,6 +46,7 @@
 
     <template #header>
       <NodeHeader
+        :icon-name="iconName"
         :icon="icon"
         :title="title"
         :subtitle="subtitle"
@@ -106,6 +107,7 @@
     state?: NodeState
     title: string
     subtitle?: string
+    iconName?: string
     icon?: string
     helpText?: string
     shellTitle?: string
@@ -125,6 +127,7 @@
     selected: false,
     state: 'idle',
     subtitle: '',
+    iconName: '',
     icon: '',
     helpText: '',
     shellTitle: '',

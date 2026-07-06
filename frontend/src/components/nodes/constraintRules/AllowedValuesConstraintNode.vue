@@ -11,7 +11,7 @@
     theme="sky"
     :state="resolveNodeState(validationStatus, selected)"
     :title="t('customNodes.constraintRules.allowedValuesConstraintNode.title')"
-    icon="📋"
+    icon-name="constraint-allowedValues"
     :help-text="t('customNodes.constraintRules.allowedValuesConstraintNode.helpTooltip')"
     :error-count="errorCount"
     :show-save="true"

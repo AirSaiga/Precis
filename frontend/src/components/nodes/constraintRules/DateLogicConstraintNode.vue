@@ -11,7 +11,7 @@
     theme="teal"
     :state="resolveNodeState(validationStatus, selected)"
     :title="t('customNodes.constraintRules.dateLogicConstraintNode.title')"
-    icon="📅"
+    icon-name="constraint-dateLogic"
     :help-text="t('customNodes.constraintRules.dateLogicConstraintNode.helpTooltip')"
     :error-count="errorCount"
     :show-save="true"

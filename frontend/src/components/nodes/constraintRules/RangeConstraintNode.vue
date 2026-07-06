@@ -11,7 +11,7 @@
     theme="cyan"
     :state="resolveNodeState(validationStatus, selected)"
     :title="t('customNodes.constraintRules.rangeConstraintNode.title')"
-    icon="📏"
+    icon-name="constraint-range"
     :help-text="t('customNodes.constraintRules.rangeConstraintNode.helpTooltip')"
     :error-count="errorCount"
     :show-save="true"

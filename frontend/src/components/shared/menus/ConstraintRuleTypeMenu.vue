@@ -37,7 +37,9 @@
                     : constraintType.description
                 "
               >
-                <span class="constraint-icon" v-html="constraintType.icon"></span>
+                <span class="constraint-icon"
+                  ><AppIcon :name="constraintType.icon" :size="14"
+                /></span>
                 <span class="constraint-name">{{ constraintType.name }}</span>
               </div>
             </div>
@@ -58,7 +60,9 @@
                     : constraintType.description
                 "
               >
-                <span class="constraint-icon" v-html="constraintType.icon"></span>
+                <span class="constraint-icon"
+                  ><AppIcon :name="constraintType.icon" :size="14"
+                /></span>
                 <span class="constraint-name">{{ constraintType.name }}</span>
               </div>
             </div>
@@ -79,7 +83,9 @@
                     : constraintType.description
                 "
               >
-                <span class="constraint-icon" v-html="constraintType.icon"></span>
+                <span class="constraint-icon"
+                  ><AppIcon :name="constraintType.icon" :size="14"
+                /></span>
                 <span class="constraint-name">{{ constraintType.name }}</span>
               </div>
             </div>
@@ -94,6 +100,8 @@
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useSettingsStore } from '@/stores/settingsStore'
+  import AppIcon from '@/components/icons/AppIcon.vue'
+  import { CONSTRAINT_ICON_NAMES } from '@/components/icons/iconRegistry'
 
   export interface ConstraintRuleTypeOption {
     id: string
@@ -167,26 +175,16 @@
   }
 
   const ICONS = {
-    notNull:
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>',
-    unique:
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
-    range:
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 6H3M21 18H3M12 6v12"/></svg>',
-    charset:
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>',
-    allowedValues:
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>',
-    foreignKey:
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>',
-    conditional:
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>',
-    scripted:
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
-    dateLogic:
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>',
-    composite:
-      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 14h6v6H4z"/><path d="M4 4h6v6H4z"/><path d="M14 14h6v6h-6z"/><path d="M14 4h6v6h-6z"/></svg>',
+    notNull: CONSTRAINT_ICON_NAMES.notNull,
+    unique: CONSTRAINT_ICON_NAMES.unique,
+    range: CONSTRAINT_ICON_NAMES.range,
+    charset: CONSTRAINT_ICON_NAMES.charset,
+    allowedValues: CONSTRAINT_ICON_NAMES.allowedValues,
+    foreignKey: CONSTRAINT_ICON_NAMES.foreignKey,
+    conditional: CONSTRAINT_ICON_NAMES.conditional,
+    scripted: CONSTRAINT_ICON_NAMES.scripted,
+    dateLogic: CONSTRAINT_ICON_NAMES.dateLogic,
+    composite: CONSTRAINT_ICON_NAMES.composite,
   }
 
   const DEFAULT_CONSTRAINT_RULE_TYPES: ConstraintRuleTypeOption[] = [

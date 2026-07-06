@@ -5,7 +5,7 @@ Header：根节点图标、标题 * - Content：Schema 集合内容区域 */
   <GraphNodeFrame
     class="schema-set-root-node graph-node"
     theme="primary"
-    icon="📂"
+    icon-name="folder-open"
     :title="data.setName"
     :shell-title="data.setName"
     :handles="[

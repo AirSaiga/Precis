@@ -18,7 +18,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
     theme="purple"
     :state="resolveNodeState(data.validationStatus, selected)"
     :title="data.configName || t('customNodes.regexNode.title')"
-    icon="🔤"
+    icon-name="constraint-charset"
     :help-text="t('customNodes.regexNode.helpTooltip')"
     :error-count="data.errorCount || 0"
     :show-save="true"

@@ -9,7 +9,7 @@
     theme="success"
     :state="resolveNodeState(validationStatus, selected)"
     :title="t('customNodes.constraintRules.uniqueConstraintNode.title')"
-    icon="🔐"
+    icon-name="constraint-unique"
     :help-text="t('customNodes.constraintRules.uniqueConstraintNode.helpTooltip')"
     :error-count="errorCount"
     :show-save="true"

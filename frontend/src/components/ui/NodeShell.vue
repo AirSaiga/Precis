@@ -54,7 +54,7 @@
       @mousedown.stop
       @click.stop="handleDelete"
     >
-      ×
+      <X :size="14" />
     </button>
 
     <NodeBadge
@@ -112,6 +112,7 @@
    */
 
   import { computed } from 'vue'
+  import { X } from '@lucide/vue'
   import NodeBadge from './NodeBadge.vue'
   import type { NodeState, NodeTheme } from './nodeVariants'
 

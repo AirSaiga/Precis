@@ -5,7 +5,7 @@ Header：根节点图标、标题 * - Content：Regex 集合内容区域 */
   <GraphNodeFrame
     class="regex-set-root-node graph-node"
     theme="purple"
-    icon="📁"
+    icon-name="folder-open"
     :title="data.setName"
     :shell-title="data.setName"
     :handles="[

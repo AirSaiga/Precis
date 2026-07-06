@@ -12,7 +12,7 @@
 
 <template>
   <div class="drag-ghost" :class="ghostClass" :style="ghostStyle">
-    <div class="ghost-icon">{{ icon }}</div>
+    <div class="ghost-icon"><AppIcon :name="icon" :size="16" /></div>
     <div class="ghost-divider">|</div>
     <div class="ghost-label">{{ label }}</div>
   </div>
@@ -20,6 +20,7 @@
 
 <script setup lang="ts">
   import { computed } from 'vue'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { ResourceDragPayload } from '@/stores/resourceDragStore'
 
   interface Props {
@@ -45,43 +46,43 @@
     schema: {
       color: 'var(--node-accent-schema)',
       borderColor: 'var(--node-accent-schema)',
-      icon: '🗃️',
+      icon: 'database',
       label: 'Schema',
     },
     pattern: {
       color: 'var(--node-accent-regex)',
       borderColor: 'var(--node-accent-regex)',
-      icon: '🪄',
+      icon: 'wand',
       label: 'Pattern',
     },
     constraint: {
       color: 'var(--node-accent-constraint)',
       borderColor: 'var(--node-accent-constraint)',
-      icon: '🛡️',
+      icon: 'shield',
       label: 'Constraint',
     },
     projectConfig: {
       color: 'var(--ui-accent)',
       borderColor: 'var(--ui-accent)',
-      icon: '⚙️',
+      icon: 'gear',
       label: 'project.yaml',
     },
     patternFolder: {
       color: 'var(--node-accent-regex)',
       borderColor: 'var(--node-accent-regex)',
-      icon: '🧰',
+      icon: 'pattern-toolbox',
       label: 'Patterns',
     },
     constraintFolder: {
       color: 'var(--node-accent-constraint)',
       borderColor: 'var(--node-accent-constraint)',
-      icon: '📋',
+      icon: 'clipboard',
       label: 'Constraints',
     },
     external_data_source: {
       color: 'var(--ui-accent)',
       borderColor: 'var(--ui-accent)',
-      icon: '🧾',
+      icon: 'receipt',
       label: 'Data Source',
     },
   }

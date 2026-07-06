@@ -5,6 +5,7 @@
 
 import { markRaw } from 'vue'
 import type { NodeComponent } from '@vue-flow/core'
+import { CONSTRAINT_ICON_NAMES } from '@/components/icons/iconRegistry'
 import {
   registerConstraintNode,
   constraintNodeRegistry,
@@ -31,7 +32,7 @@ export const registerConstraintNodeLibrary = () => {
   registerConstraintNode('notNull', {
     component: markRaw(NotNullConstraintNode) as unknown as NodeComponent,
     displayName: '非空约束',
-    icon: '🚫',
+    icon: CONSTRAINT_ICON_NAMES.notNull,
     category: 'attribute',
     description: '确保列中的值不为空',
   })
@@ -40,7 +41,7 @@ export const registerConstraintNodeLibrary = () => {
   registerConstraintNode('unique', {
     component: markRaw(UniqueConstraintNode) as unknown as NodeComponent,
     displayName: '唯一约束',
-    icon: '1️⃣',
+    icon: CONSTRAINT_ICON_NAMES.unique,
     category: 'attribute',
     description: '确保列中的值唯一',
   })
@@ -49,7 +50,7 @@ export const registerConstraintNodeLibrary = () => {
   registerConstraintNode('foreignKey', {
     component: markRaw(ForeignKeyConstraintNode) as unknown as NodeComponent,
     displayName: '外键约束',
-    icon: '🔗',
+    icon: CONSTRAINT_ICON_NAMES.foreignKey,
     category: 'relation',
     description: '确保列中的值引用其他表的主键',
   })
@@ -58,7 +59,7 @@ export const registerConstraintNodeLibrary = () => {
   registerConstraintNode('allowedValues', {
     component: markRaw(AllowedValuesConstraintNode) as unknown as NodeComponent,
     displayName: '允许值约束',
-    icon: '⬜',
+    icon: CONSTRAINT_ICON_NAMES.allowedValues,
     category: 'relation',
     description: '确保列中的值在允许的范围内',
   })
@@ -67,7 +68,7 @@ export const registerConstraintNodeLibrary = () => {
   registerConstraintNode('range', {
     component: markRaw(RangeConstraintNode) as unknown as NodeComponent,
     displayName: '区间约束',
-    icon: '📏',
+    icon: CONSTRAINT_ICON_NAMES.range,
     category: 'attribute',
     description: '确保列中的值在指定数值范围内',
   })
@@ -76,7 +77,7 @@ export const registerConstraintNodeLibrary = () => {
   registerConstraintNode('conditional', {
     component: markRaw(ConditionalConstraintNode) as unknown as NodeComponent,
     displayName: '条件约束',
-    icon: '🔀',
+    icon: CONSTRAINT_ICON_NAMES.conditional,
     category: 'logic',
     description: '基于条件验证列中的值',
   })
@@ -85,7 +86,7 @@ export const registerConstraintNodeLibrary = () => {
   registerConstraintNode('scripted', {
     component: markRaw(ScriptedConstraintNode) as unknown as NodeComponent,
     displayName: '脚本约束',
-    icon: '📜',
+    icon: CONSTRAINT_ICON_NAMES.scripted,
     category: 'logic',
     description: '使用自定义脚本验证列中的值',
   })
@@ -94,7 +95,7 @@ export const registerConstraintNodeLibrary = () => {
   registerConstraintNode('charset', {
     component: markRaw(CharsetConstraintNode) as unknown as NodeComponent,
     displayName: '字符集约束',
-    icon: '🔤',
+    icon: CONSTRAINT_ICON_NAMES.charset,
     category: 'attribute',
     description: '校验ASCII或中文字符',
   })
@@ -103,7 +104,7 @@ export const registerConstraintNodeLibrary = () => {
   registerConstraintNode('dateLogic', {
     component: markRaw(DateLogicConstraintNode) as unknown as NodeComponent,
     displayName: '日期逻辑约束',
-    icon: '📅',
+    icon: CONSTRAINT_ICON_NAMES.dateLogic,
     category: 'logic',
     description: '日期比较和计算校验',
   })
@@ -112,7 +113,7 @@ export const registerConstraintNodeLibrary = () => {
   registerConstraintNode('composite', {
     component: markRaw(CompositeConstraintNode) as unknown as NodeComponent,
     displayName: '复合约束',
-    icon: '📦',
+    icon: CONSTRAINT_ICON_NAMES.composite,
     category: 'logic',
     description: '将多个约束组织为逻辑单元，支持 all/any/none 策略',
   })

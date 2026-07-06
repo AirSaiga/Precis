@@ -33,7 +33,7 @@
       @mouseleave="headerHovered = false"
     >
       <div class="header-icon">
-        <span>📝</span>
+        <AppIcon name="edit" :size="18" />
       </div>
       <div class="header-content">
         <div class="node-name">{{ data.configName }}</div>
@@ -109,6 +109,7 @@
   import { useI18n } from 'vue-i18n'
   import type { ManualDataNodeData } from '@/types/nodes'
   import NodeHandle from '@/components/ui/NodeHandle.vue'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import { NodeDeletionManager } from '@/services/managers/nodeDeletionManager'
 
   const { t } = useI18n()
