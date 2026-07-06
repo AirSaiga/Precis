@@ -138,7 +138,7 @@ const aiConfigGenerator = {
     descSuper: 'Strongest reasoning capability, takes longer',
     recommended: 'Recommended',
     unavailable: 'Unavailable',
-    noModelWarning: '⚠️ No available model detected, please check backend configuration',
+    noModelWarning: 'No available model detected, please check backend configuration',
     needModelHint:
       'Constraints/regex generation requires an available model. Switch to Standard or disable those options.',
     needModelToast:
@@ -249,9 +249,9 @@ const aiConfigGenerator = {
   },
   result: {
     generationComplete: 'Generation Complete',
-    warningsTitle: '⚠️ Warnings',
-    hardwareTitle: '🖥️ Hardware',
-    successHint: '✅ Generation complete. Click "Overwrite Config" to reset project config.',
+    warningsTitle: 'Warnings',
+    hardwareTitle: 'Hardware',
+    successHint: 'Generation complete. Click "Overwrite Config" to reset project config.',
     agentMetricsTitle: 'AI Optimization Metrics',
     agentIterations: 'Optimized {current} / {max} rounds',
     agentPassRate: 'Rules validated {passed} / {total}',

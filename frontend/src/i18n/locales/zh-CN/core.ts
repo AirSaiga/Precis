@@ -64,8 +64,8 @@ const assetLibrary = {
   // [新增] AssetLibrary相关
   linked: 'Files Linked',
   view: {
-    project: '🗃️ 项目资源视图',
-    data: '📊 数据源视图',
+    project: '项目资源视图',
+    data: '数据源视图',
   },
   // AssetLibraryNav相关
   activityBar: {

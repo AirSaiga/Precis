@@ -73,9 +73,9 @@ const customNodes = {
       integer: '#',
       string: 'Aa',
       float: '0.0',
-      date: '📅',
+      date: 'Date',
       boolean: 'T/F',
-      expression: '✨',
+      expression: 'Expression',
     },
     actions: {
       deleteColumn: 'Delete column',

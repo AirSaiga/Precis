@@ -73,9 +73,9 @@ const customNodes = {
       integer: '#',
       string: 'Aa',
       float: '0.0',
-      date: '📅',
+      date: '日期',
       boolean: 'T/F',
-      expression: '✨',
+      expression: '表达式',
     },
     actions: {
       deleteColumn: '删除列',
@@ -602,7 +602,7 @@ const customNodes = {
       helpCollectionTitle: '集合操作：',
       helpExamplesTitle: '实用示例（点击使用）',
       helpWarning:
-        '⚠️ 脚本表达式必须返回布尔值（True/False）。返回 True 表示校验通过，返回 False 表示违反规则。',
+        '脚本表达式必须返回布尔值（True/False）。返回 True 表示校验通过，返回 False 表示违反规则。',
       examplePositiveTitle: '大于零',
       examplePositiveDesc: '校验值必须大于 0',
       exampleRangeTitle: '范围校验',

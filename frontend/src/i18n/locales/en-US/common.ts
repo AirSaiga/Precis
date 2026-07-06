@@ -495,7 +495,7 @@ const common = {
       title: 'Data Quality Report',
       projectName: 'Project Name',
       generatedAt: 'Generated At',
-      statusPass: '✓ Pass',
+      statusPass: 'Pass',
       statusFail: 'Fail',
       totalChecks: 'Total Checks',
       passed: 'Passed',

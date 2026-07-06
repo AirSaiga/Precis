@@ -53,8 +53,8 @@ const assetLibraryExtended = {
         'The Schema config file failed to parse. Please check the file format or content for errors',
     },
     status: {
-      projectResourceView: '🗃️ Project Resource View',
-      dataSourceView: '📊 Data Source View',
+      projectResourceView: 'Project Resource View',
+      dataSourceView: 'Data Source View',
       filesLinked: 'Files Linked',
     },
     resourceContext: {

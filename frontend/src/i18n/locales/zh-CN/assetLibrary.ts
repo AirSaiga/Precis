@@ -50,8 +50,8 @@ const assetLibraryExtended = {
       schemaParseErrorTip: '该 Schema 配置文件解析失败，请检查文件格式或内容是否合法',
     },
     status: {
-      projectResourceView: '🗃️ 项目资源视图',
-      dataSourceView: '📊 数据源视图',
+      projectResourceView: '项目资源视图',
+      dataSourceView: '数据源视图',
       filesLinked: 'Files Linked',
     },
     resourceContext: {

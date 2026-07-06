@@ -95,20 +95,23 @@
     </div>
 
     <div v-if="warnings.length" class="warnings-box">
-      <h5>{{ t('aiConfigGenerator.result.warningsTitle') }}</h5>
+      <h5><AppIcon name="alert" :size="16" /> {{ t('aiConfigGenerator.result.warningsTitle') }}</h5>
       <ul>
         <li v-for="(w, idx) in warnings" :key="idx">{{ w }}</li>
       </ul>
     </div>
 
     <div v-if="hardwareWarnings.length" class="warnings-box hardware">
-      <h5>{{ t('aiConfigGenerator.result.hardwareTitle') }}</h5>
+      <h5>
+        <AppIcon name="monitor" :size="16" /> {{ t('aiConfigGenerator.result.hardwareTitle') }}
+      </h5>
       <ul>
         <li v-for="(w, idx) in hardwareWarnings" :key="idx">{{ w }}</li>
       </ul>
     </div>
 
     <div class="success-hint">
+      <AppIcon name="check-circle" :size="16" />
       {{ t('aiConfigGenerator.result.successHint') }}
     </div>
   </div>
@@ -117,6 +120,7 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import { calculateConstraintStats } from '@/utils/constraintCount'
   import type { AiGenerateV2ConfigMetrics, AiGenerateV2ConfigResponse } from '@/types/ai'
 

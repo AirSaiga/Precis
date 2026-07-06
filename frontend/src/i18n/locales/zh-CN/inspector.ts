@@ -330,7 +330,7 @@ const inspector = (() => {
         notConnected: '未连接',
       },
       tips: {
-        connectFirst: '💡 请先连接数据源节点，然后选择目标列进行校验。',
+        connectFirst: '请先连接数据源节点，然后选择目标列进行校验。',
       },
       status: {
         pass: '通过',

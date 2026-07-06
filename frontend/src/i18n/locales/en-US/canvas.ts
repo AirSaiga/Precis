@@ -50,8 +50,8 @@ const canvas = {
     fieldBindingSuccess: 'Field "{fieldName}" successfully bound to Schema node',
     fieldBindingFailed: 'Binding failed: source or target node not found',
     rightMenu: {
-      createSchema: '🗄️ Create Schema Node',
-      createSourcePreview: '📊 Create Source Preview',
+      createSchema: 'Create Schema Node',
+      createSourcePreview: 'Create Source Preview',
     },
     smartFill: {
       title: 'Smart Fill',

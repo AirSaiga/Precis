@@ -64,8 +64,8 @@ const assetLibrary = {
   // [Added] AssetLibrary related
   linked: 'Files Linked',
   view: {
-    project: '🗃️ Project Resource View',
-    data: '📊 Data Source View',
+    project: 'Project Resource View',
+    data: 'Data Source View',
   },
   // AssetLibraryNav related
   activityBar: {

@@ -49,8 +49,8 @@ const canvas = {
     fieldBindingSuccess: '字段 "{fieldName}" 已成功绑定到 Schema 节点',
     fieldBindingFailed: '绑定失败：找不到源节点或目标节点',
     rightMenu: {
-      createSchema: '🗄️ 新建 Schema 节点',
-      createSourcePreview: '📊 新建 数据源预览',
+      createSchema: '新建 Schema 节点',
+      createSourcePreview: '新建 数据源预览',
     },
     smartFill: {
       title: '智能填充',

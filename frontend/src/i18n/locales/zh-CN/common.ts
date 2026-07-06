@@ -482,7 +482,7 @@ const common = {
       title: '数据质量检测报告',
       projectName: '项目名称',
       generatedAt: '生成时间',
-      statusPass: '✓ 检测通过',
+      statusPass: '检测通过',
       statusFail: '检测失败',
       totalChecks: '总检查项',
       passed: '通过',
