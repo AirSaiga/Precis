@@ -313,6 +313,17 @@
               :placeholder="t('settings.aiAssistant.providerNamePlaceholder')"
             />
           </div>
+          <div class="edit-row">
+            <label class="edit-label">{{ t('settings.aiAssistant.contextWindow') }}</label>
+            <input
+              v-model="addForm.contextWindow"
+              class="ui-input ui-input--compact"
+              type="number"
+              min="1024"
+              step="1024"
+              :placeholder="t('settings.aiAssistant.contextWindowPlaceholder')"
+            />
+          </div>
         </div>
         <div class="provider-card__actions">
           <button
@@ -427,6 +438,7 @@
     apiKey: '',
     model: '',
     name: '',
+    contextWindow: '',
   })
 
   // 编辑表单
@@ -579,6 +591,7 @@ defaults:
     addForm.presetId = defaultPreset?.id ?? ''
     addForm.model = defaultPreset?.default_model ?? ''
     addForm.name = defaultPreset?.name ?? ''
+    addForm.contextWindow = ''
   }
 
   function cancelAdd(): void {
@@ -591,12 +604,18 @@ defaults:
 
     actionLoading.value = true
     try {
+      // context_window：填了合法数字才提交，空值不传（保持后端 None/自动探测）
+      const cw = Number(addForm.contextWindow)
+      const contextWindow =
+        addForm.contextWindow && Number.isFinite(cw) && cw >= 1024 ? cw : undefined
+
       const newProvider = await createCloudAIProvider({
         name: addForm.name || preset.name,
         type: preset.type as 'openai' | 'ollama',
         base_url: preset.base_url,
         api_key: addForm.apiKey,
         model: addForm.model,
+        context_window: contextWindow,
       })
       showSuccess(t('settings.aiAssistant.createdSuccess'), '')
       showAddForm.value = false

@@ -230,6 +230,15 @@ class ProviderCommand(Command):
                 print(Formatter.info("已取消"))
                 return
 
+        # 上下文窗口（可选，留空=自动探测）
+        context_window = None
+        try:
+            context_window = self._prompt_context_window()
+        except (KeyboardInterrupt, EOFError):
+            print()
+            print(Formatter.info("已取消"))
+            return
+
         # 生成 ID
         provider_id = preset["id"]
         existing_ids = {p.id for p in self._config.list_providers()}
@@ -246,11 +255,14 @@ class ProviderCommand(Command):
             base_url=preset["base_url"],
             model=model,
             api_key=api_key,
+            context_window=context_window,
         )
         self._config.add_or_update_provider(provider)
 
         print(Formatter.success(f"\n[*] 已添加 Provider: {name} ({provider_id})"))
         print(Formatter.info(f"  模型: {model}"))
+        cw_display = str(context_window) if context_window else "自动探测（默认 200000）"
+        print(Formatter.info(f"  上下文窗口: {cw_display}"))
         if preset["type"] != "ollama":
             if api_key:
                 print(Formatter.info("  API Key: 已保存"))
@@ -258,6 +270,36 @@ class ProviderCommand(Command):
                 print(Formatter.warning("  API Key: 未配置，可通过环境变量或编辑 Provider 设置"))
 
     # ── 编辑 Provider ───────────────────────────────────────────────
+
+    def _prompt_context_window(self, current: int | None = None) -> int | None:
+        """交互式输入 context_window。
+
+        Args:
+            current: 当前已配置的值（编辑场景传入，添加场景为 None）
+
+        Returns:
+            用户输入的合法值（int，>= 1024）；
+            用户留空返回 None（表示自动探测/回退到全局默认 200000）。
+            用户中断（Ctrl+C / EOF）抛 KeyboardInterrupt/EOFError 由调用方处理。
+        """
+        prompt_current = str(current) if current else "自动探测（默认 200000）"
+        raw = input(
+            Formatter.colorize(
+                f"  上下文窗口 tokens (当前: {prompt_current}, 留空=自动): ",
+                Colors.CYAN,
+            )
+        ).strip()
+        if not raw:
+            return None
+        try:
+            value = int(raw)
+        except ValueError:
+            print(Formatter.warning("  [!] 非整数，已忽略"))
+            return None
+        if value < 1024:
+            print(Formatter.warning("  [!] 必须 >= 1024，已忽略"))
+            return None
+        return value
 
     def _edit_provider(self) -> None:
         """编辑已有 Provider。"""
@@ -287,14 +329,17 @@ class ProviderCommand(Command):
         while True:
             # 统一使用 AIProvider 的 type 字段
             provider_type = provider.type.value if hasattr(provider.type, "value") else str(provider.type)
+            cw_display = str(provider.context_window) if provider.context_window else "自动探测（默认 200000）"
             print(f"\n  编辑: {Formatter.colorize(provider.name, Colors.BOLD)} ({provider.id})")
             print(f"  类型: {provider_type} | 模型: {provider.model}")
             print(f"  端点: {provider.base_url}")
+            print(f"  上下文窗口: {cw_display}")
             print(f"  API Key: {'[已配置]' if provider.api_key else '[未配置]'}")
 
             edit_menu = InteractiveMenu("请选择要修改的字段:")
             edit_menu.add_item("name", "名称", f"当前: {provider.name}")
             edit_menu.add_item("model", "模型", f"当前: {provider.model}")
+            edit_menu.add_item("context_window", "上下文窗口", f"当前: {cw_display}")
             edit_menu.add_item("api_key", "API Key", f"当前: {'[已配置]' if provider.api_key else '[未配置]'}")
             edit_menu.add_item("done", "完成并保存", "")
 
@@ -311,6 +356,10 @@ class ProviderCommand(Command):
                     val = input(Formatter.colorize(f"  新模型 (当前: {provider.model}): ", Colors.CYAN)).strip()
                     if val:
                         provider.model = val
+                elif field == "context_window":
+                    # 留空→None（自动探测）；非法输入忽略；合法整数直接写入
+                    cw = self._prompt_context_window(provider.context_window)
+                    provider.context_window = cw
                 elif field == "api_key":
                     key_input = getpass.getpass(
                         Formatter.colorize(
