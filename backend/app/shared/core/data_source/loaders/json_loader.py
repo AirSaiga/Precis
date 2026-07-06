@@ -132,6 +132,10 @@ class JSONLoader(DataSourceLoader[JSONSourceSpec]):
             records = parser.parse(content)
 
             if self.spec.json_path:
+                # 对于 object 格式，解析器会递归查找最深数组，但用户已通过 json_path
+                # 指定了记录路径，因此必须对原始对象应用 JSONPath，而不是对解析器选中的数组。
+                if self.spec.format == self.FORMAT_OBJECT:
+                    records = json.loads(content)
                 extracted = self._extractor.extract(records, self.spec.json_path)
                 # B14 修复：空列表是合法结果，不应回退到原始未过滤数据。
                 # 但如果 records 已被 parser 提取为字典列表（如 ObjectParser），
