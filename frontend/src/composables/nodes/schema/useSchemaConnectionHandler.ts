@@ -18,7 +18,6 @@ import { useGraphStore } from '@/stores/graphStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import type { SchemaColumn, SchemaNodeData } from '@/types/graph'
-import type { TableSchemaFileV2 } from '@/types/projectV2'
 import { generateColumnsFromSource } from '@/utils/nodes/schema/columnGeneration'
 import { findMatchingSchema } from '@/utils/nodes/schema/findMatchingSchema'
 import { addNodes } from '@/services/canvas/vueFlowApi'
@@ -28,21 +27,12 @@ import { triggerValidationForNode } from '@/services/constraints/orchestration/g
 import { revalidateConstraintsReferencingSchema } from '@/services/constraints/validationRegistryCore'
 import { materializeV2EmbeddedConstraints } from '@/stores/graphStore/modules/v2/shared/embeddedConstraints'
 import { getV2FullConfig } from '@/api/projectV2Api'
-import { fromBackendType } from '@/services/builders'
+import { parseColumnSpecs } from '@/services/builders/parseColumnSpec'
 import { resolveRelativePath } from '@/core/utils/pathNormalization'
 import { eventBus } from '@/core/eventBus'
 import { i18n } from '@/i18n'
 import { useVirtualAnchorEdges } from './useVirtualAnchorEdges'
 import { toastWarning } from '@/core/toast'
-function convertColumnsFromConfig(columns: TableSchemaFileV2['columns']): SchemaColumn[] {
-  return (columns || []).map((col) => ({
-    id: col.id,
-    columnName: col.name,
-    dataType: fromBackendType(col.type),
-    validationErrors: [],
-    constraints: {},
-  }))
-}
 
 async function tryLoadExistingSchemaConfig(params: {
   schemaNodeId: string
@@ -76,7 +66,13 @@ async function tryLoadExistingSchemaConfig(params: {
   }
 
   const { id: tableId, schema: schemaFile } = match
-  const cols = convertColumnsFromConfig(schemaFile.columns || [])
+  // 根据数据源扩展名判断是否为 JSON schema（与导入路径判定一致）
+  const sourcePath = schemaFile.source?.path || ''
+  const isJsonSchema = /\.(json|jsonl|ndjson)$/i.test(sourcePath)
+  // 列解析统一走 parseColumnSpecs（含 Expr/Extracted 还原、嵌套 children、JSON 类型映射）
+  const cols = parseColumnSpecs(schemaFile.columns || [], {
+    isJsonSchema,
+  }) as unknown as SchemaColumn[]
 
   store.updateNodeData(schemaNodeId, {
     columns: cols,
@@ -97,7 +93,6 @@ async function tryLoadExistingSchemaConfig(params: {
   }
 
   // 检测重复数据源（绑定已有配置时）
-  const sourcePath = schemaFile.source?.path
   const sourceSheet = schemaFile.source?.sheet ?? schemaFile.sheet
   if (
     sourcePath &&

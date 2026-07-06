@@ -177,6 +177,10 @@ export interface BaseSchemaColumn {
     /** 允许的值列表（用于 AllowedValues 约束） */
     allowedValues?: string[]
   }
+  /** 是否允许为空（与后端 ColumnSpec.nullable 对齐，默认 true） */
+  nullable?: boolean
+  /** 是否为主键（与后端 ColumnSpec.primary_key 对齐，默认 false） */
+  primaryKey?: boolean
   /** 列提取配置（用于从其他列提取内容生成该列） */
   extractedConfig?: {
     /** 来源列名称 */
@@ -508,10 +512,6 @@ export interface JsonSchemaColumn extends BaseSchemaColumn {
   dataType: JsonDataType
   /** JSONPath 路径，指向该列在 JSON 中的位置 */
   jsonPath: string
-  /** 是否允许为空 */
-  nullable?: boolean
-  /** 是否为主键 */
-  primaryKey?: boolean
   /** 列描述（可选） */
   description?: string
 

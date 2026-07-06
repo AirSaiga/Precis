@@ -80,7 +80,8 @@ describe('hydrateSchemasFromV2Config', () => {
     expect((result.nodes[0].data as any).sheetName).toBe('Sheet1')
     expect((result.nodes[0].data as any).columns).toHaveLength(2)
     expect((result.nodes[0].data as any).columns[0].columnName).toBe('email')
-    expect((result.nodes[0].data as any).columns[0].dataType).toBe('string')
+    // 普通 schema（.xlsx）走 fromBackendType，返回大写 DataType（不再 .toLowerCase() 强转）
+    expect((result.nodes[0].data as any).columns[0].dataType).toBe('String')
     expect((result.nodes[0].data as any).saveState).toBe('saved')
   })
 

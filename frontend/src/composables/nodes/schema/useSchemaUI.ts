@@ -19,6 +19,8 @@ export function useSchemaUI(props: { id: string; data: SchemaNodeData; selected?
     { value: 'String' as DataType, label: 'String' },
     { value: 'Integer' as DataType, label: 'Int' },
     { value: 'Float' as DataType, label: 'Float' },
+    { value: 'Decimal' as DataType, label: 'Decimal' },
+    { value: 'Boolean' as DataType, label: 'Bool' },
     { value: 'Date' as DataType, label: 'Date' },
     { value: 'Expression' as DataType, label: 'Expr' },
   ]
@@ -34,6 +36,8 @@ export function useSchemaUI(props: { id: string; data: SchemaNodeData; selected?
       integer: 'Int',
       Float: 'Float',
       float: 'Float',
+      Decimal: 'Decimal',
+      decimal: 'Decimal',
       Date: 'Date',
       date: 'Date',
       Boolean: 'Boolean',

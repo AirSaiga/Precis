@@ -37,11 +37,19 @@
  * - 'String': 字符串类型
  * - 'Integer': 整数类型
  * - 'Float': 浮点数类型
+ * - 'Decimal': 高精度十进制类型（对应后端 DecimalType，支持 precision/scale）
  * - 'Boolean': 布尔类型
  * - 'Date': 日期类型
  * - 'Expression': 表达式类型（用于正则等计算）
  */
-export type DataType = 'String' | 'Integer' | 'Float' | 'Boolean' | 'Date' | 'Expression'
+export type DataType =
+  | 'String'
+  | 'Integer'
+  | 'Float'
+  | 'Decimal'
+  | 'Boolean'
+  | 'Date'
+  | 'Expression'
 
 /**
  * 定义一个数据列表的结构。

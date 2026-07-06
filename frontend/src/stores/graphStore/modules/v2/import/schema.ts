@@ -16,10 +16,10 @@
  */
 
 import type { Ref } from 'vue'
-import type { CustomNode, SchemaNodeData, JsonSchemaColumn } from '@/types/graph'
-import type { ColumnSpecV2, JSONOptionsV2, TableSchemaFileV2 } from '@/types/projectV2'
+import type { CustomNode, SchemaNodeData } from '@/types/graph'
+import type { JSONOptionsV2, TableSchemaFileV2 } from '@/types/projectV2'
 import { getV2Schema } from '@/api/projectV2Api'
-import { fromBackendType, fromJsonBackendType } from '@/services/builders'
+import { parseColumnSpecs } from '@/services/builders/parseColumnSpec'
 import { materializeV2EmbeddedConstraints } from '../shared/embeddedConstraints'
 import { normalizePath } from '@/core/utils/pathNormalization'
 import { addNodes } from '@/services/canvas/vueFlowApi'
@@ -74,36 +74,12 @@ export function createV2SchemaImporter(params: {
 
     const schema = schemaFile || (await getV2Schema(tableId))
 
-    // 递归转换列定义，支持嵌套 children
-    const convertColumns = (columns: ColumnSpecV2[] | undefined): JsonSchemaColumn[] => {
-      return (columns || []).map((col) => {
-        // JSON schema 使用 JSON 专属反向映射，避免 JsonObject/JsonArray/JsonNull 被降级为 String
-        const isJsonColumn =
-          col.json_path !== undefined || (col.children && col.children.length > 0)
-        const jsonDataType = isJsonColumn
-          ? (fromJsonBackendType(col.type) as JsonSchemaColumn['dataType'])
-          : (fromBackendType(col.type).toLowerCase() as JsonSchemaColumn['dataType'])
+    // 检测是否为 JSON schema：根据文件扩展名判断（与后端 SourceSpec.is_json() 一致）
+    const sourcePathForDetection = schema.source?.path || ''
+    const isJsonSchema = /\.(json|jsonl|ndjson)$/i.test(sourcePathForDetection)
 
-        const column: JsonSchemaColumn = {
-          id: col.id,
-          columnName: col.name,
-          dataType: jsonDataType,
-          jsonPath: col.json_path || '',
-          nullable: col.nullable,
-          primaryKey: col.primary_key,
-          validationErrors: [],
-          constraints: {},
-        }
-        // 递归处理嵌套子列
-        if (col.children && col.children.length > 0) {
-          column.children = convertColumns(col.children)
-          column.isExpanded = col.expand ?? false
-        }
-        return column
-      })
-    }
-
-    const cols = convertColumns(schema.columns || [])
+    // 列解析统一走 parseColumnSpecs（含 Expr/Extracted 还原、嵌套 children、JSON 类型映射）
+    const cols = parseColumnSpecs(schema.columns || [], { isJsonSchema })
     const configPath = getEffectiveProjectConfigPath()
     // 默认回退为 relative_file，防止后端返回的 mode 为空或未声明时 localPath 丢失
     const sourcePathMode = schema.source?.mode || 'relative_file'
@@ -115,10 +91,6 @@ export function createV2SchemaImporter(params: {
           : undefined
     const localPath = rawLocalPath ? normalizePath(rawLocalPath) : undefined
     const sourceMode = 'localfile'
-
-    // 检测是否为 JSON schema：根据文件扩展名判断
-    const sourcePath = schema.source?.path || ''
-    const isJsonSchema = /\.(json|jsonl|ndjson)$/i.test(sourcePath)
 
     // JSON schema 不需要 sheet
     const sheetName = isJsonSchema ? undefined : (schema.source?.sheet ?? schema.sheet)

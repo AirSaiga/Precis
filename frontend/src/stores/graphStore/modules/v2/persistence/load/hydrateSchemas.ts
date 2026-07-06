@@ -18,19 +18,9 @@
  */
 
 import type { Edge } from '@vue-flow/core'
-import type {
-  CustomNode,
-  SchemaNodeData,
-  JsonSchemaColumn,
-  JsonSchemaNodeData,
-} from '@/types/graph'
-import type {
-  ColumnSpecV2,
-  ConstraintItemV2,
-  FullConfigV2Response,
-  JSONOptionsV2,
-} from '@/types/projectV2'
-import { fromBackendType, fromJsonBackendType } from '@/services/builders'
+import type { CustomNode, SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
+import type { ConstraintItemV2, FullConfigV2Response, JSONOptionsV2 } from '@/types/projectV2'
+import { parseColumnSpecs } from '@/services/builders/parseColumnSpec'
 import { materializeV2EmbeddedConstraints } from '../../shared/embeddedConstraints'
 import { logger } from '@/core/utils/logger'
 import { normalizePath } from '@/core/utils/pathNormalization'
@@ -56,52 +46,10 @@ export function hydrateSchemasFromV2Config(params: {
       return
     }
     // 递归转换列定义，JSON schema 保留嵌套 children 与 json_path
-    const convertColumns = (columns: ColumnSpecV2[] | undefined): JsonSchemaColumn[] => {
-      return (columns || []).map((col) => {
-        const isJsonColumn =
-          col.json_path !== undefined || (col.children && col.children.length > 0)
-        const dataType = isJsonColumn
-          ? (fromJsonBackendType(col.type) as JsonSchemaColumn['dataType'])
-          : (fromBackendType(col.type).toLowerCase() as JsonSchemaColumn['dataType'])
-
-        const colResult: JsonSchemaColumn & Record<string, unknown> = {
-          id: col.id,
-          columnName: col.name,
-          dataType,
-          jsonPath: col.json_path || '',
-          nullable: col.nullable,
-          primaryKey: col.primary_key,
-          validationErrors: [],
-          constraints: {},
-        }
-        // 如果类型是 Expr 对象配置，提取 boundPattern 和 boundRegistry
-        if (typeof col.type === 'object' && col.type?.name === 'Expr') {
-          const typeObj = col.type as Record<string, unknown>
-          colResult.boundRegistry =
-            typeof typeObj.registry === 'string' ? typeObj.registry : undefined
-          colResult.boundPattern = typeof typeObj.pattern === 'string' ? typeObj.pattern : undefined
-          colResult.isBound = !!typeObj.pattern
-          colResult.expressionType = typeObj.pattern ? 'explicit' : 'implicit'
-        }
-        // 如果类型是 Extracted 对象配置，提取 extractedConfig
-        if (typeof col.type === 'object' && col.type?.name === 'Extracted') {
-          const typeObj = col.type as Record<string, unknown>
-          colResult.extractedConfig = {
-            sourceColumn: typeof typeObj.source_column === 'string' ? typeObj.source_column : '',
-            extractKey: typeof typeObj.extract_key === 'string' ? typeObj.extract_key : '',
-            resultType: typeof typeObj.result_type === 'string' ? typeObj.result_type : undefined,
-          }
-        }
-        // 递归处理嵌套子列
-        if (col.children && col.children.length > 0) {
-          colResult.children = convertColumns(col.children)
-          colResult.isExpanded = col.expand ?? false
-        }
-        return colResult
-      })
-    }
-
-    const cols = convertColumns(schema.columns || [])
+    // 列解析统一走 parseColumnSpecs（含 Expr/Extracted 还原、嵌套 children、JSON 类型映射）
+    const sourcePath = schema.source?.path || ''
+    const isJsonSchema = /\.(json|jsonl|ndjson)$/i.test(sourcePath)
+    const cols = parseColumnSpecs(schema.columns || [], { isJsonSchema })
     const configPath = getEffectiveProjectConfigPath()
     // 默认回退为 relative_file，防止后端返回的 mode 为空或未声明时 localPath 丢失
     const sourcePathMode = schema.source?.mode || 'relative_file'
@@ -113,9 +61,6 @@ export function hydrateSchemasFromV2Config(params: {
           : undefined
     const localPath = rawLocalPath ? normalizePath(rawLocalPath) : undefined
     const sourceMode = 'localfile'
-    // 检测是否为 JSON schema：根据文件扩展名判断（与后端 SourceSpec.is_json() 一致）
-    const sourcePath = schema.source?.path || ''
-    const isJsonSchema = /\.(json|jsonl|ndjson)$/i.test(sourcePath)
     // JSON schema 不需要 sheet；tabular schema 优先读取 source.sheet，兼容顶层 sheet 字段
     const sheetName = isJsonSchema ? undefined : (schema.source?.sheet ?? schema.sheet)
     const jsonOptions = (schema.source?.options as JSONOptionsV2 | undefined) || {}

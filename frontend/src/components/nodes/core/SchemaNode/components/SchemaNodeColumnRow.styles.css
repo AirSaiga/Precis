@@ -254,6 +254,18 @@
   color: var(--theme-purple-strong);
 }
 
+.type-capsule.type-decimal {
+  background: var(--theme-amber-bg, color-mix(in srgb, var(--theme-amber) 12%, transparent));
+  border-color: color-mix(in srgb, var(--theme-amber) 24%, transparent);
+  color: var(--theme-amber-strong, var(--theme-amber));
+}
+
+.type-capsule.type-boolean {
+  background: var(--theme-cyan-bg);
+  border-color: color-mix(in srgb, var(--theme-cyan) 24%, transparent);
+  color: var(--theme-cyan-strong);
+}
+
 .row-actions {
   position: relative;
   display: flex;

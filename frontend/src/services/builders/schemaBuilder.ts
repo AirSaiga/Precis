@@ -42,6 +42,8 @@ export function toBackendType(
       return 'Int'
     case 'Float':
       return 'Float'
+    case 'Decimal':
+      return 'Decimal'
     case 'Boolean':
       return 'Boolean'
     case 'Date':
@@ -61,7 +63,7 @@ export function fromBackendType(typeConfig: unknown): DataType {
     const t = typeConfig.toLowerCase()
     if (t === 'int' || t === 'integer') return 'Integer'
     if (t === 'float') return 'Float'
-    if (t === 'decimal') return 'Float'
+    if (t === 'decimal') return 'Decimal'
     if (t === 'str' || t === 'string') return 'String'
     if (t === 'boolean' || t === 'bool') return 'Boolean'
     if (t === 'date' || t === 'datetime' || t === 'time') return 'Date'

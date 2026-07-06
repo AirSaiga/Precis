@@ -33,7 +33,7 @@ import {
   NODE_ENTER_DURATION_MS,
   NODE_ENTERING_CLASS,
 } from '@/services/canvas/animationDurations'
-import { fromBackendType } from '@/services/builders/schemaBuilder'
+import { parseColumnSpecs } from '@/services/builders/parseColumnSpec'
 import { useConnectionValidator } from '@/composables/validation/useConnectionValidator'
 import { materializeV2EmbeddedConstraints } from '@/stores/graphStore/modules/v2/shared/embeddedConstraints'
 import type { ProjectResourceKind } from '@/stores/graphStore/modules/v2/import/importV2ResourceToCanvas'
@@ -582,12 +582,18 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
     const schemaName = spec.name || schemaId
     const columns = spec.columns || []
 
-    const cols = columns.map((col) => ({
-      id: col.id || col.name,
-      columnName: col.name,
-      dataType: fromBackendType(col.type),
-      validationErrors: [],
-      constraints: col.constraints || {},
+    // AI 创建的 schema 节点无数据源文件，按普通 schema 解析列（isJsonSchema=false）
+    const cols = parseColumnSpecs(
+      columns.map((c) => ({ ...c, id: c.id || c.name })) as Array<{
+        id: string
+        name: string
+        type: string | Record<string, unknown>
+      }>,
+      { isJsonSchema: false }
+    ).map((col) => ({
+      ...col,
+      // 合并 AI spec 携带的列级内嵌约束（parseColumnSpecs 默认置空）
+      constraints: columns.find((c) => c.name === col.columnName)?.constraints || {},
     }))
 
     const position = computePlacementPosition(graphStore)
@@ -698,12 +704,17 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
       })
     }
     if (existing && spec.columns) {
-      const cols = spec.columns.map((col) => ({
-        id: col.id || col.name,
-        columnName: col.name,
-        dataType: fromBackendType(col.type),
-        validationErrors: [],
-        constraints: col.constraints || {},
+      // AI 更新：按普通 schema 解析列，并合并列级内嵌约束
+      const cols = parseColumnSpecs(
+        spec.columns.map((c) => ({ ...c, id: c.id || c.name })) as Array<{
+          id: string
+          name: string
+          type: string | Record<string, unknown>
+        }>,
+        { isJsonSchema: false }
+      ).map((col) => ({
+        ...col,
+        constraints: spec.columns!.find((c) => c.name === col.columnName)?.constraints || {},
       }))
       graphStore.updateNodeData(existing.id, { columns: cols } as Partial<CustomNodeData>)
       toastSuccess(t('aiChat.schemaUpdated', { name: spec.name || schemaId }))

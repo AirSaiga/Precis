@@ -27,17 +27,15 @@ import type { BuilderContext, NodeBuilder } from '../types'
  * 构建 Schema 列定义
  */
 function buildColumnSpec(column: SchemaColumn): ColumnSpecV2 {
-  // 运行时列对象可能携带 primaryKey / nullable / expand 等额外字段
-  const col = column as SchemaColumn & {
-    primaryKey?: boolean
-    nullable?: boolean
-    expand?: boolean
-  }
+  // expand 为 UI 临时状态，未纳入类型声明，此处沿用鸭子类型读取
+  const col = column as SchemaColumn & { expand?: boolean }
   const base: ColumnSpecV2 = {
     id: col.id,
     name: col.columnName,
     type: toBackendType(col.dataType, col),
     primary_key: col.primaryKey || false,
+    // nullable 默认值对齐后端 ColumnSpec.nullable=True（未显式设置时透传 undefined，
+    // 由后端默认值兜底；显式 false 时写出，显式 true 时亦写出以保证 round-trip 一致）
     nullable: col.nullable,
     expand: col.expand || false,
   }

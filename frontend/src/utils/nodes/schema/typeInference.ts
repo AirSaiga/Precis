@@ -49,6 +49,7 @@ export function inferColumnType(columnData: unknown[]): DataType {
     String: 0,
     Integer: 0,
     Float: 0,
+    Decimal: 0,
     Boolean: 0,
     Date: 0,
     Expression: 0,

@@ -182,6 +182,8 @@
     { value: 'String', label: 'String' },
     { value: 'Integer', label: 'Int' },
     { value: 'Float', label: 'Float' },
+    { value: 'Decimal', label: 'Decimal' },
+    { value: 'Boolean', label: 'Bool' },
     { value: 'Date', label: 'Date' },
     { value: 'Expression', label: 'Expr' },
   ]

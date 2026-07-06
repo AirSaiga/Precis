@@ -348,7 +348,15 @@
   /**
    * 支持的数据类型列表，用于列定义的数据类型下拉选择
    */
-  const dataTypes: DataType[] = ['String', 'Integer', 'Float', 'Boolean', 'Date', 'Expression']
+  const dataTypes: DataType[] = [
+    'String',
+    'Integer',
+    'Float',
+    'Decimal',
+    'Boolean',
+    'Date',
+    'Expression',
+  ]
 
   /**
    * 获取关联的 SourcePreview 节点名称
@@ -703,6 +711,7 @@
       String: 'String',
       Integer: 'Int',
       Float: 'Float',
+      Decimal: 'Decimal',
       Date: 'Date',
       Boolean: 'Boolean',
       Expression: 'Expr',

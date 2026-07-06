@@ -21,6 +21,10 @@ describe('schemaBuilder - toBackendType', () => {
     expect(toBackendType('Float')).toBe('Float')
   })
 
+  it('maps Decimal to Decimal', () => {
+    expect(toBackendType('Decimal')).toBe('Decimal')
+  })
+
   it('maps Boolean to Boolean', () => {
     expect(toBackendType('Boolean')).toBe('Boolean')
   })
@@ -95,6 +99,11 @@ describe('schemaBuilder - fromBackendType', () => {
 
   it('maps Float to Float', () => {
     expect(fromBackendType('Float')).toBe('Float')
+  })
+
+  it('maps decimal to Decimal (不再降级为 Float)', () => {
+    expect(fromBackendType('decimal')).toBe('Decimal')
+    expect(fromBackendType('Decimal')).toBe('Decimal')
   })
 
   it('maps Boolean to Boolean', () => {

@@ -20,7 +20,7 @@ import { toRaw } from 'vue'
  * 将前端 DataType 枚举转换为后端识别的类型字符串。
  *
  * @param dataType - 前端数据类型
- * @returns 后端类型标识（Str / Int / Float / Expr）
+ * @returns 后端类型标识（Str / Int / Float / Decimal / Expr）
  */
 export function toBackendType(dataType: DataType): string {
   switch (dataType) {
@@ -30,6 +30,8 @@ export function toBackendType(dataType: DataType): string {
       return 'Int'
     case 'Float':
       return 'Float'
+    case 'Decimal':
+      return 'Decimal'
     case 'Boolean':
       return 'Str'
     case 'Date':

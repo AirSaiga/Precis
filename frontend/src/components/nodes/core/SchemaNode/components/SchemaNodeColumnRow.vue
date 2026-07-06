@@ -518,6 +518,8 @@
       integer: 'Int',
       Float: 'Float',
       float: 'Float',
+      Decimal: 'Decimal',
+      decimal: 'Decimal',
       Date: 'Date',
       date: 'Date',
       Boolean: 'Boolean',

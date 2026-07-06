@@ -12,6 +12,7 @@ const DATA_TYPE_TO_FILE_TYPE: Record<DataType, ManualDataFileV2['column_data_typ
   String: 'string',
   Integer: 'integer',
   Float: 'float',
+  Decimal: 'decimal',
   Boolean: 'boolean',
   Date: 'date',
   Expression: 'string',

@@ -202,3 +202,23 @@
 .type-option-pill.type-expression:hover {
   background: color-mix(in srgb, var(--theme-purple) 16%, var(--theme-purple-bg));
 }
+
+.type-option-pill.type-decimal {
+  background: var(--theme-amber-bg, color-mix(in srgb, var(--theme-amber) 12%, transparent));
+  border-color: color-mix(in srgb, var(--theme-amber) 24%, transparent);
+  color: var(--theme-amber-strong, var(--theme-amber));
+}
+
+.type-option-pill.type-decimal:hover {
+  background: color-mix(in srgb, var(--theme-amber) 16%, var(--theme-amber-bg, transparent));
+}
+
+.type-option-pill.type-boolean {
+  background: var(--theme-cyan-bg);
+  border-color: color-mix(in srgb, var(--theme-cyan) 24%, transparent);
+  color: var(--theme-cyan-strong);
+}
+
+.type-option-pill.type-boolean:hover {
+  background: color-mix(in srgb, var(--theme-cyan) 16%, var(--theme-cyan-bg));
+}
