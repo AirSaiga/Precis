@@ -1,6 +1,6 @@
 # Precis 前端 / Precis Frontend
 
-> ⚠️ **Alpha** — 核心功能已成型并配套单元测试（1400+ 用例），但仍在打磨稳定性，接口可能调整。
+> **Alpha** — 核心功能已成型，接口可能调整。
 
 Vue 3 + TypeScript 可视化编辑器，基于 Vue Flow 画布引擎。
 

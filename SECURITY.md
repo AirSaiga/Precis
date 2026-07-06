@@ -1,21 +1,18 @@
 # 安全说明 / Security Notice
 
-> ⚠️ **Alpha 阶段安全提示 / Alpha-Stage Security Notice**
+> **Alpha 阶段安全提示 / Alpha-Stage Security Notice**
 >
 > Precis 目前处于 Alpha 阶段，**尚未经过安全审计**，**不建议处理敏感或生产数据**。
 > Precis is in Alpha stage, **has not undergone security auditing**, and **is not recommended for handling sensitive or production data**.
->
-> 以下安全实践为计划中的设计，而非已完成的安全保证。
-> The security practices below are planned designs, not completed security guarantees.
 
-## 已知风险 / Known Risks
+## 已知局限 / Known Limitations
 
-| 风险项 Risk | 状态 Status | 说明 Description |
-|------------|-------------|-----------------|
-| 无安全审计 No security audit | ⚠️ 未开始 Not started | 代码未经过第三方安全审查 Code has not undergone third-party security review |
-| 沙箱脚本执行 Sandboxed script execution | 🔄 计划中 Planned | 脚本约束计划使用受限执行环境 Scripted constraints planned to use restricted execution environment |
-| 依赖安全 Dependency security | ✅ CI 扫描已启用 CI scanning enabled | 流水线已集成 pip-audit 与 npm audit，每次提交自动扫描基础漏洞 CI pipeline integrates pip-audit and npm audit, scanning on every commit |
-| 输入验证 Input validation | 🔄 完善中 In progress | 前端和后端的输入校验尚未覆盖全部边界情况 Frontend and backend input validation does not yet cover all edge cases |
+| 项目 Item | 说明 Description |
+|----------|-----------------|
+| **无安全审计** No security audit | 代码未经过第三方安全审查，使用前请自行评估风险 Code has not undergone third-party security review; assess risks before use |
+| **脚本沙箱** Scripted sandbox | 用户脚本（Scripted 约束）在受限的 `simpleeval` 沙箱中执行，但不等同于完整的安全隔离 User scripts (Scripted constraints) run in a restricted `simpleeval` sandbox, which is not equivalent to full security isolation |
+| **输入校验范围** Input validation scope | 前端和后端的输入校验以功能正确性为主，未覆盖全部恶意输入场景 Frontend and backend input validation focuses on functional correctness and does not cover all malicious-input scenarios |
+| **依赖安全扫描** Dependency scanning | CI 流水线集成 `pip-audit` 与 `npm audit`，每次提交扫描已知漏洞 CI pipeline integrates `pip-audit` and `npm audit` to scan known vulnerabilities on every commit |
 
 ## 安全漏洞报告 / Reporting Vulnerabilities
 
@@ -27,7 +24,7 @@ If you discover a potential security issue:
 2. 请通过 GitHub Security Advisories 私下报告，或发送邮件给维护者 / Please report privately via GitHub Security Advisories, or email the maintainers
 3. 请提供问题描述、复现步骤和影响评估 / Please provide a description, reproduction steps, and impact assessment
 
-## 安全实践（目标设计）/ Security Practices (Target Design)
+## 安全设计 / Security Design
 
 - 用户提供的脚本（Scripted 约束）运行在受限的 `simpleeval` 沙箱中
   
@@ -41,9 +38,9 @@ If you discover a potential security issue:
   
   No raw SQL queries — all database operations use ORM
 
-- 依赖项固定并定期扫描
+- 依赖项固定并通过 CI 扫描
   
-  Dependencies are pinned and regularly scanned
+  Dependencies are pinned and scanned via CI
 
 ## 免责声明 / Disclaimer
 

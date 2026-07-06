@@ -2,7 +2,7 @@
 
 This file provides guidance to Qoder (qoder.com) when working with code in this repository.
 
-> **项目状态**: Alpha 阶段。核心功能已成型并配套完整测试（后端 2800+ / 前端 1500+ / E2E 24 个 spec 文件，CI 全绿），但仍在打磨稳定性，API 与配置格式可能调整。修改代码时需保证正确性并维护测试；应结合具体业务场景，必要时进行合理重构以保持代码健康。
+> **项目状态**: Alpha 阶段。核心功能已实现，API 与配置格式可能调整。修改代码时需保证正确性并维护测试；应结合具体业务场景，必要时进行合理重构以保持代码健康。
 >
 > **本文档定位**：只收录**稳定的架构原则、约定、命令与陷阱**（重构不会使其失效的内容）。具体的文件清单、行数表、调用图、ID 方案等易漂移的实现细节，见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)（该文档以代码为准，可能漂移）。
 

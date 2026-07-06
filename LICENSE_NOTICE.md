@@ -1,16 +1,16 @@
 # Precis 许可证说明 / License Notice
 
-> ⚠️ **项目状态声明 / Project Status**
+> **项目状态声明 / Project Status**
 >
 > Precis 目前处于 **Alpha 阶段**。
-> - 核心功能已成型并配套完整测试（后端 2500+ / 前端 1400+ / E2E 130+ 用例，CI 全绿），但稳定性仍在打磨，边界场景覆盖持续完善
-> - 本仓库**开源以收集真实使用反馈、验证边界场景**，暂不寻求外部代码贡献
+> - 核心功能已实现，但稳定性仍在打磨
+> - 本仓库**开源以收集真实使用反馈**，暂不寻求外部代码贡献
 > - **暂不建议**在生产环境或关键数据场景中使用
 > - 接口和行为仍可能调整，尚未完全冻结
 >
 > Precis is currently in **Alpha stage**.
-> - Core features are implemented and covered by a full test suite (backend 2500+ / frontend 1400+ / E2E 130+ cases, CI green), but stability is still being polished and edge-case coverage is continuously improving
-> - Open-sourced **to collect real-world feedback and validate edge cases**, not seeking external contributions at this stage
+> - Core features are implemented, but stability is still being polished
+> - Open-sourced **to collect real-world feedback**, not seeking external contributions at this stage
 > - **Not recommended** for production or critical data scenarios
 > - Interfaces and behaviors may still change; not yet fully frozen
 
@@ -22,7 +22,7 @@ Precis 采用 **Apache License 2.0 (Apache-2.0)**
 
 ## 核心条款 / Core Terms
 
-### ✅ 您可以自由地进行以下操作 / You are free to:
+### 您可以自由地进行以下操作 / You are free to:
 
 | 权利 Right | 说明 Description |
 |------------|-----------------|
@@ -32,7 +32,7 @@ Precis 采用 **Apache License 2.0 (Apache-2.0)**
 | **分发** Distribute | 分发原始或修改后的版本（需保留许可证声明）Distribute original or modified versions (keep license notices) |
 | **专利授权** Patent Grant | 贡献者授予您明确的专利使用权 Contributors grant you explicit patent rights |
 
-### ⚠️ 您必须遵守以下义务 / You must:
+### 您必须遵守以下义务 / You must:
 
 | 义务 Obligation | 说明 Description |
 |-----------------|-----------------|
@@ -40,7 +40,7 @@ Precis 采用 **Apache License 2.0 (Apache-2.0)**
 | **变更说明** State Changes | 修改文件需注明变更内容 Note changes to modified files |
 | **NOTICE 文件** NOTICE File | 如项目包含 NOTICE 文件，衍生作品需保留其中的归属声明 If NOTICE file exists, derivative works must preserve attributions |
 
-### ❌ 禁止的行为 / Prohibited:
+### 禁止的行为 / Prohibited:
 
 - 使用本项目的商标（如 "Precis" 品牌标识）进行商业推广，除非获得明确授权
 - 声称项目原始作者对您的衍生作品提供背书
