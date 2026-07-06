@@ -70,6 +70,12 @@ TYPE_REGISTRY: dict[str, Any] = {
     "json_array": JsonArrayType(),
     "JsonNull": JsonNullType(),
     "json_null": JsonNullType(),
+    # JSON-Schema 规范类型名别名（用户手写或旧版序列化器可能直接使用这些名字）
+    # 与前端 toJsonBackendType 的映射保持一致，避免直接读取此类文件时报错
+    "number": FloatType(),
+    "object": JsonObjectType(),
+    "array": JsonArrayType(),
+    "null": JsonNullType(),
 }
 
 

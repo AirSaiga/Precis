@@ -10,6 +10,9 @@ from app.shared.domain.data_types import (
     ExtractedType,
     FloatType,
     IntegerType,
+    JsonArrayType,
+    JsonNullType,
+    JsonObjectType,
     SequenceType,
     StringType,
 )
@@ -83,6 +86,31 @@ class TestBuildTypeFromConfigString:
     def test_unknown_type_raises_value_error(self):
         with pytest.raises(ValueError, match="未知的类型名称"):
             build_type_from_config("unknown_type_xyz")
+
+
+class TestBuildTypeFromConfigJsonSchemaAliases:
+    """JSON-Schema 规范类型名（number/object/array/null）应作为别名被接受。
+
+    用户手写或旧版序列化器输出的 schema 文件可能直接使用这些名字，
+    后端注册表需将其映射到对应的内部类型，避免 validate_v2_full 报
+    `未知的类型名称`。
+    """
+
+    def test_number_alias_maps_to_float(self):
+        result = build_type_from_config("number")
+        assert isinstance(result, FloatType)
+
+    def test_object_alias_maps_to_json_object(self):
+        result = build_type_from_config("object")
+        assert isinstance(result, JsonObjectType)
+
+    def test_array_alias_maps_to_json_array(self):
+        result = build_type_from_config("array")
+        assert isinstance(result, JsonArrayType)
+
+    def test_null_alias_maps_to_json_null(self):
+        result = build_type_from_config("null")
+        assert isinstance(result, JsonNullType)
 
 
 class TestBuildTypeFromConfigDict:
@@ -193,6 +221,11 @@ class TestTypeRegistryCoverage:
             "json_object",
             "json_array",
             "json_null",
+            # JSON-Schema 规范类型名（与上面对应，作为别名接受）
+            "number",
+            "object",
+            "array",
+            "null",
         ]
         for key in lowercase_keys:
             assert key in TYPE_REGISTRY, f"Missing lowercase key: {key}"
