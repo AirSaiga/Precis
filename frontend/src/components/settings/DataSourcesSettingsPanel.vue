@@ -104,7 +104,7 @@
 
     <!-- Empty state -->
     <div v-if="dataSources.length === 0" class="ui-empty">
-      <div class="ui-empty__icon">📁</div>
+      <div class="ui-empty__icon"><AppIcon name="folder" :size="32" /></div>
       <div class="ui-empty__title">{{ t('settings.dataSources.empty') }}</div>
       <div class="ui-empty__description">{{ t('settings.dataSources.emptyHint') }}</div>
     </div>
@@ -138,14 +138,14 @@
     </div>
 
     <div v-if="errorMessage" class="settings-alert settings-alert--danger">
-      <span class="settings-alert__icon">✕</span>
+      <span class="settings-alert__icon"><AppIcon name="x" :size="16" /></span>
       <div class="settings-alert__content">
         <div class="settings-alert__text">{{ errorMessage }}</div>
       </div>
     </div>
 
     <div v-if="successMessage" class="settings-alert settings-alert--success">
-      <span class="settings-alert__icon">✓</span>
+      <span class="settings-alert__icon"><AppIcon name="check" :size="16" /></span>
       <div class="settings-alert__content">
         <div class="settings-alert__text">{{ successMessage }}</div>
       </div>
@@ -161,6 +161,7 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { getV2Manifest, putV2Manifest } from '@/api/projectV2Api'
   import { dialogApi } from '@/core/capabilities/dialogApi'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { DataSourceRefV2, ProjectManifestV2 } from '@/types/projectV2'
 
   const { t } = useI18n()

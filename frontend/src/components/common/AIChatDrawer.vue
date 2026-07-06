@@ -181,7 +181,10 @@
             "
             class="agent-trail"
           >
-            <span class="agent-trail-label">🔧 {{ message.agentMeta.tool_steps.length }} 步</span>
+            <span class="agent-trail-label"
+              ><AppIcon name="wrench" :size="12" />
+              {{ message.agentMeta.tool_steps.length }} 步</span
+            >
             <span
               v-for="(step, idx) in message.agentMeta.tool_steps"
               :key="idx"
@@ -233,7 +236,7 @@
       <div class="context-label">{{ t('aiChat.contextLabel') }}</div>
       <div class="tags-list">
         <div v-for="node in store.contextNodes" :key="node.id" class="context-tag">
-          <span class="tag-icon">🏷️</span>
+          <span class="tag-icon"><AppIcon name="tag" :size="12" /></span>
           <span class="tag-text">{{ node.label || node.type }}</span>
           <button class="tag-remove" @click="store.removeContextNode(node.id)">
             <svg
@@ -298,6 +301,7 @@
 
   import { ref, watch, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import { useAiChatStore } from '../../stores/aiChatStore'
   import { useMessageCopy } from '@/composables/useMessageCopy'
 

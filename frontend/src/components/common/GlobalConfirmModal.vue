@@ -24,7 +24,7 @@
         <div class="global-confirm-content" :class="options.type">
           <div class="confirm-header">
             <h3 class="confirm-title">{{ options.title }}</h3>
-            <button class="close-btn" @click="handleCancel">×</button>
+            <button class="close-btn" @click="handleCancel"><AppIcon name="x" :size="16" /></button>
           </div>
 
           <div class="confirm-body">
@@ -54,6 +54,7 @@
 
 <script setup lang="ts">
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   const { visible, options, handleConfirm, handleCancel, handleAlternative } = useGlobalConfirm()
 </script>

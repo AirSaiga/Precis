@@ -85,7 +85,7 @@
             class="source-badge no-source"
             :title="t('customNodes.schemaNode.source.notConnected')"
           >
-            <span class="badge-icon">📄</span>
+            <span class="badge-icon"><AppIcon name="file" :size="16" /></span>
             <span class="badge-text">{{ t('customNodes.schemaNode.source.noSource') }}</span>
           </div>
 
@@ -99,7 +99,7 @@
               })
             "
           >
-            <span class="badge-icon">📊</span>
+            <span class="badge-icon"><AppIcon name="file-chart" :size="16" /></span>
             <span class="badge-text">{{ props.sourceFile || 'Unknown' }}</span>
             <span class="dropdown-arrow">▼</span>
           </div>
@@ -122,7 +122,7 @@
         @click="emit('smartFill')"
         :title="t('customNodes.schemaNode.smartFillTooltip')"
       >
-        ✨
+        <AppIcon name="sparkles" :size="16" />
       </button>
 
       <button
@@ -134,7 +134,9 @@
         :title="t('customNodes.schemaNode.saveTooltip')"
       >
         <span v-if="props.isSaving" class="save-icon-loading">⟳</span>
-        <span v-else-if="props.saveSuccess" class="save-icon-success">✓</span>
+        <span v-else-if="props.saveSuccess" class="save-icon-success"
+          ><AppIcon name="check" :size="14"
+        /></span>
         <span v-else-if="props.saveError" class="save-icon-error">!</span>
         <span v-else-if="saveBtnHovered" class="save-icon-disk">[⬇]</span>
         <span v-else class="save-icon-dot">[⬇]</span>
@@ -148,7 +150,7 @@
         @mouseleave="closeBtnHovered = false"
         :title="t('customNodes.schemaNode.closeTooltip')"
       >
-        ×
+        <AppIcon name="x" :size="18" />
       </button>
     </div>
   </div>
@@ -179,6 +181,7 @@
 
   import { ref } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   // ============================================================================
   // 2. Props 定义

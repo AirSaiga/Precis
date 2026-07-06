@@ -6,6 +6,7 @@ import {
   BellOff,
   Binary,
   Boxes,
+  Brain,
   Brush,
   Building2,
   CalendarClock,
@@ -101,6 +102,8 @@ export const ICON_REGISTRY: Record<string, Component> = {
   inbox: Inbox,
   tag: Tag,
   image: Image,
+  link: Link2,
+  brain: Brain,
   presentation: Monitor,
 
   // —— 约束类型（10 个，与 ConstraintNodeLibrary 一一对应）——

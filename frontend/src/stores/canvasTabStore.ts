@@ -274,7 +274,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
         name: t('canvas.workspace'),
         index: nextIndex,
       }),
-      icon: '🖼️',
+      icon: 'image',
       hasUnsavedChanges: true,
       createdAt: new Date().toISOString(),
       lastActiveAt: new Date().toISOString(),

@@ -34,7 +34,7 @@
         class="btn-close"
         :title="t('expressions.selectionPopover.cancelSelection')"
       >
-        ×
+        <AppIcon name="x" :size="14" />
       </button>
     </div>
   </div>
@@ -43,6 +43,7 @@
 <script setup lang="ts">
   import { computed, ref, onMounted, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   interface SelectionInfo {
     text: string

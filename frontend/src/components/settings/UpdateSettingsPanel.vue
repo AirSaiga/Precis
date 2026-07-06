@@ -180,7 +180,7 @@
 
       <!-- 错误信息 -->
       <div v-if="hasError()" class="settings-alert settings-alert--danger">
-        <span class="settings-alert__icon">✕</span>
+        <span class="settings-alert__icon"><AppIcon name="x" :size="16" /></span>
         <div class="settings-alert__content">
           <div class="settings-alert__title">{{ t('settings.update.errorTitle') }}</div>
           <div class="settings-alert__text">{{ updateState.error }}</div>
@@ -196,6 +196,7 @@
   import { useI18n } from 'vue-i18n'
   import { appApi } from '@/core/capabilities/appApi'
   import { updateApi, type UpdateState, type UpdateConfig } from '@/core/capabilities/updateApi'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   const { t } = useI18n()
 

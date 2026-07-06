@@ -38,7 +38,7 @@
         <!-- 最近使用 -->
         <div v-if="!searchQuery && recentItems.length > 0" class="menu-section">
           <div class="section-title">
-            <span class="section-icon">⏱️</span>
+            <span class="section-icon"><AppIcon name="clock" :size="12" /></span>
             {{ t('messages.canvas.transformMenu.recentUsed') }}
           </div>
           <div class="menu-grid">
@@ -61,7 +61,7 @@
             class="menu-section"
           >
             <div class="section-title">
-              <span class="section-icon">{{ category.icon }}</span>
+              <span class="section-icon"><AppIcon :name="category.icon" :size="12" /></span>
               {{ t(`messages.canvas.transformMenu.categories.${category.id}`) }}
             </div>
             <div class="menu-grid">
@@ -88,7 +88,7 @@
             class="menu-section"
           >
             <div class="section-title">
-              <span class="section-icon">{{ category.icon }}</span>
+              <span class="section-icon"><AppIcon :name="category.icon" :size="12" /></span>
               {{ t(`messages.canvas.transformMenu.constraintCategories.${category.id}`) }}
             </div>
             <div class="menu-grid">
@@ -140,6 +140,7 @@
 
   import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import { TRANSFORM_CATEGORIES as SHARED_TRANSFORM_CATEGORIES } from '@/composables/nodes/transform/transformCategory'
   // ============================================================================
   // Props & Emits
@@ -205,19 +206,19 @@
   const CONSTRAINT_CATEGORIES: MenuCategory[] = [
     {
       id: 'attribute',
-      icon: '📋',
+      icon: 'clipboard',
       kind: 'constraint',
       types: ['notNull', 'unique', 'range', 'charset'],
     },
     {
       id: 'relation',
-      icon: '🔗',
+      icon: 'link',
       kind: 'constraint',
       types: ['allowedValues', 'foreignKey'],
     },
     {
       id: 'logic',
-      icon: '🧠',
+      icon: 'brain',
       kind: 'constraint',
       types: ['conditional', 'scripted', 'dateLogic', 'composite'],
     },

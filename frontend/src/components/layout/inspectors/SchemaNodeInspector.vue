@@ -270,7 +270,7 @@
       <div class="form-group">
         <label>{{ t('inspector.schemaNode.labels.currentStatus') }}</label>
         <div class="status-indicator" :class="data.saveState">
-          <span class="status-icon">{{ getStatusIcon(data.saveState) }}</span>
+          <AppIcon class="status-icon" :name="getStatusIcon(data.saveState)" :size="16" />
           <span class="status-text">{{ getStatusText(data.saveState) }}</span>
         </div>
       </div>
@@ -313,6 +313,7 @@
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
   import BaseInspector from './BaseInspector.vue'
   import { InspectorField } from '@/components/ui/inspector'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { SchemaNodeData, SchemaColumn } from '@/types/nodes'
   import type { DataType } from '@/types/common'
   import apiClient from '@/core/services/httpClient'
@@ -718,13 +719,13 @@
   function getStatusIcon(state: string): string {
     switch (state) {
       case 'saved':
-        return '✓'
+        return 'check'
       case 'draft':
-        return '●'
+        return 'circle'
       case 'error':
-        return '✗'
+        return 'x'
       default:
-        return '?'
+        return 'info'
     }
   }
 

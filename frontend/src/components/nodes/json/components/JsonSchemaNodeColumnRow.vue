@@ -131,7 +131,7 @@
         v-if="props.column.validationErrors && props.column.validationErrors.length > 0"
         class="error-indicator"
       >
-        ⚠️
+        <AppIcon name="alert" :size="12" />
       </span>
     </div>
 
@@ -251,7 +251,7 @@
         @click="emit('delete', props.column.id)"
         :title="t('customNodes.jsonSchemaNode.actions.deleteColumn')"
       >
-        ×
+        <AppIcon name="x" :size="14" />
       </button>
     </div>
   </div>
@@ -286,6 +286,7 @@
   import { ref, watch, computed } from 'vue'
   import type { ComponentPublicInstance } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { JsonSchemaColumn } from '@/types/graph'
 
   // ============================================================================

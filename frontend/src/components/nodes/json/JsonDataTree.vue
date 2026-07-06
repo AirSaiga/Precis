@@ -29,7 +29,9 @@
     <!-- 搜索过滤 -->
     <div class="search-bar" v-if="isObject(currentLevelData) || isArray(currentLevelData)">
       <input v-model="searchQuery" type="text" class="search-input" placeholder="搜索字段..." />
-      <span v-if="searchQuery" class="search-clear" @click="searchQuery = ''">✕</span>
+      <span v-if="searchQuery" class="search-clear" @click="searchQuery = ''"
+        ><AppIcon name="x" :size="14"
+      /></span>
     </div>
 
     <!-- 当前层级内容 -->
@@ -157,6 +159,7 @@
 
 <script setup lang="ts">
   import { ref, computed, watch, nextTick } from 'vue'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   const props = defineProps<{
     data: unknown

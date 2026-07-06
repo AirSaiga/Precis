@@ -13,7 +13,7 @@
   <div class="settings-page">
     <!-- Warning banner -->
     <div class="settings-alert">
-      <span class="settings-alert__icon">⚠️</span>
+      <span class="settings-alert__icon"><AppIcon name="alert" :size="16" /></span>
       <div class="settings-alert__content">
         <div class="settings-alert__title">{{ t('settings.script.warning.title') }}</div>
         <div class="settings-alert__text">{{ t('settings.script.warning.text') }}</div>
@@ -97,6 +97,7 @@
   import { computed, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useSettingsStore } from '@/stores/settingsStore'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { ScriptSecuritySettings } from '@/stores/settingsStore'
 
   const { t } = useI18n()

@@ -47,7 +47,7 @@
             @change="$emit('set-resolution', selectedItem.id, 'original')"
             :disabled="!selectedItem.original"
           />
-          <span class="radio-icon">📄</span>
+          <span class="radio-icon"><AppIcon name="file" :size="14" /></span>
           <span class="radio-text">{{ t('aiConfigGenerator.conflict.actions.keepOriginal') }}</span>
         </label>
         <label
@@ -65,7 +65,7 @@
             @change="$emit('set-resolution', selectedItem.id, 'generated')"
             :disabled="!selectedItem.generated"
           />
-          <span class="radio-icon">✨</span>
+          <span class="radio-icon"><AppIcon name="sparkles" :size="14" /></span>
           <span class="radio-text">{{ t('aiConfigGenerator.conflict.actions.useGenerated') }}</span>
         </label>
       </div>
@@ -113,6 +113,7 @@
 <script setup lang="ts">
   import { ref } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import ConflictDiffPane from './ConflictDiffPane.vue'
   import type { ConfigItemDiff } from '@/api/types/conflict'
   import type { DiffLine } from '@/composables/conflict/useConflictDiffEngine'

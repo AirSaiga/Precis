@@ -24,7 +24,7 @@
             @click="removeWeight(index)"
             :title="t('common.remove')"
           >
-            ×
+            <AppIcon name="x" :size="12" />
           </button>
         </div>
       </div>
@@ -45,7 +45,9 @@
       <div class="preset-modal" @click.stop>
         <div class="preset-header">
           <h3>{{ t('inspector.transformNode.params.weightedSum.presetTitle') }}</h3>
-          <button class="close-btn" type="button" @click="showPresetModal = false">×</button>
+          <button class="close-btn" type="button" @click="showPresetModal = false">
+            <AppIcon name="x" :size="12" />
+          </button>
         </div>
         <div class="preset-list">
           <div
@@ -67,6 +69,7 @@
 <script setup lang="ts">
   import { ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { InspectorContext } from '../utils'
   import type { InspectorWeightedSumField } from '../types'
 

@@ -206,9 +206,12 @@
                     : 'test-status--error'
                 "
               >
-                <span class="test-status__icon">{{
-                  testResults[p.id]?.health.status === 'ok' ? '✓' : '✗'
-                }}</span>
+                <span class="test-status__icon"
+                  ><AppIcon
+                    v-if="testResults[p.id]?.health.status === 'ok'"
+                    name="check"
+                    :size="14" /><AppIcon v-else name="x" :size="14"
+                /></span>
                 <span class="test-status__text">
                   {{
                     testResults[p.id]?.health.status === 'ok'
@@ -395,6 +398,7 @@
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useToast } from '@/composables/shared'
   import { shellApi } from '@/core/capabilities/shellApi'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { CloudAIProviderResponse, ProviderPreset, UpdateProviderRequest } from '@/types/ai'
   import {
     getCloudAIProviders,

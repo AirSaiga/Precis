@@ -28,7 +28,7 @@
     <div v-if="selectedText" class="selected-text">
       <span class="label">{{ t('expressions.interactiveBuilder.previewSelection') }}:</span>
       <span class="text">{{ selectedText }}</span>
-      <button @click="clearSelection" class="clear-btn">×</button>
+      <button @click="clearSelection" class="clear-btn"><AppIcon name="x" :size="14" /></button>
     </div>
 
     <!-- 预览区域 -->
@@ -80,6 +80,7 @@
   import { logger } from '@/core/utils/logger'
   import { ref, reactive, watch, nextTick, computed } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import SelectionPopover from './SelectionPopover.vue'
   import ParamDefinitionModal from './ParamDefinitionModal.vue'
   import { useToast } from '@/composables/shared/useToast'

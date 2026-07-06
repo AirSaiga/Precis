@@ -11,7 +11,7 @@ const canvas = {
   renameWorkspacePrompt: '输入新的工作区名称:',
   tabs: {
     dirty: '●',
-    close: '×',
+    close: '',
     add: '+',
   },
   controls: {

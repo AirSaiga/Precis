@@ -25,7 +25,9 @@
           aria-labelledby="crash-modal-title"
         >
           <div class="crash-modal__header">
-            <span class="crash-modal__icon" aria-hidden="true">⚠</span>
+            <span class="crash-modal__icon" aria-hidden="true"
+              ><AppIcon name="alert" :size="24"
+            /></span>
             <span id="crash-modal-title" class="crash-modal__title">
               {{ t('feedback.title') }}
             </span>
@@ -36,7 +38,7 @@
               :aria-label="t('feedback.closeButton')"
               @click="handleClose"
             >
-              ×
+              <AppIcon name="x" :size="16" />
             </button>
           </div>
 
@@ -106,6 +108,7 @@
   import { useFeedbackStore } from '@/stores/feedbackStore'
   import { feedbackApi } from '@/core/capabilities/feedbackApi'
   import { logger } from '@/core/utils/logger'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { CrashSource } from '@/types/feedback'
 
   const { t } = useI18n()

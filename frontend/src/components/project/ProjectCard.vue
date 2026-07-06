@@ -1,5 +1,6 @@
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   export interface ProjectCardProps {
     name: string
@@ -45,7 +46,7 @@
     :aria-label="name"
     :aria-disabled="disabled"
   >
-    <div class="project-card-icon">📁</div>
+    <div class="project-card-icon"><AppIcon name="folder" :size="24" /></div>
     <div class="project-card-title">{{ name }}</div>
     <div class="project-card-meta">
       <span>{{ props.schemaCount }} {{ t('common.project.schemas') }}</span>

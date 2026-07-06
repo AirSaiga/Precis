@@ -7,7 +7,7 @@
   - 支持自定义标签和数值格式化
 
   Props：
-  - icon: string — 图标（默认 '📊'）
+  - icon: string — 图标名（默认 'file-chart'）
   - value: string | number — 统计数值
   - label: string — 统计标签
   - status: 'default' | 'success' | 'warning' | 'error' — 状态样式
@@ -18,7 +18,7 @@
 <template>
   <div class="inspector-stat-card" :class="`stat-status-${status}`">
     <div class="stat-icon" :class="`icon-bg-${status}`">
-      <span class="icon-emoji">{{ icon }}</span>
+      <AppIcon class="icon-emoji" :name="icon" :size="18" />
     </div>
     <div class="stat-content">
       <div class="stat-value">{{ displayValue }}</div>
@@ -29,6 +29,7 @@
 
 <script setup lang="ts">
   import { computed } from 'vue'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   interface Props {
     icon?: string
@@ -38,7 +39,7 @@
   }
 
   const props = withDefaults(defineProps<Props>(), {
-    icon: '📊',
+    icon: 'file-chart',
     value: '-',
     label: '',
     status: 'default',

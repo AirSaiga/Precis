@@ -44,7 +44,7 @@
           @click.stop="emit('close', group.id)"
           title="隐藏该分组框"
         >
-          ×
+          <AppIcon name="x" :size="14" />
         </div>
       </div>
     </div>
@@ -53,6 +53,7 @@
 
 <script setup lang="ts">
   import { computed, ref } from 'vue'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { ZoneGroup } from '../types'
 
   const props = defineProps<{

@@ -48,7 +48,9 @@
     </button>
     <div v-if="isExpanded" class="trail-body">
       <div v-for="(step, idx) in steps" :key="idx" class="trail-step" :class="step.status">
-        <span class="step-indicator">{{ statusIndicator(step.status) }}</span>
+        <span class="step-indicator"
+          ><AppIcon :name="statusIndicator(step.status)" :size="12"
+        /></span>
         <span class="step-label">{{ step.label }}</span>
         <span v-if="step.actionCount" class="step-count">({{ step.actionCount }})</span>
         <span v-if="step.error" class="step-error">{{ step.error }}</span>
@@ -63,6 +65,7 @@
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { ToolStep } from '@/composables/shared/useStreamingMessage'
 
   interface Props {
@@ -127,9 +130,9 @@
   )
 
   function statusIndicator(status: ToolStep['status']): string {
-    if (status === 'success') return '✓'
-    if (status === 'running') return '⟳'
-    return '✗'
+    if (status === 'success') return 'check'
+    if (status === 'running') return 'clock'
+    return 'x'
   }
 </script>
 

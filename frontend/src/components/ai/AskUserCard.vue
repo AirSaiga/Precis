@@ -22,6 +22,7 @@
 <script setup lang="ts">
   import { computed, ref } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { PendingAsk } from '@/composables/shared/useStreamingMessage'
 
   /** ask_user 回答的响应体（POST /respond 的 response 字段） */
@@ -145,7 +146,7 @@
   <div v-if="ask || answered" class="ask-user-card">
     <!-- 已答态：折叠摘要 -->
     <div v-if="answered" class="ask-answered">
-      <span class="ask-answered-icon">✓</span>
+      <span class="ask-answered-icon"><AppIcon name="check" :size="16" /></span>
       <span class="ask-answered-text">{{ summaryText }}</span>
     </div>
 

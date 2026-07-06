@@ -132,7 +132,7 @@
                 type="button"
                 @click.stop="canvasStore.closeWorkspace(workspace.id, graphStore)"
               >
-                ×
+                <AppIcon name="x" :size="14" />
               </button>
             </div>
             <button
@@ -252,6 +252,7 @@
 <script setup lang="ts">
   import { ref, onMounted, onUnmounted, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   import { logger } from '@/core/utils/logger'
   import { eventBus } from '@/core/eventBus'

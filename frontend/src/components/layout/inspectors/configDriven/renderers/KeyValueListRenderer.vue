@@ -22,7 +22,9 @@
         :placeholder="valuePlaceholder"
         @change="updateValue(idx, ($event.target as HTMLInputElement).value)"
       />
-      <button class="row-remove" type="button" @click="removeItem(idx)">×</button>
+      <button class="row-remove" type="button" @click="removeItem(idx)">
+        <AppIcon name="x" :size="12" />
+      </button>
     </div>
     <button class="add-btn" type="button" @click="addItem">{{ t('common.addMapping') }}</button>
 
@@ -33,6 +35,7 @@
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { InspectorContext } from '../utils'
   import type { InspectorKeyValueListField } from '../types'
 

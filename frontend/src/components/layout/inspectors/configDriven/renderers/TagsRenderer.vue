@@ -22,7 +22,9 @@
           />
         </template>
         <span v-else class="tag-text">{{ tag }}</span>
-        <button v-if="!readonly" class="tag-remove" type="button" @click="removeTag(idx)">×</button>
+        <button v-if="!readonly" class="tag-remove" type="button" @click="removeTag(idx)">
+          <AppIcon name="x" :size="12" />
+        </button>
       </div>
       <div v-if="displayTags.length === 0" class="empty">-</div>
     </div>
@@ -78,6 +80,7 @@
   import type { InspectorContext } from '../utils'
   import { getUpstreamColumns, getUpstreamRows } from '../utils'
   import type { InspectorTagsField } from '../types'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import { computeStringSplit } from '@/composables/nodes/transform/transformCalculations'
 
   const props = defineProps<{

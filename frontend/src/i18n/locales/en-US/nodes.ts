@@ -858,7 +858,7 @@ const customNodes = {
       helpCollectionTitle: 'Collections:',
       helpExamplesTitle: 'Examples (click to use)',
       helpWarning:
-        '⚠️ Script expression must return a boolean (True/False). True means pass, False means rule violated.',
+        'Script expression must return a boolean (True/False). True means pass, False means rule violated.',
       examplePositiveTitle: 'Greater than zero',
       examplePositiveDesc: 'Value must be greater than 0',
       exampleRangeTitle: 'Range check',

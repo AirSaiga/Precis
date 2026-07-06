@@ -74,7 +74,7 @@
         @click="handleRemove"
         :title="t('customNodes.jsonSourcePreviewNode.removeNode')"
       >
-        ×
+        <AppIcon name="x" :size="14" />
       </button>
     </div>
 
@@ -137,7 +137,7 @@
 
       <!-- Error 状态 -->
       <div v-else-if="loadError" class="error-overlay">
-        <span class="error-icon">⚠️</span>
+        <AppIcon class="error-icon" name="alert" :size="24" />
         <span class="error-text">{{ loadError }}</span>
         <button class="retry-btn" @click="fetchJsonPreviewData">
           {{ t('common.button.refresh') }}
@@ -154,7 +154,7 @@
 
       <!-- 空状态 -->
       <div v-else class="empty-preview">
-        <span class="empty-icon">📋</span>
+        <AppIcon class="empty-icon" name="clipboard" :size="32" />
         <span class="empty-text">{{ t('customNodes.jsonSourcePreviewNode.noData') }}</span>
       </div>
 
@@ -163,7 +163,7 @@
         v-if="localData.validationMismatches && localData.validationMismatches.length > 0"
         class="validation-warning"
       >
-        <span class="warning-icon">⚠️</span>
+        <AppIcon class="warning-icon" name="alert" :size="16" />
         <span class="warning-text">
           {{ localData.validationMismatches.length }} 个字段类型与 Schema 定义不匹配
         </span>
@@ -223,6 +223,7 @@
   import type { JsonSourcePreviewNodeData } from '@/types/graph'
   import { useGraphStore } from '@/stores/graphStore'
   import JsonDataTree from './JsonDataTree.vue'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   /** JSON 文件预览 API 响应结构 */
   interface JsonPreviewApiResponse {

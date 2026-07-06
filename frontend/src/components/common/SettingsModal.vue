@@ -36,13 +36,13 @@
                   <span
                     v-else-if="settingsStore.saveStatus === 'saved'"
                     class="save-status-badge__icon"
-                    >✓</span
-                  >
+                    ><AppIcon name="check" :size="14"
+                  /></span>
                   <span
                     v-else-if="settingsStore.saveStatus === 'error'"
                     class="save-status-badge__icon"
-                    >✕</span
-                  >
+                    ><AppIcon name="x" :size="14"
+                  /></span>
                   {{ saveStatusText }}
                 </div>
               </Transition>
@@ -176,6 +176,7 @@
   import ScriptSettingsPanel from '@/components/settings/ScriptSettingsPanel.vue'
   import ShortcutSettingsPanel from '@/components/settings/ShortcutSettingsPanel.vue'
   import UpdateSettingsPanel from '@/components/settings/UpdateSettingsPanel.vue'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { SettingsNavGroup } from '@/stores/settingsStore'
 
   const { t } = useI18n()

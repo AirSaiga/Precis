@@ -41,14 +41,14 @@
           class="dropdown-item current-connection"
           :title="currentSource.sourceName"
         >
-          <span class="item-icon">📄</span>
+          <span class="item-icon"><AppIcon name="file" :size="16" /></span>
           <div class="item-content">
             <div class="item-title">{{ currentSource.sourceName }}</div>
           </div>
         </div>
 
         <div v-else class="dropdown-item disabled">
-          <span class="item-icon">🚫</span>
+          <span class="item-icon"><AppIcon name="ban" :size="16" /></span>
           <div class="item-content">
             <div class="item-title">{{ t('customNodes.jsonSchemaNode.source.noSource') }}</div>
           </div>
@@ -87,7 +87,7 @@
                   <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
               </span>
-              <span class="folder-icon">📁</span>
+              <span class="folder-icon"><AppIcon name="folder" :size="16" /></span>
               <span class="folder-name">{{ item.name }}</span>
             </div>
 
@@ -100,14 +100,14 @@
               @click="handleSelect(item.dataSource)"
               :title="item.dataSource.name"
             >
-              <span class="file-icon">📄</span>
+              <span class="file-icon"><AppIcon name="file" :size="16" /></span>
               <span class="file-name">{{ item.dataSource.name }}</span>
             </div>
           </template>
         </div>
 
         <div v-if="dataSourceTree.length === 0" class="dropdown-item disabled">
-          <span class="item-icon">🚫</span>
+          <span class="item-icon"><AppIcon name="ban" :size="16" /></span>
           <div class="item-content">
             <div class="item-title">{{ t('customNodes.jsonSchemaNode.source.noAvailable') }}</div>
             <div class="item-subtitle">
@@ -140,6 +140,7 @@
 
   import { ref } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { ExternalDataSource } from '@/types/datasource'
 
   /**

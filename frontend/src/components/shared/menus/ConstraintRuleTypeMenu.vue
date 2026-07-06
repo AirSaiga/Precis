@@ -18,7 +18,7 @@
       >
         <div class="menu-header">
           <div class="menu-title">{{ t('constraintRuleTypeMenu.title') }}</div>
-          <div class="menu-close" @click="closeMenu">×</div>
+          <div class="menu-close" @click="closeMenu"><AppIcon name="x" :size="16" /></div>
         </div>
 
         <div class="menu-content">

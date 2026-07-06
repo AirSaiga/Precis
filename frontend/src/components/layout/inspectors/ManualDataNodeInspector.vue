@@ -71,7 +71,8 @@
           <span>+</span> {{ t('inspector.manualDataNode.actions.addRow') }}
         </button>
         <button class="toolbar-btn" @click="clearAllRows">
-          <span>🗑</span> {{ t('inspector.manualDataNode.actions.clear') }}
+          <span><AppIcon name="trash" :size="14" /></span>
+          {{ t('inspector.manualDataNode.actions.clear') }}
         </button>
       </div>
 
@@ -109,7 +110,7 @@
               :title="t('inspector.manualDataNode.actions.remove')"
               @click="removeRow(rIdx)"
             >
-              ×
+              <AppIcon name="x" :size="14" />
             </button>
           </div>
         </div>
@@ -140,6 +141,7 @@
   import { useI18n } from 'vue-i18n'
   import BaseInspector from './BaseInspector.vue'
   import { InspectorField } from '@/components/ui/inspector'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { ManualDataNodeData } from '@/types/nodes'
 
   const { t } = useI18n()

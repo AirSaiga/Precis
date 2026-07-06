@@ -20,10 +20,9 @@
       { 'has-help': showHelp, 'has-subtitle': !!subtitle },
     ]"
   >
-    <div v-if="iconName || icon || $slots.icon" class="node-header__icon">
+    <div v-if="iconName || $slots.icon" class="node-header__icon">
       <slot name="icon">
         <AppIcon v-if="iconName" :name="iconName" :size="16" />
-        <span v-else-if="icon">{{ icon }}</span>
       </slot>
     </div>
 
@@ -63,7 +62,7 @@
    *
    * 使用方式：
    * <NodeHeader
-   *   icon="📋"
+   *   icon-name="clipboard"
    *   title="节点标题"
    *   subtitle="可选副标题"
    *   theme="primary"
@@ -78,10 +77,8 @@
   import AppIcon from '../icons/AppIcon.vue'
   import type { NodeState, NodeTheme } from './nodeVariants'
   interface Props {
-    /** 业务图标名（对应 iconRegistry），优先使用 */
+    /** 业务图标名（对应 iconRegistry） */
     iconName?: string
-    /** @deprecated 请改用 iconName */
-    icon?: string
     title: string
     subtitle?: string
     theme?: NodeTheme
@@ -90,9 +87,8 @@
     status?: NodeState
   }
 
-  const props = withDefaults(defineProps<Props>(), {
+  withDefaults(defineProps<Props>(), {
     iconName: '',
-    icon: '',
     title: '',
     subtitle: '',
     theme: 'primary',
@@ -100,10 +96,6 @@
     helpText: '',
     status: 'idle',
   })
-
-  if (import.meta.env.DEV && props.icon && !props.iconName) {
-    console.warn('[NodeHeader] `icon` prop 已废弃，请改用 `icon-name` 并传入业务图标名。')
-  }
 
   const emit = defineEmits<{
     'help-click': []

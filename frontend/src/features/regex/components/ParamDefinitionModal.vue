@@ -24,7 +24,7 @@
           @click="$emit('cancel')"
           :aria-label="t('expressions.paramDefinitionModal.closeModal')"
         >
-          ×
+          <AppIcon name="x" :size="16" />
         </button>
       </div>
 
@@ -71,6 +71,7 @@
 <script setup lang="ts">
   import { reactive, onMounted, onUnmounted, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import { useToast } from '@/composables/shared/useToast'
 
   interface ParamDefinition {

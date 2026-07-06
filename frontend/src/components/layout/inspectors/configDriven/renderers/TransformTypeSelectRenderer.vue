@@ -21,7 +21,7 @@
       :disabled="readonly"
       @click="toggleDropdown"
     >
-      <span class="trigger-icon">{{ categoryIcon }}</span>
+      <span class="trigger-icon"><AppIcon :name="categoryIcon" :size="14" /></span>
       <span class="trigger-text">{{ typeName }}</span>
       <span class="trigger-arrow" :class="{ rotated: showDropdown }">▾</span>
     </button>
@@ -41,7 +41,7 @@
           <div class="dropdown-body">
             <div v-for="cat in filteredCategories" :key="cat.id" class="dropdown-group">
               <div class="group-title">
-                <span class="group-icon">{{ cat.icon }}</span>
+                <span class="group-icon"><AppIcon :name="cat.icon" :size="14" /></span>
                 {{ t(cat.labelKey) }}
               </div>
               <div class="group-items">
@@ -72,6 +72,7 @@
 <script setup lang="ts">
   import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { TransformTypeV2 } from '@/types/projectV2'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import type { InspectorContext } from '../utils'
@@ -111,7 +112,7 @@
 
   /** 当前类型图标 */
   const categoryIcon = computed(() =>
-    currentType.value ? getCategoryIcon(currentType.value) : '⚙️'
+    currentType.value ? getCategoryIcon(currentType.value) : 'gear'
   )
 
   /** 当前类型显示名 */

@@ -56,7 +56,6 @@
     <template #header>
       <NodeHeader
         :icon-name="iconName"
-        :icon="icon"
         :title="title"
         :subtitle="subtitle"
         :theme="theme"
@@ -117,7 +116,6 @@
     title: string
     subtitle?: string
     iconName?: string
-    icon?: string
     helpText?: string
     shellTitle?: string
     errorCount?: number
@@ -137,7 +135,6 @@
     state: 'idle',
     subtitle: '',
     iconName: '',
-    icon: '',
     helpText: '',
     shellTitle: '',
     errorCount: 0,

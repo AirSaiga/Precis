@@ -67,7 +67,7 @@
   <!-- ============ 展开态：容器框架 ============ -->
   <div v-else class="template-container" :class="{ 'is-selected': selected }" @click="onNodeClick">
     <div class="template-container__header">
-      <span class="template-container__icon">🧩</span>
+      <span class="template-container__icon"><AppIcon name="puzzle" :size="16" /></span>
       <span class="template-container__title">{{ data.templateName || configName }}</span>
 
       <span v-if="summaryText" class="template-container__summary">
@@ -82,7 +82,8 @@
           @mousedown.stop
           @click.stop="handleSave"
         >
-          {{ isSaving ? '…' : '✓' }}
+          <span v-if="isSaving">…</span>
+          <AppIcon v-else name="check" :size="14" />
         </button>
         <button
           class="template-container__btn template-container__btn--collapse"
@@ -100,7 +101,7 @@
           @mousedown.stop
           @click.stop="handleClose"
         >
-          ×
+          <AppIcon name="x" :size="14" />
         </button>
       </div>
     </div>
@@ -113,6 +114,7 @@
   import { computed, ref } from 'vue'
   import { useNode } from '@vue-flow/core'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import NodeShell from '@/components/ui/NodeShell.vue'
   import NodeHeader from '@/components/ui/NodeHeader.vue'
   import NodeDivider from '@/components/ui/NodeDivider.vue'

@@ -89,9 +89,9 @@ describe('transformCategory — 查找函数', () => {
   })
 
   it('getCategoryIcon 返回分类图标', () => {
-    expect(getCategoryIcon('StringSplit')).toBe('📄')
-    expect(getCategoryIcon('MathExpr')).toBe('🔢')
-    expect(getCategoryIcon('DateFormat')).toBe('📅')
+    expect(getCategoryIcon('StringSplit')).toBe('transform-text')
+    expect(getCategoryIcon('MathExpr')).toBe('transform-numeric')
+    expect(getCategoryIcon('DateFormat')).toBe('transform-date')
   })
 
   it('getCategoryId 返回分类 id', () => {

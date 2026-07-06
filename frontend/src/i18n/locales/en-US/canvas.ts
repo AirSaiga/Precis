@@ -12,7 +12,7 @@ const canvas = {
   renameWorkspacePrompt: 'Enter new workspace name:',
   tabs: {
     dirty: '●',
-    close: '×',
+    close: '',
     add: '+',
   },
   controls: {

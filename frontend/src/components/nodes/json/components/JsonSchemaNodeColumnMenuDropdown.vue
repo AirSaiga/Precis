@@ -60,7 +60,9 @@
           <span class="constraint-label">{{
             t('customNodes.jsonSchemaNode.constraints.notNull')
           }}</span>
-          <span v-if="constraints?.notNull" class="check-icon">✓</span>
+          <span v-if="constraints?.notNull" class="check-icon"
+            ><AppIcon name="check" :size="14"
+          /></span>
         </div>
 
         <div
@@ -74,7 +76,9 @@
           <span class="constraint-label">{{
             t('customNodes.jsonSchemaNode.constraints.unique')
           }}</span>
-          <span v-if="constraints?.unique" class="check-icon">✓</span>
+          <span v-if="constraints?.unique" class="check-icon"
+            ><AppIcon name="check" :size="14"
+          /></span>
         </div>
 
         <div class="constraint-menu-divider"></div>
@@ -316,6 +320,7 @@
 
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 </script>
 
 <style scoped src="./JsonSchemaNodeColumnMenuDropdown.styles.css"></style>

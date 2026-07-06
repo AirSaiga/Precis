@@ -29,9 +29,19 @@ Schema 节点 */
       </div>
 
       <div class="header-icon" :title="localData.localPath">
-        <span v-if="localData.sourceType === 'excel'" class="file-icon excel-icon">📊</span>
-        <span v-else-if="localData.sourceType === 'csv'" class="file-icon csv-icon">📄</span>
-        <span v-else class="file-icon">📋</span>
+        <AppIcon
+          v-if="localData.sourceType === 'excel'"
+          class="file-icon excel-icon"
+          name="file-chart"
+          :size="16"
+        />
+        <AppIcon
+          v-else-if="localData.sourceType === 'csv'"
+          class="file-icon csv-icon"
+          name="file"
+          :size="16"
+        />
+        <AppIcon v-else class="file-icon" name="file-default" :size="16" />
       </div>
       <div class="header-content">
         <div class="source-name">{{ localData.sourceName }}</div>
@@ -77,7 +87,7 @@ Schema 节点 */
         @click="handleRemove"
         :title="t('customNodes.sourcePreviewNode.removeNode')"
       >
-        ×
+        <AppIcon name="x" :size="14" />
       </button>
     </div>
 
@@ -92,14 +102,14 @@ Schema 节点 */
           :title="t('customNodes.sourcePreviewNode.switchSheet')"
           ref="sheetSelectorBtn"
         >
-          <span class="sheet-icon">📑</span>
+          <AppIcon class="sheet-icon" name="file-code" :size="16" />
           <span class="sheet-name" :key="localData.currentSheet">{{
             localData.currentSheet || t('customNodes.sourcePreviewNode.defaultSheet')
           }}</span>
           <span class="sheet-chevron">▾</span>
         </button>
         <div v-else-if="localData.currentSheet" class="sheet-name-static">
-          📑 {{ localData.currentSheet }}
+          <AppIcon name="file-code" :size="16" /> {{ localData.currentSheet }}
         </div>
       </div>
     </div>
@@ -113,7 +123,9 @@ Schema 节点 */
         :class="{ active: sheet === localData.currentSheet }"
         @click="selectSheet(sheet)"
       >
-        <span class="sheet-check">{{ sheet === localData.currentSheet ? '✓' : '' }}</span>
+        <span class="sheet-check"
+          ><AppIcon v-if="sheet === localData.currentSheet" name="check" :size="12"
+        /></span>
         <span class="sheet-name">{{ sheet }}</span>
       </div>
     </div>
@@ -154,7 +166,9 @@ Schema 节点 */
               <span v-if="rowIndex === localData.headerRow" class="field-drag-hint">⋮⋮</span>
             </div>
             <!-- 表头行标识 - 只在设置为表头行时显示 -->
-            <div v-if="isHeaderRow(rowIndex)" class="header-indicator" title="当前表头行">★</div>
+            <div v-if="isHeaderRow(rowIndex)" class="header-indicator" title="当前表头行">
+              <AppIcon name="star" :size="12" />
+            </div>
             <!-- 闪烁星号指示器 - 非表头行悬停时显示 -->
             <div
               v-else
@@ -162,7 +176,7 @@ Schema 节点 */
               @click="onRowIndicatorClick(rowIndex)"
               title="点击设为表头行"
             >
-              ⭐
+              <AppIcon name="star" :size="12" />
             </div>
           </div>
         </div>
@@ -224,16 +238,16 @@ Schema 节点 */
       }"
     >
       <div class="menu-item" @click="setAsHeaderRowViaMenu">
-        <span class="menu-icon">📋</span>
+        <AppIcon class="menu-icon" name="clipboard" :size="16" />
         {{ t('customNodes.sourcePreviewNode.setAsHeaderRow') }}
       </div>
       <div class="menu-item" @click="copyRowToClipboard">
-        <span class="menu-icon">📋</span>
+        <AppIcon class="menu-icon" name="clipboard" :size="16" />
         {{ t('customNodes.sourcePreviewNode.copyRowData') }}
       </div>
       <div class="menu-divider"></div>
       <div class="menu-item" @click="closeContextMenu">
-        <span class="menu-icon">❌</span>
+        <AppIcon class="menu-icon" name="x" :size="16" />
         {{ t('customNodes.sourcePreviewNode.cancel') }}
       </div>
     </div>
@@ -272,6 +286,7 @@ Schema 节点 */
   // 引入类型定义
   import type { SourcePreviewNodeData } from '@/types/graph'
   import NodeHandle from '@/components/ui/NodeHandle.vue'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   // 引入拖拽事件类型
   import type { DragEventPayload } from '@/stores/dragStore'

@@ -50,7 +50,9 @@
           <button class="save-btn" type="button" @click="handleSave">
             {{ t('common.save') }}
           </button>
-          <button class="close-btn" type="button" @click="handleClose">×</button>
+          <button class="close-btn" type="button" @click="handleClose">
+            <AppIcon name="x" :size="16" />
+          </button>
         </div>
       </header>
 
@@ -240,6 +242,7 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { useScriptEditorStore } from '@/stores/scriptEditorStore'
   import { loadScriptDraft, saveScriptDraft } from '@/composables/common/useScriptEditor'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   const props = defineProps<{
     modelValue: boolean

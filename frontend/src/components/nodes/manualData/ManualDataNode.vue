@@ -48,7 +48,7 @@
         :title="t('customNodes.manualDataNode.removeTooltip')"
         @click="handleRemove"
       >
-        ×
+        <AppIcon name="x" :size="14" />
       </button>
     </div>
 

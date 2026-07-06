@@ -191,7 +191,9 @@
                 currentTargetLabel
               }}</span>
             </div>
-            <button class="ui-icon-btn" type="button" @click="close">×</button>
+            <button class="ui-icon-btn" type="button" @click="close">
+              <AppIcon name="x" :size="16" />
+            </button>
           </div>
 
           <!-- Step Navigation -->

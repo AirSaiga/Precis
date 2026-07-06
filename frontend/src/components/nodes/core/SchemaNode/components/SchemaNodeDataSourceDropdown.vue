@@ -26,7 +26,7 @@ Schema节点数据源绑定/切换 */
           class="dropdown-item current-connection"
           :title="currentSource.sourceName"
         >
-          <span class="item-icon">📊</span>
+          <span class="item-icon"><AppIcon name="file-chart" :size="16" /></span>
           <div class="item-content">
             <div class="item-title">{{ currentSource.sourceName }}</div>
             <div class="item-subtitle" v-if="currentSource.sheetName">
@@ -36,7 +36,7 @@ Schema节点数据源绑定/切换 */
         </div>
 
         <div v-else class="dropdown-item disabled">
-          <span class="item-icon">🚫</span>
+          <span class="item-icon"><AppIcon name="ban" :size="16" /></span>
           <div class="item-content">
             <div class="item-title">{{ t('customNodes.schemaNode.source.noSource') }}</div>
           </div>
@@ -75,7 +75,7 @@ Schema节点数据源绑定/切换 */
                   <polyline points="9 18 15 12 9 6"></polyline>
                 </svg>
               </span>
-              <span class="folder-icon">📁</span>
+              <span class="folder-icon"><AppIcon name="folder" :size="16" /></span>
               <span class="folder-name">{{ item.name }}</span>
             </div>
 
@@ -88,14 +88,18 @@ Schema节点数据源绑定/切换 */
               @click="handleSelect(item.dataSource)"
               :title="item.dataSource.name"
             >
-              <span class="file-icon">{{ item.dataSource.type === 'excel' ? '📊' : '📄' }}</span>
+              <span class="file-icon"
+                ><AppIcon
+                  :name="item.dataSource.type === 'excel' ? 'file-chart' : 'file'"
+                  :size="16"
+              /></span>
               <span class="file-name">{{ item.dataSource.name }}</span>
             </div>
           </template>
         </div>
 
         <div v-if="dataSourceTree.length === 0" class="dropdown-item disabled">
-          <span class="item-icon">🚫</span>
+          <span class="item-icon"><AppIcon name="ban" :size="16" /></span>
           <div class="item-content">
             <div class="item-title">{{ t('customNodes.schemaNode.source.noAvailable') }}</div>
             <div class="item-subtitle">{{ t('customNodes.schemaNode.source.importFirst') }}</div>
@@ -119,6 +123,7 @@ Schema节点数据源绑定/切换 */
 
   import { ref } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { ExternalDataSource } from '@/types/datasource'
   /**
    * 树状数据源项接口

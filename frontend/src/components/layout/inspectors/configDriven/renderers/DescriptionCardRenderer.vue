@@ -3,7 +3,7 @@
   @description Transform 类型说明卡渲染器
 
   展示当前 transformType 的：
-  - 所属分类图标（📄🔢🧹🏗️📅）
+  - 所属分类图标（iconRegistry 中的图标名）
   - 类型名（如"字符串切割"）
   - 一句话功能描述
   - 输入/输出语义标签（如"单列 → 多列"）
@@ -14,7 +14,7 @@
   <div class="description-card">
     <div class="card-body">
       <div class="card-icon-wrap">
-        <span class="card-icon">{{ category?.icon ?? '⚙️' }}</span>
+        <AppIcon class="card-icon" :name="category?.icon ?? 'gear'" :size="16" />
       </div>
       <div class="card-content">
         <div class="card-header">
@@ -36,6 +36,7 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { TransformTypeV2 } from '@/types/projectV2'
   import type { InspectorContext } from '../utils'
   import type { InspectorDescriptionCardField } from '../types'

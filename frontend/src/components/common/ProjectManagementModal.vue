@@ -34,7 +34,7 @@
               type="button"
               @click="handleCloseModal"
             >
-              ×
+              <AppIcon name="x" :size="16" />
             </button>
           </div>
 
@@ -142,7 +142,7 @@
                     :title="t('projectManagement.removeFromHistory')"
                     @click.stop="handleRemoveRecentProject(project.path)"
                   >
-                    ×
+                    <AppIcon name="x" :size="16" />
                   </button>
                 </div>
               </div>
@@ -195,6 +195,7 @@
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { dialogApi } from '@/core/capabilities/dialogApi'
   import { createProject } from '@/api/projectApi'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   interface Props {
     modelValue: boolean

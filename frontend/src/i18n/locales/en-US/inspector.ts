@@ -333,7 +333,7 @@ const inspector = {
     },
     tips: {
       connectFirst:
-        '💡 Please connect a data source node first, then select a target column for validation.',
+        'Please connect a data source node first, then select a target column for validation.',
     },
     status: {
       pass: 'Pass',
@@ -423,7 +423,7 @@ const inspector = {
         'Paste multiple lines; only the first field of each line is used. Supports comma or tab delimiters.',
     },
     defaultColumn: 'Column',
-    rowsInfo: 'rows × 1 column',
+    rowsInfo: 'rows x 1 column',
   },
   transformNode: {
     title: 'Transform Node Properties',

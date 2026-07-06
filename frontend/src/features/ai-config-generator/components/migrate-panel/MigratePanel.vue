@@ -111,7 +111,7 @@
                 :disabled="generating"
                 @click="removeSource(idx)"
               >
-                ×
+                <AppIcon name="x" :size="14" />
               </button>
             </div>
           </div>
@@ -186,6 +186,7 @@
 <script setup lang="ts">
   import { computed, ref } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { AiMigrateV2ConfigSource, CloudAIProviderResponse } from '@/types/ai'
 
   const props = defineProps<{

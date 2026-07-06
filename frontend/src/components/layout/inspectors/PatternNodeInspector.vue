@@ -86,7 +86,7 @@
       <div class="form-group">
         <label>{{ t('inspector.patternNode.labels.validationStatus') }}</label>
         <div class="status-indicator" :class="data.validationStatus || 'idle'">
-          <span class="status-icon">{{ getValidationIcon() }}</span>
+          <AppIcon class="status-icon" :name="getValidationIcon()" :size="16" />
           <span class="status-text">{{ getValidationText() }}</span>
         </div>
       </div>
@@ -110,6 +110,7 @@
   import { useI18n } from 'vue-i18n'
   import BaseInspector from './BaseInspector.vue'
   import { InspectorField } from '@/components/ui/inspector'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   const { t } = useI18n()
 
   /**
@@ -187,11 +188,11 @@
     const status = props.data.validationStatus
     switch (status) {
       case 'pass':
-        return '✓'
+        return 'check'
       case 'error':
-        return '✗'
+        return 'x'
       default:
-        return '○'
+        return 'circle'
     }
   }
 

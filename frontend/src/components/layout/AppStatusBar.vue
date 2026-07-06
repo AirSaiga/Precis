@@ -20,7 +20,12 @@
       @click="openProjectManagement"
     >
       <span v-if="projectStore.isProjectActive" class="project-dot" />
-      <span class="project-icon">{{ projectStore.isProjectActive ? '📂' : '📁' }}</span>
+      <span class="project-icon"
+        ><AppIcon v-if="projectStore.isProjectActive" name="folder-open" :size="14" /><AppIcon
+          v-else
+          name="folder"
+          :size="14"
+      /></span>
       <span class="project-name">{{
         projectStore.isProjectActive
           ? graphStore.projectName || projectStore.currentPaths?.configPath
@@ -39,6 +44,7 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { useProjectStore } from '@/stores/projectStore'
   import InspectionStatusBadge from '@/components/inspection/InspectionStatusBadge.vue'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   const { t } = useI18n()
   const graphStore = useGraphStore()

@@ -11,7 +11,7 @@
   <div v-if="visible" class="modal-overlay" @click.self="emit('close')">
     <div class="modal-content regex-connection-dialog">
       <div class="dialog-header">
-        <span class="dialog-icon">🔤</span>
+        <span class="dialog-icon"><AppIcon name="constraint-charset" :size="24" /></span>
         <h3>{{ t('canvas.nodeCanvas.regexConnectionTitle') }}</h3>
       </div>
       <div class="dialog-body">
@@ -40,6 +40,7 @@
 
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   interface PendingConnection {
     sourceColumnName?: string
