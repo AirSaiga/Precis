@@ -18,7 +18,7 @@
     :title="tooltipText"
     @click="store.openDrawer()"
   >
-    <span class="badge-icon">{{ badgeIcon }}</span>
+    <span class="badge-icon"><AppIcon :name="badgeIcon" :size="12" /></span>
     <span v-if="!isPassed" class="badge-count">{{ badgeCount }}</span>
   </button>
 </template>
@@ -26,15 +26,16 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import { useInspectionStore } from '@/stores/inspectionStore'
 
   const store = useInspectionStore()
   const { t } = useI18n()
 
   const SEVERITY_ICONS: Record<string, string> = {
-    blocker: '🔴',
-    warning: '⚠️',
-    info: 'ℹ️',
+    blocker: 'circle-danger',
+    warning: 'alert',
+    info: 'info',
   }
 
   // 全部已忽略：当前 inspection 有问题，但都被忽略了
@@ -59,9 +60,9 @@
   })
 
   const badgeIcon = computed(() => {
-    if (isPassed.value) return '✅'
-    if (isIgnoredOnly.value) return '🔕'
-    return SEVERITY_ICONS[store.maxSeverity ?? 'warning'] ?? '⚠️'
+    if (isPassed.value) return 'check-circle'
+    if (isIgnoredOnly.value) return 'bell-off'
+    return SEVERITY_ICONS[store.maxSeverity ?? 'warning'] ?? 'alert'
   })
 
   const badgeCount = computed(() =>

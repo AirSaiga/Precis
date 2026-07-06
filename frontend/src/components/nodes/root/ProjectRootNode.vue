@@ -53,7 +53,7 @@
       </div>
 
       <div v-if="hasValidationResult" class="pass-rate-row" :class="passRateClass">
-        <span class="pass-rate-icon">{{ passRateIcon }}</span>
+        <span class="pass-rate-icon"><AppIcon :name="passRateIcon" :size="14" /></span>
         <span class="pass-rate-value">{{ passRateText }}</span>
         <span v-if="errorCount > 0" class="pass-rate-errors">
           ({{ errorCount }} {{ t('customNodes.projectRootNode.errors') }})
@@ -150,9 +150,9 @@
   })
 
   const passRateIcon = computed(() => {
-    if (passRateClass.value === 'pass') return '✅'
-    if (passRateClass.value === 'partial') return '⚠️'
-    return '❌'
+    if (passRateClass.value === 'pass') return 'check-circle'
+    if (passRateClass.value === 'partial') return 'alert'
+    return 'x'
   })
 
   const hasUnsavedChanges = computed(() => graphStore.hasUnsavedChanges())

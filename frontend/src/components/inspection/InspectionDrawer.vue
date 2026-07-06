@@ -33,17 +33,17 @@
                 :title="t('inspection.action.manageIgnored')"
                 @click="showIgnoredManager = true"
               >
-                🔕
+                <AppIcon name="bell-off" :size="14" />
               </button>
               <button class="header-btn" :title="t('inspection.action.copyAll')" @click="copyAll">
-                📋
+                <AppIcon name="clipboard" :size="14" />
               </button>
               <button
                 class="header-btn close"
                 :title="t('common.close')"
                 @click="store.closeDrawer()"
               >
-                ×
+                <X :size="14" />
               </button>
             </div>
           </header>
@@ -83,7 +83,7 @@
               v-if="store.unresolvedCount === 0 && store.allIssues.length === 0"
               class="empty-state"
             >
-              <div class="empty-icon">🎉</div>
+              <div class="empty-icon"><AppIcon name="party" :size="48" /></div>
               <h4 class="empty-title">{{ t('inspection.empty.passedTitle') }}</h4>
               <p class="empty-desc">{{ t('inspection.empty.passedDesc') }}</p>
             </div>
@@ -92,7 +92,7 @@
               v-else-if="store.unresolvedCount === 0 && store.allIssues.length > 0"
               class="empty-state"
             >
-              <div class="empty-icon">🔕</div>
+              <div class="empty-icon"><AppIcon name="bell-off" :size="48" /></div>
               <h4 class="empty-title">{{ t('inspection.empty.allIgnoredTitle') }}</h4>
               <p class="empty-desc">
                 {{ t('inspection.empty.allIgnoredDesc', { count: store.allIssues.length }) }}
@@ -136,6 +136,8 @@
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import { X } from '@lucide/vue'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import { useInspectionStore } from '@/stores/inspectionStore'
   import { inspectV2Config } from '@/api/projectV2Api'
   import { useProjectStore } from '@/stores/projectStore'

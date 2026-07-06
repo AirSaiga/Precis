@@ -11,7 +11,7 @@
 <template>
   <div class="summary-card" :class="severityClass">
     <div class="summary-status">
-      <span class="status-icon">{{ statusIcon }}</span>
+      <AppIcon class="status-icon" :name="statusIcon" :size="24" />
       <div class="status-text">
         <div class="status-title">
           {{ statusTitle }}
@@ -26,18 +26,20 @@
 
     <div v-if="unresolvedCount > 0" class="severity-stats">
       <span v-if="counts.blocker > 0" class="stat stat-blocker">
-        🔴 {{ counts.blocker }} {{ t('inspection.severity.blocker') }}
+        <AppIcon name="circle-danger" :size="12" /> {{ counts.blocker }}
+        {{ t('inspection.severity.blocker') }}
       </span>
       <span v-if="counts.warning > 0" class="stat stat-warning">
-        ⚠️ {{ counts.warning }} {{ t('inspection.severity.warning') }}
+        <AppIcon name="alert" :size="12" /> {{ counts.warning }}
+        {{ t('inspection.severity.warning') }}
       </span>
       <span v-if="counts.info > 0" class="stat stat-info">
-        ℹ️ {{ counts.info }} {{ t('inspection.severity.info') }}
+        <AppIcon name="info" :size="12" /> {{ counts.info }} {{ t('inspection.severity.info') }}
       </span>
     </div>
 
     <div v-else class="all-clear">
-      <span class="check-icon">🎉</span>
+      <AppIcon class="check-icon" name="party" :size="18" />
       <span>{{ t('inspection.summary.allClear') }}</span>
     </div>
   </div>
@@ -46,6 +48,7 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   const props = defineProps<{
     unresolvedCount: number
@@ -72,7 +75,7 @@
     return 'is-pass'
   })
 
-  const statusIcon = computed(() => (props.isPass ? '✅' : '⚠️'))
+  const statusIcon = computed(() => (props.isPass ? 'check-circle' : 'alert'))
   const statusTitle = computed(() =>
     props.isPass
       ? t('inspection.summary.passedTitle')

@@ -23,7 +23,9 @@
 
     <div class="card-body">
       <header class="card-header">
-        <span class="severity-icon" :class="`icon-${issue.severity}`">{{ icon }}</span>
+        <span class="severity-icon" :class="`icon-${issue.severity}`"
+          ><AppIcon :name="icon" :size="16"
+        /></span>
         <h4 class="card-title">{{ titleText }}</h4>
         <span class="severity-tag" :class="`tag-${issue.severity}`">
           {{ severityLabel }}
@@ -34,7 +36,7 @@
           :title="t('inspection.action.dismiss')"
           @click="$emit('dismiss', issue.id)"
         >
-          <span class="dismiss-icon">×</span>
+          <span class="dismiss-icon"><X :size="14" /></span>
           <span class="dismiss-label">{{ t('inspection.action.dismissShort') }}</span>
         </button>
         <button
@@ -51,7 +53,7 @@
 
       <!-- 修复建议（高亮） -->
       <div v-if="fixHintText" class="fix-hint">
-        <span class="section-label">💡</span>
+        <span class="section-label"><AppIcon name="bulb" :size="16" /></span>
         <span class="hint-text">{{ fixHintText }}</span>
       </div>
 
@@ -65,7 +67,9 @@
           @click="$emit('action', issue, action)"
         >
           <span v-if="action.type === 'auto_fix' && fixing" class="spinner"></span>
-          <span v-else class="action-icon">{{ iconForAction(action.type) }}</span>
+          <span v-else class="action-icon"
+            ><AppIcon :name="iconForAction(action.type)" :size="12"
+          /></span>
           <span class="action-label">{{ actionLabel(action) }}</span>
         </button>
       </div>
@@ -76,7 +80,9 @@
         class="context-block"
         :title="t('inspection.context.availableSchemas')"
       >
-        <div class="context-label">💡 {{ t('inspection.context.availableSchemas') }}</div>
+        <div class="context-label">
+          <AppIcon name="bulb" :size="12" /> {{ t('inspection.context.availableSchemas') }}
+        </div>
         <ul class="schema-list">
           <li v-for="schema in availableSchemas" :key="schema.id" class="schema-item">
             <span class="schema-name">{{ schema.name || schema.id }}</span>
@@ -87,7 +93,7 @@
                 :title="t('inspection.actions.copyId')"
                 @click="handleCopyId(schema.id)"
               >
-                📋
+                <AppIcon name="clipboard" :size="12" />
               </button>
             </div>
             <button
@@ -107,7 +113,9 @@
         class="context-block"
         :title="t('inspection.context.availableColumns')"
       >
-        <div class="context-label">💡 {{ t('inspection.context.availableColumns') }}</div>
+        <div class="context-label">
+          <AppIcon name="bulb" :size="12" /> {{ t('inspection.context.availableColumns') }}
+        </div>
         <div class="column-chips">
           <button
             v-for="col in availableColumns"
@@ -143,7 +151,9 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import { X } from '@lucide/vue'
   import type { InspectionAction, InspectionIssue } from '@/types/projectV2'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import { useClipboard } from '@/composables/useClipboard'
   import { toastSuccess, toastError } from '@/core/toast'
 
@@ -167,27 +177,27 @@
   const { copy } = useClipboard()
 
   const SEVERITY_ICONS: Record<string, string> = {
-    blocker: '🔴',
-    warning: '⚠️',
-    info: 'ℹ️',
+    blocker: 'circle-danger',
+    warning: 'alert',
+    info: 'info',
   }
 
   const ACTION_ICONS: Record<string, string> = {
-    open_file: '📂',
-    copy: '📋',
-    dismiss: '🔕',
-    auto_fix: '🛠️',
-    navigate: '➡️',
+    open_file: 'folder-open',
+    copy: 'clipboard',
+    dismiss: 'bell-off',
+    auto_fix: 'wrench',
+    navigate: 'arrow-right',
   }
 
-  const icon = computed(() => SEVERITY_ICONS[props.issue.severity] ?? '⚠️')
+  const icon = computed(() => SEVERITY_ICONS[props.issue.severity] ?? 'alert')
 
   const severityLabel = computed(
     () => t(`inspection.severity.${props.issue.severity}`) ?? props.issue.severity
   )
 
   function iconForAction(type: string): string {
-    return ACTION_ICONS[type] ?? '▸'
+    return ACTION_ICONS[type] ?? 'arrow-right'
   }
 
   /**

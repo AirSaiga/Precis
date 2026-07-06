@@ -9,12 +9,12 @@
     <div class="iim-modal">
       <header class="iim-header">
         <h3>{{ t('inspection.ignoredManager.title') }}</h3>
-        <button class="iim-close" @click="close">×</button>
+        <button class="iim-close" @click="close"><X :size="18" /></button>
       </header>
 
       <div class="iim-body">
         <div v-if="store.ignoredIds.size === 0" class="iim-empty">
-          <div class="iim-empty-icon">📭</div>
+          <div class="iim-empty-icon"><AppIcon name="inbox" :size="36" /></div>
           <p>{{ t('inspection.ignoredManager.empty') }}</p>
         </div>
 
@@ -43,6 +43,8 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import { X } from '@lucide/vue'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import { useInspectionStore } from '@/stores/inspectionStore'
   import type { InspectionIssue } from '@/types/projectV2'
 

@@ -12,7 +12,7 @@
   <section class="issue-group" :class="`group-${group.severity}`">
     <header class="group-header" @click="expanded = !expanded">
       <span class="caret" :class="{ expanded }">▸</span>
-      <span class="group-icon">{{ icon }}</span>
+      <span class="group-icon"><AppIcon :name="icon" :size="14" /></span>
       <span class="group-title" :title="group.title">{{ group.title }}</span>
       <span class="group-count">{{ group.issues.length }}</span>
       <button
@@ -47,6 +47,7 @@
 <script setup lang="ts">
   import { computed, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import InspectionIssueCard from './InspectionIssueCard.vue'
   import type { InspectionAction, InspectionIssue } from '@/types/projectV2'
 
@@ -87,8 +88,8 @@
   )
 
   const icon = computed(() => {
-    if (props.group.key.startsWith('file-')) return '📄'
-    return '🪧'
+    if (props.group.key.startsWith('file-')) return 'file'
+    return 'presentation'
   })
 
   function dismissAllInGroup(): void {

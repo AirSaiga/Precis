@@ -648,15 +648,6 @@
   position: relative;
 }
 
-.preview-cell.error-cell::before {
-  content: '⚠️';
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  font-size: var(--node-muted-size);
-  opacity: 0.8;
-}
-
 /* 过滤行样式（低透明度） */
 .preview-row.filtered-row {
   opacity: 0.3;
