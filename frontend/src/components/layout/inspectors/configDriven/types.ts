@@ -189,7 +189,6 @@ export type InspectorActionButtonField = InspectorFieldBase & {
 export type InspectorStatCardField = InspectorFieldBase & {
   kind: 'statCard'
   items: Array<{
-    icon: string
     statKey: string
     labelKey: string
   }>

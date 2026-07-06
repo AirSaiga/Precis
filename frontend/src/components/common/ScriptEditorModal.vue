@@ -89,6 +89,7 @@
             ></textarea>
           </div>
           <div class="editor-warning">
+            <AppIcon name="alert" :size="14" />
             {{ t('customNodes.constraintRules.scriptedConstraintNode.helpWarning') }}
           </div>
         </div>

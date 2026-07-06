@@ -25,7 +25,6 @@
   import type { InspectorContext } from '../utils'
   import type { InspectorStatCardField } from '../types'
   interface StatItem {
-    icon: string
     statKey: string
     labelKey: string
   }

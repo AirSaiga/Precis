@@ -53,17 +53,14 @@
           "labelKey": "inspector.projectRoot.groups.statistics",
           "items": [
             {
-              "icon": "📋",
               "statKey": "schemaCount",
               "labelKey": "inspector.projectRoot.stats.schemaCount"
             },
             {
-              "icon": "🔒",
               "statKey": "constraintCount",
               "labelKey": "inspector.projectRoot.stats.constraintCount"
             },
             {
-              "icon": "🔤",
               "statKey": "regexCount",
               "labelKey": "inspector.projectRoot.stats.regexCount"
             }

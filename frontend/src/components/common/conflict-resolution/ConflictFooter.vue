@@ -19,12 +19,12 @@
   <div class="modal-footer">
     <div class="footer-stats">
       <div class="stat-item generated">
-        <span class="stat-icon">✨</span>
+        <span class="stat-icon"><AppIcon name="sparkles" :size="14" /></span>
         <span class="stat-count">{{ generatedCount }}</span>
         <span class="stat-label">{{ t('aiConfigGenerator.conflict.stats.useGenerated') }}</span>
       </div>
       <div class="stat-item original">
-        <span class="stat-icon">📄</span>
+        <span class="stat-icon"><AppIcon name="file" :size="14" /></span>
         <span class="stat-count">{{ originalCount }}</span>
         <span class="stat-label">{{ t('aiConfigGenerator.conflict.stats.keepOriginal') }}</span>
       </div>
@@ -42,6 +42,7 @@
 
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
 
   interface Props {
     generatedCount: number

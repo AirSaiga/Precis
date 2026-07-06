@@ -73,6 +73,8 @@ export const ICON_REGISTRY: Record<string, Component> = {
   info: Info,
   'check-circle': CheckCircle2,
   clock: Clock,
+  // 通用圆圈：用作中性/草稿状态（颜色由 CSS 控制）。严重度变体见下方。
+  circle: Circle,
   'circle-danger': Circle, // blocker 严重度，颜色由 CSS 控制
   'circle-warning': Circle, // warning 严重度
   'circle-info': Circle, // info 严重度
@@ -139,6 +141,8 @@ export const ICON_REGISTRY: Record<string, Component> = {
   filter: Filter,
   receipt: ReceiptText,
   clipboard: Clipboard,
+  // 禁用/断开：数据源下拉"断开连接"项
+  ban: Ban,
 
   // —— 节点类型 ——
   'project-root': Microscope,

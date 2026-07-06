@@ -417,7 +417,7 @@ const inspector = (() => {
         pasteFormat: '粘贴多行数据，自动取每行第一个字段。支持逗号或制表符分隔。',
       },
       defaultColumn: 'Column',
-      rowsInfo: '行 x 1 列',
+      rowsInfo: '行 × 1 列',
     },
     transformNode: {
       title: '转换节点属性',

@@ -423,7 +423,7 @@ const inspector = {
         'Paste multiple lines; only the first field of each line is used. Supports comma or tab delimiters.',
     },
     defaultColumn: 'Column',
-    rowsInfo: 'rows x 1 column',
+    rowsInfo: 'rows × 1 column',
   },
   transformNode: {
     title: 'Transform Node Properties',

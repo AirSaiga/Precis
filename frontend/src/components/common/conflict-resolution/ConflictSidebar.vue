@@ -66,7 +66,7 @@
           @click="$emit('apply-batch', 'safeDefault')"
           :title="t('aiConfigGenerator.conflict.batch.safeDefault')"
         >
-          <span class="batch-icon">⚡</span>
+          <span class="batch-icon"><AppIcon name="zap" :size="14" /></span>
           {{ t('aiConfigGenerator.conflict.batch.safeDefault') }}
         </button>
         <button
@@ -75,7 +75,7 @@
           @click="$emit('apply-batch', 'keepAll')"
           :title="t('aiConfigGenerator.conflict.batch.keepAll')"
         >
-          <span class="batch-icon">📄</span>
+          <span class="batch-icon"><AppIcon name="file" :size="14" /></span>
           {{ t('aiConfigGenerator.conflict.batch.keepAll') }}
         </button>
         <button
@@ -84,7 +84,7 @@
           @click="$emit('apply-batch', 'useAll')"
           :title="t('aiConfigGenerator.conflict.batch.useAll')"
         >
-          <span class="batch-icon">✨</span>
+          <span class="batch-icon"><AppIcon name="sparkles" :size="14" /></span>
           {{ t('aiConfigGenerator.conflict.batch.useAll') }}
         </button>
         <button
@@ -93,7 +93,7 @@
           @click="$emit('apply-batch', 'useAddedOnly')"
           :title="t('aiConfigGenerator.conflict.batch.useAddedOnly')"
         >
-          <span class="batch-icon">➕</span>
+          <span class="batch-icon"><AppIcon name="plus" :size="14" /></span>
           {{ t('aiConfigGenerator.conflict.batch.useAddedOnly') }}
         </button>
       </div>
@@ -204,6 +204,7 @@
 
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import type { ConfigItemDiff } from '@/api/types/conflict'
   import type { BatchMode } from '@/composables/conflict/useConflictResolution'
   interface Props {
