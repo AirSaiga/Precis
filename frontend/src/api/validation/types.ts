@@ -41,17 +41,23 @@ export type ValidationType =
   | 'not_null'
   | 'unique'
   | 'allowed_values'
+  | 'range'
   | 'conditional'
   | 'foreign_key'
   | 'scripted'
+  | 'charset'
+  | 'date_logic'
 
 export function isValidationType(value: string): value is ValidationType {
   return [
     'not_null',
     'unique',
     'allowed_values',
+    'range',
     'conditional',
     'foreign_key',
     'scripted',
+    'charset',
+    'date_logic',
   ].includes(value)
 }

@@ -674,7 +674,13 @@ export function useValidationTaskRunner() {
         errorsFound: response.summary.total_error_count,
       }
 
-      setStageStatus('execute', 'success')
+      // B31 修复：校验业务失败（response.error）时 execute 阶段应标记为 error，而非 success。
+      // 过去无论 response.error 是否存在都标记 success，导致前端显示"执行成功"但实际校验失败。
+      if (response.error) {
+        setStageStatus('execute', 'error')
+      } else {
+        setStageStatus('execute', 'success')
+      }
     } catch (error) {
       errorMessage.value = error instanceof Error ? error.message : String(error)
       setStageStatus('execute', 'error')

@@ -47,7 +47,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class ConstraintItem(BaseModel):
@@ -127,6 +127,7 @@ class ConstraintItem(BaseModel):
         "Range",
         "Charset",
         "DateLogic",
+        "Composite",
     ] = Field(..., description="约束类型")
     enabled: bool = Field(True, description="是否启用")
     description: str | None = Field(None, description="约束描述")
@@ -140,3 +141,10 @@ class ConstraintItem(BaseModel):
     to_column: str | None = Field(None, description="外键目标列名")
 
     params: dict[str, Any] = Field(default_factory=dict, description="约束参数（如 allowed_values 等）")
+
+    @model_validator(mode="after")
+    def _validate_column_exclusivity(self) -> ConstraintItem:
+        """B20 修复：column 与 columns 互斥，同时填写会引发歧义。"""
+        if self.column is not None and self.columns is not None:
+            raise ValueError("column 与 columns 不可同时设置，请仅使用其一")
+        return self

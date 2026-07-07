@@ -19,6 +19,7 @@ import { buildConstraintExportPayload } from '@/services/constraints/constraintE
 import { createV2Template } from '@/api/projectV2Api'
 import { useResourceTreeStore } from '@/stores/resourceTreeStore'
 import { toastSuccess, toastError } from '@/core/toast'
+import { logger } from '@/core/utils/logger'
 import { useI18n } from 'vue-i18n'
 
 // === 类型定义 ===
@@ -107,8 +108,10 @@ function extractConstraintNode(node: CustomNode, allNodes: CustomNode[]): Templa
     })
     refs = result.refs
     params = result.params
-  } catch {
-    // 导出失败时使用空值，不阻塞模板创建
+  } catch (e) {
+    // B32 修复：导出失败时记录警告（过去完全静默吞掉异常，模板用空 refs/params 创建，约束失效）。
+    // 仍不阻塞模板创建，但通过日志暴露问题便于排查。
+    logger.warn(`约束节点 '${node.id}' 导出 payload 失败，模板将以空配置创建该约束:`, e)
   }
 
   return {

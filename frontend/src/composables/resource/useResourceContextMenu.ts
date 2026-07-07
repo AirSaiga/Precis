@@ -224,7 +224,8 @@ export function useResourceContextMenu() {
     if (!resource) return
 
     const position = { x: 240, y: 120 }
-    const kind = resource.kind as 'schema' | 'pattern' | 'constraint'
+    // B30 修复：补齐 regex_node 类型，过去被窄化为 schema/pattern/constraint 导致添加到画布失效
+    const kind = resource.kind as 'schema' | 'pattern' | 'constraint' | 'regex_node'
     await graphStore.importV2ResourceToCanvas(kind, resource.id, position, {
       includeDeps: true,
       moveIfExists: true,
@@ -249,7 +250,7 @@ export function useResourceContextMenu() {
 
     // 不在画布上，则加载
     const position = { x: 240, y: 120 }
-    const kind = resource.kind as 'schema' | 'pattern' | 'constraint'
+    const kind = resource.kind as 'schema' | 'pattern' | 'constraint' | 'regex_node'
     await graphStore.importV2ResourceToCanvas(kind, resource.id, position, {
       includeDeps: true,
       moveIfExists: true,
@@ -303,6 +304,10 @@ export function useResourceContextMenu() {
           break
         case 'constraint':
           await resourceService.deleteConstraint(resource.id, path)
+          break
+        // B30 修复：regex_node 右键删除过去静默 no-op，补齐调用 deleteRegexNode
+        case 'regex_node':
+          await resourceService.deleteRegexNode(resource.id, path)
           break
       }
 
@@ -362,6 +367,14 @@ export function useResourceContextMenu() {
         case 'constraint':
           await resourceService.renameConstraint(resourceId, name, path)
           break
+        // B30：regex_node 暂不支持重命名（后端无 renameRegexNode API），
+        // 显式提示而非静默 no-op
+        case 'regex_node':
+          error(
+            t('assetLibraryExtended.projectView.resourceContext.renameFailedTitle'),
+            '正则节点暂不支持重命名'
+          )
+          return
       }
 
       // 更新画布节点

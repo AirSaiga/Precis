@@ -328,6 +328,11 @@ export function useSourcePreviewEvents(
       return
     }
 
+    // B10 修复：表头变更时，按位置（index）保留旧列的 id，避免 columnName 变化导致约束边失效。
+    // 过去直接用 columnName 作 id，表头重命名后 id 变化，引用该列的约束边被 disconnectInvalidConstraints 误断开。
+    const existingColumns =
+      (schemaNode.data.columns as Array<{ id?: string; columnName?: string }> | undefined) || []
+
     const columns = headerData.map((header, index: number) => {
       const headerText = String(header).trim()
       const columnName = headerText || `column_${index + 1}`
@@ -352,8 +357,11 @@ export function useSourcePreviewEvents(
         }
       }
 
+      // 按位置复用旧列 id（表头内容可能改变，但位置不变时约束关系应保留）
+      const stableId = existingColumns[index]?.id || columnName
+
       return {
-        id: columnName,
+        id: stableId,
         columnName: columnName,
         dataType: dataType,
         expressionType: 'none',
