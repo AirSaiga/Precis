@@ -167,6 +167,9 @@ class SpecificCompositeConditionType(DataType):
         返回:
             元组 (is_valid, error_message)
         """
+        specific = self.specific_pattern
+        if specific is None:
+            return False, "内部错误：specific_pattern 未初始化"
         if not isinstance(value, str):
             return False, f"期望是字符串, 但得到了 {type(value).__name__}。"
         if not value.strip():
@@ -181,11 +184,11 @@ class SpecificCompositeConditionType(DataType):
                 return False, f"复合条件中的子句 '{atomic_str}' 不匹配任何已知的模式。"
             pattern, match = match_result
             # 校验匹配到的模式必须与 specific_pattern 一致
-            if pattern.name != self.specific_pattern.name:
+            if pattern is None or pattern.name != specific.name:
                 return (
                     False,
-                    f"子句 '{atomic_str}' 匹配的模式 '{pattern.name}' 与限定模式 "
-                    f"'{self.specific_pattern.name}' 不一致，本类型只允许使用限定模式。",
+                    f"子句 '{atomic_str}' 匹配的模式 '{getattr(pattern, 'name', '?')}' 与限定模式 "
+                    f"'{specific.name}' 不一致，本类型只允许使用限定模式。",
                 )
             try:
                 pattern.parser_func(match.groupdict())
@@ -207,6 +210,9 @@ class SpecificCompositeConditionType(DataType):
         """
         if not isinstance(value, str) or not value.strip():
             return []
+        specific = self.specific_pattern
+        if specific is None:
+            return []
         parsed_conditions = []
         atomic_conditions = self.splitter.split(value)
         for atomic_str in atomic_conditions:
@@ -218,7 +224,7 @@ class SpecificCompositeConditionType(DataType):
                 continue
             pattern, match = match_result
             # 仅解析与 specific_pattern 一致的子句
-            if pattern.name != self.specific_pattern.name:
+            if pattern is None or pattern.name != specific.name:
                 continue
             parsed_value = pattern.parser_func(match.groupdict())
             parsed_conditions.append({"type": pattern.name, "value": parsed_value})

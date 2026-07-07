@@ -376,8 +376,11 @@ export function createYamlIOModule(params: {
           case 'composite': {
             // 复合约束：聚合多个子约束（通过 includedNodeIds 引用画布上的其他约束节点）
             const compositeData = node.data as CompositeConstraintNodeData
+            const compositeExtra = node.data as unknown as Record<string, unknown>
             yaml += `    config_name: ${yamlSafe(compositeData.configName || 'unnamed')}\n`
-            if (compositeData.table) yaml += `    table: ${yamlSafe(compositeData.table)}\n`
+            // table 是可选锚点字段，不在 CompositeConstraintNodeData 类型中，通过 Record 安全访问
+            if (compositeExtra.table)
+              yaml += `    table: ${yamlSafe(compositeExtra.table as string)}\n`
             yaml += `    logic: ${compositeData.logic || 'all'}\n`
             const subNodeIds = compositeData.includedNodeIds || []
             if (subNodeIds.length > 0) {

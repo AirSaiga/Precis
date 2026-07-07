@@ -62,24 +62,28 @@ def _merge_manifest_references(
         """字段未被客户端显式设置，且现有 manifest 有值时才合并。"""
         return field not in set_fields and existing_manifest is not None and bool(getattr(existing_manifest, field))
 
-    if _should_merge("schemas"):
-        logger.info(f"[put_v2_full_config] 合并现有 schemas: {len(existing_manifest.schemas)} 个")
-        final_manifest = final_manifest.model_copy(update={"schemas": existing_manifest.schemas})
+    # mypy 无法从 _should_merge 的返回值推断 existing_manifest 非 None，
+    # 用 existing 局部变量（仅在 existing_manifest 非 None 时赋值）帮助类型收窄。
+    existing: ProjectManifestV2 | None = existing_manifest
 
-    if _should_merge("constraints"):
-        final_manifest = final_manifest.model_copy(update={"constraints": existing_manifest.constraints})
+    if _should_merge("schemas") and existing is not None:
+        logger.info(f"[put_v2_full_config] 合并现有 schemas: {len(existing.schemas)} 个")
+        final_manifest = final_manifest.model_copy(update={"schemas": existing.schemas})
 
-    if _should_merge("regex_nodes"):
-        final_manifest = final_manifest.model_copy(update={"regex_nodes": existing_manifest.regex_nodes})
+    if _should_merge("constraints") and existing is not None:
+        final_manifest = final_manifest.model_copy(update={"constraints": existing.constraints})
 
-    if _should_merge("transforms"):
-        final_manifest = final_manifest.model_copy(update={"transforms": existing_manifest.transforms})
+    if _should_merge("regex_nodes") and existing is not None:
+        final_manifest = final_manifest.model_copy(update={"regex_nodes": existing.regex_nodes})
 
-    if _should_merge("manual_data"):
-        final_manifest = final_manifest.model_copy(update={"manual_data": existing_manifest.manual_data})
+    if _should_merge("transforms") and existing is not None:
+        final_manifest = final_manifest.model_copy(update={"transforms": existing.transforms})
 
-    if _should_merge("data_sources"):
-        final_manifest = final_manifest.model_copy(update={"data_sources": existing_manifest.data_sources})
+    if _should_merge("manual_data") and existing is not None:
+        final_manifest = final_manifest.model_copy(update={"manual_data": existing.manual_data})
+
+    if _should_merge("data_sources") and existing is not None:
+        final_manifest = final_manifest.model_copy(update={"data_sources": existing.data_sources})
 
     # 目录扫描补充：仅对客户端"未显式设置"且当前为空的字段从磁盘发现文件，
     # 显式置空 [] 的字段不会被目录扫描覆盖（尊重用户清空意图）

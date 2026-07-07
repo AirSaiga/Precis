@@ -148,7 +148,7 @@ export function useResourceContextMenu() {
   const openRenameDialog = (resource: ResourceItem): void => {
     renameDialog.visible = true
     renameDialog.resourceId = resource.id
-    renameDialog.resourceKind = resource.kind as 'schema' | 'pattern' | 'constraint'
+    renameDialog.resourceKind = resource.kind as 'schema' | 'pattern' | 'constraint' | 'regex_node'
     renameDialog.currentName = resource.name
     renameDialog.inputValue = resource.name
   }

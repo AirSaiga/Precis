@@ -81,7 +81,7 @@ export interface RenameDialogState {
   /** 资源ID */
   resourceId: string
   /** 资源类型 */
-  resourceKind: 'schema' | 'pattern' | 'constraint' | 'template' | null
+  resourceKind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template' | null
   /** 当前名称 */
   currentName: string
   /** 输入值 */

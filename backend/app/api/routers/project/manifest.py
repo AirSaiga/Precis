@@ -252,9 +252,9 @@ def put_v2_manifest(
                 if d.id not in existing_data_source_ids:
                     merged_data_sources.append(d)
 
-            for t in existing_manifest.templates or []:
-                if t.id not in existing_template_ids:
-                    merged_templates.append(t)
+            for tmpl in existing_manifest.templates or []:
+                if tmpl.id not in existing_template_ids:
+                    merged_templates.append(tmpl)
 
             for ti in existing_manifest.template_instances or []:
                 if ti.id not in existing_instance_ids:
