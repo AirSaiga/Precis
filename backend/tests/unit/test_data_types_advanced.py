@@ -301,6 +301,26 @@ class TestSpecificCompositeConditionType:
         valid, error = sct.validate("add(1,2) AND mul(3,4)")
         assert valid is False
 
+    def test_validate_rejects_other_pattern(self):
+        """B07 回归：限定模式后，子句即使能被注册表匹配，也必须与 specific_pattern 一致。
+        过去 validate 忽略 specific_pattern，导致 mul(...) 这种其他模式子句被错误接受。"""
+        registry = _make_registry()
+        sct = SpecificCompositeConditionType(registry, pattern="add", logical_op="and")
+        # mul(3,4) 能被 registry 匹配，但模式名是 'mul' 而非限定的 'add'
+        # 注意：splitter 按小写 " and " 分割，必须用小写才能正确拆分
+        valid, error = sct.validate("add(1,2) and mul(3,4)")
+        assert valid is False
+        assert "与限定模式" in error
+        assert "mul" in error
+
+    def test_parse_skips_other_pattern(self):
+        """B07 回归：parse 仅解析与 specific_pattern 一致的子句，忽略其他模式。"""
+        registry = _make_registry()
+        sct = SpecificCompositeConditionType(registry, pattern="add", logical_op="and")
+        result = sct.parse("add(10,20) and mul(30,40)")
+        # mul(30,40) 被忽略，只保留 add 子句
+        assert result == [{"type": "add", "value": {"a": 10, "b": 20}}]
+
     def test_parse_success(self):
         registry = _make_registry()
         sct = SpecificCompositeConditionType(registry, pattern="add", logical_op="and")

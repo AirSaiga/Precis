@@ -134,7 +134,19 @@ def execute_transform_dag(
                 continue
 
             try:
-                compiled = re.compile(pattern_str)
+                # 透传 rfile.flags / case_sensitive（过去完全忽略，导致大小写等配置在 DAG 提取时失效）
+                re_flags = 0
+                flag_str = str(getattr(rfile, "flags", "") or "")
+                if "i" in flag_str or "ignorecase" in flag_str.lower():
+                    re_flags |= re.IGNORECASE
+                if "m" in flag_str or "multiline" in flag_str.lower():
+                    re_flags |= re.MULTILINE
+                if "s" in flag_str or "dotall" in flag_str.lower():
+                    re_flags |= re.DOTALL
+                if getattr(rfile, "case_sensitive", True) is False:
+                    re_flags |= re.IGNORECASE
+
+                compiled = re.compile(pattern_str, re_flags)
                 extracted = input_df[input_column].astype(str).str.extract(compiled)
                 output_df = input_df.copy()
                 # 按位置映射 output_columns 到 extracted 列（支持无名捕获组）

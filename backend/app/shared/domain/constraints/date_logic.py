@@ -500,11 +500,32 @@ class DateLogicConstraint(Constraint):
                     # 计算天数差的绝对值
                     diff_days = (target_series[mask_valid] - ref_series[mask_valid]).abs().dt.days
 
-                    # 与目标值比较
+                    # 与目标值比较（接入 compare_op，过去硬编码 != 导致只能严格等于）
                     if self.target_value is not None:
                         try:
                             expected_diff = int(self.target_value)
-                            mask_fail_local = diff_days != expected_diff
+                            # 与 age 分支保持一致的比较语义
+                            op = self.compare_op or "eq"
+                            if op == "gt":
+                                mask_fail_local = diff_days <= expected_diff
+                            elif op == "lt":
+                                mask_fail_local = diff_days >= expected_diff
+                            elif op == "gte":
+                                mask_fail_local = diff_days < expected_diff
+                            elif op == "lte":
+                                mask_fail_local = diff_days > expected_diff
+                            elif op == "eq":
+                                mask_fail_local = diff_days != expected_diff
+                            else:
+                                # 未知 op 回退到 eq 语义（与 age 分支一致）
+                                mask_fail_local = diff_days != expected_diff
+                            op_desc = {
+                                "gt": "大于",
+                                "lt": "小于",
+                                "gte": "大于等于",
+                                "lte": "小于等于",
+                                "eq": "等于",
+                            }.get(op, "等于")
                             failed_indices = mask_fail_local[mask_fail_local].index
                             for idx in failed_indices:
                                 val = df.at[idx, self.column]
@@ -517,7 +538,7 @@ class DateLogicConstraint(Constraint):
                                         "row_index": int(idx),
                                         "column": self.column,
                                         "value": str(val),
-                                        "message": f"天数差计算结果与目标不符: {val} vs {ref_val}，期望 {expected_diff} 天，实际 {actual} 天",
+                                        "message": f"天数差计算结果与目标不符: {val} vs {ref_val}，要求 {op_desc} {expected_diff} 天，实际 {actual} 天",
                                     }
                                 )
                         except ValueError as e:

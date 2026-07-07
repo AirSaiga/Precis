@@ -65,12 +65,17 @@ class DateLogicValidator(BaseValidator):
 
         # 提取校验参数
         logic_mode = kwargs.get("logic_mode", "compare")
-        compare_op = kwargs.get("compare_op", "gt")
+        calculation_type = kwargs.get("calculation_type", "age")
+        # compare_op 默认值随计算类型调整：
+        # - age/compare 模式默认 gt（与历史行为一致）
+        # - days_diff 模式默认 eq（旧代码硬编码 != 即等价于 eq 比较，保持向后兼容）
+        compare_op = kwargs.get("compare_op")
+        if compare_op is None:
+            compare_op = "eq" if calculation_type == "days_diff" else "gt"
         reference_date = kwargs.get("reference_date")
         reference_column = kwargs.get("reference_column")
         reference_date_end = kwargs.get("reference_date_end")
         reference_column_end = kwargs.get("reference_column_end")
-        calculation_type = kwargs.get("calculation_type", "age")
         target_value = kwargs.get("target_value")
         target_column = kwargs.get("target_column")
 

@@ -97,7 +97,7 @@ class RegexConstraint(Constraint):
                     "message": f"正则约束失败: 表 '{self.table}' 不在数据集中。",
                 }
             )
-            return {"valid": False, "errors": errors, "info": self.get_constraint_info()}
+            return {"errors": errors, "info": self.get_constraint_info()}
 
         if self.column not in df.columns:
             errors.append(
@@ -108,7 +108,7 @@ class RegexConstraint(Constraint):
                     "message": f"正则约束失败: 列 '{self.column}' 在表 '{self.table}' 中不存在。",
                 }
             )
-            return {"valid": False, "errors": errors, "info": self.get_constraint_info()}
+            return {"errors": errors, "info": self.get_constraint_info()}
 
         if not self.pattern:
             errors.append(
@@ -119,7 +119,7 @@ class RegexConstraint(Constraint):
                     "message": "正则约束失败: pattern 为空，未提供正则表达式。",
                 }
             )
-            return {"valid": False, "errors": errors, "info": self.get_constraint_info()}
+            return {"errors": errors, "info": self.get_constraint_info()}
 
         try:
             # 解析正则表达式标志
@@ -177,8 +177,9 @@ class RegexConstraint(Constraint):
                 }
             )
 
+        # 返回结构与其他约束（conditional/scripted/charset/foreign_key 等）保持一致：
+        # 仅含 errors 和 info，不再输出冗余的 valid 字段（调用方统一通过 errors 是否为空判断）
         return {
-            "valid": len(errors) == 0,
             "errors": errors,
             "info": self.get_constraint_info(),
         }

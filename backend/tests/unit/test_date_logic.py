@@ -275,6 +275,59 @@ class TestDateLogicConstraint:
         c = DateLogicConstraint(table="users", column="bd", logic_mode="calculation", calculation_type="age")
         assert "age check" in c._get_description()
 
+    def test_days_diff_default_eq(self):
+        """B08 回归：days_diff 默认 compare_op=gt？不，默认在 age 是 gt，days_diff 回退 eq。
+        显式传 eq 时：差值等于目标值通过，不等则失败。"""
+        df = pd.DataFrame({"start": ["2020-01-01", "2020-01-01"], "end": ["2020-01-10", "2020-01-05"]})
+        c = DateLogicConstraint(
+            table="users",
+            column="start",
+            logic_mode="calculation",
+            calculation_type="days_diff",
+            target_column="end",
+            target_value=9,
+            compare_op="eq",
+        )
+        result = c.validate({"users": df})
+        # 第一行差 9 天（通过），第二行差 4 天（失败）
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["row_index"] == 1
+
+    def test_days_diff_gt(self):
+        """B08 回归：compare_op=gt 时，差值需大于目标值；小于等于则失败。"""
+        df = pd.DataFrame({"start": ["2020-01-01", "2020-01-01"], "end": ["2020-01-10", "2020-01-05"]})
+        c = DateLogicConstraint(
+            table="users",
+            column="start",
+            logic_mode="calculation",
+            calculation_type="days_diff",
+            target_column="end",
+            target_value=5,
+            compare_op="gt",
+        )
+        result = c.validate({"users": df})
+        # 第一行差 9 天 > 5（通过），第二行差 4 天 <= 5（失败）
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["row_index"] == 1
+        assert "大于" in result["errors"][0]["message"]
+
+    def test_days_diff_lte(self):
+        """B08 回归：compare_op=lte 时，差值需小于等于目标值；大于则失败。"""
+        df = pd.DataFrame({"start": ["2020-01-01", "2020-01-01"], "end": ["2020-01-10", "2020-01-03"]})
+        c = DateLogicConstraint(
+            table="users",
+            column="start",
+            logic_mode="calculation",
+            calculation_type="days_diff",
+            target_column="end",
+            target_value=5,
+            compare_op="lte",
+        )
+        result = c.validate({"users": df})
+        # 第一行差 9 天 > 5（失败），第二行差 2 天 <= 5（通过）
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["row_index"] == 0
+
 
 class TestDateLogicValidator:
     def test_compare_reference_date_pass(self):

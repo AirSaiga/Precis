@@ -157,6 +157,10 @@ class SpecificCompositeConditionType(DataType):
         """
         @methoddesc 验证特定复合条件表达式
 
+        与通用 CompositeConditionType 不同，本方法不仅要求子句能被注册表匹配，
+        还要求匹配到的模式与初始化时指定的 specific_pattern 一致。
+        过去本方法忽略了 specific_pattern，导致限定模式后仍接受其他子句。
+
         参数:
             value: 条件表达式字符串
 
@@ -176,6 +180,13 @@ class SpecificCompositeConditionType(DataType):
             if not match_result:
                 return False, f"复合条件中的子句 '{atomic_str}' 不匹配任何已知的模式。"
             pattern, match = match_result
+            # 校验匹配到的模式必须与 specific_pattern 一致
+            if pattern.name != self.specific_pattern.name:
+                return (
+                    False,
+                    f"子句 '{atomic_str}' 匹配的模式 '{pattern.name}' 与限定模式 "
+                    f"'{self.specific_pattern.name}' 不一致，本类型只允许使用限定模式。",
+                )
             try:
                 pattern.parser_func(match.groupdict())
             except (ValueError, KeyError) as e:
@@ -185,6 +196,8 @@ class SpecificCompositeConditionType(DataType):
     def parse(self, value: Any) -> list[dict[str, Any]]:
         """
         @methoddesc 解析特定复合条件表达式
+
+        仅解析与 specific_pattern 匹配的子句，忽略其他模式（与 validate 语义一致）。
 
         参数:
             value: 条件表达式字符串
@@ -200,7 +213,13 @@ class SpecificCompositeConditionType(DataType):
             atomic_str = atomic_str.strip()
             if not atomic_str:
                 continue
-            pattern, match = self.registry.find_match(atomic_str)
+            match_result = self.registry.find_match(atomic_str)
+            if not match_result:
+                continue
+            pattern, match = match_result
+            # 仅解析与 specific_pattern 一致的子句
+            if pattern.name != self.specific_pattern.name:
+                continue
             parsed_value = pattern.parser_func(match.groupdict())
             parsed_conditions.append({"type": pattern.name, "value": parsed_value})
         return parsed_conditions

@@ -172,5 +172,19 @@ def resolve_regex_pattern(regex_config: RegexNodeFile, registries: dict) -> re.P
     if not regex_config.pattern:
         raise ValueError("regex_node 必须指定 pattern 或 uses_pattern")
 
+    # 解析 flags（与引用模式的 pattern_overrides 分支保持一致）
+    # 过去直接模式完全忽略 regex_config.flags / case_sensitive，导致大小写等配置失效
+    flags = 0
+    flag_str = str(getattr(regex_config, "flags", "") or "")
+    if "i" in flag_str or "ignorecase" in flag_str.lower():
+        flags |= re.IGNORECASE
+    if "m" in flag_str or "multiline" in flag_str.lower():
+        flags |= re.MULTILINE
+    if "s" in flag_str or "dotall" in flag_str.lower():
+        flags |= re.DOTALL
+    # case_sensitive=False 同样触发 IGNORECASE（与 RegexConstraint 语义一致）
+    if getattr(regex_config, "case_sensitive", True) is False:
+        flags |= re.IGNORECASE
+
     # 直接编译 pattern 字段中的正则表达式
-    return re.compile(regex_config.pattern)
+    return re.compile(regex_config.pattern, flags)
