@@ -95,18 +95,9 @@ export const connectionRules: ConnectionRule[] = [
       handles: ['source-right-{columnId}'],
     },
     target: {
-      nodeTypes: [
-        'notNullConstraint',
-        'uniqueConstraint',
-        'foreignKeyConstraint',
-        'allowedValuesConstraint',
-        'rangeConstraint',
-        'conditionalConstraint',
-        'scriptedConstraint',
-        'charsetConstraint',
-        'dateLogicConstraint',
-        'compositeConstraint',
-      ],
+      // A9 修复：约束类型列表从 CONSTRAINT_TYPES 单一事实源派生，
+      // 过去硬编码 10 种约束类型数组在 4 处重复，新增约束类型需手动同步多处
+      nodeTypes: getConstraintNodeTypesFromRegistry(),
       handles: [
         'target-input-{nodeId}',
         'target-left',
@@ -192,18 +183,9 @@ export const connectionRules: ConnectionRule[] = [
       handles: undefined,
     },
     target: {
-      nodeTypes: [
-        'notNullConstraint',
-        'uniqueConstraint',
-        'foreignKeyConstraint',
-        'allowedValuesConstraint',
-        'rangeConstraint',
-        'conditionalConstraint',
-        'scriptedConstraint',
-        'charsetConstraint',
-        'dateLogicConstraint',
-        'compositeConstraint',
-      ],
+      // A9 修复：约束类型列表从 CONSTRAINT_TYPES 单一事实源派生，
+      // 过去硬编码 10 种约束类型数组在 4 处重复，新增约束类型需手动同步多处
+      nodeTypes: getConstraintNodeTypesFromRegistry(),
       handles: undefined,
     },
     config: {
@@ -269,18 +251,9 @@ export const connectionRules: ConnectionRule[] = [
       handles: undefined,
     },
     target: {
-      nodeTypes: [
-        'notNullConstraint',
-        'uniqueConstraint',
-        'foreignKeyConstraint',
-        'allowedValuesConstraint',
-        'rangeConstraint',
-        'conditionalConstraint',
-        'scriptedConstraint',
-        'charsetConstraint',
-        'dateLogicConstraint',
-        'compositeConstraint',
-      ],
+      // A9 修复：约束类型列表从 CONSTRAINT_TYPES 单一事实源派生，
+      // 过去硬编码 10 种约束类型数组在 4 处重复，新增约束类型需手动同步多处
+      nodeTypes: getConstraintNodeTypesFromRegistry(),
       handles: undefined,
     },
     config: {
@@ -377,18 +350,9 @@ export const connectionRules: ConnectionRule[] = [
       handles: undefined,
     },
     target: {
-      nodeTypes: [
-        'notNullConstraint',
-        'uniqueConstraint',
-        'foreignKeyConstraint',
-        'allowedValuesConstraint',
-        'rangeConstraint',
-        'conditionalConstraint',
-        'scriptedConstraint',
-        'charsetConstraint',
-        'dateLogicConstraint',
-        'compositeConstraint',
-      ],
+      // A9 修复：约束类型列表从 CONSTRAINT_TYPES 单一事实源派生，
+      // 过去硬编码 10 种约束类型数组在 4 处重复，新增约束类型需手动同步多处
+      nodeTypes: getConstraintNodeTypesFromRegistry(),
       handles: undefined,
     },
     config: {

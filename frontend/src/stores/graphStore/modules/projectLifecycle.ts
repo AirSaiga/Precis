@@ -72,6 +72,8 @@ import type { ProjectNodeData } from '@/types/nodes'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
 import type { ProjectStoreLike, ResourceTreeStoreLike } from '@/types/storeInterfaces'
 import type { ProjectConfigStats } from '../setup/state'
+// B35 修复：position 更新走 vueFlowApi 统一入口，避免直接修改 node 属性绕过 Vue Flow 状态同步
+import { updateNode } from '@/services/canvas/vueFlowApi'
 export function createProjectLifecycleModule(params: {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>
@@ -203,7 +205,9 @@ export function createProjectLifecycleModule(params: {
   function createProjectRootNode(position: { x: number; y: number }) {
     const existing = nodes.value.find((n) => n.type === 'projectRoot')
     if (existing) {
-      existing.position = { ...position }
+      // B35 修复：走 vueFlowApi.updateNode 而非直接修改 existing.position，
+      // 确保 Vue Flow 内部状态与 saveState/撤销历史保持同步
+      updateNode(existing.id, { position: { ...position } })
       selectedNodeId.value = existing.id
       return existing.id
     }

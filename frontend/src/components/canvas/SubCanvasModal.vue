@@ -69,7 +69,10 @@
   import { useI18n } from 'vue-i18n'
   import { useSubGraphStore } from '@/composables/canvas/useSubGraphStore'
   import { constraintNodeRegistry } from '@/services/registry/constraintNodeRegistry'
-  import { getConstraintMetaByKind } from '@/services/constraints/validationRegistry'
+  import {
+    getConstraintMetaByKind,
+    getConstraintKinds,
+  } from '@/services/constraints/validationRegistry'
   import type { ConstraintKind } from '@/services/constraints/types'
   import type { CustomNode } from '@/types/graph'
   import SubSchemaInputNode from '@/components/nodes/composite/SubSchemaInputNode.vue'
@@ -133,17 +136,9 @@
     }),
   }
 
-  const availableConstraintKinds: ConstraintKind[] = [
-    'notNull',
-    'unique',
-    'range',
-    'allowedValues',
-    'conditional',
-    'scripted',
-    'charset',
-    'dateLogic',
-    'foreignKey',
-  ]
+  // A9/A10 修复：约束种类从 CONSTRAINT_TYPES 单一事实源派生，
+  // 过去硬编码 9 种且遗漏 composite（与注册表不一致）
+  const availableConstraintKinds: ConstraintKind[] = getConstraintKinds()
 
   function getConstraintDisplayName(kind: ConstraintKind): string {
     const meta = getConstraintMetaByKind(kind)

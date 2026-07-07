@@ -298,7 +298,6 @@
 </template>
 
 <script setup lang="ts">
-  import { logger } from '@/core/utils/logger'
   import { eventBus } from '@/core/eventBus'
   /**
    * @file SchemaNode.vue
@@ -341,9 +340,11 @@
   // - Handle: 连接点组件
   // - Position: 连接位置枚举
   // - useVueFlow: VueFlow 核心 hook
-  import { Handle, Position, useVueFlow } from '@vue-flow/core'
+  import { Handle, Position } from '@vue-flow/core'
   // 类型定义导入
   import type { SchemaNodeData, SchemaColumn, DataType } from '@/types/graph'
+  // A5: 数据源连接逻辑提取到 composable（复用 useNodeSourceManager 基础设施）
+  import { useSchemaDataSource } from '@/composables/nodes/schema/useSchemaDataSource'
   // Store 导入
   // - graphStore: 图数据状态（节点、边）
   import { useGraphStore } from '@/stores/graphStore'
@@ -357,8 +358,6 @@
   import { useSchemaInteractions } from '@/composables/nodes/schema/useSchemaInteractions'
   import { useSchemaConnectionHandler } from '@/composables/nodes/schema/useSchemaConnectionHandler'
   import { useSchemaResizable } from '@/composables/nodes/schema/useSchemaResizable'
-  // 全局确认对话框
-  import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   // 子组件导入
   import SchemaNodeHeader from '@/components/nodes/core/SchemaNode/components/SchemaNodeHeader.vue'
   import SchemaNodeColumnRow from '@/components/nodes/core/SchemaNode/components/SchemaNodeColumnRow.vue'
@@ -370,10 +369,6 @@
   // 统一样式文件导入
   import '@/components/nodes/core/SchemaNode/SchemaNode.styles.css'
 
-  // 数据源预览创建
-  import { usePreviewCreation } from '@/composables/nodes/sourcePreview/usePreviewCreation'
-  import type { FilePreviewResult } from '@/composables/nodes/sourcePreview/usePreviewCreation'
-  import type { ExternalDataSource, SourceMode } from '@/types/datasource'
   // ==================== Props 定义 ====================
 
   /**
@@ -415,14 +410,6 @@
 
   // 国际化
   const { t } = useI18n()
-
-  // VueFlow 核心功能
-  // - updateNodeInternals: 刷新节点内部状态（如虚拟锚点）
-  // - addEdges: 添加边连接
-  const { updateNodeInternals, addEdges } = useVueFlow()
-
-  // 全局确认对话框
-  const { showConfirm } = useGlobalConfirm()
 
   // Store 初始化
   const store = useGraphStore()
@@ -561,6 +548,7 @@
     saveAndClose,
     cancelClose,
     handleValidate,
+    handleSourceConnection,
     handleSourceNodeDisconnected,
     handlePatternDragOver,
     handlePatternDrop,
@@ -637,234 +625,17 @@
 
   // ==================== 事件处理函数 ====================
 
-  /**
-   * 智能填充按钮点击处理
-   * 检查是否已连接数据源：
-   * - 已连接：显示智能填充对话框
-   * - 未连接：显示警告提示
-   */
-  const handleSmartFillClick = async () => {
-    const schemaData = props.data as SchemaNodeData
-
-    let sourceNode: ReturnType<typeof store.nodes.find> | null = null
-
-    if (schemaData.sourceNodeId) {
-      sourceNode =
-        store.nodes.find((n) => n.id === schemaData.sourceNodeId && n.type === 'sourcePreview') ??
-        null
-    }
-
-    if (!sourceNode) {
-      const edge = store.edges.find(
-        (e) =>
-          e.target === props.id &&
-          store.nodes.find((n) => n.id === e.source)?.type === 'sourcePreview'
-      )
-
-      if (edge) {
-        sourceNode = store.nodes.find((n) => n.id === edge.source) ?? null
-      }
-    }
-
-    if (sourceNode) {
-      await showSmartFillDialog(sourceNode)
-
-      // 自动执行全表校验（延迟执行，确保列生成完成）
-      setTimeout(() => {
-        logger.debug('🔄 [handleSmartFillClick] 触发全表自动校验')
-        handleValidate()
-      }, 500)
-      return
-    }
-
-    await showConfirm({
-      title: t('customNodes.schemaNode.source.notConnected'),
-      message: t('customNodes.schemaNode.source.smartFillWarning'),
-      confirmText: t('common.confirm'),
-      type: 'warning',
-    })
-  }
-
-  /**
-   * 连接数据源处理
-   * 切换数据源时：
-   * 1. 断开与 schema 连接的 source 节点
-   * 2. 断开与 schema 连接的正则、约束节点
-   * 3. 自动创建被选择的源数据的 source 节点
-   * 4. 触发智能填充列定义
-   *
-   * @param dataSource - 选择的数据源
-   */
-  const { createSourcePreviewNode, fetchPreviewData } = usePreviewCreation()
-
-  const connectToDataSource = async (dataSource: ExternalDataSource) => {
-    logger.debug('🔄 [connectToDataSource] 开始切换数据源:', dataSource.name)
-
-    try {
-      // 1. 查找并断开当前连接的 source 节点
-      const existingSourceEdge = store.edges.find(
-        (edge) =>
-          edge.target === props.id &&
-          store.nodes.find((n) => n.id === edge.source)?.type === 'sourcePreview'
-      )
-
-      if (existingSourceEdge) {
-        logger.debug('  - 断开旧 source 连接:', existingSourceEdge.id)
-        store.deleteConnection(existingSourceEdge.id)
-      }
-
-      // 2. 断开与 schema 连接的正则、约束节点
-      const connectedConstraintEdges = store.edges.filter(
-        (edge) =>
-          edge.target === props.id &&
-          ['regex', 'constraint', 'notNull', 'unique'].includes(
-            store.nodes.find((n) => n.id === edge.source)?.type || ''
-          )
-      )
-
-      for (const edge of connectedConstraintEdges) {
-        logger.debug('  - 断开约束/正则连接:', edge.id)
-        store.deleteConnection(edge.id)
-      }
-
-      // 3. 创建新的 source 预览节点
-      const schemaNode = store.nodes.find((n) => n.id === props.id)
-      if (!schemaNode) {
-        logger.error('❌ 未找到 Schema 节点')
-        return
-      }
-
-      // 计算新 source 节点的位置（放在 schema 节点左侧）
-      const sourceNodePosition = {
-        x: schemaNode.position.x - 450, // 左侧 450px
-        y: schemaNode.position.y,
-      }
-
-      // 构建 meta 数据
-      const meta = {
-        fileId: dataSource.fileId,
-        fileName: dataSource.name,
-        name: dataSource.name,
-        fileType: dataSource.type,
-        sourceType: dataSource.type,
-        sourceName: dataSource.name,
-        sourceMode: (dataSource.sourceMode as SourceMode) || 'localfile',
-        localPath: dataSource.localPath,
-      }
-
-      logger.debug('  - 创建新 source 节点:', meta)
-      const newNode = await createSourcePreviewNode(meta, sourceNodePosition)
-
-      if (!newNode) {
-        logger.error('❌ 创建 source 节点失败')
-        return
-      }
-
-      const sourceNodeId = newNode.id
-      logger.debug('  - 新 source 节点 ID:', sourceNodeId)
-
-      // 4. 如果是 Excel 文件，获取预览数据并解析 sheets
-      // 优先使用 Schema 节点已配置的 sheetName（如从 YAML 加载的非默认 sheet）
-      let currentSheet: string | undefined = undefined
-      let previewData: FilePreviewResult | null = null
-      const schemaData = schemaNode.data as SchemaNodeData
-      const preferredSheet = schemaData.sheetName
-
-      if (dataSource.type === 'excel') {
-        try {
-          previewData = await fetchPreviewData(
-            dataSource.fileId,
-            65535,
-            65535,
-            (dataSource.sourceMode as SourceMode) || 'localfile',
-            preferredSheet
-          )
-
-          if (previewData?.sheets && previewData.sheets.length > 0) {
-            // 如果后端因 preferredSheet 不存在而回退到默认 sheet，
-            // 则使用后端返回的 currentSheet，而非盲目使用 sheets[0]
-            currentSheet = previewData.currentSheet || previewData.sheets[0]
-            logger.debug('  - Excel 文件，使用 sheet:', currentSheet, '配置偏好:', preferredSheet)
-          }
-        } catch (error) {
-          logger.warn('⚠️ 获取 Excel sheets 失败:', error)
-        }
-      }
-
-      // 5. 创建 schema 节点到新 source 节点的连接
-      // 使用 nextTick 确保 DOM 更新，并增加延时以等待节点完全挂载
-      // SourcePreviewNode 可能包含大量数据，渲染需要时间
-      setTimeout(() => {
-        try {
-          // 再次确认 source 节点存在
-          const sourceNode = store.nodes.find((n) => n.id === sourceNodeId)
-          if (!sourceNode) {
-            logger.warn('⚠️ 尝试连接时未找到 Source 节点:', sourceNodeId)
-          }
-
-          const newEdge = {
-            id: `edge-${Date.now()}`,
-            source: sourceNodeId,
-            target: props.id,
-            sourceHandle: `${sourceNodeId}-output`,
-            targetHandle: 'target-left',
-            type: 'smoothstep',
-            animated: true,
-            style: { stroke: 'var(--edge-data-source)', strokeWidth: 1.5 },
-            label: 'Data Source',
-          }
-
-          addEdges([newEdge])
-          logger.debug('✅ 创建边连接成功:', {
-            source: sourceNodeId,
-            target: props.id,
-            edgeId: newEdge.id,
-            sourceHandle: newEdge.sourceHandle,
-          })
-
-          // 强制刷新节点状态
-          updateNodeInternals([sourceNodeId, props.id])
-        } catch (err) {
-          logger.error('❌ 创建边连接失败:', err)
-        }
-      }, 1000) // 增加延时到 1000ms 确保节点已渲染
-
-      // 6. 更新 Schema 节点数据
-      const smartTableName = currentSheet || dataSource.name.replace(/\.[^/.]+$/, '')
-
-      // 更新本地数据
-      localData.value = {
-        ...localData.value,
-        sourceFile: dataSource.name,
-        sourceFilePath: dataSource.name,
-        // 仅使用实际的工作表名称；若缺失则保持 undefined，绝不回退到文件名
-        sheetName: currentSheet,
-        sourceType: dataSource.type,
-        sourceNodeId: sourceNodeId,
-        tableName: smartTableName,
-        saveState: 'draft' as const,
-        updatedAt: new Date().toISOString(),
-      }
-
-      // 同步到 Vue Flow 节点数据
-      updateNodeData(props.id, localData.value)
-
-      // 7. 触发智能填充列定义
-      setTimeout(() => {
-        const sourceNode = store.nodes.find((n) => n.id === sourceNodeId)
-        if (sourceNode) {
-          logger.debug('  - 触发智能填充')
-          autoGenerateColumns(sourceNode)
-        }
-      }, 300)
-
-      logger.debug('✅ [connectToDataSource] 数据源切换完成')
-    } catch (error) {
-      logger.error('❌ [connectToDataSource] 切换数据源失败:', error)
-    }
-
-    closeSourceDropdown()
-  }
+  // ==================== 数据源连接 + 智能填充（提取到 useSchemaDataSource composable） ====================
+  // A5 修复：connectToDataSource（原 170 行）和 handleSmartFillClick（原 40 行）提取到 composable，
+  // 内部复用 useNodeSourceManager.handleSourceConnection，消除重复代码
+  const { connectToDataSource, handleSmartFillClick } = useSchemaDataSource(props, {
+    localData,
+    autoGenerateColumns,
+    handleSourceConnection,
+    showSmartFillDialog,
+    handleValidate,
+    closeSourceDropdown,
+  })
 
   /**
    * 添加新列处理

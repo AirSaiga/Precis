@@ -8,6 +8,8 @@ vi.mock('@/services/canvas/vueFlowApi', () => ({
   addEdges: vi.fn(),
   removeNodes: vi.fn(),
   removeEdges: vi.fn(),
+  // updateNode mock：直接修改 nodes 数组中对应节点的属性（模拟 Vue Flow 行为）
+  updateNode: vi.fn(),
 }))
 
 vi.mock('@/services/constraints/validationRegistry', () => ({
@@ -51,7 +53,13 @@ vi.mock('@/services/templateExpand', () => ({
 
 import { createTemplateExpandModule } from '@/stores/graphStore/modules/templateExpand'
 import type { TemplateExpandResult } from '@/api/projectV2Api'
-import { addNodes, addEdges, removeNodes, removeEdges } from '@/services/canvas/vueFlowApi'
+import {
+  addNodes,
+  addEdges,
+  removeNodes,
+  removeEdges,
+  updateNode,
+} from '@/services/canvas/vueFlowApi'
 
 function makeNode(
   id: string,
@@ -110,6 +118,13 @@ describe('templateExpand module', () => {
     vi.mocked(addEdges).mockClear()
     vi.mocked(removeNodes).mockClear()
     vi.mocked(removeEdges).mockClear()
+    // updateNode mock：模拟 Vue Flow 的节点更新（合并 patches 到对应节点）
+    vi.mocked(updateNode).mockImplementation((nodeId: string, patches: Record<string, unknown>) => {
+      const idx = nodes.value.findIndex((n) => n.id === nodeId)
+      if (idx >= 0) {
+        nodes.value[idx] = { ...nodes.value[idx], ...patches } as CustomNode
+      }
+    })
   })
 
   afterEach(() => {

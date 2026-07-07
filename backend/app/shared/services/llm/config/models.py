@@ -165,7 +165,7 @@ class AIConfig(BaseModel):
     """
     @classdesc AI 配置根对象
 
-    对应 ~/.precis/ai_providers.json 的完整配置结构。
+    对应 ~/.precis/ai_providers.yaml 的完整配置结构。
 
     Attributes:
         version: 配置格式版本，固定为 "2.0"

@@ -27,13 +27,11 @@
 输出示例:
     # validate() 返回结果
     {
-        "valid": True,
         "errors": []
     }
 
     # 或验证失败
     {
-        "valid": False,
         "errors": [
             {"row": 2, "column": "username", "message": "列 'username' 不能为空"}
         ]

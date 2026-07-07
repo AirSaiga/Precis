@@ -29,7 +29,13 @@ import {
   getConstraintKindByV2Type,
   getConstraintMetaByKind,
 } from '@/services/constraints/validationRegistry'
-import { addNodes, addEdges, removeNodes, removeEdges } from '@/services/canvas/vueFlowApi'
+import {
+  addNodes,
+  addEdges,
+  removeNodes,
+  removeEdges,
+  updateNode,
+} from '@/services/canvas/vueFlowApi'
 import { executeTemplateExpandHooks, resetRelationshipSyncRound } from '@/services/templateExpand'
 // ============================================================================
 // 数据结构
@@ -114,19 +120,12 @@ export function createTemplateExpandModule(params: {
     // 容器恢复折叠态：统一走 updateNodeData 入口，保证 saveState 同步
     updateNodeData(instanceNodeId, { expanded: false } as Partial<CustomNodeData>)
 
-    // style/width/height 是 Vue Flow 节点表现层属性，需通过数组 map 更新
-    const instanceNode = nodes.value.find((n) => n.id === instanceNodeId)
-    if (instanceNode) {
-      nodes.value = nodes.value.map((n) => {
-        if (n.id !== instanceNodeId) return n
-        return {
-          ...n,
-          style: {},
-          width: undefined,
-          height: undefined,
-        } as CustomNode
-      })
-    }
+    // B36 修复：style/width/height 走 vueFlowApi.updateNode，避免全量数组替换
+    updateNode(instanceNodeId, {
+      style: {},
+      width: undefined,
+      height: undefined,
+    })
   }
 
   function resetAll() {
@@ -183,18 +182,15 @@ export function createTemplateExpandModule(params: {
     })
 
     // 先用估算尺寸设置容器（确保子节点在容器内）
+    // B36 修复：走 vueFlowApi.updateNode 而非全量数组替换，保持 saveState/撤销历史一致
     if (containerSize) {
-      nodes.value = nodes.value.map((n) => {
-        if (n.id !== instanceNodeId) return n
-        return {
-          ...n,
-          style: {
-            width: `${containerSize.width}px`,
-            height: `${containerSize.height}px`,
-          },
-          width: containerSize.width,
-          height: containerSize.height,
-        } as CustomNode
+      updateNode(instanceNodeId, {
+        style: {
+          width: `${containerSize.width}px`,
+          height: `${containerSize.height}px`,
+        },
+        width: containerSize.width,
+        height: containerSize.height,
       })
     }
 
@@ -571,17 +567,14 @@ export function createTemplateExpandModule(params: {
     const width = maxRight + CONTAINER_PADDING_RIGHT
     const height = maxBottom + CONTAINER_PADDING_BOTTOM
 
-    nodes.value = nodes.value.map((n) => {
-      if (n.id !== instanceNodeId) return n
-      return {
-        ...n,
-        style: {
-          width: `${width}px`,
-          height: `${height}px`,
-        },
-        width,
-        height,
-      } as CustomNode
+    // B36 修复：走 vueFlowApi.updateNode 而非全量数组替换
+    updateNode(instanceNodeId, {
+      style: {
+        width: `${width}px`,
+        height: `${height}px`,
+      },
+      width,
+      height,
     })
   }
 
@@ -898,21 +891,20 @@ export function createTemplateExpandModule(params: {
     const ids = expandedNodeIds.get(instanceNodeId)
     const idSet = ids && ids.length > 0 ? new Set(ids) : new Set<string>()
 
-    nodes.value = nodes.value.map((n) => {
+    // B36 修复：拆分为逐个 updateNode 调用，走 vueFlowApi 统一入口
+    // 过去用 nodes.value.map 全量替换，绕过 Vue Flow hooks 导致 saveState/状态不同步
+    for (const n of nodes.value) {
       if (idSet.has(n.id)) {
-        return { ...n, hidden: true } as CustomNode
-      }
-      if (n.id === instanceNodeId) {
-        return {
-          ...n,
+        updateNode(n.id, { hidden: true })
+      } else if (n.id === instanceNodeId) {
+        updateNode(instanceNodeId, {
           style: {},
           width: undefined,
           height: undefined,
-          data: { ...n.data, expanded: false },
-        } as CustomNode
+          data: { ...n.data, expanded: false } as CustomNodeData,
+        })
       }
-      return n
-    })
+    }
   }
 
   /**
@@ -925,12 +917,12 @@ export function createTemplateExpandModule(params: {
 
     const idSet = new Set(ids)
 
-    nodes.value = nodes.value.map((n) => {
+    // B36 修复：逐个 updateNode 取消隐藏，避免全量数组替换
+    for (const n of nodes.value) {
       if (idSet.has(n.id)) {
-        return { ...n, hidden: false } as CustomNode
+        updateNode(n.id, { hidden: false })
       }
-      return n
-    })
+    }
 
     updateNodeData(instanceNodeId, { expanded: true })
 
