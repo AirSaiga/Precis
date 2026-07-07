@@ -88,9 +88,17 @@ export function tryRegexExtract(
     .filter((c) => 'gimsuy'.includes(c))
     .join('')
 
+  // B29 修复：非法正则 pattern 会让 new RegExp 抛 SyntaxError，整个转换中断。
+  // 捕获后返回 null（与"无匹配"语义一致），调用方据此回退到原值。
+  let regex: RegExp
+  try {
+    regex = new RegExp(pattern, validFlags)
+  } catch {
+    return null
+  }
+
   for (const row of upstreamRows) {
     const value = String(row[0] ?? '')
-    const regex = new RegExp(pattern, validFlags)
     const match = regex.exec(value)
     if (match && match.length > 1) {
       hasMatch = true

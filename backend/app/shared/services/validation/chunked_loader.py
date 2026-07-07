@@ -109,7 +109,11 @@ class ChunkedDataLoader:
             DataFrame 分块列表
         """
         try:
-            encoding = "utf-8-sig"
+            # B25 修复：优先读取 source_config.encoding，过去硬编码 utf-8-sig 导致非 UTF-8 文件乱码
+            config_encoding = None
+            if hasattr(schema, "source_config") and schema.source_config:
+                config_encoding = schema.source_config.get("encoding")
+            encoding = config_encoding or "utf-8-sig"
             read_kwargs: dict[str, Any] = {
                 "header": schema.header_row if schema.header_row is not None else 0,
                 "encoding": encoding,

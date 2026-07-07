@@ -88,8 +88,10 @@ def get_v2_regex_node(regex_id: str, config_path: str = Depends(get_project_conf
         p_dir = os.path.join(config_path, manifest.patterns_dir or "patterns")
         scan_dirs.append((p_dir, "patterns"))
 
-        scan_dirs.append((os.path.join(config_path, "regex"), "patterns"))
-        scan_dirs.append((os.path.join(config_path, "regex_nodes"), "patterns"))
+        # B13 修复：registry 名应为 "regex"，使按 regex/{id} 请求能命中。
+        # 过去误写为 "patterns" 导致目录扫描命中的 id 形如 "patterns/xxx"，按 regex/{id} 请求失败。
+        scan_dirs.append((os.path.join(config_path, "regex"), "regex"))
+        scan_dirs.append((os.path.join(config_path, "regex_nodes"), "regex"))
 
         found = False
         for d, reg_name in scan_dirs:

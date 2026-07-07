@@ -199,6 +199,7 @@ async def _run_job(
     update_status("running", stage="initializing", progress=0.0)
 
     # 存储 payload 元数据供 resume 重建
+    # B18 修复：保存全部 options（过去仅保存 max_iterations，resume 时其余 options 回退默认值）
     raw = storage._load_raw(job_id)
     raw["payload"] = {
         "file_paths": payload.file_paths,
@@ -206,6 +207,8 @@ async def _run_job(
         "project_id": payload.project_id,
         "provider_id": payload.provider_id,
         "max_iterations": payload.options.max_iterations,
+        # 完整保存 options 字典，resume 时整体重建
+        "options": payload.options.model_dump(),
     }
     storage._save_raw(job_id, raw)
 
@@ -302,14 +305,18 @@ async def _run_job(
             error=result.get("error"),
         )
 
+        # B17 修复：按 result["success"] 区分 completed/failed，
+        # 过去无论成功失败都标记 completed，导致失败任务在前端显示为成功
+        final_status = "completed" if result.get("success") else "failed"
         update_status(
-            "completed",
-            stage="completed",
+            final_status,
+            stage=final_status,
             progress=100.0,
             iterations=result.get("iterations"),
             metrics=result.get("metrics"),
             warnings=result.get("warnings", []),
             result=response_result.model_dump(),
+            error=result.get("error") if not result.get("success") else None,
         )
 
     except CancelledError:
@@ -492,14 +499,19 @@ async def resume_job(
     meta = raw.get("payload", {})
     from .models import ConfigGenerateOptions
 
+    # B18 修复：优先使用完整保存的 options 字典重建，回退到仅 max_iterations（兼容旧数据）
+    saved_options = meta.get("options")
+    if isinstance(saved_options, dict):
+        options = ConfigGenerateOptions(**saved_options)
+    else:
+        options = ConfigGenerateOptions(max_iterations=meta.get("max_iterations", 2))
+
     payload = ConfigGenerateRequest(
         file_paths=meta.get("file_paths", []),
         project_name=meta.get("project_name", ""),
         project_id=meta.get("project_id", ""),
         provider_id=meta.get("provider_id"),
-        options=ConfigGenerateOptions(
-            max_iterations=meta.get("max_iterations", 2),
-        ),
+        options=options,
     )
 
     # 更新状态为 resuming

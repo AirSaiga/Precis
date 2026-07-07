@@ -9,10 +9,25 @@
  *
  * 标准化规则（Canonical Form）：
  * - 统一使用正斜杠 `/`
- * - 统一转换为小写（Windows 文件系统不区分大小写）
+ * - Windows 文件系统不区分大小写时才转小写（B33 修复：Linux/macOS 保留原始大小写）
  * - 去除尾部空白和末尾斜杠（文件路径）
  * - 去除冗余的 `.` 和 `..`（未来可扩展）
  */
+
+/**
+ * 判断当前是否运行在大小写不敏感的文件系统（Windows）。
+ *
+ * B33 修复：过去无条件 toLowerCase()，在 Linux 大小写敏感系统上导致文件匹配失败。
+ * 现在仅在 Windows 上转小写（Windows 文件系统不区分大小写，转小写便于比较）。
+ */
+function isCaseInsensitiveFileSystem(): boolean {
+  // navigator.userAgent 在浏览器与 Electron renderer 中均可用
+  if (typeof navigator !== 'undefined' && navigator.userAgent) {
+    return /Win/i.test(navigator.userAgent) || /Windows/i.test(navigator.platform || '')
+  }
+  // 无法检测时保守地认为大小写敏感（不转小写，避免数据损坏）
+  return false
+}
 
 /**
  * 将任意路径转换为标准形式（canonical form）
@@ -22,7 +37,7 @@
  * 2. 将所有反斜杠 `\` 替换为正斜杠 `/`
  * 3. 合并连续的正斜杠为单个 `/`（处理后端 "d://path" 等异常格式）
  * 4. 解析 `.` 和 `..` 路径段（保留 Windows 驱动器前缀 `c:/`）
- * 5. 转换为小写（Windows 文件系统不区分大小写）
+ * 5. 仅 Windows 转换为小写（文件系统不区分大小写），Linux/macOS 保留原大小写
  * 6. 去除末尾的 `/`（文件路径）
  *
  * @param input - 原始路径
@@ -31,11 +46,12 @@
 export function normalizePath(input: string): string {
   if (!input) return ''
   const trimmed = input.trim().replace(/\\/g, '/').replace(/\/+/g, '/')
-  const lower = trimmed.toLowerCase()
+  // B33：仅在 Windows（大小写不敏感 FS）上转小写
+  const normalized = isCaseInsensitiveFileSystem() ? trimmed.toLowerCase() : trimmed
   // 保留 Windows 驱动器前缀（如 "c:/"），避免解析 .. 时误删
-  const driveMatch = lower.match(/^[a-z]:\//)
-  const prefix = driveMatch ? driveMatch[0] : ''
-  const rest = prefix ? lower.slice(prefix.length) : lower
+  const driveMatch = normalized.match(/^[a-zA-Z]:\//)
+  const prefix = driveMatch ? normalized.slice(0, 3).toLowerCase() : ''
+  const rest = prefix ? normalized.slice(prefix.length) : normalized
   const parts = rest.split('/').filter((p) => p !== '.' && p !== '')
   const resolved: string[] = []
   for (const part of parts) {
@@ -47,7 +63,7 @@ export function normalizePath(input: string): string {
   }
   const joined = resolved.join('/')
   const result = prefix + joined
-  return result || (lower.startsWith('/') ? '/' : '')
+  return result || (normalized.startsWith('/') ? '/' : '')
 }
 
 /**

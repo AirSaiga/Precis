@@ -383,9 +383,12 @@ export const useWorkspaceStore = defineStore('workspace', () => {
   /**
    * 将工作区配置导出为 JSON 字符串（用于调试或备份）
    *
+   * B34 修复：函数原命名 exportConfigAsYAML 但实现是 JSON.stringify，名实不符。
+   * 重命名为 exportConfigAsJSON 以准确反映返回 JSON 字符串的行为。
+   *
    * @returns 格式化后的 JSON 字符串，缩进为 2 个空格
    */
-  function exportConfigAsYAML(): string {
+  function exportConfigAsJSON(): string {
     return JSON.stringify(config.value, null, 2)
   }
 
@@ -502,6 +505,6 @@ export const useWorkspaceStore = defineStore('workspace', () => {
     findDataSourceByPath,
     checkAllDataSourceStatus,
     clearAllDataSources,
-    exportConfigAsYAML,
+    exportConfigAsJSON,
   }
 })

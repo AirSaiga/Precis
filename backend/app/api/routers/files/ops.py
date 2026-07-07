@@ -88,7 +88,11 @@ def scan_directory(request: ScanDirectoryRequest) -> ScanDirectoryResponse:
             name = entry.name
             if request.extensions and not entry.is_dir():
                 ext = os.path.splitext(name)[1].lower()
-                if ext not in request.extensions:
+                # B16 修复：扩展名归一化，允许调用方传 ['csv'] 或 ['.csv'] 均可命中
+                # 过去要求带前导点，传 ['csv'] 会因 '.csv' not in ['csv'] 被全部过滤
+                normalized_exts = {e if e.startswith(".") else f".{e}" for e in request.extensions}
+                normalized_exts_lower = {e.lower() for e in normalized_exts}
+                if ext not in normalized_exts_lower:
                     continue
             entries.append(
                 DirectoryEntry(

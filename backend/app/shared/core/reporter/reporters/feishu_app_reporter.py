@@ -73,8 +73,10 @@ def _validate_webhook_url(url: str) -> None:
         for network in _BLOCKED_NETWORKS:
             if ipaddress.ip_address(hostname) in network:
                 raise ValueError(f"不允许访问内网地址: {hostname}")
-    except ValueError:
-        if "ValueError: 不允许访问内网地址" in str(ValueError):
+    except ValueError as e:
+        # B40 修复：过去用 str(ValueError) 取类本身的字符串（恒为 "<class 'ValueError'>"），
+        # 导致内网地址拦截的 raise 永不执行，SSRF 校验形同虚设。应为 str(e) 取异常消息。
+        if "不允许访问内网地址" in str(e):
             raise
     except Exception:
         pass

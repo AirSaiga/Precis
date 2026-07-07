@@ -124,6 +124,8 @@ def validate_data_with_path(request: ValidationRequest):
             validation_config=request.validation_config,
             column_data_type=request.column_data_type,
             source_config=request.to_source_config(),
+            # B14 修复：透传 allow_unsafe_eval，过去遗漏导致 Path 模式下脚本约束恒为 False
+            allow_unsafe_eval=request.allow_unsafe_eval,
         )
 
         # 记录校验完成状态

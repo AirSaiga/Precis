@@ -31,6 +31,7 @@
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 
 import pandas as pd
@@ -38,6 +39,8 @@ import pandas as pd
 from ..specs.csv_source import CSVSourceSpec
 from .base import DataLoadError, DataSourceLoader
 from .registry import register_loader
+
+logger = logging.getLogger(__name__)
 
 
 @register_loader("csv")
@@ -170,8 +173,9 @@ class CSVLoader(DataSourceLoader[CSVSourceSpec]):
             errors.append(f"文件不存在: {self.spec.path}")
             return errors
 
-        # 检查扩展名
+        # B19 修复：扩展名不符只是警告，不应作为错误返回（过去调用方按 errors 非空判定为失败）。
+        # 非 .csv 扩展名的文件仍可能合法（如 .tsv/.txt 导出的 CSV），仅记录日志。
         if path.suffix.lower() != ".csv":
-            errors.append(f"警告: 文件扩展名不是 .csv: {path.suffix}")
+            logger.warning(f"CSV 加载器收到的文件扩展名不是 .csv: {path.suffix}（路径: {path}），仍按 CSV 尝试解析")
 
         return errors

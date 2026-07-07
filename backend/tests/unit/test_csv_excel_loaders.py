@@ -105,12 +105,15 @@ class TestCSVLoader:
         assert any("不存在" in e for e in errors)
 
     def test_validate_wrong_extension(self, tmp_path):
+        """B19 回归：扩展名不符只是警告（记录日志），不再作为错误返回。
+        过去 warning 被加入 errors 列表，调用方按 errors 非空判定为加载失败。"""
         txt_file = tmp_path / "test.txt"
         txt_file.write_text("a,b\n1,2\n", encoding="utf-8")
         spec = _make_csv_spec(str(txt_file))
         loader = CSVLoader(spec)
         errors = loader.validate()
-        assert any("扩展名" in e for e in errors)
+        # 非 .csv 扩展名不应阻止加载，errors 应为空
+        assert errors == []
 
 
 class TestExcelLoader:
