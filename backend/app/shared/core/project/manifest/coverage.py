@@ -92,9 +92,13 @@ class ManifestCoverage:
     unlisted_schemas: list[CoverageRef]  # 磁盘存在但清单未引用的 schema
     unlisted_constraints: list[CoverageRef]  # 磁盘存在但清单未引用的 constraint
     unlisted_regex_nodes: list[CoverageRef]  # 磁盘存在但清单未引用的 regex
+    unlisted_transforms: list[CoverageRef]  # 磁盘存在但清单未引用的 transform
+    unlisted_manual_data: list[CoverageRef]  # 磁盘存在但清单未引用的 manual_data
     dangling_schemas: list[CoverageRef]  # 清单引用但磁盘缺失的 schema
     dangling_constraints: list[CoverageRef]  # 清单引用但磁盘缺失的 constraint
     dangling_regex_nodes: list[CoverageRef]  # 清单引用但磁盘缺失的 regex
+    dangling_transforms: list[CoverageRef]  # 清单引用但磁盘缺失的 transform
+    dangling_manual_data: list[CoverageRef]  # 清单引用但磁盘缺失的 manual_data
 
 
 def compute_manifest_coverage(config_path: str, manifest: ProjectManifestV2) -> ManifestCoverage:
@@ -136,6 +140,8 @@ def compute_manifest_coverage(config_path: str, manifest: ProjectManifestV2) -> 
     schemas_dir = os.path.join(config_path, "schemas")
     constraints_dir = os.path.join(config_path, "constraints")
     regex_dir = os.path.join(config_path, "regex")
+    transforms_dir = os.path.join(config_path, "transforms")
+    manual_data_dir = os.path.join(config_path, "manual_data")
 
     # ============================================================================
     # 第二步：收集 manifest 中已引用的路径和 ID
@@ -145,6 +151,8 @@ def compute_manifest_coverage(config_path: str, manifest: ProjectManifestV2) -> 
     schema_paths = {normalize_to_posix(r.path or "").lower() for r in (manifest.schemas or [])}
     constraint_ids = {r.id for r in (manifest.constraints or [])}
     regex_ids = {r.id for r in (manifest.regex_nodes or [])}
+    transform_ids = {r.id for r in (manifest.transforms or [])}
+    manual_data_ids = {r.id for r in (manifest.manual_data or [])}
 
     # ============================================================================
     # 第三步：扫描 schemas 目录，找出未入清单的 schema 文件
@@ -212,6 +220,30 @@ def compute_manifest_coverage(config_path: str, manifest: ProjectManifestV2) -> 
     unlisted_regex_nodes.sort(key=lambda r: r.id)
 
     # ============================================================================
+    # 第五步扩展：扫描 transforms 目录，找出未入清单的 transform 文件
+    # ============================================================================
+    unlisted_transforms: list[CoverageRef] = []
+    if os.path.isdir(transforms_dir):
+        for filename in os.listdir(transforms_dir):
+            if filename.lower().endswith(".transform.yaml"):
+                rid = filename[: -len(".transform.yaml")]
+                if rid not in transform_ids:
+                    unlisted_transforms.append(CoverageRef(id=rid, path=f"transforms/{filename}"))
+    unlisted_transforms.sort(key=lambda r: r.id)
+
+    # ============================================================================
+    # 第五步扩展：扫描 manual_data 目录，找出未入清单的 manual_data 文件
+    # ============================================================================
+    unlisted_manual_data: list[CoverageRef] = []
+    if os.path.isdir(manual_data_dir):
+        for filename in os.listdir(manual_data_dir):
+            if filename.lower().endswith(".manual_data.yaml"):
+                rid = filename[: -len(".manual_data.yaml")]
+                if rid not in manual_data_ids:
+                    unlisted_manual_data.append(CoverageRef(id=rid, path=f"manual_data/{filename}"))
+    unlisted_manual_data.sort(key=lambda r: r.id)
+
+    # ============================================================================
     # 第六步：检查 dangling schemas（清单引用但磁盘缺失）
     # ============================================================================
     # 遍历 manifest 中所有 schema 引用，检查对应的文件是否存在于磁盘
@@ -241,15 +273,34 @@ def compute_manifest_coverage(config_path: str, manifest: ProjectManifestV2) -> 
     dangling_regex_nodes.sort(key=lambda r: r.id)
 
     # ============================================================================
+    # 第八步扩展：检查 dangling transforms / manual_data（清单引用但磁盘缺失）
+    # ============================================================================
+    dangling_transforms: list[CoverageRef] = []
+    for transform_ref in manifest.transforms or []:
+        if not os.path.isfile(os.path.join(config_path, transform_ref.path)):
+            dangling_transforms.append(CoverageRef(id=transform_ref.id, path=transform_ref.path))
+    dangling_transforms.sort(key=lambda r: r.id)
+
+    dangling_manual_data: list[CoverageRef] = []
+    for manual_ref in manifest.manual_data or []:
+        if not os.path.isfile(os.path.join(config_path, manual_ref.path)):
+            dangling_manual_data.append(CoverageRef(id=manual_ref.id, path=manual_ref.path))
+    dangling_manual_data.sort(key=lambda r: r.id)
+
+    # ============================================================================
     # 第九步：组装并返回覆盖度结果
     # ============================================================================
     return ManifestCoverage(
         unlisted_schemas=unlisted_schemas,
         unlisted_constraints=unlisted_constraints,
         unlisted_regex_nodes=unlisted_regex_nodes,
+        unlisted_transforms=unlisted_transforms,
+        unlisted_manual_data=unlisted_manual_data,
         dangling_schemas=dangling_schemas,
         dangling_constraints=dangling_constraints,
         dangling_regex_nodes=dangling_regex_nodes,
+        dangling_transforms=dangling_transforms,
+        dangling_manual_data=dangling_manual_data,
     )
 
 
@@ -298,20 +349,28 @@ def coverage_to_api_dict(coverage: ManifestCoverage) -> dict:
             coverage.unlisted_schemas
             or coverage.unlisted_constraints
             or coverage.unlisted_regex_nodes
+            or coverage.unlisted_transforms
+            or coverage.unlisted_manual_data
             or coverage.dangling_schemas
             or coverage.dangling_constraints
             or coverage.dangling_regex_nodes
+            or coverage.dangling_transforms
+            or coverage.dangling_manual_data
         ),
         # 未入清单的资源（磁盘有但清单未引用）
         "unlisted": {
             "schemas": [r.__dict__ for r in coverage.unlisted_schemas],
             "constraints": [r.__dict__ for r in coverage.unlisted_constraints],
             "regex_nodes": [r.__dict__ for r in coverage.unlisted_regex_nodes],
+            "transforms": [r.__dict__ for r in coverage.unlisted_transforms],
+            "manual_data": [r.__dict__ for r in coverage.unlisted_manual_data],
         },
         # 悬空引用的资源（清单引用但磁盘缺失）
         "dangling": {
             "schemas": [r.__dict__ for r in coverage.dangling_schemas],
             "constraints": [r.__dict__ for r in coverage.dangling_constraints],
             "regex_nodes": [r.__dict__ for r in coverage.dangling_regex_nodes],
+            "transforms": [r.__dict__ for r in coverage.dangling_transforms],
+            "manual_data": [r.__dict__ for r in coverage.dangling_manual_data],
         },
     }

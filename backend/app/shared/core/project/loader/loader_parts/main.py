@@ -235,18 +235,37 @@ def load_project(
                 params=instance.params,
                 input_from_node=instance.input_from_node,
             )
+
+            # B05 修复：模板展开后 ID 冲突时记录警告（而非静默覆盖），
+            # 但保留覆盖行为以兼容历史项目（部分项目依赖模板实例间 ID 复用）。
+            # 记录为 warning 而非 blocker，避免阻断正常加载流程。
+            def _record_id_conflict(kind: str, conflicted_id: str, owner: dict) -> None:
+                warnings.append(
+                    f"模板实例 '{instance.id}' 展开产生 ID 冲突：{kind} '{conflicted_id}' 已被其他模板实例占用，"
+                    f"当前实例的内容将覆盖（来源：{owner.get('id', '?')}）。"
+                )
+
             for tf in t_list:
+                if tf.id in transform_files:
+                    _record_id_conflict("transform", tf.id, {"id": instance.id})
                 transform_files[tf.id] = tf
             for cf in c_list:
+                if cf.id in constraint_files:
+                    _record_id_conflict("constraint", cf.id, {"id": instance.id})
                 constraint_files[cf.id] = cf
             for rf in r_list:
+                if rf.id in regex_files:
+                    _record_id_conflict("regex", rf.id, {"id": instance.id})
                 regex_files[rf.id] = rf
             for mf in m_list:
+                if mf.id in manual_data_files:
+                    _record_id_conflict("manual_data", mf.id, {"id": instance.id})
                 manual_data_files[mf.id] = mf
         except Exception as e:
             loading_errors.append(
                 LoadingError(
                     error_type="TemplateExpansionError",
+                    file_path=str(manifest_file),
                     ref_id=instance.id,
                     **loading_error_messages.template_expansion_error(instance.id, e),
                 )

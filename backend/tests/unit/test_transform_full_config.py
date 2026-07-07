@@ -230,14 +230,14 @@ class TestMergeManifestReferencesTransforms:
             transforms=[TransformRefV2(id="old_t", path="transforms/old_t.transform.yaml")],
         )
 
-        payload = FullConfigV2Request(
-            manifest=ProjectManifestV2(
-                version=2,
-                project=ProjectInfoV2(id="test", name="test"),
-                settings=ProjectSettingsV2(),
-                transforms=[],  # 空
-            ),
+        # B03 修复后：transforms 字段必须"未显式设置"才会触发合并。
+        # 使用 model_construct 跳过默认值填充，保持 model_fields_set 为空。
+        payload_manifest = ProjectManifestV2.model_construct(
+            version=2,
+            project=ProjectInfoV2(id="test", name="test"),
+            settings=ProjectSettingsV2(),
         )
+        payload = FullConfigV2Request.model_construct(manifest=payload_manifest)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             result = _merge_manifest_references(payload, existing_manifest, tmpdir)
@@ -246,17 +246,17 @@ class TestMergeManifestReferencesTransforms:
         assert result.transforms[0].id == "old_t"
 
     def test_scans_transforms_directory(self):
-        """验证 manifest 和 payload 都为空时扫描 transforms/ 目录"""
+        """验证 manifest 和 payload 都未设置 transforms 时扫描 transforms/ 目录"""
         from app.api.routers.project.full_config_writer import _merge_manifest_references
 
-        payload = FullConfigV2Request(
-            manifest=ProjectManifestV2(
-                version=2,
-                project=ProjectInfoV2(id="test", name="test"),
-                settings=ProjectSettingsV2(),
-                transforms=[],
-            ),
+        # B03 修复后：transforms 未显式设置才会触发目录扫描。
+        # 显式置为 [] 表示"清空"，不再扫描。
+        payload_manifest = ProjectManifestV2.model_construct(
+            version=2,
+            project=ProjectInfoV2(id="test", name="test"),
+            settings=ProjectSettingsV2(),
         )
+        payload = FullConfigV2Request.model_construct(manifest=payload_manifest)
 
         with tempfile.TemporaryDirectory() as tmpdir:
             # 创建模拟的 transform 文件
@@ -272,6 +272,33 @@ class TestMergeManifestReferencesTransforms:
         assert len(result.transforms) == 1
         assert result.transforms[0].id == "auto_discovered"
         assert result.transforms[0].path == "transforms/auto_discovered.transform.yaml"
+
+    def test_explicit_empty_transforms_clears_references(self):
+        """B03 回归：显式设置 transforms=[] 应清空现有引用，而非合并。"""
+        from app.api.routers.project.full_config_writer import _merge_manifest_references
+
+        existing_manifest = ProjectManifestV2(
+            version=2,
+            project=ProjectInfoV2(id="test", name="test"),
+            settings=ProjectSettingsV2(),
+            transforms=[TransformRefV2(id="old_t", path="transforms/old_t.transform.yaml")],
+        )
+
+        # 显式设置 transforms=[]（用户意图：清空）
+        payload = FullConfigV2Request(
+            manifest=ProjectManifestV2(
+                version=2,
+                project=ProjectInfoV2(id="test", name="test"),
+                settings=ProjectSettingsV2(),
+                transforms=[],
+            ),
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            result = _merge_manifest_references(payload, existing_manifest, tmpdir)
+
+        # 显式置空应被尊重：transforms 为空，不合并现有
+        assert len(result.transforms) == 0
 
 
 class TestGetV2FullConfigTransforms:

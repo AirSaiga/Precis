@@ -27,9 +27,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import TYPE_CHECKING, Any
 
 from ..schema.types_parts.column_utils import build_column_id_to_name_map
+
+logger = logging.getLogger(__name__)
 
 # 导入约束注册表和工具函数，用于根据类型名称查找约束类并过滤参数
 from .registry import filter_kwargs_for_class, normalize_constraint_type, resolve_constraint_class
@@ -290,25 +293,30 @@ def create_constraint(
     elif type_name == "Composite":
         sub_configs = params.get("sub_constraints", [])
         sub_constraints = []
+        sub_errors: list[str] = []
         for sub_cfg in sub_configs:
             sub_type = normalize_constraint_type(sub_cfg.get("type", ""))
             if sub_type == "Composite":
                 # 禁止递归嵌套 Composite
                 continue
-            sub_file = ConstraintFile.model_construct(
-                version=sub_cfg.get("version", 2),
-                id=sub_cfg.get("id", ""),
-                type=sub_cfg.get("type", ""),
-                enabled=sub_cfg.get("enabled", True),
-                description=sub_cfg.get("description"),
-                refs=sub_cfg.get("refs", {}),
-                params=sub_cfg.get("params", {}),
-                input_from_node=sub_cfg.get("input_from_node"),
-            )
+            # 使用 model_validate 正常构造（执行 Pydantic 校验），
+            # 过去用 model_construct 跳过校验导致非法子约束被静默接受
+            try:
+                sub_file = ConstraintFile.model_validate(sub_cfg)
+            except Exception as e:
+                sub_errors.append(f"子约束 '{sub_cfg.get('id', '?')}' 配置非法: {e}")
+                continue
             sub_constraint, sub_error = create_constraint(sub_file, schema_files)
             if sub_constraint is not None:
                 sub_constraints.append(sub_constraint)
-            # sub_error 为 None 时可能是未启用，忽略即可
+            elif sub_error is not None:
+                # 收集子错误而非静默忽略（过去注释"忽略即可"掩盖了真实问题）
+                sub_errors.append(f"子约束 '{sub_file.id}' 创建失败: {sub_error}")
+            # sub_error 为 None 且 sub_constraint 为 None：未启用，正常跳过
+
+        if sub_errors:
+            # 子错误聚合为一条警告，随主约束返回（通过 warnings 机制向上传播）
+            logger.warning(f"Composite 约束 '{const.id}' 子约束存在错误: {'; '.join(sub_errors)}")
 
         kwargs["sub_constraints"] = sub_constraints
         kwargs["logic"] = params.get("logic", "all")

@@ -42,8 +42,9 @@ def _merge_manifest_references(
 ) -> ProjectManifestV2:
     """合并 manifest 引用。
 
-    如果 payload 中的某类资源为空，保留现有 manifest 中的同类引用。
-    同时从目录扫描补充缺失的资源引用。
+    合并策略：对于客户端**未显式设置**的资源字段，保留现有 manifest 中的同类引用；
+    对于显式设置的字段（即使设为空列表 []），遵从客户端意图（允许清空）。
+    通过 model_fields_set 区分"未提供"与"显式置空"。
 
     Args:
         payload: 全量配置请求
@@ -54,24 +55,38 @@ def _merge_manifest_references(
         合并后的最终 manifest
     """
     final_manifest = payload.manifest
+    # 客户端显式设置的字段集合（区分"未提供"与"显式置空 []"）
+    set_fields = payload.manifest.model_fields_set
 
-    if not payload.manifest.schemas and existing_manifest and existing_manifest.schemas:
+    def _should_merge(field: str) -> bool:
+        """字段未被客户端显式设置，且现有 manifest 有值时才合并。"""
+        return field not in set_fields and existing_manifest is not None and bool(getattr(existing_manifest, field))
+
+    if _should_merge("schemas"):
         logger.info(f"[put_v2_full_config] 合并现有 schemas: {len(existing_manifest.schemas)} 个")
-        final_manifest = payload.manifest.model_copy(update={"schemas": existing_manifest.schemas})
+        final_manifest = final_manifest.model_copy(update={"schemas": existing_manifest.schemas})
 
-    if not payload.manifest.constraints and existing_manifest and existing_manifest.constraints:
+    if _should_merge("constraints"):
         final_manifest = final_manifest.model_copy(update={"constraints": existing_manifest.constraints})
 
-    if not (payload.manifest.regex_nodes or []) and existing_manifest and existing_manifest.regex_nodes:
+    if _should_merge("regex_nodes"):
         final_manifest = final_manifest.model_copy(update={"regex_nodes": existing_manifest.regex_nodes})
 
-    if not (payload.manifest.transforms or []) and existing_manifest and existing_manifest.transforms:
+    if _should_merge("transforms"):
         final_manifest = final_manifest.model_copy(update={"transforms": existing_manifest.transforms})
 
-    if not (payload.manifest.manual_data or []) and existing_manifest and existing_manifest.manual_data:
+    if _should_merge("manual_data"):
         final_manifest = final_manifest.model_copy(update={"manual_data": existing_manifest.manual_data})
 
-    if not final_manifest.schemas:
+    if _should_merge("data_sources"):
+        final_manifest = final_manifest.model_copy(update={"data_sources": existing_manifest.data_sources})
+
+    # 目录扫描补充：仅对客户端"未显式设置"且当前为空的字段从磁盘发现文件，
+    # 显式置空 [] 的字段不会被目录扫描覆盖（尊重用户清空意图）
+    def _should_scan(field: str) -> bool:
+        return field not in set_fields and not bool(getattr(final_manifest, field))
+
+    if _should_scan("schemas"):
         schemas_dir = os.path.join(config_path, "schemas")
         if os.path.isdir(schemas_dir):
             schema_refs = []
@@ -83,7 +98,7 @@ def _merge_manifest_references(
                 logger.info(f"[put_v2_full_config] 从 schemas/ 目录扫描到 {len(schema_refs)} 个 schema 文件")
                 final_manifest = final_manifest.model_copy(update={"schemas": schema_refs})
 
-    if not final_manifest.constraints:
+    if _should_scan("constraints"):
         constraints_dir = os.path.join(config_path, "constraints")
         if os.path.isdir(constraints_dir):
             constraint_refs = []
@@ -97,7 +112,7 @@ def _merge_manifest_references(
                 )
                 final_manifest = final_manifest.model_copy(update={"constraints": constraint_refs})
 
-    if not (final_manifest.regex_nodes or []):
+    if _should_scan("regex_nodes"):
         regex_dirs = [os.path.join(config_path, "regex"), os.path.join(config_path, "regex_nodes")]
         seen_regex_ids = set()
         regex_refs: list[RegexNodeRefV2] = []
@@ -116,7 +131,7 @@ def _merge_manifest_references(
             logger.info(f"[put_v2_full_config] 从 regex/ 目录扫描到 {len(regex_refs)} 个 regex 文件")
             final_manifest = final_manifest.model_copy(update={"regex_nodes": regex_refs})
 
-    if not (final_manifest.transforms or []):
+    if _should_scan("transforms"):
         transforms_dir = os.path.join(config_path, "transforms")
         if os.path.isdir(transforms_dir):
             transform_refs = []
@@ -128,7 +143,7 @@ def _merge_manifest_references(
                 logger.info(f"[put_v2_full_config] 从 transforms/ 目录扫描到 {len(transform_refs)} 个 transform 文件")
                 final_manifest = final_manifest.model_copy(update={"transforms": transform_refs})
 
-    if not (final_manifest.manual_data or []):
+    if _should_scan("manual_data"):
         manual_data_dir = os.path.join(config_path, "manual_data")
         if os.path.isdir(manual_data_dir):
             manual_data_refs = []

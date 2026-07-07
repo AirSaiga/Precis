@@ -213,12 +213,18 @@ def put_v2_manifest(
             merged_schemas = manifest.schemas.copy() if manifest.schemas else []
             merged_constraints = manifest.constraints.copy() if manifest.constraints else []
             merged_regex_nodes = manifest.regex_nodes.copy() if manifest.regex_nodes else []
+            merged_transforms = manifest.transforms.copy() if manifest.transforms else []
+            merged_manual_data = manifest.manual_data.copy() if manifest.manual_data else []
+            merged_data_sources = manifest.data_sources.copy() if manifest.data_sources else []
             merged_templates = manifest.templates.copy() if manifest.templates else []
             merged_template_instances = manifest.template_instances.copy() if manifest.template_instances else []
 
             existing_schema_ids = {s.id for s in merged_schemas}
             existing_constraint_ids = {c.id for c in merged_constraints}
             existing_regex_ids = {r.id for r in merged_regex_nodes}
+            existing_transform_ids = {t.id for t in merged_transforms}
+            existing_manual_data_ids = {m.id for m in merged_manual_data}
+            existing_data_source_ids = {d.id for d in merged_data_sources}
             existing_template_ids = {t.id for t in merged_templates}
             existing_instance_ids = {ti.id for ti in merged_template_instances}
 
@@ -233,6 +239,18 @@ def put_v2_manifest(
             for r in existing_manifest.regex_nodes or []:
                 if r.id not in existing_regex_ids:
                     merged_regex_nodes.append(r)
+
+            for t in existing_manifest.transforms or []:
+                if t.id not in existing_transform_ids:
+                    merged_transforms.append(t)
+
+            for m in existing_manifest.manual_data or []:
+                if m.id not in existing_manual_data_ids:
+                    merged_manual_data.append(m)
+
+            for d in existing_manifest.data_sources or []:
+                if d.id not in existing_data_source_ids:
+                    merged_data_sources.append(d)
 
             for t in existing_manifest.templates or []:
                 if t.id not in existing_template_ids:
@@ -249,8 +267,9 @@ def put_v2_manifest(
                 schemas=merged_schemas,
                 constraints=merged_constraints,
                 regex_nodes=merged_regex_nodes,
-                transforms=manifest.transforms,
-                data_sources=manifest.data_sources,
+                transforms=merged_transforms,
+                manual_data=merged_manual_data,
+                data_sources=merged_data_sources,
                 templates=merged_templates,
                 template_instances=merged_template_instances,
                 patterns_dir=manifest.patterns_dir,
