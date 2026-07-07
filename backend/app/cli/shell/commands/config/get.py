@@ -23,6 +23,7 @@ import os
 
 import yaml
 
+from app.cli.shared_services.config_ops import get_by_dotpath
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
 
@@ -76,14 +77,10 @@ class ConfigGetCommand(Command):
             if data is None:
                 return CommandResult.error("配置文件为空")
 
-            # 按点号路径查找值
-            keys = key_path.split(".")
-            value = data
-            for key in keys:
-                if isinstance(value, dict) and key in value:
-                    value = value[key]
-                else:
-                    return CommandResult.error(f"配置项不存在: {key_path}")
+            # 按点号路径查找值（委托 shared_services 纯逻辑，CLI/TUI 同源）
+            found, value = get_by_dotpath(data, key_path)
+            if not found:
+                return CommandResult.error(f"配置项不存在: {key_path}")
 
             # 格式化输出
             if isinstance(value, (dict, list)):

@@ -9,7 +9,8 @@
 
 架构设计:
 - PROJECT_TEMPLATE/CONSTRAINT_TEMPLATE/PATTERNS_TEMPLATE: 字符串模板常量
-- find_config_file(): 安全的配置文件查找函数，防止路径穿越攻击
+- find_config_file(): 委托 shared_services.config_ops.find_config_file（CLI/TUI 同源），
+  本模块保留为向后兼容入口，供其他子命令直接 import
 
 输入示例:
     find_config_file("/project", "project.precis.yaml")
@@ -17,10 +18,6 @@
 输出示例:
     "/project/project.precis.yaml"
 """
-
-import os
-
-from app.shared.core.utils.path_utils import paths_equal
 
 # 配置模板
 PROJECT_TEMPLATE = """# Precis 项目配置文件
@@ -87,8 +84,8 @@ patterns:
 def find_config_file(project_path: str, filename: str) -> str | None:
     """查找配置文件。
 
-    首先尝试直接拼接路径，如果失败则在项目目录下递归查找。
-    包含路径穿越防护，验证输入路径的合法性。
+    委托 shared_services.config_ops.find_config_file（CLI/TUI 同源），
+    含路径穿越防护与递归查找。本函数保留为向后兼容入口，避免破坏其他子命令 import。
 
     Args:
         project_path: 项目根目录路径
@@ -96,58 +93,7 @@ def find_config_file(project_path: str, filename: str) -> str | None:
 
     Returns:
         文件的完整路径，如果未找到则返回 None
-
-    Security:
-        - 验证 project_path 是合法目录
-        - 验证 filename 不包含路径分隔符或父目录引用
-        - 解析后的文件路径必须在 project_path 范围内
     """
-    # 验证 project_path 是合法目录
-    if not project_path or not isinstance(project_path, str):
-        return None
+    from app.cli.shared_services.config_ops import find_config_file as _find_config_file
 
-    project_path = os.path.realpath(project_path)
-    if not os.path.isdir(project_path):
-        return None
-
-    # 验证 filename 不包含危险字符（路径穿越防护）
-    if not filename or not isinstance(filename, str):
-        return None
-
-    # 禁止绝对路径和父目录引用
-    if os.path.isabs(filename):
-        return None
-    if ".." in filename or filename.startswith("~"):
-        return None
-
-    # 首先尝试直接路径
-    direct_path = os.path.normpath(os.path.join(project_path, filename))
-
-    # 确保解析后的路径在项目目录范围内
-    if not direct_path.startswith(project_path):
-        return None
-
-    if os.path.isfile(direct_path):
-        return direct_path
-
-    # 如果直接路径不存在，递归查找
-    for root, _, files in os.walk(project_path):
-        # 跳过隐藏目录
-        if any(part.startswith(".") for part in root.split(os.sep)):
-            continue
-        # 检查文件名是否匹配
-        if os.path.basename(filename) in files:
-            full_path = os.path.join(root, os.path.basename(filename))
-            # 验证找到的完整路径在项目范围内
-            if os.path.realpath(full_path).startswith(project_path):
-                return full_path
-        # 也检查完整路径匹配
-        for f in files:
-            rel_path = os.path.relpath(os.path.join(root, f), project_path)
-            if paths_equal(rel_path, filename):
-                full_path = os.path.join(root, f)
-                # 验证找到的完整路径在项目范围内
-                if os.path.realpath(full_path).startswith(project_path):
-                    return full_path
-
-    return None
+    return _find_config_file(project_path, filename)

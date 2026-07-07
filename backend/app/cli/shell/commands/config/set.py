@@ -21,12 +21,11 @@
     CommandResult.error("配置文件不存在: project.precis.yaml")
 """
 
-import logging
 import os
-from typing import Any
 
 import yaml
 
+from app.cli.shared_services.config_ops import parse_config_value, set_by_dotpath
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
 
@@ -79,17 +78,12 @@ class ConfigSetCommand(Command):
             with open(config_path, encoding="utf-8") as f:
                 data = yaml.safe_load(f) or {}
 
-            # 解析值（尝试转换为合适的类型）
-            value = self._parse_value(value_str)
+            # 解析值（委托 shared_services 纯逻辑，CLI/TUI 同源）
+            # parse_config_value 始终成功返回三元组，行为与原 _parse_value 一致
+            value = parse_config_value(value_str)[1]
 
-            # 按点号路径设置值
-            keys = key_path.split(".")
-            current = data
-            for key in keys[:-1]:
-                if key not in current:
-                    current[key] = {}
-                current = current[key]
-            current[keys[-1]] = value
+            # 按点号路径设置值（委托 shared_services 纯逻辑，返回新 dict 不改原 data）
+            data = set_by_dotpath(data, key_path, value)
 
             # 写回文件
             with open(config_path, "w", encoding="utf-8") as f:
@@ -101,58 +95,3 @@ class ConfigSetCommand(Command):
             return CommandResult.error(f"YAML 解析失败: {e}")
         except Exception as e:
             return CommandResult.error(f"写入失败: {e}")
-
-    def _parse_value(self, value_str: str) -> Any:
-        """解析字符串值为合适的类型。
-
-        按以下顺序尝试转换：
-        1. 布尔值（true/false）
-        2. null（null/none）
-        3. 整数
-        4. 浮点数
-        5. 去除引号的字符串
-        6. YAML 列表或字典
-        7. 原样字符串
-
-        Args:
-            value_str: 原始字符串值
-
-        Returns:
-            转换后的 Python 对象
-        """
-        # 尝试布尔值
-        if value_str.lower() == "true":
-            return True
-        if value_str.lower() == "false":
-            return False
-        if value_str.lower() == "null" or value_str.lower() == "none":
-            return None
-
-        # 尝试整数
-        try:
-            return int(value_str)
-        except ValueError:
-            logging.error("解析整数值失败", exc_info=True)
-
-        # 尝试浮点数
-        try:
-            return float(value_str)
-        except ValueError:
-            logging.error("解析浮点数值失败", exc_info=True)
-
-        # 去除引号
-        if (value_str.startswith('"') and value_str.endswith('"')) or (
-            value_str.startswith("'") and value_str.endswith("'")
-        ):
-            return value_str[1:-1]
-
-        # 尝试 YAML 列表或对象
-        try:
-            parsed = yaml.safe_load(value_str)
-            if isinstance(parsed, (list, dict)):
-                return parsed
-        except Exception:
-            logging.error("解析YAML值失败", exc_info=True)
-
-        # 默认返回字符串
-        return value_str

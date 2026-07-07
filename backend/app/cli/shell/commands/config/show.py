@@ -24,6 +24,7 @@ import os
 
 import yaml
 
+from app.cli.shared_services.config_ops import load_config_content
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.commands.config.base import find_config_file
 from app.cli.shell.formatter import Formatter
@@ -84,15 +85,15 @@ class ConfigShowCommand(Command):
             config_path = os.path.join(project_path, config_file)
             if os.path.isfile(config_path):
                 output_lines.append(f"\n{Formatter.info('--- ' + config_file + ' ---')}")
-                try:
-                    with open(config_path, encoding="utf-8") as f:
-                        content = yaml.safe_load(f)
-                        if content:
-                            output_lines.append(yaml.dump(content, allow_unicode=True, default_flow_style=False))
-                        else:
-                            output_lines.append("(空文件)")
-                except Exception as e:
-                    output_lines.append(f"(读取失败: {e})")
+                # 读单个配置文件内容（委托 shared_services 纯逻辑，CLI/TUI 同源）
+                content = load_config_content(project_path, config_file)
+                if isinstance(content, dict):
+                    output_lines.append(yaml.dump(content, allow_unicode=True, default_flow_style=False))
+                elif isinstance(content, list):
+                    output_lines.append(yaml.dump(content, allow_unicode=True, default_flow_style=False))
+                else:
+                    # 字符串：空文件或读取失败描述
+                    output_lines.append(content)
 
         return CommandResult.ok("\n".join(output_lines))
 

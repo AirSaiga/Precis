@@ -10,7 +10,7 @@
 架构设计:
 - AIMigrateCommand 继承 Command 基类
 - 直接调用 ConfigMigrationService，不依赖后端 HTTP
-- 写盘逻辑复用 generate 模块的 _apply_generated_config
+- 写盘逻辑委托 shared_services.generation_ops.apply_generated_config（CLI/TUI 同源）
 
 输入示例:
     precis> ai migrate scripts/legacy_rules.sql data/users.xlsx
@@ -28,7 +28,12 @@ import os
 from pathlib import Path
 from typing import Any
 
-from app.cli.shell.commands.ai.generate import SUPPORTED_EXTENSIONS, _apply_generated_config
+from app.cli.shared_services.generation_ops import (
+    SUPPORTED_EXTENSIONS,
+)
+from app.cli.shared_services.generation_ops import (
+    apply_generated_config as _apply_generated_config,
+)
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.formatter import Formatter
 from app.shared.services.ai.migrate_service import ConfigMigrationService

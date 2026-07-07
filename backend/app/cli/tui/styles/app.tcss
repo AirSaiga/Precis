@@ -1,0 +1,20 @@
+/* Precis TUI 全局样式表
+ *
+ * 本文件定义 PrecisTUIApp 的基础外观。P0a 仅提供最小样式（Header/Footer
+ * 着色与默认间距），P6 阶段会补齐各屏、组件的精细样式。
+ *
+ * Textual 的 TCSS 语法类似 CSS，详细见 Textual 官方文档。
+ */
+
+Screen {
+    background: $surface;
+    color: $text;
+}
+
+Header {
+    dock: top;
+}
+
+Footer {
+    dock: bottom;
+}

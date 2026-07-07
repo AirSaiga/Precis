@@ -90,7 +90,7 @@ class TestOpenCommand:
         原 '缺少项目路径参数' 的行为已改为方案A（交互选择）。
         """
         # 隔离历史文件为空，确保进入"空历史"分支而非阻塞在 readchar
-        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        monkeypatch.setattr("app.cli.shared_services.project_ops.HISTORY_FILE", str(tmp_path / "history.json"))
         cmd = OpenCommand()
         result = cmd.execute([], ProjectContext())
         assert result.success is True
@@ -112,7 +112,7 @@ class TestOpenCommand:
 
     def test_open_sets_context_project_path(self, tmp_path, monkeypatch):
         # 隔离历史文件，避免测试污染真实的 ~/.precis_project_history
-        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        monkeypatch.setattr("app.cli.shared_services.project_ops.HISTORY_FILE", str(tmp_path / "history.json"))
         proj = tmp_path / "proj"
         proj.mkdir()
         cmd = OpenCommand()
@@ -123,7 +123,7 @@ class TestOpenCommand:
         assert ctx.project_path == str(proj.resolve())
 
     def test_open_detects_manifest(self, tmp_path, monkeypatch):
-        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        monkeypatch.setattr("app.cli.shared_services.project_ops.HISTORY_FILE", str(tmp_path / "history.json"))
         proj = tmp_path / "proj"
         proj.mkdir()
         (proj / "project.precis.yaml").write_text("project: {id: x, name: x}\n", encoding="utf-8")
@@ -134,7 +134,7 @@ class TestOpenCommand:
 
     def test_open_loads_manifest_into_context(self, tmp_path, monkeypatch):
         """打开项目时应加载清单到 ctx.project_config，使提示符能显示真实项目名。"""
-        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        monkeypatch.setattr("app.cli.shared_services.project_ops.HISTORY_FILE", str(tmp_path / "history.json"))
         proj = tmp_path / "proj"
         proj.mkdir()
         (proj / "project.precis.yaml").write_text(
@@ -150,7 +150,7 @@ class TestOpenCommand:
 
     def test_open_manifest_parse_failure_does_not_block(self, tmp_path, monkeypatch):
         """清单存在但格式非法时，不应阻断项目切换，仅给出警告并清空配置。"""
-        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        monkeypatch.setattr("app.cli.shared_services.project_ops.HISTORY_FILE", str(tmp_path / "history.json"))
         proj = tmp_path / "proj"
         proj.mkdir()
         # 缺少必填 project 字段 → load_manifest 校验失败
@@ -167,7 +167,7 @@ class TestOpenCommand:
 
     def test_open_real_qa_simple_loads_config(self, tmp_path, monkeypatch):
         """针对仓库内置 qa_simple 项目验证真实清单加载。"""
-        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        monkeypatch.setattr("app.cli.shared_services.project_ops.HISTORY_FILE", str(tmp_path / "history.json"))
         if not QA_SIMPLE_ROOT.exists():
             pytest.skip("qa_simple 测试项目不存在")
         cmd = OpenCommand()
@@ -191,7 +191,7 @@ class TestOpenCommand:
     def test_open_no_args_opens_selected_from_history(self, tmp_path, monkeypatch):
         """无参数时弹出菜单，选中后打开对应项目。"""
         # 隔离历史文件
-        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        monkeypatch.setattr("app.cli.shared_services.project_ops.HISTORY_FILE", str(tmp_path / "history.json"))
 
         # 准备一个真实可打开的项目目录
         proj = tmp_path / "proj"
@@ -201,7 +201,7 @@ class TestOpenCommand:
         )
 
         # 写入历史（顺序：最新在前）
-        from app.cli.shell.commands.open import _save_history
+        from app.cli.shared_services.project_ops import _save_history
 
         _save_history([{"path": str(proj), "last_opened": None}])
 
@@ -223,11 +223,11 @@ class TestOpenCommand:
 
     def test_open_no_args_cancel_does_not_open(self, tmp_path, monkeypatch):
         """用户在菜单中取消时返回提示，不打开任何项目。"""
-        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        monkeypatch.setattr("app.cli.shared_services.project_ops.HISTORY_FILE", str(tmp_path / "history.json"))
 
         proj = tmp_path / "proj"
         proj.mkdir()
-        from app.cli.shell.commands.open import _save_history
+        from app.cli.shared_services.project_ops import _save_history
 
         _save_history([{"path": str(proj), "last_opened": None}])
 
@@ -250,13 +250,13 @@ class TestOpenCommand:
 
     def test_open_by_index_opens_nth(self, tmp_path, monkeypatch):
         """open 1 打开历史第 1 项（最新）。"""
-        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        monkeypatch.setattr("app.cli.shared_services.project_ops.HISTORY_FILE", str(tmp_path / "history.json"))
 
         proj1 = tmp_path / "proj1"
         proj1.mkdir()
         proj2 = tmp_path / "proj2"
         proj2.mkdir()
-        from app.cli.shell.commands.open import _save_history
+        from app.cli.shared_services.project_ops import _save_history
 
         # 历史顺序：proj2 最新（第 1 项），proj1 次之（第 2 项）
         _save_history(
@@ -280,11 +280,11 @@ class TestOpenCommand:
 
     def test_open_by_index_out_of_range_errors(self, tmp_path, monkeypatch):
         """序号越界时报错并提示总数。"""
-        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        monkeypatch.setattr("app.cli.shared_services.project_ops.HISTORY_FILE", str(tmp_path / "history.json"))
 
         proj = tmp_path / "proj"
         proj.mkdir()
-        from app.cli.shell.commands.open import _save_history
+        from app.cli.shared_services.project_ops import _save_history
 
         _save_history([{"path": str(proj), "last_opened": None}])
 
@@ -297,7 +297,7 @@ class TestOpenCommand:
 
     def test_open_by_index_empty_history_errors(self, tmp_path, monkeypatch):
         """无历史时按序号打开应报错提示。"""
-        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        monkeypatch.setattr("app.cli.shared_services.project_ops.HISTORY_FILE", str(tmp_path / "history.json"))
 
         cmd = OpenCommand()
         ctx = ProjectContext()
@@ -307,7 +307,7 @@ class TestOpenCommand:
 
     def test_open_relative_path_not_treated_as_index(self, tmp_path, monkeypatch):
         """回归：open ./1 这类相对路径不应被当成序号（'./1'.isdigit() 为 False）。"""
-        monkeypatch.setattr("app.cli.shell.commands.open.HISTORY_FILE", str(tmp_path / "history.json"))
+        monkeypatch.setattr("app.cli.shared_services.project_ops.HISTORY_FILE", str(tmp_path / "history.json"))
 
         # 创建名为 "1" 的子目录，从 tmp_path 切过去用相对路径打开
         target = tmp_path / "1"

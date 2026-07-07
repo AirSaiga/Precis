@@ -19,10 +19,7 @@
     配置文件列表表格
 """
 
-import logging
-import os
-from typing import Any
-
+from app.cli.shared_services.config_ops import list_config_files
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.formatter import Formatter
 
@@ -58,48 +55,19 @@ class ConfigListCommand(Command):
         if project_path is None:
             return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
 
-        # 查找所有 YAML 配置文件
-        config_files: list[dict[str, Any]] = []
-        for f in os.listdir(project_path):
-            if f.endswith((".yaml", ".yml")):
-                config_path = os.path.join(project_path, f)
-                try:
-                    stat = os.stat(config_path)
-                    size = stat.st_size
-                    config_files.append({"name": f, "size": size, "path": config_path})
-                except Exception:
-                    logging.error("获取文件信息失败", exc_info=True)
-
-        # 递归查找 schemas 和 constraints 目录
-        subdirs = ["schemas", "constraints", "patterns", "regex"]
-        for subdir in subdirs:
-            subdir_path = os.path.join(project_path, subdir)
-            if os.path.isdir(subdir_path):
-                for root, _, files in os.walk(subdir_path):
-                    for f in files:
-                        if f.endswith((".yaml", ".yml")):
-                            rel_path = os.path.relpath(os.path.join(root, f), project_path)
-                            config_path = os.path.join(root, f)
-                            try:
-                                stat = os.stat(config_path)
-                                size = stat.st_size
-                                config_files.append({"name": rel_path, "size": size, "path": config_path})
-                            except Exception:
-                                pass
+        # 扫描配置文件（委托 shared_services 纯逻辑，CLI/TUI 同源）
+        config_files = list_config_files(project_path)
 
         if not config_files:
             return CommandResult.ok("暂无配置文件")
-
-        # 按名称排序
-        config_files.sort(key=lambda x: x["name"])
 
         output_lines = [Formatter.header("\n配置文件列表:")]
         output_lines.append(f"{'文件名':<40} {'大小':>10}")
         output_lines.append("-" * 52)
 
         for cf in config_files:
-            size_str = self._format_size(cf["size"])
-            output_lines.append(f"{cf['name']:<40} {size_str:>10}")
+            size_str = self._format_size(cf.size)
+            output_lines.append(f"{cf.name:<40} {size_str:>10}")
 
         output_lines.append(f"\n共 {len(config_files)} 个配置文件")
         return CommandResult.ok("\n".join(output_lines))

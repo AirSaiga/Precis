@@ -25,10 +25,10 @@
 
 import os
 
-import yaml
 from rich.console import Console
 from rich.syntax import Syntax
 
+from app.cli.shared_services.config_ops import YamlCheckResult, check_yaml_syntax
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.commands.config.base import find_config_file
 from app.cli.shell.formatter import _supports_unicode
@@ -153,6 +153,9 @@ class ConfigCheckCommand(Command):
     def _check_file(self, config_path: str) -> tuple[bool, str | None]:
         """检查文件，返回 (是否有效, 错误信息)。
 
+        语法检查与错误收集委托 shared_services.check_yaml_syntax（纯逻辑），
+        rich.Syntax 高亮等渲染留在本类 _render_yaml_error。
+
         Args:
             config_path: 文件的完整路径
 
@@ -164,42 +167,38 @@ class ConfigCheckCommand(Command):
         try:
             with open(config_path, encoding="utf-8") as f:
                 content = f.read()
-
-            # 尝试解析 YAML
-            yaml.safe_load(content)
-            return True, None
-
-        except yaml.YAMLError as e:
-            # YAML 语法错误，格式化友好的错误信息
-            error_msg = self._format_yaml_error(e, filename, content)
-            return False, error_msg
-
         except Exception as e:
             return False, f"读取文件失败: {e}"
 
-    def _format_yaml_error(self, error: yaml.YAMLError, filename: str, content: str) -> str:
-        """格式化 YAML 错误为友好的提示信息。
+        # 语法检查 + 错误收集委托 shared_services（CLI/TUI 同源）
+        result = check_yaml_syntax(content, filename)
+        if result.valid:
+            return True, None
+        # 渲染部分留在 CLI 层（rich.Syntax 高亮是 CLI 专属 UI）
+        return False, self._render_yaml_error(result, content)
+
+    def _render_yaml_error(self, result: YamlCheckResult, content: str) -> str:
+        """渲染 YAML 检查结果为友好提示（CLI 专属 UI）。
+
+        纯逻辑（错误位置/问题/建议收集）已由 shared_services.check_yaml_syntax 完成，
+        本方法只负责 rich.Syntax 高亮与文本拼接。
 
         Args:
-            error: YAML 解析异常
-            filename: 文件名
-            content: 文件原始内容
+            result: check_yaml_syntax 返回的纯逻辑结果
+            content: 文件原始内容（用于 rich.Syntax 高亮取行）
 
         Returns:
             格式化的错误提示字符串
         """
-        lines = []
+        lines: list[str] = []
         content_lines = content.split("\n")
 
-        # 获取错误位置
-        problem_mark = getattr(error, "problem_mark", None)
-        if problem_mark:
-            error_line_no = problem_mark.line  # 0-based
-            error_col = problem_mark.column
+        # 位置
+        if result.line_no is not None:
+            lines.append(f"位置: 第 {result.line_no} 行")
 
-            lines.append(f"位置: 第 {error_line_no + 1} 行")
-
-            # 使用 rich.syntax 高亮代码片段
+            # 使用 rich.syntax 高亮代码片段（行号 0-based 用于 highlight_lines）
+            error_line_no = result.line_no - 1  # 转回 0-based
             context_start = max(0, error_line_no - 2)
             context_end = min(len(content_lines), error_line_no + 3)
             snippet = "\n".join(content_lines[context_start:context_end])
@@ -218,68 +217,16 @@ class ConfigCheckCommand(Command):
             with _console.capture() as capture:
                 _console.print(syntax)
             lines.append(capture.get())
-
-            # 指示器
-            indicator = " " * error_col + "^"
-            lines.append(f"      {indicator}")
         else:
             lines.append("位置: 未知")
 
-        # 错误描述
-        if hasattr(error, "context") and error.context:
-            context = self._simplify_error_message(error.context)
-            lines.append("")
-            lines.append(f"上下文: {context}")
+        # 问题（已由 check_yaml_syntax 简化，可能含上下文）
+        if result.problem:
+            lines.append(f"问题: {result.problem}")
 
-        if hasattr(error, "problem") and error.problem:
-            problem = self._simplify_error_message(error.problem)
-            lines.append(f"问题: {problem}")
-
-        # 添加建议
-        problem_str = str(getattr(error, "problem", "")).lower()
-        context_str = str(getattr(error, "context", "")).lower()
-
-        if "block end" in problem_str and "scalar" in problem_str:
+        # 修复建议
+        if result.hint:
             lines.append("")
-            lines.append("提示: 可能是上一行缺少冒号，或括号/引号不匹配")
-            # 检查前一行的内容
-            if error_line_no > 0:
-                prev_line = content_lines[error_line_no - 1].strip()
-                if "required" in prev_line and ":" not in prev_line:
-                    lines.append(f"      上一行 '{prev_line[:30]}...' 可能缺少冒号")
-        elif "mapping" in context_str:
-            lines.append("")
-            lines.append("提示: 检查键值对格式是否正确（key: value）")
-        elif "could not determine a constructor" in problem_str:
-            lines.append("")
-            lines.append("提示: 可能包含特殊字符或不支持的 YAML 语法")
+            lines.append(f"提示: {result.hint}")
 
         return "\n".join(lines)
-
-    def _simplify_error_message(self, msg: str) -> str:
-        """将技术性的错误信息转换为更友好的描述。
-
-        Args:
-            msg: 原始错误信息
-
-        Returns:
-            翻译后的中文描述，如果没有匹配则返回原文
-        """
-        translations = {
-            "expected '<document start>', but found": "期望文件开始标记，但实际发现",
-            "expected <block end>, but found": "期望块结束，但实际发现",
-            "expected ',' or ']', but got": "期望逗号或右括号，但实际得到",
-            "while parsing a block mapping": "解析对象/字典时出错",
-            "while parsing a block collection": "解析列表/数组时出错",
-            "mapping values are not allowed here": "此处不允许键值对（可能缺少冒号或缩进错误）",
-            "could not determine a constructor for the tag": "无法识别的标签类型",
-            "found character": "发现不期望的字符",
-            "that cannot start any token": "无法作为任何标记的开始",
-            "unacceptable character": "包含不可接受的字符（可能是编码问题）",
-        }
-
-        for tech, friendly in translations.items():
-            if tech.lower() in msg.lower():
-                return friendly
-
-        return msg

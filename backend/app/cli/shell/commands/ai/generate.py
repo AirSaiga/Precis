@@ -11,7 +11,8 @@
 架构设计:
 - AIGenerateCommand 继承 Command 基类
 - 直接调用 ConfigGenerationService，不依赖后端 HTTP
-- 写盘逻辑复用 V2 配置写入约定（project.precis.yaml + schemas/ + constraints/ + regex/）
+- 写盘与数据文件扫描逻辑委托 shared_services.generation_ops（CLI/TUI 同源）
+- _scan_data_files 保留为单参数向后兼容入口，等价 scan_data_files([], project_path)
 
 输入示例:
     precis> ai generate data/users.xlsx
@@ -30,9 +31,13 @@ import os
 from pathlib import Path
 from typing import Any
 
+from app.cli.shared_services.generation_ops import (
+    SUPPORTED_EXTENSIONS,
+    apply_generated_config,
+    scan_data_files,
+)
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.formatter import Formatter
-from app.shared.core.io.yaml import read_yaml, write_yaml
 from app.shared.services.llm.generation import (
     ConfigGenerationService,
     GenerationOptions,
@@ -41,12 +46,12 @@ from app.shared.services.llm.generation import (
 
 logger = logging.getLogger(__name__)
 
-# 支持的文件扩展名
-SUPPORTED_EXTENSIONS = (".xlsx", ".xls", ".csv", ".json", ".jsonl")
-
 
 def _scan_data_files(project_path: str) -> list[str]:
-    """扫描项目 data/ 目录下的支持文件。
+    """扫描项目 data/ 目录下的支持文件（向后兼容入口）。
+
+    真正的实现已迁移到 shared_services.generation_ops.scan_data_files（CLI/TUI 同源）。
+    本函数保留单参数签名以兼容历史调用与现有测试，等价于 scan_data_files([], project_path)。
 
     Args:
         project_path: 项目根目录
@@ -54,65 +59,7 @@ def _scan_data_files(project_path: str) -> list[str]:
     Returns:
         绝对路径列表
     """
-    data_dir = Path(project_path) / "data"
-    if not data_dir.exists():
-        return []
-
-    files: list[str] = []
-    for ext in SUPPORTED_EXTENSIONS:
-        files.extend(str(p) for p in data_dir.glob(f"*{ext}"))
-    return sorted(files)
-
-
-def _apply_generated_config(result: dict[str, Any], project_path: str) -> None:
-    """将生成的配置写入项目目录。
-
-    会保留现有 project.precis.yaml 中的 transforms/manual_data 等引用，
-    覆盖写入 schemas、constraints、regex_nodes。
-
-    Args:
-        result: ConfigGenerationService 返回的配置字典
-        project_path: 项目根目录
-    """
-    manifest_path = Path(project_path) / "project.precis.yaml"
-    existing_manifest: dict[str, Any] = {}
-    if manifest_path.exists():
-        try:
-            existing_manifest = read_yaml(manifest_path) or {}
-        except Exception:
-            logger.warning("读取现有 manifest 失败，将覆盖写入", exc_info=True)
-
-    manifest = result.get("manifest") or {"version": 2, "project": {"id": "", "name": ""}}
-
-    # 保留现有 manifest 中生成未覆盖的引用
-    for key in ("transforms", "manual_data"):
-        if key in existing_manifest and key not in manifest:
-            manifest[key] = existing_manifest[key]
-
-    schemas = result.get("schemas", {})
-    constraints = result.get("constraints", {})
-    regex_nodes = result.get("regex_nodes", {})
-
-    # 确保目录存在
-    (Path(project_path) / "schemas").mkdir(exist_ok=True)
-    (Path(project_path) / "constraints").mkdir(exist_ok=True)
-    (Path(project_path) / "regex").mkdir(exist_ok=True)
-
-    # 更新 manifest 引用
-    manifest["schemas"] = [{"id": sid, "path": f"schemas/{sid}.schema.yaml"} for sid in schemas]
-    manifest["constraints"] = [{"id": cid, "path": f"constraints/{cid}.constraint.yaml"} for cid in constraints]
-    manifest["regex_nodes"] = [{"id": rid, "path": f"regex/{rid}.regex.yaml"} for rid in regex_nodes]
-
-    # 写入 manifest
-    write_yaml(manifest_path, manifest)
-
-    # 写入资源文件
-    for sid, schema in schemas.items():
-        write_yaml(Path(project_path) / "schemas" / f"{sid}.schema.yaml", schema)
-    for cid, constraint in constraints.items():
-        write_yaml(Path(project_path) / "constraints" / f"{cid}.constraint.yaml", constraint)
-    for rid, regex_node in regex_nodes.items():
-        write_yaml(Path(project_path) / "regex" / f"{rid}.regex.yaml", regex_node)
+    return scan_data_files([], project_path)
 
 
 class AIGenerateCommand(Command):
@@ -212,9 +159,9 @@ class AIGenerateCommand(Command):
             elif os.path.exists(pattern):
                 file_paths.append(pattern)
 
-        # 无文件参数时扫描 data/ 目录
+        # 无文件参数时扫描 data/ 目录（委托 shared_services 双参数版本）
         if not file_paths:
-            scanned = _scan_data_files(project_path)
+            scanned = scan_data_files([], project_path)
             if not scanned:
                 return CommandResult.error(
                     "未找到数据文件。请在项目 data/ 目录放置 .xlsx/.csv/.json 文件，或显式指定文件路径。"
@@ -309,7 +256,7 @@ class AIGenerateCommand(Command):
 
         if apply:
             try:
-                _apply_generated_config(result, project_path)
+                apply_generated_config(result, project_path)
             except Exception as e:
                 logger.error(f"写盘失败: {e}", exc_info=True)
                 return CommandResult.error(f"配置已生成，但写盘失败: {e}")
