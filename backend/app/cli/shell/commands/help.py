@@ -65,7 +65,14 @@ class HelpCommand(Command):
         table.add_column("Description")
 
         for cmd in commands:
-            table.add_row(cmd.name, cmd.description)
+            # 聚合命令（如 config/project/ai）在描述后追加子命令提示，
+            # 让用户无需先输入命令即可发现 inspect 等子命令的存在。
+            subs = cmd.list_subcommands()
+            if subs:
+                desc = f"{cmd.description}  [dim](子命令: {', '.join(subs)})[/dim]"
+            else:
+                desc = cmd.description
+            table.add_row(cmd.name, desc)
 
         _console.print(table)
         _console.print()

@@ -205,6 +205,16 @@ class ValidateCommand(Command):
         Raises:
             ValidationError: 当校验过程中发生异常时抛出
         """
+        # 配置自检（inspect_config）在 load_project 内部执行，会通过 logger
+        # 向 stderr 输出 "WARNING: [配置自检] ..." 噪声行。这些问题的详情已通过
+        # loading_errors 结构化返回并在下方"加载警告"区展示，日志行属重复噪声。
+        # 校验期间临时调高 inspector logger 级别以抑制日志，结束后在 finally 恢复。
+        import logging
+
+        inspector_logger = logging.getLogger("app.shared.core.project.loader.loader_parts.config_inspector")
+        _prev_level = inspector_logger.level
+        inspector_logger.setLevel(logging.ERROR)
+
         try:
             from app.shared.services.validation.executor import ValidationExecutor, ValidationOptions
 
@@ -239,11 +249,19 @@ class ValidateCommand(Command):
                 spinner.stop(success=True)
 
             # 处理并显示加载阶段的警告信息
+            # loading_errors 来自 LoadingError.to_dict()，友好信息在 title/description/fix_hint
+            # 字段（message 可能为空，如 inspect 级错误），故优先展示 title 等字段。
             loading_errors = result.get("loading_errors", [])
             if loading_errors:
                 _console.print("\n[yellow]加载警告:[/yellow]")
                 for err in loading_errors:
-                    _console.print(f"  - {err.get('error_type')}: {err.get('message')}")
+                    error_type = err.get("error_type", "Unknown")
+                    title = err.get("title") or err.get("message") or ""
+                    _console.print(f"  - [{error_type}] {title}")
+                    if err.get("description"):
+                        _console.print(f"     说明: {err['description']}")
+                    if err.get("fix_hint"):
+                        _console.print(f"     建议: {err['fix_hint']}")
 
             errors = result.get("errors", [])
             duration_ms = result.get("duration_ms", 0)
@@ -268,3 +286,5 @@ class ValidateCommand(Command):
 
         except Exception as e:
             raise ValidationError(str(e))
+        finally:
+            inspector_logger.setLevel(_prev_level)
