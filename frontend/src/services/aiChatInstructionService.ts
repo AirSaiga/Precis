@@ -28,6 +28,7 @@ import { i18n } from '@/i18n'
 import type { FrontendInstruction } from '@/stores/aiChatStore'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import * as vueFlowApi from '@/services/canvas/vueFlowApi'
+import { VueFlowApiNotInitializedError } from '@/services/canvas/vueFlowApi'
 import {
   FITVIEW_DURATION_MS,
   NODE_ENTER_DURATION_MS,
@@ -80,11 +81,20 @@ export function debouncedFitView(
     const nodeIds = [...pendingFitViewNodes]
     pendingFitViewNodes = new Set()
     if (nodeIds.length === 0) return
-    vueFlowApi.fitView({
-      nodes: nodeIds,
-      padding: options.padding ?? 0.25,
-      duration: options.duration ?? FITVIEW_DURATION_MS,
-    })
+    // 画布可能正处于模式切换重建窗口期，fitView 失败时静默跳过（不记 error）
+    try {
+      vueFlowApi.fitView({
+        nodes: nodeIds,
+        padding: options.padding ?? 0.25,
+        duration: options.duration ?? FITVIEW_DURATION_MS,
+      })
+    } catch (e) {
+      if (e instanceof VueFlowApiNotInitializedError) {
+        logger.warn('[AI Instruction] fitView 跳过（画布未就绪）')
+      } else {
+        throw e
+      }
+    }
   }, 500)
 }
 
@@ -104,6 +114,28 @@ function attachEnteringClass(nodeId: string): void {
       vfNode.class = undefined
     }
   }, NODE_ENTER_DURATION_MS)
+}
+
+/**
+ * 执行画布操作，VueFlow 未就绪时（模式切换窗口期）静默跳过并记 warn。
+ *
+ * IDE ↔ Agent 模式切换时 NodeCanvas 会销毁重建，vueFlowApi 单例被 resetVueFlowApi 置空。
+ * 此时飞行中的 AI 指令若调用 addNodes/addEdges/removeNodes 会抛 VueFlowApiNotInitializedError。
+ * 这是可预期的降级——指令遇画布重建时不应崩溃，也不应记 error 制造噪音。
+ * 节点可能少建（与"切换前中止 AI 任务"配合可将此场景压到极低概率），但不会污染新画布。
+ *
+ * 其他异常照常上抛，不吞错。
+ */
+function guardCanvasOp<T>(fn: () => T): T | undefined {
+  try {
+    return fn()
+  } catch (e) {
+    if (e instanceof VueFlowApiNotInitializedError) {
+      logger.warn('[AI Instruction] 画布未就绪（模式切换中），跳过指令:', e.message)
+      return undefined
+    }
+    throw e
+  }
 }
 
 /**
@@ -209,7 +241,8 @@ function addValidatedAIConnection(input: AINodeConnectionInput): Edge {
     targetHandle,
   }
 
-  vueFlowApi.addEdges(edge)
+  // 画布未就绪（模式切换窗口期）时静默跳过，不抛错污染调用方
+  guardCanvasOp(() => vueFlowApi.addEdges(edge))
   return edge
 }
 
@@ -376,7 +409,7 @@ async function handleConstraintInstruction(instruction: FrontendInstruction): Pr
           return d.table === tableName && d.column === targetColumn
         })
         if (toRemove.length > 0) {
-          vueFlowApi.removeNodes(toRemove.map((n) => n.id))
+          guardCanvasOp(() => vueFlowApi.removeNodes(toRemove.map((n) => n.id)))
           await nextTick()
           graphStore.reconcileAll()
           toastSuccess(t('aiChat.constraintDeleted', { table: tableName, column: targetColumn }))
@@ -427,7 +460,7 @@ async function handleConstraintInstruction(instruction: FrontendInstruction): Pr
     },
   }
 
-  vueFlowApi.addNodes(constraintNode)
+  guardCanvasOp(() => vueFlowApi.addNodes(constraintNode))
 
   await nextTick()
 
@@ -612,7 +645,7 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
       },
     }
 
-    vueFlowApi.addNodes(schemaNode)
+    guardCanvasOp(() => vueFlowApi.addNodes(schemaNode))
     await nextTick()
 
     // 物化内嵌约束节点与边，行为与从资源树拖拽 Schema 保持一致
@@ -635,20 +668,22 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
           colNameToId,
           hasNode: (id: string) => graphStore.nodes.some((n) => n.id === id),
           addNode: (node: CustomNode) => {
-            vueFlowApi.addNodes(node as VueFlowNode)
+            guardCanvasOp(() => vueFlowApi.addNodes(node as VueFlowNode))
             createdConstraintIds.push(node.id)
           },
           addConstraintEdge: (tableId: string, constraintId: string, columnId: string) => {
             const edgeId = `e-${tableId}-${constraintId}-${columnId}`
             if (graphStore.edges.some((e) => e.id === edgeId)) return
-            vueFlowApi.addEdges({
-              id: edgeId,
-              source: tableId,
-              target: constraintId,
-              sourceHandle: `source-right-${columnId}`,
-              targetHandle: `target-input-${constraintId}`,
-              type: 'smoothstep',
-            } as Edge)
+            guardCanvasOp(() =>
+              vueFlowApi.addEdges({
+                id: edgeId,
+                source: tableId,
+                target: constraintId,
+                sourceHandle: `source-right-${columnId}`,
+                targetHandle: `target-input-${constraintId}`,
+                type: 'smoothstep',
+              } as Edge)
+            )
           },
         })
         await nextTick()
@@ -682,7 +717,7 @@ async function handleSchemaInstruction(instruction: FrontendInstruction): Promis
       })
     }
     if (existing) {
-      vueFlowApi.removeNodes(existing.id)
+      guardCanvasOp(() => vueFlowApi.removeNodes(existing.id))
       await nextTick()
       graphStore.reconcileAll()
       toastSuccess(t('aiChat.schemaDeleted', { name: spec.name || schemaId }))
@@ -766,7 +801,7 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
       },
     }
 
-    vueFlowApi.addNodes(regexNode)
+    guardCanvasOp(() => vueFlowApi.addNodes(regexNode))
     await nextTick()
 
     // 如果有关联的 Schema 节点，创建边（方向：Schema 列 -> Regex）
@@ -817,7 +852,7 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
   }
 
   if (existing && actionType === 'DELETE_REGEX') {
-    vueFlowApi.removeNodes(existing.id)
+    guardCanvasOp(() => vueFlowApi.removeNodes(existing.id))
     await nextTick()
     graphStore.reconcileAll()
     toastSuccess(t('aiChat.regexDeleted', { name: spec.name || regexId }))
@@ -879,7 +914,7 @@ async function handleTransformInstruction(instruction: FrontendInstruction): Pro
       },
     }
 
-    vueFlowApi.addNodes(transformNode)
+    guardCanvasOp(() => vueFlowApi.addNodes(transformNode))
     await nextTick()
     graphStore.reconcileAll()
 
@@ -903,7 +938,7 @@ async function handleTransformInstruction(instruction: FrontendInstruction): Pro
   }
 
   if (existing && actionType === 'DELETE_TRANSFORM') {
-    vueFlowApi.removeNodes(existing.id)
+    guardCanvasOp(() => vueFlowApi.removeNodes(existing.id))
     await nextTick()
     graphStore.reconcileAll()
     toastSuccess(t('aiChat.transformDeleted', { name: transformId }))

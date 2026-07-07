@@ -151,7 +151,7 @@
   // ========================================
   // Vue 核心导入
   // ========================================
-  import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+  import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { eventBus } from '@/core/eventBus'
   import { logger } from '@/core/utils/logger'
@@ -173,7 +173,8 @@
   import { useNodeOrganizer } from '@/features/node-layout-organizer/composables/useNodeOrganizer'
   import { useNodeTypeRegistry } from '@/composables/canvas/useNodeTypeRegistry'
   import { useCanvasConnectionWatcher } from '@/composables/canvas/useCanvasConnectionWatcher'
-  import { initVueFlowApi } from '@/services/canvas/vueFlowApi'
+  import { initVueFlowApi, resetVueFlowApi } from '@/services/canvas/vueFlowApi'
+  import { useCanvasViewportStore } from '@/stores/canvasViewportStore'
   import { FITVIEW_DURATION_MS } from '@/services/canvas/animationDurations'
   import { useCanvasContextMenu } from '@/composables/canvas/useCanvasContextMenu'
   import { useConnections } from '@/composables/nodes/useConnections'
@@ -204,6 +205,7 @@
   const { t } = useI18n()
   const {
     viewport,
+    setViewport,
     onNodeContextMenu,
     project,
     addNodes,
@@ -218,6 +220,8 @@
     updateNode,
     fitView,
   } = useVueFlow()
+  // 视口持久化：模式切换销毁重建 NodeCanvas 时，恢复用户上次的 pan/zoom
+  const canvasViewportStore = useCanvasViewportStore()
   initVueFlowApi({
     addNodes,
     addEdges,
@@ -327,11 +331,40 @@
     }
   }
 
+  // 视口持久化：用户拖动/缩放时实时写入 store，模式切换重建 NodeCanvas 后恢复
+  watch(viewport, (v) => {
+    canvasViewportStore.setViewport({ x: v.x, y: v.y, zoom: v.zoom })
+  })
+
   onMounted(() => {
     eventBus.on('inspection-import-and-focus', handleInspectionImportAndFocus)
+    // 恢复上次视口（模式切换后重建 NodeCanvas 时）。
+    // 需等 Vue Flow DOM 就绪后 setViewport 才生效，否则尺寸为 0 会静默失败。
+    // isCustomized=false 表示从未被用户修改过（首次挂载），用默认值即可不调 setViewport。
+    if (canvasViewportStore.isCustomized) {
+      nextTick(() => {
+        try {
+          const saved = canvasViewportStore.viewport
+          setViewport({ x: saved.x, y: saved.y, zoom: saved.zoom })
+        } catch (e) {
+          logger.debug('[NodeCanvas] 恢复视口失败（画布尺寸未就绪）:', e)
+        }
+      })
+    }
   })
   onBeforeUnmount(() => {
     eventBus.off('inspection-import-and-focus', handleInspectionImportAndFocus)
+    // 卸载前确保最终视口写入 store（watch 可能因 nextTick 延迟未触发最后一次）
+    try {
+      const v = viewport.value
+      canvasViewportStore.setViewport({ x: v.x, y: v.y, zoom: v.zoom })
+    } catch {
+      // viewport 已随组件销毁失效时忽略
+    }
+    // 重置 vueFlowApi 单例：NodeCanvas 卸载后（如 IDE ↔ Agent 模式切换）旧 Vue Flow 实例已销毁，
+    // 置空 _api 让飞行中的异步调用方抛 VueFlowApiNotInitializedError 而非命中死实例。
+    // 新 NodeCanvas 挂载时 initVueFlowApi 会重新注入。
+    resetVueFlowApi()
   })
 </script>
 

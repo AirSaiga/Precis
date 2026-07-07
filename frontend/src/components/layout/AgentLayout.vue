@@ -83,8 +83,7 @@
       </div>
     </header>
 
-    <!-- Agent 状态条 -->
-    <AgentStatusBar :streaming="currentStreaming" :loading="aiChatStore.loading" />
+    <!-- Agent 状态条已下沉到 AppStatusBar（IDE/Agent 共享），此处不再单独渲染 -->
 
     <!-- 双栏主体：对话 + 画布 -->
     <div class="agent-layout-body">
@@ -119,20 +118,17 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, computed, onMounted, onUnmounted } from 'vue'
+  import { ref, onMounted, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { eventBus } from '@/core/eventBus'
-  import { useAiChatStore } from '@/stores/aiChatStore'
   import { useLanguageToggle } from '@/composables/shared'
   import AIChatPanel from '@/components/ai/AIChatPanel.vue'
   import NodeCanvas from '@/components/canvas/NodeCanvas.vue'
   import AppStatusBar from '@/components/layout/AppStatusBar.vue'
   import AppOverlayHost from '@/components/layout/AppOverlayHost.vue'
   import ModeToggle from '@/components/layout/ModeToggle.vue'
-  import AgentStatusBar from '@/components/ai/AgentStatusBar.vue'
 
   const { t } = useI18n()
-  const aiChatStore = useAiChatStore()
   const { currentLang, toggleLanguage } = useLanguageToggle()
 
   const CHAT_PANE_WIDTH_KEY = 'agentChatPaneWidth'
@@ -152,18 +148,6 @@
   function handleSettingsClick(): void {
     eventBus.emit('open-settings')
   }
-
-  /** 获取当前流式消息（从最后一条 assistant 消息） */
-  const currentStreaming = computed(() => {
-    const messages = aiChatStore.messages
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const msg = messages[i]
-      if (msg && msg.role === 'assistant' && msg.streaming) {
-        return msg.streaming
-      }
-    }
-    return null
-  })
 
   /** 从 localStorage 恢复宽度，无则使用默认比例。
    *  持久化值超出当前窗口约束时 clamp 而非丢弃,保留用户偏好的相对宽度。

@@ -63,6 +63,17 @@ export function initVueFlowApi(api: VueFlowApi) {
   _api = api
 }
 
+/**
+ * 重置 Vue Flow API 单例（置为 null）。
+ *
+ * NodeCanvas 卸载时调用，避免模式切换（IDE ↔ Agent）的重建窗口期内，
+ * 飞行中的异步调用方（如 AI 指令流）命中已销毁的旧 Vue Flow 实例。
+ * 重置后调用方会抛 VueFlowApiNotInitializedError，可被捕获做降级处理。
+ */
+export function resetVueFlowApi(): void {
+  _api = null
+}
+
 export function addNodes(...args: Parameters<AddNodes>) {
   requireApi().addNodes(...args)
 }

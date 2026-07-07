@@ -14,7 +14,8 @@
 import { ref, computed } from 'vue'
 import { defineStore } from 'pinia'
 
-import { eventBus } from '@/core/eventBus'
+import { useAiChatStore } from '@/stores/aiChatStore'
+import { logger } from '@/core/utils/logger'
 
 /** 应用模式类型 */
 export type AppMode = 'ide' | 'agent'
@@ -38,17 +39,30 @@ export const useAppModeStore = defineStore('appMode', () => {
   // --- Actions ---
 
   /**
-   * 切换到指定模式
+   * 切换到指定模式（异步）
    *
-   * 仅当模式真正改变时才写入状态并广播事件，避免无谓的重渲染。
+   * 切换前主动清理 AI 任务：中止进行中的流式对话 + 等待飞行指令落定，
+   * 避免 NodeCanvas 重建窗口期内指令命中已销毁的 vueFlowApi 单例。
+   * 这是"主动清理"层；即使清理有遗漏，飞行指令也由 guardCanvasOp 静默降级兜底。
+   *
+   * 调用方（如 ModeToggle @click）无需 await——async 函数返回 Promise 自动处理。
    *
    * @param next - 目标模式：'ide' 或 'agent'
    */
-  function setMode(next: AppMode) {
+  async function setMode(next: AppMode) {
     if (mode.value === next) return
+    // 切换前中止 AI 任务并等待飞行指令落定
+    try {
+      const aiChatStore = useAiChatStore()
+      if (aiChatStore.loading) {
+        await aiChatStore.cancelSendMessage()
+      }
+      await aiChatStore.awaitPendingInstructions()
+    } catch (e) {
+      // 清理失败不阻塞切换——guardCanvasOp 会兜底降级
+      logger.warn('[appModeStore] 切换前 AI 任务清理失败，继续切换:', e)
+    }
     mode.value = next
-    // 广播模式变更事件，供布局层（App.vue）和需要感知模式切换的组件订阅
-    eventBus.emit('modechange', { mode: next })
   }
 
   /** 在 IDE / Agent 模式之间切换 */

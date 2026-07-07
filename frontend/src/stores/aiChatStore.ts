@@ -280,10 +280,25 @@ export const useAiChatStore = defineStore('aiChat', () => {
   const loading = ref(false)
   /** 是否启用 Agent 深度模式 */
   const agentMode = ref(true)
+  /**
+   * 输入框草稿（未发送的文本）。
+   *
+   * 提升到 store 层：AIChatPanel 在 IDE ↔ Agent 模式切换时会被销毁重建，
+   * 局部 ref 的 inputText 会丢失。提升后跨重建保留，用户切换模式不会丢失未发送内容。
+   */
+  const draftInput = ref('')
   /** 当前流式会话的 SSE 客户端（用于取消） */
   let currentSSEClient: SSEClient | null = null
   /** 当前流式任务的 job_id（started 事件捕获，供 confirm 端点使用） */
   const currentStreamingJobId = ref<string>('')
+  /**
+   * 飞行中的 frontend_instruction Promise 集合。
+   *
+   * 流式指令以 fire-and-forget 方式执行（不阻塞 SSE 事件循环），但模式切换前需等待
+   * 所有飞行指令落定，避免它们在 NodeCanvas 重建窗口期命中已销毁的 vueFlowApi 单例。
+   * 详见 appModeStore.setMode 的 awaitPendingInstructions 调用。
+   */
+  const pendingInstructionPromises = new Set<Promise<unknown>>()
 
   // --- 计算属性 ---
   /** 是否有选中的上下文节点 */
@@ -475,9 +490,13 @@ export const useAiChatStore = defineStore('aiChat', () => {
               const instruction = (data as Record<string, unknown>).instruction
               if (instruction) {
                 // 异步执行，不阻塞 SSE 事件循环；每条指令独立触发节点级 fitView（相机跟随新节点）
-                void processFrontendInstructions([instruction] as FrontendInstruction[]).catch(
+                // 追踪飞行 Promise：模式切换前 awaitPendingInstructions 会等待它们落定，
+                // 避免指令在 NodeCanvas 重建窗口期命中已销毁的 vueFlowApi 单例
+                const p = processFrontendInstructions([instruction] as FrontendInstruction[]).catch(
                   (e) => logger.error('流式执行 frontend_instruction 失败:', e)
                 )
+                pendingInstructionPromises.add(p)
+                p.finally(() => pendingInstructionPromises.delete(p))
               }
             }
             handleEvent(event, _id, data)
@@ -543,7 +562,11 @@ export const useAiChatStore = defineStore('aiChat', () => {
         const streamed = streamingMsg.streamedInstructions
         const pending = dedupeStreamedInstructions(allInstructions, streamed)
         if (pending.length > 0) {
-          await processFrontendInstructions(pending)
+          // 加入飞行追踪集合：与流式指令一致，供 awaitPendingInstructions 等待
+          const batchP = processFrontendInstructions(pending)
+          pendingInstructionPromises.add(batchP)
+          batchP.finally(() => pendingInstructionPromises.delete(batchP))
+          await batchP
         }
       }
 
@@ -686,6 +709,24 @@ export const useAiChatStore = defineStore('aiChat', () => {
     }
   }
 
+  /**
+   * 等待所有飞行中的 frontend_instruction 落定。
+   *
+   * 模式切换（IDE ↔ Agent）前由 appModeStore.setMode 调用，确保 NodeCanvas 重建窗口期
+   * 内没有指令在执行（否则会命中已 resetVueFlowApi 置空的 vueFlowApi 单例）。
+   *
+   * 带 3s 超时兜底：若某指令因异常卡住（如死循环），不永久阻塞模式切换。
+   * 超时后残留指令仍会继续执行，但由 guardCanvasOp 静默降级保护，不会崩溃。
+   */
+  async function awaitPendingInstructions(): Promise<void> {
+    if (pendingInstructionPromises.size === 0) return
+    const all = [...pendingInstructionPromises]
+    await Promise.race([
+      Promise.allSettled(all),
+      new Promise((resolve) => setTimeout(resolve, 3000)),
+    ])
+  }
+
   // --- 导出 ---
   /**
    * Store 对外暴露的响应式状态与操作方法
@@ -699,6 +740,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
     contextNodes,
     loading,
     agentMode,
+    draftInput,
     hasContext,
     openDrawer,
     closeDrawer,
@@ -711,6 +753,7 @@ export const useAiChatStore = defineStore('aiChat', () => {
     clearMessages,
     sendMessage,
     cancelSendMessage,
+    awaitPendingInstructions,
     confirmApply,
     respondToAsk,
     currentStreamingJobId,

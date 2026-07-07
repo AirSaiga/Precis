@@ -268,7 +268,13 @@
     messages.value.some((msg) => msg.role === 'assistant' && msg.streaming?.isStreaming)
   )
 
-  const inputText = ref('')
+  // 输入框文本绑定 store 的 draftInput：模式切换销毁重建 AIChatPanel 时保留未发送内容
+  const inputText = computed({
+    get: () => aiChatStore.draftInput,
+    set: (v: string) => {
+      aiChatStore.draftInput = v
+    },
+  })
   const inputRef = ref<HTMLTextAreaElement | null>(null)
   const messagesRef = ref<HTMLDivElement | null>(null)
   // 当前已复制的消息 ID（用于按钮图标切换反馈）

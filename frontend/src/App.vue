@@ -282,6 +282,7 @@
   import { useProjectStore } from '@/stores/projectStore'
   import { useResourceDragStore, type ResourceDragPayload } from '@/stores/resourceDragStore'
   import { useFeedbackStore } from '@/stores/feedbackStore'
+  import { useCanvasViewportStore } from '@/stores/canvasViewportStore'
   // import { useAiChatStore } from '@/stores/aiChatStore'
 
   const { t } = useI18n()
@@ -293,6 +294,7 @@
   const projectStore = useProjectStore()
   const resourceDragStore = useResourceDragStore()
   const feedbackStore = useFeedbackStore()
+  const canvasViewportStore = useCanvasViewportStore()
 
   // --- Composable 初始化 ---
   // useAppLayout: 管理侧边栏/检查器宽度、拖拽调宽、面板折叠状态
@@ -342,13 +344,15 @@
   /**
    * 布局过渡完成回调（IDE ↔ Agent 切换的 <Transition @after-enter>）。
    *
-   * 切换布局时 NodeCanvas 会重挂载，Vue Flow 视口（pan/zoom）随之重置为默认值。
-   * 此处在过渡动画结束后、新布局的 NodeCanvas 已就绪时，调用 vueFlowApi.fitView
-   * 让画布重新自适应内容，消除重挂载导致的视口跳变（节点偏出视野）。
-   * 用 vueFlowApi 桥接（而非 useVueFlow），因为本回调在 store 上下文外执行。
+   * 切换布局时 NodeCanvas 会重挂载。视口处理分两种情况：
+   * - 用户曾手动调整过视口（canvasViewportStore.isCustomized）：NodeCanvas 的 onMounted
+   *   已从 store 恢复 pan/zoom，此处跳过 fitView 避免覆盖用户视口。
+   * - 首次挂载或未自定义视口：调用 fitView 让画布自适应内容，消除重挂载导致的视口跳变。
    */
   const onLayoutEntered = () => {
     nextTick(() => {
+      // 用户已自定义视口时，NodeCanvas onMounted 已恢复，跳过 fitView 避免覆盖
+      if (canvasViewportStore.isCustomized) return
       try {
         fitView({ padding: 0.2, duration: FITVIEW_DURATION_MS })
       } catch (e) {

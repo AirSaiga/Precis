@@ -18,12 +18,6 @@ import type { ResourceItem } from '@/types/resource/types'
 export interface AppEvents {
   'focus-canvas-nodes': { nodeIds: string[] }
   /**
-   * 应用模式切换事件（IDE ↔ Agent）。
-   * 由 appModeStore.setMode 广播，布局层（App.vue）和需感知模式切换的组件订阅。
-   * 注意：appModeStore 内部已直接修改状态，本事件仅作广播通知，订阅方不应据此再次写状态。
-   */
-  modechange: { mode: 'ide' | 'agent' }
-  /**
    * 请求把某个资源导入画布并聚焦其节点。
    * 由配置自检抽屉等画布外的组件发出，画布组件监听后执行导入+定位。
    * kind 取值与 importV2ResourceToCanvas 一致：'schema' | 'constraint' | 'regex' | 'transform'
