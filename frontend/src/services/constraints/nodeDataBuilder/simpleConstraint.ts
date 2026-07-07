@@ -1,9 +1,13 @@
 /**
- * @fileoverview 通用约束 builder — 7 种单列单边约束
+ * @fileoverview 通用约束 builder — 单列单边约束 + 复合约束回退构建
  *
- * 统一处理：notNull, unique, allowedValues, range, scripted, charset, dateLogic
+ * 单列单边约束（7 种）：notNull, unique, allowedValues, range, scripted, charset, dateLogic
  * 共享基础字段：configName, table, column, sourceRef, validationStatus, validationErrors, saveState
  * 各类型通过 type-specific extras 添加特有字段。
+ *
+ * 复合约束（composite）：语义上是聚合约束（通过 includedNodeIds 引用其他约束节点），
+ * 非单列单边。当前作为回退构建路径保留在此处（导入/embedded 模式需要），
+ * 但其 column/sourceRef/单条 edge 仅作为锚点，真正的输入来自被引用的子约束。
  */
 
 import type { ConstraintKind } from '../types'
@@ -115,6 +119,7 @@ function buildTypeExtras(
 }
 
 // 注册到 registry — 使用闭包捕获 kind
+// 7 种单列单边约束 + 1 种复合约束（聚合，作为回退构建路径）
 const SIMPLE_KINDS: ConstraintKind[] = [
   'notNull',
   'unique',

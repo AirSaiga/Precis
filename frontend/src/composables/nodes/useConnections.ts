@@ -186,6 +186,17 @@ export function useConnections() {
       'foreignKey',
       foreignKeyConnection.handleSchemaToForeignKeyConnection
     ),
+    // 复合约束是聚合器（通过 includedNodeIds 引用其他约束节点），
+    // 连接时只建立锚点边，不触发单约束即时校验（需等子约束全部连接后由全表校验聚合）
+    composite: toConnectionResult('composite', (s, t, sh, th) =>
+      constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
+        kind: 'composite',
+        nodeType: 'compositeConstraint',
+        dispatchValidation: false,
+        addConstraintToColumn: false,
+        resetOnConnect: false,
+      })
+    ),
   }
 
   /**

@@ -120,6 +120,7 @@ import type {
   TableAsset,
   UniqueConstraintNodeData,
 } from '@/types/graph'
+import type { CompositeConstraintNodeData } from '@/types/constraints'
 import type { SchemaColumn } from '@/types/nodes'
 import { toastError, toastSuccess } from '@/core/toast'
 import {
@@ -370,6 +371,29 @@ export function createYamlIOModule(params: {
             }
             if (dateLogicData.constraintName)
               yaml += `    constraint_name: ${yamlSafe(dateLogicData.constraintName)}\n`
+            break
+          }
+          case 'composite': {
+            // 复合约束：聚合多个子约束（通过 includedNodeIds 引用画布上的其他约束节点）
+            const compositeData = node.data as CompositeConstraintNodeData
+            yaml += `    config_name: ${yamlSafe(compositeData.configName || 'unnamed')}\n`
+            if (compositeData.table) yaml += `    table: ${yamlSafe(compositeData.table)}\n`
+            yaml += `    logic: ${compositeData.logic || 'all'}\n`
+            const subNodeIds = compositeData.includedNodeIds || []
+            if (subNodeIds.length > 0) {
+              // 将子约束节点 ID 映射回其约束类型，序列化为 sub_constraints
+              yaml += `    sub_constraints:\n`
+              subNodeIds.forEach((subId) => {
+                const subNode = constraintNodes.find((n) => n.id === subId)
+                const subType = subNode
+                  ? getConstraintKindByNodeType(subNode.type) || 'scripted'
+                  : 'scripted'
+                yaml += `      - id: ${subId}\n`
+                yaml += `        type: ${subType}\n`
+              })
+            }
+            if (compositeData.constraintName)
+              yaml += `    constraint_name: ${yamlSafe(compositeData.constraintName)}\n`
             break
           }
         }

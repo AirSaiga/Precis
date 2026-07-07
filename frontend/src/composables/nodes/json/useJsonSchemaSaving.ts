@@ -151,8 +151,11 @@ export function useJsonSchemaSaving(
       const a = document.createElement('a')
       a.href = url
       a.download = `${props.data.tableName || 'json_schema'}.schema.yaml`
+      document.body.appendChild(a)
       a.click()
-      URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      // 延迟释放：部分浏览器在 click() 后异步发起下载，立即 revoke 可能导致下载失败
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
 
       logger.debug('✅ JSON Schema 导出为 YAML 成功')
     } catch (error) {
@@ -170,6 +173,9 @@ export function useJsonSchemaSaving(
    */
   const convertToYaml = (data: JsonSchemaNodeData): string => {
     // 收集表级内嵌约束(从列上的 constraints 标记转后端 ConstraintItem 格式)
+    // 注意：JsonSchemaColumn.constraints 标记仅支持 notNull/unique/allowedValues 三种简单约束。
+    // range/charset/dateLogic/scripted/conditional/foreignKey/composite 等复杂约束需要通过
+    // 独立约束节点（画布上的 *Constraint 节点）配置，不在内嵌标记范围内。
     const embeddedConstraints: Record<string, unknown>[] = []
     const walkColumnsForConstraints = (columns: JsonSchemaColumn[]) => {
       for (const col of columns) {
