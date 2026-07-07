@@ -21,6 +21,8 @@
 
 from __future__ import annotations
 
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 
@@ -32,15 +34,17 @@ class TypeConverter:
     功能说明
     ============================================================================
     将数据记录中的指定列转换为目标类型。
-    支持的类型：int, integer, float, bool, str, string
+    支持的类型：int, integer, float, decimal, bool, str, string, date, datetime
 
     ============================================================================
     支持的类型
     ============================================================================
     - int/integer: 整数类型
-    - float/decimal: 浮点数类型
+    - float: 浮点数类型（科学计算）
+    - decimal: 高精度小数类型（财务计算，使用 decimal.Decimal，避免 float 精度丢失）
     - bool/boolean: 布尔类型
     - str/string: 字符串类型
+    - date/datetime/timestamp: 日期/日期时间类型（datetime.date / datetime.datetime）
 
     ============================================================================
     业务场景
@@ -58,22 +62,25 @@ class TypeConverter:
     ...     {"id": "1", "amount": "12.5", "active": "true"},
     ...     {"id": "2", "amount": "23.7", "active": "false"}
     ... ]
-    >>> dtype = {"id": "int", "amount": "float", "active": "bool"}
+    >>> dtype = {"id": "int", "amount": "decimal", "active": "bool"}
     >>>
     >>> result = converter.convert(records, dtype)
-    >>> # [{"id": 1, "amount": 12.5, "active": True},
-    >>> #  {"id": 2, "amount": 23.7, "active": False}]
+    >>> # [{"id": 1, "amount": Decimal('12.5'), "active": True},
+    >>> #  {"id": 2, "amount": Decimal('23.7'), "active": False}]
     """
 
     TYPE_MAPPING = {
         "int": "int",
         "integer": "int",
         "float": "float",
-        "decimal": "float",
+        "decimal": "decimal",
         "bool": "bool",
         "boolean": "bool",
         "str": "str",
         "string": "str",
+        "date": "date",
+        "datetime": "datetime",
+        "timestamp": "datetime",
     }
 
     def __init__(self):
@@ -163,12 +170,19 @@ class TypeConverter:
                 return self._to_int(value)
             elif normalized_type == "float":
                 return self._to_float(value)
+            elif normalized_type == "decimal":
+                return self._to_decimal(value)
             elif normalized_type == "bool":
                 return self._to_bool(value)
             elif normalized_type == "str":
                 return str(value)
+            elif normalized_type == "date":
+                return self._to_date(value)
+            elif normalized_type == "datetime":
+                return self._to_datetime(value)
             return value
-        except (ValueError, TypeError):
+        except (ValueError, TypeError, InvalidOperation):
+            # InvalidOperation 继承 ArithmeticError（非 ValueError），非法 decimal 值同样回退原值
             return value
 
     def _to_int(self, value: Any) -> int:
@@ -198,6 +212,64 @@ class TypeConverter:
         if isinstance(value, (int, float)):
             return float(value)
         return float(str(value).strip())
+
+    def _to_decimal(self, value: Any) -> Decimal:
+        """
+        @methoddesc 转换为高精度 Decimal
+
+        用于财务数据等需要精确十进制表示的场景，避免 float 的二进制精度丢失。
+        始终通过 str() 中转以避免 float -> Decimal 的二进制误差（如 Decimal(0.1) != 0.1）。
+
+        Args:
+            value: 要转换的值
+
+        Returns:
+            Decimal 对象
+        """
+        if isinstance(value, Decimal):
+            return value
+        if isinstance(value, bool):
+            # bool 是 int 子类，需先转 int 再转 Decimal，避免直接 str(True)="True" 报错
+            return Decimal(int(value))
+        if isinstance(value, (int, float)):
+            return Decimal(str(value))
+        return Decimal(str(value).strip())
+
+    def _to_date(self, value: Any) -> date:
+        """
+        @methoddesc 转换为日期（date，不含时间分量）
+
+        优先解析 ISO 8601 格式（YYYY-MM-DD），失败则尝试常见替代格式。
+
+        Args:
+            value: 要转换的值
+
+        Returns:
+            datetime.date 对象
+        """
+        if isinstance(value, datetime):
+            return value.date()
+        if isinstance(value, date):
+            return value
+        return date.fromisoformat(str(value).strip())
+
+    def _to_datetime(self, value: Any) -> datetime:
+        """
+        @methoddesc 转换为日期时间（datetime，含时间分量）
+
+        优先解析 ISO 8601 格式，失败则尝试常见替代格式。
+
+        Args:
+            value: 要转换的值
+
+        Returns:
+            datetime.datetime 对象
+        """
+        if isinstance(value, datetime):
+            return value
+        if isinstance(value, date):
+            return datetime(value.year, value.month, value.day)
+        return datetime.fromisoformat(str(value).strip())
 
     def _to_bool(self, value: Any) -> bool:
         """

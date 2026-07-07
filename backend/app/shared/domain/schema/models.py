@@ -3,13 +3,11 @@
 
 功能概述:
 - 定义数据集的结构（表、字段、约束）
-- 提供从配置文件构建 Schema 实例的工厂函数
-- 管理类型注册表（TYPE_REGISTRY）和约束注册表（CONSTRAINT_REGISTRY）
 
 架构设计:
-- 类型注册表: 将配置中的类型名称映射到 Python 类型对象
-- 约束注册表: 将配置中的约束名称映射到约束类
-- 工厂函数: build_type_from_config 根据配置递归构建 DataType 实例
+- 本模块只定义 Schema 模型类（ColumnSchema/TableSchema/DataSetSchema）
+- TYPE_REGISTRY 与工厂函数 build_type_from_config 的单一事实源在 builder.py
+- 本模块 re-export TYPE_REGISTRY 仅用于保持向后兼容的导入路径
 
 输入示例:
     from app.shared.domain.dataset_schema import DataSetSchema, TableSchema, ColumnSchema
@@ -25,61 +23,12 @@
 from typing import Any
 
 from app.shared.domain.constraints.base import Constraint
+from app.shared.domain.data_types import DataType
 
 # 1. 项目内部导入
-from app.shared.domain.data_types import (
-    BooleanType,
-    CompositeConditionType,
-    DataType,
-    DateType,
-    DecimalType,
-    ExpressionType,
-    ExtractedType,
-    FloatType,
-    IntegerType,
-    JsonArrayType,
-    JsonNullType,
-    JsonObjectType,
-    SequenceType,
-    StringType,
-)
-
-# ============================================================================
-# 类型注册表
-# ============================================================================
-# 将配置中的类型名称映射到 Python 类型对象
-# 使用示例：
-#   "int" -> IntegerType()
-#   "string" -> StringType()
-#   "Expr" -> ExpressionType (类，非实例)
-
-TYPE_REGISTRY: dict[str, Any] = {
-    "Int": IntegerType(),
-    "Str": StringType(),
-    "Float": FloatType(),
-    "Decimal": DecimalType(),
-    "Boolean": BooleanType(),
-    "Date": DateType(),
-    "int": IntegerType(),
-    "integer": IntegerType(),
-    "string": StringType(),
-    "str": StringType(),
-    "float": FloatType(),
-    "decimal": DecimalType(),
-    "boolean": BooleanType(),
-    "bool": BooleanType(),
-    "date": DateType(),
-    "Expr": ExpressionType,
-    "CompositeExpr": CompositeConditionType,
-    "Sequence": SequenceType,
-    "Extracted": ExtractedType,
-    "JsonObject": JsonObjectType(),
-    "json_object": JsonObjectType(),
-    "JsonArray": JsonArrayType(),
-    "json_array": JsonArrayType(),
-    "JsonNull": JsonNullType(),
-    "json_null": JsonNullType(),
-}
+# TYPE_REGISTRY 的单一事实源在 builder.py，此处 re-export 以保持向后兼容的导入路径。
+# 过去本模块维护了一份独立副本，导致与 builder.py 漂移（如 JSON-Schema 别名缺失）。
+from app.shared.domain.schema.builder import TYPE_REGISTRY  # noqa: F401
 
 
 class ColumnSchema:

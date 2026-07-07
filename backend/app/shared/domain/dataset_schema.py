@@ -22,6 +22,8 @@ from .schema.builder import (
 )
 from .schema.models import ColumnSchema, DataSetSchema, TableSchema
 
+# 注：models.py 也 re-export TYPE_REGISTRY 以兼容旧导入路径，单一事实源在 builder.py。
+
 __all__ = [
     "ColumnSchema",
     "TableSchema",

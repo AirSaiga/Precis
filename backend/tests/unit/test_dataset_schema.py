@@ -32,6 +32,22 @@ class TestTypeRegistry:
         assert "string" in TYPE_REGISTRY
         assert isinstance(TYPE_REGISTRY["string"], StringType)
 
+    def test_registry_single_source_of_truth(self):
+        """B09 回归：builder / dataset_schema / models 三个导入路径必须指向同一份注册表，
+        避免过去副本漂移导致的 JSON-Schema 别名缺失等问题。"""
+        from app.shared.domain.schema import builder as builder_mod
+        from app.shared.domain.schema import models as models_mod
+
+        # builder 是唯一事实源；models re-export 同一对象
+        assert builder_mod.TYPE_REGISTRY is models_mod.TYPE_REGISTRY
+        assert builder_mod.TYPE_REGISTRY is TYPE_REGISTRY
+
+    def test_registry_contains_json_schema_aliases(self):
+        """B09 回归：JSON-Schema 别名（number/object/array/null）必须存在，
+        过去 models.py 副本缺失这些别名导致漂移。"""
+        for key in ("number", "object", "array", "null"):
+            assert key in TYPE_REGISTRY, f"JSON-Schema 别名缺失: {key}"
+
 
 class TestBuildTypeFromConfig:
     def test_string_config(self):
