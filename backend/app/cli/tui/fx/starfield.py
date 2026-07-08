@@ -1,62 +1,174 @@
-"""星空背景特效。"""
+"""星空背景特效（闪烁 + 少量下落星，营造层次）。"""
 
 from __future__ import annotations
 
+import math
 import random
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from app.cli.tui.fx.particle import NEON_PALETTE, Particle, ParticleEffect
 
 if TYPE_CHECKING:
-    pass
+    from app.cli.tui.fx.canvas import CanvasWidget
 
 
-# 星空使用的字符
-_STAR_CHARS = ["·", "•", "*", "+", "˖", "✦", "✧"]
+# 星点使用的字符（混用稀疏点与偶发的小星型，增加质感）。
+_STAR_CHARS = ["·", "•", "˖", "+", "✦", "✧"]
+# 闪烁星：更偏稀疏点状，避免密集成雪花。
+_TWINKLE_CHARS = ["·", "·", "˖", "•"]
+# 下落星：偏小亮点，缓慢流动。
+_FALL_CHARS = ["·", "˖", "•"]
+
+
+@dataclass
+class _TwinkleMeta:
+    """闪烁粒子的附加状态（与 Particle 并行存储，避免改动基类）。"""
+
+    base_color: str  # 基础六位十六进制颜色（RRGGBB）
+    freq: float  # 闪烁频率（弧度/秒）
+    phase: float  # 闪烁相位（弧度）
+    base_brightness: float  # 基础亮度（0..1），峰值
+    # 下落星专用：vy>0 时为下落星，否则为纯闪烁星（静止）。
+
+
+def _scale_brightness(hex_color: str, factor: float) -> str:
+    """按 factor 缩放六位十六进制颜色的各通道亮度。
+
+    Args:
+        hex_color: 形如 "7aa2f7" 的六位十六进制颜色。
+        factor: 0..1 的缩放系数（允许略大于 1 做轻微高光）。
+
+    Returns:
+        缩放后的六位十六进制颜色字符串。
+    """
+    r = int(hex_color[0:2], 16)
+    g = int(hex_color[2:4], 16)
+    b = int(hex_color[4:6], 16)
+    r = max(0, min(255, int(r * factor)))
+    g = max(0, min(255, int(g * factor)))
+    b = max(0, min(255, int(b * factor)))
+    return f"{r:02x}{g:02x}{b:02x}"
 
 
 class StarfieldEffect(ParticleEffect):
-    """缓慢下落的星空/代码雨效果。
+    """闪烁星空背景 + 少量缓慢下落星。
 
-    粒子从顶部随机位置生成，以不同速度下落，模拟星空流动或轻柔的代码雨。
+    主要由大量**原位闪烁**的星点构成（亮度随时间 sin 脉动：明→暗→明），
+    混入少量缓慢下落的星，营造层次感与呼吸感。
+
+    设计要点：
+    - 闪烁：每个粒子有独立的 freq/phase，用 ``sin(age*freq + phase)`` 计算瞬时亮度，
+      覆盖到基础颜色的各通道。整体偏 dim，偶有较亮的峰值。
+    - 下落：约 1/6 的粒子带向下速度，缓慢流动，作为点缀而非主体。
+    - 密度：默认密度提高，让星空更饱满但不至于糊成一片。
     """
 
-    def __init__(self, density: float = 0.8, speed_range: tuple[float, float] = (0.3, 1.5)) -> None:
+    def __init__(
+        self,
+        density: float = 1.6,
+        speed_range: tuple[float, float] = (0.2, 0.9),
+        faller_ratio: float = 0.16,
+        max_particles: int = 260,
+    ) -> None:
         """
         Args:
             density: 粒子密度系数，越高星空越密集。
-            speed_range: 粒子下落速度范围（格/秒）。
+            speed_range: 下落星的速度范围（格/秒）。
+            faller_ratio: 下落星占比（0..1），其余为静止闪烁星。
+            max_particles: 粒子数量上限。
         """
-        super().__init__(name="starfield", max_particles=120)
+        super().__init__(name="starfield", max_particles=max_particles)
         self.density = density
         self.speed_range = speed_range
+        self.faller_ratio = faller_ratio
         self._emit_accumulator = 0.0
+        # id(particle) -> _TwinkleMeta，闪烁/下落参数并行表。
+        self._meta: dict[int, _TwinkleMeta] = {}
 
     def _emit(self, dt: float, width: int, height: int) -> None:
-        """根据密度持续发射新粒子。"""
+        """根据密度持续补充新粒子（闪烁星 + 下落星混合）。"""
         if width <= 0 or height <= 0:
             return
         self._emit_accumulator += dt
-        # 每帧发射概率与密度相关
-        target_count = int(width * height * 0.005 * self.density)
+        # 提高密度公式：更大面积系数，让星空更饱满。
+        target_count = int(width * height * 0.012 * self.density)
+        target_count = min(target_count, self.max_particles)
         while len(self.particles) < target_count and self._emit_accumulator > 0:
-            self._emit_accumulator -= 0.05
-            char = random.choice(_STAR_CHARS)  # noqa: S311
+            self._emit_accumulator -= 0.03
+            self._spawn_one(width, height)
+
+    def _spawn_one(self, width: int, height: int) -> None:
+        """生成单个星点粒子并登记其闪烁元数据。"""
+        is_faller = random.random() < self.faller_ratio  # noqa: S311
+        base_color = random.choice(NEON_PALETTE.colors)  # noqa: S311
+        # 大多数星偏暗（dim 基础亮度低），少数较亮。
+        base_brightness = random.choice(  # noqa: S311
+            [0.18, 0.22, 0.28, 0.32, 0.40, 0.55, 0.75]
+        )
+        if is_faller:
+            char = random.choice(_FALL_CHARS)  # noqa: S311
             speed = random.uniform(*self.speed_range)  # noqa: S311
-            brightness = random.choice(["50", "70", "a0", "d0", "ff"])  # noqa: S311
-            color = random.choice(NEON_PALETTE.colors)[:4] + brightness[:2]
-            particle = Particle(
-                x=random.uniform(0, width - 1),  # noqa: S311
-                y=-1.0,
-                vx=0.0,
-                vy=speed,
-                life=height / speed + 2.0,
-                max_life=height / speed + 2.0,
-                char=char,
-                fg=color,
-                style="dim",
+            life = height / max(speed, 0.1) + 2.0
+            vy = speed
+            x = random.uniform(0, width - 1)  # noqa: S311
+            y = random.uniform(-1.0, height * 0.3)  # noqa: S311
+            # 下落星闪烁更慢、幅度小（保持流动感）。
+            freq = random.uniform(1.0, 2.2)  # noqa: S311
+        else:
+            char = random.choice(_TWINKLE_CHARS)  # noqa: S311
+            vy = 0.0
+            # 闪烁星生命周期长，靠 age 驱动脉动；定期回收轮换位置。
+            life = random.uniform(8.0, 20.0)  # noqa: S311
+            x = random.uniform(0, width - 1)  # noqa: S311
+            y = random.uniform(0, height - 1)  # noqa: S311
+            # 静止闪烁星频率差异大，避免整齐划一的"呼吸"。
+            freq = random.uniform(0.8, 3.5)  # noqa: S311
+
+        particle = Particle(
+            x=x,
+            y=y,
+            vx=0.0,
+            vy=vy,
+            life=life,
+            max_life=life,
+            char=char,
+            fg=_scale_brightness(base_color, base_brightness),
+            style="dim",
+        )
+        self._spawn(particle)
+        # 仅当成功入队（未超上限）才登记元数据。
+        if particle in self.particles:
+            self._meta[id(particle)] = _TwinkleMeta(
+                base_color=base_color,
+                freq=freq,
+                phase=random.uniform(0.0, 2 * math.pi),  # noqa: S311
+                base_brightness=base_brightness,
             )
-            self._spawn(particle)
+
+    def update(self, dt: float, width: int, height: int) -> None:
+        """更新粒子，并清理已回收粒子的闪烁元数据。"""
+        super().update(dt, width, height)
+        # 回收失效粒子的元数据，避免字典无限增长。
+        if len(self._meta) > len(self.particles) * 2 + 16:
+            live_ids = {id(p) for p in self.particles}
+            self._meta = {k: v for k, v in self._meta.items() if k in live_ids}
+
+    def render(self, canvas: CanvasWidget) -> None:
+        """渲染粒子：按闪烁相位重算瞬时亮度，覆盖 fg 后绘制。"""
+        for p in self.particles:
+            meta = self._meta.get(id(p))
+            if meta is not None:
+                # sin 脉动：[-1,1] 映射到亮度 [0, base]。
+                pulse = (math.sin(p.age * meta.freq + meta.phase) + 1.0) * 0.5
+                factor = max(0.05, meta.base_brightness * (0.35 + 0.65 * pulse))
+                fg = _scale_brightness(meta.base_color, factor)
+            else:
+                fg = p.fg
+            ix = int(p.x)
+            iy = int(p.y)
+            if 0 <= ix < canvas.canvas_width and 0 <= iy < canvas.canvas_height:
+                canvas.blend(ix, iy, p.char, fg=fg, bg=p.bg, style=p.style, alpha=p.alpha)
 
     def _should_continue(self) -> bool:
         return True

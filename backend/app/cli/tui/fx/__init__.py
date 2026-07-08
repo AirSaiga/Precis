@@ -6,5 +6,6 @@
 
 from app.cli.tui.fx.canvas import CanvasWidget, Cell
 from app.cli.tui.fx.engine import EffectEngine
+from app.cli.tui.fx.meteor import MeteorEffect
 
-__all__ = ["CanvasWidget", "Cell", "EffectEngine"]
+__all__ = ["CanvasWidget", "Cell", "EffectEngine", "MeteorEffect"]

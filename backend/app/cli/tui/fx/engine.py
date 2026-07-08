@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import random
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -10,6 +11,7 @@ from textual.widgets import Static
 from app.cli.tui.fx.canvas import CanvasWidget
 from app.cli.tui.fx.confetti import ConfettiEffect
 from app.cli.tui.fx.glow import GlowEffect
+from app.cli.tui.fx.meteor import MeteorEffect
 from app.cli.tui.fx.particle import Effect
 from app.cli.tui.fx.starfield import StarfieldEffect
 
@@ -39,6 +41,13 @@ class EffectEngine:
         self._timer: Any | None = None
         self._last_time = time.monotonic()
         self._paused = False
+        # 偶发流星自动触发：默认开启，约每 [min,max] 秒随机间隔一颗。
+        self._meteor_enabled: bool = True
+        self._meteor_min: float = 8.0
+        self._meteor_max: float = 15.0
+        self._meteor_countdown: float = self._roll_meteor_interval()
+        # 同时存活流星数上限（避免偶发密集导致画面花哨）。
+        self._meteor_cap: int = 2
 
     def start(self) -> None:
         """启动特效引擎定时器。"""
@@ -66,6 +75,34 @@ class EffectEngine:
         """添加一个特效。"""
         self.effects.append(effect)
 
+    def set_meteor_interval(self, min_sec: float = 8.0, max_sec: float = 15.0, enabled: bool | None = None) -> None:
+        """配置偶发流星的自动触发间隔。
+
+        Args:
+            min_sec: 两次流星之间的最短间隔（秒）。
+            max_sec: 两次流星之间的最长间隔（秒）。
+            enabled: 是否启用自动流星；None 表示保持当前开关状态。
+        """
+        if min_sec > max_sec:
+            min_sec, max_sec = max_sec, min_sec
+        self._meteor_min = max(1.0, min_sec)
+        self._meteor_max = max(self._meteor_min, max_sec)
+        if enabled is not None:
+            self._meteor_enabled = enabled
+
+    def _roll_meteor_interval(self) -> float:
+        """随机抽取下一次流星触发的等待时长（秒）。"""
+        return random.uniform(self._meteor_min, self._meteor_max)  # noqa: S311
+
+    def _auto_spawn_meteor(self, width: int, height: int) -> None:
+        """满足条件时自动产生一颗流星（受存活上限约束）。"""
+        if not self._meteor_enabled or width <= 0 or height <= 0:
+            return
+        live = sum(1 for e in self.effects if isinstance(e, MeteorEffect))
+        if live >= self._meteor_cap:
+            return
+        self.add(MeteorEffect(width=width, height=height))
+
     def clear(self) -> None:
         """清除所有特效。"""
         self.effects.clear()
@@ -76,13 +113,18 @@ class EffectEngine:
         """触发一个命名特效。
 
         Args:
-            name: 特效名，支持 "starfield", "confetti", "glow"。
+            name: 特效名，支持 "starfield", "confetti", "meteor", "glow"。
             **kwargs: 特效构造参数。
         """
         if name == "starfield":
             self.add(StarfieldEffect(**kwargs))
         elif name == "confetti":
             self.add(ConfettiEffect(**kwargs))
+        elif name == "meteor":
+            # 流星需要画布尺寸；未提供时取当前画布。
+            width = kwargs.pop("width", self.canvas.canvas_width)
+            height = kwargs.pop("height", self.canvas.canvas_height)
+            self.add(MeteorEffect(width=width, height=height, **kwargs))
         elif name == "glow":
             target = kwargs.get("target")
             if isinstance(target, Static):
@@ -118,4 +160,10 @@ class EffectEngine:
             effect.render(self.canvas)
         # 清理已结束特效
         self.effects = [e for e in self.effects if e.is_alive]
+        # 偶发流星自动触发：递减倒计时，到点产一颗并重新随机下一次。
+        if self._meteor_enabled:
+            self._meteor_countdown -= dt
+            if self._meteor_countdown <= 0.0:
+                self._auto_spawn_meteor(width, height)
+                self._meteor_countdown = self._roll_meteor_interval()
         self.canvas.refresh()

@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from textual import on
 from textual.app import ComposeResult
@@ -76,6 +76,44 @@ _TIPS_TEXT: str = (
     "  [dim]数字键 1-6[/dim] 快速进入功能\n"
     "  [dim]Enter[/dim]      确认选择"
 )
+
+# ---- 标题周期性扫光 ----
+# 标题主词（被扫光照亮的部分）与版本号。
+_TITLE_WORD = "PRECIS"
+# 扫光调色板：每个字符相对光头中心的距离 -> 颜色。
+# 越靠近光头越亮（主色/强调色），远离则回落到暗灰。
+_SCAN_DIM = "#3b4252"  # 暗灰：未照亮与边缘
+_SCAN_MID = "#5e81ac"  # 中间过渡
+_SCAN_HOT = "$accent"  # 光头中心：用主题强调色
+# 扫光循环节奏：每 IDLE 秒触发一次，持续 SWEEP 秒（帧间隔 FRAME）。
+_SCAN_IDLE = 4.0
+_SCAN_SWEEP = 0.8
+_SCAN_FRAME = 0.05
+
+
+def _render_title(scan_pos: float | None) -> str:
+    """渲染带扫光效果的标题 markup。
+
+    Args:
+        scan_pos: 当前光头在标题字符序列中的位置（0..len），None 表示静止（无扫光）。
+
+    Returns:
+        可用于 ``Label.update`` 的 Rich markup 字符串。
+    """
+    if scan_pos is None:
+        return f"[{_SCAN_DIM}]{_TITLE_WORD}[/]  [dim]{_APP_VERSION}[/dim]"
+    parts: list[str] = []
+    for i, _ch in enumerate(_TITLE_WORD):
+        # 字符到光头的距离，光带半宽约 1.5 个字符。
+        dist = abs(i - scan_pos)
+        if dist <= 0.6:
+            parts.append(f"[bold {_SCAN_HOT}]{_TITLE_WORD[i]}[/]")
+        elif dist <= 1.6:
+            parts.append(f"[{_SCAN_MID}]{_TITLE_WORD[i]}[/]")
+        else:
+            parts.append(f"[{_SCAN_DIM}]{_TITLE_WORD[i]}[/]")
+    word = "".join(parts)
+    return f"{word}  [dim]{_APP_VERSION}[/dim]"
 
 
 @register_screen("dashboard")
@@ -193,8 +231,8 @@ class DashboardScreen(Screen):
     def compose(self) -> ComposeResult:
         """组装首页看板：标题 + 状态横幅 + 横向功能卡片 + 底部双栏。"""
         with Vertical(id="dashboard-root"):
-            # 小号标题（单行，不做大 logo 动画）
-            yield Label(f"PRECIS  [dim]{_APP_VERSION}[/dim]", id="dashboard-title", markup=True)
+            # 小号标题（单行，不做大 logo 动画）；周期性扫光由定时器驱动。
+            yield Label(_render_title(None), id="dashboard-title", markup=True)
             # 状态横幅：项目名/路径 或 未打开引导
             with Vertical(id="status-banner"):
                 yield Label("项目概览", id="banner-content", markup=True)
@@ -218,16 +256,75 @@ class DashboardScreen(Screen):
 
         self._reload_history()
         self._refresh_overview()
+        # 标题周期性扫光：on_mount 即开始（resume 时也会恢复）。
+        self._start_title_scan()
 
     def on_screen_resume(self) -> None:
-        """Dashboard 成为活动屏时启动星空背景。"""
+        """Dashboard 成为活动屏时启动星空背景与标题扫光。"""
         if hasattr(self.app, "set_fx_background"):
             self.app.set_fx_background("starfield")
+        self._start_title_scan()
 
     def on_screen_suspend(self) -> None:
-        """Dashboard 离开活动屏时清除背景特效。"""
+        """Dashboard 离开活动屏时清除背景特效与标题扫光。"""
         if hasattr(self.app, "set_fx_background"):
             self.app.set_fx_background(None)
+        self._stop_title_scan()
+
+    # ---- 标题周期性扫光 ----
+
+    def _start_title_scan(self) -> None:
+        """启动标题扫光循环：每 _SCAN_IDLE 秒扫一次。
+
+        采用两级定时器：idle 定时器周期性触发一次扫光并启动帧定时器，
+        帧定时器以 _SCAN_FRAME 间隔推进光头，扫完后自动停止并恢复暗标题。
+        """
+        if getattr(self, "_scan_idle_timer", None) is not None:
+            return  # 已在运行
+        self._scan_idle_timer: Any = self.set_interval(_SCAN_IDLE, self._begin_sweep)
+
+    def _stop_title_scan(self) -> None:
+        """停止扫光并恢复静态暗标题。"""
+        for attr in ("_scan_idle_timer", "_scan_frame_timer"):
+            timer = getattr(self, attr, None)
+            if timer is not None:
+                timer.stop()
+                setattr(self, attr, None)
+        try:
+            self.query_one("#dashboard-title", Label).update(_render_title(None))
+        except Exception:  # noqa: BLE001 - 控件已卸载时静默
+            pass
+
+    def _begin_sweep(self) -> None:
+        """开始一次扫光：从左到右推进光头。"""
+        # 光头从 -1（左侧外）扫到 len+1（右侧外），保证进出边缘有淡入淡出。
+        frames = int(_SCAN_SWEEP / _SCAN_FRAME)
+        self._scan_frames = frames
+        self._scan_step = 0
+        if getattr(self, "_scan_frame_timer", None) is not None:
+            self._scan_frame_timer.stop()
+        self._scan_frame_timer = self.set_interval(_SCAN_FRAME, self._advance_sweep)
+
+    def _advance_sweep(self) -> None:
+        """推进一帧光头位置并刷新标题。"""
+        step = getattr(self, "_scan_step", 0)
+        frames = max(getattr(self, "_scan_frames", 1), 1)
+        # 位置在 [-1, len+1] 间线性插值。
+        pos = -1.0 + (step / frames) * (len(_TITLE_WORD) + 2)
+        try:
+            self.query_one("#dashboard-title", Label).update(_render_title(pos))
+        except Exception:  # noqa: BLE001 - 控件已卸载时静默
+            pass
+        self._scan_step = step + 1
+        if self._scan_step > frames:
+            # 扫光结束：恢复暗标题，停止帧定时器。
+            if getattr(self, "_scan_frame_timer", None) is not None:
+                self._scan_frame_timer.stop()
+                self._scan_frame_timer = None
+            try:
+                self.query_one("#dashboard-title", Label).update(_render_title(None))
+            except Exception:  # noqa: BLE001
+                pass
 
     def _reload_history(self) -> None:
         """重新加载最近项目列表（从 project_ops.load_history）。"""
