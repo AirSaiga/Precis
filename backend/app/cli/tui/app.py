@@ -33,6 +33,7 @@ from app.cli.tui.fx import CanvasWidget, EffectEngine
 from app.cli.tui.protocols import SCREEN_REGISTRY
 from app.cli.tui.screens import chat, config, generate, provider, validation  # noqa: F401
 from app.cli.tui.screens.dashboard import DashboardScreen
+from app.cli.tui.screens.splash import SplashScreen
 
 # 主题系统：基于 Textual 原生 Theme 对象（非 CSS 文件），运行时即时切换。
 # 主题定义见 themes.py，注册后用 app.theme = "name" 切换，所有内置 token 自动跟随。
@@ -119,7 +120,7 @@ class PrecisTUIApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        """挂载回调：注册主题、初始化特效引擎、推入 Dashboard、刷新状态栏。"""
+        """挂载回调：注册主题、初始化特效引擎、推入 Splash 启动画面。"""
         # 注册全部主题并设置初始主题（app.theme 是 reactive，即时生效）
         register_all_themes(self)
         self.theme = self._precis_theme
@@ -130,6 +131,12 @@ class PrecisTUIApp(App):
         canvas = self.query_one("#fx-canvas", CanvasWidget)
         self.effect_engine = EffectEngine(self, canvas)
         self.effect_engine.start()
+        # 推入启动画面（动画结束后自动切到 Dashboard）
+        self.push_screen(SplashScreen())
+
+    def _on_splash_done(self) -> None:
+        """Splash 动画结束后调用：切换到 Dashboard。"""
+        self.pop_screen()  # 移除 SplashScreen
         self.push_screen(DashboardScreen())
         self._refresh_status_bar()
 

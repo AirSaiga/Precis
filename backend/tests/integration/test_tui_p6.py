@@ -41,6 +41,19 @@ def isolated_history(tmp_path, monkeypatch):
     return history_file
 
 
+async def skip_splash(pilot) -> None:
+    """跳过启动动画，等待进入 Dashboard。
+
+    App 启动后先推 SplashScreen，按空格跳过 + pause 等待 Dashboard 就绪。
+    """
+    from app.cli.tui.screens.splash import SplashScreen
+
+    await pilot.pause()
+    if isinstance(pilot.app.screen, SplashScreen):
+        await pilot.press("space")
+        await pilot.pause()
+
+
 # 预期在 SCREEN_REGISTRY 中的全部屏名（import app 后应被 @register_screen 填充）
 _EXPECTED_SCREENS = {
     "dashboard",
@@ -78,7 +91,7 @@ async def test_app_starts_on_dashboard(isolated_history):
     """App 启动后默认屏应为 Dashboard。"""
     app = PrecisTUIApp()
     async with app.run_test() as pilot:
-        await pilot.pause()
+        await skip_splash(pilot)
         assert isinstance(app.screen, DashboardScreen)
 
 
@@ -87,7 +100,7 @@ async def test_dashboard_renders_quick_entries_and_history(isolated_history):
     """Dashboard 应渲染功能入口列表与最近项目列表（即使历史为空也显示占位）。"""
     app = PrecisTUIApp()
     async with app.run_test() as pilot:
-        await pilot.pause()
+        await skip_splash(pilot)
         dashboard = app.screen
         assert isinstance(dashboard, DashboardScreen)
         # 功能入口列表应有 _QUICK_ENTRIES 数量的选项（6 个）
@@ -103,7 +116,7 @@ async def test_status_bar_exists_and_renders(isolated_history):
     """StatusBar 应存在并能渲染文案（含项目占位 + Provider 部分）。"""
     app = PrecisTUIApp()
     async with app.run_test() as pilot:
-        await pilot.pause()
+        await skip_splash(pilot)
         status_bar = app.query_one("#status-bar", StatusBar)
         # 刷新后不抛异常
         status_bar.refresh_state(app)
@@ -121,7 +134,7 @@ async def test_command_palette_invoked_and_lists_screens(isolated_history):
     """Ctrl+P 应唤出命令面板，面板应列出全部已注册屏。"""
     app = PrecisTUIApp()
     async with app.run_test() as pilot:
-        await pilot.pause()
+        await skip_splash(pilot)
         # 触发命令面板动作
         await pilot.press("ctrl+p")
         await pilot.pause()
@@ -139,7 +152,7 @@ async def test_command_palette_navigation_jumps_to_screen(isolated_history):
 
     app = PrecisTUIApp()
     async with app.run_test() as pilot:
-        await pilot.pause()
+        await skip_splash(pilot)
         # 唤出面板
         await pilot.press("ctrl+p")
         await pilot.pause()
@@ -170,7 +183,7 @@ async def test_goto_unknown_screen_notifies(isolated_history):
     """_goto_screen 跳转未注册的屏时应通知错误，不崩溃。"""
     app = PrecisTUIApp()
     async with app.run_test() as pilot:
-        await pilot.pause()
+        await skip_splash(pilot)
         # 未注册的屏名
         app._goto_screen("__nonexistent__")
         await pilot.pause()
@@ -187,7 +200,7 @@ async def test_quit_binding_requests_exit(isolated_history):
     """
     app = PrecisTUIApp()
     async with app.run_test() as pilot:
-        await pilot.pause()
+        await skip_splash(pilot)
         await pilot.press("ctrl+q")
         await pilot.pause()
         # ctrl+q 触发 quit 动作后，App 会开始退出流程
@@ -202,7 +215,7 @@ async def test_dashboard_quick_entry_navigation(isolated_history):
 
     app = PrecisTUIApp()
     async with app.run_test() as pilot:
-        await pilot.pause()
+        await skip_splash(pilot)
         dashboard = app.screen
         # 选中 provider 入口（id="provider"）并回车
         entries = dashboard.query_one("#quick-entries")
@@ -229,7 +242,7 @@ async def test_dashboard_open_history_updates_state(qa_simple_copy, isolated_his
 
     app = PrecisTUIApp()
     async with app.run_test() as pilot:
-        await pilot.pause()
+        await skip_splash(pilot)
         dashboard = app.screen
         # 历史列表首项即 qa_simple 副本
         history = dashboard.query_one("#recent-projects")
