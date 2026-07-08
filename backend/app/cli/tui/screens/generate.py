@@ -78,9 +78,9 @@ class _GenerationScreenBase(Screen):
     """
 
     BINDINGS = [
-        Binding("ctrl+g", "generate", "生成"),
-        Binding("ctrl+a", "apply", "应用"),
-        Binding("escape", "dismiss", "关闭"),
+        Binding("ctrl+g", "generate", "生成", show=True),
+        Binding("ctrl+a", "apply", "应用", show=True),
+        Binding("escape", "dismiss", "关闭", show=True),
     ]
 
     DEFAULT_CSS = """

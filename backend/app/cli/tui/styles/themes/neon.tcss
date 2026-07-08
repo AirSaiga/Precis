@@ -85,6 +85,20 @@ Footer {
     padding: 1 2;
     margin: 1 0;
 }
+
+/* panel：功能屏的面板容器（统一各屏的分区边框） */
+.panel {
+    border: round $neon-background;
+    background: $neon-surface;
+    padding: 0 1;
+}
+/* badge：行内标签（错误计数、状态标记） */
+.badge {
+    text-style: bold;
+    color: $neon-surface;
+    background: $accent;
+    padding: 0 1;
+}
 .section-title {
     text-style: bold;
     color: $accent;

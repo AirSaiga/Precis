@@ -73,6 +73,20 @@ Footer {
     padding: 1 2;
     margin: 1 0;
 }
+
+/* panel：功能屏的面板容器（统一各屏的分区边框） */
+.panel {
+    border: round $theme-background;
+    background: $theme-surface;
+    padding: 0 1;
+}
+/* badge：行内标签（错误计数、状态标记） */
+.badge {
+    text-style: bold;
+    color: $theme-surface;
+    background: $accent;
+    padding: 0 1;
+}
 .section-title { text-style: bold; color: $accent; margin-bottom: 1; }
 .hint { color: $theme-text-muted; }
 .empty-state { color: $theme-text-muted; text-align: center; margin: 2 0; }

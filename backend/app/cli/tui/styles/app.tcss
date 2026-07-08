@@ -60,17 +60,31 @@ Footer {
     padding: 0 1;
 }
 
-/* ── 通用工具类 ── */
+/* ── 通用工具类（各屏统一复用，随主题自动变色）── */
+/* card：带边框的信息卡片（Dashboard 概览、详情面板等） */
 .card {
     border: round $panel;
     background: $surface;
     padding: 1 2;
     margin: 1 0;
 }
+/* panel：功能屏的面板容器（统一各屏的分区边框） */
+.panel {
+    border: round $background;
+    background: $surface;
+    padding: 0 1;
+}
 .section-title {
     text-style: bold;
     color: $accent;
     margin-bottom: 1;
+}
+/* badge：行内标签（错误计数、状态标记） */
+.badge {
+    text-style: bold;
+    color: $surface;
+    background: $accent;
+    padding: 0 1;
 }
 .hint {
     color: $text-muted;
