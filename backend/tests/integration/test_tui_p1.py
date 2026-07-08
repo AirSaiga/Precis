@@ -3,8 +3,9 @@
 
 验证「打开项目 + 执行校验 + 展示结果」闭环：
 - 用 qa_test/qa_simple 真实项目（复制到 tmp_path 避免污染源）
-- 挂载 ValidationScreen，从历史列表打开项目，执行校验
-- 断言错误表格含行、摘要日志含关键文本
+- 挂载 ValidationScreen，直接注入项目状态（V2-4 起校验屏不再内嵌 HistoryList，
+  项目打开入口收敛到 Dashboard / Ctrl+O），执行校验
+- 断言错误表格含行、摘要日志含关键文本、左栏数据源树填充、右栏详情联动
 - 校验结果与 CLI standalone 模式数据层一致（errors 数量与类型）
 
 mock 边界：真实 ValidationExecutor（用 qa_simple 真实数据，证明端到端可用）。
@@ -73,6 +74,18 @@ def isolated_history(tmp_path, monkeypatch):
     return history_file
 
 
+def _open_project_in_app(app: _HarnessApp, project_path: Path) -> None:
+    """在 _HarnessApp 上模拟「打开项目」：调 project_ops 并写入 app 状态。
+
+    V2-4 起校验屏不再内嵌 HistoryList，项目入口收敛到 Dashboard / Ctrl+O。
+    测试直接调用与 HistoryList 相同的 project_ops.open_project，等价覆盖打开路径。
+    """
+    result = project_ops.open_project(str(project_path))
+    assert result.success, f"打开项目失败：{result.message}"
+    app.project_path = result.project_path
+    app.project_config = result.config
+
+
 def _richlog_text(log) -> str:
     """从 RichLog.lines（Strip 列表）拼接纯文本，便于断言。"""
     return "\n".join(getattr(line, "text", "") or "" for line in log.lines)
@@ -85,23 +98,18 @@ async def test_validation_screen_registered_in_registry():
 
 
 @pytest.mark.asyncio
-async def test_open_project_from_history_updates_state(qa_simple_copy, isolated_history):
-    """从历史列表打开 qa_simple 应更新 App 的项目状态。"""
-    # 预置历史：把 qa_simple 副本加入历史
-    project_ops.add_to_history(str(qa_simple_copy))
-    assert project_ops.load_history(), "历史预置失败"
-
+async def test_open_project_updates_state(qa_simple_copy, isolated_history):
+    """打开 qa_simple 后 App 的项目状态应更新（经 project_ops.open_project）。"""
     app = _HarnessApp()
     async with app.run_test() as pilot:
         await pilot.pause()
         screen = app.query_one(ValidationScreen)
         assert screen.is_project_open is False
 
-        # 选中历史列表首项触发打开
-        history_list = screen.query_one("#history-list")
-        history_list.index = 0
-        # 触发 selected（ListView.index 赋值会触发 Highlighted，selected 需 enter）
-        await pilot.press("enter")
+        # 模拟 Dashboard / Ctrl+O 打开项目（V2-4 校验屏不再内嵌 HistoryList）
+        _open_project_in_app(app, qa_simple_copy)
+        # 触发屏的状态条刷新（实际由消息驱动；测试中主动调用）
+        screen._refresh_status()  # noqa: SLF001
         await pilot.pause()
 
         # 状态应已更新到 qa_simple 副本
@@ -115,17 +123,12 @@ async def test_open_project_from_history_updates_state(qa_simple_copy, isolated_
 @pytest.mark.asyncio
 async def test_open_and_validate_qa_simple(qa_simple_copy, isolated_history):
     """打开 qa_simple 并执行校验，错误表格应含行、摘要应含耗时与约束检查文本。"""
-    project_ops.add_to_history(str(qa_simple_copy))
-
     app = _HarnessApp()
     async with app.run_test() as pilot:
         await pilot.pause()
         screen = app.query_one(ValidationScreen)
-
-        # 打开项目
-        history_list = screen.query_one("#history-list")
-        history_list.index = 0
-        await pilot.press("enter")
+        _open_project_in_app(app, qa_simple_copy)
+        screen._refresh_status()  # noqa: SLF001
         await pilot.pause()
         assert screen.is_project_open is True
 
@@ -160,7 +163,6 @@ async def test_open_and_validate_qa_simple(qa_simple_copy, isolated_history):
 @pytest.mark.asyncio
 async def test_validate_without_open_project_shows_prompt(qa_simple_copy, isolated_history):
     """未打开项目时点击校验应在摘要区提示，不崩溃。"""
-    # 不预置历史，列表为空
     app = _HarnessApp()
     async with app.run_test() as pilot:
         await pilot.pause()
@@ -173,7 +175,8 @@ async def test_validate_without_open_project_shows_prompt(qa_simple_copy, isolat
 
         log = screen.query_one("#summary-log")
         joined = _richlog_text(log)
-        assert "请先从左侧历史列表打开一个项目" in joined
+        # V2-4 文案改为提示 Ctrl+O（项目入口收敛）
+        assert "Ctrl+O" in joined
 
 
 @pytest.mark.asyncio
@@ -190,14 +193,12 @@ async def test_tui_validation_matches_cli_standalone(qa_simple_copy, isolated_hi
     baseline_errors = baseline.get("errors", [])
 
     # TUI 路径：经 ValidationService
-    project_ops.add_to_history(str(qa_simple_copy))
     app = _HarnessApp()
     async with app.run_test() as pilot:
         await pilot.pause()
         screen = app.query_one(ValidationScreen)
-        history_list = screen.query_one("#history-list")
-        history_list.index = 0
-        await pilot.press("enter")
+        _open_project_in_app(app, qa_simple_copy)
+        screen._refresh_status()  # noqa: SLF001
         await pilot.pause()
 
         await screen.action_validate().wait()
@@ -210,6 +211,140 @@ async def test_tui_validation_matches_cli_standalone(qa_simple_copy, isolated_hi
         assert table.row_count == len(baseline_errors), (
             f"TUI 表格行数 {table.row_count} != 基线 errors 数 {len(baseline_errors)}"
         )
+
+
+# ── V2-4：三栏布局 —— 数据源树 + 过滤联动 + 详情面板 ────────────────────
+
+
+@pytest.mark.asyncio
+async def test_three_column_layout_present(qa_simple_copy, isolated_history):
+    """三栏布局节点应同时存在：source-panel / result-panel / detail-panel。"""
+    from textual.widgets import RichLog, Tree
+
+    app = _HarnessApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = app.query_one(ValidationScreen)
+        # 三个面板节点
+        screen.query_one("#source-panel")
+        screen.query_one("#result-panel")
+        screen.query_one("#detail-panel")
+        # 子控件类型正确
+        assert isinstance(screen.query_one("#source-tree"), Tree)
+        assert isinstance(screen.query_one("#detail-log"), RichLog)
+
+
+@pytest.mark.asyncio
+async def test_source_tree_populated_after_validate(qa_simple_copy, isolated_history):
+    """校验后左栏数据源树应填充表节点（含行数/错误数标记）。"""
+    from textual.widgets import Tree
+
+    app = _HarnessApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = app.query_one(ValidationScreen)
+        _open_project_in_app(app, qa_simple_copy)
+        await pilot.pause()
+
+        await screen.action_validate().wait()
+        await pilot.pause()
+
+        tree = screen.query_one("#source-tree", Tree)
+        # 根节点应有子节点（每个表一个 leaf）
+        assert len(tree.root.children) > 0, "校验后数据源树应填充表节点"
+        # 至少一个叶子节点的 data 含 table 字段
+        leaves_with_table = [n for n in tree.root.children if (n.data or {}).get("table")]
+        assert leaves_with_table, "树节点 data 应携带 table 字段供过滤"
+
+
+@pytest.mark.asyncio
+async def test_tree_filter_narrows_error_table(qa_simple_copy, isolated_history):
+    """选中左栏某表叶子节点后，DataTable 应仅显示该表错误。"""
+    from textual.widgets import DataTable, Tree
+
+    app = _HarnessApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = app.query_one(ValidationScreen)
+        _open_project_in_app(app, qa_simple_copy)
+        await pilot.pause()
+
+        await screen.action_validate().wait()
+        await pilot.pause()
+
+        table = screen.query_one("#error-table", DataTable)
+        total_rows = table.row_count
+        assert total_rows > 0
+
+        tree = screen.query_one("#source-tree", Tree)
+        # 找一个错误数 > 0 的表节点做过滤目标
+        target = next(
+            (n for n in tree.root.children if (n.data or {}).get("errors", 0) > 0),
+            None,
+        )
+        assert target is not None, "qa_simple 应存在含错误的表"
+
+        target_table = target.data["table"]
+        # 选中该叶子节点 → 触发 NodeSelected → 过滤
+        tree.select_node(target)
+        await pilot.pause()
+
+        # DataTable 行数应等于该表的错误数
+        assert table.row_count == target.data["errors"]
+        # _table_filter 应同步更新
+        assert screen._table_filter == target_table  # noqa: SLF001
+
+        # 选中根节点 → 清除过滤，恢复全部
+        tree.select_node(tree.root)
+        await pilot.pause()
+        assert table.row_count == total_rows
+        assert screen._table_filter is None  # noqa: SLF001
+
+
+@pytest.mark.asyncio
+async def test_detail_panel_shows_selected_error(qa_simple_copy, isolated_history):
+    """移动 DataTable 光标到某错误行，右栏详情应展示该错误的表/字段/消息。"""
+    from textual.widgets import DataTable
+
+    app = _HarnessApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = app.query_one(ValidationScreen)
+        _open_project_in_app(app, qa_simple_copy)
+        await pilot.pause()
+
+        await screen.action_validate().wait()
+        await pilot.pause()
+
+        table = screen.query_one("#error-table", DataTable)
+        assert table.row_count > 0
+
+        # 移动光标到第一行 → 触发 RowHighlighted → 详情渲染
+        table.move_cursor(row=0)
+        await pilot.pause()
+
+        detail_log = screen.query_one("#detail-log")
+        detail_text = _richlog_text(detail_log)
+        # 详情面板应含字段标签
+        assert "表：" in detail_text
+        assert "字段：" in detail_text
+        assert "消息：" in detail_text
+        # 取当前错误对照：第一行错误
+        first_err = screen._current_errors[0]  # noqa: SLF001
+        assert str(first_err.get("table", "")) in detail_text
+
+
+@pytest.mark.asyncio
+async def test_detail_panel_empty_state_before_select(qa_simple_copy, isolated_history):
+    """校验后未移动光标时，右栏详情面板应显示空态提示。"""
+    app = _HarnessApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = app.query_one(ValidationScreen)
+
+        # 挂载后空态
+        detail_text = _richlog_text(screen.query_one("#detail-log"))
+        assert "选中错误行查看详情" in detail_text
 
 
 # ── 校验实时渲染（V2-3c）：worker 不阻塞 + 进度区实时更新 ────────────────────
@@ -281,15 +416,11 @@ async def test_validation_worker_does_not_block_ui(qa_simple_copy, isolated_hist
     """校验在 worker 线程执行：运行期间 UI 线程应仍可交互（按钮可聚焦/按键可响应）。"""
     from textual.widgets import Button, ProgressBar, Sparkline
 
-    project_ops.add_to_history(str(qa_simple_copy))
     app = _HarnessApp()
     async with app.run_test() as pilot:
         await pilot.pause()
         screen = app.query_one(ValidationScreen)
-        # 打开项目
-        history_list = screen.query_one("#history-list")
-        history_list.index = 0
-        await pilot.press("enter")
+        _open_project_in_app(app, qa_simple_copy)
         await pilot.pause()
         assert screen.is_project_open is True
 
@@ -325,14 +456,11 @@ async def test_validation_worker_does_not_block_ui(qa_simple_copy, isolated_hist
 @pytest.mark.asyncio
 async def test_validation_worker_exclusive_prevents_restart(qa_simple_copy, isolated_history):
     """exclusive=True：校验中再次触发应不重启（worker 组内互斥）。"""
-    project_ops.add_to_history(str(qa_simple_copy))
     app = _HarnessApp()
     async with app.run_test() as pilot:
         await pilot.pause()
         screen = app.query_one(ValidationScreen)
-        history_list = screen.query_one("#history-list")
-        history_list.index = 0
-        await pilot.press("enter")
+        _open_project_in_app(app, qa_simple_copy)
         await pilot.pause()
 
         # 注入慢速假服务（确保第二次触发时仍在运行）

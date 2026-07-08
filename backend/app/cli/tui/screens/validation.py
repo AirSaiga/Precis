@@ -1,18 +1,21 @@
 # backend/app/cli/tui/screens/validation.py
 """
-@fileoverview TUI 校验屏（P1）
+@fileoverview TUI 校验屏（P1 / V2-4 三栏重构）
 
 功能概述:
-- 实现「打开项目 → 执行校验 → 展示结果」闭环的最小可用屏。
-- 左侧 ``HistoryList`` 展示历史项目并触发打开；选中后更新项目路径/配置。
-- 校验按钮调用 ``ValidationService.validate``，结果用 ``DataTable``（表/字段/行号/约束/消息）
-  展示错误，用 ``RichLog`` 展示摘要（数据表/行数、约束检查通过/失败）。
+- 实现「打开项目 → 执行校验 → 展示结果」闭环的校验屏。
+- V2-4 起，从两栏（历史+结果）升级为专业三栏 IDE 感布局：
+  * 左栏 #source-panel ：数据源树（表名/行数/错误数），校验后填充。
+  * 中栏 #result-panel ：校验按钮 + 进度区 + 摘要日志 + 错误表格。
+  * 右栏 #detail-panel ：选中错误行后展示完整字段详情。
+- 联动：左栏选中某表 → 中栏 DataTable 按表过滤；中栏选中某行 → 右栏展示详情。
+- 项目打开入口收敛到 Dashboard（最近项目）/ Ctrl+O，validation 屏不再内嵌 HistoryList。
 
 架构设计:
 - 屏注册到 SCREEN_REGISTRY（@register_screen("validation")），供 P6 装配。
 - 错误/摘要的渲染数据结构对齐 CLI formatter.format_validation_result / format_validation_summary，
   但不 import formatter——本屏自行组织渲染，避免 CLI UI 层依赖泄漏到 TUI。
-- 项目操作直接调 shared_services.project_ops（经 HistoryList）；校验经 ValidationService。
+- 校验逻辑（worker / progress_callback / 摘要渲染）与 V2-3 一致，本屏仅改布局与联动。
 - 全局项目状态通过 app 自身属性持有（project_path/project_config），若无则屏内临时持有。
 """
 
@@ -25,24 +28,41 @@ from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, DataTable, Label, ProgressBar, RichLog, Sparkline
+from textual.widgets import (
+    Button,
+    DataTable,
+    Label,
+    ProgressBar,
+    RichLog,
+    Sparkline,
+    Tree,
+)
 
 from app.cli.shared_services import project_ops
 from app.cli.tui.protocols import register_screen
 from app.cli.tui.services.validation_service import ValidationResult, ValidationService
-from app.cli.tui.widgets.history_list import HistoryList
 from app.shared.services.validation.progress import ProgressEvent
 
 # DataTable 列定义：表/字段/行号/约束/消息
 _ERROR_COLUMNS = ("表", "字段", "行号", "约束", "消息")
 
+# Nerd Font / Unicode 字形（避免 emoji，保证终端宽度一致）
+_ICON_FOLDER = "\uf07b"  #  数据源（表）节点
+_ICON_DOC = "\uf15c"  #  单条错误（详情面板头部用，预留）
+_ICON_ROOT = "\uf07c"  #  展开的根目录
+
+# 校验前 Tree 占位文案 / 详情面板空态文案
+_SOURCE_EMPTY_HINT = "[dim]校验后显示数据源[/dim]\n[dim]Ctrl+O 打开项目后按 Ctrl+R 校验[/dim]"
+_DETAIL_EMPTY_HINT = "[dim]选中错误行查看详情[/dim]"
+
 
 @register_screen("validation")
 class ValidationScreen(Screen):
-    """校验屏：打开项目、执行校验、展示错误与摘要。
+    """校验屏：执行校验并展示数据源树 / 错误表 / 详情预览（三栏 IDE 感）。
 
-    布局：左侧历史列表 + 右侧（摘要日志 + 错误表格）。
-    校验结果由 ``ValidationService`` 返回，错误填入 DataTable，摘要写入 RichLog。
+    布局：顶部状态条 + 主区（数据源树 | 结果面板 | 详情面板）。
+    校验结果由 ``ValidationService`` 返回；左栏树按表展示行数/错误数，
+    中栏 DataTable 列出错误，右栏按选中错误展示完整字段。
     """
 
     BINDINGS = [
@@ -65,7 +85,8 @@ class ValidationScreen(Screen):
     #main-row {
         height: 1fr;
     }
-    #history-panel {
+    /* 三栏宽度比 1 / 2 / 2（左窄、中右等宽），120 列下观感最佳 */
+    #source-panel {
         width: 1fr;
         height: 100%;
         padding: 0 1 0 0;
@@ -73,6 +94,36 @@ class ValidationScreen(Screen):
     #result-panel {
         width: 2fr;
         height: 100%;
+        padding: 0 1 0 0;
+    }
+    #detail-panel {
+        width: 2fr;
+        height: 100%;
+    }
+    /* 面板标题行（紧凑） */
+    #source-panel > Label,
+    #detail-panel > Label {
+        height: 1;
+        color: $text-muted;
+        margin-bottom: 0;
+        padding: 0 1;
+    }
+    /* 数据源树：占满左栏剩余高度 */
+    #source-tree {
+        height: 1fr;
+        border: round $primary;
+        background: $surface;
+        padding: 0 1;
+    }
+    #source-tree:focus {
+        border: thick $accent;
+    }
+    /* 详情 RichLog：占满右栏 */
+    #detail-log {
+        height: 1fr;
+        border: round $accent;
+        background: $surface;
+        padding: 0 1;
     }
     #progress-row {
         height: auto;
@@ -98,6 +149,7 @@ class ValidationScreen(Screen):
         color: $text-muted;
         margin-top: 0;
     }
+    /* 摘要 + 错误表上下分占结果面板（保留 V2-3 比例） */
     #summary-log {
         height: 40%;
         border: round $accent;
@@ -124,6 +176,14 @@ class ValidationScreen(Screen):
         # Sparkline 数据点缓冲：每收到一个 ProgressEvent 追加一个错误数点
         # （Sparkline.data 是 reactive，原地 append 不触发刷新，故需整体重新赋值）
         self._spark_points: list[float] = []
+        # 当前校验的全部错误（含表/字段/行号/约束/消息/数据源等完整字段）。
+        # 供左栏按表统计、按 _table_filter 过滤后渲染 DataTable、按行号取详情。
+        self._all_errors: list[dict[str, Any]] = []
+        # 当前 DataTable 渲染的错误列表（过滤后），与表格行一一对应。
+        # 详情面板按 cursor_row 直接索引本列表，避免错位。
+        self._current_errors: list[dict[str, Any]] = []
+        # DataTable 表名过滤：None 表示全部；选中左栏某表后置为其表名。
+        self._table_filter: str | None = None
 
     # ---- 项目状态访问（优先用 App 的，回退到屏内临时态）----
 
@@ -145,13 +205,17 @@ class ValidationScreen(Screen):
         return self.project_path is not None
 
     def compose(self) -> ComposeResult:
-        """组装屏布局：顶部状态条 + 主区（历史 | 结果面板）。"""
+        """组装屏布局：顶部状态条 + 主区（数据源树 | 结果面板 | 详情面板）。"""
         # 当作为独立屏挂载时 App 已有 Header/Footer；这里不加 Header 避免重复
         yield Label("未打开项目", id="status-label")
         with Horizontal(id="main-row"):
-            with Vertical(id="history-panel"):
-                yield Label("[bold]历史项目[/bold]（回车打开）")
-                yield HistoryList(id="history-list")
+            # 左栏：数据源树（校验前为空，校验后按表展示行数/错误数）
+            with Vertical(id="source-panel"):
+                yield Label("[bold]数据源[/bold]（回车过滤错误表）")
+                # auto_expand=False 在 on_mount 设置（reactive 不是构造参数），
+                # 使回车只触发 NodeSelected 用于过滤，不展开/折叠节点
+                yield Tree(_SOURCE_EMPTY_HINT, id="source-tree")
+            # 中栏：结果（按钮 + 进度区 + 摘要 + 错误表）
             with Vertical(id="result-panel"):
                 yield Button("校验 (ctrl+r)", id="validate-btn", variant="primary")
                 # 进度区：校验时显示 ProgressBar + Sparkline + 状态文本，空闲时隐藏
@@ -160,38 +224,23 @@ class ValidationScreen(Screen):
                     yield Sparkline(id="error-sparkline")
                 yield Label("就绪", id="progress-status")
                 yield RichLog(id="summary-log", markup=True)
-                yield DataTable(id="error-table")
+                yield DataTable(id="error-table", cursor_type="row", zebra_stripes=True)
+            # 右栏：详情预览（选中错误行后展示完整字段）
+            with Vertical(id="detail-panel"):
+                yield Label("[bold]详情[/bold]")
+                yield RichLog(id="detail-log", markup=True)
 
     def on_mount(self) -> None:
-        """挂载时初始化错误表格列并刷新状态文案。"""
+        """挂载时初始化错误表格列、详情空态、刷新状态文案。"""
         table = self.query_one("#error-table", DataTable)
         table.add_columns(*_ERROR_COLUMNS)
+        # auto_expand=False：回车只触发 NodeSelected 用于按表过滤，不展开/折叠
+        # （Tree 的 auto_expand 是 reactive，构造时不接受关键字，故在挂载后设置）
+        self.query_one("#source-tree", Tree).auto_expand = False
+        self._render_detail_empty()
         self._refresh_status()
 
     # ---- 事件处理 ----
-
-    def on_history_list_history_opened(self, event: HistoryList.HistoryOpened) -> None:
-        """历史列表打开项目后：更新项目状态、刷新状态条与历史列表。
-
-        Args:
-            event: HistoryList.HistoryOpened，含 OpenResult。
-        """
-        event.stop()
-        result = event.result
-        if not result.success:
-            self._write_summary(f"[red]打开失败：{result.message}[/red]")
-            return
-        # 更新屏内临时态；若 App 持有同名属性也一并同步
-        self._local_project_path = result.project_path
-        self._local_project_config = result.config
-        if hasattr(self.app, "project_path"):
-            self.app.project_path = result.project_path  # type: ignore[attr-defined]
-        if hasattr(self.app, "project_config"):
-            self.app.project_config = result.config  # type: ignore[attr-defined]
-        self._refresh_status()
-        self._write_summary(f"[green]{result.message}[/green]")
-        # 刷新历史列表以反映最新打开
-        event.list_view.reload()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """校验按钮按下时执行校验。"""
@@ -199,6 +248,38 @@ class ValidationScreen(Screen):
             return
         # action_validate 经 @work 装饰为 worker，调用即触发，不需要 await
         self.action_validate()
+
+    def on_tree_node_selected(self, event: Tree.NodeSelected[dict[str, Any]]) -> None:
+        """左栏数据源树节点被选中：按表过滤 DataTable。
+
+        - 叶子节点（data 含 table）：DataTable 只显示该表的错误。
+        - 根节点（无 table 或 data 为空）：清除过滤，显示全部。
+
+        auto_expand=False 时回车只触发 NodeSelected，不会展开/折叠，符合过滤语义。
+
+        Args:
+            event: Tree 的 NodeSelected 消息。
+        """
+        if event.control.id != "source-tree":
+            return
+        node = event.node
+        data = node.data or {}
+        table_name = data.get("table")
+        # 叶子节点的 data 含 table 时设过滤；根/未知节点清除过滤
+        self._set_table_filter(table_name)
+
+    def on_data_table_row_highlighted(self, event: DataTable.RowHighlighted) -> None:
+        """中栏错误表行被高亮（光标移动）时，在右栏展示该错误完整字段。
+
+        使用 RowHighlighted（光标移动即触发）而非 RowSelected（需回车），
+        是为了在 IDE 感下「上下浏览 → 实时预览详情」更顺滑。
+
+        Args:
+            event: DataTable 的 RowHighlighted 消息，含 cursor_row。
+        """
+        if event.data_table.id != "error-table":
+            return
+        self._render_detail_at(event.cursor_row)
 
     @work(thread=True, exclusive=True, name="validation")
     def action_validate(self) -> None:
@@ -215,7 +296,7 @@ class ValidationScreen(Screen):
         """
         # 前置检查：未打开项目或找不到清单（同步做，结果经 call_from_thread 写 UI）
         if not self.is_project_open:
-            self.app.call_from_thread(self._write_summary, "[yellow]请先从左侧历史列表打开一个项目[/yellow]")
+            self.app.call_from_thread(self._write_summary, "[yellow]请先按 Ctrl+O 打开一个项目[/yellow]")
             return
         manifest_path = project_ops.find_manifest(self.project_path)  # type: ignore[arg-type]
         if manifest_path is None:
@@ -305,13 +386,18 @@ class ValidationScreen(Screen):
     # ---- 渲染 ----
 
     def _render_result(self, result: ValidationResult) -> None:
-        """渲染校验结果：摘要写入 RichLog，错误填入 DataTable。
+        """渲染校验结果：摘要写入 RichLog，错误填入 DataTable，数据源填入 Tree。
 
         Args:
             result: ValidationService 返回的 ValidationResult。
         """
         self._render_summary(result)
-        self._render_errors(result)
+        # 缓存全部错误，供后续按表过滤与详情反查
+        self._all_errors = list(result.errors)
+        # 重置过滤（新一轮校验结果默认显示全部）
+        self._table_filter = None
+        self._render_source_tree(result)
+        self._render_errors()
 
     def _render_summary(self, result: ValidationResult) -> None:
         """渲染校验摘要到 RichLog。
@@ -392,17 +478,22 @@ class ValidationScreen(Screen):
             log.write("[green]✓ 校验通过，未发现任何错误！[/green]")
             self._trigger_celebration()
 
-    def _render_errors(self, result: ValidationResult) -> None:
+    def _render_errors(self) -> None:
         """渲染错误到 DataTable（列：表/字段/行号/约束/消息）。
 
-        Args:
-            result: 校验结果。
+        根据 ``self._table_filter`` 过滤：None 显示全部；非空只显示该表。
+        渲染后同步刷新 ``self._current_errors``，使详情面板能按 cursor_row 反查。
         """
         table = self.query_one("#error-table", DataTable)
         table.clear()
-        if not result.has_errors:
-            return
-        for err in result.errors:
+        # 按表过滤
+        if self._table_filter is None:
+            rendered = self._all_errors
+        else:
+            rendered = [err for err in self._all_errors if str(err.get("table", "") or "") == self._table_filter]
+        # 同步当前渲染列表（详情面板按 cursor_row 索引）
+        self._current_errors = rendered
+        for err in rendered:
             table_name = str(err.get("table", "") or "")
             column = str(err.get("column", "") or "")
             row_index = err.get("row_index")
@@ -410,6 +501,138 @@ class ValidationScreen(Screen):
             constraint = str(err.get("error_type", "") or "")
             message = str(err.get("message", "") or "")
             table.add_row(table_name, column, row_index_str, constraint, message)
+        # 重置详情面板：行数变化后旧 cursor_row 不再有效
+        self._render_detail_empty()
+
+    def _render_source_tree(self, result: ValidationResult) -> None:
+        """渲染左栏数据源树：按表展示行数与错误数。
+
+        数据来源：
+        - 表与行数：``validation_details.format_checks``（表名 + 行数；行数优先取 raw_datasets）。
+        - 错误数：遍历 ``result.errors`` 按表统计。
+        - 没有格式检查但仍有错误时，补全错误涉及的表（行数显示为 -）。
+
+        树结构：
+        ``{root: 全部 (N 错误)}``
+        ``├──  users (1234 行, 5 错误)``
+        ``└──  orders (890 行, 0 错误)``
+        每个「表」叶子节点的 ``data`` 存 ``{"table": <表名>}`` 供选中时过滤。
+        选中根节点（无 table）时清除过滤。
+
+        Args:
+            result: 校验结果。
+        """
+        tree = self.query_one("#source-tree", Tree)
+        # 按表统计错误数
+        err_counts: dict[str, int] = {}
+        for err in result.errors:
+            tname = str(err.get("table", "") or "")
+            err_counts[tname] = err_counts.get(tname, 0) + 1
+
+        # 表 -> 行数（优先 raw_datasets，回退 format_checks.error_count 占位）
+        details = result.validation_details or {}
+        format_checks = details.get("format_checks", []) or {}
+        raw_datasets = result.raw_datasets or {}
+        table_rows: dict[str, Any] = {}
+        for fc in format_checks:
+            tname = str(fc.get("table", "") or "")
+            if not tname:
+                continue
+            ds = raw_datasets.get(tname)
+            if ds is not None and hasattr(ds, "__len__"):
+                table_rows[tname] = len(ds)
+            else:
+                table_rows[tname] = "-"
+
+        # 合并：错误中出现但 format_checks 未列出的表也补进树
+        all_tables = list(dict.fromkeys([*table_rows.keys(), *err_counts.keys()]))
+
+        total_errs = len(result.errors)
+        # 重建树（root.label 改为「全部 (N 错误)」）
+        tree.reset(f"{_ICON_ROOT} 全部 ({total_errs} 错误)")
+        # 按错误数降序、表名升序排序，错误最多的表排在最前（更聚焦问题）
+        for tname in sorted(
+            all_tables,
+            key=lambda n: (-(err_counts.get(n, 0)), n),
+        ):
+            rows = table_rows.get(tname, "-")
+            errs = err_counts.get(tname, 0)
+            err_tag = f"[red]{errs} 错误[/red]" if errs else "[green]0 错误[/green]"
+            label = f"{_ICON_FOLDER} {tname} ({rows} 行, {err_tag})"
+            tree.root.add_leaf(
+                label,
+                data={"table": tname, "rows": rows, "errors": errs},
+            )
+        tree.root.expand()
+
+    def _render_detail_at(self, cursor_row: int) -> None:
+        """在右栏详情面板渲染指定错误行的完整字段。
+
+        Args:
+            cursor_row: DataTable 中当前高亮的行号（与 _current_errors 索引对齐）。
+        """
+        if cursor_row < 0 or cursor_row >= len(self._current_errors):
+            self._render_detail_empty()
+            return
+        err = self._current_errors[cursor_row]
+        log = self.query_one("#detail-log", RichLog)
+        log.clear()
+
+        table_name = str(err.get("table", "") or "") or "-"
+        column = str(err.get("column", "") or "") or "-"
+        row_index = err.get("row_index")
+        row_index_str = "-" if row_index is None else str(row_index)
+        error_type = str(err.get("error_type", "") or "") or "-"
+        message = str(err.get("message", "") or "") or "-"
+        source_file = str(err.get("source_file", "") or "") or "-"
+        source_sheet = str(err.get("source_sheet", "") or "")
+        chunk_index = err.get("chunk_index")
+        fix_hint = err.get("fix_hint")
+
+        log.write(f"[bold]{_ICON_DOC} 错误详情[/bold]")
+        log.write("")
+        log.write(f"[bold]表：[/bold]     {table_name}")
+        log.write(f"[bold]字段：[/bold]   {column}")
+        log.write(f"[bold]行号：[/bold]   {row_index_str}")
+        log.write(f"[bold]约束类型：[/bold] {error_type}")
+        log.write(f"[bold]消息：[/bold]   {message}")
+        log.write("")
+        src = source_file
+        if source_sheet:
+            src = f"{source_file} ({source_sheet})"
+        log.write(f"[dim]数据源：[/dim] {src}")
+        chunk_str = str(chunk_index) if chunk_index is not None else "-"
+        log.write(f"[dim]分块：[/dim]   {chunk_str}")
+        if fix_hint:
+            log.write("")
+            log.write(f"[yellow]修复建议：[/yellow] {fix_hint}")
+
+    def _render_detail_empty(self) -> None:
+        """右栏详情面板的空态（未选中错误行或无数据时）。"""
+        log = self.query_one("#detail-log", RichLog)
+        log.clear()
+        log.write(_DETAIL_EMPTY_HINT)
+
+    def _set_table_filter(self, table_name: str | None) -> None:
+        """设置 DataTable 的表名过滤并重新渲染。
+
+        选中左栏某表 → 只显示该表错误；选中根或传 None → 显示全部。
+        过滤后同步刷新 ``_current_errors`` 并重置详情面板。
+
+        Args:
+            table_name: 表名；None 表示显示全部。
+        """
+        if table_name == self._table_filter:
+            # 无变化时不重渲染（避免光标跳动 / 性能浪费）
+            return
+        self._table_filter = table_name
+        self._render_errors()
+        # 在摘要区给一行简短提示，让用户感知当前过滤状态
+        if table_name is None:
+            self._write_summary("[dim]已显示全部表的错误[/dim]")
+        else:
+            cnt = sum(1 for err in self._all_errors if str(err.get("table", "") or "") == table_name)
+            self._write_summary(f"[cyan]已过滤到表 {table_name}（{cnt} 个错误）[/cyan]")
 
     def _write_summary(self, text: str) -> None:
         """向 RichLog 写入一行文本（用于状态/提示信息）。"""
@@ -428,7 +651,7 @@ class ValidationScreen(Screen):
             display = project_ops.resolve_project_label(self.project_path)  # type: ignore[arg-type]
             label.update(f"[green]●[/green] {display}  [dim]{self.project_path}[/dim]")
         else:
-            label.update("[yellow]○ 未打开项目[/yellow]")
+            label.update("[yellow]○ 未打开项目（Ctrl+O 打开）[/yellow]")
 
 
 __all__ = ["ValidationScreen"]
