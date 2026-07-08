@@ -31,6 +31,7 @@ from __future__ import annotations
 import logging
 import os
 import time
+from collections.abc import Callable
 from typing import Any
 
 import pandas as pd
@@ -43,9 +44,13 @@ from .chunked_loader import ChunkedDataLoader
 from .data_loader import DataLoader
 from .engine import execute_dag_if_needed, validate_constraints, validate_full_dataset
 from .memory_monitor import MemoryMonitor
+from .progress import ProgressEvent
 from .resolver import DataSourceResolver
 
 logger = logging.getLogger(__name__)
+
+# 进度回调类型：接收 ProgressEvent，无返回值
+ProgressCallback = Callable[[ProgressEvent], None]
 
 
 class ValidationOptions:
@@ -318,6 +323,46 @@ class ValidationExecutor:
         result["memory_info"] = self._memory_monitor.get_progress_info()
 
     @staticmethod
+    def _emit_progress(
+        callback: ProgressCallback | None,
+        started: float,
+        stage: str,
+        table: str | None = None,
+        chunk_index: int = 0,
+        chunk_total: int = 0,
+        rows_done: int = 0,
+        rows_total: int = 0,
+        errors_so_far: int = 0,
+    ) -> None:
+        """安全地触发进度回调。
+
+        callback 为 None 时直接返回（零开销）；callback 抛异常时仅记日志、不抛出，
+        确保进度通道的故障不影响校验主流程。所有字段口径与 ProgressEvent 文档一致。
+
+        参数:
+            callback: 调用方传入的进度回调，可为 None。
+            started: 校验开始时间（time.monotonic() 返回值），用于计算 elapsed_ms。
+            stage/table/chunk_index/...: 见 ProgressEvent 字段说明。
+        """
+        if callback is None:
+            return
+        try:
+            callback(
+                ProgressEvent(
+                    stage=stage,
+                    table=table,
+                    chunk_index=chunk_index,
+                    chunk_total=chunk_total,
+                    rows_done=rows_done,
+                    rows_total=rows_total,
+                    errors_so_far=errors_so_far,
+                    elapsed_ms=int((time.monotonic() - started) * 1000),
+                )
+            )
+        except Exception:  # noqa: BLE001 — 进度通道异常不得影响校验
+            logger.exception("progress_callback 抛出异常，已忽略")
+
+    @staticmethod
     def _map_table_id(item: dict[str, Any], id_to_name: dict[str, str]):
         """
         @methoddesc 将错误信息中的表 ID 替换为表显示名称
@@ -337,6 +382,7 @@ class ValidationExecutor:
         self,
         data_directory: str,
         options: ValidationOptions | None = None,
+        progress_callback: ProgressCallback | None = None,
     ) -> dict[str, Any]:
         """
         @methoddesc 执行完整校验流程
@@ -358,6 +404,8 @@ class ValidationExecutor:
         参数:
             data_directory: 数据文件所在目录
             options: 校验执行选项，包含超时、过滤等配置
+            progress_callback: 可选的进度回调，校验过程中在阶段切换/分块边界
+                触发。callback 异常不影响校验（仅记日志）。不传时行为完全不变。
 
         返回:
             包含以下字段的字典:
@@ -397,7 +445,7 @@ class ValidationExecutor:
         if use_chunked:
             result["chunked_mode"] = True
             logger.info("检测到大文件，启用分块处理模式")
-            return self._execute_chunked(data_directory, options, started, result)
+            return self._execute_chunked(data_directory, options, started, result, progress_callback)
 
         # Step 2: 加载数据源（标准模式）
         raw_datasets, loading_errors = self._data_loader.load_data_sources(
@@ -413,12 +461,29 @@ class ValidationExecutor:
 
         result["warnings"] = self.loaded_project.warnings
 
+        # 进度：数据加载完成（标准模式一锤子加载，rows_total 为各表行数之和）
+        self._emit_progress(
+            progress_callback,
+            started,
+            stage="loading",
+            table=None,
+            rows_done=0,
+            rows_total=sum(len(df) for df in raw_datasets.values()),
+            errors_so_far=len(result["loading_errors"]),
+        )
+
         # Step 3: 检查加载阶段是否超时
         if (time.monotonic() - started) > options.timeout_seconds:
             result["errors"].append(
                 {"error_type": "Timeout", "message": f"数据加载阶段超时（>{options.timeout_seconds}s）"}
             )
             result["timeout_occurred"] = True
+            self._emit_progress(
+                progress_callback,
+                started,
+                stage="done",
+                errors_so_far=len(result["errors"]),
+            )
             self._finalize_result(result, started)
             return result
 
@@ -427,8 +492,17 @@ class ValidationExecutor:
             result["errors"].append(
                 {"error_type": "DataLoadingError", "message": "未能从数据目录加载任何数据表，校验中止。"}
             )
+            self._emit_progress(
+                progress_callback,
+                started,
+                stage="done",
+                errors_so_far=len(result["errors"]),
+            )
             self._finalize_result(result, started)
             return result
+
+        # 标准模式总行数（用于进度事件）
+        std_rows_total = sum(len(df) for df in raw_datasets.values())
 
         # Step 5: 确定脚本安全执行策略
         allow_unsafe_eval = self._resolve_allow_unsafe_eval(options)
@@ -437,6 +511,17 @@ class ValidationExecutor:
 
         # 计算校验阶段的超时截止时间
         deadline = started + options.timeout_seconds
+
+        # 进度：进入校验阶段（标准模式 validate_full_dataset 为一锤子调用，粗粒度）
+        self._emit_progress(
+            progress_callback,
+            started,
+            stage="validating",
+            table=None,
+            rows_done=0,
+            rows_total=std_rows_total,
+            errors_so_far=len(result["errors"]),
+        )
 
         # Step 6: 执行格式解析和约束校验
         try:
@@ -456,6 +541,17 @@ class ValidationExecutor:
         result["errors"].extend(validation_errors)
         result["validation_details"] = validation_details
 
+        # 进度：校验执行完成（更新累计错误数）
+        self._emit_progress(
+            progress_callback,
+            started,
+            stage="validating",
+            table=None,
+            rows_done=std_rows_total,
+            rows_total=std_rows_total,
+            errors_so_far=len(result["errors"]),
+        )
+
         # Step 7: 结果后处理
         self._postprocess_result(result)
 
@@ -465,6 +561,17 @@ class ValidationExecutor:
                 {"error_type": "Timeout", "message": f"数据校验阶段超时（>{options.timeout_seconds}s）"}
             )
             result["timeout_occurred"] = True
+
+        # 进度：全部完成
+        self._emit_progress(
+            progress_callback,
+            started,
+            stage="done",
+            table=None,
+            rows_done=std_rows_total,
+            rows_total=std_rows_total,
+            errors_so_far=len(result["errors"]),
+        )
 
         self._finalize_result(result, started)
         return result
@@ -501,18 +608,20 @@ class ValidationExecutor:
         options: ValidationOptions,
         started: float,
         result: dict[str, Any],
+        progress_callback: ProgressCallback | None = None,
     ) -> dict[str, Any]:
         """
         @methoddesc 执行分块校验流程
 
         使用 ChunkedDataLoader 分块加载数据，逐块执行格式解析和约束校验，
-        最终合并所有分块的结果。
+        最终合并所有分块的结果。分块循环内按块边界触发进度回调（sparkline 主数据源）。
 
         参数:
             data_directory: 数据文件目录
             options: 校验选项
             started: 开始时间
             result: 结果字典（已初始化）
+            progress_callback: 可选进度回调；不传时行为完全不变。
 
         返回:
             完整的校验结果字典
@@ -525,6 +634,7 @@ class ValidationExecutor:
         except Exception as e:
             logger.exception(f"分块加载失败: {e}")
             result["errors"].append({"error_type": "ChunkedLoadError", "message": f"分块加载失败: {e}"})
+            self._emit_progress(progress_callback, started, stage="done", errors_so_far=len(result["errors"]))
             self._finalize_result(result, started)
             return result
 
@@ -538,6 +648,7 @@ class ValidationExecutor:
             result["errors"].append(
                 {"error_type": "DataLoadingError", "message": "未能从数据目录加载任何数据表，校验中止。"}
             )
+            self._emit_progress(progress_callback, started, stage="done", errors_so_far=len(result["errors"]))
             self._finalize_result(result, started)
             return result
 
@@ -555,12 +666,24 @@ class ValidationExecutor:
         for table_id, chunks in chunked_datasets.items():
             result["raw_datasets"][table_id] = {"chunk_count": len(chunks), "row_count": sum(len(c) for c in chunks)}
 
+        # 进度：分块加载完成（loading 阶段汇总）
+        self._emit_progress(
+            progress_callback,
+            started,
+            stage="loading",
+            table=None,
+            chunk_total=total_chunks,
+            rows_total=total_rows,
+            errors_so_far=len(result["loading_errors"]),
+        )
+
         # 检查加载阶段超时
         if (time.monotonic() - started) > options.timeout_seconds:
             result["errors"].append(
                 {"error_type": "Timeout", "message": f"数据加载阶段超时（>{options.timeout_seconds}s）"}
             )
             result["timeout_occurred"] = True
+            self._emit_progress(progress_callback, started, stage="done", errors_so_far=len(result["errors"]))
             self._finalize_result(result, started)
             return result
 
@@ -576,10 +699,26 @@ class ValidationExecutor:
             "constraint_checks": [],
         }
 
+        # 累计已处理行数（跨表累加，用于进度事件）
+        rows_done_so_far = 0
+
         for table_id, chunks in chunked_datasets.items():
             all_parsed_datasets[table_id] = []
 
             for chunk_idx, chunk_df in enumerate(chunks):
+                # 进度：开始处理当前分块（1-based chunk_index，sparkline 主要数据源）
+                self._emit_progress(
+                    progress_callback,
+                    started,
+                    stage="validating",
+                    table=table_id,
+                    chunk_index=chunk_idx + 1,
+                    chunk_total=total_chunks,
+                    rows_done=rows_done_so_far,
+                    rows_total=total_rows,
+                    errors_so_far=len(all_errors),
+                )
+
                 # 超时检查
                 if deadline is not None and time.monotonic() > deadline:
                     logger.warning(f"分块校验超时: 表 {table_id} 分块 {chunk_idx + 1}/{len(chunks)}")
@@ -641,6 +780,22 @@ class ValidationExecutor:
                         }
                     )
 
+                # 累计当前分块行数（无论成功失败都已"处理"过）
+                rows_done_so_far += len(chunk_df)
+
+                # 进度：当前分块处理完成（更新 rows_done / errors_so_far）
+                self._emit_progress(
+                    progress_callback,
+                    started,
+                    stage="validating",
+                    table=table_id,
+                    chunk_index=chunk_idx + 1,
+                    chunk_total=total_chunks,
+                    rows_done=rows_done_so_far,
+                    rows_total=total_rows,
+                    errors_so_far=len(all_errors),
+                )
+
         # 合并分块的解析结果
         # 【设计意图】分块仅用于"加载与格式解析省内存"；Transform DAG 与约束校验
         # 都需要全局数据，因此在所有块解析完成后 concat 为全量 parsed，再统一执行。
@@ -687,6 +842,18 @@ class ValidationExecutor:
         # 检查总超时
         if (time.monotonic() - started) > options.timeout_seconds:
             result["timeout_occurred"] = True
+
+        # 进度：分块模式全部完成
+        self._emit_progress(
+            progress_callback,
+            started,
+            stage="done",
+            table=None,
+            chunk_total=total_chunks,
+            rows_done=total_rows,
+            rows_total=total_rows,
+            errors_so_far=len(result["errors"]),
+        )
 
         self._finalize_result(result, started)
         return result

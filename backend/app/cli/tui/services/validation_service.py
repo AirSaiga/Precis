@@ -25,8 +25,11 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
+
+from app.shared.services.validation.progress import ProgressEvent
 
 
 @dataclass
@@ -70,6 +73,7 @@ class ValidationService:
         table: str | None = None,
         validation_settings: dict[str, Any] | None = None,
         script_security: dict[str, Any] | None = None,
+        progress_callback: Callable[[ProgressEvent], None] | None = None,
     ) -> ValidationResult:
         """执行数据校验并返回结构化结果。
 
@@ -84,6 +88,8 @@ class ValidationService:
             table: 可选的表名过滤，仅校验该表相关约束；None 表示校验全部。
             validation_settings: 校验设置字典（来自项目配置 validation 段），可为 None。
             script_security: 脚本安全设置字典（来自项目配置 script_security 段），可为 None。
+            progress_callback: 可选进度回调，透传给 executor；不传时行为完全不变。
+                callback 是旁路通道，不影响 ValidationResult（异常由 executor 内部吞掉）。
 
         Returns:
             ValidationResult：包含错误、加载警告、耗时与校验明细。
@@ -124,7 +130,12 @@ class ValidationService:
             )
 
             executor = ValidationExecutor(manifest_path)
-            result = executor.execute(data_dir, options)
+            # 仅在调用方传入 callback 时才透传，保持不传时调用签名与历史完全一致
+            # （零回归：避免给不接受该参数的旧式 executor 实现造成 TypeError）。
+            if progress_callback is None:
+                result = executor.execute(data_dir, options)
+            else:
+                result = executor.execute(data_dir, options, progress_callback=progress_callback)
 
             return ValidationResult(
                 errors=list(result.get("errors", [])),
