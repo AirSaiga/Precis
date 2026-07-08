@@ -48,7 +48,7 @@ class CommandPalette(ModalScreen[str | None]):
     ESC / 取消 dismiss(None)。App 接到屏名后执行 push_screen 跳转。
     """
 
-    CSS = """
+    DEFAULT_CSS = """
     CommandPalette {
         align: center middle;
     }
@@ -70,7 +70,6 @@ class CommandPalette(ModalScreen[str | None]):
     #palette-list {
         height: auto;
         max-height: 70%;
-        border: round $background;
     }
     #palette-hint {
         color: $text-muted;

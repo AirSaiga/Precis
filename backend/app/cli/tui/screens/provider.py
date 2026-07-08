@@ -17,7 +17,7 @@ from textual import on
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen, Screen
-from textual.widgets import Button, Footer, Header, Input, Label, ListItem, ListView, Select
+from textual.widgets import Button, Input, Label, ListItem, ListView, Select
 
 from app.cli.tui.protocols import register_screen
 from app.cli.tui.services.provider_service import ProviderService
@@ -72,7 +72,7 @@ class ProviderScreen(Screen):
         ("d", "set_default", "设为默认"),
         ("r", "refresh", "刷新"),
     ]
-    CSS = """
+    DEFAULT_CSS = """
     ProviderScreen {
         layout: vertical;
         padding: 0 1;
@@ -124,7 +124,6 @@ class ProviderScreen(Screen):
         self._service = ProviderService()
 
     def compose(self) -> ComposeResult:
-        yield Header()
         with Horizontal(id="provider-main"):
             with Vertical(id="provider-list"):
                 yield Label("Provider 列表", id="provider-list-title")
@@ -139,7 +138,6 @@ class ProviderScreen(Screen):
             yield Button("设为默认(d)", id="btn-default")
             yield Button("刷新(r)", id="btn-refresh")
         yield Label("", id="provider-status")
-        yield Footer()
 
     def on_mount(self) -> None:
         self._refresh_list()
@@ -307,7 +305,7 @@ class ProviderFormModal(ModalScreen[dict[str, Any] | None]):
     返回 ``{"saved": True, "provider": AIProvider}`` 或 None（取消）。
     """
 
-    CSS = """
+    DEFAULT_CSS = """
     ProviderFormModal {
         align: center middle;
     }
@@ -469,7 +467,7 @@ class ProviderFormModal(ModalScreen[dict[str, Any] | None]):
 class ConfirmModal(ModalScreen[bool]):
     """通用确认弹窗，dismiss(True) 表示确认，dismiss(False) 表示取消。"""
 
-    CSS = """
+    DEFAULT_CSS = """
     ConfirmModal {
         align: center middle;
     }

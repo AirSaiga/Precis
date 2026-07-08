@@ -211,7 +211,7 @@ class ChatScreen(Screen):
     orchestrator 通过回调触发本屏的确认/歧义弹窗。
     """
 
-    CSS = """
+    DEFAULT_CSS = """
     ChatScreen {
         layout: vertical;
         padding: 0 1;
@@ -227,10 +227,7 @@ class ChatScreen(Screen):
         height: 1fr;
     }
     #chat-log {
-        border: round $background;
-        background: $surface;
         height: 2fr;
-        padding: 0 1;
     }
     #chat-tree-container {
         border: round $background;
@@ -252,11 +249,6 @@ class ChatScreen(Screen):
         dock: bottom;
         height: 3;
         margin: 1 0 0 0;
-        border: tall $background;
-        background: $surface;
-    }
-    #chat-input:focus {
-        border: tall $primary;
     }
     .confirm-modal, .ambiguity-modal {
         width: 70;
