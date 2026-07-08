@@ -18,6 +18,7 @@ CLI 与 TUI 共享同一套核心业务逻辑（app.shared.* 与 shared_services
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from textual.app import App, ComposeResult
@@ -28,11 +29,24 @@ from textual.widgets import Footer, Header
 # 使 SCREEN_REGISTRY 在 App 启动前即包含全部 7 个屏。
 # 顺序无要求，但保持稳定以便阅读。
 from app.cli.shared_services import project_ops
+from app.cli.tui.fx import CanvasWidget, EffectEngine
 from app.cli.tui.protocols import SCREEN_REGISTRY
 from app.cli.tui.screens import chat, config, generate, provider, validation  # noqa: F401
 from app.cli.tui.screens.dashboard import DashboardScreen
 from app.cli.tui.widgets.command_palette import CommandPalette
 from app.cli.tui.widgets.status_bar import StatusBar
+
+# 可用主题列表（对应 styles/themes/ 下的 .tcss 文件）
+_AVAILABLE_THEMES = ["neon", "default"]
+_DEFAULT_THEME = "neon"
+
+
+def _resolve_theme_css(theme: str | None) -> str:
+    """根据主题名返回对应的 TCSS 文件路径。"""
+    theme = theme or os.getenv("PRECIS_TUI_THEME", _DEFAULT_THEME)
+    if theme not in _AVAILABLE_THEMES:
+        theme = _DEFAULT_THEME
+    return f"styles/themes/{theme}.tcss"
 
 
 class PrecisTUIApp(App):
@@ -62,13 +76,35 @@ class PrecisTUIApp(App):
         Binding("ctrl+o", "open_project", "打开项目", show=True),
         Binding("ctrl+v", "goto:validation", "校验", show=False),
         Binding("ctrl+t", "goto:provider", "Provider", show=False),
+        Binding("ctrl+shift+t", "cycle_theme", "切换主题", show=True),
     ]
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, theme: str | None = None) -> None:
+        # 主题必须在 super().__init__ 前确定，因为 Textual 会读取 current_theme
+        self._precis_theme = theme or os.getenv("PRECIS_TUI_THEME", _DEFAULT_THEME)
+        super().__init__(css_path=_resolve_theme_css(theme))
         # ProjectState 协议字段：当前打开项目的路径与清单配置
         self.project_path: str | None = None
         self.project_config: dict[str, Any] | None = None
+        # 特效引擎，在 on_mount 中初始化
+        self.effect_engine: EffectEngine | None = None
+
+    @property
+    def precis_theme(self) -> str:
+        """当前 Precis TUI 主题名。"""
+        return self._precis_theme
+
+    def action_cycle_theme(self) -> None:
+        """Ctrl+Shift+T：循环切换主题。"""
+        idx = _AVAILABLE_THEMES.index(self._precis_theme) if self._precis_theme in _AVAILABLE_THEMES else 0
+        next_idx = (idx + 1) % len(_AVAILABLE_THEMES)
+        self._precis_theme = _AVAILABLE_THEMES[next_idx]
+        self.css_path = _resolve_theme_css(self._precis_theme)
+        try:
+            self.refresh_css()
+            self.notify(f"主题已切换为：{self._precis_theme}", timeout=3)
+        except Exception as exc:  # noqa: BLE001
+            self.notify(f"切换主题失败：{exc}", severity="error", timeout=5)
 
     @property
     def is_project_open(self) -> bool:
@@ -78,20 +114,57 @@ class PrecisTUIApp(App):
     # ---- 布局 ----
 
     def compose(self) -> ComposeResult:
-        """组装主界面：Header + 内容区（屏容器）+ StatusBar + Footer。
+        """组装主界面：特效画布 + Header + 内容区 + StatusBar + Footer。
 
         各功能屏由 ``push_screen`` 推入，不在此 yield（Textual 会把推入的屏
-        渲染到 App 的 ScreenSwitch 容器）。
+        渲染到 ScreenSwitch 容器）。特效画布位于最底层（CSS layer: background）。
         """
+        yield CanvasWidget(id="fx-canvas")
         yield Header()
         # 实际屏内容由 push_screen 提供，这里不 yield Screen
         yield StatusBar(id="status-bar")
         yield Footer()
 
     def on_mount(self) -> None:
-        """挂载回调：推入 Dashboard 作为默认屏，刷新状态栏。"""
+        """挂载回调：初始化特效引擎、推入 Dashboard、刷新状态栏。"""
+        canvas = self.query_one("#fx-canvas", CanvasWidget)
+        self.effect_engine = EffectEngine(self, canvas)
+        self.effect_engine.start()
         self.push_screen(DashboardScreen())
         self._refresh_status_bar()
+
+    # ---- 特效触发 ----
+
+    def trigger_fx(self, name: str, **kwargs: Any) -> None:
+        """触发一个全局特效（供各屏调用）。
+
+        Args:
+            name: 特效名，如 "confetti"。
+            **kwargs: 特效参数。
+        """
+        if self.effect_engine is not None:
+            self.effect_engine.trigger(name, **kwargs)
+
+    def set_fx_background(self, name: str | None = "starfield", **kwargs: Any) -> None:
+        """设置全局背景特效。
+
+        Args:
+            name: 背景特效名，None 表示清除背景特效。
+            **kwargs: 特效参数。
+        """
+        if self.effect_engine is None:
+            return
+        if name is None:
+            self.effect_engine.set_background(None)
+            return
+        if name == "starfield":
+            from app.cli.tui.fx.starfield import StarfieldEffect
+
+            self.effect_engine.set_background(StarfieldEffect(**kwargs))
+        elif name == "confetti":
+            from app.cli.tui.fx.confetti import ConfettiEffect
+
+            self.effect_engine.set_background(ConfettiEffect(**kwargs))
 
     # ---- 状态栏刷新 ----
 

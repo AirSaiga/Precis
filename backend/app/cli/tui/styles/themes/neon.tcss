@@ -1,18 +1,34 @@
-/* Precis TUI 全局样式表（现代化版本）
+/* Precis TUI 霓虹主题（Neon / Cyberpunk）
  *
- * 目标：在 Textual design tokens 之上建立统一的现代终端界面风格：
- * - 清晰分区（card / panel / surface / boost 四层）
- * - 可见聚焦（tall/thick 主色边框）
- * - 紧凑但不拥挤的间距与内边距
- * - 统一按钮/输入/列表/表格/标签页样式
- *
- * 各 Screen 可继续用 DEFAULT_CSS / CSS 覆盖局部细节，本文件仅提供基线。
+ * 灵感来自现代终端 IDE / MiMo Code 的深色高对比风格：
+ * - 深色背景 + 霓虹紫/青/洋红强调色
+ * - 发光边框与聚焦态
+ * - 玻璃拟态卡片
  */
+
+/* ── 覆盖 design tokens ── */
+$primary: #bd93f9;
+$primary-darken-1: #6272a4;
+$primary-darken-2: #44475a;
+$accent: #ff79c6;
+$success: #50fa7b;
+$warning: #ffb86c;
+$error: #ff5555;
+
+/* 自定义霓虹背景色（避免覆盖 Textual 内置 $panel/$surface 等 token，
+   因为内置 CSS 可能在 hatch 等属性中用到它们） */
+$neon-surface: #282a36;
+$neon-surface-darken-1: #1e1f29;
+$neon-panel: #44475a;
+$neon-boost: #6272a4;
+$neon-background: #44475a;
+$neon-text: #f8f8f2;
+$neon-text-muted: #6272a4;
 
 /* ── 基础层 ── */
 Screen {
-    background: $surface;
-    color: $text;
+    background: $neon-surface;
+    color: $neon-text;
     layers: fx background foreground;
 }
 
@@ -29,23 +45,25 @@ Header {
     dock: top;
     layer: background;
     background: $primary-darken-1;
-    color: $text;
+    color: $neon-text;
     height: 3;
     padding: 0 2;
+    text-style: bold;
 }
 Header > .header_title {
+    color: $accent;
     text-style: bold;
 }
 Header > .header_subtitle {
-    color: $text-muted;
+    color: $primary;
 }
 
 /* ── 底部状态栏 ── */
 StatusBar {
     dock: bottom;
     layer: background;
-    background: $panel;
-    color: $text;
+    background: $neon-panel;
+    color: $neon-text;
     height: 1;
     padding: 0 1;
 }
@@ -54,16 +72,16 @@ StatusBar {
 Footer {
     dock: bottom;
     layer: background;
-    background: $boost;
-    color: $text-muted;
+    background: $neon-boost;
+    color: $neon-text-muted;
     height: 1;
     padding: 0 1;
 }
 
 /* ── 通用工具类 ── */
 .card {
-    border: round $panel;
-    background: $surface;
+    border: round $neon-background;
+    background: $neon-surface 85%;
     padding: 1 2;
     margin: 1 0;
 }
@@ -73,66 +91,68 @@ Footer {
     margin-bottom: 1;
 }
 .hint {
-    color: $text-muted;
+    color: $neon-text-muted;
 }
 .empty-state {
-    color: $text-muted;
+    color: $neon-text-muted;
     text-align: center;
     margin: 2 0;
 }
 .success { color: $success; }
 .warning { color: $warning; }
 .error { color: $error; }
-.muted { color: $text-muted; }
+.muted { color: $neon-text-muted; }
 
 /* ── 表单控件 ── */
 Button {
     margin: 0 1 0 0;
     background: $primary;
-    color: $text;
+    color: $neon-text;
     border: none;
 }
 Button:hover {
-    background: $primary-darken-2;
+    background: $accent;
 }
 Button:focus {
     border: tall $accent;
+    background: $primary-darken-2;
 }
 Button.-primary {
     background: $accent;
 }
 Button.-success {
     background: $success;
+    color: $neon-surface;
 }
 Button.-warning {
     background: $warning;
-    color: $text;
+    color: $neon-surface;
 }
 Button.-error {
     background: $error;
-    color: $text;
+    color: $neon-text;
 }
 Button:disabled {
-    background: $surface-darken-1;
-    color: $text-muted;
+    background: $neon-surface-darken-1;
+    color: $neon-text-muted;
 }
 
 Input {
-    border: tall $background;
-    background: $surface;
+    border: tall $neon-background;
+    background: $neon-surface;
     padding: 0 1;
 }
 Input:focus {
     border: tall $primary;
 }
 Input:disabled {
-    background: $surface-darken-1;
-    color: $text-muted;
+    background: $neon-surface-darken-1;
+    color: $neon-text-muted;
 }
 
 Select {
-    border: tall $background;
-    background: $surface;
+    border: tall $neon-background;
+    background: $neon-surface;
 }
 Select:focus {
     border: tall $primary;
@@ -147,14 +167,14 @@ OptionList,
 ListView,
 DataTable,
 SelectionList {
-    border: round $background;
-    background: $surface;
+    border: round $neon-background;
+    background: $neon-surface 85%;
 }
 OptionList:focus,
 ListView:focus,
 DataTable:focus,
 SelectionList:focus {
-    border: thick $primary;
+    border: thick $accent;
 }
 
 OptionList > .option-list--option-highlighted,
@@ -162,18 +182,13 @@ ListView > .listview--item-highlighted,
 SelectionList > .selection-list--option-highlighted {
     background: $primary 30%;
 }
-OptionList > .option-list--option-disabled,
-ListView > .listview--item-disabled,
-SelectionList > .selection-list--option-disabled {
-    color: $text-muted;
-}
 
 DataTable > .datatable--header {
     background: $primary 20%;
     text-style: bold;
 }
 DataTable > .datatable--odd-row {
-    background: $surface-darken-1;
+    background: $neon-surface-darken-1;
 }
 DataTable > .datatable--cursor {
     background: $primary 40%;
@@ -184,14 +199,14 @@ DataTable > .datatable--hover {
 
 /* ── 标签页 ── */
 TabbedContent {
-    border: round $background;
-    background: $surface;
+    border: round $neon-background;
+    background: $neon-surface 85%;
 }
 TabbedContent:focus {
-    border: thick $primary;
+    border: thick $accent;
 }
 Tabs {
-    background: $panel;
+    background: $neon-panel;
 }
 Tabs:focus {
     border: tall $primary;
@@ -206,38 +221,30 @@ Tab:focus {
 /* ── 日志/编辑器/树 ── */
 RichLog,
 TextArea {
-    border: round $background;
-    background: $surface;
+    border: round $neon-background;
+    background: $neon-surface 85%;
     padding: 0 1;
 }
 RichLog:focus,
 TextArea:focus {
-    border: thick $primary;
+    border: thick $accent;
 }
 
 Tree {
-    border: round $background;
-    background: $surface;
+    border: round $neon-background;
+    background: $neon-surface 85%;
     padding: 0 1;
 }
 Tree:focus {
-    border: thick $primary;
+    border: thick $accent;
 }
 Tree > .tree--cursor {
     background: $primary 40%;
 }
 
-/* ── 静态文本/标签 ── */
-Static {
-    color: $text;
-}
-Label {
-    color: $text;
-}
-
 /* ── 滚动条 ── */
 Scrollbar {
     scrollbar-color: $primary 40%;
-    scrollbar-color-active: $primary 80%;
+    scrollbar-color-active: $accent 80%;
     scrollbar-color-hover: $primary 60%;
 }

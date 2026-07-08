@@ -75,6 +75,37 @@ class ConfigScreen(Screen):
 
     BINDINGS = [("escape", "app.pop_screen", "返回")]
 
+    DEFAULT_CSS = """
+    ConfigScreen {
+        padding: 0 1;
+    }
+    ConfigScreen TabbedContent {
+        height: 1fr;
+        border: round $background;
+    }
+    ConfigScreen TabPane {
+        padding: 1;
+    }
+    ConfigScreen Horizontal {
+        height: auto;
+        margin-bottom: 1;
+    }
+    ConfigScreen Input {
+        margin-right: 1;
+    }
+    ConfigScreen RichLog,
+    ConfigScreen DataTable,
+    ConfigScreen Tree,
+    ConfigScreen TextArea {
+        height: 1fr;
+        border: round $background;
+        background: $surface;
+    }
+    ConfigScreen #edit-area {
+        height: 2fr;
+    }
+    """
+
     def __init__(self, service: ConfigService | None = None) -> None:
         """初始化 Config 屏。
 

@@ -61,18 +61,34 @@ class DashboardScreen(Screen):
 
     BINDINGS = [
         Binding("escape", "app.bell", "返回", show=False),
+        Binding("1", "select_entry(0)", "校验", show=False),
+        Binding("2", "select_entry(1)", "Provider", show=False),
+        Binding("3", "select_entry(2)", "配置", show=False),
+        Binding("4", "select_entry(3)", "对话", show=False),
+        Binding("5", "select_entry(4)", "生成", show=False),
+        Binding("6", "select_entry(5)", "迁移", show=False),
     ]
 
     DEFAULT_CSS = """
     DashboardScreen {
         layout: vertical;
         padding: 0 1;
+        background: transparent;
+    }
+    #dashboard-hero {
+        height: auto;
+        margin: 1 0;
+        text-align: center;
+        color: $accent;
+        text-style: bold;
+        background: transparent;
     }
     #dashboard-overview {
         height: auto;
         margin-bottom: 1;
         border: round $primary;
-        padding: 0 1;
+        background: $surface 85%;
+        padding: 1 2;
     }
     #dashboard-panels {
         height: 1fr;
@@ -80,25 +96,28 @@ class DashboardScreen(Screen):
     #dashboard-entries {
         width: 1fr;
         height: 100%;
-        border: solid $accent;
+        border: round $accent;
+        background: $surface 85%;
         padding: 0 1;
         margin-right: 1;
     }
     #dashboard-history {
         width: 1fr;
         height: 100%;
-        border: solid $accent;
+        border: round $accent;
+        background: $surface 85%;
         padding: 0 1;
     }
     .section-title {
         text-style: bold;
         color: $accent;
-        margin-bottom: 1;
+        margin: 1 0;
     }
     """
 
     def compose(self) -> ComposeResult:
-        """组装首页：概览 + 双栏（功能入口 / 最近项目）。"""
+        """组装首页：Hero 标题 + 概览 + 双栏（功能入口 / 最近项目）。"""
+        yield Label("✦ Precis TUI ✦", id="dashboard-hero", markup=True)
         yield Label("项目概览", id="dashboard-overview", markup=True)
         with Horizontal(id="dashboard-panels"):
             with VerticalScroll(id="dashboard-entries"):
@@ -111,11 +130,21 @@ class DashboardScreen(Screen):
     def on_mount(self) -> None:
         """挂载时填充快捷入口与最近项目列表，并刷新概览。"""
         entries = self.query_one("#quick-entries", OptionList)
-        for label, name in _QUICK_ENTRIES:
-            entries.add_option(Option(label, id=name))
+        for idx, (label, name) in enumerate(_QUICK_ENTRIES, start=1):
+            entries.add_option(Option(f"{idx}. {label}", id=name))
 
         self._reload_history()
         self._refresh_overview()
+
+    def on_screen_resume(self) -> None:
+        """Dashboard 成为活动屏时启动星空背景。"""
+        if hasattr(self.app, "set_fx_background"):
+            self.app.set_fx_background("starfield")
+
+    def on_screen_suspend(self) -> None:
+        """Dashboard 离开活动屏时清除背景特效。"""
+        if hasattr(self.app, "set_fx_background"):
+            self.app.set_fx_background(None)
 
     def _reload_history(self) -> None:
         """重新加载最近项目列表（从 project_ops.load_history）。"""
@@ -123,7 +152,7 @@ class DashboardScreen(Screen):
         history_list.clear_options()
         history = project_ops.load_history()
         if not history:
-            history_list.add_option(Option("（暂无历史项目）", id="__empty__"))
+            history_list.add_option(Option("（暂无历史项目 · 按 Ctrl+O 打开项目）", id="__empty__", disabled=True))
             return
         for item in history:
             path = item.get("path")
@@ -141,7 +170,11 @@ class DashboardScreen(Screen):
         overview = self.query_one("#dashboard-overview", Label)
         path = getattr(self.app, "project_path", None)
         if not path:
-            overview.update("[yellow]○ 未打开项目[/yellow]\n\n打开下方「最近项目」或按 Ctrl+O 选择项目目录。")
+            overview.update(
+                "[yellow]○ 未打开项目[/yellow]\n"
+                "[dim]打开下方「最近项目」或按 Ctrl+O 选择项目目录。[/dim]\n"
+                "[dim]数字键 1-6 可快速进入功能入口。[/dim]"
+            )
             return
         try:
             label = project_ops.resolve_project_label(path)
@@ -149,9 +182,23 @@ class DashboardScreen(Screen):
             label = path
         overview.update(
             f"[green]●[/green] [bold]{label}[/bold]\n"
-            f"[dim]{path}[/dim]\n\n"
+            f"[dim]{path}[/dim]\n"
             f"按 Ctrl+P 打开命令面板，或从左侧功能入口选择操作。"
         )
+
+    def action_select_entry(self, index: str) -> None:
+        """数字快捷键选中功能入口并跳转。
+
+        Args:
+            index: 入口索引（来自绑定字符串，0 开始）。
+        """
+        try:
+            idx = int(index)
+        except ValueError:
+            return
+        if not (0 <= idx < len(_QUICK_ENTRIES)):
+            return
+        self.post_message(self.GotoScreen(name=_QUICK_ENTRIES[idx][1]))
 
     @on(OptionList.OptionSelected, "#quick-entries")
     def _on_entry_selected(self, event: OptionList.OptionSelected) -> None:

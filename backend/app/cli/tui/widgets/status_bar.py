@@ -46,9 +46,10 @@ class StatusBar(Static):
     StatusBar {
         dock: bottom;
         height: 1;
-        background: $boost;
+        background: $panel;
         color: $text;
         padding: 0 1;
+        text-style: none;
     }
     """
 
@@ -58,7 +59,7 @@ class StatusBar(Static):
         首次渲染前若未被 refresh 过，展示占位文案。``refresh_state`` 会改写
         ``Static`` 的内容（通过 ``update``），无需重写 render。
         """
-        return "○ 未打开项目  |  Provider: -"
+        return "○ 未打开项目  |  -  |  Provider: -"
 
     def refresh_state(self, project_state: ProjectState | Any) -> None:
         """根据当前项目状态刷新状态栏文案。
@@ -68,13 +69,14 @@ class StatusBar(Static):
                 用 getattr 防御性读取，兼容未实现协议的对象。
         """
         project_part = self._render_project_part(project_state)
+        screen_part = self._render_screen_part(project_state)
         provider_part = self._render_provider_part()
-        self.update(f"{project_part}  |  {provider_part}")
+        self.update(f"{project_part}  |  {screen_part}  |  {provider_part}")
 
     def _render_project_part(self, project_state: ProjectState | Any) -> str:
         """渲染项目部分文案。
 
-        已打开显示「绿点 + 项目名 + 暗淡路径」；未打开显示「黄圈 + 未打开项目」。
+        已打开显示「绿点 + 项目名」；未打开显示「黄圈 + 未打开项目」。
         读取/解析失败时降级为目录名或原始路径。
         """
         path = getattr(project_state, "project_path", None)
@@ -84,7 +86,15 @@ class StatusBar(Static):
             label = project_ops.resolve_project_label(path)
         except Exception:  # noqa: BLE001 - 状态栏兜底，不抛
             label = os.path.basename(path) or path
-        return f"● {label}  [dim]{path}[/dim]"
+        return f"● {label}"
+
+    def _render_screen_part(self, project_state: ProjectState | Any) -> str:
+        """渲染当前屏名，增强位置感知。"""
+        screen = getattr(project_state, "screen", None)
+        if screen is None:
+            return "-"
+        name = type(screen).__name__.replace("Screen", "")
+        return name if name else "-"
 
     def _render_provider_part(self) -> str:
         """渲染 Provider 部分文案。
@@ -100,7 +110,7 @@ class StatusBar(Static):
             return "Provider: [配置加载失败]"
         if provider is None:
             return "Provider: 未配置"
-        return f"Provider: {provider.name} ({provider.model})"
+        return f"Provider: {provider.name}/{provider.model}"
 
 
 __all__ = ["StatusBar"]

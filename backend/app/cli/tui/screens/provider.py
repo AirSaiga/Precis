@@ -38,19 +38,21 @@ def _provider_display(provider: AIProvider, active_id: str | None) -> str:
 
 
 def _provider_detail_text(provider: AIProvider, active_id: str | None) -> str:
-    """右侧详情面板文本。"""
+    """右侧详情面板文本（使用 Rich markup 突出字段名）。"""
     ptype = provider.type.value if hasattr(provider.type, "value") else str(provider.type)
-    is_default = "是" if active_id and provider.id == active_id else "否"
+    is_default = "[green]是[/green]" if active_id and provider.id == active_id else "否"
     cw = str(provider.context_window) if provider.context_window else "自动探测（默认 200000）"
+    key_status = _key_status(provider)
+    key_color = "green" if provider.api_key else "yellow"
     return (
-        f"名称: {provider.name}\n"
-        f"ID:   {provider.id}\n"
-        f"类型: {ptype}\n"
-        f"模型: {provider.model}\n"
-        f"端点: {provider.base_url}\n"
-        f"上下文窗口: {cw}\n"
-        f"API Key: {_key_status(provider)}\n"
-        f"默认: {is_default}"
+        f"[bold]名称:[/bold] {provider.name}\n"
+        f"[bold]ID:[/bold]   {provider.id}\n"
+        f"[bold]类型:[/bold] {ptype}\n"
+        f"[bold]模型:[/bold] {provider.model}\n"
+        f"[bold]端点:[/bold] {provider.base_url}\n"
+        f"[bold]上下文窗口:[/bold] {cw}\n"
+        f"[bold]API Key:[/bold] [{key_color}]{key_status}[/{key_color}]\n"
+        f"[bold]默认:[/bold] {is_default}"
     )
 
 
@@ -73,24 +75,37 @@ class ProviderScreen(Screen):
     CSS = """
     ProviderScreen {
         layout: vertical;
+        padding: 0 1;
     }
     #provider-main {
         height: 1fr;
+        margin-bottom: 1;
     }
     #provider-list {
         width: 40%;
-        border: solid $accent;
+        border: round $accent;
+        background: $surface;
         padding: 0 1;
+        margin-right: 1;
+    }
+    #provider-list-title {
+        text-style: bold;
+        color: $accent;
+        margin: 1 0;
     }
     #provider-detail {
         width: 60%;
-        border: solid $accent;
+        border: round $primary;
+        background: $surface;
         padding: 1 2;
     }
+    #provider-detail-label {
+        color: $text;
+    }
     #provider-actions {
-        height: 3;
+        height: auto;
         dock: bottom;
-        padding: 0 1;
+        padding: 1;
     }
     #provider-actions Button {
         margin-right: 1;
@@ -98,7 +113,9 @@ class ProviderScreen(Screen):
     #provider-status {
         height: 1;
         dock: bottom;
+        background: $panel;
         color: $text-muted;
+        padding: 0 1;
     }
     """
 
@@ -115,10 +132,10 @@ class ProviderScreen(Screen):
             with VerticalScroll(id="provider-detail"):
                 yield Label("选择左侧 Provider 查看详情", id="provider-detail-label")
         with Horizontal(id="provider-actions"):
-            yield Button("添加(a)", id="btn-add")
+            yield Button("添加(a)", id="btn-add", variant="primary")
             yield Button("编辑(e)", id="btn-edit")
-            yield Button("删除(del)", id="btn-delete")
-            yield Button("测试连接(t)", id="btn-test")
+            yield Button("删除(del)", id="btn-delete", variant="error")
+            yield Button("测试连接(t)", id="btn-test", variant="warning")
             yield Button("设为默认(d)", id="btn-default")
             yield Button("刷新(r)", id="btn-refresh")
         yield Label("", id="provider-status")

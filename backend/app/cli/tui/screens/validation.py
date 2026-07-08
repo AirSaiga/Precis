@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import Any
 
 from textual.app import ComposeResult
+from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
 from textual.widgets import Button, DataTable, Label, RichLog
@@ -42,10 +43,22 @@ class ValidationScreen(Screen):
     校验结果由 ``ValidationService`` 返回，错误填入 DataTable，摘要写入 RichLog。
     """
 
+    BINDINGS = [
+        Binding("ctrl+r", "validate", "执行校验", show=True),
+    ]
+
     DEFAULT_CSS = """
     ValidationScreen {
         layout: vertical;
         padding: 0 1;
+    }
+    #status-label {
+        height: auto;
+        min-height: 1;
+        margin-bottom: 1;
+        padding: 0 1;
+        color: $text-muted;
+        text-style: bold;
     }
     #main-row {
         height: 1fr;
@@ -62,17 +75,17 @@ class ValidationScreen(Screen):
     #summary-log {
         height: 40%;
         border: round $accent;
+        background: $surface;
+        padding: 0 1;
+        margin-bottom: 1;
     }
     #error-table {
         height: 60%;
         border: round $warning;
-    }
-    #status-label {
-        height: 1;
-        color: $text-muted;
+        background: $surface;
     }
     Button {
-        margin: 0 1 0 0;
+        margin: 0 1 1 0;
     }
     """
 
@@ -270,6 +283,7 @@ class ValidationScreen(Screen):
                 log.write(f"   • {et}: {cnt}")
         else:
             log.write("[green]✓ 校验通过，未发现任何错误！[/green]")
+            self._trigger_celebration()
 
     def _render_errors(self, result: ValidationResult) -> None:
         """渲染错误到 DataTable（列：表/字段/行号/约束/消息）。
@@ -293,6 +307,12 @@ class ValidationScreen(Screen):
     def _write_summary(self, text: str) -> None:
         """向 RichLog 写入一行文本（用于状态/提示信息）。"""
         self.query_one("#summary-log", RichLog).write(text)
+
+    def _trigger_celebration(self) -> None:
+        """校验通过时触发庆祝特效。"""
+        app = self.app
+        if hasattr(app, "trigger_fx"):
+            app.trigger_fx("confetti")
 
     def _refresh_status(self) -> None:
         """刷新顶部状态条文案，显示当前项目路径或未打开提示。"""

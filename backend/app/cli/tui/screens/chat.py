@@ -214,30 +214,36 @@ class ChatScreen(Screen):
     CSS = """
     ChatScreen {
         layout: vertical;
+        padding: 0 1;
     }
     #chat-progress {
         height: 1;
-        background: $boost;
+        background: $panel;
         color: $text-muted;
         padding: 0 1;
+        text-style: bold;
     }
     #chat-main {
         height: 1fr;
     }
-    RichLog {
-        border: round $primary;
+    #chat-log {
+        border: round $background;
+        background: $surface;
         height: 2fr;
         padding: 0 1;
     }
     #chat-tree-container {
-        border: round $accent;
+        border: round $background;
+        background: $surface;
         height: 1fr;
         padding: 0 1;
+        margin-top: 1;
     }
     #chat-tree-label {
         color: $text-muted;
         background: $boost;
         padding: 0 1;
+        text-style: bold;
     }
     #chat-tool-tree {
         height: 1fr;
@@ -245,7 +251,12 @@ class ChatScreen(Screen):
     #chat-input {
         dock: bottom;
         height: 3;
-        margin: 0 1;
+        margin: 1 0 0 0;
+        border: tall $background;
+        background: $surface;
+    }
+    #chat-input:focus {
+        border: tall $primary;
     }
     .confirm-modal, .ambiguity-modal {
         width: 70;

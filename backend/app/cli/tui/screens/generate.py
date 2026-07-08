@@ -84,10 +84,37 @@ class _GenerationScreenBase(Screen):
     ]
 
     DEFAULT_CSS = """
-    Label.title { text-style: bold; margin-bottom: 1; }
+    Label.title { text-style: bold; margin: 1 0; color: $accent; }
+    Label#hint { color: $text-muted; margin-bottom: 1; }
     Static#status { background: $panel; padding: 0 1; color: $text-muted; }
-    RichLog { border: round $primary; }
-    Horizontal { height: auto; }
+    RichLog { border: round $background; background: $surface; padding: 0 1; }
+    Horizontal { height: auto; margin-bottom: 0; }
+    Horizontal.form-row {
+        height: auto;
+        margin-bottom: 1;
+    }
+    Horizontal.form-row Label {
+        width: 16;
+        margin-right: 1;
+        text-align: right;
+    }
+    Horizontal.form-row Input {
+        width: 1fr;
+    }
+    SelectionList {
+        height: auto;
+        max-height: 12;
+        border: round $background;
+        background: $surface;
+        margin-bottom: 1;
+    }
+    TabbedContent {
+        height: 1fr;
+        border: round $background;
+    }
+    TabPane {
+        padding: 1;
+    }
     """
 
     def __init__(self) -> None:
@@ -306,19 +333,19 @@ class GenerateScreen(_GenerationScreenBase):
             yield Label("数据文件（勾选要处理的文件）：")
             yield SelectionList[str](id="data-files")
 
-            with Horizontal():
+            with Horizontal(classes="form-row"):
                 yield Label("采样行数:")
                 yield Input(value="100", id="sample-rows", type="integer")
-            with Horizontal():
+            with Horizontal(classes="form-row"):
                 yield Label("每列采样值:")
                 yield Input(value="100", id="sample-values", type="integer")
-            with Horizontal():
+            with Horizontal(classes="form-row"):
                 yield Label("最大迭代:")
                 yield Input(value="2", id="max-iterations", type="integer")
-            with Horizontal():
+            with Horizontal(classes="form-row"):
                 yield Label("生成 Regex:")
                 yield Switch(value=False, id="generate-regex")
-            with Horizontal():
+            with Horizontal(classes="form-row"):
                 yield Label("Agent 模式:")
                 yield Switch(value=True, id="agent-mode")
 
@@ -453,6 +480,13 @@ class GenerateScreen(_GenerationScreenBase):
         warnings = result.get("warnings", []) or []
         suffix = f"（{len(warnings)} 条警告）" if warnings else ""
         self._set_status(f"生成完成{suffix}，可点「应用」写盘")
+        self._trigger_celebration()
+
+    def _trigger_celebration(self) -> None:
+        """生成/迁移成功时触发庆祝特效。"""
+        app = self.app
+        if hasattr(app, "trigger_fx"):
+            app.trigger_fx("confetti")
 
 
 @register_screen("migrate")
@@ -482,13 +516,13 @@ class MigrateScreen(_GenerationScreenBase):
             yield Label("数据文件（勾选要处理的数据文件）:")
             yield SelectionList[str](id="data-files")
 
-            with Horizontal():
+            with Horizontal(classes="form-row"):
                 yield Label("采样行数:")
                 yield Input(value="100", id="sample-rows", type="integer")
-            with Horizontal():
+            with Horizontal(classes="form-row"):
                 yield Label("每列采样值:")
                 yield Input(value="100", id="sample-values", type="integer")
-            with Horizontal():
+            with Horizontal(classes="form-row"):
                 yield Label("最大迭代:")
                 yield Input(value="2", id="max-iterations", type="integer")
 
@@ -643,6 +677,7 @@ class MigrateScreen(_GenerationScreenBase):
         warnings = result.get("warnings", []) or []
         suffix = f"（{len(warnings)} 条警告）" if warnings else ""
         self._set_status(f"迁移完成{suffix}，可点「应用」写盘")
+        self._trigger_celebration()
 
 
 __all__ = ["GenerateScreen", "MigrateScreen"]

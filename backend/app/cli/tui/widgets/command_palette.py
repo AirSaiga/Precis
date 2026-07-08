@@ -23,7 +23,7 @@ from textual import on
 from textual.app import ComposeResult
 from textual.containers import Vertical
 from textual.screen import ModalScreen
-from textual.widgets import Label, OptionList
+from textual.widgets import Input, Label, OptionList
 from textual.widgets.option_list import Option
 
 from app.cli.tui.protocols import SCREEN_REGISTRY
@@ -54,8 +54,8 @@ class CommandPalette(ModalScreen[str | None]):
     }
     #palette-box {
         width: 70;
-        max-height: 70%;
-        border: solid $primary;
+        max-height: 80%;
+        border: thick $primary;
         background: $surface;
         padding: 1 2;
     }
@@ -64,9 +64,13 @@ class CommandPalette(ModalScreen[str | None]):
         color: $accent;
         margin-bottom: 1;
     }
+    #palette-search {
+        margin-bottom: 1;
+    }
     #palette-list {
         height: auto;
-        max-height: 60%;
+        max-height: 70%;
+        border: round $background;
     }
     #palette-hint {
         color: $text-muted;
@@ -76,24 +80,46 @@ class CommandPalette(ModalScreen[str | None]):
 
     BINDINGS = [("escape", "cancel", "关闭")]
 
+    def __init__(self) -> None:
+        super().__init__()
+        # 保存完整屏列表，用于搜索过滤时恢复。
+        self._all_options: list[tuple[str, str]] = []
+
     def compose(self) -> ComposeResult:
-        """组装命令面板：标题 + 选项列表 + 操作提示。"""
+        """组装命令面板：标题 + 搜索框 + 选项列表 + 操作提示。"""
         yield Vertical(
             Label("命令面板 · 选择要打开的屏", id="palette-title"),
+            Input(placeholder="输入屏名或描述过滤…", id="palette-search"),
             OptionList(id="palette-list"),
             Label("↑↓ 导航 · Enter 打开 · Esc 取消", id="palette-hint"),
             id="palette-box",
         )
 
     def on_mount(self) -> None:
-        """挂载时从 SCREEN_REGISTRY 填充选项列表。
-
-        选项的 id 设为屏注册名，选中时直接拿到待跳转的屏名。
-        """
+        """挂载时从 SCREEN_REGISTRY 填充选项列表并记录完整列表。"""
         option_list = self.query_one("#palette-list", OptionList)
-        for name in sorted(SCREEN_REGISTRY):
-            desc = _SCREEN_DESCRIPTIONS.get(name, name)
-            option_list.add_option(Option(f"{desc}", id=name))
+        self._all_options = [(name, _SCREEN_DESCRIPTIONS.get(name, name)) for name in sorted(SCREEN_REGISTRY)]
+        for name, desc in self._all_options:
+            option_list.add_option(Option(desc, id=name))
+        # 默认聚焦搜索框
+        self.query_one("#palette-search", Input).focus()
+
+    @on(Input.Changed, "#palette-search")
+    def _on_search_changed(self, event: Input.Changed) -> None:
+        """根据搜索输入过滤选项列表。"""
+        query = event.value.strip().lower()
+        option_list = self.query_one("#palette-list", OptionList)
+        option_list.clear_options()
+        for name, desc in self._all_options:
+            if not query or query in name.lower() or query in desc.lower():
+                option_list.add_option(Option(desc, id=name))
+        # 更新提示
+        count = option_list.option_count
+        hint = self.query_one("#palette-hint", Label)
+        if query:
+            hint.update(f"匹配 {count} 项 · ↑↓ 导航 · Enter 打开 · Esc 取消")
+        else:
+            hint.update("↑↓ 导航 · Enter 打开 · Esc 取消")
 
     @on(OptionList.OptionSelected)
     def _on_option_selected(self, event: OptionList.OptionSelected) -> None:
