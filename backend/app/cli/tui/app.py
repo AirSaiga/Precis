@@ -38,8 +38,9 @@ from app.cli.tui.widgets.status_bar import StatusBar
 
 # 可用主题列表（对应 styles/themes/ 下的 .tcss 文件）
 # 顺序即 Ctrl+Shift+T 循环顺序；首个为默认。
-_AVAILABLE_THEMES = ["tokyo-night", "catppuccin", "nord", "neon", "default"]
-_DEFAULT_THEME = "tokyo-night"
+# tokyo-night-mimo：MiMo/OpenCode 风格（灰度分层+直角+极淡边框）
+_AVAILABLE_THEMES = ["tokyo-night-mimo", "tokyo-night", "catppuccin", "nord", "neon", "default"]
+_DEFAULT_THEME = "tokyo-night-mimo"
 
 
 def _resolve_theme_css(theme: str | None) -> str:

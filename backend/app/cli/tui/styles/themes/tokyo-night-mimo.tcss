@@ -1,0 +1,212 @@
+/* Precis TUI Tokyo Night MiMo 主题
+ *
+ * 复刻 OpenCode / MiMo Code 的简约高级感：
+ * - 灰度分层（背景三级微差，同色系）而非彩色边框堆叠
+ * - 直角边框（solid）而非圆角（round）
+ * - 边框比背景只亮一档（几乎隐形）
+ * - 焦点态用灰度而非彩色
+ * - 大量留白分区，仅 1 个强调色
+ * 色板基于 Tokyo Night（https://github.com/tokyo-night/tokyo-night-vscode-theme）
+ * 设计原则参考 OpenCode 主题系统（https://opencode.ai/docs/themes/）
+ */
+
+/* ── design tokens（克制：灰度为主 + 1 强调色）── */
+/* 只覆盖颜色 token（安全），背景 token 用 $mimo-* 前缀避免与 Textual 内部冲突 */
+$primary: #7aa2f7;       /* blue — 唯一强调色 */
+$primary-darken-1: #414868;  /* 焦点态边框（比背景亮一档）*/
+$primary-darken-2: #2d3548;  /* 普通边框（几乎隐形，比背景微亮）*/
+$accent: #7aa2f7;        /* 与 primary 同色，不引入第二个强调色 */
+$success: #9ece6a;       /* 语义色仅用于状态 */
+$warning: #e0af68;
+$error: #f7768e;
+
+/* 三级背景微差（$mimo-* 前缀，不覆盖内置 $surface/$panel 等）*/
+$mimo-surface: #16161e;
+$mimo-surface-darken-1: #1a1b26;
+$mimo-panel: #1a1b26;
+$mimo-boost: #24283b;
+$mimo-text: #c0caf5;
+$mimo-text-muted: #565f89;
+
+/* 极淡边框 token */
+$mimo-border: #2d3548;
+$mimo-border-active: #414868;
+
+/* ── 基础层 ── */
+Screen {
+    background: $mimo-surface;
+    color: $mimo-text;
+    layers: fx background foreground;
+}
+
+#fx-canvas {
+    layer: fx;
+    width: 100%;
+    height: 100%;
+    background: transparent;
+}
+
+/* Header/Footer/StatusBar：无显式边框，靠背景微差区分 */
+Header {
+    dock: top;
+    layer: background;
+    background: $mimo-panel;
+    color: $mimo-text;
+    height: 1;
+    padding: 0 2;
+    text-style: bold;
+}
+Header > .header_title { color: $primary; }
+Header > .header_subtitle { color: $mimo-text-muted; }
+
+StatusBar {
+    dock: bottom;
+    layer: background;
+    background: $mimo-panel;
+    color: $mimo-text-muted;
+    height: 1;
+    padding: 0 1;
+}
+
+Footer {
+    dock: bottom;
+    layer: background;
+    background: $mimo-surface;
+    color: $mimo-text-muted;
+    height: 1;
+    padding: 0 1;
+}
+
+/* ── 通用工具类（MiMo 风格：留白 > 边框）── */
+.card {
+    background: $mimo-panel;
+    padding: 1 2;
+    margin: 1 0;
+}
+/* panel：靠背景微差分区，无边框 */
+.panel {
+    background: $mimo-surface;
+    padding: 0 1;
+}
+.panel-header {
+    color: $mimo-text-muted;
+    text-style: bold;
+    padding: 0 1;
+    height: 1;
+    border-bottom: solid $mimo-border;
+}
+.badge {
+    text-style: bold;
+    color: $mimo-surface;
+    background: $primary;
+    padding: 0 1;
+}
+.section-title {
+    text-style: bold;
+    color: $primary;
+    margin-bottom: 1;
+}
+.hint { color: $mimo-text-muted; }
+.empty-state { color: $mimo-text-muted; text-align: center; margin: 2 0; }
+.success { color: $success; }
+.warning { color: $warning; }
+.error { color: $error; }
+.muted { color: $mimo-text-muted; }
+
+/* ── 表单控件（极淡边框，直角）── */
+Button {
+    margin: 0 1 0 0;
+    background: $mimo-boost;
+    color: $mimo-text;
+    border: none;
+}
+Button:hover {
+    background: $primary-darken-1;
+}
+Button:focus {
+    background: $primary-darken-1;
+    border: tall $mimo-border-active;
+}
+Button.-primary {
+    background: $primary;
+    color: $mimo-surface;
+}
+Button.-success { background: $success; color: $mimo-surface; }
+Button.-warning { background: $warning; color: $mimo-surface; }
+Button.-error { background: $error; color: $mimo-text; }
+Button:disabled { background: $mimo-surface-darken-1; color: $mimo-text-muted; }
+
+Input {
+    border: solid $mimo-border;
+    background: $mimo-surface-darken-1;
+    padding: 0 1;
+}
+Input:focus {
+    border: solid $mimo-border-active;
+}
+Input:disabled { background: $mimo-surface-darken-1; color: $mimo-text-muted; }
+
+Select {
+    border: solid $mimo-border;
+    background: $mimo-surface-darken-1;
+}
+Select:focus { border: solid $mimo-border-active; }
+
+Switch { margin: 0 1; }
+
+/* ── 列表/选项/表格（背景分层，极淡边框）── */
+OptionList, ListView, DataTable, SelectionList {
+    border: solid $mimo-border;
+    background: $mimo-panel;
+}
+OptionList:focus, ListView:focus, DataTable:focus, SelectionList:focus {
+    border: solid $mimo-border-active;
+}
+OptionList > .option-list--option-highlighted,
+ListView > .listview--item-highlighted,
+SelectionList > .selection-list--option-highlighted {
+    background: $primary 20%;
+}
+
+DataTable > .datatable--header {
+    background: $mimo-boost;
+    text-style: bold;
+    color: $mimo-text-muted;
+}
+DataTable > .datatable--odd-row { background: $mimo-surface-darken-1; }
+DataTable > .datatable--cursor { background: $primary 25%; }
+DataTable > .datatable--hover { background: $primary 10%; }
+
+/* ── 标签页（极淡边框）── */
+TabbedContent {
+    border: solid $mimo-border;
+    background: $mimo-panel;
+}
+TabbedContent:focus { border: solid $mimo-border-active; }
+Tabs { background: $mimo-boost; }
+Tabs:focus { border: solid $mimo-border-active; }
+Tab { padding: 0 2; }
+Tab:focus { text-style: bold; }
+
+/* ── 日志/编辑器/树 ── */
+RichLog, TextArea {
+    border: solid $mimo-border;
+    background: $mimo-panel;
+    padding: 0 1;
+}
+RichLog:focus, TextArea:focus { border: solid $mimo-border-active; }
+
+Tree {
+    border: solid $mimo-border;
+    background: $mimo-panel;
+    padding: 0 1;
+}
+Tree:focus { border: solid $mimo-border-active; }
+Tree > .tree--cursor { background: $primary 25%; }
+
+/* ── 滚动条（极淡）── */
+Scrollbar {
+    scrollbar-color: $primary 20%;
+    scrollbar-color-active: $primary 40%;
+    scrollbar-color-hover: $primary 30%;
+}

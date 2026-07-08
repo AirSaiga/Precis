@@ -126,6 +126,7 @@ class ColorPalette:
 # 每套主题对应的特效调色板（十六进制，无 # 前缀）。
 # 与 styles/themes/*.tcss 的强调色对齐，让 confetti/starfield 颜色随主题变化。
 _THEME_PALETTES: dict[str, list[str]] = {
+    "tokyo-night-mimo": ["7aa2f7", "9ece6a", "e0af68", "f7768e", "7dcfff", "bb9af7"],
     "tokyo-night": ["7aa2f7", "bb9af7", "9ece6a", "e0af68", "f7768e", "7dcfff"],
     "catppuccin": ["cba6f7", "f5c2e7", "a6e3a1", "f9e2af", "f38ba8", "89dceb"],
     "nord": ["88c0d0", "b48ead", "a3be8c", "ebcb8b", "bf616a", "81a1c1"],
@@ -135,7 +136,7 @@ _THEME_PALETTES: dict[str, list[str]] = {
 
 # 当前生效的调色板（特效发射粒子时读取此对象）。
 # 切换主题时由 app.py 调用 set_theme_palette() 更新。
-NEON_PALETTE = ColorPalette(list(_THEME_PALETTES["tokyo-night"]))
+NEON_PALETTE = ColorPalette(list(_THEME_PALETTES["tokyo-night-mimo"]))
 
 
 def set_theme_palette(theme: str) -> None:
