@@ -100,13 +100,9 @@ class ValidationScreen(Screen):
         width: 2fr;
         height: 100%;
     }
-    /* 面板标题行（紧凑） */
-    #source-panel > Label,
-    #detail-panel > Label {
-        height: 1;
-        color: $text-muted;
+    /* 面板标题栏（颜色/背景由主题 .panel-header 定义，这里只管布局） */
+    .panel-header {
         margin-bottom: 0;
-        padding: 0 1;
     }
     /* 数据源树：占满左栏剩余高度 */
     #source-tree {
@@ -210,13 +206,14 @@ class ValidationScreen(Screen):
         yield Label("未打开项目", id="status-label")
         with Horizontal(id="main-row"):
             # 左栏：数据源树（校验前为空，校验后按表展示行数/错误数）
-            with Vertical(id="source-panel"):
-                yield Label("[bold]数据源[/bold]（回车过滤错误表）")
+            with Vertical(id="source-panel", classes="panel"):
+                yield Label("数据源", classes="panel-header")
                 # auto_expand=False 在 on_mount 设置（reactive 不是构造参数），
                 # 使回车只触发 NodeSelected 用于过滤，不展开/折叠节点
                 yield Tree(_SOURCE_EMPTY_HINT, id="source-tree")
             # 中栏：结果（按钮 + 进度区 + 摘要 + 错误表）
-            with Vertical(id="result-panel"):
+            with Vertical(id="result-panel", classes="panel"):
+                yield Label("校验结果", classes="panel-header")
                 yield Button("校验 (ctrl+r)", id="validate-btn", variant="primary")
                 # 进度区：校验时显示 ProgressBar + Sparkline + 状态文本，空闲时隐藏
                 with Horizontal(id="progress-row", classes="hidden"):
@@ -226,8 +223,8 @@ class ValidationScreen(Screen):
                 yield RichLog(id="summary-log", markup=True)
                 yield DataTable(id="error-table", cursor_type="row", zebra_stripes=True)
             # 右栏：详情预览（选中错误行后展示完整字段）
-            with Vertical(id="detail-panel"):
-                yield Label("[bold]详情[/bold]")
+            with Vertical(id="detail-panel", classes="panel"):
+                yield Label("详情", classes="panel-header")
                 yield RichLog(id="detail-log", markup=True)
 
     def on_mount(self) -> None:

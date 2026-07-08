@@ -68,17 +68,26 @@ Footer {
 }
 
 .card {
-    border: round $theme-background;
-    background: $theme-surface 85%;
+    border: round $primary-darken-2;
+    background: $theme-panel 85%;
     padding: 1 2;
     margin: 1 0;
 }
 
 /* panel：功能屏的面板容器（统一各屏的分区边框） */
 .panel {
-    border: round $theme-background;
-    background: $theme-surface;
+    border: round $primary-darken-2;
+    background: $theme-panel;
     padding: 0 1;
+}
+
+/* panel-header：面板顶部带色标题栏（打破单调圆角框） */
+.panel-header {
+    background: $primary-darken-1;
+    color: $theme-text;
+    text-style: bold;
+    padding: 0 1;
+    height: 1;
 }
 /* badge：行内标签（错误计数、状态标记） */
 .badge {
@@ -111,7 +120,7 @@ Button:disabled { background: $theme-surface-darken-1; color: $theme-text-muted;
 
 Input {
     border: tall $theme-background;
-    background: $theme-surface;
+    background: $theme-panel;
     padding: 0 1;
 }
 Input:focus { border: tall $primary; }
@@ -119,15 +128,15 @@ Input:disabled { background: $theme-surface-darken-1; color: $theme-text-muted; 
 
 Select {
     border: tall $theme-background;
-    background: $theme-surface;
+    background: $theme-surface-darken-1;
 }
 Select:focus { border: tall $primary; }
 
 Switch { margin: 0 1; }
 
 OptionList, ListView, DataTable, SelectionList {
-    border: round $theme-background;
-    background: $theme-surface 85%;
+    border: round $primary-darken-2;
+    background: $theme-panel 85%;
 }
 OptionList:focus, ListView:focus, DataTable:focus, SelectionList:focus {
     border: thick $accent;
@@ -144,8 +153,8 @@ DataTable > .datatable--cursor { background: $primary 40%; }
 DataTable > .datatable--hover { background: $primary 20%; }
 
 TabbedContent {
-    border: round $theme-background;
-    background: $theme-surface 85%;
+    border: round $primary-darken-2;
+    background: $theme-panel 85%;
 }
 TabbedContent:focus { border: thick $accent; }
 Tabs { background: $theme-panel; }
@@ -154,15 +163,15 @@ Tab { padding: 0 2; }
 Tab:focus { text-style: bold; }
 
 RichLog, TextArea {
-    border: round $theme-background;
-    background: $theme-surface 85%;
+    border: round $primary-darken-2;
+    background: $theme-panel 85%;
     padding: 0 1;
 }
 RichLog:focus, TextArea:focus { border: thick $accent; }
 
 Tree {
-    border: round $theme-background;
-    background: $theme-surface 85%;
+    border: round $primary-darken-2;
+    background: $theme-panel 85%;
     padding: 0 1;
 }
 Tree:focus { border: thick $accent; }

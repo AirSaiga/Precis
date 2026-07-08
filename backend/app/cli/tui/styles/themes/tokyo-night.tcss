@@ -79,17 +79,26 @@ Footer {
 
 /* ── 通用工具类 ── */
 .card {
-    border: round $theme-background;
-    background: $theme-surface 85%;
+    border: round $primary-darken-2;
+    background: $theme-panel 85%;
     padding: 1 2;
     margin: 1 0;
 }
 
 /* panel：功能屏的面板容器（统一各屏的分区边框） */
 .panel {
-    border: round $theme-background;
-    background: $theme-surface;
+    border: round $primary-darken-2;
+    background: $theme-panel;
     padding: 0 1;
+}
+
+/* panel-header：面板顶部带色标题栏（打破单调圆角框） */
+.panel-header {
+    background: $primary-darken-1;
+    color: $theme-text;
+    text-style: bold;
+    padding: 0 1;
+    height: 1;
 }
 /* badge：行内标签（错误计数、状态标记） */
 .badge {
@@ -152,7 +161,7 @@ Button:disabled {
 
 Input {
     border: tall $theme-background;
-    background: $theme-surface;
+    background: $theme-panel;
     padding: 0 1;
 }
 Input:focus {
@@ -165,7 +174,7 @@ Input:disabled {
 
 Select {
     border: tall $theme-background;
-    background: $theme-surface;
+    background: $theme-surface-darken-1;
 }
 Select:focus {
     border: tall $primary;
@@ -180,8 +189,8 @@ OptionList,
 ListView,
 DataTable,
 SelectionList {
-    border: round $theme-background;
-    background: $theme-surface 85%;
+    border: round $primary-darken-2;
+    background: $theme-panel 85%;
 }
 OptionList:focus,
 ListView:focus,
@@ -212,8 +221,8 @@ DataTable > .datatable--hover {
 
 /* ── 标签页 ── */
 TabbedContent {
-    border: round $theme-background;
-    background: $theme-surface 85%;
+    border: round $primary-darken-2;
+    background: $theme-panel 85%;
 }
 TabbedContent:focus {
     border: thick $accent;
@@ -234,8 +243,8 @@ Tab:focus {
 /* ── 日志/编辑器/树 ── */
 RichLog,
 TextArea {
-    border: round $theme-background;
-    background: $theme-surface 85%;
+    border: round $primary-darken-2;
+    background: $theme-panel 85%;
     padding: 0 1;
 }
 RichLog:focus,
@@ -244,8 +253,8 @@ TextArea:focus {
 }
 
 Tree {
-    border: round $theme-background;
-    background: $theme-surface 85%;
+    border: round $primary-darken-2;
+    background: $theme-panel 85%;
     padding: 0 1;
 }
 Tree:focus {

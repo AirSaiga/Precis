@@ -80,17 +80,26 @@ Footer {
 
 /* ── 通用工具类 ── */
 .card {
-    border: round $neon-background;
-    background: $neon-surface 85%;
+    border: round $primary-darken-2;
+    background: $neon-panel 85%;
     padding: 1 2;
     margin: 1 0;
 }
 
 /* panel：功能屏的面板容器（统一各屏的分区边框） */
 .panel {
-    border: round $neon-background;
-    background: $neon-surface;
+    border: round $primary-darken-2;
+    background: $neon-panel;
     padding: 0 1;
+}
+
+/* panel-header：面板顶部带色标题栏（打破单调圆角框） */
+.panel-header {
+    background: $primary-darken-1;
+    color: $neon-text;
+    text-style: bold;
+    padding: 0 1;
+    height: 1;
 }
 /* badge：行内标签（错误计数、状态标记） */
 .badge {
@@ -153,7 +162,7 @@ Button:disabled {
 
 Input {
     border: tall $neon-background;
-    background: $neon-surface;
+    background: $neon-panel;
     padding: 0 1;
 }
 Input:focus {
@@ -166,7 +175,7 @@ Input:disabled {
 
 Select {
     border: tall $neon-background;
-    background: $neon-surface;
+    background: $neon-surface-darken-1;
 }
 Select:focus {
     border: tall $primary;
@@ -181,8 +190,8 @@ OptionList,
 ListView,
 DataTable,
 SelectionList {
-    border: round $neon-background;
-    background: $neon-surface 85%;
+    border: round $primary-darken-2;
+    background: $neon-panel 85%;
 }
 OptionList:focus,
 ListView:focus,
@@ -213,8 +222,8 @@ DataTable > .datatable--hover {
 
 /* ── 标签页 ── */
 TabbedContent {
-    border: round $neon-background;
-    background: $neon-surface 85%;
+    border: round $primary-darken-2;
+    background: $neon-panel 85%;
 }
 TabbedContent:focus {
     border: thick $accent;
@@ -235,8 +244,8 @@ Tab:focus {
 /* ── 日志/编辑器/树 ── */
 RichLog,
 TextArea {
-    border: round $neon-background;
-    background: $neon-surface 85%;
+    border: round $primary-darken-2;
+    background: $neon-panel 85%;
     padding: 0 1;
 }
 RichLog:focus,
@@ -245,8 +254,8 @@ TextArea:focus {
 }
 
 Tree {
-    border: round $neon-background;
-    background: $neon-surface 85%;
+    border: round $primary-darken-2;
+    background: $neon-panel 85%;
     padding: 0 1;
 }
 Tree:focus {

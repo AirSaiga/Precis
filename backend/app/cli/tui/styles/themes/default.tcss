@@ -70,9 +70,17 @@ Footer {
 
 /* panel：功能屏的面板容器（统一各屏的分区边框） */
 .panel {
-    border: round $background;
-    background: $surface;
+    border: round $primary-darken-2;
+    background: $panel;
     padding: 0 1;
+}
+/* panel-header：面板顶部带色标题栏（打破单调圆角框） */
+.panel-header {
+    background: $boost;
+    color: $text;
+    text-style: bold;
+    padding: 0 1;
+    height: 1;
 }
 /* badge：行内标签（错误计数、状态标记） */
 .badge {
