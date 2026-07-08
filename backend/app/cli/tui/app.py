@@ -33,22 +33,12 @@ from app.cli.tui.fx import CanvasWidget, EffectEngine
 from app.cli.tui.protocols import SCREEN_REGISTRY
 from app.cli.tui.screens import chat, config, generate, provider, validation  # noqa: F401
 from app.cli.tui.screens.dashboard import DashboardScreen
+
+# 主题系统：基于 Textual 原生 Theme 对象（非 CSS 文件），运行时即时切换。
+# 主题定义见 themes.py，注册后用 app.theme = "name" 切换，所有内置 token 自动跟随。
+from app.cli.tui.themes import DEFAULT_THEME, THEME_ORDER, register_all_themes
 from app.cli.tui.widgets.command_palette import CommandPalette
 from app.cli.tui.widgets.status_bar import StatusBar
-
-# 可用主题列表（对应 styles/themes/ 下的 .tcss 文件）
-# 顺序即 F2 循环顺序；首个为默认。
-# tokyo-night-mimo：MiMo/OpenCode 风格（灰度分层+直角+极淡边框）
-_AVAILABLE_THEMES = ["tokyo-night-mimo", "tokyo-night", "catppuccin", "nord", "neon", "default"]
-_DEFAULT_THEME = "tokyo-night-mimo"
-
-
-def _resolve_theme_css(theme: str | None) -> str:
-    """根据主题名返回对应的 TCSS 文件路径。"""
-    theme = theme or os.getenv("PRECIS_TUI_THEME", _DEFAULT_THEME)
-    if theme not in _AVAILABLE_THEMES:
-        theme = _DEFAULT_THEME
-    return f"styles/themes/{theme}.tcss"
 
 
 class PrecisTUIApp(App):
@@ -66,6 +56,7 @@ class PrecisTUIApp(App):
     - Ctrl+T：跳转 Provider 屏
     """
 
+    # 全局布局样式（app.tcss 用内置 design token，随 Theme 自动变色）
     CSS_PATH = "styles/app.tcss"
 
     TITLE = "Precis"
@@ -82,13 +73,8 @@ class PrecisTUIApp(App):
     ]
 
     def __init__(self, theme: str | None = None) -> None:
-        # 主题必须在 super().__init__ 前确定，因为 Textual 会读取 current_theme
-        self._precis_theme = theme or os.getenv("PRECIS_TUI_THEME", _DEFAULT_THEME)
-        super().__init__(css_path=_resolve_theme_css(theme))
-        # 同步特效调色板到初始主题
-        from app.cli.tui.fx.particle import set_theme_palette
-
-        set_theme_palette(self._precis_theme)
+        self._precis_theme = theme or os.getenv("PRECIS_TUI_THEME", DEFAULT_THEME)
+        super().__init__()
         # ProjectState 协议字段：当前打开项目的路径与清单配置
         self.project_path: str | None = None
         self.project_config: dict[str, Any] | None = None
@@ -101,20 +87,17 @@ class PrecisTUIApp(App):
         return self._precis_theme
 
     def action_cycle_theme(self) -> None:
-        """F2：循环切换主题。"""
-        idx = _AVAILABLE_THEMES.index(self._precis_theme) if self._precis_theme in _AVAILABLE_THEMES else 0
-        next_idx = (idx + 1) % len(_AVAILABLE_THEMES)
-        self._precis_theme = _AVAILABLE_THEMES[next_idx]
-        self.css_path = _resolve_theme_css(self._precis_theme)
+        """F2：循环切换主题（基于 Textual 原生 Theme，即时生效）。"""
+        idx = THEME_ORDER.index(self._precis_theme) if self._precis_theme in THEME_ORDER else 0
+        next_name = THEME_ORDER[(idx + 1) % len(THEME_ORDER)]
+        self._precis_theme = next_name
+        # app.theme 是 reactive，赋值即触发重渲染（所有内置 token 自动跟随）
+        self.theme = next_name
         # 同步特效调色板，让 confetti/starfield 颜色与主题一致
         from app.cli.tui.fx.particle import set_theme_palette
 
-        set_theme_palette(self._precis_theme)
-        try:
-            self.refresh_css()
-            self.notify(f"主题已切换为：{self._precis_theme}", timeout=3)
-        except Exception as exc:  # noqa: BLE001
-            self.notify(f"切换主题失败：{exc}", severity="error", timeout=5)
+        set_theme_palette(next_name)
+        self.notify(f"主题：{next_name}", timeout=3)
 
     @property
     def is_project_open(self) -> bool:
@@ -136,7 +119,14 @@ class PrecisTUIApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        """挂载回调：初始化特效引擎、推入 Dashboard、刷新状态栏。"""
+        """挂载回调：注册主题、初始化特效引擎、推入 Dashboard、刷新状态栏。"""
+        # 注册全部主题并设置初始主题（app.theme 是 reactive，即时生效）
+        register_all_themes(self)
+        self.theme = self._precis_theme
+        # 同步特效调色板到初始主题
+        from app.cli.tui.fx.particle import set_theme_palette
+
+        set_theme_palette(self._precis_theme)
         canvas = self.query_one("#fx-canvas", CanvasWidget)
         self.effect_engine = EffectEngine(self, canvas)
         self.effect_engine.start()
