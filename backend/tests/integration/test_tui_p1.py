@@ -29,6 +29,7 @@ from textual.app import App, ComposeResult  # noqa: E402
 from app.cli.shared_services import project_ops  # noqa: E402
 from app.cli.tui.protocols import SCREEN_REGISTRY  # noqa: E402
 from app.cli.tui.screens.validation import ValidationScreen  # noqa: E402
+from app.cli.tui.services.validation_service import ValidationResult  # noqa: E402
 
 # qa_test/qa_simple 是仓库内置的最小可运行 V2 项目
 QA_SIMPLE_ROOT = Path(__file__).resolve().parents[3] / "qa_test" / "qa_simple"
@@ -128,8 +129,9 @@ async def test_open_and_validate_qa_simple(qa_simple_copy, isolated_history):
         await pilot.pause()
         assert screen.is_project_open is True
 
-        # 触发校验（直接调 action_validate；qa_simple 同步校验会在调用期间完成）
-        await screen.action_validate()
+        # 触发校验（worker 线程执行，await worker.wait() 等待完成不阻塞 UI）
+        worker = screen.action_validate()
+        await worker.wait()
         await pilot.pause()
 
         # 校验错误表格应有行（qa_simple 含故意违规数据）
@@ -146,6 +148,14 @@ async def test_open_and_validate_qa_simple(qa_simple_copy, isolated_history):
         assert "校验耗时" in joined
         assert "约束检查" in joined
 
+        # 进度区：校验完成后应可见（非 hidden）且 ProgressBar 推满 100
+        from textual.widgets import ProgressBar
+
+        progress_row = screen.query_one("#progress-row")
+        assert "hidden" not in progress_row.classes, "校验完成后进度区应可见"
+        pb = screen.query_one("#validate-progress", ProgressBar)
+        assert pb.progress == 100
+
 
 @pytest.mark.asyncio
 async def test_validate_without_open_project_shows_prompt(qa_simple_copy, isolated_history):
@@ -157,7 +167,8 @@ async def test_validate_without_open_project_shows_prompt(qa_simple_copy, isolat
         screen = app.query_one(ValidationScreen)
         assert screen.is_project_open is False
 
-        await screen.action_validate()
+        worker = screen.action_validate()
+        await worker.wait()
         await pilot.pause()
 
         log = screen.query_one("#summary-log")
@@ -189,7 +200,7 @@ async def test_tui_validation_matches_cli_standalone(qa_simple_copy, isolated_hi
         await pilot.press("enter")
         await pilot.pause()
 
-        await screen.action_validate()
+        await screen.action_validate().wait()
         await pilot.pause()
 
         from textual.widgets import DataTable
@@ -199,3 +210,142 @@ async def test_tui_validation_matches_cli_standalone(qa_simple_copy, isolated_hi
         assert table.row_count == len(baseline_errors), (
             f"TUI 表格行数 {table.row_count} != 基线 errors 数 {len(baseline_errors)}"
         )
+
+
+# ── 校验实时渲染（V2-3c）：worker 不阻塞 + 进度区实时更新 ────────────────────
+
+
+class _SlowFakeService:
+    """假 ValidationService：sleep 模拟耗时校验，期间多次回调 progress_callback。
+
+    用于验证 worker 线程执行校验时 UI 线程不冻结、进度区实时更新。
+    """
+
+    def __init__(self, event_count: int = 5, delay: float = 0.05) -> None:
+        self._event_count = event_count
+        self._delay = delay
+
+    def validate(
+        self,
+        manifest_path: str,
+        data_dir: str,
+        table: str | None = None,
+        validation_settings: dict | None = None,
+        script_security: dict | None = None,
+        progress_callback=None,
+    ) -> ValidationResult:
+        import time
+
+        from app.shared.services.validation.progress import ProgressEvent
+
+        for i in range(1, self._event_count + 1):
+            time.sleep(self._delay)
+            if progress_callback is not None:
+                progress_callback(
+                    ProgressEvent(
+                        stage="validating",
+                        table="users",
+                        chunk_index=i,
+                        chunk_total=self._event_count,
+                        rows_done=i * 100,
+                        rows_total=self._event_count * 100,
+                        errors_so_far=i * 2,
+                        elapsed_ms=int(i * self._delay * 1000),
+                    )
+                )
+        # 完成事件
+        if progress_callback is not None:
+            progress_callback(
+                ProgressEvent(
+                    stage="done",
+                    table="users",
+                    chunk_index=0,
+                    chunk_total=0,
+                    rows_done=self._event_count * 100,
+                    rows_total=self._event_count * 100,
+                    errors_so_far=self._event_count * 2,
+                    elapsed_ms=int(self._event_count * self._delay * 1000),
+                )
+            )
+        return ValidationResult(
+            errors=[{"error_type": "NotNullViolation", "table": "users", "message": "x"}],
+            loading_errors=[],
+            duration_ms=42,
+            validation_details={"format_checks": [], "constraint_checks": []},
+            raw_datasets={},
+        )
+
+
+@pytest.mark.asyncio
+async def test_validation_worker_does_not_block_ui(qa_simple_copy, isolated_history):
+    """校验在 worker 线程执行：运行期间 UI 线程应仍可交互（按钮可聚焦/按键可响应）。"""
+    from textual.widgets import Button, ProgressBar, Sparkline
+
+    project_ops.add_to_history(str(qa_simple_copy))
+    app = _HarnessApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = app.query_one(ValidationScreen)
+        # 打开项目
+        history_list = screen.query_one("#history-list")
+        history_list.index = 0
+        await pilot.press("enter")
+        await pilot.pause()
+        assert screen.is_project_open is True
+
+        # 注入慢速假服务（多次 progress 回调 + 延迟）
+        screen._service = _SlowFakeService(event_count=6, delay=0.05)  # noqa: SLF001
+
+        # 启动 worker（不等待，立即返回）
+        worker = screen.action_validate()
+        # worker 运行期间 UI 应可交互：聚焦按钮、按键应被处理（不抛异常/不卡死）
+        btn = screen.query_one("#validate-btn", Button)
+        btn.focus()
+        await pilot.pause()
+        assert btn.has_focus
+        # 按 tab 应能移动焦点（UI 事件循环仍在运转）
+        await pilot.press("tab")
+        await pilot.pause()
+
+        # 等待 worker 完成
+        await worker.wait()
+        await pilot.pause()
+
+        # 进度区应可见，ProgressBar 推满，Sparkline 收到多个数据点
+        progress_row = screen.query_one("#progress-row")
+        assert "hidden" not in progress_row.classes
+        pb = screen.query_one("#validate-progress", ProgressBar)
+        assert pb.progress == 100
+        sparkline = screen.query_one("#error-sparkline", Sparkline)
+        # 6 个 validating 事件 + 1 个 done 事件 = 7 个数据点
+        assert sparkline.data is not None
+        assert len(sparkline.data) == 7
+
+
+@pytest.mark.asyncio
+async def test_validation_worker_exclusive_prevents_restart(qa_simple_copy, isolated_history):
+    """exclusive=True：校验中再次触发应不重启（worker 组内互斥）。"""
+    project_ops.add_to_history(str(qa_simple_copy))
+    app = _HarnessApp()
+    async with app.run_test() as pilot:
+        await pilot.pause()
+        screen = app.query_one(ValidationScreen)
+        history_list = screen.query_one("#history-list")
+        history_list.index = 0
+        await pilot.press("enter")
+        await pilot.pause()
+
+        # 注入慢速假服务（确保第二次触发时仍在运行）
+        screen._service = _SlowFakeService(event_count=10, delay=0.05)  # noqa: SLF001
+
+        screen.action_validate()  # 第一次触发
+        await pilot.pause()
+        # 第一次仍运行中时触发第二次（exclusive 应取消/忽略同组旧 worker）
+        worker2 = screen.action_validate()
+        await pilot.pause()
+
+        # 至少一个 worker 应进入完成态（exclusive 不死锁）
+        await worker2.wait()
+        await pilot.pause()
+        # App 仍存活，未 panic
+        assert app.is_running

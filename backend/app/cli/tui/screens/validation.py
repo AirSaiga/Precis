@@ -20,16 +20,18 @@ from __future__ import annotations
 
 from typing import Any
 
+from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, DataTable, Label, RichLog
+from textual.widgets import Button, DataTable, Label, ProgressBar, RichLog, Sparkline
 
 from app.cli.shared_services import project_ops
 from app.cli.tui.protocols import register_screen
 from app.cli.tui.services.validation_service import ValidationResult, ValidationService
 from app.cli.tui.widgets.history_list import HistoryList
+from app.shared.services.validation.progress import ProgressEvent
 
 # DataTable 列定义：表/字段/行号/约束/消息
 _ERROR_COLUMNS = ("表", "字段", "行号", "约束", "消息")
@@ -72,6 +74,30 @@ class ValidationScreen(Screen):
         width: 2fr;
         height: 100%;
     }
+    #progress-row {
+        height: auto;
+        margin-bottom: 1;
+        padding: 0 1;
+        background: $surface;
+        border: round $accent 50%;
+    }
+    #progress-row.hidden {
+        display: none;
+    }
+    #validate-progress {
+        width: 1fr;
+        height: 1;
+    }
+    #error-sparkline {
+        width: 1fr;
+        height: 1;
+        min-width: 10;
+    }
+    #progress-status {
+        height: 1;
+        color: $text-muted;
+        margin-top: 0;
+    }
     #summary-log {
         height: 40%;
         border: round $accent;
@@ -95,6 +121,9 @@ class ValidationScreen(Screen):
         # 屏内持有的临时项目状态（仅当 App 未提供 ProjectState 时使用）
         self._local_project_path: str | None = None
         self._local_project_config: dict[str, Any] | None = None
+        # Sparkline 数据点缓冲：每收到一个 ProgressEvent 追加一个错误数点
+        # （Sparkline.data 是 reactive，原地 append 不触发刷新，故需整体重新赋值）
+        self._spark_points: list[float] = []
 
     # ---- 项目状态访问（优先用 App 的，回退到屏内临时态）----
 
@@ -125,6 +154,11 @@ class ValidationScreen(Screen):
                 yield HistoryList(id="history-list")
             with Vertical(id="result-panel"):
                 yield Button("校验 (ctrl+r)", id="validate-btn", variant="primary")
+                # 进度区：校验时显示 ProgressBar + Sparkline + 状态文本，空闲时隐藏
+                with Horizontal(id="progress-row", classes="hidden"):
+                    yield ProgressBar(id="validate-progress", total=100)
+                    yield Sparkline(id="error-sparkline")
+                yield Label("就绪", id="progress-status")
                 yield RichLog(id="summary-log", markup=True)
                 yield DataTable(id="error-table")
 
@@ -159,41 +193,114 @@ class ValidationScreen(Screen):
         # 刷新历史列表以反映最新打开
         event.list_view.reload()
 
-    async def on_button_pressed(self, event: Button.Pressed) -> None:
+    def on_button_pressed(self, event: Button.Pressed) -> None:
         """校验按钮按下时执行校验。"""
         if event.button.id != "validate-btn":
             return
-        await self.action_validate()
+        # action_validate 经 @work 装饰为 worker，调用即触发，不需要 await
+        self.action_validate()
 
-    async def action_validate(self) -> None:
-        """执行校验：读取项目状态，调用 ValidationService，渲染结果。
+    @work(thread=True, exclusive=True, name="validation")
+    def action_validate(self) -> None:
+        """执行校验（worker 线程，不阻塞 UI）。
 
-        未打开项目时在摘要区提示；异常时以通知展示，不崩溃。
+        读取项目状态，调用 ValidationService，校验过程中通过 progress_callback
+        收 ProgressEvent 并经 ``call_from_thread`` 回 UI 线程更新进度区；完成后
+        渲染结果。未打开项目或找不到清单时在摘要区提示；异常以通知展示，不崩溃。
+
+        Note:
+            - ``@work(thread=True)`` 使本方法在独立线程执行，UI 线程不阻塞。
+            - ``exclusive=True`` 防止重复触发（校验中再按 Ctrl+R 不会重启）。
+            - 所有 widget 操作必须经 ``self.app.call_from_thread`` 回 UI 线程。
         """
+        # 前置检查：未打开项目或找不到清单（同步做，结果经 call_from_thread 写 UI）
         if not self.is_project_open:
-            self._write_summary("[yellow]请先从左侧历史列表打开一个项目[/yellow]")
+            self.app.call_from_thread(self._write_summary, "[yellow]请先从左侧历史列表打开一个项目[/yellow]")
             return
         manifest_path = project_ops.find_manifest(self.project_path)  # type: ignore[arg-type]
         if manifest_path is None:
-            self._write_summary("[red]未找到 project.precis.yaml，无法校验[/red]")
+            self.app.call_from_thread(self._write_summary, "[red]未找到 project.precis.yaml，无法校验[/red]")
             return
         data_dir = self.project_path  # type: ignore[assignment]
         validation_settings = (self.project_config or {}).get("validation", {})
         script_security = (self.project_config or {}).get("script_security", {})
 
-        self._write_summary("[cyan]正在校验数据...[/cyan]")
+        self.app.call_from_thread(self._write_summary, "[cyan]正在校验数据...[/cyan]")
+
+        def on_progress(event: ProgressEvent) -> None:
+            # worker 线程内：经 call_from_thread 回 UI 线程更新进度区
+            self.app.call_from_thread(self._update_progress, event)
+
         try:
             result = self._service.validate(
                 manifest_path=manifest_path,
                 data_dir=data_dir,
                 validation_settings=validation_settings,
                 script_security=script_security,
+                progress_callback=on_progress,
             )
         except Exception as exc:  # noqa: BLE001 - UI 层兜底，不向 stderr 泄漏
-            self._write_summary(f"[red]校验异常：{exc}[/red]")
-            self.app.bell()
+            self.app.call_from_thread(self._write_summary, f"[red]校验异常：{exc}[/red]")
+            self.app.call_from_thread(self._finish_progress, False, True)
             return
-        self._render_result(result)
+        self.app.call_from_thread(self._render_result, result)
+        self.app.call_from_thread(self._finish_progress, result.has_errors, False)
+
+    # ---- 进度区更新（UI 线程，由 worker 的 call_from_thread 调用）----
+
+    def _update_progress(self, event: ProgressEvent) -> None:
+        """根据 ProgressEvent 更新进度区（在 UI 线程执行）。
+
+        显示进度区、更新状态文本、推进 ProgressBar、向 Sparkline 追加数据点。
+        由 worker 通过 ``self.app.call_from_thread(self._update_progress, event)`` 调用。
+
+        Args:
+            event: 校验执行器上抛的进度事件。
+        """
+        # 显示进度区
+        self.query_one("#progress-row").remove_class("hidden")
+        # 状态文本
+        status = self.query_one("#progress-status", Label)
+        if event.stage == "done":
+            status.update(
+                f"[green]完成[/green] · {event.rows_done} 行 · {event.errors_so_far} 错误 · {event.elapsed_ms}ms"
+            )
+        elif event.table:
+            chunk_hint = f" (分块 {event.chunk_index}/{event.chunk_total})" if event.chunk_total else ""
+            total_hint = event.rows_total if event.rows_total > 0 else "?"
+            status.update(
+                f"正在校验 {event.table}{chunk_hint} · {event.rows_done}/{total_hint} 行 · {event.errors_so_far} 错误"
+            )
+        else:
+            status.update(f"{event.stage} · 已处理 {event.rows_done} 行 · {event.errors_so_far} 错误")
+        # ProgressBar：按 rows_done/rows_total 推进百分比
+        if event.rows_total > 0:
+            pb = self.query_one("#validate-progress", ProgressBar)
+            pb.update(progress=int(event.rows_done / event.rows_total * 100))
+        # Sparkline：追加累计错误数点（reactive，需整体重新赋值触发刷新）
+        self._spark_points.append(float(event.errors_so_far))
+        self.query_one("#error-sparkline", Sparkline).data = list(self._spark_points)
+
+    def _finish_progress(self, errors: bool = False, failed: bool = False) -> None:
+        """校验结束的进度区收尾（在 UI 线程执行）。
+
+        ProgressBar 推满或标记失败；校验通过且未失败时触发庆祝特效。
+        进度区保留显示（展示完整 Sparkline 曲线与最终状态），不重新隐藏。
+
+        Args:
+            errors: 校验结果是否含错误。
+            failed: 是否因异常失败（失败时 ProgressBar 置 0 并标注失败）。
+        """
+        pb = self.query_one("#validate-progress", ProgressBar)
+        status = self.query_one("#progress-status", Label)
+        if failed:
+            pb.update(progress=0)
+            status.update("[red]校验失败[/red]")
+        else:
+            pb.update(progress=100)
+            # 通过（无错误）时触发庆祝
+            if not errors:
+                self._trigger_celebration()
 
     # ---- 渲染 ----
 
