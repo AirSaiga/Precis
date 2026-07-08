@@ -114,7 +114,7 @@ class ParticleEffect(Effect, ABC):
 
 @dataclass
 class ColorPalette:
-    """霓虹配色板。"""
+    """配色板。"""
 
     colors: list[str] = field(default_factory=lambda: ["ff79c6", "8be9fd", "bd93f9", "50fa7b", "f1fa8c"])
 
@@ -123,5 +123,25 @@ class ColorPalette:
         return random.choice(self.colors)  # noqa: S311 - 视觉效果不需要加密安全随机
 
 
-# 默认霓虹调色板
-NEON_PALETTE = ColorPalette(["ff79c6", "8be9fd", "bd93f9", "50fa7b", "f1fa8c", "ffb86c"])
+# 每套主题对应的特效调色板（十六进制，无 # 前缀）。
+# 与 styles/themes/*.tcss 的强调色对齐，让 confetti/starfield 颜色随主题变化。
+_THEME_PALETTES: dict[str, list[str]] = {
+    "tokyo-night": ["7aa2f7", "bb9af7", "9ece6a", "e0af68", "f7768e", "7dcfff"],
+    "catppuccin": ["cba6f7", "f5c2e7", "a6e3a1", "f9e2af", "f38ba8", "89dceb"],
+    "nord": ["88c0d0", "b48ead", "a3be8c", "ebcb8b", "bf616a", "81a1c1"],
+    "neon": ["ff79c6", "8be9fd", "bd93f9", "50fa7b", "f1fa8c", "ffb86c"],
+    "default": ["79a6ff", "56db84", "f0a44a", "e05050", "cc7cdf", "49c8ff"],
+}
+
+# 当前生效的调色板（特效发射粒子时读取此对象）。
+# 切换主题时由 app.py 调用 set_theme_palette() 更新。
+NEON_PALETTE = ColorPalette(list(_THEME_PALETTES["tokyo-night"]))
+
+
+def set_theme_palette(theme: str) -> None:
+    """切换特效调色板以匹配当前主题。
+
+    Args:
+        theme: 主题名（未注册时回落到 tokyo-night）。
+    """
+    NEON_PALETTE.colors = list(_THEME_PALETTES.get(theme, _THEME_PALETTES["tokyo-night"]))

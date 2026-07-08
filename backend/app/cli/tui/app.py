@@ -37,8 +37,9 @@ from app.cli.tui.widgets.command_palette import CommandPalette
 from app.cli.tui.widgets.status_bar import StatusBar
 
 # 可用主题列表（对应 styles/themes/ 下的 .tcss 文件）
-_AVAILABLE_THEMES = ["neon", "default"]
-_DEFAULT_THEME = "neon"
+# 顺序即 Ctrl+Shift+T 循环顺序；首个为默认。
+_AVAILABLE_THEMES = ["tokyo-night", "catppuccin", "nord", "neon", "default"]
+_DEFAULT_THEME = "tokyo-night"
 
 
 def _resolve_theme_css(theme: str | None) -> str:
@@ -83,6 +84,10 @@ class PrecisTUIApp(App):
         # 主题必须在 super().__init__ 前确定，因为 Textual 会读取 current_theme
         self._precis_theme = theme or os.getenv("PRECIS_TUI_THEME", _DEFAULT_THEME)
         super().__init__(css_path=_resolve_theme_css(theme))
+        # 同步特效调色板到初始主题
+        from app.cli.tui.fx.particle import set_theme_palette
+
+        set_theme_palette(self._precis_theme)
         # ProjectState 协议字段：当前打开项目的路径与清单配置
         self.project_path: str | None = None
         self.project_config: dict[str, Any] | None = None
@@ -100,6 +105,10 @@ class PrecisTUIApp(App):
         next_idx = (idx + 1) % len(_AVAILABLE_THEMES)
         self._precis_theme = _AVAILABLE_THEMES[next_idx]
         self.css_path = _resolve_theme_css(self._precis_theme)
+        # 同步特效调色板，让 confetti/starfield 颜色与主题一致
+        from app.cli.tui.fx.particle import set_theme_palette
+
+        set_theme_palette(self._precis_theme)
         try:
             self.refresh_css()
             self.notify(f"主题已切换为：{self._precis_theme}", timeout=3)
