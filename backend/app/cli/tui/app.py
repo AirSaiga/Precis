@@ -37,7 +37,7 @@ from app.cli.tui.widgets.command_palette import CommandPalette
 from app.cli.tui.widgets.status_bar import StatusBar
 
 # 可用主题列表（对应 styles/themes/ 下的 .tcss 文件）
-# 顺序即 Ctrl+Shift+T 循环顺序；首个为默认。
+# 顺序即 F2 循环顺序；首个为默认。
 # tokyo-night-mimo：MiMo/OpenCode 风格（灰度分层+直角+极淡边框）
 _AVAILABLE_THEMES = ["tokyo-night-mimo", "tokyo-night", "catppuccin", "nord", "neon", "default"]
 _DEFAULT_THEME = "tokyo-night-mimo"
@@ -75,10 +75,10 @@ class PrecisTUIApp(App):
         Binding("ctrl+p", "command_palette", "命令面板", show=True),
         Binding("ctrl+q", "quit", "退出", show=True),
         Binding("f1", "help", "帮助", show=True),
+        Binding("f2", "cycle_theme", "切换主题", show=True),
         Binding("ctrl+o", "open_project", "打开项目", show=True),
         Binding("ctrl+v", "goto:validation", "校验", show=False),
         Binding("ctrl+t", "goto:provider", "Provider", show=False),
-        Binding("ctrl+shift+t", "cycle_theme", "切换主题", show=True),
     ]
 
     def __init__(self, theme: str | None = None) -> None:
@@ -101,7 +101,7 @@ class PrecisTUIApp(App):
         return self._precis_theme
 
     def action_cycle_theme(self) -> None:
-        """Ctrl+Shift+T：循环切换主题。"""
+        """F2：循环切换主题。"""
         idx = _AVAILABLE_THEMES.index(self._precis_theme) if self._precis_theme in _AVAILABLE_THEMES else 0
         next_idx = (idx + 1) % len(_AVAILABLE_THEMES)
         self._precis_theme = _AVAILABLE_THEMES[next_idx]
@@ -216,7 +216,7 @@ class PrecisTUIApp(App):
         详细快捷键已在底部 Footer 展示；这里补充一条说明性通知，告知命令面板用法。
         """
         self.notify(
-            "Ctrl+P 打开命令面板切换功能屏 · Ctrl+O 打开项目 · Ctrl+Q 退出",
+            "Ctrl+P 命令面板 · F2 切换主题 · Ctrl+O 打开项目 · Ctrl+Q 退出",
             title="Precis TUI 帮助",
             timeout=6,
         )
