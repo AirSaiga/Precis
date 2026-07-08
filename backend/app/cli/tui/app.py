@@ -2,54 +2,215 @@
 
 本模块定义 ``PrecisTUIApp``（基于 Textual 的终端界面主类）及其启动入口 ``main``。
 
-P0a 阶段仅搭骨架：包含 Header/Footer 与全局快捷键（Ctrl+P 命令面板、Ctrl+Q 退出），
-不装载具体功能屏。P6 阶段会遍历 ``tui.protocols.SCREEN_REGISTRY`` 装配各屏、
-实现默认启动屏与全局错误处理。
+P6 阶段完善内容（在 P0a 骨架之上）：
+1. **屏注册触发**：在模块顶部 import 所有 screen 模块，使 ``@register_screen`` 装饰器
+   执行，从而 ``SCREEN_REGISTRY`` 在 App 启动前即已填充全部 7 个屏。
+2. **ProjectState 协议实现**：App 自身持有 ``project_path`` / ``project_config``，
+   供各屏通过 ``self.app`` 读取（防御性 getattr 在各屏内已处理）。
+3. **默认启动屏**：``on_mount`` 推入 Dashboard 作为首页。
+4. **命令面板**（Ctrl+P）：模态屏列出全部注册屏，选中跳转。
+5. **状态栏**：底部 ``StatusBar`` 显示当前项目 + Provider，项目切换时刷新。
+6. **全局错误处理**：重写 ``handle_exception``，捕获未处理异常转为通知，不泄漏 stderr。
 
-CLI 与 TUI 的关系：两者共享同一套核心业务逻辑（app.shared.* 与 P0b 抽出的
-app.cli.shared_services.*），仅交互层不同。本入口不影响现有 precis/precis-start 命令。
+CLI 与 TUI 共享同一套核心业务逻辑（app.shared.* 与 shared_services.*），仅交互层不同。
+本入口不影响现有 precis/precis-start 命令。
 """
 
 from __future__ import annotations
 
+from typing import Any
+
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from textual.widgets import Footer, Header
+
+# 关键：import 所有 screen 模块以触发各自的 @register_screen 装饰器，
+# 使 SCREEN_REGISTRY 在 App 启动前即包含全部 7 个屏。
+# 顺序无要求，但保持稳定以便阅读。
+from app.cli.shared_services import project_ops
+from app.cli.tui.protocols import SCREEN_REGISTRY
+from app.cli.tui.screens import chat, config, generate, provider, validation  # noqa: F401
+from app.cli.tui.screens.dashboard import DashboardScreen
+from app.cli.tui.widgets.command_palette import CommandPalette
+from app.cli.tui.widgets.status_bar import StatusBar
 
 
 class PrecisTUIApp(App):
     """Precis 终端界面主应用。
 
-    绑定全局快捷键：
-    - Ctrl+P：唤出命令面板（P6 实现，P0a 仅占位）
+    实现 ``ProjectState`` 协议（project_path / project_config / is_project_open），
+    持有当前打开项目的全局状态，供各屏读取。
+
+    全局快捷键：
+    - Ctrl+P：命令面板（跳转各功能屏）
     - Ctrl+Q：退出 TUI
+    - F1：帮助（显示当前可用快捷键，Textual 默认 Footer 已展示，这里触发 help 动作）
+    - Ctrl+O：打开项目（弹出命令面板聚焦最近项目，或直接跳 validation 屏用历史列表）
+    - Ctrl+V：跳转校验屏
+    - Ctrl+T：跳转 Provider 屏
     """
 
-    BINDINGS = [
-        ("ctrl+p", "command_palette", "命令面板"),
-        ("ctrl+q", "quit", "退出"),
-    ]
+    CSS_PATH = "styles/app.tcss"
+
     TITLE = "Precis"
+    SUB_TITLE = "终端界面"
+
+    BINDINGS = [
+        Binding("ctrl+p", "command_palette", "命令面板", show=True),
+        Binding("ctrl+q", "quit", "退出", show=True),
+        Binding("f1", "help", "帮助", show=True),
+        Binding("ctrl+o", "open_project", "打开项目", show=True),
+        Binding("ctrl+v", "goto:validation", "校验", show=False),
+        Binding("ctrl+t", "goto:provider", "Provider", show=False),
+    ]
+
+    def __init__(self) -> None:
+        super().__init__()
+        # ProjectState 协议字段：当前打开项目的路径与清单配置
+        self.project_path: str | None = None
+        self.project_config: dict[str, Any] | None = None
+
+    @property
+    def is_project_open(self) -> bool:
+        """是否已打开项目（project_path 非空即视为已打开）。"""
+        return self.project_path is not None
+
+    # ---- 布局 ----
 
     def compose(self) -> ComposeResult:
-        """组装主界面布局。
+        """组装主界面：Header + 内容区（屏容器）+ StatusBar + Footer。
 
-        P0a 仅渲染 Header 与 Footer；P6 会在此装载默认屏（Dashboard）。
+        各功能屏由 ``push_screen`` 推入，不在此 yield（Textual 会把推入的屏
+        渲染到 App 的 ScreenSwitch 容器）。
         """
         yield Header()
+        # 实际屏内容由 push_screen 提供，这里不 yield Screen
+        yield StatusBar(id="status-bar")
         yield Footer()
 
     def on_mount(self) -> None:
-        """应用挂载回调。
+        """挂载回调：推入 Dashboard 作为默认屏，刷新状态栏。"""
+        self.push_screen(DashboardScreen())
+        self._refresh_status_bar()
 
-        P0a 只展示欢迎界面（Header/Footer）；P6 会在此装载默认屏、
-        读取 SCREEN_REGISTRY 并装配各功能屏的快捷键。
+    # ---- 状态栏刷新 ----
+
+    def _refresh_status_bar(self) -> None:
+        """刷新底部状态栏文案（当前项目 + Provider）。
+
+        幂等：可安全地在每次屏切换 / 项目变化后调用。
         """
+        try:
+            self.query_one("#status-bar", StatusBar).refresh_state(self)
+        except Exception:  # noqa: BLE001 - 状态栏刷新失败不应阻断主流程
+            pass
+
+    # ---- 全局动作（BINDINGS 对应）----
 
     def action_command_palette(self) -> None:
-        """命令面板动作（Ctrl+P）。
+        """Ctrl+P：唤出命令面板模态屏。
 
-        P0a 占位实现：暂不弹出面板。P6 会实现真正的命令面板（widgets/command_palette.py）。
+        选中某屏后回调 ``_on_palette_selected`` 执行跳转；取消则不操作。
         """
+
+        def _on_selected(name: str | None) -> None:
+            if name:
+                self._goto_screen(name)
+
+        self.push_screen(CommandPalette(), _on_selected)
+
+    def action_open_project(self) -> None:
+        """Ctrl+O：打开项目。
+
+        当前实现：跳转到 validation 屏（其左侧有历史列表可打开最近项目）。
+        未来可在此前弹一个「输入路径 / 选最近」的模态屏，待 P6 后续迭代。
+        """
+        self._goto_screen("validation")
+
+    def action_help(self) -> None:
+        """F1：显示帮助通知（当前可用快捷键概览）。
+
+        详细快捷键已在底部 Footer 展示；这里补充一条说明性通知，告知命令面板用法。
+        """
+        self.notify(
+            "Ctrl+P 打开命令面板切换功能屏 · Ctrl+O 打开项目 · Ctrl+Q 退出",
+            title="Precis TUI 帮助",
+            timeout=6,
+        )
+
+    def action_goto(self, name: str) -> None:
+        """通用跳转动作（供 ctrl+v / ctrl+t 等绑定调用）。"""
+        self._goto_screen(name)
+
+    # ---- 屏跳转核心 ----
+
+    def _goto_screen(self, name: str) -> None:
+        """跳转到 SCREEN_REGISTRY 中已注册的屏。
+
+        Args:
+            name: 屏注册名（如 "validation"）。未注册时通知错误，不崩溃。
+        """
+        cls = SCREEN_REGISTRY.get(name)
+        if cls is None:
+            self.notify(f"未知的屏：{name}", severity="error", timeout=5)
+            return
+        # 避免重复推入栈顶同名屏（如连续按 Ctrl+V）
+        if self.screen is not None and type(self.screen) is cls:
+            return
+        try:
+            self.push_screen(cls())
+        except Exception as exc:  # noqa: BLE001 - 跳转失败转通知
+            self.notify(f"打开屏「{name}」失败：{exc}", severity="error", timeout=8)
+
+    # ---- Dashboard 消息处理 ----
+
+    def on_dashboard_screen_goto_screen(self, event: DashboardScreen.GotoScreen) -> None:
+        """Dashboard 请求跳转功能屏。"""
+        event.stop()
+        self._goto_screen(event.name)
+
+    def on_dashboard_screen_open_history(self, event: DashboardScreen.OpenHistory) -> None:
+        """Dashboard 请求打开历史项目：执行 project_ops.open_project 并更新状态。"""
+        event.stop()
+        result = project_ops.open_project(event.path)
+        if not result.success:
+            self.notify(result.message, severity="warning", timeout=6)
+            return
+        # 更新全局项目状态
+        self.project_path = result.project_path
+        self.project_config = result.config
+        # 刷新 Dashboard 概览 + 全局状态栏
+        self._refresh_dashboard()
+        self._refresh_status_bar()
+        self.notify(result.message, title="项目已打开", timeout=4)
+
+    def _refresh_dashboard(self) -> None:
+        """刷新当前 Dashboard 屏的概览与历史列表（若栈顶是 Dashboard）。"""
+        if isinstance(self.screen, DashboardScreen):
+            self.screen.refresh_overview()
+
+    # ---- 全局错误处理 ----
+
+    def handle_exception(self, error: Exception) -> None:  # type: ignore[override]
+        """捕获未处理异常，转为通知而非向 stderr 泄漏 traceback。
+
+        Textual 在事件循环内捕获异常时会调用此方法。默认实现会打印 traceback 到
+        stderr 并可能崩溃 UI；重写为「通知 + 记录日志」，保证 TUI 不因单次异常退出。
+
+        Args:
+            error: 未被业务代码捕获的异常。
+        """
+        import logging
+
+        logging.getLogger(__name__).exception("TUI 未处理异常", exc_info=error)
+        try:
+            self.notify(
+                f"发生错误：{type(error).__name__}: {error}",
+                severity="error",
+                timeout=10,
+            )
+        except Exception:  # noqa: BLE001 - 通知也失败时只能放弃
+            pass
 
 
 def main() -> int:

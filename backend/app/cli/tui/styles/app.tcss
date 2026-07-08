@@ -1,9 +1,15 @@
-/* Precis TUI 全局样式表
+/* Precis TUI 全局样式表（P6 打磨版）
  *
- * 本文件定义 PrecisTUIApp 的基础外观。P0a 仅提供最小样式（Header/Footer
- * 着色与默认间距），P6 阶段会补齐各屏、组件的精细样式。
+ * 本文件定义 PrecisTUIApp 的整体外观。P6 阶段在 P0a 最小样式之上补齐：
+ * - 深色主题友好的基础配色（基于 Textual design system 的 design tokens）
+ * - Header / Footer / StatusBar 的布局与边距
+ * - 各功能屏容器与组件的统一边框、间距、强调色
  *
- * Textual 的 TCSS 语法类似 CSS，详细见 Textual 官方文档。
+ * 各 Screen 仍可自带 DEFAULT_CSS / CSS 做屏内精细排版（优先级更高），
+ * 本文件只定义全局基线。
+ *
+ * Textual 的 TCSS 语法类似 CSS；design tokens（$surface/$primary 等）由
+ * Textual theme 提供，自动适配深色/浅色。
  */
 
 Screen {
@@ -11,10 +17,46 @@ Screen {
     color: $text;
 }
 
+/* 顶部标题栏：主色背景，突出应用标题 */
 Header {
     dock: top;
+    background: $primary;
+    color: $text;
 }
 
+/* 底部 Footer：显示快捷键，弱化对比 */
 Footer {
     dock: bottom;
+    background: $boost;
+    color: $text-muted;
+}
+
+/* 底部状态栏（StatusBar 组件）：紧贴 Footer 之上 */
+StatusBar {
+    dock: bottom;
+    background: $panel;
+    color: $text;
+    padding: 0 1;
+}
+
+/* 命令面板：模态屏居中，半透明遮罩由 ModalScreen 自身提供 */
+CommandPalette {
+    align: center middle;
+}
+
+/* 统一按钮间距（各屏若有覆盖以屏内为准） */
+Button {
+    margin: 0 1 0 0;
+}
+
+/* 统一 ListView 选项内边距 */
+ListItem {
+    padding: 0 1;
+}
+
+/* 滚动条：使用 primary 色高亮，深色主题下更易辨识 */
+Scrollbar {
+    scrollbar-color: $primary 40%;
+    scrollbar-color-active: $primary 80%;
+    scrollbar-color-hover: $primary 60%;
 }
