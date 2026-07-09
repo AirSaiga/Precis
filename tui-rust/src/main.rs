@@ -119,7 +119,8 @@ async fn run_app(
         if event::poll(Duration::from_millis(33))? {
             let ev = event::read()?;
             if let Event::Key(key) = ev {
-                if key.kind != KeyEventKind::Press {
+                // Windows 下按住方向键产生 Repeat 事件，Release 要忽略
+                if key.kind == KeyEventKind::Release {
                     continue;
                 }
                 handle_key(app, key.code).await;
