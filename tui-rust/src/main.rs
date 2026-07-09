@@ -15,7 +15,7 @@ use std::io;
 use std::time::Duration;
 
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode, KeyEventKind};
+use crossterm::event::{self, Event, KeyCode};
 use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
@@ -119,10 +119,8 @@ async fn run_app(
         if event::poll(Duration::from_millis(33))? {
             let ev = event::read()?;
             if let Event::Key(key) = ev {
-                // Windows 下按住方向键产生 Repeat 事件，Release 要忽略
-                if key.kind == KeyEventKind::Release {
-                    continue;
-                }
+                // 不过滤 key.kind — 某些 Windows 终端所有按键都报 Release，
+                // 过滤会导致完全无响应。直接处理所有按键事件。
                 handle_key(app, key.code).await;
             }
         }
