@@ -38,19 +38,27 @@ pub fn render(frame: &mut Frame, app: &mut App) {
 
     render_header(frame, app, main[0]);
 
-    // 主体：侧边栏(18) + 内容区
+    // 主体：侧边栏(18) + 分隔(1) + 内容区
     let body = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(18), Constraint::Min(1)])
+        .constraints([Constraint::Length(18), Constraint::Length(1), Constraint::Min(1)])
         .split(main[1]);
+
+    sidebar::render(frame, app, body[0]);
+
+    // 极淡分隔带（1 列 SURFACE 色，代替边框线）
+    frame.render_widget(
+        Block::default().style(Style::default().bg(colors::SURFACE)),
+        body[1],
+    );
 
     sidebar::render(frame, app, body[0]);
 
     // 内容区按 tab 渲染
     match app.current_tab {
-        crate::app::Tab::Dashboard => dashboard::render(frame, app, body[1]),
-        crate::app::Tab::Validation => validation::render(frame, app, body[1]),
-        _ => render_placeholder(frame, app, body[1]),
+        crate::app::Tab::Dashboard => dashboard::render(frame, app, body[2]),
+        crate::app::Tab::Validation => validation::render(frame, app, body[2]),
+        _ => render_placeholder(frame, app, body[2]),
     }
 
     render_footer(frame, app, main[2]);
@@ -63,12 +71,17 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     }
 }
 
-/// 标题栏：极简，只有项目名 + 当前页（无边框，SURFACE 底色）
+/// 标题栏：项目名带间歇流光呼吸 + 当前页（无边框，SURFACE 底色）
 fn render_header(frame: &mut Frame, app: &App, area: Rect) {
     let project = app.project_name.as_deref().unwrap_or("Precis");
+
+    // 流光：用 sin 在 FG 和 PRIMARY 之间柔和呼吸（周期约 4 秒）
+    let phase = (app.frame_count as f64 * 0.04).sin() * 0.5 + 0.5; // 0..1
+    let glow_color = blend(colors::FG, colors::PRIMARY, phase * 0.6); // 不全亮，60% 强度
+
     let header = Paragraph::new(Line::from(vec![
         Span::raw(" "),
-        Span::styled(project, Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)),
+        Span::styled(project, Style::default().fg(glow_color).add_modifier(Modifier::BOLD)),
         Span::styled(
             format!("  /  {}", app.current_tab.label()),
             Style::default().fg(colors::MUTED),
@@ -76,6 +89,20 @@ fn render_header(frame: &mut Frame, app: &App, area: Rect) {
     ]))
     .style(Style::default().bg(colors::SURFACE));
     frame.render_widget(header, area);
+}
+
+/// 颜色混合
+fn blend(a: ratatui::style::Color, b: ratatui::style::Color, t: f64) -> ratatui::style::Color {
+    use ratatui::style::Color;
+    let t = t.clamp(0.0, 1.0);
+    match (a, b) {
+        (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) => Color::Rgb(
+            (r1 as f64 + (r2 as f64 - r1 as f64) * t) as u8,
+            (g1 as f64 + (g2 as f64 - g1 as f64) * t) as u8,
+            (b1 as f64 + (b2 as f64 - b1 as f64) * t) as u8,
+        ),
+        (_, c) => c,
+    }
 }
 
 /// 状态栏：极简（SURFACE 底色）
