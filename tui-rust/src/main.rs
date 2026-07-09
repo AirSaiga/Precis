@@ -106,7 +106,7 @@ async fn try_init(app: &mut App) -> Result<()> {
     Ok(())
 }
 
-/// 主事件循环
+/// 主事件循环（33fps ≈ 30ms/帧，平衡流畅度与 CPU）
 async fn run_app(
     terminal: &mut Terminal<CrosstermBackend<io::Stdout>>,
     app: &mut App,
@@ -114,7 +114,8 @@ async fn run_app(
     loop {
         terminal.draw(|f| ui::render(f, app))?;
 
-        if event::poll(Duration::from_millis(100))? {
+        // 33fps：30ms 超时轮询事件，无事件时也重绘（动效需要）
+        if event::poll(Duration::from_millis(33))? {
             let ev = event::read()?;
             if let Event::Key(key) = ev {
                 if key.kind != KeyEventKind::Press {
@@ -133,10 +134,43 @@ async fn run_app(
 
 /// 处理按键事件
 async fn handle_key(app: &mut App, key: KeyCode) {
+    // 全局快捷键
     match key {
-        KeyCode::Char('q') => app.quit(),
-        KeyCode::Tab => app.next_tab(),
+        KeyCode::Char('q') => {
+            app.quit();
+            return;
+        }
+        KeyCode::Tab => {
+            let next_idx = (app.current_tab.index() + 1) % 5;
+            if let Some(t) = crate::app::Tab::from_index(next_idx) {
+                app.switch_tab(t);
+            }
+            return;
+        }
+        KeyCode::BackTab => {
+            let prev_idx = if app.current_tab.index() == 0 { 4 } else { app.current_tab.index() - 1 };
+            if let Some(t) = crate::app::Tab::from_index(prev_idx) {
+                app.switch_tab(t);
+            }
+            return;
+        }
+        KeyCode::F(2) => {
+            app.fx_enabled = !app.fx_enabled;
+            app.message = if app.fx_enabled { "动效已开启" } else { "动效已关闭" }.to_string();
+            return;
+        }
+        // 数字键 1-5 快速切换页面
+        KeyCode::Char(c) if ('1'..='5').contains(&c) => {
+            if let Some(t) = crate::app::Tab::from_index((c as usize) - ('1' as usize)) {
+                app.switch_tab(t);
+            }
+            return;
+        }
+        _ => {}
+    }
 
+    // 页面级快捷键
+    match key {
         // Dashboard 页：项目列表导航
         KeyCode::Down | KeyCode::Char('j') if app.current_tab == Tab::Dashboard => {
             if !app.projects.is_empty() {
