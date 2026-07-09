@@ -1,6 +1,9 @@
 //! UI 渲染入口 — Linear 风格：无边框、大留白、背景分层
 
+pub mod chat;
+pub mod config;
 pub mod dashboard;
+pub mod provider;
 pub mod sidebar;
 pub mod splash;
 pub mod validation;
@@ -58,7 +61,9 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     match app.current_tab {
         crate::app::Tab::Dashboard => dashboard::render(frame, app, body[2]),
         crate::app::Tab::Validation => validation::render(frame, app, body[2]),
-        _ => render_placeholder(frame, app, body[2]),
+        crate::app::Tab::Provider => provider::render(frame, app, body[2]),
+        crate::app::Tab::Config => config::render(frame, app, body[2]),
+        crate::app::Tab::Chat => chat::render(frame, app, body[2]),
     }
 
     render_footer(frame, app, main[2]);

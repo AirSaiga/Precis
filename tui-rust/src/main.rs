@@ -13,7 +13,7 @@ use std::io;
 use std::time::Duration;
 
 use anyhow::Result;
-use crossterm::event::{self, Event, KeyCode};
+use crossterm::event::{self, Event, KeyCode, KeyEventKind};
 use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
@@ -23,8 +23,8 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use tokio::sync::mpsc;
 
-use crate::app::{App, Tab, ValidationState};
-use crate::api::types::{FullValidationResponse, OpenProjectResponse};
+use crate::app::{App, ChatMsg, Tab, TestResult, ValidationState};
+use crate::api::types::{AiChatResponse, ChatMessage, FullValidationResponse, FullConfigResponse, OpenProjectResponse, ProviderInfo};
 
 fn backend_url() -> String {
     std::env::var("PRECIS_BACKEND_URL").unwrap_or_else(|_| "http://127.0.0.1:18000".to_string())
@@ -41,6 +41,10 @@ fn scan_work_dir() -> String {
 enum BgMessage {
     ProjectOpened { name: String, path: String, success: bool },
     ValidationDone(Result<FullValidationResponse, String>),
+    ProvidersLoaded(Vec<ProviderInfo>),
+    ProviderTested { id: String, result: Result<String, String> },
+    ConfigLoaded(Result<FullConfigResponse, String>),
+    ChatReply(Result<AiChatResponse, String>),
 }
 
 #[tokio::main]
@@ -120,7 +124,10 @@ async fn run_app(
         if event::poll(Duration::from_millis(33))? {
             let ev = event::read()?;
             if let Event::Key(key) = ev {
-                handle_key(app, key.code, tx).await;
+                // 忽略重复/释放事件，防止一次按键触发多次（如 Tab 切换两页）
+                if key.kind == KeyEventKind::Press {
+                    handle_key(app, key.code, tx).await;
+                }
             }
             while event::poll(Duration::from_millis(0)).unwrap_or(false) {
                 let _ = event::read();
@@ -159,6 +166,55 @@ fn handle_bg_message(app: &mut App, msg: BgMessage) {
                 Err(e) => {
                     app.message = "校验失败".to_string();
                     app.validation = ValidationState::Failed(e);
+                }
+            }
+        }
+        BgMessage::ProvidersLoaded(providers) => {
+            // 获取活跃 provider id
+            app.providers = providers;
+            app.message = format!("{} 个 Provider", app.providers.len());
+        }
+        BgMessage::ProviderTested { id, result } => {
+            match result {
+                Ok(latency) => {
+                    app.provider_test_result = Some(TestResult::Ok(latency));
+                    app.message = "连接测试成功".to_string();
+                }
+                Err(e) => {
+                    app.provider_test_result = Some(TestResult::Fail(e));
+                    app.message = "连接测试失败".to_string();
+                }
+            }
+        }
+        BgMessage::ConfigLoaded(result) => {
+            match result {
+                Ok(config) => {
+                    app.config_data = Some(config);
+                    app.message = "配置已加载".to_string();
+                }
+                Err(e) => {
+                    app.message = format!("配置加载失败");
+                }
+            }
+        }
+        BgMessage::ChatReply(result) => {
+            app.chat_loading = false;
+            match result {
+                Ok(resp) => {
+                    if !resp.reply.is_empty() {
+                        app.chat_messages.push(ChatMsg {
+                            role: "assistant".to_string(),
+                            content: resp.reply,
+                        });
+                    }
+                    app.message = "AI 回复完成".to_string();
+                }
+                Err(e) => {
+                    app.chat_messages.push(ChatMsg {
+                        role: "assistant".to_string(),
+                        content: format!("错误: {}", e),
+                    });
+                    app.message = "AI 请求失败".to_string();
                 }
             }
         }
@@ -215,7 +271,7 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
                 let tx = tx.clone();
                 let url = backend_url();
                 tokio::spawn(async move {
-                    let client = crate::api::ApiClient::new(&url);
+                    let mut client = crate::api::ApiClient::new(&url);
                     let msg = match client.open_project_static(&p.path).await {
                         Ok(resp) => BgMessage::ProjectOpened {
                             name: p.name,
@@ -267,6 +323,121 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
         }
         KeyCode::Up | KeyCode::Char('k') if app.current_tab == Tab::Validation => {
             if app.error_cursor > 0 { app.error_cursor -= 1; }
+        }
+
+        // ---- Provider 页 ----
+        // 进入 Provider 页时自动加载列表
+        KeyCode::Down | KeyCode::Char('j') if app.current_tab == Tab::Provider => {
+            if !app.providers.is_empty() {
+                app.provider_cursor = (app.provider_cursor + 1) % app.providers.len();
+            }
+        }
+        KeyCode::Up | KeyCode::Char('k') if app.current_tab == Tab::Provider => {
+            if !app.providers.is_empty() {
+                app.provider_cursor = if app.provider_cursor == 0 {
+                    app.providers.len() - 1
+                } else { app.provider_cursor - 1 };
+            }
+        }
+        KeyCode::Char('t') if app.current_tab == Tab::Provider => {
+            if let Some(p) = app.providers.get(app.provider_cursor).cloned() {
+                app.message = format!("测试 {}...", p.name);
+                app.provider_test_result = None;
+                let tx = tx.clone();
+                let url = backend_url();
+                tokio::spawn(async move {
+                    let mut client = crate::api::ApiClient::new(&url);
+                    let result = client.test_provider(&p.id).await;
+                    let msg = match result {
+                        Ok(resp) => {
+                            let health = resp.health.unwrap_or_default();
+                            if health.contains("ok") {
+                                BgMessage::ProviderTested { id: p.id, result: Ok("ok".to_string()) }
+                            } else {
+                                BgMessage::ProviderTested { id: p.id, result: Err(health) }
+                            }
+                        }
+                        Err(e) => BgMessage::ProviderTested { id: p.id, result: Err(e.to_string()) },
+                    };
+                    let _ = tx.send(msg).await;
+                });
+            }
+        }
+        KeyCode::Char('a') if app.current_tab == Tab::Provider => {
+            if let Some(p) = app.providers.get(app.provider_cursor).cloned() {
+                app.active_provider_id = Some(p.id.clone());
+                app.message = format!("已激活 {}", p.name);
+                let tx = tx.clone();
+                let url = backend_url();
+                tokio::spawn(async move {
+                    let mut client = crate::api::ApiClient::new(&url);
+                    let _ = client.activate_provider(&p.id).await;
+                    let _ = tx.send(BgMessage::ProvidersLoaded(Vec::new())).await; // 触发刷新
+                });
+            }
+        }
+        KeyCode::Char('r') if app.current_tab == Tab::Provider => {
+            app.message = "加载 Provider...".to_string();
+            let tx = tx.clone();
+            let url = backend_url();
+            tokio::spawn(async move {
+                let client = crate::api::ApiClient::new(&url);
+                let providers = client.list_providers().await.unwrap_or_default();
+                let active = client.get_active_provider().await.unwrap_or(None);
+                let msg = BgMessage::ProvidersLoaded(providers);
+                let _ = tx.send(msg).await;
+                if let Some(a) = active {
+                    let _ = tx.send(BgMessage::ProviderTested { id: a.id.clone(), result: Ok(a.id.clone()) }).await;
+                }
+            });
+        }
+
+        // ---- Config 页 ----
+        KeyCode::Char('r') if app.current_tab == Tab::Config => {
+            if app.api.project_path().is_some() {
+                app.message = "加载配置...".to_string();
+                let tx = tx.clone();
+                let url = backend_url();
+                let path = app.api.project_path().unwrap().to_string();
+                tokio::spawn(async move {
+                    let mut client = crate::api::ApiClient::new(&url);
+                    client.set_project(&path);
+                    let result = client.get_full_config().await;
+                    let _ = tx.send(BgMessage::ConfigLoaded(result.map_err(|e| e.to_string()))).await;
+                });
+            } else {
+                app.message = "请先打开项目".to_string();
+            }
+        }
+
+        // ---- Chat 页 ----
+        KeyCode::Enter if app.current_tab == Tab::Chat && !app.chat_loading => {
+            let msg = app.chat_input.trim().to_string();
+            if !msg.is_empty() && app.api.project_path().is_some() {
+                app.chat_messages.push(ChatMsg { role: "user".to_string(), content: msg.clone() });
+                app.chat_input.clear();
+                app.chat_loading = true;
+                app.message = "AI 思考中...".to_string();
+                let tx = tx.clone();
+                let url = backend_url();
+                let path = app.api.project_path().unwrap().to_string();
+                let history: Vec<ChatMessage> = app.chat_messages.iter().map(|m| ChatMessage {
+                    role: m.role.clone(),
+                    content: m.content.clone(),
+                }).collect();
+                tokio::spawn(async move {
+                    let mut client = crate::api::ApiClient::new(&url);
+                    client.set_project(&path);
+                    let result = client.send_chat(&msg, &history).await;
+                    let _ = tx.send(BgMessage::ChatReply(result.map_err(|e| e.to_string()))).await;
+                });
+            }
+        }
+        KeyCode::Char(c) if app.current_tab == Tab::Chat && !app.chat_loading => {
+            app.chat_input.push(c);
+        }
+        KeyCode::Backspace if app.current_tab == Tab::Chat && !app.chat_loading => {
+            app.chat_input.pop();
         }
 
         _ => {}

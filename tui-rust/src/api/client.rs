@@ -132,6 +132,70 @@ impl ApiClient {
         }
         serde_json::from_str(&text).context(format!("解析校验响应失败: {}", &text[..text.len().min(200)]))
     }
+
+    // ---- Provider 管理（无项目 header） ----
+
+    /// 获取所有 Provider
+    pub async fn list_providers(&self) -> Result<Vec<super::types::ProviderInfo>> {
+        let resp = self.http.get(&format!("{}/api/latest/ai/providers", self.base_url)).send().await?;
+        let providers: Vec<super::types::ProviderInfo> = resp.json().await?;
+        Ok(providers)
+    }
+
+    /// 获取当前活跃 Provider
+    pub async fn get_active_provider(&self) -> Result<Option<super::types::ProviderInfo>> {
+        let resp = self.http.get(&format!("{}/api/latest/ai/providers/active", self.base_url)).send().await?;
+        if !resp.status().is_success() { return Ok(None); }
+        let body: super::types::ActiveProviderResponse = resp.json().await?;
+        Ok(body.provider)
+    }
+
+    /// 设为活跃
+    pub async fn activate_provider(&self, id: &str) -> Result<()> {
+        let resp = self.http.post(&format!("{}/api/latest/ai/providers/{}/activate", self.base_url, id)).send().await?;
+        if !resp.status().is_success() {
+            anyhow::bail!("激活失败: {}", resp.status());
+        }
+        Ok(())
+    }
+
+    /// 测试连接
+    pub async fn test_provider(&self, id: &str) -> Result<super::types::TestProviderResponse> {
+        let resp = self.http.post(&format!("{}/api/latest/ai/providers/{}/test", self.base_url, id)).send().await?;
+        let text = resp.text().await?;
+        serde_json::from_str(&text).context("解析测试连接响应失败")
+    }
+
+    // ---- 配置管理（需要项目 header） ----
+
+    /// 获取全量配置
+    pub async fn get_full_config(&self) -> Result<super::types::FullConfigResponse> {
+        let mut req = self.http.get(&format!("{}/api/latest/project/config/full", self.base_url));
+        if let Some(ref p) = self.project_path {
+            req = req.header("X-Project-Config-Path", p);
+        }
+        let resp = req.send().await?;
+        let text = resp.text().await?;
+        serde_json::from_str(&text).context("解析配置响应失败")
+    }
+
+    // ---- AI 对话 ----
+
+    /// 发送消息
+    pub async fn send_chat(&self, message: &str, history: &[super::types::ChatMessage]) -> Result<super::types::AiChatResponse> {
+        let mut req = self.http.post(&format!("{}/api/latest/ai/chat", self.base_url));
+        if let Some(ref p) = self.project_path {
+            req = req.header("X-Project-Config-Path", p);
+        }
+        let body = super::types::AiChatRequest {
+            message: message.to_string(),
+            context: None,
+            history: if history.is_empty() { None } else { Some(history.to_vec()) },
+        };
+        let resp = req.json(&body).send().await?;
+        let text = resp.text().await?;
+        serde_json::from_str(&text).context(format!("解析 Chat 响应失败: {}", &text[..text.len().min(200)]))
+    }
 }
 
 /// 简单的 URL 编码（避免引入额外 crate）

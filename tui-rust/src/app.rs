@@ -52,6 +52,20 @@ impl Tab {
 
 pub enum ValidationState { Idle, Validating, Done(Box<FullValidationResponse>), Failed(String) }
 
+/// Provider 连接测试结果
+#[derive(Debug, Clone)]
+pub enum TestResult {
+    Ok(String),
+    Fail(String),
+}
+
+/// Chat 消息
+#[derive(Debug, Clone)]
+pub struct ChatMsg {
+    pub role: String,
+    pub content: String,
+}
+
 /// 应用是否在 splash 阶段
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Phase { Splash, Running }
@@ -71,8 +85,18 @@ pub struct App {
     pub error_cursor: usize,
     pub opening_project: bool,
     pub phase: Phase,
-    /// splash 动画帧（0..总帧数）
     pub splash_frame: usize,
+    // Provider 页状态
+    pub providers: Vec<crate::api::types::ProviderInfo>,
+    pub active_provider_id: Option<String>,
+    pub provider_cursor: usize,
+    pub provider_test_result: Option<TestResult>,
+    // Config 页状态
+    pub config_data: Option<crate::api::types::FullConfigResponse>,
+    // Chat 页状态
+    pub chat_messages: Vec<ChatMsg>,
+    pub chat_input: String,
+    pub chat_loading: bool,
 }
 
 impl App {
@@ -93,6 +117,14 @@ impl App {
             opening_project: false,
             phase: Phase::Splash,
             splash_frame: 0,
+            providers: Vec::new(),
+            active_provider_id: None,
+            provider_cursor: 0,
+            provider_test_result: None,
+            config_data: None,
+            chat_messages: Vec::new(),
+            chat_input: String::new(),
+            chat_loading: false,
         }
     }
     pub fn quit(&mut self) { self.should_quit = true; }
