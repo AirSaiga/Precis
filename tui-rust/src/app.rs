@@ -109,6 +109,8 @@ pub struct App {
     pub frame_count: u64,
     /// 动效开关
     pub fx_enabled: bool,
+    /// 动效系统（星光+流星）
+    pub fx: crate::fx::Fx,
 }
 
 impl App {
@@ -124,6 +126,7 @@ impl App {
             should_quit: false,
             frame_count: 0,
             fx_enabled: true,
+            fx: crate::fx::Fx::new(),
         }
     }
 

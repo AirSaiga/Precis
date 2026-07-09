@@ -8,6 +8,7 @@
 
 mod api;
 mod app;
+mod fx;
 mod ui;
 
 use std::io;

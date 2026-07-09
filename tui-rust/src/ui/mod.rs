@@ -50,6 +50,14 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     }
 
     render_status_bar(frame, app, main[2]);
+
+    // 动效层：星光+流星（渲染到 buffer 背景，只覆盖空白 cell）
+    if app.fx_enabled {
+        app.fx.update(area);
+        // 用 frame.buffer_mut() 直接写 cell（ratatui immediate-mode 的威力）
+        let buf = frame.buffer_mut();
+        app.fx.render(buf, area);
+    }
 }
 
 /// 顶部标题栏
