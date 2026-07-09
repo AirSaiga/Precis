@@ -33,7 +33,7 @@ from textual.widgets._toast import ToastRack
 from app.cli.shared_services import project_ops
 from app.cli.tui.fx import CanvasWidget, EffectEngine
 from app.cli.tui.fx.transition import ScreenTransition
-from app.cli.tui.protocols import SCREEN_REGISTRY
+from app.cli.tui.protocols import SCREEN_ORDER, SCREEN_REGISTRY
 from app.cli.tui.screens import chat, config, generate, provider, validation  # noqa: F401
 from app.cli.tui.screens.dashboard import DashboardScreen
 from app.cli.tui.screens.splash import SplashScreen
@@ -90,16 +90,8 @@ class PrecisTUIApp(App):
     def __init__(self, theme: str | None = None) -> None:
         self._precis_theme: str = theme or str(os.getenv("PRECIS_TUI_THEME", DEFAULT_THEME))
         self._precis_background: str = "starfield"
-        # 屏幕顺序用于决定屏切换过渡的滑动方向
-        self._screen_order: list[str] = [
-            "dashboard",
-            "validation",
-            "provider",
-            "config",
-            "chat",
-            "generate",
-            "migrate",
-        ]
+        # 屏幕顺序用于决定屏切换过渡的滑动方向（单一事实源：protocols.SCREEN_ORDER）
+        self._screen_order: list[str] = list(SCREEN_ORDER)
         super().__init__()
         # ProjectState 协议字段：当前打开项目的路径与清单配置
         self.project_path: str | None = None

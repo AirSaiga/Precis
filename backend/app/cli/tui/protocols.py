@@ -40,6 +40,18 @@ class ProjectState(Protocol):
 # 屏幕注册表：name -> Screen 类。P1-P5 各自注册自己的屏，P6 的 app.py 遍历装配。
 SCREEN_REGISTRY: dict[str, type] = {}
 
+# 屏的功能顺序（用于侧边栏排列、过渡方向判断）。
+# 未列在此处的屏按字母序追加在末尾。
+SCREEN_ORDER: list[str] = [
+    "dashboard",
+    "validation",
+    "provider",
+    "config",
+    "chat",
+    "generate",
+    "migrate",
+]
+
 
 def register_screen(name: str) -> Callable[[type], type]:
     """装饰器：将 Screen 类注册到 SCREEN_REGISTRY。

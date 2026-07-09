@@ -14,7 +14,7 @@ from textual.timer import Timer
 from textual.widget import Widget
 from textual.widgets import Static
 
-from app.cli.tui.protocols import SCREEN_REGISTRY
+from app.cli.tui.protocols import SCREEN_ORDER, SCREEN_REGISTRY
 
 # 屏的显示文案与折叠图标（未列出的屏使用 name.title() / 首字母大写）
 _SCREEN_LABELS: dict[str, str] = {
@@ -211,7 +211,10 @@ class Sidebar(Widget):
 
     def compose(self) -> ComposeResult:  # noqa: D102
         yield Static(self._logo_text(), id="sidebar-logo")
-        for name in SCREEN_REGISTRY:
+        # 按 SCREEN_ORDER 功能顺序排列，未列出的屏追加在末尾（字母序）
+        ordered = [n for n in SCREEN_ORDER if n in SCREEN_REGISTRY]
+        extras = sorted(n for n in SCREEN_REGISTRY if n not in SCREEN_ORDER)
+        for name in ordered + extras:
             yield SidebarItem(
                 screen_name=name,
                 label=_SCREEN_LABELS.get(name, name.title()),
