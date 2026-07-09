@@ -28,7 +28,6 @@ from typing import TYPE_CHECKING, Any
 import yaml
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical
-from textual.screen import Screen
 from textual.widgets import (
     Button,
     DataTable,
@@ -43,7 +42,9 @@ from textual.widgets import (
 )
 from textual.widgets.tree import TreeNode
 
+from app.cli.tui.fx.animation import animate_opacity
 from app.cli.tui.protocols import register_screen
+from app.cli.tui.screens.base import BaseScreen
 from app.cli.tui.services.config_service import ConfigService, InspectionResult
 
 if TYPE_CHECKING:
@@ -66,45 +67,16 @@ _TEMPLATE_OPTIONS = [
 
 
 @register_screen("config")
-class ConfigScreen(Screen):
+class ConfigScreen(BaseScreen):
     """Config 管理屏。
 
     通过 TabbedContent 承载 8 个 config 子命令的 TUI 版。每个 Tab 绑定一个
     操作按钮，点击后调用 ConfigService 完成业务并把结果渲染到对应输出区。
     """
 
-    BINDINGS = [("escape", "app.pop_screen", "返回")]
+    screen_name = "config"
 
-    DEFAULT_CSS = """
-    ConfigScreen {
-        padding: 0 1;
-    }
-    ConfigScreen TabbedContent {
-        height: 1fr;
-        border: round $background;
-    }
-    ConfigScreen TabPane {
-        padding: 1;
-    }
-    ConfigScreen Horizontal {
-        height: auto;
-        margin-bottom: 1;
-    }
-    ConfigScreen Input {
-        margin-right: 1;
-    }
-    ConfigScreen RichLog,
-    ConfigScreen DataTable,
-    ConfigScreen Tree,
-    ConfigScreen TextArea {
-        height: 1fr;
-        border: round $background;
-        background: $surface;
-    }
-    ConfigScreen #edit-area {
-        height: 2fr;
-    }
-    """
+    BINDINGS = [("escape", "app.pop_screen", "返回")]
 
     def __init__(self, service: ConfigService | None = None) -> None:
         """初始化 Config 屏。
@@ -147,11 +119,8 @@ class ConfigScreen(Screen):
     # 布局
     # ------------------------------------------------------------------
 
-    def compose(self) -> ComposeResult:
-        """组装 8 个 Tab 的布局。
-
-        每个 TabPane 内嵌一个 Vertical 容器（含标签/输入/输出控件）。
-        """
+    def compose_content(self) -> ComposeResult:
+        """组装 8 个 Tab 的布局。"""
         with TabbedContent(id="config-tabs"):
             with TabPane("list", id="tab-list"):
                 yield Vertical(
@@ -232,6 +201,26 @@ class ConfigScreen(Screen):
                     ),
                     TextArea(id="edit-area", language="yaml", theme="monokai", soft_wrap=False),
                 )
+
+    # ------------------------------------------------------------------
+    # 事件处理
+    # ------------------------------------------------------------------
+
+    def on_mount(self) -> None:
+        """挂载后默认激活第一个 Tab 并播放入场动效。
+
+        入场动效由 ``super().on_mount()`` 经 ``BaseScreen`` 统一触发
+        （多态调用本类重写的 ``_run_entrance_animation``），避免重复播放。
+        """
+        super().on_mount()
+        tabs = self.query_one("#config-tabs", TabbedContent)
+        tabs.active = "tab-list"
+
+    def _run_entrance_animation(self) -> None:
+        """TabbedContent 淡入。tween 存入 ``self._entrance_tweens`` 以便卸载时清理。"""
+        tabs = self.query_one("#config-tabs", TabbedContent)
+        tabs.styles.opacity = 0.0
+        self._entrance_tweens.append(animate_opacity(tabs, 0.0, 1.0, duration=0.25))
 
     # ------------------------------------------------------------------
     # 事件处理

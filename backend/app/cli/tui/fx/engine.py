@@ -8,11 +8,12 @@ from typing import TYPE_CHECKING, Any
 
 from textual.widgets import Static
 
+from app.cli.tui.fx.aurora import AuroraEffect
 from app.cli.tui.fx.canvas import CanvasWidget
 from app.cli.tui.fx.confetti import ConfettiEffect
 from app.cli.tui.fx.glow import GlowEffect
 from app.cli.tui.fx.meteor import MeteorEffect
-from app.cli.tui.fx.particle import Effect
+from app.cli.tui.fx.particle import BackgroundEffect, Effect
 from app.cli.tui.fx.starfield import StarfieldEffect
 
 if TYPE_CHECKING:
@@ -26,7 +27,7 @@ class EffectEngine:
     提供便捷方法触发常用特效（星空、庆祝、光晕）。
     """
 
-    def __init__(self, app: App, canvas: CanvasWidget, fps: float = 20.0) -> None:
+    def __init__(self, app: App, canvas: CanvasWidget, fps: float = 15.0) -> None:
         """
         Args:
             app: Textual App 实例，用于设置定时器。
@@ -113,11 +114,13 @@ class EffectEngine:
         """触发一个命名特效。
 
         Args:
-            name: 特效名，支持 "starfield", "confetti", "meteor", "glow"。
+            name: 特效名，支持 "starfield", "aurora", "confetti", "meteor", "glow"。
             **kwargs: 特效构造参数。
         """
         if name == "starfield":
             self.add(StarfieldEffect(**kwargs))
+        elif name == "aurora":
+            self.add(AuroraEffect(**kwargs))
         elif name == "confetti":
             self.add(ConfettiEffect(**kwargs))
         elif name == "meteor":
@@ -133,9 +136,9 @@ class EffectEngine:
     def set_background(self, effect: Effect | None = None) -> None:
         """设置一个常驻背景特效。
 
-        会清除已有的背景类特效（Starfield），保留一次性特效（Confetti）。
+        会清除已有的背景类特效（BackgroundEffect），保留一次性特效（如 Confetti）。
         """
-        self.effects = [e for e in self.effects if not isinstance(e, StarfieldEffect)]
+        self.effects = [e for e in self.effects if not isinstance(e, BackgroundEffect)]
         if effect is not None:
             self.effects.insert(0, effect)
 

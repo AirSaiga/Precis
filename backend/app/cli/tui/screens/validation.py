@@ -27,7 +27,6 @@ from textual import work
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical
-from textual.screen import Screen
 from textual.widgets import (
     Button,
     DataTable,
@@ -39,7 +38,9 @@ from textual.widgets import (
 )
 
 from app.cli.shared_services import project_ops
+from app.cli.tui.fx.animation import animate_opacity, animate_tint, pulse_border_color
 from app.cli.tui.protocols import register_screen
+from app.cli.tui.screens.base import BaseScreen
 from app.cli.tui.services.validation_service import ValidationResult, ValidationService
 from app.shared.services.validation.progress import ProgressEvent
 
@@ -53,11 +54,11 @@ _ICON_ROOT = "\uf07c"  #  展开的根目录
 
 # 校验前 Tree 占位文案 / 详情面板空态文案
 _SOURCE_EMPTY_HINT = "[dim]校验后显示数据源[/dim]\n[dim]Ctrl+O 打开项目后按 Ctrl+R 校验[/dim]"
-_DETAIL_EMPTY_HINT = "[dim]选中错误行查看详情[/dim]"
+_DETAIL_EMPTY_HINT = "[dim]（暂无选中错误 · 从中间表格选择一行查看详情）[/dim]"
 
 
 @register_screen("validation")
-class ValidationScreen(Screen):
+class ValidationScreen(BaseScreen):
     """校验屏：执行校验并展示数据源树 / 错误表 / 详情预览（三栏 IDE 感）。
 
     布局：顶部状态条 + 主区（数据源树 | 结果面板 | 详情面板）。
@@ -65,103 +66,11 @@ class ValidationScreen(Screen):
     中栏 DataTable 列出错误，右栏按选中错误展示完整字段。
     """
 
+    screen_name = "validation"
+
     BINDINGS = [
         Binding("ctrl+r", "validate", "执行校验", show=True),
     ]
-
-    DEFAULT_CSS = """
-    ValidationScreen {
-        layout: vertical;
-        padding: 0 1;
-    }
-    #status-label {
-        height: auto;
-        min-height: 1;
-        margin-bottom: 1;
-        padding: 0 1;
-        color: $text-muted;
-        text-style: bold;
-    }
-    #main-row {
-        height: 1fr;
-    }
-    /* 三栏宽度比 1 / 2 / 2（左窄、中右等宽），120 列下观感最佳 */
-    #source-panel {
-        width: 1fr;
-        height: 100%;
-        padding: 0 1 0 0;
-    }
-    #result-panel {
-        width: 2fr;
-        height: 100%;
-        padding: 0 1 0 0;
-    }
-    #detail-panel {
-        width: 2fr;
-        height: 100%;
-    }
-    /* 面板标题栏（颜色/背景由主题 .panel-header 定义，这里只管布局） */
-    .panel-header {
-        margin-bottom: 0;
-    }
-    /* 数据源树：占满左栏剩余高度 */
-    #source-tree {
-        height: 1fr;
-        border: round $primary;
-        background: $surface;
-        padding: 0 1;
-    }
-    #source-tree:focus {
-        border: thick $accent;
-    }
-    /* 详情 RichLog：占满右栏 */
-    #detail-log {
-        height: 1fr;
-        border: round $accent;
-        background: $surface;
-        padding: 0 1;
-    }
-    #progress-row {
-        height: auto;
-        margin-bottom: 1;
-        padding: 0 1;
-        background: $surface;
-        border: round $accent 50%;
-    }
-    #progress-row.hidden {
-        display: none;
-    }
-    #validate-progress {
-        width: 1fr;
-        height: 1;
-    }
-    #error-sparkline {
-        width: 1fr;
-        height: 1;
-        min-width: 10;
-    }
-    #progress-status {
-        height: 1;
-        color: $text-muted;
-        margin-top: 0;
-    }
-    /* 摘要 + 错误表上下分占结果面板（保留 V2-3 比例） */
-    #summary-log {
-        height: 40%;
-        border: round $accent;
-        background: $surface;
-        padding: 0 1;
-        margin-bottom: 1;
-    }
-    #error-table {
-        height: 60%;
-        border: round $warning;
-        background: $surface;
-    }
-    Button {
-        margin: 0 1 1 0;
-    }
-    """
 
     def __init__(self) -> None:
         super().__init__()
@@ -180,6 +89,8 @@ class ValidationScreen(Screen):
         self._current_errors: list[dict[str, Any]] = []
         # DataTable 表名过滤：None 表示全部；选中左栏某表后置为其表名。
         self._table_filter: str | None = None
+        # 结果面板加载态呼吸动画对象，需在结果呈现后停止
+        self._result_pulse: Any = None
 
     # ---- 项目状态访问（优先用 App 的，回退到屏内临时态）----
 
@@ -200,7 +111,7 @@ class ValidationScreen(Screen):
         """是否已打开项目。"""
         return self.project_path is not None
 
-    def compose(self) -> ComposeResult:
+    def compose_content(self) -> ComposeResult:
         """组装屏布局：顶部状态条 + 主区（数据源树 | 结果面板 | 详情面板）。"""
         # 当作为独立屏挂载时 App 已有 Header/Footer；这里不加 Header 避免重复
         yield Label("未打开项目", id="status-label")
@@ -228,7 +139,12 @@ class ValidationScreen(Screen):
                 yield RichLog(id="detail-log", markup=True)
 
     def on_mount(self) -> None:
-        """挂载时初始化错误表格列、详情空态、刷新状态文案。"""
+        """挂载时初始化错误表格列、详情空态、刷新状态文案，并播放入场淡入。
+
+        入场动效由 ``super().on_mount()`` 经 ``BaseScreen`` 统一触发
+        （多态调用本类重写的 ``_run_entrance_animation``），避免重复播放。
+        """
+        super().on_mount()
         table = self.query_one("#error-table", DataTable)
         table.add_columns(*_ERROR_COLUMNS)
         # auto_expand=False：回车只触发 NodeSelected 用于按表过滤，不展开/折叠
@@ -236,6 +152,25 @@ class ValidationScreen(Screen):
         self.query_one("#source-tree", Tree).auto_expand = False
         self._render_detail_empty()
         self._refresh_status()
+
+    def _run_entrance_animation(self) -> None:
+        """三栏面板错开淡入。
+
+        tween 存入 ``self._entrance_tweens`` 以便卸载时清理；delay 最小 0.01，
+        避免 ``set_timer(0, ...)`` 触发 ZeroDivisionError。
+        """
+        panels = [
+            self.query_one("#source-panel"),
+            self.query_one("#result-panel"),
+            self.query_one("#detail-panel"),
+        ]
+        for idx, panel in enumerate(panels):
+            panel.styles.opacity = 0.0
+            delay = max(0.01, idx * 0.06)
+            self.set_timer(
+                delay,
+                lambda w=panel: self._entrance_tweens.append(animate_opacity(w, 0.0, 1.0, duration=0.2)),
+            )
 
     # ---- 事件处理 ----
 
@@ -304,6 +239,7 @@ class ValidationScreen(Screen):
         script_security = (self.project_config or {}).get("script_security", {})
 
         self.app.call_from_thread(self._write_summary, "[cyan]正在校验数据...[/cyan]")
+        self.app.call_from_thread(self._start_result_pulse)
 
         def on_progress(event: ProgressEvent) -> None:
             # worker 线程内：经 call_from_thread 回 UI 线程更新进度区
@@ -323,6 +259,23 @@ class ValidationScreen(Screen):
             return
         self.app.call_from_thread(self._render_result, result)
         self.app.call_from_thread(self._finish_progress, result.has_errors, False)
+
+    def _start_result_pulse(self) -> None:
+        """校验期间给结果面板加边框呼吸动效。"""
+        panel = self.query_one("#result-panel")
+        self._result_pulse = pulse_border_color(
+            panel, "$tui-border-active", "$primary", border_style="solid", duration=1.2
+        )
+
+    def _stop_result_pulse(self) -> None:
+        """停止结果面板呼吸并恢复边框。"""
+        if self._result_pulse is not None:
+            self._result_pulse.stop()
+            self._result_pulse = None
+        try:
+            self.query_one("#result-panel").styles.border = ("solid", "$tui-border")
+        except Exception:  # noqa: BLE001
+            pass
 
     # ---- 进度区更新（UI 线程，由 worker 的 call_from_thread 调用）----
 
@@ -371,6 +324,7 @@ class ValidationScreen(Screen):
         """
         pb = self.query_one("#validate-progress", ProgressBar)
         status = self.query_one("#progress-status", Label)
+        self._stop_result_pulse()
         if failed:
             pb.update(progress=0)
             status.update("[red]校验失败[/red]")
@@ -395,6 +349,35 @@ class ValidationScreen(Screen):
         self._table_filter = None
         self._render_source_tree(result)
         self._render_errors()
+        self._flash_result_panels()
+
+    def _flash_result_panels(self) -> None:
+        """结果呈现时给左/中/右三栏加轻微高光闪烁。
+
+        用 ``tint``（而非 opacity）做闪烁，避免与入场动效对同一面板的
+        ``opacity`` 动画相互覆盖造成闪烁。tint 颜色用具体 hex（``Color.parse``
+        不接受主题变量 ``$primary``），起止均为极低强度的同色，制造短暂高光。
+        tween 存入 ``self._entrance_tweens`` 以便卸载时统一清理。
+        """
+        panels = [
+            self.query_one("#source-panel"),
+            self.query_one("#result-panel"),
+            self.query_one("#detail-panel"),
+        ]
+        for idx, panel in enumerate(panels):
+            # delay 最小 0.01：避免 set_timer(0, ...) 触发 ZeroDivisionError
+            delay = max(0.01, idx * 0.05)
+            self.set_timer(
+                delay,
+                lambda w=panel: self._entrance_tweens.append(
+                    animate_tint(
+                        w,
+                        "#5eaaff 18%",
+                        "#5eaaff 0%",
+                        duration=0.18,
+                    )
+                ),
+            )
 
     def _render_summary(self, result: ValidationResult) -> None:
         """渲染校验摘要到 RichLog。

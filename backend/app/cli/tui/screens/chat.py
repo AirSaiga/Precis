@@ -42,11 +42,13 @@ from typing import TYPE_CHECKING, Any
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen, Screen
+from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, RichLog, Static, Tree
 from textual.widgets.tree import TreeNode
 
+from app.cli.tui.fx.animation import animate_opacity, animate_tint
 from app.cli.tui.protocols import register_screen
+from app.cli.tui.screens.base import BaseScreen
 from app.cli.tui.services.ai_service import (
     ChatService,
     build_context_nodes,
@@ -150,114 +152,24 @@ class ConfirmModal(ModalScreen[bool]):
     用户选择后通过 ``dismiss(result)`` 返回 bool 给回调。
     """
 
-    def __init__(self, actions: list[dict[str, Any]], reply: str) -> None:
-        super().__init__()
-        self._actions = actions
-        self._reply = reply
-
-    def compose(self) -> ComposeResult:
-        with VerticalScroll(classes="confirm-modal"):
-            yield Static("即将执行以下操作", classes="confirm-title")
-            if self._reply:
-                yield Static(self._reply, classes="confirm-reply")
-            for i, action in enumerate(self._actions, 1):
-                yield Static(f"{i}. {_format_action(action)}")
-            with Horizontal(classes="confirm-buttons"):
-                yield Button("确认执行", id="confirm-yes", variant="success")
-                yield Button("取消", id="confirm-no", variant="error")
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        """按钮按下后以对应 bool 关闭模态框。"""
-        self.dismiss(event.button.id == "confirm-yes")
-
-
-class AmbiguityModal(ModalScreen[bool]):
-    """歧义解析模态框。
-
-    当 AI 动作涉及表名歧义时弹出，让用户决定是否继续。作为
-    ``ChatService.chat(on_ambiguity=...)`` 回调的 UI 实现。
-    """
-
-    def __init__(self, actions: list[dict[str, Any]], project_path: str) -> None:
-        super().__init__()
-        self._actions = actions
-        self._project_path = project_path
-
-    def compose(self) -> ComposeResult:
-        with VerticalScroll(classes="ambiguity-modal"):
-            yield Static("检测到表名歧义", classes="confirm-title")
-            yield Static(
-                f"项目: {self._project_path}\n以下动作的表名存在歧义，请确认是否继续：",
-                classes="confirm-reply",
-            )
-            for i, action in enumerate(self._actions, 1):
-                yield Static(f"{i}. {_format_action(action)}")
-            with Horizontal(classes="confirm-buttons"):
-                yield Button("继续", id="ambiguity-yes", variant="warning")
-                yield Button("取消", id="ambiguity-no", variant="default")
-
-    def on_button_pressed(self, event: Button.Pressed) -> None:
-        self.dismiss(event.button.id == "ambiguity-yes")
-
-
-@register_screen("chat")
-class ChatScreen(Screen):
-    """AI 对话主屏。
-
-    布局：顶部进度状态条 → 中部消息流（RichLog）+ 工具轨迹树（Tree）→ 底部输入框。
-
-    用户在输入框输入消息回车后，调用 ``ChatService.chat()`` 执行对话，
-    把 reply 写入消息流、tool_steps 渲染到工具树。对话过程中，
-    orchestrator 通过回调触发本屏的确认/歧义弹窗。
-    """
-
     DEFAULT_CSS = """
-    ChatScreen {
-        layout: vertical;
-        padding: 0 1;
+    ConfirmModal {
+        align: center middle;
     }
-    #chat-progress {
-        height: 1;
-        background: $panel;
-        color: $text-muted;
-        padding: 0 1;
-        text-style: bold;
-    }
-    #chat-main {
-        height: 1fr;
-    }
-    #chat-log {
-        height: 2fr;
-    }
-    #chat-tree-container {
-        border: round $background;
-        background: $surface;
-        height: 1fr;
-        padding: 0 1;
-        margin-top: 1;
-    }
-    #chat-tree-label {
-        color: $text-muted;
-        background: $boost;
-        padding: 0 1;
-        text-style: bold;
-    }
-    #chat-tool-tree {
-        height: 1fr;
-    }
-    #chat-input {
-        dock: bottom;
-        height: 3;
-        margin: 1 0 0 0;
-    }
-    .confirm-modal, .ambiguity-modal {
+    #confirm-box {
         width: 70;
-        max-width: 90%;
         height: auto;
         max-height: 80%;
+        border: solid $tui-border;
         padding: 1 2;
-        border: thick $primary;
         background: $surface;
+        opacity: 0;
+        offset: 0 -2;
+        transition: opacity 120ms, offset 120ms;
+    }
+    #confirm-box.open {
+        opacity: 1;
+        offset: 0 0;
     }
     .confirm-title {
         text-style: bold;
@@ -280,6 +192,170 @@ class ChatScreen(Screen):
     }
     """
 
+    def __init__(self, actions: list[dict[str, Any]], reply: str) -> None:
+        super().__init__()
+        self._actions = actions
+        self._reply = reply
+
+    def compose(self) -> ComposeResult:
+        with VerticalScroll(id="confirm-box"):
+            yield Static("即将执行以下操作", classes="confirm-title")
+            if self._reply:
+                yield Static(self._reply, classes="confirm-reply")
+            for i, action in enumerate(self._actions, 1):
+                yield Static(f"{i}. {_format_action(action)}")
+            with Horizontal(classes="confirm-buttons"):
+                yield Button("确认执行", id="confirm-yes", variant="success")
+                yield Button("取消", id="confirm-no", variant="error")
+
+    def on_mount(self) -> None:
+        """挂载后播放入场动效（不覆盖 dismiss，避免阻塞工作线程）。"""
+        self._play_enter_animation()
+
+    def _play_enter_animation(self) -> None:
+        """从上方淡入并回正。"""
+        box = self.query_one("#confirm-box")
+        box.styles.opacity = 0.0
+        box.styles.offset = (0, -2)
+
+        def _open() -> None:
+            box.add_class("open")
+
+        self.set_timer(0.02, _open)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        """按钮按下后以对应 bool 关闭模态框。"""
+        self.dismiss(event.button.id == "confirm-yes")
+
+
+class AmbiguityModal(ModalScreen[bool]):
+    """歧义解析模态框。
+
+    当 AI 动作涉及表名歧义时弹出，让用户决定是否继续。作为
+    ``ChatService.chat(on_ambiguity=...)`` 回调的 UI 实现。
+    """
+
+    DEFAULT_CSS = """
+    AmbiguityModal {
+        align: center middle;
+    }
+    #ambiguity-box {
+        width: 70;
+        height: auto;
+        max-height: 80%;
+        border: solid $tui-border;
+        padding: 1 2;
+        background: $surface;
+        opacity: 0;
+        offset: 0 -2;
+        transition: opacity 120ms, offset 120ms;
+    }
+    #ambiguity-box.open {
+        opacity: 1;
+        offset: 0 0;
+    }
+    """
+
+    def __init__(self, actions: list[dict[str, Any]], project_path: str) -> None:
+        super().__init__()
+        self._actions = actions
+        self._project_path = project_path
+
+    def compose(self) -> ComposeResult:
+        with VerticalScroll(id="ambiguity-box"):
+            yield Static("检测到表名歧义", classes="confirm-title")
+            yield Static(
+                f"项目: {self._project_path}\n以下动作的表名存在歧义，请确认是否继续：",
+                classes="confirm-reply",
+            )
+            for i, action in enumerate(self._actions, 1):
+                yield Static(f"{i}. {_format_action(action)}")
+            with Horizontal(classes="confirm-buttons"):
+                yield Button("继续", id="ambiguity-yes", variant="warning")
+                yield Button("取消", id="ambiguity-no", variant="default")
+
+    def on_mount(self) -> None:
+        """挂载后播放入场动效（不覆盖 dismiss，避免阻塞工作线程）。"""
+        self._play_enter_animation()
+
+    def _play_enter_animation(self) -> None:
+        """从上方淡入并回正。"""
+        box = self.query_one("#ambiguity-box")
+        box.styles.opacity = 0.0
+        box.styles.offset = (0, -2)
+
+        def _open() -> None:
+            box.add_class("open")
+
+        self.set_timer(0.02, _open)
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        self.dismiss(event.button.id == "ambiguity-yes")
+
+
+@register_screen("chat")
+class ChatScreen(BaseScreen):
+    """AI 对话主屏。
+
+    布局：顶部进度状态条 → 中部消息流（RichLog）+ 工具轨迹树（Tree）→ 底部输入框。
+
+    用户在输入框输入消息回车后，调用 ``ChatService.chat()`` 执行对话，
+    把 reply 写入消息流、tool_steps 渲染到工具树。对话过程中，
+    orchestrator 通过回调触发本屏的确认/歧义弹窗。
+    """
+
+    screen_name = "chat"
+
+    DEFAULT_CSS = """
+    ChatScreen {
+        layers: fx background foreground;
+    }
+    #chat-progress {
+        height: 1;
+        content-align: center middle;
+        color: $text-muted;
+        background: $tui-panel;
+    }
+    #chat-main {
+        width: 100%;
+        height: 1fr;
+        layout: horizontal;
+    }
+    #chat-log {
+        width: 2fr;
+        height: 100%;
+        border: solid $tui-border;
+        background: $tui-panel;
+        padding: 0 1;
+    }
+    #chat-tree-container {
+        width: 1fr;
+        height: 100%;
+        border: solid $tui-border;
+        background: $tui-panel;
+    }
+    #chat-tree-container .panel-header {
+        text-style: bold;
+        color: $text;
+        background: $tui-boost;
+        border-bottom: solid $tui-border;
+        padding: 0 1;
+        height: 1;
+    }
+    #chat-tool-tree {
+        width: 100%;
+        height: 1fr;
+        border: none;
+        background: transparent;
+    }
+    #chat-input {
+        height: 3;
+        border: solid $tui-border;
+        background: $tui-element;
+    }
+    #chat-input:focus { border: solid $tui-border-active; }
+    """
+
     BINDINGS = [
         Binding("escape", "app.pop_screen", "返回", show=True),
     ]
@@ -295,29 +371,50 @@ class ChatScreen(Screen):
     # 布局
     # ------------------------------------------------------------------ #
 
-    def compose(self) -> ComposeResult:
+    def compose_content(self) -> ComposeResult:
         yield Static("就绪", id="chat-progress")
         with Vertical(id="chat-main"):
             yield RichLog(id="chat-log", wrap=True, markup=True, auto_scroll=True)
             with Vertical(id="chat-tree-container"):
-                yield Label("工具轨迹", id="chat-tree-label")
+                yield Label("工具轨迹", classes="panel-header")
                 yield Tree("Agent 工具轨迹", id="chat-tool-tree")
         yield Input(placeholder="输入消息，回车发送…", id="chat-input")
 
     def on_mount(self) -> None:
-        """挂载时初始化 ChatService。
+        """挂载时初始化 ChatService 并播放入场动效。
 
-        若已有活动 provider 则立即构造 service；否则提示用户先配置 provider。
+        入场动效由 ``super().on_mount()`` 经 ``BaseScreen`` 统一触发
+        （多态调用本类重写的 ``_run_entrance_animation``），避免重复播放。
         """
+        super().on_mount()
         provider = get_active_provider()
         if provider is None:
             self._write_log("[yellow]未检测到可用的 LLM Provider，请先在 Provider 屏配置。[/]")
             self._set_progress("无 Provider")
-            return
-        self._service = ChatService(provider)
-        self._set_progress("就绪")
+        else:
+            self._service = ChatService(provider)
+            self._set_progress("就绪")
         if self._project_path:
             self._write_log(f"[dim]项目: {self._project_path}[/]")
+
+    def _run_entrance_animation(self) -> None:
+        """顶部进度条、主区、输入框错开淡入。
+
+        tween 存入 ``self._entrance_tweens`` 以便卸载时清理；delay 最小 0.01，
+        避免 ``set_timer(0, ...)`` 触发 ZeroDivisionError。
+        """
+        widgets = [
+            self.query_one("#chat-progress"),
+            self.query_one("#chat-main"),
+            self.query_one("#chat-input"),
+        ]
+        for idx, widget in enumerate(widgets):
+            widget.styles.opacity = 0.0
+            delay = max(0.01, idx * 0.06)
+            self.set_timer(
+                delay,
+                lambda w=widget: self._entrance_tweens.append(animate_opacity(w, 0.0, 1.0, duration=0.2)),
+            )
 
     # ------------------------------------------------------------------ #
     # 输入处理
@@ -337,6 +434,9 @@ class ChatScreen(Screen):
         self._write_log(f"[bold cyan]你:[/] {message}")
         self._set_progress("AI 思考中…")
         event.input.disabled = True
+        # 关键：让出事件循环一帧，确保用户消息立即渲染到 RichLog，
+        # 否则 await _run_chat 会阻塞渲染，用户消息直到 AI 响应后才可见
+        await asyncio.sleep(0)
 
         try:
             await self._run_chat(message)
@@ -476,8 +576,10 @@ class ChatScreen(Screen):
 
         每个 step 是一次工具调用（read_project/apply_actions/...），
         渲染为树的一个根节点；其下的 action_count/error 等作为子节点。
+        渲染完成后给工具轨迹区加整体淡入动效。
         """
         tree = self.query_one("#chat-tool-tree", TreeWidget)
+        container = self.query_one("#chat-tree-container")
         # 清空已有子节点（保留根标签），避免多轮对话后树无限增长
         tree.reset("Agent 工具轨迹")
         for step in tool_steps:
@@ -499,10 +601,22 @@ class ChatScreen(Screen):
             if error:
                 node.add_leaf(f"[red]错误: {error}[/]")
         tree.expand_all()
+        # 工具树渲染后整体淡入，提示用户新轨迹已更新
+        container.styles.opacity = 0.6
+        animate_opacity(container, 0.6, 1.0, duration=0.25)
 
     def _write_log(self, text: str) -> None:
-        """写入消息流 RichLog。"""
-        self.query_one("#chat-log", RichLog).write(text)
+        """写入消息流 RichLog，并给日志区加轻微高亮闪烁。"""
+        log = self.query_one("#chat-log", RichLog)
+        log.write(text)
+        # 新消息写入时给日志区短暂淡蓝 tint，制造"新内容到达"的反馈
+        animate_tint(
+            log,
+            "$primary 0%",
+            "$primary 12%",
+            duration=0.15,
+            on_complete=lambda: setattr(log.styles, "tint", "$primary 0%"),
+        )
 
     def _set_progress(self, text: str) -> None:
         """更新顶部进度状态条文本。"""

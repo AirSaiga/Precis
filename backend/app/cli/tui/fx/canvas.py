@@ -188,15 +188,31 @@ class CanvasWidget(Static):
         self._buffer.blend(x, y, char, fg, bg, style, alpha)
 
     def render(self) -> Text:
-        """将缓冲区渲染为 Rich Text。"""
+        """将缓冲区渲染为 Rich Text。
+
+        性能优化：空白 cell（空格且无样式）跳过 to_style 调用，
+        直接用无样式的 append。CanvasWidget 大部分 cell 是空白，
+        这能省掉 80%+ 的 to_style + Style 构造开销。
+        """
         if self._needs_resize:
             self._resize()
         lines: list[Text] = []
         for row in self._buffer.cells:
             line = Text()
+            # 先统计连续空白段，批量追加空格，再处理非空 cell
+            spaces = 0
             for cell in row:
-                style = cell.to_style()
-                line.append(cell.char, style)
+                if cell.char == " " and not cell.fg and not cell.bg and not cell.style:
+                    # 空白 cell：累加，稍后一次性追加
+                    spaces += 1
+                    continue
+                # 遇到非空 cell，先 flush 累积的空白
+                if spaces:
+                    line.append(" " * spaces)
+                    spaces = 0
+                line.append(cell.char, cell.to_style())
+            if spaces:
+                line.append(" " * spaces)
             lines.append(line)
         if not lines:
             return Text("")

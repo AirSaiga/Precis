@@ -35,7 +35,6 @@ from typing import TYPE_CHECKING, Any
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, VerticalScroll
-from textual.screen import Screen
 from textual.widgets import (
     Button,
     Input,
@@ -50,7 +49,9 @@ from textual.widgets import (
 )
 from textual.widgets.selection_list import Selection
 
+from app.cli.tui.fx.animation import animate_opacity, animate_tint
 from app.cli.tui.protocols import register_screen
+from app.cli.tui.screens.base import BaseScreen
 from app.cli.tui.services.generation_service import GenerationService
 
 if TYPE_CHECKING:
@@ -70,11 +71,49 @@ _MIGRATE_LANGUAGES: list[tuple[str, str]] = [
 ]
 
 
-class _GenerationScreenBase(Screen):
+class _GenerationScreenBase(BaseScreen):
     """生成/迁移屏共享基类。
 
     收敛两个屏共用的状态条、项目状态读取、进度回调、预览渲染逻辑。
     子类只需实现 ``compose_body``（参数区）与 ``run_generation``（触发生成）。
+    """
+
+    DEFAULT_CSS = """
+    #generate-body {
+        width: 100%;
+        height: auto;
+    }
+    #generate-body .title {
+        text-style: bold;
+        color: $text;
+        margin: 1 0;
+    }
+    #hint {
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+    #generate-body .form-row {
+        height: 3;
+        margin-bottom: 0;
+    }
+    #generate-body .form-row Label {
+        width: 14;
+        content-align: left middle;
+        color: $text-muted;
+    }
+    #status {
+        height: 1;
+        color: $text-muted;
+        content-align: center middle;
+        background: $tui-panel;
+        margin: 1 0;
+    }
+    #preview-tabs {
+        width: 100%;
+        height: 1fr;
+        border: solid $tui-border;
+        background: $tui-panel;
+    }
     """
 
     BINDINGS = [
@@ -82,40 +121,6 @@ class _GenerationScreenBase(Screen):
         Binding("ctrl+a", "apply", "应用", show=True),
         Binding("escape", "dismiss", "关闭", show=True),
     ]
-
-    DEFAULT_CSS = """
-    Label.title { text-style: bold; margin: 1 0; color: $accent; }
-    Label#hint { color: $text-muted; margin-bottom: 1; }
-    Static#status { background: $panel; padding: 0 1; color: $text-muted; }
-    RichLog { border: round $background; background: $surface; padding: 0 1; }
-    Horizontal { height: auto; margin-bottom: 0; }
-    Horizontal.form-row {
-        height: auto;
-        margin-bottom: 1;
-    }
-    Horizontal.form-row Label {
-        width: 16;
-        margin-right: 1;
-        text-align: right;
-    }
-    Horizontal.form-row Input {
-        width: 1fr;
-    }
-    SelectionList {
-        height: auto;
-        max-height: 12;
-        border: round $background;
-        background: $surface;
-        margin-bottom: 1;
-    }
-    TabbedContent {
-        height: 1fr;
-        border: round $background;
-    }
-    TabPane {
-        padding: 1;
-    }
-    """
 
     def __init__(self) -> None:
         super().__init__()
@@ -261,6 +266,19 @@ class _GenerationScreenBase(Screen):
         except Exception:
             logger.debug("regex 预览区未就绪")
 
+        # 渲染完成后给预览区加轻微高亮闪烁，提示结果已更新
+        try:
+            tabs = self.query_one("#preview-tabs", TabbedContent)
+            animate_tint(
+                tabs,
+                "$primary 0%",
+                "$primary 15%",
+                duration=0.2,
+                on_complete=lambda: setattr(tabs.styles, "tint", "$primary 0%"),
+            )
+        except Exception:
+            logger.debug("预览区未就绪，跳过高亮")
+
     # ---- 应用写盘 ----
 
     def _apply_result(self) -> None:
@@ -324,9 +342,11 @@ class GenerateScreen(_GenerationScreenBase):
     + 生成/应用按钮 + TabbedContent 预览（yaml/manifest/schemas/constraints/regex）。
     """
 
-    def compose(self) -> ComposeResult:
+    screen_name = "generate"
+
+    def compose_content(self) -> ComposeResult:
         """组装生成屏布局。"""
-        with VerticalScroll():
+        with VerticalScroll(id="generate-body"):
             yield Label("AI 配置生成", classes="title")
             yield Label("从数据文件分析并生成 Schema / Constraint / Regex 配置", id="hint")
 
@@ -368,12 +388,35 @@ class GenerateScreen(_GenerationScreenBase):
                     yield RichLog(id="preview-regex", wrap=True, markup=False)
 
     def on_mount(self) -> None:
-        """挂载时扫描数据文件。"""
+        """挂载时扫描数据文件并播放入场动效。
+
+        入场动效由 ``super().on_mount()`` 经 ``BaseScreen`` 统一触发
+        （多态调用本类重写的 ``_run_entrance_animation``），避免重复播放。
+        """
+        super().on_mount()
         files = self._refresh_data_files()
         if not files:
             self._set_status("未找到数据文件，请在项目 data/ 目录放置 .xlsx/.csv/.json")
         else:
             self._set_status(f"已扫描到 {len(files)} 个数据文件")
+
+    def _run_entrance_animation(self) -> None:
+        """参数区与预览区错开淡入。
+
+        tween 存入 ``self._entrance_tweens`` 以便卸载时清理；delay 最小 0.01，
+        避免 ``set_timer(0, ...)`` 触发 ZeroDivisionError。
+        """
+        widgets = [
+            self.query_one("#generate-body"),
+            self.query_one("#preview-tabs"),
+        ]
+        for idx, widget in enumerate(widgets):
+            widget.styles.opacity = 0.0
+            delay = max(0.01, idx * 0.08)
+            self.set_timer(
+                delay,
+                lambda w=widget: self._entrance_tweens.append(animate_opacity(w, 0.0, 1.0, duration=0.25)),
+            )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """按钮点击分发。"""
@@ -496,9 +539,11 @@ class MigrateScreen(_GenerationScreenBase):
     布局：脚本路径 Input + 语言 Select + 数据文件多选 + 参数表单 + 预览 + 应用。
     """
 
-    def compose(self) -> ComposeResult:
+    screen_name = "migrate"
+
+    def compose_content(self) -> ComposeResult:
         """组装迁移屏布局。"""
-        with VerticalScroll():
+        with VerticalScroll(id="generate-body"):
             yield Label("AI 配置迁移", classes="title")
             yield Label("从旧脚本（Python/SQL/Excel 公式/自然语言）迁移生成配置", id="hint")
 
@@ -545,12 +590,35 @@ class MigrateScreen(_GenerationScreenBase):
                     yield RichLog(id="preview-regex", wrap=True, markup=False)
 
     def on_mount(self) -> None:
-        """挂载时扫描数据文件。"""
+        """挂载时扫描数据文件并播放入场动效。
+
+        入场动效由 ``super().on_mount()`` 经 ``BaseScreen`` 统一触发
+        （多态调用本类重写的 ``_run_entrance_animation``），避免重复播放。
+        """
+        super().on_mount()
         files = self._refresh_data_files()
         if not files:
             self._set_status("未找到数据文件，请在项目 data/ 目录放置 .xlsx/.csv/.json")
         else:
             self._set_status(f"已扫描到 {len(files)} 个数据文件")
+
+    def _run_entrance_animation(self) -> None:
+        """参数区与预览区错开淡入。
+
+        tween 存入 ``self._entrance_tweens`` 以便卸载时清理；delay 最小 0.01，
+        避免 ``set_timer(0, ...)`` 触发 ZeroDivisionError。
+        """
+        widgets = [
+            self.query_one("#generate-body"),
+            self.query_one("#preview-tabs"),
+        ]
+        for idx, widget in enumerate(widgets):
+            widget.styles.opacity = 0.0
+            delay = max(0.01, idx * 0.08)
+            self.set_timer(
+                delay,
+                lambda w=widget: self._entrance_tweens.append(animate_opacity(w, 0.0, 1.0, duration=0.25)),
+            )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """按钮点击分发。"""

@@ -16,10 +16,12 @@ from typing import Any
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.screen import ModalScreen, Screen
+from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, ListItem, ListView, Select
 
+from app.cli.tui.fx.animation import animate_opacity
 from app.cli.tui.protocols import register_screen
+from app.cli.tui.screens.base import BaseScreen
 from app.cli.tui.services.provider_service import ProviderService
 from app.shared.services.llm.config.models import AIProvider
 
@@ -57,12 +59,14 @@ def _provider_detail_text(provider: AIProvider, active_id: str | None) -> str:
 
 
 @register_screen("provider")
-class ProviderScreen(Screen):
+class ProviderScreen(BaseScreen):
     """Provider 管理屏。
 
     左侧 ListView 展示所有 Provider，选中后在右侧详情面板显示完整信息；
     底部按钮提供 添加 / 编辑 / 删除 / 测试连接 / 设为默认 操作。
     """
+
+    screen_name = "provider"
 
     BINDINGS = [
         ("a", "add", "添加"),
@@ -72,61 +76,15 @@ class ProviderScreen(Screen):
         ("d", "set_default", "设为默认"),
         ("r", "refresh", "刷新"),
     ]
-    DEFAULT_CSS = """
-    ProviderScreen {
-        layout: vertical;
-        padding: 0 1;
-    }
-    #provider-main {
-        height: 1fr;
-        margin-bottom: 1;
-    }
-    #provider-list {
-        width: 40%;
-        border: round $accent;
-        background: $surface;
-        padding: 0 1;
-        margin-right: 1;
-    }
-    #provider-list-title {
-        text-style: bold;
-        color: $accent;
-        margin: 1 0;
-    }
-    #provider-detail {
-        width: 60%;
-        border: round $primary;
-        background: $surface;
-        padding: 1 2;
-    }
-    #provider-detail-label {
-        color: $text;
-    }
-    #provider-actions {
-        height: auto;
-        dock: bottom;
-        padding: 1;
-    }
-    #provider-actions Button {
-        margin-right: 1;
-    }
-    #provider-status {
-        height: 1;
-        dock: bottom;
-        background: $panel;
-        color: $text-muted;
-        padding: 0 1;
-    }
-    """
 
     def __init__(self) -> None:
         super().__init__()
         self._service = ProviderService()
 
-    def compose(self) -> ComposeResult:
+    def compose_content(self) -> ComposeResult:
         with Horizontal(id="provider-main"):
             with Vertical(id="provider-list"):
-                yield Label("Provider 列表", id="provider-list-title")
+                yield Label("Provider 列表", classes="panel-header")
                 yield ListView(id="provider-lv")
             with VerticalScroll(id="provider-detail"):
                 yield Label("选择左侧 Provider 查看详情", id="provider-detail-label")
@@ -140,7 +98,28 @@ class ProviderScreen(Screen):
         yield Label("", id="provider-status")
 
     def on_mount(self) -> None:
+        """挂载后刷新列表并播放入场动效。
+
+        入场动效由 ``super().on_mount()`` 经 ``BaseScreen`` 统一触发
+        （多态调用本类重写的 ``_run_entrance_animation``），避免重复播放。
+        """
+        super().on_mount()
         self._refresh_list()
+
+    def _run_entrance_animation(self) -> None:
+        """列表与详情面板错开淡入。
+
+        tween 存入 ``self._entrance_tweens`` 以便卸载时清理；delay 最小 0.01，
+        避免 ``set_timer(0, ...)`` 触发 ZeroDivisionError。
+        """
+        widgets = [self.query_one("#provider-list"), self.query_one("#provider-detail")]
+        for idx, widget in enumerate(widgets):
+            widget.styles.opacity = 0.0
+            delay = max(0.01, idx * 0.06)
+            self.set_timer(
+                delay,
+                lambda w=widget: self._entrance_tweens.append(animate_opacity(w, 0.0, 1.0, duration=0.2)),
+            )
 
     # ── 数据刷新 ───────────────────────────────────────────────────
 
@@ -278,12 +257,17 @@ class ProviderScreen(Screen):
         self._set_status(f"测试中: {provider.name} ...")
         test_btn = self.query_one("#btn-test", Button)
         test_btn.disabled = True
+        # 测试期间给详情面板加淡绿呼吸边框
+        detail = self.query_one("#provider-detail")
+        pulse = animate_opacity(detail, 1.0, 0.7, duration=0.6)
 
         async def _do_test() -> dict[str, Any]:
             return await self._service.test_connection(provider.id)
 
         def _on_done(result: dict[str, Any]) -> None:
             test_btn.disabled = False
+            pulse.stop()
+            animate_opacity(detail, 0.7, 1.0, duration=0.2)
             if result.get("status") == "ok":
                 latency = result.get("latency_ms")
                 self._set_status(f"[{provider.name}] 连接正常 ({latency}ms)")
@@ -315,6 +299,17 @@ class ProviderFormModal(ModalScreen[dict[str, Any] | None]):
         border: solid $accent;
         padding: 1 2;
         background: $surface;
+        opacity: 0;
+        offset: 0 -2;
+        transition: opacity 120ms, offset 120ms;
+    }
+    #provider-form.open {
+        opacity: 1;
+        offset: 0 0;
+    }
+    #provider-form.closing {
+        opacity: 0;
+        offset: 0 -1;
     }
     #provider-form Button {
         margin-top: 1;
@@ -347,6 +342,40 @@ class ProviderFormModal(ModalScreen[dict[str, Any] | None]):
             ),
             id="provider-form",
         )
+
+    def on_mount(self) -> None:
+        """挂载后播放入场动效。"""
+        self._play_enter_animation()
+
+    def _play_enter_animation(self) -> None:
+        """从上方淡入并回正。"""
+        form = self.query_one("#provider-form")
+        form.styles.opacity = 0.0
+        form.styles.offset = (0, -2)
+
+        def _open() -> None:
+            form.add_class("open")
+
+        self.set_timer(0.02, _open)
+
+    def dismiss(self, result: dict[str, Any] | None = None) -> None:
+        """覆盖 dismiss：先退场再真正关闭。"""
+        if getattr(self, "_dismissing", False):
+            super().dismiss(result)
+            return
+        self._dismissing = True
+        self._pending_result = result
+        self._play_exit_animation()
+        self.set_timer(0.12, self._do_real_dismiss)
+
+    def _do_real_dismiss(self) -> None:
+        """真正关闭模态屏。"""
+        super().dismiss(getattr(self, "_pending_result", None))
+
+    def _play_exit_animation(self) -> None:
+        """向上淡出退场。"""
+        form = self.query_one("#provider-form")
+        form.add_class("closing")
 
     def _form_rows(self) -> Vertical:
         """构造表单字段行。"""
@@ -477,6 +506,17 @@ class ConfirmModal(ModalScreen[bool]):
         border: solid $warning;
         padding: 1 2;
         background: $surface;
+        opacity: 0;
+        offset: 0 -2;
+        transition: opacity 120ms, offset 120ms;
+    }
+    #confirm-box.open {
+        opacity: 1;
+        offset: 0 0;
+    }
+    #confirm-box.closing {
+        opacity: 0;
+        offset: 0 -1;
     }
     #confirm-buttons Button {
         margin-right: 2;
@@ -497,6 +537,40 @@ class ConfirmModal(ModalScreen[bool]):
             ),
             id="confirm-box",
         )
+
+    def on_mount(self) -> None:
+        """挂载后播放入场动效。"""
+        self._play_enter_animation()
+
+    def _play_enter_animation(self) -> None:
+        """从上方淡入并回正。"""
+        box = self.query_one("#confirm-box")
+        box.styles.opacity = 0.0
+        box.styles.offset = (0, -2)
+
+        def _open() -> None:
+            box.add_class("open")
+
+        self.set_timer(0.02, _open)
+
+    def dismiss(self, result: bool | None = None) -> None:
+        """覆盖 dismiss：先退场再真正关闭。"""
+        if getattr(self, "_dismissing", False):
+            super().dismiss(result)
+            return
+        self._dismissing = True
+        self._pending_result = result
+        self._play_exit_animation()
+        self.set_timer(0.12, self._do_real_dismiss)
+
+    def _do_real_dismiss(self) -> None:
+        """真正关闭模态屏。"""
+        super().dismiss(getattr(self, "_pending_result", None))
+
+    def _play_exit_animation(self) -> None:
+        """向上淡出退场。"""
+        box = self.query_one("#confirm-box")
+        box.add_class("closing")
 
     @on(Button.Pressed, "#confirm-yes")
     def _on_yes(self, _event: Button.Pressed) -> None:
