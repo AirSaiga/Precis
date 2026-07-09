@@ -157,6 +157,17 @@ class EffectEngine:
         if width <= 0 or height <= 0:
             return
 
+        # 无特效时跳过 clear/refresh（避免空转的全屏重绘开销）。
+        # 仍有偶发流星倒计时需要推进，但不需要每帧清屏。
+        if not self.effects:
+            if self._meteor_enabled:
+                self._meteor_countdown -= dt
+                if self._meteor_countdown <= 0.0:
+                    self._meteor_countdown = self._roll_meteor_interval()
+                    self._auto_spawn_meteor(width, height)
+                    # 产了流星后 effects 非空，下一帧会正常渲染
+            return
+
         self.canvas.clear()
         for effect in self.effects:
             effect.update(dt, width, height)
