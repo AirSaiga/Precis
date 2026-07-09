@@ -17,10 +17,10 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
 
     // 提示行
     let hint = match &app.validation {
-        ValidationState::Idle => "  Press 'v' to validate".to_string(),
-        ValidationState::Validating => "  Validating...".to_string(),
-        ValidationState::Done(_) => "  Done  j/k scroll  v revalidate".to_string(),
-        ValidationState::Failed(_) => "  Failed  press 'v' to retry".to_string(),
+        ValidationState::Idle => "  按 v 执行校验".to_string(),
+        ValidationState::Validating => "  校验中...".to_string(),
+        ValidationState::Done(_) => "  校验完成  j/k 滚动  v 重新校验".to_string(),
+        ValidationState::Failed(_) => "  校验失败  按 v 重试".to_string(),
     };
     frame.render_widget(
         Paragraph::new(hint).style(Style::default().fg(colors::MUTED)),
@@ -39,7 +39,7 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
         .padding(Padding::horizontal(2));
 
     let content = match &app.validation {
-        ValidationState::Idle => Paragraph::new("Not validated yet.")
+        ValidationState::Idle => Paragraph::new("尚未校验，按 v 开始")
             .style(Style::default().fg(colors::MUTED))
             .block(block),
 
@@ -47,7 +47,7 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
             let spinner = match app.frame_count % 6 {
                 0 => "⠋", 1 => "⠙", 2 => "⠹", 3 => "⠸", 4 => "⠼", _ => "⠴",
             };
-            Paragraph::new(format!("{} Validating...", spinner))
+            Paragraph::new(format!("{} 校验中...", spinner))
                 .style(Style::default().fg(colors::YELLOW).add_modifier(Modifier::BOLD))
                 .block(block)
         }
@@ -76,20 +76,20 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
                         format!("{}", total),
                         Style::default().fg(icon_color).add_modifier(Modifier::BOLD),
                     ),
-                    Span::styled(" errors  ", Style::default().fg(colors::FG)),
+                    Span::styled(" 个错误  ", Style::default().fg(colors::FG)),
                     Span::styled(
-                        format!("{} tables  {} files  {}ms", s.tables_loaded, s.files_loaded, s.duration_ms),
+                        format!("{} 表  {} 文件  {}ms", s.tables_loaded, s.files_loaded, s.duration_ms),
                         Style::default().fg(colors::MUTED),
                     ),
                 ]),
                 ratatui::text::Line::from(""),
                 ratatui::text::Line::from(vec![
                     Span::raw(" "),
-                    Span::styled("Format ", Style::default().fg(colors::MUTED)),
+                    Span::styled("格式 ", Style::default().fg(colors::MUTED)),
                     Span::styled(format!("{}", s.format_error_count), Style::default().fg(colors::YELLOW)),
-                    Span::styled("   Constraint ", Style::default().fg(colors::MUTED)),
+                    Span::styled("   约束 ", Style::default().fg(colors::MUTED)),
                     Span::styled(format!("{}", s.constraint_error_count), Style::default().fg(colors::YELLOW)),
-                    Span::styled("   Loading ", Style::default().fg(colors::MUTED)),
+                    Span::styled("   加载 ", Style::default().fg(colors::MUTED)),
                     Span::styled(format!("{}", s.loading_error_count), Style::default().fg(colors::YELLOW)),
                 ]),
             ])
@@ -155,7 +155,7 @@ fn render_errors(frame: &mut Frame, app: &App, area: Rect) {
             frame.render_stateful_widget(table, area, &mut state);
         }
         ValidationState::Done(_) => {
-            let p = Paragraph::new("\n  ✓ All checks passed")
+            let p = Paragraph::new("\n  ✓ 校验通过，无错误")
                 .style(Style::default().fg(colors::GREEN).add_modifier(Modifier::BOLD));
             frame.render_widget(p, area);
         }

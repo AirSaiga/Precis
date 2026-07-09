@@ -59,7 +59,7 @@ async fn main() -> Result<()> {
     match try_init(&mut app).await {
         Ok(()) => {}
         Err(e) => {
-            app.message = "Backend not connected".to_string();
+            app.message = "后端未连接".to_string();
             tracing::warn!("Init failed: {}", e);
         }
     }
@@ -87,12 +87,12 @@ async fn try_init(app: &mut App) -> Result<()> {
     if !app.api.health().await.unwrap_or(false) {
         anyhow::bail!("health check failed");
     }
-    app.message = "Backend connected".to_string();
+    app.message = "后端已连接".to_string();
 
     let work_dir = scan_work_dir();
     match app.api.scan_projects(&work_dir).await {
         Ok(projects) => {
-            app.message = format!("{} projects", projects.len());
+            app.message = format!("找到 {} 个项目", projects.len());
             app.projects = projects;
         }
         Err(e) => tracing::warn!("Scan failed: {}", e),
@@ -142,22 +142,22 @@ fn handle_bg_message(app: &mut App, msg: BgMessage) {
             if success {
                 app.api.set_project(&path);
                 app.project_name = Some(name);
-                app.message = "Project opened".to_string();
+                app.message = "项目已打开".to_string();
                 app.current_tab = Tab::Validation;
                 app.validation = ValidationState::Idle;
             } else {
-                app.message = "Open failed".to_string();
+                app.message = "打开失败".to_string();
             }
         }
         BgMessage::ValidationDone(result) => {
             match result {
                 Ok(resp) => {
                     let err_count = resp.summary.total_error_count;
-                    app.message = format!("Done: {} errors, {}ms", err_count, resp.summary.duration_ms);
+                    app.message = format!("完成: {} 个错误, {}ms", err_count, resp.summary.duration_ms);
                     app.validation = ValidationState::Done(Box::new(resp));
                 }
                 Err(e) => {
-                    app.message = "Validation failed".to_string();
+                    app.message = "校验失败".to_string();
                     app.validation = ValidationState::Failed(e);
                 }
             }
@@ -182,7 +182,7 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
         }
         KeyCode::F(2) => {
             app.fx_enabled = !app.fx_enabled;
-            app.message = if app.fx_enabled { "FX on" } else { "FX off" }.to_string();
+            app.message = if app.fx_enabled { "动效已开启" } else { "动效已关闭" }.to_string();
             return;
         }
         KeyCode::Char(c) if ('1'..='5').contains(&c) => {
@@ -211,7 +211,7 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
         KeyCode::Enter if app.current_tab == Tab::Dashboard && !app.opening_project => {
             if let Some(p) = app.projects.get(app.selected_project).cloned() {
                 app.opening_project = true;
-                app.message = format!("Opening {}...", p.name);
+                app.message = format!("正在打开 {}...", p.name);
                 let tx = tx.clone();
                 let url = backend_url();
                 tokio::spawn(async move {
@@ -241,7 +241,7 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
             if let Some(path) = app.api.project_path().map(|s| s.to_string()) {
                 if !matches!(app.validation, ValidationState::Validating) {
                     app.validation = ValidationState::Validating;
-                    app.message = "Validating...".to_string();
+                    app.message = "正在校验...".to_string();
                     app.error_cursor = 0;
                     let tx = tx.clone();
                     let url = backend_url();
@@ -254,7 +254,7 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
                     });
                 }
             } else {
-                app.message = "Open a project first".to_string();
+                app.message = "请先打开项目".to_string();
             }
         }
 

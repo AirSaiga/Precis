@@ -33,11 +33,11 @@ pub enum Tab {
 impl Tab {
     pub fn label(&self) -> &'static str {
         match self {
-            Tab::Dashboard => "Dashboard",
-            Tab::Validation => "Validation",
+            Tab::Dashboard => "首页",
+            Tab::Validation => "校验",
             Tab::Provider => "Provider",
-            Tab::Config => "Config",
-            Tab::Chat => "AI Chat",
+            Tab::Config => "配置",
+            Tab::Chat => "AI 对话",
         }
     }
 

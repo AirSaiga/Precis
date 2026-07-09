@@ -17,7 +17,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
 
     // 提示行
     let hint = Paragraph::new(format!(
-        "  Projects ({})  j/k 导航  Enter 打开",
+        "  项目列表 ({})  j/k 导航  Enter 打开",
         app.projects.len()
     ))
     .style(Style::default().fg(colors::MUTED));
@@ -34,15 +34,15 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
                     format!("{} ", icons::result::WARN),
                     Style::default().fg(colors::YELLOW),
                 ),
-                Span::styled("No projects found", Style::default().fg(colors::YELLOW).add_modifier(Modifier::BOLD)),
+                Span::styled("未找到项目", Style::default().fg(colors::YELLOW).add_modifier(Modifier::BOLD)),
             ]),
             ratatui::text::Line::from(""),
             ratatui::text::Line::from(Span::styled(
-                "  1. Backend not running? Try: npm run backend:dev",
+                "  1. 后端未运行？请先执行 npm run backend:dev",
                 Style::default().fg(colors::FG),
             )),
             ratatui::text::Line::from(Span::styled(
-                "  2. No project.precis.yaml in scan directory",
+                "  2. 扫描目录下无 project.precis.yaml",
                 Style::default().fg(colors::FG),
             )),
         ])
@@ -72,8 +72,8 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
                     Span::styled(format!("{} ", marker), Style::default().fg(marker_color)),
                     Span::styled(&p.name, name_style),
                     Span::styled(
-                        format!(
-                            "   {} schemas, {} constraints",
+                            format!(
+                            "   {} Schema, {} 约束",
                             p.schema_count.unwrap_or(0),
                             p.constraint_count.unwrap_or(0)
                         ),

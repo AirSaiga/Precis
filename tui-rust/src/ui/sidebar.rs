@@ -78,15 +78,15 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
     // 快捷键区
     lines.push(Line::from(vec![
         Span::raw(" "),
-        Span::styled("Keys", Style::default().fg(colors::MUTED).add_modifier(Modifier::BOLD)),
+        Span::styled("快捷键", Style::default().fg(colors::MUTED).add_modifier(Modifier::BOLD)),
     ]));
 
     let keys = [
         ("q", "退出"),
         ("v", "校验"),
-        ("1-5", "页面"),
-        ("Tab", "下一个"),
-        ("F2", "动效"),
+        ("1-5", "切换页面"),
+        ("Tab", "下一页"),
+        ("F2", "动效开关"),
     ];
     for (k, desc) in keys {
         lines.push(Line::from(vec![
