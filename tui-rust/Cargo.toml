@@ -1,0 +1,30 @@
+[package]
+name = "precis-tui"
+version = "0.1.0"
+edition = "2021"
+description = "Precis TUI — terminal UI for data validation (Rust + ratatui)"
+
+[[bin]]
+name = "precis-tui"
+path = "src/main.rs"
+
+[dependencies]
+# TUI 框架 + 跨平台终端后端
+ratatui = { version = "0.29", features = ["all-widgets"] }
+crossterm = "0.28"
+# 异步运行时
+tokio = { version = "1", features = ["full"] }
+# HTTP 客户端（调 Python FastAPI 后端）
+reqwest = { version = "0.12", features = ["json"] }
+# 序列化
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# 错误处理
+anyhow = "1"
+# 日志
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+opt-level = 3
+lto = true
