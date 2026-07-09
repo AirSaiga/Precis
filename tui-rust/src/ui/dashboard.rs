@@ -31,10 +31,26 @@ pub fn render(frame: &mut Frame, app: &mut App, area: ratatui::layout::Rect) {
 
     // 项目列表
     if app.projects.is_empty() {
-        let empty = Paragraph::new("暂无项目。\n请确保后端正在运行，且工作目录下有含 project.precis.yaml 的项目。")
-            .style(Style::default().fg(muted))
-            .wrap(Wrap { trim: true })
-            .alignment(ratatui::layout::Alignment::Center);
+        let empty = Paragraph::new(vec![
+            ratatui::text::Line::from(""),
+            ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled("⚠ ", Style::default().fg(yellow)),
+                ratatui::text::Span::styled("未找到项目", Style::default().fg(yellow).add_modifier(Modifier::BOLD)),
+            ]),
+            ratatui::text::Line::from(""),
+            ratatui::text::Line::from("可能原因："),
+            ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled("  1. ", Style::default().fg(primary)),
+                ratatui::text::Span::styled("后端未运行 — 先执行 ", Style::default().fg(fg)),
+                ratatui::text::Span::styled("npm run backend:dev", Style::default().fg(green)),
+            ]),
+            ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled("  2. ", Style::default().fg(primary)),
+                ratatui::text::Span::styled("扫描路径下无 project.precis.yaml", Style::default().fg(fg)),
+            ]),
+        ])
+        .style(Style::default().bg(Color::Rgb(22, 22, 30)))
+        .wrap(Wrap { trim: true });
         frame.render_widget(empty, chunks[1]);
         return;
     }

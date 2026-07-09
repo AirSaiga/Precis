@@ -61,7 +61,7 @@ pub fn render(frame: &mut Frame, app: &mut App) {
             Style::default().fg(FG),
         ),
         Span::raw("  "),
-        Span::styled(&app.message, Style::default().fg(MUTED)),
+        Span::styled(&app.message, Style::default().fg(FG)),
     ]))
     .style(Style::default().bg(BG));
     frame.render_widget(status, chunks[2]);
