@@ -1,106 +1,106 @@
-//! Dashboard 页：项目列表，选中用背景色区分，打开项目用 ● 标记
+//! 首页 — 留白为主，居中状态卡 + 项目列表（Linear 风格）
 
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Alignment, Rect};
 use ratatui::style::{Modifier, Style, Stylize};
-use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{List, ListItem, ListState, Paragraph};
 use ratatui::Frame;
 
 use crate::app::{colors, App};
-use crate::icons;
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
-    // 内容区内边距 1 行
-    let padded = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Min(1)])
-        .split(area);
+    // 未打开项目：居中引导 + 项目列表
+    // 已打开项目：上方状态卡 + 下方项目列表
 
-    // 提示行
-    let hint = Paragraph::new(format!(
-        "  项目列表 ({})  j/k 导航  Enter 打开",
-        app.projects.len()
-    ))
-    .style(Style::default().fg(colors::MUTED));
-    frame.render_widget(hint, padded[0]);
+    let mut lines: Vec<Line> = Vec::new();
 
-    // 空状态
+    // 顶部留白
+    lines.push(Line::from(""));
+    lines.push(Line::from(""));
+
+    if app.project_name.is_some() {
+        // 已打开项目：状态卡
+        let name = app.project_name.as_deref().unwrap_or("");
+        lines.push(Line::from(vec![
+            Span::styled("  ", Style::default()),
+            Span::styled("● ", Style::default().fg(colors::GREEN)),
+            Span::styled(name, Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)),
+        ]));
+
+        if let Some(p) = app.projects.get(app.selected_project) {
+            lines.push(Line::from(Span::styled(
+                format!("  {}", p.path),
+                Style::default().fg(colors::DIM),
+            )));
+        }
+    } else {
+        // 未打开：暗淡标题 + 引导
+        lines.push(Line::from(vec![
+            Span::styled("  ", Style::default()),
+            Span::styled("Precis", Style::default().fg(colors::DIM).add_modifier(Modifier::BOLD)),
+            Span::styled("  本地数据校验工具", Style::default().fg(colors::DIM)),
+        ]));
+    }
+
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        format!("  项目 ({})  j/k 选择  Enter 打开", app.projects.len()),
+        Style::default().fg(colors::MUTED),
+    )));
+    lines.push(Line::from(""));
+
+    // 渲染状态区
+    let header = Paragraph::new(lines).style(Style::default().bg(colors::BG));
+    let header_height = 9;
+    frame.render_widget(header, Rect { x: area.x, y: area.y, width: area.width, height: header_height.min(area.height) });
+
+    // 项目列表区
+    let list_area = Rect {
+        x: area.x,
+        y: area.y + header_height,
+        width: area.width,
+        height: area.height.saturating_sub(header_height),
+    };
+
     if app.projects.is_empty() {
-        let empty = Paragraph::new(vec![
-            ratatui::text::Line::from(""),
-            ratatui::text::Line::from(""),
-            ratatui::text::Line::from(vec![
-                Span::raw("  "),
-                Span::styled(
-                    format!("{} ", icons::result::WARN),
-                    Style::default().fg(colors::YELLOW),
-                ),
-                Span::styled("未找到项目", Style::default().fg(colors::YELLOW).add_modifier(Modifier::BOLD)),
-            ]),
-            ratatui::text::Line::from(""),
-            ratatui::text::Line::from(Span::styled(
-                "  1. 后端未运行？请先执行 npm run backend:dev",
-                Style::default().fg(colors::FG),
-            )),
-            ratatui::text::Line::from(Span::styled(
-                "  2. 扫描目录下无 project.precis.yaml",
-                Style::default().fg(colors::FG),
-            )),
-        ])
-        .style(Style::default().bg(colors::BG));
-        frame.render_widget(empty, padded[1]);
+        let empty = Paragraph::new("\n\n  未找到项目\n\n  确保后端正在运行 (npm run backend:dev)\n  且扫描目录下有 project.precis.yaml")
+            .style(Style::default().fg(colors::DIM));
+        frame.render_widget(empty, list_area);
         return;
     }
 
     let current_path = app.api.project_path().unwrap_or("").to_string();
-
     let items: Vec<ListItem> = app
         .projects
         .iter()
         .map(|p| {
             let is_current = p.path == current_path;
-            let marker = if is_current { icons::status::CONNECTED } else { " " };
-            let marker_color = if is_current { colors::GREEN } else { colors::MUTED };
+            let marker_color = if is_current { colors::GREEN } else { colors::DIM };
             let name_style = if is_current {
-                Style::default().fg(colors::GREEN).add_modifier(Modifier::BOLD)
+                Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(colors::FG)
             };
-
             ListItem::new(vec![
-                ratatui::text::Line::from(vec![
-                    Span::raw(" "),
-                    Span::styled(format!("{} ", marker), Style::default().fg(marker_color)),
+                Line::from(vec![
+                    Span::styled(format!("  {} ", if is_current { "●" } else { " " }), Style::default().fg(marker_color)),
                     Span::styled(&p.name, name_style),
                     Span::styled(
-                            format!(
-                            "   {} Schema, {} 约束",
-                            p.schema_count.unwrap_or(0),
-                            p.constraint_count.unwrap_or(0)
-                        ),
-                        Style::default().fg(colors::MUTED),
+                        format!("   {} schema · {} 约束", p.schema_count.unwrap_or(0), p.constraint_count.unwrap_or(0)),
+                        Style::default().fg(colors::DIM),
                     ),
                 ]),
-                ratatui::text::Line::from(Span::styled(
-                    format!("   {}", p.path),
-                    Style::default().fg(colors::BORDER),
-                )),
+                Line::from(Span::styled(format!("    {}", p.path), Style::default().fg(colors::DIM))),
             ])
         })
         .collect();
 
     let list = List::new(items)
         .style(Style::default().bg(colors::BG))
-        .highlight_style(
-            Style::default()
-                .bg(colors::PANEL)
-                .fg(colors::PRIMARY)
-                .add_modifier(Modifier::BOLD),
-        )
-        .highlight_symbol(""); // 不用 ▸ 前缀（靠背景色区分选中）
+        .highlight_style(Style::default().bg(colors::PANEL))
+        .highlight_symbol("");
 
     let mut state = ListState::default();
     state.select(Some(app.selected_project));
-    frame.render_stateful_widget(list, padded[1], &mut state);
+    frame.render_stateful_widget(list, list_area, &mut state);
 }
-
-use ratatui::text::Span;

@@ -1,101 +1,58 @@
-//! 侧边栏导航 — SURFACE 底色（和标题/状态栏统一），icons 字符
+//! 侧边栏 — 极简纯文字导航（Linear 风格：无图标、无边框、留白）
 
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Borders, Paragraph};
+use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
 use crate::app::{colors, App, Tab};
-use crate::icons;
 
 pub fn render(frame: &mut Frame, app: &App, area: Rect) {
-    // 容器：SURFACE 底色（统一，不断层）+ 右分隔线
-    let block = Block::default()
-        .borders(Borders::RIGHT)
-        .border_style(Style::default().fg(colors::BORDER))
-        .style(Style::default().bg(colors::SURFACE));
-    frame.render_widget(block, area);
-
-    let inner_width = area.width.saturating_sub(2) as usize; // 减右边框 + padding
     let mut lines: Vec<Line> = Vec::new();
 
-    // Logo 区
-    lines.push(Line::from(vec![
-        Span::raw(" "),
-        Span::styled(format!("{} ", icons::LOGO), Style::default().fg(colors::PRIMARY)),
-        Span::styled("PRECIS", Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)),
-    ]));
-
-    // 动态宽度分隔线
-    lines.push(Line::from(Span::styled(
-        format!(" {}", icons::divider(inner_width)),
-        Style::default().fg(colors::BORDER),
-    )));
+    // 顶部留白
     lines.push(Line::from(""));
 
     // 导航项
     for (i, tab) in Tab::all().iter().enumerate() {
-        let is_active = *tab == app.current_tab;
-        let name_style = if is_active {
+        let active = *tab == app.current_tab;
+        let name_style = if active {
             Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(colors::MUTED)
         };
-        let icon_style = if is_active {
+        let num_style = if active {
             Style::default().fg(colors::PRIMARY)
         } else {
-            Style::default().fg(colors::MUTED)
+            Style::default().fg(colors::DIM)
         };
+        let bg = if active { colors::PANEL } else { colors::BG };
 
-        let prefix = if is_active {
-            Span::styled(format!(" {} ", icons::SELECTED), Style::default().fg(colors::PRIMARY))
-        } else {
-            Span::raw("   ")
-        };
+        lines.push(Line::from(vec![
+            Span::styled(format!(" {} ", i + 1), num_style),
+            Span::styled(format!(" {}", tab.label()), name_style),
+        ]).style(Style::default().bg(bg)));
 
-        let line = Line::from(vec![
-            prefix,
-            Span::styled(format!("{} ", tab.icon()), icon_style),
-            Span::styled(format!("{:<8}", tab.label()), name_style),
-            Span::styled(format!("{}", i + 1), Style::default().fg(colors::MUTED)),
-        ])
-        .style(if is_active {
-            Style::default().bg(colors::PANEL)
-        } else {
-            Style::default()
-        });
-
-        lines.push(line);
+        // 项之间留白
+        lines.push(Line::from(""));
     }
 
-    lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled(
-        format!(" {}", icons::divider(inner_width)),
-        Style::default().fg(colors::BORDER),
-    )));
+    // 底部留白 + 快捷键提示（极简）
+    let pad = area.height.saturating_sub(lines.len() as u16 + 4);
+    for _ in 0..pad {
+        lines.push(Line::from(""));
+    }
 
-    // 快捷键区
     lines.push(Line::from(vec![
-        Span::raw(" "),
-        Span::styled("快捷键", Style::default().fg(colors::MUTED).add_modifier(Modifier::BOLD)),
+        Span::styled(" q ", Style::default().fg(colors::DIM)),
+        Span::styled("退出", Style::default().fg(colors::DIM)),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(" v ", Style::default().fg(colors::DIM)),
+        Span::styled("校验", Style::default().fg(colors::DIM)),
     ]));
 
-    let keys = [
-        ("q", "退出"),
-        ("v", "校验"),
-        ("1-5", "切换页面"),
-        ("Tab", "下一页"),
-        ("F2", "动效开关"),
-    ];
-    for (k, desc) in keys {
-        lines.push(Line::from(vec![
-            Span::raw(" "),
-            Span::styled(format!(" {:>3} ", k), Style::default().fg(colors::PRIMARY)),
-            Span::styled(desc, Style::default().fg(colors::MUTED)),
-        ]));
-    }
-
-    let sidebar = Paragraph::new(lines).style(Style::default().bg(colors::SURFACE));
+    let sidebar = Paragraph::new(lines).style(Style::default().bg(colors::BG));
     frame.render_widget(sidebar, area);
 }

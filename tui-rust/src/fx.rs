@@ -69,16 +69,16 @@ impl Fx {
             return;
         }
 
-        // 星点密度：约 1/150 cell，最多 100 个
-        let target = ((w * h) / 150.0) as usize;
-        let target = target.min(100);
+        // 星点密度：稀疏（约 1/250 cell，最多 50 个），Linear 风格背景氛围
+        let target = ((w * h) / 250.0) as usize;
+        let target = target.min(50);
         while self.stars.len() < target {
             self.stars.push(Particle {
                 x: rand_val() * w,
                 y: rand_val() * h,
                 vx: 0.0,
                 vy: 0.1 + rand_val() * 0.2,
-                brightness: 0.15 + rand_val() * 0.5,
+                brightness: 0.08 + rand_val() * 0.3, // 更暗（Linear 风格：不抢眼）
                 twinkle_phase: rand_val() * std::f64::consts::TAU,
                 twinkle_speed: 0.8 + rand_val() * 2.5,
                 char: if rand_val() < 0.8 { '·' } else { '•' },
