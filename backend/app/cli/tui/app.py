@@ -308,6 +308,12 @@ class PrecisTUIApp(App):
 
         def _push_target() -> None:
             try:
+                # 单屏活跃模型：先 pop 所有非根屏（释放旧屏 timer/widget），
+                # 再 push 新屏。在遮罩黑场时执行，用户感知不到切换。
+                # 这样旧屏被 unmount，其 FocusGlow/入场动效 timer 随之停止，
+                # 避免切 N 次屏后 N 套 timer 泄漏。
+                while len(self.screen_stack) > 1:
+                    self.pop_screen()
                 self.push_screen(cls())
             except Exception as exc:  # noqa: BLE001
                 self.notify(f"打开屏「{name}」失败：{exc}", severity="error", timeout=8)
