@@ -117,11 +117,15 @@ async fn run_app(
 
         // 33fps：30ms 超时轮询事件，无事件时也重绘（动效需要）
         if event::poll(Duration::from_millis(33))? {
+            // 读取本轮所有挂起事件，只处理第一个（防止同一按键的
+            // Press+Release 重复触发导致连跳）
             let ev = event::read()?;
             if let Event::Key(key) = ev {
-                // 不过滤 key.kind — 某些 Windows 终端所有按键都报 Release，
-                // 过滤会导致完全无响应。直接处理所有按键事件。
                 handle_key(app, key.code).await;
+            }
+            // 排空队列里剩余的事件（丢弃，防积压）
+            while event::poll(Duration::from_millis(0)).unwrap_or(false) {
+                let _ = event::read();
             }
         }
 
