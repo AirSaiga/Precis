@@ -2,7 +2,7 @@
 
 验证 PrecisTUIApp 的基础行为：
 - 能在 Textual Pilot 测试模式下启动
-- compose() 渲染出 Header / Footer
+- compose() 渲染出 Header / StatusBar（Footer 已合并到 StatusBar）
 - 全局绑定（Ctrl+Q 退出）生效
 - protocols.py 的 SCREEN_REGISTRY / register_screen 正确工作
 """
@@ -21,17 +21,18 @@ if _project_root not in sys.path:
 
 from app.cli.tui.app import PrecisTUIApp  # noqa: E402
 from app.cli.tui.protocols import SCREEN_REGISTRY, register_screen  # noqa: E402
+from app.cli.tui.widgets.status_bar import StatusBar  # noqa: E402
 
 
 @pytest.mark.asyncio
-async def test_app_starts_and_renders_header_footer():
-    """应用在 Pilot 测试模式下应正常启动并渲染 Header 与 Footer。"""
+async def test_app_starts_and_renders_header_statusbar():
+    """应用在 Pilot 测试模式下应正常启动并渲染 Header 与 StatusBar。"""
     app = PrecisTUIApp()
     async with app.run_test() as pilot:
         await pilot.pause()
-        # Header / Footer 由 compose() 产出，应可查询到
+        # Header / StatusBar 由 compose() 产出，Footer 已合并到 StatusBar
         assert app.query_one("Header") is not None
-        assert app.query_one("Footer") is not None
+        assert app.query_one("#status-bar", StatusBar) is not None
 
 
 @pytest.mark.asyncio

@@ -14,7 +14,6 @@ from textual.screen import Screen
 from textual.widget import Widget
 from textual.widgets._tooltip import Tooltip
 
-from app.cli.tui.fx.animation import animate_opacity
 from app.cli.tui.fx.focus_glow import FocusGlow
 from app.cli.tui.widgets.sidebar import Sidebar
 from app.cli.tui.widgets.toast import AnimatedToastRack
@@ -63,7 +62,6 @@ class BaseScreen(Screen):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._focus_glow = FocusGlow(self)
-        self._entrance_tweens: list[Any] = []
 
     def compose(self) -> ComposeResult:
         """组装侧边栏 + 内容区；子类在 ``compose_content()`` 中填充内容。"""
@@ -86,14 +84,12 @@ class BaseScreen(Screen):
             self._run_entrance_animation()
 
     def on_unmount(self) -> None:
-        """卸载时清理焦点光晕与未完成入场动画。"""
+        """卸载时清理焦点光晕。
+
+        入场动效改用 Textual 原生 ``widget.animate``，由共享 Animator 统一
+        管理生命周期，widget 卸载时自动停止，无需在此手动清理 tween。
+        """
         self._focus_glow.stop()
-        for tween in self._entrance_tweens:
-            try:
-                tween.stop()
-            except Exception:  # noqa: BLE001
-                pass
-        self._entrance_tweens.clear()
 
     def on_screen_resume(self) -> None:
         """恢复时清除动态背景特效，避免非 Dashboard 屏出现星空/极光。"""
@@ -147,6 +143,14 @@ class BaseScreen(Screen):
 
         优先对 ``.entrance-item`` 元素做 stagger；若不存在，则对
         ``#content-area`` 的直接子元素做整体淡入。
+
+        使用 Textual 原生 ``widget.styles.animate("opacity", ...)``：共享 60fps
+        Animator 自动去重，widget 卸载时自动停止，无需手动持有 tween 引用。
+
+        注意：必须用 ``widget.styles.animate``（而非 ``widget.animate``），
+        因为 ``opacity`` 是 Styles 的 reactive 属性，而 ``widget.opacity`` 是
+        只读的聚合属性（无 setter），``widget.animate("opacity",...)`` 会抛
+        ``AttributeError: property 'opacity' of ... has no setter``。
         """
         try:
             content = self.query_one("#content-area", Vertical)
@@ -168,7 +172,5 @@ class BaseScreen(Screen):
             delay = max(0.01, idx * self.ENTRANCE_DELAY)
             self.set_timer(
                 delay,
-                lambda w=widget: self._entrance_tweens.append(
-                    animate_opacity(w, 0.0, 1.0, duration=self.ENTRANCE_DURATION)
-                ),
+                lambda w=widget: w.styles.animate("opacity", 1.0, duration=self.ENTRANCE_DURATION, easing="out_cubic"),
             )

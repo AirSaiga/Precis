@@ -112,6 +112,20 @@ class ParticleEffect(Effect, ABC):
             self.particles.append(particle)
 
 
+class BackgroundEffect(ParticleEffect, ABC):
+    """常驻背景特效基类。
+
+    背景特效由 ``EffectEngine.set_background`` 管理：设置新背景时
+    会自动清除旧的 ``BackgroundEffect``，保留一次性特效（如 Confetti）。
+    """
+
+    def __init__(self, name: str = "", max_particles: int = 100) -> None:
+        super().__init__(name=name, max_particles=max_particles)
+
+    def _should_continue(self) -> bool:
+        return True
+
+
 @dataclass
 class ColorPalette:
     """配色板。"""
@@ -126,11 +140,13 @@ class ColorPalette:
 # 每套主题对应的特效调色板（十六进制，无 # 前缀）。
 # 与 styles/themes/*.tcss 的强调色对齐，让 confetti/starfield 颜色随主题变化。
 _THEME_PALETTES: dict[str, list[str]] = {
-    "tokyo-night-mimo": ["7aa2f7", "9ece6a", "e0af68", "f7768e", "7dcfff", "bb9af7"],
     "tokyo-night": ["7aa2f7", "bb9af7", "9ece6a", "e0af68", "f7768e", "7dcfff"],
+    "tokyo-night-mimo": ["7aa2f7", "9ece6a", "e0af68", "f7768e", "7dcfff", "bb9af7"],
+    "opencode": ["007aff", "5ac8fa", "30d158", "ff9f0a", "ff3b30", "a1a1aa"],
     "catppuccin": ["cba6f7", "f5c2e7", "a6e3a1", "f9e2af", "f38ba8", "89dceb"],
     "nord": ["88c0d0", "b48ead", "a3be8c", "ebcb8b", "bf616a", "81a1c1"],
     "neon": ["ff79c6", "8be9fd", "bd93f9", "50fa7b", "f1fa8c", "ffb86c"],
+    "system": ["6b7280", "2563eb", "16a34a", "d97706", "dc2626", "9ca3af"],
     "default": ["79a6ff", "56db84", "f0a44a", "e05050", "cc7cdf", "49c8ff"],
 }
 
@@ -143,6 +159,6 @@ def set_theme_palette(theme: str) -> None:
     """切换特效调色板以匹配当前主题。
 
     Args:
-        theme: 主题名（未注册时回落到 tokyo-night）。
+        theme: 主题名（未注册时回落到 tokyo-night-mimo）。
     """
-    NEON_PALETTE.colors = list(_THEME_PALETTES.get(theme, _THEME_PALETTES["tokyo-night"]))
+    NEON_PALETTE.colors = list(_THEME_PALETTES.get(theme, _THEME_PALETTES["tokyo-night-mimo"]))

@@ -1,18 +1,30 @@
-/* Precis TUI 全局样式表（现代化版本）
+/* Precis TUI 全局样式表 v3 — MiMo 风格
  *
- * 目标：在 Textual design tokens 之上建立统一的现代终端界面风格：
- * - 清晰分区（card / panel / surface / boost 四层）
- * - 可见聚焦（tall/thick 主色边框）
- * - 紧凑但不拥挤的间距与内边距
- * - 统一按钮/输入/列表/表格/标签页样式
+ * 设计原则（对标 OpenCode / MiMo Code）：
+ * - 灰度分层：用三层微差背景（surface / panel / boost）分隔区域，不靠彩色边框。
+ * - 极淡边框：边框颜色仅比背景亮一档，几乎隐形；统一 solid 直角。
+ * - 单强调色：primary 仅用于焦点、高亮、标题；语义色只用于状态反馈。
+ * - 大量留白：用 margin / padding 分隔，而非 heavy border 或标题栏。
+ * - 低饱和：luminosity_spread 缩小，减少面板间色差。
  *
- * 各 Screen 可继续用 DEFAULT_CSS / CSS 覆盖局部细节，本文件仅提供基线。
+ * 主题 token 由 themes.py 通过 Theme.variables 注入并覆盖。
  */
+
+/* ── 默认 TUI token（会被 Theme.variables 覆盖）── */
+$tui-surface: #16161e;
+$tui-panel: #1a1b26;
+$tui-boost: #24283b;
+$tui-element: #1f2335;
+$tui-border: #2d3548;
+$tui-border-active: #414868;
+$tui-border-subtle: #1f2335;
+$tui-text-muted: #565f89;
+$tui-text-disabled: #414868;
 
 /* ── 基础层 ── */
 Screen {
-    background: $surface;
-    color: $text;
+    background: $tui-surface;
+    color: $foreground;
     layers: fx background foreground;
 }
 
@@ -24,132 +36,146 @@ Screen {
     background: transparent;
 }
 
-/* ── 顶部标题栏 ── */
+/* ── 顶部标题栏（极简 1 行）── */
 Header {
     dock: top;
     layer: background;
-    background: $primary-darken-1;
-    color: $text;
-    height: 3;
+    background: $tui-panel;
+    color: $foreground;
+    height: 1;
     padding: 0 2;
+    border-bottom: solid $tui-border-subtle;
 }
 Header > .header_title {
     text-style: bold;
+    color: $primary;
+    padding-right: 1;
 }
 Header > .header_subtitle {
-    color: $text-muted;
+    color: $tui-text-muted;
+    text-style: dim;
 }
 
 /* ── 底部状态栏 ── */
 StatusBar {
     dock: bottom;
     layer: background;
-    background: $panel;
-    color: $text;
+    background: $tui-panel;
+    color: $tui-text-muted;
     height: 1;
     padding: 0 1;
+    border-top: solid $tui-border-subtle;
+    text-style: bold;
 }
 
-/* ── 底部快捷键栏 ── */
-Footer {
-    dock: bottom;
-    layer: background;
-    background: $boost;
-    color: $text-muted;
-    height: 1;
-    padding: 0 1;
-}
-
-/* ── 通用工具类（各屏统一复用，随主题自动变色）── */
-/* card：带边框的信息卡片（Dashboard 概览、详情面板等） */
+/* ── 通用工具类 ── */
 .card {
-    border: round $panel;
-    background: $surface;
+    background: $tui-panel;
     padding: 1 2;
     margin: 1 0;
 }
-/* panel：功能屏的面板容器（统一各屏的分区边框） */
 .panel {
-    border: round $background;
-    background: $surface;
+    background: $tui-panel;
+    padding: 0 1;
+}
+/* MiMo 风格：panel-header 不再用彩色背景条，只保留加粗文字与底部淡线 */
+.panel-header {
+    color: $tui-text-muted;
+    text-style: bold;
+    padding: 0 1 1 1;
+    height: auto;
+    background: transparent;
+    border-bottom: solid $tui-border;
+    margin-bottom: 1;
+}
+.badge {
+    text-style: bold;
+    color: $tui-surface;
+    background: $accent;
     padding: 0 1;
 }
 .section-title {
     text-style: bold;
-    color: $accent;
-    margin-bottom: 1;
-}
-/* badge：行内标签（错误计数、状态标记） */
-.badge {
-    text-style: bold;
-    color: $surface;
-    background: $accent;
-    padding: 0 1;
+    color: $primary;
+    margin: 1 0;
 }
 .hint {
-    color: $text-muted;
+    color: $tui-text-muted;
 }
 .empty-state {
-    color: $text-muted;
+    color: $tui-text-muted;
     text-align: center;
     margin: 2 0;
 }
 .success { color: $success; }
 .warning { color: $warning; }
 .error { color: $error; }
-.muted { color: $text-muted; }
+.muted { color: $tui-text-muted; }
 
 /* ── 表单控件 ── */
 Button {
     margin: 0 1 0 0;
-    background: $primary;
-    color: $text;
+    background: $tui-boost;
+    color: $foreground;
     border: none;
+    offset: 0 0;
+    transition: background 100ms, offset 60ms, color 100ms;
 }
 Button:hover {
-    background: $primary-darken-2;
+    background: $tui-border-active;
 }
+/* MiMo：焦点态不用 thick 彩色边框，改用 tall 淡灰 */
 Button:focus {
-    border: tall $accent;
+    background: $tui-element;
+    border: tall $tui-border-active;
 }
 Button.-primary {
-    background: $accent;
+    background: $primary;
+    color: $tui-surface;
+}
+Button.-primary:hover {
+    background: $primary 80%;
 }
 Button.-success {
     background: $success;
+    color: $tui-surface;
 }
 Button.-warning {
     background: $warning;
-    color: $text;
+    color: $tui-surface;
 }
 Button.-error {
     background: $error;
-    color: $text;
+    color: $foreground;
 }
 Button:disabled {
-    background: $surface-darken-1;
-    color: $text-muted;
+    background: $tui-element;
+    color: $tui-text-disabled;
 }
 
 Input {
-    border: tall $background;
-    background: $surface;
+    border: solid $tui-border;
+    background: $tui-element;
     padding: 0 1;
+    transition: border-color 120ms, tint 120ms;
 }
 Input:focus {
-    border: tall $primary;
+    border: solid $tui-border-active;
+    tint: $primary 3%;
 }
 Input:disabled {
-    background: $surface-darken-1;
-    color: $text-muted;
+    background: $tui-element;
+    color: $tui-text-disabled;
 }
 
 Select {
-    border: tall $background;
-    background: $surface;
+    border: solid $tui-border;
+    background: $tui-element;
+    transition: border-color 120ms, tint 120ms;
 }
 Select:focus {
-    border: tall $primary;
+    border: solid $tui-border-active;
+    tint: $primary 3%;
 }
 
 Switch {
@@ -161,97 +187,486 @@ OptionList,
 ListView,
 DataTable,
 SelectionList {
-    border: round $background;
-    background: $surface;
+    border: solid $tui-border;
+    background: $tui-panel;
+    transition: border-color 120ms;
 }
 OptionList:focus,
 ListView:focus,
 DataTable:focus,
 SelectionList:focus {
-    border: thick $primary;
+    border: solid $tui-border-active;
 }
 
+OptionList > .option-list--option {
+    transition: background 100ms, color 100ms;
+}
 OptionList > .option-list--option-highlighted,
 ListView > .listview--item-highlighted,
 SelectionList > .selection-list--option-highlighted {
-    background: $primary 30%;
+    background: $primary 10%;
+    transition: background 100ms, color 100ms;
 }
 OptionList > .option-list--option-disabled,
 ListView > .listview--item-disabled,
 SelectionList > .selection-list--option-disabled {
-    color: $text-muted;
+    color: $tui-text-disabled;
 }
 
 DataTable > .datatable--header {
-    background: $primary 20%;
+    background: $tui-boost;
     text-style: bold;
+    color: $tui-text-muted;
 }
 DataTable > .datatable--odd-row {
-    background: $surface-darken-1;
+    background: $tui-element;
 }
 DataTable > .datatable--cursor {
-    background: $primary 40%;
+    background: $primary 15%;
+    transition: background 100ms;
 }
 DataTable > .datatable--hover {
-    background: $primary 20%;
+    background: $primary 5%;
+    transition: background 100ms;
 }
 
 /* ── 标签页 ── */
 TabbedContent {
-    border: round $background;
-    background: $surface;
+    border: solid $tui-border;
+    background: $tui-panel;
+    transition: border-color 120ms;
 }
 TabbedContent:focus {
-    border: thick $primary;
+    border: solid $tui-border-active;
 }
 Tabs {
-    background: $panel;
+    background: $tui-boost;
 }
 Tabs:focus {
-    border: tall $primary;
+    border: solid $tui-border-active;
 }
 Tab {
     padding: 0 2;
+    transition: background 100ms;
 }
 Tab:focus {
     text-style: bold;
+}
+Tab:hover {
+    background: $tui-panel;
 }
 
 /* ── 日志/编辑器/树 ── */
 RichLog,
 TextArea {
-    border: round $background;
-    background: $surface;
+    border: solid $tui-border;
+    background: $tui-panel;
     padding: 0 1;
+    transition: border-color 120ms, tint 120ms;
 }
 RichLog:focus,
 TextArea:focus {
-    border: thick $primary;
+    border: solid $tui-border-active;
+    tint: $primary 3%;
 }
 
 Tree {
-    border: round $background;
-    background: $surface;
+    border: solid $tui-border;
+    background: $tui-panel;
     padding: 0 1;
+    transition: border-color 120ms;
 }
 Tree:focus {
-    border: thick $primary;
+    border: solid $tui-border-active;
 }
 Tree > .tree--cursor {
-    background: $primary 40%;
+    background: $primary 15%;
+    transition: background 100ms;
 }
-
-/* ── 静态文本/标签 ── */
-Static {
-    color: $text;
-}
-Label {
-    color: $text;
+Tree > .tree--cursor:hover {
+    background: $primary 25%;
 }
 
 /* ── 滚动条 ── */
 Scrollbar {
-    scrollbar-color: $primary 40%;
-    scrollbar-color-active: $primary 80%;
-    scrollbar-color-hover: $primary 60%;
+    scrollbar-color: $primary 15%;
+    scrollbar-color-active: $primary 35%;
+    scrollbar-color-hover: $primary 25%;
 }
+
+/* ── 屏切换过渡遮罩 ── */
+#transition-overlay {
+    width: 100%;
+    height: 100%;
+    background: $surface;
+    color: $surface;
+    layer: foreground;
+    offset: 0 0;
+}
+
+/* ── Dashboard 首页看板 ── */
+DashboardScreen {
+    layout: vertical;
+    background: transparent;
+}
+#dashboard-root {
+    padding: 1 2;
+    layout: vertical;
+    background: transparent;
+}
+
+/* 顶部标题与状态横幅 */
+#dashboard-header {
+    height: auto;
+    min-height: 5;
+    margin-bottom: 2;
+    background: transparent;
+}
+#dashboard-title-block {
+    width: 1fr;
+    height: auto;
+}
+#dashboard-title {
+    text-style: bold;
+    color: $primary;
+    height: 1;
+}
+#dashboard-subtitle {
+    color: $tui-text-muted;
+    height: 1;
+}
+/* MiMo：状态横幅去掉彩色左边条，改用淡灰边框 */
+#status-banner {
+    width: 2fr;
+    height: auto;
+    min-height: 5;
+    background: $tui-panel;
+    border: solid $tui-border;
+    padding: 0 1;
+}
+#banner-content {
+    background: transparent;
+}
+
+/* 功能入口卡片网格 */
+#feature-cards {
+    height: auto;
+    min-height: 9;
+    margin-bottom: 2;
+    background: transparent;
+}
+.card-row {
+    height: auto;
+    background: transparent;
+}
+.dashboard-card {
+    width: 1fr;
+    height: 4;
+    background: $tui-panel;
+    border: solid $tui-border;
+    padding: 0 1;
+    margin: 0 1 1 0;
+    color: $foreground;
+    text-style: dim;
+    content-align: left top;
+    offset: 0 0;
+    transition: offset 80ms;
+}
+.dashboard-card:hover {
+    background: $tui-boost;
+    border: solid $tui-border-active;
+    text-style: none;
+    offset: 0 -1;
+}
+.dashboard-card:focus {
+    background: $tui-element;
+    border: solid $primary;
+    text-style: none;
+    tint: $primary 10%;
+}
+.dashboard-card:focus .-static-content {
+    color: $primary;
+}
+.card-scanline {
+    width: 100%;
+    height: 1;
+    color: $primary 50%;
+    display: none;
+    dock: bottom;
+}
+.dashboard-card:focus .card-scanline {
+    display: block;
+}
+.card-scanline.dim {
+    color: $primary 20%;
+}
+
+/* 底部双栏：最近项目 + 动态提示 */
+#dashboard-bottom {
+    height: 1fr;
+    background: transparent;
+}
+#recent-section {
+    width: 3fr;
+    height: 100%;
+    background: $tui-panel;
+    border: solid $tui-border;
+    padding: 0;
+    margin: 0 1 0 0;
+}
+#tips-section {
+    width: 2fr;
+    height: 100%;
+    background: $tui-panel;
+    border: solid $tui-border;
+    padding: 0;
+}
+#recent-projects {
+    width: 100%;
+    height: 1fr;
+    background: transparent;
+    border: none;
+    padding: 0;
+}
+#recent-projects > .option-list--option {
+    padding: 0 1;
+    margin: 0;
+    height: 2;
+    color: $foreground;
+}
+#recent-projects > .option-list--option-highlighted {
+    background: $primary 10%;
+    color: $primary;
+    text-style: bold;
+}
+#recent-projects > .option-list--option-disabled {
+    color: $tui-text-disabled;
+}
+#tips-text {
+    width: 100%;
+    height: 1fr;
+    padding: 0 1;
+    color: $tui-text-muted;
+}
+
+/* ── ValidationScreen ── */
+ValidationScreen {
+    layout: vertical;
+    padding: 0 1;
+    background: transparent;
+}
+#status-label {
+    height: auto;
+    min-height: 1;
+    margin-bottom: 1;
+    padding: 0 1;
+    color: $tui-text-muted;
+    text-style: bold;
+}
+#main-row { height: 1fr; }
+#source-panel, #result-panel, #detail-panel {
+    height: 100%;
+    padding: 0 1 0 0;
+}
+#source-panel { width: 1fr; }
+#result-panel { width: 2fr; }
+#detail-panel { width: 2fr; padding: 0; }
+#source-tree, #detail-log, #summary-log, #error-table {
+    height: 1fr;
+    border: solid $tui-border;
+    background: $tui-panel;
+    padding: 0 1;
+}
+#source-tree:focus, #detail-log:focus, #summary-log:focus, #error-table:focus {
+    border: solid $tui-border-active;
+}
+#progress-row {
+    height: auto;
+    margin-bottom: 1;
+    padding: 0 1;
+    background: $tui-panel;
+    border: solid $tui-border;
+}
+#progress-row.hidden { display: none; }
+#validate-progress { width: 1fr; height: 1; }
+#error-sparkline { width: 1fr; height: 1; min-width: 10; }
+#progress-status { height: 1; color: $tui-text-muted; margin-top: 0; }
+#summary-log { height: 40%; margin-bottom: 1; }
+#error-table { height: 60%; }
+#validate-btn { margin: 0 1 1 0; }
+
+/* ── ProviderScreen ── */
+ProviderScreen {
+    layout: vertical;
+    padding: 0 1;
+    background: transparent;
+}
+#provider-main { height: 1fr; margin-bottom: 1; }
+#provider-list {
+    width: 40%;
+    height: 100%;
+    border: solid $tui-border;
+    background: $tui-panel;
+    padding: 0;
+    margin-right: 1;
+}
+#provider-lv {
+    width: 100%;
+    height: 1fr;
+    background: transparent;
+    border: none;
+    padding: 0 1;
+}
+#provider-detail {
+    width: 60%;
+    height: 100%;
+    border: solid $tui-border;
+    background: $tui-panel;
+    padding: 1 2;
+}
+#provider-detail-label { color: $foreground; }
+#provider-actions {
+    height: auto;
+    dock: bottom;
+    padding: 1;
+}
+#provider-actions Button { margin-right: 1; }
+#provider-status {
+    height: 1;
+    dock: bottom;
+    background: $tui-panel;
+    color: $tui-text-muted;
+    padding: 0 1;
+}
+
+/* ── ConfigScreen ── */
+ConfigScreen {
+    padding: 0 1;
+    background: transparent;
+}
+ConfigScreen TabbedContent {
+    height: 1fr;
+    border: solid $tui-border;
+    background: $tui-panel;
+}
+ConfigScreen TabbedContent:focus { border: solid $tui-border-active; }
+ConfigScreen TabPane { padding: 1; }
+ConfigScreen Horizontal { height: auto; margin-bottom: 1; }
+ConfigScreen Input { margin-right: 1; }
+ConfigScreen RichLog,
+ConfigScreen DataTable,
+ConfigScreen Tree,
+ConfigScreen TextArea {
+    height: 1fr;
+    border: solid $tui-border;
+    background: $tui-panel;
+}
+ConfigScreen RichLog:focus,
+ConfigScreen DataTable:focus,
+ConfigScreen Tree:focus,
+ConfigScreen TextArea:focus {
+    border: solid $tui-border-active;
+}
+ConfigScreen #edit-area { height: 2fr; }
+
+/* ── ChatScreen ── */
+ChatScreen {
+    layout: vertical;
+    padding: 0 1;
+    background: transparent;
+}
+#chat-progress {
+    height: 1;
+    background: $tui-panel;
+    color: $tui-text-muted;
+    padding: 0 1;
+    text-style: bold;
+}
+#chat-main { height: 1fr; }
+#chat-log {
+    height: 2fr;
+    border: solid $tui-border;
+    background: $tui-panel;
+}
+#chat-tree-container {
+    border: solid $tui-border;
+    background: $tui-panel;
+    height: 1fr;
+    padding: 0;
+    margin-top: 1;
+}
+#chat-tool-tree { height: 1fr; }
+#chat-input {
+    dock: bottom;
+    height: 3;
+    margin: 1 0 0 0;
+    border: solid $tui-border;
+    background: $tui-element;
+}
+#chat-input:focus { border: solid $tui-border-active; }
+
+/* ── GenerateScreen / MigrateScreen ── */
+GenerateScreen, MigrateScreen {
+    layout: vertical;
+    padding: 0 1;
+    background: transparent;
+}
+GenerateScreen .title,
+MigrateScreen .title {
+    text-style: bold;
+    margin: 1 0;
+    color: $primary;
+}
+GenerateScreen #hint,
+MigrateScreen #hint {
+    color: $tui-text-muted;
+    margin-bottom: 1;
+}
+GenerateScreen #status,
+MigrateScreen #status {
+    background: $tui-panel;
+    padding: 0 1;
+    color: $tui-text-muted;
+}
+GenerateScreen RichLog,
+MigrateScreen RichLog {
+    border: solid $tui-border;
+    background: $tui-panel;
+    padding: 0 1;
+}
+GenerateScreen Horizontal,
+MigrateScreen Horizontal { height: auto; margin-bottom: 0; }
+GenerateScreen Horizontal.form-row,
+MigrateScreen Horizontal.form-row {
+    height: auto;
+    margin-bottom: 1;
+}
+GenerateScreen Horizontal.form-row Label,
+MigrateScreen Horizontal.form-row Label {
+    width: 16;
+    margin-right: 1;
+    text-align: right;
+    color: $tui-text-muted;
+}
+GenerateScreen Horizontal.form-row Input,
+MigrateScreen Horizontal.form-row Input { width: 1fr; }
+GenerateScreen SelectionList,
+MigrateScreen SelectionList {
+    height: auto;
+    max-height: 12;
+    border: solid $tui-border;
+    background: $tui-panel;
+    margin-bottom: 1;
+}
+GenerateScreen SelectionList:focus,
+MigrateScreen SelectionList:focus { border: solid $tui-border-active; }
+GenerateScreen TabbedContent,
+MigrateScreen TabbedContent {
+    height: 1fr;
+    border: solid $tui-border;
+    background: $tui-panel;
+}
+GenerateScreen TabbedContent:focus,
+MigrateScreen TabbedContent:focus { border: solid $tui-border-active; }
+GenerateScreen TabPane,
+MigrateScreen TabPane { padding: 1; }

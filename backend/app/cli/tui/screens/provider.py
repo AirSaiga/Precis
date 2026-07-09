@@ -19,7 +19,6 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, ListItem, ListView, Select
 
-from app.cli.tui.fx.animation import animate_opacity
 from app.cli.tui.protocols import register_screen
 from app.cli.tui.screens.base import BaseScreen
 from app.cli.tui.services.provider_service import ProviderService
@@ -109,8 +108,9 @@ class ProviderScreen(BaseScreen):
     def _run_entrance_animation(self) -> None:
         """列表与详情面板错开淡入。
 
-        tween 存入 ``self._entrance_tweens`` 以便卸载时清理；delay 最小 0.01，
-        避免 ``set_timer(0, ...)`` 触发 ZeroDivisionError。
+        使用 Textual 原生 ``widget.styles.animate("opacity", ...)``：共享 Animator
+        自动管理生命周期，无需手动持有 tween 引用。delay 最小 0.01，避免
+        ``set_timer(0, ...)`` 触发 ZeroDivisionError。
         """
         widgets = [self.query_one("#provider-list"), self.query_one("#provider-detail")]
         for idx, widget in enumerate(widgets):
@@ -118,7 +118,7 @@ class ProviderScreen(BaseScreen):
             delay = max(0.01, idx * 0.06)
             self.set_timer(
                 delay,
-                lambda w=widget: self._entrance_tweens.append(animate_opacity(w, 0.0, 1.0, duration=0.2)),
+                lambda w=widget: w.styles.animate("opacity", 1.0, duration=0.2, easing="out_cubic"),
             )
 
     # ── 数据刷新 ───────────────────────────────────────────────────
@@ -257,17 +257,17 @@ class ProviderScreen(BaseScreen):
         self._set_status(f"测试中: {provider.name} ...")
         test_btn = self.query_one("#btn-test", Button)
         test_btn.disabled = True
-        # 测试期间给详情面板加淡绿呼吸边框
+        # 测试期间给详情面板降到半透明（视觉表示"忙"）
         detail = self.query_one("#provider-detail")
-        pulse = animate_opacity(detail, 1.0, 0.7, duration=0.6)
+        detail.styles.animate("opacity", 0.7, duration=0.6, easing="in_out_sine")
 
         async def _do_test() -> dict[str, Any]:
             return await self._service.test_connection(provider.id)
 
         def _on_done(result: dict[str, Any]) -> None:
             test_btn.disabled = False
-            pulse.stop()
-            animate_opacity(detail, 0.7, 1.0, duration=0.2)
+            # 恢复完全不透明
+            detail.styles.animate("opacity", 1.0, duration=0.2, easing="out_cubic")
             if result.get("status") == "ok":
                 latency = result.get("latency_ms")
                 self._set_status(f"[{provider.name}] 连接正常 ({latency}ms)")

@@ -1,8 +1,8 @@
-# backend/app/cli/tui/widgets/status_bar.py
-"""@fileoverview TUI 底部状态栏组件（P6）
+"""@fileoverview TUI 底部状态栏组件（P6 / v2）
 
 功能概述:
-- 单行底部状态栏，展示「当前项目名 + 当前 Provider」两项关键全局状态。
+- 单行底部状态栏，展示「当前项目名 + 当前屏 + 当前 Provider + 常用快捷键」。
+- 原 Footer（快捷键栏）已合并到本组件，释放一行纵向空间。
 - 项目名取自 ``app.project_path``（经 ``project_ops.resolve_project_label`` 解析显示名）；
   Provider 取自 ``get_cli_config().get_active_provider()``。
 - 通过 ``refresh_state()`` 在项目切换、屏切换或定时刷新时被 App 调用，更新文案。
@@ -13,10 +13,6 @@
   本组件不含任何复制规则。
 - 读取 Provider 时做防御性兜底：配置加载失败、无 Provider 等情况下显示占位文案，
   绝不抛异常到上层（状态栏崩溃会挡住整个 UI）。
-
-复用（只读 import）:
-- ``project_ops.resolve_project_label`` — 解析项目显示名
-- ``get_cli_config`` — 读取当前活动 Provider
 """
 
 from __future__ import annotations
@@ -34,22 +30,25 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# 状态栏右侧展示的常用全局快捷键提示
+_SHORTCUT_HINT = "[dim]Ctrl+P[/dim] 面板 · [dim]F2[/dim] 主题 · [dim]F3[/dim] 背景 · [dim]Ctrl+Q[/dim] 退出"
+
+# 分段之间的低对比度分隔符
+_SEGMENT_SEPARATOR = "[dim]│[/dim]"
+
 
 class StatusBar(Static):
     """底部状态栏。
 
-    展示当前打开的项目名（绿点=已打开 / 黄圈=未打开）与当前活动 Provider。
-    调用 ``refresh_state(app)`` 刷新；App 在 ``push_screen`` / 项目切换后应调用。
+    展示当前打开的项目名（绿点=已打开 / 黄圈=未打开）、当前屏、活动 Provider
+    以及常用全局快捷键。调用 ``refresh_state(app)`` 刷新；App 在 ``push_screen`` /
+    项目变化后应调用。
     """
 
     DEFAULT_CSS = """
     StatusBar {
         dock: bottom;
         height: 1;
-        background: $panel;
-        color: $text;
-        padding: 0 1;
-        text-style: none;
     }
     """
 
@@ -59,7 +58,12 @@ class StatusBar(Static):
         首次渲染前若未被 refresh 过，展示占位文案。``refresh_state`` 会改写
         ``Static`` 的内容（通过 ``update``），无需重写 render。
         """
-        return "○ 未打开项目  |  -  |  Provider: -"
+        return (
+            f"[yellow]○[/yellow] 未打开项目  {_SEGMENT_SEPARATOR}  "
+            f"-  {_SEGMENT_SEPARATOR}  "
+            f"Provider: -  {_SEGMENT_SEPARATOR}  "
+            f"{_SHORTCUT_HINT}"
+        )
 
     def refresh_state(self, project_state: ProjectState | Any) -> None:
         """根据当前项目状态刷新状态栏文案。
@@ -71,7 +75,12 @@ class StatusBar(Static):
         project_part = self._render_project_part(project_state)
         screen_part = self._render_screen_part(project_state)
         provider_part = self._render_provider_part()
-        self.update(f"{project_part}  |  {screen_part}  |  {provider_part}")
+        self.update(
+            f"{project_part}  {_SEGMENT_SEPARATOR}  "
+            f"{screen_part}  {_SEGMENT_SEPARATOR}  "
+            f"{provider_part}  {_SEGMENT_SEPARATOR}  "
+            f"{_SHORTCUT_HINT}"
+        )
 
     def _render_project_part(self, project_state: ProjectState | Any) -> str:
         """渲染项目部分文案。
@@ -81,20 +90,20 @@ class StatusBar(Static):
         """
         path = getattr(project_state, "project_path", None)
         if not path:
-            return "○ 未打开项目"
+            return "[yellow]○[/yellow] 未打开项目"
         try:
             label = project_ops.resolve_project_label(path)
         except Exception:  # noqa: BLE001 - 状态栏兜底，不抛
             label = os.path.basename(path) or path
-        return f"● {label}"
+        return f"[green]●[/green] [bold]{label}[/bold]"
 
     def _render_screen_part(self, project_state: ProjectState | Any) -> str:
         """渲染当前屏名，增强位置感知。"""
         screen = getattr(project_state, "screen", None)
         if screen is None:
-            return "-"
+            return "[dim]-[/dim]"
         name = type(screen).__name__.replace("Screen", "")
-        return name if name else "-"
+        return f"[dim]{name}[/dim]" if name else "[dim]-[/dim]"
 
     def _render_provider_part(self) -> str:
         """渲染 Provider 部分文案。
@@ -107,10 +116,10 @@ class StatusBar(Static):
 
             provider = get_cli_config().get_active_provider()
         except Exception:  # noqa: BLE001 - 状态栏兜底，不抛
-            return "Provider: [配置加载失败]"
+            return "[dim]Provider:[/dim] [warning]配置加载失败[/warning]"
         if provider is None:
-            return "Provider: 未配置"
-        return f"Provider: {provider.name}/{provider.model}"
+            return "[dim]Provider:[/dim] [warning]未配置[/warning]"
+        return f"[dim]Provider:[/dim] [bold]{provider.name}[/bold]/{provider.model}"
 
 
 __all__ = ["StatusBar"]

@@ -28,7 +28,7 @@ if _project_root not in sys.path:
 from app.cli.shared_services import project_ops  # noqa: E402
 from app.cli.tui.app import PrecisTUIApp  # noqa: E402
 from app.cli.tui.protocols import SCREEN_REGISTRY  # noqa: E402
-from app.cli.tui.screens.dashboard import DashboardScreen  # noqa: E402
+from app.cli.tui.screens.dashboard import DashboardCard, DashboardScreen  # noqa: E402
 from app.cli.tui.widgets.command_palette import CommandPalette  # noqa: E402
 from app.cli.tui.widgets.status_bar import StatusBar  # noqa: E402
 
@@ -39,6 +39,12 @@ def isolated_history(tmp_path, monkeypatch):
     history_file = tmp_path / ".precis_project_history"
     monkeypatch.setattr(project_ops, "HISTORY_FILE", str(history_file))
     return history_file
+
+
+@pytest.fixture(autouse=True)
+def disable_screen_transition(monkeypatch):
+    """在 P6 集成测试中禁用屏切换过渡，避免 200ms 淡入淡出延迟导致断言失败。"""
+    monkeypatch.setattr(PrecisTUIApp, "_transition_duration", 0.0, raising=False)
 
 
 async def skip_splash(pilot) -> None:
@@ -97,15 +103,15 @@ async def test_app_starts_on_dashboard(isolated_history):
 
 @pytest.mark.asyncio
 async def test_dashboard_renders_quick_entries_and_history(isolated_history):
-    """Dashboard 应渲染功能入口列表与最近项目列表（即使历史为空也显示占位）。"""
+    """Dashboard 应渲染功能入口卡片网格与最近项目列表（即使历史为空也显示占位）。"""
     app = PrecisTUIApp()
     async with app.run_test() as pilot:
         await skip_splash(pilot)
         dashboard = app.screen
         assert isinstance(dashboard, DashboardScreen)
-        # 功能入口列表应有 _QUICK_ENTRIES 数量的选项（6 个）
-        entries = dashboard.query_one("#quick-entries")
-        assert entries.option_count == 6
+        # 功能入口卡片应有 _QUICK_ENTRIES 数量（6 个）
+        cards = list(dashboard.query(DashboardCard))
+        assert len(cards) == 6
         # 最近项目列表：历史为空时应有 1 个占位选项
         history_list = dashboard.query_one("#recent-projects")
         assert history_list.option_count == 1
@@ -210,24 +216,17 @@ async def test_quit_binding_requests_exit(isolated_history):
 
 @pytest.mark.asyncio
 async def test_dashboard_quick_entry_navigation(isolated_history):
-    """Dashboard 选中功能入口应跳转到对应屏（经 GotoScreen 消息）。"""
+    """Dashboard 选中功能入口卡片应跳转到对应屏（经 GotoScreen 消息）。"""
     from app.cli.tui.screens.provider import ProviderScreen
 
     app = PrecisTUIApp()
     async with app.run_test() as pilot:
         await skip_splash(pilot)
         dashboard = app.screen
-        # 选中 provider 入口（id="provider"）并回车
-        entries = dashboard.query_one("#quick-entries")
-        provider_idx = None
-        for i in range(entries.option_count):
-            if entries.get_option_at_index(i).id == "provider":
-                provider_idx = i
-                break
-        assert provider_idx is not None
-        # 高亮目标项并聚焦后回车
-        entries.highlighted = provider_idx
-        entries.focus()
+        # provider 卡片索引为 1
+        cards = list(dashboard.query(DashboardCard))
+        provider_card = cards[1]
+        provider_card.focus()
         await pilot.pause()
         await pilot.press("enter")
         await pilot.pause()

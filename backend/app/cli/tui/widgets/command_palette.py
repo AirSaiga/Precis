@@ -22,6 +22,7 @@ from __future__ import annotations
 from textual import on
 from textual.app import ComposeResult
 from textual.containers import Vertical
+from textual.geometry import Offset
 from textual.screen import ModalScreen
 from textual.widgets import Input, Label, OptionList
 from textual.widgets.option_list import Option
@@ -58,6 +59,17 @@ class CommandPalette(ModalScreen[str | None]):
         border: thick $primary;
         background: $surface;
         padding: 1 2;
+        opacity: 0;
+        offset: 0 -2;
+        transition: opacity 120ms, offset 120ms;
+    }
+    #palette-box.open {
+        opacity: 1;
+        offset: 0 0;
+    }
+    #palette-box.closing {
+        opacity: 0;
+        offset: 0 -1;
     }
     #palette-title {
         text-style: bold;
@@ -83,6 +95,8 @@ class CommandPalette(ModalScreen[str | None]):
         super().__init__()
         # 保存完整屏列表，用于搜索过滤时恢复。
         self._all_options: list[tuple[str, str]] = []
+        self._dismissing = False
+        self._pending_result: str | None = None
 
     def compose(self) -> ComposeResult:
         """组装命令面板：标题 + 搜索框 + 选项列表 + 操作提示。"""
@@ -95,13 +109,44 @@ class CommandPalette(ModalScreen[str | None]):
         )
 
     def on_mount(self) -> None:
-        """挂载时从 SCREEN_REGISTRY 填充选项列表并记录完整列表。"""
+        """挂载时从 SCREEN_REGISTRY 填充选项列表并记录完整列表，然后播放入场动效。"""
         option_list = self.query_one("#palette-list", OptionList)
         self._all_options = [(name, _SCREEN_DESCRIPTIONS.get(name, name)) for name in sorted(SCREEN_REGISTRY)]
         for name, desc in self._all_options:
             option_list.add_option(Option(desc, id=name))
         # 默认聚焦搜索框
         self.query_one("#palette-search", Input).focus()
+        self._play_enter_animation()
+
+    def _play_enter_animation(self) -> None:
+        """从上方淡入并回正的入场动效。"""
+        box = self.query_one("#palette-box", Vertical)
+        box.styles.opacity = 0.0
+        box.styles.offset = Offset(0, -2)
+
+        def _open() -> None:
+            box.add_class("open")
+
+        self.set_timer(0.02, _open)
+
+    def dismiss(self, result: str | None = None) -> None:
+        """覆盖 dismiss：先播放退场动效，再真正关闭模态屏。"""
+        if self._dismissing:
+            super().dismiss(result)
+            return
+        self._dismissing = True
+        self._pending_result = result
+        self._play_exit_animation()
+        self.set_timer(0.15, self._do_real_dismiss)
+
+    def _do_real_dismiss(self) -> None:
+        """退场动效完成后真正 dismiss。"""
+        super().dismiss(self._pending_result)
+
+    def _play_exit_animation(self) -> None:
+        """向上淡出退场。"""
+        box = self.query_one("#palette-box", Vertical)
+        box.add_class("closing")
 
     @on(Input.Changed, "#palette-search")
     def _on_search_changed(self, event: Input.Changed) -> None:

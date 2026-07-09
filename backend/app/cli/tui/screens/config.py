@@ -42,7 +42,6 @@ from textual.widgets import (
 )
 from textual.widgets.tree import TreeNode
 
-from app.cli.tui.fx.animation import animate_opacity
 from app.cli.tui.protocols import register_screen
 from app.cli.tui.screens.base import BaseScreen
 from app.cli.tui.services.config_service import ConfigService, InspectionResult
@@ -217,10 +216,14 @@ class ConfigScreen(BaseScreen):
         tabs.active = "tab-list"
 
     def _run_entrance_animation(self) -> None:
-        """TabbedContent 淡入。tween 存入 ``self._entrance_tweens`` 以便卸载时清理。"""
+        """TabbedContent 淡入。
+
+        使用 Textual 原生 ``widget.styles.animate("opacity", ...)``：共享 Animator
+        自动管理生命周期，无需手动持有 tween 引用。
+        """
         tabs = self.query_one("#config-tabs", TabbedContent)
         tabs.styles.opacity = 0.0
-        self._entrance_tweens.append(animate_opacity(tabs, 0.0, 1.0, duration=0.25))
+        tabs.styles.animate("opacity", 1.0, duration=0.25, easing="out_cubic")
 
     # ------------------------------------------------------------------
     # 事件处理

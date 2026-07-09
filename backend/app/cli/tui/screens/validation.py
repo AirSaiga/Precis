@@ -38,7 +38,6 @@ from textual.widgets import (
 )
 
 from app.cli.shared_services import project_ops
-from app.cli.tui.fx.animation import animate_opacity, animate_tint, pulse_border_color
 from app.cli.tui.protocols import register_screen
 from app.cli.tui.screens.base import BaseScreen
 from app.cli.tui.services.validation_service import ValidationResult, ValidationService
@@ -89,8 +88,8 @@ class ValidationScreen(BaseScreen):
         self._current_errors: list[dict[str, Any]] = []
         # DataTable 表名过滤：None 表示全部；选中左栏某表后置为其表名。
         self._table_filter: str | None = None
-        # 结果面板加载态呼吸动画对象，需在结果呈现后停止
-        self._result_pulse: Any = None
+        # 结果面板加载态高亮（校验期间切换到 active 边框，结束时恢复）
+        self._result_pulsing: bool = False
 
     # ---- 项目状态访问（优先用 App 的，回退到屏内临时态）----
 
@@ -156,8 +155,9 @@ class ValidationScreen(BaseScreen):
     def _run_entrance_animation(self) -> None:
         """三栏面板错开淡入。
 
-        tween 存入 ``self._entrance_tweens`` 以便卸载时清理；delay 最小 0.01，
-        避免 ``set_timer(0, ...)`` 触发 ZeroDivisionError。
+        使用 Textual 原生 ``widget.styles.animate("opacity", ...)``：共享 Animator
+        自动管理生命周期，无需手动持有 tween 引用。delay 最小 0.01，避免
+        ``set_timer(0, ...)`` 触发 ZeroDivisionError。
         """
         panels = [
             self.query_one("#source-panel"),
@@ -169,7 +169,7 @@ class ValidationScreen(BaseScreen):
             delay = max(0.01, idx * 0.06)
             self.set_timer(
                 delay,
-                lambda w=panel: self._entrance_tweens.append(animate_opacity(w, 0.0, 1.0, duration=0.2)),
+                lambda w=panel: w.styles.animate("opacity", 1.0, duration=0.2, easing="out_cubic"),
             )
 
     # ---- 事件处理 ----
@@ -261,21 +261,25 @@ class ValidationScreen(BaseScreen):
         self.app.call_from_thread(self._finish_progress, result.has_errors, False)
 
     def _start_result_pulse(self) -> None:
-        """校验期间给结果面板加边框呼吸动效。"""
+        """校验期间给结果面板加边框高亮（静态 active 边框）。
+
+        原 pulse_border_color 用 10fps 定时器循环改边框色；现改用静态
+        active 边框——零 timer、零泄漏，视觉等效（持续高亮表示加载中）。
+        """
         panel = self.query_one("#result-panel")
-        self._result_pulse = pulse_border_color(
-            panel, "$tui-border-active", "$primary", border_style="solid", duration=1.2
-        )
+        try:
+            panel.styles.border = ("solid", "$tui-border-active")
+            self._result_pulsing = True
+        except Exception:  # noqa: BLE001 - widget 可能已失效
+            pass
 
     def _stop_result_pulse(self) -> None:
-        """停止结果面板呼吸并恢复边框。"""
-        if self._result_pulse is not None:
-            self._result_pulse.stop()
-            self._result_pulse = None
+        """恢复结果面板边框。"""
         try:
             self.query_one("#result-panel").styles.border = ("solid", "$tui-border")
         except Exception:  # noqa: BLE001
             pass
+        self._result_pulsing = False
 
     # ---- 进度区更新（UI 线程，由 worker 的 call_from_thread 调用）----
 
@@ -354,10 +358,11 @@ class ValidationScreen(BaseScreen):
     def _flash_result_panels(self) -> None:
         """结果呈现时给左/中/右三栏加轻微高光闪烁。
 
-        用 ``tint``（而非 opacity）做闪烁，避免与入场动效对同一面板的
-        ``opacity`` 动画相互覆盖造成闪烁。tint 颜色用具体 hex（``Color.parse``
-        不接受主题变量 ``$primary``），起止均为极低强度的同色，制造短暂高光。
-        tween 存入 ``self._entrance_tweens`` 以便卸载时统一清理。
+        原用 ``animate_tint``（自建 tween），但 Textual 原生
+        ``widget.styles.animate("tint", ...)`` 不支持设计变量且 tint 属性不可动画，
+        故改用原生 ``opacity`` 闪烁：先把面板降到半透明，再用 ease_out 渐回
+        完全不透明，制造「新结果到达」的短暂高光反馈。原生 animate 由共享
+        Animator 自动管理生命周期，无需手动持有 tween 引用。
         """
         panels = [
             self.query_one("#source-panel"),
@@ -369,15 +374,12 @@ class ValidationScreen(BaseScreen):
             delay = max(0.01, idx * 0.05)
             self.set_timer(
                 delay,
-                lambda w=panel: self._entrance_tweens.append(
-                    animate_tint(
-                        w,
-                        "#5eaaff 18%",
-                        "#5eaaff 0%",
-                        duration=0.18,
-                    )
-                ),
+                lambda w=panel: _flash_one(w),
             )
+
+        def _flash_one(w: Any) -> None:
+            w.styles.opacity = 0.7
+            w.styles.animate("opacity", 1.0, duration=0.18, easing="out_cubic")
 
     def _render_summary(self, result: ValidationResult) -> None:
         """渲染校验摘要到 RichLog。

@@ -344,7 +344,7 @@ async def test_detail_panel_empty_state_before_select(qa_simple_copy, isolated_h
 
         # 挂载后空态
         detail_text = _richlog_text(screen.query_one("#detail-log"))
-        assert "选中错误行查看详情" in detail_text
+        assert "暂无选中错误" in detail_text
 
 
 # ── 校验实时渲染（V2-3c）：worker 不阻塞 + 进度区实时更新 ────────────────────

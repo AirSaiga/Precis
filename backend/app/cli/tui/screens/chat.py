@@ -46,7 +46,6 @@ from textual.screen import ModalScreen
 from textual.widgets import Button, Input, Label, RichLog, Static, Tree
 from textual.widgets.tree import TreeNode
 
-from app.cli.tui.fx.animation import animate_opacity, animate_tint
 from app.cli.tui.protocols import register_screen
 from app.cli.tui.screens.base import BaseScreen
 from app.cli.tui.services.ai_service import (
@@ -400,8 +399,9 @@ class ChatScreen(BaseScreen):
     def _run_entrance_animation(self) -> None:
         """顶部进度条、主区、输入框错开淡入。
 
-        tween 存入 ``self._entrance_tweens`` 以便卸载时清理；delay 最小 0.01，
-        避免 ``set_timer(0, ...)`` 触发 ZeroDivisionError。
+        使用 Textual 原生 ``widget.styles.animate("opacity", ...)``：共享 Animator
+        自动管理生命周期，无需手动持有 tween 引用。delay 最小 0.01，避免
+        ``set_timer(0, ...)`` 触发 ZeroDivisionError。
         """
         widgets = [
             self.query_one("#chat-progress"),
@@ -413,7 +413,7 @@ class ChatScreen(BaseScreen):
             delay = max(0.01, idx * 0.06)
             self.set_timer(
                 delay,
-                lambda w=widget: self._entrance_tweens.append(animate_opacity(w, 0.0, 1.0, duration=0.2)),
+                lambda w=widget: w.styles.animate("opacity", 1.0, duration=0.2, easing="out_cubic"),
             )
 
     # ------------------------------------------------------------------ #
@@ -603,20 +603,17 @@ class ChatScreen(BaseScreen):
         tree.expand_all()
         # 工具树渲染后整体淡入，提示用户新轨迹已更新
         container.styles.opacity = 0.6
-        animate_opacity(container, 0.6, 1.0, duration=0.25)
+        container.styles.animate("opacity", 1.0, duration=0.25, easing="out_cubic")
 
     def _write_log(self, text: str) -> None:
         """写入消息流 RichLog，并给日志区加轻微高亮闪烁。"""
         log = self.query_one("#chat-log", RichLog)
         log.write(text)
-        # 新消息写入时给日志区短暂淡蓝 tint，制造"新内容到达"的反馈
-        animate_tint(
-            log,
-            "$primary 0%",
-            "$primary 12%",
-            duration=0.15,
-            on_complete=lambda: setattr(log.styles, "tint", "$primary 0%"),
-        )
+        # 新消息写入时给日志区短暂高亮闪烁（原生 opacity 动画），制造"新内容到达"反馈。
+        # 原 animate_tint 因 Textual 原生不支持 tint 动画且 $primary 设计变量不可被
+        # Color.parse 解析，故改用 opacity 闪烁实现等效视觉反馈。
+        log.styles.opacity = 0.85
+        log.styles.animate("opacity", 1.0, duration=0.15, easing="out_cubic")
 
     def _set_progress(self, text: str) -> None:
         """更新顶部进度状态条文本。"""

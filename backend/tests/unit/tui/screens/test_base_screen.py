@@ -8,7 +8,6 @@ import pytest
 from textual.app import App, ComposeResult
 from textual.widgets import Static
 
-from app.cli.tui.screens import base as base_screen_module
 from app.cli.tui.screens.base import BaseScreen
 from app.cli.tui.widgets.sidebar import Sidebar
 
@@ -83,18 +82,27 @@ class _EntranceApp(App):
 
 @pytest.mark.asyncio
 async def test_base_screen_entrance_stagger(monkeypatch) -> None:
-    """入场动效应按 ENTRANCE_DELAY 错开调用 animate_opacity。"""
+    """入场动效应按 ENTRANCE_DELAY 错开调用原生 widget.styles.animate。
+
+    架构重构 #2 后改用 Textual 原生 ``widget.styles.animate("opacity", ...)``
+    （opacity 是 Styles 的 reactive，必须经 styles.animate；widget.opacity 是
+    只读聚合属性，widget.animate 会抛 AttributeError），故此处 monkeypatch
+    ``RenderStyles.animate`` 捕获调用，验证 stagger 错开与参数。
+    ``widget.styles`` 实际类型是 ``RenderStyles``（``Styles`` 子类）。
+    """
+    from textual.css.styles import RenderStyles
+
     animate_calls: list[tuple[Any, ...]] = []
     timer_delays: list[float] = []
 
-    def _fake_animate_opacity(widget: Any, start: float, end: float, **kwargs: Any) -> None:
-        animate_calls.append((widget, start, end, kwargs.get("duration")))
+    def _fake_animate(self: Any, attribute: str, value: Any, **kwargs: Any) -> None:
+        animate_calls.append((self, attribute, value, kwargs.get("duration")))
 
     def _fake_set_timer(self: Any, delay: float, callback: Any) -> None:
         timer_delays.append(delay)
         callback()
 
-    monkeypatch.setattr(base_screen_module, "animate_opacity", _fake_animate_opacity)
+    monkeypatch.setattr(RenderStyles, "animate", _fake_animate)
     monkeypatch.setattr(BaseScreen, "set_timer", _fake_set_timer)
 
     app = _EntranceApp()
@@ -108,10 +116,11 @@ async def test_base_screen_entrance_stagger(monkeypatch) -> None:
         # idx=0 的 delay 经 max(0.01, 0.0) 兜底为 0.01，避免 set_timer(0,...)
         # 触发 ZeroDivisionError；其余按 ENTRANCE_DELAY 错开。
         assert timer_delays == pytest.approx([0.01, 0.05, 0.1])
-        for idx, (widget, start, end, duration) in enumerate(animate_calls):
-            assert widget is items[idx]
-            assert start == 0.0
-            assert end == 1.0
+        for idx, (styles_obj, attribute, value, duration) in enumerate(animate_calls):
+            # styles_obj 是各 item 的 styles；其 .node 指回所属 widget
+            assert styles_obj.node is items[idx]
+            assert attribute == "opacity"
+            assert value == 1.0
             assert duration == screen.ENTRANCE_DURATION
 
 

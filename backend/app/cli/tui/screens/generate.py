@@ -49,7 +49,6 @@ from textual.widgets import (
 )
 from textual.widgets.selection_list import Selection
 
-from app.cli.tui.fx.animation import animate_opacity, animate_tint
 from app.cli.tui.protocols import register_screen
 from app.cli.tui.screens.base import BaseScreen
 from app.cli.tui.services.generation_service import GenerationService
@@ -266,16 +265,13 @@ class _GenerationScreenBase(BaseScreen):
         except Exception:
             logger.debug("regex 预览区未就绪")
 
-        # 渲染完成后给预览区加轻微高亮闪烁，提示结果已更新
+        # 渲染完成后给预览区加轻微高亮闪烁，提示结果已更新。
+        # 原 animate_tint 因 Textual 原生不支持 tint 动画且 $primary 设计变量
+        # 不可被 Color.parse 解析，故改用 opacity 闪烁实现等效视觉反馈。
         try:
             tabs = self.query_one("#preview-tabs", TabbedContent)
-            animate_tint(
-                tabs,
-                "$primary 0%",
-                "$primary 15%",
-                duration=0.2,
-                on_complete=lambda: setattr(tabs.styles, "tint", "$primary 0%"),
-            )
+            tabs.styles.opacity = 0.85
+            tabs.styles.animate("opacity", 1.0, duration=0.2, easing="out_cubic")
         except Exception:
             logger.debug("预览区未就绪，跳过高亮")
 
@@ -403,8 +399,9 @@ class GenerateScreen(_GenerationScreenBase):
     def _run_entrance_animation(self) -> None:
         """参数区与预览区错开淡入。
 
-        tween 存入 ``self._entrance_tweens`` 以便卸载时清理；delay 最小 0.01，
-        避免 ``set_timer(0, ...)`` 触发 ZeroDivisionError。
+        使用 Textual 原生 ``widget.styles.animate("opacity", ...)``：共享 Animator
+        自动管理生命周期，无需手动持有 tween 引用。delay 最小 0.01，避免
+        ``set_timer(0, ...)`` 触发 ZeroDivisionError。
         """
         widgets = [
             self.query_one("#generate-body"),
@@ -415,7 +412,7 @@ class GenerateScreen(_GenerationScreenBase):
             delay = max(0.01, idx * 0.08)
             self.set_timer(
                 delay,
-                lambda w=widget: self._entrance_tweens.append(animate_opacity(w, 0.0, 1.0, duration=0.25)),
+                lambda w=widget: w.styles.animate("opacity", 1.0, duration=0.25, easing="out_cubic"),
             )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -605,8 +602,9 @@ class MigrateScreen(_GenerationScreenBase):
     def _run_entrance_animation(self) -> None:
         """参数区与预览区错开淡入。
 
-        tween 存入 ``self._entrance_tweens`` 以便卸载时清理；delay 最小 0.01，
-        避免 ``set_timer(0, ...)`` 触发 ZeroDivisionError。
+        使用 Textual 原生 ``widget.styles.animate("opacity", ...)``：共享 Animator
+        自动管理生命周期，无需手动持有 tween 引用。delay 最小 0.01，避免
+        ``set_timer(0, ...)`` 触发 ZeroDivisionError。
         """
         widgets = [
             self.query_one("#generate-body"),
@@ -617,7 +615,7 @@ class MigrateScreen(_GenerationScreenBase):
             delay = max(0.01, idx * 0.08)
             self.set_timer(
                 delay,
-                lambda w=widget: self._entrance_tweens.append(animate_opacity(w, 0.0, 1.0, duration=0.25)),
+                lambda w=widget: w.styles.animate("opacity", 1.0, duration=0.25, easing="out_cubic"),
             )
 
     def on_button_pressed(self, event: Button.Pressed) -> None:

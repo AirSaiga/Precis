@@ -19,7 +19,6 @@ from __future__ import annotations
 
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
-from typing import TYPE_CHECKING, Any
 
 from textual import on
 from textual.app import ComposeResult
@@ -31,13 +30,8 @@ from textual.widgets import Label, OptionList, Static
 from textual.widgets.option_list import Option
 
 from app.cli.shared_services import project_ops
-from app.cli.tui.fx.animation import animate_tint
 from app.cli.tui.protocols import register_screen
 from app.cli.tui.screens.base import BaseScreen
-
-if TYPE_CHECKING:
-    pass
-
 
 # 版本号：优先从包元数据读取，失败则回退硬编码 v0.1.0。
 try:
@@ -88,9 +82,7 @@ class DashboardCard(Static):
 
     can_focus = True
 
-    # 点击脉冲颜色（从半透明白到透明主题色）
-    PULSE_LOW = "$primary 0%"
-    PULSE_HIGH = "$primary 35%"
+    # 点击高亮脉冲时长（原生 opacity 动画用）
     PULSE_DURATION = 0.25
 
     def __init__(self, entry: tuple[str, str, str, str, str], index: int, **kwargs) -> None:
@@ -104,7 +96,6 @@ class DashboardCard(Static):
         self.entry_name = name
         self.entry_index = index
         self._scanline_timer: Timer | None = None
-        self._pulse_tween: Any | None = None
 
     def compose(self) -> ComposeResult:
         """在原有 Static 内容之上叠加一条扫描线。"""
@@ -183,32 +174,26 @@ class DashboardCard(Static):
         scanline.toggle_class("dim")
 
     def _pulse_click(self) -> None:
-        """点击时给卡片一个短暂 tint 脉冲。"""
-        if self._pulse_tween is not None:
-            try:
-                self._pulse_tween.stop()
-            except Exception:  # noqa: BLE001
-                pass
+        """点击时给卡片一个短暂高亮脉冲（原生 opacity 动画）。
+
+        原用 ``animate_tint``（自建 tween + $primary 设计变量），但 Textual 原生
+        ``widget.styles.animate("tint", ...)`` 不支持设计变量且 tint 属性不可动画，
+        故改用原生 ``opacity`` 脉冲：先把卡片提到全不透明（点击反馈），再渐回
+        默认值。原生 animate 由共享 Animator 自动管理生命周期，无需持有 tween。
+        """
         try:
-            self.styles.tint = self.PULSE_HIGH
-            self._pulse_tween = animate_tint(
-                self,
-                self.PULSE_HIGH,
-                self.PULSE_LOW,
-                duration=self.PULSE_DURATION,
-            )
+            self.styles.opacity = 0.7
+            self.styles.animate("opacity", 1.0, duration=self.PULSE_DURATION, easing="out_cubic")
         except Exception:  # noqa: BLE001 - widget 可能已失效
-            self._pulse_tween = None
+            pass
 
     def on_unmount(self) -> None:
-        """卸载时清理定时器与动画。"""
+        """卸载时清理扫描线定时器。
+
+        点击脉冲改用 Textual 原生 ``widget.styles.animate``，由共享 Animator 统一
+        管理生命周期，widget 卸载时自动停止，无需在此手动清理 tween。
+        """
         self._stop_scanline()
-        if self._pulse_tween is not None:
-            try:
-                self._pulse_tween.stop()
-            except Exception:  # noqa: BLE001
-                pass
-            self._pulse_tween = None
 
 
 @register_screen("dashboard")
