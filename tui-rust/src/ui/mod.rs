@@ -11,16 +11,17 @@ use ratatui::widgets::{Block, Borders, Paragraph};
 use ratatui::Frame;
 
 use crate::app::{colors, App};
+use crate::icons;
 
 /// 统一渲染入口（每帧调用）
 pub fn render(frame: &mut Frame, app: &mut App) {
     let area = frame.area();
-    app.tick(); // 帧计数 +1（动效用）
+    app.tick();
 
-    // 整体背景填充
+    // 整体背景
     frame.render_widget(Block::default().style(Style::default().bg(colors::BG)), area);
 
-    // 布局：顶部标题栏 + 中间（侧边栏 | 内容区）+ 底部状态栏
+    // 布局：标题栏(1) + 内容区(min) + 状态栏(1)
     let main = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Length(1), Constraint::Min(1), Constraint::Length(1)])
@@ -28,87 +29,93 @@ pub fn render(frame: &mut Frame, app: &mut App) {
 
     render_title_bar(frame, app, main[0]);
 
-    // 中间区域：侧边栏 + 内容
+    // 内容区：侧边栏 + 主内容
     let body = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(20), Constraint::Min(1)])
+        .constraints([Constraint::Length(22), Constraint::Min(1)])
         .split(main[1]);
 
     sidebar::render(frame, app, body[0]);
 
-    // 内容区按当前 tab 渲染
-    let content_area = Rect {
-        x: body[1].x,
-        y: body[1].y,
-        width: body[1].width,
-        height: body[1].height,
-    };
     match app.current_tab {
-        crate::app::Tab::Dashboard => dashboard::render(frame, app, content_area),
-        crate::app::Tab::Validation => validation::render(frame, app, content_area),
-        _ => render_placeholder(frame, app, content_area),
+        crate::app::Tab::Dashboard => dashboard::render(frame, app, body[1]),
+        crate::app::Tab::Validation => validation::render(frame, app, body[1]),
+        _ => render_placeholder(frame, app, body[1]),
     }
 
     render_status_bar(frame, app, main[2]);
 
-    // 动效层：星光+流星（渲染到 buffer 背景，只覆盖空白 cell）
+    // 动效层：渲染到 buffer，只覆盖空白 cell（内容之后画）
     if app.fx_enabled {
         app.fx.update(area);
-        // 用 frame.buffer_mut() 直接写 cell（ratatui immediate-mode 的威力）
         let buf = frame.buffer_mut();
         app.fx.render(buf, area);
     }
 }
 
-/// 顶部标题栏
+/// 顶部标题栏（单行，SURFACE 背景，底部分隔线）
 fn render_title_bar(frame: &mut Frame, app: &App, area: Rect) {
     let title = Paragraph::new(Line::from(vec![
-        Span::styled("◈ PRECIS ", Style::default().fg(colors::PRIMARY).add_modifier(Modifier::BOLD)),
-        Span::styled("v0.1.0", Style::default().fg(colors::MUTED)),
-        Span::raw("  "),
-        Span::styled("·  ", Style::default().fg(colors::BORDER)),
+        Span::raw(" "),
         Span::styled(
-            app.current_tab.label(),
-            Style::default().fg(colors::ACCENT),
+            format!("{} ", icons::LOGO),
+            Style::default().fg(colors::PRIMARY),
+        ),
+        Span::styled("PRECIS", Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)),
+        Span::styled(" v0.1.0  ", Style::default().fg(colors::MUTED)),
+        Span::styled(
+            icons::divider(area.width as usize - 4),
+            Style::default().fg(colors::BORDER),
         ),
     ]))
     .style(Style::default().bg(colors::SURFACE));
     frame.render_widget(title, area);
 
-    // 标题栏底部分隔线
-    let divider = Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(colors::BORDER));
-    frame.render_widget(divider, area);
+    // 底部分隔线
+    let line = Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(colors::BORDER));
+    frame.render_widget(line, area);
 }
 
-/// 底部状态栏
+/// 底部状态栏（单行，SURFACE 背景）
 fn render_status_bar(frame: &mut Frame, app: &App, area: Rect) {
-    let project_indicator = if app.project_name.is_some() {
-        (colors::GREEN, "●")
+    let project_icon = if app.project_name.is_some() {
+        icons::status::CONNECTED
     } else {
-        (colors::YELLOW, "○")
+        icons::status::DISCONNECTED
+    };
+    let project_color = if app.project_name.is_some() {
+        colors::GREEN
+    } else {
+        colors::MUTED
     };
 
     let status = Paragraph::new(Line::from(vec![
-        Span::styled(format!("{} ", project_indicator.1), Style::default().fg(project_indicator.0)),
+        Span::raw(" "),
+        Span::styled(project_icon, Style::default().fg(project_color)),
+        Span::raw(" "),
         Span::styled(
-            app.project_name.clone().unwrap_or_else(|| "未打开项目".to_string()),
+            app.project_name.clone().unwrap_or_else(|| "未打开".to_string()),
             Style::default().fg(colors::FG),
         ),
-        Span::raw("  "),
-        Span::styled("│  ", Style::default().fg(colors::BORDER)),
+        Span::styled("  ", Style::default()),
+        Span::styled("│", Style::default().fg(colors::BORDER)),
+        Span::styled("  ", Style::default()),
+        Span::styled(app.current_tab.label(), Style::default().fg(colors::ACCENT)),
+        Span::styled("  ", Style::default()),
+        Span::styled("│", Style::default().fg(colors::BORDER)),
+        Span::styled("  ", Style::default()),
         Span::styled(&app.message, Style::default().fg(colors::MUTED)),
     ]))
     .style(Style::default().bg(colors::SURFACE));
     frame.render_widget(status, area);
 }
 
-/// 未实现的页面占位
+/// 未实现页面占位
 fn render_placeholder(frame: &mut Frame, app: &App, area: Rect) {
     let p = Paragraph::new(format!(
-        "『{}』 页面开发中...\n\n按 1-5 / Tab 切换页面",
+        "\n\n  {} 页面开发中\n\n  按 1-5 / Tab 切换页面",
         app.current_tab.label()
     ))
-    .style(Style::default().fg(colors::MUTED))
-    .alignment(ratatui::layout::Alignment::Center);
+    .style(Style::default().fg(colors::MUTED));
     frame.render_widget(p, area);
 }

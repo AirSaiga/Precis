@@ -14,6 +14,16 @@ pub struct ApiClient {
     project_path: Option<String>,
 }
 
+impl Clone for ApiClient {
+    fn clone(&self) -> Self {
+        Self {
+            base_url: self.base_url.clone(),
+            http: self.http.clone(),
+            project_path: self.project_path.clone(),
+        }
+    }
+}
+
 impl ApiClient {
     /// 创建客户端，base_url 如 "http://127.0.0.1:18000"
     pub fn new(base_url: &str) -> Self {
@@ -89,6 +99,19 @@ impl ApiClient {
         if body.success {
             self.set_project(path);
         }
+        Ok(body)
+    }
+
+    /// 打开项目（静态版本，不修改 self，供 spawn 异步调用）
+    pub async fn open_project_static(&self, path: &str) -> Result<OpenProjectResponse> {
+        let resp = self
+            .post("/api/latest/projects/open")
+            .json(&OpenProjectRequest {
+                path: path.to_string(),
+            })
+            .send()
+            .await?;
+        let body: OpenProjectResponse = resp.json().await.context("解析打开项目响应")?;
         Ok(body)
     }
 

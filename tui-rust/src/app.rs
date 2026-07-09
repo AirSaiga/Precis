@@ -31,29 +31,26 @@ pub enum Tab {
 }
 
 impl Tab {
-    /// 侧边栏显示名
     pub fn label(&self) -> &'static str {
         match self {
             Tab::Dashboard => "Dashboard",
-            Tab::Validation => "校验",
+            Tab::Validation => "Validation",
             Tab::Provider => "Provider",
-            Tab::Config => "配置",
-            Tab::Chat => "AI 对话",
+            Tab::Config => "Config",
+            Tab::Chat => "AI Chat",
         }
     }
 
-    /// 侧边栏图标（Unicode，不用 emoji）
     pub fn icon(&self) -> &'static str {
         match self {
-            Tab::Dashboard => "◈",
-            Tab::Validation => "▸",
-            Tab::Provider => "⚙",
-            Tab::Config => "▷",
-            Tab::Chat => "✦",
+            Tab::Dashboard => crate::icons::tab::DASHBOARD,
+            Tab::Validation => crate::icons::tab::VALIDATION,
+            Tab::Provider => crate::icons::tab::PROVIDER,
+            Tab::Config => crate::icons::tab::CONFIG,
+            Tab::Chat => crate::icons::tab::CHAT,
         }
     }
 
-    /// 数字快捷键（1-5）
     pub fn from_index(i: usize) -> Option<Tab> {
         match i {
             0 => Some(Tab::Dashboard),
@@ -75,7 +72,6 @@ impl Tab {
         }
     }
 
-    /// 全部 tab（侧边栏顺序）
     pub fn all() -> [Tab; 5] {
         [Tab::Dashboard, Tab::Validation, Tab::Provider, Tab::Config, Tab::Chat]
     }
@@ -89,28 +85,23 @@ pub enum ValidationState {
     Failed(String),
 }
 
-/// 应用全局状态（immediate-mode：每帧直接读写，无 widget 树）
+/// 应用全局状态
 pub struct App {
     pub api: crate::api::ApiClient,
     pub current_tab: Tab,
-    /// 扫描到的项目列表
     pub projects: Vec<ProjectInfo>,
-    /// 项目列表选中索引
     pub selected_project: usize,
-    /// 当前打开的项目名
     pub project_name: Option<String>,
-    /// 校验状态
     pub validation: ValidationState,
-    /// 底部状态栏消息
     pub message: String,
-    /// 是否应该退出
     pub should_quit: bool,
-    /// 用于动效的帧计数（每帧 +1）
     pub frame_count: u64,
-    /// 动效开关
     pub fx_enabled: bool,
-    /// 动效系统（星光+流星）
     pub fx: crate::fx::Fx,
+    /// 错误表格滚动索引
+    pub error_cursor: usize,
+    /// 是否正在打开项目（异步标记）
+    pub opening_project: bool,
 }
 
 impl App {
@@ -122,11 +113,13 @@ impl App {
             selected_project: 0,
             project_name: None,
             validation: ValidationState::Idle,
-            message: "Precis TUI (Rust) · q 退出 · Tab/数字键切换页面".to_string(),
+            message: "q 退出  Tab/1-5 切换页面".to_string(),
             should_quit: false,
             frame_count: 0,
             fx_enabled: true,
             fx: crate::fx::Fx::new(),
+            error_cursor: 0,
+            opening_project: false,
         }
     }
 
