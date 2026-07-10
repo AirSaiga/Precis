@@ -150,19 +150,6 @@
   margin-top: 2px;
 }
 
-.type-stats {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-left: auto;
-  font-size: var(--node-muted-size);
-  color: var(--node-muted-color);
-}
-
-.stat-item {
-  white-space: nowrap;
-}
-
 .config-toolbar {
   height: 40px;
   padding: 0 12px;

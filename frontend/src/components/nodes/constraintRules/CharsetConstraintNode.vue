@@ -249,6 +249,8 @@
     () => props.data.charsetMode,
     (next) => {
       localCharsetMode.value = next || 'ascii'
+      // Bug 3.1 修复：charsetMode 变更后触发重新校验（原仅同步本地 ref，配置变更无反馈）
+      if (hasSource.value) scheduleValidation()
     }
   )
 </script>

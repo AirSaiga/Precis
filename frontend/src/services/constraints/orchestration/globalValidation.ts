@@ -19,6 +19,7 @@ import {
   validateConstraintNode,
   getConstraintMetaByKind,
   syncColumnErrorsForSourceRef,
+  resetDownstreamValidationStatus,
   type ValidationSummary,
 } from '@/services/constraints/validationRegistry'
 import type { ConstraintKind } from '@/services/constraints/types'
@@ -48,6 +49,8 @@ export async function validateAllConstraints(
   const sourceInfo = getSchemaNodeSourceInfo(schemaNodeId, nodes, edges)
   if (!sourceInfo || !(sourceInfo.sourceFilePath || sourceInfo.localPath)) {
     logger.debug('ℹ️ SchemaNode 未连接数据源，跳过校验')
+    // 防御性重置：清除残留的校验状态，避免幽灵校验结果（Bug 2.2）
+    resetDownstreamValidationStatus(schemaNodeId, nodes, edges, updateNodeData)
     return { totalConstraints: 0, validConstraints: 0, invalidConstraints: 0, totalErrors: 0 }
   }
 
@@ -106,6 +109,8 @@ export async function dispatchValidation(
 
   if (!sourceInfo || !(sourceInfo.sourceFilePath || sourceInfo.localPath)) {
     logger.debug(`ℹ️ SchemaNode ${schemaNodeId} 未连接数据源，跳过 ${constraintType} 校验`)
+    // 防御性重置：清除残留的校验状态，避免幽灵校验结果（Bug 2.2）
+    resetDownstreamValidationStatus(schemaNodeId, nodes, edges, updateNodeData)
     return
   }
 

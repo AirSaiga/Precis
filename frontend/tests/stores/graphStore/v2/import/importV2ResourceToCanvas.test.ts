@@ -40,8 +40,11 @@ vi.mock('@/core/toast', () => ({
   toastSuccess: vi.fn(),
 }))
 
+// 注意：createI18n 需保留——regexValidationHandler → @/i18n 链路会调用它实例化 i18n。
+// 此处提供最小桩函数避免触发真实实例化。
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({ t: (key: string) => key }),
+  createI18n: () => ({ global: { t: (key: string) => key } }),
 }))
 
 // useGlobalConfirm 是外部 UI 边界（弹窗），单测中直接 mock。

@@ -9,6 +9,9 @@
  * 2. 分析冲突类型（ID 重复 / 配置差异 / 文件已存在）
  * 3. 必要时弹出确认对话框
  * 4. 返回确定的 saveMode 和文件路径
+ *
+ * 注意：当前弹窗仅提供“覆盖/取消”，不再提供“合并”按钮。
+ * 后端 merge 能力及相关代码暂时保留，但前端交互中暂不启用。
  */
 
 import { logger } from '@/core/utils/logger'
@@ -106,40 +109,42 @@ export class SchemaConflictResolver {
           saveMode = 'overwrite'
         } else if (info.has_conflict) {
           // 配置有差异
-          const result = await this.getResolvedShowConfirm()({
+          // TODO: 合并（merge）模式暂时不在弹窗中提供，仅保留覆盖/取消
+          const confirmed = await this.getResolvedShowConfirm()({
             title: this.t('common.confirmDialog.schemaConflict.configDiffTitle'),
             message: this.t('common.confirmDialog.schemaConflict.configDiffMessage', {
               filePath: info.file_path,
               diff: info.conflict_fields.join(', '),
             }),
             confirmText: this.t('common.confirmDialog.schemaConflict.overwrite'),
-            alternativeText: this.t('common.confirmDialog.schemaConflict.merge'),
             cancelText: this.t('common.cancel'),
             type: 'warning',
             allowHtml: true,
           })
 
-          if (result === true) saveMode = 'overwrite'
-          else if (result === 'alternative') saveMode = 'merge'
-          else return { saveMode: 'create', filePath: '', cancelled: true, conflictInfo }
+          if (!confirmed) {
+            return { saveMode: 'create', filePath: '', cancelled: true, conflictInfo }
+          }
+          saveMode = 'overwrite'
         } else {
           // 文件已存在但无冲突
-          const result = await this.getResolvedShowConfirm()({
+          // TODO: 合并（merge）模式暂时不在弹窗中提供，仅保留覆盖/取消
+          const confirmed = await this.getResolvedShowConfirm()({
             title: this.t('common.confirmDialog.schemaConflict.existsTitle'),
             message: this.t('common.confirmDialog.schemaConflict.existsMessage', {
               filePath: info.file_path,
               tableName,
             }),
             confirmText: this.t('common.confirmDialog.schemaConflict.overwrite'),
-            alternativeText: this.t('common.confirmDialog.schemaConflict.merge'),
             cancelText: this.t('common.cancel'),
             type: 'warning',
             allowHtml: true,
           })
 
-          if (result === true) saveMode = 'overwrite'
-          else if (result === 'alternative') saveMode = 'merge'
-          else return { saveMode: 'create', filePath: '', cancelled: true, conflictInfo }
+          if (!confirmed) {
+            return { saveMode: 'create', filePath: '', cancelled: true, conflictInfo }
+          }
+          saveMode = 'overwrite'
         }
       } else {
         saveMode = 'create'
@@ -156,27 +161,26 @@ export class SchemaConflictResolver {
   /**
    * 处理保存时的 409 冲突错误
    *
-   * 当后端返回 409 时，提示用户选择覆盖或合并
+   * 当后端返回 409 时，提示用户选择覆盖或取消。
+   * TODO: 合并（merge）模式暂时不在弹窗中提供，后端能力保留但前端暂不启用。
    */
   async handle409Conflict(
     filePath: string,
     tableName: string
   ): Promise<SchemaSaveMode | 'cancelled'> {
-    const result = await this.getResolvedShowConfirm()({
+    const confirmed = await this.getResolvedShowConfirm()({
       title: this.t('common.confirmDialog.schemaConflict.existsTitle'),
       message: this.t('common.confirmDialog.schemaConflict.existsMessage', {
         filePath,
         tableName,
       }),
       confirmText: this.t('common.confirmDialog.schemaConflict.overwrite'),
-      alternativeText: this.t('common.confirmDialog.schemaConflict.merge'),
       cancelText: this.t('common.cancel'),
       type: 'warning',
       allowHtml: true,
     })
 
-    if (result === true) return 'overwrite'
-    if (result === 'alternative') return 'merge'
+    if (confirmed) return 'overwrite'
     return 'cancelled'
   }
 }

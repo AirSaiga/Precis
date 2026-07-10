@@ -115,13 +115,14 @@ const common = {
 
       configDiffTitle: 'Schema 文件已存在',
       configDiffMessage:
-        'Schema 文件已存在且配置有差异：<br/><span class="highlight-path">{filePath}</span>差异字段：<span class="highlight-info">{diff}</span><br/><br/>请选择保存模式：<ul><li><b>完全覆盖</b>：用当前 Schema 配置完全替换原有文件</li><li><b>合并</b>：在原有配置基础上追加新列、修改已有列</li></ul>注意：合并会保留原有约束配置。',
+        'Schema 文件已存在且配置有差异：<br/><span class="highlight-path">{filePath}</span>差异字段：<span class="highlight-info">{diff}</span><br/><br/>选择<b>完全覆盖</b>将用当前 Schema 配置完全替换原有文件，选择<b>取消</b>将中止保存。',
 
       existsTitle: 'Schema 文件已存在',
       existsMessage:
-        'Schema 文件已存在：<span class="highlight-path">{filePath}</span>表名: <span class="highlight-info">{tableName}</span><br/>选择<b>完全覆盖</b>将用当前配置替换，选择<b>合并</b>将在原有配置基础上更新。',
+        'Schema 文件已存在：<span class="highlight-path">{filePath}</span>表名: <span class="highlight-info">{tableName}</span><br/>选择<b>完全覆盖</b>将用当前配置替换，选择<b>取消</b>将中止保存。',
 
       overwrite: '完全覆盖',
+      // TODO: 合并模式暂时不在弹窗中提供，保留翻译 key 供后续恢复
       merge: '合并',
     },
   },

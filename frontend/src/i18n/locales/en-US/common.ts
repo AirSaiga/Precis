@@ -117,13 +117,14 @@ const common = {
 
       configDiffTitle: 'Schema File Exists',
       configDiffMessage:
-        'Schema file already exists with configuration differences:<br/><span class="highlight-path">{filePath}</span>Differences: <span class="highlight-info">{diff}</span><br/><br/>Please select save mode:<ul><li><b>Overwrite</b>: Completely replace the original file with current Schema configuration</li><li><b>Merge</b>: Append new columns and modify existing columns based on original configuration</li></ul>Note: Merge will preserve original constraint configurations.',
+        'Schema file already exists with configuration differences:<br/><span class="highlight-path">{filePath}</span>Differences: <span class="highlight-info">{diff}</span><br/><br/>Select <b>Overwrite</b> to completely replace the original file with current Schema configuration, or <b>Cancel</b> to abort.',
 
       existsTitle: 'Schema File Exists',
       existsMessage:
-        'Schema file already exists:<span class="highlight-path">{filePath}</span>Table Name: <span class="highlight-info">{tableName}</span><br/>Select <b>Overwrite</b> to replace with current configuration, or <b>Merge</b> to update existing file.',
+        'Schema file already exists:<span class="highlight-path">{filePath}</span>Table Name: <span class="highlight-info">{tableName}</span><br/>Select <b>Overwrite</b> to replace with current configuration, or <b>Cancel</b> to abort.',
 
       overwrite: 'Overwrite',
+      // TODO: merge mode is temporarily not offered in the dialog; key retained for future re-enablement
       merge: 'Merge',
     },
   },

@@ -19,7 +19,13 @@ import {
   connectionRules,
   connectionModes,
 } from './constraints'
-import { regexCreationModal, regexDesignModal, expression, expressions } from './regex'
+import {
+  regexCreationModal,
+  regexDesignModal,
+  expression,
+  expressions,
+  regexValidation,
+} from './regex'
 import { assetLibraryExtended } from './assetLibrary'
 import { welcome, messages, startupLoading } from './messages'
 import { settings } from './settings'
@@ -51,6 +57,7 @@ const zhCN = {
   regexDesignModal,
   expression,
   expressions,
+  regexValidation,
   assetLibraryExtended,
   welcome,
   messages,

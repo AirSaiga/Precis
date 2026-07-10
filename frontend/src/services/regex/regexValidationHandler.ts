@@ -13,6 +13,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { i18n } from '@/i18n'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, SchemaNodeData, SourcePreviewNodeData, SchemaColumn } from '@/types/graph'
 import type { DataType } from '@/types/common'
@@ -28,6 +29,7 @@ import {
 } from '@/features/regex/composables/regexExtractUtils'
 import { findEdge } from '@/services/canvas/vueFlowApi'
 import { buildValidationContext } from '@/services/constraints/validationContext'
+import { extractJsonTargetValues } from '@/utils/nodes/json/columnFinder'
 export interface RegexValidationResult {
   validationStatus: 'pass' | 'error' | 'idle'
   errorCount: number | undefined
@@ -110,35 +112,48 @@ export async function validateRegexNode(params: {
 
   if (!schemaData.sourceNodeId) return null
 
+  // Bug 4.4 修复：同时支持 sourcePreview 与 jsonSourcePreview 数据源
   const sourcePreviewNode = nodes.find(
-    (n) => n.id === schemaData.sourceNodeId && n.type === 'sourcePreview'
+    (n) =>
+      n.id === schemaData.sourceNodeId &&
+      (n.type === 'sourcePreview' || n.type === 'jsonSourcePreview')
   )
   if (!sourcePreviewNode) return null
 
-  const sourceData = sourcePreviewNode.data as SourcePreviewNodeData
-  const tableData: unknown[][] = Array.isArray(
-    (sourceData as unknown as Record<string, unknown>).data
-  )
-    ? ((sourceData as unknown as Record<string, unknown>).data as unknown[][])
-    : []
+  // 按数据源类型提取目标列的值数组
+  // - sourcePreview：二维表格（data 为 unknown[][]），按列名定位列索引后切片
+  // - jsonSourcePreview：对象数组（rawData），委托 extractJsonTargetValues 按字段名提取
+  let values: string[] = []
+  if (sourcePreviewNode.type === 'jsonSourcePreview') {
+    const jsonSourceData = sourcePreviewNode.data as unknown as Record<string, unknown>
+    const rawData = (jsonSourceData.rawData as unknown[]) || []
+    values = extractJsonTargetValues(rawData, String(columnName).trim())
+  } else {
+    const sourceData = sourcePreviewNode.data as SourcePreviewNodeData
+    const tableData: unknown[][] = Array.isArray(
+      (sourceData as unknown as Record<string, unknown>).data
+    )
+      ? ((sourceData as unknown as Record<string, unknown>).data as unknown[][])
+      : []
 
-  const headerRowIndex =
-    typeof schemaData.headerRow === 'number'
-      ? schemaData.headerRow
-      : typeof (sourceData as unknown as Record<string, unknown>).headerRow === 'number'
-        ? ((sourceData as unknown as Record<string, unknown>).headerRow as number)
-        : 0
+    const headerRowIndex =
+      typeof schemaData.headerRow === 'number'
+        ? schemaData.headerRow
+        : typeof (sourceData as unknown as Record<string, unknown>).headerRow === 'number'
+          ? ((sourceData as unknown as Record<string, unknown>).headerRow as number)
+          : 0
 
-  const headerRow = (tableData[headerRowIndex] || []).map((v) => String(v ?? '').trim())
-  if (headerRow.length === 0) return null
+    const headerRow = (tableData[headerRowIndex] || []).map((v) => String(v ?? '').trim())
+    if (headerRow.length === 0) return null
 
-  const targetColumnIndex = headerRow.findIndex((name) => name === String(columnName).trim())
-  if (targetColumnIndex < 0) return null
+    const targetColumnIndex = headerRow.findIndex((name) => name === String(columnName).trim())
+    if (targetColumnIndex < 0) return null
 
-  const dataStartIndex = headerRowIndex + 1
-  const values = tableData
-    .slice(dataStartIndex)
-    .map((row) => String((row as unknown[])?.[targetColumnIndex] ?? ''))
+    const dataStartIndex = headerRowIndex + 1
+    values = tableData
+      .slice(dataStartIndex)
+      .map((row) => String((row as unknown[])?.[targetColumnIndex] ?? ''))
+  }
 
   if (!String(regexData.pattern || '').trim()) {
     updateNodeData(regexNode.id, {
@@ -274,7 +289,10 @@ export async function validateRegexNodesForSchema(params: {
 
     if (result.errorCount && result.errorCount > 0) {
       const existing = columnErrorMap.get(ctx.columnId) || []
-      const regexErrors = [`Regex: ${result.errorCount} errors`]
+      // Bug 4.5 修复：使用 i18n 替代硬编码英文错误信息
+      const regexErrors = [
+        i18n.global.t('regexValidation.errorsCount', { count: result.errorCount }),
+      ]
       columnErrorMap.set(ctx.columnId, [...existing, ...regexErrors])
     }
   }
@@ -412,7 +430,11 @@ function updateRegexConnectionEdgesForNode(
 ) {
   try {
     for (const edge of edges) {
-      if (edge.target !== regexNodeId || edge.label !== 'Regex Validation') continue
+      // Bug 4.1 修复：按结构匹配 regex 边（target + targetHandle），而非依赖 label。
+      // 手动拖拽创建的 Schema→Regex 边没有 label，原 label 匹配会漏掉这些边，
+      // 导致校验后边的颜色/状态 class 永远不更新。
+      if (edge.target !== regexNodeId) continue
+      if (edge.targetHandle !== 'regex-input' && edge.targetHandle !== undefined) continue
       let className = ''
       if (typeof edge.class === 'string') {
         className = edge.class
@@ -463,35 +485,48 @@ async function tryUpdateExtractDerivedColumns(params: {
   if (regexData.matchMode !== 'extract') return null
   if (!schemaData.sourceNodeId) return null
 
+  // Bug 4.4 修复：同时支持 sourcePreview 与 jsonSourcePreview 数据源
   const sourcePreviewNode = nodes.find(
-    (n) => n.id === schemaData.sourceNodeId && n.type === 'sourcePreview'
+    (n) =>
+      n.id === schemaData.sourceNodeId &&
+      (n.type === 'sourcePreview' || n.type === 'jsonSourcePreview')
   )
   if (!sourcePreviewNode) return null
 
-  const sourceData = sourcePreviewNode.data as SourcePreviewNodeData
-  const tableData: unknown[][] = Array.isArray(
-    (sourceData as unknown as Record<string, unknown>).data
-  )
-    ? ((sourceData as unknown as Record<string, unknown>).data as unknown[][])
-    : []
+  // 按数据源类型提取目标列的值数组
+  // - sourcePreview：二维表格（data 为 unknown[][]），按列名定位列索引后切片
+  // - jsonSourcePreview：对象数组（rawData），委托 extractJsonTargetValues 按字段名提取
+  let values: string[] = []
+  if (sourcePreviewNode.type === 'jsonSourcePreview') {
+    const jsonSourceData = sourcePreviewNode.data as unknown as Record<string, unknown>
+    const rawData = (jsonSourceData.rawData as unknown[]) || []
+    values = extractJsonTargetValues(rawData, String(columnName).trim())
+  } else {
+    const sourceData = sourcePreviewNode.data as SourcePreviewNodeData
+    const tableData: unknown[][] = Array.isArray(
+      (sourceData as unknown as Record<string, unknown>).data
+    )
+      ? ((sourceData as unknown as Record<string, unknown>).data as unknown[][])
+      : []
 
-  const headerRowIndex =
-    typeof schemaData.headerRow === 'number'
-      ? schemaData.headerRow
-      : typeof (sourceData as unknown as Record<string, unknown>).headerRow === 'number'
-        ? ((sourceData as unknown as Record<string, unknown>).headerRow as number)
-        : 0
+    const headerRowIndex =
+      typeof schemaData.headerRow === 'number'
+        ? schemaData.headerRow
+        : typeof (sourceData as unknown as Record<string, unknown>).headerRow === 'number'
+          ? ((sourceData as unknown as Record<string, unknown>).headerRow as number)
+          : 0
 
-  const headerRow = (tableData[headerRowIndex] || []).map((v) => String(v ?? '').trim())
-  if (headerRow.length === 0) return null
+    const headerRow = (tableData[headerRowIndex] || []).map((v) => String(v ?? '').trim())
+    if (headerRow.length === 0) return null
 
-  const targetColumnIndex = headerRow.findIndex((name) => name === String(columnName).trim())
-  if (targetColumnIndex < 0) return null
+    const targetColumnIndex = headerRow.findIndex((name) => name === String(columnName).trim())
+    if (targetColumnIndex < 0) return null
 
-  const dataStartIndex = headerRowIndex + 1
-  const values = tableData
-    .slice(dataStartIndex)
-    .map((row) => String((row as unknown[])?.[targetColumnIndex] ?? ''))
+    const dataStartIndex = headerRowIndex + 1
+    values = tableData
+      .slice(dataStartIndex)
+      .map((row) => String((row as unknown[])?.[targetColumnIndex] ?? ''))
+  }
 
   const request = {
     regex_pattern: regexData.pattern as string,
@@ -565,6 +600,39 @@ async function tryUpdateExtractDerivedColumns(params: {
       new Date().toISOString(),
       columnId
     )
+
+  // Bug 4.4：extract 派生列写回依赖二维表格矩阵，仅支持 sourcePreview 数据源。
+  // jsonSourcePreview 的数据为对象数组（rawData），无法以行追加方式写回派生列；
+  // 此处返回校验结果但跳过派生列写回（JSON 的 extract 写回为后续支持项）。
+  if (sourcePreviewNode.type === 'jsonSourcePreview') {
+    updateNodeData(regexNode.id, {
+      ...regexData,
+      validationStatus,
+      errorCount: Number(data.error_count),
+      totalRows: Number(data.total_rows),
+      matchCount: Number(data.match_count),
+      lastValidationTime: new Date().toISOString(),
+    })
+    updateRegexConnectionEdgesForNode(regexNode.id, edges, validationStatus)
+    return buildResult(
+      validationStatus,
+      Number(data.error_count),
+      Number(data.total_rows),
+      Number(data.match_count),
+      new Date().toISOString(),
+      columnId
+    )
+  }
+
+  // 以下派生列写回逻辑仅适用于 sourcePreview（二维表格）
+  const sourceData = sourcePreviewNode.data as SourcePreviewNodeData
+  const headerRowIndex =
+    typeof schemaData.headerRow === 'number'
+      ? schemaData.headerRow
+      : typeof (sourceData as unknown as Record<string, unknown>).headerRow === 'number'
+        ? ((sourceData as unknown as Record<string, unknown>).headerRow as number)
+        : 0
+  const dataStartIndex = headerRowIndex + 1
 
   const { data: cleanedSourceData } = removeDerivedColumns(
     sourceData as unknown as Record<string, unknown>,

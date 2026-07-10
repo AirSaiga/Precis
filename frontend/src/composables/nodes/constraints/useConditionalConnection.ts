@@ -10,6 +10,7 @@
  * - 连接变更后清空旧校验结果，避免脏状态
  */
 import { useGraphStore } from '@/stores/graphStore'
+import { validateConstraintNode } from '@/services/constraints/validationRegistry'
 import type { SchemaNodeData } from '@/types/graph'
 import type { TransformOutputNodeData, CustomNode } from '@/types/nodes'
 import type { ConditionalConstraintNodeData } from '@/types/constraints'
@@ -165,6 +166,24 @@ export function useConditionalConnection() {
       ...(targetNode.data as ConditionalConstraintNodeData),
       ...nextData,
     })
+
+    // Bug 3.2 修复：连接后立即触发校验，给用户即时反馈（IF/THEN 未齐全时 handler 返回 idle 带提示）
+    if (edgeId) {
+      const createdEdge = store.edges.find((e) => e.id === edgeId)
+      const updatedTargetNode = store.nodes.find((n: CustomNode) => n.id === targetNodeId)
+      if (createdEdge && updatedTargetNode) {
+        // Schema/JsonSchema 源：走后端校验；纯数据源（TransformOutput/ManualData）由 validateConstraintNode 内部分流
+        if (!isPureDataSource) {
+          await validateConstraintNode({
+            schemaNode: sourceNode,
+            constraintNode: updatedTargetNode,
+            edge: createdEdge,
+            nodes: store.nodes,
+            updateNodeData: store.updateNodeData,
+          })
+        }
+      }
+    }
   }
 
   return {

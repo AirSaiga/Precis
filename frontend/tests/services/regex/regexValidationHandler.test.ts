@@ -10,6 +10,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { validateRegexNodesForSchema } from '@/services/regex/regexValidationHandler'
 import { validateAndExtractRegex } from '@/features/regex/services/regexExtractService'
+import { i18n } from '@/i18n'
 import type { Node, Edge } from '@vue-flow/core'
 
 vi.mock('@/features/regex/services/regexExtractService', () => ({
@@ -134,7 +135,9 @@ describe('validateRegexNodesForSchema', () => {
     expect(result).not.toBeNull()
     expect(result!.totalInvalid).toBe(1)
     expect(result!.totalErrorCount).toBe(1)
-    expect(result!.columnErrorMap.get('col-email')).toEqual(['Regex: 1 errors'])
+    expect(result!.columnErrorMap.get('col-email')).toEqual([
+      i18n.global.t('regexValidation.errorsCount', { count: 1 }),
+    ])
     expect(updateNodeData).toHaveBeenCalledWith(
       'regex-1',
       expect.objectContaining({

@@ -116,7 +116,13 @@ const expressions = {
   },
 }
 
+const regexValidation = {
+  // Column-level error summary for Regex nodes in global validation
+  errorsCount: 'Regex: {count} errors',
+}
+
 export { regexCreationModal }
 export { regexDesignModal }
 export { expression }
 export { expressions }
+export { regexValidation }

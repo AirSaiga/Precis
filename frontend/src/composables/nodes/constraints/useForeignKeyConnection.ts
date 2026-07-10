@@ -23,6 +23,7 @@ import type {
 } from '@/types/graph'
 import type { Edge } from '@vue-flow/core'
 import { validateForInlineSource } from '@/services/constraints/validationRegistryCore'
+import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
 
 /**
  * 外键连接处理
@@ -214,6 +215,9 @@ export function useForeignKeyConnection() {
         column: column.columnName,
       },
     })
+
+    // Bug 3.2 修复：源列连接后立即校验（targetRef 未设置时 handler 返回 idle 带提示）
+    await validateConstraintNodeById(targetNodeId, store.nodes, store.edges, store.updateNodeData)
   }
 
   /**
@@ -249,6 +253,9 @@ export function useForeignKeyConnection() {
         targetNodeId: targetSchemaNodeId,
       },
     })
+
+    // Bug 3.2 修复：目标表设置后立即校验（sourceRef 已就绪时给出完整结果，否则 idle）
+    void validateConstraintNodeById(fkNodeId, store.nodes, store.edges, store.updateNodeData)
   }
 
   /**
@@ -283,6 +290,9 @@ export function useForeignKeyConnection() {
         targetColumn: targetColumnName,
       },
     })
+
+    // Bug 3.2 修复：目标列设置后立即校验（FK 校验需 sourceRef + targetRef 同时就绪才有完整结果）
+    void validateConstraintNodeById(fkNodeId, store.nodes, store.edges, store.updateNodeData)
   }
 
   return {

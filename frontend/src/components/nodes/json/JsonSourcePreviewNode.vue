@@ -88,14 +88,6 @@
           <option value="object">{{ t('customNodes.jsonSourcePreviewNode.formatObject') }}</option>
         </select>
       </div>
-      <div v-if="typeStats" class="type-stats">
-        <span class="stat-item"
-          >{{ typeStats.fieldCount }} {{ t('customNodes.jsonSourcePreviewNode.fields') }}</span
-        >
-        <span class="stat-item"
-          >{{ typeStats.nestDepth }} {{ t('customNodes.jsonSourcePreviewNode.nestDepth') }}</span
-        >
-      </div>
     </div>
 
     <div class="path-config-section">
@@ -217,6 +209,7 @@
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
   import apiClient, { isAxiosError } from '@/core/services/httpClient'
+  import { eventBus } from '@/core/eventBus'
   import { Handle, Position } from '@vue-flow/core'
   import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
@@ -452,6 +445,13 @@
 
       // 如果已连接 JsonSchemaNode，自动触发类型对比校验
       await validateAgainstConnectedSchema()
+
+      // 通知下游 JsonSchema 数据已变更（jsonPath/recordPath/format/rawData 等变化都会经此路径）
+      // 复用 sourcePreviewDataChanged 事件，使下游 JsonSchema 重新拉取最新数据并触发类型对比校验
+      eventBus.emit('sourcePreviewDataChanged', {
+        nodeId: props.id,
+        data: localData.value as unknown as Record<string, unknown>,
+      })
     } catch (error: unknown) {
       const errorMessage = error instanceof Error ? error.message : '加载失败'
       loadError.value = errorMessage

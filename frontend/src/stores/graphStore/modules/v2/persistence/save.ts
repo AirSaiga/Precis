@@ -281,7 +281,7 @@ export function createV2SaveOps(params: {
         // 处理 409 冲突错误 - manifest 和实际文件状态不一致
         const err = error as { response?: { status?: number } }
         if (err?.response?.status === 409) {
-          logger.warn('保存Schema时遇到 409 冲突，提示用户选择覆盖或合并:', error)
+          logger.warn('保存Schema时遇到 409 冲突，提示用户选择覆盖或取消:', error)
 
           const result = await resolver.handle409Conflict(schemaFilePath, tableName)
           if (result === 'cancelled') {

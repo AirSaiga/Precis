@@ -1,7 +1,0 @@
-/* Precis TUI 默认主题样式
- *
- * 默认主题由 themes.py 的 Theme.variables 注入 $tui-* token驱动。
- * 本文件保留作为备用/参考样式表；当前由 styles/app.tcss 统一承载通用样式。
- */
-
-/* 默认主题无特殊覆盖，完全依赖 app.tcss 与 Theme token。 */

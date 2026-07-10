@@ -96,7 +96,9 @@ export function useRegexValidation() {
   ) => {
     try {
       for (const edge of store.edges) {
-        if (edge.target !== regexNodeId || edge.label !== 'Regex Validation') continue
+        // Bug 4.1 修复：按结构匹配 regex 边（target + targetHandle），而非依赖 label
+        if (edge.target !== regexNodeId) continue
+        if (edge.targetHandle !== 'regex-input' && edge.targetHandle !== undefined) continue
 
         let className = ''
         if (typeof edge.class === 'string') {

@@ -115,7 +115,13 @@ const expressions = {
   },
 }
 
+const regexValidation = {
+  // 全局校验中 Regex 节点的列级错误汇总消息
+  errorsCount: '正则校验：{count} 个错误',
+}
+
 export { regexCreationModal }
 export { regexDesignModal }
 export { expression }
 export { expressions }
+export { regexValidation }

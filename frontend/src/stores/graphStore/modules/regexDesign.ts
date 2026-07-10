@@ -133,6 +133,8 @@ export function createRegexDesignModule(params: {
       let patternChanged = false
       let outputMappingChanged = false
       let matchModeChanged = false
+      let flagsChanged = false
+      let caseSensitiveChanged = false
 
       if (currentNode.type === 'regex') {
         const nextOutput = (mergedData as RegexNodeData).rules?.[0]?.output ?? {}
@@ -149,6 +151,11 @@ export function createRegexDesignModule(params: {
         const nextMatchMode = (mergedData as RegexNodeData).matchMode
         matchModeChanged = prevMatchMode !== nextMatchMode
 
+        // Bug 4.2 修复：检测 flags / caseSensitive 变化，使其也触发自动重校验
+        flagsChanged =
+          (currentRegexData.flags || '') !== ((mergedData as RegexNodeData).flags || '')
+        caseSensitiveChanged = currentRegexData.caseSensitive !== mergedData.caseSensitive
+
         const safeStringify = (v: unknown) => {
           try {
             return JSON.stringify(v ?? {})
@@ -163,10 +170,22 @@ export function createRegexDesignModule(params: {
       updateNodeData(nodeId, mergedData)
 
       if (
-        (patternChanged || outputMappingChanged || matchModeChanged) &&
+        (patternChanged ||
+          outputMappingChanged ||
+          matchModeChanged ||
+          flagsChanged ||
+          caseSensitiveChanged) &&
         mergedData.sourceRef?.nodeId
       ) {
-        const reason = patternChanged ? 'pattern' : outputMappingChanged ? 'output' : 'matchMode'
+        const reason = patternChanged
+          ? 'pattern'
+          : outputMappingChanged
+            ? 'output'
+            : matchModeChanged
+              ? 'matchMode'
+              : flagsChanged
+                ? 'flags'
+                : 'caseSensitive'
         logger.debug('🔄 正则表达式设计已更新，触发自动刷新:', { nodeId, reason })
 
         eventBus.emit('regex-pattern-updated', { nodeId, reason })

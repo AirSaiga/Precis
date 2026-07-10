@@ -10,7 +10,8 @@
  * 2. 覆盖所有节点外壳类型（node-shell / graph-node / schema-node 等），
  *    统一 hover / selected / dragging / has-error 行为，杜绝多套系统冲突。
  * 3. 去掉上浮（translateY）——hover 纯阴影反馈，selected/dragging 纯放大，
- *    避免连接线错位与视觉抖动。
+ *    避免连接线错位与视觉抖动。scale 配合 translateZ(0) 强制 GPU 合成层，
+ *    减少小数值缩放导致的内部文字模糊。
  */
 
 /* 统一选择器组：所有节点外壳类型。
@@ -61,7 +62,7 @@
 .vue-flow__node.selected .json-source-preview-node,
 .vue-flow__node.selected .manual-data-node,
 .vue-flow__node.selected .project-root-node {
-  transform: scale(1.025);
+  transform: scale(1.025) translateZ(0);
   box-shadow: var(--node-shadow-selected);
   transition:
     transform var(--dur-slow) var(--ease-spring),
@@ -78,7 +79,7 @@
 .vue-flow__node.dragging .json-source-preview-node,
 .vue-flow__node.dragging .manual-data-node,
 .vue-flow__node.dragging .project-root-node {
-  transform: scale(1.03);
+  transform: scale(1.03) translateZ(0);
   box-shadow: var(--node-shadow-dragging);
   opacity: 0.95;
   transition:

@@ -41,10 +41,11 @@ export function useCanvasEventSetup(options: CanvasEventSetupOptions) {
   })
 
   // 初始化 SourcePreview 节点事件处理器
-  const { handleHeaderRowChanged, handleSourcePreviewDataChanged } = useSourcePreviewEvents(
-    { id: '', data: {} } as unknown as { id: string; data: SourcePreviewNodeData },
-    () => {}
-  )
+  const { handleHeaderRowChanged, handleSourcePreviewDataChanged, clearFirstChangeFlag } =
+    useSourcePreviewEvents(
+      { id: '', data: {} } as unknown as { id: string; data: SourcePreviewNodeData },
+      () => {}
+    )
 
   // 初始化正则验证事件处理器
   const { handleRegexPatternUpdated } = useRegexValidation()
@@ -64,6 +65,8 @@ export function useCanvasEventSetup(options: CanvasEventSetupOptions) {
     onSchemaNodeSave: (detail) => handleNodeSave(detail),
     onJsonSchemaNodeSave: (detail) => handleJsonSchemaNodeSave(detail),
     onRegexPatternUpdated: handleRegexPatternUpdated,
+    // 数据源断开时重置 SourcePreview 首次表头变更标记，使重连恢复"首次跳过"行为
+    onSourceNodeDisconnected: (detail) => clearFirstChangeFlag(detail.sourceNodeId),
   })
 
   return {

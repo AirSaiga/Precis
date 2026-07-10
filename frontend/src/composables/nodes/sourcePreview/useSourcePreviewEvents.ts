@@ -9,7 +9,6 @@ import { logger } from '@/core/utils/logger'
 import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
-import { validateConstraintNodesForSchema } from '@/services/constraints/validationRegistry'
 import { toastSuccess, toastError, toastInfo, toastWarning } from '@/core/toast'
 import type { AppEvents } from '@/core/eventBus'
 import type { SourcePreviewNodeData, JsonSchemaColumn, CustomNodeData } from '../types'
@@ -31,9 +30,19 @@ export function useSourcePreviewEvents(
   // 获取全局图存储，用于访问和修改节点数据
   const store = useGraphStore()
 
-  // 标记是否是第一次触发表头变更（用于区分初始连接和用户手动修改）
-  // 初始连接时不触发验证，用户手动修改时才触发
-  let isFirstHeaderChange = true
+  // 按 SourcePreview 节点维度记录"首次表头变更已见"。
+  // 每个 SourcePreview 连接后第一次 headerRowChanged 事件视为初始连接，跳过 SchemaNode 自动更新
+  // （列定义生成需等待弹窗确认）；之后该节点的表头变更才视作用户手动修改，触发自动更新。
+  // 断开连接时移除该 nodeId，使重连后再次走"首次跳过"流程。
+  const firstChangeSeen = new Set<string>()
+
+  /**
+   * 清除指定 SourcePreview 节点的"首次变更"标记
+   * 在数据源断开连接时调用，使重连后恢复初始连接行为
+   */
+  const clearFirstChangeFlag = (sourceNodeId: string) => {
+    firstChangeSeen.delete(sourceNodeId)
+  }
 
   /**
    * Toast 消息提示函数
@@ -90,12 +99,13 @@ export function useSourcePreviewEvents(
     }
 
     // 核心修正：只有在非第一次变更（即非初始连接）时，才更新关联的 SchemaNode
-    if (!isFirstHeaderChange) {
+    // 按 nodeId 维度判断，避免全局单例导致第二个 SourcePreview 节点的首次变更被误判为"非首次"
+    if (firstChangeSeen.has(nodeId)) {
       logger.debug('🔄 非初始连接，触发关联 SchemaNode 的自动更新')
       updateConnectedSchemaNodes(nodeId, headerRow, data)
     } else {
       logger.debug('⏭️ 初始连接触发，跳过关联 SchemaNode 更新，等待弹窗确认')
-      isFirstHeaderChange = false
+      firstChangeSeen.add(nodeId)
     }
   }
 
@@ -241,8 +251,9 @@ export function useSourcePreviewEvents(
         await disconnectInvalidConstraints(schemaNode.id, oldColumnIds)
 
         // 查找连接到该SchemaNode的所有约束节点并触发重新校验
+        // 仅调用 triggerConstraintValidation（经 triggerValidationForNode → validateAllConstraints
+        // → validateConstraintNodesForSchema），无需再重复调用 validateConstraintNodesForSchema
         await triggerConstraintValidation(schemaNode.id)
-        await triggerConstraintNodeValidation(schemaNode.id)
       }
 
       // 只有在确实更新了列定义时才显示此消息
@@ -330,6 +341,9 @@ export function useSourcePreviewEvents(
 
     // B10 修复：表头变更时，按位置（index）保留旧列的 id，避免 columnName 变化导致约束边失效。
     // 过去直接用 columnName 作 id，表头重命名后 id 变化，引用该列的约束边被 disconnectInvalidConstraints 误断开。
+    // 补充（B10+）：仅在"同位置且同列名"时才复用旧 id。这样纯重命名（列名变化）会获得新 id，
+    // 被 disconnectInvalidConstraints 正确断开；中间插入/删除列导致后续列错位时也用新 id，
+    // 避免约束边指向位置相同但语义不同的列。
     const existingColumns =
       (schemaNode.data.columns as Array<{ id?: string; columnName?: string }> | undefined) || []
 
@@ -357,8 +371,9 @@ export function useSourcePreviewEvents(
         }
       }
 
-      // 按位置复用旧列 id（表头内容可能改变，但位置不变时约束关系应保留）
-      const stableId = existingColumns[index]?.id || columnName
+      // 复用旧列 id：仅当"同位置且同列名"时才视为同一列（避免重命名/错位后约束边指向错误列）
+      const existing = existingColumns[index]
+      const stableId = existing && existing.columnName === columnName ? existing.id! : columnName
 
       return {
         id: stableId,
@@ -388,16 +403,6 @@ export function useSourcePreviewEvents(
       store.edges,
       (nodeId: string, data: Record<string, unknown>) => store.updateNodeData(nodeId, data)
     )
-  }
-
-  const triggerConstraintNodeValidation = async (schemaNodeId: string) => {
-    await validateConstraintNodesForSchema({
-      schemaNodeId,
-      nodes: store.nodes,
-      edges: store.edges,
-      updateNodeData: (nodeId: string, data: Record<string, unknown>) =>
-        store.updateNodeData(nodeId, data),
-    })
   }
 
   /**
@@ -485,7 +490,6 @@ export function useSourcePreviewEvents(
                 .length > 0
             if (!hasColumns) continue
             await triggerConstraintValidation(fallbackSchema.id)
-            await triggerConstraintNodeValidation(fallbackSchema.id)
           }
         }
       } else {
@@ -551,7 +555,6 @@ export function useSourcePreviewEvents(
           // 只有在已经存在列定义的情况下才触发校验
           if (hasExistingColumns) {
             await triggerConstraintValidation(schemaNode.id)
-            await triggerConstraintNodeValidation(schemaNode.id)
           } else {
             logger.debug('⏭️ [handleSourcePreviewDataChanged] 列定义为空，跳过校验触发')
           }
@@ -574,5 +577,6 @@ export function useSourcePreviewEvents(
     handleSourcePreviewDataChanged,
     generateColumnsWithTypeInference,
     showToastMessage,
+    clearFirstChangeFlag,
   }
 }

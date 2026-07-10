@@ -4,7 +4,7 @@
 
   功能职责：
   - 提供应用级的统一确认/取消/警示弹窗
-  - 仅支持纯文本消息展示（不允许 HTML，防止 XSS）
+  - 默认纯文本消息展示（防止 XSS）；当 options.allowHtml 为 true 时渲染 HTML
   - 提供确认、取消及额外替代操作三种按钮
   - 通过 Teleport 挂载到 body，确保层级最高
 
@@ -14,6 +14,9 @@
   - 可配置按钮文案（confirmText / cancelText / alternativeText）
   - 点击遮罩层或关闭按钮触发取消操作
   - 模态进入/退出动画过渡效果
+
+  安全提示：
+  - allowHtml 仅应在消息内容来自可信来源（如项目内置 i18n）时使用，不要用于渲染用户输入。
 
   无外部 Props / Emits，所有状态（visible、options、回调）由 useGlobalConfirm() 统一管理。
 -->
@@ -28,7 +31,8 @@
           </div>
 
           <div class="confirm-body">
-            <p class="confirm-message">{{ options.message }}</p>
+            <p v-if="options.allowHtml" class="confirm-message" v-html="options.message"></p>
+            <p v-else class="confirm-message">{{ options.message }}</p>
           </div>
 
           <div class="confirm-actions">

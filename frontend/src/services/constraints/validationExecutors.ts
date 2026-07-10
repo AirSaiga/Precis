@@ -21,6 +21,7 @@ import { validateRegexNodesForSchema } from '@/services/regex/regexValidationHan
 
 import { isConstraintNodeType } from './constraintMeta'
 import { getHandlerByNodeType } from './handlerRegistry'
+import { buildDisconnectReset } from './disconnectAndSync'
 import { buildValidationContext } from './validationContext'
 import type { ConstraintValidationContext, ConstraintValidationResult } from './types'
 
@@ -95,6 +96,30 @@ export interface ValidationSummary {
 }
 
 /**
+ * 重置 Schema 下游所有约束节点的校验状态（不重置 sourceRef/table/column 等结构映射）
+ *
+ * 在 Schema 失去数据源（无入边、路径不可达）时调用，
+ * 清除残留的 pass/error 校验结果，避免"幽灵校验结果"（Bug 2.2）。
+ * 注意：正常断连由 dataSourceToSchema 断连 handler 处理，此处为防御性兜底。
+ */
+export function resetDownstreamValidationStatus(
+  schemaNodeId: string,
+  nodes: Node[],
+  edges: Edge[],
+  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
+): void {
+  const schemaEdges = edges.filter((e) => e.source === schemaNodeId)
+  for (const ce of schemaEdges) {
+    const constraintNode = nodes.find((n) => n.id === ce.target)
+    if (!constraintNode || !isConstraintNodeType(constraintNode.type)) continue
+    const data = (constraintNode.data || {}) as Record<string, unknown>
+    updateNodeData(constraintNode.id, {
+      ...buildDisconnectReset(constraintNode.type, data),
+    })
+  }
+}
+
+/**
  * 验证 Schema 节点关联的所有约束（批量）
  *
  * 由 globalValidation.ts 的全表校验和 useSourcePreviewEvents.ts 调用。
@@ -137,6 +162,9 @@ export async function validateConstraintNodesForSchema(params: {
   let totalValid = 0
   let totalInvalid = 0
   let totalErrorCount = 0
+  // Bug 3.3 修复：按实际处理的约束数统计 totalConstraints，
+  // 避免 idle/missing 状态被遗漏（原 totalValid + totalInvalid 口径会少计）
+  let totalProcessed = 0
 
   const validateEdgeBatch = async (edgeList: Edge[]) => {
     for (const edge of edgeList) {
@@ -151,6 +179,9 @@ export async function validateConstraintNodesForSchema(params: {
         updateNodeData,
       })
       if (!output) continue
+
+      // 只要 handler 执行并返回了结果，即视为已处理的约束（含 pass/error/idle/missing）
+      totalProcessed++
 
       const { result, columnId } = output
 
@@ -185,6 +216,8 @@ export async function validateConstraintNodesForSchema(params: {
     totalValid += regexSummary.totalValid
     totalInvalid += regexSummary.totalInvalid
     totalErrorCount += regexSummary.totalErrorCount
+    // Regex 节点的校验总数也计入 totalProcessed（regex 无 idle 状态，valid+invalid 即总数）
+    totalProcessed += regexSummary.totalValid + regexSummary.totalInvalid
     for (const [colId, errors] of regexSummary.columnErrorMap.entries()) {
       const existing = columnErrorMap.get(colId) || []
       columnErrorMap.set(colId, [...existing, ...errors])
@@ -209,7 +242,7 @@ export async function validateConstraintNodesForSchema(params: {
   }
 
   return {
-    totalConstraints: totalValid + totalInvalid,
+    totalConstraints: totalProcessed,
     validConstraints: totalValid,
     invalidConstraints: totalInvalid,
     totalErrors: totalErrorCount,
@@ -333,7 +366,9 @@ export async function validateConstraintNodeById(
       updateNodeData,
     })
 
-    syncColumnErrorsForSourceRef(sourceRef.nodeId, sourceRef.columnId, nodes, updateNodeData)
+    // Bug 3.4 修复：单约束校验后全列重建错误，避免其他列残留 stale 错误
+    // （原 syncColumnErrorsForSourceRef 仅刷当前列，约束 sourceRef 变更后旧列错误不会被清除）
+    rebuildAllColumnErrors(sourceRef.nodeId, nodes, updateNodeData)
   }
 }
 
@@ -375,6 +410,50 @@ export function syncColumnErrorsForSourceRef(
       return { ...col, validationErrors: columnErrors }
     }
     return col
+  })
+  updateNodeData(schemaNodeId, {
+    ...schemaData,
+    columns: updatedColumns,
+  })
+}
+
+/**
+ * 重建 Schema 所有列的 validationErrors（全列扫描）
+ *
+ * 与 syncColumnErrorsForSourceRef（仅刷当前列）的区别：
+ * 此函数扫描 Schema 下所有约束节点的 sourceRef，为每一列重新汇总错误，
+ * 确保某约束的 sourceRef 变更后，旧列的 stale 错误也能被清除（Bug 3.4）。
+ * 批量路径 validateConstraintNodesForSchema 与此逻辑等价（经 columnErrorMap）。
+ */
+export function rebuildAllColumnErrors(
+  schemaNodeId: string,
+  nodes: Node[],
+  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
+): void {
+  const schemaNode = nodes.find((n) => n.id === schemaNodeId)
+  if (!schemaNode) return
+  const schemaData = (schemaNode.data || {}) as Record<string, unknown>
+  const columns = (schemaData.columns || []) as Array<Record<string, unknown>>
+  if (columns.length === 0) return
+
+  // 按列 ID 汇总所有引用本 Schema 的约束节点的错误
+  const columnErrorMap = new Map<string, string[]>()
+  for (const node of nodes) {
+    if (!isConstraintNodeType(node.type)) continue
+    const nd = (node.data || {}) as Record<string, unknown>
+    const ref = nd.sourceRef as { nodeId: string; columnId: string } | undefined
+    if (ref?.nodeId === schemaNodeId && ref.columnId) {
+      const errors = (nd.validationErrors as string[]) || []
+      if (errors.length > 0) {
+        const existing = columnErrorMap.get(ref.columnId) || []
+        columnErrorMap.set(ref.columnId, [...existing, ...errors])
+      }
+    }
+  }
+
+  const updatedColumns = columns.map((col) => {
+    const colId = col.id as string
+    return { ...col, validationErrors: columnErrorMap.get(colId) || [] }
   })
   updateNodeData(schemaNodeId, {
     ...schemaData,

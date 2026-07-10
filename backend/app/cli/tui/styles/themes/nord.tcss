@@ -1,7 +1,0 @@
-/* Precis TUI Nord 主题样式
- *
- * 北欧冷色调：Polar Night 深灰蓝底 + Frost 冰蓝强调色。
- * 通用样式由 styles/app.tcss 承载；本文件仅保留主题说明。
- */
-
-/* Nord 主题无额外 CSS 覆盖。 */

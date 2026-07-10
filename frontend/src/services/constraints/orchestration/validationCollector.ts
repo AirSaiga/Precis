@@ -58,32 +58,25 @@ export function getSchemaNodeSourceInfo(
   const schemaHeaderRow = schemaData?.headerRow as number | undefined
   const schemaSourceMode = schemaData?.sourceMode as 'localfile' | undefined
   const schemaSourceFile = schemaData?.sourceFile as string | undefined
+  const schemaSourceNodeId = schemaData?.sourceNodeId as string | undefined
 
-  const hasPathFromSchema = !!(schemaLocalPath || schemaSourceFilePath)
-  if (hasPathFromSchema) {
-    return {
-      sourceFilePath: schemaSourceFilePath || schemaLocalPath || '',
-      sourceFile: schemaSourceFile || '',
-      sheetName: schemaSheetName,
-      sourceNodeId: schemaData?.sourceNodeId as string | undefined,
-      headerRow: schemaHeaderRow,
-      sourceMode: schemaSourceMode || 'localfile',
-      localPath: schemaLocalPath,
-    }
-  }
-
-  // 回退：通过 SourcePreview 节点查找（兼容旧连接方式）
+  // 通过 SourcePreview 节点查找数据源（兼容 sourceNodeId 引用与入边两种连接方式）
   let sourcePreviewNode: Node | undefined
 
-  if (schemaData?.sourceNodeId) {
+  if (schemaSourceNodeId) {
     sourcePreviewNode = nodes.find(
       (n) =>
-        n.id === schemaData.sourceNodeId &&
+        n.id === schemaSourceNodeId &&
         (n.type === 'sourcePreview' || n.type === 'jsonSourcePreview')
     )
+    // Bug 2.1 防护：sourceNodeId 指向的节点已不存在（被删除或边已断开）时，
+    // 不应回退到 Schema 缓存路径——否则会基于 stale 数据继续校验。
+    // 但若 sourceNodeId 本身不存在（V2 导入的内联数据源，路径直接写入 Schema），
+    // 则保留对缓存路径的信任。
   }
 
-  if (!sourcePreviewNode) {
+  if (!sourcePreviewNode && !schemaSourceNodeId) {
+    // 无 sourceNodeId：尝试通过入边查找（旧连接方式）
     const incomingEdge = edges.find(
       (edge) =>
         edge.target === schemaNodeId &&
@@ -91,6 +84,19 @@ export function getSchemaNodeSourceInfo(
     )
 
     if (!incomingEdge) {
+      // 既无 sourceNodeId 也无入边：可能是 V2 导入的内联数据源，直接使用 Schema 缓存路径
+      const hasInlineCachedPath = !!(schemaLocalPath || schemaSourceFilePath)
+      if (hasInlineCachedPath) {
+        return {
+          sourceFilePath: schemaSourceFilePath || schemaLocalPath || '',
+          sourceFile: schemaSourceFile || '',
+          sheetName: schemaSheetName,
+          sourceNodeId: schemaSourceNodeId,
+          headerRow: schemaHeaderRow,
+          sourceMode: schemaSourceMode || 'localfile',
+          localPath: schemaLocalPath,
+        }
+      }
       return null
     }
 
@@ -101,6 +107,7 @@ export function getSchemaNodeSourceInfo(
     )
   }
 
+  // 有 sourceNodeId 但对应节点不可达（被删除/边已断开）：视为未连接
   if (!sourcePreviewNode) {
     return null
   }

@@ -163,5 +163,27 @@ describe('validationCollector - getSchemaNodeSourceInfo', () => {
       const result = getSchemaNodeSourceInfo('schema-2', nodes, [])
       expect(result).toBeNull()
     })
+
+    // Bug 2.1：sourceNodeId 指向的节点已删除/不存在时，即使 Schema 缓存了路径也应视为未连接
+    it('sourceNodeId 指向已删除节点 + Schema 缓存路径 → 返回 null（Bug 2.1）', () => {
+      const nodes = makeNodes()
+      const schema2 = nodes.find((n) => n.id === 'schema-2')
+      // 模拟：sourceNodeId 指向一个已不存在的节点，但 Schema 残留了路径缓存
+      schema2.data.sourceNodeId = 'deleted-preview'
+      schema2.data.sourceFilePath = '/data/stale.csv'
+      schema2.data.localPath = '/data/stale.csv'
+      const result = getSchemaNodeSourceInfo('schema-2', nodes, [])
+      expect(result).toBeNull()
+    })
+
+    // Bug 2.1 对照：无 sourceNodeId 的 V2 内联数据源（路径直接写入 Schema）应信任缓存路径
+    it('无 sourceNodeId + 缓存路径（V2 内联）→ 返回缓存路径（保留原行为）', () => {
+      const nodes = makeNodes()
+      const schema1 = nodes.find((n) => n.id === 'schema-1')
+      schema1.data.sourceNodeId = undefined
+      const result = getSchemaNodeSourceInfo('schema-1', nodes, [])
+      expect(result).toBeTruthy()
+      expect(result!.sourceFilePath).toBe('/data/users.csv')
+    })
   })
 })

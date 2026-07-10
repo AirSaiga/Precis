@@ -1,7 +1,0 @@
-/* Precis TUI Catppuccin Mocha 主题样式
- *
- * 柔和深色调 + 紫粉强调色。
- * 通用样式由 styles/app.tcss 承载；本文件仅保留主题说明。
- */
-
-/* Catppuccin 主题无额外 CSS 覆盖。 */

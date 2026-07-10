@@ -34,6 +34,8 @@ export interface CanvasLifecycleOptions {
   onJsonSchemaNodeSave?: (detail: AppEvents['json-schema-node-save']) => void | Promise<void>
   /** 正则模式更新回调 */
   onRegexPatternUpdated?: (detail: AppEvents['regex-pattern-updated']) => void | Promise<void>
+  /** 数据源节点断开连接回调（用于重置 SourcePreview 首次表头变更标记等状态） */
+  onSourceNodeDisconnected?: (detail: AppEvents['sourceNodeDisconnected']) => void
 }
 
 /**
@@ -122,12 +124,17 @@ export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
     options.onRegexPatternUpdated?.(detail)
   }
 
+  const handleSourceNodeDisconnected = (detail: AppEvents['sourceNodeDisconnected']) => {
+    options.onSourceNodeDisconnected?.(detail)
+  }
+
   onMounted(() => {
     eventBus.on('headerRowChanged', handleHeaderRowChanged)
     eventBus.on('sourcePreviewDataChanged', handleSourcePreviewDataChanged)
     eventBus.on('schema-node-save', handleSchemaNodeSave)
     eventBus.on('json-schema-node-save', handleJsonSchemaNodeSave)
     eventBus.on('regex-pattern-updated', handleRegexPatternUpdated)
+    eventBus.on('sourceNodeDisconnected', handleSourceNodeDisconnected)
     eventBus.on('focus-canvas-nodes', handleFocusCanvasNodes)
     window.addEventListener('keydown', handleGlobalKeydown)
   })
@@ -138,6 +145,7 @@ export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
     eventBus.off('schema-node-save', handleSchemaNodeSave)
     eventBus.off('json-schema-node-save', handleJsonSchemaNodeSave)
     eventBus.off('regex-pattern-updated', handleRegexPatternUpdated)
+    eventBus.off('sourceNodeDisconnected', handleSourceNodeDisconnected)
     eventBus.off('focus-canvas-nodes', handleFocusCanvasNodes)
     window.removeEventListener('keydown', handleGlobalKeydown)
     delete (window as unknown as { __focusToProjectRoot?: () => void }).__focusToProjectRoot

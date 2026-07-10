@@ -95,6 +95,11 @@ export function createGraphStoreState() {
    *
    * 此策略避免 nodes.value 数组替换导致的 setNodes → createGraphNodes →
    * setEdges → createGraphEdges 连锁链，从而防止边被静默丢弃。
+   *
+   * 合并语义（重要）：patch 通过 Object.assign 浅合并到 node.data。
+   * 传 `{ field: undefined }` 会把字段值写为 undefined，但 key 仍保留——即"清空值"而非"删除字段"。
+   * 多处代码依赖这一语义来清空校验结果（如 `lastValidation: undefined`、`validationErrors: []`）。
+   * 如需真正删除字段（让 key 不存在），请改用对象整体替换而非增量 patch。
    */
   type NodeLevelPatch = Partial<Pick<CustomNode, 'hidden' | 'position'>>
 

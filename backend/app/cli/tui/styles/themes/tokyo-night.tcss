@@ -1,7 +1,0 @@
-/* Precis TUI Tokyo Night 主题样式
- *
- * 由 themes.py 的 Theme.variables 注入 $tui-* token。
- * 本文件保留作为备用/参考样式表；通用样式由 styles/app.tcss 统一承载。
- */
-
-/* Tokyo Night 无特殊覆盖。 */
