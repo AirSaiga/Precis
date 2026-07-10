@@ -125,7 +125,8 @@ fn render_errors(frame: &mut Frame, app: &App, area: Rect) {
                 .collect();
 
             let header = Row::new(vec!["表", "字段", "行", "类型", "消息"])
-                .style(Style::default().fg(colors::DIM));
+                .style(Style::default().fg(colors::MUTED).add_modifier(Modifier::BOLD))
+                .bottom_margin(0);
 
             let table = Table::new(
                 rows,

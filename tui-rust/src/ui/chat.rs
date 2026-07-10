@@ -63,14 +63,16 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     let input_style = Style::default().bg(colors::SURFACE).fg(colors::FG);
     let prompt_style = Style::default().fg(colors::PRIMARY);
 
+    let cursor_style = if app.frame_count % 30 < 15 {
+        Style::default().fg(colors::PRIMARY).add_modifier(Modifier::REVERSED)
+    } else {
+        input_style
+    };
+
     let input_line = Line::from(vec![
         Span::styled(" > ", prompt_style),
         Span::styled(&app.chat_input, input_style),
-        if app.frame_count % 30 < 15 {
-            Span::styled("▎", Style::default().fg(colors::PRIMARY))
-        } else {
-            Span::raw(" ")
-        },
+        Span::styled(" ", cursor_style), // 光标位置（REVERSED 反白，不覆盖字符）
     ]);
 
     frame.render_widget(

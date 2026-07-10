@@ -1,6 +1,6 @@
 //! 首页 — 留白为主，居中状态卡 + 项目列表（Linear 风格）
 
-use ratatui::layout::{Alignment, Rect};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{List, ListItem, ListState, Paragraph};
@@ -9,35 +9,28 @@ use ratatui::Frame;
 use crate::app::{colors, App};
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
-    // 未打开项目：居中引导 + 项目列表
-    // 已打开项目：上方状态卡 + 下方项目列表
+    // 动态分割：状态区(固定) + 项目列表(填充)
+    let chunks = Layout::default()
+        .direction(ratatui::layout::Direction::Vertical)
+        .constraints([Constraint::Length(8), Constraint::Min(1)])
+        .split(area);
 
     let mut lines: Vec<Line> = Vec::new();
-
-    // 顶部留白
     lines.push(Line::from(""));
     lines.push(Line::from(""));
 
     if app.project_name.is_some() {
-        // 已打开项目：状态卡
         let name = app.project_name.as_deref().unwrap_or("");
         lines.push(Line::from(vec![
-            Span::styled("  ", Style::default()),
-            Span::styled("● ", Style::default().fg(colors::GREEN)),
+            Span::styled("  ● ", Style::default().fg(colors::GREEN)),
             Span::styled(name, Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)),
         ]));
-
         if let Some(p) = app.projects.get(app.selected_project) {
-            lines.push(Line::from(Span::styled(
-                format!("  {}", p.path),
-                Style::default().fg(colors::DIM),
-            )));
+            lines.push(Line::from(Span::styled(format!("  {}", p.path), Style::default().fg(colors::DIM))));
         }
     } else {
-        // 未打开：暗淡标题 + 引导
         lines.push(Line::from(vec![
-            Span::styled("  ", Style::default()),
-            Span::styled("Precis", Style::default().fg(colors::DIM).add_modifier(Modifier::BOLD)),
+            Span::styled("  Precis", Style::default().fg(colors::DIM).add_modifier(Modifier::BOLD)),
             Span::styled("  本地数据校验工具", Style::default().fg(colors::DIM)),
         ]));
     }
@@ -47,20 +40,11 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         format!("  项目 ({})  j/k 选择  Enter 打开", app.projects.len()),
         Style::default().fg(colors::MUTED),
     )));
-    lines.push(Line::from(""));
 
-    // 渲染状态区
     let header = Paragraph::new(lines).style(Style::default().bg(colors::BG));
-    let header_height = 9;
-    frame.render_widget(header, Rect { x: area.x, y: area.y, width: area.width, height: header_height.min(area.height) });
+    frame.render_widget(header, chunks[0]);
 
-    // 项目列表区
-    let list_area = Rect {
-        x: area.x,
-        y: area.y + header_height,
-        width: area.width,
-        height: area.height.saturating_sub(header_height),
-    };
+    let list_area = chunks[1];
 
     if app.projects.is_empty() {
         let empty = Paragraph::new("\n\n  未找到项目\n\n  确保后端正在运行 (npm run backend:dev)\n  且扫描目录下有 project.precis.yaml")

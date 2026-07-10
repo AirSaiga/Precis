@@ -52,10 +52,7 @@ pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
         } else {
             colors::DIM
         };
-        lines.push(Line::from(vec![
-            Span::raw(""), // 左侧由 alignment 居中
-            Span::styled(*logo_line, Style::default().fg(color)),
-        ]));
+        lines.push(Line::from(Span::styled(*logo_line, Style::default().fg(color))));
     }
 
     // 版本号 + 标语（logo 完全点亮后显示）

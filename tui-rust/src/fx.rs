@@ -78,7 +78,7 @@ impl Fx {
                 y: rand_val() * h,
                 vx: 0.0,
                 vy: 0.1 + rand_val() * 0.2,
-                brightness: 0.08 + rand_val() * 0.3, // 更暗（Linear 风格：不抢眼）
+                brightness: 0.2 + rand_val() * 0.45, // 适度亮度：作为背景氛围但不隐形
                 twinkle_phase: rand_val() * std::f64::consts::TAU,
                 twinkle_speed: 0.8 + rand_val() * 2.5,
                 char: if rand_val() < 0.8 { '·' } else { '•' },

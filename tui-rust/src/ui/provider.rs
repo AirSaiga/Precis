@@ -1,4 +1,4 @@
-//! Provider 页 — 列表 + 连接测试 + 激活
+//! Provider 页 — Table widget 保证列对齐 + 连接测试结果
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style, Stylize};
@@ -11,107 +11,83 @@ use crate::app::{colors, App};
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(2), Constraint::Min(1)])
+        .constraints([Constraint::Length(2), Constraint::Min(1), Constraint::Length(3)])
         .split(area);
 
     // 提示
     frame.render_widget(
-        Paragraph::new("  Provider 列表  t 测试连接  a 设为活跃")
+        Paragraph::new("  Provider 列表  j/k 导航  t 测试  a 激活  r 刷新")
             .style(Style::default().fg(colors::MUTED)),
         chunks[0],
     );
 
-    let providers = &app.providers;
-
-    if providers.is_empty() {
+    if app.providers.is_empty() {
         frame.render_widget(
-            Paragraph::new("\n\n  未配置 Provider\n\n  在后端配置 ~/.precis/ai_providers.yaml 添加 Provider")
+            Paragraph::new("\n\n  未配置 Provider\n\n  在后端配置 ~/.precis/ai_providers.yaml")
                 .style(Style::default().fg(colors::DIM)),
             chunks[1],
         );
         return;
     }
 
-    // Provider 表格
     let active_id = app.active_provider_id.as_deref().unwrap_or("");
 
+    // Table widget（列对齐可靠）
     let header = Row::new(vec!["", "名称", "类型", "模型", "端点"])
-        .style(Style::default().fg(colors::DIM));
+        .style(Style::default().fg(colors::MUTED).add_modifier(Modifier::BOLD));
 
-    let rows: Vec<Row> = providers
-        .iter()
-        .enumerate()
-        .map(|(i, p)| {
-            let is_active = p.id == active_id;
-            let marker = if is_active { "●" } else { " " };
-            let marker_color = if is_active { colors::GREEN } else { colors::DIM };
-            let name_style = if is_active {
-                Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(colors::FG)
-            };
-            let bg = if i % 2 == 0 { colors::BG } else { colors::SURFACE };
-
-            Row::new(vec![
-                marker.to_string(),
-                format!("{}", p.name),
-                p.provider_type.clone(),
-                p.model.clone(),
-                truncate(&p.base_url, 30),
-            ])
-            .style(Style::default().bg(bg).fg(colors::MUTED))
-        })
-        .collect();
-
-    // 调整：用手动渲染让 marker/name 有不同颜色
-    let mut lines: Vec<Line> = Vec::new();
-    lines.push(Line::from(Span::styled(" ", Style::default())));
-    for (i, p) in providers.iter().enumerate() {
+    let rows: Vec<Row> = app.providers.iter().enumerate().map(|(i, p)| {
         let is_active = p.id == active_id;
-        let marker_color = if is_active { colors::GREEN } else { colors::DIM };
         let name_style = if is_active {
             Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(colors::FG)
         };
-        let bg = if i == app.provider_cursor { colors::PANEL } else if i % 2 == 0 { colors::BG } else { colors::SURFACE };
+        let marker = if is_active { "●" } else { "" };
 
-        lines.push(Line::from(vec![
-            Span::styled(format!("  {} ", if is_active { "●" } else { " " }), Style::default().fg(marker_color)),
-            Span::styled(format!("{:<16}", truncate(&p.name, 14)), name_style),
-            Span::styled(format!("  {:<8}", p.provider_type), Style::default().fg(colors::MUTED)),
-            Span::styled(format!("  {:<20}", truncate(&p.model, 18)), Style::default().fg(colors::MUTED)),
-            Span::styled(truncate(&p.base_url, 28), Style::default().fg(colors::DIM)),
-        ]).style(Style::default().bg(bg)));
-    }
+        Row::new(vec![
+            marker.to_string(),
+            truncate(&p.name, 14),
+            p.provider_type.clone(),
+            truncate(&p.model, 20),
+            truncate(&p.base_url, 30),
+        ])
+        .style(if is_active {
+            Style::default().fg(colors::MUTED)
+        } else {
+            Style::default().fg(colors::MUTED)
+        })
+    }).collect();
 
-    let list = Paragraph::new(lines).style(Style::default().bg(colors::BG));
-    frame.render_widget(list, chunks[1]);
+    let table = Table::new(
+        rows,
+        [Constraint::Length(2), Constraint::Length(16), Constraint::Length(10), Constraint::Length(22), Constraint::Min(10)],
+    )
+    .header(header)
+    .row_highlight_style(Style::default().bg(colors::PANEL).fg(colors::PRIMARY))
+    .column_spacing(1)
+    .style(Style::default().bg(colors::BG));
 
-    // 测试结果（如果有）
+    let mut state = TableState::default();
+    state.select(Some(app.provider_cursor));
+    frame.render_stateful_widget(table, chunks[1], &mut state);
+
+    // 测试结果
     if let Some(ref result) = app.provider_test_result {
-        let test_area = Rect {
-            x: area.x,
-            y: area.y + area.height.saturating_sub(4),
-            width: area.width,
-            height: 3,
-        };
         let (icon, msg, color) = match result {
-            crate::app::TestResult::Ok(latency) => ("✓", format!("连接正常 · {}ms", latency), colors::GREEN),
-            crate::app::TestResult::Fail(err) => ("✗", format!("连接失败 · {}", truncate_str(err, 40)), colors::RED),
+            crate::app::TestResult::Ok(_) => ("✓", "连接正常", colors::GREEN),
+            crate::app::TestResult::Fail(err) => ("✗", &err[..], colors::RED),
         };
+        let msg = if msg.len() > 50 { format!("{}…", &msg[..49]) } else { msg.to_string() };
         frame.render_widget(
-            Paragraph::new(format!("  {} {}", icon, msg)).style(Style::default().fg(color).bg(colors::SURFACE)),
-            test_area,
+            Paragraph::new(format!("  {} {}", icon, msg))
+                .style(Style::default().fg(color).bg(colors::SURFACE)),
+            chunks[2],
         );
     }
 }
 
 fn truncate(s: &str, max: usize) -> String {
-    truncate_str(s, max)
-}
-
-fn truncate_str(s: &str, max: usize) -> String {
     if s.chars().count() <= max {
         s.to_string()
     } else {
