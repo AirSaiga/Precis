@@ -16,14 +16,14 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         .split(area);
 
     // 提示行
-    let hint = match &app.validation {
-        ValidationState::Idle => "  按 v 执行校验",
+    let hint: String = match &app.validation {
+        ValidationState::Idle => "  按 v 执行校验".to_string(),
         ValidationState::Validating => {
             let s = match app.frame_count % 6 { 0 => "⠋", 1 => "⠙", 2 => "⠹", 3 => "⠸", 4 => "⠼", _ => "⠴" };
-            Box::leak(format!("  {} 校验中...", s).into_boxed_str())
+            format!("  {} 校验中...", s)
         }
-        ValidationState::Done(_) => "  校验完成  j/k 浏览  v 重新校验",
-        ValidationState::Failed(_) => "  校验失败  按 v 重试",
+        ValidationState::Done(_) => "  校验完成  j/k 浏览  v 重新校验".to_string(),
+        ValidationState::Failed(_) => "  校验失败  按 v 重试".to_string(),
     };
     frame.render_widget(
         Paragraph::new(hint).style(Style::default().fg(colors::MUTED)),
@@ -48,7 +48,7 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
             Line::from(Span::styled("  · · ·", Style::default().fg(colors::MUTED))),
         ],
         ValidationState::Failed(err) => {
-            let msg = if err.len() > 60 { format!("{}…", &err[..60]) } else { err.clone() };
+            let msg = truncate(err, 60);
             vec![
                 Line::from(""),
                 Line::from(vec![

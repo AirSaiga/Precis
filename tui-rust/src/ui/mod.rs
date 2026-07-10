@@ -55,8 +55,6 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         body[1],
     );
 
-    sidebar::render(frame, app, body[0]);
-
     // 内容区按 tab 渲染
     match app.current_tab {
         crate::app::Tab::Dashboard => dashboard::render(frame, app, body[2]),
@@ -121,13 +119,4 @@ fn render_footer(frame: &mut Frame, app: &App, area: Rect) {
     ]))
     .style(Style::default().bg(colors::SURFACE));
     frame.render_widget(footer, area);
-}
-
-fn render_placeholder(frame: &mut Frame, app: &App, area: Rect) {
-    let p = Paragraph::new(format!(
-        "\n\n\n  {} 页面开发中\n\n  按 1-5 / Tab 切换",
-        app.current_tab.label()
-    ))
-    .style(Style::default().fg(colors::DIM));
-    frame.render_widget(p, area);
 }

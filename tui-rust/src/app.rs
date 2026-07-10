@@ -97,6 +97,8 @@ pub struct App {
     pub chat_messages: Vec<ChatMsg>,
     pub chat_input: String,
     pub chat_loading: bool,
+    /// Chat 页是否聚焦输入框（聚焦时屏蔽全局快捷键，允许输入 q/1-5/Tab/F2 等字符）
+    pub chat_focused: bool,
 }
 
 impl App {
@@ -125,6 +127,7 @@ impl App {
             chat_messages: Vec::new(),
             chat_input: String::new(),
             chat_loading: false,
+            chat_focused: false,
         }
     }
     pub fn quit(&mut self) { self.should_quit = true; }

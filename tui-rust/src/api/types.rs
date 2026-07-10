@@ -124,7 +124,7 @@ pub struct ProviderInfo {
     #[serde(default)]
     pub context_window: Option<u32>,
     #[serde(default)]
-    pub health: Option<String>,
+    pub health: Option<serde_json::Value>,
     #[serde(default)]
     pub is_configured: bool,
 }
@@ -154,7 +154,7 @@ pub struct ProviderPreset {
 pub struct TestProviderResponse {
     pub provider_id: String,
     #[serde(default)]
-    pub health: Option<String>,
+    pub health: Option<serde_json::Value>,
     #[serde(default)]
     pub available_models: Vec<String>,
 }

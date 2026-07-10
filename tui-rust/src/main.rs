@@ -41,7 +41,9 @@ fn scan_work_dir() -> String {
 enum BgMessage {
     ProjectOpened { name: String, path: String, success: bool },
     ValidationDone(Result<FullValidationResponse, String>),
-    ProvidersLoaded(Vec<ProviderInfo>),
+    ProvidersLoaded { providers: Vec<ProviderInfo>, active_id: Option<String> },
+    /// 触发重新拉取 providers + active（无数据）
+    RefreshProviders,
     ProviderTested { id: String, result: Result<String, String> },
     ConfigLoaded(Result<FullConfigResponse, String>),
     ChatReply(Result<AiChatResponse, String>),
@@ -98,6 +100,8 @@ async fn try_init(app: &mut App) -> Result<()> {
         Ok(projects) => {
             app.message = format!("找到 {} 个项目", projects.len());
             app.projects = projects;
+            // BUG-8: 扫描后重置选中索引，避免越界
+            app.selected_project = 0;
         }
         Err(e) => tracing::warn!("Scan failed: {}", e),
     }
@@ -114,7 +118,7 @@ async fn run_app(
     loop {
         // 处理后台消息（非阻塞）
         while let Ok(msg) = rx.try_recv() {
-            handle_bg_message(app, msg);
+            handle_bg_message(app, msg, tx);
         }
 
         // 渲染
@@ -142,7 +146,7 @@ async fn run_app(
 }
 
 /// 处理后台任务返回的消息
-fn handle_bg_message(app: &mut App, msg: BgMessage) {
+fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>) {
     match msg {
         BgMessage::ProjectOpened { name, path, success } => {
             app.opening_project = false;
@@ -152,6 +156,8 @@ fn handle_bg_message(app: &mut App, msg: BgMessage) {
                 app.message = "项目已打开".to_string();
                 app.current_tab = Tab::Validation;
                 app.validation = ValidationState::Idle;
+                // BUG-8/17: 打开项目后重置错误列表 cursor，避免越界
+                app.error_cursor = 0;
             } else {
                 app.message = "打开失败".to_string();
             }
@@ -169,12 +175,31 @@ fn handle_bg_message(app: &mut App, msg: BgMessage) {
                 }
             }
         }
-        BgMessage::ProvidersLoaded(providers) => {
-            // 获取活跃 provider id
+        BgMessage::ProvidersLoaded { providers, active_id } => {
             app.providers = providers;
+            app.active_provider_id = active_id;
+            // BUG-8/12: 列表变化后重置 cursor，避免越界
+            app.provider_cursor = 0;
             app.message = format!("{} 个 Provider", app.providers.len());
         }
-        BgMessage::ProviderTested { id, result } => {
+        BgMessage::RefreshProviders => {
+            // 重新拉取 providers + active provider
+            let tx = tx.clone();
+            let url = backend_url();
+            tokio::spawn(async move {
+                let client = crate::api::ApiClient::new(&url);
+                let providers = client.list_providers().await.unwrap_or_default();
+                let active_id = client
+                    .get_active_provider()
+                    .await
+                    .unwrap_or(None)
+                    .map(|p| p.id);
+                let _ = tx
+                    .send(BgMessage::ProvidersLoaded { providers, active_id })
+                    .await;
+            });
+        }
+        BgMessage::ProviderTested { id: _, result } => {
             match result {
                 Ok(latency) => {
                     app.provider_test_result = Some(TestResult::Ok(latency));
@@ -192,7 +217,7 @@ fn handle_bg_message(app: &mut App, msg: BgMessage) {
                     app.config_data = Some(config);
                     app.message = "配置已加载".to_string();
                 }
-                Err(e) => {
+                Err(_) => {
                     app.message = format!("配置加载失败");
                 }
             }
@@ -223,29 +248,51 @@ fn handle_bg_message(app: &mut App, msg: BgMessage) {
 
 /// 处理按键
 async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
-    // 全局
-    match key {
-        KeyCode::Char('q') => { app.quit(); return; }
-        KeyCode::Tab => {
-            let next = (app.current_tab.index() + 1) % 5;
-            if let Some(t) = Tab::from_index(next) { app.switch_tab(t); }
+    // Esc：Chat 页聚焦时退出聚焦（恢复全局快捷键）；否则忽略
+    if key == KeyCode::Esc {
+        if app.chat_focused {
+            app.chat_focused = false;
             return;
         }
-        KeyCode::BackTab => {
-            let prev = if app.current_tab.index() == 0 { 4 } else { app.current_tab.index() - 1 };
-            if let Some(t) = Tab::from_index(prev) { app.switch_tab(t); }
-            return;
+    }
+
+    // 全局快捷键：仅在 Chat 页未聚焦输入框时生效（否则允许输入 q/1-5/Tab/F2 等字符）
+    if !(app.current_tab == Tab::Chat && app.chat_focused) {
+        match key {
+            KeyCode::Char('q') => { app.quit(); return; }
+            KeyCode::Tab => {
+                let next = (app.current_tab.index() + 1) % 5;
+                if let Some(t) = Tab::from_index(next) {
+                    app.switch_tab(t);
+                    // 切到 Chat 页自动聚焦
+                    if app.current_tab == Tab::Chat { app.chat_focused = true; }
+                }
+                return;
+            }
+            KeyCode::BackTab => {
+                let prev = if app.current_tab.index() == 0 { 4 } else { app.current_tab.index() - 1 };
+                if let Some(t) = Tab::from_index(prev) {
+                    app.switch_tab(t);
+                    // 切到 Chat 页自动聚焦
+                    if app.current_tab == Tab::Chat { app.chat_focused = true; }
+                }
+                return;
+            }
+            KeyCode::F(2) => {
+                app.fx_enabled = !app.fx_enabled;
+                app.message = if app.fx_enabled { "动效已开启" } else { "动效已关闭" }.to_string();
+                return;
+            }
+            KeyCode::Char(c) if ('1'..='5').contains(&c) => {
+                if let Some(t) = Tab::from_index((c as usize) - ('1' as usize)) {
+                    app.switch_tab(t);
+                    // 切到 Chat 页自动聚焦
+                    if app.current_tab == Tab::Chat { app.chat_focused = true; }
+                }
+                return;
+            }
+            _ => {}
         }
-        KeyCode::F(2) => {
-            app.fx_enabled = !app.fx_enabled;
-            app.message = if app.fx_enabled { "动效已开启" } else { "动效已关闭" }.to_string();
-            return;
-        }
-        KeyCode::Char(c) if ('1'..='5').contains(&c) => {
-            if let Some(t) = Tab::from_index((c as usize) - ('1' as usize)) { app.switch_tab(t); }
-            return;
-        }
-        _ => {}
     }
 
     // 页面级
@@ -350,11 +397,24 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
                     let result = client.test_provider(&p.id).await;
                     let msg = match result {
                         Ok(resp) => {
-                            let health = resp.health.unwrap_or_default();
-                            if health.contains("ok") {
+                            // health 是 dict（如 {"status": "ok", ...}），提取 status 字符串
+                            let status = resp
+                                .health
+                                .as_ref()
+                                .and_then(|h| h.get("status"))
+                                .and_then(|v| v.as_str())
+                                .map(|s| s.to_string())
+                                .unwrap_or_else(|| {
+                                    resp.health
+                                        .as_ref()
+                                        .and_then(|h| h.as_str())
+                                        .map(|s| s.to_string())
+                                        .unwrap_or_default()
+                                });
+                            if status.contains("ok") {
                                 BgMessage::ProviderTested { id: p.id, result: Ok("ok".to_string()) }
                             } else {
-                                BgMessage::ProviderTested { id: p.id, result: Err(health) }
+                                BgMessage::ProviderTested { id: p.id, result: Err(status) }
                             }
                         }
                         Err(e) => BgMessage::ProviderTested { id: p.id, result: Err(e.to_string()) },
@@ -372,7 +432,8 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
                 tokio::spawn(async move {
                     let mut client = crate::api::ApiClient::new(&url);
                     let _ = client.activate_provider(&p.id).await;
-                    let _ = tx.send(BgMessage::ProvidersLoaded(Vec::new())).await; // 触发刷新
+                    // 激活后触发重新拉取列表（含 active_id），而非清空列表
+                    let _ = tx.send(BgMessage::RefreshProviders).await;
                 });
             }
         }
@@ -383,12 +444,13 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
             tokio::spawn(async move {
                 let client = crate::api::ApiClient::new(&url);
                 let providers = client.list_providers().await.unwrap_or_default();
-                let active = client.get_active_provider().await.unwrap_or(None);
-                let msg = BgMessage::ProvidersLoaded(providers);
+                let active_id = client
+                    .get_active_provider()
+                    .await
+                    .unwrap_or(None)
+                    .map(|a| a.id);
+                let msg = BgMessage::ProvidersLoaded { providers, active_id };
                 let _ = tx.send(msg).await;
-                if let Some(a) = active {
-                    let _ = tx.send(BgMessage::ProviderTested { id: a.id.clone(), result: Ok(a.id.clone()) }).await;
-                }
             });
         }
 
@@ -433,10 +495,10 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
                 });
             }
         }
-        KeyCode::Char(c) if app.current_tab == Tab::Chat && !app.chat_loading => {
+        KeyCode::Char(c) if app.current_tab == Tab::Chat && app.chat_focused && !app.chat_loading => {
             app.chat_input.push(c);
         }
-        KeyCode::Backspace if app.current_tab == Tab::Chat && !app.chat_loading => {
+        KeyCode::Backspace if app.current_tab == Tab::Chat && app.chat_focused && !app.chat_loading => {
             app.chat_input.pop();
         }
 

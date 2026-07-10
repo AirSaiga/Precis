@@ -75,10 +75,9 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     // 测试结果
     if let Some(ref result) = app.provider_test_result {
         let (icon, msg, color) = match result {
-            crate::app::TestResult::Ok(_) => ("✓", "连接正常", colors::GREEN),
-            crate::app::TestResult::Fail(err) => ("✗", &err[..], colors::RED),
+            crate::app::TestResult::Ok(_) => ("✓".to_string(), "连接正常".to_string(), colors::GREEN),
+            crate::app::TestResult::Fail(err) => ("✗".to_string(), truncate(err, 50), colors::RED),
         };
-        let msg = if msg.len() > 50 { format!("{}…", &msg[..49]) } else { msg.to_string() };
         frame.render_widget(
             Paragraph::new(format!("  {} {}", icon, msg))
                 .style(Style::default().fg(color).bg(colors::SURFACE)),

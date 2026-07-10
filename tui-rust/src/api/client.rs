@@ -128,9 +128,11 @@ impl ApiClient {
         let status = resp.status();
         let text = resp.text().await.unwrap_or_default();
         if !status.is_success() {
-            anyhow::bail!("校验请求失败 ({}): {}", status, &text[..text.len().min(500)]);
+            let preview: String = text.chars().take(500).collect();
+            anyhow::bail!("校验请求失败 ({}): {}", status, preview);
         }
-        serde_json::from_str(&text).context(format!("解析校验响应失败: {}", &text[..text.len().min(200)]))
+        let preview: String = text.chars().take(200).collect();
+        serde_json::from_str(&text).context(format!("解析校验响应失败: {}", preview))
     }
 
     // ---- Provider 管理（无项目 header） ----
@@ -194,7 +196,8 @@ impl ApiClient {
         };
         let resp = req.json(&body).send().await?;
         let text = resp.text().await?;
-        serde_json::from_str(&text).context(format!("解析 Chat 响应失败: {}", &text[..text.len().min(200)]))
+        let preview: String = text.chars().take(200).collect();
+        serde_json::from_str(&text).context(format!("解析 Chat 响应失败: {}", preview))
     }
 }
 
