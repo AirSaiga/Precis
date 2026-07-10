@@ -307,7 +307,7 @@ def load_config_content(project_path: str, filename: str) -> dict | str:
         with open(config_path, encoding="utf-8") as f:
             content = yaml.safe_load(f)
             if content:
-                return content
+                return content if isinstance(content, dict) else str(content)
             return "(空文件)"
     except yaml.YAMLError as e:
         return f"YAML 解析失败: {e}"
