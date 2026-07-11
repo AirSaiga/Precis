@@ -17,7 +17,7 @@
  */
 
 import type { Edge } from '@vue-flow/core'
-import type { CustomNode, RegexNodeData } from '@/types/graph'
+import type { CustomNode, RegexNodeData, RegexExtractNodeData } from '@/types/graph'
 import type { FullConfigV2Response, RegexNodeFileV2 } from '@/types/projectV2'
 interface ColumnLike {
   id?: string
@@ -52,7 +52,9 @@ export function hydrateRegexNodesFromV2Config(params: {
     const v2ColumnName = rRec.source_column_name || ''
 
     const schemaNode = v2SourceRef
-      ? existingNodes.find((n) => n.id === v2SourceRef.nodeId && n.type === 'schema')
+      ? existingNodes.find(
+          (n) => n.id === v2SourceRef.nodeId && (n.type === 'schema' || n.type === 'jsonSchema')
+        )
       : null
     const schemaColumns = schemaNode
       ? ((schemaNode.data as Record<string, unknown> | undefined)?.columns as
@@ -71,30 +73,60 @@ export function hydrateRegexNodesFromV2Config(params: {
       ? { nodeId: v2SourceRef.nodeId, columnId: actualColumnId }
       : undefined
 
-    nextNodes.push({
-      id: nodeId,
-      type: 'regex',
-      position: pos,
-      data: {
-        configName: rRec.name || 'Regex',
-        pattern: rRec.pattern || '',
-        description: rRec.description || '',
-        parameters: rRec.parameters || [],
-        matchMode: rRec.match_mode || 'full',
-        enabled: rRec.enabled !== false,
-        caseSensitive: !!rRec.case_sensitive,
-        flags: rRec.flags || '',
-        validationRules: {},
-        rules: rRec.rules || [],
-        validationStatus: 'idle',
-        errorCount: 0,
-        totalRows: 0,
-        matchCount: 0,
-        lastValidationTime: undefined,
-        sourceRef,
-        saveState: 'saved',
-      } as unknown as RegexNodeData,
-    })
+    const isExtract = rRec.match_mode === 'extract'
+    const nodeType = isExtract ? 'regexExtract' : 'regex'
+
+    if (isExtract) {
+      nextNodes.push({
+        id: nodeId,
+        type: nodeType,
+        position: pos,
+        data: {
+          configName: rRec.name || 'RegexExtract',
+          pattern: rRec.pattern || '',
+          description: rRec.description || '',
+          flags: rRec.flags || '',
+          caseSensitive: !!rRec.case_sensitive,
+          enabled: rRec.enabled !== false,
+          captureGroups: (rRec.capture_groups || []).map((g) => ({
+            name: String((g as Record<string, unknown>).name || ''),
+            groupIndex: Number((g as Record<string, unknown>).group_index || 0),
+          })),
+          outputColumns: (rRec.output_columns || []).map(String),
+          inputFromNode: rRec.input_from_node || undefined,
+          inputColumn: rRec.input_column || undefined,
+          rules: rRec.rules || [],
+          validationStatus: 'idle',
+          sourceRef,
+          saveState: 'saved',
+        } as unknown as RegexExtractNodeData,
+      })
+    } else {
+      nextNodes.push({
+        id: nodeId,
+        type: nodeType,
+        position: pos,
+        data: {
+          configName: rRec.name || 'Regex',
+          pattern: rRec.pattern || '',
+          description: rRec.description || '',
+          parameters: rRec.parameters || [],
+          matchMode: rRec.match_mode || 'full',
+          enabled: rRec.enabled !== false,
+          caseSensitive: !!rRec.case_sensitive,
+          flags: rRec.flags || '',
+          validationRules: {},
+          rules: rRec.rules || [],
+          validationStatus: 'idle',
+          errorCount: 0,
+          totalRows: 0,
+          matchCount: 0,
+          lastValidationTime: undefined,
+          sourceRef,
+          saveState: 'saved',
+        } as unknown as RegexNodeData,
+      })
+    }
 
     if (sourceRef?.nodeId && sourceRef?.columnId) {
       nextEdges.push({
@@ -102,7 +134,7 @@ export function hydrateRegexNodesFromV2Config(params: {
         source: sourceRef.nodeId,
         target: nodeId,
         sourceHandle: `source-right-${sourceRef.columnId}`,
-        targetHandle: 'regex-input',
+        targetHandle: isExtract ? 'regexExtract-input' : 'regex-input',
         type: 'smoothstep',
         animated: true,
         style: { stroke: 'var(--edge-schema-to-regex)', strokeWidth: 2 },
