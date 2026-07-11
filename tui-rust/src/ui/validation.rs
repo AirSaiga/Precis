@@ -6,34 +6,37 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Row, Table, TableState};
 use ratatui::Frame;
 
-use crate::app::{colors, App, ValidationState};
+use crate::app::{colors, layout, App, ValidationState};
+use crate::icons;
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
-    // 顶部留白
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(2), Constraint::Length(6), Constraint::Min(1)])
+        .constraints([
+            Constraint::Length(layout::VALIDATION_HINT),
+            Constraint::Length(layout::VALIDATION_SUMMARY),
+            Constraint::Min(1),
+        ])
         .split(area);
 
     // 提示行
     let hint: String = match &app.validation {
         ValidationState::Idle => "  按 v 执行校验".to_string(),
         ValidationState::Validating => {
-            let s = match app.frame_count % 6 { 0 => "⠋", 1 => "⠙", 2 => "⠹", 3 => "⠸", 4 => "⠼", _ => "⠴" };
-            format!("  {} 校验中...", s)
+            format!("  {} 校验中...", icons::spinner(app.frame_count))
         }
         ValidationState::Done(_) => "  校验完成  j/k 浏览  v 重新校验".to_string(),
         ValidationState::Failed(_) => "  校验失败  按 v 重试".to_string(),
     };
     frame.render_widget(
-        Paragraph::new(hint).style(Style::default().fg(colors::MUTED)),
+        Paragraph::new(hint).style(Style::default().fg(colors::PINK)),
         chunks[0],
     );
 
-    // 摘要区（大号数字，无边框，大留白）
+    // 摘要区
     render_summary(frame, app, chunks[1]);
 
-    // 错误表格（无边框，仅斑马纹）
+    // 错误表格
     render_errors(frame, app, chunks[2]);
 }
 
@@ -48,7 +51,7 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
             Line::from(Span::styled("  · · ·", Style::default().fg(colors::MUTED))),
         ],
         ValidationState::Failed(err) => {
-            let msg = truncate(err, 60);
+            let msg = icons::truncate(err, 60);
             vec![
                 Line::from(""),
                 Line::from(vec![
@@ -62,7 +65,6 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
             let s = &resp.summary;
             let total = s.total_error_count;
             let pass = total == 0;
-            let color = if pass { colors::GREEN } else { colors::PINK };
 
             let mut v = vec![Line::from("")];
 
@@ -76,22 +78,37 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
                     Style::default().fg(colors::MUTED),
                 )));
             } else {
+                // 大号错误数
                 v.push(Line::from(vec![
-                    Span::styled(format!("  {}", total), Style::default().fg(color).add_modifier(Modifier::BOLD)),
-                    Span::styled(" 个错误", Style::default().fg(colors::FG)),
+                    Span::styled(format!("  {}", total), Style::default().fg(colors::RED).add_modifier(Modifier::BOLD)),
+                    Span::styled(" 个错误", Style::default().fg(colors::RED)),
+                    Span::styled(
+                        format!("   {} 表 · {} 文件 · {}ms", s.tables_loaded, s.files_loaded, s.duration_ms),
+                        Style::default().fg(colors::MUTED),
+                    ),
                 ]));
-                v.push(Line::from(Span::styled(
-                    format!("  {} 表 · {} 文件 · {}ms", s.tables_loaded, s.files_loaded, s.duration_ms),
-                    Style::default().fg(colors::MUTED),
-                )));
+
+                // pass rate 进度条（使用后端 statistics 中的真实通过率）
+                let pass_rate = resp.statistics.as_ref()
+                    .map(|st| st.pass_rate / 100.0)
+                    .unwrap_or(0.0);
                 v.push(Line::from(""));
                 v.push(Line::from(vec![
-                    Span::styled("  格式 ", Style::default().fg(colors::DIM)),
-                    Span::styled(format!("{}", s.format_error_count), Style::default().fg(colors::YELLOW)),
-                    Span::styled("  约束 ", Style::default().fg(colors::DIM)),
-                    Span::styled(format!("{}", s.constraint_error_count), Style::default().fg(colors::YELLOW)),
-                    Span::styled("  加载 ", Style::default().fg(colors::DIM)),
-                    Span::styled(format!("{}", s.loading_error_count), Style::default().fg(colors::YELLOW)),
+                    Span::styled("  ", Style::default()),
+                    Span::styled(icons::progress_bar(pass_rate), Style::default().fg(colors::CYAN)),
+                    Span::styled(format!(" {:.0}%", pass_rate * 100.0), Style::default().fg(colors::MUTED)),
+                    Span::styled(" pass rate", Style::default().fg(colors::DIM)),
+                ]));
+
+                // 错误分布色块
+                v.push(Line::from(""));
+                v.push(Line::from(vec![
+                    Span::styled("  ■ ", Style::default().fg(colors::YELLOW)),
+                    Span::styled(format!("格式 {}  ", s.format_error_count), Style::default().fg(colors::MUTED)),
+                    Span::styled("■ ", Style::default().fg(colors::CYAN)),
+                    Span::styled(format!("约束 {}  ", s.constraint_error_count), Style::default().fg(colors::MUTED)),
+                    Span::styled("■ ", Style::default().fg(colors::GREEN)),
+                    Span::styled(format!("加载 {}", s.loading_error_count), Style::default().fg(colors::MUTED)),
                 ]));
             }
             v
@@ -114,11 +131,11 @@ fn render_errors(frame: &mut Frame, app: &App, area: Rect) {
                 .map(|(i, e)| {
                     let bg = if i % 2 == 0 { colors::BG } else { colors::SURFACE };
                     Row::new(vec![
-                        truncate(&e.table, 18),
-                        truncate(&e.column, 18),
+                        icons::truncate(&e.table, 18),
+                        icons::truncate(&e.column, 18),
                         e.row_index.map(|r| r.to_string()).unwrap_or_default(),
-                        truncate(&e.error_type, 16),
-                        truncate(&e.message, (area.width as usize) / 3),
+                        icons::truncate(&e.error_type, 16),
+                        icons::truncate(&e.message, (area.width as usize) / 3),
                     ])
                     .style(Style::default().bg(bg))
                 })
@@ -142,14 +159,5 @@ fn render_errors(frame: &mut Frame, app: &App, area: Rect) {
             frame.render_stateful_widget(table, area, &mut state);
         }
         _ => {}
-    }
-}
-
-fn truncate(s: &str, max: usize) -> String {
-    if s.chars().count() <= max {
-        s.to_string()
-    } else {
-        let t: String = s.chars().take(max.saturating_sub(1)).collect();
-        format!("{}…", t)
     }
 }

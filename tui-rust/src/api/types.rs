@@ -70,6 +70,9 @@ pub struct FullValidationResponse {
     pub summary: ValidationSummary,
     #[serde(default)]
     pub errors: Vec<ValidationErrorItem>,
+    /// 详细统计信息（含 pass_rate 等真实通过率数据）
+    #[serde(default)]
+    pub statistics: Option<ValidationStatistics>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -100,6 +103,20 @@ pub struct ValidationErrorItem {
     pub row_index: Option<i64>,
     #[serde(default)]
     pub source_path: String,
+}
+
+/// 校验统计信息（对齐后端 ValidationStatistics 模型）
+#[derive(Debug, Clone, Deserialize)]
+pub struct ValidationStatistics {
+    #[serde(default)]
+    pub total_checks: i64,
+    #[serde(default)]
+    pub passed_count: i64,
+    #[serde(default)]
+    pub failed_count: i64,
+    /// 通过率（百分比，0-100）
+    #[serde(default)]
+    pub pass_rate: f64,
 }
 
 /// 健康检查响应：GET /health
