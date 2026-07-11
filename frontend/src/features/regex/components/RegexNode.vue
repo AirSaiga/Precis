@@ -3,13 +3,24 @@
   @description 正则表达式验证节点组件 - 模式配置、数据校验与结果展示
 -->
 
-/** * @file RegexNode.vue * @description 正则表达式验证节点组件 * * 核心功能： * -
-正则表达式模式配置（full/partial/extract三种匹配模式） * - 数据源连接与列绑定 * -
-正则校验执行与结果展示 * - 校验状态管理与历史记录 * - 校验结果保存到配置文件 * * 数据流： *
-Schema节点/Pattern节点 → [regex-input Handle] → RegexNode → 校验结果输出 * * 节点结构： * - 左侧输入
-Handle：接收来自 Schema 节点的数据 * - Header：节点标题、操作按钮（保存、删除） * -
-Summary：数据源和匹配模式的简要信息 * - Pattern Section：正则表达式模式的显示区域 * - Metrics
-Row：校验结果指标（总行数、匹配数、错误数） */
+<!--
+  核心功能：
+  - 正则表达式模式配置（full/partial/extract三种匹配模式）
+  - 数据源连接与列绑定
+  - 正则校验执行与结果展示
+  - 校验状态管理与历史记录
+  - 校验结果保存到配置文件
+
+  数据流：
+  Schema节点/Pattern节点 → [regex-input Handle] → RegexNode → 校验结果输出
+
+  节点结构：
+  - 左侧输入 Handle：接收来自 Schema 节点的数据
+  - Header：节点标题、操作按钮（保存、删除）
+  - Summary：数据源和匹配模式的简要信息
+  - Pattern Section：正则表达式模式的显示区域
+  - Metrics Row：校验结果指标（总行数、匹配数、错误数）
+-->
 <template>
   <ConstraintNodeFrame
     class="regex-constraint-node constraint-node"
@@ -29,15 +40,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
     :save-text="t('common.save')"
     :saving-text="t('common.saving')"
     :shell-title="data.configName || t('customNodes.regexNode.title')"
-    :handles="[
-      {
-        id: 'regex-input',
-        type: 'target',
-        position: Position.Left,
-        color: 'warning',
-        title: t('customNodes.regexNode.inputHandle'),
-      },
-    ]"
+    :handles="nodeHandles"
     @click="onNodeClick"
     @delete="handleClose"
     @save="handleSave"
@@ -78,45 +81,37 @@ Row：校验结果指标（总行数、匹配数、错误数） */
         </div>
       </div>
 
-      <div class="actions-row">
-        <div class="status-indicator">
+      <div class="button-row">
+        <button
+          v-if="canRegisterPattern"
+          class="secondary-btn"
+          :title="t('customNodes.regexNode.registerAsPatternTitle')"
+          @click="handleRegisterPattern"
+        >
+          {{ t('customNodes.regexNode.registerPattern') }}
+        </button>
+        <button class="secondary-btn" @click="onOpenDesigner">
+          {{ t('customNodes.regexNode.openDesigner') }}
+        </button>
+        <button
+          class="primary-btn"
+          :disabled="!hasSource || !hasPattern"
+          :title="
+            !hasSource
+              ? t('customNodes.regexNode.connectFirst')
+              : t('customNodes.regexNode.startValidation')
+          "
+          @click="onValidateClick"
+        >
+          {{ t('customNodes.regexNode.validate') }}
+        </button>
+      </div>
+
+      <div class="status-section">
+        <div class="status-row">
           <span class="status-dot" :class="'status-' + data.validationStatus"></span>
           <span class="status-text">{{ statusText }}</span>
         </div>
-
-        <div class="action-buttons">
-          <button class="secondary-btn" @click="onOpenDesigner">
-            {{ t('customNodes.regexNode.openDesigner') }}
-          </button>
-          <button
-            class="primary-btn"
-            :disabled="!hasSource || !hasPattern"
-            :title="
-              !hasSource
-                ? t('customNodes.regexNode.connectFirst')
-                : t('customNodes.regexNode.startValidation')
-            "
-            @click="onValidateClick"
-          >
-            {{ t('customNodes.regexNode.validate') }}
-          </button>
-        </div>
-      </div>
-
-      <div v-if="showGuide" class="guide">
-        <div class="guide-item" :class="{ done: hasSource }">
-          ① {{ t('customNodes.regexNode.hintConnectSource') }}
-        </div>
-        <div class="guide-item" :class="{ done: hasPattern }">
-          ② {{ t('customNodes.regexNode.hintSetPattern') }}
-        </div>
-        <div v-if="data.matchMode === 'extract'" class="guide-item" :class="{ done: canExtract }">
-          ③ {{ t('customNodes.regexNode.hintExtractReady') }}
-        </div>
-      </div>
-
-      <div v-if="!hasSource && !showGuide" class="details-hint">
-        {{ t('customNodes.regexNode.connectFirst') }}
       </div>
     </div>
   </ConstraintNodeFrame>
@@ -124,6 +119,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
+  import { toastSuccess, toastError } from '@/core/toast'
   /**
    * @file RegexNode.vue
    * @description 正则表达式验证节点组件
@@ -170,9 +166,8 @@ Row：校验结果指标（总行数、匹配数、错误数） */
   import { Position } from '@vue-flow/core'
   import { useGraphStore } from '@/stores/graphStore'
   import { useProjectStore } from '@/stores/projectStore'
-  import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
-  import type { RegexNodeData, SchemaNodeData } from '@/types/graph'
+  import type { RegexNodeData, RegexExtractNodeData } from '@/types/graph'
   import { NodeDeletionManager } from '@/services/managers/nodeDeletionManager'
   import { useRegexValidation } from '@/features/regex/composables'
   import { createV2Pattern, checkV2PatternExists } from '@/api/projectV2Api'
@@ -193,7 +188,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    */
   const props = defineProps<{
     id: string
-    data: RegexNodeData
+    data: RegexNodeData | RegexExtractNodeData
     selected?: boolean
   }>()
 
@@ -234,15 +229,40 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    */
   const store = useGraphStore()
   const projectStore = useProjectStore()
-  const resourceTreeStore = useResourceTreeStore()
   const { t } = useI18n()
   const { showConfirm } = useGlobalConfirm()
   const { handleRegexValidate } = useRegexValidation()
 
+  const isRegexExtract = computed(() => !('matchMode' in props.data))
+
+  const nodeHandles = computed(() => {
+    const inputHandle = {
+      id: isRegexExtract.value ? 'regexExtract-input' : 'regex-input',
+      type: 'target' as const,
+      position: Position.Left,
+      color: 'warning' as const,
+      title: isRegexExtract.value
+        ? t('customNodes.regexNode.inputHandleExtract')
+        : t('customNodes.regexNode.inputHandle'),
+    }
+    if (isRegexExtract.value) {
+      return [
+        inputHandle,
+        {
+          id: 'regexExtract-output',
+          type: 'source' as const,
+          position: Position.Right,
+          color: 'warning' as const,
+          title: t('customNodes.regexNode.outputHandle'),
+        },
+      ]
+    }
+    return [inputHandle]
+  })
+
   const isSaving = ref(false)
   const showFillAnimation = ref(false)
   const previousPattern = ref('')
-  const patternName = ref('')
 
   watch(
     () => props.data.pattern,
@@ -261,81 +281,81 @@ Row：校验结果指标（总行数、匹配数、错误数） */
     { immediate: true }
   )
 
-  async function handleSave() {
-    if (isSaving.value) return
+  async function handleRegisterPattern() {
+    if (!hasPattern.value || hasUsesPattern.value) return
 
-    if (!hasUsesPattern.value && hasPattern.value) {
-      const shouldRegister = await showConfirm({
-        title: t('customNodes.regexNode.registerAsPatternTitle') || '注册为 Pattern',
+    const configPath = projectStore.currentPaths?.configPath
+    if (!configPath) {
+      logger.error('无法获取项目配置路径')
+      return
+    }
+
+    const defaultName = String(props.data.configName || props.id || 'pattern')
+    const baseName = defaultName
+
+    const existsResult = await checkV2PatternExists(baseName, configPath)
+    let finalName = baseName
+    let overwrite = false
+
+    if (existsResult.exists) {
+      const shouldOverwrite = await showConfirm({
+        title: t('customNodes.regexNode.patternExistsTitle') || 'Pattern 已存在',
         message:
-          t('customNodes.regexNode.registerAsPatternMessage') ||
-          '是否将此正则表达式注册为可复用的 Pattern？',
-        confirmText: t('customNodes.regexNode.registerAsPatternConfirm') || '注册',
-        cancelText: t('common.cancel') || '取消',
-        type: 'info',
+          t('customNodes.regexNode.patternExistsMessage') ||
+          `Pattern "${baseName}" 已存在，是否覆盖？`,
+        confirmText: t('customNodes.regexNode.overwrite') || '覆盖',
+        cancelText: t('customNodes.regexNode.useNewName') || '使用新名称',
+        type: 'warning',
       })
 
-      if (shouldRegister) {
-        const configPath = projectStore.currentPaths?.configPath
-        if (!configPath) {
-          logger.error('无法获取项目配置路径')
-          return
-        }
-        const defaultName = String(props.data.configName || props.id || 'pattern')
-        patternName.value = defaultName
-
-        const existsResult = await checkV2PatternExists(patternName.value, configPath)
-        let finalName = patternName.value
-        let overwrite = false
-
-        if (existsResult.exists) {
-          const shouldOverwrite = await showConfirm({
-            title: t('customNodes.regexNode.patternExistsTitle') || 'Pattern 已存在',
-            message:
-              t('customNodes.regexNode.patternExistsMessage') ||
-              `Pattern "${patternName.value}" 已存在，是否覆盖？`,
-            confirmText: t('customNodes.regexNode.overwrite') || '覆盖',
-            cancelText: t('customNodes.regexNode.useNewName') || '使用新名称',
-            type: 'warning',
-          })
-
-          if (shouldOverwrite) {
-            overwrite = true
-          } else {
-            let counter = 1
-            while (true) {
-              finalName = `${patternName.value}_${counter}`
-              const newExists = await checkV2PatternExists(finalName, configPath)
-              if (!newExists.exists) break
-              counter++
-            }
-          }
-        }
-
-        try {
-          await createV2Pattern(
-            {
-              name: finalName,
-              regex: props.data.pattern,
-              description: props.data.description || '',
-              overwrite,
-            },
-            configPath
-          )
-
-          // eslint-disable-next-line vue/no-mutating-props
-          props.data.uses_pattern = {
-            registry: 'patterns',
-            pattern_name: finalName,
-          }
-          // eslint-disable-next-line vue/no-mutating-props
-          props.data.pattern = ''
-        } catch (error) {
-          logger.error('注册 Pattern 失败:', error)
-          return
+      if (shouldOverwrite) {
+        overwrite = true
+      } else {
+        let counter = 1
+        while (true) {
+          finalName = `${baseName}_${counter}`
+          const newExists = await checkV2PatternExists(finalName, configPath)
+          if (!newExists.exists) break
+          counter++
         }
       }
     }
+
+    try {
+      await createV2Pattern(
+        {
+          name: finalName,
+          regex: props.data.pattern,
+          description: props.data.description || '',
+          overwrite,
+        },
+        configPath
+      )
+
+      store.updateNodeData(props.id, {
+        uses_pattern: {
+          registry: 'patterns',
+          pattern_name: finalName,
+        },
+        pattern: '',
+        saveState: 'draft',
+      })
+
+      toastSuccess(
+        t('customNodes.regexNode.registerPatternSuccess', { name: finalName }),
+        t('customNodes.regexNode.registerPatternSuccessTitle')
+      )
+    } catch (error) {
+      logger.error('注册 Pattern 失败:', error)
+      toastError(
+        error instanceof Error ? error.message : t('messages.error.unknownError'),
+        t('customNodes.regexNode.registerPatternFailedTitle')
+      )
+    }
+  }
+
+  async function handleSave() {
+    if (isSaving.value) return
 
     isSaving.value = true
     try {
@@ -357,7 +377,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * - 显示/隐藏连接指引
    * - 决定详情面板中的提示信息
    */
-  const hasSource = computed(() => !!props.data.sourceRef?.nodeId)
+  const hasSource = computed(() => !!props.data.sourceRef?.nodeId || !!props.data.inputFromNode)
 
   /**
    * 【计算属性：是否有正则模式】
@@ -376,30 +396,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
     return !!props.data.uses_pattern && props.data.uses_pattern.pattern_name
   })
 
-  /**
-   * 【计算属性：上游 Schema 节点】
-   *
-   * 【数据来源】
-   * 根据 sourceRef.nodeId 在 store.nodes 中查找类型为 'schema' 的节点。
-   *
-   * 【使用场景】
-   * - 获取 Schema 节点的表名、列定义等信息
-   * - 用于 sourceDisplay 计算属性
-   * - 传递给 useRegexValidation 执行实际校验
-   *
-   * 【边缘情况】
-   * - sourceRef.nodeId 为空时返回 null
-   * - 节点已被删除时返回 null
-   */
-  const schemaNode = computed(() => {
-    if (!props.data.sourceRef?.nodeId) return null
-    return (
-      store.nodes.find(
-        (n) =>
-          (n.type === 'schema' || n.type === 'jsonSchema') && n.id === props.data.sourceRef?.nodeId
-      ) || null
-    )
-  })
+  const canRegisterPattern = computed(() => hasPattern.value && !hasUsesPattern.value)
 
   /**
    * 【计算属性：数据源显示文本】
@@ -412,34 +409,39 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * - 已连接：格式为 "表名.列名"
    *
    * 【数据来源】
-   * - 优先从画布上的 schema 节点 data.tableName（反映可能的编辑）
-   * - 回退到 resourceTreeStore 中按 sourceRef.nodeId 查找的 schema 资源 name
-   * - 最终回退到"未注册表"并发出 warn 日志
+   * - 从上游节点 data.tableName / configName / columnName 获取表名
+   * - 从列定义或上游节点获取列名
    */
   const sourceDisplay = computed(() => {
     const srcRef = props.data.sourceRef
-    if (!srcRef?.nodeId) return t('customNodes.regexNode.sourceNotConnected')
-    const resource = resourceTreeStore.resources[srcRef.nodeId]
-    const canvasName = (schemaNode.value?.data as SchemaNodeData | undefined)?.tableName
-    const resourceName = resource?.kind === 'schema' ? resource.name : undefined
-    const tableName = canvasName || resourceName
+    const inputFromNode = props.data.inputFromNode
+    const sourceNodeId = srcRef?.nodeId || inputFromNode
+    if (!sourceNodeId) return t('customNodes.regexNode.sourceNotConnected')
+
+    const sourceNode = store.nodes.find((n) => n.id === sourceNodeId)
+    const sourceData = sourceNode?.data as Record<string, unknown> | undefined
+    const tableName =
+      (sourceData?.tableName as string) ||
+      (sourceData?.configName as string) ||
+      (sourceData?.columnName as string)
     if (!tableName) {
-      logger.warn(
-        '[RegexNode] 无法找到 schema 节点或资源树中的表名, sourceRef.nodeId:',
-        srcRef.nodeId
-      )
+      logger.warn('[RegexNode] 无法找到上游节点的名称, sourceNodeId:', sourceNodeId)
       return t('customNodes.regexNode.unregisteredTable')
     }
-    const columnObj = (
-      (schemaNode.value?.data as unknown as Record<string, unknown>)?.columns as
-        | unknown[]
-        | undefined
-    )?.find((c) => (c as Record<string, unknown>).id === srcRef.columnId) as
-      | Record<string, unknown>
-      | undefined
-    const col = (columnObj?.columnName as string) || ''
-    if (!col) return `${tableName}.${t('customNodes.regexNode.columnNotSelected')}`
-    return `${tableName}.${col}`
+
+    let columnName = ''
+    if (srcRef?.columnId && (sourceNode?.type === 'schema' || sourceNode?.type === 'jsonSchema')) {
+      const columns = (sourceData?.columns as unknown[] | undefined) || []
+      const columnObj = columns.find(
+        (c) => (c as Record<string, unknown>).id === srcRef.columnId
+      ) as Record<string, unknown> | undefined
+      columnName = (columnObj?.columnName as string) || ''
+    } else if (inputFromNode) {
+      columnName = (sourceData?.columnName as string) || ''
+    }
+
+    if (!columnName) return `${tableName}.${t('customNodes.regexNode.columnNotSelected')}`
+    return `${tableName}.${columnName}`
   })
 
   /**
@@ -455,64 +457,6 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * - 其他 → 未知模式
    */
   const matchModeText = computed(() => getMatchModeText())
-
-  /**
-   * 【计算属性：输出映射条目】
-   *
-   * 【业务目的】
-   * 从 rules[0].output 中提取有效的键值对。
-   *
-   * 【过滤条件】
-   * - 键不能为空或纯空白字符
-   *
-   * 【使用场景】
-   * - 判断 canExtract 计算属性
-   * - 传递给后端用于派生列生成
-   */
-  const outputMappingEntries = computed(() => {
-    const outputMapping = props.data.rules?.[0]?.output || {}
-    return Object.entries(outputMapping).filter(([k]) => String(k ?? '').trim() !== '')
-  })
-
-  /**
-   * 【计算属性：是否可以提取】
-   *
-   * 【业务含义】
-   * 判断当前配置是否满足"提取模式"的前置条件。
-   *
-   * 【判断逻辑】
-   * - 非 extract 模式：始终返回 true（无需提取）
-   * - extract 模式 + 有输出映射：返回 true
-   * - extract 模式 + 无输出映射：检查正则中是否包含命名捕获组 (?P<name>...)
-   *
-   * 【命名捕获组正则】
-   * /\(\?P<(\w+)>/g 用于检测正则表达式中的命名捕获组定义
-   */
-  const canExtract = computed(() => {
-    if (props.data.matchMode !== 'extract') return true
-    if (outputMappingEntries.value.length > 0) return true
-    return /\(\?P<(\w+)>/g.test(props.data.pattern || '')
-  })
-
-  /**
-   * 【计算属性：是否显示指引】
-   *
-   * 【业务目的】
-   * 根据当前节点状态决定是否显示配置指引。
-   *
-   * 【显示条件】
-   * - 校验状态为 error 时不显示（已校验完成）
-   * - 未连接数据源时显示（需要连接）
-   * - 未设置正则模式时显示（需要设置）
-   * - extract 模式且无法提取时显示（需要配置输出映射或命名捕获组）
-   */
-  const showGuide = computed(() => {
-    if (props.data.validationStatus === 'error') return false
-    if (!hasSource.value) return true
-    if (!hasPattern.value) return true
-    if (props.data.matchMode === 'extract' && !canExtract.value) return true
-    return false
-  })
 
   /**
    * 【计算属性：状态文本】
@@ -531,7 +475,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
       pass: t('customNodes.regexNode.statusPass'),
       error: t('customNodes.regexNode.statusError'),
     }
-    return statusMap[props.data.validationStatus] || statusMap.idle
+    return statusMap[props.data.validationStatus || 'idle'] || statusMap.idle
   })
 
   /**
@@ -568,16 +512,17 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * 对应模式的本地化显示名称
    */
   function getMatchModeText(): string {
-    switch (props.data.matchMode) {
-      case 'full':
-        return t('customNodes.regexNode.matchModes.full')
-      case 'partial':
-        return t('customNodes.regexNode.matchModes.partial')
-      case 'extract':
-        return t('customNodes.regexNode.matchModes.extract')
-      default:
-        return t('customNodes.regexNode.matchModes.unknown')
+    if (isRegexExtract.value) {
+      return t('customNodes.regexNode.matchModes.extract')
     }
+    const data = props.data as Partial<RegexNodeData>
+    if (data.matchMode === 'full') {
+      return t('customNodes.regexNode.matchModes.full')
+    }
+    if (data.matchMode === 'partial') {
+      return t('customNodes.regexNode.matchModes.partial')
+    }
+    return t('customNodes.regexNode.matchModes.extract')
   }
 
   /**
@@ -652,7 +597,11 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * 并根据 activeRegexNodeId 加载对应的正则节点数据。
    */
   function onOpenDesigner() {
-    store.openRegexDesignModal(props.id)
+    if (isRegexExtract.value) {
+      store.openRegexExtractDesignModal(props.id)
+    } else {
+      store.openRegexDesignModal(props.id)
+    }
   }
 
   /**
@@ -679,7 +628,7 @@ Row：校验结果指标（总行数、匹配数、错误数） */
    * - 校验过程中的错误由 handleRegexValidate 内部处理
    */
   async function onValidateClick() {
-    if (!props.data.sourceRef?.nodeId) {
+    if (!props.data.sourceRef?.nodeId && !props.data.inputFromNode) {
       return
     }
 

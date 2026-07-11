@@ -199,7 +199,7 @@
 
   // --- Regex state ---
   const localRegex = ref(props.rule.regex || '')
-  const flagsDisplay = computed(() => props.flags || 'g')
+  const flagsDisplay = computed(() => props.flags ?? 'g')
 
   // --- Pattern parts (builder state) ---
   interface PatternPart {
