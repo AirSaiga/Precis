@@ -81,7 +81,9 @@ export function useRegexValidation() {
   const handleRegexPatternUpdated = async (detail: { nodeId: string; reason: string }) => {
     const { nodeId } = detail
 
-    const regexNode = store.nodes.find((n) => n.id === nodeId && n.type === 'regex')
+    const regexNode = store.nodes.find(
+      (n) => n.id === nodeId && (n.type === 'regex' || n.type === 'regexExtract')
+    )
     if (!regexNode) return
 
     const source = resolveRegexSource(nodeId, store.nodes, store.edges)
@@ -98,7 +100,12 @@ export function useRegexValidation() {
       for (const edge of store.edges) {
         // Bug 4.1 修复：按结构匹配 regex 边（target + targetHandle），而非依赖 label
         if (edge.target !== regexNodeId) continue
-        if (edge.targetHandle !== 'regex-input' && edge.targetHandle !== undefined) continue
+        if (
+          edge.targetHandle !== 'regex-input' &&
+          edge.targetHandle !== 'regexExtract-input' &&
+          edge.targetHandle !== undefined
+        )
+          continue
 
         let className = ''
         if (typeof edge.class === 'string') {
