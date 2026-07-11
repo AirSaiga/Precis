@@ -61,6 +61,7 @@ import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData, SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
 import { addEdges, removeEdges } from '@/services/canvas/vueFlowApi'
+import { isRegexNodeType } from '@/utils/nodes/regex'
 import {
   findJsonSchemaColumnById,
   updateJsonSchemaColumnsRecursive,
@@ -77,7 +78,7 @@ export function createSchemaOpsModule(params: {
     const schemaNode = nodes.value.find(
       (n) => n.id === schemaNodeId && (n.type === 'schema' || n.type === 'jsonSchema')
     )
-    const regexNode = nodes.value.find((n) => n.id === regexNodeId && n.type === 'regex')
+    const regexNode = nodes.value.find((n) => n.id === regexNodeId && isRegexNodeType(n.type))
     if (!schemaNode || !regexNode) return false
 
     const schemaData = schemaNode.data as SchemaNodeData | JsonSchemaNodeData
@@ -88,7 +89,9 @@ export function createSchemaOpsModule(params: {
 
     // 先通过 API 删除该 Regex 节点的旧入边（触发 onEdgesChange 清理链）
     const oldEdges = edges.value.filter(
-      (e) => e.target === regexNodeId && (e.targetHandle as string | undefined) === 'regex-input'
+      (e) =>
+        e.target === regexNodeId &&
+        (e.targetHandle === 'regex-input' || e.targetHandle === 'regexExtract-input')
     )
     for (const edge of oldEdges) {
       removeEdges(edge.id)
@@ -101,7 +104,7 @@ export function createSchemaOpsModule(params: {
         source: schemaNodeId,
         target: regexNodeId,
         sourceHandle: `source-right-${columnId}`,
-        targetHandle: 'regex-input',
+        targetHandle: regexNode.type === 'regexExtract' ? 'regexExtract-input' : 'regex-input',
         type: 'smoothstep',
         animated: true,
         style: { stroke: 'var(--edge-schema-to-regex)', strokeWidth: 2 },
