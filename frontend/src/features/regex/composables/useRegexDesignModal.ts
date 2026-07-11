@@ -19,7 +19,7 @@ export interface UseRegexDesignModalOptions<T> {
   deriveAdditionalData?: (data: T) => Partial<T>
 }
 
-export function useRegexDesignModal<T extends Record<string, unknown>>(
+export function useRegexDesignModal<T extends object>(
   props: { visible: boolean; ruleData?: T },
   emit: ((event: 'close') => void) & ((event: 'save', data: T) => void),
   options: UseRegexDesignModalOptions<T>
