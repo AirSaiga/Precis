@@ -51,6 +51,11 @@ export const LAYOUT_CONSTANTS = {
 
 /**
  * 节点类型显示名称
+ *
+ * 约束类型条目统一与 i18n 的 `constraintTypes.<kind>` 命名空间术语对齐
+ * （range→区间约束、composite→复合约束），消除历史上「范围/区间」「组合/复合」的漂移。
+ * 需要在运行时按 locale 渲染时，改用 getConstraintKindByNodeType + i18n 解析；
+ * 此静态表作为布局计算阶段的非响应式回退名（familyLayout 用作分组标题）。
  */
 export const NODE_TYPE_NAMES: Record<string, string> = {
   projectRoot: '项目根节点',
@@ -59,6 +64,7 @@ export const NODE_TYPE_NAMES: Record<string, string> = {
   jsonSourcePreview: 'JSON数据源',
   jsonSchema: 'JSON结构',
   regex: '正则校验',
+  regexExtract: '正则提取',
   patternToolbox: '模式工具箱',
   constraintDashboard: '约束看板',
   pattern: '模式节点',
@@ -69,10 +75,10 @@ export const NODE_TYPE_NAMES: Record<string, string> = {
   allowedValuesConstraint: '允许值约束',
   conditionalConstraint: '条件约束',
   scriptedConstraint: '脚本约束',
-  rangeConstraint: '范围约束',
+  rangeConstraint: '区间约束',
   charsetConstraint: '字符集约束',
   dateLogicConstraint: '日期逻辑约束',
-  compositeConstraint: '组合约束',
+  compositeConstraint: '复合约束',
 }
 
 /**
@@ -106,6 +112,7 @@ export const NODE_TYPE_COLORS: Record<string, string> = {
   jsonSourcePreview: '#29B6F6',
   jsonSchema: '#42A5F5',
   regex: '#00BCD4',
+  regexExtract: '#00BCD4',
   patternToolbox: '#9C27B0',
   constraintDashboard: '#7B1FA2',
   pattern: '#AB47BC',

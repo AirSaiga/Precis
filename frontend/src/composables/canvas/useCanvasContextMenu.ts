@@ -13,6 +13,7 @@ import type { NodeMouseEvent } from '@vue-flow/core'
 import { useAiChatStore } from '@/stores/aiChatStore'
 import { useGraphStore } from '@/stores/graphStore'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistryCore'
+import { isRegexNodeType } from '@/utils/nodes/regex'
 import { eventBus } from '@/core/eventBus'
 
 export interface CanvasContextMenuOptions {
@@ -25,7 +26,7 @@ export interface CanvasContextMenuOptions {
 /** 判断节点类型是否可被打包进模板 */
 function isEligibleNodeType(type: string | undefined): boolean {
   if (!type) return false
-  return type === 'transform' || type === 'regex' || isConstraintNodeType(type)
+  return type === 'transform' || isRegexNodeType(type) || isConstraintNodeType(type)
 }
 
 /**

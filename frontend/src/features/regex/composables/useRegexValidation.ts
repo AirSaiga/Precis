@@ -15,6 +15,7 @@ import { validateRegexNode } from '@/services/regex/regexValidationHandler'
 import { useToast } from '@/composables/shared'
 import { useI18n } from 'vue-i18n'
 import { findEdge } from '@/services/canvas/vueFlowApi'
+import { isRegexNodeType } from '@/utils/nodes/regex'
 /**
  * 正则校验逻辑组合式函数
  */
@@ -81,9 +82,7 @@ export function useRegexValidation() {
   const handleRegexPatternUpdated = async (detail: { nodeId: string; reason: string }) => {
     const { nodeId } = detail
 
-    const regexNode = store.nodes.find(
-      (n) => n.id === nodeId && (n.type === 'regex' || n.type === 'regexExtract')
-    )
+    const regexNode = store.nodes.find((n) => n.id === nodeId && isRegexNodeType(n.type))
     if (!regexNode) return
 
     const source = resolveRegexSource(nodeId, store.nodes, store.edges)

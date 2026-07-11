@@ -39,6 +39,7 @@ import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import { isRegexNodeType } from '@/utils/nodes/regex'
 
 export function createScopeModule(params: { nodes: Ref<CustomNode[]>; edges: Ref<Edge[]> }) {
   const { nodes, edges } = params
@@ -50,7 +51,7 @@ export function createScopeModule(params: { nodes: Ref<CustomNode[]>; edges: Ref
 
     const schemaCount = children.filter((n) => n.type === 'schema').length
     const constraintCount = children.filter((n) => isConstraintNodeType(n.type)).length
-    const regexCount = children.filter((n) => n.type === 'regex').length
+    const regexCount = children.filter((n) => isRegexNodeType(n.type)).length
 
     return {
       totalNodes: children.length,

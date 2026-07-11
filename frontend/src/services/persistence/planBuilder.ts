@@ -40,7 +40,7 @@ export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions
   const constraintNodes = persistentNodes.filter(
     (n) => typeof n.type === 'string' && n.type.endsWith('Constraint')
   )
-  const regexNodes = persistentNodes.filter((n) => n.type === 'regex' || n.type === 'regexExtract')
+  const regexNodes = persistentNodes.filter((n) => isRegexNodeType(n.type))
   const transformNodes = persistentNodes.filter((n) => n.type === 'transform')
   const manualDataNodes = persistentNodes.filter((n) => n.type === 'manualData')
   const templateInstanceNodes = persistentNodes.filter((n) => n.type === 'templateInstance')

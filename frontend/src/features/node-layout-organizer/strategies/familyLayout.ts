@@ -18,12 +18,13 @@ import {
 } from '../constants'
 import { getDefaultDimension, type NodeDimension } from '../utils/nodeDimensionHelper'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import { isRegexNodeType } from '@/utils/nodes/regex'
 /**
  * 获取节点类型的回退尺寸
  */
 export function getFallbackDimension(nodeType: string): NodeDimension {
   if (nodeType === 'schema') return { width: 320, height: 400 }
-  if (nodeType === 'regex')
+  if (isRegexNodeType(nodeType))
     return { width: NODE_DIMENSIONS.DEFAULT_WIDTH, height: NODE_DIMENSIONS.DEFAULT_HEIGHT }
   if (isConstraintNodeType(nodeType))
     return { width: NODE_DIMENSIONS.CONSTRAINT_WIDTH, height: NODE_DIMENSIONS.CONSTRAINT_HEIGHT }
@@ -208,7 +209,7 @@ export function layoutFamily(params: {
   for (const id of memberNodeIds) {
     const type = nodeTypeById.get(id) || ''
     if (type === 'sourcePreview' || type === 'jsonSourcePreview') sources.push(id)
-    else if (type === 'regex') regexNodes.push(id)
+    else if (isRegexNodeType(type)) regexNodes.push(id)
     else if (NODE_TYPE_TO_CATEGORY[type] === NodeCategory.CONSTRAINT || isConstraintNodeType(type))
       constraints.push(id)
     else others.push(id)

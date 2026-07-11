@@ -15,6 +15,7 @@ import {
   isConstraintNodeType,
   getV2ConstraintTypeByNodeType,
 } from '@/services/constraints/validationRegistryCore'
+import { isRegexNodeType } from '@/utils/nodes/regex'
 import { buildConstraintExportPayload } from '@/services/constraints/constraintExportAdapter'
 import { createV2Template } from '@/api/projectV2Api'
 import { useResourceTreeStore } from '@/stores/resourceTreeStore'
@@ -61,7 +62,10 @@ function isEligibleNode(node: CustomNode): boolean {
   const type = node.type
   if (!type) return false
   return (
-    type === 'transform' || type === 'regex' || type === 'manualData' || isConstraintNodeType(type)
+    type === 'transform' ||
+    isRegexNodeType(type) ||
+    type === 'manualData' ||
+    isConstraintNodeType(type)
   )
 }
 
@@ -139,7 +143,7 @@ function extractRegexNode(node: CustomNode): TemplateNode {
     input_column: (d.inputColumn as string) || null,
     params: {
       pattern: d.pattern || '',
-      match_mode: d.matchMode || 'full',
+      match_mode: node.type === 'regexExtract' ? 'extract' : (d.matchMode as string) || 'full',
       case_sensitive: d.caseSensitive !== false,
       flags: d.flags || '',
     },
@@ -203,7 +207,7 @@ export function extractTemplateFromSelection(nodes: CustomNode[], edges: Edge[])
   // 映射为 TemplateNode
   const templateNodes: TemplateNode[] = eligibleNodes.map((node) => {
     if (node.type === 'transform') return extractTransformNode(node)
-    if (node.type === 'regex') return extractRegexNode(node)
+    if (isRegexNodeType(node.type)) return extractRegexNode(node)
     if (node.type === 'manualData') return extractManualDataNode(node)
     return extractConstraintNode(node, nodes)
   })
