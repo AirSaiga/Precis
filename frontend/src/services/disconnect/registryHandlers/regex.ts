@@ -18,6 +18,8 @@ registerDisconnectHandler({
     ctx.updateNodeData(target.id, {
       ...data,
       sourceRef: undefined,
+      inputFromNode: undefined,
+      inputColumn: undefined,
       validationStatus: 'idle',
       errorCount: undefined,
       totalRows: undefined,

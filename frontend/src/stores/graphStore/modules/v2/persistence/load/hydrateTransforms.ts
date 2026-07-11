@@ -66,7 +66,9 @@ export function hydrateTransformNodesFromV2Config(params: {
             ? 'transform-output'
             : sourceNode.type === 'regex'
               ? 'regex-output'
-              : undefined
+              : sourceNode.type === 'regexExtract'
+                ? 'regexExtract-output'
+                : undefined
         nextEdges.push({
           id: `e-${inputFromNode}-${nodeId}`,
           source: inputFromNode,

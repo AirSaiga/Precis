@@ -233,7 +233,9 @@
   const { showConfirm } = useGlobalConfirm()
   const { handleRegexValidate } = useRegexValidation()
 
-  const isRegexExtract = computed(() => !('matchMode' in props.data))
+  const isRegexExtract = computed(
+    () => store.nodes.find((n) => n.id === props.id)?.type === 'regexExtract'
+  )
 
   const nodeHandles = computed(() => {
     const inputHandle = {
