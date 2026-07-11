@@ -16,6 +16,7 @@ import { nextTick, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import { isRegexNodeType } from '@/utils/nodes/regex'
 import { logger } from '@/core/utils/logger'
 
 // ============================================================================
@@ -50,7 +51,7 @@ function isChildrenCapableType(type: string | undefined): boolean {
 }
 
 function isParentCapableType(type: string | undefined): boolean {
-  return type === 'regex' || isConstraintNodeType(type)
+  return isRegexNodeType(type) || isConstraintNodeType(type)
 }
 
 function isDataSourceType(type: string | undefined): boolean {
