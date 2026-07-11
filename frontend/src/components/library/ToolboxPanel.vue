@@ -274,38 +274,45 @@
         <Transition name="accordion">
           <div v-if="transformPanelExpanded" class="constraint-panel">
             <div
-              v-for="tItem in transformTypes"
-              :key="tItem.id"
-              class="constraint-type-item"
-              draggable="true"
-              @dragstart="(e) => handleTransformTypeDragStart(e, tItem.transformType)"
-              @dragend="handleDragEnd"
-              @click="handleTransformTypeClick(tItem)"
+              v-for="category in TRANSFORM_CATEGORIES"
+              :key="`tf-${category.id}`"
+              class="constraint-category"
             >
-              <span class="constraint-type-icon"
-                ><AppIcon :name="getTransformTypeIcon(tItem.transformType)" :size="14"
-              /></span>
-              <span class="constraint-type-name">{{ t(tItem.nameKey) }}</span>
-              <span class="constraint-type-grip">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="12"
-                  height="12"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                >
-                  <circle cx="9" cy="12" r="1" />
-                  <circle cx="9" cy="5" r="1" />
-                  <circle cx="9" cy="19" r="1" />
-                  <circle cx="15" cy="12" r="1" />
-                  <circle cx="15" cy="5" r="1" />
-                  <circle cx="15" cy="19" r="1" />
-                </svg>
-              </span>
+              <div class="constraint-category-title">{{ t(category.labelKey) }}</div>
+              <div
+                v-for="tType in category.types"
+                :key="tType"
+                class="constraint-type-item"
+                draggable="true"
+                @dragstart="(e) => handleTransformTypeDragStart(e, tType)"
+                @dragend="handleDragEnd"
+                @click="handleTransformTypeClick(tType)"
+              >
+                <span class="constraint-type-icon"
+                  ><AppIcon :name="getTransformTypeIcon(tType)" :size="14"
+                /></span>
+                <span class="constraint-type-name">{{ getTransformTypeLabel(tType) }}</span>
+                <span class="constraint-type-grip">
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <circle cx="9" cy="12" r="1" />
+                    <circle cx="9" cy="5" r="1" />
+                    <circle cx="9" cy="19" r="1" />
+                    <circle cx="15" cy="12" r="1" />
+                    <circle cx="15" cy="5" r="1" />
+                    <circle cx="15" cy="19" r="1" />
+                  </svg>
+                </span>
+              </div>
             </div>
           </div>
         </Transition>
@@ -488,7 +495,12 @@
   import { ref } from 'vue'
   import { useI18n } from 'vue-i18n'
   import AppIcon from '@/components/icons/AppIcon.vue'
-  import { getTransformTypeIcon } from '@/composables/nodes/transform/transformCategory'
+  import type { TransformTypeV2 } from '@/types/projectV2'
+  import {
+    TRANSFORM_CATEGORIES,
+    getTransformTypeIcon,
+  } from '@/composables/nodes/transform/transformCategory'
+  import { TRANSFORM_TYPE_I18N_KEYS } from '@/composables/nodes/transform'
   import ToolboxTile from './ToolboxTile.vue'
   import ConstraintRuleTypeMenu, {
     type ConstraintRuleTypeOption,
@@ -547,149 +559,14 @@
     createConstraintNode(constraint.constraintType)
   }
 
-  interface TransformTypeItem {
-    id: string
-    nameKey: string
-    transformType:
-      | 'StringSplit'
-      | 'RegexExtract'
-      | 'MathExpr'
-      | 'DateFormat'
-      | 'Lookup'
-      | 'Strip'
-      | 'UpperCase'
-      | 'LowerCase'
-      | 'Replace'
-      | 'FilterRows'
-      | 'FillNA'
-      | 'DropDuplicates'
-      | 'CastType'
-      | 'Concat'
-      | 'Substring'
-      | 'Aggregate'
-      | 'ConditionalAssign'
-      | 'SortRows'
-      | 'Digits'
-      | 'WeightedSum'
-      | 'Modulo'
-      | 'MapValue'
+  /** 取 transform 类型的本地化显示名 */
+  function getTransformTypeLabel(type: TransformTypeV2): string {
+    const key = TRANSFORM_TYPE_I18N_KEYS[type]
+    return key ? t(key) : type
   }
 
-  const transformTypes: TransformTypeItem[] = [
-    {
-      id: 'string-split',
-      nameKey: 'customNodes.transformNode.types.stringSplit',
-      transformType: 'StringSplit',
-    },
-    {
-      id: 'regex-extract',
-      nameKey: 'customNodes.transformNode.types.regexExtract',
-      transformType: 'RegexExtract',
-    },
-    {
-      id: 'math-expr',
-      nameKey: 'customNodes.transformNode.types.mathExpr',
-      transformType: 'MathExpr',
-    },
-    {
-      id: 'date-format',
-      nameKey: 'customNodes.transformNode.types.dateFormat',
-      transformType: 'DateFormat',
-    },
-    {
-      id: 'lookup',
-      nameKey: 'customNodes.transformNode.types.lookup',
-      transformType: 'Lookup',
-    },
-    {
-      id: 'strip',
-      nameKey: 'customNodes.transformNode.types.strip',
-      transformType: 'Strip',
-    },
-    {
-      id: 'upper-case',
-      nameKey: 'customNodes.transformNode.types.upperCase',
-      transformType: 'UpperCase',
-    },
-    {
-      id: 'lower-case',
-      nameKey: 'customNodes.transformNode.types.lowerCase',
-      transformType: 'LowerCase',
-    },
-    {
-      id: 'replace',
-      nameKey: 'customNodes.transformNode.types.replace',
-      transformType: 'Replace',
-    },
-    {
-      id: 'filter-rows',
-      nameKey: 'customNodes.transformNode.types.filterRows',
-      transformType: 'FilterRows',
-    },
-    {
-      id: 'fill-na',
-      nameKey: 'customNodes.transformNode.types.fillNA',
-      transformType: 'FillNA',
-    },
-    {
-      id: 'drop-duplicates',
-      nameKey: 'customNodes.transformNode.types.dropDuplicates',
-      transformType: 'DropDuplicates',
-    },
-    {
-      id: 'cast-type',
-      nameKey: 'customNodes.transformNode.types.castType',
-      transformType: 'CastType',
-    },
-    {
-      id: 'concat',
-      nameKey: 'customNodes.transformNode.types.concat',
-      transformType: 'Concat',
-    },
-    {
-      id: 'substring',
-      nameKey: 'customNodes.transformNode.types.substring',
-      transformType: 'Substring',
-    },
-    {
-      id: 'aggregate',
-      nameKey: 'customNodes.transformNode.types.aggregate',
-      transformType: 'Aggregate',
-    },
-    {
-      id: 'conditional-assign',
-      nameKey: 'customNodes.transformNode.types.conditionalAssign',
-      transformType: 'ConditionalAssign',
-    },
-    {
-      id: 'sort-rows',
-      nameKey: 'customNodes.transformNode.types.sortRows',
-      transformType: 'SortRows',
-    },
-    {
-      id: 'digits',
-      nameKey: 'customNodes.transformNode.types.digits',
-      transformType: 'Digits',
-    },
-    {
-      id: 'weighted-sum',
-      nameKey: 'customNodes.transformNode.types.weightedSum',
-      transformType: 'WeightedSum',
-    },
-    {
-      id: 'modulo',
-      nameKey: 'customNodes.transformNode.types.modulo',
-      transformType: 'Modulo',
-    },
-    {
-      id: 'map-value',
-      nameKey: 'customNodes.transformNode.types.mapValue',
-      transformType: 'MapValue',
-    },
-  ]
-
-  const handleTransformTypeClick = (tItem: TransformTypeItem) => {
-    createTransform(tItem.transformType)
+  const handleTransformTypeClick = (transformType: TransformTypeV2) => {
+    createTransform(transformType)
   }
 
   interface RegexTypeItem {
