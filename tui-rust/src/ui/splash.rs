@@ -45,10 +45,10 @@ pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
     // Logo 逐行扫光
     for (i, logo_line) in LOGO.iter().enumerate() {
         let color = if i < lit_lines {
-            // 已点亮：从暗灰渐变到 PRIMARY
+            // 已点亮：从暗灰渐变到 PINK
             let t = (lit_lines as f64 - i as f64) / total_logo_lines as f64;
             let t = t.clamp(0.0, 1.0);
-            blend_color(colors::DIM, colors::PRIMARY, t)
+            blend_color(colors::DIM, colors::PINK, t)
         } else {
             colors::DIM
         };

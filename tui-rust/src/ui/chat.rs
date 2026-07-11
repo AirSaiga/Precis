@@ -33,7 +33,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     } else {
         for msg in &app.chat_messages {
             let (role_label, role_color) = match msg.role.as_str() {
-                "user" => ("你", colors::PRIMARY),
+                "user" => ("你", colors::PINK),
                 "assistant" => ("AI", colors::GREEN),
                 _ => ("?", colors::MUTED),
             };
@@ -61,10 +61,10 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
 
     // 输入框
     let input_style = Style::default().bg(colors::SURFACE).fg(colors::FG);
-    let prompt_style = Style::default().fg(colors::PRIMARY);
+    let prompt_style = Style::default().fg(colors::PINK);
 
     let cursor_style = if app.frame_count % 30 < 15 {
-        Style::default().fg(colors::PRIMARY).add_modifier(Modifier::REVERSED)
+        Style::default().fg(colors::PINK).add_modifier(Modifier::REVERSED)
     } else {
         input_style
     };

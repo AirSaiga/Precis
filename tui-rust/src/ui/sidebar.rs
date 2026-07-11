@@ -23,7 +23,7 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
             Style::default().fg(colors::MUTED)
         };
         let num_style = if active {
-            Style::default().fg(colors::PRIMARY)
+            Style::default().fg(colors::PINK)
         } else {
             Style::default().fg(colors::DIM)
         };

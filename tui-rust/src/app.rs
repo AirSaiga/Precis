@@ -1,22 +1,50 @@
-//! 应用状态管理 + 全局配色常量（Linear 风格极简高级感）
+//! 应用状态管理 + 全局配色常量（Synthwave 樱花粉风格）
 
 use crate::api::types::{FullValidationResponse, ProjectInfo};
 
-/// 配色 — 深色沉浸底 + 灰度分层 + 单色强调（Linear 风格）
+/// 配色 — Synthwave 樱花粉：深紫黑底 + 樱花粉主强调 + 柔青辅强调
 pub mod colors {
     use ratatui::style::Color;
-    pub const BG: Color = Color::Rgb(14, 14, 22);       // #0e0e16 最深背景（沉浸感）
-    pub const SURFACE: Color = Color::Rgb(22, 22, 30);  // #16161e 面板/卡片
-    pub const PANEL: Color = Color::Rgb(26, 27, 38);    // #1a1b26 hover/选中
-    pub const BOOST: Color = Color::Rgb(36, 40, 59);    // #24283b 高亮交互
-    pub const FG: Color = Color::Rgb(192, 202, 245);    // #c0caf5 正文
-    pub const MUTED: Color = Color::Rgb(122, 133, 176); // #7a85b0 次要（提亮，可读）
-    pub const DIM: Color = Color::Rgb(76, 86, 106);     // #4c566a 最暗文字（提亮，不再隐形）
-    pub const PRIMARY: Color = Color::Rgb(122, 162, 247); // #7aa2f7 蓝（唯一强调）
-    pub const GREEN: Color = Color::Rgb(158, 206, 106); // #9ece6a
-    pub const YELLOW: Color = Color::Rgb(224, 175, 104); // #e0af68
-    pub const RED: Color = Color::Rgb(247, 118, 142);   // #f7768e
-    pub const CYAN: Color = Color::Rgb(125, 207, 255);  // #7dcfff 流星色
+
+    /// 颜色混合（t=0 返回 a，t=1 返回 b）— 集中定义，消除 ui/ 重复
+    pub fn blend(a: Color, b: Color, t: f64) -> Color {
+        let t = t.clamp(0.0, 1.0);
+        match (a, b) {
+            (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) => Color::Rgb(
+                (r1 as f64 + (r2 as f64 - r1 as f64) * t) as u8,
+                (g1 as f64 + (g2 as f64 - g1 as f64) * t) as u8,
+                (b1 as f64 + (b2 as f64 - b1 as f64) * t) as u8,
+            ),
+            (_, c) => c,
+        }
+    }
+
+    /// 按亮度缩放颜色（用于粒子亮度变化）
+    pub fn scale(base: Color, brightness: f64) -> Color {
+        let b = brightness.clamp(0.0, 1.0);
+        match base {
+            Color::Rgb(r, g, bl) => Color::Rgb(
+                (r as f64 * b) as u8,
+                (g as f64 * b) as u8,
+                (bl as f64 * b) as u8,
+            ),
+            other => other,
+        }
+    }
+
+    pub const BG: Color = Color::Rgb(15, 8, 24);        // #0f0818 最深背景(深紫黑)
+    pub const SURFACE: Color = Color::Rgb(25, 16, 38);  // #191026 面板/卡片
+    pub const PANEL: Color = Color::Rgb(35, 24, 52);    // #231834 hover/选中
+    pub const BOOST: Color = Color::Rgb(48, 34, 68);    // #302244 高亮交互
+    pub const FG: Color = Color::Rgb(224, 200, 232);    // #e0c8e8 正文(淡紫白)
+    pub const MUTED: Color = Color::Rgb(154, 138, 174); // #9a8aae 次要文字
+    pub const DIM: Color = Color::Rgb(91, 74, 110);     // #5b4a6e 最暗文字
+    pub const PINK: Color = Color::Rgb(255, 176, 208);  // #ffb0d0 樱花粉(主强调)
+    pub const CYAN: Color = Color::Rgb(125, 211, 252);  // #7dd3fc 柔青(辅强调)
+    pub const GREEN: Color = Color::Rgb(134, 239, 172); // #86efac 成功/通过
+    pub const YELLOW: Color = Color::Rgb(252, 211, 77); // #fcd34d 警告/格式错误
+    pub const RED: Color = Color::Rgb(253, 164, 175);   // #fda4af 错误/失败(柔红)
+    pub const PURPLE: Color = Color::Rgb(192, 132, 252);// #c084fc 紫色(splash 第三色)
 }
 
 /// 功能页面
@@ -133,4 +161,26 @@ impl App {
     pub fn quit(&mut self) { self.should_quit = true; }
     pub fn switch_tab(&mut self, tab: Tab) { self.current_tab = tab; }
     pub fn tick(&mut self) { self.frame_count = self.frame_count.wrapping_add(1); }
+}
+
+/// 布局尺寸常量 — 集中管理，避免魔法数字散落各 ui/ 文件
+pub mod layout {
+    // 全局框架
+    pub const HEADER_HEIGHT: u16 = 1;
+    pub const FOOTER_HEIGHT: u16 = 1;
+    pub const SIDEBAR_WIDTH: u16 = 18;
+    pub const SIDEBAR_GAP: u16 = 1;
+    pub const MIN_WIDTH_NO_BORDER: u16 = 60;
+
+    // 各界面内部
+    pub const DASHBOARD_HEADER: u16 = 8;
+    pub const VALIDATION_HINT: u16 = 2;
+    pub const VALIDATION_SUMMARY: u16 = 6;
+    pub const PROVIDER_HINT: u16 = 2;
+    pub const PROVIDER_FOOTER: u16 = 3;
+    pub const CONFIG_HINT: u16 = 2;
+    pub const CHAT_INPUT: u16 = 3;
+
+    // 进度条
+    pub const PROGRESS_BAR_TOTAL: usize = 10;
 }

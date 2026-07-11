@@ -64,7 +64,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         [Constraint::Length(2), Constraint::Length(16), Constraint::Length(10), Constraint::Length(22), Constraint::Min(10)],
     )
     .header(header)
-    .row_highlight_style(Style::default().bg(colors::PANEL).fg(colors::PRIMARY))
+    .row_highlight_style(Style::default().bg(colors::PANEL).fg(colors::PINK))
     .column_spacing(1)
     .style(Style::default().bg(colors::BG));
 

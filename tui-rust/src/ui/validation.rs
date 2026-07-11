@@ -62,7 +62,7 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
             let s = &resp.summary;
             let total = s.total_error_count;
             let pass = total == 0;
-            let color = if pass { colors::GREEN } else { colors::PRIMARY };
+            let color = if pass { colors::GREEN } else { colors::PINK };
 
             let mut v = vec![Line::from("")];
 
@@ -133,7 +133,7 @@ fn render_errors(frame: &mut Frame, app: &App, area: Rect) {
                 [Constraint::Length(20), Constraint::Length(20), Constraint::Length(6), Constraint::Length(18), Constraint::Min(10)],
             )
             .header(header)
-            .row_highlight_style(Style::default().bg(colors::PANEL).fg(colors::PRIMARY))
+            .row_highlight_style(Style::default().bg(colors::PANEL).fg(colors::PINK))
             .style(Style::default().bg(colors::BG));
 
             let mut state = TableState::default();

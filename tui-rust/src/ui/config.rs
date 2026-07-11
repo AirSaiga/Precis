@@ -49,7 +49,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
                 if let Some(schemas) = manifest.get("schemas").and_then(|v| v.as_array()) {
                     lines.push(Line::from(""));
                     lines.push(Line::from(vec![
-                        Span::styled(format!("  {} ", schemas.len()), Style::default().fg(colors::PRIMARY).add_modifier(Modifier::BOLD)),
+                        Span::styled(format!("  {} ", schemas.len()), Style::default().fg(colors::PINK).add_modifier(Modifier::BOLD)),
                         Span::styled("个 Schema", Style::default().fg(colors::MUTED)),
                     ]));
                     for s in schemas.iter().take(10) {
@@ -73,7 +73,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
                 if let Some(constraints) = manifest.get("constraints").and_then(|v| v.as_array()) {
                     lines.push(Line::from(""));
                     lines.push(Line::from(vec![
-                        Span::styled(format!("  {} ", constraints.len()), Style::default().fg(colors::PRIMARY).add_modifier(Modifier::BOLD)),
+                        Span::styled(format!("  {} ", constraints.len()), Style::default().fg(colors::PINK).add_modifier(Modifier::BOLD)),
                         Span::styled("个约束", Style::default().fg(colors::MUTED)),
                     ]));
                 }

@@ -78,9 +78,9 @@ pub fn render(frame: &mut Frame, app: &mut App) {
 fn render_header(frame: &mut Frame, app: &App, area: Rect) {
     let project = app.project_name.as_deref().unwrap_or("Precis");
 
-    // 流光：用 sin 在 FG 和 PRIMARY 之间柔和呼吸（周期约 4 秒）
+    // 流光：用 sin 在 FG 和 PINK 之间柔和呼吸（周期约 4 秒）
     let phase = (app.frame_count as f64 * 0.04).sin() * 0.5 + 0.5; // 0..1
-    let glow_color = blend(colors::FG, colors::PRIMARY, phase * 0.6); // 不全亮，60% 强度
+    let glow_color = blend(colors::FG, colors::PINK, phase * 0.6); // 不全亮，60% 强度
 
     let header = Paragraph::new(Line::from(vec![
         Span::raw(" "),

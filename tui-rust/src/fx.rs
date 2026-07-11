@@ -155,7 +155,7 @@ impl Fx {
             }
             let twinkle = (s.twinkle_phase.sin() + 1.0) * 0.5;
             let brightness = s.brightness * (0.3 + 0.7 * twinkle);
-            let color = scale_color(colors::PRIMARY, brightness);
+            let color = scale_color(colors::PINK, brightness);
             let idx = (abs_y as usize) * (buf.area.width as usize) + (abs_x as usize);
             if idx < buf.content.len() {
                 let cell = &mut buf.content[idx];
