@@ -23,7 +23,7 @@
         :placeholder="t('expressions.ruleConfigPanel.regexPlaceholder')"
         @input="handleManualRegexInput"
       />
-      <span class="regex-marker">/g</span>
+      <span class="regex-marker">/{{ flagsDisplay }}</span>
     </div>
 
     <!-- 样例文本输入 -->
@@ -137,7 +137,7 @@
               </select>
               <div class="type-pills">
                 <button
-                  v-for="typeOpt in ['string', 'int', 'float']"
+                  v-for="typeOpt in ['string', 'int', 'float', 'boolean']"
                   :key="typeOpt"
                   class="type-pill"
                   :class="{ active: getParamType(String(value)) === typeOpt }"
@@ -187,6 +187,7 @@
   const props = defineProps<{
     rule: Rule
     sampleText?: string
+    flags?: string
   }>()
   const emit = defineEmits<{
     (e: 'update:rule', rule: Rule): void
@@ -198,6 +199,7 @@
 
   // --- Regex state ---
   const localRegex = ref(props.rule.regex || '')
+  const flagsDisplay = computed(() => props.flags || 'g')
 
   // --- Pattern parts (builder state) ---
   interface PatternPart {
@@ -244,8 +246,6 @@
     (newText) => {
       if (newText && newText.trim()) {
         inputText.value = newText
-        patternParts.value = [{ type: 'static', text: newText }]
-        emit('update:rule', { ...props.rule, regex: '', output: props.rule.output })
       }
     },
     { immediate: true }
@@ -276,7 +276,6 @@
     const currentPartsText = patternParts.value.map((p) => p.text || '').join('')
     if (currentPartsText !== newText) {
       patternParts.value = [{ type: 'static', text: newText }]
-      emit('update:rule', { ...props.rule, regex: '', output: props.rule.output })
     }
   })
 
