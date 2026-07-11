@@ -11,6 +11,7 @@ import {
   getIcon,
   CONSTRAINT_ICON_NAMES,
   TRANSFORM_CATEGORY_ICON_NAMES,
+  TRANSFORM_TYPE_ICON_NAMES,
 } from '@/components/icons/iconRegistry'
 
 describe('iconRegistry', () => {
@@ -43,6 +44,15 @@ describe('iconRegistry', () => {
     expect(categories).toHaveLength(5)
     for (const category of categories) {
       const iconName = TRANSFORM_CATEGORY_ICON_NAMES[category]
+      expect(ICON_REGISTRY[iconName]).toBeDefined()
+    }
+  })
+
+  it('TRANSFORM_TYPE_ICON_NAMES 映射到已注册的图标名（22 个转换类型）', () => {
+    const types = Object.keys(TRANSFORM_TYPE_ICON_NAMES)
+    expect(types).toHaveLength(22)
+    for (const type of types) {
+      const iconName = TRANSFORM_TYPE_ICON_NAMES[type]
       expect(ICON_REGISTRY[iconName]).toBeDefined()
     }
   })
