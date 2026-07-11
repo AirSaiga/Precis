@@ -13,7 +13,10 @@
  */
 
 import type { TransformTypeV2 } from '@/types/projectV2'
-import { TRANSFORM_CATEGORY_ICON_NAMES } from '@/components/icons/iconRegistry'
+import {
+  TRANSFORM_CATEGORY_ICON_NAMES,
+  TRANSFORM_TYPE_ICON_NAMES,
+} from '@/components/icons/iconRegistry'
 
 /**
  * Transform 分类标识。
@@ -158,4 +161,20 @@ export function getCategoryId(type: TransformTypeV2): TransformCategoryId | unde
  */
 export function getSemanticForType(type: TransformTypeV2): TransformSemantic {
   return TRANSFORM_SEMANTICS[type] ?? 'singleColumn'
+}
+
+/**
+ * 获取 transformType 的专属类型图标名。
+ *
+ * 查找顺序：
+ *   1. TRANSFORM_TYPE_ICON_NAMES 命中 → 返回类型级图标
+ *   2. 否则回退到分类图标（getCategoryIcon）
+ *   3. 分类也找不到 → getCategoryIcon 自身返回 'gear'
+ *
+ * 保证任何输入都不抛错、不返回空串。
+ */
+export function getTransformTypeIcon(type: TransformTypeV2): string {
+  const typeIcon = TRANSFORM_TYPE_ICON_NAMES[type]
+  if (typeIcon) return typeIcon
+  return getCategoryIcon(type)
 }

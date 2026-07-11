@@ -11,6 +11,7 @@ import {
   getCategoryIcon,
   getCategoryId,
   getSemanticForType,
+  getTransformTypeIcon,
 } from '@/composables/nodes/transform/transformCategory'
 
 /** 全部 22 种 transformType，作为测试的基准集合 */
@@ -134,5 +135,26 @@ describe('transformCategory — 语义映射完整性', () => {
     expect(getSemanticForType('DropDuplicates')).toBe('rowChanging')
     expect(getSemanticForType('SortRows')).toBe('rowChanging')
     expect(getSemanticForType('Aggregate')).toBe('rowChanging')
+  })
+})
+
+describe('transformCategory — 类型图标', () => {
+  it('getTransformTypeIcon 对全部 22 种类型返回 transform- 前缀图标名', () => {
+    for (const type of ALL_TRANSFORM_TYPES) {
+      const icon = getTransformTypeIcon(type)
+      expect(icon).toBeTruthy()
+      expect(icon.startsWith('transform-')).toBe(true)
+    }
+  })
+
+  it('getTransformTypeIcon 返回类型专属图标（非分类图标）', () => {
+    // StringSplit 属于 text 分类（transform-text），但应有专属图标
+    expect(getTransformTypeIcon('StringSplit')).toBe('transform-stringSplit')
+    expect(getTransformTypeIcon('StringSplit')).not.toBe('transform-text')
+  })
+
+  it('getTransformTypeIcon 对未知类型回退分类图标，再回退 gear', () => {
+    // 未知类型走 getCategoryIcon 的回退链（最终 gear）
+    expect(getTransformTypeIcon('NonExistent' as TransformTypeV2)).toBe('gear')
   })
 })
