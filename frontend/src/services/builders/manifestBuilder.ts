@@ -15,6 +15,7 @@
 import type { CustomNode, SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
 import type { ProjectManifestV2, ProjectSettings, TemplateInstanceRefV2 } from '@/types/projectV2'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import { isRegexNodeType } from '@/utils/nodes/regex'
 // sanitizeV2Id 单一定义在 @/utils/typeHelpers,此处 re-export 供 @/services/builders 调用方使用
 export { sanitizeV2Id } from '@/utils/typeHelpers'
 import { sanitizeV2Id } from '@/utils/typeHelpers'
@@ -61,7 +62,7 @@ export function buildV2Manifest(
     .map((n) => ({ id: n.id, path: `constraints/${n.id}.constraint.yaml` }))
 
   const regexRefs = nodes
-    .filter((n) => n.type === 'regex')
+    .filter((n) => isRegexNodeType(n.type))
     .map((n) => ({ id: n.id, path: `regex/${n.id}.regex.yaml` }))
 
   const transformRefs = nodes

@@ -15,10 +15,11 @@
 import type { CustomNode } from '@/types/graph'
 import type { ProjectManifestV2 } from '@/types/projectV2'
 import { sanitizeV2Id } from '@/utils/typeHelpers'
-import { findBuildersByKind } from './builders/registry'
+import { findBuilderFor, findBuildersByKind } from './builders/registry'
 import { buildEmbeddedConstraintItem } from './embedders/embeddedConstraintBuilder'
 import { classifyConstraints } from './embedders/embeddedSelector'
 import { filterPersistentNodes, buildSchemaIdByNodeId } from './utils'
+import { isRegexNodeType } from '@/utils/nodes/regex'
 import type { SavePlan, SchemaFilePlan, PreValidationError } from './types'
 
 export interface BuildSavePlanOptions {
@@ -39,7 +40,7 @@ export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions
   const constraintNodes = persistentNodes.filter(
     (n) => typeof n.type === 'string' && n.type.endsWith('Constraint')
   )
-  const regexNodes = persistentNodes.filter((n) => n.type === 'regex')
+  const regexNodes = persistentNodes.filter((n) => n.type === 'regex' || n.type === 'regexExtract')
   const transformNodes = persistentNodes.filter((n) => n.type === 'transform')
   const manualDataNodes = persistentNodes.filter((n) => n.type === 'manualData')
   const templateInstanceNodes = persistentNodes.filter((n) => n.type === 'templateInstance')
@@ -140,17 +141,23 @@ export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions
 
   // 构建 regex 文件
   const regexes = new Map<string, import('@/types/projectV2').RegexNodeFileV2>()
-  const regexBuilder = findBuildersByKind('regex')[0]
-  if (regexBuilder) {
-    for (const node of regexNodes) {
-      const { file } = regexBuilder.build({
-        nodes: persistentNodes,
-        node,
-        schemaIdByNodeId,
-        configPath: options.projectPath,
-      }) as { consumed: boolean; file: import('@/types/projectV2').RegexNodeFileV2 }
-      regexes.set(file.id, file)
+  for (const node of regexNodes) {
+    const builder = findBuilderFor(node)
+    if (!builder) {
+      errors.push({
+        severity: 'WARNING',
+        nodeId: node.id,
+        message: `未找到 regex builder: ${node.type}`,
+      })
+      continue
     }
+    const { file } = builder.build({
+      nodes: persistentNodes,
+      node,
+      schemaIdByNodeId,
+      configPath: options.projectPath,
+    }) as { consumed: boolean; file: import('@/types/projectV2').RegexNodeFileV2 }
+    regexes.set(file.id, file)
   }
 
   // 构建 transform 文件
@@ -341,7 +348,7 @@ function buildFullManifest(nodes: CustomNode[], options: BuildSavePlanOptions): 
   const constraintNodes = persistent.filter(
     (n) => typeof n.type === 'string' && n.type.endsWith('Constraint')
   )
-  const regexNodes = persistent.filter((n) => n.type === 'regex')
+  const regexNodes = persistent.filter((n) => isRegexNodeType(n.type))
   const transformNodes = persistent.filter((n) => n.type === 'transform')
   const manualDataNodes = persistent.filter((n) => n.type === 'manualData')
   const templateInstanceNodes = persistent.filter((n) => n.type === 'templateInstance')

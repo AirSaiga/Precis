@@ -12,6 +12,7 @@
 import type { CustomNode, SchemaNodeData, JsonSchemaNodeData } from '@/types/graph'
 import type { ProjectManifestV2 } from '@/types/projectV2'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import { isRegexNodeType } from '@/utils/nodes/regex'
 /**
  * 构建 canvas node ID -> schema ID 的映射
  *
@@ -66,7 +67,7 @@ export function buildV2Manifest(
     .map((n) => ({ id: n.id, path: `constraints/${n.id}.constraint.yaml` }))
 
   const regexRefs = persistentNodes
-    .filter((n) => n.type === 'regex')
+    .filter((n) => isRegexNodeType(n.type))
     .map((n) => ({ id: n.id, path: `regex/${n.id}.regex.yaml` }))
 
   const transformRefs = persistentNodes
