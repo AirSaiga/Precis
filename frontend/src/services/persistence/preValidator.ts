@@ -9,6 +9,18 @@ import type { CustomNode } from '@/types/graph'
 import type { ConstraintFileV2 } from '@/types/projectV2'
 import type { SavePlan, PreValidationError, ValidationSeverity } from './types'
 
+/**
+ * 构造带 i18n key 的 PreValidationError。
+ * message 保留作兜底；messageKey/params 供 UI 层按当前 locale 渲染。
+ */
+function locError(
+  base: Omit<PreValidationError, 'messageKey' | 'params'>,
+  messageKey: string,
+  params?: Record<string, unknown>
+): PreValidationError {
+  return { ...base, messageKey, params }
+}
+
 export interface PreValidatorOptions {
   /** BLOCKER 是否阻断保存（默认 true） */
   blockOnError?: boolean
@@ -131,23 +143,33 @@ export class PreValidator {
 
       // 数据源路径
       if (!schemaFile.source?.path) {
-        this.addError({
-          severity: 'BLOCKER',
-          nodeId: schemaId,
-          message: 'Schema 缺少数据源路径',
-          field: 'source.path',
-        })
+        this.addError(
+          locError(
+            {
+              severity: 'BLOCKER',
+              nodeId: schemaId,
+              message: 'Schema 缺少数据源路径',
+              field: 'source.path',
+            },
+            'validation.save.schemaMissingSource'
+          )
+        )
       }
 
       // 列完整性
       const columns = schemaFile.columns || []
       if (columns.length === 0) {
-        this.addError({
-          severity: 'WARNING',
-          nodeId: schemaId,
-          message: 'Schema 未定义任何列',
-          field: 'columns',
-        })
+        this.addError(
+          locError(
+            {
+              severity: 'WARNING',
+              nodeId: schemaId,
+              message: 'Schema 未定义任何列',
+              field: 'columns',
+            },
+            'validation.save.schemaNoColumns'
+          )
+        )
       }
 
       const columnIds = new Set<string>()
@@ -159,63 +181,94 @@ export class PreValidator {
 
         if (!col.id || String(col.id).trim() === '') {
           const suggestedId = this.suggestColumnId(col.name || `col_${i}`)
-          this.addError({
-            severity: 'BLOCKER',
-            nodeId: schemaId,
-            message: `第 ${i + 1} 列缺少 ID，建议: ${suggestedId}`,
-            field: `${indexPrefix}.id`,
-            autoFix: () => {
-              col.id = suggestedId
-            },
-          })
+          this.addError(
+            locError(
+              {
+                severity: 'BLOCKER',
+                nodeId: schemaId,
+                message: `第 ${i + 1} 列缺少 ID，建议: ${suggestedId}`,
+                field: `${indexPrefix}.id`,
+                autoFix: () => {
+                  col.id = suggestedId
+                },
+              },
+              'validation.save.columnMissingId',
+              { index: i + 1, suggestedId }
+            )
+          )
         }
         if (!col.name || String(col.name).trim() === '') {
           const suggestedName = col.id ? String(col.id) : `未命名列_${i}`
-          this.addError({
-            severity: 'BLOCKER',
-            nodeId: schemaId,
-            message: `第 ${i + 1} 列缺少名称，建议: ${suggestedName}`,
-            field: `${indexPrefix}.name`,
-            autoFix: () => {
-              col.name = suggestedName
-            },
-          })
+          this.addError(
+            locError(
+              {
+                severity: 'BLOCKER',
+                nodeId: schemaId,
+                message: `第 ${i + 1} 列缺少名称，建议: ${suggestedName}`,
+                field: `${indexPrefix}.name`,
+                autoFix: () => {
+                  col.name = suggestedName
+                },
+              },
+              'validation.save.columnMissingName',
+              { index: i + 1, suggestedName }
+            )
+          )
         }
         if (!col.type || String(col.type).trim() === '') {
-          this.addError({
-            severity: 'WARNING',
-            nodeId: schemaId,
-            message: `列 "${col.name || col.id || i + 1}" 未指定数据类型，已默认设为 Str`,
-            field: `${indexPrefix}.type`,
-            autoFix: () => {
-              col.type = 'Str'
-            },
-          })
+          const colLabel = col.name || col.id || String(i + 1)
+          this.addError(
+            locError(
+              {
+                severity: 'WARNING',
+                nodeId: schemaId,
+                message: `列 "${colLabel}" 未指定数据类型，已默认设为 Str`,
+                field: `${indexPrefix}.type`,
+                autoFix: () => {
+                  col.type = 'Str'
+                },
+              },
+              'validation.save.columnMissingType',
+              { column: colLabel }
+            )
+          )
         }
 
         if (col.id && columnIds.has(col.id)) {
           const newId = this.suggestUniqueId(col.id, columnIds)
-          this.addError({
-            severity: 'BLOCKER',
-            nodeId: schemaId,
-            message: `列 ID 重复: ${col.id}，已修正为: ${newId}`,
-            field: `${indexPrefix}.id`,
-            autoFix: () => {
-              col.id = newId
-            },
-          })
+          this.addError(
+            locError(
+              {
+                severity: 'BLOCKER',
+                nodeId: schemaId,
+                message: `列 ID 重复: ${col.id}，已修正为: ${newId}`,
+                field: `${indexPrefix}.id`,
+                autoFix: () => {
+                  col.id = newId
+                },
+              },
+              'validation.save.columnIdDuplicate',
+              { oldId: col.id, newId }
+            )
+          )
         }
         if (col.name && columnNames.has(col.name)) {
           const newName = this.suggestUniqueName(col.name, columnNames)
-          this.addError({
-            severity: 'BLOCKER',
-            nodeId: schemaId,
-            message: `列名重复: ${col.name}，已修正为: ${newName}`,
-            field: `${indexPrefix}.name`,
-            autoFix: () => {
-              col.name = newName
-            },
-          })
+          this.addError(
+            locError(
+              {
+                severity: 'BLOCKER',
+                nodeId: schemaId,
+                message: `列名重复: ${col.name}，已修正为: ${newName}`,
+                field: `${indexPrefix}.name`,
+                autoFix: () => {
+                  col.name = newName
+                },
+              },
+              'validation.save.columnNameDuplicate',
+              { oldName: col.name, newName }
+            )
+          )
         }
         if (col.id) columnIds.add(col.id)
         if (col.name) columnNames.add(col.name)
@@ -273,19 +326,31 @@ export class PreValidator {
       if (file.type !== 'ForeignKey' && file.type !== 'Composite') {
         const tableId = file.refs?.table_id as string | undefined
         if (!tableId) {
-          this.addError({
-            severity: 'BLOCKER',
-            nodeId: constraintId,
-            message: `约束 ${file.type} 缺少 table_id 引用`,
-            field: 'refs.table_id',
-          })
+          this.addError(
+            locError(
+              {
+                severity: 'BLOCKER',
+                nodeId: constraintId,
+                message: `约束 ${file.type} 缺少 table_id 引用`,
+                field: 'refs.table_id',
+              },
+              'validation.save.constraintMissingTableId',
+              { type: file.type }
+            )
+          )
         } else if (!this.plan.schemas.has(tableId)) {
-          this.addError({
-            severity: 'WARNING',
-            nodeId: constraintId,
-            message: `约束引用的 schema ${tableId} 不在当前保存计划中`,
-            field: 'refs.table_id',
-          })
+          this.addError(
+            locError(
+              {
+                severity: 'WARNING',
+                nodeId: constraintId,
+                message: `约束引用的 schema ${tableId} 不在当前保存计划中`,
+                field: 'refs.table_id',
+              },
+              'validation.save.constraintSchemaNotInPlan',
+              { tableId }
+            )
+          )
         }
       }
 
@@ -293,28 +358,43 @@ export class PreValidator {
       if (file.type === 'ForeignKey') {
         const { from_table_id, to_table_id, from_column_id, to_column_id } = file.refs || {}
         if (!from_table_id || !to_table_id) {
-          this.addError({
-            severity: 'BLOCKER',
-            nodeId: constraintId,
-            message: 'ForeignKey 约束缺少 from_table_id 或 to_table_id',
-            field: 'refs',
-          })
+          this.addError(
+            locError(
+              {
+                severity: 'BLOCKER',
+                nodeId: constraintId,
+                message: 'ForeignKey 约束缺少 from_table_id 或 to_table_id',
+                field: 'refs',
+              },
+              'validation.save.foreignKeyMissingTableRefs'
+            )
+          )
         }
         if (!from_column_id || !to_column_id) {
-          this.addError({
-            severity: 'BLOCKER',
-            nodeId: constraintId,
-            message: 'ForeignKey 约束缺少 from_column_id 或 to_column_id',
-            field: 'refs',
-          })
+          this.addError(
+            locError(
+              {
+                severity: 'BLOCKER',
+                nodeId: constraintId,
+                message: 'ForeignKey 约束缺少 from_column_id 或 to_column_id',
+                field: 'refs',
+              },
+              'validation.save.foreignKeyMissingColumnRefs'
+            )
+          )
         }
         if (from_table_id === to_table_id && from_column_id === to_column_id) {
-          this.addError({
-            severity: 'INFO',
-            nodeId: constraintId,
-            message: 'ForeignKey 自引用（from 和 to 指向同一列），请确认这是预期行为',
-            field: 'refs',
-          })
+          this.addError(
+            locError(
+              {
+                severity: 'INFO',
+                nodeId: constraintId,
+                message: 'ForeignKey 自引用（from 和 to 指向同一列），请确认这是预期行为',
+                field: 'refs',
+              },
+              'validation.save.foreignKeySelfReference'
+            )
+          )
         }
       }
 
@@ -328,17 +408,23 @@ export class PreValidator {
         const min = file.params?.min
         const max = file.params?.max
         if (min !== undefined && max !== undefined && Number(min) > Number(max)) {
-          this.addError({
-            severity: 'BLOCKER',
-            nodeId: constraintId,
-            message: `Range 约束 min (${min}) 大于 max (${max})，已自动交换`,
-            field: 'params.min',
-            autoFix: () => {
-              const params = file.params as Record<string, unknown>
-              params.max = min
-              params.min = max
-            },
-          })
+          this.addError(
+            locError(
+              {
+                severity: 'BLOCKER',
+                nodeId: constraintId,
+                message: `Range 约束 min (${min}) 大于 max (${max})，已自动交换`,
+                field: 'params.min',
+                autoFix: () => {
+                  const params = file.params as Record<string, unknown>
+                  params.max = min
+                  params.min = max
+                },
+              },
+              'validation.save.rangeMinGreaterThanMax',
+              { min: String(min), max: String(max) }
+            )
+          )
         }
       }
 
@@ -346,12 +432,17 @@ export class PreValidator {
       if (file.type === 'AllowedValues') {
         const allowed = file.params?.allowed_values as unknown[] | undefined
         if (!allowed || allowed.length === 0) {
-          this.addError({
-            severity: 'WARNING',
-            nodeId: constraintId,
-            message: 'AllowedValues 约束未配置任何允许值',
-            field: 'params.allowed_values',
-          })
+          this.addError(
+            locError(
+              {
+                severity: 'WARNING',
+                nodeId: constraintId,
+                message: 'AllowedValues 约束未配置任何允许值',
+                field: 'params.allowed_values',
+              },
+              'validation.save.allowedValuesEmpty'
+            )
+          )
         }
       }
 
@@ -359,12 +450,17 @@ export class PreValidator {
       if (file.type === 'Scripted') {
         const expr = file.params?.expression as string | undefined
         if (!expr || String(expr).trim() === '') {
-          this.addError({
-            severity: 'WARNING',
-            nodeId: constraintId,
-            message: 'Scripted 约束表达式为空',
-            field: 'params.expression',
-          })
+          this.addError(
+            locError(
+              {
+                severity: 'WARNING',
+                nodeId: constraintId,
+                message: 'Scripted 约束表达式为空',
+                field: 'params.expression',
+              },
+              'validation.save.scriptedExpressionEmpty'
+            )
+          )
         }
       }
     }
@@ -378,35 +474,50 @@ export class PreValidator {
       ? (file.params.sub_constraints as Array<{ id?: string }>)
       : []
     if (subConstraints.length === 0) {
-      this.addError({
-        severity: 'WARNING',
-        nodeId: constraintId,
-        message: 'Composite 约束未包含任何子约束',
-        field: 'params.sub_constraints',
-      })
+      this.addError(
+        locError(
+          {
+            severity: 'WARNING',
+            nodeId: constraintId,
+            message: 'Composite 约束未包含任何子约束',
+            field: 'params.sub_constraints',
+          },
+          'validation.save.compositeNoSubConstraints'
+        )
+      )
       return
     }
 
     // 检测直接自引用（Composite 包含自身）
     const selfRef = subConstraints.find((sub) => sub.id === constraintId)
     if (selfRef) {
-      this.addError({
-        severity: 'BLOCKER',
-        nodeId: constraintId,
-        message: 'Composite 约束不能包含自身（循环引用）',
-        field: 'params.sub_constraints',
-      })
+      this.addError(
+        locError(
+          {
+            severity: 'BLOCKER',
+            nodeId: constraintId,
+            message: 'Composite 约束不能包含自身（循环引用）',
+            field: 'params.sub_constraints',
+          },
+          'validation.save.compositeSelfReference'
+        )
+      )
     }
 
     // 检测子约束是否存在
     for (const sub of subConstraints) {
       if (!sub.id) {
-        this.addError({
-          severity: 'WARNING',
-          nodeId: constraintId,
-          message: 'Composite 包含一个缺少 ID 的子约束',
-          field: 'params.sub_constraints',
-        })
+        this.addError(
+          locError(
+            {
+              severity: 'WARNING',
+              nodeId: constraintId,
+              message: 'Composite 包含一个缺少 ID 的子约束',
+              field: 'params.sub_constraints',
+            },
+            'validation.save.compositeSubConstraintMissingId'
+          )
+        )
       }
     }
   }
@@ -418,12 +529,17 @@ export class PreValidator {
   private validateRegexes(): void {
     for (const [regexId, file] of this.plan.regexes) {
       if (!file.pattern && !file.uses_pattern) {
-        this.addError({
-          severity: 'BLOCKER',
-          nodeId: regexId,
-          message: 'Regex 节点必须配置 pattern 或 uses_pattern',
-          field: 'pattern',
-        })
+        this.addError(
+          locError(
+            {
+              severity: 'BLOCKER',
+              nodeId: regexId,
+              message: 'Regex 节点必须配置 pattern 或 uses_pattern',
+              field: 'pattern',
+            },
+            'validation.save.regexMissingPattern'
+          )
+        )
       }
 
       if (file.pattern) {
@@ -431,22 +547,34 @@ export class PreValidator {
         try {
           new RegExp(file.pattern)
         } catch {
-          this.addError({
-            severity: 'BLOCKER',
-            nodeId: regexId,
-            message: `Regex 语法无效: ${file.pattern}`,
-            field: 'pattern',
-          })
+          this.addError(
+            locError(
+              {
+                severity: 'BLOCKER',
+                nodeId: regexId,
+                message: `Regex 语法无效: ${file.pattern}`,
+                field: 'pattern',
+              },
+              'validation.save.regexSyntaxInvalid',
+              { pattern: file.pattern }
+            )
+          )
         }
       }
 
       if (file.source_ref?.table_id && !this.plan.schemas.has(file.source_ref.table_id)) {
-        this.addError({
-          severity: 'WARNING',
-          nodeId: regexId,
-          message: `Regex 引用的 schema ${file.source_ref.table_id} 不在当前保存计划中`,
-          field: 'source_ref.table_id',
-        })
+        this.addError(
+          locError(
+            {
+              severity: 'WARNING',
+              nodeId: regexId,
+              message: `Regex 引用的 schema ${file.source_ref.table_id} 不在当前保存计划中`,
+              field: 'source_ref.table_id',
+            },
+            'validation.save.regexSchemaNotInPlan',
+            { tableId: file.source_ref.table_id }
+          )
+        )
       }
     }
   }
@@ -458,24 +586,35 @@ export class PreValidator {
   private validateTransforms(): void {
     for (const [transformId, file] of this.plan.transforms) {
       if (!file.output_columns || file.output_columns.length === 0) {
-        this.addError({
-          severity: 'INFO',
-          nodeId: transformId,
-          message: 'Transform 未配置输出列',
-          field: 'output_columns',
-        })
+        this.addError(
+          locError(
+            {
+              severity: 'INFO',
+              nodeId: transformId,
+              message: 'Transform 未配置输出列',
+              field: 'output_columns',
+            },
+            'validation.save.transformNoOutputColumns'
+          )
+        )
       }
 
       // input_from_node 引用校验
       if (file.input_from_node && !this.plan.schemas.has(file.input_from_node)) {
         // input_from_node 可能指向 transform 节点（链式转换），这里仅检查 schema
         // 更严格的检查需要遍历所有 transform，当前版本只给 INFO
-        this.addError({
-          severity: 'INFO',
-          nodeId: transformId,
-          message: `Transform 引用的输入节点 ${file.input_from_node} 不在当前 schema 集合中（可能是 transform 链式引用）`,
-          field: 'input_from_node',
-        })
+        this.addError(
+          locError(
+            {
+              severity: 'INFO',
+              nodeId: transformId,
+              message: `Transform 引用的输入节点 ${file.input_from_node} 不在当前 schema 集合中（可能是 transform 链式引用）`,
+              field: 'input_from_node',
+            },
+            'validation.save.transformInputNotInSchemas',
+            { nodeId: file.input_from_node }
+          )
+        )
       }
     }
   }
@@ -487,12 +626,17 @@ export class PreValidator {
   private validateTemplateInstances(): void {
     for (const [instanceId, ref] of this.plan.templateInstances) {
       if (!ref.template_id) {
-        this.addError({
-          severity: 'BLOCKER',
-          nodeId: instanceId,
-          message: 'TemplateInstance 缺少 template_id',
-          field: 'template_id',
-        })
+        this.addError(
+          locError(
+            {
+              severity: 'BLOCKER',
+              nodeId: instanceId,
+              message: 'TemplateInstance 缺少 template_id',
+              field: 'template_id',
+            },
+            'validation.save.templateInstanceMissingId'
+          )
+        )
       }
     }
   }

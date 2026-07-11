@@ -187,99 +187,103 @@
     composite: CONSTRAINT_ICON_NAMES.composite,
   }
 
-  const DEFAULT_CONSTRAINT_RULE_TYPES: ConstraintRuleTypeOption[] = [
+  // 约束类型的静态元数据（非文案字段）。
+  // name/description 不再硬编码，运行时由 constraintRuleTypes computed 从
+  // i18n 的 constraintTypes.<kind>.{name,description} 命名空间解析，保证全应用一致。
+  interface ConstraintTypeMeta {
+    id: string
+    kind: ConstraintRuleTypeOption['constraintType']
+    icon: string
+    category: ConstraintRuleTypeOption['category']
+    requireScriptEnabled?: boolean
+    createNodeData: () => Record<string, unknown>
+  }
+  const CONSTRAINT_TYPE_META: ConstraintTypeMeta[] = [
     {
       id: 'not-null',
-      name: '非空约束',
-      description: '确保列不能包含空值',
+      kind: 'notNull',
       icon: ICONS.notNull,
-      constraintType: 'notNull',
       category: 'attribute',
       createNodeData: createDefaultData.notNull,
     },
     {
       id: 'unique',
-      name: '唯一约束',
-      description: '确保列或列组合的值在表中唯一',
+      kind: 'unique',
       icon: ICONS.unique,
-      constraintType: 'unique',
       category: 'attribute',
       createNodeData: createDefaultData.unique,
     },
     {
       id: 'range',
-      name: '区间约束',
-      description: '限制列的值必须在指定数值范围内',
+      kind: 'range',
       icon: ICONS.range,
-      constraintType: 'range',
       category: 'attribute',
       createNodeData: createDefaultData.range,
     },
     {
       id: 'charset',
-      name: '字符集约束',
-      description: '校验ASCII或中文字符',
+      kind: 'charset',
       icon: ICONS.charset,
-      constraintType: 'charset',
       category: 'attribute',
       createNodeData: createDefaultData.charset,
     },
     {
       id: 'allowed-values',
-      name: '允许值约束',
-      description: '限制列只能包含指定的值',
+      kind: 'allowedValues',
       icon: ICONS.allowedValues,
-      constraintType: 'allowedValues',
       category: 'relation',
       createNodeData: createDefaultData.allowedValues,
     },
     {
       id: 'foreign-key',
-      name: '外键约束',
-      description: '建立表之间的外键关联关系',
+      kind: 'foreignKey',
       icon: ICONS.foreignKey,
-      constraintType: 'foreignKey',
       category: 'relation',
       createNodeData: createDefaultData.foreignKey,
     },
     {
       id: 'conditional',
-      name: '条件约束',
-      description: '基于条件逻辑的动态约束规则',
+      kind: 'conditional',
       icon: ICONS.conditional,
-      constraintType: 'conditional',
       category: 'logic',
       createNodeData: createDefaultData.conditional,
     },
     {
       id: 'scripted',
-      name: '脚本约束',
-      description: '使用自定义脚本定义的约束规则',
+      kind: 'scripted',
       icon: ICONS.scripted,
-      constraintType: 'scripted',
       category: 'logic',
       requireScriptEnabled: true,
       createNodeData: createDefaultData.scripted,
     },
     {
       id: 'date-logic',
-      name: '日期逻辑约束',
-      description: '日期比较和计算校验',
+      kind: 'dateLogic',
       icon: ICONS.dateLogic,
-      constraintType: 'dateLogic',
       category: 'logic',
       createNodeData: createDefaultData.dateLogic,
     },
     {
       id: 'composite',
-      name: '复合约束',
-      description: '将多个子约束按逻辑策略组合校验',
+      kind: 'composite',
       icon: ICONS.composite,
-      constraintType: 'composite',
       category: 'logic',
       createNodeData: createDefaultData.composite,
     },
   ]
+
+  const DEFAULT_CONSTRAINT_RULE_TYPES = computed<ConstraintRuleTypeOption[]>(() =>
+    CONSTRAINT_TYPE_META.map((meta) => ({
+      id: meta.id,
+      name: t(`constraintTypes.${meta.kind}.name`),
+      description: t(`constraintTypes.${meta.kind}.description`),
+      icon: meta.icon,
+      constraintType: meta.kind,
+      category: meta.category,
+      ...(meta.requireScriptEnabled ? { requireScriptEnabled: true } : {}),
+      createNodeData: meta.createNodeData,
+    }))
+  )
 
   const props = defineProps<{
     visible: boolean
@@ -301,7 +305,7 @@
   const constraintRuleTypes = computed(() => {
     return props.constraintTypes && props.constraintTypes.length > 0
       ? props.constraintTypes
-      : DEFAULT_CONSTRAINT_RULE_TYPES
+      : DEFAULT_CONSTRAINT_RULE_TYPES.value
   })
 
   const attributeConstraints = computed(() =>

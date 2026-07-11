@@ -38,6 +38,7 @@ export type NodeType =
   | 'jsonSourcePreview'
   | 'jsonSchema'
   | 'regex'
+  | 'regexExtract'
   | 'transform'
   | 'transformOutput'
   | 'manualData'

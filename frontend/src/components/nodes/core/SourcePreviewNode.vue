@@ -166,7 +166,11 @@ Schema 节点 */
               <span v-if="rowIndex === localData.headerRow" class="field-drag-hint">⋮⋮</span>
             </div>
             <!-- 表头行标识 - 只在设置为表头行时显示 -->
-            <div v-if="isHeaderRow(rowIndex)" class="header-indicator" title="当前表头行">
+            <div
+              v-if="isHeaderRow(rowIndex)"
+              class="header-indicator"
+              :title="t('validation.source.currentHeaderRow')"
+            >
               <AppIcon name="star" :size="12" />
             </div>
             <!-- 闪烁星号指示器 - 非表头行悬停时显示 -->
@@ -174,7 +178,7 @@ Schema 节点 */
               v-else
               class="blinking-star"
               @click="onRowIndicatorClick(rowIndex)"
-              title="点击设为表头行"
+              :title="t('validation.source.clickToSetHeaderRow')"
             >
               <AppIcon name="star" :size="12" />
             </div>

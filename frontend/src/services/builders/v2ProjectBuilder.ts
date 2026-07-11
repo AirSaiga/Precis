@@ -24,7 +24,12 @@
  * 6. 构建项目视图
  */
 
-import type { CustomNode, RegexNodeData, TransformNodeData } from '@/types/graph'
+import type {
+  CustomNode,
+  RegexNodeData,
+  RegexExtractNodeData,
+  TransformNodeData,
+} from '@/types/graph'
 import type {
   TableSchemaFileV2,
   ConstraintFileV2,
@@ -99,10 +104,13 @@ export function buildV2ConstraintFile(
  * @returns Regex 节点文件对象
  */
 export function buildV2RegexNodeFile(nodes: CustomNode[], regexNodeId: string): RegexNodeFileV2 {
-  const node = nodes.find((n) => n.id === regexNodeId && n.type === 'regex')
+  const node = nodes.find(
+    (n) => n.id === regexNodeId && (n.type === 'regex' || n.type === 'regexExtract')
+  )
   if (!node) throw new Error('未找到Regex节点')
 
-  const data = node.data as RegexNodeData
+  const isExtract = node.type === 'regexExtract'
+  const data = node.data as RegexNodeData | RegexExtractNodeData
   const schemaIdByNodeId = buildSchemaIdByNodeId(nodes)
   const normalizeSchemaId = (value?: string): string | undefined =>
     value ? schemaIdByNodeId[value] || value : value
@@ -128,16 +136,23 @@ export function buildV2RegexNodeFile(nodes: CustomNode[], regexNodeId: string): 
   return {
     version: 2,
     id: regexNodeId,
-    name: data.configName || 'Regex',
+    name: data.configName || (isExtract ? 'RegexExtract' : 'Regex'),
     description: data.description || undefined,
     pattern: usesPattern ? undefined : data.pattern || '',
     uses_pattern: usesPattern || undefined,
-    match_mode: data.matchMode || 'full',
+    match_mode: isExtract ? 'extract' : (data as RegexNodeData).matchMode || 'full',
     case_sensitive: !!data.caseSensitive,
     flags: data.flags || '',
     enabled: data.enabled !== false,
     parameters: data.parameters || [],
     rules: data.rules || [],
+    capture_groups: isExtract
+      ? (data as RegexExtractNodeData).captureGroups?.map((g) => ({
+          name: g.name,
+          group_index: g.groupIndex,
+        })) || []
+      : undefined,
+    output_columns: isExtract ? (data as RegexExtractNodeData).outputColumns || [] : undefined,
     source_ref: data.sourceRef
       ? {
           table_id: normalizeSchemaId(data.sourceRef.nodeId) || data.sourceRef.nodeId,

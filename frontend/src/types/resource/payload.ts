@@ -14,6 +14,7 @@
 export type ResourceDragType =
   | 'schema'
   | 'pattern'
+  | 'regex'
   | 'regex_node'
   | 'constraint'
   | 'transform'

@@ -14,6 +14,7 @@ import { inspector, fallbackInspector } from './inspector'
 import { customNodes, icons, sourcePreview } from './nodes'
 import {
   constraintRuleTypeMenu,
+  constraintTypes,
   config,
   connectionValidation,
   connectionRules,
@@ -22,6 +23,7 @@ import {
 import {
   regexCreationModal,
   regexDesignModal,
+  regexExtractDesignModal,
   expression,
   expressions,
   regexValidation,
@@ -33,6 +35,7 @@ import { aiChat, aiConfigGenerator } from './ai'
 import { template } from './template'
 import { factories } from './factories'
 import { validationHistory } from './validationHistory'
+import { validation } from './validation'
 
 // force rebuild: 2026-05-18
 const zhCN = {
@@ -49,12 +52,14 @@ const zhCN = {
   icons,
   sourcePreview,
   constraintRuleTypeMenu,
+  constraintTypes,
   config,
   connectionValidation,
   connectionRules,
   connectionModes,
   regexCreationModal,
   regexDesignModal,
+  regexExtractDesignModal,
   expression,
   expressions,
   regexValidation,
@@ -68,6 +73,7 @@ const zhCN = {
   template,
   factories,
   validationHistory,
+  validation,
   common: commonLocales,
   shortcuts,
   inspection,

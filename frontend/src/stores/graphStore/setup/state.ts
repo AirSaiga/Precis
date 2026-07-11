@@ -54,6 +54,10 @@ export function createGraphStoreState() {
 
   const activeRegexNodeId = ref<string | null>(null)
 
+  const extractDesignModalVisible = ref(false)
+
+  const activeRegexExtractNodeId = ref<string | null>(null)
+
   const regexEditSampleData = ref<string>('')
 
   const isProjectLoaded = ref(false)
@@ -185,6 +189,8 @@ export function createGraphStoreState() {
     pasteOffset,
     designModalVisible,
     activeRegexNodeId,
+    extractDesignModalVisible,
+    activeRegexExtractNodeId,
     regexEditSampleData,
     isProjectLoaded,
     projectName,

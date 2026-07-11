@@ -48,8 +48,15 @@ export function createV2RegexImporter(params: {
   selectedNodeId: Ref<string | null>
   ensureSchemaNode: (tableId: string, position: { x: number; y: number }) => Promise<CustomNode>
   ensureSchemaToRegexEdge: (tableId: string, regexId: string, columnId: string) => void
+  ensureSchemaToRegexExtractEdge: (tableId: string, regexId: string, columnId: string) => void
 }) {
-  const { nodes, selectedNodeId, ensureSchemaNode, ensureSchemaToRegexEdge } = params
+  const {
+    nodes,
+    selectedNodeId,
+    ensureSchemaNode,
+    ensureSchemaToRegexEdge,
+    ensureSchemaToRegexExtractEdge,
+  } = params
 
   async function importRegex(
     resourceId: string,
@@ -93,14 +100,17 @@ export function createV2RegexImporter(params: {
       ? { nodeId: v2SourceRef.nodeId, columnId: actualColumnId }
       : undefined
 
+    const isExtract = r.match_mode === 'extract'
+    const nodeType = isExtract ? 'regexExtract' : 'regex'
+
     // 构建 BuildInput — 将 RegexNodeFileV2 的字段打包到 params 中
-    const result = buildNodeData('regex' as unknown as ConstraintKind, {
+    const result = buildNodeData(nodeType as unknown as ConstraintKind, {
       mode: 'import',
-      configName: r.name || 'Regex',
+      configName: r.name || (isExtract ? 'RegexExtract' : 'Regex'),
       schemaNodeId: sourceRef?.nodeId || '',
       tableName: '',
       nodeId: resourceId,
-      nodeType: 'regex',
+      nodeType,
       columnRef: sourceRef ? { ...sourceRef, columnName: resolvedColumnName } : undefined,
       params: {
         pattern: r.pattern || '',
@@ -111,13 +121,15 @@ export function createV2RegexImporter(params: {
         case_sensitive: r.case_sensitive,
         flags: r.flags || '',
         rules: r.rules || [],
+        capture_groups: r.capture_groups || [],
+        output_columns: r.output_columns || [],
         source_column_name: r.source_column_name,
       },
     })
 
     const regexNode: CustomNode = {
       id: resourceId,
-      type: 'regex',
+      type: nodeType,
       position,
       data: result.nodeData as unknown as CustomNodeData,
     }
@@ -130,7 +142,11 @@ export function createV2RegexImporter(params: {
     // 创建边
     for (const desc of result.edgeDescriptors) {
       if (desc.kind === 'constraint' || desc.kind === 'if') {
-        ensureSchemaToRegexEdge(desc.sourceNodeId, resourceId, desc.columnId)
+        if (isExtract) {
+          ensureSchemaToRegexExtractEdge(desc.sourceNodeId, resourceId, desc.columnId)
+        } else {
+          ensureSchemaToRegexEdge(desc.sourceNodeId, resourceId, desc.columnId)
+        }
       }
     }
 

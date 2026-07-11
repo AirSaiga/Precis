@@ -121,6 +121,7 @@ const inspector = {
       Scripted: 'Scripted',
       Charset: 'Charset',
       DateLogic: 'DateLogic',
+      Composite: 'Composite',
     },
     validationStatus: {
       idle: 'Idle',
@@ -222,6 +223,7 @@ const inspector = {
       Scripted: 'Scripted',
       Charset: 'Charset',
       DateLogic: 'DateLogic',
+      Composite: 'Composite',
     },
     validationStatus: {
       idle: 'Idle',

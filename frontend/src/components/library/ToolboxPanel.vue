@@ -8,14 +8,14 @@
 <template>
   <div class="tab-content toolbox-content">
     <div class="toolbox-section">
-      <div class="subsection-header">CORE COMPONENTS</div>
+      <div class="subsection-header">{{ t('nodeTypeMenu.coreComponents') }}</div>
 
       <div class="component-tiles">
         <!-- Project Root -->
         <ToolboxTile
           :tool="{
             id: 'projectRoot',
-            label: 'Project Root',
+            label: t('nodeTypeMenu.projectRoot'),
             iconClass: 'tile-icon-amber',
             iconSvg: ICONS.projectRoot,
           }"
@@ -135,36 +135,77 @@
           </template>
         </ToolboxTile>
 
-        <!-- Regex Pattern -->
+        <!-- Regex -->
         <ToolboxTile
           :tool="{
-            id: 'pattern',
-            label: 'Regex Pattern',
+            id: 'regex',
+            label: t('assetLibraryExtended.projectView.toolbox.regexGroup'),
             iconClass: 'tile-icon-purple',
             iconSvg: ICONS.pattern,
           }"
-          draggable
-          @dragstart="(e) => handleToolboxDragStart(e, 'pattern')"
-          @dragend="handleDragEnd"
+          :draggable="false"
         >
           <template #action>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="12"
-              height="12"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2.5"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              @click="createRegexPattern"
+            <span
+              class="tile-expand-icon"
+              :class="{ expanded: regexPanelExpanded }"
+              @click.stop="toggleRegexPanel"
             >
-              <line x1="12" y1="5" x2="12" y2="19"></line>
-              <line x1="5" y1="12" x2="19" y2="12"></line>
-            </svg>
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <polyline points="6 9 12 15 18 9"></polyline>
+              </svg>
+            </span>
           </template>
         </ToolboxTile>
+
+        <Transition name="accordion">
+          <div v-if="regexPanelExpanded" class="constraint-panel">
+            <div
+              v-for="rItem in regexTypes"
+              :key="rItem.id"
+              class="constraint-type-item"
+              draggable="true"
+              @dragstart="(e) => handleRegexTypeDragStart(e, rItem.regexType)"
+              @dragend="handleDragEnd"
+              @click="handleRegexTypeClick(rItem)"
+            >
+              <span class="constraint-type-icon">
+                <AppIcon :name="rItem.icon" :size="14" />
+              </span>
+              <span class="constraint-type-name">{{ t(rItem.nameKey) }}</span>
+              <span class="constraint-type-grip">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="12"
+                  height="12"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <circle cx="9" cy="12" r="1" />
+                  <circle cx="9" cy="5" r="1" />
+                  <circle cx="9" cy="19" r="1" />
+                  <circle cx="15" cy="12" r="1" />
+                  <circle cx="15" cy="5" r="1" />
+                  <circle cx="15" cy="19" r="1" />
+                </svg>
+              </span>
+            </div>
+          </div>
+        </Transition>
 
         <!-- Template Instance -->
         <ToolboxTile
@@ -466,6 +507,7 @@
     createTableSchema,
     createJsonSchema,
     createRegexPattern,
+    createRegexExtract,
     createConstraintNode,
     createTransform,
     createManualData,
@@ -475,6 +517,7 @@
     handleToolboxDragStart,
     handleConstraintTypeDragStart,
     handleTransformTypeDragStart,
+    handleRegexTypeDragStart,
     handleManualDataDragStart,
     handleDragEnd,
   } = useResourceDrag()
@@ -482,6 +525,11 @@
   const constraintPanelExpanded = ref(false)
   const toggleConstraintPanel = () => {
     constraintPanelExpanded.value = !constraintPanelExpanded.value
+  }
+
+  const regexPanelExpanded = ref(false)
+  const toggleRegexPanel = () => {
+    regexPanelExpanded.value = !regexPanelExpanded.value
   }
 
   const transformPanelExpanded = ref(false)
@@ -644,6 +692,36 @@
     createTransform(tItem.transformType)
   }
 
+  interface RegexTypeItem {
+    id: string
+    nameKey: string
+    regexType: 'pattern' | 'extract'
+    icon: string
+  }
+
+  const regexTypes: RegexTypeItem[] = [
+    {
+      id: 'regex-pattern',
+      nameKey: 'assetLibraryExtended.projectView.toolbox.regexPatternMode',
+      regexType: 'pattern',
+      icon: 'file-code',
+    },
+    {
+      id: 'regex-extract',
+      nameKey: 'assetLibraryExtended.projectView.toolbox.regexExtractMode',
+      regexType: 'extract',
+      icon: 'filter',
+    },
+  ]
+
+  const handleRegexTypeClick = (rItem: RegexTypeItem) => {
+    if (rItem.regexType === 'extract') {
+      createRegexExtract()
+    } else {
+      createRegexPattern()
+    }
+  }
+
   const handleConstraintTypeSelect = (
     constraintType: ConstraintRuleTypeOption,
 
@@ -662,6 +740,8 @@
       '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"></path><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"></path></svg>',
     pattern:
       '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg>',
+    regexExtract:
+      '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="m8 12 3 3 5-6"></path></svg>',
     constraint:
       '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>',
     manualData:

@@ -23,6 +23,7 @@ import type { Ref } from 'vue'
 import type { CustomNode, CustomNodeData, SchemaNodeData } from '@/types/graph'
 import type { SchemaColumn } from '@/types/nodes'
 import { createBaseNodeFactory } from './createBaseNodeFactory'
+import { i18n } from '@/i18n'
 
 export function createSchemaFactoryModule(params: {
   nodes: Ref<CustomNode[]>
@@ -41,7 +42,7 @@ export function createSchemaFactoryModule(params: {
       'schema',
       position,
       {
-        configName: name || '新Schema配置',
+        configName: name || i18n.global.t('factories.defaultName.schema'),
         tableName: 'new_table',
         sheetName: null,
         columns: [],

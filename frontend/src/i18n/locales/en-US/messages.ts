@@ -105,6 +105,7 @@ const messages = {
     newTable: 'New Table',
     newPattern: 'New Pattern',
     newRegex: 'New Regex',
+    newRegexExtract: 'New Regex Extract',
     newTransform: 'New Transform',
     newManualData: 'Manual Data',
     newTemplateInstance: 'New Template Instance',

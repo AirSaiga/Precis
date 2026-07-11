@@ -183,11 +183,13 @@ const customNodes = {
     empty: '暂无约束规则',
   },
   tableSetNode: {
+    title: '表格集合属性',
     containsTables: '包含表格:',
     count: '个',
     doubleClickEdit: '双击进入编辑模式',
   },
   schemaSetNode: {
+    title: 'Schema 集合节点',
     containsSchema: '包含 Schema:',
     count: '个',
     doubleClickEdit: '双击进入编辑模式',
@@ -233,6 +235,7 @@ const customNodes = {
     },
   },
   schemaSetRootNode: {
+    back: '返回上层',
     contains: '包含',
     tables: '个数据表',
   },
@@ -242,6 +245,7 @@ const customNodes = {
     newTable: '新建表格',
   },
   regexSetNode: {
+    title: '正则集合节点',
     containsExpressions: '包含表达式',
     count: '个',
     doubleClickEdit: '双击进入编辑模式',
@@ -814,6 +818,7 @@ const customNodes = {
     count: '个',
     match: '匹配',
     inputHandle: '输入连接',
+    inputHandleExtract: '提取输入连接',
     outputHandle: '输出连接',
     helpTooltip: '双击打开正则设计器',
     sourceLabel: '来源',
@@ -825,6 +830,7 @@ const customNodes = {
     startValidation: '点击开始校验',
     validate: '开始校验',
     openDesigner: '打开设计器',
+    extractDesignerComingSoon: '正则提取设计器即将上线',
     statusIdle: '待机中',
     statusPass: '校验通过',
     statusError: '校验失败',
@@ -856,6 +862,10 @@ const customNodes = {
     registerAsPatternTitle: '注册为 Pattern',
     registerAsPatternMessage: '是否将此正则表达式注册为可复用的 Pattern？',
     registerAsPatternConfirm: '注册',
+    registerPattern: '注册为 Pattern',
+    registerPatternSuccess: 'Pattern "{name}" 注册成功',
+    registerPatternSuccessTitle: '注册成功',
+    registerPatternFailedTitle: '注册失败',
     patternExistsTitle: 'Pattern 已存在',
     patternExistsMessage: 'Pattern "{name}" 已存在，是否覆盖？',
     overwrite: '覆盖',
@@ -867,6 +877,13 @@ const customNodes = {
     items: '项',
     collapse: '收起',
     expand: '展开',
+  },
+  templateInstanceNode: {
+    saveTitle: '保存',
+    collapseTitle: '折叠',
+    deleteTitle: '删除',
+    saveText: '保存',
+    savingText: '保存中...',
   },
 }
 

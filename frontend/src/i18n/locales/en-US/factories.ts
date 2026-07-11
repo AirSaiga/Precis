@@ -23,6 +23,14 @@ const factories = {
   unknown: 'Constraint',
   // Regex factory
   newRegex: 'New Regex',
+  // Node factory default names (empty nodes created via shortcuts)
+  defaultName: {
+    table: 'New Table',
+    pattern: 'New Pattern',
+    logicConstraint: 'New Logic Constraint',
+    schema: 'New Schema Config',
+    jsonSchema: 'New JSON Schema Config',
+  },
 }
 
 export { factories }

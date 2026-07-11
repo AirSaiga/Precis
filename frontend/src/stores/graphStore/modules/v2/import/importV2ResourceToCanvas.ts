@@ -85,8 +85,13 @@ export function createV2ImportToCanvas(params: {
   const { t } = useI18n()
   const { showConfirm } = useGlobalConfirm()
 
-  const { ensureSchemaToRegexEdge, ensureSchemaToConstraintEdge, bufferEdge, flushBufferedEdges } =
-    createV2ImportEdges({ edges })
+  const {
+    ensureSchemaToRegexEdge,
+    ensureSchemaToRegexExtractEdge,
+    ensureSchemaToConstraintEdge,
+    bufferEdge,
+    flushBufferedEdges,
+  } = createV2ImportEdges({ edges })
 
   // 延迟绑定 importConstraint，解决 schema importer ↔ constraint importer 的循环依赖：
   // createV2SchemaImporter 需要在新建 Schema 时连带创建引用它的独立约束（调用 importConstraint），
@@ -148,6 +153,7 @@ export function createV2ImportToCanvas(params: {
     selectedNodeId,
     ensureSchemaNode,
     ensureSchemaToRegexEdge,
+    ensureSchemaToRegexExtractEdge,
   })
   const { importConstraint } = createV2ConstraintImporter({
     nodes,

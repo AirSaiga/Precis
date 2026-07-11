@@ -29,6 +29,7 @@ import { createProjectLifecycleModule } from '../modules/projectLifecycle'
 import { createSchemaFactoryModule } from '../modules/factories/schemaFactory'
 import { createConstraintFactoryModule } from '../modules/factories/constraintFactory'
 import { createRegexFactoryModule } from '../modules/factories/regexFactory'
+import { createRegexExtractFactoryModule } from '../modules/factories/regexExtractFactory'
 import { createTransformFactoryModule } from '../modules/factories/transformFactory'
 import { createTransformOutputFactoryModule } from '../modules/factories/transformOutputFactory'
 import { createManualDataFactoryModule } from '../modules/factories/manualDataFactory'
@@ -65,6 +66,8 @@ export function createGraphStoreAssembly(
     pasteOffset,
     designModalVisible,
     activeRegexNodeId,
+    extractDesignModalVisible,
+    activeRegexExtractNodeId,
     regexEditSampleData,
     isProjectLoaded,
     projectName,
@@ -111,6 +114,7 @@ export function createGraphStoreAssembly(
   })
   const { createConstraintNode } = createConstraintFactoryModule({ nodes, selectedNodeId })
   const { createRegexNode } = createRegexFactoryModule({ nodes, selectedNodeId })
+  const { createRegexExtractNode } = createRegexExtractFactoryModule({ nodes, selectedNodeId })
   const { createTransformNode } = createTransformFactoryModule({ nodes, selectedNodeId })
   const { createTransformOutputNode } = createTransformOutputFactoryModule({ nodes })
   const { createManualDataNode } = createManualDataFactoryModule({ nodes, selectedNodeId })
@@ -178,6 +182,8 @@ export function createGraphStoreAssembly(
     lastFullValidationStatistics,
     designModalVisible,
     activeRegexNodeId,
+    extractDesignModalVisible,
+    activeRegexExtractNodeId,
     regexEditSampleData,
     copiedNodes,
     normalizeConfigDir,
@@ -297,14 +303,23 @@ export function createGraphStoreAssembly(
     isConstraintNodeType,
   })
 
-  const { openRegexDesignModal, closeRegexDesignModal, saveRegexDesign, setRegexEditSampleData } =
-    createRegexDesignModule({
-      nodes,
-      designModalVisible,
-      activeRegexNodeId,
-      regexEditSampleData,
-      updateNodeData,
-    })
+  const {
+    openRegexDesignModal,
+    closeRegexDesignModal,
+    openRegexExtractDesignModal,
+    closeRegexExtractDesignModal,
+    saveRegexDesign,
+    saveRegexExtractDesign,
+    setRegexEditSampleData,
+  } = createRegexDesignModule({
+    nodes,
+    designModalVisible,
+    activeRegexNodeId,
+    regexEditSampleData,
+    updateNodeData,
+    extractDesignModalVisible,
+    activeRegexExtractNodeId,
+  })
 
   const { saveCanvasAsAsset, loadAssetToCanvas } = createAssetsModule({
     nodes,
@@ -336,6 +351,8 @@ export function createGraphStoreAssembly(
     designModalVisible,
     activeRegexNodeId,
     activeRegexNode: computed.activeRegexNode,
+    extractDesignModalVisible,
+    activeRegexExtractNodeId,
     regexEditSampleData,
 
     schemaSourceIndex: sourceIndex,
@@ -354,6 +371,7 @@ export function createGraphStoreAssembly(
     addColumnToSchema,
     createConstraintNode,
     createRegexNode,
+    createRegexExtractNode,
     createTransformNode,
     createTransformOutputNode,
     createManualDataNode,
@@ -435,7 +453,10 @@ export function createGraphStoreAssembly(
 
     openRegexDesignModal,
     closeRegexDesignModal,
+    openRegexExtractDesignModal,
+    closeRegexExtractDesignModal,
     saveRegexDesign,
+    saveRegexExtractDesign,
     setRegexEditSampleData,
 
     listV2Templates,

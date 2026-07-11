@@ -14,6 +14,7 @@ import { inspector, fallbackInspector } from './inspector'
 import { customNodes, icons, sourcePreview } from './nodes'
 import {
   constraintRuleTypeMenu,
+  constraintTypes,
   config,
   connectionValidation,
   connectionRules,
@@ -22,6 +23,7 @@ import {
 import {
   regexCreationModal,
   regexDesignModal,
+  regexExtractDesignModal,
   expression,
   expressions,
   regexValidation,
@@ -33,6 +35,7 @@ import { aiChat, aiConfigGenerator } from './ai'
 import { template } from './template'
 import { factories } from './factories'
 import { validationHistory } from './validationHistory'
+import { validation } from './validation'
 
 const enUS = {
   app,
@@ -48,12 +51,14 @@ const enUS = {
   icons,
   sourcePreview,
   constraintRuleTypeMenu,
+  constraintTypes,
   config,
   connectionValidation,
   connectionRules,
   connectionModes,
   regexCreationModal,
   regexDesignModal,
+  regexExtractDesignModal,
   expression,
   expressions,
   regexValidation,
@@ -67,6 +72,7 @@ const enUS = {
   template,
   factories,
   validationHistory,
+  validation,
   common: commonLocales,
   shortcuts,
   inspection,

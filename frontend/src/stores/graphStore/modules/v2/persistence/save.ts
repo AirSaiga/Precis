@@ -89,6 +89,7 @@ import type {
 } from '@/types/projectV2'
 import { toastError, toastSuccess } from '@/core/toast'
 import { useI18n } from 'vue-i18n'
+import { renderText } from '@/core/i18n/renderText'
 import { useInspectionStore } from '@/stores/inspectionStore'
 import {
   putV2Constraint,
@@ -167,7 +168,13 @@ export function createV2SaveOps(params: {
       return true
     } else {
       const blockers = result.errors?.filter((e) => e.severity === 'BLOCKER') || []
-      const messages = blockers.map((e) => e.message).join('; ')
+      // 解析每条 blocker 的本地化文案：有 messageKey 走 t()，否则回退原始 message
+      const resolveMsg = (e: {
+        message: string
+        messageKey?: string
+        params?: Record<string, unknown>
+      }) => renderText(t, e.messageKey, e.message, e.params)
+      const messages = blockers.map(resolveMsg).join('; ')
       logger.error('保存项目失败:', messages || result.errors)
       toastError(messages || t('messages.error.unknownError'), t('messages.persistence.saveFailed'))
 
@@ -178,43 +185,48 @@ export function createV2SaveOps(params: {
         inspectionStore.setResult(
           {
             inspected_at: now,
-            errors: blockers.map((e) => ({
-              id: `save-blocker:${e.nodeId || 'global'}:${e.field || 'unknown'}:${now}`,
-              severity: 'blocker' as const,
-              title: '',
-              title_key: 'inspection.issues.saveBlocked.title',
-              description: e.message,
-              description_key: 'inspection.issues.saveBlocked.description',
-              fix_hint: '',
-              fix_hint_key: e.field
-                ? 'inspection.issues.saveBlocked.fixHintWithField'
-                : 'inspection.issues.saveBlocked.fixHint',
-              error_type: 'SavePreValidationBlocked',
-              file_path: '',
-              ref_id: e.nodeId || null,
-              message: e.message,
-              suggestion: '',
-              actions: e.nodeId
-                ? [
-                    {
-                      type: 'navigate' as const,
-                      label: '',
-                      label_key: 'inspection.actions.navigateToNode',
-                      target: e.nodeId,
-                    },
-                  ]
-                : [],
-              context: {
-                field: e.field || null,
-                nodeId: e.nodeId || null,
+            errors: blockers.map((e) => {
+              // 每条 blocker 用自己的 messageKey 作为 description_key，使抽屉按当前语言显示具体错误
+              const descriptionKey = e.messageKey || 'inspection.issues.saveBlocked.description'
+              const descriptionParams = e.params ?? {}
+              return {
+                id: `save-blocker:${e.nodeId || 'global'}:${e.field || 'unknown'}:${now}`,
+                severity: 'blocker' as const,
+                title: '',
+                title_key: 'inspection.issues.saveBlocked.title',
                 description: e.message,
-              },
-              message_params: {
-                description: e.message,
-                field: e.field || '',
-                nodeId: e.nodeId || '',
-              },
-            })),
+                description_key: descriptionKey,
+                fix_hint: '',
+                fix_hint_key: e.field
+                  ? 'inspection.issues.saveBlocked.fixHintWithField'
+                  : 'inspection.issues.saveBlocked.fixHint',
+                error_type: 'SavePreValidationBlocked',
+                file_path: '',
+                ref_id: e.nodeId || null,
+                message: e.message,
+                suggestion: '',
+                actions: e.nodeId
+                  ? [
+                      {
+                        type: 'navigate' as const,
+                        label: '',
+                        label_key: 'inspection.actions.navigateToNode',
+                        target: e.nodeId,
+                      },
+                    ]
+                  : [],
+                context: {
+                  field: e.field || null,
+                  nodeId: e.nodeId || null,
+                  description: e.message,
+                },
+                message_params: {
+                  ...descriptionParams,
+                  field: e.field || '',
+                  nodeId: e.nodeId || '',
+                },
+              }
+            }),
           },
           { autoOpen: true }
         )
@@ -354,7 +366,9 @@ export function createV2SaveOps(params: {
 
   async function saveRegexNode(nodeId: string): Promise<boolean> {
     try {
-      const node = nodes.value.find((n) => n.id === nodeId && n.type === 'regex')
+      const node = nodes.value.find(
+        (n) => n.id === nodeId && (n.type === 'regex' || n.type === 'regexExtract')
+      )
       if (!node) throw new Error(t('messages.builder.regexNodeNotFound'))
 
       const configPath = getEffectiveProjectConfigPath()

@@ -28,7 +28,12 @@
 
     <!-- 搜索过滤 -->
     <div class="search-bar" v-if="isObject(currentLevelData) || isArray(currentLevelData)">
-      <input v-model="searchQuery" type="text" class="search-input" placeholder="搜索字段..." />
+      <input
+        v-model="searchQuery"
+        type="text"
+        class="search-input"
+        :placeholder="t('validation.json.searchFieldPlaceholder')"
+      />
       <span v-if="searchQuery" class="search-clear" @click="searchQuery = ''"
         ><AppIcon name="x" :size="14"
       /></span>
@@ -159,7 +164,10 @@
 
 <script setup lang="ts">
   import { ref, computed, watch, nextTick } from 'vue'
+  import { useI18n } from 'vue-i18n'
   import AppIcon from '@/components/icons/AppIcon.vue'
+
+  const { t } = useI18n()
 
   const props = defineProps<{
     data: unknown

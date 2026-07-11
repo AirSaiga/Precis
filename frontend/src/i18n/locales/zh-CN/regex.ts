@@ -35,6 +35,15 @@ const regexDesignModal = {
   unsavedChangesCancel: '继续编辑',
 }
 
+const regexExtractDesignModal = {
+  title: '正则提取设计',
+  selectOrAddRule: '选择或添加一个规则',
+  addRule: '添加规则',
+  cancel: '取消',
+  save: '保存',
+  defaultRuleName: '新提取规则',
+}
+
 const expression = {
   title: '表达式编辑器',
   interactiveBuilder: '交互式构建器',
@@ -122,6 +131,7 @@ const regexValidation = {
 
 export { regexCreationModal }
 export { regexDesignModal }
+export { regexExtractDesignModal }
 export { expression }
 export { expressions }
 export { regexValidation }

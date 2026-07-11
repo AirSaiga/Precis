@@ -156,7 +156,7 @@ describe('createRegexDesignModule', () => {
       expect(designModalVisible.value).toBe(false)
     })
 
-    it('有 output mapping 时自动设置 matchMode 为 extract', () => {
+    it('有 output mapping 时不改变 Regex 校验节点的 matchMode', () => {
       nodes.value = [makeRegexNode('r1', { matchMode: 'full' })]
 
       module.saveRegexDesign('r1', {
@@ -166,7 +166,7 @@ describe('createRegexDesignModule', () => {
       expect(mockUpdateNodeData).toHaveBeenCalledWith(
         'r1',
         expect.objectContaining({
-          matchMode: 'extract',
+          matchMode: 'full',
         })
       )
     })

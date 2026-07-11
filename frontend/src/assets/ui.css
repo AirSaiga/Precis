@@ -422,7 +422,7 @@
   position: relative;
   width: 44px;
   height: 24px;
-  background: var(--ui-bg-muted);
+  background: var(--ui-border-strong);
   border-radius: var(--ui-radius-full);
   transition: background var(--ui-transition-fast);
 }

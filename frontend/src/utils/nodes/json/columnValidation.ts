@@ -16,11 +16,28 @@ export interface ValidationResult {
 
 /**
  * 验证错误接口
+ *
+ * message 为兜底文案；messageKey/params 供 UI 层按当前 locale 渲染（i18n 治理）。
  */
 export interface ValidationError {
   field: string
   message: string
+  /** i18n key，缺失时回退到 message */
+  messageKey?: string
+  /** messageKey 对应的插值参数 */
+  params?: Record<string, unknown>
   severity: 'error' | 'warning'
+}
+
+/** 构造带 i18n key 的 ValidationError 的便捷工厂 */
+function vError(
+  field: string,
+  message: string,
+  severity: 'error' | 'warning',
+  messageKey: string,
+  params?: Record<string, unknown>
+): ValidationError {
+  return { field, message, severity, messageKey, params }
 }
 
 /**
@@ -74,61 +91,68 @@ export function validateColumn(column: JsonSchemaColumn): ValidationResult {
   const errors: ValidationError[] = []
 
   if (!column.id) {
-    errors.push({
-      field: 'id',
-      message: '列 ID 不能为空',
-      severity: 'error',
-    })
+    errors.push(vError('id', '列 ID 不能为空', 'error', 'validation.column.idEmpty'))
   }
 
   if (!isValidColumnName(column.columnName)) {
-    errors.push({
-      field: 'columnName',
-      message: '列名不合法（只能包含字母、数字、下划线，不能以数字开头，长度不超过50）',
-      severity: 'error',
-    })
+    errors.push(
+      vError(
+        'columnName',
+        '列名不合法（只能包含字母、数字、下划线，不能以数字开头，长度不超过50）',
+        'error',
+        'validation.column.nameInvalid'
+      )
+    )
   }
 
   if (!isValidJsonPath(column.jsonPath)) {
-    errors.push({
-      field: 'jsonPath',
-      message: 'JSONPath 格式不合法（必须以 $ 开头）',
-      severity: 'error',
-    })
+    errors.push(
+      vError(
+        'jsonPath',
+        'JSONPath 格式不合法（必须以 $ 开头）',
+        'error',
+        'validation.column.jsonPathInvalid'
+      )
+    )
   }
 
   if (!column.dataType) {
-    errors.push({
-      field: 'dataType',
-      message: '数据类型不能为空',
-      severity: 'error',
-    })
+    errors.push(vError('dataType', '数据类型不能为空', 'error', 'validation.column.dataTypeEmpty'))
   }
 
   if (column.constraints) {
     if (column.constraints.unique && column.constraints.notNull) {
-      errors.push({
-        field: 'constraints',
-        message: '唯一性和非空约束可以同时设置',
-        severity: 'warning',
-      })
+      errors.push(
+        vError(
+          'constraints',
+          '唯一性和非空约束可以同时设置',
+          'warning',
+          'validation.column.uniqueAndNotNull'
+        )
+      )
     }
 
     if (column.constraints.allowedValues && column.constraints.allowedValues.length === 0) {
-      errors.push({
-        field: 'constraints.allowedValues',
-        message: '允许值列表不能为空',
-        severity: 'error',
-      })
+      errors.push(
+        vError(
+          'constraints.allowedValues',
+          '允许值列表不能为空',
+          'error',
+          'validation.column.allowedValuesEmpty'
+        )
+      )
     }
   }
 
   if (column.dataType === 'array' && !column.arrayItemType) {
-    errors.push({
-      field: 'arrayItemType',
-      message: '数组类型必须指定元素类型',
-      severity: 'warning',
-    })
+    errors.push(
+      vError(
+        'arrayItemType',
+        '数组类型必须指定元素类型',
+        'warning',
+        'validation.column.arrayItemTypeMissing'
+      )
+    )
   }
 
   return {
@@ -147,11 +171,7 @@ export function validateColumns(columns: JsonSchemaColumn[]): ValidationResult {
   const errors: ValidationError[] = []
 
   if (!columns || columns.length === 0) {
-    errors.push({
-      field: 'columns',
-      message: '列定义不能为空',
-      severity: 'error',
-    })
+    errors.push(vError('columns', '列定义不能为空', 'error', 'validation.column.columnsEmpty'))
     return { isValid: false, errors }
   }
 
@@ -165,37 +185,52 @@ export function validateColumns(columns: JsonSchemaColumn[]): ValidationResult {
     const columnResult = validateColumn(column)
 
     for (const error of columnResult.errors) {
+      // 透传 messageKey/params，并把字段路径与文案加上列序号前缀
       errors.push({
         ...error,
         field: `columns[${i}].${error.field}`,
         message: `第 ${i + 1} 列: ${error.message}`,
+        messageKey: error.messageKey,
+        params: { ...error.params, index: i + 1 },
       })
     }
 
     if (columnNames.has(column.columnName)) {
-      errors.push({
-        field: 'columnName',
-        message: `列名 "${column.columnName}" 重复`,
-        severity: 'error',
-      })
+      errors.push(
+        vError(
+          'columnName',
+          `列名 "${column.columnName}" 重复`,
+          'error',
+          'validation.column.nameDuplicate',
+          {
+            name: column.columnName,
+          }
+        )
+      )
     }
     columnNames.add(column.columnName)
 
     if (columnIds.has(column.id)) {
-      errors.push({
-        field: 'id',
-        message: `列 ID "${column.id}" 重复`,
-        severity: 'error',
-      })
+      errors.push(
+        vError('id', `列 ID "${column.id}" 重复`, 'error', 'validation.column.idDuplicate', {
+          id: column.id,
+        })
+      )
     }
     columnIds.add(column.id)
 
     if (jsonPaths.has(column.jsonPath)) {
-      errors.push({
-        field: 'jsonPath',
-        message: `JSONPath "${column.jsonPath}" 重复`,
-        severity: 'error',
-      })
+      errors.push(
+        vError(
+          'jsonPath',
+          `JSONPath "${column.jsonPath}" 重复`,
+          'error',
+          'validation.column.jsonPathDuplicate',
+          {
+            path: column.jsonPath,
+          }
+        )
+      )
     }
     jsonPaths.add(column.jsonPath)
   }
@@ -224,11 +259,17 @@ export function validateNestedColumns(
     const fullPath = `${parentPath}.${column.columnName}`
 
     if (allPaths.has(fullPath)) {
-      errors.push({
-        field: 'jsonPath',
-        message: `嵌套路径 "${fullPath}" 重复`,
-        severity: 'error',
-      })
+      errors.push(
+        vError(
+          'jsonPath',
+          `嵌套路径 "${fullPath}" 重复`,
+          'error',
+          'validation.column.nestedPathDuplicate',
+          {
+            path: fullPath,
+          }
+        )
+      )
     }
     allPaths.add(fullPath)
 
@@ -246,6 +287,16 @@ export function validateNestedColumns(
 
 /**
  * 获取验证错误摘要
+ *
+ * @param result - 验证结果
+ * @returns 错误摘要
+ */
+/**
+ * 获取验证错误摘要
+ *
+ * 注意：本函数返回拼接好的字符串（历史行为）。若需按 locale 渲染，调用方应改用
+ * t('validation.summary.pass') / t('validation.summary.errors', { count }) 等 key。
+ * 此处保留中文兜底，不再硬编码进 i18n 以避免双重维护。
  *
  * @param result - 验证结果
  * @returns 错误摘要

@@ -90,6 +90,8 @@ export function createProjectLifecycleModule(params: {
   lastFullValidationStatistics: Ref<ValidationStatistics | null>
   designModalVisible: Ref<boolean>
   activeRegexNodeId: Ref<string | null>
+  extractDesignModalVisible: Ref<boolean>
+  activeRegexExtractNodeId: Ref<string | null>
   regexEditSampleData: Ref<string>
   copiedNodes: Ref<CustomNode[]>
   normalizeConfigDir: (inputPath: string) => string
@@ -113,6 +115,8 @@ export function createProjectLifecycleModule(params: {
     lastFullValidationStatistics,
     designModalVisible,
     activeRegexNodeId,
+    extractDesignModalVisible,
+    activeRegexExtractNodeId,
     regexEditSampleData,
     copiedNodes,
     normalizeConfigDir,
@@ -147,6 +151,8 @@ export function createProjectLifecycleModule(params: {
     lastFullValidationStatistics.value = null
     designModalVisible.value = false
     activeRegexNodeId.value = null
+    extractDesignModalVisible.value = false
+    activeRegexExtractNodeId.value = null
     regexEditSampleData.value = ''
     copiedNodes.value = []
 
@@ -179,6 +185,8 @@ export function createProjectLifecycleModule(params: {
     lastFullValidationStatistics.value = null
     designModalVisible.value = false
     activeRegexNodeId.value = null
+    extractDesignModalVisible.value = false
+    activeRegexExtractNodeId.value = null
     regexEditSampleData.value = ''
     copiedNodes.value = []
 

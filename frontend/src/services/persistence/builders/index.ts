@@ -10,16 +10,25 @@ import { registerBuilder } from './registry'
 import './constraint'
 import { manualDataBuilder } from './manualDataBuilder'
 import { regexBuilder } from './regexBuilder'
+import { regexExtractBuilder } from './regexExtractBuilder'
 import { schemaBuilder } from './schemaBuilder'
 import { templateInstanceBuilder } from './templateInstanceBuilder'
 import { transformBuilder } from './transformBuilder'
 
 registerBuilder(schemaBuilder)
 registerBuilder(regexBuilder)
+registerBuilder(regexExtractBuilder)
 registerBuilder(transformBuilder)
 registerBuilder(manualDataBuilder)
 registerBuilder(templateInstanceBuilder)
 
-export { schemaBuilder, regexBuilder, transformBuilder, manualDataBuilder, templateInstanceBuilder }
+export {
+  schemaBuilder,
+  regexBuilder,
+  regexExtractBuilder,
+  transformBuilder,
+  manualDataBuilder,
+  templateInstanceBuilder,
+}
 export * from './registry'
 export type * from '../types'

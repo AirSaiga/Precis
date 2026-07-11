@@ -1,0 +1,96 @@
+{
+  "version": 1,
+  "nodeType": "regexExtract",
+  "sections": [
+    {
+      "id": "config",
+      "titleKey": "inspector.regexNode.groups.config",
+      "fields": [
+        {
+          "id": "configName",
+          "kind": "text",
+          "labelKey": "inspector.regexNode.labels.configName",
+          "placeholderKey": "inspector.regexNode.placeholders.configName",
+          "source": { "source": "data", "path": ["configName"] }
+        },
+        {
+          "id": "description",
+          "kind": "textarea",
+          "labelKey": "inspector.regexNode.labels.description",
+          "source": { "source": "data", "path": ["description"] }
+        }
+      ]
+    },
+    {
+      "id": "regex",
+      "titleKey": "inspector.regexNode.groups.regex",
+      "fields": [
+        {
+          "id": "pattern",
+          "kind": "textarea",
+          "labelKey": "inspector.regexNode.labels.pattern",
+          "source": { "source": "data", "path": ["pattern"] }
+        },
+        {
+          "id": "flags",
+          "kind": "text",
+          "labelKey": "inspector.regexNode.labels.flags",
+          "placeholderKey": "inspector.regexNode.placeholders.flags",
+          "source": { "source": "data", "path": ["flags"] }
+        }
+      ]
+    },
+    {
+      "id": "options",
+      "titleKey": "inspector.regexNode.groups.options",
+      "fields": [
+        {
+          "id": "enabled",
+          "kind": "boolean",
+          "labelKey": "inspector.regexNode.labels.enabled",
+          "source": { "source": "data", "path": ["enabled"] }
+        },
+        {
+          "id": "caseSensitive",
+          "kind": "boolean",
+          "labelKey": "inspector.regexNode.labels.caseSensitive",
+          "source": { "source": "data", "path": ["caseSensitive"] }
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "titleKey": "inspector.regexNode.groups.status",
+      "fields": [
+        {
+          "id": "validationStatus",
+          "kind": "readonly",
+          "labelKey": "inspector.regexNode.labels.currentStatus",
+          "source": { "source": "data", "path": ["validationStatus"] }
+        }
+      ]
+    },
+    {
+      "id": "connection",
+      "titleKey": "inspector.regexNode.groups.connection",
+      "fields": [
+        {
+          "id": "sourceNodeId",
+          "kind": "readonly",
+          "labelKey": "inspector.regexNode.labels.sourceNode",
+          "source": { "source": "data", "path": ["sourceRef", "nodeId"] }
+        },
+        {
+          "id": "sourceColumnName",
+          "kind": "readonly",
+          "labelKey": "inspector.regexNode.labels.targetColumn",
+          "source": { "source": "data", "path": ["sourceRef", "columnId"] },
+          "when": {
+            "op": "exists",
+            "source": { "source": "data", "path": ["sourceRef", "columnId"] }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -38,14 +38,18 @@ interface ConfirmQueueItem {
   resolve: (value: boolean | 'alternative') => void
 }
 
-const defaultOptions: ConfirmOptions = {
-  title: '确认',
-  message: '',
-  confirmText: '确认',
-  cancelText: '取消',
-  alternativeText: '',
-  type: 'info',
-  allowHtml: false,
+/** 默认选项工厂：用 i18n 解析本地化文案（仅在队列为空的兜底场景使用） */
+function buildDefaultOptions(): ConfirmOptions {
+  const t = i18n.global.t
+  return {
+    title: t('common.confirmDialog.title'),
+    message: '',
+    confirmText: t('common.confirm'),
+    cancelText: t('common.cancel'),
+    alternativeText: '',
+    type: 'info',
+    allowHtml: false,
+  }
 }
 
 /** 确认请求队列 */
@@ -55,7 +59,7 @@ const queue = ref<ConfirmQueueItem[]>([])
 const visible = computed(() => queue.value.length > 0)
 
 /** 当前显示确认框的选项（队列头部） */
-const options = computed(() => queue.value[0]?.options || defaultOptions)
+const options = computed(() => queue.value[0]?.options || buildDefaultOptions())
 
 /**
  * 规范化确认选项

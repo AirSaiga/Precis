@@ -56,6 +56,22 @@ export const connectionRules: ConnectionRule[] = [
     },
   },
   {
+    id: 'schema-to-regexExtract',
+    name: 'Schema to RegexExtract',
+    source: {
+      nodeTypes: ['schema', 'jsonSchema'],
+      handles: ['source-right-{columnId}'],
+    },
+    target: {
+      nodeTypes: ['regexExtract'],
+      handles: ['regexExtract-input'],
+    },
+    config: {
+      allowMultiple: false,
+      validationMode: 'strict',
+    },
+  },
+  {
     id: 'schema-to-regex',
     name: 'Schema to Regex',
     source: {
@@ -65,6 +81,22 @@ export const connectionRules: ConnectionRule[] = [
     target: {
       nodeTypes: ['regex'],
       handles: ['regex-input'],
+    },
+    config: {
+      allowMultiple: false,
+      validationMode: 'strict',
+    },
+  },
+  {
+    id: 'pattern-to-regexExtract',
+    name: 'Pattern to RegexExtract',
+    source: {
+      nodeTypes: ['pattern'],
+      handles: undefined,
+    },
+    target: {
+      nodeTypes: ['regexExtract'],
+      handles: ['regexExtract-input'],
     },
     config: {
       allowMultiple: false,
@@ -160,6 +192,22 @@ export const connectionRules: ConnectionRule[] = [
     },
   },
   {
+    id: 'manual-data-to-regexExtract',
+    name: 'ManualData to RegexExtract',
+    source: {
+      nodeTypes: ['manualData'],
+      handles: undefined,
+    },
+    target: {
+      nodeTypes: ['regexExtract'],
+      handles: ['regexExtract-input'],
+    },
+    config: {
+      allowMultiple: false,
+      validationMode: 'strict',
+    },
+  },
+  {
     id: 'manual-data-to-regex',
     name: 'ManualData to Regex',
     source: {
@@ -221,6 +269,22 @@ export const connectionRules: ConnectionRule[] = [
     target: {
       nodeTypes: ['transform'],
       handles: ['transform-input'],
+    },
+    config: {
+      allowMultiple: false,
+      validationMode: 'strict',
+    },
+  },
+  {
+    id: 'transform-output-to-regexExtract',
+    name: 'TransformOutput to RegexExtract',
+    source: {
+      nodeTypes: ['transformOutput'],
+      handles: undefined,
+    },
+    target: {
+      nodeTypes: ['regexExtract'],
+      handles: ['regexExtract-input'],
     },
     config: {
       allowMultiple: false,
@@ -304,38 +368,6 @@ export const connectionRules: ConnectionRule[] = [
     target: {
       nodeTypes: ['transformOutput'],
       handles: ['target-left'],
-    },
-    config: {
-      allowMultiple: false,
-      validationMode: 'strict',
-    },
-  },
-  {
-    id: 'transform-to-regex',
-    name: 'Transform to Regex',
-    source: {
-      nodeTypes: ['transform'],
-      handles: undefined,
-    },
-    target: {
-      nodeTypes: ['regex'],
-      handles: ['regex-input'],
-    },
-    config: {
-      allowMultiple: false,
-      validationMode: 'strict',
-    },
-  },
-  {
-    id: 'regex-to-transform',
-    name: 'Regex to Transform',
-    source: {
-      nodeTypes: ['regex'],
-      handles: undefined,
-    },
-    target: {
-      nodeTypes: ['transform'],
-      handles: ['transform-input'],
     },
     config: {
       allowMultiple: false,

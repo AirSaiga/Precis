@@ -45,6 +45,14 @@
     @save="handleRegexDesignSave"
   />
 
+  <!-- 正则提取设计弹窗 -->
+  <RegexExtractDesignModal
+    :visible="graphStore.extractDesignModalVisible"
+    :rule-data="activeRegexExtractNode?.data as RegexExtractNodeData"
+    @close="graphStore.closeRegexExtractDesignModal"
+    @save="handleRegexExtractDesignSave"
+  />
+
   <!-- 保存选区为模板对话框 -->
   <SaveAsTemplateDialog
     :visible="saveAsTemplateVisible"
@@ -56,14 +64,19 @@
 </template>
 
 <script setup lang="ts">
-  import { ref, onMounted, onUnmounted } from 'vue'
+  import { ref, computed, onMounted, onUnmounted } from 'vue'
   import { defineAsyncComponent } from 'vue'
   import { eventBus } from '@/core/eventBus'
   import Toast from '@/components/shared/Toast.vue'
   import GlobalConfirmModal from '@/components/common/GlobalConfirmModal.vue'
   import InspectionDrawer from '@/components/inspection/InspectionDrawer.vue'
   import ShortcutSettingsPanel from '@/components/settings/ShortcutSettingsPanel.vue'
-  import type { RegexNodeData, RegexDesignUpdateData } from '@/types/graph'
+  import type {
+    RegexNodeData,
+    RegexDesignUpdateData,
+    RegexExtractNodeData,
+    RegexExtractDesignUpdateData,
+  } from '@/types/graph'
   import { useGraphStore } from '@/stores/graphStore'
   import { useScriptEditorStore } from '@/stores/scriptEditorStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
@@ -85,6 +98,9 @@
   const RegexDesignModal = defineAsyncComponent(
     () => import('@/features/regex/components/RegexDesignModal.vue')
   )
+  const RegexExtractDesignModal = defineAsyncComponent(
+    () => import('@/features/regex/components/RegexExtractDesignModal.vue')
+  )
   const SaveAsTemplateDialog = defineAsyncComponent(
     () => import('@/components/template/SaveAsTemplateDialog.vue')
   )
@@ -97,9 +113,23 @@
   const projectManagementVisible = ref(false)
   const saveAsTemplateVisible = ref(false)
 
+  const activeRegexExtractNode = computed(() => {
+    if (!graphStore.activeRegexExtractNodeId) return null
+    return graphStore.nodes.find((node) => node.id === graphStore.activeRegexExtractNodeId) || null
+  })
+
   const handleRegexDesignSave = (updatedData: RegexNodeData) => {
     if (graphStore.activeRegexNodeId) {
       graphStore.saveRegexDesign(graphStore.activeRegexNodeId, updatedData as RegexDesignUpdateData)
+    }
+  }
+
+  const handleRegexExtractDesignSave = (updatedData: RegexExtractNodeData) => {
+    if (graphStore.activeRegexExtractNodeId) {
+      graphStore.saveRegexExtractDesign(
+        graphStore.activeRegexExtractNodeId,
+        updatedData as RegexExtractDesignUpdateData
+      )
     }
   }
 

@@ -16,10 +16,10 @@
     :show-delete="true"
     :show-save="true"
     :is-saving="isSaving"
-    delete-title="Delete"
-    save-title="Save"
-    save-text="Save"
-    saving-text="Saving..."
+    :delete-title="t('customNodes.templateInstanceNode.deleteTitle')"
+    :save-title="t('customNodes.templateInstanceNode.saveTitle')"
+    :save-text="t('customNodes.templateInstanceNode.saveText')"
+    :saving-text="t('customNodes.templateInstanceNode.savingText')"
     @click="onNodeClick"
     @delete="handleClose"
     @save="handleSave"
@@ -78,7 +78,7 @@
         <button
           class="template-container__btn"
           type="button"
-          title="保存"
+          :title="t('customNodes.templateInstanceNode.saveTitle')"
           @mousedown.stop
           @click.stop="handleSave"
         >
@@ -88,7 +88,7 @@
         <button
           class="template-container__btn template-container__btn--collapse"
           type="button"
-          title="折叠"
+          :title="t('customNodes.templateInstanceNode.collapseTitle')"
           @mousedown.stop
           @click.stop="handleToggle"
         >
@@ -97,7 +97,7 @@
         <button
           class="template-container__btn template-container__btn--delete"
           type="button"
-          title="删除"
+          :title="t('customNodes.templateInstanceNode.deleteTitle')"
           @mousedown.stop
           @click.stop="handleClose"
         >

@@ -260,16 +260,17 @@ export interface RegexNodeData {
   /**
    * 匹配模式
    *
-   * 【模式说明】
+   * 模式说明：
    * - full: 完整匹配 (必须完全匹配整个字符串)
    * - partial: 子串匹配 (只需部分匹配)
-   * - extract: 提取模式 (匹配并提取命名捕获组)
    *
-   * 【与后端的交互】
+   * 注意：extract 模式已拆分为独立的 regexExtract 节点类型，
+   * 因此 RegexNodeData 中不再包含 'extract'。
+   *
+   * 与后端的交互：
    * - 传递给后端的 match_mode 字段
-   * - 后端根据此值决定返回 extracted_columns
    */
-  matchMode: 'full' | 'partial' | 'extract'
+  matchMode: 'full' | 'partial'
 
   /**
    * 校验规则配置
@@ -437,6 +438,137 @@ export interface RegexNodeData {
 }
 
 /**
+ * 正则提取节点数据
+ *
+ * 【业务场景】
+ * RegexExtract 节点专门用于从上游数据中提取匹配内容并生成新的列/数据流。
+ * 它是从原 RegexNodeData 的 extract 模式拆分出来的独立节点类型，
+ * 与 RegexNode（校验）职责分离：
+ * - RegexNode：只返回匹配统计（full/partial）
+ * - RegexExtract：提取命名捕获组，输出到下游数据流节点
+ *
+ * 【与后端的交互】
+ * 序列化时保存为 match_mode='extract' 的 RegexNodeFile，
+ * 反序列化时根据 match_mode='extract' 重建为 regexExtract 节点。
+ */
+export interface RegexExtractNodeData {
+  /**
+   * 节点配置名称
+   */
+  configName: string
+
+  /**
+   * 节点描述信息
+   */
+  description: string
+
+  /**
+   * 正则表达式模式字符串
+   *
+   * 必须使用命名捕获组 (?P<name>...) 以支持提取。
+   */
+  pattern: string
+
+  /**
+   * 正则标志字符串
+   */
+  flags: string
+
+  /**
+   * 是否区分大小写
+   */
+  caseSensitive: boolean
+
+  /**
+   * 参数列表（保留字段，用于前端扩展）
+   */
+  parameters?: RegexParameter[]
+
+  /**
+   * 节点是否启用
+   */
+  enabled: boolean
+
+  /**
+   * 捕获组定义（名称与组索引映射）
+   */
+  captureGroups: Array<{ name: string; groupIndex: number }>
+
+  /**
+   * 输出列名列表
+   */
+  outputColumns: string[]
+
+  /**
+   * 数据流输入接口
+   * 若存在，优先于 sourceRef 使用
+   */
+  inputFromNode?: string
+  inputColumn?: string
+
+  /**
+   * 源字段的稳定引用（节点 ID + 列 ID），用于项目保存/加载重建连线
+   */
+  sourceRef?: {
+    nodeId: string
+    columnId: string
+  }
+
+  /**
+   * 设计器规则（保留用于可视化编辑）
+   */
+  rules?: Rule[]
+
+  /**
+   * 校验/提取状态
+   */
+  validationStatus?: 'idle' | 'pass' | 'error' | 'missing'
+
+  /**
+   * 总行数（校验/提取运行时统计）
+   */
+  totalRows?: number
+
+  /**
+   * 匹配/成功行数
+   */
+  matchCount?: number
+
+  /**
+   * 错误/失败行数
+   */
+  errorCount?: number
+
+  /**
+   * 最近一次运行的时间
+   */
+  lastValidationTime?: string
+
+  /**
+   * 保存状态
+   */
+  saveState?: 'draft' | 'saved' | 'error'
+
+  /**
+   * 最近一次保存时间
+   */
+  lastSaved?: string
+
+  /**
+   * 父节点 ID（关联的 Schema 节点）
+   */
+  parent?: string
+
+  /**
+   * 引用已注册的 Pattern
+   */
+  uses_pattern?: {
+    registry: 'patterns'
+    pattern_name: string
+  }
+}
+
+/**
  * 正则表达式集合节点数据
  *
  * 【业务场景】
@@ -522,8 +654,11 @@ export interface RegexDesignUpdateData {
 
   /**
    * 匹配模式更新
+   *
+   * 仅用于 Regex 校验节点，取值为 'full' 或 'partial'。
+   * RegexExtract 节点使用独立的设计器更新类型。
    */
-  matchMode?: 'full' | 'partial' | 'extract'
+  matchMode?: 'full' | 'partial'
 
   /**
    * 参数列表更新
@@ -535,6 +670,14 @@ export interface RegexDesignUpdateData {
    */
   description?: string
 }
+
+/**
+ * 正则提取设计器更新数据类型
+ *
+ * 用于 RegexExtractDesignModal 保存更新时传递变更字段。
+ * captureGroups / outputColumns 会在保存时由规则自动推导，无需调用方传入。
+ */
+export type RegexExtractDesignUpdateData = Partial<RegexExtractNodeData>
 
 /**
  * Pattern 节点数据

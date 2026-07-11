@@ -51,7 +51,14 @@ export interface BuilderResult<T> {
  */
 export interface NodeBuilder<T> {
   /** builder 类型标识 */
-  kind: 'schema' | 'constraint' | 'regex' | 'transform' | 'templateInstance' | 'manualData'
+  kind:
+    | 'schema'
+    | 'constraint'
+    | 'regex'
+    | 'regexExtract'
+    | 'transform'
+    | 'templateInstance'
+    | 'manualData'
   /** 判断该 builder 是否能处理指定节点 */
   matches: (node: CustomNode) => boolean
   /** 构建 V2 配置文件对象 */
@@ -65,11 +72,19 @@ export type ValidationSeverity = 'BLOCKER' | 'WARNING' | 'INFO'
 
 /**
  * 预校验错误
+ *
+ * message 为兜底文案（原始本地化字符串，保证总有显示）。
+ * messageKey/params 为 i18n 治理新增：UI 层优先用 renderText(t, messageKey, message, params)
+ * 解析，使保存拦截错误能随 locale 切换。message 保留作 fallback。
  */
 export interface PreValidationError {
   severity: ValidationSeverity
   nodeId: string
   message: string
+  /** i18n key，缺失时回退到 message（可选，未设置则直接显示 message） */
+  messageKey?: string
+  /** messageKey 对应的插值参数（可选） */
+  params?: Record<string, unknown>
   field?: string
   autoFix?: () => void
 }

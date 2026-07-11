@@ -156,6 +156,7 @@
   import AppIcon from '@/components/icons/AppIcon.vue'
   import { useClipboard } from '@/composables/useClipboard'
   import { toastSuccess, toastError } from '@/core/toast'
+  import { renderText } from '@/core/i18n/renderText'
 
   const props = defineProps<{
     issue: InspectionIssue
@@ -201,19 +202,16 @@
   }
 
   /**
-   * i18n 渲染 helper
+   * i18n 渲染 helper（绑定到本组件的 t，复用 @/core/i18n/renderText）
    * - 有 key 时用 t(key, params)
    * - 否则 fallback 到原字符串
    */
-  function renderText(
+  function renderIssueText(
     key: string | undefined,
     fallback: string,
     params?: Record<string, unknown>
   ): string {
-    if (key) {
-      return t(key, params ?? {})
-    }
-    return fallback
+    return renderText(t, key, fallback, params)
   }
 
   /**
@@ -245,7 +243,7 @@
   })
 
   const titleText = computed(() => {
-    const rendered = renderText(
+    const rendered = renderIssueText(
       props.issue.title_key,
       props.issue.title,
       displayMessageParams.value
@@ -257,7 +255,7 @@
   })
 
   const descriptionText = computed(() => {
-    const rendered = renderText(
+    const rendered = renderIssueText(
       props.issue.description_key,
       props.issue.description,
       displayMessageParams.value
@@ -267,11 +265,11 @@
   })
 
   const fixHintText = computed(() =>
-    renderText(props.issue.fix_hint_key, props.issue.fix_hint, displayMessageParams.value)
+    renderIssueText(props.issue.fix_hint_key, props.issue.fix_hint, displayMessageParams.value)
   )
 
   function actionLabel(action: InspectionAction): string {
-    return renderText(action.label_key, action.label)
+    return renderIssueText(action.label_key, action.label)
   }
 
   /** 上下文中的可用表列表（用于 FK 悬挂 / 表不存在） */

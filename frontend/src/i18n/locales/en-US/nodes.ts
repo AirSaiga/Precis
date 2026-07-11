@@ -321,6 +321,7 @@ const customNodes = {
     count: 'count',
     match: 'Match',
     inputHandle: 'Input Connection',
+    inputHandleExtract: 'Extract Input Connection',
     outputHandle: 'Output Connection',
     helpTooltip: 'Double-click to open the regex designer',
     sourceLabel: 'Source',
@@ -332,6 +333,7 @@ const customNodes = {
     startValidation: 'Click to start validation',
     validate: 'Start Validation',
     openDesigner: 'Open Designer',
+    extractDesignerComingSoon: 'Regex Extract designer coming soon',
     statusIdle: 'Idle',
     statusPass: 'Passed',
     statusError: 'Failed',
@@ -364,6 +366,10 @@ const customNodes = {
     registerAsPatternTitle: 'Register as Pattern',
     registerAsPatternMessage: 'Do you want to register this regex as a reusable Pattern?',
     registerAsPatternConfirm: 'Register',
+    registerPattern: 'Register as Pattern',
+    registerPatternSuccess: 'Pattern "{name}" registered',
+    registerPatternSuccessTitle: 'Registered',
+    registerPatternFailedTitle: 'Registration Failed',
     patternExistsTitle: 'Pattern Exists',
     patternExistsMessage: 'Pattern "{name}" already exists. Overwrite?',
     overwrite: 'Overwrite',
@@ -736,6 +742,8 @@ const customNodes = {
       title: 'Not Null Constraint',
       table: 'Table:',
       column: 'Column:',
+      helpTooltip:
+        'A not-null constraint ensures the specified column contains no null values. After connecting a Schema column, the system automatically detects nulls and highlights error rows.',
       statusIdle: 'Not validated',
       statusPass: 'Pass',
       statusError: 'Failed',
@@ -743,8 +751,8 @@ const customNodes = {
     },
     uniqueConstraintNode: {
       title: 'Unique Constraint',
-      table: 'Table:',
-      columns: 'Columns:',
+      sourceLabel: 'Source',
+      columnLabel: 'Column',
       helpTooltip:
         'A unique constraint ensures that specified column(s) have unique values across the dataset. The system will automatically detect and highlight duplicate values.',
       statusIdle: 'Not validated',
@@ -900,6 +908,13 @@ const customNodes = {
       addConstraintRule: 'Add Constraint Rule',
       newConstraintRule: 'New Constraint Rule',
     },
+  },
+  templateInstanceNode: {
+    saveTitle: 'Save',
+    collapseTitle: 'Collapse',
+    deleteTitle: 'Delete',
+    saveText: 'Save',
+    savingText: 'Saving...',
   },
 }
 

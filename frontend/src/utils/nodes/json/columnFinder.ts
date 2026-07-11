@@ -89,3 +89,65 @@ export function extractJsonTargetValues(rawData: unknown[], targetColumnName: st
   }
   return Array.from(values)
 }
+
+/**
+ * 按简单 JSONPath（点分路径，支持 $ 前缀和 [n] 下标）从对象中取值。
+ * 仅用于正则/约束等场景按 JSONPath 定位字段，不支持复杂 filter 表达式。
+ */
+export function getJsonValueByPath(obj: unknown, path: string): unknown {
+  if (!path) return undefined
+  const segments = path
+    .replace(/^\$\.?/, '')
+    .split('.')
+    .filter((s) => s.length > 0)
+  let current: unknown = obj
+  for (const segment of segments) {
+    if (current === null || typeof current !== 'object') return undefined
+    const bracketMatch = segment.match(/^([^[]+)\[(\d+)\]$/)
+    if (bracketMatch) {
+      const key = bracketMatch[1] as string
+      const idx = parseInt(bracketMatch[2] || '0', 10)
+      const container = (current as Record<string, unknown>)[key]
+      if (!Array.isArray(container)) return undefined
+      current = container[idx]
+    } else {
+      current = (current as Record<string, unknown>)[segment]
+    }
+  }
+  return current
+}
+
+/**
+ * 从 JSON 对象数组中提取指定路径/字段的值数组（保留顺序和空值）。
+ *
+ * 优先使用 jsonPath；未提供或解析失败时回退到 targetKey 顶层字段。
+ *
+ * @param rawData - JSON 对象数组
+ * @param options.jsonPath - 可选的 JSONPath 路径
+ * @param options.targetKey - 回退使用的顶层字段名
+ * @returns 字符串值数组
+ */
+export function extractJsonValuesByPath(
+  rawData: unknown[],
+  options: { jsonPath?: string; targetKey?: string }
+): string[] {
+  if (!Array.isArray(rawData) || rawData.length === 0) return []
+
+  const { jsonPath, targetKey } = options
+  const results: string[] = []
+  for (const record of rawData) {
+    if (!record || typeof record !== 'object' || Array.isArray(record)) {
+      results.push('')
+      continue
+    }
+    let raw: unknown
+    if (jsonPath) {
+      raw = getJsonValueByPath(record, jsonPath)
+    }
+    if (raw === undefined && targetKey) {
+      raw = (record as Record<string, unknown>)[targetKey]
+    }
+    results.push(raw === null || raw === undefined ? '' : String(raw))
+  }
+  return results
+}

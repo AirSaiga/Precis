@@ -9,6 +9,9 @@ const assetLibraryExtended = {
     toolbox: {
       title: '创建 / 工具箱',
       tableSchema: '表结构',
+      regexGroup: 'Regex',
+      regexPatternMode: '模式匹配',
+      regexExtractMode: '提取模式',
       regexPattern: '正则表达式',
       constraintNode: '约束节点',
       constraintCategories: {

@@ -98,6 +98,7 @@ const messages = {
     newTable: '新表格',
     newPattern: '新模式',
     newRegex: '新正则表达式',
+    newRegexExtract: '新正则提取',
     newTransform: '新转换节点',
     newManualData: '手动数据',
     newTemplateInstance: '新模板实例',

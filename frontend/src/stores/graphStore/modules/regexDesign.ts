@@ -5,28 +5,30 @@
  * ====================================================================
  * 功能概述
  * ====================================================================
- * 1. openRegexDesignModal: 打开正则设计器弹窗
- * 2. closeRegexDesignModal: 关闭正则设计器弹窗
- * 3. setRegexEditSampleData: 设置示例数据用于预览
- * 4. saveRegexDesign: 保存正则表达式设计
+ * 1. openRegexDesignModal: 打开正则校验节点设计器弹窗
+ * 2. openRegexExtractDesignModal: 打开正则提取节点设计器弹窗
+ * 3. closeRegexDesignModal / closeRegexExtractDesignModal: 关闭弹窗
+ * 4. setRegexEditSampleData: 设置示例数据用于预览
+ * 5. saveRegexDesign: 保存正则校验节点设计
+ * 6. saveRegexExtractDesign: 保存正则提取节点设计
  *
  * ====================================================================
- * 正则设计器交互流程
+ * 设计器交互流程
  * ====================================================================
  * 1. 用户双击正则节点或点击编辑按钮
- * 2. openRegexDesignModal 记录当前节点 ID
- * 3. 显示正则设计器弹窗（RegexDesignModal）
+ * 2. openRegex*DesignModal 记录当前节点 ID
+ * 3. 显示对应设计器弹窗（RegexDesignModal / RegexExtractDesignModal）
  * 4. 用户在弹窗中编辑正则表达式和参数
- * 5. 点击保存时调用 saveRegexDesign
+ * 5. 点击保存时调用 saveRegex*Design
  * 6. 自动触发关联的校验更新（如有数据源连接）
  *
  * ====================================================================
- * saveRegexDesign 核心逻辑
+ * saveRegex*Design 核心逻辑
  * ====================================================================
  * 1. 合并更新数据到节点
  * 2. 处理正则表达式变更检测
- * 3. 检测 output mapping 变更
- * 4. 检测 matchMode 变更
+ * 3. 检测 output mapping 变更（extract 节点为 outputColumns）
+ * 4. 检测 flags / caseSensitive 变化
  * 5. 如果有变更且有数据源，触发自动重校验
  * 6. 更新 saveState 为 'draft'
  *
@@ -34,23 +36,18 @@
  * 自动重校验触发机制
  * ====================================================================
  * 当正则表达式有重要变更时，会触发关联的校验重新运行：
- * - 触发条件：pattern/outputMapping/matchMode 任一变更
- * - 前置条件：节点已连接到数据源（sourceNodeId + sourceColumnName）
+ * - 触发条件：pattern/output/matchMode/flags/caseSensitive 任一变更
+ * - 前置条件：节点已连接到数据源（sourceRef.nodeId / inputFromNode）
  * - 实现方式：派发 'regex-pattern-updated' 自定义事件
  * - 监听方：useRegexValidation 等 composable
  *
  * ====================================================================
- * matchMode 自动切换
- * ====================================================================
- * - 如果 output mapping 有实际内容，自动设置 matchMode 为 'extract'
- * - 'extract' 模式用于数据提取场景
- * - 'full' 模式用于完全匹配场景
- *
- * ====================================================================
  * 状态管理
  * ====================================================================
- * - designModalVisible: 弹窗可见性
- * - activeRegexNodeId: 当前编辑的节点 ID
+ * - designModalVisible: 校验弹窗可见性
+ * - activeRegexNodeId: 当前编辑的校验节点 ID
+ * - extractDesignModalVisible: 提取弹窗可见性
+ * - activeRegexExtractNodeId: 当前编辑的提取节点 ID
  * - regexEditSampleData: 示例数据（用于预览）
  *
  * ====================================================================
@@ -59,27 +56,62 @@
  * - 节点不存在时打印错误日志
  * - 保存失败显示 toast 错误提示
  *
- * ====================================================================
- * 副作用说明
- * ====================================================================
- * - saveRegexDesign 会更新节点数据
- * - 可能触发 'regex-pattern-updated' 事件
- * - 关闭弹窗会清空 activeRegexNodeId 和 regexEditSampleData
- *
  * @module graphStore/modules
  */
 
 import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
 import type { Ref } from 'vue'
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {
   CustomNode,
   CustomNodeData,
   RegexDesignUpdateData,
   RegexNodeData,
+  RegexExtractNodeData,
 } from '@/types/graph'
 import { toastError, toastSuccess } from '@/core/toast'
+import { deepToRaw } from '@/utils/typeHelpers'
+
+function safeStringify(v: unknown): string {
+  try {
+    return JSON.stringify(v ?? {})
+  } catch {
+    return ''
+  }
+}
+
+function parseNamedGroups(pattern: string): string[] {
+  if (!pattern) return []
+  return [...pattern.matchAll(/\(\?P<(\w+)>/g)].map((m) => m[1] || '')
+}
+
+function deriveExtractMetadata(data: Partial<RegexExtractNodeData>): {
+  captureGroups: RegexExtractNodeData['captureGroups']
+  outputColumns: string[]
+} {
+  const output = data.rules?.[0]?.output ?? {}
+  const outputColumns = Object.keys(output)
+  const groupNames = parseNamedGroups(data.pattern || '')
+  const seen = new Set<string>()
+  const captureGroups: RegexExtractNodeData['captureGroups'] = []
+
+  for (const value of Object.values(output)) {
+    const str = String(value || '')
+    const match = str.match(/^\{(\w+):(\w+)\}$/)
+    if (!match) continue
+    const name = match[1] || ''
+    if (seen.has(name)) continue
+    seen.add(name)
+    const groupIndex = groupNames.indexOf(name)
+    if (groupIndex >= 0) {
+      captureGroups.push({ name, groupIndex: groupIndex + 1 })
+    }
+  }
+
+  return { captureGroups, outputColumns }
+}
 
 export function createRegexDesignModule(params: {
   nodes: Ref<CustomNode[]>
@@ -87,9 +119,18 @@ export function createRegexDesignModule(params: {
   activeRegexNodeId: Ref<string | null>
   regexEditSampleData: Ref<string>
   updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
+  extractDesignModalVisible?: Ref<boolean>
+  activeRegexExtractNodeId?: Ref<string | null>
 }) {
-  const { nodes, designModalVisible, activeRegexNodeId, regexEditSampleData, updateNodeData } =
-    params
+  const {
+    nodes,
+    designModalVisible,
+    activeRegexNodeId,
+    regexEditSampleData,
+    updateNodeData,
+    extractDesignModalVisible = ref(false),
+    activeRegexExtractNodeId = ref<string | null>(null),
+  } = params
   const { t } = useI18n()
 
   function openRegexDesignModal(nodeId: string) {
@@ -100,6 +141,17 @@ export function createRegexDesignModule(params: {
   function closeRegexDesignModal() {
     designModalVisible.value = false
     activeRegexNodeId.value = null
+    regexEditSampleData.value = ''
+  }
+
+  function openRegexExtractDesignModal(nodeId: string) {
+    extractDesignModalVisible.value = true
+    activeRegexExtractNodeId.value = nodeId
+  }
+
+  function closeRegexExtractDesignModal() {
+    extractDesignModalVisible.value = false
+    activeRegexExtractNodeId.value = null
     regexEditSampleData.value = ''
   }
 
@@ -115,8 +167,13 @@ export function createRegexDesignModule(params: {
         return
       }
 
+      if (currentNode.type !== 'regex') {
+        logger.error('❌ saveRegexDesign 只能用于 regex 节点:', nodeId)
+        return
+      }
+
       const mergedData: Partial<RegexNodeData> & { saveState: 'draft' } = {
-        ...currentNode.data,
+        ...(deepToRaw(currentNode.data) as RegexNodeData),
         ...updatedData,
         saveState: 'draft',
       } as Partial<RegexNodeData> & { saveState: 'draft' }
@@ -125,47 +182,24 @@ export function createRegexDesignModule(params: {
         const activeRule = updatedData.rules[0]
         if (activeRule?.regex) {
           mergedData.pattern = activeRule.regex
-          logger.debug('✅ 正则表达式已更新:', activeRule.regex)
         }
       }
 
-      let originalPattern = ''
-      let patternChanged = false
-      let outputMappingChanged = false
-      let matchModeChanged = false
-      let flagsChanged = false
-      let caseSensitiveChanged = false
+      const currentRegexData = currentNode.data as RegexNodeData
+      const originalPattern = currentRegexData.pattern || ''
+      const patternChanged = originalPattern !== mergedData.pattern
 
-      if (currentNode.type === 'regex') {
-        const nextOutput = (mergedData as RegexNodeData).rules?.[0]?.output ?? {}
-        const hasOutputMapping = Object.keys(nextOutput).some((k) => String(k ?? '').trim() !== '')
-        if (hasOutputMapping) {
-          ;(mergedData as RegexNodeData).matchMode = 'extract'
-        }
+      const prevMatchMode = currentRegexData.matchMode
+      const nextMatchMode = (mergedData as RegexNodeData).matchMode
+      const matchModeChanged = prevMatchMode !== nextMatchMode
 
-        const currentRegexData = currentNode.data as RegexNodeData
-        originalPattern = currentRegexData.pattern || ''
-        patternChanged = originalPattern !== mergedData.pattern
+      const flagsChanged =
+        (currentRegexData.flags || '') !== ((mergedData as RegexNodeData).flags || '')
+      const caseSensitiveChanged = currentRegexData.caseSensitive !== mergedData.caseSensitive
 
-        const prevMatchMode = currentRegexData.matchMode
-        const nextMatchMode = (mergedData as RegexNodeData).matchMode
-        matchModeChanged = prevMatchMode !== nextMatchMode
-
-        // Bug 4.2 修复：检测 flags / caseSensitive 变化，使其也触发自动重校验
-        flagsChanged =
-          (currentRegexData.flags || '') !== ((mergedData as RegexNodeData).flags || '')
-        caseSensitiveChanged = currentRegexData.caseSensitive !== mergedData.caseSensitive
-
-        const safeStringify = (v: unknown) => {
-          try {
-            return JSON.stringify(v ?? {})
-          } catch {
-            return ''
-          }
-        }
-        const prevOutput = currentRegexData.rules?.[0]?.output ?? {}
-        outputMappingChanged = safeStringify(prevOutput) !== safeStringify(nextOutput)
-      }
+      const prevOutput = currentRegexData.rules?.[0]?.output ?? {}
+      const nextOutput = (mergedData.rules?.[0]?.output ?? {}) as Record<string, unknown>
+      const outputMappingChanged = safeStringify(prevOutput) !== safeStringify(nextOutput)
 
       updateNodeData(nodeId, mergedData)
 
@@ -175,7 +209,7 @@ export function createRegexDesignModule(params: {
           matchModeChanged ||
           flagsChanged ||
           caseSensitiveChanged) &&
-        mergedData.sourceRef?.nodeId
+        (mergedData.sourceRef?.nodeId || mergedData.inputFromNode)
       ) {
         const reason = patternChanged
           ? 'pattern'
@@ -187,21 +221,11 @@ export function createRegexDesignModule(params: {
                 ? 'flags'
                 : 'caseSensitive'
         logger.debug('🔄 正则表达式设计已更新，触发自动刷新:', { nodeId, reason })
-
         eventBus.emit('regex-pattern-updated', { nodeId, reason })
       }
 
-      logger.debug('💾 正则表达式设计已保存:', {
-        nodeId,
-        configName: mergedData.configName,
-        pattern: mergedData.pattern,
-        rules: updatedData.rules,
-        patternChanged,
-        hasSourceConnection: !!mergedData.sourceRef?.nodeId,
-      })
-
       const toastMessage =
-        patternChanged && mergedData.sourceRef?.nodeId
+        patternChanged && (mergedData.sourceRef?.nodeId || mergedData.inputFromNode)
           ? t('regexDesignModal.savedWithRevalidation', { name: mergedData.configName })
           : t('regexDesignModal.saved', { name: mergedData.configName })
       toastSuccess(toastMessage, t('regexDesignModal.saveSuccess'))
@@ -216,10 +240,83 @@ export function createRegexDesignModule(params: {
     }
   }
 
+  function saveRegexExtractDesign(nodeId: string, updatedData: Partial<RegexExtractNodeData>) {
+    try {
+      const currentNode = nodes.value.find((n) => n.id === nodeId)
+      if (!currentNode) {
+        logger.error('❌ 找不到指定的正则提取节点:', nodeId)
+        return
+      }
+
+      if (currentNode.type !== 'regexExtract') {
+        logger.error('❌ saveRegexExtractDesign 只能用于 regexExtract 节点:', nodeId)
+        return
+      }
+
+      const mergedData: Partial<RegexExtractNodeData> & { saveState: 'draft' } = {
+        ...(deepToRaw(currentNode.data) as RegexExtractNodeData),
+        ...updatedData,
+        saveState: 'draft',
+      } as Partial<RegexExtractNodeData> & { saveState: 'draft' }
+
+      if (updatedData.rules && updatedData.rules.length > 0) {
+        const activeRule = updatedData.rules[0]
+        if (activeRule?.regex) {
+          mergedData.pattern = activeRule.regex
+        }
+      }
+
+      const { captureGroups, outputColumns } = deriveExtractMetadata(mergedData)
+      mergedData.captureGroups = captureGroups
+      mergedData.outputColumns = outputColumns
+
+      const currentData = currentNode.data as RegexExtractNodeData
+      const patternChanged = (currentData.pattern || '') !== (mergedData.pattern || '')
+      const outputChanged =
+        safeStringify(currentData.outputColumns || []) !== safeStringify(outputColumns)
+      const flagsChanged = (currentData.flags || '') !== (mergedData.flags || '')
+      const caseSensitiveChanged = !!currentData.caseSensitive !== !!mergedData.caseSensitive
+
+      updateNodeData(nodeId, mergedData)
+
+      if (
+        (patternChanged || outputChanged || flagsChanged || caseSensitiveChanged) &&
+        (mergedData.sourceRef?.nodeId || mergedData.inputFromNode)
+      ) {
+        const reason = patternChanged
+          ? 'pattern'
+          : outputChanged
+            ? 'output'
+            : flagsChanged
+              ? 'flags'
+              : 'caseSensitive'
+        logger.debug('🔄 正则提取设计已更新，触发自动刷新:', { nodeId, reason })
+        eventBus.emit('regex-pattern-updated', { nodeId, reason })
+      }
+
+      const toastMessage =
+        patternChanged && (mergedData.sourceRef?.nodeId || mergedData.inputFromNode)
+          ? t('regexDesignModal.savedWithRevalidation', { name: mergedData.configName })
+          : t('regexDesignModal.saved', { name: mergedData.configName })
+      toastSuccess(toastMessage, t('regexDesignModal.saveSuccess'))
+
+      closeRegexExtractDesignModal()
+    } catch (error) {
+      logger.error('❌ 保存正则提取设计失败:', error)
+      toastError(
+        error instanceof Error ? error.message : t('messages.error.unknownError'),
+        t('messages.persistence.saveRegexDesignFailed')
+      )
+    }
+  }
+
   return {
     openRegexDesignModal,
     closeRegexDesignModal,
+    openRegexExtractDesignModal,
+    closeRegexExtractDesignModal,
     setRegexEditSampleData,
     saveRegexDesign,
+    saveRegexExtractDesign,
   }
 }

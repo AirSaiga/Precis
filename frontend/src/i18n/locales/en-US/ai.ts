@@ -163,6 +163,7 @@ const aiConfigGenerator = {
   },
   agentMode: {
     label: 'AI Smart Optimization',
+    hint: 'When enabled, the AI will automatically validate and iteratively refine the generated result',
     maxIterations: 'Max Iterations',
     validationSampleSize: 'Validation Sample Size',
   },

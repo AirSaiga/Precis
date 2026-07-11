@@ -157,9 +157,15 @@
       >
         <AppIcon class="warning-icon" name="alert" :size="16" />
         <span class="warning-text">
-          {{ localData.validationMismatches.length }} 个字段类型与 Schema 定义不匹配
+          {{
+            t('validation.json.typeMismatchSummary', {
+              count: localData.validationMismatches.length,
+            })
+          }}
         </span>
-        <button class="warning-detail-btn" @click="_showValidationDetails = true">查看</button>
+        <button class="warning-detail-btn" @click="_showValidationDetails = true">
+          {{ t('validation.json.viewDetails') }}
+        </button>
       </div>
 
       <div v-if="localData.rawData && localData.rawData.length > 0" class="preview-footer">

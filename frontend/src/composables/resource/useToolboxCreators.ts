@@ -71,6 +71,19 @@ export function useToolboxCreators() {
   }
 
   /**
+   * 创建 Regex Extract 节点
+   */
+  const createRegexExtract = (): void => {
+    try {
+      const position = { x: 320, y: 170 }
+      store.createRegexExtractNode(position)
+    } catch (error) {
+      logger.error('创建正则提取节点失败:', error)
+      toastError(t('messages.common.createNodeFailed'))
+    }
+  }
+
+  /**
    * 创建约束节点
    * @param constraintType 约束类型
    */
@@ -129,6 +142,7 @@ export function useToolboxCreators() {
     createTableSchema,
     createJsonSchema,
     createRegexPattern,
+    createRegexExtract,
     createConstraintNode,
     createTransform,
     createManualData,

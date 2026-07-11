@@ -17,7 +17,7 @@ export function createRegexFactoryModule(params: {
 
   function createRegexNode(position: { x: number; y: number }, pattern?: string, name?: string) {
     return createNode('regex', position, {
-      configName: name || i18n.global.t('factories.newRegex'),
+      configName: name || i18n.global.t('messages.canvas.newRegex'),
       pattern: pattern || '^.+$',
       description: '',
       parameters: [],

@@ -14,9 +14,10 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
-import type { CustomNode, RegexNodeData } from '@/types/graph'
+import type { CustomNode, RegexNodeData, JsonSchemaColumn } from '@/types/graph'
 import { useRegexValidation } from './useRegexValidation'
 import { resolveRegexSource } from '@/services/regex/regexEdgeResolver'
+import { findJsonSchemaColumnById, getJsonValueByPath } from '@/utils/nodes/json/columnFinder'
 
 /**
  * Regex 节点连接处理 Composable
@@ -336,7 +337,9 @@ export function useRegexConnection() {
       }
 
       const sourcePreviewNode = store.nodes.find(
-        (n) => n.id === sourcePreviewNodeId && n.type === 'sourcePreview'
+        (n) =>
+          n.id === sourcePreviewNodeId &&
+          (n.type === 'sourcePreview' || n.type === 'jsonSourcePreview')
       )
       if (!sourcePreviewNode) {
         logger.warn('未找到数据源预览节点 (sourceNodeId:', sourcePreviewNodeId, ')')
@@ -385,9 +388,9 @@ export function useRegexConnection() {
     // =====================================================
     // 2.2 查找数据源节点
     // =====================================================
-    // 根据 sourceNodeId 查找 SourcePreview 节点
+    // 根据 sourceNodeId 查找 SourcePreview / JsonSourcePreview 节点
     const sourcePreviewNode = store.nodes.find(
-      (n) => n.id === sourceNodeId && n.type === 'sourcePreview'
+      (n) => n.id === sourceNodeId && (n.type === 'sourcePreview' || n.type === 'jsonSourcePreview')
     )
 
     // 验证 SourcePreview 节点是否存在
@@ -405,27 +408,14 @@ export function useRegexConnection() {
   }
 
   /**
-   * 从 SourcePreview 节点提取样例数据
-   * 只取第一行数据（跳过表头），用于正则设计框的默认输入文本
+   * 从 SourcePreview / JsonSourcePreview 节点提取样例数据
+   * 只取第一行数据，用于正则设计框的默认输入文本。
    *
-   * 数据提取流程：
-   * 1. 获取 SourcePreview 节点的 tableData
-   * 2. tableData[0] 是表头行，用于查找列索引
-   * 3. tableData[1] 是第一行数据，即我们要提取的数据
+   * - CSV/Excel：按二维数组 tableData 表头定位列
+   * - JSON：按 jsonPath 从 rawData[0] 中取值（找不到再按 columnName 兜底）
    *
-   * 列定位流程：
-   * 1. 根据 sourceColumnId 在 Schema.columns 中查找列信息
-   * 2. 获取列名（columnName）
-   * 3. 在表头行中查找列名对应的索引
-   * 4. 从第一行数据中获取该索引的值
-   *
-   * 注意事项：
-   * - 列名可能存在前后空格，需要 trim() 后再匹配
-   * - 数据值可能是 undefined/null/空字符串，需要处理
-   * - 成功提取后会将数据保存到 regexEditSampleData 和 store
-   *
-   * @param sourcePreviewNode - SourcePreview 节点，包含原始数据
-   * @param schemaNode - Schema 节点，包含列结构信息
+   * @param sourcePreviewNode - SourcePreview / JsonSourcePreview 节点
+   * @param schemaNode - Schema / JsonSchema 节点，包含列结构信息
    * @param sourceColumnId - 源列 ID，用于定位具体列
    */
   const extractSampleDataFromNode = (
@@ -433,94 +423,94 @@ export function useRegexConnection() {
     schemaNode: CustomNode,
     sourceColumnId: string
   ) => {
-    // =====================================================
-    // 步骤 1：获取数据源节点的数据
-    // =====================================================
-    // 从 SourcePreview 节点中提取数据对象
-    // sourcePreviewNode.data 包含节点的所有数据
     const sourceData = sourcePreviewNode.data as unknown as Record<string, unknown>
-
-    // tableData 是实际的表格数据，二维数组结构
-    // tableData[0] 是表头行（列名）
-    // tableData[1] 及以后是数据行
-    const tableData = (sourceData as unknown as Record<string, unknown>).data as
-      | unknown[][]
-      | undefined
+    const schemaData = schemaNode.data as unknown as Record<string, unknown>
 
     // =====================================================
-    // 步骤 2：验证数据是否存在且有效
+    // JSON 数据源分支（jsonSourcePreview）
     // =====================================================
-    // 检查 tableData 是否存在且至少包含两行（表头+数据）
-    // 如果数据不存在或只有表头没有数据，则无法提取样例
+    if (sourcePreviewNode.type === 'jsonSourcePreview') {
+      const rawData = (sourceData.rawData as unknown[]) || []
+      if (!Array.isArray(rawData) || rawData.length === 0) {
+        regexEditSampleData.value = ''
+        return
+      }
+
+      const firstRecord = rawData[0]
+      if (!firstRecord || typeof firstRecord !== 'object' || Array.isArray(firstRecord)) {
+        regexEditSampleData.value = ''
+        return
+      }
+
+      const columns = (schemaData.columns as JsonSchemaColumn[] | undefined) || []
+      const found = findJsonSchemaColumnById(columns, sourceColumnId)
+      if (!found) {
+        logger.warn('[RegexSample] 未在 JSON Schema 中找到目标列:', sourceColumnId)
+        regexEditSampleData.value = ''
+        return
+      }
+
+      const jsonPath = found.column.jsonPath
+      let sampleValue: unknown
+      if (jsonPath) {
+        sampleValue = getJsonValueByPath(firstRecord, jsonPath)
+      }
+      if (sampleValue === undefined) {
+        sampleValue = (firstRecord as Record<string, unknown>)[found.column.columnName]
+      }
+
+      if (sampleValue === undefined || sampleValue === null || sampleValue === '') {
+        logger.warn('[RegexSample] JSON 第一行目标字段为空:', found.column.columnName)
+        regexEditSampleData.value = ''
+        return
+      }
+
+      regexEditSampleData.value =
+        typeof sampleValue === 'string' ? sampleValue : String(sampleValue)
+      store.setRegexEditSampleData(regexEditSampleData.value)
+      return
+    }
+
+    // =====================================================
+    // 普通 CSV/Excel 数据源分支（sourcePreview）
+    // =====================================================
+    const tableData = sourceData.data as unknown[][] | undefined
+
     if (!tableData || tableData.length < 2) {
       regexEditSampleData.value = ''
       return
     }
 
-    // =====================================================
-    // 步骤 3：根据列 ID 查找列信息
-    // =====================================================
-    // 从 Schema 节点获取列定义数组
-    const schemaData = schemaNode.data as unknown as Record<string, unknown>
-
-    // 在 columns 数组中查找与 sourceColumnId 匹配的列对象
-    // 列对象包含列的元数据：id、columnName、dataType 等
     const targetColumn = (schemaData.columns as unknown[] | undefined)?.find(
       (col: unknown) => (col as Record<string, unknown>).id === sourceColumnId
     ) as Record<string, unknown> | undefined
 
-    // 如果找不到对应的列定义，说明列 ID 无效
     if (!targetColumn) {
       logger.warn('未找到目标列:', sourceColumnId)
       regexEditSampleData.value = ''
       return
     }
 
-    // =====================================================
-    // 步骤 4：在表头行中定位列索引
-    // =====================================================
-    // 获取表头行（第一行），包含所有列的名称
     const headerRow = tableData[0] as unknown[]
-
-    // 在表头行中查找目标列名对应的位置索引
-    // 使用 trim() 去除可能存在的前后空格，确保匹配准确
     const columnIndex = headerRow.findIndex(
       (header) => String(header).trim() === (targetColumn.columnName as string)
     )
 
-    // 如果表头中找不到该列名，说明数据结构可能不匹配
     if (columnIndex === -1) {
       logger.warn('未在数据中找到列:', targetColumn.columnName as string)
       regexEditSampleData.value = ''
       return
     }
 
-    // =====================================================
-    // 步骤 5：提取第一行数据
-    // =====================================================
-    // 获取第一行数据（跳过表头，tableData[0] 是表头）
-    // 使用可选链 ?. 避免越界访问
     const firstRowData = tableData[1]?.[columnIndex]
 
-    // =====================================================
-    // 步骤 6：验证数据值
-    // =====================================================
-    // 数据值可能是 undefined（不存在）、null（空值）或空字符串
-    // 这些情况下都不适合作为正则设计的样例
     if (firstRowData === undefined || firstRowData === null || firstRowData === '') {
       logger.warn('第一行数据为空')
       regexEditSampleData.value = ''
       return
     }
 
-    // =====================================================
-    // 步骤 7：保存样例数据
-    // =====================================================
-    // 将数据转换为字符串，确保类型一致性
     regexEditSampleData.value = String(firstRowData)
-
-    // 同时保存到全局 store，供正则设计弹窗使用
-    // 这样即使组件销毁后重新打开，数据仍然可用
     store.setRegexEditSampleData(regexEditSampleData.value)
   }
 

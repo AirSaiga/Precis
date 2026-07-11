@@ -28,94 +28,66 @@ import CompositeConstraintNode from './CompositeConstraintNode.vue'
  * 集中管理和注册所有约束节点组件
  */
 export const registerConstraintNodeLibrary = () => {
-  // 注册非空约束节点
+  // 注册约束节点组件。显示名称/描述统一由 i18n 的 constraintTypes 命名空间提供，
+  // 此处只登记组件、图标、分类等渲染所需的非文案元数据。
   registerConstraintNode('notNull', {
     component: markRaw(NotNullConstraintNode) as unknown as NodeComponent,
-    displayName: '非空约束',
     icon: CONSTRAINT_ICON_NAMES.notNull,
     category: 'attribute',
-    description: '确保列中的值不为空',
   })
 
-  // 注册唯一约束节点
   registerConstraintNode('unique', {
     component: markRaw(UniqueConstraintNode) as unknown as NodeComponent,
-    displayName: '唯一约束',
     icon: CONSTRAINT_ICON_NAMES.unique,
     category: 'attribute',
-    description: '确保列中的值唯一',
   })
 
-  // 注册外键约束节点
   registerConstraintNode('foreignKey', {
     component: markRaw(ForeignKeyConstraintNode) as unknown as NodeComponent,
-    displayName: '外键约束',
     icon: CONSTRAINT_ICON_NAMES.foreignKey,
     category: 'relation',
-    description: '确保列中的值引用其他表的主键',
   })
 
-  // 注册允许值约束节点
   registerConstraintNode('allowedValues', {
     component: markRaw(AllowedValuesConstraintNode) as unknown as NodeComponent,
-    displayName: '允许值约束',
     icon: CONSTRAINT_ICON_NAMES.allowedValues,
     category: 'relation',
-    description: '确保列中的值在允许的范围内',
   })
 
-  // 注册区间约束节点
   registerConstraintNode('range', {
     component: markRaw(RangeConstraintNode) as unknown as NodeComponent,
-    displayName: '区间约束',
     icon: CONSTRAINT_ICON_NAMES.range,
     category: 'attribute',
-    description: '确保列中的值在指定数值范围内',
   })
 
-  // 注册条件约束节点
   registerConstraintNode('conditional', {
     component: markRaw(ConditionalConstraintNode) as unknown as NodeComponent,
-    displayName: '条件约束',
     icon: CONSTRAINT_ICON_NAMES.conditional,
     category: 'logic',
-    description: '基于条件验证列中的值',
   })
 
-  // 注册脚本约束节点
   registerConstraintNode('scripted', {
     component: markRaw(ScriptedConstraintNode) as unknown as NodeComponent,
-    displayName: '脚本约束',
     icon: CONSTRAINT_ICON_NAMES.scripted,
     category: 'logic',
-    description: '使用自定义脚本验证列中的值',
   })
 
-  // 注册字符集约束节点
   registerConstraintNode('charset', {
     component: markRaw(CharsetConstraintNode) as unknown as NodeComponent,
-    displayName: '字符集约束',
     icon: CONSTRAINT_ICON_NAMES.charset,
     category: 'attribute',
-    description: '校验ASCII或中文字符',
   })
 
-  // 注册日期逻辑约束节点
   registerConstraintNode('dateLogic', {
     component: markRaw(DateLogicConstraintNode) as unknown as NodeComponent,
-    displayName: '日期逻辑约束',
     icon: CONSTRAINT_ICON_NAMES.dateLogic,
     category: 'logic',
-    description: '日期比较和计算校验',
   })
 
-  // 注册复合约束节点
   registerConstraintNode('composite', {
     component: markRaw(CompositeConstraintNode) as unknown as NodeComponent,
-    displayName: '复合约束',
     icon: CONSTRAINT_ICON_NAMES.composite,
     category: 'logic',
-    description: '将多个约束组织为逻辑单元，支持 all/any/none 策略',
   })
 }
 

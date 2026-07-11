@@ -20,6 +20,7 @@
 import type { Edge, Node } from '@vue-flow/core'
 import type { ConstraintTypeV2 } from '@/types/projectV2'
 import type { AnyRecord } from '@/types/utility'
+import type { LocalizedMessage } from '@/services/i18n/localizedMessage'
 
 export type ConstraintKind =
   | 'notNull'
@@ -70,7 +71,14 @@ export interface ConstraintValidationContext {
 
 export interface ConstraintValidationResult {
   status: 'idle' | 'pass' | 'error' | 'missing'
+  /** 错误消息（字符串形式，历史字段）。渲染端优先读 localizedErrors，缺省时回退本字段。 */
   validationErrors: string[]
+  /**
+   * 错误消息（key 化形式，i18n 治理新增）。
+   * 渲染端应优先用 localizedErrors 经 renderText 解析；未提供时回退 validationErrors 字符串。
+   * 当前为可选过渡字段：各 handler 逐步迁移填充，待全部渲染点切换后可废弃 validationErrors。
+   */
+  localizedErrors?: LocalizedMessage[]
   lastValidation?: {
     totalRows: number
     errorCount: number

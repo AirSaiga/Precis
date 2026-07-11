@@ -14,6 +14,52 @@ const constraintRuleTypeMenu = {
   composite: 'Composite Constraint',
 }
 
+// Single source of truth for constraint type name/description:
+// keys align strictly with ConstraintKind in services/constraints/types.ts (10 camelCase).
+// All surfaces (menu, node library, layout organizer) read from this namespace to avoid drift.
+const constraintTypes = {
+  notNull: {
+    name: 'Not Null Constraint',
+    description: 'Ensures a column cannot contain null values',
+  },
+  unique: {
+    name: 'Unique Constraint',
+    description: 'Ensures values in a column or column combination are unique in the table',
+  },
+  range: {
+    name: 'Range Constraint',
+    description: 'Restricts a column value to a specified numeric range',
+  },
+  charset: {
+    name: 'Charset Constraint',
+    description: 'Validates ASCII or Chinese characters',
+  },
+  allowedValues: {
+    name: 'Allowed Values Constraint',
+    description: 'Restricts a column to a fixed set of allowed values',
+  },
+  foreignKey: {
+    name: 'Foreign Key Constraint',
+    description: 'Establishes a foreign-key relationship between tables',
+  },
+  conditional: {
+    name: 'Conditional Constraint',
+    description: 'A dynamic constraint rule based on conditional logic',
+  },
+  scripted: {
+    name: 'Script Constraint',
+    description: 'A constraint rule defined by a custom script',
+  },
+  dateLogic: {
+    name: 'Date Logic Constraint',
+    description: 'Date comparison and arithmetic validation',
+  },
+  composite: {
+    name: 'Composite Constraint',
+    description: 'Combines multiple sub-constraints under a logical strategy',
+  },
+}
+
 const config = {
   schema: {
     title: 'Schema Configuration',
@@ -198,6 +244,7 @@ const connectionModes = {
 }
 
 export { constraintRuleTypeMenu }
+export { constraintTypes }
 export { config }
 export { connectionValidation }
 export { connectionRules }

@@ -23,6 +23,14 @@ const factories = {
   unknown: '约束',
   // 正则工厂
   newRegex: '新建正则表达式',
+  // 节点工厂默认名称（快捷创建的空节点）
+  defaultName: {
+    table: '新表格',
+    pattern: '新模式',
+    logicConstraint: '新逻辑约束',
+    schema: '新Schema配置',
+    jsonSchema: '新JSON Schema配置',
+  },
 }
 
 export { factories }

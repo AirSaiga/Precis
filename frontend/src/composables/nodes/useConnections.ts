@@ -264,12 +264,15 @@ export function useConnections() {
       return
     }
 
+    const regexTargetInputHandle =
+      targetNode.type === 'regexExtract' ? 'regexExtract-input' : 'regex-input'
+
     if (
       (sourceNode.type === 'pattern' || sourceNode.type === 'schema') &&
-      targetNode.type === 'regex' &&
-      (!targetHandle || targetHandle === 'regex-input')
+      (targetNode.type === 'regex' || targetNode.type === 'regexExtract') &&
+      (!targetHandle || targetHandle === regexTargetInputHandle)
     ) {
-      // Pattern → Regex: 使用"吸附填充"效果，不需要创建连接线
+      // Pattern → Regex/RegexExtract: 使用"吸附填充"效果，不需要创建持久连接线
       if (sourceNode.type === 'pattern') {
         const patternNodeData = sourceNode.data as Record<string, unknown>
         const regexNodeData = targetNode.data as Record<string, unknown>
@@ -338,7 +341,7 @@ export function useConnections() {
           sourceNode.id,
           targetNode.id,
           'pattern-output',
-          'regex-input',
+          regexTargetInputHandle,
           edgeStyle
         )
 
@@ -349,7 +352,7 @@ export function useConnections() {
         }, 600)
 
         logger.debug(
-          `[Pattern→Regex] 已将 pattern '${patternId}' (${registry}) 关联到 regex 节点 '${targetNode.id}'`
+          `[Pattern→${targetNode.type === 'regexExtract' ? 'RegexExtract' : 'Regex'}] 已将 pattern '${patternId}' (${registry}) 关联到 ${targetNode.type} 节点 '${targetNode.id}'`
         )
         return
       }
@@ -461,11 +464,20 @@ export function useConnections() {
       } else {
         edgeStyle.style = { stroke: 'var(--edge-default)', strokeWidth: 1.5 } // was #f59e0b
       }
-    } else if (sourceNode.type === 'schema' && targetNode.type === 'regex') {
+    } else if (
+      (sourceNode.type === 'schema' || sourceNode.type === 'jsonSchema') &&
+      (targetNode.type === 'regex' || targetNode.type === 'regexExtract')
+    ) {
       edgeStyle.style = { stroke: 'var(--edge-schema-to-regex)', strokeWidth: 2 } // was #8b5cf6
-    } else if (sourceNode.type === 'manualData' && targetNode.type === 'regex') {
+    } else if (
+      sourceNode.type === 'manualData' &&
+      (targetNode.type === 'regex' || targetNode.type === 'regexExtract')
+    ) {
       edgeStyle.style = { stroke: 'var(--edge-schema-to-regex)', strokeWidth: 2 }
-    } else if (sourceNode.type === 'transformOutput' && targetNode.type === 'regex') {
+    } else if (
+      sourceNode.type === 'transformOutput' &&
+      (targetNode.type === 'regex' || targetNode.type === 'regexExtract')
+    ) {
       edgeStyle.style = { stroke: 'var(--edge-schema-to-regex)', strokeWidth: 2 }
     } else if (sourceNode.type === 'transformOutput' && isConstraintNodeType(targetNode.type)) {
       edgeStyle.style = { stroke: 'var(--edge-default)', strokeWidth: 1.5 }
@@ -595,6 +607,23 @@ export function useConnections() {
         )
       }
 
+      // ManualData → RegexExtract：手动数据作为正则提取的数据源
+      if (sourceNode.type === 'manualData' && targetNode.type === 'regexExtract') {
+        const manualData = sourceNode.data as Record<string, unknown>
+        const columnName = (manualData.columnName as string) || 'Column1'
+
+        tx.patchNodeData(target, {
+          sourceRef: { nodeId: source, columnId: '0' },
+          configName: `RegexExtract on ${columnName}`,
+          saveState: 'draft',
+          validationStatus: 'idle',
+        })
+
+        logger.debug(
+          `[ManualData→RegexExtract] 已将 manualData '${sourceNode.id}' 连接到 regexExtract 节点 '${targetNode.id}'`
+        )
+      }
+
       if (sourceNode.type === 'sourcePreview' && targetNode.type === 'schema') {
         await schemaConnection.handleSourceToSchemaConnection(sourceNode.id, targetNode.id)
       }
@@ -683,7 +712,24 @@ export function useConnections() {
         }
       }
 
-      if (sourceNode.type === 'schema' && targetNode.type === 'regex') {
+      if (
+        (sourceNode.type === 'schema' || sourceNode.type === 'jsonSchema') &&
+        targetNode.type === 'regexExtract'
+      ) {
+        if (sourceHandle) {
+          const sourceColumnId = sourceHandle.replace('source-right-', '')
+          tx.patchNodeData(target, {
+            sourceRef: { nodeId: source, columnId: sourceColumnId },
+            saveState: 'draft',
+            validationStatus: 'idle',
+          })
+        }
+      }
+
+      if (
+        (sourceNode.type === 'schema' || sourceNode.type === 'jsonSchema') &&
+        targetNode.type === 'regex'
+      ) {
         if (sourceHandle) {
           await regexConnection.handleSchemaToRegexConnection(
             sourceNode.id,
@@ -691,6 +737,15 @@ export function useConnections() {
             sourceHandle
           )
         }
+      }
+
+      if (sourceNode.type === 'transformOutput' && targetNode.type === 'regexExtract') {
+        tx.patchNodeData(target, {
+          inputFromNode: source,
+          inputColumn: '0',
+          saveState: 'draft',
+          validationStatus: 'idle',
+        })
       }
 
       if (sourceNode.type === 'transformOutput' && targetNode.type === 'regex') {

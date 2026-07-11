@@ -37,18 +37,17 @@ export type ConstraintNodeType =
 /**
  * 约束节点注册信息
  * 描述一个约束节点类型在画布中应该如何渲染和展示
+ *
+ * 注意：显示名称（name）与描述（description）不再在此注册——它们统一由 i18n 的
+ * `constraintTypes.<kind>.{name,description}` 命名空间提供，避免多处维护中文文案。
  */
 export interface ConstraintNodeRegistration {
   /** 对应的 Vue 组件，用于画布渲染该节点 */
   component: NodeComponent
-  /** 节点在工具箱/面板中的显示名称 */
-  displayName: string
   /** 节点图标标识，用于工具箱和节点头部展示 */
   icon: string
   /** 节点分类：attribute（属性级）、relation（关系级）、logic（逻辑级） */
   category: 'attribute' | 'relation' | 'logic'
-  /** 节点功能描述，用于工具箱提示和帮助文档 */
-  description: string
 }
 
 /**

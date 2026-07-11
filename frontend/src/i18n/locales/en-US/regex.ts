@@ -35,6 +35,15 @@ const regexDesignModal = {
   unsavedChangesCancel: 'Continue Editing',
 }
 
+const regexExtractDesignModal = {
+  title: 'Regex Extract Design',
+  selectOrAddRule: 'Select or add a rule',
+  addRule: 'Add Rule',
+  cancel: 'Cancel',
+  save: 'Save',
+  defaultRuleName: 'New Extract Rule',
+}
+
 const expression = {
   title: 'Expression Editor',
   interactiveBuilder: 'Interactive Builder',
@@ -123,6 +132,7 @@ const regexValidation = {
 
 export { regexCreationModal }
 export { regexDesignModal }
+export { regexExtractDesignModal }
 export { expression }
 export { expressions }
 export { regexValidation }

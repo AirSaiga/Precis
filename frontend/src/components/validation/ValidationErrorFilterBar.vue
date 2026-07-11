@@ -23,18 +23,18 @@
     { key: 'constraint' as const, label: t('common.fullValidation.result.constraint') },
   ]
 
-  const groupOptions = [
-    { key: 'table' as const, label: '按表' },
-    { key: 'stage' as const, label: '按阶段' },
-    { key: 'type' as const, label: '按类型' },
-    { key: 'none' as const, label: '不分组' },
-  ]
+  const groupOptions = computed(() => [
+    { key: 'table' as const, label: t('validation.filter.groupByTable') },
+    { key: 'stage' as const, label: t('validation.filter.groupByStage') },
+    { key: 'type' as const, label: t('validation.filter.groupByType') },
+    { key: 'none' as const, label: t('validation.filter.groupByNone') },
+  ])
 
   const groupDropdownOpen = ref(false)
   const groupTriggerRef = ref<HTMLElement | null>(null)
 
   const selectedGroupLabel = computed(() => {
-    return groupOptions.find((opt) => opt.key === props.groupBy)?.label ?? ''
+    return groupOptions.value.find((opt) => opt.key === props.groupBy)?.label ?? ''
   })
 
   function selectGroup(value: 'table' | 'stage' | 'type' | 'none') {
@@ -62,7 +62,7 @@
   <div class="fv-filter-bar">
     <div class="fv-filter-row">
       <div class="fv-filter-group">
-        <span class="fv-filter-label">分组</span>
+        <span class="fv-filter-label">{{ t('validation.filter.groupLabel') }}</span>
         <div ref="groupTriggerRef" class="fv-group-dropdown">
           <button
             type="button"
@@ -139,7 +139,7 @@
         :value="searchQuery"
         class="ui-input ui-input--compact"
         type="text"
-        placeholder="搜索错误..."
+        :placeholder="t('validation.filter.searchPlaceholder')"
         @input="emit('update:searchQuery', ($event.target as HTMLInputElement).value)"
       />
     </div>

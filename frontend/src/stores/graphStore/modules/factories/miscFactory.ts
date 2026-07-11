@@ -13,8 +13,10 @@
  * 架构设计：
  * - 纯委托模式，封装常用节点创建操作
  * - 接收具体工厂方法作为参数，不直接操作状态
- * - 使用 i18n 提供本地化默认名称
+ * - 使用 i18n 提供本地化默认名称（factories.defaultName.* 命名空间）
  */
+
+import { i18n } from '@/i18n'
 
 export function createMiscFactoryModule(params: {
   createSchemaNode: (position: { x: number; y: number }, name?: string) => string
@@ -37,16 +39,16 @@ export function createMiscFactoryModule(params: {
   const { createSchemaNode, createRegexNode, createConstraintNode } = params
 
   function createEmptyTableNode(position: { x: number; y: number }, name?: string) {
-    return createSchemaNode(position, name || '新表格')
+    return createSchemaNode(position, name || i18n.global.t('factories.defaultName.table'))
   }
 
   function createEmptyPatternNode(position: { x: number; y: number }, name?: string) {
-    return createRegexNode(position, '', name || '新模式')
+    return createRegexNode(position, '', name || i18n.global.t('factories.defaultName.pattern'))
   }
 
   function createLogicNode(position: { x: number; y: number }, name?: string) {
     return createConstraintNode(position, 'foreignKey', {
-      configName: name || '新逻辑约束',
+      configName: name || i18n.global.t('factories.defaultName.logicConstraint'),
     })
   }
 

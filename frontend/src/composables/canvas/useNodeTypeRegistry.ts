@@ -39,6 +39,7 @@ export function useNodeTypeRegistry() {
     jsonSourcePreview: markRaw(JsonSourcePreviewNode) as unknown as NodeComponent,
     jsonSchema: markRaw(JsonSchemaNode) as unknown as NodeComponent,
     regex: markRaw(RegexNode) as unknown as NodeComponent,
+    regexExtract: markRaw(RegexNode) as unknown as NodeComponent,
     transform: markRaw(TransformNode) as unknown as NodeComponent,
     transformOutput: markRaw(TransformOutputNode) as unknown as NodeComponent,
     manualData: markRaw(ManualDataNode) as unknown as NodeComponent,

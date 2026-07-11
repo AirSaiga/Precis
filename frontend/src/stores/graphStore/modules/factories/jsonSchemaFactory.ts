@@ -9,6 +9,7 @@ import type { Ref } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import type { CustomNode } from '@/types/graph'
 import { createBaseNodeFactory } from './createBaseNodeFactory'
+import { i18n } from '@/i18n'
 
 export function createJsonSchemaFactoryModule(params: {
   nodes: Ref<CustomNode[]>
@@ -26,7 +27,7 @@ export function createJsonSchemaFactoryModule(params: {
       'jsonSchema',
       position,
       {
-        configName: name || '新JSON Schema配置',
+        configName: name || i18n.global.t('factories.defaultName.jsonSchema'),
         tableName: 'json_table',
         sourceType: 'json',
         columns: [],

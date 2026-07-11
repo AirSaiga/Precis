@@ -468,6 +468,25 @@ export function useCanvasNodeOperations(flowWrapper: Ref<HTMLElement | null>) {
         }
         break
 
+      // RegexExtract 类型：从工具箱拖拽的正则提取节点
+      case 'regexExtract':
+        store.createRegexExtractNode(position, '', t('messages.canvas.newRegexExtract'))
+        break
+
+      // Regex 类型：从工具箱拖拽的 Regex 分组节点（Pattern / Extract）
+      case 'regex':
+        if (source === 'toolbox' && meta && typeof meta === 'object' && 'regexType' in meta) {
+          const regexType = String((meta as Record<string, unknown>).regexType)
+          if (regexType === 'extract') {
+            store.createRegexExtractNode(position, '', t('messages.canvas.newRegexExtract'))
+          } else {
+            store.createRegexNode(position, '', t('messages.canvas.newPattern'))
+          }
+        } else {
+          store.createRegexNode(position, '', t('messages.canvas.newPattern'))
+        }
+        break
+
       // RegexNode 类型：从资源树拖拽的正则表达式节点 - 【孤岛渲染】
       case 'regex_node':
         if (source === 'projectResources' && meta && typeof meta === 'object' && 'id' in meta) {

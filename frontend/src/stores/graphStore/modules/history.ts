@@ -9,6 +9,8 @@
 import { shallowRef, toRaw, nextTick, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
+import { deepToRaw } from '@/utils/typeHelpers'
+
 /**
  * @description 历史快照数据结构
  * @property {CustomNode[]} nodes - 某一时刻画布上的所有节点副本
@@ -20,27 +22,15 @@ interface HistorySnapshot {
 }
 
 /**
- * 递归剥离 Vue reactive proxy：toRaw 只解包最外层，嵌套对象仍是 proxy，
- * 直接 structuredClone 会抛 DataCloneError。必须逐元素解包。
- *
- * 仅处理 node/edge 结构中常见的 `data` 嵌套字段（Vue Flow 富化后会使其成为深层 proxy），
- * 其中 edge.data 用于存放瞬时标记（如 selected/拖拽态），同样由本逻辑覆盖。
- *
- * 该函数是**纯函数**：对于含 `data` 字段的元素会返回一个**新对象**
- * （`{ ...raw, data: toRaw(raw.data) }`），不就地修改源元素。
- * 这很关键——因为 toRaw 返回的是 proxy 的底层 target，直接对其赋值会穿透回写
- * 到 nodes.value 仍引用的同一活跃对象，造成未声明的副作用。
+ * 对 node/edge 数组做递归 toRaw：Vue Flow 富化后 node.data 及其 nested
+ * 数组/对象都可能成为深层 proxy，structuredClone 会抛 DataCloneError。
+ * 这里逐元素解包，并返回新数组/对象，避免污染活跃引用。
  */
-function deepToRaw<T>(arr: T[]): T[] {
+function deepToRawArray<T>(arr: T[]): T[] {
   return arr.map((item): T => {
     if (item === null || typeof item !== 'object') return item
-    const raw = toRaw(item) as Record<string, unknown>
-    if (raw && typeof raw.data === 'object' && raw.data !== null) {
-      // 返回新对象,避免就地 mutate 活跃的 reactive target
-      // (toRaw 返回的是 proxy 的底层对象,直接赋值会穿透到原始引用)
-      return { ...raw, data: toRaw(raw.data as object) } as T
-    }
-    return raw as T
+    const raw = toRaw(item)
+    return deepToRaw(raw) as T
   })
 }
 
@@ -69,8 +59,8 @@ export function createHistoryModule(params: {
 
   function cloneCurrent(): HistorySnapshot {
     return structuredClone({
-      nodes: deepToRaw(toRaw(nodes.value)),
-      edges: deepToRaw(toRaw(edges.value)),
+      nodes: deepToRawArray(toRaw(nodes.value)),
+      edges: deepToRawArray(toRaw(edges.value)),
     })
   }
 

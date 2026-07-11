@@ -54,6 +54,7 @@ export function useResourceDrag() {
     toolType:
       | 'schema'
       | 'pattern'
+      | 'regexExtract'
       | 'constraint'
       | 'projectRoot'
       | 'jsonSchema'
@@ -292,6 +293,30 @@ export function useResourceDrag() {
   }
 
   /**
+   * 工具箱 Regex 类型拖拽开始
+   */
+  function handleRegexTypeDragStart(event: DragEvent, regexType: 'pattern' | 'extract'): void {
+    if (!event.dataTransfer) return
+
+    const payload: ResourceDragPayload = {
+      type: 'regex',
+      source: 'toolbox',
+      label: regexType === 'extract' ? 'Regex Extract' : 'Regex Pattern',
+      meta: { regexType },
+    }
+
+    createDragGhost(event, 'pattern', regexType === 'extract' ? 'Regex Extract' : 'Regex Pattern')
+
+    const payloadText = JSON.stringify(payload)
+    event.dataTransfer.setData('application/x-project-item', payloadText)
+    event.dataTransfer.setData('application/json', payloadText)
+    event.dataTransfer.setData('text/plain', payloadText)
+    event.dataTransfer.effectAllowed = 'copy'
+
+    dragStore.startDrag(payload)
+  }
+
+  /**
    * 工具箱手动数据节点拖拽开始
    */
   function handleManualDataDragStart(event: DragEvent): void {
@@ -371,6 +396,7 @@ export function useResourceDrag() {
     handleToolboxDragStart,
     handleConstraintTypeDragStart,
     handleTransformTypeDragStart,
+    handleRegexTypeDragStart,
     handleManualDataDragStart,
 
     // 资源树拖拽

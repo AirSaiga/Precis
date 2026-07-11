@@ -3,6 +3,7 @@
   --node-accent-soft: var(--node-type-regex-bg);
   --node-accent-strong: var(--node-type-regex);
   --node-accent-light: rgba(139, 92, 246, 0.08);
+  --constraint-node-width: 320px;
 }
 
 .regex-constraint-node.status-pass {
@@ -79,33 +80,6 @@
   background: var(--node-accent-soft);
 }
 
-.guide {
-  padding: var(--node-padding-sm);
-  background: var(--ui-bg-subtle);
-  border: 1px dashed var(--ui-border);
-  border-radius: var(--node-radius-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--node-padding-xs);
-  margin-top: var(--node-padding-xs);
-}
-
-.guide-item {
-  font-size: var(--node-muted-size);
-  color: var(--node-muted-color);
-  line-height: 1.4;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.guide-item.done {
-  color: var(--node-theme-success);
-  font-weight: var(--node-label-weight);
-  text-decoration: line-through;
-  opacity: 0.8;
-}
-
 .pattern-section {
   display: flex;
   flex-direction: column;
@@ -168,54 +142,64 @@
   border-radius: var(--node-radius-sm);
 }
 
-.actions-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+.status-section {
+  padding: var(--constraint-padding-xs, 4px) 0;
+  border-top: 1px solid var(--ui-border-subtle, #333333);
   margin-top: var(--node-padding-sm);
-  padding-top: var(--node-padding-sm);
-  border-top: var(--node-divider-width) var(--node-divider-style) var(--node-divider-color);
 }
 
-.status-indicator {
+.status-row {
   display: flex;
   align-items: center;
-  gap: var(--node-padding-sm);
+  gap: var(--constraint-gap-sm, 8px);
+  padding-top: 8px;
 }
 
 .status-dot {
-  width: var(--node-status-size);
-  height: var(--node-status-size);
-  border-radius: var(--node-badge-radius-full);
-  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--ui-text-muted, #858585);
+  flex-shrink: 0;
+  transition: background-color var(--ui-transition-fast, 0.15s);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.2);
 }
 
 .status-dot.status-idle {
-  background: var(--node-status-idle);
+  background: var(--ui-text-muted, #858585);
 }
 .status-dot.status-pass {
-  background: var(--node-status-pass);
+  background: var(--ui-success, #34d399);
 }
 .status-dot.status-error {
-  background: var(--node-status-error);
+  background: #f44336;
 }
 
 .status-text {
-  font-size: var(--node-text-size);
-  color: var(--node-muted-color);
+  font-size: var(--constraint-font-xs, 11px);
+  color: var(--ui-text-muted, #858585);
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: var(--ui-font-weight-medium, 500);
 }
 
-.action-buttons {
+.button-row {
   display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
   gap: var(--node-padding-sm);
+  margin-top: var(--node-padding-sm);
 }
 
 .secondary-btn,
 .primary-btn {
   height: var(--node-btn-size-md);
-  padding: 0 var(--node-padding-sm);
+  padding: 0 var(--node-padding-xs);
   border-radius: var(--node-btn-radius-sm);
-  font-size: var(--node-muted-size);
+  font-size: var(--constraint-font-xs, 11px);
   font-weight: var(--node-label-weight);
   cursor: pointer;
   transition: all var(--node-transition-fast);
@@ -223,6 +207,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  white-space: nowrap;
+  flex: 1 1 0;
+  min-width: 0;
 }
 
 .secondary-btn {
@@ -248,12 +235,4 @@
   background: var(--ui-bg-muted);
   color: var(--ui-text-subtle);
   cursor: not-allowed;
-}
-
-.details-hint {
-  font-size: var(--node-muted-size);
-  color: var(--node-muted-color);
-  text-align: center;
-  font-style: italic;
-  margin-top: var(--node-padding-xs);
 }

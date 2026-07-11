@@ -121,7 +121,7 @@
                 })
               "
             />
-            <span class="setting-unit">秒</span>
+            <span class="setting-unit">{{ t('validation.settings.unitSeconds') }}</span>
           </div>
         </div>
 
@@ -142,7 +142,7 @@
                 })
               "
             />
-            <span class="setting-unit">文件</span>
+            <span class="setting-unit">{{ t('validation.settings.unitFiles') }}</span>
           </div>
         </div>
 

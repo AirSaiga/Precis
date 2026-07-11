@@ -6,6 +6,8 @@
 import { defaultReset, register, requireSource, toResult } from '../validationRegistryCore'
 import { validateInline } from '@/api/validationApi'
 import { validateNotNull } from '../validators/notNull'
+import { loc } from '@/services/i18n/localizedMessage'
+import type { LocalizedMessage } from '@/services/i18n/localizedMessage'
 
 register({
   kind: 'notNull',
@@ -22,9 +24,11 @@ register({
         column_data_type: ctx.columnDataType,
       })
       if (!response.success || !response.data) {
+        const errMsg = String(response.error || '\u975E\u7A7A\u6821\u9A8C\u5931\u8D25')
         return {
           status: 'error',
-          validationErrors: [String(response.error || '\u975E\u7A7A\u6821\u9A8C\u5931\u8D25')],
+          validationErrors: [errMsg],
+          localizedErrors: [loc('validation.notNull.requestFailed', errMsg)],
           lastValidation: undefined,
         }
       }
@@ -51,6 +55,16 @@ register({
       status: result.errorCount > 0 ? 'error' : 'pass',
       validationErrors: result.errors.map(
         (err) => `\u7B2C ${err.row + 1} \u884C: \u503C\u4E0D\u80FD\u4E3A\u7A7A`
+      ),
+      localizedErrors: result.errors.map(
+        (err): LocalizedMessage =>
+          loc(
+            'validation.notNull.rowEmpty',
+            `\u7B2C ${err.row + 1} \u884C: \u503C\u4E0D\u80FD\u4E3A\u7A7A`,
+            {
+              row: err.row + 1,
+            }
+          )
       ),
       lastValidation: {
         totalRows: result.totalRows,

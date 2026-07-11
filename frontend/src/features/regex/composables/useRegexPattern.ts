@@ -109,7 +109,6 @@ export function useRegexPattern(
    * 【模式说明】
    * - full: 完整匹配（必须完全匹配整个字符串）
    * - partial: 子串匹配（只需部分匹配）
-   * - extract: 提取模式（匹配并提取命名捕获组）
    *
    * 【默认值】
    * 'full' (完整匹配)
@@ -117,7 +116,7 @@ export function useRegexPattern(
    * 【与后端的对应关系】
    * 传递给后端的 match_mode 字段
    */
-  const matchMode = ref(props.data.matchMode || 'full')
+  const matchMode = ref<'full' | 'partial'>(props.data.matchMode || 'full')
 
   /**
    * 是否区分大小写
@@ -383,7 +382,7 @@ export function useRegexPattern(
    *
    * @param newMatchMode - 新的匹配模式
    */
-  const updateMatchMode = (newMatchMode: 'full' | 'partial' | 'extract') => {
+  const updateMatchMode = (newMatchMode: 'full' | 'partial') => {
     matchMode.value = newMatchMode
   }
 

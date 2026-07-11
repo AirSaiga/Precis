@@ -780,25 +780,39 @@ async function handleRegexInstruction(instruction: FrontendInstruction): Promise
   if (actionType === 'ADD_REGEX') {
     const regexId = spec.regexId || spec.name || uuidv4()
     const regexName = spec.name || regexId
+    const isExtract = spec.matchMode === 'extract'
 
     const position = computePlacementPosition(graphStore)
 
     const regexNode: VueFlowNode = {
       id: regexId,
-      type: 'regex',
+      type: isExtract ? 'regexExtract' : 'regex',
       position,
       // 入场动画：创建即带 class，动画结束后由 attachEnteringClass 清除
       class: NODE_ENTERING_CLASS,
-      data: {
-        configName: regexName,
-        description: spec.description || '',
-        pattern: spec.pattern || '',
-        matchMode: spec.matchMode || 'full',
-        caseSensitive: spec.caseSensitive || false,
-        enabled: true,
-        validationStatus: 'idle',
-        saveState: 'saved',
-      },
+      data: isExtract
+        ? {
+            configName: regexName,
+            description: spec.description || '',
+            pattern: spec.pattern || '',
+            flags: '',
+            caseSensitive: spec.caseSensitive || false,
+            enabled: true,
+            captureGroups: [],
+            outputColumns: [],
+            validationStatus: 'idle',
+            saveState: 'saved',
+          }
+        : {
+            configName: regexName,
+            description: spec.description || '',
+            pattern: spec.pattern || '',
+            matchMode: spec.matchMode || 'full',
+            caseSensitive: spec.caseSensitive || false,
+            enabled: true,
+            validationStatus: 'idle',
+            saveState: 'saved',
+          },
     }
 
     guardCanvasOp(() => vueFlowApi.addNodes(regexNode))

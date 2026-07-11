@@ -1,4 +1,6 @@
 <script setup lang="ts">
+  import { useI18n } from 'vue-i18n'
+
   defineProps<{
     filesLoaded: number
     filesTotal: number
@@ -7,6 +9,8 @@
     errorsFound: number
     durationMs: number
   }>()
+
+  const { t } = useI18n()
 </script>
 
 <template>
@@ -32,7 +36,7 @@
       </div>
       <div class="fv-stats-mini-content">
         <span class="fv-stats-mini-value">{{ filesLoaded }}/{{ filesTotal }}</span>
-        <span class="fv-stats-mini-label">文件</span>
+        <span class="fv-stats-mini-label">{{ t('validation.stats.files') }}</span>
       </div>
     </div>
     <div class="fv-stats-mini-item">
@@ -54,7 +58,7 @@
       </div>
       <div class="fv-stats-mini-content">
         <span class="fv-stats-mini-value">{{ tablesLoaded }}/{{ tablesTotal }}</span>
-        <span class="fv-stats-mini-label">表</span>
+        <span class="fv-stats-mini-label">{{ t('validation.stats.tables') }}</span>
       </div>
     </div>
     <div class="fv-stats-mini-item" :class="{ 'is-error': errorsFound > 0 }">
@@ -76,7 +80,7 @@
       </div>
       <div class="fv-stats-mini-content">
         <span class="fv-stats-mini-value">{{ errorsFound }}</span>
-        <span class="fv-stats-mini-label">错误</span>
+        <span class="fv-stats-mini-label">{{ t('validation.stats.errors') }}</span>
       </div>
     </div>
     <div class="fv-stats-mini-item">
@@ -97,7 +101,7 @@
       </div>
       <div class="fv-stats-mini-content">
         <span class="fv-stats-mini-value">{{ durationMs }}ms</span>
-        <span class="fv-stats-mini-label">耗时</span>
+        <span class="fv-stats-mini-label">{{ t('validation.stats.duration') }}</span>
       </div>
     </div>
   </div>

@@ -120,6 +120,7 @@ const inspector = (() => {
         Scripted: '脚本',
         Charset: '字符集',
         DateLogic: '日期逻辑',
+        Composite: '复合',
       },
       validationStatus: {
         idle: '待校验',
@@ -220,6 +221,7 @@ const inspector = (() => {
         Scripted: '脚本',
         Charset: '字符集',
         DateLogic: '日期逻辑',
+        Composite: '复合',
       },
       validationStatus: {
         idle: '待校验',

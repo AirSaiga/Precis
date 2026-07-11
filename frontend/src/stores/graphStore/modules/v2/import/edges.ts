@@ -33,6 +33,22 @@ export function createV2ImportEdges(params: { edges: Ref<Edge[]> }) {
     } as unknown as Edge)
   }
 
+  const ensureSchemaToRegexExtractEdge = (tableId: string, regexId: string, columnId: string) => {
+    const edgeId = `e-${tableId}-${regexId}-${columnId}`
+    if (edges.value.some((e) => e.id === edgeId)) return
+    if (buffer.some((e) => e.id === edgeId)) return
+    buffer.push({
+      id: edgeId,
+      source: tableId,
+      target: regexId,
+      sourceHandle: `source-right-${columnId}`,
+      targetHandle: 'regexExtract-input',
+      type: 'smoothstep',
+      animated: true,
+      style: { stroke: 'var(--edge-schema-to-regex)', strokeWidth: 2 },
+    } as unknown as Edge)
+  }
+
   const ensureSchemaToConstraintEdge = (
     tableId: string,
     constraintId: string,
@@ -65,5 +81,11 @@ export function createV2ImportEdges(params: { edges: Ref<Edge[]> }) {
     buffer.length = 0
   }
 
-  return { ensureSchemaToRegexEdge, ensureSchemaToConstraintEdge, bufferEdge, flushBufferedEdges }
+  return {
+    ensureSchemaToRegexEdge,
+    ensureSchemaToRegexExtractEdge,
+    ensureSchemaToConstraintEdge,
+    bufferEdge,
+    flushBufferedEdges,
+  }
 }

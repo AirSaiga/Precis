@@ -141,9 +141,8 @@
   const availableConstraintKinds: ConstraintKind[] = getConstraintKinds()
 
   function getConstraintDisplayName(kind: ConstraintKind): string {
-    const meta = getConstraintMetaByKind(kind)
-    const reg = constraintNodeRegistry[kind]
-    return reg?.displayName || meta?.v2Type || kind
+    // 统一从 i18n 的 constraintTypes 命名空间取约束类型名，避免注册表里冗余维护中文
+    return t(`constraintTypes.${kind}.name`)
   }
 
   function addConstraintNode(kind: ConstraintKind) {

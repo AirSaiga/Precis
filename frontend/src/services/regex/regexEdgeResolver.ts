@@ -45,7 +45,11 @@ export function resolveRegexSource(
   }[]
 ): RegexSourceInfo | null {
   const incomingEdge = edges.find(
-    (e) => e.target === regexNodeId && (e.targetHandle === 'regex-input' || !e.targetHandle)
+    (e) =>
+      e.target === regexNodeId &&
+      (e.targetHandle === 'regex-input' ||
+        e.targetHandle === 'regexExtract-input' ||
+        !e.targetHandle)
   )
   if (!incomingEdge) return null
 

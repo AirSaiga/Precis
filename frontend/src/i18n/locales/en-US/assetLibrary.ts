@@ -9,6 +9,9 @@ const assetLibraryExtended = {
     toolbox: {
       title: 'CREATE / TOOLBOX',
       tableSchema: 'Table Schema',
+      regexGroup: 'Regex',
+      regexPatternMode: 'Pattern Match',
+      regexExtractMode: 'Extract Mode',
       regexPattern: 'Regex Pattern',
       constraintNode: 'Constraint Node',
       constraintCategories: {
@@ -58,6 +61,7 @@ const assetLibraryExtended = {
       filesLinked: 'Files Linked',
     },
     resourceContext: {
+      preview: 'Preview Config',
       addToCanvas: 'Add to Canvas',
       locateOnCanvas: 'Locate on Canvas',
       addToManifest: 'Add to Manifest',

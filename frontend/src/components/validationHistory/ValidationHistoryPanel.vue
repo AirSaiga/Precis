@@ -4,21 +4,21 @@
     <div class="stats-cards">
       <div class="stat-card">
         <div class="stat-value" :class="passRateClass">{{ latestPassRate }}%</div>
-        <div class="stat-label">{{ t('validationHistory.passRate', '通过率') }}</div>
+        <div class="stat-label">{{ t('validationHistory.passRate') }}</div>
       </div>
       <div class="stat-card">
         <div class="stat-value">{{ latestTotalChecks }}</div>
-        <div class="stat-label">{{ t('validationHistory.totalChecks', '检查数') }}</div>
+        <div class="stat-label">{{ t('validationHistory.totalChecks') }}</div>
       </div>
       <div class="stat-card error">
         <div class="stat-value">{{ latestFailedCount }}</div>
-        <div class="stat-label">{{ t('validationHistory.failed', '失败') }}</div>
+        <div class="stat-label">{{ t('validationHistory.failed') }}</div>
       </div>
     </div>
 
     <!-- 趋势迷你图 -->
     <div v-if="stats.trend.length > 1" class="trend-section">
-      <div class="section-title">{{ t('validationHistory.trend', '趋势') }}</div>
+      <div class="section-title">{{ t('validationHistory.trend') }}</div>
       <div class="trend-chart">
         <svg :viewBox="`0 0 ${trendWidth} ${trendHeight}`" class="trend-svg">
           <polyline
@@ -44,10 +44,10 @@
 
     <!-- 运行历史列表 -->
     <div class="history-section">
-      <div class="section-title">{{ t('validationHistory.history', '历史记录') }}</div>
-      <div v-if="loading" class="loading-state">{{ t('common.loading', '加载中...') }}</div>
+      <div class="section-title">{{ t('validationHistory.history') }}</div>
+      <div v-if="loading" class="loading-state">{{ t('common.loading') }}</div>
       <div v-else-if="runs.length === 0" class="empty-state">
-        {{ t('validationHistory.empty', '暂无校验记录') }}
+        {{ t('validationHistory.empty') }}
       </div>
       <div v-else class="history-list">
         <div
@@ -90,7 +90,7 @@
           <!-- 展开详情 -->
           <div v-if="expandedId === run.id" class="history-detail">
             <!-- 按类型统计 -->
-            <div class="detail-subtitle">{{ t('validationHistory.byType', '按类型') }}</div>
+            <div class="detail-subtitle">{{ t('validationHistory.byType') }}</div>
             <div class="detail-table">
               <div v-for="(val, key) in run.by_type" :key="key" class="detail-row">
                 <span class="detail-name">{{ key }}</span>
@@ -105,7 +105,7 @@
             </div>
 
             <!-- 按表统计 -->
-            <div class="detail-subtitle">{{ t('validationHistory.byTable', '按表') }}</div>
+            <div class="detail-subtitle">{{ t('validationHistory.byTable') }}</div>
             <div class="detail-table">
               <div v-for="(val, key) in run.by_table" :key="key" class="detail-row">
                 <span class="detail-name">{{ key }}</span>
@@ -121,7 +121,7 @@
 
             <!-- 错误明细 -->
             <div v-if="run.errors.length > 0" class="detail-subtitle">
-              {{ t('validationHistory.errors', '错误明细') }} ({{ run.errors.length }})
+              {{ t('validationHistory.errors') }} ({{ run.errors.length }})
             </div>
             <div v-if="run.errors.length > 0" class="error-list">
               <div v-for="(err, i) in run.errors.slice(0, 20)" :key="i" class="error-item">

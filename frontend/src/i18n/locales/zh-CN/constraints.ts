@@ -14,6 +14,53 @@ const constraintRuleTypeMenu = {
   composite: '复合约束',
 }
 
+// 约束类型名称/描述的统一单一事实源：
+// key 与 services/constraints/types.ts 的 ConstraintKind 严格对齐（10 种 camelCase）。
+// 菜单、节点库、布局器等所有展示约束类型名的地方统一从此命名空间取值，
+// 消除多处各自维护中文名导致的不同步与术语漂移（如 区间/范围、复合/组合）。
+const constraintTypes = {
+  notNull: {
+    name: '非空约束',
+    description: '确保列不能包含空值',
+  },
+  unique: {
+    name: '唯一约束',
+    description: '确保列或列组合的值在表中唯一',
+  },
+  range: {
+    name: '区间约束',
+    description: '限制列的值必须在指定数值范围内',
+  },
+  charset: {
+    name: '字符集约束',
+    description: '校验 ASCII 或中文字符',
+  },
+  allowedValues: {
+    name: '允许值约束',
+    description: '限制列只能包含指定的值',
+  },
+  foreignKey: {
+    name: '外键约束',
+    description: '建立表之间的外键关联关系',
+  },
+  conditional: {
+    name: '条件约束',
+    description: '基于条件逻辑的动态约束规则',
+  },
+  scripted: {
+    name: '脚本约束',
+    description: '使用自定义脚本定义的约束规则',
+  },
+  dateLogic: {
+    name: '日期逻辑约束',
+    description: '日期比较和计算校验',
+  },
+  composite: {
+    name: '复合约束',
+    description: '将多个子约束按逻辑策略组合校验',
+  },
+}
+
 const config = {
   schema: {
     title: 'Schema 配置',
@@ -197,6 +244,7 @@ const connectionModes = {
 }
 
 export { constraintRuleTypeMenu }
+export { constraintTypes }
 export { config }
 export { connectionValidation }
 export { connectionRules }

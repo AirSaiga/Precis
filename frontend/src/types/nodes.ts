@@ -42,7 +42,12 @@ import type {
   ConstraintRuleSetNodeData,
   ConstraintRuleSetRootNodeData,
 } from './constraints'
-import type { RegexNodeData, RegexSetNodeData, RegexSetRootNodeData } from '@/features/regex/types'
+import type {
+  RegexNodeData,
+  RegexExtractNodeData,
+  RegexSetNodeData,
+  RegexSetRootNodeData,
+} from '@/features/regex/types'
 import type { SourceMode, SourcePreviewNodeData } from './datasource'
 import type { TransformTypeV2 } from './projectV2'
 
@@ -556,7 +561,7 @@ export type JsonDataType = 'string' | 'number' | 'boolean' | 'object' | 'array' 
  * 4. 数据源节点：SourcePreviewNodeData, JsonSourcePreviewNodeData
  * 5. 转换节点：TransformNodeData, TransformOutputNodeData, ManualDataNodeData
  * 6. 约束节点：ForeignKeyConstraintNodeData, UniqueConstraintNodeData, NotNullConstraintNodeData, AllowedValuesConstraintNodeData, ConditionalConstraintNodeData, ScriptedConstraintNodeData, RangeConstraintNodeData, CharsetConstraintNodeData, DateLogicConstraintNodeData, CompositeConstraintNodeData
- * 7. 正则节点：RegexNodeData
+ * 7. 正则节点：RegexNodeData, RegexExtractNodeData
  * 8. 模板节点：TemplateInstanceNodeData
  */
 export type CustomNodeData =
@@ -570,6 +575,7 @@ export type CustomNodeData =
   | RegexSetNodeData
   | RegexSetRootNodeData
   | RegexNodeData
+  | RegexExtractNodeData
   | TransformNodeData
   | ManualDataNodeData
   | TransformOutputNodeData
