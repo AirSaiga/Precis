@@ -21,7 +21,7 @@
       :disabled="readonly"
       @click="toggleDropdown"
     >
-      <span class="trigger-icon"><AppIcon :name="categoryIcon" :size="14" /></span>
+      <span class="trigger-icon"><AppIcon :name="typeIcon" :size="14" /></span>
       <span class="trigger-text">{{ typeName }}</span>
       <span class="trigger-arrow" :class="{ rotated: showDropdown }">▾</span>
     </button>
@@ -53,7 +53,10 @@
                   :class="{ active: type === currentType }"
                   @click="selectType(type)"
                 >
-                  {{ getTypeLabel(type) }}
+                  <span class="item-icon"
+                    ><AppIcon :name="getTransformTypeIcon(type)" :size="13"
+                  /></span>
+                  <span class="item-text">{{ getTypeLabel(type) }}</span>
                 </button>
               </div>
             </div>
@@ -80,7 +83,7 @@
   import { TRANSFORM_TYPE_I18N_KEYS } from '@/composables/nodes/transform/transformDisplay'
   import {
     TRANSFORM_CATEGORIES,
-    getCategoryIcon,
+    getTransformTypeIcon,
   } from '@/composables/nodes/transform/transformCategory'
   const { t } = useI18n()
   const { showConfirm } = useGlobalConfirm()
@@ -110,9 +113,9 @@
     return (props.value as TransformTypeV2) ?? undefined
   })
 
-  /** 当前类型图标 */
-  const categoryIcon = computed(() =>
-    currentType.value ? getCategoryIcon(currentType.value) : 'gear'
+  /** 当前类型的专属图标（无类型时回退 gear） */
+  const typeIcon = computed(() =>
+    currentType.value ? getTransformTypeIcon(currentType.value) : 'gear'
   )
 
   /** 当前类型显示名 */
@@ -427,6 +430,9 @@
   }
 
   .group-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
     padding: 6px 8px;
     background: transparent;
     border: none;
@@ -436,9 +442,21 @@
     text-align: left;
     cursor: pointer;
     overflow: hidden;
+    transition: background 0.12s ease;
+  }
+
+  .item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--ui-text-muted, #858585);
+  }
+
+  .item-text {
+    overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    transition: background 0.12s ease;
   }
 
   .group-item:hover {

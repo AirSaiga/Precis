@@ -24,7 +24,7 @@
     theme="sky"
     state="idle"
     :title="data.configName || t('customNodes.transformNode.title')"
-    icon-name="gear"
+    :icon-name="headerIcon"
     :help-text="t('customNodes.transformNode.helpTooltip')"
     :show-save="true"
     :is-saving="isSaving"
@@ -97,6 +97,7 @@
     TRANSFORM_TYPE_I18N_KEYS,
     getParamsDisplay,
   } from '@/composables/nodes/transform'
+  import { getTransformTypeIcon } from '@/composables/nodes/transform/transformCategory'
 
   const { t } = useI18n()
   const { id, node } = useNode()
@@ -107,6 +108,9 @@
 
   const data = computed(() => rawData.value as TransformNodeData)
   const isSaving = computed(() => false)
+
+  /** 节点头图标：按当前 transformType 取专属图标 */
+  const headerIcon = computed(() => getTransformTypeIcon(data.value.transformType))
 
   // ---- 显示层 computed ----
 

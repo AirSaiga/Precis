@@ -283,7 +283,7 @@
               @click="handleTransformTypeClick(tItem)"
             >
               <span class="constraint-type-icon"
-                ><AppIcon :name="getCategoryIcon(tItem.transformType)" :size="14"
+                ><AppIcon :name="getTransformTypeIcon(tItem.transformType)" :size="14"
               /></span>
               <span class="constraint-type-name">{{ t(tItem.nameKey) }}</span>
               <span class="constraint-type-grip">
@@ -488,7 +488,7 @@
   import { ref } from 'vue'
   import { useI18n } from 'vue-i18n'
   import AppIcon from '@/components/icons/AppIcon.vue'
-  import { getCategoryIcon } from '@/composables/nodes/transform/transformCategory'
+  import { getTransformTypeIcon } from '@/composables/nodes/transform/transformCategory'
   import ToolboxTile from './ToolboxTile.vue'
   import ConstraintRuleTypeMenu, {
     type ConstraintRuleTypeOption,

@@ -48,6 +48,9 @@
               class="menu-item"
               @click="selectType(item.kind, item.type)"
             >
+              <span v-if="item.kind === 'transform'" class="item-icon"
+                ><AppIcon :name="getTransformTypeIcon(item.type as TransformTypeV2)" :size="13"
+              /></span>
               <span class="item-label">{{ getItemLabel(item.kind, item.type) }}</span>
             </div>
           </div>
@@ -74,6 +77,9 @@
                 @mouseleave="hoveredKey = null"
                 @click="selectType('transform', type)"
               >
+                <span class="item-icon"
+                  ><AppIcon :name="getTransformTypeIcon(type as TransformTypeV2)" :size="13"
+                /></span>
                 <span class="item-label">{{ getItemLabel('transform', type) }}</span>
               </div>
             </div>
@@ -141,7 +147,11 @@
   import { ref, computed, watch, nextTick, onBeforeUnmount } from 'vue'
   import { useI18n } from 'vue-i18n'
   import AppIcon from '@/components/icons/AppIcon.vue'
-  import { TRANSFORM_CATEGORIES as SHARED_TRANSFORM_CATEGORIES } from '@/composables/nodes/transform/transformCategory'
+  import type { TransformTypeV2 } from '@/types/projectV2'
+  import {
+    TRANSFORM_CATEGORIES as SHARED_TRANSFORM_CATEGORIES,
+    getTransformTypeIcon,
+  } from '@/composables/nodes/transform/transformCategory'
   // ============================================================================
   // Props & Emits
   // ============================================================================
@@ -514,11 +524,20 @@
   .menu-item {
     display: flex;
     align-items: center;
+    gap: 6px;
     padding: 7px 8px;
     border-radius: 4px;
     cursor: pointer;
     transition: background 0.15s ease;
     overflow: hidden;
+  }
+
+  .item-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--ui-text-muted, #858585);
   }
 
   .menu-item:hover,
