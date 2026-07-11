@@ -1,10 +1,102 @@
-//! 应用状态管理 + 全局配色常量（Synthwave 樱花粉风格）
+//! 应用状态管理 + 全局配色系统（双主题：樱花粉 / 飘雪冰蓝）
 
 use crate::api::types::{FullValidationResponse, ProjectInfo};
 
-/// 配色 — Synthwave 樱花粉：深紫黑底 + 樱花粉主强调 + 柔青辅强调
+/// 配色 — 双主题系统，通过 thread_local 持有当前调色板
 pub mod colors {
     use ratatui::style::Color;
+    use std::cell::Cell;
+
+    /// 调色板结构体 — 持有一套主题的全部色值
+    pub struct Palette {
+        pub bg: Color,
+        pub surface: Color,
+        pub panel: Color,
+        pub boost: Color,
+        pub fg: Color,
+        pub muted: Color,
+        pub dim: Color,
+        pub primary: Color,   // 樱花粉 / 冰蓝
+        pub secondary: Color, // 柔青 / 月白
+        pub green: Color,
+        pub yellow: Color,
+        pub red: Color,
+        pub purple: Color,
+        pub name: &'static str,
+    }
+
+    /// 樱花粉主题
+    const SAKURA: Palette = Palette {
+        bg: Color::Rgb(15, 8, 24),
+        surface: Color::Rgb(25, 16, 38),
+        panel: Color::Rgb(35, 24, 52),
+        boost: Color::Rgb(48, 34, 68),
+        fg: Color::Rgb(224, 200, 232),
+        muted: Color::Rgb(154, 138, 174),
+        dim: Color::Rgb(91, 74, 110),
+        primary: Color::Rgb(255, 176, 208),
+        secondary: Color::Rgb(125, 211, 252),
+        green: Color::Rgb(134, 239, 172),
+        yellow: Color::Rgb(252, 211, 77),
+        red: Color::Rgb(253, 164, 175),
+        purple: Color::Rgb(192, 132, 252),
+        name: "樱花粉",
+    };
+
+    /// 飘雪冰蓝主题
+    const SNOW: Palette = Palette {
+        bg: Color::Rgb(10, 14, 26),
+        surface: Color::Rgb(15, 22, 38),
+        panel: Color::Rgb(22, 32, 58),
+        boost: Color::Rgb(30, 42, 64),
+        fg: Color::Rgb(200, 214, 240),
+        muted: Color::Rgb(122, 138, 170),
+        dim: Color::Rgb(74, 90, 120),
+        primary: Color::Rgb(137, 180, 250),
+        secondary: Color::Rgb(212, 228, 247),
+        green: Color::Rgb(163, 230, 53),
+        yellow: Color::Rgb(249, 215, 28),
+        red: Color::Rgb(236, 110, 110),
+        purple: Color::Rgb(179, 157, 219),
+        name: "飘雪",
+    };
+
+    const PALETTES: &[Palette] = &[SAKURA, SNOW];
+
+    thread_local! {
+        static CURRENT: Cell<usize> = Cell::new(0);
+    }
+
+    /// 设置当前主题索引（0=樱花, 1=飘雪）
+    pub fn set_theme(idx: usize) {
+        CURRENT.with(|c| c.set(idx.min(PALETTES.len() - 1)));
+    }
+
+    /// 获取当前主题索引
+    pub fn theme() -> usize {
+        CURRENT.with(|c| c.get())
+    }
+
+    /// 获取当前主题名称
+    pub fn theme_name() -> &'static str {
+        PALETTES[theme()].name
+    }
+
+    // — 颜色访问函数（替代原 const，调用点 colors::PINK → colors::pink()）—
+
+    pub fn bg() -> Color { PALETTES[theme()].bg }
+    pub fn surface() -> Color { PALETTES[theme()].surface }
+    pub fn panel() -> Color { PALETTES[theme()].panel }
+    pub fn boost() -> Color { PALETTES[theme()].boost }
+    pub fn fg() -> Color { PALETTES[theme()].fg }
+    pub fn muted() -> Color { PALETTES[theme()].muted }
+    pub fn dim() -> Color { PALETTES[theme()].dim }
+    pub fn pink() -> Color { PALETTES[theme()].primary }
+    pub fn cyan() -> Color { PALETTES[theme()].secondary }
+    pub fn green() -> Color { PALETTES[theme()].green }
+    pub fn yellow() -> Color { PALETTES[theme()].yellow }
+    pub fn red() -> Color { PALETTES[theme()].red }
+    pub fn purple() -> Color { PALETTES[theme()].purple }
 
     /// 颜色混合（t=0 返回 a，t=1 返回 b）— 集中定义，消除 ui/ 重复
     pub fn blend(a: Color, b: Color, t: f64) -> Color {
@@ -31,20 +123,6 @@ pub mod colors {
             other => other,
         }
     }
-
-    pub const BG: Color = Color::Rgb(15, 8, 24);        // #0f0818 最深背景(深紫黑)
-    pub const SURFACE: Color = Color::Rgb(25, 16, 38);  // #191026 面板/卡片
-    pub const PANEL: Color = Color::Rgb(35, 24, 52);    // #231834 hover/选中
-    pub const BOOST: Color = Color::Rgb(48, 34, 68);    // #302244 高亮交互
-    pub const FG: Color = Color::Rgb(224, 200, 232);    // #e0c8e8 正文(淡紫白)
-    pub const MUTED: Color = Color::Rgb(154, 138, 174); // #9a8aae 次要文字
-    pub const DIM: Color = Color::Rgb(91, 74, 110);     // #5b4a6e 最暗文字
-    pub const PINK: Color = Color::Rgb(255, 176, 208);  // #ffb0d0 樱花粉(主强调)
-    pub const CYAN: Color = Color::Rgb(125, 211, 252);  // #7dd3fc 柔青(辅强调)
-    pub const GREEN: Color = Color::Rgb(134, 239, 172); // #86efac 成功/通过
-    pub const YELLOW: Color = Color::Rgb(252, 211, 77); // #fcd34d 警告/格式错误
-    pub const RED: Color = Color::Rgb(253, 164, 175);   // #fda4af 错误/失败(柔红)
-    pub const PURPLE: Color = Color::Rgb(192, 132, 252);// #c084fc 紫色(splash 第三色)
 }
 
 /// 功能页面
@@ -98,6 +176,25 @@ pub struct ChatMsg {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Phase { Splash, Running }
 
+/// 主题枚举
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Theme { Sakura, Snow }
+
+impl Theme {
+    pub fn idx(&self) -> usize {
+        match self { Theme::Sakura => 0, Theme::Snow => 1 }
+    }
+    pub fn name(&self) -> &'static str {
+        match self { Theme::Sakura => "樱花粉", Theme::Snow => "飘雪" }
+    }
+    pub fn toggle(&self) -> Self {
+        match self { Theme::Sakura => Theme::Snow, Theme::Snow => Theme::Sakura }
+    }
+    pub fn from_idx(idx: usize) -> Self {
+        match idx { 1 => Theme::Snow, _ => Theme::Sakura }
+    }
+}
+
 pub struct App {
     pub api: crate::api::ApiClient,
     pub current_tab: Tab,
@@ -109,6 +206,7 @@ pub struct App {
     pub should_quit: bool,
     pub frame_count: u64,
     pub fx_enabled: bool,
+    pub theme: Theme,
     pub fx: crate::fx::Fx,
     pub error_cursor: usize,
     pub opening_project: bool,
@@ -142,6 +240,7 @@ impl App {
             should_quit: false,
             frame_count: 0,
             fx_enabled: true,
+            theme: Theme::Sakura,
             fx: crate::fx::Fx::new(),
             error_cursor: 0,
             opening_project: false,

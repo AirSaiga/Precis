@@ -31,7 +31,7 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     }
 
     // 主界面背景
-    frame.render_widget(Block::default().style(Style::default().bg(colors::BG)), area);
+    frame.render_widget(Block::default().style(Style::default().bg(colors::bg())), area);
 
     // 布局：标题栏 + 主体 + 状态栏
     let main = Layout::default()
@@ -62,20 +62,20 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         Block::default()
             .borders(Borders::all())
             .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(colors::DIM))
-            .style(Style::default().bg(colors::BG))
+            .border_style(Style::default().fg(colors::dim()))
+            .style(Style::default().bg(colors::bg()))
     } else {
-        Block::default().style(Style::default().bg(colors::BG))
+        Block::default().style(Style::default().bg(colors::bg()))
     };
 
     let content_block = if use_border {
         Block::default()
             .borders(Borders::all())
             .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(colors::DIM))
-            .style(Style::default().bg(colors::BG))
+            .border_style(Style::default().fg(colors::dim()))
+            .style(Style::default().bg(colors::bg()))
     } else {
-        Block::default().style(Style::default().bg(colors::BG))
+        Block::default().style(Style::default().bg(colors::bg()))
     };
 
     // sidebar 渲染到框内部
@@ -84,7 +84,7 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     sidebar::render(frame, app, sidebar_inner);
 
     // 间距列（BG 透出）
-    frame.render_widget(Block::default().style(Style::default().bg(colors::BG)), body[1]);
+    frame.render_widget(Block::default().style(Style::default().bg(colors::bg())), body[1]);
 
     // 内容区渲染到框内部
     let content_inner = content_block.inner(body[2]);
@@ -113,31 +113,31 @@ fn render_header(frame: &mut Frame, app: &App, area: Rect) {
 
     // 流光：用 sin 在 FG 和 PINK 之间柔和呼吸（周期约 4 秒）
     let phase = (app.frame_count as f64 * 0.04).sin() * 0.5 + 0.5; // 0..1
-    let glow_color = colors::blend(colors::FG, colors::PINK, phase * 0.6);
+    let glow_color = colors::blend(colors::fg(), colors::pink(), phase * 0.6);
 
     let header = Paragraph::new(Line::from(vec![
         Span::raw(" "),
-        Span::styled("◤◢", Style::default().fg(colors::PINK).add_modifier(Modifier::BOLD)),
+        Span::styled("◤◢", Style::default().fg(colors::pink()).add_modifier(Modifier::BOLD)),
         Span::raw(" "),
         Span::styled(project, Style::default().fg(glow_color).add_modifier(Modifier::BOLD)),
         Span::styled(
             format!("  /  {}", app.current_tab.label()),
-            Style::default().fg(colors::MUTED),
+            Style::default().fg(colors::muted()),
         ),
     ]))
-    .style(Style::default().bg(colors::SURFACE));
+    .style(Style::default().bg(colors::surface()));
     frame.render_widget(header, area);
 }
 
 /// 状态栏：极简（SURFACE 底色）
 fn render_footer(frame: &mut Frame, app: &App, area: Rect) {
-    let dot = if app.project_name.is_some() { colors::GREEN } else { colors::DIM };
+    let dot = if app.project_name.is_some() { colors::green() } else { colors::dim() };
     let footer = Paragraph::new(Line::from(vec![
         Span::raw(" "),
         Span::styled("·", Style::default().fg(dot)),
         Span::raw(" "),
-        Span::styled(&app.message, Style::default().fg(colors::MUTED)),
+        Span::styled(&app.message, Style::default().fg(colors::muted())),
     ]))
-    .style(Style::default().bg(colors::SURFACE));
+    .style(Style::default().bg(colors::surface()));
     frame.render_widget(footer, area);
 }

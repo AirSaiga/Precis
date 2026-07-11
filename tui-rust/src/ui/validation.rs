@@ -29,7 +29,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         ValidationState::Failed(_) => "  校验失败  按 v 重试".to_string(),
     };
     frame.render_widget(
-        Paragraph::new(hint).style(Style::default().fg(colors::PINK)),
+        Paragraph::new(hint).style(Style::default().fg(colors::pink())),
         chunks[0],
     );
 
@@ -44,21 +44,21 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
     let lines = match &app.validation {
         ValidationState::Idle => vec![
             Line::from(""),
-            Line::from(Span::styled("  尚未校验", Style::default().fg(colors::DIM))),
+            Line::from(Span::styled("  尚未校验", Style::default().fg(colors::dim()))),
         ],
         ValidationState::Validating => vec![
             Line::from(""),
-            Line::from(Span::styled("  · · ·", Style::default().fg(colors::MUTED))),
+            Line::from(Span::styled("  · · ·", Style::default().fg(colors::muted()))),
         ],
         ValidationState::Failed(err) => {
             let msg = icons::truncate(err, 60);
             vec![
                 Line::from(""),
                 Line::from(vec![
-                    Span::styled("  ✗ ", Style::default().fg(colors::RED)),
-                    Span::styled("校验失败", Style::default().fg(colors::RED).add_modifier(Modifier::BOLD)),
+                    Span::styled("  ✗ ", Style::default().fg(colors::red())),
+                    Span::styled("校验失败", Style::default().fg(colors::red()).add_modifier(Modifier::BOLD)),
                 ]),
-                Line::from(Span::styled(format!("  {}", msg), Style::default().fg(colors::MUTED))),
+                Line::from(Span::styled(format!("  {}", msg), Style::default().fg(colors::muted()))),
             ]
         }
         ValidationState::Done(resp) => {
@@ -70,21 +70,21 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
 
             if pass {
                 v.push(Line::from(vec![
-                    Span::styled("  ✓ ", Style::default().fg(colors::GREEN)),
-                    Span::styled("校验通过", Style::default().fg(colors::GREEN).add_modifier(Modifier::BOLD)),
+                    Span::styled("  ✓ ", Style::default().fg(colors::green())),
+                    Span::styled("校验通过", Style::default().fg(colors::green()).add_modifier(Modifier::BOLD)),
                 ]));
                 v.push(Line::from(Span::styled(
                     format!("  {} 表 · {} 文件 · {}ms", s.tables_loaded, s.files_loaded, s.duration_ms),
-                    Style::default().fg(colors::MUTED),
+                    Style::default().fg(colors::muted()),
                 )));
             } else {
                 // 大号错误数
                 v.push(Line::from(vec![
-                    Span::styled(format!("  {}", total), Style::default().fg(colors::RED).add_modifier(Modifier::BOLD)),
-                    Span::styled(" 个错误", Style::default().fg(colors::RED)),
+                    Span::styled(format!("  {}", total), Style::default().fg(colors::red()).add_modifier(Modifier::BOLD)),
+                    Span::styled(" 个错误", Style::default().fg(colors::red())),
                     Span::styled(
                         format!("   {} 表 · {} 文件 · {}ms", s.tables_loaded, s.files_loaded, s.duration_ms),
-                        Style::default().fg(colors::MUTED),
+                        Style::default().fg(colors::muted()),
                     ),
                 ]));
 
@@ -95,27 +95,27 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
                 v.push(Line::from(""));
                 v.push(Line::from(vec![
                     Span::styled("  ", Style::default()),
-                    Span::styled(icons::progress_bar(pass_rate), Style::default().fg(colors::CYAN)),
-                    Span::styled(format!(" {:.0}%", pass_rate * 100.0), Style::default().fg(colors::MUTED)),
-                    Span::styled(" pass rate", Style::default().fg(colors::DIM)),
+                    Span::styled(icons::progress_bar(pass_rate), Style::default().fg(colors::cyan())),
+                    Span::styled(format!(" {:.0}%", pass_rate * 100.0), Style::default().fg(colors::muted())),
+                    Span::styled(" pass rate", Style::default().fg(colors::dim())),
                 ]));
 
                 // 错误分布色块
                 v.push(Line::from(""));
                 v.push(Line::from(vec![
-                    Span::styled("  ■ ", Style::default().fg(colors::YELLOW)),
-                    Span::styled(format!("格式 {}  ", s.format_error_count), Style::default().fg(colors::MUTED)),
-                    Span::styled("■ ", Style::default().fg(colors::CYAN)),
-                    Span::styled(format!("约束 {}  ", s.constraint_error_count), Style::default().fg(colors::MUTED)),
-                    Span::styled("■ ", Style::default().fg(colors::GREEN)),
-                    Span::styled(format!("加载 {}", s.loading_error_count), Style::default().fg(colors::MUTED)),
+                    Span::styled("  ■ ", Style::default().fg(colors::yellow())),
+                    Span::styled(format!("格式 {}  ", s.format_error_count), Style::default().fg(colors::muted())),
+                    Span::styled("■ ", Style::default().fg(colors::cyan())),
+                    Span::styled(format!("约束 {}  ", s.constraint_error_count), Style::default().fg(colors::muted())),
+                    Span::styled("■ ", Style::default().fg(colors::green())),
+                    Span::styled(format!("加载 {}", s.loading_error_count), Style::default().fg(colors::muted())),
                 ]));
             }
             v
         }
     };
     frame.render_widget(
-        Paragraph::new(lines).style(Style::default().bg(colors::BG)),
+        Paragraph::new(lines).style(Style::default().bg(colors::bg())),
         area,
     );
 }
@@ -129,7 +129,7 @@ fn render_errors(frame: &mut Frame, app: &App, area: Rect) {
                 .take(500)
                 .enumerate()
                 .map(|(i, e)| {
-                    let bg = if i % 2 == 0 { colors::BG } else { colors::SURFACE };
+                    let bg = if i % 2 == 0 { colors::bg() } else { colors::surface() };
                     Row::new(vec![
                         icons::truncate(&e.table, 18),
                         icons::truncate(&e.column, 18),
@@ -142,7 +142,7 @@ fn render_errors(frame: &mut Frame, app: &App, area: Rect) {
                 .collect();
 
             let header = Row::new(vec!["表", "字段", "行", "类型", "消息"])
-                .style(Style::default().fg(colors::MUTED).add_modifier(Modifier::BOLD))
+                .style(Style::default().fg(colors::muted()).add_modifier(Modifier::BOLD))
                 .bottom_margin(0);
 
             let table = Table::new(
@@ -150,8 +150,8 @@ fn render_errors(frame: &mut Frame, app: &App, area: Rect) {
                 [Constraint::Length(20), Constraint::Length(20), Constraint::Length(6), Constraint::Length(18), Constraint::Min(10)],
             )
             .header(header)
-            .row_highlight_style(Style::default().bg(colors::PANEL).fg(colors::PINK))
-            .style(Style::default().bg(colors::BG));
+            .row_highlight_style(Style::default().bg(colors::panel()).fg(colors::pink()))
+            .style(Style::default().bg(colors::bg()));
 
             let mut state = TableState::default();
             let max_idx = resp.errors.len().saturating_sub(1).min(499);

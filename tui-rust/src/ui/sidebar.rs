@@ -27,26 +27,26 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         };
 
         let (prefix, prefix_style) = if active {
-            ("▸", Style::default().fg(colors::PINK).add_modifier(Modifier::BOLD))
+            ("▸", Style::default().fg(colors::pink()).add_modifier(Modifier::BOLD))
         } else {
-            (" ", Style::default().fg(colors::DIM))
+            (" ", Style::default().fg(colors::dim()))
         };
         let icon_style = if active {
-            Style::default().fg(colors::PINK)
+            Style::default().fg(colors::pink())
         } else {
-            Style::default().fg(colors::DIM)
+            Style::default().fg(colors::dim())
         };
         let name_style = if active {
-            Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)
+            Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(colors::MUTED)
+            Style::default().fg(colors::muted())
         };
         let num_style = if active {
-            Style::default().fg(colors::PINK)
+            Style::default().fg(colors::pink())
         } else {
-            Style::default().fg(colors::DIM)
+            Style::default().fg(colors::dim())
         };
-        let bg = if active { colors::PANEL } else { colors::BG };
+        let bg = if active { colors::panel() } else { colors::bg() };
 
         lines.push(Line::from(vec![
             Span::styled(format!(" {} ", prefix), prefix_style),
@@ -60,20 +60,24 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
     }
 
     // 底部留白 + 快捷键提示
-    let pad = area.height.saturating_sub(lines.len() as u16 + 4);
+    let pad = area.height.saturating_sub(lines.len() as u16 + 2);
     for _ in 0..pad {
         lines.push(Line::from(""));
     }
 
     lines.push(Line::from(vec![
-        Span::styled(" F2 ", Style::default().fg(colors::DIM)),
-        Span::styled("动效", Style::default().fg(colors::DIM)),
+        Span::styled(" F2 ", Style::default().fg(colors::dim())),
+        Span::styled("动效", Style::default().fg(colors::dim())),
     ]));
     lines.push(Line::from(vec![
-        Span::styled(" q  ", Style::default().fg(colors::DIM)),
-        Span::styled("退出", Style::default().fg(colors::DIM)),
+        Span::styled(" F3 ", Style::default().fg(colors::dim())),
+        Span::styled("主题", Style::default().fg(colors::dim())),
+    ]));
+    lines.push(Line::from(vec![
+        Span::styled(" q  ", Style::default().fg(colors::dim())),
+        Span::styled("退出", Style::default().fg(colors::dim())),
     ]));
 
-    let sidebar = Paragraph::new(lines).style(Style::default().bg(colors::BG));
+    let sidebar = Paragraph::new(lines).style(Style::default().bg(colors::bg()));
     frame.render_widget(sidebar, area);
 }

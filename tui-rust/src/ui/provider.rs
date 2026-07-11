@@ -22,14 +22,14 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     // 提示
     frame.render_widget(
         Paragraph::new("  Provider 列表  j/k 导航  t 测试  a 激活  r 刷新")
-            .style(Style::default().fg(colors::MUTED)),
+            .style(Style::default().fg(colors::muted())),
         chunks[0],
     );
 
     if app.providers.is_empty() {
         frame.render_widget(
             Paragraph::new("\n\n  未配置 Provider\n\n  在后端配置 ~/.precis/ai_providers.yaml")
-                .style(Style::default().fg(colors::DIM)),
+                .style(Style::default().fg(colors::dim())),
             chunks[1],
         );
         return;
@@ -39,7 +39,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
 
     // Table widget（列对齐可靠）
     let header = Row::new(vec!["", "名称", "类型", "模型", "端点"])
-        .style(Style::default().fg(colors::MUTED).add_modifier(Modifier::BOLD));
+        .style(Style::default().fg(colors::muted()).add_modifier(Modifier::BOLD));
 
     let rows: Vec<Row> = app.providers.iter().enumerate().map(|(i, p)| {
         let is_active = p.id == active_id;
@@ -55,9 +55,9 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
             icons::truncate(&p.base_url, 30),
         ])
         .style(if is_selected {
-            Style::default().fg(colors::PINK).bg(colors::PANEL)
+            Style::default().fg(colors::pink()).bg(colors::panel())
         } else {
-            Style::default().fg(colors::MUTED)
+            Style::default().fg(colors::muted())
         })
     }).collect();
 
@@ -66,9 +66,9 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         [Constraint::Length(2), Constraint::Length(16), Constraint::Length(10), Constraint::Length(22), Constraint::Min(10)],
     )
     .header(header)
-    .row_highlight_style(Style::default().bg(colors::PANEL).fg(colors::PINK))
+    .row_highlight_style(Style::default().bg(colors::panel()).fg(colors::pink()))
     .column_spacing(1)
-    .style(Style::default().bg(colors::BG));
+    .style(Style::default().bg(colors::bg()));
 
     let mut state = TableState::default();
     state.select(Some(app.provider_cursor));
@@ -77,12 +77,12 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     // 测试结果
     if let Some(ref result) = app.provider_test_result {
         let (icon, msg, color) = match result {
-            crate::app::TestResult::Ok(_) => ("✓".to_string(), "连接正常".to_string(), colors::GREEN),
-            crate::app::TestResult::Fail(err) => ("✗".to_string(), icons::truncate(err, 50), colors::RED),
+            crate::app::TestResult::Ok(_) => ("✓".to_string(), "连接正常".to_string(), colors::green()),
+            crate::app::TestResult::Fail(err) => ("✗".to_string(), icons::truncate(err, 50), colors::red()),
         };
         frame.render_widget(
             Paragraph::new(format!("  {} {}", icon, msg))
-                .style(Style::default().fg(color).bg(colors::SURFACE)),
+                .style(Style::default().fg(color).bg(colors::surface())),
             chunks[2],
         );
     }

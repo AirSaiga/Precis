@@ -24,6 +24,8 @@ anyhow = "1"
 # 日志
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# 主题持久化 — 获取 home 目录
+dirs = "5"
 
 [profile.release]
 opt-level = 3

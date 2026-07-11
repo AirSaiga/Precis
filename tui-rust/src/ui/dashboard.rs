@@ -25,33 +25,33 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     if app.project_name.is_some() {
         let name = app.project_name.as_deref().unwrap_or("");
         lines.push(Line::from(vec![
-            Span::styled("  ● ", Style::default().fg(colors::GREEN)),
-            Span::styled(name, Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)),
+            Span::styled("  ● ", Style::default().fg(colors::green())),
+            Span::styled(name, Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD)),
         ]));
         if let Some(p) = app.projects.get(app.selected_project) {
-            lines.push(Line::from(Span::styled(format!("  {}", p.path), Style::default().fg(colors::DIM))));
+            lines.push(Line::from(Span::styled(format!("  {}", p.path), Style::default().fg(colors::dim()))));
         }
     } else {
         lines.push(Line::from(vec![
-            Span::styled("  Precis", Style::default().fg(colors::DIM).add_modifier(Modifier::BOLD)),
-            Span::styled("  本地数据校验工具", Style::default().fg(colors::DIM)),
+            Span::styled("  Precis", Style::default().fg(colors::dim()).add_modifier(Modifier::BOLD)),
+            Span::styled("  本地数据校验工具", Style::default().fg(colors::dim())),
         ]));
     }
 
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         format!("  项目 ({})  j/k 选择  Enter 打开", app.projects.len()),
-        Style::default().fg(colors::MUTED),
+        Style::default().fg(colors::muted()),
     )));
 
-    let header = Paragraph::new(lines).style(Style::default().bg(colors::BG));
+    let header = Paragraph::new(lines).style(Style::default().bg(colors::bg()));
     frame.render_widget(header, chunks[0]);
 
     let list_area = chunks[1];
 
     if app.projects.is_empty() {
         let empty = Paragraph::new("\n\n  未找到项目\n\n  确保后端正在运行 (npm run backend:dev)\n  且扫描目录下有 project.precis.yaml")
-            .style(Style::default().fg(colors::DIM));
+            .style(Style::default().fg(colors::dim()));
         frame.render_widget(empty, list_area);
         return;
     }
@@ -64,30 +64,30 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         .map(|(idx, p)| {
             let is_current = p.path == current_path;
             let is_selected = idx == app.selected_project;
-            let marker_color = if is_current { colors::GREEN } else { colors::DIM };
+            let marker_color = if is_current { colors::green() } else { colors::dim() };
             let name_style = if is_current {
-                Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)
+                Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(colors::FG)
+                Style::default().fg(colors::fg())
             };
             let prefix = if is_selected { "▸" } else { " " };
             ListItem::new(vec![
                 Line::from(vec![
-                    Span::styled(format!(" {}{} ", prefix, if is_current { "●" } else { " " }), Style::default().fg(if is_selected { colors::PINK } else { marker_color })),
+                    Span::styled(format!(" {}{} ", prefix, if is_current { "●" } else { " " }), Style::default().fg(if is_selected { colors::pink() } else { marker_color })),
                     Span::styled(&p.name, name_style),
                     Span::styled(
                         format!("   {} schema · {} 约束", p.schema_count.unwrap_or(0), p.constraint_count.unwrap_or(0)),
-                        Style::default().fg(colors::DIM),
+                        Style::default().fg(colors::dim()),
                     ),
                 ]),
-                Line::from(Span::styled(format!("    {}", p.path), Style::default().fg(colors::DIM))),
+                Line::from(Span::styled(format!("    {}", p.path), Style::default().fg(colors::dim()))),
             ])
         })
         .collect();
 
     let list = List::new(items)
-        .style(Style::default().bg(colors::BG))
-        .highlight_style(Style::default().bg(colors::PANEL))
+        .style(Style::default().bg(colors::bg()))
+        .highlight_style(Style::default().bg(colors::panel()))
         .highlight_symbol("");
 
     let mut state = ListState::default();

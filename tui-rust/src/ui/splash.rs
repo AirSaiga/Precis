@@ -26,7 +26,7 @@ pub const SPLASH_FRAMES: usize = 30;
 pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
     // 深色全屏背景
     frame.render_widget(
-        ratatui::widgets::Block::default().style(Style::default().bg(colors::BG)),
+        ratatui::widgets::Block::default().style(Style::default().bg(colors::bg())),
         area,
     );
 
@@ -51,17 +51,17 @@ pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
             // 已扫过：按行号分三段渐变色
             let segment = i as f64 / total_logo_lines as f64;
             if segment < 0.33 {
-                colors::PINK
+                colors::pink()
             } else if segment < 0.67 {
-                colors::CYAN
+                colors::cyan()
             } else {
-                colors::PURPLE
+                colors::purple()
             }
         } else if i == sweep_line {
             // 当前扫光带：亮白过渡色
-            colors::blend(colors::FG, colors::PINK, 0.5)
+            colors::blend(colors::fg(), colors::pink(), 0.5)
         } else {
-            colors::DIM
+            colors::dim()
         };
         lines.push(Line::from(Span::styled(*logo_line, Style::default().fg(color))));
     }
@@ -70,7 +70,7 @@ pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
     lines.push(Line::from(""));
     if progress >= 0.6 {
         let fade = ((progress - 0.6) / 0.4).clamp(0.0, 1.0);
-        let text_color = colors::blend(colors::BG, colors::MUTED, fade);
+        let text_color = colors::blend(colors::bg(), colors::muted(), fade);
         lines.push(Line::from(Span::styled(
             "v0.1.0",
             Style::default().fg(text_color),
@@ -83,6 +83,6 @@ pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
 
     let splash = Paragraph::new(lines)
         .alignment(Alignment::Center)
-        .style(Style::default().bg(colors::BG));
+        .style(Style::default().bg(colors::bg()));
     frame.render_widget(splash, area);
 }
