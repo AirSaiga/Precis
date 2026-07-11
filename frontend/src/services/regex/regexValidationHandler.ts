@@ -15,7 +15,13 @@
 import { logger } from '@/core/utils/logger'
 import { i18n } from '@/i18n'
 import type { Edge } from '@vue-flow/core'
-import type { CustomNode, SchemaNodeData, SourcePreviewNodeData, SchemaColumn } from '@/types/graph'
+import type {
+  CustomNode,
+  SchemaNodeData,
+  SourcePreviewNodeData,
+  SchemaColumn,
+  JsonSchemaColumn,
+} from '@/types/graph'
 import type { DataType } from '@/types/common'
 import { validateAndExtractRegex } from '@/features/regex/services/regexExtractService'
 import {
@@ -29,7 +35,32 @@ import {
 } from '@/features/regex/composables/regexExtractUtils'
 import { findEdge } from '@/services/canvas/vueFlowApi'
 import { buildValidationContext } from '@/services/constraints/validationContext'
-import { extractJsonTargetValues } from '@/utils/nodes/json/columnFinder'
+import { extractJsonValuesByPath, findJsonSchemaColumnById } from '@/utils/nodes/json/columnFinder'
+import { isRegexNodeType } from '@/utils/nodes/regex'
+/**
+ * 为正则校验从 JSON 数据源提取目标列值数组。
+ * 如果 schema 是 jsonSchema 且列带有 jsonPath，则按 jsonPath 取值；否则按 columnName 取顶层字段。
+ */
+function extractRegexValuesFromJsonSource(
+  rawData: unknown[],
+  schemaNode: CustomNode,
+  columnId: string,
+  columnName: string
+): string[] {
+  if (schemaNode.type === 'jsonSchema') {
+    const columns = ((schemaNode.data as unknown as Record<string, unknown>).columns ||
+      []) as JsonSchemaColumn[]
+    const found = findJsonSchemaColumnById(columns, columnId)
+    if (found?.column.jsonPath) {
+      return extractJsonValuesByPath(rawData, {
+        jsonPath: found.column.jsonPath,
+        targetKey: columnName,
+      })
+    }
+  }
+  return extractJsonValuesByPath(rawData, { targetKey: columnName })
+}
+
 export interface RegexValidationResult {
   validationStatus: 'pass' | 'error' | 'idle'
   errorCount: number | undefined
@@ -83,7 +114,7 @@ export async function validateRegexNode(params: {
     return buildResult('idle', undefined, undefined, undefined, undefined, columnId)
   }
 
-  if (regexData.matchMode === 'extract') {
+  if (regexNode.type === 'regexExtract' || regexData.matchMode === 'extract') {
     const extractResult = await tryUpdateExtractDerivedColumns({
       regexNode,
       schemaNode,
@@ -97,7 +128,7 @@ export async function validateRegexNode(params: {
     if (extractResult !== null) return { ...extractResult, columnId }
   }
 
-  if (regexData.matchMode === 'extract') {
+  if (regexNode.type === 'regexExtract' || regexData.matchMode === 'extract') {
     updateNodeData(regexNode.id, {
       ...regexData,
       validationStatus: 'idle',
@@ -122,12 +153,17 @@ export async function validateRegexNode(params: {
 
   // 按数据源类型提取目标列的值数组
   // - sourcePreview：二维表格（data 为 unknown[][]），按列名定位列索引后切片
-  // - jsonSourcePreview：对象数组（rawData），委托 extractJsonTargetValues 按字段名提取
+  // - jsonSourcePreview：对象数组（rawData），优先按 jsonPath 提取，否则按 columnName 取顶层字段
   let values: string[] = []
   if (sourcePreviewNode.type === 'jsonSourcePreview') {
     const jsonSourceData = sourcePreviewNode.data as unknown as Record<string, unknown>
     const rawData = (jsonSourceData.rawData as unknown[]) || []
-    values = extractJsonTargetValues(rawData, String(columnName).trim())
+    values = extractRegexValuesFromJsonSource(
+      rawData,
+      schemaNode,
+      String(columnId || '').trim(),
+      String(columnName).trim()
+    )
   } else {
     const sourceData = sourcePreviewNode.data as SourcePreviewNodeData
     const tableData: unknown[][] = Array.isArray(
@@ -168,7 +204,12 @@ export async function validateRegexNode(params: {
     return buildResult('idle', undefined, undefined, undefined, undefined, columnId)
   }
 
-  const matchMode: 'full' | 'partial' = regexData.matchMode === 'partial' ? 'partial' : 'full'
+  const isExtractNode = regexNode.type === 'regexExtract'
+  const matchMode: 'full' | 'partial' | 'extract' = isExtractNode
+    ? 'extract'
+    : regexData.matchMode === 'partial'
+      ? 'partial'
+      : 'full'
   const request = {
     regex_pattern: regexData.pattern as string,
     regex_flags: (regexData.flags as string) || '',
@@ -246,7 +287,7 @@ export async function validateRegexNodesForSchema(params: {
 
   const regexEdges = schemaEdges.filter((e) => {
     const node = nodes.find((n) => n.id === e.target)
-    return node?.type === 'regex'
+    return isRegexNodeType(node?.type)
   })
 
   if (regexEdges.length === 0) return null
@@ -263,7 +304,7 @@ export async function validateRegexNodesForSchema(params: {
     const regexData = regexNode.data as unknown as Record<string, unknown>
     // extract 模式的正则节点会产生派生列写回副作用，
     // 仅在用户显式点击校验时触发，全局/自动化校验跳过。
-    if (regexData.matchMode === 'extract') continue
+    if (regexNode.type === 'regexExtract' || regexData.matchMode === 'extract') continue
 
     const ctx = buildValidationContext({ schemaNode, constraintNode: regexNode, edge, nodes })
     if (!ctx) continue
@@ -367,12 +408,12 @@ async function validateRegexFromRows(params: {
       )
     : []
 
-  const matchMode: 'full' | 'partial' | 'extract' =
-    regexData.matchMode === 'extract'
-      ? 'full'
-      : regexData.matchMode === 'partial'
-        ? 'partial'
-        : 'full'
+  const isExtractNode = regexNode.type === 'regexExtract'
+  const matchMode: 'full' | 'partial' | 'extract' = isExtractNode
+    ? 'extract'
+    : regexData.matchMode === 'partial'
+      ? 'partial'
+      : 'full'
 
   const request = {
     regex_pattern: regexData.pattern as string,
@@ -434,7 +475,12 @@ function updateRegexConnectionEdgesForNode(
       // 手动拖拽创建的 Schema→Regex 边没有 label，原 label 匹配会漏掉这些边，
       // 导致校验后边的颜色/状态 class 永远不更新。
       if (edge.target !== regexNodeId) continue
-      if (edge.targetHandle !== 'regex-input' && edge.targetHandle !== undefined) continue
+      if (
+        edge.targetHandle !== 'regex-input' &&
+        edge.targetHandle !== 'regexExtract-input' &&
+        edge.targetHandle !== undefined
+      )
+        continue
       let className = ''
       if (typeof edge.class === 'string') {
         className = edge.class
@@ -482,7 +528,7 @@ async function tryUpdateExtractDerivedColumns(params: {
   const regexData = regexNode.data as unknown as Record<string, unknown>
   const schemaData = schemaNode.data as SchemaNodeData
 
-  if (regexData.matchMode !== 'extract') return null
+  if (regexNode.type !== 'regexExtract' && regexData.matchMode !== 'extract') return null
   if (!schemaData.sourceNodeId) return null
 
   // Bug 4.4 修复：同时支持 sourcePreview 与 jsonSourcePreview 数据源
@@ -495,12 +541,17 @@ async function tryUpdateExtractDerivedColumns(params: {
 
   // 按数据源类型提取目标列的值数组
   // - sourcePreview：二维表格（data 为 unknown[][]），按列名定位列索引后切片
-  // - jsonSourcePreview：对象数组（rawData），委托 extractJsonTargetValues 按字段名提取
+  // - jsonSourcePreview：对象数组（rawData），优先按 jsonPath 提取，否则按 columnName 取顶层字段
   let values: string[] = []
   if (sourcePreviewNode.type === 'jsonSourcePreview') {
     const jsonSourceData = sourcePreviewNode.data as unknown as Record<string, unknown>
     const rawData = (jsonSourceData.rawData as unknown[]) || []
-    values = extractJsonTargetValues(rawData, String(columnName).trim())
+    values = extractRegexValuesFromJsonSource(
+      rawData,
+      schemaNode,
+      String(columnId || '').trim(),
+      String(columnName).trim()
+    )
   } else {
     const sourceData = sourcePreviewNode.data as SourcePreviewNodeData
     const tableData: unknown[][] = Array.isArray(
