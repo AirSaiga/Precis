@@ -246,6 +246,7 @@ export class SaveOrchestrator {
       'schema',
       'jsonSchema',
       'regex',
+      'regexExtract',
       'transform',
       'manualData',
       'templateInstance',
