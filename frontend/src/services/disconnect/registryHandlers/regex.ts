@@ -7,11 +7,12 @@
  */
 import { registerDisconnectHandler } from '../registryCore'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import { isRegexNodeType } from '@/utils/nodes/regex'
 import type { SchemaColumn } from '@/types/graph'
 
 registerDisconnectHandler({
   priority: 50,
-  match: (_edge, _source, target) => target.type === 'regex',
+  match: (_edge, _source, target) => isRegexNodeType(target.type),
   cleanup: (edge, source, target, ctx) => {
     const data = (target.data || {}) as Record<string, unknown>
     ctx.updateNodeData(target.id, {
@@ -39,7 +40,7 @@ registerDisconnectHandler({
       const remainingErrors: string[] = []
       for (const node of ctx.nodes.value) {
         if (node.id === target.id) continue
-        if (node.type === 'regex') {
+        if (isRegexNodeType(node.type)) {
           const nodeData = (node.data || {}) as Record<string, unknown>
           const sourceRef = nodeData.sourceRef as { nodeId: string; columnId: string } | undefined
           if (sourceRef?.nodeId === source.id && sourceRef?.columnId === columnId) {
