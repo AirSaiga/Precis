@@ -1,4 +1,4 @@
-//! 校验页 — 大号数字摘要 + 无边框极简表格（Linear 风格）
+//! 校验页 — 大号数字摘要 + 进度条 + 错误分布 + 斑马表格
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style, Stylize};
@@ -72,36 +72,34 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
                 v.push(Line::from(vec![
                     Span::styled("  ✓ ", Style::default().fg(colors::green())),
                     Span::styled("校验通过", Style::default().fg(colors::green()).add_modifier(Modifier::BOLD)),
+                    Span::styled(
+                        format!("    {} 表 · {} 文件 · {}ms", s.tables_loaded, s.files_loaded, s.duration_ms),
+                        Style::default().fg(colors::muted()),
+                    ),
                 ]));
-                v.push(Line::from(Span::styled(
-                    format!("  {} 表 · {} 文件 · {}ms", s.tables_loaded, s.files_loaded, s.duration_ms),
-                    Style::default().fg(colors::muted()),
-                )));
             } else {
-                // 大号错误数
+                // 大号错误数 + 统计（同行紧凑）
                 v.push(Line::from(vec![
                     Span::styled(format!("  {}", total), Style::default().fg(colors::red()).add_modifier(Modifier::BOLD)),
                     Span::styled(" 个错误", Style::default().fg(colors::red())),
                     Span::styled(
-                        format!("   {} 表 · {} 文件 · {}ms", s.tables_loaded, s.files_loaded, s.duration_ms),
+                        format!("    {} 表 · {} 文件 · {}ms", s.tables_loaded, s.files_loaded, s.duration_ms),
                         Style::default().fg(colors::muted()),
                     ),
                 ]));
 
-                // pass rate 进度条（使用后端 statistics 中的真实通过率）
+                // pass rate 进度条（紧接错误数，不空行）
                 let pass_rate = resp.statistics.as_ref()
                     .map(|st| st.pass_rate / 100.0)
                     .unwrap_or(0.0);
-                v.push(Line::from(""));
                 v.push(Line::from(vec![
                     Span::styled("  ", Style::default()),
                     Span::styled(icons::progress_bar(pass_rate), Style::default().fg(colors::cyan())),
-                    Span::styled(format!(" {:.0}%", pass_rate * 100.0), Style::default().fg(colors::muted())),
+                    Span::styled(format!(" {:.0}%", pass_rate * 100.0), Style::default().fg(colors::cyan())),
                     Span::styled(" pass rate", Style::default().fg(colors::dim())),
                 ]));
 
-                // 错误分布色块
-                v.push(Line::from(""));
+                // 错误分布色块（紧接进度条，不空行）
                 v.push(Line::from(vec![
                     Span::styled("  ■ ", Style::default().fg(colors::yellow())),
                     Span::styled(format!("格式 {}  ", s.format_error_count), Style::default().fg(colors::muted())),
@@ -123,6 +121,14 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
 fn render_errors(frame: &mut Frame, app: &App, area: Rect) {
     match &app.validation {
         ValidationState::Done(resp) if !resp.errors.is_empty() => {
+            // 动态列宽：按终端宽度分配
+            let w = area.width as usize;
+            let col_table = (w / 7).max(8);
+            let col_col = (w / 7).max(8);
+            let col_row = (w / 12).max(4);
+            let col_type = (w / 5).max(8);
+            let col_msg = w.saturating_sub(col_table + col_col + col_row + col_type + 8).max(10);
+
             let rows: Vec<Row> = resp
                 .errors
                 .iter()
@@ -131,11 +137,11 @@ fn render_errors(frame: &mut Frame, app: &App, area: Rect) {
                 .map(|(i, e)| {
                     let bg = if i % 2 == 0 { colors::bg() } else { colors::surface() };
                     Row::new(vec![
-                        icons::truncate(&e.table, 18),
-                        icons::truncate(&e.column, 18),
+                        icons::truncate(&e.table, col_table),
+                        icons::truncate(&e.column, col_col),
                         e.row_index.map(|r| r.to_string()).unwrap_or_default(),
-                        icons::truncate(&e.error_type, 16),
-                        icons::truncate(&e.message, (area.width as usize) / 3),
+                        icons::truncate(&e.error_type, col_type),
+                        icons::truncate(&e.message, col_msg),
                     ])
                     .style(Style::default().bg(bg))
                 })
@@ -147,10 +153,17 @@ fn render_errors(frame: &mut Frame, app: &App, area: Rect) {
 
             let table = Table::new(
                 rows,
-                [Constraint::Length(20), Constraint::Length(20), Constraint::Length(6), Constraint::Length(18), Constraint::Min(10)],
+                [
+                    Constraint::Length(col_table as u16),
+                    Constraint::Length(col_col as u16),
+                    Constraint::Length(col_row as u16),
+                    Constraint::Length(col_type as u16),
+                    Constraint::Min(10),
+                ],
             )
             .header(header)
             .row_highlight_style(Style::default().bg(colors::panel()).fg(colors::pink()))
+            .column_spacing(1)
             .style(Style::default().bg(colors::bg()));
 
             let mut state = TableState::default();

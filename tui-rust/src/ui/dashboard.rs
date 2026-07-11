@@ -6,80 +6,77 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{List, ListItem, ListState, Paragraph};
 use ratatui::Frame;
 
-use crate::app::{colors, layout, App};
+use crate::app::{colors, App};
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
-    // 动态分割：状态区(固定) + 项目列表(填充)
+    // 状态区(12行，容纳项目名+指标卡+提示) + 项目列表(填充)
     let chunks = Layout::default()
-        .direction(ratatui::layout::Direction::Vertical)
-        .constraints([
-            Constraint::Length(layout::DASHBOARD_HEADER),
-            Constraint::Min(1),
-        ])
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(12), Constraint::Min(1)])
         .split(area);
 
-    // ===== 状态区：项目名 + 指标卡 + 分隔 =====
+    // ===== 状态区 =====
     let mut lines: Vec<Line> = Vec::new();
-    lines.push(Line::from(""));
 
     if app.project_name.is_some() {
         let name = app.project_name.as_deref().unwrap_or("");
+        // 项目名行
         lines.push(Line::from(vec![
-            Span::styled("  ● ", Style::default().fg(colors::green())),
+            Span::raw(" "),
+            Span::styled("●", Style::default().fg(colors::green())),
+            Span::raw(" "),
             Span::styled(name, Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD)),
-            Span::styled("  已打开", Style::default().fg(colors::dim())),
+            Span::raw("  "),
+            Span::styled("已打开", Style::default().fg(colors::dim())),
         ]));
+
+        // 指标行（大号呼吸数字，不用 box-drawing 避免中文宽度问题）
         if let Some(p) = app.projects.get(app.selected_project) {
+            let sc = p.schema_count.unwrap_or(0);
+            let cc = p.constraint_count.unwrap_or(0);
+
+            // 呼吸：三个数字错开 120° 相位
+            let t = app.frame_count as f64 * 0.025;
+            let phase1 = t.sin() * 0.5 + 0.5;
+            let phase2 = (t + 2.094).sin() * 0.5 + 0.5;
+            let phase3 = (t + 4.189).sin() * 0.5 + 0.5;
+
+            let num1 = colors::blend(colors::pink(), colors::fg(), phase1 * 0.4);
+            let num2 = colors::blend(colors::cyan(), colors::fg(), phase2 * 0.4);
+            let num3 = colors::blend(colors::green(), colors::fg(), phase3 * 0.4);
+
+            lines.push(Line::from(""));
+            // 用分隔符代替 box-drawing，避免对齐问题
+            lines.push(Line::from(vec![
+                Span::raw(" "),
+                Span::styled(format!("  {}", sc), Style::default().fg(num1).add_modifier(Modifier::BOLD)),
+                Span::raw("  "),
+                Span::styled("Schema", Style::default().fg(colors::muted())),
+                Span::raw("    "),
+                Span::styled(format!("{}", cc), Style::default().fg(num2).add_modifier(Modifier::BOLD)),
+                Span::raw("  "),
+                Span::styled("约束", Style::default().fg(colors::muted())),
+                Span::raw("    "),
+                Span::styled(format!("{}", sc + cc), Style::default().fg(num3).add_modifier(Modifier::BOLD)),
+                Span::raw("  "),
+                Span::styled("总计", Style::default().fg(colors::muted())),
+            ]));
+
+            // 路径
+            lines.push(Line::from(""));
             lines.push(Line::from(Span::styled(
                 format!("  {}", p.path),
                 Style::default().fg(colors::dim()),
             )));
         }
-
-        // 指标卡：用 box-drawing 细框 + 大号呼吸数字
-        if let Some(p) = app.projects.get(app.selected_project) {
-            let schema_count = p.schema_count.unwrap_or(0);
-            let constraint_count = p.constraint_count.unwrap_or(0);
-
-            // 呼吸：三个数字错开 120° 相位，在原色↔亮色之间 sin 渐变（约 4 秒周期）
-            let phase1 = (app.frame_count as f64 * 0.025).sin() * 0.5 + 0.5;
-            let phase2 = ((app.frame_count as f64 * 0.025) + 2.094).sin() * 0.5 + 0.5; // +120°
-            let phase3 = ((app.frame_count as f64 * 0.025) + 4.189).sin() * 0.5 + 0.5; // +240°
-
-            let num_pink = colors::blend(colors::pink(), colors::fg(), phase1 * 0.35);
-            let num_cyan = colors::blend(colors::cyan(), colors::fg(), phase2 * 0.35);
-            let num_green = colors::blend(colors::green(), colors::fg(), phase3 * 0.35);
-
-            lines.push(Line::from(""));
-            // 指标卡上框
-            lines.push(Line::from(Span::styled(
-                "  ┌─────────┐  ┌─────────┐  ┌──────────┐",
-                Style::default().fg(colors::dim()),
-            )));
-            // 大号数字行
-            lines.push(Line::from(vec![
-                Span::styled("  │  ", Style::default().fg(colors::dim())),
-                Span::styled(format!("{:<3}", schema_count), Style::default().fg(num_pink).add_modifier(Modifier::BOLD)),
-                Span::styled("    │  ", Style::default().fg(colors::dim())),
-                Span::styled(format!("{:<3}", constraint_count), Style::default().fg(num_cyan).add_modifier(Modifier::BOLD)),
-                Span::styled("    │  ", Style::default().fg(colors::dim())),
-                Span::styled(format!("{:<4}", schema_count + constraint_count), Style::default().fg(num_green).add_modifier(Modifier::BOLD)),
-                Span::styled("   │", Style::default().fg(colors::dim())),
-            ]));
-            // 标签行
-            lines.push(Line::from(vec![
-                Span::styled("  │ Schema  │  │ 约束    │  │ 总计    │", Style::default().fg(colors::muted())),
-            ]));
-            // 下框
-            lines.push(Line::from(Span::styled(
-                "  └─────────┘  └─────────┘  └──────────┘",
-                Style::default().fg(colors::dim()),
-            )));
-        }
     } else {
         lines.push(Line::from(vec![
-            Span::styled("  ◤◢ Precis", Style::default().fg(colors::pink()).add_modifier(Modifier::BOLD)),
-            Span::styled("  本地数据校验工具", Style::default().fg(colors::dim())),
+            Span::raw(" "),
+            Span::styled("◤◢", Style::default().fg(colors::pink()).add_modifier(Modifier::BOLD)),
+            Span::raw(" "),
+            Span::styled("Precis", Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD)),
+            Span::raw("  "),
+            Span::styled("本地数据校验工具", Style::default().fg(colors::dim())),
         ]));
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(
@@ -88,36 +85,27 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         )));
     }
 
-    let header = Paragraph::new(lines).style(Style::default().bg(colors::bg()));
-    frame.render_widget(header, chunks[0]);
+    // 分隔线
+    lines.push(Line::from(""));
+    lines.push(Line::from(Span::styled(
+        format!("  项目 ({})  j/k 选择  Enter 打开", app.projects.len()),
+        Style::default().fg(colors::muted()),
+    )));
+
+    frame.render_widget(
+        Paragraph::new(lines).style(Style::default().bg(colors::bg())),
+        chunks[0],
+    );
 
     // ===== 项目列表 =====
     let list_area = chunks[1];
 
     if app.projects.is_empty() {
-        let empty = Paragraph::new("\n\n  未找到项目\n\n  确保后端正在运行 (npm run backend:dev)\n  且扫描目录下有 project.precis.yaml")
+        let empty = Paragraph::new("\n  未找到项目\n\n  确保后端正在运行 (npm run backend:dev)\n  且扫描目录下有 project.precis.yaml")
             .style(Style::default().fg(colors::dim()));
         frame.render_widget(empty, list_area);
         return;
     }
-
-    // 分隔线 + 提示
-    let list_split = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Length(2), Constraint::Min(1)])
-        .split(list_area);
-
-    let hint_lines = vec![
-        Line::from(Span::styled(
-            format!("  项目 ({})  j/k 选择  Enter 打开", app.projects.len()),
-            Style::default().fg(colors::muted()),
-        )),
-        Line::from(""),
-    ];
-    frame.render_widget(
-        Paragraph::new(hint_lines).style(Style::default().bg(colors::bg())),
-        list_split[0],
-    );
 
     let current_path = app.api.project_path().unwrap_or("").to_string();
     let items: Vec<ListItem> = app
@@ -133,19 +121,29 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
                 Style::default().fg(colors::fg())
             };
             let prefix = if is_selected { "▸" } else { " " };
+            let dot = if is_current { "●" } else { " " };
+            let dot_color = if is_selected {
+                colors::pink()
+            } else if is_current {
+                colors::green()
+            } else {
+                colors::dim()
+            };
             ListItem::new(vec![
                 Line::from(vec![
-                    Span::styled(
-                        format!(" {}{} ", prefix, if is_current { "●" } else { " " }),
-                        Style::default().fg(if is_selected { colors::pink() } else { if is_current { colors::green() } else { colors::dim() } }),
-                    ),
+                    Span::raw(" "),
+                    Span::styled(prefix, Style::default().fg(if is_selected { colors::pink() } else { colors::dim() })),
+                    Span::styled(dot, Style::default().fg(dot_color)),
+                    Span::raw(" "),
                     Span::styled(&p.name, name_style),
+                    Span::raw("   "),
                     Span::styled(
-                        format!("   {} schema · {} 约束", p.schema_count.unwrap_or(0), p.constraint_count.unwrap_or(0)),
+                        format!("{} schema · {} 约束", p.schema_count.unwrap_or(0), p.constraint_count.unwrap_or(0)),
                         Style::default().fg(colors::cyan()),
                     ),
                 ]),
                 Line::from(Span::styled(format!("    {}", p.path), Style::default().fg(colors::dim()))),
+                Line::from(""),
             ])
         })
         .collect();
@@ -157,7 +155,5 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
 
     let mut state = ListState::default();
     state.select(Some(app.selected_project));
-
-    // 列表渲染到 hint 下方的区域
-    frame.render_stateful_widget(list, list_split[1], &mut state);
+    frame.render_stateful_widget(list, list_area, &mut state);
 }
