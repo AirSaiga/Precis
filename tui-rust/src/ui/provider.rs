@@ -44,11 +44,6 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     let rows: Vec<Row> = app.providers.iter().enumerate().map(|(i, p)| {
         let is_active = p.id == active_id;
         let is_selected = i == app.provider_cursor;
-        let name_style = if is_active {
-            Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(colors::FG)
-        };
         let marker = if is_active { "●" } else { "" };
         let prefix = if is_selected { "▸" } else { " " };
 

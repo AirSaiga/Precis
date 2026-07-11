@@ -71,7 +71,6 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
                 Style::default().fg(colors::FG)
             };
             let prefix = if is_selected { "▸" } else { " " };
-            let prefix_color = if is_selected { colors::PINK } else { colors::DIM };
             ListItem::new(vec![
                 Line::from(vec![
                     Span::styled(format!(" {}{} ", prefix, if is_current { "●" } else { " " }), Style::default().fg(if is_selected { colors::PINK } else { marker_color })),
