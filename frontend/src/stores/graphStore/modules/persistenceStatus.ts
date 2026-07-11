@@ -9,6 +9,7 @@
 
 import type { Ref } from 'vue'
 import type { CustomNode, SchemaNodeData } from '@/types/graph'
+import { isRegexNodeType } from '@/utils/nodes/regex'
 
 export interface PersistenceStatusDeps {
   nodes: Ref<CustomNode[]>
@@ -30,7 +31,7 @@ export function createPersistenceStatusModule(deps: PersistenceStatusDeps) {
       if (isConstraintNodeType(node.type)) {
         return data?.saveState === 'draft'
       }
-      if (node.type === 'regex') {
+      if (isRegexNodeType(node.type)) {
         return data?.saveState === 'draft'
       }
       if (node.type === 'transform') {
