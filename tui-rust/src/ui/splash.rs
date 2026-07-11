@@ -1,7 +1,7 @@
-//! 启动画面（Splash）— 全屏 ASCII logo 扫光 + 版本号，约 1.5 秒
+//! 启动画面（Splash）— 全屏 ASCII logo 三色渐变扫光 + 版本号，约 0.9 秒
 
 use ratatui::layout::{Alignment, Rect};
-use ratatui::style::{Color, Modifier, Style};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
@@ -19,8 +19,8 @@ const LOGO: &[&str] = &[
     r"██        ██     ██ ████████  ██████  ████  ██████",
 ];
 
-/// 总帧数（约 1.5 秒 @ 33fps ≈ 45 帧，但用 18 帧做扫光 + 停留）
-pub const SPLASH_FRAMES: usize = 18;
+/// 总帧数（约 0.9 秒 @ 33fps，30 帧做扫光 + 停留）
+pub const SPLASH_FRAMES: usize = 30;
 
 /// 渲染 splash 画面
 pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
@@ -32,7 +32,10 @@ pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
 
     let progress = splash_frame as f64 / SPLASH_FRAMES as f64;
     let total_logo_lines = LOGO.len();
-    let lit_lines = (progress * total_logo_lines as f64).ceil() as usize;
+
+    // 扫光带位置：从顶部滑到底部（前 60% 帧用于扫光，后 40% 停留）
+    let sweep_progress = (progress / 0.6).clamp(0.0, 1.0);
+    let sweep_line = (sweep_progress * total_logo_lines as f64) as usize;
 
     let mut lines: Vec<Line> = Vec::new();
 
@@ -42,24 +45,32 @@ pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
         lines.push(Line::from(""));
     }
 
-    // Logo 逐行扫光
+    // Logo 逐行渐变扫光：粉→青→紫三段
     for (i, logo_line) in LOGO.iter().enumerate() {
-        let color = if i < lit_lines {
-            // 已点亮：从暗灰渐变到 PINK
-            let t = (lit_lines as f64 - i as f64) / total_logo_lines as f64;
-            let t = t.clamp(0.0, 1.0);
-            blend_color(colors::DIM, colors::PINK, t)
+        let color = if i < sweep_line {
+            // 已扫过：按行号分三段渐变色
+            let segment = i as f64 / total_logo_lines as f64;
+            if segment < 0.33 {
+                colors::PINK
+            } else if segment < 0.67 {
+                colors::CYAN
+            } else {
+                colors::PURPLE
+            }
+        } else if i == sweep_line {
+            // 当前扫光带：亮白过渡色
+            colors::blend(colors::FG, colors::PINK, 0.5)
         } else {
             colors::DIM
         };
         lines.push(Line::from(Span::styled(*logo_line, Style::default().fg(color))));
     }
 
-    // 版本号 + 标语（logo 完全点亮后显示）
+    // 版本号 + 标语（logo 全部点亮后淡入）
     lines.push(Line::from(""));
-    if progress >= 0.8 {
-        let fade = ((progress - 0.8) / 0.2).clamp(0.0, 1.0);
-        let text_color = blend_color(colors::BG, colors::MUTED, fade);
+    if progress >= 0.6 {
+        let fade = ((progress - 0.6) / 0.4).clamp(0.0, 1.0);
+        let text_color = colors::blend(colors::BG, colors::MUTED, fade);
         lines.push(Line::from(Span::styled(
             "v0.1.0",
             Style::default().fg(text_color),
@@ -74,17 +85,4 @@ pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
         .alignment(Alignment::Center)
         .style(Style::default().bg(colors::BG));
     frame.render_widget(splash, area);
-}
-
-/// 颜色混合（t=0 返回 a，t=1 返回 b）
-fn blend_color(a: Color, b: Color, t: f64) -> Color {
-    let t = t.clamp(0.0, 1.0);
-    match (a, b) {
-        (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) => Color::Rgb(
-            (r1 as f64 + (r2 as f64 - r1 as f64) * t) as u8,
-            (g1 as f64 + (g2 as f64 - g1 as f64) * t) as u8,
-            (b1 as f64 + (b2 as f64 - b1 as f64) * t) as u8,
-        ),
-        (_, c) => c,
-    }
 }
