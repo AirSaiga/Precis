@@ -91,3 +91,14 @@ export function removeDerivedColumns(
   next.derivedColumnsByRegex = nextDerived
   return { data: next, removedColumnNames: columnNames }
 }
+
+/**
+ * 解析正则表达式中的 Python 风格命名捕获组
+ *
+ * @param pattern - 正则表达式模式字符串
+ * @returns 捕获组名称列表
+ */
+export function parseNamedGroups(pattern: string): string[] {
+  if (!pattern) return []
+  return [...pattern.matchAll(/\(\?P<(\w+)>/g)].map((m) => m[1] || '')
+}
