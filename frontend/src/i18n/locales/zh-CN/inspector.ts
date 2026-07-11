@@ -285,6 +285,34 @@ const inspector = (() => {
         headerRow: '表头行从 0 开始计数，设置为 0 表示第一行作为表头。',
       },
     },
+    jsonSourcePreview: {
+      groups: {
+        basicInfo: '数据源信息',
+        statistics: '数据统计',
+      },
+      labels: {
+        sourceName: '数据源名称',
+        fileName: '文件名',
+        fileType: '文件类型',
+        format: 'JSON 格式',
+        jsonPath: 'JSONPath',
+        recordPath: 'record_path',
+        totalRows: '总行数',
+        totalCols: '总列数',
+      },
+    },
+    transformOutput: {
+      groups: {
+        basicInfo: '输出列信息',
+        status: '状态',
+      },
+      labels: {
+        configName: '配置名称',
+        columnName: '输出列名',
+        columnDataType: '列数据类型',
+        saveState: '保存状态',
+      },
+    },
     regexNode: {
       title: '正则表达式节点属性',
       badgeEditable: '可编辑',

@@ -26,7 +26,7 @@
  */
 .section-title {
   margin: 0 0 var(--ui-space-lg) 0;
-  font-size: var(--ui-font-size-md);
+  font-size: var(--ui-font-size-sm);
   font-weight: 600;
   color: var(--ui-text-strong);
   display: flex;

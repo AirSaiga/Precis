@@ -4,7 +4,7 @@
 -->
 <template>
   <div class="fallback-inspector">
-    <BaseInspector
+    <InspectorSection
       :title="t('fallbackInspector.nodeInfo')"
       :badge="t('fallbackInspector.readOnly')"
       badge-class="read-only"
@@ -19,9 +19,9 @@
         :model-value="displayNodeId"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
 
-    <BaseInspector
+    <InspectorSection
       :title="t('fallbackInspector.nodeData')"
       :badge="t('fallbackInspector.json')"
       badge-class="read-only"
@@ -29,14 +29,14 @@
       <div class="json-preview">
         <pre>{{ formattedJson }}</pre>
       </div>
-    </BaseInspector>
+    </InspectorSection>
   </div>
 </template>
 
 <script setup lang="ts">
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
-  import BaseInspector from './BaseInspector.vue'
+  import InspectorSection from './InspectorSection.vue'
   import { InspectorField } from '@/components/ui/inspector'
   import type { CustomNodeData } from '@/types/nodes'
 

@@ -98,7 +98,7 @@
         },
         {
           "id": "validationErrors",
-          "kind": "json",
+          "kind": "errorList",
           "labelKey": "inspector.constraint.range.errorMessages",
           "source": { "source": "data", "path": ["validationErrors"] },
           "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },

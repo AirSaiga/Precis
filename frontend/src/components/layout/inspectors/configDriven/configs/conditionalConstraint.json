@@ -165,7 +165,7 @@
         },
         {
           "id": "validationErrors",
-          "kind": "json",
+          "kind": "errorList",
           "labelKey": "inspector.constraint.conditional.errorMessages",
           "source": { "source": "data", "path": ["validationErrors"] },
           "when": { "op": "exists", "source": { "source": "data", "path": ["validationErrors"] } },

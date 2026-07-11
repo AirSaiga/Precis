@@ -28,6 +28,10 @@
             @focus="openDropdown(idx, col.key)"
             @blur="closeDropdown"
             @input="filterDropdown(idx, col.key, ($event.target as HTMLInputElement).value)"
+            @keydown.down.prevent="highlightNext(idx, col.key)"
+            @keydown.up.prevent="highlightPrev(idx, col.key)"
+            @keydown.enter.prevent="selectHighlighted(idx, col.key)"
+            @keydown.esc="closeDropdown"
           />
           <Transition name="dropdown">
             <ul
@@ -38,9 +42,11 @@
               @mousedown.prevent
             >
               <li
-                v-for="colName in getFilteredUpstreamColumns(idx, col.key)"
+                v-for="(colName, cIdx) in getFilteredUpstreamColumns(idx, col.key)"
                 :key="colName"
                 class="column-option"
+                :class="{ highlighted: cIdx === highlightedIndex }"
+                @mouseenter="highlightedIndex = cIdx"
                 @mousedown.prevent="selectUpstreamColumn(idx, col.key, colName)"
               >
                 {{ colName }}
@@ -147,10 +153,12 @@
 
   const openDropdownKey = ref<string | null>(null)
   const dropdownFilter = ref('')
+  const highlightedIndex = ref(-1)
 
   function openDropdown(idx: number, key: string) {
     openDropdownKey.value = `${idx}-${key}`
     dropdownFilter.value = ''
+    highlightedIndex.value = -1
   }
 
   function closeDropdown() {
@@ -166,6 +174,7 @@
   function filterDropdown(idx: number, key: string, value: string) {
     openDropdownKey.value = `${idx}-${key}`
     dropdownFilter.value = value
+    highlightedIndex.value = -1
   }
 
   function getFilteredUpstreamColumns(_idx: number, _key: string): string[] {
@@ -177,6 +186,28 @@
   function selectUpstreamColumn(idx: number, key: string, colName: string) {
     updateItem(idx, key, colName)
     openDropdownKey.value = null
+  }
+
+  function highlightNext(_idx: number, _key: string) {
+    const cols = getFilteredUpstreamColumns(_idx, _key)
+    if (highlightedIndex.value < cols.length - 1) {
+      highlightedIndex.value++
+    }
+  }
+
+  function highlightPrev(_idx: number, _key: string) {
+    if (highlightedIndex.value > 0) {
+      highlightedIndex.value--
+    }
+  }
+
+  function selectHighlighted(idx: number, key: string) {
+    const cols = getFilteredUpstreamColumns(idx, key)
+    if (highlightedIndex.value >= 0 && highlightedIndex.value < cols.length) {
+      selectUpstreamColumn(idx, key, cols[highlightedIndex.value]!)
+    } else {
+      openDropdownKey.value = null
+    }
   }
 
   function resolveOptions(opt: InspectorSelectOption): Array<{ key: string; label: string }> {
@@ -290,7 +321,8 @@
     text-overflow: ellipsis;
   }
 
-  .column-option:hover {
+  .column-option:hover,
+  .column-option.highlighted {
     background: var(--ui-accent-primary, #0e639c);
   }
 

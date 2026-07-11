@@ -5,7 +5,7 @@
 <template>
   <div class="pattern-toolbox-inspector">
     <!-- 1. 工具箱基本信息区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.patternToolbox.groups.basicInfo')"
       :badge="t('inspector.patternToolbox.badgeReadOnly')"
       badge-class="read-only"
@@ -20,10 +20,10 @@
         :model-value="getTypeText(data.type)"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 2. 模式统计区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.patternToolbox.groups.patternStats')"
       :badge="t('inspector.patternToolbox.badgeReadOnly')"
       badge-class="read-only"
@@ -43,10 +43,10 @@
         :model-value="`${totalPatternCount} ${t('inspector.patternToolbox.units.patterns')}`"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 3. 来源信息区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.patternToolbox.groups.sourceInfo')"
       :badge="t('inspector.patternToolbox.badgeReadOnly')"
       badge-class="read-only"
@@ -57,14 +57,14 @@
         type="path"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
   </div>
 </template>
 
 <script setup lang="ts">
   import { computed } from 'vue'
   import { useI18n } from 'vue-i18n'
-  import BaseInspector from './BaseInspector.vue'
+  import InspectorSection from './InspectorSection.vue'
   import { InspectorField } from '@/components/ui/inspector'
   const { t } = useI18n()
 

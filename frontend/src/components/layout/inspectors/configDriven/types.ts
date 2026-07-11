@@ -99,6 +99,12 @@ export type InspectorJsonField = InspectorFieldBase & {
   source: InspectorValueSource
 }
 
+export type InspectorErrorListField = InspectorFieldBase & {
+  /** 将 string[] / string 渲染为带警告样式的错误列表 */
+  kind: 'errorList'
+  source: InspectorValueSource
+}
+
 export type InspectorJsonEditorField = InspectorFieldBase & {
   kind: 'jsonEditor'
   source: InspectorValueSource
@@ -243,6 +249,7 @@ export type InspectorField =
   | InspectorSelectField
   | InspectorPathField
   | InspectorJsonField
+  | InspectorErrorListField
   | InspectorJsonEditorField
   | InspectorTagsField
   | InspectorReadonlyField

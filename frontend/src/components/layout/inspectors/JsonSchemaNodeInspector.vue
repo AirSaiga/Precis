@@ -20,7 +20,7 @@
 <template>
   <div class="json-schema-inspector">
     <!-- 1. 定义区块（可编辑） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.jsonSchemaNode.groups.definition')"
       :badge="t('inspector.jsonSchemaNode.badgeEditable')"
       badge-class="editable"
@@ -39,10 +39,10 @@
         :placeholder="t('inspector.jsonSchemaNode.placeholders.tableName')"
         @update:model-value="(v) => updateData({ tableName: v })"
       />
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 2. 数据源信息区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.jsonSchemaNode.groups.datasource')"
       :badge="t('inspector.jsonSchemaNode.badgeReadOnly')"
       badge-class="read-only"
@@ -65,10 +65,10 @@
         type="path"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 3. 校验任务区块（可编辑） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.jsonSchemaNode.groups.validationTask')"
       :badge="t('inspector.jsonSchemaNode.badgeEditable')"
       badge-class="editable"
@@ -79,10 +79,10 @@
       <button class="validate-table-btn" @click="openSingleTableValidation">
         {{ t('inspector.jsonSchemaNode.actions.validateTable') }}
       </button>
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 4. JSON 解析参数区块（可编辑，JSON 特有） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.jsonSchemaNode.groups.jsonParams')"
       :badge="t('inspector.jsonSchemaNode.badgeEditable')"
       badge-class="editable"
@@ -117,10 +117,10 @@
         :placeholder="t('inspector.jsonSchemaNode.placeholders.recordPath')"
         @update:model-value="(v) => updateData({ recordPath: v || undefined })"
       />
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 5. 字段定义区块（可编辑，递归渲染嵌套 children） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.jsonSchemaNode.groups.columns')"
       :badge="t('inspector.jsonSchemaNode.badgeEditable')"
       badge-class="editable"
@@ -168,10 +168,10 @@
         </svg>
         {{ t('inspector.jsonSchemaNode.actions.addField') }}
       </button>
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 6. 连接的约束区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.jsonSchemaNode.groups.connectedConstraints')"
       :badge="t('inspector.jsonSchemaNode.badgeReadOnly')"
       badge-class="read-only"
@@ -203,10 +203,10 @@
       <div v-else class="no-constraints">
         {{ t('inspector.jsonSchemaNode.values.noConnectedConstraints') }}
       </div>
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 7. 保存状态区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.jsonSchemaNode.groups.saveState')"
       :badge="t('inspector.jsonSchemaNode.badgeReadOnly')"
       badge-class="read-only"
@@ -224,10 +224,10 @@
         :model-value="formatDateTime(data.lastSaved)"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 8. 时间戳区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.jsonSchemaNode.groups.timestamp')"
       :badge="t('inspector.jsonSchemaNode.badgeReadOnly')"
       badge-class="read-only"
@@ -244,7 +244,7 @@
         :model-value="formatDateTime(data.updatedAt)"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
   </div>
 </template>
 
@@ -263,7 +263,7 @@
   import { storeToRefs } from 'pinia'
   import { useGraphStore } from '@/stores/graphStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
-  import BaseInspector from './BaseInspector.vue'
+  import InspectorSection from './InspectorSection.vue'
   import { InspectorField } from '@/components/ui/inspector'
   import AppIcon from '@/components/icons/AppIcon.vue'
   import type { JsonSchemaNodeData, JsonSchemaColumn, JsonDataType } from '@/types/nodes'

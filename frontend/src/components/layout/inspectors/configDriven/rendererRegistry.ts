@@ -18,6 +18,7 @@ import CodeRenderer from './renderers/CodeRenderer.vue'
 import SelectRenderer from './renderers/SelectRenderer.vue'
 import PathRenderer from './renderers/PathRenderer.vue'
 import JsonRenderer from './renderers/JsonRenderer.vue'
+import ErrorListRenderer from './renderers/ErrorListRenderer.vue'
 import JsonEditorRenderer from './renderers/JsonEditorRenderer.vue'
 import TagsRenderer from './renderers/TagsRenderer.vue'
 import ReadonlyRenderer from './renderers/ReadonlyRenderer.vue'
@@ -45,6 +46,7 @@ export const rendererRegistry: Record<InspectorField['kind'], Component> = {
   select: SelectRenderer,
   path: PathRenderer,
   json: JsonRenderer,
+  errorList: ErrorListRenderer,
   jsonEditor: JsonEditorRenderer,
   tags: TagsRenderer,
   readonly: ReadonlyRenderer,

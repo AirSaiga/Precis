@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "nodeType": "jsonSourcePreview",
+  "sections": [
+    {
+      "id": "basic",
+      "titleKey": "inspector.jsonSourcePreview.groups.basicInfo",
+      "fields": [
+        {
+          "id": "sourceName",
+          "kind": "readonly",
+          "labelKey": "inspector.jsonSourcePreview.labels.sourceName",
+          "source": { "source": "data", "path": ["sourceName"] }
+        },
+        {
+          "id": "fileName",
+          "kind": "readonly",
+          "labelKey": "inspector.jsonSourcePreview.labels.fileName",
+          "source": { "source": "data", "path": ["fileName"] }
+        },
+        {
+          "id": "fileType",
+          "kind": "readonly",
+          "labelKey": "inspector.jsonSourcePreview.labels.fileType",
+          "source": { "source": "data", "path": ["fileType"] }
+        },
+        {
+          "id": "format",
+          "kind": "readonly",
+          "labelKey": "inspector.jsonSourcePreview.labels.format",
+          "source": { "source": "data", "path": ["format"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["format"] } }
+        },
+        {
+          "id": "jsonPath",
+          "kind": "readonly",
+          "labelKey": "inspector.jsonSourcePreview.labels.jsonPath",
+          "source": { "source": "data", "path": ["jsonPath"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["jsonPath"] } }
+        },
+        {
+          "id": "recordPath",
+          "kind": "readonly",
+          "labelKey": "inspector.jsonSourcePreview.labels.recordPath",
+          "source": { "source": "data", "path": ["recordPath"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["recordPath"] } }
+        }
+      ]
+    },
+    {
+      "id": "statistics",
+      "titleKey": "inspector.jsonSourcePreview.groups.statistics",
+      "fields": [
+        {
+          "id": "totalRows",
+          "kind": "number",
+          "labelKey": "inspector.jsonSourcePreview.labels.totalRows",
+          "source": { "source": "data", "path": ["totalRows"] },
+          "readonly": true
+        },
+        {
+          "id": "totalCols",
+          "kind": "number",
+          "labelKey": "inspector.jsonSourcePreview.labels.totalCols",
+          "source": { "source": "data", "path": ["totalCols"] },
+          "readonly": true
+        }
+      ]
+    }
+  ]
+}

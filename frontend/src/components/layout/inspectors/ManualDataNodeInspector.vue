@@ -10,7 +10,7 @@
 <template>
   <div class="manual-data-inspector">
     <!-- 1. 基础配置 -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.manualDataNode.groups.config')"
       :badge="t('inspector.manualDataNode.badgeEditable')"
       badge-class="editable"
@@ -29,10 +29,10 @@
         :placeholder="t('inspector.manualDataNode.placeholders.columnName')"
         @update:model-value="updateColumnName"
       />
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 2. 批量导入 -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.manualDataNode.groups.import')"
       :badge="t('inspector.manualDataNode.badgeEditable')"
       badge-class="editable"
@@ -58,10 +58,10 @@
         </div>
         <span class="field-hint">{{ t('inspector.manualDataNode.hints.pasteFormat') }}</span>
       </div>
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 3. 数据行编辑 -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.manualDataNode.groups.rows')"
       :badge="t('inspector.manualDataNode.badgeEditable')"
       badge-class="editable"
@@ -103,7 +103,7 @@
               :title="t('inspector.manualDataNode.actions.duplicate')"
               @click="duplicateRow(rIdx)"
             >
-              ⧉
+              <AppIcon name="copy" :size="14" />
             </button>
             <button
               class="row-action-btn danger"
@@ -119,10 +119,10 @@
       <div class="rows-info">
         {{ localRows.length }} {{ t('inspector.manualDataNode.rowsInfo') }}
       </div>
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 4. 状态 -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.manualDataNode.groups.status')"
       :badge="t('inspector.manualDataNode.badgeReadOnly')"
       badge-class="read-only"
@@ -132,14 +132,14 @@
         :model-value="(data.saveState as string) || 'draft'"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
   </div>
 </template>
 
 <script setup lang="ts">
   import { ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
-  import BaseInspector from './BaseInspector.vue'
+  import InspectorSection from './InspectorSection.vue'
   import { InspectorField } from '@/components/ui/inspector'
   import AppIcon from '@/components/icons/AppIcon.vue'
   import type { ManualDataNodeData } from '@/types/nodes'

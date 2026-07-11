@@ -287,6 +287,34 @@ const inspector = {
       headerRow: 'Header row starts from 0. Set to 0 to use the first row as header.',
     },
   },
+  jsonSourcePreview: {
+    groups: {
+      basicInfo: 'Data Source Info',
+      statistics: 'Data Statistics',
+    },
+    labels: {
+      sourceName: 'Source Name',
+      fileName: 'File Name',
+      fileType: 'File Type',
+      format: 'JSON Format',
+      jsonPath: 'JSONPath',
+      recordPath: 'record_path',
+      totalRows: 'Total Rows',
+      totalCols: 'Total Columns',
+    },
+  },
+  transformOutput: {
+    groups: {
+      basicInfo: 'Output Column Info',
+      status: 'Status',
+    },
+    labels: {
+      configName: 'Config Name',
+      columnName: 'Output Column',
+      columnDataType: 'Column Data Type',
+      saveState: 'Save State',
+    },
+  },
   regexNode: {
     title: 'Regex Node Properties',
     badgeEditable: 'Editable',

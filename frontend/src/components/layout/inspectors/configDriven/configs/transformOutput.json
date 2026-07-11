@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "nodeType": "transformOutput",
+  "sections": [
+    {
+      "id": "basic",
+      "titleKey": "inspector.transformOutput.groups.basicInfo",
+      "fields": [
+        {
+          "id": "configName",
+          "kind": "readonly",
+          "labelKey": "inspector.transformOutput.labels.configName",
+          "source": { "source": "data", "path": ["configName"] }
+        },
+        {
+          "id": "columnName",
+          "kind": "readonly",
+          "labelKey": "inspector.transformOutput.labels.columnName",
+          "source": { "source": "data", "path": ["columnName"] }
+        },
+        {
+          "id": "columnDataType",
+          "kind": "readonly",
+          "labelKey": "inspector.transformOutput.labels.columnDataType",
+          "source": { "source": "data", "path": ["columnDataType"] },
+          "when": { "op": "exists", "source": { "source": "data", "path": ["columnDataType"] } }
+        }
+      ]
+    },
+    {
+      "id": "status",
+      "titleKey": "inspector.transformOutput.groups.status",
+      "fields": [
+        {
+          "id": "saveState",
+          "kind": "readonly",
+          "labelKey": "inspector.transformOutput.labels.saveState",
+          "source": { "source": "data", "path": ["saveState"] }
+        }
+      ]
+    }
+  ]
+}

@@ -59,57 +59,74 @@
           "computedFromParams": "StringSplit",
           "suggestionsFromUpstream": true,
           "when": {
-            "op": "not",
-            "expr": {
-              "op": "or",
-              "exprs": [
-                {
-                  "op": "equals",
-                  "source": { "source": "data", "path": ["transformType"] },
-                  "value": "RegexExtract"
-                },
-                {
-                  "op": "equals",
-                  "source": { "source": "data", "path": ["transformType"] },
-                  "value": "Digits"
-                },
-                {
-                  "op": "equals",
-                  "source": { "source": "data", "path": ["transformType"] },
-                  "value": "Modulo"
-                },
-                {
-                  "op": "equals",
-                  "source": { "source": "data", "path": ["transformType"] },
-                  "value": "MapValue"
-                },
-                {
-                  "op": "equals",
-                  "source": { "source": "data", "path": ["transformType"] },
-                  "value": "WeightedSum"
-                },
-                {
-                  "op": "equals",
-                  "source": { "source": "data", "path": ["transformType"] },
-                  "value": "FilterRows"
-                },
-                {
-                  "op": "equals",
-                  "source": { "source": "data", "path": ["transformType"] },
-                  "value": "DropDuplicates"
-                },
-                {
-                  "op": "equals",
-                  "source": { "source": "data", "path": ["transformType"] },
-                  "value": "Aggregate"
-                },
-                {
-                  "op": "equals",
-                  "source": { "source": "data", "path": ["transformType"] },
-                  "value": "SortRows"
-                }
-              ]
-            }
+            "op": "or",
+            "exprs": [
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "StringSplit"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "MathExpr"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "DateFormat"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "Lookup"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "Strip"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "UpperCase"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "LowerCase"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "Replace"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "FillNA"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "CastType"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "Concat"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "Substring"
+              },
+              {
+                "op": "equals",
+                "source": { "source": "data", "path": ["transformType"] },
+                "value": "ConditionalAssign"
+              }
+            ]
           }
         }
       ]

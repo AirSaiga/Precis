@@ -17,7 +17,7 @@
   <!-- 整个属性检查器容器 -->
   <div class="schema-inspector">
     <!-- 1. 表格定义区块（可编辑） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.schemaNode.groups.definition')"
       :badge="t('inspector.schemaNode.badgeEditable')"
       badge-class="editable"
@@ -43,10 +43,10 @@
         :placeholder="t('inspector.schemaNode.placeholders.sheetName')"
         @update:model-value="(v) => updateData({ sheetName: v || undefined })"
       />
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 2. 数据源信息区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.schemaNode.groups.datasource')"
       :badge="t('inspector.schemaNode.badgeReadOnly')"
       badge-class="read-only"
@@ -69,9 +69,9 @@
         type="path"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
 
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.schemaNode.groups.validationTask')"
       :badge="t('inspector.schemaNode.badgeEditable')"
       badge-class="editable"
@@ -82,10 +82,10 @@
       <button class="validate-table-btn" @click="openSingleTableValidation">
         {{ t('inspector.schemaNode.actions.validateTable') }}
       </button>
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 3. 列定义区块（可编辑） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.schemaNode.groups.columns')"
       :badge="t('inspector.schemaNode.badgeEditable')"
       badge-class="editable"
@@ -220,10 +220,10 @@
         </svg>
         {{ t('inspector.schemaNode.actions.addColumn') }}
       </button>
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 4. 连接的约束区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.schemaNode.groups.connectedConstraints')"
       :badge="t('inspector.schemaNode.badgeReadOnly')"
       badge-class="read-only"
@@ -259,10 +259,10 @@
       <div v-else class="no-constraints">
         {{ t('inspector.schemaNode.values.noConnectedConstraints') }}
       </div>
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 5. 保存状态区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.schemaNode.groups.saveState')"
       :badge="t('inspector.schemaNode.badgeReadOnly')"
       badge-class="read-only"
@@ -280,10 +280,10 @@
         :model-value="formatDateTime(data.lastSaved)"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 6. 时间信息区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.schemaNode.groups.timestamp')"
       :badge="t('inspector.schemaNode.badgeReadOnly')"
       badge-class="read-only"
@@ -300,7 +300,7 @@
         :model-value="formatDateTime(data.updatedAt)"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
   </div>
 </template>
 
@@ -311,7 +311,7 @@
   import { storeToRefs } from 'pinia'
   import { useGraphStore } from '@/stores/graphStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
-  import BaseInspector from './BaseInspector.vue'
+  import InspectorSection from './InspectorSection.vue'
   import { InspectorField } from '@/components/ui/inspector'
   import AppIcon from '@/components/icons/AppIcon.vue'
   import type { SchemaNodeData, SchemaColumn } from '@/types/nodes'

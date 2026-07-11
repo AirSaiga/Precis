@@ -22,6 +22,7 @@ import {
   Clipboard,
   Clock,
   Combine,
+  Copy,
   CopyX,
   Crop,
   Database,
@@ -184,6 +185,7 @@ export const ICON_REGISTRY: Record<string, Component> = {
   filter: Filter,
   receipt: ReceiptText,
   clipboard: Clipboard,
+  copy: Copy,
   // 禁用/断开：数据源下拉"断开连接"项
   ban: Ban,
 

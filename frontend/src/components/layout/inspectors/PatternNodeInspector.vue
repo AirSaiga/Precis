@@ -5,7 +5,7 @@
 <template>
   <div class="pattern-inspector">
     <!-- 1. 模式配置区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.patternNode.groups.config')"
       :badge="t('inspector.patternNode.badgeReadOnly')"
       badge-class="read-only"
@@ -26,10 +26,10 @@
         :model-value="data.description"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 2. 正则表达式区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.patternNode.groups.regex')"
       :badge="t('inspector.patternNode.badgeReadOnly')"
       badge-class="read-only"
@@ -55,10 +55,10 @@
         "
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 3. 来源信息区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.patternNode.groups.source')"
       :badge="t('inspector.patternNode.badgeReadOnly')"
       badge-class="read-only"
@@ -75,10 +75,10 @@
         type="path"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 4. 校验状态区块（只读） -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.patternNode.groups.status')"
       :badge="t('inspector.patternNode.badgeReadOnly')"
       badge-class="read-only"
@@ -102,13 +102,13 @@
         :model-value="`${data.matchRate}%`"
         :editable="false"
       />
-    </BaseInspector>
+    </InspectorSection>
   </div>
 </template>
 
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
-  import BaseInspector from './BaseInspector.vue'
+  import InspectorSection from './InspectorSection.vue'
   import { InspectorField } from '@/components/ui/inspector'
   import AppIcon from '@/components/icons/AppIcon.vue'
   const { t } = useI18n()

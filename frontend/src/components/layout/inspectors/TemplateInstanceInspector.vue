@@ -1,7 +1,7 @@
 <template>
   <div class="template-instance-inspector">
     <!-- 基础配置 -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.templateInstance.groups.config')"
       :badge="t('inspector.templateInstance.badgeEditable')"
       badge-class="editable"
@@ -13,10 +13,10 @@
         :placeholder="t('inspector.templateInstance.placeholders.configName')"
         @update:model-value="(v) => onConfigNameChange(v)"
       />
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 模板引用 -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.templateInstance.groups.template')"
       :badge="t('inspector.templateInstance.badgeEditable')"
       badge-class="editable"
@@ -43,10 +43,10 @@
         <label class="field-label">{{ t('inspector.templateInstance.labels.enabled') }}</label>
         <input v-model="localData.enabled" type="checkbox" class="toggle" @change="emitUpdate" />
       </div>
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 操作 -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.templateInstance.groups.actions')"
       :badge="t('inspector.templateInstance.badgeEditable')"
       badge-class="editable"
@@ -62,10 +62,10 @@
             : t('inspector.templateInstance.previewExpand')
         }}
       </button>
-    </BaseInspector>
+    </InspectorSection>
 
     <!-- 保存状态 -->
-    <BaseInspector
+    <InspectorSection
       :title="t('inspector.templateInstance.groups.status')"
       :badge="t('inspector.templateInstance.badgeReadOnly')"
       badge-class="read-only"
@@ -79,14 +79,14 @@
           <span class="status-text">{{ getStatusText(localData.saveState) }}</span>
         </div>
       </div>
-    </BaseInspector>
+    </InspectorSection>
   </div>
 </template>
 
 <script setup lang="ts">
   import { reactive, ref, computed, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
-  import BaseInspector from './BaseInspector.vue'
+  import InspectorSection from './InspectorSection.vue'
   import { InspectorField } from '@/components/ui/inspector'
   import AppIcon from '@/components/icons/AppIcon.vue'
   import type { TemplateInstanceNodeData } from '@/types/nodes'

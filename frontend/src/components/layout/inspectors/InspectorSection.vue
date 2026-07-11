@@ -1,9 +1,13 @@
 <!--
-  @file BaseInspector.vue
-  @description 基础属性检查器组件
+  @file InspectorSection.vue
+  @description 属性检查器区块容器组件（自定义组件检查器用）
 
-  这是一个通用的属性面板基础组件，提供统一的布局和样式。
-  其他具体的 Inspector 组件通过继承这个基础组件来获得一致的视觉风格。
+  这是一个通用的属性面板区块组件，提供统一的布局和样式。
+  自定义组件检查器（Schema / ManualData 等）用它组织带标题和徽章的区块。
+
+  与 configDriven/BaseInspector.vue（config-driven 渲染引擎）职责不同：
+  - 本组件：提供 title + badge + slot 的静态区块容器
+  - configDriven/BaseInspector.vue：遍历 JSON config 的 sections/fields 并按 kind 渲染
 
   功能概述：
   - 提供带标题和徽章的区块布局
@@ -48,4 +52,4 @@
   defineProps<Props>()
 </script>
 
-<style scoped src="./BaseInspector.styles.css"></style>
+<style scoped src="./InspectorSection.styles.css"></style>
