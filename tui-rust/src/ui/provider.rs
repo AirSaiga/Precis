@@ -6,12 +6,17 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Row, Table, TableState};
 use ratatui::Frame;
 
-use crate::app::{colors, App};
+use crate::app::{colors, layout, App};
+use crate::icons;
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(2), Constraint::Min(1), Constraint::Length(3)])
+        .constraints([
+            Constraint::Length(layout::PROVIDER_HINT),
+            Constraint::Min(1),
+            Constraint::Length(layout::PROVIDER_FOOTER),
+        ])
         .split(area);
 
     // 提示
@@ -38,22 +43,24 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
 
     let rows: Vec<Row> = app.providers.iter().enumerate().map(|(i, p)| {
         let is_active = p.id == active_id;
+        let is_selected = i == app.provider_cursor;
         let name_style = if is_active {
             Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(colors::FG)
         };
         let marker = if is_active { "●" } else { "" };
+        let prefix = if is_selected { "▸" } else { " " };
 
         Row::new(vec![
-            marker.to_string(),
-            truncate(&p.name, 14),
+            format!("{}{}", prefix, marker),
+            icons::truncate(&p.name, 14),
             p.provider_type.clone(),
-            truncate(&p.model, 20),
-            truncate(&p.base_url, 30),
+            icons::truncate(&p.model, 20),
+            icons::truncate(&p.base_url, 30),
         ])
-        .style(if is_active {
-            Style::default().fg(colors::MUTED)
+        .style(if is_selected {
+            Style::default().fg(colors::PINK).bg(colors::PANEL)
         } else {
             Style::default().fg(colors::MUTED)
         })
@@ -76,21 +83,12 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     if let Some(ref result) = app.provider_test_result {
         let (icon, msg, color) = match result {
             crate::app::TestResult::Ok(_) => ("✓".to_string(), "连接正常".to_string(), colors::GREEN),
-            crate::app::TestResult::Fail(err) => ("✗".to_string(), truncate(err, 50), colors::RED),
+            crate::app::TestResult::Fail(err) => ("✗".to_string(), icons::truncate(err, 50), colors::RED),
         };
         frame.render_widget(
             Paragraph::new(format!("  {} {}", icon, msg))
                 .style(Style::default().fg(color).bg(colors::SURFACE)),
             chunks[2],
         );
-    }
-}
-
-fn truncate(s: &str, max: usize) -> String {
-    if s.chars().count() <= max {
-        s.to_string()
-    } else {
-        let t: String = s.chars().take(max.saturating_sub(1)).collect();
-        format!("{}…", t)
     }
 }

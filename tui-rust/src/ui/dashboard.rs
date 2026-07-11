@@ -6,13 +6,16 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::{List, ListItem, ListState, Paragraph};
 use ratatui::Frame;
 
-use crate::app::{colors, App};
+use crate::app::{colors, layout, App};
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     // 动态分割：状态区(固定) + 项目列表(填充)
     let chunks = Layout::default()
         .direction(ratatui::layout::Direction::Vertical)
-        .constraints([Constraint::Length(8), Constraint::Min(1)])
+        .constraints([
+            Constraint::Length(layout::DASHBOARD_HEADER),
+            Constraint::Min(1),
+        ])
         .split(area);
 
     let mut lines: Vec<Line> = Vec::new();
@@ -57,17 +60,21 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     let items: Vec<ListItem> = app
         .projects
         .iter()
-        .map(|p| {
+        .enumerate()
+        .map(|(idx, p)| {
             let is_current = p.path == current_path;
+            let is_selected = idx == app.selected_project;
             let marker_color = if is_current { colors::GREEN } else { colors::DIM };
             let name_style = if is_current {
                 Style::default().fg(colors::FG).add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(colors::FG)
             };
+            let prefix = if is_selected { "▸" } else { " " };
+            let prefix_color = if is_selected { colors::PINK } else { colors::DIM };
             ListItem::new(vec![
                 Line::from(vec![
-                    Span::styled(format!("  {} ", if is_current { "●" } else { " " }), Style::default().fg(marker_color)),
+                    Span::styled(format!(" {}{} ", prefix, if is_current { "●" } else { " " }), Style::default().fg(if is_selected { colors::PINK } else { marker_color })),
                     Span::styled(&p.name, name_style),
                     Span::styled(
                         format!("   {} schema · {} 约束", p.schema_count.unwrap_or(0), p.constraint_count.unwrap_or(0)),

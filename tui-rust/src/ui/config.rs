@@ -6,12 +6,16 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
-use crate::app::{colors, App};
+use crate::app::{colors, layout, App};
+use crate::icons;
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(2), Constraint::Min(1)])
+        .constraints([
+            Constraint::Length(layout::CONFIG_HINT),
+            Constraint::Min(1),
+        ])
         .split(area);
 
     // 提示
@@ -85,9 +89,27 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
                     lines.push(Line::from(""));
                     lines.push(Line::from(Span::styled("  覆盖率", Style::default().fg(colors::DIM))));
                     for (key, val) in obj.iter().take(5) {
+                        // 尝试提取数值百分比
+                        let pct = val.as_f64().or_else(|| {
+                            val.as_str().and_then(|s| s.trim_end_matches('%').parse::<f64>().ok())
+                        });
+                        let (bar_color, pct_text) = if let Some(p) = pct {
+                            let color = if p >= 60.0 {
+                                colors::GREEN
+                            } else if p >= 40.0 {
+                                colors::CYAN
+                            } else {
+                                colors::YELLOW
+                            };
+                            (color, format!("{:.0}%", p))
+                        } else {
+                            (colors::MUTED, val.to_string())
+                        };
+                        let ratio = pct.map(|p| (p / 100.0).clamp(0.0, 1.0)).unwrap_or(0.0);
                         lines.push(Line::from(vec![
-                            Span::styled(format!("    {} ", key), Style::default().fg(colors::MUTED)),
-                            Span::styled(val.to_string(), Style::default().fg(colors::FG)),
+                            Span::styled(format!("    {:<10} ", key), Style::default().fg(colors::MUTED)),
+                            Span::styled(icons::progress_bar(ratio), Style::default().fg(bar_color)),
+                            Span::styled(format!(" {}", pct_text), Style::default().fg(bar_color)),
                         ]));
                     }
                 }
