@@ -177,16 +177,18 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
         BgMessage::ValidationDone(result) => {
             match result {
                 Ok(resp) => {
-                    // 后端执行失败（success=false）— 不能当成功处理
-                    if !resp.success {
-                        let err_msg = resp.error.unwrap_or_else(|| "校验执行失败（后端未提供错误详情）".to_string());
-                        app.message = "校验执行失败".to_string();
-                        app.validation = ValidationState::Failed(err_msg);
-                    } else {
-                        let err_count = resp.summary.total_error_count;
-                        app.message = format!("完成: {} 个错误, {}ms", err_count, resp.summary.duration_ms);
-                        app.validation = ValidationState::Done(Box::new(resp));
+                    // error 字段有值 = 执行器初始化失败或运行异常（真正的崩溃）
+                    if let Some(err_msg) = &resp.error {
+                        if !err_msg.is_empty() {
+                            app.message = "校验执行异常".to_string();
+                            app.validation = ValidationState::Failed(err_msg.clone());
+                            return;
+                        }
                     }
+                    // 正常校验结果（success=false 只代表"有校验错误"，不是执行失败）
+                    let err_count = resp.summary.total_error_count;
+                    app.message = format!("完成: {} 个错误, {}ms", err_count, resp.summary.duration_ms);
+                    app.validation = ValidationState::Done(Box::new(resp));
                 }
                 Err(e) => {
                     app.message = "校验失败".to_string();
