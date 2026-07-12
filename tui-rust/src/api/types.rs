@@ -95,14 +95,24 @@ pub struct ValidationErrorItem {
     pub error_type: String,
     #[serde(default)]
     pub message: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_to_default")]
     pub table: String,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_to_default")]
     pub column: String,
     #[serde(rename = "row_index", default)]
     pub row_index: Option<i64>,
-    #[serde(default)]
+    #[serde(default, deserialize_with = "deserialize_null_to_default")]
     pub source_path: String,
+}
+
+/// 把 JSON null 反序列化为 String 默认值（空字符串）
+fn deserialize_null_to_default<'de, D, T>(deserializer: D) -> Result<T, D::Error>
+where
+    D: serde::Deserializer<'de>,
+    T: Default + serde::Deserialize<'de>,
+{
+    let opt: Option<T> = Option::deserialize(deserializer)?;
+    Ok(opt.unwrap_or_default())
 }
 
 /// 校验统计信息（对齐后端 ValidationStatistics 模型）
