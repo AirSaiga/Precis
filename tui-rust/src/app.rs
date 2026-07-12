@@ -1,22 +1,128 @@
-//! 应用状态管理 + 全局配色常量（Linear 风格极简高级感）
+//! 应用状态管理 + 全局配色系统（双主题：樱花粉 / 飘雪冰蓝）
 
 use crate::api::types::{FullValidationResponse, ProjectInfo};
 
-/// 配色 — 深色沉浸底 + 灰度分层 + 单色强调（Linear 风格）
+/// 配色 — 双主题系统，通过 thread_local 持有当前调色板
 pub mod colors {
     use ratatui::style::Color;
-    pub const BG: Color = Color::Rgb(14, 14, 22);       // #0e0e16 最深背景（沉浸感）
-    pub const SURFACE: Color = Color::Rgb(22, 22, 30);  // #16161e 面板/卡片
-    pub const PANEL: Color = Color::Rgb(26, 27, 38);    // #1a1b26 hover/选中
-    pub const BOOST: Color = Color::Rgb(36, 40, 59);    // #24283b 高亮交互
-    pub const FG: Color = Color::Rgb(192, 202, 245);    // #c0caf5 正文
-    pub const MUTED: Color = Color::Rgb(122, 133, 176); // #7a85b0 次要（提亮，可读）
-    pub const DIM: Color = Color::Rgb(76, 86, 106);     // #4c566a 最暗文字（提亮，不再隐形）
-    pub const PRIMARY: Color = Color::Rgb(122, 162, 247); // #7aa2f7 蓝（唯一强调）
-    pub const GREEN: Color = Color::Rgb(158, 206, 106); // #9ece6a
-    pub const YELLOW: Color = Color::Rgb(224, 175, 104); // #e0af68
-    pub const RED: Color = Color::Rgb(247, 118, 142);   // #f7768e
-    pub const CYAN: Color = Color::Rgb(125, 207, 255);  // #7dcfff 流星色
+    use std::cell::Cell;
+
+    /// 调色板结构体 — 持有一套主题的全部色值
+    pub struct Palette {
+        pub bg: Color,
+        pub surface: Color,
+        pub panel: Color,
+        pub boost: Color,
+        pub fg: Color,
+        pub muted: Color,
+        pub dim: Color,
+        pub primary: Color,   // 樱花粉 / 冰蓝
+        pub secondary: Color, // 柔青 / 月白
+        pub green: Color,
+        pub yellow: Color,
+        pub red: Color,
+        pub purple: Color,
+        pub name: &'static str,
+    }
+
+    /// 樱花粉主题
+    const SAKURA: Palette = Palette {
+        bg: Color::Rgb(15, 8, 24),
+        surface: Color::Rgb(25, 16, 38),
+        panel: Color::Rgb(35, 24, 52),
+        boost: Color::Rgb(48, 34, 68),
+        fg: Color::Rgb(224, 200, 232),
+        muted: Color::Rgb(154, 138, 174),
+        dim: Color::Rgb(91, 74, 110),
+        primary: Color::Rgb(255, 176, 208),
+        secondary: Color::Rgb(125, 211, 252),
+        green: Color::Rgb(134, 239, 172),
+        yellow: Color::Rgb(252, 211, 77),
+        red: Color::Rgb(253, 164, 175),
+        purple: Color::Rgb(192, 132, 252),
+        name: "樱花粉",
+    };
+
+    /// 飘雪冰蓝主题
+    const SNOW: Palette = Palette {
+        bg: Color::Rgb(10, 14, 26),
+        surface: Color::Rgb(15, 22, 38),
+        panel: Color::Rgb(22, 32, 58),
+        boost: Color::Rgb(30, 42, 64),
+        fg: Color::Rgb(200, 214, 240),
+        muted: Color::Rgb(122, 138, 170),
+        dim: Color::Rgb(74, 90, 120),
+        primary: Color::Rgb(137, 180, 250),
+        secondary: Color::Rgb(212, 228, 247),
+        green: Color::Rgb(163, 230, 53),
+        yellow: Color::Rgb(249, 215, 28),
+        red: Color::Rgb(236, 110, 110),
+        purple: Color::Rgb(179, 157, 219),
+        name: "飘雪",
+    };
+
+    const PALETTES: &[Palette] = &[SAKURA, SNOW];
+
+    thread_local! {
+        static CURRENT: Cell<usize> = Cell::new(0);
+    }
+
+    /// 设置当前主题索引（0=樱花, 1=飘雪）
+    pub fn set_theme(idx: usize) {
+        CURRENT.with(|c| c.set(idx.min(PALETTES.len() - 1)));
+    }
+
+    /// 获取当前主题索引
+    pub fn theme() -> usize {
+        CURRENT.with(|c| c.get())
+    }
+
+    /// 获取当前主题名称
+    pub fn theme_name() -> &'static str {
+        PALETTES[theme()].name
+    }
+
+    // — 颜色访问函数（替代原 const，调用点 colors::PINK → colors::pink()）—
+
+    pub fn bg() -> Color { PALETTES[theme()].bg }
+    pub fn surface() -> Color { PALETTES[theme()].surface }
+    pub fn panel() -> Color { PALETTES[theme()].panel }
+    pub fn boost() -> Color { PALETTES[theme()].boost }
+    pub fn fg() -> Color { PALETTES[theme()].fg }
+    pub fn muted() -> Color { PALETTES[theme()].muted }
+    pub fn dim() -> Color { PALETTES[theme()].dim }
+    pub fn pink() -> Color { PALETTES[theme()].primary }
+    pub fn cyan() -> Color { PALETTES[theme()].secondary }
+    pub fn green() -> Color { PALETTES[theme()].green }
+    pub fn yellow() -> Color { PALETTES[theme()].yellow }
+    pub fn red() -> Color { PALETTES[theme()].red }
+    pub fn purple() -> Color { PALETTES[theme()].purple }
+
+    /// 颜色混合（t=0 返回 a，t=1 返回 b）— 集中定义，消除 ui/ 重复
+    pub fn blend(a: Color, b: Color, t: f64) -> Color {
+        let t = t.clamp(0.0, 1.0);
+        match (a, b) {
+            (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) => Color::Rgb(
+                (r1 as f64 + (r2 as f64 - r1 as f64) * t) as u8,
+                (g1 as f64 + (g2 as f64 - g1 as f64) * t) as u8,
+                (b1 as f64 + (b2 as f64 - b1 as f64) * t) as u8,
+            ),
+            (_, c) => c,
+        }
+    }
+
+    /// 按亮度缩放颜色（用于粒子亮度变化）
+    pub fn scale(base: Color, brightness: f64) -> Color {
+        let b = brightness.clamp(0.0, 1.0);
+        match base {
+            Color::Rgb(r, g, bl) => Color::Rgb(
+                (r as f64 * b) as u8,
+                (g as f64 * b) as u8,
+                (bl as f64 * b) as u8,
+            ),
+            other => other,
+        }
+    }
 }
 
 /// 功能页面
@@ -70,6 +176,25 @@ pub struct ChatMsg {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Phase { Splash, Running }
 
+/// 主题枚举
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Theme { Sakura, Snow }
+
+impl Theme {
+    pub fn idx(&self) -> usize {
+        match self { Theme::Sakura => 0, Theme::Snow => 1 }
+    }
+    pub fn name(&self) -> &'static str {
+        match self { Theme::Sakura => "樱花粉", Theme::Snow => "飘雪" }
+    }
+    pub fn toggle(&self) -> Self {
+        match self { Theme::Sakura => Theme::Snow, Theme::Snow => Theme::Sakura }
+    }
+    pub fn from_idx(idx: usize) -> Self {
+        match idx { 1 => Theme::Snow, _ => Theme::Sakura }
+    }
+}
+
 pub struct App {
     pub api: crate::api::ApiClient,
     pub current_tab: Tab,
@@ -81,6 +206,7 @@ pub struct App {
     pub should_quit: bool,
     pub frame_count: u64,
     pub fx_enabled: bool,
+    pub theme: Theme,
     pub fx: crate::fx::Fx,
     pub error_cursor: usize,
     pub opening_project: bool,
@@ -114,6 +240,7 @@ impl App {
             should_quit: false,
             frame_count: 0,
             fx_enabled: true,
+            theme: Theme::Sakura,
             fx: crate::fx::Fx::new(),
             error_cursor: 0,
             opening_project: false,
@@ -133,4 +260,26 @@ impl App {
     pub fn quit(&mut self) { self.should_quit = true; }
     pub fn switch_tab(&mut self, tab: Tab) { self.current_tab = tab; }
     pub fn tick(&mut self) { self.frame_count = self.frame_count.wrapping_add(1); }
+}
+
+/// 布局尺寸常量 — 集中管理，避免魔法数字散落各 ui/ 文件
+pub mod layout {
+    // 全局框架
+    pub const HEADER_HEIGHT: u16 = 1;
+    pub const FOOTER_HEIGHT: u16 = 1;
+    pub const SIDEBAR_WIDTH: u16 = 18;
+    pub const SIDEBAR_GAP: u16 = 1;
+    pub const MIN_WIDTH_NO_BORDER: u16 = 60;
+
+    // 各界面内部
+    pub const DASHBOARD_HEADER: u16 = 8;
+    pub const VALIDATION_HINT: u16 = 2;
+    pub const VALIDATION_SUMMARY: u16 = 6;
+    pub const PROVIDER_HINT: u16 = 2;
+    pub const PROVIDER_FOOTER: u16 = 3;
+    pub const CONFIG_HINT: u16 = 2;
+    pub const CHAT_INPUT: u16 = 3;
+
+    // 进度条
+    pub const PROGRESS_BAR_TOTAL: usize = 10;
 }

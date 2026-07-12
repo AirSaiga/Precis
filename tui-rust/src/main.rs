@@ -7,6 +7,7 @@ mod api;
 mod app;
 mod fx;
 mod icons;
+mod theme;
 mod ui;
 
 use std::io;
@@ -61,6 +62,11 @@ async fn main() -> Result<()> {
 
     let url = backend_url();
     let mut app = App::new(&url);
+
+    // 加载持久化主题并应用到 thread_local
+    let saved_theme = theme::load_theme();
+    app.theme = saved_theme;
+    app::colors::set_theme(saved_theme.idx());
 
     match try_init(&mut app).await {
         Ok(()) => {}
@@ -281,6 +287,13 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
             KeyCode::F(2) => {
                 app.fx_enabled = !app.fx_enabled;
                 app.message = if app.fx_enabled { "动效已开启" } else { "动效已关闭" }.to_string();
+                return;
+            }
+            KeyCode::F(3) => {
+                app.theme = app.theme.toggle();
+                app::colors::set_theme(app.theme.idx());
+                app.message = format!("主题: {}", app.theme.name());
+                theme::save_theme(app.theme);
                 return;
             }
             KeyCode::Char(c) if ('1'..='5').contains(&c) => {

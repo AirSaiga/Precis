@@ -9,12 +9,12 @@ pub mod splash;
 pub mod validation;
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Modifier, Style, Stylize};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Paragraph};
+use ratatui::widgets::{Block, BorderType, Borders, Paragraph};
 use ratatui::Frame;
 
-use crate::app::{colors, App, Phase};
+use crate::app::{colors, layout, App, Phase};
 
 pub fn render(frame: &mut Frame, app: &mut App) {
     let area = frame.area();
@@ -31,37 +31,70 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     }
 
     // 主界面背景
-    frame.render_widget(Block::default().style(Style::default().bg(colors::BG)), area);
+    frame.render_widget(Block::default().style(Style::default().bg(colors::bg())), area);
 
-    // 布局：标题栏(1) + 主体(min) + 状态栏(1)
+    // 布局：标题栏 + 主体 + 状态栏
     let main = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([Constraint::Length(1), Constraint::Min(1), Constraint::Length(1)])
+        .constraints([
+            Constraint::Length(layout::HEADER_HEIGHT),
+            Constraint::Min(1),
+            Constraint::Length(layout::FOOTER_HEIGHT),
+        ])
         .split(area);
 
     render_header(frame, app, main[0]);
 
-    // 主体：侧边栏(18) + 分隔(1) + 内容区
+    // 主体：侧边栏 + 间距 + 内容区
     let body = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Length(18), Constraint::Length(1), Constraint::Min(1)])
+        .constraints([
+            Constraint::Length(layout::SIDEBAR_WIDTH),
+            Constraint::Length(layout::SIDEBAR_GAP),
+            Constraint::Min(1),
+        ])
         .split(main[1]);
 
-    sidebar::render(frame, app, body[0]);
+    // 窄终端退化为无边框
+    let use_border = area.width >= layout::MIN_WIDTH_NO_BORDER;
 
-    // 极淡分隔带（1 列 SURFACE 色，代替边框线）
-    frame.render_widget(
-        Block::default().style(Style::default().bg(colors::SURFACE)),
-        body[1],
-    );
+    let sidebar_block = if use_border {
+        Block::default()
+            .borders(Borders::all())
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(colors::dim()))
+            .style(Style::default().bg(colors::bg()))
+    } else {
+        Block::default().style(Style::default().bg(colors::bg()))
+    };
 
-    // 内容区按 tab 渲染
+    let content_block = if use_border {
+        Block::default()
+            .borders(Borders::all())
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(colors::dim()))
+            .style(Style::default().bg(colors::bg()))
+    } else {
+        Block::default().style(Style::default().bg(colors::bg()))
+    };
+
+    // sidebar 渲染到框内部
+    let sidebar_inner = sidebar_block.inner(body[0]);
+    frame.render_widget(sidebar_block, body[0]);
+    sidebar::render(frame, app, sidebar_inner);
+
+    // 间距列（BG 透出）
+    frame.render_widget(Block::default().style(Style::default().bg(colors::bg())), body[1]);
+
+    // 内容区渲染到框内部
+    let content_inner = content_block.inner(body[2]);
+    frame.render_widget(content_block, body[2]);
     match app.current_tab {
-        crate::app::Tab::Dashboard => dashboard::render(frame, app, body[2]),
-        crate::app::Tab::Validation => validation::render(frame, app, body[2]),
-        crate::app::Tab::Provider => provider::render(frame, app, body[2]),
-        crate::app::Tab::Config => config::render(frame, app, body[2]),
-        crate::app::Tab::Chat => chat::render(frame, app, body[2]),
+        crate::app::Tab::Dashboard => dashboard::render(frame, app, content_inner),
+        crate::app::Tab::Validation => validation::render(frame, app, content_inner),
+        crate::app::Tab::Provider => provider::render(frame, app, content_inner),
+        crate::app::Tab::Config => config::render(frame, app, content_inner),
+        crate::app::Tab::Chat => chat::render(frame, app, content_inner),
     }
 
     render_footer(frame, app, main[2]);
@@ -74,49 +107,37 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     }
 }
 
-/// 标题栏：项目名带间歇流光呼吸 + 当前页（无边框，SURFACE 底色）
+/// 标题栏：◤◢ logo + 项目名呼吸流光 + 当前页
 fn render_header(frame: &mut Frame, app: &App, area: Rect) {
     let project = app.project_name.as_deref().unwrap_or("Precis");
 
-    // 流光：用 sin 在 FG 和 PRIMARY 之间柔和呼吸（周期约 4 秒）
+    // 流光：用 sin 在 FG 和 PINK 之间柔和呼吸（周期约 4 秒）
     let phase = (app.frame_count as f64 * 0.04).sin() * 0.5 + 0.5; // 0..1
-    let glow_color = blend(colors::FG, colors::PRIMARY, phase * 0.6); // 不全亮，60% 强度
+    let glow_color = colors::blend(colors::fg(), colors::pink(), phase * 0.6);
 
     let header = Paragraph::new(Line::from(vec![
+        Span::raw(" "),
+        Span::styled("◤◢", Style::default().fg(colors::pink()).add_modifier(Modifier::BOLD)),
         Span::raw(" "),
         Span::styled(project, Style::default().fg(glow_color).add_modifier(Modifier::BOLD)),
         Span::styled(
             format!("  /  {}", app.current_tab.label()),
-            Style::default().fg(colors::MUTED),
+            Style::default().fg(colors::muted()),
         ),
     ]))
-    .style(Style::default().bg(colors::SURFACE));
+    .style(Style::default().bg(colors::surface()));
     frame.render_widget(header, area);
-}
-
-/// 颜色混合
-fn blend(a: ratatui::style::Color, b: ratatui::style::Color, t: f64) -> ratatui::style::Color {
-    use ratatui::style::Color;
-    let t = t.clamp(0.0, 1.0);
-    match (a, b) {
-        (Color::Rgb(r1, g1, b1), Color::Rgb(r2, g2, b2)) => Color::Rgb(
-            (r1 as f64 + (r2 as f64 - r1 as f64) * t) as u8,
-            (g1 as f64 + (g2 as f64 - g1 as f64) * t) as u8,
-            (b1 as f64 + (b2 as f64 - b1 as f64) * t) as u8,
-        ),
-        (_, c) => c,
-    }
 }
 
 /// 状态栏：极简（SURFACE 底色）
 fn render_footer(frame: &mut Frame, app: &App, area: Rect) {
-    let dot = if app.project_name.is_some() { colors::GREEN } else { colors::DIM };
+    let dot = if app.project_name.is_some() { colors::green() } else { colors::dim() };
     let footer = Paragraph::new(Line::from(vec![
         Span::raw(" "),
         Span::styled("·", Style::default().fg(dot)),
         Span::raw(" "),
-        Span::styled(&app.message, Style::default().fg(colors::MUTED)),
+        Span::styled(&app.message, Style::default().fg(colors::muted())),
     ]))
-    .style(Style::default().bg(colors::SURFACE));
+    .style(Style::default().bg(colors::surface()));
     frame.render_widget(footer, area);
 }
