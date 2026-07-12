@@ -32,9 +32,9 @@ cd /d "%PROJECT_ROOT%\tui-rust"
 echo [BUILD] Compiling (debug)...
 
 :: Build: stderr (warnings) goes to log file, only check exit code
-"%CARGO%" build 2>tui-rust\build-warnings.log
+"%CARGO%" build 2>build-warnings.log
 if errorlevel 1 (
-    echo [ERROR] Build failed. See tui-rust\build-warnings.log
+    echo [ERROR] Build failed. See build-warnings.log
     pause
     exit /b 1
 )
