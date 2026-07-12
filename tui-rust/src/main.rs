@@ -177,9 +177,16 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
         BgMessage::ValidationDone(result) => {
             match result {
                 Ok(resp) => {
-                    let err_count = resp.summary.total_error_count;
-                    app.message = format!("完成: {} 个错误, {}ms", err_count, resp.summary.duration_ms);
-                    app.validation = ValidationState::Done(Box::new(resp));
+                    // 后端执行失败（success=false）— 不能当成功处理
+                    if !resp.success {
+                        let err_msg = resp.error.unwrap_or_else(|| "校验执行失败（后端未提供错误详情）".to_string());
+                        app.message = "校验执行失败".to_string();
+                        app.validation = ValidationState::Failed(err_msg);
+                    } else {
+                        let err_count = resp.summary.total_error_count;
+                        app.message = format!("完成: {} 个错误, {}ms", err_count, resp.summary.duration_ms);
+                        app.validation = ValidationState::Done(Box::new(resp));
+                    }
                 }
                 Err(e) => {
                     app.message = "校验失败".to_string();

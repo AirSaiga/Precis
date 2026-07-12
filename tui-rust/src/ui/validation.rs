@@ -51,15 +51,22 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
             Line::from(Span::styled("  · · ·", Style::default().fg(colors::muted()))),
         ],
         ValidationState::Failed(err) => {
-            let msg = icons::truncate(err, 60);
-            vec![
+            let mut v = vec![
                 Line::from(""),
                 Line::from(vec![
                     Span::styled("  ✗ ", Style::default().fg(colors::red())),
                     Span::styled("校验失败", Style::default().fg(colors::red()).add_modifier(Modifier::BOLD)),
                 ]),
-                Line::from(Span::styled(format!("  {}", msg), Style::default().fg(colors::muted()))),
-            ]
+            ];
+            // 按换行符分割错误信息，每行最多 80 字符，最多显示 5 行
+            for line in err.lines().take(5) {
+                let truncated = icons::truncate(line.trim(), 80);
+                v.push(Line::from(Span::styled(
+                    format!("  {}", truncated),
+                    Style::default().fg(colors::muted()),
+                )));
+            }
+            v
         }
         ValidationState::Done(resp) => {
             let s = &resp.summary;

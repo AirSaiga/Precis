@@ -67,12 +67,18 @@ pub struct ValidationOptions {
 /// 全量校验响应
 #[derive(Debug, Clone, Deserialize)]
 pub struct FullValidationResponse {
+    /// 后端执行是否成功（false = 执行器初始化失败或运行异常）
+    #[serde(default)]
+    pub success: bool,
     pub summary: ValidationSummary,
     #[serde(default)]
     pub errors: Vec<ValidationErrorItem>,
     /// 详细统计信息（含 pass_rate 等真实通过率数据）
     #[serde(default)]
     pub statistics: Option<ValidationStatistics>,
+    /// 后端执行失败时的错误信息（success=false 时）
+    #[serde(default)]
+    pub error: Option<String>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
