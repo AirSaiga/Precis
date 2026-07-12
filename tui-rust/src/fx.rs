@@ -1,7 +1,8 @@
-//! 动效系统：双主题粒子（樱花星云 / 飘雪）（immediate-mode，每帧直接更新+渲染）
+//! 动效系统：双主题粒子（樱花星云 / 飘雪）
 //!
-//! 樱花主题：粒子斜向缓慢流动，三色随机（粉/青/紫），流星长拖尾。
-//! 飘雪主题：雪花垂直下落 + 轻微左右摇摆，两色（冰蓝/月白），大雪片短拖尾。
+//! 樱花主题：粒子斜向缓慢流动，三色（粉/青/紫），流星长拖尾。
+//! 飘雪主题：雪花垂直下落 + 轻微摇摆，两色（冰蓝/月白），大雪片短拖尾。
+//! 所有字符均为单宽，避免双宽字符破坏终端对齐。
 
 use std::time::Instant;
 
@@ -11,7 +12,7 @@ use ratatui::style::{Modifier, Style};
 
 use crate::app::colors;
 
-/// 粒子颜色种类（对应 primary/secondary/purple 三色）
+/// 粒子颜色种类
 #[derive(Clone, Copy)]
 enum ParticleColor {
     Primary,
@@ -29,7 +30,7 @@ struct Particle {
     brightness: f64,
     twinkle_phase: f64,
     twinkle_speed: f64,
-    /// 摇摆相位（飘雪模式下左右摇摆用）
+    /// 摇摆：用 vx 偏移模拟（update 中实时算）
     sway_phase: f64,
     sway_speed: f64,
     sway_amplitude: f64,
@@ -82,57 +83,57 @@ impl Fx {
             return;
         }
 
-        // 粒子密度：樱花 1/180，飘雪 1/220（稍稀），上限 80
-        let divisor = if colors::theme() == 1 { 220.0 } else { 180.0 };
+        let is_snow = colors::theme() == 1;
+
+        // 粒子密度：樱花 1/180，飘雪 1/300（更稀疏、安静）
+        let divisor = if is_snow { 300.0 } else { 180.0 };
         let target = ((w * h) / divisor) as usize;
-        let target = target.min(80);
+        let target = target.min(if is_snow { 50 } else { 80 });
         while self.particles.len() < target {
             self.particles.push(spawn_particle(w, h, true));
         }
 
         for p in &mut self.particles {
-            p.x += p.vx * dt;
-            p.y += p.vy * dt;
             p.twinkle_phase += p.twinkle_speed * dt;
             p.sway_phase += p.sway_speed * dt;
-            // 飘雪模式：x 叠加摇摆偏移
-            if colors::theme() == 1 {
-                // 摇摆已在 vx 中体现，无需额外处理
-            }
-            // 飘出边界后重生
-            if colors::theme() == 1 {
-                // 飘雪：飘出底部后从顶部重生
-                if p.y > h + 2.0 {
+
+            if is_snow {
+                // 飘雪：垂直下落 + 摇摆叠加到 x（连续运动，不在 render 时跳）
+                p.y += p.vy * dt;
+                p.x += p.sway_phase.sin() * p.sway_amplitude * dt;
+                // 飘出底部或侧边后从顶部重生
+                if p.y > h + 2.0 || p.x < -2.0 || p.x > w + 2.0 {
                     *p = spawn_particle(w, h, false);
                 }
             } else {
-                // 樱花：飘出左侧/底部后重生
+                // 樱花：斜向流动
+                p.x += p.vx * dt;
+                p.y += p.vy * dt;
                 if p.x < -2.0 || p.y > h + 2.0 {
                     *p = spawn_particle(w, h, false);
                 }
             }
         }
 
-        // 流星 / 大雪片自动触发
+        // 流星 / 大雪片触发
         self.meteor_timer += dt;
         if self.meteor_timer >= self.next_meteor {
             self.meteor_timer = 0.0;
-            if colors::theme() == 1 {
-                // 飘雪：更频繁的大雪片
-                self.next_meteor = 5.0 + rand_val() * 5.0;
+            if is_snow {
+                self.next_meteor = 6.0 + rand_val() * 6.0;
             } else {
                 self.next_meteor = 8.0 + rand_val() * 7.0;
             }
             self.spawn_meteor(w, h);
         }
 
-        // 更新流星
+        // 更新流星 / 大雪片
         for m in &mut self.meteors {
             m.x += m.vx * dt;
             m.y += m.vy * dt;
             m.age += dt;
             m.trail.insert(0, (m.x as i32, m.y as i32));
-            let max_trail = if colors::theme() == 1 { 6 } else { 12 };
+            let max_trail = if is_snow { 5 } else { 12 };
             if m.trail.len() > max_trail {
                 m.trail.pop();
             }
@@ -146,12 +147,12 @@ impl Fx {
     fn spawn_meteor(&mut self, w: f64, _h: f64) {
         if colors::theme() == 1 {
             // 飘雪：大雪片垂直下落 + 短拖尾
-            let speed = 8.0 + rand_val() * 5.0;
+            let speed = 6.0 + rand_val() * 4.0;
             let start_x = rand_val() * w;
             self.meteors.push(MeteorState {
                 x: start_x,
                 y: -1.0,
-                vx: 0.0,
+                vx: (rand_val() - 0.5) * 2.0, // 轻微水平偏移
                 vy: speed,
                 trail: Vec::new(),
                 age: 0.0,
@@ -185,15 +186,11 @@ impl Fx {
 
     /// 渲染到 Buffer（内容之后画，只覆盖空白 cell）
     pub fn render(&self, buf: &mut Buffer, area: Rect) {
+        let is_snow = colors::theme() == 1;
+
         // 粒子
         for p in &self.particles {
-            // 飘雪模式：x 叠加摇摆
-            let render_x = if colors::theme() == 1 {
-                p.x + p.sway_phase.sin() * p.sway_amplitude
-            } else {
-                p.x
-            };
-            let x = render_x as i32 as u16;
+            let x = p.x as i32 as u16;
             let y = p.y as u16;
             if x >= area.width || y >= area.height {
                 continue;
@@ -221,8 +218,7 @@ impl Fx {
             }
         }
 
-        // 流星 / 大雪片拖尾（带淡入淡出）
-        let is_snow = colors::theme() == 1;
+        // 流星 / 大雪片拖尾
         for m in &self.meteors {
             let life_fade = if m.age > m.max_age - 0.5 {
                 ((m.max_age - m.age) / 0.5).max(0.0)
@@ -245,11 +241,12 @@ impl Fx {
                     continue;
                 }
                 let trail_fade = (1.0 - (i as f64 / m.trail.len() as f64)) * life_fade;
+                // 全部单宽字符
                 let (char, max_idx) = if is_snow {
-                    // 飘雪：头部 ❄，短拖尾 ·
-                    if i == 0 { ('❄', 3) } else { ('·', 3) }
+                    // 飘雪：头部 *，拖尾 ·
+                    if i == 0 { ('*', 3) } else { ('·', 3) }
                 } else {
-                    // 樱花：头部 •，长拖尾 ·
+                    // 樱花：头部 •，拖尾 ·
                     if i == 0 { ('•', 5) } else { ('·', 5) }
                 };
                 if i >= max_idx {
@@ -269,7 +266,7 @@ impl Fx {
     }
 }
 
-/// 创建粒子。initial=true 时随机位置（首次生成）；false 时从入口侧进入（重生）
+/// 创建粒子
 fn spawn_particle(w: f64, h: f64, initial: bool) -> Particle {
     if colors::theme() == 1 {
         spawn_snowflake(w, h, initial)
@@ -300,8 +297,7 @@ fn spawn_sakura_particle(w: f64, h: f64, initial: bool) -> Particle {
         ParticleColor::Purple
     };
     Particle {
-        x,
-        y,
+        x, y,
         vx: -angle.cos() * speed,
         vy: angle.sin() * speed,
         brightness: 0.15 + rand_val() * 0.35,
@@ -315,33 +311,33 @@ fn spawn_sakura_particle(w: f64, h: f64, initial: bool) -> Particle {
     }
 }
 
-/// 飘雪主题粒子：垂直下落 + 左右摇摆，两色（冰蓝/月白）
+/// 飘雪主题粒子：垂直下落 + 摇摆，两色（冰蓝/月白）
 fn spawn_snowflake(w: f64, h: f64, initial: bool) -> Particle {
-    let speed = 2.0 + rand_val() * 3.0; // 2-5 cell/秒，比樱花慢
+    let speed = 1.5 + rand_val() * 2.5; // 1.5-4 cell/秒，更慢更安静
     let (x, y) = if initial {
         (rand_val() * w, rand_val() * h)
     } else {
-        // 从顶部重生
         (rand_val() * w, -1.0)
     };
-    // 两色 5:5，无紫色
-    let color = if rand_val() < 0.5 {
-        ParticleColor::Primary
+    let color = if rand_val() < 0.6 {
+        ParticleColor::Primary // 冰蓝 60%
     } else {
-        ParticleColor::Secondary
+        ParticleColor::Secondary // 月白 40%
     };
+    // 雪花字符全部单宽：· 为主，* 和 + 少量点缀
+    let r = rand_val();
+    let char = if r < 0.7 { '·' } else if r < 0.9 { '*' } else { '+' };
     Particle {
-        x,
-        y,
-        vx: 0.0,           // 垂直下落，x 靠摇摆
+        x, y,
+        vx: 0.0,
         vy: speed,
-        brightness: 0.2 + rand_val() * 0.4, // 0.2-0.6 稍亮（雪花需要可见）
+        brightness: 0.1 + rand_val() * 0.3, // 0.1-0.4 更柔和
         twinkle_phase: rand_val() * std::f64::consts::TAU,
-        twinkle_speed: 0.2 + rand_val() * 0.3, // 慢闪烁
+        twinkle_speed: 0.15 + rand_val() * 0.25, // 慢闪烁
         sway_phase: rand_val() * std::f64::consts::TAU,
-        sway_speed: 0.5 + rand_val() * 0.8,    // 摇摆频率
-        sway_amplitude: 0.5 + rand_val() * 1.0, // 摇摆幅度 0.5-1.5 cell
-        char: if rand_val() < 0.1 { '❄' } else { '·' }, // 10% 雪花字符
+        sway_speed: 0.3 + rand_val() * 0.5,
+        sway_amplitude: 0.3 + rand_val() * 0.7, // 0.3-1.0 摇摆幅度
+        char,
         color,
     }
 }
