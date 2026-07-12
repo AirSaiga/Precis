@@ -22,9 +22,12 @@ interface HistorySnapshot {
 }
 
 /**
- * 对 node/edge 数组做递归 toRaw：Vue Flow 富化后 node.data 及其 nested
- * 数组/对象都可能成为深层 proxy，structuredClone 会抛 DataCloneError。
- * 这里逐元素解包，并返回新数组/对象，避免污染活跃引用。
+ * 递归剥离 Vue reactive proxy：toRaw 只解包最外层，嵌套对象仍是 proxy，
+ * 直接 structuredClone 会抛 DataCloneError。必须逐元素递归解包。
+ *
+ * 该函数是**纯函数**：返回新数组/对象，不就地修改源元素。
+ * 这很关键——因为 toRaw 返回的是 proxy 的底层 target，直接对其赋值会穿透回写
+ * 到 nodes.value 仍引用的同一活跃对象，造成未声明的副作用。
  */
 function deepToRawArray<T>(arr: T[]): T[] {
   return arr.map((item): T => {
