@@ -19,13 +19,12 @@ use crossterm::execute;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
-use crossterm::ExecutableCommand;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use tokio::sync::mpsc;
 
 use crate::app::{App, ChatMsg, Tab, TestResult, ValidationState};
-use crate::api::types::{AiChatResponse, ChatMessage, FullValidationResponse, FullConfigResponse, OpenProjectResponse, ProviderInfo};
+use crate::api::types::{AiChatResponse, ChatMessage, FullValidationResponse, FullConfigResponse, ProviderInfo};
 
 fn backend_url() -> String {
     std::env::var("PRECIS_BACKEND_URL").unwrap_or_else(|_| "http://127.0.0.1:18000".to_string())
@@ -331,7 +330,7 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
                 let tx = tx.clone();
                 let url = backend_url();
                 tokio::spawn(async move {
-                    let mut client = crate::api::ApiClient::new(&url);
+                    let client = crate::api::ApiClient::new(&url);
                     let msg = match client.open_project_static(&p.path).await {
                         Ok(resp) => BgMessage::ProjectOpened {
                             name: p.name,
@@ -406,7 +405,7 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
                 let tx = tx.clone();
                 let url = backend_url();
                 tokio::spawn(async move {
-                    let mut client = crate::api::ApiClient::new(&url);
+                    let client = crate::api::ApiClient::new(&url);
                     let result = client.test_provider(&p.id).await;
                     let msg = match result {
                         Ok(resp) => {
@@ -443,7 +442,7 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
                 let tx = tx.clone();
                 let url = backend_url();
                 tokio::spawn(async move {
-                    let mut client = crate::api::ApiClient::new(&url);
+                    let client = crate::api::ApiClient::new(&url);
                     let _ = client.activate_provider(&p.id).await;
                     // 激活后触发重新拉取列表（含 active_id），而非清空列表
                     let _ = tx.send(BgMessage::RefreshProviders).await;

@@ -1,7 +1,7 @@
 //! 校验页 — 大号数字摘要 + 进度条 + 错误分布 + 斑马表格
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Modifier, Style, Stylize};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Paragraph, Row, Table, TableState};
 use ratatui::Frame;

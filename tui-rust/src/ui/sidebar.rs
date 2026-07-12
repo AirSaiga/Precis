@@ -1,7 +1,7 @@
 //! 侧边栏 — tab 图标 + ▸ 选中指示（Synthwave 风格）
 
 use ratatui::layout::Rect;
-use ratatui::style::{Modifier, Style, Stylize};
+use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
 use ratatui::Frame;

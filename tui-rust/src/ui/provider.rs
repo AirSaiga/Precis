@@ -1,8 +1,7 @@
 //! Provider 页 — Table widget 保证列对齐 + 连接测试结果
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Modifier, Style, Stylize};
-use ratatui::text::{Line, Span};
+use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Paragraph, Row, Table, TableState};
 use ratatui::Frame;
 
