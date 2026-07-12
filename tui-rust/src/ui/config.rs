@@ -20,7 +20,7 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
 
     // 提示
     frame.render_widget(
-        Paragraph::new("  配置概览  r 刷新")
+        Paragraph::new("  项目概览  r 刷新")
             .style(Style::default().fg(colors::muted())),
         chunks[0],
     );

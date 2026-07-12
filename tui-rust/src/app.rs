@@ -141,7 +141,7 @@ impl Tab {
             Tab::Dashboard => "首页",
             Tab::Validation => "校验",
             Tab::Provider => "Provider",
-            Tab::Config => "配置",
+            Tab::Config => "概览",
             Tab::Chat => "AI 对话",
         }
     }
