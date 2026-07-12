@@ -2,7 +2,7 @@
 chcp 65001 >nul
 title Precis TUI (Rust)
 
-set "PROJECT_ROOT=%~dp0\..\.."
+set "PROJECT_ROOT=%~dp0..\.."
 cd /d "%PROJECT_ROOT%"
 
 echo ============================================
@@ -30,16 +30,18 @@ echo [OK] cargo found.
 :: Build and run
 cd /d "%PROJECT_ROOT%\tui-rust"
 echo [BUILD] Compiling (debug)...
-:: 编译输出重定向到日志文件，只检查是否成功（warning 不刷屏）
-"%CARGO%" build 2>"%PROJECT_ROOT%\tui-rust\build-warnings.log"
-if not "%ERRORLEVEL%"=="0" (
-    echo [ERROR] Build failed. See tui-rust\build-warnings.log for details.
-    type "%PROJECT_ROOT%\tui-rust\build-warnings.log"
+
+:: Build: stderr (warnings) goes to log file, only check exit code
+"%CARGO%" build 2>tui-rust\build-warnings.log
+if errorlevel 1 (
+    echo [ERROR] Build failed. See tui-rust\build-warnings.log
     pause
     exit /b 1
 )
 echo [OK] Build successful.
 echo.
+
+:: Run quietly (suppress runtime stderr)
 "%CARGO%" run -q 2>nul
 set "EXIT_CODE=%ERRORLEVEL%"
 echo.
