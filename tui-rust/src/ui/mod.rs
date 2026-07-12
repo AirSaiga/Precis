@@ -1,4 +1,4 @@
-//! UI 渲染入口 — Linear 风格：无边框、大留白、背景分层
+//! UI 渲染入口 — Synthwave 双主题：圆角细框 + 色彩分层
 
 pub mod chat;
 pub mod config;
@@ -9,12 +9,23 @@ pub mod splash;
 pub mod validation;
 
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::style::{Modifier, Style};
+use ratatui::style::{Color, Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, Borders, Paragraph};
 use ratatui::Frame;
 
 use crate::app::{colors, layout, App, Phase};
+
+/// 当前 tab 对应的主题色
+fn tab_accent(tab: &crate::app::Tab) -> Color {
+    match tab {
+        crate::app::Tab::Dashboard => colors::cyan(),
+        crate::app::Tab::Validation => colors::pink(),
+        crate::app::Tab::Provider => colors::green(),
+        crate::app::Tab::Config => colors::yellow(),
+        crate::app::Tab::Chat => colors::purple(),
+    }
+}
 
 pub fn render(frame: &mut Frame, app: &mut App) {
     let area = frame.area();
@@ -58,11 +69,14 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     // 窄终端退化为无边框
     let use_border = area.width >= layout::MIN_WIDTH_NO_BORDER;
 
+    // 边框色用 tab 主题色（比 dim 更鲜明）
+    let border_color = colors::blend(tab_accent(&app.current_tab), colors::bg(), 0.4);
+
     let sidebar_block = if use_border {
         Block::default()
             .borders(Borders::all())
             .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(colors::dim()))
+            .border_style(Style::default().fg(border_color))
             .style(Style::default().bg(colors::bg()))
     } else {
         Block::default().style(Style::default().bg(colors::bg()))
@@ -72,7 +86,7 @@ pub fn render(frame: &mut Frame, app: &mut App) {
         Block::default()
             .borders(Borders::all())
             .border_type(BorderType::Rounded)
-            .border_style(Style::default().fg(colors::dim()))
+            .border_style(Style::default().fg(border_color))
             .style(Style::default().bg(colors::bg()))
     } else {
         Block::default().style(Style::default().bg(colors::bg()))
@@ -107,36 +121,48 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     }
 }
 
-/// 标题栏：◤◢ logo + 项目名呼吸流光 + 当前页
+/// 标题栏：项目名 + 当前页彩色标签 + 状态
 fn render_header(frame: &mut Frame, app: &App, area: Rect) {
     let project = app.project_name.as_deref().unwrap_or("Precis");
+    let accent = tab_accent(&app.current_tab);
 
-    // 流光：用 sin 在 FG 和 PINK 之间柔和呼吸（周期约 4 秒）
-    let phase = (app.frame_count as f64 * 0.04).sin() * 0.5 + 0.5; // 0..1
-    let glow_color = colors::blend(colors::fg(), colors::pink(), phase * 0.6);
+    // 项目名呼吸流光（在 FG 和 tab 主题色之间）
+    let phase = (app.frame_count as f64 * 0.04).sin() * 0.5 + 0.5;
+    let glow_color = colors::blend(colors::fg(), accent, phase * 0.5);
 
     let header = Paragraph::new(Line::from(vec![
         Span::raw(" "),
-        Span::styled("◤◢", Style::default().fg(colors::pink()).add_modifier(Modifier::BOLD)),
-        Span::raw(" "),
         Span::styled(project, Style::default().fg(glow_color).add_modifier(Modifier::BOLD)),
-        Span::styled(
-            format!("  /  {}", app.current_tab.label()),
-            Style::default().fg(colors::muted()),
-        ),
+        Span::raw("  "),
+        // 当前页彩色标签
+        Span::styled(" ◈ ", Style::default().fg(accent)),
+        Span::styled(app.current_tab.label(), Style::default().fg(accent).add_modifier(Modifier::BOLD)),
+        // 右侧主题指示
+        Span::raw(" "),
+        Span::styled(format!("  [{}]", colors::theme_name()), Style::default().fg(colors::dim())),
     ]))
     .style(Style::default().bg(colors::surface()));
     frame.render_widget(header, area);
 }
 
-/// 状态栏：极简（SURFACE 底色）
+/// 状态栏：状态点 + 消息 + 快捷键
 fn render_footer(frame: &mut Frame, app: &App, area: Rect) {
-    let dot = if app.project_name.is_some() { colors::green() } else { colors::dim() };
+    let dot_color = if app.project_name.is_some() { colors::green() } else { colors::dim() };
+    let accent = tab_accent(&app.current_tab);
     let footer = Paragraph::new(Line::from(vec![
         Span::raw(" "),
-        Span::styled("·", Style::default().fg(dot)),
+        Span::styled("●", Style::default().fg(dot_color)),
         Span::raw(" "),
         Span::styled(&app.message, Style::default().fg(colors::muted())),
+        Span::raw("  "),
+        Span::styled("Tab", Style::default().fg(accent)),
+        Span::styled("切换  ", Style::default().fg(colors::dim())),
+        Span::styled("F2", Style::default().fg(colors::cyan())),
+        Span::styled("动效  ", Style::default().fg(colors::dim())),
+        Span::styled("F3", Style::default().fg(colors::pink())),
+        Span::styled("主题  ", Style::default().fg(colors::dim())),
+        Span::styled("q", Style::default().fg(colors::yellow())),
+        Span::styled("退出", Style::default().fg(colors::dim())),
     ]))
     .style(Style::default().bg(colors::surface()));
     frame.render_widget(footer, area);
