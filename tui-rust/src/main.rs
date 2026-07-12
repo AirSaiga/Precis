@@ -261,28 +261,41 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
         }
     }
 
-    // 全局快捷键：仅在 Chat 页未聚焦输入框时生效（否则允许输入 q/1-5/Tab/F2 等字符）
+    // Tab 导航键：始终生效（即使在 Chat 聚焦时，这些是导航不是输入内容）
+    match key {
+        KeyCode::Tab => {
+            let next = (app.current_tab.index() + 1) % 5;
+            if let Some(t) = Tab::from_index(next) {
+                app.switch_tab(t);
+                // 切到 Chat 页自动聚焦
+                if app.current_tab == Tab::Chat { app.chat_focused = true; }
+            }
+            return;
+        }
+        KeyCode::BackTab => {
+            let prev = if app.current_tab.index() == 0 { 4 } else { app.current_tab.index() - 1 };
+            if let Some(t) = Tab::from_index(prev) {
+                app.switch_tab(t);
+                // 切到 Chat 页自动聚焦
+                if app.current_tab == Tab::Chat { app.chat_focused = true; }
+            }
+            return;
+        }
+        KeyCode::Char(c) if ('1'..='5').contains(&c) => {
+            if let Some(t) = Tab::from_index((c as usize) - ('1' as usize)) {
+                app.switch_tab(t);
+                // 切到 Chat 页自动聚焦
+                if app.current_tab == Tab::Chat { app.chat_focused = true; }
+            }
+            return;
+        }
+        _ => {}
+    }
+
+    // 其他全局快捷键：仅在 Chat 页未聚焦输入框时生效
     if !(app.current_tab == Tab::Chat && app.chat_focused) {
         match key {
             KeyCode::Char('q') => { app.quit(); return; }
-            KeyCode::Tab => {
-                let next = (app.current_tab.index() + 1) % 5;
-                if let Some(t) = Tab::from_index(next) {
-                    app.switch_tab(t);
-                    // 切到 Chat 页自动聚焦
-                    if app.current_tab == Tab::Chat { app.chat_focused = true; }
-                }
-                return;
-            }
-            KeyCode::BackTab => {
-                let prev = if app.current_tab.index() == 0 { 4 } else { app.current_tab.index() - 1 };
-                if let Some(t) = Tab::from_index(prev) {
-                    app.switch_tab(t);
-                    // 切到 Chat 页自动聚焦
-                    if app.current_tab == Tab::Chat { app.chat_focused = true; }
-                }
-                return;
-            }
             KeyCode::F(2) => {
                 app.fx_enabled = !app.fx_enabled;
                 app.message = if app.fx_enabled { "动效已开启" } else { "动效已关闭" }.to_string();
@@ -293,14 +306,6 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
                 app::colors::set_theme(app.theme.idx());
                 app.message = format!("主题: {}", app.theme.name());
                 theme::save_theme(app.theme);
-                return;
-            }
-            KeyCode::Char(c) if ('1'..='5').contains(&c) => {
-                if let Some(t) = Tab::from_index((c as usize) - ('1' as usize)) {
-                    app.switch_tab(t);
-                    // 切到 Chat 页自动聚焦
-                    if app.current_tab == Tab::Chat { app.chat_focused = true; }
-                }
                 return;
             }
             _ => {}
