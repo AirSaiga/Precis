@@ -138,8 +138,11 @@ async fn run_app(
                     handle_key(app, key.code, tx).await;
                 }
             }
-            while event::poll(Duration::from_millis(0)).unwrap_or(false) {
-                let _ = event::read();
+            // 排空残留事件防止重复触发——但 Chat 聚焦输入时需要保留连续输入
+            if !(app.current_tab == Tab::Chat && app.chat_focused) {
+                while event::poll(Duration::from_millis(0)).unwrap_or(false) {
+                    let _ = event::read();
+                }
             }
         }
 
