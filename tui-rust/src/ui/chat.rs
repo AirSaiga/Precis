@@ -79,7 +79,6 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     };
 
     let input_line = Line::from(vec![
-        Span::styled("▌ ", Style::default().fg(colors::pink())),
         Span::styled(&app.chat_input, Style::default().fg(colors::fg())),
         Span::styled(" ", cursor_style),
     ]);
