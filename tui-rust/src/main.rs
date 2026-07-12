@@ -283,7 +283,7 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
             let next = (app.current_tab.index() + 1) % 5;
             if let Some(t) = Tab::from_index(next) {
                 app.switch_tab(t);
-                // 切到 Chat 页自动聚焦
+                auto_load_on_tab_switch(app, tx);
                 if app.current_tab == Tab::Chat { app.chat_focused = true; }
             }
             return;
@@ -292,7 +292,7 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
             let prev = if app.current_tab.index() == 0 { 4 } else { app.current_tab.index() - 1 };
             if let Some(t) = Tab::from_index(prev) {
                 app.switch_tab(t);
-                // 切到 Chat 页自动聚焦
+                auto_load_on_tab_switch(app, tx);
                 if app.current_tab == Tab::Chat { app.chat_focused = true; }
             }
             return;
@@ -300,7 +300,7 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
         KeyCode::Char(c) if ('1'..='5').contains(&c) => {
             if let Some(t) = Tab::from_index((c as usize) - ('1' as usize)) {
                 app.switch_tab(t);
-                // 切到 Chat 页自动聚焦
+                auto_load_on_tab_switch(app, tx);
                 if app.current_tab == Tab::Chat { app.chat_focused = true; }
             }
             return;
@@ -535,6 +535,40 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
             app.chat_input.pop();
         }
 
+        _ => {}
+    }
+}
+
+/// 切换 tab 时自动加载数据（Provider 列表、Config 配置）
+fn auto_load_on_tab_switch(app: &mut App, tx: &mpsc::Sender<BgMessage>) {
+    match app.current_tab {
+        Tab::Provider if app.providers.is_empty() => {
+            app.message = "加载 Provider...".to_string();
+            let tx = tx.clone();
+            let url = backend_url();
+            tokio::spawn(async move {
+                let client = crate::api::ApiClient::new(&url);
+                let providers = client.list_providers().await.unwrap_or_default();
+                let active_id = client
+                    .get_active_provider()
+                    .await
+                    .unwrap_or(None)
+                    .map(|a| a.id);
+                let _ = tx.send(BgMessage::ProvidersLoaded { providers, active_id }).await;
+            });
+        }
+        Tab::Config if app.config_data.is_none() && app.api.project_path().is_some() => {
+            app.message = "加载配置...".to_string();
+            let tx = tx.clone();
+            let url = backend_url();
+            let path = app.api.project_path().unwrap().to_string();
+            tokio::spawn(async move {
+                let mut client = crate::api::ApiClient::new(&url);
+                client.set_project(&path);
+                let result = client.get_full_config().await;
+                let _ = tx.send(BgMessage::ConfigLoaded(result.map_err(|e| e.to_string()))).await;
+            });
+        }
         _ => {}
     }
 }
