@@ -3,6 +3,10 @@
 //! 架构：同步事件循环 + tokio::spawn 异步 HTTP + mpsc channel 回传结果
 //! 渲染循环永不阻塞（HTTP 在后台 task 里跑，结果通过 channel 送回）
 
+// API 响应类型含后端返回但 TUI 暂未展示的字段；icons.rs 含预留图标常量。
+// 这些预留代码不影响运行，抑制 dead_code warning 避免编译输出噪音。
+#![allow(dead_code)]
+
 mod api;
 mod app;
 mod fx;
