@@ -39,11 +39,12 @@ import type { PatternRegistryTypeV2 } from '@/types/projectV2'
 import {
   getConstraintKindByNodeType,
   isConstraintNodeType,
-  requiresInputHandle,
 } from '@/services/constraints/validationRegistry'
 import { validateForInlineSource } from '@/services/constraints/validationRegistryCore'
 import { createConnectionTransaction } from '@/utils/nodes/connectionTransaction'
 import { updateEdgeData } from '@/services/canvas/vueFlowApi'
+import { resolveEdgeStyle } from './connectionHandlers/edgeStyleResolver'
+import { isValidConstraintTargetHandle as isValidConstraintTargetHandlePure } from './connectionHandlers/targetHandleValidator'
 export function useConnections() {
   const store = useGraphStore()
 
@@ -398,92 +399,15 @@ export function useConnections() {
       }
     }
 
-    // 根据源节点和目标节点的类型组合，设置不同的边样式和标签
-    // 使用翡翠绿色 (#059669) 表示 SourcePreview → Schema 数据源连接
-    const edgeStyle: Record<string, unknown> = createEdgeStyle()
-    if (sourceNode.type === 'sourcePreview' && targetNode.type === 'schema') {
-      edgeStyle.style = { stroke: 'var(--edge-data-source)', strokeWidth: 1.5 } // was #059669
-      edgeStyle.label = 'Data Source'
-    } else if (sourceNode.type === 'manualData' && targetNode.type === 'schema') {
-      edgeStyle.style = { stroke: 'var(--edge-data-source)', strokeWidth: 1.5 }
-      edgeStyle.label = 'Manual Data'
-    } else if (sourceNode.type === 'schema' && targetNode.type === 'manualData') {
-      edgeStyle.style = { stroke: 'var(--edge-data-flow)', strokeWidth: 2 }
-      edgeStyle.label = 'Column Data'
-    } else if (sourceNode.type === 'manualData' && isConstraintNodeType(targetNode.type)) {
-      edgeStyle.style = { stroke: 'var(--edge-default)', strokeWidth: 1.5 }
-    } else if (
-      sourceNode.type === 'foreignKeyConstraint' &&
-      targetNode.type === 'schema' &&
-      targetHandle === 'target-left'
-    ) {
-      // [展示边样式（FK→Schema）]
-      // 这里把 FK→Schema 的连线统一视为“展示边”，用于帮助用户理解参照关系，但不参与数据/校验语义。
-      // 因此我们显式设置：
-      // - animated=false：避免与真实数据流边混淆
-      // - class='fk-display-edge'：交由画布 CSS 控制“若隐若现”的动态效果
-      // - strokeDasharray：虚线强化“提示/引用”的语义
-      //
-      // 注意：FK 节点内部也支持通过开关自动生成展示边；手工连线属于同一种展示语义。
-      edgeStyle.animated = false
-      edgeStyle.class = 'fk-display-edge'
-      edgeStyle.style = {
-        stroke: 'var(--edge-fk-display)',
-        strokeWidth: 1.4,
-        strokeDasharray: '2 8',
-      } // was rgba(139,92,246,0.65)
-      edgeStyle.data = { kind: 'fkDisplay', fkNodeId: sourceNode.id }
-    } else if (
-      (sourceNode.type === 'schema' ||
-        sourceNode.type === 'jsonSchema' ||
-        sourceNode.type === 'manualData') &&
-      isConstraintNodeType(targetNode.type)
-    ) {
-      edgeStyle.style = { stroke: 'var(--edge-default)', strokeWidth: 1.5 }
-    } else if (
-      (sourceNode.type === 'schema' || sourceNode.type === 'jsonSchema') &&
-      isConstraintNodeType(targetNode.type)
-    ) {
-      if (targetNode.type === 'conditionalConstraint') {
-        const ifHandle = `target-if-${targetNode.id}`
-        const thenHandle = `target-then-${targetNode.id}`
-        const legacyThenHandle = `target-input-${targetNode.id}`
-        if (targetHandle === thenHandle || targetHandle === legacyThenHandle) {
-          edgeStyle.style = {
-            stroke: 'var(--edge-conditional-then)',
-            strokeWidth: 2.2,
-            strokeDasharray: '4 6',
-          } // was #0ea5e9
-          edgeStyle.label = 'THEN'
-        } else if (targetHandle === ifHandle) {
-          edgeStyle.style = { stroke: 'var(--edge-conditional-if)', strokeWidth: 2 } // was #6f42c1
-          edgeStyle.label = 'IF'
-        } else {
-          edgeStyle.style = { stroke: 'var(--edge-default)', strokeWidth: 1.5 } // was #f59e0b
-        }
-      } else {
-        edgeStyle.style = { stroke: 'var(--edge-default)', strokeWidth: 1.5 } // was #f59e0b
-      }
-    } else if (
-      (sourceNode.type === 'schema' || sourceNode.type === 'jsonSchema') &&
-      (targetNode.type === 'regex' || targetNode.type === 'regexExtract')
-    ) {
-      edgeStyle.style = { stroke: 'var(--edge-schema-to-regex)', strokeWidth: 2 } // was #8b5cf6
-    } else if (
-      sourceNode.type === 'manualData' &&
-      (targetNode.type === 'regex' || targetNode.type === 'regexExtract')
-    ) {
-      edgeStyle.style = { stroke: 'var(--edge-schema-to-regex)', strokeWidth: 2 }
-    } else if (
-      sourceNode.type === 'transformOutput' &&
-      (targetNode.type === 'regex' || targetNode.type === 'regexExtract')
-    ) {
-      edgeStyle.style = { stroke: 'var(--edge-schema-to-regex)', strokeWidth: 2 }
-    } else if (sourceNode.type === 'transformOutput' && isConstraintNodeType(targetNode.type)) {
-      edgeStyle.style = { stroke: 'var(--edge-default)', strokeWidth: 1.5 }
-    } else if (targetNode.type === 'transform' && targetHandle === 'transform-input') {
-      edgeStyle.style = { stroke: 'var(--edge-data-flow)', strokeWidth: 2 }
-    }
+    // 根据源节点和目标节点的类型组合，解析边样式（纯函数，从 C1 if-else 链抽出）
+    // resolveEdgeStyle 返回结构化 ResolvedEdgeStyle，此处按原 createConnection 的松散契约转为 Record
+    const edgeStyle = resolveEdgeStyle({
+      sourceNodeId: sourceNode.id,
+      sourceType: sourceNode.type,
+      targetType: targetNode.type,
+      targetNodeId: targetNode.id,
+      targetHandle,
+    }) as unknown as Record<string, unknown>
 
     edgeStyle.data = {
       ...(edgeStyle.data as Record<string, unknown>),
@@ -800,40 +724,9 @@ export function useConnections() {
     }
   }
 
-  /**
-   * 验证约束节点的目标句柄是否合法
-   *
-   * 根据约束类型检查目标句柄是否符合连接规则：
-   * - 对于需要 input handle 的约束类型，要求句柄包含 'target-input'
-   * - 对于条件约束，要求句柄为 IF 或 THEN 专用句柄
-   *
-   * @param targetNodeId - 目标节点 ID
-   * @param targetNodeType - 目标节点类型，如 'notNullConstraint'
-   * @param targetHandle - 目标句柄 ID
-   * @returns 句柄是否通过合法性校验
-   */
-  function isValidConstraintTargetHandle(
-    targetNodeId: string,
-    targetNodeType: string | undefined,
-    targetHandle: string | null | undefined
-  ): boolean {
-    const constraintType = getConstraintKindByNodeType(targetNodeType)
-    if (!constraintType) return true
-    if (requiresInputHandle(targetNodeType)) {
-      return !!targetHandle && targetHandle.includes('target-input')
-    }
-    if (constraintType === 'conditional') {
-      if (!targetHandle) return false
-      const isIfHandle =
-        targetHandle === `target-if-${targetNodeId}` ||
-        targetHandle.startsWith(`target-if-${targetNodeId}:`)
-      const isThenHandle =
-        targetHandle.includes(`target-then-${targetNodeId}`) ||
-        targetHandle.includes(`target-input-${targetNodeId}`)
-      return isIfHandle || isThenHandle
-    }
-    return true
-  }
+  // isValidConstraintTargetHandle 已抽出为纯函数（connectionHandlers/targetHandleValidator.ts）
+  // 此处别名引用，保持内部调用点不变
+  const isValidConstraintTargetHandle = isValidConstraintTargetHandlePure
 
   return {
     dragStartData,
