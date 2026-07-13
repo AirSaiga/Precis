@@ -1,21 +1,25 @@
 /**
- * @fileoverview Electron 主进程入口文件
- * 
- * 功能概述:
- * - 管理整个桌面应用的生命周期
- * - 协调 Python 后端服务的启动和停止
- * - 创建和控制浏览器窗口
- * - 处理主进程与渲染进程之间的 IPC 通信
- * 
- * 架构设计:
- * - 采用主进程模式：Electron 主进程负责系统级操作，渲染进程负责 UI
- * - Python 后端作为子进程运行，通过 HTTP API 与前端通信
- * - 使用 IPC 机制暴露有限的、安全的 API 给渲染进程
- * 
- * 注意事项:
- * - [Electron] BrowserWindow 的 webPreferences 配置直接影响安全性
- * - [性能] Python 进程的生命周期管理不当可能导致资源泄漏
- * - [网络] 端口冲突检测机制确保服务可用性
+ * @fileoverview Electron 主进程入口文件（瘦编排层，God 拆分批次3 后）
+ *
+ * 本文件是主进程的编排入口，原 1921 行单体已拆分为多个职责模块：
+ * - app-state.ts：全局状态单一容器（8 个原裸 let，规避 commonjs 导出陷阱）
+ * - constants.ts：共享常量（端口、超时）
+ * - startup-probe.ts：后端启动信号检测 + 端口/API 轮询（纯函数）
+ * - pythonProcess.ts：Python 子进程启停 + 进程树终止
+ * - protocol.ts：app:// 自定义协议（⚠ 时序铁律：scheme 声明 whenReady 前，handler whenReady 内）
+ * - windows/splashWindow.ts + mainWindow.ts：窗口管理
+ * - ipc/：全部 IPC handler（config/filesystem/feedback/appInfo/backend）
+ * - logger.ts / update.ts / utils/paths.ts（既有模块）
+ *
+ * 本文件职责（约 260 行）：
+ * 1. 模块级：registerAppScheme()（协议特权声明，whenReady 前同步）
+ * 2. whenReady 内：环境判断 → registerAllIpc → registerAppProtocolHandler →
+ *    createSplashWindow → startPythonServer → createWindow → tryShowMainWindow
+ *    （启动顺序铁律：必须先 startPythonServer 再 createWindow，否则端口未分配）
+ * 3. 退出钩子：window-all-closed / before-quit / quit 三钩子都调 stopPythonServerSync
+ *
+ * ⚠️ 功能正确性需手动启动验证（dev + 生产打包）：后端启动、窗口显示、
+ * IPC 响应、崩溃重放、退出清理（无僵尸 Python 进程）。
  */
 
 import { app, BrowserWindow, Menu, dialog } from 'electron';
