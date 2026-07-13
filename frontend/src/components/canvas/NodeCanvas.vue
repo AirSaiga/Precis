@@ -98,6 +98,8 @@
       @select="handleNodeSelect"
       @close="handleTransformMenuClose"
     />
+
+    <CanvasContextMenu :menu-state="contextMenuState" :controller="contextMenuController" />
   </div>
 </template>
 
@@ -152,7 +154,6 @@
   // Vue 核心导入
   // ========================================
   import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
-  import { useI18n } from 'vue-i18n'
   import { eventBus } from '@/core/eventBus'
   import { logger } from '@/core/utils/logger'
   import type { TransformTypeV2 } from '@/types/projectV2'
@@ -191,6 +192,7 @@
   import RegexConnectionDialog from './RegexConnectionDialog.vue'
   import ZoneGroupsOverlay from '@/features/node-layout-organizer/components/ZoneGroupsOverlay.vue'
   import TransformContextMenu from './TransformContextMenu.vue'
+  import CanvasContextMenu from './CanvasContextMenu.vue'
 
   // ========================================
   // CSS 样式导入
@@ -202,7 +204,6 @@
   const store = useGraphStore()
   const nodeOrganizer = useNodeOrganizer()
   const zoneGroups = nodeOrganizer.groups
-  const { t } = useI18n()
   const {
     viewport,
     setViewport,
@@ -240,8 +241,9 @@
   const { projectCreateDialogRef, handleOpenCreateProjectDialog } = useCanvasProjectDialog()
   const { onNodeClick, handleNodeDragStart, handleNodeDragEnd, onCanvasDragOver, onCanvasDrop } =
     useCanvasNodeOperations(flowWrapper)
-  const { setupContextMenu } = useCanvasContextMenu({ onNodeContextMenu, t })
-  setupContextMenu()
+  const { menuState: contextMenuState, controller: contextMenuController } = useCanvasContextMenu({
+    onNodeContextMenu,
+  })
   useCanvasViewportSync()
   const {
     pendingRegexConnection,

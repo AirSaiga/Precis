@@ -147,7 +147,11 @@ describe('createSchemaSourceIndex', () => {
     it('rebuild 后反映最新节点变化', () => {
       nodes.value = [makeSchemaNode('n1', { data: { sourceFilePath: 'data/users.csv' } })]
       expect(index.isDuplicateSource('data/users.csv', null)).toBe(false)
-      nodes.value.push(makeSchemaNode('n2', { data: { sourceFilePath: 'data/users.csv' } }))
+      // 整体替换（遵循 Vue Flow 规范，测试代码也应以身作则，禁止 nodes.value.push）
+      nodes.value = [
+        ...nodes.value,
+        makeSchemaNode('n2', { data: { sourceFilePath: 'data/users.csv' } }),
+      ]
       index.rebuild()
       expect(index.isDuplicateSource('data/users.csv', null)).toBe(true)
     })

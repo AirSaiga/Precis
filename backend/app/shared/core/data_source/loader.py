@@ -271,6 +271,7 @@ def load_grouped_sources(
                 }
             )
         except Exception as e:
+            logger.exception("加载源文件时发生未预期错误: %s", full_path)
             errors.append(
                 {
                     "error_type": "LoadFailed",

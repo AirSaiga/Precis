@@ -33,7 +33,7 @@ import { createV2RegexImporter } from './regex'
 import { createV2ConstraintImporter } from './constraint'
 import { getV2FullConfig } from '@/api/projectV2Api'
 import type { PatternRegistryTypeV2 } from '@/types/projectV2'
-import { addNodes } from '@/services/canvas/vueFlowApi'
+import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
 export type ProjectResourceKind =
   | 'schema'
   | 'constraint'
@@ -180,7 +180,8 @@ export function createV2ImportToCanvas(params: {
     const existing = nodes.value.find((n) => n.id === resourceId)
     if (existing) {
       if (moveIfExists) {
-        existing.position = { ...position }
+        // 走 vueFlowApi.updateNode 更新位置（Vue Flow 规范，触发内部状态同步）
+        updateNode(existing.id, { position })
       }
       selectedNodeId.value = existing.id
       // 非 schema 幂等返回时也需要触发 reconcileAll，
@@ -365,7 +366,7 @@ export function createV2ImportToCanvas(params: {
 
     const existingNode = nodes.value.find((n) => n.id === nodeId)
     if (existingNode) {
-      existingNode.position = { ...position }
+      updateNode(existingNode.id, { position })
       selectedNodeId.value = nodeId
       return nodeId
     }
@@ -402,7 +403,7 @@ export function createV2ImportToCanvas(params: {
     const existingNode = nodes.value.find((n) => n.id === transformId)
     if (existingNode) {
       if (moveIfExists) {
-        existingNode.position = { ...position }
+        updateNode(existingNode.id, { position })
       }
       selectedNodeId.value = transformId
       return transformId

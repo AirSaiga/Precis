@@ -56,15 +56,25 @@ def _reconstruct_expand_columns(df: pd.DataFrame, table_schema: TableSchema) -> 
         if not matching_cols:
             continue
 
-        reconstructed = []
-        for _, row in df.iterrows():
+        # 预筛选存在的子列（保留 children 顺序）
+        child_names = []
+        child_keys = []
+        for child in col_schema.children or []:
+            col_key = f"{col_name}.{child.name}"
+            if col_key in df.columns:
+                child_names.append(child.name)
+                child_keys.append(col_key)
+
+        # 向量化重构：逐行组装 dict cell，NaN 值省略，整行空则为 None
+        # （原 iterrows 实现的等价语义，itertuples 性能优于 iterrows）
+        sub_df = df[child_keys]
+        reconstructed: list[dict | None] = []
+        for row_vals in sub_df.itertuples(index=False, name=None):
             cell = {}
-            for child in col_schema.children or []:
-                col_key = f"{col_name}.{child.name}"
-                if col_key in df.columns:
-                    val = row.get(col_key)
-                    if pd.notna(val):
-                        cell[child.name] = val
+            for idx, child_name in enumerate(child_names):
+                val = row_vals[idx]
+                if pd.notna(val):
+                    cell[child_name] = val
             reconstructed.append(cell if cell else None)
 
         df[col_name] = reconstructed

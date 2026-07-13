@@ -41,18 +41,6 @@ const inspector = {
     },
   },
   // [Added] InspectorPanel related
-  tableSetNode: {
-    title: 'Table Set Properties',
-    badgeEditable: 'Editable',
-    nameLabel: 'Collection Name',
-    descriptionLabel: 'Description',
-    infoTip:
-      'This is a container node, double-click it to manage specific table definitions in the internal canvas.',
-  },
-  tableSetRootNode: {
-    title: 'Table Set Information',
-    badgeReadOnly: 'Read Only',
-  },
   columnDefinition: {
     title: 'Column Definition Node Properties',
   },

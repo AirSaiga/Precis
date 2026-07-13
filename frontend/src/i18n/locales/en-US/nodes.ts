@@ -382,23 +382,6 @@ const customNodes = {
     collapse: 'Collapse',
     expand: 'Expand',
   },
-  tableSetNode: {
-    title: 'Table Set Properties',
-    containsTables: 'Contains Tables:',
-    count: 'count',
-    doubleClickEdit: 'Double click to edit',
-  },
-  tableSetRootNode: {
-    tableCollectionManagement: 'Table Collection Management',
-    addTable: 'Add Table',
-    newTable: 'New Table',
-  },
-  schemaSetNode: {
-    title: 'Schema Set Node',
-    containsSchema: 'Contains Schema:',
-    count: 'count',
-    doubleClickEdit: 'Double click to edit',
-  },
   projectRootNode: {
     projectStart: 'Project Start - Drag from bottom to create nodes',
     summary: {
@@ -425,11 +408,6 @@ const customNodes = {
       closeProject: 'Are you sure you want to close the current project?',
     },
     errors: 'errors',
-  },
-  schemaSetRootNode: {
-    back: 'Back to Parent',
-    contains: 'Contains',
-    tables: 'tables',
   },
   projectConsoleNode: {
     metrics: {
@@ -510,18 +488,6 @@ const customNodes = {
   constraintDashboardNode: {
     title: 'Constraint Dashboard',
     empty: 'No constraints available',
-  },
-  regexSetNode: {
-    title: 'Regex Set Node',
-    containsExpressions: 'Contains Expressions',
-    count: 'count',
-    doubleClickEdit: 'Double click to edit',
-  },
-  regexSetRootNode: {
-    back: 'Back to Parent',
-    regexCollectionManagement: 'Regex Collection Management',
-    addRegex: 'Add Regex',
-    newRegex: 'New Regex',
   },
   constraintRules: {
     title: 'Constraint Rules',
@@ -896,17 +862,6 @@ const customNodes = {
       statusPass: 'Passed',
       statusError: 'Failed',
       statusMissing: 'Missing Config',
-    },
-    constraintRuleSetNode: {
-      constraintRules: 'Constraint Rules',
-      count: 'Count',
-      doubleClickEdit: 'Double click to edit',
-    },
-    constraintRuleSetRootNode: {
-      back: 'Back to parent',
-      constraintRuleSetManagement: 'Constraint Rule Set Management',
-      addConstraintRule: 'Add Constraint Rule',
-      newConstraintRule: 'New Constraint Rule',
     },
   },
   templateInstanceNode: {

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { ref } from 'vue'
+import yaml from 'js-yaml'
 import type { CustomNode } from '@/types/graph'
 
 vi.mock('vue-i18n', () => ({
@@ -156,7 +157,7 @@ describe('yamlIO module', () => {
       expect(yaml).toContain('column_name: age')
       expect(yaml).toContain('data_type: String')
       expect(yaml).toContain('data_type: Integer')
-      expect(yaml).toContain('notNull: true')
+      expect(yaml).toContain('not_null: true')
     })
 
     it('NotNull 约束序列化正确', () => {
@@ -324,10 +325,12 @@ describe('yamlIO module', () => {
       expect(yaml).toContain('column: birthday')
       expect(yaml).toContain('logic_mode: compare')
       expect(yaml).toContain('compare_op: gt')
-      expect(yaml).toContain('reference_date: 2000-01-01')
+      expect(yaml).toContain('reference_date:') // js-yaml 对日期格式字符串加引号: '2000-01-01'
+      expect(yaml).toContain('2000-01-01')
       expect(yaml).toContain('reference_column: created_at')
       expect(yaml).toContain('calculation_type: age')
-      expect(yaml).toContain('target_value: 18')
+      expect(yaml).toContain('target_value:') // js-yaml 对纯数字字符串加引号: '18'
+      expect(yaml).toContain('18')
       expect(yaml).toContain('target_column: age')
     })
 
@@ -362,7 +365,7 @@ describe('yamlIO module', () => {
       expect(yaml).toContain('column_name: name')
     })
 
-    it('yamlSafe 对特殊字符加引号', () => {
+    it('特殊字符由 js-yaml dump 正确序列化', () => {
       nodes.value = [
         makeSchemaNode({
           data: {
@@ -373,9 +376,16 @@ describe('yamlIO module', () => {
           } as any,
         }),
       ]
-      const yaml = module.buildProjectYAML()
-      expect(yaml).toContain(JSON.stringify('test:special'))
-      expect(yaml).toContain(JSON.stringify('col"quote'))
+      const yamlContent = module.buildProjectYAML()
+      // 验证值完整保留在输出中
+      expect(yamlContent).toContain('test:special')
+      expect(yamlContent).toContain('col"quote')
+      // 关键：dump 产出的 YAML 应能被 yaml.load 还原回相同结构（round-trip 安全）
+      const restored = yaml.load(yamlContent) as Record<string, unknown>
+      const schemas = restored.schemas as Record<string, unknown>
+      const schema = schemas['test:special'] as Record<string, unknown>
+      const columns = schema.columns as Array<Record<string, unknown>>
+      expect(columns[0].column_name).toBe('col"quote')
     })
   })
 

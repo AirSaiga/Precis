@@ -17,6 +17,11 @@ from app.shared.services.llm.schema_resolver import _resolve_id_from_name
 
 logger = logging.getLogger(__name__)
 
+# 约束类型别名映射（大写 → PascalCase 标准名）。
+# 单一事实源是 actions/registry.py 的 CONSTRAINT_TYPE_ALIASES；此处保持同步副本。
+# 历史问题：旧副本缺 CHARSET/COMPOSITE，已补齐。直接 import registry 会形成循环导入
+# （actions/__init__ → action_handlers → constraint_builder → actions 包），故维持副本。
+# 新增约束类型时，两处都必须同步更新。
 CONSTRAINT_TYPE_MAP = {
     "NOT_NULL": "NotNull",
     "UNIQUE": "Unique",
@@ -26,6 +31,8 @@ CONSTRAINT_TYPE_MAP = {
     "FOREIGN_KEY": "ForeignKey",
     "CONDITIONAL": "Conditional",
     "DATE_LOGIC": "DateLogic",
+    "CHARSET": "Charset",
+    "COMPOSITE": "Composite",
 }
 
 

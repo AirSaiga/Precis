@@ -18,7 +18,11 @@ from __future__ import annotations
 
 from typing import Any
 
-# 支持的约束类型
+# 支持的约束类型（标准名 + 别名）。
+# 单一事实源是 actions/registry.py 的 ALL_CONSTRAINT_TYPES；此处保持同步副本。
+# 直接 import registry 会形成循环导入（actions/__init__ → action_validator →
+# _constraint_validator → suggestion_utils → actions 包），故维持副本。
+# 新增约束类型时，两处都必须同步更新。
 VALID_CONSTRAINT_TYPES = {
     "NotNull",
     "Unique",
@@ -28,6 +32,8 @@ VALID_CONSTRAINT_TYPES = {
     "Conditional",
     "Scripted",
     "DateLogic",
+    "Charset",
+    "Composite",
     # 别名兼容
     "NOT_NULL",
     "UNIQUE",
@@ -36,6 +42,8 @@ VALID_CONSTRAINT_TYPES = {
     "FOREIGN_KEY",
     "CONDITIONAL",
     "DATE_LOGIC",
+    "CHARSET",
+    "COMPOSITE",
     "REGEX",
 }
 

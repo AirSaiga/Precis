@@ -110,7 +110,11 @@ export default defineConfig(({ mode }) => {
           'src/**/index.ts',
           'src/**/types/**',
           'src/composables/**',
-          'src/features/**',
+          // features 下仅排除 UI/运行时相关（由 E2E 覆盖）；
+          // 保留 features 根级的纯逻辑 .ts（如未来新增 utils/services）
+          'src/features/**/components/**',
+          'src/features/**/composables/**',
+          'src/features/**/types/**',
           'src/components/**',
         ],
         thresholds: {

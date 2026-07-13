@@ -9,8 +9,7 @@
  * 1. 基础节点类型 - TableNodeData, ColumnNodeData, ProjectNodeData 等
  * 2. Schema 节点类型 - SchemaNodeData, SchemaColumn 等
  * 3. 约束节点类型 - 各类约束节点的数据结构
- * 4. 正则节点类型 - RegexNodeData, RegexSetNodeData 等
- * 5. 集合节点类型 - TableSetNodeData, TableSetRootNodeData 等
+ * 4. 正则节点类型 - RegexNodeData, RegexExtractNodeData 等
  *
  * 架构说明：
  * - 每个节点类型都包含 configName 用于显示名称
@@ -39,15 +38,8 @@ import type {
   DateLogicConstraintNodeData,
   RangeConstraintNodeData,
   CompositeConstraintNodeData,
-  ConstraintRuleSetNodeData,
-  ConstraintRuleSetRootNodeData,
 } from './constraints'
-import type {
-  RegexNodeData,
-  RegexExtractNodeData,
-  RegexSetNodeData,
-  RegexSetRootNodeData,
-} from '@/features/regex/types'
+import type { RegexNodeData, RegexExtractNodeData } from '@/features/regex/types'
 import type { SourceMode, SourcePreviewNodeData } from './datasource'
 import type { TransformTypeV2 } from './projectV2'
 
@@ -116,24 +108,6 @@ export interface ProjectNodeData {
   createdAt?: string
   /** 项目最后更新时间戳（ISO 8601 格式） */
   updatedAt?: string
-}
-
-/**
- * 定义 'TableSetNode' (表结构集) 节点内部 `data` 对象。
- */
-export interface TableSetNodeData {
-  /** 集合名称，用于在 UI 中标识该表结构集 */
-  setName: string
-  /** 集合描述（可选） */
-  description?: string
-}
-
-/**
- * 定义表结构集的初始节点 Data 对象。
- */
-export interface TableSetRootNodeData {
-  /** 集合名称，用于在 UI 中标识该表结构集 */
-  setName: string
 }
 
 // ========== Schema 节点类型定义 ==========
@@ -391,26 +365,6 @@ export interface TransformOutputNodeData {
   children?: string[]
 }
 
-/**
- * Schema 集合节点数据 - Schema 容器。
- *
- * 用于将多个 Schema 节点组织到一个集合中。
- */
-export interface SchemaSetNodeData {
-  /** 集合名称，用于在 UI 中标识 */
-  setName: string
-  /** 集合描述（可选） */
-  description?: string
-}
-
-/**
- * Schema 集合根节点数据。
- */
-export interface SchemaSetRootNodeData {
-  /** 集合名称，用于在 UI 中标识 */
-  setName: string
-}
-
 // ========== JSON 数据源节点类型定义 ==========
 
 /**
@@ -556,24 +510,17 @@ export type JsonDataType = 'string' | 'number' | 'boolean' | 'object' | 'array' 
  *
  * 节点类型分类：
  * 1. 基础节点：TableNodeData, ColumnNodeData, ProjectNodeData
- * 2. 集合节点：TableSetNodeData, TableSetRootNodeData, SchemaSetNodeData, SchemaSetRootNodeData, ConstraintRuleSetNodeData, ConstraintRuleSetRootNodeData, RegexSetNodeData, RegexSetRootNodeData
- * 3. Schema 节点：SchemaNodeData, JsonSchemaNodeData
- * 4. 数据源节点：SourcePreviewNodeData, JsonSourcePreviewNodeData
- * 5. 转换节点：TransformNodeData, TransformOutputNodeData, ManualDataNodeData
- * 6. 约束节点：ForeignKeyConstraintNodeData, UniqueConstraintNodeData, NotNullConstraintNodeData, AllowedValuesConstraintNodeData, ConditionalConstraintNodeData, ScriptedConstraintNodeData, RangeConstraintNodeData, CharsetConstraintNodeData, DateLogicConstraintNodeData, CompositeConstraintNodeData
- * 7. 正则节点：RegexNodeData, RegexExtractNodeData
- * 8. 模板节点：TemplateInstanceNodeData
+ * 2. Schema 节点：SchemaNodeData, JsonSchemaNodeData
+ * 3. 数据源节点：SourcePreviewNodeData, JsonSourcePreviewNodeData
+ * 4. 转换节点：TransformNodeData, TransformOutputNodeData, ManualDataNodeData
+ * 5. 约束节点：ForeignKeyConstraintNodeData, UniqueConstraintNodeData, NotNullConstraintNodeData, AllowedValuesConstraintNodeData, ConditionalConstraintNodeData, ScriptedConstraintNodeData, RangeConstraintNodeData, CharsetConstraintNodeData, DateLogicConstraintNodeData, CompositeConstraintNodeData
+ * 6. 正则节点：RegexNodeData, RegexExtractNodeData
+ * 7. 模板节点：TemplateInstanceNodeData
  */
 export type CustomNodeData =
   | TableNodeData
   | ColumnNodeData
   | ProjectNodeData
-  | TableSetNodeData
-  | TableSetRootNodeData
-  | ConstraintRuleSetNodeData
-  | ConstraintRuleSetRootNodeData
-  | RegexSetNodeData
-  | RegexSetRootNodeData
   | RegexNodeData
   | RegexExtractNodeData
   | TransformNodeData
@@ -590,8 +537,6 @@ export type CustomNodeData =
   | DateLogicConstraintNodeData
   | CompositeConstraintNodeData
   | SchemaNodeData
-  | SchemaSetNodeData
-  | SchemaSetRootNodeData
   | SourcePreviewNodeData
   | JsonSourcePreviewNodeData
   | JsonSchemaNodeData

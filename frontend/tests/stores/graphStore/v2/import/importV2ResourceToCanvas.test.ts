@@ -6,6 +6,7 @@ import type { CustomNode, CustomNodeData } from '@/types/graph'
 vi.mock('@/services/canvas/vueFlowApi', () => ({
   addNodes: vi.fn(),
   addEdges: vi.fn(),
+  updateNode: vi.fn(),
 }))
 
 vi.mock('@/api/projectV2Api', () => ({
@@ -62,7 +63,7 @@ vi.mock('@/composables/useGlobalConfirm', () => ({
   }),
 }))
 
-import { addNodes } from '@/services/canvas/vueFlowApi'
+import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
 import { getV2Schema, getV2Constraint, getV2RegexNode, getV2FullConfig } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
 import { createV2ImportToCanvas } from '@/stores/graphStore/modules/v2/import/importV2ResourceToCanvas'
@@ -178,6 +179,7 @@ describe('createV2ImportToCanvas', () => {
       const node = makeNode('c1', 'notNullConstraint')
       node.position = { x: 0, y: 0 }
       nodes.value = [node]
+      vi.mocked(updateNode).mockClear()
 
       await importer.importV2ResourceToCanvas(
         'constraint',
@@ -186,7 +188,8 @@ describe('createV2ImportToCanvas', () => {
         { moveIfExists: true }
       )
 
-      expect(node.position).toEqual({ x: 99, y: 99 })
+      // 走 vueFlowApi.updateNode 更新位置（Vue Flow 规范），验证被调用而非直接改 nodes
+      expect(updateNode).toHaveBeenCalledWith('c1', { position: { x: 99, y: 99 } })
       expect(selectedNodeId.value).toBe('c1')
     })
 

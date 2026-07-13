@@ -3,13 +3,17 @@
  * @description 画布节点右键上下文菜单组合式函数
  *
  * 职责：
- * - 监听节点右键点击事件
- * - 创建并管理原生 DOM 上下文菜单
- * - 将选中节点添加到 AI Chat 上下文
- * - 将选中节点打包为模板定义
+ * - 监听节点右键点击事件（Vue Flow onNodeContextMenu hook）
+ * - 维护菜单的响应式状态（visible / position / node / showSaveAsTemplate）
+ * - 提供 action 回调（添加到 AI Chat / 保存为模板）
+ *
+ * 渲染由 CanvasContextMenu.vue 组件负责（消费 menuState + 调用 controller）。
+ * 本 composable 不再直接操作 DOM，消除原生 createElement/appendChild 模式。
  */
 
 import type { NodeMouseEvent } from '@vue-flow/core'
+import { reactive } from 'vue'
+import type { CustomNode } from '@/types/graph'
 import { useAiChatStore } from '@/stores/aiChatStore'
 import { useGraphStore } from '@/stores/graphStore'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistryCore'
@@ -19,8 +23,29 @@ import { eventBus } from '@/core/eventBus'
 export interface CanvasContextMenuOptions {
   /** VueFlow 节点右键事件注册器 */
   onNodeContextMenu: (handler: (event: NodeMouseEvent) => void) => void
-  /** i18n 翻译函数 */
-  t: (key: string) => string
+}
+
+/** 菜单响应式状态（CanvasContextMenu.vue 通过 props 消费） */
+export interface CanvasContextMenuState {
+  visible: boolean
+  position: { x: number; y: number }
+  node: CustomNode | null
+  /** 是否显示"保存为模板"项（基于选中节点的 eligible 类型判断） */
+  showSaveAsTemplate: boolean
+}
+
+/** 控制器接口：组件挂载时调 setup，卸载调 teardown，点击菜单项调对应 action */
+export interface CanvasContextMenuController {
+  /** 注册 Vue Flow onNodeContextMenu hook（在组件 onMounted 时调用） */
+  setup: () => void
+  /** 移除事件监听（在组件 onUnmounted 时调用） */
+  teardown: () => void
+  /** "添加到 AI Chat" action */
+  handleAddToChat: () => void
+  /** "保存为模板" action */
+  handleSaveAsTemplate: () => void
+  /** 关闭菜单（overlay/ESC/菜单项点击后调用） */
+  close: () => void
 }
 
 /** 判断节点类型是否可被打包进模板 */
@@ -40,7 +65,7 @@ function isEligibleNodeType(type: string | undefined): boolean {
  * - regex: configName 或 pattern
  * - 其他: 回退到 label/name/id
  */
-function extractNodeLabel(node: { type?: string; data?: Record<string, unknown> }): string {
+export function extractNodeLabel(node: { type?: string; data?: Record<string, unknown> }): string {
   const data = node.data || {}
   const nodeType = node.type || ''
 
@@ -65,118 +90,91 @@ function extractNodeLabel(node: { type?: string; data?: Record<string, unknown> 
 
 /**
  * @description 画布右键上下文菜单组合式函数
+ *
+ * 返回响应式 menuState（驱动 CanvasContextMenu.vue 渲染）和 controller
+ * （组件挂载/卸载/点击 action 时调用）。不再直接操作 DOM。
+ *
  * @param options - 上下文菜单配置选项
- * @returns setupContextMenu 菜单初始化函数和 onPaneContextMenu 画布右键处理器
+ * @returns menuState（响应式状态）+ controller（事件桥接 + action）
  */
-export function useCanvasContextMenu({ onNodeContextMenu, t }: CanvasContextMenuOptions) {
+export function useCanvasContextMenu({ onNodeContextMenu }: CanvasContextMenuOptions) {
   const aiChatStore = useAiChatStore()
   const graphStore = useGraphStore()
 
-  /**
-   * @description 设置节点右键上下文菜单
-   * @description 注册节点右键事件，创建原生 DOM 菜单并提供"添加到 AI Chat"和"保存为模板"功能
-   */
-  const setupContextMenu = () => {
-    onNodeContextMenu(({ event, node }) => {
+  const menuState = reactive<CanvasContextMenuState>({
+    visible: false,
+    position: { x: 0, y: 0 },
+    node: null,
+    showSaveAsTemplate: false,
+  })
+
+  /** Vue Flow onNodeContextMenu handler（保存引用以便 teardown 时移除） */
+  let nodeContextMenuHandler: ((event: NodeMouseEvent) => void) | null = null
+
+  const setup = () => {
+    nodeContextMenuHandler = ({ event, node }) => {
       const mouseEvent = event as MouseEvent
-      // 阻止浏览器默认右键菜单弹出
       mouseEvent.preventDefault()
 
-      // 如果页面上已存在上下文菜单，先移除旧的
-      const existingMenu = document.querySelector('.canvas-context-menu')
-      if (existingMenu) {
-        existingMenu.remove()
-      }
-
-      // 创建自定义上下文菜单容器
-      const contextMenu = document.createElement('div')
-      contextMenu.className = 'canvas-context-menu'
-      contextMenu.style.position = 'fixed'
-      contextMenu.style.left = mouseEvent.clientX + 'px'
-      contextMenu.style.top = mouseEvent.clientY + 'px'
-      contextMenu.style.zIndex = '10000'
-
-      // 创建"添加到 AI Chat"菜单项按钮
-      const addToChatItem = document.createElement('button')
-      addToChatItem.className = 'context-menu-item'
-      addToChatItem.textContent = '\u2728 ' + t('aiChat.addToChat')
-      addToChatItem.onclick = () => {
-        // 提取节点显示标签（如表名、配置名等）
-        const displayLabel = extractNodeLabel(node) || node.id
-        aiChatStore.addContextNode({
-          id: node.id,
-          type: node.type || 'unknown',
-          data: {
-            label: displayLabel,
-            ...node.data,
-          },
-          label: displayLabel,
-        })
-        // 切换左侧侧边栏到 AI 助手视图
-        eventBus.emit('viewchange', { view: 'ai-chat' })
-        // 点击后移除上下文菜单
-        if (contextMenu.parentNode === document.body) {
-          document.body.removeChild(contextMenu)
-        }
-      }
-
-      contextMenu.appendChild(addToChatItem)
-
-      // 判断是否显示"保存为模板"菜单项
-      // 条件：当前选中的节点中有至少一个 eligible 类型
+      // 判断是否显示"保存为模板"项
       const selectedNodeIds = graphStore.selectedNodeIds
       const allSelectedNodes =
         selectedNodeIds.length > 0
           ? graphStore.nodes.filter((n) => selectedNodeIds.includes(n.id))
-          : [node]
+          : [node as CustomNode]
       const hasEligible = allSelectedNodes.some((n) => isEligibleNodeType(n.type))
 
-      if (hasEligible) {
-        // 分隔线
-        const separator = document.createElement('div')
-        separator.className = 'context-menu-separator'
-        contextMenu.appendChild(separator)
+      // 更新响应式状态（驱动组件渲染）
+      menuState.visible = true
+      menuState.position = { x: mouseEvent.clientX, y: mouseEvent.clientY }
+      menuState.node = node as CustomNode
+      menuState.showSaveAsTemplate = hasEligible
+    }
+    onNodeContextMenu(nodeContextMenuHandler)
+  }
 
-        // 创建"保存为模板"菜单项
-        const saveAsTemplateItem = document.createElement('button')
-        saveAsTemplateItem.className = 'context-menu-item'
-        saveAsTemplateItem.textContent = '\uD83D\uDCE6 ' + t('template.saveAsTemplate')
-        saveAsTemplateItem.onclick = () => {
-          eventBus.emit('open-save-as-template-dialog')
-          if (contextMenu.parentNode === document.body) {
-            document.body.removeChild(contextMenu)
-          }
-        }
-        contextMenu.appendChild(saveAsTemplateItem)
-      }
+  const teardown = () => {
+    // Vue Flow 的 onNodeContextMenu 注册的 handler 无法直接移除，
+    // 但组件卸载时 menuState.visible 会被组件的关闭逻辑置 false，
+    // handler 即使再触发也只会更新状态，组件已不在 DOM 中。
+    nodeContextMenuHandler = null
+  }
 
-      // 定义点击菜单外部时关闭菜单的处理器
-      const closeMenu = (e: MouseEvent) => {
-        if (!contextMenu.contains(e.target as Node)) {
-          if (contextMenu.parentNode === document.body) {
-            document.body.removeChild(contextMenu)
-          }
-          // 清理事件监听，防止内存泄漏
-          document.removeEventListener('click', closeMenu)
-        }
-      }
+  const handleAddToChat = () => {
+    const node = menuState.node
+    if (!node) return
 
-      // 将菜单挂载到页面并延迟注册点击关闭事件
-      document.body.appendChild(contextMenu)
-      setTimeout(() => {
-        document.addEventListener('click', closeMenu)
-      }, 0)
+    const displayLabel = extractNodeLabel(node) || node.id
+    aiChatStore.addContextNode({
+      id: node.id,
+      type: node.type || 'unknown',
+      data: {
+        label: displayLabel,
+        ...node.data,
+      },
+      label: displayLabel,
     })
+    // 切换左侧侧边栏到 AI 助手视图
+    eventBus.emit('viewchange', { view: 'ai-chat' })
   }
 
-  /**
-   * @description 处理画布空白处右键事件
-   * @param event - 包含 MouseEvent 的事件对象
-   */
-  const onPaneContextMenu = (event: { event: MouseEvent }) => {
-    // 阻止浏览器默认右键菜单在画布空白处弹出
-    event.event.preventDefault()
+  const handleSaveAsTemplate = () => {
+    eventBus.emit('open-save-as-template-dialog')
   }
 
-  return { setupContextMenu, onPaneContextMenu }
+  /** 关闭菜单（由组件的 overlay/ESC/菜单项点击触发） */
+  const close = () => {
+    menuState.visible = false
+    menuState.node = null
+  }
+
+  const controller: CanvasContextMenuController = {
+    setup,
+    teardown,
+    handleAddToChat,
+    handleSaveAsTemplate,
+    close,
+  }
+
+  return { menuState, controller, close }
 }

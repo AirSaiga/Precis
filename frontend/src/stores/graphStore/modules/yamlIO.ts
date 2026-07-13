@@ -138,12 +138,173 @@ export function createYamlIOModule(params: {
   const { nodes, assets, projectName, selectedNodeId } = params
   const { t } = useI18n()
 
-  function yamlSafe(value: string | undefined | null): string {
-    if (value === undefined || value === null) return ''
-    if (/^[a-zA-Z0-9_\s./-]+$/.test(value)) return value
-    return JSON.stringify(value)
+  /**
+   * 构建约束节点序列化为对象（供 yaml.dump 使用）。
+   * 字段统一 snake_case，与后端 V2 格式对齐。
+   * 仅返回有值字段，避免输出 undefined。
+   */
+  function buildConstraintObject(
+    node: CustomNode,
+    constraintNodes: CustomNode[]
+  ): Record<string, unknown> {
+    const constraintType = getConstraintKindByNodeType(node.type) || 'scripted'
+    const obj: Record<string, unknown> = { type: constraintType }
+
+    switch (constraintType) {
+      case 'foreignKey': {
+        const d = node.data as ForeignKeyConstraintNodeData
+        obj.config_name = d.configName || 'unnamed'
+        obj.source_table = d.sourceTable
+        obj.source_column = d.sourceColumn
+        obj.target_table = d.targetTable
+        obj.target_column = d.targetColumn
+        if (d.constraintName) obj.constraint_name = d.constraintName
+        if (d.allowNull !== undefined) obj.allow_null = d.allowNull
+        if (d.advancedFilter) obj.advanced_filter = d.advancedFilter
+        if (d.config?.ruleType) obj.rule_type = d.config.ruleType
+        if (d.sourceRef)
+          obj.source_ref = { node_id: d.sourceRef.nodeId, column_id: d.sourceRef.columnId }
+        if (d.targetRef) {
+          const targetRef: Record<string, unknown> = { node_id: d.targetRef.nodeId }
+          if (d.targetRef.columnId) targetRef.column_id = d.targetRef.columnId
+          obj.target_ref = targetRef
+        }
+        if (d.config?.targetNodeId) obj.target_node_id = d.config.targetNodeId
+        if (d.config?.targetColumn) obj.target_column_name = d.config.targetColumn
+        break
+      }
+      case 'unique': {
+        const d = node.data as UniqueConstraintNodeData
+        obj.config_name = d.configName || 'unnamed'
+        obj.table = d.table
+        obj.column = d.column
+        if (d.constraintName) obj.constraint_name = d.constraintName
+        break
+      }
+      case 'notNull': {
+        const d = node.data as NotNullConstraintNodeData
+        obj.config_name = d.configName || 'unnamed'
+        obj.table = d.table
+        obj.column = d.column
+        if (d.constraintName) obj.constraint_name = d.constraintName
+        break
+      }
+      case 'allowedValues': {
+        const d = node.data as AllowedValuesConstraintNodeData
+        obj.config_name = d.configName || 'unnamed'
+        obj.table = d.table
+        obj.column = d.column
+        obj.allowed_values = Array.isArray(d.allowedValues)
+          ? (d.allowedValues as string[])
+          : Array.from((d.allowedValues as Set<string> | undefined) || [])
+        if (d.sourceRef)
+          obj.source_ref = { node_id: d.sourceRef.nodeId, column_id: d.sourceRef.columnId }
+        if (d.constraintName) obj.constraint_name = d.constraintName
+        break
+      }
+      case 'conditional': {
+        const d = node.data as ConditionalConstraintNodeData
+        obj.config_name = d.configName || 'unnamed'
+        obj.table = d.table
+        obj.if_column = d.ifColumn
+        obj.if_value = d.ifValue
+        if (d.ifLogic) obj.if_logic = d.ifLogic
+        if (d.ifConditions && d.ifConditions.length > 0) {
+          obj.if_conditions = d.ifConditions.map((cond) => {
+            const c: Record<string, unknown> = { operator: cond.operator }
+            if (cond.column) c.column = cond.column
+            if (cond.value !== undefined) c.value = cond.value
+            if (cond.values) c.values = cond.values
+            if (cond.ref) c.ref = { node_id: cond.ref.nodeId, column_id: cond.ref.columnId }
+            return c
+          })
+        }
+        obj.then_column = d.thenColumn
+        obj.then_condition = d.thenConditionConfig
+        if (d.ifRef) obj.if_ref = { node_id: d.ifRef.nodeId, column_id: d.ifRef.columnId }
+        if (d.thenRef) obj.then_ref = { node_id: d.thenRef.nodeId, column_id: d.thenRef.columnId }
+        if (d.constraintName) obj.constraint_name = d.constraintName
+        break
+      }
+      case 'scripted': {
+        const d = node.data as ScriptedConstraintNodeData
+        obj.config_name = d.configName || 'unnamed'
+        obj.table = d.table
+        obj.script = d.script
+        if (d.constraintName) obj.constraint_name = d.constraintName
+        break
+      }
+      case 'range': {
+        const d = node.data as RangeConstraintNodeData
+        obj.config_name = d.configName || 'unnamed'
+        obj.table = d.table
+        obj.column = d.column
+        if (d.minValue !== undefined) obj.min_value = d.minValue
+        if (d.maxValue !== undefined) obj.max_value = d.maxValue
+        if (d.boundaryMode) obj.boundary_mode = d.boundaryMode
+        if (d.sourceRef)
+          obj.source_ref = { node_id: d.sourceRef.nodeId, column_id: d.sourceRef.columnId }
+        if (d.constraintName) obj.constraint_name = d.constraintName
+        break
+      }
+      case 'charset': {
+        const d = node.data as CharsetConstraintNodeData
+        obj.config_name = d.configName || 'unnamed'
+        obj.table = d.table
+        obj.column = d.column
+        if (d.charsetMode) obj.charset_mode = d.charsetMode
+        if (d.sourceRef)
+          obj.source_ref = { node_id: d.sourceRef.nodeId, column_id: d.sourceRef.columnId }
+        if (d.constraintName) obj.constraint_name = d.constraintName
+        break
+      }
+      case 'dateLogic': {
+        const d = node.data as DateLogicConstraintNodeData
+        obj.config_name = d.configName || 'unnamed'
+        obj.table = d.table
+        obj.column = d.column
+        if (d.logicMode) obj.logic_mode = d.logicMode
+        if (d.compareOp) obj.compare_op = d.compareOp
+        if (d.referenceDate) obj.reference_date = d.referenceDate
+        if (d.referenceColumn) obj.reference_column = d.referenceColumn
+        if (d.calculationType) obj.calculation_type = d.calculationType
+        if (d.targetValue) obj.target_value = d.targetValue
+        if (d.targetColumn) obj.target_column = d.targetColumn
+        if (d.sourceRef)
+          obj.source_ref = { node_id: d.sourceRef.nodeId, column_id: d.sourceRef.columnId }
+        if (d.constraintName) obj.constraint_name = d.constraintName
+        break
+      }
+      case 'composite': {
+        const d = node.data as CompositeConstraintNodeData
+        const extra = node.data as unknown as Record<string, unknown>
+        obj.config_name = d.configName || 'unnamed'
+        if (extra.table) obj.table = extra.table
+        obj.logic = d.logic || 'all'
+        const subNodeIds = d.includedNodeIds || []
+        if (subNodeIds.length > 0) {
+          obj.sub_constraints = subNodeIds.map((subId) => {
+            const subNode = constraintNodes.find((n) => n.id === subId)
+            const subType = subNode
+              ? getConstraintKindByNodeType(subNode.type) || 'scripted'
+              : 'scripted'
+            return { id: subId, type: subType }
+          })
+        }
+        if (d.constraintName) obj.constraint_name = d.constraintName
+        break
+      }
+    }
+    return obj
   }
 
+  /**
+   * 构建项目配置为完整 YAML 字符串。
+   *
+   * 采用"分块 dump + 注释拼接"策略：对 schemas/constraints/assets 各自构造对象树，
+   * 用 js-yaml dump 序列化（正确处理转义），再在区块前插入 i18n 注释行。
+   * 字段统一 snake_case，与后端 V2 格式对齐。
+   */
   function buildProjectYAML(): string {
     const schemaNodes = nodes.value.filter((n) => n.type === 'schema')
     const constraintNodes = nodes.value.filter((n) => {
@@ -151,284 +312,75 @@ export function createYamlIOModule(params: {
       return isConstraintNodeType(n.type)
     })
 
-    let yaml = t('messages.persistence.comments.projectConfig')
-    yaml += `project_name: ${yamlSafe(projectName.value) || 'untitled_project'}\n`
-    yaml += `generated_at: ${new Date().toISOString()}\n\n`
+    // 头部：项目名 + 生成时间（直接拼接，简单标量无需 dump）
+    let result = t('messages.persistence.comments.projectConfig')
+    result += `project_name: ${projectName.value || 'untitled_project'}\n`
+    result += `generated_at: ${new Date().toISOString()}\n`
 
+    // schemas 区块
     if (schemaNodes.length > 0) {
-      yaml += t('messages.persistence.comments.schemaConfig')
-      yaml += 'schemas:\n'
-
-      schemaNodes.forEach((node, index) => {
-        const schemaData = node.data as SchemaNodeData
-        yaml += `  ${yamlSafe(schemaData.tableName)}:\n`
-        yaml += `    table_name: ${yamlSafe(schemaData.tableName)}\n`
-        yaml += `    sheet_name: ${yamlSafe(schemaData.sheetName)}\n`
-        yaml += `    columns:\n`
-
-        schemaData.columns.forEach((column) => {
-          yaml += `      - column_name: ${yamlSafe(column.columnName)}\n`
-          yaml += `        data_type: ${column.dataType}\n`
-          if ((column.validationErrors ?? []).length > 0) {
-            yaml += `        validation_errors: ${JSON.stringify(column.validationErrors)}\n`
+      const schemasObj: Record<string, unknown> = {}
+      schemaNodes.forEach((node) => {
+        const d = node.data as SchemaNodeData
+        const columns = d.columns.map((col) => {
+          const c: Record<string, unknown> = {
+            column_name: col.columnName,
+            data_type: col.dataType,
           }
-          if (column.constraints && (column.constraints.notNull || column.constraints.unique)) {
-            yaml += `        constraints:\n`
-            if (column.constraints.notNull) {
-              yaml += `          notNull: true\n`
-            }
-            if (column.constraints.unique) {
-              yaml += `          unique: true\n`
-            }
+          if ((col.validationErrors ?? []).length > 0) {
+            c.validation_errors = col.validationErrors
           }
+          if (col.constraints && (col.constraints.notNull || col.constraints.unique)) {
+            const constraints: Record<string, unknown> = {}
+            if (col.constraints.notNull) constraints.not_null = true
+            if (col.constraints.unique) constraints.unique = true
+            c.constraints = constraints
+          }
+          return c
         })
-
-        if (index < schemaNodes.length - 1) {
-          yaml += '\n'
+        const schemaObj: Record<string, unknown> = {
+          table_name: d.tableName,
+          columns,
         }
+        if (d.sheetName) schemaObj.sheet_name = d.sheetName
+        schemasObj[d.tableName] = schemaObj
       })
+      result += '\n' + t('messages.persistence.comments.schemaConfig')
+      result += yaml.dump({ schemas: schemasObj }, { indent: 2, lineWidth: 120 })
     }
 
+    // constraints 区块
     if (constraintNodes.length > 0) {
-      yaml += '\n' + t('messages.persistence.comments.constraintConfig')
-      yaml += 'constraints:\n'
-
+      const constraintsObj: Record<string, unknown> = {}
       constraintNodes.forEach((node, index) => {
         const constraintType = getConstraintKindByNodeType(node.type) || 'scripted'
-
-        yaml += `  ${constraintType}_${index + 1}:\n`
-        yaml += `    type: ${constraintType}\n`
-
-        switch (constraintType) {
-          case 'foreignKey': {
-            const foreignKeyData = node.data as ForeignKeyConstraintNodeData
-            yaml += `    config_name: ${yamlSafe(foreignKeyData.configName || 'unnamed')}\n`
-            yaml += `    source_table: ${yamlSafe(foreignKeyData.sourceTable)}\n`
-            yaml += `    source_column: ${yamlSafe(foreignKeyData.sourceColumn)}\n`
-            yaml += `    target_table: ${yamlSafe(foreignKeyData.targetTable)}\n`
-            yaml += `    target_column: ${yamlSafe(foreignKeyData.targetColumn)}\n`
-            if (foreignKeyData.constraintName)
-              yaml += `    constraint_name: ${yamlSafe(foreignKeyData.constraintName)}\n`
-            if (foreignKeyData.allowNull !== undefined)
-              yaml += `    allow_null: ${foreignKeyData.allowNull}\n`
-            if (foreignKeyData.advancedFilter)
-              yaml += `    advanced_filter: ${JSON.stringify(foreignKeyData.advancedFilter)}\n`
-            if (foreignKeyData.config?.ruleType)
-              yaml += `    rule_type: ${foreignKeyData.config.ruleType}\n`
-            if (foreignKeyData.sourceRef) {
-              yaml += `    source_ref:\n`
-              yaml += `      node_id: ${foreignKeyData.sourceRef.nodeId}\n`
-              yaml += `      column_id: ${foreignKeyData.sourceRef.columnId}\n`
-            }
-            if (foreignKeyData.targetRef) {
-              yaml += `    target_ref:\n`
-              yaml += `      node_id: ${foreignKeyData.targetRef.nodeId}\n`
-              if (foreignKeyData.targetRef.columnId)
-                yaml += `      column_id: ${foreignKeyData.targetRef.columnId}\n`
-            }
-            if (foreignKeyData.config?.targetNodeId)
-              yaml += `    target_node_id: ${foreignKeyData.config.targetNodeId}\n`
-            if (foreignKeyData.config?.targetColumn)
-              yaml += `    target_column_name: ${foreignKeyData.config.targetColumn}\n`
-            break
-          }
-          case 'unique': {
-            const uniqueData = node.data as UniqueConstraintNodeData
-            yaml += `    config_name: ${yamlSafe(uniqueData.configName || 'unnamed')}\n`
-            yaml += `    table: ${yamlSafe(uniqueData.table)}\n`
-            yaml += `    column: ${yamlSafe(uniqueData.column)}\n`
-            if (uniqueData.constraintName)
-              yaml += `    constraint_name: ${yamlSafe(uniqueData.constraintName)}\n`
-            break
-          }
-          case 'notNull': {
-            const notNullData = node.data as NotNullConstraintNodeData
-            yaml += `    config_name: ${yamlSafe(notNullData.configName || 'unnamed')}\n`
-            yaml += `    table: ${yamlSafe(notNullData.table)}\n`
-            yaml += `    column: ${yamlSafe(notNullData.column)}\n`
-            if (notNullData.constraintName)
-              yaml += `    constraint_name: ${yamlSafe(notNullData.constraintName)}\n`
-            break
-          }
-          case 'allowedValues': {
-            const allowedData = node.data as AllowedValuesConstraintNodeData
-            yaml += `    config_name: ${yamlSafe(allowedData.configName || 'unnamed')}\n`
-            yaml += `    table: ${yamlSafe(allowedData.table)}\n`
-            yaml += `    column: ${yamlSafe(allowedData.column)}\n`
-            const allowedValuesArray = Array.isArray(allowedData.allowedValues)
-              ? (allowedData.allowedValues as string[])
-              : Array.from((allowedData.allowedValues as Set<string> | undefined) || [])
-            yaml += `    allowed_values: ${JSON.stringify(allowedValuesArray)}\n`
-            if (allowedData.sourceRef) {
-              yaml += `    source_ref:\n`
-              yaml += `      node_id: ${allowedData.sourceRef.nodeId}\n`
-              yaml += `      column_id: ${allowedData.sourceRef.columnId}\n`
-            }
-            if (allowedData.constraintName)
-              yaml += `    constraint_name: ${yamlSafe(allowedData.constraintName)}\n`
-            break
-          }
-          case 'conditional': {
-            const conditionalData = node.data as ConditionalConstraintNodeData
-            yaml += `    config_name: ${yamlSafe(conditionalData.configName || 'unnamed')}\n`
-            yaml += `    table: ${yamlSafe(conditionalData.table)}\n`
-            yaml += `    if_column: ${yamlSafe(conditionalData.ifColumn)}\n`
-            yaml += `    if_value: ${JSON.stringify(conditionalData.ifValue)}\n`
-            if (conditionalData.ifLogic) yaml += `    if_logic: ${conditionalData.ifLogic}\n`
-            if (conditionalData.ifConditions && conditionalData.ifConditions.length > 0) {
-              yaml += `    if_conditions:\n`
-              conditionalData.ifConditions.forEach((cond) => {
-                yaml += `      - operator: ${cond.operator}\n`
-                if (cond.column) yaml += `        column: ${cond.column}\n`
-                if (cond.value !== undefined)
-                  yaml += `        value: ${JSON.stringify(cond.value)}\n`
-                if (cond.values) yaml += `        values: ${JSON.stringify(cond.values)}\n`
-                if (cond.ref) {
-                  yaml += `        ref:\n`
-                  yaml += `          node_id: ${cond.ref.nodeId}\n`
-                  yaml += `          column_id: ${cond.ref.columnId}\n`
-                }
-              })
-            }
-            yaml += `    then_column: ${yamlSafe(conditionalData.thenColumn)}\n`
-            yaml += `    then_condition: ${JSON.stringify(conditionalData.thenConditionConfig)}\n`
-            if (conditionalData.ifRef) {
-              yaml += `    if_ref:\n`
-              yaml += `      node_id: ${conditionalData.ifRef.nodeId}\n`
-              yaml += `      column_id: ${conditionalData.ifRef.columnId}\n`
-            }
-            if (conditionalData.thenRef) {
-              yaml += `    then_ref:\n`
-              yaml += `      node_id: ${conditionalData.thenRef.nodeId}\n`
-              yaml += `      column_id: ${conditionalData.thenRef.columnId}\n`
-            }
-            if (conditionalData.constraintName)
-              yaml += `    constraint_name: ${yamlSafe(conditionalData.constraintName)}\n`
-            break
-          }
-          case 'scripted': {
-            const scriptedData = node.data as ScriptedConstraintNodeData
-            yaml += `    config_name: ${yamlSafe(scriptedData.configName || 'unnamed')}\n`
-            yaml += `    table: ${yamlSafe(scriptedData.table)}\n`
-            yaml += `    script: ${yamlSafe(scriptedData.script)}\n`
-            if (scriptedData.constraintName)
-              yaml += `    constraint_name: ${yamlSafe(scriptedData.constraintName)}\n`
-            break
-          }
-          case 'range': {
-            const rangeData = node.data as RangeConstraintNodeData
-            yaml += `    config_name: ${yamlSafe(rangeData.configName || 'unnamed')}\n`
-            yaml += `    table: ${yamlSafe(rangeData.table)}\n`
-            yaml += `    column: ${yamlSafe(rangeData.column)}\n`
-            if (rangeData.minValue !== undefined) yaml += `    min_value: ${rangeData.minValue}\n`
-            if (rangeData.maxValue !== undefined) yaml += `    max_value: ${rangeData.maxValue}\n`
-            if (rangeData.boundaryMode) yaml += `    boundary_mode: ${rangeData.boundaryMode}\n`
-            if (rangeData.sourceRef) {
-              yaml += `    source_ref:\n`
-              yaml += `      node_id: ${rangeData.sourceRef.nodeId}\n`
-              yaml += `      column_id: ${rangeData.sourceRef.columnId}\n`
-            }
-            if (rangeData.constraintName)
-              yaml += `    constraint_name: ${yamlSafe(rangeData.constraintName)}\n`
-            break
-          }
-          case 'charset': {
-            const charsetData = node.data as CharsetConstraintNodeData
-            yaml += `    config_name: ${yamlSafe(charsetData.configName || 'unnamed')}\n`
-            yaml += `    table: ${yamlSafe(charsetData.table)}\n`
-            yaml += `    column: ${yamlSafe(charsetData.column)}\n`
-            if (charsetData.charsetMode) yaml += `    charset_mode: ${charsetData.charsetMode}\n`
-            if (charsetData.sourceRef) {
-              yaml += `    source_ref:\n`
-              yaml += `      node_id: ${charsetData.sourceRef.nodeId}\n`
-              yaml += `      column_id: ${charsetData.sourceRef.columnId}\n`
-            }
-            if (charsetData.constraintName)
-              yaml += `    constraint_name: ${yamlSafe(charsetData.constraintName)}\n`
-            break
-          }
-          case 'dateLogic': {
-            const dateLogicData = node.data as DateLogicConstraintNodeData
-            yaml += `    config_name: ${yamlSafe(dateLogicData.configName || 'unnamed')}\n`
-            yaml += `    table: ${yamlSafe(dateLogicData.table)}\n`
-            yaml += `    column: ${yamlSafe(dateLogicData.column)}\n`
-            if (dateLogicData.logicMode) yaml += `    logic_mode: ${dateLogicData.logicMode}\n`
-            if (dateLogicData.compareOp) yaml += `    compare_op: ${dateLogicData.compareOp}\n`
-            if (dateLogicData.referenceDate)
-              yaml += `    reference_date: ${yamlSafe(dateLogicData.referenceDate)}\n`
-            if (dateLogicData.referenceColumn)
-              yaml += `    reference_column: ${yamlSafe(dateLogicData.referenceColumn)}\n`
-            if (dateLogicData.calculationType)
-              yaml += `    calculation_type: ${dateLogicData.calculationType}\n`
-            if (dateLogicData.targetValue)
-              yaml += `    target_value: ${yamlSafe(dateLogicData.targetValue)}\n`
-            if (dateLogicData.targetColumn)
-              yaml += `    target_column: ${yamlSafe(dateLogicData.targetColumn)}\n`
-            if (dateLogicData.sourceRef) {
-              yaml += `    source_ref:\n`
-              yaml += `      node_id: ${dateLogicData.sourceRef.nodeId}\n`
-              yaml += `      column_id: ${dateLogicData.sourceRef.columnId}\n`
-            }
-            if (dateLogicData.constraintName)
-              yaml += `    constraint_name: ${yamlSafe(dateLogicData.constraintName)}\n`
-            break
-          }
-          case 'composite': {
-            // 复合约束：聚合多个子约束（通过 includedNodeIds 引用画布上的其他约束节点）
-            const compositeData = node.data as CompositeConstraintNodeData
-            const compositeExtra = node.data as unknown as Record<string, unknown>
-            yaml += `    config_name: ${yamlSafe(compositeData.configName || 'unnamed')}\n`
-            // table 是可选锚点字段，不在 CompositeConstraintNodeData 类型中，通过 Record 安全访问
-            if (compositeExtra.table)
-              yaml += `    table: ${yamlSafe(compositeExtra.table as string)}\n`
-            yaml += `    logic: ${compositeData.logic || 'all'}\n`
-            const subNodeIds = compositeData.includedNodeIds || []
-            if (subNodeIds.length > 0) {
-              // 将子约束节点 ID 映射回其约束类型，序列化为 sub_constraints
-              yaml += `    sub_constraints:\n`
-              subNodeIds.forEach((subId) => {
-                const subNode = constraintNodes.find((n) => n.id === subId)
-                const subType = subNode
-                  ? getConstraintKindByNodeType(subNode.type) || 'scripted'
-                  : 'scripted'
-                yaml += `      - id: ${subId}\n`
-                yaml += `        type: ${subType}\n`
-              })
-            }
-            if (compositeData.constraintName)
-              yaml += `    constraint_name: ${yamlSafe(compositeData.constraintName)}\n`
-            break
-          }
-        }
-
-        if (index < constraintNodes.length - 1) {
-          yaml += '\n'
-        }
+        constraintsObj[`${constraintType}_${index + 1}`] = buildConstraintObject(
+          node,
+          constraintNodes
+        )
       })
+      result += '\n' + t('messages.persistence.comments.constraintConfig')
+      result += yaml.dump({ constraints: constraintsObj }, { indent: 2, lineWidth: 120 })
     }
 
+    // assets 区块
     if (assets.value.length > 0) {
-      yaml += '\n' + t('messages.persistence.comments.assetsConfig')
-      yaml += 'assets:\n'
-
-      assets.value.forEach((asset, index) => {
-        yaml += `  ${yamlSafe(asset.configName)}:\n`
-        yaml += `    table_name: ${yamlSafe(asset.tableName)}\n`
-        yaml += `    sheet_name: ${yamlSafe(asset.sheetName)}\n`
-        yaml += `    columns:\n`
-
-        asset.columns.forEach((column) => {
-          yaml += `      - column_name: ${yamlSafe(column.columnName)}\n`
-          yaml += `        data_type: ${column.dataType}\n`
-        })
-
-        if (index < assets.value.length - 1) {
-          yaml += '\n'
+      const assetsObj: Record<string, unknown> = {}
+      assets.value.forEach((asset) => {
+        assetsObj[asset.configName] = {
+          table_name: asset.tableName,
+          ...(asset.sheetName ? { sheet_name: asset.sheetName } : {}),
+          columns: asset.columns.map((col) => ({
+            column_name: col.columnName,
+            data_type: col.dataType,
+          })),
         }
       })
+      result += '\n' + t('messages.persistence.comments.assetsConfig')
+      result += yaml.dump({ assets: assetsObj }, { indent: 2, lineWidth: 120 })
     }
 
-    return yaml
+    return result
   }
 
   function exportProjectAsFile(): void {
@@ -460,18 +412,20 @@ export function createYamlIOModule(params: {
     const node = nodes.value.find((n) => n.id === nodeId && n.type === 'schema')
     if (!node) throw new Error(t('messages.persistence.schemaNotFound'))
 
-    const schemaData = node.data as SchemaNodeData
-    let yaml = `# Schema配置: ${schemaData.configName}\n`
-    yaml += `table_name: ${yamlSafe(schemaData.tableName)}\n`
-    yaml += `sheet_name: ${yamlSafe(schemaData.sheetName)}\n`
-    yaml += `columns:\n`
+    const d = node.data as SchemaNodeData
+    const schemaObj: Record<string, unknown> = {
+      table_name: d.tableName,
+      columns: d.columns.map((col) => ({
+        column_name: col.columnName,
+        data_type: col.dataType,
+      })),
+    }
+    if (d.sheetName) schemaObj.sheet_name = d.sheetName
 
-    schemaData.columns.forEach((column) => {
-      yaml += `  - column_name: ${yamlSafe(column.columnName)}\n`
-      yaml += `    data_type: ${column.dataType}\n`
-    })
-
-    return yaml
+    // 头部注释 + dump（importSchemaFromYAML 支持这种单层格式）
+    let result = `# Schema配置: ${d.configName}\n`
+    result += yaml.dump(schemaObj, { indent: 2, lineWidth: 120 })
+    return result
   }
 
   async function importSchemaFromYAML(

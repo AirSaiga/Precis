@@ -83,6 +83,104 @@ class TestReconstructExpandColumns:
         result = _reconstruct_expand_columns(df, schema)
         assert "specs" in result.columns
 
+    def test_expand_row_all_children_nan_returns_none(self):
+        """整行所有 child 列都为 NaN 时，该行 cell 应为 None（不是空 dict）。"""
+        df = pd.DataFrame(
+            {
+                "id": [1, 2],
+                "specs.brand": ["X", None],
+            }
+        )
+        schema = TableSchema(
+            name="t",
+            columns=[
+                ColumnSchema(name="id", data_type=IntegerType()),
+                ColumnSchema(
+                    name="specs",
+                    data_type=StringType(),
+                    expand=True,
+                    children=[ColumnSchema(name="brand", data_type=StringType())],
+                ),
+            ],
+        )
+        result = _reconstruct_expand_columns(df, schema)
+        # 第 1 行有值 → dict；第 2 行全 NaN → None
+        assert result["specs"].iloc[0] == {"brand": "X"}
+        assert result["specs"].iloc[1] is None
+
+    def test_expand_partial_children_nan(self):
+        """部分 child 列为 NaN 时，应省略该 child，保留有值的 child。"""
+        df = pd.DataFrame(
+            {
+                "id": [1],
+                "specs.brand": ["X"],
+                "specs.model": [None],
+            }
+        )
+        schema = TableSchema(
+            name="t",
+            columns=[
+                ColumnSchema(name="id", data_type=IntegerType()),
+                ColumnSchema(
+                    name="specs",
+                    data_type=StringType(),
+                    expand=True,
+                    children=[
+                        ColumnSchema(name="brand", data_type=StringType()),
+                        ColumnSchema(name="model", data_type=StringType()),
+                    ],
+                ),
+            ],
+        )
+        result = _reconstruct_expand_columns(df, schema)
+        assert result["specs"].iloc[0] == {"brand": "X"}
+
+    def test_expand_child_col_missing_in_df(self):
+        """schema 声明了 child 但 df 中无对应点分列时，应跳过该 child。"""
+        df = pd.DataFrame(
+            {
+                "id": [1],
+                "specs.brand": ["X"],
+                # specs.model 列不存在
+            }
+        )
+        schema = TableSchema(
+            name="t",
+            columns=[
+                ColumnSchema(name="id", data_type=IntegerType()),
+                ColumnSchema(
+                    name="specs",
+                    data_type=StringType(),
+                    expand=True,
+                    children=[
+                        ColumnSchema(name="brand", data_type=StringType()),
+                        ColumnSchema(name="model", data_type=StringType()),
+                    ],
+                ),
+            ],
+        )
+        result = _reconstruct_expand_columns(df, schema)
+        assert result["specs"].iloc[0] == {"brand": "X"}
+
+    def test_expand_empty_dataframe(self):
+        """空 DataFrame（0 行）时，重构后 specs 列为空列表。"""
+        df = pd.DataFrame({"id": pd.Series([], dtype="int64"), "specs.brand": pd.Series([], dtype="object")})
+        schema = TableSchema(
+            name="t",
+            columns=[
+                ColumnSchema(name="id", data_type=IntegerType()),
+                ColumnSchema(
+                    name="specs",
+                    data_type=StringType(),
+                    expand=True,
+                    children=[ColumnSchema(name="brand", data_type=StringType())],
+                ),
+            ],
+        )
+        result = _reconstruct_expand_columns(df, schema)
+        assert "specs" in result.columns
+        assert len(result) == 0
+
 
 # ============================================================================
 # _map_json_path_columns 测试

@@ -42,17 +42,6 @@ const inspector = (() => {
       },
     },
     // [新增] InspectorPanel相关
-    tableSetNode: {
-      title: '表结构集属性',
-      badgeEditable: '可编辑',
-      nameLabel: '集合名称',
-      descriptionLabel: '描述',
-      infoTip: '这是一个容器节点，双击它可以在内部画布中管理具体的表格定义。',
-    },
-    tableSetRootNode: {
-      title: '表结构集信息',
-      badgeReadOnly: '只读',
-    },
     columnDefinition: {
       title: '列定义节点属性',
     },

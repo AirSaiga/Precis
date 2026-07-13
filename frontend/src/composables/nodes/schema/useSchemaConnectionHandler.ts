@@ -11,7 +11,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { nextTick } from 'vue'
+import { nextTick, toRaw } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
@@ -340,11 +340,14 @@ export function useSchemaConnectionHandler() {
         const latestSourceNode = store.nodes.find((n) => n.id === sourceNodeIdForDialog)
 
         if (latestSchemaNode && latestSourceNode) {
-          const sourceDataSnapshot = JSON.parse(JSON.stringify(latestSourceNode.data)) as Record<
+          // node.data 是 Vue reactive proxy，必须 toRaw 解包后 structuredClone 深拷贝
+          // （JSON.parse(JSON.stringify) 对 reactive proxy 虽能工作，但遇 Date/Map/Set 会丢数据，
+          // 按 AGENTS.md 深拷贝规范统一用 structuredClone(toRaw(...))）
+          const sourceDataSnapshot = structuredClone(toRaw(latestSourceNode.data)) as Record<
             string,
             unknown
           >
-          const schemaDataSnapshot = JSON.parse(JSON.stringify(latestSchemaNode.data)) as Record<
+          const schemaDataSnapshot = structuredClone(toRaw(latestSchemaNode.data)) as Record<
             string,
             unknown
           >

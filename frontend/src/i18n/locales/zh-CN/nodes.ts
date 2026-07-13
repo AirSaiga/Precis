@@ -182,18 +182,6 @@ const customNodes = {
     title: '约束看板',
     empty: '暂无约束规则',
   },
-  tableSetNode: {
-    title: '表格集合属性',
-    containsTables: '包含表格:',
-    count: '个',
-    doubleClickEdit: '双击进入编辑模式',
-  },
-  schemaSetNode: {
-    title: 'Schema 集合节点',
-    containsSchema: '包含 Schema:',
-    count: '个',
-    doubleClickEdit: '双击进入编辑模式',
-  },
   projectRootNode: {
     projectStart: '工程起点 - 从下方拖出创建节点',
     summary: {
@@ -233,39 +221,6 @@ const customNodes = {
       aiGenerate: 'AI 初始化配置',
       reload: '重载项目',
     },
-  },
-  schemaSetRootNode: {
-    back: '返回上层',
-    contains: '包含',
-    tables: '个数据表',
-  },
-  tableSetRootNode: {
-    tableCollectionManagement: '表格集合管理',
-    addTable: '添加表格',
-    newTable: '新建表格',
-  },
-  regexSetNode: {
-    title: '正则集合节点',
-    containsExpressions: '包含表达式',
-    count: '个',
-    doubleClickEdit: '双击进入编辑模式',
-  },
-  regexSetRootNode: {
-    back: '返回上层',
-    regexCollectionManagement: '正则表达式集合管理',
-    addRegex: '添加正则表达式',
-    newRegex: '新建正则表达式',
-  },
-  constraintRuleSetNode: {
-    constraintRules: '约束规则',
-    count: '个',
-    doubleClickEdit: '双击进入编辑模式',
-  },
-  constraintRuleSetRootNode: {
-    back: '返回上层',
-    constraintRuleSetManagement: '约束规则集合管理',
-    addConstraintRule: '添加约束规则',
-    newConstraintRule: '新建约束规则',
   },
   constraintRules: {
     title: '约束规则',

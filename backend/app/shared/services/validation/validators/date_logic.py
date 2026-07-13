@@ -176,15 +176,31 @@ class DateLogicValidator(BaseValidator):
                 validation_time=f"{time.time() - start_time:.3f}s",
             )
 
-        # 预检查：遍历所有日期值，找出无法解析的日期
-        unparseable_errors = []
-        for row_index, cell_value in df[column].items():
-            if pd.isna(cell_value) or cell_value is None:
+        # 预检查：向量化找出无法解析的日期。
+        # 严格保持 DATE_FORMATS 顺序（%d/%m/%Y 在 %m/%d/%Y 之前——歧义日期优先按日/月解析）。
+        # 对每种格式用 pd.to_datetime(errors="coerce") 尝试，取第一个非 NaT 结果。
+        series = df[column]
+        non_null_mask = series.notna() & (series != None)  # noqa: E711
+        str_series = series[non_null_mask].astype(str).str.strip()
+
+        # 逐格式解析：已解析的不再尝试后续格式（保持 DATE_FORMATS 优先级）
+        parsed_mask = pd.Series(False, index=str_series.index)
+        for fmt in self.DATE_FORMATS:
+            remaining = ~parsed_mask
+            if not remaining.any():
+                break
+            try:
+                candidate = pd.to_datetime(str_series[remaining], format=fmt, errors="coerce")
+                parsed_mask = parsed_mask | candidate.notna()
+            except (ValueError, TypeError):
                 continue
-            if self._parse_date(str(cell_value)) is None:
-                unparseable_errors.append(
-                    {"row_index": row_index, "value": str(cell_value), "message": f"无法解析日期: {cell_value}"}
-                )
+
+        # 未解析的即为无法解析的日期
+        unparseable_idx = str_series.index[~parsed_mask]
+        unparseable_errors = [
+            {"row_index": idx, "value": str(series[idx]), "message": f"无法解析日期: {series[idx]}"}
+            for idx in unparseable_idx
+        ]
 
         # 如果存在无法解析的日期，直接返回错误结果
         if unparseable_errors:

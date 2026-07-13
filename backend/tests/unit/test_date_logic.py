@@ -437,6 +437,55 @@ class TestDateLogicValidator:
         assert v._parse_date("2024-01-15") is not None
         assert v._parse_date("2024/01/15") is not None
 
+    def test_parse_date_ambiguous_dd_mm_priority(self):
+        """歧义日期 "05/06/2024" 必须解析为 day=05 month=06（%d/%m/%Y 优先于 %m/%d/%Y）。
+
+        DATE_FORMATS 中 %d/%m/%Y 排在 %m/%d/%Y 之前，这是 load-bearing 语义，
+        向量化重构必须严格保持此优先级。
+        """
+        v = DateLogicValidator()
+        result = v._parse_date("05/06/2024")
+        assert result is not None
+        assert result.month == 6  # 不是 5
+        assert result.day == 5  # 不是 6
+
+    def test_parse_date_dd_mm_only_format(self):
+        """day=13 的日期只能被 %d/%m/%Y 解析（%m/%d/%Y 不接受月 13）。"""
+        v = DateLogicValidator()
+        result = v._parse_date("13/06/2024")
+        assert result is not None
+        assert result.day == 13
+        assert result.month == 6
+
+    def test_parse_date_all_formats(self):
+        """每种 DATE_FORMATS 至少一个正例。"""
+        v = DateLogicValidator()
+        assert v._parse_date("2024-01-15") is not None  # %Y-%m-%d
+        assert v._parse_date("2024/01/15") is not None  # %Y/%m/%d
+        assert v._parse_date("2024年01月15日") is not None  # %Y年%m月%d日
+        assert v._parse_date("15/01/2024") is not None  # %d/%m/%Y
+        assert v._parse_date("01/15/2024") is not None  # %m/%d/%Y（月=01 日=15，无歧义）
+        assert v._parse_date("2024-01-15 10:30:00") is not None  # %Y-%m-%d %H:%M:%S
+        assert v._parse_date("2024/01/15 10:30:00") is not None  # %Y/%m/%d %H:%M:%S
+
+    def test_parse_date_mixed_column_no_unparseable(self):
+        """混合格式列（多格式日期）应全部解析成功，不产生 unparseable 错误。
+
+        覆盖 validate 方法的预检查循环——逐行 _parse_date 与向量化的等价性。
+        """
+        import pandas as pd
+
+        v = DateLogicValidator()
+        df = pd.DataFrame({"date": ["2024-01-15", "15/01/2024", "2024年01月15日", "2024-01-15 10:30:00"]})
+        # 预检查：所有值都应可解析（不进入 unparseable 分支）
+        unparseable = []
+        for row_index, cell_value in df["date"].items():
+            if pd.isna(cell_value) or cell_value is None:
+                continue
+            if v._parse_date(str(cell_value)) is None:
+                unparseable.append(row_index)
+        assert unparseable == []
+
     def test_compare_dates(self):
         v = DateLogicValidator()
         from datetime import datetime

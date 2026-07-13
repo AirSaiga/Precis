@@ -78,7 +78,7 @@
 
 <script setup lang="ts">
   import { logger } from '@/core/utils/logger'
-  import { ref, reactive, watch, nextTick, computed } from 'vue'
+  import { ref, reactive, watch, nextTick, computed, toRaw } from 'vue'
   import { useI18n } from 'vue-i18n'
   import AppIcon from '@/components/icons/AppIcon.vue'
   import SelectionPopover from './SelectionPopover.vue'
@@ -404,7 +404,7 @@
 
     // 赋值并触发更新
     patternParts.value = newParts
-    logger.debug('重组完成:', JSON.parse(JSON.stringify(newParts)))
+    logger.debug('重组完成:', structuredClone(toRaw(newParts)))
 
     clearSelection()
 

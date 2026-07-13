@@ -143,7 +143,6 @@ const nodeTypeMenu = {
   columnDefinition: 'Column Definition Node',
   tableDefinition: 'Table Definition Node',
   schemaNode: 'Schema Node',
-  regexSetNode: 'Regex Set Node',
   constraintRuleNode: 'Constraint Rule Node',
   coreComponents: 'Core Components',
   projectRoot: 'Project Root',

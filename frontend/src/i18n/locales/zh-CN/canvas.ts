@@ -137,7 +137,6 @@ const nodeTypeMenu = {
   columnDefinition: '列定义节点',
   tableDefinition: '表定义节点',
   schemaNode: '架构节点',
-  regexSetNode: '正则表达式集节点',
   constraintRuleNode: '约束规则节点',
   coreComponents: '核心组件',
   projectRoot: '项目根节点',

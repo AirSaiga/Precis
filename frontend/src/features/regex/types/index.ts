@@ -17,8 +17,7 @@
  * 【类型分类】
  * 1. 规则类型 (Rule): 正则表达式的规则定义
  * 2. 节点数据 (RegexNodeData): 正则节点的运行时数据
- * 3. 集合节点 (RegexSetNodeData): 正则集合的节点数据
- * 4. 设计更新 (RegexDesignUpdateData): 正则设计器的更新数据结构
+ * 3. 设计更新 (RegexDesignUpdateData): 正则设计器的更新数据结构
  *
  * 【数据流概述】
  * Schema(表结构) → Regex(正则校验) → 派生列 → 写入数据
@@ -566,43 +565,6 @@ export interface RegexExtractNodeData {
     registry: 'patterns'
     pattern_name: string
   }
-}
-
-/**
- * 正则表达式集合节点数据
- *
- * 【业务场景】
- * 用于组织和管理多个相关的正则节点。
- * 当前版本可能未完全实现集合功能。
- */
-export interface RegexSetNodeData {
-  /**
-   * 集合名称
-   */
-  setName: string
-
-  /**
-   * 集合描述
-   */
-  description?: string
-}
-
-/**
- * 正则表达式集合根节点数据
- *
- * 【业务场景】
- * 正则集合的根节点，用于表示集合的顶层结构。
- */
-export interface RegexSetRootNodeData {
-  /**
-   * 集合名称
-   */
-  setName: string
-
-  /**
-   * 集合描述
-   */
-  description?: string
 }
 
 /**

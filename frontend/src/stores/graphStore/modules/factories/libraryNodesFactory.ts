@@ -59,7 +59,7 @@ import { logger } from '@/core/utils/logger'
 import type { Ref } from 'vue'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import { getV2FullConfig } from '@/api/projectV2Api'
-import { addNodes } from '@/services/canvas/vueFlowApi'
+import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
 
 export function createLibraryNodesFactoryModule(params: {
   nodes: Ref<CustomNode[]>
@@ -78,7 +78,8 @@ export function createLibraryNodesFactoryModule(params: {
         (n.data as unknown as Record<string, unknown>)?.scope === scope
     )
     if (existing) {
-      existing.position = { ...position }
+      // 走 vueFlowApi.updateNode 更新位置（Vue Flow 规范，触发内部状态同步）
+      updateNode(existing.id, { position })
       selectedNodeId.value = existing.id
       return existing.id
     }
@@ -162,7 +163,7 @@ export function createLibraryNodesFactoryModule(params: {
   async function createConstraintDashboardNode(position: { x: number; y: number }) {
     const existing = nodes.value.find((n) => n.type === 'constraintDashboard')
     if (existing) {
-      existing.position = { ...position }
+      updateNode(existing.id, { position })
       selectedNodeId.value = existing.id
       return existing.id
     }

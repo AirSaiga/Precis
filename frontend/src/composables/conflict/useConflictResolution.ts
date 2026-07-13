@@ -277,7 +277,7 @@ export function useConflictResolution(
         } else {
           if (item.original) {
             if (choice === 'mixed') {
-              const base = JSON.parse(JSON.stringify(item.original || {}))
+              const base = structuredClone(item.original || {}) as Record<string, unknown>
               const gen = item.generated || {}
               const overrides = partialResolutions.value[item.id] || {}
 
@@ -292,7 +292,7 @@ export function useConflictResolution(
                 }
               })
 
-              targetDict[item.id] = base
+              targetDict[item.id] = base as T
 
               const originalEntry = originalManifestList.find((x) => x.id === item.id)
               const existingIdx = manifestList.findIndex((x) => x.id === item.id)

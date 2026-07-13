@@ -43,6 +43,7 @@
 """
 
 import json
+import logging
 import os
 
 import yaml
@@ -55,6 +56,8 @@ from .reporters import (
     Reporter,
     WeComAppReporter,
 )
+
+logger = logging.getLogger(__name__)
 
 # ==============================================================================
 # 报告服务中心
@@ -107,7 +110,7 @@ class ReportService:
 
         # 激活的报告者实例列表
         self._active_reporters: list[Reporter] = []
-        print("报告服务已初始化。")
+        logger.info("报告服务已初始化。")
         self._load_and_configure_reporters()
 
     def _load_and_configure_reporters(self):
@@ -127,7 +130,7 @@ class ReportService:
         """
         # 检查配置文件是否存在
         if not os.path.exists(self.config_path):
-            print(f"警告: 报告配置文件 '{self.config_path}' 未找到, 将不启用任何报告服务。")
+            logger.warning("报告配置文件 '%s' 未找到, 将不启用任何报告服务。", self.config_path)
             return
 
         try:
@@ -135,7 +138,7 @@ class ReportService:
             with open(self.config_path, encoding="utf-8") as f:
                 config = yaml.safe_load(f) or {}
         except Exception as e:
-            print(f"!! 错误: 读取报告配置文件失败: {e}")
+            logger.error("读取报告配置文件失败: %s", e)
             return
 
         # 全局配置，可被所有报告者共享
@@ -145,7 +148,7 @@ class ReportService:
         for reporter_name, reporter_config in config.get("reporters", {}).items():
             # 检查报告者是否启用
             if not reporter_config.get("enabled", False):
-                print(f"报告者 '{reporter_name}' 未启用，跳过。")
+                logger.info("报告者 '%s' 未启用，跳过。", reporter_name)
                 continue
 
             # 检查报告者是否在注册表中
@@ -156,15 +159,15 @@ class ReportService:
                 # 合并全局配置和特定配置
                 full_config = {**global_config, **reporter_config}
 
-                print(f"正在配置报告者: '{reporter_name}'...")
+                logger.info("正在配置报告者: '%s'...", reporter_name)
                 if reporter_instance.configure(**full_config):
                     self._active_reporters.append(reporter_instance)
                 else:
-                    print(f"警告: 报告者 '{reporter_name}' 配置失败，将不被激活。")
+                    logger.warning("报告者 '%s' 配置失败，将不被激活。", reporter_name)
             else:
-                print(f"警告: 在报告者注册表中未找到名为 '{reporter_name}' 的报告者。")
+                logger.warning("在报告者注册表中未找到名为 '%s' 的报告者。", reporter_name)
 
-        print(f"\n报告服务配置完成，共激活 {len(self._active_reporters)} 个报告者。")
+        logger.info("报告服务配置完成，共激活 %d 个报告者。", len(self._active_reporters))
 
     def report(self, errors: list[dict]):
         """
@@ -180,20 +183,20 @@ class ReportService:
         """
         # 无错误时直接返回
         if not errors:
-            print("未发现错误，无需报告。")
+            logger.info("未发现错误，无需报告。")
             return
 
-        # 无激活报告者时，打印到控制台作为后备
+        # 无激活报告者时，打印到控制台作为后备（保留 print 确保错误在低日志级别下仍可见）
         if not self._active_reporters:
-            print("警告: 无激活的报告者，错误将不会被报告。仅在控制台显示:")
+            logger.warning("无激活的报告者，错误将不会被报告。仅在控制台显示:")
             print(json.dumps(errors, indent=2, ensure_ascii=False))
             return
 
         # 遍历所有激活的报告者发送报告
-        print(f"\n--- 开始报告 {len(errors)} 个错误 ---")
+        logger.info("--- 开始报告 %d 个错误 ---", len(errors))
         for reporter in self._active_reporters:
             reporter.report(errors)
-        print("--- 报告流程结束 ---")
+        logger.info("--- 报告流程结束 ---")
 
 
 # --- 调试与使用示例 ---

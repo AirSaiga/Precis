@@ -63,8 +63,7 @@ const COLUMN_KEEP_KEYS = new Set<string>(['id', 'columnName', 'dataType', 'name'
 function isStructuralNode(nodeType: string | undefined): boolean {
   if (!nodeType) return true
   if (nodeType === 'projectRoot') return true
-  // 各类集合容器：TableSetNode / TableSetRootNode / SchemaSetNode / SchemaSetRootNode /
-  // ConstraintRuleSetNode / ConstraintRuleSetRootNode / RegexSetNode / RegexSetRootNode
+  // 集合容器通配符匹配（Set 节点已删除，保留通配符以兼容未来可能的容器类型）
   return nodeType.endsWith('SetNode') || nodeType.endsWith('SetRootNode')
 }
 

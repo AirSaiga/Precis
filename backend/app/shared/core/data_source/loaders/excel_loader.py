@@ -252,15 +252,18 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
                     if start_df_row >= len(df_filled):
                         continue
 
-                    for col_idx in range(start_df_col, min(end_df_col + 1, len(df_filled.columns))):
-                        for row_idx in range(start_df_row, min(end_df_row + 1, len(df_filled))):
-                            if pd.isna(df_filled.iloc[row_idx, col_idx]):
-                                for back_idx in range(row_idx - 1, start_df_row - 1, -1):
-                                    if back_idx < 0:
-                                        break
-                                    if not pd.isna(df_filled.iloc[back_idx, col_idx]):
-                                        df_filled.iloc[row_idx, col_idx] = df_filled.iloc[back_idx, col_idx]
-                                        break
+                    # 限定区域边界（防止越界）
+                    actual_end_row = min(end_df_row, len(df_filled) - 1)
+                    actual_end_col = min(end_df_col, len(df_filled.columns) - 1)
+                    if actual_end_row < start_df_row or actual_end_col < start_df_col:
+                        continue
+
+                    # 按列向量化前向填充（替代原三重逐格回溯循环）
+                    # 语义等价：区域内 NaN 被区域起点方向的最近非空值填充，
+                    # 已有非空值不动。ffill 从区域起点开始，不跨越区域边界。
+                    for col_idx in range(start_df_col, actual_end_col + 1):
+                        region = df_filled.iloc[start_df_row : actual_end_row + 1, col_idx]
+                        df_filled.iloc[start_df_row : actual_end_row + 1, col_idx] = region.ffill()
                 return df_filled
             finally:
                 wb.close()

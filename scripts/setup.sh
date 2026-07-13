@@ -13,6 +13,10 @@
 #   ./setup.sh              # 完整部署
 #   ./setup.sh --skip-build # 只安装依赖，不构建
 #   ./setup.sh --system-py  # 使用系统 Python（不推荐）
+#
+# 跨平台参数对应（PowerShell 版 setup.ps1）:
+#   --skip-build  ↔  -SkipBuild
+#   --system-py   ↔  -UseSystemPython
 
 set -e  # 遇到错误立即退出
 
@@ -48,8 +52,8 @@ while [[ $# -gt 0 ]]; do
             echo "用法: $0 [选项]"
             echo ""
             echo "选项:"
-            echo "  --skip-build    跳过构建步骤，只安装依赖"
-            echo "  --system-py     使用系统 Python 而不是虚拟环境（不推荐）"
+            echo "  --skip-build    跳过构建步骤，只安装依赖（PowerShell 等价: -SkipBuild）"
+            echo "  --system-py     使用系统 Python 而不是虚拟环境（不推荐）（PowerShell 等价: -UseSystemPython）"
             echo "  -h, --help      显示此帮助"
             exit 0
             ;;

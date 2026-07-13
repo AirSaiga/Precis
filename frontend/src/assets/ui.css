@@ -1203,7 +1203,16 @@
    画布右键上下文菜单样式
    ======================================== */
 
+/* 透明全屏遮罩：捕获菜单外部点击以关闭菜单 */
+.canvas-context-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+}
+
 .canvas-context-menu {
+  position: fixed;
+  z-index: 10000;
   min-width: 160px;
   background: var(--ui-bg-elevated);
   backdrop-filter: blur(24px) saturate(200%);
@@ -1214,6 +1223,13 @@
   padding: 4px;
   display: flex;
   flex-direction: column;
+}
+
+/* 菜单分隔线 */
+.context-menu-separator {
+  height: 1px;
+  margin: 4px 8px;
+  background: var(--ui-border-light);
 }
 
 .context-menu-item {

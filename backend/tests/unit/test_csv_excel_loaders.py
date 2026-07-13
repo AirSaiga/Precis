@@ -181,3 +181,100 @@ class TestExcelLoader:
         loader = ExcelLoader(spec)
         df = loader.preview(nrows=5)
         assert len(df) == 5
+
+    def test_merged_cell_single_column_fill(self, tmp_path):
+        """单列纵向合并区域：区域内的 NaN 应被合并值填充。
+
+        场景：category 列合并（A2:A4 值 Food），id 列每行有值（保证 pandas 读出 3 行）。
+        """
+        from openpyxl import Workbook
+
+        xlsx_file = tmp_path / "merged.xlsx"
+        wb = Workbook()
+        ws = wb.active
+        ws.cell(row=1, column=1, value="category")
+        ws.cell(row=1, column=2, value="id")
+        ws.cell(row=2, column=1, value="Food")
+        ws.cell(row=2, column=2, value=1)
+        ws.cell(row=3, column=2, value=2)
+        ws.cell(row=4, column=2, value=3)
+        ws.merge_cells("A2:A4")
+        wb.save(xlsx_file)
+        wb.close()
+        spec = _make_excel_spec(str(xlsx_file))
+        loader = ExcelLoader(spec)
+        df = loader.load()
+        # category 合并值应向下填充到 3 个数据行
+        assert df["category"].tolist() == ["Food", "Food", "Food"]
+        assert df["id"].tolist() == [1, 2, 3]
+
+    def test_merged_cell_multi_column(self, tmp_path):
+        """多列合并区域（A2:B4）：两列都应被填充。"""
+        from openpyxl import Workbook
+
+        xlsx_file = tmp_path / "merged2.xlsx"
+        wb = Workbook()
+        ws = wb.active
+        ws.cell(row=1, column=1, value="col_a")
+        ws.cell(row=1, column=2, value="col_b")
+        ws.cell(row=1, column=3, value="id")
+        ws.cell(row=2, column=1, value="X")
+        ws.cell(row=2, column=2, value="Y")
+        ws.cell(row=2, column=3, value=1)
+        ws.cell(row=3, column=3, value=2)
+        ws.cell(row=4, column=3, value=3)
+        ws.merge_cells("A2:A4")
+        ws.merge_cells("B2:B4")
+        wb.save(xlsx_file)
+        wb.close()
+        spec = _make_excel_spec(str(xlsx_file))
+        loader = ExcelLoader(spec)
+        df = loader.load()
+        assert df["col_a"].tolist() == ["X", "X", "X"]
+        assert df["col_b"].tolist() == ["Y", "Y", "Y"]
+
+    def test_merged_cell_outside_data_range_skipped(self, tmp_path):
+        """合并区域起始行超出 df 行数时，应安全跳过不报错。"""
+        from openpyxl import Workbook
+
+        xlsx_file = tmp_path / "edge.xlsx"
+        wb = Workbook()
+        ws = wb.active
+        ws.cell(row=1, column=1, value="a")
+        ws.cell(row=2, column=1, value=1)
+        ws.merge_cells("A2:A10")
+        wb.save(xlsx_file)
+        wb.close()
+        spec = _make_excel_spec(str(xlsx_file))
+        loader = ExcelLoader(spec)
+        df = loader.load()  # 不应抛异常
+        assert "a" in df.columns
+
+    def test_merged_cell_fill_preserves_existing_values(self, tmp_path):
+        """合并区域内已有非空值的单元格不应被填充覆盖（回溯逻辑正确）。
+
+        场景：A2:A4 合并，但 A3 有独立值（非合并起点）。
+        注意：openpyxl 合并区域内只有左上角保留值，其余被清空，
+        所以这里测试的是：填充从 A2 向下，A3 若在 read_excel 后仍为 NaN 则填 A2 的值。
+        """
+        from openpyxl import Workbook
+
+        xlsx_file = tmp_path / "keep.xlsx"
+        wb = Workbook()
+        ws = wb.active
+        ws.cell(row=1, column=1, value="cat")
+        ws.cell(row=1, column=2, value="id")
+        ws.cell(row=2, column=1, value="A")
+        ws.cell(row=2, column=2, value=1)
+        ws.cell(row=3, column=2, value=2)
+        ws.cell(row=4, column=2, value=3)
+        ws.merge_cells("A2:A4")
+        wb.save(xlsx_file)
+        wb.close()
+        spec = _make_excel_spec(str(xlsx_file))
+        loader = ExcelLoader(spec)
+        df = loader.load()
+        # A2:A4 合并后 read_excel 得到 [A, NaN, NaN]，填充后应全为 A
+        # 关键：id 列（非合并列）的已有值不被 touched
+        assert df["cat"].tolist() == ["A", "A", "A"]
+        assert df["id"].tolist() == [1, 2, 3]

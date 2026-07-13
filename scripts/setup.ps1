@@ -12,10 +12,10 @@
     5. 构建前端和 Electron
 
 .PARAMETER SkipBuild
-    跳过构建步骤，只安装依赖
+    跳过构建步骤，只安装依赖（bash 等价: --skip-build）
 
 .PARAMETER UseSystemPython
-    使用系统 Python 而不是创建虚拟环境（不推荐）
+    使用系统 Python 而不是创建虚拟环境（不推荐）（bash 等价: --system-py）
 
 .EXAMPLE
     .\setup.ps1
@@ -28,6 +28,11 @@
 .EXAMPLE
     .\setup.ps1 -UseSystemPython
     使用系统 Python（开发测试用）
+
+.NOTES
+    跨平台参数对应（bash 版 setup.sh）:
+    -SkipBuild        ↔  --skip-build
+    -UseSystemPython  ↔  --system-py
 #>
 
 param(

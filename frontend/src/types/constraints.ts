@@ -87,26 +87,6 @@ export interface BaseConstraintNodeData {
 }
 
 /**
- * 约束规则集合节点数据。
- *
- * 用于将多个约束规则组织到一个集合中，便于批量管理和展示。
- */
-export interface ConstraintRuleSetNodeData {
-  /** 集合名称，用于在 UI 中标识该约束规则集 */
-  setName: string
-  /** 集合描述（可选） */
-  description?: string
-}
-
-/**
- * 约束规则集合根节点数据。
- */
-export interface ConstraintRuleSetRootNodeData {
-  /** 集合名称，用于在 UI 中标识该约束规则集 */
-  setName: string
-}
-
-/**
  * 外键约束节点数据。
  *
  * 用于验证参照完整性，确保源表中的列值在目标表中存在。

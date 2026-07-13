@@ -41,7 +41,7 @@
 
 import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
-import { onMounted, onUnmounted } from 'vue'
+import { onMounted, onUnmounted, toRaw } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import type { Edge } from '@vue-flow/core'
@@ -159,7 +159,8 @@ export function useNodeSourceManager<TNodeData extends BaseSchemaNodeData<BaseSc
       setTimeout(() => {
         const latestSourceNode = store.nodes.find((n: CustomNode) => n.id === sourceNodeId)
         if (latestSourceNode) {
-          const sourceDataSnapshot = JSON.parse(JSON.stringify(latestSourceNode.data)) as AnyRecord
+          // node.data 是 Vue reactive proxy，按 AGENTS.md 深拷贝规范用 structuredClone(toRaw(...))
+          const sourceDataSnapshot = structuredClone(toRaw(latestSourceNode.data)) as AnyRecord
           showSmartFillDialog({
             id: sourceNodeId,
             data: sourceDataSnapshot,
