@@ -339,6 +339,38 @@ class TestCreateConstraint:
         assert error is None
         assert result is not None
 
+    def test_charset_constraint(self):
+        """Charset 约束创建（修复此前走通用路径导致无 table/column 的隐性 bug）。"""
+        cf = ConstraintFile(
+            version=2,
+            id="c1",
+            type="Charset",
+            enabled=True,
+            refs={"table_id": "users", "column_id": "email"},
+            params={"charset_mode": "ascii"},
+        )
+        result, error = create_constraint(cf, _make_schema_files())
+        assert error is None
+        assert result is not None
+        # 修复验证：charset 实例应正确设置 table/column/charset_mode
+        assert result.table == "users"
+        assert result.column == "email"
+        assert result.charset_mode == "ascii"
+
+    def test_charset_default_mode(self):
+        """Charset 未指定 charset_mode 时默认 ascii。"""
+        cf = ConstraintFile(
+            version=2,
+            id="c2",
+            type="Charset",
+            enabled=True,
+            refs={"table_id": "users", "column_id": "age"},
+        )
+        result, error = create_constraint(cf, _make_schema_files())
+        assert error is None
+        assert result is not None
+        assert result.charset_mode == "ascii"
+
 
 class TestCreateConstraints:
     def test_batch_create(self):
