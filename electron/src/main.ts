@@ -38,22 +38,8 @@ import {
 } from './startup-probe';
 import { registerAllIpc } from './ipc';
 import { ensureFeedbackDir, getPendingCrashPath } from './ipc/feedback';
-
-/**
- * Python 后端服务的默认起始端口
- * 可通过环境变量 BACKEND_PORT 覆盖
- * 
- * 动态端口分配:
- * - 如果默认端口被占用，会自动查找下一个可用端口
- * - 实际使用的端口存储在 currentPythonServerPort 变量中
- */
-const PYTHON_SERVER_DEFAULT_PORT = parseInt(process.env.VITE_BACKEND_PORT || '18000', 10);
-
-/**
- * 当前实际使用的 Python 服务端口号
- * 在 startPythonServer 中被动态设置
- */
-let currentPythonServerPort: number = PYTHON_SERVER_DEFAULT_PORT;
+import { appState, resetPythonState } from './app-state';
+import { PYTHON_SERVER_DEFAULT_PORT } from './constants';
 
 /**
  * Vue 前端开发服务器的默认端口
@@ -109,23 +95,9 @@ protocol.registerSchemesAsPrivileged([
 ]);
 
 // ============================================================================
-// 全局状态管理
+// 全局状态管理（8 个原裸 let 已迁移到 app-state.ts 的 appState 单一容器）
+// 详见 app-state.ts。下方代码通过 appState.xxx 读写状态。
 // ============================================================================
-
-/**
- * 主窗口实例的引用
- * 
- * 生命周期:
- * - 创建于 app.whenReady() 之后
- * - 销毁于 'closed' 事件触发时
- * 
- * 为什么使用全局变量而非闭包?
- * - 方便在多个事件处理器中访问窗口状态
- * - 确保窗口实例在整个应用生命周期内保持可达
- */
-let mainWindow: BrowserWindow | null = null;
-
-let splashWindow: BrowserWindow | null = null;
 
 /**
  * Splash 启动状态机的阶段类型(线性推进)
@@ -147,38 +119,9 @@ type SplashStage = 'initializing' | 'starting' | 'connecting' | 'loading' | 'don
  * @param error - 是否为错误状态(失败时 spinner 变红)
  */
 function sendSplashStage(stage: SplashStage, error: boolean = false): void {
-  if (!splashWindow || splashWindow.isDestroyed()) return;
-  splashWindow.webContents.send('splash:stage', { stage, error });
+  if (!appState.splashWindow || appState.splashWindow.isDestroyed()) return;
+  appState.splashWindow.webContents.send('splash:stage', { stage, error });
 }
-
-let mainWindowReady = false;
-let backendReady = false;
-
-/**
- * 是否处于需要本地启动后端的环境(打包/有前端构建产物)。
- * 用于 splash 状态机:仅在 true 时向 splash 推送 'starting' 阶段。
- * 在 createSplashWindow 之前于 app.whenReady 中赋值。
- */
-let isBackendSpawnEnvironment = false;
-
-/**
- * Python 子进程的引用
- * 
- * 重要性: 必须保持引用以便正确终止进程
- * 
- * [潜在副作用]
- * - 如果不调用 kill()，应用退出后 Python 进程可能继续运行
- * - Windows 和 Unix 的信号处理机制不同
- */
-let pythonProcess: ChildProcess | null = null;
-
-/**
- * Python 服务器就绪状态标志
- * 
- * 用途: 用于判断前端是否可以发起 API 请求
- * 触发条件: 解析 Python 进程的 stdout，检测特定的成功消息
- */
-let isPythonServerReady = false;
 
 /**
  * ============================================================================
@@ -245,7 +188,7 @@ function stopPythonServerSync(processToKill: ChildProcess | null): void {
   // 移除监听器，避免 kill 后回调继续操作全局状态
   processToKill.removeAllListeners();
   // 立即清空全局引用，防止重复清理
-  pythonProcess = null;
+  appState.pythonProcess = null;
 
   if (pid) {
     logger.debug(`[Main] 同步终止 Python 进程树，PID: ${pid}`);
@@ -264,7 +207,7 @@ function stopPythonServerSync(processToKill: ChildProcess | null): void {
     }
   }
 
-  isPythonServerReady = false;
+  appState.isPythonServerReady = false;
 }
 
 /**
@@ -273,13 +216,13 @@ function stopPythonServerSync(processToKill: ChildProcess | null): void {
  * 用途: 重启服务前需要确保旧进程已完全退出，避免端口占用。
  */
 async function stopPythonServer(): Promise<void> {
-  if (!pythonProcess) return;
+  if (!appState.pythonProcess) return;
 
-  const proc = pythonProcess;
+  const proc = appState.pythonProcess;
   const pid = proc.pid;
   proc.removeAllListeners();
-  pythonProcess = null;
-  isPythonServerReady = false;
+  appState.pythonProcess = null;
+  appState.isPythonServerReady = false;
 
   if (pid) {
     logger.debug(`[Main] 终止 Python 进程树，PID: ${pid}`);
@@ -338,14 +281,14 @@ function resolvePythonExecutable(): string {
 
 async function startPythonServer(): Promise<number> {
   // 若已有进程在运行，先彻底终止，避免端口和进程树泄漏
-  if (pythonProcess) {
+  if (appState.pythonProcess) {
     await stopPythonServer();
   }
 
   // 查找可用端口
   logger.debug(`[Main] 查找可用端口，起始端口: ${PYTHON_SERVER_DEFAULT_PORT}`);
-  currentPythonServerPort = await findAvailablePort(PYTHON_SERVER_DEFAULT_PORT);
-  logger.debug(`[Main] 找到可用端口: ${currentPythonServerPort}`);
+  appState.currentPythonServerPort = await findAvailablePort(PYTHON_SERVER_DEFAULT_PORT);
+  logger.debug(`[Main] 找到可用端口: ${appState.currentPythonServerPort}`);
 
   // 解析 Python 解释器路径（内嵌运行时 / 环境变量 / 系统默认）
   const pythonExecutable = resolvePythonExecutable();
@@ -362,7 +305,7 @@ async function startPythonServer(): Promise<number> {
   }
 
   // 构建命令行参数，使用动态分配的端口
-  const args = [serverScript, '--port', currentPythonServerPort.toString()];
+  const args = [serverScript, '--port', appState.currentPythonServerPort.toString()];
 
   // 子进程配置
   // cwd: 设置工作目录，确保 Python 导入路径正确
@@ -396,7 +339,7 @@ async function startPythonServer(): Promise<number> {
     // 启动子进程
     // [Node.js] spawn 返回 ChildProcess 对象，可用于后续控制
     const proc = spawn(pythonExecutable, args, options);
-    pythonProcess = proc;
+    appState.pythonProcess = proc;
 
     if (proc.pid) {
       logger.debug(`[Main] Python 子进程已启动，PID: ${proc.pid}`);
@@ -415,18 +358,18 @@ async function startPythonServer(): Promise<number> {
       resolved = true;
       clearTimeout(startupTimeout);
 
-      if (pythonProcess) {
-        const pid = pythonProcess.pid;
-        pythonProcess.removeAllListeners();
+      if (appState.pythonProcess) {
+        const pid = appState.pythonProcess.pid;
+        appState.pythonProcess.removeAllListeners();
         if (pid) {
           await killProcessTree(pid).catch(() => {
             // 忽略清理失败，确保 reject 优先返回给调用方
           });
         }
-        pythonProcess = null;
+        appState.pythonProcess = null;
       }
 
-      isPythonServerReady = false;
+      appState.isPythonServerReady = false;
       reject(error);
     };
 
@@ -434,9 +377,9 @@ async function startPythonServer(): Promise<number> {
       if (resolved) return;
       resolved = true;
       clearTimeout(startupTimeout);
-      isPythonServerReady = true;
+      appState.isPythonServerReady = true;
       logger.info('[Main] Python server is ready');
-      resolve(currentPythonServerPort);
+      resolve(appState.currentPythonServerPort);
     };
 
     // 监听标准输出 - 捕获后端启动成功的消息
@@ -487,8 +430,8 @@ async function startPythonServer(): Promise<number> {
       if (code !== 0) {
         logger.error(`[Main] Python server exited with code ${code}`);
       }
-      pythonProcess = null;
-      isPythonServerReady = false;
+      appState.pythonProcess = null;
+      appState.isPythonServerReady = false;
     });
 
     // 如果提前退出，清理超时器
@@ -502,7 +445,7 @@ async function startPythonServer(): Promise<number> {
       throw new Error(`Python server API did not become ready within ${PYTHON_API_READY_TIMEOUT_MS}ms on port ${port}`);
     }
     logger.debug('[Main] API 已就绪');
-    isPythonServerReady = true;
+    appState.isPythonServerReady = true;
     return port;
   });
 }
@@ -514,7 +457,7 @@ async function startPythonServer(): Promise<number> {
  * 主窗口 ready-to-show 后自动关闭。
  */
 function createSplashWindow(): void {
-  splashWindow = new BrowserWindow({
+  appState.splashWindow = new BrowserWindow({
     width: 360,
     height: 220,
     transparent: true,
@@ -534,14 +477,14 @@ function createSplashWindow(): void {
   });
 
   const splashPath = path.join(__dirname, '..', 'assets', 'splash.html');
-  splashWindow.loadFile(splashPath);
+  appState.splashWindow.loadFile(splashPath);
 
-  splashWindow.once('ready-to-show', () => {
-    splashWindow?.show();
+  appState.splashWindow.once('ready-to-show', () => {
+    appState.splashWindow?.show();
     // splash 渲染进程就绪后,推送初始状态(此时 IPC 监听已注册)。
     // 生产环境紧接 'starting'(后端 spawn 前的漫长阶段),开发环境跳过。
     sendSplashStage('initializing');
-    if (isBackendSpawnEnvironment) {
+    if (appState.isBackendSpawnEnvironment) {
       // 生产环境:紧接 'starting'(后端 spawn 前的漫长阶段)
       sendSplashStage('starting');
     } else {
@@ -551,8 +494,8 @@ function createSplashWindow(): void {
     }
   });
 
-  splashWindow.on('closed', () => {
-    splashWindow = null;
+  appState.splashWindow.on('closed', () => {
+    appState.splashWindow = null;
   });
 }
 
@@ -562,13 +505,13 @@ function createSplashWindow(): void {
  * 带渐隐动画效果，避免突兀消失。
  */
 function closeSplashWindow(): void {
-  if (!splashWindow) return;
-  if (splashWindow.isDestroyed()) {
-    splashWindow = null;
+  if (!appState.splashWindow) return;
+  if (appState.splashWindow.isDestroyed()) {
+    appState.splashWindow = null;
     return;
   }
-  splashWindow.close();
-  splashWindow = null;
+  appState.splashWindow.close();
+  appState.splashWindow = null;
 }
 
 /**
@@ -582,12 +525,12 @@ function closeSplashWindow(): void {
  * splash 在淡出期间仍 alwaysOnTop 覆盖在主窗口之上,属预期行为(半透明渐隐,不遮挡交互)。
  */
 function tryShowMainWindow(): void {
-  if (!mainWindowReady) return;
-  if (!backendReady) return;
-  if (!mainWindow) return;
+  if (!appState.mainWindowReady) return;
+  if (!appState.backendReady) return;
+  if (!appState.mainWindow) return;
   sendSplashStage('done');
-  mainWindow.show();
-  mainWindow.focus();
+  appState.mainWindow.show();
+  appState.mainWindow.focus();
   // 延迟销毁 splash,让淡出动画跑完(~300ms 动画 + 20ms 余量)
   setTimeout(() => {
     closeSplashWindow();
@@ -636,7 +579,7 @@ function createWindow(): void {
   const isDev = !app.isPackaged && !hasFrontendBuild;
 
   // 创建浏览器窗口实例
-  mainWindow = new BrowserWindow({
+  appState.mainWindow = new BrowserWindow({
     width: 1920,
     height: 1080,
     minWidth: 1200,    // 最小宽度约束，保证画布操作区可用
@@ -671,44 +614,44 @@ function createWindow(): void {
     // 优势: 支持热重载、源文件映射
     logger.debug('[Main] 开发模式: 连接到 Vite 开发服务器');
     logger.debug('[Main] 开发服务器地址:', `http://localhost:${FRONTEND_DEV_PORT}`);
-    mainWindow.loadURL(`http://localhost:${FRONTEND_DEV_PORT}`);
+    appState.mainWindow.loadURL(`http://localhost:${FRONTEND_DEV_PORT}`);
     
     // 自动打开开发者工具，便于调试
-    mainWindow.webContents.openDevTools();
+    appState.mainWindow.webContents.openDevTools();
   } else {
     // 生产环境: 通过自定义 app:// 协议加载本地打包文件
     // 使用自定义协议替代 file://，避免 CORS 限制和 webSecurity 问题
     logger.debug('[Main] 生产模式: 通过 app:// 协议加载本地文件');
-    mainWindow.loadURL(`app://./index.html`);
+    appState.mainWindow.loadURL(`app://./index.html`);
     
     // 生产环境可选开发者工具
-    // mainWindow.webContents.openDevTools();
+    // appState.mainWindow.webContents.openDevTools();
   }
 
   // 窗口首次渲染完成时标记就绪
   // 实际显示由 tryShowMainWindow() 统一控制，需等待后端也就绪
-  mainWindow.once('ready-to-show', () => {
-    mainWindowReady = true;
+  appState.mainWindow.once('ready-to-show', () => {
+    appState.mainWindowReady = true;
     tryShowMainWindow();
   });
 
   // 窗口关闭时清理引用
   // 防止内存泄漏
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+  appState.mainWindow.on('closed', () => {
+    appState.mainWindow = null;
   });
 
   // 配置外部链接处理策略
   // [用户体验] 点击链接时使用系统默认浏览器打开
   // [安全] 阻止在新窗口中打开链接，避免弹出窗口滥用
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  appState.mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
     return { action: 'deny' };
   });
 
   // 渲染进程崩溃监听:此时 Vue 已死,只能用原生 dialog 兜底。
   // 将崩溃记录写入 pending-crash.json,重启后由前端读出并补弹反馈窗口。
-  mainWindow.webContents.on('render-process-gone', (_e, details) => {
+  appState.mainWindow.webContents.on('render-process-gone', (_e, details) => {
     logger.error('[Main] 渲染进程崩溃:', details.reason, 'exitCode:', details.exitCode);
     try {
       ensureFeedbackDir();
@@ -723,7 +666,7 @@ function createWindow(): void {
       logger.error('[Main] 写入 pending crash 失败:', err);
     }
 
-    const choice = dialog.showMessageBoxSync(mainWindow!, {
+    const choice = dialog.showMessageBoxSync(appState.mainWindow!, {
       type: 'error',
       title: '应用遇到问题',
       message: '渲染进程意外退出',
@@ -740,7 +683,7 @@ function createWindow(): void {
   });
 
   // 渲染进程无响应监听(可能是长任务卡死,不强制退出,仅记录)
-  mainWindow.webContents.on('unresponsive', () => {
+  appState.mainWindow.webContents.on('unresponsive', () => {
     logger.warn('[Main] 渲染进程无响应');
   });
 }
@@ -755,14 +698,14 @@ function createWindow(): void {
  * 用途: 供前端查询后端服务是否就绪
  * 
  * [数据来源]
- * - pythonReady: 来自全局状态变量 isPythonServerReady
- * - port: 来自动态分配的 currentPythonServerPort
+ * - pythonReady: 来自全局状态变量 appState.isPythonServerReady
+ * - port: 来自动态分配的 appState.currentPythonServerPort
  * - frontendPort: 前端开发服务器端口
  */
 ipcMain.handle('get-server-status', async () => {
   return {
-    pythonReady: isPythonServerReady,
-    port: currentPythonServerPort,
+    pythonReady: appState.isPythonServerReady,
+    port: appState.currentPythonServerPort,
     frontendPort: FRONTEND_DEV_PORT
   };
 });
@@ -804,7 +747,7 @@ ipcMain.handle('restart-python-server', async () => {
     return {
       ready: false,
       error: errorMessage,
-      port: currentPythonServerPort,
+      port: appState.currentPythonServerPort,
     };
   }
 });
@@ -1068,7 +1011,7 @@ app.whenReady().then(async () => {
   const hasFrontendBuild = fs.existsSync(indexPath);
   const isDev = !app.isPackaged && !hasFrontendBuild;
   // 标记是否需要本地启动后端,供 splash 状态机判断是否推送 'starting' 阶段
-  isBackendSpawnEnvironment = hasFrontendBuild;
+  appState.isBackendSpawnEnvironment = hasFrontendBuild;
 
   // 尽早设置默认应用菜单栏: 生产环境隐藏, 开发环境保留默认菜单方便调试
   // 业务场景: 应用通过前端 UI 提供全部操作入口, 无需系统菜单
@@ -1120,7 +1063,7 @@ app.whenReady().then(async () => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       logger.error('[Main] 后端启动失败:', errorMessage);
-      isPythonServerReady = false;
+      appState.isPythonServerReady = false;
 
       // 发送错误状态让 splash 变红提示,停顿让用户看清后再弹原生错误框
       sendSplashStage('error', true);
@@ -1143,29 +1086,29 @@ app.whenReady().then(async () => {
   // 统一轮询后端 API，确保真正可响应后再创建主窗口
   // 生产环境在此推送 'connecting'(后端已 spawn,转为等待 API 就绪);
   // 开发环境已在 splash ready-to-show 中推送过,此处跳过避免重复。
-  if (isBackendSpawnEnvironment) {
+  if (appState.isBackendSpawnEnvironment) {
     sendSplashStage('connecting');
   }
-  const apiReady = await waitForApiReady(currentPythonServerPort, 60000);
+  const apiReady = await waitForApiReady(appState.currentPythonServerPort, 60000);
   if (apiReady) {
-    logger.info('[Main] 后端 API 已就绪，端口:', currentPythonServerPort);
-    backendReady = true;
+    logger.info('[Main] 后端 API 已就绪，端口:', appState.currentPythonServerPort);
+    appState.backendReady = true;
   } else if (hasFrontendBuild) {
     // 生产环境：API 未就绪属于致命错误，直接退出并提示用户
-    logger.error('[Main] 后端 API 就绪检测超时，端口:', currentPythonServerPort);
+    logger.error('[Main] 后端 API 就绪检测超时，端口:', appState.currentPythonServerPort);
     sendSplashStage('error', true);
     await new Promise((resolve) => setTimeout(resolve, 800));
     closeSplashWindow();
     dialog.showErrorBox(
       '后端服务未就绪',
-      `Precis 后端服务未能在预期时间内响应请求（端口：${currentPythonServerPort}）。\n\n请尝试重新启动应用。如果问题持续，请检查是否有其他程序占用了端口，或安全软件阻止了后端进程。`
+      `Precis 后端服务未能在预期时间内响应请求（端口：${appState.currentPythonServerPort}）。\n\n请尝试重新启动应用。如果问题持续，请检查是否有其他程序占用了端口，或安全软件阻止了后端进程。`
     );
     app.quit();
     return;
   } else {
     // 开发环境：后端可能由用户手动启动，允许继续并显示主窗口
     logger.warn('[Main] 开发环境后端 API 未就绪，继续显示主窗口');
-    backendReady = true;
+    appState.backendReady = true;
   }
 
   // 后端已就绪且端口已确定，再创建主窗口并加载前端
@@ -1203,7 +1146,7 @@ app.whenReady().then(async () => {
  */
 app.on('window-all-closed', () => {
   // 终止 Python 后端进程树，避免窗口关闭后残留僵尸进程
-  stopPythonServerSync(pythonProcess);
+  stopPythonServerSync(appState.pythonProcess);
 
   // 非 macOS 平台直接退出应用
   // [macOS 约定] 应用应保持运行直到用户明确退出
@@ -1223,7 +1166,7 @@ app.on('window-all-closed', () => {
  * - 适合执行最后的清理操作
  */
 app.on('before-quit', () => {
-  stopPythonServerSync(pythonProcess);
+  stopPythonServerSync(appState.pythonProcess);
   // 刷新文件日志流，确保退出前最后一批日志落盘
   flushLogs();
 });
@@ -1234,5 +1177,5 @@ app.on('before-quit', () => {
  * 用途: 作为最后的保险，确保 Python 进程树已被清理
  */
 app.on('quit', () => {
-  stopPythonServerSync(pythonProcess);
+  stopPythonServerSync(appState.pythonProcess);
 });
