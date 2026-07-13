@@ -1,38 +1,54 @@
 /**
  * @file validationExecutors.ts
- * @description 约束校验执行入口
+ * @description 约束校验执行入口（胶水层：组合 executor + sync）
  *
- * 本模块是约束校验的"怎么做"层：提供三条校验执行路径
- * + 一条列错误同步路径。
+ * 本模块是约束校验的"怎么做"层。原为 462 行单体文件，已拆分为三层子模块，
+ * 此文件作为胶水层，组合 Layer 1（纯执行）+ Layer 2（渲染同步）为公共入口，
+ * 并 re-export Layer 0（纯聚合）的符号。
  *
- * 三条校验入口：
+ * 三层结构（见 validationExecutors/ 子目录）：
+ * - pureAggregators.ts (Layer 0)：列错误聚合 + 断连重置（纯逻辑，无执行无渲染）
+ * - executors.ts       (Layer 1)：构建 ctx + 调 handler.validate（只返回结果）
+ * - syncStrategies.ts  (Layer 2)：写回节点/边渲染（收敛 updateEdgeData）
+ *
+ * 本文件（胶水层）职责：组合执行+同步为 4 条公共校验路径：
  * - E: validateConstraintNode — 单约束校验（Schema + edge 驱动）
  * - F: validateConstraintNodesForSchema — 全 Schema 关联约束批量校验
- * - G: validateForInlineSource / validateConstraintNodeById — inline 数据源 / 按 ID 校验
+ * - G: validateForInlineSource / validateConstraintNodeById — inline / 按 ID 校验
  *
- * 依赖方向：→ handlerRegistry（查 handler）→ constraintMeta（类型判断）
+ * barrel 契约：validationRegistryCore.ts 的 `export *` 透传本文件的 8 个导出，
+ * 50+ 调用方零改动。
+ *
+ * 依赖方向：→ 三层子模块 → handlerRegistry/validationContext/vueFlowApi
  */
 
 import type { Edge, Node } from '@vue-flow/core'
 
-import { logger } from '@/core/utils/logger'
-import { updateEdgeData } from '@/services/canvas/vueFlowApi'
 import { validateRegexNodesForSchema } from '@/services/regex/regexValidationHandler'
 
 import { isConstraintNodeType } from './constraintMeta'
-import { getHandlerByNodeType } from './handlerRegistry'
-import { buildDisconnectReset } from './disconnectAndSync'
-import { buildValidationContext } from './validationContext'
-import type { ConstraintValidationContext, ConstraintValidationResult } from './types'
+import {
+  rebuildAllColumnErrors,
+  syncColumnErrorsForSourceRef,
+  resetDownstreamValidationStatus,
+  buildColumnErrorMap,
+} from './validationExecutors/pureAggregators'
+import { executeHandlerForEdge, executeHandlerForInline } from './validationExecutors/executors'
+import {
+  syncConstraintNodeResult,
+  syncInlineConstraintNodeResult,
+  syncEdgeStatus,
+} from './validationExecutors/syncStrategies'
 
 // ============================================================================
-// 公共子函数：执行 handler 并同步节点/边状态
+// 公共子函数：执行 handler 并同步节点/边状态（胶水：Layer 1 + Layer 2）
 // ============================================================================
 
 /**
  * 执行单个 handler 校验并同步状态到节点 + 边
  *
- * E（单节点校验）和 F（全表批量校验）的公共逻辑，消除重复代码。
+ * E（单节点校验）和 F（全表批量校验）的公共逻辑。
+ * 组合 Layer 1（executeHandlerForEdge）+ Layer 2（syncConstraintNodeResult + syncEdgeStatus）。
  * 返回校验结果供调用方收集统计信息。
  */
 async function _executeAndSync(params: {
@@ -41,27 +57,32 @@ async function _executeAndSync(params: {
   edge: Edge
   nodes: Node[]
   updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
-}): Promise<{ result: ConstraintValidationResult; columnId: string } | null> {
+}): Promise<{ result: import('./types').ConstraintValidationResult; columnId: string } | null> {
   const { schemaNode, constraintNode, edge, nodes, updateNodeData } = params
-  const ctx = buildValidationContext({ schemaNode, constraintNode, edge, nodes })
-  if (!ctx) return null
-  const handler = getHandlerByNodeType(constraintNode.type)
-  if (!handler) return null
 
-  const result = await handler.validate(ctx)
-
-  updateNodeData(constraintNode.id, {
-    table: ((schemaNode.data || {}) as Record<string, unknown>)?.tableName as string,
-    column: ctx.columnName,
-    sourceRef: { nodeId: schemaNode.id, columnId: ctx.columnId },
-    validationStatus: result.status,
-    validationErrors: result.validationErrors,
-    lastValidation: result.lastValidation,
+  // Layer 1：纯执行，返回 { result, columnId, columnName } | null
+  const output = await executeHandlerForEdge({
+    schemaNode,
+    constraintNode,
+    edge,
+    nodes,
   })
-  // 同步校验状态到边，驱动粒子着色
-  updateEdgeData(edge.id, { validationStatus: result.status })
+  if (!output) return null
 
-  return { result, columnId: ctx.columnId }
+  const { result, columnId, columnName } = output
+
+  // Layer 2：渲染同步（写回节点数据 + 边状态）
+  syncConstraintNodeResult({
+    constraintNode,
+    schemaNode,
+    columnId,
+    columnName,
+    result,
+    updateNodeData,
+  })
+  syncEdgeStatus(edge, result.status)
+
+  return { result, columnId }
 }
 
 // ============================================================================
@@ -93,30 +114,6 @@ export interface ValidationSummary {
   validConstraints: number
   invalidConstraints: number
   totalErrors: number
-}
-
-/**
- * 重置 Schema 下游所有约束节点的校验状态（不重置 sourceRef/table/column 等结构映射）
- *
- * 在 Schema 失去数据源（无入边、路径不可达）时调用，
- * 清除残留的 pass/error 校验结果，避免"幽灵校验结果"（Bug 2.2）。
- * 注意：正常断连由 dataSourceToSchema 断连 handler 处理，此处为防御性兜底。
- */
-export function resetDownstreamValidationStatus(
-  schemaNodeId: string,
-  nodes: Node[],
-  edges: Edge[],
-  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
-): void {
-  const schemaEdges = edges.filter((e) => e.source === schemaNodeId)
-  for (const ce of schemaEdges) {
-    const constraintNode = nodes.find((n) => n.id === ce.target)
-    if (!constraintNode || !isConstraintNodeType(constraintNode.type)) continue
-    const data = (constraintNode.data || {}) as Record<string, unknown>
-    updateNodeData(constraintNode.id, {
-      ...buildDisconnectReset(constraintNode.type, data),
-    })
-  }
 }
 
 /**
@@ -267,56 +264,20 @@ export async function validateForInlineSource(params: {
 }): Promise<void> {
   const { sourceNodeId, constraintNode, nodes, updateNodeData } = params
 
-  const sourceNode = nodes.find((n) => n.id === sourceNodeId)
-  if (!sourceNode) {
-    logger.warn('❌ 未找到源节点:', sourceNodeId)
-    return
-  }
+  // Layer 1：纯执行
+  const output = await executeHandlerForInline({ sourceNodeId, constraintNode, nodes })
+  if (!output) return
 
-  // 从 TransformOutput / ManualData 节点提取行数据
-  const sourceData = sourceNode.data as Record<string, unknown>
-  const rawRows = (sourceData.rows as string[][]) || []
-  const sourceColumnName = (sourceData.columnName as string) || 'Column1'
+  const { result, columnName } = output
 
-  // 约束节点自身可能指定了目标列（例如模板展开的参数），优先使用；
-  // 否则回退到数据源节点的列名。
-  const constraintData = (constraintNode.data || {}) as Record<string, unknown>
-  const columnName =
-    (constraintData.inputColumn as string) || (constraintData.column as string) || sourceColumnName
-
-  const handler = getHandlerByNodeType(constraintNode.type)
-  if (!handler) {
-    logger.debug('ℹ️ 未找到约束处理器:', constraintNode.type)
-    return
-  }
-
-  // 后端 inline 校验默认将 rows 第一行视为表头；
-  // 但 TransformOutput / ManualData 的 rows 均为纯数据行（不含表头）。
-  // 通过 column_names 显式指定列名，使后端将 rows 全部视为数据行。
-  const inlineColumnNames = [columnName]
-
-  // 构建带有 inlineRows 的校验上下文
-  const ctx: ConstraintValidationContext = {
-    nodes,
-    schemaNode: sourceNode,
+  // Layer 2：渲染同步（inline 版，sourceRef columnId 固定为 '0'）
+  const sourceNode = nodes.find((n) => n.id === sourceNodeId)!
+  syncInlineConstraintNodeResult({
     constraintNode,
-    edge: {} as Edge,
-    columnId: '0',
+    sourceNode,
     columnName,
-    columnDataType: (sourceData.columnDataType as string) || undefined,
-    inlineRows: rawRows,
-    inlineColumnNames,
-  }
-
-  const result = await handler.validate(ctx)
-
-  updateNodeData(constraintNode.id, {
-    table: (sourceData.configName as string) || columnName,
-    column: columnName,
-    sourceRef: { nodeId: sourceNode.id, columnId: '0' },
-    validationStatus: result.status,
-    validationErrors: result.validationErrors,
-    lastValidation: result.lastValidation,
+    result,
+    updateNodeData,
   })
 }
 
@@ -373,90 +334,9 @@ export async function validateConstraintNodeById(
 }
 
 // ============================================================================
-// 列错误同步
+// re-export Layer 0 纯聚合函数（保持 barrel 契约：8 函数导出不变）
 // ============================================================================
 
-/**
- * 将指定 Schema 列关联的所有约束错误汇总写入该列的 validationErrors
- *
- * 被 validateConstraintNodeById 在单约束校验后调用，
- * 确保列级错误展示与约束校验结果同步。
- */
-export function syncColumnErrorsForSourceRef(
-  schemaNodeId: string,
-  columnId: string,
-  nodes: Node[],
-  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
-): void {
-  const schemaNode = nodes.find((n) => n.id === schemaNodeId)
-  if (!schemaNode) return
-  const schemaData = (schemaNode.data || {}) as Record<string, unknown>
-  const columns = (schemaData.columns || []) as Array<Record<string, unknown>>
-  if (columns.length === 0) return
-
-  const columnErrors: string[] = []
-  for (const node of nodes) {
-    if (!isConstraintNodeType(node.type)) continue
-    const nd = (node.data || {}) as Record<string, unknown>
-    const ref = nd.sourceRef as { nodeId: string; columnId: string } | undefined
-    if (ref?.nodeId === schemaNodeId && ref?.columnId === columnId) {
-      const errors = (nd.validationErrors as string[]) || []
-      columnErrors.push(...errors)
-    }
-  }
-
-  const updatedColumns = columns.map((col) => {
-    if ((col as Record<string, unknown>).id === columnId) {
-      return { ...col, validationErrors: columnErrors }
-    }
-    return col
-  })
-  updateNodeData(schemaNodeId, {
-    ...schemaData,
-    columns: updatedColumns,
-  })
-}
-
-/**
- * 重建 Schema 所有列的 validationErrors（全列扫描）
- *
- * 与 syncColumnErrorsForSourceRef（仅刷当前列）的区别：
- * 此函数扫描 Schema 下所有约束节点的 sourceRef，为每一列重新汇总错误，
- * 确保某约束的 sourceRef 变更后，旧列的 stale 错误也能被清除（Bug 3.4）。
- * 批量路径 validateConstraintNodesForSchema 与此逻辑等价（经 columnErrorMap）。
- */
-export function rebuildAllColumnErrors(
-  schemaNodeId: string,
-  nodes: Node[],
-  updateNodeData: (nodeId: string, data: Record<string, unknown>) => void
-): void {
-  const schemaNode = nodes.find((n) => n.id === schemaNodeId)
-  if (!schemaNode) return
-  const schemaData = (schemaNode.data || {}) as Record<string, unknown>
-  const columns = (schemaData.columns || []) as Array<Record<string, unknown>>
-  if (columns.length === 0) return
-
-  // 按列 ID 汇总所有引用本 Schema 的约束节点的错误
-  const columnErrorMap = new Map<string, string[]>()
-  for (const node of nodes) {
-    if (!isConstraintNodeType(node.type)) continue
-    const nd = (node.data || {}) as Record<string, unknown>
-    const ref = nd.sourceRef as { nodeId: string; columnId: string } | undefined
-    if (ref?.nodeId === schemaNodeId && ref.columnId) {
-      const errors = (nd.validationErrors as string[]) || []
-      if (errors.length > 0) {
-        const existing = columnErrorMap.get(ref.columnId) || []
-        columnErrorMap.set(ref.columnId, [...existing, ...errors])
-      }
-    }
-  }
-
-  const updatedColumns = columns.map((col) => {
-    const colId = col.id as string
-    return { ...col, validationErrors: columnErrorMap.get(colId) || [] }
-  })
-  updateNodeData(schemaNodeId, {
-    ...schemaData,
-    columns: updatedColumns,
-  })
-}
+export { rebuildAllColumnErrors, syncColumnErrorsForSourceRef, resetDownstreamValidationStatus }
+// buildColumnErrorMap 为内部提取的复用函数，暂不纳入公共 barrel（无外部调用方）
+export { buildColumnErrorMap }
