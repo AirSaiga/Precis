@@ -280,4 +280,83 @@ export function registerFilesystemIpc(): void {
       return result;
     }
   );
+
+  // ---- read-file ----
+  // 读取任意绝对路径的文本文件（工作区配置 / 项目清单等）
+  // 路径校验：必须是绝对路径，且不含非法穿越（resolve 后与原值不一致则拒绝）
+  ipcMain.handle('read-file', async (_event, filePath: string) => {
+    try {
+      if (!filePath || typeof filePath !== 'string') {
+        logger.error('[Electron] 无效的文件路径:', filePath);
+        return null;
+      }
+
+      const resolved = path.resolve(filePath);
+      if (resolved !== filePath && resolved !== path.normalize(filePath)) {
+        logger.error('[Electron] read-file: 路径包含非法穿越:', filePath);
+        return null;
+      }
+
+      if (!path.isAbsolute(filePath)) {
+        logger.error('[Electron] 路径必须是绝对路径:', filePath);
+        return null;
+      }
+
+      // 检查文件是否存在
+      if (!fs.existsSync(filePath)) {
+        logger.debug('[Electron] 文件不存在:', filePath);
+        return null;
+      }
+
+      // 检查是否为文件
+      const stats = fs.statSync(filePath);
+      if (!stats.isFile()) {
+        logger.error('[Electron] 路径不是文件:', filePath);
+        return null;
+      }
+
+      const content = fs.readFileSync(filePath, 'utf-8');
+      logger.debug('[Electron] 文件已读取:', filePath);
+      return content;
+    } catch (error) {
+      logger.error('[Electron] 读取文件失败:', error);
+      return null;
+    }
+  });
+
+  // ---- write-file ----
+  // 写入文本文件到指定绝对路径，自动创建父目录
+  ipcMain.handle('write-file', async (_event, filePath: string, content: string) => {
+    try {
+      if (!filePath || typeof filePath !== 'string') {
+        logger.error('[Electron] 无效的文件路径:', filePath);
+        return false;
+      }
+
+      const resolved = path.resolve(filePath);
+      if (resolved !== filePath && resolved !== path.normalize(filePath)) {
+        logger.error('[Electron] write-file: 路径包含非法穿越:', filePath);
+        return false;
+      }
+
+      if (!path.isAbsolute(filePath)) {
+        logger.error('[Electron] 路径必须是绝对路径:', filePath);
+        return false;
+      }
+
+      // 自动创建父目录
+      const dirPath = path.dirname(filePath);
+      if (!fs.existsSync(dirPath)) {
+        fs.mkdirSync(dirPath, { recursive: true });
+        logger.debug('[Electron] 创建目录:', dirPath);
+      }
+
+      fs.writeFileSync(filePath, content, 'utf-8');
+      logger.debug('[Electron] 文件已保存:', filePath);
+      return true;
+    } catch (error) {
+      logger.error('[Electron] 写入文件失败:', error);
+      return false;
+    }
+  });
 }
