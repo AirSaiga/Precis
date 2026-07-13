@@ -1,50 +1,53 @@
 /**
  * @file useConnections.ts
- * @description 画布连接（边）管理组合式函数
+ * @description 画布连接（边）管理组合式函数（编排层）
  *
- * 负责处理 Vue Flow 画布中所有节点连接事件的 orchestration，
- * 根据源节点类型和目标节点类型分派到具体的连接处理器。
+ * 负责处理 Vue Flow 画布中所有节点连接事件的 orchestration。
  *
- * 功能概述：
- * - onConnect: 全局连接事件入口，按节点类型分派
- * - Schema → Column: 创建列定义边
- * - Schema → Regex: 创建正则校验边
- * - Schema → Constraint: 按约束类型分派到具体处理器（NotNull/Unique/FK/Conditional/Scripted/Range/Charset/DateLogic/AllowedValues）
- * - Schema → JsonSchema: JSON Schema 连接处理
- * - SourcePreview → Schema: 数据源绑定边
- * - 连接验证：阻止非法连接（如 Constraint → Constraint）
- * - 连接提示：非法连接时显示 Toast 提示
+ * 架构（God 拆分批次5 后）：
+ * - 本文件：编排入口。handleConnectionCompleted 是瘦骨架（约 100 行），
+ *   按家族串联调用 connectionHandlers/ 下的 handler
+ * - connectionHandlers/：
+ *   - edgeStyleResolver.ts / targetHandleValidator.ts（纯函数，批次4 抽出）
+ *   - shortcutHandlers.ts（A1-A4：创建边前的提前返回分支）
+ *   - dataSourceHandlers.ts（E1/E2：ManualData ↔ Schema 数据流转）
+ *   - schemaSourceHandlers.ts（E5/E6：SourcePreview → Schema）
+ *   - foreignKeyHandlers.ts（E7-E9：外键参照连接）
+ *   - constraintDispatch.ts（E10：约束核心分发 + 映射表 + 回退）
+ *   - regexHandlers.ts（E3/E4/E11-E14：正则连接）
+ *   - transformHandlers.ts（E15：Transform 输入连接）
  *
- * 架构设计：
- * - 组合式函数模式，聚合各类型连接子处理器
- * - 每个约束类型有独立的 useXxxConnection 子处理器
- * - 使用 Vue Flow 的 useVueFlow 获取 addEdges / findEdge 等 API
- * - 连接前通过 validationRegistry 判断节点类型和合法性
+ * 流程：解析节点 → 快捷分支（可能不建边）→ 端口校验 → 解析样式 →
+ * 创建边 + 事务 → syncOnConnect → 家族 handler 串联 → commit/rollback。
  */
 
 import { logger } from '@/core/utils/logger'
 import { ref } from 'vue'
 import type { Connection, OnConnectStartParams } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
-import { useProjectStore } from '@/stores/projectStore'
-import type { SchemaNodeData, CustomNodeData } from '@/types/graph'
 import { useSchemaConnectionHandler } from './schema/useSchemaConnectionHandler'
 import { useRegexConnection } from '@/features/regex/composables'
 import { useForeignKeyConnection } from './constraints/useForeignKeyConnection'
 import { useConditionalConnection } from './constraints/useConditionalConnection'
 import { useConstraintConnection } from './constraints/useConstraintConnection'
 import { useJsonSchemaConnectionHandler } from './json/useJsonSchemaConnectionHandler'
-import { getV2FullConfig } from '@/api/projectV2Api'
-import type { PatternRegistryTypeV2 } from '@/types/projectV2'
-import {
-  getConstraintKindByNodeType,
-  isConstraintNodeType,
-} from '@/services/constraints/validationRegistry'
-import { validateForInlineSource } from '@/services/constraints/validationRegistryCore'
+import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 import { createConnectionTransaction } from '@/utils/nodes/connectionTransaction'
 import { updateEdgeData } from '@/services/canvas/vueFlowApi'
 import { resolveEdgeStyle } from './connectionHandlers/edgeStyleResolver'
 import { isValidConstraintTargetHandle as isValidConstraintTargetHandlePure } from './connectionHandlers/targetHandleValidator'
+import { tryHandleShortcutConnection } from './connectionHandlers/shortcutHandlers'
+import { handleDataSourceConnection } from './connectionHandlers/dataSourceHandlers'
+import { handleSchemaSourceConnection } from './connectionHandlers/schemaSourceHandlers'
+import { handleForeignKeyConnection } from './connectionHandlers/foreignKeyHandlers'
+import {
+  buildConstraintConnectionHandlers,
+  handleConstraintDispatch,
+} from './connectionHandlers/constraintDispatch'
+import { handleRegexConnection } from './connectionHandlers/regexHandlers'
+import { handleTransformConnection } from './connectionHandlers/transformHandlers'
+import type { ConnectionContext } from './connectionHandlers/types'
+
 export function useConnections() {
   const store = useGraphStore()
 
@@ -58,147 +61,13 @@ export function useConnections() {
   const conditionalConnection = useConditionalConnection()
   const constraintConnection = useConstraintConnection()
   const jsonSchemaHandler = useJsonSchemaConnectionHandler()
-  /**
-   * 连接处理器包装函数
-   * 将各个连接处理器的执行结果统一包装为 Promise，并在出错时抛出 ConnectionHandlerError
-   * 这样可以在连接失败时提供更有意义的错误信息，便于调试
-   * @param handlerName - 处理器名称，用于错误提示
-   * @param fn - 原始的连接处理器函数
-   * @returns 包装后的处理器函数，执行失败时会抛出 ConnectionHandlerError
-   */
-  const toConnectionResult = <Args extends unknown[]>(
-    handlerName: string,
-    fn: (...args: Args) => Promise<void>
-  ): ((...args: Args) => Promise<void>) => {
-    return (...args: Args) => {
-      try {
-        const result = fn(...args)
-        if (result instanceof Promise) {
-          return result.catch((e: unknown) => {
-            throw new ConnectionHandlerError(handlerName, e)
-          })
-        }
-        return Promise.resolve(result)
-      } catch (e) {
-        return Promise.reject(new ConnectionHandlerError(handlerName, e))
-      }
-    }
-  }
 
-  /**
-   * 连接处理器错误类
-   * 用于包装连接处理器执行过程中抛出的异常，携带处理器名称和原始错误信息
-   */
-  class ConnectionHandlerError extends Error {
-    constructor(
-      /** 发生错误的处理器名称 */
-      public readonly handlerName: string,
-      /** 原始错误对象 */
-      public readonly cause: unknown
-    ) {
-      super(`连接处理器 [${handlerName}] 执行失败`)
-      this.name = 'ConnectionHandlerError'
-    }
-  }
-
-  /**
-   * 约束类型到连接处理器的映射表
-   * 根据约束类型（如 notNull、unique 等）查找对应的连接处理器
-   * 每个处理器负责处理 Schema 节点到特定约束节点的连接逻辑
-   */
-  const constraintConnectionHandlers: Record<
-    string,
-    (
-      sourceId: string,
-      targetId: string,
-      sourceHandleId: string,
-      targetHandleId?: string | null,
-      edgeId?: string
-    ) => Promise<void>
-  > = {
-    notNull: toConnectionResult('notNull', (s, t, sh, th) =>
-      constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
-        kind: 'notNull',
-        nodeType: 'notNullConstraint',
-        dispatchValidation: true,
-        addConstraintToColumn: true,
-        resetOnConnect: false,
-      })
-    ),
-    unique: toConnectionResult('unique', (s, t, sh, th) =>
-      constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
-        kind: 'unique',
-        nodeType: 'uniqueConstraint',
-        dispatchValidation: true,
-        addConstraintToColumn: true,
-        resetOnConnect: false,
-      })
-    ),
-    allowedValues: toConnectionResult('allowedValues', (s, t, sh, th) =>
-      constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
-        kind: 'allowedValues',
-        nodeType: 'allowedValuesConstraint',
-        dispatchValidation: true,
-        addConstraintToColumn: false,
-        resetOnConnect: true,
-      })
-    ),
-    range: toConnectionResult('range', (s, t, sh, th) =>
-      constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
-        kind: 'range',
-        nodeType: 'rangeConstraint',
-        dispatchValidation: true,
-        addConstraintToColumn: false,
-        resetOnConnect: true,
-      })
-    ),
-    scripted: toConnectionResult('scripted', (s, t, sh, th) =>
-      constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
-        kind: 'scripted',
-        nodeType: 'scriptedConstraint',
-        dispatchValidation: true,
-        addConstraintToColumn: false,
-        resetOnConnect: true,
-      })
-    ),
-    charset: toConnectionResult('charset', (s, t, sh, th) =>
-      constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
-        kind: 'charset',
-        nodeType: 'charsetConstraint',
-        dispatchValidation: true,
-        addConstraintToColumn: false,
-        resetOnConnect: true,
-      })
-    ),
-    dateLogic: toConnectionResult('dateLogic', (s, t, sh, th) =>
-      constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
-        kind: 'dateLogic',
-        nodeType: 'dateLogicConstraint',
-        dispatchValidation: true,
-        addConstraintToColumn: false,
-        resetOnConnect: true,
-      })
-    ),
-    conditional: toConnectionResult(
-      'conditional',
-      conditionalConnection.handleSchemaToConditionalConnection
-    ),
-    foreignKey: toConnectionResult(
-      'foreignKey',
-      foreignKeyConnection.handleSchemaToForeignKeyConnection
-    ),
-    // 复合约束是聚合器（通过 includedNodeIds 引用其他约束节点），
-    // 连接时只建立锚点边，不触发单约束即时校验（需等子约束全部连接后由全表校验聚合）
-    composite: toConnectionResult('composite', (s, t, sh, th) =>
-      constraintConnection.handleSchemaToConstraint(s, t, sh, th, {
-        kind: 'composite',
-        nodeType: 'compositeConstraint',
-        dispatchValidation: false,
-        addConstraintToColumn: false,
-        resetOnConnect: false,
-      })
-    ),
-  }
+  // 构建约束类型 → handler 映射表（kind → 专用 handler）
+  const constraintConnectionHandlers = buildConstraintConnectionHandlers({
+    constraintConnection,
+    conditionalConnection,
+    foreignKeyConnection,
+  })
 
   /**
    * Toast 消息提示函数
@@ -221,171 +90,44 @@ export function useConnections() {
   }
 
   /**
-   * 连接完成事件处理 - 分发到对应的连接处理器
-   * 这是连接管理的核心方法，根据源节点和目标节点的类型，
-   * 将连接请求分发到对应的处理器，并设置连接线的样式
+   * 连接完成事件处理 - 瘦编排入口
+   *
+   * 流程：
+   * 1. 解析源/目标节点（防御性检查）
+   * 2. 快捷分支（A1-A4）：patternToolbox/pattern吸附/FK快捷/SourcePreview→FK 拒绝
+   *    命中则直接返回（不创建边）
+   * 3. 约束端口校验（B1）：非法端口 toast + return
+   * 4. 解析边样式（C1，纯函数）+ 创建边 + 开启事务
+   * 5. syncOnConnect（重建 parent/children/outputPortConnected）
+   * 6. 家族 handler 串联（E1-E15，类型条件互斥，共享 tx）：
+   *    dataSource → schemaSource → foreignKey → constraint → regex → transform
+   * 7. commit + 边状态置 active；失败 rollback + 删边 + toast
+   *
    * @param connection - 连接对象，包含 source、target、sourceHandle、targetHandle
    */
   const handleConnectionCompleted = async (connection: Connection) => {
-    // 从连接对象中解构出源节点、目标节点和 handle 信息
+    // 1. 解析节点
     const { source, target, sourceHandle, targetHandle } = connection
-
-    // 在全局 store 中查找源节点和目标节点
-    // 使用节点 ID 在 nodes 数组中查找对应的节点对象
     const sourceNode = store.nodes.find((n) => n.id === source)
     const targetNode = store.nodes.find((n) => n.id === target)
-
-    // 如果任一节点不存在，直接返回（防御性检查）
     if (!sourceNode || !targetNode) {
       return
     }
 
-    if (sourceNode.type === 'patternToolbox' && targetNode.type === 'schema') {
-      const patternId =
-        sourceHandle && sourceHandle.startsWith('pattern-')
-          ? sourceHandle.replace('pattern-', '')
-          : ''
-      const columnId =
-        targetHandle && targetHandle.startsWith('pattern-drop-')
-          ? targetHandle.replace('pattern-drop-', '')
-          : ''
-      if (!patternId || !columnId) return
+    // 2. 快捷分支（A1-A4）：可能不创建边，命中即 return
+    const shortcutResult = await tryHandleShortcutConnection(
+      {
+        connection,
+        sourceNode,
+        targetNode,
+        sourceHandle,
+        targetHandle,
+      },
+      { store, foreignKeyConnection }
+    )
+    if (shortcutResult.handled) return
 
-      const basePos = {
-        x: (targetNode.position?.x || 0) + 420,
-        y: targetNode.position?.y || 0,
-      }
-      const regexNodeId = await store.importV2ResourceToCanvas('pattern', patternId, basePos, {
-        includeDeps: false,
-        moveIfExists: true,
-      })
-      if (!regexNodeId) return
-
-      store.bindRegexToSchemaColumn(targetNode.id, columnId, regexNodeId)
-      return
-    }
-
-    const regexTargetInputHandle =
-      targetNode.type === 'regexExtract' ? 'regexExtract-input' : 'regex-input'
-
-    if (
-      (sourceNode.type === 'pattern' || sourceNode.type === 'schema') &&
-      (targetNode.type === 'regex' || targetNode.type === 'regexExtract') &&
-      (!targetHandle || targetHandle === regexTargetInputHandle)
-    ) {
-      // Pattern → Regex/RegexExtract: 使用"吸附填充"效果，不需要创建持久连接线
-      if (sourceNode.type === 'pattern') {
-        const patternNodeData = sourceNode.data as Record<string, unknown>
-        const regexNodeData = targetNode.data as Record<string, unknown>
-
-        const patternId = patternNodeData?.patternId as string | undefined
-        const registry = patternNodeData?.registry as PatternRegistryTypeV2 | undefined
-
-        // 从完整路径中提取纯 ID，例如 "patterns/email" -> "email"
-        const purePatternId = patternId?.includes('/') ? patternId.split('/').pop() : patternId
-
-        if (!patternId || !registry) {
-          return
-        }
-
-        const projectStore = useProjectStore()
-        const configPath = projectStore.currentPaths?.configPath
-
-        if (!configPath) {
-          return
-        }
-
-        const fullConfig = await getV2FullConfig(configPath)
-        const registryKey = `${registry}/${purePatternId}`
-
-        const patternData = fullConfig.regex_registries?.[registryKey] as
-          | {
-              definition?: {
-                pattern?: string
-                regex?: string
-                flags?: string
-                case_sensitive?: boolean
-              }
-            }
-          | undefined
-
-        if (!patternData) {
-          return
-        }
-
-        const definition = patternData.definition
-        const patternContent = definition?.pattern || definition?.regex || ''
-
-        const updatedRegexData = {
-          ...regexNodeData,
-          uses_pattern: {
-            registry,
-            pattern_name: purePatternId,
-          },
-          pattern: patternContent,
-          flags: definition?.flags || 'g',
-          caseSensitive: definition?.case_sensitive ?? true,
-          saveState: 'draft' as const,
-          validationStatus: 'idle' as const,
-        }
-
-        store.updateNodeData(targetNode.id, updatedRegexData)
-
-        // 创建一条"流动吸附"的连接线
-        const edgeStyle = {
-          type: 'smoothstep' as const,
-          animated: true,
-          style: { stroke: 'var(--node-accent)', strokeWidth: 2 },
-          data: { isAbsorbing: true },
-        }
-        const edgeId = store.createConnection(
-          sourceNode.id,
-          targetNode.id,
-          'pattern-output',
-          regexTargetInputHandle,
-          edgeStyle
-        )
-
-        // 600ms 后删除连接线，模拟"被吸收"的效果
-        setTimeout(() => {
-          store.deleteConnection(edgeId)
-          store.deleteNode(sourceNode.id)
-        }, 600)
-
-        logger.debug(
-          `[Pattern→${targetNode.type === 'regexExtract' ? 'RegexExtract' : 'Regex'}] 已将 pattern '${patternId}' (${registry}) 关联到 ${targetNode.type} 节点 '${targetNode.id}'`
-        )
-        return
-      }
-    }
-
-    const createEdgeStyle = () => ({
-      type: 'smoothstep',
-      animated: true,
-      style: { strokeWidth: 1.5 },
-    })
-
-    const shortcutCreatedNodeId =
-      foreignKeyConnection.handleSchemaToSchemaForeignKeyShortcutConnection(
-        sourceNode.id,
-        targetNode.id,
-        sourceHandle ?? undefined,
-        targetHandle ?? undefined,
-        {
-          ...createEdgeStyle(),
-          style: { stroke: 'var(--edge-default)', strokeWidth: 1.5 },
-        }
-      )
-
-    if (shortcutCreatedNodeId) {
-      return
-    }
-
-    if (sourceNode.type === 'sourcePreview' && targetNode.type === 'foreignKeyConstraint') {
-      logger.warn('⚠️ 当前外键节点不支持从 SourcePreview 直接建立参照连接')
-      return
-    }
-
+    // 3. 约束端口校验（B1）
     if (
       (sourceNode.type === 'schema' ||
         sourceNode.type === 'jsonSchema' ||
@@ -399,8 +141,7 @@ export function useConnections() {
       }
     }
 
-    // 根据源节点和目标节点的类型组合，解析边样式（纯函数，从 C1 if-else 链抽出）
-    // resolveEdgeStyle 返回结构化 ResolvedEdgeStyle，此处按原 createConnection 的松散契约转为 Record
+    // 4. 解析边样式 + 创建边 + 开启事务
     const edgeStyle = resolveEdgeStyle({
       sourceNodeId: sourceNode.id,
       sourceType: sourceNode.type,
@@ -427,293 +168,37 @@ export function useConnections() {
       updateNodeData: store.updateNodeData,
     })
 
+    // 5-6. 事务内：syncOnConnect + 家族 handler 串联
     try {
-      // 统一连接状态同步（children/parent/outputPortConnected）
       store.syncOnConnect(source, target, tx.patchNodeData.bind(tx))
 
-      if (sourceNode.type === 'manualData' && targetNode.type === 'schema') {
-        const manualData = sourceNode.data as Record<string, unknown>
-        const schemaNode = store.nodes.find((n) => n.id === target)
-        if (schemaNode) {
-          const columnName = (manualData.columnName as string) || 'Column1'
-          const existingCols =
-            ((schemaNode.data as Record<string, unknown>).columns as Array<
-              Record<string, unknown>
-            >) || []
-          if (existingCols.length === 0) {
-            tx.patchNodeData(target, {
-              ...schemaNode.data,
-              columns: [
-                {
-                  id: 'col-0',
-                  columnName,
-                  dataType: 'String',
-                  validationErrors: [],
-                  constraints: {},
-                },
-              ],
-              tableName: (manualData.configName as string) || 'ManualData',
-              sourceNodeId: source,
-            } as unknown as Partial<CustomNodeData>)
-          }
-        }
+      // 构造共享上下文（边已创建后注入 tx + edgeId + store + 子 composable）
+      const ctx: ConnectionContext = {
+        connection,
+        sourceNode,
+        targetNode,
+        sourceHandle,
+        targetHandle,
+        edgeId,
+        tx,
+        store,
+        schemaConnection,
+        regexConnection,
+        foreignKeyConnection,
+        jsonSchemaHandler,
+        constraintConnection,
       }
 
-      // Schema 列 → ManualData：提取该列数据到手动数据节点
-      if (sourceNode.type === 'schema' && targetNode.type === 'manualData') {
-        const schemaData = sourceNode.data as Record<string, unknown>
-        const columns =
-          (schemaData.columns as Array<{ id: string; columnName: string; dataType?: string }>) || []
+      // 家族 handler 串联（类型条件天然互斥，共享 tx）
+      handleDataSourceConnection(ctx) // E1/E2: manualData ↔ schema
+      await handleSchemaSourceConnection(ctx) // E5/E6: sourcePreview → schema
+      handleForeignKeyConnection(ctx) // E7/E8/E9: 外键参照
+      await handleConstraintDispatch(ctx, constraintConnectionHandlers) // E10: 约束核心分发
+      await handleRegexConnection(ctx) // E3/E4/E11-E14: 正则
+      handleTransformConnection(ctx) // E15: transform 输入
 
-        // 从 sourceHandle 解析列 ID，例如 "source-right-col-0" → "col-0"
-        let columnId = ''
-        if (sourceHandle && sourceHandle.startsWith('source-right-')) {
-          columnId = sourceHandle.replace('source-right-', '')
-        }
-
-        const column = columns.find((c) => c.id === columnId)
-        const columnName = column?.columnName || 'Column1'
-        const columnDataType = column?.dataType
-
-        // 尝试从关联的 SourcePreview 提取该列数据
-        let extractedRows: string[][] = []
-        const sourceNodeId = schemaData.sourceNodeId as string | undefined
-        if (sourceNodeId) {
-          const previewNode = store.nodes.find((n) => n.id === sourceNodeId)
-          if (previewNode && previewNode.type === 'sourcePreview') {
-            const previewData = previewNode.data as Record<string, unknown>
-            const dataMatrix = (previewData.data as string[][]) || []
-            const headerRow = (previewData.headerRow as number) ?? 0
-
-            if (dataMatrix.length > 0 && headerRow >= 0 && headerRow < dataMatrix.length) {
-              const headers = dataMatrix[headerRow] ?? []
-              const colIndex = headers.indexOf(columnName)
-              if (colIndex >= 0) {
-                // 提取数据行（跳过表头行）
-                for (let i = 0; i < dataMatrix.length; i++) {
-                  if (i === headerRow) continue
-                  const row = dataMatrix[i] ?? []
-                  extractedRows.push([row[colIndex] ?? ''])
-                }
-              }
-            }
-          }
-        }
-
-        // 如果没有提取到数据，使用默认行
-        if (extractedRows.length === 0) {
-          extractedRows = [['value1'], ['value2'], ['value3']]
-        }
-
-        tx.patchNodeData(target, {
-          columnName,
-          columnDataType,
-          rows: extractedRows,
-          configName: columnName,
-          saveState: 'draft',
-        } as unknown as Partial<CustomNodeData>)
-      }
-
-      // ManualData → Regex：手动数据作为正则校验的数据源
-      if (sourceNode.type === 'manualData' && targetNode.type === 'regex') {
-        const manualData = sourceNode.data as Record<string, unknown>
-        const columnName = (manualData.columnName as string) || 'Column1'
-
-        // 更新 regex 节点的数据源信息
-        tx.patchNodeData(target, {
-          sourceRef: { nodeId: source, columnId: '0' },
-          configName: `Regex on ${columnName}`,
-          saveState: 'draft',
-        })
-
-        logger.debug(
-          `[ManualData→Regex] 已将 manualData '${sourceNode.id}' 连接到 regex 节点 '${targetNode.id}'`
-        )
-      }
-
-      // ManualData → RegexExtract：手动数据作为正则提取的数据源
-      if (sourceNode.type === 'manualData' && targetNode.type === 'regexExtract') {
-        const manualData = sourceNode.data as Record<string, unknown>
-        const columnName = (manualData.columnName as string) || 'Column1'
-
-        tx.patchNodeData(target, {
-          sourceRef: { nodeId: source, columnId: '0' },
-          configName: `RegexExtract on ${columnName}`,
-          saveState: 'draft',
-          validationStatus: 'idle',
-        })
-
-        logger.debug(
-          `[ManualData→RegexExtract] 已将 manualData '${sourceNode.id}' 连接到 regexExtract 节点 '${targetNode.id}'`
-        )
-      }
-
-      if (sourceNode.type === 'sourcePreview' && targetNode.type === 'schema') {
-        await schemaConnection.handleSourceToSchemaConnection(sourceNode.id, targetNode.id)
-      }
-
-      if (sourceNode.type === 'jsonSourcePreview' && targetNode.type === 'jsonSchema') {
-        await jsonSchemaHandler.handleSourceConnection({ source, target })
-      }
-
-      if (sourceNode.type === 'sourcePreview' && targetNode.type === 'foreignKeyConstraint') {
-        logger.warn('⚠️ 当前外键节点不支持从 SourcePreview 直接建立参照连接')
-      }
-
-      if (
-        sourceNode.type === 'foreignKeyConstraint' &&
-        targetNode.type === 'schema' &&
-        targetHandle === 'target-left'
-      ) {
-        foreignKeyConnection.handleForeignKeyToSchemaConnection(
-          sourceNode.id,
-          targetNode.id,
-          targetHandle || undefined
-        )
-      }
-
-      // FK → Schema 列：设置目标列
-      if (
-        sourceNode.type === 'foreignKeyConstraint' &&
-        targetNode.type === 'schema' &&
-        targetHandle?.startsWith('source-right-')
-      ) {
-        const targetColumnId = targetHandle.replace('source-right-', '')
-        const targetSchemaData = targetNode.data as SchemaNodeData
-        const targetColumn = targetSchemaData?.columns?.find((c) => c.id === targetColumnId)
-
-        if (targetColumn) {
-          foreignKeyConnection.handleForeignKeyToSchemaColumnConnection(
-            sourceNode.id,
-            targetNode.id,
-            targetColumnId,
-            targetColumn.columnName
-          )
-        }
-      }
-
-      if (
-        (sourceNode.type === 'schema' ||
-          sourceNode.type === 'jsonSchema' ||
-          sourceNode.type === 'transformOutput' ||
-          sourceNode.type === 'manualData') &&
-        isConstraintNodeType(targetNode.type)
-      ) {
-        if (sourceHandle) {
-          const constraintType = getConstraintKindByNodeType(targetNode.type)
-          const handler = constraintConnectionHandlers[constraintType]
-          if (handler) {
-            await handler(sourceNode.id, targetNode.id, sourceHandle, targetHandle, edgeId)
-          } else if (sourceNode.type === 'transformOutput' || sourceNode.type === 'manualData') {
-            // 纯数据源 → 无专用处理器的约束类型（如 foreignKey / composite）：
-            // 设置基本引用数据，并触发行内校验
-            const srcData = sourceNode.data as Record<string, unknown>
-            const colName = (srcData.columnName as string) || 'Column1'
-            tx.patchNodeData(targetNode.id, {
-              ...((targetNode.data || {}) as Record<string, unknown>),
-              table: (srcData.configName as string) || colName,
-              column: colName,
-              sourceRef: { nodeId: sourceNode.id, columnId: '0' },
-              saveState: 'draft',
-            })
-            // 触发行内校验（异步，不阻塞连接创建）
-            validateForInlineSource({
-              sourceNodeId: sourceNode.id,
-              constraintNode: targetNode,
-              nodes: store.nodes,
-              updateNodeData: store.updateNodeData,
-            }).catch((err) => {
-              logger.warn('⚠️ 纯数据源行内校验失败:', err)
-            })
-            logger.debug('🔗 纯数据源 → 约束节点（回退处理+校验）:', {
-              sourceType: sourceNode.type,
-              colName,
-              constraintType: targetNode.type,
-            })
-          } else {
-            logger.debug('ℹ️ 暂不支持该约束类型的连接处理:', constraintType)
-          }
-        }
-      }
-
-      if (
-        (sourceNode.type === 'schema' || sourceNode.type === 'jsonSchema') &&
-        targetNode.type === 'regexExtract'
-      ) {
-        if (sourceHandle) {
-          const sourceColumnId = sourceHandle.replace('source-right-', '')
-          tx.patchNodeData(target, {
-            sourceRef: { nodeId: source, columnId: sourceColumnId },
-            saveState: 'draft',
-            validationStatus: 'idle',
-          })
-        }
-      }
-
-      if (
-        (sourceNode.type === 'schema' || sourceNode.type === 'jsonSchema') &&
-        targetNode.type === 'regex'
-      ) {
-        if (sourceHandle) {
-          await regexConnection.handleSchemaToRegexConnection(
-            sourceNode.id,
-            targetNode.id,
-            sourceHandle
-          )
-        }
-      }
-
-      if (sourceNode.type === 'transformOutput' && targetNode.type === 'regexExtract') {
-        tx.patchNodeData(target, {
-          inputFromNode: source,
-          inputColumn: '0',
-          saveState: 'draft',
-          validationStatus: 'idle',
-        })
-      }
-
-      if (sourceNode.type === 'transformOutput' && targetNode.type === 'regex') {
-        tx.patchNodeData(target, {
-          sourceRef: { nodeId: source, columnId: '0' },
-          saveState: 'draft',
-          validationStatus: 'idle',
-        })
-      }
-
-      // Transform 输入连接：更新上游节点引用
-      if (targetNode.type === 'transform' && targetHandle === 'transform-input') {
-        let inputColumn: string | undefined
-
-        if (sourceNode.type === 'manualData') {
-          const manualData = sourceNode.data as Record<string, unknown>
-          inputColumn = (manualData.columnName as string) || 'Column1'
-        } else if (sourceNode.type === 'transformOutput') {
-          const outputData = sourceNode.data as Record<string, unknown>
-          inputColumn = (outputData.columnName as string) || 'Column1'
-        }
-
-        const transformData = targetNode.data as Record<string, unknown>
-        const currentParams = (transformData.params as Record<string, unknown>) || {}
-        const transformType = (transformData.transformType as string) || 'StringSplit'
-
-        // 如果参数为空，自动填充该类型的默认参数
-        const nextParams: Record<string, unknown> =
-          Object.keys(currentParams).length === 0
-            ? transformType === 'StringSplit'
-              ? { delimiter: ',', maxsplit: -1 }
-              : currentParams
-            : currentParams
-
-        tx.patchNodeData(target, {
-          inputFromNode: source,
-          inputColumn,
-          params: nextParams,
-          saveState: 'draft',
-        })
-      }
-
+      // 7. 提交 + 边状态置 active
       tx.commit()
-
       updateEdgeData(edgeId, { status: 'active' })
     } catch (e) {
       tx.rollback()
