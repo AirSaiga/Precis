@@ -19,27 +19,20 @@
  */
 
 import { app, BrowserWindow, ipcMain, shell, protocol, net as electronNet, Menu, dialog } from 'electron';
-import { spawn, ChildProcess, execSync, type SpawnOptions } from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
-import * as net from 'net';
 import { updateManager } from './update';
 import { getBackendPath, getFrontendPath } from './utils/paths';
 import { logger, getLogFilePath, flushLogs } from './logger';
-import {
-  containsStartupSignal,
-  looksLikeStderrError,
-  findAvailablePort,
-  waitForServer,
-  waitForApiReady,
-  STARTUP_SIGNALS,
-  STDERR_ERROR_MARKERS,
-  SIGNAL_SCAN_TAIL_CHARS,
-} from './startup-probe';
+import { waitForApiReady } from './startup-probe';
 import { registerAllIpc } from './ipc';
 import { ensureFeedbackDir, getPendingCrashPath } from './ipc/feedback';
-import { appState, resetPythonState } from './app-state';
-import { PYTHON_SERVER_DEFAULT_PORT } from './constants';
+import { appState } from './app-state';
+import {
+  startPythonServer,
+  stopPythonServer,
+  stopPythonServerSync,
+} from './pythonProcess';
 
 /**
  * Vue 前端开发服务器的默认端口
@@ -121,333 +114,6 @@ type SplashStage = 'initializing' | 'starting' | 'connecting' | 'loading' | 'don
 function sendSplashStage(stage: SplashStage, error: boolean = false): void {
   if (!appState.splashWindow || appState.splashWindow.isDestroyed()) return;
   appState.splashWindow.webContents.send('splash:stage', { stage, error });
-}
-
-/**
- * ============================================================================
- * 后端启动信号检测（纯函数，便于单元测试）
- * ============================================================================
- *
- * Uvicorn 的就绪日志（"Application startup complete." / "Uvicorn running on ..."）
- * 默认输出到 stderr，且可能被 Node 的 data 事件切成多个 chunk。因此检测时不能
- * 只看单个 chunk，而应扫描缓冲区的滚动尾窗口。
- */
-
-/**
- * 递归终止整个进程树
- * 
- * 跨平台实现:
- * - Windows: 使用 taskkill /T /F 强制终止子进程树
- * - Unix: 启动时设置 detached 创建新进程组，通过负 PID 发送信号终止整组
- * 
- * @param pid - 子进程 PID
- */
-async function killProcessTree(pid: number): Promise<void> {
-  return new Promise((resolve) => {
-    if (process.platform === 'win32') {
-      const taskkill = spawn('taskkill', ['/T', '/F', '/PID', pid.toString()], {
-        detached: true,
-        windowsHide: true,
-      });
-      taskkill.on('close', () => resolve());
-      taskkill.on('error', () => resolve());
-      return;
-    }
-
-    // Unix: 先 SIGTERM 整个进程组
-    try {
-      process.kill(-pid, 'SIGTERM');
-    } catch {
-      // 进程可能已经退出
-    }
-
-    // 短暂宽限期后 SIGKILL，避免僵尸进程
-    setTimeout(() => {
-      try {
-        process.kill(-pid, 'SIGKILL');
-      } catch {
-        // 进程已经退出
-      }
-      resolve();
-    }, 2000);
-  });
-}
-
-/**
- * 同步终止 Python 进程树
- * 
- * 用途: 应用退出事件是同步的，需要立即发起终止指令。
- * 无法等待异步结果，但 kill 命令本身会尽快生效。
- * 
- * @param processToKill - 要终止的子进程实例
- */
-function stopPythonServerSync(processToKill: ChildProcess | null): void {
-  if (!processToKill) return;
-
-  const pid = processToKill.pid;
-  // 移除监听器，避免 kill 后回调继续操作全局状态
-  processToKill.removeAllListeners();
-  // 立即清空全局引用，防止重复清理
-  appState.pythonProcess = null;
-
-  if (pid) {
-    logger.debug(`[Main] 同步终止 Python 进程树，PID: ${pid}`);
-    if (process.platform === 'win32') {
-      try {
-        execSync(`taskkill /T /F /PID ${pid}`, { windowsHide: true, timeout: 5000 });
-      } catch {
-        // 进程可能已经退出或权限不足
-      }
-    } else {
-      try {
-        process.kill(-pid, 'SIGTERM');
-      } catch {
-        // 进程可能已经退出
-      }
-    }
-  }
-
-  appState.isPythonServerReady = false;
-}
-
-/**
- * 异步终止 Python 进程树并等待清理完成
- * 
- * 用途: 重启服务前需要确保旧进程已完全退出，避免端口占用。
- */
-async function stopPythonServer(): Promise<void> {
-  if (!appState.pythonProcess) return;
-
-  const proc = appState.pythonProcess;
-  const pid = proc.pid;
-  proc.removeAllListeners();
-  appState.pythonProcess = null;
-  appState.isPythonServerReady = false;
-
-  if (pid) {
-    logger.debug(`[Main] 终止 Python 进程树，PID: ${pid}`);
-    await killProcessTree(pid).catch((err) => {
-      logger.error('[Main] 终止 Python 进程树失败:', err);
-    });
-  }
-}
-
-/**
- * 启动 Python 后端服务器
- * 
- * 业务逻辑:
- * 1. 查找可用端口（支持动态端口分配）
- * 2. 确定 Python 可执行文件路径
- * 3. 构建命令行参数
- * 4. 启动子进程
- * 5. 监听进程输出，检测启动成功
- * 6. 设置超时保护机制
- * 
- * [关键设计决策]
- * - 使用 findAvailablePort 动态分配端口，避免端口冲突
- * - 使用 spawn 而非 exec: 支持流式输出，避免缓冲区限制
- * - 设置 10 秒超时: 防止后端启动无限阻塞
- * 
- * [潜在问题]
- * - Python 环境未配置: 进程会启动失败
- * - 依赖未安装: 后端可能无法正常启动
- * 
- * @returns 实际使用的端口号；启动失败（脚本缺失、spawn 失败、超时）会 reject
- */
-
-/**
- * 解析用于启动后端的 Python 解释器路径
- *
- * 优先级：
- * 1. PYTHON_PATH 环境变量（用户自定义）
- * 2. 打包后使用内嵌的 python-build-standalone 运行时
- * 3. 开发模式回退到系统 Python
- */
-function resolvePythonExecutable(): string {
-  if (process.env.PYTHON_PATH) {
-    return process.env.PYTHON_PATH;
-  }
-  if (app.isPackaged) {
-    const runtimeDir = path.join(process.resourcesPath, 'python-runtime');
-    const ext = process.platform === 'win32' ? '.exe' : '';
-    const pythonBin =
-      process.platform === 'win32'
-        ? path.join(runtimeDir, 'python', `python${ext}`)
-        : path.join(runtimeDir, 'bin', `python3${ext}`);
-    return pythonBin;
-  }
-  return process.platform === 'darwin' ? 'python3' : 'python';
-}
-
-async function startPythonServer(): Promise<number> {
-  // 若已有进程在运行，先彻底终止，避免端口和进程树泄漏
-  if (appState.pythonProcess) {
-    await stopPythonServer();
-  }
-
-  // 查找可用端口
-  logger.debug(`[Main] 查找可用端口，起始端口: ${PYTHON_SERVER_DEFAULT_PORT}`);
-  appState.currentPythonServerPort = await findAvailablePort(PYTHON_SERVER_DEFAULT_PORT);
-  logger.debug(`[Main] 找到可用端口: ${appState.currentPythonServerPort}`);
-
-  // 解析 Python 解释器路径（内嵌运行时 / 环境变量 / 系统默认）
-  const pythonExecutable = resolvePythonExecutable();
-  logger.debug(`[Main] 使用 Python 解释器: ${pythonExecutable}`);
-
-  // 定位后端启动脚本
-  const serverScript = path.join(BACKEND_PATH, 'app', 'start_server.py');
-
-  // 健壮性检查: 确保脚本存在
-  if (!fs.existsSync(serverScript)) {
-    const errorMessage = `Python server script not found: ${serverScript}`;
-    logger.error('[Main]', errorMessage);
-    throw new Error(errorMessage);
-  }
-
-  // 构建命令行参数，使用动态分配的端口
-  const args = [serverScript, '--port', appState.currentPythonServerPort.toString()];
-
-  // 子进程配置
-  // cwd: 设置工作目录，确保 Python 导入路径正确
-  // stdio: 管道模式，允许我们读取子进程的输出
-  // env: 强制 Python 无缓冲 + UTF-8 输出
-  //   - PYTHONUNBUFFERED=1: stdout/stderr 立即 flush,避免管道块缓冲导致
-  //     就绪信号迟迟读不到而误判超时(曾出现"stderr: none"的间歇性启动失败)
-  //   - PYTHONIOENCODING=utf-8: Windows 默认 GBK,会导致 uvicorn/rich 的中文日志乱码
-  // detached (Unix): 创建新进程组，便于整组清理
-  // windowsHide: 在 Windows 上隐藏命令行窗口
-  const options: SpawnOptions = {
-    cwd: BACKEND_PATH,
-    stdio: ['pipe', 'pipe', 'pipe'],
-    env: {
-      ...process.env,
-      PYTHONUNBUFFERED: '1',
-      PYTHONIOENCODING: 'utf-8',
-    },
-    detached: process.platform !== 'win32',
-    windowsHide: true,
-  };
-
-  logger.debug(`[Main] Starting Python server: ${pythonExecutable} ${args.join(' ')}`);
-
-  return new Promise<number>((resolve, reject) => {
-    let resolved = false;
-    // 累积 stdout/stderr 输出，用于滚动窗口扫描就绪信号，以及失败时回溯诊断
-    let stderrBuffer = '';
-    let stdoutBuffer = '';
-
-    // 启动子进程
-    // [Node.js] spawn 返回 ChildProcess 对象，可用于后续控制
-    const proc = spawn(pythonExecutable, args, options);
-    appState.pythonProcess = proc;
-
-    if (proc.pid) {
-      logger.debug(`[Main] Python 子进程已启动，PID: ${proc.pid}`);
-    }
-
-    // 启动信号超时保护：未在 stdout 看到就绪标志则视为失败
-    const startupTimeout = setTimeout(() => {
-      if (!resolved) {
-        const errorMessage = `Python server startup signal timeout after ${PYTHON_STARTUP_SIGNAL_TIMEOUT_MS}ms. stderr: ${stderrBuffer.trim() || 'none'}`;
-        cleanupAndReject(new Error(errorMessage));
-      }
-    }, PYTHON_STARTUP_SIGNAL_TIMEOUT_MS);
-
-    const cleanupAndReject = async (error: Error) => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(startupTimeout);
-
-      if (appState.pythonProcess) {
-        const pid = appState.pythonProcess.pid;
-        appState.pythonProcess.removeAllListeners();
-        if (pid) {
-          await killProcessTree(pid).catch(() => {
-            // 忽略清理失败，确保 reject 优先返回给调用方
-          });
-        }
-        appState.pythonProcess = null;
-      }
-
-      appState.isPythonServerReady = false;
-      reject(error);
-    };
-
-    const cleanupAndResolve = () => {
-      if (resolved) return;
-      resolved = true;
-      clearTimeout(startupTimeout);
-      appState.isPythonServerReady = true;
-      logger.info('[Main] Python server is ready');
-      resolve(appState.currentPythonServerPort);
-    };
-
-    // 监听标准输出 - 捕获后端启动成功的消息
-    // 就绪信号检测扫描 stdoutBuffer 的滚动尾窗口（SIGNAL_SCAN_TAIL_CHARS），
-    // 而非单个 data chunk，避免信号串被 Node 分块切断时漏检。
-    proc.stdout?.on('data', (data) => {
-      const output = data.toString();
-      stdoutBuffer += output;
-      logger.debug(`Python stdout: ${output}`);
-      const tail = stdoutBuffer.slice(-SIGNAL_SCAN_TAIL_CHARS);
-      if (containsStartupSignal(tail)) {
-        cleanupAndResolve();
-      }
-    });
-
-    // 监听标准错误 - 捕获后端的日志与就绪信号
-    // Uvicorn 默认将 INFO 级别日志（含就绪信号）输出到 stderr，因此同样要在这里检测；
-    // 同时对疑似真实错误（Traceback/Error/CRITICAL 等）按 error 级别记录，
-    // 避免后端崩溃 traceback 被压成无害的 info 日志。
-    proc.stderr?.on('data', (data) => {
-      const chunk = data.toString();
-      stderrBuffer += chunk;
-      if (looksLikeStderrError(chunk)) {
-        logger.error(`Python stderr: ${chunk}`);
-      } else {
-        logger.info(`Python stderr: ${chunk}`);
-      }
-      const tail = stderrBuffer.slice(-SIGNAL_SCAN_TAIL_CHARS);
-      if (containsStartupSignal(tail)) {
-        cleanupAndResolve();
-      }
-    });
-
-    // 进程启动失败处理（如 python 可执行文件不存在）
-    proc.on('error', (error) => {
-      logger.error('[Main] Failed to start Python server:', error);
-      cleanupAndReject(new Error(`Failed to spawn Python server: ${error.message}`));
-    });
-
-    // 进程异常退出处理
-    proc.on('exit', (code) => {
-      if (!resolved) {
-        const errorMessage = `Python server exited unexpectedly with code ${code ?? 'unknown'}. stderr: ${stderrBuffer.trim() || 'none'}`;
-        cleanupAndReject(new Error(errorMessage));
-        return;
-      }
-
-      if (code !== 0) {
-        logger.error(`[Main] Python server exited with code ${code}`);
-      }
-      appState.pythonProcess = null;
-      appState.isPythonServerReady = false;
-    });
-
-    // 如果提前退出，清理超时器
-    proc.once('exit', () => clearTimeout(startupTimeout));
-  }).then(async (port) => {
-    // 额外的 API 就绪检测：确保 FastAPI 真正准备好处理请求
-    logger.debug('[Main] 等待 API 完全就绪...');
-    const apiReady = await waitForApiReady(port, PYTHON_API_READY_TIMEOUT_MS);
-    if (!apiReady) {
-      await stopPythonServer();
-      throw new Error(`Python server API did not become ready within ${PYTHON_API_READY_TIMEOUT_MS}ms on port ${port}`);
-    }
-    logger.debug('[Main] API 已就绪');
-    appState.isPythonServerReady = true;
-    return port;
-  });
 }
 
 /**
@@ -736,7 +402,7 @@ ipcMain.handle('restart-python-server', async () => {
 
   try {
     // 重新启动（会自动查找新的可用端口）
-    const port = await startPythonServer();
+    const port = await startPythonServer(BACKEND_PATH);
     return {
       ready: true,
       port,
@@ -1058,7 +724,7 @@ app.whenReady().then(async () => {
     // 生产环境: 启动 Python 后端并等待其就绪
     logger.info('[Main] 检测到打包环境，启动 Python 后端服务...');
     try {
-      await startPythonServer();
+      await startPythonServer(BACKEND_PATH);
       logger.info('[Main] 后端启动流程完成，验证 API 就绪...');
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

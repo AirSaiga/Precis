@@ -17,3 +17,9 @@ export const PYTHON_SERVER_DEFAULT_PORT: number = parseInt(
   process.env.VITE_BACKEND_PORT || '18000',
   10
 );
+
+/** Python 启动信号超时（stdout/stderr 未检测到就绪信号的等待上限） */
+export const PYTHON_STARTUP_SIGNAL_TIMEOUT_MS = 30000;
+
+/** Python API 就绪超时（FastAPI /docs 响应的等待上限） */
+export const PYTHON_API_READY_TIMEOUT_MS = 15000;
