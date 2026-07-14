@@ -13,7 +13,8 @@
  * 这是 Phase 4-7（pythonProcess/windows/protocol 模块拆分）的前置基础：
  * 那些模块需要跨文件读写主进程状态，必须通过本容器访问，避免 commonjs 陷阱。
  *
- * 重置语义：resetPythonState() 在 Python 进程停止后调用，恢复 Python 相关状态到初始值。
+ * Python 状态重置由 pythonProcess.ts 的 stop 系列函数内联完成
+ *（appState.pythonProcess = null + appState.isPythonServerReady = false）。
  */
 
 import type { BrowserWindow } from 'electron';
@@ -65,14 +66,3 @@ export const appState: AppState = {
   isPythonServerReady: false,
   currentPythonServerPort: PYTHON_SERVER_DEFAULT_PORT,
 };
-
-/**
- * 重置 Python 相关状态到初始值
- *
- * 在 Python 进程停止（stopPythonServerSync）后调用，
- * 确保下次启动时状态干净，避免残留的就绪标志导致逻辑误判。
- */
-export function resetPythonState(): void {
-  appState.pythonProcess = null;
-  appState.isPythonServerReady = false;
-}

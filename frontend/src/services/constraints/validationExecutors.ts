@@ -31,7 +31,6 @@ import {
   rebuildAllColumnErrors,
   syncColumnErrorsForSourceRef,
   resetDownstreamValidationStatus,
-  buildColumnErrorMap,
 } from './validationExecutors/pureAggregators'
 import { executeHandlerForEdge, executeHandlerForInline } from './validationExecutors/executors'
 import {
@@ -338,5 +337,3 @@ export async function validateConstraintNodeById(
 // ============================================================================
 
 export { rebuildAllColumnErrors, syncColumnErrorsForSourceRef, resetDownstreamValidationStatus }
-// buildColumnErrorMap 为内部提取的复用函数，暂不纳入公共 barrel（无外部调用方）
-export { buildColumnErrorMap }

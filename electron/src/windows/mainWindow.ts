@@ -23,6 +23,7 @@ import { appState } from '../app-state';
 import { logger } from '../logger';
 import { ensureFeedbackDir, getPendingCrashPath } from '../ipc/feedback';
 import { closeSplashWindow, sendSplashStage } from './splashWindow';
+import { getPreloadPath } from '../utils/paths';
 
 /** createWindow 所需的运行时路径配置（由 main.ts 注入） */
 export interface WindowConfig {
@@ -78,7 +79,7 @@ export function createWindow(config: WindowConfig): void {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
-      preload: path.join(__dirname, '..', 'preload.js'),
+      preload: getPreloadPath(__dirname),
     },
     titleBarStyle: 'default', // 使用系统默认标题栏
     autoHideMenuBar: !isDev, // 生产环境隐藏传统菜单栏，开发环境保留方便调试

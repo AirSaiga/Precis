@@ -16,8 +16,8 @@
  */
 
 import { BrowserWindow } from 'electron';
-import * as path from 'path';
 import { appState } from '../app-state';
+import { getSplashPreloadPath, getSplashHtmlPath } from '../utils/paths';
 
 /** Splash 启动状态机的阶段类型(线性推进) */
 export type SplashStage =
@@ -64,13 +64,13 @@ export function createSplashWindow(): void {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
-  // preload 编译在 dist/ 根（dist/splash-preload.js），本文件在 dist/windows/，需上溯一级
-  preload: path.join(__dirname, '..', 'splash-preload.js'), // Splash 专用 preload,暴露 splashAPI
+      // preload 编译在 dist/ 根，本文件在 dist/windows/，getSplashPreloadPath 处理上溯
+      preload: getSplashPreloadPath(__dirname),
     },
   });
 
-  // splash.html 在 electron/assets/，本文件编译到 dist/windows/，需上溯两级
-  const splashPath = path.join(__dirname, '..', '..', 'assets', 'splash.html');
+  // splash.html 在 electron/assets/，getSplashHtmlPath 处理从 dist/windows/ 上溯两级
+  const splashPath = getSplashHtmlPath(__dirname);
   appState.splashWindow.loadFile(splashPath);
 
   appState.splashWindow.once('ready-to-show', () => {

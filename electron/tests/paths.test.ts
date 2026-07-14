@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest'
 import * as path from 'path'
-import { getBackendPath, getFrontendPath } from '../src/utils/paths'
+import { getBackendPath, getFrontendPath, getPreloadPath, getSplashPreloadPath, getSplashHtmlPath } from '../src/utils/paths'
 
 describe('paths', () => {
   // 输入路径用平台原生分隔符，避免 path.join 跨平台混用分隔符
@@ -38,6 +38,31 @@ describe('paths', () => {
     it('生产环境：基于 resourcesPath 返回 resources/frontend/dist', () => {
       const result = getFrontendPath(true, resourcesPath, devDirname)
       expect(result).toBe(path.join('/app', 'resources', 'frontend', 'dist'))
+    })
+  })
+
+  // preload/splash 路径：callerDirname 预期为 dist/windows/（编译后位置）
+  const windowsDirname = path.join('/project', 'electron', 'dist', 'windows')
+
+  describe('getPreloadPath', () => {
+    it('从 dist/windows/ 上溯一级到 dist/preload.js', () => {
+      expect(getPreloadPath(windowsDirname)).toBe(path.join('/project', 'electron', 'dist', 'preload.js'))
+    })
+  })
+
+  describe('getSplashPreloadPath', () => {
+    it('从 dist/windows/ 上溯一级到 dist/splash-preload.js', () => {
+      expect(getSplashPreloadPath(windowsDirname)).toBe(
+        path.join('/project', 'electron', 'dist', 'splash-preload.js')
+      )
+    })
+  })
+
+  describe('getSplashHtmlPath', () => {
+    it('从 dist/windows/ 上溯两级到 electron/assets/splash.html', () => {
+      expect(getSplashHtmlPath(windowsDirname)).toBe(
+        path.join('/project', 'electron', 'assets', 'splash.html')
+      )
     })
   })
 })
