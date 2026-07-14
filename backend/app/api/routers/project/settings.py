@@ -43,6 +43,47 @@ from .helpers import project_lock
 router = APIRouter(prefix="", tags=["Project-Settings"])
 
 
+def _save_manifest_field(
+    config_path: str,
+    apply,
+    *,
+    read_log: str,
+    write_log: str,
+    success_message: str,
+) -> dict:
+    """读取 manifest → 修改指定字段 → 写回的通用辅助函数。
+
+    所有 PUT 端点共享此逻辑，仅 apply 回调（修改哪个字段）和文案不同。
+
+    Args:
+        config_path: 项目配置根目录
+        apply: 接收 manifest 对象并就地修改目标字段的回调
+        read_log: 读取失败时的日志消息
+        write_log: 写入失败时的日志消息
+        success_message: 成功时返回给前端的消息
+
+    Returns:
+        {"message": success_message}
+    """
+    manifest_path = _v2_manifest_path(config_path)
+    if not os.path.isfile(manifest_path):
+        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
+    try:
+        raw = read_yaml(Path(manifest_path))
+        manifest = ProjectManifestV2.model_validate(raw)
+    except Exception as exc:
+        logging.getLogger(__name__).exception(read_log)
+        raise HTTPException(status_code=500, detail=f"设置文件读取失败: {exc}")
+    apply(manifest)
+    try:
+        with project_lock(config_path):
+            write_yaml(Path(manifest_path), manifest.model_dump(exclude_none=True))
+    except Exception as exc:
+        logging.getLogger(__name__).exception(write_log)
+        raise HTTPException(status_code=500, detail=f"设置文件保存失败: {exc}")
+    return {"message": success_message}
+
+
 @router.get(
     "/config/settings",
     response_model=ProjectSettingsV2,
@@ -108,23 +149,13 @@ def put_v2_project_settings(settings: ProjectSettingsV2, config_path: str = Depe
     返回:
         StandardResponse: 操作结果消息
     """
-    manifest_path = _v2_manifest_path(config_path)
-    if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
-    try:
-        raw = read_yaml(Path(manifest_path))
-        manifest = ProjectManifestV2.model_validate(raw)
-    except Exception as exc:
-        logging.getLogger(__name__).exception("Failed to read project settings for update")
-        raise HTTPException(status_code=500, detail=f"设置文件读取失败: {exc}")
-    manifest.settings = settings
-    try:
-        with project_lock(config_path):
-            write_yaml(Path(manifest_path), manifest.model_dump(exclude_none=True))
-    except Exception as exc:
-        logging.getLogger(__name__).exception("Failed to write project settings")
-        raise HTTPException(status_code=500, detail=f"设置文件保存失败: {exc}")
-    return {"message": "项目设置已保存。"}
+    return _save_manifest_field(
+        config_path,
+        lambda m: setattr(m, "settings", settings),
+        read_log="Failed to read project settings for update",
+        write_log="Failed to write project settings",
+        success_message="项目设置已保存。",
+    )
 
 
 @router.get(
@@ -183,23 +214,13 @@ def put_v2_validation_settings(validation: ValidationSettingsV2, config_path: st
     返回:
         StandardResponse: 操作结果消息
     """
-    manifest_path = _v2_manifest_path(config_path)
-    if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
-    try:
-        raw = read_yaml(Path(manifest_path))
-        manifest = ProjectManifestV2.model_validate(raw)
-    except Exception as exc:
-        logging.getLogger(__name__).exception("Failed to read validation settings")
-        raise HTTPException(status_code=500, detail=f"设置文件读取失败: {exc}")
-    manifest.settings.validation = validation
-    try:
-        with project_lock(config_path):
-            write_yaml(Path(manifest_path), manifest.model_dump(exclude_none=True))
-    except Exception as exc:
-        logging.getLogger(__name__).exception("Failed to write validation settings")
-        raise HTTPException(status_code=500, detail=f"设置文件保存失败: {exc}")
-    return {"message": "校验设置已保存。"}
+    return _save_manifest_field(
+        config_path,
+        lambda m: setattr(m.settings, "validation", validation),
+        read_log="Failed to read validation settings",
+        write_log="Failed to write validation settings",
+        success_message="校验设置已保存。",
+    )
 
 
 @router.get(
@@ -260,23 +281,13 @@ def put_v2_file_processing_settings(
     返回:
         StandardResponse: 操作结果消息
     """
-    manifest_path = _v2_manifest_path(config_path)
-    if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
-    try:
-        raw = read_yaml(Path(manifest_path))
-        manifest = ProjectManifestV2.model_validate(raw)
-    except Exception as exc:
-        logging.getLogger(__name__).exception("Failed to read file-processing settings")
-        raise HTTPException(status_code=500, detail=f"设置文件读取失败: {exc}")
-    manifest.settings.file_processing = file_processing
-    try:
-        with project_lock(config_path):
-            write_yaml(Path(manifest_path), manifest.model_dump(exclude_none=True))
-    except Exception as exc:
-        logging.getLogger(__name__).exception("Failed to write file-processing settings")
-        raise HTTPException(status_code=500, detail=f"设置文件保存失败: {exc}")
-    return {"message": "文件处理设置已保存。"}
+    return _save_manifest_field(
+        config_path,
+        lambda m: setattr(m.settings, "file_processing", file_processing),
+        read_log="Failed to read file-processing settings",
+        write_log="Failed to write file-processing settings",
+        success_message="文件处理设置已保存。",
+    )
 
 
 @router.get(
@@ -337,20 +348,10 @@ def put_v2_script_security_settings(
     返回:
         StandardResponse: 操作结果消息
     """
-    manifest_path = _v2_manifest_path(config_path)
-    if not os.path.isfile(manifest_path):
-        raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
-    try:
-        raw = read_yaml(Path(manifest_path))
-        manifest = ProjectManifestV2.model_validate(raw)
-    except Exception as exc:
-        logging.getLogger(__name__).exception("Failed to read script-security settings")
-        raise HTTPException(status_code=500, detail=f"设置文件读取失败: {exc}")
-    manifest.settings.script_security = script_security
-    try:
-        with project_lock(config_path):
-            write_yaml(Path(manifest_path), manifest.model_dump(exclude_none=True))
-    except Exception as exc:
-        logging.getLogger(__name__).exception("Failed to write script-security settings")
-        raise HTTPException(status_code=500, detail=f"设置文件保存失败: {exc}")
-    return {"message": "脚本安全设置已保存。"}
+    return _save_manifest_field(
+        config_path,
+        lambda m: setattr(m.settings, "script_security", script_security),
+        read_log="Failed to read script-security settings",
+        write_log="Failed to write script-security settings",
+        success_message="脚本安全设置已保存。",
+    )
