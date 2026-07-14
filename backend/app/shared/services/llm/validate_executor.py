@@ -67,14 +67,30 @@ def execute_validate_project(workspace_path: str, table_filter: str | list[str] 
         result = executor.execute(data_dir, options)
 
         errors = result.get("errors", [])
+        loading_errors = result.get("loading_errors", [])
         duration_ms = result.get("duration_ms", 0)
-        result.get("loading_errors", [])
+
+        # 格式化加载警告（loading_errors 为非致命的加载阶段问题）
+        loading_section = ""
+        if loading_errors:
+            loading_details = []
+            for le in loading_errors[:10]:
+                le_type = le.get("error_type") or le.get("type") or "未知错误"
+                le_table = le.get("table", "")
+                # message 可能为空（inspect 级错误），优先读 title，与 CLI validate.py 处理一致
+                le_message = le.get("title") or le.get("message") or ""
+                prefix = f"{le_table}." if le_table else ""
+                loading_details.append(f"  - [{le_type}] {prefix}{le_message}")
+            if len(loading_errors) > 10:
+                loading_details.append(f"  ... 还有 {len(loading_errors) - 10} 个加载警告")
+            loading_section = "加载警告:\n" + "\n".join(loading_details)
 
         if errors:
             # 格式化错误信息，最多显示前 10 个
             error_details = []
             for err in errors[:10]:
-                err_type = err.get("type", "未知错误")
+                # 兼容 error_type（真实数据）和 type（遗留 mock）
+                err_type = err.get("error_type") or err.get("type") or "未知错误"
                 table = err.get("table", "未知表")
                 column = err.get("column", "")
                 message = err.get("message", "")
@@ -88,6 +104,8 @@ def execute_validate_project(workspace_path: str, table_filter: str | list[str] 
                 error_details.append(f"  ... 还有 {len(errors) - 10} 个错误")
 
             full_message = f"发现 {len(errors)} 个数据错误:\n" + "\n".join(error_details)
+            if loading_section:
+                full_message += "\n" + loading_section
 
             return {
                 "success": True,  # 校验执行成功，只是发现数据错误
@@ -97,18 +115,30 @@ def execute_validate_project(workspace_path: str, table_filter: str | list[str] 
                     "duration_ms": duration_ms,
                     "errors": errors[:20],  # 返回前20个错误详情
                     "has_errors": True,
+                    "loading_errors": loading_errors[:20],
+                    "has_loading_errors": len(loading_errors) > 0,
                     "table_filter": table_filter,
                 },
             }
         else:
+            if loading_section:
+                # 无校验错误但存在加载警告
+                full_message = f"数据校验通过，但存在 {len(loading_errors)} 个加载警告:\n" + "\n".join(
+                    loading_section.split("\n")[1:]  # 去掉 "加载警告:" 标题行，改用计数前缀
+                )
+            else:
+                full_message = f"数据校验通过（耗时 {duration_ms}ms）"
+
             return {
                 "success": True,
-                "message": f"数据校验通过（耗时 {duration_ms}ms）",
+                "message": full_message,
                 "details": {
                     "error_count": 0,
                     "duration_ms": duration_ms,
                     "errors": [],
                     "has_errors": False,
+                    "loading_errors": loading_errors[:20],
+                    "has_loading_errors": len(loading_errors) > 0,
                     "table_filter": table_filter,
                 },
             }
