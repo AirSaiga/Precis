@@ -4,13 +4,6 @@
 覆盖 compare、_compare_resources、_build_property_diff、_diff_recursive 的未覆盖分支。
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 from pydantic import BaseModel
 
 from app.shared.services.diff.config_diff import ConfigDiffService, DiffType

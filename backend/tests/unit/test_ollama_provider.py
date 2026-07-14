@@ -4,13 +4,7 @@
 测试 tools/tool_choice 传递与 tool_calls 解析。
 """
 
-import os
-import sys
 from unittest.mock import MagicMock, patch
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
 
 import pytest
 

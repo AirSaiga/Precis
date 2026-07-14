@@ -76,7 +76,7 @@ def execute_ai_chat(
     # 创建 AI 对话编排器，负责与 AI 模型通信
     orchestrator = AIChatOrchestrator(provider_config)
 
-    from app.cli.shell.commands.ai.base import build_context_data
+    from app.cli.shell.commands.ai.interaction import build_context_data
 
     # 构建上下文数据：提取项目中的 schema 信息作为 AI 的上下文
     context_data = build_context_data(message, context)

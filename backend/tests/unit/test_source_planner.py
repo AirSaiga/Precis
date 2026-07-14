@@ -5,13 +5,6 @@
 
 from __future__ import annotations
 
-import os
-import sys
-
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
 from app.shared.services.ai.agent.planner import (
     build_source_chunk_plan,
     source_plan_to_dict,

@@ -7,13 +7,6 @@
 - get_project_overview: 项目概览扫描
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 from app.shared.services.ai.utils import (
     estimate_tokens,
     get_project_overview,

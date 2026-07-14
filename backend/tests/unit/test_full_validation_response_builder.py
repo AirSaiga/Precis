@@ -5,14 +5,7 @@
 包括错误分类、通过项构造、ID -> Name 映射、统计聚合与异常响应。
 """
 
-import os
-import sys
 import time
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 from types import SimpleNamespace
 
 from app.api.services.full_validation_response_builder import FullValidationResponseBuilder

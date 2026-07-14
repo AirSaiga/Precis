@@ -4,13 +4,7 @@
 测试 loader.py 中的 can_load 和 load_grouped_sources。
 """
 
-import os
-import sys
 from unittest.mock import MagicMock, patch
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
 
 import pandas as pd
 

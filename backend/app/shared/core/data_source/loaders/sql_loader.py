@@ -30,16 +30,13 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import pandas as pd
 
 from ..specs.sql_source import SQLSourceSpec
 from .base import DataLoadError, DataSourceLoader
 from .registry import register_loader
-
-if TYPE_CHECKING:
-    pass
 
 # 模块级引擎缓存，按 connection_string 复用，避免连接池耗尽（B22）
 _engine_cache: dict[str, Any] = {}

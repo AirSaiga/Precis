@@ -8,13 +8,6 @@
 - validate_with_settings: 带配置校验
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 import pandas as pd
 import pytest
 

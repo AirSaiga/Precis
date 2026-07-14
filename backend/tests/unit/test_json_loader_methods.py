@@ -4,13 +4,6 @@
 测试 _convert_to_dataframe、_has_nested_structure、_flatten_dataframe、_get_parser。
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 import pandas as pd
 
 from app.shared.core.data_source.loaders.json_loader import JSONLoader

@@ -5,13 +5,7 @@
 """
 
 import os
-import sys
 import tempfile
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 
 from app.shared.core.project.schema.reader import load_schema, schema_column_id_by_name, schema_column_name_by_id
 from app.shared.core.project.schema.types_parts.table import TableSchemaFile

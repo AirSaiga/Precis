@@ -8,16 +8,11 @@ from __future__ import annotations
 
 import os
 import re
-import sys
 import tempfile
 from collections.abc import AsyncIterator
 from unittest.mock import MagicMock
 
 import pytest
-
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
 
 from app.shared.services.ai.migrate_service import ConfigMigrationService
 from app.shared.services.llm.providers.base import ChatResponse, StreamChunk

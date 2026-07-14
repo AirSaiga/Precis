@@ -4,13 +4,6 @@
 覆盖 AutoDetectParser、LinesParser、StandardJSONParser、ParserStrategyRegistry 的未覆盖分支。
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 from app.shared.core.data_source.loaders.strategies.auto_parser import AutoDetectParser
 from app.shared.core.data_source.loaders.strategies.lines_parser import (
     LinesParser,

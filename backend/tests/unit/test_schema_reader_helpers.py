@@ -4,13 +4,6 @@
 测试 schema_column_name_by_id、schema_column_id_by_name、build_runtime_schema。
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 import pytest
 
 from app.shared.core.project.schema.reader import (

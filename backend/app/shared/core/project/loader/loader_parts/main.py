@@ -19,21 +19,19 @@ from pathlib import Path
 from typing import TypeVar
 
 from app.shared.core.manifest_schema import is_supported_version
+from app.shared.core.project.constraint.reader import load_constraint
 from app.shared.core.project.loader.loader_parts import loading_error_messages
 from app.shared.core.project.loader.loader_parts.embedded_constraints import collect_constraints_from_schemas
-from app.shared.core.project.loader.loader_parts.file_loaders import (
-    load_constraint_file,
-    load_manual_data_file,
-    load_regex_node_file,
-    load_schema_file,
-    load_template_file,
-    load_transform_file,
-)
+from app.shared.core.project.loader.loader_parts.file_loaders import load_manual_data_file
 from app.shared.core.project.loader.loader_parts.path_validation import validate_path_inside_project
 from app.shared.core.project.loader.loader_parts.runtime import build_registries
 from app.shared.core.project.loader.types import LoadedProject, LoadingError, SchemaBuilder
 from app.shared.core.project.manifest.reader import load_manifest
+from app.shared.core.project.regex.reader import load_regex_node
+from app.shared.core.project.schema.reader import load_schema
 from app.shared.core.project.template.expander import expand_template
+from app.shared.core.project.template.reader import load_template
+from app.shared.core.project.transform.reader import load_transform
 
 T = TypeVar("T")
 
@@ -149,7 +147,7 @@ def load_project(
     schema_files = _load_referenced_files(
         project_root,
         manifest.schemas,
-        load_schema_file,
+        load_schema,
         "Schema",
         warnings,
         loading_errors,
@@ -159,7 +157,7 @@ def load_project(
     constraint_files = _load_referenced_files(
         project_root,
         manifest.constraints,
-        load_constraint_file,
+        load_constraint,
         "Constraint",
         warnings,
         loading_errors,
@@ -176,7 +174,7 @@ def load_project(
     regex_files = _load_referenced_files(
         project_root,
         manifest.regex_nodes,
-        load_regex_node_file,
+        load_regex_node,
         "Regex",
         warnings,
         loading_errors,
@@ -186,7 +184,7 @@ def load_project(
     transform_files = _load_referenced_files(
         project_root,
         manifest.transforms,
-        load_transform_file,
+        load_transform,
         "Transform",
         warnings,
         loading_errors,
@@ -207,7 +205,7 @@ def load_project(
     template_files = _load_referenced_files(
         project_root,
         manifest.templates,
-        load_template_file,
+        load_template,
         "Template",
         warnings,
         loading_errors,

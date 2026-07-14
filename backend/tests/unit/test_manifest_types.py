@@ -4,13 +4,6 @@
 覆盖 _coerce_none_to_list、_validate_unique_ids 的未覆盖分支。
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 from app.shared.core.project.manifest.types_parts.manifest import ProjectManifest
 
 

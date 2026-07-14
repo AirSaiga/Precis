@@ -4,13 +4,6 @@
 在临时目录中构建完整项目结构并测试加载流程。
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 import pytest
 
 from app.shared.core.project.loader.loader_parts.main import load_project

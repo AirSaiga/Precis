@@ -4,19 +4,14 @@
 测试版本检查、解析、比较功能。
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 import importlib.util
+import os
 
 import pytest
 
 # 直接加载 version.py 模块，绕过 schemas/__init__.py 中的循环导入
-_version_path = os.path.join(_project_root, "app", "shared", "core", "manifest_schema", "version.py")
+_backend_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_version_path = os.path.join(_backend_root, "app", "shared", "core", "manifest_schema", "version.py")
 _version_spec = importlib.util.spec_from_file_location("version", _version_path)
 assert _version_spec is not None, f"无法创建模块 spec: {_version_path}"
 _version_mod = importlib.util.module_from_spec(_version_spec)

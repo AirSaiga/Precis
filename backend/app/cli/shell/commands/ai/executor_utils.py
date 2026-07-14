@@ -45,9 +45,7 @@ import threading
 import time
 from pathlib import Path
 
-from app.cli.shell.commands.ai.base import (
-    mask_api_key,
-)
+from app.cli.shell.commands.ai.utils import mask_api_key
 from app.cli.shell.config_storage import get_cli_config
 from app.cli.shell.formatter import Colors, Formatter
 from app.shared.services.llm.config.models import AIProvider

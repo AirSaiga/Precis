@@ -4,15 +4,8 @@
 测试 data_source/loaders/converter.py 的类型转换功能。
 """
 
-import os
-import sys
 from datetime import date, datetime
 from decimal import Decimal
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 
 from app.shared.core.data_source.loaders.converter import TypeConverter
 

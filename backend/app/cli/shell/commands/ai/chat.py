@@ -30,8 +30,8 @@
     CommandResult.ok("")
 """
 
-from app.cli.shell.commands.ai.base import build_context_data
 from app.cli.shell.commands.ai.executor import execute_ai_chat
+from app.cli.shell.commands.ai.interaction import build_context_data
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 from app.cli.shell.config_storage import get_cli_config
 from app.cli.shell.formatter import Colors, Formatter

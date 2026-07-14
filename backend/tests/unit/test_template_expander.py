@@ -6,13 +6,6 @@
 - _resolve_input_from_node: 上游节点引用解析
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 from app.shared.core.project.template.expander import (
     _resolve_input_from_node,
     expand_template,

@@ -5,13 +5,6 @@ RangeValidator (ConstraintAdapter 包装) 单元测试
 覆盖 boundary_mode 参数、min/max 参数传递以及错误格式化。
 """
 
-import os
-import sys
-
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
-
 import pandas as pd
 
 from app.shared.services.validation.service import UnifiedValidationService

@@ -28,9 +28,8 @@ import os
 from rich.console import Console
 from rich.syntax import Syntax
 
-from app.cli.shared_services.config_ops import YamlCheckResult, check_yaml_syntax
+from app.cli.shared_services.config_ops import YamlCheckResult, check_yaml_syntax, find_config_file
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
-from app.cli.shell.commands.config.base import find_config_file
 from app.cli.shell.formatter import _supports_unicode
 
 _CHECK_MARK = "\u2713" if _supports_unicode() else "[OK]"

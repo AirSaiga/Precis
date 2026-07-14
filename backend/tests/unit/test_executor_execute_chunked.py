@@ -5,14 +5,7 @@
 后处理等路径。_execute_chunked 是 execute 中最大的未覆盖块（~155行）。
 """
 
-import os
-import sys
 import time
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 from unittest.mock import MagicMock, patch
 
 import pandas as pd

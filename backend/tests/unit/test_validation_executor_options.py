@@ -4,13 +4,6 @@
 测试 ValidationOptions 和 _apply_settings_override。
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 import pytest
 
 from app.shared.services.validation.executor import ValidationOptions, create_executor

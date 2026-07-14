@@ -10,18 +10,12 @@
 
 from __future__ import annotations
 
-import os
 import shutil
-import sys
 from pathlib import Path
 
 import pytest
 
 # 将 backend/ 加入 sys.path，使 app 包可被直接导入（与其它后端测试保持一致）
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 from app.shared.services.validation.executor import ValidationExecutor, ValidationOptions  # noqa: E402
 from app.shared.services.validation.progress import ProgressEvent  # noqa: E402
 

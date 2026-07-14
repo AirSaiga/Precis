@@ -3,13 +3,6 @@
 验证 iter_all_columns / build_column_id_to_name_map 能递归处理嵌套 children。
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 from app.shared.core.project.schema.types import ColumnSpec
 from app.shared.core.project.schema.types_parts.column_utils import (
     build_column_id_to_name_map,

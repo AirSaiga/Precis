@@ -6,17 +6,11 @@
 from __future__ import annotations
 
 import asyncio
-import os
-import sys
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi import HTTPException
-
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
 
 from app.api.routers.ai.models import ConfigMigrateRequest
 

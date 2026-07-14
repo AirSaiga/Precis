@@ -5,15 +5,9 @@
 
 from __future__ import annotations
 
-import os
-import sys
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-
-project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
 
 from app.shared.services.ai.migrate_service import ConfigMigrationService
 from app.shared.services.llm.generation import CancelledError

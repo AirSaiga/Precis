@@ -21,14 +21,8 @@ qa_simple 是统一测试集（12 个 Schema + 18 个 Regex + 5 个 Template +
 
 from __future__ import annotations
 
-import os
 import shutil
-import sys
 from pathlib import Path
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
 
 import pytest
 from fastapi.testclient import TestClient

@@ -5,13 +5,6 @@
 - validators/adapter.py: ConstraintAdapter 全路径
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 import pandas as pd
 
 from app.shared.services.validation.validators.adapter import ConstraintAdapter

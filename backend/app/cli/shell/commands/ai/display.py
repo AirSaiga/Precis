@@ -196,7 +196,7 @@ def _display_execution_results(
     has_modifications = any(a.get("actionType") in file_modification_types for a in actions)
 
     if not has_modifications:
-        _display_results_without_diff(result, project_path)
+        _display_results_without_diff(result)
         return
 
     # 使用 orchestrator 已经执行的结果，避免重复执行 process_actions
@@ -221,7 +221,7 @@ def _display_execution_results(
         _display_detailed_diff(changed_files)
 
 
-def _display_results_without_diff(result, project_path: str) -> None:
+def _display_results_without_diff(result) -> None:
     """显示没有修改操作的结果（仅校验等）。
 
     当 AI 的动作不涉及文件修改时（如 VALIDATE_PROJECT），
@@ -229,7 +229,6 @@ def _display_results_without_diff(result, project_path: str) -> None:
 
     Args:
         result: AIChatOrchestrator 的执行结果对象
-        project_path: 项目路径
     """
     results = getattr(result, "action_results", [])
     _display_constraint_results(results)

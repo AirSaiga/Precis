@@ -12,13 +12,6 @@
     (True, None) 或 (False, "错误信息")
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 from app.shared.domain.data_types_parts.scalars import (
     BooleanType,
     DateType,

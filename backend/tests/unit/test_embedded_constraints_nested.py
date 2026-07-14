@@ -3,13 +3,6 @@
 验证 collect_constraints_from_schemas 能从嵌套子列名解析回 column_id。
 """
 
-import os
-import sys
-
-_project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-if _project_root not in sys.path:
-    sys.path.insert(0, _project_root)
-
 from app.shared.core.project.constraint.types import ConstraintFile
 from app.shared.core.project.loader.loader_parts.embedded_constraints import (
     collect_constraints_from_schemas,

@@ -25,8 +25,8 @@ import os
 import subprocess
 import sys
 
+from app.cli.shared_services.config_ops import find_config_file
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
-from app.cli.shell.commands.config.base import find_config_file
 from app.cli.shell.exceptions import EditorError
 
 

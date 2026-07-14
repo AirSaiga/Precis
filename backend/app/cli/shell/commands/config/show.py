@@ -24,9 +24,8 @@ import os
 
 import yaml
 
-from app.cli.shared_services.config_ops import load_config_content
+from app.cli.shared_services.config_ops import find_config_file, load_config_content
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
-from app.cli.shell.commands.config.base import find_config_file
 from app.cli.shell.formatter import Formatter
 
 
