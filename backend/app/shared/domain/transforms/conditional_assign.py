@@ -19,7 +19,7 @@ from typing import Any
 
 import pandas as pd
 
-from .base import TransformRunner
+from .base import TransformRunner, evaluate_condition
 
 
 class ConditionalAssignRunner(TransformRunner):
@@ -66,7 +66,7 @@ class ConditionalAssignRunner(TransformRunner):
         # 逐行评估所有条件，生成布尔掩码
         masks = []
         for cond in conditions:
-            mask = self._evaluate_condition(df, cond)
+            mask = evaluate_condition(df, cond)
             masks.append(mask)
 
         # 组合条件
@@ -89,58 +89,3 @@ class ConditionalAssignRunner(TransformRunner):
             df.loc[~combined, output_col] = else_value
 
         return df
-
-    def _evaluate_condition(self, df: pd.DataFrame, cond: dict[str, Any]) -> pd.Series:
-        """评估单个条件，返回布尔 Series。
-
-        Args:
-            df: 输入 DataFrame
-            cond: 条件字典，包含 column, op, value
-
-        Returns:
-            布尔 Series
-        """
-        column = cond.get("column", "")
-        op = cond.get("op", "eq")
-        value = cond.get("value")
-
-        if column not in df.columns:
-            return pd.Series([False] * len(df), index=df.index)
-
-        series = df[column]
-
-        if op == "eq":
-            return series.astype(str) == str(value)
-        elif op == "ne":
-            return series.astype(str) != str(value)
-        elif op in ("gt", "gte", "lt", "lte"):
-            numeric_series = pd.to_numeric(series, errors="coerce")
-            numeric_value = pd.to_numeric(value, errors="coerce")
-            if op == "gt":
-                return numeric_series > numeric_value
-            elif op == "gte":
-                return numeric_series >= numeric_value
-            elif op == "lt":
-                return numeric_series < numeric_value
-            else:
-                return numeric_series <= numeric_value
-        elif op == "contains":
-            return series.astype(str).str.contains(str(value), na=False)
-        elif op == "startswith":
-            return series.astype(str).str.startswith(str(value), na=False)
-        elif op == "endswith":
-            return series.astype(str).str.endswith(str(value), na=False)
-        elif op == "in":
-            values = value if isinstance(value, list) else [value]
-            str_values = [str(v) for v in values]
-            return series.astype(str).isin(str_values)
-        elif op == "not_in":
-            values = value if isinstance(value, list) else [value]
-            str_values = [str(v) for v in values]
-            return ~series.astype(str).isin(str_values)
-        elif op == "is_null":
-            return series.isna() | (series.astype(str).str.strip() == "")
-        elif op == "is_not_null":
-            return ~(series.isna() | (series.astype(str).str.strip() == ""))
-        else:
-            return pd.Series([False] * len(df), index=df.index)
