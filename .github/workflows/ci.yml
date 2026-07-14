@@ -136,6 +136,42 @@ jobs:
       - name: TypeScript compile check
         run: npx tsc --noEmit
 
+      - name: Run unit tests
+        run: npm run test
+
+  encoding-check:
+    name: Script Encoding Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 确保 .ps1 脚本均为 UTF-8（无 BOM）。
+      # 历史上 enable-dev-mode.ps1 曾因 GBK 字节被当 UTF-8 读导致中文乱码（mojibake），
+      # 此检查防止同类问题重现。PowerShell 5.1+ 与跨平台工具链均兼容无 BOM UTF-8。
+      - name: Check .ps1 files are UTF-8 without BOM
+        run: |
+          set -e
+          fail=0
+          for f in $(git ls-files '*.ps1'); do
+            # file --mime-encoding 对纯 ASCII 报 us-ascii，对 UTF-8 报 utf-8，两者都是合法 UTF-8 子集
+            enc=$(file --mime-encoding "$f" | sed 's/.*: //')
+            case "$enc" in
+              utf-8|us-ascii)
+                # 合法：UTF-8 或纯 ASCII（后者是 UTF-8 子集）
+                ;;
+              *)
+                echo "::error::$f 编码为 $enc，应为 UTF-8"
+                fail=1
+                ;;
+            esac
+            # 检查 BOM（EF BB BF）：PowerShell 跨工具链兼容性要求无 BOM
+            if head -c 3 "$f" | grep -q $'\xEF\xBB\xBF'; then
+              echo "::error::$f 含有 BOM，应为无 BOM 的 UTF-8"
+              fail=1
+            fi
+          done
+          exit $fail
+
   e2e:
     name: E2E Tests (Playwright)
     runs-on: ubuntu-latest
