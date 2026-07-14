@@ -6,6 +6,9 @@
 const assetLibraryExtended = {
   // Project View
   projectView: {
+    cannotDragEmbeddedConstraint:
+      'Cannot operate independently, embedded constraints must be attached to a data model',
+    onCanvas: 'On canvas',
     toolbox: {
       title: 'CREATE / TOOLBOX',
       tableSchema: 'Table Schema',
@@ -74,6 +77,8 @@ const assetLibraryExtended = {
       deleteFailedTitle: 'Delete Failed',
       deleteConfirm: 'Delete "{name}"? This action cannot be undone.',
       addToManifestFailedTitle: 'Failed to Add to Manifest',
+      renameEmptyError: 'Name cannot be empty',
+      renameTooLongError: 'Name cannot exceed 100 characters',
     },
     multiSelect: {
       selectedCount: '{count} selected',

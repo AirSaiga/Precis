@@ -39,6 +39,8 @@ const customNodes = {
     editPrompt: 'Enter Source Sheet Name',
     dragForRelation: 'Drag here to create inter-table relations',
     dragToConstraint: 'Drag column here to add constraint',
+    dragToTransform: 'Drag to connect downstream nodes like Transform',
+    implicitMatch: 'Implicit regex match - runtime dynamic resolution',
     source: {
       label: 'Source',
       sourceSheet: 'Source Sheet',
@@ -142,6 +144,7 @@ const customNodes = {
     reloadConfirmTitle: 'Confirm Reload',
     reloadLocalFileMessage:
       'Local file source detected.\n\nTo update preview data, please re-select the same file (or updated version).\nDo you want to continue?',
+    switchSheet: 'Switch Sheet',
   },
   jsonSourcePreviewNode: {
     title: 'JSON Data Source Preview',
@@ -192,6 +195,7 @@ const customNodes = {
       availableSources: 'Available Data Sources',
       noAvailable: 'No Available Sources',
       importFirst: 'Please import data source first',
+      smartFillWarning: 'Please connect a data source node first to use the smart fill feature.',
     },
     columnsHeader: {
       index: '#',
@@ -226,6 +230,7 @@ const customNodes = {
     },
     actions: {
       deleteColumn: 'Delete column',
+      dropPatternToBind: 'Drop Pattern to bind',
     },
     columnName: {
       placeholder: 'Enter column name',
@@ -499,12 +504,21 @@ const customNodes = {
     constraintHandle: {
       title: 'Constraint Connection',
     },
+    totalRows: 'Total Rows',
+    matchCount: 'Match Count',
+    errorCount: 'Error Count',
+    moreErrors: 'more errors...',
+    statusIdle: 'Not validated',
+    statusPass: 'Pass',
+    statusError: 'Fail',
+    statusMissing: 'Missing config',
     allowedValuesConstraintNode: {
       title: 'Allowed Values Constraint',
       inputHandle: 'Connect Schema column (input)',
       helpTooltip:
         'Steps: ① Connect source column; ② Configure allowed values in the right property inspector; ③ Auto-validate and view details',
       sourceLabel: 'Source',
+      columnLabel: 'Column',
       allowedValuesLabel: 'Allowed Values',
       waitingForSource: 'Waiting for source connection',
       allowedValuesEmpty: 'Not configured',
@@ -539,6 +553,7 @@ const customNodes = {
       boundaryMode: 'Boundary Mode',
       inclusive: 'Inclusive',
       exclusive: 'Exclusive',
+      columnLabel: 'Column',
       hintConnectSource: 'Connect source column (column handle → left input of range node)',
       hintConfigureRange: 'Configure range',
       hintAutoValidate: 'Auto-validate and view details',
@@ -570,6 +585,11 @@ const customNodes = {
       charsetMode: 'Charset',
       modeAscii: 'Pure ASCII',
       modeChinese: 'Pure Chinese',
+      columnLabel: 'Column',
+      allRowsMatch: 'All {count} rows match the charset constraint',
+      errorCountMessage: 'Found {count} row(s) violating the constraint',
+      validationFailed: 'Charset validation failed',
+      validationPassed: 'Charset validation passed',
       hintSelectSource: 'Select source column in Property Inspector',
       hintConfigureMode: 'Select charset mode in Property Inspector',
       hintAutoValidate: 'Auto-validate and view details',
@@ -614,6 +634,7 @@ const customNodes = {
       calculationType: 'Calculation Type',
       calcAge: 'Age Calculation',
       calcDaysDiff: 'Days Diff Calculation',
+      columnLabel: 'Column',
       targetType: 'Target Type',
       targetTypeValue: 'Fixed Value',
       targetTypeColumn: 'Target Column',
@@ -710,6 +731,11 @@ const customNodes = {
       column: 'Column:',
       helpTooltip:
         'A not-null constraint ensures the specified column contains no null values. After connecting a Schema column, the system automatically detects nulls and highlights error rows.',
+      columnLabel: 'Column',
+      sourceLabel: 'Source',
+      detailsTitle: 'Validation Details',
+      noDetails: 'No details',
+      waitingForSource: 'Waiting for source column',
       statusIdle: 'Not validated',
       statusPass: 'Pass',
       statusError: 'Failed',
@@ -721,6 +747,9 @@ const customNodes = {
       columnLabel: 'Column',
       helpTooltip:
         'A unique constraint ensures that specified column(s) have unique values across the dataset. The system will automatically detect and highlight duplicate values.',
+      detailsTitle: 'Validation Details',
+      noDetails: 'No details',
+      waitingForSource: 'Waiting for source column',
       statusIdle: 'Not validated',
       statusPass: 'Pass',
       statusError: 'Failed',

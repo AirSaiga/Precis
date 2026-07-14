@@ -6,6 +6,8 @@
 const assetLibraryExtended = {
   // 项目视图
   projectView: {
+    cannotDragEmbeddedConstraint: '无法独立操作，内嵌约束必须依附于数据模型',
+    onCanvas: '已拖拽到画布',
     toolbox: {
       title: '创建 / 工具箱',
       tableSchema: '表结构',
@@ -71,6 +73,8 @@ const assetLibraryExtended = {
       deleteFailedTitle: '删除失败',
       deleteConfirm: '确定要删除"{name}"吗？该操作不可撤销。',
       addToManifestFailedTitle: '加入清单失败',
+      renameEmptyError: '名称不能为空',
+      renameTooLongError: '名称不能超过 100 个字符',
     },
     multiSelect: {
       selectedCount: '已选择 {count} 项',

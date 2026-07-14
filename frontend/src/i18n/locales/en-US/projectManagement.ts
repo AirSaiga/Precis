@@ -1,0 +1,30 @@
+const projectManagement = {
+  title: 'Project Management',
+  createNew: 'Create New Project',
+  openExisting: 'Open Existing Project',
+  projectName: 'Project Name',
+  projectNamePlaceholder: 'Enter project name',
+  projectPath: 'Project Path',
+  projectPathPlaceholder: 'Select project directory',
+  browse: 'Browse',
+  create: 'Create Project',
+  openProject: 'Open Project',
+  selectProjectFolder: 'Select Project Folder',
+  webOpenPathPlaceholder: 'Enter project absolute path...',
+  recentProjects: 'Recent Projects',
+  noRecentProjects: 'No recent projects',
+  removeFromHistory: 'Remove from history',
+  currentProject: 'Current Project',
+  unnamed: 'Unnamed Project',
+  closeProject: 'Close Project',
+  closeWithUnsavedChanges: 'Close Project (Unsaved Changes)',
+  loadFailed: 'Failed to load project',
+  confirmClose: {
+    title: 'Confirm Close',
+    message: 'The current project has unsaved changes. Are you sure you want to close?',
+    confirm: 'Close Project',
+    cancel: 'Cancel',
+  },
+}
+
+export { projectManagement }

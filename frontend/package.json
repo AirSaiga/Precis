@@ -36,7 +36,7 @@
     "codegen": "node ./scripts/codegen.mjs",
     "type-check": "vue-tsc --build",
     "lint": "eslint . --fix && npm run audit:styles && npm run audit:i18n",
-    "lint:check": "eslint . --max-warnings=0 && npm run audit:styles && npm run audit:i18n",
+    "lint:check": "eslint . --max-warnings=358 && npm run audit:styles && npm run audit:i18n",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",

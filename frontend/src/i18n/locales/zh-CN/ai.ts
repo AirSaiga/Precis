@@ -5,6 +5,7 @@
 
 const aiChat = {
   title: 'AI 助手',
+  clear: '清空对话',
   fabTitle: '打开 AI 助手',
   emptyMessages: '发送消息开始对话',
   suggestion1: '分析这个项目的数据校验规则',

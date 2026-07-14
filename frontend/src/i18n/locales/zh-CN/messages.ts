@@ -135,6 +135,8 @@ const messages = {
     loadFailed: '加载失败',
     loadSuccess: '加载成功',
     exportYamlFailed: '无法生成YAML文件',
+    exportSuccess: '项目已导出',
+    exportYamlSuccess: 'YAML 文件导出成功',
     saveRegexDesignFailed: '保存失败',
     projectSaved: '项目 "{name}" 已保存',
     projectSavedWithWarnings: '项目 "{name}" 已保存（{count} 个警告）',

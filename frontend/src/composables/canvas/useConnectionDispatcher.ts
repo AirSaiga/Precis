@@ -246,7 +246,7 @@ export function useConnectionDispatcher(): UseConnectionDispatcherReturn {
       )
       return {
         handled: false,
-        message: t('common.error.unknownError'),
+        message: t('common.unknownError'),
       }
     }
 

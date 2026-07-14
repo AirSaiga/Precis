@@ -142,6 +142,8 @@ const messages = {
     loadFailed: 'Load failed',
     loadSuccess: 'Load successful',
     exportYamlFailed: 'Cannot generate YAML file',
+    exportSuccess: 'Project exported successfully',
+    exportYamlSuccess: 'YAML file exported successfully',
     saveRegexDesignFailed: 'Save failed',
     projectSaved: 'Project "{name}" saved',
     projectSavedWithWarnings: 'Project "{name}" saved ({count} warnings)',

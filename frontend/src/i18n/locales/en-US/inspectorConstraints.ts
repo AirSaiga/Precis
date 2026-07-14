@@ -397,6 +397,8 @@ const inspectorConstraints = {
       logicAny: 'Any Match (OR)',
       logicNone: 'None Match (NOT)',
       enabled: 'Enabled',
+      includedConstraints: 'Included constraints ({count})',
+      noConstraintsAvailable: 'No constraints available',
       openSubCanvas: 'Open Sub-Canvas ({count} sub-constraints)',
       saveState: 'Save State',
       subConstraints: 'Sub-Constraints',

@@ -5,6 +5,9 @@
 
 const constraintRuleTypeMenu = {
   title: '约束规则类型',
+  attribute: '属性约束',
+  relation: '关系约束',
+  logic: '逻辑约束',
   notNull: '非空约束',
   unique: '唯一约束',
   foreignKey: '外键约束',

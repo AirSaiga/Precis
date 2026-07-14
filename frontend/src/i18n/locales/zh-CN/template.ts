@@ -7,6 +7,7 @@
 
 const template = {
   saveAsTemplateTitle: '保存为模板',
+  saveAsTemplate: '保存为模板',
   selectionSummary: '选区摘要',
   excludedNodes: '已排除 {count} 个不适用的节点',
   templateId: '模板 ID',

@@ -5,6 +5,7 @@
 
 const aiChat = {
   title: 'AI Assistant',
+  clear: 'Clear conversation',
   fabTitle: 'Open AI Assistant',
   emptyMessages: 'Send a message to start conversation',
   suggestion1: "Analyze this project's data validation rules",

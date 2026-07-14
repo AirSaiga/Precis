@@ -11,6 +11,7 @@
 const common = {
   // 状态信息
   loading: '正在加载中...',
+  copy: '复制',
   error: '错误',
   success: '成功',
   warning: '警告',
@@ -499,6 +500,7 @@ const common = {
       duration: '执行耗时',
       errorDetails: '错误详情',
       passedDetails: '通过项详情',
+      noResults: '暂无校验结果',
     },
     progress: {
       title: '总体进度',

@@ -11,6 +11,7 @@
 const common = {
   // Status information
   loading: 'Loading...',
+  copy: 'Copy',
   error: 'Error',
   success: 'Success',
   warning: 'Warning',
@@ -512,6 +513,7 @@ const common = {
       duration: 'Duration',
       errorDetails: 'Error Details',
       passedDetails: 'Passed Items Details',
+      noResults: 'No validation results',
     },
     progress: {
       title: 'Overall Progress',

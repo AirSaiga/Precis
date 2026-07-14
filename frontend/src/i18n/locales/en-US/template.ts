@@ -7,6 +7,7 @@
 
 const template = {
   saveAsTemplateTitle: 'Save as Template',
+  saveAsTemplate: 'Save as Template',
   selectionSummary: 'Selection Summary',
   excludedNodes: '{count} ineligible node(s) excluded',
   templateId: 'Template ID',

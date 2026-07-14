@@ -395,6 +395,8 @@ const inspectorConstraints = {
       logicAny: '任一满足 (OR)',
       logicNone: '全不满足 (NOT)',
       enabled: '启用',
+      includedConstraints: '已包含 {count} 个约束',
+      noConstraintsAvailable: '没有可用的约束',
       openSubCanvas: '打开子画布 ({count} 个子约束)',
       saveState: '保存状态',
       subConstraints: '子约束',

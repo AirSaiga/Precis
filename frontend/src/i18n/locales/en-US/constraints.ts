@@ -5,6 +5,9 @@
 
 const constraintRuleTypeMenu = {
   title: 'Constraint Rule Type',
+  attribute: 'Attribute',
+  relation: 'Relation',
+  logic: 'Logic',
   notNull: 'Not Null Constraint',
   unique: 'Unique Constraint',
   foreignKey: 'Foreign Key Constraint',

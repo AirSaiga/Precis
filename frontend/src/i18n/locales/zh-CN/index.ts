@@ -33,6 +33,7 @@ import { welcome, messages, startupLoading } from './messages'
 import { settings } from './settings'
 import { aiChat, aiConfigGenerator } from './ai'
 import { template } from './template'
+import { projectManagement } from './projectManagement'
 import { factories } from './factories'
 import { validationHistory } from './validationHistory'
 import { validation } from './validation'
@@ -71,6 +72,7 @@ const zhCN = {
   aiChat,
   aiConfigGenerator,
   template,
+  projectManagement,
   factories,
   validationHistory,
   validation,

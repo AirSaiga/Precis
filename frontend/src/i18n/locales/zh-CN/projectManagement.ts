@@ -1,0 +1,30 @@
+const projectManagement = {
+  title: '项目管理',
+  createNew: '创建新项目',
+  openExisting: '打开已有项目',
+  projectName: '项目名称',
+  projectNamePlaceholder: '请输入项目名称',
+  projectPath: '项目路径',
+  projectPathPlaceholder: '选择项目保存目录',
+  browse: '浏览',
+  create: '创建项目',
+  openProject: '打开项目',
+  selectProjectFolder: '选择项目文件夹',
+  webOpenPathPlaceholder: '输入项目绝对路径...',
+  recentProjects: '最近项目',
+  noRecentProjects: '暂无最近项目',
+  removeFromHistory: '从历史记录中移除',
+  currentProject: '当前项目',
+  unnamed: '未命名项目',
+  closeProject: '关闭项目',
+  closeWithUnsavedChanges: '关闭项目（未保存更改）',
+  loadFailed: '加载项目失败',
+  confirmClose: {
+    title: '确认关闭',
+    message: '当前项目有未保存的更改，确定要关闭吗？',
+    confirm: '关闭项目',
+    cancel: '取消',
+  },
+}
+
+export { projectManagement }
