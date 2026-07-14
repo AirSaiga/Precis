@@ -78,7 +78,7 @@ export function createWindow(config: WindowConfig): void {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: true,
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, '..', 'preload.js'),
     },
     titleBarStyle: 'default', // 使用系统默认标题栏
     autoHideMenuBar: !isDev, // 生产环境隐藏传统菜单栏，开发环境保留方便调试
