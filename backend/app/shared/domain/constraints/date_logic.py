@@ -133,7 +133,7 @@ class DateLogicConstraint(Constraint):
 
     def _get_description(self) -> str:
         """生成约束描述"""
-        desc = f"[委托] 日期逻辑约束: {self.table}.{self.column}"
+        desc = f"日期逻辑约束: {self.table}.{self.column}"
         if self.logic_mode == "compare":
             if self.compare_op == "range":
                 start = self.reference_column or self.reference_date
@@ -167,7 +167,7 @@ class DateLogicConstraint(Constraint):
             if column_value not in df.columns:
                 errors.append(
                     {
-                        "error_type": "ColumnNotFoundError",
+                        "error_type": "ConstraintConfigError",
                         "table": self.table,
                         "column": column_value,
                         "message": f"日期逻辑约束失败: {name_prefix}参考列 '{column_value}' 不在表 '{self.table}' 中。",
@@ -221,7 +221,7 @@ class DateLogicConstraint(Constraint):
         if self.column not in df.columns:
             errors.append(
                 {
-                    "error_type": "ColumnNotFoundError",
+                    "error_type": "ConstraintConfigError",
                     "table": self.table,
                     "column": self.column,
                     "message": f"日期逻辑约束失败: 列 '{self.column}' 不在表 '{self.table}' 中。",
@@ -481,7 +481,7 @@ class DateLogicConstraint(Constraint):
                 if self.target_column and self.target_column not in df.columns:
                     errors.append(
                         {
-                            "error_type": "ColumnNotFoundError",
+                            "error_type": "ConstraintConfigError",
                             "table": self.table,
                             "column": self.target_column,
                             "message": f"日期计算模式失败: 参考列 '{self.target_column}' 不在表 '{self.table}' 中。",
