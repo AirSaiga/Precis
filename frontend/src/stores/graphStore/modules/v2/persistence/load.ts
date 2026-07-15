@@ -77,11 +77,6 @@ import { toastError, toastSuccess, toastWarning } from '@/core/toast'
 import { useI18n } from 'vue-i18n'
 import { useInspectionStore } from '@/stores/inspectionStore'
 import { getV2FullConfig, getV2ProjectView, ProjectNotFoundError } from '@/api/projectV2Api'
-// Hydration imports retained for potential future use (e.g. restoring saved canvas state)
-// import { hydrateSchemasFromV2Config } from './load/hydrateSchemas'
-// import { hydrateManifestConstraintsFromV2Config } from './load/hydrateConstraints'
-// import { hydrateRegexNodesFromV2Config } from './load/hydrateRegex'
-// import { hydrateTransformNodesFromV2Config } from './load/hydrateTransforms'
 
 export function createV2LoadOps(params: {
   nodes: Ref<CustomNode[]>
@@ -99,7 +94,6 @@ export function createV2LoadOps(params: {
     configDir: string | undefined,
     relPath: string | undefined
   ) => string | undefined
-  saveProject: () => Promise<boolean>
 }) {
   const {
     nodes,
@@ -113,8 +107,6 @@ export function createV2LoadOps(params: {
     lastFullValidationSummary,
     lastFullValidationStatistics,
     getEffectiveProjectConfigPath,
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars -- 当前未使用，保留以支持后续扩展或模板使用
-    saveProject,
   } = params
   const { t } = useI18n()
 
@@ -227,26 +219,8 @@ export function createV2LoadOps(params: {
         })
       }
 
-      // 注意：不再自动水合所有资源到画布。
-      // 画布是用户的工作区，资源应从左侧资源树手动拖拽。
+      // 画布是用户的工作区，资源应从左侧资源树手动拖拽，加载时不自动水合。
       // 若需恢复上次画布状态，应在 saveProject 时保存 view.json 并在加载时恢复。
-      //
-      // const schemaHydration = hydrateSchemasFromV2Config({ config, getEffectiveProjectConfigPath, resolveProjectRelativePath })
-      // nextNodes.push(...schemaHydration.nodes)
-      // nextEdges.push(...schemaHydration.edges)
-      //
-      // const constraintHydration = hydrateManifestConstraintsFromV2Config({ config, existingNodes: nextNodes })
-      // nextNodes.push(...constraintHydration.nodes)
-      // nextEdges.push(...constraintHydration.edges)
-      //
-      // const regexHydration = hydrateRegexNodesFromV2Config({ config, existingNodes: nextNodes })
-      // nextNodes.push(...regexHydration.nodes)
-      // nextEdges.push(...regexHydration.edges)
-      //
-      // const transformHydration = hydrateTransformNodesFromV2Config({ config, existingNodes: nextNodes })
-      // nextNodes.push(...transformHydration.nodes)
-      // nextEdges.push(...transformHydration.edges)
-
       if (view?.nodes) {
         nextNodes.forEach((n) => {
           const pos = (view.nodes as unknown as Record<string, unknown>)[n.id] as
@@ -288,22 +262,8 @@ export function createV2LoadOps(params: {
       edges.value = nextEdges
       selectedNodeId.value = null
 
-      // 注意：这里不再调用 saveProject，因为：
-      // 1. AI 生成配置时，handleConflictConfirm 已经用 putV2FullConfig 保存了配置
-      // 2. 常规加载时，配置已经存在于文件中，不需要重新保存
-      // 如果需要强制保存，应该在业务逻辑中显式调用
-      /*
-      if (
-        config.manifest.schemas.length > 0 ||
-        config.manifest.constraints.length > 0 ||
-        (((config.manifest as unknown) as Record<string, unknown>).regex_nodes as unknown[])?.length || 0 > 0
-      ) {
-        logger.debug('[loadProjectFromV2] 检测到 schema/constraint/regex 数据，调用 saveProject 保存 manifest')
-        await saveProject()
-      } else {
-        logger.debug('[loadProjectFromV2] 没有 schema/constraint/regex 数据，跳过保存')
-      }
-      */
+      // 注意：加载时不调用 saveProject。
+      // AI 生成配置时 handleConflictConfirm 已用 putV2FullConfig 保存；常规加载时配置已存在于文件中。
 
       // 提示配置文件解析错误
       const schemaErrors = config.schema_errors

@@ -103,7 +103,6 @@ export function createV2PersistenceModule(params: {
     lastFullValidationStatistics,
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
-    saveProject: saveOps.saveProject,
   })
 
   return {

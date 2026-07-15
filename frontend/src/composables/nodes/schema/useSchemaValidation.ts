@@ -33,7 +33,7 @@ import { eventBus } from '@/core/eventBus'
 import type { SchemaNodeData, SchemaColumn } from '../types'
 import { validateNotNull } from '@/services/constraints/validators/notNull'
 import { validateUnique } from '@/services/constraints/validators/unique'
-import { validateAllowedValues as validateAllowedValuesApi } from '@/api/validation/allowedValues'
+import { validateAllowedValues as validateAllowedValuesApi } from '@/api/validationApi'
 /**
  * Schema验证Composable - 负责Schema数据节点的约束验证逻辑
  *
