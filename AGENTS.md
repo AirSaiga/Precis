@@ -23,9 +23,13 @@ cd e2e && npm ci              # E2E 测试依赖
 ```bash
 npm run dev                   # 同时启动后端 + 前端（concurrently）
 npm run electron:dev          # 启动 Electron 桌面版（自动管理后端进程）
-npm run backend:dev           # 仅启动后端 FastAPI（端口 18000）
+npm run backend:dev           # 仅启动后端 FastAPI（端口 OS 动态分配）
 cd frontend && npm run dev    # 仅启动前端 Vite dev server
 ```
+
+> **端口策略**：后端端口默认由 OS 动态分配（`start_server.py --port 0`），实际端口写入
+> `backend/.backend-port`，Vite 代理（`dynamic-backend-proxy.ts` 插件）与 Electron 主进程
+> 自动读取该文件发现端口。无需手动配置端口。如需固定端口，在 `.env` 设置 `VITE_BACKEND_PORT`。
 
 ### 构建
 

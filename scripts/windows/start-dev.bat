@@ -51,13 +51,13 @@ if not exist "electron\dist\main.js" (
     cd "%PROJECT_ROOT%"
 )
 
-for /f "tokens=*" %%a in ('node -e "try { require('dotenv').config(); } catch(e) {} console.log(process.env.VITE_BACKEND_PORT || '18000')"') do set BACKEND_PORT=%%a
+:: 后端端口由 OS 动态分配(start_server.py --port 0),无需读取 .env 后端端口
 for /f "tokens=*" %%a in ('node -e "try { require('dotenv').config(); } catch(e) {} console.log(process.env.VITE_FRONTEND_PORT || '5173')"') do set FRONTEND_PORT=%%a
 
-:: 启动前清理后端端口残留进程，避免 [Errno 10048] 端口占用
-call "%~dp0\free-port.bat" %BACKEND_PORT%
-
-call npx concurrently --kill-others --names "BACKEND,FRONTEND,ELECTRON" --prefix-colors "cyan,green,magenta" "cd backend && %PYTHON_CMD% -m uvicorn app.api.main:app --reload --port %BACKEND_PORT%" "cd frontend && npm run dev" "npx wait-on --delay 1000 --timeout 60000 http://127.0.0.1:%BACKEND_PORT%/docs http://localhost:%FRONTEND_PORT% && cd electron && npm start"
+:: 后端走统一启动脚本,动态端口永不冲突,无需 free-port 预清理。
+:: Electron 自行通过端口文件协议发现后端,无需 wait-on 后端 /docs;
+:: 此处仅等待前端端口就绪后启动 Electron。
+call npx concurrently --kill-others --names "BACKEND,FRONTEND,ELECTRON" --prefix-colors "cyan,green,magenta" "cd backend && %PYTHON_CMD% app/start_server.py --reload" "cd frontend && npm run dev" "npx wait-on --delay 1000 --timeout 60000 http://localhost:%FRONTEND_PORT% && cd electron && npm start"
 
 echo.
 echo [INFO] All services stopped.

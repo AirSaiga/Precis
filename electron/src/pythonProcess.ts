@@ -22,14 +22,14 @@ import * as fs from 'fs';
 import { logger } from './logger';
 import { appState } from './app-state';
 import {
-  findAvailablePort,
+  readBackendPortFile,
   waitForApiReady,
   containsStartupSignal,
   looksLikeStderrError,
   SIGNAL_SCAN_TAIL_CHARS,
+  BACKEND_PORT_FILE,
 } from './startup-probe';
 import {
-  PYTHON_SERVER_DEFAULT_PORT,
   PYTHON_STARTUP_SIGNAL_TIMEOUT_MS,
   PYTHON_API_READY_TIMEOUT_MS,
 } from './constants';
@@ -189,11 +189,6 @@ export async function startPythonServer(backendPath: string): Promise<number> {
     await stopPythonServer();
   }
 
-  // 查找可用端口
-  logger.debug(`[Main] 查找可用端口，起始端口: ${PYTHON_SERVER_DEFAULT_PORT}`);
-  appState.currentPythonServerPort = await findAvailablePort(PYTHON_SERVER_DEFAULT_PORT);
-  logger.debug(`[Main] 找到可用端口: ${appState.currentPythonServerPort}`);
-
   // 解析 Python 解释器路径（内嵌运行时 / 环境变量 / 系统默认）
   const pythonExecutable = resolvePythonExecutable();
   logger.debug(`[Main] 使用 Python 解释器: ${pythonExecutable}`);
@@ -208,8 +203,9 @@ export async function startPythonServer(backendPath: string): Promise<number> {
     throw new Error(errorMessage);
   }
 
-  // 构建命令行参数，使用动态分配的端口
-  const args = [serverScript, '--port', appState.currentPythonServerPort.toString()];
+  // 构建命令行参数:--port 0 让后端由 OS 原子分配端口(无竞态、永不冲突)。
+  // 后端拿到实际端口后写入 <backendPath>/.backend-port,主进程通过读该文件发现端口。
+  const args = [serverScript, '--port', '0'];
 
   // 子进程配置
   // cwd: 设置工作目录，确保 Python 导入路径正确
@@ -276,13 +272,32 @@ export async function startPythonServer(backendPath: string): Promise<number> {
       reject(error);
     };
 
+    // 检测到就绪信号后,从端口文件读取后端 OS 分配的实际端口。
+    // 信号出现意味着 uvicorn 已绑定,此时端口文件必然已写入。
     const cleanupAndResolve = () => {
       if (resolved) return;
       resolved = true;
       clearTimeout(startupTimeout);
-      appState.isPythonServerReady = true;
-      logger.info('[Main] Python server is ready');
-      resolve(appState.currentPythonServerPort);
+      // 从端口文件读取实际端口(--port 0 由 OS 分配,需通过文件发现)
+      readBackendPortFile(backendPath, 5000)
+        .then((port) => {
+          if (port === null) {
+            // 信号检测到就绪但读不到端口文件:异常状态,仍按失败处理
+            cleanupAndReject(
+              new Error(
+                `Backend reported ready but port file (${BACKEND_PORT_FILE}) not found in ${backendPath}`
+              )
+            );
+            return;
+          }
+          appState.currentPythonServerPort = port;
+          appState.isPythonServerReady = true;
+          logger.info(`[Main] Python server is ready on port ${port}`);
+          resolve(port);
+        })
+        .catch((err) => {
+          cleanupAndReject(new Error(`Failed to read backend port file: ${String(err)}`));
+        });
     };
 
     // 监听标准输出 - 捕获后端启动成功的消息

@@ -41,8 +41,9 @@ if not exist "electron\dist\main.js" (
     cd "%PROJECT_ROOT%"
 )
 
-:: Start backend and electron (frontend is served statically by electron)
-for /f "tokens=*" %%a in ('node -e "try { require('dotenv').config(); } catch(e) {} console.log(process.env.VITE_BACKEND_PORT || '18000')"') do set BACKEND_PORT=%%a
-call npx concurrently --kill-others --names "BACKEND,ELECTRON" --prefix-colors "cyan,magenta" "cd backend && %PYTHON_CMD% app\start_server.py" "npx wait-on --delay 1500 --timeout 60000 http://127.0.0.1:%BACKEND_PORT%/docs >nul 2>&1 && cd electron && npx electron ."
+:: Start Electron (backend is managed by Electron itself, port dynamically allocated)
+:: 生产/标准模式:有前端构建产物时,Electron 自行 spawn 后端并通过端口文件协议发现端口。
+:: 无需外部启动后端,也无需 wait-on 固定端口。
+cd electron && npx electron .
 
 exit /b %ERRORLEVEL%

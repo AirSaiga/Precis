@@ -42,11 +42,9 @@ if [ ! -f "${ELECTRON_DIR}/dist/main.js" ]; then
 fi
 
 echo ""
-info "启动后端 + Electron..."
-npx concurrently --kill-others \
-    --names "BACKEND,ELECTRON" \
-    --prefix-colors "cyan,magenta" \
-    "cd backend && ${PYTHON_CMD} app/start_server.py" \
-    "npx wait-on --delay 1500 --timeout 60000 http://127.0.0.1:${BACKEND_PORT}/docs > /dev/null 2>&1 && cd electron && npx electron ."
+info "启动 Electron (后端由 Electron 自动管理,端口动态分配)..."
+# 生产/标准模式:有前端构建产物时,Electron 自行 spawn 后端(startPythonServer)
+# 并通过端口文件协议发现实际端口。无需外部启动后端,也无需 wait-on 固定端口。
+cd "${ELECTRON_DIR}" && npx electron .
 
 exit $?

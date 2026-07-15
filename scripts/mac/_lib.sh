@@ -27,11 +27,13 @@ resolve_project_root() {
     ELECTRON_DIR="${PROJECT_ROOT}/electron"
     VENV_DIR="${BACKEND_DIR}/.venv"
     # 读取 .env 中的端口配置
+    # 注:后端端口现已由 OS 动态分配(start_server.py --port 0),BACKEND_PORT 仅在
+    # 显式设置 VITE_BACKEND_PORT 时作为固定端口逃生舱,多数脚本不再依赖它。
     if [ -f "${PROJECT_ROOT}/.env" ]; then
         BACKEND_PORT=$(grep '^VITE_BACKEND_PORT=' "${PROJECT_ROOT}/.env" | cut -d'=' -f2 | tr -d ' \r')
         FRONTEND_PORT=$(grep '^VITE_FRONTEND_PORT=' "${PROJECT_ROOT}/.env" | cut -d'=' -f2 | tr -d ' \r')
     fi
-    BACKEND_PORT="${BACKEND_PORT:-18000}"
+    BACKEND_PORT="${BACKEND_PORT:-}"
     FRONTEND_PORT="${FRONTEND_PORT:-5173}"
     export PROJECT_ROOT BACKEND_DIR FRONTEND_DIR ELECTRON_DIR VENV_DIR BACKEND_PORT FRONTEND_PORT
 }

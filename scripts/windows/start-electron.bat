@@ -21,7 +21,7 @@ for /f "tokens=*" %%a in ('node --version') do echo [OK] Node.js: %%a
 echo.
 
 echo [INFO] Ensure the backend and frontend dev servers are running first:
-echo   - Backend:  http://127.0.0.1:18000 (or VITE_BACKEND_PORT from .env)
+echo   - Backend:  dynamically allocated port (see backend/.backend-port)
 echo   - Frontend: http://localhost:5173 (or VITE_FRONTEND_PORT from .env)
 echo.
 

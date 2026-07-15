@@ -82,12 +82,13 @@ cp .env.example .env                   # 环境变量（默认即可）
 
 ```bash
 npm run electron:dev                   # 桌面版（推荐，自动管理后端）
-npm run dev                            # 开发模式：后端(18000) + 前端(5173)
+npm run dev                            # 开发模式：后端 + 前端（端口动态分配，无需配置）
 npm run cli                            # CLI 交互式命令行
 npm run cli:validate                   # 快速验证安装是否正常
 ```
 
-> Swagger UI：`http://127.0.0.1:18000/docs`
+> 后端端口由 OS 动态分配,实际端口写入 `backend/.backend-port`。Swagger UI 地址见启动日志。
+> 如需固定端口,在 `.env` 设置 `VITE_BACKEND_PORT`。
 
 ## 开发命令
 
@@ -99,7 +100,7 @@ npm run cli:validate                   # 快速验证安装是否正常
 | E2E | `npm run e2e:install` · `npm run e2e:test` |
 | 构建 | `npm run build:all` · `npm run frontend:build` · `npm run electron:build` |
 
-> **Electron 生产打包说明**：当前安装包仅打包后端源码，运行时需目标机器已安装 Python `>=3.12,<3.14` 并在安装目录的 `resources/backend` 下执行 `pip install -e ".[api]"`。详见 [`electron/README.md`](electron/README.md)。
+> **Electron 生产打包说明**：安装包内嵌 Python 运行时（python-build-standalone）与全部后端依赖，用户无需自装 Python。详见 [`electron/README.md`](electron/README.md)。
 
 ## 项目结构
 
@@ -109,7 +110,7 @@ Precis/
 ├── frontend/       # Vue 3 可视化编辑器
 ├── electron/       # Electron 桌面壳
 ├── e2e/            # Playwright E2E 测试
-├── scripts/        # 构建与部署脚本
+├── scripts/        # 构建与部署脚本（完整启动指南见 scripts/README.md）
 ├── AGENTS.md       # AI 辅助开发指南（详细的架构与规范）
 └── package.json    # Monorepo 脚本入口
 ```
@@ -185,12 +186,13 @@ cp .env.example .env                   # Env vars (defaults work)
 
 ```bash
 npm run electron:dev                   # Desktop app (recommended, auto-manages backend)
-npm run dev                            # Dev mode: backend(18000) + frontend(5173)
+npm run dev                            # Dev mode: backend + frontend (dynamic ports, zero config)
 npm run cli                            # CLI interactive shell
 npm run cli:validate                   # Quick verification that setup is correct
 ```
 
-> Swagger UI: `http://127.0.0.1:18000/docs`
+> Backend port is dynamically allocated by the OS; the actual port is written to `backend/.backend-port`.
+> To pin a fixed port, set `VITE_BACKEND_PORT` in `.env`.
 
 ## Development Commands
 
@@ -202,7 +204,7 @@ npm run cli:validate                   # Quick verification that setup is correc
 | E2E | `npm run e2e:install` · `npm run e2e:test` |
 | Build | `npm run build:all` · `npm run frontend:build` · `npm run electron:build` |
 
-> **Electron production packaging note**: The installer currently ships the backend source only. The target machine must have Python `>=3.12,<3.14` installed, and dependencies must be installed in `resources/backend` via `pip install -e ".[api]"`. See [`electron/README.md`](electron/README.md) for details.
+> **Electron production packaging note**: The installer bundles a self-contained Python runtime (python-build-standalone) and all backend dependencies — users do not need to install Python. See [`electron/README.md`](electron/README.md) for details.
 
 ## Project Structure
 
@@ -212,7 +214,7 @@ Precis/
 ├── frontend/       # Vue 3 visual editor
 ├── electron/       # Electron desktop shell
 ├── e2e/            # Playwright E2E tests
-├── scripts/        # Build and deployment scripts
+├── scripts/        # Build and deployment scripts (full startup guide in scripts/README.md)
 ├── AGENTS.md       # AI-assisted development guide (detailed architecture & conventions)
 └── package.json    # Monorepo script entry point
 ```

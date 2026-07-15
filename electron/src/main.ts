@@ -28,7 +28,7 @@ import * as fs from 'fs';
 import { updateManager } from './update';
 import { getBackendPath, getFrontendPath } from './utils/paths';
 import { logger, getLogFilePath, flushLogs } from './logger';
-import { waitForApiReady } from './startup-probe';
+import { waitForApiReady, readBackendPortFile } from './startup-probe';
 import { registerAllIpc } from './ipc';
 import { ensureFeedbackDir, getPendingCrashPath } from './ipc/feedback';
 import { appState } from './app-state';
@@ -47,18 +47,6 @@ import { registerAppScheme, registerAppProtocolHandler } from './protocol';
  * 与 frontend/vite.config.ts 中的配置保持一致
  */
 const FRONTEND_DEV_PORT = parseInt(process.env.VITE_FRONTEND_PORT || '5173', 10);
-
-/**
- * Python 后端启动信号超时时间（毫秒）
- * 用于检测 stdout 中是否出现 Uvicorn 启动完成标志
- */
-const PYTHON_STARTUP_SIGNAL_TIMEOUT_MS = 30000;
-
-/**
- * Python 后端 API 真正就绪检测超时时间（毫秒）
- * TCP 端口打开不代表 FastAPI 已可处理请求
- */
-const PYTHON_API_READY_TIMEOUT_MS = 15000;
 
 /**
  * 后端代码库的基础路径
@@ -167,32 +155,35 @@ app.whenReady().then(async () => {
     logger.info('[Main] 开发环境，等待外部后端服务就绪...');
   }
 
-  // 统一轮询后端 API，确保真正可响应后再创建主窗口
-  // 生产环境在此推送 'connecting'(后端已 spawn,转为等待 API 就绪);
-  // 开发环境已在 splash ready-to-show 中推送过,此处跳过避免重复。
-  if (appState.isBackendSpawnEnvironment) {
+  // 后端就绪确认:
+  // - 生产环境(hasFrontendBuild):startPythonServer 内部已轮询 /docs 确认 API 就绪,
+  //   此处无需重复轮询。此处仅推送 splash 阶段。
+  // - 开发环境(外部后端):需轮询端口文件发现端口 + 确认 API 就绪(宽容超时)。
+  if (hasFrontendBuild) {
+    // 生产环境:startPythonServer 已 resolve,后端确定就绪
     sendSplashStage('connecting');
-  }
-  const apiReady = await waitForApiReady(appState.currentPythonServerPort, 60000);
-  if (apiReady) {
+    appState.backendReady = true;
     logger.info('[Main] 后端 API 已就绪，端口:', appState.currentPythonServerPort);
-    appState.backendReady = true;
-  } else if (hasFrontendBuild) {
-    // 生产环境：API 未就绪属于致命错误，直接退出并提示用户
-    logger.error('[Main] 后端 API 就绪检测超时，端口:', appState.currentPythonServerPort);
-    sendSplashStage('error', true);
-    await new Promise((resolve) => setTimeout(resolve, 800));
-    closeSplashWindow();
-    dialog.showErrorBox(
-      '后端服务未就绪',
-      `Precis 后端服务未能在预期时间内响应请求（端口：${appState.currentPythonServerPort}）。\n\n请尝试重新启动应用。如果问题持续，请检查是否有其他程序占用了端口，或安全软件阻止了后端进程。`
-    );
-    app.quit();
-    return;
   } else {
-    // 开发环境：后端可能由用户手动启动，允许继续并显示主窗口
-    logger.warn('[Main] 开发环境后端 API 未就绪，继续显示主窗口');
-    appState.backendReady = true;
+    // 开发环境:后端由外部手动启动,先读端口文件发现端口,再轮询 API 就绪
+    const externalPort = await readBackendPortFile(BACKEND_PATH, 60000);
+    if (externalPort !== null) {
+      logger.info('[Main] 开发环境,从端口文件发现后端端口:', externalPort);
+      appState.currentPythonServerPort = externalPort;
+      const apiReady = await waitForApiReady(externalPort, 30000);
+      if (apiReady) {
+        appState.backendReady = true;
+        appState.isPythonServerReady = true;
+        logger.info('[Main] 开发环境后端 API 已就绪');
+      } else {
+        logger.warn('[Main] 开发环境后端 API 未就绪，继续显示主窗口');
+        appState.backendReady = true;
+      }
+    } else {
+      // 端口文件始终未出现:后端可能尚未启动,宽容地继续显示主窗口
+      logger.warn('[Main] 开发环境未发现后端端口文件，继续显示主窗口');
+      appState.backendReady = true;
+    }
   }
 
   // 后端已就绪且端口已确定，再创建主窗口并加载前端
@@ -229,12 +220,13 @@ app.whenReady().then(async () => {
  * - 避免僵尸进程
  */
 app.on('window-all-closed', () => {
-  // 终止 Python 后端进程树，避免窗口关闭后残留僵尸进程
-  stopPythonServerSync(appState.pythonProcess);
-
-  // 非 macOS 平台直接退出应用
-  // [macOS 约定] 应用应保持运行直到用户明确退出
+  // [平台差异] 后端进程清理策略:
+  // - Windows/Linux: 窗口全关即退出应用,终止后端进程树,避免僵尸进程。
+  // - macOS: 应用保持运行(符合 macOS 约定),后端进程也保持常驻。
+  //   旧实现无条件杀后端,导致用户点 Dock 重建窗口时后端已是僵尸态(主窗口显示但无后端)。
+  //   macOS 后端仅在 before-quit/quit 时随应用退出清理。
   if (process.platform !== 'darwin') {
+    stopPythonServerSync(appState.pythonProcess);
     app.quit();
   }
 });

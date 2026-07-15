@@ -29,12 +29,11 @@ for /f "tokens=*" %%a in ('"%PYTHON_CMD%" --version') do echo [OK] %%a
 echo.
 
 cd backend
-for /f "tokens=*" %%a in ('node -e "try { require('dotenv').config(); } catch(e) {} console.log(process.env.VITE_BACKEND_PORT || '18000')"') do set BACKEND_PORT=%%a
 
-:: 启动前清理端口残留进程，避免 [Errno 10048] 端口占用
-call "%~dp0\free-port.bat" %BACKEND_PORT%
-
-"%PYTHON_CMD%" -m uvicorn app.api.main:app --reload --port %BACKEND_PORT%
+:: 后端走统一启动脚本 start_server.py,端口由 OS 动态分配(--port 0),
+:: 实际端口写入 backend/.backend-port 供 Vite 代理 / Electron 发现。
+:: 动态端口永不冲突,无需 free-port 预清理。
+"%PYTHON_CMD%" app/start_server.py --reload
 
 echo.
 echo [INFO] Backend stopped.

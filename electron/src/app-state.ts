@@ -19,7 +19,7 @@
 
 import type { BrowserWindow } from 'electron';
 import type { ChildProcess } from 'child_process';
-import { PYTHON_SERVER_DEFAULT_PORT } from './constants';
+import { PYTHON_PORT_SENTINEL } from './constants';
 
 /**
  * 主进程全局状态
@@ -30,7 +30,7 @@ import { PYTHON_SERVER_DEFAULT_PORT } from './constants';
  * - isBackendSpawnEnvironment：是否需本地启动后端（影响 splash 状态机）
  * - pythonProcess：Python 子进程引用（三钩子清理依赖此引用）
  * - isPythonServerReady：后端就绪标志（前端是否可发 API 请求）
- * - currentPythonServerPort：动态分配的端口（默认 PYTHON_SERVER_DEFAULT_PORT）
+ * - currentPythonServerPort：动态分配的端口（初始哨兵 PYTHON_PORT_SENTINEL=0,发现后更新）
  */
 export interface AppState {
   /** 主窗口实例 */
@@ -64,5 +64,5 @@ export const appState: AppState = {
   isBackendSpawnEnvironment: false,
   pythonProcess: null,
   isPythonServerReady: false,
-  currentPythonServerPort: PYTHON_SERVER_DEFAULT_PORT,
+  currentPythonServerPort: PYTHON_PORT_SENTINEL,
 };

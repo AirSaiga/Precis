@@ -15,6 +15,15 @@ import sys
 import webbrowser
 from pathlib import Path
 
+from app.shared.core.config.server import (
+    DEFAULT_BACKEND_HOST,
+    acquire_port,
+    clear_port_file,
+    register_port_file_cleanup,
+    resolve_port,
+    write_port_file,
+)
+
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -30,7 +39,7 @@ def _parse_args() -> argparse.Namespace:
         "--port",
         type=int,
         default=None,
-        help="Server port (default: 18000)",
+        help="Server port (default: 0=OS dynamic allocation; fixed port via VITE_BACKEND_PORT)",
     )
     parser.add_argument(
         "--no-browser",
@@ -67,30 +76,31 @@ def _resolve_work_dir(arg_work_dir: str | None) -> str:
 
 
 def _resolve_port(arg_port: int | None) -> int:
-    """确定端口：CLI 参数 > 环境变量 > 默认值。"""
-    if arg_port:
-        return arg_port
-    env_port = os.environ.get("VITE_BACKEND_PORT")
-    if env_port:
-        try:
-            return int(env_port)
-        except ValueError:
-            pass
-    return 18000
+    """确定端口：委托给 server.resolve_port(CLI 参数 > 环境变量 > 默认 0)。
+
+    0 表示交由 OS 动态分配。
+    """
+    return resolve_port(arg_port)
 
 
 def main() -> int:
     """Main entry point for precis-start."""
     args = _parse_args()
     work_dir = _resolve_work_dir(args.work_dir)
-    port = _resolve_port(args.port)
+    preferred_port = _resolve_port(args.port)
 
     if not os.path.isdir(work_dir):
         print(f"Error: Work directory does not exist: {work_dir}", file=sys.stderr)
         return 1
 
+    # OS 原子分配端口(preferred_port=0 时动态分配),并写入端口文件供外部发现
+    actual_port = acquire_port(preferred_port)
+    write_port_file(actual_port)
+    # 注册端口文件清理兜底(atexit + signal)
+    register_port_file_cleanup()
+
     print(f"  ✓ Work directory: {work_dir}")
-    print(f"  ✓ Port: {port}")
+    print(f"  ✓ Port: {actual_port}")
 
     # Scan and count projects
     project_count = 0
@@ -105,7 +115,7 @@ def main() -> int:
     # Inject work_dir into app state via environment variable
     os.environ["PRECIS_WORK_DIR"] = work_dir
 
-    url = f"http://localhost:{port}"
+    url = f"http://localhost:{actual_port}"
 
     if not args.no_browser:
         print(f"  → Opening browser at {url}")
@@ -115,15 +125,19 @@ def main() -> int:
     print(f"  {url}")
     print()
 
-    # Start uvicorn server
-    import uvicorn
+    try:
+        # Start uvicorn server
+        import uvicorn
 
-    uvicorn.run(
-        "app.api.main:app",
-        host="127.0.0.1",
-        port=port,
-        log_level="info",
-    )
+        uvicorn.run(
+            "app.api.main:app",
+            host=DEFAULT_BACKEND_HOST,
+            port=actual_port,
+            log_level="info",
+        )
+    finally:
+        # 退出时清理端口文件
+        clear_port_file()
 
     return 0
 

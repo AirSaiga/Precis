@@ -4,16 +4,22 @@
  *
  * 本模块提供后端启动相关的纯工具函数：
  * - containsStartupSignal / looksLikeStderrError：扫描 Uvicorn 日志文本
- * - findAvailablePort：查找可用 TCP 端口（递归）
- * - waitForServer：TCP 端口就绪轮询
+ * - readBackendPortFile：轮询读取后端端口文件(端口发现协议)
  * - waitForApiReady：HTTP /docs 就绪轮询（确认 FastAPI 已初始化）
  *
- * 特征：无 Electron 依赖（仅用 Node net/http），可独立单元测试。
+ * 端口发现协议:
+ *   后端 spawn 时传 --port 0,由 OS 原子分配端口并写入 <backend>/.backend-port。
+ *   本模块的 readBackendPortFile 轮询该文件直到出现,拿到实际端口。
+ *   这取代了旧的 findAvailablePort(bind→close→rebind,有 TOCTOU 竞态)。
  *
- * 依赖方向：仅依赖 Node 内置模块（net/http）。
+ * 特征：无 Electron 依赖（仅用 Node net/http/fs），可独立单元测试。
+ *
+ * 依赖方向：仅依赖 Node 内置模块（net/http/fs）。
  */
 
 import * as net from 'net';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // ============================================================================
 // 常量
@@ -27,6 +33,9 @@ export const STDERR_ERROR_MARKERS = ['Traceback', 'Error:', 'CRITICAL', 'Excepti
 
 /** 滚动窗口扫描就绪信号时保留的尾部字符数（足够覆盖被分块切断的信号串） */
 export const SIGNAL_SCAN_TAIL_CHARS = 256;
+
+/** 端口文件名,与后端 backend/app/shared/core/config/server.py BACKEND_PORT_FILE 一致 */
+export const BACKEND_PORT_FILE = '.backend-port';
 
 // ============================================================================
 // 日志文本扫描（纯函数）
@@ -53,87 +62,66 @@ export function looksLikeStderrError(text: string): boolean {
 }
 
 // ============================================================================
-// 端口/API 就绪轮询
+// 端口文件发现协议
 // ============================================================================
 
 /**
- * 查找可用端口的工具函数
+ * 同步读取端口文件中的端口号(若存在)。
  *
- * 业务场景:
- * - 当默认端口被占用时，自动寻找下一个可用端口
- * - 避免用户手动配置端口的麻烦
- *
- * 算法原理:
- * - 尝试绑定指定端口，成功则返回端口号
- * - 失败则递归尝试下一个端口号
- *
- * @param startPort - 起始端口号
- * @returns 可用的端口号 Promise
+ * @param backendDir - 后端根目录(端口文件所在 cwd)
+ * @returns 端口号;文件不存在或内容无效返回 null
  */
-export async function findAvailablePort(startPort: number): Promise<number> {
-  return new Promise((resolve) => {
-    const server = net.createServer();
-
-    // 尝试监听指定端口
-    server.listen(startPort, '127.0.0.1', () => {
-      const port = (server.address() as net.AddressInfo).port;
-      // 立即关闭服务器并返回端口号
-      server.close(() => resolve(port));
-    });
-
-    // 端口被占用时的错误处理
-    server.on('error', () => {
-      server.close();
-      // 递归查找下一个端口，避免无限循环
-      resolve(findAvailablePort(startPort + 1));
-    });
-  });
+export function tryReadBackendPort(backendDir: string): number | null {
+  const filePath = path.join(backendDir, BACKEND_PORT_FILE);
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    const raw = fs.readFileSync(filePath, 'utf-8').trim();
+    const port = parseInt(raw, 10);
+    return Number.isNaN(port) || port <= 0 ? null : port;
+  } catch {
+    return null;
+  }
 }
 
 /**
- * 等待服务器就绪的轮询函数（TCP 连接探测）
+ * 轮询等待后端端口文件出现并读取实际端口。
  *
  * 业务场景:
- * - 确保 Python 后端完全启动后再允许前端发起请求
- * - 避免前端因后端未就绪而报错
+ *   后端 spawn 时传 --port 0,OS 分配端口后写入 .backend-port。
+ *   主进程需轮询该文件直到出现,才能拿到实际端口用于 IPC 回传与 API 就绪检测。
  *
- * [副作用]
- * - 会创建临时的 TCP Socket 连接
- * - 轮询间隔 500ms 对性能影响微乎其微
- *
- * @param port - 要检测的服务器端口
- * @param timeout - 超时时间（毫秒），默认 30 秒
- * @returns 服务器是否就绪
+ * @param backendDir - 后端根目录
+ * @param timeout - 超时时间(毫秒),默认 30s
+ * @param interval - 轮询间隔(毫秒),默认 200ms
+ * @returns 端口号;超时返回 null
  */
-export async function waitForServer(port: number, timeout: number = 30000): Promise<boolean> {
+export async function readBackendPortFile(
+  backendDir: string,
+  timeout: number = 30000,
+  interval: number = 200
+): Promise<number | null> {
   const startTime = Date.now();
 
   return new Promise((resolve) => {
     const check = () => {
-      const client = new net.Socket();
-
-      // 尝试建立 TCP 连接
-      client.connect(port, '127.0.0.1', () => {
-        client.destroy();
-        resolve(true);
-      });
-
-      // 连接失败的处理
-      client.on('error', () => {
-        client.destroy();
-        // 检查是否超时
-        if (Date.now() - startTime > timeout) {
-          resolve(false);
-        } else {
-          // 指数退避策略: 间隔 500ms 后重试
-          setTimeout(check, 500);
-        }
-      });
+      const port = tryReadBackendPort(backendDir);
+      if (port !== null) {
+        resolve(port);
+        return;
+      }
+      if (Date.now() - startTime > timeout) {
+        resolve(null);
+        return;
+      }
+      setTimeout(check, interval);
     };
-
     check();
   });
 }
+
+// ============================================================================
+// API 就绪轮询
+// ============================================================================
 
 /**
  * 通过 HTTP 请求检测后端 API 是否真正就绪

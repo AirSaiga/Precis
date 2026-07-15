@@ -145,6 +145,10 @@ lerna-debug.log*
 .env.local
 .env.*.local
 
+# 后端动态端口文件(运行时由 start_server.py 写入,含 OS 分配的端口号)
+.backend-port
+backend/.backend-port
+
 # 加密密钥和敏感配置
 *.key
 *.pem

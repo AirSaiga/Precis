@@ -1,21 +1,18 @@
 import { fileURLToPath, URL } from 'node:url'
 
-import { defineConfig, loadEnv } from 'vite'
+import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueDevTools from 'vite-plugin-vue-devtools'
+import { dynamicBackendProxy } from './dynamic-backend-proxy'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
-  // 读取环境变量，支持通过 .env 文件或命令行覆盖后端端口
-  const env = loadEnv(mode, process.cwd(), '')
-  const backendPort = env.VITE_BACKEND_PORT || '18000'
-  const backendTarget = `http://localhost:${backendPort}`
-
   return {
     // 使用相对路径，确保 Electron 本地文件加载时能正确解析资源
     base: './',
     // Vue DevTools 仅在开发模式加载，避免污染生产构建产物
-    plugins: [vue(), ...(mode !== 'production' ? [vueDevTools()] : [])],
+    // dynamicBackendProxy:中间件方案,拦截后端 API 路由转发到动态端口(Vite 8 不支持 router)
+    plugins: [vue(), dynamicBackendProxy(), ...(mode !== 'production' ? [vueDevTools()] : [])],
     resolve: {
       alias: {
         '@': fileURLToPath(new URL('./src', import.meta.url)),
@@ -68,30 +65,8 @@ export default defineConfig(({ mode }) => {
       exclude: ['electron'],
     },
     server: {
-      proxy: {
-        // 开发环境代理：将前端以"同源路径"发起的请求转发到后端（避免 CORS）。
-        // 通过 VITE_BACKEND_PORT 环境变量配置后端端口，默认 18000
-        '/preview': {
-          target: backendTarget,
-          changeOrigin: true,
-        },
-        '/workspace': {
-          target: backendTarget,
-          changeOrigin: true,
-        },
-        '/regex': {
-          target: backendTarget,
-          changeOrigin: true,
-        },
-        '/utils': {
-          target: backendTarget,
-          changeOrigin: true,
-        },
-        '/api': {
-          target: backendTarget,
-          changeOrigin: true,
-        },
-      },
+      // 后端 API 代理由 dynamicBackendProxy() 插件的中间件处理(动态读取 .backend-port),
+      // 此处不再配置静态 server.proxy。
     },
     test: {
       globals: true,
