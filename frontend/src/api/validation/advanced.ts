@@ -4,9 +4,8 @@
  * 封装到 /v2/validation 端点的 HTTP 请求。
  */
 import { logger } from '@/core/utils/logger'
-import { isAxiosError } from 'axios'
 import apiClient from '@/core/services/httpClient'
-import { VALIDATION_API_PATH } from './core'
+import { VALIDATION_API_PATH, logAxiosError } from './core'
 import type {
   ValidationResponse,
   ValidationRequestBase,
@@ -50,15 +49,7 @@ export async function validateAllowedValues(
   } catch (error) {
     logger.error('❌ 允许值约束校验请求错误:', error)
 
-    if (isAxiosError(error)) {
-      logger.error('请求详情:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-      })
-    }
+    logAxiosError(error)
 
     throw error
   }
@@ -119,15 +110,7 @@ export async function validateConditional(
   } catch (error) {
     logger.error('❌ 条件约束校验请求错误:', error)
 
-    if (isAxiosError(error)) {
-      logger.error('请求详情:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-      })
-    }
+    logAxiosError(error)
 
     throw error
   }
@@ -187,15 +170,7 @@ export async function validateForeignKey(
   } catch (error) {
     logger.error('❌ 外键约束校验请求错误:', error)
 
-    if (isAxiosError(error)) {
-      logger.error('请求详情:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-      })
-    }
+    logAxiosError(error)
 
     throw error
   }
@@ -253,15 +228,7 @@ export async function validateScripted(
   } catch (error) {
     logger.error('❌ 脚本约束校验请求错误:', error)
 
-    if (isAxiosError(error)) {
-      logger.error('请求详情:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-      })
-    }
+    logAxiosError(error)
 
     throw error
   }
@@ -318,15 +285,7 @@ export async function validateCharset(
   } catch (error) {
     logger.error('❌ 字符集约束校验请求错误:', error)
 
-    if (isAxiosError(error)) {
-      logger.error('请求详情:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-      })
-    }
+    logAxiosError(error)
 
     throw error
   }
@@ -348,14 +307,7 @@ export async function validateDateLogic(
     return response.data
   } catch (error) {
     logger.error('❌ 日期逻辑约束校验请求错误:', error)
-    if (isAxiosError(error)) {
-      logger.error('请求详情:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        status: error.response?.status,
-        data: error.response?.data,
-      })
-    }
+    logAxiosError(error)
     throw error
   }
 }

@@ -9,9 +9,8 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { isAxiosError } from 'axios'
 import apiClient from '@/core/services/httpClient'
-import { VALIDATION_API_PATH } from './core'
+import { VALIDATION_API_PATH, logAxiosError } from './core'
 import type { ValidationResponse } from './core'
 
 /**
@@ -93,15 +92,7 @@ export async function validateInline(
   } catch (error) {
     logger.error('❌ 行内数据校验请求错误:', error)
 
-    if (isAxiosError(error)) {
-      logger.error('请求详情:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-      })
-    }
+    logAxiosError(error)
 
     throw error
   }

@@ -4,9 +4,8 @@
  * 封装到 /v2/validation 端点的 HTTP 请求。
  */
 import { logger } from '@/core/utils/logger'
-import { isAxiosError } from 'axios'
 import apiClient from '@/core/services/httpClient'
-import { VALIDATION_API_PATH } from './core'
+import { VALIDATION_API_PATH, logAxiosError } from './core'
 import type { ValidationResponse, NotNullValidationRequest, RangeValidationRequest } from './core'
 /** 非空约束校验 */
 export async function validateNotNull(
@@ -41,15 +40,7 @@ export async function validateNotNull(
   } catch (error) {
     logger.error('❌ 非空约束校验请求错误:', error)
 
-    if (isAxiosError(error)) {
-      logger.error('请求详情:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-      })
-    }
+    logAxiosError(error)
 
     throw error
   }
@@ -110,15 +101,7 @@ export async function validateRange(request: RangeValidationRequest): Promise<Va
   } catch (error) {
     logger.error('❌ 区间约束校验请求错误:', error)
 
-    if (isAxiosError(error)) {
-      logger.error('请求详情:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-      })
-    }
+    logAxiosError(error)
 
     throw error
   }

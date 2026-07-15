@@ -27,6 +27,23 @@ import apiClient from '@/core/services/httpClient'
  */
 export const VALIDATION_API_PATH = '/validate'
 
+/**
+ * 统一记录 axios 请求错误的请求详情（url/method/status/response data）。
+ *
+ * 各校验函数的 catch 块原本各自复制了同一段 isAxiosError + logger.error 逻辑，
+ * 提取为公共 helper 以消除重复；非 axios 错误静默跳过。
+ */
+export function logAxiosError(error: unknown): void {
+  if (!isAxiosError(error)) return
+  logger.error('请求详情:', {
+    url: error.config?.url,
+    method: error.config?.method,
+    status: error.response?.status,
+    statusText: error.response?.statusText,
+    data: error.response?.data,
+  })
+}
+
 // ========================================
 // 校验请求类型定义
 // ========================================
@@ -222,15 +239,7 @@ export async function validateUnique(
   } catch (error) {
     logger.error('❌ 唯一性约束校验请求错误:', error)
 
-    if (isAxiosError(error)) {
-      logger.error('请求详情:', {
-        url: error.config?.url,
-        method: error.config?.method,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-      })
-    }
+    logAxiosError(error)
 
     throw error
   }

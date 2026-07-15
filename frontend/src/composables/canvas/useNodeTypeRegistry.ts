@@ -26,56 +26,41 @@ import ConstraintDashboardNode from '@/components/nodes/constraints/ConstraintDa
 import { constraintNodeRegistry } from '@/services/registry/constraintNodeRegistry'
 import { registerConstraintNodeLibrary } from '@/components/nodes/constraintRules/ConstraintNodeLibrary'
 
+/**
+ * 将原始 Vue 组件标记为非响应式并断言为 VueFlow 的 NodeComponent 类型。
+ *
+ * 集中此处的 as unknown as 断言（AGENTS.md 追踪的类型逃逸债务），
+ * 使调用处保持零断言；VueFlow 的 NodeComponent 与 Vue defineComponent 的类型差异在此统一收敛。
+ */
+const rawNode = (component: object): NodeComponent => markRaw(component) as unknown as NodeComponent
+
 export function useNodeTypeRegistry() {
   registerConstraintNodeLibrary()
 
+  // 静态节点：固定类型 → 固定组件
   const nodeTypes: Record<string, NodeComponent> = {
-    projectRoot: markRaw(ProjectRootNode) as unknown as NodeComponent,
-    patternToolbox: markRaw(PatternToolboxNode) as unknown as NodeComponent,
-    pattern: markRaw(PatternNode) as unknown as NodeComponent,
-    constraintDashboard: markRaw(ConstraintDashboardNode) as unknown as NodeComponent,
-    schema: markRaw(SchemaNode) as unknown as NodeComponent,
-    sourcePreview: markRaw(SourcePreviewNode) as unknown as NodeComponent,
-    jsonSourcePreview: markRaw(JsonSourcePreviewNode) as unknown as NodeComponent,
-    jsonSchema: markRaw(JsonSchemaNode) as unknown as NodeComponent,
-    regex: markRaw(RegexNode) as unknown as NodeComponent,
-    regexExtract: markRaw(RegexNode) as unknown as NodeComponent,
-    transform: markRaw(TransformNode) as unknown as NodeComponent,
-    transformOutput: markRaw(TransformOutputNode) as unknown as NodeComponent,
-    manualData: markRaw(ManualDataNode) as unknown as NodeComponent,
-    templateInstance: markRaw(TemplateInstanceNode) as unknown as NodeComponent,
-    ...(constraintNodeRegistry.notNull?.component && {
-      notNullConstraint: constraintNodeRegistry.notNull.component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.unique?.component && {
-      uniqueConstraint: constraintNodeRegistry.unique.component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.foreignKey?.component && {
-      foreignKeyConstraint: constraintNodeRegistry.foreignKey.component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.allowedValues?.component && {
-      allowedValuesConstraint: constraintNodeRegistry.allowedValues
-        .component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.range?.component && {
-      rangeConstraint: constraintNodeRegistry.range.component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.conditional?.component && {
-      conditionalConstraint: constraintNodeRegistry.conditional
-        .component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.scripted?.component && {
-      scriptedConstraint: constraintNodeRegistry.scripted.component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.charset?.component && {
-      charsetConstraint: constraintNodeRegistry.charset.component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.dateLogic?.component && {
-      dateLogicConstraint: constraintNodeRegistry.dateLogic.component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.composite?.component && {
-      compositeConstraint: constraintNodeRegistry.composite.component as unknown as NodeComponent,
-    }),
+    projectRoot: rawNode(ProjectRootNode),
+    patternToolbox: rawNode(PatternToolboxNode),
+    pattern: rawNode(PatternNode),
+    constraintDashboard: rawNode(ConstraintDashboardNode),
+    schema: rawNode(SchemaNode),
+    sourcePreview: rawNode(SourcePreviewNode),
+    jsonSourcePreview: rawNode(JsonSourcePreviewNode),
+    jsonSchema: rawNode(JsonSchemaNode),
+    regex: rawNode(RegexNode),
+    regexExtract: rawNode(RegexNode),
+    transform: rawNode(TransformNode),
+    transformOutput: rawNode(TransformOutputNode),
+    manualData: rawNode(ManualDataNode),
+    templateInstance: rawNode(TemplateInstanceNode),
+  }
+
+  // 约束节点：遍历注册表，画布 key 统一为 `${kind}Constraint`。
+  // 约束组件在 registerConstraintNodeLibrary 内已 markRaw，此处仅做类型断言。
+  for (const [kind, reg] of Object.entries(constraintNodeRegistry)) {
+    if (reg?.component) {
+      nodeTypes[`${kind}Constraint`] = reg.component
+    }
   }
 
   const edgeTypes: Record<string, EdgeComponent> = {
