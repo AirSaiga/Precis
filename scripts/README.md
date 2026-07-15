@@ -13,28 +13,32 @@ scripts/
 ├── setup.ps1                 # Windows 一键部署 / Windows one-click deploy
 ├── setup.sh                  # Mac/Linux 一键部署 / Mac/Linux one-click deploy
 ├── check-env.js              # 环境检查工具 / Environment checker
+├── build-mac.sh              # Mac 打包脚本(DMG) / Mac build script
 ├── README.md                 # 本文档 / This document
 │
 ├── windows/                            # Windows 启动脚本 / Windows startup scripts
-│   ├── start.bat                       # 标准模式（后端 + Electron 静态前端）/ Standard mode
-│   ├── start-dev.bat                   # 开发模式（后端 + Vite + Electron）/ Dev mode
+│   ├── start.bat                       # 标准模式(Electron 自行 spawn 后端)/ Standard mode
+│   ├── start-dev.bat                   # 开发模式(后端 + Vite + Electron)/ Dev mode
 │   ├── start-backend.bat               # 仅启动后端 / Backend only
 │   ├── start-frontend.bat              # 仅启动前端 Vite / Frontend Vite only
 │   ├── start-electron.bat              # 仅启动 Electron / Electron only
 │   ├── start-cli.bat                   # 交互式 CLI / Interactive CLI
+│   ├── start-tui-rust.bat              # Rust TUI 终端界面 / Rust TUI
+│   ├── free-port.bat                   # 端口清理工具(手动)/ Port cleanup (manual)
 │   └── clean-cache.ps1                 # 清理缓存 / Cache cleanup
 │
 └── mac/                                # Mac/Linux 启动脚本 / Mac/Linux scripts
-    ├── _lib.sh                         # 公共函数库（不可单独执行）/ Shared library
+    ├── _lib.sh                         # 公共函数库(不可单独执行)/ Shared library
     ├── start.sh                        # 标准模式 / Standard mode
     ├── start-dev.sh                    # 开发模式 / Dev mode
     ├── start-backend.sh                # 仅启动后端 / Backend only
     ├── start-frontend.sh               # 仅启动前端 Vite / Frontend Vite only
     ├── start-electron.sh               # 仅启动 Electron / Electron only
-    └── start-cli.sh                    # 交互式 CLI / Interactive CLI
+    ├── start-cli.sh                    # 交互式 CLI / Interactive CLI
+    └── start-tui-rust.sh               # Rust TUI 终端界面 / Rust TUI
 ```
 
-> Windows 和 Mac/Linux 的脚本一一对应（除 PowerShell 专属的 `clean-cache.ps1` 外）。Mac 脚本同样适用于 Linux。
+> Windows 和 Mac/Linux 的启动脚本一一对应。`free-port.bat`(端口清理)和 `clean-cache.ps1`(缓存清理)为 Windows 专属手动工具。Mac 脚本同样适用于 Linux。
 
 ## 快速开始 / Quick Start
 
@@ -96,10 +100,11 @@ All startup scripts auto-detect and prefer `backend/.venv` Python; fall back to 
 
 | 服务 Service | Windows | Mac/Linux |
 |-------------|---------|-----------|
-| 后端 FastAPI（端口 18000）/ Backend FastAPI (port 18000) | `.\scripts\windows\start-backend.bat` | `./scripts/mac/start-backend.sh` |
-| 前端 Vite（端口 5173）/ Frontend Vite (port 5173) | `.\scripts\windows\start-frontend.bat` | `./scripts/mac/start-frontend.sh` |
-| Electron 桌面壳 / Electron shell | `.\scripts\windows\start-electron.bat` | `./scripts/mac/start-electron.sh` |
+| 后端 FastAPI(端口动态分配)/ Backend FastAPI (dynamic port) | `.\scripts\windows\start-backend.bat` | `./scripts/mac/start-backend.sh` |
+| 前端 Vite(端口 5173)/ Frontend Vite (port 5173) | `.\scripts\windows\start-frontend.bat` | `./scripts/mac/start-frontend.sh` |
+| Electron 桌面壳(需先起前后端)/ Electron shell | `.\scripts\windows\start-electron.bat` | `./scripts/mac/start-electron.sh` |
 | 交互式 CLI / Interactive CLI | `.\scripts\windows\start-cli.bat` | `./scripts/mac/start-cli.sh` |
+| Rust TUI 终端界面 / Rust TUI | `.\scripts\windows\start-tui-rust.bat` | `./scripts/mac/start-tui-rust.sh` |
 
 #### 通过 npm 别名启动 / Via npm Aliases
 
@@ -116,26 +121,29 @@ npm run start:backend:win    # = start-backend.bat
 npm run start:frontend:win   # = start-frontend.bat
 npm run start:electron:win   # = start-electron.bat
 npm run start:cli:win        # = start-cli.bat
+npm run start:tui-rust:win   # = start-tui-rust.bat
 
 # Mac/Linux
 npm run start:prod:mac       # = start.sh
 npm run start:dev:mac        # = start-dev.sh
 npm run start:backend:mac    # = start-backend.sh
 npm run start:frontend:mac   # = start-frontend.sh
-npm run start:desktop:mac    # = start-electron.sh
+npm run start:electron:mac   # = start-electron.sh
 npm run start:cli:mac        # = start-cli.sh
+npm run start:tui-rust:mac   # = start-tui-rust.sh
 ```
 
 ## 脚本差异对比 / Script Differences
 
 | 脚本 Script | 启动内容 What Starts | 端口 Ports | 适用场景 Use Case |
 |------------|---------------------|-----------|------------------|
-| `start.{bat,sh}` | 后端 + Electron（加载已构建前端）/ Backend + Electron (built frontend) | 18000 | 体验完整桌面应用 / Full desktop experience |
-| `start-dev.{bat,sh}` | 后端 + Vite + Electron / Backend + Vite + Electron | 18000, 5173 | 前端代码调试 / Frontend debugging |
-| `start-backend.{bat,sh}` | 后端 FastAPI（热重载）/ Backend FastAPI (hot reload) | 18000 | 后端开发 / Backend dev |
-| `start-frontend.{bat,sh}` | Vite 开发服务器 / Vite dev server | 5173 | 纯前端开发（无桌面壳）/ Frontend-only dev |
-| `start-electron.{bat,sh}` | Electron 桌面壳 / Electron shell | — | 已手动启动前后端 / Backend + frontend already running |
+| `start.{bat,sh}` | 仅 Electron(自行 spawn 后端,加载已构建前端)/ Electron only (spawns backend) | 动态 Dynamic | 体验完整桌面应用 / Full desktop experience |
+| `start-dev.{bat,sh}` | 后端 + Vite + Electron / Backend + Vite + Electron | 动态, 5173 | 前端代码调试 / Frontend debugging |
+| `start-backend.{bat,sh}` | 后端 FastAPI(热重载)/ Backend FastAPI (hot reload) | 动态 Dynamic | 后端开发 / Backend dev |
+| `start-frontend.{bat,sh}` | Vite 开发服务器 / Vite dev server | 5173 | 纯前端开发(无桌面壳)/ Frontend-only dev |
+| `start-electron.{bat,sh}` | 仅 Electron(需先起前后端)/ Electron only | — | 已手动启动前后端 / Backend + frontend already running |
 | `start-cli.{bat,sh}` | Python CLI | — | 命令行交互校验 / CLI validation |
+| `start-tui-rust.{bat,sh}` | Rust TUI(需先起后端)/ Rust TUI | — | 终端界面 / Terminal UI |
 
 > 注：`start.bat` 在前端/Electron 产物缺失时会自动调用 `npm run build` 重新构建；`start-dev.bat` 仅在 `electron/dist/main.js` 缺失时编译 Electron。
 > Note: `start.bat` auto-runs `npm run build` when frontend/Electron artifacts are missing; `start-dev.bat` only compiles Electron when `electron/dist/main.js` is missing.
@@ -165,15 +173,30 @@ cd electron && npm run build:electron && cd ..
 
 ## 环境变量 / Environment Variables
 
-在项目根目录创建 `.env` 文件（参考 `.env.example`）/ Create `.env` in project root (see `.env.example`):
+后端端口默认由 OS 动态分配,通常无需配置 `.env`。如需固定端口(向后兼容),在项目根目录创建 `.env`(参考 `.env.example`):
+
+Backend port is dynamically allocated by the OS by default; `.env` is usually unnecessary. To pin a fixed port, create `.env` in project root (see `.env.example`):
 
 ```env
-# 后端端口 / Backend port (default: 18000)
-VITE_BACKEND_PORT=18000
+# 后端端口(可选,留空则 OS 动态分配)/ Backend port (optional, empty = dynamic)
+# VITE_BACKEND_PORT=18000
+
+# 前端开发服务器端口 / Frontend dev server port
+VITE_FRONTEND_PORT=5173
 
 # AI Provider API Key (可选 / optional)
 # OPENAI_API_KEY=your-api-key-here
 ```
+
+## 端口发现协议 / Port Discovery Protocol
+
+后端启动时端口由 OS 原子分配(`--port 0`),实际端口写入 `backend/.backend-port` 文件:
+
+- **Vite 代理**(`npm run dev`):自动读取该文件,动态转发请求到后端
+- **Electron 桌面版**:自行 spawn 后端,通过该文件发现端口
+- **Rust TUI**(`start-tui-rust.*`):启动脚本读取该文件,注入 `PRECIS_BACKEND_URL` 环境变量
+
+无需手动查阅端口文件,除非调试需要:`cat backend/.backend-port`。
 
 ## 故障排除 / Troubleshooting
 
@@ -186,7 +209,7 @@ VITE_BACKEND_PORT=18000
 | Mac 脚本 "Permission denied" | `chmod +x scripts/mac/*.sh scripts/setup.sh` |
 | Mac 脚本中文乱码 / Mac script garbled text | 确认终端使用 UTF-8 (`export LANG=en_US.UTF-8`) / Ensure terminal uses UTF-8 |
 | venv 缺失警告 / venv missing warning | 运行 `scripts/setup.{ps1,sh}` 创建 `backend/.venv` / Run `scripts/setup.{ps1,sh}` to create `backend/.venv` |
-| 端口被占用 / Port in use | Windows: `netstat -ano \| findstr :18000`; Mac: `lsof -i :18000` |
+| 端口被占用 / Port in use | 后端默认动态分配,通常无此问题。如使用固定端口(`VITE_BACKEND_PORT`)遇占用:Windows `netstat -ano \| findstr :<端口>`;Mac `lsof -i :<端口>` / Backend uses dynamic ports by default; if a fixed port is pinned and occupied, check with netstat/lsof |
 
 ## 生产打包 / Production Build
 

@@ -1,14 +1,17 @@
 @echo off
 chcp 65001 >nul
 :: ============================================================
-:: free-port.bat - Kill processes occupying a port (residual cleanup)
+:: free-port.bat - Kill processes occupying a port (manual cleanup tool)
 ::
 :: Usage: call free-port.bat [port]
 ::   port defaults to 18000
 ::
 :: Finds LISTENING PIDs on the port via netstat, kills them via taskkill.
-:: Silent pass when port is free. Called by start-dev.bat / start-backend.bat
-:: before launching uvicorn, to avoid [Errno 10048] address already in use.
+:: Silent pass when port is free.
+::
+:: Note: 后端端口现已由 OS 动态分配(start_server.py --port 0),启动脚本不再
+:: 调用此工具。仅作为手动清理残留进程的诊断工具保留。
+:: Backend now uses dynamic ports; this script is kept as a manual diagnostic tool.
 :: ============================================================
 setlocal enabledelayedexpansion
 

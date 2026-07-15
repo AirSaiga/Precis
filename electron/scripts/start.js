@@ -2,8 +2,12 @@ const { spawn } = require('child_process');
 const os = require('os');
 const path = require('path');
 
-// 加载根目录 .env，使 VITE_BACKEND_PORT 等变量对 electron 主进程可见
-// （electron:dev → start.js → electron .，此链路原本不加载 dotenv）
+// 加载根目录 .env,使环境变量对 electron 主进程可见。
+// (electron:dev → start.js → electron .,此链路原本不加载 dotenv)
+//
+// 注意:后端端口现已由 OS 动态分配(pythonProcess.ts 强制 --port 0),
+// VITE_BACKEND_PORT 在 Electron 链路中不再实际生效。此 dotenv 加载保留
+// 仅为向后兼容(如未来需要其他 .env 变量)及 VITE_FRONTEND_PORT。
 require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
 
 let command = 'npm';
