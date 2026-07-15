@@ -93,7 +93,8 @@ def acquire_port(preferred: int = 0) -> int:
 
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         s.bind((DEFAULT_BACKEND_HOST, 0))
-        return s.getsockname()[1]
+        # getsockname() 返回 tuple,取 [1] 为端口;mypy 将其推断为 Any,用 int() 收窄类型
+        return int(s.getsockname()[1])
 
 
 # ============================================================================
