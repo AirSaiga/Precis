@@ -15,12 +15,19 @@ import { logger } from '@/core/utils/logger'
 import { nextTick, watch } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
 import type { Edge } from '@vue-flow/core'
-import type { SchemaColumn } from '@/types/graph'
 import { addEdges, findEdge, removeEdges } from '@/services/canvas/vueFlowApi'
 import { useGraphStore } from '@/stores/graphStore'
 
 const VIRTUAL_ANCHOR_TOP_ID = 'virtual-anchor-top'
 const VIRTUAL_ANCHOR_BOTTOM_ID = 'virtual-anchor-bottom'
+
+/**
+ * 虚拟锚点同步只需列的 id 字段。
+ * SchemaColumn 与 JsonSchemaColumn 在 .id 层面兼容，统一用此最小结构以同时支持两类节点。
+ */
+interface VirtualAnchorColumn {
+  id: string
+}
 
 export function useVirtualAnchorEdges() {
   const store = useGraphStore()
@@ -32,7 +39,7 @@ export function useVirtualAnchorEdges() {
    */
   const syncVirtualAnchorEdges = (
     nodeId: string,
-    scrolledOutBySide: { top: SchemaColumn[]; bottom: SchemaColumn[] }
+    scrolledOutBySide: { top: VirtualAnchorColumn[]; bottom: VirtualAnchorColumn[] }
   ) => {
     const topSet = new Set((scrolledOutBySide.top || []).map((c) => c.id))
     const bottomSet = new Set((scrolledOutBySide.bottom || []).map((c) => c.id))
@@ -248,7 +255,10 @@ export function useVirtualAnchorEdges() {
   const watchVirtualAnchorState = (
     nodeId: string,
     hasScrolledOut: () => boolean,
-    getScrolledOutColumnsBySide: () => { top: SchemaColumn[]; bottom: SchemaColumn[] },
+    getScrolledOutColumnsBySide: () => {
+      top: VirtualAnchorColumn[]
+      bottom: VirtualAnchorColumn[]
+    },
     getScrollVersion?: () => number
   ) => {
     const getSemanticSignature = () => {

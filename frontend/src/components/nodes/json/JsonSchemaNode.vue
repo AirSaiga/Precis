@@ -607,13 +607,10 @@
     watchConnectionChanges()
 
     // 启动虚拟锚点状态监听（列滚动出可视区时自动更新代理边）
-    // useVirtualAnchorEdges 仅读取列的 .id 字段（见 syncVirtualAnchorEdges 实现），
-    // 类型签名虽为 SchemaColumn，但与 JsonSchemaColumn 在 .id 层面兼容，故安全转换
     watchVirtualAnchorState(
       props.id,
       () => hasScrolledOutColumns.value,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      getScrolledOutColumnsBySide as any,
+      getScrolledOutColumnsBySide,
       () => scrollVersion.value
     )
   })
