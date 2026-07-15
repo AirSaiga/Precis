@@ -1,3 +1,5 @@
+import { logger } from '@/core/utils/logger'
+
 /**
  * @file useClipboard.ts
  * @description 剪贴板组合式函数
@@ -38,7 +40,7 @@ export async function copyToClipboard(text: string): Promise<void> {
       return
     } catch (err) {
       // 安全上下文外（HTTPS 之外）会失败，降级到策略 2
-      console.warn('[useClipboard] navigator.clipboard.writeText 失败，降级到 execCommand:', err)
+      logger.warn('[useClipboard] navigator.clipboard.writeText 失败，降级到 execCommand:', err)
     }
   }
 

@@ -9,6 +9,7 @@
 import type { ConditionalConstraintNodeData, CustomNode } from '@/types/graph'
 import type { ConstraintItemV2, ConstraintTypeV2 } from '@/types/projectV2'
 import { getV2ConstraintTypeByNodeType } from '@/services/constraints/validationRegistry'
+import { logger } from '@/core/utils/logger'
 
 /**
  * Composite 约束不能嵌入 schema，直接抛出错误。
@@ -79,7 +80,7 @@ export function buildEmbeddedConstraintItem(node: CustomNode): ConstraintItemV2 
         const validConditions = ifConditions
           .filter((c) => {
             if (!c.operator) {
-              console.warn(
+              logger.warn(
                 `[EmbeddedConstraintBuilder] Conditional ${node.id}: 跳过缺少 operator 的条件`
               )
               return false
@@ -94,7 +95,7 @@ export function buildEmbeddedConstraintItem(node: CustomNode): ConstraintItemV2 
           }))
           .filter((c) => {
             if (!c.if_column_id) {
-              console.warn(
+              logger.warn(
                 `[EmbeddedConstraintBuilder] Conditional ${node.id}: 跳过缺少 if_column_id 的条件 (operator=${c.operator})`
               )
               return false
@@ -103,7 +104,7 @@ export function buildEmbeddedConstraintItem(node: CustomNode): ConstraintItemV2 
           })
 
         if (validConditions.length < ifConditions.length) {
-          console.warn(
+          logger.warn(
             `[EmbeddedConstraintBuilder] Conditional ${node.id}: ${ifConditions.length - validConditions.length} 个条件被丢弃，仅保留 ${validConditions.length} 个有效条件`
           )
         }

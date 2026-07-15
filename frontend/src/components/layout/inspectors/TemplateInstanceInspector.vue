@@ -94,6 +94,7 @@
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { useGraphStore } from '@/stores/graphStore'
   import { useToast } from '@/composables/shared/useToast'
+  import { logger } from '@/core/utils/logger'
 
   const { t } = useI18n()
   const graphStore = useGraphStore()
@@ -204,7 +205,7 @@
       })
     } catch (err) {
       const message = getExpandErrorMessage(err)
-      console.error('[TemplateInstanceInspector] 展开预览失败:', err)
+      logger.error('[TemplateInstanceInspector] 展开预览失败:', err)
       toast.error(
         t('inspector.templateInstance.expandFailed'),
         t('inspector.templateInstance.expandErrorDetail', { message })

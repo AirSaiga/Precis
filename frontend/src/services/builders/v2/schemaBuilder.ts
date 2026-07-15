@@ -19,6 +19,7 @@ import type {
 } from '@/types/projectV2'
 import { toBackendType, buildJSONOptions, flattenJsonColumns } from '../schemaBuilder'
 import { i18n } from '@/i18n'
+import { logger } from '@/core/utils/logger'
 import {
   getV2ConstraintTypeByNodeType,
   isConstraintNodeType,
@@ -133,7 +134,7 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
       const validConditions = ifConditions
         .filter((c): c is ConditionalConditionInput & { operator: string } => {
           if (!c?.operator) {
-            console.warn(`[schemaBuilder] Conditional ${node.id}: 跳过缺少 operator 的条件`)
+            logger.warn(`[schemaBuilder] Conditional ${node.id}: 跳过缺少 operator 的条件`)
             return false
           }
           return true
@@ -149,7 +150,7 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
         })
         .filter((c) => {
           if (!c.if_column_id) {
-            console.warn(
+            logger.warn(
               `[schemaBuilder] Conditional ${node.id}: 跳过缺少 if_column_id 的条件 (operator=${c.operator})`
             )
             return false
@@ -158,7 +159,7 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
         })
 
       if (validConditions.length < ifConditions.length) {
-        console.warn(
+        logger.warn(
           `[schemaBuilder] Conditional ${node.id}: ${ifConditions.length - validConditions.length} 个条件被丢弃，仅保留 ${validConditions.length} 个有效条件`
         )
       }
@@ -232,7 +233,7 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
 
   if (v2Type === 'Composite') {
     // Composite 约束强制独立保存，内嵌时仅保留基本信息作为降级
-    console.warn(
+    logger.warn(
       `[schemaBuilder] Composite 约束 ${node.id} 尝试内嵌保存，已降级。建议改为独立保存。`
     )
     return {

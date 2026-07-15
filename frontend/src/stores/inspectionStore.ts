@@ -16,6 +16,7 @@
 
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
+import { logger } from '@/core/utils/logger'
 import type { InspectionIssue, InspectionResultV2 } from '@/types/projectV2'
 
 const STORAGE_KEY = 'precis.inspection.ignoredIds.v1'
@@ -47,7 +48,7 @@ function saveIgnoredToStorage(ids: Set<string>): void {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]))
   } catch (e) {
-    console.warn('[InspectionStore] 持久化忽略列表失败:', e)
+    logger.warn('[InspectionStore] 持久化忽略列表失败:', e)
   }
 }
 

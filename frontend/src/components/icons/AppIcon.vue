@@ -1,6 +1,7 @@
 <script setup lang="ts">
   import { computed } from 'vue'
   import { getIcon } from './iconRegistry'
+  import { logger } from '@/core/utils/logger'
 
   interface Props {
     /** 业务图标名（见 iconRegistry.ts） */
@@ -19,7 +20,7 @@
   const comp = computed(() => getIcon(props.name))
 
   if (import.meta.env.DEV && !comp.value) {
-    console.warn(`[AppIcon] 未找到图标名: ${props.name}`)
+    logger.warn(`[AppIcon] 未找到图标名: ${props.name}`)
   }
 </script>
 

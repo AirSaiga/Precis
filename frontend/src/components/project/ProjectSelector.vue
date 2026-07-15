@@ -4,6 +4,7 @@
   import ProjectCard from './ProjectCard.vue'
   import { scanProjects, openProject, type ProjectInfo } from '@/api/projectApi'
   import { isAbsolutePath } from '@/core/utils/pathNormalization'
+  import { logger } from '@/core/utils/logger'
 
   const emit = defineEmits<{
     projectOpened: [path: string]
@@ -26,7 +27,7 @@
       projects.value = result.projects
     } catch (e: unknown) {
       error.value = t('common.project.errorScan')
-      console.error('Project scan failed:', e)
+      logger.error('Project scan failed:', e)
     } finally {
       loading.value = false
     }
@@ -54,7 +55,7 @@
       emit('projectOpened', path)
     } catch (e: unknown) {
       manualError.value = t('common.project.openFailed', { error: extractErrorDetail(e) })
-      console.error('Failed to open project:', e)
+      logger.error('Failed to open project:', e)
     } finally {
       openingPath.value = ''
     }

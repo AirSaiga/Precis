@@ -5,6 +5,7 @@
  * 返回 BLOCKER/WARNING/INFO 三级错误，由 Orchestrator 决定是否阻断保存。
  */
 
+import { logger } from '@/core/utils/logger'
 import type { CustomNode } from '@/types/graph'
 import type { ConstraintFileV2 } from '@/types/projectV2'
 import type { SavePlan, PreValidationError, ValidationSeverity } from './types'
@@ -95,7 +96,7 @@ export class PreValidator {
           })
         } catch (err) {
           // autoFix 失败不阻断，记录日志即可
-          console.warn(`[PreValidator] autoFix 失败: ${error.message}`, err)
+          logger.warn(`[PreValidator] autoFix 失败: ${error.message}`, err)
         }
       }
     }

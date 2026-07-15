@@ -6,6 +6,7 @@
  */
 
 import { fetchPreviewDataFromPath } from '@/services/preview/fetchPreviewFromPath'
+import { logger } from '@/core/utils/logger'
 import type { CustomNode } from '@/types/graph'
 
 /** 预览数据来源 */
@@ -152,7 +153,7 @@ export class FilePreviewFetcher implements PreviewDataFetcher {
         format: source.format || 'csv',
       }
     } catch (error) {
-      console.error('Failed to fetch file preview:', error)
+      logger.error('Failed to fetch file preview:', error)
       return null
     }
   }
