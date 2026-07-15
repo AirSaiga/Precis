@@ -20,9 +20,12 @@ if errorlevel 1 (
 for /f "tokens=*" %%a in ('node --version') do echo [OK] Node.js: %%a
 echo.
 
-echo [INFO] Ensure the backend and frontend dev servers are running first:
-echo   - Backend:  dynamically allocated port (see backend/.backend-port)
-echo   - Frontend: http://localhost:5173 (or VITE_FRONTEND_PORT from .env)
+echo [INFO] This script launches Electron only.
+echo   For dev mode, start backend and frontend first:
+echo     - Backend:  start-backend.bat (dynamic port, see backend/.backend-port)
+echo     - Frontend: start-frontend.bat (port 5173 or VITE_FRONTEND_PORT from .env)
+echo   For full stack (backend + frontend + Electron), use start-dev.bat instead.
+echo.
 echo.
 
 if not exist "electron\dist\main.js" (

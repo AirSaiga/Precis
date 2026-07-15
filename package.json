@@ -43,6 +43,7 @@
     "start:electron:mac": "bash scripts/mac/start-electron.sh",
     "start:desktop:mac": "bash scripts/mac/start-electron.sh",
     "start:cli:mac": "bash scripts/mac/start-cli.sh",
+    "start:tui-rust:mac": "bash scripts/mac/start-tui-rust.sh",
     "check": "node scripts/check-env.js",
     "icon": "cd electron && node scripts/convert-icon.mjs",
     "dev": "npx concurrently --kill-others --names BACKEND,FRONTEND --prefix-colors cyan,green \"cd backend && python app/start_server.py --reload\" \"cd frontend && npm run dev\"",

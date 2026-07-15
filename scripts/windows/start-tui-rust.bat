@@ -10,9 +10,24 @@ echo      Precis TUI (Rust + ratatui)
 echo ============================================
 echo.
 
-:: Check backend is running on port 18000
-echo [CHECK] Backend (port 18000)...
-powershell -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:18000/health' -UseBasicParsing -TimeoutSec 3; if ($r.StatusCode -eq 200) { Write-Host '[OK] Backend is running.' } else { Write-Host '[WARN] Backend responded with status' $r.StatusCode } } catch { Write-Host '[WARN] Backend not detected.' }"
+:: 后端端口由 OS 动态分配,实际端口写入 backend/.backend-port
+:: TUI 通过 PRECIS_BACKEND_URL 环境变量获知后端地址
+set "PORT_FILE=%PROJECT_ROOT%\backend\.backend-port"
+if not exist "%PORT_FILE%" (
+    echo [ERROR] Backend port file not found: %PORT_FILE%
+    echo         请先启动后端: start-backend.bat 或 npm run start:backend:win
+    pause
+    exit /b 1
+)
+set /p BACKEND_PORT=<"%PORT_FILE%"
+echo [OK] Backend port: %BACKEND_PORT%
+
+:: Health check 后端动态端口
+echo [CHECK] Backend (port %BACKEND_PORT%)...
+powershell -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:%BACKEND_PORT%/health' -UseBasicParsing -TimeoutSec 3; if ($r.StatusCode -eq 200) { Write-Host '[OK] Backend is running.' } else { Write-Host '[WARN] Backend responded with status' $r.StatusCode } } catch { Write-Host '[WARN] Backend not detected at port %BACKEND_PORT%.' }"
+
+:: 注入后端地址到环境变量,Rust TUI 的 main.rs 会读取 PRECIS_BACKEND_URL
+set "PRECIS_BACKEND_URL=http://127.0.0.1:%BACKEND_PORT%"
 
 :: Locate Rust toolchain
 set "CARGO=%USERPROFILE%\.cargo\bin\cargo.exe"

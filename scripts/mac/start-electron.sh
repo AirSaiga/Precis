@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================
-# Precis - Electron 桌面应用启动脚本 (Mac/Linux)
-# 自动启动后端 + 前端 + Electron，带完整日志输出
+# Precis - 仅启动 Electron 桌面壳 (Mac/Linux)
+# 需先手动启动后端 + 前端(开发模式),或由 Electron 自行 spawn 后端(生产模式)
 # 用法:
 #   ./scripts/mac/start-electron.sh
 # ============================================
@@ -19,12 +19,11 @@ banner "Precis Desktop (Electron Dev)"
 info "检查环境..."
 require_node || prompt_exit 1
 require_npm  || prompt_exit 1
-resolve_python || prompt_exit 1
 echo ""
 ok "环境检查通过"
 echo ""
 
-# 依赖检查
+# 依赖检查(仅 Electron 相关;后端依赖由 start-backend 或 setup 负责)
 info "检查依赖..."
 if [ ! -d "node_modules" ]; then
     error "根目录 node_modules 缺失。请先运行: scripts/setup.sh 或 npm run install:all"
@@ -32,23 +31,11 @@ if [ ! -d "node_modules" ]; then
 fi
 ok "根目录依赖已安装"
 
-if [ ! -d "${FRONTEND_DIR}/node_modules" ]; then
-    error "前端依赖缺失。请先运行: scripts/setup.sh 或 npm run install:all"
-    prompt_exit 1
-fi
-ok "前端依赖已安装"
-
 if [ ! -d "${ELECTRON_DIR}/node_modules" ]; then
     error "Electron 依赖缺失。请先运行: scripts/setup.sh 或 npm run install:all"
     prompt_exit 1
 fi
 ok "Electron 依赖已安装"
-
-if ! $PYTHON_CMD -c "import fastapi, uvicorn, pydantic, pandas" 2>/dev/null; then
-    error "后端关键依赖缺失。请先运行: scripts/setup.sh"
-    prompt_exit 1
-fi
-ok "后端依赖已安装"
 echo ""
 
 # 编译 Electron 主进程 TypeScript（项目 main 指向 dist/main.js，必须先编译）
@@ -64,36 +51,21 @@ if [ ! -f "${ELECTRON_DIR}/dist/main.js" ]; then
     echo ""
 fi
 
-banner "正在启动 Precis Desktop..."
-echo "启动顺序:"
-echo "  1. Python 后端服务 (端口由 OS 动态分配)"
-echo "  2. Vite 前端开发服务器 (端口 ${FRONTEND_PORT})"
-echo "  3. Electron 桌面应用 (等待前端就绪后启动,自行发现后端)"
+banner "正在启动 Precis Desktop (仅 Electron)..."
+echo "提示: 本脚本仅启动 Electron 桌面壳。"
+echo "  - 开发模式: 请先启动后端(start-backend.sh)和前端(start-frontend.sh)"
+echo "    后端端口由 OS 动态分配,Electron 自动读取 backend/.backend-port 发现端口"
+echo "  - 完整三件套请用 start-dev.sh"
 echo ""
-echo "提示: 首次启动可能需要几秒钟; 按 Ctrl+C 停止所有服务"
+echo "按 Ctrl+C 停止 Electron"
 echo ""
 
-if ! npx concurrently --version &> /dev/null; then
-    error "未找到 concurrently，请运行: npm install"
-    prompt_exit 1
-fi
-
-# 后端走统一启动脚本(动态端口),Electron 通过端口文件协议自行发现后端,
-# 此处仅等待前端端口就绪即可启动 Electron。
-ELECTRON_CMD="npx wait-on --delay 1000 --timeout 60000 http://localhost:${FRONTEND_PORT} && cd electron && npm start"
-
-npx concurrently --kill-others \
-    --names "BACKEND,FRONTEND,ELECTRON" \
-    --prefix-colors "cyan,green,magenta" \
-    "cd backend && ${PYTHON_CMD} app/start_server.py --reload" \
-    "cd frontend && npm run dev" \
-    "${ELECTRON_CMD}"
-
+# 仅启动 Electron(开发模式连接 Vite,生产模式自行 spawn 后端)
+cd "${ELECTRON_DIR}" && npm start
 EXIT_CODE=$?
 
 echo ""
-banner "所有服务已停止"
-if [ $EXIT_CODE -ne 0 ]; then
-    warn "异常退出，代码: $EXIT_CODE"
+if [ ${EXIT_CODE} -ne 0 ]; then
+    warn "Electron 异常退出，代码: ${EXIT_CODE}"
 fi
-prompt_exit $EXIT_CODE
+prompt_exit ${EXIT_CODE}
