@@ -44,7 +44,7 @@ backend/app/
 │   │   │   ├── fill_na.py, lower_case.py, upper_case.py, modulo.py
 │   │   │   ├── replace.py, strip.py, substring.py, weighted_sum.py
 │   │   │   └── base.py, registry.py
-│   │   ├── data_types.py   # 数据类型定义（string/integer/decimal/boolean/datetime/date/time）
+│   │   ├── data_types.py   # 数据类型定义（string/integer/float/decimal/boolean/date）
 │   │   ├── dataset_schema.py # Schema 模型
 │   │   ├── expression_system.py # 表达式求值系统
 │   │   └── schema/         # Schema 相关领域逻辑
