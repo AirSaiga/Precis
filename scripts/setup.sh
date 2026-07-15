@@ -18,7 +18,7 @@
 #   --skip-build  ↔  -SkipBuild
 #   --system-py   ↔  -UseSystemPython
 
-set -e  # 遇到错误立即退出
+set -uo pipefail  # 未定义变量报错 + 管道失败传递;不使用 set -e(会让显式错误检查成为死代码)
 
 # 颜色定义
 RED='\033[0;31m'
@@ -186,7 +186,13 @@ success "npm: v$NPM_VERSION"
 NODE_MAJOR=$(echo $NODE_VERSION | cut -d. -f1 | tr -d 'v')
 NODE_MINOR=$(echo $NODE_VERSION | cut -d. -f2)
 if [ "$NODE_MAJOR" -lt 20 ] || { [ "$NODE_MAJOR" -eq 20 ] && [ "$NODE_MINOR" -lt 19 ]; }; then
-    warn "Node.js 版本过低 (需要 20.19.0+)，当前为 $NODE_VERSION，可能会导致构建失败"
+    separator
+    error "Node.js 版本过低 (需要 ^20.19.0 || >=22.12.0)，当前为 $NODE_VERSION"
+    info "请升级 Node.js:"
+    info "  - Homebrew: brew install node@20"
+    info "  - nvm: nvm install 20 && nvm use 20"
+    info "  - 官网: https://nodejs.org"
+    exit 1
 fi
 
 echo ""

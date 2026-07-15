@@ -231,7 +231,7 @@ async function main() {
     console.log(`  ${colors.white}npm run start:cli:win${colors.reset}        - 启动 CLI (Windows)`);
     console.log(`  ${colors.white}npm run start:cli:mac${colors.reset}        - 启动 CLI (Mac/Linux)`);
     console.log(`  ${colors.white}npm run start:electron:win${colors.reset}   - 启动桌面版 (Windows)`);
-    console.log(`  ${colors.white}npm run start:desktop:mac${colors.reset}   - 启动桌面版 (Mac/Linux)`);
+    console.log(`  ${colors.white}npm run start:electron:mac${colors.reset}   - 启动桌面版 (Mac/Linux)`);
     console.log(`  ${colors.white}npm run dev${colors.reset}                  - 启动开发服务器`);
   } else {
     log('yellow', '⚠ 环境检查未通过');
@@ -241,28 +241,29 @@ async function main() {
     const missing = [];
     if (!results.python.ok) missing.push('Python 3.12+');
     if (!results.node.ok) missing.push('Node.js 20.19+');
-    if (!results.venv.exists || !results.backendDeps.ok) missing.push('后端依赖');
+    if (!results.backendDeps.ok) missing.push('后端依赖 (fastapi/pydantic/pandas)');
     if (!results.frontendDeps.ok) missing.push('前端依赖');
     if (!results.electronDeps.ok) missing.push('Electron 依赖');
+    if (!results.venv.exists) missing.push('虚拟环境 (可选,建议创建)');
     
     log('cyan', `缺失: ${missing.join(', ')}`);
     console.log('');
-    log('cyan', 'Python 3.12 安装指南:');
+    log('cyan', 'Python 3.12+ 安装指南 (推荐 3.13):');
     if (process.platform === 'win32') {
       console.log(`  ${colors.white}# 使用 pyenv-win (推荐)${colors.reset}`);
-      console.log(`  ${colors.white}pyenv install 3.12.9${colors.reset}`);
-      console.log(`  ${colors.white}pyenv global 3.12.9${colors.reset}`);
+      console.log(`  ${colors.white}pyenv install 3.13${colors.reset}`);
+      console.log(`  ${colors.white}pyenv global 3.13${colors.reset}`);
       console.log('');
       console.log(`  ${colors.white}# 或从官网下载${colors.reset}`);
-      console.log(`  ${colors.white}https://www.python.org/downloads/release/python-3129/${colors.reset}`);
+      console.log(`  ${colors.white}https://www.python.org/downloads/${colors.reset}`);
     } else {
       console.log(`  ${colors.white}# 使用 pyenv (推荐)${colors.reset}`);
-      console.log(`  ${colors.white}pyenv install 3.12.9${colors.reset}`);
-      console.log(`  ${colors.white}pyenv global 3.12.9${colors.reset}`);
+      console.log(`  ${colors.white}pyenv install 3.13${colors.reset}`);
+      console.log(`  ${colors.white}pyenv global 3.13${colors.reset}`);
       console.log('');
       console.log(`  ${colors.white}# 或使用包管理器${colors.reset}`);
-      console.log(`  ${colors.white}brew install python@3.12  # macOS${colors.reset}`);
-      console.log(`  ${colors.white}sudo apt install python3.12 python3.12-venv  # Ubuntu/Debian${colors.reset}`);
+      console.log(`  ${colors.white}brew install python@3.13  # macOS${colors.reset}`);
+      console.log(`  ${colors.white}sudo apt install python3.13 python3.13-venv  # Ubuntu/Debian${colors.reset}`);
     }
     console.log('');
     log('cyan', '请运行部署脚本:');

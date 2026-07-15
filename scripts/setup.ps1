@@ -140,7 +140,7 @@ if (-not $PythonCmd) {
                     Write-Status "检测到系统 Python: $PythonVersion" "Success"
                 } else {
                     Write-Status "系统 Python 版本过低: $major.$minor (需要 3.12+)" "Error"
-                    Write-Status "请先安装 Python 3.12+: https://www.python.org/downloads/release/python-3135/" "Info"
+                    Write-Status "请先安装 Python 3.12+ (推荐 3.13): https://www.python.org/downloads/" "Info"
                     exit 1
                 }
             }
@@ -154,8 +154,8 @@ if (-not $PythonCmd) {
     Write-Separator
     Write-Status "未找到 Python 3.12+" "Error"
     Write-Status "请通过以下方式安装:" "Info"
-    Write-Status "  1. pyenv-win: pyenv install 3.13.5" "Info"
-    Write-Status "  2. 官网下载: https://www.python.org/downloads/release/python-3135/" "Info"
+    Write-Status "  1. pyenv-win: pyenv install 3.13" "Info"
+    Write-Status "  2. 官网下载: https://www.python.org/downloads/" "Info"
     exit 1
 }
 
@@ -194,7 +194,10 @@ try {
         $major = [int]$Matches[1]
         $minor = [int]$Matches[2]
         if ($major -lt 20 -or ($major -eq 20 -and $minor -lt 19)) {
-            Write-Status "Node.js 版本过低 (需要 20.19.0+)，当前为 $nodeVersion，可能会导致构建失败" "Warning"
+            Write-Separator
+            Write-Status "Node.js 版本过低 (需要 ^20.19.0 || >=22.12.0)，当前为 $nodeVersion" "Error"
+            Write-Status "请升级 Node.js: https://nodejs.org" "Info"
+            exit 1
         }
     }
 } catch {
