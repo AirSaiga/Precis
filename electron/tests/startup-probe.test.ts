@@ -4,21 +4,25 @@
  * 覆盖后端启动信号检测的纯函数：
  * - containsStartupSignal：扫描 Uvicorn 就绪信号
  * - looksLikeStderrError：识别 stderr 真实错误
+ * - tryReadBackendPort：读取端口文件(端口发现协议)
  *
- * 端口/API 轮询函数（findAvailablePort/waitForServer/waitForApiReady）涉及
- * 网络 I/O，此处仅验证常量导出与函数可调用性，实际行为由集成测试覆盖。
+ * API 轮询函数（waitForApiReady）涉及网络 I/O，此处仅验证可调用性，
+ * 实际行为由集成测试覆盖。
  */
 
 import { describe, it, expect } from 'vitest'
+import { writeFileSync, mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import {
   containsStartupSignal,
   looksLikeStderrError,
-  findAvailablePort,
-  waitForServer,
+  tryReadBackendPort,
   waitForApiReady,
   STARTUP_SIGNALS,
   STDERR_ERROR_MARKERS,
   SIGNAL_SCAN_TAIL_CHARS,
+  BACKEND_PORT_FILE,
 } from '../src/startup-probe'
 
 describe('startup-probe - 常量', () => {
@@ -83,23 +87,32 @@ describe('startup-probe - looksLikeStderrError', () => {
   })
 })
 
+describe('startup-probe - tryReadBackendPort', () => {
+  it('端口文件存在且内容合法时返回端口号', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'precis-port-'))
+    writeFileSync(join(tmpDir, BACKEND_PORT_FILE), '53871', 'utf-8')
+    expect(tryReadBackendPort(tmpDir)).toBe(53871)
+  })
+
+  it('端口文件不存在时返回 null', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'precis-port-'))
+    expect(tryReadBackendPort(tmpDir)).toBeNull()
+  })
+
+  it('端口文件内容非法时返回 null', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'precis-port-'))
+    writeFileSync(join(tmpDir, BACKEND_PORT_FILE), 'not-a-port', 'utf-8')
+    expect(tryReadBackendPort(tmpDir)).toBeNull()
+  })
+
+  it('端口号为 0 或负数时返回 null', () => {
+    const tmpDir = mkdtempSync(join(tmpdir(), 'precis-port-'))
+    writeFileSync(join(tmpDir, BACKEND_PORT_FILE), '0', 'utf-8')
+    expect(tryReadBackendPort(tmpDir)).toBeNull()
+  })
+})
+
 describe('startup-probe - 网络函数可调用性', () => {
-  // 这些函数涉及真实网络 I/O，此处仅验证它们是可调用的异步函数，
-  // 不验证具体返回值（由集成/手动测试覆盖）
-
-  it('findAvailablePort 是异步函数', () => {
-    expect(typeof findAvailablePort).toBe('function')
-    // 调用一个高端口，应该能快速返回（不阻塞测试）
-    const result = findAvailablePort(49999)
-    expect(result).toBeInstanceOf(Promise)
-    // 不 await，避免占用端口影响其他测试
-    result.then(() => {})
-  })
-
-  it('waitForServer 是异步函数', () => {
-    expect(typeof waitForServer).toBe('function')
-  })
-
   it('waitForApiReady 是异步函数', () => {
     expect(typeof waitForApiReady).toBe('function')
   })
