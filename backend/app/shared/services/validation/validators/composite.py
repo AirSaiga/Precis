@@ -97,6 +97,8 @@ class CompositeValidator(BaseValidator):
         all_errors: list[dict] = []
         passed_count = 0
         processed_count = 0
+        # 回归 D7: 收集未知子约束类型,上报为配置错误(而非静默跳过判通过)
+        unknown_types: list[str] = []
 
         # 前端传来的类型名 -> ValidationType 常量映射
         # 支持多种命名风格：NotNull / notnull / not_null
@@ -124,7 +126,9 @@ class CompositeValidator(BaseValidator):
             sub_type_raw = str(cfg.get("type", "")).lower().replace(" ", "")
             validation_type = type_map.get(sub_type_raw)
             if not validation_type:
+                # 回归 D7: 未知类型不再静默跳过,收集后上报配置错误
                 logger.warning(f"Composite 中遇到不支持的子约束类型: {sub_type_raw}")
+                unknown_types.append(sub_type_raw)
                 continue
 
             try:
@@ -143,6 +147,19 @@ class CompositeValidator(BaseValidator):
                 logger.warning(f"Composite 子约束校验异常 ({validation_type}): {e}")
                 # 子约束异常视为失败，但不中断其他子约束
                 continue
+
+        # 回归 D7: 存在未知子约束类型时上报配置错误,避免用户以为约束生效了实际全被跳过
+        if unknown_types:
+            config_errors = [
+                {
+                    "row_index": 0,
+                    "cell_value": None,
+                    "error_message": (
+                        f"复合约束包含不支持的子约束类型: {', '.join(unknown_types)};这些子约束未执行校验。"
+                    ),
+                }
+            ]
+            return self._format_errors(config_errors, len(df), time.time() - start_time)
 
         # 如果没有成功处理的子约束，视为通过（避免空子约束报错）
         if processed_count == 0:

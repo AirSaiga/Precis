@@ -99,3 +99,70 @@ class TestExecuteTransformDag:
         out_datasets, out_errors = result
         assert len(out_errors) >= 1, f"regex 失败应上报错误,实际: {out_errors}"
         assert "r1" in str(out_errors[0]) or "r1" in str(out_errors[0].get("message", ""))
+
+
+class TestSortRowsDagMerge:
+    """回归 #7: SortRows transform 在 DAG 合并逻辑中两种配置都错。
+
+    SortRows 行数不变 → 走"按列贴回"分支,循环 tfile.output_columns;而 sort_rows 明确
+    output_columns 被忽略。后果:
+    - output_columns 为空(正确用法)→ 循环不执行 → 排序结果永远写不回,校验的是未排序数据;
+    - output_columns 填了(误填)→ output_df[col].values 按位置贴回未排序的行 → 行数据错配。
+    要求:SortRows(行重排、output_columns 为空)应整体替换 schema 节点输出,而非按列贴回。
+    """
+
+    def test_sortrows_result_actually_applied(self):
+        """SortRows 排序后,下游 dataset 应是排好序的(而非原序)。"""
+        # 乱序数据,按 val 升序排
+        tfile = TransformFile(
+            id="sort1",
+            type="SortRows",
+            input_from_node="s1",
+            input_column="val",  # SortRows 忽略 input_column,但协议要求传
+            params={"sort_by": [{"column": "val", "order": "asc"}]},
+            output_columns=[],  # SortRows 不产生新列(正确用法)
+        )
+        tnode = DAGNode(id="sort1", node_type="transform", data=tfile)
+        snode = DAGNode(id="s1", node_type="schema")
+        dag = ExecutionDAG(nodes={"s1": snode, "sort1": tnode})
+        datasets = {"s1": pd.DataFrame({"id": [1, 2, 3], "val": [30, 10, 20]})}
+
+        out_datasets, out_errors = execute_transform_dag(dag, datasets)
+        assert out_errors == [], f"SortRows 不应报错,实际: {out_errors}"
+
+        # 关键:s1 的输出应是按 val 升序排好的 [10,20,30],对应 id [2,3,1]
+        result_df = out_datasets["s1"]
+        assert list(result_df["val"]) == [10, 20, 30], (
+            f"SortRows 排序结果应写回(整体替换),实际 val 仍为原序: {list(result_df['val'])}"
+        )
+        assert list(result_df["id"]) == [2, 3, 1], (
+            f"行应整体重排(id 跟着 val 走),实际 id: {list(result_df['id'])} —— 若按位置贴回会错配"
+        )
+
+    def test_sortrows_with_output_columns_does_not_misalign_rows(self):
+        """回归 #7: 即使用户误填了 output_columns,也不应导致行数据错配。
+
+        原实现按位置贴回会把排序后的列值贴到未排序行上,使 id 与 val 错配。
+        """
+        tfile = TransformFile(
+            id="sort1",
+            type="SortRows",
+            input_from_node="s1",
+            input_column="val",
+            params={"sort_by": [{"column": "val", "order": "asc"}]},
+            output_columns=["val"],  # 误填(SortRows 应忽略),但不应导致错配
+        )
+        tnode = DAGNode(id="sort1", node_type="transform", data=tfile)
+        snode = DAGNode(id="s1", node_type="schema")
+        dag = ExecutionDAG(nodes={"s1": snode, "sort1": tnode})
+        datasets = {"s1": pd.DataFrame({"id": [1, 2, 3], "val": [30, 10, 20]})}
+
+        out_datasets, out_errors = execute_transform_dag(dag, datasets)
+        assert out_errors == [], f"SortRows 不应报错,实际: {out_errors}"
+
+        result_df = out_datasets["s1"]
+        # id 与 val 应保持正确的行对应关系(整体重排),而非按位置错配
+        assert list(result_df["val"]) == [10, 20, 30]
+        assert list(result_df["id"]) == [2, 3, 1], (
+            f"误填 output_columns 时行也不应错配,实际 id: {list(result_df['id'])}"
+        )

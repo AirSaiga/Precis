@@ -252,7 +252,8 @@ class FloatType(DataType):
         """
         @methoddesc 验证值是否为有效的浮点数
 
-        尝试将值转换为 float 类型来验证。
+        尝试将值转换为 float 类型来验证。回归 D10: 拒绝 inf/-inf/nan 等非有限值
+        (float("inf") 在 Python 合法但会污染下游统计),与 DecimalType 的 is_finite 检查对齐。
 
         参数:
             value: 要验证的值
@@ -261,10 +262,15 @@ class FloatType(DataType):
             元组 (is_valid, error_message)
         """
         try:
-            float(value)
-            return True, None
+            parsed = float(value)
         except (ValueError, TypeError):
             return False, f"'{value}' 不是一个有效的浮点数。"
+        # 拒绝非有限值(inf/-inf/nan),避免污染下游统计与约束
+        import math
+
+        if math.isnan(parsed) or math.isinf(parsed):
+            return False, f"'{value}' 不是有限的浮点数(不接受 inf/nan)。"
+        return True, None
 
     def parse(self, value: Any) -> float:
         """
@@ -275,8 +281,16 @@ class FloatType(DataType):
 
         返回:
             浮点数
+
+        异常:
+            ValueError: 值无法解析为有限浮点数时抛出(回归 D10: 拒绝 inf/nan)
         """
-        return float(value)
+        parsed = float(value)
+        import math
+
+        if math.isnan(parsed) or math.isinf(parsed):
+            raise ValueError(f"'{value}' 不是有限的浮点数(不接受 inf/nan)。")
+        return parsed
 
     def process_column(self, series: pd.Series, col_name: str, nullable: bool = True) -> tuple[pd.Series, list[dict]]:
         """向量化浮点数列验证和解析。"""

@@ -64,6 +64,27 @@ class TestCompositeConstraintLogic:
         # NotNull 约束应发现 name 为空（1 个错误：第2行）
         assert len(errors) >= 2
 
+    def test_info_not_overwritten_by_last_sub_constraint(self, sample_datasets):
+        """回归 D7: 复合约束的 info 不应被子约束覆盖。
+
+        原实现 all_info.update(info) 让最后一个子约束的 info(含 constraint_type)覆盖前面,
+        导致报告中复合约束被错标为"最后一个子约束的类型"(如标成 NotNull 而非 Composite)。
+        子约束的逐行错误 info 可以聚合,但复合约束自身的标识应保留或正确标记。
+        """
+        sub_constraints = [
+            UniqueConstraint(table="users", column=["email"]),
+            NotNullConstraint(table="users", column="name"),
+        ]
+        composite = CompositeConstraint(sub_constraints=sub_constraints, logic="all")
+        result = composite.validate(sample_datasets)
+
+        info = result["info"]
+        # info 不应被最后一个子约束(NotNull)的类型占据;至少不应误标为纯 NotNull
+        constraint_type = info.get("constraint_type")
+        assert constraint_type != "NotNullConstraint", (
+            f"复合约束不应被错标为最后一个子约束的类型 NotNull,实际 constraint_type: {constraint_type}"
+        )
+
     def test_all_strategy_all_pass(self, sample_datasets):
         """logic=all 时，若全部通过则返回空错误"""
         # 使用一个不会触发错误的列

@@ -1,5 +1,7 @@
 """区间约束单元测试"""
 
+from decimal import Decimal
+
 import pandas as pd
 import pytest
 
@@ -113,6 +115,45 @@ class TestRangeConstraint:
         """min > max 应抛出 ValueError"""
         with pytest.raises(ValueError, match="min_value"):
             RangeConstraint(table="products", column="price", min_value=100, max_value=0)
+
+    def test_decimal_large_value_precision_preserved(self):
+        """回归 D9: Decimal 列的大额整数值不应因转 float64 丢精度导致边界误判。
+
+        业务场景:金融金额用 decimal 类型,常为大额整数(如 18 位)。
+        原实现 pd.to_numeric 把 Decimal 转 float64(float64 仅 ~15-17 位有效数字),
+        123456789012345678 → 1.2345678901234566e+17,与边界比较时精度丢失,可能误判。
+        要求:Decimal 列的比较在 Decimal 空间进行,边界判定精确。
+        """
+        # 18 位大额整数,在 float64 下会丢精度(123456789012345678 != float(123456789012345678))
+        big_value = Decimal("123456789012345678")
+        # 上限恰好等于该值(闭区间应通过)。float64 下 big_value 会被舍入成不同值,导致 ≠ 上限而误报
+        datasets = {
+            "accounts": pd.DataFrame({"balance": [big_value]}, dtype=object),
+        }
+        constraint = RangeConstraint(
+            table="accounts",
+            column="balance",
+            min_value=Decimal("0"),
+            max_value=big_value,  # 闭区间,值恰好等于上限 → 应通过
+            boundary_mode="inclusive",
+        )
+        result = constraint.validate(datasets)
+        assert result["errors"] == [], f"Decimal 大额值等于上限(闭区间)应通过,实际误报: {result['errors']}"
+
+    def test_decimal_large_value_correctly_detected_as_violation(self):
+        """回归 D9: Decimal 大额值真正越界时也应正确检出(不能因丢精度而漏报)。"""
+        # 值比上限大 1(18 位),float64 下两者可能被舍入成相同值 → 漏报
+        datasets = {
+            "accounts": pd.DataFrame({"balance": [Decimal("123456789012345679")]}, dtype=object),
+        }
+        constraint = RangeConstraint(
+            table="accounts",
+            column="balance",
+            max_value=Decimal("123456789012345678"),  # 上限比值小 1 → 应报越界
+            boundary_mode="inclusive",
+        )
+        result = constraint.validate(datasets)
+        assert len(result["errors"]) == 1, f"Decimal 值比上限大 1 应正确检出越界,实际: {result['errors']}"
 
     def test_table_not_found(self):
         """表不存在时返回配置错误"""

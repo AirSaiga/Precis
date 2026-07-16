@@ -189,8 +189,12 @@ class TestCompositeValidator:
         assert result.is_valid is False
         assert result.error_count > 0
 
-    def test_invalid_sub_constraint_type_is_skipped(self, validator, df_clean):
-        """不支持的子约束类型应被跳过"""
+    def test_invalid_sub_constraint_type_reports_error(self, validator, df_clean):
+        """回归 D7: 不支持的子约束类型(拼错/未注册)应报配置错误,而非静默跳过判通过。
+
+        原实现仅 logger.warning 后 continue,且全部跳过时判 is_valid=True。用户以为复合
+        约束生效了,实际子约束全被跳过、零校验。应明确报错让用户发现配置问题。
+        """
         result = validator.validate(
             df_clean,
             "name",
@@ -199,8 +203,22 @@ class TestCompositeValidator:
                 {"type": "UnknownType", "enabled": True, "params": {}},
             ],
         )
-        assert result.is_valid is True
-        assert result.error_count == 0
+        assert result.is_valid is False, "未知子约束类型应导致校验失败,而非静默通过"
+        assert result.error_count >= 1, f"应报配置错误,实际 error_count: {result.error_count}"
+
+    def test_all_sub_constraints_unknown_reports_failure(self, validator, df_clean):
+        """回归 D7: 全部子约束都是未知类型时,不应判通过(原 processed_count==0 直接返回 valid)。"""
+        result = validator.validate(
+            df_clean,
+            "name",
+            logic="all",
+            sub_constraints=[
+                {"type": "TypoOne", "enabled": True, "params": {}},
+                {"type": "TypoTwo", "enabled": True, "params": {}},
+            ],
+        )
+        assert result.is_valid is False, "全部子约束未知时不应静默通过"
+        assert result.error_count >= 1
 
     def test_range_sub_constraint_params(self, validator):
         """Range 子约束参数传递测试"""

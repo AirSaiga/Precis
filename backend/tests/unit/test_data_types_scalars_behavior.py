@@ -111,6 +111,32 @@ class TestFloatType:
         assert ok is False
         assert "浮点数" in msg
 
+    @pytest.mark.parametrize("value", ["inf", "-inf", "Infinity", "nan", "NaN"])
+    def test_rejects_non_finite(self, value):
+        """回归 D10: FloatType 不应接受 inf/-inf/nan。
+
+        原实现 float(value) 对 "inf"/"nan" 返回成功(它们是合法的 Python float),
+        导致污染数据(某列混入 "inf")被当合法浮点放行,下游统计(mean/sum)被 inf 污染,
+        平均值变 inf、依赖该字段的约束失真。DecimalType 已有 is_finite 检查,FloatType 缺失。
+        """
+        ok, msg = FloatType().validate(value)
+        assert ok is False, f"'{value}' 应被拒(非有限值),实际被接受"
+        assert msg is not None
+
+    def test_parse_rejects_non_finite(self):
+        """回归 D10: parse 也不应把 'inf' 解析成 inf 浮点数(应抛异常或返回非有限值)。"""
+        import math
+
+        for value in ["inf", "nan"]:
+            try:
+                result = FloatType().parse(value)
+            except (ValueError, TypeError):
+                # 抛异常是正确的拒绝方式
+                continue
+            assert not (isinstance(result, float) and (math.isinf(result) or math.isnan(result))), (
+                f"parse('{value}') 不应返回 inf/nan,实际: {result}"
+            )
+
 
 class TestDateType:
     """DateType 行为"""

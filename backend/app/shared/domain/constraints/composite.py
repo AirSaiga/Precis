@@ -91,13 +91,20 @@ class CompositeConstraint(Constraint):
             return {"errors": [], "info": {}}
 
         all_errors: list[dict[str, Any]] = []
-        all_info: dict[str, Any] = {}
+        # 回归 D7: 复合约束自身的 info(含 constraint_type/description)不应被子约束覆盖。
+        # 原实现 all_info.update(info) 让最后一个子约束的 constraint_type 覆盖复合约束,
+        # 导致报告中复合约束被错标为"最后一个子约束的类型"。先以复合约束自身 info 为基底,
+        # 再聚合子约束信息,但标识类字段(constraint_type/description/logic 等)不被覆盖。
+        all_info: dict[str, Any] = self.get_constraint_info()
+        protected_keys = {"constraint_type", "description", "logic", "sub_constraint_count", "table"}
         passed_count = 0
 
         for result in sub_results:
             errors = result.get("errors", [])
             info = result.get("info", {})
-            all_info.update(info)
+            for k, v in info.items():
+                if k not in protected_keys:
+                    all_info[k] = v
             if not errors:
                 passed_count += 1
             else:

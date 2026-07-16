@@ -101,8 +101,17 @@ def execute_transform_dag(
                     if len(output_df) != len(existing_df):
                         # 行数改变（如 FilterRows/DropDuplicates/Aggregate）：整体替换
                         node_outputs[input_node_id] = output_df.copy()
+                    elif list(output_df.columns) == list(existing_df.columns):
+                        # 回归 #7: output_df 列与输入完全一致 → 这是行级整表操作(如 SortRows
+                        # 重排行、不产生新列)。原实现按 output_columns 循环贴回:
+                        #   - output_columns 为空(SortRows 正确用法)→ 循环不执行 → 排序结果
+                        #     永远写不回,校验的是未排序数据;
+                        #   - output_columns 误填 → output_df[col].values 按位置贴回未排序行 →
+                        #     行数据错配(id 与 val 对不上)。
+                        # 行顺序已变的整表操作必须整体替换,不能按列贴回。
+                        node_outputs[input_node_id] = output_df.copy()
                     else:
-                        # 行数不变：按列贴回
+                        # 行数不变且产出新列（如 StringSplit/MathExpr 派生列）：按列贴回
                         # 如果 existing_df 与 parsed_datasets 共享引用，先隔离再修改
                         if input_node_id in schema_ids_in_dag:
                             existing_df = existing_df.copy()
