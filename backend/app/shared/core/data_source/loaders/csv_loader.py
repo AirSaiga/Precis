@@ -125,11 +125,21 @@ class CSVLoader(DataSourceLoader[CSVSourceSpec]):
         Raises:
             UnicodeDecodeError: 所有编码都失败时抛出
         """
+        # 回归 #1 修复:用户配置 default_encoding="auto"(文档称自动检测)时,data_loader
+        # 路径会把 "auto" 原样透传到 spec.encoding。"auto" 不是 Python 可用编码名,
+        # 原样喂给 open() 会触发 LookupError(本方法仅 except UnicodeDecodeError,未捕获)→
+        # 报误导性的 "unknown encoding: auto" 且该路径所有 CSV 加载失败。
+        # 此处将 "auto" 归一化为回退编码列表的首项(utf-8),使其符合"自动检测"语义。
+        # fallback_encodings 默认 ["utf-8","gbk","latin1"],首项为 utf-8。
+        configured = self.spec.encoding
+        if configured == "auto":
+            configured = self.spec.fallback_encodings[0] if self.spec.fallback_encodings else "utf-8"
+
         if not self.spec.encoding_detection:
-            return self.spec.encoding
+            return configured
 
         # 尝试的编码列表
-        encodings = [self.spec.encoding] + [e for e in self.spec.fallback_encodings if e != self.spec.encoding]
+        encodings = [configured] + [e for e in self.spec.fallback_encodings if e != configured]
 
         last_error = None
 

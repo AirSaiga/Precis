@@ -181,7 +181,13 @@ class UniqueConstraint(Constraint):
 
         # 使用 duplicated() 找出重复的行
         # keep=False 表示将所有重复的行都标记为重复（包括第一次出现的）
-        duplicates = df[df.duplicated(subset=self.columns, keep=False)]
+        # 回归 #4 修复:SQL 及主流数据质量工具的唯一性语义豁免 NULL。原实现裸调用
+        # duplicated(keep=False) 会把 NaN 视为彼此相等,可空唯一列的多个空值全部误报
+        # UniqueViolation: 值 'None' 不唯一。这里先剔除"任一唯一列含空值"的行,
+        # 使空值组合不再参与重复判定(与 SQL 行为一致)。
+        null_mask = df[self.columns].isna().any(axis=1)
+        df_non_null = df[~null_mask]
+        duplicates = df_non_null[df_non_null.duplicated(subset=self.columns, keep=False)]
 
         # 遍历所有重复行，生成错误记录
         for row_tuple in duplicates[self.columns].itertuples(index=True, name=None):

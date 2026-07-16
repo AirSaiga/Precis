@@ -123,7 +123,16 @@ class IntegerType(DataType):
 
         # 对非空值进行类型验证
         non_na = ~is_na & ~notnull_violations
-        series_str = series.astype(str)
+
+        # 回归 #2 修复:含空值的整数列被 pandas 推断为 float64,str(1.0)="1.0" 不匹配整数正则,
+        # 导致整列每个非空值误报 TypeValidationError。对"值是整数"的 float 在字符串化前回收为整数,
+        # 避免把 1.5 这样的真实小数误判为整数(仅当 float.is_integer() 为真时规整)。
+        def _to_int_str(v: Any) -> str:
+            if isinstance(v, float) and v.is_integer():
+                return str(int(v))
+            return str(v)
+
+        series_str = series.apply(_to_int_str)
         valid_format = series_str.str.fullmatch(r"^-?\d+$")
 
         # 标记类型验证失败的行
@@ -468,7 +477,15 @@ class BooleanType(DataType):
         # 对非空值进行类型验证
         non_na = ~is_na & ~notnull_violations
         is_python_bool = series.apply(lambda v: isinstance(v, bool))
-        series_str = series.astype(str).str.strip().str.lower()
+
+        # 回归 #3 修复:0/1 布尔列带空值被 pandas 推断为 float64,"1.0"/"0.0" 不在合法布尔集合 →
+        # 整列误报。对 is_integer() 为真的 float 在字符串化前回收为整数,使 1.0→"1"、0.0→"0" 命中合法集合。
+        def _to_int_str(v: Any) -> str:
+            if isinstance(v, float) and v.is_integer():
+                return str(int(v))
+            return str(v)
+
+        series_str = series.apply(_to_int_str).str.strip().str.lower()
         is_true = series_str.isin(self.TRUE_VALUES)
         is_false = series_str.isin(self.FALSE_VALUES)
         valid_mask = is_python_bool | is_true | is_false
@@ -495,7 +512,9 @@ class BooleanType(DataType):
             elif isinstance(val, bool):
                 result_values.append(val)
             else:
-                result_values.append(str(val).strip().lower() in self.TRUE_VALUES)
+                # 回归 #3: float 1.0/0.0 需回收为整数再判定(与上面的字符串化规整保持一致)
+                check_val = str(int(val)) if (isinstance(val, float) and val.is_integer()) else str(val)
+                result_values.append(check_val.strip().lower() in self.TRUE_VALUES)
         parsed = pd.Series(result_values, index=series.index)
 
         return parsed, errors

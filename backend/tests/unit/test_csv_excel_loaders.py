@@ -82,6 +82,40 @@ class TestCSVLoader:
         loader = CSVLoader(spec)
         assert loader._resolve_encoding() == "utf-8"
 
+    def test_resolve_encoding_auto_falls_back_to_valid_encoding(self, tmp_path):
+        """回归 #1: 用户配置 default_encoding="auto"(文档称自动检测)时,data_loader
+        路径把 "auto" 原样塞进 CSVSourceSpec.encoding。原实现 _resolve_encoding 把
+        "auto" 喂给 open() → LookupError(未捕获,仅 except UnicodeDecodeError)→
+        报 "unknown encoding: auto" 误导性错误,该路径所有 CSV 加载失败。
+
+        要求:"auto" 应被当作"自动检测"语义,回退到 fallback_encodings 中可用的编码,
+        而非原样传给 open()。检测关闭和开启两条路径都应能成功解析。
+        """
+        csv_file = tmp_path / "test.csv"
+        csv_file.write_text("a,b\n1,2\n3,4\n", encoding="utf-8")
+        # 模拟 data_loader 透传 default_encoding="auto" 的场景
+        spec_no_detect = _make_csv_spec(str(csv_file), encoding="auto", encoding_detection=False)
+        loader_no_detect = CSVLoader(spec_no_detect)
+        # 检测关闭:"auto" 应解析为一个 Python 可用的编码名
+        resolved = loader_no_detect._resolve_encoding()
+        assert resolved != "auto", f'"auto" 不应原样返回,实际: {resolved}'
+
+        spec_with_detect = _make_csv_spec(str(csv_file), encoding="auto", encoding_detection=True)
+        loader_with_detect = CSVLoader(spec_with_detect)
+        resolved2 = loader_with_detect._resolve_encoding()
+        assert resolved2 != "auto", f'"auto" 不应原样返回(检测模式),实际: {resolved2}'
+
+    def test_load_with_auto_encoding_succeeds(self, tmp_path):
+        """回归 #1 端到端:encoding="auto" 时 load() 应成功返回 DataFrame,
+        而非抛 DataLoadError("unknown encoding: auto")。"""
+        csv_file = tmp_path / "test.csv"
+        csv_file.write_text("a,b\n1,2\n3,4\n", encoding="utf-8")
+        spec = _make_csv_spec(str(csv_file), encoding="auto")
+        loader = CSVLoader(spec)
+        df = loader.load()  # 不应抛 DataLoadError
+        assert list(df.columns) == ["a", "b"]
+        assert len(df) == 2
+
     def test_validate_exists(self, tmp_path):
         csv_file = tmp_path / "test.csv"
         csv_file.write_text("a,b\n1,2\n", encoding="utf-8")
