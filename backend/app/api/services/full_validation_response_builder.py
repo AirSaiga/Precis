@@ -40,6 +40,10 @@ class FullValidationResponseBuilder:
     同时支持执行器初始化失败或执行异常时的降级响应构建。
     """
 
+    # 回归 #10: 单次响应返回的错误条目上限。超过此数时截断 errors 列表(保留真实总数),
+    # 防止百万级错误导致响应数百 MB、前端卡死。5000 条足以覆盖典型排查需求。
+    MAX_ERRORS = 5000
+
     def __init__(
         self,
         executor: ValidationExecutor | None,
@@ -264,8 +268,15 @@ class FullValidationResponseBuilder:
         self,
         result: dict[str, Any],
         errors: list[FullValidationErrorItem],
+        *,
+        total_error_count_real: int | None = None,
     ) -> FullValidationSummary:
-        """构造摘要统计。"""
+        """构造摘要统计。
+
+        参数:
+            total_error_count_real: 真实错误总数(截断前)。回归 #10: 当 errors 被截断时,
+                len(errors) < 真实总数,total_error_count 必须用真实值让用户了解问题规模。
+        """
         loading_error_count = len([e for e in errors if e.stage == "loading"])
         format_error_count = len([e for e in errors if e.stage == "format"])
         constraint_error_count = len([e for e in errors if e.stage == "constraint"])
@@ -277,6 +288,9 @@ class FullValidationResponseBuilder:
         if self.executor and self.executor.dataset_schema:
             files_total = len(self.executor.dataset_schema.tables)
 
+        # total_error_count 用真实总数(截断前),供用户了解问题规模与前端显示"X/Y 条"。
+        total_for_summary = total_error_count_real if total_error_count_real is not None else len(errors)
+
         return FullValidationSummary(
             files_total=files_total,
             files_loaded=files_loaded,
@@ -284,7 +298,7 @@ class FullValidationResponseBuilder:
             loading_error_count=loading_error_count,
             format_error_count=format_error_count,
             constraint_error_count=constraint_error_count,
-            total_error_count=len(errors),
+            total_error_count=total_for_summary,
             duration_ms=result.get("duration_ms", self._duration_ms()),
         )
 
@@ -301,11 +315,24 @@ class FullValidationResponseBuilder:
         errors = self._build_errors(result)
         id_to_name = self._build_id_to_name()
         passed_items = self._build_passed_items(result, id_to_name)
+
+        # 统计必须基于完整错误列表(by_type/by_table 聚合 + failed_count 检查项粒度),
+        # 在截断之前计算。
         statistics = self._build_statistics(errors, passed_items)
-        summary = self._build_summary(result, errors)
+
+        # 回归 #10: 错误列表截断保护。整列格式错/大规模约束违规时,百万级错误 dict 会让
+        # 响应数百 MB、前端卡死。这里在响应层截断 errors 到上限,但 total_error_count 保留
+        # 真实总数(供用户了解问题规模)、errors_truncated 标记供前端显示"显示 X/Y 条"。
+        total_error_count_real = len(errors)
+        truncated = total_error_count_real > self.MAX_ERRORS
+        if truncated:
+            errors = errors[: self.MAX_ERRORS]
+
+        summary = self._build_summary(result, errors, total_error_count_real=total_error_count_real)
+        summary.errors_truncated = truncated
 
         return FullValidationResponse(
-            success=(len(errors) == 0),
+            success=(total_error_count_real == 0),
             summary=summary,
             errors=errors,
             passed_items=passed_items,

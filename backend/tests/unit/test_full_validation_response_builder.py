@@ -365,6 +365,63 @@ class TestPassRateCheckGranularity:
             f"NotNull + Unique 两个不同检查应各记 1 项,实际 failed_count: {resp.statistics.failed_count}"
         )
 
+
+class TestErrorTruncation:
+    """回归 #10: 错误列表全链路必须有截断保护。
+
+    原实现约束逐行 errors.append → engine 全量聚合 → builder 全量序列化,无任何上限。
+    整列格式错(叠加 #2 假阳性)时百万级错误 dict → 后端内存翻倍、响应数百 MB、前端卡死。
+    应在响应层截断(如每响应 N 条),并保留真实总数 + truncated 标记,让前端显示"显示 X/Y 条"。
+    """
+
+    def _make_many_errors(self, n: int):
+        return [
+            {
+                "stage": "constraint",
+                "error_type": "NotNullViolation",
+                "check_type": "NotNull",
+                "message": f"空值 {i}",
+                "table": "users",
+                "row_index": i,
+            }
+            for i in range(n)
+        ]
+
+    def test_large_error_list_is_truncated(self):
+        """超过上限的错误列表应被截断,但仍保留真实总数与 truncated 标记。"""
+        executor = _make_executor({"users": _make_schema("users", "Users")})
+        result = _make_result(
+            raw_datasets={"users": {"source_file": "users.csv"}},
+            errors=self._make_many_errors(20000),
+        )
+        builder = FullValidationResponseBuilder(executor, started=time.monotonic())
+        resp = builder.build_from_result(result)
+
+        # 截断后的 errors 列表应远小于 20000
+        assert len(resp.errors) < 20000, f"20000 条错误应被截断,实际返回 {len(resp.errors)} 条"
+        # 真实总数仍应是 20000(让用户知道问题规模)
+        assert resp.summary.total_error_count == 20000, (
+            f"total_error_count 应保留真实总数 20000,实际: {resp.summary.total_error_count}"
+        )
+        # 必须有截断标记
+        assert resp.summary.errors_truncated is True
+
+    def test_small_error_list_not_truncated(self):
+        """未超上限的错误列表不应截断,truncated 标记为 False,总数与列表长度一致。"""
+        executor = _make_executor({"users": _make_schema("users", "Users")})
+        result = _make_result(
+            raw_datasets={"users": {"source_file": "users.csv"}},
+            errors=self._make_many_errors(5),
+        )
+        builder = FullValidationResponseBuilder(executor, started=time.monotonic())
+        resp = builder.build_from_result(result)
+
+        assert len(resp.errors) == 5
+        assert resp.summary.total_error_count == 5
+        assert resp.summary.errors_truncated is False
+
+
+class TestEdgeCases:
     def test_empty_result_has_zero_checks_and_full_pass_rate(self):
         executor = _make_executor()
         builder = FullValidationResponseBuilder(executor, started=time.monotonic())

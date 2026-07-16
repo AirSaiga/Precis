@@ -102,6 +102,9 @@ class TestCharsetValidatorChineseRanges:
         assert result.is_valid is True
 
     def test_unknown_mode(self):
+        """回归 D3: 未知 charset_mode 不应静默放行(原 test_unknown_mode 固化了 bug)。
+        未知 mode 应判为配置错误(is_valid=False),而非约束永远通过零提示。
+        """
         v = UnifiedValidationService.get_validator("charset")
         result = v.validate(pd.DataFrame({"name": ["abc"]}), "name", charset_mode="unknown")
-        assert result.is_valid is True
+        assert result.is_valid is False

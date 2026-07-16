@@ -353,6 +353,10 @@ class FullValidationSummary(BaseModel):
         ..., description="总错误数量"
     )  # 所有阶段错误数量的总和（loading + format + constraint）
     duration_ms: int = Field(..., description="总耗时（毫秒）")  # 从校验开始到完成的总耗时，单位为毫秒
+    errors_truncated: bool = Field(
+        default=False, description="错误列表是否被截断"
+    )  # 回归 #10: 当真实错误数超过响应上限时为 True,errors 只含截断后的子集,
+    # 但 total_error_count 保留真实总数,供前端显示"显示 X/Y 条"。
 
     @computed_field
     def error_count(self) -> int:

@@ -46,3 +46,54 @@ class TestValidationHistoryStore:
         with patch("builtins.open", side_effect=OSError("disk full")):
             # 不应抛出异常
             store._save()
+
+    def test_save_is_atomic_no_partial_overwrite(self, tmp_path):
+        """回归 C7: _save 必须原子写入(tmp + os.replace),不能直接覆写目标文件。
+
+        原实现直接以 "w" 打开目标文件写入,写一半(json.dump 中途)崩溃会留下截断损坏的
+        JSON,后续 _load 失败 → self._runs=[] → 下次保存永久清空全部历史。
+        要求:若写入中途失败,目标文件必须保持旧内容完整(原子替换语义)。
+        """
+        import json
+
+        store = ValidationHistoryStore(project_dir=str(tmp_path))
+        store.add_run(self._make_record())  # 旧内容:run_1
+        old_content = store._file_path.read_text(encoding="utf-8")
+
+        # 让 json.dump 在写入中途抛异常(模拟写一半崩溃)。直接 open("w") 会先清空文件,
+        # 此时若 dump 失败 → 文件被截断破坏;原子写(tmp+replace)则不受影响。
+        with patch("app.shared.services.validation.history.json.dump", side_effect=OSError("写一半崩溃")):
+            store._save()
+
+        # 关键:目标文件应保持完整的旧内容,未被部分写入破坏
+        current = store._file_path.read_text(encoding="utf-8")
+        assert current == old_content, "写入失败时目标文件应保持旧内容完整(原子写),实际被破坏/截断"
+        # 旧内容仍可正常解析
+        json.loads(current)
+
+    def test_corrupted_load_does_not_silently_wipe_existing(self, tmp_path):
+        """回归 C7: 损坏的 history 文件加载失败时,不应静默清空后用空列表覆写(否则下次
+        add_run 会永久丢失全部历史)。
+
+        要求:加载损坏文件时,内存列表为空(无法解析),但损坏文件应被备份(.corrupted)
+        保留现场,而非被静默删除/清空——便于用户手工恢复/排查。
+        """
+        hist_dir = tmp_path / ".precis"
+        hist_dir.mkdir()
+        hist_file = hist_dir / "validation_history.json"
+        corrupted_content = "{这是无效 JSON"
+        hist_file.write_text(corrupted_content, encoding="utf-8")
+
+        # 构造 store 不应抛异常
+        store = ValidationHistoryStore(project_dir=str(tmp_path))
+        assert store._runs == []  # 无法解析,内存为空
+
+        # 损坏内容应被备份保留(而非静默丢弃/清空)
+        backup_files = list(hist_dir.glob("*.corrupted"))
+        assert len(backup_files) == 1, f"损坏文件应备份为 .corrupted,实际: {backup_files}"
+        assert backup_files[0].read_text(encoding="utf-8") == corrupted_content, "备份应保留原始损坏内容"
+
+        # 后续 add_run 不会丢失:新内容写到正式文件,备份仍在
+        store.add_run(self._make_record())
+        assert hist_file.exists()
+        assert backup_files[0].exists(), "备份文件不应被后续保存删除"

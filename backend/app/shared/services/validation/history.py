@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import threading
 import time
 from dataclasses import asdict, dataclass, field
@@ -22,6 +23,11 @@ logger = logging.getLogger(__name__)
 
 HISTORY_FILENAME = "validation_history.json"
 MAX_HISTORY_ENTRIES = 200
+
+# 回归 C7: 进程级写锁。ValidationHistoryStore 每请求新建实例(load 全量→改→全量覆写),
+# 并发请求会产生 lost-update。用模块级锁串行化同进程内的 add_run/delete_run 写操作,
+# 避免互相覆盖(跨进程仍依赖文件锁,但本地单进程场景已足够)。
+_history_write_lock = threading.Lock()
 
 
 @dataclass
@@ -48,7 +54,12 @@ class ValidationHistoryStore:
         self._load()
 
     def _load(self) -> None:
-        """从磁盘加载历史记录"""
+        """从磁盘加载历史记录。
+
+        回归 C7: 文件损坏时不应静默清空后用空列表覆写(否则下次 add_run 永久丢失全部
+        历史)。这里把损坏文件重命名为 .corrupted 备份保留现场,内存置空但不破坏磁盘,
+        便于用户手工恢复/排查。
+        """
         if not self._file_path.exists():
             self._runs = []
             return
@@ -59,23 +70,49 @@ class ValidationHistoryStore:
         except Exception as e:
             logger.warning(f"[ValidationHistory] 加载历史文件失败: {e}")
             self._runs = []
+            # 把损坏文件备份为 .corrupted,避免下次保存静默清空现场(回归 C7)
+            try:
+                backup = self._file_path.with_suffix(self._file_path.suffix + ".corrupted")
+                self._file_path.rename(backup)
+                logger.warning(f"[ValidationHistory] 损坏的历史文件已备份至: {backup}")
+            except OSError:
+                # 重命名失败也不影响:构造阶段不写盘,损坏文件原样保留
+                pass
 
     def _save(self) -> None:
-        """将历史记录写入磁盘"""
+        """将历史记录写入磁盘(原子写:tmp + os.replace)。
+
+        回归 C7: 原实现直接以 "w" 打开目标文件,写一半崩溃/断电会留下截断损坏的 JSON,
+        下次 _load 失败 → 清空 → 永久丢失全部历史。原子写保证目标文件要么是完整旧内容、
+        要么是完整新内容,绝不出现部分写入。
+        """
         self._file_path.parent.mkdir(parents=True, exist_ok=True)
+        # 临时文件与目标同目录,保证 os.replace 是原子的(同文件系统)。
+        tmp_path = self._file_path.with_suffix(self._file_path.suffix + ".tmp")
         try:
-            with open(self._file_path, "w", encoding="utf-8") as f:
+            with open(tmp_path, "w", encoding="utf-8") as f:
                 json.dump({"runs": self._runs}, f, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, self._file_path)
         except Exception as e:
             logger.error(f"[ValidationHistory] 保存历史文件失败: {e}")
+            # 清理可能残留的临时文件,避免堆积
+            try:
+                tmp_path.unlink()
+            except OSError:
+                pass
 
     def add_run(self, record: ValidationRunRecord) -> str:
-        """添加一次校验记录，返回记录 ID"""
+        """添加一次校验记录，返回记录 ID。
+
+        回归 C7: 加进程级写锁,串行化同进程内并发请求的 load→insert→save,
+        避免互相覆盖(lost-update)。
+        """
         entry = asdict(record)
-        self._runs.insert(0, entry)
-        if len(self._runs) > MAX_HISTORY_ENTRIES:
-            self._runs = self._runs[:MAX_HISTORY_ENTRIES]
-        self._save()
+        with _history_write_lock:
+            self._runs.insert(0, entry)
+            if len(self._runs) > MAX_HISTORY_ENTRIES:
+                self._runs = self._runs[:MAX_HISTORY_ENTRIES]
+            self._save()
         return record.id
 
     def get_runs(self, limit: int = 20, offset: int = 0) -> dict[str, Any]:
@@ -92,13 +129,14 @@ class ValidationHistoryStore:
         return None
 
     def delete_run(self, run_id: str) -> bool:
-        """删除单次记录"""
-        original_len = len(self._runs)
-        self._runs = [r for r in self._runs if r.get("id") != run_id]
-        if len(self._runs) < original_len:
-            self._save()
-            return True
-        return False
+        """删除单次记录(回归 C7: 加写锁避免并发覆盖)。"""
+        with _history_write_lock:
+            original_len = len(self._runs)
+            self._runs = [r for r in self._runs if r.get("id") != run_id]
+            if len(self._runs) < original_len:
+                self._save()
+                return True
+            return False
 
     def get_stats(self, last_n: int = 10) -> dict[str, Any]:
         """获取聚合统计（最近 N 次的趋势数据）"""
