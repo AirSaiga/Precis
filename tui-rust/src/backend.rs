@@ -313,7 +313,8 @@ fn kill_process_tree(child: &mut Child) {
     // 先尝试用 PID 直接 kill 整组
     #[cfg(unix)]
     {
-        if let Some(pid) = child.id().try_into().ok() {
+        // child.id() 是 u32，libc kill 需要 i32；显式标注避免类型推断歧义
+        if let Ok(pid) = i32::try_from(child.id()) {
             // 向进程组发送 SIGTERM（负数 PID 表示进程组）
             unsafe {
                 libc_kill(-pid, 15); // SIGTERM

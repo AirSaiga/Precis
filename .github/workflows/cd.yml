@@ -145,16 +145,41 @@ jobs:
       - name: Copy backend source (Windows)
         if: matrix.platform == 'windows-x64'
         shell: pwsh
-        # robocopy 是 Windows 必装工具；/XD /XF 按名字匹配（含子目录）。
-        # exit 0-7 均为成功（1=有文件拷贝，0=无变化），>=8 才是失败。
+        # 用 PowerShell 原生 Copy-Item 递归拷贝，带排除过滤。
+        # 避开 robocopy 的 exit code 陷阱（其成功码 1 会被 pwsh 当失败）。
         run: |
           $src = "backend"
           $dst = "staging/precis-cli/backend"
+          $excludeDirs = @('__pycache__','.mypy_cache','.pytest_cache','.ruff_cache','build','dist','tests','.git')
+          $excludeFiles = @('.coverage','.gitignore')
           New-Item -ItemType Directory -Path $dst -Force | Out-Null
-          $result = & robocopy $src $dst /E /NFL /NDL /NJH /NJS `
-            /XD __pycache__ .mypy_cache .pytest_cache .ruff_cache build dist tests .git `
-            /XF .coverage .gitignore *.log
-          if ($LASTEXITCODE -ge 8) { Write-Error "robocopy failed (exit $LASTEXITCODE)"; exit 1 }
+          Get-ChildItem -Path $src -Recurse -Force |
+            Where-Object {
+              $rel = $_.FullName.Substring((Resolve-Path $src).Path.Length).TrimStart('\','/')
+              $parts = $rel -split '[\\/]'
+              # 排除：任一路径段命中排除目录、或文件名/扩展名命中排除规则
+              $hitDir = $false
+              foreach ($p in $parts) { if ($excludeDirs -contains $p) { $hitDir = $true; break } }
+              if ($hitDir) { return $false }
+              if (-not $_.PSIsContainer) {
+                if ($excludeFiles -contains $_.Name) { return $false }
+                if ($_.Extension -eq '.log') { return $false }
+                if ($_.Name -match '\.egg-info$') { return $false }
+              }
+              return $true
+            } |
+            ForEach-Object {
+              $rel = $_.FullName.Substring((Resolve-Path $src).Path.Length).TrimStart('\','/')
+              $target = Join-Path $dst $rel
+              if ($_.PSIsContainer) {
+                New-Item -ItemType Directory -Path $target -Force | Out-Null
+              } else {
+                $parent = Split-Path $target -Parent
+                if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+                Copy-Item $_.FullName $target -Force
+              }
+            }
+          Write-Host "backend source copied to $dst"
 
       - name: Copy backend source (macOS)
         if: matrix.platform == 'macos-arm64'
@@ -329,14 +354,40 @@ jobs:
       - name: Copy backend source (Windows)
         if: matrix.platform == 'windows-x64'
         shell: pwsh
+        # 用 PowerShell 原生 Copy-Item 递归拷贝，带排除过滤。
+        # 避开 robocopy 的 exit code 陷阱（其成功码 1 会被 pwsh 当失败）。
         run: |
           $src = "backend"
           $dst = "staging/precis-tui/backend"
+          $excludeDirs = @('__pycache__','.mypy_cache','.pytest_cache','.ruff_cache','build','dist','tests','.git')
+          $excludeFiles = @('.coverage','.gitignore')
           New-Item -ItemType Directory -Path $dst -Force | Out-Null
-          $result = & robocopy $src $dst /E /NFL /NDL /NJH /NJS `
-            /XD __pycache__ .mypy_cache .pytest_cache .ruff_cache build dist tests .git `
-            /XF .coverage .gitignore *.log
-          if ($LASTEXITCODE -ge 8) { Write-Error "robocopy failed (exit $LASTEXITCODE)"; exit 1 }
+          Get-ChildItem -Path $src -Recurse -Force |
+            Where-Object {
+              $rel = $_.FullName.Substring((Resolve-Path $src).Path.Length).TrimStart('\','/')
+              $parts = $rel -split '[\\/]'
+              $hitDir = $false
+              foreach ($p in $parts) { if ($excludeDirs -contains $p) { $hitDir = $true; break } }
+              if ($hitDir) { return $false }
+              if (-not $_.PSIsContainer) {
+                if ($excludeFiles -contains $_.Name) { return $false }
+                if ($_.Extension -eq '.log') { return $false }
+                if ($_.Name -match '\.egg-info$') { return $false }
+              }
+              return $true
+            } |
+            ForEach-Object {
+              $rel = $_.FullName.Substring((Resolve-Path $src).Path.Length).TrimStart('\','/')
+              $target = Join-Path $dst $rel
+              if ($_.PSIsContainer) {
+                New-Item -ItemType Directory -Path $target -Force | Out-Null
+              } else {
+                $parent = Split-Path $target -Parent
+                if (-not (Test-Path $parent)) { New-Item -ItemType Directory -Path $parent -Force | Out-Null }
+                Copy-Item $_.FullName $target -Force
+              }
+            }
+          Write-Host "backend source copied to $dst"
 
       - name: Copy backend source (macOS)
         if: matrix.platform == 'macos-arm64'
