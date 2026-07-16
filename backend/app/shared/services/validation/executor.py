@@ -642,12 +642,12 @@ class ValidationExecutor:
 
         # 追加项目加载阶段的错误
         if self.loaded_project.loading_errors:
-            for err in self.loaded_project.loading_errors:
-                result["loading_errors"].append(err.to_dict())
+            for proj_err in self.loaded_project.loading_errors:
+                result["loading_errors"].append(proj_err.to_dict())
         # 回归 #5: 追加分块加载阶段单表级别的错误(源找不到/加载异常),否则损坏表静默消失、
         # 报告显示"全部通过"。这与标准模式 data_loader 返回 loading_errors 的语义对齐。
-        for err in chunked_loading_errors:
-            result["loading_errors"].append(err)
+        for chunk_err in chunked_loading_errors:
+            result["loading_errors"].append(chunk_err)
         result["warnings"] = self.loaded_project.warnings
 
         if not chunked_datasets:
@@ -820,8 +820,8 @@ class ValidationExecutor:
         )
         result["parsed_datasets"] = merged_parsed
         # 回归 #6: 分块路径的 DAG 失败同样需上报(与标准路径 engine 行为一致)。
-        for err in dag_errors:
-            result["errors"].append({"stage": "loading", **err})
+        for dag_err in dag_errors:
+            result["errors"].append({"stage": "loading", **dag_err})
 
         # 【全量约束校验】对 concat（+DAG）后的全量 parsed 执行阶段二约束校验，
         # 修复跨表 ForeignKey（不再缺目标表）与跨块 Unique（整列去重）的正确性。
