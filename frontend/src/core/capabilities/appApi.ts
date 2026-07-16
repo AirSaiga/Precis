@@ -86,8 +86,9 @@ function parsePortFromBaseURL(): number {
   if (match && match[1]) {
     return parseInt(match[1], 10)
   }
-  // 回退到环境变量或默认值
-  return parseInt((import.meta.env.VITE_BACKEND_PORT as string) || '18000', 10)
+  // 解析不出端口时(如 DEV 模式相对路径 baseURL 为空)返回 0 表示未知,
+  // 调用方应通过 appApi.getBackendPort() 从 Electron IPC 获取实际端口
+  return 0
 }
 
 /**

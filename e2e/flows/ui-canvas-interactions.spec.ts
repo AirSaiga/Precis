@@ -7,11 +7,13 @@
  * 3. 点击项目根节点“全量校验”按钮，验证校验结果面板渲染
  * 4. 保存项目后刷新，验证 project.view.json 中记录了节点位置
  *
- * 注意：本测试需要后端服务运行在 http://localhost:18000；
- * 当前环境若后端未启动，测试会在启动阶段失败，但测试文件本身应保持语法正确。
+ * 注意：本测试需要后端服务运行（地址由 config.ts 的 BACKEND_URL 决定，
+ * CI 中固定为 localhost:18000）；当前环境若后端未启动，测试会在启动阶段失败，
+ * 但测试文件本身应保持语法正确。
  */
 
 import { test, expect } from '../fixtures/base'
+import { BACKEND_URL } from '../config'
 import * as fs from 'fs'
 import * as path from 'path'
 
@@ -346,7 +348,7 @@ test.describe('画布真实 UI 交互', () => {
     // 会触发 PreValidator BLOCKER 导致整次保存中止（连 view.json 也不会写入），
     // 这是当前真实的校验行为。本测试聚焦“视图位置持久化”这一独立能力，
     // 因此直接调用 PUT /project/view 写入位置，再读取验证。
-    const BACKEND = 'http://localhost:18000'
+    const BACKEND = BACKEND_URL
     const savedX = 300
     const savedY = 420
     const viewPayload = {

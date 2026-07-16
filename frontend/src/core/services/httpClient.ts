@@ -15,9 +15,11 @@
  * - 请求拦截: 在每个请求中注入项目上下文
  *
  * 环境适配策略:
- * 1. 开发环境 (import.meta.env.DEV): 使用 localhost:18000
- * 2. Electron 桌面环境: 默认 127.0.0.1:18000，启动后由 appApi.initializeApiClient 更新为实际端口
- * 3. 其他生产环境: 回退到 127.0.0.1:18000
+ * 1. 开发环境 (import.meta.env.DEV): 使用相对路径(''),由 Vite 代理(dynamic-backend-proxy)
+ *    转发到后端动态端口(后端 --port 0,实际端口写入 backend/.backend-port,Vite 代理自动读取)
+ * 2. Electron 桌面环境: 默认相对路径,启动后由 appApi.initializeApiClient 从主进程
+ *    获取实际端口并更新为 http://127.0.0.1:<动态端口>
+ * 3. 其他生产环境: 回退到相对路径(由反向代理/部署环境转发)
  */
 
 import { logger } from '@/core/utils/logger'
@@ -25,12 +27,6 @@ import { normalizeConfigDir } from '@/core/utils/pathNormalization'
 import axios, { isAxiosError, type AxiosInstance, type AxiosError } from 'axios'
 
 export { isAxiosError }
-
-/**
- * 默认后端端口
- * 可通过环境变量 VITE_BACKEND_PORT 覆盖
- */
-const DEFAULT_BACKEND_PORT = import.meta.env.VITE_BACKEND_PORT || '18000'
 
 /**
  * 当前使用的 API 基础地址
@@ -45,30 +41,24 @@ let currentApiBaseUrl: string = ''
  * 根据当前的运行环境，智能选择合适的后端 API 地址
  *
  * [环境判断逻辑]
- * 1. 开发环境 (Vite): 使用 localhost:{VITE_BACKEND_PORT}，便于热重载调试
- * 2. 其他情况: 默认使用 127.0.0.1:{VITE_BACKEND_PORT}
- *    - Electron 实际端口会在应用启动后由 appApi.initializeApiClient 更新
- *    - 为什么不用 localhost?
- *    - 某些系统配置下 localhost 解析可能有问题
- *    - 127.0.0.1 是更底层的 IP 地址，更可靠
+ * 1. 开发环境 (Vite): 返回空字符串(相对路径),由 Vite 代理转发到后端动态端口
+ *    (后端端口由 OS 动态分配,Vite 的 dynamic-backend-proxy 插件读取 .backend-port 自动发现)
+ * 2. 其他情况: 同样返回空字符串作为默认值
+ *    - Electron 环境下,appApi.initializeApiClient 会从主进程获取实际端口并调
+ *      updateApiBaseUrl() 更新为 http://127.0.0.1:<动态端口>
+ *    - 其他生产环境由反向代理/部署环境转发相对路径请求
  *
- * @returns {string} API 服务器的基础地址
+ * @returns {string} API 服务器的基础地址(DEV/默认为空=走相对路径代理)
  */
 const getBaseURL = (): string => {
-  // 如果已经设置了动态地址，直接返回
+  // 如果已经设置了动态地址(Electron 启动后注入),直接返回
   if (currentApiBaseUrl) {
     return currentApiBaseUrl
   }
 
-  // 开发环境：Vite 开发服务器
-  // [Vite] import.meta.env.DEV 是 Vite 注入的环境变量
-  if (import.meta.env.DEV) {
-    return `http://localhost:${DEFAULT_BACKEND_PORT}`
-  }
-
-  // 其他情况：默认使用 127.0.0.1
-  // Electron 环境下实际端口会在应用启动后通过 appApi.initializeApiClient 更新
-  return `http://127.0.0.1:${DEFAULT_BACKEND_PORT}`
+  // 默认返回空字符串:axios baseURL 为空时请求走相对路径(如 /api/latest/...),
+  // DEV 模式由 Vite 代理转发到后端动态端口,生产/Electron 由部署环境或 updateApiBaseUrl 处理
+  return ''
 }
 
 /**
@@ -97,15 +87,15 @@ export const updateApiBaseUrl = (port: number): void => {
  * @returns Promise<string> - 实际使用的 API 基础地址
  */
 export const initApiBaseUrl = async (): Promise<string> => {
-  // 开发环境直接使用默认地址
+  // DEV 模式:使用空字符串(相对路径),由 Vite 代理转发到后端动态端口
   if (import.meta.env.DEV) {
-    currentApiBaseUrl = `http://localhost:${DEFAULT_BACKEND_PORT}`
+    currentApiBaseUrl = ''
     return currentApiBaseUrl
   }
 
   // Electron 动态端口获取已迁移到 appApi.initializeApiClient
-  // 此处仅做默认回退
-  currentApiBaseUrl = `http://127.0.0.1:${DEFAULT_BACKEND_PORT}`
+  // 此处默认同样返回空字符串,Electron 启动后会通过 updateApiBaseUrl 更新
+  currentApiBaseUrl = ''
   return currentApiBaseUrl
 }
 

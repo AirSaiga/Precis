@@ -113,10 +113,11 @@ describe('httpClient 请求拦截器', () => {
 })
 
 describe('httpClient 基础 URL 管理', () => {
-  it('getApiBaseUrl 返回非空字符串', () => {
+  it('getApiBaseUrl 默认返回字符串(DEV 模式为空,走 Vite 代理)', () => {
     const url = getApiBaseUrl()
     expect(typeof url).toBe('string')
-    expect(url.length).toBeGreaterThan(0)
+    // DEV 模式下返回空字符串(相对路径),由 Vite 代理转发到后端动态端口
+    expect(url).toBe('')
   })
 
   it('updateApiBaseUrl 更新端口后 getApiBaseUrl 返回新地址', () => {
@@ -125,11 +126,11 @@ describe('httpClient 基础 URL 管理', () => {
     expect(url).toContain('19999')
   })
 
-  it('initApiBaseUrl 在开发环境下返回 localhost 地址', async () => {
+  it('initApiBaseUrl 在开发环境下返回空字符串(走 Vite 代理)', async () => {
     // 默认环境变量下 import.meta.env.DEV 为 true
     const url = await initApiBaseUrl()
-    // 开发环境使用 localhost
-    expect(url).toMatch(/^http:\/\/localhost:\d+$/)
+    // DEV 模式返回空字符串,由 Vite 代理转发到后端动态端口
+    expect(url).toBe('')
   })
 
   it('Electron 环境下 getServerStatus 成功时应更新 baseURL', async () => {

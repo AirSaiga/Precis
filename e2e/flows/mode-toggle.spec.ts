@@ -8,7 +8,7 @@
  * 4. 切换后画布节点数据保留（graphStore 单例跨重建）
  * 5. AI 状态条（AgentStatusBar）在两种模式下都通过 AppStatusBar 共享渲染
  *
- * 注意：本测试需要后端服务运行在 http://localhost:18000；
+ * 注意：本测试需要后端服务运行（地址由 config.ts 的 BACKEND_URL 决定）；
  * 后端未启动时自动 skip（而非失败）。
  */
 
