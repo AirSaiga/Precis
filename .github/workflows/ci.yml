@@ -215,6 +215,10 @@ jobs:
         run: |
           cd ../backend
           python -m uvicorn app.api.main:app --host 0.0.0.0 --port 18000 &
+          # 写入 .backend-port，供 Vite 代理（dynamic-backend-proxy）发现后端端口。
+          # e2e 直接用 uvicorn 启动（不走 start_server.py，后者才会自动写端口文件），
+          # 不写此文件会导致前端 dev server 代理返回 502，UI 测试无法访问后端。
+          echo 18000 > ../backend/.backend-port
           for i in $(seq 1 30); do
             if curl -sf http://localhost:18000/health > /dev/null 2>&1; then
               echo "Backend is ready"
