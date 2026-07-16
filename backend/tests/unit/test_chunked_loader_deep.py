@@ -168,7 +168,7 @@ class TestLoadChunkedSources:
         dataset_schema.tables = {}
 
         loader = self._make_loader(resolver, dataset_schema, {})
-        result = loader.load_chunked_sources(str(tmp_path / "nonexistent"))
+        result, _loading_errors = loader.load_chunked_sources(str(tmp_path / "nonexistent"))
         assert result == {}
 
     def test_no_schema_file_skipped(self, tmp_path):
@@ -185,7 +185,7 @@ class TestLoadChunkedSources:
         dataset_schema.tables = {"users": table_schema}
 
         loader = self._make_loader(resolver, dataset_schema, {})
-        result = loader.load_chunked_sources(str(data_dir))
+        result, _loading_errors = loader.load_chunked_sources(str(data_dir))
         assert result == {}
 
     def test_no_source_path_skipped(self, tmp_path):
@@ -204,7 +204,7 @@ class TestLoadChunkedSources:
 
         schema_file = MagicMock()
         loader = self._make_loader(resolver, dataset_schema, {"users": schema_file})
-        result = loader.load_chunked_sources(str(data_dir))
+        result, _loading_errors = loader.load_chunked_sources(str(data_dir))
         assert result == {}
 
     def test_small_file_full_load(self, tmp_path):
@@ -226,7 +226,7 @@ class TestLoadChunkedSources:
         monitor = MemoryMonitor(chunk_threshold_mb=1000)  # Never chunk
 
         loader = self._make_loader(resolver, dataset_schema, {"users": schema_file}, monitor)
-        result = loader.load_chunked_sources(str(csv_file.parent))
+        result, _loading_errors = loader.load_chunked_sources(str(csv_file.parent))
         assert "users" in result
         assert len(result["users"]) == 1
 
@@ -252,7 +252,7 @@ class TestLoadChunkedSources:
         monitor = MemoryMonitor(chunk_threshold_mb=0.0001, chunk_rows=100)  # Always chunk
 
         loader = self._make_loader(resolver, dataset_schema, {"users": schema_file}, monitor)
-        result = loader.load_chunked_sources(str(csv_file.parent))
+        result, _loading_errors = loader.load_chunked_sources(str(csv_file.parent))
         assert "users" in result
         assert len(result["users"]) == 3
 
@@ -272,7 +272,7 @@ class TestLoadChunkedSources:
         dataset_schema.tables = {"users": t1, "orders": t2}
 
         loader = self._make_loader(resolver, dataset_schema, {})
-        result = loader.load_chunked_sources(str(data_dir), table_filter="users")
+        result, _loading_errors = loader.load_chunked_sources(str(data_dir), table_filter="users")
         # No source path found for either, so result is empty
         assert result == {}
 
@@ -304,7 +304,7 @@ class TestLoadChunkedSources:
         # Mock _load_dataframe_chunked to raise
         loader._load_dataframe_chunked = MagicMock(side_effect=Exception("chunk error"))
 
-        result = loader.load_chunked_sources(str(csv_file.parent))
+        result, _loading_errors = loader.load_chunked_sources(str(csv_file.parent))
         # Should fall back to full load
         assert "users" in result
 
@@ -327,3 +327,103 @@ class TestLoadChunkedSources:
         loader.load_chunked_sources(str(data_dir), table_filter="users")
         # List filter
         loader.load_chunked_sources(str(data_dir), table_filter=["users"])
+
+    def test_returns_loading_errors_tuple(self, tmp_path):
+        """回归 #5: load_chunked_sources 应返回 (datasets, loading_errors) 元组,
+        使调用方(executor)能感知单表加载失败,而非让该表静默消失。
+
+        原实现只返回 datasets 字典,所有错误(源找不到/加载异常/全量回退也失败)仅
+        logger 后吞掉,executor 无从感知 → 某表损坏时该表完全不校验、报告无任何提示,
+        用户拿到"全部通过"的假报告。
+        """
+        data_dir = tmp_path / "data"
+        data_dir.mkdir()
+
+        resolver = MagicMock()
+        resolver.resolve_first_data_source.return_value = str(data_dir)
+        # 该表的数据源找不到
+        resolver.resolve_source_path.return_value = (None, None)
+
+        t1 = MagicMock()
+        t1.name = "broken_table"
+        dataset_schema = MagicMock()
+        dataset_schema.tables = {"broken_table": t1}
+
+        schema_file = MagicMock()
+        loader = self._make_loader(resolver, dataset_schema, {"broken_table": schema_file})
+
+        result = loader.load_chunked_sources(str(data_dir))
+        # 必须是 (datasets, loading_errors) 二元组
+        assert isinstance(result, tuple) and len(result) == 2
+        datasets, loading_errors = result
+        assert datasets == {}, "找不到数据源的表不应进 datasets"
+        assert len(loading_errors) >= 1, f"应上报加载错误,实际: {loading_errors}"
+        err = loading_errors[0]
+        assert err.get("error_type") == "SourceNotFound"
+        assert "broken_table" in str(err.get("message", "")) or err.get("table") == "broken_table"
+
+    def test_load_exception_surfaces_as_loading_error(self, tmp_path):
+        """回归 #5: 小文件加载抛异常时,应作为 loading_errors 返回,而非静默吞掉。"""
+        csv_file = tmp_path / "data" / "users.csv"
+        csv_file.parent.mkdir()
+        csv_file.write_text("id,name\n1,alice\n", encoding="utf-8")
+
+        resolver = MagicMock()
+        resolver.resolve_first_data_source.return_value = str(csv_file.parent)
+        resolver.resolve_source_path.return_value = (str(csv_file), None)
+
+        t1 = MagicMock()
+        t1.name = "users"
+        dataset_schema = MagicMock()
+        dataset_schema.tables = {"users": t1}
+
+        loader = self._make_loader(resolver, dataset_schema, {"users": MagicMock()})
+
+        # 让全量加载(load_grouped_sources)抛异常。load_grouped_sources 在方法内局部导入,
+        # 所以 patch 其真实定义模块。
+        with patch(
+            "app.shared.core.data_source.loader.load_grouped_sources",
+            side_effect=Exception("boom"),
+        ):
+            datasets, loading_errors = loader.load_chunked_sources(str(csv_file.parent))
+
+        assert datasets == {}, "加载失败的表不应进 datasets"
+        assert len(loading_errors) >= 1, f"应上报加载异常,实际: {loading_errors}"
+        assert loading_errors[0].get("table") == "users"
+
+    def test_chunked_and_full_both_fail_surfaces_error(self, tmp_path):
+        """回归 #5: 分块加载失败且全量回退也失败时,应上报错误而非静默 continue。"""
+        csv_file = tmp_path / "data" / "users.csv"
+        csv_file.parent.mkdir()
+        csv_file.write_text("id,name\n1,alice\n", encoding="utf-8")
+
+        resolver = MagicMock()
+        resolver.resolve_first_data_source.return_value = str(csv_file.parent)
+        resolver.resolve_source_path.return_value = (str(csv_file), None)
+
+        t1 = MagicMock()
+        t1.name = "users"
+        t1.header_row = 0
+        t1.source_config = {"delimiter": ","}
+        dataset_schema = MagicMock()
+        dataset_schema.tables = {"users": t1}
+
+        monitor = MagicMock()
+        monitor.should_chunk.return_value = True
+        monitor.chunk_rows = 100
+        monitor.take_snapshot.return_value = None
+
+        loader = self._make_loader(resolver, dataset_schema, {"users": MagicMock()}, monitor)
+        # 分块加载本身抛异常
+        loader._load_dataframe_chunked = MagicMock(side_effect=Exception("chunk boom"))
+
+        # 全量回退也失败
+        with patch(
+            "app.shared.core.data_source.loader.load_grouped_sources",
+            side_effect=Exception("full boom"),
+        ):
+            datasets, loading_errors = loader.load_chunked_sources(str(csv_file.parent))
+
+        assert datasets == {}
+        assert len(loading_errors) >= 1, f"分块+全量都失败应上报,实际: {loading_errors}"
+        assert loading_errors[0].get("table") == "users"

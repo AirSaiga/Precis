@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 def execute_transform_dag(
     dag: ExecutionDAG,
     parsed_datasets: dict[str, pd.DataFrame],
-) -> dict[str, pd.DataFrame]:
+) -> tuple[dict[str, pd.DataFrame], list[dict]]:
     """@methoddesc 执行 Transform DAG
 
     参数:
@@ -39,12 +39,18 @@ def execute_transform_dag(
         parsed_datasets: 已解析的 DataFrame 字典（键为 schema 表 ID）
 
     返回:
-        更新后的 parsed_datasets（包含 transform 产生的新列）
+        二元组 (parsed_datasets, dag_errors):
+        - parsed_datasets: 更新后的 DataFrame 字典（包含 transform 产生的新列）
+        - dag_errors: 节点执行失败产生的错误列表（含节点 ID、类型、原因）。
+          回归 #6: 原实现 transform/regex 节点执行异常仅 logger.exception 后把未转换的
+          输入复制为输出继续,execute_transform_dag 无错误返回通道,engine 无从感知 →
+          下游约束在未转换数据上"假通过"。现在把失败上报给调用方。
     """
     if not dag.nodes:
-        return parsed_datasets
+        return parsed_datasets, []
 
     order = topological_sort(dag)
+    dag_errors: list[dict] = []
 
     # 使用单一数据源：node_outputs 既是下游输入也是最终结果
     # schema 节点直接引用 parsed_datasets 中的 DataFrame（延迟 copy，按需隔离）
@@ -108,6 +114,14 @@ def execute_transform_dag(
             except Exception as e:
                 logger.exception(f"Transform '{node_id}' 执行失败: {e}")
                 node_outputs[node_id] = input_df.copy()
+                dag_errors.append(
+                    {
+                        "error_type": "TransformExecutionError",
+                        "node_id": node_id,
+                        "node_type": "transform",
+                        "message": f"Transform '{node_id}' 执行失败: {e}",
+                    }
+                )
 
         elif node.node_type == "regex":
             rfile: RegexNodeFile = node.data
@@ -169,10 +183,18 @@ def execute_transform_dag(
             except Exception as e:
                 logger.exception(f"Regex '{node_id}' 执行失败: {e}")
                 node_outputs[node_id] = input_df.copy()
+                dag_errors.append(
+                    {
+                        "error_type": "RegexExecutionError",
+                        "node_id": node_id,
+                        "node_type": "regex",
+                        "message": f"Regex '{node_id}' 执行失败: {e}",
+                    }
+                )
 
     # 最终：将 node_outputs 中 schema 节点的结果写回 parsed_datasets
     for sid in parsed_datasets:
         if sid in node_outputs:
             parsed_datasets[sid] = node_outputs[sid]
 
-    return parsed_datasets
+    return parsed_datasets, dag_errors

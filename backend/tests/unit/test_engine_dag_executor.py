@@ -232,7 +232,7 @@ class TestExecuteTransformDAG:
         """空 DAG 应直接返回原始数据。"""
         dag = ExecutionDAG()
         datasets = {"users": pd.DataFrame({"id": [1]})}
-        result = execute_transform_dag(dag, datasets)
+        result, _dag_errors = execute_transform_dag(dag, datasets)
         assert "users" in result
         assert len(result["users"]) == 1
 
@@ -241,7 +241,7 @@ class TestExecuteTransformDAG:
         dag = ExecutionDAG()
         dag.nodes["users"] = DAGNode(id="users", node_type="schema")
         datasets = {"users": pd.DataFrame({"id": [1]})}
-        result = execute_transform_dag(dag, datasets)
+        result, _dag_errors = execute_transform_dag(dag, datasets)
         assert "users" in result
 
     def test_disabled_transform_skipped(self):
@@ -255,7 +255,7 @@ class TestExecuteTransformDAG:
             data=TransformFile(id="t1", type="MathExpr", enabled=False),
         )
         datasets = {"users": pd.DataFrame({"id": [1]})}
-        result = execute_transform_dag(dag, datasets)
+        result, _dag_errors = execute_transform_dag(dag, datasets)
         assert "users" in result
 
     def test_transform_missing_input_skipped(self):
@@ -267,7 +267,7 @@ class TestExecuteTransformDAG:
             data=TransformFile(id="t1", type="MathExpr", enabled=True, input_from_node="nonexistent"),
         )
         datasets = {}
-        result = execute_transform_dag(dag, datasets)
+        result, _dag_errors = execute_transform_dag(dag, datasets)
         # Should not crash
         assert isinstance(result, dict)
 
@@ -290,7 +290,7 @@ class TestExecuteTransformDAG:
             ),
         )
         datasets = {"users": pd.DataFrame({"id": [1]})}
-        result = execute_transform_dag(dag, datasets)
+        result, _dag_errors = execute_transform_dag(dag, datasets)
         assert "users" in result
 
     def test_regex_node_disabled_skipped(self):
@@ -304,7 +304,7 @@ class TestExecuteTransformDAG:
             data=RegexNodeFile(id="r1", name="test", pattern=r"\d+", match_mode="extract", enabled=False),
         )
         datasets = {"users": pd.DataFrame({"id": [1]})}
-        result = execute_transform_dag(dag, datasets)
+        result, _dag_errors = execute_transform_dag(dag, datasets)
         assert isinstance(result, dict)
 
     def test_regex_node_no_input_skipped(self):
@@ -325,7 +325,7 @@ class TestExecuteTransformDAG:
             ),
         )
         datasets = {}
-        result = execute_transform_dag(dag, datasets)
+        result, _dag_errors = execute_transform_dag(dag, datasets)
         assert isinstance(result, dict)
 
     def test_regex_node_no_pattern_skipped(self):
@@ -349,5 +349,50 @@ class TestExecuteTransformDAG:
             ),
         )
         datasets = {"users": pd.DataFrame({"phone": ["1234567890"]})}
-        result = execute_transform_dag(dag, datasets)
+        result, _dag_errors = execute_transform_dag(dag, datasets)
         assert isinstance(result, dict)
+
+
+class TestDagFailurePropagation:
+    """回归 #6: DAG 节点失败应一路上报到校验报告,而非静默降级导致"假通过"。"""
+
+    def test_validate_full_dataset_surfaces_transform_failure(self):
+        """transform 执行抛异常时,错误应出现在 validate_full_dataset 的 all_errors 中
+        (stage=loading),而非被吞掉让下游约束在未转换数据上假通过。
+        """
+        from unittest.mock import patch
+
+        raw = {"users": pd.DataFrame({"id": [1, 2]})}
+        schema = DataSetSchema(
+            tables={
+                "users": TableSchema(
+                    id="users",
+                    name="users",
+                    columns=[ColumnSchema(name="id", data_type=IntegerType())],
+                )
+            },
+            constraints=[],
+        )
+        transform_files = {
+            "t1": TransformFile(
+                id="t1",
+                type="StringSplit",
+                input_from_node="users",
+                input_column="id",
+                params={"delimiter": ","},
+                output_columns=["out"],
+            )
+        }
+
+        class _BoomRunner:
+            def execute(self, *args, **kwargs):
+                raise RuntimeError("transform boom")
+
+        with patch("app.shared.services.validation.dag.executor.create_runner", return_value=_BoomRunner()):
+            parsed, errors, details = validate_full_dataset(raw, schema, transform_files=transform_files)
+
+        # DAG 失败应出现在 errors 中
+        dag_errs = [e for e in errors if e.get("node_id") == "t1" or "transform" in str(e.get("message", "")).lower()]
+        assert len(dag_errs) >= 1, f"transform 失败应上报到 errors,实际 errors: {errors}"
+        assert dag_errs[0].get("stage") == "loading"
+        assert "t1" in str(dag_errs[0])

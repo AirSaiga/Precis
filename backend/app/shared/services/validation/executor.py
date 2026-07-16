@@ -630,7 +630,9 @@ class ValidationExecutor:
 
         # 分块加载数据源
         try:
-            chunked_datasets = chunked_loader.load_chunked_sources(data_directory, table_filter=options.table_filter)
+            chunked_datasets, chunked_loading_errors = chunked_loader.load_chunked_sources(
+                data_directory, table_filter=options.table_filter
+            )
         except Exception as e:
             logger.exception(f"分块加载失败: {e}")
             result["errors"].append({"error_type": "ChunkedLoadError", "message": f"分块加载失败: {e}"})
@@ -642,6 +644,10 @@ class ValidationExecutor:
         if self.loaded_project.loading_errors:
             for err in self.loaded_project.loading_errors:
                 result["loading_errors"].append(err.to_dict())
+        # 回归 #5: 追加分块加载阶段单表级别的错误(源找不到/加载异常),否则损坏表静默消失、
+        # 报告显示"全部通过"。这与标准模式 data_loader 返回 loading_errors 的语义对齐。
+        for err in chunked_loading_errors:
+            result["loading_errors"].append(err)
         result["warnings"] = self.loaded_project.warnings
 
         if not chunked_datasets:
@@ -807,12 +813,15 @@ class ValidationExecutor:
         # 【全量 Transform DAG】行变 transform（FilterRows/DropDuplicates/Aggregate）在
         # 分块下逐块执行会导致结果与全量不一致，故 DAG 移到 concat 后统一执行。
         # 必须在约束校验之前，因约束可能依赖 transform 产生的派生列。
-        merged_parsed = execute_dag_if_needed(
+        merged_parsed, dag_errors = execute_dag_if_needed(
             merged_parsed,
             transform_files=getattr(self.loaded_project, "transform_files", None) if self.loaded_project else None,
             regex_files=getattr(self.loaded_project, "regex_node_files", None) if self.loaded_project else None,
         )
         result["parsed_datasets"] = merged_parsed
+        # 回归 #6: 分块路径的 DAG 失败同样需上报(与标准路径 engine 行为一致)。
+        for err in dag_errors:
+            result["errors"].append({"stage": "loading", **err})
 
         # 【全量约束校验】对 concat（+DAG）后的全量 parsed 执行阶段二约束校验，
         # 修复跨表 ForeignKey（不再缺目标表）与跨块 Unique（整列去重）的正确性。

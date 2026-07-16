@@ -221,11 +221,101 @@ class TestBuildError:
         assert resp.errors == []
         assert resp.passed_items == []
         assert resp.statistics.total_checks == 0
-        assert resp.statistics.pass_rate == 100.0
+        # 回归 #9: 执行失败(success=False)时不应报告 100% 通过率——否则前端会把
+        # 崩溃的运行以"满分通过"存入历史趋势,污染纵向对比。失败运行 pass_rate 应为 0.0。
+        assert resp.statistics.pass_rate == 0.0, (
+            f"执行失败的降级响应 pass_rate 应为 0.0,实际: {resp.statistics.pass_rate}"
+        )
         assert resp.summary.duration_ms >= 0
 
 
-class TestEdgeCases:
+class TestPassRateCheckGranularity:
+    """回归 C1: pass_rate 的统计粒度必须一致(按"检查项"计),不能分子按项、分母按行混算。
+
+    原实现:passed_count = len(passed_items)(检查项数)、failed_count = len(errors)
+    (错误行数),pass_rate = 项/(项+行)。后果:1 个约束在 100 行上违规 → 通过率≈1%,
+    即使其余 99 个检查全过,用户看到一个接近 0% 的"灾难"通过率。正确语义应按检查项计:
+    每个不同的(stage+check_type+table)失败检查记 1,与通过项同粒度。
+    """
+
+    def test_single_failing_check_many_rows_uses_check_granularity(self):
+        """1 个通过的检查 + 1 个在 100 行上失败的检查 → pass_rate 应为 50%(2个检查项里过1个),
+        而非 1/(1+100)≈1%(混算行数)。
+        """
+        executor = _make_executor({"users": _make_schema("users", "Users")})
+        # 100 行同一个 NotNull 检查的违规(同一 stage+check_type+table = 同一个失败检查)
+        hundred_rows_same_check = [
+            {
+                "stage": "constraint",
+                "error_type": "NotNullViolation",
+                "check_type": "NotNull",
+                "message": "空值",
+                "table": "users",
+                "row_index": i,
+            }
+            for i in range(100)
+        ]
+        result = _make_result(
+            raw_datasets={"users": {"source_file": "users.csv"}},
+            validation_details={
+                "format_checks": [{"table": "users", "passed": True}],
+                "constraint_checks": [],
+            },
+            errors=hundred_rows_same_check,
+        )
+        builder = FullValidationResponseBuilder(executor, started=time.monotonic())
+        resp = builder.build_from_result(result)
+
+        # 失败检查项 = 1(NotNull 这一个检查),通过项 = 2(数据加载 + 格式校验)
+        assert resp.statistics.failed_count == 1, (
+            f"100 行同一检查的违规应计为 1 个失败检查项,实际 failed_count: {resp.statistics.failed_count}"
+        )
+        # pass_rate 应基于检查项:通过(2) / 总检查(2+1=3) ≈ 66.7%
+        assert resp.statistics.pass_rate > 50.0, (
+            f"按检查项计 pass_rate 应 >50%,实际: {resp.statistics.pass_rate}(原 bug 会算成≈2%)"
+        )
+
+    def test_distinct_failing_checks_counted_separately(self):
+        """两个不同的失败检查(不同 check_type)应各记 1 个失败检查项。"""
+        executor = _make_executor({"users": _make_schema("users", "Users")})
+        result = _make_result(
+            raw_datasets={"users": {"source_file": "users.csv"}},
+            validation_details={"format_checks": [], "constraint_checks": []},
+            errors=[
+                {
+                    "stage": "constraint",
+                    "error_type": "NotNullViolation",
+                    "check_type": "NotNull",
+                    "message": "空",
+                    "table": "users",
+                    "row_index": 0,
+                },
+                {
+                    "stage": "constraint",
+                    "error_type": "NotNullViolation",
+                    "check_type": "NotNull",
+                    "message": "空",
+                    "table": "users",
+                    "row_index": 1,
+                },
+                {
+                    "stage": "constraint",
+                    "error_type": "UniqueViolation",
+                    "check_type": "Unique",
+                    "message": "重复",
+                    "table": "users",
+                    "row_index": 0,
+                },
+            ],
+        )
+        builder = FullValidationResponseBuilder(executor, started=time.monotonic())
+        resp = builder.build_from_result(result)
+
+        # NotNull(2行) + Unique(1行) = 2 个不同的失败检查项
+        assert resp.statistics.failed_count == 2, (
+            f"NotNull + Unique 两个不同检查应各记 1 项,实际 failed_count: {resp.statistics.failed_count}"
+        )
+
     def test_empty_result_has_zero_checks_and_full_pass_rate(self):
         executor = _make_executor()
         builder = FullValidationResponseBuilder(executor, started=time.monotonic())

@@ -104,10 +104,13 @@ class TestForeignKeyChunkedNoFalsePositive:
 
         chunked_loader = MagicMock()
         # users 和 orders 在不同"表"的不同块,模拟分块加载
-        chunked_loader.load_chunked_sources.return_value = {
-            "users": [pd.DataFrame({"id": ["u1", "u2"]})],
-            "orders": [pd.DataFrame({"user_id": ["u1", "u2"]})],
-        }
+        chunked_loader.load_chunked_sources.return_value = (
+            {
+                "users": [pd.DataFrame({"id": ["u1", "u2"]})],
+                "orders": [pd.DataFrame({"user_id": ["u1", "u2"]})],
+            },
+            [],
+        )
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
 
         import time
@@ -129,10 +132,13 @@ class TestForeignKeyChunkedNoFalsePositive:
         executor = _make_minimal_executor(schema)
 
         chunked_loader = MagicMock()
-        chunked_loader.load_chunked_sources.return_value = {
-            "users": [pd.DataFrame({"id": ["u1", "u2"]})],
-            "orders": [pd.DataFrame({"user_id": ["u1", "u_nonexistent"]})],
-        }
+        chunked_loader.load_chunked_sources.return_value = (
+            {
+                "users": [pd.DataFrame({"id": ["u1", "u2"]})],
+                "orders": [pd.DataFrame({"user_id": ["u1", "u_nonexistent"]})],
+            },
+            [],
+        )
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
 
         import time
@@ -160,12 +166,15 @@ class TestUniqueChunkedNoFalseNegative:
 
         chunked_loader = MagicMock()
         # 两个 chunk,各自内部唯一,但跨块有重复值 "u1"
-        chunked_loader.load_chunked_sources.return_value = {
-            "users": [
-                pd.DataFrame({"id": ["u1", "u2"]}),
-                pd.DataFrame({"id": ["u1", "u3"]}),  # u1 与第一块重复
-            ],
-        }
+        chunked_loader.load_chunked_sources.return_value = (
+            {
+                "users": [
+                    pd.DataFrame({"id": ["u1", "u2"]}),
+                    pd.DataFrame({"id": ["u1", "u3"]}),  # u1 与第一块重复
+                ],
+            },
+            [],
+        )
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
 
         import time
@@ -184,12 +193,15 @@ class TestUniqueChunkedNoFalseNegative:
         executor = _make_minimal_executor(schema)
 
         chunked_loader = MagicMock()
-        chunked_loader.load_chunked_sources.return_value = {
-            "users": [
-                pd.DataFrame({"id": ["u1", "u2"]}),
-                pd.DataFrame({"id": ["u3", "u4"]}),
-            ],
-        }
+        chunked_loader.load_chunked_sources.return_value = (
+            {
+                "users": [
+                    pd.DataFrame({"id": ["u1", "u2"]}),
+                    pd.DataFrame({"id": ["u3", "u4"]}),
+                ],
+            },
+            [],
+        )
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
 
         import time
@@ -217,12 +229,15 @@ class TestChunkedEquivalentToFull:
         # 模拟分块(拆成两块)
         executor = _make_minimal_executor(schema)
         chunked_loader = MagicMock()
-        chunked_loader.load_chunked_sources.return_value = {
-            "users": [
-                pd.DataFrame({"id": ["u1", "u2"]}),
-                pd.DataFrame({"id": ["u1", "u3"]}),
-            ],
-        }
+        chunked_loader.load_chunked_sources.return_value = (
+            {
+                "users": [
+                    pd.DataFrame({"id": ["u1", "u2"]}),
+                    pd.DataFrame({"id": ["u1", "u3"]}),
+                ],
+            },
+            [],
+        )
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
 
         import time
@@ -301,12 +316,15 @@ class TestTransformDagChunkedCorrectness:
 
         chunked_loader = MagicMock()
         # 两块:chunk0=[u1,u2],chunk1=[u1,u3];u1 跨块重复
-        chunked_loader.load_chunked_sources.return_value = {
-            "users": [
-                pd.DataFrame({"id": ["u1", "u2"]}),
-                pd.DataFrame({"id": ["u1", "u3"]}),
-            ],
-        }
+        chunked_loader.load_chunked_sources.return_value = (
+            {
+                "users": [
+                    pd.DataFrame({"id": ["u1", "u2"]}),
+                    pd.DataFrame({"id": ["u1", "u3"]}),
+                ],
+            },
+            [],
+        )
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
 
         import time
@@ -348,12 +366,15 @@ class TestTransformDagChunkedCorrectness:
         executor.loaded_project.transform_files = {"t_dedup.yaml": tfile}
         executor.loaded_project.regex_node_files = None
         chunked_loader = MagicMock()
-        chunked_loader.load_chunked_sources.return_value = {
-            "users": [
-                pd.DataFrame({"id": ["u1", "u2", "u1"]}),
-                pd.DataFrame({"id": ["u3", "u2"]}),
-            ],
-        }
+        chunked_loader.load_chunked_sources.return_value = (
+            {
+                "users": [
+                    pd.DataFrame({"id": ["u1", "u2", "u1"]}),
+                    pd.DataFrame({"id": ["u3", "u2"]}),
+                ],
+            },
+            [],
+        )
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
 
         import time

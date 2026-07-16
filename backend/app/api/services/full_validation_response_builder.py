@@ -198,7 +198,15 @@ class FullValidationResponseBuilder:
         errors: list[FullValidationErrorItem],
         passed_items: list[ValidationPassedItem],
     ) -> ValidationStatistics:
-        """按类型和表聚合统计信息。"""
+        """按类型和表聚合统计信息。
+
+        回归 C1: 顶层 total_checks/passed_count/failed_count/pass_rate 必须按"检查项"粒度
+        计算(与 passed_items 同粒度),不能分子按项、分母按错误行混算。原实现
+        failed_count=len(errors)(行数),导致 1 个约束在 N 行违规 → 通过率≈1/N,即使
+        其余检查全过也显示灾难性低通过率,污染历史趋势。
+        - 顶层计数:每个不同的 (stage, check_type, table) 失败检查记 1(与通过的检查项同粒度)。
+        - by_type/by_table 明细:保留按错误条目计数(便于用户看每类/每表的具体错误规模)。
+        """
         by_type: dict[str, dict[str, int]] = {}
         by_table: dict[str, dict[str, int]] = {}
 
@@ -217,7 +225,17 @@ class FullValidationResponseBuilder:
                 table_bucket["total"] += 1
                 table_bucket["passed"] += 1
 
+        # 收集"失败检查项"的唯一标识(检查项粒度),与 passed_items 对齐。
+        # 标识 = (stage, check_type/error_type, table);同一检查在多行违规只算 1 个失败检查。
+        failed_check_keys: set[tuple[str, str, str]] = set()
         for error_item in errors:
+            check_key = (
+                error_item.stage,
+                str(error_item.check_type or error_item.error_type or "Unknown"),
+                str(error_item.table or ""),
+            )
+            failed_check_keys.add(check_key)
+
             type_bucket = _ensure_bucket(by_type, error_item.check_type or error_item.error_type)
             type_bucket["total"] += 1
             type_bucket["failed"] += 1
@@ -226,9 +244,9 @@ class FullValidationResponseBuilder:
                 table_bucket["total"] += 1
                 table_bucket["failed"] += 1
 
-        total_checks = len(passed_items) + len(errors)
         passed_count = len(passed_items)
-        failed_count = len(errors)
+        failed_count = len(failed_check_keys)
+        total_checks = passed_count + failed_count
         pass_rate = 100.0 if total_checks == 0 else (passed_count / total_checks * 100)
 
         return ValidationStatistics(
@@ -331,7 +349,10 @@ class FullValidationResponseBuilder:
                 total_checks=0,
                 passed_count=0,
                 failed_count=0,
-                pass_rate=100.0,
+                # 回归 #9: 执行失败时 pass_rate 必须为 0.0 而非 100.0。原实现返回 100.0,
+                # 与 success=False 矛盾,前端会把崩溃的运行以"满分通过"写入历史趋势,
+                # 污染纵向对比(通过率趋势)。失败即 0% 通过。
+                pass_rate=0.0,
                 by_type={},
                 by_table={},
             ),

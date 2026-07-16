@@ -257,7 +257,7 @@ class ChunkedDataLoader:
         self,
         data_directory: str,
         table_filter: str | list[str] | None = None,
-    ) -> dict[str, list[pd.DataFrame]]:
+    ) -> tuple[dict[str, list[pd.DataFrame]], list[dict]]:
         """
         @methoddesc 分块加载所有数据源
 
@@ -268,9 +268,13 @@ class ChunkedDataLoader:
             table_filter: 表过滤条件
 
         返回:
-            字典，键为表 ID，值为 DataFrame 分块列表
+            二元组 (datasets, loading_errors):
+            - datasets: 键为表 ID，值为 DataFrame 分块列表
+            - loading_errors: 加载阶段产生的错误列表（源找不到、加载异常等），
+              供 executor 上报到校验报告。回归 #5: 原实现吞掉所有错误导致损坏表静默消失。
         """
         chunked_datasets: dict[str, list[pd.DataFrame]] = {}
+        loading_errors: list[dict] = []
 
         # 解析搜索目录
         search_directory = data_directory
@@ -280,7 +284,7 @@ class ChunkedDataLoader:
 
         if not os.path.isdir(search_directory):
             logger.error(f"数据目录不存在: {data_directory}")
-            return chunked_datasets
+            return chunked_datasets, loading_errors
 
         # 处理过滤
         filter_set: set | None = None
@@ -301,16 +305,26 @@ class ChunkedDataLoader:
                 if table_name not in filter_set and table_id not in filter_set:
                     continue
 
+            table_name = table_schema.name or table_id
+
             # 解析数据源路径
             source_path, _ = self._resolver.resolve_source_path(data_directory, schema_file)
             if not source_path:
-                logger.warning(f"表 '{table_schema.name}' 未找到数据源，跳过分块加载")
+                # 回归 #5: 源找不到必须上报,否则该表静默消失、报告显示"全部通过"。
+                logger.warning(f"表 '{table_name}' 未找到数据源，跳过分块加载")
+                loading_errors.append(
+                    {
+                        "error_type": "SourceNotFound",
+                        "table": table_name,
+                        "message": f"表 '{table_name}' 未找到数据源，已跳过分块加载。",
+                    }
+                )
                 continue
 
             # 判断是否需要分块
             if self._monitor.should_chunk(source_path):
                 self._monitor.take_snapshot(source_path)
-                logger.info(f"表 '{table_schema.name}' 文件较大，启用分块加载模式")
+                logger.info(f"表 '{table_name}' 文件较大，启用分块加载模式")
 
                 try:
                     chunks = self._load_dataframe_chunked(source_path, table_schema, self._monitor.chunk_rows)
@@ -334,8 +348,23 @@ class ChunkedDataLoader:
                         if loaded:
                             df = next(iter(loaded.values()))
                             chunked_datasets[table_id] = [df]
+                        else:
+                            loading_errors.append(
+                                {
+                                    "error_type": "DataLoadingError",
+                                    "table": table_name,
+                                    "message": f"表 '{table_name}' 分块加载及全量回退均未返回数据。",
+                                }
+                            )
                     except Exception as fallback_err:
                         logger.error(f"全量加载也失败: {table_id}, 错误: {fallback_err}")
+                        loading_errors.append(
+                            {
+                                "error_type": "DataLoadingError",
+                                "table": table_name,
+                                "message": f"表 '{table_name}' 加载失败: 分块错误({e}); 全量回退错误({fallback_err})。",
+                            }
+                        )
             else:
                 # 小文件，全量加载为单个分块
                 try:
@@ -353,7 +382,22 @@ class ChunkedDataLoader:
                     if loaded:
                         df = next(iter(loaded.values()))
                         chunked_datasets[table_id] = [df]
+                    else:
+                        loading_errors.append(
+                            {
+                                "error_type": "DataLoadingError",
+                                "table": table_name,
+                                "message": f"表 '{table_name}' 加载未返回数据。",
+                            }
+                        )
                 except Exception as e:
                     logger.error(f"加载失败: {table_id}, 错误: {e}")
+                    loading_errors.append(
+                        {
+                            "error_type": "DataLoadingError",
+                            "table": table_name,
+                            "message": f"表 '{table_name}' 加载失败: {e}",
+                        }
+                    )
 
-        return chunked_datasets
+        return chunked_datasets, loading_errors

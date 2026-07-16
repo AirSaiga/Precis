@@ -49,9 +49,9 @@ def execute_dag_if_needed(
     *,
     transform_files: dict[str, TransformFile] | None = None,
     regex_files: dict[str, RegexNodeFile] | None = None,
-) -> dict[str, pd.DataFrame]:
+) -> tuple[dict[str, pd.DataFrame], list[dict]]:
     """
-    @methoddesc 按需构建并执行 Transform DAG，返回更新后的 parsed_datasets
+    @methoddesc 按需构建并执行 Transform DAG，返回更新后的 parsed_datasets 与 DAG 错误
 
     抽离此函数是为了让分块加载路径能在 concat 全量 parsed 后单独执行 DAG，
     修复分块模式下行变 transform（FilterRows/DropDuplicates/Aggregate 等）
@@ -63,10 +63,12 @@ def execute_dag_if_needed(
         regex_files: regex 节点配置文件字典
 
     返回:
-        经 DAG 处理后的 parsed_datasets
+        二元组 (parsed_datasets, dag_errors):
+        - parsed_datasets: 经 DAG 处理后的 DataFrame 字典
+        - dag_errors: transform/regex 节点执行失败的错误列表（回归 #6）
     """
     if not (transform_files or regex_files):
-        return parsed_datasets
+        return parsed_datasets, []
     logger.debug("执行 Transform DAG")
     dag = build_transform_dag(
         transform_files or {},
@@ -196,11 +198,16 @@ def validate_full_dataset(
     # 只有当存在 transform_files 或 regex_files 时才需要执行
     if transform_files or regex_files:
         logger.debug("开始阶段一续二: 执行 Transform DAG")
-        parsed_datasets = execute_dag_if_needed(
+        parsed_datasets, dag_errors = execute_dag_if_needed(
             parsed_datasets,
             transform_files=transform_files,
             regex_files=regex_files,
         )
+        # 回归 #6: DAG 节点(transform/regex)执行失败必须上报,否则下游约束在未转换数据上
+        # "假通过"。把 dag_errors 归入 all_errors(stage="loading",属数据预处理阶段失败)。
+        for err in dag_errors:
+            err_with_stage = {"stage": "loading", **err}
+            all_errors.append(err_with_stage)
 
     # ========================
     # 阶段二：逻辑约束验证

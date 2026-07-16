@@ -85,7 +85,7 @@ class TestExecuteChunked:
                 pd.DataFrame({"a": [3, 4]}),
             ]
         }
-        chunked_loader.load_chunked_sources.return_value = chunked_datasets
+        chunked_loader.load_chunked_sources.return_value = (chunked_datasets, [])
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
 
         started = time.monotonic()
@@ -129,7 +129,7 @@ class TestExecuteChunked:
         """分块加载返回空数据集"""
         executor = _make_minimal_executor()
         chunked_loader = MagicMock()
-        chunked_loader.load_chunked_sources.return_value = {}
+        chunked_loader.load_chunked_sources.return_value = ({}, [])
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
 
         started = time.monotonic()
@@ -142,7 +142,7 @@ class TestExecuteChunked:
         """加载阶段超时检查"""
         executor = _make_minimal_executor()
         chunked_loader = MagicMock()
-        chunked_loader.load_chunked_sources.return_value = {"t1": [pd.DataFrame({"a": [1]})]}
+        chunked_loader.load_chunked_sources.return_value = ({"t1": [pd.DataFrame({"a": [1]})]}, [])
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
 
         started = -100.0  # started far in the past
@@ -157,7 +157,7 @@ class TestExecuteChunked:
         executor = _make_minimal_executor()
         chunked_loader = MagicMock()
         chunked_datasets = {"t1": [pd.DataFrame({"a": [1]}), pd.DataFrame({"a": [2]})]}
-        chunked_loader.load_chunked_sources.return_value = chunked_datasets
+        chunked_loader.load_chunked_sources.return_value = (chunked_datasets, [])
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
         executor.dataset_schema = MockDatasetSchema(tables={"t1": MockTableSchema("t1", "t1")})
         executor._schema_by_id = {"t1": MockSchemaFile("t1", "t1")}
@@ -182,7 +182,7 @@ class TestExecuteChunked:
         executor = _make_minimal_executor()
         chunked_loader = MagicMock()
         chunked_datasets = {"t1": [pd.DataFrame({"a": [1]}), pd.DataFrame({"a": [2]})]}
-        chunked_loader.load_chunked_sources.return_value = chunked_datasets
+        chunked_loader.load_chunked_sources.return_value = (chunked_datasets, [])
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
         executor.dataset_schema = MockDatasetSchema(tables={"t1": MockTableSchema("t1", "t1")})
         executor._schema_by_id = {"t1": MockSchemaFile("t1", "t1")}
@@ -210,7 +210,7 @@ class TestExecuteChunked:
         """项目加载阶段的错误追加到结果"""
         executor = _make_minimal_executor()
         chunked_loader = MagicMock()
-        chunked_loader.load_chunked_sources.return_value = {"t1": [pd.DataFrame({"a": [1]})]}
+        chunked_loader.load_chunked_sources.return_value = ({"t1": [pd.DataFrame({"a": [1]})]}, [])
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
         executor.loaded_project.loading_errors = [
             MagicMock(to_dict=MagicMock(return_value={"error_type": "LoadError", "message": "proj load err"}))
@@ -228,7 +228,7 @@ class TestExecuteChunked:
         """分块结果后处理（id_to_name + source_info）"""
         executor = _make_minimal_executor()
         chunked_loader = MagicMock()
-        chunked_loader.load_chunked_sources.return_value = {"t1": [pd.DataFrame({"a": [1]})]}
+        chunked_loader.load_chunked_sources.return_value = ({"t1": [pd.DataFrame({"a": [1]})]}, [])
         executor._get_chunked_loader = MagicMock(return_value=chunked_loader)
         executor.loaded_project.loading_errors = []
         executor.loaded_project.warnings = []

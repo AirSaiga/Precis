@@ -4,8 +4,11 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pandas as pd
 
+from app.shared.core.project.transform.types import TransformFile
 from app.shared.services.validation.dag.builder import DAGNode, ExecutionDAG
 from app.shared.services.validation.dag.executor import execute_transform_dag
 
@@ -17,12 +20,82 @@ class TestExecuteTransformDag:
         dag = ExecutionDAG(nodes={})
         datasets = {"t1": pd.DataFrame({"a": [1]})}
         result = execute_transform_dag(dag, datasets)
-        assert result is datasets
+        # 空 DAG 仍返回 (datasets, []):datasets 引用不变
+        out_datasets, out_errors = result
+        assert out_datasets is datasets
+        assert out_errors == []
 
     def test_dag_with_schema_node_only(self):
         node = DAGNode(id="s1", node_type="schema")
         dag = ExecutionDAG(nodes={"s1": node})
         datasets = {"s1": pd.DataFrame({"a": [1, 2]})}
         result = execute_transform_dag(dag, datasets)
-        assert "s1" in result
-        assert len(result["s1"]) == 2
+        out_datasets, out_errors = result
+        assert "s1" in out_datasets
+        assert len(out_datasets["s1"]) == 2
+        assert out_errors == []
+
+    def test_transform_failure_surfaces_as_error(self):
+        """回归 #6: transform 节点执行抛异常时,原实现仅 logger.exception 后把未转换的
+        输入复制为输出继续跑,且 execute_transform_dag 无错误返回通道,engine 无从感知 →
+        下游约束在未转换数据上"假通过",报告显示一切正常。
+
+        要求:execute_transform_dag 返回 (datasets, errors),失败的 transform 应在 errors
+        中体现(含节点 ID 与失败原因),让 engine 能上报到校验报告。
+        """
+        # 构造一个 transform 节点,其 runner.execute 抛异常
+        tfile = TransformFile(
+            id="t1",
+            type="StringSplit",
+            input_from_node="s1",
+            input_column="a",
+            params={"delimiter": ","},
+            output_columns=["out"],
+        )
+        tnode = DAGNode(id="t1", node_type="transform", data=tfile)
+        snode = DAGNode(id="s1", node_type="schema")
+        dag = ExecutionDAG(nodes={"s1": snode, "t1": tnode})
+        datasets = {"s1": pd.DataFrame({"a": ["x,y"]})}
+
+        # 让 create_runner 返回一个 execute 会抛异常的 runner
+        class _BoomRunner:
+            def execute(self, *args, **kwargs):
+                raise RuntimeError("transform 配置错误: 模拟失败")
+
+        with patch("app.shared.services.validation.dag.executor.create_runner", return_value=_BoomRunner()):
+            result = execute_transform_dag(dag, datasets)
+
+        # 必须返回 (datasets, errors) 二元组
+        assert isinstance(result, tuple) and len(result) == 2
+        out_datasets, out_errors = result
+        assert len(out_errors) >= 1, f"transform 失败应上报错误,实际: {out_errors}"
+        err = out_errors[0]
+        # 错误应包含节点标识与失败原因,便于用户定位
+        assert "t1" in str(err) or "t1" in str(err.get("message", "")), f"错误应含节点 ID,实际: {err}"
+        assert "模拟失败" in str(err.get("message", "")) or err.get("error_type") == "TransformExecutionError"
+
+    def test_regex_failure_surfaces_as_error(self):
+        """回归 #6: regex 节点执行失败也应上报。"""
+        from app.shared.core.project.regex.types import RegexNodeFile
+
+        rfile = RegexNodeFile(
+            id="r1",
+            name="r1",
+            pattern="(\\d+)",
+            match_mode="extract",
+            input_column="a",
+            input_from_node="s1",
+            output_columns=["num"],
+        )
+        rnode = DAGNode(id="r1", node_type="regex", data=rfile)
+        snode = DAGNode(id="s1", node_type="schema")
+        dag = ExecutionDAG(nodes={"s1": snode, "r1": rnode})
+        datasets = {"s1": pd.DataFrame({"a": ["123"]})}
+
+        # 让 re.compile 抛异常(模拟 invalid regex flags 等)
+        with patch("app.shared.services.validation.dag.executor.re.compile", side_effect=RuntimeError("regex boom")):
+            result = execute_transform_dag(dag, datasets)
+
+        out_datasets, out_errors = result
+        assert len(out_errors) >= 1, f"regex 失败应上报错误,实际: {out_errors}"
+        assert "r1" in str(out_errors[0]) or "r1" in str(out_errors[0].get("message", ""))
