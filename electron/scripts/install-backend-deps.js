@@ -22,10 +22,23 @@ function getPythonExecutable(runtimeDir) {
 }
 
 function main() {
+  // --runtime <dir>：自定义 python-runtime 目录（默认 electron/resources/python-runtime）
+  // --requirements <path>：自定义 requirements.txt 路径（默认 ../backend/requirements.txt）
+  const args = process.argv.slice(2);
+  const runtimeIdx = args.indexOf('--runtime');
+  const reqIdx = args.indexOf('--requirements');
+
   const repoRoot = path.resolve(__dirname, '..');
-  const runtimeDir = path.join(repoRoot, 'resources', 'python-runtime');
+  const defaultRuntimeDir = path.join(repoRoot, 'resources', 'python-runtime');
+  const runtimeDir =
+    runtimeIdx !== -1 && args[runtimeIdx + 1]
+      ? path.resolve(args[runtimeIdx + 1])
+      : defaultRuntimeDir;
   const pythonExe = getPythonExecutable(runtimeDir);
-  const requirementsPath = path.resolve(__dirname, '..', '..', 'backend', 'requirements.txt');
+  const requirementsPath =
+    reqIdx !== -1 && args[reqIdx + 1]
+      ? path.resolve(args[reqIdx + 1])
+      : path.resolve(__dirname, '..', '..', 'backend', 'requirements.txt');
 
   // 开发模式未下载内嵌运行时，跳过安装
   if (!fs.existsSync(pythonExe)) {

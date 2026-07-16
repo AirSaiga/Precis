@@ -173,6 +173,16 @@ npm run cli:validate          # 用内置示例数据跑一次校验
 
 > **Electron 生产打包说明**：安装包内嵌 Python 运行时（python-build-standalone）与全部后端依赖，用户无需自装 Python。详见 [`electron/README.md`](electron/README.md)。
 
+> **CLI / TUI 独立打包**：除桌面应用外，CLI 与 TUI 也可各打成自包含分发包（内置 Python 运行时 + 后端源码，解压即用，无需自装 Python/Rust）。
+>
+> | 产物 | Windows | macOS |
+> |------|---------|-------|
+> | CLI | `npm run build:cli:win` → `backend/dist-win/precis-cli-win-*.zip` | `npm run build:cli:mac` → `backend/dist-mac/precis-cli-mac-*.tar.gz` |
+> | TUI | `npm run build:tui:win` → `tui-rust/dist-win/precis-tui-win-*.zip` | `npm run build:tui:mac` → `tui-rust/dist-mac/precis-tui-mac-*.tar.gz` |
+> | 一键全打 | `npm run build:all:win`（CLI + TUI + GUI） | `npm run build:all:mac`（CLI + TUI + GUI） |
+>
+> 解压后：CLI 运行 `precis.bat` / `./precis`；TUI 运行 `precis-tui.exe` / `./precis-tui`（自动拉起内置后端）。
+
 ## 项目结构
 
 ```
@@ -347,6 +357,16 @@ The root `.env` is copied from `.env.example` — **all defaults work as-is**:
 | Build | `npm run build:all` · `npm run frontend:build` · `npm run electron:build` |
 
 > **Electron production packaging note**: The installer bundles a self-contained Python runtime (python-build-standalone) and all backend dependencies — users do not need to install Python. See [`electron/README.md`](electron/README.md) for details.
+
+> **Standalone CLI / TUI packaging**: Besides the desktop app, the CLI and TUI can each be packaged as self-contained bundles (bundled Python runtime + backend source; extract and run, no Python/Rust install needed).
+>
+> | Artifact | Windows | macOS |
+> |----------|---------|-------|
+> | CLI | `npm run build:cli:win` → `backend/dist-win/precis-cli-win-*.zip` | `npm run build:cli:mac` → `backend/dist-mac/precis-cli-mac-*.tar.gz` |
+> | TUI | `npm run build:tui:win` → `tui-rust/dist-win/precis-tui-win-*.zip` | `npm run build:tui:mac` → `tui-rust/dist-mac/precis-tui-mac-*.tar.gz` |
+> | All-in-one | `npm run build:all:win` (CLI + TUI + GUI) | `npm run build:all:mac` (CLI + TUI + GUI) |
+>
+> After extraction: CLI runs `precis.bat` / `./precis`; TUI runs `precis-tui.exe` / `./precis-tui` (auto-spawns the bundled backend).
 
 ## Project Structure
 

@@ -104,11 +104,21 @@ async function main() {
   const archiveName = `cpython-${PYTHON_VERSION}+${RELEASE_TAG}-${triple}-install_only.tar.gz`;
   const downloadUrl = `https://github.com/astral-sh/python-build-standalone/releases/download/${RELEASE_TAG}/${archiveName}`;
 
+  // --out <dir>：自定义输出目录（默认 electron/resources/python-runtime，保持向后兼容）
+  // CLI/TUI 等其他产物可通过 --out 指向各自的 staging 目录，避免互相覆盖。
+  const outArgIdx = process.argv.indexOf('--out');
   const repoRoot = path.resolve(__dirname, '..');
-  const resourcesDir = path.join(repoRoot, 'resources');
-  const runtimeDir = path.join(resourcesDir, 'python-runtime');
-  const tmpDir = path.join(resourcesDir, 'python-runtime-tmp');
-  const archivePath = path.join(resourcesDir, archiveName);
+  const defaultRuntimeDir = path.join(repoRoot, 'resources', 'python-runtime');
+  const runtimeDir =
+    outArgIdx !== -1 && process.argv[outArgIdx + 1]
+      ? path.resolve(process.argv[outArgIdx + 1])
+      : defaultRuntimeDir;
+
+  // 临时文件始终放在 runtimeDir 的父目录；确保父目录存在
+  const parentDir = path.dirname(runtimeDir);
+  fs.mkdirSync(parentDir, { recursive: true });
+  const tmpDir = path.join(parentDir, 'python-runtime-tmp');
+  const archivePath = path.join(parentDir, archiveName);
 
   if (fs.existsSync(runtimeDir)) {
     const platform = os.platform();
@@ -124,7 +134,7 @@ async function main() {
     rmrf(runtimeDir);
   }
 
-  fs.mkdirSync(resourcesDir, { recursive: true });
+  fs.mkdirSync(parentDir, { recursive: true });
   rmrf(tmpDir);
   fs.mkdirSync(tmpDir, { recursive: true });
 
@@ -139,7 +149,7 @@ async function main() {
   const tarCmd = currentPlatform === 'win32' ? 'tar.exe' : 'tar';
   try {
     execFileSync(tarCmd, ['-xzf', archiveName, '-C', 'python-runtime-tmp'], {
-      cwd: resourcesDir,
+      cwd: parentDir,
       stdio: 'inherit',
     });
   } catch (err) {

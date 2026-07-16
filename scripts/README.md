@@ -14,6 +14,10 @@ scripts/
 ├── setup.sh                  # Mac/Linux 一键部署 / Mac/Linux one-click deploy
 ├── check-env.js              # 环境检查工具 / Environment checker
 ├── build-mac.sh              # Mac 打包脚本(DMG) / Mac build script
+├── build-cli.ps1             # Windows 打包 CLI 为自包含 zip / Win CLI packaging
+├── build-cli.sh              # Mac 打包 CLI 为自包含 tar.gz / Mac CLI packaging
+├── build-tui.ps1             # Windows 打包 TUI(Rust) 为自包含 zip / Win TUI packaging
+├── build-tui.sh              # Mac 打包 TUI(Rust) 为自包含 tar.gz / Mac TUI packaging
 ├── README.md                 # 本文档 / This document
 │
 ├── windows/                            # Windows 启动脚本 / Windows startup scripts

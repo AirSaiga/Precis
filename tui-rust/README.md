@@ -57,9 +57,42 @@ cd tui-rust && cargo build --release && ./target/release/precis-tui
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `PRECIS_BACKEND_URL` | `http://127.0.0.1:18000` | 后端 API 地址 |
+| `PRECIS_BACKEND_URL` | （见下） | 后端 API 地址。**未设置时**，TUI 会尝试拉起内置后端（打包态自包含）；设置了则直接连该外部后端 |
 | `PRECIS_WORK_DIR` | 当前工作目录 | 默认工作目录 |
+| `PYTHON_PATH` | — | 指定内置后端用的 Python 解释器路径（未设置时按 bundled runtime → 系统 python 顺序查找） |
 | `RUST_LOG` | `info` | 日志级别（tracing） |
+
+### 后端地址解析（`main.rs::resolve_backend_url`）
+
+优先级：
+1. `PRECIS_BACKEND_URL` 已设置 → 直接连（外部后端 / dev 模式）
+2. 未设置 → 调用 `backend::BackendHandle::start()` 拉起内置后端子进程：
+   - 定位 Python 解释器：`PYTHON_PATH` → exe 同级 `python-runtime/`（打包态）→ 仓库根 `python-runtime/`（dev）→ 系统 `python3`/`python`
+   - spawn `<python> app/start_server.py --port 0`，cwd = 定位到的 `backend/` 目录
+   - 轮询 `backend/.backend-port`（200ms 间隔，30s 超时）拿到 OS 分配的端口
+   - `/health` 健康检查通过后进入 TUI 主循环
+   - TUI 退出时通过 RAII（`Drop`）杀掉后端子进程树（Unix 进程组 SIGTERM/SIGKILL；Windows `taskkill /T /F`）
+
+## 打包（自包含分发包）
+
+详见仓库根 [`README.md`](../README.md) 的"CLI / TUI 独立打包"章节。
+
+```bash
+# Windows（产物 tui-rust/dist-win/precis-tui-win-*.zip）
+npm run build:tui:win
+
+# macOS（产物 tui-rust/dist-mac/precis-tui-mac-*.tar.gz）
+npm run build:tui:mac
+```
+
+打包布局：
+```
+precis-tui/
+├── precis-tui(.exe)   # Rust 二进制，启动时 spawn 同级后端
+├── python-runtime/     # bundled CPython（python-build-standalone）
+└── backend/            # 后端源码（剔除缓存/测试/.git）
+```
+解压后直接运行二进制即可，无需自装 Python/Rust。
 
 ## 主题
 
@@ -72,8 +105,9 @@ cd tui-rust && cargo build --release && ./target/release/precis-tui
 
 | 文件/目录 | 职责 | 行数(参考) |
 |-----------|------|-----------|
-| `src/main.rs` | 入口、事件循环、键位处理、后台任务调度 | ~574 |
+| `src/main.rs` | 入口、事件循环、键位处理、后台任务调度、后端地址解析 | ~574 |
 | `src/app.rs` | 应用状态、双主题配色（thread_local 调色板） | ~285 |
+| `src/backend.rs` | 打包态后端编排：定位 runtime、spawn 子进程、读端口、退出清理 | — |
 | `src/api/` | HTTP 客户端（`client.rs`）、后端响应类型（`types.rs`） | — |
 | `src/ui/` | 8 个界面模块：dashboard / validation / provider / config / chat / sidebar / splash | — |
 | `src/fx.rs` | 动效系统（移动光场 + 脉冲波纹，不用字符粒子） | ~191 |

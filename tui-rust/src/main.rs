@@ -9,6 +9,7 @@
 
 mod api;
 mod app;
+mod backend;
 mod fx;
 mod icons;
 mod theme;
@@ -32,6 +33,27 @@ use crate::api::types::{AiChatResponse, ChatMessage, FullValidationResponse, Ful
 
 fn backend_url() -> String {
     std::env::var("PRECIS_BACKEND_URL").unwrap_or_else(|_| "http://127.0.0.1:18000".to_string())
+}
+
+/// 后端地址解析结果
+enum ResolvedBackend {
+    /// 外部后端（PRECIS_BACKEND_URL 已设置），无需本进程管理
+    External(String),
+    /// 由本进程拉起的内置后端，_guard 存活期间保持运行
+    Managed(backend::BackendHandle),
+}
+
+/// 解析后端地址。环境变量优先；未设置则尝试拉起内置后端。
+fn resolve_backend_url() -> Result<ResolvedBackend> {
+    if let Ok(url) = std::env::var("PRECIS_BACKEND_URL") {
+        if !url.is_empty() {
+            tracing::info!("使用外部后端: {}", url);
+            return Ok(ResolvedBackend::External(url));
+        }
+    }
+    tracing::info!("PRECIS_BACKEND_URL 未设置，尝试拉起内置后端");
+    let handle = backend::BackendHandle::start()?;
+    Ok(ResolvedBackend::Managed(handle))
 }
 
 fn scan_work_dir() -> String {
@@ -63,7 +85,22 @@ async fn main() -> Result<()> {
         )
         .init();
 
-    let url = backend_url();
+    // 后端地址来源（优先级）：
+    // 1. PRECIS_BACKEND_URL 已设置 → 直接用（外部后端 / dev 模式）
+    // 2. 未设置 → 尝试拉起内置后端子进程（打包态自包含）
+    let (url, _backend_guard) = match resolve_backend_url() {
+        Ok(ResolvedBackend::External(url)) => (url, None),
+        Ok(ResolvedBackend::Managed(handle)) => {
+            let url = format!("http://127.0.0.1:{}", handle.port());
+            (url, Some(handle))
+        }
+        Err(e) => {
+            // 内置后端启动失败时回退到默认 URL（让 TUI 以"后端未连接"状态启动，不崩溃）
+            tracing::warn!("内置后端启动失败，回退默认地址: {}", e);
+            (backend_url(), None)
+        }
+    };
+
     let mut app = App::new(&url);
 
     // 加载持久化主题并应用到 thread_local
