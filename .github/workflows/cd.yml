@@ -142,7 +142,22 @@ jobs:
             --runtime staging/precis-cli/python-runtime \
             --requirements backend/requirements.txt
 
-      - name: Copy backend source
+      - name: Copy backend source (Windows)
+        if: matrix.platform == 'windows-x64'
+        shell: pwsh
+        # robocopy 是 Windows 必装工具；/XD /XF 按名字匹配（含子目录）。
+        # exit 0-7 均为成功（1=有文件拷贝，0=无变化），>=8 才是失败。
+        run: |
+          $src = "backend"
+          $dst = "staging/precis-cli/backend"
+          New-Item -ItemType Directory -Path $dst -Force | Out-Null
+          $result = & robocopy $src $dst /E /NFL /NDL /NJH /NJS `
+            /XD __pycache__ .mypy_cache .pytest_cache .ruff_cache build dist tests .git `
+            /XF .coverage .gitignore *.log
+          if ($LASTEXITCODE -ge 8) { Write-Error "robocopy failed (exit $LASTEXITCODE)"; exit 1 }
+
+      - name: Copy backend source (macOS)
+        if: matrix.platform == 'macos-arm64'
         shell: bash
         run: |
           mkdir -p staging/precis-cli/backend
@@ -311,7 +326,20 @@ jobs:
             --runtime staging/precis-tui/python-runtime \
             --requirements backend/requirements.txt
 
-      - name: Copy backend source
+      - name: Copy backend source (Windows)
+        if: matrix.platform == 'windows-x64'
+        shell: pwsh
+        run: |
+          $src = "backend"
+          $dst = "staging/precis-tui/backend"
+          New-Item -ItemType Directory -Path $dst -Force | Out-Null
+          $result = & robocopy $src $dst /E /NFL /NDL /NJH /NJS `
+            /XD __pycache__ .mypy_cache .pytest_cache .ruff_cache build dist tests .git `
+            /XF .coverage .gitignore *.log
+          if ($LASTEXITCODE -ge 8) { Write-Error "robocopy failed (exit $LASTEXITCODE)"; exit 1 }
+
+      - name: Copy backend source (macOS)
+        if: matrix.platform == 'macos-arm64'
         shell: bash
         run: |
           mkdir -p staging/precis-tui/backend
