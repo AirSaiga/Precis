@@ -26,7 +26,13 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         lines.push(Line::from(""));
         lines.push(Line::from(vec![
             Span::styled("  ◎ ", Style::default().fg(colors::dim())),
-            Span::styled("AI 对话 — 输入消息后回车发送", Style::default().fg(colors::dim())),
+            Span::styled("AI 对话 — 输入消息后 Enter 发送", Style::default().fg(colors::dim())),
+        ]));
+        lines.push(Line::from(vec![
+            Span::styled("     Esc ", Style::default().fg(colors::muted())),
+            Span::styled("取消聚焦  ", Style::default().fg(colors::dim())),
+            Span::styled("Tab/1-5 ", Style::default().fg(colors::muted())),
+            Span::styled("切换页面", Style::default().fg(colors::dim())),
         ]));
         lines.push(Line::from(Span::styled(
             "  需要先在 Provider 页配置并激活一个 Provider",

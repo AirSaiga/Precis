@@ -155,13 +155,13 @@ fn render_footer(frame: &mut Frame, app: &App, area: Rect) {
         Span::raw(" "),
         Span::styled(&app.message, Style::default().fg(colors::muted())),
         Span::raw("  "),
-        Span::styled("Tab", Style::default().fg(accent)),
+        Span::styled("Tab/1-5", Style::default().fg(accent)),
         Span::styled("切换  ", Style::default().fg(colors::dim())),
         Span::styled("F2", Style::default().fg(colors::cyan())),
         Span::styled("动效  ", Style::default().fg(colors::dim())),
         Span::styled("F3", Style::default().fg(colors::pink())),
         Span::styled("主题  ", Style::default().fg(colors::dim())),
-        Span::styled("q", Style::default().fg(colors::yellow())),
+        Span::styled("q/^C", Style::default().fg(colors::yellow())),
         Span::styled("退出", Style::default().fg(colors::dim())),
     ]))
     .style(Style::default().bg(colors::surface()));

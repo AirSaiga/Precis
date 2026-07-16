@@ -139,7 +139,7 @@ async fn run_app(
             if let Event::Key(key) = ev {
                 // 忽略重复/释放事件，防止一次按键触发多次（如 Tab 切换两页）
                 if key.kind == KeyEventKind::Press {
-                    handle_key(app, key.code, tx).await;
+                    handle_key(app, key.code, key.modifiers, tx).await;
                 }
             }
             // 排空残留事件防止重复触发——但 Chat 聚焦输入时需要保留连续输入
@@ -268,7 +268,18 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
 }
 
 /// 处理按键
-async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
+async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::KeyModifiers, tx: &mpsc::Sender<BgMessage>) {
+    // Ctrl+C / Ctrl+D：任何上下文下都退出（跨平台友好）
+    if modifiers.contains(crossterm::event::KeyModifiers::CONTROL) {
+        match key {
+            KeyCode::Char('c') | KeyCode::Char('C') | KeyCode::Char('d') | KeyCode::Char('D') => {
+                app.quit();
+                return;
+            }
+            _ => {}
+        }
+    }
+
     // Esc：Chat 页聚焦时退出聚焦（恢复全局快捷键）；否则忽略
     if key == KeyCode::Esc {
         if app.chat_focused {
@@ -311,7 +322,7 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
     // 其他全局快捷键：仅在 Chat 页未聚焦输入框时生效
     if !(app.current_tab == Tab::Chat && app.chat_focused) {
         match key {
-            KeyCode::Char('q') => { app.quit(); return; }
+            KeyCode::Char('q') | KeyCode::Char('Q') => { app.quit(); return; }
             KeyCode::F(2) => {
                 app.fx_enabled = !app.fx_enabled;
                 app.message = if app.fx_enabled { "动效已开启" } else { "动效已关闭" }.to_string();
@@ -531,7 +542,7 @@ async fn handle_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
         KeyCode::Char(c) if app.current_tab == Tab::Chat && app.chat_focused && !app.chat_loading => {
             app.chat_input.push(c);
         }
-        KeyCode::Backspace if app.current_tab == Tab::Chat && app.chat_focused && !app.chat_loading => {
+        KeyCode::Backspace | KeyCode::Delete if app.current_tab == Tab::Chat && app.chat_focused && !app.chat_loading => {
             app.chat_input.pop();
         }
 

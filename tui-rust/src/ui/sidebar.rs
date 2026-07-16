@@ -91,8 +91,10 @@ pub fn render(frame: &mut Frame, app: &App, area: Rect) {
         Span::styled("主题", Style::default().fg(colors::muted())),
     ]));
     lines.push(Line::from(vec![
-        Span::styled(" q  ", Style::default().fg(colors::yellow())),
+        Span::styled(" q ", Style::default().fg(colors::yellow())),
         Span::styled("退出", Style::default().fg(colors::muted())),
+        Span::raw("  "),
+        Span::styled("Ctrl+C", Style::default().fg(colors::yellow())),
     ]));
 
     let sidebar = Paragraph::new(lines).style(Style::default().bg(colors::bg()));
