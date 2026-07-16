@@ -130,7 +130,14 @@ export const API_BASE_URL = getApiBaseUrl()
  * - 更广泛的生态系统
  */
 const apiClient: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL ? `${API_BASE_URL}/api/latest` : undefined,
+  // baseURL 统一以 /api/latest 为前缀（后端所有业务路由都挂在该前缀下）。
+  // - Electron/生产：updateApiBaseUrl(port) 运行时会覆盖为 http://127.0.0.1:<port>/api/latest
+  // - DEV/web：API_BASE_URL 为空，用相对路径 '/api/latest'，由 Vite 代理转发到后端动态端口
+  //   （代理白名单 BACKEND_ROUTES 含 '/api'，可匹配 /api/latest/* 请求）
+  // 历史 bug：DEV 模式下此处曾为 undefined，导致裸路径请求（如 /projects/scan）
+  // 既不命中代理白名单、也不带 /api/latest 前缀，后端 404 返回 HTML，前端解析出
+  // undefined 触发崩溃。见 ProjectSelector.vue scanProjects 调用链。
+  baseURL: API_BASE_URL ? `${API_BASE_URL}/api/latest` : '/api/latest',
   timeout: 30000, // 30秒超时
 })
 

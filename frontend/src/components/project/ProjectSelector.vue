@@ -24,7 +24,8 @@
     try {
       const result = await scanProjects()
       workDir.value = result.work_dir
-      projects.value = result.projects
+      // 防御：后端异常时可能缺字段，确保 projects 始终是数组（模板依赖 .length）
+      projects.value = Array.isArray(result.projects) ? result.projects : []
     } catch (e: unknown) {
       error.value = t('common.project.errorScan')
       logger.error('Project scan failed:', e)

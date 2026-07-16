@@ -125,8 +125,10 @@ export function createV2LoadOps(params: {
         })
       }
 
-      const totalSchemas = config.manifest.schemas.length
-      const standaloneConstraints = config.manifest.constraints.length
+      // 防御：manifest 的 schemas/constraints 可能为 undefined（最小/损坏项目），
+      // 与下方 regex_nodes/transforms/templates 一致使用 ?.length || 0 守卫
+      const totalSchemas = config.manifest.schemas?.length || 0
+      const standaloneConstraints = config.manifest.constraints?.length || 0
       let inlineConstraints = 0
       const totalRegex =
         ((config.manifest as unknown as Record<string, unknown>).regex_nodes as unknown[])
@@ -134,7 +136,7 @@ export function createV2LoadOps(params: {
       const totalTransforms = config.manifest.transforms?.length || 0
       const totalTemplates = config.manifest.templates?.length || 0
 
-      config.manifest.schemas.forEach((s) => {
+      ;(config.manifest.schemas || []).forEach((s) => {
         const schema = config.schemas[s.id]
         if (schema && Array.isArray((schema as unknown as Record<string, unknown>).constraints)) {
           inlineConstraints += (
