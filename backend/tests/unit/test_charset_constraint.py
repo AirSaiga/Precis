@@ -61,6 +61,20 @@ class TestCharsetConstraint:
         assert len(result["errors"]) == 1
         assert "不存在" in result["errors"][0]["message"]
 
+    def test_unknown_charset_mode_reports_config_error(self):
+        """回归 D3: 未识别的 charset_mode(如拼错的 chinese_mix)不应静默放行。
+
+        原实现 _check_charset 对未识别 mode 返回 True → 约束永远通过、零提示,用户以为
+        字符集被强制了实际没有。应报 ConstraintConfigError 让用户发现配置拼写错误。
+        """
+        datasets = {"users": pd.DataFrame({"name": ["alice", "张三"]})}
+        c = CharsetConstraint(table="users", column="name", charset_mode="chinese_mix")  # 拼错
+        result = c.validate(datasets)
+
+        assert len(result["errors"]) == 1, f"未知 mode 应报配置错误,实际: {result['errors']}"
+        assert result["errors"][0]["error_type"] == "ConstraintConfigError"
+        assert "chinese_mix" in result["errors"][0]["message"]
+
     def test_get_description_ascii(self):
         c = CharsetConstraint(table="users", column="name", charset_mode="ascii")
         assert "ASCII" in c._get_description()
@@ -92,11 +106,16 @@ class TestCharsetConstraint:
         assert len(result["errors"]) == 2
         assert all(e["error_type"] == "CharsetViolation" for e in result["errors"])
 
-    def test_unknown_mode_returns_true(self):
+    def test_unknown_mode_reports_config_error(self):
+        """回归 D3: 未知 mode 不应静默放行(原 test_unknown_mode_returns_true 固化了 bug)。
+        未知 mode 应报 ConstraintConfigError,而非让约束永远通过零提示。
+        """
         datasets = {"users": pd.DataFrame({"name": ["anything", "123"]})}
         c = CharsetConstraint(table="users", column="name", charset_mode="unknown")
         result = c.validate(datasets)
-        assert result["errors"] == []
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["error_type"] == "ConstraintConfigError"
+        assert "unknown" in result["errors"][0]["message"]
 
     def test_chinese_mixed_pass_with_letters_numbers_punctuation(self):
         datasets = {

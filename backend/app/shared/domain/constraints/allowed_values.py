@@ -145,9 +145,15 @@ class AllowedValuesConstraint(Constraint):
             return {"errors": errors, "info": self.get_constraint_info()}
 
         # 步骤3: 找出不在允许值集合中的行，同时排除空值
-        # ~df[self.column].isin(...) 取反，表示"不在集合中"
-        # dropna(subset=[self.column]) 排除该列为空值的行
-        invalid_rows = df[~df[self.column].isin(self.allowed_values)].dropna(subset=[self.column])
+        # 回归 D5: YAML 常以字符串配置枚举(前端下拉),但数值列解析后是 int,1 != "1" 导致
+        # isin 全 False → 全行误报。这里把列值与允许值都归一为字符串后再比较,使 "1" 与 1 等价。
+        col_series = df[self.column]
+        non_null_mask = col_series.notna()
+        # 仅对非空值做字符串化比较(NaN 已被 non_null_mask 排除,不参与 isin 判定)
+        str_col = col_series.astype(str)
+        str_allowed = {str(v) for v in self.allowed_values}
+        invalid_mask = non_null_mask & ~str_col.isin(str_allowed)
+        invalid_rows = df[invalid_mask]
 
         # 步骤4: 遍历所有违规行，生成错误记录
         for row_tuple in invalid_rows[[self.column]].itertuples(index=True, name=None):

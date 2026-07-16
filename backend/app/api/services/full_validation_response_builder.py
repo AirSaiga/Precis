@@ -123,7 +123,9 @@ class FullValidationResponseBuilder:
                     column=err.get("column"),
                     column_id=err.get("column_id"),
                     row_index=row_index,
-                    value=str(err.get("value")) if err.get("value") else None,
+                    # 回归 C3: 用 is not None 而非 falsy 判断,避免 value=0/False/"" 被吞成 None,
+                    # 妨碍用户定位(如 Range 对值 0 的违规)。
+                    value=str(err.get("value")) if err.get("value") is not None else None,
                     source_path=err.get("source_path"),
                     source_file=err.get("source_file"),
                     source_sheet=err.get("source_sheet"),

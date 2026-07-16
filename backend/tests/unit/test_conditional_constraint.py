@@ -332,6 +332,37 @@ class TestConditionalConstraint:
         assert result["errors"][0]["error_type"] == "ConstraintConfigError"
         assert "credit_limit" in result["errors"][0]["message"]
 
+    def test_then_ref_column_not_found_reports_config_error(self):
+        """回归 D1: THEN 侧用 ref_column 做列间比较时,ref_column 不存在应报配置错误,
+        而非 row.get(缺失列)=None → 比较全 False → 触发行全部误报 ConditionalViolation。
+
+        IF 侧有列存在校验,THEN 侧没有,不对称。本测试要求对称:THEN 侧 ref_column
+        不存在时报 ConstraintConfigError。
+        """
+        datasets = {
+            "customers": pd.DataFrame(
+                {
+                    "status": ["VIP", "Normal", "VIP"],
+                    "credit_limit": [1500, 500, 2000],
+                    # 注意:没有 min_required 这一列(模拟 ref_column 配错)
+                }
+            )
+        }
+        constraint = ConditionalConstraint(
+            table="customers",
+            if_column="status",
+            if_value="VIP",
+            then_column="credit_limit",
+            then_condition={"operator": "greater_than", "ref_column": "min_required"},
+        )
+        result = constraint.validate(datasets)
+
+        assert len(result["errors"]) >= 1, f"ref_column 不存在应报配置错误,实际: {result['errors']}"
+        # 应是配置错误而非逐行 ConditionalViolation 误报
+        config_errors = [e for e in result["errors"] if e["error_type"] == "ConstraintConfigError"]
+        assert len(config_errors) >= 1, f"应有 ConstraintConfigError,实际: {result['errors']}"
+        assert "min_required" in config_errors[0]["message"]
+
     def test_if_column_not_found(self):
         """简单模式下 if_column 不存在时返回配置错误"""
         datasets = {

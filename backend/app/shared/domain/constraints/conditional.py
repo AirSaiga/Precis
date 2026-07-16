@@ -323,6 +323,22 @@ class ConditionalConstraint(Constraint):
             )
             return {"errors": errors, "info": self.get_constraint_info()}
 
+        # 回归 D1: THEN 侧用 ref_column 做列间比较时,ref_column 必须存在。原实现 IF 侧有
+        # 列校验、THEN 侧没有(不对称),ref_column 缺失时 row.get(缺失列)=None → 比较全 False
+        # → 每个触发行误报 ConditionalViolation,且无配置错误提示。这里补上对称校验。
+        if isinstance(self.then_condition_config, dict):
+            ref_col = self.then_condition_config.get("ref_column")
+            if ref_col and ref_col not in df.columns:
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "column": ref_col,
+                        "message": f"条件约束失败: 引用列 '{ref_col}' 不在表 '{self.table}' 中。",
+                    }
+                )
+                return {"errors": errors, "info": self.get_constraint_info()}
+
         def _apply_if_condition(cond: dict) -> pd.Series:
             """
             将单个条件应用到 DataFrame，返回布尔 Series

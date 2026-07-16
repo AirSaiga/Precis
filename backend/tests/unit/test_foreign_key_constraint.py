@@ -115,6 +115,38 @@ class TestForeignKeyConstraint:
 
         assert result["errors"] == []
 
+    def test_value_normalization_negative_float_string(self):
+        """回归 D4: 负数字符串 '-123.0' 应规范化为 '-123',与负数 float -123.0 一致。
+
+        原正则 ^\\d+\\.0+$ 不匹配负号,'-123.0' 原样返回,而 float -123.0 → '-123',
+        两者不等 → 误报 ForeignKeyViolation。金融/财务的负金额(退款/调整)是高频场景。
+        """
+        datasets = {
+            "users": pd.DataFrame({"id": [-123, -456]}),
+            "orders": pd.DataFrame({"user_id": ["-123.0", "-456.0"]}),
+        }
+        constraint = ForeignKeyConstraints(from_table="orders", from_column="user_id", to_table="users", to_column="id")
+        result = constraint.validate(datasets)
+        assert result["errors"] == [], f"负数 float/字符串应一致匹配,实际误报: {result['errors']}"
+
+    def test_value_normalization_decimal_consistency(self):
+        """回归 D4: Decimal 是项目一等类型(decimal data_type),应与 float 一致归一。
+
+        Decimal('123.0') 经 str() → '123.0',而 float 123.0 → '123',两者不等 → 误报。
+        Decimal 整数值应去掉 .0 与 float 对齐。
+        """
+        from decimal import Decimal
+
+        datasets = {
+            # to_column 用 float 表示父表主键
+            "users": pd.DataFrame({"id": [123.0, 456.0]}),
+            # from_column 用 Decimal(模拟 decimal 类型列)
+            "orders": pd.DataFrame({"user_id": [Decimal("123.0"), Decimal("456.0")]}),
+        }
+        constraint = ForeignKeyConstraints(from_table="orders", from_column="user_id", to_table="users", to_column="id")
+        result = constraint.validate(datasets)
+        assert result["errors"] == [], f"Decimal 与 float 应一致归一,实际误报: {result['errors']}"
+
     def test_value_normalization_int_to_str(self):
         """整数应被规范化为字符串进行比较"""
         datasets = {

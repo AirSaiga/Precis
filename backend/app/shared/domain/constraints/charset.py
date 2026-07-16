@@ -163,6 +163,24 @@ class CharsetConstraint(Constraint):
         }
         charset_name = charset_name_map.get(self.charset_mode, self.charset_mode)
 
+        # 回归 D3: 未识别的 charset_mode 必须报配置错误。原实现 _check_charset 对未识别
+        # mode 返回 True → 约束永远通过、零提示,用户以为字符集被强制了实际没有(拼错如
+        # chinese_mix 静默失效)。合法模式集合与 _check_charset 的分支保持一致。
+        valid_modes = {"ascii", "chinese", "chinese_mixed"}
+        if self.charset_mode not in valid_modes:
+            errors.append(
+                {
+                    "error_type": "ConstraintConfigError",
+                    "table": self.table,
+                    "column": self.column,
+                    "message": (
+                        f"字符集约束配置错误: 未知的字符集模式 '{self.charset_mode}',"
+                        f"支持的模式为: {', '.join(sorted(valid_modes))}。"
+                    ),
+                }
+            )
+            return {"errors": errors, "info": self.get_constraint_info()}
+
         # 遍历该列所有值，逐行检查
         for row_tuple in df[[self.column]].itertuples(index=True, name=None):
             index = row_tuple[0]

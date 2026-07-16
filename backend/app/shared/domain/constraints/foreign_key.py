@@ -151,8 +151,9 @@ class ForeignKeyConstraints(Constraint):
                 s = value.strip()
                 if s == "":
                     return None
-                # 将 "123.0"、"123.00" 等规范化为 "123"
-                if re.match(r"^\d+\.0+$", s):
+                # 将 "123.0"、"123.00" 等规范化为 "123"；回归 D4: 同时支持负号,
+                # 使 "-123.0" → "-123"(原正则 ^\d+\.0+$ 不匹配负号 → 与 float -123.0→"-123" 不等)。
+                if re.match(r"^-?\d+\.0+$", s):
                     return s.split(".", 1)[0]
                 return s
 
@@ -169,6 +170,20 @@ class ForeignKeyConstraints(Constraint):
                 if value.is_integer():
                     return str(int(value))
                 return str(value)
+
+            # 回归 D4: Decimal 是项目一等类型(decimal data_type),应与 float 一致归一。
+            # Decimal("123.0") 经 str() → "123.0",而 float 123.0 → "123",两者不等会误报。
+            # Decimal 整数值去掉 .0,与 float 对齐。
+            try:
+                from decimal import Decimal
+
+                if isinstance(value, Decimal):
+                    # 整数值的 Decimal(如 Decimal("123.0")) 规整为整数串
+                    if value == value.to_integral_value():
+                        return str(int(value))
+                    return str(value).strip()
+            except (TypeError, ValueError):
+                pass
 
             # 其他类型: 转字符串并去除空格
             s = str(value).strip()

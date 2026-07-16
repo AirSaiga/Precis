@@ -113,6 +113,55 @@ class TestBuildFromResult:
         assert resp.statistics.failed_count == 1
         assert resp.statistics.by_type.get("DataLoad", {}).get("failed") == 1
 
+    def test_falsy_error_values_preserved(self):
+        """回归 C3: 错误相关值为 0/False/空字符串时,不应被 falsy 判断吞成 None。
+
+        原实现 `value=str(err.get("value")) if err.get("value") else None` 用 falsy 判断,
+        导致 Range 约束对值 0 的违规、枚举对 False 的违规,报告里"相关值"显示为空,
+        妨碍用户定位。应改为 `is not None`。
+        """
+        executor = _make_executor({"users": _make_schema("users", "Users")})
+        result = _make_result(
+            raw_datasets={"users": {"source_file": "users.csv"}},
+            errors=[
+                {
+                    "stage": "constraint",
+                    "error_type": "RangeViolation",
+                    "check_type": "Range",
+                    "message": "越界",
+                    "table": "users",
+                    "row_index": 0,
+                    "value": 0,
+                },
+                {
+                    "stage": "constraint",
+                    "error_type": "RangeViolation",
+                    "check_type": "Range",
+                    "message": "越界",
+                    "table": "users",
+                    "row_index": 1,
+                    "value": False,
+                },
+                {
+                    "stage": "constraint",
+                    "error_type": "RangeViolation",
+                    "check_type": "Range",
+                    "message": "越界",
+                    "table": "users",
+                    "row_index": 2,
+                    "value": "",
+                },
+            ],
+        )
+        builder = FullValidationResponseBuilder(executor, started=time.monotonic())
+        resp = builder.build_from_result(result)
+
+        values = [e.value for e in resp.errors]
+        assert "0" in values, f"value=0 应保留显示,实际: {values}"
+        assert "False" in values, f"value=False 应保留显示,实际: {values}"
+        # 空字符串:is not None 下仍应保留(显示为 ""),区别于真正的 None(无 value 字段)
+        assert any(v == "" for v in values), f"value='' 应保留,实际: {values}"
+
     def test_constraint_error_is_classified(self):
         executor = _make_executor({"users": _make_schema("users", "Users")})
         result = _make_result(
