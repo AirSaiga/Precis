@@ -1,4 +1,4 @@
-name: CD - CLI Build & Release
+name: CD - Build & Release
 
 on:
   push:
@@ -18,6 +18,9 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  # ==========================================================================
+  # 1. GUI（Electron）—— 保持原有逻辑，win NSIS + mac DMG，直接 --publish always
+  # ==========================================================================
   build-electron:
     name: Build Electron (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
@@ -51,6 +54,7 @@ jobs:
         with:
           node-version: '22'
           cache: 'npm'
+          cache-dependency-path: electron/package-lock.json
 
       # Windows 路径
       - name: Build & publish (Windows)
@@ -88,6 +92,9 @@ jobs:
           npm run install:backend-deps
           npx electron-builder --mac --config.mac.identity=null --publish always
 
+  # ==========================================================================
+  # 2. CLI —— 源码 + python-runtime 自包含 zip/tar.gz（替代已废弃的 PyInstaller）
+  # ==========================================================================
   build-cli:
     name: Build CLI (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
@@ -97,102 +104,270 @@ jobs:
         include:
           - platform: windows-x64
             runner: windows-latest
-            python-version: '3.12'
-            artifact: precis-windows-x64.exe
-            executable: precis.exe
+            archive: zip
           - platform: macos-arm64
             runner: macos-latest
-            python-version: '3.12'
-            artifact: precis-macos-arm64
-            executable: precis
-          - platform: linux-x64
-            runner: ubuntu-latest
-            python-version: '3.12'
-            artifact: precis-linux-x64
-            executable: precis
+            archive: tar.gz
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: ${{ matrix.python-version }}
+          node-version: '22'
 
-      - name: Install build dependencies
-        working-directory: backend
-        run: |
-          python -m pip install --upgrade pip
-          pip install pyinstaller
-
-      - name: Install project dependencies
-        working-directory: backend
-        # 必须安装 [dev] extra：pytest / pytest-asyncio / httpx 等测试依赖在此分组中，
-        # 否则下一步 "Run tests" 会报 No module named pytest。
-        run: pip install -e ".[dev]"
-
-      - name: Run tests
-        working-directory: backend
-        run: python -m pytest --tb=short -q
-
-      - name: Build with PyInstaller
+      - name: Fetch python-runtime
         shell: bash
         run: |
-          cd backend
-          pyinstaller --onefile \
-            --name precis \
-            --console \
-            --clean \
-            --noconfirm \
-            --paths "." \
-            --copy-metadata readchar \
-            --copy-metadata precis \
-            --hidden-import=pandas \
-            --hidden-import=openpyxl \
-            --hidden-import=sqlalchemy \
-            --hidden-import=yaml \
-            --hidden-import=ruamel.yaml \
-            --hidden-import=pydantic \
-            --hidden-import=rich \
-            --hidden-import=cryptography \
-            --hidden-import=cryptography.fernet \
-            --hidden-import=readchar \
-            --hidden-import=simpleeval \
-            --hidden-import=filelock \
-            --hidden-import=numpy \
-            --hidden-import=app \
-            --hidden-import=app.cli \
-            --hidden-import=app.cli.shell \
-            --hidden-import=app.shared \
-            --hidden-import=app.shared.core \
-            --hidden-import=app.shared.domain \
-            --hidden-import=app.shared.services \
-            entrypoint.py
+          mkdir -p staging/precis-cli/python-runtime
+          node electron/scripts/fetch-python.js --out staging/precis-cli/python-runtime
 
-      - name: Smoke test
+      - name: Install backend deps into runtime
         shell: bash
         run: |
-          cd backend/dist
-          chmod +x ./${{ matrix.executable }}
-          ./${{ matrix.executable }} validate \
-            --manifest ../../qa_test/cli_smoke/project.precis.yaml \
-            --data-directory ../../qa_test/cli_smoke/data
+          node electron/scripts/install-backend-deps.js \
+            --runtime staging/precis-cli/python-runtime \
+            --requirements backend/requirements.txt
 
-      - name: Rename executable with platform suffix
+      - name: Copy backend source
         shell: bash
-        run: mv backend/dist/${{ matrix.executable }} backend/dist/${{ matrix.artifact }}
+        run: |
+          mkdir -p staging/precis-cli/backend
+          rsync -a \
+            --exclude='__pycache__' \
+            --exclude='.mypy_cache' \
+            --exclude='.pytest_cache' \
+            --exclude='.ruff_cache' \
+            --exclude='.coverage' \
+            --exclude='*.egg-info' \
+            --exclude='build/' \
+            --exclude='dist/' \
+            --exclude='tests/' \
+            --exclude='.git' \
+            --exclude='.gitignore' \
+            --exclude='*.log' \
+            backend/ staging/precis-cli/backend/
+
+      - name: Generate entry point (Windows)
+        if: matrix.platform == 'windows-x64'
+        shell: bash
+        # NOTE: printf 逐行写入，避免 heredoc 在 YAML run 块里的缩进污染
+        # （heredoc 会把 YAML 缩进空格原样写进文件，破坏 bat 的 @echo off 和 shebang）。
+        # 内容与 scripts/build-cli.ps1 中的 precis.bat 保持一致。
+        run: |
+          {
+            printf '%s\n' '@echo off'
+            printf '%s\n' 'chcp 65001 >nul'
+            printf '%s\n' 'setlocal'
+            printf '%s\n' 'rem Precis CLI entry - invokes bundled python -m app.cli'
+            printf '%s\n' 'set "PKG_ROOT=%~dp0"'
+            printf '%s\n' 'set "PYTHON=%PKG_ROOT%python-runtime\python\python.exe"'
+            printf '%s\n' 'set "BACKEND_DIR=%PKG_ROOT%backend"'
+            printf '%s\n' 'if not exist "%PYTHON%" ('
+            printf '%s\n' '    echo [ERROR] Bundled Python not found: %PYTHON%'
+            printf '%s\n' '    exit /b 1'
+            printf '%s\n' ')'
+            printf '%s\n' 'rem cwd=backend/ so Python can import the app package'
+            printf '%s\n' 'cd /d "%BACKEND_DIR%"'
+            printf '%s\n' '"%PYTHON%" -B -m app.cli %*'
+            printf '%s\n' 'exit /b %ERRORLEVEL%'
+          } > staging/precis-cli/precis.bat
+
+      - name: Generate entry point (macOS)
+        if: matrix.platform == 'macos-arm64'
+        shell: bash
+        # printf 避免缩进污染（同上）。shebang 必须在第 1 列。
+        run: |
+          {
+            printf '%s\n' '#!/usr/bin/env bash'
+            printf '%s\n' '# Precis CLI entry - invokes bundled python3 -m app.cli'
+            printf '%s\n' 'set -euo pipefail'
+            printf '%s\n' 'PKG_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"'
+            printf '%s\n' 'PYTHON="${PKG_ROOT}/python-runtime/bin/python3"'
+            printf '%s\n' 'BACKEND_DIR="${PKG_ROOT}/backend"'
+            printf '%s\n' 'if [[ ! -x "${PYTHON}" ]]; then'
+            printf '%s\n' '    echo "[ERROR] Bundled Python not found: ${PYTHON}" >&2'
+            printf '%s\n' '    exit 1'
+            printf '%s\n' 'fi'
+            printf '%s\n' 'cd "${BACKEND_DIR}"'
+            printf '%s\n' 'exec "${PYTHON}" -B -m app.cli "$@"'
+          } > staging/precis-cli/precis
+          chmod +x staging/precis-cli/precis
+
+      - name: Package (Windows zip)
+        if: matrix.platform == 'windows-x64'
+        shell: bash
+        run: |
+          ARTIFACT="precis-cli-${{ steps.version.outputs.version }}-windows-x64.zip"
+          # 用 PowerShell Compress-Archive（windows runner 必有，7z 不再可靠预装）
+          powershell -NoProfile -Command "Compress-Archive -Path staging/precis-cli/* -DestinationPath '${ARTIFACT}' -CompressionLevel Optimal -Force"
+          echo "Artifact: ${ARTIFACT}"
+          ls -lh "${ARTIFACT}"
+
+      - name: Package (macOS tar.gz)
+        if: matrix.platform == 'macos-arm64'
+        shell: bash
+        run: |
+          cd staging
+          ARTIFACT="precis-cli-${{ steps.version.outputs.version }}-macos-arm64.tar.gz"
+          tar -czf "../${ARTIFACT}" precis-cli
+          cd ..
+          echo "Artifact: ${ARTIFACT}"
+          ls -lh "${ARTIFACT}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.artifact }}
-          path: backend/dist/${{ matrix.artifact }}
+          name: precis-cli-${{ matrix.platform }}
+          path: |
+            precis-cli-${{ steps.version.outputs.version }}-windows-x64.zip
+            precis-cli-${{ steps.version.outputs.version }}-macos-arm64.tar.gz
           retention-days: 5
+          if-no-files-found: error
 
+  # ==========================================================================
+  # 3. TUI（Rust）—— Rust 二进制 + python-runtime 自包含 zip/tar.gz
+  # ==========================================================================
+  build-tui:
+    name: Build TUI (${{ matrix.platform }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-x64
+            runner: windows-latest
+          - platform: macos-arm64
+            runner: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION="${{ github.ref_name }}"
+            VERSION="${VERSION#v}"
+          fi
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tui-rust
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build Rust binary (release)
+        shell: bash
+        run: |
+          cd tui-rust
+          cargo build --release
+
+      - name: Prepare staging
+        shell: bash
+        run: |
+          mkdir -p staging/precis-tui
+          # 拷贝 Rust 二进制（win .exe / mac 无后缀）
+          if [[ "${{ matrix.platform }}" == "windows-x64" ]]; then
+            cp tui-rust/target/release/precis-tui.exe staging/precis-tui/precis-tui.exe
+          else
+            cp tui-rust/target/release/precis-tui staging/precis-tui/precis-tui
+            chmod +x staging/precis-tui/precis-tui
+          fi
+
+      - name: Fetch python-runtime
+        shell: bash
+        run: |
+          node electron/scripts/fetch-python.js --out staging/precis-tui/python-runtime
+
+      - name: Install backend deps into runtime
+        shell: bash
+        run: |
+          node electron/scripts/install-backend-deps.js \
+            --runtime staging/precis-tui/python-runtime \
+            --requirements backend/requirements.txt
+
+      - name: Copy backend source
+        shell: bash
+        run: |
+          mkdir -p staging/precis-tui/backend
+          rsync -a \
+            --exclude='__pycache__' \
+            --exclude='.mypy_cache' \
+            --exclude='.pytest_cache' \
+            --exclude='.ruff_cache' \
+            --exclude='.coverage' \
+            --exclude='*.egg-info' \
+            --exclude='build/' \
+            --exclude='dist/' \
+            --exclude='tests/' \
+            --exclude='.git' \
+            --exclude='.gitignore' \
+            --exclude='*.log' \
+            backend/ staging/precis-tui/backend/
+
+      - name: Package (Windows zip)
+        if: matrix.platform == 'windows-x64'
+        shell: bash
+        run: |
+          ARTIFACT="precis-tui-${{ steps.version.outputs.version }}-windows-x64.zip"
+          # 用 PowerShell Compress-Archive（windows runner 必有，7z 不再可靠预装）
+          powershell -NoProfile -Command "Compress-Archive -Path staging/precis-tui/* -DestinationPath '${ARTIFACT}' -CompressionLevel Optimal -Force"
+          echo "Artifact: ${ARTIFACT}"
+          ls -lh "${ARTIFACT}"
+
+      - name: Package (macOS tar.gz)
+        if: matrix.platform == 'macos-arm64'
+        shell: bash
+        run: |
+          cd staging
+          ARTIFACT="precis-tui-${{ steps.version.outputs.version }}-macos-arm64.tar.gz"
+          tar -czf "../${ARTIFACT}" precis-tui
+          cd ..
+          echo "Artifact: ${ARTIFACT}"
+          ls -lh "${ARTIFACT}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: precis-tui-${{ matrix.platform }}
+          path: |
+            precis-tui-${{ steps.version.outputs.version }}-windows-x64.zip
+            precis-tui-${{ steps.version.outputs.version }}-macos-arm64.tar.gz
+          retention-days: 5
+          if-no-files-found: error
+
+  # ==========================================================================
+  # 4. Release —— 汇总所有产物，生成 checksums，创建 draft Release
+  # ==========================================================================
   release:
     name: Create GitHub Release
     runs-on: ubuntu-latest
-    needs: [build-cli, build-electron]
+    needs: [build-cli, build-tui, build-electron]
     steps:
       - uses: actions/checkout@v4
 
@@ -215,55 +390,28 @@ jobs:
           path: release-assets
           merge-multiple: true
 
-      - name: Rename binaries with platform suffix
+      - name: List release assets
         run: |
-          mv release-assets/precis-windows-x64.exe release-assets/precis-${{ steps.version.outputs.version }}-windows-x64.exe
-          mv release-assets/precis-macos-arm64 release-assets/precis-${{ steps.version.outputs.version }}-macos-arm64
-          mv release-assets/precis-linux-x64 release-assets/precis-${{ steps.version.outputs.version }}-linux-x64
+          echo "=== Downloaded artifacts ==="
+          ls -lhR release-assets/
 
       - name: Generate checksums
         run: |
           cd release-assets
-          sha256sum * > checksums-${{ steps.version.outputs.version }}.txt
+          # 排除 electron-builder 的 blockmap/yml（只给实际产物算 checksum）
+          # CLI/TUI 是 zip/tar.gz；GUI 是 electron-builder 直接 --publish 的，不在此处
+          find . -type f \( -name "*.zip" -o -name "*.tar.gz" \) -exec sha256sum {} \; > checksums-${{ steps.version.outputs.version }}.txt
+          echo "=== Checksums ==="
           cat checksums-${{ steps.version.outputs.version }}.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
-          name: Precis CLI v${{ steps.version.outputs.version }}
+          name: Precis v${{ steps.version.outputs.version }}
           draft: true
           generate_release_notes: true
-          body: |
-            ## Precis CLI v${{ steps.version.outputs.version }}
-
-            ### Downloads
-
-            | Platform | File |
-            |----------|------|
-            | Windows x64 | `precis-${{ steps.version.outputs.version }}-windows-x64.exe` |
-            | macOS ARM64 | `precis-${{ steps.version.outputs.version }}-macos-arm64` |
-            | Linux x64 | `precis-${{ steps.version.outputs.version }}-linux-x64` |
-
-            ### Verify
-
-            ```bash
-            sha256sum -c checksums-${{ steps.version.outputs.version }}.txt
-            ```
-
-            ### Usage
-
-            ```bash
-            # Windows
-            precis-${{ steps.version.outputs.version }}-windows-x64.exe validate --manifest project.precis.yaml
-
-            # macOS ARM64
-            chmod +x precis-${{ steps.version.outputs.version }}-macos-arm64
-            ./precis-${{ steps.version.outputs.version }}-macos-arm64 validate --manifest project.precis.yaml
-
-            # Linux
-            chmod +x precis-${{ steps.version.outputs.version }}-linux-x64
-            ./precis-${{ steps.version.outputs.version }}-linux-x64 validate --manifest project.precis.yaml
-            ```
+          files: |
+            release-assets/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
