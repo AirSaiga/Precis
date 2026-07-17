@@ -70,6 +70,7 @@ from __future__ import annotations
 
 # 1. 标准库导入
 import logging
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -439,7 +440,26 @@ class ConditionalConstraint(Constraint):
         # ============================================================================
         # 检查触发的行是否满足 then 条件
         # ============================================================================
-        for index, row in triggered_rows.to_dict("index").items():
+        # D6: deadline 检查点。逐行约束内部必须有中断点,否则百万行表跑很久,
+        # timeout_seconds 形同虚设(原 engine 只在约束之间检查)。每 200 行查一次,
+        # 超时则中断循环并返回 Timeout 标记。
+        deadline = kwargs.get("deadline")
+        check_interval = 200
+        triggered_dict = triggered_rows.to_dict("index")
+        for i, (index, row) in enumerate(triggered_dict.items()):
+            if deadline is not None and i % check_interval == 0 and time.monotonic() > deadline:
+                errors.append(
+                    {
+                        "error_type": "Timeout",
+                        "stage": "constraint",
+                        "table": self.table,
+                        "message": (
+                            f"条件约束执行超时,已在第 {i} 行(共 {len(triggered_dict)} 触发行)中断,剩余触发行未校验。"
+                        ),
+                    }
+                )
+                logger.warning(f"条件约束超时中断: 已处理 {i}/{len(triggered_dict)} 触发行")
+                return {"errors": errors, "info": self.get_constraint_info()}
             value_to_check = row[self.then_column]
             # 使用解析出的验证函数检查值
             # 如果配置了 ref_column，传入整行数据以支持列间比较

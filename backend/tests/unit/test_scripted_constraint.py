@@ -117,3 +117,33 @@ class TestScriptedConstraint:
         info = constraint.get_constraint_info()
         assert info["constraint_type"] == "ScriptedConstraint"
         assert info["table"] == "users"
+
+    def test_deadline_interrupts_mid_constraint(self):
+        """回归 D6: deadline 已过时,Scripted 约束应在循环中途停止,而非跑完全表。
+
+        原实现逐行 to_dict("index") + SimpleEval 无中断点,百万行表跑几十秒,
+        timeout_seconds 形同虚设(只检查约束之间,约束内部不可中断)。
+        要求:deadline 已过时,循环应中断并返回 Timeout 标记 + 已发现的部分错误。
+        """
+        import time
+
+        # 构造一张表,phone 全部违规(短于11位),确保"全跑会报很多错误"
+        big = pd.DataFrame({"phone": ["12345"] * 1000})
+        datasets = {"users": big}
+        constraint = ScriptedConstraint(
+            table="users",
+            name="phone_length",
+            expression="len(str(value)) == 11",
+            column="phone",
+        )
+        # deadline 设为"已过去"(当前时间 - 10 秒),模拟约束开始前就已超时
+        past_deadline = time.monotonic() - 10
+        result = constraint.validate(datasets, allow_unsafe_eval=True, deadline=past_deadline)
+
+        # 应中断:不会报 1000 行错误,而是少量 + Timeout 标记
+        errors = result["errors"]
+        timeout_errs = [e for e in errors if e.get("error_type") == "Timeout"]
+        assert len(timeout_errs) == 1, f"应返回 1 条 Timeout 标记,实际: {errors}"
+        # 不应跑完全部 1000 行(中断点应在很早就触发)
+        phone_errs = [e for e in errors if e.get("error_type") != "Timeout"]
+        assert len(phone_errs) < 1000, f"deadline 已过应提前中断,不应跑完全部 1000 行,实际报 {len(phone_errs)}"

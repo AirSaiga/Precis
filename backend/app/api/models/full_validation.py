@@ -360,6 +360,9 @@ class FullValidationSummary(BaseModel):
     interrupted: bool = Field(
         default=False, description="校验是否因遇错即停(error_handling=stop)而提前终止"
     )  # C6: True 表示校验在发现首个错误后即停止,剩余检查未执行(快速失败)。
+    timed_out: bool = Field(
+        default=False, description="校验是否因超时而提前终止"
+    )  # D6: True 表示校验因超过 timeout_seconds 而中断(约束之间或约束内部超时)。
 
     @computed_field
     def error_count(self) -> int:

@@ -161,13 +161,18 @@ fn render_metrics(frame: &mut Frame, app: &App, area: Rect, y: u16) -> u16 {
     let mut y = y;
     let wide = area.width >= layout::CARD_ROW_MIN_WIDTH;
     if wide && bottom.saturating_sub(y) >= 4 {
-        // 横排三卡
+        // 横排三卡（卡间留 1 列空隙）
         let cols = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Ratio(1, 3); 3])
             .split(Rect { x: area.x, y, width: area.width, height: 4 });
         for (i, (value, label, accent, ph)) in cards.iter().enumerate() {
-            widgets::stat_card(frame, cols[i], value, label, *accent, *ph);
+            let mut r = cols[i];
+            if i > 0 {
+                r.x += 1;
+                r.width = r.width.saturating_sub(1);
+            }
+            widgets::stat_card(frame, r, value, label, *accent, *ph);
         }
         y += 4;
     } else if !wide && bottom.saturating_sub(y) >= 12 {

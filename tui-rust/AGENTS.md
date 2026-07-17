@@ -45,11 +45,19 @@ TUI（终端 UI）模块的开发指南。根项目的架构原则见 [`../AGENT
 ### 3. 配色系统（app.rs colors）
 
 - 双主题（Sakura 樱花粉 / Snow 飘雪冰蓝），通过 `thread_local` 持有当前调色板
-- 颜色取自 `app::colors::current()`，UI 代码**不硬编码 `Color::Rgb(...)`**
+- 颜色取自 `app::colors` 的访问函数（`colors::bg()` / `colors::pink()` 等），UI 代码**不硬编码 `Color::Rgb(...)`**
 - 新增颜色统一加到 `Palette` 结构体，两个主题都要提供值
 - 主题切换后 `theme.rs` 自动持久化到 `~/.precis/tui-theme.json`
 
-### 4. 后端交互（api/）
+### 4. UI 结构（顶部标签栏布局）
+
+- 骨架在 `ui/mod.rs`：品牌行（1 行）+ tab 栏（2 行，含滑动指示条）+ 全宽内容区 + 状态栏（2 行）
+- **共享组件统一放 `ui/widgets.rs`**（panel / section_header / keychip / meter / stat_card / badge / gradient_spans / wrap_text），页面代码不重复造轮子
+- 切 tab 动效由 `App::switch_tab()` 自动记录（指示条滑动 + 内容淡入），**禁止直接赋值 `app.current_tab`**
+- `fx.rs` 动效 = 主题飘落粒子（樱花瓣/雪花，摇摆下落）+ 弱化移动光场；粒子字形只写空白 cell，不遮挡内容；粒子字形集在 `fx.rs` 顶部常量（含保守回退集）
+- 双宽字符注意：ratatui 0.29 buffer 不给宽字符续格打标记，测试提取 buffer 文本时须按符号显示宽度步进（参考 `ui/mod.rs` 测试的 `render_to_string`）
+
+### 5. 后端交互（api/）
 
 - `ApiClient::new(base_url)` 创建客户端，`base_url` 来自 `PRECIS_BACKEND_URL` 环境变量（默认 `http://127.0.0.1:18000`）
 - 后端响应类型定义在 `api/types.rs`，字段与后端 Pydantic 模型对应

@@ -358,8 +358,10 @@ def validate_constraints(
         # 传递 allow_unsafe_eval 参数以控制脚本约束的执行
         # 【安全策略】当 allow_unsafe_eval=False 时，脚本约束会在安全沙箱中运行
         # 单个约束异常不中断整个管线，继续执行后续约束
+        # D6: 透传 deadline,让逐行慢约束(Scripted/Conditional)在循环内部检查超时、提前中断,
+        # 而非跑到约束返回后才在循环顶部(:319)检查——否则单个慢约束会让 timeout_seconds 形同虚设。
         try:
-            result = constraint.validate(parsed_datasets, allow_unsafe_eval=allow_unsafe_eval)
+            result = constraint.validate(parsed_datasets, allow_unsafe_eval=allow_unsafe_eval, deadline=deadline)
         except Exception as e:
             # 【异常处理】约束执行异常时构造错误结果，不中断后续约束校验
             logger.error(f"约束 {i + 1} ({constraint.__class__.__name__}) 执行异常: {e}")

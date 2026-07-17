@@ -302,6 +302,8 @@ class FullValidationResponseBuilder:
             duration_ms=result.get("duration_ms", self._duration_ms()),
             # C6: 透出遇错即停的中断状态(executor 在 result["interrupted"] 标记)
             interrupted=bool(result.get("interrupted", False)),
+            # D6: 透出超时中断状态(executor 在 result["timeout_occurred"] 标记,原为死字段)
+            timed_out=bool(result.get("timeout_occurred", False)),
         )
 
     def build_from_result(self, result: dict[str, Any]) -> FullValidationResponse:

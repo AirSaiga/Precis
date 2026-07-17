@@ -62,6 +62,7 @@ from __future__ import annotations
 # 1. 标准库导入
 import logging
 import re
+import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -174,7 +175,23 @@ class ScriptedConstraint(Constraint):
         }
 
         # 遍历每一行数据执行表达式
-        for index, row_dict in df.to_dict("index").items():
+        # D6: deadline 检查点。逐行约束内部必须有中断点,否则百万行表跑几十秒,
+        # timeout_seconds 形同虚设(原 engine 只在约束之间检查)。每 200 行查一次(避免
+        # 每行调 time.monotonic 的开销),超时则中断循环并返回 Timeout 标记。
+        deadline = kwargs.get("deadline")
+        check_interval = 200
+        for i, (index, row_dict) in enumerate(df.to_dict("index").items()):
+            if deadline is not None and i % check_interval == 0 and time.monotonic() > deadline:
+                errors.append(
+                    {
+                        "error_type": "Timeout",
+                        "stage": "constraint",
+                        "table": self.table,
+                        "message": (f"脚本约束 '{self.name}' 执行超时,已在第 {i} 行中断,剩余 {len(df) - i} 行未校验。"),
+                    }
+                )
+                logger.warning(f"脚本约束 '{self.name}' 超时中断: 已处理 {i}/{len(df)} 行")
+                return {"errors": errors, "info": self.get_constraint_info()}
             row_index = int(index) if index is not None else 0
 
             # 获取当前单元格的值（如果指定了 column）

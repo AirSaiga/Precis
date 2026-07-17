@@ -89,8 +89,8 @@ fn render_table(frame: &mut Frame, app: &App, area: Rect) {
                 Style::default().fg(colors::muted())
             };
 
-            // 名称格：名称 + 激活徽标
-            let mut name_spans = vec![Span::styled(icons::truncate(&p.name, 14), name_style)];
+            // 名称格：名称 + 激活徽标（13 + 空格 + [已激活](10) ≤ 列宽 24）
+            let mut name_spans = vec![Span::styled(icons::truncate(&p.name, 13), name_style)];
             if is_active {
                 name_spans.push(Span::raw(" "));
                 name_spans.extend(widgets::badge("已激活", colors::green()));

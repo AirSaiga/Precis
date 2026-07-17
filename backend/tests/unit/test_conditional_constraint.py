@@ -584,3 +584,29 @@ class TestConditionalConstraintEdgeCases:
         )
         result = constraint.validate(datasets)
         assert result["errors"] == []
+
+    def test_deadline_interrupts_mid_constraint(self):
+        """回归 D6: deadline 已过时,Conditional 约束应在循环中途停止,而非跑完全表。
+
+        原实现 to_dict("index") + 逐行 _condition_func 无中断点,百万行表可跑很久,
+        timeout 形同虚设(只检查约束之间,约束内部不可中断)。
+        要求:deadline 已过时中断循环,返回 Timeout 标记 + 已发现的部分错误。
+        """
+        import time
+
+        # 无条件模式:所有行触发 THEN 检查。b 列全部 <=0 → 全跑会报 1000 行错误
+        big = pd.DataFrame({"b": [-1] * 1000})
+        datasets = {"t": big}
+        constraint = ConditionalConstraint(
+            table="t",
+            then_column="b",
+            then_condition={"operator": "greater_than", "value": 0},
+        )
+        past_deadline = time.monotonic() - 10
+        result = constraint.validate(datasets, deadline=past_deadline)
+
+        errors = result["errors"]
+        timeout_errs = [e for e in errors if e.get("error_type") == "Timeout"]
+        assert len(timeout_errs) == 1, f"应返回 1 条 Timeout 标记,实际: {errors}"
+        cond_errs = [e for e in errors if e.get("error_type") != "Timeout"]
+        assert len(cond_errs) < 1000, f"deadline 已过应提前中断,不应跑完全部 1000 行,实际报 {len(cond_errs)}"

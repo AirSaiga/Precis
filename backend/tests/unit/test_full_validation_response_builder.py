@@ -472,6 +472,41 @@ class TestInterruptedFlag:
         assert resp.summary.interrupted is False
 
 
+class TestTimedOutFlag:
+    """D6 超时:响应应透出 timed_out 标记,供前端/CLI/TUI 区分\"正常完成\"与\"超时中断\"。
+    原 timeout_occurred 是 executor 写了但 API 层不读的死字段。"""
+
+    def test_timed_out_flag_propagated(self):
+        """result['timeout_occurred']=True 时,summary.timed_out 应为 True。"""
+        executor = _make_executor({"users": _make_schema("users", "Users")})
+        result = _make_result(
+            raw_datasets={"users": {"source_file": "users.csv"}},
+            errors=[
+                {
+                    "stage": "constraint",
+                    "error_type": "Timeout",
+                    "check_type": "Timeout",
+                    "message": "校验超时",
+                },
+            ],
+            timeout_occurred=True,
+        )
+        builder = FullValidationResponseBuilder(executor, started=time.monotonic())
+        resp = builder.build_from_result(result)
+        assert resp.summary.timed_out is True, "result timeout_occurred=True 应透出到 summary.timed_out"
+
+    def test_default_not_timed_out(self):
+        """默认(无 timeout_occurred)时,summary.timed_out 应为 False。"""
+        executor = _make_executor({"users": _make_schema("users", "Users")})
+        result = _make_result(
+            raw_datasets={"users": {"source_file": "users.csv"}},
+            errors=[],
+        )
+        builder = FullValidationResponseBuilder(executor, started=time.monotonic())
+        resp = builder.build_from_result(result)
+        assert resp.summary.timed_out is False
+
+
 class TestEdgeCases:
     def test_empty_result_has_zero_checks_and_full_pass_rate(self):
         executor = _make_executor()
