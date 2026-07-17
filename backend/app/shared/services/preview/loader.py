@@ -104,11 +104,19 @@ def load_preview_data(
 
     # ======== JSON 格式处理（复用 JSONSourceSpec + load_source_data 管线） ========
     if file_type == "json":
-        # 从 source_config 提取 JSON 格式与 json_path，默认走自动检测
+        # 从 source_config 提取 JSON 格式与 json_path
         sc = source_config or {}
+        # D8: format 必填,默认 array(顶层数组);.jsonl/.ndjson 文件强制 lines(与 validation 路径一致)
+        import os
+
+        ext = os.path.splitext(file_path)[1].lower()
+        if ext in [".jsonl", ".ndjson"]:
+            fmt = "lines"
+        else:
+            fmt = sc.get("json_format") or "array"
         spec = JSONSourceSpec(
             path=file_path,
-            format=sc.get("json_format", "auto"),
+            format=fmt,
             json_path=sc.get("json_path"),
         )
         df = load_source_data(spec)

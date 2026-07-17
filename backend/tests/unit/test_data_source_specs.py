@@ -392,9 +392,9 @@ class TestExcelSourceSpec:
 
 class TestJSONSourceSpec:
     def test_defaults(self):
-        """默认值检查"""
-        spec = JSONSourceSpec(path="data.json")
-        assert spec.format == "auto"
+        """默认值检查(D8: format 必填,无默认值;其余字段保留默认)"""
+        spec = JSONSourceSpec(path="data.json", format="array")
+        assert spec.format == "array"
         assert spec.sep == "."
         assert spec.json_path is None
         assert spec.meta_prefix == "meta."
@@ -424,7 +424,7 @@ class TestJSONSourceSpec:
 
     def test_get_loader_class(self):
         """返回 JSONLoader"""
-        spec = JSONSourceSpec(path="data.json")
+        spec = JSONSourceSpec(path="data.json", format="array")
         loader_cls = spec.get_loader_class()
         assert loader_cls.__name__ == "JSONLoader"
 
@@ -438,7 +438,7 @@ class TestJSONSourceSpec:
 
     def test_dtype_dict(self):
         """dtype 字段接受字典"""
-        spec = JSONSourceSpec(path="data.json", dtype={"id": "str", "count": "int"})
+        spec = JSONSourceSpec(path="data.json", format="array", dtype={"id": "str", "count": "int"})
         assert spec.dtype == {"id": "str", "count": "int"}
 
 

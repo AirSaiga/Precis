@@ -22,6 +22,9 @@ pub mod colors {
         pub yellow: Color,
         pub red: Color,
         pub purple: Color,
+        pub gradient_a: Color, // 渐变起点（logo / 进度条 / 指示条）
+        pub gradient_b: Color, // 渐变终点
+        pub border: Color,     // 面板边框专用色
         pub name: &'static str,
     }
 
@@ -40,6 +43,9 @@ pub mod colors {
         yellow: Color::Rgb(252, 211, 77),
         red: Color::Rgb(253, 164, 175),
         purple: Color::Rgb(192, 132, 252),
+        gradient_a: Color::Rgb(255, 176, 208),
+        gradient_b: Color::Rgb(192, 132, 252),
+        border: Color::Rgb(88, 62, 110),
         name: "樱花粉",
     };
 
@@ -58,6 +64,9 @@ pub mod colors {
         yellow: Color::Rgb(249, 215, 28),
         red: Color::Rgb(236, 110, 110),
         purple: Color::Rgb(179, 157, 219),
+        gradient_a: Color::Rgb(137, 180, 250),
+        gradient_b: Color::Rgb(212, 228, 247),
+        border: Color::Rgb(52, 68, 100),
         name: "飘雪",
     };
 
@@ -97,6 +106,9 @@ pub mod colors {
     pub fn yellow() -> Color { PALETTES[theme()].yellow }
     pub fn red() -> Color { PALETTES[theme()].red }
     pub fn purple() -> Color { PALETTES[theme()].purple }
+    pub fn gradient_a() -> Color { PALETTES[theme()].gradient_a }
+    pub fn gradient_b() -> Color { PALETTES[theme()].gradient_b }
+    pub fn border() -> Color { PALETTES[theme()].border }
 
     /// 颜色混合（t=0 返回 a，t=1 返回 b）— 集中定义，消除 ui/ 重复
     pub fn blend(a: Color, b: Color, t: f64) -> Color {
@@ -153,6 +165,26 @@ impl Tab {
     }
     pub fn all() -> [Tab; 5] {
         [Tab::Dashboard, Tab::Validation, Tab::Provider, Tab::Config, Tab::Chat]
+    }
+    /// Tab 导航图标（单宽几何符号）
+    pub fn icon(&self) -> &'static str {
+        match self {
+            Tab::Dashboard => crate::icons::tab::DASHBOARD,
+            Tab::Validation => crate::icons::tab::VALIDATION,
+            Tab::Provider => crate::icons::tab::PROVIDER,
+            Tab::Config => crate::icons::tab::CONFIG,
+            Tab::Chat => crate::icons::tab::CHAT,
+        }
+    }
+    /// 窄终端短标签
+    pub fn short_label(&self) -> &'static str {
+        match self {
+            Tab::Dashboard => "首页",
+            Tab::Validation => "校验",
+            Tab::Provider => "Prov",
+            Tab::Config => "概览",
+            Tab::Chat => "AI",
+        }
     }
 }
 
@@ -225,6 +257,13 @@ pub struct App {
     pub chat_loading: bool,
     /// Chat 页是否聚焦输入框（聚焦时屏蔽全局快捷键，允许输入 q/1-5/Tab/F2 等字符）
     pub chat_focused: bool,
+    // — 界面动效状态 —
+    /// 切换前的 tab（指示条滑动动画起点）
+    pub prev_tab: Tab,
+    /// 上次 tab 切换时的 frame_count（驱动滑动/淡入进度）
+    pub tab_switch_frame: u64,
+    /// 内容淡入剩余帧数（0 = 无淡入）
+    pub content_fade: u8,
 }
 
 impl App {
@@ -255,26 +294,40 @@ impl App {
             chat_input: String::new(),
             chat_loading: false,
             chat_focused: false,
+            prev_tab: Tab::Dashboard,
+            tab_switch_frame: 0,
+            content_fade: 0,
         }
     }
     pub fn quit(&mut self) { self.should_quit = true; }
-    pub fn switch_tab(&mut self, tab: Tab) { self.current_tab = tab; }
-    pub fn tick(&mut self) { self.frame_count = self.frame_count.wrapping_add(1); }
+    /// 切换 tab 并记录动效起点（指示条滑动 + 内容淡入）
+    pub fn switch_tab(&mut self, tab: Tab) {
+        if tab != self.current_tab {
+            self.prev_tab = self.current_tab;
+            self.current_tab = tab;
+            self.tab_switch_frame = self.frame_count;
+            self.content_fade = layout::CONTENT_FADE_FRAMES;
+        }
+    }
+    pub fn tick(&mut self) {
+        self.frame_count = self.frame_count.wrapping_add(1);
+        self.content_fade = self.content_fade.saturating_sub(1);
+    }
 }
 
 /// 布局尺寸常量 — 集中管理，避免魔法数字散落各 ui/ 文件
 pub mod layout {
-    // 全局框架
-    pub const HEADER_HEIGHT: u16 = 1;
-    pub const FOOTER_HEIGHT: u16 = 1;
-    pub const SIDEBAR_WIDTH: u16 = 18;
-    pub const SIDEBAR_GAP: u16 = 1;
-    pub const MIN_WIDTH_NO_BORDER: u16 = 60;
+    // 全局框架（顶部标签栏布局）
+    pub const BRAND_HEIGHT: u16 = 1; // 品牌行
+    pub const TABS_HEIGHT: u16 = 2; // tab 行 + 指示条行
+    pub const FOOTER_HEIGHT: u16 = 2; // 状态行 + 快捷键行
+    pub const CONTENT_PADDING: u16 = 1; // 内容区左右内边距
+    pub const NARROW_WIDTH: u16 = 64; // 窄终端断点（短标签 / 隐藏标语）
+    pub const CARD_ROW_MIN_WIDTH: u16 = 70; // 卡片横排最小内容宽度
 
     // 各界面内部
-    pub const DASHBOARD_HEADER: u16 = 8;
     pub const VALIDATION_HINT: u16 = 2;
-    pub const VALIDATION_SUMMARY: u16 = 6;
+    pub const VALIDATION_SUMMARY: u16 = 7;
     pub const PROVIDER_HINT: u16 = 2;
     pub const PROVIDER_FOOTER: u16 = 3;
     pub const CONFIG_HINT: u16 = 2;
@@ -282,4 +335,8 @@ pub mod layout {
 
     // 进度条
     pub const PROGRESS_BAR_TOTAL: usize = 10;
+
+    // 动效
+    pub const TAB_ANIM_FRAMES: u64 = 8; // 指示条滑动帧数
+    pub const CONTENT_FADE_FRAMES: u8 = 6; // 内容淡入帧数
 }

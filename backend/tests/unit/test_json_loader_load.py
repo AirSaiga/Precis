@@ -13,7 +13,7 @@ from app.shared.core.data_source.loaders.json_loader import JSONLoader
 
 class MockSpec:
     def __init__(
-        self, path, json_path=None, dtype=None, flatten=False, sep=".", max_depth=None, format="auto", encoding="utf-8"
+        self, path, json_path=None, dtype=None, flatten=False, sep=".", max_depth=None, format="array", encoding="utf-8"
     ):
         self.path = path
         self.json_path = json_path
@@ -71,16 +71,17 @@ class TestJSONLoaderLoad:
         json_file = tmp_path / "test.json"
         json_file.write_text('{"a": ', encoding="utf-8")
         loader = _make_loader(str(json_file))
-        with pytest.raises(DataLoadError) as exc_info:
+        # D8: 默认 array 格式,无效 JSON 由 ArrayParser 报错,包装为 DataLoadError
+        with pytest.raises(DataLoadError):
             loader.load()
-        assert "JSON 解析错误" in str(exc_info.value)
 
     def test_load_empty_file(self, tmp_path):
         json_file = tmp_path / "test.json"
         json_file.write_text("", encoding="utf-8")
         loader = _make_loader(str(json_file))
-        df = loader.load()
-        assert df.empty
+        # D8: array 格式下空输入是错误(ArrayParser 报"输入为空"),不再静默返回空 DataFrame
+        with pytest.raises(DataLoadError):
+            loader.load()
 
 
 class TestJSONLoaderValidate:

@@ -92,8 +92,8 @@ class JSONOptions(BaseModel):
         )
     """
 
-    format: Literal["auto", "array", "lines", "object"] = Field(
-        "auto", description="JSON 格式类型：auto-自动检测, array-对象数组, lines-JSON Lines, object-嵌套对象"
+    format: Literal["array", "lines", "object"] = Field(
+        ..., description="JSON 格式类型(必填):array-顶层数组, lines-JSON Lines, object-嵌套对象(需 json_path)"
     )
 
     json_path: str | None = Field(None, description="JSONPath 提取路径，如 '$.data.items'（用于从嵌套对象提取数组）")

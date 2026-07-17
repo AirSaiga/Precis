@@ -185,5 +185,6 @@ class TestFormatOptions:
         assert opts is None
 
     def test_get_options_type(self):
-        assert get_options_type(JSONOptions()) == "JSONOptions"
+        # D8: JSONOptions format 必填
+        assert get_options_type(JSONOptions(format="array")) == "JSONOptions"
         assert get_options_type(None) == "None"

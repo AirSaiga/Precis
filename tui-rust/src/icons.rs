@@ -31,23 +31,43 @@ pub mod result {
 /// 选中/高亮标记
 pub const SELECTED: &str = "▸";  // 统一的选中前缀
 
+/// 行首强调竖条（选中行 / 消息气泡角色条）
+pub const BAR: &str = "▌";
+/// 细强调竖条（消息气泡内容缩进）
+pub const BAR_THIN: &str = "▎";
+
+/// Tab 指示条字符
+pub const INDICATOR: &str = "━";
+/// 分隔线字符
+pub const RULE: &str = "─";
+
 /// Logo 字符
 pub const LOGO: &str = "◇";
 
-/// 生成动态宽度的分隔线
-pub fn divider(width: usize) -> String {
-    "─".repeat(width)
+/// 主题装饰符（徽标 / hero）
+pub mod motif {
+    pub const SAKURA: &str = "❀"; // 樱花
+    pub const SNOW: &str = "❆";   // 雪花
 }
 
-/// braille spinner 帧（传入 frame_count，内部取模）
+/// 生成动态宽度的分隔线
+pub fn divider(width: usize) -> String {
+    RULE.repeat(width)
+}
+
+/// braille spinner 帧（传入 frame_count，内部取模，10 帧完整循环）
 pub fn spinner(frame: u64) -> &'static str {
-    match frame % 6 {
+    match frame % 10 {
         0 => "⠋",
         1 => "⠙",
         2 => "⠹",
         3 => "⠸",
         4 => "⠼",
-        _ => "⠴",
+        5 => "⠴",
+        6 => "⠦",
+        7 => "⠧",
+        8 => "⠇",
+        _ => "⠏",
     }
 }
 
@@ -83,8 +103,9 @@ mod tests {
     fn test_spinner_cycles() {
         assert_eq!(spinner(0), "⠋");
         assert_eq!(spinner(5), "⠴");
-        assert_eq!(spinner(6), "⠋");
-        assert_eq!(spinner(12), "⠋");
+        assert_eq!(spinner(9), "⠏");
+        assert_eq!(spinner(10), "⠋");
+        assert_eq!(spinner(21), "⠙");
     }
 
     #[test]

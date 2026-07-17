@@ -216,7 +216,8 @@ def preview_file_by_path(request: FilePathPreviewRequest):
                         raise HTTPException(status_code=400, detail=f"JSON 解析失败: {e.msg}") from e
                 else:
                     # 2. 根据 json_format 选择合适的 parser（前端已统一为后端格式，直接透传）
-                    format_type = request.json_format or "auto"
+                    # D8: format 必填(auto 已废弃),默认 array(顶层数组)
+                    format_type = request.json_format or "array"
 
                     try:
                         parser = get_parser(format_type)

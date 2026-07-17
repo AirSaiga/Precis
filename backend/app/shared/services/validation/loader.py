@@ -126,7 +126,8 @@ def load_file_data(
         )
     elif file_ext in [".json", ".jsonl", ".ndjson"]:
         # 前端使用 json_format 字段透传 JSON 解析格式，兼容 format 别名
-        fmt = sc.get("format") or sc.get("json_format") or "auto"
+        # D8: format 必填(auto 已废弃);.jsonl/.ndjson 强制 lines;其余由配置显式指定
+        fmt = sc.get("format") or sc.get("json_format") or "array"
         if file_ext in [".jsonl", ".ndjson"]:
             fmt = "lines"
         spec = JSONSourceSpec(

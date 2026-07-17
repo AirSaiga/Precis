@@ -155,12 +155,12 @@ class ArrayParser:
             if isinstance(parsed, list):
                 return True
 
-            # 是字典，检查是否包含列表值
+            # D8: 收紧 array 格式。仅接受"无内嵌数组的 dict"(单条记录,如 {"a":1})。
+            # 含内嵌数组的嵌套对象(如 {"data":[...]})不算 array 格式——主数据数组位置
+            # 有歧义,必须用 format=object + json_path 精确指定,不再猜测取第一个数组。
             if isinstance(parsed, dict):
-                for value in parsed.values():
-                    if isinstance(value, list):
-                        return True
-                return True
+                has_nested_list = any(isinstance(value, list) for value in parsed.values())
+                return not has_nested_list
 
             return False
 
@@ -235,25 +235,28 @@ class ArrayParser:
         """
         @methoddesc 解析字典数据
 
-        策略：
-        1. 如果字典包含列表值，提取第一个列表
-        2. 否则将整个字典作为单条记录返回
+        D8 策略(零启发式):
+        - 含内嵌数组的嵌套对象(如 {"data":[...]})→ 报错,引导改用 format=object + json_path
+          精确指定数据数组路径(不再猜测取第一个数组)。
+        - 无内嵌数组的单条 dict(如 {"a":1})→ 返回 [data](无歧义)。
 
         Args:
             data: 解析后的字典数据
 
         Returns:
             字典列表
-        """
-        # 查找第一个列表类型的值
-        for key, value in data.items():
-            if isinstance(value, list) and value:
-                # 检查列表元素是否是字典
-                if isinstance(value[0], dict):
-                    return self._parse_list(value)
-                else:
-                    # 列表元素不是字典，包装为单值对象
-                    return [{"key": key, "value": item} for item in value]
 
-        # 没有找到列表，将字典作为单条记录
+        Raises:
+            ArrayParseError: 字典含内嵌数组(嵌套对象)时抛出
+        """
+        # D8: 含内嵌数组的嵌套对象拒绝(主数据数组位置有歧义,不应猜测)
+        has_nested_list = any(isinstance(value, list) for value in data.values())
+        if has_nested_list:
+            raise ArrayParseError(
+                "array 格式仅支持顶层数组 JSON(如 [{...}])或无内嵌数组的单条对象;"
+                "嵌套对象(含内嵌数组)请改用 format=object 并通过 json_path "
+                "(如 $.data)精确指定数据数组路径。"
+            )
+
+        # 无内嵌数组,将字典作为单条记录
         return [data]

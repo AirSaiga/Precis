@@ -10,7 +10,6 @@ import pytest
 
 from app.shared.core.data_source.loaders.strategies import get_parser
 from app.shared.core.data_source.loaders.strategies.array_parser import ArrayParseError, ArrayParser
-from app.shared.core.data_source.loaders.strategies.auto_parser import AutoDetectParser
 from app.shared.core.data_source.loaders.strategies.lines_parser import LinesParser, StandardJSONParser
 from app.shared.core.data_source.loaders.strategies.object_parser import ObjectParser
 
@@ -21,8 +20,9 @@ class TestArrayParser:
         assert p.can_parse('[{"a": 1}]') is True
 
     def test_can_parse_dict_with_list(self):
+        # D8: 嵌套对象(含内嵌数组)不算 array 格式,应返回 False
         p = ArrayParser()
-        assert p.can_parse('{"data": [{"a": 1}]}') is True
+        assert p.can_parse('{"data": [{"a": 1}]}') is False
 
     def test_can_parse_plain_dict(self):
         p = ArrayParser()
@@ -49,14 +49,16 @@ class TestArrayParser:
         assert result == [{"a": 1}]
 
     def test_parse_nested_object(self):
+        # D8: 嵌套对象用 array 格式应报错(不再取第一个数组),引导改用 object+json_path
         p = ArrayParser()
-        result = p.parse('{"data": [{"a": 1}, {"a": 2}]}')
-        assert result == [{"a": 1}, {"a": 2}]
+        with pytest.raises(ArrayParseError, match="嵌套对象|object|json_path"):
+            p.parse('{"data": [{"a": 1}, {"a": 2}]}')
 
     def test_parse_nested_object_non_dict_list(self):
+        # D8: 含标量数组的嵌套对象同样报错(不再包装成 key/value)
         p = ArrayParser()
-        result = p.parse('{"nums": [1, 2, 3]}')
-        assert result == [{"key": "nums", "value": 1}, {"key": "nums", "value": 2}, {"key": "nums", "value": 3}]
+        with pytest.raises(ArrayParseError, match="嵌套对象|object|json_path"):
+            p.parse('{"nums": [1, 2, 3]}')
 
     def test_parse_list_with_non_dict_items(self):
         p = ArrayParser()
@@ -183,43 +185,17 @@ class TestObjectParser:
         assert p.can_parse('[{"a": 1}]') is False
 
 
-class TestAutoDetectParser:
-    def test_parse_lines(self):
-        p = AutoDetectParser()
-        result = p.parse('{"a": 1}\n{"a": 2}')
-        assert result == [{"a": 1}, {"a": 2}]
-
-    def test_parse_array(self):
-        p = AutoDetectParser()
-        result = p.parse('[{"a": 1}]')
-        assert result == [{"a": 1}]
-
-    def test_parse_nested_object(self):
-        p = AutoDetectParser()
-        # AutoDetectParser treats single-line dict as standard JSON, not nested object
-        result = p.parse('{"data": [{"a": 1}]}')
-        assert result == [{"data": [{"a": 1}]}]
-
-    def test_parse_empty(self):
-        p = AutoDetectParser()
-        assert p.parse("") == []
-        assert p.parse("   ") == []
-
-    def test_can_parse(self):
-        p = AutoDetectParser()
-        assert p.can_parse('[{"a": 1}]') is True
-        assert p.can_parse('{"a": 1}') is True
-        assert p.can_parse('{"a": 1}\n{"a": 2}') is True
-        assert p.can_parse("") is False
-        assert p.can_parse("not json") is False
-
-
 class TestGetParser:
     def test_get_all_parsers(self):
-        assert isinstance(get_parser("auto"), AutoDetectParser)
+        # D8: auto 已废弃,只支持 array/lines/object 三种显式 format
         assert isinstance(get_parser("array"), ArrayParser)
         assert isinstance(get_parser("lines"), LinesParser)
         assert isinstance(get_parser("object"), ObjectParser)
+
+    def test_get_parser_auto_deprecated(self):
+        # D8: format=auto 已废弃,应报错引导用户改用显式 format
+        with pytest.raises(ValueError, match="auto|废弃|array|lines|object"):
+            get_parser("auto")
 
     def test_get_parser_invalid(self):
         with pytest.raises(ValueError, match="不支持的 JSON 格式"):

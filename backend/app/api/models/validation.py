@@ -169,8 +169,8 @@ class ValidationRequest(BaseModel):
     json_path: str | None = Field(
         None, description="JSON 数据源的 JSONPath 表达式（可选）"
     )  # 用于从嵌套 JSON 中提取目标记录数组
-    json_format: Literal["auto", "array", "lines", "object"] | None = Field(
-        None, description="JSON 数据源格式：auto | array | lines | object（可选）"
+    json_format: Literal["array", "lines", "object"] | None = Field(
+        None, description="JSON 数据源格式：array | lines | object（可选,auto 已废弃）"
     )  # 用于指定 JSON 文件的解析方式
     record_path: str | None = Field(
         None, description="JSON 数据源的 record_path，用于展开嵌套数组（可选）"

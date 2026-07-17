@@ -1,10 +1,10 @@
 """
 @fileoverview JSON 解析策略剩余分支单元测试
 
-覆盖 AutoDetectParser、LinesParser、StandardJSONParser、ParserStrategyRegistry 的未覆盖分支。
+覆盖 LinesParser、StandardJSONParser、ParserStrategyRegistry 的未覆盖分支。
+(D8: AutoDetectParser 已删除)
 """
 
-from app.shared.core.data_source.loaders.strategies.auto_parser import AutoDetectParser
 from app.shared.core.data_source.loaders.strategies.lines_parser import (
     LinesParser,
     ParserStrategyRegistry,
@@ -46,39 +46,6 @@ class TestStandardJSONParserCanParse:
     def test_invalid_json(self):
         parser = StandardJSONParser()
         assert parser.can_parse('{"a": ') is False
-
-
-class TestAutoDetectParserCanParse:
-    def test_not_braces(self):
-        parser = AutoDetectParser()
-        assert parser.can_parse("hello") is False
-
-    def test_invalid_json(self):
-        parser = AutoDetectParser()
-        assert parser.can_parse('{"a": ') is False
-
-
-class TestAutoDetectParserFindArrays:
-    def test_max_depth(self):
-        parser = AutoDetectParser()
-        # Create deeply nested structure
-        data = {}
-        current = data
-        for _ in range(15):
-            current["child"] = {}
-            current = current["child"]
-        result = parser._find_arrays_recursive(data)
-        assert result == []
-
-    def test_list_of_lists(self):
-        parser = AutoDetectParser()
-        result = parser._find_arrays_recursive([[1, 2], [3, 4]])
-        assert result == [[1, 2], [3, 4]]
-
-    def test_list_of_dicts(self):
-        parser = AutoDetectParser()
-        result = parser._find_arrays_recursive([{"a": 1}, {"b": 2}])
-        assert result == []
 
 
 class TestParserStrategyRegistry:

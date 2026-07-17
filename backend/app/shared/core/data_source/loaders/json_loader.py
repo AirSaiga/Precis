@@ -92,7 +92,6 @@ class JSONLoader(DataSourceLoader[JSONSourceSpec]):
     FORMAT_ARRAY = "array"
     FORMAT_LINES = "lines"
     FORMAT_OBJECT = "object"
-    FORMAT_AUTO = "auto"
 
     def __init__(self, spec: JSONSourceSpec):
         """
@@ -194,7 +193,14 @@ class JSONLoader(DataSourceLoader[JSONSourceSpec]):
         if self._parser:
             return self._parser
 
-        format_type = self.spec.format or self.FORMAT_AUTO
+        # D8: format 必须由 spec 显式提供(auto 已废弃)。spec 层已强制 format 必填,
+        # 此处直接取 spec.format;若为 None(异常情况)由 get_parser 报错引导。
+        format_type = self.spec.format
+        if not format_type:
+            raise ValueError(
+                "JSON 数据源未指定 format。请显式指定:array(顶层数组)、"
+                "lines(JSON Lines)、或 object(嵌套对象,需配合 json_path)。"
+            )
         self._parser = get_parser(format_type)
         return self._parser
 

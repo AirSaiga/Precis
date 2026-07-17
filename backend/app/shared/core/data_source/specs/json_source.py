@@ -101,9 +101,9 @@ class JSONSourceSpec(FileSourceSpec):
     source_type: ClassVar[str] = "json"
     type: str = "json"
 
-    # JSON 格式类型
-    format: Literal["auto", "array", "lines", "object"] = Field(
-        "auto", description="JSON 格式类型：auto-自动检测, array-对象数组, lines-JSON Lines, object-嵌套对象"
+    # JSON 格式类型(D8: auto 已废弃,必须显式指定 array/lines/object)
+    format: Literal["array", "lines", "object"] = Field(
+        ..., description="JSON 格式类型(必填):array-顶层数组, lines-JSON Lines, object-嵌套对象(需 json_path)"
     )
 
     # 数据提取路径
@@ -124,6 +124,25 @@ class JSONSourceSpec(FileSourceSpec):
     # 大文件处理
     streaming_threshold_mb: float = Field(50.0, ge=1.0, description="启用流式读取的阈值（MB），超过此大小将分块读取")
     chunk_size: int = Field(10000, ge=100, description="流式读取时的块大小（每次读取的行数）")
+
+    @model_validator(mode="before")
+    @classmethod
+    def validate_format_not_auto(cls, data: Any) -> Any:
+        """D8: 拦截已废弃的 format='auto',给出可操作的迁移引导。
+
+        auto 会猜测主数据数组(取最长/取第一个),与精确列定义的设计矛盾,已废弃。
+        存量配置里 format: auto 在此被捕获,抛出明确错误引导用户改成显式 format,
+        而非让 Pydantic Literal 报含糊的"unexpected value"。
+        """
+        if isinstance(data, dict):
+            fmt = data.get("format")
+            if fmt == "auto":
+                raise ValueError(
+                    "format='auto' 已废弃(自动检测会猜测主数据数组,可能导致校验跑错对象)。"
+                    "请显式改为:array(顶层数组 [{...}])、lines(JSON Lines)、"
+                    "或 object(嵌套对象,需配合 json_path 如 $.data)。"
+                )
+        return data
 
     @model_validator(mode="after")
     def validate_json_path(self):
