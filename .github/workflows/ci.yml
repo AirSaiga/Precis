@@ -357,4 +357,50 @@ jobs:
           path: electron/release/
           retention-days: 7
 
+  electron-smoke:
+    name: Electron Smoke (Windows packaged)
+    runs-on: windows-latest
+    needs: [electron-package]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Download Electron package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: electron-win-package
+          path: electron/release/
+
+      - name: Install e2e dependencies
+        working-directory: e2e
+        run: npm ci
+
+      - name: Install Playwright browsers
+        working-directory: e2e
+        run: npx playwright install --with-deps
+
+      - name: Set Electron executable path
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem -Path electron/release/win-unpacked -Filter "*.exe" -Recurse -ErrorAction SilentlyContinue | Select-Object -First 1
+          if (-not $exe) { throw "未找到 Electron 可执行文件 in electron/release/win-unpacked" }
+          Write-Host "找到 Electron 可执行文件: $($exe.FullName)"
+          echo "E2E_ELECTRON_PATH=$($exe.FullName)" >> $env:GITHUB_ENV
+
+      - name: Run Electron smoke tests
+        working-directory: e2e
+        run: npx playwright test --config=playwright.electron.config.ts
+
+      - name: Upload smoke results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-smoke-results
+          path: e2e/test-results/
+          retention-days: 7
+
 
