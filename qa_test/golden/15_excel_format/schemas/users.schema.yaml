@@ -1,0 +1,24 @@
+version: 2
+
+id: users
+name: users
+description: 黄金案例 15 Excel 加载测试表（部分 name 为空触发 NotNull）
+
+source:
+  mode: relative_file
+  path: data/users.xlsx
+  sheet: Sheet1
+  header_row: 0
+
+columns:
+  - id: id
+    name: id
+    type: integer
+    primary_key: true
+    nullable: false
+  - id: name
+    name: name
+    type: string
+  - id: age
+    name: age
+    type: integer

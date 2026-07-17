@@ -1,0 +1,12 @@
+version: 2
+
+id: users_age_not_null
+type: NotNull
+enabled: true
+description: users.age 非空约束（黄金案例 17，stop 模式 - 第二个约束，应被跳过）
+
+refs:
+  table_id: users
+  column_id: age
+
+params: {}

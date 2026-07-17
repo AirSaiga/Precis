@@ -1,0 +1,30 @@
+version: 2
+project:
+  id: golden-14-large-chunked
+  name: "Golden 14 Large Chunked"
+settings:
+  validation:
+    auto_validate: true
+    strict_mode: false
+    error_handling: continue
+    timeout_seconds: 60
+    batch_max_files: 100
+  file_processing:
+    default_encoding: utf-8
+    csv_delimiter: ','
+  script_security:
+    allow_eval: false
+    allow_exec: false
+    sandbox_mode: true
+    timeout_seconds: 10
+schemas:
+  - id: big
+    path: schemas/big.schema.yaml
+constraints:
+  - id: big_name_not_null
+    path: constraints/big_name_not_null.constraint.yaml
+data_sources:
+  - id: primary
+    path: data
+    mode: relative
+    description: 主数据目录

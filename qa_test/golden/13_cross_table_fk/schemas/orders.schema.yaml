@@ -1,0 +1,22 @@
+version: 2
+
+id: orders
+name: orders
+description: 黄金案例 13 跨表外键-子表（600 行；第 150/450 行引用不存在的 user_id）
+
+source:
+  mode: relative_file
+  path: data/orders.csv
+
+columns:
+  - id: order_id
+    name: order_id
+    type: string
+    primary_key: true
+    nullable: false
+  - id: user_id
+    name: user_id
+    type: string
+  - id: amount
+    name: amount
+    type: float

@@ -1,0 +1,12 @@
+version: 2
+
+id: big_name_not_null
+type: NotNull
+enabled: true
+description: big.name 非空约束（黄金案例 14，大表场景）
+
+refs:
+  table_id: big
+  column_id: name
+
+params: {}

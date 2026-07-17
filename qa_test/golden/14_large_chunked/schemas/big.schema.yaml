@@ -1,0 +1,19 @@
+version: 2
+
+id: big
+name: big
+description: 黄金案例 14 大表（2000 行；每 50 行一个空 name 触发 NotNull 违规）
+
+source:
+  mode: relative_file
+  path: data/big.csv
+
+columns:
+  - id: id
+    name: id
+    type: integer
+    primary_key: true
+    nullable: false
+  - id: name
+    name: name
+    type: string

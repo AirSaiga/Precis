@@ -1,0 +1,25 @@
+{
+  "case_id": "16_json_source",
+  "description": "自动冻结于 16_json_source",
+  "expect_success": true,
+  "expected_error_count_min": 2,
+  "expected_error_count_max": 2,
+  "expected_error_types": [
+    "NotNullViolation"
+  ],
+  "expected_violations": [
+    {
+      "table": "users",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1
+    },
+    {
+      "table": "users",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 3
+    }
+  ],
+  "expected_loading_error_types": []
+}

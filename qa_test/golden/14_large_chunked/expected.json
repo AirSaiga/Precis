@@ -1,0 +1,253 @@
+{
+  "case_id": "14_large_chunked",
+  "description": "自动冻结于 14_large_chunked",
+  "expect_success": true,
+  "expected_error_count_min": 40,
+  "expected_error_count_max": 40,
+  "expected_error_types": [
+    "NotNullViolation"
+  ],
+  "expected_violations": [
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 49
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 99
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 149
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 199
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 249
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 299
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 349
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 399
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 449
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 499
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 549
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 599
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 649
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 699
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 749
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 799
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 849
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 899
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 949
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 999
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1049
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1099
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1149
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1199
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1249
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1299
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1349
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1399
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1449
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1499
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1549
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1599
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1649
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1699
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1749
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1799
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1849
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1899
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1949
+    },
+    {
+      "table": "big",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1999
+    }
+  ],
+  "expected_loading_error_types": []
+}

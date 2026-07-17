@@ -204,6 +204,10 @@ $RECYCLE.BIN/
 # Excel 文件
 *.xlsx
 *.xls
+# 保留测试 fixture 中的 Excel
+!/qa_test/qa_simple/**/*.xlsx
+!/qa_test/cli_smoke/**/*.xlsx
+!/qa_test/golden/**/*.xlsx
 
 # 压缩包
 *.zip

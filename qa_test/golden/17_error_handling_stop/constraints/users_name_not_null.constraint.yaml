@@ -1,0 +1,12 @@
+version: 2
+
+id: users_name_not_null
+type: NotNull
+enabled: true
+description: users.name 非空约束（黄金案例 17，stop 模式 - 第一个约束，会先触发停止）
+
+refs:
+  table_id: users
+  column_id: name
+
+params: {}

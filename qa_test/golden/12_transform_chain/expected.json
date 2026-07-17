@@ -1,0 +1,10 @@
+{
+  "case_id": "12_transform_chain",
+  "description": "自动冻结于 12_transform_chain",
+  "expect_success": true,
+  "expected_error_count_min": 0,
+  "expected_error_count_max": 0,
+  "expected_error_types": [],
+  "expected_violations": [],
+  "expected_loading_error_types": []
+}

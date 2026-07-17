@@ -1,0 +1,5 @@
+order_id,status,amount
+O1,pending,100
+O2,shipped,200
+O3,pending,150
+O4,shipped,300

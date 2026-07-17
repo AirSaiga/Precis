@@ -1,0 +1,12 @@
+version: 2
+
+id: orders_user_fk
+type: ForeignKey
+enabled: true
+description: orders.user_id -> users.id 外键约束（验证跨表 + 大表行号连续性）
+
+refs:
+  from_table_id: orders
+  from_column_id: user_id
+  to_table_id: users
+  to_column_id: id

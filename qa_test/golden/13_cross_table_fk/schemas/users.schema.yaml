@@ -1,0 +1,19 @@
+version: 2
+
+id: users
+name: users
+description: 黄金案例 13 跨表外键-父表（50 用户）
+
+source:
+  mode: relative_file
+  path: data/users.csv
+
+columns:
+  - id: id
+    name: id
+    type: string
+    primary_key: true
+    nullable: false
+  - id: name
+    name: name
+    type: string

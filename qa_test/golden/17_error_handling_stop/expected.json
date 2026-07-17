@@ -1,0 +1,32 @@
+{
+  "case_id": "17_error_handling_stop",
+  "description": "error_handling=stop：第一个 NotNull 约束的 2 条违规 + 1 条 ValidationInterrupted 标记（第二个约束被跳过）",
+  "expect_success": true,
+  "expected_error_count_min": 3,
+  "expected_error_count_max": 3,
+  "expected_error_types": [
+    "NotNullViolation",
+    "ValidationInterrupted"
+  ],
+  "expected_interrupted": true,
+  "expected_violations": [
+    {
+      "table": "users",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 1
+    },
+    {
+      "table": "users",
+      "column": "name",
+      "type": "NotNullViolation",
+      "row_number": 4
+    },
+    {
+      "table": "",
+      "column": "",
+      "type": "ValidationInterrupted"
+    }
+  ],
+  "expected_loading_error_types": []
+}

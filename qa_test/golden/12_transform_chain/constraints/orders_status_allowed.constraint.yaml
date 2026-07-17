@@ -1,0 +1,15 @@
+version: 2
+
+id: orders_status_allowed
+type: AllowedValues
+enabled: true
+description: orders.status 允许值约束（仅大写值合法——验证 transform 已将小写 status 转为大写）
+
+refs:
+  table_id: orders
+  column_id: status
+
+params:
+  allowed_values:
+    - PENDING
+    - SHIPPED
