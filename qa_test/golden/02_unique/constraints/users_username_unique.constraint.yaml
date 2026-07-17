@@ -1,0 +1,12 @@
+version: 2
+
+id: users_username_unique
+type: Unique
+enabled: true
+description: users.username 唯一约束（黄金案例 02）
+
+refs:
+  table_id: users
+  column_id: username
+
+params: {}

@@ -1,0 +1,12 @@
+version: 2
+
+id: users_name_not_null
+type: NotNull
+enabled: true
+description: users.name 非空约束（黄金案例 01）
+
+refs:
+  table_id: users
+  column_id: name
+
+params: {}

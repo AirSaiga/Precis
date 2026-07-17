@@ -1,0 +1,15 @@
+version: 2
+
+id: events_end_after_start
+type: DateLogic
+enabled: true
+description: events.end_date 必须 >= events.start_date（黄金案例 10）
+
+refs:
+  table_id: events
+  column_id: end_date
+
+params:
+  logic_mode: compare
+  compare_op: gte
+  reference_column: start_date

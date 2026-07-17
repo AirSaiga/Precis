@@ -1,0 +1,20 @@
+version: 2
+
+id: users_adult_age
+type: Conditional
+enabled: true
+description: 当 is_adult_only=true 时，age 必须 >= 18（即 > 17）（黄金案例 08）
+
+refs:
+  table_id: users
+  then_column_id: age
+  if_conditions:
+    - if_column_id: is_adult_only
+      operator: eq
+      value: true
+  if_logic: and
+
+params:
+  then_condition:
+    operator: greater_than
+    value: 17

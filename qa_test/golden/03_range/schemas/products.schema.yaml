@@ -1,0 +1,19 @@
+version: 2
+
+id: products
+name: products
+description: 黄金案例 03 区间约束测试表
+
+source:
+  mode: relative_file
+  path: data/products.csv
+
+columns:
+  - id: id
+    name: id
+    type: integer
+    primary_key: true
+    nullable: false
+  - id: price
+    name: price
+    type: float

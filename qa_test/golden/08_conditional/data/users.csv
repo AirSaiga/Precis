@@ -1,0 +1,5 @@
+id,age,is_adult_only
+1,30,true
+2,17,true
+3,18,true
+4,15,false

@@ -1,0 +1,19 @@
+version: 2
+
+id: users
+name: users
+description: 黄金案例 07 外键约束-父表
+
+source:
+  mode: relative_file
+  path: data/users.csv
+
+columns:
+  - id: id
+    name: id
+    type: string
+    primary_key: true
+    nullable: false
+  - id: name
+    name: name
+    type: string

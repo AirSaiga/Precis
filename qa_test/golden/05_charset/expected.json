@@ -1,0 +1,18 @@
+{
+  "case_id": "05_charset",
+  "description": "自动冻结于 05_charset",
+  "expect_success": true,
+  "expected_error_count_min": 1,
+  "expected_error_count_max": 1,
+  "expected_error_types": [
+    "CharsetViolation"
+  ],
+  "expected_violations": [
+    {
+      "table": "users",
+      "column": "username",
+      "type": "CharsetViolation"
+    }
+  ],
+  "expected_loading_error_types": []
+}

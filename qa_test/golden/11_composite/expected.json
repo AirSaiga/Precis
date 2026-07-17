@@ -1,0 +1,24 @@
+{
+  "case_id": "11_composite",
+  "description": "自动冻结于 11_composite",
+  "expect_success": true,
+  "expected_error_count_min": 2,
+  "expected_error_count_max": 2,
+  "expected_error_types": [
+    "NotNullViolation",
+    "RangeViolation"
+  ],
+  "expected_violations": [
+    {
+      "table": "users",
+      "column": "name",
+      "type": "NotNullViolation"
+    },
+    {
+      "table": "users",
+      "column": "age",
+      "type": "RangeViolation"
+    }
+  ],
+  "expected_loading_error_types": []
+}

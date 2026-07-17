@@ -1,0 +1,18 @@
+{
+  "case_id": "04_allowed_values",
+  "description": "自动冻结于 04_allowed_values",
+  "expect_success": true,
+  "expected_error_count_min": 1,
+  "expected_error_count_max": 1,
+  "expected_error_types": [
+    "AllowedValuesViolation"
+  ],
+  "expected_violations": [
+    {
+      "table": "orders",
+      "column": "status",
+      "type": "AllowedValuesViolation"
+    }
+  ],
+  "expected_loading_error_types": []
+}

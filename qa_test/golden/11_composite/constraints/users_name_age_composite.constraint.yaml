@@ -1,0 +1,39 @@
+version: 2
+
+# ============================================================
+# Constraint: users_name_age_composite
+# 类型: Composite (logic=all)
+# 说明: 复合约束，子约束 = name 非空 + age 在 [0,120]
+#       子约束配置沿用 qa_simple/users_email_composite 的内嵌结构
+# ============================================================
+
+id: users_name_age_composite
+type: Composite
+enabled: true
+description: name 非空 且 age 在 [0,120]（黄金案例 11）
+
+refs:
+  table_id: users
+
+params:
+  logic: all
+  sub_constraints:
+    - version: 2
+      id: users_name_not_null
+      type: NotNull
+      enabled: true
+      refs:
+        table_id: users
+        column_id: name
+      params: {}
+    - version: 2
+      id: users_age_range
+      type: Range
+      enabled: true
+      refs:
+        table_id: users
+        column_id: age
+      params:
+        min: 0
+        max: 120
+        boundary_mode: inclusive

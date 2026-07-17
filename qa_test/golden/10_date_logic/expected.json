@@ -1,0 +1,18 @@
+{
+  "case_id": "10_date_logic",
+  "description": "自动冻结于 10_date_logic",
+  "expect_success": true,
+  "expected_error_count_min": 1,
+  "expected_error_count_max": 1,
+  "expected_error_types": [
+    "DateLogicError"
+  ],
+  "expected_violations": [
+    {
+      "table": "events",
+      "column": "end_date",
+      "type": "DateLogicError"
+    }
+  ],
+  "expected_loading_error_types": []
+}

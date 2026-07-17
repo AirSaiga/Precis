@@ -1,0 +1,22 @@
+version: 2
+
+# ============================================================
+# Constraint: users_email_regex
+# 类型: Scripted（用 re_match 表达正则约束）
+# 说明: Regex 类型目前不在 CONSTRAINT_REGISTRY 中（无 builder），
+#       故通过 Scripted 约束 + re_match 函数实现等效的正则校验。
+#       正则: ^[^@]+@[^@]+\.[^@]+$  要求 "本地名@域名.TLD" 结构
+# ============================================================
+
+id: users_email_regex
+type: Scripted
+enabled: true
+description: users.email 必须匹配邮箱正则 ^[^@]+@[^@]+\.[^@]+$（黄金案例 06）
+
+refs:
+  table_id: users
+  column_id: email
+
+params:
+  name: email_regex_check
+  expression: 're_match(r"^[^@]+@[^@]+\.[^@]+$", str(value))'

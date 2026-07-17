@@ -1,0 +1,23 @@
+{
+  "case_id": "09_scripted",
+  "description": "自动冻结于 09_scripted",
+  "expect_success": true,
+  "expected_error_count_min": 2,
+  "expected_error_count_max": 2,
+  "expected_error_types": [
+    "BusinessLogicViolation"
+  ],
+  "expected_violations": [
+    {
+      "table": "users",
+      "column": "",
+      "type": "BusinessLogicViolation"
+    },
+    {
+      "table": "users",
+      "column": "",
+      "type": "BusinessLogicViolation"
+    }
+  ],
+  "expected_loading_error_types": []
+}

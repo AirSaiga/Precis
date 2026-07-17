@@ -1,0 +1,18 @@
+{
+  "case_id": "06_regex",
+  "description": "自动冻结于 06_regex",
+  "expect_success": true,
+  "expected_error_count_min": 1,
+  "expected_error_count_max": 1,
+  "expected_error_types": [
+    "BusinessLogicViolation"
+  ],
+  "expected_violations": [
+    {
+      "table": "users",
+      "column": "",
+      "type": "BusinessLogicViolation"
+    }
+  ],
+  "expected_loading_error_types": []
+}

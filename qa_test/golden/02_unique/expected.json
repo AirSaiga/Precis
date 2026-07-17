@@ -1,0 +1,23 @@
+{
+  "case_id": "02_unique",
+  "description": "自动冻结于 02_unique",
+  "expect_success": true,
+  "expected_error_count_min": 2,
+  "expected_error_count_max": 2,
+  "expected_error_types": [
+    "UniqueViolation"
+  ],
+  "expected_violations": [
+    {
+      "table": "users",
+      "column": "",
+      "type": "UniqueViolation"
+    },
+    {
+      "table": "users",
+      "column": "",
+      "type": "UniqueViolation"
+    }
+  ],
+  "expected_loading_error_types": []
+}

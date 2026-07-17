@@ -199,6 +199,7 @@ $RECYCLE.BIN/
 # 保留测试 fixture 中的 CSV
 !/qa_test/qa_simple/**/*.csv
 !/qa_test/cli_smoke/**/*.csv
+!/qa_test/golden/**/*.csv
 
 # Excel 文件
 *.xlsx

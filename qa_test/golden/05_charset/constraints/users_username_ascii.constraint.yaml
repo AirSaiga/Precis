@@ -1,0 +1,13 @@
+version: 2
+
+id: users_username_ascii
+type: Charset
+enabled: true
+description: users.username ASCII 字符集约束（黄金案例 05）
+
+refs:
+  table_id: users
+  column_id: username
+
+params:
+  charset_mode: ascii

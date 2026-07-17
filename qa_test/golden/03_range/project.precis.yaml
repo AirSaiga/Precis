@@ -1,0 +1,30 @@
+version: 2
+project:
+  id: golden-03-range
+  name: "Golden 03 Range"
+settings:
+  validation:
+    auto_validate: true
+    strict_mode: false
+    error_handling: continue
+    timeout_seconds: 30
+    batch_max_files: 100
+  file_processing:
+    default_encoding: utf-8
+    csv_delimiter: ','
+  script_security:
+    allow_eval: false
+    allow_exec: false
+    sandbox_mode: true
+    timeout_seconds: 10
+schemas:
+  - id: products
+    path: schemas/products.schema.yaml
+constraints:
+  - id: products_price_range
+    path: constraints/products_price_range.constraint.yaml
+data_sources:
+  - id: primary
+    path: data
+    mode: relative
+    description: 主数据目录

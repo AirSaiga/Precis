@@ -1,0 +1,19 @@
+version: 2
+
+id: orders
+name: orders
+description: 黄金案例 04 允许值约束测试表
+
+source:
+  mode: relative_file
+  path: data/orders.csv
+
+columns:
+  - id: id
+    name: id
+    type: integer
+    primary_key: true
+    nullable: false
+  - id: status
+    name: status
+    type: string

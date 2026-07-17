@@ -1,0 +1,23 @@
+{
+  "case_id": "03_range",
+  "description": "自动冻结于 03_range",
+  "expect_success": true,
+  "expected_error_count_min": 2,
+  "expected_error_count_max": 2,
+  "expected_error_types": [
+    "RangeViolation"
+  ],
+  "expected_violations": [
+    {
+      "table": "products",
+      "column": "price",
+      "type": "RangeViolation"
+    },
+    {
+      "table": "products",
+      "column": "price",
+      "type": "RangeViolation"
+    }
+  ],
+  "expected_loading_error_types": []
+}

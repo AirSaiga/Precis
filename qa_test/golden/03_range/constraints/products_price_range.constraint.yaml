@@ -1,0 +1,15 @@
+version: 2
+
+id: products_price_range
+type: Range
+enabled: true
+description: products.price 区间约束 [0, 100]（黄金案例 03）
+
+refs:
+  table_id: products
+  column_id: price
+
+params:
+  min: 0
+  max: 100
+  boundary_mode: inclusive

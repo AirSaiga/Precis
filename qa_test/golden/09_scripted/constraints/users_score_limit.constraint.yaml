@@ -1,0 +1,14 @@
+version: 2
+
+id: users_score_limit
+type: Scripted
+enabled: true
+description: users.score 必须 <= 100（黄金案例 09）
+
+refs:
+  table_id: users
+  column_id: score
+
+params:
+  name: score_le_100
+  expression: 'value <= 100'
