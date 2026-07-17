@@ -52,6 +52,37 @@ class TestLoadExcelChunked:
         with pytest.raises(Exception):
             loader._load_excel_chunked("/nonexistent.xlsx", "Sheet1", 0, 100)
 
+    def test_excel_chunked_global_row_index_across_chunks(self, tmp_path):
+        """回归 #8: Excel 分块的行索引必须全局连续,反映行在原文件中的真实位置。
+
+        原实现每块 pd.read_excel(header=None, skiprows=...) 生成全新 0-based RangeIndex,
+        导致第 2 块起 index 又从 0 开始。约束校验取 int(index) 作为 row_index 时,
+        报告行号与原文件对不上(如第 3 块第 45000 行报成"第 45000 行",实际在第 245000 行),
+        财务/审计场景无法定位错误。要求:每块 index 从该块在文件中的真实行号开始。
+        """
+        excel_file = tmp_path / "test.xlsx"
+        # 250 行,chunk_size=100 → 3 块(100/100/50)
+        df = pd.DataFrame({"id": range(250), "name": [f"name_{i}" for i in range(250)]})
+        df.to_excel(str(excel_file), index=False)
+
+        loader = ChunkedDataLoader.__new__(ChunkedDataLoader)
+        chunks = loader._load_excel_chunked(str(excel_file), "Sheet1", header_row=0, chunk_size=100)
+
+        assert len(chunks) == 3
+        # 关键:第 1 块 index 应从 0 开始
+        assert chunks[0].index[0] == 0, f"第1块首行 index 应为 0,实际: {chunks[0].index[0]}"
+        # 第 2 块 index 应从 100 开始(全局连续,非重启的 0)
+        assert chunks[1].index[0] == 100, (
+            f"第2块首行 index 应为 100(全局连续),实际: {chunks[1].index[0]}(原 bug 会是 0)"
+        )
+        assert chunks[1].index[-1] == 199
+        # 第 3 块 index 应从 200 开始
+        assert chunks[2].index[0] == 200, f"第3块首行 index 应为 200(全局连续),实际: {chunks[2].index[0]}"
+        assert chunks[2].index[-1] == 249
+        # 数据内容仍正确(index 重置不影响值)
+        assert chunks[1].iloc[0]["id"] == 100
+        assert chunks[2].iloc[0]["id"] == 200
+
 
 class TestLoadDataframeChunkedDispatch:
     def test_xlsx_dispatch(self, tmp_path):

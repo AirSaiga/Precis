@@ -145,6 +145,25 @@ pub fn display_width(s: &str) -> usize {
     s.chars().map(|c| if c.is_ascii() { 1 } else { 2 }).sum()
 }
 
+/// 按显示宽度截断并右侧补齐空格到 width（用于栏位对齐，CJK 安全）
+pub fn truncate_width(s: &str, width: usize) -> String {
+    let mut out = String::new();
+    let mut w = 0usize;
+    for c in s.chars() {
+        let cw = if c.is_ascii() { 1 } else { 2 };
+        if w + cw > width {
+            break;
+        }
+        out.push(c);
+        w += cw;
+    }
+    while w < width {
+        out.push(' ');
+        w += 1;
+    }
+    out
+}
+
 /// 手动换行：按显示宽度把长文本切成多行（修复长消息溢出，替代 Wrap 的不可控滚动）
 pub fn wrap_text(s: &str, width: usize) -> Vec<String> {
     if width == 0 {

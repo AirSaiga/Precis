@@ -172,6 +172,9 @@ class ChunkedDataLoader:
 
             chunks: list[pd.DataFrame] = []
             current_skip = header_row + 1  # 跳过表头行
+            # 回归 #8: 累计已读数据行数(不含表头),用于给每块设置全局连续的 0-based 数据行号,
+            # 使约束校验的 row_index 反映行在原文件的真实数据位置(与 CSV 分块的全局连续 index 对齐)。
+            data_row_offset = 0
 
             while True:
                 read_kwargs: dict[str, Any] = {
@@ -190,8 +193,14 @@ class ChunkedDataLoader:
                 if len(chunk.columns) == len(columns):
                     chunk.columns = columns
 
+                # 回归 #8: 把块内 index 重置为全局连续的数据行号(从 data_row_offset 开始),
+                # 而非 pd.read_excel 默认的每块从 0 重启的 RangeIndex。否则第 2 块起 row_index
+                # 与原文件位置错位,财务/审计场景无法据报告行号定位错误。
+                chunk.index = range(data_row_offset, data_row_offset + len(chunk))
+
                 chunks.append(chunk)
                 current_skip += chunk_size
+                data_row_offset += len(chunk)
 
                 # 如果返回的行数小于 chunk_size，说明已到文件末尾
                 if len(chunk) < chunk_size:

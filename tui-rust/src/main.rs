@@ -203,7 +203,7 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
                 app.api.set_project(&path);
                 app.project_name = Some(name);
                 app.message = "项目已打开".to_string();
-                app.current_tab = Tab::Validation;
+                app.switch_tab(Tab::Validation);
                 app.validation = ValidationState::Idle;
                 // BUG-8/17: 打开项目后重置错误列表 cursor，避免越界
                 app.error_cursor = 0;

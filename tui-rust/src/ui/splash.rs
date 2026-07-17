@@ -1,4 +1,4 @@
-//! 启动画面（Splash）— 全屏 ASCII logo 三色渐变扫光 + 版本号，约 0.9 秒
+//! 启动画面（Splash）— 全屏 ASCII logo 横向渐变 + 扫光带 + 版本淡入 + 末尾淡出，约 0.9 秒
 
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
@@ -19,7 +19,7 @@ const LOGO: &[&str] = &[
     r"██        ██     ██ ████████  ██████  ████  ██████",
 ];
 
-/// 总帧数（约 0.9 秒 @ 33fps，30 帧做扫光 + 停留）
+/// 总帧数（约 0.9 秒 @ 33fps）
 pub const SPLASH_FRAMES: usize = 30;
 
 /// 渲染 splash 画面
@@ -31,50 +31,64 @@ pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
     );
 
     let progress = splash_frame as f64 / SPLASH_FRAMES as f64;
-    let total_logo_lines = LOGO.len();
+    let logo_w = LOGO.iter().map(|l| l.chars().count()).max().unwrap_or(1) as f64;
 
-    // 扫光带位置：从顶部滑到底部（前 60% 帧用于扫光，后 40% 停留）
-    let sweep_progress = (progress / 0.6).clamp(0.0, 1.0);
-    let sweep_line = (sweep_progress * total_logo_lines as f64) as usize;
+    // 扫光带横向位置：前 70% 帧从左扫到右（带心坐标，含越界缓冲）
+    let sweep_t = (progress / 0.7).clamp(0.0, 1.0);
+    let band_x = sweep_t * (logo_w + 16.0) - 8.0;
+    const BAND_HALF: f64 = 5.0;
+
+    // 末尾 15% 帧整体向 bg 淡出
+    let fade = if progress > 0.85 {
+        ((progress - 0.85) / 0.15).clamp(0.0, 1.0)
+    } else {
+        0.0
+    };
 
     let mut lines: Vec<Line> = Vec::new();
 
-    // 顶部留白（居中）
-    let top_pad = area.height.saturating_sub(total_logo_lines as u16 + 6) / 2;
+    // 顶部留白（垂直居中）
+    let top_pad = area.height.saturating_sub(LOGO.len() as u16 + 6) / 2;
     for _ in 0..top_pad {
         lines.push(Line::from(""));
     }
 
-    // Logo 逐行渐变扫光：粉→青→紫三段
-    for (i, logo_line) in LOGO.iter().enumerate() {
-        let color = if i < sweep_line {
-            // 已扫过：按行号分三段渐变色
-            let segment = i as f64 / total_logo_lines as f64;
-            if segment < 0.33 {
-                colors::pink()
-            } else if segment < 0.67 {
-                colors::cyan()
-            } else {
-                colors::purple()
-            }
-        } else if i == sweep_line {
-            // 当前扫光带：亮白过渡色
-            colors::blend(colors::fg(), colors::pink(), 0.5)
-        } else {
-            colors::dim()
-        };
-        lines.push(Line::from(Span::styled(*logo_line, Style::default().fg(color))));
+    // Logo：逐字符横向渐变（gradient_a→gradient_b），扫光带高亮、未扫到处暗化
+    let a = colors::gradient_a();
+    let b = colors::gradient_b();
+    for logo_line in LOGO {
+        let spans: Vec<Span> = logo_line
+            .chars()
+            .enumerate()
+            .map(|(i, c)| {
+                let base = colors::blend(a, b, i as f64 / (logo_w - 1.0).max(1.0));
+                let d = i as f64 - band_x;
+                let lit = if d < -BAND_HALF {
+                    base // 已扫过：完整渐变
+                } else if d <= BAND_HALF {
+                    // 扫光带内：向 fg 提亮（中心最亮）
+                    let boost = 1.0 - d.abs() / BAND_HALF;
+                    colors::blend(base, colors::fg(), 0.4 + 0.4 * boost)
+                } else {
+                    // 未扫到：暗化
+                    colors::blend(base, colors::bg(), 0.8)
+                };
+                let color = if fade > 0.0 { colors::blend(lit, colors::bg(), fade) } else { lit };
+                Span::styled(c.to_string(), Style::default().fg(color))
+            })
+            .collect();
+        lines.push(Line::from(spans));
     }
 
-    // 版本号 + 标语（logo 全部点亮后淡入）
+    // 版本号 + 标语（60% 后淡入，末尾随全屏淡出）
     lines.push(Line::from(""));
     if progress >= 0.6 {
-        let fade = ((progress - 0.6) / 0.4).clamp(0.0, 1.0);
-        let text_color = colors::blend(colors::bg(), colors::muted(), fade);
-        lines.push(Line::from(Span::styled(
-            "v0.1.0",
-            Style::default().fg(text_color),
-        )));
+        let fade_in = ((progress - 0.6) / 0.25).clamp(0.0, 1.0);
+        let mut text_color = colors::blend(colors::bg(), colors::muted(), fade_in);
+        if fade > 0.0 {
+            text_color = colors::blend(text_color, colors::bg(), fade);
+        }
+        lines.push(Line::from(Span::styled("v0.1.0", Style::default().fg(text_color))));
         lines.push(Line::from(Span::styled(
             "本地数据校验工具",
             Style::default().fg(text_color),

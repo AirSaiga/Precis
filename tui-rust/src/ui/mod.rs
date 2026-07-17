@@ -306,7 +306,7 @@ mod tests {
     use ratatui::backend::TestBackend;
     use ratatui::Terminal;
 
-    /// 渲染一帧并返回 buffer 文本（按行拼接，仅符号）
+    /// 渲染一帧并返回 buffer 文本（按行拼接，仅符号；跳过双宽字符的续格）
     fn render_to_string(app: &mut App, w: u16, h: u16) -> String {
         let backend = TestBackend::new(w, h);
         let mut terminal = Terminal::new(backend).unwrap();
@@ -315,7 +315,10 @@ mod tests {
         let mut s = String::new();
         for y in 0..h {
             for x in 0..w {
-                s.push_str(buf[(x, y)].symbol());
+                let cell = &buf[(x, y)];
+                if !cell.skip {
+                    s.push_str(cell.symbol());
+                }
             }
         }
         s
@@ -383,6 +386,16 @@ mod tests {
         let out = render_to_string(&mut app, 100, 30);
         assert!(out.contains("项目"), "空列表也应有节标题");
         assert!(out.contains("本地数据校验工具"), "hero 标语应显示");
+    }
+
+    #[test]
+    fn test_debug_dump() {
+        let mut app = running_app();
+        app.switch_tab(Tab::Validation);
+        let out = render_to_string(&mut app, 100, 30);
+        for (i, line) in out.chars().collect::<Vec<_>>().chunks(100).enumerate().take(6) {
+            eprintln!("ROW{i}: [{}]", line.iter().collect::<String>());
+        }
     }
 
     #[test]
