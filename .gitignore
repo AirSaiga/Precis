@@ -262,4 +262,7 @@ backend/tui_run.log
 # 编译产物（可能数 GB，绝不提交）
 tui-rust/target/
 
+# 构建日志（cargo 编译时重定向产物，无源码引用，误提交后应忽略）
+tui-rust/build-warnings.log
+
 
