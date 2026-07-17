@@ -67,7 +67,7 @@ export class NodePreviewFetcher implements PreviewDataFetcher {
         rawData,
         rowCount: rawData.length,
         fields,
-        format: (nodeData.format as string) || 'auto',
+        format: (nodeData.format as string) || 'array',
         metadata: {
           typeInference: nodeData.typeInference as Record<string, string> | undefined,
           fieldCount: nodeData.fieldCount as number | undefined,

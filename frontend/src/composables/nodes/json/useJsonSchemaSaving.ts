@@ -242,7 +242,7 @@ export function useJsonSchemaSaving(
         mode: data.sourcePathMode || 'relative_file',
         ...(data.sourceFile ? { path: data.sourceFile } : {}),
         options: {
-          format: data.format || 'auto',
+          format: data.format || 'array',
           ...(data.jsonPath ? { json_path: data.jsonPath } : {}),
           ...(data.recordPath ? { record_path: data.recordPath } : {}),
         },
@@ -343,8 +343,8 @@ export function useJsonSchemaSaving(
           ? String(options.record_path)
           : (source.recordPath as string) || props.data.recordPath,
         format:
-          (options.format as 'auto' | 'array' | 'lines' | 'object') ||
-          (source.format as 'auto' | 'array' | 'lines' | 'object') ||
+          (options.format as 'array' | 'lines' | 'object') ||
+          (source.format as 'array' | 'lines' | 'object') ||
           props.data.format ||
           'auto',
         columns: parseColumns(parsed.columns as unknown[]),

@@ -392,7 +392,7 @@ export interface JsonSourcePreviewNodeData {
    * - lines: JSON Lines / NDJSON（每行一个 JSON 对象）
    * - object: 嵌套对象（需配合 JSONPath 提取数据数组）
    */
-  format?: 'auto' | 'array' | 'lines' | 'object'
+  format?: 'array' | 'lines' | 'object'
   /** JSONPath 表达式，用于从 JSON 中提取数据 */
   jsonPath?: string
   /** record_path，用于 pandas read_json 的 record_path 参数 */
@@ -455,7 +455,7 @@ export interface JsonSchemaNodeData extends BaseSchemaNodeData<JsonSchemaColumn>
   /** record_path，用于 pandas read_json 的 record_path 参数 */
   recordPath?: string
   /** JSON 格式变体（与 JsonSourcePreviewNodeData.format 对齐） */
-  format?: 'auto' | 'array' | 'lines' | 'object'
+  format?: 'array' | 'lines' | 'object'
   /** 下游子节点 ID 列表（regex、constraint 等） */
   children?: string[]
 }

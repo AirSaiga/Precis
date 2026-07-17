@@ -652,7 +652,6 @@ const customNodes = {
     title: 'JSON 数据源预览',
     defaultLabel: 'JSON 数据源预览',
     format: '格式',
-    formatAuto: '自动检测',
     formatArray: '对象数组',
     formatLines: 'JSON Lines',
     formatObject: '嵌套对象',

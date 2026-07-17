@@ -86,7 +86,7 @@ export interface JSONOptionsV2 {
    * - 'lines': JSON Lines 格式
    * - 'object': JSON 对象格式
    */
-  format?: 'auto' | 'array' | 'lines' | 'object'
+  format?: 'array' | 'lines' | 'object'
   /** JSONPath 表达式，用于从嵌套 JSON 中提取数据 */
   json_path?: string
   /** record_path，用于 pandas read_json 的 record_path 参数 */

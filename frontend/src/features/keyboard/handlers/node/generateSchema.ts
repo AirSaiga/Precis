@@ -175,7 +175,7 @@ async function generateSchemaFromSourceInternal(): Promise<{ success: boolean; m
       localPath: sourceData.localPath as string,
       jsonPath: (sourceData.jsonPath as string) || '',
       recordPath: (sourceData.recordPath as string) || '',
-      format: (sourceData.format as 'auto' | 'array' | 'lines' | 'object') || 'auto',
+      format: (sourceData.format as 'array' | 'lines' | 'object') || 'array',
     } as Partial<CustomNodeData>)
   } else {
     graphStore.updateNodeData(schemaNodeId, {

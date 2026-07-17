@@ -150,7 +150,6 @@ const customNodes = {
     title: 'JSON Data Source Preview',
     defaultLabel: 'JSON Data Source Preview',
     format: 'Format',
-    formatAuto: 'Auto Detect',
     formatArray: 'Object Array',
     formatLines: 'JSON Lines',
     formatObject: 'Nested Object',

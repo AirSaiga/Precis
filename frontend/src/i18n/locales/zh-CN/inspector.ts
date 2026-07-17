@@ -179,7 +179,6 @@ const inspector = (() => {
         recordPath: 'items',
       },
       formatOptions: {
-        auto: '自动检测',
         array: '对象数组（每项为一个对象）',
         lines: 'JSON Lines / NDJSON',
         object: '嵌套对象（需 JSONPath 提取）',

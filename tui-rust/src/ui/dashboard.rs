@@ -1,117 +1,79 @@
-//! 首页 — 指标概览 + 项目列表（双主题适配）
+//! 首页 — hero / 指标卡片 + 全宽项目列表
 
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{List, ListItem, ListState, Paragraph};
 use ratatui::Frame;
 
-use crate::app::{colors, App};
+use super::widgets;
+use crate::app::{colors, layout, App};
+use crate::icons;
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([Constraint::Min(1)])
-        .split(area);
+    if area.height == 0 || area.width == 0 {
+        return;
+    }
+    let mut y = area.y;
+    let bottom = area.y + area.height;
 
-    let mut lines: Vec<Line> = Vec::new();
-    lines.push(Line::from(""));
-
+    // — 顶部区：已打开项目 → 指标卡；未打开 → hero —
     if app.project_name.is_some() {
-        let name = app.project_name.as_deref().unwrap_or("");
-        // 项目名 + 状态
-        lines.push(Line::from(vec![
-            Span::raw(" "),
-            Span::styled("●", Style::default().fg(colors::green())),
-            Span::raw(" "),
-            Span::styled(name, Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD)),
-            Span::raw("  "),
-            Span::styled("已打开", Style::default().fg(colors::green())),
-        ]));
-
-        // 指标行（呼吸数字）
-        if let Some(p) = app.projects.get(app.selected_project) {
-            let sc = p.schema_count.unwrap_or(0);
-            let cc = p.constraint_count.unwrap_or(0);
-            let t = app.frame_count as f64 * 0.025;
-            let phase1 = t.sin() * 0.5 + 0.5;
-            let phase2 = (t + 2.094).sin() * 0.5 + 0.5;
-            let phase3 = (t + 4.189).sin() * 0.5 + 0.5;
-            let num1 = colors::blend(colors::pink(), colors::fg(), phase1 * 0.4);
-            let num2 = colors::blend(colors::cyan(), colors::fg(), phase2 * 0.4);
-            let num3 = colors::blend(colors::green(), colors::fg(), phase3 * 0.4);
-
-            lines.push(Line::from(""));
-            lines.push(Line::from(vec![
-                Span::raw("  "),
-                Span::styled(format!("{}", sc), Style::default().fg(num1).add_modifier(Modifier::BOLD)),
-                Span::raw("  "),
-                Span::styled("Schema", Style::default().fg(colors::muted())),
-                Span::styled("  │  ", Style::default().fg(colors::dim())),
-                Span::styled(format!("{}", cc), Style::default().fg(num2).add_modifier(Modifier::BOLD)),
-                Span::raw("  "),
-                Span::styled("约束", Style::default().fg(colors::muted())),
-                Span::styled("  │  ", Style::default().fg(colors::dim())),
-                Span::styled(format!("{}", sc + cc), Style::default().fg(num3).add_modifier(Modifier::BOLD)),
-                Span::raw("  "),
-                Span::styled("总计", Style::default().fg(colors::muted())),
-            ]));
-
-            lines.push(Line::from(Span::styled(
-                format!("  {}", p.path),
-                Style::default().fg(colors::dim()),
-            )));
-        }
+        y = render_metrics(frame, app, area, y);
     } else {
-        lines.push(Line::from(vec![
-            Span::raw(" "),
-            Span::styled("◤◢", Style::default().fg(colors::pink()).add_modifier(Modifier::BOLD)),
-            Span::raw(" "),
-            Span::styled("Precis", Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD)),
-            Span::raw("  "),
-            Span::styled("本地数据校验工具", Style::default().fg(colors::dim())),
-        ]));
+        // hero：主题装饰符 + 渐变 logo + 标语（居中）
+        let motif = if colors::theme() == 1 { icons::motif::SNOW } else { icons::motif::SAKURA };
+        let mut logo: Vec<Span> = Vec::new();
+        logo.extend(widgets::gradient_spans(
+            "◤◢ Precis",
+            colors::gradient_a(),
+            colors::gradient_b(),
+            true,
+        ));
+        logo.push(Span::styled(format!("  {}", motif), Style::default().fg(colors::gradient_b())));
+        let hero_h = 4u16;
+        if bottom.saturating_sub(y) >= hero_h {
+            frame.render_widget(
+                Paragraph::new(vec![
+                    Line::from(""),
+                    Line::from(logo),
+                    Line::from(Span::styled("本地数据校验工具", Style::default().fg(colors::dim()))),
+                    Line::from(""),
+                ])
+                .alignment(Alignment::Center),
+                Rect { x: area.x, y, width: area.width, height: hero_h },
+            );
+            y += hero_h;
+        }
     }
 
-    // 分隔线
-    lines.push(Line::from(""));
-    lines.push(Line::from(Span::styled(
-        " ────────────────────────────────────",
-        Style::default().fg(colors::dim()),
-    )));
-
-    // 项目列表标题
-    lines.push(Line::from(vec![
-        Span::raw(" "),
-        Span::styled("◈", Style::default().fg(colors::cyan())),
-        Span::raw(" "),
-        Span::styled(format!("项目 ({})", app.projects.len()), Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD)),
-        Span::raw("  "),
-        Span::styled("j/k 选择  Enter 打开", Style::default().fg(colors::dim())),
-    ]));
-    lines.push(Line::from(""));
-
-    let header_lines = lines.len() as u16;
+    // — 项目节标题 + 操作提示 —
+    if bottom.saturating_sub(y) < 3 {
+        return;
+    }
+    let header = widgets::section_header("◈", "项目", Some(app.projects.len()), area.width as usize);
+    let hint = widgets::chips_line(&[("j/k", "选择"), ("Enter", "打开")]);
     frame.render_widget(
-        Paragraph::new(lines).style(Style::default().bg(colors::bg())),
-        chunks[0],
+        Paragraph::new(vec![header, hint, Line::from("")]),
+        Rect { x: area.x, y, width: area.width, height: 3 },
     );
+    y += 3;
 
-    // ===== 项目列表区域 =====
+    // — 项目列表（全宽单行条目）—
+    let list_h = bottom.saturating_sub(y);
+    if list_h == 0 {
+        return;
+    }
     if app.projects.is_empty() {
+        frame.render_widget(
+            Paragraph::new(Line::from(Span::styled(
+                "  未发现项目（检查 PRECIS_WORK_DIR 指向的目录）",
+                Style::default().fg(colors::dim()),
+            ))),
+            Rect { x: area.x, y, width: area.width, height: 1 },
+        );
         return;
     }
-
-    // 计算列表可用区域
-    if header_lines >= area.height {
-        return;
-    }
-    let list_area = Rect {
-        x: area.x,
-        y: area.y + header_lines,
-        width: area.width,
-        height: area.height - header_lines,
-    };
 
     let current_path = app.api.project_path().unwrap_or("").to_string();
     let items: Vec<ListItem> = app
@@ -121,40 +83,46 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         .map(|(idx, p)| {
             let is_current = p.path == current_path;
             let is_selected = idx == app.selected_project;
+            let prefix = if is_selected { icons::SELECTED } else { " " };
+            let prefix_color = if is_selected { colors::pink() } else { colors::dim() };
+            let (dot, dot_color) = if is_current {
+                (icons::status::CONNECTED, colors::green())
+            } else {
+                (icons::status::DISCONNECTED, colors::dim())
+            };
             let name_style = if is_current {
                 Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(colors::fg())
             };
-            let prefix = if is_selected { "▸" } else { " " };
-            let dot = if is_current { "●" } else { "○" };
-            let dot_color = if is_current { colors::green() } else { colors::dim() };
-            let prefix_color = if is_selected { colors::pink() } else { colors::dim() };
-            ListItem::new(vec![
-                Line::from(vec![
-                    Span::raw(" "),
-                    Span::styled(prefix, Style::default().fg(prefix_color)),
-                    Span::styled(dot, Style::default().fg(dot_color)),
-                    Span::raw(" "),
-                    Span::styled(&p.name, name_style),
-                    Span::raw("  "),
-                    Span::styled(
-                        format!("{} schema", p.schema_count.unwrap_or(0)),
-                        Style::default().fg(colors::cyan()),
-                    ),
-                    Span::styled(" · ", Style::default().fg(colors::dim())),
-                    Span::styled(
-                        format!("{} 约束", p.constraint_count.unwrap_or(0)),
-                        Style::default().fg(colors::pink()),
-                    ),
-                    if is_current {
-                        Span::styled("  ✓ 当前", Style::default().fg(colors::green()))
-                    } else {
-                        Span::raw("")
-                    },
-                ]),
-                Line::from(Span::styled(format!("    {}", p.path), Style::default().fg(colors::dim()))),
-            ])
+            let mut spans = vec![
+                Span::raw(" "),
+                Span::styled(prefix, Style::default().fg(prefix_color)),
+                Span::styled(dot, Style::default().fg(dot_color)),
+                Span::raw(" "),
+                Span::styled(p.name.clone(), name_style),
+                Span::raw("  "),
+                Span::styled(
+                    format!("{} schema", p.schema_count.unwrap_or(0)),
+                    Style::default().fg(colors::cyan()),
+                ),
+                Span::styled(" · ", Style::default().fg(colors::dim())),
+                Span::styled(
+                    format!("{} 约束", p.constraint_count.unwrap_or(0)),
+                    Style::default().fg(colors::pink()),
+                ),
+            ];
+            if is_current {
+                spans.push(Span::raw("  "));
+                spans.extend(widgets::badge("当前", colors::green()));
+            }
+            // 路径并入行尾（dim、截断）
+            let path_budget = (area.width as usize).saturating_sub(48);
+            spans.push(Span::styled(
+                format!("   {}", icons::truncate(&p.path, path_budget.max(10))),
+                Style::default().fg(colors::dim()),
+            ));
+            ListItem::new(Line::from(spans))
         })
         .collect();
 
@@ -165,5 +133,73 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
 
     let mut state = ListState::default();
     state.select(Some(app.selected_project));
-    frame.render_stateful_widget(list, list_area, &mut state);
+    frame.render_stateful_widget(
+        list,
+        Rect { x: area.x, y, width: area.width, height: list_h },
+        &mut state,
+    );
+}
+
+/// 指标卡片区（返回下一块内容的起始 y）
+fn render_metrics(frame: &mut Frame, app: &App, area: Rect, y: u16) -> u16 {
+    let bottom = area.y + area.height;
+    let Some(p) = app.projects.get(app.selected_project) else {
+        return y;
+    };
+    let sc = p.schema_count.unwrap_or(0);
+    let cc = p.constraint_count.unwrap_or(0);
+    let t = app.frame_count as f64 * 0.025;
+    let ph1 = t.sin() * 0.5 + 0.5;
+    let ph2 = (t + 2.094).sin() * 0.5 + 0.5;
+    let ph3 = (t + 4.189).sin() * 0.5 + 0.5;
+    let cards: [(String, &str, ratatui::style::Color, f64); 3] = [
+        (sc.to_string(), "Schema", colors::pink(), ph1),
+        (cc.to_string(), "约束", colors::cyan(), ph2),
+        ((sc + cc).to_string(), "总计", colors::green(), ph3),
+    ];
+
+    let mut y = y;
+    let wide = area.width >= layout::CARD_ROW_MIN_WIDTH;
+    if wide && bottom.saturating_sub(y) >= 4 {
+        // 横排三卡
+        let cols = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Ratio(1, 3); 3])
+            .split(Rect { x: area.x, y, width: area.width, height: 4 });
+        for (i, (value, label, accent, ph)) in cards.iter().enumerate() {
+            widgets::stat_card(frame, cols[i], value, label, *accent, *ph);
+        }
+        y += 4;
+    } else if !wide && bottom.saturating_sub(y) >= 12 {
+        // 窄终端纵排
+        for (value, label, accent, ph) in &cards {
+            widgets::stat_card(
+                frame,
+                Rect { x: area.x, y, width: area.width, height: 4 },
+                value,
+                label,
+                *accent,
+                *ph,
+            );
+            y += 4;
+        }
+    }
+
+    // 项目名 + 路径行
+    if bottom > y {
+        frame.render_widget(
+            Paragraph::new(Line::from(vec![
+                Span::styled(" ● ", Style::default().fg(colors::green())),
+                Span::styled(
+                    p.name.clone(),
+                    Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD),
+                ),
+                Span::styled("  已打开", Style::default().fg(colors::green())),
+                Span::styled(format!("   {}", p.path), Style::default().fg(colors::dim())),
+            ])),
+            Rect { x: area.x, y, width: area.width, height: 1 },
+        );
+        y += 2;
+    }
+    y
 }

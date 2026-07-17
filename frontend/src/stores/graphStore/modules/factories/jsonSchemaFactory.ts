@@ -45,7 +45,7 @@ export function createJsonSchemaFactoryModule(params: {
       fileName: string
       sourceMode?: 'localfile'
       localPath?: string
-      format?: 'auto' | 'array' | 'lines' | 'object'
+      format?: 'array' | 'lines' | 'object'
       jsonPath?: string
       recordPath?: string
     }
@@ -57,7 +57,7 @@ export function createJsonSchemaFactoryModule(params: {
       fileName: fileInfo.fileName,
       fileType: 'json',
       sourceType: 'json',
-      format: fileInfo.format || 'auto',
+      format: fileInfo.format || 'array',
       jsonPath: fileInfo.jsonPath || '',
       recordPath: fileInfo.recordPath || '',
       isPreviewNode: true,

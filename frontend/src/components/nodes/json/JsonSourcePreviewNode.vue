@@ -82,7 +82,6 @@
       <div class="config-section">
         <label class="config-label">{{ t('customNodes.jsonSourcePreviewNode.format') }}</label>
         <select class="config-select" v-model="localData.format" @change="handleConfigChange">
-          <option value="auto">{{ t('customNodes.jsonSourcePreviewNode.formatAuto') }}</option>
           <option value="array">{{ t('customNodes.jsonSourcePreviewNode.formatArray') }}</option>
           <option value="lines">{{ t('customNodes.jsonSourcePreviewNode.formatLines') }}</option>
           <option value="object">{{ t('customNodes.jsonSourcePreviewNode.formatObject') }}</option>
@@ -401,7 +400,7 @@
         requestBody.json_path = localData.value.jsonPath.trim()
       }
       // 始终传递 format（默认 auto）
-      requestBody.json_format = localData.value.format || 'auto'
+      requestBody.json_format = localData.value.format || 'array'
       if (localData.value.recordPath?.trim()) {
         requestBody.record_path = localData.value.recordPath.trim()
       }

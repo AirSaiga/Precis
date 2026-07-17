@@ -240,7 +240,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       fileName: basename(resolvedLocalPath),
       fileType: 'json',
       sourceType: 'json',
-      format: jsonSchemaData.format || 'auto',
+      format: jsonSchemaData.format || 'array',
       jsonPath: jsonSchemaData.jsonPath || '',
       recordPath: jsonSchemaData.recordPath || '',
       rawData: (previewData.raw_data as unknown[]) || [],
@@ -376,7 +376,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       localPath: resolvedLocalPath,
       jsonPath: jsonSchemaData.jsonPath || '',
       recordPath: jsonSchemaData.recordPath || '',
-      format: jsonSchemaData.format || 'auto',
+      format: jsonSchemaData.format || 'array',
     } as Partial<CustomNodeData>)
     graphStore.schemaSourceIndex?.rebuild()
   } else {

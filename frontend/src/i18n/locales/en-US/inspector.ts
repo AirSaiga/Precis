@@ -179,7 +179,6 @@ const inspector = {
       recordPath: 'items',
     },
     formatOptions: {
-      auto: 'Auto-detect',
       array: 'Array of objects (one object per item)',
       lines: 'JSON Lines / NDJSON',
       object: 'Nested object (requires JSONPath)',

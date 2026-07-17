@@ -92,10 +92,9 @@
         <label>{{ t('inspector.jsonSchemaNode.labels.format') }}</label>
         <select
           class="column-type-select"
-          :value="data.format || 'auto'"
+          :value="data.format || 'array'"
           @change="handleFormatChange"
         >
-          <option value="auto">{{ t('inspector.jsonSchemaNode.formatOptions.auto') }}</option>
           <option value="array">{{ t('inspector.jsonSchemaNode.formatOptions.array') }}</option>
           <option value="lines">{{ t('inspector.jsonSchemaNode.formatOptions.lines') }}</option>
           <option value="object">{{ t('inspector.jsonSchemaNode.formatOptions.object') }}</option>
@@ -270,7 +269,7 @@
   import { findJsonSchemaColumnById } from '@/utils/nodes/json/columnFinder'
   import JsonFieldRow from './JsonFieldRow.vue'
 
-  type JsonFormat = 'auto' | 'array' | 'lines' | 'object'
+  type JsonFormat = 'array' | 'lines' | 'object'
 
   const { t } = useI18n()
   const graphStore = useGraphStore()
