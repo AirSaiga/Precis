@@ -87,6 +87,7 @@ def validate_full_dataset(
     regex_files: dict[str, RegexNodeFile] | None = None,
     deadline: float | None = None,
     skip_constraints: bool = False,
+    stop_on_first_error: bool = False,
 ) -> tuple[dict[str, pd.DataFrame], list[dict], dict[str, list[dict]]]:
     """
     @methoddesc 执行完整的验证流程，包括格式解析和约束校验
@@ -181,6 +182,24 @@ def validate_full_dataset(
 
         logger.debug(f"表 '{table_id}' 解析完成。发现 {len(parsing_errors)} 个格式错误。")
 
+        # C6 遇错即停:格式校验阶段发现错误即停,不处理剩余表、不进入约束阶段。
+        if stop_on_first_error and parsing_errors:
+            remaining_tables = len(raw_datasets) - (list(raw_datasets.keys()).index(table_id) + 1)
+            all_errors.append(
+                {
+                    "stage": "format",
+                    "check_type": "ValidationInterrupted",
+                    "table": table_id,
+                    "error_type": "ValidationInterrupted",
+                    "message": (
+                        f"遇错即停(error_handling=stop):表 '{table_id}' 格式校验发现首个错误,"
+                        f"剩余 {remaining_tables} 个表及约束校验未执行。"
+                    ),
+                }
+            )
+            logger.info(f"遇错即停:格式阶段在表 '{table_id}' 停止,跳过剩余表与约束校验")
+            return parsed_datasets, all_errors, validation_details
+
     # ========================
     # 阶段一续：提取派生列
     # ========================
@@ -232,6 +251,7 @@ def validate_full_dataset(
         allow_unsafe_eval=allow_unsafe_eval,
         table_filter=table_filter,
         deadline=deadline,
+        stop_on_first_error=stop_on_first_error,
     )
 
     # 返回解析后的数据集、所有错误和校验详情
@@ -249,6 +269,7 @@ def validate_constraints(
     allow_unsafe_eval: bool = False,
     table_filter: str | list[str] | None = None,
     deadline: float | None = None,
+    stop_on_first_error: bool = False,
 ) -> tuple[list[dict], dict[str, list[dict]]]:
     """
     @methoddesc 仅执行阶段二（逻辑约束验证），对已解析数据跑所有约束
@@ -264,6 +285,8 @@ def validate_constraints(
         allow_unsafe_eval: 是否允许执行不安全的脚本化约束
         table_filter: 只验证与这些表相关的约束
         deadline: 超时截止时间
+        stop_on_first_error: C6 遇错即停。True 时发现第一个约束错误即停止剩余约束校验,
+            追加一条 ValidationInterrupted 标记(供调用方感知中断)。
 
     返回:
         元组 (all_errors, validation_details)
@@ -383,5 +406,21 @@ def validate_constraints(
         logger.debug(
             f"约束 {i + 1} ({constraint.__class__.__name__}) 验证完成。发现 {len(constraint_errors)} 个逻辑错误。"
         )
+
+        # C6 遇错即停:发现第一个约束错误后立即停止剩余约束(快速失败),追加中断标记。
+        # 仿上方 deadline 超时中断模式(:296-307)。constraint_checks 已记录当前约束,故在此 break。
+        if stop_on_first_error and constraint_errors:
+            remaining = len(schema.constraints) - i - 1
+            all_errors.append(
+                {
+                    "stage": "constraint",
+                    "check_type": "ValidationInterrupted",
+                    "table": None,
+                    "error_type": "ValidationInterrupted",
+                    "message": (f"遇错即停(error_handling=stop):发现首个错误,剩余 {remaining} 个约束未执行。"),
+                }
+            )
+            logger.info(f"遇错即停:跳过剩余 {remaining} 个约束(含约束 {i + 2} 起)")
+            break
 
     return all_errors, validation_details

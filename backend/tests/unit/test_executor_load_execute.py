@@ -176,3 +176,56 @@ class TestExecute:
         with patch.object(executor._data_loader, "load_data_sources", return_value=({}, [])):
             result = executor.execute("D:\\data", ValidationOptions())
         assert any(e.get("error_type") == "DataLoadingError" for e in result["errors"])
+
+    def test_stop_on_first_error_sets_interrupted(self):
+        """C6: error_handling='stop' 且校验返回 ValidationInterrupted 标记时,
+        result['interrupted'] 应为 True。"""
+        executor = _make_executor(
+            tables={"users": MockTableSchema("users", "users")},
+            schema_files={"users": MockSchemaFile("users", "users")},
+        )
+        interrupted_errors = [
+            {"error_type": "NotNullViolation", "table": "users", "column": "id", "message": "空值"},
+            {"error_type": "ValidationInterrupted", "stage": "constraint", "message": "遇错即停"},
+        ]
+        with (
+            patch.object(
+                executor._data_loader,
+                "load_data_sources",
+                return_value=({"users": pd.DataFrame({"id": [1, None]})}, []),
+            ),
+            patch(
+                "app.shared.services.validation.executor.validate_full_dataset",
+                return_value=(
+                    {"users": pd.DataFrame({"id": [1, None]})},
+                    interrupted_errors,
+                    {"format_checks": [], "constraint_checks": []},
+                ),
+            ),
+        ):
+            result = executor.execute("D:\\data", ValidationOptions(error_handling="stop"))
+        assert result["interrupted"] is True, "error_handling=stop 且有中断标记时 interrupted 应为 True"
+
+    def test_continue_mode_no_interrupted(self):
+        """C6: 默认 error_handling='continue' 时,interrupted 应为 False(即使有错误)。"""
+        executor = _make_executor(
+            tables={"users": MockTableSchema("users", "users")},
+            schema_files={"users": MockSchemaFile("users", "users")},
+        )
+        with (
+            patch.object(
+                executor._data_loader,
+                "load_data_sources",
+                return_value=({"users": pd.DataFrame({"id": [1, None]})}, []),
+            ),
+            patch(
+                "app.shared.services.validation.executor.validate_full_dataset",
+                return_value=(
+                    {"users": pd.DataFrame({"id": [1, None]})},
+                    [{"error_type": "NotNullViolation", "table": "users", "message": "空值"}],
+                    {"format_checks": [], "constraint_checks": []},
+                ),
+            ),
+        ):
+            result = executor.execute("D:\\data", ValidationOptions())  # 默认 continue
+        assert result["interrupted"] is False

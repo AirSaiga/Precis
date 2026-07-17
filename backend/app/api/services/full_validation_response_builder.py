@@ -300,6 +300,8 @@ class FullValidationResponseBuilder:
             constraint_error_count=constraint_error_count,
             total_error_count=total_for_summary,
             duration_ms=result.get("duration_ms", self._duration_ms()),
+            # C6: 透出遇错即停的中断状态(executor 在 result["interrupted"] 标记)
+            interrupted=bool(result.get("interrupted", False)),
         )
 
     def build_from_result(self, result: dict[str, Any]) -> FullValidationResponse:

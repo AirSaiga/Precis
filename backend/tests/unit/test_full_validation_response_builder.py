@@ -421,6 +421,57 @@ class TestErrorTruncation:
         assert resp.summary.errors_truncated is False
 
 
+class TestInterruptedFlag:
+    """C6 遇错即停:响应应透出 interrupted 标记,供前端/CLI/TUI 区分"正常完成"与"提前停止"。"""
+
+    def test_interrupted_flag_propagated(self):
+        """result['interrupted']=True 时,summary.interrupted 应为 True。"""
+        executor = _make_executor({"users": _make_schema("users", "Users")})
+        result = _make_result(
+            raw_datasets={"users": {"source_file": "users.csv"}},
+            errors=[
+                {
+                    "stage": "constraint",
+                    "error_type": "NotNullViolation",
+                    "check_type": "NotNull",
+                    "message": "空",
+                    "table": "users",
+                    "row_index": 0,
+                },
+                {
+                    "stage": "constraint",
+                    "error_type": "ValidationInterrupted",
+                    "check_type": "ValidationInterrupted",
+                    "message": "遇错即停",
+                },
+            ],
+            interrupted=True,
+        )
+        builder = FullValidationResponseBuilder(executor, started=time.monotonic())
+        resp = builder.build_from_result(result)
+        assert resp.summary.interrupted is True, "result interrupted=True 应透出到 summary"
+
+    def test_default_not_interrupted(self):
+        """默认(无 interrupted 字段)时,summary.interrupted 应为 False。"""
+        executor = _make_executor({"users": _make_schema("users", "Users")})
+        result = _make_result(
+            raw_datasets={"users": {"source_file": "users.csv"}},
+            errors=[
+                {
+                    "stage": "constraint",
+                    "error_type": "NotNullViolation",
+                    "check_type": "NotNull",
+                    "message": "空",
+                    "table": "users",
+                    "row_index": 0,
+                },
+            ],
+        )
+        builder = FullValidationResponseBuilder(executor, started=time.monotonic())
+        resp = builder.build_from_result(result)
+        assert resp.summary.interrupted is False
+
+
 class TestEdgeCases:
     def test_empty_result_has_zero_checks_and_full_pass_rate(self):
         executor = _make_executor()

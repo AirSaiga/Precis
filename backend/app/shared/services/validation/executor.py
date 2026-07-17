@@ -435,6 +435,7 @@ class ValidationExecutor:
             "loading_errors": [],
             "duration_ms": 0,
             "timeout_occurred": False,
+            "interrupted": False,  # C6 遇错即停:是否因 error_handling=stop 提前终止
             "validation_details": {"format_checks": [], "constraint_checks": []},
             "chunked_mode": False,
             "memory_info": {},
@@ -524,6 +525,8 @@ class ValidationExecutor:
         )
 
         # Step 6: 执行格式解析和约束校验
+        # C6 遇错即停:error_handling="stop" 时,发现首个错误即停止剩余校验
+        stop_on_first_error = options.error_handling == "stop"
         try:
             parsed_datasets, validation_errors, validation_details = validate_full_dataset(
                 raw_datasets,
@@ -533,6 +536,7 @@ class ValidationExecutor:
                 transform_files=getattr(self.loaded_project, "transform_files", None) if self.loaded_project else None,
                 regex_files=getattr(self.loaded_project, "regex_node_files", None) if self.loaded_project else None,
                 deadline=deadline,
+                stop_on_first_error=stop_on_first_error,
             )
         except Exception as e:
             logger.exception(f"Error during validate_full_dataset: {e}")
@@ -540,6 +544,9 @@ class ValidationExecutor:
         result["parsed_datasets"] = parsed_datasets
         result["errors"].extend(validation_errors)
         result["validation_details"] = validation_details
+        # C6: 若校验因 stop 提前终止(返回了 ValidationInterrupted 标记),记录中断状态
+        if stop_on_first_error and any(e.get("error_type") == "ValidationInterrupted" for e in validation_errors):
+            result["interrupted"] = True
 
         # 进度：校验执行完成（更新累计错误数）
         self._emit_progress(
@@ -696,6 +703,8 @@ class ValidationExecutor:
         # 确定脚本安全策略
         allow_unsafe_eval = self._resolve_allow_unsafe_eval(options)
         deadline = started + options.timeout_seconds
+        # C6 遇错即停:error_handling="stop" 时,分块格式校验发现首个错误即停止后续分块
+        stop_on_first_error = options.error_handling == "stop"
 
         # 逐块执行校验，聚合结果
         all_parsed_datasets: dict[str, list[pd.DataFrame]] = {}
@@ -704,6 +713,8 @@ class ValidationExecutor:
             "format_checks": [],
             "constraint_checks": [],
         }
+        # C6: 跟踪是否因 stop 在分块阶段中断(中断后跳过全局约束校验)
+        chunk_interrupted = False
 
         # 累计已处理行数（跨表累加，用于进度事件）
         rows_done_so_far = 0
@@ -774,6 +785,24 @@ class ValidationExecutor:
                     for check in validation_details.get("constraint_checks", []):
                         all_validation_details["constraint_checks"].append(check)
 
+                    # C6 遇错即停:分块模式下,当前块格式校验发现错误即停止后续分块(块间中断,
+                    # 避免半块数据)。块内已跑完,数据完整。
+                    if stop_on_first_error and validation_errors:
+                        all_errors.append(
+                            {
+                                "error_type": "ValidationInterrupted",
+                                "stage": "format",
+                                "check_type": "ValidationInterrupted",
+                                "table": table_id,
+                                "message": (
+                                    f"遇错即停(error_handling=stop):表 '{table_id}' 分块 {chunk_idx + 1} "
+                                    f"格式校验发现错误,剩余分块及约束校验未执行。"
+                                ),
+                            }
+                        )
+                        chunk_interrupted = True
+                        break
+
                 except Exception as e:
                     logger.exception(f"分块校验异常: 表 {table_id} 分块 {chunk_idx}: {e}")
                     all_errors.append(
@@ -825,7 +854,8 @@ class ValidationExecutor:
 
         # 【全量约束校验】对 concat（+DAG）后的全量 parsed 执行阶段二约束校验，
         # 修复跨表 ForeignKey（不再缺目标表）与跨块 Unique（整列去重）的正确性。
-        if merged_parsed:
+        # C6: 若分块阶段已因 stop 中断,跳过约束校验(已停在前面的格式错误)。
+        if merged_parsed and not chunk_interrupted:
             constraint_errors, constraint_details = validate_constraints(
                 merged_parsed,
                 self.dataset_schema,
@@ -837,6 +867,7 @@ class ValidationExecutor:
                 allow_unsafe_eval=allow_unsafe_eval,
                 table_filter=options.table_filter,
                 deadline=deadline,
+                stop_on_first_error=stop_on_first_error,
             )
             all_errors.extend(constraint_errors)
             # 用全量约束结果替换分块阶段（分块循环 skip 了约束，constraint_checks 原本为空）
@@ -844,6 +875,11 @@ class ValidationExecutor:
 
         result["errors"] = all_errors
         result["validation_details"] = all_validation_details
+        # C6: 分块阶段因 stop 中断,或约束阶段因 stop 中断,均标记 interrupted
+        if chunk_interrupted or (
+            stop_on_first_error and any(e.get("error_type") == "ValidationInterrupted" for e in all_errors)
+        ):
+            result["interrupted"] = True
 
         # 结果后处理
         self._postprocess_result(result)

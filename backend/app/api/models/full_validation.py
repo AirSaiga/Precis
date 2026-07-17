@@ -357,6 +357,9 @@ class FullValidationSummary(BaseModel):
         default=False, description="错误列表是否被截断"
     )  # 回归 #10: 当真实错误数超过响应上限时为 True,errors 只含截断后的子集,
     # 但 total_error_count 保留真实总数,供前端显示"显示 X/Y 条"。
+    interrupted: bool = Field(
+        default=False, description="校验是否因遇错即停(error_handling=stop)而提前终止"
+    )  # C6: True 表示校验在发现首个错误后即停止,剩余检查未执行(快速失败)。
 
     @computed_field
     def error_count(self) -> int:
