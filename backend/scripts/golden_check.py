@@ -145,12 +145,44 @@ def run_case(case_dir: Path) -> CaseResult:
     return result
 
 
+def _freeze_expected(case_dir: Path) -> None:
+    """跑一次校验，把实际错误签名写回 expected.json（首次冻结用）。"""
+    manifest = str(case_dir / "project.precis.yaml")
+    data_dir = str(case_dir / "data")
+    raw = _execute_validation(manifest, data_dir)
+    errors = raw.get("errors", []) or []
+    loading_errors = raw.get("loading_errors", []) or []
+    err_types, load_types = _extract_error_types(errors, loading_errors)
+
+    frozen = {
+        "case_id": case_dir.name,
+        "description": f"自动冻结于 {case_dir.name}",
+        "expect_success": True,
+        "expected_error_count_min": len(errors),
+        "expected_error_count_max": len(errors),
+        "expected_error_types": sorted(err_types),
+        "expected_violations": _extract_violations(errors),
+        "expected_loading_error_types": sorted(load_types),
+    }
+    with open(case_dir / "expected.json", "w", encoding="utf-8") as f:
+        json.dump(frozen, f, ensure_ascii=False, indent=2)
+    print(f"已冻结 {case_dir.name}: {len(errors)} 个错误")
+
+
 def main() -> int:
     """入口：解析参数、遍历案例、汇总结果、返回退出码。"""
     parser = argparse.ArgumentParser(description="黄金集校验")
     parser.add_argument("--case", help="只校验指定案例 ID")
     parser.add_argument("--update", help="用实际输出更新指定案例的 expected.json")
     args = parser.parse_args()
+
+    if args.update:
+        target = GOLDEN_ROOT / args.update
+        if not target.is_dir():
+            print(f"案例目录不存在: {target}")
+            return 1
+        _freeze_expected(target)
+        return 0
 
     cases = discover_cases()
     if args.case:
