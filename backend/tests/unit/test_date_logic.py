@@ -321,6 +321,62 @@ class TestDateLogicConstraint:
         assert len(result["errors"]) == 1
         assert result["errors"][0]["row_index"] == 0
 
+    def test_age_default_op_is_gte_boundary(self):
+        """回归 D2: age 计算不写 compare_op 时,默认应为 gte(满 N 岁即通过)。
+
+        业务场景:"满 18 周岁才能下单"。原默认 gt → age==18 被判违规(必须 >18 即满19),
+        刚满 18 的用户被误挡。改为 gte 后 age==18 应通过。
+        本测试用固定 reference_date 构造"恰好满 18 岁"的边界,不依赖 datetime.now()。
+        """
+        # 出生日期 2000-01-01,参考日期 2018-01-01 → 恰好满 18 岁(age==18)
+        df = pd.DataFrame({"birth_date": ["2000-01-01"]})
+        c = DateLogicConstraint(
+            table="users",
+            column="birth_date",
+            logic_mode="calculation",
+            calculation_type="age",
+            target_value=18,
+            reference_date="2018-01-01",
+            # compare_op 不写,测试默认值
+        )
+        result = c.validate({"users": df})
+        assert result["errors"] == [], f"age==target(满18岁)默认应通过(gte 语义),实际误报: {result['errors']}"
+
+    def test_age_default_gte_still_detects_underage(self):
+        """回归 D2: 默认 gte 不应放过未满者(age < target 仍报错)。"""
+        # 出生日期 2000-01-02,参考日期 2018-01-01 → 差1天满18岁(age==17)
+        df = pd.DataFrame({"birth_date": ["2000-01-02"]})
+        c = DateLogicConstraint(
+            table="users",
+            column="birth_date",
+            logic_mode="calculation",
+            calculation_type="age",
+            target_value=18,
+            reference_date="2018-01-01",
+        )
+        result = c.validate({"users": df})
+        assert len(result["errors"]) == 1, f"age<target(未满18)应报错,实际: {result['errors']}"
+
+    def test_days_diff_default_op_is_eq_boundary(self):
+        """回归 D2: days_diff 计算不写 compare_op 时,默认应为 eq(差值等于目标值通过)。
+
+        业务场景:对账"下单与付款相差恰好 N 天"。原 domain 默认 gt → diff==target 被判违规,
+        正常 30 天的记录全报错。改为 eq 后 diff==target 应通过。
+        """
+        # 2020-01-01 到 2020-01-10 差 9 天,target=9 → 应通过(eq)
+        df = pd.DataFrame({"start": ["2020-01-01"], "end": ["2020-01-10"]})
+        c = DateLogicConstraint(
+            table="users",
+            column="start",
+            logic_mode="calculation",
+            calculation_type="days_diff",
+            target_column="end",
+            target_value=9,
+            # compare_op 不写,测试默认值
+        )
+        result = c.validate({"users": df})
+        assert result["errors"] == [], f"days_diff==target(差9天)默认应通过(eq 语义),实际误报: {result['errors']}"
+
 
 class TestDateLogicValidator:
     def test_compare_reference_date_pass(self):

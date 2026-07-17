@@ -94,7 +94,7 @@ class DateLogicConstraint(Constraint):
         table: str,
         column: str,
         logic_mode: str = "compare",
-        compare_op: str = "gt",
+        compare_op: str | None = None,
         reference_date: str | None = None,
         reference_column: str | None = None,
         reference_date_end: str | None = None,
@@ -110,7 +110,10 @@ class DateLogicConstraint(Constraint):
             table: 目标表名
             column: 目标日期列名
             logic_mode: 逻辑模式，"compare"（比较）或 "calculation"（计算）
-            compare_op: 比较操作符，可选 gt/gte/lt/lte/eq/range
+            compare_op: 比较操作符，可选 gt/gte/lt/lte/eq/range。None 时按模式取默认:
+                compare 模式默认 gt;calculation 模式下 age 默认 gte(满 N 岁即通过)、
+                days_diff 默认 eq(差值等于目标值通过)。回归 D2: 原统一默认 gt 导致 age==target
+                (刚满18岁)与 days_diff==target(对账周期恰好)被误判违规。
             reference_date: 参考日期字符串（比较模式下使用，作为区间起点）
             reference_column: 参考列名（比较模式下使用，与 reference_date 互斥，作为区间起点）
             reference_date_end: 区间终点固定日期（仅 range 模式下使用）
@@ -135,13 +138,15 @@ class DateLogicConstraint(Constraint):
         """生成约束描述"""
         desc = f"日期逻辑约束: {self.table}.{self.column}"
         if self.logic_mode == "compare":
-            if self.compare_op == "range":
+            # 回归 D2: compare_op 为 None 时按模式回退(compare→gt)再生成描述
+            cmp_op = self.compare_op or "gt"
+            if cmp_op == "range":
                 start = self.reference_column or self.reference_date
                 end = self.reference_column_end or self.reference_date_end
                 desc += f" range [{start}, {end}]"
             else:
                 ref = self.reference_column or self.reference_date
-                desc += f" {self.compare_op} {ref}"
+                desc += f" {cmp_op} {ref}"
         elif self.logic_mode == "calculation":
             desc += f" {self.calculation_type} check"
         return desc
@@ -236,13 +241,16 @@ class DateLogicConstraint(Constraint):
         # 比较模式: 比较日期与参考值
         # ============================================================================
         if self.logic_mode == "compare":
+            # 回归 D2: compare_op 默认 None 时,compare 模式回退到 gt(保持历史行为)。
+            # calculation 模式的默认由各计算分支自行解析(age→gte、days_diff→eq)。
+            cmp_op = self.compare_op or "gt"
             start_values, start_errors = self._resolve_compare_boundary(df, "reference_date", "reference_column")
             if start_errors:
                 errors.extend(start_errors)
                 return {"errors": errors, "info": self.get_constraint_info()}
 
             # range 模式需要单独解析终点边界
-            if self.compare_op == "range":
+            if cmp_op == "range":
                 start_is_date = bool(self.reference_date)
                 end_is_date = bool(self.reference_date_end)
                 if start_values is None or (start_is_date != end_is_date):
@@ -344,31 +352,31 @@ class DateLogicConstraint(Constraint):
 
                 # 根据比较操作符判断哪些行不满足条件
                 # ~ 表示取反，即"不满足比较条件"
-                if self.compare_op == "gt":
+                if cmp_op == "gt":
                     mask_fail[mask_valid] = ~(
                         target_series[mask_valid] > ref_values
                         if not isinstance(ref_values, pd.Series)
                         else target_series[mask_valid] > ref_values[mask_valid]
                     )
-                elif self.compare_op == "lt":
+                elif cmp_op == "lt":
                     mask_fail[mask_valid] = ~(
                         target_series[mask_valid] < ref_values
                         if not isinstance(ref_values, pd.Series)
                         else target_series[mask_valid] < ref_values[mask_valid]
                     )
-                elif self.compare_op == "gte":
+                elif cmp_op == "gte":
                     mask_fail[mask_valid] = ~(
                         target_series[mask_valid] >= ref_values
                         if not isinstance(ref_values, pd.Series)
                         else target_series[mask_valid] >= ref_values[mask_valid]
                     )
-                elif self.compare_op == "lte":
+                elif cmp_op == "lte":
                     mask_fail[mask_valid] = ~(
                         target_series[mask_valid] <= ref_values
                         if not isinstance(ref_values, pd.Series)
                         else target_series[mask_valid] <= ref_values[mask_valid]
                     )
-                elif self.compare_op == "eq":
+                elif cmp_op == "eq":
                     mask_fail[mask_valid] = ~(
                         target_series[mask_valid] == ref_values
                         if not isinstance(ref_values, pd.Series)
@@ -380,7 +388,7 @@ class DateLogicConstraint(Constraint):
                             "error_type": "ConstraintConfigError",
                             "table": self.table,
                             "column": self.column,
-                            "message": f"日期逻辑约束失败: 不支持比较操作符 '{self.compare_op}'，支持的操作符为 gt/gte/lt/lte/eq/range。",
+                            "message": f"日期逻辑约束失败: 不支持比较操作符 '{cmp_op}'，支持的操作符为 gt/gte/lt/lte/eq/range。",
                         }
                     )
                     return {"errors": errors, "info": self.get_constraint_info()}
@@ -397,7 +405,7 @@ class DateLogicConstraint(Constraint):
                             "row_index": int(idx),
                             "column": self.column,
                             "value": str(val),
-                            "message": f"日期比较失败: {val} 应该 {self.compare_op} {ref_val}",
+                            "message": f"日期比较失败: {val} 应该 {cmp_op} {ref_val}",
                         }
                     )
 
