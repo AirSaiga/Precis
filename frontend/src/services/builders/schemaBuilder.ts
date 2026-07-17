@@ -122,11 +122,11 @@ export function toJsonBackendType(dataType: string): string {
 export function buildJSONOptions(data: JsonSchemaNodeData): JSONOptionsV2 | undefined {
   const options: JSONOptionsV2 = {}
 
-  // format 字段
+  // format 字段（D8 后取消 auto 模式，默认 array）
   if (data.format) {
     options.format = data.format
   } else {
-    options.format = 'auto'
+    options.format = 'array'
   }
 
   // json_path 字段

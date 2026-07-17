@@ -8,7 +8,7 @@
  * 与 table 版 findMatchingSchema(按 path + sheet)对应。
  *
  * 注:format 不参与匹配。同一 JSON 文件配不同 format 的 schema 罕见,
- * 且 format 多为 auto 自动检测,故有意不校验 format 一致性。
+ * 故有意不校验 format 一致性（D8 后 format 必须显式指定为 array/lines/object）。
  */
 
 import type { TableSchemaFileV2 } from '@/types/projectV2'

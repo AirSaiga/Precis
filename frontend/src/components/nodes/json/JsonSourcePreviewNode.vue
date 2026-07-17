@@ -399,7 +399,7 @@
       if (localData.value.jsonPath?.trim()) {
         requestBody.json_path = localData.value.jsonPath.trim()
       }
-      // 始终传递 format（默认 auto）
+      // 始终传递 format（默认 array，D8 后已无 auto 模式）
       requestBody.json_format = localData.value.format || 'array'
       if (localData.value.recordPath?.trim()) {
         requestBody.record_path = localData.value.recordPath.trim()
