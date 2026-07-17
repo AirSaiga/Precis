@@ -21,21 +21,6 @@
         <div class="settings-section__desc">{{ t('settings.project.defaultRunParamsHint') }}</div>
       </div>
       <div class="settings-row">
-        <div class="settings-row__label">{{ t('settings.project.strictMode.label') }}</div>
-        <div class="settings-row__desc">{{ t('settings.project.strictMode.desc') }}</div>
-        <div class="settings-row__control">
-          <label class="ui-switch ui-switch--compact">
-            <input
-              v-model="validationSettings.strict_mode"
-              type="checkbox"
-              class="ui-switch__input"
-              @change="handleValidationChange"
-            />
-            <span class="ui-switch__track"></span>
-          </label>
-        </div>
-      </div>
-      <div class="settings-row">
         <div class="settings-row__label">{{ t('settings.project.errorHandling.label') }}</div>
         <div class="settings-row__desc">{{ t('settings.project.errorHandling.desc') }}</div>
         <div class="settings-row__control">
@@ -44,9 +29,8 @@
             class="ui-select ui-select--compact"
             @change="handleValidationChange"
           >
-            <option value="stop">{{ t('settings.project.errorHandling.stop') }}</option>
             <option value="continue">{{ t('settings.project.errorHandling.continue') }}</option>
-            <option value="report">{{ t('settings.project.errorHandling.report') }}</option>
+            <option value="stop">{{ t('settings.project.errorHandling.stop') }}</option>
           </select>
         </div>
       </div>

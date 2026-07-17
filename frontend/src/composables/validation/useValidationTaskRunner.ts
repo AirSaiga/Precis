@@ -624,6 +624,12 @@ export function useValidationTaskRunner() {
       if (response.error) {
         errorMessage.value = response.error
         warning(t('common.fullValidation.result.toastFail'), t('common.fullValidation.result.fail'))
+      } else if (response.summary?.interrupted) {
+        // C6 遇错即停:校验提前终止,用 attention 语气提示(非成功也非致命错误)
+        warning(
+          t('common.fullValidation.result.toastInterrupted'),
+          t('common.fullValidation.result.interrupted')
+        )
       } else if (response.success) {
         success(t('common.fullValidation.result.toastPass'), t('common.fullValidation.result.pass'))
       } else {
@@ -676,8 +682,11 @@ export function useValidationTaskRunner() {
 
       // B31 修复：校验业务失败（response.error）时 execute 阶段应标记为 error，而非 success。
       // 过去无论 response.error 是否存在都标记 success，导致前端显示"执行成功"但实际校验失败。
+      // C6: 遇错即停(interrupted)用 attention 态,区别于成功/失败。
       if (response.error) {
         setStageStatus('execute', 'error')
+      } else if (response.summary?.interrupted) {
+        setStageStatus('execute', 'attention')
       } else {
         setStageStatus('execute', 'success')
       }

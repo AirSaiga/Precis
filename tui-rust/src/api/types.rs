@@ -91,6 +91,9 @@ pub struct ValidationSummary {
     pub constraint_error_count: u32,
     pub total_error_count: u32,
     pub duration_ms: u64,
+    /// C6: 校验是否因遇错即停(error_handling=stop)提前终止
+    #[serde(default)]
+    pub interrupted: bool,
 }
 
 #[derive(Debug, Clone, Deserialize)]

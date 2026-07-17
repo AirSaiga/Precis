@@ -27,6 +27,8 @@ export interface FullValidationSummary {
   constraint_error_count: number
   total_error_count: number
   duration_ms: number
+  /** C6: 校验是否因遇错即停(error_handling=stop)提前终止 */
+  interrupted?: boolean
 }
 
 export interface FullValidationErrorItem {

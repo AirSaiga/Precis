@@ -381,7 +381,16 @@
             <!-- ====== RESULTS VIEW ====== -->
             <div v-else-if="currentView === 'results'" class="fv-view">
               <!-- Status Banner -->
-              <div class="fv-status-banner" :class="result?.success ? 'is-success' : 'is-error'">
+              <div
+                class="fv-status-banner"
+                :class="
+                  result?.summary?.interrupted
+                    ? 'is-attention'
+                    : result?.success
+                      ? 'is-success'
+                      : 'is-error'
+                "
+              >
                 <div class="fv-status-icon">
                   <svg
                     v-if="result?.success"
@@ -416,16 +425,20 @@
                 <div class="fv-status-main">
                   <div class="fv-status-title">
                     {{
-                      result?.success
-                        ? t('common.fullValidation.result.pass')
-                        : t('common.fullValidation.result.fail')
+                      result?.summary?.interrupted
+                        ? t('common.fullValidation.result.interrupted')
+                        : result?.success
+                          ? t('common.fullValidation.result.pass')
+                          : t('common.fullValidation.result.fail')
                     }}
                   </div>
                   <div class="fv-status-sub">
                     {{
-                      result?.success
-                        ? t('common.fullValidation.result.completeSuccess')
-                        : t('common.fullValidation.result.completeWithErrors')
+                      result?.summary?.interrupted
+                        ? t('common.fullValidation.result.completeWithErrors')
+                        : result?.success
+                          ? t('common.fullValidation.result.completeSuccess')
+                          : t('common.fullValidation.result.completeWithErrors')
                     }}
                   </div>
                 </div>

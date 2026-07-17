@@ -234,6 +234,8 @@ class ValidateCommand(Command):
                 timeout_seconds=timeout_seconds,
                 allow_unsafe_eval=allow_unsafe_eval,
                 table_filter=table_name,
+                # C6 遇错即停:从项目配置读 error_handling(stop 时发现首个错误即停止)
+                error_handling=validation_settings.get("error_handling", "continue"),
             )
 
             executor = ValidationExecutor(manifest_path)
@@ -265,8 +267,14 @@ class ValidateCommand(Command):
 
             errors = result.get("errors", [])
             duration_ms = result.get("duration_ms", 0)
+            interrupted = result.get("interrupted", False)
 
-            _console.print(f"\n校验完成，耗时: {duration_ms} ms")
+            # C6 遇错即停:中断时提示用户剩余校验未执行(区别于正常完成)
+            if interrupted:
+                _console.print(f"\n⚠ 校验已停止（遇错即停），耗时: {duration_ms} ms")
+                _console.print("  发现首个错误即停止，剩余检查未执行。调整 error_handling 可跑完全部。")
+            else:
+                _console.print(f"\n校验完成，耗时: {duration_ms} ms")
 
             # 输出校验摘要：列出加载的表/行数与每项约束的通过状态，
             # 证明 validate 确实执行了校验（而非空转返回通过）。

@@ -75,6 +75,25 @@ fn render_summary(frame: &mut Frame, app: &App, area: Rect) {
 
             let mut v = vec![Line::from("")];
 
+            // C6 遇错即停:中断时在结果顶部提示(区别于正常完成)
+            if s.interrupted {
+                v.push(Line::from(vec![
+                    Span::styled("  ⚠ ", Style::default().fg(colors::yellow())),
+                    Span::styled(
+                        "校验已停止（遇错即停）",
+                        Style::default().fg(colors::yellow()).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled(
+                        format!("    {}ms", s.duration_ms),
+                        Style::default().fg(colors::muted()),
+                    ),
+                ]));
+                v.push(Line::from(Span::styled(
+                    "  发现首个错误即停止，剩余检查未执行",
+                    Style::default().fg(colors::dim()),
+                )));
+            }
+
             if pass {
                 v.push(Line::from(vec![
                     Span::styled("  ✓ ", Style::default().fg(colors::green())),
