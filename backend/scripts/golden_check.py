@@ -44,6 +44,107 @@ def load_expected(case_dir: Path) -> dict:
         return json.load(f)
 
 
+def _execute_validation(manifest_path: str, data_dir: str) -> dict:
+    """运行 ValidationExecutor 并返回原始结果字典。
+
+    复用 qa_simple_golden_check.py 的调用模式。
+    """
+    from app.shared.services.validation.executor import ValidationExecutor, ValidationOptions
+
+    executor = ValidationExecutor(manifest_path)
+    options = ValidationOptions(timeout_seconds=30, allow_unsafe_eval=True)
+    return executor.execute(data_dir, options)
+
+
+def _extract_violations(errors: list[dict]) -> list[dict]:
+    """从 errors 提取 (table, column, type) 三元组（字段缺失时用空串填充）。"""
+    out = []
+    for err in errors:
+        out.append(
+            {
+                "table": err.get("table_name") or err.get("table") or "",
+                "column": err.get("column_name") or err.get("column") or "",
+                "type": err.get("error_type") or err.get("type") or "",
+            }
+        )
+    return out
+
+
+def _extract_error_types(errors: list[dict], loading_errors: list[dict]) -> tuple[set[str], set[str]]:
+    """返回 (错误类型集合, 加载错误类型集合)。"""
+    err_types = {(e.get("error_type") or e.get("type") or "") for e in errors}
+    load_types = {(e.get("error_type") or e.get("type") or "") for e in loading_errors}
+    return err_types, load_types
+
+
+def run_case(case_dir: Path) -> CaseResult:
+    """对单个案例执行校验并对比 expected.json。
+
+    Returns:
+        CaseResult，passed=True 表示全部断言通过
+    """
+    case_id = case_dir.name
+    expected = load_expected(case_dir)
+    manifest = str(case_dir / "project.precis.yaml")
+    data_dir = str(case_dir / "data")
+
+    result = CaseResult(case_id=case_id, passed=True)
+
+    # 1. 执行校验（expect_success=false 时捕获异常）
+    try:
+        raw = _execute_validation(manifest, data_dir)
+    except Exception as e:
+        if expected.get("expect_success", True):
+            result.passed = False
+            result.failures.append(f"校验抛异常但期望成功: {type(e).__name__}: {e}")
+        return result
+
+    if not expected.get("expect_success", True):
+        result.passed = False
+        result.failures.append("校验未抛异常但期望失败")
+        return result
+
+    errors = raw.get("errors", []) or []
+    loading_errors = raw.get("loading_errors", []) or []
+    result.actual_error_count = len(errors)
+
+    # 2. 错误数量区间断言
+    count_min = expected.get("expected_error_count_min", 0)
+    count_max = expected.get("expected_error_count_max", 10**9)
+    if not (count_min <= len(errors) <= count_max):
+        result.passed = False
+        result.failures.append(f"错误数 {len(errors)} 不在期望区间 [{count_min}, {count_max}]")
+
+    # 3. 错误类型子集断言（期望的类型必须都出现）
+    actual_err_types, actual_load_types = _extract_error_types(errors, loading_errors)
+    expected_err_types = set(expected.get("expected_error_types", []))
+    missing_err = expected_err_types - actual_err_types
+    if missing_err:
+        result.passed = False
+        result.failures.append(f"缺失错误类型: {missing_err}（实际: {actual_err_types}）")
+
+    expected_load_types = set(expected.get("expected_loading_error_types", []))
+    missing_load = expected_load_types - actual_load_types
+    if missing_load:
+        result.passed = False
+        result.failures.append(f"缺失加载错误类型: {missing_load}（实际: {actual_load_types}）")
+
+    # 4. 具体违规三元组子集断言
+    actual_violations = _extract_violations(errors)
+    expected_violations = expected.get("expected_violations", [])
+    for ev in expected_violations:
+        ev_normalized = {
+            "table": ev.get("table", ""),
+            "column": ev.get("column", ""),
+            "type": ev.get("type", ""),
+        }
+        if ev_normalized not in actual_violations:
+            result.passed = False
+            result.failures.append(f"缺失违规: {ev_normalized}（实际 {len(actual_violations)} 条）")
+
+    return result
+
+
 def main() -> int:
     """入口：解析参数、遍历案例、汇总结果、返回退出码。"""
     parser = argparse.ArgumentParser(description="黄金集校验")
@@ -58,9 +159,22 @@ def main() -> int:
         print(f"未找到黄金案例（查找路径: {GOLDEN_ROOT}）")
         return 1
 
-    # TODO Task 2: 实现 run_case 与校验逻辑
-    print(f"发现 {len(cases)} 个案例（校验逻辑在 Task 2 实现）")
-    return 0
+    all_passed = True
+    for case_dir in cases:
+        r = run_case(case_dir)
+        if r.passed:
+            print(f"✓ {r.case_id}（{r.actual_error_count} 个错误）")
+        else:
+            all_passed = False
+            print(f"✗ {r.case_id}")
+            for f in r.failures:
+                print(f"    - {f}")
+
+    if all_passed:
+        print(f"\n✓ 全部 {len(cases)} 个黄金案例通过")
+        return 0
+    print("\n✗ 存在失败案例")
+    return 1
 
 
 if __name__ == "__main__":
