@@ -48,25 +48,59 @@ def _execute_validation(manifest_path: str, data_dir: str) -> dict:
     """运行 ValidationExecutor 并返回原始结果字典。
 
     复用 qa_simple_golden_check.py 的调用模式。
+    从 manifest 的 settings.validation 读取 error_handling/timeout_seconds，
+    用于驱动 C6 遇错即停（stop）等场景的黄金案例（17_error_handling_stop）。
     """
     from app.shared.services.validation.executor import ValidationExecutor, ValidationOptions
 
     executor = ValidationExecutor(manifest_path)
-    options = ValidationOptions(timeout_seconds=30, allow_unsafe_eval=True)
+    # 从项目清单读取 error_handling / timeout_seconds（缺失时使用默认值）
+    validation_settings = getattr(executor.settings, "validation", None)
+    error_handling = "continue"
+    timeout_seconds = 30
+    if validation_settings is not None:
+        error_handling = getattr(validation_settings, "error_handling", "continue") or "continue"
+        timeout_seconds = getattr(validation_settings, "timeout_seconds", 30) or 30
+    options = ValidationOptions(
+        timeout_seconds=timeout_seconds,
+        allow_unsafe_eval=True,
+        error_handling=error_handling,
+    )
     return executor.execute(data_dir, options)
 
 
 def _extract_violations(errors: list[dict]) -> list[dict]:
-    """从 errors 提取 (table, column, type) 三元组（字段缺失时用空串填充）。"""
+    """从 errors 提取 (table, column, type[, row_number]) 三/四元组。
+
+    兼容多种引擎输出格式：
+    - column (单数) 或 columns (复数列表，取第一个)
+    - row_number / row_index / row / line_number (可选)
+    """
     out = []
     for err in errors:
-        out.append(
-            {
-                "table": err.get("table_name") or err.get("table") or "",
-                "column": err.get("column_name") or err.get("column") or "",
-                "type": err.get("error_type") or err.get("type") or "",
-            }
-        )
+        # column: 优先单数，其次复数列表取第一个
+        col = err.get("column_name") or err.get("column")
+        if col is None:
+            cols = err.get("columns")
+            if isinstance(cols, list) and cols:
+                col = cols[0]
+            elif isinstance(cols, str):
+                col = cols
+        v = {
+            "table": err.get("table_name") or err.get("table") or "",
+            "column": col or "",
+            "type": err.get("error_type") or err.get("type") or "",
+        }
+        # row_number: 可选，多种可能字段名（引擎实际输出为 row_index）。
+        # 注意：不能用 `or` 链式取值，否则 row_index=0 会被当作 falsy 跳过。
+        row = None
+        for row_key in ("row_number", "row_index", "row", "line_number"):
+            if row_key in err and err[row_key] is not None:
+                row = err[row_key]
+                break
+        if row is not None:
+            v["row_number"] = row
+        out.append(v)
     return out
 
 
@@ -115,6 +149,13 @@ def run_case(case_dir: Path) -> CaseResult:
         result.passed = False
         result.failures.append(f"错误数 {len(errors)} 不在期望区间 [{count_min}, {count_max}]")
 
+    # 2b. interrupted 标志断言（error_handling=stop 模式专用）
+    if "expected_interrupted" in expected:
+        actual_interrupted = bool(raw.get("interrupted", False))
+        if actual_interrupted != expected["expected_interrupted"]:
+            result.passed = False
+            result.failures.append(f"interrupted={actual_interrupted} 但期望 {expected['expected_interrupted']}")
+
     # 3. 错误类型子集断言（期望的类型必须都出现）
     actual_err_types, actual_load_types = _extract_error_types(errors, loading_errors)
     expected_err_types = set(expected.get("expected_error_types", []))
@@ -131,6 +172,9 @@ def run_case(case_dir: Path) -> CaseResult:
 
     # 4. 具体违规三元组子集断言
     actual_violations = _extract_violations(errors)
+    # 当期望项未声明 row_number 时，按三元组匹配（忽略 actual 中的 row_number）。
+    # 仅当期望项显式声明 row_number 时才比较行号（如跨表分块案例 13）。
+    actual_no_row = [{k: v for k, v in av.items() if k != "row_number"} for av in actual_violations]
     expected_violations = expected.get("expected_violations", [])
     for ev in expected_violations:
         ev_normalized = {
@@ -138,7 +182,12 @@ def run_case(case_dir: Path) -> CaseResult:
             "column": ev.get("column", ""),
             "type": ev.get("type", ""),
         }
-        if ev_normalized not in actual_violations:
+        if "row_number" in ev:
+            ev_normalized["row_number"] = ev["row_number"]
+            haystack = actual_violations
+        else:
+            haystack = actual_no_row
+        if ev_normalized not in haystack:
             result.passed = False
             result.failures.append(f"缺失违规: {ev_normalized}（实际 {len(actual_violations)} 条）")
 

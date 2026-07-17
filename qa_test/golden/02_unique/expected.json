@@ -10,13 +10,15 @@
   "expected_violations": [
     {
       "table": "users",
-      "column": "",
-      "type": "UniqueViolation"
+      "column": "username",
+      "type": "UniqueViolation",
+      "row_number": 0
     },
     {
       "table": "users",
-      "column": "",
-      "type": "UniqueViolation"
+      "column": "username",
+      "type": "UniqueViolation",
+      "row_number": 2
     }
   ],
   "expected_loading_error_types": []
