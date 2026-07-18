@@ -1,0 +1,5 @@
+# workspace/ 是 agent 运行时工作区，由 reset 脚本从 seed/ 复制，不入库
+C*/workspace/
+
+# RESULT.md 是 agent 跑完填的结果产物，不入库
+C*/workspace/RESULT.md
