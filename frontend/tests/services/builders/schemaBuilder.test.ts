@@ -181,7 +181,8 @@ describe('schemaBuilder - buildJSONOptions', () => {
     const data = {} as any
     const result = buildJSONOptions(data)
     expect(result).toEqual({
-      format: 'auto',
+      // D8 后取消 auto 模式，默认 format 为 array
+      format: 'array',
       sep: '.',
     })
   })
