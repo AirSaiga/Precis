@@ -127,28 +127,26 @@ class JSONLoader(DataSourceLoader[JSONSourceSpec]):
         try:
             content = self._read_file()
 
-            parser = self._get_parser()
-            records = parser.parse(content)
-
-            if self.spec.json_path:
-                # 对于 object 格式，解析器会递归查找最深数组，但用户已通过 json_path
-                # 指定了记录路径，因此必须对原始对象应用 JSONPath，而不是对解析器选中的数组。
-                if self.spec.format == self.FORMAT_OBJECT:
-                    records = json.loads(content)
+            if self.spec.json_path and self.spec.format in (self.FORMAT_OBJECT, self.FORMAT_ARRAY):
+                # 用户已通过 json_path 显式指定记录路径（object/array 格式均可），
+                # 无需走策略解析器（避免 D8 ArrayParser 对嵌套对象的启发式拒绝）。
+                # 直接解析原始 JSON，由 extractor 按 json_path 精确定位数据数组。
+                # 注：json_path 即显式消歧，无任何"取最长/取第一个数组"的猜测。
+                records = json.loads(content)
                 extracted = self._extractor.extract(records, self.spec.json_path)
-                # B14 修复：空列表是合法结果，不应回退到原始未过滤数据。
-                # 但如果 records 已被 parser 提取为字典列表（如 ObjectParser），
-                # 再次 json_path 提取会失败为空；此时保持已提取的 records。
+                # B14: 空列表是合法结果，不回退到未过滤数据。
+                # - extracted 为非空 list → 直接使用
+                # - extracted 为空 list   → 保持空（path 未命中，不回退原始数据）
+                # - extracted 为非 list（标量/字典）→ 包装为单元素列表
                 if isinstance(extracted, list):
-                    if extracted:
-                        records = extracted
-                    elif isinstance(records, list) and records and all(isinstance(r, dict) for r in records):
-                        # extracted 为空但 records 已是提取后的字典列表，保持原样
-                        pass
-                    else:
-                        records = extracted
+                    records = extracted
                 else:
                     records = [extracted] if extracted is not None else []
+            else:
+                # 无 json_path（或 lines 格式）：走策略解析器。
+                # D8 对顶层数组/单条 dict 的处理 + 对嵌套对象的拒绝在此生效。
+                parser = self._get_parser()
+                records = parser.parse(content)
 
             df = self._convert_to_dataframe(records)
 
