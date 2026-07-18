@@ -50,6 +50,8 @@
 - **info**：通过 `self.get_constraint_info()` 获取（基类已实现，会自动包含 `constraint_type` / `table` / `description`）。
 - **在 `__init__.py` 注册**：新增 import 行 + 在 `__all__` 列表中加入 `"MaxLengthConstraint"`。
 
+  > 注意：本 workspace 的 `__init__.py` 是**精简版**（只 import 了 `base` 和 `not_null`），不是真实仓库的完整版。直接在这个精简版上加一行 import 和一个 `__all__` 条目即可。
+
 ### 约束（务必遵守）
 
 - 只改 `workspace/` 内文件。
