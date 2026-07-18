@@ -40,13 +40,15 @@
   {
       "error_type": "MaxLengthViolation",
       "table": <表名>,
-      "row_index": <行索引, int>,
+      "row_index": <pandas 索引标签, int>,
       "column": <列名>,
       "value": <原值>,
       "max_length": <配置的 max_length>,
       "message": "<人类可读描述>",
   }
   ```
+
+  > `row_index` 是 **pandas 索引标签**（`df.index` 的值），不是位置序号。参考 `not_null.py` 用 `df[is_null].index` 的做法——DataFrame 的默认 `RangeIndex` 下两者恰好相等，但 verify 会用自定义索引（如 `index=[10,20,30]`）测试这点。
 - **info**：通过 `self.get_constraint_info()` 获取（基类已实现，会自动包含 `constraint_type` / `table` / `description`）。
 - **在 `__init__.py` 注册**：新增 import 行 + 在 `__all__` 列表中加入 `"MaxLengthConstraint"`。
 
@@ -72,6 +74,6 @@
 python verify.py
 ```
 
-退出码 0 = PASS，非 0 = FAIL。14 项检查详见 verify 输出。
+退出码 0 = PASS，非 0 = FAIL。15 项检查详见 verify 输出。
 
 完成后按 [challenges/README.md](../README.md) 填 `workspace/RESULT.md`。

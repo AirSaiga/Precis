@@ -24,8 +24,9 @@
 | 照抄 NotNull 的空值检测，把 None 也报 MaxLengthViolation | 检查 9（None 跳过）失败 |
 | 忘了在 `__init__.py` 注册 import + `__all__` | 检查 2、13 失败（无法从包导出） |
 | error 字典漏 `max_length` 字段 | 检查 11 失败 |
-| `row_index` 用错（如返回 1-based 或字符串） | 检查 8、9、10 失败 |
+| `row_index` 用位置序号而非索引标签（`enumerate` 而非 `col.items()`） | 检查 8、9、10、14 失败（前三个在默认 RangeIndex 下碰巧能过，14 用自定义索引 `index=[10,20,30]` 锁死语义） |
 | info 漏 `constraint_type`（重写 `get_constraint_info` 而非用基类） | 检查 12 失败 |
+| 在模块顶部 `print("PASS"); sys.exit(0)` 试图伪造通过 | 触发防作弊，整体 FAIL（verify 重定向 import 期间的 stdout 并扫描作弊关键字） |
 
 ## 出题者自验步骤
 
