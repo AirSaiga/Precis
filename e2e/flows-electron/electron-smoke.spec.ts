@@ -5,6 +5,37 @@ import * as os from 'os'
 import * as path from 'path'
 
 /**
+ * 解析打包应用写入的 .backend-port 文件路径。
+ *
+ * 打包后端在 resources/backend/.backend-port 写入动态端口（不是仓库的 backend/.backend-port）。
+ * 从 E2E_ELECTRON_PATH 推导 win-unpacked 根目录。
+ */
+function resolvePackagedBackendPortFile(): string {
+  const execPath = process.env.E2E_ELECTRON_PATH || ''
+  // execPath = .../electron/release/win-unpacked/Precis.exe
+  const winUnpackedDir = path.dirname(execPath)
+  return path.join(winUnpackedDir, 'resources', 'backend', '.backend-port')
+}
+
+/** 轮询读取打包后端端口文件（最长等 maxMs 秒），返回端口字符串或 null。 */
+async function readPackagedBackendPort(maxMs: number): Promise<string | null> {
+  const portFile = resolvePackagedBackendPortFile()
+  const deadline = Date.now() + maxMs
+  while (Date.now() < deadline) {
+    try {
+      if (fs.existsSync(portFile)) {
+        const p = fs.readFileSync(portFile, 'utf-8').trim()
+        if (p && /^\d+$/.test(p)) return p
+      }
+    } catch {
+      /* retry */
+    }
+    await new Promise((r) => setTimeout(r, 1000))
+  }
+  return null
+}
+
+/**
  * Electron 打包产物 smoke 测试。
  *
  * 验证打包后的 Electron 应用（非 dev server）的核心链路：
@@ -28,26 +59,20 @@ test.describe('Electron 打包 smoke', () => {
   })
 
   test('T2: 后端健康检查通过（/health 200）', async ({ window }) => {
-    // 通过窗口内 fetch 探测后端 /health（打包模式下前端通过 app:// 加载，后端直连 localhost）
-    const healthy = await window.evaluate(async () => {
+    // 打包模式后端端口由 OS 动态分配，写入 resources/backend/.backend-port（打包后端目录）。
+    const port = await readPackagedBackendPort(60_000)
+    expect(port, '应从打包后端 .backend-port 读到动态端口').toBeTruthy()
+    const healthy = await window.evaluate(async (p: string) => {
       try {
-        const ports = [18000, 8000, 8080, 3000]
-        for (const p of ports) {
-          try {
-            const r = await fetch(`http://localhost:${p}/health`, {
-              signal: AbortSignal.timeout(2000),
-            })
-            if (r.ok) return true
-          } catch {
-            /* try next port */
-          }
-        }
-        return false
+        const r = await fetch(`http://localhost:${p}/health`, {
+          signal: AbortSignal.timeout(2000),
+        })
+        return r.ok
       } catch {
         return false
       }
-    })
-    expect(healthy, '后端 /health 应返回 200（自启后端成功）').toBe(true)
+    }, port!)
+    expect(healthy, `后端 /health 应返回 200（端口 ${port}）`).toBe(true)
   })
 
   test('T3: 画布渲染（app:// 协议加载前端静态产物）', async ({ window }) => {
@@ -92,26 +117,19 @@ test.describe('Electron 打包 smoke', () => {
       })
       expect(apiExists, 'preload 应注入 window.electronAPI').toBe(true)
 
-      // 验证后端校验 API 可达（通过窗口内 fetch）
-      const apiReachable = await window.evaluate(async () => {
+      // 验证后端校验 API 可达（从打包后端 .backend-port 读动态端口，通过窗口内 fetch）
+      const port4 = await readPackagedBackendPort(30_000)
+      const apiReachable = await window.evaluate(async (p: string) => {
         try {
-          const ports = [18000, 8000, 8080, 3000]
-          for (const p of ports) {
-            try {
-              const r = await fetch(`http://localhost:${p}/api/latest/projects/scan?work_dir=.`, {
-                signal: AbortSignal.timeout(2000),
-              })
-              // 200 或 400 都算可达（400 = 参数错误但路由存在）
-              if (r.ok || r.status === 400) return true
-            } catch {
-              /* try next */
-            }
-          }
-          return false
+          const r = await fetch(`http://localhost:${p}/api/latest/projects/scan?work_dir=.`, {
+            signal: AbortSignal.timeout(2000),
+          })
+          // 200 或 400 都算可达（400 = 参数错误但路由存在）
+          return r.ok || r.status === 400
         } catch {
           return false
         }
-      })
+      }, port4 || '')
       expect(apiReachable, '后端校验 API 应可达').toBe(true)
     } finally {
       fs.rmSync(tmpDir, { recursive: true, force: true })
@@ -128,8 +146,28 @@ test.describe('Electron 打包 smoke', () => {
       path.join(repoRoot, 'electron', 'release', 'win-unpacked', 'Precis.exe')
     const app2 = await _electron.launch({ executablePath: execPath })
     try {
-      const win2 = await app2.firstWindow()
-      await expect(win2.locator('#app')).toBeVisible({ timeout: 30_000 })
+      // 等待主窗口（跳过 splash，同 fixture 逻辑）。重启后后端已在运行（首次启动遗留），
+      // 主窗口应较快出现，但保留 90s 超时兜底。
+      const deadline = Date.now() + 90_000
+      let win2: import('@playwright/test').Page | null = null
+      while (Date.now() < deadline) {
+        for (const w of app2.windows()) {
+          try {
+            const url = w.url()
+            if (url.startsWith('app://') || url.includes('index.html')) {
+              if ((await w.locator('#app').count()) > 0) {
+                win2 = w
+                break
+              }
+            }
+          } catch {
+            /* window loading, retry */
+          }
+        }
+        if (win2) break
+        await new Promise((r) => setTimeout(r, 1000))
+      }
+      expect(win2, '重启后应出现主窗口（含 #app）').toBeTruthy()
     } finally {
       await app2.close()
     }

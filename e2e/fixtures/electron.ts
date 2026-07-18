@@ -62,10 +62,39 @@ export const test = base.extend<ElectronFixtures>({
     await app.close()
   },
   window: async ({ electronApp }, use) => {
-    // 等待主窗口（跳过 splash）
-    const window = await electronApp.firstWindow()
-    await window.waitForLoadState('domcontentloaded')
-    await use(window)
+    // 等待主窗口（跳过 splash）。
+    // 应用启动顺序：createSplashWindow（第一个窗口）→ startPythonServer
+    //   → createWindow（第二个窗口，加载 app://，含 #app）。
+    // firstWindow() 返回的是 splash，不是主窗口；必须等待第二个窗口出现
+    // 并确认其含 #app（打包后 Python 冷启动较慢，主窗口可能 30-60s 才出现）。
+    const deadline = Date.now() + 120_000
+    let mainWindow: Page | null = null
+    while (Date.now() < deadline) {
+      for (const w of electronApp.windows()) {
+        try {
+          // 主窗口加载 app:// 协议的前端 bundle，含 #app 根挂载点
+          const url = w.url()
+          if (url.startsWith('app://') || url.includes('index.html')) {
+            const hasApp = await w.locator('#app').count()
+            if (hasApp > 0) {
+              mainWindow = w
+              break
+            }
+          }
+        } catch {
+          // 窗口可能在加载中，继续轮询
+        }
+      }
+      if (mainWindow) break
+      await new Promise((r) => setTimeout(r, 1000))
+    }
+    if (!mainWindow) {
+      // 兜底：取最后一个窗口（splash 之后创建的）
+      const all = electronApp.windows()
+      mainWindow = all[all.length - 1]
+    }
+    await mainWindow!.waitForLoadState('domcontentloaded')
+    await use(mainWindow!)
   },
 })
 
