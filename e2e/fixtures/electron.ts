@@ -53,10 +53,28 @@ type ElectronFixtures = {
   window: Page
 }
 
+// ---- 诊断缓冲：捕获打包应用的 stdout/stderr，供 window 超时时输出 ----
+// 打包 Electron 在 CI 上首启较慢且无法本地复现；主进程日志与后端日志都走 stdout/stderr。
+// 不捕获时，window fixture 超时只会留下 "timeout while setting up window"，无法定位根因。
+const DIAG_CHUNK = 8 * 1024 // 环形缓冲末尾 8KB（含后端启动失败信息足够）
+let diagStdout = ''
+let diagStderr = ''
+function appendDiag(buf: string, chunk: string): string {
+  const next = buf + chunk
+  return next.length > DIAG_CHUNK ? next.slice(next.length - DIAG_CHUNK) : next
+}
+
 export const test = base.extend<ElectronFixtures>({
   electronApp: async ({}, use) => {
     const execPath = resolveElectronExecutable()
     const app = await electron.launch({ executablePath: execPath })
+    // 捕获主进程 + 子进程（后端）输出，用于超时诊断
+    app.process().stdout?.on('data', (d: Buffer) => {
+      diagStdout = appendDiag(diagStdout, d.toString())
+    })
+    app.process().stderr?.on('data', (d: Buffer) => {
+      diagStderr = appendDiag(diagStderr, d.toString())
+    })
     await use(app)
     // 测试结束后关闭（确保后端子进程被清理）
     await app.close()
@@ -67,7 +85,8 @@ export const test = base.extend<ElectronFixtures>({
     //   → createWindow（第二个窗口，加载 app://，含 #app）。
     // firstWindow() 返回的是 splash，不是主窗口；必须等待第二个窗口出现
     // 并确认其含 #app（打包后 Python 冷启动较慢，主窗口可能 30-60s 才出现）。
-    const deadline = Date.now() + 120_000
+    // 预留 5s 给 teardown，避免 "Tearing down electronApp exceeded test timeout"
+    const deadline = Date.now() + 115_000
     let mainWindow: Page | null = null
     while (Date.now() < deadline) {
       for (const w of electronApp.windows()) {
@@ -89,7 +108,25 @@ export const test = base.extend<ElectronFixtures>({
       await new Promise((r) => setTimeout(r, 1000))
     }
     if (!mainWindow) {
-      // 兜底：取最后一个窗口（splash 之后创建的）
+      // 超时未出现 #app 主窗口：输出诊断信息（窗口列表 + 应用输出末尾 + 端口文件），
+      // 把不可复现的打包环境失败转化为可定位的日志。
+      const windows = electronApp.windows().map((w) => {
+        let url = '<unknown>'
+        try {
+          url = w.url()
+        } catch {
+          /* 窗口可能已销毁 */
+        }
+        return url
+      })
+      console.log(
+        '\n========== [electron-smoke 诊断] 主窗口(#app) 115s 内未出现 ==========\n' +
+          `窗口列表 (${windows.length}):\n${windows.map((u) => '  - ' + u).join('\n')}\n` +
+          `\n---------- 应用 stdout 末尾 ----------\n${diagStdout || '(空)'}\n` +
+          `\n---------- 应用 stderr 末尾 ----------\n${diagStderr || '(空)'}\n` +
+          `========================================================\n`,
+      )
+      // 兜底：取最后一个窗口（splash 之后创建的），让测试能继续而非抛 null
       const all = electronApp.windows()
       mainWindow = all[all.length - 1]
     }
