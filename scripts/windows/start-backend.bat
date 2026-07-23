@@ -13,7 +13,7 @@ echo.
 
 :: Prefer backend venv Python when available
 if exist "backend\.venv\Scripts\python.exe" (
-    set "PYTHON_CMD=backend\.venv\Scripts\python.exe"
+    set "PYTHON_CMD=%PROJECT_ROOT%\backend\.venv\Scripts\python.exe"
     echo [OK] Using venv Python: backend\.venv
 ) else (
     call python --version >nul 2>&1
@@ -30,9 +30,9 @@ echo.
 
 cd backend
 
-:: 后端走统一启动脚本 start_server.py,端口由 OS 动态分配(--port 0),
-:: 实际端口写入 backend/.backend-port 供 Vite 代理 / Electron 发现。
-:: 动态端口永不冲突,无需 free-port 预清理。
+:: Uses the unified start script start_server.py; the port is OS-assigned (--port 0)
+:: and written to backend/.backend-port for the Vite proxy / Electron to discover.
+:: Dynamic ports never conflict, so no free-port pre-clean.
 "%PYTHON_CMD%" app/start_server.py --reload
 
 echo.

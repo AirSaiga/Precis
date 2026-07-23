@@ -64,9 +64,10 @@ export function tryShowMainWindow(): void {
  */
 export function createWindow(config: WindowConfig): void {
   const { frontendPath, frontendDevPort } = config;
-  // 判断当前环境
+  // 判断当前环境（PRECIS_FORCE_DEV=1 时即使存在构建产物也强制开发模式，见 main.ts）
   const indexPath = path.join(frontendPath, 'index.html');
-  const hasFrontendBuild = fs.existsSync(indexPath);
+  const forceDev = !app.isPackaged && process.env.PRECIS_FORCE_DEV === '1';
+  const hasFrontendBuild = fs.existsSync(indexPath) && !forceDev;
   const isDev = !app.isPackaged && !hasFrontendBuild;
 
   // 创建浏览器窗口实例

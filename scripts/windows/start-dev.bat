@@ -21,7 +21,7 @@ for /f "tokens=*" %%a in ('node --version') do echo [OK] Node.js: %%a
 
 :: Prefer backend venv Python when available
 if exist "backend\.venv\Scripts\python.exe" (
-    set "PYTHON_CMD=backend\.venv\Scripts\python.exe"
+    set "PYTHON_CMD=%PROJECT_ROOT%\backend\.venv\Scripts\python.exe"
     echo [OK] Using venv Python: backend\.venv
 ) else (
     call python --version >nul 2>&1
@@ -51,12 +51,15 @@ if not exist "electron\dist\main.js" (
     cd "%PROJECT_ROOT%"
 )
 
-:: 后端端口由 OS 动态分配(start_server.py --port 0),无需读取 .env 后端端口
+:: Backend port is OS-assigned (start_server.py --port 0); no backend port is read from .env
 for /f "tokens=*" %%a in ('node -e "try { require('dotenv').config(); } catch(e) {} console.log(process.env.VITE_FRONTEND_PORT || '5173')"') do set FRONTEND_PORT=%%a
 
-:: 后端走统一启动脚本,动态端口永不冲突,无需 free-port 预清理。
-:: Electron 自行通过端口文件协议发现后端,无需 wait-on 后端 /docs;
-:: 此处仅等待前端端口就绪后启动 Electron。
+:: Backend uses the unified start script; dynamic ports never conflict, so no free-port pre-clean.
+:: Electron discovers the backend via the port-file protocol, so no wait-on for backend /docs;
+:: only the frontend port is awaited before launching Electron.
+:: Force Electron into dev mode even when a stale frontend/dist build exists
+:: (otherwise it would spawn its own backend and load the static build instead of Vite).
+set PRECIS_FORCE_DEV=1
 call npx concurrently --kill-others --names "BACKEND,FRONTEND,ELECTRON" --prefix-colors "cyan,green,magenta" "cd backend && %PYTHON_CMD% app/start_server.py --reload" "cd frontend && npm run dev" "npx wait-on --delay 1000 --timeout 60000 http://localhost:%FRONTEND_PORT% && cd electron && npm start"
 
 echo.

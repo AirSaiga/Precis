@@ -97,7 +97,11 @@ app.whenReady().then(async () => {
   // 2. 如果有前端构建文件 (hasFrontendBuild) -> 生产模式
   // 3. 否则 -> 开发模式 (连接 Vite 开发服务器)
   const indexPath = path.join(FRONTEND_PATH, 'index.html');
-  const hasFrontendBuild = fs.existsSync(indexPath);
+  // PRECIS_FORCE_DEV=1（由 start-dev.bat / start-electron.bat 注入）强制开发模式：
+  // 即使存在 frontend/dist 构建产物，也不自启后端、不加载静态产物，改为等待外部后端 + Vite。
+  // 仅未打包环境生效，打包应用始终忽略该变量。
+  const forceDev = !app.isPackaged && process.env.PRECIS_FORCE_DEV === '1';
+  const hasFrontendBuild = fs.existsSync(indexPath) && !forceDev;
   const isDev = !app.isPackaged && !hasFrontendBuild;
   // 标记是否需要本地启动后端,供 splash 状态机判断是否推送 'starting' 阶段
   appState.isBackendSpawnEnvironment = hasFrontendBuild;

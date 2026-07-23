@@ -7,8 +7,8 @@ set "PROJECT_ROOT=%~dp0\..\.."
 cd /d "%PROJECT_ROOT%"
 
 :: Prefer backend venv Python when available
-:: 注意: 必须使用相对 PROJECT_ROOT 的绝对路径，因为后续会 `cd backend`，
-:: 此时相对路径 backend\.venv\... 会被解析成 backend\backend\.venv\... 而失效。
+:: NOTE: an absolute path based on PROJECT_ROOT is required here, because the script later
+:: runs `cd backend`, where the relative path backend\.venv\... would fail (backend\backend\.venv\...).
 if exist "%PROJECT_ROOT%\backend\.venv\Scripts\python.exe" (
     set "PYTHON_CMD=%PROJECT_ROOT%\backend\.venv\Scripts\python.exe"
 ) else (
@@ -42,8 +42,8 @@ if not exist "electron\dist\main.js" (
 )
 
 :: Start Electron (backend is managed by Electron itself, port dynamically allocated)
-:: 生产/标准模式:有前端构建产物时,Electron 自行 spawn 后端并通过端口文件协议发现端口。
-:: 无需外部启动后端,也无需 wait-on 固定端口。
+:: Production/standard mode: with frontend build output present, Electron spawns the backend itself
+:: and discovers its port via the port-file protocol. No external backend or wait-on needed.
 cd electron && npx electron .
 
 exit /b %ERRORLEVEL%

@@ -189,6 +189,7 @@ Electron 主进程 (`electron/src/main.ts`) 负责：
 3. 创建 BrowserWindow 加载前端（sandbox: true, nodeIntegration: false, contextIsolation: true）
 4. 通过 `preload.ts` 暴露 `window.electronAPI.*`（文件系统、对话框、配置等 IPC）
 5. 生产模式使用自定义 `app://` 协议，不使用 `webSecurity: false`
+6. 开发/生产判定：未打包且存在 `frontend/dist/index.html` 视为生产模式（自启后端 + 加载静态产物）；`PRECIS_FORCE_DEV=1`（由 `start-dev.bat` / `start-electron.bat` 注入）强制开发模式（等待外部后端 + 加载 Vite dev server）。开发模式下后端/前端路径解析相对 `electron/dist` 上溯两级到项目根（`utils/paths.ts`）
 
 ### E2E 测试
 

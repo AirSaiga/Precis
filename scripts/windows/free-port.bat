@@ -9,9 +9,8 @@ chcp 65001 >nul
 :: Finds LISTENING PIDs on the port via netstat, kills them via taskkill.
 :: Silent pass when port is free.
 ::
-:: Note: 后端端口现已由 OS 动态分配(start_server.py --port 0),启动脚本不再
-:: 调用此工具。仅作为手动清理残留进程的诊断工具保留。
-:: Backend now uses dynamic ports; this script is kept as a manual diagnostic tool.
+:: Note: backend ports are now OS-assigned (start_server.py --port 0); start scripts no
+:: longer call this tool. Kept only as a manual diagnostic for leftover processes.
 :: ============================================================
 setlocal enabledelayedexpansion
 

@@ -18,9 +18,9 @@ describe('paths', () => {
   const resourcesPath = path.join('/app', 'resources')
 
   describe('getBackendPath', () => {
-    it('开发环境：基于 __dirname 返回 ../backend', () => {
+    it('开发环境：基于 __dirname 返回 ../../backend（项目根目录）', () => {
       const result = getBackendPath(false, resourcesPath, devDirname)
-      expect(result).toBe(path.join('/project', 'electron', 'backend'))
+      expect(result).toBe(path.join('/project', 'backend'))
     })
 
     it('生产环境：基于 resourcesPath 返回 resources/backend', () => {
@@ -30,9 +30,9 @@ describe('paths', () => {
   })
 
   describe('getFrontendPath', () => {
-    it('开发环境：基于 __dirname 返回 ../frontend/dist', () => {
+    it('开发环境：基于 __dirname 返回 ../../frontend/dist（项目根目录）', () => {
       const result = getFrontendPath(false, resourcesPath, devDirname)
-      expect(result).toBe(path.join('/project', 'electron', 'frontend', 'dist'))
+      expect(result).toBe(path.join('/project', 'frontend', 'dist'))
     })
 
     it('生产环境：基于 resourcesPath 返回 resources/frontend/dist', () => {

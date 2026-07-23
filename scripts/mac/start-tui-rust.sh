@@ -17,26 +17,23 @@ cd "${PROJECT_ROOT}"
 banner "Precis TUI (Rust + ratatui)"
 
 # 后端端口由 OS 动态分配,实际端口写入 backend/.backend-port
-# TUI 通过 PRECIS_BACKEND_URL 环境变量获知后端地址
+# 后端健康 -> 通过 PRECIS_BACKEND_URL 复用已运行的后端
+# 后端不在 -> 不设该变量,TUI 会通过 backend.rs 自拉起内置后端(退出时自动清理)
+unset PRECIS_BACKEND_URL 2>/dev/null || true
 PORT_FILE="${BACKEND_DIR}/.backend-port"
-if [ ! -f "${PORT_FILE}" ]; then
-    error "Backend port file not found: ${PORT_FILE}"
-    info "请先启动后端: ./scripts/mac/start-backend.sh 或 npm run start:backend:mac"
-    prompt_exit 1
-fi
-BACKEND_PORT=$(cat "${PORT_FILE}" | tr -d '[:space:]')
-ok "Backend port: ${BACKEND_PORT}"
-
-# Health check 后端动态端口
-info "Backend (port ${BACKEND_PORT})..."
-if curl -sf --max-time 3 "http://127.0.0.1:${BACKEND_PORT}/health" >/dev/null 2>&1; then
-    ok "Backend is running."
+if [ -f "${PORT_FILE}" ]; then
+    BACKEND_PORT=$(cat "${PORT_FILE}" | tr -d '[:space:]')
+    ok "Backend port file: ${BACKEND_PORT}"
+    info "Backend (port ${BACKEND_PORT})..."
+    if curl -sf --max-time 3 "http://127.0.0.1:${BACKEND_PORT}/health" >/dev/null 2>&1; then
+        ok "Backend is running. Reusing it via PRECIS_BACKEND_URL."
+        export PRECIS_BACKEND_URL="http://127.0.0.1:${BACKEND_PORT}"
+    else
+        info "Backend not detected at port ${BACKEND_PORT}. TUI 将自拉起内置后端."
+    fi
 else
-    warn "Backend not detected at port ${BACKEND_PORT}."
+    info "未检测到后端端口文件, TUI 将自拉起内置后端."
 fi
-
-# 注入后端地址到环境变量,Rust TUI 的 main.rs 会读取 PRECIS_BACKEND_URL
-export PRECIS_BACKEND_URL="http://127.0.0.1:${BACKEND_PORT}"
 
 # Locate Rust toolchain
 if ! command -v cargo &> /dev/null; then

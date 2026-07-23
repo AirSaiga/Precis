@@ -22,7 +22,7 @@ export function getBackendPath(isPackaged: boolean, resourcesPath: string, devDi
   if (isPackaged) {
     return path.join(resourcesPath, 'backend');
   }
-  return path.join(devDirname, '..', 'backend');
+  return path.join(devDirname, '..', '..', 'backend');
 }
 
 /**
@@ -37,7 +37,7 @@ export function getFrontendPath(isPackaged: boolean, resourcesPath: string, devD
   if (isPackaged) {
     return path.join(resourcesPath, 'frontend', 'dist');
   }
-  return path.join(devDirname, '..', 'frontend', 'dist');
+  return path.join(devDirname, '..', '..', 'frontend', 'dist');
 }
 
 // ============================================================================

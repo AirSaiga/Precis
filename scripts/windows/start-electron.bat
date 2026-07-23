@@ -40,6 +40,9 @@ if not exist "electron\dist\main.js" (
     cd "%PROJECT_ROOT%"
 )
 
+:: Force dev mode: reuse the externally started backend + Vite dev server even when
+:: a stale frontend/dist build exists (otherwise Electron spawns its own backend).
+set PRECIS_FORCE_DEV=1
 cd electron
 npm start
 

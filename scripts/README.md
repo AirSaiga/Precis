@@ -213,6 +213,8 @@ VITE_FRONTEND_PORT=5173
 | Mac 脚本 "Permission denied" | `chmod +x scripts/mac/*.sh scripts/setup.sh` |
 | Mac 脚本中文乱码 / Mac script garbled text | 确认终端使用 UTF-8 (`export LANG=en_US.UTF-8`) / Ensure terminal uses UTF-8 |
 | venv 缺失警告 / venv missing warning | 运行 `scripts/setup.{ps1,sh}` 创建 `backend/.venv` / Run `scripts/setup.{ps1,sh}` to create `backend/.venv` |
+| 启动脚本报 `'xxx' is not recognized` 解析错误 / `'xxx' is not recognized` parse error from .bat scripts | `.bat` 文件必须保持纯 ASCII:非 ASCII 字符(如中文注释)在 `chcp 65001` 下会触发 cmd 解析 bug / Keep `.bat` files pure ASCII; non-ASCII content under `chcp 65001` breaks the cmd parser |
+| start-dev 启动第二个后端或显示旧界面 / start-dev spawns a second backend or shows stale UI | 残留的 `frontend/dist` 构建产物曾导致 Electron 误判为生产模式;`start-dev.bat` 现已注入 `PRECIS_FORCE_DEV=1` 强制开发模式(等待外部后端 + 加载 Vite) / A stale `frontend/dist` used to flip Electron into production mode; `start-dev.bat` now forces dev mode via `PRECIS_FORCE_DEV=1` |
 | 端口被占用 / Port in use | 后端默认动态分配,通常无此问题。如使用固定端口(`VITE_BACKEND_PORT`)遇占用:Windows `netstat -ano \| findstr :<端口>`;Mac `lsof -i :<端口>` / Backend uses dynamic ports by default; if a fixed port is pinned and occupied, check with netstat/lsof |
 
 ## 生产打包 / Production Build
