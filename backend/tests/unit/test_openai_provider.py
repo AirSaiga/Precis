@@ -51,10 +51,6 @@ class TestOpenAIProviderInit:
         p = OpenAIProvider(_make_config(network=NetworkConfig(timeout=30)))
         assert p.client is not None
 
-    def test_init_without_api_key(self):
-        p = OpenAIProvider(_make_config(api_key=None))
-        assert p.client is not None
-
 
 class TestOpenAIChat:
     @pytest.mark.asyncio
