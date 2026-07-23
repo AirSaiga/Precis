@@ -71,7 +71,7 @@
     "lodash-es": "^4.17.21",
     "markdown-it": "^14.3.0",
     "mitt": "^3.0.1",
-    "pinia": "^3.0.3",
+    "pinia": "^3.0.4",
     "uuid": "^14.0.0",
     "vue": "^3.5.22",
     "vue-codemirror": "^6.1.1",
