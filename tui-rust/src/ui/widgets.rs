@@ -86,12 +86,12 @@ pub fn meter(ratio: f64, width: usize) -> Vec<Span<'static>> {
     spans
 }
 
-/// 指标小卡：圆角边框 + 大号呼吸数字 + muted 标签（phase 0..1 驱动呼吸）
+/// 指标小卡：主题色圆角边框 + 大号呼吸数字 + muted 标签（phase 0..1 驱动呼吸）
 pub fn stat_card(frame: &mut Frame, area: Rect, value: &str, label: &str, accent: Color, phase: f64) {
     let block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
-        .border_style(Style::default().fg(colors::border()))
+        .border_style(Style::default().fg(colors::blend(colors::border(), accent, 0.45)))
         .style(Style::default().bg(colors::bg()));
     let inner = block.inner(area);
     frame.render_widget(block, area);

@@ -105,6 +105,9 @@ fn render_brand(frame: &mut Frame, app: &App, area: Rect) {
         colors::gradient_b(),
         true,
     ));
+    // 主题装饰符（❀/❆）
+    let motif = if colors::theme() == 1 { icons::motif::SNOW } else { icons::motif::SAKURA };
+    left.push(Span::styled(format!(" {}", motif), Style::default().fg(colors::gradient_b())));
     if !narrow {
         left.push(Span::styled("  ·  本地数据校验工具", Style::default().fg(colors::dim())));
     }
@@ -173,16 +176,17 @@ fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
         let label = if narrow { tab.short_label() } else { tab.label() };
         let num = format!("{}", i + 1);
         if active {
-            let base = Style::default().bg(colors::panel());
+            // 反色 chip：主题色底 + 深色字，激活态一眼可辨
+            let base = Style::default().bg(accent).fg(colors::bg());
             spans.push(Span::styled(" ", base));
-            spans.push(Span::styled(num, base.fg(colors::dim())));
+            spans.push(Span::styled(num, base.add_modifier(Modifier::DIM)));
             spans.push(Span::styled(
                 format!("{} ", tab.icon()),
-                base.fg(accent).add_modifier(Modifier::BOLD),
+                base.add_modifier(Modifier::BOLD),
             ));
             spans.push(Span::styled(
                 label.to_string(),
-                base.fg(accent).add_modifier(Modifier::BOLD),
+                base.add_modifier(Modifier::BOLD),
             ));
             spans.push(Span::styled(" ", base));
         } else {
@@ -249,7 +253,7 @@ fn render_footer(frame: &mut Frame, app: &App, area: Rect) {
         left.push(Span::styled(icons::status::CONNECTED, Style::default().fg(colors::dim())));
     }
     left.push(Span::raw(" "));
-    left.push(Span::styled(app.message.clone(), Style::default().fg(colors::muted())));
+    left.push(Span::styled(app.message.clone(), Style::default().fg(message_color(&app.message))));
 
     let motif = if colors::theme() == 1 { icons::motif::SNOW } else { icons::motif::SAKURA };
     let mut right: Vec<Span> = widgets::badge(
@@ -282,6 +286,24 @@ fn render_footer(frame: &mut Frame, app: &App, area: Rect) {
     ]);
     let hints_row = Rect { height: 1, ..Rect { y: area.y + 1, ..area } };
     frame.render_widget(Paragraph::new(hints), hints_row);
+}
+
+/// 状态消息按语义着色：错误红 / 成功绿 / 其余 muted
+fn message_color(msg: &str) -> Color {
+    if msg.contains("失败") || msg.contains("错误") || msg.contains("未连接") || msg.contains("异常") {
+        colors::red()
+    } else if msg.contains("成功")
+        || msg.contains("正常")
+        || msg.contains("完成")
+        || msg.contains("已连接")
+        || msg.contains("已打开")
+        || msg.contains("已激活")
+        || msg.contains("找到")
+    {
+        colors::green()
+    } else {
+        colors::muted()
+    }
 }
 
 /// 内容淡入：把区域内所有 cell 的前/背景色向 bg 混合 factor（0..1）
@@ -386,6 +408,52 @@ mod tests {
         let out = render_to_string(&mut app, 100, 30);
         assert!(out.contains("项目"), "空列表也应有节标题");
         assert!(out.contains("本地数据校验工具"), "hero 标语应显示");
+    }
+
+    #[test]
+    fn test_config_with_realistic_coverage() {
+        let mut app = running_app();
+        app.switch_tab(Tab::Config);
+        app.config_data = Some(crate::api::types::FullConfigResponse {
+            manifest: serde_json::json!({
+                "project": {"name": "demo", "id": "demo"},
+                "schemas": [
+                    {"id": "users", "path": "schemas/users.schema.yaml"},
+                    {"id": "orders", "path": "schemas/orders.schema.yaml"}
+                ],
+                "constraints": [{"id": "c1", "path": "constraints/c1.constraint.yaml"}]
+            }),
+            schemas: serde_json::json!([]),
+            constraints: serde_json::json!([]),
+            coverage: Some(serde_json::json!({
+                "is_complete": false,
+                "unlisted": {
+                    "schemas": [{"id": "legacy", "path": "schemas/legacy.schema.yaml"}],
+                    "constraints": [], "regex_nodes": [], "transforms": [], "manual_data": []
+                },
+                "dangling": {
+                    "schemas": [], "constraints": [{"id": "gone", "path": "constraints/gone.constraint.yaml"}],
+                    "regex_nodes": [], "transforms": [], "manual_data": []
+                }
+            })),
+        });
+        let out = render_to_string(&mut app, 100, 30);
+        assert!(out.contains("清单覆盖"), "覆盖区标题应显示");
+        assert!(out.contains("未入清单"), "unlisted 分组应显示");
+        assert!(out.contains("悬空引用"), "dangling 分组应显示");
+        assert!(out.contains("legacy"), "unlisted id 应显示");
+        assert!(!out.contains("\"constraints\":[]"), "不应显示原始 JSON");
+    }
+
+    #[test]
+    fn test_provider_form_overlay() {
+        let mut app = running_app();
+        app.switch_tab(Tab::Provider);
+        app.provider_form = Some(crate::app::ProviderForm::new());
+        let out = render_to_string(&mut app, 100, 30);
+        assert!(out.contains("新建 Provider"), "表单面板应显示");
+        assert!(out.contains("openai"), "默认类型应显示");
+        assert!(out.contains("Esc"), "表单提示应显示");
     }
 
     #[test]

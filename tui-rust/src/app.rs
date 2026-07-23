@@ -197,6 +197,46 @@ pub enum TestResult {
     Fail(String),
 }
 
+/// 新建 Provider 表单状态（Provider 页按 n 打开）
+#[derive(Debug, Clone)]
+pub struct ProviderForm {
+    pub name: String,
+    /// "openai" | "ollama"（←→ 切换）
+    pub ptype: String,
+    pub base_url: String,
+    pub api_key: String,
+    pub model: String,
+    /// 当前聚焦字段：0 名称 / 1 类型 / 2 Base URL / 3 API Key / 4 模型
+    pub field: usize,
+}
+
+impl ProviderForm {
+    pub fn new() -> Self {
+        Self {
+            name: String::new(),
+            ptype: "openai".to_string(),
+            base_url: String::new(),
+            api_key: String::new(),
+            model: String::new(),
+            field: 0,
+        }
+    }
+    /// 当前字段的可编辑文本（类型字段不可编辑，返回 None）
+    pub fn text_mut(&mut self) -> Option<&mut String> {
+        match self.field {
+            0 => Some(&mut self.name),
+            2 => Some(&mut self.base_url),
+            3 => Some(&mut self.api_key),
+            4 => Some(&mut self.model),
+            _ => None,
+        }
+    }
+    /// 提交校验：名称 / Base URL / 模型 必填
+    pub fn valid(&self) -> bool {
+        !self.name.trim().is_empty() && !self.base_url.trim().is_empty() && !self.model.trim().is_empty()
+    }
+}
+
 /// Chat 消息
 #[derive(Debug, Clone)]
 pub struct ChatMsg {
@@ -249,6 +289,8 @@ pub struct App {
     pub active_provider_id: Option<String>,
     pub provider_cursor: usize,
     pub provider_test_result: Option<TestResult>,
+    /// 新建 Provider 表单（Some = 表单打开中，拦截所有按键）
+    pub provider_form: Option<ProviderForm>,
     // Config 页状态
     pub config_data: Option<crate::api::types::FullConfigResponse>,
     // Chat 页状态
@@ -289,6 +331,7 @@ impl App {
             active_provider_id: None,
             provider_cursor: 0,
             provider_test_result: None,
+            provider_form: None,
             config_data: None,
             chat_messages: Vec::new(),
             chat_input: String::new(),

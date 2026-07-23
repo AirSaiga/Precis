@@ -28,12 +28,20 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use tokio::sync::mpsc;
 
-use crate::app::{App, ChatMsg, Tab, TestResult, ValidationState};
+use crate::app::{App, ChatMsg, ProviderForm, Tab, TestResult, ValidationState};
 use crate::api::types::{AiChatResponse, ChatMessage, FullValidationResponse, FullConfigResponse, ProviderInfo};
 
 fn backend_url() -> String {
+    // resolve_backend_url 完成后写入 OnceLock：自拉起模式下后端监听 OS 动态端口，
+    // 后续所有后台任务必须复用该地址，否则会误打到默认的 18000
+    if let Some(url) = RESOLVED_BACKEND_URL.get() {
+        return url.clone();
+    }
     std::env::var("PRECIS_BACKEND_URL").unwrap_or_else(|_| "http://127.0.0.1:18000".to_string())
 }
+
+/// resolve_backend_url 解析出的最终后端地址（自拉起时为动态端口）
+static RESOLVED_BACKEND_URL: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 
 /// 后端地址解析结果
 enum ResolvedBackend {
@@ -68,9 +76,13 @@ enum BgMessage {
     ProjectOpened { name: String, path: String, success: bool },
     ValidationDone(Result<FullValidationResponse, String>),
     ProvidersLoaded { providers: Vec<ProviderInfo>, active_id: Option<String> },
+    /// Provider 列表加载失败（网络/解析错误，避免静默空表）
+    ProvidersLoadFailed(String),
     /// 触发重新拉取 providers + active（无数据）
     RefreshProviders,
     ProviderTested { id: String, result: Result<String, String> },
+    /// 新建 Provider 完成（Ok=名称）
+    ProviderCreated(Result<String, String>),
     ConfigLoaded(Result<FullConfigResponse, String>),
     ChatReply(Result<AiChatResponse, String>),
 }
@@ -100,6 +112,8 @@ async fn main() -> Result<()> {
             (backend_url(), None)
         }
     };
+    // 写入全局，供后续后台任务（打开项目/校验/Provider 等）复用同一地址
+    let _ = RESOLVED_BACKEND_URL.set(url.clone());
 
     let mut app = App::new(&url);
 
@@ -194,6 +208,27 @@ async fn run_app(
     Ok(())
 }
 
+/// 后台拉取 Provider 列表（失败时回传可见错误，而非静默空表）
+fn spawn_load_providers(tx: &mpsc::Sender<BgMessage>) {
+    let tx = tx.clone();
+    let url = backend_url();
+    tokio::spawn(async move {
+        let client = crate::api::ApiClient::new(&url);
+        let msg = match client.list_providers().await {
+            Ok(providers) => {
+                let active_id = client
+                    .get_active_provider()
+                    .await
+                    .unwrap_or(None)
+                    .map(|p| p.id);
+                BgMessage::ProvidersLoaded { providers, active_id }
+            }
+            Err(e) => BgMessage::ProvidersLoadFailed(e.to_string()),
+        };
+        let _ = tx.send(msg).await;
+    });
+}
+
 /// 处理后台任务返回的消息
 fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>) {
     match msg {
@@ -240,22 +275,25 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
             app.provider_cursor = 0;
             app.message = format!("{} 个 Provider", app.providers.len());
         }
+        BgMessage::ProvidersLoadFailed(e) => {
+            app.message = format!("Provider 加载失败: {}", e);
+        }
+        BgMessage::ProviderCreated(result) => {
+            match result {
+                Ok(name) => {
+                    app.provider_form = None;
+                    app.message = format!("已创建 {}", name);
+                    spawn_load_providers(tx);
+                }
+                Err(e) => {
+                    // 表单保留，用户可修正后重试
+                    app.message = e;
+                }
+            }
+        }
         BgMessage::RefreshProviders => {
             // 重新拉取 providers + active provider
-            let tx = tx.clone();
-            let url = backend_url();
-            tokio::spawn(async move {
-                let client = crate::api::ApiClient::new(&url);
-                let providers = client.list_providers().await.unwrap_or_default();
-                let active_id = client
-                    .get_active_provider()
-                    .await
-                    .unwrap_or(None)
-                    .map(|p| p.id);
-                let _ = tx
-                    .send(BgMessage::ProvidersLoaded { providers, active_id })
-                    .await;
-            });
+            spawn_load_providers(tx);
         }
         BgMessage::ProviderTested { id: _, result } => {
             match result {
@@ -315,6 +353,12 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
             }
             _ => {}
         }
+    }
+
+    // 新建 Provider 表单打开时：拦截全部按键（Ctrl+C/Ctrl+D 已在上方处理）
+    if app.provider_form.is_some() {
+        handle_provider_form_key(app, key, tx);
+        return;
     }
 
     // Esc：Chat 页聚焦时退出聚焦（恢复全局快捷键）；否则忽略
@@ -520,19 +564,13 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
         }
         KeyCode::Char('r') if app.current_tab == Tab::Provider => {
             app.message = "加载 Provider...".to_string();
-            let tx = tx.clone();
-            let url = backend_url();
-            tokio::spawn(async move {
-                let client = crate::api::ApiClient::new(&url);
-                let providers = client.list_providers().await.unwrap_or_default();
-                let active_id = client
-                    .get_active_provider()
-                    .await
-                    .unwrap_or(None)
-                    .map(|a| a.id);
-                let msg = BgMessage::ProvidersLoaded { providers, active_id };
-                let _ = tx.send(msg).await;
-            });
+            spawn_load_providers(tx);
+        }
+
+        // 新建 Provider 表单
+        KeyCode::Char('n') if app.current_tab == Tab::Provider => {
+            app.provider_form = Some(ProviderForm::new());
+            app.message = "新建 Provider".to_string();
         }
 
         // ---- Config 页 ----
@@ -587,23 +625,84 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
     }
 }
 
+/// 新建 Provider 表单的按键处理（表单打开时独占输入）
+fn handle_provider_form_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMessage>) {
+    // 控制键先行（避免与表单的 mutable 借用冲突）
+    match key {
+        KeyCode::Esc => {
+            app.provider_form = None;
+            app.message = "已取消新建".to_string();
+            return;
+        }
+        KeyCode::Enter => {
+            let Some(form) = app.provider_form.as_ref() else { return };
+            if !form.valid() {
+                app.message = "名称 / Base URL / 模型 为必填".to_string();
+                return;
+            }
+            let req = crate::api::types::CreateProviderRequest {
+                name: form.name.trim().to_string(),
+                provider_type: form.ptype.clone(),
+                base_url: form.base_url.trim().to_string(),
+                api_key: if form.api_key.trim().is_empty() {
+                    None
+                } else {
+                    Some(form.api_key.trim().to_string())
+                },
+                model: form.model.trim().to_string(),
+            };
+            app.message = "创建 Provider...".to_string();
+            let tx = tx.clone();
+            let url = backend_url();
+            tokio::spawn(async move {
+                let client = crate::api::ApiClient::new(&url);
+                let msg = match client.create_provider(&req).await {
+                    Ok(p) => BgMessage::ProviderCreated(Ok(p.name)),
+                    Err(e) => BgMessage::ProviderCreated(Err(e.to_string())),
+                };
+                let _ = tx.send(msg).await;
+            });
+            return;
+        }
+        _ => {}
+    }
+
+    // 其余按键：字段导航 / 类型切换 / 文本编辑
+    let Some(form) = app.provider_form.as_mut() else { return };
+    match key {
+        KeyCode::Down | KeyCode::Tab => {
+            form.field = (form.field + 1) % 5;
+        }
+        KeyCode::Up | KeyCode::BackTab => {
+            form.field = if form.field == 0 { 4 } else { form.field - 1 };
+        }
+        KeyCode::Left | KeyCode::Right if form.field == 1 => {
+            form.ptype = if form.ptype == "openai" {
+                "ollama".to_string()
+            } else {
+                "openai".to_string()
+            };
+        }
+        KeyCode::Backspace | KeyCode::Delete => {
+            if let Some(t) = form.text_mut() {
+                t.pop();
+            }
+        }
+        KeyCode::Char(c) => {
+            if let Some(t) = form.text_mut() {
+                t.push(c);
+            }
+        }
+        _ => {}
+    }
+}
+
 /// 切换 tab 时自动加载数据（Provider 列表、Config 配置）
 fn auto_load_on_tab_switch(app: &mut App, tx: &mpsc::Sender<BgMessage>) {
     match app.current_tab {
         Tab::Provider if app.providers.is_empty() => {
             app.message = "加载 Provider...".to_string();
-            let tx = tx.clone();
-            let url = backend_url();
-            tokio::spawn(async move {
-                let client = crate::api::ApiClient::new(&url);
-                let providers = client.list_providers().await.unwrap_or_default();
-                let active_id = client
-                    .get_active_provider()
-                    .await
-                    .unwrap_or(None)
-                    .map(|a| a.id);
-                let _ = tx.send(BgMessage::ProvidersLoaded { providers, active_id }).await;
-            });
+            spawn_load_providers(tx);
         }
         Tab::Config if app.config_data.is_none() && app.api.project_path().is_some() => {
             app.message = "加载配置...".to_string();
@@ -618,5 +717,17 @@ fn auto_load_on_tab_switch(app: &mut App, tx: &mpsc::Sender<BgMessage>) {
             });
         }
         _ => {}
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// backend_url 必须优先返回 resolve 后的地址（自拉起模式为动态端口，而非默认 18000）
+    #[test]
+    fn test_backend_url_prefers_resolved() {
+        let _ = RESOLVED_BACKEND_URL.set("http://127.0.0.1:63281".to_string());
+        assert_eq!(backend_url(), "http://127.0.0.1:63281");
     }
 }

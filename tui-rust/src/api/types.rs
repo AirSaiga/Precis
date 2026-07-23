@@ -124,6 +124,23 @@ where
     Ok(opt.unwrap_or_default())
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 回归：后端 ProviderResponse 的 wire 字段是 "type"（pydantic Field(alias="type")），
+    /// 曾按 "provider" 解析导致整个列表反序列化失败、Provider 页永远显示空
+    #[test]
+    fn test_provider_info_deserializes_wire_format() {
+        let json = r#"[{"id":"deepseek","name":"DeepSeek","type":"openai","deployment":"remote","base_url":"https://api.deepseek.com","model":"deepseek-v4-flash","context_window":null,"health":{},"is_configured":true}]"#;
+        let list: Vec<ProviderInfo> = serde_json::from_str(json).unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].id, "deepseek");
+        assert_eq!(list[0].provider_type, "openai");
+        assert_eq!(list[0].model, "deepseek-v4-flash");
+    }
+}
+
 /// 校验统计信息（对齐后端 ValidationStatistics 模型）
 #[derive(Debug, Clone, Deserialize)]
 pub struct ValidationStatistics {
@@ -153,7 +170,8 @@ pub struct HealthResponse {
 pub struct ProviderInfo {
     pub id: String,
     pub name: String,
-    #[serde(rename = "provider")]
+    // 后端 ProviderResponse 字段名为 provider，但 wire alias 是 "type"（Field(alias="type")）
+    #[serde(rename = "type")]
     pub provider_type: String,
     pub base_url: String,
     pub model: String,
@@ -193,6 +211,18 @@ pub struct TestProviderResponse {
     pub health: Option<serde_json::Value>,
     #[serde(default)]
     pub available_models: Vec<String>,
+}
+
+/// 创建 Provider 请求：POST /api/latest/ai/providers
+#[derive(Debug, Serialize)]
+pub struct CreateProviderRequest {
+    pub name: String,
+    #[serde(rename = "type")]
+    pub provider_type: String,
+    pub base_url: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub api_key: Option<String>,
+    pub model: String,
 }
 
 // ============================================================================

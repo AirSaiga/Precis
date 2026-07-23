@@ -60,6 +60,7 @@ TUI（终端 UI）模块的开发指南。根项目的架构原则见 [`../AGENT
 ### 5. 后端交互（api/）
 
 - `ApiClient::new(base_url)` 创建客户端，`base_url` 来自 `PRECIS_BACKEND_URL` 环境变量（默认 `http://127.0.0.1:18000`）
+- `PRECIS_BACKEND_URL` 未设置时 `backend.rs` 自拉起内置后端（Python 解析顺序：`PYTHON_PATH` → `python-runtime/` → `backend/.venv` → 系统 python），TUI 退出时自动清理子进程
 - 后端响应类型定义在 `api/types.rs`，字段与后端 Pydantic 模型对应
 - 后端端点路径与 `backend/app/api/routers/` 保持一致
 

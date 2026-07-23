@@ -52,7 +52,8 @@ impl BackendHandle {
     /// 1. `PYTHON_PATH` 环境变量 → 用它当解释器
     /// 2. exe 同级 `python-runtime/` → bundled runtime（打包态）
     /// 3. exe 上两级 `python-runtime/` → `cargo run` 开发态布局兜底
-    /// 4. 系统 `python3` / `python` → dev 回退
+    /// 4. `backend/.venv/` → 开发态 venv（对齐 start-backend 脚本的优先选择）
+    /// 5. 系统 `python3` / `python` → dev 回退
     pub fn start() -> Result<Self> {
         // 定位 backend 源码目录与 start_server.py
         let backend_dir = resolve_backend_dir()?;
@@ -188,12 +189,21 @@ fn resolve_python_executable(backend_dir: &Path) -> Result<PathBuf> {
         }
     }
 
-    // 4. 系统 Python 兜底（开发态）
+    // 4. 开发态 venv（backend/.venv，对齐 start-backend 脚本的优先选择）
+    let venv_win = backend_dir.join(".venv").join("Scripts").join("python.exe");
+    if venv_win.exists() {
+        return Ok(venv_win);
+    }
+    let venv_unix = backend_dir.join(".venv").join("bin").join("python3");
+    if venv_unix.exists() {
+        return Ok(venv_unix);
+    }
+
+    // 5. 系统 Python 兜底（开发态）
     if let Ok(p) = which_system_python() {
         return Ok(p);
     }
 
-    let _ = backend_dir; // 保留参数以便未来扩展（如 backend 同级 runtime）
     bail!(
         "未找到 Python 解释器。请设置 PYTHON_PATH 环境变量，或在 exe 同级放置 python-runtime/ 目录"
     )

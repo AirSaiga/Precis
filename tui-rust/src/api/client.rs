@@ -168,6 +168,24 @@ impl ApiClient {
         serde_json::from_str(&text).context("解析测试连接响应失败")
     }
 
+    /// 创建 Provider
+    pub async fn create_provider(&self, req: &super::types::CreateProviderRequest) -> Result<super::types::ProviderInfo> {
+        let resp = self
+            .http
+            .post(&format!("{}/api/latest/ai/providers", self.base_url))
+            .json(req)
+            .send()
+            .await?;
+        let status = resp.status();
+        let text = resp.text().await.unwrap_or_default();
+        if !status.is_success() {
+            // 后端 409 = id 冲突；422 = 参数校验失败，detail 里有具体原因
+            let preview: String = text.chars().take(200).collect();
+            anyhow::bail!("创建失败 ({}): {}", status, preview);
+        }
+        serde_json::from_str(&text).context("解析创建响应失败")
+    }
+
     // ---- 配置管理（需要项目 header） ----
 
     /// 获取全量配置

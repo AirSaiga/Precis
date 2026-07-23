@@ -89,7 +89,7 @@ impl Fx {
         }
 
         // — 粒子：补足目标密度 —
-        let target = ((w * h) / 400.0).clamp(8.0, 60.0) as usize;
+        let target = ((w * h) / 260.0).clamp(10.0, 90.0) as usize;
         let snow = colors::theme() == 1;
         while self.particles.len() < target {
             // vy：樱花偏慢（2.0-5.0 行/秒）、雪花偏快（3.0-8.0 行/秒）
@@ -107,7 +107,7 @@ impl Fx {
                 sway_amp: 0.5 + rand_val() * 1.5,
                 glyph_idx: (rand_val() * 1000.0) as usize,
                 mix: rand_val() * 0.4,
-                brightness: 0.45 + rand_val() * 0.55,
+                brightness: 0.55 + rand_val() * 0.45,
             });
         }
 
@@ -207,14 +207,14 @@ impl Fx {
                     let dist_to_ring = (pd - ring_radius).abs();
                     if dist_to_ring < ring_width {
                         let ring_fade = 1.0 - progress;
-                        pulse_i = pulse_i.max((1.0 - dist_to_ring / ring_width) * ring_fade * 0.06);
+                        pulse_i = pulse_i.max((1.0 - dist_to_ring / ring_width) * ring_fade * 0.09);
                     }
                 }
 
-                let total_alpha = (i1 * 0.05 + i2 * 0.035 + pulse_i).min(0.12);
+                let total_alpha = (i1 * 0.09 + i2 * 0.06 + pulse_i).min(0.18);
                 if total_alpha > 0.005 {
-                    let bg1 = colors::blend(base_bg, accent2, i2 * 0.035);
-                    let bg2 = colors::blend(bg1, accent, i1 * 0.05);
+                    let bg1 = colors::blend(base_bg, accent2, i2 * 0.06);
+                    let bg2 = colors::blend(bg1, accent, i1 * 0.09);
                     let final_bg = if pulse_i > 0.0 {
                         colors::blend(bg2, accent, pulse_i)
                     } else {

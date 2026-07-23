@@ -21,26 +21,40 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     if app.project_name.is_some() {
         y = render_metrics(frame, app, area, y);
     } else {
-        // hero：主题装饰符 + 渐变 logo + 标语（居中）
+        // hero：ASCII 渐变字标 + 标语（居中），主题装饰符收尾
         let motif = if colors::theme() == 1 { icons::motif::SNOW } else { icons::motif::SAKURA };
-        let mut logo: Vec<Span> = Vec::new();
-        logo.extend(widgets::gradient_spans(
-            "◤◢ Precis",
-            colors::gradient_a(),
-            colors::gradient_b(),
-            true,
-        ));
-        logo.push(Span::styled(format!("  {}", motif), Style::default().fg(colors::gradient_b())));
-        let hero_h = 4u16;
+        let a = colors::gradient_a();
+        let b = colors::gradient_b();
+        let logo_w = super::splash::LOGO
+            .iter()
+            .map(|l| l.chars().count())
+            .max()
+            .unwrap_or(1) as f64;
+        let mut hero: Vec<Line> = vec![Line::from("")];
+        for logo_line in super::splash::LOGO {
+            let spans: Vec<Span> = logo_line
+                .chars()
+                .enumerate()
+                .map(|(i, c)| {
+                    let t = if logo_w > 1.0 { i as f64 / (logo_w - 1.0) } else { 0.0 };
+                    Span::styled(
+                        c.to_string(),
+                        Style::default().fg(colors::blend(a, b, t)).add_modifier(Modifier::BOLD),
+                    )
+                })
+                .collect();
+            hero.push(Line::from(spans));
+        }
+        hero.push(Line::from(""));
+        hero.push(Line::from(vec![
+            Span::styled(format!("{} ", motif), Style::default().fg(a)),
+            Span::styled("本地数据校验工具", Style::default().fg(colors::muted())),
+            Span::styled(format!(" {}", motif), Style::default().fg(b)),
+        ]));
+        let hero_h = hero.len() as u16 + 1;
         if bottom.saturating_sub(y) >= hero_h {
             frame.render_widget(
-                Paragraph::new(vec![
-                    Line::from(""),
-                    Line::from(logo),
-                    Line::from(Span::styled("本地数据校验工具", Style::default().fg(colors::dim()))),
-                    Line::from(""),
-                ])
-                .alignment(Alignment::Center),
+                Paragraph::new(hero).alignment(Alignment::Center),
                 Rect { x: area.x, y, width: area.width, height: hero_h },
             );
             y += hero_h;

@@ -9,7 +9,7 @@ use ratatui::Frame;
 use crate::app::colors;
 
 /// ASCII art "PRECIS"（7 行，约 54 列）
-const LOGO: &[&str] = &[
+pub(crate) const LOGO: &[&str] = &[
     r"████████  ████████  ████████  ██████  ████  ██████",
     r"██     ██ ██     ██ ██       ██    ██  ██  ██    ██",
     r"██     ██ ██     ██ ██       ██        ██  ██",
