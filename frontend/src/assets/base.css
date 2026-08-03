@@ -210,6 +210,28 @@ hr {
 }
 
 /*
+   ========================================
+   VueFlow MiniMap 主题化
+   - 默认 minimap 背景为 #fff，dark/liquid 主题下是刺眼的白框。
+   - 用语义 token 覆盖背景、遮罩、边框，使其随主题切换。
+   - 节点圆点的填色由 NodeCanvas.vue 的 node-color prop 提供。
+   ======================================== */
+.vue-flow__minimap {
+  background-color: var(--ui-bg-elevated) !important;
+  border: 1px solid var(--ui-border) !important;
+  border-radius: var(--ui-radius, 6px);
+}
+
+.vue-flow__minimap-mask {
+  fill: color-mix(in srgb, var(--ui-text-muted) 12%, transparent) !important;
+}
+
+.vue-flow__minimap svg {
+  /* 视口边框（mask 外的区域透出背景） */
+  color: var(--ui-text-subtle);
+}
+
+/*
    [已注释] 线条网格样式
    .vue-flow__background.lines,
    .vue-flow__background[data-variant="lines"] {

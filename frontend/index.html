@@ -5,6 +5,33 @@
     <link rel="icon" href="/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Precis</title>
+    <!-- FOUC 修复：在首帧绘制前根据 localStorage 主题偏好设置 data-theme。
+         main.ts 是 module（deferred），其 applyThemePreference 在首帧后才执行，
+         dark/liquid 用户每次冷启动会看到白色闪烁。此内联阻塞脚本与 theme.ts 的
+         解析逻辑保持一致（generalSettings.theme → system 时跟随 prefers-color-scheme）。
+         注意：脚本必须与 core/utils/theme.ts 的 THEME_STORAGE_KEY 与解析逻辑同步。 -->
+    <script>
+      (function () {
+        try {
+          var stored = localStorage.getItem('generalSettings');
+          var pref = 'system';
+          if (stored) {
+            var parsed = JSON.parse(stored);
+            if (parsed && parsed.theme) pref = parsed.theme;
+          }
+          var resolved = pref;
+          if (pref === 'system') {
+            resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+          }
+          var root = document.documentElement;
+          root.setAttribute('data-theme', resolved);
+          root.setAttribute('data-theme-preference', pref);
+          root.style.colorScheme = resolved === 'liquid' ? 'light' : resolved;
+        } catch (e) {
+          // 解析失败（隐私模式/损坏数据）静默回退默认 light，不阻断渲染
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="app"></div>

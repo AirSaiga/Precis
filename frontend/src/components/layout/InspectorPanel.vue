@@ -105,12 +105,14 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, defineAsyncComponent, ref } from 'vue'
+  import { computed, defineAsyncComponent, ref, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { useGraphStore } from '@/stores/graphStore'
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import type { CustomNodeData } from '@/types/nodes'
   import type { CompositeConstraintNodeData } from '@/types/constraints'
+  import { isConstraintNodeType } from '@/services/constraints/constraintMeta'
+  import { validateConstraintNodeById } from '@/services/constraints/validationExecutors'
   import BaseInspector from './inspectors/configDriven/BaseInspector.vue'
   import { getInspectorConfig } from './inspectors/configDriven/configLoader'
   import SubCanvasModal from '@/components/canvas/SubCanvasModal.vue'
@@ -208,6 +210,21 @@
   })
 
   /**
+   * 约束校验防抖定时器。
+   *
+   * Inspector 改约束字段后需重新校验，但用户连续输入时不应每次击键都打后端。
+   * 与节点组件内的 scheduleValidation（300ms）保持一致节流。
+   * 仅对约束节点触发——非约束节点（schema/regex/transform 等）改字段不产生约束校验结果。
+   */
+  let revalidationTimer: ReturnType<typeof setTimeout> | null = null
+  onUnmounted(() => {
+    if (revalidationTimer) {
+      clearTimeout(revalidationTimer)
+      revalidationTimer = null
+    }
+  })
+
+  /**
    * 处理属性数据更新事件
    * 当 Inspector 组件触发 update:data 事件时调用
    * 将更新后的数据同步到 GraphStore
@@ -217,14 +234,29 @@
   function handleDataUpdate(newData: Partial<CustomNodeData>) {
     // 如果没有选中节点，不执行任何操作
     if (!node.value) return
+    const currentNode = node.value
     // 调用 GraphStore 的 updateNodeData 方法更新节点数据
-    store.updateNodeData(node.value.id, newData)
+    store.updateNodeData(currentNode.id, newData)
     // 同步更新资源树显示名称（schema / jsonSchema 节点的 tableName 变更时）
-    if (node.value.type === 'schema' || node.value.type === 'jsonSchema') {
+    if (currentNode.type === 'schema' || currentNode.type === 'jsonSchema') {
       const tableName = (newData as Record<string, unknown>).tableName
       if (tableName) {
-        resourceTreeStore.updateResourceName(node.value.id, tableName as string)
+        resourceTreeStore.updateResourceName(currentNode.id, tableName as string)
       }
+    }
+    // 约束节点改字段后，节点组件可能离屏/虚拟化/无对应 watch → 这里兜底重校验，
+    // 避免徽标显示旧的 pass/fail（UI 对校验状态撒谎）。debounce 与节点组件一致（300ms）。
+    if (isConstraintNodeType(currentNode.type)) {
+      if (revalidationTimer) clearTimeout(revalidationTimer)
+      revalidationTimer = setTimeout(() => {
+        validateConstraintNodeById(currentNode.id, store.nodes, store.edges, (id, patch) =>
+          store.updateNodeData(id, patch)
+        ).catch((error) => {
+          // 校验失败不打断编辑，仅记日志（与节点组件 validateNow().catch(() => undefined) 一致策略）
+          // 但保留错误可见性，便于排查后端不可达等情况
+          console.error('[InspectorPanel] 约束重校验失败:', currentNode.id, error)
+        })
+      }, 300)
     }
   }
 </script>

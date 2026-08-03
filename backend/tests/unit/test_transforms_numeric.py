@@ -184,6 +184,29 @@ class TestMathExprRunner:
         with pytest.raises(ValueError, match="需要至少一个 output_columns"):
             runner.execute(df, "a", {"expression": "a + 1"}, [])
 
+    # ---- B-sec5: 注入攻击防护（simpleeval 沙箱）----
+
+    def test_injection_import_rejected(self):
+        """B-sec5: __import__ 等危险调用应被沙箱拒绝（不再走 df.eval）。"""
+        runner = MathExprRunner()
+        df = pd.DataFrame({"a": [1]})
+        with pytest.raises(ValueError, match="数学表达式计算失败"):
+            runner.execute(df, "a", {"expression": "__import__('os').system('echo pwn')"}, ["x"])
+
+    def test_injection_attribute_access_rejected(self):
+        """B-sec5: 属性访问逃逸（().__class__ 等）应被拒绝。"""
+        runner = MathExprRunner()
+        df = pd.DataFrame({"a": [1]})
+        with pytest.raises(ValueError, match="数学表达式计算失败"):
+            runner.execute(df, "a", {"expression": "().__class__.__bases__[0].__subclasses__()"}, ["x"])
+
+    def test_open_call_rejected(self):
+        """B-sec5: open 等内置函数不在白名单，应被拒绝。"""
+        runner = MathExprRunner()
+        df = pd.DataFrame({"a": [1]})
+        with pytest.raises(ValueError, match="数学表达式计算失败"):
+            runner.execute(df, "a", {"expression": "open('/etc/passwd').read()"}, ["x"])
+
 
 class TestModuloRunner:
     def test_basic_modulo(self):

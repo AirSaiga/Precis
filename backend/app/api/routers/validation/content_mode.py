@@ -44,6 +44,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import tempfile
@@ -208,7 +209,11 @@ async def validate_data_with_file(
                 except json.JSONDecodeError:
                     logger.error("[VALIDATION] validation_config 解析失败，使用空配置")
 
-            response = execute_standard_validation(
+            # B-async: 将阻塞的 pandas I/O 与校验逻辑 offload 到线程池，避免阻塞事件循环。
+            # execute_standard_validation 内部调用 pd.read_csv/read_excel + 全量校验，是纯同步阻塞操作。
+            # agent 工具（apply_actions.py）已采用同样的 asyncio.to_thread 模式。
+            response = await asyncio.to_thread(
+                execute_standard_validation,
                 source_file_path=tmp_path,
                 sheet_name=sheet_name,
                 header_row=header_row,

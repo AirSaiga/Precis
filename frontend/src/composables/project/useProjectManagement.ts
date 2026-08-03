@@ -1,6 +1,7 @@
 import { ref, reactive } from 'vue'
 import { useGraphStore } from '@/stores/graphStore'
 import { useProjectStore } from '@/stores/projectStore'
+import { isAbsolutePath } from '@/core/utils/pathNormalization'
 /**
  * @file useProjectManagement.ts
  * @description 项目管理组合式函数
@@ -22,6 +23,7 @@ import { useProjectStore } from '@/stores/projectStore'
  * 状态说明：
  * - showCreateDialog: 控制对话框显示的布尔值
  * - newProjectForm: 包含 name 和 path 的响应式表单对象
+ * - creating: 创建中标志，防止重复提交
  *
  * 方法说明：
  * - showProjectCreateDialog: 显示创建项目对话框
@@ -44,6 +46,9 @@ export function useProjectManagement() {
   // 控制项目创建对话框的显示状态
   // true 表示对话框可见，false 表示隐藏
   const showCreateDialog = ref(false)
+
+  // 创建中标志：防止重复提交（双击/网络慢时）+ 驱动按钮 loading 态
+  const creating = ref(false)
 
   // 新项目表单数据，使用 reactive 确保响应式
   // name: 项目名称
@@ -73,26 +78,45 @@ export function useProjectManagement() {
    * 处理项目创建
    * 验证表单数据有效性，如果有效则调用 store 创建项目
    * 创建成功后关闭对话框并重置表单
+   *
+   * 防重入：creating 标志在创建期间为 true，按钮 :disabled 绑定它，
+   * 阻止双击或网络慢时的重复提交。
+   * 路径校验：必须是绝对路径——projectStore.setProjectPaths 会静默拒绝相对路径，
+   * 不在源头校验会导致"项目看似已加载但路径未写入"的不一致。
    */
   const handleCreateProject = () => {
+    // 防重入：创建中直接忽略再次触发
+    if (creating.value) return
+
     // 验证表单数据：项目名称和路径都不能为空
-    if (newProjectForm.name && newProjectForm.path) {
+    if (!newProjectForm.name || !newProjectForm.path) {
+      return
+    }
+
+    // 路径必须是绝对路径，否则 setProjectPaths 会静默拒绝，造成路径未写入的不一致
+    if (!isAbsolutePath(newProjectForm.path)) {
+      // 这里不弹 toast，由调用方/按钮层做提示；返回 false 让对话框保持打开
+      return
+    }
+
+    creating.value = true
+    try {
       // 调用 store 方法创建项目
       store.createProject(newProjectForm.name, newProjectForm.path)
 
-      // 关闭对话框
+      // 关闭对话框并重置表单
       showCreateDialog.value = false
-
-      // 重置表单数据，准备下一次创建
       newProjectForm.name = ''
       newProjectForm.path = ''
+    } finally {
+      creating.value = false
     }
-    // 如果表单数据不完整，不执行任何操作
   }
 
   // 返回响应式状态和操作方法，供外部组件使用
   return {
     showCreateDialog,
+    creating,
     newProjectForm,
     showProjectCreateDialog,
     handleCreateProject,

@@ -89,6 +89,32 @@
   color: var(--ui-text-tertiary);
 }
 
+/* 加载失败状态：与空状态区分，提供重试入口（用语义色 token 适配明暗主题） */
+.error-state {
+  text-align: center;
+  padding: 24px;
+  font-size: 13px;
+  color: var(--ui-danger);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+}
+
+.retry-btn {
+  padding: 4px 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: 4px;
+  background: var(--ui-bg-elevated);
+  color: var(--ui-text-body);
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.retry-btn:hover {
+  background: var(--ui-bg-muted);
+}
+
 .history-list {
   display: flex;
   flex-direction: column;

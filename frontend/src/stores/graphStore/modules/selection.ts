@@ -64,9 +64,15 @@ export function createSelectionModule(params: {
    * @description 将指定节点从多选列表中移除
    * @param {string} nodeId - 要移除的节点唯一标识符
    * @returns {void}
+   *
+   * 一致性：若被移除的节点恰好是单选焦点（selectedNodeId），需一并清空，
+   * 否则 inspector/键盘会读到悬空的焦点引用（与 clearSelection/setSelection 对称）。
    */
   function removeFromSelection(nodeId: string) {
     selectedNodeIds.value = selectedNodeIds.value.filter((id) => id !== nodeId)
+    if (selectedNodeId.value === nodeId) {
+      selectedNodeId.value = null
+    }
   }
 
   /**

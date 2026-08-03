@@ -241,9 +241,11 @@
   .ask-user-card {
     margin: 8px 0;
     padding: 12px;
-    border: 1px solid var(--color-border, #ddd);
+    /* 原 --color-border/--color-bg-secondary 在 token 系统中未定义，导致 dark 主题下走浅色 fallback。
+       改用 --ui-* 别名，随明暗主题切换。 */
+    border: 1px solid var(--ui-border, #ddd);
     border-radius: 8px;
-    background: var(--color-bg-secondary, #fafafa);
+    background: var(--ui-bg-subtle, #fafafa);
   }
   .ask-prompt {
     font-weight: 500;
@@ -253,7 +255,7 @@
   .ask-input {
     width: 100%;
     padding: 6px 8px;
-    border: 1px solid var(--color-border, #ccc);
+    border: 1px solid var(--ui-border, #ccc);
     border-radius: 4px;
     box-sizing: border-box;
   }
@@ -268,7 +270,7 @@
     gap: 6px;
   }
   .ask-option-desc {
-    color: var(--color-text-secondary, #888);
+    color: var(--ui-text-muted, #888);
     font-size: 0.85em;
   }
   .ask-actions,
@@ -279,7 +281,7 @@
   }
   .ask-btn {
     padding: 6px 14px;
-    border: 1px solid var(--color-border, #ccc);
+    border: 1px solid var(--ui-border, #ccc);
     border-radius: 4px;
     cursor: pointer;
   }
@@ -289,17 +291,17 @@
   }
   .ask-btn-submit,
   .ask-btn-yes {
-    background: var(--color-primary, #409eff);
+    background: var(--ui-accent, #409eff);
     color: #fff;
   }
   .ask-invalid {
-    color: var(--color-danger, #f56c6c);
+    color: var(--ui-danger, #f56c6c);
     font-size: 0.85em;
   }
   .ask-answered {
     display: flex;
     align-items: center;
     gap: 6px;
-    color: var(--color-text-secondary, #888);
+    color: var(--ui-text-muted, #888);
   }
 </style>

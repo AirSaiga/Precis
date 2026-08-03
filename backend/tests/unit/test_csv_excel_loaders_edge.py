@@ -125,3 +125,22 @@ class TestExcelLoaderEdgeCases:
             # 所以这里需要让 super().preview 的 load 也失败，或者接受它最终也抛异常
             with pytest.raises(DataLoadError):
                 loader.preview(nrows=5)
+
+    def test_merged_cell_fill_failure_logs_and_falls_back(self, tmp_path, caplog):
+        """B27: 合并单元格前向填充失败时应降级返回原 df 并记录 warning，不得静默吞掉。"""
+        import logging
+
+        xlsx_file = tmp_path / "test.xlsx"
+        pd.DataFrame({"a": [1, 2]}).to_excel(xlsx_file, index=False)
+        spec = _make_excel_spec(str(xlsx_file))
+        loader = ExcelLoader(spec)
+
+        df_in = pd.DataFrame({"a": [1.0, None]})
+        with patch("openpyxl.load_workbook", side_effect=RuntimeError("wb boom")):
+            with caplog.at_level(logging.WARNING, logger="app.shared.core.data_source.loaders.excel_loader"):
+                result = loader._apply_merged_cell_fill(df_in, sheet_name=None, header_row=0)
+
+        # 降级返回原始 df（行数/值不变），不抛异常
+        assert result.equals(df_in)
+        # 必须留有诊断日志
+        assert any("合并单元格前向填充失败" in r.message for r in caplog.records)

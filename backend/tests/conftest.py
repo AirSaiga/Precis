@@ -12,6 +12,26 @@ import pandas as pd
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _enable_scripted_eval_for_tests(monkeypatch):
+    """B-sec6: 测试环境默认开启 scripted 约束的服务端总开关。
+
+    生产代码中 PRECIS_ALLOW_UNSAFE_EVAL 默认关闭（scripted 约束不可执行），
+    但大量 scripted 约束/沙箱测试本身就需要执行表达式来验证逻辑。
+    此 fixture 在测试环境统一开启，使既有 scripted 测试无需逐个声明。
+    需要显式测试"关闭"语义的用例（如 test_executor_script_security.TestScriptedServerGate）
+    用自己的 monkeypatch 覆盖本 fixture 的设置。
+    """
+    from app.shared.domain.constraints import scripted as scripted_mod
+
+    monkeypatch.setenv("PRECIS_ALLOW_UNSAFE_EVAL", "true")
+    monkeypatch.setattr(
+        scripted_mod,
+        "_SERVER_ALLOW_UNSAFE_EVAL",
+        scripted_mod._resolve_server_allow_unsafe_eval(),
+    )
+
+
 @pytest.fixture
 def sample_project_config():
     """示例项目配置 fixture"""

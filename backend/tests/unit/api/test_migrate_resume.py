@@ -25,7 +25,12 @@ def _app() -> FastAPI:
 
 @pytest.fixture
 def temp_config_path():
+    """B-sec3: 需含 manifest 才通过 get_project_config_path 强校验。"""
     with tempfile.TemporaryDirectory() as tmpdir:
+        import os
+
+        with open(os.path.join(tmpdir, "project.precis.yaml"), "w", encoding="utf-8") as f:
+            f.write("id: test\n")
         yield tmpdir
 
 

@@ -2,7 +2,7 @@
 @fileoverview MathExpr 转换运行器
 
 功能概述:
-- 使用 pandas eval 计算数学表达式
+- 使用 simpleeval 沙箱计算数学表达式（B-sec5: 替代原 pandas.DataFrame.eval，消除注入面）
 - 支持引用现有列作为变量
 
 参数:
@@ -11,8 +11,10 @@
     output_type: 输出类型（int, float, 默认保持原样）
 
 安全说明:
-    - 使用 pandas.DataFrame.eval 进行安全计算
-    - 不支持任意 Python 代码执行
+    - B-sec5: 原实现用 pandas.DataFrame.eval，其 @语法可访问局部变量/可调用对象，
+      在不同 pandas 版本/引擎下存在逃逸面；表达式来自用户写入的 transforms/*.yaml，
+      构成存储型代码注入风险。现改用 simpleeval（与 Scripted 约束同一沙箱），
+      仅允许 SAFE_FUNCTIONS 白名单内的纯函数，禁用属性访问与 dunder。
 """
 
 from __future__ import annotations
@@ -21,6 +23,8 @@ import re
 from typing import Any
 
 import pandas as pd
+
+from app.shared.domain.eval_sandbox import make_sandbox_evaluator
 
 from .base import TransformRunner
 
@@ -62,20 +66,27 @@ class MathExprRunner(TransformRunner):
 
         output_col = output_columns[0]
 
-        # 支持 @列名 语法，转换为 pandas eval 所需的列名引用
-        # 将 @column_name 替换为 column_name
+        # 支持 @列名 语法：simpleeval 的变量绑定即列名字面量，故去除 @ 前缀。
         eval_expression = re.sub(r"@(\w+)", r"\1", expression)
 
-        try:
-            result = df.eval(eval_expression)
-        except Exception as e:
-            raise ValueError(f"数学表达式计算失败: {expression}, 错误: {e}")
+        # B-sec5: 逐行用 simpleeval 沙箱求值（替代 df.eval 的注入面）。
+        # names 注入该行所有列值（col_name -> cell_value），表达式如 "a + b" 直接引用列名。
+        results: list[Any] = []
+        # to_dict("records") 比 iterrows 快，且每行独立绑定避免跨行状态泄漏。
+        for record in df.to_dict("records"):
+            try:
+                value = make_sandbox_evaluator(names=record).eval(eval_expression)
+            except Exception as e:
+                raise ValueError(f"数学表达式计算失败: {expression}, 错误: {e}")
+            results.append(value)
+
+        result_series = pd.Series(results, index=df.index)
 
         if output_type == "int":
-            df[output_col] = pd.to_numeric(result, errors="coerce").astype("Int64")
+            df[output_col] = pd.to_numeric(result_series, errors="coerce").astype("Int64")
         elif output_type == "float":
-            df[output_col] = pd.to_numeric(result, errors="coerce")
+            df[output_col] = pd.to_numeric(result_series, errors="coerce")
         else:
-            df[output_col] = result
+            df[output_col] = result_series
 
         return df

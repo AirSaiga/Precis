@@ -174,6 +174,15 @@ export class KeyboardListenerImpl implements KeyboardListener {
       return
     }
 
+    // IME 组合输入守卫：拼音/日文/韩文等 IME 选词过程中派发的 keydown（尤其
+    // Backspace/Enter/单字符键）不得触发任何快捷键，否则会误删节点、误发消息。
+    // isComposing（标准）为主，keyCode===229 为旧版 Chromium 兼容兜底。
+    // 注意：isIgnoredElement 只覆盖 input/textarea/contenteditable 聚焦场景，
+    // 焦点在画布等非输入元素但 IME 仍处合成态时只能靠本守卫拦截，两者缺一不可。
+    if (event.isComposing || event.keyCode === 229) {
+      return
+    }
+
     if (this.isIgnoredElement(event)) {
       return
     }

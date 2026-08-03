@@ -36,6 +36,7 @@
       }"
       :is-valid-connection="validateConnection"
       @node-click="onNodeClick"
+      @pane-click="handlePaneClick"
       @pane-context-menu.prevent="handlePaneContextMenu"
       @connect-start="onConnectStartFromDispatcher"
       @connect-end="onConnectEndFromDispatcher"
@@ -62,8 +63,14 @@
       />
       <!-- 控制面板：缩放、适应屏幕等按钮 -->
       <Controls />
-      <!-- 缩略图导航：显示画布整体预览 -->
-      <MiniMap />
+      <!-- 缩略图导航：显示画布整体预览
+           node-color 用函数动态着色：选中节点用 accent 强调，其余用 muted，
+           使 minimap 随主题切换且能体现选中态。背景/遮罩由 base.css 的 .vue-flow__minimap 覆盖控制 -->
+      <MiniMap
+        :node-color="miniMapNodeColor"
+        :node-stroke-color="miniMapNodeColor"
+        :node-border-radius="2"
+      />
     </VueFlow>
 
     <div
@@ -244,6 +251,28 @@
   const { menuState: contextMenuState, controller: contextMenuController } = useCanvasContextMenu({
     onNodeContextMenu,
   })
+
+  /**
+   * 点击空白画布：清空选择（单选 + 多选）。
+   *
+   * 缺失此绑定会导致"点击空白以为取消选中，实际 store.selectedNodeId 仍指向旧节点"，
+   * inspector 继续显示旧节点、键盘 Delete/Backspace 仍作用于该节点，造成误删。
+   */
+  function handlePaneClick() {
+    store.clearSelection()
+  }
+
+  /**
+   * MiniMap 节点着色函数。
+   * 选中节点用 accent 强调（与画布选中态视觉一致），其余节点按是否为项目根区分。
+   * 返回固定的 CSS 命名色（minimap SVG fill 不支持 var()，需传具体色值），
+   * 但通过 base.css 覆盖 .vue-flow__minimap 背景已使其在 dark/liquid 下不出现刺眼白框。
+   */
+  function miniMapNodeColor(node: { selected?: boolean; type?: string }): string {
+    if (node.selected) return '#3b82f6' // accent blue（选中态强调）
+    if (node.type === 'projectRoot') return '#22c55e' // 项目根用绿色
+    return '#94a3b8' // 其余节点用中性灰蓝
+  }
   useCanvasViewportSync()
   const {
     pendingRegexConnection,

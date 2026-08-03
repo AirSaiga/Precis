@@ -80,6 +80,29 @@ describe('createV2StatsOps', () => {
       expect(projectConfigStatsLoaded.value).toBe(true)
     })
 
+    it('模板实例数取自 template_instances（而非 templates 定义）', async () => {
+      // 修复回归：templates 是模板定义，template_instances 才是画布上的实例
+      vi.mocked(getV2FullConfig).mockResolvedValue({
+        manifest: {
+          schemas: [],
+          constraints: [],
+          templates: [{ id: 'def1' }, { id: 'def2' }], // 2 个模板定义（不应计入）
+          template_instances: [{ id: 'inst1', template_id: 'def1' }], // 1 个实例
+        },
+        schemas: {},
+      } as any)
+
+      vi.mocked(calculateConstraintStatsFromManifest).mockReturnValue({
+        total: 0,
+        standalone: 0,
+        inline: 0,
+      })
+
+      await ops.refreshProjectConfigStats('/project')
+
+      expect(projectConfigStats.value.templateCount).toBe(1)
+    })
+
     it('已加载相同路径时跳过', async () => {
       projectConfigStatsLoaded.value = true
       projectConfigStatsConfigPath.value = '/project'

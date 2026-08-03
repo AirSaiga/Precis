@@ -61,11 +61,25 @@ from __future__ import annotations
 
 # 1. 标准库导入
 import logging
+import os
 import re
 import time
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+
+def _resolve_server_allow_unsafe_eval() -> bool:
+    """读取服务端总开关 PRECIS_ALLOW_UNSAFE_EVAL（启动时读一次，运行时不变）。
+
+    B-sec6: 取值 "1"/"true"/"yes"（不区分大小写）视为开启，其余（含未设置）视为关闭。
+    """
+    raw = os.environ.get("PRECIS_ALLOW_UNSAFE_EVAL", "").strip().lower()
+    return raw in ("1", "true", "yes")
+
+
+# 模块级缓存：进程启动时读一次，避免每行约束重复读环境变量。
+_SERVER_ALLOW_UNSAFE_EVAL: bool = _resolve_server_allow_unsafe_eval()
 
 # 2. 第三方库导入
 import numpy as np
@@ -128,7 +142,13 @@ class ScriptedConstraint(Constraint):
 
         # 安全检查: 必须显式开启 allow_unsafe_eval 才能执行脚本约束
         # 【安全加固】使用 is True 严格检查，防止 numpy bool 等意外 truthy 值绕过
-        if kwargs.get("allow_unsafe_eval") is not True:
+        #
+        # B-sec6: 请求体的 allow_unsafe_eval 不再单独决定执行权——叠加服务端总开关
+        # PRECIS_ALLOW_UNSAFE_EVAL（默认 False）。只有"服务端允许 AND 请求体也开启"
+        # 才真正执行。这样即便不可信客户端在请求体里设 true，服务端未授权时仍被拒。
+        # 读取缓存的模块级常量，避免每行重复读环境变量。
+        client_allowed = kwargs.get("allow_unsafe_eval") is True
+        if not (_SERVER_ALLOW_UNSAFE_EVAL and client_allowed):
             errors.append(
                 {
                     "error_type": "PermissionError",
@@ -155,24 +175,11 @@ class ScriptedConstraint(Constraint):
         # ============================================================================
         # 配置 simpleeval 沙箱环境
         # ============================================================================
-        # 只允许使用以下安全的基础函数，避免执行危险操作
-        base_functions = {
-            "len": len,
-            "sum": sum,
-            "max": max,
-            "min": min,
-            "round": round,
-            "abs": abs,
-            "any": any,
-            "all": all,
-            "int": int,
-            "str": str,
-            "float": float,
-            "bool": bool,
-            "list": list,
-            "dict": dict,
-            "set": set,
-        }
+        # B-sec5: 复用共享沙箱白名单（app.shared.domain.eval_sandbox），
+        # 与 MathExpr 转换保持单一事实源，避免两处白名单漂移。
+        from app.shared.domain.eval_sandbox import SAFE_FUNCTIONS
+
+        base_functions = dict(SAFE_FUNCTIONS)
 
         # 遍历每一行数据执行表达式
         # D6: deadline 检查点。逐行约束内部必须有中断点,否则百万行表跑几十秒,

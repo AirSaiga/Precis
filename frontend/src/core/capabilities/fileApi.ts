@@ -72,26 +72,36 @@ export function isLocalDirectory(file: File): boolean {
 
 /**
  * 读取本地目录内的文件条目（Electron）或返回空（Web 不支持）。
+ *
+ * @param dirPath - 要扫描的目录路径
+ * @param root - 白名单根目录（Web 模式下后端强制 path 落于此目录下；Electron 忽略）
+ * @param extensions - 允许的文件扩展名数组，例如 ['.csv', '.xlsx']
  */
 export async function readLocalDirectoryEntries(
   dirPath: string,
+  root: string,
   extensions?: string[]
 ): Promise<string[]> {
   if (!isElectron()) {
     logger.warn('[fileApi] Web 模式下不支持直接读取本地目录条目')
     return []
   }
-  return readdirRecursive(dirPath, extensions)
+  return readdirRecursive(dirPath, root, extensions)
 }
 
 /**
  * 递归扫描目录，返回所有符合条件的文件路径列表
  *
  * @param path - 要扫描的目录路径
+ * @param root - 白名单根目录（Web 模式下后端强制 path 落于此目录下；Electron 忽略）
  * @param extensions - 允许的文件扩展名数组，例如 ['.csv', '.xlsx']
  * @returns 文件绝对路径数组
  */
-export async function readdirRecursive(path: string, extensions?: string[]): Promise<string[]> {
+export async function readdirRecursive(
+  path: string,
+  root: string,
+  extensions?: string[]
+): Promise<string[]> {
   if (isElectron()) {
     const electronDetector = await import('@/core/utils/electronDetector')
     return electronDetector.scanDirectory(path, extensions)
@@ -99,13 +109,13 @@ export async function readdirRecursive(path: string, extensions?: string[]): Pro
 
   // Web 实现：当前后端 /files/scan 仅支持单层扫描，这里先做单层实现
   // TODO: 后端 /files/scan 支持 recursive 参数后，改为单次调用
-  const entries = await scanDirectory(path, extensions)
+  const entries = await scanDirectory(path, root, extensions)
   const files: string[] = []
 
   for (const entry of entries) {
     if (entry.is_dir) {
       try {
-        const subFiles = await readdirRecursive(entry.path, extensions)
+        const subFiles = await readdirRecursive(entry.path, root, extensions)
         files.push(...subFiles)
       } catch (error) {
         logger.warn(`[fileApi] 递归扫描子目录失败: ${entry.path}`, error)

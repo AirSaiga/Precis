@@ -29,7 +29,10 @@
 
 from __future__ import annotations
 
+import logging
 import re
+import threading
+from collections import OrderedDict
 from typing import Any
 
 import pandas as pd
@@ -38,8 +41,19 @@ from ..specs.sql_source import SQLSourceSpec
 from .base import DataLoadError, DataSourceLoader
 from .registry import register_loader
 
-# 模块级引擎缓存，按 connection_string 复用，避免连接池耗尽（B22）
-_engine_cache: dict[str, Any] = {}
+logger = logging.getLogger(__name__)
+
+# 模块级引擎缓存，按 connection_string 复用，避免连接池耗尽（B22）。
+# B-locksafety: 多线程安全改造——
+#   1. 校验执行器会把同步加载工作 offload 到线程池（executor.py），_get_engine 会被
+#      多线程并发调用，原裸 dict 无锁存在竞态（两线程同时 miss 各建一个 engine，
+#      一个成孤儿永不 dispose）。
+#   2. 缓存改为 OrderedDict 实现 LRU（容量 _ENGINE_CACHE_MAX），淘汰时调用
+#      engine.dispose() 释放底层连接池，避免轮换凭据/多 DB 场景 FD 耗尽。
+#   3. atexit 注册进程退出时全量 dispose（桌面应用生命周期短，主要靠 LRU 淘汰兜底）。
+_ENGINE_CACHE_MAX = 8
+_engine_cache: OrderedDict[str, Any] = OrderedDict()
+_engine_cache_lock = threading.Lock()
 
 # 危险的 SQL 关键字，用于拒绝潜在的注入攻击（B20）
 _DANGEROUS_SQL_KEYWORDS = (
@@ -94,9 +108,28 @@ class SQLLoader(DataSourceLoader["SQLSourceSpec"]):
         """
         from sqlalchemy import create_engine
 
-        if connection_string not in _engine_cache:
-            _engine_cache[connection_string] = create_engine(connection_string)
-        return _engine_cache[connection_string]
+        # B-locksafety: 加锁保证"检查-创建-放入缓存"原子，避免并发 miss 各建 engine。
+        # 锁只保护 dict 操作（快），create_engine 在锁外执行后会再次拿锁写入——
+        # 但为简单起见这里在锁内创建（SQLLoader 加载本身是 offload 到线程的批操作，
+        # create_engine 的开销相对 DB 查询可忽略，优先保证正确性）。
+        with _engine_cache_lock:
+            if connection_string in _engine_cache:
+                # 命中：移到队尾标记为最近使用（LRU）
+                _engine_cache.move_to_end(connection_string)
+                return _engine_cache[connection_string]
+
+            engine = create_engine(connection_string)
+
+            # 放入缓存前，若已达容量上限，淘汰最久未用的 engine 并 dispose 其连接池
+            while len(_engine_cache) >= _ENGINE_CACHE_MAX:
+                _, evicted = _engine_cache.popitem(last=False)
+                try:
+                    evicted.dispose()
+                except Exception as e:  # noqa: BLE001
+                    logger.warning("淘汰 SQL engine 时 dispose 失败（可能已关闭）: %s", e)
+
+            _engine_cache[connection_string] = engine
+            return engine
 
     def _sanitize_query(self, query: str) -> str:
         """
@@ -235,3 +268,19 @@ class SQLLoader(DataSourceLoader["SQLSourceSpec"]):
             errors.append("缺少 SQLAlchemy: pip install sqlalchemy")
 
         return errors
+
+
+def _dispose_all_engines() -> None:
+    """进程退出时全量释放缓存的 SQL engine 连接池（B-locksafety）。"""
+    with _engine_cache_lock:
+        while _engine_cache:
+            _, engine = _engine_cache.popitem(last=False)
+            try:
+                engine.dispose()
+            except Exception as e:  # noqa: BLE001
+                logger.warning("进程退出 dispose SQL engine 失败: %s", e)
+
+
+import atexit
+
+atexit.register(_dispose_all_engines)

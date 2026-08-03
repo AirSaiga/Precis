@@ -24,7 +24,7 @@
 
 import os
 
-from fastapi import Header, HTTPException
+from fastapi import Header
 
 from .router import router
 
@@ -38,12 +38,8 @@ _SKIP_DIRS = {"node_modules", "__pycache__", ".git", ".venv", "venv", ".idea"}
 def validate_project_path(raw_path: str | None) -> str:
     """校验 X-Project-Config-Path Header 值是否为合法 Precis 项目根。
 
-    修复 #10：旧逻辑直接用 Header 值作 project_path，无边界校验 → 任意目录读写。
-    要求：
-    - 非空
-    - 不含 ".."（normpath 后仍不含）
-    - 必须是存在的目录
-    - 必须含 project.precis.yaml（合法项目根标识）
+    B-sec3: 现委托 app.api.dependencies._validate_project_root（单一事实源），
+    与通用依赖 get_project_config_path 共用同一套校验，消除双套不一致。
 
     参数:
         raw_path: Header 原始值
@@ -54,18 +50,9 @@ def validate_project_path(raw_path: str | None) -> str:
     抛出:
         HTTPException(400): 校验失败
     """
-    if not raw_path:
-        raise HTTPException(status_code=400, detail="缺少 X-Project-Config-Path 头")
-    normalized = os.path.normpath(os.path.abspath(raw_path))
-    # 拒绝路径穿越（normpath 后仍出现 .. 说明超出根）
-    if ".." in normalized.split(os.sep):
-        raise HTTPException(status_code=400, detail="项目路径不允许包含 .. 目录穿越")
-    if not os.path.isdir(normalized):
-        raise HTTPException(status_code=400, detail=f"项目路径不存在或非目录: {normalized}")
-    manifest = os.path.join(normalized, "project.precis.yaml")
-    if not os.path.isfile(manifest):
-        raise HTTPException(status_code=400, detail="项目路径下未找到 project.precis.yaml（非合法 Precis 项目根）")
-    return normalized
+    from app.api.dependencies import _validate_project_root
+
+    return _validate_project_root(raw_path)
 
 
 _MAX_DEPTH = 5

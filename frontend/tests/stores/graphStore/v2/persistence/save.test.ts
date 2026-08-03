@@ -84,7 +84,8 @@ import {
   updateV2ManifestTransformRef,
   updateV2ManifestTemplateInstanceRef,
 } from '@/api/projectV2Api'
-import { buildNodeFile } from '@/services/persistence'
+import { buildNodeFile, SaveOrchestrator } from '@/services/persistence'
+import { buildV2Manifest } from '@/services/builders'
 import { createV2SaveOps } from '@/stores/graphStore/modules/v2/persistence/save'
 
 function makeNode(id: string, type: string, data: Record<string, unknown> = {}): CustomNode {
@@ -119,6 +120,8 @@ describe('createV2SaveOps', () => {
     vi.mocked(putV2RegexNode).mockClear()
     vi.mocked(putV2TransformNode).mockClear()
     vi.mocked(buildNodeFile).mockClear()
+    vi.mocked(SaveOrchestrator).mockClear()
+    vi.mocked(buildV2Manifest).mockClear()
   })
 
   describe('saveConstraintNode', () => {
@@ -204,6 +207,66 @@ describe('createV2SaveOps', () => {
     it('节点不存在时返回 false', async () => {
       const result = await saveOps.saveTemplateInstanceNode('nonexistent')
       expect(result).toBe(false)
+    })
+  })
+
+  describe('saveProject 并发护栏', () => {
+    let orchestratorSaveMock: ReturnType<typeof vi.fn>
+
+    beforeEach(() => {
+      // 让 buildV2Manifest 返回非空 schemas，使 saveProject 通过空节点检查进入 orchestrator 路径
+      vi.mocked(buildV2Manifest).mockReturnValue({ schemas: [{ id: 's1' }] } as any)
+      // 每个测试重建 orchestrator.saveProject 的 mock，避免跨测试污染
+      orchestratorSaveMock = vi.fn().mockResolvedValue({ success: true })
+      // 注意：vi.mock 工厂返回的构造函数 mock 需用 function 形式以支持 new
+      vi.mocked(SaveOrchestrator).mockImplementation(function () {
+        return { saveProject: orchestratorSaveMock } as any
+      })
+    })
+
+    it('进行中的保存被复用，settle 后补存一次保证新编辑不丢失', async () => {
+      // 用 deferred 让每次保存保持 in-flight：收集所有 resolver，测试按需放行。
+      // 补存逻辑会在第一次 settle 后再发起一次 saveProject（第二次调用），需分别 resolve。
+      const resolvers: Array<(val: { success: boolean }) => void> = []
+      orchestratorSaveMock.mockImplementation(
+        () =>
+          new Promise<{ success: boolean }>((resolve) => {
+            resolvers.push(resolve)
+          })
+      )
+
+      // 同时发起两次保存（不等第一次 resolve）
+      const p1 = saveOps.saveProject()
+      // 让出微任务，使第一次调用进入 in-flight 状态（设置 inflightSave）
+      await Promise.resolve()
+      const p2 = saveOps.saveProject()
+
+      // 并发期间：两次调用复用同一个进行中的 Promise → orchestrator 只构造一次、saveProject 只调用一次
+      // （不重叠发起第二次 PUT，避免 last-write-wins）
+      expect(SaveOrchestrator).toHaveBeenCalledTimes(1)
+      expect(orchestratorSaveMock).toHaveBeenCalledTimes(1)
+
+      // 放行第一次保存；settle 后 finally 会因 dirty 标记自动补存一次（第二次 orchestrator 调用）。
+      // p1/p2 复用同一 Promise，其 resolve 被 finally 链式延后到补存完成，故两次调用都需先放行。
+      resolvers[0]!({ success: true })
+      // 让出微任务，使补存的 saveProject 进入 orchestrator（产生第二次调用）
+      await Promise.resolve()
+      await Promise.resolve()
+      expect(orchestratorSaveMock).toHaveBeenCalledTimes(2)
+      resolvers[1]!({ success: true })
+
+      // 两次调用复用同一 Promise，最终都应成功
+      const [r1, r2] = await Promise.all([p1, p2])
+      expect(r1).toBe(true)
+      expect(r2).toBe(true)
+    })
+
+    it('上一轮保存 settle 后，新一轮保存正常发起新 orchestrator', async () => {
+      await saveOps.saveProject()
+      expect(SaveOrchestrator).toHaveBeenCalledTimes(1)
+      // 上一轮已 settle，新一轮不应被复用
+      await saveOps.saveProject()
+      expect(SaveOrchestrator).toHaveBeenCalledTimes(2)
     })
   })
 })

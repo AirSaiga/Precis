@@ -102,25 +102,31 @@ def _resolve_project_path(base_path: str, relative_path: str) -> str:
     验证规则:
         - 解析后的绝对路径必须在 base_path 目录内
         - 拒绝包含 .. 的相对路径组件
+        - B-arch2: 用 Path.resolve() 解析符号链接，防止 symlink 逃逸
+          （原 os.path.abspath 不解析 symlink，若项目目录含指向外部的 symlink
+          子目录，startswith 检查会通过但实际落在项目外）。
 
     参数:
         base_path: 项目根目录的绝对路径
         relative_path: 用户提供的相对路径
 
     返回:
-        安全的绝对路径
+        安全的绝对路径（已 resolve，symlink 已展开）
 
     抛出:
         ValueError: 当路径试图跳出项目目录时
     """
-    # 规范化 base_path
-    base_path = os.path.abspath(base_path)
-    # 拼接并规范化目标路径
-    target_path = os.path.abspath(os.path.join(base_path, relative_path))
-    # 确保目标路径在 base_path 内
-    if not target_path.startswith(base_path + os.sep) and target_path != base_path:
+    from pathlib import Path
+
+    base_resolved = Path(base_path).resolve()
+    # 拼接后 resolve：同时处理 .. 与 symlink
+    target_resolved = Path(base_path, relative_path).resolve()
+    target_str = str(target_resolved)
+    base_str = str(base_resolved)
+    # 包含关系：target == base 或 target 在 base 之下
+    if target_str != base_str and not target_str.startswith(base_str + os.sep):
         raise ValueError(f"路径 traversal 被拒绝: {relative_path}")
-    return target_path
+    return target_str
 
 
 @contextmanager

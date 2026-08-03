@@ -56,7 +56,9 @@ export function createV2StatsOps(params: {
       const constraintStats = calculateConstraintStatsFromManifest(config.manifest, config.schemas)
       const totalRegex = config.manifest.regex_nodes?.length || 0
       const totalTransforms = config.manifest.transforms?.length || 0
-      const totalTemplates = config.manifest.templates?.length || 0
+      // 模板"实例"（画布上的 templateInstance 节点）存在 template_instances，
+      // templates 字段是模板"定义"。徽标/资源树统计要展示用户画布上的实例数。
+      const totalTemplates = config.manifest.template_instances?.length || 0
 
       projectConfigStats.value = {
         schemaCount: totalSchemas,

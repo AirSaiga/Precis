@@ -33,13 +33,14 @@ class TestValidateProjectPath:
         with pytest.raises(HTTPException) as exc:
             validate_project_path(None)
         assert exc.value.status_code == 400
-        assert "缺少" in exc.value.detail
+        # B-sec3: 错误消息统一为"不能为空"（与 _validate_project_root 单一事实源对齐）
+        assert "不能为空" in exc.value.detail
 
     def test_nonexistent_dir_rejected(self, tmp_path):
-        """不存在的目录被拒。"""
+        """不存在的目录被拒。B-sec3: 统一校验返回 404（资源不存在）。"""
         with pytest.raises(HTTPException) as exc:
             validate_project_path(str(tmp_path / "nonexistent"))
-        assert exc.value.status_code == 400
+        assert exc.value.status_code == 404
 
     def test_dir_without_manifest_rejected(self, tmp_path):
         """存在但无 project.precis.yaml 的目录被拒（非合法项目根）。"""

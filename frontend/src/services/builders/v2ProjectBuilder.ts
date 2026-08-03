@@ -262,7 +262,9 @@ export function buildV2ProjectView(nodes: CustomNode[]): ProjectViewV2 {
     nodePositions[key] = { x: node.position.x, y: node.position.y }
 
     const data = (node.data || {}) as Record<string, unknown>
-    const hidden = data.hidden === true
+    // hidden 是 Vue Flow 节点级属性（node.hidden），由 state.ts 的 updateNodeData
+    // 路由到 node 级 patch；expanded 仍是 data 字段。二者来源不同，勿混。
+    const hidden = node.hidden === true
     const expanded = data.expanded === true
     if (hidden || expanded) {
       nodeStates[key] = { hidden, expanded }

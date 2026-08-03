@@ -250,9 +250,11 @@
    */
   const readLocalScriptFiles = async (paths: string[]) => {
     const newSources = [...migrateSources.value]
+    // B-sec1: Web 模式下 readFile 需传入项目根作为白名单根，后端强制 path 落于此目录下
+    const root = effectiveConfigPath.value ?? ''
     for (const p of paths) {
       try {
-        const content = await fileApi.readFile(p)
+        const content = await fileApi.readFile(p, root)
         if (content != null) {
           newSources.push({
             content,
@@ -291,7 +293,9 @@
     const isDirectoryPath =
       paths.length === 1 && firstPath && !firstPath.match(/\.(py|sql|md|txt|js|json|yaml|yml)$/i)
     if (isDirectoryPath && firstPath) {
-      const files = await fileApi.readdirRecursive(firstPath, [
+      // B-sec1: Web 模式下 readdirRecursive 需传入项目根作为白名单根（透传至 /files/scan）
+      const root = effectiveConfigPath.value ?? ''
+      const files = await fileApi.readdirRecursive(firstPath, root, [
         '.py',
         '.sql',
         '.md',

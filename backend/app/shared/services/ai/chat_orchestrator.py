@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -219,7 +220,7 @@ class AIChatOrchestrator:
         action_results: list[dict[str, Any]] = []
 
         if actions and project_path and not options.skip_action_processing:
-            process_result = self._process_actions(actions, project_path, reply, options, updated_history)
+            process_result = await self._process_actions(actions, project_path, reply, options, updated_history)
             if isinstance(process_result, ChatExecutionResult):
                 return process_result
             actions, validation_result, action_results, frontend_instructions = process_result
@@ -474,7 +475,7 @@ class AIChatOrchestrator:
             tool_steps=run_result.tool_steps,
         )
 
-    def _process_actions(
+    async def _process_actions(
         self,
         actions: list[dict[str, Any]],
         project_path: str,
@@ -558,8 +559,11 @@ class AIChatOrchestrator:
             actions = validation_result_obj.valid_actions
 
         # 6.3 执行动作
+        # B-async: process_actions 做大量同步文件 I/O（mkdtemp/读写多 YAML/快照/回滚），
+        # 在 async 编排器中直接调用会阻塞事件循环。agent 路径（apply_actions.py:441）
+        # 已用 asyncio.to_thread 包裹同一函数，这里对齐。
         self._notify_progress(options, "executing", "执行操作...")
-        process_result = process_actions(actions, project_path)
+        process_result = await asyncio.to_thread(process_actions, actions, project_path)
         action_results = process_result.get("results", [])
 
         if not process_result.get("success", False):

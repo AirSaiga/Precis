@@ -134,7 +134,9 @@ export function createV2LoadOps(params: {
         ((config.manifest as unknown as Record<string, unknown>).regex_nodes as unknown[])
           ?.length || 0
       const totalTransforms = config.manifest.transforms?.length || 0
-      const totalTemplates = config.manifest.templates?.length || 0
+      // 模板实例数取自 template_instances（画布上的 templateInstance 节点），
+      // templates 字段是模板定义列表，二者含义不同（见 ProjectManifestV2）。
+      const totalTemplates = config.manifest.template_instances?.length || 0
 
       ;(config.manifest.schemas || []).forEach((s) => {
         const schema = config.schemas[s.id]

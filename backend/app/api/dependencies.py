@@ -60,12 +60,17 @@ async def get_project_config_path(
     并进行合法性验证：
     1. 检查路径是否为绝对路径
     2. 检查路径对应的目录是否存在
+    3. 必须含 project.precis.yaml（合法 Precis 项目根标识）
+
+    B-sec3 安全加固: 原校验仅"绝对+是目录"，任意目录都能当项目根，导致后续
+    manifest/数据源/AI 配置写入可能落到任意目录。现对齐 AI 路由的
+    validate_project_path，要求 manifest 存在。项目首次创建走独立的
+    /projects/create 端点（不经此依赖），故不影响创建流程。
 
     处理流程：
     1. 从 X-Project-Config-Path Header 获取路径
-    2. 验证路径是否为绝对路径
-    3. 验证路径对应的目录是否存在
-    4. 返回验证后的绝对路径
+    2. 委托 _validate_project_root 做完整校验（绝对路径/拒绝 `..`/目录存在/manifest 存在）
+    3. 返回验证后的绝对路径
 
     :param x_project_config_path: HTTP Header 中的项目配置路径
     :return: 验证通过的项目配置绝对路径
@@ -74,25 +79,58 @@ async def get_project_config_path(
     Header 示例：
         X-Project-Config-Path: /path/to/project/config
     """
+    return _validate_project_root(x_project_config_path)
+
+
+def _validate_project_root(raw_path: str | None) -> str:
+    """校验路径是否为合法 Precis 项目根（单一事实源）。
+
+    B-sec3: 统一 get_project_config_path 与 ai/utils.validate_project_path 的校验逻辑，
+    消除双套不一致（原 ai 路径要求 manifest，通用依赖不要求，弱者为默认）。
+
+    要求：
+    - 非空
+    - 必须是绝对路径（Windows 下 abspath 会把相对路径转绝对，故须在规范化前先判）
+    - 不含 ".."（normpath 后仍不含）
+    - 必须是存在的目录
+    - 必须含 project.precis.yaml（合法项目根标识）
+
+    参数:
+        raw_path: 原始路径字符串（通常来自 Header）
+
+    返回:
+        规范化后的绝对路径
+
+    抛出:
+        HTTPException(400): 校验失败
+    """
+    if not raw_path:
+        raise HTTPException(status_code=400, detail="X-Project-Config-Path header 不能为空。")
     # 步骤1：先校验原始输入是否为绝对路径
     # 在 Windows 下，os.path.abspath 会把相对路径（如 "../project"）解析成绝对路径，
     # 导致后续 isabs 检查无法拒绝相对路径。因此必须在规范化之前先做判断。
-    if not os.path.isabs(x_project_config_path):
+    if not os.path.isabs(raw_path):
         raise HTTPException(status_code=400, detail="X-Project-Config-Path header 必须是一个绝对路径。")
 
     # 路径标准化并解析为绝对路径，防御 Path Traversal
-    # 【安全策略】使用 os.path.normpath 消除路径中的 .. 等相对路径成分
-    # 再使用 os.path.abspath 转换为绝对路径，防止路径穿越攻击
-    normalized_path = os.path.abspath(os.path.normpath(x_project_config_path))
+    normalized_path = os.path.abspath(os.path.normpath(raw_path))
+    # 拒绝路径穿越（normpath 后仍出现 .. 说明超出根）
+    if ".." in normalized_path.split(os.sep):
+        raise HTTPException(status_code=400, detail="X-Project-Config-Path 不允许包含 .. 目录穿越。")
 
     # 步骤2：验证路径对应的目录是否存在
-    # 确保项目配置目录已经创建，避免后续文件操作失败
-    # 【错误码选择】404 表示资源不存在，400 表示请求参数错误
     if not os.path.isdir(normalized_path):
         raise HTTPException(status_code=404, detail=f"提供的项目配置路径不存在: {normalized_path}")
 
-    # 步骤3：验证通过，返回绝对路径
-    # 【返回值】返回标准化后的绝对路径，供后续文件操作使用
+    # 步骤3：验证是合法 Precis 项目根（含 manifest）
+    manifest = os.path.join(normalized_path, "project.precis.yaml")
+    if not os.path.isfile(manifest):
+        raise HTTPException(
+            status_code=400,
+            detail="项目路径下未找到 project.precis.yaml（非合法 Precis 项目根）。"
+            "若要初始化新项目，请使用 POST /api/latest/projects/create。",
+        )
+
     return normalized_path
 
 

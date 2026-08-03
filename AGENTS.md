@@ -358,6 +358,8 @@ Vue Flow 通过 `v-model:nodes` / `v-model:edges` 实现双向同步（prop 下�
 
 **`setEdges` 的致命问题**：`createGraphEdges` 对每条边调用 `findNode(edge.source)`，找不到则 `continue` 静默丢弃。即使节点在 `edges.value` 中存在（通过 push 添加），只要 Vue Flow 内部 `state.nodes` 中没有（push 不触发 model→store watcher），边就会被丢弃。
 
+> **⚠️ 节点替换 vs 边替换的区别（勿混淆）**：上述"边被静默丢弃"陷阱**仅适用于 `edges.value = [...]`（边的全量替换）**。**节点**的全量替换 `nodes.value = [...]` 走的是 `setNodes` → `createGraphNodes`，它**不会**调用 `createGraphEdges`、不会重新验证边、也不会丢弃任何边。并且 `createGraphNodes` → `parseNode` 对已存在 id 的节点做 `Object.assign(existingNode, ...)`（不重复创建），`addNodes` 经 `applyChanges` 的 `add` 分支也有 `findIndex(id)` 去重——**因此节点层面不会产生重复节点**。判断 Vue Flow 风险时务必区分操作的是节点数组还是边数组，不要把边陷阱外推到节点。节点全量替换的真正代价是：冗余的 `createGraphNodes` 全量重建（性能浪费）+ 触发不必要的 `setNodes` 副作用，而非数据损坏。
+
 #### 禁止操作
 
 | 操作 | 原因 |
@@ -366,7 +368,24 @@ Vue Flow 通过 `v-model:nodes` / `v-model:edges` 实现双向同步（prop 下�
 | `edges.value.push(newEdge)` | 同上 |
 | `edges.value = edges.value.filter(...)` 删除边 | 绕过 `onEdgesChange`，`handleEdgeRemoved` / `syncOnDisconnect` / `executeDisconnectCleanup` 均不执行 |
 | 直接修改 `node.data` 属性 | 绕过 `updateNodeData` 统一入口，saveState 不同步 |
+| 直接修改 `node.position` / `node.hidden` 等节点级属性 | 绕过 `vueFlowApi.updateNode()`，Vue Flow 内部 `state.nodes` 不同步——store ref 变了但渲染/DOM 不变。必须用 `updateNode(id, { position })` 或经 `updateNodeData(id, { hidden })`（后者在 `state.ts` 被路由到 node 级 patch） |
+| `addNodes(node)` 后立刻 `nodes.value = [...nodes.value, node]` | 冗余的全量 `setNodes` 重建。本 tick 内后续查找可见性的正确解法是 `addNodes` 后 `await nextTick()` 再读 `nodes.value`，而非手动追加（详见下文"幂等创建节点"） |
 | 同一边混合使用 API 和数组操作 | `removeEdges` + `edges.value = filter` 导致 `onEdgesChange` 触发两次 |
+
+##### 幂等创建节点（ensureXxx 模式）
+
+`ensureSchemaNodeFromV2` 这类"先 `nodes.value.find` 判存在、不存在则创建"的幂等函数，要保证连续调用时第二次能 `find` 到刚创建的节点。**正确做法**：
+
+```ts
+const existing = nodes.value.find((n) => n.id === id)
+if (existing) return existing
+// ... 构造 node ...
+addNodes(node)
+await nextTick()          // ← 等 v-model model→store 回写，本 tick 后续 find 即可命中
+return node
+```
+
+**不要**用 `addNodes(node); nodes.value = [...nodes.value, node]` 来"手动同步"——这会触发冗余的全量 `setNodes`（`parseNode` 虽对同 id 做了 `Object.assign` 不致重复，但全量重建是性能浪费，且违背"增量走 API"约定）。
 
 #### 时序要求
 
@@ -387,6 +406,51 @@ Vue Flow 通过 `v-model:nodes` / `v-model:edges` 实现双向同步（prop 下�
 #### undo/redo 的状态恢复
 
 `history.ts` 使用 `shallowRef` + `toRaw()` + 不可变栈操作，恢复时直接替换 `nodes.value` 和 `edges.value`，不触发任何 hooks。恢复后会调用 `reconcileAll()` 重建连接状态。
+
+### 键盘快捷键与 IME 组合输入
+
+应用默认 locale 是 `zh-CN`，用户普遍用拼音/日文/韩文等 IME 输入。**任何全局键盘监听都必须在合成状态下放行**，否则 IME 选词过程中派发的 `keydown`（尤其 `Backspace`/`Enter`/单字符键）会误触快捷键，造成误删节点、误发消息等数据丢失。
+
+快捷键监听入口（`features/keyboard/listeners/keyboardListener.ts`）的 `handleKeydown` 必须**在所有匹配逻辑之前**加守卫：
+
+```ts
+// IME 合成中（拼音/日文/韩文选词阶段）一律放行，避免误触单键/Backspace 快捷键
+if (event.isComposing || event.keyCode === 229) {
+  return
+}
+```
+
+> 注意：`isIgnoredElement`（判 input/textarea/contenteditable 聚焦）**不能**替代 IME 守卫——当焦点在画布等非输入元素、但 IME 仍处于合成状态时（例如刚切到画布、IME 选词未提交），输入守卫不会拦截。两个守卫缺一不可。
+
+新增任何全局快捷键时，若涉及单字符键或 `Backspace`/`Delete`/`Enter`，务必确认监听器入口已含上述守卫。
+
+### 画布选择模型一致性
+
+应用维护**两套**选择状态：`selectedNodeId`（单选焦点，inspector 跟随）与 `selectedNodeIds`（多选集合）。二者必须保持一致，否则 inspector/键盘/右键菜单读到的选择会打架。约定：
+
+- **点击空白画布必须清空选择**：`NodeCanvas.vue` 的 `<VueFlow>` 必须绑定 `@pane-click` → `store.clearSelection()`（同时清空 `selectedNodeId` 与 `selectedNodeIds`）。缺失会导致"点击空白以为取消选中，实际 inspector 仍锁定旧节点，键盘 Delete 误删"。
+- **单击节点**应同时更新 `selectedNodeId` 并重置 `selectedNodeIds = [id]`，不要只改其一（绕过 `selection.ts` 的 `setSelection` 直接赋值会破坏一致性）。
+- **从多选中移除节点**（`removeFromSelection`）后，若该节点恰好是 `selectedNodeId`，需一并清空单选焦点。
+- **删除节点**（`deleteNode`/`deleteNodes`）已在执行前清空选择，新增删除路径时沿用。
+
+### Electron IPC 文件路径安全（XSS → 文件读写的纵深防御）
+
+Electron 的文件相关 IPC（`read-file`/`write-file`/`open-file`/`scan-directory`）由 renderer 经 `window.electronAPI.*` 调用。**一旦发生任意 XSS，这些 IPC 即成为攻击面**，因此路径校验是纵深防御的关键一层。约定：
+
+- **禁止用 `resolved !== path.normalize(input)` 这类"比较 resolve 结果"的写法判穿越**——对**绝对路径**含 `..` 时，`path.resolve` 与 `path.normalize` 输出相同字符串，比较恒为真，校验形同虚设。正确做法是**根目录包含校验**：`path.resolve(input)` 后判断是否落在白名单根（`app.getPath('userData')`、当前项目 configDir 等）之下（`resolved === root || resolved.startsWith(root + path.sep)`）。
+- **`write-file` 等可写操作**必须比可读操作更严（写入还能 `mkdirSync({recursive:true})` 创造路径），且建议落到白名单根下。
+- **`open-file`（`shell.openPath`）必须限定扩展名**（数据文件：`.csv/.xlsx/.json/.yaml/...`），拒绝可执行/脚本（`.exe/.bat/.ps1/.scr/.cmd` 等）——否则配合写原语可形成 RCE 链。
+- **`scan-directory` 必须限定根目录**且不跟随顶层符号链接（`fs.lstatSync`），并设递归深度上限。
+- 凡是 renderer 可传任意字符串的文件路径，都视为不可信；路径优先取自原生 `dialog.showOpenDialog` 的返回值，而非 renderer 自由构造的字符串。
+
+### 事件监听器与 watcher 的清理（资源泄漏纪律）
+
+每个 `eventBus.on` / `window.addEventListener` / `useEventBus` 订阅都必须有对应的 `off` / `removeEventListener`，且**必须在组件/组合式函数销毁时无条件清理**——不能只在"正常完成回调"里清理（异步未完成就被卸载时，回调永不触发 → 泄漏）。
+
+- **错误模式**：`eventBus.on('x-complete', handler)`，仅依赖 `x-complete` 事件触发后在 handler 内 `off`。若组件在事件到达前卸载，监听器永久驻留 mitt bus，闭包持有的 `nodeId`/回调也阻止 GC；重启循环还可能对已销毁节点执行回调。
+- **正确模式**：在 `onUnmounted`（或 `onBeforeUnmount`/`onScopeDispose`）里**无条件** `off`；或用带自动清理的封装（如 `useEventBus` 返回值的 `stop()`）。`try/finally` 也行，但前提是清理与卸载解耦。
+- **watcher**：组件级 `watch`/`watchEffect` 自动随组件销毁；但在 `effectScope` 手动创建的、或在 setup 外（store/Pinia plugin）创建的 watcher 必须手动 `stop()`。
+- 全局 window 监听（如 `useGlobalErrorHandler`）在 HMR 下会重复注册，需用幂等注册或返回 handle 以便重载时移除。
 
 #### 深拷贝规范
 

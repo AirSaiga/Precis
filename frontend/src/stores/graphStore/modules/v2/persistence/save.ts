@@ -123,117 +123,159 @@ export function createV2SaveOps(params: {
   // edges 由 SaveOrchestrator 通过 params.edges 读取，本层直接逻辑中不使用
   const { t } = useI18n()
 
+  /**
+   * 进行中的 saveProject Promise（并发护栏）。
+   *
+   * 问题：saveProject 每次新建 SaveOrchestrator 并发起两次 PUT（fullConfig + view），
+   * 工具栏保存与 validation 触发的保存、或双击保存，会重叠发起两组 PUT，
+   * 后写覆盖前写 → 节点编辑可能被静默丢失（last-write-wins）。
+   *
+   * 策略：重入合并——进行中的保存复用同一个 Promise，避免重复请求。
+   * 不做"排队串行"（that would serialize & delay），因为重叠的保存通常针对同一快照，
+   * 合并即可；用户后续编辑会触发新的 saveProject（上一轮已 settle）。
+   */
+  let inflightSave: Promise<boolean> | null = null
+  // 补存标志：进行中的保存期间又收到新的保存请求时置位，settle 后补存一次，
+  // 避免第二次保存被重入合并丢弃而静默丢失用户编辑。
+  let dirtyAfterInflight = false
+
   async function saveProject(): Promise<boolean> {
-    const configPath = getEffectiveProjectConfigPath()
-
-    // 空节点检查：避免不必要的 API 调用
-    const manifestPreview = buildV2Manifest(nodes.value, projectName.value, configPath || '')
-    if (
-      manifestPreview.schemas.length === 0 &&
-      manifestPreview.constraints.length === 0 &&
-      (manifestPreview.regex_nodes?.length || 0) === 0 &&
-      (manifestPreview.transforms?.length || 0) === 0
-    ) {
-      logger.debug('[saveProject] 没有需要保存的 schema/constraint/regex/transform 节点，跳过保存')
-      return true
+    // 并发护栏：进行中的保存不重复发起 PUT（避免重叠 PUT 的 last-write-wins）。
+    // 但不丢弃——标记补存，保证期间产生的新编辑最终落盘。
+    if (inflightSave) {
+      dirtyAfterInflight = true
+      logger.debug('[saveProject] 已有保存进行中，标记补存')
+      return inflightSave
     }
 
-    // 使用新版 SaveOrchestrator 执行保存
-    const orchestrator = new SaveOrchestrator({
-      nodes,
-      edges: params.edges,
-      projectName,
-      getEffectiveProjectConfigPath,
-      updateNodeData,
-    })
+    const execute = async (): Promise<boolean> => {
+      const configPath = getEffectiveProjectConfigPath()
 
-    const result = await orchestrator.saveProject()
-
-    if (result.success) {
-      const warningCount = result.errors?.filter((e) => e.severity === 'WARNING').length || 0
-      if (warningCount > 0) {
-        toastSuccess(
-          t('messages.persistence.projectSavedWithWarnings', {
-            name: projectName.value || 'untitled',
-            count: warningCount,
-          }),
-          t('messages.persistence.saveSuccess')
+      // 空节点检查：避免不必要的 API 调用
+      const manifestPreview = buildV2Manifest(nodes.value, projectName.value, configPath || '')
+      if (
+        manifestPreview.schemas.length === 0 &&
+        manifestPreview.constraints.length === 0 &&
+        (manifestPreview.regex_nodes?.length || 0) === 0 &&
+        (manifestPreview.transforms?.length || 0) === 0
+      ) {
+        logger.debug(
+          '[saveProject] 没有需要保存的 schema/constraint/regex/transform 节点，跳过保存'
         )
-      } else {
-        toastSuccess(
-          t('messages.persistence.projectSaved', { name: projectName.value || 'untitled' }),
-          t('messages.persistence.saveSuccess')
-        )
+        return true
       }
-      return true
-    } else {
-      const blockers = result.errors?.filter((e) => e.severity === 'BLOCKER') || []
-      // 解析每条 blocker 的本地化文案：有 messageKey 走 t()，否则回退原始 message
-      const resolveMsg = (e: {
-        message: string
-        messageKey?: string
-        params?: Record<string, unknown>
-      }) => renderText(t, e.messageKey, e.message, e.params)
-      const messages = blockers.map(resolveMsg).join('; ')
-      logger.error('保存项目失败:', messages || result.errors)
-      toastError(messages || t('messages.error.unknownError'), t('messages.persistence.saveFailed'))
 
-      // 将保存前的 BLOCKER 写入 inspectionStore，方便用户在抽屉中统一查看/跳转
-      if (blockers.length > 0) {
-        const inspectionStore = useInspectionStore()
-        const now = new Date().toISOString()
-        inspectionStore.setResult(
-          {
-            inspected_at: now,
-            errors: blockers.map((e) => {
-              // 每条 blocker 用自己的 messageKey 作为 description_key，使抽屉按当前语言显示具体错误
-              const descriptionKey = e.messageKey || 'inspection.issues.saveBlocked.description'
-              const descriptionParams = e.params ?? {}
-              return {
-                id: `save-blocker:${e.nodeId || 'global'}:${e.field || 'unknown'}:${now}`,
-                severity: 'blocker' as const,
-                title: '',
-                title_key: 'inspection.issues.saveBlocked.title',
-                description: e.message,
-                description_key: descriptionKey,
-                fix_hint: '',
-                fix_hint_key: e.field
-                  ? 'inspection.issues.saveBlocked.fixHintWithField'
-                  : 'inspection.issues.saveBlocked.fixHint',
-                error_type: 'SavePreValidationBlocked',
-                file_path: '',
-                ref_id: e.nodeId || null,
-                message: e.message,
-                suggestion: '',
-                actions: e.nodeId
-                  ? [
-                      {
-                        type: 'navigate' as const,
-                        label: '',
-                        label_key: 'inspection.actions.navigateToNode',
-                        target: e.nodeId,
-                      },
-                    ]
-                  : [],
-                context: {
-                  field: e.field || null,
-                  nodeId: e.nodeId || null,
-                  description: e.message,
-                },
-                message_params: {
-                  ...descriptionParams,
-                  field: e.field || '',
-                  nodeId: e.nodeId || '',
-                },
-              }
+      // 使用新版 SaveOrchestrator 执行保存
+      const orchestrator = new SaveOrchestrator({
+        nodes,
+        edges: params.edges,
+        projectName,
+        getEffectiveProjectConfigPath,
+        updateNodeData,
+      })
+
+      const result = await orchestrator.saveProject()
+
+      if (result.success) {
+        const warningCount = result.errors?.filter((e) => e.severity === 'WARNING').length || 0
+        if (warningCount > 0) {
+          toastSuccess(
+            t('messages.persistence.projectSavedWithWarnings', {
+              name: projectName.value || 'untitled',
+              count: warningCount,
             }),
-          },
-          { autoOpen: true }
+            t('messages.persistence.saveSuccess')
+          )
+        } else {
+          toastSuccess(
+            t('messages.persistence.projectSaved', { name: projectName.value || 'untitled' }),
+            t('messages.persistence.saveSuccess')
+          )
+        }
+        return true
+      } else {
+        const blockers = result.errors?.filter((e) => e.severity === 'BLOCKER') || []
+        // 解析每条 blocker 的本地化文案：有 messageKey 走 t()，否则回退原始 message
+        const resolveMsg = (e: {
+          message: string
+          messageKey?: string
+          params?: Record<string, unknown>
+        }) => renderText(t, e.messageKey, e.message, e.params)
+        const messages = blockers.map(resolveMsg).join('; ')
+        logger.error('保存项目失败:', messages || result.errors)
+        toastError(
+          messages || t('messages.error.unknownError'),
+          t('messages.persistence.saveFailed')
         )
-      }
 
-      return false
-    }
+        // 将保存前的 BLOCKER 写入 inspectionStore，方便用户在抽屉中统一查看/跳转
+        if (blockers.length > 0) {
+          const inspectionStore = useInspectionStore()
+          const now = new Date().toISOString()
+          inspectionStore.setResult(
+            {
+              inspected_at: now,
+              errors: blockers.map((e) => {
+                // 每条 blocker 用自己的 messageKey 作为 description_key，使抽屉按当前语言显示具体错误
+                const descriptionKey = e.messageKey || 'inspection.issues.saveBlocked.description'
+                const descriptionParams = e.params ?? {}
+                return {
+                  id: `save-blocker:${e.nodeId || 'global'}:${e.field || 'unknown'}:${now}`,
+                  severity: 'blocker' as const,
+                  title: '',
+                  title_key: 'inspection.issues.saveBlocked.title',
+                  description: e.message,
+                  description_key: descriptionKey,
+                  fix_hint: '',
+                  fix_hint_key: e.field
+                    ? 'inspection.issues.saveBlocked.fixHintWithField'
+                    : 'inspection.issues.saveBlocked.fixHint',
+                  error_type: 'SavePreValidationBlocked',
+                  file_path: '',
+                  ref_id: e.nodeId || null,
+                  message: e.message,
+                  suggestion: '',
+                  actions: e.nodeId
+                    ? [
+                        {
+                          type: 'navigate' as const,
+                          label: '',
+                          label_key: 'inspection.actions.navigateToNode',
+                          target: e.nodeId,
+                        },
+                      ]
+                    : [],
+                  context: {
+                    field: e.field || null,
+                    nodeId: e.nodeId || null,
+                    description: e.message,
+                  },
+                  message_params: {
+                    ...descriptionParams,
+                    field: e.field || '',
+                    nodeId: e.nodeId || '',
+                  },
+                }
+              }),
+            },
+            { autoOpen: true }
+          )
+        }
+
+        return false
+      }
+    } // end of execute
+
+    // 注册进行中的 Promise 并执行；finally 清理 inflightSave，
+    // 若执行期间又收到新保存请求（dirtyAfterInflight）则补存一次，串行避免再次并发。
+    inflightSave = execute().finally(async () => {
+      inflightSave = null
+      if (dirtyAfterInflight) {
+        dirtyAfterInflight = false
+        await saveProject()
+      }
+    })
+    return inflightSave
   }
 
   async function saveSchemaNode(nodeId: string): Promise<boolean | 'cancelled'> {

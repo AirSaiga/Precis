@@ -9,6 +9,9 @@ const validationHistory = {
   byTable: 'By Table',
   errors: 'Errors',
   moreErrors: '{count} more errors',
+  loadFailed: 'Failed to load validation history. Check backend connection and retry.',
+  deleteFailed: 'Failed to delete validation run',
+  retry: 'Retry',
 }
 
 export { validationHistory }

@@ -26,7 +26,8 @@ def client():
 
 @pytest.fixture
 def project_dir(tmp_path):
-    """构造一个合法项目目录(满足 get_project_config_path 的 isabs+isdir 校验)"""
+    """构造一个合法项目目录（B-sec3: 需含 project.precis.yaml 才通过强校验）"""
+    (tmp_path / "project.precis.yaml").write_text("id: test\n", encoding="utf-8")
     return str(tmp_path)
 
 
@@ -155,43 +156,96 @@ class TestFilesTransferTempDirConfinement:
         assert response.status_code in (400, 403, 404)
 
 
-class TestFilesOpsTraversalHardening:
-    """files/ops 反穿越硬化:拒绝 `..`,保留合法路径"""
+class TestFilesOpsRootWhitelist:
+    """B-sec1: files/ops 改为白名单根目录语义（assert_path_within_root）。
 
-    def test_read_dotdot_rejected(self, client, tmp_path):
-        """read 含 `..` 应被拒绝"""
-        target = os.path.join(str(tmp_path), "..", "target.txt")
-        response = client.post("/api/latest/files/read", json={"path": target})
-        assert response.status_code == 400
+    安全约束: 所有端点必须传 root，path 必须落于 root 下。
+    - root 外的绝对路径 → 403（即便不含 `..`）
+    - `..` 逃逸 root → 403
+    - root 内合法路径 → 通过
+    - 缺 root → 422（必填字段校验）
+    """
 
-    def test_read_legitimate_file(self, client, tmp_path):
-        """read 合法文件成功"""
+    def test_read_without_root_returns_422(self, client, tmp_path):
         f = tmp_path / "readable.txt"
         f.write_text("hello", encoding="utf-8")
         response = client.post("/api/latest/files/read", json={"path": str(f)})
+        assert response.status_code == 422  # root 必填
+
+    def test_read_outside_root_rejected(self, client, tmp_path):
+        """root 外的绝对路径（无 `..`）也应被拒——这是 SEC-1 的核心修复点"""
+        root = tmp_path / "project"
+        root.mkdir()
+        secret = tmp_path / "secret.txt"
+        secret.write_text("sensitive", encoding="utf-8")
+        response = client.post("/api/latest/files/read", json={"path": str(secret), "root": str(root)})
+        assert response.status_code == 403
+
+    def test_read_within_root_allowed(self, client, tmp_path):
+        root = tmp_path / "project"
+        root.mkdir()
+        f = root / "readable.txt"
+        f.write_text("hello", encoding="utf-8")
+        response = client.post("/api/latest/files/read", json={"path": str(f), "root": str(root)})
         assert response.status_code == 200
         assert response.json()["content"] == "hello"
 
-    def test_write_dotdot_rejected(self, client, tmp_path):
-        """write 含 `..` 应被拒绝"""
-        target = os.path.join(str(tmp_path), "..", "evil.txt")
-        response = client.post("/api/latest/files/write", json={"path": target, "content": "x"})
-        assert response.status_code == 400
+    def test_read_dotdot_escape_rejected(self, client, tmp_path):
+        """`..` 逃逸出 root 应被拒"""
+        root = tmp_path / "project"
+        root.mkdir()
+        target = os.path.join(str(root), "..", "secret.txt")
+        response = client.post("/api/latest/files/read", json={"path": target, "root": str(root)})
+        assert response.status_code == 403
 
-    def test_scan_dotdot_rejected(self, client, tmp_path):
-        """scan 含 `..` 应被拒绝"""
-        target = os.path.join(str(tmp_path), "..")
-        response = client.post("/api/latest/files/scan", json={"path": target})
-        assert response.status_code == 400
+    def test_write_outside_root_rejected(self, client, tmp_path):
+        root = tmp_path / "project"
+        root.mkdir()
+        evil = tmp_path / "evil.txt"
+        response = client.post("/api/latest/files/write", json={"path": str(evil), "content": "x", "root": str(root)})
+        assert response.status_code == 403
+        assert not evil.exists()  # 未被写入
 
-    def test_mkdir_dotdot_rejected(self, client, tmp_path):
-        """mkdir 含 `..` 应被拒绝"""
-        target = os.path.join(str(tmp_path), "..", "evil_dir")
-        response = client.post("/api/latest/files/mkdir", json={"path": target})
-        assert response.status_code == 400
+    def test_write_within_root_allowed(self, client, tmp_path):
+        root = tmp_path / "project"
+        root.mkdir()
+        target = root / "new.txt"
+        response = client.post(
+            "/api/latest/files/write",
+            json={"path": str(target), "content": "data", "root": str(root)},
+        )
+        assert response.status_code == 200
+        assert target.read_text(encoding="utf-8") == "data"
 
-    def test_exists_dotdot_rejected(self, client, tmp_path):
-        """exists 含 `..` 应被拒绝"""
-        target = os.path.join(str(tmp_path), "..", "x")
-        response = client.get("/api/latest/files/exists", params={"path": target})
-        assert response.status_code == 400
+    def test_scan_outside_root_rejected(self, client, tmp_path):
+        root = tmp_path / "project"
+        root.mkdir()
+        outside = tmp_path / "outside"
+        outside.mkdir()
+        response = client.post("/api/latest/files/scan", json={"path": str(outside), "root": str(root)})
+        assert response.status_code == 403
+
+    def test_scan_within_root_allowed(self, client, tmp_path):
+        root = tmp_path / "project"
+        root.mkdir()
+        (root / "a.csv").write_text("x", encoding="utf-8")
+        response = client.post("/api/latest/files/scan", json={"path": str(root), "root": str(root)})
+        assert response.status_code == 200
+        names = [e["name"] for e in response.json()["entries"]]
+        assert "a.csv" in names
+
+    def test_mkdir_outside_root_rejected(self, client, tmp_path):
+        root = tmp_path / "project"
+        root.mkdir()
+        evil_dir = tmp_path / "evil_dir"
+        response = client.post("/api/latest/files/mkdir", json={"path": str(evil_dir), "root": str(root)})
+        assert response.status_code == 403
+        assert not evil_dir.exists()
+
+    def test_exists_outside_root_rejected(self, client, tmp_path):
+        root = tmp_path / "project"
+        root.mkdir()
+        outside = tmp_path / "outside.txt"
+        outside.write_text("x", encoding="utf-8")
+        response = client.get("/api/latest/files/exists", params={"path": str(outside), "root": str(root)})
+        assert response.status_code == 403

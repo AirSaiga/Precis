@@ -20,7 +20,7 @@ import type { SchemaNodeData } from '@/types/nodes'
 import type { ConstraintKind } from '@/services/constraints/types'
 import { getV2RegexNode } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
-import { addNodes } from '@/services/canvas/vueFlowApi'
+import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
 
 /** 从 Schema 节点中查找列名（按 ID 查找，兼容直接匹配场景） */
 function resolveColumnNameById(schemaNode: CustomNode | undefined, columnId: string): string {
@@ -69,7 +69,9 @@ export function createV2RegexImporter(params: {
     const existingNode = nodes.value.find((n) => n.id === resourceId)
     if (existingNode) {
       if (moveIfExists) {
-        existingNode.position = { ...position }
+        // 走 vueFlowApi.updateNode 更新位置，与 importV2ResourceToCanvas 一致：
+        // 直接改 node.position 会绕过 Vue Flow 内部 state 同步（store 变了但渲染不变）
+        updateNode(resourceId, { position: { ...position } })
       }
       selectedNodeId.value = resourceId
       return resourceId

@@ -267,7 +267,16 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
                 return df_filled
             finally:
                 wb.close()
-        except Exception:
+        except Exception as e:
+            # B27: 合并单元格前向填充失败时降级为返回原始 df（不中断加载），
+            # 但必须留有诊断痕迹——否则 NotNull/Unique 会因未填充的合并单元格 NaN 静默误报，
+            # 且无法定位根因（损坏的工作簿、权限错误、openpyxl 版本差异等都会落到这里）。
+            logger.warning(
+                "合并单元格前向填充失败，降级返回未填充数据（可能导致 NotNull/Unique 误报），file=%s: %s",
+                self.spec.path,
+                e,
+                exc_info=True,
+            )
             return df
 
     def validate(self) -> list[str]:

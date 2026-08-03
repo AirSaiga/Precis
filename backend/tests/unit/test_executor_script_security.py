@@ -68,3 +68,43 @@ class TestExecutorScriptSecurity:
         executor = self._make_executor(tmp_path, allow_unsafe_eval=None, allow_eval=False, sandbox_mode=False)
         options = ValidationOptions(allow_unsafe_eval=None)
         assert executor._resolve_allow_unsafe_eval(options) is False
+
+
+class TestScriptedServerGate:
+    """B-sec6: scripted 约束的服务端总开关门禁。
+
+    请求体的 allow_unsafe_eval 不再单独决定执行权——叠加服务端总开关
+    PRECIS_ALLOW_UNSAFE_EVAL（默认 False）。只有"服务端允许 AND 请求体也开启"才执行。
+    """
+
+    def test_server_off_client_true_still_skipped(self, monkeypatch):
+        """服务端开关未设置（默认关闭），即便请求体 allow_unsafe_eval=True 也跳过。"""
+        import pandas as pd
+
+        from app.shared.domain.constraints import scripted as mod
+        from app.shared.domain.constraints.scripted import ScriptedConstraint
+
+        monkeypatch.delenv("PRECIS_ALLOW_UNSAFE_EVAL", raising=False)
+        monkeypatch.setattr(mod, "_SERVER_ALLOW_UNSAFE_EVAL", mod._resolve_server_allow_unsafe_eval())
+        assert mod._SERVER_ALLOW_UNSAFE_EVAL is False
+
+        c = ScriptedConstraint(table="t", name="n", expression="value > 0", column="v")
+        result = c.validate({"t": pd.DataFrame({"v": [1, 2]})}, allow_unsafe_eval=True)
+        assert any("跳过" in e.get("message", "") for e in result["errors"])
+
+    def test_server_on_client_true_executes(self, monkeypatch):
+        """服务端开关开启 且 请求体 allow_unsafe_eval=True，约束正常执行。"""
+        import pandas as pd
+
+        from app.shared.domain.constraints import scripted as mod
+        from app.shared.domain.constraints.scripted import ScriptedConstraint
+
+        monkeypatch.setenv("PRECIS_ALLOW_UNSAFE_EVAL", "true")
+        monkeypatch.setattr(mod, "_SERVER_ALLOW_UNSAFE_EVAL", mod._resolve_server_allow_unsafe_eval())
+        assert mod._SERVER_ALLOW_UNSAFE_EVAL is True
+
+        c = ScriptedConstraint(table="t", name="n", expression="value > 0", column="v")
+        result = c.validate({"t": pd.DataFrame({"v": [1, 2]})}, allow_unsafe_eval=True)
+        # 无跳过错误，且无违规（1, 2 都 > 0）
+        assert not any("跳过" in e.get("message", "") for e in result["errors"])
+        assert result["errors"] == []

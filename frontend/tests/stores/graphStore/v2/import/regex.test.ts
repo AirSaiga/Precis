@@ -4,6 +4,7 @@ import type { CustomNode, CustomNodeData } from '@/types/graph'
 
 vi.mock('@/services/canvas/vueFlowApi', () => ({
   addNodes: vi.fn(),
+  updateNode: vi.fn(),
 }))
 
 vi.mock('@/api/projectV2Api', () => ({
@@ -18,7 +19,7 @@ vi.mock('@/core/utils/logger', () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }))
 
-import { addNodes } from '@/services/canvas/vueFlowApi'
+import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
 import { getV2RegexNode } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
 import { createV2RegexImporter } from '@/stores/graphStore/modules/v2/import/regex'
@@ -59,6 +60,7 @@ describe('createV2RegexImporter', () => {
     })
 
     vi.mocked(addNodes).mockClear()
+    vi.mocked(updateNode).mockClear()
     vi.mocked(getV2RegexNode).mockClear()
     vi.mocked(buildNodeData).mockClear()
     mockEnsureRegexEdge.mockClear()
@@ -72,13 +74,16 @@ describe('createV2RegexImporter', () => {
       expect(getV2RegexNode).not.toHaveBeenCalled()
     })
 
-    it('moveIfExists=true 时更新位置', async () => {
+    it('moveIfExists=true 时通过 updateNode 更新位置（不直接改 node.position）', async () => {
       const node = makeNode('r1', 'regex')
       node.position = { x: 0, y: 0 }
       nodes.value = [node]
 
       await importer.importRegex('r1', { x: 50, y: 50 }, { moveIfExists: true })
-      expect(node.position).toEqual({ x: 50, y: 50 })
+      // 必须走 vueFlowApi.updateNode 以同步 Vue Flow 内部状态，而非直接改 node.position
+      expect(updateNode).toHaveBeenCalledWith('r1', { position: { x: 50, y: 50 } })
+      // 直接 mutation 不应发生（避免 Vue Flow state 不同步）
+      expect(node.position).toEqual({ x: 0, y: 0 })
     })
   })
 

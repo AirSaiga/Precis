@@ -46,6 +46,10 @@
     <div class="history-section">
       <div class="section-title">{{ t('validationHistory.history') }}</div>
       <div v-if="loading" class="loading-state">{{ t('common.loading') }}</div>
+      <div v-else-if="loadError" class="error-state">
+        {{ t('validationHistory.loadFailed') }}
+        <button class="retry-btn" @click="loadData">{{ t('validationHistory.retry') }}</button>
+      </div>
       <div v-else-if="runs.length === 0" class="empty-state">
         {{ t('validationHistory.empty') }}
       </div>
@@ -144,6 +148,7 @@
   import { ref, computed, onMounted, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { logger } from '@/core/utils/logger'
+  import { toastError } from '@/core/toast'
   import { useProjectStore } from '@/stores/projectStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
   import {
@@ -164,6 +169,9 @@
     latest: { pass_rate: 0, total_checks: 0, passed_count: 0, failed_count: 0, timestamp: null },
   })
   const loading = ref(false)
+  // 加载失败标记：与空状态区分——空状态是"无记录"，错误状态是"加载失败可重试"。
+  // 原实现 catch 仅 logger.error，后端抖动时用户看到空列表，误以为无历史。
+  const loadError = ref(false)
   const expandedId = ref<string | null>(null)
 
   const projectPath = computed(() => projectStore.currentPaths?.configPath || '')
@@ -227,6 +235,7 @@
       return
     }
     loading.value = true
+    loadError.value = false
     try {
       const [historyRes, statsRes] = await Promise.all([
         fetchValidationHistory(50, 0),
@@ -236,6 +245,9 @@
       stats.value = statsRes
     } catch (e) {
       logger.error('[ValidationHistoryPanel] 加载失败:', e)
+      loadError.value = true
+      // 同步弹 toast，让用户立即感知（原仅 console，用户看不到）
+      toastError(t('validationHistory.loadFailed'))
     } finally {
       loading.value = false
     }
@@ -250,6 +262,8 @@
       stats.value = statsRes
     } catch (e) {
       logger.error('[ValidationHistoryPanel] 删除失败:', e)
+      // 删除失败弹 toast：原仅 console，用户点删除无反应且无提示
+      toastError(t('validationHistory.deleteFailed'))
     }
   }
 

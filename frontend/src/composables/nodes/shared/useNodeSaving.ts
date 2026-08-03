@@ -24,7 +24,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { ref } from 'vue'
+import { ref, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { NodeDeletionManager } from '@/services/managers/nodeDeletionManager'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
@@ -109,6 +109,13 @@ export function useNodeSaving(options: NodeSavingOptions) {
   const showCloseConfirm = ref(false)
 
   /**
+   * 当前挂载在 eventBus 上的 save-complete 处理器引用（若有）。
+   * handleSave 注册时记录，完成回调内清空；onUnmounted 兜底移除，
+   * 防止节点保存中途被卸载导致监听器泄漏与对已销毁节点执行回调。
+   */
+  let activeCompleteHandler: ((payload: AppEvents[keyof AppEvents]) => void) | null = null
+
+  /**
    * 当前悬停的列ID
    */
   const hoveredColumnId = ref<string | null>(null)
@@ -135,6 +142,7 @@ export function useNodeSaving(options: NodeSavingOptions) {
               saveCompleteEventName as unknown as keyof AppEvents,
               _handleSaveComplete as unknown as (payload: AppEvents[keyof AppEvents]) => void
             )
+            activeCompleteHandler = null
 
             isSaving.value = false
 
@@ -164,6 +172,9 @@ export function useNodeSaving(options: NodeSavingOptions) {
           saveCompleteEventName as unknown as keyof AppEvents,
           _handleSaveComplete as unknown as (payload: AppEvents[keyof AppEvents]) => void
         )
+        activeCompleteHandler = _handleSaveComplete as unknown as (
+          payload: AppEvents[keyof AppEvents]
+        ) => void
         eventBus.emit(
           saveEventName as unknown as keyof AppEvents,
           { nodeId, nodeData } as unknown as AppEvents[keyof AppEvents]
@@ -386,6 +397,18 @@ export function useNodeSaving(options: NodeSavingOptions) {
       }
     }
   }
+
+  /**
+   * 卸载兜底：移除尚未触发的 save-complete 监听器。
+   * 节点保存中途被卸载（删除/重渲染/HMR）时，完成回调永不触发，
+   * 监听器会永久驻留 mitt bus 并阻止 GC——这里无条件清理。
+   */
+  onUnmounted(() => {
+    if (activeCompleteHandler) {
+      eventBus.off(saveCompleteEventName as unknown as keyof AppEvents, activeCompleteHandler)
+      activeCompleteHandler = null
+    }
+  })
 
   return {
     // 保存状态

@@ -151,7 +151,9 @@ describe('createV2LoadOps', () => {
       config.manifest.constraints = [{ id: 'c1' }] as any
       config.manifest.regex_nodes = [{ id: 'r1' }] as any
       config.manifest.transforms = [{ id: 't1' }] as any
-      config.manifest.templates = [{ id: 'tpl1' }] as any
+      // template_instances 是画布上的模板实例（templateInstance 节点），
+      // templates 是模板定义；统计应反映实例数（见 ProjectManifestV2）
+      config.manifest.template_instances = [{ id: 'tpl1', template_id: 'tpl-def-1' }] as any
       config.schemas = {
         s1: { constraints: [{ id: 'inline1' }] },
       } as any

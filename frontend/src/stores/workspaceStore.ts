@@ -350,11 +350,14 @@ export const useWorkspaceStore = defineStore('workspace', () => {
    * 用于应用启动时校验数据源完整性，自动标记缺失的文件。
    */
   async function checkAllDataSourceStatus() {
+    // B-sec1: Web 模式下 checkFileExists 需传入项目根作为白名单根
+    const projectStore = useProjectStore()
+    const root = projectStore.currentPaths?.configPath || ''
     for (const source of config.value.recent_data_sources) {
       try {
         // 优先使用 localPath，回退到 fileId 作为检测路径
         const filePath = source.localPath || source.fileId
-        const exists = filePath ? await checkFileExists(filePath) : false
+        const exists = filePath ? await checkFileExists(filePath, root) : false
         source.status = exists ? 'ready' : 'missing'
         if (exists) {
           // 文件恢复存在时，清除之前的错误信息

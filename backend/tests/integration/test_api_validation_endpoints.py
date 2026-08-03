@@ -118,8 +118,10 @@ class TestFullValidation:
             json={"options": {}},
             headers={"X-Project-Config-Path": str(empty)},
         )
-        assert resp.status_code == 404
-        assert "未找到" in resp.json()["detail"]
+        # B-sec3: 无 manifest 的路径由 get_project_config_path 依赖层先拦截返 400
+        # （非合法项目根），不再到达业务层 404。
+        assert resp.status_code == 400
+        assert "project.precis.yaml" in resp.json()["detail"]
 
 
 class TestSingleFileValidation:

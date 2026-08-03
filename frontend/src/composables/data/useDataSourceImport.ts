@@ -19,6 +19,7 @@ import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import { useGraphStore } from '@/stores/graphStore'
+import { useProjectStore } from '@/stores/projectStore'
 import { logger } from '@/core/utils/logger'
 import {
   resolveFileReference,
@@ -135,6 +136,7 @@ export function useDataSourceImport() {
   const { t } = useI18n()
   const workspaceStore = useWorkspaceStore()
   const graphStore = useGraphStore()
+  const projectStore = useProjectStore()
 
   const isDragOver = ref(false)
 
@@ -197,7 +199,9 @@ export function useDataSourceImport() {
           const folderPath = electronFile.path!
           logger.debug(`[useDataSourceImport] 检测到文件夹拖拽: ${file.name}, 路径: ${folderPath}`)
           try {
-            const entries = await readLocalDirectoryEntries(folderPath, [
+            // B-sec1: 透传项目根作为白名单根（Web 模式后端校验用；本分支仅 Electron 触发，root 仅为签名一致）
+            const configPath = projectStore.currentPaths?.configPath || ''
+            const entries = await readLocalDirectoryEntries(folderPath, configPath, [
               '.csv',
               '.xlsx',
               '.xls',
