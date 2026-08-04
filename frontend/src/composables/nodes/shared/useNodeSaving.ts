@@ -33,11 +33,20 @@ import { eventBus } from '@/core/eventBus'
 import type { AppEvents } from '@/core/eventBus'
 import type { BaseSchemaColumn, BaseSchemaNodeData } from '@/types/nodes'
 
+/**
+ * save-complete 事件负载。schema / json-schema 两种前缀的负载结构一致，
+ * 以 schema 侧为规范引用（eventBus.ts 中两处声明相同）。
+ */
+type SaveCompleteEventPayload = AppEvents['schema-node-save-complete']
+
 export interface NodeSavingOptions {
   nodeId: string
   nodeData: BaseSchemaNodeData<BaseSchemaColumn>
   emit: (event: string, ...args: unknown[]) => void
-  eventPrefix: string
+  /**
+   * 事件前缀，仅支持 eventBus 中声明了 save/save-complete 两种事件的前缀。
+   */
+  eventPrefix: 'schema-node' | 'json-schema-node'
   shouldConfirmClose?: () => boolean
   onSaveSuccess?: () => void
   onPatternBind?: (
@@ -113,7 +122,7 @@ export function useNodeSaving(options: NodeSavingOptions) {
    * handleSave 注册时记录，完成回调内清空；onUnmounted 兜底移除，
    * 防止节点保存中途被卸载导致监听器泄漏与对已销毁节点执行回调。
    */
-  let activeCompleteHandler: ((payload: AppEvents[keyof AppEvents]) => void) | null = null
+  let activeCompleteHandler: ((payload: SaveCompleteEventPayload) => void) | null = null
 
   /**
    * 当前悬停的列ID
@@ -131,17 +140,9 @@ export function useNodeSaving(options: NodeSavingOptions) {
 
     return new Promise<boolean>((resolve) => {
       try {
-        const _handleSaveComplete = (detail: {
-          nodeId: string
-          success: boolean
-          error?: string
-          cancelled?: boolean
-        }) => {
+        const _handleSaveComplete = (detail: SaveCompleteEventPayload) => {
           if (detail.nodeId === nodeId) {
-            eventBus.off(
-              saveCompleteEventName as unknown as keyof AppEvents,
-              _handleSaveComplete as unknown as (payload: AppEvents[keyof AppEvents]) => void
-            )
+            eventBus.off(saveCompleteEventName, _handleSaveComplete)
             activeCompleteHandler = null
 
             isSaving.value = false
@@ -168,17 +169,9 @@ export function useNodeSaving(options: NodeSavingOptions) {
 
         logger.debug(`📤 分发${saveEventName}事件:`, { nodeId, nodeData })
 
-        eventBus.on(
-          saveCompleteEventName as unknown as keyof AppEvents,
-          _handleSaveComplete as unknown as (payload: AppEvents[keyof AppEvents]) => void
-        )
-        activeCompleteHandler = _handleSaveComplete as unknown as (
-          payload: AppEvents[keyof AppEvents]
-        ) => void
-        eventBus.emit(
-          saveEventName as unknown as keyof AppEvents,
-          { nodeId, nodeData } as unknown as AppEvents[keyof AppEvents]
-        )
+        eventBus.on(saveCompleteEventName, _handleSaveComplete)
+        activeCompleteHandler = _handleSaveComplete
+        eventBus.emit(saveEventName, { nodeId, nodeData })
       } catch (error) {
         isSaving.value = false
         saveError.value = true
@@ -369,7 +362,7 @@ export function useNodeSaving(options: NodeSavingOptions) {
       ...nodeData,
       columns: updatedColumns,
       updatedAt: new Date().toISOString(),
-    } as unknown as Record<string, unknown>)
+    })
 
     emit('pattern-bind', columnId, patternData)
   }
@@ -405,7 +398,7 @@ export function useNodeSaving(options: NodeSavingOptions) {
    */
   onUnmounted(() => {
     if (activeCompleteHandler) {
-      eventBus.off(saveCompleteEventName as unknown as keyof AppEvents, activeCompleteHandler)
+      eventBus.off(saveCompleteEventName, activeCompleteHandler)
       activeCompleteHandler = null
     }
   })
