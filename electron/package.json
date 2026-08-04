@@ -41,6 +41,17 @@
   ],
   "author": "Precis Team",
   "license": "Apache-2.0",
+  "overrides": {
+    "minimatch@3.1.5": {
+      "brace-expansion": "^1.1.18"
+    },
+    "minimatch@5.1.9": {
+      "brace-expansion": "^2.1.4"
+    },
+    "minimatch@9": {
+      "brace-expansion": "^2.1.4"
+    }
+  },
   "build": {
     "appId": "com.precis.desktop",
     "productName": "Precis",
