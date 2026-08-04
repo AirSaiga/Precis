@@ -64,9 +64,49 @@ function appendDiag(buf: string, chunk: string): string {
   return next.length > DIAG_CHUNK ? next.slice(next.length - DIAG_CHUNK) : next
 }
 
+/**
+ * 读取打包应用主进程日志尾部（userData/logs/main.log）。
+ *
+ * 打包版 Windows GUI 应用无 console，stdout/stderr 不可捕获——真实日志在文件里。
+ * 主进程可能阻塞在错误对话框上（后端启动失败时 showErrorBox 同步阻塞），
+ * evaluate 用 5s 竞速兜底，避免诊断本身挂死。
+ */
+async function readMainLogTail(electronApp: ElectronApplication): Promise<string> {
+  try {
+    const userData = await Promise.race([
+      electronApp.evaluate(({ app }) => app.getPath('userData')),
+      new Promise<string | null>((resolve) => setTimeout(() => resolve(null), 5000)),
+    ])
+    if (!userData) return ''
+    const logFile = path.join(userData, 'logs', 'main.log')
+    if (!fs.existsSync(logFile)) return ''
+    const stat = fs.statSync(logFile)
+    if (stat.size === 0) return ''
+    const readSize = Math.min(stat.size, 32 * 1024)
+    const buf = Buffer.alloc(readSize)
+    const fd = fs.openSync(logFile, 'r')
+    try {
+      fs.readSync(fd, buf, 0, readSize, stat.size - readSize)
+    } finally {
+      fs.closeSync(fd)
+    }
+    return buf.toString('utf-8')
+  } catch {
+    return ''
+  }
+}
+
 export const test = base.extend<ElectronFixtures>({
   electronApp: async ({}, use) => {
     const execPath = resolveElectronExecutable()
+    // 清理上次运行残留的 .backend-port：否则 T2 可能读到旧端口文件（对应后端已退出），
+    // 健康检查对死端口直接失败，误报为打包产物异常
+    try {
+      const portFile = path.join(path.dirname(execPath), 'resources', 'backend', '.backend-port')
+      fs.rmSync(portFile, { force: true })
+    } catch {
+      /* 清理失败不影响启动 */
+    }
     const app = await electron.launch({ executablePath: execPath })
     // 捕获主进程 + 子进程（后端）输出，用于超时诊断
     app.process().stdout?.on('data', (d: Buffer) => {
@@ -119,11 +159,13 @@ export const test = base.extend<ElectronFixtures>({
         }
         return url
       })
+      const mainLogTail = await readMainLogTail(electronApp)
       console.log(
         '\n========== [electron-smoke 诊断] 主窗口(#app) 115s 内未出现 ==========\n' +
           `窗口列表 (${windows.length}):\n${windows.map((u) => '  - ' + u).join('\n')}\n` +
           `\n---------- 应用 stdout 末尾 ----------\n${diagStdout || '(空)'}\n` +
           `\n---------- 应用 stderr 末尾 ----------\n${diagStderr || '(空)'}\n` +
+          `\n---------- 应用日志文件(main.log)末尾 ----------\n${mainLogTail || '(无)'}\n` +
           `========================================================\n`,
       )
       // 兜底：取最后一个窗口（splash 之后创建的），让测试能继续而非抛 null

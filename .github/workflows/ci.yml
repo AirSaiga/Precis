@@ -299,6 +299,18 @@ jobs:
       - name: TypeScript compile
         run: npx tsc
 
+      - name: Restore embedded Python runtime cache
+        uses: actions/cache@v4
+        with:
+          path: electron/resources/python-runtime
+          key: python-runtime-win-${{ hashFiles('electron/scripts/fetch-python.js', 'electron/scripts/install-backend-deps.js', 'backend/requirements.txt') }}
+
+      - name: Fetch embedded Python runtime
+        run: npm run fetch-python
+
+      - name: Install backend dependencies into runtime
+        run: npm run install:backend-deps
+
       - name: Package (directory)
         env:
           ELECTRON_MIRROR: https://npmmirror.com/mirrors/electron/
@@ -342,6 +354,18 @@ jobs:
 
       - name: TypeScript compile
         run: npx tsc
+
+      - name: Restore embedded Python runtime cache
+        uses: actions/cache@v4
+        with:
+          path: electron/resources/python-runtime
+          key: python-runtime-mac-${{ hashFiles('electron/scripts/fetch-python.js', 'electron/scripts/install-backend-deps.js', 'backend/requirements.txt') }}
+
+      - name: Fetch embedded Python runtime
+        run: npm run fetch-python
+
+      - name: Install backend dependencies into runtime
+        run: npm run install:backend-deps
 
       - name: Package (DMG)
         env:
