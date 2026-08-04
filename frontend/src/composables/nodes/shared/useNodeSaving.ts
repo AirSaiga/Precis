@@ -31,7 +31,12 @@ import { triggerValidationForNode } from '@/services/constraints/orchestration/g
 import { useGraphStore } from '@/stores/graphStore'
 import { eventBus } from '@/core/eventBus'
 import type { AppEvents } from '@/core/eventBus'
-import type { BaseSchemaColumn, BaseSchemaNodeData } from '@/types/nodes'
+import type {
+  BaseSchemaColumn,
+  BaseSchemaNodeData,
+  CustomNode,
+  CustomNodeData,
+} from '@/types/nodes'
 
 /**
  * save-complete 事件负载。schema / json-schema 两种前缀的负载结构一致，
@@ -79,8 +84,10 @@ export function useNodeSaving(options: NodeSavingOptions) {
     onSaveShortcut,
   } = options
 
-  const saveEventName = `${eventPrefix}-save`
-  const saveCompleteEventName = `${eventPrefix}-save-complete`
+  // `as const` 把模板字符串收窄为字面量联合（TS 仅对泛型上下文推断模板字面量类型），
+  // 使事件名与 AppEvents 的 key 对齐，eventBus on/off/emit 无需双重断言
+  const saveEventName = `${eventPrefix}-save` as const
+  const saveCompleteEventName = `${eventPrefix}-save-complete` as const
 
   /**
    * 是否正在保存
@@ -358,11 +365,14 @@ export function useNodeSaving(options: NodeSavingOptions) {
       updatedColumns = onPatternBind(columnId, patternData, updatedColumns)
     }
 
+    // columns 是 BaseSchemaColumn[]（参数类型），但 CustomNodeData 各变体的 columns
+    // 是更具体的 SchemaColumn[]/JsonSchemaColumn[]，无法无断言满足联合——
+    // 用单层断言到 updateNodeData 的参数类型（node 级 patch 仅 hidden/position）
     updateNodeData(nodeId, {
       ...nodeData,
       columns: updatedColumns,
       updatedAt: new Date().toISOString(),
-    })
+    } as Partial<CustomNodeData & Pick<CustomNode, 'hidden' | 'position'>>)
 
     emit('pattern-bind', columnId, patternData)
   }
