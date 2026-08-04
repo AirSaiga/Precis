@@ -55,6 +55,18 @@ export function registerConfigIpc(): void {
   });
 
   ipcMain.handle('load-config', async () => {
+    // 测试注入钩子：E2E smoke 通过环境变量指定最近项目（与 PRECIS_FORCE_DEV 同类的
+    // 环境变量注入），使打包产物在全新环境（无 userData 残留）下直接进入项目画布。
+    // 仅自动化测试使用，不影响正常用户路径。
+    const injected = process.env.PRECIS_RECENT_CONFIG;
+    if (injected) {
+      logger.debug('[Main] 使用环境变量注入的最近项目:', injected);
+      return {
+        configPath: injected,
+        dataPath: process.env.PRECIS_RECENT_DATA || injected,
+      };
+    }
+
     const userDataDir = app.getPath('userData');
     const configFile = path.join(userDataDir, '.precis', 'electron_launch.yaml');
 

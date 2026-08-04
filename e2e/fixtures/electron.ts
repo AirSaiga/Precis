@@ -1,6 +1,7 @@
 import { test as base, expect, type Page } from '@playwright/test'
 import { _electron as electron, type ElectronApplication } from '@playwright/test'
 import * as fs from 'fs'
+import * as os from 'os'
 import * as path from 'path'
 
 /**
@@ -96,6 +97,26 @@ async function readMainLogTail(electronApp: ElectronApplication): Promise<string
   }
 }
 
+/**
+ * 创建最小合法项目（供打包应用直接进入画布视图）。
+ *
+ * CI 打包环境是全新 userData（无最近项目记录），bootstrap 会停在项目选择界面，
+ * 画布/资源树不出现——T3 等用例需要应用真正加载一个项目。
+ * 通过 PRECIS_RECENT_CONFIG 环境变量注入（见 electron/src/ipc/config.ts），
+ * 让应用启动即进入画布。ProjectManifest 仅 project 为必填，空 schema 列表合法。
+ */
+function createSmokeProject(): string {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'precis-smoke-project-'))
+  const projectYaml = [
+    'version: 2',
+    'project:',
+    '  id: smoke_project',
+    '  name: Smoke 测试工程',
+  ].join('\n')
+  fs.writeFileSync(path.join(dir, 'project.precis.yaml'), projectYaml, 'utf-8')
+  return dir
+}
+
 export const test = base.extend<ElectronFixtures>({
   electronApp: async ({}, use) => {
     const execPath = resolveElectronExecutable()
@@ -107,7 +128,15 @@ export const test = base.extend<ElectronFixtures>({
     } catch {
       /* 清理失败不影响启动 */
     }
-    const app = await electron.launch({ executablePath: execPath })
+    // 创建临时项目注入为"最近项目"，让应用启动即进入画布视图
+    const smokeProjectDir = createSmokeProject()
+    const app = await electron.launch({
+      executablePath: execPath,
+      env: {
+        ...process.env,
+        PRECIS_RECENT_CONFIG: smokeProjectDir,
+      },
+    })
     // 捕获主进程 + 子进程（后端）输出，用于超时诊断
     app.process().stdout?.on('data', (d: Buffer) => {
       diagStdout = appendDiag(diagStdout, d.toString())
@@ -118,6 +147,8 @@ export const test = base.extend<ElectronFixtures>({
     await use(app)
     // 测试结束后关闭（确保后端子进程被清理）
     await app.close()
+    // 清理临时项目目录
+    fs.rmSync(smokeProjectDir, { recursive: true, force: true })
   },
   window: async ({ electronApp }, use) => {
     // 等待主窗口（跳过 splash）。
