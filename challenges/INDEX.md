@@ -19,6 +19,7 @@
 | C19   | refactor  | Python  | ★☆☆  | 给未注解的辅助函数补完整类型注解    | ✅ ready |
 | C20   | refactor  | Python  | ★★☆  | 提取 4 个 _format_* 到 formatters.py（处方式：精确符号 + 改公开） | ✅ ready |
 | C22   | refactor  | TS      | ★☆☆  | 清理 `as unknown as` 双重断言       | ✅ ready |
+| C23   | refactor  | TS      | ★★☆  | 处方式抽取 useCounter composable（.vue 两组逻辑分离其一，照搬 useModal 模式） | ✅ ready |
 
 ## 维度缩写
 
