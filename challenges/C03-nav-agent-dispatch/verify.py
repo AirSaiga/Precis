@@ -43,7 +43,7 @@ def main() -> int:
     q1 = re.search(r"#\s*Q1[:：]\s*(\w+)", ans_src)
     checks.append(
         (
-            "Q1 = planner（决定调用顺序的模块）",
+            "Q1 答案匹配（决定调用顺序的模块名）",
             q1 is not None and q1.group(1) == "planner",
         )
     )
