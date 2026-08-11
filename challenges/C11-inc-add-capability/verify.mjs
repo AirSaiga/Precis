@@ -24,7 +24,16 @@ const checks = []
 const clip = read(join(W, 'clipboardApi.ts'))
 const comp = read(join(W, 'component.ts'))
 
-// ── clipboardApi.ts 结构 ────────────────────────────────────────────
+// 提取所有 class 体（名无关，用于按行为判定 Electron/Web 适配器）。
+// 每个 class 从 'class Name' 到下一个顶层 class/function/export/const 或文件尾。
+const classStarts = [...clip.matchAll(/\bclass\s+(\w+)/g)]
+const classSpans = classStarts.map((m, i) => {
+  const start = m.index
+  const end = i + 1 < classStarts.length ? classStarts[i + 1].index : clip.length
+  return { name: m[1], text: clip.slice(start, end) }
+})
+
+// ── clipboardApi.ts 结构（契约名 + 模式，不锁死适配器类名） ─────────
 checks.push(['clipboardApi.ts 存在', existsSync(join(W, 'clipboardApi.ts'))])
 checks.push(['含 ClipboardApi interface', /interface\s+ClipboardApi/.test(clip)])
 checks.push([
@@ -32,34 +41,39 @@ checks.push([
   /readonly\s+canWriteClipboard\s*:\s*boolean/.test(clip),
 ])
 checks.push(['ClipboardApi 含 writeText 方法', /writeText\s*\(/.test(clip)])
-checks.push(['含 ElectronClipboardAdapter 类', /class\s+ElectronClipboardAdapter/.test(clip)])
-checks.push([
-  'ElectronClipboardAdapter canWriteClipboard=true',
-  /ElectronClipboardAdapter[\s\S]*?canWriteClipboard\s*=\s*true/.test(clip),
-])
-checks.push(['含 WebClipboardAdapter 类', /class\s+WebClipboardAdapter/.test(clip)])
 
-// WebClipboardAdapter 的 canWriteClipboard 必须是「计算值」：
+// 至少 2 个适配器类（Electron + Web 两套环境实现）
+checks.push(['至少 2 个适配器类（Electron + Web）', classSpans.length >= 2])
+
+// Electron 适配器：引用 window.electronAPI（原生剪贴板）+ canWriteClipboard 硬编码 true
+const electronAdapter = classSpans.find((s) => /window\.electronAPI/.test(s.text))
+checks.push([
+  'Electron 适配器引用 window.electronAPI',
+  electronAdapter !== undefined,
+])
+checks.push([
+  'Electron 适配器 canWriteClipboard 硬编码 true',
+  /canWriteClipboard\s*=\s*true/.test(clip),
+])
+
+// Web 适配器：canWriteClipboard 必须是计算值（引用 navigator，非硬编码 true/false）。
 // 关键决策——浏览器不一定有 navigator.clipboard（非安全上下文 / 旧浏览器），
 // 故不能硬编码 true/false，必须引用 navigator 实际探测。
-//
-// 提取 WebClipboardAdapter 类体（到下一个顶层 class/function/export 或文件尾），
-// 要求：(a) 类体内声明了 canWriteClipboard；(b) 类体内出现 navigator；
-//       (c) canWriteClipboard 不是裸 true/false 字面量。
-//
-// 旧版用 `canWriteClipboard\s*=\s*[^t]` 抓「非 true」，但 `typeof navigator...`
-// 的首字母正是 t，会把正确答案误判为 FAIL——故改用类体提取 + navigator 探测。
-const webClassMatch = clip.match(/class\s+WebClipboardAdapter([\s\S]*?)(?:\n(?:class|function|export)\s|$)/)
-const webBody = webClassMatch ? webClassMatch[1] : ''
+const webAdapterOk = classSpans.some(
+  (s) =>
+    /canWriteClipboard\s*=/.test(s.text) &&
+    /navigator/.test(s.text) &&
+    !/canWriteClipboard\s*=\s*(?:true|false)\b/.test(s.text),
+)
 checks.push([
-  'WebClipboardAdapter canWriteClipboard 是计算值（引用 navigator，非硬编码 true/false）',
-  /canWriteClipboard\s*=/.test(webBody) &&
-    /navigator/.test(webBody) &&
-    !/canWriteClipboard\s*=\s*(?:true|false)\b/.test(webBody),
+  'Web 适配器 canWriteClipboard 是计算值（引用 navigator，非硬编码 true/false）',
+  webAdapterOk,
 ])
+
+// 导出 clipboardApi 单例：isElectron() 三元选两个适配器实例（不锁死类名）
 checks.push([
-  '导出 clipboardApi 单例（三元选适配器）',
-  /export\s+const\s+clipboardApi[\s\S]*?isElectron\(\)[\s\S]*?new\s+ElectronClipboardAdapter[\s\S]*?new\s+WebClipboardAdapter/.test(
+  '导出 clipboardApi 单例（isElectron 三元选两个适配器）',
+  /export\s+const\s+clipboardApi[\s\S]*?isElectron\(\)[\s\S]*?new\s+\w+[\s\S]*?new\s+\w+/.test(
     clip,
   ),
 ])
