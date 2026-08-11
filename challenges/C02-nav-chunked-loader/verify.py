@@ -42,19 +42,19 @@ def main() -> int:
         open(ans_path, encoding="utf-8").read() if os.path.exists(ans_path) else ""
     )
     checks.append(("answers.py 存在", os.path.exists(ans_path)))
-    # Q1: 500
+    # Q1: 默认分块阈值（MB 数值）—— 不在描述里写出具体值，防泄漏
     q1_match = re.search(r"#\s*Q1[:：]\s*(\d+)", ans_src)
     checks.append(
         (
-            "Q1 答案 = 500（分块阈值 MB）",
+            "Q1 答案匹配（默认分块阈值 MB）",
             q1_match is not None and q1_match.group(1) == "500",
         )
     )
-    # Q2: should_chunk
+    # Q2: 分块决策的方法名 —— 不在描述里写出具体方法名，防泄漏
     q2_match = re.search(r"#\s*Q2[:：]\s*(\w+)", ans_src)
     checks.append(
         (
-            "Q2 答案 = should_chunk（分块决策方法）",
+            "Q2 答案匹配（MemoryMonitor 分块决策方法名）",
             q2_match is not None and q2_match.group(1) == "should_chunk",
         )
     )
