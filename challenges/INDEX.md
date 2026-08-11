@@ -9,7 +9,7 @@
 | C03   | nav       | Python  | ★★★  | 理解 planner→executor→tool_registry 调度链 + 补注册缺失的 export_csv（executor 静默跳过未注册工具） | ✅ ready |
 | C04   | nav       | TS      | ★☆☆  | 补全 vueFlowApi 单例注入层（initVueFlowApi + requireApi 守卫） | ✅ ready |
 | C05   | nav       | TS      | ★★☆  | 修复双注册表断裂的 barrel（理解 side-effect import 自注册） | ✅ ready |
-| C06   | nav       | JS      | ★★★  | 理解 V2 导入调用图（assembly→importConfig→createNode）+ 补齐 transform 注册（静默丢弃模式） | ✅ ready |
+| C06   | nav       | TS      | ★★★  | 理解 V2 导入调用图（assembly→importConfig→createNode）+ 补齐 transform 注册（静默丢弃模式，seed 用 .js 跑 node） | ✅ ready |
 | C07   | inc       | Python  | ★☆☆  | 加新 datetime 数据类型（scalars 新类 + TYPE_REGISTRY 注册） | ✅ ready |
 | C08   | inc       | Python  | ★★☆  | 加新 AI actionType（同步 registry + actions.ts） | ✅ ready |
 | C09   | inc       | Python  | ★★★  | 后端三层加约束 LengthConstraint（domain 类 + 注册表，service/api 通用无需改） | ✅ ready |
