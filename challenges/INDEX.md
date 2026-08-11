@@ -9,6 +9,7 @@
 | C07   | inc       | Python  | ★☆☆  | 加新 datetime 数据类型（scalars 新类 + TYPE_REGISTRY 注册） | ✅ ready |
 | C08   | inc       | Python  | ★★☆  | 加新 AI actionType（同步 registry + actions.ts） | ✅ ready |
 | C10   | inc       | TS      | ★☆☆  | 加新约束节点 NotBlank（5 处注册：meta/builder/handler/nodes/i18n） | ✅ ready |
+| C14   | dbg       | Python  | ★★☆  | 修复跨块 Unique 漏检（concat-then-duplicated，全局行号映射） | ✅ ready |
 | C15   | dbg       | Python  | ★★★  | 修复 collect_paths 丢失 include_router 子路由（FastAPI 0.138+ _IncludedRouter） | ✅ ready |
 | C16   | dbg       | TS      | ★☆☆  | 修复 createGraphEdges 静默丢边（Vue Flow setEdges 陷阱） | ✅ ready |
 | C17   | dbg       | TS      | ★★☆  | 给键盘监听器加 IME 合成态守卫（isComposing / keyCode 229） | ✅ ready |
