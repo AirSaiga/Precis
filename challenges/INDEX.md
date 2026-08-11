@@ -5,6 +5,7 @@
 | ID    | 维度       | 栈       | 难度 | 一句话                           | 状态     |
 |-------|-----------|---------|------|----------------------------------|---------|
 | C01   | nav       | Python  | ★☆☆  | 新增 MaxLength 约束（照葫芦画瓢）   | ✅ ready |
+| C02   | nav       | Python  | ★★☆  | 分块加载 500MB 阈值 + 复现跨块 Unique 假阴性（per-chunk → 全量频次，按 chunk 定位） | ✅ ready |
 | C04   | nav       | TS      | ★☆☆  | 补全 vueFlowApi 单例注入层（initVueFlowApi + requireApi 守卫） | ✅ ready |
 | C05   | nav       | TS      | ★★☆  | 修复双注册表断裂的 barrel（理解 side-effect import 自注册） | ✅ ready |
 | C07   | inc       | Python  | ★☆☆  | 加新 datetime 数据类型（scalars 新类 + TYPE_REGISTRY 注册） | ✅ ready |
@@ -16,6 +17,7 @@
 | C16   | dbg       | TS      | ★☆☆  | 修复 createGraphEdges 静默丢边（Vue Flow setEdges 陷阱） | ✅ ready |
 | C17   | dbg       | TS      | ★★☆  | 给键盘监听器加 IME 合成态守卫（isComposing / keyCode 229） | ✅ ready |
 | C19   | refactor  | Python  | ★☆☆  | 给未注解的辅助函数补完整类型注解    | ✅ ready |
+| C20   | refactor  | Python  | ★★☆  | 提取 4 个 _format_* 到 formatters.py（处方式：精确符号 + 改公开） | ✅ ready |
 | C22   | refactor  | TS      | ★☆☆  | 清理 `as unknown as` 双重断言       | ✅ ready |
 
 ## 维度缩写
