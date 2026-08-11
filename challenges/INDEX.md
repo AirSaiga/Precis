@@ -29,6 +29,17 @@
 | C23   | refactor  | TS      | ★★☆  | 处方式抽取 useCounter composable（.vue 两组逻辑分离其一，照搬 useModal 模式） | ✅ ready |
 | C24   | refactor  | TS      | ★★★  | 处方式拆分 God store：提取 clipboardOps 工厂模块，assembly spread 聚合（模拟 graphStore 工厂拆分） | ✅ ready |
 
+## 真实仓库导航题（R 系列）
+
+与 C 系列不同：agent 在真实 Precis 代码库（上千文件）里导航，用真实 pytest/vitest 验证。
+
+| ID    | 栈       | 难度 | 一句话                           | 状态     |
+|-------|---------|------|----------------------------------|---------|
+| R01   | Python  | ★★★  | 在真实后端加 Pattern 约束（6 处文件联动：类+包+shim+registry+builder+Literal） | ✅ ready |
+| R02   | Python  | ★★☆  | 在真实 CLI 框架加 version 命令   | 🚧 pending |
+| R03   | Python  | ★★★  | 加 .parquet 数据源加载器（loader+spec 双目录） | 🚧 pending |
+| R04   | TS      | ★★☆  | 加 Ctrl+Shift+F 快捷键（registry+command+handler+平台变体） | 🚧 pending |
+
 ## 维度缩写
 
 - `nav` — 代码库导航与理解

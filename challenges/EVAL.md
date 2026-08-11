@@ -116,7 +116,48 @@ python report.py
 
 生成的 `results/LEADERBOARD.md` 就是 24 题 × N 模型的 pass/fail 矩阵 + 各模型总通过率。
 
-## 快速参考：24 题矩阵
+---
+
+## 真实仓库导航题（R 系列）
+
+R 系列与 C 系列不同：agent 在**真实 Precis 代码库**（上千文件）里导航、定位、修改，用**真实 pytest/vitest** 验证。不使用精简 seed。
+
+### R 系列的执行流程
+
+R 题需要**完整仓库**（不只是 challenges/ 副本）。建议用 git worktree：
+
+```bash
+# 在主仓库创建 worktree（完整仓库副本，含 backend/ frontend/ 等）
+cd D:/Precis/Precis
+git worktree add D:/Precis/eval-【模型名】 main
+
+cd D:/Precis/eval-【模型名】/challenges
+# 答案删除（同 C 系列）
+find . -path "*/C*/SOLUTION.md" -delete
+find . -path "*/R*/SOLUTION.md" -delete
+rm -f C01-nav-add-maxlength/maxlength_constraint.py
+```
+
+然后对每道 R 题：
+1. 读 `challenges/Rxx/task.md`（只给需求，不给文件路径）
+2. 在真实仓库里导航（`backend/` 或 `frontend/`），找到相关文件
+3. 实现功能 + 注册
+4. 跑 `python challenges/Rxx/verify.py`（或 `node challenges/Rxx/verify.mjs`）
+   - verify 会把测试文件临时放进 `backend/tests/` 或 `frontend/tests/`，跑 pytest/vitest，然后清理
+5. 记录结果到 `results/<run-id>/`
+
+### R 系列清单
+
+| ID | 栈 | 考点 |
+|----|----|------|
+| R01 | Python | 加 Pattern 约束（6 处联动：类+包+shim+registry+builder+Literal） |
+| R02 | Python | 加 CLI version 命令 |
+| R03 | Python | 加 .parquet 数据源（loader+spec 双目录） |
+| R04 | TS | 加 Ctrl+Shift+F 快捷键（registry+command+handler+平台变体） |
+
+## 快速参考：完整矩阵
+
+### C 系列（24 题，精简 seed）
 
 | 维度 \ 难度 | Py ★☆☆ | Py ★★☆ | Py ★★★ | TS ★☆☆ | TS ★★☆ | TS ★★★ |
 |------------|--------|--------|--------|--------|--------|--------|
@@ -124,5 +165,14 @@ python report.py
 | inc | C07 | C08 | C09 | C10 | C11 | C12 |
 | dbg | C13 | C14 | C15 | C16 | C17 | C18 |
 | refactor | C19 | C20 | C21 | C22 | C23 | C24 |
+
+### R 系列（真实仓库导航）
+
+| ID | 栈 | 难度 | 考点 |
+|----|----|------|------|
+| R01 | Python | ★★★ | Pattern 约束（6 处联动） |
+| R02 | Python | ★★☆ | CLI 命令 |
+| R03 | Python | ★★★ | parquet 加载器 |
+| R04 | TS | ★★☆ | 键盘快捷键 |
 
 想缩小范围（如只跑 ★☆☆ 或只跑 dbg），在提示词第 4 步加一句"只做以下题目：C01、C04、C07..."即可。
