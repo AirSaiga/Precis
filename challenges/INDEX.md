@@ -5,6 +5,7 @@
 | ID    | 维度       | 栈       | 难度 | 一句话                           | 状态     |
 |-------|-----------|---------|------|----------------------------------|---------|
 | C01   | nav       | Python  | ★☆☆  | 新增 MaxLength 约束（照葫芦画瓢）   | ✅ ready |
+| C04   | nav       | TS      | ★☆☆  | 补全 vueFlowApi 单例注入层（initVueFlowApi + requireApi 守卫） | ✅ ready |
 | C05   | nav       | TS      | ★★☆  | 修复双注册表断裂的 barrel（理解 side-effect import 自注册） | ✅ ready |
 | C07   | inc       | Python  | ★☆☆  | 加新 datetime 数据类型（scalars 新类 + TYPE_REGISTRY 注册） | ✅ ready |
 | C08   | inc       | Python  | ★★☆  | 加新 AI actionType（同步 registry + actions.ts） | ✅ ready |
