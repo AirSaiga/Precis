@@ -36,7 +36,9 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
    - `cd challenges/Cxx-题目目录名`（注意：副本里 challenges 内容直接在根目录，所以是 `cd Cxx-题目目录名`）
    - 读 `task.md` + `workspace/` 里已有的参考文件
    - 在 `workspace/` 里实现或修复
-   - 跑 `python verify.py`（Python 题）或 `node verify.mjs`（TS/JS 题）
+   - 跑 `python verify.py`（Python 题）或 `node verify.mjs`（TS/JS 题）—— **只跑 1 次！**
+     无论 PASS 还是 FAIL，立即把结果记进 RESULT.md，然后做下一题。
+     **不允许**看了 verify 输出后改代码重跑（那是用 verify 反馈磨答案 = 作弊）。
    - 在 `results/【模型名】-run/` 下创建 `<题目录名>.md`，内容是 YAML frontmatter：
      ```yaml
      ---
@@ -65,6 +67,7 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 
 ## 硬约束
 
+- **每题 verify 只跑 1 次**。无论 PASS/FAIL，结果就是最终成绩。看了 verify 输出后再改代码重跑 = 用反馈磨答案 = 作弊。第一次跑完立刻记结果，做下一题。
 - **参考答案已在第 1 步删除**（`SOLUTION.md` 和 `maxlength_constraint.py` 已 `rm`）。如果你发现它们还在，说明第 1 步没执行，停下来重做。
 - **只改** `workspace/` 内文件，不碰 `seed/`、`verify.*`、`task.md`。
 - **不碰** `D:/Precis/Precis/challenges/`（主仓库，只是模板源）。

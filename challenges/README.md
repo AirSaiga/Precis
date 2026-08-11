@@ -41,7 +41,7 @@ powershell -File reset.ps1
 - 只在 `workspace/` 里修改文件。
 - 不要改 `seed/`、`verify.py`、`task.md`、`SOLUTION.md`。
 - 不要触碰 `challenges/` 以外的任何文件（即不要改主仓库代码）。
-- 跑不通就调试，但最终结果以 verify 脚本的退出码为准。
+- **每题 verify 只跑 1 次**。无论 PASS/FAIL，结果就是最终成绩——看了 verify 输出后改代码重跑属于作弊（用 verify 反馈磨答案）。第一次跑完立刻记结果，做下一题。
 
 ## RESULT.md 模板
 
