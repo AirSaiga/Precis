@@ -36,9 +36,9 @@
 | ID    | 栈       | 难度 | 一句话                           | 状态     |
 |-------|---------|------|----------------------------------|---------|
 | R01   | Python  | ★★★  | 在真实后端加 Pattern 约束（6 处文件联动：类+包+shim+registry+builder+Literal） | ✅ ready |
-| R02   | Python  | ★★☆  | 在真实 CLI 框架加 version 命令   | 🚧 pending |
-| R03   | Python  | ★★★  | 加 .parquet 数据源加载器（loader+spec 双目录） | 🚧 pending |
-| R04   | TS      | ★★☆  | 加 Ctrl+Shift+F 快捷键（registry+command+handler+平台变体） | 🚧 pending |
+| R02   | Python  | ★★☆  | 在真实 CLI 框架加 version 命令（手动注册陷阱） | ✅ ready |
+| R03   | Python  | ★★★  | 加 .parquet 数据源加载器（loader+spec 双目录，装饰器自注册+__getattr__ 惰性 hook） | ✅ ready |
+| R04   | TS      | ★★☆  | 加 Ctrl+Shift+F 快捷键（registry+command+handler+平台变体+i18n） | ✅ ready |
 
 ## 维度缩写
 
