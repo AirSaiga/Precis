@@ -77,7 +77,7 @@ def main() -> int:
             return False
         try:
             fn = mod.find_first_null
-            # 最后一个元素是 null（off-by-one 最容易漏检的位置）
+            # 最后一个元素是 null
             s1 = pd.Series([1.0, 2.0, None])
             if fn(s1) != 2:
                 return False
