@@ -15,6 +15,7 @@
 | C09   | inc       | Python  | ★★★  | 后端三层加约束 LengthConstraint（domain 类 + 注册表，service/api 通用无需改） | ✅ ready |
 | C10   | inc       | TS      | ★☆☆  | 加新约束节点 NotBlank（5 处注册：meta/builder/handler/nodes/i18n） | ✅ ready |
 | C11   | inc       | TS      | ★★☆  | 加新能力 clipboardApi（interface + Electron/Web 适配器 + 单例 + 消费方） | ✅ ready |
+| C12   | inc       | TS      | ★★★  | 加新 graphStore 工厂模块 clipboardOps（DI 工厂 + assembly 聚合 spread + 闭包级 clipboard 状态） | ✅ ready |
 | C13   | dbg       | Python  | ★☆☆  | 修复校验辅助函数 3 个明显 bug（逻辑反转 / off-by-one / 缺 None 守卫） | ✅ ready |
 | C14   | dbg       | Python  | ★★☆  | 修复跨块 Unique 漏检（concat-then-duplicated，全局行号映射） | ✅ ready |
 | C15   | dbg       | Python  | ★★★  | 修复 collect_paths 丢失 include_router 子路由（FastAPI 0.138+ _IncludedRouter） | ✅ ready |
@@ -26,6 +27,7 @@
 | C21   | refactor  | Python  | ★★★  | 命令式嵌套校验循环重构成 4-stage pipeline（处方式：精确 stage 名 + process 只编排） | ✅ ready |
 | C22   | refactor  | TS      | ★☆☆  | 清理 `as unknown as` 双重断言       | ✅ ready |
 | C23   | refactor  | TS      | ★★☆  | 处方式抽取 useCounter composable（.vue 两组逻辑分离其一，照搬 useModal 模式） | ✅ ready |
+| C24   | refactor  | TS      | ★★★  | 处方式拆分 God store：提取 clipboardOps 工厂模块，assembly spread 聚合（模拟 graphStore 工厂拆分） | ✅ ready |
 
 ## 维度缩写
 
