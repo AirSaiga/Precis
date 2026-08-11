@@ -31,12 +31,12 @@ const ansPath = join(W, 'answers.js')
 const ansSrc = existsSync(ansPath) ? readFileSync(ansPath, 'utf-8') : ''
 checks.push(['answers.js 存在', existsSync(ansPath)])
 const q1 = ansSrc.match(/\/\/\s*Q1[:：]\s*(\w+)/)
-checks.push(['Q1 = createNode', q1 != null && q1[1] === 'createNode'])
+checks.push(['Q1 答案匹配（importConfig 调用的节点创建函数名）', q1 != null && q1[1] === 'createNode'])
 const q2 = ansSrc.match(/\/\/\s*Q2[:：]\s*(.+)/)
 const q2ok = q2 != null && /null|跳过|skip|null|丢弃|drop/.test(q2[1])
-checks.push(['Q2 描述未注册类型返回 null/被跳过', q2ok])
+checks.push(['Q2 答案匹配（未注册类型的处理方式）', q2ok])
 const q3 = ansSrc.match(/\/\/\s*Q3[:：]\s*(\d+)/)
-checks.push(['Q3 = 2（assembly 聚合的模块数）', q3 != null && q3[1] === '2'])
+checks.push(['Q3 答案匹配（assembly 聚合的模块数）', q3 != null && q3[1] === '2'])
 
 // transform 注册
 checks.push([
