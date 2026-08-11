@@ -1,6 +1,6 @@
 // verify.mjs — C17-dbg-ime-guard
 //
-// 验证 handleKeydown 在 IME 合成态（isComposing / keyCode 229）下放行（返回 null），
+// 验证 handleKeydown 在 IME 合成态下放行（返回 null），
 // 同时不破坏正常（非合成）快捷键的匹配。
 //
 // 退出码：0 = PASS，非 0 = FAIL。
@@ -82,33 +82,33 @@ checks.push([
   fn && fn(mkEvent({ key: 's', ctrlKey: true })) === 'save',
 ])
 
-// 检查 5-8（关键）: isComposing=true 时所有快捷键均放行（返回 null）
+// 检查 5-8（关键）: IME 合成态下所有快捷键均放行（返回 null）
 checks.push([
-  "isComposing=true 的 Backspace → null（不触发 delete-node）",
+  '合成态 Backspace → 放行（不触发 delete-node）',
   fn && fn(mkEvent({ key: 'Backspace', isComposing: true })) === null,
 ])
 checks.push([
-  'isComposing=true 的 Enter → null',
+  '合成态 Enter → 放行',
   fn && fn(mkEvent({ key: 'Enter', isComposing: true })) === null,
 ])
 checks.push([
-  'isComposing=true 的 Ctrl+S → null',
+  '合成态 Ctrl+S → 放行',
   fn && fn(mkEvent({ key: 's', ctrlKey: true, isComposing: true })) === null,
 ])
 checks.push([
-  'isComposing=true 的 Ctrl+Z → null',
+  '合成态 Ctrl+Z → 放行',
   fn && fn(mkEvent({ key: 'z', ctrlKey: true, isComposing: true })) === null,
 ])
 
-// 检查 9: legacy keyCode 229 也守卫（只设 keyCode、不设 isComposing 的浏览器）
+// 检查 9: 旧浏览器的合成信号也守卫
 checks.push([
-  'keyCode=229 的 Backspace → null（legacy 守卫）',
+  '旧浏览器合成信号 Backspace → 放行',
   fn && fn(mkEvent({ key: 'Backspace', keyCode: 229 })) === null,
 ])
 
-// 检查 10: 合成态 + keyCode 229 同时（最稳，两者都设）
+// 检查 10: 双信号同时（最稳）
 checks.push([
-  'isComposing=true 且 keyCode=229 → null',
+  '双合成信号 Backspace → 放行',
   fn && fn(mkEvent({ key: 'Backspace', isComposing: true, keyCode: 229 })) === null,
 ])
 
