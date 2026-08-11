@@ -15,12 +15,17 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 
 ## 流程
 
-1. **创建独立副本**（与其他模型隔离，不碰主仓库）：
+1. **创建独立副本 + 删除答案**（防作弊，与其他模型隔离）：
    ```bash
    cp -r D:/Precis/Precis/challenges D:/Precis/eval-【模型名】
    cd D:/Precis/eval-【模型名】          # 后续都在这个目录里
    rm -rf C*/workspace results           # 清掉可能带过来的运行时残留
    mkdir -p results
+   # ⚠️ 关键：删除所有参考答案，防止 agent 读答案作弊
+   find . -path "*/C*/SOLUTION.md" -delete
+   rm -f C01-nav-add-maxlength/maxlength_constraint.py   # C01 的独立参考答案文件
+   # 验证答案已删干净（应无输出）
+   find . -name "SOLUTION.md" -o -name "maxlength_constraint.py"
    ```
 
 2. 读 `README.md` 学规则 + RESULT.md frontmatter 格式。
@@ -60,8 +65,8 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 
 ## 硬约束
 
-- **不读** `SOLUTION.md` 和参考答案文件（如 C01 的 `maxlength_constraint.py`）——那是答案。
-- **只改** `workspace/` 内文件，不碰 `seed/`、`verify.*`、`task.md`、`SOLUTION.md`。
+- **参考答案已在第 1 步删除**（`SOLUTION.md` 和 `maxlength_constraint.py` 已 `rm`）。如果你发现它们还在，说明第 1 步没执行，停下来重做。
+- **只改** `workspace/` 内文件，不碰 `seed/`、`verify.*`、`task.md`。
 - **不碰** `D:/Precis/Precis/challenges/`（主仓库，只是模板源）。
 - verify 退出码为准（0=PASS）。做不出记 FAIL 继续，不跳题不放弃。
 - `agent` 字段填真实模型标识（如 `glm-5.2` / `claude-sonnet-4.5`）。
