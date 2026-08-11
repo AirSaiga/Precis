@@ -33,9 +33,9 @@ const importStmtRe = /^\s*(\/\/\s*)?import\b.*['"][^'"]*notNullHandler['"]/
 const importLines = indexSrc.split('\n').filter((l) => importStmtRe.test(l))
 const hasActiveImport = importLines.some((l) => !l.trim().startsWith('//'))
 
-checks.push(['index.ts 含 notNullHandler 的 import 语句行', importLines.length > 0])
+checks.push(['index.ts 引用 notNullHandler 模块', importLines.length > 0])
 checks.push([
-  'notNullHandler 的 import 语句未被注释（至少一处活跃）',
+  'barrel 已将 notNullHandler 拉入（handlers 注册触发器激活）',
   hasActiveImport,
 ])
 
