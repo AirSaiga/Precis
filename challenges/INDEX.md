@@ -10,8 +10,10 @@
 | C05   | nav       | TS      | ★★☆  | 修复双注册表断裂的 barrel（理解 side-effect import 自注册） | ✅ ready |
 | C07   | inc       | Python  | ★☆☆  | 加新 datetime 数据类型（scalars 新类 + TYPE_REGISTRY 注册） | ✅ ready |
 | C08   | inc       | Python  | ★★☆  | 加新 AI actionType（同步 registry + actions.ts） | ✅ ready |
+| C09   | inc       | Python  | ★★★  | 后端三层加约束 LengthConstraint（domain 类 + 注册表，service/api 通用无需改） | ✅ ready |
 | C10   | inc       | TS      | ★☆☆  | 加新约束节点 NotBlank（5 处注册：meta/builder/handler/nodes/i18n） | ✅ ready |
 | C11   | inc       | TS      | ★★☆  | 加新能力 clipboardApi（interface + Electron/Web 适配器 + 单例 + 消费方） | ✅ ready |
+| C13   | dbg       | Python  | ★☆☆  | 修复校验辅助函数 3 个明显 bug（逻辑反转 / off-by-one / 缺 None 守卫） | ✅ ready |
 | C14   | dbg       | Python  | ★★☆  | 修复跨块 Unique 漏检（concat-then-duplicated，全局行号映射） | ✅ ready |
 | C15   | dbg       | Python  | ★★★  | 修复 collect_paths 丢失 include_router 子路由（FastAPI 0.138+ _IncludedRouter） | ✅ ready |
 | C16   | dbg       | TS      | ★☆☆  | 修复 createGraphEdges 静默丢边（Vue Flow setEdges 陷阱） | ✅ ready |
