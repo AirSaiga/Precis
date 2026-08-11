@@ -5,6 +5,7 @@
 | ID    | 维度       | 栈       | 难度 | 一句话                           | 状态     |
 |-------|-----------|---------|------|----------------------------------|---------|
 | C01   | nav       | Python  | ★☆☆  | 新增 MaxLength 约束（照葫芦画瓢）   | ✅ ready |
+| C08   | inc       | Python  | ★★☆  | 加新 AI actionType（同步 registry + actions.ts） | ✅ ready |
 | C22   | refactor  | TS      | ★☆☆  | 清理 `as unknown as` 双重断言       | ✅ ready |
 
 ## 维度缩写
