@@ -34,6 +34,7 @@ powershell -File reset.ps1
    - Python 题：`python verify.py`
    - TS 题：`node verify.mjs`（或按 `task.md` 指定）
 5. 把结果填进 `workspace/RESULT.md`（模板见下）。
+6. （可选，用于出报告）把 `workspace/RESULT.md` 复制到 `challenges/results/<run-id>/<题ID>.md`，然后跑 `python challenges/report.py <run-id>` 生成报告（见下方"报告"小节）。
 
 ## 约束（务必遵守）
 
@@ -44,16 +45,17 @@ powershell -File reset.ps1
 
 ## RESULT.md 模板
 
-每题跑完后，把结果填进 `workspace/RESULT.md`：
+每题跑完后，把结果填进 `workspace/RESULT.md`。**必须用 YAML frontmatter**（下方 `---` 之间），report.py 靠它聚合：
 
 ```markdown
-# RESULT — <题目录名>
-
-- agent: <claude-sonnet-4.5 / gpt-5 / glm-4.6 / ...>
-- runner: <Claude Code / Cursor / ZCode / 手动>
-- started: <ISO8601 时间戳>
-- finished: <ISO8601 时间戳>
-- verify_exit_code: 0   ← 0=PASS, 非0=FAIL
+---
+challenge: C01-nav-add-maxlength   # 题目录名
+agent: claude-sonnet-4.5           # 模型标识
+runner: Claude Code                # 跑题的 agent 工具
+verify_exit_code: 0                # 0=PASS, 非0=FAIL
+started: 2026-07-19T00:00:00Z      # ISO8601
+finished: 2026-07-19T00:05:00Z
+---
 
 ## verify 输出
 （粘贴 verify 脚本的完整 stdout/stderr）
@@ -65,7 +67,26 @@ powershell -File reset.ps1
 （可选，自由文本）
 ```
 
-`verify_exit_code` 字段机器可扫，便于未来出榜单。
+frontmatter 的 6 个字段都被 report.py 解析；正文是自由文本，附加在报告里供人读。
+
+## 报告
+
+跑完题（且把 RESULT.md 复制到 `results/<run-id>/` 后），用 report.py 生成报告：
+
+```bash
+# 单次运行报告：汇总某次评测的所有题
+python challenges/report.py <run-id>
+# → 生成 challenges/results/<run-id>/REPORT.md（总览 + 维度/栈/难度聚合）
+
+# 跨模型对比榜单：扫所有 run-id
+python challenges/report.py
+# → 生成 challenges/results/LEADERBOARD.md（行=题，列=模型，格=pass/fail）
+
+# 初始化一个空 run-id 目录
+python challenges/report.py --init <run-id>
+```
+
+`results/` 目录入库（报告是评测产出，要留档）。
 
 ## verify 脚本统一契约
 
