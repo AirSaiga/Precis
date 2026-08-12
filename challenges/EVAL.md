@@ -110,6 +110,7 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 - **R04 / X 系列前置**：worktree 里必须先备好 frontend 依赖（第 1 步的 junction 或 npm ci），否则 verify 会因环境缺失 FAIL 而非能力 FAIL。
 - **X02 前置**：做 X02 前必须先跑 `python plant.py` 注入故障（该脚本只在你的 worktree 里改一个文件，放心跑）。
 - **不碰** `D:/Precis/Precis/`（主仓库，只是模板源）。
+- **不访问** `D:/Precis/eval-*` 下的任何其他目录（那是别的模型的评测副本）。你只能在自己的 worktree（`D:/Precis/eval-【模型名】`）内活动。读其他模型的实现 = 作弊。
 - verify 退出码为准（0=PASS）。做不出记 FAIL 继续，不跳题不放弃。
 - `agent` 字段填真实模型标识（如 `glm-5.2` / `claude-sonnet-4.5`）。
 
