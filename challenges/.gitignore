@@ -5,3 +5,11 @@ C*/workspace/
 C*/workspace/RESULT.md
 
 # results/ 入库（报告是评测产出，要留档）——不忽略
+
+# SOLUTION.md 不入 git（防 worktree 评测泄露；本地保留供出题者参考）
+# 原理：git rm --cached 后 worktree 从 git checkout 天然不含答案
+C*/SOLUTION.md
+R*/SOLUTION.md
+
+# C01 的独立参考答案文件（同上）
+C01-nav-add-maxlength/maxlength_constraint.py
