@@ -4,7 +4,10 @@ Precis LLM Challenges 报告聚合器。
 用法：
     python challenges/report.py --init <run-id>      初始化空 run-id 目录
     python challenges/report.py <run-id>             生成单次运行报告
-    python challenges/report.py                      生成跨模型对比榜单
+    python challenges/report.py                      生成跨模型对比榜单（扫描主仓库 results/）
+    python challenges/report.py <外部run目录...>       从各 eval worktree 的结果目录只读生成
+                                                      跨模型榜单（不复制任何文件，目录作为
+                                                      存档原地保留，worktree 无需删除）
 
 RESULT.md 必须含 YAML frontmatter（6 字段：challenge/agent/runner/
 verify_exit_code/started/finished）。report.py 解析 frontmatter，正文附加供人读。
@@ -158,9 +161,8 @@ def parse_result(path: Path) -> dict | None:
 # ----------------------------------------------------------------------------
 
 
-def collect_run(run_id: str) -> list[dict]:
-    """返回某 run-id 目录下所有 RESULT 解析结果（按 challenge 排序）。"""
-    run_dir = RESULTS_DIR / run_id
+def collect_run_dir(run_dir: Path) -> list[dict]:
+    """返回某个 run 目录（可为外部路径）下所有 RESULT 解析结果（按 challenge 排序）。"""
     if not run_dir.is_dir():
         return []
     results: list[dict] = []
@@ -171,6 +173,11 @@ def collect_run(run_id: str) -> list[dict]:
         if parsed is not None:
             results.append(parsed)
     return results
+
+
+def collect_run(run_id: str, base_dir: Path | None = None) -> list[dict]:
+    """返回某 run-id 目录下所有 RESULT 解析结果（按 challenge 排序）。"""
+    return collect_run_dir((base_dir or RESULTS_DIR) / run_id)
 
 
 def list_run_ids() -> list[str]:
@@ -273,9 +280,22 @@ def generate_run_report(run_id: str, index_meta: dict[str, dict[str, str]]) -> s
 # ----------------------------------------------------------------------------
 
 
-def generate_leaderboard(index_meta: dict[str, dict[str, str]]) -> str:
-    """生成 LEADERBOARD.md：行=题，列=run-id（含 agent），格=pass/fail。"""
-    run_ids = list_run_ids()
+def generate_leaderboard(
+    index_meta: dict[str, dict[str, str]],
+    sources: dict[str, Path] | None = None,
+) -> str:
+    """
+    生成 LEADERBOARD.md：行=题，列=run-id（含 agent），格=pass/fail。
+
+    sources：{run 标签: run 目录路径}。为 None 时扫描主仓库 results/ 下的 run-id
+    （向后兼容）；显式传入时直接读取外部目录（如各 eval worktree 的 results/），
+    不复制任何文件。
+    """
+    if sources is None:
+        run_ids = list_run_ids()
+        sources = {rid: RESULTS_DIR / rid for rid in run_ids}
+    else:
+        run_ids = list(sources.keys())
     lines: list[str] = []
     lines.append("# Leaderboard — 跨运行对比")
     lines.append("")
@@ -287,7 +307,7 @@ def generate_leaderboard(index_meta: dict[str, dict[str, str]]) -> str:
     all_cids: set[str] = set()
     run_results: dict[str, dict[str, dict]] = {}  # run_id -> {cid_full -> result}
     for rid in run_ids:
-        results = collect_run(rid)
+        results = collect_run_dir(sources[rid])
         run_results[rid] = {r["challenge"]: r for r in results}
         for r in results:
             cid_num = (
@@ -374,7 +394,7 @@ def main(argv: list[str]) -> int:
 
     index_meta = parse_index()
 
-    # 无参：跨模型榜单
+    # 无参：跨模型榜单（扫描主仓库 results/ 下的 run-id）
     if not argv:
         if not list_run_ids():
             print(
@@ -388,10 +408,36 @@ def main(argv: list[str]) -> int:
         print(f"REPORT leaderboard\n生成 {out}")
         return 0
 
-    # 单次报告
+    # 外部 run 目录（各 eval worktree 的 results/<run-id>/）：只读生成跨模型榜单，不复制文件
+    # 注意：Path / 绝对路径会直接返回该绝对路径，故用 resolve().parent 判断归属
+    args = [Path(a) for a in argv]
+    external = [
+        a for a in args if a.is_dir() and a.resolve().parent != RESULTS_DIR.resolve()
+    ]
+    if external:
+        missing = [a for a in args if not a.is_dir()]
+        if missing:
+            for a in missing:
+                print(f"结果目录不存在：{a}", file=sys.stderr)
+            return 1
+        sources = {a.name: a for a in args}
+        content = generate_leaderboard(index_meta, sources)
+        out = RESULTS_DIR / "LEADERBOARD.md"
+        out.write_text(content, encoding="utf-8")
+        print(
+            "REPORT leaderboard（外部目录）\n"
+            + "\n".join(f"  - {a}" for a in args)
+            + f"\n生成 {out}"
+        )
+        return 0
+
+    # 单次报告（run-id，results/<run-id>/ 下）
     run_id = argv[0]
     run_dir = RESULTS_DIR / run_id
     if not run_dir.is_dir():
+        if Path(run_id).is_absolute() or "/" in run_id or "\\" in run_id:
+            print(f"结果目录不存在：{run_id}", file=sys.stderr)
+            return 1
         print(f"运行 {run_id} 不存在。先用 --init {run_id} 创建。", file=sys.stderr)
         return 1
     results = collect_run(run_id)

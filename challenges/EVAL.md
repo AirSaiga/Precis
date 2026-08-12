@@ -142,27 +142,30 @@ eval-【模型名】/
 
 ## 跑完多个模型后：汇总跨模型榜单
 
-每个模型跑完，结果在各副本的 `results/<run-id>/` 里。全部跑完后，在**主仓库**做一次汇总：
+**每个模型的评测结果直接留存在其 worktree 里（`D:/Precis/eval-【模型名】/results/【模型名】-run/`）——不拷回主仓库，汇总时也绝不删除 worktree**（worktree 就是该模型结果的存档；删除会连带丢失全部结果，且若 junction 未先摘除，`worktree remove --force` 会穿透 junction 清空主仓库 `frontend/node_modules`）。
+
+出跨模型榜单时，在**主仓库**用 report.py 直接读取各 worktree 的结果目录（只读，不复制）：
 
 ```bash
 cd D:/Precis/Precis/challenges
 
-# 把各副本的结果收集回来
-cp -r ../../eval-glm52/results/glm52-run results/
-cp -r ../../eval-claude/results/claude-run results/
-cp -r ../../eval-gpt5/results/gpt5-run results/
-
-# 出跨模型对比榜单（行=题，列=模型，格=✅/❌）
-python report.py
+# 直接把各 worktree 的 run 目录路径传给 report.py
+python report.py D:/Precis/eval-glm52/results/glm52-run \
+                 D:/Precis/eval-claude/results/claude-run \
+                 D:/Precis/eval-gpt5/results/gpt5-run
 ```
 
-生成的 `results/LEADERBOARD.md` 就是 32 题 × N 模型的 pass/fail 矩阵 + 各模型总通过率。
+生成的 `results/LEADERBOARD.md` 就是 32 题 × N 模型的 pass/fail 矩阵 + 各模型总通过率（主仓库只落这一份派生产物，逐题结果不入主仓库）。
 
-**回收副本（跑完一个模型后必须做）**：结果拷回主仓库 `results/` 后删除该模型的 worktree，防止 junction 残留：
+**worktree 回收（可选，且只在你确认不再需要该模型的结果之后）**——默认保留。若确定回收，严格按此顺序：
+
 ```bash
-# 若第 1 步用了 junction 方案：必须先删 junction 并确认消失（直接 worktree remove 会穿透 junction 清空主仓库 node_modules）
+# 1. 若建过 junction：先删 junction 并确认消失
+#    （直接 worktree remove 会穿透 junction 清空主仓库 frontend/node_modules）
 powershell -Command "Remove-Item -Force 'D:\Precis\eval-【模型名】\frontend\node_modules'"
 ls D:/Precis/eval-【模型名】/frontend/node_modules 2>/dev/null && echo "junction 仍在，勿删 worktree！"
+
+# 2. 确认该 worktree 的 results/ 已不需要（会随之消失）
 cd D:/Precis/Precis && git worktree remove --force D:/Precis/eval-【模型名】
 ```
 

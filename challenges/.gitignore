@@ -12,5 +12,10 @@ C*/SOLUTION.md
 R*/SOLUTION.md
 X*/SOLUTION.md
 
+# 评测结果留存在各 eval worktree（worktree 即存档）；主仓库 results/ 只落 report.py
+# 生成的 LEADERBOARD.md 派生产物（逐题结果不拷回、不入库）
+results/*
+!results/LEADERBOARD.md
+
 # C01 的独立参考答案文件（同上）
 C01-nav-add-maxlength/maxlength_constraint.py

@@ -81,15 +81,20 @@ frontmatter 的 6 个字段都被 report.py 解析；正文是自由文本，附
 python challenges/report.py <run-id>
 # → 生成 challenges/results/<run-id>/REPORT.md（总览 + 维度/栈/难度聚合）
 
-# 跨模型对比榜单：扫所有 run-id
+# 跨模型对比榜单（主仓库 results/ 下已有 run 目录时）
 python challenges/report.py
 # → 生成 challenges/results/LEADERBOARD.md（行=题，列=模型，格=pass/fail）
+
+# 跨模型对比榜单（结果留存在各 eval worktree 里时——只读外部目录，不复制文件）
+python challenges/report.py D:/Precis/eval-glm52/results/glm52-run \
+                            D:/Precis/eval-claude/results/claude-run
+# → 同样生成 challenges/results/LEADERBOARD.md
 
 # 初始化一个空 run-id 目录
 python challenges/report.py --init <run-id>
 ```
 
-`results/` 目录入库（报告是评测产出，要留档）。
+**结果存档约定**：各模型评测结果留存在其 worktree 的 `results/<run-id>/` 里（worktree 即存档，不拷回主仓库、不必删除）；主仓库 `results/` 只落 report.py 生成的 LEADERBOARD.md 派生产物。评测流程详见 [EVAL.md](EVAL.md)。
 
 ## verify 脚本统一契约
 
