@@ -1,6 +1,6 @@
 # Precis LLM Challenges
 
-基于 [Precis](../README.md) 项目真实代码库的 agentic 编程考题套件，用于横向评测不同 LLM/agent（Claude Code、Cursor、ZCode、Copilot 等）在真实代码库上的能力。每题自包含、客观验证、与主仓库代码完全隔离。
+基于 [Precis](../README.md) 项目真实代码库的 agentic 编程考题套件，用于横向评测不同 LLM/agent（Claude Code、Cursor、ZCode、Copilot 等）在真实代码库上的能力。C 系列每题自包含、客观验证、与主仓库代码完全隔离；R / X 系列在真实仓库的独立副本（git worktree）中完成，考察真实代码库内的导航与长链条工程能力。
 
 ## 能力维度
 
@@ -10,8 +10,9 @@
 | `inc` | 跨文件跨层增量开发 |
 | `dbg` | 调试与 bug 修复 |
 | `refactor` | 重构与代码质量 |
+| `x` | 专家级真实仓库任务（长链条联动 / 症状驱动调试 / 回归门重构 / 反模式判断力），难度 ★★★+ |
 
-题目目录命名：`C<NN>-<dim>-<slug>`，如 `C01-nav-add-maxlength`。难度三星制：`★☆☆` / `★★☆` / `★★★`。完整清单见 [INDEX.md](INDEX.md)。
+题目目录命名：`C<NN>-<dim>-<slug>`（精简 seed 沙盒）、`R<NN>-real-<slug>`（真实仓库导航）、`X<NN>-<slug>`（专家级）。C/R 难度三星制：`★☆☆` / `★★☆` / `★★★`；X 系列为 `★★★+`。完整清单见 [INDEX.md](INDEX.md)。
 
 ## 首次使用（仅一次）
 
@@ -37,6 +38,8 @@ powershell -File reset.ps1
 6. （可选，用于出报告）把 `workspace/RESULT.md` 复制到 `challenges/results/<run-id>/<题ID>.md`，然后跑 `python challenges/report.py <run-id>` 生成报告（见下方"报告"小节）。
 
 ## 约束（务必遵守）
+
+> 以下约束针对 C 系列（workspace 模型）；R / X 系列无 workspace/seed，在真实仓库副本中改代码，约束见各题 `task.md` 与 [EVAL.md](EVAL.md)。
 
 - 只在 `workspace/` 里修改文件。
 - 不要改 `seed/`、`verify.py`、`task.md`、`SOLUTION.md`。

@@ -84,7 +84,14 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
    - 在真实仓库里导航（`backend/` 或 `frontend/`），找到相关文件并实现功能 + 注册
    - 跑 `python verify.py`（Python 题）或 `node verify.mjs`（TS 题）—— **只跑 1 次！**
      verify 会把测试文件临时放进 `backend/tests/` 或 `frontend/tests/`，跑真实 pytest/vitest，然后清理。
-   - **判定边界**：R 系列 verify 只跑注入的测试文件，不回归仓库既有测试套件——但你的改动若破坏既有测试（如改了共享注册表的既有断言），仍属错误实现，应在动手前先读相关既有测试了解约束。
+   - **判定边界**：R 系列 verify 除注入测试外还会**回归仓库既有相关测试**（回归门）——你的实现若破坏既有测试，verify 直接 FAIL。动手前先读相关既有测试了解约束。
+
+5.5. **X 系列逐题做**（X01→X04，共 4 题，专家级真实仓库题），每题：
+   - `cd Xxx-题目目录名`
+   - 读 `task.md`（只给需求/现象，**不给文件路径**）
+   - **X02 特例**：先跑 `python plant.py` 在 worktree 的真实仓库里注入故障（task.md 会说明），再开始定位修复。
+   - 在真实仓库里导航并实现（X01 是全栈长链条、X03 是处方式重构、X04 要识别需求里的反模式）
+   - 跑 `python verify.py` 或 `node verify.mjs` —— **只跑 1 次！**（同上，verify 会临时注入测试并回归既有测试）
    - 在 `results/【模型名】-run/` 下创建 `<题目录名>.md`（同 C 系列 frontmatter 格式）。
 
 6. **全部做完后**：
@@ -95,11 +102,12 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 
 ## 硬约束
 
-- **每题 verify 只跑 1 次**（C 系列和 R 系列都一样）。无论 PASS/FAIL，结果就是最终成绩。看了 verify 输出后再改代码重跑 = 用反馈磨答案 = 作弊。第一次跑完立刻记结果，做下一题。
+- **每题 verify 只跑 1 次**（C / R / X 系列都一样）。无论 PASS/FAIL，结果就是最终成绩。看了 verify 输出后再改代码重跑 = 用反馈磨答案 = 作弊。第一次跑完立刻记结果，做下一题。
 - **参考答案已在第 1 步删除**（`SOLUTION.md` 和 `maxlength_constraint.py` 已 `rm`）。如果你发现它们还在，说明第 1 步没执行，停下来重做。
 - **C 系列**：只改 `workspace/` 内文件，不碰 `seed/`、`verify.*`、`task.md`。
-- **R 系列**：在真实仓库 `backend/` 或 `frontend/` 里改，但**不碰** `tests/` 目录（verify 脚本会自己放测试文件）和 `challenges/` 目录。
-- **R04 前置**：worktree 里必须先备好 frontend 依赖（第 1 步的 junction 或 npm ci），否则 verify 会因环境缺失 FAIL 而非能力 FAIL。
+- **R / X 系列**：在真实仓库 `backend/` 或 `frontend/` 里改，但**不碰** `tests/` 目录（verify 脚本会自己放测试文件）和 `challenges/` 目录。
+- **R04 / X 系列前置**：worktree 里必须先备好 frontend 依赖（第 1 步的 junction 或 npm ci），否则 verify 会因环境缺失 FAIL 而非能力 FAIL。
+- **X02 前置**：做 X02 前必须先跑 `python plant.py` 注入故障（该脚本只在你的 worktree 里改一个文件，放心跑）。
 - **不碰** `D:/Precis/Precis/`（主仓库，只是模板源）。
 - verify 退出码为准（0=PASS）。做不出记 FAIL 继续，不跳题不放弃。
 - `agent` 字段填真实模型标识（如 `glm-5.2` / `claude-sonnet-4.5`）。
@@ -109,13 +117,13 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 你的工作目录是 `D:/Precis/eval-【模型名】`（git worktree，完整仓库），**不是主仓库**。
 所有 reset / verify / report 都在 worktree 里跑。
 - C 系列题：在 `challenges/Cxx-xxx/workspace/` 里改。
-- R 系列题：在 `backend/` 或 `frontend/` 里改（真实代码库导航）。
+- R / X 系列题：在 `backend/` 或 `frontend/` 里改（真实代码库导航）。
 
 副本目录结构（复制后）：
 ```
 eval-【模型名】/
 ├── README.md          ← 规则说明
-├── INDEX.md           ← 24 题清单
+├── INDEX.md           ← 32 题清单
 ├── reset.sh           ← 生成 workspace/
 ├── report.py          ← 出报告
 ├── C01-nav-add-maxlength/
@@ -124,6 +132,7 @@ eval-【模型名】/
 │   ├── workspace/     ← 在这里改
 │   └── verify.py      ← 跑这个
 ├── C02-...
+├── X01-e2e-fullstack-constraint/   ← X 系列（真实仓库专家级）
 └── results/
     └── 【模型名】-run/   ← 每题的 RESULT 归档到这里
 ```
@@ -146,7 +155,7 @@ cp -r ../../eval-gpt5/results/gpt5-run results/
 python report.py
 ```
 
-生成的 `results/LEADERBOARD.md` 就是 28 题 × N 模型的 pass/fail 矩阵 + 各模型总通过率。
+生成的 `results/LEADERBOARD.md` 就是 32 题 × N 模型的 pass/fail 矩阵 + 各模型总通过率。
 
 ## 快速参考：完整矩阵
 
@@ -159,6 +168,8 @@ python report.py
 | dbg | C13 | C14 | C15 | C16 | C17 | C18 |
 | refactor | C19 | C20 | C21 | C22 | C23 | C24 |
 
+> 星级以 `INDEX.md` 为准（部分题目经加难后已调整，如 C02/C05 → ★★★）。
+
 ### R 系列（真实仓库导航）
 
 | ID | 栈 | 难度 | 考点 |
@@ -167,5 +178,14 @@ python report.py
 | R02 | Python | ★★☆ | CLI 命令 |
 | R03 | Python | ★★★ | parquet 加载器 |
 | R04 | TS | ★★☆ | 键盘快捷键 |
+
+### X 系列（真实仓库专家级，★★★+）
+
+| ID | 栈 | 难度 | 考点 |
+|----|----|------|------|
+| X01 | Python+TS | ★★★+ | 端到端全栈约束（后端 6 处 + 前端 5 处 + i18n 双侧） |
+| X02 | TS | ★★★+ | 症状驱动调试（plant.py 预埋 IME 守卫缺失） |
+| X03 | TS | ★★★+ | 处方式重构 + 既有测试回归门 |
+| X04 | TS | ★★★+ | 反模式判断力（需求与仓库铁律冲突） |
 
 想缩小范围（如只跑 ★☆☆ 或只跑 dbg），在提示词第 4 步加一句"只做以下题目：C01、C04、C07..."即可。

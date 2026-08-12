@@ -76,6 +76,20 @@ def parse_index() -> dict[str, dict[str, str]]:
             "summary": summary.strip(),
             "status": status.strip(),
         }
+    # X 系列（专家级，真实仓库长链条）：| X01 | Python+TS | ★★★+ | ... | ✅ ready |
+    x_row_re = re.compile(
+        r"^\|\s*(X\d+)\s*\|\s*([^|]+?)\s*\|\s*([★☆+]+)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|",
+        re.MULTILINE,
+    )
+    for m in x_row_re.finditer(text):
+        cid, stack, stars, summary, status = m.groups()
+        meta[cid] = {
+            "dimension": "x",
+            "stack": stack.strip(),
+            "difficulty": stars.strip(),
+            "summary": summary.strip(),
+            "status": status.strip(),
+        }
     return meta
 
 
