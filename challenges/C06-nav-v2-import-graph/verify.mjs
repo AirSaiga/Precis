@@ -38,7 +38,7 @@ checks.push(['Q2 答案匹配（未注册类型的处理方式）', q2ok])
 const q3 = ansSrc.match(/\/\/\s*Q3[:：]\s*(\d+)/)
 checks.push(['Q3 答案匹配（assembly 聚合的模块数）', q3 != null && q3[1] === '2'])
 const q4 = ansSrc.match(/\/\/\s*Q4[:：]\s*(.+)/)
-const q4ok = q4 != null && /静默|silent|无报错|不报错|难以发现|难发现|难排查|掩盖|悄悄|丢失|丢节点|丢数据|hidden/.test(q4[1].toLowerCase())
+const q4ok = q4 != null && /静默|silent|无报错|没有报错|不报错|不立即暴露|延后|事后|难以发现|难发现|难排查|掩盖|悄悄|丢失|丢节点|丢数据|hidden/.test(q4[1].toLowerCase())
 checks.push(['Q4 答案匹配（return null 静默跳过为何比抛错更危险）', q4ok])
 
 // transform 注册

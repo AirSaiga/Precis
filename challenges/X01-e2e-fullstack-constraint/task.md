@@ -91,15 +91,19 @@ python verify.py
 1. **后端段**：把 `test_x01_precision.py` 复制进后端测试目录并以 pytest 运行；随后以相同环境
    回归运行后端既有的相关测试子集（兼容导出完整性、约束注册表、约束工厂）。
 2. **前端段**：把 `test_x01_precision.test.ts` 复制进前端测试目录并以 vitest 运行；随后回归运行
-   前端既有的约束测试子集；另有两组**静态检查**：参考副本是否按要求同步、前端类型联合/接口是否
-   接通。
+   前端既有的约束测试子集；另有三组**静态检查**：参考副本是否按要求同步、前端类型联合/接口是否
+   接通、导出适配层是否含 `case 'Precision'`。
 
 两段的注入测试与回归子集**都通过**、静态检查**都通过**才算 PASS。退出码 `0` = PASS，非 `0` = FAIL。
 stdout 首行为 `PASS` 或 `FAIL`，随后按 `  [✓]/[✗]` 列出各检查明细。运行后无论成败都会清理临时
 测试文件，不污染真实仓库。
 
 > 前端用 **vitest**（不是 jest）。若当前 frontend/ 没有 node_modules（如 worktree/副本），
-> verify 会给出明确指引（安装依赖，或在 Windows 下用 `mklink /J` 建 junction 共享主仓库依赖）。
+> verify 会给出明确指引。Windows 下推荐 PowerShell 建 junction（Git Bash 下 `cmd //c mklink` 会被 MSYS 改坏参数）：
+> ```powershell
+> powershell -Command "New-Item -ItemType Junction -Path '<副本>\frontend\node_modules' -Target '<主仓库>\frontend\node_modules'"
+> ```
+> ⚠️ 验证完删除副本时：先 `Remove-Item '<副本>\frontend\node_modules'` 并**确认已消失**，再 `git worktree remove --force`——直接 remove 会穿透 junction 清空主仓库 node_modules。
 
 ## 提示
 
@@ -124,6 +128,12 @@ stdout 首行为 `PASS` 或 `FAIL`，随后按 `  [✓]/[✗]` 列出各检查�
 - **前端类型**：约束节点数据类型接口与 `CustomNodeData` 判别联合是**两处**——只加接口、忘加
   联合成员，运行时识别不了该节点。kind 与节点类型的 TypeScript 联合类型（约束服务层的类型
   模块里）也要补成员，否则 tsc 不过。
+- **导出适配层穷尽检查**：把画布约束节点数据导出为后端 V2 refs/params 的适配模块
+  （`frontend/src/services/constraints/constraintExportAdapter.ts`）按 v2Type 做穷尽 switch
+  （`default` 分支 `const _exhaustive: never = v2Type`）。`ConstraintTypeV2` 加 `'Precision'`
+  之后，必须同步给这个 switch 加 `case 'Precision'`（并入 NotNull/Range/Charset/DateLogic
+  的单列 case 组，并导出 `precision` param），否则 `npm run type-check` 红——这是新增约束
+  类型必须同步的又一处，且运行时测试不一定会踩中。
 - **i18n 双侧**：约束类型名/描述的中英文条目要 **zh-CN 与 en-US 双侧都有**（key 与 kind 对齐），
   只加一侧会导致另一侧界面空白、i18n 审计失败。
 - **参考副本**：前端注册表完整性测试里硬编码了"10 种约束"的两处参考副本——这是**需要你更新**的

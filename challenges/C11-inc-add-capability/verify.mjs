@@ -50,6 +50,8 @@ checks.push(['ClipboardApi 含 writeText 方法', /writeText\s*\(/.test(clip)])
 checks.push(['至少 2 个适配器类（Electron + Web）', classSpans.length >= 2])
 
 // Electron 适配器：引用 window.electronAPI（原生剪贴板）+ canWriteClipboard 硬编码 true
+// 类字段写法两种都合规：`readonly canWriteClipboard = true` 与带类型注解的
+// `readonly canWriteClipboard: boolean = true`（(?::\s*\w+)? 容忍两者）。
 const electronAdapter = classSpans.find((s) => /window\.electronAPI/.test(s.text))
 checks.push([
   'Electron 适配器引用 window.electronAPI',
@@ -57,7 +59,7 @@ checks.push([
 ])
 checks.push([
   'Electron 适配器 canWriteClipboard 硬编码 true',
-  /canWriteClipboard\s*=\s*true/.test(clip),
+  /canWriteClipboard\s*(?::\s*\w+)?\s*=\s*true/.test(clip),
 ])
 
 // Web 适配器：canWriteClipboard 必须是计算值（引用 navigator，非硬编码 true/false）。
@@ -65,9 +67,9 @@ checks.push([
 // 故不能硬编码 true/false，必须引用 navigator 实际探测。
 const webAdapterOk = classSpans.some(
   (s) =>
-    /canWriteClipboard\s*=/.test(s.text) &&
+    /canWriteClipboard\s*(?::\s*\w+)?\s*=/.test(s.text) &&
     /navigator/.test(s.text) &&
-    !/canWriteClipboard\s*=\s*(?:true|false)\b/.test(s.text),
+    !/canWriteClipboard\s*(?::\s*\w+)?\s*=\s*(?:true|false)\b/.test(s.text),
 )
 checks.push([
   'Web 适配器 canWriteClipboard 是计算值（引用 navigator，非硬编码 true/false）',
@@ -137,17 +139,40 @@ checks.push([
   'component.ts 含 renderCopyButton 函数',
   rcIdx >= 0,
 ])
+
+// 剥离注释后再做函数体内的语义判定：注释里出现 "show:" 字样（如
+// `// 不要用 show: false 隐藏`）或提到 getClipboardApi()，不应误伤合规解。
+const rcBodyNoComments = rcBody
+  .replace(/\/\*[\s\S]*?\*\//g, '')
+  .replace(/\/\/[^\r\n]*/g, '')
+
 checks.push([
   'renderCopyButton 用 canWriteClipboard 控制 disabled（禁用而非隐藏）',
-  /canWriteClipboard/.test(rcBody) &&
-    /disabled/.test(rcBody) &&
-    (/canWriteClipboard[\s\S]{0,160}?disabled/.test(rcBody) ||
-      /disabled[\s\S]{0,160}?canWriteClipboard/.test(rcBody)) &&
-    !/\bshow\s*:/.test(rcBody),
+  /canWriteClipboard/.test(rcBodyNoComments) &&
+    /disabled/.test(rcBodyNoComments) &&
+    (/canWriteClipboard[\s\S]{0,160}?disabled/.test(rcBodyNoComments) ||
+      /disabled[\s\S]{0,160}?canWriteClipboard/.test(rcBodyNoComments)) &&
+    !/\bshow\s*:/.test(rcBodyNoComments),
 ])
+
+// onClick 点击当下经 getClipboardApi() 解析实例再调 writeText。
+// 兼容两种合规写法：
+//   (a) 直接链式：onClick: () => getClipboardApi().writeText(text)
+//   (b) 局部变量中转：onClick: () => { const api = getClipboardApi(); api.writeText(text) }
+// 注意：函数签名返回类型里也含 `onClick: () => void` 字样，故对每个 onClick
+// 出现点的 300 字符窗口逐一断言（签名出现点的窗口会被函数体满足；真正的
+// handler 出现点若走 render 时缓存实例 `onClick: () => api.writeText(...)`，
+// 其窗口内没有 getClipboardApi() → 拦下）。
+const onClickIdxs = [...rcBodyNoComments.matchAll(/onClick/g)].map((m) => m.index)
+const onClickOk =
+  onClickIdxs.length > 0 &&
+  onClickIdxs.every((idx) => {
+    const win = rcBodyNoComments.slice(idx, idx + 300)
+    return /getClipboardApi\(\)/.test(win) && /\.writeText\s*\(/.test(win)
+  })
 checks.push([
   'renderCopyButton onClick 点击当下经 getClipboardApi() 解析再调 writeText',
-  /onClick[\s\S]{0,120}?getClipboardApi\(\)\.writeText/.test(rcBody),
+  onClickOk,
 ])
 checks.push(['renderOpenButton 仍存在（未删除）', /export\s+function\s+renderOpenButton/.test(comp)])
 

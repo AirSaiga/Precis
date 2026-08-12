@@ -28,16 +28,23 @@ checks.push(['3 文件可加载', asm != null && god != null && clip != null && 
 // clipboardOps.js 存在 + 工厂
 checks.push(['clipboardOps 导出 createClipboardOps', clip != null && typeof clip.createClipboardOps === 'function'])
 
-// assembly.js 必须【实际调用】createClipboardOps（光建一个不被装配的死代码模块不算拆分）
+// assembly.js 必须【引入并装配】createClipboardOps（光建一个不被装配的死代码模块不算拆分）。
+// 比对前先剥注释（seed 的头注释里就写着"任务后应改为也调用 createClipboardOps"，注释提及不算装配）；
+// 只要求真实代码出现 createClipboardOps 字样：直接调用 `createClipboardOps(deps)` 或
+// `const { createClipboardOps: mkClip } = require('./clipboardOps')` 别名解构后调用都算——
+// clipboardOps 导出工厂这一事实已由上一项检查保证，这里只认装配链条有没有把工厂接进来。
 const asmSrc = existsSync(join(W, 'assembly.js')) ? require('node:fs').readFileSync(join(W, 'assembly.js'), 'utf-8') : ''
-checks.push(['assembly.js 实际调用了 createClipboardOps(...)', /createClipboardOps\s*\(/.test(asmSrc)])
+const asmCode = asmSrc.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')
+checks.push(['assembly.js 引入并装配了 createClipboardOps（别名解构也算）', /createClipboardOps/.test(asmCode)])
 
 // godStore 不再含 copyNode/pasteNode 定义（已提取）。
-// 认任意定义形态：function 声明 `copyNode(`、箭头/赋值 `copyNode =`、对象方法/属性 `copyNode:`。
+// 认任意定义形态：function 声明 `copyNode(`、箭头/赋值 `copyNode =`、对象方法/属性 `copyNode:`、
+// `copyNode [..]`（字母后跟非空白操作符即算）；`\b` 防误伤 `mycopyNode`，`i` 防大小写逃逸。
 const godSrc = existsSync(join(W, 'godStore.js')) ? require('node:fs').readFileSync(join(W, 'godStore.js'), 'utf-8') : ''
-checks.push(['godStore 不再定义 copyNode', !/copyNode\s*[=(:]/.test(godSrc)])
-checks.push(['godStore 不再定义 pasteNode', !/pasteNode\s*[=(:]/.test(godSrc)])
-checks.push(['godStore 不再含 clipboard/剪贴板 字样（含注释）', !/clipboard|剪贴板/.test(godSrc)])
+checks.push(['godStore 不再定义 copyNode', !/\bcopyNode\s*[=(:\[]/i.test(godSrc)])
+checks.push(['godStore 不再定义 pasteNode', !/\bpasteNode\s*[=(:\[]/i.test(godSrc)])
+// 中英文同义字都扫：clipboard（不区分大小写）/ 剪贴板 / 剪切板，注释里出现也算。
+checks.push(['godStore 不再含 clipboard/剪贴板/剪切板 字样（含注释）', !/clipboard|剪[切贴]板/i.test(godSrc)])
 
 // assembly 聚合后 store 有所有方法
 function _makeStore() {

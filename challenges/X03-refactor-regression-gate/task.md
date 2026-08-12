@@ -5,7 +5,7 @@
 | ID | X03 |
 | 维度 | refactor（重构与代码质量） |
 | 栈 | TS（真实 Precis 前端仓库） |
-| 难度 | ★★★☆ |
+| 难度 | ★★★+ |
 | 预估 | 30-50 分钟 |
 | 依赖 | 主仓库已装好依赖（`frontend/node_modules` 存在，Node ≥20） |
 
@@ -75,7 +75,7 @@
 ### 回归门（硬约束）
 
 重构完成后，`frontend/tests/stores/graphStore/` 目录下的**全部既有测试**（34 个文件、
-336 个用例，含 `connectionStateSync.test.ts` 的 17 个用例与 `assembly.test.ts`）
+300+ 用例，含 `connectionStateSync.test.ts` 与 `assembly.test.ts`）
 **必须保持全绿**。任何既有用例变红即判 FAIL——包括你"顺手修复"的既有行为。
 
 ## 验证
@@ -96,7 +96,11 @@ node verify.mjs
    跑固定图场景的精确 patch 序列断言。
 3. **回归门**：完整跑 `frontend/tests/stores/graphStore/` 全部既有测试，必须全绿。
 
-> 提示：worktree / 副本里跑 verify 需要 `frontend/node_modules`（verify 会检查并给出指引，
-> Windows 下可用 `cmd /c mklink /J <副本>\frontend\node_modules <主仓库>\frontend\node_modules`）。
+> 提示：worktree / 副本里跑 verify 需要 `frontend/node_modules`（verify 会检查并给出指引）。
+> Windows 下推荐 PowerShell 建 junction（Git Bash 下 `cmd //c mklink` 会被 MSYS 改坏参数）：
+> ```powershell
+> powershell -Command "New-Item -ItemType Junction -Path '<副本>\frontend\node_modules' -Target '<主仓库>\frontend\node_modules'"
+> ```
+> ⚠️ 验证完删除副本时：先 `Remove-Item '<副本>\frontend\node_modules'`（PowerShell 删 junction 不跟随目标）并**确认已消失**，再 `git worktree remove --force`——直接 remove 会穿透 junction 清空主仓库 node_modules。
 
 完成后按 [challenges/README.md](../README.md) 填结果记录。

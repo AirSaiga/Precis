@@ -29,8 +29,9 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
    mkdir -p results
 
    # R04 需要 frontend 依赖（worktree 不含 node_modules）——二选一：
-   # (a) 零成本（Windows）：建 junction 共享主仓库依赖（前端测试只读 node_modules，安全）
-   cmd //c mklink /J "D:\Precis\eval-【模型名】\frontend\node_modules" "D:\Precis\Precis\frontend\node_modules"
+   # (a) 零成本（Windows）：PowerShell 建 junction 共享主仓库依赖（前端测试只读 node_modules，安全）。
+   #     注意：Git Bash 下 `cmd //c mklink /J` 会被 MSYS 改坏参数，必须用 PowerShell 形式。
+   powershell -Command "New-Item -ItemType Junction -Path 'D:\Precis\eval-【模型名】\frontend\node_modules' -Target 'D:\Precis\Precis\frontend\node_modules'"
    # (b) 干净安装（需网络，数分钟）：cd ../frontend && npm ci
 
    # ✅ SOLUTION.md 已从 git 移除（.gitignore），worktree 天然不含任何答案。
@@ -38,14 +39,14 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
    find . -name "SOLUTION.md" -o -name "maxlength_constraint.py"
    ```
 
-   > **轻量替代**（只跑 C 系列 24 题，不跑 R 系列）：用 `cp -r D:/Precis/Precis/challenges D:/Precis/eval-【模型名】` 代替 worktree。但 cp -r 会复制本地 SOLUTION.md、results/（含历史答案摘要）和可能脏的 workspace/，所以 cp 方案**必须**先跑：
+   > **轻量替代**（只跑 C 系列 24 题，不跑 R/X 系列）：用 `cp -r D:/Precis/Precis/challenges D:/Precis/eval-【模型名】` 代替 worktree。但 cp -r 会复制本地 SOLUTION.md、results/（含历史答案摘要）和可能脏的 workspace/，所以 cp 方案**必须**先跑：
    > ```bash
    > cd D:/Precis/eval-【模型名】
    > rm -rf C*/workspace results && mkdir results          # 清历史结果与脏工作区
    > find . -name SOLUTION.md -delete                      # 删答案
    > rm -f C01-nav-add-maxlength/maxlength_constraint.py   # 删 C01 独立答案文件
    > ```
-   > R 系列需要完整仓库，cp 只有 challenges/ 不够。
+   > R / X 系列需要完整仓库，cp 只有 challenges/ 不够。
 
 2. 读 `README.md` 学规则 + RESULT.md frontmatter 格式。
 
@@ -157,18 +158,26 @@ python report.py
 
 生成的 `results/LEADERBOARD.md` 就是 32 题 × N 模型的 pass/fail 矩阵 + 各模型总通过率。
 
+**回收副本（跑完一个模型后必须做）**：结果拷回主仓库 `results/` 后删除该模型的 worktree，防止 junction 残留：
+```bash
+# 若第 1 步用了 junction 方案：必须先删 junction 并确认消失（直接 worktree remove 会穿透 junction 清空主仓库 node_modules）
+powershell -Command "Remove-Item -Force 'D:\Precis\eval-【模型名】\frontend\node_modules'"
+ls D:/Precis/eval-【模型名】/frontend/node_modules 2>/dev/null && echo "junction 仍在，勿删 worktree！"
+cd D:/Precis/Precis && git worktree remove --force D:/Precis/eval-【模型名】
+```
+
 ## 快速参考：完整矩阵
 
 ### C 系列（24 题，精简 seed）
 
 | 维度 \ 难度 | Py ★☆☆ | Py ★★☆ | Py ★★★ | TS ★☆☆ | TS ★★☆ | TS ★★★ |
 |------------|--------|--------|--------|--------|--------|--------|
-| nav | C01 | C02 | C03 | C04 | C05 | C06 |
-| inc | C07 | C08 | C09 | C10 | C11 | C12 |
-| dbg | C13 | C14 | C15 | C16 | C17 | C18 |
+| nav | C01 | — | C02 / C03 | C04 | — | C05 / C06 |
+| inc | C07 | C08 | C09 | C10 | — | C11 / C12 |
+| dbg | C13 | — | C14 / C15 | C16 | C17 | C18 |
 | refactor | C19 | C20 | C21 | C22 | C23 | C24 |
 
-> 星级以 `INDEX.md` 为准（部分题目经加难后已调整，如 C02/C05 → ★★★）。
+> 经加难后 ★★☆ 与 ★★★ 分布有调整（C02/C05/C11/C14 → ★★★），星级以 `INDEX.md` 为准。
 
 ### R 系列（真实仓库导航）
 

@@ -67,8 +67,10 @@
 node verify.mjs
 ```
 
-退出码 0 = PASS，非 0 = FAIL。verify 同时做**静态检查**（godStore 不再含剪贴板逻辑——中英文注释都算、
-clipboardOps 存在且导出工厂、assembly.js **实际调用了** `createClipboardOps(...)`、assembly 聚合后
+退出码 0 = PASS，非 0 = FAIL。verify 同时做**静态检查**（godStore 不再含剪贴板逻辑——中英文注释都算
+（含"剪贴板/剪切板"同义字、`Clipboard` 大小写）、clipboardOps 存在且导出工厂、assembly.js
+**引入并装配了** `createClipboardOps`（require 解构或直接调用，`const { createClipboardOps: mkClip }
+= ...` 别名解构后调用也算）、assembly 聚合后
 store 有全部方法）和**行为回归**（真实构造 store，跑 addNode → copy → paste、copy 缺失节点、
 空剪贴板 paste，以及 **copy → undo → paste 剪贴板与历史解耦**场景）。详见 verify 输出。
 

@@ -76,7 +76,14 @@ def main() -> int:
     # 1. 复制测试文件进真实仓库（verify 期间临时存在）
     shutil.copy2(TEST_SRC, TEST_DST)
     try:
-        env = {**os.environ, "PYTHONPATH": BACKEND_DIR}
+        # 前置而非覆盖：保留调用方已有的 PYTHONPATH 条目（过滤空串）
+        existing_pythonpath = os.environ.get("PYTHONPATH", "")
+        env = {
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join(
+                p for p in [BACKEND_DIR, existing_pythonpath] if p
+            ),
+        }
 
         # 2. 注入测试（PYTHONPATH=backend 使 `from app.shared...` 可解析）
         injected = _run_pytest([TEST_DST], env, verbose=True)

@@ -3,7 +3,8 @@
 // 验证 useCounter(initial = 0) composable 提取。
 //
 // 检查分两层：
-//   1. 静态检查（读源文件文本，比对前先剥离注释——注释里写 `count = ref(initial)` 不算数）：
+//   1. 静态检查（读源文件文本，比对前先剥离注释与字符串字面量——注释/字符串里写
+//      `count = ref(initial)`、藏 `import { ref, computed } from 'vue'` 字样都不算数）：
 //      useCounter.js 存在且符合 composable 约定（含 `useCounter(initial = 0)` 签名、
 //      `count = ref(initial)`、返回四件套）、Counter.vue import 并解构 `useCounter(0)`
 //      （import 允许跨行书写）、计数器逻辑已从 .vue 移除、模态框逻辑保留、
@@ -28,7 +29,8 @@ const W = join(__dirname, 'workspace')
 const read = (p) => (existsSync(p) ? readFileSync(p, 'utf-8') : '')
 const checks = []
 
-// 静态检查用注释剥离版源码：注释里写 `count = ref(initial)` 不算数，
+// 静态检查用剥剥离版源码：注释里写 `count = ref(initial)` 不算数，
+// 字符串里藏 `import { ref, computed } from 'vue'` 字样也不算数（防"字符串藏 import"作弊），
 // 代理加的说明性注释（如 `// count = ref(0) 已提取`）也不会误伤"不再含"检查。
 // 剥离器跳过引号/模板字符串内的 `//`、`/*`（字符串不算注释）。
 function stripComments(code) {
@@ -68,23 +70,59 @@ function stripComments(code) {
   return out
 }
 
+// 在"剥注释"的基础上再整体删掉字符串字面量（内容检查用）：
+// `const _doc = "import { ref, computed } from 'vue'"` 这类字符串藏 import 字样直接消失，
+// 只靠桩全局 ref/computed 不真实 import 的作弊在静态层暴露。
+function stripStrings(code) {
+  let out = ''
+  let i = 0
+  const n = code.length
+  while (i < n) {
+    const c = code[i]
+    if (c === "'" || c === '"' || c === '`') {
+      i++
+      while (i < n) {
+        if (code[i] === '\\' && i + 1 < n) {
+          i += 2
+          continue
+        }
+        if (code[i] === c) {
+          i++
+          break
+        }
+        i++
+      }
+    } else {
+      out += c
+      i++
+    }
+  }
+  return out
+}
+
 const useCounterRaw = read(join(W, 'useCounter.js'))
 const vueRaw = read(join(W, 'Counter.vue'))
 const seedVue = read(join(__dirname, 'seed', 'Counter.vue'))
-const useCounter = stripComments(useCounterRaw)
-const vue = stripComments(vueRaw)
+const useCounterNoStr = stripComments(useCounterRaw) // 只剥注释：import 行的 vue 来源检查用
+const useCounter = stripStrings(useCounterNoStr) // 剥注释+字符串：其余内容检查用
+const vueNoStr = stripComments(vueRaw)
+const vue = stripStrings(vueNoStr)
 
 // ---- useCounter.js 静态检查 ----
 checks.push(['useCounter.js 存在', existsSync(join(W, 'useCounter.js'))])
-checks.push(['导出 useCounter 函数', /export\s+function\s+useCounter/.test(useCounter)])
-// 签名必须接受初始值参数：useCounter(initial = 0)（缺省 0）
-checks.push(['useCounter 签名含 initial = 0', /useCounter\s*\(\s*initial\s*=\s*0\s*\)/.test(useCounter)])
-checks.push(['useCounter import ref/computed from vue', /import\s+.*\bref\b.*from\s+['"]vue['"]/.test(useCounter) && /computed/.test(useCounter)])
+// 导出形态二选一：`export function useCounter`，或 `const useCounter = (...) =>` + `export { useCounter }`
+checks.push(['导出 useCounter 函数', /export\s+(?:function\s+)?useCounter\b|export\s*\{[\s\S]*?\buseCounter\b[\s\S]*?\}/.test(useCounter)])
+// 签名必须接受初始值参数：useCounter(initial = 0)（缺省 0）；箭头形态 useCounter = (initial = 0) 同样认
+checks.push(['useCounter 签名含 initial = 0', /useCounter\s*(?:=\s*)?\(\s*initial\s*=\s*0\s*\)/.test(useCounter)])
+// vue import 检查（允许跨行）：先在不剥字符串的源码上确认 `import ... ref ... from 'vue'`，
+// 再在剥字符串的源码上确认 import 关键字真实存在（字符串藏 import 蒙混不了）。
+checks.push(['useCounter import ref/computed from vue', /import\s+[\s\S]*?\bref\b[\s\S]*?from\s+['"]vue['"]/.test(useCounterNoStr) && /import\s+[\s\S]*?\bref\b[\s\S]*?\bfrom\b/.test(useCounter) && /computed/.test(useCounter)])
 // count 必须由 initial 初始化（不是硬编码 ref(0)——否则参数形同虚设）
 checks.push(['useCounter 含 count = ref(initial)', /count\s*=\s*ref\s*\(\s*initial\s*\)/.test(useCounter)])
 checks.push(['useCounter 含 double = computed', /double\s*=\s*computed/.test(useCounter)])
-checks.push(['useCounter 含 increment 函数', /function\s+increment|increment\s*=/.test(useCounter)])
-checks.push(['useCounter 含 decrement 函数', /function\s+decrement|decrement\s*=/.test(useCounter)])
+// 定义形态放宽：函数声明 / 赋值 / 返回对象里的方法简写（`increment() {}`）或属性（`increment: ...`）都认
+checks.push(['useCounter 含 increment 函数', /function\s+increment|increment\s*[=(:]/.test(useCounter)])
+checks.push(['useCounter 含 decrement 函数', /function\s+decrement|decrement\s*[=(:]/.test(useCounter)])
 checks.push(['useCounter 返回含 count/double/increment/decrement', /return\s*\{[\s\S]*count[\s\S]*double[\s\S]*increment[\s\S]*decrement/.test(useCounter)])
 
 // ---- Counter.vue 静态检查 ----

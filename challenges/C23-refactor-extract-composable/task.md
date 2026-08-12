@@ -43,7 +43,9 @@ import 并使用它（**显式调用 `useCounter(0)`**——0 就是 seed 现状
 - **调用点显式传 0**：`Counter.vue` 里必须是 `useCounter(0)`（显式写出初始值，与 seed 行为
   完全一致），不允许裸 `useCounter()`。
 - **不可改的东西**：`<template>`、`defineExpose` 暴露的名字集合、模态框逻辑。
-- **保持纯 JS `.vue`**（不要改成 TS、不要引入编译依赖）。
+- **保持纯 JS**：`.vue` 与 `useCounter.js` 都不要改成 TS、不要引入编译依赖、**不要加 TS 类型
+  注解**——verify 按纯 JS 签名形态匹配（`useCounter(initial = 0)`），`initial: number = 0` 这类
+  注解写法会被判不合格。
 
 ### 约束（务必遵守）
 
@@ -62,7 +64,8 @@ node verify.mjs
 ```
 
 退出码 0 = PASS，非 0 = FAIL。verify 分两层：
-**静态检查**（只读源文件文本）：`useCounter.js` 存在且符合 composable 约定（含
+**静态检查**（只读源文件文本，比对前剥离注释与字符串字面量——注释/字符串里写的字样不算数）：
+`useCounter.js` 存在且符合 composable 约定（含
 `useCounter(initial = 0)` 签名、`count = ref(initial)`）、`Counter.vue` 引用并解构
 `useCounter(0)`（import 允许跨行书写）、计数器逻辑已从 `.vue` 移除、模态框逻辑保留、
 `<template>` 与 seed **逐字一致**（完全不可改）；

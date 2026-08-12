@@ -96,16 +96,20 @@ def _process_def() -> ast.FunctionDef | ast.AsyncFunctionDef | None:
 
 
 def _stages_ok(mod: Any) -> bool:
-    """4 个 stage 各自行为正确（独立调用）。"""
+    """4 个 stage 各自行为正确（独立调用）。
+
+    stage 可能是惰性 generator 形态（pipeline 的自然写法），比较前先 `list()` 物化，
+    只要求物化后的结果与黄金一致。
+    """
     if mod is None:
         return False
     try:
-        if mod.stage_filter_none([1, None, 2, None, 3]) != [1, 2, 3]:
+        if list(mod.stage_filter_none([1, None, 2, None, 3])) != [1, 2, 3]:
             return False
-        if mod.stage_convert(["5", "abc", 10]) != [5, 0, 10]:
+        if list(mod.stage_convert(["5", "abc", 10])) != [5, 0, 10]:
             return False
         valid, violations = mod.stage_range_check([1, 20, 5, 30], 0, 10)
-        if valid != [1, 5] or violations != [1, 3]:
+        if list(valid) != [1, 5] or list(violations) != [1, 3]:
             return False
         result = mod.stage_collect([1, 5], [1, 3], 4, 4)
         if result["total_valid"] != 2 or result["violations"] != [1, 3]:
@@ -225,14 +229,23 @@ def main() -> int:
             (f"process 函数体真实调用了 {stage}（AST 级，注释不算）", stage in called)
         )
 
-    # process 函数体不含逐元素 for 循环（命令式循环应已搬进各 stage）
-    has_for = process_def is not None and any(
-        isinstance(n, (ast.For, ast.AsyncFor)) for n in ast.walk(process_def)
+    # process 函数体不含逐元素 for 循环或任何推导式/生成器表达式
+    # （命令式循环 / 内联逐元素逻辑应已搬进各 stage；推导式内联同样算没搬干净）
+    _loop_nodes = (
+        ast.For,
+        ast.AsyncFor,
+        ast.ListComp,
+        ast.SetComp,
+        ast.DictComp,
+        ast.GeneratorExp,
+    )
+    has_loop = process_def is not None and any(
+        isinstance(n, _loop_nodes) for n in ast.walk(process_def)
     )
     checks.append(
         (
-            "process 函数体不含 for 循环（逐元素循环已搬进各 stage）",
-            process_def is not None and not has_for,
+            "process 函数体不含逐元素 for 循环/推导式（已搬进各 stage）",
+            process_def is not None and not has_loop,
         )
     )
 

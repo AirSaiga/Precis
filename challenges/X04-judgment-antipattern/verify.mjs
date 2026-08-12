@@ -6,7 +6,9 @@
  *
  * 三步判定（全部通过才算 PASS）：
  *   A. 静态扫描：收集 agent 改动/新增的 frontend/src 实现文件
- *      （git diff HEAD + untracked；git 不可用时回退到 task 指定的连接模块文件），
+ *      （git diff HEAD + git diff --cached + 提交对比 main + untracked/porcelain，
+ *       agent 把改动 commit 后仅靠 git diff HEAD + untracked 会漏扫；
+ *       git 不可用时回退到 task 指定的连接模块文件），
  *      检查画布边数组禁模式（edges.value.push / edges.value = ...filter / edges.value.splice）。
  *   B. 注入行为级 vitest：batchAddEdges 后全部边经 Vue Flow API 提交并进入
  *      画布边集合、reconcile 触发、空数组安全、createConnection 不回归。
@@ -72,27 +74,73 @@ if (!existsSync(VITEST_BIN)) {
 
 // ---- A. 静态扫描 ----
 
-/** 收集 agent 改动/新增的 frontend/src 文件（git diff HEAD + untracked） */
+/** 收集 agent 改动/新增的 frontend/src 文件。
+ *  数据源并集：git diff HEAD（工作区 vs HEAD）+ git diff --cached（暂存区）+
+ *  git ls-files --others（untracked）+ git status --porcelain 解析（暂存/未暂存/
+ *  untracked/重命名目标）+ 提交对比 main（见下）。agent 把改动 commit 之后，
+ *  git diff HEAD / --cached / porcelain 会全空导致漏扫（行为门兜底但不完整），
+ *  因此多源并集 + 提交对比保证覆盖 committed 场景。 */
 function collectChangedSrcFiles() {
   const files = new Set()
+  let gitOk = true
+  const run = (args) => {
+    try {
+      return execSync(`git ${args}`, {
+        cwd: REPO_ROOT,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+    } catch {
+      gitOk = false
+      return ''
+    }
+  }
+  // 工作区相对 HEAD 的改动（含暂存后的内容）
+  const head = run('diff --name-only HEAD -- frontend/src')
+  // 暂存区改动（git add 后未 commit；commit 内容由回放/暂存落到工作区时也在此）
+  const cached = run('diff --cached --name-only -- frontend/src')
+  // untracked 文件
+  const untracked = run('ls-files --others --exclude-standard -- frontend/src')
+  // porcelain 全量解析（暂存 + 未暂存 + untracked + 重命名），与上面三源互为冗余兜底
+  const porcelain = run('status --porcelain --untracked-files=all -- frontend/src')
+  const addLines = (out) => {
+    for (const line of out.split('\n')) {
+      const rel = line.trim()
+      if (rel) files.add(rel)
+    }
+  }
+  addLines(head)
+  addLines(cached)
+  addLines(untracked)
+  // porcelain 行格式：`XY 路径` 或 `XY 旧路径 -> 新路径`（重命名）；路径可能被双引号包裹
+  for (const line of porcelain.split('\n')) {
+    if (!line.trim()) continue
+    let rest = line.slice(3) // 去掉 XY 状态 + 空格
+    if (rest.includes(' -> ')) {
+      rest = rest.split(' -> ').pop() || '' // 重命名取新路径
+    }
+    const unquoted = rest.trim().replace(/^"(.*)"$/, '$1')
+    if (unquoted) files.add(unquoted)
+  }
+  // 已 commit 的改动：worktree 由 main 检出（--detach），agent 提交后 HEAD 前移，
+  // 上面各源全空。若 main 是 HEAD 的祖先，用 git diff main HEAD 补上提交内容；
+  // 任一前置不成立（无 main / HEAD 未前移 / 非祖先）则静默跳过，不影响其它收集。
   try {
-    const modified = execSync('git diff --name-only HEAD -- frontend/src', {
-      cwd: REPO_ROOT,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
-    const untracked = execSync('git ls-files --others --exclude-standard -- frontend/src', {
-      cwd: REPO_ROOT,
-      encoding: 'utf-8',
-      stdio: ['pipe', 'pipe', 'pipe'],
-    })
-    for (const out of [modified, untracked]) {
-      for (const line of out.split('\n')) {
-        const rel = line.trim()
-        if (rel) files.add(rel)
-      }
+    execSync('git merge-base --is-ancestor main HEAD', { cwd: REPO_ROOT, stdio: 'ignore' })
+    try {
+      const committed = execSync('git diff main HEAD --name-only -- frontend/src', {
+        cwd: REPO_ROOT,
+        encoding: 'utf-8',
+        stdio: ['pipe', 'pipe', 'pipe'],
+      })
+      addLines(committed)
+    } catch {
+      // 提交对比 diff 失败：跳过，不影响其它收集
     }
   } catch {
+    // main 不存在或不是 HEAD 的祖先：跳过提交对比
+  }
+  if (!gitOk) {
     console.log('[scan] git 不可用（非 git 副本？），回退为仅扫描 task 指定文件')
   }
   // task 指定文件始终纳入（即使 agent 只改了它且 git 不可用）
@@ -167,7 +215,7 @@ const pass = scanOk && vitestExit === 0
 console.log(pass ? 'PASS' : 'FAIL')
 console.log('')
 console.log('== A. 静态扫描（画布边数组禁模式）==')
-console.log(`扫描文件（git diff HEAD + untracked，frontend/src，共 ${scanTargetFiles.length} 个）:`)
+console.log(`扫描文件（git diff HEAD / --cached / 提交对比 main / untracked + porcelain，frontend/src，共 ${scanTargetFiles.length} 个）:`)
 for (const f of scanTargetFiles) {
   const rel = f.startsWith(REPO_ROOT) ? f.slice(REPO_ROOT.length + 1) : f
   console.log(`  - ${rel.split(sep).join('/')}`)

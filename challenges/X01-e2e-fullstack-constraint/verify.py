@@ -17,11 +17,15 @@ stdout 首行：PASS 或 FAIL，随后按 `  [✓]/[✗]` 列出明细。
      6. 回归门：运行前端既有的约束测试子集（注册表完整性 / 注册表核心 / 节点数据构建器 /
         round-trip / 导出适配器）。注意：注册表完整性测试与注册表核心测试各含一处硬编码
         "10 种约束"的参考副本，新增第 11 种必须同步更新——这是任务要求的一部分。
-     7. 静态检查（防弱化 + 类型接通）：
+     7. 静态检查（防弱化 + 类型接通 + 导出适配层穷尽）：
         (a) registryIntegrity.test.ts 保留全部 10 个既有 v2Type 且补入 'Precision'
         (b) validationRegistryCore.test.ts 的长度断言更新为 toHaveLength(11)
         (c) 约束服务层类型模块含 'precision' / 'precisionConstraint' 联合成员
         (d) PrecisionConstraintNodeData 接口声明存在，且 nodes.ts 中引用 ≥2 次（联合成员）
+        (e) constraintExportAdapter.ts 含 case 'Precision'（该文件对 v2Type 做穷尽 switch，
+            default 分支 `const _exhaustive: never = v2Type`；ConstraintTypeV2 加 'Precision'
+            后若不同步加 case，`npm run type-check` 红——注入测试与回归子集不覆盖此编译期契约，
+            本静态检查专为兜底）
   注入测试、回归子集、静态检查全部通过才 PASS。
   8. 无论成败，finally 清理复制进去的测试文件与字节码缓存（不污染真实仓库）。
 """
@@ -87,6 +91,9 @@ VRC_TEST = os.path.join(
 CONSTRAINT_TYPES_TS = os.path.join(FRONTEND_SRC, "services", "constraints", "types.ts")
 TYPES_CONSTRAINTS_TS = os.path.join(FRONTEND_SRC, "types", "constraints.ts")
 TYPES_NODES_TS = os.path.join(FRONTEND_SRC, "types", "nodes.ts")
+EXPORT_ADAPTER_TS = os.path.join(
+    FRONTEND_SRC, "services", "constraints", "constraintExportAdapter.ts"
+)
 
 
 def _read(p: str) -> str:
@@ -220,6 +227,7 @@ def main() -> int:
         ctypes_text = _read(CONSTRAINT_TYPES_TS)
         tcons_text = _read(TYPES_CONSTRAINTS_TS)
         tnodes_text = _read(TYPES_NODES_TS)
+        adapter_text = _read(EXPORT_ADAPTER_TS)
 
         # (a) 参考副本：全部 10 个既有 v2Type 保留 + 补入 'Precision'；数量断言更新为 11
         sync_ri_ok = (
@@ -234,6 +242,10 @@ def main() -> int:
         iface_ok = "interface PrecisionConstraintNodeData" in tcons_text
         union_member_ok = tnodes_text.count("PrecisionConstraintNodeData") >= 2
         types_ok = union_ok and iface_ok and union_member_ok
+        # (e) 导出适配层穷尽 switch：ConstraintTypeV2 加 'Precision' 后必须给
+        # constraintExportAdapter.ts 的 switch 同步加 case，否则 type-check 红。
+        # 注入测试/回归子集是运行时验证，覆盖不了这条编译期契约，漏改也能全绿——必须静态兜底。
+        adapter_ok = "case 'Precision'" in adapter_text
 
         passed = (
             injected_b_ok
@@ -242,6 +254,7 @@ def main() -> int:
             and regression_f_ok
             and sync_ok
             and types_ok
+            and adapter_ok
         )
 
         # ======================= 输出（标准契约） =======================
@@ -269,6 +282,11 @@ def main() -> int:
             f"  [{'✓' if types_ok else '✗'}] 前端类型接通 "
             "(ConstraintKind/ConstraintNodeType 联合 + PrecisionConstraintNodeData 接口 + "
             "CustomNodeData 联合成员)"
+        )
+        print(
+            f"  [{'✓' if adapter_ok else '✗'}] 导出适配层穷尽检查 "
+            "(constraintExportAdapter.ts 含 case 'Precision'，漏改则 ConstraintTypeV2 穷尽 "
+            "switch 报错、npm run type-check 红)"
         )
 
         print("--- 后端注入测试输出 ---")
@@ -311,6 +329,13 @@ def main() -> int:
                 f"types.ts 联合含 'precision'/'precisionConstraint': {union_ok}\n"
                 f"types/constraints.ts 含 PrecisionConstraintNodeData 接口: {iface_ok}\n"
                 f"types/nodes.ts 引用 ≥2 次（联合成员）: {union_member_ok}"
+            )
+        if not adapter_ok:
+            print(
+                "--- 导出适配层穷尽检查详情 ---\n"
+                f"constraintExportAdapter.ts 未找到 case 'Precision'（adapter_ok={adapter_ok}）。\n"
+                "ConstraintTypeV2 已含 'Precision'，但导出适配器的 switch 未同步加 case，"
+                "default 分支的穷尽检查会令 npm run type-check 报错。"
             )
 
         return 0 if passed else 1

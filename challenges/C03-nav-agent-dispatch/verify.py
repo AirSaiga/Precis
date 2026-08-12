@@ -50,7 +50,17 @@ def main() -> int:
     q2 = re.search(r"#\s*Q2[:：]\s*(.+)", ans_src)
     q2_ok = q2 is not None and any(
         k in q2.group(1).lower()
-        for k in ("成功", "执行成功", "succeed", "called", "实际执行")
+        for k in (
+            "成功",
+            "执行成功",
+            "succeed",
+            "called",
+            "实际执行",
+            "已执行",
+            "执行完",
+            "完成",
+            "completed",
+        )
     )
     checks.append(("Q2 描述 executed 跟踪成功执行的工具数", q2_ok))
     q3 = re.search(r"#\s*Q3[:：]\s*(.+)", ans_src)

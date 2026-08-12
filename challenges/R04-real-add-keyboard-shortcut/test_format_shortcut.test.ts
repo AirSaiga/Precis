@@ -32,6 +32,23 @@ describe('R04 — format canvas 快捷键命令', () => {
     expect(formatCommand, '应存在一个 id 含 "format" 的命令').toBeDefined()
   })
 
+  describe('基线：既有命令未被删除/替换', () => {
+    // 防作弊门：agent 若在 getCanvasCommands() 里删掉既有命令（如 canvas.zoomIn）
+    // 换成 format 命令，纯「format 存在」断言与回归门（不 import getCanvasCommands）
+    // 都查不出——此基线断言锁定既有命令仍保留。
+    it('getCanvasCommands() 仍包含既有命令 canvas.zoomIn / canvas.fitView', () => {
+      const ids = getCanvasCommands().map((c) => c.id)
+      expect(ids).toContain('canvas.zoomIn')
+      expect(ids).toContain('canvas.fitView')
+    })
+
+    it('默认命令总集合仍包含既有命令 canvas.zoomIn / canvas.fitView', () => {
+      const ids = getAllDefaultCommands().map((c) => c.id)
+      expect(ids).toContain('canvas.zoomIn')
+      expect(ids).toContain('canvas.fitView')
+    })
+  })
+
   describe('命令字段完整性', () => {
     it('拥有非空 id', () => {
       expect(formatCommand).toBeDefined()

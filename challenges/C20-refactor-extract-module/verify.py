@@ -86,9 +86,31 @@ def main() -> int:
             "def _format_foreign_key_error" not in svc_src,
         )
     )
-    checks.append(
-        ("service.py import 自 formatters", "from formatters import" in svc_src)
-    )
+
+    def _imports_formatters() -> bool:
+        """service.py 是否真实 import 了 formatters 模块。
+
+        `from formatters import ...` 与 `import formatters`（含 `import formatters as _f`
+        点号调用）均为合法形态；用 AST 检查所有 import 语句——注释/字符串里提及不算。
+        """
+        try:
+            tree = ast.parse(svc_src)
+        except (SyntaxError, ValueError):
+            return False
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "formatters" or alias.name.startswith(
+                        "formatters."
+                    ):
+                        return True
+            elif isinstance(node, ast.ImportFrom):
+                mod = node.module or ""
+                if mod == "formatters" or mod.startswith("formatters."):
+                    return True
+        return False
+
+    checks.append(("service.py import 自 formatters", _imports_formatters()))
 
     # formatters.py 不得反向 import service（禁循环导入）。
     # 用 AST 检查所有 import 语句——只认真实 import，注释/字符串里提及 "service" 不算。

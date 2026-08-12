@@ -124,17 +124,20 @@ function transformImportsExports(code) {
     // side-effect import：`import './x'` → `require('./x')`
     // （被 // 注释的行不匹配，保持惰性。注意：行首/行尾一律用 [ \t]* 而非 \s*——
     //   CRLF 文件里 JS 的 ^/$ 把 \r 也算作行终止符，^\s* 会把上一行的 \n 吞掉，
-    //   导致相邻语句被拼接到同一行）
-    .replace(/^[ \t]*import\s+['"](\.\/[^'"]+)['"]\s*;?[ \t]*$/gm, "require('$1')")
+    //   导致相邻语句被拼接到同一行。
+    //   语句后用 [^\r\n]* 容忍行尾杂质：取消注释时残留的尾注/说明文字
+    //   （如 `import './notNullHandler'   ← 被注释掉了，handler 没注册！`）整段丢弃；
+    //   [^\r\n] 不会跨越行边界，不会吞掉相邻语句）
+    .replace(/^[ \t]*import\s+['"](\.\/[^'"]+)['"][^\r\n]*$/gm, "require('$1')")
     // 命名 import：`import { a, b } from './x'`
     .replace(
-      /^[ \t]*import\s*\{([^}]*)\}\s*from\s*['"](\.\/[^'"]+)['"]\s*;?[ \t]*$/gm,
+      /^[ \t]*import\s*\{([^}]*)\}\s*from\s*['"](\.\/[^'"]+)['"][^\r\n]*$/gm,
       "const {$1} = require('$2')",
     )
     // 再导出：`export { a, b } from './x'` → 逐个透传绑定到 exports
     // （barrel 的对外 API 面；逐名展开兼容 `export { a, b }` 多名写法）
     .replace(
-      /^[ \t]*export\s*\{([^}]*)\}\s*from\s*['"](\.\/[^'"]+)['"]\s*;?[ \t]*$/gm,
+      /^[ \t]*export\s*\{([^}]*)\}\s*from\s*['"](\.\/[^'"]+)['"][^\r\n]*$/gm,
       (_, names, spec) =>
         names
           .split(',')

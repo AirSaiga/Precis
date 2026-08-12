@@ -2,7 +2,8 @@
  * X02 verify — 在真实 Precis 前端仓库上校验键盘监听器对 IME 合成态事件的处理。
  *
  * 退出码：0 = PASS，非 0 = FAIL。
- * stdout 首行：PASS 或 FAIL。
+ * stdout 首行：PASS 或 FAIL，随后按 `  [✓]/[✗]` 列出各阶段明细
+ * （前置检查 / 注入测试 / 既有回归 / 清理）。
  *
  * 流程：
  *   1. 把 test_ime_guard.test.ts 复制到
@@ -42,11 +43,13 @@ const REL_TEST_TARGET = 'tests/features/keyboard'
 // 0. 前置检查（不复制文件，直接判 FAIL）
 if (!existsSync(TEST_SRC)) {
   console.log('FAIL')
+  console.log('  [✗] 前置检查: 测试源文件不存在')
   console.log(`测试源文件不存在: ${TEST_SRC}`)
   process.exit(1)
 }
 if (!existsSync(FRONTEND_DIR)) {
   console.log('FAIL')
+  console.log('  [✗] 前置检查: 前端目录不存在')
   console.log(`前端目录不存在: ${FRONTEND_DIR}`)
   process.exit(1)
 }
@@ -54,6 +57,7 @@ if (!existsSync(FRONTEND_DIR)) {
 const VITEST_BIN = join(FRONTEND_DIR, 'node_modules', '.bin', 'vitest')
 if (!existsSync(VITEST_BIN)) {
   console.log('FAIL')
+  console.log('  [✗] 前置检查: 未找到 vitest（frontend/node_modules 缺失）')
   console.log(`未找到 vitest: ${VITEST_BIN}`)
   console.log('当前 frontend/ 缺少 node_modules（worktree/副本不含依赖），请先二选一：')
   console.log('  1) 安装依赖: cd frontend && npm ci')
@@ -68,11 +72,19 @@ let exitCode = 1
 let captured = ''
 let capturedErr = ''
 let timedOut = false
+let injectedOk = false
+let vitestOk = false
+let cleanupOk = false
 
 // 1. 复制测试文件进真实仓库（verify 期间临时存在）
 // 目标目录在仓库中已存在（既有 4 个键盘测试），mkdirSync 仅为兜底
-mkdirSync(dirname(TEST_DST), { recursive: true })
-copyFileSync(TEST_SRC, TEST_DST)
+try {
+  mkdirSync(dirname(TEST_DST), { recursive: true })
+  copyFileSync(TEST_SRC, TEST_DST)
+  injectedOk = true
+} catch {
+  injectedOk = false
+}
 
 try {
   // 2. 运行 vitest（run 模式；覆盖注入测试 + 既有 4 个键盘测试，超时 150s）
@@ -85,12 +97,14 @@ try {
   // 3. vitest 退出码 0 = 全部通过
   captured = output
   exitCode = 0
+  vitestOk = true
 } catch (e) {
   // 退出码非 0 = 有失败或运行错误
   captured = typeof e.stdout === 'string' ? e.stdout : ''
   capturedErr = typeof e.stderr === 'string' ? e.stderr : ''
   timedOut = !!e.killed
   exitCode = 1
+  vitestOk = false
 } finally {
   // 4. 清理：无论成败都移除临时测试文件，保持真实仓库干净
   if (existsSync(TEST_DST)) {
@@ -100,10 +114,19 @@ try {
       // 忽略清理错误
     }
   }
+  cleanupOk = !existsSync(TEST_DST)
 }
 
-// 5. 统一输出（清理已完成）
+// 5. 统一输出（清理已完成）：首行 PASS/FAIL，随后按关键阶段列出明细行
 console.log(exitCode === 0 ? 'PASS' : 'FAIL')
+console.log('  [✓] 前置检查: frontend/node_modules 与 vitest 可用')
+console.log(
+  `  [${injectedOk ? '✓' : '✗'}] 注入测试: test_ime_guard.test.ts 复制进 tests/features/keyboard/`
+)
+console.log(
+  `  [${vitestOk ? '✓' : '✗'}] 注入测试 + 既有回归: tests/features/keyboard 全部 vitest 用例通过`
+)
+console.log(`  [${cleanupOk ? '✓' : '✗'}] 清理: 临时测试文件已移除，不污染真实仓库`)
 console.log(captured.slice(-3000))
 if (capturedErr) {
   console.log('--- stderr ---')

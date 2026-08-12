@@ -20,7 +20,8 @@
 
 把命令式的 `process()` 重构成一条 **pipeline**：拆成 4 个可组合的 stage 函数，每个 stage 是一个
 **纯函数**（输入 → 输出，无副作用），`process()` 只负责依次调用它们、把上一步的输出喂给下一步，
-不再含任何逐元素 `for`/`if` 处理逻辑。
+不再含任何逐元素 `for`/`if` 处理逻辑，**也不得用推导式/生成器表达式把逐元素逻辑内联回
+`process`**（AST 级检查会连推导式一起禁——逐元素逻辑必须全部落在各 stage 内）。
 
 **必须创建这 4 个 stage**（名字固定，verify 依赖）：
 
@@ -36,7 +37,12 @@
 
 - **文件**：`workspace/validator.py`（在原文件内新增 4 个 stage + 重写 `process`，**不要新建其它文件**）。
 - **4 个 stage 必须真实存在且可独立调用**（verify 会直接调它们测行为，不只看文本）。
-- **`process` 必须调用**这 4 个 stage（不能把 stage 逻辑又内联回 `process`）。
+- **stage 返回类型**：`stage_filter_none`、`stage_convert` 返回 `list`；`stage_range_check` 返回
+  `(list, list)` 元组（合法值列表 + 越界下标列表）；`stage_collect` 返回 `dict`。契约以返回
+  `list` 为准（惰性 generator 形态也能运行、verify 比较前会 `list()` 物化后判定，但签名与文档
+  应按 list 写）。
+- **`process` 必须调用**这 4 个 stage（不能把 stage 逻辑又内联回 `process`，也不能用推导式/
+  生成器表达式在 `process` 里重新实现逐元素逻辑）。
 - **行为必须完全一致**（verify 会用多组测试对照原始实现的黄金输出）。
 - **不可变性契约**：每个 stage 必须是**纯函数**——返回**新对象**，不得原地修改入参
   （不允许 `sort()` / `append()` / `pop()` / `del` / 切片赋值等原地变更）。由此保证
@@ -60,7 +66,9 @@ python verify.py
 
 退出码 0 = PASS，非 0 = FAIL。verify 同时检查：4 个 stage 存在且各自行为正确、`process` 行为对照
 黄金完全一致、`process` 函数体确实调用了 4 个 stage（AST 级检查——只认真实的函数调用，在注释或
-字符串里写 stage 名不算）、`process` 函数体不含逐元素 `for` 循环、以及**不可变性**（`process` 与
+字符串里写 stage 名不算）、`process` 函数体不含逐元素 `for` 循环或任何推导式/生成器表达式
+（`ast.For`/`AsyncFor` + `ListComp`/`SetComp`/`DictComp`/`GeneratorExp` 全部禁止——逐元素逻辑
+必须全部落在各 stage 内）、以及**不可变性**（`process` 与
 每个 stage 执行后调用方传入的对象与深拷贝快照逐元素相等——原地 `sort()`/`append()`/切片赋值会
 直接 FAIL）。详见 verify 输出。
 
