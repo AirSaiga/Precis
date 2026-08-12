@@ -10,6 +10,7 @@ C*/workspace/RESULT.md
 # 原理：git rm --cached 后 worktree 从 git checkout 天然不含答案
 C*/SOLUTION.md
 R*/SOLUTION.md
+X*/SOLUTION.md
 
 # C01 的独立参考答案文件（同上）
 C01-nav-add-maxlength/maxlength_constraint.py
