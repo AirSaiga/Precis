@@ -15,7 +15,7 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 
 ## 流程
 
-1. **创建完整仓库 worktree + 删除答案**（防作弊，与其他模型隔离）：
+1. **创建完整仓库 worktree**（防作弊，与其他模型隔离）：
    ```bash
    # 用 git worktree 创建完整仓库副本（含 challenges/ + backend/ + frontend/）
    cd D:/Precis/Precis
@@ -26,15 +26,13 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
    rm -rf C*/workspace results
    mkdir -p results
 
-   # ⚠️ 关键：删除所有参考答案（C 系列 + R 系列），防止 agent 读答案作弊
-   find . -path "*/C*/SOLUTION.md" -delete
-   find . -path "*/R*/SOLUTION.md" -delete
-   rm -f C01-nav-add-maxlength/maxlength_constraint.py
-   # 验证答案已删干净（应无输出）
+   # ✅ SOLUTION.md 已从 git 移除（.gitignore），worktree 天然不含任何答案。
+   # 以下 find 只是确认（应无输出）。如果用 cp -r 而非 worktree，则 find -delete 仍是必须的。
    find . -name "SOLUTION.md" -o -name "maxlength_constraint.py"
    ```
+   ```
 
-   > **轻量替代**（只跑 C 系列 24 题，不跑 R 系列）：用 `cp -r D:/Precis/Precis/challenges D:/Precis/eval-【模型名】` 代替 worktree。但 R 系列需要完整仓库，cp 只有 challenges/ 不够。
+   > **轻量替代**（只跑 C 系列 24 题，不跑 R 系列）：用 `cp -r D:/Precis/Precis/challenges D:/Precis/eval-【模型名】` 代替 worktree。但 cp -r 会复制本地 SOLUTION.md（因为它在磁盘上存在，只是不 track），所以 cp 方案**必须**跑 `find . -name SOLUTION.md -delete && rm -f C01-nav-add-maxlength/maxlength_constraint.py` 删答案。R 系列需要完整仓库，cp 只有 challenges/ 不够。
 
 2. 读 `README.md` 学规则 + RESULT.md frontmatter 格式。
 
