@@ -49,8 +49,11 @@ PatternConstraint(table, column, pattern)
 python verify.py
 ```
 
-`verify.py` 会把测试文件复制进后端测试目录并以 pytest 运行。
-退出码 `0` = PASS，非 `0` = FAIL。stdout 首行为 `PASS` 或 `FAIL`。
+`verify.py` 会把测试文件复制进后端测试目录并以 pytest 运行；随后还会以相同环境
+**回归运行仓库既有的相关测试子集**（`tests/unit/test_validation_constraints_imports.py`）。
+注入测试与回归子集**都通过**才算 PASS。
+退出码 `0` = PASS，非 `0` = FAIL。stdout 首行为 `PASS` 或 `FAIL`，
+随后按 `  [✓]/[✗]` 列出注入测试与回归门明细。
 
 ## 提示
 
@@ -60,3 +63,7 @@ python verify.py
 - 配置文件的数据模型对 `type` 字段有枚举约束，新类型需要加入该枚举，否则连配置对象都构造不出来。
 - 类型名规范化入口维护了一张别名表：多数约束类型都注册了 snake_case / 小写别名
   （如 `'not_null'` → `'NotNull'`、`'allowed_values'` → `'AllowedValues'`），新类型也应照此办理。
+- **你的改动不得破坏仓库既有测试**（verify 会回归相关既有测试）。注意：某个兼容层
+  re-export 模块的 `__all__` 被既有测试硬编码锁定——接通新约束时若随手把它加进该
+  `__all__`，功能虽正常，但会弄坏既有测试导致 FAIL。想清楚"名字绑定"与"列入 `__all__`"
+  的区别再动手。

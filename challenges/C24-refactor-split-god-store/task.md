@@ -44,6 +44,11 @@
   的行为原样保留在 `godStore.js`。
 - **行为必须完全不变**：`assembleStore({ nodes })` 返回的 store，对同一组操作产生与拆分前相同的
   结果（verify 会跑行为回归）。
+- **剪贴板与历史解耦**：`undo()` 只能回滚 `nodes`（历史操作域），**不得清空或重置剪贴板**。
+  `copyNode` 成功后执行 `undo()`，剪贴板内容必须原样保留——随后 `pasteNode` 仍必须粘贴出与
+  `copyNode` 时相同的节点数据。verify 会跑 `snapshot → copyNode → undo → pasteNode` 场景
+  （undo 后 paste 仍返回节点且 `data` 正确）；任何"undo 连带重置剪贴板"的实现（如把剪贴板状态
+  挂在历史回滚会重置的位置）都会 FAIL。
 
 ### 约束（务必遵守）
 
@@ -64,6 +69,7 @@ node verify.mjs
 
 退出码 0 = PASS，非 0 = FAIL。verify 同时做**静态检查**（godStore 不再含剪贴板逻辑——中英文注释都算、
 clipboardOps 存在且导出工厂、assembly.js **实际调用了** `createClipboardOps(...)`、assembly 聚合后
-store 有全部方法）和**行为回归**（真实构造 store，跑 addNode → copy → paste 等场景）。详见 verify 输出。
+store 有全部方法）和**行为回归**（真实构造 store，跑 addNode → copy → paste、copy 缺失节点、
+空剪贴板 paste，以及 **copy → undo → paste 剪贴板与历史解耦**场景）。详见 verify 输出。
 
 完成后按 [challenges/README.md](../README.md) 填 `workspace/RESULT.md`。

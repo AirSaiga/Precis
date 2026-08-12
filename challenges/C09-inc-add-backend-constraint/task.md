@@ -27,7 +27,9 @@ workspace 是 Precis 后端三层分离架构的精简副本，用"约束校验"
 - **构造参数**：`min_len`（int）、`max_len`（int）
 - **constraint_type**：`"length"`
 
-这个约束要贯穿三层才能端到端工作。**自己判断 domain / service / api 三层里哪些需要改**——仔细读现有代码的设计，想清楚再动手。其余设计（校验逻辑细节、错误处理）自行决定。verify 只测行为，不查内部实现。
+**构造参数校验**：`min_len > max_len`，或 `min_len` / `max_len` 任一为负数 → **构造时**抛 `ConstraintConfigError`。该异常类**已在 `workspace/domain.py` 中定义**（`ValueError` 子类，含用法惯例注释）——直接用它，不要另起炉灶抛别的异常类型。非法配置必须在 `__init__` 阶段就拦住，不能拖到 `validate` 时才暴露。
+
+这个约束要贯穿三层才能端到端工作。**自己判断 domain / service / api 三层里哪些需要改**——仔细读现有代码的设计，想清楚再动手。其余设计（异常消息文案、其他边界情况）自行决定。verify 只测行为，不查内部实现。
 
 ## 约束
 
@@ -41,6 +43,6 @@ workspace 是 Precis 后端三层分离架构的精简副本，用"约束校验"
 python verify.py
 ```
 
-退出码 0 = PASS，非 0 = FAIL。verify 会真实 import 三个层（共 14 项检查）：调用 `validate`、经 service 端到端验证、真实请求 api 的 `GET /constraint-types` 断言清单含 `"length"`，并检查 service / api 两层源码中没有针对具体类型名（`"length"`）的特判。
+退出码 0 = PASS，非 0 = FAIL。verify 会真实 import 三个层（共 16 项检查）：调用 `validate`、构造参数非法时断言抛 `ConstraintConfigError`、经 service 端到端验证、真实请求 api 的 `GET /constraint-types` 断言清单含 `"length"`，并检查 service / api 两层源码中没有针对具体类型名（`"length"`）的特判。
 
 完成后按 [challenges/README.md](../README.md) 填 `workspace/RESULT.md`。

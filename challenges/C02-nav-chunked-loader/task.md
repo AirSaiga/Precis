@@ -5,8 +5,8 @@
 | ID | C02 |
 | 维度 | nav（代码库导航与理解） |
 | 栈 | Python |
-| 难度 | ★★☆ |
-| 预估 | 15-25 分钟 |
+| 难度 | ★★★ |
+| 预估 | 20-35 分钟 |
 | 依赖 | Python ≥3.12 + pandas |
 
 ## 背景
@@ -37,6 +37,16 @@ workspace 是 Precis 分块文件加载（chunked loader）的精简缩影，涉
 它存在缺陷——某些重复值检测不到。修复它使其正确工作。返回值结构沿用 seed
 `find_cross_chunk_duplicates` docstring 声明的契约（`(chunk_idx, local_row)` 元组列表，
 `local_row` 为该行在其 chunk 内的索引标签）；其余实现细节自行决定。verify 只测行为，不查内部实现。
+
+修复后的完整规格（三条都必须满足）：
+
+1. **跨块重复要检出**：一个值在 chunk A 出现、又在 chunk B 出现，两处都要报出；
+   块内重复的既有行为保持不回归。
+2. **NaN / None 不算重复**：列中的缺失值（NaN、None 等）**不参与**重复判定——
+   无论出现多少次、分散在多少个 chunk，都不应报出。注意 pandas 的 `duplicated()` /
+   `value_counts()` 会把多个缺失值标成重复，直接套用会误报。
+3. **支持非字符串列**：int / float 等数值列的跨块重复同样要正确报出，重复判定基于
+   值相等。注意缺失值与数值混排时列会被 pandas 转成 float，别把缺失值当成"彼此相等"。
 
 ## 约束
 

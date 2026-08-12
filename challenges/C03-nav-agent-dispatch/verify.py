@@ -1,4 +1,4 @@
-"""C03 verify — 导航理解答案 + export_csv 注册修复。"""
+"""C03 verify — 导航理解答案 + 导出链路（export_csv / export_json）注册修复。"""
 
 from __future__ import annotations
 
@@ -59,6 +59,17 @@ def main() -> int:
         for k in ("跳过", "skip", "记录错误", "error", "continue", "继续", "不中断")
     )
     checks.append(("Q3 描述未注册工具被跳过/记错", q3_ok))
+    # Q4: 错误累积路径 —— 需同时覆盖"记入 errors"与"plan 继续/不中断"两点
+    q4 = re.search(r"#\s*Q4[:：]\s*(.+)", ans_src)
+    q4_text = q4.group(1).lower() if q4 else ""
+    q4_ok = (
+        q4 is not None
+        and any(
+            k in q4_text for k in ("errors", "error", "记录", "追加", "累积", "append")
+        )
+        and any(k in q4_text for k in ("继续", "不中断", "continue", "后续", "不终止"))
+    )
+    checks.append(("Q4 描述错误累积路径（记入 errors 且 plan 继续）", q4_ok))
 
     # === 修复 ===
     tr, c1 = _safe_import("tool_registry")
@@ -71,6 +82,12 @@ def main() -> int:
         (
             "'export_csv' 已注册",
             tr is not None and "export_csv" in (tr.list_tools() if tr else []),
+        )
+    )
+    checks.append(
+        (
+            "'export_json' 已注册",
+            tr is not None and "export_json" in (tr.list_tools() if tr else []),
         )
     )
 
@@ -89,6 +106,25 @@ def main() -> int:
             return False
 
     checks.append(("execute(plan('export')) 无错且执行 2 步", _check_export_run()))
+
+    # full_export 链路（含 export_json 的两步计划）
+    def _check_full_export_run():
+        if tr is None or ex is None or pl is None:
+            return False
+        try:
+            steps = pl.plan("full_export")
+            result = ex.execute(steps)
+            return (
+                result["executed"] == 2
+                and len(result["errors"]) == 0
+                and len(result["results"]) == 2
+            )
+        except Exception:
+            return False
+
+    checks.append(
+        ("execute(plan('full_export')) 无错且两步都执行", _check_full_export_run())
+    )
 
     # validate_and_report 仍正常（3 步全过）
     def _check_validate_run():

@@ -1,6 +1,6 @@
 // verify.mjs — C17-dbg-ime-guard
 //
-// 验证 handleKeydown 在 IME 合成态下放行（返回 null），
+// 验证 handleKeydown / handleKeyup 两个键盘入口在 IME 合成态下都放行（返回 null），
 // 同时不破坏正常（非合成）快捷键的匹配。
 //
 // 退出码：0 = PASS，非 0 = FAIL。
@@ -114,6 +114,35 @@ checks.push([
 
 // 检查 11: 无匹配键仍返回 null（守卫不应改变"不匹配"的语义）
 checks.push(["无匹配键 'x' → null", fn && fn(mkEvent({ key: 'x' })) === null])
+
+// ---- 第二个键盘入口：handleKeyup（Delete 抬起触发删除）----
+const fnUp = mod?.handleKeyup
+
+// 检查 12: handleKeyup 是函数
+checks.push(['handleKeyup 是函数（第二个键盘入口）', typeof fnUp === 'function'])
+
+// 检查 13: 非合成 Delete keyup 仍工作 —— 确认守卫没有误伤正常按键
+checks.push([
+  "非合成 Delete（keyup 入口）→ 'delete-node'",
+  fnUp && fnUp(mkEvent({ key: 'Delete' })) === 'delete-node',
+])
+
+// 检查 14-16（关键）: keyup 入口在合成态下同样放行（双信号各自覆盖）
+checks.push([
+  '合成态 Delete（keyup 入口）→ 放行',
+  fnUp && fnUp(mkEvent({ key: 'Delete', isComposing: true })) === null,
+])
+checks.push([
+  '旧浏览器合成信号 Delete（keyup 入口）→ 放行',
+  fnUp && fnUp(mkEvent({ key: 'Delete', keyCode: 229 })) === null,
+])
+checks.push([
+  '双合成信号 Delete（keyup 入口）→ 放行',
+  fnUp && fnUp(mkEvent({ key: 'Delete', isComposing: true, keyCode: 229 })) === null,
+])
+
+// 检查 17: keyup 无匹配键仍返回 null
+checks.push(["keyup 无匹配键 'x' → null", fnUp && fnUp(mkEvent({ key: 'x' })) === null])
 
 // ---- 输出 ----
 const okAll = checks.every(([, ok]) => ok === true)

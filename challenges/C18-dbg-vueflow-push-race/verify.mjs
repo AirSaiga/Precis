@@ -1,6 +1,8 @@
 // verify.mjs — C18-dbg-vueflow-push-race
 //
-// 验证 addNodeCorrect 用赋值（而非 push）触发 watcher 同步。
+// 验证 addNodeCorrect 用赋值（而非 push）触发 watcher 同步，
+// 含混合交替序列契约（buggy 丢失不影响 correct、correct 按序全可见）
+// 与返回值契约（返回被添加节点本身）。
 //
 // 退出码：0 = PASS，非 0 = FAIL。
 // stdout 首行：PASS 或 FAIL。后续行：`  [✓] / [✗] 描述`。
@@ -155,6 +157,64 @@ function _testReferenceChanged() {
 checks.push([
   'addNodeCorrect 让 ref.value 换了新引用（非 mutation）',
   _testReferenceChanged(),
+])
+
+// 检查 8 (混合序列契约): buggy / correct 交替添加 —— buggy 的丢失不影响 correct。
+// 两轮 flush 之间交错多组添加；flush 后 correct 节点必须全部可见，且相对顺序与
+// 添加顺序一致（用 correct 节点 id 集合过滤后比对序列，不依赖 buggy 节点是否可见）。
+// 结尾再插入一次纯 buggy 添加 + flush：内部状态不得因此变化（buggy 丢失是"静默"的，
+// 不允许破坏已同步的 correct 序列）。
+function _testMixedSequence() {
+  if (typeof createNodeStore !== 'function') return false
+  try {
+    const store = createNodeStore()
+    const goodIds = new Set(['good-1', 'good-2', 'good-3'])
+    store.addNodeBuggy({ id: 'bug-a' })
+    store.addNodeCorrect({ id: 'good-1' })
+    store._flush()
+    store.addNodeBuggy({ id: 'bug-b' })
+    store.addNodeCorrect({ id: 'good-2' })
+    store.addNodeBuggy({ id: 'bug-c' })
+    store.addNodeCorrect({ id: 'good-3' })
+    store._flush()
+    const internal = store._getInternalState()
+    const correctIds = internal.filter((n) => goodIds.has(n.id)).map((n) => n.id)
+    if (
+      correctIds.length !== 3 ||
+      correctIds[0] !== 'good-1' ||
+      correctIds[1] !== 'good-2' ||
+      correctIds[2] !== 'good-3'
+    ) {
+      return false
+    }
+    // 纯 buggy 添加 + flush 不得改变内部状态（已同步的 correct 序列不受影响）
+    store.addNodeBuggy({ id: 'bug-d' })
+    store._flush()
+    return JSON.stringify(internal) === JSON.stringify(store._getInternalState())
+  } catch (e) {
+    return false
+  }
+}
+checks.push([
+  '混合交替序列：correct 节点全部按序可见（buggy 丢失不影响 correct）',
+  _testMixedSequence(),
+])
+
+// 检查 9 (返回值契约): addNodeCorrect 返回被添加的节点本身（同一引用）
+function _testReturnContract() {
+  if (typeof createNodeStore !== 'function') return false
+  try {
+    const store = createNodeStore()
+    if (typeof store.addNodeCorrect !== 'function') return false
+    const node = { id: 'ret-1' }
+    return store.addNodeCorrect(node) === node
+  } catch (e) {
+    return false
+  }
+}
+checks.push([
+  'addNodeCorrect 返回被添加的节点本身（同一引用）',
+  _testReturnContract(),
 ])
 
 // ---- 输出 ----

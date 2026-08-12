@@ -37,6 +37,9 @@ const q2ok = q2 != null && /null|跳过|skip|丢弃|drop/.test(q2[1])
 checks.push(['Q2 答案匹配（未注册类型的处理方式）', q2ok])
 const q3 = ansSrc.match(/\/\/\s*Q3[:：]\s*(\d+)/)
 checks.push(['Q3 答案匹配（assembly 聚合的模块数）', q3 != null && q3[1] === '2'])
+const q4 = ansSrc.match(/\/\/\s*Q4[:：]\s*(.+)/)
+const q4ok = q4 != null && /静默|silent|无报错|不报错|难以发现|难发现|难排查|掩盖|悄悄|丢失|丢节点|丢数据|hidden/.test(q4[1].toLowerCase())
+checks.push(['Q4 答案匹配（return null 静默跳过为何比抛错更危险）', q4ok])
 
 // transform 注册
 checks.push([
@@ -44,7 +47,13 @@ checks.push([
   nf != null && nf.listRegisteredTypes().includes('transform'),
 ])
 
-// 端到端：importConfig 能创建 transform 节点
+// template 注册
+checks.push([
+  "'template' 已注册",
+  nf != null && nf.listRegisteredTypes().includes('template'),
+])
+
+// 端到端：importConfig 能创建 transform 与 template 节点，skipped 为空
 function _checkImport() {
   if (vi == null) return false
   try {
@@ -52,18 +61,43 @@ function _checkImport() {
       nodes: [
         { type: 'schema', id: 's1', table: 'users' },
         { type: 'transform', id: 't1', op: 'filter' },
+        { type: 'template', id: 'tpl1', templateId: 'std_check', params: { strict: true } },
         { type: 'constraint', id: 'c1', rule: 'not_null' },
       ],
     })
-    return (result.created.length === 3
+    return (result.created.length === 4
       && result.skipped.length === 0
       && result.created[1].type === 'transform'
-      && result.created[1].op === 'filter')
+      && result.created[1].op === 'filter'
+      && result.created[2].type === 'template'
+      && result.created[2].templateId === 'std_check'
+      && result.created[2].params != null
+      && result.created[2].params.strict === true)
   } catch (e) {
     return false
   }
 }
-checks.push(['importConfig 正确创建 transform 节点（端到端）', _checkImport()])
+checks.push(['importConfig 正确创建 transform 与 template 节点（端到端，skipped 为空）', _checkImport()])
+
+// template 缺省 params 填充默认值 {}（不透传成 undefined）
+function _checkTemplateDefault() {
+  if (vi == null) return false
+  try {
+    const result = vi.importConfig({
+      nodes: [{ type: 'template', id: 'tpl2', templateId: 'basic' }],
+    })
+    return (result.created.length === 1
+      && result.skipped.length === 0
+      && result.created[0].type === 'template'
+      && result.created[0].templateId === 'basic'
+      && result.created[0].params != null
+      && typeof result.created[0].params === 'object'
+      && Object.keys(result.created[0].params).length === 0)
+  } catch (e) {
+    return false
+  }
+}
+checks.push(["template 缺省 params 填充 {}（templateId 透传）", _checkTemplateDefault()])
 
 // 未注册类型仍被跳过（不回归）
 function _checkUnknownSkipped() {

@@ -19,6 +19,14 @@ class Constraint:
         raise NotImplementedError
 
 
+class ConstraintConfigError(ValueError):
+    """约束配置错误：构造约束实例时参数非法（如区间颠倒、负长度）抛出。
+
+    惯例：在约束类的 __init__ 里校验构造参数，非法即抛本异常，
+    而不是把非法配置存下来拖到 validate 时才暴露。
+    """
+
+
 class RegexConstraint(Constraint):
     """正则约束：值必须匹配给定模式。"""
 

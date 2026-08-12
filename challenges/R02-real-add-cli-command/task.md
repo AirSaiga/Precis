@@ -40,6 +40,9 @@ Precis 是一个已安装的 Python 包，包元数据里记录了版本号。�
 - 命令名必须是 `version`。
 - **不得**修改 `challenges/` 目录、**不得**修改 `tests/` 目录（verify 脚本会自行放置测试文件）。
 - 参考已有命令（如 `exit`、`validate` 等）的实现与注册模式——自己找。
+- **你的改动不得破坏仓库既有测试**（verify 会回归相关既有测试：CLI/Shell 单元测试与
+  CLI 冒烟/回归集成测试）。接入新命令时若破坏 Command 契约、help 列表或 Shell 启动
+  流程，既有测试会红，整体判 FAIL。
 
 ## 验证
 
@@ -49,8 +52,12 @@ Precis 是一个已安装的 Python 包，包元数据里记录了版本号。�
 python verify.py
 ```
 
-`verify.py` 会把测试文件复制进后端测试目录并以 pytest 运行。
-退出码 `0` = PASS，非 `0` = FAIL。stdout 首行为 `PASS` 或 `FAIL`。
+`verify.py` 会把测试文件复制进后端测试目录并以 pytest 运行；随后还会以相同环境
+**回归运行仓库既有的 CLI/Shell 测试子集**（`tests/unit/cli/` 全部 +
+`tests/integration/test_cli_smoke.py` + `tests/integration/test_cli_regression.py`）。
+注入测试与回归子集**都通过**才算 PASS。
+退出码 `0` = PASS，非 `0` = FAIL。stdout 首行为 `PASS` 或 `FAIL`，
+随后按 `  [✓]/[✗]` 列出注入测试与回归门明细。
 
 ## 提示
 

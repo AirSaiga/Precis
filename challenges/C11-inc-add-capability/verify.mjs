@@ -1,8 +1,12 @@
 // verify.mjs — C11-inc-add-capability
 //
-// 验证 clipboardApi 能力已按 shellApi 模式落地：
-//   clipboardApi.ts = interface + Electron 适配器 + Web 适配器 + 单例
+// 验证 clipboardApi 能力已按 shellApi 模式落地，且满足两个串联规格：
+//   clipboardApi.ts = interface + Electron 适配器 + Web 适配器
+//                     + 可变单例持有位（let + isElectron 三元）
+//                     + getClipboardApi / setClipboardApi 注入入口（操作同一持有位）
 //   component.ts    = 新增 renderCopyButton 消费 clipboardApi（保留 renderOpenButton）
+//                     能力缺失时 disabled（禁用），不是 show:false（隐藏）
+//                     onClick 点击当下经 getClipboardApi() 解析实例再调 writeText
 //
 // 纯静态：只读 workspace 内 2 个 .ts 源文件的文本做正则匹配，
 // 不跑 tsc、不执行 agent 代码（.ts 也无法被 node 直接 require）。
@@ -70,24 +74,80 @@ checks.push([
   webAdapterOk,
 ])
 
-// 导出 clipboardApi 单例：isElectron() 三元选两个适配器实例（不锁死类名）
+// 可变单例持有位：let 声明 + isElectron() 三元选两个适配器实例。
+// 与 shellApi 的 export const 不同——单例必须可替换（setClipboardApi 要能写它），
+// 所以不能是 const。从这里捕获持有位变量名，供下面 set/get 一致性检查复用。
+const singletonM = clip.match(
+  /let\s+(\w+)(?:\s*:\s*\w+)?\s*=\s*isElectron\(\)\s*\?[\s\S]{0,200}?new\s+\w+[\s\S]{0,200}?new\s+\w+/,
+)
+const holder = singletonM ? singletonM[1] : null
 checks.push([
-  '导出 clipboardApi 单例（isElectron 三元选两个适配器）',
-  /export\s+const\s+clipboardApi[\s\S]*?isElectron\(\)[\s\S]*?new\s+\w+[\s\S]*?new\s+\w+/.test(
-    clip,
-  ),
+  '可变单例持有位（let + isElectron 三元选两个适配器实例）',
+  holder != null,
+])
+
+// 可注入 API 面：getClipboardApi / setClipboardApi 两个导出函数。
+// 兼容 function 声明与 arrow const 两种导出形式。
+const getIdx = clip.search(
+  /export\s+(?:function\s+getClipboardApi|const\s+getClipboardApi\b)/,
+)
+const setIdx = clip.search(
+  /export\s+(?:function\s+setClipboardApi|const\s+setClipboardApi\b)/,
+)
+checks.push(['导出 getClipboardApi（注入入口：读当前实例）', getIdx >= 0])
+checks.push([
+  '导出 setClipboardApi(api: ClipboardApi)（注入入口：替换当前实例）',
+  /export\s+function\s+setClipboardApi\s*\(\s*\w+\s*:\s*ClipboardApi/.test(clip) ||
+    /export\s+const\s+setClipboardApi\s*=\s*\(\s*\w+\s*:\s*ClipboardApi/.test(clip),
+])
+
+// set/get 必须操作同一个持有位（否则注入不进去 / 读出来的不是注入的实例）：
+// setClipboardApi 体内有 `holder = <参数>` 赋值；getClipboardApi 体内 `return holder`
+// （arrow 简写体 `=> holder` 也算）。
+const setWin = setIdx >= 0 ? clip.slice(setIdx, setIdx + 500) : ''
+const getWin = getIdx >= 0 ? clip.slice(getIdx, getIdx + 500) : ''
+const setAssignsHolder =
+  holder != null && new RegExp(`\\b${holder}\\s*=\\s*\\w+`).test(setWin)
+const getReturnsHolder =
+  holder != null && new RegExp(`(?:return\\s+|=>\\s*)${holder}\\b`).test(getWin)
+checks.push([
+  'set/get 操作同一持有位（set 赋值它、get 返回它）',
+  setAssignsHolder && getReturnsHolder,
 ])
 
 // ── component.ts 消费 ───────────────────────────────────────────────
-checks.push(['component.ts import clipboardApi', /import\s+.*clipboardApi.*from/.test(comp)])
-checks.push(['component.ts 含 renderCopyButton 函数', /export\s+function\s+renderCopyButton/.test(comp)])
+// 提取 renderCopyButton 函数体窗口（到下一个 export 或文件尾），
+// 只在窗口内断言，防止把 renderOpenButton 的代码算进来。
+const rcIdx = comp.search(/export\s+function\s+renderCopyButton/)
+let rcBody = ''
+if (rcIdx >= 0) {
+  const nextExport = comp.indexOf('\nexport', rcIdx + 10)
+  rcBody = comp.slice(rcIdx, nextExport < 0 ? comp.length : nextExport)
+}
+
+// 消费方必须经 getClipboardApi() 解析实例——import 裸单例会让 setClipboardApi
+// 的注入对消费方不可见（语义上 ESM live binding 可见，但题目规格要求走 get 入口）。
 checks.push([
-  'renderCopyButton 用 clipboardApi.canWriteClipboard 控制显隐',
-  /renderCopyButton[\s\S]*?clipboardApi\.canWriteClipboard/.test(comp),
+  "component.ts import getClipboardApi（from './clipboardApi'）",
+  /import\s*\{[^}]*\bgetClipboardApi\b[^}]*\}\s*from\s*['"]\.\/clipboardApi['"]/.test(
+    comp,
+  ),
 ])
 checks.push([
-  'renderCopyButton onClick 调 clipboardApi.writeText',
-  /renderCopyButton[\s\S]*?clipboardApi\.writeText/.test(comp),
+  'component.ts 含 renderCopyButton 函数',
+  rcIdx >= 0,
+])
+checks.push([
+  'renderCopyButton 用 canWriteClipboard 控制 disabled（禁用而非隐藏）',
+  /canWriteClipboard/.test(rcBody) &&
+    /disabled/.test(rcBody) &&
+    (/canWriteClipboard[\s\S]{0,160}?disabled/.test(rcBody) ||
+      /disabled[\s\S]{0,160}?canWriteClipboard/.test(rcBody)) &&
+    !/\bshow\s*:/.test(rcBody),
+])
+checks.push([
+  'renderCopyButton onClick 点击当下经 getClipboardApi() 解析再调 writeText',
+  /onClick[\s\S]{0,120}?getClipboardApi\(\)\.writeText/.test(rcBody),
 ])
 checks.push(['renderOpenButton 仍存在（未删除）', /export\s+function\s+renderOpenButton/.test(comp)])
 

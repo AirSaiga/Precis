@@ -48,7 +48,10 @@ collect_paths(app) == set(expected_routes)
 - **函数名**：`collect_paths`（保持不变）
 - **文件**：`workspace/collector.py`
 - **签名**：`collect_paths(app: FastAPI) -> set[str]`
-- **行为**：返回 app 的全部路由路径（顶层 + `include_router` 引入的子路由，含嵌套 `include_router`），`set` 自动去重。
+- **行为**：
+  - 返回 app 的全部路由路径（顶层 + `include_router` 引入的子路由，含嵌套 `include_router`），`set` 自动去重
+  - 同一个 router 被 `include_router` **重复挂载**（无 prefix）→ 不得重复收集，结果与单次挂载完全一致
+  - 收集按注册顺序遍历（若实现返回的是有序结构而非 set，其顺序必须与路由注册顺序一致）
 
 ## 约束
 
@@ -65,6 +68,6 @@ collect_paths(app) == set(expected_routes)
 python verify.py
 ```
 
-退出码 0 = PASS，非 0 = FAIL。9 项检查（含两层嵌套 include_router 的递归收集）详见 verify 输出。
+退出码 0 = PASS，非 0 = FAIL。11 项检查（含两层嵌套 include_router 的递归收集、同一 router 重复挂载的去重与保序）详见 verify 输出。
 
 完成后按 [challenges/README.md](../README.md) 填 `workspace/RESULT.md`。

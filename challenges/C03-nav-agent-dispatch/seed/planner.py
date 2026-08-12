@@ -22,6 +22,11 @@ def plan(goal: str) -> list[dict[str, str]]:
             {"tool": "load_data", "input": "orders.csv"},
             {"tool": "export_csv", "input": "out.csv"},
         ]
+    if goal == "full_export":
+        return [
+            {"tool": "load_data", "input": "orders.csv"},
+            {"tool": "export_json", "input": "out.json"},
+        ]
     return [{"tool": "unknown", "input": goal}]
 
 

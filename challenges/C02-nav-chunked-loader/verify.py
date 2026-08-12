@@ -110,6 +110,50 @@ def main() -> int:
     r5 = _run([pd.DataFrame({"other": [1]})], "id")
     checks.append(("列不存在不崩", r5 == [] or (isinstance(r5, list) and len(r5) == 0)))
 
+    # None 缺失值不算重复（object 列，3 个 None 跨块散布）
+    r6 = _run(
+        [
+            pd.DataFrame({"id": ["a", None, "b"]}),
+            pd.DataFrame({"id": ["c", None, None]}),
+        ],
+        "id",
+    )
+    checks.append(("None 缺失值不参与重复判定（3 个 None 应空列表）", r6 == []))
+
+    # NaN 与真实重复混排（float 列）：NaN 不报，真重复仍报
+    r7 = _run(
+        [
+            pd.DataFrame({"id": [1.0, float("nan")]}),
+            pd.DataFrame({"id": [1.0, float("nan")]}),
+        ],
+        "id",
+    )
+    checks.append(
+        ("NaN 不算重复、真实数值重复仍报出（(0,0),(1,0)）", r7 == [(0, 0), (1, 0)])
+    )
+
+    # int 列跨块重复
+    r8 = _run(
+        [
+            pd.DataFrame({"id": [10, 20]}),
+            pd.DataFrame({"id": [20, 30]}),
+        ],
+        "id",
+    )
+    checks.append(("int 列跨块重复检测（(0,1),(1,0)）", r8 == [(0, 1), (1, 0)]))
+
+    # int 列含缺失值（pandas 把列转成 float64 + NaN）
+    r9 = _run(
+        [
+            pd.DataFrame({"id": [7, None]}),
+            pd.DataFrame({"id": [7, None]}),
+        ],
+        "id",
+    )
+    checks.append(
+        ("数值列缺失转 float 后仍不算重复（(0,0),(1,0)）", r9 == [(0, 0), (1, 0)])
+    )
+
     if cheated:
         print("FAIL")
         print("  [✗] 检测到疑似作弊")

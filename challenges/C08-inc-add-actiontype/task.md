@@ -27,6 +27,8 @@ Precis 的 AI 动作类型（actionType）有一套**单一事实源 + codegen**
 
 `EXPORT_REPORT` 的 `spec_field`、`category`、`read_only` 三个字段取值**自行决定**——通过研究现有条目（尤其那些和"导出报告"性质相近的）归纳出最合理的取值与派生位置。verify 会对照正确答案判分。
 
+**双端一一对应**：`registry.py` 的 `ACTIONS` 条目与 `actions.ts` 的 `ActionType` 联合类型成员必须**一一对应**——每个注册条目恰好对应联合类型的一个成员，不多不少。这正是"单一事实源 + codegen"的含义：`actions.ts` 是 `registry.py` 的忠实投影（既不允许只加一端，也不允许某一端多加）。verify 会对两端计数做奇偶校验。
+
 ## 约束
 
 - 只改 `workspace/` 内的两个文件（`workspace/registry.py` 和 `workspace/actions.ts`）。
@@ -40,6 +42,6 @@ Precis 的 AI 动作类型（actionType）有一套**单一事实源 + codegen**
 python verify.py
 ```
 
-退出码 0 = PASS，非 0 = FAIL。verify 做静态文本分析（读源文件 + 正则），不执行 agent 代码。
+退出码 0 = PASS，非 0 = FAIL。verify 做静态文本分析（读源文件 + 正则，共 13 项检查），不执行 agent 代码。
 
 完成后按 [challenges/README.md](../README.md) 填 `workspace/RESULT.md`。

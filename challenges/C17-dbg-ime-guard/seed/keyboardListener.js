@@ -28,4 +28,18 @@ function handleKeydown(event) {
   return null
 }
 
-module.exports = { handleKeydown }
+/**
+ * 处理 keyup 事件（独立的键盘监听入口）。
+ * Delete 在 keyup 阶段触发删除——与 keydown 的 Backspace 分工，
+ * 避免同一次按键在两个阶段重复删除。
+ * @param {KeyboardEvent} event
+ * @returns {string | null} 被触发的快捷键动作名，未匹配返回 null
+ */
+function handleKeyup(event) {
+  if (event.key === 'Delete') {
+    return 'delete-node'
+  }
+  return null
+}
+
+module.exports = { handleKeydown, handleKeyup }

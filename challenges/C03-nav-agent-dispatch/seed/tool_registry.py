@@ -3,7 +3,8 @@
 工具通过 register_tool 注册，executor 按名字查找。
 模拟 Precis AI agent 的 tool_registry。
 
-当前 bug：'export_csv' 工具没注册，executor 执行到它时会失败。
+当前 bug：导出链路跑不通——planner 产出的某些导出步骤，其工具在这里没有注册；
+executor 执行到未注册工具时不会报错，只是静默记一条 error 并跳过。
 """
 
 from __future__ import annotations

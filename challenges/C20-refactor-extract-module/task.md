@@ -41,6 +41,11 @@
 - 不重命名 `UnifiedValidationService` 类；不改方法签名。
 - 不改函数体逻辑（参数顺序、dict 的键值、f-string 文案都保持原样）。
 - 不引入任何第三方依赖。
+- **禁止循环导入**：`formatters.py` **不得 import `service`**（不允许出现 `import service` /
+  `from service import ...` 任何形式）。提取完成后依赖方向必须是单向的
+  `service.py` → `formatters.py`；若 formatters 需要 service 里的某个符号，正确做法是把该符号
+  就地重声明或一并移入 formatters，而不是反向 import——反向 import 会形成
+  `service ⇄ formatters` 循环依赖（verify 会用 AST 检查 formatters.py 的所有 import 语句）。
 
 ### 验证
 
@@ -51,7 +56,8 @@ python verify.py
 ```
 
 退出码 0 = PASS，非 0 = FAIL。verify 同时检查"提取后的结构"（formatters.py 存在且含公开函数、
-service.py 不再定义私有版本、service.py import 自 formatters）和"行为不变"。详见 verify 输出。
+service.py 不再定义私有版本、service.py import 自 formatters、formatters.py 不反向 import
+service）和"行为不变"。详见 verify 输出。
 
 > 提示：`verify.py` 把 `workspace/` 加进了 `sys.path`，所以 `from formatters import ...` 能直接
 > 解析到 `workspace/formatters.py`，无需建包。

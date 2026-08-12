@@ -38,6 +38,10 @@
 - **4 个 stage 必须真实存在且可独立调用**（verify 会直接调它们测行为，不只看文本）。
 - **`process` 必须调用**这 4 个 stage（不能把 stage 逻辑又内联回 `process`）。
 - **行为必须完全一致**（verify 会用多组测试对照原始实现的黄金输出）。
+- **不可变性契约**：每个 stage 必须是**纯函数**——返回**新对象**，不得原地修改入参
+  （不允许 `sort()` / `append()` / `pop()` / `del` / 切片赋值等原地变更）。由此保证
+  `process()` 执行完毕后，**调用方传入的 `values` 列表与其传入前逐元素相等**（verify 会
+  对调用方输入做深拷贝快照、跑完 `process` 与每个 stage 后逐一比对）。
 
 ### 约束（务必遵守）
 
@@ -56,6 +60,8 @@ python verify.py
 
 退出码 0 = PASS，非 0 = FAIL。verify 同时检查：4 个 stage 存在且各自行为正确、`process` 行为对照
 黄金完全一致、`process` 函数体确实调用了 4 个 stage（AST 级检查——只认真实的函数调用，在注释或
-字符串里写 stage 名不算）、且 `process` 函数体不含逐元素 `for` 循环。详见 verify 输出。
+字符串里写 stage 名不算）、`process` 函数体不含逐元素 `for` 循环、以及**不可变性**（`process` 与
+每个 stage 执行后调用方传入的对象与深拷贝快照逐元素相等——原地 `sort()`/`append()`/切片赋值会
+直接 FAIL）。详见 verify 输出。
 
 完成后按 [challenges/README.md](../README.md) 填 `workspace/RESULT.md`。

@@ -163,6 +163,53 @@ def main() -> int:
         except Exception as e:
             checks.append((f"嵌套 include_router 递归收集（失败: {e}）", False))
 
+    # 检查 10-11 (关键): 重复 include 去重 + 保序 —— 同一个 router 被 include_router
+    # 两次（无 prefix）。FastAPI 0.138+ 会在 app.routes 里放两个 _IncludedRouter 包装，
+    # 指向同一个 original_router，递归收集会把 /dup-a、/dup-b 各收两遍。
+    # 不去重的递归版（尤其返回 list 的）会在这里暴露。
+    if collect_paths is not None:
+        try:
+            from fastapi import FastAPI as _FastAPI2
+            from fastapi.routing import APIRouter as _APIRouter2
+
+            dup_router = _APIRouter2()
+
+            @dup_router.get("/dup-a")
+            def _dup_a():
+                return {}
+
+            @dup_router.get("/dup-b")
+            def _dup_b():
+                return {}
+
+            dup_app = _FastAPI2(docs_url=None, redoc_url=None, openapi_url=None)
+
+            @dup_app.get("/top")
+            def _top():
+                return {}
+
+            dup_app.include_router(dup_router)
+            dup_app.include_router(dup_router)  # 同一 router 重复挂载（无 prefix）
+
+            dup_result = collect_paths(dup_app)
+            dup_set = set(dup_result)
+            expected_dup = {"/top", "/dup-a", "/dup-b"}
+            checks.append(
+                (
+                    "重复挂载同一 router 不重复收集（结果恰为去重后的 3 条路径）",
+                    dup_set == expected_dup and len(dup_result) == len(dup_set),
+                )
+            )
+            # 保序：set 无顺序语义只看去重；若实现返回有序结构（list/tuple），
+            # 其顺序必须与注册顺序一致（/top 先注册，随后是 router 内的 /dup-a、/dup-b）
+            if isinstance(dup_result, (list, tuple)):
+                ordered_ok = list(dup_result) == ["/top", "/dup-a", "/dup-b"]
+            else:
+                ordered_ok = True
+            checks.append(("返回顺序与注册顺序一致（有序结构时）", ordered_ok))
+        except Exception as e:
+            checks.append((f"重复 include 去重 + 保序（失败: {e}）", False))
+
     # 防作弊触发（优先于结果判定）
     if cheated:
         print("FAIL")

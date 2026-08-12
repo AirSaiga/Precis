@@ -1,6 +1,9 @@
 // verify.mjs — C05-nav-dual-registry-barrel
 //
-// 验证双注册表 barrel 已启用 notNullHandler 的 side-effect import。
+// 验证双注册表 barrel 的两处断裂已修复：
+//   (a) notNullHandler 的 side-effect import 已启用（handlers 注册触发器）；
+//   (b) barrel 的对外 API 面再导出了 listHandlers（消费方从 barrel 可取到
+//       handlers 查询接口，而不只是 builders 侧）。
 //
 // 检查分两层：
 //   1. 静态检查（读源文件文本）：不跑 tsc、不执行 agent 代码。验证 barrel 里
@@ -46,6 +49,11 @@ checks.push([
   'barrel 已将 notNullHandler 拉入（handlers 注册触发器激活）',
   hasActiveImport,
 ])
+
+// ---- index.ts：barrel 对外 API 面必须再导出 listHandlers（builders/handlers 两侧查询齐全） ----
+// 锚定行首 export + { ... listHandlers ... } from './registry'；[^}]* 兼容同行多名与换行写法
+const reExportRe = /^[ \t]*export\s*\{[^}]*\blistHandlers\b[^}]*\}\s*from\s*['"]\.\/registry['"]/m
+checks.push(['barrel 再导出 listHandlers（对外 API 面含 handlers 查询）', reExportRe.test(indexSrc)])
 
 // ---- notNullBuilder.ts：模块顶层自注册 builder ----
 const builderSrc = read(join(W, 'notNullBuilder.ts'))
@@ -123,6 +131,18 @@ function transformImportsExports(code) {
       /^[ \t]*import\s*\{([^}]*)\}\s*from\s*['"](\.\/[^'"]+)['"]\s*;?[ \t]*$/gm,
       "const {$1} = require('$2')",
     )
+    // 再导出：`export { a, b } from './x'` → 逐个透传绑定到 exports
+    // （barrel 的对外 API 面；逐名展开兼容 `export { a, b }` 多名写法）
+    .replace(
+      /^[ \t]*export\s*\{([^}]*)\}\s*from\s*['"](\.\/[^'"]+)['"]\s*;?[ \t]*$/gm,
+      (_, names, spec) =>
+        names
+          .split(',')
+          .map((n) => n.trim())
+          .filter(Boolean)
+          .map((n) => `exports.${n} = require('${spec}').${n};`)
+          .join('\n'),
+    )
     // `export function name(` → `exports.name = function name(`
     .replace(/\bexport\s+function\s+(\w+)\s*\(/g, 'exports.$1 = function $1(')
 }
@@ -145,6 +165,7 @@ function makeLoader() {
 }
 
 let dynamicOk = false
+let barrelApiOk = false
 let dynamicErr = ''
 let cheated = false
 const CHEAT_RE = /\bPASS\b|\bFAIL\b|\[✓\]|\[✗\]/
@@ -159,9 +180,10 @@ try {
   console.warn = (...a) => buf.push(a.map(String).join(' '))
   console.error = (...a) => buf.push(a.map(String).join(' '))
   let registryExports
+  let barrelExports
   try {
     const load = makeLoader()
-    load('./index') // 从 barrel 入口驱动：触发其激活的 side-effect import 链
+    barrelExports = load('./index') // 从 barrel 入口驱动：触发其激活的 side-effect import 链
     registryExports = load('./registry') // 缓存命中，与 barrel 内同一个实例
   } finally {
     console.log = origLog
@@ -171,6 +193,13 @@ try {
   cheated = buf.some((s) => CHEAT_RE.test(s))
   const kinds = registryExports.listHandlers()
   dynamicOk = Array.isArray(kinds) && kinds.includes('notNull')
+  // 消费方视角：从 barrel 入口拿 listHandlers，且调用结果含 'notNull'
+  barrelApiOk =
+    typeof barrelExports.listHandlers === 'function' &&
+    (() => {
+      const fromBarrel = barrelExports.listHandlers()
+      return Array.isArray(fromBarrel) && fromBarrel.includes('notNull')
+    })()
 } catch (e) {
   dynamicErr = String(e && e.stack ? e.stack.split('\n')[0] : e)
 }
@@ -187,6 +216,12 @@ checks.push([
     dynamicErr || 'ok'
   }）`,
   dynamicOk,
+])
+checks.push([
+  `动态测试：从 barrel 入口可取到 listHandlers() 且返回含 'notNull'（${
+    dynamicErr || 'ok'
+  }）`,
+  barrelApiOk,
 ])
 
 // ---- 输出 ----

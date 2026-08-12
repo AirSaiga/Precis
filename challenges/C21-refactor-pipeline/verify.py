@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import ast
 import contextlib
+import copy
 import importlib
 import io
 import os
@@ -135,6 +136,59 @@ def _process_behavior_ok(mod: Any) -> bool:
         return False
 
 
+def _process_immutability_ok(mod: Any) -> bool:
+    """不可变性（process 级）：跑完 process 后调用方传入的 values 与深拷贝快照相等。
+
+    行为级检查——stage 若在调用方列表上原地 sort()/append()/切片赋值，这里直接暴露。
+    """
+    if mod is None:
+        return False
+    try:
+        values: list[Any] = [None, "7", 3, "abc", 20, -1]
+        snapshot = copy.deepcopy(values)
+        mod.process(values, 0, 10)
+        return values == snapshot
+    except Exception:
+        return False
+
+
+def _stages_immutability_ok(mod: Any) -> bool:
+    """不可变性（stage 级）：每个 stage 独立调用后，其入参与深拷贝快照相等。
+
+    纯函数必须返回新对象而非原地改。即便原地改的是 process 传入的中间列表
+    （process 级检查看不见），stage 级独立调用也会暴露。
+    """
+    if mod is None:
+        return False
+    try:
+        a: list[Any] = [1, None, "x", 2]
+        a_snap = copy.deepcopy(a)
+        mod.stage_filter_none(a)
+        if a != a_snap:
+            return False
+
+        b: list[Any] = ["5", "abc", 10]
+        b_snap = copy.deepcopy(b)
+        mod.stage_convert(b)
+        if b != b_snap:
+            return False
+
+        c: list[Any] = [1, 20, 5]
+        c_snap = copy.deepcopy(c)
+        mod.stage_range_check(c, 0, 10)
+        if c != c_snap:
+            return False
+
+        valid_in: list[int] = [1, 5]
+        viol_in: list[int] = [1]
+        valid_snap = copy.deepcopy(valid_in)
+        viol_snap = copy.deepcopy(viol_in)
+        mod.stage_collect(valid_in, viol_in, 4, 3)
+        return valid_in == valid_snap and viol_in == viol_snap
+    except Exception:
+        return False
+
+
 def main() -> int:
     checks: list[tuple[str, bool]] = []
 
@@ -179,6 +233,21 @@ def main() -> int:
         (
             "process 函数体不含 for 循环（逐元素循环已搬进各 stage）",
             process_def is not None and not has_for,
+        )
+    )
+
+    # 不可变性契约：调用方输入深拷贝快照，跑完 process / 各 stage 后比对。
+    # stage 内 sort()/append()/切片赋值等原地变更会在这里 FAIL。
+    checks.append(
+        (
+            "process 不原地修改调用方传入的 values（不可变性，深拷贝快照比对）",
+            _process_immutability_ok(mod),
+        )
+    )
+    checks.append(
+        (
+            "4 个 stage 均不原地修改入参（纯函数，返回新对象）",
+            _stages_immutability_ok(mod),
         )
     )
 

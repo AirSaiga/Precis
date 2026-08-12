@@ -84,6 +84,25 @@ function _checkPasteEmpty() {
 }
 checks.push(['空剪贴板 paste 返回 null', _checkPasteEmpty()])
 
+// 剪贴板与历史解耦：copy 后 undo 不得清空/污染剪贴板。
+// 对抗场景：实现把剪贴板状态挂在历史回滚会重置的位置（undo 连带重置），
+// 则 undo 后 paste 返回 null 或 data 被污染 → 本检查 FAIL。
+// 先 snapshot 再 copy，确保 undo 真正执行了回滚（past 非空）。
+function _checkClipboardSurvivesUndo() {
+  if (asm == null) return false
+  try {
+    const nodes = []
+    const s = asm.assembleStore({ nodes })
+    s.addNode({ id: 'a', data: { v: 42 }, type: 't' })
+    s.snapshot()
+    if (s.copyNode('a') !== true) return false
+    if (s.undo() !== true) return false
+    const pasted = s.pasteNode('b')
+    return !!pasted && pasted.id === 'b' && pasted.data != null && pasted.data.v === 42
+  } catch { return false }
+}
+checks.push(['copy → undo → paste：剪贴板不被历史回滚清空/污染（解耦）', _checkClipboardSurvivesUndo()])
+
 if (cheated) {
   console.log('FAIL')
   console.log('  [✗] 检测到疑似作弊')

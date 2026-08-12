@@ -28,7 +28,13 @@ workspace 里有 3 个自包含的 JS 文件，模拟真实 Precis 的 **graphSt
 - **新建 `workspace/clipboardOps.js`**：导出 `createClipboardOps(deps)` 工厂，返回含 `copyNode` 和 `pasteNode` 方法的对象。
 - **接入 `workspace/assembly.js`**：把新工厂 require 进来、在 `assembleStore` 里调用、把返回值 spread 进 store。
 
-**返回契约**（verify 会硬性断言）：`copyNode(id)` 复制成功返回 `true`、节点不存在返回 `false`；`pasteNode(newId)` 粘贴成功返回新建的节点、剪贴板为空返回 `null`。其余设计（剪贴板状态怎么管理、拷贝用深还是浅、其他边界情况怎么处理）**自行决定**——仔细想清楚工厂实例之间的状态隔离。verify 只测行为，不查内部实现。
+**返回契约**（verify 会硬性断言）：`copyNode(id)` 复制成功返回 `true`、节点不存在返回 `false`；`pasteNode()` 粘贴成功返回新建的节点、剪贴板为空返回 `null`。
+
+**paste 重生成 id**：`pasteNode()` 产出的节点是剪贴板内容的**深克隆**，其 `id` 必须由 `pasteNode` **内部重新生成**——非空字符串、与源节点 id 不同、且每次粘贴互不相同（同一份剪贴板内容粘贴两次，得到两个不同 id）。注意本 workspace **没有**既有 id 生成器可循（nodeOps 的 id 都是调用方传入的字符串），所以 id 格式自定，满足上述唯一性即可（如闭包计数器）。
+
+**copy 快照隔离**：`copyNode` 存的是**深拷贝快照**——copy 之后对原节点 `data` 的任何修改都不得影响剪贴板内容（paste 出来的应是 copy 时刻定格的旧值）。对称地，`pasteNode` 每次都要从剪贴板**重新深克隆**——改已粘贴出来的节点不得污染剪贴板、影响后续粘贴。
+
+其余设计（剪贴板状态怎么管理、其他边界情况怎么处理）**自行决定**——仔细想清楚工厂实例之间的状态隔离。verify 只测行为，不查内部实现。
 
 ## 约束
 
@@ -43,6 +49,6 @@ workspace 里有 3 个自包含的 JS 文件，模拟真实 Precis 的 **graphSt
 node verify.mjs
 ```
 
-退出码 0 = PASS，非 0 = FAIL。verify 会真实加载你的模块、调用方法、测 copy/paste 行为与边界情况（含一些不那么明显的情况）。
+退出码 0 = PASS，非 0 = FAIL。verify 会真实加载你的模块、调用方法、测 copy/paste 行为与边界情况（共 13 项检查，含一些不那么明显的情况）。
 
 完成后按 [challenges/README.md](../README.md) 填 `workspace/RESULT.md`。

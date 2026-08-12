@@ -28,6 +28,8 @@
 - **行为契约**：
   - 调用 `addNodeCorrect(node)` 后跑 `store._flush()`，`store._getInternalState()` 必须包含该 node（按添加顺序在末尾）
   - 连续多次调用添加的节点，flush 后全部可见，顺序与添加顺序一致
+  - **返回值契约**：`addNodeCorrect(node)` 返回**被添加的节点本身**（同一个对象引用，不是副本、不是数组、不是 `undefined`）——对应真实 Vue Flow `addNodes` 会返回刚添加的节点供调用方使用
+  - **混合序列契约**：`addNodeBuggy` / `addNodeCorrect` **交替添加**时，buggy 的"丢失"（push 不触发同步）**不影响 correct**——flush 后 correct 节点必须全部可见，且相对顺序与添加顺序一致；在已同步的正确状态上再纯 buggy 添加 + flush，内部状态不得变化（buggy 的丢失是"静默"的，不能破坏已同步的 correct 序列）
   - `addNodeBuggy` **必须仍然坏**（不许改 `_flush` / `sync` / `_getInternalState` 等 watcher 逻辑来"顺便修好" buggy 那条路径）
 - **约束**：保持 `module.exports = { createNodeStore }` 的命名导出结构。
 
@@ -47,6 +49,6 @@
 node verify.mjs
 ```
 
-退出码 0 = PASS，非 0 = FAIL。检查项涵盖：模块可加载、`addNodeCorrect` 加节点后 flush 能同步、`addNodeBuggy` 仍不同步（防绕过）、连续多次添加全部可见。
+退出码 0 = PASS，非 0 = FAIL。9 项检查，涵盖：模块可加载、`addNodeCorrect` 加节点后 flush 能同步、`addNodeBuggy` 仍不同步（防绕过）、连续多次添加全部可见、混合交替序列下 correct 节点按序全可见（buggy 丢失不影响 correct）、返回值契约（返回被添加节点本身）。
 
 完成后按 [challenges/README.md](../README.md) 填 `workspace/RESULT.md`。

@@ -50,8 +50,12 @@ Precis 后端支持多种数据源加载（CSV、Excel、JSON、SQL）。现在�
 python verify.py
 ```
 
-`verify.py` 会把测试文件复制进后端测试目录并以 pytest 运行。
-退出码 `0` = PASS，非 `0` = FAIL。stdout 首行为 `PASS` 或 `FAIL`。
+`verify.py` 会把测试文件复制进后端测试目录并以 pytest 运行；随后还会以相同环境
+**回归运行仓库既有的 loader/spec 测试子集**（规格模型与注册表、loaders 包
+`__init__` 注册表与辅助函数、加载器基类、延迟导入边界、既有 CSV/Excel 加载器）。
+注入测试与回归子集**都通过**才算 PASS。
+退出码 `0` = PASS，非 `0` = FAIL。stdout 首行为 `PASS` 或 `FAIL`，
+随后按 `  [✓]/[✗]` 列出注入测试与回归门明细。
 
 > 测试会真正写一个临时 `.parquet` 文件并读回来校验数据。运行环境已预装 `pyarrow`；
 > 若某机器没有 parquet 后端库，加载相关用例会自动 skip，但注册 / 规格 / 工厂构建
@@ -67,3 +71,6 @@ python verify.py
   等通用字段），你只需加 Parquet 特有的字段（如 engine）。
 - 加载器继承自一个抽象加载器基类，只需实现一个 `load()` 方法。
 - `__init__.py` 里的延迟导入用的是模块级 `__getattr__` 钩子，新增类型要在那里加分支。
+- **你的改动不得破坏仓库既有测试**（verify 会回归相关既有测试：规格/加载器注册表、
+  包的延迟导入 `__getattr__`、加载器基类与既有 CSV/Excel 加载器行为）。接入新数据源时
+  若破坏 `__getattr__` 分支、双注册表或基类契约，既有测试会红，整体判 FAIL。

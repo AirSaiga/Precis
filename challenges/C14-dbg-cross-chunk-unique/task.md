@@ -5,8 +5,8 @@
 | ID | C14 |
 | 维度 | dbg（调试与 bug 修复） |
 | 栈 | Python |
-| 难度 | ★★☆ |
-| 预估 | 15-25 分钟 |
+| 难度 | ★★★ |
+| 预估 | 20-30 分钟 |
 | 依赖 | Python ≥3.12 + pandas |
 
 ## 背景
@@ -30,6 +30,7 @@
   - 无重复 → 返回 `[]`
   - 某些 chunk 缺该列 → 不能崩溃（跳过缺列 chunk 的该列，但仍计入它的行号偏移）
   - 所有 chunk 都缺该列 → 返回 `[]`
+  - `NaN`/`None` 等缺失值**不参与重复判定**：多个缺失值彼此不算重复，也不与任何正常值算重复。陷阱：pandas `duplicated(keep=False)` 会把多个 NaN 全部标为重复——必须显式排除缺失值后再判重
 
 ## 约束
 
@@ -46,6 +47,6 @@
 python verify.py
 ```
 
-退出码 0 = PASS，非 0 = FAIL。8 项检查（含单 chunk 回归、跨块重复、多跨块重复、无重复、三块跨块、缺列不崩溃、中间 chunk 缺列仍占行号偏移）详见 verify 输出。
+退出码 0 = PASS，非 0 = FAIL。10 项检查（含单 chunk 回归、跨块重复、多跨块重复、无重复、三块跨块、缺列不崩溃、中间 chunk 缺列仍占行号偏移、NaN 跨块分布不报重复、NaN 与正常重复混合时只报正常重复行）详见 verify 输出。
 
 完成后按 [challenges/README.md](../README.md) 填 `workspace/RESULT.md`。

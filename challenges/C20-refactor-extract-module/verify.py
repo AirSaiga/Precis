@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import ast
 import contextlib
 import importlib
 import io
@@ -87,6 +88,37 @@ def main() -> int:
     )
     checks.append(
         ("service.py import 自 formatters", "from formatters import" in svc_src)
+    )
+
+    # formatters.py 不得反向 import service（禁循环导入）。
+    # 用 AST 检查所有 import 语句——只认真实 import，注释/字符串里提及 "service" 不算。
+    fmt_path = os.path.join(WORKSPACE, "formatters.py")
+
+    def _imports_service() -> bool | None:
+        """formatters.py 是否 import 了 service 模块；文件不可解析时返回 None。"""
+        if not os.path.exists(fmt_path):
+            return None
+        try:
+            tree = ast.parse(open(fmt_path, encoding="utf-8").read())
+        except (SyntaxError, ValueError):
+            return None
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    if alias.name == "service" or alias.name.startswith("service."):
+                        return True
+            elif isinstance(node, ast.ImportFrom):
+                mod = node.module or ""
+                if mod == "service" or mod.startswith("service."):
+                    return True
+        return False
+
+    imports_svc = _imports_service()
+    checks.append(
+        (
+            "formatters.py 不反向 import service（禁循环导入，AST 级）",
+            imports_svc is False,
+        )
     )
 
     # 行为不变：UnifiedValidationService 仍工作

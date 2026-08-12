@@ -116,6 +116,30 @@ def main() -> int:
     )
     checks.append(("中间 chunk 缺列仍占行号偏移（'a' 在全局行 0 和 4）", r7 == [0, 4]))
 
+    # 检查 8 (关键): NaN/None 不参与重复判定 —— 3+ 个缺失值跨块分布 → 一个都不报
+    # 缺失值在全局行 1,2（chunk0）和 4（chunk2）。朴素 concat-duplicated 会把它们全标为重复
+    r8 = _run(
+        [
+            pd.DataFrame({"id": ["a", None, None]}),
+            pd.DataFrame({"id": ["b"]}),
+            pd.DataFrame({"id": [float("nan"), "c"]}),
+        ],
+        "id",
+    )
+    checks.append(("NaN 跨块分布不报重复（返回空列表）", r8 == []))
+
+    # 检查 9 (关键): NaN 与正常重复混合 —— 只报正常重复行（'a' 在行 0 和 4），
+    # 缺失值行 1,3,5 不得混入结果
+    r9 = _run(
+        [
+            pd.DataFrame({"id": ["a", None]}),
+            pd.DataFrame({"id": [None, "b"]}),
+            pd.DataFrame({"id": ["a", None]}),
+        ],
+        "id",
+    )
+    checks.append(("NaN 与正常重复混合只报正常行（'a' 在行 0 和 4）", r9 == [0, 4]))
+
     if cheated:
         print("FAIL")
         print("  [✗] 检测到疑似作弊")

@@ -105,6 +105,38 @@ def main() -> int:
         )
     )
 
+    # domain 层：构造参数校验 —— 非法参数在 __init__ 阶段抛 ConstraintConfigError。
+    # 陷阱：agent 不校验构造参数（非法配置拖到 validate 才暴露，或静默存下）。
+    # 断言异常类型必须是 domain.ConstraintConfigError 本身（或其子类），
+    # 抛裸 ValueError / TypeError / 不抛都判失败。
+    def _raises_config_error(**kwargs: object) -> bool:
+        if domain is None or LengthConstraint is None:
+            return False
+        cce = getattr(domain, "ConstraintConfigError", None)
+        if not (isinstance(cce, type) and issubclass(cce, BaseException)):
+            return False
+        try:
+            LengthConstraint(**kwargs)
+        except cce:
+            return True
+        except Exception:
+            return False
+        return False
+
+    checks.append(
+        (
+            "构造参数 min_len > max_len 抛 ConstraintConfigError",
+            _raises_config_error(min_len=5, max_len=2),
+        )
+    )
+    checks.append(
+        (
+            "构造参数任一为负数抛 ConstraintConfigError",
+            _raises_config_error(min_len=-1, max_len=5)
+            and _raises_config_error(min_len=0, max_len=-2),
+        )
+    )
+
     # service 层：validate_column 端到端能用 length 约束
     def _check_service() -> bool:
         if service is None:

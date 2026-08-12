@@ -5,6 +5,17 @@
  */
 const { createNode } = require('./nodeFactory')
 
+// 示例 V2 配置（真实项目里来自 project.precis.yaml 的解析结果）。
+// 覆盖目前项目用到的全部节点类型。
+const EXAMPLE_CONFIG = {
+  nodes: [
+    { type: 'schema', id: 's1', table: 'users' },
+    { type: 'transform', id: 't1', op: 'filter' },
+    { type: 'template', id: 'tpl1', templateId: 'std_check', params: { strict: true } },
+    { type: 'constraint', id: 'c1', rule: 'not_null' },
+  ],
+}
+
 function importConfig(config) {
   const created = []
   const skipped = []
@@ -19,4 +30,4 @@ function importConfig(config) {
   return { created, skipped, total_input: (config.nodes || []).length }
 }
 
-module.exports = { importConfig }
+module.exports = { importConfig, EXAMPLE_CONFIG }
