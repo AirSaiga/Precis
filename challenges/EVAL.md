@@ -15,25 +15,33 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 
 ## 流程
 
-1. **创建独立副本 + 删除答案**（防作弊，与其他模型隔离）：
+1. **创建完整仓库 worktree + 删除答案**（防作弊，与其他模型隔离）：
    ```bash
-   cp -r D:/Precis/Precis/challenges D:/Precis/eval-【模型名】
-   cd D:/Precis/eval-【模型名】          # 后续都在这个目录里
-   rm -rf C*/workspace results           # 清掉可能带过来的运行时残留
+   # 用 git worktree 创建完整仓库副本（含 challenges/ + backend/ + frontend/）
+   cd D:/Precis/Precis
+   git worktree add D:/Precis/eval-【模型名】 main
+   cd D:/Precis/eval-【模型名】/challenges
+
+   # 清掉运行时残留
+   rm -rf C*/workspace results
    mkdir -p results
-   # ⚠️ 关键：删除所有参考答案，防止 agent 读答案作弊
+
+   # ⚠️ 关键：删除所有参考答案（C 系列 + R 系列），防止 agent 读答案作弊
    find . -path "*/C*/SOLUTION.md" -delete
-   rm -f C01-nav-add-maxlength/maxlength_constraint.py   # C01 的独立参考答案文件
+   find . -path "*/R*/SOLUTION.md" -delete
+   rm -f C01-nav-add-maxlength/maxlength_constraint.py
    # 验证答案已删干净（应无输出）
    find . -name "SOLUTION.md" -o -name "maxlength_constraint.py"
    ```
 
+   > **轻量替代**（只跑 C 系列 24 题，不跑 R 系列）：用 `cp -r D:/Precis/Precis/challenges D:/Precis/eval-【模型名】` 代替 worktree。但 R 系列需要完整仓库，cp 只有 challenges/ 不够。
+
 2. 读 `README.md` 学规则 + RESULT.md frontmatter 格式。
 
-3. `./reset.sh` 生成所有 workspace/。
+3. `./reset.sh` 生成所有 C 系列 workspace/。
 
-4. **逐题做**（C01→C24 全部 24 题），每题：
-   - `cd challenges/Cxx-题目目录名`（注意：副本里 challenges 内容直接在根目录，所以是 `cd Cxx-题目目录名`）
+4. **C 系列逐题做**（C01→C24，共 24 题），每题：
+   - `cd Cxx-题目目录名`
    - 读 `task.md` + `workspace/` 里已有的参考文件
    - 在 `workspace/` 里实现或修复
    - 跑 `python verify.py`（Python 题）或 `node verify.mjs`（TS/JS 题）—— **只跑 1 次！**
@@ -59,7 +67,15 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
      FAIL 也如实记 `verify_exit_code: 1`，写清卡在哪。
    - 回到 challenges 根目录，做下一题。
 
-5. **全部做完后**：
+5. **R 系列逐题做**（R01→R04，共 4 题，真实仓库导航），每题：
+   - `cd Rxx-题目目录名`
+   - 读 `task.md`（只给需求，**不给文件路径**）
+   - 在真实仓库里导航（`backend/` 或 `frontend/`），找到相关文件并实现功能 + 注册
+   - 跑 `python verify.py`（Python 题）或 `node verify.mjs`（TS 题）—— **只跑 1 次！**
+     verify 会把测试文件临时放进 `backend/tests/` 或 `frontend/tests/`，跑真实 pytest/vitest，然后清理。
+   - 在 `results/【模型名】-run/` 下创建 `<题目录名>.md`（同 C 系列 frontmatter 格式）。
+
+6. **全部做完后**：
    ```bash
    python report.py 【模型名】-run
    ```
@@ -67,17 +83,20 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 
 ## 硬约束
 
-- **每题 verify 只跑 1 次**。无论 PASS/FAIL，结果就是最终成绩。看了 verify 输出后再改代码重跑 = 用反馈磨答案 = 作弊。第一次跑完立刻记结果，做下一题。
+- **每题 verify 只跑 1 次**（C 系列和 R 系列都一样）。无论 PASS/FAIL，结果就是最终成绩。看了 verify 输出后再改代码重跑 = 用反馈磨答案 = 作弊。第一次跑完立刻记结果，做下一题。
 - **参考答案已在第 1 步删除**（`SOLUTION.md` 和 `maxlength_constraint.py` 已 `rm`）。如果你发现它们还在，说明第 1 步没执行，停下来重做。
-- **只改** `workspace/` 内文件，不碰 `seed/`、`verify.*`、`task.md`。
-- **不碰** `D:/Precis/Precis/challenges/`（主仓库，只是模板源）。
+- **C 系列**：只改 `workspace/` 内文件，不碰 `seed/`、`verify.*`、`task.md`。
+- **R 系列**：在真实仓库 `backend/` 或 `frontend/` 里改，但**不碰** `tests/` 目录（verify 脚本会自己放测试文件）和 `challenges/` 目录。
+- **不碰** `D:/Precis/Precis/`（主仓库，只是模板源）。
 - verify 退出码为准（0=PASS）。做不出记 FAIL 继续，不跳题不放弃。
 - `agent` 字段填真实模型标识（如 `glm-5.2` / `claude-sonnet-4.5`）。
 
 ## 注意路径
 
-你的工作目录是 `D:/Precis/eval-【模型名】`，**不是主仓库**。
-所有 reset / verify / report 都在副本目录里跑。
+你的工作目录是 `D:/Precis/eval-【模型名】`（git worktree，完整仓库），**不是主仓库**。
+所有 reset / verify / report 都在 worktree 里跑。
+- C 系列题：在 `challenges/Cxx-xxx/workspace/` 里改。
+- R 系列题：在 `backend/` 或 `frontend/` 里改（真实代码库导航）。
 
 副本目录结构（复制后）：
 ```
@@ -114,46 +133,7 @@ cp -r ../../eval-gpt5/results/gpt5-run results/
 python report.py
 ```
 
-生成的 `results/LEADERBOARD.md` 就是 24 题 × N 模型的 pass/fail 矩阵 + 各模型总通过率。
-
----
-
-## 真实仓库导航题（R 系列）
-
-R 系列与 C 系列不同：agent 在**真实 Precis 代码库**（上千文件）里导航、定位、修改，用**真实 pytest/vitest** 验证。不使用精简 seed。
-
-### R 系列的执行流程
-
-R 题需要**完整仓库**（不只是 challenges/ 副本）。建议用 git worktree：
-
-```bash
-# 在主仓库创建 worktree（完整仓库副本，含 backend/ frontend/ 等）
-cd D:/Precis/Precis
-git worktree add D:/Precis/eval-【模型名】 main
-
-cd D:/Precis/eval-【模型名】/challenges
-# 答案删除（同 C 系列）
-find . -path "*/C*/SOLUTION.md" -delete
-find . -path "*/R*/SOLUTION.md" -delete
-rm -f C01-nav-add-maxlength/maxlength_constraint.py
-```
-
-然后对每道 R 题：
-1. 读 `challenges/Rxx/task.md`（只给需求，不给文件路径）
-2. 在真实仓库里导航（`backend/` 或 `frontend/`），找到相关文件
-3. 实现功能 + 注册
-4. 跑 `python challenges/Rxx/verify.py`（或 `node challenges/Rxx/verify.mjs`）
-   - verify 会把测试文件临时放进 `backend/tests/` 或 `frontend/tests/`，跑 pytest/vitest，然后清理
-5. 记录结果到 `results/<run-id>/`
-
-### R 系列清单
-
-| ID | 栈 | 考点 |
-|----|----|------|
-| R01 | Python | 加 Pattern 约束（6 处联动：类+包+shim+registry+builder+Literal） |
-| R02 | Python | 加 CLI version 命令 |
-| R03 | Python | 加 .parquet 数据源（loader+spec 双目录） |
-| R04 | TS | 加 Ctrl+Shift+F 快捷键（registry+command+handler+平台变体） |
+生成的 `results/LEADERBOARD.md` 就是 28 题 × N 模型的 pass/fail 矩阵 + 各模型总通过率。
 
 ## 快速参考：完整矩阵
 
