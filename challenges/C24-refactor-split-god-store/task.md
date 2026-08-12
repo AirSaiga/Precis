@@ -62,8 +62,8 @@
 node verify.mjs
 ```
 
-退出码 0 = PASS，非 0 = FAIL。verify 同时做**静态检查**（godStore 不再含剪贴板逻辑、clipboardOps
-存在且导出工厂、assembly 聚合后 store 有全部方法）和**行为回归**（真实构造 store，跑
-addNode → copy → paste 等场景）。详见 verify 输出。
+退出码 0 = PASS，非 0 = FAIL。verify 同时做**静态检查**（godStore 不再含剪贴板逻辑——中英文注释都算、
+clipboardOps 存在且导出工厂、assembly.js **实际调用了** `createClipboardOps(...)`、assembly 聚合后
+store 有全部方法）和**行为回归**（真实构造 store，跑 addNode → copy → paste 等场景）。详见 verify 输出。
 
 完成后按 [challenges/README.md](../README.md) 填 `workspace/RESULT.md`。

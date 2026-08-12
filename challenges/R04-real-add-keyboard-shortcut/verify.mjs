@@ -15,7 +15,7 @@
  * 注意：不能在 try/catch 里直接 process.exit()——那会跳过 finally 导致清理不执行、
  * 临时测试文件残留污染真实仓库。改为先记录退出码，在 try/catch/finally 之后统一退出。
  */
-import { copyFileSync, unlinkSync, existsSync } from 'node:fs'
+import { copyFileSync, mkdirSync, unlinkSync, existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { execSync } from 'node:child_process'
@@ -44,6 +44,19 @@ if (!existsSync(FRONTEND_DIR)) {
   console.log(`前端目录不存在: ${FRONTEND_DIR}`)
   process.exit(1)
 }
+// worktree/副本通常不含 node_modules，vitest 不存在时给出明确指引而非裸报错
+const VITEST_BIN = join(FRONTEND_DIR, 'node_modules', '.bin', 'vitest')
+if (!existsSync(VITEST_BIN)) {
+  console.log('FAIL')
+  console.log(`未找到 vitest: ${VITEST_BIN}`)
+  console.log('当前 frontend/ 缺少 node_modules（worktree/副本不含依赖），请先二选一：')
+  console.log('  1) 安装依赖: cd frontend && npm ci')
+  console.log(
+    '  2) (Windows) 建 junction 共享主仓库依赖: ' +
+      'cmd /c mklink /J <worktree>\\frontend\\node_modules <主仓库>\\frontend\\node_modules'
+  )
+  process.exit(1)
+}
 
 let exitCode = 1
 let captured = ''
@@ -51,6 +64,8 @@ let capturedErr = ''
 let timedOut = false
 
 // 1. 复制测试文件进真实仓库（verify 期间临时存在）
+// 目标目录可能不存在（如干净 worktree），先递归创建，避免 copyFileSync 抛裸异常
+mkdirSync(dirname(TEST_DST), { recursive: true })
 copyFileSync(TEST_SRC, TEST_DST)
 
 try {

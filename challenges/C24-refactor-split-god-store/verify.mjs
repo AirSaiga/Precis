@@ -28,11 +28,16 @@ checks.push(['3 文件可加载', asm != null && god != null && clip != null && 
 // clipboardOps.js 存在 + 工厂
 checks.push(['clipboardOps 导出 createClipboardOps', clip != null && typeof clip.createClipboardOps === 'function'])
 
-// godStore 不再含 copyNode/pasteNode 定义（已提取）
+// assembly.js 必须【实际调用】createClipboardOps（光建一个不被装配的死代码模块不算拆分）
+const asmSrc = existsSync(join(W, 'assembly.js')) ? require('node:fs').readFileSync(join(W, 'assembly.js'), 'utf-8') : ''
+checks.push(['assembly.js 实际调用了 createClipboardOps(...)', /createClipboardOps\s*\(/.test(asmSrc)])
+
+// godStore 不再含 copyNode/pasteNode 定义（已提取）。
+// 认任意定义形态：function 声明 `copyNode(`、箭头/赋值 `copyNode =`、对象方法/属性 `copyNode:`。
 const godSrc = existsSync(join(W, 'godStore.js')) ? require('node:fs').readFileSync(join(W, 'godStore.js'), 'utf-8') : ''
-checks.push(['godStore 不再定义 copyNode', !/function\s+copyNode/.test(godSrc)])
-checks.push(['godStore 不再定义 pasteNode', !/function\s+pasteNode/.test(godSrc)])
-checks.push(['godStore 不再含 clipboard 状态变量', !/clipboard/.test(godSrc)])
+checks.push(['godStore 不再定义 copyNode', !/copyNode\s*[=(:]/.test(godSrc)])
+checks.push(['godStore 不再定义 pasteNode', !/pasteNode\s*[=(:]/.test(godSrc)])
+checks.push(['godStore 不再含 clipboard/剪贴板 字样（含注释）', !/clipboard|剪贴板/.test(godSrc)])
 
 // assembly 聚合后 store 有所有方法
 function _makeStore() {

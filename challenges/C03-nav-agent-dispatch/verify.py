@@ -55,7 +55,7 @@ def main() -> int:
     checks.append(("Q2 描述 executed 跟踪成功执行的工具数", q2_ok))
     q3 = re.search(r"#\s*Q3[:：]\s*(.+)", ans_src)
     q3_ok = q3 is not None and any(
-        k in q3.group(1)
+        k in q3.group(1).lower()
         for k in ("跳过", "skip", "记录错误", "error", "continue", "继续", "不中断")
     )
     checks.append(("Q3 描述未注册工具被跳过/记错", q3_ok))

@@ -3,7 +3,7 @@
 退出码：0 = PASS，非 0 = FAIL。
 stdout 首行：PASS 或 FAIL。
 
-防作弊：import domain / service 时重定向 stdout，若检测到模块在导入期
+防作弊：import domain / service / api 时重定向 stdout，若检测到模块在导入期
 打印 PASS / FAIL / [✓] / [✗] 等标记，直接判 FAIL。
 """
 
@@ -47,7 +47,8 @@ def main() -> int:
 
     domain, c1 = _safe_import("domain")
     service, c2 = _safe_import("service")
-    cheated = c1 or c2
+    api, c3 = _safe_import("api")
+    cheated = c1 or c2 or c3
     checks.append(("domain.py 可导入", domain is not None))
     checks.append(("service.py 可导入", service is not None))
 
@@ -144,6 +145,44 @@ def main() -> int:
         (
             "service.py 未被大改（架构正确：编排层通用）",
             "def validate_column" in svc_src,
+        )
+    )
+
+    # api 层：真实 import api 模块（task.md 声明的 fastapi 依赖在此坐实）
+    checks.append(("api.py 可导入", api is not None))
+
+    # api 层：真实 HTTP 请求 GET /constraint-types，清单必须含 "length"
+    # （同时断言了路由注册存在且响应内容来自最新注册表）
+    def _check_api_types() -> bool:
+        if api is None:
+            return False
+        try:
+            from fastapi.testclient import TestClient
+
+            resp = TestClient(api.app).get("/constraint-types")
+            return resp.status_code == 200 and "length" in resp.json().get("types", [])
+        except Exception:
+            return False
+
+    checks.append(('api GET /constraint-types 清单含 "length"', _check_api_types()))
+
+    # 架构考点（★★★）："只改 domain、不碰 service/api"。
+    # 两层都是 generic 编排/透传，源码里不应出现具体约束类型名 "length" 的特判
+    # （如 if constraint_type == "length": 分支或硬编码清单）。
+    api_path = os.path.join(WORKSPACE, "api.py")
+    api_src = (
+        open(api_path, encoding="utf-8").read() if os.path.exists(api_path) else ""
+    )
+    checks.append(
+        (
+            'service.py 无 "length" 字样特判（编排层对具体类型无知）',
+            '"length"' not in svc_src and "'length'" not in svc_src,
+        )
+    )
+    checks.append(
+        (
+            'api.py 无 "length" 字样特判（路由层对具体类型无知）',
+            '"length"' not in api_src and "'length'" not in api_src,
         )
     )
 

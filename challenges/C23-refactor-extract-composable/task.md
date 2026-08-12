@@ -55,7 +55,8 @@ node verify.mjs
 ```
 
 退出码 0 = PASS，非 0 = FAIL。verify 做纯静态检查（只读源文件文本，不跑 tsc、不渲染 Vue）：
-`useCounter.js` 存在且符合 composable 约定、`Counter.vue` 引用并解构它、计数器逻辑已从 `.vue`
-移除、模态框逻辑保留、`<template>` 未被破坏。详见 verify 输出。
+`useCounter.js` 存在且符合 composable 约定、`Counter.vue` 引用并解构它（import 允许跨行书写）、
+计数器逻辑已从 `.vue` 移除、模态框逻辑保留、`<template>` 与 seed **逐字一致**（完全不可改）。
+详见 verify 输出。
 
 完成后按 [challenges/README.md](../README.md) 填 `workspace/RESULT.md`。

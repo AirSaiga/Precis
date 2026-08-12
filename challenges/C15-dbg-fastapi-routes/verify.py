@@ -129,6 +129,40 @@ def main() -> int:
                 )
             )
 
+    # 检查 9 (关键): 两层嵌套 include_router —— router_a 里 include router_b，
+    # app 再 include router_a。FastAPI 0.138+ 每层 include 都是独立的 _IncludedRouter
+    # 包装，"只展开一层 original_router.routes 不递归"的修法能拿到 /top-a 但会漏掉
+    # 最深层的 /leaf-b。
+    if collect_paths is not None:
+        try:
+            from fastapi import FastAPI as _FastAPI
+            from fastapi.routing import APIRouter as _APIRouter
+
+            router_b = _APIRouter()  # 最深层路由器
+            router_a = _APIRouter()  # 中间层路由器
+
+            @router_b.get("/leaf-b")
+            def _leaf_b():
+                return {}
+
+            @router_a.get("/top-a")
+            def _top_a():
+                return {}
+
+            router_a.include_router(router_b)  # 第一层嵌套
+            nested_app = _FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+            nested_app.include_router(router_a)  # 第二层嵌套
+
+            nested_result = collect_paths(nested_app)
+            checks.append(
+                (
+                    "嵌套 include_router 递归收集（/top-a 与深层 /leaf-b）",
+                    "/top-a" in nested_result and "/leaf-b" in nested_result,
+                )
+            )
+        except Exception as e:
+            checks.append((f"嵌套 include_router 递归收集（失败: {e}）", False))
+
     # 防作弊触发（优先于结果判定）
     if cheated:
         print("FAIL")

@@ -40,13 +40,15 @@ def parse_index() -> dict[str, dict[str, str]]:
     解析 INDEX.md 的题目表格。
 
     返回 {challenge_id: {dimension, stack, difficulty, summary, status}}。
-    表格行格式：| C01 | nav | Python | ★☆☆ | 一句话 | ✅ ready |
+    C 系列表格行格式（6 列）：| C01 | nav | Python | ★☆☆ | 一句话 | ✅ ready |
+    R 系列表格行格式（5 列，无维度列）：| R01 | Python | ★★★ | 一句话 | ✅ ready |
+    R 系列统一记 dimension="real"（真实仓库导航）。
     """
     if not INDEX_PATH.exists():
         return {}
     text = INDEX_PATH.read_text(encoding="utf-8")
     meta: dict[str, dict[str, str]] = {}
-    # 匹配表格行：| C01 | nav | Python | ★☆☆ | ... | ✅ ready |
+    # C 系列：| C01 | nav | Python | ★☆☆ | ... | ✅ ready |
     row_re = re.compile(
         r"^\|\s*(C\d+)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|\s*([★☆]+)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|",
         re.MULTILINE,
@@ -55,6 +57,20 @@ def parse_index() -> dict[str, dict[str, str]]:
         cid, dim, stack, stars, summary, status = m.groups()
         meta[cid] = {
             "dimension": dim.strip(),
+            "stack": stack.strip(),
+            "difficulty": stars.strip(),
+            "summary": summary.strip(),
+            "status": status.strip(),
+        }
+    # R 系列：| R01 | Python | ★★★ | ... | ✅ ready |
+    r_row_re = re.compile(
+        r"^\|\s*(R\d+)\s*\|\s*([^|]+?)\s*\|\s*([★☆]+)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|",
+        re.MULTILINE,
+    )
+    for m in r_row_re.finditer(text):
+        cid, stack, stars, summary, status = m.groups()
+        meta[cid] = {
+            "dimension": "real",
             "stack": stack.strip(),
             "difficulty": stars.strip(),
             "summary": summary.strip(),

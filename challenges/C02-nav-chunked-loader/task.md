@@ -34,8 +34,9 @@ workspace 是 Precis 分块文件加载（chunked loader）的精简缩影，涉
 ### 2. 修复 `find_cross_chunk_duplicates`
 
 读 `workspace/chunked_checker.py`，理解 `find_cross_chunk_duplicates(chunks, column)` 当前的行为，
-它存在缺陷——某些重复值检测不到。修复它使其正确工作。其余设计（返回值结构、边缘情况处理）
-**自行决定**。verify 只测行为，不查内部实现。
+它存在缺陷——某些重复值检测不到。修复它使其正确工作。返回值结构沿用 seed
+`find_cross_chunk_duplicates` docstring 声明的契约（`(chunk_idx, local_row)` 元组列表，
+`local_row` 为该行在其 chunk 内的索引标签）；其余实现细节自行决定。verify 只测行为，不查内部实现。
 
 ## 约束
 

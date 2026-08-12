@@ -26,7 +26,7 @@ workspace 是 Precis 数据类型体系的精简副本：
 - **文件**：`workspace/data_types.py`（新增类）
 - **注册**：在 `workspace/registry.py` 的 `TYPE_REGISTRY` 里注册到类型名 `"datetime"`，使 `build_type_from_config("datetime")` 能返回实例
 
-其余设计（具体格式、`validate` 校验逻辑、`parse` 返回什么类型对象、边缘情况）**自行决定**——参照现有 `DateType` 的写法自己推断。verify 只测行为，不查正则或格式串。
+**格式契约**（verify 会硬性断言）：接受的输入格式是 `YYYY-MM-DD HH:MM:SS`——日期与时间之间用**空格**分隔（如 `2026-07-19 14:30:00`），`validate` 返回 `True`。纯日期（`2026-07-19`，缺时间部分）、变体格式（如 `2026/07/19 14:30`）、非字符串输入（如 `None`）都必须 `validate` 返回 `False`。`parse` 对合法输入返回 `datetime.datetime` 对象（不是 `date`，保留时间部分）。其余设计（`validate` / `parse` 的实现细节、其他边缘情况）参照现有 `DateType` 的写法自己推断。verify 只测行为，不查正则或格式串的写法。
 
 ## 约束
 

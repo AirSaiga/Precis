@@ -28,7 +28,7 @@ workspace 里有 3 个自包含的 JS 文件，模拟真实 Precis 的 **graphSt
 - **新建 `workspace/clipboardOps.js`**：导出 `createClipboardOps(deps)` 工厂，返回含 `copyNode` 和 `pasteNode` 方法的对象。
 - **接入 `workspace/assembly.js`**：把新工厂 require 进来、在 `assembleStore` 里调用、把返回值 spread 进 store。
 
-其余设计（`copyNode` / `pasteNode` 的具体行为、剪贴板状态怎么管理、拷贝用深还是浅、边界情况怎么处理）**自行决定**——仔细想清楚工厂实例之间的状态隔离。verify 只测行为，不查内部实现。
+**返回契约**（verify 会硬性断言）：`copyNode(id)` 复制成功返回 `true`、节点不存在返回 `false`；`pasteNode(newId)` 粘贴成功返回新建的节点、剪贴板为空返回 `null`。其余设计（剪贴板状态怎么管理、拷贝用深还是浅、其他边界情况怎么处理）**自行决定**——仔细想清楚工厂实例之间的状态隔离。verify 只测行为，不查内部实现。
 
 ## 约束
 

@@ -1,7 +1,6 @@
 /**
  * V2 配置导入（C06 seed）。
  * 遍历 V2 配置的 nodes 数组，用 nodeFactory 创建每个节点。
- * createNode 返回 null 的节点被跳过（静默丢弃 —— 这是潜在 bug 源）。
  * 模拟 Precis 的 v2Import 模块。
  */
 const { createNode } = require('./nodeFactory')

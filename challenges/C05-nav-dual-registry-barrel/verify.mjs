@@ -2,14 +2,22 @@
 //
 // 验证双注册表 barrel 已启用 notNullHandler 的 side-effect import。
 //
-// 纯静态校验（读源文件文本）：不跑 tsc、不执行 agent 代码、不 transpile。
-// 这样做的原因：本 bug 的本质就是 barrel 里一行被注释的 import——
-// 静态检查"该 import 语句存在且未被注释"既精确又稳健。
+// 检查分两层：
+//   1. 静态检查（读源文件文本）：不跑 tsc、不执行 agent 代码。验证 barrel 里
+//      notNullHandler 的 import 语句存在且未被注释、两个模块顶层有自注册调用、
+//      registry 的双 Map + 注册/查询函数齐全。这是稳健的骨架。
+//      关键细节：必须用"import 语句模式"匹配（import + 引号路径），
+//      不能用 `line.includes('notNullHandler') && line.includes('import')`——
+//      因为 index.ts 的文档注释里恰好有 "notNullHandler 的 import 被注释掉了"
+//      这样的散文，会被松散 includes 误判成 import 行。
+//   2. 动态检查（剥离 TS 类型注解 + ESM→CJS 变换后用 new Function 执行）：
+//      从 barrel（index.ts）入口真实驱动模块加载，断言 registry 的
+//      listHandlers() 含 'notNull'。静态层可被"在 notNullHandler.ts 里定义
+//      本地同名 register 自调、不调 registry 的 register"绕过——本地自调
+//      不会写入 registry 的 handlers Map，动态层抓的正是这种假注册。
 //
-// 关键细节：必须用"import 语句模式"匹配（import + 引号路径），
-// 不能用 `line.includes('notNullHandler') && line.includes('import')`——
-// 因为 index.ts 的文档注释里恰好有 "notNullHandler 的 import 被注释掉了"
-// 这样的散文，会被松散 includes 误判成 import 行。
+// 防作弊：动态执行期间重定向 console.*，扫描输出是否含 verify 协议关键字
+// （PASS/FAIL/[✓]/[✗]），含即判作弊 → 整体 FAIL。
 //
 // 契约：退出码 0 = PASS / 非 0 = FAIL。
 // stdout 首行：PASS / FAIL。后续行：`  [✓] / [✗] 描述`。
@@ -78,6 +86,108 @@ checks.push([
 checks.push(['workspace/notNullBuilder.ts 存在', existsSync(join(W, 'notNullBuilder.ts'))])
 checks.push(['workspace/notNullHandler.ts 存在', existsSync(join(W, 'notNullHandler.ts'))])
 checks.push(['workspace/index.ts 存在', existsSync(join(W, 'index.ts'))])
+
+// ---- 动态测试：剥 TS 类型注解 + ESM→CJS 变换后真实执行 ----
+// 从 barrel（index.ts）入口驱动一个迷你模块加载器：只有被 barrel 实际
+// import 的模块才会执行顶层自注册——正是 side-effect import 模式的语义。
+// 模块名只用逻辑键（'./registry' 等），文件读取走 join(W, ...)（Windows 路径安全）。
+function stripTs(code) {
+  return code
+    // 1. 移除多行 interface 块
+    .replace(/^\s*interface\s+\w+\s*\{[\s\S]*?^\s*\}[ \t]*$/gm, '')
+    // 2. 移除单行 type 别名
+    .replace(/^\s*type\s+\w+\s*=[^\n]*$/gm, '')
+    // 3. 移除 new Map/Set 的泛型实参：`new Map<K, V>()` → `new Map()`
+    .replace(/\bnew\s+(Map|Set)\s*<[^()]*?>\s*\(\)/g, 'new $1()')
+    // 4. 移除函数返回类型注解：`): Type {`
+    .replace(/\)\s*:\s*[A-Za-z_$][\w$.<>|,&\s\[\]?{}]*?\s*\{/g, ') {')
+    // 5. 移除变量声明类型注解：`(let|const|var) name: Type =`
+    .replace(/\b(let|const|var)(\s+\w+)\s*:\s*[A-Za-z_$][\w$.<>|,&\s\[\]?{}]*?(?=\s*=)/g, '$1$2')
+    // 6. 移除参数的内联对象类型注解：`name: { ... }` 紧跟 `,` 或 `)`
+    //    （不支持嵌套花括号——本 seed 及合理修改范围内无此形态）
+    .replace(/(\w+)\s*:\s*\{[^{}]*\}\s*(?=[,)])/g, '$1')
+    // 7. 移除参数类型注解：`name: Type` 紧跟 `,` 或 `)`
+    //    （本 seed 源文件无 `ident: ident,` 形式的对象字面量，故该简化安全）
+    .replace(/(\w+)\s*:\s*[A-Za-z_$][\w$.<>|]*\s*(?=[,)])/g, '$1')
+}
+
+function transformImportsExports(code) {
+  return code
+    // side-effect import：`import './x'` → `require('./x')`
+    // （被 // 注释的行不匹配，保持惰性。注意：行首/行尾一律用 [ \t]* 而非 \s*——
+    //   CRLF 文件里 JS 的 ^/$ 把 \r 也算作行终止符，^\s* 会把上一行的 \n 吞掉，
+    //   导致相邻语句被拼接到同一行）
+    .replace(/^[ \t]*import\s+['"](\.\/[^'"]+)['"]\s*;?[ \t]*$/gm, "require('$1')")
+    // 命名 import：`import { a, b } from './x'`
+    .replace(
+      /^[ \t]*import\s*\{([^}]*)\}\s*from\s*['"](\.\/[^'"]+)['"]\s*;?[ \t]*$/gm,
+      "const {$1} = require('$2')",
+    )
+    // `export function name(` → `exports.name = function name(`
+    .replace(/\bexport\s+function\s+(\w+)\s*\(/g, 'exports.$1 = function $1(')
+}
+
+function makeLoader() {
+  const cache = new Map()
+  const load = (spec) => {
+    const key = spec.replace(/^\.\//, '').replace(/\.ts$/, '')
+    if (cache.has(key)) return cache.get(key).exports
+    const filePath = join(W, `${key}.ts`)
+    if (!existsSync(filePath)) throw new Error(`module not found: ${key}`)
+    const code = transformImportsExports(stripTs(read(filePath)))
+    const module = { exports: {} }
+    cache.set(key, module) // 先入缓存，容忍循环引用
+    // eslint-disable-next-line no-new-func
+    new Function('require', 'exports', 'module', code)(load, module.exports, module)
+    return module.exports
+  }
+  return load
+}
+
+let dynamicOk = false
+let dynamicErr = ''
+let cheated = false
+const CHEAT_RE = /\bPASS\b|\bFAIL\b|\[✓\]|\[✗\]/
+
+try {
+  // 防作弊：捕获执行期间 console.* 输出
+  const buf = []
+  const origLog = console.log
+  const origWarn = console.warn
+  const origErr = console.error
+  console.log = (...a) => buf.push(a.map(String).join(' '))
+  console.warn = (...a) => buf.push(a.map(String).join(' '))
+  console.error = (...a) => buf.push(a.map(String).join(' '))
+  let registryExports
+  try {
+    const load = makeLoader()
+    load('./index') // 从 barrel 入口驱动：触发其激活的 side-effect import 链
+    registryExports = load('./registry') // 缓存命中，与 barrel 内同一个实例
+  } finally {
+    console.log = origLog
+    console.warn = origWarn
+    console.error = origErr
+  }
+  cheated = buf.some((s) => CHEAT_RE.test(s))
+  const kinds = registryExports.listHandlers()
+  dynamicOk = Array.isArray(kinds) && kinds.includes('notNull')
+} catch (e) {
+  dynamicErr = String(e && e.stack ? e.stack.split('\n')[0] : e)
+}
+
+// ---- 防作弊优先 ----
+if (cheated) {
+  console.log('FAIL')
+  console.log('  [✗] 检测到疑似作弊：agent 代码在执行期间输出了 PASS/FAIL/[✓]/[✗]')
+  process.exit(1)
+}
+
+checks.push([
+  `动态测试：barrel 驱动加载后 registry.listHandlers() 含 'notNull'（真实执行，${
+    dynamicErr || 'ok'
+  }）`,
+  dynamicOk,
+])
 
 // ---- 输出 ----
 const okAll = checks.every(([, ok]) => ok)

@@ -55,6 +55,7 @@ python verify.py
 ```
 
 退出码 0 = PASS，非 0 = FAIL。verify 同时检查：4 个 stage 存在且各自行为正确、`process` 行为对照
-黄金完全一致、`process` 函数体确实调用了 4 个 stage。详见 verify 输出。
+黄金完全一致、`process` 函数体确实调用了 4 个 stage（AST 级检查——只认真实的函数调用，在注释或
+字符串里写 stage 名不算）、且 `process` 函数体不含逐元素 `for` 循环。详见 verify 输出。
 
 完成后按 [challenges/README.md](../README.md) 填 `workspace/RESULT.md`。

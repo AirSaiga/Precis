@@ -18,21 +18,34 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 1. **创建完整仓库 worktree**（防作弊，与其他模型隔离）：
    ```bash
    # 用 git worktree 创建完整仓库副本（含 challenges/ + backend/ + frontend/）
+   # 注意：必须加 --detach —— main 分支已被主仓库检出，
+   # 不加会报 fatal: 'main' is already used by worktree
    cd D:/Precis/Precis
-   git worktree add D:/Precis/eval-【模型名】 main
+   git worktree add --detach D:/Precis/eval-【模型名】 main
    cd D:/Precis/eval-【模型名】/challenges
 
    # 清掉运行时残留
    rm -rf C*/workspace results
    mkdir -p results
 
+   # R04 需要 frontend 依赖（worktree 不含 node_modules）——二选一：
+   # (a) 零成本（Windows）：建 junction 共享主仓库依赖（前端测试只读 node_modules，安全）
+   cmd //c mklink /J "D:\Precis\eval-【模型名】\frontend\node_modules" "D:\Precis\Precis\frontend\node_modules"
+   # (b) 干净安装（需网络，数分钟）：cd ../frontend && npm ci
+
    # ✅ SOLUTION.md 已从 git 移除（.gitignore），worktree 天然不含任何答案。
    # 以下 find 只是确认（应无输出）。如果用 cp -r 而非 worktree，则 find -delete 仍是必须的。
    find . -name "SOLUTION.md" -o -name "maxlength_constraint.py"
    ```
-   ```
 
-   > **轻量替代**（只跑 C 系列 24 题，不跑 R 系列）：用 `cp -r D:/Precis/Precis/challenges D:/Precis/eval-【模型名】` 代替 worktree。但 cp -r 会复制本地 SOLUTION.md（因为它在磁盘上存在，只是不 track），所以 cp 方案**必须**跑 `find . -name SOLUTION.md -delete && rm -f C01-nav-add-maxlength/maxlength_constraint.py` 删答案。R 系列需要完整仓库，cp 只有 challenges/ 不够。
+   > **轻量替代**（只跑 C 系列 24 题，不跑 R 系列）：用 `cp -r D:/Precis/Precis/challenges D:/Precis/eval-【模型名】` 代替 worktree。但 cp -r 会复制本地 SOLUTION.md、results/（含历史答案摘要）和可能脏的 workspace/，所以 cp 方案**必须**先跑：
+   > ```bash
+   > cd D:/Precis/eval-【模型名】
+   > rm -rf C*/workspace results && mkdir results          # 清历史结果与脏工作区
+   > find . -name SOLUTION.md -delete                      # 删答案
+   > rm -f C01-nav-add-maxlength/maxlength_constraint.py   # 删 C01 独立答案文件
+   > ```
+   > R 系列需要完整仓库，cp 只有 challenges/ 不够。
 
 2. 读 `README.md` 学规则 + RESULT.md frontmatter 格式。
 
@@ -71,6 +84,7 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
    - 在真实仓库里导航（`backend/` 或 `frontend/`），找到相关文件并实现功能 + 注册
    - 跑 `python verify.py`（Python 题）或 `node verify.mjs`（TS 题）—— **只跑 1 次！**
      verify 会把测试文件临时放进 `backend/tests/` 或 `frontend/tests/`，跑真实 pytest/vitest，然后清理。
+   - **判定边界**：R 系列 verify 只跑注入的测试文件，不回归仓库既有测试套件——但你的改动若破坏既有测试（如改了共享注册表的既有断言），仍属错误实现，应在动手前先读相关既有测试了解约束。
    - 在 `results/【模型名】-run/` 下创建 `<题目录名>.md`（同 C 系列 frontmatter 格式）。
 
 6. **全部做完后**：
@@ -85,6 +99,7 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 - **参考答案已在第 1 步删除**（`SOLUTION.md` 和 `maxlength_constraint.py` 已 `rm`）。如果你发现它们还在，说明第 1 步没执行，停下来重做。
 - **C 系列**：只改 `workspace/` 内文件，不碰 `seed/`、`verify.*`、`task.md`。
 - **R 系列**：在真实仓库 `backend/` 或 `frontend/` 里改，但**不碰** `tests/` 目录（verify 脚本会自己放测试文件）和 `challenges/` 目录。
+- **R04 前置**：worktree 里必须先备好 frontend 依赖（第 1 步的 junction 或 npm ci），否则 verify 会因环境缺失 FAIL 而非能力 FAIL。
 - **不碰** `D:/Precis/Precis/`（主仓库，只是模板源）。
 - verify 退出码为准（0=PASS）。做不出记 FAIL 继续，不跳题不放弃。
 - `agent` 字段填真实模型标识（如 `glm-5.2` / `claude-sonnet-4.5`）。

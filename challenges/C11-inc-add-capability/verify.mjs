@@ -25,7 +25,7 @@ const clip = read(join(W, 'clipboardApi.ts'))
 const comp = read(join(W, 'component.ts'))
 
 // 提取所有 class 体（名无关，用于按行为判定 Electron/Web 适配器）。
-// 每个 class 从 'class Name' 到下一个顶层 class/function/export/const 或文件尾。
+// 每个 class 从 'class Name' 到下一个 class 声明或文件尾。
 const classStarts = [...clip.matchAll(/\bclass\s+(\w+)/g)]
 const classSpans = classStarts.map((m, i) => {
   const start = m.index

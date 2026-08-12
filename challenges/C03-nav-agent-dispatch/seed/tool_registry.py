@@ -39,5 +39,3 @@ register_tool("validate", lambda rule: {"rule": rule, "passed": True})
 
 # report：返回报告文本
 register_tool("report", lambda fmt: f"report({fmt})")
-
-# 注意：'export_csv' 没注册！executor 执行到它会失败。

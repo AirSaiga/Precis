@@ -74,6 +74,18 @@ def main() -> int:
         )
     )
     checks.append(
+        (
+            "service.py 不再含 def _format_range_error 定义",
+            "def _format_range_error" not in svc_src,
+        )
+    )
+    checks.append(
+        (
+            "service.py 不再含 def _format_foreign_key_error 定义",
+            "def _format_foreign_key_error" not in svc_src,
+        )
+    )
+    checks.append(
         ("service.py import 自 formatters", "from formatters import" in svc_src)
     )
 

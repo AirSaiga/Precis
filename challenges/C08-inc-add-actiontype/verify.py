@@ -25,7 +25,9 @@ def main() -> int:
 
     # 读 registry.py
     reg_path = os.path.join(WORKSPACE, "registry.py")
-    reg_src = open(reg_path, encoding="utf-8").read() if os.path.exists(reg_path) else ""
+    reg_src = (
+        open(reg_path, encoding="utf-8").read() if os.path.exists(reg_path) else ""
+    )
 
     # 检查 1: registry.py 含 EXPORT_REPORT 条目（作为 ACTIONS 的 key）
     checks.append(
@@ -70,11 +72,16 @@ def main() -> int:
     ts_path = os.path.join(WORKSPACE, "actions.ts")
     ts_src = open(ts_path, encoding="utf-8").read() if os.path.exists(ts_path) else ""
 
-    # 检查 5: actions.ts 整体含 EXPORT_REPORT（覆盖联合类型 + Set）
+    # 检查 5: ActionType 联合类型块内含 'EXPORT_REPORT'
+    # 提取 `ActionType =` 到其后第一个 `export const`（或语句结束的 `;`）之间的
+    # 联合类型文本块，只在块内断言——防止只在 READ_ONLY 等 Set 里加字符串蒙混
+    # （联合类型是 codegen 平铺所有 actionType 的地方，必须包含新成员）。
+    union_match = re.search(r"ActionType\s*=.*?(?=export const|;)", ts_src, re.DOTALL)
+    union_block = union_match.group(0) if union_match else ""
     checks.append(
         (
-            "actions.ts 含 'EXPORT_REPORT'",
-            "'EXPORT_REPORT'" in ts_src,
+            "ActionType 联合类型块内含 'EXPORT_REPORT'",
+            "'EXPORT_REPORT'" in union_block,
         )
     )
     # 检查 6: EXPORT_REPORT 进入正确的只读/读写分组

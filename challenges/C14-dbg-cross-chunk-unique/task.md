@@ -46,6 +46,6 @@
 python verify.py
 ```
 
-退出码 0 = PASS，非 0 = FAIL。约 6 项检查（含单 chunk 回归、跨块重复、多跨块重复、无重复、三块跨块、缺列不崩溃）详见 verify 输出。
+退出码 0 = PASS，非 0 = FAIL。8 项检查（含单 chunk 回归、跨块重复、多跨块重复、无重复、三块跨块、缺列不崩溃、中间 chunk 缺列仍占行号偏移）详见 verify 输出。
 
 完成后按 [challenges/README.md](../README.md) 填 `workspace/RESULT.md`。

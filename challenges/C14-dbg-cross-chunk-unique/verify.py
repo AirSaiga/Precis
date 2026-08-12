@@ -103,6 +103,19 @@ def main() -> int:
         )
     )
 
+    # 检查 7 (关键): 中间 chunk 缺列仍占行号偏移
+    # chunk1 无 id 列，但它的 2 行仍占全局行号空间：
+    # chunk0 的 'a' 在全局行 0；chunk2 的 'a' 在全局行 2(chunk0) + 2(chunk1) + 0 = 4
+    r7 = _run(
+        [
+            pd.DataFrame({"id": ["a", "b"]}),
+            pd.DataFrame({"x": [1, 2]}),
+            pd.DataFrame({"id": ["a"]}),
+        ],
+        "id",
+    )
+    checks.append(("中间 chunk 缺列仍占行号偏移（'a' 在全局行 0 和 4）", r7 == [0, 4]))
+
     if cheated:
         print("FAIL")
         print("  [✗] 检测到疑似作弊")

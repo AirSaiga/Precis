@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import ast
 import contextlib
 import importlib
 import io
@@ -70,14 +71,27 @@ def _golden(values: list[Any], min_val: int, max_val: int) -> dict[str, Any]:
     }
 
 
-def _read_process_body() -> str:
-    """从 validator.py 源码中切出 process 函数体（用于检查是否调用了各 stage）。"""
+def _process_def() -> ast.FunctionDef | ast.AsyncFunctionDef | None:
+    """ast.parse workspace 的 validator.py，返回顶层 process 函数定义节点。
+
+    用 AST 而非源码子串做"process 是否调用了 stage"的判定——
+    注释/字符串里写 stage 名（如 `# 调用了 stage_filter_none ...`）不会产生 ast.Call，
+    无法蒙混。
+    """
     src_path = os.path.join(WORKSPACE, "validator.py")
-    src = open(src_path, encoding="utf-8").read() if os.path.exists(src_path) else ""
-    if "def process(" not in src:
-        return ""
-    # 取 def process( 之后、到下一个顶层 def 之前的内容
-    return src.split("def process(", 1)[1].split("\ndef ", 1)[0]
+    if not os.path.exists(src_path):
+        return None
+    try:
+        tree = ast.parse(open(src_path, encoding="utf-8").read())
+    except (SyntaxError, ValueError):
+        return None
+    for node in tree.body:
+        if (
+            isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef))
+            and node.name == "process"
+        ):
+            return node
+    return None
 
 
 def _stages_ok(mod: Any) -> bool:
@@ -144,10 +158,29 @@ def main() -> int:
         ("process 行为与原始完全一致（6 组测试对照黄金）", _process_behavior_ok(mod))
     )
 
-    # process 函数体调用了 4 个 stage（不是内联）
-    process_body = _read_process_body()
+    # process 函数体真实调用了 4 个 stage（AST 级检查：存在 func 为对应 Name 的 ast.Call；
+    # 注释/字符串里提及 stage 名不算）
+    process_def = _process_def()
+    called: set[str] = set()
+    if process_def is not None:
+        for node in ast.walk(process_def):
+            if isinstance(node, ast.Call) and isinstance(node.func, ast.Name):
+                called.add(node.func.id)
     for stage in STAGE_NAMES:
-        checks.append((f"process 函数体调用了 {stage}", stage in process_body))
+        checks.append(
+            (f"process 函数体真实调用了 {stage}（AST 级，注释不算）", stage in called)
+        )
+
+    # process 函数体不含逐元素 for 循环（命令式循环应已搬进各 stage）
+    has_for = process_def is not None and any(
+        isinstance(n, (ast.For, ast.AsyncFor)) for n in ast.walk(process_def)
+    )
+    checks.append(
+        (
+            "process 函数体不含 for 循环（逐元素循环已搬进各 stage）",
+            process_def is not None and not has_for,
+        )
+    )
 
     if cheated:
         print("FAIL")

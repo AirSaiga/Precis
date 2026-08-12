@@ -67,12 +67,21 @@ def main() -> int:
             print(result.stderr[-800:])
         return 0 if passed else 1
     finally:
-        # 4. 清理：移除临时测试文件，保持真实仓库干净
+        # 4. 清理：移除临时测试文件 + 清理 __pycache__，保持真实仓库干净
         if os.path.exists(TEST_DST):
             try:
                 os.remove(TEST_DST)
             except OSError:
                 pass
+        # 移除 pytest 缓存的 .pyc（test_r03_parquet_loader 的字节码）
+        cache_dir = os.path.join(BACKEND_TESTS_UNIT, "__pycache__")
+        if os.path.isdir(cache_dir):
+            for fname in os.listdir(cache_dir):
+                if fname.startswith("test_r03_parquet_loader"):
+                    try:
+                        os.remove(os.path.join(cache_dir, fname))
+                    except OSError:
+                        pass
 
 
 if __name__ == "__main__":

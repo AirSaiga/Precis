@@ -58,9 +58,19 @@ checks.push([
   "handlerRegistry.ts register 的 kind 为 'notBlank'",
   /kind:\s*['"]notBlank['"]/.test(handler),
 ])
+// 不能只查全文件 /validate/ —— seed 里 notNull 的 handler 就含 validate，恒真。
+// 限定 notBlank 的 register 块：从各 register( 调用处切分（到下一个 register(
+// 或文件尾），取参数含 kind: 'notBlank' 的那块，断言块内含 validate 且含 trim
+// （trim 是 NotBlank「拒绝纯空白串」语义的核心标识，防注册空壳 validate 蒙混）。
+const regStarts = [...handler.matchAll(/register\(/g)].map((m) => m.index)
+const regBlocks = regStarts.map((start, i) =>
+  handler.slice(start, i + 1 < regStarts.length ? regStarts[i + 1] : undefined),
+)
+const notBlankRegBlock =
+  regBlocks.find((b) => /kind:\s*['"]notBlank['"]/.test(b)) || ''
 checks.push([
-  'handlerRegistry.ts 含 validate 校验函数',
-  /validate/.test(handler),
+  'handlerRegistry.ts notBlank 的 register 块含 validate 且含 trim',
+  /validate/.test(notBlankRegBlock) && /trim/.test(notBlankRegBlock),
 ])
 
 // ── nodes.ts：NotBlankConstraintNodeData 接口 + 加入联合 ─────────────
@@ -88,8 +98,16 @@ checks.push([
   /\bname\s*:/.test(notBlankBody),
 ])
 checks.push([
+  'i18n.ts notBlank 块含 nameEn 字段',
+  /\bnameEn\s*:/.test(notBlankBody),
+])
+checks.push([
   'i18n.ts notBlank 块含 description 字段',
   /\bdescription\s*:/.test(notBlankBody),
+])
+checks.push([
+  'i18n.ts notBlank 块含 descriptionEn 字段',
+  /\bdescriptionEn\s*:/.test(notBlankBody),
 ])
 
 // ── 跨文件一致性 ────────────────────────────────────────────────────
