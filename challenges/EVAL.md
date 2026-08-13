@@ -15,14 +15,19 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 
 ## 流程
 
-1. **跑隔离器创建 worktree**（物理隔离：归档其他模型的 eval 目录到随机路径，磁盘上只留你的）：
+1. **跑隔离器创建 worktree**（随机隐藏路径 + 运行锁，支持多模型并行，互不知道对方路径）：
    ```bash
    cd D:/Precis/Precis
    python challenges/start_eval.py 【模型名】
-   # 脚本会自动：
-   #   - 把磁盘上所有旧 eval-* worktree 归档到 .eval-archive/<名字>-<随机token>/（保留证据、不可预测路径）
-   #   - 创建你的全新 worktree（detached，天然不含 SOLUTION.md）
-   cd D:/Precis/eval-【模型名】/challenges
+   # 脚本会输出你的 worktree 随机路径（形如 D:/Precis/.r/<随机token>/）
+   # 它自动完成：
+   #   - 归档已跑完的旧评测目录（保留证据到 .eval-archive/）
+   #   - 保留正在跑的（运行锁保护，8小时超时）
+   #   - 在随机隐藏路径下创建你的全新 worktree（天然不含 SOLUTION.md）
+   #   - 写入运行锁 .running
+
+   # 按脚本输出的路径 cd 进去（不要手抄，用脚本打印的实际路径）：
+   cd <脚本输出的worktree路径>/challenges
 
    # 清掉运行时残留
    rm -rf C*/workspace results
@@ -31,11 +36,10 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
    # R04 需要 frontend 依赖（worktree 不含 node_modules）——二选一：
    # (a) 零成本（Windows）：PowerShell 建 junction 共享主仓库依赖（前端测试只读 node_modules，安全）。
    #     注意：Git Bash 下 `cmd //c mklink /J` 会被 MSYS 改坏参数，必须用 PowerShell 形式。
-   powershell -Command "New-Item -ItemType Junction -Path 'D:\Precis\eval-【模型名】\frontend\node_modules' -Target 'D:\Precis\Precis\frontend\node_modules'"
+   #     路径里的 <worktree根> 替换为你的实际 worktree 根目录。
+   powershell -Command "New-Item -ItemType Junction -Path '<worktree根>\frontend\node_modules' -Target 'D:\Precis\Precis\frontend\node_modules'"
    # (b) 干净安装（需网络，数分钟）：cd ../frontend && npm ci
 
-   # ✅ 确认隔离：磁盘上应只有你自己的 eval 目录
-   ls -d D:/Precis/eval-*
    # ✅ 确认无答案残留（应无输出）
    find . -name "SOLUTION.md" -o -name "maxlength_constraint.py"
    ```
@@ -128,6 +132,11 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
    ```
    把生成的 REPORT.md（总览 + 维度/栈/难度聚合 + 按维度得分）展示给我看。
 
+7. **最后一步（回收）**：删除运行锁，让下次评测能归档你的 worktree：
+   ```bash
+   rm <你的worktree根>/.running
+   ```
+
 ## 硬约束
 
 - **每题 verify 只跑 1 次**（C / R / X / L 系列都一样）。无论 PASS/FAIL（L 系列是 SCORE n/m），结果就是最终成绩。看了 verify 输出后再改代码重跑 = 用反馈磨答案 = 作弊。第一次跑完立刻记结果，做下一题。
@@ -138,7 +147,7 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 - **R04 / X / L 系列前置**：worktree 里必须先备好 frontend 依赖（第 1 步的 junction 或 npm ci），否则 verify 会因环境缺失 FAIL 而非能力 FAIL。
 - **X02 / L05 / L06 前置**：做题前先跑对应目录的 `python plant.py` 注入故障（脚本只在你的 worktree 里改文件，放心跑）。
 - **不碰** `D:/Precis/Precis/`（主仓库，只是模板源）。
-- **不访问** `D:/Precis/eval-*` 下的任何其他目录（那是别的模型的评测副本）。你只能在自己的 worktree（`D:/Precis/eval-【模型名】`）内活动。读其他模型的实现 = 作弊。
+- **不枚举、不访问你的 worktree 之外的任何评测目录**。你的 worktree 在 `D:/Precis/.r/<随机token>/` 下——同目录下可能有其他模型正在跑的评测（路径随机、互相不可知）。`ls` 父目录、翻兄弟目录、读其他模型的实现 = 作弊。
 - verify 退出码为准（0=PASS）。做不出记 FAIL 继续，不跳题不放弃。
 - `agent` 字段填真实模型标识（如 `glm-5.2` / `claude-sonnet-4.5`）。
 

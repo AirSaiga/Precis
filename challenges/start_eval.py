@@ -1,21 +1,24 @@
 """
-评测环境隔离器 — 跑测前必须先执行本脚本。
+评测环境隔离器 v2 — 随机隐藏路径 + 运行锁，支持并行评测。
 
 用法：
     python start_eval.py <模型名>
 
 效果：
-    1. 把磁盘上所有已存在的 eval-* worktree 归档到随机路径（跑测期间不可达）
-    2. 创建当前模型的全新 worktree
-    3. 物理隔离：跑测时磁盘上只有你自己的 worktree
+    1. 归档磁盘上旧的明路径 eval-*（不在跑的）
+    2. 归档 .r/ 下过期的评测目录（无锁或锁超 8 小时的）
+    3. 在 D:/Precis/.r/<随机token>/ 创建全新 worktree（隐藏父目录 + 随机路径）
+    4. 写入运行锁（.running，含启动时间戳）
+    5. 输出 worktree 路径 —— agent 按输出 cd 进去跑题
 
-为什么需要：
-    多个模型的评测副本若同时留在磁盘上，后跑的 agent 可以读到先跑的
-    实现（跨 worktree 抄袭）。本脚本用 git worktree move 归档旧副本
-    （保留证据、无 junction 风险），确保跑测期间物理上只有一份。
+并行安全：
+    多个模型同时跑时，各自的 worktree 在不同的随机 token 目录下，
+    互不知道对方的路径（父目录 .r 默认不可见，token 随机）。
+    运行锁防止后启动的 start_eval.py 归档正在跑的评测。
 
-归档位置：
-    D:/Precis/.eval-archive/<原名>-<随机token>/    ← 路径含随机 token，不可预测
+跑完后：
+    agent 删除自己 worktree 根下的 .running 文件（EVAL.md 最后一步）。
+    忘了删也没关系——锁 8 小时自动超时，下次 start_eval 会归档它。
 """
 
 from __future__ import annotations
@@ -23,17 +26,50 @@ from __future__ import annotations
 import secrets
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 BASE = Path("D:/Precis")
 MAIN_REPO = BASE / "Precis"
-ARCHIVE = BASE / ".eval-archive"
+RUNS_ROOT = BASE / ".r"  # 隐藏父目录（随机 token 都在这下面）
+ARCHIVE = BASE / ".eval-archive"  # 归档目录
+LOCK_NAME = ".running"
+LOCK_TIMEOUT_SEC = 8 * 3600  # 运行锁 8 小时超时
 
 
 def run_git(args: list[str], cwd: Path = MAIN_REPO) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["git"] + args, cwd=str(cwd), capture_output=True, text=True, encoding="utf-8"
     )
+
+
+def is_running(wt: Path) -> bool:
+    """该评测目录是否正在跑（有有效运行锁）。"""
+    lock = wt / LOCK_NAME
+    if not lock.exists():
+        return False
+    try:
+        ts = float(lock.read_text(encoding="utf-8").strip())
+        return (time.time() - ts) < LOCK_TIMEOUT_SEC
+    except (ValueError, OSError):
+        return False
+
+
+def archive_worktree(src: Path) -> bool:
+    """把 worktree 移到归档目录（git worktree move，保留证据、不碰文件）。"""
+    token = secrets.token_hex(8)
+    dest = ARCHIVE / f"{src.name}-{token}"
+    r = run_git(["worktree", "move", str(src), str(dest)])
+    if r.returncode != 0:
+        # 不是 worktree（普通目录）→ 直接移动
+        try:
+            dest.mkdir(parents=True)
+            for item in src.iterdir():
+                item.rename(dest / item.name)
+            src.rmdir()
+        except OSError:
+            return False
+    return True
 
 
 def main() -> int:
@@ -43,68 +79,59 @@ def main() -> int:
         return 1
 
     model_name = sys.argv[1].strip()
-    if not model_name or "/" in model_name or "\\" in model_name or ".." in model_name:
+    if not model_name or any(c in model_name for c in "/\\.."):
         print(f"非法模型名：{model_name!r}")
         return 1
 
-    my_wt = BASE / f"eval-{model_name}"
-
-    # ── 1. 清理失效的 worktree 注册 ──
     run_git(["worktree", "prune"])
-
-    # ── 2. 归档所有已存在的 eval-* 目录 ──
     ARCHIVE.mkdir(exist_ok=True)
-    archived = 0
+    RUNS_ROOT.mkdir(exist_ok=True)
+
+    archived, skipped_running = 0, 0
+
+    # ── 1. 归档旧的明路径 eval-*（D:/Precis/eval-xxx）──
     for d in sorted(BASE.glob("eval-*")):
         if not d.is_dir():
             continue
-        if d.resolve() == my_wt.resolve():
-            continue  # 自己的旧目录也归档（重建干净的）
-        token = secrets.token_hex(8)
-        dest = ARCHIVE / f"{d.name}-{token}"
-        # 先尝试 git worktree move（保持注册正确，不碰文件内容，无 junction 风险）
-        r = run_git(["worktree", "move", str(d), str(dest)])
-        if r.returncode != 0:
-            # 不是 worktree（可能是普通目录）→ 直接移动
-            try:
-                dest.mkdir(parents=True)
-                for item in d.iterdir():
-                    item.rename(dest / item.name)
-                d.rmdir()
-            except OSError as e:
-                print(f"⚠️ 归档 {d.name} 失败：{e}")
-                continue
-        print(f"已归档: {d.name} → .eval-archive/{dest.name}/")
-        archived += 1
-
-    # ── 3. 归档自己的旧目录（如果重跑同一模型）──
-    if my_wt.exists():
-        token = secrets.token_hex(8)
-        dest = ARCHIVE / f"{my_wt.name}-{token}"
-        r = run_git(["worktree", "move", str(my_wt), str(dest)])
-        if r.returncode != 0:
-            print(f"⚠️ 归档旧 {my_wt.name} 失败：{r.stderr.strip()}")
-        else:
-            print(f"已归档旧副本: {my_wt.name} → .eval-archive/{dest.name}/")
+        if is_running(d):
+            skipped_running += 1
+            continue
+        if archive_worktree(d):
+            print(f"已归档明路径副本: {d.name}")
             archived += 1
 
-    # ── 4. 创建全新 worktree ──
-    run_git(["worktree", "prune"])  # 清理移动后的失效注册
-    # --detach：detached HEAD（main 已被主仓库 checkout，评测只需改文件不需 branch）
+    # ── 2. 归档 .r/ 下过期的评测目录 ──
+    for d in sorted(RUNS_ROOT.iterdir()):
+        if not d.is_dir() or d.name.startswith("."):
+            continue
+        if is_running(d):
+            skipped_running += 1
+            continue
+        if archive_worktree(d):
+            print(f"已归档过期评测: {d.name[:8]}…")
+            archived += 1
+
+    # ── 3. 创建全新 worktree（随机 token 路径）──
+    run_git(["worktree", "prune"])
+    token = secrets.token_hex(12)
+    my_wt = RUNS_ROOT / token
     r = run_git(["worktree", "add", "--detach", str(my_wt), "main"])
     if r.returncode != 0:
         print(f"❌ 创建 worktree 失败：{r.stderr.strip()}")
         return 1
 
-    # ── 5. 确认磁盘状态 ──
-    remaining = [d.name for d in BASE.glob("eval-*") if d.is_dir()]
+    # ── 4. 写运行锁 ──
+    (my_wt / LOCK_NAME).write_text(str(time.time()), encoding="utf-8")
+
+    # ── 5. 输出 ──
     print()
-    print(f"✅ 隔离完成（归档了 {archived} 个旧副本）")
-    print(f"你的 worktree：{my_wt}")
-    print(f"磁盘上的 eval 目录：{remaining}（应只有你自己的）")
+    print(f"✅ 隔离完成（归档 {archived} 个旧副本，{skipped_running} 个在跑未动）")
+    print(f"你的 worktree（随机隔离路径）：{my_wt}")
     print()
-    print("下一步：cd 到你的 worktree，按 EVAL.md 跑题。")
+    print("下一步：")
     print(f"  cd {my_wt}/challenges")
+    print("  然后按 EVAL.md 跑题。")
+    print(f"  跑完最后一步：rm {my_wt}/{LOCK_NAME}（删运行锁）")
     return 0
 
 
