@@ -15,13 +15,13 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 
 ## 流程
 
-1. **创建完整仓库 worktree**（防作弊，与其他模型隔离）：
+1. **跑隔离器创建 worktree**（物理隔离：归档其他模型的 eval 目录到随机路径，磁盘上只留你的）：
    ```bash
-   # 用 git worktree 创建完整仓库副本（含 challenges/ + backend/ + frontend/）
-   # 注意：必须加 --detach —— main 分支已被主仓库检出，
-   # 不加会报 fatal: 'main' is already used by worktree
    cd D:/Precis/Precis
-   git worktree add --detach D:/Precis/eval-【模型名】 main
+   python challenges/start_eval.py 【模型名】
+   # 脚本会自动：
+   #   - 把磁盘上所有旧 eval-* worktree 归档到 .eval-archive/<名字>-<随机token>/（保留证据、不可预测路径）
+   #   - 创建你的全新 worktree（detached，天然不含 SOLUTION.md）
    cd D:/Precis/eval-【模型名】/challenges
 
    # 清掉运行时残留
@@ -34,8 +34,9 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
    powershell -Command "New-Item -ItemType Junction -Path 'D:\Precis\eval-【模型名】\frontend\node_modules' -Target 'D:\Precis\Precis\frontend\node_modules'"
    # (b) 干净安装（需网络，数分钟）：cd ../frontend && npm ci
 
-   # ✅ SOLUTION.md 已从 git 移除（.gitignore），worktree 天然不含任何答案。
-   # 以下 find 只是确认（应无输出）。如果用 cp -r 而非 worktree，则 find -delete 仍是必须的。
+   # ✅ 确认隔离：磁盘上应只有你自己的 eval 目录
+   ls -d D:/Precis/eval-*
+   # ✅ 确认无答案残留（应无输出）
    find . -name "SOLUTION.md" -o -name "maxlength_constraint.py"
    ```
 
