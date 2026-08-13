@@ -52,7 +52,8 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 
 3. `./reset.sh` 生成所有 C 系列 workspace/。
 
-4. **C 系列逐题做**（C01→C24，共 24 题），每题：
+4. **C 系列逐题做**（共 24 题，**默认只做 16 题**），每题：
+   - **选题规则**：只做 `INDEX.md` 里状态为 `✅ ready` 的 C 题；标 `⏸ bench` 的 8 道 ★☆☆ 默认**跳过**（它们是弱模型基线校准题，token 受限时没必要跑；如需校准可加做）。
    - `cd Cxx-题目目录名`
    - 读 `task.md` + `workspace/` 里已有的参考文件
    - 在 `workspace/` 里实现或修复
@@ -95,20 +96,46 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
    - 跑 `python verify.py` 或 `node verify.mjs` —— **只跑 1 次！**（同上，verify 会临时注入测试并回归既有测试）
    - 在 `results/【模型名】-run/` 下创建 `<题目录名>.md`（同 C 系列 frontmatter 格式）。
 
+5.6. **L 系列逐题做**（L01→L06，共 6 题，能力榜单题，**多级评分**），每题：
+   - `cd Lxx-题目目录名`，读 `task.md`（只给需求/现象，**不给文件路径，也不给隐藏测试细节**）
+   - **盲验证纪律（同"只跑 1 次"同级荣誉制）**：做题期间**禁止读本目录的 `verify.*`**——它含隐藏行为测试，读了等于拿到答案；也禁止读 `SOLUTION.md`。
+   - 在真实仓库里实现（L01/L02/L03 后端、L04 前端、L05/L06 先按 task 说明跑 `plant.py` 注入故障再修）
+   - 跑 `python verify.py` 或 `node verify.mjs` —— **只跑 1 次！** verify 会评分并输出：
+     ```
+     SCORE: n/m
+       [i/j] 子项名：说明
+     ```
+     把 SCORE 与各子项**原样**记入 RESULT.md。
+   - 在 `results/【模型名】-run/` 下创建 `<题目录名>.md`，frontmatter 在 C 系列基础上加评分字段：
+     ```yaml
+     ---
+     challenge: Lxx-题目目录名
+     agent: 你的真实模型标识
+     runner: ZCode
+     verify_exit_code: 0          # L 系列恒 0（评分完成；环境异常才非 0）
+     score: 7                     # verify 输出的 n
+     max_score: 9                 # verify 输出的 m
+     started: ...
+     finished: ...
+     ---
+     ## 改动摘要 / 遇到的困难
+     ```
+
 6. **全部做完后**：
    ```bash
    python report.py 【模型名】-run
    ```
-   把生成的 REPORT.md（总览 + 维度/栈/难度聚合）展示给我看。
+   把生成的 REPORT.md（总览 + 维度/栈/难度聚合 + 按维度得分）展示给我看。
 
 ## 硬约束
 
-- **每题 verify 只跑 1 次**（C / R / X 系列都一样）。无论 PASS/FAIL，结果就是最终成绩。看了 verify 输出后再改代码重跑 = 用反馈磨答案 = 作弊。第一次跑完立刻记结果，做下一题。
+- **每题 verify 只跑 1 次**（C / R / X / L 系列都一样）。无论 PASS/FAIL（L 系列是 SCORE n/m），结果就是最终成绩。看了 verify 输出后再改代码重跑 = 用反馈磨答案 = 作弊。第一次跑完立刻记结果，做下一题。
+- **L 系列盲验证**：做题期间禁止读 L 系列题目的 `verify.*`（含隐藏行为测试）与 `SOLUTION.md`。读完再写 = 作弊。
 - **参考答案已在第 1 步删除**（`SOLUTION.md` 和 `maxlength_constraint.py` 已 `rm`）。如果你发现它们还在，说明第 1 步没执行，停下来重做。
 - **C 系列**：只改 `workspace/` 内文件，不碰 `seed/`、`verify.*`、`task.md`。
-- **R / X 系列**：在真实仓库 `backend/` 或 `frontend/` 里改，但**不碰** `tests/` 目录（verify 脚本会自己放测试文件）和 `challenges/` 目录。
-- **R04 / X 系列前置**：worktree 里必须先备好 frontend 依赖（第 1 步的 junction 或 npm ci），否则 verify 会因环境缺失 FAIL 而非能力 FAIL。
-- **X02 前置**：做 X02 前必须先跑 `python plant.py` 注入故障（该脚本只在你的 worktree 里改一个文件，放心跑）。
+- **R / X / L 系列**：在真实仓库 `backend/` 或 `frontend/` 里改，但**不碰** `tests/` 目录（verify 脚本会自己放测试文件）和 `challenges/` 目录。
+- **R04 / X / L 系列前置**：worktree 里必须先备好 frontend 依赖（第 1 步的 junction 或 npm ci），否则 verify 会因环境缺失 FAIL 而非能力 FAIL。
+- **X02 / L05 / L06 前置**：做题前先跑对应目录的 `python plant.py` 注入故障（脚本只在你的 worktree 里改文件，放心跑）。
 - **不碰** `D:/Precis/Precis/`（主仓库，只是模板源）。
 - **不访问** `D:/Precis/eval-*` 下的任何其他目录（那是别的模型的评测副本）。你只能在自己的 worktree（`D:/Precis/eval-【模型名】`）内活动。读其他模型的实现 = 作弊。
 - verify 退出码为准（0=PASS）。做不出记 FAIL 继续，不跳题不放弃。
@@ -119,7 +146,7 @@ run-id：【模型名】-run             ← 例：glm52-run / claude-run / gpt5
 你的工作目录是 `D:/Precis/eval-【模型名】`（git worktree，完整仓库），**不是主仓库**。
 所有 reset / verify / report 都在 worktree 里跑。
 - C 系列题：在 `challenges/Cxx-xxx/workspace/` 里改。
-- R / X 系列题：在 `backend/` 或 `frontend/` 里改（真实代码库导航）。
+- R / X / L 系列题：在 `backend/` 或 `frontend/` 里改（真实代码库导航）。
 
 副本目录结构（复制后）：
 ```
@@ -172,15 +199,16 @@ cd D:/Precis/Precis && git worktree remove --force D:/Precis/eval-【模型名�
 
 ## 快速参考：完整矩阵
 
-### C 系列（24 题，精简 seed）
+### C 系列（24 题，精简 seed；默认只跑 ✅ ready 的 16 题）
 
 | 维度 \ 难度 | Py ★☆☆ | Py ★★☆ | Py ★★★ | TS ★☆☆ | TS ★★☆ | TS ★★★ |
 |------------|--------|--------|--------|--------|--------|--------|
-| nav | C01 | — | C02 / C03 | C04 | — | C05 / C06 |
-| inc | C07 | C08 | C09 | C10 | — | C11 / C12 |
-| dbg | C13 | — | C14 / C15 | C16 | C17 | C18 |
-| refactor | C19 | C20 | C21 | C22 | C23 | C24 |
+| nav | C01⏸ | — | C02 / C03 | C04⏸ | — | C05 / C06 |
+| inc | C07⏸ | C08 | C09 | C10⏸ | — | C11 / C12 |
+| dbg | C13⏸ | — | C14 / C15 | C16⏸ | C17 | C18 |
+| refactor | C19⏸ | C20 | C21 | C22⏸ | C23 | C24 |
 
+> ⏸ = `⏸ bench`（备用基线，默认跳过，token 受限时不跑）；其余默认全跑。
 > 经加难后 ★★☆ 与 ★★★ 分布有调整（C02/C05/C11/C14 → ★★★），星级以 `INDEX.md` 为准。
 
 ### R 系列（真实仓库导航）
@@ -200,5 +228,18 @@ cd D:/Precis/Precis && git worktree remove --force D:/Precis/eval-【模型名�
 | X02 | TS | ★★★+ | 症状驱动调试（plant.py 预埋 IME 守卫缺失） |
 | X03 | TS | ★★★+ | 处方式重构 + 既有测试回归门 |
 | X04 | TS | ★★★+ | 反模式判断力（需求与仓库铁律冲突） |
+
+### L 系列（能力榜单，★★★+，多级评分 0-N，盲验证）
+
+| ID | 栈 | 维度 | 满分 | 考点 |
+|----|----|------|------|------|
+| L01 | Python | spec（规格补全） | 9 | AI 生成配置保留用户既有 settings（合并策略自定） |
+| L02 | Python | evol（需求演化） | 9 | 分块加载 v1 流式释放 → v2 Excel read_only（保持全局行号） |
+| L03 | Python | perf（性能优化） | 9 | 校验引擎吞吐优化，结果等价 + 耗时档评分 |
+| L04 | TS | perf（性能优化） | 9 | 画布连接清理 O(C²) 优化，golden 等价 + 千边耗时档 |
+| L05 | TS | dbg-deep（深层调试） | 8 | 双 bug 相互掩盖：修 A 才暴露 B |
+| L06 | Python | dbg-deep（深层调试） | 9 | 跨模块静默损坏链：现象远离根因 |
+
+> L 系列 verify 输出 `SCORE: n/m` + 子项明细（详见流程第 5.6 步），**做题期间禁止读 L 系列 verify.***。
 
 想缩小范围（如只跑 ★☆☆ 或只跑 dbg），在提示词第 4 步加一句"只做以下题目：C01、C04、C07..."即可。

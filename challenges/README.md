@@ -11,8 +11,20 @@
 | `dbg` | 调试与 bug 修复 |
 | `refactor` | 重构与代码质量 |
 | `x` | 专家级真实仓库任务（长链条联动 / 症状驱动调试 / 回归门重构 / 反模式判断力），难度 ★★★+ |
+| `spec` | 规格补全（L 系列）：欠规格需求，agent 自补规格选方案 |
+| `evol` | 需求演化（L 系列）：v1 完成后收到变更需求 v2，测设计韧性 |
+| `perf` | 性能优化（L 系列）：结果等价 + 耗时/内存档评分 |
+| `dbg-deep` | 深层调试（L 系列）：双 bug 相互掩盖 / 现象远离根因 |
 
-题目目录命名：`C<NN>-<dim>-<slug>`（精简 seed 沙盒）、`R<NN>-real-<slug>`（真实仓库导航）、`X<NN>-<slug>`（专家级）。C/R 难度三星制：`★☆☆` / `★★☆` / `★★★`；X 系列为 `★★★+`。完整清单见 [INDEX.md](INDEX.md)。
+题目目录命名：`C<NN>-<dim>-<slug>`（精简 seed 沙盒）、`R<NN>-real-<slug>`（真实仓库导航）、`X<NN>-<slug>`（专家级）、`L<NN>-<slug>`（能力榜单，多级评分 + 盲验证）。C/R 难度三星制：`★☆☆` / `★★☆` / `★★★`；X/L 系列为 `★★★+`。完整清单见 [INDEX.md](INDEX.md)。
+
+## L 系列（能力榜单）
+
+与 C/R/X 的 PASS/FAIL 不同，L 系列采用**多级评分**：verify 输出 `SCORE: n/m` + 子项明细（功能/回归/质量/性能等分档），report.py 按得分聚合出总分、维度得分与模型倾向雷达（LEADERBOARD 末尾）。
+
+- **盲验证（荣誉制）**：隐藏行为测试写在 verify/注入测试里，task.md 只给需求/现象——**做题期间禁止读 L 系列 `verify.*` 与 `SOLUTION.md`**（与"verify 只跑 1 次"同级纪律）。
+- L05/L06 由 `plant.py` 在 worktree 副本中预埋故障（锚点字节精确、幂等、`--restore`）。
+- RESULT.md frontmatter 额外记录 `score` / `max_score`（verify 输出的 n/m 原样填入），旧题格式向后兼容。
 
 ## 首次使用（仅一次）
 
