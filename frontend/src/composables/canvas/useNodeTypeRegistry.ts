@@ -32,7 +32,8 @@ import { registerConstraintNodeLibrary } from '@/components/nodes/constraintRule
  * 集中此处的 as unknown as 断言（AGENTS.md 追踪的类型逃逸债务），
  * 使调用处保持零断言；VueFlow 的 NodeComponent 与 Vue defineComponent 的类型差异在此统一收敛。
  */
-const rawNode = (component: object): NodeComponent => markRaw(component) as unknown as NodeComponent
+export const rawNode = (component: object): NodeComponent =>
+  markRaw(component) as unknown as NodeComponent
 
 export function useNodeTypeRegistry() {
   registerConstraintNodeLibrary()

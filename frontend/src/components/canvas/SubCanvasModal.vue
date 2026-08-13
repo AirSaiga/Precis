@@ -61,7 +61,6 @@
 </template>
 
 <script setup lang="ts">
-  import { markRaw } from 'vue'
   import { VueFlow, SelectionMode, useVueFlow } from '@vue-flow/core'
   import { Background, BackgroundVariant } from '@vue-flow/background'
   import { Controls } from '@vue-flow/controls'
@@ -69,6 +68,7 @@
   import { useI18n } from 'vue-i18n'
   import { useSubGraphStore } from '@/composables/canvas/useSubGraphStore'
   import { constraintNodeRegistry } from '@/services/registry/constraintNodeRegistry'
+  import { rawNode } from '@/composables/canvas/useNodeTypeRegistry'
   import {
     getConstraintMetaByKind,
     getConstraintKinds,
@@ -103,37 +103,17 @@
     removeEdges: vfRemoveEdges,
   })
 
+  // 子画布节点类型：subSchemaInput + 全部约束节点（composite 除外，避免嵌套 composite）。
+  // 约束组件在 registerConstraintNodeLibrary 内已 markRaw，且 .component 本身即为 NodeComponent，
+  // 无需额外断言；subSchemaInput 复用集中的 rawNode 收敛类型逃逸债务。
   const subNodeTypes: Record<string, NodeComponent> = {
-    subSchemaInput: markRaw(SubSchemaInputNode) as unknown as NodeComponent,
-    ...(constraintNodeRegistry.notNull?.component && {
-      notNullConstraint: constraintNodeRegistry.notNull.component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.unique?.component && {
-      uniqueConstraint: constraintNodeRegistry.unique.component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.range?.component && {
-      rangeConstraint: constraintNodeRegistry.range.component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.allowedValues?.component && {
-      allowedValuesConstraint: constraintNodeRegistry.allowedValues
-        .component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.conditional?.component && {
-      conditionalConstraint: constraintNodeRegistry.conditional
-        .component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.scripted?.component && {
-      scriptedConstraint: constraintNodeRegistry.scripted.component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.charset?.component && {
-      charsetConstraint: constraintNodeRegistry.charset.component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.dateLogic?.component && {
-      dateLogicConstraint: constraintNodeRegistry.dateLogic.component as unknown as NodeComponent,
-    }),
-    ...(constraintNodeRegistry.foreignKey?.component && {
-      foreignKeyConstraint: constraintNodeRegistry.foreignKey.component as unknown as NodeComponent,
-    }),
+    subSchemaInput: rawNode(SubSchemaInputNode),
+  }
+  for (const [kind, reg] of Object.entries(constraintNodeRegistry)) {
+    if (kind === 'composite') continue
+    if (reg?.component) {
+      subNodeTypes[`${kind}Constraint`] = reg.component
+    }
   }
 
   // A9/A10 修复：约束种类从 CONSTRAINT_TYPES 单一事实源派生，
@@ -161,7 +141,7 @@
   }
 
   function handleSave() {
-    emit('save', subStore.getState() as unknown as { nodes: CustomNode[]; edges: Edge[] })
+    emit('save', subStore.getState())
   }
 
   function handleClose() {
