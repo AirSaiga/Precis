@@ -39,7 +39,8 @@ export function useCanvasConnectionWatcher() {
     // 快照仍包含被删边，可正确恢复。
     const hasUserRemoval = removedChanges.some((c) => {
       const edge = store.edges.find((e) => e.id === c.id)
-      return edge && !(edge as unknown as { data?: { transient?: boolean } }).data?.transient
+      const edgeData = edge?.data as { transient?: boolean } | undefined
+      return edge && !edgeData?.transient
     })
     if (hasUserRemoval && !store.isHistorySuspended()) {
       store.saveState()
