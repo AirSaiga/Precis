@@ -62,7 +62,7 @@ async function closeInspectionDrawer(page: import('@playwright/test').Page) {
  * 切换到左侧“项目资源”视图并展开 Schemas 文件夹，
  * 返回 resources 面板中的 Schema 行定位器。
  *
- * 说明：资源树中“数据模型”根文件夹下有一个同名“数据模型”子文件夹
+ * 说明：资源树中“数据模型”根文件夹下有一个“数据 Schema”子文件夹
  * （i18n key `dataModels` 与 `schemas` 在 zh-CN 下文案相同），该子文件夹内才是
  * 具体的 Schema 文件行。因此需要连展两层。
  */
@@ -79,10 +79,10 @@ async function expandSchemasFolder(page: import('@playwright/test').Page, schema
   await dataModelsRoot.first().click()
   await page.waitForTimeout(500)
 
-  // 展开“Schemas”子文件夹（nested 下的 folder-row，文案同为“数据模型”）
+  // 展开“数据 Schema”子文件夹（nested 下的 folder-row，父级为“数据模型”）
   const schemasNested = tree
     .locator('.tree-folder.nested > .tree-row.folder-row')
-    .filter({ hasText: '数据模型' })
+    .filter({ hasText: '数据 Schema' })
   await schemasNested.first().click()
   await page.waitForTimeout(500)
 
@@ -331,8 +331,23 @@ test.describe('画布真实 UI 交互', () => {
     // 点击“开始校验”
     await modal.getByRole('button', { name: /开始校验/ }).click()
 
+    // 拖入 users（只导 Schema）后，运行前检查可能弹出“发现未合并的资源”询问。
+    // 出现则选“直接校验”继续。保存项目阶段耗时数秒，弹窗出现时机晚于点击，
+    // 因此用竞速等待（横幅或询问弹窗，先到者先处理）。
+    const mergeOverlay = page.locator('.merge-confirm-overlay')
+    const banner = modal.locator('.fv-status-banner')
+    const first = await Promise.race([
+      banner.waitFor({ state: 'visible', timeout: 60000 }).then(() => 'banner'),
+      mergeOverlay.waitFor({ state: 'visible', timeout: 60000 }).then(() => 'merge'),
+    ]).catch(() => 'timeout')
+
+    if (first === 'merge') {
+      await mergeOverlay.getByRole('button', { name: /直接校验/ }).click({ timeout: 5000 })
+    }
+    expect(first).not.toBe('timeout')
+
     // 等待结果视图出现（成功或失败的横幅）
-    await expect(modal.locator('.fv-status-banner')).toBeVisible({ timeout: 60000 })
+    await expect(banner).toBeVisible({ timeout: 60000 })
 
     // 结果面板应包含状态标题文字（“通过”或“失败”均可，关键是面板正常渲染）
     const statusTitle = modal.locator('.fv-status-title')
