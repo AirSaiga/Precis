@@ -21,11 +21,19 @@ async function openFixtureProject(page: import('@playwright/test').Page, project
 }
 
 async function closeInspectionDrawer(page: import('@playwright/test').Page) {
+  // blocker 级自检会让抽屉延迟自动展开（含入场动画），且可能晚于加载后 800ms 才
+  // 出现并拦截后续点击——轮询约 3s，出现即关闭，直至窗口期内不再出现
   const drawer = page.locator('.inspection-drawer')
-  await page.waitForTimeout(800)
-  if (await drawer.isVisible().catch(() => false)) {
-    await drawer.locator('button[title="关闭"]').first().click({ timeout: 5000 })
-    await expect(drawer).toBeHidden({ timeout: 5000 })
+  for (let i = 0; i < 6; i++) {
+    if (await drawer.isVisible().catch(() => false)) {
+      await drawer
+        .locator('button[title="关闭"]')
+        .first()
+        .click({ timeout: 5000 })
+        .catch(() => {})
+      await expect(drawer).toBeHidden({ timeout: 5000 }).catch(() => {})
+    }
+    await page.waitForTimeout(500)
   }
 }
 
@@ -98,6 +106,13 @@ test.describe('三项决策修复回归', () => {
     const withDraft = await page.locator('.vue-flow__node').count()
     expect(withDraft).toBeGreaterThanOrEqual(2)
 
+    // 草稿断言用类型定向定位（.vue-flow__node-schema）而非总节点数比较：
+    // 重载会按 manifest 水合全部节点（qa_simple 含 5 个 templateInstance），
+    // 各环境下初始画布对它们的可见性不一致，总数控数（afterReload < withDraft）
+    // 在 CI 上会因水合节点多于初始节点而误报
+    const draftNodes = page.locator('.vue-flow__node-schema')
+    await expect(draftNodes.first()).toBeVisible({ timeout: 5000 })
+
     // fixture 项目的 templateInstance 节点可能叠在根节点按钮上（拦截 hit-test），
     // 先"整理节点"展开布局，再点击根节点上的 ↻ 重载按钮
     await page.locator('button[title="整理节点"]').click().catch(() => {})
@@ -115,9 +130,9 @@ test.describe('三项决策修复回归', () => {
     await overlay.getByRole('button', { name: '丢弃并重载' }).click()
     await page.waitForTimeout(3000)
 
-    // 草稿节点消失：画布回到 projectRoot（+ manifest 恢复的节点），无 draft 节点
-    const afterReload = await page.locator('.vue-flow__node').count()
-    expect(afterReload).toBeLessThan(withDraft)
+    // 草稿节点消失（manifest 水合的节点数与初始可见性无关，只看草稿类型）
+    await expect(draftNodes).toHaveCount(0, { timeout: 10000 })
+
     // 重载后若配置自检抽屉（blocker 自动展开）遮挡，先关闭再验证工作区切换
     await closeInspectionDrawer(page)
     // 切换工作区 Tab 不复活草稿（快照已被重载结果覆盖）
@@ -125,8 +140,7 @@ test.describe('三项决策修复回归', () => {
     if ((await tabs.count()) >= 1) {
       await tabs.first().click()
       await page.waitForTimeout(1500)
-      const afterTabSwitch = await page.locator('.vue-flow__node').count()
-      expect(afterTabSwitch).toBe(afterReload)
+      await expect(draftNodes).toHaveCount(0)
     }
   })
 })

@@ -40,11 +40,19 @@ async function openFixtureProject(page: import('@playwright/test').Page, project
  * 幂等：抽屉不可见时直接返回。复用自 ui-canvas-interactions.spec.ts。
  */
 async function closeInspectionDrawer(page: import('@playwright/test').Page) {
+  // blocker 级自检会让抽屉延迟自动展开（含入场动画），且可能晚于加载后 800ms 才
+  // 出现并拦截后续点击——轮询约 3s，出现即关闭，直至窗口期内不再出现
   const drawer = page.locator('.inspection-drawer')
-  await page.waitForTimeout(800)
-  if (await drawer.isVisible().catch(() => false)) {
-    await drawer.locator('button[title="关闭"]').first().click({ timeout: 5000 })
-    await expect(drawer).toBeHidden({ timeout: 5000 })
+  for (let i = 0; i < 6; i++) {
+    if (await drawer.isVisible().catch(() => false)) {
+      await drawer
+        .locator('button[title="关闭"]')
+        .first()
+        .click({ timeout: 5000 })
+        .catch(() => {})
+      await expect(drawer).toBeHidden({ timeout: 5000 }).catch(() => {})
+    }
+    await page.waitForTimeout(500)
   }
 }
 
