@@ -76,15 +76,63 @@ export function createHistoryModule(params: {
    * 2. 将快照压入撤销栈
    * 3. 清空重做栈（新操作后旧重做记录失效）
    * 4. 若撤销栈超出上限，移除最旧记录
+   *
+   * @param preCaptured 可选的预先捕获快照（用于"先捕获、条件成立才入栈"的场景，
+   *   如节点拖动：dragstart 捕获、dragend 位置确有变化才压栈）
    */
-  function saveState() {
-    const snapshot = cloneCurrent()
+  function saveState(preCaptured?: HistorySnapshot) {
+    const snapshot = preCaptured ?? cloneCurrent()
 
     undoStack.value = [...undoStack.value, snapshot]
     redoStack.value = []
 
     if (undoStack.value.length > maxHistoryLength) {
       undoStack.value = undoStack.value.slice(1)
+    }
+  }
+
+  /**
+   * @description 捕获当前画布快照（不入栈）
+   *
+   * 与 saveState(preCaptured) 配合：先捕获，待确认操作真实发生后再压栈，
+   * 避免为"未产生实际变化的操作"（如未移动的拖拽）压入无效快照。
+   */
+  function captureState(): HistorySnapshot {
+    return cloneCurrent()
+  }
+
+  /**
+   * 复合操作挂起标记：
+   * 删除节点（连带边清理）、模板展开等复合操作会在自身入口压入一份快照，
+   * 期间由清理逻辑触发的边移除（onEdgesChange）不应重复压栈。
+   * useCanvasConnectionWatcher 通过该标记判断是否为级联清理。
+   */
+  let suspended = false
+
+  function suspend() {
+    suspended = true
+  }
+
+  function resume() {
+    suspended = false
+  }
+
+  function isSuspended() {
+    return suspended
+  }
+
+  /**
+   * @description 丢弃栈顶冗余快照
+   *
+   * 当栈顶快照与当前状态完全一致（如连线创建后回滚，状态已回到快照内容），
+   * 撤销该快照不会产生任何可见变化，直接移除以免出现"空撤销步"。
+   */
+  function discardRedundantTopSnapshot() {
+    if (undoStack.value.length === 0) return
+    const top = undoStack.value[undoStack.value.length - 1]
+    const current = cloneCurrent()
+    if (JSON.stringify(top) === JSON.stringify(current)) {
+      undoStack.value = undoStack.value.slice(0, -1)
     }
   }
 
@@ -157,6 +205,11 @@ export function createHistoryModule(params: {
     undoStack,
     redoStack,
     saveState,
+    captureState,
+    discardRedundantTopSnapshot,
+    suspend,
+    resume,
+    isSuspended,
     undo,
     redo,
   }

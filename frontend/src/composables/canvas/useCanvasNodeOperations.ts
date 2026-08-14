@@ -141,6 +141,27 @@ export function useCanvasNodeOperations(flowWrapper: Ref<HTMLElement | null>) {
     dragStore.endDrag()
   }
 
+  // ===== 节点位移的撤销历史 =====
+  // Vue Flow 的 node-drag-start/stop（节点位置拖动，区别于上方 HTML5 字段拖拽）。
+  // 策略：dragstart 捕获快照（不入栈），dragstop 与当前状态比较——位置确有
+  // 变化才把 pre-captured 快照压入撤销栈，避免纯点击（无位移）产生空撤销步。
+  let pendingPositionDragSnapshot: ReturnType<typeof store.captureState> | null = null
+
+  const handleNodePositionDragStart = () => {
+    if (store.isHistorySuspended()) return
+    pendingPositionDragSnapshot = store.captureState()
+  }
+
+  const handleNodePositionDragStop = () => {
+    const snapshot = pendingPositionDragSnapshot
+    pendingPositionDragSnapshot = null
+    if (!snapshot) return
+    const current = store.captureState()
+    if (JSON.stringify(snapshot) !== JSON.stringify(current)) {
+      store.saveState(snapshot)
+    }
+  }
+
   /**
    * 画布拖拽悬停事件处理
    * 当拖拽元素经过画布上方时调用，允许放置操作
@@ -617,6 +638,8 @@ export function useCanvasNodeOperations(flowWrapper: Ref<HTMLElement | null>) {
     onNodeClick,
     handleNodeDragStart,
     handleNodeDragEnd,
+    handleNodePositionDragStart,
+    handleNodePositionDragStop,
     onCanvasDragOver,
     onCanvasDrop,
     createNodeFromPayload,

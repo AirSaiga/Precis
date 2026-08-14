@@ -29,9 +29,11 @@ export function createSchemaFactoryModule(params: {
   nodes: Ref<CustomNode[]>
   selectedNodeId: Ref<string | null>
   updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
+  /** 透传给 base 工厂：节点创建前压入撤销快照 */
+  saveState?: () => void
 }) {
-  const { nodes, selectedNodeId, updateNodeData } = params
-  const createNode = createBaseNodeFactory({ nodes, selectedNodeId })
+  const { nodes, selectedNodeId, updateNodeData, saveState } = params
+  const createNode = createBaseNodeFactory({ nodes, selectedNodeId, saveState })
 
   function createSchemaNode(
     position: { x: number; y: number },

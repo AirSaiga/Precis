@@ -64,6 +64,59 @@ function makeModule(overrides: Partial<NodeOpsDeps> = {}) {
 }
 
 describe('nodeOps', () => {
+  describe('删除的撤销历史', () => {
+    it('deleteNode 删除前压入一份快照，且挂起/恢复历史包裹清理链', async () => {
+      const saveState = vi.fn()
+      const suspendHistory = vi.fn()
+      const resumeHistory = vi.fn()
+      const { nodes, module } = makeModule({ saveState, suspendHistory, resumeHistory })
+      nodes.value = [makeNode('s1', 'schema', { columns: [] }), makeNode('c1', 'constraint', {})]
+
+      await module.deleteNode('s1')
+
+      expect(saveState).toHaveBeenCalledTimes(1)
+      // 挂起先于恢复，且各一次（级联边清理不重复压栈的保证）
+      expect(suspendHistory).toHaveBeenCalledTimes(1)
+      expect(resumeHistory).toHaveBeenCalledTimes(1)
+    })
+
+    it('deleteNode 目标不存在时不压快照（防二次删除产生空撤销步）', async () => {
+      const saveState = vi.fn()
+      const { module } = makeModule({ saveState })
+
+      await module.deleteNode('ghost')
+
+      expect(saveState).not.toHaveBeenCalled()
+    })
+
+    it('deleteNodes 批量删除（含级联）只压一份快照', async () => {
+      const saveState = vi.fn()
+      const { nodes, module } = makeModule({
+        saveState,
+        templateExpand: { getExpandedIds: () => ['c1', 'c2'] },
+      })
+      nodes.value = [
+        makeNode('inst1', 'templateInstance', { expanded: true }),
+        makeNode('c1', 'transform', {}),
+        makeNode('c2', 'constraint', {}),
+      ]
+
+      await module.deleteNodes(['inst1'])
+
+      expect(saveState).toHaveBeenCalledTimes(1)
+    })
+
+    it('deleteNodes 全部为 projectRoot 时不压快照', async () => {
+      const saveState = vi.fn()
+      const { nodes, module } = makeModule({ saveState })
+      nodes.value = [makeNode('project-root', 'projectRoot', {})]
+
+      await module.deleteNodes(['project-root'])
+
+      expect(saveState).not.toHaveBeenCalled()
+    })
+  })
+
   describe('deleteNode - templateInstance', () => {
     it('删除 templateInstance 时调用 clearExpansion 清理展开状态', async () => {
       const { nodes, templateExpand, clearExpansion, module } = makeModule({

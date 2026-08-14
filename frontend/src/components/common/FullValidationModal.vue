@@ -85,7 +85,13 @@
     if (isRunning) {
       currentView.value = 'running'
     } else if (wasRunning === true) {
-      currentView.value = 'results'
+      // 仅在校验真实产出结果时进入结果页。
+      // 保存失败/合并待确认等中止场景（result 为空）停留在执行页：
+      // 阶段时间线已标出失败阶段（如"保存项目 ✗"），结果页的
+      // "校验已完成，发现错误 0.0%"横幅会把"未执行"误表现为"执行了且全错"。
+      if (result.value) {
+        currentView.value = 'results'
+      }
     }
   })
 
@@ -349,15 +355,17 @@
                   class="fv-running-title"
                   :class="{
                     'is-success': !running && result?.success,
-                    'is-error': !running && result && !result.success,
+                    'is-error': !running && (!result || (result && !result.success)),
                   }"
                 >
                   {{
                     running
                       ? t('common.fullValidation.run.running')
-                      : result?.success
-                        ? t('common.fullValidation.run.completed')
-                        : t('common.fullValidation.run.completedWithErrors')
+                      : result
+                        ? result.success
+                          ? t('common.fullValidation.run.completed')
+                          : t('common.fullValidation.run.completedWithErrors')
+                        : t('common.fullValidation.run.aborted')
                   }}
                 </h3>
               </div>

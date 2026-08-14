@@ -88,8 +88,14 @@ export function createTemplateExpandModule(params: {
    * 由 registryHandlers/relationshipSync.ts 在 Stage 6 中通过 ctx 间接调用。
    */
   reconcileAll?: () => Promise<void>
+  /** 展开前压入撤销快照（可选，历史模块注入） */
+  saveState?: () => void
+  /** 复合操作挂起：展开含旧展开清理的边移除，避免级联清理重复压栈 */
+  suspendHistory?: () => void
+  resumeHistory?: () => void
 }) {
-  const { nodes, edges, updateNodeData, reconcileAll } = params
+  const { nodes, edges, updateNodeData, reconcileAll, saveState, suspendHistory, resumeHistory } =
+    params
 
   // instanceNodeId → [expanded node ids]
   const expandedNodeIds = new Map<string, string[]>()
@@ -141,15 +147,29 @@ export function createTemplateExpandModule(params: {
   // --------------------------------------------------------------------------
 
   async function expandOnCanvas(instanceNodeId: string, expandResult: TemplateExpandResult) {
-    // 0. 清除旧展开
-    await clearExpansion(instanceNodeId)
-
     const instanceNode = nodes.value.find((n) => n.id === instanceNodeId)
     if (!instanceNode) return
 
-    // Stage 1: 解析 API 结果
     const items = collectExpandItems(expandResult)
     if (items.length === 0) return
+
+    // 展开是复合操作（清旧展开 + 建新节点/边）：入口压一份快照，
+    // 整个过程挂起级联清理的重复压栈
+    saveState?.()
+    suspendHistory?.()
+    try {
+      await expandOnCanvasInner(instanceNodeId, expandResult)
+    } finally {
+      resumeHistory?.()
+    }
+  }
+
+  async function expandOnCanvasInner(instanceNodeId: string, expandResult: TemplateExpandResult) {
+    // 0. 清除旧展开
+    await clearExpansion(instanceNodeId)
+
+    // Stage 1: 解析 API 结果（外层已校验非空）
+    const items = collectExpandItems(expandResult)
 
     // Stage 2: 构建 DAG 规划（含合成节点）
     const { dagNodes, dagEdges } = buildDagPlan(items)

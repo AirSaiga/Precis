@@ -441,6 +441,7 @@ const common = {
       running: '正在校验…',
       completed: '执行完成',
       completedWithErrors: '执行完成，发现错误',
+      aborted: '校验未执行',
       save: '仅保存',
       saveFailed: '保存失败，无法执行全量校验',
     },
@@ -611,6 +612,19 @@ const common = {
     excel: 'Excel',
     json: 'JSON',
     unknown: '未知',
+  },
+  projectReload: {
+    draftTitle: '重载项目',
+    draftMessage:
+      '检测到 {count} 个未保存的草稿节点（{names}）。重载前是否先保存？选择"丢弃并重载"将放弃这些草稿并恢复为已保存的项目状态。',
+    saveAndReload: '保存后重载',
+    discardAndReload: '丢弃并重载',
+    loadTitle: '切换项目',
+    loadMessage:
+      '当前画布有 {count} 个未保存的草稿节点（{names}）。切换前是否先保存？选择"丢弃并切换"将放弃这些草稿并加载目标项目。',
+    saveAndLoad: '保存后切换',
+    discardAndLoad: '丢弃并切换',
+    cancel: '取消',
   },
 }
 

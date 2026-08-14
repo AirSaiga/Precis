@@ -193,6 +193,7 @@
   import { projectStorageService, type ProjectInfo } from '@/services/projectStorage'
   import { isElectron } from '@/core/utils/electronDetector'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
+  import { useProjectReload } from '@/composables/useProjectReload'
   import { dialogApi } from '@/core/capabilities/dialogApi'
   import { createProject } from '@/api/projectApi'
   import AppIcon from '@/components/icons/AppIcon.vue'
@@ -333,6 +334,12 @@
 
   async function loadProject(projectPath: string): Promise<boolean> {
     const canvasStore = useCanvasStore()
+    // 草稿守卫：切换项目前处理当前画布的未保存草稿（保存后切换/丢弃并切换/取消）。
+    // 必须在 createProject 重置项目状态之前执行——saveProject 保存的是当前项目。
+    const { confirmDraftsBeforeLoad } = useProjectReload()
+    if ((await confirmDraftsBeforeLoad('load')) === 'cancelled') {
+      return false
+    }
     try {
       graphStore.createProject('', projectPath)
 

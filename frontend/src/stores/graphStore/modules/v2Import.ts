@@ -40,6 +40,8 @@ export function createV2ImportModule(params: {
     ) => { nodeIds: string[] } | null
     rebuild: () => void
   }
+  /** 导入前压入撤销快照（可选，历史模块注入） */
+  saveState?: () => void
 }) {
   const {
     nodes,
@@ -50,6 +52,7 @@ export function createV2ImportModule(params: {
     reconcileAll,
     resourceTreeStore,
     sourceIndex,
+    saveState,
   } = params
 
   // 拖拽独立约束触发自动创建 Schema 时，连带创建该 Schema 关联的其他独立约束。
@@ -86,6 +89,7 @@ export function createV2ImportModule(params: {
     reconcileAll,
     getIndependentConstraintIdsForSchema,
     sourceIndex,
+    saveState,
   })
 
   return { importV2ResourceToCanvas, ensureSchemaNodeFromV2 }

@@ -145,10 +145,9 @@ export class NodeDeletionManager {
       }
     })
 
-    // 收集所有指向该 schema 的 constraint 子节点 ID，一次性批量删除。
-    // 逐个 deleteNode 会各自触发 removeEdges/removeNodes + 一次 nextTick(reconcileAll)，
-    // 产生多次中间不一致状态，并重复 collectCascadeNodeIds 已覆盖的级联收集逻辑；
-    // deleteNodes 单次收集所有级联 ID 并在末尾只 reconcile 一次。
+    // 收集所有指向该 schema 的 constraint 子节点，与 schema 本体合并为一次
+    // 批量删除（deleteNodes 单次收集所有级联 ID 并只压一份撤销快照；此前分两次
+    // 调用会产生两份快照，撤销需要按两次）。
     const childConstraintIds = this.graphStore.nodes
       .filter((n) => {
         if (n.type !== 'constraint') return false
@@ -157,9 +156,7 @@ export class NodeDeletionManager {
       })
       .map((n) => n.id)
 
-    if (childConstraintIds.length > 0) {
-      await this.graphStore.deleteNodes(childConstraintIds)
-    }
+    await this.graphStore.deleteNodes([...childConstraintIds, nodeId])
   }
 
   private async deleteSourcePreviewNode(nodeId: string): Promise<void> {

@@ -14,10 +14,13 @@ import { NODE_ENTER_DURATION_MS, NODE_ENTERING_CLASS } from '@/services/canvas/a
 export interface BaseFactoryContext {
   nodes: Ref<CustomNode[]>
   selectedNodeId?: Ref<string | null>
+  /** 节点创建前压入撤销快照（可选，历史模块注入）。
+   * 项目加载直接构建 nodes.value，不经 createNode，故不会污染撤销栈。 */
+  saveState?: () => void
 }
 
 export function createBaseNodeFactory(ctx: BaseFactoryContext) {
-  const { selectedNodeId } = ctx
+  const { selectedNodeId, saveState } = ctx
 
   /**
    * 清除节点上的临时动画 class。
@@ -40,6 +43,9 @@ export function createBaseNodeFactory(ctx: BaseFactoryContext) {
     data: TData,
     options?: { autoSelect?: boolean; nodeId?: string }
   ): string {
+    // 创建前压入撤销快照（所有 store.createXxxNode 工厂的唯一汇聚点）
+    saveState?.()
+
     const newNode: CustomNode = {
       id: options?.nodeId || uuidv4(),
       type,

@@ -454,6 +454,7 @@ const common = {
       running: 'Validating…',
       completed: 'Completed',
       completedWithErrors: 'Completed with errors',
+      aborted: 'Validation not executed',
       save: 'Save only',
       saveFailed: 'Save failed. Cannot run full validation.',
     },
@@ -625,6 +626,19 @@ const common = {
     excel: 'Excel',
     json: 'JSON',
     unknown: 'Unknown',
+  },
+  projectReload: {
+    draftTitle: 'Reload Project',
+    draftMessage:
+      '{count} unsaved draft node(s) detected ({names}). Save before reloading? "Discard & Reload" will drop these drafts and restore the last saved project state.',
+    saveAndReload: 'Save & Reload',
+    discardAndReload: 'Discard & Reload',
+    loadTitle: 'Switch Project',
+    loadMessage:
+      '{count} unsaved draft node(s) on the canvas ({names}). Save before switching? "Discard & Switch" will drop these drafts and load the target project.',
+    saveAndLoad: 'Save & Switch',
+    discardAndLoad: 'Discard & Switch',
+    cancel: 'Cancel',
   },
 }
 

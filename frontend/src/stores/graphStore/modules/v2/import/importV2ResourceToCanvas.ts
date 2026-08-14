@@ -71,6 +71,8 @@ export function createV2ImportToCanvas(params: {
     ) => { nodeIds: string[] } | null
     rebuild: () => void
   }
+  /** 导入前压入撤销快照（可选，历史模块注入） */
+  saveState?: () => void
 }) {
   const {
     nodes,
@@ -81,6 +83,7 @@ export function createV2ImportToCanvas(params: {
     reconcileAll,
     getIndependentConstraintIdsForSchema,
     sourceIndex,
+    saveState,
   } = params
   const { t } = useI18n()
   const { showConfirm } = useGlobalConfirm()
@@ -194,6 +197,9 @@ export function createV2ImportToCanvas(params: {
     }
 
     try {
+      // 导入前压入撤销快照（幂等早退已排除，此后必然产生画布变更）
+      saveState?.()
+
       if (kind === 'pattern') {
         return await importPattern(resourceId, position, getEffectiveProjectConfigPath)
       }

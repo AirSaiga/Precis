@@ -46,6 +46,8 @@
       @schema-node-save="handleNodeSave"
       @dragstart="handleNodeDragStart"
       @dragend="handleNodeDragEnd"
+      @node-drag-start="handleNodePositionDragStart"
+      @node-drag-stop="handleNodePositionDragStop"
       :default-viewport="{ zoom: 0.8 }"
       class="theme-default"
       :selection-mode="SelectionMode.Partial"
@@ -246,8 +248,15 @@
   const { validateConnection } = useCanvasConnectionWatcher()
   const flowWrapper = ref<HTMLDivElement | null>(null)
   const { projectCreateDialogRef, handleOpenCreateProjectDialog } = useCanvasProjectDialog()
-  const { onNodeClick, handleNodeDragStart, handleNodeDragEnd, onCanvasDragOver, onCanvasDrop } =
-    useCanvasNodeOperations(flowWrapper)
+  const {
+    onNodeClick,
+    handleNodeDragStart,
+    handleNodeDragEnd,
+    handleNodePositionDragStart,
+    handleNodePositionDragStop,
+    onCanvasDragOver,
+    onCanvasDrop,
+  } = useCanvasNodeOperations(flowWrapper)
   const { menuState: contextMenuState, controller: contextMenuController } = useCanvasContextMenu({
     onNodeContextMenu,
   })

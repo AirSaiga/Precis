@@ -66,6 +66,7 @@ const shortcuts = {
 
   // 操作反馈消息
   feedback: {
+    commandFailed: '命令执行失败',
     saved: '已保存',
     undone: '已撤销',
     redone: '已重做',

@@ -203,6 +203,9 @@ export function useConnections() {
     } catch (e) {
       tx.rollback()
       store.deleteConnection(edgeId)
+      // createConnection 入口压入的"连线前"快照在回滚后与当前状态一致，
+      // 丢弃以免留下一个无可视变化的空撤销步
+      store.discardRedundantTopSnapshot()
       const errorMsg = e instanceof Error ? e.message : String(e)
       showToastMessage(`连接创建失败，已自动回滚: ${errorMsg}`, 'error')
       logger.error('[handleConnectionCompleted] 连接处理失败:', e)

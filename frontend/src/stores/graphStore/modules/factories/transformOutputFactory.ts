@@ -15,9 +15,13 @@ import type { Ref } from 'vue'
 import type { CustomNode } from '@/types/graph'
 import { createBaseNodeFactory } from './createBaseNodeFactory'
 
-export function createTransformOutputFactoryModule(params: { nodes: Ref<CustomNode[]> }) {
-  const { nodes } = params
-  const createNode = createBaseNodeFactory({ nodes })
+export function createTransformOutputFactoryModule(params: {
+  nodes: Ref<CustomNode[]>
+  /** 透传给 base 工厂：节点创建前压入撤销快照 */
+  saveState?: () => void
+}) {
+  const { nodes, saveState } = params
+  const createNode = createBaseNodeFactory({ nodes, saveState })
 
   function createTransformOutputNode(
     position: { x: number; y: number },

@@ -31,11 +31,33 @@ export function useCanvasConnectionWatcher() {
 
   onEdgesChange((changes: EdgeChange[]) => {
     const removedChanges = changes.filter((c) => c.type === 'remove')
-    for (const change of removedChanges) {
-      const edge = store.edges.find((e) => e.id === change.id)
-      if (edge) {
-        store.handleEdgeRemoved(edge)
+    if (removedChanges.length === 0) return
+
+    // 用户断线（非复合操作级联清理）：清理前压一份撤销快照。
+    // 节点删除 / 模板展开等复合操作已各自压栈并挂起历史（isHistorySuspended），
+    // 期间的级联边移除不重复压栈。onEdgesChange 触发时 store.edges 尚未同步移除，
+    // 快照仍包含被删边，可正确恢复。
+    const hasUserRemoval = removedChanges.some((c) => {
+      const edge = store.edges.find((e) => e.id === c.id)
+      return edge && !(edge as unknown as { data?: { transient?: boolean } }).data?.transient
+    })
+    if (hasUserRemoval && !store.isHistorySuspended()) {
+      store.saveState()
+    }
+
+    // 清理链（syncOnDisconnect/executeDisconnectCleanup）可能连带移除更多边，
+    // 挂起历史避免同一次断线压多份快照
+    const outerSuspended = store.isHistorySuspended()
+    if (!outerSuspended) store.suspendHistory()
+    try {
+      for (const change of removedChanges) {
+        const edge = store.edges.find((e) => e.id === change.id)
+        if (edge) {
+          store.handleEdgeRemoved(edge)
+        }
       }
+    } finally {
+      if (!outerSuspended) store.resumeHistory()
     }
   })
 

@@ -96,6 +96,24 @@ export function createGraphStoreAssembly(
 
   const sourceIndex = createSchemaSourceIndex(nodes)
 
+  // --- 历史快照（撤销/重做）——先于工厂/导入/删除模块创建，供其注入 saveState ---
+  const {
+    undoStack,
+    redoStack,
+    saveState,
+    captureState,
+    discardRedundantTopSnapshot,
+    suspend: suspendHistory,
+    resume: resumeHistory,
+    isSuspended: isHistorySuspended,
+    undo,
+    redo,
+  } = createHistoryModule({
+    nodes,
+    edges,
+    reconcileAll: connectionStateSync.reconcileAll,
+  })
+
   const { importV2ResourceToCanvas } = createV2ImportModule({
     nodes,
     edges,
@@ -105,19 +123,33 @@ export function createGraphStoreAssembly(
     reconcileAll: connectionStateSync.reconcileAll,
     resourceTreeStore,
     sourceIndex,
+    saveState,
   })
 
   const { createSchemaNode, addColumnToSchema } = createSchemaFactoryModule({
     nodes,
     selectedNodeId,
     updateNodeData,
+    saveState,
   })
-  const { createConstraintNode } = createConstraintFactoryModule({ nodes, selectedNodeId })
-  const { createRegexNode } = createRegexFactoryModule({ nodes, selectedNodeId })
-  const { createRegexExtractNode } = createRegexExtractFactoryModule({ nodes, selectedNodeId })
-  const { createTransformNode } = createTransformFactoryModule({ nodes, selectedNodeId })
-  const { createTransformOutputNode } = createTransformOutputFactoryModule({ nodes })
-  const { createManualDataNode } = createManualDataFactoryModule({ nodes, selectedNodeId })
+  const { createConstraintNode } = createConstraintFactoryModule({
+    nodes,
+    selectedNodeId,
+    saveState,
+  })
+  const { createRegexNode } = createRegexFactoryModule({ nodes, selectedNodeId, saveState })
+  const { createRegexExtractNode } = createRegexExtractFactoryModule({
+    nodes,
+    selectedNodeId,
+    saveState,
+  })
+  const { createTransformNode } = createTransformFactoryModule({ nodes, selectedNodeId, saveState })
+  const { createTransformOutputNode } = createTransformOutputFactoryModule({ nodes, saveState })
+  const { createManualDataNode } = createManualDataFactoryModule({
+    nodes,
+    selectedNodeId,
+    saveState,
+  })
   const { createPatternToolboxNode, createConstraintDashboardNode } =
     createLibraryNodesFactoryModule({
       nodes,
@@ -135,11 +167,13 @@ export function createGraphStoreAssembly(
   const { createJsonSchemaNode, createJsonSourcePreviewNode } = createJsonSchemaFactoryModule({
     nodes,
     selectedNodeId,
+    saveState,
   })
 
   const { createTemplateInstanceNode } = createTemplateInstanceFactoryModule({
     nodes,
     selectedNodeId,
+    saveState,
   })
 
   const templateExpand = createTemplateExpandModule({
@@ -147,6 +181,9 @@ export function createGraphStoreAssembly(
     edges,
     updateNodeData,
     reconcileAll: connectionStateSync.reconcileAll,
+    saveState,
+    suspendHistory,
+    resumeHistory,
   })
 
   const v2Persistence = createV2PersistenceModule({
@@ -231,6 +268,9 @@ export function createGraphStoreAssembly(
     templateExpand,
     clearExpansion: templateExpand.clearExpansion,
     sourceIndex,
+    saveState,
+    suspendHistory,
+    resumeHistory,
   })
   const { deleteNode, moveSelectedNode, moveSelectedNodes } = nodeOps
 
@@ -246,12 +286,6 @@ export function createGraphStoreAssembly(
   } = createSelectionModule({ nodes, selectedNodeId, selectedNodeIds, selectionBox, isSelecting })
 
   const { deleteNodes } = nodeOps
-
-  const { undoStack, redoStack, saveState, undo, redo } = createHistoryModule({
-    nodes,
-    edges,
-    reconcileAll: connectionStateSync.reconcileAll,
-  })
 
   const { cutSelectedNodes, copySelectedNodes, pasteNodes, duplicateSelectedNode } =
     createClipboardModule({
@@ -280,6 +314,7 @@ export function createGraphStoreAssembly(
     clearAllValidationErrors,
     syncOnDisconnect: connectionStateSync.syncOnDisconnect,
     reconcileAll: connectionStateSync.reconcileAll,
+    saveState,
   })
 
   function clearCanvas() {
@@ -411,6 +446,11 @@ export function createGraphStoreAssembly(
     undoStack,
     redoStack,
     saveState,
+    captureState,
+    discardRedundantTopSnapshot,
+    suspendHistory,
+    resumeHistory,
+    isHistorySuspended,
     undo,
     redo,
     addConstraintToColumn,

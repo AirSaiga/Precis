@@ -66,6 +66,7 @@ const shortcuts = {
 
   // Action feedback messages
   feedback: {
+    commandFailed: 'Command failed',
     saved: 'Saved',
     undone: 'Undone',
     redone: 'Redone',

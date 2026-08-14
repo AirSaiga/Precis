@@ -25,9 +25,18 @@ export function createConnectionOpsModule(params: {
   clearAllValidationErrors: (schemaNodeId: string) => void
   syncOnDisconnect: (edge: Edge) => void
   reconcileAll: () => void | Promise<void>
+  /** 连线创建前压入撤销快照（可选，历史模块注入） */
+  saveState?: () => void
 }) {
-  const { nodes, edges, updateNodeData, clearAllValidationErrors, syncOnDisconnect, reconcileAll } =
-    params
+  const {
+    nodes,
+    edges,
+    updateNodeData,
+    clearAllValidationErrors,
+    syncOnDisconnect,
+    reconcileAll,
+    saveState,
+  } = params
 
   // 合并同 tick 内的 reconcileAll 调度,避免批量删边时 K+1 次冗余调用。
   // 标志在 reconcileAll 实际执行后被清除(下一个 tick 可再次调度)。
@@ -74,6 +83,9 @@ export function createConnectionOpsModule(params: {
       targetHandle,
       options,
     })
+
+    // 连线创建前压入撤销快照（回滚路径由调用方配合 discardRedundantTopSnapshot 清理）
+    saveState?.()
 
     const newEdge: Edge = {
       id: uuidv4(),

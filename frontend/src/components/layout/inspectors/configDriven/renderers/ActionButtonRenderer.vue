@@ -24,6 +24,7 @@
   import { useScriptEditorStore } from '@/stores/scriptEditorStore'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useToast } from '@/composables/shared/useToast'
+  import { useProjectReload } from '@/composables/useProjectReload'
   import { eventBus } from '@/core/eventBus'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistryCore'
   import type { InspectorContext } from '../utils'
@@ -130,8 +131,9 @@
   }
 
   async function handleReload() {
-    await store.loadProjectFromV2()
-    eventBus.emit('project-applied')
+    // 经 useProjectReload 守卫：画布存在草稿节点时三选一（保存后重载/丢弃并重载/取消）
+    const { reloadProject } = useProjectReload()
+    await reloadProject()
   }
 
   function handleProjectManagement() {

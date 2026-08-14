@@ -11,9 +11,11 @@ import { createBaseNodeFactory } from './createBaseNodeFactory'
 export function createRegexFactoryModule(params: {
   nodes: Ref<CustomNode[]>
   selectedNodeId: Ref<string | null>
+  /** 透传给 base 工厂：节点创建前压入撤销快照 */
+  saveState?: () => void
 }) {
-  const { nodes, selectedNodeId } = params
-  const createNode = createBaseNodeFactory({ nodes, selectedNodeId })
+  const { nodes, selectedNodeId, saveState } = params
+  const createNode = createBaseNodeFactory({ nodes, selectedNodeId, saveState })
 
   function createRegexNode(position: { x: number; y: number }, pattern?: string, name?: string) {
     return createNode('regex', position, {

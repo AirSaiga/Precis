@@ -5,8 +5,13 @@
   详情和更多操作通过 Inspector 面板和右键菜单访问。
 -->
 <template>
+  <!--
+    nopan：projectRoot 节点 draggable=false，Vue Flow 只为 draggable 节点自动加 nopan class。
+    缺少 nopan 时 d3-zoom 会接管节点上的 mousedown，clickDistance(0) 抑制带微移动的 click，
+    导致点击节点永远无法选中/触发 node-click（inspector 无响应）。手动补上以恢复交互。
+  -->
   <div
-    class="project-root-node graph-node"
+    class="project-root-node graph-node nopan"
     :class="{ 'is-selected': selected }"
     @dblclick="openSettings"
   >
@@ -85,7 +90,7 @@
   import { useSettingsStore } from '@/stores/settingsStore'
   import { useResourceTreeStore } from '@/stores/resourceTreeStore'
   import { useValidationTaskStore } from '@/stores/validationTaskStore'
-  import { eventBus } from '@/core/eventBus'
+  import { useProjectReload } from '@/composables/useProjectReload'
   import type { ProjectNodeData } from '@/types/graph'
 
   const { t } = useI18n()
@@ -166,10 +171,9 @@
     settingsStore.setActiveTab('project')
   }
 
-  const reloadProject = async () => {
-    await graphStore.loadProjectFromV2()
-    eventBus.emit('project-applied')
-  }
+  // 经 useProjectReload 守卫：画布存在草稿节点时三选一（保存后重载/丢弃并重载/取消）
+  const { reloadProject: reloadWithDraftGuard } = useProjectReload()
+  const reloadProject = () => reloadWithDraftGuard()
 </script>
 
 <style scoped src="./ProjectRootNode.styles.css"></style>

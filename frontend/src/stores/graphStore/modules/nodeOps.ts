@@ -31,6 +31,11 @@ export interface NodeOpsDeps {
   templateExpand: TemplateExpandLike
   clearExpansion: (instanceNodeId: string) => void | Promise<void>
   sourceIndex?: { rebuild: () => void }
+  /** 删除前压入撤销快照（可选，历史模块注入） */
+  saveState?: () => void
+  /** 复合操作挂起：删除自身已压栈，期间级联边清理不再重复压栈 */
+  suspendHistory?: () => void
+  resumeHistory?: () => void
 }
 
 export function createNodeOpsModule(deps: NodeOpsDeps) {
@@ -43,6 +48,9 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
     templateExpand,
     clearExpansion,
     sourceIndex,
+    saveState,
+    suspendHistory,
+    resumeHistory,
   } = deps
 
   function onNodesRemoved() {
@@ -79,12 +87,25 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
 
   async function deleteNode(nodeId: string) {
     const node = nodes.value.find((n) => n.id === nodeId)
-    if (node?.type === 'projectRoot') {
+    if (!node || node.type === 'projectRoot') {
       return
     }
 
+    // 删除前压入撤销快照，并挂起级联清理的重复压栈
+    // （removeEdges 会触发 onEdgesChange → handleEdgeRemoved 清理链）
+    saveState?.()
+    suspendHistory?.()
+    try {
+      await deleteNodeInner(nodeId)
+    } finally {
+      resumeHistory?.()
+    }
+  }
+
+  async function deleteNodeInner(nodeId: string) {
     // templateInstance 删除前清理展开追踪状态(expandedNodeIds Map、expanded 标志)
     // 防御性 try/catch: clearExpansion 失败不应阻断节点删除本身
+    const node = nodes.value.find((n) => n.id === nodeId)
     if (node?.type === 'templateInstance') {
       try {
         await clearExpansion(nodeId)
@@ -133,6 +154,17 @@ export function createNodeOpsModule(deps: NodeOpsDeps) {
       return
     }
 
+    // 同 deleteNode：入口压一份快照，级联清理期间挂起
+    saveState?.()
+    suspendHistory?.()
+    try {
+      await deleteNodesInner(filteredIds)
+    } finally {
+      resumeHistory?.()
+    }
+  }
+
+  async function deleteNodesInner(filteredIds: string[]) {
     // templateInstance 节点删除前清理展开追踪状态(与 deleteNode 单条路径对称)
     // 必须在 collectCascadeNodeIds 之前执行,否则 getExpandedIds 仍返回子节点造成重复收集
     // 防御性 try/catch: clearExpansion 失败不应阻断节点删除本身
