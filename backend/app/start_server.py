@@ -83,6 +83,11 @@ def main():
     # 将实际端口写入端口文件,供 Vite 代理 / Electron 主进程发现
     write_port_file(actual_port)
 
+    # 通过环境变量把实际端口传递给 uvicorn --reload 派生的 app 子进程。
+    # app.api.main 在每次(重)启动时会据此重写端口文件 —— 否则任何其他
+    # Precis 进程退出清理端口文件后,本进程虽存活但发现方读到缺失,代理 502。
+    os.environ["PRECIS_BACKEND_PORT_ACTUAL"] = str(actual_port)
+
     # 注册端口文件清理兜底(atexit + signal),Windows 下 uvicorn 的信号处理可能绕过 finally
     register_port_file_cleanup()
 

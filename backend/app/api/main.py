@@ -74,6 +74,15 @@ app = FastAPI(
 app.state.current_project_path = None
 app.state.current_project_name = None
 
+# 端口文件自愈：uvicorn --reload 重启 app 进程时（或外部进程误删端口文件后），
+# 依据 start_server 通过环境变量传入的实际端口重写 backend/.backend-port，
+# 保证 Vite 代理 / Electron 主进程始终能发现后端，避免 502。
+_actual_port_env = os.environ.get("PRECIS_BACKEND_PORT_ACTUAL")
+if _actual_port_env and _actual_port_env.isdigit():
+    from app.shared.core.config.server import write_port_file
+
+    write_port_file(int(_actual_port_env))
+
 # ============================================================================
 # 日志配置
 # ============================================================================

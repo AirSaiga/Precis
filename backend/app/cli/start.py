@@ -96,6 +96,8 @@ def main() -> int:
     # OS 原子分配端口(preferred_port=0 时动态分配),并写入端口文件供外部发现
     actual_port = acquire_port(preferred_port)
     write_port_file(actual_port)
+    # 传递给 uvicorn --reload 子进程,app 启动时据此自愈重写端口文件(见 api/main.py)
+    os.environ["PRECIS_BACKEND_PORT_ACTUAL"] = str(actual_port)
     # 注册端口文件清理兜底(atexit + signal)
     register_port_file_cleanup()
 
