@@ -24,7 +24,7 @@ const assetLibraryExtended = {
     },
     explorer: {
       title: '项目资源',
-      schemas: '数据模型',
+      schemas: '数据 Schema',
       patternRegistry: '正则表达式注册表',
       regexNodes: '正则表达式节点',
       atomic: '原子模式',
@@ -36,7 +36,7 @@ const assetLibraryExtended = {
       dragFromOutside: '从外部拖入文件以建立链接',
       emptyPatterns: '暂无正则表达式注册',
       emptyRegexNodes: '暂无正则表达式节点',
-      emptySchemas: '暂无数据模型',
+      emptySchemas: '暂无数据 Schema',
       emptyConstraints: '暂无约束规则',
       onCanvas: '已拖拽到画布',
       embedded: '内嵌约束',

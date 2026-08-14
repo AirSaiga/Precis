@@ -524,7 +524,12 @@ export const useResourceTreeStore = defineStore('resourceTree', () => {
     error,
     // searchQuery 必须用 computed 桥接 searchStore，否则导出的是字符串快照、
     // 外部（storeToRefs）拿不到响应式，setSearchQuery 后 UI 不会更新。
-    searchQuery: computed(() => searchStore.searchQuery),
+    // 同时必须提供 setter：ProjectLibrary 通过 v-model:searchQuery 直接写入此 ref，
+    // 只读 computed 的写入会静默失败，导致资源树过滤框输入无效。
+    searchQuery: computed({
+      get: () => searchStore.searchQuery,
+      set: (value: string) => searchStore.setSearchQuery(value),
+    }),
     resources,
     folders,
 

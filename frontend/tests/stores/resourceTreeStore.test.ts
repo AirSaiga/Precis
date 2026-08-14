@@ -92,4 +92,46 @@ describe('resourceTreeStore', () => {
 
     expect(store.folders.validationAssets.children?.[0]?.count).toBe(2)
   })
+
+  it('searchQuery 支持写入（v-model 路径），写入后 filteredFolders 按名称过滤并自动展开', async () => {
+    vi.mocked(resourceService.parseResources).mockReturnValue([
+      makeSchemaResource('users'),
+      makeSchemaResource('products'),
+    ])
+    vi.mocked(resourceService.loadFullConfig).mockResolvedValue({} as any)
+
+    const store = useResourceTreeStore()
+    await store.loadResources('/project')
+
+    // 模拟 ProjectLibrary 的 v-model:searchQuery 直接写入（此前为只读 computed，写入静默失败）
+    store.searchQuery = 'users'
+
+    // 写入应同步到 searchStore 驱动的过滤结果
+    const schemasFolder = store.filteredFolders.dataModels.children?.[0]
+    expect(schemasFolder?.count).toBe(1)
+    expect(schemasFolder?.resources.map((r) => r.id)).toEqual(['users'])
+    // 搜索命中时父文件夹与 schemas 子文件夹都应自动展开
+    expect(store.filteredFolders.dataModels.expanded).toBe(true)
+    expect(schemasFolder?.expanded).toBe(true)
+  })
+
+  it('searchQuery 清空后恢复全量资源并收回自动展开', async () => {
+    vi.mocked(resourceService.parseResources).mockReturnValue([
+      makeSchemaResource('users'),
+      makeSchemaResource('products'),
+    ])
+    vi.mocked(resourceService.loadFullConfig).mockResolvedValue({} as any)
+
+    const store = useResourceTreeStore()
+    await store.loadResources('/project')
+
+    store.searchQuery = 'users'
+    store.searchQuery = ''
+
+    const schemasFolder = store.filteredFolders.dataModels.children?.[0]
+    expect(schemasFolder?.count).toBe(2)
+    expect(schemasFolder?.resources).toHaveLength(2)
+    // 未手动展开过文件夹时，清空搜索后应回到折叠态
+    expect(store.filteredFolders.dataModels.expanded).toBe(false)
+  })
 })

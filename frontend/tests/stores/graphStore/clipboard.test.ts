@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { shallowRef, type Ref } from 'vue'
+import { shallowRef, ref, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 
@@ -72,6 +72,30 @@ describe('createClipboardModule', () => {
 
       expect(copiedNodes.value).toHaveLength(1)
       expect(copiedNodes.value[0].id).toBe('n1')
+    })
+
+    it('深层 reactive 节点（生产 ref 场景）不因 structuredClone 抛 DataCloneError', () => {
+      // 生产 graphStore 的 nodes 是深层 ref（非 shallowRef），nodes.value.find()
+      // 返回 reactive proxy。直接 structuredClone(proxy) 会抛
+      // "could not be cloned"（回归：Ctrl+C 曾因此静默失效）
+      const deepNodes = ref<CustomNode[]>([makeNode('n1', 'schema', { columns: [{ id: 'c1' }] })])
+      const deepCopied = shallowRef<CustomNode[]>([])
+      const deepSelectedNodeId = shallowRef<string | null>('n1')
+      const deepModule = createClipboardModule({
+        nodes: deepNodes,
+        edges: shallowRef<Edge[]>([]),
+        selectedNodeId: deepSelectedNodeId,
+        selectedNodeIds: shallowRef<string[]>([]),
+        copiedNodes: deepCopied,
+        deleteNode: mockDeleteNode,
+        deleteNodes: mockDeleteNodes,
+        saveState: mockSaveState,
+        reconcileAll: mockReconcileAll,
+      })
+
+      expect(() => deepModule.copySelectedNodes()).not.toThrow()
+      expect(deepCopied.value).toHaveLength(1)
+      expect(deepCopied.value[0].id).toBe('n1')
     })
 
     it('复制多选节点', () => {

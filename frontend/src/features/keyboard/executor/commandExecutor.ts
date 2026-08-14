@@ -5,6 +5,7 @@
 import { logger } from '@/core/utils/logger'
 import type { Command, CommandContext, Shortcut, ShortcutEventData } from '../types'
 import { platformAdapter } from '../platform'
+import { showFeedback } from '../commands/feedback'
 /**
  * 命令执行结果
  */
@@ -166,6 +167,15 @@ export class CommandExecutor {
         error: error instanceof Error ? error : new Error(String(error)),
         duration: performance.now() - startTime,
       }
+
+      // 命令执行异常必须让用户可见（此前静默吞掉，导致 clipboard 的
+      // structuredClone proxy 异常长期不可见）。isAvailable=false 的
+      // 静默跳过不经过此分支，行为不变。
+      showFeedback(
+        'shortcuts.feedback.commandFailed',
+        `${executeResult.error?.message ?? String(error)} (${commandId})`,
+        'error'
+      )
 
       this.addToHistory(executeResult)
       this.emit('shortcut', {

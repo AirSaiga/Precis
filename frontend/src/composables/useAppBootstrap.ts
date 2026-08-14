@@ -268,6 +268,15 @@ export function useAppBootstrap(): BootstrapResult {
     // 创建项目节点（如果 bootstrapProjectPaths 已设置路径但未创建）
     createProjectIfLoaded()
 
+    // 加载项目配置、统计与画布节点。
+    // 与 continueBootstrapAfterProject（ProjectSelector 路径）保持一致：
+    // 缺失此步时 Web 模式刷新（localStorage 恢复路径）会出现项目名回退为目录名、
+    // 根节点统计恒为 0、画布仅剩 projectRoot（schema/constraint 节点不恢复）。
+    // loadProjectFromV2 内部自带 try/catch（失败返回 false），此处无需再包一层。
+    if (graphStore.isProjectLoaded) {
+      await graphStore.loadProjectFromV2()
+    }
+
     // 通知资源树等监听方加载项目资源。
     // useResourceTree.onMounted 在 bootstrap 的 async 部分完成前就已执行，
     // 此时 isProjectActive 仍为 false（localStorage 在新装应用上为空），

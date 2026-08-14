@@ -7,11 +7,12 @@
  */
 
 import type { Ref } from 'vue'
-import { nextTick } from 'vue'
+import { nextTick, toRaw } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
 import { addNodes, addEdges } from '@/services/canvas/vueFlowApi'
+import { deepToRaw } from '@/utils/typeHelpers'
 export function createClipboardModule(params: {
   nodes: Ref<CustomNode[]>
   edges: Ref<Edge[]>
@@ -115,7 +116,10 @@ export function createClipboardModule(params: {
     }
 
     saveState()
-    copiedNodes.value = nodesToCopy.map((node) => structuredClone(node))
+    // nodes.value 中的元素是深层 reactive proxy，直接 structuredClone 会抛
+    // DataCloneError（被 CommandExecutor 静默吞掉，表现为 Ctrl+X 无任何效果），
+    // 必须先 deepToRaw 解包再克隆
+    copiedNodes.value = nodesToCopy.map((node) => structuredClone(deepToRaw(toRaw(node))))
     await deleteNodes(nodesToCopy.map((n) => n.id))
   }
 
@@ -128,7 +132,8 @@ export function createClipboardModule(params: {
       return
     }
 
-    copiedNodes.value = nodesToCopy.map((node) => structuredClone(node))
+    // 同上：先解包 reactive proxy 再 structuredClone
+    copiedNodes.value = nodesToCopy.map((node) => structuredClone(deepToRaw(toRaw(node))))
     resetPasteOffset()
   }
 
@@ -151,13 +156,14 @@ export function createClipboardModule(params: {
       const newId = uuidv4()
       idMap.set(copiedNode.id, newId)
 
+      // copiedNodes 中的元素读取时同样会被包成 reactive proxy，先解包再克隆
+      const rawCopied = structuredClone(deepToRaw(toRaw(copiedNode))) as CustomNode
       const newNode: CustomNode = {
-        ...copiedNode,
+        ...rawCopied,
         id: newId,
-        data: structuredClone(copiedNode.data),
         position: {
-          x: copiedNode.position.x + currentPasteOffset.x,
-          y: copiedNode.position.y + currentPasteOffset.y,
+          x: rawCopied.position.x + currentPasteOffset.x,
+          y: rawCopied.position.y + currentPasteOffset.y,
         },
       }
 

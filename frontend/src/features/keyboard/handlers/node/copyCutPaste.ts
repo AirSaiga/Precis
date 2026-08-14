@@ -50,13 +50,16 @@ export async function cutNode(): Promise<{ success: boolean; message?: string }>
  * 粘贴剪贴板中的节点
  * 将之前复制或剪切的节点粘贴到画布上
  * @returns 操作结果对象
- *   - success: 是否粘贴成功
+ *   - success: 是否粘贴成功（剪贴板为空时 false 且无反馈，避免误导性的“已粘贴”提示）
  *   - message: 国际化消息键，成功时为 'shortcuts.feedback.pasted'
  */
 export async function pasteNode(): Promise<{ success: boolean; message?: string }> {
   const graphStore = useGraphStore()
 
   // 调用 graphStore 的方法从剪贴板粘贴节点到画布
-  await graphStore.pasteNodes()
+  const pastedIds = await graphStore.pasteNodes()
+  if (pastedIds.length === 0) {
+    return { success: false }
+  }
   return { success: true, message: 'shortcuts.feedback.pasted' }
 }
