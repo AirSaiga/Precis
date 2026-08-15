@@ -17,11 +17,18 @@ export function useResourceInteraction() {
   const LONG_PRESS_DURATION = 500
   let longPressTimer: ReturnType<typeof setTimeout> | null = null
   let pendingResource: ResourceItem | null = null
+  /**
+   * 刚完成长按的资源 ID：长按选中后浏览器仍会补发一次 click，
+   * handleResourceClick 若不跳过会把刚选中的资源再 toggle 一次（立即取消选择），
+   * 导致多选模式永远无法保持——长按进入多选实际不可用的根因。
+   */
+  let lastLongPressResourceId: string | null = null
 
   /**
    * 处理资源鼠标按下（启动长按计时器）
    */
   const handleResourceMouseDown = (resource: ResourceItem): void => {
+    lastLongPressResourceId = null
     pendingResource = resource
     longPressTimer = setTimeout(() => {
       if (pendingResource) {
@@ -29,6 +36,7 @@ export function useResourceInteraction() {
           enterMultiSelectMode()
         }
         toggleSelect(pendingResource)
+        lastLongPressResourceId = pendingResource.id
         pendingResource = null
       }
     }, LONG_PRESS_DURATION)
@@ -81,6 +89,12 @@ export function useResourceInteraction() {
     if (longPressTimer) {
       clearTimeout(longPressTimer)
       longPressTimer = null
+    }
+
+    // 长按刚完成的补发 click：吞掉，避免把长按选中的资源立即反选
+    if (lastLongPressResourceId === resource.id) {
+      lastLongPressResourceId = null
+      return
     }
 
     if (hasSelection.value) {

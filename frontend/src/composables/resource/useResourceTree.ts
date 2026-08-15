@@ -20,6 +20,15 @@ import { resourceService } from '@/services/resourceService'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { useToast } from '@/composables/shared'
 import type { ResourceItem, FolderType } from '@/types/resource'
+
+// === 多选状态（模块级共享） ===
+// useResourceTree() 是普通工厂函数，每个调用点各建一个实例：
+// ProjectLibrary 读取 isMultiSelectMode/hasSelection 驱动 UI，
+// useResourceInteraction 的长按写入选择——若状态放在实例内，两份状态分裂，
+// 长按进入多选永远无法反映到 UI（多选/批量操作不可用的根因）。提升到模块级共享。
+const isMultiSelectMode = vueRef(false)
+const selectedResources = vueRef<Set<string>>(new Set())
+
 export function useResourceTree() {
   const { t } = useI18n()
 
@@ -45,13 +54,7 @@ export function useResourceTree() {
     resourceList,
   } = storeToRefs(treeStore)
 
-  // === 多选状态管理 ===
-
-  /** 是否处于多选模式 */
-  const isMultiSelectMode = vueRef(false)
-
-  /** 选中的资源ID集合 */
-  const selectedResources = vueRef<Set<string>>(new Set())
+  // === 多选状态管理（模块级共享，见文件头注释） ===
 
   /** 选中的资源列表 */
   const selectedResourceList = computed(() => {
