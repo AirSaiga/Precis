@@ -152,6 +152,85 @@ describe('history module', () => {
     })
   })
 
+  describe('captureState + saveState(preCaptured)', () => {
+    it('压栈的是捕获时刻的状态而非压栈时刻', async () => {
+      const snapshot = module.captureState()
+      nodes.value = [makeNode('n1', 'B')]
+
+      module.saveState(snapshot)
+      await module.undo()
+
+      // 撤销恢复到捕获时的 A，而非压栈前的 B
+      expect(nodes.value[0].data.configName).toBe('A')
+    })
+
+    it('preCaptured 入栈同样清空 redoStack', async () => {
+      module.saveState()
+      nodes.value = [makeNode('n1', 'B')]
+      await module.undo()
+      expect(module.redoStack.value).toHaveLength(1)
+
+      const snapshot = module.captureState()
+      module.saveState(snapshot)
+      expect(module.redoStack.value).toHaveLength(0)
+    })
+  })
+
+  describe('suspend / resume / isSuspended', () => {
+    it('挂起后恢复标志位切换', () => {
+      expect(module.isSuspended()).toBe(false)
+      module.suspend()
+      expect(module.isSuspended()).toBe(true)
+      module.resume()
+      expect(module.isSuspended()).toBe(false)
+    })
+  })
+
+  describe('discardRedundantTopSnapshot', () => {
+    it('栈顶与当前状态一致时丢弃', () => {
+      module.saveState()
+
+      module.discardRedundantTopSnapshot()
+
+      expect(module.undoStack.value).toHaveLength(0)
+    })
+
+    it('栈顶与当前状态不一致时保留', () => {
+      module.saveState()
+      nodes.value = [makeNode('n1', 'B')]
+
+      module.discardRedundantTopSnapshot()
+
+      expect(module.undoStack.value).toHaveLength(1)
+    })
+
+    it('仅丢弃栈顶，不影响更早快照', () => {
+      module.saveState() // 快照 1：A
+      nodes.value = [makeNode('n1', 'B')]
+      module.saveState() // 快照 2：B
+
+      // 状态回到与栈顶（B）一致 → 丢弃栈顶后快照 1（A）仍在
+      module.discardRedundantTopSnapshot()
+
+      expect(module.undoStack.value).toHaveLength(1)
+      expect(module.undoStack.value[0].nodes[0].data.configName).toBe('A')
+    })
+
+    it('空栈时不抛错', () => {
+      expect(() => module.discardRedundantTopSnapshot()).not.toThrow()
+    })
+
+    it('边的差异同样视为不一致（守护连线回滚场景）', () => {
+      module.saveState() // 栈顶：无边
+      edges.value = [makeEdge('e1', 'n1', 'n1')]
+
+      module.discardRedundantTopSnapshot()
+
+      // 当前含边、栈顶不含 → 不丢弃，undo 才能正确恢复"有边"的状态
+      expect(module.undoStack.value).toHaveLength(1)
+    })
+  })
+
   describe('snapshot isolation', () => {
     // 回归守护：验证 redoStack 快照与活跃 nodes 相互隔离
     // （undo 当前态经 cloneCurrent 深拷贝入 redoStack，而非直接引用）

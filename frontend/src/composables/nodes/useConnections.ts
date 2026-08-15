@@ -22,7 +22,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { ref } from 'vue'
+import { nextTick, ref } from 'vue'
 import type { Connection, OnConnectStartParams } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import { useSchemaConnectionHandler } from './schema/useSchemaConnectionHandler'
@@ -202,9 +202,18 @@ export function useConnections() {
       updateEdgeData(edgeId, { status: 'active' })
     } catch (e) {
       tx.rollback()
-      store.deleteConnection(edgeId)
-      // createConnection 入口压入的"连线前"快照在回滚后与当前状态一致，
-      // 丢弃以免留下一个无可视变化的空撤销步
+      // 删除回滚边期间必须挂起历史：removeEdges 同步触发 onEdgesChange，若不挂起，
+      // useCanvasConnectionWatcher 会为这次"非 transient 边移除"再压一份含失败边的
+      // 快照，使栈顶不再是 createConnection 压入的"连线前"快照，undo 会复活该边
+      store.suspendHistory()
+      try {
+        store.deleteConnection(edgeId)
+      } finally {
+        store.resumeHistory()
+      }
+      // store→model 是 pre-flush watcher，需等回写完成后栈顶快照才能与当前状态
+      // 对齐比较；一致则丢弃，避免留下无可视变化的空撤销步
+      await nextTick()
       store.discardRedundantTopSnapshot()
       const errorMsg = e instanceof Error ? e.message : String(e)
       showToastMessage(`连接创建失败，已自动回滚: ${errorMsg}`, 'error')
