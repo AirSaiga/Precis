@@ -19,7 +19,7 @@
 import { useGraphStore } from '@/stores/graphStore'
 import { useCanvasStore } from '@/stores/canvasStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
-import { useI18n } from 'vue-i18n'
+import i18n from '@/i18n'
 import { eventBus } from '@/core/eventBus'
 import { logger } from '@/core/utils/logger'
 
@@ -47,7 +47,10 @@ export function useProjectReload() {
   const graphStore = useGraphStore()
   const canvasStore = useCanvasStore()
   const { showConfirm } = useGlobalConfirm()
-  const { t } = useI18n()
+  // 本组合式函数会在事件处理器上下文被调用（ProjectManagementModal.loadProject、
+  // ActionButtonRenderer.handleReload），此时 getCurrentInstance() 为 null，
+  // useI18n() 会抛 MUST_BE_CALL_SETUP_TOP——必须用全局实例（同 useGlobalConfirm）
+  const { t } = i18n.global
 
   /**
    * 草稿守卫：在重载/切换项目前处理画布草稿节点
