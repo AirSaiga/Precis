@@ -131,7 +131,30 @@ test.describe('Corrupted Configuration Recovery', () => {
 
   test.describe('Frontend Graceful Degradation', () => {
     test('backend error shows friendly message on UI', async ({ page }) => {
-      test.skip('Requires frontend dev server — not available in E2E CI')
+      // 先让应用正常启动到选择页（避免启动期全量 API 失败影响渲染本身）
+      await page.goto('/')
+      await expect(page.locator('.project-selector')).toBeVisible({ timeout: 15000 })
+
+      // 再拦截打开项目端点模拟后端 500（无需真实停后端，不影响共享服务）
+      await page.route('**/api/latest/projects/open', (route) =>
+        route.fulfill({
+          status: 500,
+          contentType: 'application/json',
+          body: JSON.stringify({ detail: 'Internal Server Error (simulated)' }),
+        })
+      )
+
+      // 打开项目请求失败 → 应显示友好错误提示而非白屏/崩溃
+      await page.locator('.project-selector-input').fill('D:/Precis/Precis/qa_test/qa_simple')
+      await page.locator('.project-selector-open-btn').click()
+
+      await expect(page.getByText(/打开项目失败|失败|错误/).first()).toBeVisible({
+        timeout: 10000,
+      })
+
+      // 优雅降级：选择器界面仍可交互（未被错误状态锁死）
+      await expect(page.locator('.project-selector-input')).toBeVisible()
+      await expect(page.locator('.project-selector-open-btn')).toBeEnabled()
     })
   })
 })

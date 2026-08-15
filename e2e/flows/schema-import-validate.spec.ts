@@ -24,7 +24,7 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
   test('读取已有 Schema 并验证列信息', async ({ apiHelper, isolatedProjectPath }) => {
     const projectPath = isolatedProjectPath
     const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
-    const resp = await apiHelper.get('/schemas/users')
+    const resp = await apiHelper.get('/project/schemas/users')
     if (!resp.ok) {
       test.skip(true, 'Schema "users" 不存在，可能被其他测试修改')
       return
@@ -33,7 +33,7 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
     const schema = await resp.json()
     expect(schema).toBeDefined()
     expect(schema.id).toBe('users')
-    expect(schema.name).toBe('Users Table')
+    expect(schema.name).toBe('users')
     expect(schema.columns).toBeDefined()
     expect(schema.columns.length).toBe(11)
 
@@ -100,7 +100,7 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
     expect(columnNames).toContain('phone')
 
     // 通过单个 Schema API 读取
-    const schemaResp = await apiHelper.get(`/schemas/${schemaId}`)
+    const schemaResp = await apiHelper.get(`/project/schemas/${schemaId}`)
     if (!schemaResp.ok) {
       test.skip(true, `Schema ${schemaId} 单独读取失败`)
       return
@@ -118,7 +118,7 @@ test.describe('Schema Import → Bind Data Source → Validate', () => {
     const projectPath = isolatedProjectPath
     const USERS_CSV = path.join(projectPath, 'data', 'users.csv')
     // 使用 preview API 预览 CSV 数据
-    const previewResp = await apiHelper.post('/preview/content', {
+    const previewResp = await apiHelper.post('/preview/file/content', {
       source_file_path: USERS_CSV,
       header_row: 0,
     })

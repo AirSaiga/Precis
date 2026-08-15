@@ -199,9 +199,18 @@ test.describe('画布真实 UI 交互', () => {
     if (fs.existsSync(viewPath)) {
       fs.unlinkSync(viewPath)
     }
+    // Windows 容忍删除：校验历史由后端异步落盘，afterEach 时可能仍持有句柄（EBUSY）。
+    // 夹具的临时目录随后整体删除（base.ts 已带 try/catch），此处尽力而为即可。
     const precisDir = path.join(testProjectPath, '.precis')
-    if (fs.existsSync(precisDir)) {
-      fs.rmSync(precisDir, { recursive: true, force: true })
+    for (let i = 0; i < 5; i++) {
+      try {
+        if (fs.existsSync(precisDir)) {
+          fs.rmSync(precisDir, { recursive: true, force: true })
+        }
+        break
+      } catch {
+        await new Promise((r) => setTimeout(r, 300))
+      }
     }
     // 恢复被 bootstrap/保存改写的受控 fixture 文件（相对仓库根的路径）
     const { execFileSync } = await import('child_process')

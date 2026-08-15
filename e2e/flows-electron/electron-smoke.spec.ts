@@ -76,12 +76,25 @@ test.describe('Electron 打包 smoke', () => {
   })
 
   test('T3: 画布渲染（app:// 协议加载前端静态产物）', async ({ window }) => {
-    // 等待画布容器或资源树出现（证明前端 bundle 加载完成）
-    // Vue Flow canvas 或 resource tree 任一可见即可
-    const canvasOrTree = window
-      .locator('[data-testid="canvas"], .vue-flow, [data-testid="resource-tree"], .resource-tree')
+    // 阶段 1：bundle 加载完成标志——项目选择页（全新安装态，无最近项目）
+    // 或画布/资源树（已有最近项目）任一可见
+    const bundleLoaded = window
+      .locator(
+        '.project-selector, [data-testid="canvas"], .vue-flow, [data-testid="resource-tree"], .resource-tree'
+      )
       .first()
-    await expect(canvasOrTree).toBeVisible({ timeout: 30_000 })
+    await expect(bundleLoaded).toBeVisible({ timeout: 30_000 })
+
+    // 阶段 2：若停在选择页，实际打开 qa_simple 项目验证完整链路
+    // （前端 → 打包后端 → 配置加载 → 画布渲染）
+    const selector = window.locator('.project-selector')
+    if (await selector.isVisible().catch(() => false)) {
+      const qaSimple = 'D:/Precis/Precis/qa_test/qa_simple'
+      const input = window.locator('.project-selector-input')
+      await input.fill(qaSimple)
+      await window.locator('.project-selector-open-btn').click()
+      await expect(window.locator('.project-root-node')).toBeVisible({ timeout: 30_000 })
+    }
   })
 
   test('T4: 文件 IPC 与校验 API 可达（最小链路）', async ({ window }) => {
