@@ -188,6 +188,20 @@ class RangeConstraint(Constraint):
         """
         errors: list[dict[str, Any]] = []
 
+        # 无边界视为配置错误：min/max 至少配置其一。
+        # 此前无边界会"静默全过"——调用方传错参数键名（如把 min_value 写成 min）
+        # 时约束形同虚设且无任何提示（E2E 曾因此误判校验通过）。
+        if self.min_value is None and self.max_value is None:
+            errors.append(
+                {
+                    "error_type": "ConstraintConfigError",
+                    "table": self.table,
+                    "column": self.column,
+                    "message": "区间约束失败: 未配置边界（min_value / max_value 至少其一）。",
+                }
+            )
+            return {"errors": errors, "info": self.get_constraint_info()}
+
         # 检查目标表是否存在
         if self.table not in datasets:
             errors.append(
@@ -214,14 +228,19 @@ class RangeConstraint(Constraint):
             )
             return {"errors": errors, "info": self.get_constraint_info()}
 
-        # 检查列是否为数值类型（支持 pandas 数值类型和 Python Decimal）
+        # 检查列是否为数值类型（支持 pandas 数值类型和 Python Decimal）。
+        # 产品约束：Range 不做字符串→数值强转——非数值字段使用 Range 校验
+        # 直接报告"数据格式不合规"，而不是强转后按数值比较。
         if not self._is_numeric_column(df[self.column]):
             errors.append(
                 {
                     "error_type": "ConstraintConfigError",
                     "table": self.table,
                     "column": self.column,
-                    "message": f"区间约束失败: 列 '{self.column}' 不是数值类型。",
+                    "message": (
+                        f"区间约束失败: 数据格式不合规——列 '{self.column}' 不是数值类型，"
+                        "非数值字段不能使用 Range 校验（不会做字符串到数值的隐式转换）。"
+                    ),
                 }
             )
             return {"errors": errors, "info": self.get_constraint_info()}

@@ -229,6 +229,8 @@ class TestRangeConstraintEdgeCases:
         # Strings are rejected even if convertible
         assert len(result["errors"]) == 1
         assert "数值类型" in result["errors"][0]["message"]
+        # 产品约束：Range 不做字符串→数值强转，非数值字段报"数据格式不合规"
+        assert "数据格式不合规" in result["errors"][0]["message"]
 
     def test_non_convertible_type(self):
         datasets = {
@@ -242,6 +244,7 @@ class TestRangeConstraintEdgeCases:
         result = constraint.validate(datasets)
         assert len(result["errors"]) == 1
         assert "数值类型" in result["errors"][0]["message"]
+        assert "数据格式不合规" in result["errors"][0]["message"]
 
     def test_only_min_value(self):
         datasets = {
@@ -279,5 +282,7 @@ class TestRangeConstraintEdgeCases:
         }
         constraint = RangeConstraint(table="products", column="price", min_value=None, max_value=None)
         result = constraint.validate(datasets)
-        # No bounds means no validation errors
-        assert result["errors"] == []
+        # 无边界是配置错误（防止参数键名传错时约束静默全过）
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["error_type"] == "ConstraintConfigError"
+        assert "未配置边界" in result["errors"][0]["message"]

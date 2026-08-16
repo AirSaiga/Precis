@@ -58,7 +58,10 @@ class TestRangeValidator:
     def test_no_bounds(self):
         df = pd.DataFrame({"val": [1, 2, 3]})
         result = self.validator.validate(df, "val")
-        assert result.is_valid is True
+        # 无边界是配置错误（防止参数键名传错时约束静默全过），不再是 is_valid=True
+        assert result.is_valid is False
+        assert result.error_count == 1
+        assert "未配置边界" in (result.error_rows[0].get("error_message") or "")
 
     def test_empty_dataframe(self):
         df = pd.DataFrame({"val": pd.Series([], dtype=float)})

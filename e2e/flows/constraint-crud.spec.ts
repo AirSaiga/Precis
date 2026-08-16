@@ -248,17 +248,14 @@ test.describe('Constraint CRUD Roundtrip', () => {
       source_file_path: csvPath,
       validation_type: 'range',
       target_column_name: 'age',
-      validation_config: { min: 20, max: 25 },
+      validation_config: { min_value: 20, max_value: 25 },
     })
     expect(validateResp1.ok).toBe(true)
     const data1 = await validateResp1.json()
     expect(data1.success).toBe(true)
-    if (data1.data.is_valid) {
-      // Range validator may not detect boundary violations if column is loaded as string
-      test.skip(true, 'Range validator returned is_valid=true, possibly type coercion issue')
-      return
-    }
-    expect(data1.data.error_count).toBeGreaterThanOrEqual(1)
+    expect(data1.data.is_valid).toBe(false)
+    // age 值 30,25,35,28,22 → 30/35/28 三行超出 [20, 25]
+    expect(data1.data.error_count).toBeGreaterThanOrEqual(3)
 
     // 第二轮：修改 max=50 — 全部应通过
     const fullConfig2 = JSON.parse(JSON.stringify(fullConfig1))
@@ -282,7 +279,7 @@ test.describe('Constraint CRUD Roundtrip', () => {
       source_file_path: csvPath,
       validation_type: 'range',
       target_column_name: 'age',
-      validation_config: { min: 20, max: 50 },
+      validation_config: { min_value: 20, max_value: 50 },
     })
     const data2 = await validateResp2.json()
     expect(data2.success).toBe(true)
