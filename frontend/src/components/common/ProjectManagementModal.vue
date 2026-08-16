@@ -194,6 +194,7 @@
   import { isElectron } from '@/core/utils/electronDetector'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import { useProjectReload } from '@/composables/useProjectReload'
+  import { eventBus } from '@/core/eventBus'
   import { dialogApi } from '@/core/capabilities/dialogApi'
   import { createProject } from '@/api/projectApi'
   import AppIcon from '@/components/icons/AppIcon.vue'
@@ -245,6 +246,10 @@
       })
       if (confirmed) {
         graphStore.clearProject()
+        // 与设置面板（ActionButtonRenderer）的关闭路径保持一致：
+        // 必须广播 project-closed，App 监听后才会回到项目选择页。
+        // 此前仅 clearProject 未发事件，Web 模式关闭后停在空主布局。
+        eventBus.emit('project-closed')
         emit('update:modelValue', false)
       }
     } else {
