@@ -2,6 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { ref, type Ref } from 'vue'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import { createSelectionModule } from '@/stores/graphStore/modules/selection'
+import { findNode, VueFlowApiNotInitializedError } from '@/services/canvas/vueFlowApi'
+
+// mock vueFlowApi：selection.selectAllNodes 的 VF 侧同步依赖 findNode
+vi.mock('@/services/canvas/vueFlowApi', () => {
+  class VueFlowApiNotInitializedError extends Error {
+    constructor(message: string) {
+      super(message)
+      this.name = 'VueFlowApiNotInitializedError'
+    }
+  }
+  return {
+    findNode: vi.fn(() => undefined),
+    VueFlowApiNotInitializedError,
+  }
+})
 
 function makeNode(id: string, type = 'schema'): CustomNode {
   return { id, type, position: { x: 0, y: 0 }, data: {} as CustomNodeData } as CustomNode
@@ -42,6 +57,30 @@ describe('createSelectionModule', () => {
       module.selectAllNodes()
       expect(selectedNodeIds.value).toEqual([])
       expect(selectedNodeId.value).toBeNull()
+    })
+
+    it('同步标记 Vue Flow 内部选中集（双选择模型一致性）', () => {
+      // 回归：G1 CI 稳定失败根因——全选仅写 Store 时，VF 侧选中集仍是旧值，
+      // 下一次 VF→Store 同步会用旧选中集覆写全选结果
+      const vfNodes = new Map(['n1', 'n2', 'n3'].map((id) => [id, { selected: false }]))
+      vi.mocked(findNode).mockImplementation(((id: string) => vfNodes.get(id)) as never)
+
+      module.selectAllNodes()
+
+      expect(vfNodes.get('n1')?.selected).toBe(true)
+      expect(vfNodes.get('n2')?.selected).toBe(true)
+      expect(vfNodes.get('n3')?.selected).toBe(true)
+      expect(selectedNodeIds.value).toEqual(['n1', 'n2', 'n3'])
+    })
+
+    it('Vue Flow 未初始化时不抛错，Store 全选仍生效', () => {
+      vi.mocked(findNode).mockImplementation(() => {
+        throw new VueFlowApiNotInitializedError('未初始化')
+      })
+
+      expect(() => module.selectAllNodes()).not.toThrow()
+      expect(selectedNodeIds.value).toEqual(['n1', 'n2', 'n3'])
+      expect(selectedNodeId.value).toBe('n3')
     })
   })
 

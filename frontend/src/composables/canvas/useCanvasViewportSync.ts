@@ -22,11 +22,19 @@ export function useCanvasViewportSync() {
   const { getSelectedNodes, fitView } = useVueFlow()
   const nodeOrganizer = useNodeOrganizer()
 
-  // 监听 VueFlow 选中节点变化，将选中节点的 ID 同步到全局 Store
-  watch(getSelectedNodes, (nodes) => {
-    const ids = (nodes || []).map((n) => n.id)
-    store.setSelection(ids)
-  })
+  // 监听 VueFlow 选中集变化，将选中节点 ID 同步到全局 Store。
+  //
+  // 必须以"选中 ID 集合"（join 后的字符串）为监听键，而非 getSelectedNodes 本身：
+  // getSelectedNodes 是 computed，任何节点变动（入场动画 class 清除、尺寸/handleBounds
+  // 测量等无关变化）都会让它产出新数组引用——直接 watch 会在无关变动时触发回调，
+  // 用 VF 侧的旧选中集覆写 Store。"仅写 Store"的选中操作（如 Ctrl+A 全选）
+  // 会被随后到达的无关变动静默清掉，表现为全选随机失效（画布越慢越易复现）。
+  watch(
+    () => getSelectedNodes.value.map((n) => n.id).join('\u0000'),
+    (key) => {
+      store.setSelection(key === '' ? [] : key.split('\u0000'))
+    }
+  )
 
   // 监听节点整理完成事件，自动将视口适配到所有节点
   watch(

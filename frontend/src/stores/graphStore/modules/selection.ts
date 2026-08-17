@@ -9,6 +9,7 @@
 import type { Ref } from 'vue'
 import type { GraphNode } from '@vue-flow/core'
 import type { CustomNode } from '@/types/graph'
+import { findNode, VueFlowApiNotInitializedError } from '@/services/canvas/vueFlowApi'
 
 /**
  * @description 创建画布节点选择管理模块
@@ -36,9 +37,24 @@ export function createSelectionModule(params: {
    * 逻辑说明：
    * - 将所有节点 ID 填入多选列表
    * - 将最后一名节点设为单选焦点，保证属性面板有内容展示
+   * - 同步标记 Vue Flow 内部选中集：选中状态是"Store + VF"双模型，仅写 Store
+   *   会让两者不一致，下一次 VF→Store 同步就会用 VF 旧选中集覆写全选结果
    */
   function selectAllNodes() {
     if (nodes.value.length > 0) {
+      try {
+        for (const n of nodes.value) {
+          const vfNode = findNode(n.id)
+          if (vfNode && !vfNode.selected) {
+            vfNode.selected = true
+          }
+        }
+      } catch (error) {
+        // 画布未挂载（vueFlowApi 未初始化）时跳过 VF 侧同步，仅更新 Store
+        if (!(error instanceof VueFlowApiNotInitializedError)) {
+          throw error
+        }
+      }
       selectedNodeIds.value = nodes.value.map((n) => n.id)
       const lastNode = nodes.value[nodes.value.length - 1]
       if (lastNode) {
