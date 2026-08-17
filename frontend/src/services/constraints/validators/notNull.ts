@@ -25,6 +25,11 @@ export interface NotNullValidationResult {
     /** 错误消息 */
     message: string
   }>
+  /** 后端业务失败（HTTP 200 + success:false，如数据文件不存在）。
+   *  此时 errorCount/totalRows 无意义，消费方必须按失败处理而非"零错误=通过" */
+  requestFailed: boolean
+  /** 后端业务失败时的错误消息 */
+  errorMessage?: string
 }
 
 export interface NotNullValidationOptions {
@@ -75,13 +80,18 @@ export async function validateNotNull(
           value: err.cell_value,
           message: '值不能为空',
         })),
+        requestFailed: false,
       }
     }
 
+    // 后端业务失败（200 + success:false）：必须显式暴露失败，
+    // 不能返回零错误结果——消费方会把"零错误"误判为校验通过
     return {
       errorCount: 0,
       totalRows: 0,
       errors: [],
+      requestFailed: true,
+      errorMessage: String(response.error || '非空校验失败'),
     }
   } catch (error) {
     logger.error('非空验证失败:', error)

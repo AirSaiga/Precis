@@ -24,6 +24,7 @@
 
 import type { Edge, Node } from '@vue-flow/core'
 
+import { logger } from '@/core/utils/logger'
 import { validateRegexNodesForSchema } from '@/services/regex/regexValidationHandler'
 
 import { isConstraintNodeType } from './constraintMeta'
@@ -167,13 +168,26 @@ export async function validateConstraintNodesForSchema(params: {
       const constraintNode = nodes.find((n) => n.id === edge.target)
       if (!constraintNode || !isConstraintNodeType(constraintNode.type)) continue
 
-      const output = await _executeAndSync({
-        schemaNode,
-        constraintNode,
-        edge,
-        nodes,
-        updateNodeData,
-      })
+      // 逐项隔离：单个约束校验抛错（网络失败等）只计为该约束失败，
+      // 不能中断整批循环——否则一个瞬时错误让后续约束全部停留在过期结果
+      let output: Awaited<ReturnType<typeof _executeAndSync>>
+      try {
+        output = await _executeAndSync({
+          schemaNode,
+          constraintNode,
+          edge,
+          nodes,
+          updateNodeData,
+        })
+      } catch (err) {
+        logger.error(
+          `[validateEdgeBatch] 约束校验异常（已跳过，继续处理后续约束）: ${constraintNode.id}`,
+          err
+        )
+        totalProcessed++
+        totalInvalid++
+        continue
+      }
       if (!output) continue
 
       // 只要 handler 执行并返回了结果，即视为已处理的约束（含 pass/error/idle/missing）

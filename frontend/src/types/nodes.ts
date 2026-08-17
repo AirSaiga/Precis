@@ -549,5 +549,8 @@ export type CustomNodeData =
  * 限制为我们自己定义的 `CustomNodeData` 联合类型。
  *
  * 这是 Vue Flow 画布中所有节点的统一类型，graphStore 中的 nodes 数组即为此类型。
+ *
+ * `selected`：Vue Flow 运行时会在节点上维护选中标志（用户态 Node 类型未声明），
+ * 工作区快照保存/恢复、节点工厂选中集维护都需要读写该字段。
  */
-export type CustomNode = Node<CustomNodeData>
+export type CustomNode = Node<CustomNodeData> & { selected?: boolean }

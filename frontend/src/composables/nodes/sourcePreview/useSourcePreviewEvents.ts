@@ -284,19 +284,26 @@ export function useSourcePreviewEvents(
 
     logger.debug(`🔄 检测到列变化，移除列数: ${removedColumnIds.length}`)
 
-    // 查找连接到已移除列的约束边
+    // 查找连接到已移除列的边。约束边方向是 Schema → 约束节点
+    // （sourceHandle 为 source-right-{columnId}），FK 展示边方向是 FK 节点 → Schema
+    // （targetHandle 为 source-right-{columnId}）；两者挂在已删列上都必须断开。
+    // （回归：过去按 "e.target === schemaNodeId && e.targetHandle === 'target-{col}'"
+    //  旧边方向匹配，永不命中，列删除后约束边残留、校验结果过期）
     for (const removedColumnId of removedColumnIds) {
-      const connectedConstraintEdges = store.edges.filter(
-        (e) => e.target === schemaNodeId && e.targetHandle === `target-${removedColumnId}`
+      const columnHandle = `source-right-${removedColumnId}`
+      const staleEdges = store.edges.filter(
+        (e) =>
+          (e.source === schemaNodeId && (e.sourceHandle ?? undefined) === columnHandle) ||
+          (e.target === schemaNodeId && (e.targetHandle ?? undefined) === columnHandle)
       )
 
-      for (const edge of connectedConstraintEdges) {
-        const constraintNode = store.nodes.find((n) => n.id === edge.source)
+      for (const edge of staleEdges) {
+        const relatedNode = store.nodes.find((n) => n.id === edge.source || n.id === edge.target)
         const constraintType =
-          ((constraintNode?.data as Record<string, unknown>)?.constraintType as string) ||
-          '未知约束'
+          ((relatedNode?.data as Record<string, unknown>)?.constraintType as string) || '未知约束'
 
-        logger.debug(`  - 断开 ${constraintType} 约束: ${edge.source} (连接到已移除的列)`)
+        logger.debug(`  - 断开 ${constraintType} 连接: ${edge.id} (连接到已移除的列)`)
+        // deleteConnection 走 removeEdges，自动触发断连清理链（syncOnDisconnect + 约束状态重置）
         store.deleteConnection(edge.id)
       }
     }

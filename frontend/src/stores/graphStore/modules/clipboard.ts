@@ -255,7 +255,9 @@ export function createClipboardModule(params: {
     const newNode: CustomNode = {
       ...nodeToCopy,
       id: newId,
-      data: structuredClone(nodeToCopy.data),
+      // 与 copy/cut 同模式：nodes.value 中的元素是深层 reactive proxy，
+      // 直接 structuredClone 会抛 DataCloneError，必须先 deepToRaw 解包
+      data: structuredClone(deepToRaw(toRaw(nodeToCopy)).data),
       position: {
         x: nodeToCopy.position.x + pasteOffset.x,
         y: nodeToCopy.position.y + pasteOffset.y,

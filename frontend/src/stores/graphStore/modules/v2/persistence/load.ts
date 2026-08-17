@@ -94,6 +94,8 @@ export function createV2LoadOps(params: {
     configDir: string | undefined,
     relPath: string | undefined
   ) => string | undefined
+  /** 清空撤销/重做栈（history 模块注入）。项目加载是画布上下文的不可逆切换，旧栈必须废弃 */
+  clearHistory?: () => void
 }) {
   const {
     nodes,
@@ -107,6 +109,7 @@ export function createV2LoadOps(params: {
     lastFullValidationSummary,
     lastFullValidationStatistics,
     getEffectiveProjectConfigPath,
+    clearHistory,
   } = params
   const { t } = useI18n()
 
@@ -265,6 +268,9 @@ export function createV2LoadOps(params: {
       nodes.value = nextNodes
       edges.value = nextEdges
       selectedNodeId.value = null
+      // 项目加载 = 画布上下文不可逆切换：清空撤销栈，
+      // 防止 Ctrl+Z 把上一个项目的节点图恢复到当前画布
+      clearHistory?.()
 
       // 注意：加载时不调用 saveProject。
       // AI 生成配置时 handleConflictConfirm 已用 putV2FullConfig 保存；常规加载时配置已存在于文件中。

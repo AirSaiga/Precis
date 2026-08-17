@@ -46,6 +46,8 @@ function buildConditional(input: BuildInput): BuildResult {
     ifConditions: resolvedConditions,
     ifRef: firstIf?.ref,
     thenRef: thenRef || undefined,
+    // "跳过 IF、对所有行校验 THEN" 开关（UI/运行时使用，roundtrip 保存于 params.skip_if）
+    skipIfCondition: input.params?.skip_if === true,
     validationStatus: 'idle',
     validationErrors: [],
     saveState: saveState || (mode === 'connect' ? 'draft' : 'saved'),

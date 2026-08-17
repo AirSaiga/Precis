@@ -98,6 +98,9 @@ export function createProjectLifecycleModule(params: {
   refreshProjectConfigStats: (configPath?: string) => Promise<boolean>
   projectStore: ProjectStoreLike
   resourceTreeStore: ResourceTreeStoreLike
+  /** 清空撤销/重做栈（history 模块注入）。项目创建/清理/画布重置都是
+   * 画布上下文的不可逆切换，旧栈会让 Ctrl+Z 恢复已切换前的节点图 */
+  clearHistory?: () => void
 }) {
   const {
     nodes,
@@ -122,6 +125,7 @@ export function createProjectLifecycleModule(params: {
     normalizeConfigDir,
     projectStore,
     resourceTreeStore,
+    clearHistory,
   } = params
 
   function createProject(name: string, path: string) {
@@ -130,6 +134,7 @@ export function createProjectLifecycleModule(params: {
     selectedNodeId.value = null
     selectedNodeIds.value = []
     selectionBox.value = null
+    clearHistory?.()
 
     projectName.value = name
     const normalizedPath = normalizeConfigDir(path)
@@ -166,6 +171,7 @@ export function createProjectLifecycleModule(params: {
     selectedNodeId.value = null
     selectedNodeIds.value = []
     selectionBox.value = null
+    clearHistory?.()
     projectName.value = ''
     isProjectLoaded.value = false
     projectConfigStats.value = {
@@ -202,6 +208,9 @@ export function createProjectLifecycleModule(params: {
     selectedNodeId.value = null
     selectedNodeIds.value = []
     selectionBox.value = null
+    // 工作区 Tab 切换（setActiveTab/createNewTab）经此入口重置画布：
+    // 旧撤销栈指向切换前的 Tab 内容，保留会导致跨 Tab Ctrl+Z 污染
+    clearHistory?.()
     // 注意：保留 projectName/projectPath/isProjectLoaded，
     // 因为 resetCanvas 主要用于工作区切换场景（F11）
   }

@@ -191,8 +191,17 @@ export function useSchemaValidation(
           props.data.sheetName,
           props.data.headerRow
         )
-        result.errorCount += notNullResult.errorCount
-        result.errors.push(...notNullResult.errors)
+        // 后端业务失败（200 + success:false）不能计为"零错误"，否则列级校验假通过
+        if (notNullResult.requestFailed) {
+          result.errors.push({
+            row: 0,
+            value: '',
+            message: notNullResult.errorMessage || '非空校验失败',
+          })
+        } else {
+          result.errorCount += notNullResult.errorCount
+          result.errors.push(...notNullResult.errors)
+        }
       }
 
       if (constraints.unique) {
@@ -202,8 +211,16 @@ export function useSchemaValidation(
           props.data.sheetName,
           props.data.headerRow
         )
-        result.errorCount += uniqueResult.errorCount
-        result.errors.push(...uniqueResult.errors)
+        if (uniqueResult.requestFailed) {
+          result.errors.push({
+            row: 0,
+            value: '',
+            message: uniqueResult.errorMessage || '唯一性校验失败',
+          })
+        } else {
+          result.errorCount += uniqueResult.errorCount
+          result.errors.push(...uniqueResult.errors)
+        }
       }
 
       if (

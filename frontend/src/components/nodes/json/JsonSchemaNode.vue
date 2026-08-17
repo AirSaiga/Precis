@@ -197,7 +197,8 @@
    * - 头部 / 数据源下拉 / 错误 popover / 关闭确认 全部改用既有的子组件（消除死代码）
    * - 新增智能填充、保存按钮接线、数据源切换、虚拟锚点、列级错误写回
    */
-  import { ref, onMounted, onBeforeUnmount } from 'vue'
+  import { ref, onMounted, onBeforeUnmount, nextTick } from 'vue'
+  import { v4 as uuidv4 } from 'uuid'
   import { logger } from '@/core/utils/logger'
   import { eventBus } from '@/core/eventBus'
   import { useI18n } from 'vue-i18n'
@@ -491,31 +492,35 @@
       }
       const sourceNodeId = newNode.id
 
-      // 3. 创建边连接（延时等待节点渲染）
-      setTimeout(() => {
-        try {
-          const newEdge = {
-            id: `edge-${Date.now()}`,
-            source: sourceNodeId,
-            target: props.id,
-            sourceHandle: `${sourceNodeId}-output`,
-            targetHandle: 'target-left',
-            type: 'smoothstep',
-            animated: true,
-            style: { stroke: 'var(--edge-data-source)', strokeWidth: 1.5 },
-            label: 'Data Source',
-          }
-          addEdges([newEdge])
-          updateNodeInternals([sourceNodeId, props.id])
-        } catch (err) {
-          logger.error('❌ 创建边连接失败:', err)
-        }
-      }, 1000)
+      // 3. 元数据绑定先行（原实现 setTimeout(300) 先于 setTimeout(1000) 的建边执行，
+      //    顺序颠倒；现按"绑元数据 → 等渲染 → 建边"的正确顺序同步执行）
+      connectToSource(sourceNodeId)
 
-      // 4. 触发元数据更新 + 智能填充
-      setTimeout(() => {
-        connectToSource(sourceNodeId)
-      }, 300)
+      // 4. 创建边连接：等待节点渲染获得 handleBounds 后再建边（AGENTS.md 时序约定），
+      //    替代原 setTimeout(1000) 硬编码等待（窗口内存在重复边/悬空边竞态）
+      await nextTick()
+      if (!store.nodes.find((n) => n.id === sourceNodeId)) {
+        logger.warn('⚠️ [JsonSchemaNode] Source 节点已被删除，跳过建边:', sourceNodeId)
+        closeSourceDropdown()
+        return
+      }
+      try {
+        const newEdge = {
+          id: uuidv4(),
+          source: sourceNodeId,
+          target: props.id,
+          sourceHandle: `${sourceNodeId}-output`,
+          targetHandle: 'target-left',
+          type: 'smoothstep',
+          animated: true,
+          style: { stroke: 'var(--edge-data-source)', strokeWidth: 1.5 },
+          label: 'Data Source',
+        }
+        addEdges([newEdge])
+        updateNodeInternals([sourceNodeId, props.id])
+      } catch (err) {
+        logger.error('❌ 创建边连接失败:', err)
+      }
 
       logger.debug('✅ [JsonSchemaNode] 数据源切换完成')
     } catch (error) {

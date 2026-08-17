@@ -41,6 +41,8 @@ function buildForeignKey(input: BuildInput): BuildResult {
       targetNodeId: fkRefs.target.nodeId,
       targetColumn: fkRefs.target.columnName,
     },
+    // "允许为空" 开关（运行时空值过滤使用，roundtrip 保存于 params.allow_null）
+    allowNull: input.params?.allow_null === true,
     saveState: saveState || (mode === 'connect' ? 'draft' : 'saved'),
   }
 

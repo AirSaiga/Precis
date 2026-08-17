@@ -69,6 +69,10 @@ export function buildConstraintExportPayload(params: {
         refs.to_table_id = normalizeSchemaId(tRef.nodeId)
         refs.to_column_id = tRef.columnId
       }
+      // FK"允许为空"开关（与 persistence builder 保持一致，roundtrip 保存于 params.allow_null）
+      if (data.allowNull === true) {
+        outputParams.allow_null = true
+      }
       break
     }
     case 'Unique': {
@@ -163,6 +167,10 @@ export function buildConstraintExportPayload(params: {
         }
       }
       outputParams.then_condition = cd.thenConditionConfig
+      // "跳过 IF、对所有行校验 THEN"开关（与 persistence builder 保持一致，roundtrip 保存于 params.skip_if）
+      if (cd.skipIfCondition === true) {
+        outputParams.skip_if = true
+      }
       break
     }
     case 'Scripted': {

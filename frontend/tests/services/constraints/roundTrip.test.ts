@@ -255,6 +255,74 @@ describe('Round-Trip - Conditional', () => {
     expect(imported.nodeData.thenColumn).toBe('amount')
     expect(imported.nodeData.thenConditionConfig).toEqual({ operator: 'not_null' })
   })
+
+  it('skipIfCondition=true 保存为 params.skip_if 并在导入时恢复', () => {
+    const schemaNode = makeSchemaNode()
+    const constraintNode = makeConstraintNode('conditionalConstraint', {
+      configName: '无条件校验',
+      table: 'users',
+      thenColumn: 'amount',
+      ifLogic: 'and',
+      ifConditions: [],
+      thenRef: { nodeId: 'schema-1', columnId: 'col-amount', columnName: 'amount' },
+      thenConditionConfig: { operator: 'not_null' },
+      skipIfCondition: true,
+    })
+
+    const { params } = buildConstraintExportPayload({
+      nodes: [schemaNode, constraintNode],
+      constraintNodeId: 'c-1',
+      v2Type: 'Conditional',
+      data: constraintNode.data as any,
+      schemaIdByNodeId: schemaIdMap,
+    })
+
+    expect(params.skip_if).toBe(true)
+
+    // Round-trip：以导出 params 重新构建节点数据
+    const imported = buildNodeData(
+      'conditional',
+      makeImportInput({
+        nodeType: 'conditionalConstraint',
+        ifLogic: 'and',
+        ifConditions: [],
+        thenRef: { nodeId: 'schema-1', columnId: 'col-amount', columnName: 'amount' },
+        thenConditionConfig: params.then_condition,
+        params,
+      })
+    )
+
+    expect(imported.nodeData.skipIfCondition).toBe(true)
+  })
+
+  it('skipIfCondition 未开启时 params 不含 skip_if', () => {
+    const constraintNode = makeConstraintNode('conditionalConstraint', {
+      configName: '条件校验',
+      table: 'users',
+      thenColumn: 'amount',
+      ifLogic: 'and',
+      ifConditions: [
+        {
+          operator: 'eq',
+          value: 'active',
+          column: 'status',
+          ref: { nodeId: 'schema-1', columnId: 'col-status' },
+        },
+      ],
+      thenRef: { nodeId: 'schema-1', columnId: 'col-amount', columnName: 'amount' },
+      thenConditionConfig: { operator: 'not_null' },
+    })
+
+    const { params } = buildConstraintExportPayload({
+      nodes: [makeSchemaNode(), constraintNode],
+      constraintNodeId: 'c-1',
+      v2Type: 'Conditional',
+      data: constraintNode.data as any,
+      schemaIdByNodeId: schemaIdMap,
+    })
+
+    expect(params.skip_if).toBeUndefined()
+  })
 })
 
 // ============================================================================
@@ -485,6 +553,83 @@ describe('Round-Trip - ForeignKey', () => {
     expect(refs.to_table_id).toBe('sc_orders')
     expect(refs.to_column_id).toBe('col-id')
     expect(Object.keys(params)).toHaveLength(0)
+  })
+
+  it('allowNull=true 保存为 params.allow_null 并在导入时恢复', () => {
+    const targetSchema = makeSchemaNode()
+    targetSchema.id = 'schema-2'
+    targetSchema.data = {
+      tableName: 'orders',
+      columns: [{ id: 'col-id', columnName: 'id' }],
+      sourceFilePath: '/data/orders.csv',
+    } as any
+
+    const nodes = [
+      makeSchemaNode(),
+      targetSchema,
+      makeConstraintNode('foreignKeyConstraint', {
+        configName: '用户外键',
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+        targetRef: { nodeId: 'schema-2', columnId: 'col-id' },
+        allowNull: true,
+      }),
+    ]
+
+    const { params } = buildConstraintExportPayload({
+      nodes,
+      constraintNodeId: 'c-1',
+      v2Type: 'ForeignKey',
+      data: nodes[2].data as any,
+      schemaIdByNodeId: { 'schema-1': 'sc_users', 'schema-2': 'sc_orders' },
+    })
+
+    expect(params.allow_null).toBe(true)
+
+    // Round-trip：以导出 params 重新构建节点数据
+    const imported = buildNodeData(
+      'foreignKey',
+      makeImportInput({
+        nodeType: 'foreignKeyConstraint',
+        fkRefs: {
+          source: { nodeId: 'schema-1', columnId: 'col-email', columnName: 'email' },
+          target: { nodeId: 'schema-2', columnId: 'col-id', columnName: 'id' },
+        },
+        refs: { to_table_name: 'orders' },
+        params,
+      })
+    )
+
+    expect(imported.nodeData.allowNull).toBe(true)
+  })
+
+  it('allowNull 未开启时 params 不含 allow_null（默认关闭语义不变）', () => {
+    const targetSchema = makeSchemaNode()
+    targetSchema.id = 'schema-2'
+    targetSchema.data = {
+      tableName: 'orders',
+      columns: [{ id: 'col-id', columnName: 'id' }],
+    } as any
+
+    const nodes = [
+      makeSchemaNode(),
+      targetSchema,
+      makeConstraintNode('foreignKeyConstraint', {
+        configName: '用户外键',
+        sourceRef: { nodeId: 'schema-1', columnId: 'col-email' },
+        targetRef: { nodeId: 'schema-2', columnId: 'col-id' },
+        allowNull: false,
+      }),
+    ]
+
+    const { params } = buildConstraintExportPayload({
+      nodes,
+      constraintNodeId: 'c-1',
+      v2Type: 'ForeignKey',
+      data: nodes[2].data as any,
+      schemaIdByNodeId: { 'schema-1': 'sc_users', 'schema-2': 'sc_orders' },
+    })
+
+    expect(params.allow_null).toBeUndefined()
   })
 })
 

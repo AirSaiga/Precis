@@ -58,6 +58,7 @@ describe('unique validator', () => {
       value: 'dup@example.com',
       message: '值必须唯一',
     })
+    expect(result.requestFailed).toBe(false)
   })
 
   it('无重复值时返回零错误', async () => {
@@ -81,15 +82,17 @@ describe('unique validator', () => {
     expect(result.errors).toEqual([])
   })
 
-  it('API 返回 success=false 时返回零错误（不抛异常）', async () => {
+  it('API 返回 success=false 时标记 requestFailed（不抛异常，防假通过）', async () => {
     vi.mocked(apiValidateUnique).mockResolvedValue({
       success: false,
       validation_type: 'unique',
       data: null,
-      error: 'network error',
+      error: '文件不存在: /data/users.csv',
     })
 
     const result = await validateUnique('/data/users.csv', 'id')
+    expect(result.requestFailed).toBe(true)
+    expect(result.errorMessage).toBe('文件不存在: /data/users.csv')
     expect(result.errorCount).toBe(0)
     expect(result.totalRows).toBe(0)
     expect(result.errors).toEqual([])

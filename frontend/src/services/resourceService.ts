@@ -456,14 +456,56 @@ export class ResourceService implements IResourceService {
   }
 
   /**
+   * 从 Pattern 资源 ID 中提取纯名称
+   *
+   * 资源树中 Pattern 的 id 是 regex_registries 的完整 key（形如 "patterns/email"），
+   * 而专用 Pattern API（/project/pattern/{name}）按名称寻址，
+   * 直接传含前缀的 id 经 encodeURIComponent 后路由必然 404。
+   */
+  private patternNameFromId(patternId: string): string {
+    return patternId.includes('/') ? (patternId.split('/').pop() ?? patternId) : patternId
+  }
+
+  /**
    * 重命名 Pattern
    *
-   * @param patternId - Pattern ID
+   * 后端 Pattern 无重命名端点，按"新建 + 删除旧"实现：
+   * 先读取当前定义（listV2Patterns），再以新名称创建，最后删除旧名称。
+   *
+   * @param patternId - Pattern 资源 ID（regex_registries key，可含 "patterns/" 前缀）
+   * @param newName - 新名称
+   * @param configPath - 项目配置文件路径
+   * @throws 当 Pattern 定义不存在时抛出错误
+   */
+  async renamePattern(patternId: string, newName: string, configPath: string): Promise<void> {
+    const oldName = this.patternNameFromId(patternId)
+    const patterns = await projectV2Api.listV2Patterns(configPath)
+    const current = patterns.find((p) => String((p as Record<string, unknown>).name) === oldName)
+    if (!current) {
+      throw new Error(`Pattern not found: ${oldName}`)
+    }
+    const rec = current as Record<string, unknown>
+    await projectV2Api.createV2Pattern(
+      {
+        name: newName,
+        regex: String(rec.regex ?? ''),
+        description: rec.description as string | undefined,
+        output: rec.output as Record<string, unknown> | undefined,
+      },
+      configPath
+    )
+    await projectV2Api.deleteV2Pattern(oldName, configPath)
+  }
+
+  /**
+   * 重命名 RegexNode
+   *
+   * @param regexId - Regex 节点 ID
    * @param newName - 新名称
    * @param configPath - 项目配置文件路径
    */
-  async renamePattern(patternId: string, newName: string, configPath: string): Promise<void> {
-    await projectV2Api.updateV2RegexNodeDisplayName(patternId, newName, configPath)
+  async renameRegexNode(regexId: string, newName: string, configPath: string): Promise<void> {
+    await projectV2Api.updateV2RegexNodeDisplayName(regexId, newName, configPath)
   }
 
   /**
@@ -490,11 +532,14 @@ export class ResourceService implements IResourceService {
   /**
    * 删除 Pattern
    *
-   * @param patternId - Pattern ID
+   * 走专用 Pattern API（/project/pattern/{name}），按名称寻址；
+   * 资源树 id 含 "patterns/" 前缀，需先剥离。
+   *
+   * @param patternId - Pattern 资源 ID（regex_registries key，可含 "patterns/" 前缀）
    * @param configPath - 项目配置文件路径
    */
   async deletePattern(patternId: string, configPath: string): Promise<void> {
-    await projectV2Api.deleteV2RegexNode(patternId, configPath)
+    await projectV2Api.deleteV2Pattern(this.patternNameFromId(patternId), configPath)
   }
 
   /**

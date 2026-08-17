@@ -27,6 +27,9 @@
         </p>
       </div>
       <div class="dialog-actions">
+        <button class="btn-secondary" @click="emit('close')">
+          {{ t('common.cancel') }}
+        </button>
         <button class="btn-secondary" @click="emit('validateDirectly')">
           {{ t('canvas.nodeCanvas.validateDirectly') }}
         </button>

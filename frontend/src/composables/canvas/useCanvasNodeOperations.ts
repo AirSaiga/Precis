@@ -118,6 +118,16 @@ export function useCanvasNodeOperations(flowWrapper: Ref<HTMLElement | null>) {
     }
     // 将点击的节点 ID 存储到全局 store，供其他组件使用
     store.selectedNodeId = event.node.id
+    // 选择模型一致性：点击"多选集中已选中"的节点时 Vue Flow 选中集不变，
+    // viewportSync watcher 不触发，陈旧的 selectedNodeIds 会残留
+    // （Delete/Ctrl+C 仍作用于旧集合）。非 shift 点击时收敛为单选。
+    if (
+      store.selectedNodeIds.length > 1 &&
+      store.selectedNodeIds.includes(event.node.id) &&
+      !event.event.shiftKey
+    ) {
+      store.setSelection([event.node.id])
+    }
   }
 
   /**

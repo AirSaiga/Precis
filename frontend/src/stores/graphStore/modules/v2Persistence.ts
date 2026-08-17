@@ -53,6 +53,8 @@ export function createV2PersistenceModule(params: {
     relPath: string | undefined
   ) => string | undefined
   updateNodeData: (nodeId: string, newData: Partial<CustomNodeData>) => void
+  /** 清空撤销/重做栈（history 模块注入），由 loadOps 在项目加载后调用 */
+  clearHistory?: () => void
 }) {
   const {
     nodes,
@@ -69,6 +71,7 @@ export function createV2PersistenceModule(params: {
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     updateNodeData,
+    clearHistory,
   } = params
 
   // 初始化统计操作子模块
@@ -103,6 +106,7 @@ export function createV2PersistenceModule(params: {
     lastFullValidationStatistics,
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
+    clearHistory,
   })
 
   return {

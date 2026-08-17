@@ -10,7 +10,8 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { ref } from 'vue'
+import { toastSuccess, toastError, toastInfo } from '@/core/toast'
+import { ref, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
@@ -69,6 +70,10 @@ export function useRegexConnection() {
     regexNode: CustomNode // Regex 节点对象
     sourceColumnId: string // 源列 ID
     sourceColumnName: string // 源列名称
+    /** 弹窗前 regex 节点 data 的 sourceRef 原值（取消时回滚） */
+    previousSourceRef: { nodeId: string; columnId: string } | undefined
+    /** 弹窗前 regex 节点 data 的 saveState 原值（取消时回滚） */
+    previousSaveState: string | undefined
   } | null>(null)
 
   /**
@@ -105,23 +110,19 @@ export function useRegexConnection() {
 
   /**
    * Toast 消息提示函数
-   * 通过控制台输出带等级标记的消息，用于调试和用户反馈
-   *
-   * 消息等级：
-   * - success: 成功消息，绿色标记
-   * - error: 错误消息，红色标记
-   * - info: 普通信息，蓝色标记
-   *
-   * 使用场景：
-   * - 连接建立成功时显示 success
-   * - 连接失败或参数错误时显示 error
-   * - 调试信息和中途状态显示 info
+   * 连接失败等关键路径的真实用户反馈（此前仅写 console，用户零感知）
    *
    * @param message - 要显示的消息内容
    * @param type - 消息类型，success=成功，error=错误，info=信息
    */
   const showToastMessage = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
-    logger.debug(`[${type.toUpperCase()}] ${message}`)
+    if (type === 'success') {
+      toastSuccess(message)
+    } else if (type === 'error') {
+      toastError(message)
+    } else {
+      toastInfo(message)
+    }
   }
 
   /**
@@ -203,12 +204,16 @@ export function useRegexConnection() {
         // 步骤 3：有数据源时的处理
         // =====================================================
         // 保存连接信息到 ref，供后续用户确认后使用
-        // 这些信息包括：Schema节点、Regex节点、源列ID、源列名
+        // 这些信息包括：Schema节点、Regex节点、源列ID、源列名、
+        // 以及弹窗前 regex 节点 data 的原值（用户取消时回滚）
+        const regexDataBefore = regexNode.data as Partial<RegexNodeData>
         pendingRegexConnection.value = {
           schemaNode,
           regexNode,
           sourceColumnId,
           sourceColumnName: sourceColumn.columnName as string,
+          previousSourceRef: regexDataBefore.sourceRef,
+          previousSaveState: regexDataBefore.saveState as string | undefined,
         }
 
         // 先写入 Regex 节点的源信息，确保后续编辑弹窗可获取列上下文
@@ -653,6 +658,62 @@ export function useRegexConnection() {
   }
 
   /**
+   * 取消待确认的正则连接（回滚）
+   *
+   * 用户在确认对话框点击"取消"（或点遮罩关闭）时调用。
+   * 弹窗前边已创建（handleConnectionCompleted 先建边再弹窗）、
+   * sourceRef 已写入（本 composable 弹窗前写入），取消必须两者都回滚，
+   * 否则"取消"后连接仍然成立，只是没有执行校验。
+   *
+   * 回滚内容：
+   * 1. 删除本次连接创建的边（按 source/target/sourceHandle 定位）
+   * 2. 恢复 regex 节点 data 的 sourceRef / saveState 原值
+   * 3. 清空 pendingRegexConnection 与样例数据
+   */
+  const cancelPendingRegexConnection = async () => {
+    const pending = pendingRegexConnection.value
+
+    // 无待确认连接：仅确保对话框关闭（兜底 @close 直接调用的场景）
+    if (!pending) {
+      showRegexConnectionDialog.value = false
+      return
+    }
+
+    const { schemaNode, regexNode, sourceColumnId, previousSourceRef, previousSaveState } = pending
+    showRegexConnectionDialog.value = false
+    pendingRegexConnection.value = null
+    regexEditSampleData.value = ''
+
+    // 1. 删除本次连接创建的边（schema→regex，sourceHandle 定位列）
+    const edge = store.edges.find(
+      (e) =>
+        e.source === schemaNode.id &&
+        e.target === regexNode.id &&
+        (e.sourceHandle ?? undefined) === `source-right-${sourceColumnId}`
+    )
+    if (edge) {
+      // 删除边期间挂起历史：removeEdges 同步触发 onEdgesChange 压栈，
+      // 会使撤销栈多出一个"含待回滚边"的中间态；删除后丢弃冗余栈顶，
+      // 回到 createConnection 压入的"连线前"快照（与 useConnections 回滚同模式）
+      store.suspendHistory()
+      try {
+        store.deleteConnection(edge.id)
+      } finally {
+        store.resumeHistory()
+      }
+      await nextTick()
+      store.discardRedundantTopSnapshot()
+    }
+
+    // 2. 恢复 regex 节点 data 原值
+    store.updateNodeData(regexNode.id, {
+      sourceRef: previousSourceRef,
+      saveState: previousSaveState ?? 'saved',
+      validationStatus: 'idle',
+    } as Partial<RegexNodeData>)
+  }
+
+  /**
    * 直接校验处理
    * 用户点击"是"按钮，确认建立连接并执行校验
    *
@@ -813,6 +874,12 @@ export function useRegexConnection() {
      * 数据结构：{ schemaNode, regexNode, sourceColumnId, sourceColumnName } | null
      */
     pendingRegexConnection,
+
+    /**
+     * 取消待确认的正则连接并回滚已建立的边与 sourceRef
+     * 由确认对话框的取消/关闭事件触发
+     */
+    cancelPendingRegexConnection,
 
     /**
      * 正则连接确认对话框显示状态

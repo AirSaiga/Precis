@@ -282,4 +282,40 @@ describe('history module', () => {
       expect(module.undoStack.value[0].nodes[0].data.configName).toBe('R')
     })
   })
+
+  describe('clearHistory', () => {
+    it('清空 undoStack 与 redoStack（画布上下文切换后旧栈不可用）', async () => {
+      module.saveState()
+      nodes.value = [makeNode('n1', 'B')]
+      await module.undo()
+      expect(module.undoStack.value).toHaveLength(0)
+      expect(module.redoStack.value).toHaveLength(1)
+
+      module.clearHistory()
+      expect(module.undoStack.value).toHaveLength(0)
+      expect(module.redoStack.value).toHaveLength(0)
+
+      // 清空后 undo/redo 均为空操作，不再改变画布
+      nodes.value = [makeNode('n1', 'C')]
+      await module.undo()
+      expect(nodes.value[0].data.configName).toBe('C')
+      await module.redo()
+      expect(nodes.value[0].data.configName).toBe('C')
+    })
+
+    it('清空后可继续正常记录新历史', () => {
+      module.clearHistory()
+      module.saveState()
+      nodes.value = [makeNode('n1', 'B')]
+      module.saveState()
+      expect(module.undoStack.value).toHaveLength(2)
+    })
+
+    it('解除挂起状态（suspend 后 clearHistory 恢复记录）', () => {
+      module.suspend()
+      expect(module.isSuspended()).toBe(true)
+      module.clearHistory()
+      expect(module.isSuspended()).toBe(false)
+    })
+  })
 })

@@ -137,6 +137,19 @@ export function createHistoryModule(params: {
   }
 
   /**
+   * @description 清空撤销/重做栈
+   *
+   * 画布上下文发生不可逆切换时调用（工作区 Tab 切换、项目加载/创建/清理）。
+   * 历史快照绑定的是切换前的画布内容，保留旧栈会让 Ctrl+Z 把上一个
+   * Tab/项目的节点图恢复到当前画布，并经 Tab 快照保存污染持久化数据。
+   */
+  function clearHistory() {
+    undoStack.value = []
+    redoStack.value = []
+    suspended = false
+  }
+
+  /**
    * @description 撤销上一步操作
    * @returns {Promise<void>}
    *
@@ -207,6 +220,7 @@ export function createHistoryModule(params: {
     saveState,
     captureState,
     discardRedundantTopSnapshot,
+    clearHistory,
     suspend,
     resume,
     isSuspended,

@@ -22,6 +22,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { toastSuccess, toastError, toastInfo } from '@/core/toast'
 import { nextTick, ref } from 'vue'
 import type { Connection, OnConnectStartParams } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
@@ -71,12 +72,18 @@ export function useConnections() {
 
   /**
    * Toast 消息提示函数
-   * 通过控制台输出消息等级，用于调试和用户反馈
+   * 连接失败/回滚等关键路径的真实用户反馈（此前仅写 console，用户零感知）
    * @param message - 要显示的消息内容
    * @param type - 消息类型，success=成功，error=错误，info=信息
    */
   const showToastMessage = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
-    logger.debug(`[${type.toUpperCase()}] ${message}`)
+    if (type === 'success') {
+      toastSuccess(message)
+    } else if (type === 'error') {
+      toastError(message)
+    } else {
+      toastInfo(message)
+    }
   }
 
   /**

@@ -472,6 +472,9 @@
         case 'constraint':
           await resourceService.deleteConstraint(resource.id, path)
           break
+        case 'regex_node':
+          await resourceService.deleteRegexNode(resource.id, path)
+          break
         case 'template':
           await graphStore.deleteV2Template(resource.id, path)
           break
@@ -554,6 +557,9 @@
           break
         case 'constraint':
           await resourceService.renameConstraint(resourceId, name, path)
+          break
+        case 'regex_node':
+          await resourceService.renameRegexNode(resourceId, name, path)
           break
       }
 

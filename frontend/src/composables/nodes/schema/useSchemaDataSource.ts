@@ -13,8 +13,9 @@
  * 其余委托 handleSourceConnection，消除重复。
  */
 
-import { type Ref } from 'vue'
+import { type Ref, nextTick } from 'vue'
 
+import { v4 as uuidv4 } from 'uuid'
 import { logger } from '@/core/utils/logger'
 import { useGraphStore } from '@/stores/graphStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
@@ -125,40 +126,38 @@ export function useSchemaDataSource(
       }
 
       // 3. 创建 schema 节点到新 source 节点的连接边
-      // 使用 setTimeout 确保 DOM 更新，等待节点完全挂载（SourcePreviewNode 可能含大量数据）
-      setTimeout(() => {
-        try {
-          const sourceNode = store.nodes.find((n) => n.id === sourceNodeId)
-          if (!sourceNode) {
-            logger.warn('⚠️ 尝试连接时未找到 Source 节点:', sourceNodeId)
-          }
+      // 等待节点渲染获得 handleBounds 后再建边（AGENTS.md 时序约定）。
+      // 此前用 setTimeout(1000) 硬编码等待：窗口内手动连线可产生重复边、
+      // 节点被删后仍继续建边，且慢机器上 1 秒可能不够。
+      await nextTick()
+      const sourceNode = store.nodes.find((n) => n.id === sourceNodeId)
+      if (!sourceNode) {
+        logger.warn('⚠️ 尝试连接时未找到 Source 节点（可能已被删除），跳过建边:', sourceNodeId)
+        return
+      }
 
-          const newEdge = {
-            id: `edge-${Date.now()}`,
-            source: sourceNodeId,
-            target: props.id,
-            sourceHandle: `${sourceNodeId}-output`,
-            targetHandle: 'target-left',
-            type: 'smoothstep',
-            animated: true,
-            style: { stroke: 'var(--edge-data-source)', strokeWidth: 1.5 },
-            label: 'Data Source',
-          }
+      const newEdge = {
+        id: uuidv4(),
+        source: sourceNodeId,
+        target: props.id,
+        sourceHandle: `${sourceNodeId}-output`,
+        targetHandle: 'target-left',
+        type: 'smoothstep',
+        animated: true,
+        style: { stroke: 'var(--edge-data-source)', strokeWidth: 1.5 },
+        label: 'Data Source',
+      }
 
-          addEdges([newEdge])
-          logger.debug('✅ 创建边连接成功:', {
-            source: sourceNodeId,
-            target: props.id,
-            edgeId: newEdge.id,
-            sourceHandle: newEdge.sourceHandle,
-          })
+      addEdges([newEdge])
+      logger.debug('✅ 创建边连接成功:', {
+        source: sourceNodeId,
+        target: props.id,
+        edgeId: newEdge.id,
+        sourceHandle: newEdge.sourceHandle,
+      })
 
-          // 强制刷新节点状态
-          updateNodeInternals([sourceNodeId, props.id])
-        } catch (err) {
-          logger.error('❌ 创建边连接失败:', err)
-        }
-      }, 1000)
+      // 强制刷新节点状态
+      updateNodeInternals([sourceNodeId, props.id])
 
       // 4. 更新 Schema 节点数据（localData + store）
       const smartTableName = currentSheet || dataSource.name.replace(/\.[^/.]+$/, '')

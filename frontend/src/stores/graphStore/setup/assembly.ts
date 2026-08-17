@@ -103,6 +103,7 @@ export function createGraphStoreAssembly(
     saveState,
     captureState,
     discardRedundantTopSnapshot,
+    clearHistory,
     suspend: suspendHistory,
     resume: resumeHistory,
     isSuspended: isHistorySuspended,
@@ -201,6 +202,7 @@ export function createGraphStoreAssembly(
     getEffectiveProjectConfigPath,
     resolveProjectRelativePath,
     updateNodeData,
+    clearHistory,
   })
 
   const projectLifecycle = createProjectLifecycleModule({
@@ -227,6 +229,7 @@ export function createGraphStoreAssembly(
     refreshProjectConfigStats: v2Persistence.refreshProjectConfigStats,
     projectStore,
     resourceTreeStore,
+    clearHistory,
   })
 
   const {
@@ -448,6 +451,7 @@ export function createGraphStoreAssembly(
     saveState,
     captureState,
     discardRedundantTopSnapshot,
+    clearHistory,
     suspendHistory,
     resumeHistory,
     isHistorySuspended,

@@ -226,5 +226,27 @@ describe('createClipboardModule', () => {
 
       expect(addEdges).toHaveBeenCalled()
     })
+
+    it('深层 reactive 节点不抛 DataCloneError（回归：Ctrl+D 曾因此全坏）', async () => {
+      // 模拟真实 store：ref 对元素施加深层 reactive proxy，
+      // structuredClone(proxy) 会抛 "could not be cloned"。
+      // copy/cut 已修复过同样的问题，duplicate 曾被遗漏。
+      const deepNodes = ref<CustomNode[]>([makeNode('n1', 'schema', { columns: [{ id: 'c1' }] })])
+      const deepModule = createClipboardModule({
+        nodes: deepNodes,
+        edges: shallowRef<Edge[]>([]),
+        selectedNodeId: shallowRef<string | null>('n1'),
+        selectedNodeIds: shallowRef<string[]>([]),
+        copiedNodes: shallowRef<CustomNode[]>([]),
+        deleteNode: mockDeleteNode,
+        deleteNodes: mockDeleteNodes,
+        saveState: mockSaveState,
+        reconcileAll: mockReconcileAll,
+      })
+
+      const newId = await expect(deepModule.duplicateSelectedNode()).resolves.not.toBeNull()
+      expect(newId).not.toBe('n1')
+      expect(addNodes).toHaveBeenCalled()
+    })
   })
 })

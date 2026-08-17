@@ -95,7 +95,7 @@
     <RegexConnectionDialog
       :visible="showRegexConnectionDialog"
       :pending-connection="pendingRegexConnection"
-      @close="showRegexConnectionDialog = false"
+      @close="cancelPendingRegexConnection"
       @validate-directly="handleRegexValidateDirectly"
       @edit-regex="handleRegexEdit"
     />
@@ -285,6 +285,7 @@
   useCanvasViewportSync()
   const {
     pendingRegexConnection,
+    cancelPendingRegexConnection,
     showRegexConnectionDialog,
     handleRegexValidateDirectly,
     handleRegexEdit,

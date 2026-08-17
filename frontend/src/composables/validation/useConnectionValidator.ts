@@ -155,22 +155,35 @@ export function useConnectionValidator(options: UseConnectionValidatorOptions = 
    * 某些连接类型不允许一对多（如一个 Source 只能连接一个 Schema）
    * 这是数据流的单向性决定的，避免数据分叉导致的复杂度和歧义
    *
+   * 判重粒度是 (source, sourceHandle, target, targetHandle) 四元组而非节点对：
+   * Conditional 的 IF 边 + THEN 边、多列 Unique 等合法拓扑要求同一对节点间
+   * 存在多条不同 handle 的连线；仅完全重复的连线（四元组相同）才视为多重连接。
+   *
    * @param rule - 连接规则
    * @param sourceNode - 源节点
+   * @param sourceHandle - 源节点 Handle ID
    * @param targetNode - 目标节点
+   * @param targetHandle - 目标节点 Handle ID
    * @returns 如果允许连接返回 true，否则返回 false
    */
   function checkMultipleConnectionConstraint(
     rule: ConnectionRule,
     sourceNode: Node,
-    targetNode: Node
+    sourceHandle: string | undefined,
+    targetNode: Node,
+    targetHandle: string | undefined
   ): boolean {
     // 检查规则是否禁止多重连接
     if (rule.config?.allowMultiple === false) {
-      // 遍历现有连接，检查是否已存在相同的源-目标对
+      // 遍历现有连接，检查是否已存在相同的 handle 四元组
       // 副作用：O(n) 时间复杂度，但 n 通常较小（画布连接数 < 1000）
+      const normalize = (h: string | null | undefined) => h ?? undefined
       const hasExistingConnection = existingConnections.value.some(
-        (conn) => conn.source === sourceNode.id && conn.target === targetNode.id
+        (conn) =>
+          conn.source === sourceNode.id &&
+          conn.target === targetNode.id &&
+          normalize(conn.sourceHandle) === normalize(sourceHandle) &&
+          normalize(conn.targetHandle) === normalize(targetHandle)
       )
       if (hasExistingConnection) {
         return false
@@ -395,7 +408,9 @@ export function useConnectionValidator(options: UseConnectionValidatorOptions = 
     // ===== 多重连接约束检查阶段 =====
 
     // 检查是否违反单连接限制
-    if (!checkMultipleConnectionConstraint(rule, sourceNode, targetNode)) {
+    if (
+      !checkMultipleConnectionConstraint(rule, sourceNode, sourceHandle, targetNode, targetHandle)
+    ) {
       logger.debug('[ConnectionValidator] Reject: multiple connection constraint failed')
       return {
         isValid: false,

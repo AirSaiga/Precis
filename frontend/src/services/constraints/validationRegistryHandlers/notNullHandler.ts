@@ -51,6 +51,17 @@ register({
         columnDataType: ctx.columnDataType,
       }
     )
+    // 文件路径模式：后端业务失败（200 + success:false，如数据文件不存在）必须报 error，
+    // 不能落入下方"零错误=通过"判定（假通过修复）
+    if (result.requestFailed) {
+      const errMsg = result.errorMessage || '\u975E\u7A7A\u6821\u9A8C\u5931\u8D25'
+      return {
+        status: 'error',
+        validationErrors: [errMsg],
+        localizedErrors: [loc('validation.notNull.requestFailed', errMsg)],
+        lastValidation: undefined,
+      }
+    }
     return {
       status: result.errorCount > 0 ? 'error' : 'pass',
       validationErrors: result.errors.map(

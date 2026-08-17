@@ -136,11 +136,33 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
   // --- Actions: 后端同步 ---
 
   /**
+   * 判断 Tab 快照是否包含实质画布内容（超出"仅 projectRoot"的启动基线）。
+   *
+   * 启动时画布由 loadProjectFromV2 构建（projectRoot + 折叠 templateInstance），
+   * 仅含 projectRoot 的快照不视为"有数据"，避免用空快照覆盖刚加载的项目状态。
+   */
+  function tabHasMeaningfulCanvasData(tab: CanvasTab): boolean {
+    const hasEdges = !!tab.edges && tab.edges.length > 0
+    const hasNonRootNodes = !!tab.nodes && tab.nodes.some((n) => n.type !== 'projectRoot')
+    return hasEdges || hasNonRootNodes
+  }
+
+  /**
+   * 剥离快照节点上的瞬态选中标志。
+   *
+   * Tab 快照原样保留了 Vue Flow 的 selected: true；恢复后 VF 会据此重建选中集，
+   * 造成"幽灵选中"（用户未点击的高亮节点，Delete 会误删）。恢复时统一清除。
+   */
+  function stripTransientSelection(nodes: CustomNode[]): CustomNode[] {
+    return nodes.map((n) => (n.selected ? { ...n, selected: false } : n))
+  }
+
+  /**
    * 将当前工作区列表同步到后端持久化文件（.precis/workspaces.json）
    *
    * 触发时机：创建、关闭、重命名、切换、重排工作区后自动调用。
-   * 仅保存元数据（id/title/index/时间戳/可见节点 ID），
-   * 不保存完整节点/边数据（节点坐标由 project.view.json 承载）。
+   * PUT 成功即代表全部 Tab 快照已落盘，所有脏标记随之清除（●消失）；
+   * 失败时保留脏标记，关闭 Tab 的"未保存确认"仍能兜底。
    *
    * 副作用：无项目路径时静默跳过（首次启动未加载项目）
    */
@@ -164,6 +186,9 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
         })),
       }
       await putV2Workspaces(payload, configPath)
+      tabs.value.forEach((w) => {
+        w.hasUnsavedChanges = false
+      })
     } catch (e) {
       logger.error('[CanvasTabStore] 保存工作区失败:', e)
     }
@@ -240,9 +265,30 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
     }
     if (tabs.value.length === 0) {
       createNewTab(graphStore)
-    } else if (graphStore) {
-      ensureProjectRootInCanvas(graphStore)
+      return
     }
+    if (!graphStore) return
+
+    // 恢复激活 Tab 的上次会话画布（含实质内容时），与 setActiveTab 分支 A 同构。
+    // 不恢复的话：启动画布只有 projectRoot，用户首次切走 Tab 时该"近空白"状态
+    // 会经 saveCurrentCanvasData 覆盖原快照并 PUT 落盘——上次会话画布静默丢失。
+    const activeId = activeTabId.value
+    const activeTabData = activeId ? tabs.value.find((w) => w.id === activeId) : undefined
+    if (activeTabData && tabHasMeaningfulCanvasData(activeTabData)) {
+      const canvasData = loadCanvasDataFromTab()
+      if (canvasData) {
+        graphStore.resetCanvas()
+        graphStore.nodes = stripTransientSelection(canvasData.nodes)
+        graphStore.edges = canvasData.edges
+      }
+      ensureProjectRootInCanvas(graphStore)
+      if (graphStore.reconcileAll) {
+        await nextTick()
+        await graphStore.reconcileAll()
+      }
+      return
+    }
+    ensureProjectRootInCanvas(graphStore)
   }
 
   // --- Actions: Tab 管理 ---
@@ -360,6 +406,9 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
   async function setActiveTab(tabId: string, graphStore?: GraphStoreLike) {
     const tab = tabs.value.find((w) => w.id === tabId)
     if (!tab) return
+    // 重复点击当前激活 Tab：直接返回，避免"保存→重置→整体替换→PUT"全流程
+    // 触发的整帧重渲染与全量磁盘写入
+    if (tabId === activeTabId.value) return
 
     // Step 1: 离开当前工作区前，保存画布快照
     const previousTabId = activeTabId.value
@@ -380,7 +429,7 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
       const canvasData = loadCanvasDataFromTab()
       if (canvasData) {
         graphStore.resetCanvas()
-        graphStore.nodes = canvasData.nodes
+        graphStore.nodes = stripTransientSelection(canvasData.nodes)
         graphStore.edges = canvasData.edges
       }
       // 恢复快照后确保 projectRoot 存在（快照可能在 project-closed 时被移除）

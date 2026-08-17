@@ -32,7 +32,9 @@ export const foreignKeyBuilder: NodeBuilder<ConstraintFileV2> = {
         enabled: d.enabled !== false,
         description: (d.configName as string) || undefined,
         refs,
-        params: {},
+        // allow_null：FK"允许为空"开关。后端 params 为宽松 dict，先持久化保证 roundtrip；
+        // 后端校验器消费该参数属后续后端工作
+        params: d.allowNull === true ? { allow_null: true } : {},
       },
     }
   },

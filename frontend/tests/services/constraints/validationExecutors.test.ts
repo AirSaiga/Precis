@@ -517,6 +517,55 @@ describe('validationExecutors - validateConstraintNodesForSchema (F: 批量校�
     expect(summary.totalErrors).toBe(2)
   })
 
+  it('单个约束校验抛错不中断整批：失败计入 invalid，后续约束照常校验', async () => {
+    const schemaNode = makeSchemaWithColumn()
+    const throwing = makeConstraintNode('notNullConstraint', 'nn-a')
+    const normal = makeConstraintNode('notNullConstraint', 'nn-b')
+    const nodes = [schemaNode, throwing, normal]
+    const edges = [
+      {
+        id: 'ea',
+        source: 'schema-1',
+        target: 'nn-a',
+        sourceHandle: 'source-right-col-1',
+        targetHandle: 't',
+      },
+      {
+        id: 'eb',
+        source: 'schema-1',
+        target: 'nn-b',
+        sourceHandle: 'source-right-col-1',
+        targetHandle: 't',
+      },
+    ]
+
+    // 第一个约束的 handler 抛错（模拟网络失败），第二个正常返回 error
+    vi.mocked(getHandlerByNodeType)
+      .mockReturnValueOnce({
+        ...makeFakeHandler({ status: 'pass' }),
+        validate: vi.fn().mockRejectedValue(new Error('network down')),
+      })
+      .mockReturnValueOnce(
+        makeFakeHandler({
+          status: 'error',
+          validationErrors: ['err1'],
+          lastValidation: { errorCount: 1 },
+        })
+      )
+
+    const summary = await validateConstraintNodesForSchema({
+      schemaNodeId: 'schema-1',
+      nodes: nodes as any,
+      edges: edges as any,
+      updateNodeData: vi.fn(),
+    })
+
+    // 两个约束都计入：抛错的按 invalid 计，第二个照常校验（未被中断）
+    expect(summary.totalConstraints).toBe(2)
+    expect(summary.invalidConstraints).toBe(2)
+    expect(summary.totalErrors).toBe(1)
+  })
+
   it('合并 Regex summary 到总数并同步列错误', async () => {
     vi.mocked(getHandlerByNodeType).mockReturnValue(
       makeFakeHandler({ status: 'pass', validationErrors: [] })

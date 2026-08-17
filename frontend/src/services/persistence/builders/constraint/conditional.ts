@@ -62,6 +62,9 @@ export const conditionalBuilder: NodeBuilder<ConstraintFileV2> = {
         refs,
         params: {
           then_condition: d.thenConditionConfig,
+          // skip_if："跳过 IF、对所有行校验 THEN"开关。后端 params 为宽松 dict，
+          // 先持久化保证 roundtrip；后端校验器消费该参数属后续后端工作
+          ...(d.skipIfCondition === true ? { skip_if: true } : {}),
         },
       },
     }
