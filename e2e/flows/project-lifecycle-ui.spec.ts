@@ -155,9 +155,14 @@ test.describe('快捷键命令集（G1）', () => {
 
   test('Ctrl+A 全选 → Delete 删除 → Ctrl+Z 撤销恢复', async ({ projectPage }) => {
     const page = projectPage
+    // 拖入两个 schema：批量删除确认（>1 个可删节点）是本用例的验证对象，
+    // 前提不能依赖 fixture 加载的 templateInstance 数量——CI（Linux）上加载后
+    // 画布只有 projectRoot（实例物化与本地 Windows 存在环境差异，另行排查），
+    // 只拖一个时 Ctrl+A 全选后可删节点仅 1 个，走单删路径不弹确认（行为正确）。
+    await dragTableSchema(page)
     await dragTableSchema(page)
     const before = await page.locator('.vue-flow__node').count()
-    expect(before).toBeGreaterThanOrEqual(2)
+    expect(before).toBeGreaterThanOrEqual(3)
 
     // 全选 → Delete → 处理"批量删除二次确认" → 仅剩 projectRoot。
     // 先清除拖拽可能残留的页面文本选区（Linux Chromium 上 dragTo 会留下文本选区，
