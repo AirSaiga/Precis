@@ -38,7 +38,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from app.api.dependencies import get_project_config_path
 from app.api.models import StandardResponse
 from app.api.models.connection_rules import ConnectionRulesModel
-from app.shared.core.io.yaml import read_yaml, write_yaml
+from app.shared.core.io.yaml import read_yaml, write_yaml_atomic
 
 logger = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ def save_connection_rules(rules: ConnectionRulesModel, config_path: str = Depend
 
     try:
         data = rules.model_dump(exclude_unset=True)
-        write_yaml(Path(rules_file_path), data)
+        write_yaml_atomic(Path(rules_file_path), data)
         return {"message": "连接规则已成功保存！"}
     except Exception as e:
         logger.error(f"保存连接规则失败: {e}")

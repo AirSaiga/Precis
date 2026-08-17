@@ -19,7 +19,9 @@ import logging
 import os
 from pathlib import Path
 
-from app.shared.core.io.yaml import read_yaml, write_yaml
+from fastapi import HTTPException
+
+from app.shared.core.io.yaml import read_yaml, write_yaml_atomic
 from app.shared.core.project.manifest.types import ManualDataRefV2, ProjectManifestV2
 
 from .base import (
@@ -84,6 +86,13 @@ def _merge_manifest_references(
 
     if _should_merge("data_sources") and existing is not None:
         final_manifest = final_manifest.model_copy(update={"data_sources": existing.data_sources})
+
+    # B-fix(settings 回滚防御): settings 同样纳入"未显式设置则保留磁盘值"的合并策略。
+    # 此前 payload 的 settings 直接覆盖——前端 builder 硬编码默认值时,用户在设置面板
+    # 改过的 CSV 分隔符/超时等会被静默回滚。注意:当前前端总是显式传 settings,
+    # 此防御需配合前端 builder 不传或回传真实 settings 才完整生效(协议先正确)。
+    if _should_merge("settings") and existing is not None:
+        final_manifest = final_manifest.model_copy(update={"settings": existing.settings})
 
     # 目录扫描补充：仅对客户端"未显式设置"且当前为空的字段从磁盘发现文件，
     # 显式置空 [] 的字段不会被目录扫描覆盖（尊重用户清空意图）
@@ -185,7 +194,7 @@ def _write_resource_files(
         except ValueError as e:
             logger.error(f"[put_v2_full_config] 非法 Schema 路径: {schema_ref.path}, 错误: {e}")
             continue
-        write_yaml(Path(abs_path), schema.model_dump(exclude_none=True))
+        write_yaml_atomic(Path(abs_path), schema.model_dump(exclude_none=True))
 
     for constraint_ref in payload.manifest.constraints:
         constraint = payload.constraints.get(constraint_ref.id)
@@ -196,7 +205,7 @@ def _write_resource_files(
         except ValueError as e:
             logger.error(f"[put_v2_full_config] 非法 Constraint 路径: {constraint_ref.path}, 错误: {e}")
             continue
-        write_yaml(Path(abs_path), constraint.model_dump(exclude_none=True))
+        write_yaml_atomic(Path(abs_path), constraint.model_dump(exclude_none=True))
 
     for regex_ref in payload.manifest.regex_nodes:
         regex_node = payload.regex_nodes.get(regex_ref.id)
@@ -207,7 +216,7 @@ def _write_resource_files(
         except ValueError as e:
             logger.error(f"[put_v2_full_config] 非法 Regex 路径: {regex_ref.path}, 错误: {e}")
             continue
-        write_yaml(Path(abs_path), regex_node.model_dump(exclude_none=True))
+        write_yaml_atomic(Path(abs_path), regex_node.model_dump(exclude_none=True))
 
     for transform_ref in payload.manifest.transforms or []:
         transform = payload.transforms.get(transform_ref.id)
@@ -218,7 +227,7 @@ def _write_resource_files(
         except ValueError as e:
             logger.error(f"[put_v2_full_config] 非法 Transform 路径: {transform_ref.path}, 错误: {e}")
             continue
-        write_yaml(Path(abs_path), transform.model_dump(exclude_none=True))
+        write_yaml_atomic(Path(abs_path), transform.model_dump(exclude_none=True))
 
     for manual_data_ref in payload.manifest.manual_data or []:
         manual_data = payload.manual_data.get(manual_data_ref.id)
@@ -229,7 +238,7 @@ def _write_resource_files(
         except ValueError as e:
             logger.error(f"[put_v2_full_config] 非法 ManualData 路径: {manual_data_ref.path}, 错误: {e}")
             continue
-        write_yaml(Path(abs_path), manual_data.model_dump(exclude_none=True))
+        write_yaml_atomic(Path(abs_path), manual_data.model_dump(exclude_none=True))
 
 
 def write_v2_full_config(
@@ -249,20 +258,28 @@ def write_v2_full_config(
     """
     manifest_path = _v2_manifest_path(config_path)
 
-    existing_manifest = None
-    if os.path.isfile(manifest_path):
-        try:
-            existing_manifest = ProjectManifestV2.model_validate(read_yaml(Path(manifest_path)))
-            logger.info("[put_v2_full_config] 读取现有 manifest 成功")
-        except Exception as e:
-            logger.warning(f"[put_v2_full_config] 读取现有 manifest 失败: {e}")
-
-    # Step 1: 合并 manifest 引用
-    final_manifest = _merge_manifest_references(payload, existing_manifest, config_path)
-
-    # Step 2: 写入 manifest 与资源文件（在同一锁内保证一致性）
+    # B-reliability: existing manifest 的读取必须在锁内(与写入同一临界区),否则:
+    # 1) 并发场景读到他人写入一半的状态; 2) 解析失败时 existing=None 继续写入,
+    # data_sources/templates/settings 等无目录扫描兜底的字段会被空基准覆盖丢失。
+    # manifest 已存在但损坏时直接拒绝写入(500),不带空基准继续。
     with project_lock(config_path):
-        write_yaml(Path(manifest_path), final_manifest.model_dump(exclude_none=True))
+        existing_manifest = None
+        if os.path.isfile(manifest_path):
+            try:
+                existing_manifest = ProjectManifestV2.model_validate(read_yaml(Path(manifest_path)))
+                logger.info("[put_v2_full_config] 读取现有 manifest 成功")
+            except Exception as e:
+                logger.error(f"[put_v2_full_config] 读取现有 manifest 失败,拒绝写入以保护现有配置: {e}")
+                raise HTTPException(
+                    status_code=500,
+                    detail="现有 project.precis.yaml 解析失败,已拒绝本次写入。请先修复或回退 manifest 再保存。",
+                )
+
+        # Step 1: 合并 manifest 引用
+        final_manifest = _merge_manifest_references(payload, existing_manifest, config_path)
+
+        # Step 2: 写入 manifest 与资源文件（在同一锁内保证一致性）
+        write_yaml_atomic(Path(manifest_path), final_manifest.model_dump(exclude_none=True))
         logger.info(f"[put_v2_full_config] 写入 manifest 完成，schemas: {len(final_manifest.schemas)} 个")
 
         # Step 3: 写入资源文件

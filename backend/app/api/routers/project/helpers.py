@@ -141,7 +141,7 @@ def project_lock(config_path: str, timeout: float = 10.0):
 
     使用示例:
         with project_lock(config_path):
-            write_yaml(Path(manifest_path), manifest.model_dump(exclude_none=True))
+            write_yaml_atomic(Path(manifest_path), manifest.model_dump(exclude_none=True))
     """
     lock_dir = os.path.join(config_path, ".precis")
     os.makedirs(lock_dir, exist_ok=True)

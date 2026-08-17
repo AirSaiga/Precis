@@ -37,7 +37,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from ..io.yaml import write_yaml
+from ..io.yaml import write_yaml_atomic
 
 
 class PatternFile(BaseModel):
@@ -115,7 +115,7 @@ def save_pattern_file(pattern: PatternFile, patterns_dir: str, filename: str | N
     data = pattern.model_dump(exclude_none=True)
 
     # 调用 write_yaml 写入文件
-    write_yaml(Path(filepath), data)
+    write_yaml_atomic(Path(filepath), data)
 
     # 返回完整的文件路径
     return filepath

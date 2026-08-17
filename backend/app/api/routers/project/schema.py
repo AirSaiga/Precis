@@ -38,7 +38,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
 from app.api.dependencies import get_project_config_path
-from app.shared.core.io.yaml import read_yaml, write_yaml, write_yaml_atomic
+from app.shared.core.io.yaml import read_yaml, write_yaml_atomic
 from app.shared.core.project.manifest.types import ProjectManifestV2
 from app.shared.core.utils.path_utils import make_relative
 
@@ -430,7 +430,7 @@ def delete_v2_schema(table_id: str, config_path: str = Depends(get_project_confi
 
         if manifest.schemas:
             manifest.schemas = [s for s in manifest.schemas if s.id != table_id]
-            write_yaml(Path(manifest_path), manifest.model_dump(exclude_none=True))
+            write_yaml_atomic(Path(manifest_path), manifest.model_dump(exclude_none=True))
 
     return {"message": f"V2 schema '{table_id}' 已删除。"}
 

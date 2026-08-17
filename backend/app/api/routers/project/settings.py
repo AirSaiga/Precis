@@ -27,7 +27,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.dependencies import get_project_config_path
-from app.shared.core.io.yaml import read_yaml, write_yaml
+from app.shared.core.io.yaml import read_yaml, write_yaml_atomic
 from app.shared.core.project.manifest.types import ProjectManifestV2
 
 from .base import (
@@ -77,7 +77,7 @@ def _save_manifest_field(
     apply(manifest)
     try:
         with project_lock(config_path):
-            write_yaml(Path(manifest_path), manifest.model_dump(exclude_none=True))
+            write_yaml_atomic(Path(manifest_path), manifest.model_dump(exclude_none=True))
     except Exception as exc:
         logging.getLogger(__name__).exception(write_log)
         raise HTTPException(status_code=500, detail=f"设置文件保存失败: {exc}")

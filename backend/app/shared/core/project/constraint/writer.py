@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 # 导入底层的 YAML 写入工具
-from app.shared.core.io.yaml import write_yaml
+from app.shared.core.io.yaml import write_yaml_atomic
 
 # 导入约束配置的数据模型
 from .types import ConstraintFile
@@ -165,4 +165,4 @@ def save_constraint(constraint: ConstraintFile, constraint_path: str | Path) -> 
     Path(constraint_path)
     # 步骤2：将 ConstraintFile 对象转换为字典，exclude_none=True 排除空值字段
     # 步骤3：调用底层 YAML 写入函数将数据持久化到文件
-    write_yaml(Path(constraint_path), constraint.model_dump(exclude_none=True))
+    write_yaml_atomic(Path(constraint_path), constraint.model_dump(exclude_none=True))

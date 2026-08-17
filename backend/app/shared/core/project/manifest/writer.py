@@ -26,7 +26,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from app.shared.core.io.yaml import write_yaml
+from app.shared.core.io.yaml import write_yaml_atomic
 
 from .types import ConstraintRef, ManualDataRef, ProjectManifest, RegexRef, SchemaRef
 
@@ -66,7 +66,7 @@ def save_manifest(manifest: ProjectManifest, manifest_path: str | Path) -> None:
     """
     # 将 Pydantic 模型序列化为字典，exclude_none=True 排除空值字段
     # 这样可以生成干净简洁的 YAML 配置文件
-    write_yaml(Path(manifest_path), manifest.model_dump(exclude_none=True))
+    write_yaml_atomic(Path(manifest_path), manifest.model_dump(exclude_none=True))
 
 
 def ensure_schema_ref(manifest: ProjectManifest, table_id: str, default_path: str | None = None) -> SchemaRef:

@@ -205,7 +205,13 @@ def get_v2_full_config(
     regex_objects: dict[str, RegexNodeFileV2] = {}  # 保留对象用于自检
 
     for ref in effective_manifest.regex_nodes:
-        abs_path = _resolve_project_path(config_path, ref.path)
+        # B-reliability: 单条坏引用(手改 YAML/AI 写入/旧项目迁移)不得让整个接口 500
+        # (前端 bootstrapProjectPaths 会失败,项目打不开)。与 schemas/constraints 的容错对齐。
+        try:
+            abs_path = _resolve_project_path(config_path, ref.path)
+        except ValueError as e:
+            logger.warning(f"[get_v2_full_config] Regex 引用路径非法,已跳过: id={ref.id}, path={ref.path}, 错误: {e}")
+            continue
         if os.path.isfile(abs_path):
             try:
                 regex_obj = RegexNodeFileV2.model_validate(read_yaml(Path(abs_path)))
@@ -221,7 +227,14 @@ def get_v2_full_config(
     transform_objects: dict[str, TransformFileV2] = {}  # 保留对象用于自检
 
     for ref in effective_manifest.transforms or []:
-        abs_path = _resolve_project_path(config_path, ref.path)
+        # 同 Regex: 单条坏引用记日志跳过,不阻断整个接口(见上)
+        try:
+            abs_path = _resolve_project_path(config_path, ref.path)
+        except ValueError as e:
+            logger.warning(
+                f"[get_v2_full_config] Transform 引用路径非法,已跳过: id={ref.id}, path={ref.path}, 错误: {e}"
+            )
+            continue
         if os.path.isfile(abs_path):
             try:
                 transform_obj = TransformFileV2.model_validate(read_yaml(Path(abs_path)))
@@ -237,7 +250,14 @@ def get_v2_full_config(
     manual_data_objects: dict[str, ManualDataFileV2] = {}  # 保留对象用于自检
 
     for ref in effective_manifest.manual_data or []:
-        abs_path = _resolve_project_path(config_path, ref.path)
+        # 同 Regex: 单条坏引用记日志跳过,不阻断整个接口(见上)
+        try:
+            abs_path = _resolve_project_path(config_path, ref.path)
+        except ValueError as e:
+            logger.warning(
+                f"[get_v2_full_config] ManualData 引用路径非法,已跳过: id={ref.id}, path={ref.path}, 错误: {e}"
+            )
+            continue
         if os.path.isfile(abs_path):
             try:
                 manual_data_obj = ManualDataFileV2.model_validate(read_yaml(Path(abs_path)))

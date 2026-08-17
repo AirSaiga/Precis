@@ -28,7 +28,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from app.shared.core.io.yaml import write_yaml
+from app.shared.core.io.yaml import write_yaml_atomic
 
 from .types import TransformFile
 
@@ -66,4 +66,4 @@ def save_transform(transform: TransformFile, transform_path: str | Path) -> None
         "id": data["id"],
     }
 
-    write_yaml(Path(transform_path), ordered)
+    write_yaml_atomic(Path(transform_path), ordered)

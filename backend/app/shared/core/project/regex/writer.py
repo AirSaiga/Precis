@@ -29,7 +29,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from app.shared.core.io.yaml import write_yaml
+from app.shared.core.io.yaml import write_yaml_atomic
 
 from .types import RegexNodeFile
 
@@ -105,4 +105,4 @@ def save_regex_node(regex_node: RegexNodeFile, regex_path: str | Path) -> None:
             ordered[key] = value
 
     # 步骤3：调用底层 YAML 写入工具
-    write_yaml(Path(regex_path), ordered)
+    write_yaml_atomic(Path(regex_path), ordered)

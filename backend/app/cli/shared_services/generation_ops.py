@@ -24,7 +24,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from app.shared.core.io.yaml import read_yaml, write_yaml
+from app.shared.core.io.yaml import read_yaml, write_yaml_atomic
 
 logger = logging.getLogger(__name__)
 
@@ -113,21 +113,21 @@ def apply_generated_config(result: dict[str, Any], project_path: str) -> list[st
     manifest["regex_nodes"] = [{"id": rid, "path": f"regex/{rid}.regex.yaml"} for rid in regex_nodes]
 
     # 写入 manifest
-    write_yaml(manifest_path, manifest)
+    write_yaml_atomic(manifest_path, manifest)
     written.append("project.precis.yaml")
 
     # 写入资源文件
     for sid, schema in schemas.items():
         rel = f"schemas/{sid}.schema.yaml"
-        write_yaml(Path(project_path) / rel, schema)
+        write_yaml_atomic(Path(project_path) / rel, schema)
         written.append(rel)
     for cid, constraint in constraints.items():
         rel = f"constraints/{cid}.constraint.yaml"
-        write_yaml(Path(project_path) / rel, constraint)
+        write_yaml_atomic(Path(project_path) / rel, constraint)
         written.append(rel)
     for rid, regex_node in regex_nodes.items():
         rel = f"regex/{rid}.regex.yaml"
-        write_yaml(Path(project_path) / rel, regex_node)
+        write_yaml_atomic(Path(project_path) / rel, regex_node)
         written.append(rel)
 
     return written

@@ -28,7 +28,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from app.shared.core.io.yaml import write_yaml
+from app.shared.core.io.yaml import write_yaml_atomic
 
 from .types import TableSchemaFile
 
@@ -76,7 +76,7 @@ def save_schema(schema: TableSchemaFile, schema_path: str | Path) -> None:
     # 旧版从 ID 解码 sheet 的逻辑已移除
 
     # 步骤4：调用底层 YAML 写入工具
-    write_yaml(Path(schema_path), ordered)
+    write_yaml_atomic(Path(schema_path), ordered)
 
 
 def ensure_schema_file(

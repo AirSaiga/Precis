@@ -340,7 +340,3 @@ class TestGetV2FullConfigTransforms:
             assert "t1" in result["transforms"]
             assert result["transforms"]["t1"]["type"] == "StringSplit"
             assert result["transforms"]["t1"]["output_columns"] == ["first", "last"]
-
-
-if __name__ == "__main__":
-    pytest.main([__file__, "-v"])
