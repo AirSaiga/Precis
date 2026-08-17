@@ -120,11 +120,14 @@ export function useCanvasNodeOperations(flowWrapper: Ref<HTMLElement | null>) {
     store.selectedNodeId = event.node.id
     // 选择模型一致性：点击"多选集中已选中"的节点时 Vue Flow 选中集不变，
     // viewportSync watcher 不触发，陈旧的 selectedNodeIds 会残留
-    // （Delete/Ctrl+C 仍作用于旧集合）。非 shift 点击时收敛为单选。
+    // （Delete/Ctrl+C 仍作用于旧集合）。无修饰键点击时收敛为单选；
+    // 带修饰键（Vue Flow 多选键 Ctrl/Meta 或框选键 Shift）时不收敛，
+    // 以免破坏用户从多选中切换/移除节点的操作。
+    const isMultiSelectModifier = event.event.shiftKey || event.event.ctrlKey || event.event.metaKey
     if (
       store.selectedNodeIds.length > 1 &&
       store.selectedNodeIds.includes(event.node.id) &&
-      !event.event.shiftKey
+      !isMultiSelectModifier
     ) {
       store.setSelection([event.node.id])
     }
