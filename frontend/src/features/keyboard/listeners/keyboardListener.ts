@@ -187,16 +187,14 @@ export class KeyboardListenerImpl implements KeyboardListener {
       return
     }
 
-    // 当选区内有文本时，放行原生复制/剪切/全选，让浏览器默认行为处理
+    // 当选区内有文本时，放行原生复制/剪切，让浏览器默认行为处理。
+    // 注意：全选（Ctrl+A）不放行——画布应用中浏览器原生全选选中的是页面文本，
+    // 无业务价值；若放行，拖拽残留的文本选区会让"节点全选"静默失效
+    // （用户按 Ctrl+A 无任何反馈，Linux/Windows 的选区残留行为还不一致）。
     if (event.ctrlKey || event.metaKey) {
       const selection = window.getSelection()
       const hasSelectedText = selection && selection.toString().trim().length > 0
-      if (
-        hasSelectedText &&
-        (event.key.toLowerCase() === 'c' ||
-          event.key.toLowerCase() === 'x' ||
-          event.key.toLowerCase() === 'a')
-      ) {
+      if (hasSelectedText && (event.key.toLowerCase() === 'c' || event.key.toLowerCase() === 'x')) {
         return
       }
     }

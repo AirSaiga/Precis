@@ -159,7 +159,10 @@ test.describe('快捷键命令集（G1）', () => {
     const before = await page.locator('.vue-flow__node').count()
     expect(before).toBeGreaterThanOrEqual(2)
 
-    // 全选 → Delete → 处理"批量删除二次确认" → 仅剩 projectRoot
+    // 全选 → Delete → 处理"批量删除二次确认" → 仅剩 projectRoot。
+    // 先清除拖拽可能残留的页面文本选区（Linux Chromium 上 dragTo 会留下文本选区，
+    // 详见 resource-tree-filter.spec.ts 的同款处理）
+    await page.evaluate(() => window.getSelection()?.removeAllRanges())
     await page.keyboard.press('Control+a')
     await page.waitForTimeout(600)
     await page.keyboard.press('Delete')
