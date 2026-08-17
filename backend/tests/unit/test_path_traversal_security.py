@@ -164,7 +164,26 @@ class TestFilesOpsRootWhitelist:
     - `..` 逃逸 root → 403
     - root 内合法路径 → 通过
     - 缺 root → 422（必填字段校验）
+    - root 本身必须是含 project.precis.yaml 的合法项目根（B-sec 补强：
+      此前 root 由客户端任意指定，白名单防线形同虚设）
     """
+
+    @staticmethod
+    def _make_project_root(tmp_path):
+        """构造含 manifest 的合法项目根（对齐前端 Web 模式传 root 的真实语义）。"""
+        root = tmp_path / "project"
+        root.mkdir(exist_ok=True)
+        (root / "project.precis.yaml").write_text("project:\n  id: t\n", encoding="utf-8")
+        return root
+
+    def test_root_without_manifest_rejected(self, client, tmp_path):
+        """root 指向任意目录（无 manifest）→ 400，不得作为白名单根"""
+        root = tmp_path / "not-a-project"
+        root.mkdir()
+        secret = tmp_path / "secret.txt"
+        secret.write_text("sensitive", encoding="utf-8")
+        response = client.post("/api/latest/files/read", json={"path": str(secret), "root": str(root)})
+        assert response.status_code == 400
 
     def test_read_without_root_returns_422(self, client, tmp_path):
         f = tmp_path / "readable.txt"
@@ -174,16 +193,14 @@ class TestFilesOpsRootWhitelist:
 
     def test_read_outside_root_rejected(self, client, tmp_path):
         """root 外的绝对路径（无 `..`）也应被拒——这是 SEC-1 的核心修复点"""
-        root = tmp_path / "project"
-        root.mkdir()
+        root = TestFilesOpsRootWhitelist._make_project_root(tmp_path)
         secret = tmp_path / "secret.txt"
         secret.write_text("sensitive", encoding="utf-8")
         response = client.post("/api/latest/files/read", json={"path": str(secret), "root": str(root)})
         assert response.status_code == 403
 
     def test_read_within_root_allowed(self, client, tmp_path):
-        root = tmp_path / "project"
-        root.mkdir()
+        root = TestFilesOpsRootWhitelist._make_project_root(tmp_path)
         f = root / "readable.txt"
         f.write_text("hello", encoding="utf-8")
         response = client.post("/api/latest/files/read", json={"path": str(f), "root": str(root)})
@@ -192,23 +209,20 @@ class TestFilesOpsRootWhitelist:
 
     def test_read_dotdot_escape_rejected(self, client, tmp_path):
         """`..` 逃逸出 root 应被拒"""
-        root = tmp_path / "project"
-        root.mkdir()
+        root = TestFilesOpsRootWhitelist._make_project_root(tmp_path)
         target = os.path.join(str(root), "..", "secret.txt")
         response = client.post("/api/latest/files/read", json={"path": target, "root": str(root)})
         assert response.status_code == 403
 
     def test_write_outside_root_rejected(self, client, tmp_path):
-        root = tmp_path / "project"
-        root.mkdir()
+        root = TestFilesOpsRootWhitelist._make_project_root(tmp_path)
         evil = tmp_path / "evil.txt"
         response = client.post("/api/latest/files/write", json={"path": str(evil), "content": "x", "root": str(root)})
         assert response.status_code == 403
         assert not evil.exists()  # 未被写入
 
     def test_write_within_root_allowed(self, client, tmp_path):
-        root = tmp_path / "project"
-        root.mkdir()
+        root = TestFilesOpsRootWhitelist._make_project_root(tmp_path)
         target = root / "new.txt"
         response = client.post(
             "/api/latest/files/write",
@@ -218,16 +232,14 @@ class TestFilesOpsRootWhitelist:
         assert target.read_text(encoding="utf-8") == "data"
 
     def test_scan_outside_root_rejected(self, client, tmp_path):
-        root = tmp_path / "project"
-        root.mkdir()
+        root = TestFilesOpsRootWhitelist._make_project_root(tmp_path)
         outside = tmp_path / "outside"
         outside.mkdir()
         response = client.post("/api/latest/files/scan", json={"path": str(outside), "root": str(root)})
         assert response.status_code == 403
 
     def test_scan_within_root_allowed(self, client, tmp_path):
-        root = tmp_path / "project"
-        root.mkdir()
+        root = TestFilesOpsRootWhitelist._make_project_root(tmp_path)
         (root / "a.csv").write_text("x", encoding="utf-8")
         response = client.post("/api/latest/files/scan", json={"path": str(root), "root": str(root)})
         assert response.status_code == 200
@@ -235,16 +247,14 @@ class TestFilesOpsRootWhitelist:
         assert "a.csv" in names
 
     def test_mkdir_outside_root_rejected(self, client, tmp_path):
-        root = tmp_path / "project"
-        root.mkdir()
+        root = TestFilesOpsRootWhitelist._make_project_root(tmp_path)
         evil_dir = tmp_path / "evil_dir"
         response = client.post("/api/latest/files/mkdir", json={"path": str(evil_dir), "root": str(root)})
         assert response.status_code == 403
         assert not evil_dir.exists()
 
     def test_exists_outside_root_rejected(self, client, tmp_path):
-        root = tmp_path / "project"
-        root.mkdir()
+        root = TestFilesOpsRootWhitelist._make_project_root(tmp_path)
         outside = tmp_path / "outside.txt"
         outside.write_text("x", encoding="utf-8")
         response = client.get("/api/latest/files/exists", params={"path": str(outside), "root": str(root)})

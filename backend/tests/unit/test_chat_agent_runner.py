@@ -714,3 +714,90 @@ def test_agent_system_prompt_contains_intent_guardrails():
     # P2-1：必须包含 intent_scope 填写引导，让 LLM 自报意图范围
     assert "intent_scope" in CHAT_AGENT_SYSTEM_PROMPT
     assert "写动作必填" in CHAT_AGENT_SYSTEM_PROMPT
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_legacy_no_confirm_gate_blocks_write():
+    """B-sec: 无确认门环境(API 模式 enable_interactive=False)存在写盘动作时 fail-closed。
+
+    此前 legacy 路径会无确认直接 process_actions 写盘——恶意网页借宽松 CORS
+    可远程触发无确认配置改写。修复后须拒绝执行并返回明确错误。
+    """
+    from app.shared.services.llm.providers.base import ChatResponse
+
+    provider = FakeProvider(responses=[])
+    orchestrator = AIChatOrchestrator(provider=provider.cfg)
+
+    class _FakeLegacyProvider:
+        async def chat(self, req):
+            return ChatResponse(
+                content='{"reply": "我将添加约束", "actions": [{"actionType": "UPDATE_SETTINGS", "settingsSpec": {"path": "validation.timeout_seconds", "value": 60}}]}',
+                model="fake",
+            )
+
+    fake_provider = _FakeLegacyProvider()
+    with (
+        patch("app.shared.services.llm.providers.create", return_value=fake_provider),
+        patch(
+            "app.shared.services.ai.chat_agent_runner.ChatAgentRunner.run", side_effect=AssertionError("不应走 runner")
+        ),
+        patch(
+            "app.shared.services.ai.utils.get_project_overview",
+            return_value={"schemas": [], "constraints": [], "transforms": [], "regex_nodes": [], "settings": {}},
+        ),
+        patch("app.shared.services.ai.chat_orchestrator.process_actions") as mock_proc,
+    ):
+        result = await orchestrator.execute_chat(
+            message="把超时改为60秒",
+            project_path="/fake/project",
+            context_nodes=[],
+            # skip_action_validation=True 隔离校验层,专门验证 6.3 前的确认门 fail-closed
+            options=ChatOptions(agent_mode=False, skip_action_validation=True),
+        )
+
+    assert result.success is False
+    assert "无确认门" in (result.error or "")
+    mock_proc.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_legacy_with_confirm_gate_still_executes():
+    """对照: 有确认门(enable_interactive + confirm_callback 用户同意)时正常执行,不回退功能。"""
+    from app.shared.services.llm.providers.base import ChatResponse
+
+    provider = FakeProvider(responses=[])
+    orchestrator = AIChatOrchestrator(provider=provider.cfg)
+
+    class _FakeLegacyProvider:
+        async def chat(self, req):
+            return ChatResponse(
+                content='{"reply": "我将修改设置", "actions": [{"actionType": "UPDATE_SETTINGS", "settingsSpec": {"path": "validation.timeout_seconds", "value": 60}}]}',
+                model="fake",
+            )
+
+    fake_provider = _FakeLegacyProvider()
+    with (
+        patch("app.shared.services.llm.providers.create", return_value=fake_provider),
+        patch(
+            "app.shared.services.ai.utils.get_project_overview",
+            return_value={"schemas": [], "constraints": [], "transforms": [], "regex_nodes": [], "settings": {}},
+        ),
+        patch(
+            "app.shared.services.ai.chat_orchestrator.process_actions",
+            return_value={"success": True, "results": []},
+        ) as mock_proc,
+    ):
+        result = await orchestrator.execute_chat(
+            message="把超时改为60秒",
+            project_path="/fake/project",
+            context_nodes=[],
+            options=ChatOptions(
+                agent_mode=False,
+                skip_action_validation=True,
+                enable_interactive=True,
+                confirm_callback=lambda actions, reply: True,  # 用户确认
+            ),
+        )
+
+    mock_proc.assert_called_once()
+    assert result.success is True

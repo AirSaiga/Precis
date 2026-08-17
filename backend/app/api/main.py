@@ -120,9 +120,11 @@ class DynamicPortCORSMiddleware(CORSMiddleware):
     - 保留原有 CORS 中间件的所有功能
 
     [安全考量]
-    - null Origin 放行仅在【本服务绑定 loopback 且仅供打包桌面应用使用】的前提下成立：
-      桌面应用经内嵌窗口加载前端，不存在跨站/跨源攻击面。
-    - 若未来该 API 暴露到网络（非 127.0.0.1），必须移除此放行。
+    - null/空 Origin 默认拒绝：后端无鉴权且存在文件读取端点，沙箱 iframe / file:// 页面
+      发送的 null Origin 一旦放行，任意网页可跨域读取本机 API 响应（loopback 端口可被
+      浏览器枚举）。仅当 Electron 主进程 spawn 后端时注入 PRECIS_ALLOW_NULL_ORIGIN=1
+      （打包生产模式 app:// 协议页面需要）才放行。
+    - 若未来该 API 暴露到网络（非 127.0.0.1），必须进一步收紧（token 鉴权 + Host 校验）。
     """
 
     def is_allowed_origin(self, origin: str) -> bool:
@@ -140,10 +142,15 @@ class DynamicPortCORSMiddleware(CORSMiddleware):
         返回:
             True 表示允许该 Origin 的跨域请求，False 表示拒绝
         """
-        # Electron 自定义协议（app://, electron://）下浏览器会发送 Origin: null，
-        # 部分隐私/沙箱场景也可能发送空 Origin。桌面应用经内嵌窗口加载前端，
-        # 不存在跨站风险，故放行（前提见类 docstring 的安全考量）。
-        if origin == "null" or origin == "":
+        # Electron 生产模式（app:// 协议页面）经 PRECIS_ALLOW_NULL_ORIGIN=1 显式放行
+        # null/空 Origin。该变量由 Electron 主进程 spawn 后端时注入（pythonProcess.ts）。
+        # 默认拒绝：null Origin 也来自沙箱 iframe 与 file:// 页面——后端无鉴权且存在
+        # 文件读取端点，放行 null 等于允许任意网页经沙箱 iframe 跨域读取本机 API 响应。
+        if (origin == "null" or origin == "") and os.environ.get("PRECIS_ALLOW_NULL_ORIGIN", "").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+        ):
             return True
 
         # 检查是否在明确允许列表中

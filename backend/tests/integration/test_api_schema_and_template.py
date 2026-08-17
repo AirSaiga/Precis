@@ -300,3 +300,54 @@ class TestTemplateApi:
             headers=header,
         )
         assert resp.status_code == 400
+
+
+class TestTemplateIdTraversal:
+    """B-sec: 模板 id 路径穿越防护——id 直接拼落盘路径,含 ../ 的 id 可写出项目根之外。"""
+
+    def _create_minimal_project(self, tmp_path):
+        proj = tmp_path / "proj"
+        proj.mkdir()
+        (proj / "templates").mkdir()
+        (proj / "project.precis.yaml").write_text(
+            "version: 2\nproject:\n  id: proj\n  name: Proj\nschemas: []\ntemplates: []\n",
+            encoding="utf-8",
+        )
+        return proj
+
+    def test_create_template_with_traversal_id_rejected(self, tmp_path):
+        """id 含 ../ 不得写出项目根之外,应返回 400 且不落盘"""
+        client = TestClient(app)
+        proj = self._create_minimal_project(tmp_path)
+        header = {"X-Project-Config-Path": str(proj)}
+
+        resp = client.post(
+            "/api/latest/project/template",
+            json={
+                "version": 2,
+                "id": "../../evil",
+                "name": "恶意模板",
+                "nodes": [],
+            },
+            headers=header,
+        )
+        assert resp.status_code == 400
+        assert not (tmp_path / "evil.template.yaml").exists()
+
+    def test_create_template_with_absolute_id_rejected(self, tmp_path):
+        """id 为绝对路径(Windows 盘符)同样不得逃逸"""
+        client = TestClient(app)
+        proj = self._create_minimal_project(tmp_path)
+        header = {"X-Project-Config-Path": str(proj)}
+
+        resp = client.post(
+            "/api/latest/project/template",
+            json={
+                "version": 2,
+                "id": "C:/Windows/Temp/evil",
+                "name": "恶意模板",
+                "nodes": [],
+            },
+            headers=header,
+        )
+        assert resp.status_code == 400

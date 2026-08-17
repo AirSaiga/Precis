@@ -214,6 +214,9 @@ export async function startPythonServer(backendPath: string): Promise<number> {
   //   - PYTHONUNBUFFERED=1: stdout/stderr 立即 flush,避免管道块缓冲导致
   //     就绪信号迟迟读不到而误判超时(曾出现"stderr: none"的间歇性启动失败)
   //   - PYTHONIOENCODING=utf-8: Windows 默认 GBK,会导致 uvicorn/rich 的中文日志乱码
+  //   - PRECIS_ALLOW_NULL_ORIGIN=1: 打包生产模式经 app:// 自定义协议加载前端,页面发
+  //     Origin: null,后端 CORS 默认拒绝 null(防沙箱 iframe 跨域读取本机 API),此处
+  //     显式放行。开发模式前端为 http://localhost:5173,走既有 localhost 正则,不需要。
   // detached (Unix): 创建新进程组，便于整组清理
   // windowsHide: 在 Windows 上隐藏命令行窗口
   const options: SpawnOptions = {
@@ -223,6 +226,7 @@ export async function startPythonServer(backendPath: string): Promise<number> {
       ...process.env,
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',
+      PRECIS_ALLOW_NULL_ORIGIN: '1',
     },
     detached: process.platform !== 'win32',
     windowsHide: true,

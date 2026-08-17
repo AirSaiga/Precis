@@ -54,8 +54,22 @@ class TestApiHealth:
         )
 
     def test_cors_headers_present_for_electron_protocols(self):
-        """Electron 自定义协议及 null Origin 应被 CORS 允许。"""
+        """Electron 自定义协议 Origin 应被 CORS 允许。"""
         client = TestClient(app)
-        for origin in ("app://.", "electron://.", "null"):
+        for origin in ("app://.", "electron://."):
             resp = client.get("/", headers={"Origin": origin})
             assert resp.headers.get("access-control-allow-origin") == origin
+
+    def test_cors_null_origin_rejected_by_default(self):
+        """null/空 Origin 默认拒绝（防沙箱 iframe/file:// 跨域读取本机 API）。"""
+        client = TestClient(app)
+        for origin in ("null", ""):
+            resp = client.get("/", headers={"Origin": origin})
+            assert resp.headers.get("access-control-allow-origin") is None, f"Origin {origin!r} 不应在默认配置下被放行"
+
+    def test_cors_null_origin_allowed_with_env_flag(self, monkeypatch):
+        """PRECIS_ALLOW_NULL_ORIGIN=1（Electron 生产模式注入）时放行 null Origin。"""
+        monkeypatch.setenv("PRECIS_ALLOW_NULL_ORIGIN", "1")
+        client = TestClient(app)
+        resp = client.get("/", headers={"Origin": "null"})
+        assert resp.headers.get("access-control-allow-origin") == "null"

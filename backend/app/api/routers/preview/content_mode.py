@@ -51,6 +51,10 @@ def preview_file(request: FilePreviewRequest):
     logger.info(f"[PREVIEW] max_rows: {request.max_rows}, max_cols: {request.max_cols}")
     logger.info("=" * 50)
 
+    # B-sec: 路径校验(与姊妹端点 /file/path、/switch-sheet 对齐)。
+    # 此前该端点连 `..`/相对路径都不拦截,是约束最弱的文件读取口。
+    request.file_path = validate_file_access(request.file_path)
+
     try:
         data, file_type, total_rows, sheets, current_sheet = preview_from_path(
             request.file_path,

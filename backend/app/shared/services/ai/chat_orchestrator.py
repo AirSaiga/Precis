@@ -559,6 +559,22 @@ class AIChatOrchestrator:
             actions = validation_result_obj.valid_actions
 
         # 6.3 执行动作
+        # B-sec: 无确认门环境(API 模式 enable_interactive=False 且无 confirm_callback)对写盘
+        # 动作 fail-closed,与 agent 路径(apply_actions.py 的 two_phase=False 分支)语义对齐。
+        # 此前 legacy 路径会无确认直接 process_actions 写盘,恶意网页借宽松 CORS 可远程
+        # 触发无确认配置改写。skip_action_processing=True(显式只生成不执行)不受影响。
+        has_confirm_gate = bool(options.enable_interactive and options.confirm_callback)
+        if actions and project_path and not options.skip_action_processing and not has_confirm_gate:
+            logger.warning("[chat_orchestrator] 无确认环境拒绝写盘动作(fail-closed), 共 %d 个动作", len(actions))
+            return ChatExecutionResult(
+                success=False,
+                reply=reply,
+                actions=actions,
+                error="此环境不支持自动写盘（无确认门），请使用流式对话界面操作以获得用户确认。",
+                updated_history=updated_history,
+                validation_result=validation_result,
+            )
+
         # B-async: process_actions 做大量同步文件 I/O（mkdtemp/读写多 YAML/快照/回滚），
         # 在 async 编排器中直接调用会阻塞事件循环。agent 路径（apply_actions.py:441）
         # 已用 asyncio.to_thread 包裹同一函数，这里对齐。

@@ -148,7 +148,12 @@ def create_template(template_data: dict, config_path: str = Depends(get_project_
     templates_dir.mkdir(parents=True, exist_ok=True)
 
     # 写入文件
-    file_path = templates_dir / f"{tmpl.id}.template.yaml"
+    # B-sec: 模板 id 直接拼路径且无格式约束,含 ../ 的 id 可将文件写出项目根之外
+    # (其余资源端点均有 _resolve_project_path 校验,此处对齐)。id 应为 UUID 等安全标识。
+    try:
+        file_path = Path(_resolve_project_path(config_path, f"templates/{tmpl.id}.template.yaml"))
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"模板 id 非法: {e}")
     if file_path.exists():
         raise HTTPException(status_code=409, detail=f"模板文件已存在: {file_path.name}")
 

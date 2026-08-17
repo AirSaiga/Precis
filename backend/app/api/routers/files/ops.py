@@ -4,6 +4,7 @@ import os
 
 from fastapi import APIRouter, HTTPException, Query
 
+from app.api.dependencies import _validate_project_root
 from app.api.models.files import (
     DirectoryEntry,
     FileExistsResponse,
@@ -21,6 +22,18 @@ from app.shared.services.preview.path_validation import assert_path_within_root
 router = APIRouter(prefix="", tags=["Files-Ops"])
 
 
+def _validated_root(root: str) -> str:
+    """校验并规范化白名单根目录。
+
+    B-sec: 此前 root 完全由客户端请求体提供,传 root="C:\\Users\\x" 即可通过
+    assert_path_within_root 的包含检查,构成任意文件读/写原语(B-sec1 防线形同虚设)。
+    现要求 root 必须是含 project.precis.yaml 的合法 Precis 项目根(复用 dependencies
+    的统一校验)。前端 Web 模式唯一调用方传的 root 即项目配置根,正常用法不受影响;
+    Electron 模式不走本端点(经原生 IPC)。
+    """
+    return _validate_project_root(root)
+
+
 @router.post(
     "/read",
     response_model=ReadFileResponse,
@@ -32,7 +45,8 @@ def read_file(request: ReadFileRequest) -> ReadFileResponse:
     B-sec1 安全约束: path 必须位于 root（白名单根）下，由 assert_path_within_root 强制校验，
     拒绝项目外任意文件读取。root 通常为当前项目配置目录（X-Project-Config-Path）。
     """
-    path = assert_path_within_root(request.path, request.root, must_exist=False)
+    root = _validated_root(request.root)
+    path = assert_path_within_root(request.path, root, must_exist=False)
     if not os.path.isfile(path):
         raise HTTPException(status_code=404, detail=f"文件不存在: {path}")
     try:
@@ -57,7 +71,8 @@ def write_file(request: WriteFileRequest) -> WriteFileResponse:
     拒绝项目外任意文件写入。
     """
     # 写入场景允许目标不存在，故 must_exist=False
-    path = assert_path_within_root(request.path, request.root, must_exist=False)
+    root = _validated_root(request.root)
+    path = assert_path_within_root(request.path, root, must_exist=False)
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
         with open(path, "w", encoding="utf-8") as f:
@@ -82,6 +97,7 @@ def check_file_exists(
 
     B-sec1 安全约束: path 必须位于 root（白名单根）下。GET 端点通过 query 参数传 root。
     """
+    root = _validated_root(root)
     resolved = assert_path_within_root(path, root, must_exist=False)
     return FileExistsResponse(exists=os.path.isfile(resolved) or os.path.isdir(resolved))
 
@@ -96,7 +112,8 @@ def scan_directory(request: ScanDirectoryRequest) -> ScanDirectoryResponse:
 
     B-sec1 安全约束: path 必须位于 root（白名单根）下。
     """
-    path = assert_path_within_root(request.path, request.root, must_exist=False)
+    root = _validated_root(request.root)
+    path = assert_path_within_root(request.path, root, must_exist=False)
     if not os.path.isdir(path):
         raise HTTPException(status_code=404, detail=f"目录不存在: {path}")
     try:
@@ -134,7 +151,8 @@ def make_directory(request: MkdirRequest) -> MkdirResponse:
 
     B-sec1 安全约束: path 必须位于 root（白名单根）下。
     """
-    path = assert_path_within_root(request.path, request.root, must_exist=False)
+    root = _validated_root(request.root)
+    path = assert_path_within_root(request.path, root, must_exist=False)
     try:
         os.makedirs(path, exist_ok=True)
         return MkdirResponse(success=True)
