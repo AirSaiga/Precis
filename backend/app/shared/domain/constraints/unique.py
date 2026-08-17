@@ -185,8 +185,14 @@ class UniqueConstraint(Constraint):
         # duplicated(keep=False) 会把 NaN 视为彼此相等,可空唯一列的多个空值全部误报
         # UniqueViolation: 值 'None' 不唯一。这里先剔除"任一唯一列含空值"的行,
         # 使空值组合不再参与重复判定(与 SQL 行为一致)。
+        # 空字符串口径对齐: NotNull 与各 process_column 均把 ""/"  " 视为空,
+        # 唯一约束若把空串当普通值会与其打架(同列一处报"为空"一处报"不唯一")。
+        # 故空/全空白字符串同样豁免唯一性判定。astype(str) 对数值列不会产生空串,无副作用。
         null_mask = df[self.columns].isna().any(axis=1)
-        df_non_null = df[~null_mask]
+        blank_mask = (
+            df[self.columns].apply(lambda col: col.map(lambda v: isinstance(v, str) and v.strip() == "")).any(axis=1)
+        )
+        df_non_null = df[~(null_mask | blank_mask)]
         duplicates = df_non_null[df_non_null.duplicated(subset=self.columns, keep=False)]
 
         # 遍历所有重复行，生成错误记录

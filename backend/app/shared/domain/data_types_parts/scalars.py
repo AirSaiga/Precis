@@ -44,6 +44,7 @@ import re
 from typing import Any
 
 # 2. 第三方库导入
+import numpy as np
 import pandas as pd
 
 # 3. 项目内部导入
@@ -320,6 +321,10 @@ class FloatType(DataType):
         # 标记类型验证失败的行（非空但转换后为 NaN）
         non_na = ~is_na & ~notnull_violations
         type_error_mask = non_na & parsed.isna()
+        # 回归 D10 补漏: 单值 validate() 已拒绝 inf/nan,但向量化路径 pd.to_numeric 会把
+        # "inf"/"Infinity" 解析为 inf(非 NaN)绕过掩码,inf 流入下游污染 Range 与统计。
+        # 非有限值(±inf)同样按类型错误处理;where(~failed, None) 统一置 None。
+        type_error_mask = type_error_mask | (non_na & parsed.notna() & ~np.isfinite(parsed))
         for index in series.index[type_error_mask]:
             val = series[index]
             errors.append(

@@ -147,11 +147,19 @@ class AllowedValuesConstraint(Constraint):
         # 步骤3: 找出不在允许值集合中的行，同时排除空值
         # 回归 D5: YAML 常以字符串配置枚举(前端下拉),但数值列解析后是 int,1 != "1" 导致
         # isin 全 False → 全行误报。这里把列值与允许值都归一为字符串后再比较,使 "1" 与 1 等价。
+        # 修复: 含空值的整数列经 IntegerType.process_column 的 where(~failed, None) 后整列升为
+        # float64(1 → 1.0),astype(str) 得 "1.0" 与枚举 {"1","2"} 不匹配 → 合法值全列误报。
+        # 对 is_integer() 的 float 回收为整数字符串后再比较(与 scalars._to_int_str 同语义)。
+        def _norm_to_str(v: Any) -> str:
+            if isinstance(v, float) and v.is_integer():
+                return str(int(v))
+            return str(v)
+
         col_series = df[self.column]
         non_null_mask = col_series.notna()
         # 仅对非空值做字符串化比较(NaN 已被 non_null_mask 排除,不参与 isin 判定)
-        str_col = col_series.astype(str)
-        str_allowed = {str(v) for v in self.allowed_values}
+        str_col = col_series.map(_norm_to_str)
+        str_allowed = {_norm_to_str(v) for v in self.allowed_values}
         invalid_mask = non_null_mask & ~str_col.isin(str_allowed)
         invalid_rows = df[invalid_mask]
 

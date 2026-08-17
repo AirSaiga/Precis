@@ -154,3 +154,35 @@ class TestDateType:
 
     def test_parse_returns_date(self):
         assert DateType().parse("2024-06-15") == date(2024, 6, 15)
+
+
+class TestFloatTypeProcessColumnInfinite:
+    """FloatType.process_column 拦截 inf 的回归测试(回归 D10 向量化路径补漏)。
+
+    单值 validate() 已拒绝 inf,但 pd.to_numeric 把 "inf" 解析为 inf(非 NaN)
+    绕过类型错误掩码,inf 会流入下游污染 Range 与统计。
+    """
+
+    def test_inf_string_rejected_in_process_column(self):
+        series = pd.Series(["1.5", "inf", None], name="x")
+        parsed, errors = FloatType().process_column(series, "x", nullable=True)
+
+        type_errors = [e for e in errors if e.get("error_type") == "TypeValidationError"]
+        assert len(type_errors) == 1
+        assert type_errors[0]["row_index"] == 1
+        # 输出列中 inf 位置应被置 None,不得流入下游
+        assert pd.isna(parsed.iloc[1])
+
+    def test_infinity_alias_rejected(self):
+        series = pd.Series(["Infinity", "2.5"], name="x")
+        _, errors = FloatType().process_column(series, "x", nullable=True)
+
+        type_errors = [e for e in errors if e.get("error_type") == "TypeValidationError"]
+        assert len(type_errors) == 1
+
+    def test_normal_floats_unaffected(self):
+        series = pd.Series(["1.5", "-2.5", None], name="x")
+        parsed, errors = FloatType().process_column(series, "x", nullable=True)
+
+        assert errors == []
+        assert parsed.tolist()[:2] == [1.5, -2.5]

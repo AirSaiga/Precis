@@ -84,6 +84,11 @@ from app.shared.domain.constraints.condition_registry import CONDITION_REGISTRY
 logger = logging.getLogger(__name__)
 
 
+# if 条件(composite/if_conditions)支持的操作符白名单:未知操作符 fail-fast(见 _apply_if_condition),
+# 防止拼写错误(如 not_equal)被默认分支静默按 eq 执行导致语义反转。
+_KNOWN_IF_OPERATORS = frozenset({"eq", "neq", "in", "not_null", "greater_than", "less_than"})
+
+
 class ConditionalConstraint(Constraint):
     """
     @classdesc 条件约束
@@ -360,6 +365,10 @@ class ConditionalConstraint(Constraint):
             values = cond.get("values", [])
             if col not in df.columns:
                 raise KeyError(col)
+            # 未知操作符不再静默落入默认 eq 分支(语义反转且无告警),与 then 侧
+            # "不支持的DSL操作符" 守卫(见 _parse_condition)保持一致的 fail-fast 语义。
+            if op not in _KNOWN_IF_OPERATORS:
+                raise ValueError(f"不支持的 if 条件操作符: '{op}'(支持: {sorted(_KNOWN_IF_OPERATORS)})")
             s = df[col]
             if op == "not_null":
                 # 非空: 既不是 NaN 也不是空字符串
@@ -376,8 +385,9 @@ class ConditionalConstraint(Constraint):
                     logger.debug(f"greater_than 条件阈值转换失败: value={value!r}, table={self.table}, column={col}")
                     return pd.Series([False] * len(df), index=df.index)
             if op == "neq":
-                # 不等于
-                return s != value
+                # 不等于: 空值不触发(对标 SQL 语义 NULL != X 为 UNKNOWN,与 Unique 的
+                # NULL 豁免口径一致;原 `s != value` 会把 NaN != X 判为 True 导致空值行误报)
+                return s.ne(value) & s.notna()
             if op == "less_than":
                 # 小于: 先转为数值再比较
                 try:
@@ -404,6 +414,15 @@ class ConditionalConstraint(Constraint):
                         "table": self.table,
                         "column": missing,
                         "message": f"条件约束失败: 列 '{missing}' 不在表 '{self.table}' 中。",
+                    }
+                )
+                return {"errors": errors, "info": self.get_constraint_info()}
+            except ValueError as e:
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "message": f"条件约束失败: {e}",
                     }
                 )
                 return {"errors": errors, "info": self.get_constraint_info()}

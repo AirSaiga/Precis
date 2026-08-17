@@ -161,3 +161,49 @@ class TestAllowedValuesConstraint:
         assert info["table"] == "users"
         assert "status" in info["description"]
         assert "active" in info["description"]
+
+
+class TestAllowedValuesNullableInteger:
+    """可空整数列 × 枚举约束的回归测试。
+
+    回归场景: IntegerType.process_column 用 where(~failed, None) 填空值后,
+    含空值的整数列整体升为 float64,约束侧字符串化得 "1.0" 与枚举 {"1","2"}
+    不匹配,导致所有合法枚举值全列误报。
+    """
+
+    def test_nullable_integer_column_with_nulls_no_false_positive(self):
+        """integer+nullable+枚举,列含空值时合法枚举值不应误报"""
+        datasets = {"t": pd.DataFrame({"status": pd.Series([1.0, 2.0, 2.0, None])})}
+        constraint = AllowedValuesConstraint(table="t", column="status", allowed_values={1, 2})
+        result = constraint.validate(datasets)
+
+        violations = [e for e in result["errors"] if e.get("error_type") == "AllowedValuesViolation"]
+        assert violations == [], f"合法枚举值被误报: {violations}"
+
+    def test_nullable_integer_column_real_invalid_value_still_caught(self):
+        """修复不放过真实违规: 枚举外的值仍应报"""
+        datasets = {"t": pd.DataFrame({"status": pd.Series([1.0, 2.0, 3.0, None])})}
+        constraint = AllowedValuesConstraint(table="t", column="status", allowed_values={1, 2})
+        result = constraint.validate(datasets)
+
+        violations = [e for e in result["errors"] if e.get("error_type") == "AllowedValuesViolation"]
+        assert len(violations) == 1
+        assert violations[0]["row_index"] == 2
+
+    def test_float_enum_values_unaffected(self):
+        """非整数 float 枚举(如 1.5)的匹配行为不受整数回收影响"""
+        datasets = {"t": pd.DataFrame({"score": pd.Series([1.5, 2.5, None])})}
+        constraint = AllowedValuesConstraint(table="t", column="score", allowed_values={1.5, 2.5})
+        result = constraint.validate(datasets)
+
+        violations = [e for e in result["errors"] if e.get("error_type") == "AllowedValuesViolation"]
+        assert violations == []
+
+    def test_string_enum_numeric_column_equivalence(self):
+        """D5 回归不回退: 字符串枚举 {"1","2"} 与数值列 1.0/2.0 仍等价匹配"""
+        datasets = {"t": pd.DataFrame({"status": pd.Series([1.0, 2.0, None])})}
+        constraint = AllowedValuesConstraint(table="t", column="status", allowed_values={"1", "2"})
+        result = constraint.validate(datasets)
+
+        violations = [e for e in result["errors"] if e.get("error_type") == "AllowedValuesViolation"]
+        assert violations == []

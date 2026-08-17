@@ -610,3 +610,54 @@ class TestConditionalConstraintEdgeCases:
         assert len(timeout_errs) == 1, f"应返回 1 条 Timeout 标记,实际: {errors}"
         cond_errs = [e for e in errors if e.get("error_type") != "Timeout"]
         assert len(cond_errs) < 1000, f"deadline 已过应提前中断,不应跑完全部 1000 行,实际报 {len(cond_errs)}"
+
+
+class TestConditionalIfOperatorValidation:
+    """if 条件操作符白名单与空值语义的回归测试。"""
+
+    def test_unknown_if_operator_reports_config_error(self):
+        """未知操作符(如 not_equal)不得静默按 eq 执行(语义反转),应报 ConstraintConfigError"""
+        constraint = ConditionalConstraint(
+            table="t",
+            if_conditions=[{"column": "status", "operator": "not_equal", "value": "VIP"}],
+            then_column="score",
+            then_condition={"operator": "greater_than", "value": 0},
+        )
+        datasets = {"t": pd.DataFrame({"status": ["VIP", "NORMAL"], "score": [-1, -1]})}
+        result = constraint.validate(datasets)
+
+        config_errors = [e for e in result["errors"] if e.get("error_type") == "ConstraintConfigError"]
+        assert len(config_errors) == 1
+        assert "not_equal" in config_errors[0]["message"]
+        # 语义反转防护: 不得产出任何按 eq 语义触发的违规
+        violations = [e for e in result["errors"] if e.get("error_type") == "ConditionalViolation"]
+        assert violations == []
+
+    def test_neq_null_rows_not_triggered(self):
+        """neq 条件下空值行不触发(对标 SQL: NULL != X 为 UNKNOWN),不再误报违规"""
+        constraint = ConditionalConstraint(
+            table="t",
+            if_conditions=[{"column": "status", "operator": "neq", "value": "VIP"}],
+            then_column="score",
+            then_condition={"operator": "greater_than", "value": 0},
+        )
+        datasets = {"t": pd.DataFrame({"status": [None, "VIP", "NORMAL"], "score": [-1, -1, -1]})}
+        result = constraint.validate(datasets)
+
+        violations = [e for e in result["errors"] if e.get("error_type") == "ConditionalViolation"]
+        # 仅 row2(NORMAL) 触发且 score=-1 违规;row0(None) 必须豁免
+        assert [v["row_index"] for v in violations] == [2]
+
+    def test_neq_non_null_behavior_unchanged(self):
+        """neq 非空行为保持: 值不同的行触发"""
+        constraint = ConditionalConstraint(
+            table="t",
+            if_conditions=[{"column": "status", "operator": "neq", "value": "VIP"}],
+            then_column="score",
+            then_condition={"operator": "greater_than", "value": 0},
+        )
+        datasets = {"t": pd.DataFrame({"status": ["VIP", "NORMAL"], "score": [-1, -1]})}
+        result = constraint.validate(datasets)
+
+        violations = [e for e in result["errors"] if e.get("error_type") == "ConditionalViolation"]
+        assert [v["row_index"] for v in violations] == [1]

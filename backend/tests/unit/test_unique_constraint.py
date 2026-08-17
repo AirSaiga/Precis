@@ -154,3 +154,39 @@ class TestUniqueConstraint:
         assert info["constraint_type"] == "UniqueConstraint"
         assert info["table"] == "users"
         assert "email" in info["description"]
+
+
+class TestUniqueBlankStringExemption:
+    """空字符串豁免唯一性判定的回归测试。
+
+    口径对齐: NotNull 与各 process_column 均把 ""/"  " 视为空,
+    唯一约束同样应豁免,否则同列一处报"为空"一处报"不唯一"自相矛盾。
+    """
+
+    def test_blank_strings_exempt_from_uniqueness(self):
+        """多个空字符串/空白字符串不构成唯一性冲突"""
+        datasets = {"t": pd.DataFrame({"name": ["", "x", "", "  ", None]})}
+        constraint = UniqueConstraint(table="t", column="name")
+        result = constraint.validate(datasets)
+
+        violations = [e for e in result["errors"] if "Unique" in str(e.get("error_type", ""))]
+        assert violations == [], f"空字符串被误报不唯一: {violations}"
+
+    def test_real_duplicates_still_reported(self):
+        """真实重复值照常报告,豁免不扩大化"""
+        datasets = {"t": pd.DataFrame({"name": ["a", "b", "a", ""]})}
+        constraint = UniqueConstraint(table="t", column="name")
+        result = constraint.validate(datasets)
+
+        violations = [e for e in result["errors"] if "Unique" in str(e.get("error_type", ""))]
+        assert len(violations) == 2  # keep=False: 两行 "a" 都报
+        assert all(v["value"] == "a" for v in violations)
+
+    def test_composite_unique_blank_in_one_column_exempt(self):
+        """多列联合唯一: 任一列为空/空白时整行豁免"""
+        datasets = {"t": pd.DataFrame({"a": [1, 1, 1], "b": ["x", "", "  "]})}
+        constraint = UniqueConstraint(table="t", column=["a", "b"])
+        result = constraint.validate(datasets)
+
+        violations = [e for e in result["errors"] if "Unique" in str(e.get("error_type", ""))]
+        assert violations == []
