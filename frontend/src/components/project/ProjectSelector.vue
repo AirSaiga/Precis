@@ -20,7 +20,14 @@
   const openingPath = ref('')
   const workDir = ref('')
 
-  onMounted(async () => {
+  onMounted(() => {
+    void loadProjects()
+  })
+
+  /** 扫描项目列表。失败进入错误态；错误态可通过 retryScan 重扫。 */
+  async function loadProjects() {
+    loading.value = true
+    error.value = ''
     try {
       const result = await scanProjects()
       workDir.value = result.work_dir
@@ -32,7 +39,13 @@
     } finally {
       loading.value = false
     }
-  })
+  }
+
+  /** 错误态重试：后端启动竞态（打包应用冷启动）导致的失败可通过手动重扫恢复。 */
+  function retryScan() {
+    if (loading.value) return
+    void loadProjects()
+  }
 
   function extractErrorDetail(e: unknown): string {
     if (e && typeof e === 'object' && 'response' in e) {
@@ -98,6 +111,9 @@
 
     <div v-else-if="error" class="project-selector-error">
       {{ error }}
+      <button type="button" class="project-selector-retry" @click="retryScan">
+        {{ t('common.project.retryScan') }}
+      </button>
     </div>
 
     <template v-else>
@@ -181,6 +197,20 @@
     text-align: center;
     padding: 40px;
     color: var(--text-secondary);
+  }
+  .project-selector-retry {
+    display: block;
+    margin: 16px auto 0;
+    padding: 6px 20px;
+    border: 1px solid var(--border-color, #d0d0d8);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-primary, inherit);
+    cursor: pointer;
+    font-size: 13px;
+  }
+  .project-selector-retry:hover {
+    background: var(--bg-secondary, rgba(127, 127, 127, 0.1));
   }
   .project-selector-grid {
     display: grid;

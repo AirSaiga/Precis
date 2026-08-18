@@ -14,7 +14,12 @@ export async function save(): Promise<{ success: boolean; message?: string }> {
   const graphStore = useGraphStore()
 
   try {
-    await graphStore.saveProject()
+    // saveProject 在预校验 BLOCKER（如 schema 缺数据源）时返回 false 而非抛异常，
+    // 必须传播该结果——否则保存失败会被误报为"已保存"（QA 发现的假阳性反馈缺陷）。
+    const ok = await graphStore.saveProject()
+    if (!ok) {
+      return { success: false, message: 'shortcuts.feedback.saveFailed' }
+    }
     return { success: true, message: 'shortcuts.feedback.saved' }
   } catch (error) {
     logger.error('[EditorHandler] Save failed:', error)
