@@ -10,6 +10,14 @@
 
 from __future__ import annotations
 
+# B-sec6 后 Scripted 约束需要「服务端 PRECIS_ALLOW_UNSAFE_EVAL 总开关 + 请求体
+# allow_unsafe_eval」双重授权才执行（scripted.py 模块导入时读一次环境变量）。
+# 黄金集作为开发/CI 自有进程，在此声明服务端授权，必须在任何 app 模块导入前设置。
+import os
+
+if not os.environ.get("PRECIS_ALLOW_UNSAFE_EVAL"):
+    os.environ["PRECIS_ALLOW_UNSAFE_EVAL"] = "1"
+
 import argparse
 import json
 import sys
