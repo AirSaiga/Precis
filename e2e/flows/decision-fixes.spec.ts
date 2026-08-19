@@ -78,12 +78,12 @@ test.describe('三项决策修复回归', () => {
     expect(await page.locator('.vue-flow__node').count()).toBe(after)
   })
 
-  test('草稿保存失败时校验显示"校验未执行"而非"校验已完成，发现错误"', async ({
-    projectPage,
-  }) => {
+  test('草稿节点不阻断全量校验：保存自动跳过草稿后校验正常执行', async ({ projectPage }) => {
     const page = projectPage
     await dragToolboxTableSchema(page)
-    // 草稿 Table Schema 无数据源 → 开始校验时自动保存必然失败
+    // 草稿 Table Schema 无数据源。d68a7c2（D-1 方案 B）之前：自动保存被草稿
+    // BLOCKER 一票否决 → 校验中止显示"校验未执行"；之后：保存自动跳过未完成
+    // 草稿，全量校验正常执行到完成态。本用例锁定新契约（旧契约用例随行为废弃）。
 
     await page.locator('.project-root-node button').filter({ hasText: '全量校验' }).click()
     await page.waitForTimeout(800)
@@ -91,13 +91,11 @@ test.describe('三项决策修复回归', () => {
     await page.locator('.fv-config, [class*="full-validation"], .fv-view')
       .getByRole('button', { name: /开始校验/ }).first().click()
 
-    await page.waitForTimeout(3000)
-
-    // 应停留在执行视图：显示"校验未执行"标题与保存失败阶段错误
-    await expect(page.getByText('校验未执行')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByText(/保存失败/).first()).toBeVisible({ timeout: 5000 })
-    // 不得出现误导性的"校验已完成，发现错误"
-    expect(await page.getByText('校验已完成，发现错误').count()).toBe(0)
+    // 校验应执行到终态（执行完成/校验已完成，含发现错误的完成文案）
+    await expect(page.getByText(/执行完成|校验已完成/).first()).toBeVisible({ timeout: 30_000 })
+    // 不得停留在"校验未执行"，也不得出现保存失败阶段错误（草稿已跳过、保存成功）
+    expect(await page.getByText('校验未执行').count()).toBe(0)
+    expect(await page.getByText('保存失败，无法执行全量校验').count()).toBe(0)
   })
 
   test('存在草稿节点时重载出现三选一提示，丢弃后草稿消失', async ({ projectPage }) => {

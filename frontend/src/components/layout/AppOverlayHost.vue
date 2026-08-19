@@ -142,7 +142,9 @@
   }
 
   const handleOpenProjectManagement = () => {
-    settingsStore.open('project-info')
+    // 只打开项目管理弹窗本身。此处历史上还会顺带 settingsStore.open('project-info')，
+    // 在两弹窗 z-index 同档（--ui-z-modal）后设置中心反而盖住项目管理弹窗拦截全部点击
+    //（原型期遗留：当时 PM 弹窗尚不存在，"项目管理"就是设置中心的 project-info 页）。
     projectManagementVisible.value = true
   }
 

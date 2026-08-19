@@ -124,7 +124,14 @@ export function useCanvasLoadAdaptation(): void {
       // 遵守时序纪律：修复可能移动了节点，等 Vue Flow 完成处理与渲染后再取景
       await nextTick()
       if (moved) await nextTick()
-      fitView({ padding: 0.2, duration: 300 })
+      // 不对称 px 留白：右下角 MiniMap（约 200x150）悬浮在画布内、右侧检查器
+      // 面板与画布宽度存在展开过渡——取景时让出这些区域，避免取景后节点贴边
+      // 落在浮层之下点不到。duration: 0 瞬时完成，不留 300ms 动画窗口
+      //（慢环境下动画会与用户/测试的画布交互重叠，导致点击落点漂移）。
+      fitView({
+        padding: { top: '60px', left: '60px', right: '240px', bottom: '200px' },
+        duration: 0,
+      })
       if (moved) {
         logger.info('[useCanvasLoadAdaptation] 已修复 %d 个位置异常节点并自动取景', moved)
       }

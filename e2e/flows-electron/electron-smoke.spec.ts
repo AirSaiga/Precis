@@ -85,16 +85,32 @@ test.describe('Electron 打包 smoke', () => {
       .first()
     await expect(bundleLoaded).toBeVisible({ timeout: 30_000 })
 
-    // 阶段 2：若停在选择页，实际打开 qa_simple 项目验证完整链路
-    // （前端 → 打包后端 → 配置加载 → 画布渲染）
+    // 阶段 2：fixture 通过 PRECIS_RECENT_CONFIG 注入了临时 smoke 项目，应用会
+    // 自动打开它。启动初期（后端冷启动 + 配置校验完成前）选择器可能短暂可见——
+    // 这是自动打开未完成的过渡态，直接交互会与"选择器自动关闭"竞态
+    //（曾表现为：点击时按钮被 detach / 打开了一个 CI 上不存在的路径）。
+    // 正确做法：先等选择器消失（自动打开完成），再断言画布。
     const selector = window.locator('.project-selector')
     if (await selector.isVisible().catch(() => false)) {
-      const qaSimple = 'D:/Precis/Precis/qa_test/qa_simple'
-      const input = window.locator('.project-selector-input')
-      await input.fill(qaSimple)
-      await window.locator('.project-selector-open-btn').click()
-      await expect(window.locator('.project-root-node')).toBeVisible({ timeout: 30_000 })
+      await expect(selector).toBeHidden({ timeout: 60_000 })
     }
+
+    // 兜底：选择器始终未消失（注入失败/真全新环境）→ 手动打开本地 qa_simple
+    // 验证完整链路。CI 上该路径不存在，给出可定位的失败信息。
+    if (await selector.isVisible().catch(() => false)) {
+      const qaSimple = 'D:/Precis/Precis/qa_test/qa_simple'
+      if (!fs.existsSync(qaSimple)) {
+        throw new Error(
+          '项目选择器未自动关闭（PRECIS_RECENT_CONFIG 注入未生效），' +
+            `且本机不存在 ${qaSimple}，无法手动打开验证画布渲染`
+        )
+      }
+      await window.locator('.project-selector-input').fill(qaSimple)
+      await window.locator('.project-selector-open-btn').click()
+    }
+
+    // 画布渲染 = app:// 静态产物 + 打包后端 + 配置加载 全链路打通
+    await expect(window.locator('.project-root-node')).toBeVisible({ timeout: 30_000 })
   })
 
   test('T4: 文件 IPC 与校验 API 可达（最小链路）', async ({ window }) => {
