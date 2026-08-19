@@ -187,7 +187,7 @@
 <template>
   <Teleport to="body">
     <Transition name="modal-fade">
-      <div v-if="modelValue" class="fv-overlay">
+      <div v-if="modelValue" class="fv-overlay" @click.self="close">
         <div class="fv-modal" role="dialog" aria-modal="true">
           <!-- Header -->
           <div class="fv-header">

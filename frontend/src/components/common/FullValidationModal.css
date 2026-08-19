@@ -6,7 +6,7 @@
 .fv-overlay {
   position: fixed;
   inset: 0;
-  z-index: 11000;
+  z-index: var(--ui-z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -50,6 +50,21 @@
   font-weight: var(--ui-font-weight-semibold);
   color: var(--ui-text-strong);
   margin: 0;
+}
+
+/* ---- 关闭按钮可见性补偿 ----
+   基础 .ui-icon-btn 为透明背景 + muted 图标，在 elevated 头部上对比不足，
+   加边框/底色与更深的图标色，保证关闭 X 清晰可辨（hover 反馈同步增强） */
+.fv-header .ui-icon-btn {
+  color: var(--ui-text-body);
+  border-color: var(--ui-border);
+  background: var(--ui-bg-subtle);
+}
+
+.fv-header .ui-icon-btn:hover:not(:disabled) {
+  color: var(--ui-text-strong);
+  border-color: var(--ui-border-strong);
+  background: var(--ui-bg-hover);
 }
 
 /* ---- Steps ---- */
@@ -424,7 +439,8 @@
 .merge-confirm-overlay {
   position: fixed;
   inset: 0;
-  z-index: 12000;
+  /* 合并确认叠在全量校验模态之上，走二级模态档位 */
+  z-index: var(--ui-z-modal-stack);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -453,6 +469,19 @@
   padding: var(--ui-space-lg);
   border-bottom: 1px solid var(--ui-border-light);
   background: var(--ui-bg-elevated);
+}
+
+/* 关闭按钮可见性补偿（同 .fv-header .ui-icon-btn） */
+.merge-confirm-header .ui-icon-btn {
+  color: var(--ui-text-body);
+  border-color: var(--ui-border);
+  background: var(--ui-bg-subtle);
+}
+
+.merge-confirm-header .ui-icon-btn:hover:not(:disabled) {
+  color: var(--ui-text-strong);
+  border-color: var(--ui-border-strong);
+  background: var(--ui-bg-hover);
 }
 
 .merge-confirm-title {

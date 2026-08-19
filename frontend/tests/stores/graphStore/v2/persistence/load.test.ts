@@ -22,6 +22,11 @@ vi.mock('@/stores/inspectionStore', () => ({
   useInspectionStore: () => ({ setResult: vi.fn() }),
 }))
 
+// load.ts 加载成功后会通知 canvasStore 广播"画布内容加载完成"信号（外部边界，mock 掉）
+vi.mock('@/stores/canvasStore', () => ({
+  useCanvasStore: () => ({ markContentLoaded: vi.fn() }),
+}))
+
 vi.mock('@/api/projectV2Api', () => ({
   getV2FullConfig: vi.fn(),
   getV2ProjectView: vi.fn(),

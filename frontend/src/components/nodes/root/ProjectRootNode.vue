@@ -20,7 +20,8 @@
         <AppIcon name="project-root" :size="18" />
       </div>
       <div class="header-text">
-        <div class="title">{{ data.projectName }}</div>
+        <!-- 截断补偿：长项目名被 ellipsis 截断，悬停 title 显示完整名称 -->
+        <div class="title" :title="data.projectName">{{ data.projectName }}</div>
         <div class="subtitle" :title="data.projectPath || '-'">{{ projectPathShort }}</div>
       </div>
       <div class="status-indicators">

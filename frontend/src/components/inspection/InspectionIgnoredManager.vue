@@ -86,7 +86,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 30000;
+    /* 管理器叠在自检抽屉之上（同层父子，后挂载者在上） */
+    z-index: var(--ui-z-modal-stack);
     backdrop-filter: blur(4px);
   }
 

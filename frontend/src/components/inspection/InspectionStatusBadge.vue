@@ -19,6 +19,8 @@
     @click="store.openDrawer()"
   >
     <span class="badge-icon"><AppIcon :name="badgeIcon" :size="12" /></span>
+    <!-- 文字标签说明计数语义（校验问题数），避免裸数字圆点无从理解 -->
+    <span v-if="!isPassed" class="badge-label">{{ t('inspection.badge.label') }}</span>
     <span v-if="!isPassed" class="badge-count">{{ badgeCount }}</span>
   </button>
 </template>
@@ -156,6 +158,11 @@
   .badge-icon {
     font-size: 12px;
     line-height: 1;
+  }
+  .badge-label {
+    font-weight: 500;
+    line-height: 1;
+    white-space: nowrap;
   }
   .badge-count {
     font-variant-numeric: tabular-nums;

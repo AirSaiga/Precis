@@ -180,38 +180,39 @@
   filter: brightness(0.95);
 }
 
+/* 类型选项统一走 --dtype-* token（node-tokens.css 单一事实源） */
 .json-tree .type-option.type-string {
-  background: var(--ui-bg-accent);
-  border-color: var(--ui-accent-light);
-  color: var(--ui-accent);
+  background: var(--dtype-string-bg);
+  border-color: var(--dtype-string-border);
+  color: var(--dtype-string);
 }
 
 .json-tree .type-option.type-number {
-  background: var(--ui-success-bg);
-  border-color: color-mix(in srgb, var(--ui-success) 24%, transparent);
-  color: var(--ui-success);
+  background: var(--dtype-float-bg);
+  border-color: var(--dtype-float-border);
+  color: var(--dtype-float);
 }
 
 .json-tree .type-option.type-boolean {
-  background: var(--theme-orange-bg);
-  border-color: color-mix(in srgb, var(--theme-orange) 24%, transparent);
-  color: var(--theme-orange-strong);
+  background: var(--dtype-boolean-bg);
+  border-color: var(--dtype-boolean-border);
+  color: var(--dtype-boolean);
 }
 
 .json-tree .type-option.type-object {
-  background: var(--theme-purple-bg);
-  border-color: color-mix(in srgb, var(--theme-purple) 24%, transparent);
-  color: var(--theme-purple-strong);
+  background: var(--dtype-object-bg);
+  border-color: var(--dtype-object-border);
+  color: var(--dtype-object);
 }
 
 .json-tree .type-option.type-array {
-  background: var(--theme-pink-bg);
-  border-color: color-mix(in srgb, var(--theme-pink) 24%, transparent);
-  color: var(--theme-pink-strong);
+  background: var(--dtype-array-bg);
+  border-color: var(--dtype-array-border);
+  color: var(--dtype-array);
 }
 
 .json-tree .type-option.type-null {
-  background: var(--ui-bg-subtle);
-  border-color: var(--ui-border-subtle);
-  color: var(--node-muted-color);
+  background: var(--dtype-null-bg);
+  border-color: var(--dtype-null-border);
+  color: var(--dtype-null);
 }

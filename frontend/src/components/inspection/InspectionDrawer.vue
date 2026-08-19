@@ -134,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-  import { computed, ref, watch } from 'vue'
+  import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
   import { useI18n } from 'vue-i18n'
   import { X } from '@lucide/vue'
   import AppIcon from '@/components/icons/AppIcon.vue'
@@ -166,6 +166,29 @@
   const showIgnoredManager = ref(false)
   /** 临时强制全部展开（点击"全部展开"按钮） */
   const forceExpandAll = ref(false)
+
+  /**
+   * Escape 关闭弹层：忽略项管理器打开时先关管理器，否则关抽屉。
+   * IME 合成态（拼音选词）放行，避免误触（见 AGENTS.md 键盘守卫约定）。
+   */
+  function handleKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || event.isComposing || event.keyCode === 229) return
+    if (showIgnoredManager.value) {
+      showIgnoredManager.value = false
+      return
+    }
+    if (store.drawerVisible) {
+      store.closeDrawer()
+    }
+  }
+
+  onMounted(() => {
+    document.addEventListener('keydown', handleKeydown)
+  })
+
+  onUnmounted(() => {
+    document.removeEventListener('keydown', handleKeydown)
+  })
 
   watch(
     () => store.drawerVisible,
@@ -221,9 +244,12 @@
     }
 
     // 默认按文件分组
+    // 空路径统一落到哨兵 key 聚合成一组，标题用友好化文案兜底：
+    // 优先带上问题携带的资源 id（约束/正则节点 id），避免组名显示裸的哨兵字符串
+    const UNKNOWN_FILE_KEY = '<unknown>'
     const byFile = new Map<string, InspectionIssue[]>()
     for (const issue of issues) {
-      const key = issue.file_path || '<unknown>'
+      const key = issue.file_path || UNKNOWN_FILE_KEY
       if (!byFile.has(key)) byFile.set(key, [])
       byFile.get(key)!.push(issue)
     }
@@ -234,9 +260,17 @@
         let severity: 'blocker' | 'warning' | 'info' = 'info'
         if (list.some((i) => i.severity === 'blocker')) severity = 'blocker'
         else if (list.some((i) => i.severity === 'warning')) severity = 'warning'
+        // 未知文件组：取组内第一个非空资源 id 作为可辨识线索
+        const refId = list.find((i) => i.ref_id)?.ref_id
+        const title =
+          filePath === UNKNOWN_FILE_KEY
+            ? refId
+              ? `${t('inspection.unknownFile')} · ${refId}`
+              : t('inspection.unknownFile')
+            : filePath
         return {
           key: `file-${filePath}`,
-          title: filePath || t('inspection.unknownFile'),
+          title,
           severity,
           issues: list,
         }
@@ -503,7 +537,8 @@
     display: flex;
     align-items: stretch;
     justify-content: flex-end;
-    z-index: 25000;
+    /* 抽屉走二级模态档位：高于常规模态与画布浮层，低于 Toast 与顶层确认 */
+    z-index: var(--ui-z-modal-stack);
     backdrop-filter: blur(2px);
   }
 

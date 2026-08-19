@@ -5,7 +5,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 12000;
+  /* 报告预览叠在全量校验模态之上，走二级模态档位 */
+  z-index: var(--ui-z-modal-stack);
   padding: 20px;
 }
 

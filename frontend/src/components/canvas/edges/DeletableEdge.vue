@@ -7,7 +7,11 @@
   import { ref, computed, watch } from 'vue'
   import { getSmoothStepPath, BaseEdge, useVueFlow } from '@vue-flow/core'
   import type { EdgeProps } from '@vue-flow/core'
-  import { getParticleColorClass, shouldRenderParticles } from '@/utils/edgeParticleColor'
+  import {
+    getEdgeStrokeClass,
+    getParticleColorClass,
+    shouldRenderParticles,
+  } from '@/utils/edgeParticleColor'
   import { useReducedMotion } from '@/composables/useReducedMotion'
   const props = defineProps<EdgeProps>()
 
@@ -33,6 +37,10 @@
   })
   const showParticles = computed(() => shouldRenderParticles(particleStatus.value))
   const particleClass = computed(() => getParticleColorClass(particleStatus.value))
+
+  // 边主线按校验结论着色（pass=success / error=danger / missing=warning，idle 中性）。
+  // class 挂在外层 <g>，经 :deep(.vue-flow__edge-path) 覆盖 base.css 的中性 accent 线。
+  const strokeClass = computed(() => getEdgeStrokeClass(particleStatus.value))
 
   // C 层：到达爆裂——validationStatus 变化为非 idle 时，触发一次性光环。
   // 任何校验完成（含 pass→error 等重校验）都触发，每次校验都有视觉反馈。
@@ -77,7 +85,7 @@
 </script>
 
 <template>
-  <g @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
+  <g :class="strokeClass" @mouseenter="handleMouseEnter" @mouseleave="handleMouseLeave">
     <BaseEdge
       :path="pathData.path"
       :style="props.style"
@@ -155,7 +163,7 @@
   }
 
   .edge-delete-button__bg {
-    fill: var(--ui-bg-danger, #ef4444);
+    fill: var(--ui-bg-danger);
     opacity: 0.9;
     transition: opacity 0.15s ease;
   }
@@ -166,26 +174,40 @@
   }
 
   .edge-delete-button__icon {
-    stroke: white;
+    stroke: var(--ui-text-on-danger);
     stroke-width: 2;
     stroke-linecap: round;
   }
 
-  /* C 层：边粒子颜色由 class 驱动（reduced-motion 下停止流动但仍着色） */
+  /* C 层：边粒子颜色由 class 驱动（reduced-motion 下停止流动但仍着色）。
+     颜色统一走语义 token（success/danger/warning），light/dark/liquid 自适应。 */
   .edge-particle {
     filter: drop-shadow(0 0 3px currentColor);
   }
   .edge-particle.particle--pass {
-    fill: #34d399;
-    color: #4cd7a8;
+    fill: var(--ui-success);
+    color: var(--ui-success-light);
   }
   .edge-particle.particle--error {
-    fill: #fb7185;
-    color: #ff8a8a;
+    fill: var(--ui-danger);
+    color: var(--ui-danger-light);
   }
   .edge-particle.particle--missing {
-    fill: #f59e0b;
-    color: #f9c66b;
+    fill: var(--ui-warning);
+    color: var(--ui-warning-light);
+  }
+
+  /* 校验结论 → 边主线着色。base.css 以 !important 设了中性 accent 线，
+     此处 :deep 到 BaseEdge 内部的 path 并以更高特异性覆盖；
+     idle/未知状态无 class，维持中性虚线。 */
+  .edge-stroke--pass :deep(.vue-flow__edge-path) {
+    stroke: var(--ui-success) !important;
+  }
+  .edge-stroke--error :deep(.vue-flow__edge-path) {
+    stroke: var(--ui-danger) !important;
+  }
+  .edge-stroke--missing :deep(.vue-flow__edge-path) {
+    stroke: var(--ui-warning) !important;
   }
 
   /* C 层：到达爆裂光环——r/opacity 由 SMIL <animate> 驱动，此处仅定义描边/发光。
@@ -196,15 +218,15 @@
     pointer-events: none;
   }
   .edge-burst--pass {
-    stroke: #4cd7a8;
-    filter: drop-shadow(0 0 6px rgba(76, 215, 168, 0.6));
+    stroke: var(--ui-success-light);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--ui-success) 60%, transparent));
   }
   .edge-burst--error {
-    stroke: #ff8a8a;
-    filter: drop-shadow(0 0 6px rgba(255, 138, 138, 0.6));
+    stroke: var(--ui-danger-light);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--ui-danger) 60%, transparent));
   }
   .edge-burst--missing {
-    stroke: #f9c66b;
-    filter: drop-shadow(0 0 6px rgba(249, 198, 107, 0.6));
+    stroke: var(--ui-warning-light);
+    filter: drop-shadow(0 0 6px color-mix(in srgb, var(--ui-warning) 60%, transparent));
   }
 </style>

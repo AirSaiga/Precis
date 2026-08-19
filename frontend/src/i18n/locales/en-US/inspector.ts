@@ -779,6 +779,7 @@ const inspector = {
     },
     validation: {
       passRate: 'Pass Rate',
+      notRun: 'Not run',
       errorCount: 'Error Count',
       lastValidationTime: 'Last Validation Time',
     },

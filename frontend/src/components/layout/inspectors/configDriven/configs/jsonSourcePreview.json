@@ -33,16 +33,18 @@
         },
         {
           "id": "jsonPath",
-          "kind": "readonly",
+          "kind": "path",
           "labelKey": "inspector.jsonSourcePreview.labels.jsonPath",
           "source": { "source": "data", "path": ["jsonPath"] },
+          "readonly": true,
           "when": { "op": "exists", "source": { "source": "data", "path": ["jsonPath"] } }
         },
         {
           "id": "recordPath",
-          "kind": "readonly",
+          "kind": "path",
           "labelKey": "inspector.jsonSourcePreview.labels.recordPath",
           "source": { "source": "data", "path": ["recordPath"] },
+          "readonly": true,
           "when": { "op": "exists", "source": { "source": "data", "path": ["recordPath"] } }
         }
       ]

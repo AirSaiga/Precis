@@ -59,6 +59,8 @@
   font-weight: 600;
   color: var(--ui-text-strong);
   line-height: 1.2;
+  /* 统计数字等宽对齐（tabular-nums），多卡片并排时数值不跳动 */
+  font-variant-numeric: tabular-nums;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

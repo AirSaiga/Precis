@@ -771,6 +771,7 @@ const inspector = (() => {
       },
       validation: {
         passRate: '校验通过率',
+        notRun: '未运行',
         errorCount: '错误总数',
         lastValidationTime: '最后校验时间',
       },

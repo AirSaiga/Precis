@@ -34,6 +34,15 @@ import { createV2ConstraintImporter } from './constraint'
 import { getV2FullConfig } from '@/api/projectV2Api'
 import type { PatternRegistryTypeV2 } from '@/types/projectV2'
 import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
+import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import {
+  computeClearanceShift,
+  computeItemsBounds,
+  layoutBatchAsColumn,
+  type PlacedItem,
+  type RectBounds,
+} from '@/features/node-layout-organizer/utils/batchPlacement'
+import { getDefaultDimension } from '@/features/node-layout-organizer/utils/nodeDimensionHelper'
 export type ProjectResourceKind =
   | 'schema'
   | 'constraint'
@@ -41,6 +50,83 @@ export type ProjectResourceKind =
   | 'pattern'
   | 'regex_node'
   | 'transform'
+
+/** 批量导入约束列相对 Schema 落点的水平偏移（沿用既有 +420 视觉惯例） */
+const IMPORT_COLUMN_OFFSET_X = 420
+
+/** 约束列的行间距（约束节点高约 100 + 60 间距 ≈ 原导入列 160 步进） */
+const IMPORT_COLUMN_ROW_GAP = 60
+
+/** 导入批次与既有节点保持的最小净空距离 */
+const IMPORT_CLEARANCE_GAP = 40
+
+/**
+ * 批量导入后的约束批次列式重排（修复：导入约束列压盖既有节点，如项目根节点）。
+ *
+ * 对"本次导入新增的约束类节点"（内嵌物化 + 连带独立约束）统一按列式布局：
+ * - 锚点取 Schema 落点右侧 +420（保持与用户落点的相对关系）
+ * - 计算批次包围盒与"非批次节点"包围盒的碰撞，必要时整体平移到净空区
+ * - 位置经 vueFlowApi.updateNode 增量应用，不直接改 node.position
+ *
+ * 只影响当次导入批次，用户既有布局不动。
+ */
+function relayoutImportedConstraintBatch(
+  nodes: Ref<CustomNode[]>,
+  preImportNodeIds: ReadonlySet<string>,
+  anchorPosition: { x: number; y: number }
+): void {
+  const batch = nodes.value.filter(
+    (n) => !preImportNodeIds.has(n.id) && isConstraintNodeType(n.type ?? '')
+  )
+  if (batch.length === 0) return
+
+  const dimById = new Map<string, { width: number; height: number }>()
+  const items = batch.map((n) => {
+    const dim = getDefaultDimension(n.type ?? '')
+    dimById.set(n.id, dim)
+    return { id: n.id, width: dim.width, height: dim.height }
+  })
+
+  const origin = { x: anchorPosition.x + IMPORT_COLUMN_OFFSET_X, y: anchorPosition.y }
+  const positions = layoutBatchAsColumn(items, origin, IMPORT_COLUMN_ROW_GAP)
+
+  // 避开"非批次节点"（既有节点 + 本次新建的 Schema 等非约束节点）的包围盒
+  const obstacleNodes = nodes.value.filter((n) => !positions.has(n.id))
+  const obstacles: RectBounds[] = obstacleNodes.map((n) => {
+    const dim = getDefaultDimension(n.type ?? '')
+    return {
+      minX: n.position.x,
+      minY: n.position.y,
+      maxX: n.position.x + dim.width,
+      maxY: n.position.y + dim.height,
+    }
+  })
+
+  const placedItems: PlacedItem[] = []
+  for (const n of batch) {
+    const pos = positions.get(n.id)
+    const dim = dimById.get(n.id)
+    if (pos && dim) placedItems.push({ position: pos, width: dim.width, height: dim.height })
+  }
+  const block = computeItemsBounds(placedItems)
+  if (block) {
+    const { dx, dy } = computeClearanceShift(block, obstacles, IMPORT_CLEARANCE_GAP)
+    if (dx !== 0 || dy !== 0) {
+      for (const [id, pos] of positions) {
+        positions.set(id, { x: pos.x + dx, y: pos.y + dy })
+      }
+      logger.debug('[importV2ResourceToCanvas] 批量导入批次平移避让:', {
+        dx,
+        dy,
+        count: batch.length,
+      })
+    }
+  }
+
+  for (const [id, pos] of positions) {
+    updateNode(id, { position: { x: pos.x, y: pos.y } })
+  }
+}
 
 export function createV2ImportToCanvas(params: {
   nodes: Ref<CustomNode[]>
@@ -247,6 +333,8 @@ export function createV2ImportToCanvas(params: {
 
         // 始终创建 Schema 节点（无论用户在弹窗中选择什么）。
         // 「只导 Schema」/关闭弹窗时 Schema 仍要落画布，这是用户的主体操作意图。
+        // 导入前快照节点 id 集合，用于导入后识别"本次批次"并做列式布局避让。
+        const preImportNodeIds = new Set(nodes.value.map((n) => n.id))
         const nodeId = await importSchema(resourceId, position)
         selectedNodeId.value = nodeId
 
@@ -255,6 +343,10 @@ export function createV2ImportToCanvas(params: {
         if (shouldImportRelated) {
           await importRelatedIndependentConstraints(resourceId, '', position)
         }
+
+        // 批量导入完成后对新导入的约束批次应用列式布局并避开既有节点包围盒
+        //（修复：约束列压住项目根节点等既有内容；内嵌物化与连带约束共用一列，互不重叠）
+        relayoutImportedConstraintBatch(nodes, preImportNodeIds, position)
 
         sourceIndex?.rebuild()
         await nextTick()

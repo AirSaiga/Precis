@@ -708,6 +708,13 @@
   box-shadow: var(--ui-shadow-elevation-sm);
 }
 
+/* 交互态走语义 token（--ui-bg-hover 三主题各有适配值），避免任何主题下行背景反白 */
+.ui-settings-item:hover,
+.ui-settings-item:focus-within {
+  background: var(--ui-bg-hover);
+  border-color: var(--ui-border);
+}
+
 .ui-settings-item--indented {
   margin-left: var(--ui-space-lg);
   background: var(--ui-bg-subtle);
@@ -1291,7 +1298,9 @@
   color: var(--ui-text-muted);
 }
 
-/* Row：单行表单项 */
+/* Row：单行表单项
+   hover 与 focus-within（行内 select/input 聚焦）统一走 --ui-bg-hover 语义 token，
+   light/dark/liquid 三主题各自定义了适配值，保证行背景与行内文字对比度 */
 .settings-row {
   display: flex;
   align-items: center;
@@ -1302,8 +1311,15 @@
   transition: background 0.15s;
 }
 
-.settings-row:hover {
+.settings-row:hover,
+.settings-row:focus-within {
   background: var(--ui-bg-hover);
+}
+
+/* 交互态下标签提亮为主文字色，保证 hover 底色上的对比度（三主题自适应） */
+.settings-row:hover .settings-row__label,
+.settings-row:focus-within .settings-row__label {
+  color: var(--ui-text-primary);
 }
 
 .settings-row__label {

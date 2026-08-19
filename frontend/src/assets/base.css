@@ -3,6 +3,20 @@
   scrollbar-color: var(--ui-border-strong) transparent;
 }
 
+/* ============================================================
+   主题切换中间态防护
+   core/utils/theme.ts 的 applyThemePreference 在切换 data-theme 前给 <html>
+   加 theme-switching 类，双 requestAnimationFrame 后移除。期间禁用全部过渡，
+   使新主题的颜色/背景瞬时生效，避免旧主题色经 transition 缓慢过渡造成的
+   大面积不可读中间态（残留可长达数百毫秒，尤其切到/切出 liquid 时）。
+   类仅存活两帧，不影响日常 hover/动画。
+   ============================================================ */
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition: none !important;
+}
+
 *,
 *::before,
 *::after {

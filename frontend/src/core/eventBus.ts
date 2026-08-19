@@ -82,6 +82,15 @@ export interface AppEvents {
     kind: 'schema' | 'pattern' | 'constraint' | 'regex_node' | 'template'
     item: ResourceItem
   }
+  /**
+   * 全量校验"全绿"完成（0 错误 0 阻塞且全部通过）。
+   * 由 useValidationTaskRunner 在结果落地后发出，状态栏监听后
+   * 给成功计数一次 status-pulse 动画（一次性、不循环）。
+   */
+  'full-validation-all-pass': {
+    passedCount: number
+    totalChecks: number
+  }
 }
 
 export type AppEventMap = {

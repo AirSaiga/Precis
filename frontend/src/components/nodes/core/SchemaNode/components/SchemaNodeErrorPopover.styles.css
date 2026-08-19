@@ -4,7 +4,7 @@
   border: 1px solid var(--ui-border);
   border-radius: var(--ui-radius-md);
   box-shadow: var(--node-special-menu-shadow);
-  z-index: 10000;
+  z-index: var(--ui-z-canvas-float);
   min-width: 200px;
   max-width: 300px;
   overflow: hidden;

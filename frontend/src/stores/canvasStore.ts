@@ -43,6 +43,25 @@ export const useCanvasStore = defineStore('canvas', () => {
     unsavedTabsCount: unsavedWorkspacesCount,
   } = storeToRefs(tabStore)
 
+  // --- 画布内容加载完成信号 ---
+
+  /**
+   * 项目加载/工作区恢复完成的通知信号（单调递增计数）。
+   *
+   * 触发方（两处）：
+   * - graphStore.loadProjectFromV2 成功后（项目加载/重载/切换的统一出口）
+   * - 本 Store 的 initialize / loadWorkspaces 完成后（工作区快照恢复入口）
+   *
+   * 消费方：NodeCanvas 的加载适配（自动取景 + 位置异常修复）监听该信号，
+   * 仅在加载完成后执行一次性适配。用计数而非布尔是为了支持连续多次加载。
+   */
+  const contentLoadedEpoch = ref(0)
+
+  /** 标记一次画布内容加载完成（通知画布执行加载后适配） */
+  function markContentLoaded(): void {
+    contentLoadedEpoch.value++
+  }
+
   // --- 工作区批量节点删除 ---
 
   /**
@@ -160,6 +179,23 @@ export const useCanvasStore = defineStore('canvas', () => {
     zoomLevel.value = Math.max(0.1, Math.min(level, 5))
   }
 
+  /**
+   * initialize / loadWorkspaces 在委托 tabStore 的基础上，完成后广播
+   * contentLoadedEpoch——工作区快照恢复可能整体替换画布节点，画布需要
+   * 在恢复完成后执行一次性加载适配（自动取景/位置异常修复）。
+   * 参数类型直接取自 tabStore.initialize（其 GraphStoreLike 要求更全，
+   * 含 resetCanvas 等），避免在本文件重复维护接口。
+   */
+  async function initialize(...args: Parameters<typeof tabStore.initialize>) {
+    await tabStore.initialize(...args)
+    markContentLoaded()
+  }
+
+  async function loadWorkspaces(configPath: string) {
+    await tabStore.loadTabs(configPath)
+    markContentLoaded()
+  }
+
   return {
     // 工作区状态（委托）
     workspaces,
@@ -167,12 +203,16 @@ export const useCanvasStore = defineStore('canvas', () => {
     activeWorkspace,
     unsavedWorkspacesCount,
 
+    // 画布内容加载完成信号
+    contentLoadedEpoch,
+    markContentLoaded,
+
     // 画布视图
     zoomLevel,
     showMinimap,
 
     // 工作区方法（委托）
-    initialize: tabStore.initialize,
+    initialize,
     createNewWorkspace: tabStore.createNewTab,
     setActiveWorkspace: tabStore.setActiveTab,
     closeWorkspace: tabStore.closeTab,
@@ -183,7 +223,7 @@ export const useCanvasStore = defineStore('canvas', () => {
     getWorkspaceList: tabStore.getTabList,
     reorderWorkspaces: tabStore.reorderTabs,
     syncWorkspacesToBackend: tabStore.syncTabsToBackend,
-    loadWorkspaces: tabStore.loadTabs,
+    loadWorkspaces,
     saveCurrentCanvasData: tabStore.saveCurrentCanvasData,
     loadCanvasDataFromWorkspace: tabStore.loadCanvasDataFromTab,
 

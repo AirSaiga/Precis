@@ -305,9 +305,35 @@
   box-shadow: 0 -1px 3px rgba(var(--shadow-color), 0.04);
   color: var(--ui-text-tertiary);
   font-size: var(--ui-font-size-xs);
+  /* 统计数字（校验计数/问题数）等宽对齐，避免跳动 */
+  font-variant-numeric: tabular-nums;
   z-index: var(--ui-z-sticky);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
+}
+
+/* 校验全绿时刻（P2-3）：成功计数 chip，出现时做一次 status-pulse
+   （keyframes 集中定义于 animations.css），动画结束后静默驻留。
+   reduced-motion 下组件侧不渲染（正反馈仅保留 success toast）。 */
+.status-all-pass {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 10px;
+  border-radius: var(--ui-radius-full);
+  background: var(--ui-success-weak);
+  border: 1px solid color-mix(in srgb, var(--ui-success) 30%, transparent);
+  color: var(--ui-success);
+  font-size: var(--ui-font-size-xs);
+  font-weight: var(--ui-font-weight-medium);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.status-all-pass.is-pulsing {
+  /* 一次性动画（iteration 1，不循环） */
+  animation: status-pulse 1.2s var(--ease-standard) 1;
 }
 
 .project-chip {

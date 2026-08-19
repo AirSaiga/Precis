@@ -14,7 +14,7 @@
     @dragend="emit('dragend')"
     @contextmenu.prevent="emit('contextmenu', $event)"
     @click="emit('select', $event)"
-    @mousedown="emit('mousedown')"
+    @mousedown="emit('mousedown', $event)"
     @mouseup="emit('mouseup')"
     @mouseleave="emit('mouseleave')"
   >
@@ -208,7 +208,8 @@
     dragstart: [event: DragEvent]
     dragend: []
     contextmenu: [event: MouseEvent]
-    mousedown: []
+    /** 携带原始事件：父级用于长按/拖拽手势判定的指针位移追踪 */
+    mousedown: [event: MouseEvent]
     mouseup: []
     mouseleave: []
   }>()

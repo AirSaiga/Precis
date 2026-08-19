@@ -12,6 +12,27 @@
             <button class="toolbar-btn secondary" @click="handleClose">
               {{ t('canvas.subCanvas.close') }}
             </button>
+            <!-- 右上角关闭 X：与保存/关闭按钮同语义，保证始终可见的关闭入口 -->
+            <button
+              class="toolbar-close"
+              type="button"
+              :title="t('common.close')"
+              @click="handleClose"
+            >
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+              >
+                <path d="M18 6 6 18" />
+                <path d="m6 6 12 12" />
+              </svg>
+            </button>
           </div>
         </div>
 
@@ -61,6 +82,7 @@
 </template>
 
 <script setup lang="ts">
+  import { onMounted, onUnmounted } from 'vue'
   import { VueFlow, SelectionMode, useVueFlow } from '@vue-flow/core'
   import { Background, BackgroundVariant } from '@vue-flow/background'
   import { Controls } from '@vue-flow/controls'
@@ -147,6 +169,23 @@
   function handleClose() {
     emit('close')
   }
+
+  /**
+   * Escape 关闭（与关闭按钮同语义）。
+   * IME 合成态（拼音选词）放行，避免误触（见 AGENTS.md 键盘守卫约定）。
+   */
+  function handleKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || event.isComposing || event.keyCode === 229) return
+    if (props.visible) handleClose()
+  }
+
+  onMounted(() => {
+    document.addEventListener('keydown', handleKeydown)
+  })
+
+  onUnmounted(() => {
+    document.removeEventListener('keydown', handleKeydown)
+  })
 </script>
 
 <style scoped>
@@ -154,7 +193,8 @@
     position: fixed;
     inset: 0;
     background: rgba(0, 0, 0, 0.6);
-    z-index: 1000;
+    /* app 级模态统一档位，恒在画布内容之上 */
+    z-index: var(--ui-z-modal);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -206,6 +246,29 @@
     background: var(--ui-bg-elevated);
     color: var(--ui-text-primary);
     border: 1px solid var(--ui-border-light);
+  }
+
+  /* 右上角关闭 X：可见的图标按钮（带边框与 hover 反馈，token 配色） */
+  .toolbar-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    margin-left: 4px;
+    padding: 0;
+    border: 1px solid var(--ui-border);
+    border-radius: var(--ui-radius-sm);
+    background: var(--ui-bg-elevated);
+    color: var(--ui-text-body);
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .toolbar-close:hover {
+    background: var(--ui-bg-hover);
+    color: var(--ui-text-strong);
+    border-color: var(--ui-border-strong);
   }
 
   .sub-canvas-flow-wrapper {

@@ -66,14 +66,31 @@
       <!-- 控制面板：缩放、适应屏幕等按钮 -->
       <Controls />
       <!-- 缩略图导航：显示画布整体预览
-           node-color 用函数动态着色：选中节点用 accent 强调，其余用 muted，
-           使 minimap 随主题切换且能体现选中态。背景/遮罩由 base.css 的 .vue-flow__minimap 覆盖控制 -->
+           可读性设计（修复 Minimap 浅灰小块不可辨认问题）：
+           - nodeClassName 按节点类型打 class，填色由 NodeCanvas.styles.css 按
+             node-tokens 类型色着色（CSS 变量引用，随 light/dark 主题自适应）
+           - 选中态用 accent 强调（.selected 由 MiniMap 内部追加）
+           - 视口框遮罩用半透明 accent 覆盖 base.css 的默认遮罩（styles.css 内）
+           - pannable/zoomable：支持在小地图上拖动平移视口、滚轮缩放，位置对应更直观 -->
       <MiniMap
-        :node-color="miniMapNodeColor"
-        :node-stroke-color="miniMapNodeColor"
+        :node-class-name="miniMapNodeClassName"
         :node-border-radius="2"
+        :node-stroke-width="1"
+        pannable
+        zoomable
       />
     </VueFlow>
+
+    <!--
+      空画布引导：无业务节点时在视口中下部显示一行克制的提示。
+      - 纯视觉提示（pointer-events: none），不拦截画布任何交互
+      - muted 小字 + 指向左侧资源树的箭头图标，样式全走 token
+      - 出现业务节点后 v-if 自动移除
+    -->
+    <div v-if="showEmptyCanvasHint" class="canvas-empty-hint" aria-hidden="true">
+      <AppIcon name="arrow-left" :size="14" />
+      <span>{{ t('canvas.nodeCanvas.emptyCanvasHint') }}</span>
+    </div>
 
     <div
       v-if="nodeOrganizer.showGroups.value && zoneGroups.length > 0"
@@ -162,11 +179,13 @@
   // ========================================
   // Vue 核心导入
   // ========================================
-  import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+  import { ref, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
+  import { useI18n } from 'vue-i18n'
   import { eventBus } from '@/core/eventBus'
   import { logger } from '@/core/utils/logger'
   import type { TransformTypeV2 } from '@/types/projectV2'
   import type { ConstraintKind } from '@/services/constraints/types'
+  import { shouldShowEmptyCanvasHint } from '@/utils/nodes/emptyCanvasHint'
 
   // ========================================
   // VueFlow 画布库导入
@@ -181,6 +200,7 @@
   // ========================================
   import { useGraphStore } from '@/stores/graphStore'
   import { useNodeOrganizer } from '@/features/node-layout-organizer/composables/useNodeOrganizer'
+  import { useCanvasLoadAdaptation } from '@/features/node-layout-organizer/composables/useCanvasLoadAdaptation'
   import { useNodeTypeRegistry } from '@/composables/canvas/useNodeTypeRegistry'
   import { useCanvasConnectionWatcher } from '@/composables/canvas/useCanvasConnectionWatcher'
   import { initVueFlowApi, resetVueFlowApi } from '@/services/canvas/vueFlowApi'
@@ -196,6 +216,7 @@
   // ========================================
   // 子组件导入
   // ========================================
+  import AppIcon from '@/components/icons/AppIcon.vue'
   import CanvasControls from './CanvasControls.vue'
   import ProjectCreateDialog from './ProjectCreateDialog.vue'
   import RegexConnectionDialog from './RegexConnectionDialog.vue'
@@ -211,8 +232,18 @@
 
   const { nodeTypes, edgeTypes } = useNodeTypeRegistry()
   const store = useGraphStore()
+  const { t } = useI18n()
   const nodeOrganizer = useNodeOrganizer()
   const zoneGroups = nodeOrganizer.groups
+
+  /**
+   * 空画布引导：画布无业务节点（仅项目根或全空）时显示一行克制的引导文案，
+   * 出现第一个业务节点后自动消失。判定逻辑抽为纯函数（含单测）。
+   */
+  const showEmptyCanvasHint = computed(() => shouldShowEmptyCanvasHint(store.nodes))
+  // 加载适配：项目/工作区首次加载完成后自动 fitView 一次 + 修复零位置/堆叠节点。
+  // 触发与守卫逻辑见该组合式函数头部注释（Tab 来回切换/undo/增量操作不触发）。
+  useCanvasLoadAdaptation()
   const {
     viewport,
     setViewport,
@@ -272,15 +303,14 @@
   }
 
   /**
-   * MiniMap 节点着色函数。
-   * 选中节点用 accent 强调（与画布选中态视觉一致），其余节点按是否为项目根区分。
-   * 返回固定的 CSS 命名色（minimap SVG fill 不支持 var()，需传具体色值），
-   * 但通过 base.css 覆盖 .vue-flow__minimap 背景已使其在 dark/liquid 下不出现刺眼白框。
+   * MiniMap 节点 class 函数：按节点类型追加 `minimap-node--<type>` class。
+   *
+   * 填色不在 JS 里返回硬编码色值，而是经 CSS class 引用 node-tokens 的类型色
+   * （CSS 变量），保证 light/dark 主题下均与画布节点类别色一致且可读。
+   * 具体着色规则见 NodeCanvas.styles.css 的 minimap 段落。
    */
-  function miniMapNodeColor(node: { selected?: boolean; type?: string }): string {
-    if (node.selected) return '#3b82f6' // accent blue（选中态强调）
-    if (node.type === 'projectRoot') return '#22c55e' // 项目根用绿色
-    return '#94a3b8' // 其余节点用中性灰蓝
+  function miniMapNodeClassName(node: { type?: string }): string {
+    return node.type ? `minimap-node--${node.type}` : ''
   }
   useCanvasViewportSync()
   const {

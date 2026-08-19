@@ -339,7 +339,8 @@
   /* ---- 下拉面板（Teleport 到 body） ---- */
   .type-dropdown-panel {
     position: fixed;
-    z-index: 10000;
+    /* 画布浮层档位：高于画布内容与右键菜单，低于任何 app 模态 */
+    z-index: var(--ui-z-canvas-float);
     max-height: 360px;
     display: flex;
     flex-direction: column;

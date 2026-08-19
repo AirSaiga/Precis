@@ -132,10 +132,21 @@ export function applyThemePreference(theme: ThemePreference): ResolvedTheme {
   }
 
   const root = document.documentElement
+  // 切换前先加 theme-switching 类（base.css 中对应 html.theme-switching * { transition: none !important }），
+  // 禁用全局过渡，避免旧主题颜色经 transition 缓慢过渡产生大面积不可读中间态
+  // （尤其切到/切出 liquid 时的半透明玻璃层叠残留）
+  root.classList.add('theme-switching')
   root.setAttribute('data-theme', resolvedTheme)
   root.setAttribute('data-theme-preference', theme)
   // Liquid 是一套基于 light 模式的次世代视觉主题，color-scheme 保持 light 以保证系统控件不反转
   root.style.colorScheme = resolvedTheme === 'liquid' ? 'light' : resolvedTheme
+
+  // 双 requestAnimationFrame：第一帧新主题样式生效，第二帧渲染确认后恢复过渡并移除临时类
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      root.classList.remove('theme-switching')
+    })
+  })
 
   return resolvedTheme
 }

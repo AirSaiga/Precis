@@ -112,7 +112,7 @@
                 @dragstart="(e) => handleResourceDragStart(e, schema)"
                 @dragend="emit('dragend')"
                 @contextmenu="(e) => emit('contextmenu', e, 'schema', schema)"
-                @mousedown="emit('resource-mousedown', schema)"
+                @mousedown="emit('resource-mousedown', schema, $event)"
                 @mouseup="emit('resource-mouseup')"
                 @mouseleave="emit('resource-mouseleave')"
               />
@@ -226,7 +226,7 @@
               @dragstart="(e) => handleResourceDragStart(e, constraint)"
               @dragend="emit('dragend')"
               @contextmenu="(e) => emit('contextmenu', e, 'constraint', constraint)"
-              @mousedown="emit('resource-mousedown', constraint)"
+              @mousedown="emit('resource-mousedown', constraint, $event)"
               @mouseup="emit('resource-mouseup')"
               @mouseleave="emit('resource-mouseleave')"
             />
@@ -296,7 +296,7 @@
               @dragstart="(e) => handleResourceDragStart(e, template)"
               @dragend="emit('dragend')"
               @contextmenu="(e) => emit('contextmenu', e, 'template', template)"
-              @mousedown="emit('resource-mousedown', template)"
+              @mousedown="emit('resource-mousedown', template, $event)"
               @mouseup="emit('resource-mouseup')"
               @mouseleave="emit('resource-mouseleave')"
             />
@@ -394,7 +394,7 @@
                   @dragstart="(e) => handleResourceDragStart(e, pattern)"
                   @dragend="emit('dragend')"
                   @contextmenu="(e) => emit('contextmenu', e, 'pattern', pattern)"
-                  @mousedown="emit('resource-mousedown', pattern)"
+                  @mousedown="emit('resource-mousedown', pattern, $event)"
                   @mouseup="emit('resource-mouseup')"
                   @mouseleave="emit('resource-mouseleave')"
                 />
@@ -454,7 +454,7 @@
                   @dragstart="(e) => handleResourceDragStart(e, regexNode)"
                   @dragend="emit('dragend')"
                   @contextmenu="(e) => emit('contextmenu', e, 'regex_node', regexNode)"
-                  @mousedown="emit('resource-mousedown', regexNode)"
+                  @mousedown="emit('resource-mousedown', regexNode, $event)"
                   @mouseup="emit('resource-mouseup')"
                   @mouseleave="emit('resource-mouseleave')"
                 />
@@ -492,7 +492,8 @@
     'toggle-schema-expand': [schemaId: string]
     'toggle-select': [resource: ResourceItem]
     'resource-select': [resource: ResourceItem, event: MouseEvent]
-    'resource-mousedown': [resource: ResourceItem]
+    /** 携带原始事件：用于长按/拖拽手势判定的指针位移追踪 */
+    'resource-mousedown': [resource: ResourceItem, event: MouseEvent]
     'resource-mouseup': []
     'resource-mouseleave': []
     'resource-dragstart': [event: DragEvent, resource: ResourceItem]

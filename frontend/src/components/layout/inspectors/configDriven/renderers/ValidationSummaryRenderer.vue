@@ -24,7 +24,9 @@
         </div>
         <div class="summary-card__content">
           <label>{{ t('inspector.projectRoot.validation.passRate') }}</label>
-          <div class="summary-card__value">{{ passRateText }}</div>
+          <div class="summary-card__value" :class="{ 'is-empty': passRate === null }">
+            {{ passRateText }}
+          </div>
         </div>
       </div>
 
@@ -89,7 +91,7 @@
   const errorCount = computed(() => validationSummary.value?.total_error_count ?? 0)
 
   const passRateText = computed(() => {
-    if (passRate.value === null) return '-'
+    if (passRate.value === null) return t('inspector.projectRoot.validation.notRun')
     return `${Math.round(passRate.value)}%`
   })
 
@@ -164,6 +166,13 @@
     font-size: 16px;
     font-weight: 600;
     color: var(--ui-text-strong);
+  }
+
+  /* 未运行空态：次要文字样式，与百分比数值区分 */
+  .summary-card__value.is-empty {
+    font-size: 13px;
+    font-weight: var(--ui-font-weight-normal);
+    color: var(--ui-text-muted);
   }
 
   /* 通过率状态色 */

@@ -25,6 +25,36 @@
   pointer-events: none;
 }
 
+/*
+   ========================================
+   空画布引导（无业务节点时）
+   - 视口中下部一行克制的 muted 小字 + 指左箭头
+   - 纯视觉提示：pointer-events: none，不拦截画布事件（拖拽/框选/右键）
+   - 颜色/字号/间距全走 token，light/dark/liquid 随主题
+   ======================================== */
+.canvas-empty-hint {
+  position: absolute;
+  left: 50%;
+  /* 视口中下部：避开画布中心与右下角控件区 */
+  top: 62%;
+  transform: translateX(-50%);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  color: var(--text-subtle);
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-normal);
+  background: color-mix(in srgb, var(--surface-elevated) 72%, transparent);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+  /* 淡入（一次性，无循环动画；reduced-motion 下被 animations.css 全局压制） */
+  animation: fade-in var(--dur-slow) var(--ease-out);
+}
+
 @keyframes canvasDashMove {
   to {
     stroke-dashoffset: -24;
@@ -110,4 +140,119 @@
 
 :deep(.vue-flow__edge.edge-drawing .vue-flow__edge-path) {
   animation: edge-draw var(--dur-edge-draw) var(--ease-out);
+}
+
+/*
+   ========================================
+   MiniMap 可读性（修复：缩略图节点浅灰小块不可辨认、视口框不明显）
+   - 节点色块按节点类别着色：NodeCanvas.vue 的 nodeClassName 按类型追加
+     `minimap-node--<type>` class，此处统一引用 node-tokens 的类型色变量，
+     light/dark 主题下均与画布节点类别色一致。
+   - CSS 的 fill/stroke 会覆盖 MiniMap 内部渲染的 SVG presentation attribute，
+     因此无需在 JS 侧传具体色值（也避免硬编码颜色）。
+   - 视口框遮罩用半透明 accent，替代 base.css 的低对比默认遮罩
+     （更高选择器特异性 + !important 以覆盖 base.css 的 !important 规则）。
+   ======================================== */
+
+/* 基础：未映射类型的中性色块 + 与底色分离的描边 */
+:deep(.vue-flow__minimap-node) {
+  fill: var(--ui-text-secondary);
+  stroke: var(--ui-bg-elevated);
+  stroke-width: 1;
+}
+
+/* 选中态：accent 强调（.selected 由 MiniMap 内部追加） */
+:deep(.vue-flow__minimap-node.selected) {
+  fill: var(--ui-accent);
+  stroke: var(--ui-accent);
+}
+
+/* 项目根 */
+:deep(.minimap-node--projectRoot) {
+  fill: var(--node-special-project-accent);
+}
+
+/* Schema / JSON Schema */
+:deep(.minimap-node--schema),
+:deep(.minimap-node--jsonSchema) {
+  fill: var(--node-type-schema);
+}
+
+/* 数据源 / 手动数据 */
+:deep(.minimap-node--sourcePreview),
+:deep(.minimap-node--jsonSourcePreview),
+:deep(.minimap-node--manualData) {
+  fill: var(--node-type-source);
+}
+
+/* 正则 */
+:deep(.minimap-node--regex) {
+  fill: var(--node-type-regex);
+}
+
+/* 转换 */
+:deep(.minimap-node--transform),
+:deep(.minimap-node--transformOutput) {
+  fill: var(--ui-info);
+}
+
+/* 模板实例 */
+:deep(.minimap-node--templateInstance) {
+  fill: var(--theme-sky);
+}
+
+/* 约束：按类型取 node-tokens 的约束专用色 */
+:deep(.minimap-node--constraint) {
+  fill: var(--node-type-constraint);
+}
+
+:deep(.minimap-node--notNullConstraint) {
+  fill: var(--node-type-constraint-notnull);
+}
+
+:deep(.minimap-node--uniqueConstraint) {
+  fill: var(--node-type-constraint-unique);
+}
+
+:deep(.minimap-node--allowedValuesConstraint) {
+  fill: var(--node-type-constraint-allowed);
+}
+
+:deep(.minimap-node--foreignKeyConstraint) {
+  fill: var(--node-type-constraint-foreign);
+}
+
+:deep(.minimap-node--conditionalConstraint) {
+  fill: var(--node-type-constraint-conditional);
+}
+
+:deep(.minimap-node--scriptedConstraint) {
+  fill: var(--node-type-constraint-scripted);
+}
+
+:deep(.minimap-node--rangeConstraint) {
+  fill: var(--node-type-constraint-range);
+}
+
+:deep(.minimap-node--charsetConstraint) {
+  fill: var(--node-type-constraint-charset);
+}
+
+:deep(.minimap-node--dateLogicConstraint) {
+  fill: var(--node-type-constraint-datetime);
+}
+
+:deep(.minimap-node--compositeConstraint) {
+  fill: var(--node-type-constraint-composite);
+}
+
+/*
+   视口框遮罩：半透明 accent。
+   base.css 已有 `.vue-flow__minimap-mask { fill: ... !important }`（特异性 0,1,0），
+   此处借助 scoped 祖先选择器提升特异性（0,2,1）后用 !important 覆盖。
+ */
+.canvas-wrapper :deep(.vue-flow__minimap-mask) {
+  fill: color-mix(in srgb, var(--ui-accent) 32%, transparent) !important;
+  stroke: var(--ui-accent) !important;
+  stroke-width: 1.5;
 }

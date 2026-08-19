@@ -2,7 +2,8 @@
 .settings-overlay {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  /* app 级模态统一走 z token 档位，恒在画布内容（含 Vue Flow 节点选中态提升）之上 */
+  z-index: var(--ui-z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -54,6 +55,20 @@
   display: flex;
   align-items: center;
   gap: var(--ui-space-sm);
+}
+
+/* 关闭按钮可见性补偿：基础 .ui-icon-btn 为透明背景 + muted 图标，
+   在 subtle 头部上对比不足，加边框/底色保证关闭 X 清晰可辨 */
+.settings-workbench__actions .ui-icon-btn {
+  color: var(--ui-text-body);
+  border-color: var(--ui-border);
+  background: var(--ui-bg-elevated);
+}
+
+.settings-workbench__actions .ui-icon-btn:hover:not(:disabled) {
+  color: var(--ui-text-strong);
+  border-color: var(--ui-border-strong);
+  background: var(--ui-bg-hover);
 }
 
 /* Project pill */

@@ -5,6 +5,7 @@
 const inspection = {
   title: '配置自检',
   badge: {
+    label: '配置问题',
     tooltip: '配置存在 {count} 个问题',
     ignoredTooltip: '{count} 个问题已忽略，点击查看',
     passedTooltip: '配置检查通过，未发现问题',

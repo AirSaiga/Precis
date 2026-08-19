@@ -8,7 +8,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 20000;
+  /* 顶层告警确认档位：压过其余一切 app overlay（含自检抽屉/设置中心） */
+  z-index: var(--ui-z-modal-alert);
   backdrop-filter: blur(4px);
 }
 
@@ -41,18 +42,27 @@
 }
 
 .close-btn {
-  background: none;
-  border: none;
+  /* 可见性补偿：加边框/底色 + 更深图标色，避免关闭 X 在 elevated 头部上过淡 */
+  background: var(--ui-bg-subtle);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--ui-radius-sm);
   font-size: 24px;
-  color: var(--ui-text-subtle);
+  color: var(--ui-text-secondary);
   cursor: pointer;
   padding: 0;
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
   transition: color 0.2s;
 }
 
 .close-btn:hover {
   color: var(--ui-text);
+  border-color: var(--ui-border-strong);
+  background: var(--ui-bg-hover);
 }
 
 .confirm-body {

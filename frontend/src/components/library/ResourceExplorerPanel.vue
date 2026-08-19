@@ -53,7 +53,7 @@
         @toggle-schema-expand="(id) => emit('toggle-schema-expand', id)"
         @toggle-select="(r) => emit('toggle-select', r)"
         @resource-select="(r, e) => emit('resource-select', r, e)"
-        @resource-mousedown="(r) => emit('resource-mousedown', r)"
+        @resource-mousedown="(r, e) => emit('resource-mousedown', r, e)"
         @resource-mouseup="emit('resource-mouseup')"
         @resource-mouseleave="emit('resource-mouseleave')"
         @resource-dragstart="(e, r) => emit('resource-dragstart', e, r)"
@@ -93,7 +93,8 @@
     'toggle-schema-expand': [schemaId: string]
     'toggle-select': [resource: ResourceItem]
     'resource-select': [resource: ResourceItem, event: MouseEvent]
-    'resource-mousedown': [resource: ResourceItem]
+    /** 携带原始事件：用于长按/拖拽手势判定的指针位移追踪 */
+    'resource-mousedown': [resource: ResourceItem, event: MouseEvent]
     'resource-mouseup': []
     'resource-mouseleave': []
     'resource-dragstart': [event: DragEvent, resource: ResourceItem]

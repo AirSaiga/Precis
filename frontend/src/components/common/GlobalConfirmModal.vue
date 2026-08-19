@@ -57,10 +57,28 @@
 </template>
 
 <script setup lang="ts">
+  import { onMounted, onUnmounted } from 'vue'
   import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
   import AppIcon from '@/components/icons/AppIcon.vue'
 
   const { visible, options, handleConfirm, handleCancel, handleAlternative } = useGlobalConfirm()
+
+  /**
+   * Escape 触发取消（与点击遮罩/关闭按钮同语义）。
+   * IME 合成态（拼音选词）放行，避免误触（见 AGENTS.md 键盘守卫约定）。
+   */
+  function handleKeydown(event: KeyboardEvent): void {
+    if (event.key !== 'Escape' || event.isComposing || event.keyCode === 229) return
+    if (visible.value) handleCancel()
+  }
+
+  onMounted(() => {
+    document.addEventListener('keydown', handleKeydown)
+  })
+
+  onUnmounted(() => {
+    document.removeEventListener('keydown', handleKeydown)
+  })
 </script>
 
 <style scoped src="./GlobalConfirmModal.styles.css"></style>

@@ -316,35 +316,132 @@
   --node-type-constraint: var(--ui-accent);
   --node-type-constraint-bg: var(--ui-bg-subtle);
 
-  --node-type-constraint-notnull: var(--ui-danger);
-  --node-type-constraint-notnull-bg: var(--ui-danger-bg);
+  /* 约束类型分组色（色彩降维）— 10 种约束归 4 个语义组，组内共享色相、
+     仅明度/饱和度微分；类型区分交给图标（constraintMeta.ts 的 10 类型全覆盖）：
+     - 结构类（sky）：NotNull / Unique
+     - 内容类（orange）：AllowedValues / Range / Charset / DateLogic
+     - 引用/逻辑类（purple）：ForeignKey / Conditional / Scripted
+     - 组合类（pink）：Composite
+     不再借用 danger/success/info 语义状态色，避免"类型色"与"校验结论色"混淆。 */
+  --node-type-constraint-notnull: var(--theme-sky-strong);
+  --node-type-constraint-notnull-bg: color-mix(
+    in srgb,
+    var(--theme-sky) 12%,
+    var(--ui-bg-elevated)
+  );
 
-  --node-type-constraint-unique: var(--ui-success);
-  --node-type-constraint-unique-bg: var(--ui-success-bg);
+  --node-type-constraint-unique: var(--theme-sky);
+  --node-type-constraint-unique-bg: color-mix(in srgb, var(--theme-sky) 9%, var(--ui-bg-elevated));
 
-  --node-type-constraint-allowed: var(--ui-info);
-  --node-type-constraint-allowed-bg: var(--ui-info-bg);
+  --node-type-constraint-allowed: var(--theme-orange-strong);
+  --node-type-constraint-allowed-bg: color-mix(
+    in srgb,
+    var(--theme-orange) 12%,
+    var(--ui-bg-elevated)
+  );
 
-  --node-type-constraint-foreign: var(--theme-purple);
-  --node-type-constraint-foreign-bg: var(--theme-purple-bg);
+  --node-type-constraint-range: var(--theme-orange);
+  --node-type-constraint-range-bg: color-mix(
+    in srgb,
+    var(--theme-orange) 9%,
+    var(--ui-bg-elevated)
+  );
 
-  --node-type-constraint-conditional: var(--theme-orange);
-  --node-type-constraint-conditional-bg: var(--theme-orange-bg);
+  --node-type-constraint-charset: var(--theme-script-strong);
+  --node-type-constraint-charset-bg: color-mix(
+    in srgb,
+    var(--theme-script) 12%,
+    var(--ui-bg-elevated)
+  );
 
-  --node-type-constraint-scripted: var(--theme-script);
-  --node-type-constraint-scripted-bg: var(--theme-script-bg);
+  --node-type-constraint-datetime: var(--theme-script);
+  --node-type-constraint-datetime-bg: color-mix(
+    in srgb,
+    var(--theme-script) 9%,
+    var(--ui-bg-elevated)
+  );
 
-  --node-type-constraint-range: #06b6d4;
-  --node-type-constraint-range-bg: rgba(6, 182, 212, 0.1);
+  --node-type-constraint-foreign: var(--theme-purple-strong);
+  --node-type-constraint-foreign-bg: color-mix(
+    in srgb,
+    var(--theme-purple) 12%,
+    var(--ui-bg-elevated)
+  );
 
-  --node-type-constraint-charset: #ec4899;
-  --node-type-constraint-charset-bg: rgba(236, 72, 153, 0.1);
+  --node-type-constraint-conditional: var(--theme-purple);
+  --node-type-constraint-conditional-bg: color-mix(
+    in srgb,
+    var(--theme-purple) 9%,
+    var(--ui-bg-elevated)
+  );
 
-  --node-type-constraint-datetime: #14b8a6;
-  --node-type-constraint-datetime-bg: rgba(20, 184, 166, 0.1);
+  --node-type-constraint-scripted: color-mix(in srgb, var(--theme-purple) 72%, white);
+  --node-type-constraint-scripted-bg: color-mix(
+    in srgb,
+    var(--theme-purple) 9%,
+    var(--ui-bg-elevated)
+  );
 
-  --node-type-constraint-composite: #a855f7;
-  --node-type-constraint-composite-bg: rgba(168, 85, 247, 0.1);
+  --node-type-constraint-composite: var(--theme-pink);
+  --node-type-constraint-composite-bg: color-mix(
+    in srgb,
+    var(--theme-pink) 12%,
+    var(--ui-bg-elevated)
+  );
+
+  /* ========================================
+     数据类型语义色（dtype）— 全产品统一的类型→色彩映射
+     ------------------------------------------------------------
+     色彩学约定（schema/json 节点的字段类型 pill、类型下拉、
+     JSON 数据预览树的类型着色统一引用此层，不再各自为政）：
+     - 数值族 integer/float/decimal 共享 orange 色相，仅明度微分
+     - string 为中性 slate（最高频类型不抢占注意力）
+     - boolean = cyan（逻辑开关），date = pink（时间线）
+     - expression = purple（派生公式），object/array/null 为 JSON 结构类型
+     - 每类型提供 -bg/-border 变体，全部经 var()/color-mix 派生，
+       light/dark/liquid 三主题随 --ui-* / --theme-* 自动翻转
+     ======================================== */
+  /* string — 中性 */
+  --dtype-string: var(--ui-text-secondary);
+  --dtype-string-bg: var(--ui-bg-subtle);
+  --dtype-string-border: var(--ui-border-light);
+
+  /* 数值族 — orange 同色相，bg 混入比例微分（10%/13%/16%） */
+  --dtype-integer: var(--theme-orange-strong);
+  --dtype-integer-bg: color-mix(in srgb, var(--theme-orange) 10%, var(--ui-bg-elevated));
+  --dtype-integer-border: color-mix(in srgb, var(--theme-orange) 24%, transparent);
+  --dtype-float: var(--theme-orange-strong);
+  --dtype-float-bg: color-mix(in srgb, var(--theme-orange) 13%, var(--ui-bg-elevated));
+  --dtype-float-border: color-mix(in srgb, var(--theme-orange) 24%, transparent);
+  --dtype-decimal: var(--theme-orange-strong);
+  --dtype-decimal-bg: color-mix(in srgb, var(--theme-orange) 16%, var(--ui-bg-elevated));
+  --dtype-decimal-border: color-mix(in srgb, var(--theme-orange) 24%, transparent);
+
+  /* boolean — cyan */
+  --dtype-boolean: var(--theme-cyan-strong);
+  --dtype-boolean-bg: color-mix(in srgb, var(--theme-cyan) 10%, var(--ui-bg-elevated));
+  --dtype-boolean-border: color-mix(in srgb, var(--theme-cyan) 24%, transparent);
+
+  /* date — pink */
+  --dtype-date: var(--theme-pink);
+  --dtype-date-bg: color-mix(in srgb, var(--theme-pink) 10%, var(--ui-bg-elevated));
+  --dtype-date-border: color-mix(in srgb, var(--theme-pink) 24%, transparent);
+
+  /* expression — purple（派生公式） */
+  --dtype-expression: var(--theme-purple-strong);
+  --dtype-expression-bg: color-mix(in srgb, var(--theme-purple) 10%, var(--ui-bg-elevated));
+  --dtype-expression-border: color-mix(in srgb, var(--theme-purple) 24%, transparent);
+
+  /* JSON 结构类型 */
+  --dtype-object: var(--theme-purple-strong);
+  --dtype-object-bg: color-mix(in srgb, var(--theme-purple) 12%, var(--ui-bg-elevated));
+  --dtype-object-border: color-mix(in srgb, var(--theme-purple) 24%, transparent);
+  --dtype-array: var(--theme-sky-strong);
+  --dtype-array-bg: color-mix(in srgb, var(--theme-sky) 10%, var(--ui-bg-elevated));
+  --dtype-array-border: color-mix(in srgb, var(--theme-sky) 24%, transparent);
+  --dtype-null: var(--ui-text-muted);
+  --dtype-null-bg: var(--ui-bg-subtle);
+  --dtype-null-border: var(--ui-border-subtle);
 
   /* ========================================
      节点头部系统
@@ -638,6 +735,20 @@
   --theme-cyan-weak: rgba(80, 200, 220, 0.18);
   --theme-teal-bg: rgba(80, 200, 180, 0.2);
   --theme-teal-weak: rgba(80, 200, 180, 0.18);
+
+  /* 约束类型分组色 dark 提亮：组内明度阶梯整体上移一档，
+     保证深色底（--ui-bg-elevated ≈ #1e293b）上的文字/图标对比度。
+     分组不变（结构=sky / 内容=orange / 引用逻辑=purple / 组合=pink）。 */
+  --node-type-constraint-notnull: var(--theme-sky);
+  --node-type-constraint-unique: color-mix(in srgb, var(--theme-sky) 65%, white);
+  --node-type-constraint-allowed: var(--theme-orange);
+  --node-type-constraint-range: color-mix(in srgb, var(--theme-orange) 65%, white);
+  --node-type-constraint-charset: var(--theme-script);
+  --node-type-constraint-datetime: color-mix(in srgb, var(--theme-script) 65%, white);
+  --node-type-constraint-foreign: var(--theme-purple);
+  --node-type-constraint-conditional: color-mix(in srgb, var(--theme-purple) 55%, white);
+  --node-type-constraint-scripted: color-mix(in srgb, var(--theme-purple) 40%, white);
+  --node-type-constraint-composite: color-mix(in srgb, var(--theme-pink) 55%, white);
 
   /* 节点背景 */
   --node-bg: var(--ui-bg-elevated);

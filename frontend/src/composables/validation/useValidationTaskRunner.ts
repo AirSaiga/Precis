@@ -97,6 +97,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { eventBus } from '@/core/eventBus'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useToast } from '@/composables/shared'
@@ -113,6 +114,7 @@ import {
 import { saveValidationRun } from '@/api/validationHistoryApi'
 import type { DataSourceRefV2, ProjectManifestV2, TableSchemaFileV2 } from '@/types/projectV2'
 import { detectFileTypeFromPath } from '@/utils/fileTypeUtils'
+import { deriveValidationAllPass } from '@/utils/validationAllPass'
 
 type ValidationTaskStageKey = 'load-settings' | 'save-project' | 'preflight' | 'execute'
 type ValidationTaskStageStatus =
@@ -631,7 +633,24 @@ export function useValidationTaskRunner() {
           t('common.fullValidation.result.interrupted')
         )
       } else if (response.success) {
-        success(t('common.fullValidation.result.toastPass'), t('common.fullValidation.result.pass'))
+        // 校验全绿时刻（0 错误 0 阻塞且全部通过）：toast 显示通过统计，
+        // 并广播事件让状态栏成功计数做一次 status-pulse（一次性、不循环）。
+        const allPass = deriveValidationAllPass(response)
+        if (allPass.allPass) {
+          success(
+            t('common.fullValidation.result.toastPass'),
+            t('common.fullValidation.result.allPassToast', { count: allPass.passedCount })
+          )
+          eventBus.emit('full-validation-all-pass', {
+            passedCount: allPass.passedCount,
+            totalChecks: allPass.totalChecks,
+          })
+        } else {
+          success(
+            t('common.fullValidation.result.toastPass'),
+            t('common.fullValidation.result.pass')
+          )
+        }
       } else {
         warning(t('common.fullValidation.result.toastFail'), t('common.fullValidation.result.fail'))
       }

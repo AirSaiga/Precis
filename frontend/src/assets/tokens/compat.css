@@ -243,11 +243,14 @@
   --ui-z-sticky: var(--z-sticky);
   --ui-z-fixed: var(--z-fixed);
   --ui-z-loading: var(--z-loading);
+  --ui-z-canvas-float: var(--z-canvas-float);
   --ui-z-modal-backdrop: var(--z-modal-backdrop);
   --ui-z-modal: var(--z-modal);
+  --ui-z-modal-stack: var(--z-modal-stack);
   --ui-z-popover: var(--z-popover);
   --ui-z-tooltip: var(--z-tooltip);
   --ui-z-notification: var(--z-notification);
+  --ui-z-modal-alert: var(--z-modal-alert);
 
   /* ============================================================
      主题模式（保留，非映射）

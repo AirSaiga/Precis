@@ -21,6 +21,8 @@ const canvas = {
   // [新增] NodeCanvas相关
   nodeCanvas: {
     title: '校验工程系统',
+    // 空画布引导：画布无业务节点（仅项目根或全空）时在视口中下部显示
+    emptyCanvasHint: '从左侧资源树或工具箱拖入节点开始建模',
     createProject: '新建项目',
     openProject: '打开项目',
     focusProject: '聚焦项目',
@@ -138,7 +140,8 @@ const nodeTypeMenu = {
   tableDefinition: '表定义节点',
   schemaNode: '架构节点',
   constraintRuleNode: '约束规则节点',
-  coreComponents: '核心组件',
+  // P3 术语微调：工具箱分组标题从开发者视角的"核心组件"改为用户视角的"节点库"
+  coreComponents: '节点库',
   projectRoot: '项目根节点',
 }
 
@@ -154,6 +157,8 @@ const statusBar = {
   regex: '正则',
   transforms: '转换节点',
   noProject: '未打开项目',
+  // 校验全绿时刻：状态栏成功计数（AppStatusBar 监听 full-validation-all-pass 显示）
+  allPass: '全部通过 · {count} 项',
 }
 
 export { canvas }

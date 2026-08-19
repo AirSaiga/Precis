@@ -211,7 +211,8 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 1000;
+    /* app 级模态统一档位，恒在画布内容之上 */
+    z-index: var(--ui-z-modal);
   }
 
   .save-template-modal {

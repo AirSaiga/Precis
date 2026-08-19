@@ -76,6 +76,7 @@ import type { ProjectConfigStats } from '../../../setup/state'
 import { toastError, toastSuccess, toastWarning } from '@/core/toast'
 import { useI18n } from 'vue-i18n'
 import { useInspectionStore } from '@/stores/inspectionStore'
+import { useCanvasStore } from '@/stores/canvasStore'
 import { getV2FullConfig, getV2ProjectView, ProjectNotFoundError } from '@/api/projectV2Api'
 
 export function createV2LoadOps(params: {
@@ -304,6 +305,10 @@ export function createV2LoadOps(params: {
         t('messages.persistence.projectLoaded', { name: projectName.value }),
         t('messages.persistence.loadSuccess')
       )
+
+      // 广播"画布内容加载完成"信号：画布侧（NodeCanvas 的加载适配）据此执行
+      // 一次性自动取景与位置异常修复。加载路径（启动/切换/重载）统一走此出口。
+      useCanvasStore().markContentLoaded()
       return true
     } catch (error) {
       // 项目路径不存在时提示用户（manifest 缺失或路径错误）

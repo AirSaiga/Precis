@@ -223,7 +223,8 @@
     display: flex;
     justify-content: center;
     align-items: center;
-    z-index: 20000;
+    /* 顶层告警档位：崩溃反馈必须压过其余 app overlay */
+    z-index: var(--ui-z-modal-alert);
     backdrop-filter: blur(4px);
   }
 

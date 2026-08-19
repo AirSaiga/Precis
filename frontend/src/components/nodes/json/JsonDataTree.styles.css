@@ -171,25 +171,26 @@
   text-overflow: ellipsis;
 }
 
-/* 类型颜色 */
+/* 类型颜色 — 统一走 --dtype-* 数据类型语义 token（node-tokens.css），
+   与 schema/json 节点类型 pill 同一映射（数值族=orange、boolean=cyan、object=purple、array=sky） */
 .type-string {
-  color: var(--ui-accent, #5a9bc7);
+  color: var(--dtype-string);
 }
 .type-number {
-  color: #059669;
+  color: var(--dtype-float);
 }
 .type-boolean {
-  color: #c2410c;
+  color: var(--dtype-boolean);
 }
 .type-null {
-  color: var(--ui-text-muted, #8a847c);
+  color: var(--dtype-null);
   font-style: italic;
 }
 .type-object {
-  color: #7c3aed;
+  color: var(--dtype-object);
 }
 .type-array {
-  color: #db2777;
+  color: var(--dtype-array);
 }
 
 /* 类型标签 */
@@ -205,33 +206,33 @@
 }
 
 .badge-string {
-  background: rgba(90, 155, 199, 0.12);
-  color: var(--ui-accent, #5a9bc7);
+  background: var(--dtype-string-bg);
+  color: var(--dtype-string);
 }
 
 .badge-number {
-  background: rgba(5, 150, 105, 0.12);
-  color: #059669;
+  background: var(--dtype-float-bg);
+  color: var(--dtype-float);
 }
 
 .badge-boolean {
-  background: rgba(194, 65, 12, 0.12);
-  color: #c2410c;
+  background: var(--dtype-boolean-bg);
+  color: var(--dtype-boolean);
 }
 
 .badge-null {
-  background: rgba(139, 133, 125, 0.12);
-  color: var(--ui-text-muted, #8b857d);
+  background: var(--dtype-null-bg);
+  color: var(--dtype-null);
 }
 
 .badge-object {
-  background: rgba(124, 58, 237, 0.12);
-  color: #7c3aed;
+  background: var(--dtype-object-bg);
+  color: var(--dtype-object);
 }
 
 .badge-array {
-  background: rgba(219, 39, 119, 0.12);
-  color: #db2777;
+  background: var(--dtype-array-bg);
+  color: var(--dtype-array);
 }
 
 /* 返回按钮 */

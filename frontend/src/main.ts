@@ -7,6 +7,9 @@
  */
 
 import './assets/main.css'
+// 可变字体（latin 子集按 unicode-range 懒加载，浏览器只下载实际用到的子集）
+import '@fontsource-variable/inter'
+import '@fontsource-variable/jetbrains-mono'
 // 注意：electron-api.d.ts 是类型声明文件，会在编译时被 TypeScript 处理
 // 无需显式导入，.d.ts 文件会自动被包含在编译中
 

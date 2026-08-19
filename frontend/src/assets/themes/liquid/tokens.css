@@ -230,11 +230,14 @@
   --ui-radius-xl: 22px;
   --ui-radius-full: 9999px;
 
-  /* 字体 */
+  /* 字体 — 与 primitive.css 同步补中文回退（默认 locale zh-CN） */
   --ui-font-family:
-    'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI Variable', Roboto,
-    sans-serif;
-  --ui-font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace;
+    'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+    'Segoe UI Variable', Roboto, 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei',
+    'Noto Sans CJK SC', sans-serif;
+  --ui-font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', 'SF Mono', 'Fira Code', 'Cascadia Code', Consolas,
+    'PingFang SC', 'Microsoft YaHei', 'Noto Sans CJK SC', monospace;
 
   /* 过渡：覆盖原子层（时长 + 缓动），组合令牌与别名自动继承，避免别名链断裂 */
   --dur-fast: 150ms;
@@ -305,35 +308,37 @@
   --node-type-constraint: var(--ui-accent);
   --node-type-constraint-bg: rgba(58, 160, 255, 0.06);
 
-  --node-type-constraint-notnull: var(--ui-danger);
-  --node-type-constraint-notnull-bg: var(--ui-danger-bg);
+  /* 约束类型分组色 — 与 root 同分组（结构=sky / 内容=orange / 引用逻辑=purple / 组合=pink），
+     liquid 下整体提亮为 pastel 基色 + 白色 mix 微分，保证玻璃底上可读 */
+  --node-type-constraint-notnull: #7ec3ff;
+  --node-type-constraint-notnull-bg: rgba(126, 195, 255, 0.1);
 
-  --node-type-constraint-unique: var(--ui-success);
-  --node-type-constraint-unique-bg: var(--ui-success-bg);
+  --node-type-constraint-unique: color-mix(in srgb, #7ec3ff 65%, white);
+  --node-type-constraint-unique-bg: rgba(126, 195, 255, 0.08);
 
-  --node-type-constraint-allowed: #7ec3ff;
-  --node-type-constraint-allowed-bg: rgba(126, 195, 255, 0.1);
+  --node-type-constraint-allowed: #ff9f6b;
+  --node-type-constraint-allowed-bg: rgba(255, 159, 107, 0.1);
+
+  --node-type-constraint-range: #f9c66b;
+  --node-type-constraint-range-bg: rgba(249, 198, 107, 0.1);
+
+  --node-type-constraint-charset: color-mix(in srgb, #ff9f6b 70%, white);
+  --node-type-constraint-charset-bg: rgba(255, 159, 107, 0.08);
+
+  --node-type-constraint-datetime: color-mix(in srgb, #f9c66b 65%, white);
+  --node-type-constraint-datetime-bg: rgba(249, 198, 107, 0.08);
 
   --node-type-constraint-foreign: #a78bfa;
   --node-type-constraint-foreign-bg: rgba(167, 139, 250, 0.1);
 
-  --node-type-constraint-conditional: #f9c66b;
-  --node-type-constraint-conditional-bg: rgba(249, 198, 107, 0.1);
+  --node-type-constraint-conditional: #c084fc;
+  --node-type-constraint-conditional-bg: rgba(192, 132, 252, 0.1);
 
-  --node-type-constraint-scripted: #ff9f6b;
-  --node-type-constraint-scripted-bg: rgba(255, 159, 107, 0.1);
+  --node-type-constraint-scripted: color-mix(in srgb, #a78bfa 55%, white);
+  --node-type-constraint-scripted-bg: rgba(167, 139, 250, 0.08);
 
-  --node-type-constraint-range: #22d3ee;
-  --node-type-constraint-range-bg: rgba(34, 211, 238, 0.1);
-
-  --node-type-constraint-charset: #f472b6;
-  --node-type-constraint-charset-bg: rgba(244, 114, 182, 0.08);
-
-  --node-type-constraint-datetime: #2dd4bf;
-  --node-type-constraint-datetime-bg: rgba(45, 212, 191, 0.08);
-
-  --node-type-constraint-composite: #c084fc;
-  --node-type-constraint-composite-bg: rgba(192, 132, 252, 0.1);
+  --node-type-constraint-composite: #f472b6;
+  --node-type-constraint-composite-bg: rgba(244, 114, 182, 0.1);
 
   /* 节点头部渐变：极淡的 tint */
   --node-header-gradient-primary: linear-gradient(

@@ -4,3 +4,4 @@
 
 export { useNodeOrganizer } from './useNodeOrganizer'
 export { useAutoOrganize } from './useAutoOrganize'
+export { useCanvasLoadAdaptation } from './useCanvasLoadAdaptation'

@@ -22,6 +22,8 @@ const canvas = {
   // [Added] NodeCanvas related
   nodeCanvas: {
     title: 'Data Validation System',
+    // 空画布引导：画布无业务节点（仅项目根或全空）时在视口中下部显示
+    emptyCanvasHint: 'Drag a node from the resource tree or toolbox to start modeling',
     createProject: 'Create Project',
     openProject: 'Open Project',
     focusProject: 'Focus Project',
@@ -144,7 +146,8 @@ const nodeTypeMenu = {
   tableDefinition: 'Table Definition Node',
   schemaNode: 'Schema Node',
   constraintRuleNode: 'Constraint Rule Node',
-  coreComponents: 'Core Components',
+  // P3 术语微调：工具箱分组标题从开发者视角的"Core Components"改为用户视角的"Node Library"
+  coreComponents: 'Node Library',
   projectRoot: 'Project Root',
 }
 
@@ -160,6 +163,8 @@ const statusBar = {
   regex: 'Regex',
   transforms: 'Transforms',
   noProject: 'No project open',
+  // 校验全绿时刻：状态栏成功计数（AppStatusBar 监听 full-validation-all-pass 显示）
+  allPass: 'All passed · {count} checks',
 }
 
 export { canvas }

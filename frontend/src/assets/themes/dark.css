@@ -125,3 +125,31 @@
   --color-black-90: rgba(0, 0, 0, 0.95);
   --color-black-95: rgba(0, 0, 0, 0.98);
 }
+
+/* ============================================================
+   Vue Flow Controls 适配（vendor 覆盖，不含 minimap — 见 base.css）
+   ------------------------------------------------------------
+   @vue-flow/controls 的 vendor 样式硬编码白底（#fefefe / hover #f4f4f4，
+   图标默认黑填充），dark 画布左下角会出现刺眼白条。此处用语义 token 覆盖。
+   注：controls 的 vendor CSS 经 NodeCanvas.vue 以 JS import 引入，落在
+   layer 体系之外（unlayered）——普通声明恒压过任何 layer 内声明，故此处
+   与 base.css 的 minimap 覆盖同款使用 !important 才能生效。
+   ============================================================ */
+[data-theme='dark'] .vue-flow__controls {
+  box-shadow: var(--ui-shadow-elevation-md) !important;
+}
+
+[data-theme='dark'] .vue-flow__controls-button {
+  background: var(--ui-bg-elevated) !important;
+  color: var(--ui-text-primary) !important;
+  border-bottom: 1px solid var(--ui-border-light) !important;
+}
+
+[data-theme='dark'] .vue-flow__controls-button:hover {
+  background: var(--ui-bg-hover) !important;
+}
+
+/* vendor 图标 path 无 fill 属性（默认黑填充），改为跟随按钮文字色 */
+[data-theme='dark'] .vue-flow__controls-button svg {
+  fill: currentColor !important;
+}

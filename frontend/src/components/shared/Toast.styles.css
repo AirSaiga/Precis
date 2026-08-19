@@ -1,10 +1,13 @@
 .toast-container {
   position: fixed;
-  top: 20px;
-  right: 20px;
-  z-index: 12000;
+  /* 底部居中：避开右侧抽屉/检查器的关闭热区（原右上角与抽屉头部 × 冲突，遮挡点击） */
+  bottom: 48px; /* 状态栏 28px + 留白 */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: var(--ui-z-notification);
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 12px;
   max-width: 400px;
   pointer-events: none;
@@ -116,12 +119,12 @@
 
 .toast-enter-from {
   opacity: 0;
-  transform: translateX(100%);
+  transform: translateY(12px);
 }
 
 .toast-leave-to {
   opacity: 0;
-  transform: translateX(100%);
+  transform: translateY(12px);
 }
 
 .toast-move {
@@ -132,6 +135,7 @@
   .toast-container {
     left: 10px;
     right: 10px;
+    transform: none;
     max-width: none;
   }
 

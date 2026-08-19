@@ -163,9 +163,19 @@
 
   /* ============================================================
      字体
+     ------------------------------------------------------------
+     中文回退：默认 locale 为 zh-CN，西文栈耗尽后必须落在中文字体，
+     否则汉字回退到浏览器默认衬线（视觉突兀）。顺序：
+     macOS (PingFang SC) → 日系 Mac 兜底 (Hiragino Sans GB) →
+     Windows (Microsoft YaHei) → Linux/跨平台 (Noto Sans CJK SC)。
+     mono 同理补中文安全回退（中文字符无等宽西文字体时落到系统中文）。
      ============================================================ */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, monospace;
+  --font-sans:
+    'Inter Variable', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans CJK SC', sans-serif;
+  --font-mono:
+    'JetBrains Mono Variable', 'JetBrains Mono', 'Fira Code', 'SF Mono', Consolas, 'PingFang SC',
+    'Microsoft YaHei', 'Noto Sans CJK SC', monospace;
 
   /* 字体大小 */
   --font-size-xs: 11px;

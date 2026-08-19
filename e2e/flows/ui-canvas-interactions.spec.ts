@@ -43,7 +43,7 @@ async function openFixtureProject(page: import('@playwright/test').Page, project
 /**
  * 关闭可能自动弹出的“配置自检”抽屉。
  *
- * 项目加载后若自检发现 blocker，InspectionDrawer 会以全屏遮罩（z-index: 25000）
+ * 项目加载后若自检发现 blocker，InspectionDrawer 会以全屏遮罩（--z-modal-stack 档位）
  * 自动打开，拦截后续所有点击。测试需要先关掉它才能操作左侧活动栏与画布。
  * 幂等：抽屉不可见时直接返回。
  */

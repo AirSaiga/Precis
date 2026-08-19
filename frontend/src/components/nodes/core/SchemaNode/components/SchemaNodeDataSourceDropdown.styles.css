@@ -6,7 +6,7 @@
   min-width: 280px;
   max-width: 360px;
   max-height: 400px;
-  z-index: 2147483647;
+  z-index: var(--ui-z-canvas-float);
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -18,7 +18,7 @@
   left: 0;
   width: 100vw;
   height: 100vh;
-  z-index: 2147483646;
+  z-index: var(--ui-z-canvas-float);
   background: transparent;
   cursor: default;
 }

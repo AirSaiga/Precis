@@ -1,5 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { getParticleColorClass, shouldRenderParticles } from '@/utils/edgeParticleColor'
+import {
+  getEdgeStrokeClass,
+  getParticleColorClass,
+  shouldRenderParticles,
+} from '@/utils/edgeParticleColor'
 
 describe('edgeParticleColor', () => {
   it('idle 态不渲染粒子', () => {
@@ -17,5 +21,17 @@ describe('edgeParticleColor', () => {
     expect(getParticleColorClass('missing')).toBe('particle--missing')
     expect(getParticleColorClass('idle')).toBe('')
     expect(getParticleColorClass(undefined)).toBe('')
+  })
+})
+
+describe('getEdgeStrokeClass（边主线校验着色）', () => {
+  it('校验完成态映射到对应着色 class', () => {
+    expect(getEdgeStrokeClass('pass')).toBe('edge-stroke--pass')
+    expect(getEdgeStrokeClass('error')).toBe('edge-stroke--error')
+    expect(getEdgeStrokeClass('missing')).toBe('edge-stroke--missing')
+  })
+  it('未运行（idle/undefined）不着色，维持中性线', () => {
+    expect(getEdgeStrokeClass('idle')).toBe('')
+    expect(getEdgeStrokeClass(undefined)).toBe('')
   })
 })

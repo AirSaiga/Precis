@@ -8,7 +8,7 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 10000;
+  z-index: var(--ui-z-modal);
   backdrop-filter: blur(4px);
 }
 

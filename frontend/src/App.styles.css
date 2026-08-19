@@ -90,6 +90,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 12px;
+  border: 1px solid transparent;
   border-radius: 4px;
   cursor: pointer;
   font-size: 12px;
@@ -100,12 +101,17 @@
 }
 
 .tab-item:hover {
-  background: var(--ui-bg-elevated);
+  background: var(--ui-bg-hover);
 }
 
+/* 工作区标签用中性样式（elevated 底 + 主文字色 + 细边框/字重区分 active），
+   不再用 accent 实心胶囊——避免与顶部 IDE/Agent 模式切换器（保持 accent）
+   语义混淆：accent 填充专留给一级模式开关 */
 .tab-item.active {
-  background: var(--ui-accent);
+  background: var(--ui-bg-elevated);
   color: var(--ui-text-primary);
+  border-color: var(--ui-border-strong);
+  font-weight: var(--ui-font-weight-semibold);
 }
 
 .tab-icon {
