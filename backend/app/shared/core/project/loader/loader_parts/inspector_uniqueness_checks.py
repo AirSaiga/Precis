@@ -30,6 +30,7 @@ def _report_schema_id_duplicates(
     """根据 id → refs 索引上报重复 id 的 blocker 错误。
 
     被 inspect_schema_id_orphan_conflict 调用，基于磁盘扫描结果上报。
+    ref_keys 为冲突 schema 的相对文件路径（schemas/xxx.schema.yaml）。
     """
     for sid, ref_keys in id_to_refs.items():
         count = len(ref_keys)
@@ -43,17 +44,19 @@ def _report_schema_id_duplicates(
                     description=f"Schema ID '{sid}' 被 {count} 个 schema 配置使用，可能导致约束引用指向错误的表。请确保每个 schema ID 唯一。",
                     fix_hint=f"请为重复的 schema 重新命名 ID（当前: {sid}），使其在项目内唯一。",
                     error_type="SchemaIdDuplicate",
-                    file_path="",
+                    # 归属到第一个冲突 schema 文件，前端"按文件"分组可见
+                    file_path=primary_ref,
                     ref_id=sid,
                     message="",
                     suggestion="修改其中一个 schema 文件的 id 字段，使其与其他 schema 不同",
                     actions=[
                         # 导航到画布中第一个重复 schema 节点，便于用户定位修改
+                        # （画布节点以 schema id 为节点 id，target 必须是 sid 而非文件路径）
                         {
                             "type": "navigate",
                             "label": "定位到节点",
                             "label_key": "inspection.actions.navigateToNode",
-                            "target": primary_ref,
+                            "target": sid,
                         },
                         # 复制重复 ID，便于排查
                         {
@@ -133,14 +136,16 @@ def inspect_schema_id_orphan_conflict(
 def inspect_source_uniqueness(
     schema_files: dict[str, TableSchemaFile],
     loading_errors: list[LoadingError],
+    schema_paths: dict[str, str] | None = None,
 ) -> None:
     """检测两个 schema 指向同一数据源（blocker）。
 
-    遍历所有 schema 的 source.path + source.sheet，标准化后构建索引。
-    如果同一 source 被多个 schema 引用，记录 blocker 级错误。
+    schema_paths: schema id → 文件相对路径（来自 manifest 引用），
+    用于把问题归属到具体配置文件；缺省时留空，由前端兜底展示。
     """
     from app.shared.core.project.schema.types_parts.schema_id import normalize_source_key
 
+    resolved_schema_paths = schema_paths or {}
     source_map: dict[tuple[str, str | None], list[str]] = {}
     for sid, sdoc in schema_files.items():
         source = getattr(sdoc, "source", None)
@@ -168,7 +173,8 @@ def inspect_source_uniqueness(
                     description=f"数据源 '{source_display}' 被 {len(sids)} 个 schema 引用: {', '.join(sids)}。每个数据源只能被一个 schema 定义。请删除重复的 schema 或修改其 source.path。",
                     fix_hint=f"请保留其中一个 schema（如 {sids[0]}），删除或修改其他的。",
                     error_type="SchemaSourceDuplicate",
-                    file_path="",
+                    # 归属到第一个引用该数据源的 schema 文件，前端"按文件"分组可见
+                    file_path=resolved_schema_paths.get(primary_ref, ""),
                     ref_id=primary_ref,
                     message="",
                     suggestion=f"保留 schema '{sids[0]}'，删除或修改: {', '.join(sids[1:])}",

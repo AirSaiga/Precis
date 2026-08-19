@@ -34,6 +34,20 @@ if TYPE_CHECKING:
     from app.shared.core.project.schema.types import TableSchemaFile
 
 
+def _resolve_constraint_path(constraint_id: str, constraint_paths: dict[str, str]) -> str:
+    """解析约束文件的相对路径，用于问题归属分组。
+
+    优先取 manifest 引用里的显式 path；清单缺失时按 V2 命名规范
+    （constraints/<id>.constraint.yaml）推导，保证"按文件"分组永远有组名。
+    """
+    return constraint_paths.get(constraint_id) or f"constraints/{constraint_id}.constraint.yaml"
+
+
+def _resolve_regex_path(regex_id: str, regex_paths: dict[str, str]) -> str:
+    """解析正则节点文件的相对路径（同 _resolve_constraint_path 的策略）。"""
+    return regex_paths.get(regex_id) or f"regex/{regex_id}.regex.yaml"
+
+
 def _check_table_missing(
     table_id: str,
     constraint_id: str,
@@ -47,8 +61,12 @@ def _check_table_missing(
     loading_errors: list[LoadingError],
     warnings: list[str],
     role_label: str,
+    file_path: str = "",
 ) -> None:
-    """检查引用的表是否存在，不存在时生成 LoadingError。"""
+    """检查引用的表是否存在，不存在时生成 LoadingError。
+
+    file_path 为该约束所属配置文件路径，用于前端"按文件"分组展示。
+    """
     schema = schema_files.get(table_id)
     schema_disp = schema_display(schema, fallback_id=table_id)
     msg = f"约束 '{constraint_id}' 引用的表 '{table_id}' 不存在"
@@ -61,7 +79,7 @@ def _check_table_missing(
             description=(f"{constraint_display} 要用到{role_label}表「{table_id}」，但这张表可能已被删除或改名了。"),
             fix_hint="点选下方一张现有的表即可。",
             error_type="ReferenceIntegrityError",
-            file_path="",
+            file_path=file_path,
             ref_id=constraint_id,
             message=msg,
             suggestion=f"请检查约束关联的表是否正确，可用的表: {[s['id'] for s in available_schemas]}",
@@ -101,8 +119,12 @@ def _check_column_missing(
     loading_errors: list[LoadingError],
     warnings: list[str],
     role_label: str,
+    file_path: str = "",
 ) -> None:
-    """检查引用的列是否存在，不存在时生成 LoadingError。"""
+    """检查引用的列是否存在，不存在时生成 LoadingError。
+
+    file_path 为该约束所属配置文件路径，用于前端"按文件"分组展示。
+    """
     schema = schema_files.get(table_id)
     available_cols = sorted(schema_column_cache.get(table_id, set()))
     msg = f"约束 '{constraint_id}' 引用的列 '{col_id}' 在表 '{table_id}' 中不存在"
@@ -117,7 +139,7 @@ def _check_column_missing(
             ),
             fix_hint="点选下方一个现有的列即可。",
             error_type="ReferenceIntegrityError",
-            file_path="",
+            file_path=file_path,
             ref_id=constraint_id,
             message=msg,
             suggestion=f"请检查列编号是否正确，表 '{table_id}' 的可用列: {available_cols}",
@@ -159,8 +181,14 @@ def inspect_reference_integrity(
     constraint_files: dict[str, ConstraintFile],
     warnings: list[str],
     loading_errors: list[LoadingError],
+    constraint_paths: dict[str, str] | None = None,
 ) -> None:
-    """检查约束引用的完整性。"""
+    """检查约束引用的完整性。
+
+    constraint_paths: 约束 id → 文件相对路径（来自 manifest 引用），
+    用于把问题归属到具体配置文件；缺省时按 V2 命名规范推导。
+    """
+    resolved_constraint_paths = constraint_paths or {}
     schema_column_cache: dict[str, set[str]] = {}
     for schema_id, schema_file in schema_files.items():
         schema_column_cache[schema_id] = collect_column_identifiers(schema_file.columns)
@@ -171,6 +199,9 @@ def inspect_reference_integrity(
         refs = constraint_file.refs
         if not refs:
             continue
+
+        # 当前约束的归属文件路径（"按文件"分组展示用）
+        constraint_file_path = _resolve_constraint_path(constraint_id, resolved_constraint_paths)
 
         table_id: str | None = None
         column_ids_to_check: list[str] = []
@@ -214,6 +245,7 @@ def inspect_reference_integrity(
                         loading_errors,
                         warnings,
                         "数据来源",
+                        file_path=constraint_file_path,
                     )
                 elif from_column_id and from_column_id not in schema_column_cache.get(from_table_id, set()):
                     _check_column_missing(
@@ -230,6 +262,7 @@ def inspect_reference_integrity(
                         loading_errors,
                         warnings,
                         "数据来源",
+                        file_path=constraint_file_path,
                     )
 
             if to_table_id:
@@ -247,6 +280,7 @@ def inspect_reference_integrity(
                         loading_errors,
                         warnings,
                         "关联目标",
+                        file_path=constraint_file_path,
                     )
                 elif to_column_id and to_column_id not in schema_column_cache.get(to_table_id, set()):
                     _check_column_missing(
@@ -263,6 +297,7 @@ def inspect_reference_integrity(
                         loading_errors,
                         warnings,
                         "关联目标",
+                        file_path=constraint_file_path,
                     )
 
             continue
@@ -303,6 +338,7 @@ def inspect_reference_integrity(
                     loading_errors,
                     warnings,
                     "",
+                    file_path=constraint_file_path,
                 )
             else:
                 # 校验每个子约束的引用完整性（递归叶子检查）
@@ -329,6 +365,7 @@ def inspect_reference_integrity(
                             loading_errors,
                             warnings,
                             f"（子规则 #{idx + 1}）",
+                            file_path=constraint_file_path,
                         )
                         continue
                     # 子约束的目标列缺失
@@ -371,6 +408,7 @@ def inspect_reference_integrity(
                                     loading_errors,
                                     warnings,
                                     f"（子规则 #{idx + 1}）",
+                                    file_path=constraint_file_path,
                                 )
             # Composite 已自行完成引用校验，跳过下方通用逻辑
             continue
@@ -390,6 +428,7 @@ def inspect_reference_integrity(
                 loading_errors,
                 warnings,
                 "",
+                file_path=constraint_file_path,
             )
             continue
 
@@ -412,6 +451,7 @@ def inspect_reference_integrity(
                         loading_errors,
                         warnings,
                         "",
+                        file_path=constraint_file_path,
                     )
 
 
@@ -420,8 +460,14 @@ def inspect_regex_reference_integrity(
     schema_files: dict[str, TableSchemaFile],
     warnings: list[str],
     loading_errors: list[LoadingError],
+    regex_paths: dict[str, str] | None = None,
 ) -> None:
-    """检查正则节点的 source_ref 引用完整性。"""
+    """检查正则节点的 source_ref 引用完整性。
+
+    regex_paths: 正则节点 id → 文件相对路径（来自 manifest 引用），
+    用于把问题归属到具体配置文件；缺省时按 V2 命名规范推导。
+    """
+    resolved_regex_paths = regex_paths or {}
     schema_column_cache: dict[str, set[str]] = {}
     for table_id, schema_file in schema_files.items():
         schema_column_cache[table_id] = collect_column_identifiers(schema_file.columns)
@@ -432,6 +478,9 @@ def inspect_regex_reference_integrity(
         source_ref = getattr(regex_file, "source_ref", None)
         if not source_ref:
             continue
+
+        # 当前正则节点的归属文件路径（"按文件"分组展示用）
+        regex_file_path = _resolve_regex_path(regex_id, resolved_regex_paths)
 
         table_id = source_ref.table_id
         column_id = source_ref.column_id
@@ -451,7 +500,7 @@ def inspect_regex_reference_integrity(
                     ),
                     fix_hint="点选下方一张现有的表即可。",
                     error_type="ReferenceIntegrityError",
-                    file_path="",
+                    file_path=regex_file_path,
                     ref_id=regex_id,
                     message=msg,
                     suggestion="请检查正则节点关联的表是否正确",
@@ -492,7 +541,7 @@ def inspect_regex_reference_integrity(
                     ),
                     fix_hint="点选下方一个现有的列即可。",
                     error_type="ReferenceIntegrityError",
-                    file_path="",
+                    file_path=regex_file_path,
                     ref_id=regex_id,
                     message=msg,
                     suggestion=f"请检查列编号是否正确，表 '{table_id}' 的可用列: {available_cols}",

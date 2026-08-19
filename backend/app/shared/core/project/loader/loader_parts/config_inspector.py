@@ -91,15 +91,21 @@ def inspect_config(
         loading_errors,
     )
 
+    # id → 文件相对路径索引（来自 manifest 引用），供引用/唯一性检查
+    # 把问题归属到具体配置文件（前端"按文件"分组依赖 file_path 字段）
+    schema_paths = {ref.id: ref.path for ref in manifest.schemas}
+    constraint_paths = {ref.id: ref.path for ref in manifest.constraints}
+    regex_paths = {ref.id: ref.path for ref in manifest.regex_nodes}
+
     # Schema ID 全局唯一性检测（基于磁盘扫描）
     # 同时覆盖 manifest 内文件冲突与孤儿文件冲突，避免重复上报
     inspect_schema_id_orphan_conflict(manifest_path.parent, manifest, schema_files, loading_errors)
 
-    inspect_source_uniqueness(schema_files, loading_errors)
+    inspect_source_uniqueness(schema_files, loading_errors, schema_paths)
 
-    inspect_reference_integrity(schema_files, constraint_files, warnings, loading_errors)
+    inspect_reference_integrity(schema_files, constraint_files, warnings, loading_errors, constraint_paths)
 
-    inspect_regex_reference_integrity(regex_node_files, schema_files, warnings, loading_errors)
+    inspect_regex_reference_integrity(regex_node_files, schema_files, warnings, loading_errors, regex_paths)
 
     errors_found = len(loading_errors) - errors_before
     warnings_found = len(warnings) - warnings_before

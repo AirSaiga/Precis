@@ -789,3 +789,111 @@ class TestFixIdMismatchEndpoint:
         req = FixIdMismatchRequest(resource_type="unknown", manifest_id="a", file_id="b")
         with pytest.raises(Exception):
             fix_id_mismatch(req, config_path)
+
+
+# ============================================================================
+# 问题归属文件路径（file_path）测试
+# 修复：自检抽屉"按文件"分组时引用缺失/数据源重复等问题的组名显示 <unknown>。
+# 根因是这些 LoadingError 的 file_path 为空串；现按 manifest 引用路径（缺省时
+# 按 V2 命名规范推导）填充归属文件。
+# ============================================================================
+
+
+class TestIssueFileAttribution:
+    """各检查产出的 LoadingError 应携带归属文件路径（"按文件"分组依赖）。"""
+
+    def test_ref_table_missing_uses_manifest_constraint_path(self):
+        """manifest 引用显式 path 时，引用缺失问题归属到该约束文件。"""
+        warnings: list[str] = []
+        errors: list[LoadingError] = []
+        constraint_files = {"c1": make_constraint(id="c1", refs={"table_id": "ghost", "column_id": "email"})}
+        inspect_reference_integrity(
+            {"users": make_schema()},
+            constraint_files,
+            warnings,
+            errors,
+            {"c1": "constraints/custom-name.constraint.yaml"},
+        )
+
+        assert len(errors) == 1
+        assert errors[0].file_path == "constraints/custom-name.constraint.yaml"
+
+    def test_ref_column_missing_falls_back_to_v2_naming(self):
+        """无路径映射时按 V2 命名规范推导 constraints/<id>.constraint.yaml。"""
+        warnings: list[str] = []
+        errors: list[LoadingError] = []
+        constraint_files = {
+            "c_ghost_col": make_constraint(id="c_ghost_col", refs={"table_id": "users", "column_id": "ghost_col"})
+        }
+        inspect_reference_integrity({"users": make_schema()}, constraint_files, warnings, errors)
+
+        assert len(errors) == 1
+        assert errors[0].file_path == "constraints/c_ghost_col.constraint.yaml"
+
+    def test_regex_table_missing_uses_regex_path_or_fallback(self):
+        """正则引用缺失：优先 manifest 路径，缺省推导 regex/<id>.regex.yaml。"""
+        warnings: list[str] = []
+        errors: list[LoadingError] = []
+        regex_files = {"r1": make_regex(id="r1", source_ref=RegexSourceRef(table_id="ghost", column_id="email"))}
+
+        # 显式路径
+        inspect_regex_reference_integrity(
+            regex_files, {"users": make_schema()}, warnings, errors, {"r1": "regex/custom.regex.yaml"}
+        )
+        assert len(errors) == 1
+        assert errors[0].file_path == "regex/custom.regex.yaml"
+
+        # 无路径映射 → V2 命名规范推导
+        warnings2: list[str] = []
+        errors2: list[LoadingError] = []
+        inspect_regex_reference_integrity(regex_files, {"users": make_schema()}, warnings2, errors2)
+        assert errors2[0].file_path == "regex/r1.regex.yaml"
+
+    def test_source_duplicate_uses_schema_path(self):
+        """数据源重复：归属到第一个引用该数据源的 schema 文件。"""
+        errors: list[LoadingError] = []
+        schema_files = {
+            "users": make_schema(source=SourceSpec(mode="relative_file", path="data/users.xlsx")),
+            "dup": make_schema(id="dup", source=SourceSpec(mode="relative_file", path="data/users.xlsx")),
+        }
+        inspect_source_uniqueness(schema_files, errors, {"users": "schemas/users.schema.yaml"})
+
+        assert len(errors) == 1
+        assert errors[0].file_path == "schemas/users.schema.yaml"
+
+    def test_source_duplicate_without_path_map_keeps_empty(self):
+        """无 schema 路径映射时保持空串（前端兜底显示未知文件，而非崩溃）。"""
+        errors: list[LoadingError] = []
+        schema_files = {
+            "users": make_schema(source=SourceSpec(mode="relative_file", path="data/users.xlsx")),
+            "dup": make_schema(id="dup", source=SourceSpec(mode="relative_file", path="data/users.xlsx")),
+        }
+        inspect_source_uniqueness(schema_files, errors)
+
+        assert len(errors) == 1
+        assert errors[0].file_path == ""
+
+    def test_schema_id_duplicate_uses_first_conflict_path(self, tmp_path):
+        """Schema ID 重复：归属到第一个冲突 schema 文件，且 navigate 目标为 schema id。"""
+        (tmp_path / "schemas").mkdir()
+        (tmp_path / "schemas" / "users.csv.schema.yaml").write_text(
+            "version: 2\nid: users\nname: users\ncolumns:\n  - id: id\n    name: id\n    type: integer\n",
+            encoding="utf-8",
+        )
+        (tmp_path / "schemas" / "users.schema.yaml").write_text(
+            "version: 2\nid: users\nname: users\ncolumns:\n  - id: email\n    name: email\n    type: string\n",
+            encoding="utf-8",
+        )
+        manifest = make_manifest(schemas=[SchemaRef(id="users", path="schemas/users.csv.schema.yaml")])
+        schema_files = {"users": make_schema(id="users")}
+        errors: list[LoadingError] = []
+        inspect_schema_id_orphan_conflict(tmp_path, manifest, schema_files, errors)
+
+        assert len(errors) == 1
+        err = errors[0]
+        # 归属到第一个冲突文件（磁盘扫描顺序），以 schemas/ 相对路径表示
+        assert err.file_path.startswith("schemas/")
+        assert err.file_path.endswith(".schema.yaml")
+        # navigate 目标必须是 schema id（画布节点 id），而非文件路径
+        navigate_action = next(a for a in err.actions if a["type"] == "navigate")
+        assert navigate_action["target"] == "users"
