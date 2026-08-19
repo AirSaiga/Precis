@@ -26,7 +26,11 @@ import {
   findBuildersByKind,
   clearBuildersForTest,
 } from '@/services/persistence/builders/registry'
-import { buildSchemaIdByNodeId, filterPersistentNodes } from '@/services/persistence/utils'
+import {
+  buildSchemaIdByNodeId,
+  filterPersistentNodes,
+  isIncompleteDraftNode,
+} from '@/services/persistence/utils'
 import {
   shouldEmbedInSchema,
   classifyConstraints,
@@ -155,6 +159,80 @@ describe('Persistence - Utils', () => {
     const result = filterPersistentNodes([normal, expanded])
     expect(result).toHaveLength(1)
     expect(result[0].id).toBe('schema-1')
+  })
+
+  // ============================================================================
+  // D-1 方案 B：未完成草稿节点跳过持久化（不阻断整项目保存）
+  // ============================================================================
+
+  it('isIncompleteDraftNode：无数据源的 draft schema 命中，配置数据源后不命中', () => {
+    const draft = makeSchemaNode()
+    ;(draft.data as any).saveState = 'draft'
+    ;(draft.data as any).sourceFilePath = undefined
+    expect(isIncompleteDraftNode(draft)).toBe(true)
+
+    const configured = makeSchemaNode()
+    ;(configured.data as any).saveState = 'draft'
+    ;(configured.data as any).sourceFilePath = 'D:/data/users.csv'
+    expect(isIncompleteDraftNode(configured)).toBe(false)
+
+    const savedNoSource = makeSchemaNode()
+    ;(savedNoSource as any).data = { ...(savedNoSource.data as any), saveState: 'saved' }
+    expect(isIncompleteDraftNode(savedNoSource)).toBe(false)
+  })
+
+  it('isIncompleteDraftNode：占位表引用的 draft 约束命中，真实表名（连线后）不命中', () => {
+    const unlinked = makeConstraintNode('notNullConstraint', { table: 'table_name' }, 'c-draft')
+    ;(unlinked.data as any).saveState = 'draft'
+    expect(isIncompleteDraftNode(unlinked)).toBe(true)
+
+    const fkUnlinked = makeConstraintNode(
+      'foreignKeyConstraint',
+      { sourceTable: 'source_table' },
+      'c-fk'
+    )
+    ;(fkUnlinked.data as any).saveState = 'draft'
+    expect(isIncompleteDraftNode(fkUnlinked)).toBe(true)
+
+    const linked = makeConstraintNode('notNullConstraint', { table: 'users' }, 'c-linked')
+    ;(linked.data as any).saveState = 'draft'
+    expect(isIncompleteDraftNode(linked)).toBe(false)
+
+    const savedPlaceholder = makeConstraintNode(
+      'notNullConstraint',
+      { table: 'table_name' },
+      'c-saved'
+    )
+    ;(savedPlaceholder.data as any).saveState = 'saved'
+    expect(isIncompleteDraftNode(savedPlaceholder)).toBe(false)
+  })
+
+  it('isIncompleteDraftNode：非 schema/约束类型不受影响（manualData draft 不跳过）', () => {
+    const manual = {
+      id: 'md-1',
+      type: 'manualData',
+      position: { x: 0, y: 0 },
+      data: { saveState: 'draft', rows: [['value1']] },
+    } as any
+    expect(isIncompleteDraftNode(manual)).toBe(false)
+  })
+
+  it('filterPersistentNodes：跳过未完成草稿 schema/约束，保留其余', () => {
+    const ok = makeSchemaNode()
+    const draftSchema = makeSchemaNode({ id: 'draft-schema-2' })
+    ;(draftSchema.data as any).saveState = 'draft'
+    ;(draftSchema.data as any).sourceFilePath = undefined
+    const draftConstraint = makeConstraintNode(
+      'notNullConstraint',
+      { table: 'table_name' },
+      'c-draft-2'
+    )
+    ;(draftConstraint.data as any).saveState = 'draft'
+    const linkedDraft = makeConstraintNode('notNullConstraint', { table: 'users' }, 'c-linked-2')
+    ;(linkedDraft.data as any).saveState = 'draft'
+
+    const result = filterPersistentNodes([ok, draftSchema, draftConstraint, linkedDraft])
+    expect(result.map((n) => n.id)).toEqual(['schema-1', 'c-linked-2'])
   })
 })
 

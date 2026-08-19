@@ -146,6 +146,8 @@ const messages = {
     exportYamlSuccess: 'YAML file exported successfully',
     saveRegexDesignFailed: 'Save failed',
     projectSaved: 'Project "{name}" saved',
+    projectSavedWithDrafts:
+      'Project "{name}" saved ({count} incomplete draft node(s) skipped — configure a data source or connect to include them)',
     projectSavedWithWarnings: 'Project "{name}" saved ({count} warnings)',
     projectLoaded: 'V2 project "{name}" loaded',
     schemaSaved: 'Schema "{name}" saved',

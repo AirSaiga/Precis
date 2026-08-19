@@ -108,7 +108,13 @@ import {
   buildV2TransformFile,
   buildV2SchemaFile,
 } from '@/services/builders'
-import { SaveOrchestrator, buildNodeFile, SchemaConflictResolver } from '@/services/persistence'
+import {
+  SaveOrchestrator,
+  buildNodeFile,
+  SchemaConflictResolver,
+  isIncompleteDraftNode,
+  filterPersistentNodes,
+} from '@/services/persistence'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
 import { platformDetector } from '@/features/keyboard/platform'
@@ -151,8 +157,15 @@ export function createV2SaveOps(params: {
     const execute = async (): Promise<boolean> => {
       const configPath = getEffectiveProjectConfigPath()
 
-      // 空节点检查：避免不必要的 API 调用
-      const manifestPreview = buildV2Manifest(nodes.value, projectName.value, configPath || '')
+      // 空节点检查：避免不必要的 API 调用。
+      // D-1 方案 B：用过滤后的节点判断——画布只剩未完成草稿时不应发起 PUT
+      // （否则空 payload 会清空磁盘 manifest），与"跳过保存"语义一致。
+      const persistablePreview = filterPersistentNodes(nodes.value)
+      const manifestPreview = buildV2Manifest(
+        persistablePreview,
+        projectName.value,
+        configPath || ''
+      )
       if (
         manifestPreview.schemas.length === 0 &&
         manifestPreview.constraints.length === 0 &&
@@ -162,6 +175,17 @@ export function createV2SaveOps(params: {
         logger.debug(
           '[saveProject] 没有需要保存的 schema/constraint/regex/transform 节点，跳过保存'
         )
+        // D-1 方案 B：早退路径同样向用户明示未落盘的草稿节点
+        const skippedDrafts = nodes.value.filter((n) => isIncompleteDraftNode(n)).length
+        if (skippedDrafts > 0) {
+          toastSuccess(
+            t('messages.persistence.projectSavedWithDrafts', {
+              name: projectName.value || 'untitled',
+              count: skippedDrafts,
+            }),
+            t('messages.persistence.saveSuccess')
+          )
+        }
         return true
       }
 
@@ -178,7 +202,17 @@ export function createV2SaveOps(params: {
 
       if (result.success) {
         const warningCount = result.errors?.filter((e) => e.severity === 'WARNING').length || 0
-        if (warningCount > 0) {
+        // D-1 方案 B：统计被跳过的未完成草稿节点，向用户明示它们未落盘
+        const draftCount = nodes.value.filter((n) => isIncompleteDraftNode(n)).length
+        if (draftCount > 0) {
+          toastSuccess(
+            t('messages.persistence.projectSavedWithDrafts', {
+              name: projectName.value || 'untitled',
+              count: draftCount,
+            }),
+            t('messages.persistence.saveSuccess')
+          )
+        } else if (warningCount > 0) {
           toastSuccess(
             t('messages.persistence.projectSavedWithWarnings', {
               name: projectName.value || 'untitled',

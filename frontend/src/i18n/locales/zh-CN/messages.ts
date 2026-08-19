@@ -139,6 +139,8 @@ const messages = {
     exportYamlSuccess: 'YAML 文件导出成功',
     saveRegexDesignFailed: '保存失败',
     projectSaved: '项目 "{name}" 已保存',
+    projectSavedWithDrafts:
+      '项目 "{name}" 已保存（{count} 个未完成的草稿节点未保存，配置数据源或连线后自动纳入）',
     projectSavedWithWarnings: '项目 "{name}" 已保存（{count} 个警告）',
     projectLoaded: 'V2 项目 "{name}" 已载入',
     schemaSaved: 'Schema "{name}" 已保存',

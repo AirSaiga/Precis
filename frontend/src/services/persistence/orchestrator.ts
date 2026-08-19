@@ -15,6 +15,7 @@ import type { FullConfigV2Request } from '@/types/projectV2'
 import { putV2FullConfig, putV2ProjectView } from '@/api/projectV2Api'
 import { buildV2ProjectView } from '@/services/builders'
 import { buildSavePlan, buildIncrementalSavePlan } from './planBuilder'
+import { isIncompleteDraftNode } from './utils'
 import { PreValidator } from './preValidator'
 import type { SavePlan, SaveResult, AutoFixRecord } from './types'
 export interface OrchestratorDeps {
@@ -265,6 +266,9 @@ export class SaveOrchestrator {
     for (const node of this.deps.nodes.value) {
       if (!node.type || !persistableTypes.has(node.type)) continue
       if (scope instanceof Set && !scope.has(node.id)) continue
+      // D-1 方案 B：未完成的草稿节点未进保存 payload，保持 draft 状态（误标 saved 会让
+      // 下次保存重新进 payload 并再次触发 BLOCKER）
+      if (isIncompleteDraftNode(node)) continue
       this.deps.updateNodeData(node.id, {
         saveState: 'saved',
         lastSaved: now,

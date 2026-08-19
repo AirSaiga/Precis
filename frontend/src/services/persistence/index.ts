@@ -19,6 +19,7 @@ export {
   buildSchemaIdByNodeId,
   normalizeTableId,
   filterPersistentNodes,
+  isIncompleteDraftNode,
   buildNodeFile,
 } from './utils'
 export * from './types'

@@ -61,6 +61,9 @@ vi.mock('@/services/persistence', () => ({
       .mockResolvedValue({ cancelled: false, saveMode: 'overwrite', filePath: 'test.yaml' }),
     handle409Conflict: vi.fn().mockResolvedValue('overwrite'),
   })),
+  // D-1 方案 B：直通实现（空判与草稿计数用；单测场景无 draft 节点）
+  filterPersistentNodes: vi.fn((nodes: unknown[]) => nodes),
+  isIncompleteDraftNode: vi.fn(() => false),
 }))
 
 vi.mock('@/composables/useGlobalConfirm', () => ({
@@ -84,7 +87,8 @@ import {
   updateV2ManifestTransformRef,
   updateV2ManifestTemplateInstanceRef,
 } from '@/api/projectV2Api'
-import { buildNodeFile, SaveOrchestrator } from '@/services/persistence'
+import { buildNodeFile, SaveOrchestrator, isIncompleteDraftNode } from '@/services/persistence'
+import { toastSuccess, toastError } from '@/core/toast'
 import { buildV2Manifest } from '@/services/builders'
 import { createV2SaveOps } from '@/stores/graphStore/modules/v2/persistence/save'
 
@@ -267,6 +271,57 @@ describe('createV2SaveOps', () => {
       // 上一轮已 settle，新一轮不应被复用
       await saveOps.saveProject()
       expect(SaveOrchestrator).toHaveBeenCalledTimes(2)
+    })
+  })
+
+  describe('saveProject D-1 方案 B：未完成草稿跳过持久化', () => {
+    it('画布只剩草稿时早退跳过 PUT，但仍提示草稿未保存', async () => {
+      // 画布放一个未完成草稿节点（计数来源）
+      nodes.value = [makeNode('draft-1', 'schema', { saveState: 'draft' })]
+      // 空判命中：过滤后四类资源全空（filterPersistentNodes 直通 + manifest 全空）
+      vi.mocked(buildV2Manifest).mockReturnValue({
+        schemas: [],
+        constraints: [],
+        regex_nodes: [],
+        transforms: [],
+      } as any)
+      vi.mocked(isIncompleteDraftNode).mockReturnValue(true)
+      toastSuccess.mockClear()
+
+      const result = await saveOps.saveProject()
+
+      expect(result).toBe(true)
+      // 早退：不应构造 orchestrator（不发起 PUT）
+      expect(SaveOrchestrator).not.toHaveBeenCalled()
+      // 但要向用户明示草稿未落盘
+      expect(toastSuccess).toHaveBeenCalledWith(
+        'messages.persistence.projectSavedWithDrafts',
+        'messages.persistence.saveSuccess'
+      )
+    })
+
+    it('有可保存内容时正常保存，成功 toast 附草稿计数', async () => {
+      nodes.value = [
+        makeNode('draft-1', 'schema', { saveState: 'draft' }),
+        makeNode('draft-2', 'schema', { saveState: 'draft' }),
+      ]
+      vi.mocked(buildV2Manifest).mockReturnValue({ schemas: [{ id: 's1' }] } as any)
+      vi.mocked(SaveOrchestrator).mockImplementation(function () {
+        return { saveProject: vi.fn().mockResolvedValue({ success: true }) } as any
+      })
+      vi.mocked(isIncompleteDraftNode).mockReturnValue(true)
+      toastSuccess.mockClear()
+      toastError.mockClear()
+
+      const result = await saveOps.saveProject()
+
+      expect(result).toBe(true)
+      expect(toastSuccess).toHaveBeenCalledWith(
+        'messages.persistence.projectSavedWithDrafts',
+        'messages.persistence.saveSuccess'
+      )
+      // 不应再走"保存失败"分支（修复前 draft 会触发 BLOCKER）
+      expect(toastError).not.toHaveBeenCalled()
     })
   })
 })

@@ -36,10 +36,48 @@ export function normalizeTableId(
 }
 
 /**
- * 判断节点是否为可持久化节点（排除模板展开预览节点）
+ * 宽松读取节点 data 为 Record（CustomNodeData 是 discriminated union，
+ * 读取跨类型松散字段需经 unknown 中转——本模块唯一的边界断言）。
+ */
+function looseData(node: CustomNode): Record<string, unknown> {
+  return (node.data ?? {}) as unknown as Record<string, unknown>
+}
+
+/**
+ * 判断节点是否为可持久化节点（排除模板展开预览节点与未完成的草稿节点）
  */
 export function isPersistentNode(node: CustomNode): boolean {
-  return !(node.data as unknown as Record<string, unknown>)?._expandedFromInstanceId
+  const data = looseData(node)
+  if (data._expandedFromInstanceId) return false
+  return !isIncompleteDraftNode(node)
+}
+
+/** 约束工厂的表引用占位值（连线时会回写真实表名，见 useConstraintConnection） */
+const PLACEHOLDER_TABLE_VALUES = new Set(['table_name', 'source_table'])
+
+/**
+ * 判断节点是否为"未完成的草稿"（D-1 方案 B：跳过持久化而非阻断整项目保存）。
+ *
+ * 仅覆盖会产生保存 BLOCKER 的两类节点，配置完成后自然恢复持久化：
+ * - schema/jsonSchema：saveState=draft 且无任何数据源（与 buildSourceSpec 的 undefined 条件一致），
+ *   配置数据源后即不再命中
+ * - 约束节点：saveState=draft 且表引用仍为工厂占位值（未连线），
+ *   连线时 useConstraintConnection 会回写真实 table + sourceRef，即不再命中
+ *
+ * 其他类型（manualData/transform/regex/templateInstance 等）不产生 BLOCKER，不跳过。
+ */
+export function isIncompleteDraftNode(node: CustomNode): boolean {
+  const data = looseData(node)
+  if (data.saveState !== 'draft') return false
+  const t = node.type
+  if (t === 'schema' || t === 'jsonSchema') {
+    return !data.sourceFilePath && !data.sourceFile && !data.localPath
+  }
+  if (typeof t === 'string' && t.endsWith('Constraint')) {
+    const table = data.table ?? data.sourceTable
+    return !table || (typeof table === 'string' && PLACEHOLDER_TABLE_VALUES.has(table))
+  }
+  return false
 }
 
 /**
