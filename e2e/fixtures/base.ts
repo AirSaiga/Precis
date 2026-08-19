@@ -40,6 +40,14 @@ type Fixtures = {
 
 export const test = base.extend<Fixtures>({
   projectPage: async ({ page }, use) => {
+    // 可选 CPU 限速：E2E_CPU_THROTTLE=<倍率> 时经 CDP 注入（默认关闭）。
+    // 用于本地模拟 CI 慢环境——部分时序缺陷（迟到 fitView、动画与交互重叠）
+    // 只在慢机器上复现。
+    if (process.env.E2E_CPU_THROTTLE) {
+      const rate = Number(process.env.E2E_CPU_THROTTLE) || 4
+      const cdp = await page.context().newCDPSession(page)
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate })
+    }
     await use(page)
   },
 

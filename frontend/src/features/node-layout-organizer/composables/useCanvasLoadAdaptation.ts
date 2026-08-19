@@ -48,6 +48,13 @@ const adaptedWorkspaceIds = new Set<string>()
  * 等待节点稳定后再适配，避免中途视图被旧状态打断。 */
 const SETTLE_DEBOUNCE_MS = 160
 
+/** 防抖硬上限：首次 arm 起最迟多少 ms 内必须执行适配（防抖重置不延长它）。
+ * 慢环境（CI/低配机）下加载链路的节点变更流（水合/校验回写）可持续数秒，
+ * 若无限重置防抖，fitView 会迟到数秒——落在用户已经开始画布交互之后，
+ * 视口突跳会把用户刚放好的节点甩到 MiniMap/面板之下（点击被遮挡、
+ * 连线落点漂移）。宁可对部分内容提前取景，也不允许迟到取景。 */
+const SETTLE_HARD_CAP_MS = 2500
+
 /** 列式排布的行间距（约束节点高度约 100，加 60 间距 ≈ 原导入列的 160 步进） */
 const COLUMN_ROW_GAP = 60
 
@@ -63,11 +70,24 @@ export function useCanvasLoadAdaptation(): void {
   const { fitView } = useVueFlow()
 
   let settleTimer: ReturnType<typeof setTimeout> | null = null
+  let hardCapTimer: ReturnType<typeof setTimeout> | null = null
   let armed = false
 
-  /** 进入待稳定状态并重启防抖 */
+  /** 进入待稳定状态并重启防抖（硬上限窗口只开一次，同一次加载的多次 arm 共享） */
   function arm(): void {
     armed = true
+    if (hardCapTimer === null) {
+      hardCapTimer = setTimeout(() => {
+        hardCapTimer = null
+        if (!armed) return
+        armed = false
+        if (settleTimer !== null) {
+          clearTimeout(settleTimer)
+          settleTimer = null
+        }
+        void runAdaptation()
+      }, SETTLE_HARD_CAP_MS)
+    }
     restartSettleTimer()
   }
 
@@ -111,6 +131,10 @@ export function useCanvasLoadAdaptation(): void {
     if (settleTimer !== null) {
       clearTimeout(settleTimer)
       settleTimer = null
+    }
+    if (hardCapTimer !== null) {
+      clearTimeout(hardCapTimer)
+      hardCapTimer = null
     }
     armed = false
   })
