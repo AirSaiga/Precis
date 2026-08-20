@@ -141,7 +141,10 @@ async function createConstraintFromToolbox(page: Page, constraintName: string) {
 
 /**
  * 基于 mouse 事件的 handle→handle 连线（绕开 Playwright dragTo 的可见性断言——
- * Vue Flow handle 常以透明样式渲染，boundingBox 仍存在）
+ * Vue Flow handle 常以透明样式渲染，boundingBox 仍存在）。
+ * drop 前在目标附近微移并留足 hover 注册时间：慢环境（CI）下 Vue Flow
+ * 需要若干帧处理 pointermove 才把目标 handle 标记为可投放，150ms 不够时
+ * 连线会被静默丢弃（边数不增加）。
  */
 async function dragConnection(page: Page, from: Locator, to: Locator) {
   const fromBox = await from.boundingBox()
@@ -149,10 +152,15 @@ async function dragConnection(page: Page, from: Locator, to: Locator) {
   if (!fromBox || !toBox) {
     throw new Error('连线端点 handle 不存在或未渲染')
   }
+  const tx = toBox.x + toBox.width / 2
+  const ty = toBox.y + toBox.height / 2
   await page.mouse.move(fromBox.x + fromBox.width / 2, fromBox.y + fromBox.height / 2)
   await page.mouse.down()
-  await page.mouse.move(toBox.x + toBox.width / 2, toBox.y + toBox.height / 2, { steps: 20 })
-  await page.waitForTimeout(150)
+  await page.mouse.move(tx, ty, { steps: 20 })
+  // 微移两次刷新 hover 状态 + 给 Vue Flow 足够的 drop 目标注册时间
+  await page.mouse.move(tx + 2, ty + 1, { steps: 2 })
+  await page.mouse.move(tx, ty, { steps: 2 })
+  await page.waitForTimeout(400)
   await page.mouse.up()
 }
 

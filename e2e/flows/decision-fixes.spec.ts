@@ -112,11 +112,14 @@ test.describe('三项决策修复回归', () => {
     await expect(draftNodes.first()).toBeVisible({ timeout: 5000 })
 
     // fixture 项目的 templateInstance 节点可能叠在根节点按钮上（拦截 hit-test），
-    // 先"整理节点"展开布局，再点击根节点上的 ↻ 重载按钮
+    // 先"整理节点"展开布局，再点击根节点上的 ↻ 重载按钮。
+    // 慢环境（CI）下整理动画可持续数秒、按钮长期 not-stable——用重试点击
+    // 等待布局稳定，固定等待 + 单次点击会超时。
     await page.locator('button[title="整理节点"]').click().catch(() => {})
-    await page.waitForTimeout(1500)
     const reloadBtn = page.locator('.project-root-node button.btn-icon').first()
-    await reloadBtn.click({ timeout: 10000 })
+    await expect(async () => {
+      await reloadBtn.click({ timeout: 4000 })
+    }).toPass({ timeout: 30000 })
 
     // 三选一确认框出现
     const overlay = page.locator('.global-confirm-overlay')
