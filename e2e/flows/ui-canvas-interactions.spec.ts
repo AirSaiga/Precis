@@ -260,20 +260,44 @@ test.describe('画布真实 UI 交互', () => {
     // 故独立约束在删除 schema 后应【保留】在画布上。
     await dragSchemaToCanvas(page, 'users', 'importAll')
 
-    // 等待约束节点异步创建完成
+    // 等待约束节点异步创建完成（慢环境下批量创建会持续数秒，须等计数稳定
+    // 再快照，否则删除后与进行中的创建竞争导致数量对不上）
     const constraintLocator = page.locator('[class*="vue-flow__node-"][class*="Constraint"]')
-    await expect(constraintLocator.first()).toBeVisible({ timeout: 15000 })
+    await expect(async () => {
+      const first = await constraintLocator.count()
+      expect(first).toBeGreaterThan(0)
+      await page.waitForTimeout(800)
+      expect(await constraintLocator.count()).toBe(first)
+    }).toPass({ timeout: 20000 })
     const constraintCountBefore = await constraintLocator.count()
-    expect(constraintCountBefore).toBeGreaterThan(0)
 
     // 记录删除前的 schema 节点，便于删除后断言其消失
     const schemaNode = page.locator('.vue-flow__node-schema').first()
     await expect(schemaNode).toBeVisible({ timeout: 10000 })
 
     // 删除前应存在连接 schema 与约束的边（importConstraint 会 ensureSchemaToConstraintEdge）。
+    // 边在约束节点渲染后异步建立（缓冲边在下个 tick flush），慢环境下会滞后——
+    // 轮询等待而非立即计数。
     const edgeLocator = page.locator('.vue-flow__edge')
+    await expect(async () => {
+      expect(await edgeLocator.count()).toBeGreaterThan(0)
+    }).toPass({ timeout: 15000 })
     const edgeCountBefore = await edgeLocator.count()
-    expect(edgeCountBefore).toBeGreaterThan(0)
+
+    // 导入会自动选中 schema → 检查器面板展开使画布整体收窄；节点默认落在
+    // （收窄前的）画布中心，其头部关闭按钮可能被右侧面板遮挡导致点击拦截。
+    // 把节点拖到画布左 1/4 区域再操作（同 canvas-interaction-regression 的处理）。
+    const paneBox = await page.locator('.vue-flow__pane').boundingBox()
+    const nodeBox = await schemaNode.boundingBox()
+    if (paneBox && nodeBox && nodeBox.x + nodeBox.width > paneBox.x + paneBox.width - 360) {
+      await page.mouse.move(nodeBox.x + 30, nodeBox.y + 12)
+      await page.mouse.down()
+      await page.mouse.move(paneBox.x + paneBox.width * 0.25, paneBox.y + paneBox.height / 2, {
+        steps: 12,
+      })
+      await page.mouse.up()
+      await page.waitForTimeout(300)
+    }
 
     // 点击 schema 节点头部的关闭按钮（×）触发 NodeDeletionManager.delete，
     // 走 schema 策略（deleteSchemaNode：批量 deleteNodes 子约束 + 清理 sourcePreview 反向引用），

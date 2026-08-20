@@ -48,6 +48,34 @@ export const test = base.extend<Fixtures>({
       const cdp = await page.context().newCDPSession(page)
       await cdp.send('Emulation.setCPUThrottlingRate', { rate })
     }
+    // 可选后端延迟：E2E_API_DELAY=<ms> 时延迟所有 /api/ 请求（默认关闭），
+    // 模拟 CI 上后端冷启动/慢盘导致的加载链路整体后移（迟到 epoch/水合）。
+    if (process.env.E2E_API_DELAY) {
+      const delay = Number(process.env.E2E_API_DELAY) || 300
+      await page.route('**/api/**', async (route) => {
+        await new Promise((r) => setTimeout(r, delay))
+        await route.continue()
+      })
+    }
+    // 隐藏画布 MiniMap：它是画布内右下角悬浮层，会吞掉落点在其区域的
+    // locator 点击（hit-test 拦截）与连线 pointerup（Vue Flow 收不到完成
+    // 事件）。加载后自动取景会把节点铺到视口各处，慢环境下节点与 MiniMap
+    // 的相对位置不确定，导致仅 CI 复现的几何遮挡类抖动。没有任何 e2e 用例
+    // 覆盖 MiniMap 自身功能，测试环境统一隐藏以消除该变量。
+    await page.addInitScript(() => {
+      const inject = () => {
+        if (document.getElementById('e2e-hide-minimap')) return
+        const style = document.createElement('style')
+        style.id = 'e2e-hide-minimap'
+        style.textContent = '.vue-flow__minimap { display: none !important; }'
+        ;(document.head || document.documentElement).appendChild(style)
+      }
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', inject)
+      } else {
+        inject()
+      }
+    })
     await use(page)
   },
 

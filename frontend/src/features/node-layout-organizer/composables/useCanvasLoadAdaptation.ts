@@ -150,10 +150,12 @@ export function useCanvasLoadAdaptation(): void {
       if (moved) await nextTick()
       // 不对称 px 留白：右下角 MiniMap（约 200x150）悬浮在画布内、右侧检查器
       // 面板与画布宽度存在展开过渡——取景时让出这些区域，避免取景后节点贴边
-      // 落在浮层之下点不到。duration: 0 瞬时完成，不留 300ms 动画窗口
-      //（慢环境下动画会与用户/测试的画布交互重叠，导致点击落点漂移）。
+      // 落在浮层之下点不到。右侧预留需覆盖检查器面板宽度（选中节点后展开
+      // 会使画布整体收窄约 300px，预留不足时右侧节点会被面板盖住）。
+      // duration: 0 瞬时完成，不留 300ms 动画窗口（慢环境下动画会与用户/测试
+      // 的画布交互重叠，导致点击落点漂移）。
       fitView({
-        padding: { top: '60px', left: '60px', right: '240px', bottom: '200px' },
+        padding: { top: '60px', left: '60px', right: '360px', bottom: '200px' },
         duration: 0,
       })
       if (moved) {
