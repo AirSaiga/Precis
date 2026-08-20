@@ -231,22 +231,29 @@ test.describe('画布交互防回归（2026-08 修复批次回归锁）', () => 
     // 第一条边建立成功
     expect(await countEdges(page)).toBeGreaterThanOrEqual(edgesBefore + 1)
 
-    // 第一条边会触发约束节点的异步校验，结果落地时节点内容/高度可能变化、
-    // handle 随之位移（慢环境下恰在第二条拖拽中途发生，drop 落空、边被
-    // 静默丢弃）。等节点几何稳定后再连第二条。
+    // 第一条边会触发约束节点的异步校验与 schema 列表的自动滚动（已连列
+    // 滚入视野 → 虚拟锚点同步 → handle 位移），慢环境下恰在第二条拖拽的
+    // boundingBox 读取与 mouse.down 之间发生，拖拽落空、边被静默丢弃。
+    // 等两个节点几何都稳定后，用"重试拖拽直到边出现"兜底。
     await expect(async () => {
-      const b1 = await condNode.boundingBox()
+      const read = async () => {
+        const c = await condNode.boundingBox()
+        const s = await schemaNode.boundingBox()
+        return c && s ? `${c.y},${c.height};${s.y},${s.height}` : 'null'
+      }
+      const a = await read()
       await page.waitForTimeout(500)
-      const b2 = await condNode.boundingBox()
-      expect(
-        b1 && b2 && Math.abs(b1.y - b2.y) < 1 && Math.abs(b1.height - b2.height) < 1
-      ).toBe(true)
+      expect(await read()).toBe(a)
     }).toPass({ timeout: 10000 })
 
     // 4. 回归锁：第二条边（列 2 → THEN handle）不再被节点对判重静默拒绝
-    await dragConnection(page, colHandles.nth(1), thenHandle)
-    await page.waitForTimeout(800)
-    expect(await countEdges(page)).toBeGreaterThanOrEqual(edgesBefore + 2)
+    await expect(async () => {
+      if ((await countEdges(page)) < edgesBefore + 2) {
+        await dragConnection(page, colHandles.nth(1), thenHandle)
+        await page.waitForTimeout(600)
+      }
+      expect(await countEdges(page)).toBeGreaterThanOrEqual(edgesBefore + 2)
+    }).toPass({ timeout: 20000 })
   })
 
   test('跨工作区 Tab 切换后 Ctrl+Z 不串味；重启后激活 Tab 画布恢复', async ({ projectPage }) => {
