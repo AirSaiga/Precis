@@ -231,6 +231,18 @@ test.describe('画布交互防回归（2026-08 修复批次回归锁）', () => 
     // 第一条边建立成功
     expect(await countEdges(page)).toBeGreaterThanOrEqual(edgesBefore + 1)
 
+    // 第一条边会触发约束节点的异步校验，结果落地时节点内容/高度可能变化、
+    // handle 随之位移（慢环境下恰在第二条拖拽中途发生，drop 落空、边被
+    // 静默丢弃）。等节点几何稳定后再连第二条。
+    await expect(async () => {
+      const b1 = await condNode.boundingBox()
+      await page.waitForTimeout(500)
+      const b2 = await condNode.boundingBox()
+      expect(
+        b1 && b2 && Math.abs(b1.y - b2.y) < 1 && Math.abs(b1.height - b2.height) < 1
+      ).toBe(true)
+    }).toPass({ timeout: 10000 })
+
     // 4. 回归锁：第二条边（列 2 → THEN handle）不再被节点对判重静默拒绝
     await dragConnection(page, colHandles.nth(1), thenHandle)
     await page.waitForTimeout(800)
