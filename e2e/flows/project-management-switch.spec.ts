@@ -3,12 +3,11 @@
  *
  * 覆盖盲区：该路径的 useProjectReload 守卫在事件处理器上下文调用（历史上曾因
  * 内部 useI18n() 抛 MUST_BE_CALL_SETUP_TOP 导致整条路径不可用），且 e2e 均经
- * 环境变量/选择器注入项目、从不经过弹窗 UI，使其成为无 CI 覆盖的回归盲区。
+ * 环境变量/预置 localStorage 注入项目、从不经过弹窗 UI，使其成为无 CI 覆盖的回归盲区。
  *
- * 入口选择：Chromium 支持 webkitdirectory → dialogApi.canSelectDirectoryEntries
- * 为 true → 弹窗渲染"选择项目文件夹"分支而非 Web 路径输入框。因此用"最近项目"
- * 列表驱动（handleOpenRecentProject → loadProject，与 Web 输入共用同一守卫路径），
- * 目标项目通过 localStorage 的 recentProjects 预置。
+ * 入口选择：目录选择仅 Electron 提供（dialogApi.canSelectDirectory），Web 渲染手动
+ * 路径输入框。本 spec 用"最近项目"列表驱动（handleOpenRecentProject → loadProject，
+ * 与 Web 输入共用同一守卫路径），目标项目通过 localStorage 的 recentProjects 预置。
  *
  * 覆盖：
  * 1. 无草稿：经弹窗最近项目切换 → 弹窗关闭、状态栏项目名切换为目标项目
@@ -20,12 +19,31 @@ import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
 import { QA_SIMPLE_SOURCE } from '../fixtures/base'
+import { openProjectOnCanvas } from '../fixtures/openProject'
 
 const SOURCE_MANIFEST_PROJECT_BLOCK = '  id: qa_simple\n  name: QA 测试工程（统一测试集）'
 const SECOND_PROJECT_ID = 'qa_switch_target'
 const SECOND_PROJECT_NAME = 'QA 切换目标工程'
 
 /** 制作第二个可区分的项目副本（改写 manifest 的 project.id/name），返回临时目录 */
+
+/**
+ * 带重试的临时目录清理。Windows 下后端进程可能短暂持有刚加载文件的句柄，
+ * rmSync 立即执行会撞 EBUSY——重试等待句柄释放（功能断言此时已全部通过）。
+ */
+function rmRetry(dir: string, attempts = 5) {
+  for (let i = 0; i < attempts; i++) {
+    try {
+      fs.rmSync(dir, { recursive: true, force: true })
+      return
+    } catch {
+      if (i === attempts - 1) throw new Error('临时目录清理失败（文件被占用）: ' + dir)
+      const until = Date.now() + 400
+      while (Date.now() < until) { /* 同步等待 */ }
+    }
+  }
+}
+
 function makeSecondProject(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'precis-e2e-switch-'))
   fs.cpSync(QA_SIMPLE_SOURCE, dir, { recursive: true })
@@ -47,13 +65,7 @@ function makeSecondProject(): string {
 }
 
 async function openFixtureProject(page: import('@playwright/test').Page, projectPath: string) {
-  await page.goto('/')
-  await expect(page.locator('.project-selector')).toBeVisible({ timeout: 15000 })
-  const input = page.locator('.project-selector-input')
-  await input.fill('')
-  await input.fill(projectPath.replace(/\\/g, '/'))
-  await page.locator('.project-selector-open-btn').click()
-  await expect(page.locator('.project-root-node')).toBeVisible({ timeout: 30000 })
+  await openProjectOnCanvas(page, projectPath)
 }
 
 async function closeInspectionDrawer(page: import('@playwright/test').Page) {
@@ -141,7 +153,7 @@ test.describe('项目管理弹窗切换项目', () => {
         timeout: 10000,
       })
     } finally {
-      fs.rmSync(secondDir, { recursive: true, force: true })
+      rmRetry(secondDir)
     }
   })
 
@@ -171,7 +183,7 @@ test.describe('项目管理弹窗切换项目', () => {
       })
       await expect(page.locator('.project-root-node')).toBeVisible({ timeout: 15000 })
     } finally {
-      fs.rmSync(secondDir, { recursive: true, force: true })
+      rmRetry(secondDir)
     }
   })
 })

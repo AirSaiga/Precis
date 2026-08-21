@@ -52,8 +52,13 @@ export const useWorkspaceStore = defineStore('workspace', () => {
 
   // --- Actions: 配置加载与保存 ---
 
-  /** 从后端加载工作区配置（应用启动时调用） */
+  /** 从后端加载工作区配置（应用启动时调用）。无激活项目时直接跳过——
+   *  该接口需要 X-Project-Config-Path header，无项目请求只会得到 422 报错 */
   async function loadConfig() {
+    if (!useProjectStore().isProjectActive) {
+      logger.debug('[WorkspaceStore] 无激活项目，跳过工作区配置加载')
+      return
+    }
     config.value = await loadWorkspaceConfig()
   }
 

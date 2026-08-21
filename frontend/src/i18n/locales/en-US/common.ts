@@ -602,24 +602,9 @@ const common = {
     errorDuplicateId: 'Data source ID must be unique',
   },
 
-  // Project selection (Web mode)
+  // Project path input (reused by ProjectCreateDialog etc.)
   project: {
-    selectTitle: 'Select a Project',
-    noProjects: 'No Precis projects found in the work directory',
-    openOther: 'Open Other Project...',
-    manualPathPlaceholder: 'Enter project absolute path...',
-    openButton: 'Open',
-    today: 'Today',
-    yesterday: 'Yesterday',
-    daysAgo: '{days} days ago',
-    loading: 'Scanning projects...',
-    errorScan: 'Failed to scan projects',
-    retryScan: 'Retry scan',
-    invalidPath: 'Invalid path or project not found',
-    openFailed: 'Failed to open project: {error}',
     absolutePathRequired: 'Please enter an absolute path',
-    schemas: 'schemas',
-    constraints: 'constraints',
   },
 
   // Data source file types (global)

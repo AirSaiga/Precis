@@ -58,6 +58,12 @@ export interface AppEvents {
   'open-settings': undefined
   'open-project-management': undefined
   'project-closed': undefined
+  /**
+   * 持久化的项目路径已失效（后端返回"提供的项目配置路径不存在"404）。
+   * 由 httpClient 响应拦截器检测到该 404 后发出；App 层监听后清理项目
+   * 运行时状态并回到项目选择页，避免应用带着死路径对所有项目级请求持续 404。
+   */
+  'project-path-invalid': undefined
   'open-save-as-template-dialog': undefined
   fielddragstart: DragEventPayload
   fielddragend: undefined

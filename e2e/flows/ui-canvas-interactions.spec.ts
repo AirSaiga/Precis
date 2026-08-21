@@ -2,7 +2,7 @@
  * @fileoverview 前端画布真实 UI 交互 E2E 测试
  *
  * 覆盖核心用户路径：
- * 1. Web 模式下通过项目选择器打开 fixture 项目
+ * 1. Web 模式下预置 activeProjectPaths 自动恢复 fixture 项目
  * 2. 从左侧资源树拖拽 Schema 到画布，验证节点与关联约束自动出现
  * 3. 点击项目根节点“全量校验”按钮，验证校验结果面板渲染
  * 4. 保存项目后刷新，验证 project.view.json 中记录了节点位置
@@ -16,28 +16,18 @@ import { test, expect } from '../fixtures/base'
 import { BACKEND_URL } from '../config'
 import * as fs from 'fs'
 import * as path from 'path'
+import { openProjectOnCanvas } from '../fixtures/openProject'
 
 const VIEW_FILE = 'project.view.json'
 
 /**
- * 通过项目选择器打开 fixture 项目（Web 模式）。
+ * 预置 localStorage 项目路径，启动自动恢复直达画布。
  *
  * Web 模式下无法自动恢复最近项目，因此每次测试都重新导航到首页、
  * 在手动输入框填入项目绝对路径并点击打开。
  */
 async function openFixtureProject(page: import('@playwright/test').Page, projectPath: string) {
-  await page.goto('/')
-  await expect(page.locator('.project-selector')).toBeVisible({ timeout: 15000 })
-
-  // 清理输入框并填入项目路径
-  const input = page.locator('.project-selector-input')
-  await input.fill('')
-  await input.fill(projectPath.replace(/\\/g, '/'))
-
-  await page.locator('.project-selector-open-btn').click()
-
-  // 等待主应用加载完成（以项目根节点出现为标志）
-  await expect(page.locator('.project-root-node')).toBeVisible({ timeout: 30000 })
+  await openProjectOnCanvas(page, projectPath)
 }
 
 /**

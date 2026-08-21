@@ -11,15 +11,10 @@ import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import { openProjectOnCanvas } from '../fixtures/openProject'
 
 async function openFixtureProject(page: import('@playwright/test').Page, projectPath: string) {
-  await page.goto('/')
-  await expect(page.locator('.project-selector')).toBeVisible({ timeout: 15000 })
-  const input = page.locator('.project-selector-input')
-  await input.fill('')
-  await input.fill(projectPath.replace(/\\/g, '/'))
-  await page.locator('.project-selector-open-btn').click()
-  await expect(page.locator('.project-root-node')).toBeVisible({ timeout: 30000 })
+  await openProjectOnCanvas(page, projectPath)
 }
 
 async function closeInspectionDrawer(page: import('@playwright/test').Page) {

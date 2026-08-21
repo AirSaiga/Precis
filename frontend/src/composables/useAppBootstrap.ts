@@ -62,7 +62,6 @@ const basename = (p: string): string => {
 export interface BootstrapResult {
   bootstrap: () => Promise<void>
   cleanup: () => void
-  continueBootstrapAfterProject: (projectPath: string) => Promise<void>
   keyboardManager: ReturnType<typeof useKeyboardShortcuts> | null
 }
 
@@ -169,62 +168,13 @@ export function useAppBootstrap(): BootstrapResult {
         await appApi.saveRecentProject({ configPath: '', dataPath: '' }).catch(() => undefined)
         return false
       }
-      // 其他错误（如后端未启动）暂不清理路径，避免网络抖动导致状态丢失
+      // 其他错误（如后端未启动）暂不清理路径，避免网络抖动导致状态丢失。
+      // 若路径实际已失效，后续请求命中"项目配置路径不存在"404 时会由
+      // httpClient 拦截器清除 localStorage 并广播 project-path-invalid 自愈
       logger.warn('[AppBootstrap] 验证项目路径时出错，保留路径待重试:', error)
       projectStore.setProjectPaths({ configPath, dataPath: dataPath || configPath })
     }
     return true
-  }
-
-  /**
-   * 在用户通过 ProjectSelector 选择项目后，继续执行引导流程。
-   * 设置项目路径、创建 projectRoot 后进入标准初始化流程。
-   */
-  const continueBootstrapAfterProject = async (projectPath: string) => {
-    projectStore.setProjectPaths({ configPath: projectPath, dataPath: projectPath })
-
-    // 验证项目并创建 projectRoot
-    if (!graphStore.isProjectLoaded) {
-      graphStore.createProject(basename(projectPath) || 'project', projectPath)
-      graphStore.createProjectRootNode({ x: 80, y: 80 })
-    }
-
-    // 加载项目配置、统计与自检信息，与 ProjectManagementModal.loadProject 行为保持一致
-    await graphStore.loadProjectFromV2()
-
-    // 通知资源树加载项目资源（与 bootstrap 路径保持一致）。
-    // 用户通过 ProjectSelector 选项目时，useResourceTree.onMounted 早已执行完毕，
-    // 此时 isProjectActive 才刚变为 true，资源树不会自行刷新，需显式 emit 事件。
-    eventBus.emit('project-applied')
-
-    // 执行 bootstrap 中剩余的步骤 2-5
-    await workspaceStore.initialize()
-    await canvasStore.initialize(projectStore.currentPaths?.configPath, graphStore)
-    dragStore.initializeDragState()
-
-    // 初始化键盘快捷键
-    keyboardManager = useKeyboardShortcuts({
-      getExecutionContext: () => ({ showFeedback: shortcutStore.showFeedback }),
-      userConfig: {
-        customShortcuts: buildCustomShortcutMap(),
-        disabledCommands: [...shortcutStore.config.disabledCommands],
-      },
-    })
-    keyboardManager.updateWhen(() => shortcutStore.enabled)
-
-    stopShortcutConfigWatch = watch(
-      () => shortcutStore.config,
-      (cfg) => {
-        if (!keyboardManager) return
-        keyboardManager.applyUserConfig({
-          customShortcuts: buildCustomShortcutMap(),
-          disabledCommands: [...cfg.disabledCommands],
-        })
-      },
-      { deep: true }
-    )
-
-    logger.debug('[App] Web 模式项目已加载，键盘快捷键系统已启动')
   }
 
   /**
@@ -245,6 +195,10 @@ export function useAppBootstrap(): BootstrapResult {
   /**
    * 应用启动主流程（串行执行）
    *
+   * 画布是唯一首屏：无论是否恢复到项目，布局都会挂载。无项目时跳过项目相关
+   * 步骤（各步骤自带守卫），但仍初始化画布默认 Tab、拖拽与键盘子系统——
+   * 用户经画布内的项目管理弹窗打开/新建项目（Ctrl+Shift+P / 状态栏入口）。
+   *
    * 步骤顺序不可更改，存在隐式依赖：
    * - canvasStore.initialize 依赖 projectStore.currentPaths（由 bootstrapProjectPaths 设置）
    * - canvasStore.initialize 依赖 graphStore.isProjectLoaded（由 createProject 设置）
@@ -258,37 +212,35 @@ export function useAppBootstrap(): BootstrapResult {
     // Step 1: 恢复项目路径（Electron 或 Web localStorage）并创建项目
     const hasProject = await bootstrapProjectPaths()
 
-    if (!hasProject) {
-      // 没有已保存的项目路径，由 ProjectSelector 处理
-      // 不执行后续步骤，不等启动键盘快捷键
-      logger.info('[AppBootstrap] 无项目路径，等待用户选择')
-      return
+    if (hasProject) {
+      // 创建项目节点（如果 bootstrapProjectPaths 已设置路径但未创建）
+      createProjectIfLoaded()
+
+      // 加载项目配置、统计与画布节点。
+      // 缺失此步时 Web 模式刷新（localStorage 恢复路径）会出现项目名回退为目录名、
+      // 根节点统计恒为 0、画布仅剩 projectRoot（schema/constraint 节点不恢复）。
+      // loadProjectFromV2 内部自带 try/catch（失败返回 false），此处无需再包一层。
+      if (graphStore.isProjectLoaded) {
+        await graphStore.loadProjectFromV2()
+      }
+
+      // 通知资源树等监听方加载项目资源。
+      // useResourceTree.onMounted 在 bootstrap 的 async 部分完成前就已执行，
+      // 此时 isProjectActive 仍为 false（localStorage 在新装应用上为空），
+      // 因此不会自行触发 loadProjectResources。这里显式 emit 'project-applied'，
+      // 复用与用户主动打开项目一致的事件路径，确保资源树加载 schema/constraint 列表。
+      eventBus.emit('project-applied')
+
+      // Step 2: 初始化数据源工作区（非画布 Tab 工作区，而是数据源配置）
+      // loadConfig 内部对无激活项目 early-return，不会发出无效请求
+      await workspaceStore.initialize()
+    } else {
+      logger.info('[AppBootstrap] 无项目路径，以空画布启动，等待用户打开项目')
     }
 
-    // 创建项目节点（如果 bootstrapProjectPaths 已设置路径但未创建）
-    createProjectIfLoaded()
-
-    // 加载项目配置、统计与画布节点。
-    // 与 continueBootstrapAfterProject（ProjectSelector 路径）保持一致：
-    // 缺失此步时 Web 模式刷新（localStorage 恢复路径）会出现项目名回退为目录名、
-    // 根节点统计恒为 0、画布仅剩 projectRoot（schema/constraint 节点不恢复）。
-    // loadProjectFromV2 内部自带 try/catch（失败返回 false），此处无需再包一层。
-    if (graphStore.isProjectLoaded) {
-      await graphStore.loadProjectFromV2()
-    }
-
-    // 通知资源树等监听方加载项目资源。
-    // useResourceTree.onMounted 在 bootstrap 的 async 部分完成前就已执行，
-    // 此时 isProjectActive 仍为 false（localStorage 在新装应用上为空），
-    // 因此不会自行触发 loadProjectResources。这里显式 emit 'project-applied'，
-    // 复用与用户主动打开项目一致的事件路径，确保资源树加载 schema/constraint 列表。
-    eventBus.emit('project-applied')
-
-    // Step 2: 初始化数据源工作区（非画布 Tab 工作区，而是数据源配置）
-    await workspaceStore.initialize()
-
-    // Step 3: 初始化画布工作区系统
-    // 传入 graphStore 使工作区创建/切换时能自动管理 projectRoot 节点
+    // Step 3: 初始化画布工作区系统。
+    // 传入 graphStore 使工作区创建/切换时能自动管理 projectRoot 节点。
+    // 无项目时 initialize 内部只创建本地默认 Tab（不发请求）
     await canvasStore.initialize(projectStore.currentPaths?.configPath, graphStore)
 
     // Step 4: 初始化拖拽状态（资源树 → 画布的跨组件拖拽）
@@ -344,8 +296,6 @@ export function useAppBootstrap(): BootstrapResult {
   return {
     // 启动主流程：串行初始化项目路径 → 工作区 → 画布 → 拖拽 → 快捷键
     bootstrap,
-    // Web 模式：用户在 ProjectSelector 中选择项目后继续引导
-    continueBootstrapAfterProject,
     // 清理函数：在 onUnmounted 中调用，防止内存泄漏
     cleanup,
     // 通过 getter 暴露 keyboardManager，使外部可访问但不可直接赋值

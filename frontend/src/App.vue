@@ -23,13 +23,11 @@
 -->
 
 <template>
-  <!-- Web 模式下显示项目选择器 -->
-  <ProjectSelector v-if="showProjectSelector" @project-opened="handleProjectOpened" />
-
   <!-- IDE/Agent 布局切换：out-in 淡入淡出过渡，旧布局先淡出再淡入新布局，
        避免两布局在 flex 容器中重叠导致的尺寸抖动。after-enter 后触发画布重 fitView，
-       消除 NodeCanvas 重挂载导致的视口跳变。 -->
-  <Transition v-else name="layout-fade" mode="out-in" @after-enter="onLayoutEntered">
+       消除 NodeCanvas 重挂载导致的视口跳变。无激活项目时同样渲染本布局（空画布），
+       项目打开/新建统一走画布内的项目管理弹窗（状态栏入口 / Ctrl+Shift+P）。 -->
+  <Transition name="layout-fade" mode="out-in" @after-enter="onLayoutEntered">
     <!-- Agent 模式：AI 对话 + 画布双栏布局（隐藏工具箱） -->
     <AgentLayout v-if="appModeStore.isAgentMode" />
 
@@ -269,7 +267,6 @@
   // import AIChatDrawer from '@/components/common/AIChatDrawer.vue'
   import AppStatusBar from '@/components/layout/AppStatusBar.vue'
   import AppOverlayHost from '@/components/layout/AppOverlayHost.vue'
-  import ProjectSelector from '@/components/project/ProjectSelector.vue'
   import CrashFeedbackModal from '@/components/shared/CrashFeedbackModal.vue'
 
   import { useAppLayout } from '@/composables/useAppLayout'
@@ -301,14 +298,9 @@
   const layout = useAppLayout()
   // useAppBootstrap: 应用启动引导（项目路径恢复、工作区初始化、键盘快捷键）
   // 返回 bootstrap（onMounted 调用）和 cleanup（onUnmounted 调用）
-  const { bootstrap, cleanup, continueBootstrapAfterProject } = useAppBootstrap()
+  const { bootstrap, cleanup } = useAppBootstrap()
   // useTheme: 初始化主题系统（CSS 变量切换）
   useTheme()
-
-  // --- 首启/无项目状态 ---
-  // 当没有已激活的项目时显示 ProjectSelector；Electron 下若未保存最近项目，
-  // 也需要让用户选择项目，避免空画布触发大量失败请求
-  const showProjectSelector = ref(!projectStore.isProjectActive)
 
   // --- 局部状态 ---
 
@@ -320,26 +312,6 @@
   /** 拖拽 Ghost 的鼠标位置，实时跟随光标更新 */
   const mousePosition = ref({ x: 0, y: 0 })
   // const aiChatStore = useAiChatStore()
-
-  // --- Web 模式：项目选择处理 ---
-
-  /**
-   * 用户通过 ProjectSelector 选择项目后的处理。
-   * 关闭选择器，继续执行后续引导流程。
-   */
-  const handleProjectOpened = async (path: string) => {
-    try {
-      showProjectSelector.value = false
-      localStorage.setItem('lastProjectPath', path)
-      await continueBootstrapAfterProject(path)
-      // Web 模式下 onMounted 因显示 ProjectSelector 而提前 return，未注册全局监听；
-      // 项目打开后才具备画布交互环境，需在此补注册，避免 viewchange 等事件无人监听。
-      registerGlobalListeners()
-    } catch (error) {
-      logger.error('[App] Web 模式项目加载失败:', error)
-      showProjectSelector.value = true
-    }
-  }
 
   /**
    * 布局过渡完成回调（IDE ↔ Agent 切换的 <Transition @after-enter>）。
@@ -481,13 +453,23 @@
   /**
    * 处理项目关闭事件
    * - 清理所有工作区中的 projectRoot 节点及关联边
-   * - Web 模式下关闭项目后返回项目选择页
+   * - 关闭后留在空画布（与 Electron 行为一致），用户可经项目管理弹窗打开其他项目
    */
   const handleProjectClosedEvent = () => {
     handleProjectClosed()
-    if (!appApi.canRestoreRecentProject) {
-      showProjectSelector.value = true
-    }
+  }
+
+  /**
+   * 项目路径失效处理（项目已被移动/删除，后端返回"项目配置路径不存在"404）。
+   * httpClient 响应拦截器检测到该 404 后已清除 localStorage 并广播此事件；
+   * 这里补齐运行时清理：移除 projectRoot、清空 store 与 Electron 最近项目记录。
+   * 清理后留在空画布，等待用户经项目管理弹窗重新打开项目。
+   */
+  const handleProjectPathInvalid = () => {
+    logger.warn('[App] 项目路径已失效，清理项目状态')
+    handleProjectClosed()
+    projectStore.clearProject()
+    void appApi.saveRecentProject({ configPath: '', dataPath: '' }).catch(() => undefined)
   }
 
   /** 注册全局事件监听 */
@@ -502,25 +484,24 @@
   const removeGlobalListeners = () => {
     eventBus.off('viewchange', handleViewChange)
     eventBus.off('project-closed', handleProjectClosedEvent)
+    eventBus.off('project-path-invalid', handleProjectPathInvalid)
     window.removeEventListener('mousemove', handleMouseMove as EventListener)
     window.removeEventListener('resize', handleResize)
   }
 
   onMounted(async () => {
     try {
+      // 项目路径失效监听须先于 bootstrap 注册（启动请求即可能发现死路径）
+      eventBus.on('project-path-invalid', handleProjectPathInvalid)
+
       // 启动时补弹上次渲染进程崩溃的待处理记录(Electron 特有)
       // 放在 bootstrap 之前,确保即使 bootstrap 出错崩溃补弹仍有机会展示
       void feedbackStore.loadPendingFromMain()
 
       await bootstrap()
 
-      // 无论 Electron 还是 Web，只要没有激活项目就显示 ProjectSelector
-      if (!projectStore.isProjectActive) {
-        showProjectSelector.value = true
-        return
-      }
-      showProjectSelector.value = false
-
+      // 画布是唯一首屏：无激活项目时同样注册全局监听（各处理器均为纯状态操作，
+      // 不依赖项目），用户经状态栏/快捷键打开项目管理弹窗选择项目
       registerGlobalListeners()
     } catch (error) {
       logger.error('初始化工作区失败:', error)

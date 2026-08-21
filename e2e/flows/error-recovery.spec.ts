@@ -130,13 +130,18 @@ test.describe('Corrupted Configuration Recovery', () => {
   })
 
   test.describe('Frontend Graceful Degradation', () => {
-    test('backend error shows friendly message on UI', async ({ page }) => {
-      // 先让应用正常启动到选择页（避免启动期全量 API 失败影响渲染本身）
+    test('project open failure shows friendly message on modal', async ({ page }) => {
+      // 空画布启动（无预置项目），经项目管理弹窗走打开流程
       await page.goto('/')
-      await expect(page.locator('.project-selector')).toBeVisible({ timeout: 15000 })
+      await expect(page.locator('.status-bar .project-chip')).toBeVisible({ timeout: 15000 })
 
-      // 再拦截打开项目端点模拟后端 500（无需真实停后端，不影响共享服务）
-      await page.route('**/api/latest/projects/open', (route) =>
+      // 打开项目管理弹窗（状态栏入口）
+      await page.locator('.status-bar .project-chip').click()
+      const modal = page.locator('.project-management-modal')
+      await expect(modal).toBeVisible({ timeout: 5000 })
+
+      // 拦截全量配置端点模拟后端 500（loadProject → loadProjectFromV2 的核心请求）
+      await page.route('**/api/latest/project/config/full*', (route) =>
         route.fulfill({
           status: 500,
           contentType: 'application/json',
@@ -144,17 +149,21 @@ test.describe('Corrupted Configuration Recovery', () => {
         })
       )
 
-      // 打开项目请求失败 → 应显示友好错误提示而非白屏/崩溃
-      await page.locator('.project-selector-input').fill('D:/Precis/Precis/qa_test/qa_simple')
-      await page.locator('.project-selector-open-btn').click()
+      // Web 手动路径输入 → 打开项目请求失败 → 应显示友好错误提示而非白屏/崩溃
+      const webInput = modal.locator('.web-open-project input')
+      await expect(webInput).toBeVisible()
+      await webInput.fill('D:/Precis/Precis/qa_test/qa_simple')
+      await modal.locator('.web-open-project button').click()
 
-      await expect(page.getByText(/打开项目失败|失败|错误/).first()).toBeVisible({
+      // loadProjectFromV2 失败会 toastError（限定 toast 容器，避免命中状态栏
+      // 隐藏的"失败"统计标签）
+      await expect(page.locator('.toast-container .toast__title').first()).toBeVisible({
         timeout: 10000,
       })
 
-      // 优雅降级：选择器界面仍可交互（未被错误状态锁死）
-      await expect(page.locator('.project-selector-input')).toBeVisible()
-      await expect(page.locator('.project-selector-open-btn')).toBeEnabled()
+      // 优雅降级：弹窗仍可交互（未被错误状态锁死）
+      await expect(modal).toBeVisible()
+      await expect(webInput).toBeEnabled()
     })
   })
 })

@@ -2,7 +2,7 @@
  * @fileoverview 项目生命周期与交互杂项 E2E（批次四 F1-F3 + G1 + H1）
  *
  * - F1: Web 模式经项目管理弹窗新建项目（脚手架目录生成 + 自动打开）
- * - F2: 关闭项目 → 返回选择页 → 重新打开
+ * - F2: 关闭项目 → 留在空画布 → 经弹窗重新打开
  * - F3: 多工作区内容隔离（工作区 2 为空，工作区 1 节点保留）
  * - G1: 快捷键命令集——Ctrl+A 全选 / Delete 删除 / Ctrl+Z 撤销 / Ctrl+X 剪切 / Ctrl+V 粘贴 / Ctrl+S 保存
  * - H1: en-US 关键界面无中文残留（导航/工具箱/检查器标题）
@@ -12,15 +12,10 @@ import { test, expect } from '../fixtures/base'
 import * as fs from 'fs'
 import * as os from 'os'
 import * as path from 'path'
+import { openProjectOnCanvas } from '../fixtures/openProject'
 
 async function openFixtureProject(page: import('@playwright/test').Page, projectPath: string) {
-  await page.goto('/')
-  await expect(page.locator('.project-selector')).toBeVisible({ timeout: 15000 })
-  const input = page.locator('.project-selector-input')
-  await input.fill('')
-  await input.fill(projectPath.replace(/\\/g, '/'))
-  await page.locator('.project-selector-open-btn').click()
-  await expect(page.locator('.project-root-node')).toBeVisible({ timeout: 30000 })
+  await openProjectOnCanvas(page, projectPath)
 }
 
 async function closeInspectionDrawer(page: import('@playwright/test').Page) {
@@ -75,8 +70,8 @@ test.describe('项目生命周期（F1-F3）', () => {
     }
     await expect(modal).toBeVisible({ timeout: 10000 })
 
-    // 填写新建表单并提交（路径框 Web 模式为 readonly+浏览按钮组合，
-    // 用原型 setter + input 事件直驱 v-model，模拟手工输入路径）
+    // 填写新建表单并提交（Web 模式路径框可手动输入；用原型 setter + input 事件
+    // 直驱 v-model，确保与手工输入等价）
     await modal.getByPlaceholder('请输入项目名称').fill(projectName)
     const pathInput = modal.getByPlaceholder('选择项目保存目录')
     await pathInput.evaluate(
@@ -98,24 +93,30 @@ test.describe('项目生命周期（F1-F3）', () => {
     expect(fs.existsSync(path.join(newDir, 'data'))).toBe(true)
   })
 
-  test('F2: 关闭项目 → 返回选择页 → 重新打开', async ({ projectPage, testProjectPath }) => {
+  test('F2: 关闭项目 → 留在空画布 → 经弹窗重新打开', async ({ projectPage, testProjectPath }) => {
     const page = projectPage
 
     await page.keyboard.press('Control+Shift+P')
     const modal = page.locator('.project-management-modal')
     await expect(modal).toBeVisible({ timeout: 5000 })
 
-    // 当前项目区块的"关闭项目"→ 确认关闭对话框 → 回到选择页
+    // 当前项目区块的"关闭项目"→ 确认关闭对话框 → 留在空画布（无项目态）
     await modal.getByRole('button', { name: /关闭项目/ }).first().click()
     const confirmOverlay = page.locator('.global-confirm-overlay')
     await expect(confirmOverlay).toBeVisible({ timeout: 5000 })
     await confirmOverlay.getByRole('button', { name: /关闭项目|确认/ }).first().click()
 
-    await expect(page.locator('.project-selector')).toBeVisible({ timeout: 10000 })
+    // 画布仍是首屏，但项目根节点已随项目关闭移除
+    await expect(page.locator('.project-root-node')).toHaveCount(0, { timeout: 10000 })
+    await expect(page.locator('.status-bar .project-chip')).toBeVisible()
 
-    // 重新打开同一项目
-    await page.locator('.project-selector-input').fill(testProjectPath.replace(/\\/g, '/'))
-    await page.locator('.project-selector-open-btn').click()
+    // 经项目管理弹窗（Web 手动路径输入）重新打开同一项目
+    await page.keyboard.press('Control+Shift+P')
+    await expect(modal).toBeVisible({ timeout: 5000 })
+    const webInput = modal.locator('.web-open-project input')
+    await expect(webInput).toBeVisible()
+    await webInput.fill(testProjectPath.replace(/\\/g, '/'))
+    await modal.locator('.web-open-project button').click()
     await expect(page.locator('.project-root-node')).toBeVisible({ timeout: 30000 })
   })
 

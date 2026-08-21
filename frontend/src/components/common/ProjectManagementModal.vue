@@ -65,10 +65,10 @@
                       class="form-input ui-input"
                       type="text"
                       :placeholder="t('projectManagement.projectPathPlaceholder')"
-                      :readonly="dialogApi.canSelectDirectoryEntries"
+                      :readonly="dialogApi.canSelectDirectory"
                     />
                     <button
-                      v-if="dialogApi.canSelectDirectoryEntries"
+                      v-if="dialogApi.canSelectDirectory"
                       class="ui-btn ui-btn--secondary"
                       type="button"
                       @click="handleSelectDirectory"
@@ -92,8 +92,9 @@
               <div class="section-title ui-section-title">
                 {{ t('projectManagement.openExisting') }}
               </div>
+              <!-- 目录选择仅 Electron 提供（原生对话框）；Web 下用手动输入路径打开 -->
               <button
-                v-if="dialogApi.canSelectDirectoryEntries"
+                v-if="dialogApi.canSelectDirectory"
                 class="ui-btn ui-btn--secondary ui-btn--full"
                 type="button"
                 @click="handleOpenProject"
@@ -298,6 +299,12 @@
     }
 
     graphStore.createProject(name, path)
+    // Electron 新建不落盘（首次保存时才写 manifest），因此不走 loadProjectFromV2，
+    // 但需补齐 projectRoot 节点、资源树事件与工作区初始化——空画布上新建项目时
+    // 这些不会由启动引导代劳
+    graphStore.createProjectRootNode({ x: 80, y: 80 })
+    eventBus.emit('project-applied')
+    await useWorkspaceStore().initialize()
 
     projectStorageService.addRecentProject({
       name,
@@ -362,6 +369,11 @@
         if (canvasStore.workspaces.length === 0) {
           canvasStore.createNewWorkspace(graphStore)
         }
+
+        // 通知资源树等监听方刷新项目资源。useResourceTree.onMounted 早已执行完毕，
+        // isProjectActive 此时才变为 true，资源树不会自行刷新，必须显式 emit
+        // （与启动引导 bootstrap 的 project-applied 事件路径一致）
+        eventBus.emit('project-applied')
 
         const parts = projectPath.replace(/\\/g, '/').split('/')
         const projectName = parts[parts.length - 1] || 'Project'

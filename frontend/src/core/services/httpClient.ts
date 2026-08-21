@@ -23,10 +23,18 @@
  */
 
 import { logger } from '@/core/utils/logger'
-import { normalizeConfigDir } from '@/core/utils/pathNormalization'
+import { normalizeConfigDir, normalizePath } from '@/core/utils/pathNormalization'
+import { eventBus } from '@/core/eventBus'
 import axios, { isAxiosError, type AxiosInstance, type AxiosError } from 'axios'
 
 export { isAxiosError }
+
+/**
+ * 后端"项目配置路径不存在"404 的 detail 前缀（唯一抛出点：backend/app/api/dependencies.py）。
+ * 表示持久化的项目路径已失效（项目被移动/删除）。后端还有约 50 处其他语义的 404
+ * （如 Job not found），因此必须按 detail 前缀精确匹配，不能把所有 404 都视为项目丢失。
+ */
+const PROJECT_PATH_MISSING_DETAIL = '提供的项目配置路径不存在'
 
 /**
  * 当前使用的 API 基础地址
@@ -134,12 +142,28 @@ const apiClient: AxiosInstance = axios.create({
   // - Electron/生产：updateApiBaseUrl(port) 运行时会覆盖为 http://127.0.0.1:<port>/api/latest
   // - DEV/web：API_BASE_URL 为空，用相对路径 '/api/latest'，由 Vite 代理转发到后端动态端口
   //   （代理白名单 BACKEND_ROUTES 含 '/api'，可匹配 /api/latest/* 请求）
-  // 历史 bug：DEV 模式下此处曾为 undefined，导致裸路径请求（如 /projects/scan）
-  // 既不命中代理白名单、也不带 /api/latest 前缀，后端 404 返回 HTML，前端解析出
-  // undefined 触发崩溃。见 ProjectSelector.vue scanProjects 调用链。
+  // 历史 bug：DEV 模式下此处曾为 undefined，导致裸路径请求既不命中代理白名单、
+  // 也不带 /api/latest 前缀，后端 404 返回 HTML，前端解析出 undefined 触发崩溃。
   baseURL: API_BASE_URL ? `${API_BASE_URL}/api/latest` : '/api/latest',
   timeout: 30000, // 30秒超时
 })
+
+/**
+ * 从 localStorage 读取当前激活项目的配置路径
+ * 供请求拦截器（注入 header）与响应拦截器（失效检测路径比对）共用
+ */
+function readActiveProjectPath(): string | undefined {
+  try {
+    const stored = localStorage.getItem('activeProjectPaths')
+    if (stored) {
+      const parsed = JSON.parse(stored) as { configPath?: unknown }
+      return typeof parsed?.configPath === 'string' ? parsed.configPath : undefined
+    }
+  } catch {
+    // 解析失败时静默处理，视同无激活项目
+  }
+  return undefined
+}
 
 /**
  * 请求拦截器
@@ -150,13 +174,13 @@ const apiClient: AxiosInstance = axios.create({
  * [注入的请求头]
  * - X-Project-Config-Path: 当前激活项目的配置文件路径
  *   用途: 后端据此定位项目配置目录
- *   来源: Pinia store (useProjectStore)
+ *   来源: localStorage (activeProjectPaths，由 projectStore 写入)
  *
- * [设计决策]
- * - 使用拦截器而非在每个调用处手动添加
- *   1. 代码更 DRY（Don't Repeat Yourself）
- *   2. 统一管理，易于维护
- *   3. 减少遗漏的可能性
+ * [注入策略：显式路径优先]
+ * - 仅当调用方未显式指定 X-Project-Config-Path 时才注入 localStorage 的激活路径
+ * - 显式路径是调用方的权威路径（如 bootstrap 校验、项目切换）；
+ *   若被 localStorage 残留的旧路径覆盖，会把对合法项目的请求污染成 404，
+ *   进而触发"项目路径失效"误清理，连带清空最近项目记录（实际事故见 2026-08 修复）
  *
  * [条件注入]
  * - 仅当有激活项目时才注入头信息
@@ -164,21 +188,13 @@ const apiClient: AxiosInstance = axios.create({
  */
 apiClient.interceptors.request.use(
   (config) => {
-    let configPath: string | undefined
-    try {
-      // 从 localStorage 读取当前激活项目的配置路径
-      const stored = localStorage.getItem('activeProjectPaths')
-      if (stored) {
-        const parsed = JSON.parse(stored)
-        configPath = parsed?.configPath
-      }
-    } catch {
-      // 解析失败时静默处理，不注入项目路径头
-      configPath = undefined
-    }
     // 规范化路径格式后注入请求头，供后端定位项目配置目录
-    const normalized = normalizeConfigDir(configPath)
-    if (normalized) {
+    const normalized = normalizeConfigDir(readActiveProjectPath())
+    const hasExplicitHeader =
+      typeof config.headers?.get === 'function'
+        ? config.headers.get('X-Project-Config-Path') != null
+        : (config.headers as Record<string, unknown> | undefined)?.['X-Project-Config-Path'] != null
+    if (normalized && !hasExplicitHeader) {
       config.headers['X-Project-Config-Path'] = normalized
     }
 
@@ -203,6 +219,31 @@ apiClient.interceptors.response.use(
 
     if (!config) {
       return Promise.reject(error)
+    }
+
+    // 项目路径失效检测：请求命中的项目路径在后端磁盘上不存在（项目被移动/删除）。
+    // 清除 localStorage 残留路径并广播 project-path-invalid，由 App 层清理运行时状态、
+    // 回到项目选择页；否则应用会带着死路径对后续所有项目级请求持续 404 且无法自愈。
+    // 守卫：仅当失败路径与 localStorage 当前激活项目一致时才清理——并发在飞的
+    // 旧路径 404、或调用方显式请求其他路径的 404，都不能误杀仍有效的激活项目。
+    // 后端回显格式：`${PROJECT_PATH_MISSING_DETAIL}: <abspath>`（Windows 反斜杠），
+    // 与 localStorage 路径经 normalizePath（斜杠/大小写归一）后比较。
+    const detail = (error.response?.data as { detail?: unknown } | undefined)?.detail
+    if (
+      error.response?.status === 404 &&
+      typeof detail === 'string' &&
+      detail.startsWith(PROJECT_PATH_MISSING_DETAIL)
+    ) {
+      const failedPath = detail
+        .slice(PROJECT_PATH_MISSING_DETAIL.length)
+        .replace(/^:\s*/, '')
+        .trim()
+      const activePath = readActiveProjectPath()
+      if (activePath && normalizePath(activePath) === normalizePath(failedPath)) {
+        localStorage.removeItem('activeProjectPaths')
+        logger.warn('[API] 项目路径已失效（后端返回路径不存在），已清除本地项目路径')
+        eventBus.emit('project-path-invalid')
+      }
     }
 
     // 初始化重试计数（从 config 对象上读取自定义属性）

@@ -13,24 +13,15 @@
  */
 
 import { test, expect } from '../fixtures/base'
+import { openProjectOnCanvas } from '../fixtures/openProject'
 
 /**
- * 通过项目选择器打开 fixture 项目（Web 模式）。
+ * 预置 localStorage 项目路径，启动自动恢复直达画布。
  *
  * 复用自 ui-canvas-interactions.spec.ts 的同名 helper（项目惯例：本地定义而非抽公共）。
  */
 async function openFixtureProject(page: import('@playwright/test').Page, projectPath: string) {
-  await page.goto('/')
-  await expect(page.locator('.project-selector')).toBeVisible({ timeout: 15000 })
-
-  const input = page.locator('.project-selector-input')
-  await input.fill('')
-  await input.fill(projectPath.replace(/\\/g, '/'))
-
-  await page.locator('.project-selector-open-btn').click()
-
-  // 等待主应用加载完成（以项目根节点出现为标志）
-  await expect(page.locator('.project-root-node')).toBeVisible({ timeout: 30000 })
+  await openProjectOnCanvas(page, projectPath)
 }
 
 /**
