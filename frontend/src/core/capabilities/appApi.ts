@@ -147,9 +147,11 @@ class WebAppAdapter implements AppApi {
 
   async initializeApiClient(): Promise<void> {
     // Web 下端口由构建/部署环境决定，无需动态更新
-    // 可选择性地探测后端健康状态，但保持静默避免阻塞启动
+    // 可选择性地探测后端健康状态，但保持静默避免阻塞启动。
+    // 注意：健康探测走 /version（/api/latest 前缀下）——后端根路径的 /health
+    // 不在 Vite 代理白名单内，经 apiClient 请求会拼出 /api/latest/health 404
     try {
-      await apiClient.get('/health', { timeout: 5000 })
+      await apiClient.get('/version', { timeout: 5000 })
     } catch (error) {
       logger.warn('[appApi] Web 模式下后端健康检查失败:', error)
     }
@@ -157,7 +159,8 @@ class WebAppAdapter implements AppApi {
 
   async getAppVersion(): Promise<string> {
     try {
-      const { data } = await apiClient.get<{ version: string }>('/api/latest/version')
+      // apiClient 自带 /api/latest 前缀，此处只写 /version（曾误写全路径致双重前缀 404）
+      const { data } = await apiClient.get<{ version: string }>('/version')
       return data.version
     } catch (error) {
       logger.error('[appApi] 获取版本号失败:', error)
@@ -171,9 +174,10 @@ class WebAppAdapter implements AppApi {
 
   async getServerStatus(): Promise<ServerStatus> {
     try {
-      const { data } = await apiClient.get<{ status: string }>('/health')
+      // 同 initializeApiClient：/version 可达即代表后端就绪（/health 不走代理）
+      await apiClient.get<{ version: string }>('/version')
       return {
-        pythonReady: data.status === 'ok',
+        pythonReady: true,
         port: await this.getBackendPort(),
       }
     } catch (error) {
