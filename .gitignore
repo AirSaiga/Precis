@@ -272,3 +272,4 @@ tui-rust/target/
 tui-rust/build-warnings.log
 
 
+/test-results/
