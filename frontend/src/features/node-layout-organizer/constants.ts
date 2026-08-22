@@ -17,6 +17,19 @@ export const DEFAULT_ORGANIZE_OPTIONS: OrganizeOptions = {
 }
 
 /**
+ * 自动取景的安全留白（整理/加载适配共用）。
+ * 不对称 px 留白：右下角 MiniMap 悬浮在画布内、右侧检查器面板展开会使画布
+ * 收窄、底部状态栏覆盖画布下缘——取景时让出这些区域，否则取景后节点贴边
+ * 落在浮层之下点不到（按钮类元素被状态栏拦截 hit-test）。
+ */
+export const SAFE_FITVIEW_PADDING = {
+  top: '60px',
+  left: '60px',
+  right: '360px',
+  bottom: '200px',
+} as const
+
+/**
  * 节点尺寸常量
  */
 export const NODE_DIMENSIONS = {

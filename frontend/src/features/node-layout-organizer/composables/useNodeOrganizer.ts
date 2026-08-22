@@ -12,7 +12,7 @@ import { logger } from '@/core/utils/logger'
 import { ref, computed, readonly } from 'vue'
 import { useGraphStore } from '@/stores/graphStore'
 import { LayoutCalculator } from '../core/layoutCalculator'
-import { DEFAULT_ORGANIZE_OPTIONS } from '../constants'
+import { DEFAULT_ORGANIZE_OPTIONS, SAFE_FITVIEW_PADDING } from '../constants'
 import type { OrganizeOptions, ConnectionInfo, ZoneGroup } from '../types'
 import { getDefaultDimension, getNodeDimensionsFromDOM } from '../utils/nodeDimensionHelper'
 import { useVueFlow } from '@vue-flow/core'
@@ -80,7 +80,7 @@ const DEFAULT_STAGGER_MS = 60
 
 export function useNodeOrganizer() {
   const graphStore = useGraphStore()
-  const { viewport } = useVueFlow()
+  const { viewport, fitView } = useVueFlow()
 
   const isOrganizing = ref(false)
   const lastOrganizeTime = ref<number | null>(null)
@@ -158,6 +158,12 @@ export function useNodeOrganizer() {
       } else {
         applyPositions(targetPositions)
       }
+
+      // 布局后安全取景：整理可能把节点排进画布下缘/右缘的不安全区（状态栏、
+      // MiniMap、检查器浮层覆盖处），节点上的按钮会被浮层拦截 hit-test 而
+      // 点不到。与加载适配共用 SAFE_FITVIEW_PADDING；瞬时完成不留动画窗口，
+      // 避免慢环境下取景动画与用户交互重叠导致落点漂移。
+      fitView({ padding: { ...SAFE_FITVIEW_PADDING }, duration: 0 })
 
       const endTime = performance.now()
       lastOrganizeTime.value = Date.now()

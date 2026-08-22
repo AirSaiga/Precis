@@ -26,7 +26,7 @@ import { useCanvasStore } from '@/stores/canvasStore'
 import { updateNode } from '@/services/canvas/vueFlowApi'
 import { logger } from '@/core/utils/logger'
 import { LayoutCalculator } from '../core/layoutCalculator'
-import { DEFAULT_ORGANIZE_OPTIONS, LAYOUT_CONSTANTS } from '../constants'
+import { DEFAULT_ORGANIZE_OPTIONS, LAYOUT_CONSTANTS, SAFE_FITVIEW_PADDING } from '../constants'
 import { NODE_TYPE_TO_CATEGORY } from '../types'
 import type { ConnectionInfo, OrganizeOptions } from '../types'
 import { getDefaultDimension } from '../utils/nodeDimensionHelper'
@@ -148,16 +148,10 @@ export function useCanvasLoadAdaptation(): void {
       // 遵守时序纪律：修复可能移动了节点，等 Vue Flow 完成处理与渲染后再取景
       await nextTick()
       if (moved) await nextTick()
-      // 不对称 px 留白：右下角 MiniMap（约 200x150）悬浮在画布内、右侧检查器
-      // 面板与画布宽度存在展开过渡——取景时让出这些区域，避免取景后节点贴边
-      // 落在浮层之下点不到。右侧预留需覆盖检查器面板宽度（选中节点后展开
-      // 会使画布整体收窄约 300px，预留不足时右侧节点会被面板盖住）。
-      // duration: 0 瞬时完成，不留 300ms 动画窗口（慢环境下动画会与用户/测试
-      // 的画布交互重叠，导致点击落点漂移）。
-      fitView({
-        padding: { top: '60px', left: '60px', right: '360px', bottom: '200px' },
-        duration: 0,
-      })
+      // 安全留白见 SAFE_FITVIEW_PADDING 注释（右下 MiniMap/右侧检查器/底部状态栏）。
+      // duration: 0 瞬时完成，不留动画窗口（慢环境下动画会与用户/测试的画布交互
+      // 重叠，导致点击落点漂移）。
+      fitView({ padding: { ...SAFE_FITVIEW_PADDING }, duration: 0 })
       if (moved) {
         logger.info('[useCanvasLoadAdaptation] 已修复 %d 个位置异常节点并自动取景', moved)
       }
