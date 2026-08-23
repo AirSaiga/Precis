@@ -15,6 +15,8 @@ const MIN_SIDEBAR_WIDTH = 150
 const MAX_SIDEBAR_WIDTH = 500
 const MIN_RIGHT_WIDTH = 200
 const MAX_RIGHT_WIDTH = 600
+/** 窄视口断点：低于此宽度默认折叠检查器（侧栏+检查器同开会把画布挤到不足 600px） */
+const NARROW_VIEWPORT_BREAKPOINT = 1100
 
 /**
  * 应用布局状态接口
@@ -67,7 +69,11 @@ export function useAppLayout(): AppLayoutState {
   // === 面板折叠状态 ===
   const activityBarCollapsed = ref(false)
   const sidebarCollapsed = ref(false)
-  const rightCollapsed = ref(false)
+  // 窄视口默认折叠检查器：侧栏+检查器同开时画布被挤到不足 600px，取景内容频繁落入
+  // 面板下方不可点（排版审计 D-2）。仅影响初始状态，用户可手动展开。
+  const rightCollapsed = ref(
+    typeof window !== 'undefined' && window.innerWidth < NARROW_VIEWPORT_BREAKPOINT
+  )
 
   // === 面板宽度状态 ===
   const sidebarWidth = ref(260)

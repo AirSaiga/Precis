@@ -36,6 +36,7 @@ from app.shared.core.project.loader.types import LoadingError
 from app.shared.core.project.manifest.coverage import compute_manifest_coverage, coverage_to_api_dict
 from app.shared.core.project.manual_data.types import ManualDataFileV2
 from app.shared.core.project.regex.types import RegexNodeFileV2
+from app.shared.core.project.template.reader import load_template
 from app.shared.core.project.transform.types import TransformFileV2
 from app.shared.services.diff.config_diff import ConfigDiffResult, ConfigDiffService
 
@@ -268,6 +269,28 @@ def get_v2_full_config(
         else:
             logger.warning(f"[get_v2_full_config] ManualData 文件不存在: {abs_path}")
 
+    # 读取 Template 定义
+    # 前端资源树/检查器此前只能拿到模板 id（name 断链，节点标题显示 id），
+    # 补齐内容字典对齐 schemas/regex_nodes 等资源模式
+    templates: dict[str, Any] = {}
+    for ref in effective_manifest.templates or []:
+        # 同 Regex: 单条坏引用记日志跳过,不阻断整个接口(见上)
+        try:
+            abs_path = _resolve_project_path(config_path, ref.path)
+        except ValueError as e:
+            logger.warning(
+                f"[get_v2_full_config] Template 引用路径非法,已跳过: id={ref.id}, path={ref.path}, 错误: {e}"
+            )
+            continue
+        if os.path.isfile(abs_path):
+            try:
+                template_obj = load_template(Path(abs_path))
+                templates[ref.id] = template_obj.model_dump(exclude_none=True)
+            except Exception as e:
+                logger.error(f"[get_v2_full_config] 解析 Template 文件失败: {abs_path}, 错误: {e}")
+        else:
+            logger.warning(f"[get_v2_full_config] Template 文件不存在: {abs_path}")
+
     result = {
         "manifest": manifest.model_dump(exclude_none=True),
         "effective_manifest": effective_manifest.model_dump(exclude_none=True),
@@ -277,6 +300,7 @@ def get_v2_full_config(
         "regex_nodes": regex_nodes,
         "transforms": transforms,
         "manual_data": manual_data,
+        "templates": templates,
         "coverage": coverage,
         "manifest_modified": manifest_modified,
         "schema_errors": schema_errors,

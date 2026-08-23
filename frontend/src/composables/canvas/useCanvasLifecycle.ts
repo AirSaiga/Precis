@@ -18,6 +18,7 @@ import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
 import type { AppEvents } from '@/core/eventBus'
 import { FITVIEW_DURATION_MS } from '@/services/canvas/animationDurations'
+import { SAFE_FITVIEW_PADDING } from '@/features/node-layout-organizer/constants'
 
 export interface CanvasLifecycleOptions {
   /** 项目创建对话框打开回调 */
@@ -62,7 +63,13 @@ export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
     // 查找项目根节点并将视口适配聚焦
     const projectNode = store.nodes.find((n) => n.type === 'projectRoot')
     if (projectNode) {
-      fitView({ nodes: [projectNode.id], padding: 0.5, duration: FITVIEW_DURATION_MS })
+      // 安全留白（右侧检查器/底部状态栏/MiniMap）：窄视口下根节点卡片若按比例留边
+      // 会落入右侧面板下方被遮挡（原 padding 0.5 的坑）
+      fitView({
+        nodes: [projectNode.id],
+        padding: { ...SAFE_FITVIEW_PADDING },
+        duration: FITVIEW_DURATION_MS,
+      })
     }
   }
 
@@ -81,7 +88,12 @@ export function useCanvasLifecycle(options: CanvasLifecycleOptions = {}) {
     store.setSelection(nodeIds)
     const focusNodeIds = nodeIds.filter((id) => findNode(id))
     if (focusNodeIds.length > 0) {
-      fitView({ nodes: focusNodeIds, padding: 0.25, duration: FITVIEW_DURATION_MS })
+      // 安全留白与 focusToProjectRoot 一致：定位到节点的取景同样要避开右侧面板
+      fitView({
+        nodes: focusNodeIds,
+        padding: { ...SAFE_FITVIEW_PADDING },
+        duration: FITVIEW_DURATION_MS,
+      })
     }
   }
 

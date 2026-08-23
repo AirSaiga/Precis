@@ -25,19 +25,14 @@
     @save="handleSave"
   >
     <template #header>
-      <NodeHeader
-        :title="data.templateName || configName"
-        icon-name="puzzle"
-        theme="purple"
-        status="idle"
-      />
+      <NodeHeader :title="displayName" icon-name="puzzle" theme="purple" status="idle" />
       <NodeDivider theme="purple" spacing="sm" />
     </template>
 
     <div class="template-content">
-      <div v-if="data.templateName" class="template-row">
+      <div v-if="displayName" class="template-row">
         <span class="template-label">TEMPLATE</span>
-        <span class="template-value">{{ data.templateName }}</span>
+        <span class="template-value">{{ displayName }}</span>
       </div>
       <div v-if="summaryText" class="template-row">
         <span class="template-label">PARAMS</span>
@@ -68,7 +63,7 @@
   <div v-else class="template-container" :class="{ 'is-selected': selected }" @click="onNodeClick">
     <div class="template-container__header">
       <span class="template-container__icon"><AppIcon name="puzzle" :size="16" /></span>
-      <span class="template-container__title">{{ data.templateName || configName }}</span>
+      <span class="template-container__title">{{ displayName }}</span>
 
       <span v-if="summaryText" class="template-container__summary">
         {{ summaryText }}
@@ -120,6 +115,7 @@
   import NodeDivider from '@/components/ui/NodeDivider.vue'
   import type { TemplateInstanceNodeData } from '@/types/nodes'
   import { useGraphStore } from '@/stores/graphStore'
+  import { useResourceTreeStore } from '@/stores/resourceTreeStore'
 
   const { t } = useI18n()
   const { id, node } = useNode()
@@ -134,6 +130,20 @@
   const saveState = computed(() => data.value.saveState || 'draft')
   const isExpanded = computed(() => data.value.expanded === true)
   const isSaving = ref(false)
+
+  const resourceTreeStore = useResourceTreeStore()
+  /**
+   * 模板显示名解析：存量实例的 templateName 持久化的是模板 id（显示名管线修复前
+   * 的数据），显示层兜底查资源树的模板条目名，避免节点标题永远显示 id。
+   */
+  const displayName = computed(() => {
+    const { templateName, templateId } = data.value
+    if (templateName && templateName !== templateId) return templateName
+    const resolved = resourceTreeStore.templates.find((r) => r.id === templateId)
+    return resolved?.name && resolved.name !== templateId
+      ? resolved.name
+      : templateName || configName.value
+  })
 
   function onNodeClick() {
     graphStore.selectedNodeId = id
@@ -188,7 +198,10 @@
     text-transform: uppercase;
     letter-spacing: 0.04em;
     flex-shrink: 0;
-    width: 52px;
+    /* max-content 容纳最长标签（TEMPLATE 大写 8 字母 + letter-spacing 实渲染约 56px），
+       min-width 让 PARAMS 行跟随同列对齐；原固定 52px 装不下导致末字母溢出与值重叠 */
+    width: max-content;
+    min-width: 68px;
   }
 
   .template-value {

@@ -71,3 +71,42 @@ describe('resourceService Pattern API 路由', () => {
     expect(projectV2Api.createV2Pattern).not.toHaveBeenCalled()
   })
 })
+
+describe('parseResources 模板显示名解析', () => {
+  /** 最小 fullConfig 工厂：仅 manifest + templates 内容字典 */
+  const makeFullConfig = (templates?: Record<string, { id: string; name: string }>) =>
+    ({
+      manifest: {
+        version: 2,
+        project: { id: 'p', name: 'p' },
+        schemas: [],
+        constraints: [],
+        regex_nodes: [],
+        templates: [
+          { id: 'required_field', path: 'templates/required_field.template.yaml' },
+          { id: 'no_content', path: 'templates/no_content.template.yaml' },
+        ],
+      },
+      schemas: {},
+      constraints: {},
+      regex_registries: {},
+      regex_nodes: {},
+      transforms: {},
+      templates,
+    }) as unknown as import('@/types/projectV2').FullConfigV2Response
+
+  it('templates 内容字典存在时资源名用模板 name 而非 id', () => {
+    const items = resourceService.parseResources(
+      makeFullConfig({ required_field: { id: 'required_field', name: '必填字段检查' } })
+    )
+    const tmpl = items.find((r) => r.kind === 'template' && r.id === 'required_field')
+    expect(tmpl?.name).toBe('必填字段检查')
+    expect((tmpl as { meta?: { name?: string } }).meta?.name).toBe('必填字段检查')
+  })
+
+  it('内容字典缺失该模板时回退 id（后端未升级/文件损坏的容错）', () => {
+    const items = resourceService.parseResources(makeFullConfig(undefined))
+    const tmpl = items.find((r) => r.kind === 'template' && r.id === 'no_content')
+    expect(tmpl?.name).toBe('no_content')
+  })
+})

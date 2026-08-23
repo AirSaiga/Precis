@@ -490,6 +490,19 @@ export interface TemplateRefV2 {
 }
 
 /**
+ * 模板定义文件内容（full config 响应的 templates 字典值）。
+ *
+ * 仅声明前端消费的字段，其余结构（nodes 等）按 unknown 透传。
+ */
+export interface TemplateFileContentV2 {
+  id: string
+  name: string
+  description?: string
+  nodes?: unknown[]
+  [key: string]: unknown
+}
+
+/**
  * 模板实例引用。
  *
  * 用于在 project.precis.yaml 中记录模板实例的配置。
@@ -709,6 +722,12 @@ export interface FullConfigV2Response {
   regex_nodes: Record<string, RegexNodeFileV2>
   /** Transform 文件映射：transform_id -> TransformFileV2 */
   transforms: Record<string, TransformFileV2>
+  /**
+   * Template 定义文件映射：template_id -> 模板内容（含 name 等元信息）。
+   *
+   * 资源树与检查器据此解析模板显示名（此前只能拿到 id，节点标题显示 id 断链）。
+   */
+  templates?: Record<string, TemplateFileContentV2>
   /**
    * 配置覆盖信息。
    *

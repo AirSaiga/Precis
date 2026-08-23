@@ -257,6 +257,7 @@
   import { appApi } from '@/core/capabilities/appApi'
   import { fitView } from '@/services/canvas/vueFlowApi'
   import { FITVIEW_DURATION_MS } from '@/services/canvas/animationDurations'
+  import { SAFE_FITVIEW_PADDING } from '@/features/node-layout-organizer/constants'
   import AssetLibraryNav from '@/components/layout/AssetLibraryNav.vue'
   import AssetLibrary from '@/components/layout/AssetLibrary.vue'
   import InspectorPanel from '@/components/layout/InspectorPanel.vue'
@@ -326,7 +327,9 @@
       // 用户已自定义视口时，NodeCanvas onMounted 已恢复，跳过 fitView 避免覆盖
       if (canvasViewportStore.isCustomized) return
       try {
-        fitView({ padding: 0.2, duration: FITVIEW_DURATION_MS })
+        // 安全留白（右侧检查器/底部状态栏/MiniMap），与整理节点取景策略一致，
+        // 避免窄视口下取景内容落入右侧面板下方不可点
+        fitView({ padding: { ...SAFE_FITVIEW_PADDING }, duration: FITVIEW_DURATION_MS })
       } catch (e) {
         // vueFlowApi 未初始化（如尚无画布实例）时静默忽略，不影响切换
         logger.debug('[App] 布局过渡后 fitView 跳过（画布未就绪）:', e)

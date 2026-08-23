@@ -372,13 +372,16 @@ export class ResourceService implements IResourceService {
     // === 阶段 6：解析 Templates ===
     if (effectiveManifest.templates && Array.isArray(effectiveManifest.templates)) {
       for (const ref of effectiveManifest.templates) {
+        const template = fullConfig.templates?.[ref.id]
         resources.push({
           id: ref.id,
-          name: ref.id,
+          name: template?.name || ref.id,
           kind: 'template',
           path: ref.path,
+          description: template?.description,
           meta: {
             listedInManifest: true,
+            name: template?.name,
           },
         } as TemplateResource)
       }

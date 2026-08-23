@@ -80,6 +80,72 @@ class TestFullConfigReliabilityHardening:
             result = get_v2_full_config(str(root), inspect=False)
             assert result["transforms"] == {}
 
+    def test_get_full_config_includes_template_content(self):
+        """templates 内容字典: 正常模板按 id 索引返回完整内容(含 name),供前端资源树/检查器使用"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = _make_project(tmpdir)
+            (root / "templates").mkdir()
+            (root / "templates" / "my_tmpl.template.yaml").write_text(
+                "version: 2\nid: my_tmpl\nname: 我的模板\ndescription: 测试用\nnodes: []\n",
+                encoding="utf-8",
+            )
+            (root / "project.precis.yaml").write_text(
+                "version: 2\n"
+                "project:\n"
+                "  id: p\n"
+                "  name: p\n"
+                "schemas: []\n"
+                "constraints: []\n"
+                "regex_nodes: []\n"
+                "templates:\n  - id: my_tmpl\n    path: templates/my_tmpl.template.yaml\n",
+                encoding="utf-8",
+            )
+            result = get_v2_full_config(str(root), inspect=False)
+            assert result["templates"]["my_tmpl"]["name"] == "我的模板"
+            assert result["templates"]["my_tmpl"]["id"] == "my_tmpl"
+
+    def test_get_full_config_with_bad_template_ref_returns_200(self):
+        """templates 坏引用与 regex/transform 同样容错: 跳过该条,不 500"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = _make_project(tmpdir)
+            (root / "project.precis.yaml").write_text(
+                "version: 2\n"
+                "project:\n"
+                "  id: p\n"
+                "  name: p\n"
+                "schemas: []\n"
+                "constraints: []\n"
+                "regex_nodes: []\n"
+                'templates:\n  - id: evil\n    path: "../../outside.template.yaml"\n',
+                encoding="utf-8",
+            )
+            result = get_v2_full_config(str(root), inspect=False)
+            assert result["templates"] == {}
+
+    def test_get_full_config_with_broken_template_file_returns_200(self):
+        """模板文件本身损坏: 记日志跳过,接口仍正常返回其余资源"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = _make_project(tmpdir)
+            (root / "templates").mkdir()
+            (root / "templates" / "bad.template.yaml").write_text(
+                "version: 2\nid: bad\nname: [unclosed\n",
+                encoding="utf-8",
+            )
+            (root / "project.precis.yaml").write_text(
+                "version: 2\n"
+                "project:\n"
+                "  id: p\n"
+                "  name: p\n"
+                "schemas: []\n"
+                "constraints: []\n"
+                "regex_nodes: []\n"
+                "templates:\n  - id: bad\n    path: templates/bad.template.yaml\n",
+                encoding="utf-8",
+            )
+            result = get_v2_full_config(str(root), inspect=False)
+            assert result["templates"] == {}
+            assert result["manifest"]["project"]["id"] == "p"
+
     def test_write_full_config_corrupted_manifest_rejected(self):
         """C3: manifest 已存在但损坏时拒绝写入,磁盘内容保持不变"""
         with tempfile.TemporaryDirectory() as tmpdir:

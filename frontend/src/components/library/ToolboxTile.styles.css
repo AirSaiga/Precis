@@ -68,6 +68,11 @@
   font-size: var(--ui-font-size-md);
   font-weight: 500;
   color: var(--ui-text-primary);
+  /* 窄视口下面板剩余宽度不足时单行截断（悬停 title 可看全名），避免折行破坏列表行高 */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .tile-action {

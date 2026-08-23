@@ -12,6 +12,7 @@ import { useVueFlow } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import { useNodeOrganizer } from '@/features/node-layout-organizer/composables/useNodeOrganizer'
 import { FITVIEW_DURATION_MS } from '@/services/canvas/animationDurations'
+import { SAFE_FITVIEW_PADDING } from '@/features/node-layout-organizer/constants'
 
 /**
  * @description 画布视口同步组合式函数
@@ -40,8 +41,8 @@ export function useCanvasViewportSync() {
   watch(
     () => nodeOrganizer.lastOrganizeTime.value,
     () => {
-      // 使用动画效果将视口适配到所有节点，padding 为 0.2 表示留 20% 边距
-      fitView({ padding: 0.2, duration: FITVIEW_DURATION_MS })
+      // 安全留白与整理/加载适配取景一致（右侧检查器/底部状态栏/MiniMap）
+      fitView({ padding: { ...SAFE_FITVIEW_PADDING }, duration: FITVIEW_DURATION_MS })
     }
   )
 }

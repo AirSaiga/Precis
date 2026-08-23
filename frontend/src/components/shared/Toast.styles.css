@@ -1,7 +1,8 @@
 .toast-container {
   position: fixed;
   /* 底部居中：避开右侧抽屉/检查器的关闭热区（原右上角与抽屉头部 × 冲突，遮挡点击） */
-  bottom: 48px; /* 状态栏 28px + 留白 */
+  /* 状态栏 28px + 画布底部浮动工具栏避让 + 留白 */
+  bottom: 64px;
   left: 50%;
   transform: translateX(-50%);
   z-index: var(--ui-z-notification);
@@ -90,7 +91,8 @@
 .toast__message {
   font-size: 13px;
   line-height: 1.4;
-  opacity: 0.9;
+  /* 显式主文字色：success/warning 等浅色弱底上若沿用透明度叠加会对比度不足 */
+  color: var(--ui-text-primary);
 }
 
 .toast__close {
@@ -98,7 +100,7 @@
   width: 16px;
   height: 16px;
   margin-top: 2px;
-  opacity: 0.7;
+  opacity: 0.85;
   transition: opacity 0.2s ease;
 }
 
