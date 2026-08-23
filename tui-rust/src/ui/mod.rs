@@ -204,26 +204,26 @@ fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
     let tabs_row = Rect { height: 1, ..Rect { y: area.y, ..area } };
     frame.render_widget(Paragraph::new(Line::from(spans)), tabs_row);
 
-    // — 指示条行：全宽分隔线 + 当前 tab 下的渐变粗指示段（滑动动画）—
-    let (px, pw) = rects[app.prev_tab.index()];
+    // — 指示条行：全宽分隔线 + 当前 tab 下的渐变粗指示段（切换后原地淡入）—
+    // 位置即时吸附当前 tab，不做滑动：cell 量化的短距滑动在终端里读不出平滑，
+    // 只会跨骑相邻 chip 间隙（或回绕时横扫整条栏），与即时切换的 chip 高亮错位
     let (cx, cw) = rects[app.current_tab.index()];
-    let t = ((app.frame_count.wrapping_sub(app.tab_switch_frame)) as f64
-        / layout::TAB_ANIM_FRAMES as f64)
+    let fade_t = ((app.frame_count.wrapping_sub(app.tab_switch_frame)) as f64
+        / layout::INDICATOR_FADE_FRAMES as f64)
         .min(1.0);
-    let e = 1.0 - (1.0 - t).powi(3); // ease-out cubic
-    let ix = px as f64 + (cx as f64 - px as f64) * e;
-    let iw = pw as f64 + (cw as f64 - pw as f64) * e;
-    let x0 = ix.round() as usize;
-    let x1 = (ix + iw).round().max(ix.round() + 1.0) as usize;
+    // 起始向 bg 压暗 55%，数帧内淡入到全亮（保留切换的动态反馈）
+    let dim_factor = (1.0 - fade_t) * 0.55;
 
+    let (x0, x1) = (cx, cx + cw);
     let row_width = area.width as usize;
     let mut ind: Vec<Span> = Vec::with_capacity(row_width);
     for col in 0..row_width {
         if col >= x0 && col < x1 {
             let tc = if x1 > x0 { (col - x0) as f64 / (x1 - x0) as f64 } else { 0.0 };
+            let base = colors::blend(colors::gradient_a(), colors::gradient_b(), tc);
             ind.push(Span::styled(
                 icons::INDICATOR,
-                Style::default().fg(colors::blend(colors::gradient_a(), colors::gradient_b(), tc)),
+                Style::default().fg(colors::blend(base, colors::bg(), dim_factor)),
             ));
         } else {
             ind.push(Span::styled(icons::RULE, Style::default().fg(colors::border())));
@@ -324,7 +324,10 @@ fn apply_fade(buf: &mut Buffer, area: Rect, factor: f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::types::ProjectInfo;
+    use crate::api::types::{
+        FullValidationResponse, ProjectInfo, ProviderInfo, ValidationErrorItem, ValidationSummary,
+    };
+    use crate::app::{ChatMsg, ProviderTestToast, TestResult};
     use ratatui::backend::TestBackend;
     use ratatui::Terminal;
 
@@ -396,6 +399,8 @@ mod tests {
             last_modified: None,
         }];
         app.project_name = Some("demo".to_string());
+        // 指标卡绑定 api.project_path 的"已打开项目"，需与真实打开流程一致地设置
+        app.api.set_project("/tmp/demo");
         let out = render_to_string(&mut app, 100, 30);
         assert!(out.contains("demo"), "项目名应显示");
         assert!(out.contains("项目"), "项目节标题应显示");
@@ -408,6 +413,22 @@ mod tests {
         let out = render_to_string(&mut app, 100, 30);
         assert!(out.contains("项目"), "空列表也应有节标题");
         assert!(out.contains("本地数据校验工具"), "hero 标语应显示");
+    }
+
+    /// 空项目列表按 backend_connected 分诊：未连接提示后端问题，已连接才提示目录问题
+    #[test]
+    fn dashboard_empty_shows_backend_guidance_when_disconnected() {
+        // 默认 backend_connected=false 且 projects 空 → 指引排查后端连接
+        let mut app = running_app();
+        let out = render_to_string(&mut app, 100, 26);
+        assert!(out.contains("后端未连接"), "未连接时应提示后端指引");
+        assert!(!out.contains("未发现项目"), "未连接时不应误诊为目录问题");
+
+        // 后端已连接但目录无项目 → 保持原有目录指引
+        app.backend_connected = true;
+        let out = render_to_string(&mut app, 100, 26);
+        assert!(out.contains("未发现项目"), "已连接时空列表应提示 PRECIS_WORK_DIR");
+        assert!(!out.contains("后端未连接"), "已连接时不应再提示后端未连接");
     }
 
     #[test]
@@ -456,14 +477,296 @@ mod tests {
         assert!(out.contains("Esc"), "表单提示应显示");
     }
 
+    /// 渲染一帧并按行返回 buffer 文本（render_to_string 的按行版本，用于"同行"断言）
+    fn render_lines(app: &mut App, w: u16, h: u16) -> Vec<String> {
+        let backend = TestBackend::new(w, h);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, app)).unwrap();
+        let buf = terminal.backend().buffer();
+        let mut lines = Vec::new();
+        for y in 0..h {
+            let mut s = String::new();
+            let mut x = 0;
+            while x < w {
+                let symbol = buf[(x, y)].symbol();
+                s.push_str(symbol);
+                x += widgets::display_width(symbol).max(1) as u16;
+            }
+            lines.push(s);
+        }
+        lines
+    }
+
+    /// Dashboard 指标卡应绑定"已打开项目"（api.project_path），而非光标选中的项目
+    #[test]
+    fn dashboard_metrics_follow_open_project_not_cursor() {
+        let mut app = running_app();
+        app.projects = vec![
+            ProjectInfo {
+                name: "qa_simple".to_string(),
+                path: "p1".to_string(),
+                schema_count: Some(2),
+                constraint_count: Some(5),
+                last_modified: None,
+            },
+            ProjectInfo {
+                name: "other".to_string(),
+                path: "p2".to_string(),
+                schema_count: Some(8),
+                constraint_count: Some(42),
+                last_modified: None,
+            },
+        ];
+        app.api.set_project("p1");
+        app.project_name = Some("qa_simple".to_string());
+        app.selected_project = 1; // 光标落在 other 上，指标卡仍应展示已打开的 p1
+        let lines = render_lines(&mut app, 100, 30);
+        // 名称行：● qa_simple  已打开   p1 应在同一行（brand 行无路径，列表行无"已打开"）
+        assert!(
+            lines.iter().any(|l| l.contains("qa_simple") && l.contains("已打开") && l.contains("p1")),
+            "名称行应绑定已打开项目而非光标项目"
+        );
+        // 指标卡数值行：2/5/7 应同出一行（卡片横排时三个数值共行），且不含光标项目的 42
+        assert!(
+            lines.iter().any(|l| l.contains("2") && l.contains("5") && l.contains("7") && !l.contains("42")),
+            "指标卡数值应来自已打开项目（2/5/7）"
+        );
+        // 总计不应是光标项目的 8+42=50
+        assert!(!lines.iter().any(|l| l.contains("50")), "总计不应显示光标项目的 8+42");
+    }
+
+    /// 已打开项目不在扫描列表时：counts 不可得，跳过指标卡只渲染名称行（不 panic）
+    #[test]
+    fn dashboard_metrics_fallback_when_open_project_not_in_list() {
+        let mut app = running_app();
+        app.api.set_project("p9");
+        app.project_name = Some("ext".to_string());
+        let lines = render_lines(&mut app, 100, 30);
+        assert!(
+            lines.iter().any(|l| l.contains("ext") && l.contains("已打开") && l.contains("p9")),
+            "应渲染一行 名称 + 已打开 + 路径"
+        );
+        assert!(!lines.iter().any(|l| l.contains("Schema")), "counts 不可得时应跳过指标卡");
+    }
+
     #[test]
     fn test_tab_switch_records_animation() {
         let mut app = running_app();
         assert_eq!(app.content_fade, 0);
         app.switch_tab(Tab::Validation);
-        assert_eq!(app.prev_tab, Tab::Dashboard);
+        assert_eq!(app.tab_switch_frame, app.frame_count);
         assert_eq!(app.content_fade, layout::CONTENT_FADE_FRAMES);
-        // 渲染不 panic（指示条处于动画中）
+        // 渲染不 panic（指示条处于淡入中）
         let _ = render_to_string(&mut app, 100, 30);
+    }
+
+    /// 提取指示条行（y=2）的亮段区间（首列, 末列, 数量）
+    fn indicator_bright_range(app: &mut App, w: u16, h: u16) -> (u16, u16, u16) {
+        let backend = TestBackend::new(w, h);
+        let mut terminal = Terminal::new(backend).unwrap();
+        terminal.draw(|f| render(f, app)).unwrap();
+        let buf = terminal.backend().buffer();
+        let mut first: Option<u16> = None;
+        let mut last = 0u16;
+        let mut count = 0u16;
+        for x in 0..w {
+            if buf[(x, 2)].symbol() == icons::INDICATOR {
+                if first.is_none() {
+                    first = Some(x);
+                }
+                last = x;
+                count += 1;
+            }
+        }
+        (first.unwrap_or(0), last, count)
+    }
+
+    /// 回归：切换后第一帧指示条就必须完整吸附在当前 tab 矩形内（不再滑动跨骑相邻 chip）
+    #[test]
+    fn test_indicator_snaps_to_current_tab_immediately() {
+        // 宽屏 tab 矩形：概览 = 37..46，AI 对话 = 48..60（由 tab_rects 几何决定）
+        let mut app = running_app();
+        app.switch_tab(Tab::Chat);
+        // 切换后第一帧（淡入刚起步）：亮段必须已是当前 tab 的完整矩形
+        let (first, last, count) = indicator_bright_range(&mut app, 100, 24);
+        assert_eq!((first, last, count), (48, 59, 12), "切换后首帧亮段应精确覆盖 Chat chip");
+
+        // 回绕切换同样即时吸附（原滑动实现会横扫整条栏 8 帧）
+        app.switch_tab(Tab::Dashboard);
+        let (first, last, count) = indicator_bright_range(&mut app, 100, 24);
+        assert_eq!((first, last, count), (0, 8, 9), "回绕后首帧亮段应精确覆盖 Dashboard chip");
+    }
+
+    /// 回归：淡入保留——切换后首帧指示条被压暗，数帧后恢复到 gradient_a 全亮
+    #[test]
+    fn test_indicator_fades_in_in_place() {
+        let mut app = running_app();
+        app.switch_tab(Tab::Chat);
+        // 首帧亮段首格颜色
+        let first_frame_fg = {
+            let backend = TestBackend::new(100, 24);
+            let mut terminal = Terminal::new(backend).unwrap();
+            terminal.draw(|f| render(f, &mut app)).unwrap();
+            terminal.backend().buffer()[(48, 2)].fg
+        };
+        // 跑够淡入帧数后的颜色
+        let mut settled_fg = first_frame_fg;
+        for _ in 0..(layout::INDICATOR_FADE_FRAMES + 2) {
+            let backend = TestBackend::new(100, 24);
+            let mut terminal = Terminal::new(backend).unwrap();
+            terminal.draw(|f| render(f, &mut app)).unwrap();
+            settled_fg = terminal.backend().buffer()[(48, 2)].fg;
+        }
+        assert_ne!(first_frame_fg, colors::gradient_a(), "首帧应处于压暗态");
+        assert_eq!(settled_fg, colors::gradient_a(), "淡入结束后应恢复到渐变起点全亮");
+    }
+
+    /// 构造最小可渲染的 ProviderInfo（Provider 页 toast 测试用）
+    fn make_provider(id: &str, name: &str) -> ProviderInfo {
+        ProviderInfo {
+            id: id.to_string(),
+            name: name.to_string(),
+            provider_type: "openai".to_string(),
+            base_url: "http://127.0.0.1:1".to_string(),
+            model: "demo-model".to_string(),
+            context_window: None,
+            health: None,
+            is_configured: true,
+        }
+    }
+
+    /// Chat 回看：scroll=0 显示最新消息且无标记；scroll>0 顶部出现回看标记并展示更早消息
+    #[test]
+    fn chat_scroll_shows_earlier_lines_and_marker() {
+        let mut app = running_app();
+        app.switch_tab(Tab::Chat);
+        // 6 条长消息（每条约 59 个汉字，wrap 成 2 行），每条含唯一标记文本，
+        // 总行数 6×4=24 > 可视高度 22，保证触发截断/回看切片
+        for i in 1..=6 {
+            let content =
+                format!("唯一标记第{:02}条{}", i, "这是一段用来撑高消息区的长对话内容".repeat(3));
+            app.chat_messages.push(ChatMsg {
+                role: if i % 2 == 0 { "assistant" } else { "user" }.to_string(),
+                content,
+            });
+        }
+
+        // 默认停在最新消息：含最后一条内容、无回看标记
+        let out = render_to_string(&mut app, 100, 30);
+        assert!(out.contains("唯一标记第06条"), "tail 模式应显示最后一条消息");
+        assert!(!out.contains("回看"), "scroll=0 不应出现回看标记");
+
+        // 回看 5 行：顶部出现回看标记，展示更早消息，最后一条移出可视区
+        app.chat_scroll = 5;
+        let out = render_to_string(&mut app, 100, 30);
+        assert!(out.contains("回看"), "回看模式应显示回看标记");
+        assert!(out.contains("PgDn"), "回看标记应提示 PgDn 返回");
+        assert!(out.contains("唯一标记第01条"), "回看模式应显示更早的消息");
+        assert!(!out.contains("唯一标记第06条"), "回看时最后一条消息应移出可视区");
+    }
+
+    /// 回归：消息不足一屏时按 PgUp（chat_scroll>0 但无内容可滚）不占行不留空，
+    /// 渲染与 scroll=0 完全一致（旧实现顶部会悬空一行且无回看标记）
+    #[test]
+    fn chat_scroll_no_marker_when_content_fits() {
+        let mut app = running_app();
+        app.switch_tab(Tab::Chat);
+        // 2 条短消息远不足一屏
+        for i in 1..=2 {
+            app.chat_messages.push(ChatMsg {
+                role: "user".to_string(),
+                content: format!("短消息{}", i),
+            });
+        }
+        let base = render_lines(&mut app, 100, 30);
+        app.chat_scroll = 10; // 按了 PgUp，但内容不可滚
+        let scrolled = render_lines(&mut app, 100, 30);
+        assert!(
+            !scrolled.iter().any(|l| l.contains("回看")),
+            "内容不足一屏时不应出现回看标记"
+        );
+        assert_eq!(base, scrolled, "内容不足一屏时 PgUp 不应改变任何渲染（不留空行）");
+    }
+
+    /// 校验错误超过渲染上限时表格底部应提示截断；未超限时无提示
+    #[test]
+    fn validation_errors_over_500_show_truncation_hint() {
+        let make_resp = |n: i64| FullValidationResponse {
+            success: false,
+            summary: ValidationSummary {
+                files_total: 3,
+                files_loaded: 3,
+                tables_loaded: 5,
+                loading_error_count: 0,
+                format_error_count: n as u32,
+                constraint_error_count: 0,
+                total_error_count: n as u32,
+                duration_ms: 100,
+                interrupted: false,
+            },
+            errors: (0..n)
+                .map(|i| ValidationErrorItem {
+                    stage: "format".to_string(),
+                    error_type: "格式错误".to_string(),
+                    message: format!("第 {} 条错误消息", i),
+                    table: format!("表{}", i),
+                    column: String::new(),
+                    row_index: Some(i),
+                    source_path: String::new(),
+                })
+                .collect(),
+            statistics: None,
+            error: None,
+        };
+
+        let mut app = running_app();
+        app.switch_tab(Tab::Validation);
+        app.validation = ValidationState::Done(Box::new(make_resp(501)));
+        let out = render_to_string(&mut app, 100, 24);
+        assert!(out.contains("仅显示前 500 条"), "超限时应提示截断");
+        assert!(out.contains("501"), "提示应包含总错误数");
+
+        let mut app = running_app();
+        app.switch_tab(Tab::Validation);
+        app.validation = ValidationState::Done(Box::new(make_resp(3)));
+        let out = render_to_string(&mut app, 100, 24);
+        assert!(!out.contains("仅显示"), "未超限时不应出现截断提示");
+    }
+
+    /// Provider 测试 toast 只在光标位于被测 provider 行时显示，光标移走即隐藏
+    #[test]
+    fn provider_toast_binds_tested_provider() {
+        let mut app = running_app();
+        app.switch_tab(Tab::Provider);
+        app.providers = vec![make_provider("a", "Alpha"), make_provider("b", "Beta")];
+        app.provider_cursor = 0;
+        app.provider_test_result = Some(ProviderTestToast {
+            provider_id: "a".to_string(),
+            result: TestResult::Ok("ok".to_string()),
+            at_frame: 0,
+        });
+        let out = render_to_string(&mut app, 100, 30);
+        assert!(out.contains("连接正常"), "光标在被测 provider 行时应显示结果");
+
+        app.provider_cursor = 1;
+        let out = render_to_string(&mut app, 100, 30);
+        assert!(!out.contains("连接正常"), "光标移到其他 provider 行时不应张冠李戴");
+    }
+
+    /// Provider 测试 toast 超过 TTL（约 5 秒 / 165 帧）后自动消隐
+    #[test]
+    fn provider_toast_expires_after_ttl() {
+        let mut app = running_app();
+        app.switch_tab(Tab::Provider);
+        app.providers = vec![make_provider("a", "Alpha")];
+        app.provider_cursor = 0;
+        app.provider_test_result = Some(ProviderTestToast {
+            provider_id: "a".to_string(),
+            result: TestResult::Ok("ok".to_string()),
+            at_frame: 0,
+        });
+        app.frame_count = 200; // 距产生时刻已远超 165 帧
+        let out = render_to_string(&mut app, 100, 30);
+        assert!(!out.contains("连接正常"), "超过 TTL 后 toast 应消隐");
     }
 }

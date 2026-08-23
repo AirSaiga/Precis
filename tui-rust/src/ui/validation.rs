@@ -10,6 +10,9 @@ use super::widgets;
 use crate::app::{colors, layout, App, ValidationState};
 use crate::icons;
 
+/// 错误表最多渲染条数（超出时在底部提示截断）
+const MAX_ERRORS: usize = 500;
+
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -163,12 +166,12 @@ fn render_errors(frame: &mut Frame, app: &App, area: Rect) {
         .saturating_sub(col_table + col_col + col_row + col_type + 10)
         .max(10);
 
-    let cursor = app.error_cursor.min(resp.errors.len().saturating_sub(1).min(499));
+    let cursor = app.error_cursor.min(resp.errors.len().saturating_sub(1).min(MAX_ERRORS - 1));
 
     let rows: Vec<Row> = resp
         .errors
         .iter()
-        .take(500)
+        .take(MAX_ERRORS)
         .enumerate()
         .map(|(i, e)| {
             let selected = i == cursor;
@@ -214,7 +217,26 @@ fn render_errors(frame: &mut Frame, app: &App, area: Rect) {
     .column_spacing(1)
     .style(Style::default().bg(colors::bg()));
 
+    // 超过渲染上限时表格让出最底 1 行，提示用户列表不完整（否则静默截断无从得知）
+    let truncated = resp.errors.len() > MAX_ERRORS && area.height >= 2;
+    let table_area = if truncated {
+        Rect { height: area.height - 1, ..area }
+    } else {
+        area
+    };
+
     let mut state = TableState::default();
     state.select(Some(cursor));
-    frame.render_stateful_widget(table, area, &mut state);
+    frame.render_stateful_widget(table, table_area, &mut state);
+
+    if truncated {
+        let hint = Line::from(Span::styled(
+            format!("  … 仅显示前 {} 条 · 共 {} 条错误", MAX_ERRORS, resp.errors.len()),
+            Style::default().fg(colors::dim()),
+        ));
+        frame.render_widget(
+            Paragraph::new(hint),
+            Rect { y: area.y + area.height - 1, height: 1, ..area },
+        );
+    }
 }

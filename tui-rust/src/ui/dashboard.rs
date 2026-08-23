@@ -79,9 +79,15 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         return;
     }
     if app.projects.is_empty() {
+        // 空态分诊：后端未连接 ≠ 目录没项目，避免把连接故障误诊为 PRECIS_WORK_DIR 问题
+        let empty_text = if app.backend_connected {
+            "  未发现项目（检查 PRECIS_WORK_DIR 指向的目录）"
+        } else {
+            "  后端未连接（检查后端服务或 PRECIS_BACKEND_URL）"
+        };
         frame.render_widget(
             Paragraph::new(Line::from(Span::styled(
-                "  未发现项目（检查 PRECIS_WORK_DIR 指向的目录）",
+                empty_text,
                 Style::default().fg(colors::dim()),
             ))),
             Rect { x: area.x, y, width: area.width, height: 1 },
@@ -157,7 +163,28 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
 /// 指标卡片区（返回下一块内容的起始 y）
 fn render_metrics(frame: &mut Frame, app: &App, area: Rect, y: u16) -> u16 {
     let bottom = area.y + area.height;
-    let Some(p) = app.projects.get(app.selected_project) else {
+    // 指标卡绑定"已打开项目"（与下方列表行的 current_path 口径一致），而非光标选中的项目
+    let current_path = app.api.project_path().unwrap_or("");
+    let Some(p) = app.projects.iter().find(|p| p.path == current_path) else {
+        // 已打开的项目不在扫描列表里：counts 不可得，跳过指标卡，只渲染一行名称行
+        let Some(name) = &app.project_name else {
+            return y;
+        };
+        if bottom > y {
+            frame.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::styled(" ● ", Style::default().fg(colors::green())),
+                    Span::styled(
+                        name.clone(),
+                        Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD),
+                    ),
+                    Span::styled("  已打开", Style::default().fg(colors::green())),
+                    Span::styled(format!("   {}", current_path), Style::default().fg(colors::dim())),
+                ])),
+                Rect { x: area.x, y, width: area.width, height: 1 },
+            );
+            return y + 2;
+        }
         return y;
     };
     let sc = p.schema_count.unwrap_or(0);

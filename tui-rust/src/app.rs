@@ -36,7 +36,8 @@ pub mod colors {
         boost: Color::Rgb(48, 34, 68),
         fg: Color::Rgb(224, 200, 232),
         muted: Color::Rgb(154, 138, 174),
-        dim: Color::Rgb(91, 74, 110),
+        // dim 承担功能文本（hint/表头/路径），提亮至 vs bg ≥4.5:1（WCAG AA）
+        dim: Color::Rgb(130, 114, 156),
         primary: Color::Rgb(255, 176, 208),
         secondary: Color::Rgb(125, 211, 252),
         green: Color::Rgb(134, 239, 172),
@@ -57,7 +58,8 @@ pub mod colors {
         boost: Color::Rgb(30, 42, 64),
         fg: Color::Rgb(200, 214, 240),
         muted: Color::Rgb(122, 138, 170),
-        dim: Color::Rgb(74, 90, 120),
+        // dim 承担功能文本（hint/表头/路径），提亮至 vs bg ≥4.5:1（WCAG AA）
+        dim: Color::Rgb(112, 130, 165),
         primary: Color::Rgb(137, 180, 250),
         secondary: Color::Rgb(212, 228, 247),
         green: Color::Rgb(163, 230, 53),
@@ -197,6 +199,15 @@ pub enum TestResult {
     Fail(String),
 }
 
+/// Provider 连接测试结果的短暂提示（绑定被测 provider，超时自动消隐）
+#[derive(Debug, Clone)]
+pub struct ProviderTestToast {
+    pub provider_id: String,
+    pub result: TestResult,
+    /// 结果产生时的 frame_count（驱动约 5 秒的 TTL 消隐）
+    pub at_frame: u64,
+}
+
 /// 新建 Provider 表单状态（Provider 页按 n 打开）
 #[derive(Debug, Clone)]
 pub struct ProviderForm {
@@ -275,6 +286,8 @@ pub struct App {
     pub project_name: Option<String>,
     pub validation: ValidationState,
     pub message: String,
+    /// 后端健康检查是否通过，驱动空态文案分诊（未连接 ≠ 未发现项目）
+    pub backend_connected: bool,
     pub should_quit: bool,
     pub frame_count: u64,
     pub fx_enabled: bool,
@@ -288,7 +301,7 @@ pub struct App {
     pub providers: Vec<crate::api::types::ProviderInfo>,
     pub active_provider_id: Option<String>,
     pub provider_cursor: usize,
-    pub provider_test_result: Option<TestResult>,
+    pub provider_test_result: Option<ProviderTestToast>,
     /// 新建 Provider 表单（Some = 表单打开中，拦截所有按键）
     pub provider_form: Option<ProviderForm>,
     // Config 页状态
@@ -299,10 +312,10 @@ pub struct App {
     pub chat_loading: bool,
     /// Chat 页是否聚焦输入框（聚焦时屏蔽全局快捷键，允许输入 q/1-5/Tab/F2 等字符）
     pub chat_focused: bool,
+    /// Chat 回看状态：0 = 停在最新消息；N = 向上回看 N 行
+    pub chat_scroll: usize,
     // — 界面动效状态 —
-    /// 切换前的 tab（指示条滑动动画起点）
-    pub prev_tab: Tab,
-    /// 上次 tab 切换时的 frame_count（驱动滑动/淡入进度）
+    /// 上次 tab 切换时的 frame_count（驱动指示条原地淡入 / 内容淡入进度）
     pub tab_switch_frame: u64,
     /// 内容淡入剩余帧数（0 = 无淡入）
     pub content_fade: u8,
@@ -318,6 +331,7 @@ impl App {
             project_name: None,
             validation: ValidationState::Idle,
             message: String::new(),
+            backend_connected: false,
             should_quit: false,
             frame_count: 0,
             fx_enabled: true,
@@ -337,16 +351,15 @@ impl App {
             chat_input: String::new(),
             chat_loading: false,
             chat_focused: false,
-            prev_tab: Tab::Dashboard,
+            chat_scroll: 0,
             tab_switch_frame: 0,
             content_fade: 0,
         }
     }
     pub fn quit(&mut self) { self.should_quit = true; }
-    /// 切换 tab 并记录动效起点（指示条滑动 + 内容淡入）
+    /// 切换 tab 并记录动效起点（指示条原地淡入 + 内容淡入）
     pub fn switch_tab(&mut self, tab: Tab) {
         if tab != self.current_tab {
-            self.prev_tab = self.current_tab;
             self.current_tab = tab;
             self.tab_switch_frame = self.frame_count;
             self.content_fade = layout::CONTENT_FADE_FRAMES;
@@ -380,6 +393,6 @@ pub mod layout {
     pub const PROGRESS_BAR_TOTAL: usize = 10;
 
     // 动效
-    pub const TAB_ANIM_FRAMES: u64 = 8; // 指示条滑动帧数
+    pub const INDICATOR_FADE_FRAMES: u64 = 4; // 指示条原地淡入帧数（位置即时吸附，不滑动）
     pub const CONTENT_FADE_FRAMES: u8 = 6; // 内容淡入帧数
 }

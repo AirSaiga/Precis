@@ -141,8 +141,9 @@ pub fn gradient_spans(text: &str, a: Color, b: Color, bold: bool) -> Vec<Span<'s
 }
 
 /// 显示宽度估算：ASCII 1 宽、其余（CJK 等）2 宽
+/// （宽度哲学的单一事实源在 icons::char_width，此处委托避免重复实现）
 pub fn display_width(s: &str) -> usize {
-    s.chars().map(|c| if c.is_ascii() { 1 } else { 2 }).sum()
+    s.chars().map(icons::char_width).sum()
 }
 
 /// 按显示宽度截断并右侧补齐空格到 width（用于栏位对齐，CJK 安全）

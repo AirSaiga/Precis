@@ -85,14 +85,34 @@ pub fn progress_bar_total(ratio: f64, total: usize) -> String {
     format!("{}{}", "▰".repeat(filled), "▱".repeat(empty))
 }
 
-/// 截断字符串并加省略号
+/// 单字符显示宽度：ASCII 1 cell，其余（CJK 等全宽字符）2 cell
+/// （与 widgets::display_width 的宽度哲学一致，作为宽度计算的单一事实源）
+pub fn char_width(c: char) -> usize {
+    if c.is_ascii() { 1 } else { 2 }
+}
+
+/// 按显示宽度截断字符串并加省略号
+/// `max` 语义为终端 cell 预算（CJK 占 2 cell）：显示宽 ≤ max 原样返回；
+/// 超预算时截取到 max-1 个 cell 后追加 `…`。
+/// `…` 按 1 cell 计（主流终端单宽渲染；这样纯 ASCII 行为与旧实现逐字节一致）
 pub fn truncate(s: &str, max: usize) -> String {
-    if s.chars().count() <= max {
-        s.to_string()
-    } else {
-        let truncated: String = s.chars().take(max.saturating_sub(1)).collect();
-        format!("{}…", truncated)
+    let total: usize = s.chars().map(char_width).sum();
+    if total <= max {
+        return s.to_string();
     }
+    // … 按 1 cell 计（主流终端单宽渲染；保持纯 ASCII 行为与旧实现一致）
+    let budget = max.saturating_sub(1);
+    let mut out = String::new();
+    let mut used = 0usize;
+    for c in s.chars() {
+        let cw = char_width(c);
+        if used + cw > budget {
+            break;
+        }
+        out.push(c);
+        used += cw;
+    }
+    format!("{}…", out)
 }
 
 #[cfg(test)]
@@ -147,5 +167,29 @@ mod tests {
     #[test]
     fn test_truncate_long() {
         assert_eq!(truncate("hello world", 8), "hello w…");
+    }
+
+    #[test]
+    fn test_truncate_cjk_by_display_width() {
+        // 9 字 = 18 cell > 8：截 3 字（6 cell）+ … = 7 ≤ 8
+        assert_eq!(truncate("字段存在空值违反约束", 8), "字段存…");
+    }
+
+    #[test]
+    fn test_truncate_cjk_narrow_budget() {
+        // 5 字 = 10 cell > 6：截 2 字（4 cell）+ … = 5 ≤ 6
+        assert_eq!(truncate("订单明细表", 6), "订单…");
+    }
+
+    #[test]
+    fn test_truncate_cjk_exact_budget_returns_as_is() {
+        // 4 字 = 8 cell 恰好等于预算：不截断、无省略号
+        assert_eq!(truncate("订单明细", 8), "订单明细");
+    }
+
+    #[test]
+    fn test_truncate_mixed_ascii_cjk() {
+        // "users 表" = 5 + 1 + 2 = 8 cell ≤ 10：原样返回
+        assert_eq!(truncate("users 表", 10), "users 表");
     }
 }

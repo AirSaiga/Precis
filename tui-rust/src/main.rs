@@ -28,7 +28,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use tokio::sync::mpsc;
 
-use crate::app::{App, ChatMsg, ProviderForm, Tab, TestResult, ValidationState};
+use crate::app::{App, ChatMsg, ProviderForm, ProviderTestToast, Tab, TestResult, ValidationState};
 use crate::api::types::{AiChatResponse, ChatMessage, FullValidationResponse, FullConfigResponse, ProviderInfo};
 
 fn backend_url() -> String {
@@ -126,6 +126,7 @@ async fn main() -> Result<()> {
         Ok(()) => {}
         Err(e) => {
             app.message = "后端未连接".to_string();
+            app.backend_connected = false;
             tracing::warn!("Init failed: {}", e);
         }
     }
@@ -153,6 +154,7 @@ async fn try_init(app: &mut App) -> Result<()> {
     if !app.api.health().await.unwrap_or(false) {
         anyhow::bail!("health check failed");
     }
+    app.backend_connected = true;
     app.message = "后端已连接".to_string();
 
     let work_dir = scan_work_dir();
@@ -295,14 +297,23 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
             // 重新拉取 providers + active provider
             spawn_load_providers(tx);
         }
-        BgMessage::ProviderTested { id: _, result } => {
+        BgMessage::ProviderTested { id, result } => {
+            // toast 绑定被测 provider id + 产生时刻（驱动 TTL 消隐与光标错配隐藏）
             match result {
                 Ok(latency) => {
-                    app.provider_test_result = Some(TestResult::Ok(latency));
+                    app.provider_test_result = Some(ProviderTestToast {
+                        provider_id: id,
+                        result: TestResult::Ok(latency),
+                        at_frame: app.frame_count,
+                    });
                     app.message = "连接测试成功".to_string();
                 }
                 Err(e) => {
-                    app.provider_test_result = Some(TestResult::Fail(e));
+                    app.provider_test_result = Some(ProviderTestToast {
+                        provider_id: id,
+                        result: TestResult::Fail(e),
+                        at_frame: app.frame_count,
+                    });
                     app.message = "连接测试失败".to_string();
                 }
             }
@@ -320,6 +331,8 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
         }
         BgMessage::ChatReply(result) => {
             app.chat_loading = false;
+            // 新回复到达自动回到底部
+            app.chat_scroll = 0;
             match result {
                 Ok(resp) => {
                     if !resp.reply.is_empty() {
@@ -369,7 +382,7 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
         }
     }
 
-    // Tab 导航键：始终生效（即使在 Chat 聚焦时，这些是导航不是输入内容）
+    // Tab/BackTab 始终生效（导航不是输入内容）；数字直达键在 Chat 输入框聚焦时让位给文本输入（否则 1-5 打不进消息）
     match key {
         KeyCode::Tab => {
             let next = (app.current_tab.index() + 1) % 5;
@@ -389,7 +402,7 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
             }
             return;
         }
-        KeyCode::Char(c) if ('1'..='5').contains(&c) => {
+        KeyCode::Char(c) if ('1'..='5').contains(&c) && !(app.current_tab == Tab::Chat && app.chat_focused) => {
             if let Some(t) = Tab::from_index((c as usize) - ('1' as usize)) {
                 app.switch_tab(t);
                 auto_load_on_tab_switch(app, tx);
@@ -592,10 +605,24 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
         }
 
         // ---- Chat 页 ----
+        // 历史回看：PgUp 向上翻 10 行 / PgDn 向下翻（不产生文本，输入框聚焦与否都可用）
+        KeyCode::PageUp if app.current_tab == Tab::Chat => {
+            app.chat_scroll = app.chat_scroll.saturating_add(10);
+        }
+        KeyCode::PageDown if app.current_tab == Tab::Chat => {
+            app.chat_scroll = app.chat_scroll.saturating_sub(10);
+        }
         KeyCode::Enter if app.current_tab == Tab::Chat && !app.chat_loading => {
+            // 未聚焦：Enter = 聚焦输入框（与空态提示 "Enter 聚焦输入" 一致），不触发发送
+            if !app.chat_focused {
+                app.chat_focused = true;
+                return;
+            }
             let msg = app.chat_input.trim().to_string();
             if !msg.is_empty() && app.api.project_path().is_some() {
                 app.chat_messages.push(ChatMsg { role: "user".to_string(), content: msg.clone() });
+                // 发送新消息自动回到底部（停在最新消息）
+                app.chat_scroll = 0;
                 app.chat_input.clear();
                 app.chat_loading = true;
                 app.message = "AI 思考中...".to_string();
@@ -723,11 +750,120 @@ fn auto_load_on_tab_switch(app: &mut App, tx: &mpsc::Sender<BgMessage>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crossterm::event::KeyModifiers;
 
     /// backend_url 必须优先返回 resolve 后的地址（自拉起模式为动态端口，而非默认 18000）
     #[test]
     fn test_backend_url_prefers_resolved() {
         let _ = RESOLVED_BACKEND_URL.set("http://127.0.0.1:63281".to_string());
         assert_eq!(backend_url(), "http://127.0.0.1:63281");
+    }
+
+    /// Chat 聚焦输入框时数字 1-5 应作为文本输入，不被全局直达快捷键吞掉
+    #[tokio::test]
+    async fn chat_input_accepts_digits_when_focused() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, _rx) = mpsc::channel::<BgMessage>(4);
+        app.current_tab = Tab::Chat;
+        app.chat_focused = true;
+        handle_key(&mut app, KeyCode::Char('3'), KeyModifiers::NONE, &tx).await;
+        handle_key(&mut app, KeyCode::Char('1'), KeyModifiers::NONE, &tx).await;
+        assert_eq!(app.chat_input, "31", "数字应进入输入框");
+        assert_eq!(app.current_tab, Tab::Chat, "不应触发 tab 直达切换");
+    }
+
+    /// Chat 未聚焦时数字直达键仍应正常切换 tab（且不写入输入框）
+    #[tokio::test]
+    async fn digit_shortcut_still_works_when_chat_unfocused() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, _rx) = mpsc::channel::<BgMessage>(4);
+        app.current_tab = Tab::Chat;
+        app.chat_focused = false;
+        handle_key(&mut app, KeyCode::Char('3'), KeyModifiers::NONE, &tx).await;
+        assert_eq!(app.current_tab, Tab::Provider, "'3' 应直达 Provider 页");
+        assert!(app.chat_input.is_empty(), "未聚焦时数字不应写入输入框");
+    }
+
+    /// Chat 未聚焦时 Enter = 聚焦输入框（与空态提示一致），即使输入非空也不发送
+    #[tokio::test]
+    async fn enter_focuses_chat_input_when_unfocused() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, _rx) = mpsc::channel::<BgMessage>(4);
+        app.current_tab = Tab::Chat;
+        app.chat_focused = false;
+        // 输入非空 + 已有项目路径：旧实现会误发送，新实现只聚焦
+        app.chat_input = "hi".to_string();
+        app.api.set_project("/tmp/x");
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE, &tx).await;
+        assert!(app.chat_focused, "Enter 应聚焦输入框");
+        assert!(app.chat_messages.is_empty(), "未聚焦时 Enter 不应发送消息");
+        assert_eq!(app.chat_input, "hi", "输入内容应保持不变");
+    }
+
+    /// Chat 聚焦 + 有项目路径时 Enter 应发送消息并进入 loading
+    #[tokio::test]
+    async fn enter_sends_when_focused() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, _rx) = mpsc::channel::<BgMessage>(4);
+        app.current_tab = Tab::Chat;
+        app.chat_focused = true;
+        app.api.set_project("/tmp/x");
+        app.chat_input = "hi".to_string();
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE, &tx).await;
+        assert_eq!(app.chat_messages.len(), 1, "应新增一条用户消息");
+        assert_eq!(app.chat_messages[0].role, "user");
+        assert_eq!(app.chat_messages[0].content, "hi");
+        assert!(app.chat_input.is_empty(), "发送后输入框应清空");
+        assert!(app.chat_loading, "发送后应进入 loading 状态");
+    }
+
+    /// Chat 页 PgUp/PgDn 调整回看行数（聚焦输入框时也可用），PgDn saturating 到 0 不下溢
+    #[tokio::test]
+    async fn chat_pageup_pagedown_adjusts_scroll() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, _rx) = mpsc::channel::<BgMessage>(4);
+        app.current_tab = Tab::Chat;
+        app.chat_focused = true; // 聚焦输入框时 PgUp/PgDn 也不应被吞掉
+        handle_key(&mut app, KeyCode::PageUp, KeyModifiers::NONE, &tx).await;
+        handle_key(&mut app, KeyCode::PageUp, KeyModifiers::NONE, &tx).await;
+        assert_eq!(app.chat_scroll, 20, "两次 PgUp 应回看 20 行");
+        handle_key(&mut app, KeyCode::PageDown, KeyModifiers::NONE, &tx).await;
+        assert_eq!(app.chat_scroll, 10, "一次 PgDn 应回退到 10 行");
+        handle_key(&mut app, KeyCode::PageDown, KeyModifiers::NONE, &tx).await;
+        handle_key(&mut app, KeyCode::PageDown, KeyModifiers::NONE, &tx).await;
+        handle_key(&mut app, KeyCode::PageDown, KeyModifiers::NONE, &tx).await;
+        assert_eq!(app.chat_scroll, 0, "多次 PgDn 应 saturating 到 0 不下溢");
+    }
+
+    /// Chat 聚焦 + 有项目路径时 Enter 发送消息应把回看状态重置回底部
+    #[tokio::test]
+    async fn chat_send_resets_scroll() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, _rx) = mpsc::channel::<BgMessage>(4);
+        app.current_tab = Tab::Chat;
+        app.chat_focused = true;
+        app.api.set_project("/tmp/x");
+        app.chat_input = "hi".to_string();
+        app.chat_scroll = 8;
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE, &tx).await;
+        assert_eq!(app.chat_messages.len(), 1, "应发送一条用户消息");
+        assert_eq!(app.chat_scroll, 0, "发送后应回到底部（停在最新消息）");
+    }
+
+    /// Provider 测试结果 toast 应绑定被测 provider id 与产生时的 frame_count
+    #[tokio::test]
+    async fn provider_test_result_binds_id_and_frame() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, _rx) = mpsc::channel::<BgMessage>(4);
+        app.frame_count = 42;
+        handle_bg_message(
+            &mut app,
+            BgMessage::ProviderTested { id: "a".to_string(), result: Ok("ok".to_string()) },
+            &tx,
+        );
+        let t = app.provider_test_result.expect("应记录测试结果 toast");
+        assert_eq!(t.provider_id, "a", "toast 应绑定被测 provider id");
+        assert_eq!(t.at_frame, 42, "toast 应记录产生时的 frame_count");
+        assert!(matches!(t.result, TestResult::Ok(_)), "结果应为 Ok");
     }
 }

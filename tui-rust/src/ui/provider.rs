@@ -40,30 +40,37 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         render_table(frame, app, chunks[1]);
     }
 
-    // 测试结果 toast（固定底部 3 行区域）
-    let toast_lines = match &app.provider_test_result {
-        Some(TestResult::Ok(info)) => {
-            // main.rs 目前只回传 "ok"；将来若带回延迟等信息则附加显示
-            let detail = if info == "ok" { String::new() } else { format!(" ({})", info) };
-            vec![
-                Line::from(""),
-                Line::from(vec![
-                    Span::styled(" ✓ ", Style::default().fg(colors::green())),
-                    Span::styled(format!("连接正常{}", detail), Style::default().fg(colors::green())),
-                ])
-                .style(Style::default().bg(colors::surface())),
-            ]
+    // 测试结果 toast（固定底部 3 行区域）— 绑定被测 provider：
+    // 光标不在被测行（避免张冠李戴）或超时（约 5 秒 TTL）时均不渲染
+    let mut toast_lines: Vec<Line> = Vec::new();
+    if let Some(t) = &app.provider_test_result {
+        let expired = app.frame_count.saturating_sub(t.at_frame) > 165; // ≈5 秒 @33fps
+        let cursor_id = app.providers.get(app.provider_cursor).map(|p| p.id.as_str());
+        if !expired && cursor_id == Some(t.provider_id.as_str()) {
+            toast_lines = match &t.result {
+                TestResult::Ok(info) => {
+                    // main.rs 目前只回传 "ok"；将来若带回延迟等信息则附加显示
+                    let detail = if info == "ok" { String::new() } else { format!(" ({})", info) };
+                    vec![
+                        Line::from(""),
+                        Line::from(vec![
+                            Span::styled(" ✓ ", Style::default().fg(colors::green())),
+                            Span::styled(format!("连接正常{}", detail), Style::default().fg(colors::green())),
+                        ])
+                        .style(Style::default().bg(colors::surface())),
+                    ]
+                }
+                TestResult::Fail(err) => vec![
+                    Line::from(""),
+                    Line::from(vec![
+                        Span::styled(" ✗ ", Style::default().fg(colors::red())),
+                        Span::styled(icons::truncate(err, 60), Style::default().fg(colors::red())),
+                    ])
+                    .style(Style::default().bg(colors::surface())),
+                ],
+            };
         }
-        Some(TestResult::Fail(err)) => vec![
-            Line::from(""),
-            Line::from(vec![
-                Span::styled(" ✗ ", Style::default().fg(colors::red())),
-                Span::styled(icons::truncate(err, 60), Style::default().fg(colors::red())),
-            ])
-            .style(Style::default().bg(colors::surface())),
-        ],
-        None => vec![],
-    };
+    }
     frame.render_widget(Paragraph::new(toast_lines), chunks[2]);
 
     // 新建表单覆盖层（最后渲染，置于顶层）
