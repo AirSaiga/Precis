@@ -45,6 +45,43 @@ test.describe('排版防回归（2026-08-23 审计修复）', () => {
   test('TEMPLATE 前缀标签不与模板名重叠', async ({ projectPage, testProjectPath }) => {
     const page = projectPage
     await openProjectOnCanvas(page, testProjectPath)
+    // 诊断（临时）：收集 API 返回与画布节点清单，用于 CI 环境失败定位，成功后移除
+    const diag = await page.evaluate(async () => {
+      const raw = localStorage.getItem('activeProjectPaths') || ''
+      let configPath = ''
+      try {
+        configPath = JSON.parse(raw).configPath || ''
+      } catch {}
+      let apiStatus: number | string = 'n/a'
+      let templateInstances: unknown = 'FETCH_ERROR'
+      let templatesKeys: unknown = 'FETCH_ERROR'
+      try {
+        const res = await fetch('/api/latest/project/config/full', {
+          headers: { 'X-Project-Config-Path': configPath },
+        })
+        apiStatus = res.status
+        const body = (await res.json()) as {
+          manifest?: { template_instances?: unknown }
+          templates?: Record<string, unknown>
+        }
+        templateInstances = body?.manifest?.template_instances ?? 'MISSING_FIELD'
+        templatesKeys = Object.keys(body?.templates ?? {})
+      } catch (e) {
+        templateInstances = String(e)
+      }
+      const nodes = Array.from(document.querySelectorAll('.vue-flow__node'))
+      return {
+        configPath,
+        apiStatus,
+        templateInstances,
+        templatesKeys,
+        canvasNodeCount: nodes.length,
+        canvasNodeClasses: nodes.map((n) => n.className.toString().replace(/\s+/g, ' ').slice(0, 90)),
+        templateLabelCount: document.querySelectorAll('.template-label').length,
+      }
+    })
+    console.log('TEMPLATE-DIAG:', JSON.stringify(diag))
+
     // V2 导入异步生成模板实例节点（projectRoot 可见后仍需等待），先等 TEMPLATE 行渲染
     await page.waitForSelector('.template-label', { timeout: 15000 })
 
