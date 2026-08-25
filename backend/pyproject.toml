@@ -37,7 +37,6 @@ dependencies = [
     "rich>=13.0.0",
     # CLI 交互
     "readchar>=4.2.0",
-    # TUI 终端界面
     # 安全
     "cryptography>=44.0.0",
     # 安全表达式求值 (替代 eval)
@@ -88,12 +87,10 @@ dev = [
 [project.scripts]
 precis = "app.cli.shell.main:main"
 precis-start = "app.cli.start:main"
-precis-tui = "app.cli.tui.app:main"
 
 [project.urls]
 Homepage = "https://github.com/AirSaiga/Precis"
 Repository = "https://github.com/AirSaiga/Precis"
-Documentation = "https://github.com/AirSaiga/Precis/tree/main/docs"
 "Bug Tracker" = "https://github.com/AirSaiga/Precis/issues"
 "Discussions" = "https://github.com/AirSaiga/Precis/discussions"
 

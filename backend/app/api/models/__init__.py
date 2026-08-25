@@ -16,7 +16,6 @@
     - EndpointModel, ConnectionRuleModel, ConnectionRuleConfigModel, ConnectionRulesModel
     - ExternalDataSource, WorkspaceConfig, UIPreferences
     - SchemaSaveRequest, SchemaSaveResponse, HeaderRowChangedRequest
-    - FilePreviewResponse
     - ValidationRequest, ValidationResponse, ValidationType
     - FullValidationRequest, FullValidationResponse, FullValidationSummary
 """
@@ -51,9 +50,7 @@ from .full_validation import (
 # ============================================================================
 # 数据预览模型
 # ============================================================================
-from .preview import (
-    FilePreviewResponse,
-)
+# 注：FilePreviewResponse 定义在 app/api.routers.preview.models（路由侧实际使用的超集版本）
 from .project import (
     PathsModel,
     ProjectConfigModel,
@@ -117,8 +114,6 @@ __all__ = [
     "SchemaSaveResponse",
     "HeaderRowChangedRequest",
     "HeaderRowChangedResponse",
-    # 数据预览模型
-    "FilePreviewResponse",
     # 校验模型
     "InlineValidationRequest",
     "RegexValidationRequest",

@@ -22,7 +22,6 @@ from app.api.models.full_validation import (
     ValidationTaskRunOptions,
     ValidationTaskTarget,
 )
-from app.api.models.preview import FilePreviewResponse
 from app.api.models.project import PathsModel, ProjectConfigModel, ProjectDetail, StandardResponse
 from app.api.models.schema import (
     HeaderRowChangedRequest,
@@ -40,14 +39,6 @@ from app.api.models.validation import (
     ValidationType,
 )
 from app.api.models.workspace import ExternalDataSource, UIPreferences, WorkspaceConfig
-
-
-class TestPreviewModels:
-    def test_file_preview_response_defaults(self):
-        r = FilePreviewResponse(success=True, file_type="csv", file_name="test.csv")
-        assert r.success is True
-        assert r.data is None
-        assert r.total_rows is None
 
 
 class TestProjectModels:
