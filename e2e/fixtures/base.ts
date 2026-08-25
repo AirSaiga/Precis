@@ -80,9 +80,15 @@ export const test = base.extend<Fixtures>({
   },
 
   isolatedProjectPath: async ({}, use) => {
-    // 每个测试一份独立副本，零跨测试/跨 spec 共享
+    // 每个测试一份独立副本，零跨测试/跨 spec 共享。
+    // 排除 .precis/（运行时产物：workspaces.json/validation_history.json）：
+    // 本机源目录会被历史运行污染，带上它会让"全新项目"路径（首次打开无工作区）
+    // 在本地永远走不到，造成本地绿、CI 红的假象（2026-08-25 CI 排障实证）。
     const copyDir = fs.mkdtempSync(path.join(os.tmpdir(), `precis-e2e-${process.pid}-`))
-    fs.cpSync(QA_SIMPLE_SOURCE, copyDir, { recursive: true })
+    fs.cpSync(QA_SIMPLE_SOURCE, copyDir, {
+      recursive: true,
+      filter: (src) => path.basename(src) !== '.precis',
+    })
     await use(copyDir)
     // 测试结束后清理本副本
     try { fs.rmSync(copyDir, { recursive: true, force: true }) } catch {}

@@ -264,7 +264,10 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
       await loadTabs(configPath)
     }
     if (tabs.value.length === 0) {
-      createNewTab(graphStore)
+      // bootstrap 默认 Tab 收养当前画布（loadProjectFromV2 刚应用的节点），
+      // 不清空：全新项目首次打开时 .precis/workspaces.json 尚不存在，
+      // 若走"重置画布"分支会把已加载的 templateInstance 等节点整体抹掉。
+      createNewTab(graphStore, { adoptCurrentCanvas: true })
       return
     }
     if (!graphStore) return
@@ -304,9 +307,12 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
    *
    * @param graphStore - 可选。传入时会在新工作区中自动创建 projectRoot 节点；
    *                     不传入时仅创建空 Tab（用于初始化阶段，画布由外部管理）
+   * @param options.adoptCurrentCanvas - 收养当前画布为新 Tab 内容而非重置为空白。
+   *                     仅用于 bootstrap 默认 Tab（此时当前画布就是刚加载的项目内容）；
+   *                     用户主动新建工作区不传此选项，保持"新建 = 空白画布"语义
    * @returns 新创建 Tab 的 ID
    */
-  function createNewTab(graphStore?: GraphStoreLike) {
+  function createNewTab(graphStore?: GraphStoreLike, options?: { adoptCurrentCanvas?: boolean }) {
     // 找最小空闲正整数编号：优先填补缺失编号（如历史遗留缺少 1），再扩展
     const usedIndices = new Set(tabs.value.map((t) => t.index))
     let nextIndex = 1
@@ -338,8 +344,14 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
     activeTabId.value = newTab.id
 
     if (graphStore) {
-      graphStore.resetCanvas()
-      // 项目已加载时，空画布需要 projectRoot 作为项目入口
+      if (options?.adoptCurrentCanvas) {
+        // 收养模式：新 Tab 已是激活 Tab，把当前画布快照存入（不重置），
+        // 避免抹掉 loadProjectFromV2 刚应用的节点
+        saveCurrentCanvasData(graphStore.nodes, graphStore.edges)
+      } else {
+        graphStore.resetCanvas()
+      }
+      // 项目已加载时，画布需要 projectRoot 作为项目入口
       ensureProjectRootInCanvas(graphStore)
     }
 

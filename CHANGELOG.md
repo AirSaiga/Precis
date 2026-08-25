@@ -34,6 +34,10 @@ Currently an actively developed prototype. Interfaces, config formats, and CLI p
    
   TUI UX review fix batch and frontend typography-audit fixes
 
+- 修复首次打开全新项目（尚无工作区持久化）时，画布 Tab 初始化误清空已加载节点的问题——bootstrap 默认工作区改为收养当前画布而非重置（本地曾被 gitignored 运行时状态掩盖，CI E2E 揭示）
+   
+  Fixed: opening a brand-new project (no persisted workspaces) wiped just-loaded canvas nodes during bootstrap tab initialization — the default workspace now adopts the current canvas instead of resetting (masked locally by gitignored runtime state; exposed by CI E2E)
+
 ### 2026-07
 
 - 新增 Rust TUI 终端客户端（ratatui + crossterm + tokio）：双主题、动效、Provider/Chat/校验界面，独立于 Electron 与 Web 前端
