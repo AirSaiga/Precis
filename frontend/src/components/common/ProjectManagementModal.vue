@@ -367,7 +367,10 @@
 
         // 如果新项目没有保存的工作区，创建一个默认 Tab
         if (canvasStore.workspaces.length === 0) {
-          canvasStore.createNewWorkspace(graphStore)
+          // 默认 Tab 收养刚加载的画布而非重置，否则首次打开全新项目（无
+          // .precis/workspaces.json）会把 loadProjectFromV2 刚应用的节点清空
+          //（与 bootstrap 路径的修复一致，见 canvasTabStore.createNewTab）
+          canvasStore.createNewWorkspace(graphStore, { adoptCurrentCanvas: true })
         }
 
         // 通知资源树等监听方刷新项目资源。useResourceTree.onMounted 早已执行完毕，

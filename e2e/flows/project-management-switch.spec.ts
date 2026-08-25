@@ -12,6 +12,7 @@
  * 覆盖：
  * 1. 无草稿：经弹窗最近项目切换 → 弹窗关闭、状态栏项目名切换为目标项目
  * 2. 有草稿：切换前出现三选一确认（load 模式文案），丢弃并切换后加载目标项目
+ * 3. 切换到全新项目（无已存工作区）：默认 Tab 不得清空刚加载的模板实例节点
  */
 
 import { test, expect } from '../fixtures/base'
@@ -46,7 +47,12 @@ function rmRetry(dir: string, attempts = 5) {
 
 function makeSecondProject(): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'precis-e2e-switch-'))
-  fs.cpSync(QA_SIMPLE_SOURCE, dir, { recursive: true })
+  // 排除 .precis/（运行时产物）：使目标项目恒为"全新项目"（无已存工作区），与
+  // CI 一致——本地源目录被历史运行污染时，带上它会让全新项目路径走不到
+  fs.cpSync(QA_SIMPLE_SOURCE, dir, {
+    recursive: true,
+    filter: (src) => path.basename(src) !== '.precis',
+  })
   const manifestPath = path.join(dir, 'project.precis.yaml')
   const content = fs.readFileSync(manifestPath, 'utf-8')
   // 原件结构漂移时立即失败，避免静默退化为"两个同名项目"使断言失去区分度
@@ -182,6 +188,29 @@ test.describe('项目管理弹窗切换项目', () => {
         timeout: 15000,
       })
       await expect(page.locator('.project-root-node')).toBeVisible({ timeout: 15000 })
+    } finally {
+      rmRetry(secondDir)
+    }
+  })
+
+  test('切换到全新项目（无已存工作区）后模板实例节点保留', async ({ projectPage }) => {
+    const page = projectPage
+    const secondDir = makeSecondProject()
+    try {
+      // 起点（bootstrap 路径）模板节点应在——锁 95a5a572 的修复
+      await expect(page.locator('.template-label').first()).toBeVisible({ timeout: 15000 })
+
+      await seedRecentProject(page, secondDir)
+      const overlay = await switchViaModal(page, secondDir)
+
+      await expect(overlay).toBeHidden({ timeout: 15000 })
+      await expect(page.locator('.project-chip .project-name')).toHaveText(SECOND_PROJECT_NAME, {
+        timeout: 15000,
+      })
+
+      // 目标是全新项目（无 .precis/workspaces.json）：默认 Tab 创建不得清空
+      // loadProjectFromV2 刚应用的模板实例节点（管理弹窗路径清空缺陷的回归锁）
+      await expect(page.locator('.template-label').first()).toBeVisible({ timeout: 15000 })
     } finally {
       rmRetry(secondDir)
     }
