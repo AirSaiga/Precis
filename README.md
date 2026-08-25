@@ -9,7 +9,7 @@ Visual DAG Editor · Schema-Aware Validation · Local-First
 [![Status](https://img.shields.io/badge/status-Alpha-orange)](https://github.com/AirSaiga/Precis)
 [![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Node](https://img.shields.io/badge/node-%5E20.19.0%20%7C%7C%20%3E%3D22.12.0-green.svg)](https://nodejs.org/)
-[![Python](https://img.shields.io/badge/python-%3E%3D3.12-blue.svg)](https://python.org/)
+[![Python](https://img.shields.io/badge/python-3.12%20%7C%203.13-blue.svg)](https://python.org/)
 
 [中文](#中文) · [English](#english)
 
@@ -29,7 +29,7 @@ Visual DAG Editor · Schema-Aware Validation · Local-First
 
 Precis 是一款面向 Excel/CSV 表格数据的**本地优先**数据质量工具。通过可视化 DAG 画布，将数据校验流程从代码转化为拖拽操作——非技术人员亦可完成从数据源接入到多维度质量校验的完整链路。
 
-三种入口：Electron 桌面应用（推荐）、CLI 命令行、REST API。
+四种入口：Electron 桌面应用（推荐）、CLI 命令行、TUI 终端界面（Rust 实现）、REST API。
 
 ## 核心特性
 
@@ -48,6 +48,7 @@ Precis 是一款面向 Excel/CSV 表格数据的**本地优先**数据质量工�
 | 前端 | Vue 3 + TypeScript + Vite + Pinia + Vue Flow + Vue I18n |
 | 后端 | Python 3.12+ · FastAPI + Uvicorn + Pydantic + Pandas |
 | 桌面端 | Electron + electron-builder |
+| 终端 TUI | Rust + ratatui + crossterm + tokio |
 | 测试 | Vitest + pytest + Playwright E2E |
 | 代码质量 | ESLint + Prettier + Ruff + mypy |
 
@@ -65,6 +66,7 @@ Precis 是一款面向 Excel/CSV 表格数据的**本地优先**数据质量工�
 |------|------|------|
 | Node.js | `^20.19.0 \|\| >=22.12.0` | 含 npm |
 | Python | `>=3.12,<3.14` | 3.12 或 3.13；CLI 命令为 `python3.12` / `python3.13` 亦可 |
+| Rust | stable 工具链 | 仅开发/构建 TUI（`tui-rust/`）需要；只用桌面版/CLI/前端可不装 |
 
 <details>
 <summary>🔍 如何确认本机版本</summary>
@@ -114,7 +116,7 @@ npm run install:all
 # 2. 后端虚拟环境 + 可编辑安装（含开发工具）
 cd backend
 python3.12 -m venv .venv               # 若命令是 python3.13 则相应替换
-source .venv/bin/activate              # Windows PowerShell: .venv\Scripts\Activate.ps1
+source .venv/bin/activate              # Windows PowerShell: .venv\Scripts\Activate.ps1；Git Bash: source .venv/Scripts/activate
 pip install --upgrade pip
 pip install -e ".[dev]"                # 含 pytest / ruff / mypy 等
 cd ..
@@ -127,20 +129,22 @@ cp .env.example .env
 
 ### 启动
 
-三种入口，按需选择：
+四种入口，按需选择（①②③ 需先激活后端 venv，见上方「关键提示」；④ 无需）：
 
 ```bash
 npm run electron:dev          # ① 桌面应用（推荐）：自动拉起后端 + 前端
 npm run dev                   # ② 开发模式：前后端分离，带热重载（端口动态分配）
 npm run cli                   # ③ CLI：交互式命令行
+npm run start:tui-rust:win    # ④ TUI 终端界面（macOS/Linux 用 start:tui-rust:mac）
 ```
 
-| 入口 | 前置条件 | 说明 |
-|------|---------|------|
-| `npm run electron:dev` | 已 `source backend/.venv/bin/activate` | Electron 自动管理后端子进程，最省心 |
-| `npm run dev` | 已 `source backend/.venv/bin/activate` | concurrently 同时起后端 + 前端，便于调试 |
-| `npm run cli` | 已 `source backend/.venv/bin/activate` | 纯命令行，无需前端 |
-| `./scripts/mac/start-cli.sh` | 无需激活 | macOS 脚本自动定位 venv |
+| 入口 | 说明 |
+|------|------|
+| `npm run electron:dev` | Electron 自动管理后端子进程，最省心 |
+| `npm run dev` | concurrently 同时起后端 + 前端，便于调试 |
+| `npm run cli` | 纯命令行，无需前端 |
+| `npm run start:tui-rust:win` / `:mac` | Rust 终端界面；脚本自动复用已运行的后端，没有则由 TUI 自行拉起（详见 [`tui-rust/README.md`](tui-rust/README.md)） |
+| `./scripts/mac/start-cli.sh` | macOS 脚本自动定位 venv，无需激活 |
 
 ### 验证安装
 
@@ -168,20 +172,25 @@ npm run cli:validate          # 用内置示例数据跑一次校验
 | 代码检查 | `npm run lint:all` · `npm run format:all` |
 | 类型检查 | `cd frontend && npm run type-check` |
 | 测试 | `npm run test:all` · `npm run test:coverage` |
-| E2E | `npm run e2e:install` · `npm run e2e:test` |
+| E2E | `npm run e2e:install` · `npm run e2e:test`（需先启动后端，如 `npm run dev`） |
 | 构建 | `npm run build:all` · `npm run frontend:build` · `npm run electron:build` |
 
 > **Electron 生产打包说明**：安装包内嵌 Python 运行时（python-build-standalone）与全部后端依赖，用户无需自装 Python。详见 [`electron/README.md`](electron/README.md)。
 
-> **CLI / TUI 独立打包**：除桌面应用外，CLI 与 TUI 也可各打成自包含分发包（内置 Python 运行时 + 后端源码，解压即用，无需自装 Python/Rust）。
->
-> | 产物 | Windows | macOS |
-> |------|---------|-------|
-> | CLI | `npm run build:cli:win` → `backend/dist-win/precis-cli-win-*.zip` | `npm run build:cli:mac` → `backend/dist-mac/precis-cli-mac-*.tar.gz` |
-> | TUI | `npm run build:tui:win` → `tui-rust/dist-win/precis-tui-win-*.zip` | `npm run build:tui:mac` → `tui-rust/dist-mac/precis-tui-mac-*.tar.gz` |
-> | 一键全打 | `npm run build:all:win`（CLI + TUI + GUI） | `npm run build:all:mac`（CLI + TUI + GUI） |
->
-> 解压后：CLI 运行 `precis.bat` / `./precis`；TUI 运行 `precis-tui.exe` / `./precis-tui`（自动拉起内置后端）。
+**CLI / TUI 独立打包**：除桌面应用外，CLI 与 TUI 也可各打成自包含分发包（内置 Python 运行时 + 后端源码，解压即用，无需自装 Python/Rust）。
+
+<details>
+<summary>📦 构建命令与产物路径</summary>
+
+| 产物 | Windows | macOS |
+|------|---------|-------|
+| CLI | `npm run build:cli:win` → `backend/dist-win/precis-cli-win-*.zip` | `npm run build:cli:mac` → `backend/dist-mac/precis-cli-mac-*.tar.gz` |
+| TUI | `npm run build:tui:win` → `tui-rust/dist-win/precis-tui-win-*.zip` | `npm run build:tui:mac` → `tui-rust/dist-mac/precis-tui-mac-*.tar.gz` |
+| 一键全打 | `npm run build:all:win`（CLI + TUI + GUI） | `npm run build:all:mac`（CLI + TUI + GUI） |
+
+解压后：CLI 运行 `precis.bat` / `./precis`；TUI 运行 `precis-tui.exe` / `./precis-tui`（自动拉起内置后端）。
+
+</details>
 
 ## 项目结构
 
@@ -190,7 +199,9 @@ Precis/
 ├── backend/        # FastAPI + CLI + 校验/转换引擎
 ├── frontend/       # Vue 3 可视化编辑器
 ├── electron/       # Electron 桌面壳
+├── tui-rust/       # Rust 终端界面（TUI）
 ├── e2e/            # Playwright E2E 测试
+├── qa_test/        # 内置示例/测试数据（qa_simple 等）
 ├── scripts/        # 构建与部署脚本（完整启动指南见 scripts/README.md）
 ├── AGENTS.md       # AI 辅助开发指南（详细的架构与规范）
 └── package.json    # Monorepo 脚本入口
@@ -201,6 +212,14 @@ Precis/
 **可以用于生产环境吗？** 暂不建议。Alpha 阶段，核心功能可用但稳定性仍在打磨，API 与配置格式可能调整。
 
 **接受外部贡献吗？** 当前不接受外部 PR，欢迎 Issue 和 Discussion。
+
+## 更多文档
+
+- [CHANGELOG.md](CHANGELOG.md) — 变更日志
+- [CONTRIBUTING.md](CONTRIBUTING.md) — 贡献与开发流程
+- [SECURITY.md](SECURITY.md) — 安全说明
+- [AGENTS.md](AGENTS.md) — AI 辅助开发指南（架构与规范）
+- 各端详情：[backend](backend/README.md) · [frontend](frontend/README.md) · [electron](electron/README.md) · [tui-rust](tui-rust/README.md) · [scripts](scripts/README.md)
 
 ## 许可证
 
@@ -214,7 +233,7 @@ Precis/
 
 Precis is a **local-first** data quality platform for Excel/CSV tabular data. It transforms data validation workflows from code into canvas operations through a visual DAG — non-technical users can build complete validation pipelines by dragging nodes and connecting edges.
 
-Three entry points: Electron desktop app (recommended), CLI, and REST API.
+Four entry points: Electron desktop app (recommended), CLI, TUI terminal app (Rust), and REST API.
 
 ## Core Features
 
@@ -233,6 +252,7 @@ Three entry points: Electron desktop app (recommended), CLI, and REST API.
 | Frontend | Vue 3 + TypeScript + Vite + Pinia + Vue Flow + Vue I18n |
 | Backend | Python 3.12+ · FastAPI + Uvicorn + Pydantic + Pandas |
 | Desktop | Electron + electron-builder |
+| Terminal TUI | Rust + ratatui + crossterm + tokio |
 | Testing | Vitest + pytest + Playwright E2E |
 | Quality | ESLint + Prettier + Ruff + mypy |
 
@@ -250,6 +270,7 @@ Frontend core: Pinia Setup Store + factory module injection graphStore for unifi
 |------|---------|-------|
 | Node.js | `^20.19.0 \|\| >=22.12.0` | includes npm |
 | Python | `>=3.12,<3.14` | 3.12 or 3.13; `python3.12` / `python3.13` also fine |
+| Rust | stable toolchain | Only needed to develop/build the TUI (`tui-rust/`); not required for desktop/CLI/frontend |
 
 <details>
 <summary>🔍 How to check your local versions</summary>
@@ -299,7 +320,7 @@ npm run install:all
 # 2. Backend venv + editable install (with dev tools)
 cd backend
 python3.12 -m venv .venv               # replace with python3.13 if that's your command
-source .venv/bin/activate              # Windows PowerShell: .venv\Scripts\Activate.ps1
+source .venv/bin/activate              # Windows PowerShell: .venv\Scripts\Activate.ps1；Git Bash: source .venv/Scripts/activate
 pip install --upgrade pip
 pip install -e ".[dev]"                # includes pytest / ruff / mypy etc.
 cd ..
@@ -312,20 +333,22 @@ cp .env.example .env
 
 ### Launch
 
-Three entry points — pick as needed:
+Four entry points — pick as needed (①②③ require the backend venv activated first, see the "Key tip" above; ④ does not):
 
 ```bash
 npm run electron:dev          # ① Desktop app (recommended): auto-spawns backend + frontend
 npm run dev                   # ② Dev mode: backend + frontend split, with hot reload (dynamic ports)
 npm run cli                   # ③ CLI: interactive shell
+npm run start:tui-rust:win    # ④ TUI terminal app (macOS/Linux: start:tui-rust:mac)
 ```
 
-| Entry | Prerequisite | Notes |
-|-------|--------------|-------|
-| `npm run electron:dev` | `source backend/.venv/bin/activate` | Electron manages the backend subprocess — least hassle |
-| `npm run dev` | `source backend/.venv/bin/activate` | concurrently runs backend + frontend, good for debugging |
-| `npm run cli` | `source backend/.venv/bin/activate` | CLI only, no frontend needed |
-| `./scripts/mac/start-cli.sh` | none | macOS script auto-locates the venv |
+| Entry | Notes |
+|-------|-------|
+| `npm run electron:dev` | Electron manages the backend subprocess — least hassle |
+| `npm run dev` | concurrently runs backend + frontend, good for debugging |
+| `npm run cli` | CLI only, no frontend needed |
+| `npm run start:tui-rust:win` / `:mac` | Rust terminal UI; the script reuses a running backend if any, otherwise the TUI spawns its own (see [`tui-rust/README.md`](tui-rust/README.md)) |
+| `./scripts/mac/start-cli.sh` | macOS script auto-locates the venv |
 
 ### Verify the Installation
 
@@ -353,20 +376,25 @@ The root `.env` is copied from `.env.example` — **all defaults work as-is**:
 | Lint | `npm run lint:all` · `npm run format:all` |
 | Type Check | `cd frontend && npm run type-check` |
 | Test | `npm run test:all` · `npm run test:coverage` |
-| E2E | `npm run e2e:install` · `npm run e2e:test` |
+| E2E | `npm run e2e:install` · `npm run e2e:test` (requires a running backend, e.g. `npm run dev`) |
 | Build | `npm run build:all` · `npm run frontend:build` · `npm run electron:build` |
 
 > **Electron production packaging note**: The installer bundles a self-contained Python runtime (python-build-standalone) and all backend dependencies — users do not need to install Python. See [`electron/README.md`](electron/README.md) for details.
 
-> **Standalone CLI / TUI packaging**: Besides the desktop app, the CLI and TUI can each be packaged as self-contained bundles (bundled Python runtime + backend source; extract and run, no Python/Rust install needed).
->
-> | Artifact | Windows | macOS |
-> |----------|---------|-------|
-> | CLI | `npm run build:cli:win` → `backend/dist-win/precis-cli-win-*.zip` | `npm run build:cli:mac` → `backend/dist-mac/precis-cli-mac-*.tar.gz` |
-> | TUI | `npm run build:tui:win` → `tui-rust/dist-win/precis-tui-win-*.zip` | `npm run build:tui:mac` → `tui-rust/dist-mac/precis-tui-mac-*.tar.gz` |
-> | All-in-one | `npm run build:all:win` (CLI + TUI + GUI) | `npm run build:all:mac` (CLI + TUI + GUI) |
->
-> After extraction: CLI runs `precis.bat` / `./precis`; TUI runs `precis-tui.exe` / `./precis-tui` (auto-spawns the bundled backend).
+**Standalone CLI / TUI packaging**: Besides the desktop app, the CLI and TUI can each be packaged as self-contained bundles (bundled Python runtime + backend source; extract and run, no Python/Rust install needed).
+
+<details>
+<summary>📦 Build commands & artifact paths</summary>
+
+| Artifact | Windows | macOS |
+|----------|---------|-------|
+| CLI | `npm run build:cli:win` → `backend/dist-win/precis-cli-win-*.zip` | `npm run build:cli:mac` → `backend/dist-mac/precis-cli-mac-*.tar.gz` |
+| TUI | `npm run build:tui:win` → `tui-rust/dist-win/precis-tui-win-*.zip` | `npm run build:tui:mac` → `tui-rust/dist-mac/precis-tui-mac-*.tar.gz` |
+| All-in-one | `npm run build:all:win` (CLI + TUI + GUI) | `npm run build:all:mac` (CLI + TUI + GUI) |
+
+After extraction: CLI runs `precis.bat` / `./precis`; TUI runs `precis-tui.exe` / `./precis-tui` (auto-spawns the bundled backend).
+
+</details>
 
 ## Project Structure
 
@@ -375,7 +403,9 @@ Precis/
 ├── backend/        # FastAPI + CLI + Validation/Transform engine
 ├── frontend/       # Vue 3 visual editor
 ├── electron/       # Electron desktop shell
+├── tui-rust/       # Rust terminal UI (TUI)
 ├── e2e/            # Playwright E2E tests
+├── qa_test/        # Built-in sample/test data (qa_simple etc.)
 ├── scripts/        # Build and deployment scripts (full startup guide in scripts/README.md)
 ├── AGENTS.md       # AI-assisted development guide (detailed architecture & conventions)
 └── package.json    # Monorepo script entry point
@@ -386,6 +416,14 @@ Precis/
 **Can it be used in production?** Not yet recommended. Alpha stage: core features work, but stability is still being polished and APIs/config formats may change.
 
 **Do you accept external contributions?** No external PRs at this stage. Issues and Discussions welcome.
+
+## More Documentation
+
+- [CHANGELOG.md](CHANGELOG.md) — Changelog
+- [CONTRIBUTING.md](CONTRIBUTING.md) — Contributing & development workflow
+- [SECURITY.md](SECURITY.md) — Security notes
+- [AGENTS.md](AGENTS.md) — AI-assisted development guide (architecture & conventions)
+- Per-app details: [backend](backend/README.md) · [frontend](frontend/README.md) · [electron](electron/README.md) · [tui-rust](tui-rust/README.md) · [scripts](scripts/README.md)
 
 ## License
 

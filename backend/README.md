@@ -24,26 +24,13 @@ backend/app/
 │   │   ├── preview/        # 数据预览
 │   │   └── ai/             # AI 配置生成
 │   └── services/           # API 层服务
-├── cli/                    # 交互式命令行（shell 模式）
-│   └── shell/              # REPL 实现
+├── cli/                    # 交互式命令行（shell/ REPL、start 启动器、__main__）
 ├── shared/                 # 三层分离架构
 │   ├── core/               # 框架级基础设施
 │   │                       # 文件 I/O、配置解析（YAML）、数据加载
 │   ├── domain/             # 纯业务领域逻辑（无 I/O 依赖）
-│   │   ├── constraints/    # 10 种约束类型定义
-│   │   │   ├── not_null.py, unique.py, foreign_key.py
-│   │   │   ├── allowed_values.py, range.py, conditional.py
-│   │   │   ├── scripted.py, charset.py, date_logic.py
-│   │   │   ├── composite.py, regex.py
-│   │   │   └── base.py, condition_registry.py
-│   │   ├── transforms/     # 22 种转换类型定义
-│   │   │   ├── string_split.py, regex_extract.py, math_expr.py
-│   │   │   ├── date_format.py, conditional_assign.py, map_value.py
-│   │   │   ├── lookup.py, filter_rows.py, sort_rows.py, aggregate.py
-│   │   │   ├── cast_type.py, concat.py, digits.py, drop_duplicates.py
-│   │   │   ├── fill_na.py, lower_case.py, upper_case.py, modulo.py
-│   │   │   ├── replace.py, strip.py, substring.py, weighted_sum.py
-│   │   │   └── base.py, registry.py
+│   │   ├── constraints/    # 10 种约束类型定义（not_null.py、unique.py 等，每种一个文件）
+│   │   ├── transforms/     # 22 种转换类型定义（string_split.py、math_expr.py 等，每种一个文件）
 │   │   ├── data_types.py   # 数据类型定义（string/integer/float/decimal/boolean/date）
 │   │   ├── dataset_schema.py # Schema 模型
 │   │   ├── expression_system.py # 表达式求值系统

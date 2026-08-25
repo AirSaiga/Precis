@@ -226,9 +226,6 @@ VITE_FRONTEND_PORT=5173
 # Electron 安装包 / Electron installer
 cd electron && npm run dist
 # 输出在 electron/release/ 目录 / Output in electron/release/
-
-# 后端独立可执行文件 (PyInstaller) / Standalone backend executable
-cd backend && python build_backend.py
 ```
 
 ## 提示 / Tips

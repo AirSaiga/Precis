@@ -24,7 +24,7 @@ TUI 是独立于 Electron 桌面端和 Web 前端的**第三种客户端形态**
 └──────────────────┬──────────────────────────────┘
                    │ HTTP (JSON)
                    ▼
-          Python 后端 (FastAPI, :18000)
+          Python 后端 (FastAPI, 动态端口)
 ```
 
 **核心设计**：渲染循环永不阻塞。HTTP 请求在 `tokio::spawn` 的后台 task 里执行，结果通过 `mpsc::channel` 送回主循环，避免终端卡顿。
@@ -32,22 +32,20 @@ TUI 是独立于 Electron 桌面端和 Web 前端的**第三种客户端形态**
 ## 运行环境要求
 
 - **Rust**（stable toolchain，含 cargo）
-- **运行中的 Python 后端**（`npm run backend:dev` 或由 `npm run electron:dev` 自动启动，默认端口 18000）
+- **Python 后端**，三种来源任一即可：复用已运行的后端（启动脚本自动探测）、由 TUI 自行拉起（见下「后端地址解析」）、或经 `PRECIS_BACKEND_URL` 显式指定
 
 ## 构建 & 运行
 
 ```bash
-# 先启动后端（另一个终端）
-npm run backend:dev
+# 推荐：根目录便捷脚本（自动复用已运行的后端，没有则由 TUI 自行拉起）
+npm run start:tui-rust:win        # Windows
+npm run start:tui-rust:mac        # macOS / Linux
 
-# 构建 TUI
+# 手动构建运行
 cd tui-rust && cargo build
-
-# 运行
-cd tui-rust && cargo run
-
-# Windows（根目录便捷脚本）
-npm run start:tui-rust:win
+cd tui-rust && cargo run          # 未设 PRECIS_BACKEND_URL 时，TUI 会拉起自己的后端
+                                  #（dev 态定位系统 python——先激活 backend/.venv 再运行）
+                                  # 连接已运行的后端：设 PRECIS_BACKEND_URL=http://127.0.0.1:<端口>
 
 # Release 优化构建（启用 LTO）
 cd tui-rust && cargo build --release && ./target/release/precis-tui
@@ -103,16 +101,16 @@ precis-tui/
 
 ## 源码结构
 
-| 文件/目录 | 职责 | 行数(参考) |
-|-----------|------|-----------|
-| `src/main.rs` | 入口、事件循环、键位处理、后台任务调度、后端地址解析 | ~574 |
-| `src/app.rs` | 应用状态、双主题配色（thread_local 调色板） | ~285 |
-| `src/backend.rs` | 打包态后端编排：定位 runtime、spawn 子进程、读端口、退出清理 | — |
-| `src/api/` | HTTP 客户端（`client.rs`）、后端响应类型（`types.rs`） | — |
-| `src/ui/` | 8 个界面模块：dashboard / validation / provider / config / chat / sidebar / splash | — |
-| `src/fx.rs` | 动效系统（移动光场 + 脉冲波纹，不用字符粒子） | ~191 |
-| `src/icons.rs` | 统一图标字典（单宽几何符号，禁用 emoji） | ~130 |
-| `src/theme.rs` | 主题持久化读写 | ~83 |
+| 文件/目录 | 职责 |
+|-----------|------|
+| `src/main.rs` | 入口、事件循环、键位处理、后台任务调度、后端地址解析 |
+| `src/app.rs` | 应用状态、双主题配色（thread_local 调色板） |
+| `src/backend.rs` | 打包态后端编排：定位 runtime、spawn 子进程、读端口、退出清理 |
+| `src/api/` | HTTP 客户端（`client.rs`）、后端响应类型（`types.rs`） |
+| `src/ui/` | 界面模块：dashboard / validation / provider / config / chat / widgets / splash |
+| `src/fx.rs` | 动效系统（移动光场 + 脉冲波纹，不用字符粒子） |
+| `src/icons.rs` | 统一图标字典（单宽几何符号，禁用 emoji） |
+| `src/theme.rs` | 主题持久化读写 |
 
 ## 开发约定
 

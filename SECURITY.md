@@ -30,13 +30,13 @@ If you discover a potential security issue:
   
   User-provided scripts (Scripted constraints) run in a restricted `simpleeval` sandbox
 
-- 默认禁用任意代码执行
+- 默认禁用任意代码执行；如需开启须在服务端显式设置 `PRECIS_ALLOW_UNSAFE_EVAL` 环境变量授权
   
-  Arbitrary code execution is disabled by default
+  Arbitrary code execution is disabled by default; enabling it requires explicit server-side opt-in via the `PRECIS_ALLOW_UNSAFE_EVAL` environment variable
 
-- 无原始 SQL 查询 — 所有数据库操作使用 ORM
+- 应用自身无数据库存储；读取用户外部 SQL 数据源时经 SQLAlchemy
   
-  No raw SQL queries — all database operations use ORM
+  The app itself has no database storage; user-supplied external SQL data sources are read via SQLAlchemy
 
 - 依赖项固定并通过 CI 扫描
   

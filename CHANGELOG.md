@@ -12,7 +12,55 @@
 
 Currently an actively developed prototype. Interfaces, config formats, and CLI parameters may change without notice.
 
-### 近期变更 / Recent Changes
+### 2026-08
+
+- **移除项目选择首屏，画布成为唯一默认界面**——打开项目统一经管理弹窗
+   
+  **Removed the project-selector first screen; the canvas is now the sole default view** — opening projects goes through the management dialog
+
+- 安全加固两批：Electron IPC 路径穿越防护与沙箱校验；preview 路径校验、AI 直写 fail-closed、CORS 收紧
+   
+  Two security hardening batches: Electron IPC path-traversal & sandbox checks; preview path validation, AI direct-write fail-closed, tightened CORS
+
+- 后端写盘纪律统一：全仓原子写
+   
+  Unified backend write discipline: atomic writes across the codebase
+
+- 前端多批 UX 与正确性修复：15 项 P0/P1 缺陷、撤销覆盖扩展与草稿守卫、画布加载适配与主题批次、资源树批量操作等
+   
+  Multiple frontend UX/correctness fix batches: 15 P0/P1 defects, undo-coverage extension & draft guards, canvas load adaptation & theme batch, resource-tree batch operations, etc.
+
+- TUI UX 评审修复批次与前端排版审计修复
+   
+  TUI UX review fix batch and frontend typography-audit fixes
+
+### 2026-07
+
+- 新增 Rust TUI 终端客户端（ratatui + crossterm + tokio）：双主题、动效、Provider/Chat/校验界面，独立于 Electron 与 Web 前端
+   
+  Added the Rust TUI terminal client (ratatui + crossterm + tokio): dual themes, animations, Provider/Chat/validation views, independent of Electron and the web frontend
+
+- CLI / TUI 自包含分发打包：内置 Python 运行时，解压即用
+   
+  Self-contained CLI/TUI distribution packaging with a bundled Python runtime — extract and run
+
+- 校验引擎正确性大修三波次：清理假通过与静默失败类缺陷
+   
+  Three waves of validation-engine correctness overhauls: eliminated false-pass and silent-failure defects
+
+- `error_handling: stop` 遇错即停；Scripted / Conditional 约束超时可中断
+   
+  `error_handling: stop` halts on first error; Scripted/Conditional constraints are interruptible on timeout
+
+- Excel 分块校验行号全局连续
+   
+  Globally continuous row numbers for chunked Excel validation
+
+- 黄金集校验接入：`qa_test/golden` 17 组场景 + CI 校验脚本
+   
+  Golden-set validation: 17 scenario groups under `qa_test/golden` plus CI check scripts
+
+### 早期变更（~2026-06）/ Earlier Changes (≤ 2026-06)
 
 #### 约束系统 / Constraint System
 
@@ -48,9 +96,9 @@ Currently an actively developed prototype. Interfaces, config formats, and CLI p
    
   Clipboard (copy/paste/duplicate) and undo/redo
 
-- 连接规则验证系统（20 条规则）
-    
-  Connection validation system (20 rules)
+- 连接规则验证系统（22 条规则）
+   
+  Connection validation system (22 rules)
 
 - 校验历史面板
    

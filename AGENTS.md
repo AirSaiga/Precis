@@ -34,7 +34,7 @@ cd frontend && npm run dev    # 仅启动前端 Vite dev server
 ### 构建
 
 ```bash
-npm run build:all             # 构建前端 + 后端
+npm run build:all             # 构建后端（可编辑安装）+ 前端 + Electron 打包
 npm run frontend:build        # 构建前端（包含 type-check）
 npm run backend:build         # 安装后端可编辑包（pip install -e .）
 ```
@@ -121,7 +121,7 @@ graphStore 是画布的核心状态管理，采用 **Pinia Setup Store + 工厂�
 - 每个模块工厂通过参数接收 `nodes`, `edges` 等响应式引用（依赖注入），**不直接导入 store**
 - `setup/assembly.ts` 将所有模块导出聚合到一个扁平对象中
 - `updateNodeData()` 是修改节点数据的唯一途径：`nodes.value = updateNodeDataInArray(nodes.value, nodeId, newData)`
-- 工厂数量约 27 个 `createXxxModule`，按 V2 导入 / 持久化 / 连接 / 节点工厂 / 模板展开 / 剪贴板 / 历史 等职责拆分（完整清单见 ARCHITECTURE.md）
+- 工厂数量约 26 个 `createXxxModule`，按 V2 导入 / 持久化 / 连接 / 节点工厂 / 模板展开 / 剪贴板 / 历史 等职责拆分（完整清单见 ARCHITECTURE.md）
 
 ### 前端能力抽象层（Electron/Web 解耦）
 
@@ -505,9 +505,9 @@ AI 动作类型（actionType，如 `ADD_SCHEMA`/`VALIDATE_PROJECT`，共 15 种�
 
 ### 类型安全纪律（`as unknown as` 渐进治理）
 
-前端 `as unknown as` 双重断言是绕过 `CustomNodeData` discriminated union 的"逃生舱"，当前存量约 358 处（ESLint `no-restricted-syntax` 规则以 warn 级别追踪）。
+前端 `as unknown as` 双重断言是绕过 `CustomNodeData` discriminated union 的"逃生舱"，当前存量约 300 处（ESLint `no-restricted-syntax` 规则以 warn 级别追踪）。
 
-- **新增代码禁止引入**：`lint:check` 的 `--max-warnings=358` 阈值严格控制增量，新增一个双重断言会让 warning 数超过阈值导致 CI 失败
+- **新增代码禁止引入**：`lint:check` 的 `--max-warnings=300` 阈值严格控制增量，新增一个双重断言会让 warning 数超过阈值导致 CI 失败
 - **优先替代方案**：按 `node.type` 的类型守卫（`if (node.type === 'schema') { const d = node.data as SchemaNodeData }`）、或正确的类型标注
 - **渐进清理**：每次重构某模块时顺手清理其中的 `as unknown as`，清理后在 `package.json` 的 `lint:check` 中同步降低 `--max-warnings` 阈值，直至归零
 - **测试文件豁免**：`tests/**` 已关闭此规则（mock 数据用双重断言合理）

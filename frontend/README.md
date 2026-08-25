@@ -43,19 +43,9 @@ src/
 │   ├── common/             # 通用组件
 │   ├── layout/             # 布局（AppHeader、Sidebar 等）
 │   ├── library/            # 资源库面板
-│   ├── nodes/              # 节点组件
-│   │   ├── core/           # Schema、数据源预览
-│   │   ├── constraintRules/# 10 种约束节点
-│   │   ├── constraintSets/ # 约束规则集节点
-│   │   ├── sets/           # Schema/Regex/Table 集合节点
-│   │   ├── patterns/       # 转换节点
-│   │   ├── regex/          # 正则节点
-│   │   ├── manualData/     # 手动数据节点
-│   │   ├── template/       # 模板实例节点
-│   │   ├── composite/      # 复合节点
-│   │   ├── json/           # JSON Schema 节点
-│   │   ├── root/           # 项目根节点
-│   │   └── shared/         # 共享节点组件
+│   ├── nodes/              # 节点组件（core / constraintRules / constraints /
+│   │                       #  transform / json / manualData / template / composite /
+│   │                       #  root / shared 等按类型分目录）
 │   ├── resource/           # 资源树面板
 │   ├── settings/           # 设置工作台
 │   ├── template/           # 模板管理
@@ -93,31 +83,13 @@ src/
 │   ├── managers/           # 服务管理器
 │   ├── registry/           # 服务注册表
 │   ├── reportExport/       # 报告导出
-│   ├── rules/              # 连接规则（20 条）
+│   ├── rules/              # 连接规则（22 条）
 │   └── validationReportViewModel.ts
 ├── stores/                 # Pinia 状态管理
 │   ├── graphStore/         # 画布核心 Store（Setup Store + 工厂模块）
-│   │   ├── setup/           # 入口（state.ts + computed.ts + assembly.ts + index.ts）
+│   │   ├── setup/          # 入口（state.ts + computed.ts + assembly.ts）
 │   │   └── modules/        # 工厂模块（factories/ v2/ clipboard/ history/ ...）
-│   ├── canvasStore.ts      # 画布状态
-│   ├── canvasTabStore.ts   # 多标签画布
-│   ├── workspaceStore.ts   # 数据源工作区
-│   ├── resourceTreeStore.ts # 资源树
-│   ├── resourceFolderStore.ts # 资源树展开状态
-│   ├── resourceSearchStore.ts # 资源搜索
-│   ├── resourceDragStore.ts # 资源拖拽状态
-│   ├── dragStore.ts        # 拖拽状态
-│   ├── projectStore.ts     # 项目状态
-│   ├── projectSettingsStore.ts # 项目设置
-│   ├── settingsStore.ts    # 设置状态
-│   ├── settingsPreferencesStore.ts # 偏好设置
-│   ├── settingsNavStore.ts # 设置导航
-│   ├── aiChatStore.ts      # AI 聊天
-│   ├── expressionStore.ts  # 表达式管理
-│   ├── scriptEditorStore.ts # 脚本编辑器
-│   ├── validationTaskStore.ts # 校验任务
-│   ├── inspectionStore.ts  # 检查/校验结果
-│   └── ...
+│   └── ...                 # 其余业务 Store（画布标签 / 资源树 / 设置 / AI 聊天等 20+）
 ├── types/                  # TypeScript 类型定义
 │   ├── graph.ts            # 节点/边核心类型
 │   ├── nodes.ts            # CustomNodeData discriminated union
@@ -148,7 +120,7 @@ src/
 
 ### 连接系统
 
-连接规则定义在 `services/rules/connectionRules.ts`（20 条规则），通过 `connectionPolicyService` 验证连线合法性，`useCanvasConnectionWatcher` 监听边变化并同步状态。
+连接规则定义在 `services/rules/connectionRules.ts`（22 条规则），通过 `connectionPolicyService` 验证连线合法性，`useCanvasConnectionWatcher` 监听边变化并同步状态。
 
 ---
 
