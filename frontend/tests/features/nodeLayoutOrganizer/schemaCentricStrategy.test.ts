@@ -176,4 +176,49 @@ describe('SchemaCentricStrategy - calculate', () => {
       expect(subGroups.length).toBeGreaterThan(0)
     }
   })
+
+  it('orders constraint nodes by schema column order via sourceRef', () => {
+    // 回归守卫：约束应跟随 Schema 字段顺序（col-a 在前），而非 UUID 随机序
+    const nodes: CustomNode[] = [
+      makeNode('node-s1', 'schema', {
+        columns: [
+          { id: 'col-a', columnName: 'name' },
+          { id: 'col-b', columnName: 'age' },
+        ],
+      }),
+      makeNode('node-cn-b', 'rangeConstraint', {
+        parent: 'node-s1',
+        sourceRef: { nodeId: 'node-s1', columnId: 'col-b' },
+      }),
+      makeNode('node-cn-a', 'notNullConstraint', {
+        parent: 'node-s1',
+        sourceRef: { nodeId: 'node-s1', columnId: 'col-a' },
+      }),
+    ]
+    const strategy = new SchemaCentricStrategy()
+    const ctx = makeContext(nodes)
+    ctx.canvasHeight = 3000
+    const result = strategy.calculate(makeClassification(nodes), [], ctx)
+    const yA = result.positions.get('node-cn-a')!.y
+    const yB = result.positions.get('node-cn-b')!.y
+    expect(yA).toBeLessThan(yB)
+  })
+
+  it('falls back to name matching when sourceRef columnId is stale', () => {
+    const nodes: CustomNode[] = [
+      makeNode('node-s1', 'schema', {
+        columns: [
+          { id: 'col-a', columnName: 'name' },
+          { id: 'col-b', columnName: 'age' },
+        ],
+      }),
+      makeNode('node-cn-b', 'rangeConstraint', { parent: 'node-s1', column: 'age' }),
+      makeNode('node-cn-a', 'notNullConstraint', { parent: 'node-s1', column: 'name' }),
+    ]
+    const strategy = new SchemaCentricStrategy()
+    const ctx = makeContext(nodes)
+    ctx.canvasHeight = 3000
+    const result = strategy.calculate(makeClassification(nodes), [], ctx)
+    expect(result.positions.get('node-cn-a')!.y).toBeLessThan(result.positions.get('node-cn-b')!.y)
+  })
 })

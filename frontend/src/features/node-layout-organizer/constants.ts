@@ -21,12 +21,22 @@ export const DEFAULT_ORGANIZE_OPTIONS: OrganizeOptions = {
  * 不对称 px 留白：右下角 MiniMap 悬浮在画布内、右侧检查器面板展开会使画布
  * 收窄、底部状态栏覆盖画布下缘——取景时让出这些区域，否则取景后节点贴边
  * 落在浮层之下点不到（按钮类元素被状态栏拦截 hit-test）。
+ *
+ * SAFE_FITVIEW_PADDING_PX 是数值单一事实源（布局算法估算可用区域时用），
+ * SAFE_FITVIEW_PADDING 是传给 fitView 的 CSS px 形式，两者必须同步。
  */
+export const SAFE_FITVIEW_PADDING_PX = {
+  top: 60,
+  left: 60,
+  right: 360,
+  bottom: 200,
+} as const
+
 export const SAFE_FITVIEW_PADDING = {
-  top: '60px',
-  left: '60px',
-  right: '360px',
-  bottom: '200px',
+  top: `${SAFE_FITVIEW_PADDING_PX.top}px`,
+  left: `${SAFE_FITVIEW_PADDING_PX.left}px`,
+  right: `${SAFE_FITVIEW_PADDING_PX.right}px`,
+  bottom: `${SAFE_FITVIEW_PADDING_PX.bottom}px`,
 } as const
 
 /**

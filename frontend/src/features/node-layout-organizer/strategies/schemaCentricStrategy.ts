@@ -121,9 +121,11 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
         nodeTypeById,
         nodeDimensions,
         canvasWidth: context.canvasWidth,
+        canvasHeight: context.canvasHeight,
         layoutMode: 'horizontal',
         gap: context.gap,
         edges: context.connections,
+        memberSortIndexById: this.buildMemberSortIndex(schemaId, members, nodeDataById),
       })
       familyLayouts.push({
         familyId: schemaId,
@@ -145,6 +147,7 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
         nodeTypeById,
         nodeDimensions,
         canvasWidth: context.canvasWidth,
+        canvasHeight: context.canvasHeight,
         layoutMode: 'horizontal',
         gap: context.gap,
         edges: context.connections,
@@ -535,6 +538,55 @@ export class SchemaCentricStrategy implements ILayoutStrategy {
     }
 
     return { assignedSchemaByNode, sharedNodeIds, orphanNodeIds }
+  }
+
+  /**
+   * 构建成员节点 → Schema 列序号的映射，供家族布局按字段顺序排列约束/正则。
+   *
+   * 优先 sourceRef.columnId 精确匹配 Schema 列；缺失时回退 column/sourceColumn
+   * 列名匹配。无 Schema 列表或成员无列引用时不入表（布局回退 UUID 序）。
+   */
+  private buildMemberSortIndex(
+    schemaId: string,
+    memberIds: string[],
+    nodeDataById: Map<string, CustomNode>
+  ): Map<string, number> {
+    const schemaData = nodeDataById.get(schemaId)?.data
+    if (!schemaData || !('columns' in schemaData)) return new Map()
+    const columns = schemaData.columns
+    if (!Array.isArray(columns)) return new Map()
+
+    const orderById = new Map<string, number>()
+    const orderByName = new Map<string, number>()
+    columns.forEach((col, index) => {
+      // columns 联合中存在 string[] 形态的成员（如部分节点数据），过滤后才保证是列对象
+      if (!col || typeof col === 'string') return
+      if (col.id) orderById.set(col.id, index)
+      if (col.columnName) orderByName.set(col.columnName, index)
+    })
+
+    const sortIndexById = new Map<string, number>()
+    for (const nodeId of memberIds) {
+      const data = nodeDataById.get(nodeId)?.data
+      if (!data) continue
+      let index: number | undefined
+
+      if ('sourceRef' in data) {
+        const columnId = data.sourceRef?.columnId
+        if (columnId) index = orderById.get(columnId)
+      }
+
+      if (index === undefined) {
+        let columnName: string | undefined
+        if ('column' in data && typeof data.column === 'string') columnName = data.column
+        else if ('sourceColumn' in data && typeof data.sourceColumn === 'string')
+          columnName = data.sourceColumn
+        if (columnName) index = orderByName.get(columnName)
+      }
+
+      if (index !== undefined) sortIndexById.set(nodeId, index)
+    }
+    return sortIndexById
   }
 
   private layoutRoot(
