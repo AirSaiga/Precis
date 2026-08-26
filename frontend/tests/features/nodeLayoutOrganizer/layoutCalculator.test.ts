@@ -121,19 +121,18 @@ describe('LayoutCalculator - node classification', () => {
     expect(positions.size).toBe(4)
   })
 
-  it('handles root nodes separately', () => {
+  it('places root nodes in the reserved top row, above the schema family', () => {
     const nodes: CustomNode[] = [
       makeNode('node-root', 'projectRoot'),
       makeNode('node-s1', 'schema'),
     ]
     const calc = new LayoutCalculator(nodes, [], { width: 1000, height: 800 }, defaultOptions)
     const positions = calc.calculate()
-    // 验证两个节点都被分配了位置即可（不强求 root.y < schema.y，因为内部 LayoutCalculator.classifyNodes 存在 bug
-    // 第一次遇到新分类时未初始化空数组，导致分类为空，root 节点可能不进入 layoutRoot 分支）
     const rootPos = positions.get('node-root')
     const schemaPos = positions.get('node-s1')
     expect(rootPos).toBeDefined()
     expect(schemaPos).toBeDefined()
+    expect(rootPos!.y).toBeLessThan(schemaPos!.y)
   })
 })
 
@@ -159,5 +158,44 @@ describe('LayoutCalculator - with connections', () => {
     )
     const positions = calc.calculate()
     expect(positions.size).toBe(2)
+  })
+})
+
+describe('LayoutCalculator - schema family wiring (classifyNodes 回归)', () => {
+  beforeEach(() => {
+    Object.defineProperty(globalThis, 'navigator', {
+      value: { platform: 'Win32', language: 'en-US' },
+      configurable: true,
+      writable: true,
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('forms the schema family with three-band ordering: source | schema | constraints', () => {
+    // 回归守卫：classifyNodes 曾因 Map 条目未初始化而恒产空分类，
+    // 导致 Schema 中心化策略整体退化为"未分组节点"流式缠绕布局。
+    const schemaId = 'node-schema-1'
+    const nodes: CustomNode[] = [
+      makeNode('node-src', 'sourcePreview'),
+      makeNode(schemaId, 'schema'),
+      makeNode('node-cn1', 'rangeConstraint', { parent: schemaId }),
+    ]
+    const connections: ConnectionInfo[] = [
+      { source: 'node-src', target: schemaId, sourceType: 'sourcePreview', targetType: 'schema' },
+    ]
+    const calc = new LayoutCalculator(
+      nodes,
+      connections,
+      { width: 2000, height: 1000 },
+      defaultOptions
+    )
+    const positions = calc.calculate()
+
+    expect(calc.getGroups().some((g) => g.id === `fam-${schemaId}`)).toBe(true)
+    expect(positions.get('node-src')!.x).toBeLessThan(positions.get(schemaId)!.x)
+    expect(positions.get(schemaId)!.x).toBeLessThan(positions.get('node-cn1')!.x)
   })
 })

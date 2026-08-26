@@ -98,15 +98,16 @@ export class LayoutCalculator {
         continue
       }
 
-      const categoryList = byCategory.get(category)
-      if (categoryList) {
-        categoryList.push(node.id)
-      }
+      // 注意：必须先初始化 Map 条目再 push。若写成 `if (get(k)) push`，
+      // 首次遇到新分类时 get 恒为 undefined，byCategory/byType 将永远为空，
+      // Schema 中心化策略整体退化为"未分组节点"流式缠绕布局。
+      const categoryList = byCategory.get(category) ?? []
+      categoryList.push(node.id)
+      byCategory.set(category, categoryList)
 
-      const typeList = byType.get(nodeType)
-      if (typeList) {
-        typeList.push(node.id)
-      }
+      const typeList = byType.get(nodeType) ?? []
+      typeList.push(node.id)
+      byType.set(nodeType, typeList)
     }
 
     return { byCategory, byType, unclassified }
