@@ -80,4 +80,10 @@ mod tests {
         assert_eq!(Theme::from_idx(1), Theme::Snow);
         assert_eq!(Theme::from_idx(99), Theme::Sakura); // 越界回退
     }
+
+    #[test]
+    fn test_parse_ignores_trailing_fields() {
+        // 曾短期写入过 snow_style 字段，解析须只取 theme 并忽略其余键
+        assert_eq!(parse_theme_idx("{\"theme\":1,\"snow_style\":2}"), Some(1));
+    }
 }
