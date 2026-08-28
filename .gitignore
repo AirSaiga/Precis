@@ -279,3 +279,6 @@ e2e/typo-shots-fixed/
 
 
 /test-results/
+
+# GUI 视觉测试截图产物（2026-08-28）
+/gui-test-screenshots/
