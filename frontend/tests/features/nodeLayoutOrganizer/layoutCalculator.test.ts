@@ -198,4 +198,23 @@ describe('LayoutCalculator - schema family wiring (classifyNodes 回归)', () =>
     expect(positions.get('node-src')!.x).toBeLessThan(positions.get(schemaId)!.x)
     expect(positions.get(schemaId)!.x).toBeLessThan(positions.get('node-cn1')!.x)
   })
+
+  it('participates manualData/transform/transformOutput/templateInstance in layout (D5 回归)', () => {
+    // 回归守卫：这四种类型曾缺席 NODE_TYPE_TO_CATEGORY，被判 unclassified 后
+    // 整体排除出布局（buildExcludedNodeIds），整理时保持陈旧位置与新布局重叠。
+    const nodes: CustomNode[] = [
+      makeNode('node-md', 'manualData'),
+      makeNode('node-tf', 'transform'),
+      makeNode('node-to', 'transformOutput'),
+      makeNode('node-ti', 'templateInstance'),
+    ]
+    const calc = new LayoutCalculator(nodes, [], { width: 2000, height: 1000 }, defaultOptions)
+    const positions = calc.calculate()
+    expect(positions.size).toBe(4)
+    expect(positions.has('node-md')).toBe(true)
+    expect(positions.has('node-ti')).toBe(true)
+    // 位置两两不同，不再堆叠/遗留原位
+    const unique = new Set(positions.values().map((p) => `${p.x},${p.y}`))
+    expect(unique.size).toBe(4)
+  })
 })

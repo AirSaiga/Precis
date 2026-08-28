@@ -16,6 +16,11 @@ export enum NodeCategory {
 
 /**
  * 节点类型到类别的映射配置
+ *
+ * 注意：此表必须覆盖 CustomNodeData 联合的全部运行时 type 字符串。
+ * 缺失的类型会被 layoutCalculator.classifyNodes 判为 unclassified，
+ * 进而被 schemaCentricStrategy 排除出布局（buildExcludedNodeIds），
+ * 整理时保持陈旧位置，与重排后的家族卡片重叠（2026-08-28 视觉测试 D5）。
  */
 export const NODE_TYPE_TO_CATEGORY: Record<string, NodeCategory> = {
   projectRoot: NodeCategory.ROOT,
@@ -24,6 +29,10 @@ export const NODE_TYPE_TO_CATEGORY: Record<string, NodeCategory> = {
   jsonSourcePreview: NodeCategory.CORE,
   jsonSchema: NodeCategory.CORE,
   regex: NodeCategory.CORE,
+  manualData: NodeCategory.CORE,
+  transform: NodeCategory.CORE,
+  transformOutput: NodeCategory.CORE,
+  templateInstance: NodeCategory.CORE,
   constraint: NodeCategory.CONSTRAINT,
   notNullConstraint: NodeCategory.CONSTRAINT,
   uniqueConstraint: NodeCategory.CONSTRAINT,
