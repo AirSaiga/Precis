@@ -11,6 +11,8 @@ import { logger } from '@/core/utils/logger'
 import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
 import { toastError } from '@/core/toast'
+import { getViewportCenterInFlowCoords } from '@/services/canvas/vueFlowApi'
+import { resolveSpawnPosition } from '@/services/canvas/spawnPosition'
 import type { ConstraintKind } from '@/services/constraints/types'
 import type { TransformTypeV2 } from '@/types/projectV2'
 
@@ -19,12 +21,33 @@ export function useToolboxCreators() {
   const store = useGraphStore()
 
   /**
+   * 计算新节点落点：优先取当前视口中心附近的不重叠位置。
+   *
+   * 历史上这里对每类节点使用固定坐标（schema 恒为 {200,100} 等），
+   * 连续创建会精确堆叠在同一位置，新节点被旧节点完全遮挡，
+   * 用户会误以为点击创建无效（见 2026-08-28 视觉测试 D4）。
+   */
+  const resolveNodeSpawnPosition = (): { x: number; y: number } => {
+    return resolveSpawnPosition({
+      viewportCenter: getViewportCenterInFlowCoords(),
+      occupants: store.nodes
+        // 折叠模板的子节点以 hidden:true 隐藏，不占视觉空间，不参与落点避让
+        .filter((n) => !n.hidden)
+        .map((n) => ({
+          position: n.position,
+          // Vue Flow 的 width/height 允许 string|number|函数，只取实测数值
+          width: typeof n.width === 'number' ? n.width : undefined,
+          height: typeof n.height === 'number' ? n.height : undefined,
+        })),
+    })
+  }
+
+  /**
    * 创建 Project Root 节点
    */
   const createProjectRoot = (): void => {
     try {
-      const position = { x: 100, y: 100 }
-      store.createProjectRootNode(position)
+      store.createProjectRootNode(resolveNodeSpawnPosition())
     } catch (error) {
       logger.error('创建Project Root节点失败:', error)
       toastError(t('messages.common.createNodeFailed'))
@@ -36,8 +59,7 @@ export function useToolboxCreators() {
    */
   const createTableSchema = (): void => {
     try {
-      const position = { x: 200, y: 100 }
-      store.createSchemaNode(position, t('messages.canvas.newTable'))
+      store.createSchemaNode(resolveNodeSpawnPosition(), t('messages.canvas.newTable'))
     } catch (error) {
       logger.error('创建Schema节点失败:', error)
       toastError(t('messages.common.createNodeFailed'))
@@ -49,8 +71,7 @@ export function useToolboxCreators() {
    */
   const createJsonSchema = (): void => {
     try {
-      const position = { x: 200, y: 100 }
-      store.createJsonSchemaNode(position, t('messages.canvas.newTable'))
+      store.createJsonSchemaNode(resolveNodeSpawnPosition(), t('messages.canvas.newTable'))
     } catch (error) {
       logger.error('创建JSON Schema节点失败:', error)
       toastError(t('messages.common.createNodeFailed'))
@@ -62,8 +83,7 @@ export function useToolboxCreators() {
    */
   const createRegexPattern = (): void => {
     try {
-      const position = { x: 300, y: 150 }
-      store.createRegexNode(position)
+      store.createRegexNode(resolveNodeSpawnPosition())
     } catch (error) {
       logger.error('创建正则表达式节点失败:', error)
       toastError(t('messages.common.createNodeFailed'))
@@ -75,8 +95,7 @@ export function useToolboxCreators() {
    */
   const createRegexExtract = (): void => {
     try {
-      const position = { x: 320, y: 170 }
-      store.createRegexExtractNode(position)
+      store.createRegexExtractNode(resolveNodeSpawnPosition())
     } catch (error) {
       logger.error('创建正则提取节点失败:', error)
       toastError(t('messages.common.createNodeFailed'))
@@ -89,8 +108,7 @@ export function useToolboxCreators() {
    */
   const createConstraintNode = (constraintType: string): void => {
     try {
-      const position = { x: 400, y: 200 }
-      store.createConstraintNode(position, constraintType as ConstraintKind)
+      store.createConstraintNode(resolveNodeSpawnPosition(), constraintType as ConstraintKind)
     } catch (error) {
       logger.error('创建约束节点失败:', error)
       toastError(t('messages.common.createNodeFailed'))
@@ -103,8 +121,7 @@ export function useToolboxCreators() {
    */
   const createTransform = (transformType: TransformTypeV2): void => {
     try {
-      const position = { x: 400, y: 200 }
-      store.createTransformNode(position, transformType)
+      store.createTransformNode(resolveNodeSpawnPosition(), transformType)
     } catch (error) {
       logger.error('创建Transform节点失败:', error)
       toastError(t('messages.common.createNodeFailed'))
@@ -116,8 +133,7 @@ export function useToolboxCreators() {
    */
   const createManualData = (): void => {
     try {
-      const position = { x: 200, y: 200 }
-      store.createManualDataNode(position)
+      store.createManualDataNode(resolveNodeSpawnPosition())
     } catch (error) {
       logger.error('创建手动数据节点失败:', error)
       toastError(t('messages.common.createNodeFailed'))
@@ -129,8 +145,7 @@ export function useToolboxCreators() {
    */
   const createTemplateInstance = (): void => {
     try {
-      const position = { x: 300, y: 200 }
-      store.createTemplateInstanceNode(position)
+      store.createTemplateInstanceNode(resolveNodeSpawnPosition())
     } catch (error) {
       logger.error('创建模板实例节点失败:', error)
       toastError(t('messages.common.createNodeFailed'))

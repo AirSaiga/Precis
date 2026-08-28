@@ -39,6 +39,11 @@ export interface VueFlowApi {
   updateNodeData: UpdateNodeData
   updateNode: UpdateNode
   fitView: FitView
+  /**
+   * 屏幕坐标 → flow 坐标。可选成员：测试替身与降级路径可缺席，
+   * 调用方（如工具箱落点计算）需判空并走回退逻辑。
+   */
+  screenToFlowCoordinate?: (position: { x: number; y: number }) => { x: number; y: number }
 }
 
 let _api: VueFlowApi | null = null
@@ -72,6 +77,25 @@ export function initVueFlowApi(api: VueFlowApi) {
  */
 export function resetVueFlowApi(): void {
   _api = null
+}
+
+/**
+ * 获取画布视口中心对应的 flow 坐标。
+ *
+ * 用于工具箱创建节点时的落点计算（见 services/canvas/spawnPosition.ts）。
+ * Vue Flow 未初始化、未提供 screenToFlowCoordinate、或画布 DOM 尚未挂载时返回 null，
+ * 调用方需回退到默认坐标。
+ */
+export function getViewportCenterInFlowCoords(): { x: number; y: number } | null {
+  if (!_api?.screenToFlowCoordinate) return null
+  const pane = document.querySelector('.vue-flow')
+  if (!pane) return null
+  const rect = pane.getBoundingClientRect()
+  if (rect.width === 0 || rect.height === 0) return null
+  return _api.screenToFlowCoordinate({
+    x: rect.left + rect.width / 2,
+    y: rect.top + rect.height / 2,
+  })
 }
 
 export function addNodes(...args: Parameters<AddNodes>) {

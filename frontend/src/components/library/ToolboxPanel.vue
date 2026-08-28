@@ -20,6 +20,7 @@
             iconSvg: ICONS.projectRoot,
           }"
           draggable
+          @click="createProjectRoot"
           @dragstart="(e) => handleToolboxDragStart(e, 'projectRoot')"
           @dragend="handleDragEnd"
         >
@@ -51,6 +52,7 @@
             iconSvg: ICONS.schema,
           }"
           draggable
+          @click="createTableSchema"
           @dragstart="(e) => handleToolboxDragStart(e, 'schema')"
           @dragend="handleDragEnd"
         >
@@ -82,6 +84,7 @@
             iconSvg: ICONS.jsonSchema,
           }"
           draggable
+          @click="createJsonSchema"
           @dragstart="(e) => handleToolboxDragStart(e, 'jsonSchema')"
           @dragend="handleDragEnd"
         >
@@ -113,6 +116,7 @@
             iconSvg: ICONS.manualData,
           }"
           draggable
+          @click="createManualData"
           @dragstart="(e) => handleManualDataDragStart(e)"
           @dragend="handleDragEnd"
         >
@@ -216,6 +220,7 @@
             iconSvg: ICONS.templateInstance,
           }"
           draggable
+          @click="createTemplateInstance"
           @dragstart="(e) => handleToolboxDragStart(e, 'templateInstance')"
           @dragend="handleDragEnd"
         >

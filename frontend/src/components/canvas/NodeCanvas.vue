@@ -260,6 +260,7 @@
     updateNodeData,
     updateNode,
     fitView,
+    screenToFlowCoordinate,
   } = useVueFlow()
   // 视口持久化：模式切换销毁重建 NodeCanvas 时，恢复用户上次的 pan/zoom
   const canvasViewportStore = useCanvasViewportStore()
@@ -275,6 +276,7 @@
     updateNodeData,
     updateNode,
     fitView,
+    screenToFlowCoordinate,
   })
   const { validateConnection } = useCanvasConnectionWatcher()
   const flowWrapper = ref<HTMLDivElement | null>(null)
