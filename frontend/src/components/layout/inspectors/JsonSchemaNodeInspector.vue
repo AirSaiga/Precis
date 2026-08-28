@@ -30,6 +30,7 @@
         :model-value="data.configName"
         :editable="true"
         :placeholder="t('inspector.jsonSchemaNode.placeholders.configName')"
+        :error="(data.configName || '').trim() ? '' : t('inspector.validation.requiredField')"
         @update:model-value="(v) => updateData({ configName: v })"
       />
       <InspectorField
@@ -37,6 +38,7 @@
         :model-value="data.tableName"
         :editable="true"
         :placeholder="t('inspector.jsonSchemaNode.placeholders.tableName')"
+        :error="(data.tableName || '').trim() ? '' : t('inspector.validation.requiredField')"
         @update:model-value="(v) => updateData({ tableName: v })"
       />
     </InspectorSection>

@@ -152,6 +152,14 @@
     eventBus.on('open-settings', handleOpenSettings)
     eventBus.on('open-project-management', handleOpenProjectManagement)
     eventBus.on('open-save-as-template-dialog', handleOpenSaveAsTemplate)
+    // 空闲期预载高频弹窗 chunk：项目管理弹窗首次打开曾需 >2s 等待异步加载，
+    // 期间弹窗既不渲染也无加载反馈（2026-08-28 视觉测试 D2）。
+    const idle = window.requestIdleCallback ?? ((cb: () => void) => window.setTimeout(cb, 1500))
+    idle(() => {
+      import('@/components/common/ProjectManagementModal.vue').catch(() => {
+        // 预载失败静默忽略：defineAsyncComponent 首开时会再次加载并自行处理错误
+      })
+    })
   })
 
   onUnmounted(() => {

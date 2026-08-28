@@ -39,6 +39,7 @@
               :placeholder="t('settings.projectInfo.missingConfigPath')"
             />
             <button
+              v-if="canBrowseDirectory"
               class="ui-btn ui-btn--secondary ui-btn--sm"
               type="button"
               @click="selectConfigPath"
@@ -150,6 +151,10 @@
   const resourceTreeStore = useResourceTreeStore()
   const workspaceStore = useWorkspaceStore()
   const { success, warning } = useToast()
+
+  // Web 环境无法弹出目录选择对话框（dialogApi.canSelectDirectory=false），
+  // 隐藏"浏览"按钮避免点击无响应；路径输入框仍可手动填写
+  const canBrowseDirectory = dialogApi.canSelectDirectory
 
   // 本地状态
   const localProjectName = ref(graphStore.projectName || '')

@@ -15,6 +15,9 @@ const inspector = (() => {
     empty: '选择一个节点以查看其属性',
     placeholder: '选择一个节点以查看其属性',
     emptyHint: '点击画布中的任意节点开始编辑属性',
+    validation: {
+      requiredField: '必填字段，不能为空',
+    },
 
     // [新增] PatternToolbox节点属性检查器
     patternToolbox: {

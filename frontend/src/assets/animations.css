@@ -62,3 +62,12 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* === 覆盖层退场禁用指针事件 ===
+ * 抽屉/弹窗淡出期间（leave-active 过渡）元素仍挂载且可命中，
+ * 此窗口内的点击会被正在消失的遮罩吞掉而非落到下层内容。
+ * 统一禁用退场期的指针事件，消除"关闭后第一次点击无效"的竞态。 */
+.modal-fade-leave-active,
+.drawer-fade-leave-active {
+  pointer-events: none;
+}

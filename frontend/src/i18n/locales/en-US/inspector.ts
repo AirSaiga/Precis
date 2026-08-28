@@ -13,6 +13,9 @@ const inspector = {
   empty: 'Select a node to view its properties',
   placeholder: 'Select a node to view its properties',
   emptyHint: 'Click any node on the canvas to start editing properties',
+  validation: {
+    requiredField: 'This field is required',
+  },
 
   ...inspectorConstraints,
   // [Added] PatternToolbox node inspector
