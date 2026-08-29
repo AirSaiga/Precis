@@ -5,37 +5,17 @@
     "constraints.constraintTypes.",
     "inspection.actions.",
     "inspection.issues.",
-    "common.fullValidation.task.scope.sourceTypes."
+    "common.fullValidation.task.scope.sourceTypes.",
+    "common.fullValidation.task.stageStatus.",
+    "constraintTypes.",
+    "customNodes.transformNode.types.",
+    "inspector.transformNode.typeSemantics.",
+    "messages.canvas.transformMenu.categories.",
+    "messages.canvas.transformMenu.constraintCategories.",
+    "shortcuts.category.",
+    "template.errors."
   ],
   "baselineMissing": [],
-  "baselineOnlyZh": [
-    "customNodes.uniqueConstraintNode.columns",
-    "customNodes.uniqueConstraintNode.table"
-  ],
-  "baselineOnlyEn": [
-    "customNodes.allowedValuesConstraintNode.allowedValuesEmpty",
-    "customNodes.allowedValuesConstraintNode.allowedValuesLabel",
-    "customNodes.allowedValuesConstraintNode.detailsTitle",
-    "customNodes.allowedValuesConstraintNode.editInInspector",
-    "customNodes.allowedValuesConstraintNode.editInInspectorToAdd",
-    "customNodes.allowedValuesConstraintNode.errorCount",
-    "customNodes.allowedValuesConstraintNode.helpTooltip",
-    "customNodes.allowedValuesConstraintNode.hintAutoValidate",
-    "customNodes.allowedValuesConstraintNode.hintConfigureAllowedValues",
-    "customNodes.allowedValuesConstraintNode.hintConnectSource",
-    "customNodes.allowedValuesConstraintNode.inputHandle",
-    "customNodes.allowedValuesConstraintNode.matchCount",
-    "customNodes.allowedValuesConstraintNode.moreCount",
-    "customNodes.allowedValuesConstraintNode.noDetails",
-    "customNodes.allowedValuesConstraintNode.sourceLabel",
-    "customNodes.allowedValuesConstraintNode.statusError",
-    "customNodes.allowedValuesConstraintNode.statusIdle",
-    "customNodes.allowedValuesConstraintNode.statusMissing",
-    "customNodes.allowedValuesConstraintNode.statusPass",
-    "customNodes.allowedValuesConstraintNode.title",
-    "customNodes.allowedValuesConstraintNode.totalRows",
-    "customNodes.allowedValuesConstraintNode.waitingForSource",
-    "customNodes.uniqueConstraintNode.columnLabel",
-    "customNodes.uniqueConstraintNode.sourceLabel"
-  ]
+  "baselineOnlyZh": [],
+  "baselineOnlyEn": []
 }

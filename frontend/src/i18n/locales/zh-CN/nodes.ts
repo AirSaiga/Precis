@@ -786,13 +786,6 @@ const customNodes = {
     resizeHandle: '拖拽调整节点大小',
     dragForRelation: '拖拽此处连接数据源',
   },
-  uniqueConstraintNode: {
-    title: '唯一约束',
-    table: '表:',
-    columns: '列:',
-    helpTooltip:
-      '唯一性约束用于确保指定列或列组合的值在数据集中唯一。系统会自动检测重复值并高亮显示。',
-  },
   regexNode: {
     title: '正则表达式',
     pattern: '模式',
