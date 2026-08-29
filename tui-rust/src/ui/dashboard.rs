@@ -8,6 +8,7 @@ use ratatui::Frame;
 
 use super::widgets;
 use crate::app::{colors, layout, App};
+use crate::i18n::pick;
 use crate::icons;
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -22,7 +23,11 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         y = render_metrics(frame, app, area, y);
     } else {
         // hero：ASCII 渐变字标 + 标语（居中），主题装饰符收尾
-        let motif = if colors::theme() == 1 { icons::motif::SNOW } else { icons::motif::SAKURA };
+        let motif = if colors::theme() == 1 {
+            icons::motif::SNOW
+        } else {
+            icons::motif::SAKURA
+        };
         let a = colors::gradient_a();
         let b = colors::gradient_b();
         let logo_w = super::splash::LOGO
@@ -36,10 +41,16 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
                 .chars()
                 .enumerate()
                 .map(|(i, c)| {
-                    let t = if logo_w > 1.0 { i as f64 / (logo_w - 1.0) } else { 0.0 };
+                    let t = if logo_w > 1.0 {
+                        i as f64 / (logo_w - 1.0)
+                    } else {
+                        0.0
+                    };
                     Span::styled(
                         c.to_string(),
-                        Style::default().fg(colors::blend(a, b, t)).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(colors::blend(a, b, t))
+                            .add_modifier(Modifier::BOLD),
                     )
                 })
                 .collect();
@@ -48,14 +59,22 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         hero.push(Line::from(""));
         hero.push(Line::from(vec![
             Span::styled(format!("{} ", motif), Style::default().fg(a)),
-            Span::styled("本地数据校验工具", Style::default().fg(colors::muted())),
+            Span::styled(
+                pick("本地数据校验工具", "Local data validation tool"),
+                Style::default().fg(colors::muted()),
+            ),
             Span::styled(format!(" {}", motif), Style::default().fg(b)),
         ]));
         let hero_h = hero.len() as u16 + 1;
         if bottom.saturating_sub(y) >= hero_h {
             frame.render_widget(
                 Paragraph::new(hero).alignment(Alignment::Center),
-                Rect { x: area.x, y, width: area.width, height: hero_h },
+                Rect {
+                    x: area.x,
+                    y,
+                    width: area.width,
+                    height: hero_h,
+                },
             );
             y += hero_h;
         }
@@ -65,11 +84,24 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     if bottom.saturating_sub(y) < 3 {
         return;
     }
-    let header = widgets::section_header("◈", "项目", Some(app.projects.len()), area.width as usize);
-    let hint = widgets::chips_line(&[("j/k", "选择"), ("Enter", "打开")]);
+    let header = widgets::section_header(
+        "◈",
+        pick("项目", "Projects"),
+        Some(app.projects.len()),
+        area.width as usize,
+    );
+    let hint = widgets::chips_line(&[
+        ("j/k", pick("选择", "Select")),
+        ("Enter", pick("打开", "Open")),
+    ]);
     frame.render_widget(
         Paragraph::new(vec![header, hint, Line::from("")]),
-        Rect { x: area.x, y, width: area.width, height: 3 },
+        Rect {
+            x: area.x,
+            y,
+            width: area.width,
+            height: 3,
+        },
     );
     y += 3;
 
@@ -81,16 +113,27 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     if app.projects.is_empty() {
         // 空态分诊：后端未连接 ≠ 目录没项目，避免把连接故障误诊为 PRECIS_WORK_DIR 问题
         let empty_text = if app.backend_connected {
-            "  未发现项目（检查 PRECIS_WORK_DIR 指向的目录）"
+            pick(
+                "  未发现项目（检查 PRECIS_WORK_DIR 指向的目录）",
+                "  No projects found (check the directory that PRECIS_WORK_DIR points to)",
+            )
         } else {
-            "  后端未连接（检查后端服务或 PRECIS_BACKEND_URL）"
+            pick(
+                "  后端未连接（检查后端服务或 PRECIS_BACKEND_URL）",
+                "  Backend not connected (check the backend service or PRECIS_BACKEND_URL)",
+            )
         };
         frame.render_widget(
             Paragraph::new(Line::from(Span::styled(
                 empty_text,
                 Style::default().fg(colors::dim()),
             ))),
-            Rect { x: area.x, y, width: area.width, height: 1 },
+            Rect {
+                x: area.x,
+                y,
+                width: area.width,
+                height: 1,
+            },
         );
         return;
     }
@@ -104,14 +147,20 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
             let is_current = p.path == current_path;
             let is_selected = idx == app.selected_project;
             let prefix = if is_selected { icons::SELECTED } else { " " };
-            let prefix_color = if is_selected { colors::pink() } else { colors::dim() };
+            let prefix_color = if is_selected {
+                colors::pink()
+            } else {
+                colors::dim()
+            };
             let (dot, dot_color) = if is_current {
                 (icons::status::CONNECTED, colors::green())
             } else {
                 (icons::status::DISCONNECTED, colors::dim())
             };
             let name_style = if is_current {
-                Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(colors::fg())
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(colors::fg())
             };
@@ -128,13 +177,17 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
                 ),
                 Span::styled(" · ", Style::default().fg(colors::dim())),
                 Span::styled(
-                    format!("{} 约束", p.constraint_count.unwrap_or(0)),
+                    format!(
+                        "{} {}",
+                        p.constraint_count.unwrap_or(0),
+                        pick("约束", "constraints")
+                    ),
                     Style::default().fg(colors::pink()),
                 ),
             ];
             if is_current {
                 spans.push(Span::raw("  "));
-                spans.extend(widgets::badge("当前", colors::green()));
+                spans.extend(widgets::badge(pick("当前", "Current"), colors::green()));
             }
             // 路径并入行尾（dim、截断）
             let path_budget = (area.width as usize).saturating_sub(48);
@@ -155,7 +208,12 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     state.select(Some(app.selected_project));
     frame.render_stateful_widget(
         list,
-        Rect { x: area.x, y, width: area.width, height: list_h },
+        Rect {
+            x: area.x,
+            y,
+            width: area.width,
+            height: list_h,
+        },
         &mut state,
     );
 }
@@ -176,12 +234,25 @@ fn render_metrics(frame: &mut Frame, app: &App, area: Rect, y: u16) -> u16 {
                     Span::styled(" ● ", Style::default().fg(colors::green())),
                     Span::styled(
                         name.clone(),
-                        Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD),
+                        Style::default()
+                            .fg(colors::fg())
+                            .add_modifier(Modifier::BOLD),
                     ),
-                    Span::styled("  已打开", Style::default().fg(colors::green())),
-                    Span::styled(format!("   {}", current_path), Style::default().fg(colors::dim())),
+                    Span::styled(
+                        format!("  {}", pick("已打开", "Opened")),
+                        Style::default().fg(colors::green()),
+                    ),
+                    Span::styled(
+                        format!("   {}", current_path),
+                        Style::default().fg(colors::dim()),
+                    ),
                 ])),
-                Rect { x: area.x, y, width: area.width, height: 1 },
+                Rect {
+                    x: area.x,
+                    y,
+                    width: area.width,
+                    height: 1,
+                },
             );
             return y + 2;
         }
@@ -195,8 +266,18 @@ fn render_metrics(frame: &mut Frame, app: &App, area: Rect, y: u16) -> u16 {
     let ph3 = (t + 4.189).sin() * 0.5 + 0.5;
     let cards: [(String, &str, ratatui::style::Color, f64); 3] = [
         (sc.to_string(), "Schema", colors::pink(), ph1),
-        (cc.to_string(), "约束", colors::cyan(), ph2),
-        ((sc + cc).to_string(), "总计", colors::green(), ph3),
+        (
+            cc.to_string(),
+            pick("约束", "Constraints"),
+            colors::cyan(),
+            ph2,
+        ),
+        (
+            (sc + cc).to_string(),
+            pick("总计", "Total"),
+            colors::green(),
+            ph3,
+        ),
     ];
 
     let mut y = y;
@@ -206,7 +287,12 @@ fn render_metrics(frame: &mut Frame, app: &App, area: Rect, y: u16) -> u16 {
         let cols = Layout::default()
             .direction(Direction::Horizontal)
             .constraints([Constraint::Ratio(1, 3); 3])
-            .split(Rect { x: area.x, y, width: area.width, height: 4 });
+            .split(Rect {
+                x: area.x,
+                y,
+                width: area.width,
+                height: 4,
+            });
         for (i, (value, label, accent, ph)) in cards.iter().enumerate() {
             let mut r = cols[i];
             if i > 0 {
@@ -221,7 +307,12 @@ fn render_metrics(frame: &mut Frame, app: &App, area: Rect, y: u16) -> u16 {
         for (value, label, accent, ph) in &cards {
             widgets::stat_card(
                 frame,
-                Rect { x: area.x, y, width: area.width, height: 4 },
+                Rect {
+                    x: area.x,
+                    y,
+                    width: area.width,
+                    height: 4,
+                },
                 value,
                 label,
                 *accent,
@@ -238,12 +329,22 @@ fn render_metrics(frame: &mut Frame, app: &App, area: Rect, y: u16) -> u16 {
                 Span::styled(" ● ", Style::default().fg(colors::green())),
                 Span::styled(
                     p.name.clone(),
-                    Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(colors::fg())
+                        .add_modifier(Modifier::BOLD),
                 ),
-                Span::styled("  已打开", Style::default().fg(colors::green())),
+                Span::styled(
+                    format!("  {}", pick("已打开", "Opened")),
+                    Style::default().fg(colors::green()),
+                ),
                 Span::styled(format!("   {}", p.path), Style::default().fg(colors::dim())),
             ])),
-            Rect { x: area.x, y, width: area.width, height: 1 },
+            Rect {
+                x: area.x,
+                y,
+                width: area.width,
+                height: 1,
+            },
         );
         y += 2;
     }

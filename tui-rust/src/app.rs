@@ -1,6 +1,7 @@
 //! 应用状态管理 + 全局配色系统（双主题：樱花粉 / 飘雪冰蓝）
 
 use crate::api::types::{FullValidationResponse, ProjectInfo};
+use crate::i18n::pick;
 
 /// 配色 — 双主题系统，通过 thread_local 持有当前调色板
 pub mod colors {
@@ -88,29 +89,64 @@ pub mod colors {
         CURRENT.with(|c| c.get())
     }
 
-    /// 获取当前主题名称
+    /// 获取当前主题名称（i18n：状态栏徽标 / F3 提示展示给用户）
     pub fn theme_name() -> &'static str {
-        PALETTES[theme()].name
+        match theme() {
+            1 => crate::i18n::pick("飘雪", "Snow"),
+            _ => crate::i18n::pick("樱花粉", "Sakura"),
+        }
     }
 
     // — 颜色访问函数（替代原 const，调用点 colors::PINK → colors::pink()）—
 
-    pub fn bg() -> Color { PALETTES[theme()].bg }
-    pub fn surface() -> Color { PALETTES[theme()].surface }
-    pub fn panel() -> Color { PALETTES[theme()].panel }
-    pub fn boost() -> Color { PALETTES[theme()].boost }
-    pub fn fg() -> Color { PALETTES[theme()].fg }
-    pub fn muted() -> Color { PALETTES[theme()].muted }
-    pub fn dim() -> Color { PALETTES[theme()].dim }
-    pub fn pink() -> Color { PALETTES[theme()].primary }
-    pub fn cyan() -> Color { PALETTES[theme()].secondary }
-    pub fn green() -> Color { PALETTES[theme()].green }
-    pub fn yellow() -> Color { PALETTES[theme()].yellow }
-    pub fn red() -> Color { PALETTES[theme()].red }
-    pub fn purple() -> Color { PALETTES[theme()].purple }
-    pub fn gradient_a() -> Color { PALETTES[theme()].gradient_a }
-    pub fn gradient_b() -> Color { PALETTES[theme()].gradient_b }
-    pub fn border() -> Color { PALETTES[theme()].border }
+    pub fn bg() -> Color {
+        PALETTES[theme()].bg
+    }
+    pub fn surface() -> Color {
+        PALETTES[theme()].surface
+    }
+    pub fn panel() -> Color {
+        PALETTES[theme()].panel
+    }
+    pub fn boost() -> Color {
+        PALETTES[theme()].boost
+    }
+    pub fn fg() -> Color {
+        PALETTES[theme()].fg
+    }
+    pub fn muted() -> Color {
+        PALETTES[theme()].muted
+    }
+    pub fn dim() -> Color {
+        PALETTES[theme()].dim
+    }
+    pub fn pink() -> Color {
+        PALETTES[theme()].primary
+    }
+    pub fn cyan() -> Color {
+        PALETTES[theme()].secondary
+    }
+    pub fn green() -> Color {
+        PALETTES[theme()].green
+    }
+    pub fn yellow() -> Color {
+        PALETTES[theme()].yellow
+    }
+    pub fn red() -> Color {
+        PALETTES[theme()].red
+    }
+    pub fn purple() -> Color {
+        PALETTES[theme()].purple
+    }
+    pub fn gradient_a() -> Color {
+        PALETTES[theme()].gradient_a
+    }
+    pub fn gradient_b() -> Color {
+        PALETTES[theme()].gradient_b
+    }
+    pub fn border() -> Color {
+        PALETTES[theme()].border
+    }
 
     /// 颜色混合（t=0 返回 a，t=1 返回 b）— 集中定义，消除 ui/ 重复
     pub fn blend(a: Color, b: Color, t: f64) -> Color {
@@ -152,21 +188,40 @@ pub enum Tab {
 impl Tab {
     pub fn label(&self) -> &'static str {
         match self {
-            Tab::Dashboard => "首页",
-            Tab::Validation => "校验",
+            Tab::Dashboard => pick("首页", "Home"),
+            Tab::Validation => pick("校验", "Check"),
             Tab::Provider => "Provider",
-            Tab::Config => "概览",
-            Tab::Chat => "AI 对话",
+            Tab::Config => pick("概览", "Overview"),
+            Tab::Chat => pick("AI 对话", "AI Chat"),
         }
     }
     pub fn from_index(i: usize) -> Option<Tab> {
-        match i { 0 => Some(Tab::Dashboard), 1 => Some(Tab::Validation), 2 => Some(Tab::Provider), 3 => Some(Tab::Config), 4 => Some(Tab::Chat), _ => None }
+        match i {
+            0 => Some(Tab::Dashboard),
+            1 => Some(Tab::Validation),
+            2 => Some(Tab::Provider),
+            3 => Some(Tab::Config),
+            4 => Some(Tab::Chat),
+            _ => None,
+        }
     }
     pub fn index(&self) -> usize {
-        match self { Tab::Dashboard => 0, Tab::Validation => 1, Tab::Provider => 2, Tab::Config => 3, Tab::Chat => 4 }
+        match self {
+            Tab::Dashboard => 0,
+            Tab::Validation => 1,
+            Tab::Provider => 2,
+            Tab::Config => 3,
+            Tab::Chat => 4,
+        }
     }
     pub fn all() -> [Tab; 5] {
-        [Tab::Dashboard, Tab::Validation, Tab::Provider, Tab::Config, Tab::Chat]
+        [
+            Tab::Dashboard,
+            Tab::Validation,
+            Tab::Provider,
+            Tab::Config,
+            Tab::Chat,
+        ]
     }
     /// Tab 导航图标（单宽几何符号）
     pub fn icon(&self) -> &'static str {
@@ -181,16 +236,21 @@ impl Tab {
     /// 窄终端短标签
     pub fn short_label(&self) -> &'static str {
         match self {
-            Tab::Dashboard => "首页",
-            Tab::Validation => "校验",
+            Tab::Dashboard => pick("首页", "Home"),
+            Tab::Validation => pick("校验", "Check"),
             Tab::Provider => "Prov",
-            Tab::Config => "概览",
+            Tab::Config => pick("概览", "Over"),
             Tab::Chat => "AI",
         }
     }
 }
 
-pub enum ValidationState { Idle, Validating, Done(Box<FullValidationResponse>), Failed(String) }
+pub enum ValidationState {
+    Idle,
+    Validating,
+    Done(Box<FullValidationResponse>),
+    Failed(String),
+}
 
 /// Provider 连接测试结果
 #[derive(Debug, Clone)]
@@ -244,7 +304,9 @@ impl ProviderForm {
     }
     /// 提交校验：名称 / Base URL / 模型 必填
     pub fn valid(&self) -> bool {
-        !self.name.trim().is_empty() && !self.base_url.trim().is_empty() && !self.model.trim().is_empty()
+        !self.name.trim().is_empty()
+            && !self.base_url.trim().is_empty()
+            && !self.model.trim().is_empty()
     }
 }
 
@@ -257,24 +319,42 @@ pub struct ChatMsg {
 
 /// 应用是否在 splash 阶段
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Phase { Splash, Running }
+pub enum Phase {
+    Splash,
+    Running,
+}
 
 /// 主题枚举
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Theme { Sakura, Snow }
+pub enum Theme {
+    Sakura,
+    Snow,
+}
 
 impl Theme {
     pub fn idx(&self) -> usize {
-        match self { Theme::Sakura => 0, Theme::Snow => 1 }
+        match self {
+            Theme::Sakura => 0,
+            Theme::Snow => 1,
+        }
     }
     pub fn name(&self) -> &'static str {
-        match self { Theme::Sakura => "樱花粉", Theme::Snow => "飘雪" }
+        match self {
+            Theme::Sakura => pick("樱花粉", "Sakura"),
+            Theme::Snow => pick("飘雪", "Snow"),
+        }
     }
     pub fn toggle(&self) -> Self {
-        match self { Theme::Sakura => Theme::Snow, Theme::Snow => Theme::Sakura }
+        match self {
+            Theme::Sakura => Theme::Snow,
+            Theme::Snow => Theme::Sakura,
+        }
     }
     pub fn from_idx(idx: usize) -> Self {
-        match idx { 1 => Theme::Snow, _ => Theme::Sakura }
+        match idx {
+            1 => Theme::Snow,
+            _ => Theme::Sakura,
+        }
     }
 }
 
@@ -356,7 +436,9 @@ impl App {
             content_fade: 0,
         }
     }
-    pub fn quit(&mut self) { self.should_quit = true; }
+    pub fn quit(&mut self) {
+        self.should_quit = true;
+    }
     /// 切换 tab 并记录动效起点（指示条原地淡入 + 内容淡入）
     pub fn switch_tab(&mut self, tab: Tab) {
         if tab != self.current_tab {

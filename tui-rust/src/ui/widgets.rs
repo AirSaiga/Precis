@@ -27,7 +27,12 @@ pub fn panel(title: &str, accent: Color) -> Block<'static> {
 }
 
 /// 节标题行：` ◈ 标题 (N) ────────────`（分隔线填充到 width）
-pub fn section_header(icon: &str, title: &str, count: Option<usize>, width: usize) -> Line<'static> {
+pub fn section_header(
+    icon: &str,
+    title: &str,
+    count: Option<usize>,
+    width: usize,
+) -> Line<'static> {
     let count_txt = count.map(|c| format!(" ({})", c)).unwrap_or_default();
     // 显示宽度估算：ASCII 1 宽、CJK 2 宽
     let used = display_width(icon) + display_width(title) + display_width(&count_txt) + 3;
@@ -37,7 +42,9 @@ pub fn section_header(icon: &str, title: &str, count: Option<usize>, width: usiz
         Span::styled(icon.to_string(), Style::default().fg(colors::gradient_a())),
         Span::styled(
             format!(" {} ", title),
-            Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(colors::fg())
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled(count_txt, Style::default().fg(colors::dim())),
         Span::raw(" "),
@@ -50,7 +57,9 @@ pub fn keychip(key: &str, desc: &str) -> Vec<Span<'static>> {
     vec![
         Span::styled(
             format!(" {} ", key),
-            Style::default().fg(colors::gradient_a()).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(colors::gradient_a())
+                .add_modifier(Modifier::BOLD),
         ),
         Span::styled(desc.to_string(), Style::default().fg(colors::dim())),
     ]
@@ -74,7 +83,11 @@ pub fn meter(ratio: f64, width: usize) -> Vec<Span<'static>> {
     let filled = (ratio * width as f64).round() as usize;
     let mut spans = Vec::with_capacity(width.max(1));
     for i in 0..filled {
-        let t = if width > 1 { i as f64 / (width - 1) as f64 } else { 0.0 };
+        let t = if width > 1 {
+            i as f64 / (width - 1) as f64
+        } else {
+            0.0
+        };
         spans.push(Span::styled(
             "━",
             Style::default().fg(colors::blend(colors::gradient_a(), colors::gradient_b(), t)),
@@ -87,7 +100,14 @@ pub fn meter(ratio: f64, width: usize) -> Vec<Span<'static>> {
 }
 
 /// 指标小卡：主题色圆角边框 + 大号呼吸数字 + muted 标签（phase 0..1 驱动呼吸）
-pub fn stat_card(frame: &mut Frame, area: Rect, value: &str, label: &str, accent: Color, phase: f64) {
+pub fn stat_card(
+    frame: &mut Frame,
+    area: Rect,
+    value: &str,
+    label: &str,
+    accent: Color,
+    phase: f64,
+) {
     let block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
@@ -109,7 +129,10 @@ pub fn stat_card(frame: &mut Frame, area: Rect, value: &str, label: &str, accent
             Style::default().fg(colors::muted()),
         )),
     ];
-    frame.render_widget(Paragraph::new(lines).style(Style::default().bg(colors::bg())), inner);
+    frame.render_widget(
+        Paragraph::new(lines).style(Style::default().bg(colors::bg())),
+        inner,
+    );
 }
 
 /// 状态徽标：`[ 文本 ]`（括号 dim，文本彩色）
@@ -129,9 +152,15 @@ pub fn gradient_spans(text: &str, a: Color, b: Color, bold: bool) -> Vec<Span<'s
         .into_iter()
         .enumerate()
         .map(|(i, c)| {
-            let t = if n > 1 { i as f64 / (n - 1) as f64 } else { 0.0 };
+            let t = if n > 1 {
+                i as f64 / (n - 1) as f64
+            } else {
+                0.0
+            };
             let style = if bold {
-                Style::default().fg(colors::blend(a, b, t)).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(colors::blend(a, b, t))
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(colors::blend(a, b, t))
             };

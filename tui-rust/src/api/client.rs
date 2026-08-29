@@ -5,6 +5,7 @@
 use anyhow::{Context, Result};
 
 use super::types::*;
+use crate::i18n::pick;
 
 /// 后端 API 客户端
 pub struct ApiClient {
@@ -129,32 +130,59 @@ impl ApiClient {
         let text = resp.text().await.unwrap_or_default();
         if !status.is_success() {
             let preview: String = text.chars().take(500).collect();
-            anyhow::bail!("校验请求失败 ({}): {}", status, preview);
+            // 该错误会进入校验页 Failed 视图展示给用户，需 i18n
+            anyhow::bail!(
+                "{} ({}): {}",
+                pick("校验请求失败", "Validation request failed"),
+                status,
+                preview
+            );
         }
         let preview: String = text.chars().take(200).collect();
-        serde_json::from_str(&text).context(format!("解析校验响应失败: {}", preview))
+        serde_json::from_str(&text).context(format!(
+            "{}: {}",
+            pick("解析校验响应失败", "Failed to parse validation response"),
+            preview
+        ))
     }
 
     // ---- Provider 管理（无项目 header） ----
 
     /// 获取所有 Provider
     pub async fn list_providers(&self) -> Result<Vec<super::types::ProviderInfo>> {
-        let resp = self.http.get(&format!("{}/api/latest/ai/providers", self.base_url)).send().await?;
+        let resp = self
+            .http
+            .get(&format!("{}/api/latest/ai/providers", self.base_url))
+            .send()
+            .await?;
         let providers: Vec<super::types::ProviderInfo> = resp.json().await?;
         Ok(providers)
     }
 
     /// 获取当前活跃 Provider
     pub async fn get_active_provider(&self) -> Result<Option<super::types::ProviderInfo>> {
-        let resp = self.http.get(&format!("{}/api/latest/ai/providers/active", self.base_url)).send().await?;
-        if !resp.status().is_success() { return Ok(None); }
+        let resp = self
+            .http
+            .get(&format!("{}/api/latest/ai/providers/active", self.base_url))
+            .send()
+            .await?;
+        if !resp.status().is_success() {
+            return Ok(None);
+        }
         let body: super::types::ActiveProviderResponse = resp.json().await?;
         Ok(body.provider)
     }
 
     /// 设为活跃
     pub async fn activate_provider(&self, id: &str) -> Result<()> {
-        let resp = self.http.post(&format!("{}/api/latest/ai/providers/{}/activate", self.base_url, id)).send().await?;
+        let resp = self
+            .http
+            .post(&format!(
+                "{}/api/latest/ai/providers/{}/activate",
+                self.base_url, id
+            ))
+            .send()
+            .await?;
         if !resp.status().is_success() {
             anyhow::bail!("激活失败: {}", resp.status());
         }
@@ -163,13 +191,27 @@ impl ApiClient {
 
     /// 测试连接
     pub async fn test_provider(&self, id: &str) -> Result<super::types::TestProviderResponse> {
-        let resp = self.http.post(&format!("{}/api/latest/ai/providers/{}/test", self.base_url, id)).send().await?;
+        let resp = self
+            .http
+            .post(&format!(
+                "{}/api/latest/ai/providers/{}/test",
+                self.base_url, id
+            ))
+            .send()
+            .await?;
         let text = resp.text().await?;
-        serde_json::from_str(&text).context("解析测试连接响应失败")
+        // 该错误会出现在 Provider 页测试结果 toast 中，需 i18n
+        serde_json::from_str(&text).context(pick(
+            "解析测试连接响应失败",
+            "Failed to parse connection test response",
+        ))
     }
 
     /// 创建 Provider
-    pub async fn create_provider(&self, req: &super::types::CreateProviderRequest) -> Result<super::types::ProviderInfo> {
+    pub async fn create_provider(
+        &self,
+        req: &super::types::CreateProviderRequest,
+    ) -> Result<super::types::ProviderInfo> {
         let resp = self
             .http
             .post(&format!("{}/api/latest/ai/providers", self.base_url))
@@ -180,17 +222,26 @@ impl ApiClient {
         let text = resp.text().await.unwrap_or_default();
         if !status.is_success() {
             // 后端 409 = id 冲突；422 = 参数校验失败，detail 里有具体原因
+            // 该错误会写入状态栏消息展示给用户，需 i18n
             let preview: String = text.chars().take(200).collect();
-            anyhow::bail!("创建失败 ({}): {}", status, preview);
+            anyhow::bail!(
+                "{} ({}): {}",
+                pick("创建失败", "Failed to create"),
+                status,
+                preview
+            );
         }
-        serde_json::from_str(&text).context("解析创建响应失败")
+        serde_json::from_str(&text)
+            .context(pick("解析创建响应失败", "Failed to parse create response"))
     }
 
     // ---- 配置管理（需要项目 header） ----
 
     /// 获取全量配置
     pub async fn get_full_config(&self) -> Result<super::types::FullConfigResponse> {
-        let mut req = self.http.get(&format!("{}/api/latest/project/config/full", self.base_url));
+        let mut req = self
+            .http
+            .get(&format!("{}/api/latest/project/config/full", self.base_url));
         if let Some(ref p) = self.project_path {
             req = req.header("X-Project-Config-Path", p);
         }
@@ -202,20 +253,35 @@ impl ApiClient {
     // ---- AI 对话 ----
 
     /// 发送消息
-    pub async fn send_chat(&self, message: &str, history: &[super::types::ChatMessage]) -> Result<super::types::AiChatResponse> {
-        let mut req = self.http.post(&format!("{}/api/latest/ai/chat", self.base_url));
+    pub async fn send_chat(
+        &self,
+        message: &str,
+        history: &[super::types::ChatMessage],
+    ) -> Result<super::types::AiChatResponse> {
+        let mut req = self
+            .http
+            .post(&format!("{}/api/latest/ai/chat", self.base_url));
         if let Some(ref p) = self.project_path {
             req = req.header("X-Project-Config-Path", p);
         }
         let body = super::types::AiChatRequest {
             message: message.to_string(),
             context: None,
-            history: if history.is_empty() { None } else { Some(history.to_vec()) },
+            history: if history.is_empty() {
+                None
+            } else {
+                Some(history.to_vec())
+            },
         };
         let resp = req.json(&body).send().await?;
         let text = resp.text().await?;
         let preview: String = text.chars().take(200).collect();
-        serde_json::from_str(&text).context(format!("解析 Chat 响应失败: {}", preview))
+        // 该错误会作为 AI 消息气泡内容展示给用户，需 i18n
+        serde_json::from_str(&text).context(format!(
+            "{}: {}",
+            pick("解析 Chat 响应失败", "Failed to parse chat response"),
+            preview
+        ))
     }
 }
 

@@ -8,6 +8,7 @@ use ratatui::Frame;
 
 use super::widgets;
 use crate::app::{colors, layout, App, TestResult};
+use crate::i18n::pick;
 use crate::icons;
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -21,16 +22,31 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
         .split(area);
 
     // 提示行
-    let hint = widgets::chips_line(&[("j/k", "导航"), ("t", "测试"), ("a", "激活"), ("n", "新建"), ("r", "刷新")]);
+    let hint = widgets::chips_line(&[
+        ("j/k", pick("导航", "Navigate")),
+        ("t", pick("测试", "Test")),
+        ("a", pick("激活", "Activate")),
+        ("n", pick("新建", "New")),
+        ("r", pick("刷新", "Refresh")),
+    ]);
     frame.render_widget(Paragraph::new(vec![Line::from(""), hint]), chunks[0]);
 
     if app.providers.is_empty() {
         frame.render_widget(
             Paragraph::new(vec![
                 Line::from(""),
-                Line::from(Span::styled("  未配置 Provider", Style::default().fg(colors::muted()))),
                 Line::from(Span::styled(
-                    "  按 n 新建，或编辑 ~/.precis/ai_providers.yaml",
+                    format!("  {}", pick("未配置 Provider", "No providers configured")),
+                    Style::default().fg(colors::muted()),
+                )),
+                Line::from(Span::styled(
+                    format!(
+                        "  {}",
+                        pick(
+                            "按 n 新建，或编辑 ~/.precis/ai_providers.yaml",
+                            "Press n to create one, or edit ~/.precis/ai_providers.yaml"
+                        )
+                    ),
                     Style::default().fg(colors::dim()),
                 )),
             ]),
@@ -45,17 +61,27 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     let mut toast_lines: Vec<Line> = Vec::new();
     if let Some(t) = &app.provider_test_result {
         let expired = app.frame_count.saturating_sub(t.at_frame) > 165; // ≈5 秒 @33fps
-        let cursor_id = app.providers.get(app.provider_cursor).map(|p| p.id.as_str());
+        let cursor_id = app
+            .providers
+            .get(app.provider_cursor)
+            .map(|p| p.id.as_str());
         if !expired && cursor_id == Some(t.provider_id.as_str()) {
             toast_lines = match &t.result {
                 TestResult::Ok(info) => {
                     // main.rs 目前只回传 "ok"；将来若带回延迟等信息则附加显示
-                    let detail = if info == "ok" { String::new() } else { format!(" ({})", info) };
+                    let detail = if info == "ok" {
+                        String::new()
+                    } else {
+                        format!(" ({})", info)
+                    };
                     vec![
                         Line::from(""),
                         Line::from(vec![
                             Span::styled(" ✓ ", Style::default().fg(colors::green())),
-                            Span::styled(format!("连接正常{}", detail), Style::default().fg(colors::green())),
+                            Span::styled(
+                                format!("{}{}", pick("连接正常", "Connection OK"), detail),
+                                Style::default().fg(colors::green()),
+                            ),
                         ])
                         .style(Style::default().bg(colors::surface())),
                     ]
@@ -81,7 +107,9 @@ pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
 
 /// 新建 Provider 表单：居中模态面板
 fn render_form(frame: &mut Frame, app: &App, area: Rect) {
-    let Some(form) = &app.provider_form else { return };
+    let Some(form) = &app.provider_form else {
+        return;
+    };
 
     let w = area.width.min(56);
     let h = 13u16.min(area.height);
@@ -92,7 +120,7 @@ fn render_form(frame: &mut Frame, app: &App, area: Rect) {
         height: h,
     };
     frame.render_widget(ratatui::widgets::Clear, rect);
-    let block = widgets::panel("新建 Provider", colors::green());
+    let block = widgets::panel(pick("新建 Provider", "New Provider"), colors::green());
     let inner = block.inner(rect);
     frame.render_widget(block, rect);
     if inner.height < 8 {
@@ -101,35 +129,53 @@ fn render_form(frame: &mut Frame, app: &App, area: Rect) {
 
     // (标签, 显示值, 是否类型切换字段)
     let fields: [(&str, String, bool); 5] = [
-        ("名称", form.name.clone(), false),
-        ("类型", form.ptype.clone(), true),
+        (pick("名称", "Name"), form.name.clone(), false),
+        (pick("类型", "Type"), form.ptype.clone(), true),
         ("Base URL", form.base_url.clone(), false),
         ("API Key", "*".repeat(form.api_key.chars().count()), false),
-        ("模型", form.model.clone(), false),
+        (pick("模型", "Model"), form.model.clone(), false),
     ];
 
     let mut lines: Vec<Line> = vec![Line::from("")];
     for (i, (label, value, is_toggle)) in fields.iter().enumerate() {
         let focused = form.field == i;
-        let bar_color = if focused { colors::gradient_a() } else { colors::dim() };
+        let bar_color = if focused {
+            colors::gradient_a()
+        } else {
+            colors::dim()
+        };
         let mut spans = vec![
-            Span::styled(if focused { icons::BAR } else { " " }, Style::default().fg(bar_color)),
+            Span::styled(
+                if focused { icons::BAR } else { " " },
+                Style::default().fg(bar_color),
+            ),
             Span::styled(
                 format!(" {} ", widgets::truncate_width(label, 8)),
-                Style::default().fg(if focused { colors::fg() } else { colors::muted() }),
+                Style::default().fg(if focused {
+                    colors::fg()
+                } else {
+                    colors::muted()
+                }),
             ),
         ];
         if *is_toggle {
             spans.push(Span::styled(
                 format!("‹ {} ›", value),
-                Style::default().fg(colors::green()).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(colors::green())
+                    .add_modifier(Modifier::BOLD),
             ));
             if focused {
-                spans.push(Span::styled("  ←→ 切换", Style::default().fg(colors::dim())));
+                spans.push(Span::styled(
+                    format!("  ←→ {}", pick("切换", "Toggle")),
+                    Style::default().fg(colors::dim()),
+                ));
             }
         } else {
             let value_style = if focused {
-                Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(colors::fg())
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(colors::fg())
             };
@@ -137,7 +183,9 @@ fn render_form(frame: &mut Frame, app: &App, area: Rect) {
             if focused {
                 // 闪烁光标（复用 chat 输入框节奏）
                 let cursor = if app.frame_count % 16 < 8 {
-                    Style::default().fg(colors::gradient_a()).add_modifier(Modifier::REVERSED)
+                    Style::default()
+                        .fg(colors::gradient_a())
+                        .add_modifier(Modifier::REVERSED)
                 } else {
                     Style::default().fg(colors::fg())
                 };
@@ -150,11 +198,17 @@ fn render_form(frame: &mut Frame, app: &App, area: Rect) {
     lines.push(Line::from(""));
     lines.push(Line::from(vec![
         Span::styled("  Tab/↑↓ ", Style::default().fg(colors::gradient_a())),
-        Span::styled("切换字段  ", Style::default().fg(colors::dim())),
+        Span::styled(
+            format!("{}  ", pick("切换字段", "Next field")),
+            Style::default().fg(colors::dim()),
+        ),
         Span::styled("Enter ", Style::default().fg(colors::gradient_a())),
-        Span::styled("提交  ", Style::default().fg(colors::dim())),
+        Span::styled(
+            format!("{}  ", pick("提交", "Submit")),
+            Style::default().fg(colors::dim()),
+        ),
         Span::styled("Esc ", Style::default().fg(colors::gradient_a())),
-        Span::styled("取消", Style::default().fg(colors::dim())),
+        Span::styled(pick("取消", "Cancel"), Style::default().fg(colors::dim())),
     ]));
     frame.render_widget(
         Paragraph::new(lines).style(Style::default().bg(colors::bg())),
@@ -165,9 +219,20 @@ fn render_form(frame: &mut Frame, app: &App, area: Rect) {
 fn render_table(frame: &mut Frame, app: &App, area: Rect) {
     let active_id = app.active_provider_id.as_deref().unwrap_or("");
 
-    let header = Row::new(vec!["", "", "名称", "类型", "模型", "端点"])
-        .style(Style::default().fg(colors::dim()).add_modifier(Modifier::BOLD))
-        .bottom_margin(0);
+    let header = Row::new(vec![
+        "",
+        "",
+        pick("名称", "Name"),
+        pick("类型", "Type"),
+        pick("模型", "Model"),
+        pick("端点", "Endpoint"),
+    ])
+    .style(
+        Style::default()
+            .fg(colors::dim())
+            .add_modifier(Modifier::BOLD),
+    )
+    .bottom_margin(0);
 
     let rows: Vec<Row> = app
         .providers
@@ -176,10 +241,16 @@ fn render_table(frame: &mut Frame, app: &App, area: Rect) {
         .map(|(i, p)| {
             let is_active = p.id == active_id;
             let selected = i == app.provider_cursor;
-            let zebra = if i % 2 == 0 { colors::bg() } else { colors::surface() };
+            let zebra = if i % 2 == 0 {
+                colors::bg()
+            } else {
+                colors::surface()
+            };
             let row_bg = if selected { colors::panel() } else { zebra };
             let name_style = if is_active || selected {
-                Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD)
+                Style::default()
+                    .fg(colors::fg())
+                    .add_modifier(Modifier::BOLD)
             } else {
                 Style::default().fg(colors::muted())
             };
@@ -188,7 +259,7 @@ fn render_table(frame: &mut Frame, app: &App, area: Rect) {
             let mut name_spans = vec![Span::styled(icons::truncate(&p.name, 13), name_style)];
             if is_active {
                 name_spans.push(Span::raw(" "));
-                name_spans.extend(widgets::badge("已激活", colors::green()));
+                name_spans.extend(widgets::badge(pick("已激活", "Active"), colors::green()));
             }
 
             Row::new(vec![

@@ -10,7 +10,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, Result, bail};
+use anyhow::{bail, Context, Result};
 
 /// 端口文件轮询间隔
 const PORT_POLL_INTERVAL: Duration = Duration::from_millis(200);
@@ -70,7 +70,10 @@ impl BackendHandle {
         // 启动前先清理残留（旧端口文件会误导发现逻辑）
         let _ = std::fs::remove_file(&port_file);
 
-        println!("[backend] 启动后端: {} app/start_server.py --port 0", python_exe.display());
+        println!(
+            "[backend] 启动后端: {} app/start_server.py --port 0",
+            python_exe.display()
+        );
         println!("[backend] cwd: {}", backend_dir.display());
 
         let mut cmd = Command::new(&python_exe);
@@ -179,7 +182,10 @@ fn resolve_python_executable(backend_dir: &Path) -> Result<PathBuf> {
     let runtime_candidates = runtime_search_dirs();
 
     for base in runtime_candidates {
-        let win_python = base.join("python-runtime").join("python").join("python.exe");
+        let win_python = base
+            .join("python-runtime")
+            .join("python")
+            .join("python.exe");
         if win_python.exists() {
             return Ok(win_python);
         }
@@ -299,7 +305,10 @@ fn try_health(port: u16) -> bool {
         Ok(s) => s,
         Err(_) => return false,
     };
-    if stream.set_read_timeout(Some(Duration::from_secs(2))).is_err() {
+    if stream
+        .set_read_timeout(Some(Duration::from_secs(2)))
+        .is_err()
+    {
         return false;
     }
     if stream

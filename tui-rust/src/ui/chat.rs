@@ -8,6 +8,7 @@ use ratatui::Frame;
 
 use super::widgets;
 use crate::app::{colors, layout, App};
+use crate::i18n::pick;
 use crate::icons;
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
@@ -28,16 +29,30 @@ fn render_messages(frame: &mut Frame, app: &App, area: Rect) {
             Paragraph::new(vec![
                 Line::from(""),
                 Line::from(vec![
-                    Span::styled(format!("  {} ", icons::tab::CHAT), Style::default().fg(colors::gradient_a())),
                     Span::styled(
-                        "AI 对话",
-                        Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD),
+                        format!("  {} ", icons::tab::CHAT),
+                        Style::default().fg(colors::gradient_a()),
+                    ),
+                    Span::styled(
+                        pick("AI 对话", "AI Chat"),
+                        Style::default()
+                            .fg(colors::fg())
+                            .add_modifier(Modifier::BOLD),
                     ),
                 ]),
                 Line::from(""),
-                widgets::chips_line(&[("Enter", "聚焦输入"), ("Esc", "取消聚焦")]),
+                widgets::chips_line(&[
+                    ("Enter", pick("聚焦输入", "Focus input")),
+                    ("Esc", pick("取消聚焦", "Unfocus")),
+                ]),
                 Line::from(Span::styled(
-                    "  需要先在 Provider 页配置并激活一个 Provider",
+                    format!(
+                        "  {}",
+                        pick(
+                            "需要先在 Provider 页配置并激活一个 Provider",
+                            "Configure and activate a Provider on the Provider tab first"
+                        )
+                    ),
                     Style::default().fg(colors::dim()),
                 )),
             ]),
@@ -51,7 +66,7 @@ fn render_messages(frame: &mut Frame, app: &App, area: Rect) {
     let mut lines: Vec<Line> = Vec::new();
     for msg in &app.chat_messages {
         let (role_label, role_color) = match msg.role.as_str() {
-            "user" => ("你", colors::cyan()),
+            "user" => (pick("你", "You"), colors::cyan()),
             "assistant" => ("AI", colors::green()),
             _ => ("?", colors::muted()),
         };
@@ -81,7 +96,10 @@ fn render_messages(frame: &mut Frame, app: &App, area: Rect) {
                 icons::spinner(app.frame_count),
                 Style::default().fg(colors::gradient_a()),
             ),
-            Span::styled(" AI 思考中...", Style::default().fg(colors::muted())),
+            Span::styled(
+                format!(" {}", pick("AI 思考中...", "AI thinking...")),
+                Style::default().fg(colors::muted()),
+            ),
         ]));
     }
 
@@ -91,9 +109,16 @@ fn render_messages(frame: &mut Frame, app: &App, area: Rect) {
     // 消息不足一屏时按 PgUp 会出现顶部空一行且无任何标记的悬空状态）
     let full_visible = area.height as usize;
     let marker_reserved = area.height >= 2
-        && app.chat_scroll.min(lines.len().saturating_sub(full_visible)) > 0;
+        && app
+            .chat_scroll
+            .min(lines.len().saturating_sub(full_visible))
+            > 0;
     let msg_area = if marker_reserved {
-        Rect { y: area.y + 1, height: area.height - 1, ..area }
+        Rect {
+            y: area.y + 1,
+            height: area.height - 1,
+            ..area
+        }
     } else {
         area
     };
@@ -106,7 +131,16 @@ fn render_messages(frame: &mut Frame, app: &App, area: Rect) {
     if marker_reserved && scroll > 0 {
         // 回看标记行（显示钳制后的有效回看行数）
         let mut spans = vec![Span::raw("  ")];
-        spans.extend(widgets::badge(&format!("回看 {} 行 · PgDn 返回", scroll), colors::dim()));
+        spans.extend(widgets::badge(
+            &format!(
+                "{} {} {} · PgDn {}",
+                pick("回看", "Reviewing"),
+                scroll,
+                pick("行", "lines"),
+                pick("返回", "to return")
+            ),
+            colors::dim(),
+        ));
         frame.render_widget(
             Paragraph::new(Line::from(spans)),
             Rect { height: 1, ..area },
@@ -121,7 +155,11 @@ fn render_messages(frame: &mut Frame, app: &App, area: Rect) {
 
 /// 输入框：聚焦时主题色边框；空输入未聚焦显示 placeholder
 fn render_input(frame: &mut Frame, app: &App, area: Rect) {
-    let border_color = if app.chat_focused { colors::gradient_a() } else { colors::border() };
+    let border_color = if app.chat_focused {
+        colors::gradient_a()
+    } else {
+        colors::border()
+    };
     let input_block = Block::default()
         .borders(Borders::ALL)
         .border_type(BorderType::Rounded)
@@ -136,13 +174,19 @@ fn render_input(frame: &mut Frame, app: &App, area: Rect) {
 
     let input_line = if app.chat_input.is_empty() && !app.chat_focused {
         Line::from(Span::styled(
-            " 输入消息... Enter 发送",
+            format!(
+                " {}... Enter {}",
+                pick("输入消息", "Type a message"),
+                pick("发送", "to send")
+            ),
             Style::default().fg(colors::dim()),
         ))
     } else {
         // 光标闪烁（约 0.5s 周期）
         let cursor_style = if app.frame_count % 16 < 8 {
-            Style::default().fg(colors::gradient_a()).add_modifier(Modifier::REVERSED)
+            Style::default()
+                .fg(colors::gradient_a())
+                .add_modifier(Modifier::REVERSED)
         } else {
             Style::default().bg(colors::surface()).fg(colors::fg())
         };

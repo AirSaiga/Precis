@@ -7,29 +7,29 @@
 
 /// Tab 导航图标（每个 tab 独特单宽几何符号）
 pub mod tab {
-    pub const DASHBOARD: &str = "◈";   // 首页 - 双层菱形
-    pub const VALIDATION: &str = "◇";  // 校验 - 单菱形
-    pub const PROVIDER: &str = "◆";    // Provider - 实心菱形
-    pub const CONFIG: &str = "◉";      // 配置 - 同心圆
-    pub const CHAT: &str = "◎";        // AI 对话 - 双环
+    pub const DASHBOARD: &str = "◈"; // 首页 - 双层菱形
+    pub const VALIDATION: &str = "◇"; // 校验 - 单菱形
+    pub const PROVIDER: &str = "◆"; // Provider - 实心菱形
+    pub const CONFIG: &str = "◉"; // 配置 - 同心圆
+    pub const CHAT: &str = "◎"; // AI 对话 - 双环
 }
 
 /// 状态指示符
 pub mod status {
-    pub const CONNECTED: &str = "●";   // 已连接/已打开
+    pub const CONNECTED: &str = "●"; // 已连接/已打开
     pub const DISCONNECTED: &str = "○"; // 未连接/未打开
-    pub const LOADING: &str = "◐";      // 加载中
+    pub const LOADING: &str = "◐"; // 加载中
 }
 
 /// 成功/失败
 pub mod result {
     pub const PASS: &str = "✓";
     pub const FAIL: &str = "✗";
-    pub const WARN: &str = "!";  // 不用 ⚠（部分终端双宽）
+    pub const WARN: &str = "!"; // 不用 ⚠（部分终端双宽）
 }
 
 /// 选中/高亮标记
-pub const SELECTED: &str = "▸";  // 统一的选中前缀
+pub const SELECTED: &str = "▸"; // 统一的选中前缀
 
 /// 行首强调竖条（选中行 / 消息气泡角色条）
 pub const BAR: &str = "▌";
@@ -47,7 +47,7 @@ pub const LOGO: &str = "◇";
 /// 主题装饰符（徽标 / hero）
 pub mod motif {
     pub const SAKURA: &str = "❀"; // 樱花
-    pub const SNOW: &str = "❆";   // 雪花
+    pub const SNOW: &str = "❆"; // 雪花
 }
 
 /// 生成动态宽度的分隔线
@@ -88,7 +88,11 @@ pub fn progress_bar_total(ratio: f64, total: usize) -> String {
 /// 单字符显示宽度：ASCII 1 cell，其余（CJK 等全宽字符）2 cell
 /// （与 widgets::display_width 的宽度哲学一致，作为宽度计算的单一事实源）
 pub fn char_width(c: char) -> usize {
-    if c.is_ascii() { 1 } else { 2 }
+    if c.is_ascii() {
+        1
+    } else {
+        2
+    }
 }
 
 /// 按显示宽度截断字符串并加省略号

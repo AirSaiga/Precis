@@ -7,6 +7,7 @@ use ratatui::widgets::Paragraph;
 use ratatui::Frame;
 
 use crate::app::colors;
+use crate::i18n::pick;
 
 /// ASCII art "PRECIS"（7 行，约 54 列）
 pub(crate) const LOGO: &[&str] = &[
@@ -73,7 +74,11 @@ pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
                     // 未扫到：暗化
                     colors::blend(base, colors::bg(), 0.8)
                 };
-                let color = if fade > 0.0 { colors::blend(lit, colors::bg(), fade) } else { lit };
+                let color = if fade > 0.0 {
+                    colors::blend(lit, colors::bg(), fade)
+                } else {
+                    lit
+                };
                 Span::styled(c.to_string(), Style::default().fg(color))
             })
             .collect();
@@ -88,9 +93,12 @@ pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
         if fade > 0.0 {
             text_color = colors::blend(text_color, colors::bg(), fade);
         }
-        lines.push(Line::from(Span::styled("v0.1.0", Style::default().fg(text_color))));
         lines.push(Line::from(Span::styled(
-            "本地数据校验工具",
+            "v0.1.0",
+            Style::default().fg(text_color),
+        )));
+        lines.push(Line::from(Span::styled(
+            pick("本地数据校验工具", "Local data validation tool"),
             Style::default().fg(text_color),
         )));
     }

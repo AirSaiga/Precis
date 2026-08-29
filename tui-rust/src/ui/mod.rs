@@ -16,6 +16,7 @@ use ratatui::widgets::{Block, Paragraph};
 use ratatui::Frame;
 
 use crate::app::{colors, layout, App, Phase, Tab, ValidationState};
+use crate::i18n::pick;
 use crate::icons;
 
 /// 当前 tab 对应的主题色
@@ -34,7 +35,10 @@ pub fn render(frame: &mut Frame, app: &mut App) {
     app.tick();
 
     // 全局背景
-    frame.render_widget(Block::default().style(Style::default().bg(colors::bg())), area);
+    frame.render_widget(
+        Block::default().style(Style::default().bg(colors::bg())),
+        area,
+    );
 
     // Splash 阶段：启动画面 + 飘落粒子背景
     if app.phase == Phase::Splash {
@@ -106,10 +110,23 @@ fn render_brand(frame: &mut Frame, app: &App, area: Rect) {
         true,
     ));
     // 主题装饰符（❀/❆）
-    let motif = if colors::theme() == 1 { icons::motif::SNOW } else { icons::motif::SAKURA };
-    left.push(Span::styled(format!(" {}", motif), Style::default().fg(colors::gradient_b())));
+    let motif = if colors::theme() == 1 {
+        icons::motif::SNOW
+    } else {
+        icons::motif::SAKURA
+    };
+    left.push(Span::styled(
+        format!(" {}", motif),
+        Style::default().fg(colors::gradient_b()),
+    ));
     if !narrow {
-        left.push(Span::styled("  ·  本地数据校验工具", Style::default().fg(colors::dim())));
+        left.push(Span::styled(
+            format!(
+                "  ·  {}",
+                pick("本地数据校验工具", "Local data validation tool")
+            ),
+            Style::default().fg(colors::dim()),
+        ));
     }
 
     let connected = app.project_name.is_some();
@@ -117,7 +134,9 @@ fn render_brand(frame: &mut Frame, app: &App, area: Rect) {
     if let Some(name) = &app.project_name {
         right.push(Span::styled(
             name.clone(),
-            Style::default().fg(colors::fg()).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(colors::fg())
+                .add_modifier(Modifier::BOLD),
         ));
         right.push(Span::raw("  "));
     }
@@ -127,10 +146,14 @@ fn render_brand(frame: &mut Frame, app: &App, area: Rect) {
         (
             icons::status::CONNECTED,
             colors::blend(colors::green(), colors::dim(), phase * 0.6),
-            " 已打开",
+            format!(" {}", pick("已打开", "Opened")),
         )
     } else {
-        (icons::status::DISCONNECTED, colors::dim(), " 未打开")
+        (
+            icons::status::DISCONNECTED,
+            colors::dim(),
+            format!(" {}", pick("未打开", "Not opened")),
+        )
     };
     right.push(Span::styled(glyph, Style::default().fg(dot)));
     right.push(Span::styled(text, Style::default().fg(colors::muted())));
@@ -138,8 +161,7 @@ fn render_brand(frame: &mut Frame, app: &App, area: Rect) {
 
     let left_line = Line::from(left);
     let right_line = Line::from(right);
-    let gap = (area.width as usize)
-        .saturating_sub(left_line.width() + right_line.width());
+    let gap = (area.width as usize).saturating_sub(left_line.width() + right_line.width());
     let mut spans = left_line.spans;
     spans.push(Span::raw(" ".repeat(gap)));
     spans.extend(right_line.spans);
@@ -151,7 +173,11 @@ fn tab_rects(narrow: bool) -> [(usize, usize); 5] {
     let mut rects = [(0usize, 0usize); 5];
     let mut x = 0usize;
     for (i, tab) in Tab::all().iter().enumerate() {
-        let label = if narrow { tab.short_label() } else { tab.label() };
+        let label = if narrow {
+            tab.short_label()
+        } else {
+            tab.label()
+        };
         // 结构：空格 + 序号 + 图标+空格 + 标签 + 空格 = 5 + 标签宽
         let w = 5 + widgets::display_width(label);
         rects[i] = (x, w);
@@ -173,7 +199,11 @@ fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
     for (i, tab) in Tab::all().iter().enumerate() {
         let active = *tab == app.current_tab;
         let accent = tab_accent(tab);
-        let label = if narrow { tab.short_label() } else { tab.label() };
+        let label = if narrow {
+            tab.short_label()
+        } else {
+            tab.label()
+        };
         let num = format!("{}", i + 1);
         if active {
             // 反色 chip：主题色底 + 深色字，激活态一眼可辨
@@ -196,12 +226,18 @@ fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
                 format!("{} ", tab.icon()),
                 Style::default().fg(colors::blend(accent, colors::bg(), 0.5)),
             ));
-            spans.push(Span::styled(label.to_string(), Style::default().fg(colors::muted())));
+            spans.push(Span::styled(
+                label.to_string(),
+                Style::default().fg(colors::muted()),
+            ));
             spans.push(Span::raw(" "));
         }
         spans.push(Span::raw("  "));
     }
-    let tabs_row = Rect { height: 1, ..Rect { y: area.y, ..area } };
+    let tabs_row = Rect {
+        height: 1,
+        ..Rect { y: area.y, ..area }
+    };
     frame.render_widget(Paragraph::new(Line::from(spans)), tabs_row);
 
     // — 指示条行：全宽分隔线 + 当前 tab 下的渐变粗指示段（切换后原地淡入）—
@@ -219,17 +255,30 @@ fn render_tabs(frame: &mut Frame, app: &App, area: Rect) {
     let mut ind: Vec<Span> = Vec::with_capacity(row_width);
     for col in 0..row_width {
         if col >= x0 && col < x1 {
-            let tc = if x1 > x0 { (col - x0) as f64 / (x1 - x0) as f64 } else { 0.0 };
+            let tc = if x1 > x0 {
+                (col - x0) as f64 / (x1 - x0) as f64
+            } else {
+                0.0
+            };
             let base = colors::blend(colors::gradient_a(), colors::gradient_b(), tc);
             ind.push(Span::styled(
                 icons::INDICATOR,
                 Style::default().fg(colors::blend(base, colors::bg(), dim_factor)),
             ));
         } else {
-            ind.push(Span::styled(icons::RULE, Style::default().fg(colors::border())));
+            ind.push(Span::styled(
+                icons::RULE,
+                Style::default().fg(colors::border()),
+            ));
         }
     }
-    let ind_row = Rect { height: 1, ..Rect { y: area.y + 1, ..area } };
+    let ind_row = Rect {
+        height: 1,
+        ..Rect {
+            y: area.y + 1,
+            ..area
+        }
+    };
     frame.render_widget(Paragraph::new(Line::from(ind)), ind_row);
 }
 
@@ -250,12 +299,22 @@ fn render_footer(frame: &mut Frame, app: &App, area: Rect) {
             Style::default().fg(colors::gradient_a()),
         ));
     } else {
-        left.push(Span::styled(icons::status::CONNECTED, Style::default().fg(colors::dim())));
+        left.push(Span::styled(
+            icons::status::CONNECTED,
+            Style::default().fg(colors::dim()),
+        ));
     }
     left.push(Span::raw(" "));
-    left.push(Span::styled(app.message.clone(), Style::default().fg(message_color(&app.message))));
+    left.push(Span::styled(
+        app.message.clone(),
+        Style::default().fg(message_color(&app.message)),
+    ));
 
-    let motif = if colors::theme() == 1 { icons::motif::SNOW } else { icons::motif::SAKURA };
+    let motif = if colors::theme() == 1 {
+        icons::motif::SNOW
+    } else {
+        icons::motif::SAKURA
+    };
     let mut right: Vec<Span> = widgets::badge(
         &format!("{} {}", motif, colors::theme_name()),
         colors::gradient_a(),
@@ -267,30 +326,47 @@ fn render_footer(frame: &mut Frame, app: &App, area: Rect) {
 
     let left_line = Line::from(left);
     let right_line = Line::from(right);
-    let gap = (area.width as usize)
-        .saturating_sub(left_line.width() + right_line.width());
+    let gap = (area.width as usize).saturating_sub(left_line.width() + right_line.width());
     let mut spans = left_line.spans;
     spans.push(Span::raw(" ".repeat(gap)));
     spans.extend(right_line.spans);
 
-    let status_row = Rect { height: 1, ..Rect { y: area.y, ..area } };
+    let status_row = Rect {
+        height: 1,
+        ..Rect { y: area.y, ..area }
+    };
     frame.render_widget(Paragraph::new(Line::from(spans)), status_row);
 
     // — 快捷键行 —
     let hints = widgets::chips_line(&[
-        ("Tab", "切换"),
-        ("1-5", "直达"),
-        ("F2", "动效"),
-        ("F3", "主题"),
-        ("q", "退出"),
+        ("Tab", pick("切换", "Switch")),
+        ("1-5", pick("直达", "Go")),
+        ("F2", pick("动效", "FX")),
+        ("F3", pick("主题", "Theme")),
+        ("q", pick("退出", "Quit")),
     ]);
-    let hints_row = Rect { height: 1, ..Rect { y: area.y + 1, ..area } };
+    let hints_row = Rect {
+        height: 1,
+        ..Rect {
+            y: area.y + 1,
+            ..area
+        }
+    };
     frame.render_widget(Paragraph::new(hints), hints_row);
 }
 
 /// 状态消息按语义着色：错误红 / 成功绿 / 其余 muted
+/// 关键词双语匹配：zh 按原文 contains，en 按小写化后 contains（保证英文界面下着色不失效）
 fn message_color(msg: &str) -> Color {
-    if msg.contains("失败") || msg.contains("错误") || msg.contains("未连接") || msg.contains("异常") {
+    let lower = msg.to_lowercase();
+    if msg.contains("失败")
+        || msg.contains("错误")
+        || msg.contains("未连接")
+        || msg.contains("异常")
+        || lower.contains("fail")
+        || lower.contains("error")
+        || lower.contains("not connected")
+    {
         colors::red()
     } else if msg.contains("成功")
         || msg.contains("正常")
@@ -299,6 +375,13 @@ fn message_color(msg: &str) -> Color {
         || msg.contains("已打开")
         || msg.contains("已激活")
         || msg.contains("找到")
+        || lower.contains("success")
+        || lower.contains("passed")
+        || lower.contains("done")
+        || lower.contains("connected")
+        || lower.contains("opened")
+        || lower.contains("activated")
+        || lower.contains("found")
     {
         colors::green()
     } else {
@@ -415,6 +498,20 @@ mod tests {
         assert!(out.contains("本地数据校验工具"), "hero 标语应显示");
     }
 
+    /// 英文界面冒烟：切换 Lang 后渲染不 panic，tab 标签/标语切换为英文
+    ///（thread_local 按测试线程隔离，结束后还原本线程语言）
+    #[test]
+    fn test_render_english_labels() {
+        crate::i18n::set_lang(crate::i18n::Lang::EnUs);
+        let mut app = running_app();
+        app.switch_tab(Tab::Dashboard);
+        let out = render_to_string(&mut app, 100, 30);
+        crate::i18n::set_lang(crate::i18n::Lang::ZhCn);
+        assert!(out.contains("Home"), "英文 tab 标签应渲染");
+        assert!(out.contains("Local data validation tool"), "英文标语应渲染");
+        assert!(out.contains("Projects"), "英文项目节标题应渲染");
+    }
+
     /// 空项目列表按 backend_connected 分诊：未连接提示后端问题，已连接才提示目录问题
     #[test]
     fn dashboard_empty_shows_backend_guidance_when_disconnected() {
@@ -427,7 +524,10 @@ mod tests {
         // 后端已连接但目录无项目 → 保持原有目录指引
         app.backend_connected = true;
         let out = render_to_string(&mut app, 100, 26);
-        assert!(out.contains("未发现项目"), "已连接时空列表应提示 PRECIS_WORK_DIR");
+        assert!(
+            out.contains("未发现项目"),
+            "已连接时空列表应提示 PRECIS_WORK_DIR"
+        );
         assert!(!out.contains("后端未连接"), "已连接时不应再提示后端未连接");
     }
 
@@ -523,16 +623,24 @@ mod tests {
         let lines = render_lines(&mut app, 100, 30);
         // 名称行：● qa_simple  已打开   p1 应在同一行（brand 行无路径，列表行无"已打开"）
         assert!(
-            lines.iter().any(|l| l.contains("qa_simple") && l.contains("已打开") && l.contains("p1")),
+            lines
+                .iter()
+                .any(|l| l.contains("qa_simple") && l.contains("已打开") && l.contains("p1")),
             "名称行应绑定已打开项目而非光标项目"
         );
         // 指标卡数值行：2/5/7 应同出一行（卡片横排时三个数值共行），且不含光标项目的 42
         assert!(
-            lines.iter().any(|l| l.contains("2") && l.contains("5") && l.contains("7") && !l.contains("42")),
+            lines.iter().any(|l| l.contains("2")
+                && l.contains("5")
+                && l.contains("7")
+                && !l.contains("42")),
             "指标卡数值应来自已打开项目（2/5/7）"
         );
         // 总计不应是光标项目的 8+42=50
-        assert!(!lines.iter().any(|l| l.contains("50")), "总计不应显示光标项目的 8+42");
+        assert!(
+            !lines.iter().any(|l| l.contains("50")),
+            "总计不应显示光标项目的 8+42"
+        );
     }
 
     /// 已打开项目不在扫描列表时：counts 不可得，跳过指标卡只渲染名称行（不 panic）
@@ -543,10 +651,15 @@ mod tests {
         app.project_name = Some("ext".to_string());
         let lines = render_lines(&mut app, 100, 30);
         assert!(
-            lines.iter().any(|l| l.contains("ext") && l.contains("已打开") && l.contains("p9")),
+            lines
+                .iter()
+                .any(|l| l.contains("ext") && l.contains("已打开") && l.contains("p9")),
             "应渲染一行 名称 + 已打开 + 路径"
         );
-        assert!(!lines.iter().any(|l| l.contains("Schema")), "counts 不可得时应跳过指标卡");
+        assert!(
+            !lines.iter().any(|l| l.contains("Schema")),
+            "counts 不可得时应跳过指标卡"
+        );
     }
 
     #[test]
@@ -589,12 +702,20 @@ mod tests {
         app.switch_tab(Tab::Chat);
         // 切换后第一帧（淡入刚起步）：亮段必须已是当前 tab 的完整矩形
         let (first, last, count) = indicator_bright_range(&mut app, 100, 24);
-        assert_eq!((first, last, count), (48, 59, 12), "切换后首帧亮段应精确覆盖 Chat chip");
+        assert_eq!(
+            (first, last, count),
+            (48, 59, 12),
+            "切换后首帧亮段应精确覆盖 Chat chip"
+        );
 
         // 回绕切换同样即时吸附（原滑动实现会横扫整条栏 8 帧）
         app.switch_tab(Tab::Dashboard);
         let (first, last, count) = indicator_bright_range(&mut app, 100, 24);
-        assert_eq!((first, last, count), (0, 8, 9), "回绕后首帧亮段应精确覆盖 Dashboard chip");
+        assert_eq!(
+            (first, last, count),
+            (0, 8, 9),
+            "回绕后首帧亮段应精确覆盖 Dashboard chip"
+        );
     }
 
     /// 回归：淡入保留——切换后首帧指示条被压暗，数帧后恢复到 gradient_a 全亮
@@ -618,7 +739,11 @@ mod tests {
             settled_fg = terminal.backend().buffer()[(48, 2)].fg;
         }
         assert_ne!(first_frame_fg, colors::gradient_a(), "首帧应处于压暗态");
-        assert_eq!(settled_fg, colors::gradient_a(), "淡入结束后应恢复到渐变起点全亮");
+        assert_eq!(
+            settled_fg,
+            colors::gradient_a(),
+            "淡入结束后应恢复到渐变起点全亮"
+        );
     }
 
     /// 构造最小可渲染的 ProviderInfo（Provider 页 toast 测试用）
@@ -643,8 +768,11 @@ mod tests {
         // 6 条长消息（每条约 59 个汉字，wrap 成 2 行），每条含唯一标记文本，
         // 总行数 6×4=24 > 可视高度 22，保证触发截断/回看切片
         for i in 1..=6 {
-            let content =
-                format!("唯一标记第{:02}条{}", i, "这是一段用来撑高消息区的长对话内容".repeat(3));
+            let content = format!(
+                "唯一标记第{:02}条{}",
+                i,
+                "这是一段用来撑高消息区的长对话内容".repeat(3)
+            );
             app.chat_messages.push(ChatMsg {
                 role: if i % 2 == 0 { "assistant" } else { "user" }.to_string(),
                 content,
@@ -653,7 +781,10 @@ mod tests {
 
         // 默认停在最新消息：含最后一条内容、无回看标记
         let out = render_to_string(&mut app, 100, 30);
-        assert!(out.contains("唯一标记第06条"), "tail 模式应显示最后一条消息");
+        assert!(
+            out.contains("唯一标记第06条"),
+            "tail 模式应显示最后一条消息"
+        );
         assert!(!out.contains("回看"), "scroll=0 不应出现回看标记");
 
         // 回看 5 行：顶部出现回看标记，展示更早消息，最后一条移出可视区
@@ -662,7 +793,10 @@ mod tests {
         assert!(out.contains("回看"), "回看模式应显示回看标记");
         assert!(out.contains("PgDn"), "回看标记应提示 PgDn 返回");
         assert!(out.contains("唯一标记第01条"), "回看模式应显示更早的消息");
-        assert!(!out.contains("唯一标记第06条"), "回看时最后一条消息应移出可视区");
+        assert!(
+            !out.contains("唯一标记第06条"),
+            "回看时最后一条消息应移出可视区"
+        );
     }
 
     /// 回归：消息不足一屏时按 PgUp（chat_scroll>0 但无内容可滚）不占行不留空，
@@ -685,7 +819,10 @@ mod tests {
             !scrolled.iter().any(|l| l.contains("回看")),
             "内容不足一屏时不应出现回看标记"
         );
-        assert_eq!(base, scrolled, "内容不足一屏时 PgUp 不应改变任何渲染（不留空行）");
+        assert_eq!(
+            base, scrolled,
+            "内容不足一屏时 PgUp 不应改变任何渲染（不留空行）"
+        );
     }
 
     /// 校验错误超过渲染上限时表格底部应提示截断；未超限时无提示
@@ -746,11 +883,17 @@ mod tests {
             at_frame: 0,
         });
         let out = render_to_string(&mut app, 100, 30);
-        assert!(out.contains("连接正常"), "光标在被测 provider 行时应显示结果");
+        assert!(
+            out.contains("连接正常"),
+            "光标在被测 provider 行时应显示结果"
+        );
 
         app.provider_cursor = 1;
         let out = render_to_string(&mut app, 100, 30);
-        assert!(!out.contains("连接正常"), "光标移到其他 provider 行时不应张冠李戴");
+        assert!(
+            !out.contains("连接正常"),
+            "光标移到其他 provider 行时不应张冠李戴"
+        );
     }
 
     /// Provider 测试 toast 超过 TTL（约 5 秒 / 165 帧）后自动消隐

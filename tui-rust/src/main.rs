@@ -11,6 +11,7 @@ mod api;
 mod app;
 mod backend;
 mod fx;
+mod i18n;
 mod icons;
 mod theme;
 mod ui;
@@ -28,8 +29,11 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::Terminal;
 use tokio::sync::mpsc;
 
+use crate::api::types::{
+    AiChatResponse, ChatMessage, FullConfigResponse, FullValidationResponse, ProviderInfo,
+};
 use crate::app::{App, ChatMsg, ProviderForm, ProviderTestToast, Tab, TestResult, ValidationState};
-use crate::api::types::{AiChatResponse, ChatMessage, FullValidationResponse, FullConfigResponse, ProviderInfo};
+use crate::i18n::pick;
 
 fn backend_url() -> String {
     // resolve_backend_url 完成后写入 OnceLock：自拉起模式下后端监听 OS 动态端口，
@@ -73,14 +77,24 @@ fn scan_work_dir() -> String {
 
 /// 后台任务 → 事件循环的消息
 enum BgMessage {
-    ProjectOpened { name: String, path: String, success: bool },
+    ProjectOpened {
+        name: String,
+        path: String,
+        success: bool,
+    },
     ValidationDone(Result<FullValidationResponse, String>),
-    ProvidersLoaded { providers: Vec<ProviderInfo>, active_id: Option<String> },
+    ProvidersLoaded {
+        providers: Vec<ProviderInfo>,
+        active_id: Option<String>,
+    },
     /// Provider 列表加载失败（网络/解析错误，避免静默空表）
     ProvidersLoadFailed(String),
     /// 触发重新拉取 providers + active（无数据）
     RefreshProviders,
-    ProviderTested { id: String, result: Result<String, String> },
+    ProviderTested {
+        id: String,
+        result: Result<String, String>,
+    },
     /// 新建 Provider 完成（Ok=名称）
     ProviderCreated(Result<String, String>),
     ConfigLoaded(Result<FullConfigResponse, String>),
@@ -89,6 +103,9 @@ enum BgMessage {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // i18n：启动最早期探测界面语言（必须在任何 UI 渲染之前）
+    crate::i18n::init_from_env();
+
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(
@@ -125,7 +142,7 @@ async fn main() -> Result<()> {
     match try_init(&mut app).await {
         Ok(()) => {}
         Err(e) => {
-            app.message = "后端未连接".to_string();
+            app.message = pick("后端未连接", "Backend not connected").to_string();
             app.backend_connected = false;
             tracing::warn!("Init failed: {}", e);
         }
@@ -155,12 +172,17 @@ async fn try_init(app: &mut App) -> Result<()> {
         anyhow::bail!("health check failed");
     }
     app.backend_connected = true;
-    app.message = "后端已连接".to_string();
+    app.message = pick("后端已连接", "Backend connected").to_string();
 
     let work_dir = scan_work_dir();
     match app.api.scan_projects(&work_dir).await {
         Ok(projects) => {
-            app.message = format!("找到 {} 个项目", projects.len());
+            app.message = format!(
+                "{} {} {}",
+                pick("找到", "Found"),
+                projects.len(),
+                pick("个项目", "projects")
+            );
             app.projects = projects;
             // BUG-8: 扫描后重置选中索引，避免越界
             app.selected_project = 0;
@@ -223,7 +245,10 @@ fn spawn_load_providers(tx: &mpsc::Sender<BgMessage>) {
                     .await
                     .unwrap_or(None)
                     .map(|p| p.id);
-                BgMessage::ProvidersLoaded { providers, active_id }
+                BgMessage::ProvidersLoaded {
+                    providers,
+                    active_id,
+                }
             }
             Err(e) => BgMessage::ProvidersLoadFailed(e.to_string()),
         };
@@ -234,18 +259,22 @@ fn spawn_load_providers(tx: &mpsc::Sender<BgMessage>) {
 /// 处理后台任务返回的消息
 fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>) {
     match msg {
-        BgMessage::ProjectOpened { name, path, success } => {
+        BgMessage::ProjectOpened {
+            name,
+            path,
+            success,
+        } => {
             app.opening_project = false;
             if success {
                 app.api.set_project(&path);
                 app.project_name = Some(name);
-                app.message = "项目已打开".to_string();
+                app.message = pick("项目已打开", "Project opened").to_string();
                 app.switch_tab(Tab::Validation);
                 app.validation = ValidationState::Idle;
                 // BUG-8/17: 打开项目后重置错误列表 cursor，避免越界
                 app.error_cursor = 0;
             } else {
-                app.message = "打开失败".to_string();
+                app.message = pick("打开失败", "Failed to open").to_string();
             }
         }
         BgMessage::ValidationDone(result) => {
@@ -254,37 +283,54 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
                     // error 字段有值 = 执行器初始化失败或运行异常（真正的崩溃）
                     if let Some(err_msg) = &resp.error {
                         if !err_msg.is_empty() {
-                            app.message = "校验执行异常".to_string();
+                            app.message = pick("校验执行异常", "Validation run failed").to_string();
                             app.validation = ValidationState::Failed(err_msg.clone());
                             return;
                         }
                     }
                     // 正常校验结果（success=false 只代表"有校验错误"，不是执行失败）
                     let err_count = resp.summary.total_error_count;
-                    app.message = format!("完成: {} 个错误, {}ms", err_count, resp.summary.duration_ms);
+                    app.message = format!(
+                        "{}: {} {}, {}ms",
+                        pick("完成", "Done"),
+                        err_count,
+                        pick("个错误", "errors"),
+                        resp.summary.duration_ms
+                    );
                     app.validation = ValidationState::Done(Box::new(resp));
                 }
                 Err(e) => {
-                    app.message = "校验失败".to_string();
+                    app.message = pick("校验失败", "Validation failed").to_string();
                     app.validation = ValidationState::Failed(e);
                 }
             }
         }
-        BgMessage::ProvidersLoaded { providers, active_id } => {
+        BgMessage::ProvidersLoaded {
+            providers,
+            active_id,
+        } => {
             app.providers = providers;
             app.active_provider_id = active_id;
             // BUG-8/12: 列表变化后重置 cursor，避免越界
             app.provider_cursor = 0;
-            app.message = format!("{} 个 Provider", app.providers.len());
+            app.message = format!(
+                "{} {}",
+                app.providers.len(),
+                pick("个 Provider", "providers")
+            );
         }
         BgMessage::ProvidersLoadFailed(e) => {
-            app.message = format!("Provider 加载失败: {}", e);
+            app.message = format!(
+                "{}: {}",
+                pick("Provider 加载失败", "Failed to load providers"),
+                e
+            );
         }
         BgMessage::ProviderCreated(result) => {
             match result {
                 Ok(name) => {
                     app.provider_form = None;
-                    app.message = format!("已创建 {}", name);
+                    app.message = format!("{} {}", pick("已创建", "Created"), name);
                     spawn_load_providers(tx);
                 }
                 Err(e) => {
@@ -306,7 +352,7 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
                         result: TestResult::Ok(latency),
                         at_frame: app.frame_count,
                     });
-                    app.message = "连接测试成功".to_string();
+                    app.message = pick("连接测试成功", "Connection test passed").to_string();
                 }
                 Err(e) => {
                     app.provider_test_result = Some(ProviderTestToast {
@@ -314,21 +360,19 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
                         result: TestResult::Fail(e),
                         at_frame: app.frame_count,
                     });
-                    app.message = "连接测试失败".to_string();
+                    app.message = pick("连接测试失败", "Connection test failed").to_string();
                 }
             }
         }
-        BgMessage::ConfigLoaded(result) => {
-            match result {
-                Ok(config) => {
-                    app.config_data = Some(config);
-                    app.message = "配置已加载".to_string();
-                }
-                Err(_) => {
-                    app.message = format!("配置加载失败");
-                }
+        BgMessage::ConfigLoaded(result) => match result {
+            Ok(config) => {
+                app.config_data = Some(config);
+                app.message = pick("配置已加载", "Config loaded").to_string();
             }
-        }
+            Err(_) => {
+                app.message = pick("配置加载失败", "Failed to load config").to_string();
+            }
+        },
         BgMessage::ChatReply(result) => {
             app.chat_loading = false;
             // 新回复到达自动回到底部
@@ -341,14 +385,14 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
                             content: resp.reply,
                         });
                     }
-                    app.message = "AI 回复完成".to_string();
+                    app.message = pick("AI 回复完成", "AI reply done").to_string();
                 }
                 Err(e) => {
                     app.chat_messages.push(ChatMsg {
                         role: "assistant".to_string(),
-                        content: format!("错误: {}", e),
+                        content: format!("{}: {}", pick("错误", "Error"), e),
                     });
-                    app.message = "AI 请求失败".to_string();
+                    app.message = pick("AI 请求失败", "AI request failed").to_string();
                 }
             }
         }
@@ -356,7 +400,12 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
 }
 
 /// 处理按键
-async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::KeyModifiers, tx: &mpsc::Sender<BgMessage>) {
+async fn handle_key(
+    app: &mut App,
+    key: KeyCode,
+    modifiers: crossterm::event::KeyModifiers,
+    tx: &mpsc::Sender<BgMessage>,
+) {
     // Ctrl+C / Ctrl+D：任何上下文下都退出（跨平台友好）
     if modifiers.contains(crossterm::event::KeyModifiers::CONTROL) {
         match key {
@@ -389,24 +438,36 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
             if let Some(t) = Tab::from_index(next) {
                 app.switch_tab(t);
                 auto_load_on_tab_switch(app, tx);
-                if app.current_tab == Tab::Chat { app.chat_focused = true; }
+                if app.current_tab == Tab::Chat {
+                    app.chat_focused = true;
+                }
             }
             return;
         }
         KeyCode::BackTab => {
-            let prev = if app.current_tab.index() == 0 { 4 } else { app.current_tab.index() - 1 };
+            let prev = if app.current_tab.index() == 0 {
+                4
+            } else {
+                app.current_tab.index() - 1
+            };
             if let Some(t) = Tab::from_index(prev) {
                 app.switch_tab(t);
                 auto_load_on_tab_switch(app, tx);
-                if app.current_tab == Tab::Chat { app.chat_focused = true; }
+                if app.current_tab == Tab::Chat {
+                    app.chat_focused = true;
+                }
             }
             return;
         }
-        KeyCode::Char(c) if ('1'..='5').contains(&c) && !(app.current_tab == Tab::Chat && app.chat_focused) => {
+        KeyCode::Char(c)
+            if ('1'..='5').contains(&c) && !(app.current_tab == Tab::Chat && app.chat_focused) =>
+        {
             if let Some(t) = Tab::from_index((c as usize) - ('1' as usize)) {
                 app.switch_tab(t);
                 auto_load_on_tab_switch(app, tx);
-                if app.current_tab == Tab::Chat { app.chat_focused = true; }
+                if app.current_tab == Tab::Chat {
+                    app.chat_focused = true;
+                }
             }
             return;
         }
@@ -416,16 +477,24 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
     // 其他全局快捷键：仅在 Chat 页未聚焦输入框时生效
     if !(app.current_tab == Tab::Chat && app.chat_focused) {
         match key {
-            KeyCode::Char('q') | KeyCode::Char('Q') => { app.quit(); return; }
+            KeyCode::Char('q') | KeyCode::Char('Q') => {
+                app.quit();
+                return;
+            }
             KeyCode::F(2) => {
                 app.fx_enabled = !app.fx_enabled;
-                app.message = if app.fx_enabled { "动效已开启" } else { "动效已关闭" }.to_string();
+                app.message = if app.fx_enabled {
+                    pick("动效已开启", "FX on")
+                } else {
+                    pick("动效已关闭", "FX off")
+                }
+                .to_string();
                 return;
             }
             KeyCode::F(3) => {
                 app.theme = app.theme.toggle();
                 app::colors::set_theme(app.theme.idx());
-                app.message = format!("主题: {}", app.theme.name());
+                app.message = format!("{}: {}", pick("主题", "Theme"), app.theme.name());
                 theme::save_theme(app.theme);
                 return;
             }
@@ -445,14 +514,16 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
             if !app.projects.is_empty() {
                 app.selected_project = if app.selected_project == 0 {
                     app.projects.len() - 1
-                } else { app.selected_project - 1 };
+                } else {
+                    app.selected_project - 1
+                };
             }
         }
         // 打开项目（异步 spawn）
         KeyCode::Enter if app.current_tab == Tab::Dashboard && !app.opening_project => {
             if let Some(p) = app.projects.get(app.selected_project).cloned() {
                 app.opening_project = true;
-                app.message = format!("正在打开 {}...", p.name);
+                app.message = format!("{} {}...", pick("正在打开", "Opening"), p.name);
                 let tx = tx.clone();
                 let url = backend_url();
                 tokio::spawn(async move {
@@ -482,7 +553,7 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
             if let Some(path) = app.api.project_path().map(|s| s.to_string()) {
                 if !matches!(app.validation, ValidationState::Validating) {
                     app.validation = ValidationState::Validating;
-                    app.message = "正在校验...".to_string();
+                    app.message = pick("正在校验...", "Validating...").to_string();
                     app.error_cursor = 0;
                     let tx = tx.clone();
                     let url = backend_url();
@@ -495,7 +566,7 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
                     });
                 }
             } else {
-                app.message = "请先打开项目".to_string();
+                app.message = pick("请先打开项目", "Open a project first").to_string();
             }
         }
 
@@ -503,11 +574,15 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
         KeyCode::Down | KeyCode::Char('j') if app.current_tab == Tab::Validation => {
             if let ValidationState::Done(resp) = &app.validation {
                 let max = resp.errors.len().saturating_sub(1);
-                if app.error_cursor < max { app.error_cursor += 1; }
+                if app.error_cursor < max {
+                    app.error_cursor += 1;
+                }
             }
         }
         KeyCode::Up | KeyCode::Char('k') if app.current_tab == Tab::Validation => {
-            if app.error_cursor > 0 { app.error_cursor -= 1; }
+            if app.error_cursor > 0 {
+                app.error_cursor -= 1;
+            }
         }
 
         // ---- Provider 页 ----
@@ -521,12 +596,14 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
             if !app.providers.is_empty() {
                 app.provider_cursor = if app.provider_cursor == 0 {
                     app.providers.len() - 1
-                } else { app.provider_cursor - 1 };
+                } else {
+                    app.provider_cursor - 1
+                };
             }
         }
         KeyCode::Char('t') if app.current_tab == Tab::Provider => {
             if let Some(p) = app.providers.get(app.provider_cursor).cloned() {
-                app.message = format!("测试 {}...", p.name);
+                app.message = format!("{} {}...", pick("测试", "Testing"), p.name);
                 app.provider_test_result = None;
                 let tx = tx.clone();
                 let url = backend_url();
@@ -550,12 +627,21 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
                                         .unwrap_or_default()
                                 });
                             if status.contains("ok") {
-                                BgMessage::ProviderTested { id: p.id, result: Ok("ok".to_string()) }
+                                BgMessage::ProviderTested {
+                                    id: p.id,
+                                    result: Ok("ok".to_string()),
+                                }
                             } else {
-                                BgMessage::ProviderTested { id: p.id, result: Err(status) }
+                                BgMessage::ProviderTested {
+                                    id: p.id,
+                                    result: Err(status),
+                                }
                             }
                         }
-                        Err(e) => BgMessage::ProviderTested { id: p.id, result: Err(e.to_string()) },
+                        Err(e) => BgMessage::ProviderTested {
+                            id: p.id,
+                            result: Err(e.to_string()),
+                        },
                     };
                     let _ = tx.send(msg).await;
                 });
@@ -564,7 +650,7 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
         KeyCode::Char('a') if app.current_tab == Tab::Provider => {
             if let Some(p) = app.providers.get(app.provider_cursor).cloned() {
                 app.active_provider_id = Some(p.id.clone());
-                app.message = format!("已激活 {}", p.name);
+                app.message = format!("{} {}", pick("已激活", "Activated"), p.name);
                 let tx = tx.clone();
                 let url = backend_url();
                 tokio::spawn(async move {
@@ -576,20 +662,20 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
             }
         }
         KeyCode::Char('r') if app.current_tab == Tab::Provider => {
-            app.message = "加载 Provider...".to_string();
+            app.message = pick("加载 Provider...", "Loading providers...").to_string();
             spawn_load_providers(tx);
         }
 
         // 新建 Provider 表单
         KeyCode::Char('n') if app.current_tab == Tab::Provider => {
             app.provider_form = Some(ProviderForm::new());
-            app.message = "新建 Provider".to_string();
+            app.message = pick("新建 Provider", "New provider").to_string();
         }
 
         // ---- Config 页 ----
         KeyCode::Char('r') if app.current_tab == Tab::Config => {
             if app.api.project_path().is_some() {
-                app.message = "加载配置...".to_string();
+                app.message = pick("加载配置...", "Loading config...").to_string();
                 let tx = tx.clone();
                 let url = backend_url();
                 let path = app.api.project_path().unwrap().to_string();
@@ -597,10 +683,12 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
                     let mut client = crate::api::ApiClient::new(&url);
                     client.set_project(&path);
                     let result = client.get_full_config().await;
-                    let _ = tx.send(BgMessage::ConfigLoaded(result.map_err(|e| e.to_string()))).await;
+                    let _ = tx
+                        .send(BgMessage::ConfigLoaded(result.map_err(|e| e.to_string())))
+                        .await;
                 });
             } else {
-                app.message = "请先打开项目".to_string();
+                app.message = pick("请先打开项目", "Open a project first").to_string();
             }
         }
 
@@ -620,31 +708,44 @@ async fn handle_key(app: &mut App, key: KeyCode, modifiers: crossterm::event::Ke
             }
             let msg = app.chat_input.trim().to_string();
             if !msg.is_empty() && app.api.project_path().is_some() {
-                app.chat_messages.push(ChatMsg { role: "user".to_string(), content: msg.clone() });
+                app.chat_messages.push(ChatMsg {
+                    role: "user".to_string(),
+                    content: msg.clone(),
+                });
                 // 发送新消息自动回到底部（停在最新消息）
                 app.chat_scroll = 0;
                 app.chat_input.clear();
                 app.chat_loading = true;
-                app.message = "AI 思考中...".to_string();
+                app.message = pick("AI 思考中...", "AI thinking...").to_string();
                 let tx = tx.clone();
                 let url = backend_url();
                 let path = app.api.project_path().unwrap().to_string();
-                let history: Vec<ChatMessage> = app.chat_messages.iter().map(|m| ChatMessage {
-                    role: m.role.clone(),
-                    content: m.content.clone(),
-                }).collect();
+                let history: Vec<ChatMessage> = app
+                    .chat_messages
+                    .iter()
+                    .map(|m| ChatMessage {
+                        role: m.role.clone(),
+                        content: m.content.clone(),
+                    })
+                    .collect();
                 tokio::spawn(async move {
                     let mut client = crate::api::ApiClient::new(&url);
                     client.set_project(&path);
                     let result = client.send_chat(&msg, &history).await;
-                    let _ = tx.send(BgMessage::ChatReply(result.map_err(|e| e.to_string()))).await;
+                    let _ = tx
+                        .send(BgMessage::ChatReply(result.map_err(|e| e.to_string())))
+                        .await;
                 });
             }
         }
-        KeyCode::Char(c) if app.current_tab == Tab::Chat && app.chat_focused && !app.chat_loading => {
+        KeyCode::Char(c)
+            if app.current_tab == Tab::Chat && app.chat_focused && !app.chat_loading =>
+        {
             app.chat_input.push(c);
         }
-        KeyCode::Backspace | KeyCode::Delete if app.current_tab == Tab::Chat && app.chat_focused && !app.chat_loading => {
+        KeyCode::Backspace | KeyCode::Delete
+            if app.current_tab == Tab::Chat && app.chat_focused && !app.chat_loading =>
+        {
             app.chat_input.pop();
         }
 
@@ -658,13 +759,19 @@ fn handle_provider_form_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMes
     match key {
         KeyCode::Esc => {
             app.provider_form = None;
-            app.message = "已取消新建".to_string();
+            app.message = pick("已取消新建", "Creation cancelled").to_string();
             return;
         }
         KeyCode::Enter => {
-            let Some(form) = app.provider_form.as_ref() else { return };
+            let Some(form) = app.provider_form.as_ref() else {
+                return;
+            };
             if !form.valid() {
-                app.message = "名称 / Base URL / 模型 为必填".to_string();
+                app.message = pick(
+                    "名称 / Base URL / 模型 为必填",
+                    "Name / Base URL / Model are required",
+                )
+                .to_string();
                 return;
             }
             let req = crate::api::types::CreateProviderRequest {
@@ -678,7 +785,7 @@ fn handle_provider_form_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMes
                 },
                 model: form.model.trim().to_string(),
             };
-            app.message = "创建 Provider...".to_string();
+            app.message = pick("创建 Provider...", "Creating provider...").to_string();
             let tx = tx.clone();
             let url = backend_url();
             tokio::spawn(async move {
@@ -695,7 +802,9 @@ fn handle_provider_form_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMes
     }
 
     // 其余按键：字段导航 / 类型切换 / 文本编辑
-    let Some(form) = app.provider_form.as_mut() else { return };
+    let Some(form) = app.provider_form.as_mut() else {
+        return;
+    };
     match key {
         KeyCode::Down | KeyCode::Tab => {
             form.field = (form.field + 1) % 5;
@@ -728,11 +837,11 @@ fn handle_provider_form_key(app: &mut App, key: KeyCode, tx: &mpsc::Sender<BgMes
 fn auto_load_on_tab_switch(app: &mut App, tx: &mpsc::Sender<BgMessage>) {
     match app.current_tab {
         Tab::Provider if app.providers.is_empty() => {
-            app.message = "加载 Provider...".to_string();
+            app.message = pick("加载 Provider...", "Loading providers...").to_string();
             spawn_load_providers(tx);
         }
         Tab::Config if app.config_data.is_none() && app.api.project_path().is_some() => {
-            app.message = "加载配置...".to_string();
+            app.message = pick("加载配置...", "Loading config...").to_string();
             let tx = tx.clone();
             let url = backend_url();
             let path = app.api.project_path().unwrap().to_string();
@@ -740,7 +849,9 @@ fn auto_load_on_tab_switch(app: &mut App, tx: &mpsc::Sender<BgMessage>) {
                 let mut client = crate::api::ApiClient::new(&url);
                 client.set_project(&path);
                 let result = client.get_full_config().await;
-                let _ = tx.send(BgMessage::ConfigLoaded(result.map_err(|e| e.to_string()))).await;
+                let _ = tx
+                    .send(BgMessage::ConfigLoaded(result.map_err(|e| e.to_string())))
+                    .await;
             });
         }
         _ => {}
@@ -858,7 +969,10 @@ mod tests {
         app.frame_count = 42;
         handle_bg_message(
             &mut app,
-            BgMessage::ProviderTested { id: "a".to_string(), result: Ok("ok".to_string()) },
+            BgMessage::ProviderTested {
+                id: "a".to_string(),
+                result: Ok("ok".to_string()),
+            },
             &tx,
         );
         let t = app.provider_test_result.expect("应记录测试结果 toast");
