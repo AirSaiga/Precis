@@ -25,6 +25,8 @@ export interface ServerStatus {
 export interface AppApi {
   /** 当前环境是否支持启动时自动恢复最近项目（Electron 支持，Web 需用户手动选择） */
   readonly canRestoreRecentProject: boolean
+  /** 当前环境是否支持把应用语言同步到桌面壳（Electron 支持；Web 无桌面壳原生文案） */
+  readonly canSyncAppLocale: boolean
   /** 初始化 API 客户端基础地址（Electron 动态获取端口；Web 使用默认地址） */
   initializeApiClient(): Promise<void>
   /** 获取应用版本号 */
@@ -39,6 +41,8 @@ export interface AppApi {
   saveRecentProject(paths: ProjectLaunchConfig): Promise<void>
   /** 重启后端服务（Electron 有效） */
   restartBackend(): Promise<boolean>
+  /** 同步应用语言到桌面壳，使主进程原生对话框等用户可见文案跟随（Electron 有效，Web 空操作） */
+  syncAppLocale(locale: string): void
 }
 
 const RECENT_PROJECT_KEY = 'activeProjectPaths'
@@ -99,6 +103,10 @@ class ElectronAppAdapter implements AppApi {
     return true
   }
 
+  get canSyncAppLocale(): boolean {
+    return true
+  }
+
   async initializeApiClient(): Promise<void> {
     try {
       const status = await getElectronAPI().getServerStatus()
@@ -135,6 +143,14 @@ class ElectronAppAdapter implements AppApi {
     const result = await getElectronAPI().restartPythonServer()
     return result.ready
   }
+
+  syncAppLocale(locale: string): void {
+    try {
+      getElectronAPI().setAppLocale(locale)
+    } catch (error) {
+      logger.error('[appApi] 同步应用语言失败:', error)
+    }
+  }
 }
 
 /**
@@ -142,6 +158,10 @@ class ElectronAppAdapter implements AppApi {
  */
 class WebAppAdapter implements AppApi {
   get canRestoreRecentProject(): boolean {
+    return false
+  }
+
+  get canSyncAppLocale(): boolean {
     return false
   }
 
@@ -200,6 +220,10 @@ class WebAppAdapter implements AppApi {
   async restartBackend(): Promise<boolean> {
     logger.warn('[appApi] Web 模式下不支持重启后端服务')
     return false
+  }
+
+  syncAppLocale(_locale: string): void {
+    // Web 模式无桌面壳，原生文案不存在，空操作
   }
 }
 

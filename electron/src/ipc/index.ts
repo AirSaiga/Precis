@@ -25,6 +25,7 @@ import { registerFilesystemIpc } from './filesystem';
 import { registerFeedbackIpc } from './feedback';
 import { registerAppInfoIpc } from './appInfo';
 import { registerBackendIpc } from './backend';
+import { registerAppLocaleIpc } from './appLocale';
 
 /** registerAllIpc 所需配置（backend IPC 需要后端路径 + 前端端口） */
 export interface RegisterAllIpcConfig {
@@ -45,4 +46,5 @@ export function registerAllIpc(config: RegisterAllIpcConfig): void {
   registerFeedbackIpc();
   registerAppInfoIpc();
   registerBackendIpc(config);
+  registerAppLocaleIpc();
 }

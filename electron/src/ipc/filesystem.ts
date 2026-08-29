@@ -18,6 +18,7 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as yaml from 'js-yaml';
 import { logger } from '../logger';
+import { t } from '../i18n';
 
 // ============================================================================
 // 辅助函数
@@ -162,8 +163,8 @@ export function registerFilesystemIpc(): void {
     ) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       const dialogOptions = {
-        title: options.title || '选择文件',
-        buttonLabel: options.buttonLabel || '选择',
+        title: options.title || t('dialog.selectFile'),
+        buttonLabel: options.buttonLabel || t('dialog.selectButton'),
         filters: options.filters,
         properties: options.properties,
       };
@@ -207,8 +208,8 @@ export function registerFilesystemIpc(): void {
     ) => {
       const win = BrowserWindow.fromWebContents(event.sender);
       const dialogOptions = {
-        title: options.title || '重新选择文件',
-        buttonLabel: options.buttonLabel || '确认',
+        title: options.title || t('dialog.reselectFile'),
+        buttonLabel: options.buttonLabel || t('dialog.confirmButton'),
         filters: options.filters,
         properties: options.properties,
       };
@@ -229,32 +230,35 @@ export function registerFilesystemIpc(): void {
   ipcMain.handle('open-file', async (_event, filePath: string) => {
     try {
       if (!filePath || typeof filePath !== 'string') {
-        return { success: false, error: '无效的文件路径' };
+        return { success: false, error: t('fs.invalidPath') };
       }
 
       if (!path.isAbsolute(filePath)) {
         logger.error('[Electron] open-file: 路径必须是绝对路径:', filePath);
-        return { success: false, error: '路径必须是绝对路径' };
+        return { success: false, error: t('fs.pathMustBeAbsolute') };
       }
 
       const resolved = path.resolve(filePath);
       const roots = getAllowedRoots();
       if (!isPathAllowed(resolved, roots)) {
         logger.error('[Electron] open-file: 路径不在允许的根目录之下:', filePath);
-        return { success: false, error: '路径不在允许的目录范围内' };
+        return { success: false, error: t('fs.pathOutsideAllowed') };
       }
 
       const ext = path.extname(resolved).toLowerCase();
       if (!ext || !OPEN_FILE_ALLOWED_EXTENSIONS.has(ext)) {
         logger.error('[Electron] open-file: 拒绝打开非数据文件扩展名:', ext || '(无扩展名)', filePath);
-        return { success: false, error: `不允许打开此类型文件（${ext || '无扩展名'}）` };
+        return {
+          success: false,
+          error: t('fs.fileTypeNotAllowed', { ext: ext || t('fs.noExtension') }),
+        };
       }
 
       // 检查文件是否存在
       await new Promise<void>((resolve, reject) => {
         fs.access(resolved, fs.constants.F_OK, (err) => {
           if (err) {
-            reject(new Error('文件不存在'));
+            reject(new Error(t('fs.fileNotFound')));
           } else {
             resolve();
           }
@@ -271,7 +275,7 @@ export function registerFilesystemIpc(): void {
       logger.debug('[Electron] 已用系统程序打开文件:', resolved);
       return { success: true };
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      const errorMessage = error instanceof Error ? error.message : t('fs.unknownError');
       logger.error('[Electron] 打开文件失败:', errorMessage);
       return { success: false, error: errorMessage };
     }

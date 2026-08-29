@@ -338,6 +338,14 @@ interface ElectronAPI {
   }>
 
   /**
+   * 同步应用语言到主进程（fire-and-forget）
+   *
+   * 业务用途:
+   * - 启动时与切换语言时，让主进程的原生对话框等用户可见文案跟随应用语言
+   */
+  setAppLocale: (locale: string) => void
+
+  /**
    * 检查文件是否存在
    *
    * 业务用途:

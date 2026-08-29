@@ -14,6 +14,7 @@ import { app, ipcMain, shell } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { logger, readLogFile, getLogFilePath } from '../logger';
+import { t } from '../i18n';
 
 // ============================================================================
 // feedbackStore：辅助函数（纯文件操作，从 main.ts 迁移）
@@ -49,20 +50,20 @@ export function formatFeedbackText(report: unknown): string {
   const r = report as Record<string, unknown>;
   const logTail = readLogFile();
   return [
-    '===== Precis 崩溃反馈 =====',
-    `应用版本: ${r.appVersion ?? 'unknown'}`,
-    `平台: ${process.platform}`,
-    `时间: ${r.timestamp ?? new Date().toISOString()}`,
+    t('feedback.reportHeader'),
+    `${t('feedback.appVersion')}: ${r.appVersion ?? 'unknown'}`,
+    `${t('feedback.platform')}: ${process.platform}`,
+    `${t('feedback.time')}: ${r.timestamp ?? new Date().toISOString()}`,
     '',
-    '--- 错误信息 ---',
-    `来源: ${r.source ?? 'unknown'}`,
-    `消息: ${r.message ?? ''}`,
+    t('feedback.errorInfo'),
+    `${t('feedback.source')}: ${r.source ?? 'unknown'}`,
+    `${t('feedback.message')}: ${r.message ?? ''}`,
     r.url ? `URL: ${r.url}` : '',
     '',
-    '--- 错误堆栈 ---',
-    (r.stack as string) ?? '(无堆栈)',
+    t('feedback.errorStack'),
+    (r.stack as string) ?? t('feedback.noStack'),
     '',
-    '--- 主进程日志尾部 ---',
+    t('feedback.mainLogTail'),
     logTail,
     '============================',
   ]

@@ -284,6 +284,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
      ipcRenderer.invoke('scan-directory', { dirPath, allowedExtensions }),
 
    /**
+    * 同步应用语言到主进程（fire-and-forget）
+    *
+    * 业务用途:
+    * - 渲染进程启动时与切换语言时，让主进程的原生对话框等用户可见文案跟随应用语言
+    * - 单向推送，无回执
+    *
+    * @param locale 语言标识（'zh-CN' | 'en-US'）
+    */
+   setAppLocale: (locale: string) => ipcRenderer.send('app:set-locale', locale),
+
+   /**
     * 获取当前工作目录
     * 
     * 业务用途:

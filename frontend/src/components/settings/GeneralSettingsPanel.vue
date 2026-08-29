@@ -76,6 +76,7 @@
   import { useI18n } from 'vue-i18n'
   import { useSettingsStore } from '@/stores/settingsStore'
   import type { GeneralSettings } from '@/stores/settingsStore'
+  import { appApi } from '@/core/capabilities/appApi'
 
   const { t, locale } = useI18n()
   const settingsStore = useSettingsStore()
@@ -101,5 +102,7 @@
   function handleLanguageChange(): void {
     settingsStore.updateGeneralSettings(localSettings.value)
     locale.value = localSettings.value.language
+    // 同步给桌面壳，主进程原生对话框文案跟随应用语言
+    appApi.syncAppLocale(localSettings.value.language)
   }
 </script>

@@ -24,6 +24,7 @@ import { logger } from '../logger';
 import { ensureFeedbackDir, getPendingCrashPath } from '../ipc/feedback';
 import { closeSplashWindow, sendSplashStage } from './splashWindow';
 import { getPreloadPath } from '../utils/paths';
+import { t } from '../i18n';
 
 /** createWindow 所需的运行时路径配置（由 main.ts 注入） */
 export interface WindowConfig {
@@ -145,7 +146,7 @@ export function createWindow(config: WindowConfig): void {
       ensureFeedbackDir();
       const pending = {
         source: 'main-process',
-        message: `渲染进程意外退出 (${details.reason})`,
+        message: t('crash.rendererGonePending', { reason: details.reason }),
         timestamp: new Date().toISOString(),
         exitCode: details.exitCode,
       };
@@ -156,10 +157,10 @@ export function createWindow(config: WindowConfig): void {
 
     const choice = dialog.showMessageBoxSync(appState.mainWindow!, {
       type: 'error',
-      title: '应用遇到问题',
-      message: '渲染进程意外退出',
-      detail: `原因: ${details.reason}\n崩溃记录已保存,重启后将提示您导出反馈。`,
-      buttons: ['重启应用', '退出'],
+      title: t('crash.title'),
+      message: t('crash.message'),
+      detail: t('crash.detail', { reason: details.reason }),
+      buttons: [t('crash.restartButton'), t('crash.quitButton')],
       noLink: true,
     });
     if (choice === 0) {

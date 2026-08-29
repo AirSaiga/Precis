@@ -28,6 +28,7 @@ import * as fs from 'fs';
 import { updateManager } from './update';
 import { getBackendPath, getFrontendPath } from './utils/paths';
 import { logger, getLogFilePath, flushLogs } from './logger';
+import { t } from './i18n';
 import { waitForApiReady, readBackendPortFile } from './startup-probe';
 import { registerAllIpc } from './ipc';
 import { ensureFeedbackDir, getPendingCrashPath } from './ipc/feedback';
@@ -148,8 +149,11 @@ app.whenReady().then(async () => {
       // 后端启动失败属于致命错误，应明确告知用户，而不是显示空白主窗口
       closeSplashWindow();
       dialog.showErrorBox(
-        '后端服务启动失败',
-        `Precis 无法启动本地后端服务，应用将无法使用。\n\n错误信息：${errorMessage}\n\n请尝试以下步骤：\n1. 检查是否有安全软件阻止了应用运行；\n2. 重新安装应用；\n3. 如问题持续，请将日志文件发送给开发团队。\n\n日志位置：${getLogFilePath() || '未知'}`
+        t('dialog.backendStartFailedTitle'),
+        t('dialog.backendStartFailedDetail', {
+          error: errorMessage,
+          logPath: getLogFilePath() || t('fs.unknownError'),
+        })
       );
       app.quit();
       return;

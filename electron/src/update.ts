@@ -17,6 +17,7 @@ import { app, ipcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from './logger';
+import { t } from './i18n';
 
 export type UpdateStatus =
   | 'idle'
@@ -190,7 +191,7 @@ class UpdateManager {
         await autoUpdater.checkForUpdates();
         return this.state;
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : '未知错误';
+        const errorMessage = error instanceof Error ? error.message : t('fs.unknownError');
         this.updateState({ status: 'error', error: errorMessage });
         return this.state;
       }
@@ -198,21 +199,21 @@ class UpdateManager {
 
     ipcMain.handle('update:download', async () => {
       if (this.state.status !== 'update-available') {
-        return { success: false, error: '没有可用的更新' };
+        return { success: false, error: t('update.noUpdateAvailable') };
       }
 
       try {
         await autoUpdater.downloadUpdate();
         return { success: true };
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : '下载失败';
+        const errorMessage = error instanceof Error ? error.message : t('update.downloadFailed');
         return { success: false, error: errorMessage };
       }
     });
 
     ipcMain.handle('update:install', async () => {
       if (this.state.status !== 'downloaded') {
-        return { success: false, error: '更新未下载完成' };
+        return { success: false, error: t('update.downloadNotComplete') };
       }
 
       autoUpdater.quitAndInstall();

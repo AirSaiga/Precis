@@ -33,6 +33,7 @@ import { useCanvasStore } from '@/stores/canvasStore'
 import { useDragStore } from '@/stores/dragStore'
 import { useProjectStore } from '@/stores/projectStore'
 import { useShortcutStore } from '@/features/keyboard/stores/shortcutStore'
+import { useSettingsStore } from '@/stores/settingsStore'
 import { useKeyboardShortcuts } from '@/features/keyboard'
 import type { Shortcut } from '@/features/keyboard/types'
 import { logger } from '@/core/utils/logger'
@@ -85,6 +86,7 @@ export function useAppBootstrap(): BootstrapResult {
   const dragStore = useDragStore()
   const projectStore = useProjectStore()
   const shortcutStore = useShortcutStore()
+  const settingsStore = useSettingsStore()
 
   // === 局部状态 ===
   // keyboardManager: 键盘引擎实例，由 bootstrap 阶段创建
@@ -209,6 +211,11 @@ export function useAppBootstrap(): BootstrapResult {
    * - 创建 shortcutStore.config 的深度 watch（用户修改快捷键配置时实时生效）
    */
   const bootstrap = async () => {
+    // Step 0: 把应用语言同步给桌面壳，使主进程原生对话框文案跟随设置（Web 空操作）
+    if (appApi.canSyncAppLocale) {
+      appApi.syncAppLocale(settingsStore.generalSettings.language)
+    }
+
     // Step 1: 恢复项目路径（Electron 或 Web localStorage）并创建项目
     const hasProject = await bootstrapProjectPaths()
 
