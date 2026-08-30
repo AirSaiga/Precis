@@ -70,19 +70,33 @@ async function githubApi(url, token) {
   return res;
 }
 
+/** 下载资产并计算 sha512（带一次重试——CI/本地长下载偶发连接中断，避免闸门假阴性） */
 async function downloadIntoHash(url, token) {
-  const res = await fetch(url, { headers: token ? { Authorization: `Bearer ${token}`, 'User-Agent': 'precis-release-check' } : { 'User-Agent': 'precis-release-check' } });
-  if (!res.ok) throw new Error(`下载失败 HTTP ${res.status}: ${url}`);
-  const hash = createHash('sha512');
-  let size = 0;
-  const reader = res.body.getReader();
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.length;
-    hash.update(value);
+  let lastErr;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: token
+          ? { Authorization: `Bearer ${token}`, 'User-Agent': 'precis-release-check' }
+          : { 'User-Agent': 'precis-release-check' },
+      });
+      if (!res.ok) throw new Error(`下载失败 HTTP ${res.status}: ${url}`);
+      const hash = createHash('sha512');
+      let size = 0;
+      const reader = res.body.getReader();
+      for (;;) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        size += value.length;
+        hash.update(value);
+      }
+      return { sha512: hash.digest('base64'), size };
+    } catch (err) {
+      lastErr = err;
+      if (attempt === 0) console.error(`[verify-release-assets] 下载中断，重试一次: ${err.message}`);
+    }
   }
-  return { sha512: hash.digest('base64'), size };
+  throw lastErr;
 }
 
 async function main() {
