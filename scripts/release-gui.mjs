@@ -87,19 +87,23 @@ export function buildActionCommand(action, params = {}, platform = process.platf
   switch (action) {
     case 'build':
       return {
-        label: platform === 'win32' ? '打包（Windows NSIS）' : '打包（macOS DMG）',
+        label: platform === 'win32' ? '制作安装包（Windows）' : '制作安装包（macOS）',
         cmd: platform === 'win32' ? 'npm run dist:win' : 'npm run dist:mac',
         cwd: ROOT,
       };
     case 'release-dry':
-      return { label: `发布预览 ${v()}`, cmd: `node scripts/release.mjs ${params.version} --dry-run`, cwd: ROOT };
+      return { label: `预览发布改动 ${v()}`, cmd: `node scripts/release.mjs ${params.version} --dry-run`, cwd: ROOT };
     case 'release': {
       const noPush = params.noPush === true ? ' --no-push' : '';
-      return { label: `正式发布 ${v()}${noPush ? '（不推送）' : '（推送触发 CD）'}`, cmd: `node scripts/release.mjs ${params.version}${noPush}`, cwd: ROOT };
+      return {
+        label: `正式发布 ${v()}${noPush ? '（暂不上传）' : ''}`,
+        cmd: `node scripts/release.mjs ${params.version}${noPush}`,
+        cwd: ROOT,
+      };
     }
     case 'drill-lite':
       return {
-        label: `lite 演练源 ${v()}`,
+        label: `准备模拟更新 ${v()}`,
         cmd: `node scripts/update-drill.mjs lite --version ${params.version}`,
         cwd: ELECTRON_DIR,
       };
@@ -107,7 +111,7 @@ export function buildActionCommand(action, params = {}, platform = process.platf
       const base = requireVersion(params.base, 'base');
       const next = requireVersion(params.next, 'next');
       return {
-        label: `full 演练 ${base} → ${next}`,
+        label: `制作新旧安装包 ${base} → ${next}`,
         cmd: `node scripts/update-drill.mjs full --base ${base} --next ${next}`,
         cwd: ELECTRON_DIR,
       };
@@ -117,14 +121,14 @@ export function buildActionCommand(action, params = {}, platform = process.platf
       if (!validateTag(tag)) throw new Error(`tag 非法: ${tag}`);
       const version = requireVersion(params.version);
       return {
-        label: `线上产物自检 ${tag}`,
+        label: `检查线上安装包 ${tag}`,
         cmd: `node scripts/verify-release-assets.mjs --repo ${REPO_SLUG} --tag ${tag} --version ${version}`,
         cwd: ROOT,
       };
     }
     case 'check-manifests': {
       const version = requireVersion(params.version);
-      return { label: `manifest 一致性校验 ${version}`, cmd: `node scripts/release.mjs check ${version}`, cwd: ROOT };
+      return { label: `检查版本号对齐 ${version}`, cmd: `node scripts/release.mjs check ${version}`, cwd: ROOT };
     }
     default:
       throw new Error(`未知动作: ${action}`);

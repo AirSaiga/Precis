@@ -511,30 +511,30 @@ ol.steps b { color: var(--text-2); }
     <nav>
       <button class="nav-item active" data-tab="build">
         <svg class="icon"><use href="#i-package"/></svg>
-        <span class="nav-item__label">打包</span>
+        <span class="nav-item__label">制作安装包</span>
         <span class="nav-item__dot" id="dot-build" hidden></span>
       </button>
       <button class="nav-item" data-tab="release">
         <svg class="icon"><use href="#i-rocket"/></svg>
-        <span class="nav-item__label">发布</span>
+        <span class="nav-item__label">发布新版本</span>
         <span class="nav-item__dot" id="dot-release" hidden></span>
       </button>
       <button class="nav-item" data-tab="drill">
         <svg class="icon"><use href="#i-refresh"/></svg>
-        <span class="nav-item__label">更新演练</span>
+        <span class="nav-item__label">测试自动更新</span>
         <span class="nav-item__dot" id="dot-drill" hidden></span>
       </button>
       <button class="nav-item" data-tab="status">
         <svg class="icon"><use href="#i-globe"/></svg>
-        <span class="nav-item__label">线上状态</span>
+        <span class="nav-item__label">发布结果</span>
         <span class="nav-item__dot" id="dot-status" hidden></span>
       </button>
     </nav>
     <div class="sidebar__footer">
+      <div class="env">当前版本 <b id="env-version">–</b></div>
+      <div class="env">已发布到 <b id="env-tag">–</b></div>
+      <div class="env">版本文件 <b id="env-consistency">–</b></div>
       <div class="env">分支 <b id="env-branch">–</b></div>
-      <div class="env">版本 <b id="env-version">–</b></div>
-      <div class="env">最新 tag <b id="env-tag">–</b></div>
-      <div class="env">manifest <b id="env-consistency">–</b></div>
     </div>
   </aside>
 
@@ -542,33 +542,33 @@ ol.steps b { color: var(--text-2); }
   <div class="main-col">
     <main class="main">
 
-      <!-- ── 打包 ── -->
+      <!-- ── 制作安装包 ── -->
       <section class="panel active" id="panel-build">
         <div class="page-head">
-          <h2><svg class="icon" style="color:var(--text-3)"><use href="#i-package"/></svg>打包</h2>
-          <p>构建当前版本安装包（不发布），产物输出 <span class="mono">electron/release/</span></p>
+          <h2><svg class="icon" style="color:var(--text-3)"><use href="#i-package"/></svg>制作安装包</h2>
+          <p>把当前代码做成一个安装包，先只放在本地、不发布。做好的文件在 <span class="mono">electron/release/</span> 文件夹里。</p>
         </div>
         <div class="grid">
           <div class="card col-5">
             <div class="card__head">
-              <div class="card__head-title"><svg class="icon"><use href="#i-package"/></svg>构建</div>
+              <div class="card__head-title"><svg class="icon"><use href="#i-package"/></svg>开始制作</div>
               <span class="badge badge--neutral badge--plain" id="build-platform">–</span>
             </div>
             <div class="card__body">
               <div class="actions" style="margin-top:0">
                 <button class="btn btn--primary" data-run="build" id="btn-build">
-                  <svg class="icon"><use href="#i-play"/></svg>开始打包
+                  <svg class="icon"><use href="#i-play"/></svg>开始制作安装包
                 </button>
                 <button class="btn btn--secondary" data-open="release">
-                  <svg class="icon"><use href="#i-folder"/></svg>打开产物目录
+                  <svg class="icon"><use href="#i-folder"/></svg>打开存放文件夹
                 </button>
               </div>
-              <div class="hint">流程：前端构建 → 主进程编译 → 内嵌 Python 运行时 → electron-builder。<br>首次约 5-15 分钟，Python 运行时缓存后更快。</div>
+              <div class="hint">点了开始会自动做四步：① 制作网页界面 → ② 编译桌面程序 → ③ 打包内置运行环境 → ④ 生成安装包。<br>第一次约 5-15 分钟，之后会快一些。每一步的进度都在下方"执行过程"里实时滚动。</div>
             </div>
           </div>
           <div class="card col-7">
             <div class="card__head">
-              <div class="card__head-title"><svg class="icon"><use href="#i-box-empty"/></svg>最近构建产物</div>
+              <div class="card__head-title"><svg class="icon"><use href="#i-box-empty"/></svg>做好的安装包</div>
               <span class="card__head-meta" id="artifacts-count"></span>
             </div>
             <div class="card__body" id="artifacts-body"></div>
@@ -576,27 +576,27 @@ ol.steps b { color: var(--text-2); }
         </div>
       </section>
 
-      <!-- ── 发布 ── -->
+      <!-- ── 发布新版本 ── -->
       <section class="panel" id="panel-release">
         <div class="page-head">
-          <h2><svg class="icon" style="color:var(--text-3)"><use href="#i-rocket"/></svg>发布</h2>
-          <p>版本单一事实源为根 <span class="mono">package.json</span>，脚本自动同步六处 manifest 并切版 CHANGELOG</p>
+          <h2><svg class="icon" style="color:var(--text-3)"><use href="#i-rocket"/></svg>发布新版本</h2>
+          <p>发布 = 记一个新版本号 + 写一条更新日志 + 上传 GitHub。之后服务器会自动制作安装包并公布，老用户的应用会自动收到更新提示。</p>
         </div>
         <div class="grid">
           <div class="card col-7">
             <div class="card__head">
-              <div class="card__head-title"><svg class="icon"><use href="#i-clock"/></svg>版本号</div>
+              <div class="card__head-title"><svg class="icon"><use href="#i-clock"/></svg>新版本号</div>
               <span class="badge badge--neutral badge--plain mono" id="rel-current">–</span>
             </div>
             <div class="card__body">
               <div class="form-grid">
                 <div class="field">
-                  <span class="field__label">递增方式</span>
+                  <span class="field__label">版本号怎么定</span>
                   <select id="rel-mode">
-                    <option value="patch">patch（补丁，默认）</option>
-                    <option value="minor">minor（功能）</option>
-                    <option value="major">major（重大）</option>
-                    <option value="manual">手动输入</option>
+                    <option value="patch">小更新（修问题，默认）</option>
+                    <option value="minor">中更新（加了新功能）</option>
+                    <option value="major">大更新（重大变化）</option>
+                    <option value="manual">我自己填</option>
                   </select>
                 </div>
                 <div class="field">
@@ -604,12 +604,12 @@ ol.steps b { color: var(--text-2); }
                   <input type="text" id="rel-version" placeholder="0.1.1" disabled style="width:130px">
                 </div>
                 <div class="field">
-                  <span class="field__label">预发布后缀（可选）</span>
+                  <span class="field__label">测试版标记（可选）</span>
                   <input type="text" id="rel-prerelease" placeholder="alpha.1" style="width:130px">
                 </div>
               </div>
               <div style="margin-top:var(--sp-3)">
-                <label class="check"><input type="checkbox" id="rel-nopush">不推送（本地 commit + tag，稍后手动 push）</label>
+                <label class="check"><input type="checkbox" id="rel-nopush">先不上传（只在本地准备好，之后我自己上传）</label>
               </div>
               <div class="preview" id="rel-preview" style="margin-top:var(--sp-3)">–</div>
             </div>
@@ -621,77 +621,77 @@ ol.steps b { color: var(--text-2); }
             <div class="card__body">
               <div class="actions" style="margin-top:0; flex-direction:column; align-items:stretch">
                 <button class="btn btn--secondary" data-run="release-dry">
-                  <svg class="icon"><use href="#i-eye"/></svg>预览（dry-run，不写文件）
+                  <svg class="icon"><use href="#i-eye"/></svg>先看看会改什么（不会真的改）
                 </button>
                 <button class="btn btn--primary" data-run="release" id="btn-release">
                   <svg class="icon"><use href="#i-rocket"/></svg>正式发布
                 </button>
                 <button class="btn btn--ghost" data-run="check-manifests">
-                  <svg class="icon"><use href="#i-shield"/></svg>校验 manifest 一致性
+                  <svg class="icon"><use href="#i-shield"/></svg>检查版本号是否对齐
                 </button>
               </div>
-              <div class="hint">正式发布 = commit + tag + push → GitHub Actions 构建三端 → <b style="color:var(--text-2)">自动 publish Release</b>，构建与产物自检通过后客户端即可拉到更新。</div>
+              <div class="hint">正式发布后：GitHub 的服务器会自动制作 Windows / Mac 安装包并公布（约 20-40 分钟），可以在"发布结果"页盯进度。公布后，老用户打开应用就会收到更新提示。</div>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ── 更新演练 ── -->
+      <!-- ── 测试自动更新 ── -->
       <section class="panel" id="panel-drill">
         <div class="page-head">
-          <h2><svg class="icon" style="color:var(--text-3)"><use href="#i-refresh"/></svg>更新演练</h2>
-          <p>在本地模拟生产更新：已安装客户端从本地地址拉取更新，验证完整闭环</p>
+          <h2><svg class="icon" style="color:var(--text-3)"><use href="#i-refresh"/></svg>测试自动更新</h2>
+          <p>在本地"假装"出一个新版本，看看装好的应用能不能自己发现并完成升级。随便试，不影响 GitHub 上的正式版本。</p>
         </div>
         <div class="grid">
           <div class="card col-6">
             <div class="card__head">
-              <div class="card__head-title"><svg class="icon"><use href="#i-zap"/></svg>lite 演练</div>
-              <span class="badge badge--neutral badge--plain">分钟级</span>
+              <div class="card__head-title"><svg class="icon"><use href="#i-zap"/></svg>快速测试</div>
+              <span class="badge badge--neutral badge--plain">几分钟</span>
             </div>
             <div class="card__body">
               <div class="form-grid">
                 <div class="field">
-                  <span class="field__label">演练版本号</span>
+                  <span class="field__label">假装的新版本号</span>
                   <input type="text" id="drill-lite-version" placeholder="9.9.9-drill" style="width:150px">
                 </div>
                 <div class="field">
                   <span class="field__label">&nbsp;</span>
                   <button class="btn btn--primary" data-run="drill-lite">
-                    <svg class="icon"><use href="#i-zap"/></svg>生成本地更新源
+                    <svg class="icon"><use href="#i-zap"/></svg>准备一次模拟更新
                   </button>
                 </div>
               </div>
-              <div class="hint">复用 <code>electron/release/</code> 真实产物，仅抬升清单版本号——验证 检测→下载→重启安装 全流程。安装后版本号不变（同一二进制）。需先有构建产物。</div>
+              <div class="hint">拿本地刚做好的安装包"冒充"新版本，验证 应用能发现更新 → 下载 → 重启安装 整条路。<br>注意：装完后版本号不会真的变（用的其实是同一个安装包），只验证流程。需要先在"制作安装包"页做出安装包。</div>
             </div>
           </div>
           <div class="card col-6">
             <div class="card__head">
-              <div class="card__head-title"><svg class="icon"><use href="#i-clock"/></svg>full 演练</div>
+              <div class="card__head-title"><svg class="icon"><use href="#i-clock"/></svg>彻底测试</div>
               <span class="badge badge--neutral badge--plain">10-30 分钟</span>
             </div>
             <div class="card__body">
               <div class="form-grid">
                 <div class="field">
-                  <span class="field__label">基线版本</span>
+                  <span class="field__label">旧版本</span>
                   <input type="text" id="drill-base" placeholder="0.1.0" style="width:110px">
                 </div>
                 <div class="field">
-                  <span class="field__label">新版</span>
+                  <span class="field__label">新版本</span>
                   <input type="text" id="drill-next" placeholder="0.1.1" style="width:110px">
                 </div>
                 <div class="field">
                   <span class="field__label">&nbsp;</span>
                   <button class="btn btn--secondary" data-run="drill-full" id="btn-drill-full">
-                    <svg class="icon"><use href="#i-play"/></svg>开始全真演练
+                    <svg class="icon"><use href="#i-play"/></svg>制作新旧两个安装包
                   </button>
                 </div>
               </div>
-              <div class="hint">构建两个真实版本（<code>extraMetadata</code> 覆盖，不污染工作区），验证版本真实变更。基线安装包存到 <code>electron/local-updates/base/</code>。</div>
+              <div class="hint">真的做出旧、新两个版本的安装包，验证完整升级：装旧版 → 收到更新 → 升成新版。旧版安装包会放在 <code>electron/local-updates/base/</code>，方便你安装。</div>
             </div>
           </div>
           <div class="card col-12">
             <div class="card__head">
-              <div class="card__head-title"><svg class="icon"><use href="#i-server"/></svg>本地更新源服务</div>
+              <div class="card__head-title"><svg class="icon"><use href="#i-server"/></svg>模拟更新服务器</div>
               <span class="badge" id="svc-badge"><span id="svc-badge-text">未运行</span></span>
             </div>
             <div class="card__body">
@@ -708,51 +708,51 @@ ol.steps b { color: var(--text-2); }
                   </div>
                 </div>
                 <div class="field">
-                  <span class="field__label">更新源地址（填入应用设置）</span>
+                  <span class="field__label">应用里要填的地址（设置 → 自动更新）</span>
                   <div class="preview" style="margin:0" id="svc-url">http://localhost:8080</div>
                 </div>
               </div>
               <ol class="steps">
-                <li>生成本地更新源（上方 <b>lite</b> 或 <b>full</b>）</li>
-                <li>启动本服务，记下地址（默认 <code>http://localhost:8080</code>）</li>
-                <li>启动已安装的 Precis → 设置 → 自动更新 → 更新源切 <b>自定义</b> + 上述地址</li>
-                <li>点"检查更新" → 下载 → 重启安装</li>
-                <li>演练完毕：更新源切回 github，停止本服务</li>
+                <li>点上方按钮，<b>准备一次模拟更新</b>（快速或彻底选一个）</li>
+                <li><b>启动</b>模拟更新服务器（一个假装的"更新网站"）</li>
+                <li>打开装好的 Precis → 设置 → 自动更新 → 更新源选 <b>自定义</b>，填上面的地址</li>
+                <li>点"检查更新" → 应提示发现新版本 → 下载 → 重启安装</li>
+                <li>试完把更新源改回 <b>GitHub</b>，停止服务器</li>
               </ol>
             </div>
           </div>
         </div>
       </section>
 
-      <!-- ── 线上状态 ── -->
+      <!-- ── 发布结果 ── -->
       <section class="panel" id="panel-status">
         <div class="page-head">
-          <h2><svg class="icon" style="color:var(--text-3)"><use href="#i-globe"/></svg>线上状态</h2>
-          <p>GitHub Release 可见性 = 客户端能否拉到更新；draft Release 对客户端不可见</p>
+          <h2><svg class="icon" style="color:var(--text-3)"><use href="#i-globe"/></svg>发布结果</h2>
+          <p>这里显示 GitHub 上已经公布的版本。列表里出现版本号、且没有"草稿"标记，用户的应用就能收到它。</p>
         </div>
         <div class="grid">
           <div class="card col-8">
             <div class="card__head">
-              <div class="card__head-title"><svg class="icon"><use href="#i-globe"/></svg>GitHub Release</div>
+              <div class="card__head-title"><svg class="icon"><use href="#i-globe"/></svg>已发布的版本</div>
               <button class="btn btn--ghost btn--sm" id="btn-refresh"><svg class="icon" style="width:13px;height:13px"><use href="#i-refresh"/></svg>刷新</button>
             </div>
             <div class="card__body" id="gh-list"></div>
             <div class="card__body" style="border-top:1px solid var(--border-1)">
               <div class="form-grid" style="align-items:center">
                 <div class="field">
-                  <span class="field__label">校验 tag</span>
+                  <span class="field__label">要检查的版本号</span>
                   <input type="text" id="verify-tag" placeholder="v0.1.1" style="width:120px">
                 </div>
                 <button class="btn btn--secondary" data-run="verify-release">
-                  <svg class="icon"><use href="#i-shield"/></svg>校验线上产物
+                  <svg class="icon"><use href="#i-shield"/></svg>检查安装包是否完好
                 </button>
-                <span class="hint" style="margin:0">下载 Release 全部 latest.yml 引用资产并实测 sha512——通过即代表客户端能正常拉取</span>
+                <span class="hint" style="margin:0">会把该版本的安装包真的下载下来核对，确认用户能完整拿到。文件较大（约 230MB），国内网络可能要等几分钟。</span>
               </div>
             </div>
           </div>
           <div class="card col-4">
             <div class="card__head">
-              <div class="card__head-title"><svg class="icon"><use href="#i-shield"/></svg>本地 manifest</div>
+              <div class="card__head-title"><svg class="icon"><use href="#i-shield"/></svg>本地版本文件</div>
               <span class="badge" id="manifest-badge">–</span>
             </div>
             <div class="card__body" id="manifests-body"></div>
@@ -765,8 +765,8 @@ ol.steps b { color: var(--text-2); }
     <!-- ═══════════ 日志抽屉 ═══════════ -->
     <div class="drawer" id="drawer">
       <div class="drawer__bar" id="drawerBar" title="拖拽调整高度 · Ctrl+` 折叠">
-        <div class="drawer__title"><svg class="icon"><use href="#i-chevron"/></svg>日志</div>
-        <span class="drawer__meta" id="drawer-meta">暂无任务</span>
+        <div class="drawer__title"><svg class="icon"><use href="#i-chevron"/></svg>执行过程</div>
+        <span class="drawer__meta" id="drawer-meta">还没有开始任何操作</span>
         <div class="drawer__spacer"></div>
         <button class="toggle is-on" id="log-follow" title="新日志自动滚动到底部">跟随</button>
         <button class="toggle is-on" id="log-wrap" title="自动换行">换行</button>
@@ -775,7 +775,7 @@ ol.steps b { color: var(--text-2); }
         <button class="toggle" id="drawer-toggle" title="折叠 (Ctrl+`)"><svg class="icon" style="width:13px;height:13px"><use href="#i-chevron"/></svg></button>
       </div>
       <div class="drawer__body">
-        <div class="log" id="log"><span class="log__empty">暂无日志——执行任何动作后，这里实时显示子进程输出。</span></div>
+        <div class="log" id="log"><span class="log__empty">还没有开始任何操作。点了上面的按钮后，这里会实时显示每一步在做什么（出现的英文和代码是程序的原始输出，正常现象）。</span></div>
       </div>
     </div>
 
@@ -789,7 +789,7 @@ ol.steps b { color: var(--text-2); }
         <svg class="icon" style="width:13px;height:13px"><use href="#i-stop"/></svg>终止
       </button>
       <span class="statusbar__spacer"></span>
-      <span class="statusbar__svc" id="svc-mini"><span class="status-dot"></span>serve-updates 未运行</span>
+      <span class="statusbar__svc" id="svc-mini"><span class="status-dot"></span>模拟服务器 未运行</span>
       <span class="statusbar__svc">AirSaiga/Precis</span>
     </footer>
   </div>
@@ -798,15 +798,15 @@ ol.steps b { color: var(--text-2); }
 <!-- ═══════════ 正式发布确认（输入版本号解锁） ═══════════ -->
 <dialog id="releaseDialog" class="dialog">
   <form method="dialog">
-    <h2 class="dialog__title"><svg class="icon"><use href="#i-rocket"/></svg>发布 <span class="mono" id="rd-version">–</span></h2>
-    <p class="dialog__desc">即将同步六处 manifest 版本、切版 CHANGELOG，并按下方配置推送。此操作对线上可见。</p>
+    <h2 class="dialog__title"><svg class="icon"><use href="#i-rocket"/></svg>正式发布 <span class="mono" id="rd-version">–</span></h2>
+    <p class="dialog__desc">确认后会自动完成：把 6 个文件的版本号改成新版本 → 在更新日志里记一笔 → 上传 GitHub。之后服务器自动制作安装包并公布，老用户会收到更新提示。</p>
     <ul class="dialog__summary">
       <li><span>发布版本</span><b class="mono" id="rd-tag">–</b></li>
-      <li><span>推送方式</span><b id="rd-push">push → 触发 CD 自动构建三端</b></li>
-      <li><span>发布后</span><b>Release 自动 publish，客户端可拉取</b></li>
+      <li><span>上传方式</span><b id="rd-push">立即上传 GitHub</b></li>
+      <li><span>之后发生什么</span><b>服务器自动做安装包并公布</b></li>
     </ul>
     <div class="dialog__confirm-field field">
-      <span class="field__label">输入版本号 <b class="mono" id="rd-hint" style="color:var(--text-1)">–</b> 以确认</span>
+      <span class="field__label">为防手滑，请输入版本号 <b class="mono" id="rd-hint" style="color:var(--text-1)">–</b> 解锁按钮</span>
       <input type="text" id="rd-confirm" placeholder="" autocomplete="off">
     </div>
     <menu class="dialog__actions">
@@ -821,17 +821,17 @@ ol.steps b { color: var(--text-2); }
 <!-- ═══════════ full 演练确认 ═══════════ -->
 <dialog id="drillDialog" class="dialog">
   <form method="dialog">
-    <h2 class="dialog__title"><svg class="icon"><use href="#i-clock"/></svg>全真演练确认</h2>
-    <p class="dialog__desc">将构建两个完整安装包并验证真实升级闭环。</p>
+    <h2 class="dialog__title"><svg class="icon"><use href="#i-clock"/></svg>制作新旧两个安装包</h2>
+    <p class="dialog__desc">将真实做出旧版和新版两个安装包，用于完整验证升级流程。期间这个控制台可以继续看进度，但不要关掉它。</p>
     <ul class="dialog__summary">
-      <li><span>基线 → 新版</span><b class="mono" id="dd-versions">–</b></li>
+      <li><span>旧版 → 新版</span><b class="mono" id="dd-versions">–</b></li>
       <li><span>预计耗时</span><b>10-30 分钟</b></li>
-      <li><span>基线安装包</span><b class="mono" style="font-size:var(--fs-11)">electron/local-updates/base/</b></li>
+      <li><span>旧版安装包放哪</span><b class="mono" style="font-size:var(--fs-11)">electron/local-updates/base/</b></li>
     </ul>
     <menu class="dialog__actions">
       <button class="btn btn--secondary" value="cancel">取消</button>
       <button class="btn btn--primary" value="confirm" autofocus>
-        <svg class="icon"><use href="#i-play"/></svg>开始构建
+        <svg class="icon"><use href="#i-play"/></svg>开始制作
       </button>
     </menu>
   </form>
@@ -928,9 +928,9 @@ async function loadState() {
 function renderSidebar() {
   $('#env-branch').textContent = STATE.branch || '–';
   $('#env-version').textContent = STATE.rootVersion || '–';
-  $('#env-tag').textContent = STATE.latestTag || '无';
+  $('#env-tag').textContent = STATE.latestTag || '尚未发布';
   const c = $('#env-consistency');
-  c.textContent = STATE.allConsistent ? '六处一致' : '不一致!';
+  c.textContent = STATE.allConsistent ? '一致 ✓' : '不一致!';
   c.style.color = STATE.allConsistent ? 'var(--ok-soft-fg)' : 'var(--err-soft-fg)';
   $('#build-platform').textContent = STATE.platform || '–';
   $('#rel-current').textContent = '当前 ' + (STATE.rootVersion || '–');
@@ -945,8 +945,8 @@ function renderArtifacts() {
   if (files.length === 0) {
     html = `<div class="empty">
       <svg class="icon"><use href="#i-box-empty"/></svg>
-      <div class="empty__title">暂无构建产物</div>
-      <div class="empty__desc">点击左侧"开始打包"，完成后产物将在此列出</div>
+      <div class="empty__title">还没有安装包</div>
+      <div class="empty__desc">点左侧"开始制作安装包"，完成后文件会出现在这里</div>
     </div>`;
   } else {
     html = '<table><thead><tr><th>文件</th><th class="num">大小</th><th>时间</th></tr></thead><tbody>'
@@ -954,7 +954,7 @@ function renderArtifacts() {
       + '</tbody></table>';
   }
   if (yml) {
-    html += `<div class="hint">latest.yml：version <code>${esc(yml.version)}</code> · 引用 ${yml.files.length} 个文件（${yml.files.map((f) => esc(f.url)).join('、')}）</div>`;
+    html += `<div class="hint">更新清单（应用靠它找到新版本）：版本 <code>${esc(yml.version)}</code>，指向 ${yml.files.length} 个文件（${yml.files.map((f) => esc(f.url)).join('、')}）</div>`;
   }
   body.innerHTML = html;
 }
@@ -963,7 +963,7 @@ function renderManifests() {
   const body = $('#manifests-body');
   const badge = $('#manifest-badge');
   badge.className = 'badge ' + (STATE.allConsistent ? 'badge--ok' : 'badge--err');
-  badge.textContent = STATE.allConsistent ? '六处一致' : '存在漂移';
+  badge.textContent = STATE.allConsistent ? '全部一致' : '不一致!';
   body.innerHTML = '<table><tbody>'
     + STATE.versions.map((v) => {
         const bad = v.version !== STATE.rootVersion;
@@ -976,15 +976,15 @@ function renderGithub() {
   const box = $('#gh-list');
   const gh = STATE.github || {};
   if (gh.error) {
-    box.innerHTML = `<div class="hint" style="margin:0">GitHub API 不可达：${esc(gh.error)}（离线环境属正常）</div>`;
+    box.innerHTML = `<div class="hint" style="margin:0">暂时连不上 GitHub：${esc(gh.error)}（多是网络问题，稍后点"刷新"重试）</div>`;
     return;
   }
   const releases = gh.releases || [];
   if (releases.length === 0) {
     box.innerHTML = `<div class="empty">
       <svg class="icon"><use href="#i-globe"/></svg>
-      <div class="empty__title">尚无 Release</div>
-      <div class="empty__desc">完成一次正式发布后，客户端即可拉取更新</div>
+      <div class="empty__title">还没有发布过版本</div>
+      <div class="empty__desc">在"发布新版本"页完成一次发布，完成后会出现在这里</div>
       <button class="btn btn--ghost" id="empty-go-release" style="margin-top:var(--sp-2)"><svg class="icon"><use href="#i-rocket"/></svg>去发布</button>
     </div>`;
     $('#empty-go-release').addEventListener('click', () => {
@@ -994,8 +994,8 @@ function renderGithub() {
   }
   box.innerHTML = releases.map((r) => {
     const badges = [
-      r.draft ? '<span class="badge badge--warn">draft · 客户端不可见</span>' : '',
-      r.prerelease ? '<span class="badge badge--info">prerelease</span>' : '',
+      r.draft ? '<span class="badge badge--warn">草稿 · 用户看不到</span>' : '',
+      r.prerelease ? '<span class="badge badge--info">测试版</span>' : '',
       !r.draft && !r.prerelease ? '<span class="badge badge--ok">已发布</span>' : '',
     ].filter(Boolean).join(' ');
     const assets = r.assets.length
@@ -1016,7 +1016,7 @@ function renderSvc() {
   badge.textContent = running ? `运行中 :${STATE.serveUpdates.port}` : '未运行';
   $('#svc-url').textContent = running ? STATE.serveUpdates.url : 'http://localhost:' + ($('#svc-port').value || '8080');
   const mini = $('#svc-mini');
-  mini.innerHTML = `<span class="status-dot ${running ? 'on' : ''}"></span>serve-updates ${running ? '运行中 :' + STATE.serveUpdates.port : '未运行'}`;
+  mini.innerHTML = `<span class="status-dot ${running ? 'on' : ''}"></span>模拟服务器 ${running ? '运行中 :' + STATE.serveUpdates.port : '未运行'}`;
 }
 
 function prefillInputs() {
@@ -1045,8 +1045,8 @@ function currentReleaseVersion() {
 function updateRelPreview() {
   const v = currentReleaseVersion();
   $('#rel-preview').innerHTML = v
-    ? `将发布 <b>v${esc(v)}</b><span>${$('#rel-nopush').checked ? '（本地 tag，不推送）' : '（push 触发 CD → 自动构建 → 自动 publish，客户端即可拉到）'}</span>`
-    : '<span style="color:var(--err-soft-fg)">版本号无效</span>';
+    ? `准备发布 <b>v${esc(v)}</b><span>${$('#rel-nopush').checked ? '（先只在本地准备好，不上传）' : '（确认后会自动改版本号、记日志并上传 GitHub，之后服务器自动做安装包并公布）'}</span>`
+    : '<span style="color:var(--err-soft-fg)">版本号没填对，检查一下</span>';
 }
 ['rel-mode', 'rel-version', 'rel-prerelease', 'rel-nopush'].forEach((id) => {
   const el = document.getElementById(id);
@@ -1085,7 +1085,7 @@ function confirmRelease(version, noPush) {
   const dlg = $('#releaseDialog');
   $('#rd-version').textContent = version;
   $('#rd-tag').textContent = 'v' + version;
-  $('#rd-push').textContent = noPush ? '不推送（本地 commit + tag）' : 'push → 触发 CD 自动构建三端';
+  $('#rd-push').textContent = noPush ? '暂不上传（稍后自己手动上传）' : '立即上传 GitHub';
   $('#rd-hint').textContent = version;
   const input = $('#rd-confirm');
   const btn = $('#rd-confirm-btn');
@@ -1300,13 +1300,13 @@ function renderJobStatus() {
   $('#btn-kill').disabled = !running;
 }
 
-// 任务 label → 动作 key（startJob 的 label 是人类可读中文，改用 ActionLabel 前缀匹配）
+// 任务 label → 动作 key（与服务端 buildActionCommand 的 label 前缀保持同步）
 function jobSectionKey(label) {
   if (!label) return null;
-  if (label.startsWith('打包')) return 'build';
-  if (label.startsWith('发布预览') || label.startsWith('正式发布') || label.startsWith('manifest')) return 'release';
-  if (label.startsWith('lite') || label.startsWith('full')) return 'drill';
-  if (label.startsWith('线上产物')) return 'status';
+  if (label.startsWith('制作安装包')) return 'build';
+  if (label.startsWith('预览发布改动') || label.startsWith('正式发布') || label.startsWith('检查版本号')) return 'release';
+  if (label.startsWith('准备模拟更新') || label.startsWith('制作新旧安装包')) return 'drill';
+  if (label.startsWith('检查线上安装包')) return 'status';
   return null;
 }
 
@@ -1316,7 +1316,7 @@ es.onmessage = (ev) => {
   if (msg.type === 'history') {
     clearLog();
     if (msg.lines.length === 0) {
-      logEl.innerHTML = '<span class="log__empty">暂无日志——执行任何动作后，这里实时显示子进程输出。</span>';
+      logEl.innerHTML = '<span class="log__empty">还没有开始任何操作。点了上面的按钮后，这里会实时显示每一步在做什么（出现的英文和代码是程序的原始输出，正常现象）。</span>';
     } else {
       for (const l of msg.lines) appendLine(l.stream, l.text);
     }
