@@ -14,6 +14,10 @@ Currently an actively developed prototype. Interfaces, config formats, and CLI p
 
 ### 2026-08
 
+- 修复 TUI 英文环境下后台任务错误文案回退中文——thread_local 界面语言不随线程继承，tokio::spawn 的 HTTP 后台任务运行在 worker 线程上，其 `pick()` 恒取默认中文（英文用户错误 toast/气泡混排）；改为手动构建运行时，worker 线程启动时注入主线程探测到的语言（含回归测试）
+
+  Fixed TUI background-task error messages falling back to Chinese under an English locale — the thread-local UI language is not inherited across threads, so tokio::spawn HTTP tasks on worker threads always picked the default Chinese (mixed-language toasts/bubbles for English users); the runtime is now built manually and injects the main-thread-detected language into every worker thread at start (with a regression test)
+
 - 修复节点整理（自动布局）整体失效的根因缺陷——布局分类器的分类 Map 从未初始化，"Schema 中心化"策略实际从未生效，整理一直退化为按 UUID 随机序的缠绕网格（缺陷由 strictNullChecks 清理批次引入，此前仅在测试注释中被记录而未修复）
 
   Fixed the root-cause defect that left the node organizer effectively broken — the layout classifier's category maps were never initialized, so the schema-centric strategy never actually ran and organizing always degraded into a UUID-ordered tangled grid (introduced by a strictNullChecks cleanup batch; previously only noted in a test comment, never fixed)

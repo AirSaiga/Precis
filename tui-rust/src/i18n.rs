@@ -4,6 +4,10 @@
 //! 返回当前语言对应的文案。默认中文；`main()` 启动最早期调用一次
 //! [`init_from_env()`]，按 `PRECIS_LANG` → `LC_ALL` → `LC_CTYPE` → `LANG`
 //! 顺序探测（值含 "en" 切英文）。
+//!
+//! 注意：thread_local 不随线程继承。多线程运行时的 worker 线程（tokio::spawn
+//! 后台任务所在）由 `main.rs` 的 `build_runtime` 经 `on_thread_start` 注入同一
+//! 语言；在其他运行时或裸线程上调用 `pick()` 将得到默认中文。
 
 use std::cell::RefCell;
 

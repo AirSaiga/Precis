@@ -101,11 +101,29 @@ enum BgMessage {
     ChatReply(Result<AiChatResponse, String>),
 }
 
-#[tokio::main]
-async fn main() -> Result<()> {
-    // i18n：启动最早期探测界面语言（必须在任何 UI 渲染之前）
+fn main() -> Result<()> {
+    // i18n：启动最早期探测界面语言（必须先于运行时构建——worker 线程的
+    // thread_local 依赖 build_runtime 的 on_thread_start 注入，thread_local
+    // 本身不跨线程继承）
     crate::i18n::init_from_env();
+    let runtime = build_runtime(crate::i18n::lang())?;
+    runtime.block_on(async_main())
+}
 
+/// 构建生产运行时（等价原 `#[tokio::main]` 的 multi_thread 默认配置）。
+///
+/// worker 线程启动时把主线程探测到的界面语言注入各自 thread_local：后台任务
+/// （打开项目/校验/Provider/Chat 等，均为 tokio::spawn）运行在 worker 线程上，
+/// 若无此注入，`api/client.rs` 的 `pick()` 会恒回退默认中文，英文用户的错误
+/// 文案与界面语言混排。此注入是语言跨线程传播的唯一途径。
+fn build_runtime(lang: crate::i18n::Lang) -> Result<tokio::runtime::Runtime> {
+    Ok(tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .on_thread_start(move || crate::i18n::set_lang(lang))
+        .build()?)
+}
+
+async fn async_main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .with_env_filter(
@@ -862,6 +880,20 @@ fn auto_load_on_tab_switch(app: &mut App, tx: &mpsc::Sender<BgMessage>) {
 mod tests {
     use super::*;
     use crossterm::event::KeyModifiers;
+
+    /// 回归：build_runtime 的 worker 线程必须继承主线程语言——
+    /// tokio::spawn 的任务在 worker 线程执行，thread_local 语言若未注入，
+    /// pick 恒回退默认中文（英文用户错误文案混排，2026-08-29 实证缺陷）
+    #[test]
+    fn runtime_workers_inherit_ui_lang() {
+        let rt = build_runtime(crate::i18n::Lang::EnUs).expect("runtime");
+        let got = rt.block_on(async {
+            tokio::spawn(async { crate::i18n::pick("中文", "English") })
+                .await
+                .expect("join")
+        });
+        assert_eq!(got, "English", "spawn 内 pick 应读到注入的语言");
+    }
 
     /// backend_url 必须优先返回 resolve 后的地址（自拉起模式为动态端口，而非默认 18000）
     #[test]
