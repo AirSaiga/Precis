@@ -124,10 +124,18 @@ async function main() {
       if (required) fail(`缺少 ${name}（Windows NSIS 自动更新通道的版本清单）`);
       continue;
     }
-    const ymlRes = await githubApi(asset.url, token); // asset.url 走 API 拿 JSON 元数据或 302
-    const ymlText = ymlRes.status === 302
-      ? await (await fetch(ymlRes.headers.get('location'), { headers: { 'User-Agent': 'precis-release-check' } })).text()
-      : await ymlRes.text();
+    // 经 API blob URL 下载文件本体：必须带 Accept: application/octet-stream，
+    // 否则 API 返回资产 JSON 元数据而非文件内容（首次发布 v0.1.1 时曾因此误报 version null）
+    const ymlRes = await fetch(asset.url, {
+      headers: {
+        'User-Agent': 'precis-release-check',
+        Accept: 'application/octet-stream',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      redirect: 'follow',
+    });
+    if (!ymlRes.ok) fail(`下载 ${name} 失败 HTTP ${ymlRes.status}`);
+    const ymlText = await ymlRes.text();
     const parsed = parseLatestYml(ymlText);
 
     // 3. version 匹配
