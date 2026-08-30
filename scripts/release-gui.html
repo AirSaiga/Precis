@@ -1135,7 +1135,10 @@ $$('[data-run]').forEach((btn) => {
       if (!tag) { toast('err', '请填写要校验的 tag'); return; }
       params = { tag, version: tag.replace(/^v/, '') };
     } else if (action === 'check-manifests') {
-      params = { version: currentReleaseVersion() || STATE?.rootVersion || '' };
+      // 校验语义：六处 manifest 是否与"当前版本"（根 package.json）一致——
+      // 不是校验待发布版本（发布前它们必然还没同步，用 0.1.2 去对 0.1.1 必然全 FAIL）
+      params = { version: STATE?.rootVersion || '' };
+      if (!params.version) { toast('err', '当前版本未知，无法校验'); return; }
     }
     runAction(action, params);
   });
