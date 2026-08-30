@@ -56,12 +56,22 @@
   --focus-ring: 0 0 0 3px rgba(79, 140, 255, 0.35);
   --dur-fast: 120ms; --dur-med: 180ms; --dur-slow: 260ms;
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  /* 外观定制：玻璃面板表面色（RGB 三元组）、日志面、毛玻璃参数 */
+  --surface-rgb: 18, 22, 31;
+  --log-rgb: 9, 11, 17;
+  --log-stdout: #b7c0d0;
+  --glass-blur: 16px;
+  --glass-alpha: 0.62;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { height: 100%; }
 body {
-  background: var(--bg-0); color: var(--text-1);
+  background-color: var(--bg-0);
+  background-attachment: fixed;
+  background-size: cover;
+  background-position: center;
+  color: var(--text-1);
   font: var(--fs-13)/var(--lh-body) var(--font-ui);
   overflow: hidden;
 }
@@ -317,7 +327,7 @@ td.num, th.num { text-align: right; }
 .drawer__body { flex: 1; min-height: 0; display: flex; }
 .log {
   flex: 1; overflow-y: auto; padding: var(--sp-2) var(--sp-4);
-  background: var(--bg-sunken);
+  background: rgb(var(--log-rgb));
   font: 12.5px/1.6 var(--font-mono); white-space: pre-wrap; word-break: break-all;
   scrollbar-width: thin; scrollbar-color: var(--bg-active) transparent;
 }
@@ -325,7 +335,7 @@ td.num, th.num { text-align: right; }
 .log::-webkit-scrollbar { width: 10px; height: 10px; }
 .log::-webkit-scrollbar-thumb { background: var(--bg-active); border-radius: 5px; }
 .log::-webkit-scrollbar-track { background: transparent; }
-.log .stdout { color: #b7c0d0; }
+.log .stdout { color: var(--log-stdout); }
 .log .stderr { color: var(--err-fg); }
 .log .info { color: var(--accent-soft-fg); }
 .log div { animation: line-in 120ms ease-out; }
@@ -427,6 +437,86 @@ ol.steps b { color: var(--text-2); }
   .hint { max-width: 96ch; }
 }
 
+/* ========================================================================== 主题：浅色
+   ========================================================================== */
+[data-theme="light"] {
+  --bg-0: #eef1f6; --bg-sunken: #e6eaf1; --bg-1: #ffffff; --bg-2: #ffffff;
+  --bg-hover: rgba(15, 23, 42, 0.05); --bg-active: rgba(15, 23, 42, 0.09);
+  --border-1: rgba(15, 23, 42, 0.09); --border-2: rgba(15, 23, 42, 0.16);
+  --text-1: #1c2536; --text-2: #57627a; --text-3: #8b96ac;
+  --accent: #2f6fd8; --accent-hover: #4080e8; --accent-active: #2a61c2;
+  --accent-soft-bg: rgba(47, 111, 216, 0.10); --accent-soft-fg: #2a61c2;
+  --ok-fg: #148a55; --ok-bg: rgba(20, 138, 85, 0.10); --ok-soft-fg: #107a4b;
+  --warn-fg: #b07908; --warn-bg: rgba(200, 150, 30, 0.14); --warn-soft-fg: #96690a;
+  --err-fg: #d2403c; --err-bg: rgba(210, 64, 60, 0.10); --err-soft-fg: #bb322e;
+  --info-fg: #1e88a8; --info-bg: rgba(30, 136, 168, 0.10); --info-soft-fg: #197795;
+  --shadow-1: 0 1px 2px rgba(15, 23, 42, 0.08);
+  --shadow-2: 0 4px 14px rgba(15, 23, 42, 0.12);
+  --shadow-3: 0 12px 40px rgba(15, 23, 42, 0.18), 0 0 0 1px var(--border-1);
+  --focus-ring: 0 0 0 3px rgba(47, 111, 216, 0.25);
+  --surface-rgb: 255, 255, 255;
+  --log-rgb: 240, 244, 249; --log-stdout: #46536b;
+  color-scheme: light;
+}
+
+/* ========================================================================== 主题：二次元（粉紫奶油系）
+   ========================================================================== */
+[data-theme="anime"] {
+  --bg-0: #fdf1f7; --bg-sunken: #f9e6f0; --bg-1: #ffffff; --bg-2: #fffafd;
+  --bg-hover: rgba(214, 124, 176, 0.08); --bg-active: rgba(214, 124, 176, 0.14);
+  --border-1: rgba(214, 124, 176, 0.18); --border-2: rgba(196, 100, 158, 0.32);
+  --text-1: #402842; --text-2: #7c5f80; --text-3: #a98bad;
+  --accent: #e0559f; --accent-hover: #ef74b4; --accent-active: #c9438b;
+  --accent-soft-bg: rgba(224, 85, 159, 0.10); --accent-soft-fg: #c9438b;
+  --ok-fg: #1c9d74; --ok-bg: rgba(28, 157, 116, 0.10); --ok-soft-fg: #178a66;
+  --warn-fg: #c07b12; --warn-bg: rgba(210, 150, 40, 0.14); --warn-soft-fg: #a56a0e;
+  --err-fg: #d94a70; --err-bg: rgba(217, 74, 112, 0.10); --err-soft-fg: #c73a60;
+  --info-fg: #7c5cd6; --info-bg: rgba(124, 92, 214, 0.10); --info-soft-fg: #6a4cc4;
+  --shadow-1: 0 1px 3px rgba(160, 90, 140, 0.10);
+  --shadow-2: 0 4px 16px rgba(160, 90, 140, 0.16);
+  --shadow-3: 0 12px 40px rgba(160, 90, 140, 0.22), 0 0 0 1px var(--border-1);
+  --focus-ring: 0 0 0 3px rgba(224, 85, 159, 0.25);
+  --surface-rgb: 255, 255, 255;
+  --log-rgb: 56, 38, 60; --log-stdout: #ecdff0;
+  color-scheme: light;
+}
+/* 二次元主题的加成：更圆的卡片 + 渐变主按钮/Logo */
+[data-theme="anime"] .card { border-radius: 14px; }
+[data-theme="anime"] .btn--primary { background: linear-gradient(135deg, #f06fae, #9d7bf0); }
+[data-theme="anime"] .btn--primary:hover:not(:disabled) { background: linear-gradient(135deg, #f887bd, #ac8ff4); }
+[data-theme="anime"] .btn--primary:active:not(:disabled) { background: linear-gradient(135deg, #dc5c9c, #8c6de4); }
+[data-theme="anime"] .brand__logo { background: linear-gradient(135deg, #f06fae, #9d7bf0); }
+
+/* ========================================================================== 自定义背景 + 毛玻璃（body.has-bg 时启用）
+   ========================================================================== */
+body.has-bg .sidebar,
+body.has-bg .card,
+body.has-bg .statusbar,
+body.has-bg .drawer,
+body.has-bg dialog.dialog {
+  background: rgba(var(--surface-rgb), var(--glass-alpha));
+  backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+  -webkit-backdrop-filter: blur(var(--glass-blur)) saturate(1.2);
+}
+/* 日志区加浓一档保证可读性 */
+body.has-bg .log {
+  background: rgba(var(--log-rgb), calc(var(--glass-alpha) + 0.2));
+  backdrop-filter: blur(calc(var(--glass-blur) / 2)) saturate(1.1);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur) / 2)) saturate(1.1);
+}
+
+/* ---------- 外观设置控件 ---------- */
+input[type=range] { accent-color: var(--accent); width: 180px; height: 24px; cursor: pointer; }
+.swatches { display: flex; gap: var(--sp-2); flex-wrap: wrap; }
+.swatch {
+  width: 54px; height: 36px; border-radius: 8px; border: 2px solid var(--border-2);
+  cursor: pointer; padding: 0; transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast);
+}
+.swatch:hover { transform: translateY(-1px); }
+.swatch.is-on { border-color: var(--accent); box-shadow: var(--focus-ring); }
+.swatch--theme { display: flex; overflow: hidden; }
+.swatch--theme i { flex: 1; display: block; }
+
 /* ---------- 动效兜底 ---------- */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
@@ -492,6 +582,12 @@ ol.steps b { color: var(--text-2); }
     <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
     </symbol>
+    <symbol id="i-palette" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.554C21.965 6.012 17.461 2 12 2z"/>
+    </symbol>
+    <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/>
+    </symbol>
   </defs>
 </svg>
 
@@ -528,6 +624,10 @@ ol.steps b { color: var(--text-2); }
         <svg class="icon"><use href="#i-globe"/></svg>
         <span class="nav-item__label">发布结果</span>
         <span class="nav-item__dot" id="dot-status" hidden></span>
+      </button>
+      <button class="nav-item" id="btn-appearance" title="主题 / 背景 / 毛玻璃" style="margin-top:10px">
+        <svg class="icon"><use href="#i-palette"/></svg>
+        <span class="nav-item__label">主题外观</span>
       </button>
     </nav>
     <div class="sidebar__footer">
@@ -837,6 +937,69 @@ ol.steps b { color: var(--text-2); }
   </form>
 </dialog>
 
+<!-- ═══════════ 主题外观设置 ═══════════ -->
+<dialog id="appearanceDialog" class="dialog" style="width:min(540px, calc(100vw - 32px))">
+  <h2 class="dialog__title"><svg class="icon" style="color:var(--accent)"><use href="#i-palette"/></svg>主题外观</h2>
+  <p class="dialog__desc">改了立刻能看到效果，关掉窗口也会记住。觉得太暗就换浅色或加点背景。</p>
+
+  <div class="field">
+    <span class="field__label">主题颜色</span>
+    <div class="swatches" id="ap-themes">
+      <button class="swatch swatch--theme" data-theme-value="dark" title="深夜（默认）"><i style="background:#0c0f16"></i><i style="background:#12161f"></i><i style="background:#4f8cff"></i></button>
+      <button class="swatch swatch--theme" data-theme-value="light" title="浅色"><i style="background:#eef1f6"></i><i style="background:#ffffff"></i><i style="background:#2f6fd8"></i></button>
+      <button class="swatch swatch--theme" data-theme-value="anime" title="二次元（樱粉）"><i style="background:#ffd9e8"></i><i style="background:#e3d5ff"></i><i style="background:#e0559f"></i></button>
+    </div>
+  </div>
+
+  <div class="field" style="margin-top:var(--sp-4)">
+    <span class="field__label">背景（选了背景后，下面的毛玻璃效果才会生效）</span>
+    <div class="swatches" id="ap-bgs">
+      <button class="swatch" data-bg-value="none" title="纯净（不要背景）" style="background:var(--bg-1);display:grid;place-items:center"><span style="font-size:11px;color:var(--text-3)">无</span></button>
+      <button class="swatch" data-bg-value="night" title="星夜" style="background:linear-gradient(160deg,#0b1026,#1b1f3b 45%,#2a1e4f)"></button>
+      <button class="swatch" data-bg-value="sakura" title="樱粉" style="background:linear-gradient(160deg,#ffd9e8,#e3d5ff 50%,#cfe6ff)"></button>
+      <button class="swatch" data-bg-value="mint" title="薄荷" style="background:linear-gradient(160deg,#d8f3e6,#cfe9ff 60%,#e8e3ff)"></button>
+      <button class="swatch" data-bg-value="dusk" title="暮紫" style="background:linear-gradient(160deg,#2b1055,#7597de)"></button>
+      <button class="swatch" data-bg-value="ocean" title="深海" style="background:linear-gradient(160deg,#0f2027,#203a43 50%,#2c5364)"></button>
+    </div>
+  </div>
+
+  <div class="form-grid" style="margin-top:var(--sp-4);align-items:flex-end">
+    <div class="field">
+      <span class="field__label">用自己的图片当背景</span>
+      <div style="display:flex;gap:var(--sp-2)">
+        <button class="btn btn--secondary" id="ap-file-btn"><svg class="icon"><use href="#i-image"/></svg>选择图片…</button>
+        <input type="file" id="ap-file" accept="image/*" hidden>
+      </div>
+    </div>
+    <div class="field" style="flex:1;min-width:230px">
+      <span class="field__label">或粘贴图片链接</span>
+      <div style="display:flex;gap:var(--sp-2)">
+        <input type="text" id="ap-img-url" placeholder="https://…（回车应用）" style="flex:1">
+        <button class="btn btn--secondary" id="ap-url-btn">应用</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="form-grid" style="margin-top:var(--sp-4)">
+    <div class="field">
+      <span class="field__label">毛玻璃模糊强度 <b class="mono" id="ap-blur-val"></b></span>
+      <input type="range" id="ap-blur" min="0" max="30" step="1">
+    </div>
+    <div class="field">
+      <span class="field__label">面板不透明度 <b class="mono" id="ap-alpha-val"></b></span>
+      <input type="range" id="ap-alpha" min="35" max="100" step="5">
+    </div>
+  </div>
+
+  <div class="hint">背景图片只保存在这台电脑的浏览器里，大图会自动压缩到合适大小。搭配建议：浅色/二次元主题配浅色背景，深夜主题配深色背景。</div>
+
+  <menu class="dialog__actions">
+    <button class="btn btn--ghost" id="ap-reset">恢复默认</button>
+    <span style="flex:1"></span>
+    <button class="btn btn--primary" id="ap-done">完成</button>
+  </menu>
+</dialog>
+
 <div class="toasts" id="toasts"></div>
 
 <script>
@@ -901,6 +1064,162 @@ function toast(kind, text) {
     setTimeout(() => el.remove(), 150);
   }, life);
 }
+
+// ===========================================================================
+// 主题外观（主题 / 背景 / 毛玻璃），localStorage 持久化，改动即时生效
+// ===========================================================================
+const APPEARANCE_KEY = 'rg-appearance';
+const TAB_KEY = 'rg-tab';
+const BG_PRESETS = {
+  night: 'linear-gradient(160deg, #0b1026 0%, #1b1f3b 45%, #2a1e4f 100%)',
+  sakura: 'linear-gradient(160deg, #ffd9e8 0%, #e3d5ff 50%, #cfe6ff 100%)',
+  mint: 'linear-gradient(160deg, #d8f3e6 0%, #cfe9ff 60%, #e8e3ff 100%)',
+  dusk: 'linear-gradient(160deg, #2b1055 0%, #7597de 100%)',
+  ocean: 'linear-gradient(160deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
+};
+const AP_DEFAULTS = { theme: 'dark', bgType: 'none', bgValue: '', blur: 16, alpha: 62 };
+// 切主题时的推荐背景（当前没有背景才自动带上，不打断用户已选的背景）
+const THEME_RECOMMEND_BG = { dark: null, light: null, anime: 'sakura' };
+
+function loadAppearance() {
+  try {
+    return { ...AP_DEFAULTS, ...JSON.parse(localStorage.getItem(APPEARANCE_KEY) || '{}') };
+  } catch {
+    return { ...AP_DEFAULTS };
+  }
+}
+let AP = loadAppearance();
+
+function saveAppearance() {
+  try {
+    localStorage.setItem(APPEARANCE_KEY, JSON.stringify(AP));
+  } catch {
+    toast('err', '外观设置存不下来（浏览器存储满了？），本次有效、刷新后还原');
+  }
+}
+
+function applyAppearance() {
+  document.documentElement.dataset.theme = AP.theme;
+  document.documentElement.style.setProperty('--glass-blur', AP.blur + 'px');
+  document.documentElement.style.setProperty('--glass-alpha', (AP.alpha / 100).toFixed(2));
+  let bgImage = '';
+  if (AP.bgType === 'gradient' && AP.bgValue) bgImage = AP.bgValue;
+  else if (AP.bgType === 'image' && AP.bgValue) bgImage = `url("${AP.bgValue}")`;
+  document.body.classList.toggle('has-bg', !!bgImage);
+  document.body.style.backgroundImage = bgImage;
+}
+
+/** 本地图片压缩为 ≤1920px 的 JPEG dataURL（避免撑爆 localStorage 的 ~5MB 上限） */
+function fileToWallpaper(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const MAX = 1920;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const w = Math.max(1, Math.round(img.width * scale));
+      const h = Math.max(1, Math.round(img.height * scale));
+      const canvas = document.createElement('canvas');
+      canvas.width = w; canvas.height = h;
+      canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('这张图片读取失败，换一张试试')); };
+    img.src = url;
+  });
+}
+
+function reflectAppearanceDialog() {
+  $$('#ap-themes .swatch').forEach((b) => b.classList.toggle('is-on', b.dataset.themeValue === AP.theme));
+  const isPreset = AP.bgType === 'gradient' && Object.values(BG_PRESETS).includes(AP.bgValue);
+  const isCustomImage = AP.bgType === 'image';
+  $$('#ap-bgs .swatch').forEach((b) => {
+    const v = b.dataset.bgValue;
+    const on = v === 'none' ? AP.bgType === 'none' : isPreset && BG_PRESETS[v] === AP.bgValue;
+    b.classList.toggle('is-on', on);
+  });
+  if (isCustomImage) {
+    // 自定义图片时无预设高亮，改由"选择图片"按钮所在行的 toast 反馈确认
+  }
+  $('#ap-blur').value = AP.blur;
+  $('#ap-blur-val').textContent = AP.blur + 'px';
+  $('#ap-alpha').value = AP.alpha;
+  $('#ap-alpha-val').textContent = AP.alpha + '%';
+  $('#ap-img-url').value = isCustomImage && /^https?:/.test(AP.bgValue) ? AP.bgValue : '';
+}
+
+function openAppearanceDialog() {
+  reflectAppearanceDialog();
+  const dlg = $('#appearanceDialog');
+  dlg.onclick = (e) => { if (e.target === dlg) dlg.close(); };
+  dlg.showModal();
+}
+
+$('#btn-appearance').addEventListener('click', openAppearanceDialog);
+$('#ap-done').addEventListener('click', () => $('#appearanceDialog').close());
+
+$$('#ap-themes .swatch').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    AP.theme = btn.dataset.themeValue;
+    const rec = THEME_RECOMMEND_BG[AP.theme];
+    if (AP.bgType === 'none' && rec) {
+      AP.bgType = 'gradient';
+      AP.bgValue = BG_PRESETS[rec];
+    }
+    applyAppearance(); saveAppearance(); reflectAppearanceDialog();
+  });
+});
+
+$$('#ap-bgs .swatch').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const v = btn.dataset.bgValue;
+    if (v === 'none') { AP.bgType = 'none'; AP.bgValue = ''; }
+    else { AP.bgType = 'gradient'; AP.bgValue = BG_PRESETS[v]; }
+    applyAppearance(); saveAppearance(); reflectAppearanceDialog();
+  });
+});
+
+$('#ap-file-btn').addEventListener('click', () => $('#ap-file').click());
+$('#ap-file').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  if (!file) return;
+  try {
+    AP.bgValue = await fileToWallpaper(file);
+    AP.bgType = 'image';
+    applyAppearance(); saveAppearance(); reflectAppearanceDialog();
+    toast('ok', '背景已换上你选的图片');
+  } catch (err) {
+    toast('err', err.message);
+  }
+  e.target.value = '';
+});
+
+async function applyImageUrl() {
+  const url = $('#ap-img-url').value.trim();
+  if (!/^(https?:\/\/|data:image)/.test(url)) { toast('err', '请粘贴以 http(s):// 开头的图片链接'); return; }
+  AP.bgType = 'image'; AP.bgValue = url;
+  applyAppearance(); saveAppearance(); reflectAppearanceDialog();
+  toast('ok', '已应用图片链接（如果没显示，检查链接能否打开）');
+}
+$('#ap-url-btn').addEventListener('click', applyImageUrl);
+$('#ap-img-url').addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); applyImageUrl(); } });
+
+$('#ap-blur').addEventListener('input', () => {
+  AP.blur = Number($('#ap-blur').value);
+  $('#ap-blur-val').textContent = AP.blur + 'px';
+  applyAppearance(); saveAppearance();
+});
+$('#ap-alpha').addEventListener('input', () => {
+  AP.alpha = Number($('#ap-alpha').value);
+  $('#ap-alpha-val').textContent = AP.alpha + '%';
+  applyAppearance(); saveAppearance();
+});
+$('#ap-reset').addEventListener('click', () => {
+  AP = { ...AP_DEFAULTS };
+  applyAppearance(); saveAppearance(); reflectAppearanceDialog();
+  toast('ok', '已恢复默认外观');
+});
 
 // ===========================================================================
 // 状态渲染
@@ -1163,13 +1482,15 @@ $('#svc-stop').addEventListener('click', async () => {
 // ===========================================================================
 // 导航
 // ===========================================================================
-$$('.nav-item').forEach((btn) => {
-  btn.addEventListener('click', () => {
-    $$('.nav-item').forEach((b) => b.classList.remove('active'));
-    btn.classList.add('active');
-    $$('.panel').forEach((p) => p.classList.remove('active'));
-    $(`#panel-${btn.dataset.tab}`).classList.add('active');
-  });
+function activateTab(tab) {
+  $$('.nav-item[data-tab]').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
+  $$('.panel').forEach((p) => p.classList.remove('active'));
+  const panel = $(`#panel-${tab}`);
+  if (panel) panel.classList.add('active');
+  try { localStorage.setItem(TAB_KEY, tab); } catch { /* 忽略 */ }
+}
+$$('.nav-item[data-tab]').forEach((btn) => {
+  btn.addEventListener('click', () => activateTab(btn.dataset.tab));
 });
 
 // ===========================================================================
@@ -1344,6 +1665,11 @@ $('#btn-kill').addEventListener('click', async () => {
 // ===========================================================================
 // 启动
 // ===========================================================================
+applyAppearance();
+try {
+  const savedTab = localStorage.getItem(TAB_KEY);
+  if (savedTab && ['build', 'release', 'drill', 'status'].includes(savedTab)) activateTab(savedTab);
+} catch { /* 忽略 */ }
 renderJobStatus();
 loadState();
 setInterval(loadState, 30000);
