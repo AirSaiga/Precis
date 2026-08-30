@@ -1,6 +1,6 @@
 [package]
 name = "precis-tui"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 description = "Precis TUI — terminal UI for data validation (Rust + ratatui)"
 

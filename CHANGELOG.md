@@ -12,6 +12,8 @@
 
 Currently an actively developed prototype. Interfaces, config formats, and CLI parameters may change without notice.
 
+## [0.1.1] - 2026-08-30
+
 ### 2026-08
 
 - 新增发布控制台 GUI（`npm run release:gui`，零依赖本地 Web 控制台，**根目录 `release-gui.bat` 双击即用**）：打包 / 发布（版本号自动推导 + dry-run 预览 + 正式发布确认）/ 更新演练（lite/full 一键生成 + 本地更新源启停）/ 线上状态（GitHub Release 列表 + manifest 一致性 + 产物 sha512 实测校验）全部按钮化，子进程日志 SSE 流式推送；仅绑定 127.0.0.1，动作固定枚举 + 输入白名单正则防命令注入
