@@ -1,0 +1,1349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Precis 发布控制台</title>
+<style>
+/* ==========================================================================
+   设计系统（参照 GitHub Actions / Vercel / Linear 类运维台惯例）
+   —— 单文件零依赖，token 见 :root
+   ========================================================================== */
+:root {
+  /* 背景分层 */
+  --bg-0: #0c0f16;
+  --bg-sunken: #090b11;
+  --bg-1: #12161f;
+  --bg-2: #171c28;
+  --bg-hover: rgba(148, 163, 184, 0.06);
+  --bg-active: rgba(148, 163, 184, 0.10);
+  /* 边框 */
+  --border-1: rgba(148, 163, 184, 0.10);
+  --border-2: rgba(148, 163, 184, 0.18);
+  /* 文字 */
+  --text-1: #e7eaf2;
+  --text-2: #98a2b8;
+  --text-3: #5f6b82;
+  /* 强调色（唯一 accent） */
+  --accent: #4f8cff;
+  --accent-hover: #6b9eff;
+  --accent-active: #3d7bef;
+  --accent-fg: #ffffff;
+  --accent-soft-bg: rgba(79, 140, 255, 0.12);
+  --accent-soft-fg: #8db4ff;
+  /* 语义色（文字 / 淡底 / 淡底文字） */
+  --ok-fg: #4cc38a;   --ok-bg: rgba(76, 195, 138, 0.12);  --ok-soft-fg: #63d69e;
+  --warn-fg: #e0a83c; --warn-bg: rgba(224, 168, 60, 0.13); --warn-soft-fg: #ecbc5f;
+  --err-fg: #e5635e;  --err-bg: rgba(229, 99, 94, 0.13);  --err-soft-fg: #f0837e;
+  --info-fg: #56b8d4; --info-bg: rgba(86, 184, 212, 0.12); --info-soft-fg: #7dcce2;
+  /* 字体 */
+  --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+             "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "JetBrains Mono", Consolas,
+               "Liberation Mono", "Courier New", monospace;
+  /* 字号 */
+  --fs-11: 11px; --fs-12: 12px; --fs-13: 13px; --fs-14: 14px; --fs-16: 16px; --fs-20: 20px;
+  --lh-tight: 1.35; --lh-body: 1.55;
+  /* 间距（4px 基网） */
+  --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --sp-5: 20px; --sp-6: 24px; --sp-8: 32px;
+  /* 圆角 */
+  --r-sm: 5px; --r-md: 7px; --r-lg: 10px; --r-xl: 12px; --r-pill: 999px;
+  /* 阴影（暗色：紧而深 + 亮边框勾形，不打大虚影） */
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-2: 0 4px 14px rgba(0, 0, 0, 0.45);
+  --shadow-3: 0 12px 40px rgba(0, 0, 0, 0.60), 0 0 0 1px var(--border-1);
+  /* 焦点环 / 动效 */
+  --focus-ring: 0 0 0 3px rgba(79, 140, 255, 0.35);
+  --dur-fast: 120ms; --dur-med: 180ms; --dur-slow: 260ms;
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg-0); color: var(--text-1);
+  font: var(--fs-13)/var(--lh-body) var(--font-ui);
+  overflow: hidden;
+}
+::selection { background: rgba(79, 140, 255, 0.30); }
+.icon { width: 16px; height: 16px; flex: none; }
+.mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* ---------- 全局进度条（仅任务运行时） ---------- */
+.topbar-progress {
+  position: fixed; inset: 0 0 auto 0; height: 2px; overflow: hidden; z-index: 100;
+  opacity: 0; transition: opacity var(--dur-med); pointer-events: none;
+}
+.topbar-progress.is-active { opacity: 1; }
+.topbar-progress::before {
+  content: ""; position: absolute; inset: 0; width: 40%;
+  background: var(--accent); border-radius: 2px;
+  animation: indet 1.1s var(--ease-out) infinite;
+}
+@keyframes indet { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+
+/* ========================================================================== 应用骨架
+   每分钟都看到的元素：sidebar(导航+环境) / main(两列卡片) / drawer(日志) / statusbar
+   ========================================================================== */
+.app { display: flex; height: 100vh; }
+.main-col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+
+/* ---------- Sidebar ---------- */
+.sidebar {
+  width: 208px; flex: none; background: var(--bg-0);
+  border-right: 1px solid var(--border-1);
+  display: flex; flex-direction: column;
+}
+.brand {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-4) var(--sp-3);
+}
+.brand__logo {
+  width: 26px; height: 26px; border-radius: var(--r-sm);
+  background: linear-gradient(135deg, var(--accent), #7c6bff);
+  display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 13px;
+}
+.brand__name { font-size: var(--fs-14); font-weight: 650; }
+.brand__sub { display: block; font-size: var(--fs-11); color: var(--text-3); font-weight: 400; }
+.sidebar nav { padding: var(--sp-2); display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  position: relative; display: flex; align-items: center; gap: var(--sp-3);
+  height: 34px; padding: 0 var(--sp-3); border: none; border-radius: var(--r-md);
+  background: transparent; color: var(--text-2); cursor: pointer;
+  font: 500 var(--fs-13)/1 var(--font-ui);
+  transition: background var(--dur-fast) var(--ease-out), color var(--dur-fast);
+}
+.nav-item:hover { background: var(--bg-hover); color: var(--text-1); }
+.nav-item.active { background: var(--bg-active); color: var(--text-1); }
+.nav-item.active::before {
+  content: ""; position: absolute; left: 0; top: 8px; bottom: 8px; width: 2px;
+  border-radius: 2px; background: var(--accent);
+}
+.nav-item__dot {
+  position: absolute; right: 10px; width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); animation: pulse 1.6s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(79, 140, 255, 0.5); }
+  50% { box-shadow: 0 0 0 5px rgba(79, 140, 255, 0); }
+}
+.sidebar__footer {
+  margin-top: auto; padding: var(--sp-3) var(--sp-4) var(--sp-4);
+  border-top: 1px solid var(--border-1);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.env { display: flex; align-items: center; gap: 6px; font-size: var(--fs-11); color: var(--text-3); }
+.env b { color: var(--text-2); font-weight: 550; font-family: var(--font-mono); }
+
+/* ---------- 主区（自适应：无宽度上限，边距随视口流式缩放） ---------- */
+.main {
+  flex: 1; min-height: 0; overflow-y: auto;
+  padding: var(--sp-5) clamp(var(--sp-4), 2.5vw, 48px) var(--sp-8);
+  scrollbar-width: thin; scrollbar-color: var(--bg-active) transparent;
+}
+.main::-webkit-scrollbar { width: 10px; }
+.main::-webkit-scrollbar-thumb { background: var(--bg-active); border-radius: 5px; }
+.main::-webkit-scrollbar-track { background: transparent; }
+.panel { display: none; }
+.panel.active { display: block; }
+.page-head { margin-bottom: var(--sp-5); }
+.page-head h2 { font-size: var(--fs-16); font-weight: 650; display: flex; align-items: center; gap: var(--sp-2); }
+.page-head p { margin-top: 4px; font-size: var(--fs-12); color: var(--text-3); }
+
+.grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--sp-4); }
+.col-4 { grid-column: span 4; } .col-5 { grid-column: span 5; } .col-6 { grid-column: span 6; }
+.col-7 { grid-column: span 7; } .col-8 { grid-column: span 8; } .col-12 { grid-column: span 12; }
+
+/* ========================================================================== 组件
+   ========================================================================== */
+
+/* ---------- 卡片（flex 列结构，body 随卡伸展） ---------- */
+.card {
+  background: var(--bg-1); border: 1px solid var(--border-1);
+  border-radius: var(--r-lg); box-shadow: var(--shadow-1);
+  display: flex; flex-direction: column; min-width: 0;
+}
+.card__head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4); border-bottom: 1px solid var(--border-1);
+  font-size: var(--fs-14); font-weight: 600;
+}
+.card__head .icon { color: var(--text-3); }
+.card__head-title { display: flex; align-items: center; gap: var(--sp-2); }
+.card__head-meta { font: 500 var(--fs-11)/1 var(--font-ui); color: var(--text-3); }
+.card__body { padding: var(--sp-4); flex: 1; }
+
+/* ---------- 按钮（四级 + loading） ---------- */
+.btn {
+  height: 32px; padding: 0 12px; border-radius: var(--r-md);
+  font: 500 var(--fs-13)/1 var(--font-ui);
+  border: 1px solid transparent; cursor: pointer;
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  transition: background var(--dur-fast) var(--ease-out), border-color var(--dur-fast), color var(--dur-fast);
+}
+.btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.btn:disabled { opacity: 0.45; filter: saturate(0.55); cursor: not-allowed; }
+.btn:active:not(:disabled) { transform: translateY(0.5px); }
+.btn--primary { background: var(--accent); color: var(--accent-fg); }
+.btn--primary:hover:not(:disabled) { background: var(--accent-hover); }
+.btn--primary:active:not(:disabled) { background: var(--accent-active); }
+.btn--secondary { background: transparent; color: var(--text-1); border-color: var(--border-2); }
+.btn--secondary:hover:not(:disabled) { background: var(--bg-hover); border-color: var(--text-3); }
+.btn--destructive { background: transparent; color: var(--err-soft-fg); border-color: rgba(229, 99, 94, 0.4); }
+.btn--destructive:hover:not(:disabled) { background: var(--err-bg); }
+.btn--destructive-solid { background: var(--err-fg); color: #fff; }
+.btn--ghost { background: transparent; color: var(--text-2); padding: 0 8px; }
+.btn--ghost:hover:not(:disabled) { background: var(--bg-hover); color: var(--text-1); }
+.btn--sm { height: 26px; padding: 0 8px; font-size: var(--fs-12); border-radius: var(--r-sm); }
+.btn.is-loading { pointer-events: none; }
+.btn__spinner {
+  width: 12px; height: 12px; border-radius: 50%; flex: none;
+  border: 2px solid currentColor; border-top-color: transparent;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(1turn); } }
+
+/* ---------- 输入 ---------- */
+.field { display: flex; flex-direction: column; gap: 6px; }
+.field__label { font-size: var(--fs-12); color: var(--text-2); }
+input[type=text], input[type=number], select {
+  height: 32px; background: var(--bg-sunken);
+  border: 1px solid var(--border-1); color: var(--text-1);
+  border-radius: var(--r-sm); padding: 0 10px;
+  font: 500 var(--fs-13)/1 var(--font-mono);
+  transition: border-color var(--dur-fast), box-shadow var(--dur-fast);
+}
+input[type=text]::placeholder { color: var(--text-3); font-weight: 400; }
+input:hover, select:hover { border-color: var(--border-2); }
+input:focus, select:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+input:disabled { opacity: 0.45; cursor: not-allowed; }
+select {
+  font-family: var(--font-ui); appearance: none; padding-right: 28px; cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2398a2b8' stroke-width='2'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat; background-position: right 8px center;
+}
+input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; cursor: pointer; }
+.check { display: inline-flex; align-items: center; gap: var(--sp-2); font-size: var(--fs-12); color: var(--text-2); cursor: pointer; }
+
+/* ---------- 表格 ---------- */
+table { border-collapse: collapse; width: 100%; font-size: var(--fs-13); }
+th {
+  text-align: left; padding: var(--sp-2) var(--sp-3);
+  font: 600 var(--fs-11)/1.2 var(--font-ui); letter-spacing: 0.04em;
+  color: var(--text-3); border-bottom: 1px solid var(--border-1);
+}
+td { padding: 8px var(--sp-3); border-bottom: 1px solid var(--border-1); }
+tbody tr { transition: background var(--dur-fast); }
+tbody tr:hover { background: var(--bg-hover); }
+tbody tr:last-child td { border-bottom: none; }
+tr.is-bad { background: var(--err-bg); }
+tr.is-bad:hover { background: var(--err-bg); }
+td.num, th.num { text-align: right; }
+
+/* ---------- Badge / Pill ---------- */
+.badge {
+  display: inline-flex; align-items: center; gap: 6px; height: 20px; padding: 0 8px;
+  border-radius: var(--r-pill); font: 600 var(--fs-11)/1 var(--font-ui);
+  white-space: nowrap;
+}
+.badge::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.badge--ok { background: var(--ok-bg); color: var(--ok-soft-fg); }
+.badge--warn { background: var(--warn-bg); color: var(--warn-soft-fg); }
+.badge--err { background: var(--err-bg); color: var(--err-soft-fg); }
+.badge--info { background: var(--info-bg); color: var(--info-soft-fg); }
+.badge--accent { background: var(--accent-soft-bg); color: var(--accent-soft-fg); }
+.badge--neutral { background: var(--bg-active); color: var(--text-2); }
+.badge--plain::before { display: none; }
+
+/* ---------- 预览框（发布版本人机回显） ---------- */
+.preview {
+  background: var(--bg-sunken); border: 1px dashed var(--border-2);
+  border-radius: var(--r-sm); padding: var(--sp-3);
+  font-family: var(--font-mono); font-size: var(--fs-12); color: var(--text-2);
+  display: flex; align-items: center; gap: var(--sp-2);
+}
+.preview b { color: var(--text-1); font-weight: 600; }
+
+/* ---------- 空状态 ---------- */
+.empty { display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); padding: var(--sp-8) var(--sp-4); text-align: center; }
+.empty .icon { width: 32px; height: 32px; color: var(--text-3); }
+.empty__title { font-size: var(--fs-13); color: var(--text-2); font-weight: 550; }
+.empty__desc { font-size: var(--fs-12); color: var(--text-3); max-width: 320px; }
+
+/* ---------- 骨架屏 ---------- */
+.skeleton {
+  height: 44px; border-radius: var(--r-md); margin-bottom: var(--sp-2);
+  background: linear-gradient(90deg, var(--bg-active) 25%, var(--bg-hover) 50%, var(--bg-active) 75%);
+  background-size: 200% 100%; animation: shimmer 1.4s linear infinite;
+}
+@keyframes shimmer { to { background-position: -200% 0; } }
+
+/* ---------- Release 列表 ---------- */
+.rel { border-bottom: 1px solid var(--border-1); padding: var(--sp-3) 0; }
+.rel:last-child { border-bottom: none; }
+.rel__top { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+.rel__tag { font-family: var(--font-mono); font-weight: 600; font-size: var(--fs-13); }
+.rel__date { font-size: var(--fs-11); color: var(--text-3); font-family: var(--font-mono); }
+.rel__assets { margin-top: 6px; font-size: var(--fs-12); color: var(--text-3); line-height: 1.7; }
+.rel__assets .mono { color: var(--text-2); font-size: var(--fs-11); }
+
+/* ========================================================================== 日志抽屉（可拖拽 / 可折叠 / Ctrl+`）
+   ========================================================================== */
+.drawer {
+  flex: none; height: var(--drawer-h, 240px); min-height: 0;
+  display: flex; flex-direction: column;
+  background: var(--bg-0); border-top: 1px solid var(--border-1);
+  transition: height var(--dur-slow) var(--ease-out);
+}
+.drawer.is-collapsed { height: 37px !important; transition: height var(--dur-med) var(--ease-out); }
+.drawer.is-resizing { transition: none; }
+.drawer__bar {
+  display: flex; align-items: center; gap: var(--sp-3); height: 36px; flex: none;
+  padding: 0 var(--sp-3) 0 var(--sp-4); cursor: ns-resize; user-select: none;
+}
+.drawer__title { font-size: var(--fs-12); font-weight: 600; color: var(--text-2); display: flex; gap: var(--sp-2); align-items: center; }
+.drawer__meta { font: 500 var(--fs-11)/1 var(--font-mono); color: var(--text-3); }
+.drawer__spacer { flex: 1; }
+.drawer.is-collapsed .drawer__bar { cursor: default; }
+.toggle {
+  height: 24px; padding: 0 8px; border-radius: var(--r-sm); border: none; cursor: pointer;
+  background: transparent; color: var(--text-3);
+  font: 500 var(--fs-11)/1 var(--font-ui);
+  display: inline-flex; align-items: center; gap: 4px;
+  transition: background var(--dur-fast), color var(--dur-fast);
+}
+.toggle:hover { background: var(--bg-hover); color: var(--text-1); }
+.toggle.is-on { background: var(--accent-soft-bg); color: var(--accent-soft-fg); }
+.drawer__body { flex: 1; min-height: 0; display: flex; }
+.log {
+  flex: 1; overflow-y: auto; padding: var(--sp-2) var(--sp-4);
+  background: var(--bg-sunken);
+  font: 12.5px/1.6 var(--font-mono); white-space: pre-wrap; word-break: break-all;
+  scrollbar-width: thin; scrollbar-color: var(--bg-active) transparent;
+}
+.log.no-wrap { white-space: pre; word-break: normal; }
+.log::-webkit-scrollbar { width: 10px; height: 10px; }
+.log::-webkit-scrollbar-thumb { background: var(--bg-active); border-radius: 5px; }
+.log::-webkit-scrollbar-track { background: transparent; }
+.log .stdout { color: #b7c0d0; }
+.log .stderr { color: var(--err-fg); }
+.log .info { color: var(--accent-soft-fg); }
+.log div { animation: line-in 120ms ease-out; }
+@keyframes line-in { from { background: var(--bg-hover); } to { background: transparent; } }
+.log__empty { color: var(--text-3); }
+
+/* ========================================================================== 状态栏
+   ========================================================================== */
+.statusbar {
+  flex: none; height: 28px; display: flex; align-items: center; gap: var(--sp-3);
+  padding: 0 var(--sp-4); background: var(--bg-1); border-top: 1px solid var(--border-1);
+  font-size: var(--fs-11); color: var(--text-2);
+}
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--text-3); flex: none; }
+.status-dot.on { background: var(--accent); animation: pulse 1.6s ease-in-out infinite; }
+#joblabel { font-weight: 600; color: var(--text-1); }
+#jobelapsed { font-family: var(--font-mono); color: var(--text-3); }
+.exit-badge { padding: 1px 8px; border-radius: var(--r-pill); font: 600 var(--fs-11)/1.4 var(--font-ui); }
+.exit-badge.ok { background: var(--ok-bg); color: var(--ok-soft-fg); }
+.exit-badge.err { background: var(--err-bg); color: var(--err-soft-fg); }
+.statusbar__spacer { flex: 1; }
+.statusbar__svc { display: flex; align-items: center; gap: 6px; font-family: var(--font-mono); color: var(--text-3); }
+
+/* ========================================================================== Dialog（原生 <dialog>，替代 confirm）
+   ========================================================================== */
+.dialog {
+  background: var(--bg-2); color: var(--text-1);
+  border: 1px solid var(--border-2); border-radius: var(--r-xl);
+  box-shadow: var(--shadow-3); padding: var(--sp-5);
+  width: min(460px, calc(100vw - 32px));
+}
+.dialog::backdrop { background: rgba(4, 6, 10, 0.72); backdrop-filter: blur(3px); }
+.dialog[open] { animation: dialog-in var(--dur-med) var(--ease-out); }
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+.dialog__title { font-size: var(--fs-16); font-weight: 650; margin-bottom: var(--sp-2); display: flex; align-items: center; gap: var(--sp-2); }
+.dialog__title .icon { color: var(--warn-fg); }
+.dialog__desc { font-size: var(--fs-13); color: var(--text-2); margin-bottom: var(--sp-4); }
+.dialog__summary { list-style: none; border: 1px solid var(--border-1); border-radius: var(--r-md); overflow: hidden; }
+.dialog__summary li {
+  display: flex; justify-content: space-between; align-items: center; gap: var(--sp-4);
+  padding: 8px var(--sp-3); font-size: var(--fs-12);
+}
+.dialog__summary li + li { border-top: 1px solid var(--border-1); }
+.dialog__summary span { color: var(--text-3); }
+.dialog__summary b { font-weight: 550; text-align: right; }
+.dialog__confirm-field { margin-top: var(--sp-4); }
+.dialog__confirm-field input { width: 100%; }
+.dialog__actions { display: flex; justify-content: flex-end; gap: var(--sp-2); margin: var(--sp-5) 0 0; }
+
+/* ========================================================================== Toast
+   ========================================================================== */
+.toasts { position: fixed; right: var(--sp-4); bottom: var(--sp-6); z-index: 200; display: flex; flex-direction: column; gap: var(--sp-2); }
+.toast {
+  display: flex; align-items: center; gap: var(--sp-2);
+  min-width: 260px; max-width: 380px; padding: 10px var(--sp-4);
+  background: var(--bg-2); border: 1px solid var(--border-2); border-radius: var(--r-md);
+  box-shadow: var(--shadow-2); font-size: var(--fs-12);
+  animation: toast-in var(--dur-med) var(--ease-out);
+}
+.toast .icon { flex: none; }
+.toast--ok .icon { color: var(--ok-fg); }
+.toast--err .icon { color: var(--err-fg); }
+.toast--info .icon { color: var(--info-fg); }
+.toast.is-leaving { animation: toast-out var(--dur-fast) var(--ease-out) forwards; }
+@keyframes toast-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes toast-out { to { opacity: 0; transform: translateY(4px); } }
+
+/* ---------- 表单行 / 步骤提示 ---------- */
+.form-grid { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: flex-end; }
+.hint { color: #8a94a8; font-size: var(--fs-12); margin-top: var(--sp-3); line-height: 1.7; max-width: 76ch; }
+.hint code { background: var(--bg-sunken); border: 1px solid var(--border-1); border-radius: 4px; padding: 1px 6px; font-family: var(--font-mono); color: var(--text-2); font-size: var(--fs-11); }
+ol.steps { margin: var(--sp-3) 0 0 18px; color: var(--text-3); font-size: var(--fs-12); line-height: 2; }
+ol.steps li::marker { color: var(--text-3); }
+ol.steps b { color: var(--text-2); }
+.actions { display: flex; gap: var(--sp-2); flex-wrap: wrap; margin-top: var(--sp-4); }
+
+/* ---------- 响应式（三档：中窄收侧栏 → 窄屏单列 → 宽屏重分配列宽） ---------- */
+@media (max-width: 980px) {
+  /* 中窄：sidebar 收成图标栏，主区保持双列 */
+  .sidebar { width: 56px; }
+  .brand { padding: var(--sp-3) var(--sp-2); justify-content: center; }
+  .brand__text, .nav-item__label, .sidebar__footer { display: none; }
+  .nav-item { justify-content: center; padding: 0; }
+}
+@media (max-width: 860px) {
+  /* 窄：卡片单列堆叠，日志抽屉同步收矮 */
+  .grid { grid-template-columns: 1fr; }
+  .col-4, .col-5, .col-6, .col-7, .col-8, .col-12 { grid-column: auto; }
+  .main { padding: var(--sp-4); }
+  .drawer { height: 180px; }
+}
+@media (min-width: 1600px) {
+  /* 宽屏：动作卡收窄、数据卡加宽，消除卡内留白；hint 行宽同步放宽 */
+  .col-5 { grid-column: span 4; }
+  .col-7 { grid-column: span 8; }
+  .hint { max-width: 96ch; }
+}
+
+/* ---------- 动效兜底 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
+</style>
+</head>
+<body>
+
+<!-- 内联 SVG 图标库（stroke 1.5-2，currentColor，零外部依赖） -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-package" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>
+    </symbol>
+    <symbol id="i-rocket" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4.5 16.5c-1.5 1.26-2 5-2 5s3.74-.5 5-2c.71-.84.7-2.13-.09-2.91a2.18 2.18 0 0 0-2.91-.09z"/><path d="m12 15-3-3a22 22 0 0 1 2-3.95A12.88 12.88 0 0 1 22 2c0 2.72-.78 7.5-6 11a22.35 22.35 0 0 1-4 2z"/><path d="M9 12H4s.55-3.03 2-4c1.62-1.08 5 0 5 0"/><path d="M12 15v5s3.03-.55 4-2c1.08-1.62 0-5 0-5"/>
+    </symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>
+    </symbol>
+    <symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>
+    </symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m6 3 14 9-14 9V3"/>
+    </symbol>
+    <symbol id="i-stop" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="6" y="6" width="12" height="12" rx="1"/>
+    </symbol>
+    <symbol id="i-folder" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/>
+    </symbol>
+    <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="m6 9 6 6 6-6"/>
+    </symbol>
+    <symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+    </symbol>
+    <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>
+    </symbol>
+    <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 6 9 17l-5-5"/>
+    </symbol>
+    <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M18 6 6 18"/><path d="m6 6 12 12"/>
+    </symbol>
+    <symbol id="i-eye" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>
+    </symbol>
+    <symbol id="i-server" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <rect width="20" height="8" x="2" y="2" rx="2"/><rect width="20" height="8" x="2" y="14" rx="2"/><path d="M6 6h.01"/><path d="M6 18h.01"/>
+    </symbol>
+    <symbol id="i-box-empty" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/>
+    </symbol>
+    <symbol id="i-clock" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+    </symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/>
+    </symbol>
+    <symbol id="i-shield" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/>
+    </symbol>
+  </defs>
+</svg>
+
+<div class="topbar-progress" id="topbarProgress"></div>
+
+<div class="app">
+
+  <!-- ═══════════ Sidebar ═══════════ -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand__logo">P</div>
+      <div class="brand__text">
+        <span class="brand__name">Precis</span>
+        <span class="brand__sub">发布控制台</span>
+      </div>
+    </div>
+    <nav>
+      <button class="nav-item active" data-tab="build">
+        <svg class="icon"><use href="#i-package"/></svg>
+        <span class="nav-item__label">打包</span>
+        <span class="nav-item__dot" id="dot-build" hidden></span>
+      </button>
+      <button class="nav-item" data-tab="release">
+        <svg class="icon"><use href="#i-rocket"/></svg>
+        <span class="nav-item__label">发布</span>
+        <span class="nav-item__dot" id="dot-release" hidden></span>
+      </button>
+      <button class="nav-item" data-tab="drill">
+        <svg class="icon"><use href="#i-refresh"/></svg>
+        <span class="nav-item__label">更新演练</span>
+        <span class="nav-item__dot" id="dot-drill" hidden></span>
+      </button>
+      <button class="nav-item" data-tab="status">
+        <svg class="icon"><use href="#i-globe"/></svg>
+        <span class="nav-item__label">线上状态</span>
+        <span class="nav-item__dot" id="dot-status" hidden></span>
+      </button>
+    </nav>
+    <div class="sidebar__footer">
+      <div class="env">分支 <b id="env-branch">–</b></div>
+      <div class="env">版本 <b id="env-version">–</b></div>
+      <div class="env">最新 tag <b id="env-tag">–</b></div>
+      <div class="env">manifest <b id="env-consistency">–</b></div>
+    </div>
+  </aside>
+
+  <!-- ═══════════ 主区 ═══════════ -->
+  <div class="main-col">
+    <main class="main">
+
+      <!-- ── 打包 ── -->
+      <section class="panel active" id="panel-build">
+        <div class="page-head">
+          <h2><svg class="icon" style="color:var(--text-3)"><use href="#i-package"/></svg>打包</h2>
+          <p>构建当前版本安装包（不发布），产物输出 <span class="mono">electron/release/</span></p>
+        </div>
+        <div class="grid">
+          <div class="card col-5">
+            <div class="card__head">
+              <div class="card__head-title"><svg class="icon"><use href="#i-package"/></svg>构建</div>
+              <span class="badge badge--neutral badge--plain" id="build-platform">–</span>
+            </div>
+            <div class="card__body">
+              <div class="actions" style="margin-top:0">
+                <button class="btn btn--primary" data-run="build" id="btn-build">
+                  <svg class="icon"><use href="#i-play"/></svg>开始打包
+                </button>
+                <button class="btn btn--secondary" data-open="release">
+                  <svg class="icon"><use href="#i-folder"/></svg>打开产物目录
+                </button>
+              </div>
+              <div class="hint">流程：前端构建 → 主进程编译 → 内嵌 Python 运行时 → electron-builder。<br>首次约 5-15 分钟，Python 运行时缓存后更快。</div>
+            </div>
+          </div>
+          <div class="card col-7">
+            <div class="card__head">
+              <div class="card__head-title"><svg class="icon"><use href="#i-box-empty"/></svg>最近构建产物</div>
+              <span class="card__head-meta" id="artifacts-count"></span>
+            </div>
+            <div class="card__body" id="artifacts-body"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 发布 ── -->
+      <section class="panel" id="panel-release">
+        <div class="page-head">
+          <h2><svg class="icon" style="color:var(--text-3)"><use href="#i-rocket"/></svg>发布</h2>
+          <p>版本单一事实源为根 <span class="mono">package.json</span>，脚本自动同步六处 manifest 并切版 CHANGELOG</p>
+        </div>
+        <div class="grid">
+          <div class="card col-7">
+            <div class="card__head">
+              <div class="card__head-title"><svg class="icon"><use href="#i-clock"/></svg>版本号</div>
+              <span class="badge badge--neutral badge--plain mono" id="rel-current">–</span>
+            </div>
+            <div class="card__body">
+              <div class="form-grid">
+                <div class="field">
+                  <span class="field__label">递增方式</span>
+                  <select id="rel-mode">
+                    <option value="patch">patch（补丁，默认）</option>
+                    <option value="minor">minor（功能）</option>
+                    <option value="major">major（重大）</option>
+                    <option value="manual">手动输入</option>
+                  </select>
+                </div>
+                <div class="field">
+                  <span class="field__label">版本号</span>
+                  <input type="text" id="rel-version" placeholder="0.1.1" disabled style="width:130px">
+                </div>
+                <div class="field">
+                  <span class="field__label">预发布后缀（可选）</span>
+                  <input type="text" id="rel-prerelease" placeholder="alpha.1" style="width:130px">
+                </div>
+              </div>
+              <div style="margin-top:var(--sp-3)">
+                <label class="check"><input type="checkbox" id="rel-nopush">不推送（本地 commit + tag，稍后手动 push）</label>
+              </div>
+              <div class="preview" id="rel-preview" style="margin-top:var(--sp-3)">–</div>
+            </div>
+          </div>
+          <div class="card col-5">
+            <div class="card__head">
+              <div class="card__head-title"><svg class="icon"><use href="#i-rocket"/></svg>执行</div>
+            </div>
+            <div class="card__body">
+              <div class="actions" style="margin-top:0; flex-direction:column; align-items:stretch">
+                <button class="btn btn--secondary" data-run="release-dry">
+                  <svg class="icon"><use href="#i-eye"/></svg>预览（dry-run，不写文件）
+                </button>
+                <button class="btn btn--primary" data-run="release" id="btn-release">
+                  <svg class="icon"><use href="#i-rocket"/></svg>正式发布
+                </button>
+                <button class="btn btn--ghost" data-run="check-manifests">
+                  <svg class="icon"><use href="#i-shield"/></svg>校验 manifest 一致性
+                </button>
+              </div>
+              <div class="hint">正式发布 = commit + tag + push → GitHub Actions 构建三端 → <b style="color:var(--text-2)">自动 publish Release</b>，构建与产物自检通过后客户端即可拉到更新。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 更新演练 ── -->
+      <section class="panel" id="panel-drill">
+        <div class="page-head">
+          <h2><svg class="icon" style="color:var(--text-3)"><use href="#i-refresh"/></svg>更新演练</h2>
+          <p>在本地模拟生产更新：已安装客户端从本地地址拉取更新，验证完整闭环</p>
+        </div>
+        <div class="grid">
+          <div class="card col-6">
+            <div class="card__head">
+              <div class="card__head-title"><svg class="icon"><use href="#i-zap"/></svg>lite 演练</div>
+              <span class="badge badge--neutral badge--plain">分钟级</span>
+            </div>
+            <div class="card__body">
+              <div class="form-grid">
+                <div class="field">
+                  <span class="field__label">演练版本号</span>
+                  <input type="text" id="drill-lite-version" placeholder="9.9.9-drill" style="width:150px">
+                </div>
+                <div class="field">
+                  <span class="field__label">&nbsp;</span>
+                  <button class="btn btn--primary" data-run="drill-lite">
+                    <svg class="icon"><use href="#i-zap"/></svg>生成本地更新源
+                  </button>
+                </div>
+              </div>
+              <div class="hint">复用 <code>electron/release/</code> 真实产物，仅抬升清单版本号——验证 检测→下载→重启安装 全流程。安装后版本号不变（同一二进制）。需先有构建产物。</div>
+            </div>
+          </div>
+          <div class="card col-6">
+            <div class="card__head">
+              <div class="card__head-title"><svg class="icon"><use href="#i-clock"/></svg>full 演练</div>
+              <span class="badge badge--neutral badge--plain">10-30 分钟</span>
+            </div>
+            <div class="card__body">
+              <div class="form-grid">
+                <div class="field">
+                  <span class="field__label">基线版本</span>
+                  <input type="text" id="drill-base" placeholder="0.1.0" style="width:110px">
+                </div>
+                <div class="field">
+                  <span class="field__label">新版</span>
+                  <input type="text" id="drill-next" placeholder="0.1.1" style="width:110px">
+                </div>
+                <div class="field">
+                  <span class="field__label">&nbsp;</span>
+                  <button class="btn btn--secondary" data-run="drill-full" id="btn-drill-full">
+                    <svg class="icon"><use href="#i-play"/></svg>开始全真演练
+                  </button>
+                </div>
+              </div>
+              <div class="hint">构建两个真实版本（<code>extraMetadata</code> 覆盖，不污染工作区），验证版本真实变更。基线安装包存到 <code>electron/local-updates/base/</code>。</div>
+            </div>
+          </div>
+          <div class="card col-12">
+            <div class="card__head">
+              <div class="card__head-title"><svg class="icon"><use href="#i-server"/></svg>本地更新源服务</div>
+              <span class="badge" id="svc-badge"><span id="svc-badge-text">未运行</span></span>
+            </div>
+            <div class="card__body">
+              <div class="form-grid">
+                <div class="field">
+                  <span class="field__label">端口</span>
+                  <input type="number" id="svc-port" value="8080" style="width:90px">
+                </div>
+                <div class="field">
+                  <span class="field__label">&nbsp;</span>
+                  <div style="display:flex;gap:var(--sp-2)">
+                    <button class="btn btn--secondary" id="svc-start"><svg class="icon"><use href="#i-play"/></svg>启动</button>
+                    <button class="btn btn--ghost" id="svc-stop"><svg class="icon"><use href="#i-stop"/></svg>停止</button>
+                  </div>
+                </div>
+                <div class="field">
+                  <span class="field__label">更新源地址（填入应用设置）</span>
+                  <div class="preview" style="margin:0" id="svc-url">http://localhost:8080</div>
+                </div>
+              </div>
+              <ol class="steps">
+                <li>生成本地更新源（上方 <b>lite</b> 或 <b>full</b>）</li>
+                <li>启动本服务，记下地址（默认 <code>http://localhost:8080</code>）</li>
+                <li>启动已安装的 Precis → 设置 → 自动更新 → 更新源切 <b>自定义</b> + 上述地址</li>
+                <li>点"检查更新" → 下载 → 重启安装</li>
+                <li>演练完毕：更新源切回 github，停止本服务</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 线上状态 ── -->
+      <section class="panel" id="panel-status">
+        <div class="page-head">
+          <h2><svg class="icon" style="color:var(--text-3)"><use href="#i-globe"/></svg>线上状态</h2>
+          <p>GitHub Release 可见性 = 客户端能否拉到更新；draft Release 对客户端不可见</p>
+        </div>
+        <div class="grid">
+          <div class="card col-8">
+            <div class="card__head">
+              <div class="card__head-title"><svg class="icon"><use href="#i-globe"/></svg>GitHub Release</div>
+              <button class="btn btn--ghost btn--sm" id="btn-refresh"><svg class="icon" style="width:13px;height:13px"><use href="#i-refresh"/></svg>刷新</button>
+            </div>
+            <div class="card__body" id="gh-list"></div>
+            <div class="card__body" style="border-top:1px solid var(--border-1)">
+              <div class="form-grid" style="align-items:center">
+                <div class="field">
+                  <span class="field__label">校验 tag</span>
+                  <input type="text" id="verify-tag" placeholder="v0.1.1" style="width:120px">
+                </div>
+                <button class="btn btn--secondary" data-run="verify-release">
+                  <svg class="icon"><use href="#i-shield"/></svg>校验线上产物
+                </button>
+                <span class="hint" style="margin:0">下载 Release 全部 latest.yml 引用资产并实测 sha512——通过即代表客户端能正常拉取</span>
+              </div>
+            </div>
+          </div>
+          <div class="card col-4">
+            <div class="card__head">
+              <div class="card__head-title"><svg class="icon"><use href="#i-shield"/></svg>本地 manifest</div>
+              <span class="badge" id="manifest-badge">–</span>
+            </div>
+            <div class="card__body" id="manifests-body"></div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ═══════════ 日志抽屉 ═══════════ -->
+    <div class="drawer" id="drawer">
+      <div class="drawer__bar" id="drawerBar" title="拖拽调整高度 · Ctrl+` 折叠">
+        <div class="drawer__title"><svg class="icon"><use href="#i-chevron"/></svg>日志</div>
+        <span class="drawer__meta" id="drawer-meta">暂无任务</span>
+        <div class="drawer__spacer"></div>
+        <button class="toggle is-on" id="log-follow" title="新日志自动滚动到底部">跟随</button>
+        <button class="toggle is-on" id="log-wrap" title="自动换行">换行</button>
+        <button class="toggle" id="log-copy" title="复制全部日志"><svg class="icon" style="width:13px;height:13px"><use href="#i-copy"/></svg>复制</button>
+        <button class="toggle" id="log-clear" title="清空日志"><svg class="icon" style="width:13px;height:13px"><use href="#i-trash"/></svg>清空</button>
+        <button class="toggle" id="drawer-toggle" title="折叠 (Ctrl+`)"><svg class="icon" style="width:13px;height:13px"><use href="#i-chevron"/></svg></button>
+      </div>
+      <div class="drawer__body">
+        <div class="log" id="log"><span class="log__empty">暂无日志——执行任何动作后，这里实时显示子进程输出。</span></div>
+      </div>
+    </div>
+
+    <!-- ═══════════ 状态栏 ═══════════ -->
+    <footer class="statusbar">
+      <span class="status-dot" id="job-dot"></span>
+      <span id="joblabel">空闲</span>
+      <span id="jobelapsed"></span>
+      <span class="exit-badge ok" id="exitbadge" style="display:none"></span>
+      <button class="btn btn--destructive btn--sm" id="btn-kill">
+        <svg class="icon" style="width:13px;height:13px"><use href="#i-stop"/></svg>终止
+      </button>
+      <span class="statusbar__spacer"></span>
+      <span class="statusbar__svc" id="svc-mini"><span class="status-dot"></span>serve-updates 未运行</span>
+      <span class="statusbar__svc">AirSaiga/Precis</span>
+    </footer>
+  </div>
+</div>
+
+<!-- ═══════════ 正式发布确认（输入版本号解锁） ═══════════ -->
+<dialog id="releaseDialog" class="dialog">
+  <form method="dialog">
+    <h2 class="dialog__title"><svg class="icon"><use href="#i-rocket"/></svg>发布 <span class="mono" id="rd-version">–</span></h2>
+    <p class="dialog__desc">即将同步六处 manifest 版本、切版 CHANGELOG，并按下方配置推送。此操作对线上可见。</p>
+    <ul class="dialog__summary">
+      <li><span>发布版本</span><b class="mono" id="rd-tag">–</b></li>
+      <li><span>推送方式</span><b id="rd-push">push → 触发 CD 自动构建三端</b></li>
+      <li><span>发布后</span><b>Release 自动 publish，客户端可拉取</b></li>
+    </ul>
+    <div class="dialog__confirm-field field">
+      <span class="field__label">输入版本号 <b class="mono" id="rd-hint" style="color:var(--text-1)">–</b> 以确认</span>
+      <input type="text" id="rd-confirm" placeholder="" autocomplete="off">
+    </div>
+    <menu class="dialog__actions">
+      <button class="btn btn--secondary" value="cancel">取消</button>
+      <button class="btn btn--primary" value="confirm" id="rd-confirm-btn" disabled>
+        <svg class="icon"><use href="#i-rocket"/></svg>确认发布
+      </button>
+    </menu>
+  </form>
+</dialog>
+
+<!-- ═══════════ full 演练确认 ═══════════ -->
+<dialog id="drillDialog" class="dialog">
+  <form method="dialog">
+    <h2 class="dialog__title"><svg class="icon"><use href="#i-clock"/></svg>全真演练确认</h2>
+    <p class="dialog__desc">将构建两个完整安装包并验证真实升级闭环。</p>
+    <ul class="dialog__summary">
+      <li><span>基线 → 新版</span><b class="mono" id="dd-versions">–</b></li>
+      <li><span>预计耗时</span><b>10-30 分钟</b></li>
+      <li><span>基线安装包</span><b class="mono" style="font-size:var(--fs-11)">electron/local-updates/base/</b></li>
+    </ul>
+    <menu class="dialog__actions">
+      <button class="btn btn--secondary" value="cancel">取消</button>
+      <button class="btn btn--primary" value="confirm" autofocus>
+        <svg class="icon"><use href="#i-play"/></svg>开始构建
+      </button>
+    </menu>
+  </form>
+</dialog>
+
+<div class="toasts" id="toasts"></div>
+
+<script>
+'use strict';
+
+// ===========================================================================
+// 工具
+// ===========================================================================
+const $ = (sel) => document.querySelector(sel);
+const $$ = (sel) => [...document.querySelectorAll(sel)];
+
+function fmtSize(n) {
+  if (n == null) return '–';
+  if (n > 1024 ** 3) return (n / 1024 ** 3).toFixed(2) + ' GB';
+  if (n > 1024 ** 2) return (n / 1024 ** 2).toFixed(1) + ' MB';
+  if (n > 1024) return (n / 1024).toFixed(1) + ' KB';
+  return n + ' B';
+}
+function fmtDate(iso) {
+  if (!iso) return '–';
+  const d = new Date(iso);
+  return `${d.getMonth() + 1}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+function esc(s) {
+  return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+}
+
+// 与 release.mjs bumpVersion 语义一致（prerelease 当前版 + patch = 落回正式版）
+function bumpVersion(cur, kind, suffix) {
+  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(cur || '');
+  if (!m) return null;
+  const [M, mnr, p] = [Number(m[1]), Number(m[2]), Number(m[3])];
+  const hadPre = /-/.test(cur);
+  let base;
+  if (hadPre && kind === 'patch') base = `${M}.${mnr}.${p}`;
+  else if (kind === 'patch') base = `${M}.${mnr}.${p + 1}`;
+  else if (kind === 'minor') base = `${M}.${mnr + 1}.0`;
+  else if (kind === 'major') base = `${M + 1}.0.0`;
+  else return null;
+  return suffix ? `${base}-${suffix}` : base;
+}
+
+async function api(path, body) {
+  const res = await fetch(path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined);
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+  return data;
+}
+
+// ===========================================================================
+// Toast
+// ===========================================================================
+function toast(kind, text) {
+  const icons = { ok: 'i-check', err: 'i-x', info: 'i-server' };
+  const el = document.createElement('div');
+  el.className = `toast toast--${kind}`;
+  el.innerHTML = `<svg class="icon"><use href="#${icons[kind] || 'i-server'}"/></svg><span>${esc(text)}</span>`;
+  $('#toasts').appendChild(el);
+  const life = kind === 'err' ? 6000 : 3000;
+  setTimeout(() => {
+    el.classList.add('is-leaving');
+    setTimeout(() => el.remove(), 150);
+  }, life);
+}
+
+// ===========================================================================
+// 状态渲染
+// ===========================================================================
+let STATE = null;
+
+async function loadState() {
+  try {
+    // 首次加载：Release 列表先渲染骨架屏，数据到达后替换
+    if (!STATE && !$('#gh-list').querySelector('.rel, .empty')) {
+      $('#gh-list').innerHTML = '<div class="skeleton"></div>'.repeat(3);
+    }
+    STATE = await api('/api/state');
+    renderSidebar();
+    renderArtifacts();
+    renderManifests();
+    renderGithub();
+    prefillInputs();
+    renderSvc();
+  } catch (err) {
+    toast('err', '状态加载失败: ' + err.message);
+  }
+}
+
+function renderSidebar() {
+  $('#env-branch').textContent = STATE.branch || '–';
+  $('#env-version').textContent = STATE.rootVersion || '–';
+  $('#env-tag').textContent = STATE.latestTag || '无';
+  const c = $('#env-consistency');
+  c.textContent = STATE.allConsistent ? '六处一致' : '不一致!';
+  c.style.color = STATE.allConsistent ? 'var(--ok-soft-fg)' : 'var(--err-soft-fg)';
+  $('#build-platform').textContent = STATE.platform || '–';
+  $('#rel-current').textContent = '当前 ' + (STATE.rootVersion || '–');
+}
+
+function renderArtifacts() {
+  const body = $('#artifacts-body');
+  const files = STATE.buildArtifacts.files;
+  $('#artifacts-count').textContent = files.length ? `${files.length} 项` : '';
+  const yml = STATE.buildArtifacts.latestYml;
+  let html = '';
+  if (files.length === 0) {
+    html = `<div class="empty">
+      <svg class="icon"><use href="#i-box-empty"/></svg>
+      <div class="empty__title">暂无构建产物</div>
+      <div class="empty__desc">点击左侧"开始打包"，完成后产物将在此列出</div>
+    </div>`;
+  } else {
+    html = '<table><thead><tr><th>文件</th><th class="num">大小</th><th>时间</th></tr></thead><tbody>'
+      + files.map((f) => `<tr><td class="mono" style="font-size:var(--fs-12)">${esc(f.name)}</td><td class="num mono">${fmtSize(f.size)}</td><td class="mono" style="color:var(--text-3);font-size:var(--fs-11)">${fmtDate(f.mtime)}</td></tr>`).join('')
+      + '</tbody></table>';
+  }
+  if (yml) {
+    html += `<div class="hint">latest.yml：version <code>${esc(yml.version)}</code> · 引用 ${yml.files.length} 个文件（${yml.files.map((f) => esc(f.url)).join('、')}）</div>`;
+  }
+  body.innerHTML = html;
+}
+
+function renderManifests() {
+  const body = $('#manifests-body');
+  const badge = $('#manifest-badge');
+  badge.className = 'badge ' + (STATE.allConsistent ? 'badge--ok' : 'badge--err');
+  badge.textContent = STATE.allConsistent ? '六处一致' : '存在漂移';
+  body.innerHTML = '<table><tbody>'
+    + STATE.versions.map((v) => {
+        const bad = v.version !== STATE.rootVersion;
+        return `<tr class="${bad ? 'is-bad' : ''}"><td style="font-size:var(--fs-12);color:var(--text-2)">${esc(v.file)}</td><td class="num mono">${esc(v.version)}</td></tr>`;
+      }).join('')
+    + '</tbody></table>';
+}
+
+function renderGithub() {
+  const box = $('#gh-list');
+  const gh = STATE.github || {};
+  if (gh.error) {
+    box.innerHTML = `<div class="hint" style="margin:0">GitHub API 不可达：${esc(gh.error)}（离线环境属正常）</div>`;
+    return;
+  }
+  const releases = gh.releases || [];
+  if (releases.length === 0) {
+    box.innerHTML = `<div class="empty">
+      <svg class="icon"><use href="#i-globe"/></svg>
+      <div class="empty__title">尚无 Release</div>
+      <div class="empty__desc">完成一次正式发布后，客户端即可拉取更新</div>
+      <button class="btn btn--ghost" id="empty-go-release" style="margin-top:var(--sp-2)"><svg class="icon"><use href="#i-rocket"/></svg>去发布</button>
+    </div>`;
+    $('#empty-go-release').addEventListener('click', () => {
+      document.querySelector('.nav-item[data-tab="release"]').click();
+    });
+    return;
+  }
+  box.innerHTML = releases.map((r) => {
+    const badges = [
+      r.draft ? '<span class="badge badge--warn">draft · 客户端不可见</span>' : '',
+      r.prerelease ? '<span class="badge badge--info">prerelease</span>' : '',
+      !r.draft && !r.prerelease ? '<span class="badge badge--ok">已发布</span>' : '',
+    ].filter(Boolean).join(' ');
+    const assets = r.assets.length
+      ? r.assets.map((a) => `<span class="mono">${esc(a.name)}</span> <span style="opacity:.7">${fmtSize(a.size)}</span>`).join('<br>')
+      : '<span style="opacity:.6">无资产</span>';
+    return `<div class="rel">
+      <div class="rel__top"><span class="rel__tag">${esc(r.tag)}</span><span class="rel__date">${fmtDate(r.publishedAt)}</span>${badges}</div>
+      <div class="rel__assets">${assets}</div>
+    </div>`;
+  }).join('');
+  if (!$('#verify-tag').value) $('#verify-tag').value = releases[0].tag;
+}
+
+function renderSvc() {
+  const running = STATE.serveUpdates && STATE.serveUpdates.running;
+  const badge = $('#svc-badge');
+  badge.className = 'badge ' + (running ? 'badge--ok' : 'badge--neutral');
+  badge.textContent = running ? `运行中 :${STATE.serveUpdates.port}` : '未运行';
+  $('#svc-url').textContent = running ? STATE.serveUpdates.url : 'http://localhost:' + ($('#svc-port').value || '8080');
+  const mini = $('#svc-mini');
+  mini.innerHTML = `<span class="status-dot ${running ? 'on' : ''}"></span>serve-updates ${running ? '运行中 :' + STATE.serveUpdates.port : '未运行'}`;
+}
+
+function prefillInputs() {
+  if (!$('#drill-lite-version').value) $('#drill-lite-version').value = '9.9.9-drill';
+  if (STATE.rootVersion) {
+    if (!$('#drill-base').value) $('#drill-base').value = STATE.rootVersion;
+    if (!$('#drill-next').value) $('#drill-next').value = bumpVersion(STATE.rootVersion, 'patch') || '';
+  }
+  updateRelPreview();
+}
+
+// ===========================================================================
+// 发布页：版本推导 + 预览
+// ===========================================================================
+function currentReleaseVersion() {
+  const suffix = $('#rel-prerelease').value.trim();
+  let version;
+  if ($('#rel-mode').value === 'manual') {
+    version = $('#rel-version').value.trim();
+    if (version && suffix && !version.includes('-')) version = `${version}-${suffix}`;
+  } else {
+    version = bumpVersion(STATE?.rootVersion || '', $('#rel-mode').value, suffix) || '';
+  }
+  return version;
+}
+function updateRelPreview() {
+  const v = currentReleaseVersion();
+  $('#rel-preview').innerHTML = v
+    ? `将发布 <b>v${esc(v)}</b><span>${$('#rel-nopush').checked ? '（本地 tag，不推送）' : '（push 触发 CD → 自动构建 → 自动 publish，客户端即可拉到）'}</span>`
+    : '<span style="color:var(--err-soft-fg)">版本号无效</span>';
+}
+['rel-mode', 'rel-version', 'rel-prerelease', 'rel-nopush'].forEach((id) => {
+  const el = document.getElementById(id);
+  const sync = () => {
+    $('#rel-version').disabled = $('#rel-mode').value !== 'manual';
+    updateRelPreview();
+  };
+  el.addEventListener('input', sync);
+  el.addEventListener('change', sync);
+});
+
+// ===========================================================================
+// 动作
+// ===========================================================================
+const ACTION_SECTION = {
+  build: 'build',
+  'release-dry': 'release', release: 'release', 'check-manifests': 'release',
+  'drill-lite': 'drill', 'drill-full': 'drill',
+  'verify-release': 'status',
+};
+
+function jobBusy() { return !!(JOB && JOB.running); }
+
+async function runAction(action, params) {
+  try {
+    await api('/api/run', { action, params });
+    if (!drawerExpanded()) toggleDrawer(true); // 任务启动自动抬起日志
+  } catch (err) {
+    appendLine('stderr', `启动失败: ${err.message}`);
+    toast('err', '启动失败: ' + err.message);
+  }
+}
+
+// 发布确认（输入版本号解锁）——替代原生 confirm()
+function confirmRelease(version, noPush) {
+  const dlg = $('#releaseDialog');
+  $('#rd-version').textContent = version;
+  $('#rd-tag').textContent = 'v' + version;
+  $('#rd-push').textContent = noPush ? '不推送（本地 commit + tag）' : 'push → 触发 CD 自动构建三端';
+  $('#rd-hint').textContent = version;
+  const input = $('#rd-confirm');
+  const btn = $('#rd-confirm-btn');
+  input.value = '';
+  btn.disabled = true;
+  input.oninput = () => { btn.disabled = input.value.trim() !== version; };
+  // backdrop 点击关闭
+  dlg.onclick = (e) => { if (e.target === dlg) dlg.close('cancel'); };
+  return new Promise((resolve) => {
+    dlg.onclose = () => resolve(dlg.returnValue === 'confirm');
+    dlg.showModal();
+  });
+}
+
+function confirmDrillFull(base, next) {
+  const dlg = $('#drillDialog');
+  $('#dd-versions').textContent = `${base} → ${next}`;
+  dlg.onclick = (e) => { if (e.target === dlg) dlg.close('cancel'); };
+  return new Promise((resolve) => {
+    dlg.onclose = () => resolve(dlg.returnValue === 'confirm');
+    dlg.showModal();
+  });
+}
+
+$$('[data-run]').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    if (jobBusy()) { toast('err', '任务进行中，请等待完成或先终止'); return; }
+    const action = btn.dataset.run;
+    let params = {};
+    if (action === 'release-dry' || action === 'release') {
+      const v = currentReleaseVersion();
+      if (!v) { toast('err', '版本号无效，请检查递增方式或手动输入'); return; }
+      params = { version: v, noPush: $('#rel-nopush').checked };
+      if (action === 'release') {
+        const ok = await confirmRelease(v, params.noPush);
+        if (!ok) return;
+      }
+    } else if (action === 'drill-lite') {
+      params = { version: $('#drill-lite-version').value.trim() || '9.9.9-drill' };
+    } else if (action === 'drill-full') {
+      params = { base: $('#drill-base').value.trim(), next: $('#drill-next').value.trim() };
+      if (!params.base || !params.next) { toast('err', '请填写基线与新版本号'); return; }
+      const ok = await confirmDrillFull(params.base, params.next);
+      if (!ok) return;
+    } else if (action === 'verify-release') {
+      const tag = $('#verify-tag').value.trim();
+      if (!tag) { toast('err', '请填写要校验的 tag'); return; }
+      params = { tag, version: tag.replace(/^v/, '') };
+    } else if (action === 'check-manifests') {
+      params = { version: currentReleaseVersion() || STATE?.rootVersion || '' };
+    }
+    runAction(action, params);
+  });
+});
+
+$$('[data-open]').forEach((btn) => btn.addEventListener('click', () => api('/api/open', { target: btn.dataset.open })));
+$('#btn-refresh').addEventListener('click', loadState);
+$('#svc-port').addEventListener('input', renderSvc);
+
+$('#svc-start').addEventListener('click', async () => {
+  try {
+    await api('/api/service', { op: 'start', port: $('#svc-port').value });
+    setTimeout(loadState, 500);
+    toast('ok', '本地更新源已启动');
+  } catch (err) { toast('err', '启动失败: ' + err.message); }
+});
+$('#svc-stop').addEventListener('click', async () => {
+  await api('/api/service', { op: 'stop' });
+  setTimeout(loadState, 300);
+});
+
+// ===========================================================================
+// 导航
+// ===========================================================================
+$$('.nav-item').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    $$('.nav-item').forEach((b) => b.classList.remove('active'));
+    btn.classList.add('active');
+    $$('.panel').forEach((p) => p.classList.remove('active'));
+    $(`#panel-${btn.dataset.tab}`).classList.add('active');
+  });
+});
+
+// ===========================================================================
+// 日志抽屉：折叠 / 拖拽 / 工具栏
+// ===========================================================================
+const drawer = $('#drawer');
+const drawerBar = $('#drawerBar');
+const drawerMeta = $('#drawer-meta');
+
+function drawerExpanded() { return !drawer.classList.contains('is-collapsed'); }
+function toggleDrawer(expand) {
+  const shouldExpand = expand === undefined ? !drawerExpanded() : expand;
+  drawer.classList.toggle('is-collapsed', !shouldExpand);
+  $('#drawer-toggle').querySelector('svg').style.transform = shouldExpand ? '' : 'rotate(180deg)';
+}
+$('#drawer-toggle').addEventListener('click', (e) => { e.stopPropagation(); toggleDrawer(); });
+document.addEventListener('keydown', (e) => {
+  if (e.ctrlKey && e.key === '`') { e.preventDefault(); toggleDrawer(); }
+});
+
+// 拖拽调高（160px - 70vh），持久化
+drawerBar.addEventListener('mousedown', (e) => {
+  if (e.target.closest('button') || !drawerExpanded()) return;
+  const startY = e.clientY;
+  const startH = drawer.getBoundingClientRect().height;
+  drawer.classList.add('is-resizing');
+  const onMove = (ev) => {
+    const h = Math.min(window.innerHeight * 0.7, Math.max(160, startH + (startY - ev.clientY)));
+    drawer.style.setProperty('--drawer-h', h + 'px');
+    try { localStorage.setItem('drawer-h', String(h)); } catch { /* 隐私模式忽略 */ }
+  };
+  const onUp = () => {
+    drawer.classList.remove('is-resizing');
+    document.removeEventListener('mousemove', onMove);
+    document.removeEventListener('mouseup', onUp);
+  };
+  document.addEventListener('mousemove', onMove);
+  document.addEventListener('mouseup', onUp);
+  e.preventDefault();
+});
+try {
+  const saved = localStorage.getItem('drawer-h');
+  if (saved) drawer.style.setProperty('--drawer-h', saved + 'px');
+} catch { /* ignore */ }
+
+// 日志工具栏
+let follow = true;
+const logEl = $('#log');
+$('#log-follow').addEventListener('click', () => {
+  follow = !follow;
+  $('#log-follow').classList.toggle('is-on', follow);
+  if (follow) logEl.scrollTop = logEl.scrollHeight;
+});
+$('#log-wrap').addEventListener('click', () => {
+  logEl.classList.toggle('no-wrap');
+  $('#log-wrap').classList.toggle('is-on', !logEl.classList.contains('no-wrap'));
+});
+$('#log-copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText(logEl.innerText);
+    toast('ok', '日志已复制');
+  } catch { toast('err', '复制失败（剪贴板权限）'); }
+});
+$('#log-clear').addEventListener('click', clearLog);
+function clearLog() {
+  logEl.innerHTML = '<span class="log__empty">已清空。</span>';
+}
+
+// 用户手动上滚 → 自动关闭跟随
+logEl.addEventListener('scroll', () => {
+  if (follow && logEl.scrollTop < logEl.scrollHeight - logEl.clientHeight - 60) {
+    follow = false;
+    $('#log-follow').classList.remove('is-on');
+  }
+});
+
+function appendLine(stream, text) {
+  const empty = logEl.querySelector('.log__empty');
+  if (empty) empty.remove();
+  const div = document.createElement('div');
+  div.className = stream;
+  div.textContent = text;
+  logEl.appendChild(div);
+  const lines = logEl.children.length;
+  if (lines > 4000) logEl.removeChild(logEl.firstChild);
+  if (follow) logEl.scrollTop = logEl.scrollHeight;
+}
+
+// ===========================================================================
+// SSE：日志流 + 任务状态 → 五层反馈
+// ===========================================================================
+let JOB = null;
+let elapsedTimer = null;
+
+function renderJobStatus() {
+  const dot = $('#job-dot');
+  const label = $('#joblabel');
+  const badge = $('#exitbadge');
+  const running = !!(JOB && JOB.running);
+  // 1) 全局进度条
+  $('#topbarProgress').classList.toggle('is-active', running);
+  // 2) statusbar
+  dot.className = 'status-dot' + (running ? ' on' : '');
+  label.textContent = JOB ? JOB.label : '空闲';
+  badge.style.display = JOB && JOB.done ? '' : 'none';
+  if (JOB && JOB.done) {
+    badge.className = 'exit-badge ' + (JOB.exitCode === 0 ? 'ok' : 'err');
+    badge.textContent = JOB.exitCode === 0 ? '成功' : `exit ${JOB.exitCode}`;
+  }
+  clearInterval(elapsedTimer);
+  $('#jobelapsed').textContent = '';
+  if (running) {
+    elapsedTimer = setInterval(() => {
+      const s = Math.floor((Date.now() - JOB.startedAt) / 1000);
+      $('#jobelapsed').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    }, 1000);
+  }
+  // 3) sidebar 活动点
+  const section = JOB ? ACTION_SECTION[jobSectionKey(JOB.label)] : null;
+  ['build', 'release', 'drill', 'status'].forEach((s) => {
+    const dotEl = $(`#dot-${s}`);
+    dotEl.hidden = !(running && section === s);
+  });
+  // 4) 日志抽屉 meta
+  drawerMeta.textContent = JOB ? JOB.label : '暂无任务';
+  // 5) 按钮禁用（任务运行中禁用动作按钮；空闲时禁用"终止"）
+  $$('.btn[data-run]').forEach((b) => (b.disabled = running));
+  $('#btn-kill').disabled = !running;
+}
+
+// 任务 label → 动作 key（startJob 的 label 是人类可读中文，改用 ActionLabel 前缀匹配）
+function jobSectionKey(label) {
+  if (!label) return null;
+  if (label.startsWith('打包')) return 'build';
+  if (label.startsWith('发布预览') || label.startsWith('正式发布') || label.startsWith('manifest')) return 'release';
+  if (label.startsWith('lite') || label.startsWith('full')) return 'drill';
+  if (label.startsWith('线上产物')) return 'status';
+  return null;
+}
+
+const es = new EventSource('/api/events');
+es.onmessage = (ev) => {
+  const msg = JSON.parse(ev.data);
+  if (msg.type === 'history') {
+    clearLog();
+    if (msg.lines.length === 0) {
+      logEl.innerHTML = '<span class="log__empty">暂无日志——执行任何动作后，这里实时显示子进程输出。</span>';
+    } else {
+      for (const l of msg.lines) appendLine(l.stream, l.text);
+    }
+  } else if (msg.type === 'line') {
+    appendLine(msg.stream, msg.text);
+  } else if (msg.type === 'status') {
+    if (msg.job === undefined) { loadState(); return; } // serve-updates 启停通知
+    const prev = JOB;
+    JOB = msg.job && msg.job.label ? msg.job : null;
+    renderJobStatus();
+    // 任务结束 → toast + 刷新状态
+    if (JOB && JOB.done && (!prev || prev.running)) {
+      if (JOB.exitCode === 0) toast('ok', `${JOB.label} · 完成`);
+      else toast('err', `${JOB.label} · 失败（exit ${JOB.exitCode}）`);
+      loadState();
+    }
+  }
+};
+
+$('#btn-kill').addEventListener('click', async () => {
+  const r = await api('/api/kill');
+  if (!r.ok) toast('info', '当前没有运行中的任务');
+});
+
+// ===========================================================================
+// 启动
+// ===========================================================================
+renderJobStatus();
+loadState();
+setInterval(loadState, 30000);
+</script>
+</body>
+</html>

@@ -247,14 +247,19 @@ def get_version():
 
     业务用途:
     - Web 模式下替代 Electron 的 getAppVersion IPC
-    - 从包元数据中读取版本信息
+    - 版本优先级：PRECIS_APP_VERSION 环境变量（Electron 主进程注入 app.getVersion()）→
+      包元数据（开发环境 pip install -e 提供）→ "0.0.0-dev"
+      （打包环境不安装 precis 包元数据，importlib.metadata 拿不到真实版本，
+      环境变量是桌面打包场景的唯一真实来源）
 
     @returns dict - 包含 version 字段的响应对象
     """
-    from importlib.metadata import version
+    from importlib.metadata import PackageNotFoundError, version
 
-    try:
-        ver = version("precis")
-    except Exception:
-        ver = "1.0.0"
+    ver = os.environ.get("PRECIS_APP_VERSION")
+    if not ver:
+        try:
+            ver = version("precis")
+        except PackageNotFoundError:
+            ver = "0.0.0-dev"
     return {"version": ver}

@@ -139,6 +139,19 @@ jobs:
       - name: Run unit tests
         run: npm run test
 
+  release-scripts:
+    name: Release Scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 发布脚本纯逻辑单测（semver 比较/CHANGELOG 切版/latest.yml 解析）+ dry-run 冒烟
+      - name: Unit tests
+        run: npm run test:scripts
+
+      - name: Dry-run smoke
+        run: node scripts/release.mjs 99.0.0 --dry-run
+
   encoding-check:
     name: Script Encoding Check
     runs-on: ubuntu-latest

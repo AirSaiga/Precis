@@ -19,11 +19,36 @@ env:
 
 jobs:
   # ==========================================================================
+  # 0. 版本一致性守卫 —— tag 版本必须与六处 manifest 全等（防人肉漏同步/漂移）。
+  #    仅 tag 推送路径执行；workflow_dispatch 路径由各构建 job 内 sync 对齐。
+  # ==========================================================================
+  verify-manifests:
+    name: Verify version manifests
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine expected version
+        id: version
+        shell: bash
+        run: |
+          VERSION="${{ github.ref_name }}"
+          VERSION="${VERSION#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Check manifests match tag version
+        shell: bash
+        run: node scripts/release.mjs check "${{ steps.version.outputs.version }}"
+
+  # ==========================================================================
   # 1. GUI（Electron）—— 保持原有逻辑，win NSIS + mac DMG，直接 --publish always
   # ==========================================================================
   build-electron:
     name: Build Electron (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
+    needs: verify-manifests
+    if: always() && (needs.verify-manifests.result == 'success' || needs.verify-manifests.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
@@ -38,16 +63,16 @@ jobs:
 
       - name: Determine and sync version
         shell: bash
+        # tag 推送：版本已由 npm run release 统一写入六处 manifest（verify-manifests job 守卫），
+        # 不再覆写，漂移即 fail；workflow_dispatch：用 release.mjs sync 对齐（仅影响本次构建产物）
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            VERSION="${{ inputs.version }}"
+            node scripts/release.mjs sync "${{ inputs.version }}"
           else
             VERSION="${{ github.ref_name }}"
             VERSION="${VERSION#v}"
+            echo "Building version: ${VERSION} (manifests already synced by release script)"
           fi
-          echo "Building version: ${VERSION}"
-          cd electron
-          npm pkg set "version=${VERSION}"
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -98,6 +123,8 @@ jobs:
   build-cli:
     name: Build CLI (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
+    needs: verify-manifests
+    if: always() && (needs.verify-manifests.result == 'success' || needs.verify-manifests.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
@@ -115,9 +142,11 @@ jobs:
       - name: Determine version
         id: version
         shell: bash
+        # dispatch 路径顺带 sync（保证包内 backend 版本与产物名一致）；tag 路径 manifest 已同步
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ inputs.version }}"
+            node scripts/release.mjs sync "${VERSION}"
           else
             VERSION="${{ github.ref_name }}"
             VERSION="${VERSION#v}"
@@ -284,6 +313,8 @@ jobs:
   build-tui:
     name: Build TUI (${{ matrix.platform }})
     runs-on: ${{ matrix.runner }}
+    needs: verify-manifests
+    if: always() && (needs.verify-manifests.result == 'success' || needs.verify-manifests.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
@@ -299,9 +330,11 @@ jobs:
       - name: Determine version
         id: version
         shell: bash
+        # dispatch 路径顺带 sync（保证包内 backend 版本与产物名一致）；tag 路径 manifest 已同步
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             VERSION="${{ inputs.version }}"
+            node scripts/release.mjs sync "${VERSION}"
           else
             VERSION="${{ github.ref_name }}"
             VERSION="${VERSION#v}"
@@ -441,12 +474,14 @@ jobs:
           if-no-files-found: error
 
   # ==========================================================================
-  # 4. Release —— 汇总所有产物，生成 checksums，创建 draft Release
+  # 4. Release —— 汇总产物，生成 checksums，自动 publish Release（非 draft：
+  #    draft 对 electron-updater 不可见，客户端将检测不到更新）+ 产物自检闸门
   # ==========================================================================
   release:
-    name: Create GitHub Release
+    name: Publish GitHub Release
     runs-on: ubuntu-latest
-    needs: [build-cli, build-tui, build-electron]
+    needs: [verify-manifests, build-cli, build-tui, build-electron]
+    if: always() && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     steps:
       - uses: actions/checkout@v4
 
@@ -462,6 +497,22 @@ jobs:
           fi
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Detect prerelease
+        id: meta
+        run: |
+          # 版本号含 prerelease 后缀（如 0.2.0-alpha.1）时标记为 GitHub prerelease
+          if [[ "${{ steps.version.outputs.version }}" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract release notes from CHANGELOG
+        run: |
+          node scripts/extract-release-notes.mjs "${{ steps.version.outputs.version }}" > release-notes.md
+          echo "=== Release notes head ==="
+          head -20 release-notes.md
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -483,14 +534,27 @@ jobs:
           echo "=== Checksums ==="
           cat checksums-${{ steps.version.outputs.version }}.txt
 
-      - name: Create GitHub Release
+      - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.version.outputs.tag }}
           name: Precis v${{ steps.version.outputs.version }}
-          draft: true
+          draft: false
+          prerelease: ${{ steps.meta.outputs.prerelease }}
+          body_path: release-notes.md
           generate_release_notes: true
           files: |
             release-assets/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # 产物自检闸门：latest.yml 引用的每个文件必须在 Release 资产中存在且
+      # size/sha512 实测一致（历史出过命名漂移导致客户端更新 404，见 scripts/verify-release-assets.mjs 头注）
+      - name: Verify release assets (auto-update integrity gate)
+        run: |
+          node scripts/verify-release-assets.mjs \
+            --repo "${GITHUB_REPOSITORY}" \
+            --tag "${{ steps.version.outputs.tag }}" \
+            --version "${{ steps.version.outputs.version }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -13,11 +13,13 @@
  */
 
 import { autoUpdater, UpdateInfo, ProgressInfo } from 'electron-updater';
-import { app, ipcMain } from 'electron';
+import { app, BrowserWindow, ipcMain } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from './logger';
 import { t } from './i18n';
+import { appState } from './app-state';
+import { stopPythonServerSync } from './pythonProcess';
 
 export type UpdateStatus =
   | 'idle'
@@ -64,8 +66,21 @@ class UpdateManager {
 
   private init(): void {
     this.loadConfig();
+    // 持久化的自定义更新源在启动时重放 setFeedURL（修复：此前仅在 saveConfig 时设置，
+    // 重启后 autoUpdater 回退到默认 GitHub 源，用户配置的自定义源静默失效）
+    this.applyFeedUrl();
     this.setupAutoUpdater();
     this.setupIpcHandlers();
+  }
+
+  /**
+   * 把配置中的更新源应用到 autoUpdater。
+   * github 源无需手动设置 feedURL（electron-updater 自动从 package.json 读取）。
+   */
+  private applyFeedUrl(): void {
+    if (this.config.sourceType === 'custom' && this.config.sourceUrl) {
+      autoUpdater.setFeedURL({ provider: 'generic', url: this.config.sourceUrl });
+    }
   }
 
   private loadConfig(): void {
@@ -85,10 +100,7 @@ class UpdateManager {
   public saveConfig(config: Partial<UpdateConfig>): void {
     this.config = { ...this.config, ...config };
 
-    if (this.config.sourceType === 'custom' && this.config.sourceUrl) {
-      autoUpdater.setFeedURL({ provider: 'generic', url: this.config.sourceUrl });
-    }
-    // github 源无需手动设置 feedURL，electron-updater 会自动从 package.json repository 读取
+    this.applyFeedUrl();
 
     try {
       fs.writeFileSync(this.configPath, JSON.stringify(this.config, null, 2), 'utf-8');
@@ -216,6 +228,11 @@ class UpdateManager {
         return { success: false, error: t('update.downloadNotComplete') };
       }
 
+      // NSIS 安装器需要整目录覆盖 resources（backend/python-runtime 都在 extraResources），
+      // 必须在退出前同步终止 Python 子进程树，否则文件被占用导致安装失败。
+      // before-quit 钩子会兜底再清理一次（stopPythonServerSync 幂等，null 引用直接返回）。
+      stopPythonServerSync(appState.pythonProcess);
+
       autoUpdater.quitAndInstall();
       return { success: true };
     });
@@ -223,6 +240,12 @@ class UpdateManager {
 
   private updateState(newState: Partial<UpdateState>): void {
     this.state = { ...this.state, ...newState };
+    // 主 → 渲染推送：渲染进程经 update:state-changed 事件驱动 UI，轮询仅作兜底
+    for (const win of BrowserWindow.getAllWindows()) {
+      if (!win.isDestroyed()) {
+        win.webContents.send('update:state-changed', this.state);
+      }
+    }
   }
 
   public getState(): UpdateState {

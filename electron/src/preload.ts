@@ -376,6 +376,17 @@ contextBridge.exposeInMainWorld('electronAPI', {
     }) => ipcRenderer.invoke('update:save-config', config),
     check: () => ipcRenderer.invoke('update:check'),
     download: () => ipcRenderer.invoke('update:download'),
-    install: () => ipcRenderer.invoke('update:install')
+    install: () => ipcRenderer.invoke('update:install'),
+    /**
+     * 订阅更新状态变化（主进程 update:state-changed 推送）。
+     * 返回退订函数——调用方销毁时必须调用，防止监听器泄漏。
+     */
+    onStateChanged: (callback: (state: unknown) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, state: unknown) => callback(state);
+      ipcRenderer.on('update:state-changed', listener);
+      return () => {
+        ipcRenderer.removeListener('update:state-changed', listener);
+      };
+    }
   }
 });

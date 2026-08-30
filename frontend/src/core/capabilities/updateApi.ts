@@ -68,7 +68,9 @@ export interface UpdateApi {
 }
 
 /**
- * Electron 适配器：转发到 window.electronAPI.update
+ * Electron 适配器：转发到 window.electronAPI.update。
+ * 状态变化优先走主进程 push（onStateChanged），1s 轮询作为兜底
+ * （旧版主进程无推送 channel、或推送丢失时 UI 仍能推进）。
  */
 class ElectronUpdateAdapter implements UpdateApi {
   get isSupported(): boolean {
@@ -77,6 +79,7 @@ class ElectronUpdateAdapter implements UpdateApi {
 
   private progressCallbacks: Set<UpdateProgressCallback> = new Set()
   private pollTimer: number | null = null
+  private unsubscribePush: (() => void) | null = null
 
   async getStatus(): Promise<UpdateState> {
     return getElectronAPI().update.getStatus()
@@ -101,12 +104,12 @@ class ElectronUpdateAdapter implements UpdateApi {
   }
 
   async check(): Promise<UpdateState> {
-    this.startPolling()
+    this.ensureSubscriptions()
     return getElectronAPI().update.check()
   }
 
   async download(): Promise<UpdateOperationResult> {
-    this.startPolling()
+    this.ensureSubscriptions()
     return getElectronAPI().update.download()
   }
 
@@ -116,13 +119,37 @@ class ElectronUpdateAdapter implements UpdateApi {
 
   onProgress(callback: UpdateProgressCallback): () => void {
     this.progressCallbacks.add(callback)
-    this.startPolling()
+    this.ensureSubscriptions()
 
     return () => {
       this.progressCallbacks.delete(callback)
       if (this.progressCallbacks.size === 0) {
-        this.stopPolling()
+        this.stopSubscriptions()
       }
+    }
+  }
+
+  /** 订阅主进程状态推送 + 启动轮询兜底（幂等，重复调用无副作用） */
+  private ensureSubscriptions(): void {
+    if (!this.unsubscribePush) {
+      try {
+        this.unsubscribePush = getElectronAPI().update.onStateChanged((state) => {
+          for (const cb of this.progressCallbacks) {
+            cb(state)
+          }
+        })
+      } catch (error) {
+        logger.warn('[updateApi] 订阅更新状态推送失败，仅用轮询兜底:', error)
+      }
+    }
+    this.startPolling()
+  }
+
+  private stopSubscriptions(): void {
+    this.stopPolling()
+    if (this.unsubscribePush) {
+      this.unsubscribePush()
+      this.unsubscribePush = null
     }
   }
 

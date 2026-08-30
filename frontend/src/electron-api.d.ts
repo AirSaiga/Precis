@@ -642,6 +642,18 @@ interface ElectronAPI {
      * @returns Promise<{ success: boolean; error?: string }> - 安装结果
      */
     install: () => Promise<{ success: boolean; error?: string }>
+
+    /**
+     * 订阅更新状态变化（主进程 push，无需轮询）
+     *
+     * 用途:
+     * - 下载进度实时刷新（主进程 download-progress 事件直推渲染进程）
+     * - 状态机变化（checking → update-available → downloading → downloaded）
+     *
+     * 返回值:
+     * - 退订函数，组件销毁时必须调用（onUnmounted），防止监听器泄漏
+     */
+    onStateChanged: (callback: (state: UpdateState) => void) => () => void
   }
 }
 

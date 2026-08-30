@@ -1,18 +1,18 @@
 /**
  * 本地更新服务器脚本
  *
- * 用途: 为自动更新端到端测试搭建本地 HTTP 服务器
+ * 用途: 为自动更新端到端演练搭建本地 HTTP 服务器（generic 更新源）
  *
  * 使用方法:
- *   1. 先创建模拟更新: node scripts/create-local-update.js create 0.2.0 "测试更新"
- *   2. 启动本服务器:   node scripts/serve-updates.js [port]
- *   3. 在已安装的应用中配置更新源为 http://localhost:8080
+ *   1. 先生成演练更新源: node scripts/update-drill.mjs lite（或 full）
+ *   2. 启动本服务器:     node scripts/serve-updates.js [port]
+ *   3. 在已安装的应用中把更新源配置为 http://localhost:8080
  *
- * 服务目录: local-updates/ (由 create-local-update.js 创建)
+ * 服务目录: local-updates/ (由 update-drill.mjs 生成)
  *
  * 支持的请求:
  *   GET /latest.yml           — 版本信息文件（electron-updater 检查更新时请求）
- *   GET /releases/*.zip       — 更新包文件（electron-updater 下载时请求）
+ *   GET /Precis-Setup-*.exe   — 更新安装包文件（electron-updater 下载时请求）
  *   GET /                      — 服务器状态页，确认服务正常
  */
 
@@ -92,6 +92,8 @@ ${entries.map(e => `<li>${e.isDirectory() ? '📁' : '📄'} <a href="${path.joi
     'Content-Type': getMimeType(filePath),
     'Content-Length': stat.size,
     'Access-Control-Allow-Origin': '*',
+    // 禁缓存：electron-updater 会缓存 latest.yml 响应，演练时反复改版本号需每次拿到最新清单
+    'Cache-Control': 'no-store',
   });
   res.end(content);
   console.log(`[UpdateServer] 200 ${safePath} (${stat.size} bytes)`);

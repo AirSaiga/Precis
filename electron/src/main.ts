@@ -68,6 +68,23 @@ const BACKEND_PATH = getBackendPath(app.isPackaged, process.resourcesPath, __dir
 const FRONTEND_PATH = getFrontendPath(app.isPackaged, process.resourcesPath, __dirname);
 
 // ============================================================================
+// 单实例锁：拒绝第二实例（误双击 / 更新安装期双击），聚焦已有窗口。
+// 无锁时两个实例会竞争后端 .backend-port 与安装目录，NSIS 更新安装可能因文件占用失败。
+// ============================================================================
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on('second-instance', () => {
+    const win = appState.mainWindow;
+    if (win) {
+      if (win.isMinimized()) win.restore();
+      win.focus();
+    }
+  });
+}
+
+// ============================================================================
 // 自定义协议注册：app:// scheme 特权声明
 // ⚠️ 时序铁律：registerAppScheme 必须在 app.whenReady 之前同步执行（模块加载时），
 // registerAppProtocolHandler 必须在 whenReady 内执行。详见 protocol.ts。
@@ -92,6 +109,9 @@ registerAppScheme();
  * - 但不阻塞窗口创建
  */
 app.whenReady().then(async () => {
+  // 单实例锁竞争失败（已有实例在跑）：app.quit 已发起，不再启动任何资源
+  if (!gotSingleInstanceLock) return;
+
   // 判断当前环境，用于决定是否隐藏系统菜单栏
   // 检测逻辑:
   // 1. 如果应用已打包 (app.isPackaged) -> 生产模式

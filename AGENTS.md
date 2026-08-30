@@ -559,6 +559,33 @@ AI 动作类型（actionType，如 `ADD_SCHEMA`/`VALIDATE_PROJECT`，共 15 种�
 
 ---
 
+## 版本发布与自动更新
+
+**版本单一事实源**：根 `package.json` 的 `version`；其余四处（electron/frontend 的 package.json、backend/pyproject.toml、tui-rust/Cargo.toml + Cargo.lock）是同步副本，**禁止手工单改任何一处**——一律通过 `npm run release`（仓库根，`scripts/release.mjs`）同步。
+
+**发布流程**：`npm run release -- <版本|patch|minor|major> [--prerelease alpha.1] [--dry-run] [--no-push]`。脚本校验（main 分支 + 干净树 + 版本不倒退）→ 同步六处 manifest → CHANGELOG 切版（`[Unreleased]` 的 `### YYYY-MM` 内容落为 `## [X.Y.Z] - 日期` 分节）→ commit + annotated tag + push 触发 CD。
+
+**CD 关键不变量**（`.github/workflows/cd.yml`，改流水线时勿破坏）：
+- tag 版本与六处 manifest 必须全等（`verify-manifests` job 用 `release.mjs check` 守卫）；`workflow_dispatch` 路径用 `release.mjs sync` 对齐，不覆写仓库文件
+- Release 必须**非 draft** 才算发布完成——draft Release 对 electron-updater 不可见，客户端永远检测不到更新
+- Release 发布后有产物自检闸门（`scripts/verify-release-assets.mjs`）：latest.yml 引用的每个资产必须存在且 size/sha512 实测一致；历史出过"清单引用 `Precis-Setup-x.exe`（连字符）vs 实际产物 `Precis Setup x.exe`（空格）"漂移导致客户端更新 404
+- 安装包产物名由 `electron/package.json` 的 `build.artifactName` 显式固定为 `Precis-Setup-${version}.${ext}`（无空格）
+
+**客户端更新链路约定**（`electron/src/update.ts` 等）：
+- 自定义 generic 更新源必须在启动时重放 `setFeedURL`（持久化配置），不能只在保存时设置
+- `quitAndInstall` 前必须先同步终止 Python 子进程树（extraResources 整目录被 NSIS 覆盖，文件占用会安装失败）
+- 主进程已加单实例锁（`requestSingleInstanceLock`），勿移除
+- 打包环境后端版本经 `PRECIS_APP_VERSION` 环境变量注入（打包不安装 precis 包元数据，importlib.metadata 拿不到），`/api/latest/version` 以此为第一优先级
+- macOS 未签名不支持 electron-updater 自动更新（Squirrel.Mac 要求签名）；Windows 未签名可自动更新（sha512 清单校验保证完整性）
+
+**本地"模拟生产"演练**：`cd electron && npm run update:drill -- lite|full` 生成 `local-updates/` 真实更新源（lite 复用真实产物仅抬升清单版本；full 构建两个真实版本），`npm run serve:updates` 起本地 generic 源，应用设置中切自定义源演练。禁止用假包/dummy sha512 模拟更新（下载校验必失败）。
+
+**发布脚本与 CD 辅助脚本的测试**：`scripts/tests/`（node --test，根 `npm run test:scripts`，CI 有 `release-scripts` job）；纯函数从 `.mjs` 导入，脚本入口都有"直接执行才跑 main"守卫，新增脚本沿用该模式。
+
+**发布控制台 GUI**：`npm run release:gui`（`scripts/release-gui.mjs` + `release-gui.html`，零依赖 Node 内置 HTTP + 单页 HTML）——打包/发布（dry-run+正式）/更新演练（lite+full+本地更新源启停）/线上产物校验 的按钮化控制台，日志经 SSE 流式推送。双击入口：仓库根 `release-gui.bat`（薄委托 → `scripts/windows/release-gui.bat`，mac 对称 `scripts/mac/release-gui.sh`）。安全约束：只绑 127.0.0.1；客户端只能触发固定动作枚举；任何用户输入（版本号/tag/端口）必须先过 `validateVersionish`/`validateTag`/`validatePort` 白名单正则才允许拼进 shell 命令——改 GUI 时不得放宽。
+
+---
+
 ## Pre-commit Hooks
 
 Husky pre-commit 钩子自动执行（`.husky/pre-commit`）：

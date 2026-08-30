@@ -217,6 +217,9 @@ export async function startPythonServer(backendPath: string): Promise<number> {
   //   - PRECIS_ALLOW_NULL_ORIGIN=1: 打包生产模式经 app:// 自定义协议加载前端,页面发
   //     Origin: null,后端 CORS 默认拒绝 null(防沙箱 iframe 跨域读取本机 API),此处
   //     显式放行。开发模式前端为 http://localhost:5173,走既有 localhost 正则,不需要。
+  //   - PRECIS_APP_VERSION: 注入应用版本（app.getVersion）。打包环境不安装 precis 包
+  //     元数据（requirements.txt 明确禁止 -e 安装），后端 /api/latest/version 的
+  //     importlib.metadata 兜底拿不到真实版本，以环境变量为第一优先级。
   // detached (Unix): 创建新进程组，便于整组清理
   // windowsHide: 在 Windows 上隐藏命令行窗口
   const options: SpawnOptions = {
@@ -227,6 +230,7 @@ export async function startPythonServer(backendPath: string): Promise<number> {
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',
       PRECIS_ALLOW_NULL_ORIGIN: '1',
+      PRECIS_APP_VERSION: app.getVersion(),
     },
     detached: process.platform !== 'win32',
     windowsHide: true,

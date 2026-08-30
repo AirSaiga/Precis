@@ -13,9 +13,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // 使用 vi.hoisted 确保 mock 变量在 vi.mock 工厂之前初始化
-const { mockInvoke, exposedApi } = vi.hoisted(() => {
+const { mockInvoke, mockOn, mockRemoveListener, exposedApi } = vi.hoisted(() => {
   return {
     mockInvoke: vi.fn(),
+    mockOn: vi.fn(),
+    mockRemoveListener: vi.fn(),
     exposedApi: {} as Record<string, unknown>,
   }
 })
@@ -28,6 +30,8 @@ vi.mock('electron', () => ({
   },
   ipcRenderer: {
     invoke: mockInvoke,
+    on: mockOn,
+    removeListener: mockRemoveListener,
   },
 }))
 
@@ -633,5 +637,43 @@ describe('综合 IPC 接口验证', () => {
     const fn2 = exposedApi.checkFileExists as (filePath: string) => Promise<boolean>
     await fn2('/test/file.txt')
     expect(mockInvoke).toHaveBeenCalledWith('check-file-exists', '/test/file.txt')
+  })
+})
+
+// ============================================================================
+// update.onStateChanged（主进程状态推送订阅）
+// ============================================================================
+describe('update.onStateChanged', () => {
+  beforeEach(() => {
+    mockOn.mockReset()
+    mockRemoveListener.mockReset()
+  })
+
+  it('正常路径：订阅 update:state-changed 通道并转发状态回调', () => {
+    const callback = vi.fn()
+    mockOn.mockImplementation((_channel: string, listener: (event: unknown, state: unknown) => void) => {
+      // 模拟主进程推送：拿到注册的 listener 并触发
+      listener({}, { status: 'downloading', progress: 42 })
+    })
+
+    const subscribe = (exposedApi.update as { onStateChanged: (cb: (state: unknown) => void) => () => void })
+      .onStateChanged
+    const unsubscribe = subscribe(callback)
+
+    expect(mockOn).toHaveBeenCalledWith('update:state-changed', expect.any(Function))
+    expect(callback).toHaveBeenCalledWith({ status: 'downloading', progress: 42 })
+    expect(typeof unsubscribe).toBe('function')
+  })
+
+  it('退订：调用返回函数时移除同名监听器（防泄漏）', () => {
+    const callback = vi.fn()
+    mockOn.mockImplementation(() => undefined)
+
+    const subscribe = (exposedApi.update as { onStateChanged: (cb: (state: unknown) => void) => () => void })
+      .onStateChanged
+    const unsubscribe = subscribe(callback)
+    unsubscribe()
+
+    expect(mockRemoveListener).toHaveBeenCalledWith('update:state-changed', expect.any(Function))
   })
 })
