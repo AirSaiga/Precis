@@ -516,6 +516,7 @@ input[type=range] { accent-color: var(--accent); width: 180px; height: 24px; cur
 .swatch.is-on { border-color: var(--accent); box-shadow: var(--focus-ring); }
 .swatch--theme { display: flex; overflow: hidden; }
 .swatch--theme i { flex: 1; display: block; }
+.swatch-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: var(--fs-11); color: var(--text-2); }
 
 /* ---------- 动效兜底 ---------- */
 @media (prefers-reduced-motion: reduce) {
@@ -646,7 +647,7 @@ input[type=range] { accent-color: var(--accent); width: 180px; height: 24px; cur
       <section class="panel active" id="panel-build">
         <div class="page-head">
           <h2><svg class="icon" style="color:var(--text-3)"><use href="#i-package"/></svg>制作安装包</h2>
-          <p>把当前代码做成一个安装包，先只放在本地、不发布。做好的文件在 <span class="mono">electron/release/</span> 文件夹里。</p>
+          <p>把当前代码做成一个安装包，先只放在本地、不发布。做好的文件在 <span class="mono">electron/release/</span> 文件夹里。<b>发正式版不需要先做这一步</b>——"发布新版本"页上传后，服务器会自动做安装包；这里做的安装包主要用来在"测试自动更新"页验证升级。</p>
         </div>
         <div class="grid">
           <div class="card col-5">
@@ -708,7 +709,8 @@ input[type=range] { accent-color: var(--accent); width: 180px; height: 24px; cur
                   <input type="text" id="rel-prerelease" placeholder="alpha.1" style="width:130px">
                 </div>
               </div>
-              <div style="margin-top:var(--sp-3)">
+              <div class="hint" style="margin-top:var(--sp-2)">"测试版标记"填了（比如 alpha.1），这个版本就是<b>测试版</b>，普通用户不会收到更新提示；不确定就留空。</div>
+              <div style="margin-top:var(--sp-2)">
                 <label class="check"><input type="checkbox" id="rel-nopush">先不上传（只在本地准备好，之后我自己上传）</label>
               </div>
               <div class="preview" id="rel-preview" style="margin-top:var(--sp-3)">–</div>
@@ -727,7 +729,7 @@ input[type=range] { accent-color: var(--accent); width: 180px; height: 24px; cur
                   <svg class="icon"><use href="#i-rocket"/></svg>正式发布
                 </button>
                 <button class="btn btn--ghost" data-run="check-manifests">
-                  <svg class="icon"><use href="#i-shield"/></svg>检查版本号是否对齐
+                  <svg class="icon"><use href="#i-shield"/></svg>检查 6 个文件的版本号是否一致
                 </button>
               </div>
               <div class="hint">正式发布后：GitHub 的服务器会自动制作 Windows / Mac 安装包并公布（约 20-40 分钟），可以在"发布结果"页盯进度。公布后，老用户打开应用就会收到更新提示。</div>
@@ -807,9 +809,12 @@ input[type=range] { accent-color: var(--accent); width: 180px; height: 24px; cur
                     <button class="btn btn--ghost" id="svc-stop"><svg class="icon"><use href="#i-stop"/></svg>停止</button>
                   </div>
                 </div>
-                <div class="field">
+                <div class="field" style="flex:1;min-width:260px">
                   <span class="field__label">应用里要填的地址（设置 → 自动更新）</span>
-                  <div class="preview" style="margin:0" id="svc-url">http://localhost:8080</div>
+                  <div style="display:flex;gap:var(--sp-2);align-items:center">
+                    <div class="preview" style="margin:0;flex:1" id="svc-url">http://localhost:8080</div>
+                    <button class="btn btn--secondary btn--sm" id="svc-copy" title="复制地址，直接粘进应用设置里"><svg class="icon" style="width:13px;height:13px"><use href="#i-copy"/></svg>复制</button>
+                  </div>
                 </div>
               </div>
               <ol class="steps">
@@ -904,9 +909,10 @@ input[type=range] { accent-color: var(--accent); width: 180px; height: 24px; cur
       <li><span>发布版本</span><b class="mono" id="rd-tag">–</b></li>
       <li><span>上传方式</span><b id="rd-push">立即上传 GitHub</b></li>
       <li><span>之后发生什么</span><b>服务器自动做安装包并公布</b></li>
+      <li><span>反悔空间</span><b style="font-weight:400;color:var(--text-2)">上传后约 20-40 分钟内可在 GitHub 删掉这个版本；安装包一旦公布，老用户就会陆续收到更新提示</b></li>
     </ul>
     <div class="dialog__confirm-field field">
-      <span class="field__label">为防手滑，请输入版本号 <b class="mono" id="rd-hint" style="color:var(--text-1)">–</b> 解锁按钮</span>
+      <span class="field__label">为防手滑，请输入版本号 <b class="mono" id="rd-hint" style="color:var(--text-1)">–</b>（不带 v）解锁按钮</span>
       <input type="text" id="rd-confirm" placeholder="" autocomplete="off">
     </div>
     <menu class="dialog__actions">
@@ -945,9 +951,18 @@ input[type=range] { accent-color: var(--accent); width: 180px; height: 24px; cur
   <div class="field">
     <span class="field__label">主题颜色</span>
     <div class="swatches" id="ap-themes">
-      <button class="swatch swatch--theme" data-theme-value="dark" title="深夜（默认）"><i style="background:#0c0f16"></i><i style="background:#12161f"></i><i style="background:#4f8cff"></i></button>
-      <button class="swatch swatch--theme" data-theme-value="light" title="浅色"><i style="background:#eef1f6"></i><i style="background:#ffffff"></i><i style="background:#2f6fd8"></i></button>
-      <button class="swatch swatch--theme" data-theme-value="anime" title="二次元（樱粉）"><i style="background:#ffd9e8"></i><i style="background:#e3d5ff"></i><i style="background:#e0559f"></i></button>
+      <div class="swatch-wrap">
+        <button class="swatch swatch--theme" data-theme-value="dark" title="深夜（默认）"><i style="background:#0c0f16"></i><i style="background:#12161f"></i><i style="background:#4f8cff"></i></button>
+        <span>深夜</span>
+      </div>
+      <div class="swatch-wrap">
+        <button class="swatch swatch--theme" data-theme-value="light" title="浅色"><i style="background:#eef1f6"></i><i style="background:#ffffff"></i><i style="background:#2f6fd8"></i></button>
+        <span>浅色</span>
+      </div>
+      <div class="swatch-wrap">
+        <button class="swatch swatch--theme" data-theme-value="anime" title="二次元（樱粉）"><i style="background:#ffd9e8"></i><i style="background:#e3d5ff"></i><i style="background:#e0559f"></i></button>
+        <span>二次元</span>
+      </div>
     </div>
   </div>
 
@@ -987,14 +1002,14 @@ input[type=range] { accent-color: var(--accent); width: 180px; height: 24px; cur
     </div>
     <div class="field">
       <span class="field__label">面板不透明度 <b class="mono" id="ap-alpha-val"></b></span>
-      <input type="range" id="ap-alpha" min="35" max="100" step="5">
+      <input type="range" id="ap-alpha" min="70" max="100" step="5">
     </div>
   </div>
 
   <div class="hint">背景图片只保存在这台电脑的浏览器里，大图会自动压缩到合适大小。搭配建议：浅色/二次元主题配浅色背景，深夜主题配深色背景。</div>
 
   <menu class="dialog__actions">
-    <button class="btn btn--ghost" id="ap-reset">恢复默认</button>
+    <button class="btn btn--secondary" id="ap-reset">恢复默认</button>
     <span style="flex:1"></span>
     <button class="btn btn--primary" id="ap-done">完成</button>
   </menu>
@@ -1077,13 +1092,16 @@ const BG_PRESETS = {
   dusk: 'linear-gradient(160deg, #2b1055 0%, #7597de 100%)',
   ocean: 'linear-gradient(160deg, #0f2027 0%, #203a43 50%, #2c5364 100%)',
 };
-const AP_DEFAULTS = { theme: 'dark', bgType: 'none', bgValue: '', blur: 16, alpha: 62 };
+const AP_DEFAULTS = { theme: 'dark', bgType: 'none', bgValue: '', blur: 16, alpha: 75 };
 // 切主题时的推荐背景（当前没有背景才自动带上，不打断用户已选的背景）
 const THEME_RECOMMEND_BG = { dark: null, light: null, anime: 'sakura' };
 
 function loadAppearance() {
   try {
-    return { ...AP_DEFAULTS, ...JSON.parse(localStorage.getItem(APPEARANCE_KEY) || '{}') };
+    const saved = { ...AP_DEFAULTS, ...JSON.parse(localStorage.getItem(APPEARANCE_KEY) || '{}') };
+    // 不透明度下限 70（低于此正文可能被复杂背景糊掉），旧存量值一并抬升
+    if (saved.alpha < 70) saved.alpha = 75;
+    return saved;
   } catch {
     return { ...AP_DEFAULTS };
   }
@@ -1261,19 +1279,23 @@ function renderArtifacts() {
   $('#artifacts-count').textContent = files.length ? `${files.length} 项` : '';
   const yml = STATE.buildArtifacts.latestYml;
   let html = '';
+  // 产物版本落后于当前代码时提醒（避免拿旧安装包测更新白忙一场）
+  if (yml && STATE.rootVersion && yml.version !== STATE.rootVersion) {
+    html += `<div class="hint" style="margin:0 0 var(--sp-2);color:var(--warn-soft-fg)">这些安装包是旧版本 ${esc(yml.version)} 的；当前代码已经是 ${esc(STATE.rootVersion)}。要测最新的，请重新制作一次。</div>`;
+  }
   if (files.length === 0) {
-    html = `<div class="empty">
+    html += `<div class="empty">
       <svg class="icon"><use href="#i-box-empty"/></svg>
       <div class="empty__title">还没有安装包</div>
       <div class="empty__desc">点左侧"开始制作安装包"，完成后文件会出现在这里</div>
     </div>`;
   } else {
-    html = '<table><thead><tr><th>文件</th><th class="num">大小</th><th>时间</th></tr></thead><tbody>'
-      + files.map((f) => `<tr><td class="mono" style="font-size:var(--fs-12)">${esc(f.name)}</td><td class="num mono">${fmtSize(f.size)}</td><td class="mono" style="color:var(--text-3);font-size:var(--fs-11)">${fmtDate(f.mtime)}</td></tr>`).join('')
+    html += '<table><thead><tr><th>文件</th><th class="num">大小</th><th>时间</th></tr></thead><tbody>'
+      + files.map((f, i) => `<tr><td class="mono" style="font-size:var(--fs-12)">${esc(f.name)}${i === 0 ? ' <span class="badge badge--accent badge--plain" style="font-size:10px;height:16px;padding:0 6px">最新</span>' : ''}</td><td class="num mono">${fmtSize(f.size)}</td><td class="mono" style="color:var(--text-3);font-size:var(--fs-11)">${fmtDate(f.mtime)}</td></tr>`).join('')
       + '</tbody></table>';
   }
   if (yml) {
-    html += `<div class="hint">更新清单（应用靠它找到新版本）：版本 <code>${esc(yml.version)}</code>，指向 ${yml.files.length} 个文件（${yml.files.map((f) => esc(f.url)).join('、')}）</div>`;
+    html += `<div class="hint">更新清单（就是上面列表里的 <code>latest.yml</code> 文件，应用靠它找到新版本）：版本 <code>${esc(yml.version)}</code>，指向 ${yml.files.length} 个文件（${yml.files.map((f) => esc(f.url)).join('、')}）</div>`;
   }
   body.innerHTML = html;
 }
@@ -1295,7 +1317,11 @@ function renderGithub() {
   const box = $('#gh-list');
   const gh = STATE.github || {};
   if (gh.error) {
-    box.innerHTML = `<div class="hint" style="margin:0">暂时连不上 GitHub：${esc(gh.error)}（多是网络问题，稍后点"刷新"重试）</div>`;
+    // 403 是 GitHub 拒绝（限流/凭证），不是网络问题——文案必须区分，否则用户会空等重试
+    const is403 = /403/.test(String(gh.error));
+    box.innerHTML = is403
+      ? `<div class="hint" style="margin:0;color:var(--warn-soft-fg)">GitHub 拒绝了请求（HTTP 403：访问太频繁，或登录凭证过期）。过几分钟点"刷新"再试；一直这样就要检查 GitHub 登录凭证。</div>`
+      : `<div class="hint" style="margin:0">暂时连不上 GitHub：${esc(gh.error)}（网络问题，稍后点"刷新"重试）</div>`;
     return;
   }
   const releases = gh.releases || [];
@@ -1395,7 +1421,9 @@ async function runAction(action, params) {
     if (!drawerExpanded()) toggleDrawer(true); // 任务启动自动抬起日志
   } catch (err) {
     appendLine('stderr', `启动失败: ${err.message}`);
-    toast('err', '启动失败: ' + err.message);
+    // 中文错误直接展示；英文/混合错误给可执行的下一步（原始信息已在下方执行过程里）
+    const msg = String(err.message || '');
+    toast('err', /^[\u4e00-\u9fa5]/.test(msg) ? `没能开始：${msg}` : '没能开始——原因已写在下方"执行过程"里，点"复制"把最后几行发给会看的人');
   }
 }
 
@@ -1410,7 +1438,11 @@ function confirmRelease(version, noPush) {
   const btn = $('#rd-confirm-btn');
   input.value = '';
   btn.disabled = true;
-  input.oninput = () => { btn.disabled = input.value.trim() !== version; };
+  input.oninput = () => {
+    // 带 v 与不带 v 都接受（用户分不清时两种写法都是本人意图）
+    const typed = input.value.trim().replace(/^v/, '');
+    btn.disabled = typed !== version;
+  };
   // backdrop 点击关闭
   dlg.onclick = (e) => { if (e.target === dlg) dlg.close('cancel'); };
   return new Promise((resolve) => {
@@ -1458,6 +1490,7 @@ $$('[data-run]').forEach((btn) => {
       // 不是校验待发布版本（发布前它们必然还没同步，用 0.1.2 去对 0.1.1 必然全 FAIL）
       params = { version: STATE?.rootVersion || '' };
       if (!params.version) { toast('err', '当前版本未知，无法校验'); return; }
+      toast('info', '检查结果马上显示在下方"执行过程"；"发布结果"页右侧也有常驻对照表');
     }
     runAction(action, params);
   });
@@ -1477,6 +1510,12 @@ $('#svc-start').addEventListener('click', async () => {
 $('#svc-stop').addEventListener('click', async () => {
   await api('/api/service', { op: 'stop' });
   setTimeout(loadState, 300);
+});
+$('#svc-copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText($('#svc-url').textContent.trim());
+    toast('ok', '地址已复制，去应用设置里粘贴即可');
+  } catch { toast('err', '复制失败（剪贴板权限）'); }
 });
 
 // ===========================================================================
@@ -1651,7 +1690,7 @@ es.onmessage = (ev) => {
     // 任务结束 → toast + 刷新状态
     if (JOB && JOB.done && (!prev || prev.running)) {
       if (JOB.exitCode === 0) toast('ok', `${JOB.label} · 完成`);
-      else toast('err', `${JOB.label} · 失败（exit ${JOB.exitCode}）`);
+      else toast('err', `${JOB.label} · 没有成功（代码 ${JOB.exitCode}）。下方"执行过程"里有具体原因，点"复制"把最后几行发给会看的人`);
       loadState();
     }
   }
