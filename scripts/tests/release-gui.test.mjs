@@ -12,6 +12,7 @@ import {
   validatePort,
   buildActionCommand,
   createLineSplitter,
+  stripAnsi,
 } from '../release-gui.mjs';
 
 // ---------------------------------------------------------------------------
@@ -91,6 +92,22 @@ test('未知动作与非法参数抛错', () => {
   assert.throws(() => buildActionCommand('release-dry', { version: '0.1.1; rm' }), /非法/);
   assert.throws(() => buildActionCommand('verify-release', { tag: '0.1.1', version: '0.1.1' }), /tag 非法/);
   assert.throws(() => buildActionCommand('drill-full', { base: 'x; rm', next: '0.1.1' }), /非法/);
+});
+
+// ---------------------------------------------------------------------------
+// stripAnsi（lint-staged 等工具的管道颜色码剥离）
+// ---------------------------------------------------------------------------
+
+test('stripAnsi 剥离 ANSI 颜色序列与控制字符', () => {
+  // 实际样本：husky pre-commit 里 lint-staged 的 listr 输出
+  const noisy = '\x1b[33m[STARTED]\x1b[39m Backed up original state in git stash';
+  assert.equal(stripAnsi(noisy), '[STARTED] Backed up original state in git stash');
+  // CSI 光标/擦除序列
+  assert.equal(stripAnsi('abc\x1b[2K\x1b[1Gdef'), 'abcdef');
+  // 残留 C0 控制字符被剥离，制表符与正常文本保留
+  assert.equal(stripAnsi('a\x00b\x07c\td'), 'abc\td');
+  assert.equal(stripAnsi('ok\tline'), 'ok\tline');
+  assert.equal(stripAnsi('干净文本'), '干净文本');
 });
 
 // ---------------------------------------------------------------------------

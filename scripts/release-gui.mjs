@@ -68,6 +68,16 @@ function requireVersion(v, field = 'version') {
 }
 
 /**
+ * 剥离子进程输出中的 ANSI 转义序列与残留控制字符（npm/lint-staged 等工具在管道下
+ * 仍会输出颜色码，SSE 原样转发会在 HTML 日志窗里显示成 "[33m..." 乱码）。
+ */
+const ANSI_RE = /\x1b(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])/g;
+const C0_CTRL_RE = /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/g;
+export function stripAnsi(text) {
+  return String(text).replace(ANSI_RE, '').replace(C0_CTRL_RE, '');
+}
+
+/**
  * 把动作 + 参数拼装为受控 shell 命令。
  * @returns {{ label: string, cmd: string, cwd: string, platformCmd?: boolean }}
  * @throws 参数非法时抛错（未知动作 / 校验失败）
@@ -174,7 +184,7 @@ function sseSend(obj) {
 }
 
 function appendLog(stream, text) {
-  const entry = { type: 'line', stream, text, ts: Date.now() };
+  const entry = { type: 'line', stream, text: stripAnsi(text), ts: Date.now() };
   logHistory.push(entry);
   if (logHistory.length > LOG_HISTORY_LIMIT) logHistory.shift();
   sseSend(entry);
