@@ -67,6 +67,7 @@
     "test:coverage": "cd frontend && npm run test:coverage && cd ../backend && python -m pytest --cov=app --cov-report=term-missing --cov-report=html",
     "e2e:install": "cd e2e && npm install && npx playwright install chromium",
     "e2e:test": "cd e2e && npx playwright test",
+    "e2e:gui": "cd e2e && npx playwright test -c playwright.release-gui.config.ts",
     "e2e:report": "cd e2e && npx playwright show-report"
   },
   "keywords": [

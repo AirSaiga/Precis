@@ -265,6 +265,10 @@ jobs:
           E2E_BACKEND_URL: 'http://localhost:18000'
           E2E_SKIP_WEB_SERVER: 'true'
 
+      # 发布控制台（release-gui）页面测试：自起服务（端口 3311），不依赖前端/后端
+      - name: Run Release GUI tests
+        run: npx playwright test -c playwright.release-gui.config.ts
+
       - name: Upload E2E report
         if: always()
         uses: actions/upload-artifact@v4
