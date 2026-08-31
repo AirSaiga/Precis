@@ -10,6 +10,7 @@ import {
   validateVersionish,
   validateTag,
   validatePort,
+  isLocalBrowserRequest,
   buildActionCommand,
   createLineSplitter,
   stripAnsi,
@@ -51,6 +52,41 @@ test('validatePort 仅接受合法端口数字', () => {
   assert.equal(validatePort('99999'), false);
   assert.equal(validatePort('abc'), false);
   assert.equal(validatePort('8080; rm'), false);
+});
+
+// ---------------------------------------------------------------------------
+// isLocalBrowserRequest（POST 状态变更接口的来源边界：只绑 127.0.0.1 挡不住浏览器发起的请求）
+// ---------------------------------------------------------------------------
+
+test('isLocalBrowserRequest 放行本机同源页面与非浏览器客户端', () => {
+  const port = 17888;
+  // 控制台页面自身的 fetch（同源，浏览器 POST 一定带 Origin）
+  assert.equal(isLocalBrowserRequest({ host: `127.0.0.1:${port}`, origin: `http://127.0.0.1:${port}` }, port), true);
+  assert.equal(isLocalBrowserRequest({ host: `localhost:${port}`, origin: `http://localhost:${port}` }, port), true);
+  // curl / Playwright APIRequestContext 等无 Origin 头的客户端
+  assert.equal(isLocalBrowserRequest({ host: `127.0.0.1:${port}` }, port), true);
+  assert.equal(isLocalBrowserRequest({}, port), true);
+});
+
+test('isLocalBrowserRequest 拒绝跨站 Origin（无预检 simple request 攻击面）', () => {
+  const port = 17888;
+  // 恶意页面跨站 POST（text/plain 无预检直达本地端口，实证可真实启动任务）
+  assert.equal(isLocalBrowserRequest({ host: `127.0.0.1:${port}`, origin: 'http://evil.example' }, port), false);
+  assert.equal(isLocalBrowserRequest({ origin: 'http://evil.example:80' }, port), false);
+  // 端口不一致的同源形态（比如别的本地端口页面）也拒
+  assert.equal(isLocalBrowserRequest({ origin: `http://127.0.0.1:${port + 1}` }, port), false);
+  // 沙箱 iframe 的 Origin: null
+  assert.equal(isLocalBrowserRequest({ origin: 'null' }, port), false);
+});
+
+test('isLocalBrowserRequest 拒绝 DNS rebinding Host 与非法端口参数', () => {
+  const port = 17888;
+  // DNS rebinding：请求直达本机但 Host 是攻击者域名
+  assert.equal(isLocalBrowserRequest({ host: 'evil.example' }, port), false);
+  assert.equal(isLocalBrowserRequest({ host: `evil.example:${port}` }, port), false);
+  // 服务未监听时 address() 为 null → 端口非法一律拒
+  assert.equal(isLocalBrowserRequest({ host: `127.0.0.1:${port}` }, null), false);
+  assert.equal(isLocalBrowserRequest({}, 0), false);
 });
 
 // ---------------------------------------------------------------------------

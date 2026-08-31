@@ -561,7 +561,7 @@ AI 动作类型（actionType，如 `ADD_SCHEMA`/`VALIDATE_PROJECT`，共 15 种�
 
 ## 版本发布与自动更新
 
-**版本单一事实源**：根 `package.json` 的 `version`；其余四处（electron/frontend 的 package.json、backend/pyproject.toml、tui-rust/Cargo.toml + Cargo.lock）是同步副本，**禁止手工单改任何一处**——一律通过 `npm run release`（仓库根，`scripts/release.mjs`）同步。
+**版本单一事实源**：根 `package.json` 的 `version`；其余四处（electron/frontend 的 package.json、backend/pyproject.toml、tui-rust/Cargo.toml + Cargo.lock）是同步副本，**禁止手工单改任何一处**——一律通过 `npm run release`（仓库根，`scripts/release.mjs`）同步。npm version 连带更新的三份 `package-lock.json` 随发布提交一并入库（`releaseCommitFiles()`）——勿从提交清单移除，漏提交会残留脏工作树，把下一次发布挡在干净树检查上（v0.1.1 实证）。
 
 **发布流程**：`npm run release -- <版本|patch|minor|major> [--prerelease alpha.1] [--dry-run] [--no-push]`。脚本校验（main 分支 + 干净树 + 版本不倒退）→ 同步六处 manifest → CHANGELOG 切版（`[Unreleased]` 的 `### YYYY-MM` 内容落为 `## [X.Y.Z] - 日期` 分节）→ commit + annotated tag + push 触发 CD。
 
@@ -582,7 +582,7 @@ AI 动作类型（actionType，如 `ADD_SCHEMA`/`VALIDATE_PROJECT`，共 15 种�
 
 **发布脚本与 CD 辅助脚本的测试**：`scripts/tests/`（node --test，根 `npm run test:scripts`，CI 有 `release-scripts` job）；纯函数从 `.mjs` 导入，脚本入口都有"直接执行才跑 main"守卫，新增脚本沿用该模式。
 
-**发布控制台 GUI**：`npm run release:gui`（`scripts/release-gui.mjs` + `release-gui.html`，零依赖 Node 内置 HTTP + 单页 HTML）——打包/发布（dry-run+正式）/更新演练（lite+full+本地更新源启停）/线上产物校验 的按钮化控制台，日志经 SSE 流式推送。双击入口：仓库根 `release-gui.bat`（薄委托 → `scripts/windows/release-gui.bat`，mac 对称 `scripts/mac/release-gui.sh`）。安全约束：只绑 127.0.0.1；客户端只能触发固定动作枚举；任何用户输入（版本号/tag/端口）必须先过 `validateVersionish`/`validateTag`/`validatePort` 白名单正则才允许拼进 shell 命令——改 GUI 时不得放宽。
+**发布控制台 GUI**：`npm run release:gui`（`scripts/release-gui.mjs` + `release-gui.html`，零依赖 Node 内置 HTTP + 单页 HTML）——打包/发布（dry-run+正式）/更新演练（lite+full+本地更新源启停）/线上产物校验 的按钮化控制台，日志经 SSE 流式推送。双击入口：仓库根 `release-gui.bat`（薄委托 → `scripts/windows/release-gui.bat`，mac 对称 `scripts/mac/release-gui.sh`）。安全约束：只绑 127.0.0.1；客户端只能触发固定动作枚举；任何用户输入（版本号/tag/端口）必须先过 `validateVersionish`/`validateTag`/`validatePort` 白名单正则才允许拼进 shell 命令；POST 状态变更接口校验来源（`isLocalBrowserRequest`：外源 Origin 与 DNS rebinding Host 一律 403——只绑 127.0.0.1 挡不住浏览器跨站无预检 POST）；收到退出信号先显式终止任务子进程与本地更新源（Unix 上 detached 任务在独立进程组，不随主进程死）——改 GUI 时不得放宽。
 
 ---
 

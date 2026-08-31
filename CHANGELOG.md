@@ -12,6 +12,16 @@
 
 Currently an actively developed prototype. Interfaces, config formats, and CLI parameters may change without notice.
 
+### 2026-08
+
+- 修复发布提交遗漏三份 `package-lock.json`——`npm version` 同步版本时连带更新各目录 lockfile 的版本字段，但发布提交清单只含六处 manifest，v0.1.1 发布后工作树因此残留未提交改动，下一次发布被"干净树"前置校验确定性阻塞（已复现）；提交清单抽为 `releaseCommitFiles()`（六处 manifest + 三份 lockfile + CHANGELOG）并补交 v0.1.1 遗漏的版本字段。`npm ci` 对该漂移容忍（沙箱 + v0.1.1 CD 构建全绿实证），影响是发布阻塞而非安装断裂
+
+  Fixed the release commit omitting the three `package-lock.json` files — `npm version` rewrites each directory's lockfile version fields as a side effect, but the commit list only covered the six manifests, so after the v0.1.1 release the working tree kept uncommitted changes that deterministically blocked the next release at the clean-tree precheck (reproduced); the list is now `releaseCommitFiles()` (six manifests + three lockfiles + CHANGELOG) and the missing v0.1.1 lockfile bumps are committed. `npm ci` tolerates this drift (verified in a sandbox and by the fully green v0.1.1 CD builds), so the impact was release blocking, not broken installs
+
+- 发布控制台安全与退出加固——POST 状态变更接口增加 Origin/Host 本机来源校验：恶意网页可借无预检跨站 POST（text/plain）直达本地端口真实启动打包/发布任务（已实证），外源 Origin 与 DNS rebinding Host 现一律 403，同源页面与 curl/测试客户端不受影响；收到 Ctrl+C/终止信号时先显式终止运行中的任务子进程与本地更新源（Unix 上 detached 任务在独立进程组，原先不随控制台退出，可能与提示相悖地在后台跑完一次发布）
+
+  Release console security and shutdown hardening — POST state-changing endpoints now validate local Origin/Host: a malicious page could really start build/release tasks via a no-preflight cross-site POST (text/plain) straight to the local port (empirically confirmed); foreign Origins and DNS-rebinding Hosts are now rejected with 403, leaving same-origin pages and curl/test clients unaffected. On Ctrl+C/terminate the console now explicitly kills the running task subprocess tree and the local update server first (on Unix, detached tasks live in their own process group and previously outlived the console — potentially finishing a release in the background despite the banner claiming otherwise)
+
 ## [0.1.1] - 2026-08-30
 
 ### 2026-08

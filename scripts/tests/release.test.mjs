@@ -15,6 +15,7 @@ import {
   readCargoLockVersion,
   writeCargoLockVersion,
   latestVersionTag,
+  releaseCommitFiles,
 } from '../release.mjs';
 
 // ---------------------------------------------------------------------------
@@ -179,6 +180,30 @@ test('Cargo.lock 只替换指定包块的 version', () => {
   assert.equal(readCargoLockVersion(updated, 'precis-tui'), '0.2.0');
   // 其他包不受影响
   assert.match(updated, /name = "other-crate"\nversion = "9\.9\.9"/);
+});
+
+// ---------------------------------------------------------------------------
+// 发布提交清单
+// ---------------------------------------------------------------------------
+
+test('releaseCommitFiles 覆盖六处 manifest + 三份 package-lock.json + CHANGELOG', () => {
+  const files = releaseCommitFiles();
+  // npm version 连带写 lockfile 的版本字段，漏提交会残留脏工作树阻塞下次发布（v0.1.1 实证）
+  for (const lock of ['package-lock.json', 'frontend/package-lock.json', 'electron/package-lock.json']) {
+    assert.ok(files.includes(lock), `发布提交清单缺少 ${lock}`);
+  }
+  assert.deepEqual(files, [
+    'package.json',
+    'frontend/package.json',
+    'electron/package.json',
+    'backend/pyproject.toml',
+    'tui-rust/Cargo.toml',
+    'tui-rust/Cargo.lock',
+    'package-lock.json',
+    'frontend/package-lock.json',
+    'electron/package-lock.json',
+    'CHANGELOG.md',
+  ]);
 });
 
 // ---------------------------------------------------------------------------

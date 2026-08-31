@@ -23,6 +23,9 @@
  *   - 客户端只能触发固定动作枚举；所有进入 shell 的用户输入（版本号/tag/端口）
  *     先经白名单正则校验（validateVersionish / validateTag / validatePort），
  *     杜绝命令注入
+ *   - POST 状态变更接口校验 Origin/Host（isLocalBrowserRequest）：恶意网页可借
+ *     无预检跨站 POST（text/plain）直达本地端口触发动作，外源 Origin 与
+ *     DNS rebinding Host 一律 403
  */
 
 import http from 'node:http';
@@ -60,6 +63,24 @@ export function validateTag(v) {
 /** 端口白名单：2-5 位数字且在合法区间 */
 export function validatePort(p) {
   return /^[0-9]{2,5}$/.test(String(p)) && Number(p) > 0 && Number(p) < 65536;
+}
+
+/**
+ * 状态变更接口（POST）的本机来源校验：
+ * - Origin：浏览器跨站 POST（含 text/plain 无预检 simple request）携带外源 Origin，拒绝；
+ *   同源页面（127.0.0.1 / localhost + 当前端口）放行；无 Origin 头的非浏览器客户端
+ *   （curl / Playwright APIRequestContext）放行。
+ * - Host：DNS rebinding 场景下请求直达本机但 Host 是攻击者域名，拒绝。
+ * 只绑 127.0.0.1 挡不住这两类浏览器发起的请求——绑定不是来源边界。
+ */
+export function isLocalBrowserRequest(headers, port) {
+  const p = Number(port);
+  if (!Number.isInteger(p) || p <= 0) return false;
+  const host = String(headers?.host ?? '').toLowerCase();
+  if (host && host !== `127.0.0.1:${p}` && host !== `localhost:${p}`) return false;
+  const origin = String(headers?.origin ?? '').toLowerCase();
+  if (origin && origin !== `http://127.0.0.1:${p}` && origin !== `http://localhost:${p}`) return false;
+  return true;
 }
 
 function requireVersion(v, field = 'version') {
@@ -437,6 +458,13 @@ function sendJson(res, status, obj) {
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://127.0.0.1`);
 
+  // 状态变更接口只接受本机控制台发起的请求：外源 Origin（跨站无预检 POST）与
+  // DNS rebinding Host（请求直达本机但域名是攻击者的）一律拒绝
+  if (req.method === 'POST' && !isLocalBrowserRequest(req.headers, server.address()?.port)) {
+    sendJson(res, 403, { ok: false, error: '仅允许本机控制台页面调用（Origin/Host 校验未通过）' });
+    return;
+  }
+
   // ---- 页面 ----
   if (req.method === 'GET' && url.pathname === '/') {
     try {
@@ -533,6 +561,27 @@ const server = http.createServer(async (req, res) => {
 // 启动
 // ============================================================================
 
+/**
+ * 收到退出信号：显式终止任务子进程与本地更新源再退出。
+ * Unix 上任务子进程 detached:true 在独立进程组，不随本进程退出而终止——
+ * 不显式杀组的话，用户 Ctrl+C 后发布/构建任务会在后台继续跑完（含 git push）。
+ */
+function shutdown(signal) {
+  console.log(`\n[release-gui] 收到 ${signal}，正在终止运行中的任务与本地更新源…`);
+  killCurrentJob();
+  stopServeUpdates();
+  for (const res of sseClients) {
+    try {
+      res.destroy();
+    } catch {
+      /* 已断开 */
+    }
+  }
+  server.close(() => process.exit(0));
+  // SSE 长连接可能拖住 close 回调，限时兜底退出
+  setTimeout(() => process.exit(0), 1000).unref();
+}
+
 function openBrowser(url) {
   try {
     if (process.platform === 'win32') {
@@ -554,6 +603,10 @@ function main() {
   const noOpen = args.includes('--no-open');
   if (!Number.isInteger(port) || port <= 0 || port > 65535) port = DEFAULT_PORT;
 
+  // 退出信号清理（注册在 main 内：被单测 import 时不装 handler）
+  process.on('SIGINT', () => shutdown('SIGINT'));
+  process.on('SIGTERM', () => shutdown('SIGTERM'));
+
   // 端口被占则依次 +1 重试（最多 20 次），免去手动选端口
   const listen = (p) => {
     server.once('error', (err) => {
@@ -568,7 +621,7 @@ function main() {
       const url = `http://127.0.0.1:${p}`;
       console.log(`\n[release-gui] Precis 发布控制台已启动: ${url}`);
       console.log('[release-gui] 动作: 打包 / 发布(dry-run+正式) / 更新演练(lite|full) / 线上状态校验');
-      console.log('[release-gui] Ctrl+C 退出（运行中的子进程会随服务终止）\n');
+      console.log('[release-gui] Ctrl+C 退出（会先终止运行中的任务与本地更新源）\n');
       if (!noOpen) openBrowser(url);
     });
   };

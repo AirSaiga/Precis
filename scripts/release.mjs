@@ -13,6 +13,8 @@
  * 版本单一事实源（SSOT）: 根 package.json 的 version。
  * 同步副本: electron/package.json、frontend/package.json（经 npm version 连带各自 lock）+
  *           backend/pyproject.toml、tui-rust/Cargo.toml、tui-rust/Cargo.lock（precis-tui 包块）。
+ *           npm 三处连带更新的 package-lock.json 也随发布提交入库（releaseCommitFiles），
+ *           漏提交会残留脏工作树，把下一次发布挡在干净树检查上（v0.1.1 实证）。
  */
 
 import { execSync } from 'node:child_process';
@@ -32,6 +34,16 @@ export const MANIFESTS = [
   { file: 'tui-rust/Cargo.toml', kind: 'cargo' },
   { file: 'tui-rust/Cargo.lock', kind: 'cargo-lock' },
 ];
+
+/**
+ * 发布提交应包含的文件：六处 manifest + 三份 package-lock.json + CHANGELOG。
+ * npm version 更新 package.json 时会连带写各目录 lockfile 的版本字段；
+ * 若不一并提交，发布后工作树残留未提交改动，下一次发布被干净树检查阻塞。
+ */
+export function releaseCommitFiles() {
+  const lockfiles = MANIFESTS.filter((m) => m.kind === 'npm').map((m) => m.file.replace(/package\.json$/, 'package-lock.json'));
+  return [...MANIFESTS.map((m) => m.file), ...lockfiles, 'CHANGELOG.md'];
+}
 
 // ============================================================================
 // 纯函数（供 node --test 单元测试）
@@ -368,7 +380,7 @@ function cmdRelease({ spec, prereleaseSuffix, dryRun, noPush }) {
   fs.writeFileSync(changelogPath, updated, 'utf-8');
 
   // ---- commit + tag + push ----
-  const filesToCommit = [...MANIFESTS.map((m) => m.file), 'CHANGELOG.md'];
+  const filesToCommit = releaseCommitFiles();
   git(`add ${filesToCommit.map((f) => `"${f}"`).join(' ')}`);
   git(`commit -m "chore(release): ${tag}"`);
   git(`tag -a ${tag} -m "Precis ${tag}"`);
