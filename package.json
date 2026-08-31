@@ -86,6 +86,6 @@
     "concurrently": "^10.0.3",
     "dotenv": "^16.6.1",
     "husky": "^9.1.7",
-    "wait-on": "^7.2.0"
+    "wait-on": "^9.1.0"
   }
 }
