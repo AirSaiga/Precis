@@ -94,7 +94,8 @@ pub fn render(frame: &mut Frame, splash_frame: usize, area: Rect) {
             text_color = colors::blend(text_color, colors::bg(), fade);
         }
         lines.push(Line::from(Span::styled(
-            "v0.1.0",
+            // 版本号取自 Cargo.toml（编译期注入），避免与包版本漂移
+            concat!("v", env!("CARGO_PKG_VERSION")),
             Style::default().fg(text_color),
         )));
         lines.push(Line::from(Span::styled(

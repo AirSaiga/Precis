@@ -17,6 +17,7 @@ mod theme;
 mod ui;
 
 use std::io;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use anyhow::Result;
@@ -68,11 +69,81 @@ fn resolve_backend_url() -> Result<ResolvedBackend> {
     Ok(ResolvedBackend::Managed(handle))
 }
 
+/// 从 exe 所在目录向上逐级探测是否存在 backend/ 目录（上限 8 级，防病态深路径）。
+///
+/// 开发态：exe 位于 `<repo>/tui-rust/target/debug/`，向上数级即见 `<repo>/backend/`；
+/// 打包态：exe 位于安装目录，祖先链中没有 backend/。
+fn is_dev_layout(exe_dir: &Path) -> bool {
+    let mut cur = Some(exe_dir);
+    let mut depth = 0;
+    while let Some(dir) = cur {
+        if depth >= 8 {
+            break;
+        }
+        if dir.join("backend").is_dir() {
+            return true;
+        }
+        cur = dir.parent();
+        depth += 1;
+    }
+    false
+}
+
+/// 解析工作目录（优先级从高到低）：
+///
+/// 1. `PRECIS_WORK_DIR` 环境变量（显式指定，最高优先，现状保留）
+/// 2. 开发态布局探测：exe 祖先链存在 `backend/`（源码树内）且 `<cwd.parent>/qa_test`
+///    存在 → 使用 qa_test（与历史行为一致，仅在探测命中时启用）
+/// 3. 打包态回退：用户主目录——打包双击启动时 cwd=安装目录，
+///    旧实现 `cwd.parent()/qa_test` 在该场景必然"未发现项目"
+/// 4. 主目录不可得的最后兜底：当前目录
+///
+/// 参数均为注入值以便单元测试（不直接读环境变量/文件系统之外的全局态）。
+fn resolve_work_dir(
+    cwd: &Path,
+    exe_dir: Option<&Path>,
+    env_work_dir: Option<&str>,
+    home_dir: Option<&Path>,
+) -> PathBuf {
+    // ① 显式环境变量优先
+    if let Some(v) = env_work_dir {
+        if !v.is_empty() {
+            return PathBuf::from(v);
+        }
+    }
+    // ② 开发态：源码树内存在 qa_test 时沿用旧路径
+    if let Some(exe_dir) = exe_dir {
+        if is_dev_layout(exe_dir) {
+            let project_root = cwd.parent().unwrap_or(cwd);
+            let qa_test = project_root.join("qa_test");
+            if qa_test.is_dir() {
+                return qa_test;
+            }
+        }
+    }
+    // ③ 打包态回退到用户主目录
+    if let Some(home) = home_dir {
+        return home.to_path_buf();
+    }
+    // ④ 兜底：当前目录
+    cwd.to_path_buf()
+}
+
 fn scan_work_dir() -> String {
     let cwd = std::env::current_dir().unwrap_or_default();
-    let project_root = cwd.parent().unwrap_or(&cwd);
-    let default = project_root.join("qa_test");
-    std::env::var("PRECIS_WORK_DIR").unwrap_or_else(|_| default.to_string_lossy().to_string())
+    let exe_dir = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()));
+    let home = dirs::home_dir();
+    let env_val = std::env::var("PRECIS_WORK_DIR").ok();
+    resolve_work_dir(
+        &cwd,
+        exe_dir.as_deref(),
+        env_val.as_deref(),
+        home.as_deref(),
+    )
+    .to_string_lossy()
+    .to_string()
 }
 
 /// 后台任务 → 事件循环的消息
@@ -94,6 +165,13 @@ enum BgMessage {
     ProviderTested {
         id: String,
         result: Result<String, String>,
+    },
+    /// 激活 Provider 完成（携带激活前的 active id，失败时用于回滚乐观更新）
+    ProviderActivated {
+        id: String,
+        name: String,
+        previous_active: Option<String>,
+        result: Result<(), String>,
     },
     /// 新建 Provider 完成（Ok=名称）
     ProviderCreated(Result<String, String>),
@@ -195,12 +273,21 @@ async fn try_init(app: &mut App) -> Result<()> {
     let work_dir = scan_work_dir();
     match app.api.scan_projects(&work_dir).await {
         Ok(projects) => {
-            app.message = format!(
-                "{} {} {}",
-                pick("找到", "Found"),
-                projects.len(),
-                pick("个项目", "projects")
-            );
+            if projects.is_empty() {
+                // 首次扫描为空（打包态默认落到主目录等场景）时给出明确指引
+                app.message = pick(
+                    "未发现项目，可设 PRECIS_WORK_DIR 指定目录",
+                    "No projects found. Set PRECIS_WORK_DIR to choose a directory",
+                )
+                .to_string();
+            } else {
+                app.message = format!(
+                    "{} {} {}",
+                    pick("找到", "Found"),
+                    projects.len(),
+                    pick("个项目", "projects")
+                );
+            }
             app.projects = projects;
             // BUG-8: 扫描后重置选中索引，避免越界
             app.selected_project = 0;
@@ -361,6 +448,24 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
             // 重新拉取 providers + active provider
             spawn_load_providers(tx);
         }
+        BgMessage::ProviderActivated {
+            id,
+            name,
+            previous_active,
+            result,
+        } => match result {
+            Ok(()) => {
+                app.active_provider_id = Some(id);
+                app.message = format!("{} {}", pick("已激活", "Activated"), name);
+                // 激活后触发重新拉取列表（含 active_id），而非清空列表
+                spawn_load_providers(tx);
+            }
+            Err(e) => {
+                // 回滚乐观更新，保持本地状态与后端真实状态一致
+                app.active_provider_id = previous_active;
+                app.message = format!("{}: {}", pick("激活失败", "Activation failed"), e);
+            }
+        },
         BgMessage::ProviderTested { id, result } => {
             // toast 绑定被测 provider id + 产生时刻（驱动 TTL 消隐与光标错配隐藏）
             match result {
@@ -415,6 +520,20 @@ fn handle_bg_message(app: &mut App, msg: BgMessage, tx: &mpsc::Sender<BgMessage>
             }
         }
     }
+}
+
+/// 由当前对话消息构造发送给后端的 history。
+///
+/// 调用方必须在 push 本次新用户消息**之前**调用（后端组装顺序为
+/// [system]+history+[user]，history 含本条会导致消息重复）。
+fn build_chat_history(messages: &[ChatMsg]) -> Vec<ChatMessage> {
+    messages
+        .iter()
+        .map(|m| ChatMessage {
+            role: m.role.clone(),
+            content: m.content.clone(),
+        })
+        .collect()
 }
 
 /// 处理按键
@@ -591,7 +710,13 @@ async fn handle_key(
         // Validation 错误表格滚动
         KeyCode::Down | KeyCode::Char('j') if app.current_tab == Tab::Validation => {
             if let ValidationState::Done(resp) = &app.validation {
-                let max = resp.errors.len().saturating_sub(1);
+                // 上限与渲染端（ui/validation.rs）钳制一致：错误表只渲染前
+                // MAX_ERRORS 条，cursor 越过它会"已到末尾但高亮停滞"
+                let max = resp
+                    .errors
+                    .len()
+                    .saturating_sub(1)
+                    .min(ui::validation::MAX_ERRORS - 1);
                 if app.error_cursor < max {
                     app.error_cursor += 1;
                 }
@@ -667,15 +792,27 @@ async fn handle_key(
         }
         KeyCode::Char('a') if app.current_tab == Tab::Provider => {
             if let Some(p) = app.providers.get(app.provider_cursor).cloned() {
+                // 乐观更新：立即高亮为激活态，后台确认失败时在 BgMessage::ProviderActivated
+                // 中回滚（此前 `let _ =` 吞错误导致失败也显示"已激活"）
+                let previous_active = app.active_provider_id.clone();
                 app.active_provider_id = Some(p.id.clone());
-                app.message = format!("{} {}", pick("已激活", "Activated"), p.name);
+                app.message = format!("{} {}...", pick("正在激活", "Activating"), p.name);
                 let tx = tx.clone();
                 let url = backend_url();
                 tokio::spawn(async move {
                     let client = crate::api::ApiClient::new(&url);
-                    let _ = client.activate_provider(&p.id).await;
-                    // 激活后触发重新拉取列表（含 active_id），而非清空列表
-                    let _ = tx.send(BgMessage::RefreshProviders).await;
+                    let result = client
+                        .activate_provider(&p.id)
+                        .await
+                        .map_err(|e| e.to_string());
+                    let _ = tx
+                        .send(BgMessage::ProviderActivated {
+                            id: p.id,
+                            name: p.name,
+                            previous_active,
+                            result,
+                        })
+                        .await;
                 });
             }
         }
@@ -726,6 +863,10 @@ async fn handle_key(
             }
             let msg = app.chat_input.trim().to_string();
             if !msg.is_empty() && app.api.project_path().is_some() {
+                // 先构造 history 再 push 本条用户消息：后端按 [system]+history+[user]
+                // 组装请求，history 若已含本条会导致该消息重复发送两份。
+                // push 之后消息留在 chat_messages 中，后续轮次的 history 仍会带上它。
+                let history = build_chat_history(&app.chat_messages);
                 app.chat_messages.push(ChatMsg {
                     role: "user".to_string(),
                     content: msg.clone(),
@@ -738,14 +879,6 @@ async fn handle_key(
                 let tx = tx.clone();
                 let url = backend_url();
                 let path = app.api.project_path().unwrap().to_string();
-                let history: Vec<ChatMessage> = app
-                    .chat_messages
-                    .iter()
-                    .map(|m| ChatMessage {
-                        role: m.role.clone(),
-                        content: m.content.clone(),
-                    })
-                    .collect();
                 tokio::spawn(async move {
                     let mut client = crate::api::ApiClient::new(&url);
                     client.set_project(&path);
@@ -1011,5 +1144,289 @@ mod tests {
         assert_eq!(t.provider_id, "a", "toast 应绑定被测 provider id");
         assert_eq!(t.at_frame, 42, "toast 应记录产生时的 frame_count");
         assert!(matches!(t.result, TestResult::Ok(_)), "结果应为 Ok");
+    }
+
+    /// 构造带指定数量校验错误的 Done 状态（错误条目各字段全默认填充）
+    fn make_validation_done(error_count: usize) -> ValidationState {
+        ValidationState::Done(Box::new(FullValidationResponse {
+            success: true,
+            summary: crate::api::types::ValidationSummary {
+                files_total: 1,
+                files_loaded: 1,
+                tables_loaded: 1,
+                loading_error_count: 0,
+                format_error_count: error_count as u32,
+                constraint_error_count: 0,
+                total_error_count: error_count as u32,
+                duration_ms: 1,
+                interrupted: false,
+            },
+            errors: (0..error_count)
+                .map(|i| crate::api::types::ValidationErrorItem {
+                    stage: "format".to_string(),
+                    error_type: "type".to_string(),
+                    message: format!("err {i}"),
+                    table: "t".to_string(),
+                    column: "c".to_string(),
+                    row_index: None,
+                    source_path: "s".to_string(),
+                })
+                .collect(),
+            statistics: None,
+            error: None,
+        }))
+    }
+
+    /// Chat history 必须在 push 本条用户消息之前构造：
+    /// 后端组装 [system]+history+[user]，history 含本条会导致消息重复两份；
+    /// 而 push 后消息留在 chat_messages，后续轮次的 history 仍需包含它
+    #[test]
+    fn chat_history_built_before_push_excludes_pending_message() {
+        let mut app = App::new("http://127.0.0.1:1");
+        app.chat_messages.push(ChatMsg {
+            role: "user".to_string(),
+            content: "a".to_string(),
+        });
+        app.chat_messages.push(ChatMsg {
+            role: "assistant".to_string(),
+            content: "b".to_string(),
+        });
+
+        // 复现 handle_key Enter 的发送顺序：先取 history，再 push 本条消息
+        let history = build_chat_history(&app.chat_messages);
+        app.chat_messages.push(ChatMsg {
+            role: "user".to_string(),
+            content: "c".to_string(),
+        });
+
+        assert_eq!(history.len(), 2, "发送时的 history 不应包含本次新消息");
+        assert!(
+            history.iter().all(|m| m.content != "c"),
+            "message 已单独传给后端，history 再含它会重复"
+        );
+        // 后续轮次：本轮消息已在历史中，应被完整带上
+        assert_eq!(
+            build_chat_history(&app.chat_messages).len(),
+            3,
+            "后续轮次的 history 应包含此前所有消息"
+        );
+    }
+
+    /// 通过 handle_key 发送后，本轮消息应保留在 chat_messages 中（后续轮次 history 需要）
+    #[tokio::test]
+    async fn chat_send_keeps_message_for_subsequent_rounds() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, _rx) = mpsc::channel::<BgMessage>(4);
+        app.current_tab = Tab::Chat;
+        app.chat_focused = true;
+        app.api.set_project("/tmp/x");
+        app.chat_messages.push(ChatMsg {
+            role: "user".to_string(),
+            content: "old".to_string(),
+        });
+        app.chat_input = "new".to_string();
+        handle_key(&mut app, KeyCode::Enter, KeyModifiers::NONE, &tx).await;
+        assert_eq!(app.chat_messages.len(), 2, "旧消息 + 新消息都应在历史中");
+        assert_eq!(app.chat_messages[0].content, "old");
+        assert_eq!(app.chat_messages[1].content, "new");
+    }
+
+    /// Provider 激活失败：乐观更新应回滚到激活前的 provider，且不得显示"已激活"
+    #[tokio::test]
+    async fn provider_activation_failure_rolls_back_optimistic_update() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, _rx) = mpsc::channel::<BgMessage>(4);
+        app.active_provider_id = Some("old".to_string());
+        // 复现 'a' 键的乐观更新：先置为新 id
+        app.active_provider_id = Some("new".to_string());
+
+        handle_bg_message(
+            &mut app,
+            BgMessage::ProviderActivated {
+                id: "new".to_string(),
+                name: "P".to_string(),
+                previous_active: Some("old".to_string()),
+                result: Err("500 Internal Server Error".to_string()),
+            },
+            &tx,
+        );
+        assert_eq!(
+            app.active_provider_id.as_deref(),
+            Some("old"),
+            "激活失败应回滚到之前的 provider"
+        );
+        assert!(!app.message.contains("已激活"), "失败不得显示已激活");
+        assert!(app.message.contains("500"), "失败提示应带出错误信息");
+    }
+
+    /// Provider 激活成功：确认新 id 为激活态
+    #[tokio::test]
+    async fn provider_activation_success_confirms_active_id() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, _rx) = mpsc::channel::<BgMessage>(4);
+        app.active_provider_id = Some("old".to_string());
+
+        handle_bg_message(
+            &mut app,
+            BgMessage::ProviderActivated {
+                id: "new".to_string(),
+                name: "P".to_string(),
+                previous_active: Some("old".to_string()),
+                result: Ok(()),
+            },
+            &tx,
+        );
+        assert_eq!(
+            app.active_provider_id.as_deref(),
+            Some("new"),
+            "激活成功应保持新 provider 为激活态"
+        );
+    }
+
+    /// 错误 cursor 增长必须钳制在渲染上限（MAX_ERRORS-1）内：
+    /// 错误表只渲染前 MAX_ERRORS 条，cursor 越过后高亮会停滞
+    #[tokio::test]
+    async fn error_cursor_clamped_to_render_limit() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, _rx) = mpsc::channel::<BgMessage>(4);
+        app.current_tab = Tab::Validation;
+        app.validation = make_validation_done(600);
+        // 连按 600 次 Down（超过 MAX_ERRORS）
+        for _ in 0..600 {
+            handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE, &tx).await;
+        }
+        assert_eq!(
+            app.error_cursor,
+            ui::validation::MAX_ERRORS - 1,
+            "cursor 不得超过渲染上限（第 499 条）"
+        );
+    }
+
+    /// 错误数少于 MAX_ERRORS 时，cursor 仍可走到最后一条
+    #[tokio::test]
+    async fn error_cursor_reaches_last_error_below_render_limit() {
+        let mut app = App::new("http://127.0.0.1:1");
+        let (tx, _rx) = mpsc::channel::<BgMessage>(4);
+        app.current_tab = Tab::Validation;
+        app.validation = make_validation_done(3);
+        for _ in 0..10 {
+            handle_key(&mut app, KeyCode::Down, KeyModifiers::NONE, &tx).await;
+        }
+        assert_eq!(app.error_cursor, 2, "应停在最后一条错误（索引 2）");
+    }
+
+    // =========================================================================
+    // 工作目录解析（resolve_work_dir / is_dev_layout）
+    // 优先级：PRECIS_WORK_DIR > 开发态 qa_test（探测命中才用） > 用户主目录 > cwd
+    // =========================================================================
+
+    /// 在系统临时目录下构造独立的测试目录树，返回根路径
+    fn make_test_root(name: &str) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("precis-tui-workdir-{}-{}", std::process::id(), name));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).expect("create test root");
+        root
+    }
+
+    /// 开发态布局 + qa_test 存在 → 沿用 <cwd.parent>/qa_test（历史行为保留）
+    #[test]
+    fn dev_layout_with_qa_test_uses_qa_test() {
+        let root = make_test_root("dev");
+        std::fs::create_dir_all(root.join("backend")).expect("backend dir");
+        std::fs::create_dir_all(root.join("tui-rust/target/debug")).expect("exe dir");
+        std::fs::create_dir_all(root.join("qa_test")).expect("qa_test dir");
+
+        let got = resolve_work_dir(
+            &root.join("tui-rust"),
+            Some(&root.join("tui-rust/target/debug")),
+            None,
+            Some(&root.join("home")),
+        );
+        assert_eq!(got, root.join("qa_test"), "开发态应解析到 qa_test");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 开发态布局但 qa_test 不存在 → 不使用 qa_test，回退主目录
+    #[test]
+    fn dev_layout_without_qa_test_falls_back_to_home() {
+        let root = make_test_root("dev-noqa");
+        std::fs::create_dir_all(root.join("backend")).expect("backend dir");
+        std::fs::create_dir_all(root.join("tui-rust/target/debug")).expect("exe dir");
+
+        let got = resolve_work_dir(
+            &root.join("tui-rust"),
+            Some(&root.join("tui-rust/target/debug")),
+            None,
+            Some(&root.join("home")),
+        );
+        assert_eq!(got, root.join("home"), "qa_test 缺失时应回退主目录");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 打包态（exe 祖先链无 backend/，双击启动 cwd=安装目录）→ 回退用户主目录
+    #[test]
+    fn packaged_layout_falls_back_to_home() {
+        let root = make_test_root("packaged");
+        let exe_dir = root.join("installed/app");
+        std::fs::create_dir_all(&exe_dir).expect("exe dir");
+        // 安装目录旁就算有 qa_test 也不该被使用（无开发态布局探测命中）
+        std::fs::create_dir_all(root.join("installed/qa_test")).expect("qa_test dir");
+
+        let got = resolve_work_dir(
+            &exe_dir,
+            Some(&exe_dir),
+            None,
+            Some(&root.join("home")),
+        );
+        assert_eq!(got, root.join("home"), "打包态应回退用户主目录");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// PRECIS_WORK_DIR 环境变量最高优先（任何布局下都覆盖默认解析）
+    #[test]
+    fn precis_work_dir_env_overrides_everything() {
+        let root = make_test_root("env");
+        std::fs::create_dir_all(root.join("backend")).expect("backend dir");
+        std::fs::create_dir_all(root.join("tui-rust/target/debug")).expect("exe dir");
+        std::fs::create_dir_all(root.join("qa_test")).expect("qa_test dir");
+
+        let got = resolve_work_dir(
+            &root.join("tui-rust"),
+            Some(&root.join("tui-rust/target/debug")),
+            Some("D:/custom/work"),
+            Some(&root.join("home")),
+        );
+        assert_eq!(got, PathBuf::from("D:/custom/work"), "环境变量应最高优先");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 空串环境变量视同未设置（不产生空路径）
+    #[test]
+    fn empty_env_value_ignored() {
+        let root = make_test_root("env-empty");
+        std::fs::create_dir_all(root.join("backend")).expect("backend dir");
+        std::fs::create_dir_all(root.join("tui-rust/target/debug")).expect("exe dir");
+        std::fs::create_dir_all(root.join("qa_test")).expect("qa_test dir");
+
+        let got = resolve_work_dir(
+            &root.join("tui-rust"),
+            Some(&root.join("tui-rust/target/debug")),
+            Some(""),
+            None,
+        );
+        assert_eq!(got, root.join("qa_test"), "空串应视同未设置，走开发态解析");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    /// 主目录不可得时的最后兜底：当前目录（不 panic、不空路径）
+    #[test]
+    fn no_home_falls_back_to_cwd() {
+        let root = make_test_root("no-home");
+        let exe_dir = root.join("installed");
+        std::fs::create_dir_all(&exe_dir).expect("exe dir");
+
+        let got = resolve_work_dir(&exe_dir, Some(&exe_dir), None, None);
+        assert_eq!(got, exe_dir, "无主目录时应兜底到 cwd");
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

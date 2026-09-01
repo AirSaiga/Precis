@@ -12,7 +12,10 @@ use crate::i18n::pick;
 use crate::icons;
 
 /// 错误表最多渲染条数（超出时在底部提示截断）
-const MAX_ERRORS: usize = 500;
+///
+/// pub(crate)：main.rs 的 error_cursor 导航必须用同一常量钳制上限，
+/// 否则 cursor 能走到渲染范围之外，第 MAX_ERRORS 条之后高亮停滞。
+pub(crate) const MAX_ERRORS: usize = 500;
 
 pub fn render(frame: &mut Frame, app: &mut App, area: Rect) {
     let chunks = Layout::default()

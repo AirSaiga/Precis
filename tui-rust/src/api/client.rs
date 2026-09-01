@@ -285,15 +285,55 @@ impl ApiClient {
     }
 }
 
-/// 简单的 URL 编码（避免引入额外 crate）
+/// 标准 URL 百分号编码（RFC 3986）。
+///
+/// 查询参数值必须整体编码：除 unreserved（A-Za-z0-9-_.~）外的所有字节一律
+/// 转义为 %XX。此前只转义空格和反斜杠的实现会被路径中的 &、#、+、% 等字符
+/// 破坏（& 截断参数、# 截断整个查询串、% 引发二次解码歧义）。
+/// 按字节（而非 char）编码，多字节 UTF-8 序列同样被正确转义。
 mod urlencoding {
     pub fn encode(s: &str) -> String {
-        s.chars()
-            .map(|c| match c {
-                ' ' => "%20".to_string(),
-                '\\' => "%5C".to_string(),
-                _ => c.to_string(),
-            })
-            .collect()
+        let mut out = String::with_capacity(s.len());
+        for &b in s.as_bytes() {
+            match b {
+                b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                    out.push(b as char);
+                }
+                _ => out.push_str(&format!("%{:02X}", b)),
+            }
+        }
+        out
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::urlencoding::encode;
+
+    #[test]
+    fn encodes_query_breaking_characters() {
+        // & 和 # 会截断查询串；% 会造成二次解码歧义；+ 会被服务端解成空格
+        assert_eq!(encode("a&b"), "a%26b");
+        assert_eq!(encode("a#b"), "a%23b");
+        assert_eq!(encode("100%"), "100%25");
+        assert_eq!(encode("a+b"), "a%2Bb");
+        assert_eq!(encode("?/=:"), "%3F%2F%3D%3A");
+    }
+
+    #[test]
+    fn preserves_unreserved_and_encodes_space_and_backslash() {
+        assert_eq!(encode("abcXYZ019-_.~"), "abcXYZ019-_.~");
+        assert_eq!(encode("my project\\dir"), "my%20project%5Cdir");
+    }
+
+    #[test]
+    fn encodes_multibyte_utf8_bytewise() {
+        // "目录" = E7 9B AE E5 BD 95，按字节逐一转义（非按 char）
+        assert_eq!(encode("目录"), "%E7%9B%AE%E5%BD%95");
+    }
+
+    #[test]
+    fn empty_string_stays_empty() {
+        assert_eq!(encode(""), "");
     }
 }
