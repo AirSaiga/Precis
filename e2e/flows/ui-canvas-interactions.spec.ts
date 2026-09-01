@@ -243,11 +243,11 @@ test.describe('画布真实 UI 交互', () => {
   test('删除 schema 节点后画布无孤立边且 schema 已移除', async ({ projectPage }) => {
     const page = projectPage
     await expandSchemasFolder(page, 'users')
-    // “全部导入”：连带创建引用 users 的独立约束节点。这些约束是画布上的独立节点，
-    // 通过 schema→constraint 的边引用 users，但它们【不是】会被级联删除的子节点——
-    // deleteSchemaNode 仅级联删除 data.schemaNodeId === nodeId 的约束（内嵌物化路径），
-    // 而本仓库中约束节点并不持有 data.schemaNodeId 字段（引用关系存于 sourceRef/thenRef/边），
-    // 故独立约束在删除 schema 后应【保留】在画布上。
+    // "全部导入"：连带创建引用 users 的独立约束节点。这些约束节点经
+    // data.sourceRef.nodeId 引用 schema——按 nodeDeletionManager 的级联设计
+    // （2026-07-04 起的有意行为，2026-09-01 修复了类型字面量失配导致的失效），
+    // 删除 schema 会把它们一并从画布移除（仅画布节点，YAML 文件与 manifest
+    // 引用不受影响，重新导入即恢复）。不持有 sourceRef 的表级约束保留。
     await dragSchemaToCanvas(page, 'users', 'importAll')
 
     // 等待约束节点异步创建完成（慢环境下批量创建会持续数秒，须等计数稳定
@@ -295,17 +295,18 @@ test.describe('画布真实 UI 交互', () => {
     // 刚导入的 schema 无未保存草稿（saveState !== 'draft'），故不会弹出关闭确认框。
     await schemaNode.locator('.close-btn').click()
 
-    // 断言终态（本次重构是 behavior-preserving，终态应与重构前一致）：
+    // 断言终态（2026-09-01 级联修复后的契约）：
     // 1. schema 节点已从画布移除
     await expect(schemaNode).toHaveCount(0)
-    // 2. 独立约束节点【保留】（它们是独立画布节点，不在 schema 的级联删除范围内）。
-    //    这正是本次重构保留的真实行为：cascade 仅针对 data.schemaNodeId 命中的内嵌约束，
-    //    而 importAll 创建的独立约束不持有该字段，故数量应与删除前一致。
-    await expect(constraintLocator).toHaveCount(constraintCountBefore)
+    // 2. 引用该 schema 的约束节点被级联移除：总数应少于删除前（不持有
+    //    sourceRef 的表级约束保留，具体保留数随 fixture 数据而定，不做精确断言）。
+    await expect(async () => {
+      const after = await constraintLocator.count()
+      expect(after).toBeLessThan(constraintCountBefore)
+    }).toPass({ timeout: 10000 })
     // 3. 无孤立边残留：本 setup 下所有边都连接 schema↔constraint（或 schema↔regex），
-    //    deleteNode 内部的 removeEdges 会清理所有触及 schema 的边，故总边数应降为 0。
-    //    （Vue Flow 的边为 SVG <g>，无 data-source/data-target 属性可按 source 定向筛选，
-    //     因此用“总边数为 0”等价表达“无引用已删 schema 的孤立边”。）
+    //    removeEdges 清理所有触及 schema 的边，且级联删除的约束节点连同其边一并移除，
+    //    故总边数应降为 0。
     await expect(edgeLocator).toHaveCount(0)
   })
 
