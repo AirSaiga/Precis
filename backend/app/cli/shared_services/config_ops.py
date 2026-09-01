@@ -26,10 +26,14 @@ from __future__ import annotations
 
 import logging
 import os
+import tempfile
 from dataclasses import dataclass
 from typing import Any
 
 import yaml
+from ruamel.yaml import YAML
+from ruamel.yaml.comments import CommentedMap
+from ruamel.yaml.error import YAMLError as RuamelYAMLError
 
 from app.shared.core.utils.path_utils import paths_equal
 
@@ -245,6 +249,88 @@ def parse_config_value(value_str: str) -> tuple[bool, Any, str]:
     return True, value_str, ""
 
 
+def set_config_value_in_file(project_path: str, filename: str, key_path: str, value: Any) -> tuple[bool, str]:
+    """按点号路径设置 YAML 配置文件中的值：保留注释与格式，原子写回。
+
+    与 ``set_by_dotpath``（纯内存 dict）不同，本函数负责文件级写入，采用
+    ruamel.yaml round-trip 加载——仅目标键的值被替换，其余行（含注释、空行、
+    引号风格）原样保留；写回经由「临时文件 + os.replace」保证原子性，避免
+    进程中断导致配置文件损坏。
+
+    Args:
+        project_path: 项目根目录绝对路径
+        filename: 配置文件名（相对项目根，可含子目录）
+        key_path: 点号路径，如 "project.name"
+        value: 要写入的值（已由 parse_config_value 解析为目标类型）
+
+    Returns:
+        (成功, 错误信息)；成功时错误信息为空字符串。
+
+    Security:
+        路径解析统一走 find_config_file（拒绝绝对路径 / ".." 父目录引用 /
+        解析后越出项目根的路径），防止 CLI 入参穿越到项目外任意文件。
+    """
+    config_path = find_config_file(project_path, filename)
+    if not config_path:
+        return False, f"配置文件不存在: {filename}"
+
+    # round-trip 模式加载：CommentedMap 携带注释/格式元数据，回写时保留
+    yaml_parser = YAML()
+    yaml_parser.preserve_quotes = True
+
+    try:
+        with open(config_path, encoding="utf-8") as f:
+            data = yaml_parser.load(f)
+    except RuamelYAMLError as e:
+        return False, f"YAML 解析失败: {e}"
+
+    # 空文件：从空映射开始（首键写入后无注释可保，属预期）
+    if data is None:
+        data = CommentedMap()
+    if not isinstance(data, dict):
+        return False, "配置根节点不是字典，无法按点号路径设置"
+
+    # 按点号路径逐层定位后原地写入（不经 set_by_dotpath 的 deepcopy——
+    # 直接在 ruamel 结构上替换目标键的值，其余键的注释元数据原封不动）
+    keys = key_path.split(".")
+    current: dict[str, Any] = data
+    for key in keys[:-1]:
+        child = current.get(key)
+        if not isinstance(child, dict):
+            if child is None:
+                # 中间层级不存在：创建空映射（与 set_by_dotpath 语义一致）
+                child = CommentedMap()
+                current[key] = child
+            else:
+                return False, f"路径 '{key_path}' 的中间键 '{key}' 不是字典，无法设置"
+        current = child
+    current[keys[-1]] = value
+
+    # 原子写回：同目录临时文件 + os.replace（同分区 rename，原子生效）
+    config_dir = os.path.dirname(config_path) or "."
+    try:
+        fd, temp_path = tempfile.mkstemp(
+            dir=config_dir,
+            prefix=f".{os.path.basename(config_path)}_tmp_",
+            suffix=".yaml",
+        )
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as f:
+                yaml_parser.dump(data, f)
+            os.replace(temp_path, config_path)
+        except OSError:
+            # 写入或替换失败：清理临时文件，原配置文件不受影响
+            try:
+                os.remove(temp_path)
+            except OSError:
+                logger.debug("删除临时文件失败", exc_info=True)
+            raise
+    except OSError as e:
+        return False, f"写入失败: {e}"
+
+    return True, ""
+
+
 def list_config_files(project_path: str) -> list[ConfigFileInfo]:
     """扫描项目中的所有 YAML 配置文件。
 
@@ -428,4 +514,5 @@ __all__ = [
     "load_config_content",
     "parse_config_value",
     "set_by_dotpath",
+    "set_config_value_in_file",
 ]

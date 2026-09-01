@@ -11,30 +11,23 @@
 """
 
 # 配置模板
-PROJECT_TEMPLATE = """# Precis 项目配置文件
-# 项目基本信息
+# 注意：模板中的 {project_name} 由 init.py 以字符串 replace 方式填充，
+# 不要使用 str.format（正则模板含 {2,} 等花括号字面量会被误当替换字段）。
+PROJECT_TEMPLATE = """# Precis 项目清单（V2 格式）
+# 项目基本信息：id 为项目标识符，name 为显示名称
+version: 2
 project:
+  id: "{project_name}"
   name: "{project_name}"
-  version: "1.0.0"
-  description: "数据校验项目"
 
-# 数据源配置
-data_sources:
-  - name: default
-    type: excel
-    path: ./data
-
-# Schema 定义目录
-schemas:
-  dir: ./schemas
-
-# 约束定义目录
-constraints:
-  dir: ./constraints
-
-# 正则模式定义
-patterns:
-  dir: ./patterns
+# Schema/约束/正则等资源按需登记在下列列表（path 相对项目根）：
+# schemas:
+#   - id: <uuid>
+#     path: schemas/<uuid>.schema.yaml
+# constraints: []
+# regex_nodes: []
+# transforms: []
+# manual_data: []
 """
 
 CONSTRAINT_TEMPLATE = """# Precis 约束配置文件

@@ -86,9 +86,11 @@ class ConfigInitCommand(Command):
         if os.path.exists(filepath):
             return CommandResult.error(f"文件已存在: {filename}\n如需覆盖，请先删除原文件")
 
-        # 生成文件内容（使用项目名称填充模板变量）
+        # 生成文件内容（使用项目名称填充模板变量）。
+        # 用 replace 而非 str.format：模板内含正则量词 {2,} 等花括号字面量，
+        # format 会把它们当替换字段抛 KeyError（config init pattern 必崩）
         project_name = os.path.basename(project_path)
-        content = template.format(project_name=project_name)
+        content = template.replace("{project_name}", project_name)
 
         try:
             with open(filepath, "w", encoding="utf-8") as f:

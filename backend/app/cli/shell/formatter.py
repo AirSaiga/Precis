@@ -14,6 +14,7 @@
 - Formatter 提供静态方法统一各类输出格式，内部使用 rich Console
 """
 
+import os
 import sys
 from typing import Any
 
@@ -153,7 +154,14 @@ class Formatter:
  |_|    |____/ \_____|\____/|_____|[/bold cyan]"""
 
         subtitle = Text("Precis · Data Validation Engine", style="bold")
-        version_text = Text("v0.1.0  CLI Interactive Shell", style="dim")
+        # 版本号单一事实源：打包环境经 PRECIS_APP_VERSION 注入，开发态回退包元数据
+        try:
+            from importlib import metadata as _md
+
+            _version = os.environ.get("PRECIS_APP_VERSION") or _md.version("precis")
+        except Exception:
+            _version = "0.0.0"
+        version_text = Text(f"v{_version}  CLI Interactive Shell", style="dim")
 
         _console.print(logo)
         _console.print()

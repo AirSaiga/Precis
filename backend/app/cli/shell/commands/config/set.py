@@ -5,12 +5,15 @@
 功能概述:
 - 提供 config set 子命令按点号路径设置配置项值
 - 支持布尔值、整数、浮点数、列表、字典与字符串的自动类型解析
-- 保留 YAML 格式，支持 Unicode
+- 保留 YAML 注释与格式，原子写回，路径解析含穿越防护
 
 架构设计:
 - ConfigSetCommand 继承 Command 基类
-- _parse_value(): 自动推断值的类型（bool -> int -> float -> yaml -> str）
-- 按点号路径逐层创建字典，最后设置值
+- _parse_value(): 自动推断值的类型（bool -> int -> float -> yaml -> str），已收敛至
+  shared_services 的 parse_config_value（CLI/TUI 同源）
+- 文件定位/写入统一委托 shared_services 的 set_config_value_in_file：
+  find_config_file 防路径穿越 + ruamel round-trip 仅替换目标键的值（保留注释）
+  + 临时文件原子替换
 
 输入示例:
     config set project.precis.yaml project.name "My Project"
@@ -21,11 +24,7 @@
     CommandResult.error("配置文件不存在: project.precis.yaml")
 """
 
-import os
-
-import yaml
-
-from app.cli.shared_services.config_ops import parse_config_value, set_by_dotpath
+from app.cli.shared_services.config_ops import parse_config_value, set_config_value_in_file
 from app.cli.shell.commands.base import Command, CommandResult, ProjectContext
 
 
@@ -69,29 +68,17 @@ class ConfigSetCommand(Command):
         config_file = args[0]
         key_path = args[1]
         value_str = args[2]
-        config_path = os.path.join(project_path, config_file)
 
-        if not os.path.isfile(config_path):
-            return CommandResult.error(f"配置文件不存在: {config_file}")
+        # 解析值（委托 shared_services 纯逻辑，CLI/TUI 同源）
+        # parse_config_value 始终成功返回三元组，行为与原 _parse_value 一致
+        value = parse_config_value(value_str)[1]
 
-        try:
-            with open(config_path, encoding="utf-8") as f:
-                data = yaml.safe_load(f) or {}
+        # 定位文件并写入（委托 shared_services，CLI/TUI 同源）：
+        # - find_config_file 统一路径解析，含 .. / 绝对路径等穿越防护与递归回退
+        # - ruamel round-trip 仅替换目标键的值，保留注释与格式
+        # - 临时文件 + os.replace 原子写回，失败时不损坏原文件
+        ok, error_message = set_config_value_in_file(project_path, config_file, key_path, value)
+        if not ok:
+            return CommandResult.error(error_message)
 
-            # 解析值（委托 shared_services 纯逻辑，CLI/TUI 同源）
-            # parse_config_value 始终成功返回三元组，行为与原 _parse_value 一致
-            value = parse_config_value(value_str)[1]
-
-            # 按点号路径设置值（委托 shared_services 纯逻辑，返回新 dict 不改原 data）
-            data = set_by_dotpath(data, key_path, value)
-
-            # 写回文件
-            with open(config_path, "w", encoding="utf-8") as f:
-                yaml.dump(data, f, allow_unicode=True, default_flow_style=False, sort_keys=False)
-
-            return CommandResult.ok(f"已设置: {key_path} = {value}")
-
-        except yaml.YAMLError as e:
-            return CommandResult.error(f"YAML 解析失败: {e}")
-        except Exception as e:
-            return CommandResult.error(f"写入失败: {e}")
+        return CommandResult.ok(f"已设置: {key_path} = {value}")
