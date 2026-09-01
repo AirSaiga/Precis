@@ -223,6 +223,15 @@
   const isChecking = ref(false)
   const isDownloading = ref(false)
 
+  /**
+   * 用户是否已在挂载后交互过配置控件（首次 @change/@blur 置位）。
+   *
+   * 竞态说明：onMounted 的 loadUpdateConfig 走 IPC 读取磁盘配置，若 IPC 返回前
+   * 用户已切换开关（v-model 改了 localConfig），回填会用磁盘旧值整体覆盖、
+   * 抹掉用户改动。置位后 loadUpdateConfig 跳过回填，保留用户输入。
+   */
+  let userInteracted = false
+
   function hasUpdateAvailable(): boolean {
     return updateState.value.status === 'update-available'
   }
@@ -282,7 +291,9 @@
 
     try {
       const config = await updateApi.getConfig()
-      if (config) {
+      // 竞态守卫：IPC 往返期间用户可能已改动配置（userInteracted 置位），
+      // 此时跳过回填，避免磁盘旧值覆盖用户输入
+      if (config && !userInteracted) {
         localConfig.value = { ...localConfig.value, ...config }
       }
     } catch (error) {
@@ -302,6 +313,9 @@
   }
 
   async function handleConfigChange(): Promise<void> {
+    // 首次用户交互置位：此后 loadUpdateConfig 的 IPC 回填不再覆盖 localConfig
+    userInteracted = true
+
     if (!updateApi.isSupported) return
 
     try {

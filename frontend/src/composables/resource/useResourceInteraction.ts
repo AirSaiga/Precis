@@ -14,6 +14,8 @@
  * - 多选模式不拦截 dragstart，拖拽链路始终可用。
  */
 
+import { onScopeDispose } from 'vue'
+
 import { useResourceTree } from '@/composables/resource'
 import type { ResourceItem } from '@/types/resource'
 
@@ -122,6 +124,14 @@ export function useResourceInteraction() {
   function handleResourceMouseUp(): void {
     clearLongPressTimer()
   }
+
+  // 卸载兜底清理：长按是异步手势，若组件在长按到期前卸载，fireLongPress 永远不会
+  // 经由"正常完成回调"路径收尾——计时器回调会在已销毁组件上触发 toggleSelect，
+  // document 级 mousemove 监听也会永久驻留泄漏。这里在作用域销毁时无条件清理
+  // （AGENTS.md 监听器清理纪律：清理必须与卸载解耦，不能只依赖手势正常结束）。
+  onScopeDispose(() => {
+    clearLongPressTimer()
+  })
 
   /**
    * 处理资源鼠标离开（清除计时器）
