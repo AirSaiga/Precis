@@ -716,6 +716,27 @@ def test_agent_system_prompt_contains_intent_guardrails():
     assert "写动作必填" in CHAT_AGENT_SYSTEM_PROMPT
 
 
+def test_system_prompt_is_inline_default_consistent():
+    """isInline 默认值文档必须双侧一致为"默认 true"，且 DELETE 指引要求按资源形态填 isInline。
+
+    缺陷：JSON 直出提示词示例写"默认false"、使用策略写"默认 true"，自相矛盾导致
+    LLM 随机取值；DELETE_CONSTRAINT_NODE 携带错误的 isInline 会删不掉目标约束。
+    """
+    from app.shared.services.ai.chat_agent_runner import CHAT_AGENT_SYSTEM_PROMPT
+    from app.shared.services.llm.chat.chat_system_prompt import SYSTEM_PROMPT_JSON_FORMAT
+
+    for prompt in (CHAT_AGENT_SYSTEM_PROMPT, SYSTEM_PROMPT_JSON_FORMAT):
+        # 不再出现"默认false"的自相矛盾表述
+        assert "默认false" not in prompt
+        # 统一为"默认 true"
+        assert "默认 true" in prompt
+        # DELETE 指引：isInline 必须与约束的实际存储形态一致
+        assert "实际存储形态" in prompt
+
+    # JSON 格式提示词的示例字段显式标注默认 true
+    assert "（默认 true）" in SYSTEM_PROMPT_JSON_FORMAT
+
+
 @pytest.mark.asyncio
 async def test_orchestrator_legacy_no_confirm_gate_blocks_write():
     """B-sec: 无确认门环境(API 模式 enable_interactive=False)存在写盘动作时 fail-closed。

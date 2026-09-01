@@ -16,10 +16,17 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+import time
+import uuid
 from pathlib import Path
 from typing import Any
 
 logger = logging.getLogger(__name__)
+
+# 陈旧锁判定阈值（秒）：锁文件 mtime 超过该值视为持有进程已崩溃残留。
+# 正常写 YAML 的持锁时长远小于该值；Windows 的 open(lock, "x") 独占创建
+# 在进程崩溃后不会自动释放（.lock 文件残留），只能按时间阈值接管。
+STALE_LOCK_SECONDS = 30.0
 
 # 文件锁导入（跨平台支持）
 msvcrt: Any = None
@@ -87,18 +94,42 @@ class FileLock:
                 yaml.dump(data, f)
     """
 
-    def __init__(self, file_path: str, timeout: float = 10.0):
+    def __init__(self, file_path: str, timeout: float = 10.0, stale_seconds: float = STALE_LOCK_SECONDS):
         """
         @methoddesc 初始化文件锁
 
         参数:
             file_path: 要加锁的文件路径
             timeout: 获取锁的超时时间（秒），默认 10 秒
+            stale_seconds: 陈旧锁判定阈值（秒），锁文件 mtime 超过该值视为崩溃残留并接管
         """
         self.file_path = file_path
         self.timeout = timeout
+        self.stale_seconds = stale_seconds
         self.lock_file = None
         self.lock_path = f"{file_path}.lock"
+        # 本持有者的唯一令牌：获取锁时写入锁文件，释放前重验归属，避免误删他人重建的锁
+        self._lock_token: str | None = None
+
+    def _break_stale_lock(self) -> None:
+        """陈旧锁检测：锁文件 mtime 超过 stale_seconds 视为持有进程已崩溃，删除后可重试获取。
+
+        仅处理"进程崩溃残留"场景——持锁进程存活时其 mtime 会不断刷新吗？不会，
+        但正常持锁时长（单次 YAML 原子写入）远小于阈值，误接管的概率可忽略；
+        删除失败（他方并发占用）时静默返回，交由外层重试循环处理。
+        """
+        try:
+            stat_result = os.stat(self.lock_path)
+        except OSError:
+            return  # 锁文件不存在，无需处理
+        age = time.time() - stat_result.st_mtime
+        if age <= self.stale_seconds:
+            return
+        try:
+            os.remove(self.lock_path)
+            logger.warning(f"检测到陈旧文件锁（{age:.0f}s 前残留），已接管: {self.lock_path}")
+        except OSError:
+            logger.debug("删除陈旧锁文件失败（可能被并发占用）", exc_info=True)
 
     def __enter__(self):
         """
@@ -106,6 +137,7 @@ class FileLock:
 
         进入上下文时尝试获取文件锁，如果锁已被占用则等待，
         超过 timeout 时间后抛出 YamlUpdateError。
+        每次尝试前先做陈旧锁检测，避免崩溃进程残留的 .lock 文件导致永久超时。
 
         返回:
             FileLock 实例自身
@@ -114,19 +146,28 @@ class FileLock:
             logger.debug(f"文件锁不可用，跳过加锁: {self.file_path}")
             return self
 
-        import time
-
         start_time = time.time()
 
         while True:
             try:
                 if msvcrt:
-                    # Windows: 使用独占模式打开锁文件
+                    # Windows: 先做陈旧锁检测，再用独占模式打开锁文件
+                    self._break_stale_lock()
                     self.lock_file = open(self.lock_path, "x")  # 独占创建
                 else:
                     # Unix: 使用 fcntl 文件锁
                     self.lock_file = open(self.lock_path, "w")
                     fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+                # 写入唯一令牌（进程号 + 随机串）：释放前重验锁文件归属，
+                # 缓解"自己持有的锁已被陈旧检测接管、他人重建新锁"时的误删竞态
+                self._lock_token = f"{os.getpid()}-{uuid.uuid4().hex}"
+                try:
+                    self.lock_file.write(self._lock_token)
+                    self.lock_file.flush()
+                except OSError:
+                    # 令牌写入失败时释放路径退化为直接删除（保持旧行为）
+                    logger.debug("写入锁令牌失败", exc_info=True)
 
                 logger.debug(f"获取文件锁成功: {self.lock_path}")
                 return self
@@ -146,6 +187,8 @@ class FileLock:
         @methoddesc 释放文件锁
 
         退出上下文时释放文件锁并尝试删除锁文件。
+        删除前先 close 自身句柄，再重验锁文件内容是否仍为本次写入的令牌：
+        若内容已变（自己的锁被陈旧检测接管、他人重建了新锁）则跳过删除，避免误删他人锁。
         不会吞掉异常。
 
         返回:
@@ -156,7 +199,22 @@ class FileLock:
                 # 只在有 fcntl 模块的系统上解锁（Unix）
                 if fcntl is not None:
                     fcntl.flock(self.lock_file.fileno(), fcntl.LOCK_UN)
+                # 先 close 自身句柄再删除，缩短"句柄未关即删"的窗口
                 self.lock_file.close()
+
+                # 删除前重验所有权：锁文件内容不再是自己的令牌 → 已被他人接管，跳过删除
+                if self._lock_token is not None:
+                    try:
+                        with open(self.lock_path, encoding="utf-8") as lf:
+                            current_token = lf.read()
+                        if current_token != self._lock_token:
+                            logger.debug("锁文件已被其他持有者接管，跳过删除: %s", self.lock_path)
+                            return False
+                    except FileNotFoundError:
+                        # 锁文件已不存在（被接管删除），无需再删
+                        return False
+                    except OSError:
+                        logger.debug("重读锁文件失败，按原行为尝试删除", exc_info=True)
 
                 # 尝试删除锁文件
                 try:

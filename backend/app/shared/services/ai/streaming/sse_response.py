@@ -93,6 +93,10 @@ async def sse_event_stream(
     for eid, event, data in replayed:
         yield format_sse_event(event_id=eid, event=event, data=data)
 
+    # 记录回放水位：emit 先写 journal 再入队，回放期间队列中可能已积压同批事件，
+    # 实时消费时跳过 id <= 水位的事件，避免回放与实时重叠导致重复投递
+    last_replayed_id = replayed[-1][0] if replayed else last_event_id
+
     # 阶段 2: 若回放的最后一条是终止事件,任务已结束,直接关闭流
     from .types import TERMINAL_EVENTS
 
@@ -120,6 +124,10 @@ async def sse_event_stream(
         rt_eid = cast("int | None", entry.get("id"))
         rt_event = cast("str | None", entry.get("event"))
         rt_data = cast("dict[str, Any] | None", entry.get("data"))
+        # 跳过回放阶段已投递过的事件（含已回放的终止事件——阶段 2 未退出说明该终止事件
+        # 必然也在回放末尾被投递过，直接丢弃即可，不会漏终止信号）
+        if isinstance(rt_eid, int) and rt_eid <= last_replayed_id:
+            continue
         yield format_sse_event(event_id=rt_eid, event=rt_event, data=rt_data)
         if rt_event in TERMINAL_EVENTS:
             terminated = True

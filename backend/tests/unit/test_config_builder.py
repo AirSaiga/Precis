@@ -46,6 +46,42 @@ class TestBuildConfigBasic:
         assert result["manifest"]["version"] == 2
         assert result["manifest"]["project"]["id"] == "test"
 
+    def test_table_level_constraint_without_column_does_not_crash(self):
+        """LLM 输出表级约束（无 column_id/column_ids）不再 IndexError 崩溃，以 unknown 兜底生成"""
+        llm_result = {
+            "constraints": [{"type": "Range", "table_id": "users", "min": 0, "max": 100}],
+        }
+        result = build_config(
+            project_id="p1",
+            project_name="P1",
+            config_path=None,
+            profiling_data=[],
+            llm_result=llm_result,
+            options=_make_options(),
+            existing_config=None,
+        )
+        assert result["success"] is True
+        assert len(result["constraints"]) == 1
+        cid = next(iter(result["constraints"]))
+        assert "unknown" in cid
+
+    def test_v2_refs_with_explicit_empty_column_ids_does_not_crash(self):
+        """V2 格式显式空 column_ids 列表不再 IndexError（.get 默认值对空列表不生效的坑）"""
+        llm_result = {
+            "constraints": [{"type": "Range", "refs": {"table_id": "users", "column_ids": []}, "params": {"min": 0}}],
+        }
+        result = build_config(
+            project_id="p1",
+            project_name="P1",
+            config_path=None,
+            profiling_data=[],
+            llm_result=llm_result,
+            options=_make_options(),
+            existing_config=None,
+        )
+        assert result["success"] is True
+        assert len(result["constraints"]) == 1
+
     def test_manifest_lists_schemas_and_constraints(self):
         llm_result = {
             "schemas": [{"id": "users", "name": "users", "columns": []}],

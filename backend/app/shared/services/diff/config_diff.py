@@ -158,7 +158,18 @@ class ConfigDiffService:
         new_keys = set(new_resources.keys())
 
         added_keys = new_keys - old_keys
+        deleted_keys = old_keys - new_keys
         common_keys = old_keys.intersection(new_keys)
+
+        # 旧配置存在、新配置缺失的资源必须以 DELETED 呈现——
+        # 否则 AI 重新生成后的合并确认界面看不到"将被删除"的资源
+        for key in deleted_keys:
+            old_val = old_resources[key]
+            if hasattr(old_val, "model_dump"):
+                old_val = old_val.model_dump(exclude_none=True)
+            result.append(
+                ConfigItemDiff(id=key, name=key, type=DiffType.DELETED, original=old_val, generated=None, changes=[])
+            )
 
         for key in added_keys:
             new_val = new_resources[key]

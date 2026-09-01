@@ -75,6 +75,32 @@ DEFAULT_SYSTEM_PROMPT = """你是一个数据治理专家 Agent，擅长分析�
 FINAL_OUTPUT_TOOL = "generate_config"
 
 
+# 防僵死总时长下限（秒）：即使单次 IO 超时很小，整体守卫也不低于 5 分钟
+STREAM_GUARD_MIN_TIMEOUT = 300.0
+# 单次 IO 超时 → 整体防僵死上限的放大倍数：多轮工具调用的长回复需要远大于单次 IO 的预算
+STREAM_GUARD_MULTIPLIER = 5
+
+
+def stream_guard_timeout(provider_timeout: Any) -> float:
+    """由 provider 单次 IO 超时推导 Agent 流式调用的整体防僵死上限。
+
+    两层超时的分工：
+    - provider 内部的 aiohttp connect/read 超时（timeout_seconds，Ollama 默认 60s）
+      管"单次 IO"——一次读不到数据就快速失败，避免单个请求挂死；
+    - 本层 wait_for 只防"整体僵死"（流永不结束、取消信号失效），不限制生成时长。
+
+    若直接复用 timeout_seconds 作总上限，本地模型多轮长回复会被 60s 掐断；
+    故取 timeout_seconds * 5 且不低于 300s。非实数（mock/未实现 provider）回退 300s。
+
+    返回:
+        整体防僵死上限（秒）
+    """
+    # 必须校验为实数，否则非数值（如 MagicMock）参与运算会产生无意义/非法的 timeout
+    if isinstance(provider_timeout, (int, float)):
+        return max(provider_timeout * STREAM_GUARD_MULTIPLIER, STREAM_GUARD_MIN_TIMEOUT)
+    return STREAM_GUARD_MIN_TIMEOUT
+
+
 # 进度回调签名：stage, progress(0-1), extra dict
 def default_progress_callback(stage: str, progress: float, extra: dict[str, Any] | None = None) -> None:
     pass
@@ -231,12 +257,11 @@ class AgentExecutor:
             cancelled_in_stream = False
             received_any_chunk = False  # 追踪是否收到过任何 chunk（区分"空流"与"返回但内容空"）
             try:
-                # 用 wait_for 包裹整体流式读取，防止 provider 阻塞时取消信号永不触发
-                # 注意：timeout_seconds 仅 OllamaProvider 提供；对 mock/未实现的 provider 用 120 兜底。
-                # 必须校验为实数，否则 wait_for 在某些 Python 版本下会让内部协程进入未 await 状态
-                # （MagicMock 等任意对象会被 getattr 误判为真值）。
-                raw_timeout = getattr(self.provider, "timeout_seconds", None)
-                stream_timeout = raw_timeout if isinstance(raw_timeout, (int, float)) else 120
+                # 用 wait_for 包裹整体流式读取，防止 provider 阻塞时取消信号永不触发。
+                # 两层超时分工：provider 内部的 connect/read 超时管单次 IO；
+                # 本层只防整体僵死，取单次超时的 5 倍且不低于 300s（见 stream_guard_timeout），
+                # 不限制生成长度——本地模型多轮长回复不会被 60s 单次超时连坐掐断。
+                stream_timeout = stream_guard_timeout(getattr(self.provider, "timeout_seconds", None))
 
                 async def _consume_stream() -> None:
                     nonlocal content, raw_tool_calls, cancelled_in_stream, received_any_chunk
@@ -378,8 +403,10 @@ class AgentExecutor:
             result.turns.append(turn)
             result.iterations = turn_idx
 
-        # 如果达到最大轮数仍未结束
-        if result.iterations >= self.max_iterations and result.config is None:
+        # 如果达到最大轮数仍未结束。
+        # 注意：最后一轮以纯文本收敛（上方 break 的正常路径）时 content 非空且 config 为 None，
+        # 这是 chat agent 的合法结局，不能误判为失败——只有"既无 config 也无文本产出"才算用尽预算。
+        if result.iterations >= self.max_iterations and result.config is None and not result.content:
             result.success = False
             result.error = f"达到最大迭代轮数 {self.max_iterations}，仍未获得最终结果"
 

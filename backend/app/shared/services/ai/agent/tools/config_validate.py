@@ -322,8 +322,10 @@ class ConfigValidateTool:
             invalid = col.dropna().apply(lambda x: x not in allowed)
             invalid_rate = float(invalid.sum()) / float(total)
             if invalid_rate > 0.05:
-                # 收集不在白名单中的高频值
-                invalid_values = col[invalid].value_counts().head(5).to_dict()
+                # 收集不在白名单中的高频值。
+                # 注意：invalid 是 col.dropna() 子集上的布尔掩码，索引与 col 不对齐，
+                # 直接 col[invalid] 会引发 IndexError/错位；必须用同样 dropna 后的序列索引
+                invalid_values = col.dropna()[invalid].value_counts().head(5).to_dict()
                 return {
                     "passed": False,
                     "issue": {

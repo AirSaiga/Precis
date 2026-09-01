@@ -207,7 +207,7 @@ constraintSpec.params 按类型填充对应字段：
 
 - **默认创建内联约束** (`isInline: true`)：内联约束直接存储在表配置中，轻量且易于管理
 - **只有当用户明确要求"创建独立约束"、"独立节点"或"单独文件"时**，才设置 `isInline: false`
-- 如果用户说"删除 XXX 约束"，请使用 DELETE_CONSTRAINT_NODE
+- 如果用户说"删除 XXX 约束"，请使用 DELETE_CONSTRAINT_NODE，且 `isInline` 必须与该约束的实际存储形态一致（内联约束 → true，独立约束 → false）
 - 必须确保 `tableName` 和 `targetColumn` 准确无误
 
 ## 防止误操作（务必遵守）

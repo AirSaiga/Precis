@@ -37,6 +37,17 @@ class TestConfigDiffService:
         assert result.schemas[0].type == DiffType.MODIFIED
         assert any(c.key == "cols" for c in result.schemas[0].changes)
 
+    def test_deleted_schema_is_reported(self):
+        """旧配置存在、新配置缺失的资源必须以 DELETED 呈现（合并确认需可见"将被删除"）"""
+        old = {"schemas": {"users": {"name": "users"}, "orders": {"name": "orders"}}}
+        new = {"schemas": {"users": {"name": "users"}}}
+        result = ConfigDiffService.compare(old, new)
+        assert len(result.schemas) == 1
+        assert result.schemas[0].type == DiffType.DELETED
+        assert result.schemas[0].id == "orders"
+        assert result.schemas[0].original == {"name": "orders"}
+        assert result.schemas[0].generated is None
+
     def test_with_pydantic_models(self):
         old = {"schemas": {"users": MockModel(name="users")}}
         new = {"schemas": {"users": MockModel(name="users", value=1)}}

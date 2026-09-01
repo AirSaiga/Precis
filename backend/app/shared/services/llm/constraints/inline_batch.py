@@ -138,6 +138,7 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
             for action in actions:
                 try:
                     spec = action.get("constraintSpec", {})
+                    action_type = action.get("actionType", "")
                     constraint_type = spec.get("type", "")
                     target_column = spec.get("targetColumn", "")
                     target_column_id = spec.get("targetColumnId", "")
@@ -167,6 +168,36 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
                     # 生成约束 ID
                     filename_table = table_name or target_node_id or "unknown"
                     constraint_id = _generate_constraint_id(std_type, filename_table, target_column)
+
+                    # DELETE 动作：从内存中的 constraints 移除「同列 + 同类型」项，绝不新增。
+                    # 旧实现不区分 actionType，删除动作会被当作添加处理（只增不删还报成功）。
+                    if action_type == "DELETE_CONSTRAINT_NODE":
+                        remaining = [
+                            c
+                            for c in schema_data["constraints"]
+                            if not (c.get("column") == column_id and c.get("type") == std_type)
+                        ]
+                        if len(remaining) == len(schema_data["constraints"]):
+                            results.append(
+                                {
+                                    "action": action,
+                                    "success": False,
+                                    "message": f"未找到内联约束: {std_type} on {filename_table}.{target_column}",
+                                    "frontendInstructions": None,
+                                }
+                            )
+                            continue
+                        schema_data["constraints"] = remaining
+                        logger.info(f"[批量处理] 删除内联约束: {constraint_id}")
+                        results.append(
+                            {
+                                "action": action,
+                                "success": True,
+                                "message": f"inline:{constraint_id}",
+                                "frontendInstructions": generate_frontend_instructions(action, workspace_path),
+                            }
+                        )
+                        continue
 
                     # 构建内联约束结构（字段与其他约束保持一致）
                     constraint_description = spec.get("description") or f"{constraint_id}"
@@ -214,7 +245,10 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
 
             # 只要有成功的操作，就一次性写入所有修改
             if any(r["success"] for r in results):
-                atomic_write_yaml(schema_file, schema_data)
+                # 含删除动作时必须全量替换写入：atomic_write_yaml 的 preserve_format
+                # 路径按 id 合并列表（只更新/追加、不删除），会把已删除的约束"复活"
+                has_delete = any(r["action"].get("actionType") == "DELETE_CONSTRAINT_NODE" for r in results)
+                atomic_write_yaml(schema_file, schema_data, preserve_format=not has_delete)
                 logger.info(f"[批量处理] 成功保存 {len([r for r in results if r['success']])} 个约束到 schema")
 
     except Exception as e:

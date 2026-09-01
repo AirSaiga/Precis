@@ -5,11 +5,12 @@
 
 from __future__ import annotations
 
+import asyncio
 from collections.abc import AsyncIterator
 
 import pytest
 
-from app.shared.services.ai.agent.executor import AgentExecutor
+from app.shared.services.ai.agent.executor import AgentExecutor, stream_guard_timeout
 from app.shared.services.ai.agent.tool_registry import ToolRegistry
 from app.shared.services.llm.config.models import AIProvider, ProviderType
 from app.shared.services.llm.providers.base import BaseProvider, ChatRequest, ChatResponse, StreamChunk
@@ -158,6 +159,41 @@ async def test_agent_respects_max_iterations():
 
     assert result.success is False
     assert "最大迭代" in result.error
+
+
+@pytest.mark.asyncio
+async def test_agent_final_turn_text_convergence_not_marked_failed():
+    """用满 max_iterations 且最后一轮以纯文本收敛 → 不误判失败。
+
+    chat agent（final_output_tool=None）的正常结局就是最后一轮直接产出文本回复：
+    旧实现只要 iterations >= max_iterations 且 config 为 None 就置 success=False，
+    把这种正常收敛误判为预算耗尽。
+    """
+    registry = ToolRegistry()
+    registry.register(
+        name="noop",
+        description="Noop",
+        parameters={"type": "object", "properties": {}},
+        handler=lambda args: {"success": True},
+    )
+
+    provider = FakeProvider(
+        responses=[
+            {
+                "content": "",
+                "tool_calls": [{"id": "c1", "type": "function", "function": {"name": "noop", "arguments": "{}"}}],
+            },
+            {"content": "这是给用户的最终回复"},
+        ]
+    )
+
+    executor = AgentExecutor(provider=provider, registry=registry, max_iterations=2, final_output_tool=None)
+    result = await executor.run("test task")
+
+    assert result.success is True
+    assert result.content == "这是给用户的最终回复"
+    assert result.config is None
+    assert result.iterations == 2
 
 
 @pytest.mark.asyncio
@@ -549,3 +585,91 @@ async def test_different_args_no_false_warning():
         (m.content or "") for m in third_turn_messages if m.role == "user" and "已经调用过" in (m.content or "")
     ]
     assert not warning_texts, "不同参数的调用不应触发重复 warning"
+
+
+# =============================================================================
+# 整体防僵死超时守卫（stream_guard_timeout）
+# 两层超时分工：provider 的 connect/read 超时管单次 IO；
+# executor 的 wait_for 只防整体僵死，不限制生成时长。
+# =============================================================================
+
+
+class TestStreamGuardTimeout:
+    def test_small_provider_timeout_floored_at_300(self):
+        """Ollama 默认 60s 单次超时不应连坐成 60s 总上限——兜底至少 300s。"""
+        assert stream_guard_timeout(60) == 300
+        assert stream_guard_timeout(30) == 300
+
+    def test_large_provider_timeout_multiplied_by_5(self):
+        """单次超时较大时取 5 倍，保证多轮长回复有足够总预算。"""
+        assert stream_guard_timeout(120) == 600
+        assert stream_guard_timeout(90) == 450
+
+    def test_non_numeric_timeout_falls_back_to_300(self):
+        """mock/未实现 provider 无实数 timeout_seconds → 回退 300s 兜底。"""
+        assert stream_guard_timeout(None) == 300
+        assert stream_guard_timeout("60") == 300  # 字符串等非实数不参与运算
+
+
+class _SlowStreamProvider(FakeProvider):
+    """每个 delta chunk 之间 sleep 的慢流 Provider。
+
+    模拟本地大模型的慢速长回复：总时长超过 provider.timeout_seconds（单次 IO 超时），
+    但远低于防僵死上限（≥300s）。
+    """
+
+    def __init__(self, responses, delay: float):
+        super().__init__(responses)
+        self.delay = delay
+
+    async def chat_stream(self, req: ChatRequest) -> AsyncIterator[StreamChunk]:
+        response = self.responses[self.call_index]
+        self.call_index += 1
+        self.last_messages = req.messages
+        for part in response.get("content_parts", []):
+            await asyncio.sleep(self.delay)
+            yield StreamChunk(type="delta", text=part)
+
+
+@pytest.mark.asyncio
+async def test_slow_stream_beyond_provider_timeout_not_truncated():
+    """总时长超过 provider.timeout_seconds 的慢流不再被单次超时掐断。
+
+    回归场景：Ollama timeout_seconds=60 曾被直接用作整个流的总上限，
+    本地模型长回复（>60s）会被误判超时。现在这层只防整体僵死（≥300s）。
+    用缩小数值验证：单次超时 0.05s，流总时长约 0.32s > 0.05s（旧逻辑必失败），
+    但远低于 300s 的新上限（新逻辑成功收敛）。
+    """
+    parts = ["第", "一", "段", "长回复"]
+    provider = _SlowStreamProvider(responses=[{"content_parts": parts}], delay=0.08)
+    provider.timeout_seconds = 0.05  # 旧实现会以 0.05s 为总上限 → 必然超时失败
+
+    registry = ToolRegistry()
+    executor = AgentExecutor(provider=provider, registry=registry, max_iterations=3)
+    result = await executor.run("test task")
+
+    assert result.success is True
+    assert result.content == "".join(parts)
+
+
+@pytest.mark.asyncio
+async def test_run_passes_guard_timeout_to_wait_for(monkeypatch):
+    """run() 传给 wait_for 的是防僵死上限（max(5x, 300s)），而非原始 timeout_seconds。"""
+    captured: list[float] = []
+    real_wait_for = asyncio.wait_for
+
+    async def _spy(aw, timeout=None, **kwargs):
+        captured.append(timeout)
+        return await real_wait_for(aw, timeout=timeout, **kwargs)
+
+    monkeypatch.setattr(asyncio, "wait_for", _spy)
+
+    for provider_timeout, expected in [(60, 300), (120, 600)]:
+        provider = FakeProvider(responses=[{"content": "done"}])
+        provider.timeout_seconds = provider_timeout
+        registry = ToolRegistry()
+        executor = AgentExecutor(provider=provider, registry=registry, max_iterations=1)
+        result = await executor.run("test task")
+
+        assert result.success is True
+        assert captured[-1] == expected

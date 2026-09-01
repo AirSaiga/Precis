@@ -133,7 +133,14 @@ def _build_constraint_params(constraint_type: str, constraint_spec: dict[str, An
         if pattern and not expression:
             safe_pattern = re.escape(pattern)
             expression = f"re.match(r'{safe_pattern}', str(value)) is not None"
-        return {"expression": expression or "True"}
+        if not expression:
+            # 空表达式不再兜底为 "True"（恒真约束会静默失效还报成功），
+            # 抛出让上层按失败上报且不落盘。三个调用方（update_yaml_config 内联/独立分支、
+            # process_inline_batch）均有 except Exception 兜底，会把异常转为该动作的失败结果。
+            raise ValueError(
+                "Scripted 约束缺少有效参数: 需要 params.expression 或 params.pattern 之一（恒真表达式已被禁止）"
+            )
+        return {"expression": expression}
     elif std_type == "DateLogic":
         result: dict[str, Any] = {
             "logic_mode": params.get("logicMode", "compare"),

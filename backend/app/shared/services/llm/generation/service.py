@@ -57,6 +57,45 @@ from .prompt_builder import build_prompt
 logger = logging.getLogger(__name__)
 
 
+def _find_json_object_end(text: str, start: int) -> int | None:
+    """从 start（应指向 '{'）开始做字符串感知的大括号配平扫描。
+
+    跟踪扫描位置是否处于双引号字符串内部（处理反斜杠转义）：
+    字符串内的 '{' / '}' 不参与配平，避免 JSON 字符串值包含 '}' 时
+    把合法 JSON 截断（如 {"a":"x}y"} 被截成 {"a":"x}）。
+
+    参数:
+        text: 待扫描文本
+        start: 起始索引（text[start] 应为 '{'）
+
+    返回:
+        匹配闭括号的索引（含）；扫描不到配平闭括号时返回 None
+    """
+    balance = 0
+    in_string = False
+    escaped = False
+    for i in range(start, len(text)):
+        char = text[i]
+        if in_string:
+            if escaped:
+                # 转义序列的第二个字符被消耗，不参与边界判断
+                escaped = False
+            elif char == "\\":
+                escaped = True
+            elif char == '"':
+                in_string = False
+            continue
+        if char == '"':
+            in_string = True
+        elif char == "{":
+            balance += 1
+        elif char == "}":
+            balance -= 1
+            if balance == 0:
+                return i
+    return None
+
+
 @dataclass
 class ProfilingOptions:
     """数据画像选项"""
@@ -752,19 +791,15 @@ class ConfigGenerationService:
         start = text.find("{")
         if start == -1:
             return None
-        balance = 0
-        for i, char in enumerate(text[start:], start=start):
-            if char == "{":
-                balance += 1
-            elif char == "}":
-                balance -= 1
-                if balance == 0:
-                    try:
-                        parsed = json.loads(text[start : i + 1])
-                        if isinstance(parsed, dict):
-                            return self._build_config_from_llm_result(parsed)
-                    except json.JSONDecodeError:
-                        return None
+        end = _find_json_object_end(text, start)
+        if end is None:
+            return None
+        try:
+            parsed = json.loads(text[start : end + 1])
+            if isinstance(parsed, dict):
+                return self._build_config_from_llm_result(parsed)
+        except json.JSONDecodeError:
+            return None
         return None
 
     async def _profile_files(self, file_paths: list[str], options: ProfilingOptions) -> list[dict]:
@@ -937,18 +972,12 @@ class ConfigGenerationService:
         if match:
             content = match.group(1).strip()
 
-        # 通过大括号平衡计数找到最外层的 JSON 对象
+        # 通过大括号平衡计数找到最外层的 JSON 对象（字符串感知，字符串内的 '}' 不参与配平）
         start = content.find("{")
         if start != -1:
-            balance = 0
-            for i, char in enumerate(content[start:], start=start):
-                if char == "{":
-                    balance += 1
-                elif char == "}":
-                    balance -= 1
-                    if balance == 0:
-                        content = content[start : i + 1]
-                        break
+            end = _find_json_object_end(content, start)
+            if end is not None:
+                content = content[start : end + 1]
 
         try:
             parsed = json.loads(content)

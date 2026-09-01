@@ -133,7 +133,8 @@ def build_config(
             # 已经是 V2 格式，做基本校验和补充
             cid = cdef.get("id") or _generate_semantic_constraint_id(
                 cdef["refs"].get("table_id", schema_id),
-                cdef["refs"].get("column_id") or cdef["refs"].get("column_ids", ["unknown"])[0],
+                # 显式空 column_ids 列表时 .get 的默认值不生效，需 or 兜底，否则 [0] 越界
+                cdef["refs"].get("column_id") or (cdef["refs"].get("column_ids") or ["unknown"])[0],
                 cdef.get("type", "unknown"),
                 existing_ids,
             )
@@ -189,7 +190,11 @@ def build_config(
         elif ctype_normalized == "Scripted":
             params["expression"] = cdef.get("expression", "")
 
-        cid = _generate_semantic_constraint_id(table_id, column_id or column_ids[0], ctype_normalized, existing_ids)
+        # 表级约束（无 column_id/column_ids）时以 "unknown" 兜底参与 ID 生成，
+        # 避免空列表 [0] 索引 IndexError 崩掉整个配置生成
+        cid = _generate_semantic_constraint_id(
+            table_id, column_id or (column_ids[0] if column_ids else "unknown"), ctype_normalized, existing_ids
+        )
         existing_ids.add(cid)
 
         return {

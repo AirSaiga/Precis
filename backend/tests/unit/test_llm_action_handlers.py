@@ -216,23 +216,11 @@ class TestUpdateYamlConfig:
         assert msg == "deleted_id"
         mock_delete.assert_called_once()
 
-    def test_delete_action_inline_falls_through(self, tmp_path):
+    def test_delete_action_inline_false_deletes_standalone(self, tmp_path):
+        """DELETE + isInline=false 走独立约束删除路径（文件不存在时报失败）。"""
         workspace = str(tmp_path)
         os.makedirs(os.path.join(workspace, "schemas"))
-
-        import yaml
-
-        schema_data = {
-            "version": 2,
-            "id": "sc_users",
-            "name": "users",
-            "columns": [
-                {"id": "sc_email", "name": "email", "type": "string"},
-            ],
-        }
-        schema_file = os.path.join(workspace, "schemas", "sc_users.schema.yaml")
-        with open(schema_file, "w", encoding="utf-8") as f:
-            yaml.safe_dump(schema_data, f)
+        os.makedirs(os.path.join(workspace, "constraints"))
 
         action = {
             "actionType": "DELETE_CONSTRAINT_NODE",
@@ -245,8 +233,199 @@ class TestUpdateYamlConfig:
             },
         }
         success, msg = update_yaml_config(action, workspace)
-        # delete_constraint_file is called but the file doesn't exist
-        assert success is False or "不存在" in msg
+        assert success is False
+        assert "不存在" in msg
+
+    def test_delete_inline_constraint_removes_from_schema(self, tmp_path):
+        """DELETE + isInline=true 必须真删：从 schema 的 constraints 列表移除，而非新增。"""
+        workspace = str(tmp_path)
+        schemas_dir = os.path.join(workspace, "schemas")
+        os.makedirs(schemas_dir)
+
+        schema_data = {
+            "version": 2,
+            "id": "sc_users",
+            "name": "users",
+            "columns": [{"id": "sc_email", "name": "email", "type": "string"}],
+            "constraints": [
+                {"id": "notnull_users_email", "column": "sc_email", "type": "NotNull"},
+                {"id": "range_users_age", "column": "sc_age", "type": "Range"},
+            ],
+        }
+        schema_file = os.path.join(schemas_dir, "sc_users.schema.yaml")
+        with open(schema_file, "w", encoding="utf-8") as f:
+            yaml.safe_dump(schema_data, f)
+
+        action = {
+            "actionType": "DELETE_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "NotNull",
+                "targetColumn": "email",
+                "tableName": "users",
+                "targetNodeId": "sc_users",
+                "targetColumnId": "sc_email",
+                "isInline": True,
+            },
+        }
+        success, msg = update_yaml_config(action, workspace)
+        assert success is True
+        assert msg.startswith("inline:")
+
+        with open(schema_file, encoding="utf-8") as f:
+            result_data = yaml.safe_load(f)
+        # NotNull 内联项被移除，其余约束保持不变
+        remaining_ids = [c["id"] for c in result_data["constraints"]]
+        assert remaining_ids == ["range_users_age"]
+        # 不应创建独立约束文件（真删不增）
+        constraints_dir = os.path.join(workspace, "constraints")
+        if os.path.isdir(constraints_dir):
+            assert os.listdir(constraints_dir) == []
+
+    def test_delete_inline_constraint_not_found(self, tmp_path):
+        """DELETE + isInline=true 但目标内联约束不存在时，必须报失败而非静默成功。"""
+        workspace = str(tmp_path)
+        schemas_dir = os.path.join(workspace, "schemas")
+        os.makedirs(schemas_dir)
+
+        schema_data = {
+            "version": 2,
+            "id": "sc_users",
+            "name": "users",
+            "columns": [{"id": "sc_email", "name": "email", "type": "string"}],
+            "constraints": [],
+        }
+        schema_file = os.path.join(schemas_dir, "sc_users.schema.yaml")
+        with open(schema_file, "w", encoding="utf-8") as f:
+            yaml.safe_dump(schema_data, f)
+
+        action = {
+            "actionType": "DELETE_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "NotNull",
+                "targetColumn": "email",
+                "tableName": "users",
+                "targetNodeId": "sc_users",
+                "targetColumnId": "sc_email",
+                "isInline": True,
+            },
+        }
+        success, msg = update_yaml_config(action, workspace)
+        assert success is False
+        assert "未找到内联约束" in msg
+
+        with open(schema_file, encoding="utf-8") as f:
+            result_data = yaml.safe_load(f)
+        assert result_data["constraints"] == []
+
+    def test_delete_inline_constraint_resolves_column_by_name(self, tmp_path):
+        """DELETE + isInline=true 且未传 targetColumnId 时按列名解析定位。"""
+        workspace = str(tmp_path)
+        schemas_dir = os.path.join(workspace, "schemas")
+        os.makedirs(schemas_dir)
+
+        schema_data = {
+            "version": 2,
+            "id": "sc_users",
+            "name": "users",
+            "columns": [{"id": "sc_email", "name": "email", "type": "string"}],
+            "constraints": [{"id": "notnull_users_email", "column": "sc_email", "type": "NotNull"}],
+        }
+        schema_file = os.path.join(schemas_dir, "sc_users.schema.yaml")
+        with open(schema_file, "w", encoding="utf-8") as f:
+            yaml.safe_dump(schema_data, f)
+
+        action = {
+            "actionType": "DELETE_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "NotNull",
+                "targetColumn": "email",
+                "tableName": "users",
+                "targetNodeId": "sc_users",
+                "isInline": True,
+            },
+        }
+        success, _ = update_yaml_config(action, workspace)
+        assert success is True
+
+        with open(schema_file, encoding="utf-8") as f:
+            result_data = yaml.safe_load(f)
+        assert result_data["constraints"] == []
+
+    def test_delete_inline_constraint_schema_missing(self, tmp_path):
+        """DELETE + isInline=true 找不到 schema 文件时必须报失败。"""
+        workspace = str(tmp_path)
+        os.makedirs(os.path.join(workspace, "schemas"))
+        action = {
+            "actionType": "DELETE_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "NotNull",
+                "targetColumn": "email",
+                "tableName": "unknown_table",
+                "targetNodeId": "sc_unknown",
+                "isInline": True,
+            },
+        }
+        success, msg = update_yaml_config(action, workspace)
+        assert success is False
+        assert "未找到 schema 文件" in msg
+
+    def test_add_inline_scripted_without_expression_or_pattern_fails(self, tmp_path):
+        """Scripted 约束空表达式不再兜底 "True"：内联添加必须报失败且不写盘。"""
+        workspace = str(tmp_path)
+        schemas_dir = os.path.join(workspace, "schemas")
+        os.makedirs(schemas_dir)
+
+        schema_data = {
+            "version": 2,
+            "id": "sc_users",
+            "name": "users",
+            "columns": [{"id": "sc_email", "name": "email", "type": "string"}],
+            "constraints": [],
+        }
+        schema_file = os.path.join(schemas_dir, "sc_users.schema.yaml")
+        with open(schema_file, "w", encoding="utf-8") as f:
+            yaml.safe_dump(schema_data, f)
+
+        action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Scripted",
+                "targetColumn": "email",
+                "tableName": "users",
+                "targetNodeId": "sc_users",
+                "targetColumnId": "sc_email",
+                "isInline": True,
+                "params": {},
+            },
+        }
+        success, msg = update_yaml_config(action, workspace)
+        assert success is False
+        assert "Scripted" in msg
+
+        with open(schema_file, encoding="utf-8") as f:
+            result_data = yaml.safe_load(f)
+        # 失败动作不得落盘
+        assert result_data["constraints"] == []
+
+    def test_add_standalone_scripted_without_expression_or_pattern_fails(self, tmp_path):
+        """Scripted 约束空表达式：独立添加必须报失败且不落盘。"""
+        workspace = str(tmp_path)
+        os.makedirs(os.path.join(workspace, "constraints"))
+        action = {
+            "actionType": "ADD_CONSTRAINT_NODE",
+            "constraintSpec": {
+                "type": "Scripted",
+                "targetColumn": "email",
+                "tableName": "users",
+                "targetNodeId": "sc_users",
+                "isInline": False,
+                "params": {},
+            },
+        }
+        success, msg = update_yaml_config(action, workspace)
+        assert success is False
+        assert "Scripted" in msg
+        assert os.listdir(os.path.join(workspace, "constraints")) == []
 
     @patch("app.shared.services.llm.actions.action_handlers._build_constraint_refs")
     @patch("app.shared.services.llm.actions.action_handlers.save_constraint")
@@ -802,7 +981,8 @@ class TestProcessRegexAction:
         assert result["success"] is True
         assert result["message"] == "email_regex"
 
-        regex_file = os.path.join(workspace, "regex_nodes", "email_regex.regex.yaml")
+        # V2 标准：regex 文件应写入 regex/ 目录（manifest 登记与读取方均认此目录）
+        regex_file = os.path.join(workspace, "regex", "email_regex.regex.yaml")
         assert os.path.isfile(regex_file)
 
     def test_add_regex_traversal_id(self, tmp_path):
@@ -837,7 +1017,7 @@ class TestProcessRegexAction:
             workspace,
         )
         assert result["success"] is True
-        regex_file = os.path.join(workspace, "regex_nodes", "test_regex.regex.yaml")
+        regex_file = os.path.join(workspace, "regex", "test_regex.regex.yaml")
         with open(regex_file, encoding="utf-8") as f:
             data = yaml.safe_load(f)
         assert data["match_mode"] == "full"
@@ -845,6 +1025,25 @@ class TestProcessRegexAction:
     def test_add_regex_already_exists(self, tmp_path):
         workspace = str(tmp_path)
         regex_dir = os.path.join(workspace, "regex_nodes")
+        os.makedirs(regex_dir)
+        regex_file = os.path.join(regex_dir, "exists.regex.yaml")
+        with open(regex_file, "w", encoding="utf-8") as f:
+            f.write("version: 2\n")
+
+        result = process_regex_action(
+            {
+                "actionType": "ADD_REGEX",
+                "regexSpec": {"name": "exists", "regexId": "exists", "pattern": ".*"},
+            },
+            workspace,
+        )
+        assert result["success"] is False
+        assert "已存在" in result["message"]
+
+    def test_add_regex_already_exists_in_new_dir(self, tmp_path):
+        """已存在检测同样覆盖新 regex/ 目录。"""
+        workspace = str(tmp_path)
+        regex_dir = os.path.join(workspace, "regex")
         os.makedirs(regex_dir)
         regex_file = os.path.join(regex_dir, "exists.regex.yaml")
         with open(regex_file, "w", encoding="utf-8") as f:

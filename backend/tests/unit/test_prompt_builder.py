@@ -79,3 +79,30 @@ class TestBuildPrompt:
         ]
         prompt, _ = build_prompt([_make_profiling_item(columns=columns)], "Test")
         assert "例:" in prompt
+
+    def test_file_truncation_warns_with_total_count(self):
+        """超预算截断文件数时必须发出警告，且总数为截断前的文件数。
+
+        缺陷：旧实现先切片再取 len，omitted 恒为 0，超预算文件被静默丢弃无警告。
+        """
+        files = [
+            _make_profiling_item(
+                table_name=f"table_{i}",
+                path=f"data/table_{i}.csv",
+                columns=[
+                    {"name": f"col_{j}", "dtype": "int64", "null_count": 0, "sample_values": ["value"]}
+                    for j in range(10)
+                ],
+            )
+            for i in range(4)
+        ]
+        prompt, warnings = build_prompt(files, "Test", max_prompt_chars=500)
+
+        # 必须发出截断警告，且总数为截断前的 4 个
+        truncation_warnings = [w for w in warnings if "数据文件过多" in w]
+        assert truncation_warnings, f"应有文件截断警告，实际 warnings={warnings}"
+        assert "共 4 个" in truncation_warnings[0]
+        assert "仅分析前" in truncation_warnings[0]
+        # 截断生效：只保留前 N 个文件
+        assert "table_0" in prompt
+        assert "table_3" not in prompt

@@ -154,7 +154,7 @@ SYSTEM_PROMPT_JSON_FORMAT = """
                 "tableName": "目标表格的名称（必填，系统据此解析目标表）",
                 "targetColumn": "目标列的名称（必填）",
                 "targetColumnId": "目标列的ID（可选；如不确定可留空，系统会从 targetColumn 解析）",
-                "isInline": true 或 false（默认false）,
+                "isInline": true 或 false（默认 true）,
                 "params": {
                     "min": 0,
                     "max": 100,
@@ -214,7 +214,7 @@ SYSTEM_PROMPT_JSON_FORMAT = """
 ## 动作说明
 - ADD_CONSTRAINT_NODE: 添加约束节点。
 - UPDATE_CONSTRAINT_NODE: 更新约束节点。
-- DELETE_CONSTRAINT_NODE: 删除约束节点。
+- DELETE_CONSTRAINT_NODE: 删除约束节点。删除时 `isInline` 必须与目标约束的实际存储形态一致：内联约束（项目概览"内联约束"下列出、存储在表配置中）设 `isInline: true`；独立约束（单独的 .constraint.yaml 文件）设 `isInline: false`。形态判断错误会导致删除失败。
 - ADD_SCHEMA: 创建新表。
 - UPDATE_SCHEMA: 修改表结构（增删列、改类型）。
 - DELETE_SCHEMA: 删除表。
@@ -231,7 +231,7 @@ SYSTEM_PROMPT_JSON_FORMAT = """
 ## 使用策略
 - **默认创建内联约束** (`isInline: true`)：内联约束直接存储在表配置中，轻量且易于管理
 - **只有当用户明确要求"创建独立约束"、"独立节点"或"单独文件"时**，才设置 `isInline: false`
-- 如果用户说"删除 XXX 约束"，请使用 DELETE_CONSTRAINT_NODE
+- 如果用户说"删除 XXX 约束"，请使用 DELETE_CONSTRAINT_NODE，且 `isInline` 必须与该约束的实际存储形态一致（内联约束 → true，独立约束 → false）
 - 必须确保 `tableName` 和 `targetColumn` 准确无误
 
 ## 内联约束 vs 独立约束

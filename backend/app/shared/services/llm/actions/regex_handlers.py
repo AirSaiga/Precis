@@ -88,11 +88,14 @@ def _add_regex(spec: dict[str, Any], workspace_path: str) -> dict[str, Any]:
         match_mode = "full"
 
     workspace = Path(workspace_path)
-    regex_dir = workspace / "regex_nodes"
+    # V2 标准：regex 文件统一存放在 regex/ 目录（manifest 登记与全仓读取方均认此目录），
+    # 旧版写入 regex_nodes/ 会导致 manifest 引用的路径与实际文件位置漂移
+    regex_dir = workspace / "regex"
     regex_dir.mkdir(parents=True, exist_ok=True)
 
     regex_file = regex_dir / f"{regex_id}.regex.yaml"
-    if regex_file.exists():
+    # 已存在检测同时覆盖新旧目录（历史版本曾写入 regex_nodes/），避免跨目录产生同 ID 重复文件
+    if regex_file.exists() or _find_regex_file(workspace_path, regex_id):
         # 提示 Agent 改用 ADD_TO_CANVAS（同 schema_handlers 的引导逻辑）
         return {
             "success": False,

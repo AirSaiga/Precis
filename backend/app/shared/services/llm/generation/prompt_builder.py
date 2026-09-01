@@ -106,10 +106,13 @@ def build_prompt(
             else:
                 hi = mid - 1
 
+        # 先记录总数再切片：旧实现在切片后取 len，omitted 恒为 0，
+        # 超预算文件被静默丢弃且无任何警告
+        total_files = len(profiling_data)
         profiling_data = profiling_data[:best_files]
-        omitted = len(profiling_data) - best_files if len(profiling_data) > best_files else 0
+        omitted = total_files - best_files
         if omitted > 0:
-            warnings.append(f"数据文件过多（共 {len(profiling_data) + omitted} 个），仅分析前 {best_files} 个文件")
+            warnings.append(f"数据文件过多（共 {total_files} 个），仅分析前 {best_files} 个文件")
         max_columns_per_table = 3
 
     # 阶段 2: 实际构建 prompt

@@ -97,6 +97,90 @@ def _remove_manifest_constraint_ref(workspace_path: str, constraint_id: str) -> 
     save_manifest(manifest, manifest_path)
 
 
+def _delete_inline_constraint(
+    std_type: str,
+    workspace_path: str,
+    table_name: str,
+    target_column: str,
+    target_node_id: str,
+    target_column_id: str,
+) -> tuple[bool, str]:
+    """从 schema 文件中删除内联约束
+
+    定位方式与添加/更新内联约束保持一致：schema 按 id/name 匹配，
+    列按传入 ID 或名称解析，约束项按「同列 + 同类型」匹配（镜像内联分支的既有约束查找）。
+
+    参数:
+        std_type: 标准化后的约束类型（如 NotNull）
+        workspace_path: 项目工作区路径
+        table_name: 目标表名
+        target_column: 目标列名
+        target_node_id: 目标表节点 ID（优先用于匹配 schema 文件）
+        target_column_id: 目标列 ID（优先用于匹配列）
+
+    返回:
+        元组 (是否成功, 约束ID 或错误信息)
+    """
+    try:
+        schemas_dir = Path(workspace_path) / "schemas"
+        target_table_id = target_node_id or table_name
+        schema_file = None
+
+        for sf in schemas_dir.glob("*.yaml"):
+            with open(sf, encoding="utf-8") as f:
+                sd = yaml.safe_load(f) or {}
+            if sd.get("id") == target_table_id or sd.get("name") == table_name:
+                schema_file = sf
+                break
+
+        if not schema_file:
+            return False, f"未找到 schema 文件: {target_table_id}"
+
+        with FileLock(str(schema_file)):
+            # 重新读取文件（确保在锁保护下读取最新内容）
+            with open(schema_file, encoding="utf-8") as f:
+                schema_data = yaml.safe_load(f) or {}
+
+            columns = schema_data.get("columns", [])
+            column_id = target_column_id
+            if not column_id:
+                for col in columns:
+                    if col.get("name") == target_column:
+                        column_id = col.get("id")
+                        break
+
+            if not column_id:
+                return False, f"未找到列: {target_column}"
+
+            constraints = schema_data.get("constraints", [])
+            # 移除「同列 + 同类型」的内联约束项，其余保持不变
+            remaining = [c for c in constraints if not (c.get("column") == column_id and c.get("type") == std_type)]
+            if len(remaining) == len(constraints):
+                return False, f"未找到内联约束: {std_type} on {table_name}.{target_column}"
+
+            schema_data["constraints"] = remaining
+            # 必须全量替换写入：atomic_write_yaml 的 preserve_format 路径按 id
+            # 合并列表（只更新/追加、不删除），会把本次删除的约束"复活"
+            atomic_write_yaml(schema_file, schema_data, preserve_format=False)
+
+        constraint_id = _generate_constraint_id(std_type, table_name or "inline", target_column)
+        logger.info(f"[updateYamlConfig] 删除内联约束: {constraint_id}")
+        return True, f"inline:{constraint_id}"
+
+    except YamlUpdateError as e:
+        error_msg = f"删除内联约束失败: {str(e)}"
+        logger.error(f"[updateYamlConfig] {error_msg}")
+        return False, error_msg
+    except OSError as e:
+        error_msg = f"删除内联约束文件操作失败: {str(e)}"
+        logger.error(f"[updateYamlConfig] {error_msg}")
+        return False, error_msg
+    except Exception as e:
+        error_msg = f"删除内联约束失败: {str(e)}"
+        logger.error(f"[updateYamlConfig] {error_msg}")
+        return False, error_msg
+
+
 def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[bool, str]:
     """
     @methoddesc 更新 YAML 配置文件
@@ -138,6 +222,31 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
     # 确定用于文件名的表标识符 (优先使用可读的名称)
     filename_table = table_name or target_node_id or "unknown"
     filename_column = target_column or target_column_id or "unknown"
+
+    # DELETE 动作必须先于 is_inline 分支处理：删除语义与存储形态无关，
+    # 旧实现 isInline=true 时先命中内联"添加"分支，只增不删还误报 success。
+    # 内联约束从 schema 文件的 constraints 列表移除，独立约束删除 .constraint.yaml 文件。
+    if action_type == "DELETE_CONSTRAINT_NODE":
+        if is_inline:
+            return _delete_inline_constraint(
+                std_type=std_type,
+                workspace_path=workspace_path,
+                table_name=table_name,
+                target_column=target_column,
+                target_node_id=target_node_id,
+                target_column_id=target_column_id,
+            )
+        # 删除独立约束文件
+        success, message = delete_constraint_file(std_type, filename_table, filename_column, workspace_path)
+        # 同步从 manifest 移除引用（避免 dangling ref）
+        if success:
+            try:
+                deleted_constraint_id = _generate_constraint_id(std_type, filename_table or "inline", filename_column)
+                _remove_manifest_constraint_ref(workspace_path, deleted_constraint_id)
+            except Exception as e:
+                # 文件已删成功，manifest 清理失败仅告警（不回滚文件删除）
+                logger.warning(f"[updateYamlConfig] 删除 manifest 引用失败（文件已删）: {e}")
+        return success, message
 
     if is_inline:
         logger.info(f"[updateYamlConfig] 内联约束: {std_type} on {filename_table}.{filename_column}")
@@ -231,19 +340,6 @@ def update_yaml_config(action: dict[str, Any], workspace_path: str) -> tuple[boo
             error_msg = f"保存约束配置失败: {str(e)}"
             logger.error(f"[updateYamlConfig] {error_msg}")
             return False, error_msg
-
-    elif action_type == "DELETE_CONSTRAINT_NODE":
-        # 删除独立约束文件
-        success, message = delete_constraint_file(std_type, filename_table, filename_column, workspace_path)
-        # 同步从 manifest 移除引用（避免 dangling ref）
-        if success:
-            try:
-                deleted_constraint_id = _generate_constraint_id(std_type, filename_table or "inline", filename_column)
-                _remove_manifest_constraint_ref(workspace_path, deleted_constraint_id)
-            except Exception as e:
-                # 文件已删成功，manifest 清理失败仅告警（不回滚文件删除）
-                logger.warning(f"[updateYamlConfig] 删除 manifest 引用失败（文件已删）: {e}")
-        return success, message
 
     else:
         # 添加/更新独立约束文件

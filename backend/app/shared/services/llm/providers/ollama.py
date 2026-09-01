@@ -88,6 +88,19 @@ class OllamaProvider(BaseProvider):
             self._session = _aiohttp.ClientSession(timeout=timeout)
         return self._session
 
+    def _build_stream_timeout(self) -> Any:
+        """构造流式请求专用超时
+
+        会话默认 ClientTimeout(total=60s) 会覆盖整个流式生命周期：本地模型生成长回复时
+        总时长轻松超过 60s，导致流被中途掐断。流式路径改为：
+        - total=None：不限流式总时长
+        - connect：保留建连超时（服务不可达仍能快速失败）
+        - sock_read：chunk 间隔空闲超时（服务端挂死仍可退出，正常逐 token 输出不会触发）
+        """
+        if _aiohttp is None:
+            raise ImportError("aiohttp 未安装，请运行 pip install aiohttp")
+        return _aiohttp.ClientTimeout(total=None, connect=self.timeout_seconds, sock_read=self.timeout_seconds)
+
     async def close(self):
         """
         @methoddesc 显式关闭 HTTP 会话，释放连接池资源
@@ -145,9 +158,11 @@ class OllamaProvider(BaseProvider):
                         raise ValueError(f"Ollama 返回非 JSON 对象: {data!r}")
                     return data
             except (TimeoutError, _aiohttp.ClientConnectionError, _aiohttp.ClientResponseError) as e:
-                should_retry = isinstance(e, (_aiohttp.ClientConnectionError, asyncio.TimeoutError)) or (
-                    isinstance(e, _aiohttp.ClientResponseError) and e.status in (429, 500, 502, 503)
-                )
+                # 非流式 chat 是"生成"类昂贵且非幂等的操作：
+                # - 仅连接错误（请求未送达服务端）可安全重试
+                # - 超时/429/5xx 说明服务端可能已开始生成，自动重试会重复消耗生成成本，
+                #   故不再重试，直接抛出由上层决定是否重发
+                should_retry = isinstance(e, _aiohttp.ClientConnectionError)
                 if should_retry and attempt < _MAX_RETRIES - 1:
                     delay = _RETRY_BASE_DELAY * (2**attempt)
                     logger.warning(f"[Ollama] 请求失败（第 {attempt + 1} 次），{delay:.1f}s 后重试: {e}")
@@ -264,7 +279,8 @@ class OllamaProvider(BaseProvider):
             yielded_any = False
             try:
                 session = await self._get_session()
-                async with session.post(url, json=data) as resp:
+                # 流式请求使用专用超时（total=None），避免会话默认 total=60s 掐断长回复
+                async with session.post(url, json=data, timeout=self._build_stream_timeout()) as resp:
                     if resp.status >= 400:
                         text = await resp.text()
                         raise _aiohttp.ClientResponseError(

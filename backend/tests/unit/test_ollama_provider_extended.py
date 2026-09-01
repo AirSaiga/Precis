@@ -76,7 +76,8 @@ class TestOllamaPost:
         assert result == {"result": "ok"}
 
     @pytest.mark.asyncio
-    async def test_post_500_retries_then_raises(self, provider):
+    async def test_post_500_no_retry_for_generation(self, provider):
+        """5xx 对"生成"类昂贵非幂等操作不再自动重试，直接抛出（避免重复消耗生成成本）。"""
         mock_resp = AsyncMock()
         mock_resp.status = 500
         mock_resp.request_info = MagicMock()
@@ -90,14 +91,15 @@ class TestOllamaPost:
         mock_session.post = MagicMock(return_value=post_cm)
         provider._session = mock_session
 
-        with patch("asyncio.sleep", new_callable=AsyncMock):
-            with pytest.raises(aiohttp.ClientResponseError):
-                await provider._post("chat", {})
+        with pytest.raises(aiohttp.ClientResponseError):
+            await provider._post("chat", {})
 
-        assert mock_session.post.call_count == 3
+        # 5xx 不重试，只调用一次
+        assert mock_session.post.call_count == 1
 
     @pytest.mark.asyncio
-    async def test_post_429_retries(self, provider):
+    async def test_post_429_no_retry_for_generation(self, provider):
+        """429 对非流式 chat 不再自动重试（请求已到达服务端，重发会重复生成）。"""
         mock_resp = AsyncMock()
         mock_resp.status = 429
         mock_resp.request_info = MagicMock()
@@ -111,11 +113,22 @@ class TestOllamaPost:
         mock_session.post = MagicMock(return_value=post_cm)
         provider._session = mock_session
 
-        with patch("asyncio.sleep", new_callable=AsyncMock):
-            with pytest.raises(aiohttp.ClientResponseError):
-                await provider._post("chat", {})
+        with pytest.raises(aiohttp.ClientResponseError):
+            await provider._post("chat", {})
 
-        assert mock_session.post.call_count == 3
+        assert mock_session.post.call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_post_timeout_no_retry_for_generation(self, provider):
+        """超时对非流式 chat 不再自动重试：服务端可能已在生成，重发会重复消耗。"""
+        mock_session = _make_mock_session()
+        mock_session.post = MagicMock(side_effect=TimeoutError("total timeout"))
+        provider._session = mock_session
+
+        with pytest.raises(TimeoutError):
+            await provider._post("chat", {})
+
+        assert mock_session.post.call_count == 1
 
     @pytest.mark.asyncio
     async def test_post_400_raises_immediately(self, provider):
@@ -379,6 +392,54 @@ class TestOllamaChatStream:
                 [c async for c in provider.chat_stream(_req())]
 
         assert mock_session.post.call_count == 3
+
+
+class TestOllamaStreamTimeout:
+    """流式请求专用超时：total=None（不限总时长），保留 connect 与 sock_read。"""
+
+    def _make_stream_session(self, lines: list[bytes]) -> AsyncMock:
+        """构造模拟流式响应的 session（与 TestOllamaChatStream 相同的方式）。"""
+        resp = AsyncMock()
+        resp.status = 200
+        resp.request_info = MagicMock()
+        resp.history = ()
+        resp.text = AsyncMock(return_value="")
+
+        async def content_iter():
+            for line in lines:
+                yield line
+
+        resp.content = content_iter()
+
+        post_cm = AsyncMock()
+        post_cm.__aenter__ = AsyncMock(return_value=resp)
+        post_cm.__aexit__ = AsyncMock(return_value=False)
+
+        mock_session = _make_mock_session()
+        mock_session.post = MagicMock(return_value=post_cm)
+        return mock_session
+
+    def test_build_stream_timeout_has_no_total_limit(self, provider):
+        """total=None：本地长回复的流式总时长不被 60s 会话默认超时掐断。"""
+        timeout = provider._build_stream_timeout()
+        assert timeout.total is None
+        # 连接超时与读空闲超时保留（服务不可达/挂死仍能退出）
+        assert timeout.connect == provider.timeout_seconds
+        assert timeout.sock_read == provider.timeout_seconds
+
+    @pytest.mark.asyncio
+    async def test_stream_post_passes_dedicated_timeout(self, provider):
+        """chat_stream 必须把专用超时传给 session.post，而非使用会话默认 total=60s。"""
+        lines = [json.dumps({"message": {"content": "hi"}}).encode() + b"\n"]
+        mock_session = self._make_stream_session(lines)
+        provider._session = mock_session
+
+        chunks = [c async for c in provider.chat_stream(_req())]
+        assert len(chunks) == 1
+
+        timeout = mock_session.post.call_args.kwargs.get("timeout")
+        assert timeout is not None
+        assert timeout.total is None
 
 
 class TestOllamaListModels:

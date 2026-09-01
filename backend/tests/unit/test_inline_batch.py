@@ -175,3 +175,64 @@ class TestProcessInlineBatch:
         with open(schema_file, encoding="utf-8") as f:
             saved = yaml.safe_load(f)
         assert "params" in saved["constraints"][0]
+
+    def test_delete_action_removes_constraint(self, tmp_path):
+        """批量处理中的 DELETE 动作必须真删：从 schema 的 constraints 列表移除，而非新增。"""
+        _write_schema(
+            tmp_path,
+            _make_schema(
+                constraints=[
+                    {"id": "notnull_users_email", "column": "col_email", "type": "NotNull"},
+                    {"id": "range_users_age", "column": "col_age", "type": "Range"},
+                ]
+            ),
+        )
+        actions = [_make_action(action_type="DELETE_CONSTRAINT_NODE", constraint_type="NOT_NULL")]
+        result = process_inline_batch(actions, str(tmp_path))
+        assert result[0]["success"] is True
+        assert result[0]["message"].startswith("inline:")
+
+        schema_file = tmp_path / "schemas" / "users.schema.yaml"
+        with open(schema_file, encoding="utf-8") as f:
+            saved = yaml.safe_load(f)
+        remaining_ids = [c["id"] for c in saved["constraints"]]
+        assert remaining_ids == ["range_users_age"]
+
+    def test_delete_action_not_found_returns_failure(self, tmp_path):
+        """批量 DELETE 目标内联约束不存在时报失败，schema 文件不被改写。"""
+        _write_schema(tmp_path, _make_schema(constraints=[]))
+        actions = [_make_action(action_type="DELETE_CONSTRAINT_NODE", constraint_type="NOT_NULL")]
+        result = process_inline_batch(actions, str(tmp_path))
+        assert result[0]["success"] is False
+        assert "未找到内联约束" in result[0]["message"]
+
+        schema_file = tmp_path / "schemas" / "users.schema.yaml"
+        with open(schema_file, encoding="utf-8") as f:
+            saved = yaml.safe_load(f)
+        assert saved["constraints"] == []
+
+    def test_mixed_add_and_delete_actions(self, tmp_path):
+        """同一批混合 ADD + DELETE：各自按语义处理。"""
+        _write_schema(
+            tmp_path,
+            _make_schema(constraints=[{"id": "old_notnull", "column": "col_name", "type": "NotNull"}]),
+        )
+        actions = [
+            _make_action(
+                action_type="DELETE_CONSTRAINT_NODE",
+                constraint_type="NOT_NULL",
+                target_column="name",
+                target_column_id="col_name",
+            ),
+            _make_action(constraint_type="NOT_NULL", target_column="email", target_column_id="col_email"),
+        ]
+        result = process_inline_batch(actions, str(tmp_path))
+        assert result[0]["success"] is True  # 删除 col_name 的 NotNull
+        assert result[1]["success"] is True  # 添加 col_email 的 NotNull
+
+        schema_file = tmp_path / "schemas" / "users.schema.yaml"
+        with open(schema_file, encoding="utf-8") as f:
+            saved = yaml.safe_load(f)
+        remaining = {(c["column"], c["type"]) for c in saved["constraints"]}
+        # col_name 的 NotNull 已被删除，col_email 的 NotNull 为新增
+        assert remaining == {("col_email", "NotNull")}

@@ -1,10 +1,11 @@
 """@fileoverview SSE 响应封装测试
 
-验证 SSE 帧格式化、续传逻辑(read_since)、已完成任务的回放、心跳。
+验证 SSE 帧格式化、续传逻辑(read_since)、已完成任务的回放、心跳、回放/实时去重。
 """
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 import pytest
@@ -80,3 +81,34 @@ async def test_sse_event_stream_replays_all_when_terminated(tmp_path: Path):
     assert "id: 1" in "\n".join(frames)
     assert "id: 2" in "\n".join(frames)
     assert "event: completed" in "\n".join(frames)
+
+
+@pytest.mark.asyncio
+async def test_sse_event_stream_dedupes_overlapped_queue_entries(tmp_path: Path):
+    """回放与实时队列重叠时不重复投递（缺陷修复点）。
+
+    emit 先写 journal 再入队：回放结束后队列中可能仍积压着已回放过的事件，
+    实时消费时必须跳过 id <= 回放水位的事件，否则同一事件被投递两次。
+    """
+    journal = EventJournal(job_id="job_dedup", journal_dir=str(tmp_path))
+    journal.append("delta", {"text": "a"})  # id=1
+    journal.append("delta", {"text": "b"})  # id=2
+
+    # 队列积压：id=2 与回放重叠，id=3,4 为回放快照之后的新事件
+    queue: asyncio.Queue = asyncio.Queue()
+    queue.put_nowait({"id": 2, "event": "delta", "data": {"text": "b"}})
+    queue.put_nowait({"id": 3, "event": "delta", "data": {"text": "c"}})
+    queue.put_nowait({"id": 4, "event": "completed", "data": {"reply": "abc"}})
+
+    frames: list[str] = []
+    async for frame in sse_event_stream(journal=journal, last_event_id=0, live_timeout=0.01, event_queue=queue):
+        frames.append(frame)
+
+    text = "\n".join(frames)
+    ids = [line for line in text.splitlines() if line.startswith("id: ")]
+    # 每个事件恰好投递一次：1,2 来自回放；3,4 来自队列；重叠的 id=2 被跳过
+    assert ids == ["id: 1", "id: 2", "id: 3", "id: 4"]
+    assert text.count('"text": "b"') == 1
+    # 新事件正常投递，终止事件正常收流
+    assert '"text": "c"' in text
+    assert "event: completed" in text
