@@ -113,12 +113,29 @@ describe('自定义更新源持久化（重启重放 setFeedURL）', () => {
     expect(mocks.autoUpdater.setFeedURL).not.toHaveBeenCalled()
   })
 
-  it('saveConfig 切换到 custom 源时立即应用 setFeedURL', async () => {
+  it('saveConfig 切换到 custom 源（https）时立即应用 setFeedURL', async () => {
     const manager = await freshManager()
-    manager.saveConfig({ sourceType: 'custom', sourceUrl: 'http://192.168.1.10:9000' })
+    manager.saveConfig({ sourceType: 'custom', sourceUrl: 'https://updates.example.com/feed' })
     expect(mocks.autoUpdater.setFeedURL).toHaveBeenCalledWith({
       provider: 'generic',
-      url: 'http://192.168.1.10:9000',
+      url: 'https://updates.example.com/feed',
+    })
+  })
+
+  it('saveConfig 拒绝非 https 更新源（本地 http 除外）且不调用 setFeedURL', async () => {
+    const manager = await freshManager()
+    const ok = manager.saveConfig({ sourceType: 'custom', sourceUrl: 'http://192.168.1.10:9000' })
+    expect(ok).toBe(false)
+    expect(mocks.autoUpdater.setFeedURL).not.toHaveBeenCalled()
+  })
+
+  it('saveConfig 允许 localhost http 更新源（本地更新演练流程）', async () => {
+    const manager = await freshManager()
+    const ok = manager.saveConfig({ sourceType: 'custom', sourceUrl: 'http://localhost:8080/updates' })
+    expect(ok).toBe(true)
+    expect(mocks.autoUpdater.setFeedURL).toHaveBeenCalledWith({
+      provider: 'generic',
+      url: 'http://localhost:8080/updates',
     })
   })
 })

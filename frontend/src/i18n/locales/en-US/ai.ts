@@ -13,7 +13,6 @@ const aiChat = {
   suggestion3: 'Check the current config for potential issues',
   contextLabel: 'Context Nodes',
   inputPlaceholder: 'Type a message...',
-  agentMode: 'Deep Mode',
   addToChat: 'Add to AI Chat',
   errorMessage: 'Sorry, an error occurred. Please try again later.',
   noProviderConfigured: 'No AI provider configured. Please set up an AI model in Settings first.',

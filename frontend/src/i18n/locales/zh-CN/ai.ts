@@ -13,7 +13,6 @@ const aiChat = {
   suggestion3: '检查当前配置有哪些潜在问题',
   contextLabel: '上下文节点',
   inputPlaceholder: '输入消息...',
-  agentMode: '深度模式',
   addToChat: '添加到 AI 对话',
   errorMessage: '抱歉，发生了错误，请稍后重试',
   noProviderConfigured: '未配置 AI Provider，请先在设置中配置 AI 模型',
