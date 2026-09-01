@@ -204,7 +204,7 @@ const settings = {
       label: 'Enable Script Functionality',
       desc: 'Allow using script definitions in constraints',
     },
-    hint: 'Script functionality can be used to implement complex validation logic, but please be aware of security risks.',
+    hint: 'Script functionality must be enabled here first; it can implement complex validation logic, but please be aware of security risks.',
     security: {
       title: 'Security Options',
     },

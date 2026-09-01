@@ -772,7 +772,7 @@ const customNodes = {
       title: 'Script Constraint',
       scriptEditorTitle: 'Script Editor',
       helpTooltip:
-        'Script constraint allows you to define custom validation rules using JavaScript expressions. Configure the script and select source columns in the property panel on the right.',
+        'Script constraint allows you to define custom validation rules using Python expressions. Configure the script and select source columns in the property panel on the right.',
       table: 'Table:',
       column: 'Column:',
       multipleColumns: 'Multiple Columns',
