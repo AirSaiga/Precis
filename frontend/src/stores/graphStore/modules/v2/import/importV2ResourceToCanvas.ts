@@ -485,8 +485,10 @@ export function createV2ImportToCanvas(params: {
     }
 
     addNodes(patternNode)
-    // 手动同步 nodes.ref — 见 ensureSchemaNodeFromV2.ts 中相同模式的详细说明
-    nodes.value = [...nodes.value, patternNode]
+    // addNodes 是 Vue Flow 增量 API，需等待 nextTick 让 model→store 回写完成后，
+    // 本 tick 之后的节点查找（nodes.value.find）才能命中该节点。
+    // 禁止手动 spread 追加 nodes.value——会绕过 Vue Flow 内部状态管理（见 AGENTS.md 时序约定）。
+    await nextTick()
     selectedNodeId.value = nodeId
     return nodeId
   }
@@ -540,8 +542,10 @@ export function createV2ImportToCanvas(params: {
     }
 
     addNodes(transformNode)
-    // 手动同步 nodes.ref — 见 ensureSchemaNodeFromV2.ts 中相同模式的详细说明
-    nodes.value = [...nodes.value, transformNode]
+    // addNodes 是 Vue Flow 增量 API，需等待 nextTick 让 model→store 回写完成后，
+    // 本 tick 之后的节点查找（nodes.value.find）才能命中该节点。
+    // 禁止手动 spread 追加 nodes.value——会绕过 Vue Flow 内部状态管理（见 AGENTS.md 时序约定）。
+    await nextTick()
     selectedNodeId.value = transformId
     return transformId
   }

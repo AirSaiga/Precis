@@ -20,6 +20,7 @@ import type { Node } from '@vue-flow/core'
 import type { ConditionalConstraintNodeData, CustomNode, SchemaNodeData } from '@/types/graph'
 import type { ConstraintTypeV2 } from '@/types/projectV2'
 import type { AnyRecord } from '@/types/utility'
+import { deepToRaw } from '@/utils/typeHelpers'
 // resolveSchemaAndColumnIdByName 单一定义在 persistence/builders/constraint/helpers
 import { resolveSchemaAndColumnIdByName } from '@/services/persistence/builders/constraint/helpers'
 
@@ -33,7 +34,11 @@ export function buildConstraintExportPayload(params: {
   data: AnyRecord
   schemaIdByNodeId: Record<string, string>
 }): { refs: AnyRecord; params: AnyRecord } {
-  const { nodes, constraintNodeId, v2Type, data, schemaIdByNodeId } = params
+  const { nodes, constraintNodeId, v2Type, schemaIdByNodeId } = params
+  // 纯函数约定：入口对 data 深拷贝（先 deepToRaw 解包 reactive proxy 再 structuredClone），
+  // 适配器内部的字段回写（如 Conditional 的 thenColumn 解析）只作用于副本，
+  // 不污染调用方传入的活节点 data
+  const data = structuredClone(deepToRaw(params.data)) as AnyRecord
   const refs: AnyRecord = {}
   const outputParams: AnyRecord = {}
   const normalizeSchemaId = (value?: string) => (value ? schemaIdByNodeId[value] || value : value)

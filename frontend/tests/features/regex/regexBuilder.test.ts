@@ -49,7 +49,9 @@ describe('buildV2RegexNodeFile', () => {
     expect(result.flags).toBe('')
     expect(result.match_mode).toBe('full')
     expect(result.enabled).toBe(true)
-    expect(result.case_sensitive).toBe(false)
+    // caseSensitive 未设置时按运行时语义（!== false）持久化为区分大小写，
+    // 避免 roundtrip 把默认值翻转为不区分大小写
+    expect(result.case_sensitive).toBe(true)
     expect(result.parameters).toEqual([])
     expect(result.rules).toEqual([])
     expect(result.source_ref).toBeUndefined()

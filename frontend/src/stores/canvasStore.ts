@@ -20,6 +20,12 @@ import { defineStore, storeToRefs } from 'pinia'
 import type { CustomNode } from '@/types/graph'
 import type { Edge } from '@vue-flow/core'
 import { useCanvasTabStore } from './canvasTabStore'
+// 视口缩放统一走 Vue Flow（d3-zoom）真实 API；画布未挂载时内部静默降级
+import {
+  zoomIn as vueFlowZoomIn,
+  zoomOut as vueFlowZoomOut,
+  zoomTo as vueFlowZoomTo,
+} from '@/services/canvas/vueFlowApi'
 
 /** 工作区数据类型（从 canvasTabStore.CanvasTab 重导出） */
 export type { CanvasTab as Workspace } from './canvasTabStore'
@@ -100,7 +106,7 @@ export const useCanvasStore = defineStore('canvas', () => {
 
   // --- 画布视图操作 ---
 
-  /** 当前缩放级别（1 = 100%），范围 [0.1, 5] */
+  /** 本地缩放镜像（1 = 100%），仅反映最近一次缩放操作；真实视口以 Vue Flow 为准 */
   const zoomLevel = ref(1)
 
   /** 是否显示小地图 */
@@ -109,32 +115,35 @@ export const useCanvasStore = defineStore('canvas', () => {
   /**
    * 放大画布视图
    *
-   * 每次调用将当前缩放级别乘以 1.2（放大 20%），
-   * 上限为 500%（zoomLevel = 5），防止过度放大导致性能问题。
+   * 真实缩放走 Vue Flow 的 zoomIn（内部尊重画布 minZoom/maxZoom 与过渡动画）；
+   * zoomLevel 仅作本地乐观镜像，供测试与潜在 UI 读数使用。
    */
   function zoomIn() {
-    // Math.min 确保缩放不超过上限 5（500%）
+    // 镜像步进与旧实现一致：×1.2，上限 5（500%）
     zoomLevel.value = Math.min(zoomLevel.value * 1.2, 5)
+    void vueFlowZoomIn()
   }
 
   /**
    * 缩小画布视图
    *
-   * 每次调用将当前缩放级别除以 1.2（缩小 20%），
-   * 下限为 10%（zoomLevel = 0.1），防止缩放过小导致内容不可见。
+   * 真实缩放走 Vue Flow 的 zoomOut；zoomLevel 仅作本地乐观镜像。
    */
   function zoomOut() {
-    // Math.max 确保缩放不低于下限 0.1（10%）
+    // 镜像步进与旧实现一致：÷1.2，下限 0.1（10%）
     zoomLevel.value = Math.max(zoomLevel.value / 1.2, 0.1)
+    void vueFlowZoomOut()
   }
 
   /**
    * 重置画布缩放为 100%
    *
-   * 将 zoomLevel 恢复为默认值 1，常用于快捷键（如 Ctrl+0）或重置视图按钮。
+   * 走 Vue Flow 的 zoomTo(1) 精确回到 100%（而非 fitView 的"适配内容"缩放），
+   * 常用于快捷键（如 Ctrl+0）或重置视图按钮。
    */
   function resetZoom() {
     zoomLevel.value = 1
+    void vueFlowZoomTo(1)
   }
 
   /**

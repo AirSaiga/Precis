@@ -92,8 +92,20 @@ register({
     const hasIf =
       ifConditions.length > 0 || !!(nodeData.ifRef as Record<string, unknown> | undefined)?.columnId
     const hasThen = !!(nodeData.thenRef as Record<string, unknown> | undefined)?.columnId
-    if (!hasIf || !hasThen) {
+    const skipIf = !!nodeData.skipIfCondition
+    if (!hasThen) {
       return { status: 'idle', validationErrors: [], lastValidation: undefined }
+    }
+    // 与 inline 分支对齐：启用"无条件触发"（skipIf）时不要求配置 IF 条件，
+    // 后端对"if_conditions 为空且未设置 if_column"走无条件模式（对所有行校验 THEN）
+    if (!hasIf && !skipIf) {
+      return {
+        status: 'idle',
+        validationErrors: [
+          '\u672A\u914D\u7F6E IF \u6761\u4EF6\uFF0C\u8BF7\u8FDE\u63A5 IF \u5217\u6216\u542F\u7528\u201C\u65E0\u6761\u4EF6\u89E6\u53D1\u201D',
+        ],
+        lastValidation: undefined,
+      }
     }
     type ColumnLike = { id?: string; columnName?: string }
     const schemaColumns = (((ctx.schemaNode.data || {}) as Record<string, unknown>).columns ||
@@ -108,40 +120,54 @@ register({
         lastValidation: undefined,
       }
     }
-    const normalizedIf = (
-      ifConditions.length > 0
-        ? ifConditions
-        : [
-            {
-              ref: nodeData.ifRef,
-              operator: 'eq',
-              value: nodeData.ifValue,
-            },
-          ]
-    )
-      .map((c) => {
-        const cond = c as {
-          ref?: { columnId?: string }
-          operator?: string
-          value?: unknown
-          values?: unknown[]
-        }
+    const validationConfig: NonNullable<ConditionalValidationRequest['validation_config']> = {
+      if_logic: (nodeData.ifLogic as 'and' | 'or' | undefined) || 'and',
+      then_column: thenColumnName,
+      then_condition: nodeData.thenConditionConfig as string | Record<string, unknown>,
+      then_condition_config: nodeData.thenConditionConfig as string | Record<string, unknown>,
+    }
+    if (skipIf) {
+      // 无条件触发：IF 条件置空，后端对所有行校验 THEN（对齐 inline 分支）
+      validationConfig.if_conditions = []
+    } else {
+      const normalizedIf = (
+        ifConditions.length > 0
+          ? ifConditions
+          : [
+              {
+                ref: nodeData.ifRef,
+                operator: 'eq',
+                value: nodeData.ifValue,
+              },
+            ]
+      )
+        .map((c) => {
+          const cond = c as {
+            ref?: { columnId?: string }
+            operator?: string
+            value?: unknown
+            values?: unknown[]
+          }
+          return {
+            if_column: schemaColumns.find((x) => x.id === cond.ref?.columnId)?.columnName || '',
+            operator: cond.operator as 'eq' | 'neq' | 'in' | 'not_null' | 'greater_than',
+            value: cond.value as string | number | boolean | undefined,
+            values: Array.isArray(cond.values)
+              ? (cond.values as (string | number | boolean)[])
+              : undefined,
+          }
+        })
+        .filter((c) => !!c.if_column) as IfCondition[]
+      if (normalizedIf.length === 0) {
         return {
-          if_column: schemaColumns.find((x) => x.id === cond.ref?.columnId)?.columnName || '',
-          operator: cond.operator as 'eq' | 'neq' | 'in' | 'not_null' | 'greater_than',
-          value: cond.value as string | number | boolean | undefined,
-          values: Array.isArray(cond.values)
-            ? (cond.values as (string | number | boolean)[])
-            : undefined,
+          status: 'missing',
+          validationErrors: ['IF/THEN \u5217\u4E0D\u5B58\u5728\u6216\u5DF2\u5220\u9664'],
+          lastValidation: undefined,
         }
-      })
-      .filter((c) => !!c.if_column) as IfCondition[]
-    if (normalizedIf.length === 0) {
-      return {
-        status: 'missing',
-        validationErrors: ['IF/THEN \u5217\u4E0D\u5B58\u5728\u6216\u5DF2\u5220\u9664'],
-        lastValidation: undefined,
       }
+      validationConfig.if_conditions = normalizedIf
+      validationConfig.if_column = normalizedIf[0]?.if_column
+      validationConfig.if_value = normalizedIf[0]?.value
     }
     const response = await validateConditional({
       validation_type: 'conditional',
@@ -153,15 +179,7 @@ register({
       json_path: ctx.jsonPath,
       json_format: ctx.jsonFormat,
       record_path: ctx.recordPath,
-      validation_config: {
-        if_logic: (nodeData.ifLogic as 'and' | 'or' | undefined) || 'and',
-        if_conditions: normalizedIf,
-        if_column: normalizedIf[0]?.if_column,
-        if_value: normalizedIf[0]?.value,
-        then_column: thenColumnName,
-        then_condition: nodeData.thenConditionConfig as string | Record<string, unknown>,
-        then_condition_config: nodeData.thenConditionConfig as string | Record<string, unknown>,
-      },
+      validation_config: validationConfig,
     })
     if (!response.success || !response.data) {
       return {

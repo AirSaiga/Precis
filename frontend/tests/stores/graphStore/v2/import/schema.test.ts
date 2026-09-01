@@ -61,6 +61,12 @@ describe('createV2SchemaImporter', () => {
       resolveProjectRelativePath: mockResolveRelPath,
       ensureSchemaToConstraintEdge: mockEnsureEdge,
     })
+    // 模拟 model→store 回写：生产中 addNodes 经 Vue Flow 在 nextTick 后同步 nodes ref
+    // （导入器已改为 addNodes + await nextTick 的增量范式，不再手动 spread nodes.value）
+    vi.mocked(addNodes).mockImplementation((added) => {
+      const arr = Array.isArray(added) ? added : [added]
+      nodes.value = [...nodes.value, ...(arr as CustomNode[])]
+    })
     vi.mocked(addNodes).mockClear()
     vi.mocked(getV2Schema).mockClear()
     vi.mocked(materializeV2EmbeddedConstraints).mockClear()
@@ -130,7 +136,7 @@ describe('createV2SchemaImporter', () => {
   })
 
   describe('materializeEmbeddedConstraints', () => {
-    it('调用 materializeV2EmbeddedConstraints', () => {
+    it('调用 materializeV2EmbeddedConstraints', async () => {
       const schemaNode = {
         id: 's1',
         type: 'schema',
@@ -138,7 +144,7 @@ describe('createV2SchemaImporter', () => {
       } as CustomNode
       const schemaFile = makeSchemaFile({ constraints: [{ type: 'NotNull', column: 'email' }] })
 
-      importer.materializeEmbeddedConstraints(schemaNode, schemaFile as any)
+      await importer.materializeEmbeddedConstraints(schemaNode, schemaFile as any)
 
       expect(materializeV2EmbeddedConstraints).toHaveBeenCalledTimes(1)
       const args = vi.mocked(materializeV2EmbeddedConstraints).mock.calls[0][0]

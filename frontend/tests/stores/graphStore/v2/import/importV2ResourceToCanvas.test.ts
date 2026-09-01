@@ -96,6 +96,12 @@ describe('createV2ImportToCanvas', () => {
       },
     })
 
+    // 模拟 model→store 回写：生产中 addNodes 经 Vue Flow 在 nextTick 后同步 nodes ref
+    // （导入器已改为 addNodes + await nextTick 的增量范式，不再手动 spread nodes.value）
+    vi.mocked(addNodes).mockImplementation((added) => {
+      const arr = Array.isArray(added) ? added : [added]
+      nodes.value = [...nodes.value, ...(arr as CustomNode[])]
+    })
     vi.mocked(addNodes).mockClear()
     vi.mocked(getV2Schema).mockClear()
     vi.mocked(getV2Constraint).mockClear()

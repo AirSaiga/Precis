@@ -45,7 +45,9 @@ export const regexBuilder: NodeBuilder<RegexNodeFileV2> = {
         pattern: usesPattern ? undefined : data.pattern || '',
         uses_pattern: usesPattern || undefined,
         match_mode: data.matchMode || 'full',
-        case_sensitive: !!data.caseSensitive,
+        // 运行时语义是"未设置=区分大小写"（!== false，见 regexValidationHandler），
+        // !!data.caseSensitive 会把 undefined 落成 false，导致 roundtrip 翻转默认值
+        case_sensitive: data.caseSensitive !== false,
         flags: data.flags || '',
         enabled: data.enabled !== false,
         parameters: data.parameters || [],

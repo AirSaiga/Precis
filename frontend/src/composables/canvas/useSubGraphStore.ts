@@ -9,6 +9,7 @@ import { ref, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import { v4 as uuidv4 } from 'uuid'
 import type { CustomNode } from '@/types/graph'
+import { deepToRaw } from '@/utils/typeHelpers'
 
 export interface SubGraphEdgeApi {
   addEdges: (edges: Edge | Edge[]) => void
@@ -34,8 +35,10 @@ export function useSubGraphStore(
   initialEdges: Edge[] = [],
   edgeApi?: SubGraphEdgeApi
 ) {
-  const nodes = ref<CustomNode[]>(structuredClone(initialNodes) as CustomNode[])
-  const edges = ref<Edge[]>(structuredClone(initialEdges))
+  // 先 deepToRaw 递归解包 Vue reactive proxy 再 structuredClone：
+  // ref/props 传入的节点数据可能是 reactive proxy，直接 structuredClone 必抛 DataCloneError
+  const nodes = ref<CustomNode[]>(structuredClone(deepToRaw(initialNodes)) as CustomNode[])
+  const edges = ref<Edge[]>(structuredClone(deepToRaw(initialEdges)))
 
   function addNode(node: SubGraphNodeInput) {
     // useSubGraphStore 的 nodes 是局部状态，不走 Vue Flow 管线，此处赋值替换仅为代码规范统一
@@ -84,9 +87,11 @@ export function useSubGraphStore(
   }
 
   function getState() {
+    // nodes/edges 是 ref，读取 .value 得到的是 reactive proxy；
+    // 先 deepToRaw 解包再 structuredClone，避免 DataCloneError（同上）
     return {
-      nodes: structuredClone(nodes.value) as CustomNode[],
-      edges: structuredClone(edges.value),
+      nodes: structuredClone(deepToRaw(nodes.value)) as CustomNode[],
+      edges: structuredClone(deepToRaw(edges.value)),
     }
   }
 

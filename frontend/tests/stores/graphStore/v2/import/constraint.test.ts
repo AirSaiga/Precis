@@ -5,6 +5,7 @@ import type { CustomNode, CustomNodeData } from '@/types/graph'
 
 vi.mock('@/services/canvas/vueFlowApi', () => ({
   addNodes: vi.fn(),
+  updateNode: vi.fn(),
 }))
 
 vi.mock('@/api/projectV2Api', () => ({
@@ -19,7 +20,7 @@ vi.mock('@/core/utils/logger', () => ({
   logger: { error: vi.fn(), warn: vi.fn(), info: vi.fn(), debug: vi.fn() },
 }))
 
-import { addNodes } from '@/services/canvas/vueFlowApi'
+import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
 import { getV2Constraint } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
 import { logger } from '@/core/utils/logger'
@@ -62,7 +63,13 @@ describe('createV2ConstraintImporter', () => {
       bufferEdge: mockBufferEdge,
     })
 
+    // 模拟 model→store 回写：生产中 addNodes 经 Vue Flow 在 nextTick 后同步 nodes ref
+    vi.mocked(addNodes).mockImplementation((added) => {
+      const arr = Array.isArray(added) ? added : [added]
+      nodes.value = [...nodes.value, ...(arr as CustomNode[])]
+    })
     vi.mocked(addNodes).mockClear()
+    vi.mocked(updateNode).mockClear()
     vi.mocked(getV2Constraint).mockClear()
     vi.mocked(buildNodeData).mockClear()
     mockEnsureEdge.mockClear()
@@ -77,13 +84,16 @@ describe('createV2ConstraintImporter', () => {
       expect(getV2Constraint).not.toHaveBeenCalled()
     })
 
-    it('moveIfExists=true 时更新位置', async () => {
+    it('moveIfExists=true 时通过 updateNode 更新位置（不直接改 node.position）', async () => {
       const node = makeNode('c1', 'notNullConstraint')
       node.position = { x: 0, y: 0 }
       nodes.value = [node]
 
       await importer.importConstraint('c1', { x: 99, y: 99 }, { moveIfExists: true })
-      expect(node.position).toEqual({ x: 99, y: 99 })
+      // 必须走 vueFlowApi.updateNode 以同步 Vue Flow 内部状态，而非直接改 node.position
+      expect(updateNode).toHaveBeenCalledWith('c1', { position: { x: 99, y: 99 } })
+      // 直接 mutation 不应发生（避免 Vue Flow state 不同步）
+      expect(node.position).toEqual({ x: 0, y: 0 })
       expect(selectedNodeId.value).toBe('c1')
     })
   })

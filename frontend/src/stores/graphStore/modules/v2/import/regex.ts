@@ -14,7 +14,7 @@
  * V2 正则配置 → getV2RegexNode API → 解析 BuildInput → buildNodeData → CustomNode(regex) → 画布 + Edge
  */
 
-import type { Ref } from 'vue'
+import { nextTick, type Ref } from 'vue'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { SchemaNodeData } from '@/types/nodes'
 import type { ConstraintKind } from '@/services/constraints/types'
@@ -136,10 +136,10 @@ export function createV2RegexImporter(params: {
       data: result.nodeData as unknown as CustomNodeData,
     }
     addNodes(regexNode)
-    // addNodes() 只更新 Vue Flow 内部状态，不会同步到 Pinia store 的 nodes ref
-    // （v-model 同步在 nextTick 才触发）。手动同步确保本 tick 内的后续节点查找
-    // （如后端导入流程完成前的 schemaNode computed）能正确找到该节点。
-    nodes.value = [...nodes.value, regexNode]
+    // addNodes 是 Vue Flow 增量 API，先等 nextTick 完成 model→store 回写再建边：
+    // 边路径计算依赖节点渲染后的 handleBounds（见 AGENTS.md 时序约定），
+    // 禁止手动 spread 追加 nodes.value 绕过 Vue Flow 内部状态管理。
+    await nextTick()
 
     // 创建边
     for (const desc of result.edgeDescriptors) {

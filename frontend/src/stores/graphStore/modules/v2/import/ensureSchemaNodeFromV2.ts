@@ -15,7 +15,7 @@
  * - 上下文感知导入时预创建关联的 Schema 节点
  */
 
-import type { Ref } from 'vue'
+import { nextTick, type Ref } from 'vue'
 import type { CustomNode } from '@/types/graph'
 import type { JSONOptionsV2 } from '@/types/projectV2'
 import { getV2Schema } from '@/api/projectV2Api'
@@ -85,10 +85,10 @@ export function createEnsureSchemaNodeFromV2(params: {
     }
 
     addNodes(node)
-    // addNodes() 只更新 Vue Flow 内部状态，不会同步到 Pinia store 的 nodes ref
-    // （v-model 同步在 nextTick 才触发）。手动同步确保本 tick 内的后续节点查找
-    // （如 ensureSchemaNode / nodes.value.find）能正确找到该节点，避免重复创建。
-    nodes.value = [...nodes.value, node]
+    // addNodes 是 Vue Flow 增量 API，需等待 nextTick 让 model→store 回写完成后，
+    // 本 tick 之后的节点查找（nodes.value.find）才能命中该节点，保证幂等语义。
+    // 禁止手动 spread 追加 nodes.value——会绕过 Vue Flow 内部状态管理（见 AGENTS.md 时序约定）。
+    await nextTick()
     return node
   }
 

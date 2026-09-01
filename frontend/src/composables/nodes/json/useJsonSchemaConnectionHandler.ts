@@ -70,6 +70,13 @@ export function useJsonSchemaConnectionHandler() {
 
   const store = useGraphStore()
 
+  // 从 VueFlow 获取 internals 更新方法。
+  // 必须在 composable 顶层（setup 上下文）调用 useVueFlow()——它依赖 provide/inject，
+  // 若在 async 事件回调体内调用会 storage.create() 新建游离 VueFlow 实例：
+  // updateNodeInternals 变 no-op，且每次连线泄漏一个实例。
+  // 位置对照孪生版 useSchemaConnectionHandler.ts 顶层的同名调用。
+  const { updateNodeInternals } = useVueFlow()
+
   /** 从 V2 配置的 columns 递归还原 JsonSchemaColumn(含 children) */
   function convertJsonColumnsFromConfig(columns: TableSchemaFileV2['columns']): JsonSchemaColumn[] {
     return (columns || []).map((col) => {
@@ -477,7 +484,7 @@ export function useJsonSchemaConnectionHandler() {
 
       logger.debug('🔌 [handleSourceConnection] 连接处理完成，准备恢复配置或弹出确认对话框')
 
-      const { updateNodeInternals } = useVueFlow()
+      // updateNodeInternals 已在 composable 顶层获取（setup 上下文），此处直接使用
       const projectStore = useProjectStore()
       const configPath = projectStore.currentPaths?.configPath
 

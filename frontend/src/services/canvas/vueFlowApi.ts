@@ -25,6 +25,8 @@ import type {
   UpdateNodeData,
   UpdateNode,
   FitView,
+  ZoomInOut,
+  ZoomTo,
 } from '@vue-flow/core'
 
 export interface VueFlowApi {
@@ -39,6 +41,14 @@ export interface VueFlowApi {
   updateNodeData: UpdateNodeData
   updateNode: UpdateNode
   fitView: FitView
+  /**
+   * 视口缩放成员（可选）：测试替身与降级路径可缺席，
+   * 调用方（如 canvasStore 的缩放快捷键）需走静默降级。
+   */
+  zoomIn?: ZoomInOut
+  zoomOut?: ZoomInOut
+  /** 缩放到指定级别（Vue Flow 命名为 zoomTo，等价于旧称 setZoom） */
+  zoomTo?: ZoomTo
   /**
    * 屏幕坐标 → flow 坐标。可选成员：测试替身与降级路径可缺席，
    * 调用方（如工具箱落点计算）需判空并走回退逻辑。
@@ -140,4 +150,22 @@ export function updateNode(...args: Parameters<UpdateNode>) {
 
 export function fitView(...args: Parameters<FitView>) {
   requireApi().fitView(...args)
+}
+
+/**
+ * 视口缩放（放大）。与必需成员不同，这里静默降级：
+ * 全局快捷键在画布未挂载（Vue Flow API 未初始化或替身未提供）时也会触发，不应抛错。
+ */
+export function zoomIn(...args: Parameters<ZoomInOut>) {
+  return _api?.zoomIn?.(...args) ?? Promise.resolve(false)
+}
+
+/** 视口缩放（缩小）。降级语义同 zoomIn */
+export function zoomOut(...args: Parameters<ZoomInOut>) {
+  return _api?.zoomOut?.(...args) ?? Promise.resolve(false)
+}
+
+/** 缩放到指定级别（1 = 100%）。降级语义同 zoomIn */
+export function zoomTo(...args: Parameters<ZoomTo>) {
+  return _api?.zoomTo?.(...args) ?? Promise.resolve(false)
 }

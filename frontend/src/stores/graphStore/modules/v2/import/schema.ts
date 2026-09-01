@@ -15,7 +15,7 @@
  * V2 配置 → getV2Schema API → TableSchemaFileV2 → CustomNode(schema) → 画布
  */
 
-import type { Ref } from 'vue'
+import { nextTick, type Ref } from 'vue'
 import type { CustomNode, SchemaNodeData } from '@/types/graph'
 import type { JSONOptionsV2, TableSchemaFileV2 } from '@/types/projectV2'
 import { getV2Schema } from '@/api/projectV2Api'
@@ -117,10 +117,10 @@ export function createV2SchemaImporter(params: {
       },
     }
     addNodes(schemaNode)
-    // addNodes() 只更新 Vue Flow 内部状态，不会同步到 Pinia store 的 nodes ref
-    // （v-model 同步在 nextTick 才触发）。手动同步确保本 tick 内的后续节点查找
-    // （如 ensureSchemaNode / nodes.value.find）能正确找到该节点，避免重复创建。
-    nodes.value = [...nodes.value, schemaNode]
+    // addNodes 是 Vue Flow 增量 API，需等待 nextTick 让 model→store 回写完成后，
+    // 本 tick 之后的节点查找（nodes.value.find）才能命中该节点，保证幂等语义。
+    // 禁止手动 spread 追加 nodes.value——会绕过 Vue Flow 内部状态管理（见 AGENTS.md 时序约定）。
+    await nextTick()
 
     // 连带创建该 Schema 的约束：
     // - 拖拽独立约束触发自动创建 Schema 时（options.importRelatedConstraints=true），
@@ -129,7 +129,7 @@ export function createV2SchemaImporter(params: {
     // - FK 的 to_schema 等场景不传该选项，避免雪崩式导入。
     if (options?.importRelatedConstraints) {
       // 先物化内嵌约束（与直接 importSchema 行为一致）
-      materializeEmbeddedConstraints(schemaNode, schema)
+      await materializeEmbeddedConstraints(schemaNode, schema)
       // 再连带创建引用该 Schema 的其他独立约束（排除被拖拽约束自身）
       if (importRelatedIndependentConstraints) {
         await importRelatedIndependentConstraints(
@@ -143,7 +143,7 @@ export function createV2SchemaImporter(params: {
     return schemaNode
   }
 
-  const materializeEmbeddedConstraints = (
+  const materializeEmbeddedConstraints = async (
     schemaNode: CustomNode,
     schemaFile: TableSchemaFileV2
   ) => {
@@ -159,12 +159,15 @@ export function createV2SchemaImporter(params: {
       colNameToId,
       hasNode: (id: string) => nodes.value.some((n) => n.id === id),
       addNode: (node: CustomNode) => {
+        // 只走 addNodes 增量 API，禁止手动 spread 追加 nodes.value
+        // （会绕过 Vue Flow 内部状态管理，见 AGENTS.md Vue Flow 操作规范）
         addNodes(node)
-        // 手动同步 nodes.ref — 见 ensureSchemaNodeFromV2.ts 中相同模式的详细说明
-        nodes.value = [...nodes.value, node]
       },
       addConstraintEdge: ensureSchemaToConstraintEdge,
     })
+    // addNodes 是增量 API，store ref 的回写在 nextTick 才完成；
+    // 物化后等待一拍，调用方（导入编排 / 批次重排）随后通过 nodes.value 查找新节点才可见
+    await nextTick()
   }
 
   const importSchema = async (
@@ -176,7 +179,7 @@ export function createV2SchemaImporter(params: {
     // 连带创建独立约束的能力（importRelatedConstraints）仅用于拖拽独立约束触发
     // 自动创建 Schema 的场景，避免改变直接拖拽 Schema 的导入范围。
     const node = await ensureSchemaNode(resourceId, position, schemaFile)
-    materializeEmbeddedConstraints(node, schemaFile)
+    await materializeEmbeddedConstraints(node, schemaFile)
     return node.id
   }
 

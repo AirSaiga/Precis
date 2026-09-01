@@ -23,7 +23,10 @@ import { useGraphStore } from '@/stores/graphStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import i18n from '@/i18n'
 import type { DataType } from '@/types/graph'
-import { isConstraintNodeType } from '@/services/constraints/validationRegistry'
+import {
+  getConstraintKindByNodeType,
+  isConstraintNodeType,
+} from '@/services/constraints/validationRegistry'
 // 模块顶层调用 composable，避免在 class 方法体内调用（违反 Vue composable 规范）。
 // useGlobalConfirm 仅操作模块级 ref，无 inject/provide 依赖，模块顶层调用是安全的。
 const { showConfirm: _showConfirm } = useGlobalConfirm()
@@ -51,9 +54,11 @@ interface SourcePreviewData {
 }
 
 interface ConstraintData {
-  schemaNodeId: string
-  columnId: string
-  type: string
+  /** 源字段的稳定引用（Schema 节点 ID + 列 ID）— 见 BaseConstraintNodeData.sourceRef */
+  sourceRef?: {
+    nodeId?: string
+    columnId?: string
+  }
 }
 
 interface SchemaColumnData {
@@ -128,8 +133,14 @@ export class NodeDeletionManager {
 
   private async deleteSchemaNode(nodeId: string): Promise<void> {
     // 清理 sourcePreview 的 sourceNodeId 反向引用（保留原逻辑，与级联删除无关）
+    // 数据源入边有两种形态：targetHandle 为 undefined（旧连接）或 'target-left'
+    // （与 validationCollector.getSchemaNodeSourceInfo 认定的两种形态一致）
     const connectedSources = this.graphStore.edges
-      .filter((edge) => edge.target === nodeId && edge.targetHandle === undefined)
+      .filter(
+        (edge) =>
+          edge.target === nodeId &&
+          (edge.targetHandle === undefined || edge.targetHandle === 'target-left')
+      )
       .map((edge) => edge.source)
 
     connectedSources.forEach((sourceId) => {
@@ -148,11 +159,13 @@ export class NodeDeletionManager {
     // 收集所有指向该 schema 的 constraint 子节点，与 schema 本体合并为一次
     // 批量删除（deleteNodes 单次收集所有级联 ID 并只压一份撤销快照；此前分两次
     // 调用会产生两份快照，撤销需要按两次）。
+    // 约束节点的真实类型是 notNullConstraint 等 10 种（见 constraintMeta.CONSTRAINT_TYPES），
+    // 必须用 isConstraintNodeType 判定；schema 引用存于 data.sourceRef.nodeId。
     const childConstraintIds = this.graphStore.nodes
       .filter((n) => {
-        if (n.type !== 'constraint') return false
-        const constraintData = n.data as unknown as ConstraintData
-        return constraintData.schemaNodeId === nodeId
+        if (!isConstraintNodeType(n.type)) return false
+        const constraintData = n.data as ConstraintData
+        return constraintData.sourceRef?.nodeId === nodeId
       })
       .map((n) => n.id)
 
@@ -206,19 +219,21 @@ export class NodeDeletionManager {
     const constraintNode = this.graphStore.nodes.find((n) => n.id === nodeId)
     if (!constraintNode) return
 
-    const constraintData = constraintNode.data as unknown as ConstraintData
-    const schemaNodeId = constraintData.schemaNodeId
-    const columnId = constraintData.columnId
-    const constraintType = constraintData.type
+    // 约束节点 data 没有 schemaNodeId/columnId/type 字段，schema 引用统一存于
+    // sourceRef；列级约束记录的 key 用 ConstraintKind（camelCase，如 notNull）。
+    const constraintData = constraintNode.data as ConstraintData
+    const schemaNodeId = constraintData.sourceRef?.nodeId
+    const columnId = constraintData.sourceRef?.columnId
+    const constraintKind = getConstraintKindByNodeType(constraintNode.type)
 
-    if (schemaNodeId && columnId) {
+    if (schemaNodeId && columnId && constraintKind) {
       const schemaNode = this.graphStore.nodes.find((n) => n.id === schemaNodeId)
       if (schemaNode?.type === 'schema') {
         const schemaData = schemaNode.data as SchemaData
         const updatedColumns = schemaData.columns?.map((col) => {
           if (col.id === columnId) {
             const constraints = { ...col.constraints }
-            delete constraints[constraintType]
+            delete constraints[constraintKind]
             return { ...col, constraints }
           }
           return col

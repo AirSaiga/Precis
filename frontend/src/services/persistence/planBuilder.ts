@@ -28,6 +28,27 @@ export interface BuildSavePlanOptions {
 }
 
 /**
+ * 生成 manifest 的 schema 路径列表，并保证路径唯一。
+ *
+ * 基名解析顺序：调用方给定的 base（通常为 data.tableName，回退 schemaFile.name），
+ * 为空时回退节点 id。多个 schema 解析出同一路径时（如两个默认名 schema 重名），
+ * 后者以节点 id 后缀去重，避免文件互相覆盖。
+ */
+function buildSchemaPathEntries(
+  entries: Array<{ id: string; base?: string }>
+): Array<{ id: string; path: string }> {
+  const used = new Set<string>()
+  return entries.map(({ id, base }) => {
+    let name = base || id
+    if (used.has(name)) {
+      name = `${name}_${id}`
+    }
+    used.add(name)
+    return { id, path: `schemas/${name}.schema.yaml` }
+  })
+}
+
+/**
  * 构建 SavePlan
  */
 export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions): SavePlan {
@@ -51,6 +72,8 @@ export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions
 
   // 构建 schema 文件计划
   const schemas = new Map<string, SchemaFilePlan>()
+  // manifest 路径基名（id → tableName/name）：路径在 manifest 组装阶段统一去重
+  const schemaPathBaseById = new Map<string, string>()
   const schemaBuilder = findBuildersByKind('schema')[0]
   if (!schemaBuilder) {
     errors.push({
@@ -66,6 +89,11 @@ export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions
         schemaIdByNodeId,
         configPath: options.projectPath,
       }) as { consumed: boolean; file: import('@/types/projectV2').TableSchemaFileV2 }
+
+      // 基名优先取节点 data.tableName，回退 schemaFile.name（即 builder 的 name 源），
+      // 两者皆空时由 buildSchemaPathEntries 回退为 id
+      const data = node.data as { tableName?: string }
+      schemaPathBaseById.set(file.id, data.tableName || file.name || '')
 
       schemas.set(file.id, {
         schemaFile: file,
@@ -235,10 +263,12 @@ export function buildSavePlan(nodes: CustomNode[], options: BuildSavePlanOptions
         timeout_seconds: 10,
       },
     },
-    schemas: Array.from(schemas.entries()).map(([id, plan]) => ({
-      id,
-      path: `schemas/${plan.schemaFile.name}.schema.yaml`,
-    })),
+    schemas: buildSchemaPathEntries(
+      Array.from(schemas.keys()).map((id) => ({
+        id,
+        base: schemaPathBaseById.get(id),
+      }))
+    ),
     constraints: Array.from(constraints.keys()).map((id) => ({
       id,
       path: `constraints/${id}.constraint.yaml`,
@@ -356,11 +386,14 @@ function buildFullManifest(nodes: CustomNode[], options: BuildSavePlanOptions): 
   const { embedded: embeddedConstraintNodes } = classifyConstraints(constraintNodes, schemaNodes)
   const embeddedIds = new Set(embeddedConstraintNodes.map((n) => n.id))
 
-  const schemas = schemaNodes.map((n) => {
-    const id = schemaIdByNodeId[n.id] || n.id
-    const data = n.data as { tableName?: string }
-    return { id, path: `schemas/${data.tableName || id}.schema.yaml` }
-  })
+  // 与 buildSavePlan 一致：基名 tableName → id 回退，且对重名做唯一化去重
+  const schemas = buildSchemaPathEntries(
+    schemaNodes.map((n) => {
+      const id = schemaIdByNodeId[n.id] || n.id
+      const data = n.data as { tableName?: string }
+      return { id, base: data.tableName || '' }
+    })
+  )
 
   const constraints = constraintNodes
     .filter((n) => !embeddedIds.has(n.id))

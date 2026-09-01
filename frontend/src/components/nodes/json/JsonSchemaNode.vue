@@ -365,7 +365,10 @@
   const handleAddChildField = (parentId: string) => {
     const parent = findJsonSchemaColumnById(schemaData.columns, parentId)?.column
     if (!parent) return
-    const baseName = `field_1`
+    // 序号基于父列现有 children 数量递增（与根级 handleAddRootField 的 length+1 策略一致），
+    // 避免同一父列下加多个子字段时重名、jsonPath 冲突
+    const seq = (parent.children?.length || 0) + 1
+    const baseName = `field_${seq}`
     const newPath = `${parent.jsonPath}.${baseName}`
     const newCol: JsonSchemaColumn = {
       id: crypto.randomUUID(),

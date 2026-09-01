@@ -14,7 +14,7 @@
  * V2 约束配置 → getV2Constraint API → 解析 BuildInput → buildNodeData → CustomNode → 画布 + Edge
  */
 
-import type { Ref } from 'vue'
+import { nextTick, type Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
 import type { CustomNode, CustomNodeData } from '@/types/graph'
 import type { SchemaNodeData } from '@/types/nodes'
@@ -27,7 +27,7 @@ import type { BuildInput, EdgeDescriptor } from '@/services/constraints/nodeData
 import { getV2Constraint } from '@/api/projectV2Api'
 import { buildNodeData } from '@/services/constraints/nodeDataBuilder'
 import { logger } from '@/core/utils/logger'
-import { addNodes } from '@/services/canvas/vueFlowApi'
+import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
 /** 从 Schema 节点中查找列名 */
 function resolveColumnName(schemaNode: CustomNode | undefined, columnId: string): string {
   if (!schemaNode) return ''
@@ -81,7 +81,9 @@ export function createV2ConstraintImporter(params: {
     const existingNode = nodes.value.find((n) => n.id === resourceId)
     if (existingNode) {
       if (moveIfExists) {
-        existingNode.position = { ...position }
+        // 走 vueFlowApi.updateNode 更新位置，与 regex.ts/importV2ResourceToCanvas 一致：
+        // 直接改 node.position 会绕过 Vue Flow 内部 state 同步（store 变了但渲染不变）
+        updateNode(resourceId, { position: { ...position } })
       }
       selectedNodeId.value = resourceId
       return resourceId
@@ -271,10 +273,10 @@ export function createV2ConstraintImporter(params: {
       data: result.nodeData as unknown as CustomNodeData,
     }
     addNodes(constraintNode)
-    // addNodes() 只更新 Vue Flow 内部状态，不会同步到 Pinia store 的 nodes ref
-    // （v-model 同步在 nextTick 才触发）。手动同步确保本 tick 内的后续节点查找
-    // （如 ensureSchemaNode / nodes.value.find）能正确找到该节点，避免重复创建。
-    nodes.value = [...nodes.value, constraintNode]
+    // addNodes 是 Vue Flow 增量 API，先等 nextTick 完成 model→store 回写再建边：
+    // 边路径计算依赖节点渲染后的 handleBounds（见 AGENTS.md 时序约定），
+    // 禁止手动 spread 追加 nodes.value 绕过 Vue Flow 内部状态管理。
+    await nextTick()
 
     // 创建边
     applyEdgeDescriptors(result.edgeDescriptors, resourceId)

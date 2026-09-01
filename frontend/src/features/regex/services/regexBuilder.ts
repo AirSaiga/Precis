@@ -39,7 +39,8 @@ export function buildV2RegexNodeFile(nodeId: string, data: RegexNodeData): Regex
     flags: data.flags || '',
     match_mode: data.matchMode || 'full',
     enabled: data.enabled !== false,
-    case_sensitive: data.caseSensitive || false,
+    // 与运行时语义一致："未设置=区分大小写"（!== false），不能用 || false 落成 false
+    case_sensitive: data.caseSensitive !== false,
     source_ref: data.sourceRef
       ? {
           table_id: data.sourceRef.nodeId,
