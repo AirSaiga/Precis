@@ -146,10 +146,11 @@ def register_port_file_cleanup() -> None:
     import atexit
     import signal
     import sys
+    from types import FrameType
 
     atexit.register(clear_port_file)
 
-    def _cleanup_and_exit(signum: int, frame: object) -> None:
+    def _cleanup_and_exit(signum: int, frame: FrameType | None) -> None:
         clear_port_file()
         if signum == signal.SIGINT:
             # 链回默认 INT 行为:抛 KeyboardInterrupt,不吞信号

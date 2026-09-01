@@ -33,6 +33,8 @@
 import hmac
 import os
 import re
+from collections.abc import MutableMapping
+from typing import Any
 
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Receive, Scope, Send
@@ -180,7 +182,7 @@ class TokenOriginAuthMiddleware:
           都必须先做存在性检查——重复的 CORS 头会被浏览器判定为 CORS 检查失败
         """
 
-        async def send_wrapper(message: dict) -> None:
+        async def send_wrapper(message: MutableMapping[str, Any]) -> None:
             if message["type"] == "http.response.start" and origin:
                 response_headers: list[tuple[bytes, bytes]] = list(message.get("headers", []))
                 header_names = {key.decode("latin-1").lower() for key, _ in response_headers}

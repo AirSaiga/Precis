@@ -135,6 +135,7 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
                 schema_data["constraints"] = []
 
             # 逐个处理约束（全部在内存中修改，不立即写入）
+            has_delete = False
             for action in actions:
                 try:
                     spec = action.get("constraintSpec", {})
@@ -172,6 +173,7 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
                     # DELETE 动作：从内存中的 constraints 移除「同列 + 同类型」项，绝不新增。
                     # 旧实现不区分 actionType，删除动作会被当作添加处理（只增不删还报成功）。
                     if action_type == "DELETE_CONSTRAINT_NODE":
+                        has_delete = True
                         remaining = [
                             c
                             for c in schema_data["constraints"]
@@ -247,7 +249,6 @@ def process_inline_batch(actions: list[dict[str, Any]], workspace_path: str) -> 
             if any(r["success"] for r in results):
                 # 含删除动作时必须全量替换写入：atomic_write_yaml 的 preserve_format
                 # 路径按 id 合并列表（只更新/追加、不删除），会把已删除的约束"复活"
-                has_delete = any(r["action"].get("actionType") == "DELETE_CONSTRAINT_NODE" for r in results)
                 atomic_write_yaml(schema_file, schema_data, preserve_format=not has_delete)
                 logger.info(f"[批量处理] 成功保存 {len([r for r in results if r['success']])} 个约束到 schema")
 

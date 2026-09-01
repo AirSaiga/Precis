@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import pandas as pd
 
@@ -74,9 +74,9 @@ def _load_excel_with_new_loader(
     # engine 是文件级读取参数，从第一个 schema 的 source_config 读取；
     # 仅接受合法枚举值（与 ExcelSourceSpec.engine 的 Literal 约束一致），非法值回退默认 openpyxl
     first_config: dict[str, Any] = (schemas[0].source_config or {}) if schemas else {}
-    engine = first_config.get("engine")
-    if engine not in ("openpyxl", "xlrd"):
-        engine = "openpyxl"
+    engine: Literal["openpyxl", "xlrd"] = "openpyxl"
+    if first_config.get("engine") in ("openpyxl", "xlrd"):
+        engine = first_config["engine"]  # type: ignore[assignment]  # 白名单校验后收窄
     spec = ExcelSourceSpec.model_construct(path=filepath, engine=engine)
     loader = ExcelLoader(spec)
     default_sheet = (file_to_sheet_names or {}).get(filepath)
@@ -137,9 +137,9 @@ def _load_csv_with_new_loader(
 
     # on_bad_lines 是 Literal 枚举（model_construct 不校验），非法值兜底为 "warn"，
     # 避免把任意字符串透传给 pandas.read_csv 导致加载失败
-    on_bad_lines = source_config.get("on_bad_lines")
-    if on_bad_lines not in ("error", "warn", "skip"):
-        on_bad_lines = "warn"
+    on_bad_lines: Literal["error", "warn", "skip"] = "warn"
+    if source_config.get("on_bad_lines") in ("error", "warn", "skip"):
+        on_bad_lines = source_config["on_bad_lines"]  # type: ignore[assignment]  # 白名单校验后收窄
 
     spec = CSVSourceSpec.model_construct(
         path=filepath,
