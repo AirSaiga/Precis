@@ -233,9 +233,20 @@ def _extract_derived_columns(
                     )
 
             except Exception as e:
-                logger.warning(
-                    f"正则提取列 '{col_name}' 失败 (来源列: '{source_column}', 提取键: '{extract_key}'): {e}",
-                    exc_info=True,
+                error_msg = (
+                    f"正则提取列 '{col_name}' 执行失败 (来源列: '{source_column}', 提取键: '{extract_key}'): {e}"
+                )
+                logger.warning(error_msg, exc_info=True)
+                # 提取失败也作为验证错误上报：派生列整列缺失时下游约束会在空数据上
+                # 运行，报告"通过"属于静默跳过校验（与模块契约"避免静默通过"一致）
+                all_errors.append(
+                    {
+                        "stage": "format",
+                        "table": table_id,
+                        "column": col_name,
+                        "check_type": "ExtractedColumnValidation",
+                        "message": error_msg,
+                    }
                 )
 
         # 更新 parsed_datasets 中的 DataFrame

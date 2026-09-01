@@ -276,6 +276,82 @@ class TestConditionalConstraint:
         assert result["errors"][0]["row_index"] == 1
         assert result["errors"][0]["value"]["level"] == "C"
 
+    def test_then_condition_in_accepts_value_key_as_list(self):
+        """回归: THEN 侧 in 操作符应同时接受 "value"（列表）键。
+
+        用户按习惯写 {"operator": "in", "value": ["A","B"]} 时，原实现只认
+        "values" 键 → 取到空列表 → 所有触发行误报违规。
+        """
+        datasets = {
+            "users": pd.DataFrame(
+                {
+                    "id": [1, 2, 3],
+                    "status": ["VIP", "VIP", "Normal"],
+                    "level": ["A", "B", "C"],
+                }
+            )
+        }
+        constraint = ConditionalConstraint(
+            table="users",
+            if_column="status",
+            if_value="VIP",
+            then_column="level",
+            then_condition={"operator": "in", "value": ["A", "B"]},
+        )
+        result = constraint.validate(datasets)
+        # A、B 都在列表中 → 通过；过去会误报 2 行违规
+        assert result["errors"] == []
+
+    def test_then_condition_in_with_non_list_container_raises(self):
+        """回归: THEN 侧 in 的容器为字符串（非 list）时必须 fail-fast。
+
+        与"不支持的DSL操作符"的 ValueError 守卫先例一致，不再静默按空列表处理。
+        """
+        with pytest.raises(ValueError, match="in"):
+            ConditionalConstraint(
+                table="users",
+                if_column="status",
+                if_value="VIP",
+                then_column="level",
+                then_condition={"operator": "in", "values": "A,B,C"},
+            )
+
+    def test_then_condition_in_without_any_container_raises(self):
+        """THEN 侧 in 操作符既无 values 也无 value 时应报配置错误而非全行误报。"""
+        with pytest.raises(ValueError, match="in"):
+            ConditionalConstraint(
+                table="users",
+                if_column="status",
+                if_value="VIP",
+                then_column="level",
+                then_condition={"operator": "in"},
+            )
+
+    def test_if_condition_in_with_non_list_values_reports_config_error(self):
+        """回归: IF 侧 in 条件的 values 非 list 时必须报 ConstraintConfigError。
+
+        原实现静默按空列表处理 → 条件永不触发 → 违规被静默吞掉（fail-open）。
+        """
+        datasets = {
+            "users": pd.DataFrame(
+                {
+                    "id": [1, 2],
+                    "status": ["VIP", "Normal"],
+                    "level": ["D", "D"],
+                }
+            )
+        }
+        constraint = ConditionalConstraint(
+            table="users",
+            if_conditions=[{"column": "status", "operator": "in", "values": "VIP"}],
+            then_column="level",
+            then_condition={"operator": "eq", "value": "A"},
+        )
+        result = constraint.validate(datasets)
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["error_type"] == "ConstraintConfigError"
+        assert "values" in result["errors"][0]["message"]
+
     def test_then_condition_registered_func(self):
         """then_condition 为已注册的字符串条件函数"""
         datasets = {

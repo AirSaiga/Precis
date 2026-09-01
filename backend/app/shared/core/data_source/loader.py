@@ -71,7 +71,13 @@ def _load_excel_with_new_loader(
         >>> result = _load_excel_with_new_loader("data.xlsx", schemas)
         >>> # result: {"users": DataFrame}
     """
-    spec = ExcelSourceSpec.model_construct(path=filepath)
+    # engine 是文件级读取参数，从第一个 schema 的 source_config 读取；
+    # 仅接受合法枚举值（与 ExcelSourceSpec.engine 的 Literal 约束一致），非法值回退默认 openpyxl
+    first_config: dict[str, Any] = (schemas[0].source_config or {}) if schemas else {}
+    engine = first_config.get("engine")
+    if engine not in ("openpyxl", "xlrd"):
+        engine = "openpyxl"
+    spec = ExcelSourceSpec.model_construct(path=filepath, engine=engine)
     loader = ExcelLoader(spec)
     default_sheet = (file_to_sheet_names or {}).get(filepath)
     sheet_configs = {
@@ -124,11 +130,25 @@ def _load_csv_with_new_loader(
         return {}
 
     info = schemas[0]
+    # 回归修复: schema 的 source_config 中的 CSV 读取参数（分隔符/编码/跳行等）过去被丢弃，
+    # 一律使用 manifest 级默认值，导致分号分隔、GBK 编码等文件解析错位。现优先读
+    # source_config，manifest 默认值仅作兜底（与 preview/loader.py 的读取方式保持一致）。
+    source_config = info.source_config or {}
+
+    # on_bad_lines 是 Literal 枚举（model_construct 不校验），非法值兜底为 "warn"，
+    # 避免把任意字符串透传给 pandas.read_csv 导致加载失败
+    on_bad_lines = source_config.get("on_bad_lines")
+    if on_bad_lines not in ("error", "warn", "skip"):
+        on_bad_lines = "warn"
+
     spec = CSVSourceSpec.model_construct(
         path=filepath,
         header_row=info.header_row,
-        encoding=default_encoding,
-        delimiter=csv_delimiter,
+        encoding=source_config.get("encoding", default_encoding),
+        delimiter=source_config.get("delimiter", csv_delimiter),
+        skip_rows=int(source_config.get("skip_rows", 0) or 0),
+        quotechar=source_config.get("quotechar", '"'),
+        on_bad_lines=on_bad_lines,
     )
     loader = CSVLoader(spec)
     df = loader.load()

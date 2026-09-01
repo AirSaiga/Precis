@@ -1,6 +1,0 @@
-[
-  "/",
-  "/health",
-  "/api/items",
-  "/api/items/{item_id}"
-]

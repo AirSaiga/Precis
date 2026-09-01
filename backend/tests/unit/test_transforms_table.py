@@ -68,6 +68,27 @@ class TestFilterRowsRunner:
         result = runner.execute(df, "name", {"conditions": [{"column": "name", "op": "contains", "value": "li"}]}, [])
         assert result["name"].tolist() == ["Alice", "Charlie"]
 
+    def test_contains_matches_literal_not_regex(self):
+        """回归: contains 必须按字面量子串匹配，不得把条件值当正则解释。
+
+        过去默认 regex=True，条件值含正则元字符时（如 "a.b"、"("）要么错误匹配
+        要么直接抛 re.error 崩溃。
+        """
+        runner = FilterRowsRunner()
+        df = pd.DataFrame({"tag": ["a.b", "axb", "(未分类)", "ok"]})
+        result = runner.execute(df, "tag", {"conditions": [{"column": "tag", "op": "contains", "value": "a.b"}]}, [])
+        # "a.b" 按字面量匹配：只命中 "a.b"，不命中 "axb"
+        assert result["tag"].tolist() == ["a.b"]
+
+    def test_contains_with_regex_metacharacters_does_not_crash(self):
+        """回归: 条件值为非法正则（如未闭合的 "("）时应按字面量匹配而非崩溃。"""
+        runner = FilterRowsRunner()
+        df = pd.DataFrame({"label": ["(未分类)", "分类", "x"]})
+        result = runner.execute(
+            df, "label", {"conditions": [{"column": "label", "op": "contains", "value": "(未分类)"}]}, []
+        )
+        assert result["label"].tolist() == ["(未分类)"]
+
     def test_is_null_filter(self):
         runner = FilterRowsRunner()
         df = pd.DataFrame({"value": [1, None, 3]})

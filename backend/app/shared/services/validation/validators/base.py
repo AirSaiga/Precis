@@ -219,13 +219,13 @@ class BaseValidator(ABC):
         @return ValidationResult: 标准化校验结果
 
         @sideeffect:
-            - 数值类型转换(浮点数转整数或保留6位小数)
             - 行索引类型转换(支持字符串和数值)
+            - 单元格值保留原始值(不做取整/round 改写，展示格式化由前端负责)
 
         处理逻辑:
             Step 1: 计算错误数量和匹配数量
             Step 2: 遍历错误列表,格式化每个错误:
-                - 浮点数处理: 整数转为 int,小数保留6位
+                - 单元格值: 原样保留(数据质量工具需展示文件原始值以便对账)
                 - 行索引处理: 转换为 int,无效值默认为 0
                 - 错误消息: 兼容多种字段名
             Step 3: 构建 ValidationResult 对象并返回
@@ -243,17 +243,9 @@ class BaseValidator(ABC):
         for err in errors:
             # 获取单元格值,兼容多种字段名
             # 【关键数据流】err 可能是 {"value": ...} 或 {"cell_value": ...}
+            # 原样保留(含浮点数的原始精度)：错误详情用于和源文件对账，
+            # 取整/round 改写会掩盖真实数据问题；可读格式化由前端展示层负责。
             cell_value = err.get("value") if "value" in err else err.get("cell_value")
-
-            # 浮点数特殊处理:避免科学计数法显示
-            # 【副作用】将浮点数转换为可读格式
-            if isinstance(cell_value, float):
-                # 整数浮点数(如 1.0)转为整数
-                if cell_value.is_integer():
-                    cell_value = int(cell_value)
-                else:
-                    # 小数保留6位有效数字
-                    cell_value = round(cell_value, 6)
 
             # 处理行索引:支持字符串和数值类型
             # 【副作用】统一行索引为整数类型

@@ -205,3 +205,48 @@ class TestResolveRegexPattern:
         registry = MockRegistry([])
         with pytest.raises(ValueError, match="未找到"):
             resolve_regex_pattern(config, {"expression_registry": registry})
+
+    def test_long_flag_name_multiline_does_not_enable_ignorecase(self):
+        """回归: flags 长格式 "multiline" 不得因子串匹配误开 IGNORECASE。
+
+        过去用 `"i" in flag_str` 判断，"multiline" 包含 "i" → IGNORECASE 被误开启。
+        case_sensitive=True 用于隔离 case_sensitive 默认值（False）自身的 IGNORECASE 效果。
+        """
+        config = RegexNodeFile(id="x", name="X", pattern=r"^abc$", flags="multiline", case_sensitive=True)
+        result = resolve_regex_pattern(config, {})
+        assert result.flags & re.MULTILINE
+        assert not (result.flags & re.IGNORECASE), "multiline 不得误开 IGNORECASE"
+
+    def test_uppercase_short_flag_is_recognized(self):
+        """回归: 大写短格式 "I"（大小写不敏感整词比对）应正常映射 IGNORECASE。"""
+        config = RegexNodeFile(id="x", name="X", pattern=r"^abc$", flags="I", case_sensitive=True)
+        result = resolve_regex_pattern(config, {})
+        assert result.flags & re.IGNORECASE
+
+    def test_combined_short_flags_still_supported(self):
+        """组合短格式 "im" 应同时开启 IGNORECASE 与 MULTILINE（既有行为保持）。"""
+        config = RegexNodeFile(id="x", name="X", pattern=r"^abc$", flags="im", case_sensitive=True)
+        result = resolve_regex_pattern(config, {})
+        assert result.flags & re.IGNORECASE
+        assert result.flags & re.MULTILINE
+
+    def test_comma_separated_long_flags(self):
+        """逗号分隔的长格式 "ignorecase, dotall" 应整词解析出两个标志。"""
+        config = RegexNodeFile(id="x", name="X", pattern=r"^abc$", flags="ignorecase, dotall", case_sensitive=True)
+        result = resolve_regex_pattern(config, {})
+        assert result.flags & re.IGNORECASE
+        assert result.flags & re.DOTALL
+        assert not (result.flags & re.MULTILINE), "未配置的 MULTILINE 不应被误开"
+
+    def test_flags_override_long_name_does_not_enable_ignorecase(self):
+        """回归: 引用模式的 pattern_overrides.flags 同样走精确 token 匹配。"""
+        config = RegexNodeFile(
+            id="x",
+            name="X",
+            uses_pattern=PatternRef(registry="patterns", pattern_name="digits"),
+            pattern_overrides={"flags": "multiline"},
+        )
+        registry = MockRegistry([MockPattern("digits", r"^\d+$")])
+        result = resolve_regex_pattern(config, {"expression_registry": registry})
+        assert result.flags & re.MULTILINE
+        assert not (result.flags & re.IGNORECASE), "overrides 的 multiline 不得误开 IGNORECASE"

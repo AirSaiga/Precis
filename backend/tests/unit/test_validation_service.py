@@ -181,7 +181,7 @@ class TestBaseValidatorFormatErrors:
         assert result.validation_time == "0.050s"
 
     def test_format_with_various_values(self):
-        """错误值格式化: 浮点数、字符串索引、None 值"""
+        """错误值格式化: 原始值保留、字符串索引、None 值"""
         errors = [
             {"row_index": 0, "value": "bad", "message": "wrong"},
             {"row_index": "3", "cell_value": 1.0, "error_message": "float"},
@@ -193,8 +193,9 @@ class TestBaseValidatorFormatErrors:
         assert result.match_count == 2
         # 字符串值保留
         assert result.error_rows[0]["cell_value"] == "bad"
-        # 1.0 -> int
-        assert result.error_rows[1]["cell_value"] == 1
+        # 1.0 原样保留(不再取整为 int，错误详情需与源文件对账)
+        assert result.error_rows[1]["cell_value"] == 1.0
+        assert isinstance(result.error_rows[1]["cell_value"], float)
         # "3" -> int
         assert result.error_rows[1]["row_index"] == 3
         # None -> 0
@@ -203,17 +204,17 @@ class TestBaseValidatorFormatErrors:
         assert result.error_rows[2]["cell_value"] == 1.5
 
     def test_format_float_integer(self):
-        """整数形式的浮点数转为 int"""
+        """整数形式的浮点数保留原始值(不再转为 int)"""
         errors = [{"row_index": 0, "value": 42.0, "message": "big"}]
         result = BaseValidator._format_errors(errors, 1, 0.01)
-        assert result.error_rows[0]["cell_value"] == 42
-        assert isinstance(result.error_rows[0]["cell_value"], int)
+        assert result.error_rows[0]["cell_value"] == 42.0
+        assert isinstance(result.error_rows[0]["cell_value"], float)
 
     def test_format_float_rounding(self):
-        """小数保留 6 位"""
+        """小数保留原始精度(不再 round 到 6 位，展示格式化由前端负责)"""
         errors = [{"row_index": 0, "value": 1.23456789, "message": "precise"}]
         result = BaseValidator._format_errors(errors, 1, 0.01)
-        assert result.error_rows[0]["cell_value"] == round(1.23456789, 6)
+        assert result.error_rows[0]["cell_value"] == 1.23456789
 
     def test_format_invalid_row_index(self):
         """无效 row_index 默认转为 0"""

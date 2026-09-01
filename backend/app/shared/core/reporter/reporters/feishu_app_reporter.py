@@ -48,7 +48,7 @@ from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
 
-from .base import Reporter
+from .base import TEMPLATE_HEADROOM_BYTES, Reporter, truncate_to_byte_limit
 
 _ALLOWED_URL_SCHEMES = {"https", "http"}
 _BLOCKED_NETWORKS = [
@@ -218,9 +218,9 @@ class FeishuReporter(Reporter):
         error_details = json.dumps(errors, indent=2, ensure_ascii=False)
 
         # 安全截断：飞书消息卡片大小限制约为 30KB
-        # 这里做保守截断（28KB），防止超出限制导致发送失败
-        if len(error_details.encode("utf-8")) > 28000:
-            error_details = error_details[:14000] + "\n... (内容过长，已截断)"
+        # 这里做保守截断（28KB）。必须按 UTF-8 字节截断：平台限额按字节计，
+        # 中文按字符截断后实际字节数仍可能超限被拒收（见 truncate_to_byte_limit）
+        error_details = truncate_to_byte_limit(error_details, 28000 - TEMPLATE_HEADROOM_BYTES)
 
         # 构建飞书卡片消息结构
         return {

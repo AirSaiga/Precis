@@ -63,6 +63,39 @@ class TestIntegerType:
         assert errors == [], f"负数整数列不应报错,实际: {errors}"
         assert list(parsed.dropna()) == [-1, -2, 0]
 
+    def test_precision_loss_above_2_pow_53_is_reported_even_with_nulls(self):
+        """回归: 2^53+1 精度越界必须报 TypeValidationError,不能被 float64 舍入静默吞掉。
+
+        含空值的列 pd.to_numeric 升位 float64,9007199254740993(2^53+1)被舍入为
+        9007199254740992.0,过去的 parsed.abs() > 2**53 比较恒为 False → 溢出静默通过。
+        溢出检测必须基于原始字符串在 float 转换之前进行。
+        """
+        series = pd.Series([1, "9007199254740993", None])  # 2^53 + 1
+        parsed, errors = IntegerType().process_column(series, "big_id", nullable=True)
+
+        overflow_errors = [e for e in errors if e["error_type"] == "TypeValidationError"]
+        assert len(overflow_errors) == 1, f"2^53+1 应报溢出错误,实际: {errors}"
+        assert "超出安全整数范围" in overflow_errors[0]["error_message"]
+        # 溢出行不能产出解析值(静默截断)
+        assert parsed.iloc[1] is None or pd.isna(parsed.iloc[1])
+        # 正常值不受影响
+        assert parsed.iloc[0] == 1
+
+    def test_negative_precision_loss_above_2_pow_53_is_reported(self):
+        """负方向的 ±2^53 越界同样必须报错。"""
+        series = pd.Series(["-9007199254740993"])
+        parsed, errors = IntegerType().process_column(series, "big_id", nullable=True)
+        overflow_errors = [e for e in errors if e["error_type"] == "TypeValidationError"]
+        assert len(overflow_errors) == 1
+        assert parsed.iloc[0] is None or pd.isna(parsed.iloc[0])
+
+    def test_boundary_2_pow_53_itself_still_passes(self):
+        """边界值 2^53 本身在安全范围内,不应误报(int64 正常路径不变)。"""
+        series = pd.Series(["9007199254740992"])  # 恰好 2^53
+        parsed, errors = IntegerType().process_column(series, "big_id", nullable=True)
+        assert errors == [], f"2^53 边界值不应报错,实际: {errors}"
+        assert parsed.iloc[0] == 9007199254740992
+
 
 class TestBooleanType:
     """BooleanType 行为"""

@@ -284,6 +284,9 @@ class ChunkedDataLoader:
         """
         chunked_datasets: dict[str, list[pd.DataFrame]] = {}
         loading_errors: list[dict] = []
+        # Excel 回退 sheet 名映射：与 data_loader 的标准模式保持一致，
+        # schema 未显式指定 sheet_name 时作为加载回退
+        file_to_sheet_names: dict[str, str] = {}
 
         # 解析搜索目录
         search_directory = data_directory
@@ -316,8 +319,8 @@ class ChunkedDataLoader:
 
             table_name = table_schema.name or table_id
 
-            # 解析数据源路径
-            source_path, _ = self._resolver.resolve_source_path(data_directory, schema_file)
+            # 解析数据源路径（第二个返回值是 Excel sheet 名，用于构建回退映射）
+            source_path, sheet_name_resolved = self._resolver.resolve_source_path(data_directory, schema_file)
             if not source_path:
                 # 回归 #5: 源找不到必须上报,否则该表静默消失、报告显示"全部通过"。
                 logger.warning(f"表 '{table_name}' 未找到数据源，跳过分块加载")
@@ -329,6 +332,9 @@ class ChunkedDataLoader:
                     }
                 )
                 continue
+
+            if sheet_name_resolved:
+                file_to_sheet_names.setdefault(source_path, sheet_name_resolved)
 
             # 判断是否需要分块
             if self._monitor.should_chunk(source_path):
@@ -353,7 +359,13 @@ class ChunkedDataLoader:
                             source_config=getattr(table_schema, "source_config", None) or {},
                         )
                         file_to_schemas = {source_path: [info]}
-                        loaded, _ = load_grouped_sources(file_to_schemas)
+                        # 与 data_loader 标准模式对齐：透传 manifest 级编码/分隔符默认值与 sheet 回退映射
+                        loaded, _ = load_grouped_sources(
+                            file_to_schemas,
+                            default_encoding=self.settings.file_processing.default_encoding,
+                            csv_delimiter=self.settings.file_processing.csv_delimiter,
+                            file_to_sheet_names=file_to_sheet_names or None,
+                        )
                         if loaded:
                             df = next(iter(loaded.values()))
                             chunked_datasets[table_id] = [df]
@@ -387,7 +399,13 @@ class ChunkedDataLoader:
                         source_config=getattr(table_schema, "source_config", None) or {},
                     )
                     file_to_schemas = {source_path: [info]}
-                    loaded, _ = load_grouped_sources(file_to_schemas)
+                    # 与 data_loader 标准模式对齐：透传 manifest 级编码/分隔符默认值与 sheet 回退映射
+                    loaded, _ = load_grouped_sources(
+                        file_to_schemas,
+                        default_encoding=self.settings.file_processing.default_encoding,
+                        csv_delimiter=self.settings.file_processing.csv_delimiter,
+                        file_to_sheet_names=file_to_sheet_names or None,
+                    )
                     if loaded:
                         df = next(iter(loaded.values()))
                         chunked_datasets[table_id] = [df]

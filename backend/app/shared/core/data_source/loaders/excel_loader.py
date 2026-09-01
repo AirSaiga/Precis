@@ -100,7 +100,7 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
                     f"请检查 header_row 配置是否正确"
                 )
 
-            df = self._apply_merged_cell_fill(df, self.spec.sheet, self.spec.header_row)
+            df = self._apply_merged_cell_fill(df, self.spec.sheet, self.spec.header_row, self.spec.skip_rows)
             return df
 
         except FileNotFoundError as e:
@@ -216,11 +216,22 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
         return read_kwargs
 
     def _apply_merged_cell_fill(
-        self, df: pd.DataFrame, sheet_name: str | None = None, header_row: int = 0
+        self,
+        df: pd.DataFrame,
+        sheet_name: str | None = None,
+        header_row: int = 0,
+        skip_rows: int = 0,
     ) -> pd.DataFrame:
         """@methoddesc 对合并单元格进行前向填充，避免 NotNull/Unique 误报（B7）。
 
         使用 openpyxl 检测合并单元格区域，然后仅对区域内的 NaN 进行填充。
+
+        参数:
+            df: 已加载的 DataFrame
+            sheet_name: 数据来源的 sheet 名称；None 时按 spec 的 sheet/sheet_index 解析
+            header_row: 表头行号（0-based，不含 skip_rows）
+            skip_rows: 表头前跳过的行数（load_multi_sheet 路径已把 skip_rows 折入
+                effective_header，此时应保持默认 0，避免重复扣减）
         """
         if self.spec.engine != "openpyxl":
             return df
@@ -230,7 +241,15 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
             wb = load_workbook(self.spec.path, data_only=True)
             try:
                 if sheet_name is None:
-                    sheet_name = self.spec.sheet or wb.sheetnames[0]
+                    # 回归修复: 填充逻辑必须定位到与读取一致的工作表。读取时 sheet 未指定
+                    # 名称会按 sheet_index 选表（见 _build_read_kwargs），此处解析需保持
+                    # 同一优先级；过去无条件回退到第一张表，sheet_index>0 时填错表。
+                    if self.spec.sheet:
+                        sheet_name = self.spec.sheet
+                    elif 0 <= self.spec.sheet_index < len(wb.sheetnames):
+                        sheet_name = wb.sheetnames[self.spec.sheet_index]
+                    else:
+                        sheet_name = wb.sheetnames[0]
                 ws = wb[sheet_name]
 
                 df_filled = df.copy()
@@ -241,9 +260,11 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
                         merged.max_row,
                         merged.max_col,
                     )
-                    # openpyxl 是 1-based；pandas DataFrame row 0 对应 Excel row (header_row + 2)
-                    start_df_row = min_row - header_row - 2
-                    end_df_row = max_row - header_row - 2
+                    # openpyxl 是 1-based；pandas 读取时先跳过 skip_rows 行再把第 header_row
+                    # 行作为表头，因此 df 行 0 对应 Excel 第 (skip_rows + header_row + 2) 行。
+                    # 过去漏算 skip_rows，配置了跳行时填充区域整体下移、错位填充。
+                    start_df_row = min_row - header_row - skip_rows - 2
+                    end_df_row = max_row - header_row - skip_rows - 2
                     start_df_col = min_col - 1
                     end_df_col = max_col - 1
 
@@ -343,12 +364,17 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
             else:
                 read_kwargs["sheet_name"] = self.spec.sheet_index
 
+            # 预览同样要跳过表头前的说明行，且合并单元格填充的行号换算依赖 skip_rows，
+            # 读取与填充必须使用同一值，否则填充区域错位
+            if self.spec.skip_rows > 0:
+                read_kwargs["skiprows"] = self.spec.skip_rows
+
             df = pd.read_excel(self.spec.path, **read_kwargs)
 
             if not self.spec.header_enabled:
                 df.columns = [f"col_{i}" for i in range(len(df.columns))]
 
-            df = self._apply_merged_cell_fill(df, self.spec.sheet, self.spec.header_row)
+            df = self._apply_merged_cell_fill(df, self.spec.sheet, self.spec.header_row, self.spec.skip_rows)
             return df
 
         except Exception:

@@ -45,7 +45,7 @@ import urllib.request
 from datetime import datetime
 from typing import Any
 
-from .base import Reporter
+from .base import TEMPLATE_HEADROOM_BYTES, Reporter, truncate_to_byte_limit
 
 
 class DingTalkAppReporter(Reporter):
@@ -190,9 +190,9 @@ class DingTalkAppReporter(Reporter):
         error_details = json.dumps(errors, indent=2, ensure_ascii=False)
 
         # 安全截断：钉钉消息内容限制约 4KB
-        # 超过限制时进行截断并添加提示
-        if len(error_details.encode("utf-8")) > 4000:
-            error_details = error_details[:2000] + "\n... (内容过长，已截断)"
+        # 必须按 UTF-8 字节截断：平台限额按字节计，中文按字符截断后实际字节数
+        # 仍可能超限被拒收（见 truncate_to_byte_limit）
+        error_details = truncate_to_byte_limit(error_details, 4000 - TEMPLATE_HEADROOM_BYTES)
 
         # 步骤3: 构建 Markdown 格式消息内容
         title = f"【数据验证警告】发现 {error_count} 个错误!"

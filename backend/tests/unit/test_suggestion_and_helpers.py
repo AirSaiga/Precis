@@ -195,3 +195,41 @@ class TestSchemaHelpers:
         data = {"name": "users", "columns": [{"id": "c1", "name": "col1", "type": "string"}]}
         conflicts = _compute_conflicts(data, data)
         assert conflicts == []
+
+
+class TestMakeRelative:
+    """path_utils.make_relative 的降级语义"""
+
+    def test_relative_path_returns_posix_relative(self):
+        from app.shared.core.utils.path_utils import make_relative
+
+        result = make_relative("/base/project", "/base/project/data/file.csv")
+        assert result == "data/file.csv"
+
+    def test_cross_drive_raises_valueerror_internally_falls_back_to_target_posix(self, monkeypatch):
+        """回归: os.path.relpath 抛 ValueError（Windows 跨盘符）时不得外泄异常，
+        应按 docstring 承诺降级返回 target 的 POSIX 格式。"""
+
+        def _raise_value_error(target, base):
+            raise ValueError("path is on mount 'C:', start on mount 'D:'")
+
+        monkeypatch.setattr("os.path.relpath", _raise_value_error)
+
+        from app.shared.core.utils.path_utils import make_relative
+
+        result = make_relative("C:/base", "D:/data/file.csv")
+        assert result == "D:/data/file.csv"
+
+    def test_cross_drive_real_windows_paths(self):
+        """Windows 真实跨盘符场景（C: → D:）应返回 target 的 POSIX 格式。"""
+        import os
+
+        import pytest
+
+        from app.shared.core.utils.path_utils import make_relative
+
+        if os.name != "nt":
+            pytest.skip("跨盘符 ValueError 仅在 Windows 平台出现")
+
+        result = make_relative("C:/some/base", "D:/data/file.csv")
+        assert result == "D:/data/file.csv"

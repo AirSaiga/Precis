@@ -194,7 +194,17 @@ class ConditionalConstraint(Constraint):
 
                 return _safe_greater_than
             if operator == "in":
-                values = then_config.get("values", [])
+                # 回归: 容器键兼容 + fail-closed。原实现只认 "values" 键，用户按习惯写
+                # "value"（列表）时取到空列表 → 所有触发行误报违规。现同时接受两种键
+                # （values 优先）；容器非 list 时按配置错误 fail-fast（与本函数对不支持
+                # 操作符抛 ValueError 的守卫先例一致），不再静默按空列表处理。
+                values = then_config.get("values")
+                if values is None:
+                    values = then_config.get("value")
+                if not isinstance(values, list):
+                    raise ValueError(
+                        f"'in' 操作符要求 'values'（或 'value'）为列表，实际为 {type(values).__name__}: {values!r}"
+                    )
 
                 def _safe_in(x: Any, row: dict[str, Any] | None = None) -> bool:
                     if pd.isna(x) or x == "":
@@ -374,8 +384,13 @@ class ConditionalConstraint(Constraint):
                 # 非空: 既不是 NaN 也不是空字符串
                 return pd.notna(s) & (s != "")
             if op == "in":
+                # 回归: 容器非 list 时必须按配置错误处理。原实现静默按空列表处理 →
+                # 条件永不触发 → 违规被静默吞掉（fail-open）。抛 ValueError 后由
+                # validate() 的 except ValueError 统一转成 ConstraintConfigError 条目。
+                if not isinstance(values, list):
+                    raise ValueError(f"'in' 条件要求 'values' 为列表，实际为 {type(values).__name__}: {values!r}")
                 # 值在指定列表中
-                return s.isin(values if isinstance(values, list) else [])
+                return s.isin(values)
             if op == "greater_than":
                 # 大于: 先转为数值再比较
                 try:

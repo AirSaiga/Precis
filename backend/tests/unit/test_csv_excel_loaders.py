@@ -304,3 +304,63 @@ class TestExcelLoader:
         # 关键：id 列（非合并列）的已有值不被 touched
         assert df["cat"].tolist() == ["A", "A", "A"]
         assert df["id"].tolist() == [1, 2, 3]
+
+    def test_merged_cell_fill_offsets_account_for_skip_rows(self, tmp_path):
+        """回归: 合并单元格填充的行号换算必须扣减 skip_rows。
+
+        场景：第 1 行为说明行（skip_rows=1），第 2 行是表头，第 3-5 行是数据，
+        B3:B5 纵向合并。df 行 0 对应 Excel 第 3 行（1+1+2），若公式漏算 skip_rows
+        会把填充区域错位到不存在的行，合并 NaN 不被填充 → NotNull 假阳性。
+        """
+        from openpyxl import Workbook
+
+        xlsx_file = tmp_path / "merged_skip.xlsx"
+        wb = Workbook()
+        ws = wb.active
+        ws.cell(row=1, column=1, value="说明行，读取时应跳过")
+        ws.cell(row=2, column=1, value="cat")
+        ws.cell(row=2, column=2, value="id")
+        ws.cell(row=3, column=1, value="Food")
+        ws.cell(row=3, column=2, value=1)
+        ws.cell(row=4, column=2, value=2)
+        ws.cell(row=5, column=2, value=3)
+        ws.merge_cells("A3:A5")
+        wb.save(xlsx_file)
+        wb.close()
+        spec = _make_excel_spec(str(xlsx_file), skip_rows=1)
+        loader = ExcelLoader(spec)
+        df = loader.load()
+        assert list(df.columns) == ["cat", "id"]
+        assert df["id"].tolist() == [1, 2, 3]
+        # 合并值应精确填充到 3 个数据行（偏移正确），而不是全部 NaN
+        assert df["cat"].tolist() == ["Food", "Food", "Food"]
+
+    def test_merged_cell_fill_targets_sheet_by_index_when_no_name(self, tmp_path):
+        """回归: sheet 未指定名称按 sheet_index 读取时，填充必须定位同一张表。
+
+        场景：两张表，第二张（索引 1）含合并单元格。spec 只给 sheet_index=1，
+        过去填充逻辑回退到第一张表 → 第二张表的合并 NaN 不被填充。
+        """
+        from openpyxl import Workbook
+
+        xlsx_file = tmp_path / "two_sheets.xlsx"
+        wb = Workbook()
+        ws0 = wb.active
+        ws0.title = "Empty"
+        ws0.cell(row=1, column=1, value="placeholder")
+        ws1 = wb.create_sheet("Data")
+        ws1.cell(row=1, column=1, value="cat")
+        ws1.cell(row=1, column=2, value="id")
+        ws1.cell(row=2, column=1, value="Food")
+        ws1.cell(row=2, column=2, value=1)
+        ws1.cell(row=3, column=2, value=2)
+        ws1.merge_cells("A2:A3")
+        wb.save(xlsx_file)
+        wb.close()
+        spec = _make_excel_spec(str(xlsx_file), sheet_index=1)
+        loader = ExcelLoader(spec)
+        df = loader.load()
+        assert list(df.columns) == ["cat", "id"]
+        assert df["id"].tolist() == [1, 2]
+        # 合并值应被填充（过去回退到第一张表导致 NaN 未填充）
+        assert df["cat"].tolist() == ["Food", "Food"]

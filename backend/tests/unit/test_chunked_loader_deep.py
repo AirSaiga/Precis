@@ -186,7 +186,11 @@ class TestLoadChunkedSources:
         loader._resolver = resolver
         loader.dataset_schema = dataset_schema
         loader._schema_by_id = schema_by_id
+        # load_chunked_sources 会把 settings.file_processing 的编码/分隔符透传给
+        # load_grouped_sources，MagicMock 属性是 Mock 对象会导致编码非法，需给真实值
         loader.settings = MagicMock()
+        loader.settings.file_processing.default_encoding = "utf-8"
+        loader.settings.file_processing.csv_delimiter = ","
         loader._monitor = monitor or MemoryMonitor()
         return loader
 
@@ -250,6 +254,9 @@ class TestLoadChunkedSources:
 
         table_schema = MagicMock()
         table_schema.name = "users"
+        table_schema.header_row = 0
+        # 无 source_config；MagicMock 默认会生成 Mock 属性，污染 source_config 读取路径
+        table_schema.source_config = None
         dataset_schema = MagicMock()
         dataset_schema.tables = {"users": table_schema}
 
@@ -338,6 +345,93 @@ class TestLoadChunkedSources:
         result, _loading_errors = loader.load_chunked_sources(str(csv_file.parent))
         # Should fall back to full load
         assert "users" in result
+
+    def test_small_file_passes_settings_and_sheet_names_to_grouped_loader(self, tmp_path, monkeypatch):
+        """回归: 小文件全量加载必须透传 manifest 级编码/分隔符与 sheet 回退映射。
+
+        过去两处 load_grouped_sources 调用未传 default_encoding/csv_delimiter/
+        file_to_sheet_names，GBK 编码与 Excel 回退 sheet 名在分块加载路径静默失效。
+        """
+        import pandas as pd
+
+        import app.shared.core.data_source.loader as loader_module
+
+        csv_file = tmp_path / "data" / "users.csv"
+        csv_file.parent.mkdir()
+        csv_file.write_text("id,name\n1,alice\n", encoding="utf-8")
+
+        resolver = MagicMock()
+        resolver.resolve_first_data_source.return_value = str(csv_file.parent)
+        # 第二个返回值是解析出的 Excel sheet 名，应被收集进 file_to_sheet_names
+        resolver.resolve_source_path.return_value = (str(csv_file), "Sheet1")
+
+        table_schema = MagicMock()
+        table_schema.name = "users"
+        table_schema.header_row = 0
+        table_schema.source_config = None
+        dataset_schema = MagicMock()
+        dataset_schema.tables = {"users": table_schema}
+
+        loader = self._make_loader(resolver, dataset_schema, {"users": MagicMock()})
+        loader._monitor.should_chunk = lambda _path: False
+
+        captured: dict = {}
+
+        def fake_load_grouped_sources(file_to_schemas, **kwargs):
+            captured["kwargs"] = kwargs
+            return {"users": pd.DataFrame({"id": [1]})}, []
+
+        monkeypatch.setattr(loader_module, "load_grouped_sources", fake_load_grouped_sources)
+
+        result, _loading_errors = loader.load_chunked_sources(str(csv_file.parent))
+        assert "users" in result
+        assert captured["kwargs"]["default_encoding"] == "utf-8"
+        assert captured["kwargs"]["csv_delimiter"] == ","
+        assert captured["kwargs"]["file_to_sheet_names"] == {str(csv_file): "Sheet1"}
+
+    def test_chunk_fallback_passes_settings_to_grouped_loader(self, tmp_path, monkeypatch):
+        """回归: 分块失败回退到全量加载时，同样必须透传编码/分隔符与 sheet 回退映射。"""
+        import pandas as pd
+
+        import app.shared.core.data_source.loader as loader_module
+
+        csv_file = tmp_path / "data" / "users.csv"
+        csv_file.parent.mkdir()
+        csv_file.write_text("id,name\n1,alice\n", encoding="utf-8")
+
+        resolver = MagicMock()
+        resolver.resolve_first_data_source.return_value = str(csv_file.parent)
+        resolver.resolve_source_path.return_value = (str(csv_file), None)
+
+        table_schema = MagicMock()
+        table_schema.name = "users"
+        table_schema.header_row = 0
+        table_schema.source_config = {"delimiter": ","}
+        dataset_schema = MagicMock()
+        dataset_schema.tables = {"users": table_schema}
+
+        loader = self._make_loader(resolver, dataset_schema, {"users": MagicMock()})
+        loader.settings.file_processing.default_encoding = "gbk"
+        loader.settings.file_processing.csv_delimiter = ";"
+        loader._monitor.should_chunk = lambda _path: True  # 强制走分块 → 失败 → 回退
+        loader._monitor.chunk_rows = 100
+        loader._monitor.take_snapshot = lambda _path: None
+        loader._load_dataframe_chunked = MagicMock(side_effect=Exception("chunk error"))
+
+        captured: dict = {}
+
+        def fake_load_grouped_sources(file_to_schemas, **kwargs):
+            captured["kwargs"] = kwargs
+            return {"users": pd.DataFrame({"id": [1]})}, []
+
+        monkeypatch.setattr(loader_module, "load_grouped_sources", fake_load_grouped_sources)
+
+        result, _loading_errors = loader.load_chunked_sources(str(csv_file.parent))
+        assert "users" in result
+        assert captured["kwargs"]["default_encoding"] == "gbk"
+        assert captured["kwargs"]["csv_delimiter"] == ";"
+        # resolver 未解析出 sheet 名时传 None（与 data_loader 的标准模式一致）
+        assert captured["kwargs"]["file_to_sheet_names"] is None
 
     def test_filter_string_vs_list(self, tmp_path):
         """表过滤应支持字符串和列表两种形式。"""

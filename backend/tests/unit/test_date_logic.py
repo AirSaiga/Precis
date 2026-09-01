@@ -566,10 +566,11 @@ class TestDateLogicValidator:
     def test_calculation_days_diff(self):
         v = DateLogicValidator()
         df = pd.DataFrame({"start": ["2024-01-01"], "end": ["2024-01-11"]})
-        # target_value is parsed as date early, so days_diff with numeric target_value currently errors
+        # 回归修复: days_diff 缺少 target_value 现在必须报配置错误（fail-closed），
+        # 原实现静默零错误通过，用户漏配目标值时误以为约束已生效
         result = v.validate(df, "start", logic_mode="calculation", calculation_type="days_diff", target_column="end")
-        # Without target_value no comparison is made, so passes with 0 errors
-        assert result.is_valid is True
+        assert result.is_valid is False
+        assert "target_value" in result.error_rows[0]["error_message"]
 
     def test_calculation_invalid_target_age(self):
         v = DateLogicValidator()
@@ -619,7 +620,16 @@ class TestDateLogicValidatorEdgeCases:
     def test_calculation_target_column_empty(self):
         v = DateLogicValidator()
         df = pd.DataFrame({"d": ["2020-01-01"], "target": [None]})
-        result = v.validate(df, "d", logic_mode="calculation", calculation_type="days_diff", target_column="target")
+        # 回归修复: 缺 target_value 报配置错误后，本用例补上 target_value 以保持
+        # 原意——target 列全为空值时不崩溃、也不产生虚假违规（空值行跳过比较）
+        result = v.validate(
+            df,
+            "d",
+            logic_mode="calculation",
+            calculation_type="days_diff",
+            target_column="target",
+            target_value=5,
+        )
         assert result.is_valid is True
 
     def test_days_diff_invalid_target(self):

@@ -32,7 +32,12 @@ def paths_equal(a: str, b: str, *, ignore_case: bool = True) -> bool:
 def make_relative(base: str, target: str) -> str:
     """计算 target 相对于 base 的相对路径，返回 POSIX 格式。
 
-    如果无法计算相对路径（例如不同驱动器），返回 target 的 POSIX 格式。
+    如果无法计算相对路径（例如 Windows 下跨驱动器），返回 target 的 POSIX 格式。
     """
-    rel = os.path.relpath(target, base)
+    try:
+        rel = os.path.relpath(target, base)
+    except ValueError:
+        # os.path.relpath 在 Windows 跨盘符（如 base=C:\，target=D:\data）时抛 ValueError，
+        # 按 docstring 承诺降级：返回 target 的 POSIX 格式而非向上抛异常
+        return normalize_to_posix(target)
     return normalize_to_posix(rel)

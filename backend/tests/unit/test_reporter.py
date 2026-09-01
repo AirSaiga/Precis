@@ -141,3 +141,100 @@ class TestReporterBase:
         reporter = DummyReporter(name="dummy")
         assert reporter.name == "dummy"
         assert reporter.configure() is True
+
+
+class TestTruncateToByteLimit:
+    """回归: 消息截断必须按 UTF-8 字节而非字符，避免中文截断后仍超限被平台拒收。"""
+
+    def test_short_text_returned_unchanged(self):
+        from app.shared.core.reporter.reporters.base import truncate_to_byte_limit
+
+        text = "只有一小段"
+        assert truncate_to_byte_limit(text, 100) == text
+
+    def test_truncated_total_bytes_within_limit(self):
+        from app.shared.core.reporter.reporters.base import truncate_to_byte_limit
+
+        # 中文每个字符 UTF-8 占 3 字节：按字符截断一半后字节数仍会超限
+        text = "错" * 20000  # 60000 字节
+        result = truncate_to_byte_limit(text, 3000)
+        assert len(result.encode("utf-8")) <= 3000, "截断结果（含省略标记）必须不超过字节上限"
+        assert result.endswith("... (内容过长，已截断)")
+
+    def test_truncation_does_not_split_multibyte_character(self):
+        from app.shared.core.reporter.reporters.base import truncate_to_byte_limit
+
+        text = "数" * 1000  # 3000 字节
+        result = truncate_to_byte_limit(text, 100)
+        # 结果必须是合法可解码文本（无乱码/替换符），即没有截在多字节字符中间
+        assert "\ufffd" not in result
+        assert result.encode("utf-8").decode("utf-8") == result
+
+    def test_truncation_keeps_content_prefix(self):
+        from app.shared.core.reporter.reporters.base import truncate_to_byte_limit
+
+        text = "abcdef" * 1000
+        result = truncate_to_byte_limit(text, 100)
+        assert result.startswith("abcdef")
+
+    def test_feishu_card_error_details_within_28kb(self):
+        """飞书卡片：中文错误详情截断后 UTF-8 字节数不得超过 28000。"""
+        from app.shared.core.reporter.reporters.feishu_app_reporter import FeishuReporter
+
+        reporter = FeishuReporter()
+        reporter.config = {"webhook_url": "https://example.com/hook"}
+        reporter.is_configured = True
+        reporter.mode = "webhook"
+
+        errors = [{"error_type": "NotNullViolation", "value": "中文" * 5000, "row_index": i} for i in range(50)]
+        card = reporter._create_message_card(errors)
+        content = card["elements"][0]["text"]["content"]
+        assert len(content.encode("utf-8")) <= 28000
+
+    def test_dingtalk_message_error_details_within_4kb(self):
+        """钉钉：中文错误详情截断后 UTF-8 字节数不得超过 4000。
+
+        过去按字节检查（>4000 才截）、按字符截 2000 字符：2000 个中文 = 6000 字节，
+        截断后反而更大，必然被平台拒收。
+        """
+        from unittest.mock import MagicMock
+
+        from app.shared.core.reporter.reporters.dingtalk_app_reporter import DingTalkAppReporter
+
+        reporter = DingTalkAppReporter()
+        assert reporter.configure(app_key="k", app_secret="s", agent_id=1, userid_list="u1") is True
+        reporter._get_access_token = MagicMock(return_value="token")
+        captured: dict = {}
+
+        def fake_send(url, payload):
+            captured["text"] = payload["msg"]["markdown"]["text"]
+
+        reporter._send_request = fake_send
+        errors = [{"error_type": "NotNullViolation", "value": "中文" * 3000, "row_index": 1}]
+        reporter.report(errors)
+
+        text = captured["text"]
+        assert len(text.encode("utf-8")) <= 4000
+        assert "... (内容过长，已截断)" in text
+
+    def test_wecom_message_error_details_within_2kb(self):
+        """企业微信：中文错误详情截断后 UTF-8 字节数不得超过 2048。"""
+        from unittest.mock import MagicMock
+
+        from app.shared.core.reporter.reporters.wecom_app_reporter import WeComAppReporter
+
+        reporter = WeComAppReporter()
+        assert reporter.configure(corp_id="c", corp_secret="s", agent_id=1, touser="@all") is True
+        reporter._get_access_token = MagicMock(return_value="token")
+        captured: dict = {}
+
+        def fake_send(url, payload):
+            captured["content"] = payload["markdown"]["content"]
+
+        reporter._send_request = fake_send
+        errors = [{"error_type": "NotNullViolation", "value": "中文" * 2000, "row_index": 1}]
+        reporter.report(errors)
+
+        content = captured["content"]
+        assert len(content.encode("utf-8")) <= 2048
+        assert "... (内容过长，已截断)" in content

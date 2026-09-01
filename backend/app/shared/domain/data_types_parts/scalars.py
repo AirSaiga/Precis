@@ -152,7 +152,17 @@ class IntegerType(DataType):
 
         # 解析：用 pd.to_numeric 批量转换
         parsed = pd.to_numeric(series_str, errors="coerce")
-        overflow_mask = non_na & parsed.notna() & (parsed.abs() > 2**53)
+
+        # 溢出检测必须在 to_numeric 升位 float64 之前基于原始字符串进行：
+        # 含空值的列 to_numeric 返回 float64，2^53+1（9007199254740993）会被舍入为
+        # 2^53.0（9007199254740992.0），之后 abs > 2**53 恒为 False，溢出被静默吞掉。
+        # 与 valid_format 相同口径：仅对严格整数格式的字符串做精度检查。
+        def _exceeds_safe_int_range(value_str: str) -> bool:
+            if self._int_pattern.fullmatch(value_str):
+                return abs(int(value_str)) > 2**53
+            return False
+
+        overflow_mask = non_na & series_str.apply(_exceeds_safe_int_range)
         for index in series.index[overflow_mask]:
             errors.append(
                 {

@@ -39,6 +39,35 @@ from .types import RegexNodeFile
 if TYPE_CHECKING:
     from .types import RegexNodeFile
 
+# flags 单字符缩写到 re 标志位的映射
+_FLAG_SHORT_MAP = {"i": re.IGNORECASE, "m": re.MULTILINE, "s": re.DOTALL}
+# flags 长格式名称到 re 标志位的映射
+_FLAG_LONG_MAP = {"ignorecase": re.IGNORECASE, "multiline": re.MULTILINE, "dotall": re.DOTALL}
+
+
+def _parse_regex_flags(flag_str: str) -> int:
+    """把 flags 配置字符串解析为 re 模块标志位。
+
+    按 逗号/空白 切分后整词匹配（大小写不敏感），支持三种格式：
+    - 短格式："i" -> IGNORECASE
+    - 组合短格式："im" -> IGNORECASE | MULTILINE（逐字符展开）
+    - 长格式："ignorecase" -> IGNORECASE
+
+    不得用子串匹配：`"i" in "multiline"` 为真会导致长格式误开 IGNORECASE、
+    大写 "I" 被忽略；未知 token 整体忽略，不逐字符猜测。
+    """
+    flags = 0
+    tokens = [tok for tok in re.split(r"[,\s]+", str(flag_str).strip()) if tok]
+    for tok in tokens:
+        lowered = tok.lower()
+        if lowered in _FLAG_LONG_MAP:
+            flags |= _FLAG_LONG_MAP[lowered]
+        elif all(ch in _FLAG_SHORT_MAP for ch in lowered):
+            # 组合短格式（如 "im"）逐字符展开；全部字符都是合法缩写才生效
+            for ch in lowered:
+                flags |= _FLAG_SHORT_MAP[ch]
+    return flags
+
 
 def load_regex_node(regex_path: str | Path) -> RegexNodeFile:
     """
@@ -143,23 +172,10 @@ def resolve_regex_pattern(regex_config: RegexNodeFile, registries: dict) -> re.P
         # 步骤6：检查是否有配置覆盖（允许修改 flags 等）
         overrides = regex_config.pattern_overrides or {}
         if "flags" in overrides:
-            # 存在 flags 覆盖，需要重新编译
+            # 存在 flags 覆盖，需要重新编译（精确 token 匹配，见 _parse_regex_flags）
             import re as re_module
 
-            flags = 0
-            flag_str = str(overrides["flags"])
-
-            # 解析 flags 字符串，支持多种格式：
-            # - 短格式："i" -> IGNORECASE
-            # - 长格式："ignorecase" -> IGNORECASE
-            # - 组合："im" -> IGNORECASE | MULTILINE
-
-            if "i" in flag_str or "ignorecase" in flag_str.lower():
-                flags |= re_module.IGNORECASE
-            if "m" in flag_str or "multiline" in flag_str.lower():
-                flags |= re_module.MULTILINE
-            if "s" in flag_str or "dotall" in flag_str.lower():
-                flags |= re_module.DOTALL
+            flags = _parse_regex_flags(str(overrides["flags"]))
 
             # 使用覆盖后的 flags 重新编译
             return re_module.compile(effective_pattern, flags)
@@ -174,14 +190,7 @@ def resolve_regex_pattern(regex_config: RegexNodeFile, registries: dict) -> re.P
 
     # 解析 flags（与引用模式的 pattern_overrides 分支保持一致）
     # 过去直接模式完全忽略 regex_config.flags / case_sensitive，导致大小写等配置失效
-    flags = 0
-    flag_str = str(getattr(regex_config, "flags", "") or "")
-    if "i" in flag_str or "ignorecase" in flag_str.lower():
-        flags |= re.IGNORECASE
-    if "m" in flag_str or "multiline" in flag_str.lower():
-        flags |= re.MULTILINE
-    if "s" in flag_str or "dotall" in flag_str.lower():
-        flags |= re.DOTALL
+    flags = _parse_regex_flags(str(getattr(regex_config, "flags", "") or ""))
     # case_sensitive=False 同样触发 IGNORECASE（与 RegexConstraint 语义一致）
     if getattr(regex_config, "case_sensitive", True) is False:
         flags |= re.IGNORECASE

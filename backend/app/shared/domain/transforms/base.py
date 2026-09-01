@@ -58,7 +58,9 @@ def evaluate_condition(df: pd.DataFrame, cond: dict[str, Any]) -> pd.Series:
         else:
             return numeric_series <= numeric_value
     elif op == "contains":
-        return series.astype(str).str.contains(str(value), na=False)
+        # regex=False：contains 按字面量子串匹配。过去默认按正则解释，用户数据含
+        # "(未分类)"、"a.b" 等字符时会报 re.error 崩溃或产生错误匹配。
+        return series.astype(str).str.contains(str(value), na=False, regex=False)
     elif op == "startswith":
         return series.astype(str).str.startswith(str(value), na=False)
     elif op == "endswith":

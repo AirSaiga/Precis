@@ -151,6 +151,8 @@ class RegexConstraint(Constraint):
                     if not match_result:
                         errors.append(
                             {
+                                # 与其他 9 种约束的 <Type>Violation 命名风格保持一致
+                                "error_type": "RegexViolation",
                                 "row_index": row_index,
                                 "column": self.column,
                                 "value": cell_value_str,
@@ -160,6 +162,8 @@ class RegexConstraint(Constraint):
                 except (TypeError, ValueError) as e:
                     errors.append(
                         {
+                            # 命名风格对照 scripted 的 ScriptCheckExecutionError
+                            "error_type": "RegexExecutionError",
                             "row_index": row_index,
                             "column": self.column,
                             "value": cell_value_str,
@@ -170,6 +174,8 @@ class RegexConstraint(Constraint):
         except re.error as e:
             errors.append(
                 {
+                    # 正则语法错误属于配置问题，与其他约束的配置错误条目一致
+                    "error_type": "ConstraintConfigError",
                     "row_index": 0,
                     "column": self.column,
                     "value": None,

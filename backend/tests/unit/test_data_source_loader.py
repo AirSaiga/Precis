@@ -67,6 +67,88 @@ class TestLoadGroupedSources:
         assert spec.encoding == "gbk"
         assert spec.delimiter == ";"
 
+    @patch("app.shared.core.data_source.loader.CSVLoader")
+    @patch("app.shared.core.data_source.loader.os.path.exists")
+    def test_csv_source_config_overrides_manifest_defaults(self, mock_exists, mock_csv_loader_cls):
+        """回归: schema 的 source_config 中的 CSV 读取参数必须生效，manifest 默认值仅作兜底。
+
+        过去 source_config 被丢弃，分号分隔/GBK 编码/跳行等配置静默失效导致解析错位。
+        """
+        from app.shared.core.data_source.loader import DataSourceInfo
+
+        mock_exists.return_value = True
+        mock_loader = MagicMock()
+        mock_loader.load.return_value = pd.DataFrame({"col": [1]})
+        mock_csv_loader_cls.return_value = mock_loader
+
+        info = DataSourceInfo(
+            schema_id="orders",
+            name="orders",
+            header_row=1,
+            source_config={
+                "delimiter": "\t",
+                "encoding": "gbk",
+                "skip_rows": 2,
+                "quotechar": "'",
+                "on_bad_lines": "skip",
+            },
+        )
+        datasets, errors = load_grouped_sources(
+            {"data.csv": [info]},
+            default_encoding="utf-8",
+            csv_delimiter=",",
+        )
+
+        assert len(errors) == 0
+        assert "orders" in datasets
+        spec = mock_csv_loader_cls.call_args.args[0]
+        assert spec.delimiter == "\t"
+        assert spec.encoding == "gbk"
+        assert spec.skip_rows == 2
+        assert spec.quotechar == "'"
+        assert spec.on_bad_lines == "skip"
+
+    @patch("app.shared.core.data_source.loader.CSVLoader")
+    @patch("app.shared.core.data_source.loader.os.path.exists")
+    def test_csv_source_config_missing_keys_fall_back_to_manifest_defaults(self, mock_exists, mock_csv_loader_cls):
+        """source_config 未提供键时应回退到 manifest 级默认值。"""
+        from app.shared.core.data_source.loader import DataSourceInfo
+
+        mock_exists.return_value = True
+        mock_loader = MagicMock()
+        mock_loader.load.return_value = pd.DataFrame({"col": [1]})
+        mock_csv_loader_cls.return_value = mock_loader
+
+        info = DataSourceInfo(schema_id="orders", name="orders", header_row=0, source_config={})
+        datasets, errors = load_grouped_sources(
+            {"data.csv": [info]},
+            default_encoding="gbk",
+            csv_delimiter=";",
+        )
+
+        assert len(errors) == 0
+        spec = mock_csv_loader_cls.call_args.args[0]
+        assert spec.encoding == "gbk"
+        assert spec.delimiter == ";"
+
+    @patch("app.shared.core.data_source.loader.ExcelLoader")
+    @patch("app.shared.core.data_source.loader.os.path.exists")
+    def test_excel_engine_from_source_config(self, mock_exists, mock_excel_loader_cls):
+        """回归: Excel 的 engine 读取参数应从 source_config 透传到 spec。"""
+        from app.shared.core.data_source.loader import DataSourceInfo
+
+        mock_exists.return_value = True
+        mock_loader = MagicMock()
+        mock_loader.load_multi_sheet.return_value = {"users": pd.DataFrame({"col": [1]})}
+        mock_excel_loader_cls.return_value = mock_loader
+
+        info = DataSourceInfo(schema_id="users", name="users", header_row=0, source_config={"engine": "xlrd"})
+        datasets, errors = load_grouped_sources({"data.xls": [info]})
+
+        assert len(errors) == 0
+        spec = mock_excel_loader_cls.call_args.args[0]
+        assert spec.engine == "xlrd"
+
     @patch("app.shared.core.data_source.loader.ExcelLoader")
     @patch("app.shared.core.data_source.loader.os.path.exists")
     def test_excel_file_to_sheet_names_fallback(self, mock_exists, mock_excel_loader_cls):

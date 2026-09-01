@@ -353,7 +353,7 @@ class TestExtractDerivedColumns:
         assert "不在正则表达式的命名捕获组中" in str(errors[0]["message"])
 
     def test_exception_handling(self):
-        """正则编译失败时不崩溃，静默跳过"""
+        """正则编译失败时不崩溃，且作为验证错误上报（不得静默通过）"""
         schema = _make_schema(
             {
                 "t1": [
@@ -367,8 +367,10 @@ class TestExtractDerivedColumns:
         errors = []
         # 不应抛出异常
         _extract_derived_columns(parsed, schema, raw, errors)
-        # 不应有错误报告（异常分支静默跳过）
-        assert len(errors) == 0
+        # 异常分支上报为验证错误（历史缺陷：仅记日志导致下游在空列上"通过"）
+        assert len(errors) == 1
+        assert "执行失败" in str(errors[0]["message"])
+        assert errors[0]["check_type"] == "ExtractedColumnValidation"
 
     def test_raw_datasets_preferred(self):
         """raw_datasets 有对应表时优先使用 raw_df（保留原始字符串格式）"""

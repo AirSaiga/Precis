@@ -52,6 +52,22 @@ class TestRegexConstraint:
         assert len(result["errors"]) == 1
         assert result["errors"][0]["row_index"] == 1
 
+    def test_violation_entries_carry_error_type(self):
+        """回归: 违规条目必须带 error_type（其余 9 种约束都有），便于下游按类型消费。"""
+        datasets = {"users": pd.DataFrame({"email": ["a@b.com", "invalid"]})}
+        c = self._make_constraint(pattern=r"^[a-z]+@[a-z]+\.[a-z]+$")
+        result = c.validate(datasets)
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["error_type"] == "RegexViolation"
+
+    def test_invalid_regex_pattern_entry_carry_config_error_type(self):
+        """回归: 正则编译错误条目必须带 error_type=ConstraintConfigError（配置问题）。"""
+        datasets = {"users": pd.DataFrame({"email": ["a@b.com"]})}
+        c = self._make_constraint(pattern=r"[invalid")
+        result = c.validate(datasets)
+        assert len(result["errors"]) == 1
+        assert result["errors"][0]["error_type"] == "ConstraintConfigError"
+
     def test_invalid_regex_pattern_returns_error(self):
         datasets = {"users": pd.DataFrame({"email": ["a@b.com"]})}
         c = self._make_constraint(pattern=r"[invalid")

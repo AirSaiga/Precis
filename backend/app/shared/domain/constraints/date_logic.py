@@ -483,6 +483,17 @@ class DateLogicConstraint(Constraint):
                                 "message": f"target_value 转换失败: '{self.target_value}' 无法转换为数值 - {str(e)}",
                             }
                         )
+                else:
+                    # 回归: 缺少 target_value 必须报配置错误。原实现静默零错误通过（fail-open），
+                    # 用户漏配目标值时误以为年龄约束已生效。
+                    errors.append(
+                        {
+                            "error_type": "ConstraintConfigError",
+                            "table": self.table,
+                            "column": self.column,
+                            "message": "日期计算模式配置错误: calculation_type=age 必须指定 target_value。",
+                        }
+                    )
 
             elif self.calculation_type == "days_diff":
                 # 天数差计算: 计算两个日期列之间的天数差
@@ -558,5 +569,46 @@ class DateLogicConstraint(Constraint):
                                     "message": f"target_value 转换失败: '{self.target_value}' 无法转换为整数 - {str(e)}",
                                 }
                             )
+                    else:
+                        # 回归: 缺少 target_value 必须报配置错误（与 age 分支同口径的 fail-closed 守卫）
+                        errors.append(
+                            {
+                                "error_type": "ConstraintConfigError",
+                                "table": self.table,
+                                "column": self.column,
+                                "message": "日期计算模式配置错误: calculation_type=days_diff 必须指定 target_value。",
+                            }
+                        )
+
+            else:
+                # 回归: 未识别的 calculation_type 必须报配置错误。原实现 age/days_diff
+                # 都不匹配时静默零错误通过（fail-open），拼错的类型名让约束形同虚设。
+                errors.append(
+                    {
+                        "error_type": "ConstraintConfigError",
+                        "table": self.table,
+                        "column": self.column,
+                        "message": (
+                            f"日期计算模式配置错误: 未知的 calculation_type '{self.calculation_type}'，"
+                            "支持的类型为: age, days_diff。"
+                        ),
+                    }
+                )
+
+        else:
+            # 回归: 未识别的 logic_mode 必须报配置错误。原实现 compare/calculation
+            # 都不匹配时静默零错误通过（fail-open），拼错的模式名让约束形同虚设。
+            # 守卫先例参照 charset.py 的未知 charset_mode 处理。
+            errors.append(
+                {
+                    "error_type": "ConstraintConfigError",
+                    "table": self.table,
+                    "column": self.column,
+                    "message": (
+                        f"日期逻辑约束配置错误: 未知的 logic_mode '{self.logic_mode}'，"
+                        "支持的模式为: compare, calculation。"
+                    ),
+                }
+            )
 
         return {"errors": errors, "info": self.get_constraint_info()}

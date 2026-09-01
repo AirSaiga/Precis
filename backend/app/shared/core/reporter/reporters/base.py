@@ -32,6 +32,50 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+# 截断后追加的省略标记（各报告器共用，保证提示语义一致）
+TRUNCATION_SUFFIX = "\n... (内容过长，已截断)"
+
+# 各报告器的消息模板在 error_details 之外还含标题/时间戳/代码块围栏等固定文本，
+# 截断上限需为其预留字节余量，保证整条消息编码后不超过平台限额
+TEMPLATE_HEADROOM_BYTES = 256
+
+
+def truncate_to_byte_limit(text: str, max_bytes: int, suffix: str = TRUNCATION_SUFFIX) -> str:
+    """按 UTF-8 字节数上限截断文本，超限时追加省略标记。
+
+    平台（飞书/钉钉/企业微信）的消息限额按字节数计算。过去"按字节检查、按字符截断"
+    的做法对中文内容无效：每个汉字 UTF-8 占 3 字节，按字符截掉一半后实际字节数
+    仍可能超限，消息会被平台拒收。
+
+    规则：
+    - 原文未超限则原样返回；
+    - 超限时按编码后字节累积截断，并回退到 UTF-8 字符边界（不截在多字节字符中间），
+      追加省略标记后总长（含标记）仍不超过 max_bytes。
+
+    Args:
+        text: 原始文本
+        max_bytes: 允许的最大 UTF-8 字节数
+        suffix: 截断时追加的省略标记
+
+    Returns:
+        截断后的字符串（UTF-8 编码后不超过 max_bytes 字节）
+    """
+    encoded = text.encode("utf-8")
+    if len(encoded) <= max_bytes:
+        return text
+
+    suffix_bytes = suffix.encode("utf-8")
+    limit = max_bytes - len(suffix_bytes)
+    if limit <= 0:
+        # 防御：上限比省略标记还小，直接返回空串，保证总长不超限
+        return ""
+
+    # 从末尾回退，跳过 UTF-8 多字节序列的续字节（0b10xxxxxx），避免截在字符中间
+    while limit > 0 and (encoded[limit] & 0xC0) == 0x80:
+        limit -= 1
+
+    return encoded[:limit].decode("utf-8", errors="ignore") + suffix
+
 
 class Reporter(ABC):
     """
