@@ -31,6 +31,7 @@ import { PYTHON_PORT_SENTINEL } from './constants';
  * - pythonProcess：Python 子进程引用（三钩子清理依赖此引用）
  * - isPythonServerReady：后端就绪标志（前端是否可发 API 请求）
  * - currentPythonServerPort：动态分配的端口（初始哨兵 PYTHON_PORT_SENTINEL=0,发现后更新）
+ * - backendApiToken：后端 API 一次性 token（每次启动后端重新生成，IPC 下发给渲染进程）
  */
 export interface AppState {
   /** 主窗口实例 */
@@ -49,6 +50,15 @@ export interface AppState {
   isPythonServerReady: boolean;
   /** 当前 Python 服务器端口（动态分配） */
   currentPythonServerPort: number;
+  /**
+   * 后端 API 一次性 token（每次 startPythonServer 重新生成）
+   *
+   * 用途：打包模式下后端以 PRECIS_API_TOKEN 环境变量收到同一 token，
+   * 渲染进程经 IPC（get-api-token）取回后随请求携带 X-Precis-Auth 头，
+   * 后端据此放行 null Origin 的 CORS（取代旧 PRECIS_ALLOW_NULL_ORIGIN 全局放行）。
+   * 空串表示未生成（开发模式 Electron 未 spawn 后端 / Web 模式）。
+   */
+  backendApiToken: string;
 }
 
 /**
@@ -65,4 +75,5 @@ export const appState: AppState = {
   pythonProcess: null,
   isPythonServerReady: false,
   currentPythonServerPort: PYTHON_PORT_SENTINEL,
+  backendApiToken: '',
 };

@@ -15,6 +15,7 @@
  */
 
 import { getApiBaseUrl } from './httpClient'
+import { getApiToken, hasApiToken } from './apiToken'
 
 /** API 路径前缀，与 Axios 实例的 baseURL 保持一致 */
 const API_PREFIX = '/api/latest'
@@ -33,6 +34,22 @@ export interface SSEConnectOptions {
   /** 禁用自动重连。聊天流（非幂等）应设为 true，流断开即结束。
    * 生成/迁移（幂等）可保留 false（默认）启用重连续传。 */
   noReconnect?: boolean
+}
+
+/**
+ * 合并默认请求头：调用方显式头优先，默认补充后端 API 一次性 token（有 token 时）。
+ * 与 httpClient 请求拦截器同一约定——X-Precis-Auth 是打包模式后端 CORS 放行凭据
+ * （app:// 页面 Origin 为 null），缺失会导致预检被后端拒绝、SSE 流无法建立。
+ */
+function buildHeaders(extra?: Record<string, string>): Record<string, string> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(extra ?? {}),
+  }
+  if (hasApiToken() && !('X-Precis-Auth' in headers)) {
+    headers['X-Precis-Auth'] = getApiToken()
+  }
+  return headers
 }
 
 /** SSE 客户端回调 */
@@ -142,10 +159,7 @@ export function createSSEClient(): SSEClient {
   async function doConnect(): Promise<void> {
     if (aborted) return
     abortController = new AbortController()
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      ...(connectOptions?.headers ?? {}),
-    }
+    const headers = buildHeaders(connectOptions?.headers)
     if (lastEventId !== null) {
       headers['Last-Event-ID'] = String(lastEventId)
     }
@@ -268,9 +282,10 @@ export function createSSEClient(): SSEClient {
       await doConnect()
     },
     async cancel(jobId) {
+      // cancel 同样是发往本机后端的 POST（非简单请求，需预检），必须携带 token
       await fetch(`${getApiBaseUrl()}${API_PREFIX}/ai/jobs/${jobId}/cancel`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: buildHeaders(),
       })
     },
     close() {

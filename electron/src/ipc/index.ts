@@ -17,7 +17,7 @@
  * - filesystem：文件/目录操作（含 read-file/write-file）
  * - feedback：崩溃反馈 + logs 读取
  * - appInfo：应用版本/用户数据路径/默认项目路径/cwd
- * - backend：后端状态查询 + 软重启（依赖 app-state + pythonProcess）
+ * - backend：后端状态查询 + 软重启 + API token 下发（依赖 app-state + pythonProcess）
  */
 
 import { registerConfigIpc } from './config';

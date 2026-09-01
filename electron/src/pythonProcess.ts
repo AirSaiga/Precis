@@ -17,6 +17,7 @@
 
 import { app } from 'electron';
 import { spawn, execSync, type ChildProcess, type SpawnOptions } from 'child_process';
+import { randomBytes } from 'crypto';
 import * as path from 'path';
 import * as fs from 'fs';
 import { logger } from './logger';
@@ -214,14 +215,21 @@ export async function startPythonServer(backendPath: string): Promise<number> {
   //   - PYTHONUNBUFFERED=1: stdout/stderr 立即 flush,避免管道块缓冲导致
   //     就绪信号迟迟读不到而误判超时(曾出现"stderr: none"的间歇性启动失败)
   //   - PYTHONIOENCODING=utf-8: Windows 默认 GBK,会导致 uvicorn/rich 的中文日志乱码
-  //   - PRECIS_ALLOW_NULL_ORIGIN=1: 打包生产模式经 app:// 自定义协议加载前端,页面发
-  //     Origin: null,后端 CORS 默认拒绝 null(防沙箱 iframe 跨域读取本机 API),此处
-  //     显式放行。开发模式前端为 http://localhost:5173,走既有 localhost 正则,不需要。
+  //   - PRECIS_API_TOKEN: 每次启动随机生成的一次性 token。打包生产模式经 app:// 协议
+  //     加载的页面 Origin 为 null,后端 CORS 默认拒绝 null(防沙箱 iframe 跨域读取本机
+  //     API)。渲染进程经 IPC(get-api-token)取回 token 后随请求携带 X-Precis-Auth 头,
+  //     后端仅对携带有效 token 的请求回写 null Origin 的 CORS 头——取代旧的
+  //     PRECIS_ALLOW_NULL_ORIGIN=1 全局放行(该方式对任意 null Origin 网页同样放行,
+  //     沙箱 iframe 网页拿不到 token,故被拒)。开发模式前端为 http://localhost:5173,
+  //     走既有 localhost 正则,token 未注入时后端中间件完全直通,行为不变。
   //   - PRECIS_APP_VERSION: 注入应用版本（app.getVersion）。打包环境不安装 precis 包
   //     元数据（requirements.txt 明确禁止 -e 安装），后端 /api/latest/version 的
   //     importlib.metadata 兜底拿不到真实版本，以环境变量为第一优先级。
   // detached (Unix): 创建新进程组，便于整组清理
   // windowsHide: 在 Windows 上隐藏命令行窗口
+  // 一次性 token：每次启动后端都重新生成（32 字节 hex），存入 appState 供 IPC 下发。
+  const apiToken = randomBytes(32).toString('hex');
+  appState.backendApiToken = apiToken;
   const options: SpawnOptions = {
     cwd: backendPath,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -229,7 +237,7 @@ export async function startPythonServer(backendPath: string): Promise<number> {
       ...process.env,
       PYTHONUNBUFFERED: '1',
       PYTHONIOENCODING: 'utf-8',
-      PRECIS_ALLOW_NULL_ORIGIN: '1',
+      PRECIS_API_TOKEN: apiToken,
       PRECIS_APP_VERSION: app.getVersion(),
     },
     detached: process.platform !== 'win32',

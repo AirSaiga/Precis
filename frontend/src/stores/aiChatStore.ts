@@ -19,6 +19,7 @@ import { defineStore } from 'pinia'
 import { v4 as uuidv4 } from 'uuid'
 import { useI18n } from 'vue-i18n'
 import { type AgentMeta, type ChatHistoryMessage } from '../core/services/httpClient'
+import { getApiToken, hasApiToken } from '@/core/services/apiToken'
 import { createSSEClient, type SSEClient } from '@/core/services/sseClient'
 import {
   useStreamingMessage,
@@ -624,7 +625,12 @@ export const useAiChatStore = defineStore('aiChat', () => {
       const baseUrl = (await import('@/core/services/httpClient')).getApiBaseUrl()
       await fetch(`${baseUrl}/api/latest/ai/chat/${jobId}/confirm`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // 裸 fetch 不经 httpClient 拦截器，须自带 token 头（打包模式 null Origin
+        // 的 CORS 预检凭据，缺失会被后端拒绝）
+        headers: {
+          'Content-Type': 'application/json',
+          ...(hasApiToken() ? { 'X-Precis-Auth': getApiToken() } : {}),
+        },
         body: JSON.stringify({ decision, ...(applyId ? { apply_id: applyId } : {}) }),
       })
     } catch (error) {
@@ -655,7 +661,11 @@ export const useAiChatStore = defineStore('aiChat', () => {
       const baseUrl = (await import('@/core/services/httpClient')).getApiBaseUrl()
       await fetch(`${baseUrl}/api/latest/ai/chat/${jobId}/respond`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        // 裸 fetch 不经 httpClient 拦截器，须自带 token 头（同 confirmApply）
+        headers: {
+          'Content-Type': 'application/json',
+          ...(hasApiToken() ? { 'X-Precis-Auth': getApiToken() } : {}),
+        },
         body: JSON.stringify({ ask_id: askId, response }),
       })
       // 不在此清 pendingAsk——等 user_responded SSE 事件来清（与 confirmApply 一致）

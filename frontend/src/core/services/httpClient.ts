@@ -25,6 +25,7 @@
 import { logger } from '@/core/utils/logger'
 import { normalizeConfigDir, normalizePath } from '@/core/utils/pathNormalization'
 import { eventBus } from '@/core/eventBus'
+import { getApiToken, hasApiToken } from '@/core/services/apiToken'
 import axios, { isAxiosError, type AxiosInstance, type AxiosError } from 'axios'
 
 export { isAxiosError }
@@ -175,16 +176,22 @@ function readActiveProjectPath(): string | undefined {
  * - X-Project-Config-Path: 当前激活项目的配置文件路径
  *   用途: 后端据此定位项目配置目录
  *   来源: localStorage (activeProjectPaths，由 projectStore 写入)
+ * - X-Precis-Auth: 后端 API 一次性 token（仅 Electron 打包模式有值）
+ *   用途: 后端据此放行 app:// 页面（Origin: null）的跨域请求；
+ *   恶意网页拿不到 token，其 null Origin 请求仍被后端 CORS 拒绝
+ *   来源: 应用启动时经 appApi.getApiToken()（IPC）取得，存于 apiToken 模块
  *
  * [注入策略：显式路径优先]
  * - 仅当调用方未显式指定 X-Project-Config-Path 时才注入 localStorage 的激活路径
  * - 显式路径是调用方的权威路径（如 bootstrap 校验、项目切换）；
  *   若被 localStorage 残留的旧路径覆盖，会把对合法项目的请求污染成 404，
  *   进而触发"项目路径失效"误清理，连带清空最近项目记录（实际事故见 2026-08 修复）
+ * - X-Precis-Auth 同理：调用方显式传入的同名头不被覆盖
  *
  * [条件注入]
  * - 仅当有激活项目时才注入头信息
  * - 避免在项目选择界面发出无效的 X-Project-Config-Path
+ * - 仅当 token 已配置时才注入 X-Precis-Auth（Web/开发模式为空，不注入）
  */
 apiClient.interceptors.request.use(
   (config) => {
@@ -196,6 +203,17 @@ apiClient.interceptors.request.use(
         : (config.headers as Record<string, unknown> | undefined)?.['X-Project-Config-Path'] != null
     if (normalized && !hasExplicitHeader) {
       config.headers['X-Project-Config-Path'] = normalized
+    }
+
+    // 注入后端 API 一次性 token（打包模式 CORS 放行凭据；显式头不覆盖）
+    if (hasApiToken()) {
+      const hasExplicitAuth =
+        typeof config.headers?.get === 'function'
+          ? config.headers.get('X-Precis-Auth') != null
+          : (config.headers as Record<string, unknown> | undefined)?.['X-Precis-Auth'] != null
+      if (!hasExplicitAuth) {
+        config.headers['X-Precis-Auth'] = getApiToken()
+      }
     }
 
     return config
@@ -250,8 +268,13 @@ apiClient.interceptors.response.use(
     const retryCount = (config as { retryCount?: number }).retryCount || 0
     const maxRetries = 3
 
-    // 判断是否应该重试：仅对无响应的网络错误进行重试，且不超过最大次数
-    const shouldRetry = !error.response && retryCount < maxRetries
+    // 仅幂等的 GET 允许自动重试：!error.response 表示无响应（连接拒绝/超时），
+    // 此时非幂等请求（POST/PUT/DELETE）服务端可能已实际执行，重发会造成
+    // 重复创建/提交等副作用，不能仅凭"无响应"就重试
+    const isIdempotentGet = (config.method || '').toLowerCase() === 'get'
+
+    // 判断是否应该重试：仅对无响应的 GET 网络错误进行重试，且不超过最大次数
+    const shouldRetry = isIdempotentGet && !error.response && retryCount < maxRetries
 
     if (shouldRetry) {
       // 记录重试次数到 config 对象，供下次拦截器读取

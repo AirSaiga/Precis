@@ -19,6 +19,7 @@ import apiClient, {
   initApiBaseUrl,
   updateApiBaseUrl,
 } from '@/core/services/httpClient'
+import { setApiToken } from '@/core/services/apiToken'
 import { eventBus } from '@/core/eventBus'
 
 describe('httpClient 请求拦截器', () => {
@@ -111,6 +112,65 @@ describe('httpClient 请求拦截器', () => {
     // 显式 header 必须原样保留；被残留路径覆盖会把合法请求污染成 404，
     // 进而触发项目路径失效误清理（实际事故：有效项目的最近记录被连带清空）
     expect(getHeader('X-Project-Config-Path')).toBe('/explicit/proj')
+  })
+})
+
+describe('httpClient 请求拦截器 - X-Precis-Auth token 注入', () => {
+  /**
+   * 验证打包模式一次性 token 的默认注入：
+   * - 有 token：请求默认携带 X-Precis-Auth（后端 null Origin CORS 放行凭据）
+   * - 无 token（Web/开发模式）：不注入
+   * - 调用方显式传入同名头：不被覆盖
+   */
+  let capturedHeaders: unknown
+  let originalAdapter: unknown
+
+  function getHeader(name: string): unknown {
+    const h = capturedHeaders as { get?: (k: string) => unknown } | Record<string, unknown>
+    if (h && typeof (h as { get?: unknown }).get === 'function') {
+      return (h as { get: (k: string) => unknown }).get(name)
+    }
+    return (h as Record<string, unknown>)?.[name]
+  }
+
+  beforeEach(() => {
+    localStorage.clear()
+    setApiToken('')
+    capturedHeaders = undefined
+    originalAdapter = apiClient.defaults.adapter
+    apiClient.defaults.adapter = (config) => {
+      capturedHeaders = config.headers
+      return Promise.resolve({
+        data: { ok: true },
+        status: 200,
+        statusText: 'OK',
+        headers: {},
+        config,
+      })
+    }
+  })
+
+  afterEach(() => {
+    setApiToken('')
+    apiClient.defaults.adapter = originalAdapter as typeof apiClient.defaults.adapter
+    vi.restoreAllMocks()
+  })
+
+  it('有 token 时请求默认携带 X-Precis-Auth', async () => {
+    setApiToken('a'.repeat(64))
+    await apiClient.get('/test')
+    expect(getHeader('X-Precis-Auth')).toBe('a'.repeat(64))
+  })
+
+  it('无 token 时不注入 X-Precis-Auth（Web/开发模式行为不变）', async () => {
+    await apiClient.get('/test')
+    expect(getHeader('X-Precis-Auth')).toBeFalsy()
+  })
+
+  it('调用方显式传入的 X-Precis-Auth 不被默认 token 覆盖', async () => {
+    setApiToken('default-token')
+    await apiClient.get('/test', { headers: { 'X-Precis-Auth': 'explicit-token' } })
+    expect(getHeader('X-Precis-Auth')).toBe('explicit-token')
   })
 })
 

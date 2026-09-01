@@ -20,9 +20,11 @@ import App from './App.vue'
 import router from './router'
 import i18n from './i18n'
 import { initApiBaseUrl } from './core/services/httpClient'
+import { setApiToken } from './core/services/apiToken'
 import { appApi } from '@/core/capabilities/appApi'
 import { applyThemePreference, getStoredThemePreference } from './core/utils/theme'
 import { installGlobalErrorHandler } from './composables/useGlobalErrorHandler'
+import { logger } from './core/utils/logger'
 
 /**
  * 初始化应用
@@ -38,6 +40,15 @@ async function initApp() {
 
   // 初始化 API 默认地址，再由能力抽象层处理 Electron 动态端口
   await initApiBaseUrl()
+  // 注入后端 API 一次性 token（Electron 打包模式经 IPC 下发；Web 为空串）。
+  // 必须在 initializeApiClient 之前完成——Web 适配器的 initializeApiClient 会发
+  // /version 健康探测，是首个业务请求，token 头须先就位（该请求走 localhost CORS
+  // 不受影响，但保持"任何业务请求前完成注入"的顺序约定）。
+  try {
+    setApiToken(await appApi.getApiToken())
+  } catch (error) {
+    logger.warn('[main] 获取后端 API token 失败，将以无 token 模式运行:', error)
+  }
   await appApi.initializeApiClient()
 
   const app = createApp(App)
@@ -85,4 +96,24 @@ async function initApp() {
   }
 }
 
-initApp()
+initApp().catch((err: unknown) => {
+  // 兜底：初始化失败（如后端端口探测异常、插件注册报错）时避免白屏无反馈。
+  // 此时 Vue 应用尚未挂载，全局错误处理器不可用，只能记录日志并直接挂一条最小 DOM 提示
+  logger.error('[main] 应用初始化失败:', err)
+  const root = document.getElementById('app')
+  if (!root) return
+  const box = document.createElement('div')
+  box.setAttribute('role', 'alert')
+  box.style.cssText =
+    'display:flex;flex-direction:column;align-items:center;justify-content:center;' +
+    'height:100vh;gap:8px;padding:24px;text-align:center;font-family:system-ui,sans-serif;'
+  const title = document.createElement('div')
+  title.style.cssText = 'font-size:16px;font-weight:600;color:#d03050;'
+  title.textContent = '应用初始化失败 / Failed to initialize the app'
+  const detail = document.createElement('div')
+  detail.style.cssText = 'font-size:12px;color:#888;max-width:640px;word-break:break-all;'
+  detail.textContent = err instanceof Error ? err.message : String(err)
+  box.appendChild(title)
+  box.appendChild(detail)
+  root.appendChild(box)
+})

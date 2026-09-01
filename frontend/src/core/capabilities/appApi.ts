@@ -29,6 +29,11 @@ export interface AppApi {
   readonly canSyncAppLocale: boolean
   /** 初始化 API 客户端基础地址（Electron 动态获取端口；Web 使用默认地址） */
   initializeApiClient(): Promise<void>
+  /**
+   * 获取后端 API 一次性 token（Electron 打包模式经 IPC 下发；Web 返回空串）
+   * 渲染进程将其随请求携带 X-Precis-Auth 头，后端据此放行 null Origin 的 CORS
+   */
+  getApiToken(): Promise<string>
   /** 获取应用版本号 */
   getAppVersion(): Promise<string>
   /** 获取后端服务端口 */
@@ -118,6 +123,17 @@ class ElectronAppAdapter implements AppApi {
     }
   }
 
+  async getApiToken(): Promise<string> {
+    try {
+      return await getElectronAPI().getApiToken()
+    } catch (error) {
+      logger.error('[appApi] 获取后端 API token 失败:', error)
+      // 拿不到 token 时返回空串：拦截器不注入 X-Precis-Auth，
+      // 后端对 localhost Origin 的既有放行不受影响（仅 null Origin 会被拒）
+      return ''
+    }
+  }
+
   async getAppVersion(): Promise<string> {
     return getElectronAPI().getAppVersion()
   }
@@ -175,6 +191,11 @@ class WebAppAdapter implements AppApi {
     } catch (error) {
       logger.warn('[appApi] Web 模式下后端健康检查失败:', error)
     }
+  }
+
+  async getApiToken(): Promise<string> {
+    // Web 模式无桌面壳下发 token（后端亦未配置），返回空串
+    return ''
   }
 
   async getAppVersion(): Promise<string> {

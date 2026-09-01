@@ -14,9 +14,15 @@
 - 模块化路由: 路由按功能模块分组（project, utils, reporting 等）
 
 Electron 集成说明:
-- DynamicPortCORSMiddleware 放行 Electron 自定义协议（app:// / electron://）及 null Origin
-- 支持 127.0.0.1 / localhost 的任意端口（动态端口分配）
+- 打包模式：主进程每次启动后端生成随机 token，经 PRECIS_API_TOKEN 注入本进程，
+  TokenOriginAuthMiddleware 对携带有效 token（X-Precis-Auth 头）的请求放行 null
+  Origin 的 CORS（预检代答 + 响应头补写）；无效/缺失 token 的 null Origin 仍被
+  DynamicPortCORSMiddleware 拒绝（防沙箱 iframe 跨域读取本机 API）
+- DynamicPortCORSMiddleware 放行 Electron 自定义协议（app:// / electron://），
+  支持 127.0.0.1 / localhost 的任意端口（动态端口分配）
 - 桌面应用经内嵌窗口加载前端，无跨站风险
+- PRECIS_ALLOW_NULL_ORIGIN=1 为旧的全局放行兼容开关（DynamicPortCORSMiddleware
+  内保留读取逻辑），打包模式已改用 token 机制、不再注入该变量
 
 日志配置:
 - 配置 logging 以显示 HTTP 请求和响应信息
@@ -42,6 +48,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from .middleware.exception_handler import ExceptionHandlerMiddleware
 from .middleware.request_logging import RequestLoggingMiddleware
+from .middleware.token_auth import TokenOriginAuthMiddleware
 from .routers import (
     ai_router,
     connection_rules_router,
@@ -122,8 +129,10 @@ class DynamicPortCORSMiddleware(CORSMiddleware):
     [安全考量]
     - null/空 Origin 默认拒绝：后端无鉴权且存在文件读取端点，沙箱 iframe / file:// 页面
       发送的 null Origin 一旦放行，任意网页可跨域读取本机 API 响应（loopback 端口可被
-      浏览器枚举）。仅当 Electron 主进程 spawn 后端时注入 PRECIS_ALLOW_NULL_ORIGIN=1
-      （打包生产模式 app:// 协议页面需要）才放行。
+      浏览器枚举）。打包模式改由 TokenOriginAuthMiddleware 按"一次性 token"放行本应用
+      页面（携带有效 X-Precis-Auth 头的请求在其上游补写 CORS 头/代答预检），本中间件
+      不再对 null Origin 无差别放行；PRECIS_ALLOW_NULL_ORIGIN=1 保留为兼容开关
+      （Electron 旧版主进程注入时仍生效），打包模式不再注入。
     - 若未来该 API 暴露到网络（非 127.0.0.1），必须进一步收紧（token 鉴权 + Host 校验）。
     """
 
@@ -142,8 +151,9 @@ class DynamicPortCORSMiddleware(CORSMiddleware):
         返回:
             True 表示允许该 Origin 的跨域请求，False 表示拒绝
         """
-        # Electron 生产模式（app:// 协议页面）经 PRECIS_ALLOW_NULL_ORIGIN=1 显式放行
-        # null/空 Origin。该变量由 Electron 主进程 spawn 后端时注入（pythonProcess.ts）。
+        # Electron 打包模式已改用一次性 token 机制（TokenOriginAuthMiddleware 对携带
+        # 有效 X-Precis-Auth 头的请求补写 CORS 头）。此处保留 PRECIS_ALLOW_NULL_ORIGIN
+        # 兼容开关：旧版 Electron 主进程注入该变量时仍对 null/空 Origin 全局放行。
         # 默认拒绝：null Origin 也来自沙箱 iframe 与 file:// 页面——后端无鉴权且存在
         # 文件读取端点，放行 null 等于允许任意网页经沙箱 iframe 跨域读取本机 API 响应。
         if (origin == "null" or origin == "") and os.environ.get("PRECIS_ALLOW_NULL_ORIGIN", "").strip().lower() in (
@@ -186,6 +196,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# 一次性 token 放行中间件（打包模式）：
+# [中间件顺序] FastAPI/Starlette 的 add_middleware 后添加的先执行（外层）。
+# 本中间件在 CORSMiddleware 之后添加 → 位于 CORS 外层、先于 CORS 处理请求：
+# - 携带有效 token（X-Precis-Auth）的 null Origin 预检在此被直接代答放行，
+#   不会被 CORSMiddleware 以"Origin 不在允许列表"拒绝
+# - 无效/缺失 token 的请求原样透传给 CORSMiddleware，null Origin 仍按既有规则拒绝
+# - 未配置 PRECIS_API_TOKEN（Web/开发模式）时完全直通，既有 localhost CORS 行为不变
+app.add_middleware(TokenOriginAuthMiddleware)
 
 app.add_middleware(ExceptionHandlerMiddleware)
 app.add_middleware(RequestLoggingMiddleware)
