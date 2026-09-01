@@ -18,6 +18,7 @@
 
 import { protocol, net as electronNet } from 'electron';
 import * as path from 'path';
+import { pathToFileURL } from 'node:url';
 import { logger } from './logger';
 
 /**
@@ -53,9 +54,15 @@ export function registerAppScheme(): void {
  */
 export function registerAppProtocolHandler(frontendPath: string): void {
   protocol.handle('app', (request) => {
-    const url = new URL(request.url);
-    // 解码 pathname 中可能存在的编码字符（如 %2F -> /），防止编码绕过路径穿越校验
-    const decodedPathname = decodeURIComponent(url.pathname);
+    // 解码 pathname 中可能存在的编码字符（如 %2F -> /），防止编码绕过路径穿越校验。
+    // 畸形百分号编码（如 %ZZ、截断的 UTF-8 序列）会抛 URIError，按 400 拒绝。
+    let decodedPathname: string;
+    try {
+      decodedPathname = decodeURIComponent(new URL(request.url).pathname);
+    } catch {
+      logger.warn('[Main] app:// 协议收到畸形编码的 URL，已拒绝:', request.url);
+      return new Response('Bad Request', { status: 400, statusText: 'Bad Request' });
+    }
     const filePath = path.normalize(path.join(frontendPath, decodedPathname));
 
     // 路径穿越校验：解析后的真实路径必须在 frontendPath 范围内
@@ -68,6 +75,11 @@ export function registerAppProtocolHandler(frontendPath: string): void {
       return new Response('Forbidden', { status: 403, statusText: 'Forbidden' });
     }
 
-    return electronNet.fetch(`file://${filePath}`);
+    // [安全] 必须用 pathToFileURL 构造 fetch 目标，禁止手工拼 `file://${filePath}`：
+    // filePath 已是解码后的本地路径，手工拼接会把它当原始 URL 片段，net.fetch 按
+    // file URL 语义解析时再次百分号解码——双重编码（%252e%252e）在包含校验时还是
+    // 字面量 `..%2f`（通过校验），二次解码后变成真实的 `../` 完成穿越，越界读任意
+    // 文件。pathToFileURL 保证路径被恰好编码一次，校验的路径与实际打开的文件一致。
+    return electronNet.fetch(pathToFileURL(filePath).toString());
   });
 }

@@ -214,6 +214,38 @@ interface ElectronAPI {
   restartPythonServer: () => Promise<{ ready: boolean; port: number }>
 
   /**
+   * 获取后端 API 一次性 token
+   *
+   * 业务用途:
+   * - 打包模式下主进程每次启动后端生成随机 token 并注入后端环境变量
+   *   PRECIS_API_TOKEN；渲染进程取回后随 HTTP 请求携带 X-Precis-Auth 头,
+   *   后端据此放行本页面的跨域请求（app:// 协议页面 Origin 为 null）
+   *
+   * 安全性说明:
+   * - token 仅经 IPC 下发给本应用渲染进程，恶意网页（沙箱 iframe）无法获取
+   * - 未 spawn 后端（开发模式外部后端）时返回空串，调用方据此不注入该头
+   *
+   * @returns Promise<string> - 64 字符 hex token；未生成时为空串
+   */
+  getApiToken: () => Promise<string>
+
+  /**
+   * 解析拖拽 File 对象对应的本地绝对路径
+   *
+   * 业务用途:
+   * - Electron 32+ 已移除 File.path 属性（恒 undefined），拖拽导入数据源时
+   *   需要获取真实本地路径，后端才能打开该文件
+   *
+   * 实现说明:
+   * - preload 内调用 webUtils.getPathForFile 并同步返回结果字符串
+   *   （File 对象无法通过 IPC 结构化克隆，不能绕道主进程）
+   *
+   * @param file - 拖拽/选择的浏览器 File 对象
+   * @returns 本地绝对路径；无法解析时为空字符串
+   */
+  getPathForFile: (file: File) => string
+
+  /**
    * 获取应用版本号
    *
    * 业务用途:

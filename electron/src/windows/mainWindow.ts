@@ -22,6 +22,7 @@ import * as fs from 'fs';
 import { appState } from '../app-state';
 import { logger } from '../logger';
 import { ensureFeedbackDir, getPendingCrashPath } from '../ipc/feedback';
+import { stopPythonServerSync } from '../pythonProcess';
 import { closeSplashWindow, sendSplashStage } from './splashWindow';
 import { getPreloadPath } from '../utils/paths';
 import { t } from '../i18n';
@@ -131,10 +132,24 @@ export function createWindow(config: WindowConfig): void {
   });
 
   // 配置外部链接处理策略
-  // [用户体验] 点击链接时使用系统默认浏览器打开
+  // [用户体验] 点击 http/https 链接时使用系统默认浏览器打开
   // [安全] 阻止在新窗口中打开链接，避免弹出窗口滥用
+  // [安全] scheme 白名单：仅 http/https 允许交给系统浏览器。file:/// 或自定义
+  // 协议（ms-msdownload: / search-ms: 等）可能借助系统默认处理程序打开本地
+  // 可执行文件，一律拒绝并记录告警。
   appState.mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
+    let scheme = '';
+    try {
+      scheme = new URL(url).protocol.replace(/:$/, '').toLowerCase();
+    } catch {
+      logger.warn('[Main] 拒绝打开无法解析的外部链接:', url);
+      return { action: 'deny' };
+    }
+    if (scheme === 'http' || scheme === 'https') {
+      shell.openExternal(url);
+    } else {
+      logger.warn('[Main] 拒绝打开非 http(s) 外部链接，scheme:', scheme, 'url:', url);
+    }
     return { action: 'deny' };
   });
 
@@ -164,6 +179,10 @@ export function createWindow(config: WindowConfig): void {
       noLink: true,
     });
     if (choice === 0) {
+      // app.exit() 会跳过 before-quit/quit 钩子，必须先同步终止 Python 子进程树，
+      // 否则后端进程成为孤儿（残留端口占用与数据文件句柄，且 relaunch 后的新实例
+      // 会因旧进程未退出而状态污染）。与 main.ts 退出钩子复用同一清理函数。
+      stopPythonServerSync(appState.pythonProcess);
       app.relaunch();
       app.exit(0);
     } else {

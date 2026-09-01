@@ -25,13 +25,30 @@ import { t } from '../i18n';
 // ============================================================================
 
 /**
+ * scan-directory 递归深度上限（AGENTS.md 约定：递归必须设深度上限）。
+ * 防止异常深的目录树（或深层符号链接链）拖垮主进程 / 被用于资源耗尽。
+ */
+const SCAN_DIRECTORY_MAX_DEPTH = 8;
+
+/**
  * 递归扫描目录下的所有文件
  *
  * 使用深度优先遍历：遇到目录递归进入，遇到文件检查扩展名后加入结果。
+ * 超过 maxDepth 深度停止递归（防资源耗尽）。
  * 注意：顶层目录已由调用方做 lstat 校验（防符号链接逃逸），递归内部沿用
  * withFileTypes 直接判断条目类型（readdirSync 的 dirent 不跟随符号链接）。
  */
-function scanDirectoryRecursive(dirPath: string, allowedExtensions: string[], result: string[]): void {
+function scanDirectoryRecursive(
+  dirPath: string,
+  allowedExtensions: string[],
+  result: string[],
+  depth: number,
+  maxDepth: number = SCAN_DIRECTORY_MAX_DEPTH
+): void {
+  if (depth > maxDepth) {
+    logger.warn('[Electron] 扫描目录超过最大深度，停止递归:', dirPath);
+    return;
+  }
   try {
     const entries = fs.readdirSync(dirPath, { withFileTypes: true });
 
@@ -40,7 +57,7 @@ function scanDirectoryRecursive(dirPath: string, allowedExtensions: string[], re
 
       if (entry.isDirectory()) {
         // 递归扫描子目录
-        scanDirectoryRecursive(fullPath, allowedExtensions, result);
+        scanDirectoryRecursive(fullPath, allowedExtensions, result, depth + 1, maxDepth);
       } else if (entry.isFile()) {
         // 检查文件扩展名
         const ext = path.extname(entry.name).toLowerCase();
@@ -119,6 +136,23 @@ const OPEN_FILE_ALLOWED_EXTENSIONS = new Set([
   '.txt', '.md', '.log',
   '.parquet', '.feather',
 ]);
+
+/**
+ * save-text-file 禁止覆写的受保护文件名（userData 下的主进程专属配置）。
+ *
+ * 威胁模型：update-config.json 保存自动更新源配置。若渲染进程可直接覆写它，
+ * XSS 后即可把更新源指向恶意 generic 服务器，配合 autoInstallOnAppQuit=true
+ * 在用户退出应用时静默安装恶意安装包（更新源劫持 → RCE）。修改更新配置的唯一
+ * 合法入口是 update:save-config IPC——其内部经 validateUpdateSourceUrl 做
+ * https/本机回环白名单校验。此处按文件名精确匹配拒绝写入，作为纵深防御的一环
+ * （与 update.ts 的 apply 时校验互为冗余）。
+ */
+const SAVE_TEXT_FILE_PROTECTED_NAMES = new Set(['update-config.json']);
+
+/** 受保护文件名判定：Windows 文件系统大小写不敏感，归一为小写后精确匹配，防 Update-Config.JSON 绕过 */
+function isProtectedUserDataFileName(fileName: string): boolean {
+  return SAVE_TEXT_FILE_PROTECTED_NAMES.has(fileName.toLowerCase());
+}
 
 // ============================================================================
 // IPC 注册
@@ -282,6 +316,9 @@ export function registerFilesystemIpc(): void {
   });
 
   // ---- save-text-file ----
+  // 安全：update-config.json 属主进程专属配置（更新源白名单校验只存在于
+  // update:save-config 路径），拒绝渲染进程经本 IPC 直接覆写（见
+  // SAVE_TEXT_FILE_PROTECTED_NAMES 注释中的威胁模型）。
   ipcMain.handle('save-text-file', async (_event, fileName: string, content: string) => {
     try {
       if (!fileName || typeof fileName !== 'string') {
@@ -290,6 +327,11 @@ export function registerFilesystemIpc(): void {
 
       if (fileName.includes('..') || fileName.includes('/') || fileName.includes('\\')) {
         logger.error('[Electron] save-text-file: 文件名包含非法字符:', fileName);
+        return false;
+      }
+
+      if (isProtectedUserDataFileName(fileName)) {
+        logger.error('[Electron] save-text-file: 拒绝写入受保护文件:', fileName);
         return false;
       }
 
@@ -389,7 +431,7 @@ export function registerFilesystemIpc(): void {
       logger.debug('[Electron] 允许的扩展名:', allowedExtensions);
 
       const result: string[] = [];
-      scanDirectoryRecursive(dirPath, allowedExtensions, result);
+      scanDirectoryRecursive(dirPath, allowedExtensions, result, 1);
 
       logger.debug('[Electron] 扫描完成，找到', result.length, '个文件');
       return result;

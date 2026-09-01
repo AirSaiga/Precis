@@ -23,6 +23,33 @@ import { logger } from '../logger';
  */
 export function registerConfigIpc(): void {
   ipcMain.handle('save-config', async (_event, configPath: string, dataPath: string) => {
+    // [安全] 本文件是授权根信任源：electron_launch.yaml 由 ipc/filesystem.ts 的
+    // getAllowedRoots() 读取，作为 read-file/write-file/open-file/scan-directory
+    // 的根目录白名单依据。渲染层可经 XSS 调用本 IPC，若无条件接受任意字符串，
+    // 等于让渲染层自定义文件系统白名单（毒化信任源后即可越权读写任意目录）。
+    // 因此非空路径必须为绝对路径，且指向真实存在的目录（与用户在启动器中经
+    // 原生对话框显式选择的语义一致），否则拒绝写入。
+    // 例外：configPath 与 dataPath 均为空串是前端"项目路径失效，清理最近项目"
+    // 的合法载荷（App.vue / useAppBootstrap.ts），写入空值只会让 AllowedRoots
+    // 回落到仅 userData，无越权风险，予以放行。
+    const isTrustedDir = (p: unknown): p is string => {
+      if (typeof p !== 'string' || p.length === 0) return false;
+      if (!path.isAbsolute(p)) return false;
+      try {
+        return fs.existsSync(p) && fs.statSync(p).isDirectory();
+      } catch {
+        return false;
+      }
+    };
+    const isClearPayload = configPath === '' && dataPath === '';
+    if (!isClearPayload && (!isTrustedDir(configPath) || !isTrustedDir(dataPath))) {
+      logger.warn('[Main] save-config 拒绝非法路径（非空值须为已存在目录的绝对路径）:', {
+        configPath,
+        dataPath,
+      });
+      return false;
+    }
+
     // 使用用户数据目录下的 .precis/electron_launch.yaml，避免写入安装目录
     // Windows: %APPDATA%/Precis/.precis/electron_launch.yaml
     // macOS: ~/Library/Application Support/Precis/.precis/electron_launch.yaml

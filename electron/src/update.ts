@@ -55,6 +55,43 @@ const DEFAULT_UPDATE_CONFIG: UpdateConfig = {
   autoDownload: false,
 };
 
+/**
+ * 校验自定义更新源 URL。
+ *
+ * 威胁模型：渲染进程一旦被 XSS，攻击者可经 update:save-config IPC（或篡改
+ * userData/update-config.json 后等待启动重放）把更新源指向恶意 generic 服务器；
+ * autoInstallOnAppQuit=true 时，恶意 latest.yml 引导的安装包会在应用退出时静默
+ * 安装，形成"更新源劫持 → RCE"链路。因此凡是要 setFeedURL 的 URL 必须通过本校验：
+ * - 必须是合法 URL，scheme 仅允许 https；
+ * - 本机更新演练（electron/scripts/serve-updates.js 默认 http://localhost:8080）
+ *   依赖 http，仅当 host 为 127.0.0.1 / localhost 时放行 http。WHATWG URL 解析器
+ *   会把十进制/十六进制简写 IP 归一化（如 2130706433 → 127.0.0.1），归一后仍指向
+ *   回环地址才放行；localhost@evil.com、127.0.0.1.evil.com 这类混淆的 hostname
+ *   均为 evil.com，直接拒绝；
+ * - 其余 http、file:、ftp: 等一律拒绝。
+ *
+ * @returns 合法返回 null；非法返回拒绝原因（用于日志告警）
+ */
+export function validateUpdateSourceUrl(url: string): string | null {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return `更新源不是合法 URL: ${url}`;
+  }
+
+  const scheme = parsed.protocol.replace(/:$/, '').toLowerCase();
+  const host = parsed.hostname.toLowerCase();
+
+  if (scheme === 'https') {
+    return null;
+  }
+  if (scheme === 'http' && (host === '127.0.0.1' || host === 'localhost')) {
+    return null;
+  }
+  return `不允许的更新源（scheme=${scheme}, host=${host}）：仅允许 https，或 http + 本机回环地址（127.0.0.1/localhost）`;
+}
+
 class UpdateManager {
   private state: UpdateState = { status: 'idle' };
   private config: UpdateConfig = { ...DEFAULT_UPDATE_CONFIG };
@@ -76,9 +113,18 @@ class UpdateManager {
   /**
    * 把配置中的更新源应用到 autoUpdater。
    * github 源无需手动设置 feedURL（electron-updater 自动从 package.json 读取）。
+   * custom 源必须先过 validateUpdateSourceUrl 白名单：该函数是启动重放（loadConfig
+   * 之后）与保存配置（saveConfig）两条路径共用的最后闸门，配置文件即使被篡改，
+   * 非法源也无法进入 setFeedURL。
    */
   private applyFeedUrl(): void {
     if (this.config.sourceType === 'custom' && this.config.sourceUrl) {
+      const reason = validateUpdateSourceUrl(this.config.sourceUrl);
+      if (reason) {
+        // 拒绝应用并告警；不 setFeedURL 时 electron-updater 回退默认 GitHub 源（安全兜底）
+        logger.error('[UpdateManager] 拒绝应用非法更新源:', reason, 'url:', this.config.sourceUrl);
+        return;
+      }
       autoUpdater.setFeedURL({ provider: 'generic', url: this.config.sourceUrl });
     }
   }
@@ -97,7 +143,16 @@ class UpdateManager {
     }
   }
 
-  public saveConfig(config: Partial<UpdateConfig>): void {
+  public saveConfig(config: Partial<UpdateConfig>): boolean {
+    // 保存路径同样过白名单：非法 sourceUrl 直接拒绝保存，不落盘、不应用
+    if (config.sourceUrl !== undefined && config.sourceUrl !== null && config.sourceUrl !== '') {
+      const reason = validateUpdateSourceUrl(config.sourceUrl);
+      if (reason) {
+        logger.error('[UpdateManager] 拒绝保存非法更新源:', reason, 'url:', config.sourceUrl);
+        return false;
+      }
+    }
+
     this.config = { ...this.config, ...config };
 
     this.applyFeedUrl();
@@ -108,6 +163,7 @@ class UpdateManager {
     } catch (error) {
       logger.error('[UpdateManager] 保存配置失败:', error);
     }
+    return true;
   }
 
   public getConfig(): UpdateConfig {
@@ -191,7 +247,13 @@ class UpdateManager {
     });
 
     ipcMain.handle('update:save-config', async (event, config: Partial<UpdateConfig>) => {
-      this.saveConfig(config);
+      // 更新源是 XSS → 更新劫持链路的关键入口：saveConfig 内部会对 sourceUrl
+      // 做 validateUpdateSourceUrl 白名单校验，非法时拒绝保存并返回 false，
+      // 渲染进程设置面板据此提示失败。
+      const saved = this.saveConfig(config);
+      if (!saved) {
+        return false;
+      }
       autoUpdater.autoDownload = this.config.autoDownload;
       return true;
     });

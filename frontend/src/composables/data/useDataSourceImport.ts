@@ -23,6 +23,7 @@ import { useProjectStore } from '@/stores/projectStore'
 import { logger } from '@/core/utils/logger'
 import {
   resolveFileReference,
+  getLocalPathForFile,
   isLocalDirectory,
   readLocalDirectoryEntries,
 } from '@/core/capabilities/fileApi'
@@ -193,10 +194,13 @@ export function useDataSourceImport() {
 
     for (const file of files) {
       try {
-        // Electron 拖拽文件夹：通过 path 属性识别并递归扫描
-        if (isLocalDirectory(file)) {
-          const electronFile = file as File & { path?: string }
-          const folderPath = electronFile.path!
+        // Electron 拖拽文件夹：解析本地路径（Electron 32+ 无 File.path，经 preload webUtils）并递归扫描
+        if (await isLocalDirectory(file)) {
+          const folderPath = await getLocalPathForFile(file)
+          if (!folderPath) {
+            logger.warn(`[useDataSourceImport] 无法解析拖拽文件夹路径: ${file.name}`)
+            continue
+          }
           logger.debug(`[useDataSourceImport] 检测到文件夹拖拽: ${file.name}, 路径: ${folderPath}`)
           try {
             // B-sec1: 透传项目根作为白名单根（Web 模式后端校验用；本分支仅 Electron 触发，root 仅为签名一致）
