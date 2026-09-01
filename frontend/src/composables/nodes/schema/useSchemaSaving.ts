@@ -100,7 +100,6 @@ export function useSchemaSaving(
 
     // 保存方法
     handleSave: nodeSaving.handleSave,
-    handleSaveComplete: nodeSaving.handleSaveComplete,
     handleSaveCompleteDOM: nodeSaving.handleSaveCompleteDOM,
 
     // 关闭方法

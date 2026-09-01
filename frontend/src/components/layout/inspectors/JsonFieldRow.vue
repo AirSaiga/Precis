@@ -130,11 +130,13 @@
   import { useI18n } from 'vue-i18n'
   import type { JsonSchemaColumn, JsonDataType } from '@/types/nodes'
 
-  const props = defineProps<{
+  interface Props {
     column: JsonSchemaColumn
     index: number
     depth: number
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     rename: [columnId: string, name: string]

@@ -9,7 +9,7 @@
  * 类型条件天然互斥，串联执行安全。
  */
 
-import type { CustomNodeData } from '@/types/graph'
+import type { ManualDataNodeData, SchemaNodeData, SourcePreviewNodeData } from '@/types/graph'
 import type { ConnectionContext } from './types'
 
 /**
@@ -23,30 +23,28 @@ export function handleDataSourceConnection(ctx: ConnectionContext): void {
 
   // E1: manualData → schema（ManualData 作为数据源，自动建列）
   if (sourceNode.type === 'manualData' && targetNode.type === 'schema') {
-    const manualData = sourceNode.data as unknown as Record<string, unknown>
+    const manualData = sourceNode.data as ManualDataNodeData
     // 重新查找最新 schema 节点（原代码也是 store.nodes.find，读取最新快照）
     const schemaNode = ctx.store.nodes.find((n) => n.id === targetNode.id)
     if (schemaNode) {
-      const columnName = (manualData.columnName as string) || 'Column1'
-      const existingCols =
-        ((schemaNode.data as unknown as Record<string, unknown>).columns as Array<
-          Record<string, unknown>
-        >) || []
+      const columnName = manualData.columnName || 'Column1'
+      const schemaData = schemaNode.data as SchemaNodeData
+      const existingCols = schemaData.columns || []
       if (existingCols.length === 0) {
         tx.patchNodeData(targetNode.id, {
-          ...schemaNode.data,
+          ...schemaData,
           columns: [
             {
               id: 'col-0',
               columnName,
-              dataType: 'String',
+              dataType: 'String' as const,
               validationErrors: [],
               constraints: {},
             },
           ],
-          tableName: (manualData.configName as string) || 'ManualData',
+          tableName: manualData.configName || 'ManualData',
           sourceNodeId: sourceNode.id,
-        } as unknown as Partial<CustomNodeData>)
+        })
       }
     }
     return
@@ -77,9 +75,8 @@ function extractColumnDataToManualData(
   sourceHandle: string | null | undefined
 ): void {
   const { sourceNode, targetNode, tx } = ctx
-  const schemaData = sourceNode.data as unknown as Record<string, unknown>
-  const columns =
-    (schemaData.columns as Array<{ id: string; columnName: string; dataType?: string }>) || []
+  const schemaData = sourceNode.data as SchemaNodeData
+  const columns = schemaData.columns || []
 
   // 从 sourceHandle 解析列 ID，例如 "source-right-col-0" → "col-0"
   let columnId = ''
@@ -93,7 +90,7 @@ function extractColumnDataToManualData(
 
   // 尝试从关联的 SourcePreview 提取该列数据
   let extractedRows: string[][] = []
-  const sourceNodeId = schemaData.sourceNodeId as string | undefined
+  const sourceNodeId = schemaData.sourceNodeId
   if (sourceNodeId) {
     extractedRows = extractRowsFromSourcePreview(ctx, sourceNodeId, columnName)
   }
@@ -109,7 +106,7 @@ function extractColumnDataToManualData(
     rows: extractedRows,
     configName: columnName,
     saveState: 'draft',
-  } as unknown as Partial<CustomNodeData>)
+  })
 }
 
 /**
@@ -124,9 +121,9 @@ function extractRowsFromSourcePreview(
   const previewNode = ctx.store.nodes.find((n) => n.id === sourcePreviewId)
   if (!previewNode || previewNode.type !== 'sourcePreview') return rows
 
-  const previewData = previewNode.data as unknown as Record<string, unknown>
-  const dataMatrix = (previewData.data as string[][]) || []
-  const headerRow = (previewData.headerRow as number) ?? 0
+  const previewData = previewNode.data as SourcePreviewNodeData
+  const dataMatrix = previewData.data || []
+  const headerRow = previewData.headerRow ?? 0
 
   if (dataMatrix.length > 0 && headerRow >= 0 && headerRow < dataMatrix.length) {
     const headers = dataMatrix[headerRow] ?? []

@@ -57,7 +57,7 @@
 
 import { logger } from '@/core/utils/logger'
 import type { Ref } from 'vue'
-import type { CustomNode, CustomNodeData } from '@/types/graph'
+import type { CustomNode, PatternToolboxNodeData } from '@/types/graph'
 import { getV2FullConfig } from '@/api/projectV2Api'
 import { addNodes, updateNode } from '@/services/canvas/vueFlowApi'
 
@@ -73,9 +73,7 @@ export function createLibraryNodesFactoryModule(params: {
     scope: 'patterns' | 'all'
   ) {
     const existing = nodes.value.find(
-      (n) =>
-        n.type === 'patternToolbox' &&
-        (n.data as unknown as Record<string, unknown>)?.scope === scope
+      (n) => n.type === 'patternToolbox' && (n.data as PatternToolboxNodeData).scope === scope
     )
     if (existing) {
       // 走 vueFlowApi.updateNode 更新位置（Vue Flow 规范，触发内部状态同步）
@@ -92,36 +90,19 @@ export function createLibraryNodesFactoryModule(params: {
 
     const config = await getV2FullConfig(configPath)
     logger.debug('[createPatternToolboxNode] Loaded config:', {
-      regexCount: ((config.manifest as unknown as Record<string, unknown>).regex_nodes as unknown[])
-        ?.length,
-      regexKeys: Object.keys(
-        ((config as unknown as Record<string, unknown>).regex_nodes || {}) as Record<
-          string,
-          unknown
-        >
-      ),
-      manifestRegex: (config.manifest as unknown as Record<string, unknown>).regex_nodes,
+      regexCount: config.manifest.regex_nodes?.length,
+      regexKeys: Object.keys(config.regex_nodes || {}),
+      manifestRegex: config.manifest.regex_nodes,
     })
 
-    const manifestRegexRefs =
-      (((config.manifest as unknown as Record<string, unknown>).regex_nodes || []) as Array<{
-        id: string
-        path?: string
-      }>) || []
+    const manifestRegexRefs = config.manifest.regex_nodes || []
 
     const resolvePatterns = (targetScope: 'patterns' | 'all') =>
       manifestRegexRefs
         .filter((r) => {
           if (targetScope === 'all') return true
-          const node = (config as unknown as Record<string, unknown>).regex_nodes as
-            | Record<string, unknown>
-            | undefined
-          const nodeRec = node?.[r.id] as Record<string, unknown> | undefined
-          let registry = (
-            (nodeRec as Record<string, unknown> | undefined)?.uses_pattern as
-              | Record<string, unknown>
-              | undefined
-          )?.registry
+          const nodeRec = config.regex_nodes?.[r.id]
+          let registry: string | undefined = nodeRec?.uses_pattern?.registry
           if (!registry && r.path) {
             if (r.path.startsWith('patterns/') || r.path.includes('/patterns/')) {
               registry = 'patterns'
@@ -131,10 +112,7 @@ export function createLibraryNodesFactoryModule(params: {
           return registry === targetScope
         })
         .map((r) => {
-          const node2 = (config as unknown as Record<string, unknown>).regex_nodes as
-            | Record<string, unknown>
-            | undefined
-          const nodeRec2 = node2?.[r.id] as Record<string, unknown> | undefined
+          const nodeRec2 = config.regex_nodes?.[r.id]
           return { id: r.id, name: nodeRec2?.name || r.id }
         })
 
@@ -152,7 +130,7 @@ export function createLibraryNodesFactoryModule(params: {
         scope,
         patterns,
         saveState: 'saved',
-      } as unknown as CustomNodeData,
+      },
     }
 
     addNodes(node)
@@ -177,30 +155,20 @@ export function createLibraryNodesFactoryModule(params: {
     const config = await getV2FullConfig(configPath)
     logger.debug('[createConstraintDashboardNode] Loaded config:', {
       constraintsCount: config.manifest.constraints?.length,
-      constraintKeys: Object.keys(
-        ((config as unknown as Record<string, unknown>).constraints || {}) as Record<
-          string,
-          unknown
-        >
-      ),
+      constraintKeys: Object.keys(config.constraints || {}),
       manifestConstraints: config.manifest.constraints,
     })
 
     const items = (config.manifest.constraints || []).map((ref) => {
-      const c = (config as unknown as Record<string, unknown>).constraints as
-        | Record<string, unknown>
-        | undefined
-      const cRec = c?.[ref.id] as Record<string, unknown> | undefined
+      const cRec = config.constraints?.[ref.id]
       const name = cRec?.description || cRec?.type || ref.id
       const refs = cRec?.refs || {}
       const relatedSchemaIds: string[] = []
       if (cRec?.type === 'ForeignKey') {
-        if ((refs as Record<string, unknown>)?.from_table_id)
-          relatedSchemaIds.push(String((refs as Record<string, unknown>).from_table_id))
-        if ((refs as Record<string, unknown>)?.to_table_id)
-          relatedSchemaIds.push(String((refs as Record<string, unknown>).to_table_id))
-      } else if ((refs as Record<string, unknown>)?.table_id) {
-        relatedSchemaIds.push(String((refs as Record<string, unknown>).table_id))
+        if (refs.from_table_id) relatedSchemaIds.push(String(refs.from_table_id))
+        if (refs.to_table_id) relatedSchemaIds.push(String(refs.to_table_id))
+      } else if (refs.table_id) {
+        relatedSchemaIds.push(String(refs.table_id))
       }
       return { id: ref.id, name, type: cRec?.type, relatedSchemaIds }
     })
@@ -209,7 +177,7 @@ export function createLibraryNodesFactoryModule(params: {
       id: 'constraint-dashboard',
       type: 'constraintDashboard',
       position,
-      data: { items, saveState: 'saved' } as unknown as CustomNodeData,
+      data: { items, saveState: 'saved' },
     }
 
     addNodes(node)

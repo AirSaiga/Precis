@@ -61,7 +61,8 @@ export function useTransformSave() {
       lastSaved: new Date().toISOString(),
     })
 
-    // updateNodeData 使用不可变更新，必须重新获取引用
+    // updateNodeData 通过 Object.assign 将 patch 原地浅合并进 node.data（引用不变），
+    // 此处重新查找仅为防御性获取最新节点引用
     storeNode = graphStore.nodes.find((n) => n.id === nodeId)
     if (!storeNode) return
 

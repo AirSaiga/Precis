@@ -39,7 +39,7 @@
   const toast = useToast()
   const isValidating = ref(false)
 
-  const props = defineProps<{
+  interface Props {
     field: InspectorActionButtonField
     ctx: InspectorContext
     value: unknown
@@ -47,7 +47,9 @@
     help?: string
     placeholder?: string
     readonly: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const buttonLabel = computed(() => t(props.field.buttonLabelKey))
 

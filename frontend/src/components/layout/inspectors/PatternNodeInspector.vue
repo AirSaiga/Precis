@@ -144,12 +144,6 @@
   const props = defineProps<Props>()
 
   /**
-   * 获取模式类型的 CSS 类名
-   * 根据模式类型返回对应的样式类
-   *
-   * @returns 模式类型的 CSS 类名
-   */
-  /**
    * 获取模式类型
    * 根据 patternId 判断模式类型
    *

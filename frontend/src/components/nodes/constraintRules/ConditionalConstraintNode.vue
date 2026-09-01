@@ -164,11 +164,13 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
   import { useGraphStore } from '@/stores/graphStore'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
-  const props = defineProps<{
+  interface Props {
     id: string
     data: ConditionalConstraintNodeData
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const { t } = useI18n()
   const store = useGraphStore()
@@ -219,7 +221,10 @@ Schema列(条件) → [if Handle] → ConditionalConstraintNode → 校验结果
           lt: '<',
           lte: '≤',
         }
-        return `${opMap[configObj.operator || 'eq'] || configObj.operator} ${configObj.ref_column} 列`
+        return t('customNodes.constraintRules.conditionalConstraintNode.refColumnSummary', {
+          op: opMap[configObj.operator || 'eq'] || configObj.operator,
+          column: configObj.ref_column,
+        })
       }
       switch (configObj.operator) {
         case 'not_null':

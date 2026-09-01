@@ -129,7 +129,7 @@ function buildConstraintItemFromNode(node: CustomNode): ConstraintItemV2 | null 
       value?: unknown
       values?: unknown
     }
-    const ifConditions = d.ifConditions as unknown as ConditionalConditionInput[] | undefined
+    const ifConditions = d.ifConditions as ConditionalConditionInput[] | undefined
     if (Array.isArray(ifConditions)) {
       const validConditions = ifConditions
         .filter((c): c is ConditionalConditionInput & { operator: string } => {
@@ -318,7 +318,7 @@ export function buildV2SchemaFile(nodes: CustomNode[], schemaNodeId: string): Ta
               }
             : undefined
 
-  const childrenIds = (data as unknown as Record<string, unknown>).children as string[] | undefined
+  const childrenIds = data.children
 
   const embeddedConstraintsFromChildren =
     childrenIds && childrenIds.length > 0
@@ -410,8 +410,8 @@ export function buildV2SchemaFile(nodes: CustomNode[], schemaNodeId: string): Ta
     id: schemaNodeId,
     name: data.tableName,
     source,
-    columns: (data.columns || []).map((col): Record<string, unknown> => {
-      const columnDef: Record<string, unknown> = {
+    columns: (data.columns || []).map((col): ColumnSpecV2 => {
+      const columnDef: ColumnSpecV2 = {
         id: col.id,
         name: col.columnName,
         type: toBackendType(col.dataType, col),
@@ -427,7 +427,7 @@ export function buildV2SchemaFile(nodes: CustomNode[], schemaNodeId: string): Ta
         }
       }
       return columnDef
-    }) as unknown as ColumnSpecV2[],
+    }),
     constraints: allConstraints as ConstraintItemV2[],
     script_checks: [],
   }
@@ -489,7 +489,7 @@ export function buildV2JsonSchemaFile(node: CustomNode, nodes: CustomNode[]): Ta
               }
             : undefined
 
-  const childrenIds = (node.data as unknown as Record<string, unknown>).children as
+  const childrenIds = ((node.data || {}) as Record<string, unknown>).children as
     | string[]
     | undefined
 
@@ -506,7 +506,7 @@ export function buildV2JsonSchemaFile(node: CustomNode, nodes: CustomNode[]): Ta
     .filter(
       (n) =>
         isConstraintNodeType(n.type) &&
-        (n.data as unknown as Record<string, unknown>)?.embedded === true
+        ((n.data || {}) as Record<string, unknown>).embedded === true
     )
     .filter((n) => {
       const d = (n.data || {}) as Record<string, unknown>
@@ -527,7 +527,7 @@ export function buildV2JsonSchemaFile(node: CustomNode, nodes: CustomNode[]): Ta
     ...embeddedConstraintsLegacy.filter((c) => !embeddedConstraintIds.has(c.id)),
   ]
 
-  const columnConstraints: Record<string, unknown>[] = []
+  const columnConstraints: ConstraintItemV2[] = []
   for (const col of data.columns || []) {
     const colConstraints = col.constraints
     if (!colConstraints) continue
@@ -581,7 +581,7 @@ export function buildV2JsonSchemaFile(node: CustomNode, nodes: CustomNode[]): Ta
     name: data.tableName,
     source,
     columns,
-    constraints: allConstraints as unknown as ConstraintItemV2[],
+    constraints: allConstraints,
     script_checks: [],
   }
 }

@@ -24,7 +24,7 @@
   import type { InspectorContext } from '../utils'
   import type { InspectorErrorListField } from '../types'
 
-  const props = defineProps<{
+  interface Props {
     field: InspectorErrorListField
     ctx: InspectorContext
     value: unknown
@@ -32,7 +32,9 @@
     help?: string
     placeholder?: string
     readonly: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   /** 将 value 归一化为非空字符串数组 */
   const messages = computed<string[]>(() => {

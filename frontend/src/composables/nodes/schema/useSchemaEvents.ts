@@ -9,10 +9,8 @@ import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
 import { useI18n } from 'vue-i18n'
 import { useGraphStore } from '@/stores/graphStore'
-import type { SchemaNodeData, DataType } from '../types'
-import type { Node } from '@vue-flow/core'
+import type { SchemaNodeData } from '../types'
 import { useToast } from '@/composables/shared/useToast'
-import { inferDataType } from '@/utils/nodes/schema/typeInference'
 
 /**
  * Schema节点事件处理
@@ -118,75 +116,8 @@ export function useSchemaEvents(
     }
   }
 
-  /**
-   * 生成列定义并推断数据类型
-   * 根据表头数据生成列定义，根据数据样本推断列的数据类型
-   *
-   * 处理流程：
-   * 1. 验证表头数据有效性
-   * 2. 遍历表头数据，为每个列生成定义
-   * 3. 根据数据样本推断数据类型
-   * 4. 更新 Schema 节点的列定义
-   *
-   * @param headerData - 表头数据数组
-   * @param schemaNode - Schema 节点对象
-   * @param tableData - 完整表格数据，用于类型推断（可选）
-   * @param headerRowIndex - 表头行索引（可选）
-   */
-  const generateColumnsWithTypeInference = (
-    headerData: unknown[],
-    schemaNode: Node<SchemaNodeData>,
-    tableData?: unknown[][],
-    headerRowIndex?: number
-  ) => {
-    // 检查表头数据是否有效
-    if (!headerData || headerData.length === 0) {
-      logger.warn('表头数据为空')
-      return
-    }
-
-    // 遍历表头数据，为每个单元格生成列定义
-    const columns = headerData.map((header: unknown, index: number) => {
-      // 获取表头文本并去除首尾空白
-      const headerText = String(header).trim()
-      // 列名：使用表头文本，若为空则使用默认名称
-      const columnName = headerText || `column_${index + 1}`
-
-      // 初始化数据类型为字符串
-      let dataType: DataType = 'String'
-
-      // 如果提供了表格数据和表头行索引，尝试推断数据类型
-      if (tableData && typeof headerRowIndex === 'number') {
-        // 确保数据行存在
-        if (headerRowIndex + 1 < tableData.length) {
-          // 获取表头行的下一行数据作为样本
-          const sampleData = tableData[headerRowIndex + 1]
-          // 检查该列是否存在数据
-          if (sampleData && sampleData[index] !== undefined) {
-            // 使用统一的类型推断工具
-            dataType = inferDataType(sampleData[index])
-          }
-        }
-      }
-
-      // 返回生成的列定义对象
-      return {
-        id: columnName,
-        columnName: columnName,
-        dataType: dataType,
-        expressionType: 'none' as const,
-        constraints: {},
-        validationErrors: [] as string[],
-      }
-    })
-
-    // 更新 Schema 节点的列定义
-    store.updateNodeData(schemaNode.id, { ...schemaNode.data, columns: columns })
-  }
-
   // 返回组合式函数提供的所有方法
   return {
     handleNodeSave,
-    generateColumnsWithTypeInference,
   }
 }

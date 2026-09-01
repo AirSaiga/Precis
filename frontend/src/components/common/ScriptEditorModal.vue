@@ -245,9 +245,11 @@
   import { loadScriptDraft, saveScriptDraft } from '@/composables/common/useScriptEditor'
   import AppIcon from '@/components/icons/AppIcon.vue'
 
-  const props = defineProps<{
+  interface Props {
     modelValue: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     (e: 'update:modelValue', value: boolean): void

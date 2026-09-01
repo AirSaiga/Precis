@@ -3,36 +3,22 @@
  * @description Schema 节点拖拽处理 Composable
  *
  * 专门处理 Schema 节点特有的拖拽连接场景：
- * 1. 从列输出句柄拖拽 → 创建约束节点（显示约束类型选择菜单）
- * 2. 从添加列句柄拖拽 → 添加新列
+ * 从添加列句柄拖拽到空白区域 → 添加新列
+ *
+ * （历史说明：从列输出句柄拖拽创建约束节点的场景已移除，
+ * 该路径现由连接调度器的"未找到对应处理器"兜底处理）
  *
  * 通过将 Schema 节点特定的逻辑提取到独立的组合式函数中，
  * 实现关注点分离，提高代码可维护性和可测试性。
  */
 
 import { logger } from '@/core/utils/logger'
-import type { Node as VueFlowNode } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 
 /**
  * Schema 节点拖拽处理返回值
  */
 export interface UseSchemaNodeDragReturn {
-  /**
-   * 处理列句柄的拖拽连接结束事件
-   * 当用户从列输出句柄拖拽到空白区域时触发，显示约束类型选择菜单
-   *
-   * @param sourceNode - 源 Schema 节点
-   * @param sourceHandleId - 源句柄ID（格式：source-right-{columnId}）
-   * @param event - 鼠标或触摸事件
-   * @returns boolean - 是否成功处理该事件
-   */
-  handleColumnHandleDragEnd: (
-    sourceNode: VueFlowNode,
-    sourceHandleId: string,
-    event: MouseEvent | TouchEvent
-  ) => boolean
-
   /**
    * 处理添加列句柄的拖拽连接结束事件
    * 当用户从添加列句柄拖拽到空白区域时触发，自动添加新列
@@ -49,37 +35,12 @@ export interface UseSchemaNodeDragReturn {
  *
  * @example
  * ```typescript
- * const {
- *   handleColumnHandleDragEnd,
- *   handleAddColumnHandleDragEnd
- * } = useSchemaNodeDrag();
+ * const { handleAddColumnHandleDragEnd } = useSchemaNodeDrag();
  * ```
  */
 export function useSchemaNodeDrag(): UseSchemaNodeDragReturn {
   // 图存储
   const store = useGraphStore()
-
-  /**
-   * 处理列句柄的拖拽连接结束事件
-   *
-   * 该函数处理从 Schema 节点列输出句柄拖拽到空白区域的场景：
-   * 1. 解析句柄ID获取列ID
-   * 2. 计算新节点的放置位置
-   * 3. 显示约束类型选择菜单
-   * 4. 用户选择后创建约束节点并建立连接
-   *
-   * @param sourceNode - 源 Schema 节点
-   * @param sourceHandleId - 源句柄ID
-   * @param event - 鼠标或触摸事件
-   * @returns boolean - 是否成功处理该事件
-   */
-  const handleColumnHandleDragEnd = (
-    sourceNode: VueFlowNode,
-    sourceHandleId: string,
-    event: MouseEvent | TouchEvent
-  ): boolean => {
-    return false
-  }
 
   /**
    * 处理添加列句柄的拖拽连接结束事件
@@ -115,7 +76,6 @@ export function useSchemaNodeDrag(): UseSchemaNodeDragReturn {
   }
 
   return {
-    handleColumnHandleDragEnd,
     handleAddColumnHandleDragEnd,
   }
 }

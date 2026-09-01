@@ -83,7 +83,7 @@
   import AppIcon from '@/components/icons/AppIcon.vue'
   import { computeStringSplit } from '@/composables/nodes/transform/transformCalculations'
 
-  const props = defineProps<{
+  interface Props {
     field: InspectorTagsField
     ctx: InspectorContext
     value: unknown
@@ -91,7 +91,9 @@
     help?: string
     placeholder?: string
     readonly: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     commit: [value: unknown]

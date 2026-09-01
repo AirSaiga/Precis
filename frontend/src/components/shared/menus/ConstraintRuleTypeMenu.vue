@@ -285,11 +285,13 @@
     }))
   )
 
-  const props = defineProps<{
+  interface Props {
     visible: boolean
     position: { x: number; y: number }
     constraintTypes?: ConstraintRuleTypeOption[]
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     'select-constraint-type': [

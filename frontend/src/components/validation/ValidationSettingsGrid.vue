@@ -3,12 +3,14 @@
   import { useI18n } from 'vue-i18n'
   import type { ValidationSettings } from '@/stores/settingsStore'
 
-  defineProps<{
+  interface Props {
     settings: ValidationSettings
     saveBeforeRun: boolean
     missingStrategy: 'ask' | 'merge_then_run' | 'run_directly'
     hasOverrides: boolean
-  }>()
+  }
+
+  defineProps<Props>()
 
   const emit = defineEmits<{
     (e: 'update:settings', settings: ValidationSettings): void

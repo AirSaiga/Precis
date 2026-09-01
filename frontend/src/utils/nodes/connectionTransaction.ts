@@ -2,19 +2,20 @@
  * @file connectionTransaction.ts
  * @description 连接事务管理工具
  *
- * 提供原子性的节点数据更新事务，支持提交（commit）和回滚（rollback）。
- * 用于边连接建立过程中对节点 data 的批量修改，确保连接失败时可恢复。
+ * 提供可回滚的节点数据更新事务。用于边连接建立过程中对节点 data 的批量修改，
+ * 每次修改立即应用，但保留撤销记录，确保连接失败时可恢复。
  *
  * 核心功能：
  * - createConnectionTransaction: 创建事务实例
- * - patchNodeData: 暂存节点数据修改（不立即应用）
- * - commit: 批量应用所有暂存的修改
- * - rollback: 恢复到事务开始前的状态
+ * - patchNodeData: 立即应用节点数据修改，并在修改前记录受影响字段的旧值
+ * - commit: 接受所有已应用的修改（清空撤销记录）
+ * - rollback: 按逆序撤销本事务内的全部修改，恢复到事务开始前的状态
  *
  * 架构设计：
- * - 快照模式：事务开始时记录所有节点的 data 快照
- * - 批量更新：commit 时一次性应用所有 patch
- * - 原子性：要么全部成功，要么全部回滚
+ * - 立即应用 + 撤销栈模式：patchNodeData 直接调用 updateNodeData（画布统一入口），
+ *   并为每个 patch 捕获字段级旧值快照
+ * - 逆序回滚：rollback 按压栈的相反顺序执行撤销，保证恢复正确
+ * - 语义：commit 后修改不可再回滚；未 commit 前可随时 rollback
  */
 
 import type { CustomNode, CustomNodeData } from '@/types/graph'

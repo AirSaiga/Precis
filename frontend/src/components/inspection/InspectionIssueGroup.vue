@@ -58,13 +58,15 @@
     issues: InspectionIssue[]
   }
 
-  const props = defineProps<{
+  interface Props {
     group: IssueGroup
     ignoredIds: Set<string>
     fixingIds: Set<string>
     /** 是否默认展开（severity=blocker 时为 true） */
     defaultExpanded?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     dismiss: [issueId: string]

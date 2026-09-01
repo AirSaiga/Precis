@@ -224,14 +224,16 @@
   import '@/components/nodes/json/JsonSchemaNode.styles.css'
 
   // ==================== Props 定义 ====================
-  const props = defineProps<{
+  interface Props {
     /** 节点的唯一标识符 */
     id: string
     /** 节点的业务数据 */
     data: JsonSchemaNodeData
     /** 节点是否被选中 */
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   // ==================== Emits 定义 ====================
   import type { ConstraintCreateData } from '@/composables/nodes/json/useJsonSchemaInteractions'

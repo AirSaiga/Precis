@@ -193,7 +193,7 @@ export function useNodeSaving(options: NodeSavingOptions) {
   }
 
   /**
-   * 处理保存完成事件
+   * 处理保存完成事件（内部实现，经 handleSaveCompleteDOM 对外暴露）
    */
   const handleSaveComplete = (data: { nodeId: string; success: boolean; error?: unknown }) => {
     if (data.nodeId === nodeId) {
@@ -426,7 +426,6 @@ export function useNodeSaving(options: NodeSavingOptions) {
 
     // 保存方法
     handleSave,
-    handleSaveComplete,
     handleSaveCompleteDOM,
 
     // 关闭方法

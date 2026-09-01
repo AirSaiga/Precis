@@ -63,7 +63,7 @@ function isSchemaType(type: string | undefined): boolean {
 }
 
 function shouldSkipEdge(edge: Edge): boolean {
-  const data = (edge as unknown as { data?: Record<string, unknown> }).data
+  const data = edge.data as Record<string, unknown> | undefined
   if (!data) return false
   if (data.transient === true) return true
   if (data.kind && SKIP_EDGE_KINDS.has(data.kind as string)) return true
@@ -100,8 +100,8 @@ export function createConnectionStateSyncModule(ctx: ConnectionStateSyncContext)
     const targetNode = nodes.value.find((n) => n.id === targetId)
     if (!sourceNode || !targetNode) return
 
-    const sourceData = sourceNode.data as unknown as Record<string, unknown>
-    const targetData = targetNode.data as unknown as Record<string, unknown>
+    const sourceData = (sourceNode.data || {}) as Record<string, unknown>
+    const targetData = (targetNode.data || {}) as Record<string, unknown>
 
     // 更新 source.children
     if (isChildrenCapableType(sourceNode.type)) {
@@ -118,7 +118,7 @@ export function createConnectionStateSyncModule(ctx: ConnectionStateSyncContext)
         // 旧 parent 是 children-capable 类型时，从其 children 移除 target
         const oldParent = nodes.value.find((n) => n.id === oldParentId)
         if (oldParent && isChildrenCapableType(oldParent.type)) {
-          const oldParentData = oldParent.data as unknown as Record<string, unknown>
+          const oldParentData = (oldParent.data || {}) as Record<string, unknown>
           const oldChildren = (oldParentData.children as string[]) || []
           if (oldChildren.includes(targetId)) {
             const newOldChildren = oldChildren.filter((id) => id !== targetId)
@@ -184,7 +184,7 @@ export function createConnectionStateSyncModule(ctx: ConnectionStateSyncContext)
     const targetNode = nodes.value.find((n) => n.id === edge.target)
     if (!sourceNode || !targetNode) return
 
-    const sourceData = sourceNode.data as unknown as Record<string, unknown>
+    const sourceData = (sourceNode.data || {}) as Record<string, unknown>
 
     // 清理 source.children
     if (isChildrenCapableType(sourceNode.type)) {
@@ -199,7 +199,7 @@ export function createConnectionStateSyncModule(ctx: ConnectionStateSyncContext)
 
     // 清理 target.parent
     if (isParentCapableType(targetNode.type)) {
-      const targetData = targetNode.data as unknown as Record<string, unknown>
+      const targetData = (targetNode.data || {}) as Record<string, unknown>
       if (targetData.parent === edge.source) {
         updateNodeData(edge.target, { parent: undefined } as Partial<CustomNodeData>)
       }
@@ -235,7 +235,7 @@ export function createConnectionStateSyncModule(ctx: ConnectionStateSyncContext)
 
     // 阶段 1：清除所有节点的关系状态字段（仅对需要清除的字段生成补丁）
     for (const node of nodes.value) {
-      const data = node.data as unknown as Record<string, unknown>
+      const data = (node.data || {}) as Record<string, unknown>
       const clearPatch: Record<string, unknown> = {}
       let needsClear = false
 

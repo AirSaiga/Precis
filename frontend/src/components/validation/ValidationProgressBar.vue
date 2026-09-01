@@ -1,9 +1,11 @@
 <script setup lang="ts">
-  defineProps<{
+  interface Props {
     progress: number
     currentTable?: string
     errorsFound: number
-  }>()
+  }
+
+  defineProps<Props>()
 </script>
 
 <template>

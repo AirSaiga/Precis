@@ -307,11 +307,13 @@ Schema 节点 */
    * @property data - 节点数据（SourcePreviewNodeData 类型）
    * @property selected - 节点是否被选中（可选）
    */
-  const props = defineProps<{
+  interface Props {
     id: string
     data: SourcePreviewNodeData
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   /**
    * 定义组件事件

@@ -24,14 +24,16 @@
   import type { InspectorContext } from '../utils'
   import type { InspectorNumberField } from '../types'
 
-  const props = defineProps<{
+  interface Props {
     field: InspectorNumberField
     ctx: InspectorContext
     value: unknown
     label: string
     help?: string
     readonly: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     commit: [value: number | undefined]

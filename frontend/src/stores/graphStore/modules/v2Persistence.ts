@@ -23,7 +23,6 @@ import { createV2LoadOps } from './v2/persistence/load'
  * @param {Ref<Edge[]>} params.edges - 画布边列表的响应式引用
  * @param {Ref<string | null>} params.selectedNodeId - 当前被选中的节点 ID
  * @param {Ref<string>} params.projectName - 项目名称
- * @param {Ref<string>} params.projectPath - 项目路径
  * @param {Ref<boolean>} params.isProjectLoaded - 项目是否已加载
  * @param {Ref<Object>} params.projectConfigStats - 项目配置统计信息（schema/constraint/regex 数量等）
  * @param {Ref<boolean>} params.projectConfigStatsLoaded - 配置统计是否已加载

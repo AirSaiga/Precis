@@ -8,9 +8,11 @@
     status: 'pending' | 'running' | 'success' | 'error' | 'attention' | 'skipped'
   }
 
-  defineProps<{
+  interface Props {
     stages: StageItem[]
-  }>()
+  }
+
+  defineProps<Props>()
 
   const { t } = useI18n()
 

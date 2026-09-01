@@ -13,11 +13,14 @@
     - canceling: boolean
     - provider: CloudAIProviderResponse | null
     - checkedFiles: Set<string>  数据文件
-    - projectName: string
+    - sources: AiMigrateV2ConfigSource[]  已选脚本来源列表
 
   Emits:
     - start-migration: (sources: AiMigrateV2ConfigSource[]) => void
     - cancel-migration: () => void
+    - pick-script-files: () => void
+    - pick-script-folder: () => void
+    - update:sources: (sources: AiMigrateV2ConfigSource[]) => void
 -->
 <template>
   <div class="migrate-panel">

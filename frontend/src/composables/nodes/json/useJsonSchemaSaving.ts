@@ -377,7 +377,6 @@ export function useJsonSchemaSaving(
 
     // 保存方法
     handleSave: nodeSaving.handleSave,
-    handleSaveComplete: nodeSaving.handleSaveComplete,
     handleSaveCompleteDOM: nodeSaving.handleSaveCompleteDOM,
     markDirty,
     markClean,

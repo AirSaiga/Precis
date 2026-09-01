@@ -130,11 +130,13 @@
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
   import { useToast } from '@/composables/shared/useToast'
-  const props = defineProps<{
+  interface Props {
     id: string
     data: CharsetConstraintNodeData
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   defineEmits<{
     (e: 'schemaConnected', payload: { nodeId: string; columnId?: string }): void

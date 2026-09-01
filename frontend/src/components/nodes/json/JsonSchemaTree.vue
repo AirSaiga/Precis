@@ -101,7 +101,7 @@
   import JsonSchemaNodeColumnMenuDropdown from './components/JsonSchemaNodeColumnMenuDropdown.vue'
   import '@/components/nodes/json/JsonSchemaTree.styles.css'
 
-  const props = defineProps<{
+  interface Props {
     columns: JsonSchemaColumn[]
     /**
      * 父节点传入的滚动容器 ref（columnsSectionRef）。
@@ -109,7 +109,9 @@
      * 类型用 unknown 避免与 Vue 的 ref 函数签名产生协变冲突；运行时只是赋值给 DOM。
      */
     scrollRef?: unknown
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     update: [columns: JsonSchemaColumn[]]

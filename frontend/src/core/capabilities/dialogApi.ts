@@ -227,7 +227,9 @@ class WebDialogAdapter implements DialogApi {
   private filterFilesByExtension(files: File[], extensions?: string[]): File[] {
     if (!extensions || extensions.length === 0) return files
     return files.filter((file) => {
-      const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase()
+      // 无扩展名的文件（lastIndexOf 返回 -1）一律不匹配，避免 slice(-1) 误取末字符
+      const dotIndex = file.name.lastIndexOf('.')
+      const ext = dotIndex >= 0 ? file.name.slice(dotIndex).toLowerCase() : ''
       return extensions.some((e) => e.toLowerCase() === ext)
     })
   }

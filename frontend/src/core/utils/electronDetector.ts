@@ -52,7 +52,8 @@ export function getElectronAPI(): ElectronAPI {
  * 【使用场景】
  * - 根据运行环境选择不同的文件处理策略
  * - 条件渲染需要 Electron 特有的 UI 组件
- * - 在 Precis 中应始终返回 true
+ * - Precis 同时支持桌面版与 Web 模式：浏览器（Web）环境下返回 false，
+ *   只有 Electron 桌面环境返回 true
  *
  * @returns true 表示在 Electron 桌面环境中，false 表示在普通浏览器中
  */
@@ -222,7 +223,8 @@ export async function openFile(filePath: string): Promise<{ success: boolean; er
  *
  * 【返回值数据流】
  * - pythonReady: 表示 Python 服务是否已启动完成
- * - port: Python 服务监听的端口号（默认 8000）
+ * - port: Python 服务监听的端口号（由 OS 动态分配，后端以 --port 0 启动，
+ *   实际端口经主进程 IPC 获取）
  *
  * 【使用场景】
  * - 前端初始化时确认后端服务是否就绪

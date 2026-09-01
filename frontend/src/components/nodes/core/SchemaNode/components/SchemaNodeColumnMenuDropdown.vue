@@ -156,7 +156,7 @@
   /**
    * 组件属性
    */
-  const props = defineProps<{
+  interface Props {
     show: boolean
     menuType: MenuType
     position: { top: number; left: number }
@@ -164,7 +164,9 @@
     constraints?: ColumnConstraints
     currentType?: DataType
     typeOptions?: TypeOption[]
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   /**
    * 组件事件

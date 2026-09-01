@@ -32,7 +32,7 @@
   const { t } = useI18n()
   const resourceTreeStore = useResourceTreeStore()
 
-  defineProps<{
+  interface Props {
     field: InspectorStatCardField
     ctx: InspectorContext
     value: unknown
@@ -40,7 +40,9 @@
     help?: string
     placeholder?: string
     readonly: boolean
-  }>()
+  }
+
+  defineProps<Props>()
 
   const statValues = computed(() => ({
     schemaCount: resourceTreeStore.schemas.length,

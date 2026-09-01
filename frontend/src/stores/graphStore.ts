@@ -7,16 +7,16 @@
  *
  * 架构设计：
  * - 采用 Pinia Setup Store 模式
- * - 具体实现已拆分至 ./graphStore/setup.ts，通过 setupGraphStore() 注入
+ * - 具体实现已拆分至 ./graphStore/setup/ 目录，入口为 setupGraphStore()（见 setup/assembly.ts）
  * - 子模块工厂函数（createXxxModule）在 setup 中实例化
  *
  * 输入示例：
  *   const graphStore = useGraphStore()
- *   graphStore.loadProject('/path/to/project.precis.yaml')
+ *   graphStore.loadProjectFromV2()
  *
  * 输出示例：
- *   graphStore.nodes.value  // CustomNode[] — 当前画布所有节点
- *   graphStore.saveState.value // 'saved' | 'unsaved' | 'error'
+ *   graphStore.nodes  // CustomNode[] — 当前画布所有节点
+ *   graphStore.saveState() // 保存当前画布快照到撤销栈（见 modules/history.ts）
  */
 
 import { defineStore } from 'pinia'

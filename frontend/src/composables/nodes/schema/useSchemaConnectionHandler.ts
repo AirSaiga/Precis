@@ -77,13 +77,15 @@ async function tryLoadExistingSchemaConfig(params: {
   store.updateNodeData(schemaNodeId, {
     columns: cols,
     saveState: 'saved',
-  } as unknown as Record<string, unknown>)
+  })
 
   if (schemaNodeId !== tableId) {
     // 语义化 ID 方案：绑定后发现节点 ID 与文件 ID 不一致，
     // 说明是旧项目/旧数据，用 tableId 作为新节点 ID 保持一致性
     store.updateNodeData(schemaNodeId, {
       configName: tableId,
+      // 'modified' 是越界的运行时值（SchemaSaveState 仅含 draft/saved/error），
+      // 原实现即依赖断言写入；如实保留双断言，待 saveState 语义收敛后再清理
       saveState: 'modified',
     } as unknown as Record<string, unknown>)
     logger.warn(
@@ -136,7 +138,7 @@ async function tryLoadExistingSchemaConfig(params: {
     }> = []
 
     materializeV2EmbeddedConstraints({
-      schemaNode: schemaNode as unknown as import('@/types/graph').CustomNode,
+      schemaNode,
       schemaTableName: schemaData.tableName,
       embeddedConstraints: embedded as Parameters<
         typeof materializeV2EmbeddedConstraints
@@ -412,12 +414,19 @@ export function useSchemaConnectionHandler() {
     source: { id: string; data: Record<string, unknown> } | Record<string, unknown>,
     schema?: { id: string; data: Record<string, unknown> } | Record<string, unknown>
   ) => {
-    // 兼容性处理：支持旧格式（完整节点对象）
-    const sourceData = ('data' in source ? source.data : source) as Record<string, unknown>
-    const schemaData = (schema && 'data' in schema ? schema.data : schema) as Record<
-      string,
-      unknown
-    >
+    if (!schema) {
+      // 原实现在缺失 schema 时会于后续取 tableName 处抛 TypeError，此处显式失败
+      throw new Error('[showSmartFillDialog] schema node is required')
+    }
+    // 兼容性处理：支持旧格式（直接传 data 对象），统一规整为节点视图
+    const sourceNode =
+      'data' in source ? (source as { id: string; data: unknown }) : { id: '', data: source }
+    const schemaNode =
+      'data' in schema ? (schema as { id: string; data: unknown }) : { id: '', data: schema }
+
+    // 从节点数据中提取显示名称，用于对话框展示
+    const sourceData = (sourceNode.data ?? {}) as Record<string, unknown>
+    const schemaData = (schemaNode.data ?? {}) as Record<string, unknown>
 
     // 从节点数据中提取显示名称，用于对话框展示
     const sourceName =
@@ -459,10 +468,7 @@ export function useSchemaConnectionHandler() {
       logger.debug('🎯 [showSmartFillDialog] 用户选择:', userConfirmed ? '✅ 确认生成' : '❌ 取消')
 
       if (userConfirmed) {
-        generateColumnsFromDataSource(
-          source as unknown as { id: string; data: Record<string, unknown> },
-          schema as unknown as { id: string; data: Record<string, unknown> }
-        )
+        generateColumnsFromDataSource(sourceNode, schemaNode)
       }
     } else if (comparison.needsAction) {
       // ── Case B: 列不匹配 → 弹"修正"对话框（三按钮） ──
@@ -517,10 +523,7 @@ export function useSchemaConnectionHandler() {
       )
 
       if (result === true) {
-        generateColumnsFromDataSource(
-          source as unknown as { id: string; data: Record<string, unknown> },
-          schema as unknown as { id: string; data: Record<string, unknown> }
-        )
+        generateColumnsFromDataSource(sourceNode, schemaNode)
       }
     } else {
       // ── Case C: 列完全匹配 → 静默跳过 ──
@@ -541,21 +544,19 @@ export function useSchemaConnectionHandler() {
    * @param schemaNode - Schema 节点
    */
   const generateColumnsFromDataSource = (
-    sourcePreviewNode: { id: string; data: Record<string, unknown> },
-    schemaNode: { id: string; data: Record<string, unknown> }
+    sourcePreviewNode: { id: string; data: unknown },
+    schemaNode: { id: string; data: unknown }
   ) => {
+    const schemaData = (schemaNode.data ?? {}) as Record<string, unknown>
     try {
       // 记录开始生成列定义的日志
       logger.debug('🎯 [generateColumnsFromDataSource] 开始生成列定义！')
       logger.debug('  - sourceNodeId:', sourcePreviewNode.id)
       logger.debug('  - schemaNodeId:', schemaNode.id)
-      logger.debug(
-        '  - 生成前列定义数量:',
-        ((schemaNode.data as Record<string, unknown>)?.columns as unknown[])?.length || 0
-      )
+      logger.debug('  - 生成前列定义数量:', (schemaData.columns as unknown[])?.length || 0)
 
       // 从源节点提取数据
-      const sourceData = sourcePreviewNode.data
+      const sourceData = (sourcePreviewNode.data ?? {}) as Record<string, unknown>
       const tableData = sourceData.data as unknown[][]
 
       // 检查数据是否存在
@@ -569,8 +570,7 @@ export function useSchemaConnectionHandler() {
 
       // ========== 准备阶段：保存旧状态 ==========
       // 保存原有列数据和约束连接
-      const originalColumns =
-        ((schemaNode.data as Record<string, unknown>).columns as unknown[]) || []
+      const originalColumns = (schemaData.columns as unknown[]) || []
 
       // 获取表头行数据
       const headerRowIndex = (sourceData.headerRow as number) ?? 0
@@ -608,7 +608,7 @@ export function useSchemaConnectionHandler() {
       // ========== 应用阶段：更新 Store ==========
       // 更新 Schema 节点的列数据
       const updatedSchemaData = {
-        ...schemaNode.data,
+        ...schemaData,
         columns: columns,
       }
 

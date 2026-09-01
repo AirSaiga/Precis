@@ -163,29 +163,6 @@ export interface ValidationResponse {
 }
 
 // ========================================
-// 非空约束校验函数
-// ========================================
-
-/**
- * 执行非空约束校验
- *
- * 检查指定列中是否存在空值（null、空字符串等）
- *
- * @param request - 校验请求参数，包含目标列和源文件信息
- * @returns Promise<ValidationResponse> - 校验结果响应
- *
- * @example
- * ```typescript
- * const result = await validateNotNull({
- *   validation_type: 'not_null',
- *   target_column_name: 'email',
- *   source_file_path: '/path/to/data.xlsx',
- *   sheet_name: 'Sheet1'
- * });
- * ```
- */
-
-// ========================================
 // 唯一性约束校验函数
 // ========================================
 
@@ -343,22 +320,3 @@ export interface CharsetValidationRequest extends ValidationRequestBase {
 // ========================================
 // 其他校验类型的执行函数
 // ========================================
-
-/**
- * 执行允许值约束校验
- *
- * 检查列中的每个值是否都在预定义的允许值列表中
- *
- * @param request - 包含允许值配置的校验请求
- * @returns Promise<ValidationResponse> - 校验结果
- *
- * @example
- * ```typescript
- * const result = await validateAllowedValues({
- *   validation_type: 'allowed_values',
- *   target_column_name: 'status',
- *   source_file_path: 'data.xlsx',
- *   validation_config: { allowed_values: ['active', 'inactive', 'pending'] }
- * });
- * ```
- */

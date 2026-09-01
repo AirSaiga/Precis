@@ -105,13 +105,6 @@
   })
 
   /**
-   * 获取类型对应的CSS类
-   *
-   * @param type - 工具箱类型：atomic 或 patterns
-   * @returns 对应的CSS类名
-   */
-
-  /**
    * 获取类型对应的显示文本
    *
    * @param type - 工具箱类型：atomic 或 patterns

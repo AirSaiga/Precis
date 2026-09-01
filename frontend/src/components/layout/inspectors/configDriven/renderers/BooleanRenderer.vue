@@ -23,14 +23,16 @@
   import type { InspectorContext } from '../utils'
   import type { InspectorBooleanField } from '../types'
 
-  const props = defineProps<{
+  interface Props {
     field: InspectorBooleanField
     ctx: InspectorContext
     value: unknown
     label: string
     help?: string
     readonly: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     commit: [value: boolean]

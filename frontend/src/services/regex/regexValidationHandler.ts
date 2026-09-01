@@ -19,11 +19,15 @@ import type {
   CustomNode,
   SchemaNodeData,
   SourcePreviewNodeData,
+  JsonSourcePreviewNodeData,
+  JsonSchemaNodeData,
+  TransformOutputNodeData,
+  ManualDataNodeData,
   SchemaColumn,
-  JsonSchemaColumn,
 } from '@/types/graph'
 import type { DataType } from '@/types/common'
 import { validateAndExtractRegex } from '@/features/regex/services/regexExtractService'
+import type { RegexValidateExtractData } from '@/features/regex/services/regexExtractService'
 import {
   coerceExtractedValue,
   outputParamTypeToDataType,
@@ -48,8 +52,7 @@ function extractRegexValuesFromJsonSource(
   columnName: string
 ): string[] {
   if (schemaNode.type === 'jsonSchema') {
-    const columns = ((schemaNode.data as unknown as Record<string, unknown>).columns ||
-      []) as JsonSchemaColumn[]
+    const columns = ((schemaNode.data || {}) as JsonSchemaNodeData).columns || []
     const found = findJsonSchemaColumnById(columns, columnId)
     if (found?.column.jsonPath) {
       return extractJsonValuesByPath(rawData, {
@@ -82,7 +85,7 @@ export async function validateRegexNode(params: {
 }): Promise<RegexValidationResult | null> {
   const { regexNode, sourceNode, columnName, columnId, nodes, edges, updateNodeData, signal } =
     params
-  const regexData = regexNode.data as unknown as Record<string, unknown>
+  const regexData = (regexNode.data || {}) as Record<string, unknown>
 
   if (sourceNode.type === 'transformOutput' || sourceNode.type === 'manualData') {
     return validateRegexFromRows({
@@ -156,8 +159,8 @@ export async function validateRegexNode(params: {
   // - jsonSourcePreview：对象数组（rawData），优先按 jsonPath 提取，否则按 columnName 取顶层字段
   let values: string[] = []
   if (sourcePreviewNode.type === 'jsonSourcePreview') {
-    const jsonSourceData = sourcePreviewNode.data as unknown as Record<string, unknown>
-    const rawData = (jsonSourceData.rawData as unknown[]) || []
+    const jsonSourceData = sourcePreviewNode.data as JsonSourcePreviewNodeData
+    const rawData = jsonSourceData.rawData || []
     values = extractRegexValuesFromJsonSource(
       rawData,
       schemaNode,
@@ -166,17 +169,13 @@ export async function validateRegexNode(params: {
     )
   } else {
     const sourceData = sourcePreviewNode.data as SourcePreviewNodeData
-    const tableData: unknown[][] = Array.isArray(
-      (sourceData as unknown as Record<string, unknown>).data
-    )
-      ? ((sourceData as unknown as Record<string, unknown>).data as unknown[][])
-      : []
+    const tableData: unknown[][] = Array.isArray(sourceData.data) ? sourceData.data : []
 
     const headerRowIndex =
       typeof schemaData.headerRow === 'number'
         ? schemaData.headerRow
-        : typeof (sourceData as unknown as Record<string, unknown>).headerRow === 'number'
-          ? ((sourceData as unknown as Record<string, unknown>).headerRow as number)
+        : typeof sourceData.headerRow === 'number'
+          ? sourceData.headerRow
           : 0
 
     const headerRow = (tableData[headerRowIndex] || []).map((v) => String(v ?? '').trim())
@@ -219,10 +218,7 @@ export async function validateRegexNode(params: {
   }
 
   try {
-    const data = (await validateAndExtractRegex(request, signal)) as unknown as Record<
-      string,
-      unknown
-    >
+    const data = await validateAndExtractRegex(request, signal)
     const status: 'pass' | 'error' = data.error_count === 0 ? 'pass' : 'error'
     updateNodeData(regexNode.id, {
       ...regexData,
@@ -301,7 +297,7 @@ export async function validateRegexNodesForSchema(params: {
     const regexNode = nodes.find((n) => n.id === edge.target)
     if (!regexNode) continue
 
-    const regexData = regexNode.data as unknown as Record<string, unknown>
+    const regexData = (regexNode.data || {}) as Record<string, unknown>
     // extract 模式的正则节点会产生派生列写回副作用，
     // 仅在用户显式点击校验时触发，全局/自动化校验跳过。
     if (regexNode.type === 'regexExtract' || regexData.matchMode === 'extract') continue
@@ -375,7 +371,7 @@ async function validateRegexFromRows(params: {
   signal?: AbortSignal
 }): Promise<RegexValidationResult | null> {
   const { regexNode, sourceNode, columnId, edges, updateNodeData, signal } = params
-  const regexData = regexNode.data as unknown as Record<string, unknown>
+  const regexData = (regexNode.data || {}) as Record<string, unknown>
 
   if (!String(regexData.pattern || '').trim()) {
     updateNodeData(regexNode.id, {
@@ -390,11 +386,9 @@ async function validateRegexFromRows(params: {
     return buildResult('idle', undefined, undefined, undefined, undefined, columnId)
   }
 
-  const sourceData = sourceNode.data as unknown as Record<string, unknown>
-  const values = Array.isArray((sourceData as Record<string, unknown>).rows)
-    ? ((sourceData as Record<string, unknown>).rows as unknown[]).map((r) =>
-        String((r as unknown[])?.[0] ?? '')
-      )
+  const sourceData = sourceNode.data as TransformOutputNodeData | ManualDataNodeData
+  const values = Array.isArray(sourceData.rows)
+    ? sourceData.rows.map((r) => String(r[0] ?? ''))
     : []
 
   const isExtractNode = regexNode.type === 'regexExtract'
@@ -413,10 +407,7 @@ async function validateRegexFromRows(params: {
   }
 
   try {
-    const data = (await validateAndExtractRegex(request, signal)) as unknown as Record<
-      string,
-      unknown
-    >
+    const data = await validateAndExtractRegex(request, signal)
     const status: 'pass' | 'error' = data.error_count === 0 ? 'pass' : 'error'
     updateNodeData(regexNode.id, {
       ...regexData,
@@ -514,7 +505,7 @@ async function tryUpdateExtractDerivedColumns(params: {
     updateNodeData,
     signal,
   } = params
-  const regexData = regexNode.data as unknown as Record<string, unknown>
+  const regexData = (regexNode.data || {}) as Record<string, unknown>
   const schemaData = schemaNode.data as SchemaNodeData
 
   if (regexNode.type !== 'regexExtract' && regexData.matchMode !== 'extract') return null
@@ -533,8 +524,8 @@ async function tryUpdateExtractDerivedColumns(params: {
   // - jsonSourcePreview：对象数组（rawData），优先按 jsonPath 提取，否则按 columnName 取顶层字段
   let values: string[] = []
   if (sourcePreviewNode.type === 'jsonSourcePreview') {
-    const jsonSourceData = sourcePreviewNode.data as unknown as Record<string, unknown>
-    const rawData = (jsonSourceData.rawData as unknown[]) || []
+    const jsonSourceData = sourcePreviewNode.data as JsonSourcePreviewNodeData
+    const rawData = jsonSourceData.rawData || []
     values = extractRegexValuesFromJsonSource(
       rawData,
       schemaNode,
@@ -543,17 +534,13 @@ async function tryUpdateExtractDerivedColumns(params: {
     )
   } else {
     const sourceData = sourcePreviewNode.data as SourcePreviewNodeData
-    const tableData: unknown[][] = Array.isArray(
-      (sourceData as unknown as Record<string, unknown>).data
-    )
-      ? ((sourceData as unknown as Record<string, unknown>).data as unknown[][])
-      : []
+    const tableData: unknown[][] = Array.isArray(sourceData.data) ? sourceData.data : []
 
     const headerRowIndex =
       typeof schemaData.headerRow === 'number'
         ? schemaData.headerRow
-        : typeof (sourceData as unknown as Record<string, unknown>).headerRow === 'number'
-          ? ((sourceData as unknown as Record<string, unknown>).headerRow as number)
+        : typeof sourceData.headerRow === 'number'
+          ? sourceData.headerRow
           : 0
 
     const headerRow = (tableData[headerRowIndex] || []).map((v) => String(v ?? '').trim())
@@ -589,9 +576,9 @@ async function tryUpdateExtractDerivedColumns(params: {
     return buildResult('idle', undefined, undefined, undefined, undefined, columnId)
   }
 
-  let data: Record<string, unknown>
+  let data: RegexValidateExtractData
   try {
-    data = (await validateAndExtractRegex(request, signal)) as unknown as Record<string, unknown>
+    data = await validateAndExtractRegex(request, signal)
   } catch (err: unknown) {
     if (err instanceof Error && (err.name === 'AbortError' || err.message.includes('aborted'))) {
       return null
@@ -620,13 +607,10 @@ async function tryUpdateExtractDerivedColumns(params: {
   })
   updateRegexConnectionEdgesForNode(regexNode.id, edges, validationStatus)
 
-  const groupNames: string[] = Array.isArray(data.group_names) ? (data.group_names as string[]) : []
-  const extractedColumns: Record<string, string[]> =
-    (data.extracted_columns as Record<string, string[]> | undefined) || {}
+  const groupNames: string[] = Array.isArray(data.group_names) ? data.group_names : []
+  const extractedColumns: Record<string, string[]> = data.extracted_columns || {}
 
-  const outputMapping = (regexData.rules as unknown[] | undefined)?.[0] as unknown as
-    | Record<string, unknown>
-    | undefined
+  const outputMapping = (regexData.rules as Array<Record<string, unknown>> | undefined)?.[0]
   const outputEntries = Object.entries(
     (outputMapping?.output as Record<string, unknown>) || {}
   ).filter(([k]) => String(k ?? '').trim() !== '')
@@ -669,20 +653,14 @@ async function tryUpdateExtractDerivedColumns(params: {
   const headerRowIndex =
     typeof schemaData.headerRow === 'number'
       ? schemaData.headerRow
-      : typeof (sourceData as unknown as Record<string, unknown>).headerRow === 'number'
-        ? ((sourceData as unknown as Record<string, unknown>).headerRow as number)
+      : typeof sourceData.headerRow === 'number'
+        ? sourceData.headerRow
         : 0
   const dataStartIndex = headerRowIndex + 1
 
-  const { data: cleanedSourceData } = removeDerivedColumns(
-    sourceData as unknown as Record<string, unknown>,
-    regexNode.id,
-    headerRowIndex
-  )
-  const cleanedMatrix: unknown[][] = Array.isArray(
-    (cleanedSourceData as unknown as Record<string, unknown>).data
-  )
-    ? ((cleanedSourceData as unknown as Record<string, unknown>).data as unknown[][])
+  const { data: cleanedSourceData } = removeDerivedColumns(sourceData, regexNode.id, headerRowIndex)
+  const cleanedMatrix: unknown[][] = Array.isArray(cleanedSourceData.data)
+    ? cleanedSourceData.data
     : []
   const cleanedHeader = (cleanedMatrix[headerRowIndex] || []).map((v) => String(v ?? '').trim())
   const existingNames = new Set(cleanedHeader)
@@ -739,15 +717,14 @@ async function tryUpdateExtractDerivedColumns(params: {
   })
 
   const nextSourceData: Record<string, unknown> = {
-    ...(cleanedSourceData as unknown as Record<string, unknown>),
+    ...cleanedSourceData,
     data: nextMatrix,
     actualColCount: (nextMatrix[headerRowIndex] || []).length,
     colCount: (nextMatrix[headerRowIndex] || []).length,
     totalCols: (nextMatrix[headerRowIndex] || []).length,
     previewColCount: (nextMatrix[headerRowIndex] || []).length,
     derivedColumnsByRegex: {
-      ...(((cleanedSourceData as unknown as Record<string, unknown>)
-        .derivedColumnsByRegex as Record<string, unknown>) || {}),
+      ...(cleanedSourceData.derivedColumnsByRegex || {}),
       [regexNode.id]: { columnNames: newColumnNames, groupNames: derivedSourceKeys },
     },
   }
@@ -755,17 +732,14 @@ async function tryUpdateExtractDerivedColumns(params: {
   updateNodeData(sourcePreviewNode.id, nextSourceData)
 
   const keptColumns = (schemaData.columns || []).filter(
-    (c) =>
-      !String((c as unknown as Record<string, unknown>).id || '').startsWith(
-        `extract-${regexNode.id}-`
-      )
+    (c) => !String(c.id || '').startsWith(`extract-${regexNode.id}-`)
   )
-  const existingSchemaColumnNames = new Set(
-    keptColumns.map((c) => (c as unknown as Record<string, unknown>).columnName as string)
-  )
+  const existingSchemaColumnNames = new Set(keptColumns.map((c) => c.columnName))
 
   const updatedColumns = keptColumns.map((col) => {
-    const { extracted_keys, ...rest } = col as unknown as Record<string, unknown>
+    // 剥离 YAML round-trip 残留的 extracted_keys 顶层键（提取信息已迁移到 extractedConfig）
+    const rest: SchemaColumn = { ...col }
+    delete (rest as { extracted_keys?: unknown }).extracted_keys
     return rest
   })
 
@@ -782,17 +756,17 @@ async function tryUpdateExtractDerivedColumns(params: {
       dataType: derivedColumnDataTypes[i] || 'String',
       extractedConfig: {
         sourceColumn: columnName,
-        extractKey: sourceKey,
+        extractKey: sourceKey ?? '',
         resultType: derivedColumnDataTypes[i] || 'String',
       },
       constraints: {},
       validationErrors: [],
-    } as Record<string, unknown>)
+    })
   }
 
   updateNodeData(schemaNode.id, {
     ...schemaData,
-    columns: appendedColumns as unknown as SchemaColumn[],
+    columns: appendedColumns,
     saveState: 'draft',
     updatedAt: new Date().toISOString(),
   })

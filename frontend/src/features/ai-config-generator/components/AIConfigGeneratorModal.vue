@@ -393,7 +393,7 @@
 
   // ==================== 注册重置钩子到 Store ====================
   /**
-   * 重置所有 composable 状态（在 store.open() 时被调用）
+   * 重置所有 composable 状态（在 store.close() 时被调用）
    */
   store.registerResetHook(() => {
     // 重置文件选择

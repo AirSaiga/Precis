@@ -88,11 +88,13 @@
   import { resolveNodeState } from '@/components/ui/nodeVariants'
   import type { UniqueConstraintNodeData } from '@/types/graph'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
-  const props = defineProps<{
+  interface Props {
     id: string
     data: UniqueConstraintNodeData
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     (e: 'data-update', data: Partial<UniqueConstraintNodeData>): void

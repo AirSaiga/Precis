@@ -37,7 +37,7 @@
 
   const { t } = useI18n()
 
-  const props = defineProps<{
+  interface Props {
     field: InspectorFieldBase
     ctx: InspectorContext
     value: unknown
@@ -45,7 +45,9 @@
     help?: string
     placeholder?: string
     readonly: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     commit: [value: unknown]
@@ -53,7 +55,7 @@
 
   // 从 ctx.data 中获取目标节点引用
   const targetRef = computed(() => {
-    const data = props.ctx.data as unknown as Record<string, unknown>
+    const data = props.ctx.data
     const config = (data?.config || {}) as Record<string, unknown>
     return (data?.targetRef as Record<string, unknown>)?.nodeId || config?.targetNodeId
   })
@@ -74,7 +76,7 @@
   // 获取目标表的列列表
   const targetColumns = computed(() => {
     if (!targetNode.value) return []
-    const nodeData = targetNode.value.data as unknown as Record<string, unknown>
+    const nodeData = (targetNode.value.data || {}) as Record<string, unknown>
     return (nodeData?.columns || []) as Array<{ id: string; columnName: string }>
   })
 
@@ -85,7 +87,7 @@
 
   // 当前选中的列ID
   const selectedColumnId = computed(() => {
-    const data = props.ctx.data as unknown as Record<string, unknown>
+    const data = props.ctx.data
     return ((data?.targetRef as Record<string, unknown>)?.columnId as string) || ''
   })
 
@@ -103,17 +105,11 @@
         __patch: {
           targetColumn: selectedColumn.columnName,
           targetRef: {
-            ...((props.ctx.data as unknown as Record<string, unknown>)?.targetRef as Record<
-              string,
-              unknown
-            >),
+            ...(props.ctx.data?.targetRef as Record<string, unknown>),
             columnId: columnId,
           },
           config: {
-            ...(((props.ctx.data as unknown as Record<string, unknown>)?.config as Record<
-              string,
-              unknown
-            >) || { ruleType: 'EXIST_IN' }),
+            ...((props.ctx.data?.config as Record<string, unknown>) || { ruleType: 'EXIST_IN' }),
             targetColumn: selectedColumn.columnName,
           },
         },

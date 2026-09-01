@@ -48,10 +48,12 @@
   import { useInspectionStore } from '@/stores/inspectionStore'
   import type { InspectionIssue } from '@/types/projectV2'
 
-  const props = defineProps<{
+  interface Props {
     visible: boolean
     allIssues: InspectionIssue[]
-  }>()
+  }
+
+  const props = defineProps<Props>()
   const emit = defineEmits<{ close: [] }>()
 
   const { t } = useI18n()

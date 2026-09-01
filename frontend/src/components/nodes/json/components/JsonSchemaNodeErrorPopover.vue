@@ -48,6 +48,7 @@
    */
 
   import { computed } from 'vue'
+  import { useI18n } from 'vue-i18n'
 
   /**
    * 格式化后的错误信息接口
@@ -65,11 +66,15 @@
   /**
    * 组件属性
    */
-  const props = defineProps<{
+  interface Props {
     show: boolean
     errors: string[]
     position: { top: string; left: string }
-  }>()
+  }
+
+  const props = defineProps<Props>()
+
+  const { t } = useI18n()
 
   /**
    * 位置样式计算
@@ -100,10 +105,14 @@
     const typeErrors = props.errors.filter((e) => e.includes('类型') || e.includes('type'))
 
     const parts: string[] = []
-    if (nullErrors.length > 0) parts.push(`${nullErrors.length} 个空值错误`)
-    if (duplicateErrors.length > 0) parts.push(`${duplicateErrors.length} 个重复值错误`)
-    if (jsonPathErrors.length > 0) parts.push(`${jsonPathErrors.length} 个JSONPath错误`)
-    if (typeErrors.length > 0) parts.push(`${typeErrors.length} 个类型错误`)
+    if (nullErrors.length > 0)
+      parts.push(t('common.errorSummary.nullCount', { count: nullErrors.length }))
+    if (duplicateErrors.length > 0)
+      parts.push(t('common.errorSummary.duplicateCount', { count: duplicateErrors.length }))
+    if (jsonPathErrors.length > 0)
+      parts.push(t('common.errorSummary.jsonPathCount', { count: jsonPathErrors.length }))
+    if (typeErrors.length > 0)
+      parts.push(t('common.errorSummary.typeCount', { count: typeErrors.length }))
 
     let summary: string
     let fullMessage: string
@@ -111,13 +120,13 @@
     if (parts.length > 0) {
       summary = parts.join(' + ')
     } else {
-      summary = `${total} 个错误`
+      summary = t('common.errorSummary.total', { count: total })
     }
 
     if (total <= MAX_ERROR_DISPLAY) {
       fullMessage = props.errors.join('\n')
     } else {
-      fullMessage = `${displayErrors.join('\n')}\n... 共 ${total} 个错误`
+      fullMessage = `${displayErrors.join('\n')}\n${t('common.errorSummary.totalSuffix', { count: total })}`
     }
 
     return { summary, fullMessage }

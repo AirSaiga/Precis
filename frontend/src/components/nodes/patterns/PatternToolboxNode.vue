@@ -43,13 +43,15 @@ List：模式条目列表（每个条目有独立输出 Handle） */
 
   const { t } = useI18n()
 
-  defineProps<{
+  interface Props {
     data: {
       scope: string
       patterns: Array<{ id: string; name: string }>
     }
     selected?: boolean
-  }>()
+  }
+
+  defineProps<Props>()
 
   const titleText = computed(() => {
     return t('customNodes.patternToolboxNode.title')

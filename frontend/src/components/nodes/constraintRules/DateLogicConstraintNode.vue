@@ -118,11 +118,13 @@
   import { useGraphStore } from '@/stores/graphStore'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
-  const props = defineProps<{
+  interface Props {
     id: string
     data: DateLogicConstraintNodeData
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   defineEmits<{
     (e: 'schemaConnected', payload: { nodeId: string; columnId?: string }): void

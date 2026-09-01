@@ -218,12 +218,12 @@ export function useRegexConnection() {
 
         // 先写入 Regex 节点的源信息，确保后续编辑弹窗可获取列上下文
         store.updateNodeData(regexNode.id, {
-          ...(regexNode.data as unknown as RegexNodeData),
+          ...(regexNode.data as RegexNodeData),
           sourceRef: { nodeId: schemaNode.id, columnId: sourceColumnId },
           saveState: 'draft',
           validationStatus: 'idle',
           lastValidationTime: new Date().toISOString(),
-        } as unknown as RegexNodeData)
+        })
 
         // =====================================================
         // 步骤 4：从数据源获取样例数据
@@ -334,7 +334,7 @@ export function useRegexConnection() {
         return
       }
 
-      const schemaData = schemaNode.data as unknown as Record<string, unknown>
+      const schemaData = (schemaNode.data || {}) as Record<string, unknown>
       const sourcePreviewNodeId = schemaData.sourceNodeId
       if (!sourcePreviewNodeId) {
         logger.warn('Schema 节点没有关联的数据源节点 ID')
@@ -373,7 +373,7 @@ export function useRegexConnection() {
     sourceColumnId = pending.sourceColumnId
 
     // 获取 Schema 节点的数据对象
-    const schemaData = schemaNode.data as unknown as Record<string, unknown>
+    const schemaData = (schemaNode.data || {}) as Record<string, unknown>
 
     // =====================================================
     // 2.1 从 Schema 节点获取数据源节点 ID
@@ -428,8 +428,8 @@ export function useRegexConnection() {
     schemaNode: CustomNode,
     sourceColumnId: string
   ) => {
-    const sourceData = sourcePreviewNode.data as unknown as Record<string, unknown>
-    const schemaData = schemaNode.data as unknown as Record<string, unknown>
+    const sourceData = (sourcePreviewNode.data || {}) as Record<string, unknown>
+    const schemaData = (schemaNode.data || {}) as Record<string, unknown>
 
     // =====================================================
     // JSON 数据源分支（jsonSourcePreview）
@@ -563,24 +563,18 @@ export function useRegexConnection() {
     ) => Promise<void>
   ) => {
     // =====================================================
-    // 步骤 2：构建更新的节点数据
+    // 步骤 2 & 3：构建更新后的节点数据并写入 store
     // =====================================================
     // 合并现有节点数据与新数据，避免丢失其他字段
-    const updatedRegexData = {
-      ...regexNode.data,
+    store.updateNodeData(regexNode.id, {
+      ...(regexNode.data as RegexNodeData),
       sourceRef: { nodeId: schemaNode.id, columnId: sourceColumn.id as string },
       saveState: 'draft',
       // 设置校验状态为"空闲"，表示尚未执行校验
-      validationStatus: 'idle' as const,
+      validationStatus: 'idle',
       // 记录最后一次操作时间
       lastValidationTime: new Date().toISOString(),
-    } as unknown as RegexNodeData
-
-    // =====================================================
-    // 步骤 3：更新节点数据到 store
-    // =====================================================
-    // 调用 store 的方法更新节点数据，确保全局状态同步
-    store.updateNodeData(regexNode.id, updatedRegexData)
+    })
 
     // =====================================================
     // 步骤 4：检查连接边是否已存在
@@ -641,7 +635,7 @@ export function useRegexConnection() {
     // 步骤 7：显示成功提示
     // =====================================================
     // 使用国际化方法获取本地化的成功消息
-    const regexName = (regexNode.data as unknown as RegexNodeData).configName || 'Regex'
+    const regexName = (regexNode.data as RegexNodeData).configName || 'Regex'
     showToastMessage(
       t('canvas.nodeCanvas.regexConnectionSuccess', {
         column: sourceColumn.columnName,

@@ -1,14 +1,16 @@
 <script setup lang="ts">
   import { useI18n } from 'vue-i18n'
 
-  defineProps<{
+  interface Props {
     filesLoaded: number
     filesTotal: number
     tablesLoaded: number
     tablesTotal: number
     errorsFound: number
     durationMs: number
-  }>()
+  }
+
+  defineProps<Props>()
 
   const { t } = useI18n()
 </script>

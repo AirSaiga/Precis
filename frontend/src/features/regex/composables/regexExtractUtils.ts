@@ -49,12 +49,14 @@ export function ensureUniqueColumnNames(
  * @param headerRowIndex - 表头行索引
  * @returns { data, removedColumnNames }
  */
-export function removeDerivedColumns(
-  currentData: Record<string, unknown>,
+export function removeDerivedColumns<T extends object>(
+  currentData: T,
   regexNodeId: string,
   headerRowIndex: number
-): { data: Record<string, unknown>; removedColumnNames: string[] } {
-  const derivedColumnsByRegex = currentData.derivedColumnsByRegex as
+): { data: T; removedColumnNames: string[] } {
+  // 通过 Record 视图访问动态字段（节点数据字段可能来自 YAML round-trip，超出静态类型）
+  const record = currentData as Record<string, unknown>
+  const derivedColumnsByRegex = record.derivedColumnsByRegex as
     | Record<string, { columnNames?: string[] }>
     | undefined
   const derivedInfo = derivedColumnsByRegex?.[regexNodeId]
@@ -63,7 +65,7 @@ export function removeDerivedColumns(
     : []
   if (columnNames.length === 0) return { data: currentData, removedColumnNames: [] }
 
-  const header = ((currentData.data as unknown[][])?.[headerRowIndex] || []).map((v) =>
+  const header = ((record.data as unknown[][])?.[headerRowIndex] || []).map((v) =>
     String(v ?? '').trim()
   )
   const indicesToRemove = columnNames
@@ -73,7 +75,7 @@ export function removeDerivedColumns(
 
   if (indicesToRemove.length === 0) return { data: currentData, removedColumnNames: [] }
 
-  const nextMatrix = ((currentData.data as unknown[][]) || []).map((row) => {
+  const nextMatrix = ((record.data as unknown[][]) || []).map((row) => {
     const nextRow = Array.isArray(row) ? [...row] : []
     for (const idx of indicesToRemove) {
       nextRow.splice(idx, 1)
@@ -81,15 +83,15 @@ export function removeDerivedColumns(
     return nextRow
   })
 
-  const next = {
+  const next: Record<string, unknown> = {
     ...currentData,
     data: nextMatrix,
-  } as Record<string, unknown>
+  }
 
   const nextDerived = { ...((next.derivedColumnsByRegex as Record<string, unknown>) || {}) }
   delete nextDerived[regexNodeId]
   next.derivedColumnsByRegex = nextDerived
-  return { data: next, removedColumnNames: columnNames }
+  return { data: next as T, removedColumnNames: columnNames }
 }
 
 /**

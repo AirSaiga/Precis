@@ -212,7 +212,7 @@
   /**
    * 组件属性
    */
-  const props = defineProps<{
+  interface Props {
     show: boolean
     menuType: MenuType
     position: { top: number; left: number }
@@ -221,7 +221,9 @@
     currentType?: string
     currentItemsType?: string
     typeOptions?: TypeOption[]
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   // ============================================================================
   // Events 定义

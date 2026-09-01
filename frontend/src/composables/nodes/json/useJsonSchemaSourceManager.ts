@@ -24,12 +24,7 @@ import { useToast } from '@/composables/shared/useToast'
 import { generateJsonColumnsFromSource } from '@/utils/nodes/json/columnGeneration'
 import { syncJsonSchemaResources } from '@/services/jsonSchemaResourceSync'
 import { useNodeSourceManager } from '../shared/useNodeSourceManager'
-import type {
-  CustomNode,
-  JsonSchemaColumn,
-  JsonSchemaNodeData,
-  JsonSourcePreviewNodeData,
-} from '@/types/nodes'
+import type { JsonSchemaColumn, JsonSchemaNodeData, JsonSourcePreviewNodeData } from '@/types/nodes'
 
 export function useJsonSchemaSourceManager(
   props: { id: string; data: JsonSchemaNodeData },
@@ -160,10 +155,10 @@ export function useJsonSchemaSourceManager(
     }
   }
 
-  const updateFromSourceChange = (sourceData: Record<string, unknown>) => {
+  const updateFromSourceChange = (sourceData: unknown) => {
     if (!sourceData) return
 
-    const previewData = sourceData as unknown as JsonSourcePreviewNodeData
+    const previewData = sourceData as JsonSourcePreviewNodeData
     if (!previewData.rawData) return
 
     const displayFileName = previewData.sourceName || previewData.fileName || 'Unknown'
@@ -199,7 +194,7 @@ export function useJsonSchemaSourceManager(
         generic.autoGenerateColumns({
           id: props.data.sourceNodeId,
           data: sourceData,
-        } as unknown as CustomNode)
+        })
       }
     }
   }
@@ -210,9 +205,8 @@ export function useJsonSchemaSourceManager(
 
   const generic = useNodeSourceManager<JsonSchemaNodeData>(props, emit, {
     sourceNodeType: 'jsonSourcePreview',
-    schemaNodePrefix: 'json-schema-',
     extractMetadata: (sourceNodeId, sourceData) => {
-      const previewData = sourceData as unknown as JsonSourcePreviewNodeData
+      const previewData = sourceData as JsonSourcePreviewNodeData
       const displayFileName = previewData.sourceName || previewData.fileName || 'Unknown'
       const smartTableName = (
         previewData.sourceName ||
@@ -242,11 +236,9 @@ export function useJsonSchemaSourceManager(
       if (!rawData || !Array.isArray(rawData) || rawData.length === 0) {
         return existingColumns
       }
-      return generateJsonColumnsFromSource(
-        rawData,
-        existingColumns as unknown as JsonSchemaColumn[],
-        { forceReinferTypes: true }
-      ) as unknown as JsonSchemaColumn[]
+      return generateJsonColumnsFromSource(rawData, existingColumns as JsonSchemaColumn[], {
+        forceReinferTypes: true,
+      })
     },
     getSourceFields: (sourceNode) => {
       const sourceData = sourceNode.data as JsonSourcePreviewNodeData
@@ -257,14 +249,6 @@ export function useJsonSchemaSourceManager(
         return undefined
       return Object.keys(firstRecord as Record<string, unknown>)
     },
-    disconnectFields: [
-      'sourceNodeId',
-      'sourceFile',
-      'sourceFilePath',
-      'sourceType',
-      'sourceMode',
-      'localPath',
-    ],
     onSourceDataChanged: (data) => updateFromSourceChange(data),
     onSourceConnected: () => {
       // 数据源连接成功后,从 V2 配置同步关联的内嵌约束节点到画布
@@ -302,12 +286,7 @@ export function useJsonSchemaSourceManager(
     showSmartFillDialog: generic.showSmartFillDialog,
     autoGenerateColumns: generic.autoGenerateColumns,
 
-    // 约束处理
-    handleConstraintConnection: generic.handleConstraintConnection,
-    disconnectConstraint: generic.disconnectConstraint,
-
     // 辅助方法
-    findConnectedSchemaNodes: generic.findConnectedSchemaNodes,
     updateFromSourceChange,
   }
 }

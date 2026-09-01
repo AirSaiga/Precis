@@ -4,8 +4,8 @@
  *
  * 功能概述:
  * - 提供 Schema / JsonSchema 节点与数据源连接的公共逻辑
- * - 支持连接建立、断开、智能填充、列不匹配检测、约束连接处理
- * - 通过选项注入差异行为（节点类型前缀、元数据提取、列生成等）
+ * - 支持连接建立、智能填充、自动列生成
+ * - 通过选项注入差异行为（元数据提取、列生成等）
  *
  * 架构设计:
  * - 各具体节点类型组合式函数调用本通用逻辑后按需扩展特有功能
@@ -15,11 +15,9 @@
  * ```ts
  * const generic = useNodeSourceManager(props, emit, {
  *   sourceNodeType: 'sourcePreview',
- *   schemaNodePrefix: 'schema-',
  *   extractMetadata: (sourceNodeId, sourceData) => ({ tableName: 'Sheet1' }),
  *   generateColumns: (sourceNode, existingColumns) => [...],
  *   getSourceFields: (sourceNode) => ['col1', 'col2'],
- *   disconnectFields: ['sourceFile', 'sourceType'],
  *   onSourceDataChanged: (data) => updateNodeFromChange(data),
  * })
  * ```
@@ -30,11 +28,6 @@
  *   handleSourceConnection,
  *   showSmartFillDialog,
  *   autoGenerateColumns,
- *   checkColumnMismatch,
- *   handleConstraintConnection,
- *   disconnectConstraint,
- *   findConnectedSchemaNodes,
- *   disconnectSource,
  * }
  * ```
  */
@@ -43,31 +36,39 @@ import { logger } from '@/core/utils/logger'
 import { eventBus } from '@/core/eventBus'
 import { onMounted, onUnmounted, toRaw } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useVueFlow } from '@vue-flow/core'
 import type { Edge } from '@vue-flow/core'
 import { useGraphStore } from '@/stores/graphStore'
 import { useGlobalConfirm } from '@/composables/useGlobalConfirm'
 import { compareColumns } from '@/utils/nodes/schema/columnValidation'
-import type { CustomNode, CustomNodeData } from '@/types/nodes'
+import type { CustomNode } from '@/types/nodes'
 import type { BaseSchemaNodeData, BaseSchemaColumn } from '@/types/nodes'
 import type { AnyRecord } from '@/types/utility'
+
+/**
+ * 智能填充 / 列生成所需的最小节点视图。
+ *
+ * 实现只需读取节点的 id 与 data；用最小结构替代 CustomNode，
+ * 使快照对象（仅含 id/data）与完整画布节点都能直接传入，无需断言。
+ */
+export interface SourceNodeView {
+  /** 节点 ID */
+  id: string
+  /** 节点数据（实现方按需做类型守卫/窄化；可选以兼容 CustomNode 的可选 data 字段） */
+  data?: unknown
+}
 
 export interface UseNodeSourceManagerOptions {
   /** 数据源节点类型（用于过滤旧连接） */
   sourceNodeType: string
-  /** 目标 schema 节点 ID 前缀（用于查找已连接节点） */
-  schemaNodePrefix: string
   /** 从 sourceData 提取元数据并返回需要更新的节点数据字段 */
-  extractMetadata: (sourceNodeId: string, sourceData: AnyRecord) => AnyRecord
+  extractMetadata: (sourceNodeId: string, sourceData: unknown) => AnyRecord
   /** 列生成函数：传入 sourceNode 和现有列，返回新生成的列数组 */
   generateColumns: (
-    sourceNode: CustomNode,
+    sourceNode: SourceNodeView,
     existingColumns: BaseSchemaColumn[]
   ) => BaseSchemaColumn[]
-  /** 获取源数据字段列表（用于列不匹配检测），无数据时返回 undefined */
-  getSourceFields: (sourceNode: CustomNode) => string[] | undefined
-  /** 断开连接时需要清除的字段名列表 */
-  disconnectFields: string[]
+  /** 获取源数据字段列表（用于智能填充列比较），无数据时返回 undefined */
+  getSourceFields: (sourceNode: SourceNodeView) => string[] | undefined
   /** 数据源变更后的自定义更新回调（可选） */
   onSourceDataChanged?: (data: AnyRecord) => void
   /** 是否在断开旧连接时重置旧源节点的 outputPortConnected */
@@ -78,8 +79,8 @@ export interface UseNodeSourceManagerOptions {
   onColumnsGenerated?: (columns: BaseSchemaColumn[]) => void
   /** 列生成失败回调（可选） */
   onColumnsGenerationFailed?: () => void
-  /** 数据源连接成功后的回调（可选） */
-  onSourceConnected?: (sourceNodeId: string) => void
+  /** 数据源连接成功后的回调（可选；可返回 Promise 供调用方兜底捕获异常） */
+  onSourceConnected?: (sourceNodeId: string) => void | Promise<unknown>
 }
 
 export function useNodeSourceManager<TNodeData extends BaseSchemaNodeData<BaseSchemaColumn>>(
@@ -89,7 +90,6 @@ export function useNodeSourceManager<TNodeData extends BaseSchemaNodeData<BaseSc
 ) {
   const { t } = useI18n()
   const { showConfirm } = useGlobalConfirm()
-  const { getConnectedEdges, findNode } = useVueFlow()
   const store = useGraphStore()
 
   // ============================================================================
@@ -108,7 +108,7 @@ export function useNodeSourceManager<TNodeData extends BaseSchemaNodeData<BaseSc
         return
       }
 
-      const sourceData = sourceNode.data as unknown as AnyRecord
+      const sourceData = (sourceNode.data || {}) as AnyRecord
 
       // 1. 查找并断开旧连接
       const existingEdges = store.edges.filter(
@@ -144,16 +144,16 @@ export function useNodeSourceManager<TNodeData extends BaseSchemaNodeData<BaseSc
       const metadata = options.extractMetadata(sourceNodeId, sourceData)
 
       // 3. 更新节点元数据
-      store.updateNodeData(props.id, { ...props.data, ...metadata } as unknown as TNodeData)
+      store.updateNodeData(props.id, { ...props.data, ...metadata })
       logger.debug(
         `✅ [handleSourceConnection] 数据源连接成功: ${metadata.sourceFile || 'Unknown'} -> ${metadata.tableName || 'Table'}`
       )
 
       // 4. 更新源节点状态
       store.updateNodeData(sourceNode.id, {
-        ...sourceData,
+        ...sourceNode.data,
         outputPortConnected: true,
-      } as unknown as Partial<CustomNodeData>)
+      })
 
       // 5. 触发智能填充对话框
       setTimeout(() => {
@@ -164,14 +164,12 @@ export function useNodeSourceManager<TNodeData extends BaseSchemaNodeData<BaseSc
           showSmartFillDialog({
             id: sourceNodeId,
             data: sourceDataSnapshot,
-          } as unknown as CustomNode)
+          })
         }
 
         // onSourceConnected 可能触发 syncSchemaResources 等异步操作，
         // 此处为 intentional fire-and-forget，内部已有 try/catch 保护
-        const result = options.onSourceConnected?.(sourceNodeId) as unknown as
-          | Promise<unknown>
-          | undefined
+        const result = options.onSourceConnected?.(sourceNodeId) as Promise<unknown> | undefined
         result?.catch?.((err: unknown) =>
           logger.error('❌ [handleSourceConnection] onSourceConnected 回调失败:', err)
         )
@@ -182,40 +180,14 @@ export function useNodeSourceManager<TNodeData extends BaseSchemaNodeData<BaseSc
   }
 
   // ============================================================================
-  // 断开连接
-  // ============================================================================
-
-  /**
-   * 断开数据源连接（通用版）
-   * 1. 移除 Schema → SourcePreview 的边（触发 watcher → handleEdgeRemoved → 注册表清理）
-   * 2. 清除 disconnectFields 中的元数据字段
-   */
-  const disconnectSource = () => {
-    // 找到并移除当前节点作为 target 的数据源连接边
-    const connectedEdges = store.edges.filter(
-      (e: Edge) => e.target === props.id && e.targetHandle === 'target-left'
-    )
-    for (const edge of connectedEdges) {
-      store.deleteConnection(edge.id)
-    }
-
-    // 清除元数据字段
-    const updates: Record<string, unknown> = {}
-    for (const field of options.disconnectFields) {
-      updates[field] = undefined
-    }
-    store.updateNodeData(props.id, { ...props.data, ...updates } as unknown as TNodeData)
-  }
-
-  // ============================================================================
   // 智能填充对话框
   // ============================================================================
 
   /**
    * 显示智能填充询问对话框（三分支决策）
    */
-  const showSmartFillDialog = async (sourceNode: CustomNode) => {
-    const sourceData = sourceNode.data as unknown as AnyRecord
+  const showSmartFillDialog = async (sourceNode: SourceNodeView) => {
+    const sourceData = (sourceNode.data || {}) as AnyRecord
     const sourceName =
       (sourceData.sourceName as string | undefined) ||
       (sourceData.fileName as string | undefined) ||
@@ -308,44 +280,6 @@ export function useNodeSourceManager<TNodeData extends BaseSchemaNodeData<BaseSc
   }
 
   // ============================================================================
-  // 列不匹配检测
-  // ============================================================================
-
-  /**
-   * 检查数据源列名与 Schema 定义是否匹配
-   */
-  const checkColumnMismatch = async (sourceNode: CustomNode) => {
-    const sourceFields = options.getSourceFields(sourceNode)
-    if (!sourceFields || sourceFields.length === 0) return
-
-    const schemaColumns = props.data.columns || []
-    if (schemaColumns.length === 0) return
-
-    const missingColumns = schemaColumns
-      .map((c: BaseSchemaColumn) => c.columnName)
-      .filter((name: string) => !sourceFields.includes(name))
-
-    if (missingColumns.length > 0) {
-      const missingCount = missingColumns.length
-      const previewMissing = missingColumns.slice(0, 5).join(', ')
-      const suffix = missingColumns.length > 5 ? '...' : ''
-
-      logger.warn(`⚠️ 列不匹配警告: 缺少 ${missingCount} 列`, missingColumns)
-
-      await showConfirm({
-        title: t('canvas.nodeCanvas.columnMismatch.title'),
-        message: t('canvas.nodeCanvas.columnMismatch.message', {
-          schemaCount: schemaColumns.length,
-          missingCount,
-          missingColumns: `${previewMissing}${suffix}`,
-        }),
-        confirmText: t('canvas.nodeCanvas.columnMismatch.confirm'),
-        cancelText: t('common.cancel'),
-      })
-    }
-  }
-
-  // ============================================================================
   // 自动列生成
   // ============================================================================
 
@@ -353,7 +287,7 @@ export function useNodeSourceManager<TNodeData extends BaseSchemaNodeData<BaseSc
    * 从数据源自动生成列定义
    * @returns 生成的列数组（失败时返回 undefined）
    */
-  const autoGenerateColumns = (sourceNode: CustomNode): BaseSchemaColumn[] | undefined => {
+  const autoGenerateColumns = (sourceNode: SourceNodeView): BaseSchemaColumn[] | undefined => {
     try {
       logger.debug('🔄 开始生成列定义（智能保留模式）...', {
         sourceNodeId: sourceNode.id,
@@ -377,52 +311,6 @@ export function useNodeSourceManager<TNodeData extends BaseSchemaNodeData<BaseSc
       options.onColumnsGenerationFailed?.()
       return undefined
     }
-  }
-
-  // ============================================================================
-  // 约束连接处理
-  // ============================================================================
-
-  /**
-   * 处理约束连接
-   */
-  const handleConstraintConnection = (constraintNode: CustomNode, columnId: string) => {
-    logger.debug(`🔄 约束连接: ${constraintNode.id} -> ${props.id}.${columnId}`)
-  }
-
-  /**
-   * 断开约束连接
-   */
-  const disconnectConstraint = (constraintId: string, columnId?: string) => {
-    const edgesToRemove = store.edges.filter(
-      (e: Edge) => e.source === constraintId && e.target === props.id
-    )
-
-    edgesToRemove.forEach((edge: Edge) => {
-      store.deleteConnection(edge.id)
-      logger.debug(`  - 已删除边: ${edge.id}`)
-    })
-
-    if (columnId) {
-      const column = props.data.columns?.find((c: BaseSchemaColumn) => c.id === columnId)
-      if (column && column.constraints) {
-        const constraints = { ...column.constraints }
-        delete constraints.notNull
-        delete constraints.unique
-
-        store.updateNodeData(props.id, {
-          ...props.data,
-          columns: props.data.columns.map((c: BaseSchemaColumn) =>
-            c.id === columnId ? { ...c, constraints } : c
-          ),
-        })
-        logger.debug(`  - 已清除列 ${columnId} 的约束标记`)
-      }
-    }
-
-    logger.debug(
-      `🔄 已断开约束连接: ${constraintId} -> ${props.id}，共 ${edgesToRemove.length} 条边`
-    )
   }
 
   // ============================================================================
@@ -460,37 +348,10 @@ export function useNodeSourceManager<TNodeData extends BaseSchemaNodeData<BaseSc
     eventBus.off('sourcePreviewDataChanged', handleSourcePreviewDataChanged)
   })
 
-  // ============================================================================
-  // 辅助方法
-  // ============================================================================
-
-  /**
-   * 查找已连接的 Schema 节点
-   */
-  const findConnectedSchemaNodes = (sourceNodeId: string) => {
-    const sourceNode = findNode(sourceNodeId)
-    if (!sourceNode) {
-      return []
-    }
-
-    const connectedEdges = getConnectedEdges([sourceNode])
-
-    const schemaNodeIds = connectedEdges
-      .filter((edge) => edge.target.startsWith(options.schemaNodePrefix))
-      .map((edge) => edge.target)
-
-    return store.nodes.filter((node) => schemaNodeIds.includes(node.id))
-  }
-
   return {
     handleSourceConnection,
-    disconnectSource,
     showSmartFillDialog,
     autoGenerateColumns,
-    checkColumnMismatch,
-    handleConstraintConnection,
-    disconnectConstraint,
-    findConnectedSchemaNodes,
     handleSourcePreviewDataChanged,
   }
 }

@@ -158,11 +158,13 @@
   import { toastSuccess, toastError } from '@/core/toast'
   import { renderText } from '@/core/i18n/renderText'
 
-  const props = defineProps<{
+  interface Props {
     issue: InspectionIssue
     ignored?: boolean
     fixing?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     dismiss: [issueId: string]

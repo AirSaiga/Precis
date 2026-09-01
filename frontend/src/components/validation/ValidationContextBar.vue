@@ -1,10 +1,12 @@
 <script setup lang="ts">
-  defineProps<{
+  interface Props {
     targetLabel: string
     configPath: string
     preflightStatus: string
     preflightTone: 'success' | 'warning' | 'danger'
-  }>()
+  }
+
+  defineProps<Props>()
 </script>
 
 <template>

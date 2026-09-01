@@ -120,12 +120,14 @@
   import type { ConfigItemDiff, ConfigComparison } from '@/api/types/conflict'
   import type { FullConfigV2Request, ProjectManifestV2 } from '@/types/projectV2'
 
-  const props = defineProps<{
+  interface Props {
     visible: boolean
     comparison: ConfigComparison
     generatedManifest: ProjectManifestV2
     originalManifest: ProjectManifestV2
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     (e: 'close'): void
@@ -203,7 +205,7 @@
     const mixed = Object.values(resolutions.value).filter((v) => v === 'mixed').length
 
     if (mixed > 0) {
-      return `${t('aiConfigGenerator.conflict.summary', { generated: gen, original: orig })} (+${mixed} 部分应用)`
+      return `${t('aiConfigGenerator.conflict.summary', { generated: gen, original: orig })} ${t('aiConfigGenerator.conflict.summaryMixed', { count: mixed })}`
     }
     return t('aiConfigGenerator.conflict.summary', { generated: gen, original: orig })
   })

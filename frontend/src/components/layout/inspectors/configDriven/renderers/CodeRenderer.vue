@@ -15,14 +15,16 @@
   import type { InspectorContext } from '../utils'
   import type { InspectorCodeField } from '../types'
 
-  const props = defineProps<{
+  interface Props {
     field: InspectorCodeField
     ctx: InspectorContext
     value: unknown
     label: string
     help?: string
     readonly: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     commit: [value: string]

@@ -39,12 +39,14 @@
 
   const { t } = useI18n()
 
-  defineProps<{
+  interface Props {
     data: {
       items: Array<{ id: string; name: string; type?: string; relatedSchemaIds: string[] }>
     }
     selected?: boolean
-  }>()
+  }
+
+  defineProps<Props>()
 
   const focus = (nodeIds: string[]) => {
     eventBus.emit('focus-canvas-nodes', { nodeIds })

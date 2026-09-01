@@ -4,6 +4,8 @@
  */
 
 import { markRaw } from 'vue'
+// 并发变更后各约束 SFC 的 Props 与 NodeComponent 泛型不再结构兼容，直接断言无法通过
+// （历史遗留的双断言，待 vue-flow 类型或组件 Props 对齐后清理）
 import type { NodeComponent } from '@vue-flow/core'
 import { CONSTRAINT_ICON_NAMES } from '@/components/icons/iconRegistry'
 import {

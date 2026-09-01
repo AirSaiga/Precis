@@ -9,11 +9,6 @@
  * - 自动保存尺寸变更
  */
 
-/**
- * @file useSchemaResizable.ts
- * @description Schema 节点调整大小逻辑 Composable
- */
-
 import { ref, watch, onUnmounted } from 'vue'
 import { useGraphStore } from '@/stores/graphStore'
 import type { SchemaNodeData } from '@/types/graph'

@@ -46,11 +46,10 @@ export function useSourcePreviewEvents(
 
   /**
    * Toast 消息提示函数
-   * 在页面右上角显示临时消息，3秒后自动消失
-   * 使用原生 DOM 操作创建消息提示元素
+   * 通过 core/toast 统一封装（window.$toast 全局 Toast API）显示消息提示
    *
    * @param message - 消息内容，要显示的文本信息
-   * @param type - 消息类型，success=成功绿色，error=错误红色，info=信息蓝色
+   * @param type - 消息类型，success=成功，error=错误，info=信息
    */
   const showToastMessage = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     if (type === 'success') toastSuccess(message)

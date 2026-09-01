@@ -14,7 +14,8 @@
 import { logger } from '@/core/utils/logger'
 import { nextTick, watch } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
-import type { Edge } from '@vue-flow/core'
+import type { CSSProperties } from 'vue'
+import type { Edge, Styles } from '@vue-flow/core'
 import { addEdges, findEdge, removeEdges } from '@/services/canvas/vueFlowApi'
 import { useGraphStore } from '@/stores/graphStore'
 
@@ -81,7 +82,7 @@ export function useVirtualAnchorEdges() {
     const semanticEdges = baseEdges.filter(isSemanticEdge)
     if (semanticEdges.length === 0 && proxyMap.size === 0) return
 
-    const applyHiddenToSemantic = (edge: Edge, hidden: boolean) => {
+    const applyHiddenToSemantic = (edge: Edge, hidden: boolean): Edge => {
       const currentlyHidden = edge?.data?.hiddenByVirtualAnchorProxy === true
       if (hidden && !currentlyHidden) {
         didChange = true
@@ -96,12 +97,16 @@ export function useVirtualAnchorEdges() {
             hiddenByVirtualAnchorProxy: true,
             virtualAnchorPrevStyle: { opacity: prevOpacity, pointerEvents: prevPointerEvents },
           },
-        } as unknown as Edge
+        }
       }
       if (!hidden && currentlyHidden) {
         didChange = true
-        const prev = edge.data?.virtualAnchorPrevStyle || {}
-        const restoredStyle = { ...((edge.style || {}) as Record<string, unknown>) }
+        // virtualAnchorPrevStyle 由本模块写入，结构为 { opacity?, pointerEvents? }
+        const prev = (edge.data?.virtualAnchorPrevStyle || {}) as {
+          opacity?: CSSProperties['opacity']
+          pointerEvents?: CSSProperties['pointerEvents']
+        }
+        const restoredStyle: Styles = { ...edge.style }
         if (prev.opacity === undefined) delete restoredStyle.opacity
         else restoredStyle.opacity = prev.opacity
         if (prev.pointerEvents === undefined) delete restoredStyle.pointerEvents
@@ -111,29 +116,33 @@ export function useVirtualAnchorEdges() {
         return {
           ...edge,
           hidden: false,
-          style: restoredStyle as unknown as Edge['style'],
+          style: restoredStyle,
           data: restData,
         }
       }
       if (hidden && edge.hidden !== true) {
         didChange = true
-        return { ...edge, hidden: true } as unknown as Edge
+        return { ...edge, hidden: true }
       }
       if (!hidden && edge.hidden === true && !currentlyHidden) {
         didChange = true
-        return { ...edge, hidden: false } as unknown as Edge
+        return { ...edge, hidden: false }
       }
       return edge
     }
 
-    const getVisibleStyleFromSemanticEdge = (edge: Edge) => {
-      const prev = edge?.data?.virtualAnchorPrevStyle || {}
-      const style = { ...((edge?.style || {}) as Record<string, unknown>) }
+    const getVisibleStyleFromSemanticEdge = (edge: Edge): Styles => {
+      // virtualAnchorPrevStyle 由本模块写入，结构为 { opacity?, pointerEvents? }
+      const prev = (edge?.data?.virtualAnchorPrevStyle || {}) as {
+        opacity?: CSSProperties['opacity']
+        pointerEvents?: CSSProperties['pointerEvents']
+      }
+      const style: Styles = { ...edge?.style }
       if (prev.opacity === undefined) delete style.opacity
       else style.opacity = prev.opacity
       if (prev.pointerEvents === undefined) delete style.pointerEvents
       else style.pointerEvents = prev.pointerEvents
-      return style as unknown as Edge['style']
+      return style
     }
 
     const buildOrUpdateProxy = (semanticEdge: Edge, side: 'top' | 'bottom', hidden: boolean) => {
@@ -143,7 +152,7 @@ export function useVirtualAnchorEdges() {
       const anchorId = side === 'top' ? VIRTUAL_ANCHOR_TOP_ID : VIRTUAL_ANCHOR_BOTTOM_ID
       const style = getVisibleStyleFromSemanticEdge(semanticEdge)
 
-      const base = {
+      const base: Edge = {
         ...semanticEdge,
         id,
         sourceHandle: anchorId,
@@ -161,7 +170,7 @@ export function useVirtualAnchorEdges() {
 
       if (!existing) {
         didChange = true
-        proxyMap.set(key, base as unknown as Edge)
+        proxyMap.set(key, base)
         return
       }
 
@@ -175,7 +184,7 @@ export function useVirtualAnchorEdges() {
 
       if (needsReplace) {
         didChange = true
-        proxyMap.set(key, { ...existing, ...base } as unknown as Edge)
+        proxyMap.set(key, { ...existing, ...base })
         return
       }
 

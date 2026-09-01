@@ -8,15 +8,15 @@
  * 核心功能：
  * - startDrag / endDrag: 控制拖拽生命周期
  * - setHoverNode / setHoverColumn: 跟踪悬停目标
- * - initializeDragState: 初始化全局 document 事件监听，实现跨组件通信
+ * - initializeDragState: 订阅 eventBus 拖拽事件，实现跨组件通信
  *
  * 数据流：
- * 用户拖拽字段 → startDrag → CustomEvent('fielddragstart') → 其他组件响应
- * 拖拽结束 → endDrag → CustomEvent('fielddragend') → 状态重置
+ * 用户拖拽字段 → startDrag → eventBus.emit('fielddragstart') → 其他组件响应
+ * 拖拽结束 → endDrag → eventBus.emit('fielddragend') → 状态重置
  *
  * 设计要点：
  * - 使用 Pinia Composition API 模式
- * - 通过 CustomEvent 实现跨组件、跨 Store 的拖拽状态同步
+ * - 通过 eventBus（core/eventBus.ts，mitt）实现跨组件、跨 Store 的拖拽状态同步
  */
 
 import { logger } from '@/core/utils/logger'
@@ -68,7 +68,7 @@ export interface DragEventPayload {
  * 全局拖拽状态管理 Store
  *
  * 统一管理应用中的字段拖拽交互状态，确保跨组件拖拽通信的一致性。
- * 使用 Pinia Composition API 模式，通过 CustomEvent 实现与外部组件的双向同步。
+ * 使用 Pinia Composition API 模式，通过 eventBus 事件实现与外部组件的双向同步。
  */
 export const useDragStore = defineStore('drag', () => {
   // --- State ---
@@ -98,7 +98,7 @@ export const useDragStore = defineStore('drag', () => {
    * 开始拖拽
    *
    * 设置拖拽状态为活跃，保存拖拽载荷，
-   * 并通过 CustomEvent 向全局广播拖拽开始事件，实现跨组件通信。
+   * 并通过 eventBus 广播 fielddragstart 事件，实现跨组件通信。
    *
    * @param payload - 拖拽数据载荷，包含字段和来源信息
    */
@@ -107,7 +107,7 @@ export const useDragStore = defineStore('drag', () => {
     localDragState.value.isDragging = true
     localDragState.value.dragPayload = payload
 
-    // 通过 CustomEvent 向 document 广播，使未使用 Pinia 的组件也能响应拖拽状态
+    // 通过 eventBus 向全局广播，使未使用 Pinia 的组件也能响应拖拽状态
     eventBus.emit('fielddragstart', payload)
   }
 
@@ -115,7 +115,7 @@ export const useDragStore = defineStore('drag', () => {
    * 结束拖拽
    *
    * 重置所有拖拽状态（包括悬停信息），
-   * 并通过 CustomEvent 广播拖拽结束事件，通知所有监听组件清理状态。
+   * 并通过 eventBus 广播 fielddragend 事件，通知所有监听组件清理状态。
    */
   const endDrag = () => {
     logger.debug('🔄 拖拽状态管理：结束拖拽')
@@ -178,10 +178,10 @@ export const useDragStore = defineStore('drag', () => {
   /**
    * 初始化拖拽状态管理
    *
-   * 在应用启动时调用一次，设置全局 document 事件监听器，
-   * 接收来自其他组件（未使用 Pinia）的拖拽事件，保持状态同步。
+   * 在应用启动时调用一次，订阅 eventBus 的 fielddragstart/fielddragend 事件，
+   * 接收来自其他组件的拖拽事件，保持状态同步。
    *
-   * @returns 清理函数，用于组件卸载时移除事件监听器
+   * @returns 清理函数，用于卸载时取消 eventBus 订阅
    */
   const initializeDragState = () => {
     const handleFieldDragStart = (payload: DragEventPayload) => {

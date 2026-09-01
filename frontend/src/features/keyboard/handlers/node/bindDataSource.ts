@@ -34,7 +34,6 @@ import type {
   JsonSchemaNodeData,
   JsonSourcePreviewNodeData,
   CustomNodeData,
-  CustomNode,
 } from '@/types/graph'
 interface ToastApiLike {
   info: (message: string) => void
@@ -74,10 +73,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
 
   const schemaNode = graphStore.nodes.find((n) => n.id === graphStore.selectedNodeId)
   const supportedSchemaTypes = ['schema', 'jsonSchema'] as const
-  if (
-    !schemaNode ||
-    !supportedSchemaTypes.includes(schemaNode.type as unknown as 'schema' | 'jsonSchema')
-  ) {
+  if (!schemaNode || !supportedSchemaTypes.includes(schemaNode.type as 'schema' | 'jsonSchema')) {
     logger.debug('[bindDataSource] 选中节点不是 schema/jsonSchema 类型:', schemaNode?.type)
     return { success: false, message: 'shortcuts.feedback.schemaOnly' }
   }
@@ -99,7 +95,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
     (e) =>
       e.target === schemaNode.id &&
       sourceTypes.includes(
-        graphStore.nodes.find((n) => n.id === e.source)?.type as unknown as
+        graphStore.nodes.find((n) => n.id === e.source)?.type as
           | 'sourcePreview'
           | 'jsonSourcePreview'
       )
@@ -184,7 +180,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       )
       dataSource = workspaceStore.findDataSourceByPath(resolvedLocalPath)
 
-      const toastApi = (window as unknown as { $toast?: ToastApiLike }).$toast
+      const toastApi = (window as { $toast?: ToastApiLike }).$toast
       if (toastApi) {
         toastApi.info(
           i18n.global.t('canvas.nodeCanvas.externalDataAdded', {
@@ -267,7 +263,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
         type: 'jsonSourcePreview',
         position: { x: schemaNode.position.x - 450, y: schemaNode.position.y },
         data: nodeData,
-      } as unknown as CustomNode,
+      },
     ])
   } else {
     const nodeData: SourcePreviewNodeData = {
@@ -304,7 +300,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
         type: 'sourcePreview',
         position: { x: schemaNode.position.x - 450, y: schemaNode.position.y },
         data: nodeData,
-      } as unknown as CustomNode,
+      },
     ])
   }
 
@@ -330,7 +326,7 @@ export async function bindDataSourceToSchema(): Promise<{ success: boolean; mess
       e.target === schemaNode.id &&
       e.source !== sourcePreviewNodeId &&
       sourceTypes.includes(
-        graphStore.nodes.find((n) => n.id === e.source)?.type as unknown as
+        graphStore.nodes.find((n) => n.id === e.source)?.type as
           | 'sourcePreview'
           | 'jsonSourcePreview'
       )

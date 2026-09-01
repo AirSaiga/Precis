@@ -503,6 +503,34 @@ export type JsonDataType = 'string' | 'number' | 'boolean' | 'object' | 'array' 
 // ========== 自定义节点数据联合类型 ==========
 
 /**
+ * 正则模式工具箱节点数据。
+ *
+ * 资产库的"正则模式工具箱"单例节点（ID 固定为 pattern-toolbox-{scope}），
+ * 展示项目中定义的正则模式列表，支持按 scope 筛选。
+ */
+export interface PatternToolboxNodeData {
+  /** 筛选范围：'patterns' 仅预定义模式，'all' 全部 */
+  scope: 'patterns' | 'all'
+  /** 展示的模式列表 */
+  patterns: Array<{ id: string; name: string }>
+  /** 保存状态（工具箱节点为派生视图，初始即为 saved） */
+  saveState?: SchemaSaveState
+}
+
+/**
+ * 约束仪表盘节点数据。
+ *
+ * 资产库的"约束仪表盘"单例节点（ID 固定为 constraint-dashboard），
+ * 展示项目中所有约束的概览信息。
+ */
+export interface ConstraintDashboardNodeData {
+  /** 约束概览条目列表 */
+  items: Array<{ id: string; name: string; type?: string; relatedSchemaIds: string[] }>
+  /** 保存状态（仪表盘节点为派生视图，初始即为 saved） */
+  saveState?: SchemaSaveState
+}
+
+/**
  * 自定义节点数据联合类型（Discriminated Union）。
  *
  * 该联合类型包含画布上所有可能的节点 data 类型。
@@ -541,6 +569,8 @@ export type CustomNodeData =
   | JsonSourcePreviewNodeData
   | JsonSchemaNodeData
   | TemplateInstanceNodeData
+  | PatternToolboxNodeData
+  | ConstraintDashboardNodeData
 
 /**
  * 定义应用中自定义节点的最终类型。

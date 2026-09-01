@@ -49,10 +49,12 @@ Preview：正则表达式截断预览 * - 右侧输出 Handle：连接到 Regex 
 
   const { t } = useI18n()
 
-  const props = defineProps<{
+  interface Props {
     data: PatternNodeData
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const truncatedPattern = computed(() => {
     if (!props.data.pattern) return ''

@@ -306,7 +306,7 @@
 
   const capturePreview = computed(() => {
     if (!capturedShortcut.value) {
-      return platformDetector.isMac() ? '按下快捷键…（Esc 取消）' : '按下快捷键…（Esc 取消）'
+      return t('shortcuts.settings.captureHint')
     }
     return formatShortcutForDisplay(capturedShortcut.value)
   })

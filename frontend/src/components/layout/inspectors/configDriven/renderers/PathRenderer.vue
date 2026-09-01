@@ -25,14 +25,16 @@
     commit: [value: string]
   }>()
 
-  const props = defineProps<{
+  interface Props {
     field: InspectorPathField
     ctx: InspectorContext
     value: unknown
     label: string
     help?: string
     readonly: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const display = computed(() => (props.value == null ? '' : String(props.value)))
 </script>

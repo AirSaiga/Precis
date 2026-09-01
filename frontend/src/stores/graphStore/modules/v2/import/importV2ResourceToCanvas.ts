@@ -7,7 +7,6 @@
  *
  * 功能概述：
  * - createV2ImportToCanvas: 工厂函数，创建导入器实例
- * - importProjectFromV2Config: 主入口，加载 FullConfigV2 并导入画布
  * - 分阶段导入：Schema → Constraint → Regex，确保依赖顺序正确
  * - 错误处理：加载失败时显示 Toast 错误提示
  * - 支持增量导入：避免重复创建已存在的节点

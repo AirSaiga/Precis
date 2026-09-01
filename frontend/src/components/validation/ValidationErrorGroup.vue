@@ -3,10 +3,12 @@
   import { useI18n } from 'vue-i18n'
   import type { ValidationReportErrorRow } from '@/services/validationReportViewModel'
 
-  defineProps<{
+  interface Props {
     groupName: string
     errors: ValidationReportErrorRow[]
-  }>()
+  }
+
+  defineProps<Props>()
 
   const emit = defineEmits<{
     (e: 'navigate', error: ValidationReportErrorRow): void

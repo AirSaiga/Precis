@@ -56,9 +56,11 @@
   }>()
 
   // 定义Props
-  defineProps<{
+  interface Props {
     currentView: 'toolbox' | 'resources' | 'ai-chat' | 'validation-history' | 'data'
-  }>()
+  }
+
+  defineProps<Props>()
 
   // 处理子组件的拖拽事件
   const handleDragStart = (payload: unknown) => {

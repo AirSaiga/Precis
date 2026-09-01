@@ -69,7 +69,7 @@
   const { t } = useI18n()
   const graphStore = useGraphStore()
 
-  defineProps<{
+  interface Props {
     field: InspectorValidationSummaryField
     ctx: InspectorContext
     value: unknown
@@ -77,7 +77,9 @@
     help?: string
     placeholder?: string
     readonly: boolean
-  }>()
+  }
+
+  defineProps<Props>()
 
   const validationStatistics = computed(() => graphStore.lastFullValidationStatistics)
   const validationSummary = computed(() => graphStore.lastFullValidationSummary)

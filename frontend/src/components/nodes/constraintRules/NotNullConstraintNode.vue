@@ -94,11 +94,13 @@
   import { resolveNodeState } from '@/components/ui/nodeVariants'
   import type { NotNullConstraintNodeData } from '@/types/graph'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
-  const props = defineProps<{
+  interface Props {
     id: string
     data: NotNullConstraintNodeData
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     (e: 'data-update', data: Partial<NotNullConstraintNodeData>): void

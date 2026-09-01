@@ -333,7 +333,7 @@
   // ==================== 导入部分 ====================
 
   // Vue 核心功能导入
-  import { ref, watch, computed, onMounted, onUnmounted } from 'vue'
+  import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
   // 国际化支持
   import { useI18n } from 'vue-i18n'
   // VueFlow 图库导入
@@ -374,14 +374,16 @@
   /**
    * 组件属性
    */
-  const props = defineProps<{
+  interface Props {
     /** 节点的唯一标识符 */
     id: string
     /** 节点的业务数据 */
     data: SchemaNodeData
     /** 节点是否被选中 */
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   // ==================== Emits 定义 ====================
 
@@ -656,6 +658,9 @@
 
     const newColumns = [...localData.value.columns, newCol]
 
+    // 双写说明：updateSchemaData 只 Object.assign 更新本地 reactive 镜像（schemaData，
+    // 见 useSchemaDataBase），供模板/编辑焦点立即生效，不落 store；
+    // 随后必须再经 updateNodeData（画布统一写入口）把同一载荷持久化到 graphStore 节点数据。
     updateSchemaData({
       columns: newColumns,
       saveState: 'draft',
@@ -782,8 +787,6 @@
     eventBus.off('schema-node-save-complete', handleSaveCompleteDOM)
   })
 
-  // 导入 nextTick（解决脚本末尾导入顺序问题）
-  import { nextTick } from 'vue'
   // ==================== 暴露方法 ====================
 
   /**

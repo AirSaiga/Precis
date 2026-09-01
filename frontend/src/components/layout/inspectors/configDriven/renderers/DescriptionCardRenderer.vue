@@ -48,7 +48,7 @@
 
   const { t, te } = useI18n()
 
-  const props = defineProps<{
+  interface Props {
     field: InspectorDescriptionCardField
     ctx: InspectorContext
     value: unknown
@@ -56,7 +56,9 @@
     help?: string
     placeholder?: string
     readonly: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   /** 当前 transformType（从节点 data 读取） */
   const currentType = computed<TransformTypeV2 | undefined>(() => {

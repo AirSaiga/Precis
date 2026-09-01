@@ -51,10 +51,12 @@
 
   const { t } = useI18n()
 
-  defineProps<{
+  interface Props {
     visible: boolean
     pendingConnection: PendingConnection | null
-  }>()
+  }
+
+  defineProps<Props>()
 
   const emit = defineEmits<{
     close: []

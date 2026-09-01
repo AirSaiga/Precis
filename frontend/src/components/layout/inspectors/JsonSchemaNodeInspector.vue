@@ -273,7 +273,7 @@
 
   type JsonFormat = 'array' | 'lines' | 'object'
 
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const graphStore = useGraphStore()
   const validationTaskStore = useValidationTaskStore()
   const { nodes, edges } = storeToRefs(graphStore)
@@ -597,7 +597,7 @@
   function formatDateTime(dateString: string): string {
     if (!dateString) return '-'
     const date = new Date(dateString)
-    return date.toLocaleString('zh-CN', {
+    return date.toLocaleString(locale.value, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',

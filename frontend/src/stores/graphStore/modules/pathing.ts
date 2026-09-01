@@ -37,20 +37,18 @@
  * ====================================================================
  * 优先级顺序：
  * 1. projectStore.currentPaths.configPath（最高优先级）
- * 2. 当前 projectPath.value
- * 3. 从 Schema 节点推断路径（schemaData.localPath/sourceFilePath/filePath）
+ * 2. 从 Schema 节点推断路径（schemaData.localPath/sourceFilePath）
  *
- * 第三优先级会同时更新：
- * - projectPath.value
- * - projectStore.setProjectPaths（持久化到 localStorage）
+ * 第二优先级为只读推断，仅用于路径恢复场景：
+ * 不会写回 projectPath，也不会调用 projectStore.setProjectPaths（见实现内注释）。
  *
  * ====================================================================
  * 项目路径推断逻辑
  * ====================================================================
- * 当无法从 store 获取路径时：
+ * 当无法从 projectStore 获取路径时：
  * - 查找画布中的第一个 Schema 节点
- * - 从节点数据中提取文件路径
- * - 标准化后作为项目配置路径
+ * - 从节点数据中提取文件路径（localPath/sourceFilePath）
+ * - 标准化并校验为绝对路径后作为项目配置路径返回
  *
  * ====================================================================
  * 平台检测
@@ -67,8 +65,8 @@
  * ====================================================================
  * 副作用说明
  * ====================================================================
- * - getEffectiveProjectConfigPath 可能更新 projectPath.value
- * - getEffectiveProjectConfigPath 可能调用 projectStore.setProjectPaths
+ * - getEffectiveProjectConfigPath 为纯读取操作，无副作用：
+ *   不写 projectPath，不调用 projectStore.setProjectPaths，不持久化任何状态
  *
  * @module graphStore/modules
  */

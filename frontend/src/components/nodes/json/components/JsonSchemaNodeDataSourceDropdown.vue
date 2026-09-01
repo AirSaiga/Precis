@@ -158,12 +158,14 @@
   /**
    * 组件属性
    */
-  const props = defineProps<{
+  interface Props {
     show: boolean
     position: { top: number; left: number }
     currentSource: { id?: string; sourceName?: string } | null
     dataSourceTree: DataSourceTreeItem[]
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   /**
    * 组件事件

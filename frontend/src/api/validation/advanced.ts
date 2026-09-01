@@ -1,7 +1,7 @@
 /**
  * 高级校验 API（AllowedValues / Conditional / ForeignKey / Scripted / Charset / DateLogic）
  *
- * 封装到 /v2/validation 端点的 HTTP 请求。
+ * 封装到 /validate 端点（VALIDATION_API_PATH，见 ./core）的 HTTP 请求。
  */
 import { logger } from '@/core/utils/logger'
 import apiClient from '@/core/services/httpClient'

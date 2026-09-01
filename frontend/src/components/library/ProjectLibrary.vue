@@ -62,9 +62,11 @@
   import type { ResourceItem } from '@/types/resource'
   const { t } = useI18n()
 
-  defineProps<{
+  interface Props {
     view: 'toolbox' | 'resources'
-  }>()
+  }
+
+  defineProps<Props>()
 
   const {
     searchQuery,

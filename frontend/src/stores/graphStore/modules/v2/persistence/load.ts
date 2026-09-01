@@ -1,39 +1,41 @@
 /**
  * @file load.ts
- * @description V2 配置加载模块 - 负责从文件系统加载项目配置到画布
+ * @description V2 项目加载模块 - 从后端加载项目配置并重建画布基础结构
  *
  * ====================================================================
  * 功能概述
  * ====================================================================
- * 1. loadProjectFromV2: 加载完整的 V2 项目配置到画布
+ * createV2LoadOps 工厂返回唯一操作 loadProjectFromV2：
+ * 加载完整的 V2 项目配置，重建画布基础节点并更新项目状态。
  *
  * ====================================================================
  * 加载流程
  * ====================================================================
  * 1. 获取配置路径（getEffectiveProjectConfigPath）
- * 2. 加载完整配置（getV2FullConfig）
- * 3. 加载视图位置（getV2ProjectView，可选）
- * 4. 更新项目元信息（projectName, isProjectLoaded）
- * 5. 更新统计信息（schemaCount, constraintCount, regexCount）
- * 6. 创建 ProjectRoot 节点
- * 7. 应用视图位置（若存在 view.json）
- * 注意：不再自动水合所有资源到画布，资源应从资源树手动拖拽
+ * 2. 加载完整配置（getV2FullConfig，含配置自检 inspect）
+ * 3. 重置校验摘要/统计状态，逐条 toast 清单警告
+ * 4. 统计并写入 projectConfigStats（schema/约束（独立+内联）/regex/transform/模板实例数）
+ * 5. 加载视图文件 view.json（getV2ProjectView，可选，失败不阻断主流程）
+ * 6. 构建节点数组：projectRoot 节点 + templateInstance 节点（统一折叠态）
+ * 7. 应用 view.json 中保存的节点位置与 hidden 状态
+ * 8. 向后兼容：检测旧 projectConsole 节点并迁移为 projectRoot
+ * 9. 全量替换 nodes/edges，重置 selectedNodeId，清空撤销/重做栈（clearHistory）
+ * 10. 写入配置自检结果（inspectionStore），标记 isProjectLoaded = true
+ * 11. 广播 markContentLoaded（画布侧据此执行一次性自动取景）
  *
  * ====================================================================
- * 水合（Hydration）概念
+ * 水合（Hydration）策略
  * ====================================================================
- * 水合是将配置数据转换为画布节点的过程：
- * - hydrateSchemasFromV2Config: 将 schema 配置转换为 Schema 节点
- * - hydrateManifestConstraintsFromV2Config: 将约束配置转换为 Constraint 节点
- * - hydrateRegexNodesFromV2Config: 将正则配置转换为 Regex 节点
+ * 加载时不自动水合 Schema/Constraint/Regex 等资源节点到画布——
+ * 画布是用户的工作区，资源应从左侧资源树手动拖拽。
+ * 画布结构仅重建 projectRoot 与折叠态 templateInstance 两类节点。
  *
  * ====================================================================
  * 节点可见性策略
  * ====================================================================
- * 【设计决策】：打开项目时隐藏所有节点，只保留 ProjectRoot 可见
- * - 原因：复杂项目可能有很多节点，全部显示会占用大量画布空间
- * - 用户可通过"聚焦项目"按钮显示所有节点
- * - 这样做可以提升大型项目的加载性能
+ * 默认显示所有节点，不做默认隐藏（F8）：
+ * 之前强制 hidden=true 导致用户每次打开项目都要手动显示节点，已废弃。
+ * 若 view.json 中保存了 hidden 状态，则按 view 恢复对应节点的可见性。
  *
  * ====================================================================
  * 向后兼容
@@ -45,24 +47,26 @@
  * 状态更新
  * ====================================================================
  * - projectName: 从配置中读取项目名称
- * - isProjectLoaded: 设为 true
+ * - isProjectLoaded: hydration 全部成功后设为 true，失败时回滚为 false
  * - lastFullValidationSummary/Statistics: 重置为 null
  * - selectedNodeId: 重置为 null
+ * - projectConfigStats/Loaded/ConfigPath: 写入最新统计
  *
  * ====================================================================
  * 错误处理
  * ====================================================================
- * - 配置加载失败显示 toast 错误提示
- * - 清单警告信息（warnings）逐条显示
+ * - ProjectNotFoundError：提示项目路径不存在（manifest 缺失或路径错误）
+ * - 其他异常：toast 错误提示并回滚 isProjectLoaded/projectName
+ * - 清单警告信息（warnings）与配置解析错误（schema_errors）逐条 toast
  * - 视图加载失败不阻止主流程（可选）
  *
  * ====================================================================
  * 副作用说明
  * ====================================================================
- * - 重置画布状态（nodes, edges）
+ * - 全量替换画布状态（nodes, edges）
  * - 更新多个响应式状态（projectName, isProjectLoaded 等）
- * - 显示 toast 通知
- * - 触发统计信息更新
+ * - 清空撤销/重做栈（项目加载是画布上下文的不可逆切换）
+ * - 显示 toast 通知、写入 inspectionStore、广播 markContentLoaded
  *
  * @module graphStore/modules/v2/persistence
  */
@@ -70,7 +74,7 @@
 import { logger } from '@/core/utils/logger'
 import type { Ref } from 'vue'
 import type { Edge } from '@vue-flow/core'
-import type { CustomNode, CustomNodeData } from '@/types/graph'
+import type { CustomNode } from '@/types/graph'
 import type { FullValidationSummary, ValidationStatistics } from '@/api/projectValidationApi'
 import type { ProjectConfigStats } from '../../../setup/state'
 import { toastError, toastSuccess, toastWarning } from '@/core/toast'
@@ -134,9 +138,7 @@ export function createV2LoadOps(params: {
       const totalSchemas = config.manifest.schemas?.length || 0
       const standaloneConstraints = config.manifest.constraints?.length || 0
       let inlineConstraints = 0
-      const totalRegex =
-        ((config.manifest as unknown as Record<string, unknown>).regex_nodes as unknown[])
-          ?.length || 0
+      const totalRegex = config.manifest.regex_nodes?.length || 0
       const totalTransforms = config.manifest.transforms?.length || 0
       // 模板实例数取自 template_instances（画布上的 templateInstance 节点），
       // templates 字段是模板定义列表，二者含义不同（见 ProjectManifestV2）。
@@ -144,10 +146,8 @@ export function createV2LoadOps(params: {
 
       ;(config.manifest.schemas || []).forEach((s) => {
         const schema = config.schemas[s.id]
-        if (schema && Array.isArray((schema as unknown as Record<string, unknown>).constraints)) {
-          inlineConstraints += (
-            (schema as unknown as Record<string, unknown>).constraints as unknown[]
-          ).length
+        if (schema && Array.isArray(schema.constraints)) {
+          inlineConstraints += schema.constraints.length
         }
       })
 
@@ -179,18 +179,13 @@ export function createV2LoadOps(params: {
       }
 
       let consolePos = { x: 80, y: 80 }
-      const savedConsolePos =
-        (view?.nodes as unknown as Record<string, unknown>)?.['project-root'] ||
-        (view?.nodes as unknown as Record<string, unknown>)?.['project-console']
+      const savedConsolePos = view?.nodes?.['project-root'] || view?.nodes?.['project-console']
       if (
         savedConsolePos &&
-        typeof (savedConsolePos as { x?: number; y?: number }).x === 'number' &&
-        typeof (savedConsolePos as { x?: number; y?: number }).y === 'number'
+        typeof savedConsolePos.x === 'number' &&
+        typeof savedConsolePos.y === 'number'
       ) {
-        consolePos = {
-          x: (savedConsolePos as { x?: number; y?: number }).x!,
-          y: (savedConsolePos as { x?: number; y?: number }).y!,
-        }
+        consolePos = { x: savedConsolePos.x, y: savedConsolePos.y }
       }
 
       nextNodes.push({
@@ -200,9 +195,9 @@ export function createV2LoadOps(params: {
         draggable: false,
         data: {
           projectName: projectName.value,
-          projectPath: configPath,
+          projectPath: configPath ?? '',
           configPath: configPath,
-        } as unknown as CustomNodeData,
+        },
       })
 
       // 恢复 templateInstance 节点（自包含 DAG 的视图容器）
@@ -222,8 +217,10 @@ export function createV2LoadOps(params: {
             enabled: ref.enabled !== false,
             expanded: false,
             nodeCount: 0,
+            // 与 templateInstanceFactory 的新建默认一致（重载统一折叠态，未展开无摘要）
+            summaryText: '',
             saveState: 'saved',
-          } as unknown as CustomNodeData,
+          },
         })
       }
 
@@ -231,9 +228,7 @@ export function createV2LoadOps(params: {
       // 若需恢复上次画布状态，应在 saveProject 时保存 view.json 并在加载时恢复。
       if (view?.nodes) {
         nextNodes.forEach((n) => {
-          const pos = (view.nodes as unknown as Record<string, unknown>)[n.id] as
-            | { x: number; y: number }
-            | undefined
+          const pos = view.nodes![n.id]
           if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
             n.position = { x: pos.x, y: pos.y }
           }

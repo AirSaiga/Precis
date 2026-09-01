@@ -8,11 +8,13 @@
     status: 'active' | 'available' | 'planned'
   }
 
-  defineProps<{
+  interface Props {
     items: ScopeItem[]
     currentTableId?: string
     tableOptions: Array<{ value: string; label: string; sourceType?: string }>
-  }>()
+  }
+
+  defineProps<Props>()
 
   const emit = defineEmits<{
     (e: 'selectType', type: 'full_project' | 'single_table' | 'single_file'): void

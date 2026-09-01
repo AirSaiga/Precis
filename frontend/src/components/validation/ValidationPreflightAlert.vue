@@ -6,13 +6,15 @@
     path: string
   }
 
-  defineProps<{
+  interface Props {
     issueCount: number
     missingConstraints: PreflightRef[]
     missingRegexes: PreflightRef[]
     danglingConstraints: PreflightRef[]
     danglingRegexes: PreflightRef[]
-  }>()
+  }
+
+  defineProps<Props>()
 
   const emit = defineEmits<{
     (e: 'refresh'): void

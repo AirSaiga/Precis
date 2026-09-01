@@ -21,6 +21,9 @@
 // L3 - 内部类型（前端使用）
 // ============================================================================
 
+import type { Edge } from '@vue-flow/core'
+import type { CustomNode } from './nodes'
+
 /**
  * Regex 节点内部配置（L3 - 前端内部使用）。
  *
@@ -1059,9 +1062,9 @@ export interface WorkspaceV2Item {
   /** 工作区视口状态（可选） */
   viewport?: WorkspaceV2Viewport
   /** 画布节点完整数据 */
-  nodes: Record<string, unknown>[]
+  nodes: CustomNode[]
   /** 画布边完整数据 */
-  edges: Record<string, unknown>[]
+  edges: Edge[]
 }
 
 /**

@@ -22,7 +22,7 @@
 
   const { t } = useI18n()
 
-  const props = defineProps<{
+  interface Props {
     field: InspectorDateReferenceTypeField
     ctx: InspectorContext
     value: unknown
@@ -30,7 +30,9 @@
     help?: string
     placeholder?: string
     readonly: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     commit: [payload: InspectorCommitPayload]

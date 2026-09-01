@@ -45,8 +45,8 @@ import { validateAllowedValues as validateAllowedValuesApi } from '@/api/validat
  * @returns 包含验证方法的对象，供外部调用
  *
  * 【副作用】
- * - 函数内部会触发console.log输出验证进度和结果，用于调试和问题追踪
- * - 会触发Vue组件事件（emit）和DOM自定义事件（document.dispatchEvent），通知验证完成
+ * - 函数内部会通过 logger（core/utils/logger）输出验证进度和结果，用于调试和问题追踪
+ * - 会触发Vue组件事件（emit）和 eventBus 全局事件（core/eventBus.ts），通知验证完成
  * - 验证过程中会向后端API发起请求（allowedValues验证）或读取本地文件（notNull/unique验证）
  */
 export function useSchemaValidation(
@@ -93,8 +93,8 @@ export function useSchemaValidation(
    * 每个验证结果包含：columnId（列ID）、columnName（列名）、errorCount（错误数量）、errors（错误详情数组）。
    *
    * 【可能的副作用】
-   * - 触发console.log输出验证进度和结果
-   * - 调用showValidationResults函数，触发Vue emit事件和DOM自定义事件
+   * - 通过 logger.debug 输出验证进度和结果
+   * - 调用showValidationResults函数，触发Vue emit事件和 eventBus 全局事件
    * - 对每一列调用validateColumn，可能触发文件读取或API请求
    * - 验证过程中的错误会被捕获并重新抛出
    */
@@ -156,7 +156,7 @@ export function useSchemaValidation(
    * - errors: 错误详情数组，每个元素包含row（行号）、value（错误值）、message（错误消息）
    *
    * 【可能的副作用】
-   * - 触发console.log输出验证进度
+   * - 通过 logger.debug 输出验证进度
    * - 根据配置的约束类型，调用不同的验证函数：
    *   - notNull: 调用validateNotNull，可能读取源数据文件
    *   - unique: 调用validateUnique，可能读取源数据文件
@@ -270,7 +270,7 @@ export function useSchemaValidation(
    *   - message: 错误消息，说明"值必须是以下之一: xxx"
    *
    * 【可能的副作用】
-   * - 触发console.log输出验证进度
+   * - 通过 logger.debug 输出验证进度
    * - 根据isUuidMode的值，可能：
    *   - 从IndexedDB读取文件（getFile）
    *   - 发起HTTP POST请求到后端验证接口
@@ -341,16 +341,16 @@ export function useSchemaValidation(
    * 【业务逻辑说明】
    * 验证结果通过两种机制分发：
    * 1. Vue组件事件（emit）：通过Vue的emit机制向父组件传递数据，这是Vue生态中最常用的组件通信方式
-   * 2. DOM自定义事件（document.dispatchEvent）：通过浏览器原生事件机制广播验证结果，
+   * 2. eventBus全局事件（core/eventBus.ts，基于mitt）：通过应用级事件总线广播验证结果，
    *    这种方式允许非父子关系的组件或模块订阅验证结果，提供了更松耦合的通信方式
    *
    * 【返回值说明】
    * 无返回值
    *
    * 【可能的副作用】
-   * - 触发console.log输出验证结果（用于调试）
+   * - 通过 logger.debug 输出验证结果（用于调试）
    * - 触发Vue的'validationCompleted'事件，父组件可以监听该事件处理验证结果
-   * - 触发名为'schemaValidationCompleted'的DOM自定义事件，任何监听该事件的脚本都能收到通知
+   * - 通过 eventBus 发出'schemaValidationCompleted'事件，任何订阅该事件的组件/模块都能收到通知
    * - 事件中包含nodeId，用于标识验证结果属于哪个Schema节点
    */
   const showValidationResults = (results: Record<string, unknown>) => {

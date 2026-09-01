@@ -15,7 +15,7 @@
   import type { InspectorContext } from '../utils'
   import type { InspectorJsonField } from '../types'
 
-  const props = defineProps<{
+  interface Props {
     field: InspectorJsonField
     ctx: InspectorContext
     value: unknown
@@ -23,7 +23,9 @@
     help?: string
     placeholder?: string
     readonly: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const formatted = computed(() => {
     if (props.value === undefined) return ''

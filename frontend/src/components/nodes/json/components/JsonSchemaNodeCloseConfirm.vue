@@ -63,9 +63,11 @@
   /**
    * 组件属性
    */
-  const props = defineProps<{
+  interface Props {
     show: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   /**
    * 组件事件

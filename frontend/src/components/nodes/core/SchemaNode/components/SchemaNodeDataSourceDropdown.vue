@@ -140,12 +140,14 @@ Schema节点数据源绑定/切换 */
   /**
    * 组件属性
    */
-  const props = defineProps<{
+  interface Props {
     show: boolean
     position: { top: number; left: number }
     currentSource: { sourceName: string; sheetName?: string } | null
     dataSourceTree: DataSourceTreeItem[]
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   /**
    * 组件事件

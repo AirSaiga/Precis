@@ -161,9 +161,11 @@
    * 组件属性定义
    * @param collapsed - 控制面板是否折叠
    */
-  defineProps<{
+  interface Props {
     collapsed?: boolean
-  }>()
+  }
+
+  defineProps<Props>()
 
   /**
    * 计算属性：获取当前选中的节点

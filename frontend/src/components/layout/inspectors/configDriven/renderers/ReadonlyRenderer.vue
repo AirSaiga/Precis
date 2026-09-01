@@ -15,7 +15,7 @@
   import type { InspectorContext } from '../utils'
   import type { InspectorReadonlyField } from '../types'
 
-  const props = defineProps<{
+  interface Props {
     field: InspectorReadonlyField
     ctx: InspectorContext
     value: unknown
@@ -23,7 +23,9 @@
     help?: string
     placeholder?: string
     readonly: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const display = computed(() => (props.value == null ? '' : String(props.value)))
 </script>

@@ -133,11 +133,13 @@ JavaScript 脚本进行数据校验 * - 接收 Schema 节点列的输入 * -
   import { useSettingsStore } from '@/stores/settingsStore'
   import { useConstraintNodeBase } from '@/composables/nodes/constraints/useConstraintNodeBase'
   import { validateConstraintNodeById } from '@/services/constraints/validationRegistry'
-  const props = defineProps<{
+  interface Props {
     id: string
     data: ScriptedConstraintNodeData
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   defineEmits<{
     (e: 'schemaConnected', payload: { nodeId: string; columnId?: string }): void

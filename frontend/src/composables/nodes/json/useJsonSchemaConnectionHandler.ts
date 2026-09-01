@@ -133,11 +133,13 @@ export function useJsonSchemaConnectionHandler() {
     store.updateNodeData(schemaNodeId, {
       columns: cols,
       saveState: 'saved',
-    } as unknown as Record<string, unknown>)
+    })
 
     if (schemaNodeId !== tableId) {
       store.updateNodeData(schemaNodeId, {
         configName: tableId,
+        // 'modified' 是越界的运行时值（SchemaSaveState 仅含 draft/saved/error），
+        // 原实现即依赖断言写入；如实保留双断言，待 saveState 语义收敛后再清理
         saveState: 'modified',
       } as unknown as Record<string, unknown>)
       logger.warn(
@@ -174,7 +176,7 @@ export function useJsonSchemaConnectionHandler() {
     const schemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
     if (!schemaNode) return true
 
-    const schemaData = schemaNode.data as unknown as JsonSchemaNodeData
+    const schemaData = schemaNode.data as JsonSchemaNodeData
     // 递归构建 columnName -> columnId 映射(含嵌套)
     const colNameToId = new Map<string, string>()
     const walkNames = (cols: JsonSchemaColumn[]) => {
@@ -194,7 +196,7 @@ export function useJsonSchemaConnectionHandler() {
       }> = []
 
       materializeV2EmbeddedConstraints({
-        schemaNode: schemaNode as unknown as import('@/types/graph').CustomNode,
+        schemaNode,
         schemaTableName: schemaData.tableName,
         embeddedConstraints: embedded as Parameters<
           typeof materializeV2EmbeddedConstraints
@@ -243,9 +245,8 @@ export function useJsonSchemaConnectionHandler() {
     schemaNode: NodeInput<JsonSchemaNodeData>
   ) => {
     const sourceData = ((sourceNode as { data?: unknown }).data ??
-      sourceNode) as unknown as JsonSourcePreviewNodeData
-    const schemaData = ((schemaNode as { data?: unknown }).data ??
-      schemaNode) as unknown as JsonSchemaNodeData
+      sourceNode) as JsonSourcePreviewNodeData
+    const schemaData = ((schemaNode as { data?: unknown }).data ?? schemaNode) as JsonSchemaNodeData
 
     const sourceName = sourceData?.sourceName || sourceData?.fileName || 'Unknown'
     const schemaName = schemaData?.tableName || 'JsonSchema'
@@ -361,7 +362,7 @@ export function useJsonSchemaConnectionHandler() {
       throw new Error(`Schema 节点 ${schemaNodeId} 不存在`)
     }
 
-    const schemaData = schemaNode.data as unknown as JsonSchemaNodeData
+    const schemaData = schemaNode.data as JsonSchemaNodeData
     const sourceData = sourceNodeData
     const rawData = sourceData.rawData
 
@@ -413,10 +414,10 @@ export function useJsonSchemaConnectionHandler() {
       logger.debug('🔌 [handleSourceConnection] 开始处理 JSON 连接')
       logger.debug(
         '  - jsonSchemaNode 当前列定义数量:',
-        (schemaNode.data as unknown as JsonSchemaNodeData).columns?.length || 0
+        (schemaNode.data as JsonSchemaNodeData).columns?.length || 0
       )
 
-      const sourceData = sourcePreviewNode.data as unknown as JsonSourcePreviewNodeData
+      const sourceData = sourcePreviewNode.data as JsonSourcePreviewNodeData
 
       const displayFileName = sourceData.sourceName || sourceData.fileName || 'Unknown'
 
@@ -435,8 +436,8 @@ export function useJsonSchemaConnectionHandler() {
           if (oldSourceNode) {
             logger.debug(
               `  - 断开与 "${
-                (oldSourceNode.data as unknown as Record<string, unknown>)?.sourceName ||
-                (oldSourceNode.data as unknown as Record<string, unknown>)?.fileName ||
+                (oldSourceNode.data as JsonSourcePreviewNodeData)?.sourceName ||
+                (oldSourceNode.data as JsonSourcePreviewNodeData)?.fileName ||
                 oldSourceNode.id
               }" 的连接`
             )
@@ -507,11 +508,11 @@ export function useJsonSchemaConnectionHandler() {
         if (latestSourceNode && latestSchemaNode) {
           try {
             const sourceDataSnapshot: JsonSourcePreviewNodeData = JSON.parse(
-              JSON.stringify(latestSourceNode.data as unknown as JsonSourcePreviewNodeData)
+              JSON.stringify(latestSourceNode.data)
             )
             await showSmartFillDialog(
               { id: sourcePreviewNodeId, data: sourceDataSnapshot },
-              { id: schemaNodeId, data: latestSchemaNode.data as unknown as JsonSchemaNodeData }
+              { id: schemaNodeId, data: latestSchemaNode.data as JsonSchemaNodeData }
             )
           } catch (error: unknown) {
             if (
@@ -528,7 +529,8 @@ export function useJsonSchemaConnectionHandler() {
 
       // 步骤5:触发全局约束校验 + 重验引用该 schema 的约束
       const currentSchemaNode = store.nodes.find((n: CustomNode) => n.id === schemaNodeId)
-      const hasColumns = (currentSchemaNode?.data as unknown as JsonSchemaNodeData)?.columns?.length
+      const hasColumns = (currentSchemaNode?.data as JsonSchemaNodeData | undefined)?.columns
+        ?.length
       if (currentSchemaNode && hasColumns) {
         triggerValidationForNode(
           schemaNodeId,

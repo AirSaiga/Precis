@@ -16,8 +16,9 @@
  *
  * 数据持久化：
  * - 后端文件：.precis/workspaces.json（通过 GET/PUT /project/workspaces 同步）
- * - 仅保存元数据（id、title、index），不保存完整节点/边数据
- * - 节点坐标由 project.view.json 承载，与本文件分工协作
+ * - 保存工作区元数据（id、title、index、时间戳）以及各 Tab 的完整画布快照
+ *   （visibleNodeIds + nodes + edges 全量落盘，见 syncTabsToBackend）
+ * - 主项目画布的节点坐标由 project.view.json 承载，与本文件分工协作
  *
  * 注意事项：
  * - 空数组 [] 在 JS 中是 truthy，判断"工作区是否有画布数据"时
@@ -86,12 +87,12 @@ function safeClone<T>(obj: T): T {
 
   // 跳过 DOM 元素
   if (raw instanceof HTMLElement || raw instanceof Element) {
-    return undefined as unknown as T
+    return undefined as T
   }
 
   // 处理数组
   if (Array.isArray(raw)) {
-    return raw.map((item) => safeClone(item)) as unknown as T
+    return raw.map((item) => safeClone(item)) as T
   }
 
   // 处理对象
@@ -106,7 +107,7 @@ function safeClone<T>(obj: T): T {
       result[key] = safeClone(value)
     }
   }
-  return result as unknown as T
+  return result as T
 }
 
 export const useCanvasTabStore = defineStore('canvasTab', () => {
@@ -232,8 +233,8 @@ export const useCanvasTabStore = defineStore('canvasTab', () => {
           hasUnsavedChanges: false,
           createdAt: w.createdAt,
           lastActiveAt: w.lastActiveAt,
-          nodes: (w.nodes || []) as unknown as CustomNode[],
-          edges: (w.edges || []) as unknown as Edge[],
+          nodes: w.nodes || [],
+          edges: w.edges || [],
         }))
         activeTabId.value = data.activeWorkspaceId || tabs.value[0]?.id || null
       } else {

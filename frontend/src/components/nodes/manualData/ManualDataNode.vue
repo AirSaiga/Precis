@@ -114,11 +114,13 @@
 
   const { t } = useI18n()
 
-  const props = defineProps<{
+  interface Props {
     id: string
     data: ManualDataNodeData
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const nodeId = computed(() => props.id)
   const nodeWidth = ref(200)

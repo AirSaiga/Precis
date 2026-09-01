@@ -294,7 +294,7 @@
    * 列定义数据
    * 包含列的所有属性：ID、名称、数据类型、约束、验证状态等
    */
-  const props = defineProps<{
+  interface Props {
     column: SchemaColumn
     /**
      * 列在表中的索引位置(0-based)
@@ -331,7 +331,9 @@
      * 高亮当前列的约束图标
      */
     showConstraintMenu: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   // ============================================================================
   // 3. Events 定义

@@ -50,12 +50,14 @@
 
   const { t } = useI18n()
 
-  const { controller } = defineProps<{
+  interface Props {
     /** 菜单响应式状态（由 composable 提供） */
     menuState: CanvasContextMenuState
     /** 控制器（注册事件 + 关闭 + action 回调） */
     controller: CanvasContextMenuController
-  }>()
+  }
+
+  const { controller } = defineProps<Props>()
 
   const addToChat = () => {
     controller.handleAddToChat()

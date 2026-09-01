@@ -204,7 +204,7 @@
    * 表名称
    * 显示在头部左侧，可点击进入编辑模式
    */
-  const props = defineProps<{
+  interface Props {
     tableName: string
     /**
      * 数据源文件路径
@@ -240,7 +240,9 @@
      * 对齐 SchemaNodeHeader 的草稿徽标
      */
     saveState?: 'draft' | 'saved' | 'error'
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   // ============================================================================
   // 3. Events 定义

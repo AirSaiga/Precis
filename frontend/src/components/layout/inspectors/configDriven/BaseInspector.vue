@@ -50,12 +50,14 @@
   const { t } = useI18n()
   const store = useGraphStore()
 
-  const props = defineProps<{
+  interface Props {
     config: InspectorConfigV1
     data: Record<string, unknown>
     nodeId: string
     nodeType: string
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     'update:data': [value: Record<string, unknown>]

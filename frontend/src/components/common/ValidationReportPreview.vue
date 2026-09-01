@@ -584,12 +584,14 @@
     truncateLongIds,
   } from '@/services/validationReportViewModel'
 
-  const props = defineProps<{
+  interface Props {
     modelValue: boolean
     data: FullValidationResponse | null
     projectName: string
     timestamp: string
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     (e: 'update:modelValue', v: boolean): void

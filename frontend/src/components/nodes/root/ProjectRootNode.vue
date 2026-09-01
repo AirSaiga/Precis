@@ -100,10 +100,12 @@
   const resourceTreeStore = useResourceTreeStore()
   const validationTaskStore = useValidationTaskStore()
 
-  const props = defineProps<{
+  interface Props {
     data: ProjectNodeData
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   // 项目路径缩短显示
   const projectPathShort = computed(() => {

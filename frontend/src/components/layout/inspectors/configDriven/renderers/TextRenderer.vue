@@ -22,7 +22,7 @@
   import type { InspectorContext } from '../utils'
   import type { InspectorTextField } from '../types'
 
-  const props = defineProps<{
+  interface Props {
     field: InspectorTextField
     ctx: InspectorContext
     value: unknown
@@ -30,7 +30,9 @@
     help?: string
     placeholder?: string
     readonly: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     commit: [value: string]

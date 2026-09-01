@@ -50,7 +50,7 @@
   import { useI18n } from 'vue-i18n'
   import AppIcon from '@/components/icons/AppIcon.vue'
 
-  const props = defineProps<{
+  interface Props {
     unresolvedCount: number
     totalCount: number
     ignoredCount: number
@@ -59,7 +59,9 @@
     blockerCount: number
     warningCount: number
     infoCount: number
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const { t } = useI18n()
 

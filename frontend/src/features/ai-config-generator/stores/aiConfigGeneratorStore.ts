@@ -11,7 +11,8 @@
  * 架构设计:
  * - 轻量编排 Store：只持有 visible、provider、options 等顶层状态
  * - 生成任务、文件选择、冲突处理等逻辑保留在独立 composable 中
- * - Store 的 resetAllState() 在各 composable 注入后委托其清理
+ * - 各 composable 经 registerResetHook 注册的清理钩子在 close() 时统一执行；
+ *   open() 仅重置 Store 自身的顶层状态（resetAllState）
  */
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
