@@ -23,6 +23,8 @@
 import json
 import logging
 import os
+import tempfile
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException
 
@@ -37,6 +39,37 @@ from .base import (
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="", tags=["Project-View"])
+
+
+def _write_json_atomic(path: str, data: dict) -> None:
+    """原子写入 JSON 文件（临时文件 + os.replace）。
+
+    view.json 属于高频覆写文件，此前用裸 open("w") 直写：进程在写入中途崩溃/断电
+    会留下半个 JSON，下次读取直接 500。参照 write_yaml_atomic 的思路：先写同目录
+    临时文件并 fsync，再用 os.replace 原子替换（POSIX 与 Windows 均保证同一文件
+    系统内替换的原子性）；任一步失败时清理临时文件后原样抛出。
+
+    参数:
+        path: 目标 JSON 文件路径
+        data: 待序列化的字典
+    """
+    target = Path(path)
+    target.parent.mkdir(parents=True, exist_ok=True)
+    fd, temp_path = tempfile.mkstemp(dir=target.parent, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(temp_path, target)
+    except Exception:
+        # 失败时尽力清理临时文件，避免 .precis/ 目录残留 *.tmp 垃圾
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except OSError:
+                pass
+        raise
 
 
 @router.get(
@@ -120,8 +153,8 @@ def put_v2_project_view(
     """
     view_path = _v2_view_path(config_path)
     try:
-        with open(view_path, "w", encoding="utf-8") as f:
-            json.dump(payload.model_dump(), f, ensure_ascii=False, indent=2)
+        # B-reliability: 原子写替代裸 open("w")，进程中断不再留下半个 JSON
+        _write_json_atomic(view_path, payload.model_dump())
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"写入视图文件失败: {e}")
 

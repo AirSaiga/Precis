@@ -428,8 +428,12 @@ def delete_v2_schema(table_id: str, config_path: str = Depends(get_project_confi
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"删除 schema 文件失败: {e}")
 
-        if manifest.schemas:
-            manifest.schemas = [s for s in manifest.schemas if s.id != table_id]
+        # B-fix: 该引用原本存在于 manifest 中就写回（即使删除后列表为空）。
+        # 此前 `if manifest.schemas:` 在删除最后一个引用时为假而跳过写回，
+        # manifest 会留下指向已删除文件的悬空引用。
+        remaining_schemas = [s for s in manifest.schemas if s.id != table_id]
+        if len(remaining_schemas) != len(manifest.schemas):
+            manifest.schemas = remaining_schemas
             write_yaml_atomic(Path(manifest_path), manifest.model_dump(exclude_none=True))
 
     return {"message": f"V2 schema '{table_id}' 已删除。"}

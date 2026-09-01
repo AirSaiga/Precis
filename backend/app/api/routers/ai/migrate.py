@@ -160,6 +160,8 @@ async def _run_migrate_job(
     update_status("running", stage="initializing", progress=0.0)
 
     # 存储 payload 元数据供 resume 重建
+    # B18 对齐修复：完整保存 options 字典（与 jobs.py 一致）。过去仅保存 max_iterations，
+    # resume 时其余 options（agent_mode/keep_existing/分块参数等）全部回退默认值。
     raw = storage._load_raw(job_id)
     raw["payload"] = {
         "script_content": payload.script_content,
@@ -169,6 +171,8 @@ async def _run_migrate_job(
         "project_id": payload.project_id,
         "provider_id": payload.provider_id,
         "max_iterations": payload.options.max_iterations,
+        # 完整保存 options 字典，resume 时整体重建
+        "options": payload.options.model_dump(),
     }
     storage._save_raw(job_id, raw)
 
@@ -421,6 +425,14 @@ async def resume_migrate_job(
     meta = raw.get("payload", {})
     from .models import ConfigGenerateOptions
 
+    # B18 对齐修复：优先使用完整保存的 options 字典重建（与 jobs.py 一致），
+    # 回退到仅 max_iterations（兼容修复前落盘的旧任务数据）
+    saved_options = meta.get("options")
+    if isinstance(saved_options, dict):
+        options = ConfigGenerateOptions(**saved_options)
+    else:
+        options = ConfigGenerateOptions(max_iterations=meta.get("max_iterations", 2))
+
     payload = ConfigMigrateRequest(
         script_content=meta.get("script_content", ""),
         language=meta.get("language", "python"),
@@ -428,9 +440,7 @@ async def resume_migrate_job(
         project_name=meta.get("project_name", ""),
         project_id=meta.get("project_id", ""),
         provider_id=meta.get("provider_id"),
-        options=ConfigGenerateOptions(
-            max_iterations=meta.get("max_iterations", 2),
-        ),
+        options=options,
     )
 
     status_data["status"] = "running"

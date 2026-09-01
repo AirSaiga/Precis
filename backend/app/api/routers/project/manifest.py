@@ -168,8 +168,18 @@ def get_v2_manifest(config_path: str = Depends(get_project_config_path)):
     manifest_path = _v2_manifest_path(config_path)
     if not os.path.isfile(manifest_path):
         raise HTTPException(status_code=404, detail=f"V2 清单文件未找到: {manifest_path}")
-    data = read_yaml(Path(manifest_path))
-    return ProjectManifestV2.model_validate(data)
+    # B-fix: 清单文件为空/损坏时 model_validate 会抛裸 ValidationError → 无 detail 的 500。
+    # 对照 settings.py 的做法捕获并转为带说明的 422，让前端能提示用户修复清单。
+    try:
+        data = read_yaml(Path(manifest_path))
+        return ProjectManifestV2.model_validate(data)
+    except Exception as exc:
+        logger.exception("解析 manifest 文件失败: %s", manifest_path)
+        raise HTTPException(
+            status_code=422,
+            detail=f"项目清单文件损坏或为空，无法解析: {manifest_path}。"
+            f"请修复或回退 project.precis.yaml 后重试。（{exc}）",
+        )
 
 
 @router.put(

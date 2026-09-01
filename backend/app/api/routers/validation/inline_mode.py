@@ -88,8 +88,11 @@ def _infer_column_type(series: pd.Series) -> str | None:
     "/validate/inline",
     response_model=ValidationResponse,
     summary="基于行内数据的校验（Inline 模式）",
+    # 行为约定：本端点永远返回 200，业务失败以 success=false + error 字段表达，不产生 500
     responses={
-        500: {"description": "校验过程中发生错误"},
+        200: {
+            "description": "校验已执行；业务失败（行数据为空、列不存在、校验异常等）同样返回 200，以 success=false + error 字段表达",
+        },
     },
 )
 def validate_data_inline(request: InlineValidationRequest):
@@ -112,6 +115,10 @@ def validate_data_inline(request: InlineValidationRequest):
         4. 对目标列做类型推断（与文件加载行为保持一致）
         5. 调用 execute_dataframe_validation 执行校验
         6. 捕获异常并返回友好错误信息
+
+    错误语义:
+        所有业务失败与意外异常（行数据为空、列不存在、校验出错等）均在本端点内
+        捕获并转为 success=false + error 字段随 HTTP 200 返回，不抛出 500。
     """
     try:
         # 验证行数据不为空

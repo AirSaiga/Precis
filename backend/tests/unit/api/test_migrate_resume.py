@@ -139,3 +139,132 @@ def test_migrate_resume_endpoint_without_checkpoint_returns_404(temp_config_path
         )
 
     assert response.status_code == 404
+
+
+# ============================================================================
+# B18 对齐修复: migrate 与 jobs 一致地保存/恢复完整 options
+# （过去仅保存 max_iterations，resume 时其余 options 全部回退默认值）
+# ============================================================================
+
+
+def _success_result() -> dict:
+    return {
+        "success": True,
+        "yaml_preview": "",
+        "manifest": None,
+        "schemas": {},
+        "constraints": {},
+        "regex_nodes": {},
+        "warnings": [],
+        "iterations": 1,
+    }
+
+
+def test_run_migrate_job_persists_full_options(temp_config_path):
+    """_run_migrate_job 应把完整 options 字典写入持久化 payload（不止 max_iterations）。"""
+    from app.api.routers.ai.migrate import _run_migrate_job
+    from app.api.routers.ai.models import ConfigGenerateOptions, ConfigMigrateRequest
+
+    payload = ConfigMigrateRequest(
+        script_content="print('hello')",
+        language="python",
+        file_paths=["test.xlsx"],
+        project_name="Test",
+        project_id="test-001",
+        options=ConfigGenerateOptions(
+            max_iterations=3,
+            agent_mode=False,
+            keep_existing=False,
+            generate_regex_nodes=True,
+        ),
+    )
+
+    mock_storage = MagicMock()
+    mock_storage.load_status.return_value = {"status": "running", "created_at": "2026-01-01T00:00:00"}
+    mock_storage._load_raw.return_value = {}
+
+    mock_service = MagicMock()
+    mock_service.migrate_from_script = AsyncMock(return_value=_success_result())
+
+    with (
+        patch("app.api.routers.ai.migrate._get_storage", return_value=mock_storage),
+        patch("app.api.routers.ai.migrate.ConfigMigrationService", return_value=mock_service),
+    ):
+        import asyncio
+
+        asyncio.run(_run_migrate_job("job_test", payload, temp_config_path))
+
+    assert mock_storage._save_raw.called
+    saved_raw = mock_storage._save_raw.call_args.args[1]
+    saved_options = saved_raw["payload"]["options"]
+    assert saved_options["max_iterations"] == 3
+    assert saved_options["agent_mode"] is False
+    assert saved_options["keep_existing"] is False
+    assert saved_options["generate_regex_nodes"] is True
+
+
+def test_migrate_resume_rebuilds_full_options(temp_config_path):
+    """migrate /resume: 持久化了完整 options 时应整体重建，不回退默认值。"""
+    mock_storage = MagicMock()
+    mock_storage.load_latest_checkpoint.return_value = {"turn": 1, "messages": []}
+    mock_storage.load_status.return_value = {"status": "failed", "created_at": "2026-01-01T00:00:00"}
+    mock_storage.load_full.return_value = {
+        "payload": {
+            "script_content": "print('hello')",
+            "language": "python",
+            "file_paths": ["test.xlsx"],
+            "project_name": "Test",
+            "project_id": "test-001",
+            "provider_id": "prov",
+            "options": {"max_iterations": 5, "agent_mode": False, "keep_existing": False},
+        }
+    }
+
+    with (
+        patch("app.api.routers.ai.migrate._get_storage", return_value=mock_storage),
+        patch("app.api.routers.ai.migrate._run_migrate_job") as mock_run,
+    ):
+        client = TestClient(_app())
+        response = client.post(
+            "/api/latest/ai/config/migrate/jobs/job_test/resume",
+            headers={"X-Project-Config-Path": temp_config_path},
+        )
+
+    assert response.status_code == 200
+    rebuilt_payload = mock_run.call_args.args[1]
+    assert rebuilt_payload.options.max_iterations == 5
+    assert rebuilt_payload.options.agent_mode is False
+    assert rebuilt_payload.options.keep_existing is False
+
+
+def test_migrate_resume_legacy_payload_falls_back_to_max_iterations(temp_config_path):
+    """migrate /resume: 兼容旧数据（payload 仅含 max_iterations）时其余 options 取默认。"""
+    mock_storage = MagicMock()
+    mock_storage.load_latest_checkpoint.return_value = {"turn": 1, "messages": []}
+    mock_storage.load_status.return_value = {"status": "failed", "created_at": "2026-01-01T00:00:00"}
+    mock_storage.load_full.return_value = {
+        "payload": {
+            "script_content": "print('hello')",
+            "language": "python",
+            "file_paths": ["test.xlsx"],
+            "project_name": "Test",
+            "project_id": "test-001",
+            "max_iterations": 3,
+        }
+    }
+
+    with (
+        patch("app.api.routers.ai.migrate._get_storage", return_value=mock_storage),
+        patch("app.api.routers.ai.migrate._run_migrate_job") as mock_run,
+    ):
+        client = TestClient(_app())
+        response = client.post(
+            "/api/latest/ai/config/migrate/jobs/job_test/resume",
+            headers={"X-Project-Config-Path": temp_config_path},
+        )
+
+    assert response.status_code == 200
+    rebuilt_payload = mock_run.call_args.args[1]
+    assert rebuilt_payload.options.max_iterations == 3
+    # 未持久化的 options 回退模型默认值
+    assert rebuilt_payload.options.agent_mode is True

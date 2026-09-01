@@ -48,7 +48,6 @@ import asyncio
 import logging
 import os
 import tempfile
-import time
 
 from fastapi import File, Form, HTTPException, UploadFile
 
@@ -74,8 +73,11 @@ logger = logging.getLogger(__name__)
     "/validate",
     response_model=ValidationResponse,
     summary="基于 JSON 请求体的单条数据校验",
+    # 行为约定：本端点永远返回 200，业务失败以 success=false + error 字段表达，不产生 500
     responses={
-        500: {"description": "校验过程中发生错误"},
+        200: {
+            "description": "校验已执行；业务失败（文件未找到、路径非法、校验异常等）同样返回 200，以 success=false + error 字段表达",
+        },
     },
 )
 def validate_data(request: ValidationRequest):
@@ -89,18 +91,19 @@ def validate_data(request: ValidationRequest):
         ValidationResponse: 标准化校验响应，包含校验结果、错误信息、统计数据等
 
     业务逻辑:
-        1. 记录请求开始时间
-        2. 确定表头行号（默认第 0 行）
-        3. 调用 load_file_data 加载数据文件为 DataFrame
-        4. 检查目标列是否存在于 DataFrame 中
-        5. 调用 UnifiedValidationService.validate 执行具体校验逻辑
-        6. 将错误行数据转换为 ValidationErrorRow 列表
-        7. 组装 ValidationResult 并包装为 ValidationResponse 返回
-        8. 捕获文件未找到和通用异常，返回友好的错误响应
+        1. 确定表头行号（默认第 0 行）
+        2. 调用 load_file_data 加载数据文件为 DataFrame
+        3. 检查目标列是否存在于 DataFrame 中
+        4. 调用 UnifiedValidationService.validate 执行具体校验逻辑
+        5. 将错误行数据转换为 ValidationErrorRow 列表
+        6. 组装 ValidationResult 并包装为 ValidationResponse 返回
+        7. 捕获文件未找到和通用异常，返回友好的错误响应
+
+    错误语义:
+        所有业务失败与意外异常（文件未找到、路径非法、校验出错等）均在本端点内
+        捕获并转为 success=false + error 字段随 HTTP 200 返回，不抛出 500。
     """
     try:
-        _start_time = time.time()
-
         # 校验文件路径格式合法性（防止路径遍历攻击）
         if request.source_file_path:
             validate_file_access(request.source_file_path)
@@ -134,9 +137,13 @@ def validate_data(request: ValidationRequest):
     "/validate/content",
     response_model=ValidationResponse,
     summary="基于文件上传的单条数据校验（Content 模式）",
+    # 行为约定：仅"文件内容为空"返回 400（HTTPException 显式抛出并透传），
+    # 其余业务失败一律被捕获并以 success=false + error 字段随 200 返回
     responses={
+        200: {
+            "description": "校验已执行；除文件内容为空（400）外的业务失败同样返回 200，以 success=false + error 字段表达",
+        },
         400: {"description": "文件内容为空"},
-        500: {"description": "校验过程中发生错误"},
     },
 )
 async def validate_data_with_file(
@@ -173,12 +180,13 @@ async def validate_data_with_file(
         7. 转换错误行数据并组装响应
         8. 在 finally 块中清理临时文件，避免磁盘泄漏
         9. 记录校验完成日志，捕获并处理所有异常
+
+    错误语义:
+        上传文件内容为空时抛出 HTTP 400（由框架直接处理）；
+        其余业务失败与意外异常均被捕获并转为 success=false + error 字段随 HTTP 200 返回。
     """
     tmp_path = None
     try:
-        # 记录校验开始时间
-        _start_time = time.time()
-
         # 记录收到的校验请求基本信息，便于后续排查问题
         logger.info(f"[VALIDATION] 收到FormData校验请求: {file.filename}")
         logger.info(f"[VALIDATION] 校验类型: {validation_type}, 目标列: {target_column_name}")
@@ -257,8 +265,11 @@ async def validate_data_with_file(
     "/regex",
     response_model=RegexValidationResponse,
     summary="基于 JSON 请求体的正则表达式校验",
+    # 行为约定：本端点永远返回 200，业务失败以 success=false + error 字段表达，不产生 500
     responses={
-        500: {"description": "校验过程中发生错误"},
+        200: {
+            "description": "校验已执行；业务失败（文件未找到、路径非法、校验异常等）同样返回 200，以 success=false + error 字段表达",
+        },
     },
 )
 def validate_regex(request: RegexValidationRequest):
@@ -273,16 +284,17 @@ def validate_regex(request: RegexValidationRequest):
         RegexValidationResponse: 正则校验专用响应模型，包含匹配统计和错误行信息
 
     业务逻辑:
-        1. 记录请求开始时间
-        2. 调用 load_file_data 加载数据文件，支持自定义表头
-        3. 检查目标列是否存在
-        4. 调用 UnifiedValidationService.validate 执行 REGEX 类型校验
-        5. 使用 convert_validation_result_to_regex 转换结果为正则响应模型
-        6. 返回标准化响应，捕获文件未找到和通用异常
+        1. 调用 load_file_data 加载数据文件，支持自定义表头
+        2. 检查目标列是否存在
+        3. 调用 UnifiedValidationService.validate 执行 REGEX 类型校验
+        4. 使用 convert_validation_result_to_regex 转换结果为正则响应模型
+        5. 返回标准化响应，捕获文件未找到和通用异常
+
+    错误语义:
+        所有业务失败与意外异常（文件未找到、路径非法、校验出错等）均在本端点内
+        捕获并转为 success=false + error 字段随 HTTP 200 返回，不抛出 500。
     """
     try:
-        _start_time = time.time()
-
         # 校验文件路径格式合法性（防止路径遍历攻击）
         if request.source_file_path:
             validate_file_access(request.source_file_path)
@@ -325,8 +337,11 @@ def validate_regex(request: RegexValidationRequest):
     "/validate/batch",
     response_model=dict,
     summary="批量数据校验",
+    # 行为约定：单条校验的失败已被 validate_data 逐条捕获，整体仍返回 200
     responses={
-        500: {"description": "校验过程中发生错误"},
+        200: {
+            "description": "批量校验已执行；单条失败不改变整体状态码，失败体现在该条目的 success=false 与 error 字段",
+        },
     },
 )
 def validate_batch(requests: list[ValidationRequest]):
@@ -344,6 +359,10 @@ def validate_batch(requests: list[ValidationRequest]):
         2. 对每个请求调用 validate_data 执行单条校验
         3. 收集每条请求的校验类型、目标列、成功状态、结果数据和错误信息
         4. 将所有结果组装为统一字典返回
+
+    错误语义:
+        单条请求的失败由 validate_data 捕获并写入对应条目的
+        success=false 与 error 字段，批量接口本身始终返回 200。
     """
     # 存储所有批量校验结果的列表
     results = []

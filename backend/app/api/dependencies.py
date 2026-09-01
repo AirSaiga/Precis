@@ -13,10 +13,10 @@
 - ProjectStore 可轻松 mock，便于单元测试
 
 输入示例:
-    Header: X-Project-Config-Path: D:/project/.precis
+    Header: X-Project-Config-Path: D:/project （项目根，须含 project.precis.yaml）
 
 输出示例:
-    ProjectStore(project_path="D:/project/.precis")
+    ProjectStore(project_path="D:/project")
 """
 
 # backend/app/api/dependencies.py
@@ -51,7 +51,7 @@ class ProjectStore:
 
 
 async def get_project_config_path(
-    x_project_config_path: str = Header(..., description="项目配置文件目录的绝对路径"),
+    x_project_config_path: str = Header(..., description="项目根目录的绝对路径（须含 project.precis.yaml）"),
 ) -> str:
     """
     获取并验证项目配置路径的依赖函数。
@@ -76,8 +76,8 @@ async def get_project_config_path(
     :return: 验证通过的项目配置绝对路径
     :raises HTTPException: 路径验证失败时返回 400 或 404 错误
 
-    Header 示例：
-        X-Project-Config-Path: /path/to/project/config
+    Header 示例（项目根目录语义，不是 .precis/ 子目录）：
+        X-Project-Config-Path: /path/to/project
     """
     return _validate_project_root(x_project_config_path)
 

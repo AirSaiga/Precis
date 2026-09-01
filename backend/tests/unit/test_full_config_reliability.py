@@ -22,6 +22,7 @@ from app.shared.core.project.manifest.types import (
     ProjectManifestV2,
     ProjectSettingsV2,
 )
+from app.shared.core.project.manifest.types_parts.template import TemplateRef
 
 
 def _make_project(tmpdir: str) -> Path:
@@ -157,6 +158,74 @@ class TestFullConfigReliabilityHardening:
             with pytest.raises(Exception, match="拒绝本次写入"):
                 write_v2_full_config(payload, tmpdir)
             assert (root / "project.precis.yaml").read_text(encoding="utf-8") == broken
+
+    def test_write_full_config_preserves_templates_when_not_set(self):
+        """B-fix(templates): PUT 全量保存不含 templates 字段时，现有 templates/template_instances 保留。
+
+        此前合并分支缺失这两个字段——"另存为模板"后下一次前端全量保存（payload 不带
+        templates 字段）会把 manifest.templates 静默清空。
+        注意：不能用 model_fields_set 断言"未提供"——ProjectManifest 的 _validate_unique_ids
+        (mode="after") 会对列表字段就地重赋值，使其总是出现在 fields_set 中。
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = _make_project(tmpdir)
+            (root / "project.precis.yaml").write_text(
+                "version: 2\n"
+                "project:\n"
+                "  id: p\n"
+                "  name: p\n"
+                "schemas: []\n"
+                "constraints: []\n"
+                "regex_nodes: []\n"
+                "templates:\n"
+                "  - id: my_tmpl\n"
+                "    path: templates/my_tmpl.template.yaml\n"
+                "template_instances:\n"
+                "  - id: inst_1\n"
+                "    template_id: my_tmpl\n"
+                "    enabled: true\n",
+                encoding="utf-8",
+            )
+            # 模拟前端全量保存 payload：不含 templates / template_instances 字段
+            manifest = _minimal_manifest()
+            assert manifest.templates == []
+            assert manifest.template_instances == []
+            write_v2_full_config(FullConfigV2Request(manifest=manifest), tmpdir)
+
+            saved = yaml.safe_load((root / "project.precis.yaml").read_text(encoding="utf-8"))
+            assert saved["templates"] == [{"id": "my_tmpl", "path": "templates/my_tmpl.template.yaml"}]
+            assert saved["template_instances"][0]["id"] == "inst_1"
+            assert saved["template_instances"][0]["template_id"] == "my_tmpl"
+
+    def test_write_full_config_with_templates_content_still_applied(self):
+        """对照: payload 携带非空 templates 时遵从客户端数据，不被磁盘值覆盖。"""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = _make_project(tmpdir)
+            (root / "project.precis.yaml").write_text(
+                "version: 2\n"
+                "project:\n"
+                "  id: p\n"
+                "  name: p\n"
+                "schemas: []\n"
+                "constraints: []\n"
+                "regex_nodes: []\n"
+                "templates:\n"
+                "  - id: disk_tmpl\n"
+                "    path: templates/disk_tmpl.template.yaml\n",
+                encoding="utf-8",
+            )
+            manifest = ProjectManifestV2(
+                version=2,
+                project=ProjectInfoV2(id="p", name="p"),
+                templates=[TemplateRef(id="fresh_tmpl", path="templates/fresh_tmpl.template.yaml")],
+                schemas=[],
+                constraints=[],
+                regex_nodes=[],
+            )
+            write_v2_full_config(FullConfigV2Request(manifest=manifest), tmpdir)
+
+            saved = yaml.safe_load((root / "project.precis.yaml").read_text(encoding="utf-8"))
+            assert saved["templates"] == [{"id": "fresh_tmpl", "path": "templates/fresh_tmpl.template.yaml"}]
 
     def test_write_full_config_preserves_settings_when_not_set(self):
         """C4: payload 未显式设置 settings 时保留磁盘上的用户设置"""

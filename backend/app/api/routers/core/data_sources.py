@@ -104,9 +104,20 @@ def build_ui_preferences(config: dict[str, Any]) -> UIPreferences:
 
 
 def _get_project_root(config_path: str) -> str:
-    """从 config_path 推导项目根目录（config_path 通常指向 .precis/ 目录）"""
-    parent = str(Path(config_path).parent)
-    return parent if parent != config_path else config_path
+    """返回项目根目录。
+
+    B-sec3 加固后 X-Project-Config-Path Header 必须指向含 project.precis.yaml 的
+    项目根目录（见 dependencies._validate_project_root），因此 config_path 本身就是
+    项目根。此前此处误取 config_path 的 parent，导致 data_sources.yaml 被写到项目
+    父目录的 .precis/ 下——同一父目录下的多个项目会互相覆盖数据源配置。
+
+    参数:
+        config_path: 项目根目录的绝对路径（依赖注入校验后的值）
+
+    返回:
+        项目根目录（与 config_path 相同）
+    """
+    return config_path
 
 
 @router.get(

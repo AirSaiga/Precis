@@ -94,6 +94,22 @@ def _merge_manifest_references(
     if _should_merge("settings") and existing is not None:
         final_manifest = final_manifest.model_copy(update={"settings": existing.settings})
 
+    # B-fix(templates 回滚防御): "另存为模板"等模板端点写入 manifest 的 templates /
+    # template_instances 引用必须被全量保存保留。此前缺失这两个分支——前端全量保存
+    # payload 不携带模板字段时，以 payload 的空列表为基准直接覆盖，模板引用被静默清空。
+    #
+    # 注意：这里不能复用 _should_merge 的 model_fields_set 判定——ProjectManifest 的
+    # _validate_unique_ids(mode="after") 会对所有列表字段就地重赋值，导致 payload.manifest
+    # 的 model_fields_set **总是**包含 templates/template_instances（实测见
+    # test_full_config_reliability），无法据此区分"未提供"。退而求其次：payload 中为
+    # 空列表即视为"客户端未携带"，从磁盘合并（宁保留不丢数据）。清空模板/实例应走
+    # manifest 的模板专用端点，而非全量保存传空列表。
+    if existing is not None and not final_manifest.templates:
+        final_manifest = final_manifest.model_copy(update={"templates": existing.templates})
+
+    if existing is not None and not final_manifest.template_instances:
+        final_manifest = final_manifest.model_copy(update={"template_instances": existing.template_instances})
+
     # 目录扫描补充：仅对客户端"未显式设置"且当前为空的字段从磁盘发现文件，
     # 显式置空 [] 的字段不会被目录扫描覆盖（尊重用户清空意图）
     def _should_scan(field: str) -> bool:

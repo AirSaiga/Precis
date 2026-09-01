@@ -251,8 +251,12 @@ def delete_v2_constraint(constraint_id: str, config_path: str = Depends(get_proj
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"删除 constraint 文件失败: {e}")
 
-        if manifest.constraints:
-            manifest.constraints = [c for c in manifest.constraints if c.id != constraint_id]
+        # B-fix: 该引用原本存在于 manifest 中就写回（即使删除后列表为空）。
+        # 此前 `if manifest.constraints:` 在删除最后一个引用时为假而跳过写回，
+        # manifest 会留下指向已删除文件的悬空引用。
+        remaining_constraints = [c for c in manifest.constraints if c.id != constraint_id]
+        if len(remaining_constraints) != len(manifest.constraints):
+            manifest.constraints = remaining_constraints
             write_yaml_atomic(Path(manifest_path), manifest.model_dump(exclude_none=True))
 
     return {"message": f"V2 constraint '{constraint_id}' 已删除。"}

@@ -58,22 +58,24 @@ def _create_minimal_project(tmp_path, manifest_content: str, files: dict[str, st
 class TestCorruptManifest:
     """manifest YAML 损坏场景"""
 
-    def test_manifest_yaml_syntax_error_returns_500(self, client, tmp_path):
+    def test_manifest_yaml_syntax_error_returns_422(self, client, tmp_path):
         """manifest YAML 语法错误时 API 返回明确错误信息，不崩溃。"""
         project = _create_minimal_project(
             tmp_path,
             "this: is: not: valid: yaml: : :",
         )
         resp = client.get("/api/latest/project/manifest", headers={"X-Project-Config-Path": project})
-        # 完全损坏的 YAML 应该返回 500（服务器内部错误），关键是不要崩溃
-        assert resp.status_code == 500
+        # B-fix: 损坏清单返回带中文说明的 422（此前为无 detail 的 500），关键是不崩溃
+        assert resp.status_code == 422
+        detail = resp.json().get("detail", "")
+        assert "损坏或为空" in detail
 
-    def test_empty_manifest_returns_404(self, client, tmp_path):
-        """空的 project.precis.yaml 应返回 '项目配置为空' 或文件未找到类错误。"""
+    def test_empty_manifest_returns_422(self, client, tmp_path):
+        """空的 project.precis.yaml 应返回 422 与有内容的错误说明。"""
         project = _create_minimal_project(tmp_path, "")
         resp = client.get("/api/latest/project/manifest", headers={"X-Project-Config-Path": project})
-        # 空文件无法解析，返回 404 或 500 均可接受，关键是不要崩溃
-        assert resp.status_code in (404, 500)
+        # B-fix: 空文件无法解析，返回带说明的 422（此前为无 detail 的 500），关键是不崩溃
+        assert resp.status_code == 422
         detail = resp.json().get("detail", "")
         assert len(detail) > 0, "应返回有内容的错误信息"
 

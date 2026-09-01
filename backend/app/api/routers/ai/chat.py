@@ -29,6 +29,7 @@
     }
 """
 
+import json
 import logging
 
 from fastapi import Header, HTTPException
@@ -191,12 +192,12 @@ async def chat_completions(request: ChatRequestInput):
 
             try:
                 # 逐块获取流式输出，提取 delta 文本（该端点为纯文本兼容流，不处理 tool_calls）
+                # 注意: json 已在模块级导入。此前 import json 写在循环体内——若首个 chunk
+                # 之前就抛错，except 分支引用的 json 未绑定，会以 NameError 掩盖真实错误。
                 async for chunk in provider.chat_stream(chat_req):
                     if chunk.type == "delta" and chunk.text:
                         # 构建 SSE 数据包，格式与 OpenAI 兼容
                         data = {"object": "chat.completion.chunk", "choices": [{"delta": {"content": chunk.text}}]}
-                        import json
-
                         yield f"data: {json.dumps(data)}\n\n"
             except Exception as exc:
                 logging.getLogger(__name__).exception("Chat stream failed")

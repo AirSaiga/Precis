@@ -44,7 +44,6 @@
 from __future__ import annotations
 
 import logging
-import time
 
 from fastapi import HTTPException
 
@@ -70,9 +69,11 @@ logger = logging.getLogger(__name__)
     "/validate/path",
     response_model=ValidationResponse,
     summary="基于文件路径的单条数据校验（Path 模式）",
+    # 行为约定：本端点永远返回 200，业务失败以 success=false + error 字段表达，不产生 404/500
     responses={
-        404: {"description": "文件未找到"},
-        500: {"description": "校验过程中发生错误"},
+        200: {
+            "description": "校验已执行；业务失败（文件未找到、路径非法、校验异常等）同样返回 200，以 success=false + error 字段表达",
+        },
     },
 )
 def validate_data_with_path(request: ValidationRequest):
@@ -86,7 +87,7 @@ def validate_data_with_path(request: ValidationRequest):
         ValidationResponse: 标准化校验响应
 
     业务逻辑:
-        1. 记录请求开始时间和基本信息日志
+        1. 记录基本信息日志
         2. 校验文件路径是否为空
         3. 调用 validate_file_path 校验路径格式合法性
         4. 检查文件是否在磁盘上真实存在
@@ -95,11 +96,12 @@ def validate_data_with_path(request: ValidationRequest):
         7. 调用 UnifiedValidationService.validate 执行具体校验
         8. 转换错误行数据并组装响应
         9. 记录校验完成状态，捕获并处理异常
+
+    错误语义:
+        所有业务失败与意外异常（文件未找到、路径非法、校验出错等）均在本端点内
+        捕获并转为 success=false + error 字段随 HTTP 200 返回，不抛出 404/500。
     """
     try:
-        # 记录校验开始时间
-        _start_time = time.time()
-
         # 记录收到的路径校验请求信息，便于排查问题
         logger.info(f"[VALIDATION] 收到路径校验请求: {request.source_file_path}")
         logger.info(f"[VALIDATION] 校验类型: {request.validation_type}, 目标列: {request.target_column_name}")
@@ -156,9 +158,11 @@ def validate_data_with_path(request: ValidationRequest):
     "/regex/path",
     response_model=RegexValidationResponse,
     summary="基于文件路径的正则表达式校验（Path 模式）",
+    # 行为约定：本端点永远返回 200，业务失败以 success=false + error 字段表达，不产生 404/500
     responses={
-        404: {"description": "文件未找到"},
-        500: {"description": "校验过程中发生错误"},
+        200: {
+            "description": "校验已执行；业务失败（文件未找到、路径非法、校验异常等）同样返回 200，以 success=false + error 字段表达",
+        },
     },
 )
 def validate_regex_with_path(request: RegexValidationRequest):
@@ -173,7 +177,7 @@ def validate_regex_with_path(request: RegexValidationRequest):
         RegexValidationResponse: 正则校验专用响应模型
 
     业务逻辑:
-        1. 记录请求开始时间和基本信息日志
+        1. 记录基本信息日志
         2. 校验文件路径是否为空
         3. 调用 validate_file_path 校验路径格式合法性
         4. 检查文件是否在磁盘上真实存在
@@ -182,11 +186,12 @@ def validate_regex_with_path(request: RegexValidationRequest):
         7. 调用 UnifiedValidationService.validate 执行 REGEX 类型校验
         8. 使用 convert_validation_result_to_regex 转换结果
         9. 记录校验完成状态，返回响应
+
+    错误语义:
+        所有业务失败与意外异常（文件未找到、路径非法、校验出错等）均在本端点内
+        捕获并转为 success=false + error 字段随 HTTP 200 返回，不抛出 404/500。
     """
     try:
-        # 记录校验开始时间
-        _start_time = time.time()
-
         # 记录收到的路径正则校验请求信息
         logger.info(f"[REGEX] 收到路径正则校验请求: {request.source_file_path}")
         logger.info(f"[REGEX] 正则模式: {request.regex_pattern}, 目标列: {request.target_column_name}")
@@ -245,8 +250,11 @@ def validate_regex_with_path(request: RegexValidationRequest):
     "/validate/path/batch",
     response_model=dict,
     summary="批量数据校验（Path 模式）",
+    # 行为约定：单条校验的失败已被 validate_data_with_path 逐条捕获，整体仍返回 200
     responses={
-        500: {"description": "校验过程中发生错误"},
+        200: {
+            "description": "批量校验已执行；单条失败不改变整体状态码，失败体现在该条目的 success=false 与 error 字段",
+        },
     },
 )
 def validate_batch_with_path(requests: list[ValidationRequest]):
@@ -264,6 +272,10 @@ def validate_batch_with_path(requests: list[ValidationRequest]):
         2. 对每个请求调用 validate_data_with_path 执行单条路径模式校验
         3. 收集每条请求的校验类型、目标列、成功状态、结果数据和错误信息
         4. 将所有结果组装为统一字典返回
+
+    错误语义:
+        单条请求的失败由 validate_data_with_path 捕获并写入对应条目的
+        success=false 与 error 字段，批量接口本身始终返回 200。
     """
     # 存储所有批量校验结果的列表
     results = []
