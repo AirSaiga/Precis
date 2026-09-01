@@ -133,15 +133,33 @@ def register_port_file_cleanup() -> None:
     Windows 下 uvicorn 收到 SIGINT/异常后,调用方的 finally 不一定执行
     (信号处理链路与 Unix 不同)。此函数注册多重清理兜底,多次调用安全。
 
+    信号处理语义:handler 内先清理端口文件,再链回默认行为——
+    - SIGINT: 交回 ``signal.default_int_handler`` 抛 KeyboardInterrupt,
+      让 uvicorn/调用方走正常关闭路径;
+    - SIGTERM: Python 无默认 handler,清理后以 ``sys.exit(128 + signum)`` 终止。
+    若只清理不退出,信号会被 handler 吞掉,进程永远无法用 Ctrl+C 停止。
+
     应在 write_port_file() 之后、uvicorn.run() 之前调用。
+    (注意:uvicorn.run() 默认会安装自己的 SIGINT/SIGTERM handler 并覆盖本注册,
+    此时清理由 atexit 兜底;本 handler 服务于非 uvicorn 入口与提前到达的信号。)
     """
     import atexit
     import signal
+    import sys
 
     atexit.register(clear_port_file)
-    signal.signal(signal.SIGTERM, lambda *_: clear_port_file())
+
+    def _cleanup_and_exit(signum: int, frame: object) -> None:
+        clear_port_file()
+        if signum == signal.SIGINT:
+            # 链回默认 INT 行为:抛 KeyboardInterrupt,不吞信号
+            signal.default_int_handler(signum, frame)
+        # SIGTERM 无 Python 默认 handler:清理后按约定退出码终止
+        sys.exit(128 + signum)
+
+    signal.signal(signal.SIGTERM, _cleanup_and_exit)
     try:
-        signal.signal(signal.SIGINT, lambda *_: clear_port_file())
+        signal.signal(signal.SIGINT, _cleanup_and_exit)
     except (OSError, ValueError):
         # 某些环境(如嵌入运行时)无法注册 SIGINT,忽略
         pass

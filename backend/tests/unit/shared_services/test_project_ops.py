@@ -38,3 +38,18 @@ def test_resolve_project_label_falls_back_to_dirname(tmp_path):
     proj.mkdir()
     # 无 manifest → 用目录名
     assert project_ops.resolve_project_label(str(proj)) == "myproj"
+
+
+def test_add_to_history_writes_real_timestamp(monkeypatch, tmp_path):
+    """回归：add_to_history 此前恒写 last_opened=None，应写入真实的 UTC ISO 时间戳。"""
+    from datetime import datetime
+
+    monkeypatch.setattr(project_ops, "HISTORY_FILE", str(tmp_path / "history.json"))
+    project_ops.add_to_history("/proj_with_ts")
+
+    entry = project_ops.load_history()[0]
+    assert entry["path"] == "/proj_with_ts"
+    assert entry["last_opened"] is not None
+    # 必须是可解析的 ISO 格式时间戳
+    parsed = datetime.fromisoformat(entry["last_opened"])
+    assert parsed.tzinfo is not None  # UTC 时间戳带时区信息

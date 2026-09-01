@@ -535,27 +535,6 @@ class TestDateLogicValidator:
                 unparseable.append(row_index)
         assert unparseable == []
 
-    def test_compare_dates(self):
-        v = DateLogicValidator()
-        from datetime import datetime
-
-        d1 = datetime(2024, 1, 15)
-        d2 = datetime(2024, 1, 10)
-        assert v._compare_dates(d1, d2, "gt") is True
-        assert v._compare_dates(d1, d2, "lt") is False
-        assert v._compare_dates(d1, d1, "eq") is True
-        assert v._compare_dates(d1, d2, "gte") is True
-        assert v._compare_dates(d1, d2, "lte") is False
-        # range 是区间语义，不能通过二元 _compare_dates 表达
-        assert v._compare_dates(d1, d1, "range") is False
-        assert v._compare_dates(d1, d2, "unknown") is True
-
-    def test_get_operator_name(self):
-        v = DateLogicValidator()
-        assert v._get_operator_name("gt") == "大于"
-        assert v._get_operator_name("eq") == "等于"
-        assert v._get_operator_name("xyz") == "xyz"
-
     def test_calculation_age(self):
         v = DateLogicValidator()
         df = pd.DataFrame({"birth_date": ["1990-01-01"]})

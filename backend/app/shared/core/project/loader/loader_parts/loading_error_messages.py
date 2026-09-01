@@ -23,12 +23,14 @@ from __future__ import annotations
 import os
 
 # 文件类型 → 中文友好名称映射（用于文案插值）
+# key 为小写化的 file_type（main.py 传入 "ManualData" 等首字母大写形式）
 _RESOURCE_LABELS: dict[str, str] = {
     "schema": "数据表定义",
     "constraint": "约束规则",
     "regex": "正则规则",
     "transform": "数据转换",
     "template": "模板",
+    "manualdata": "手动数据",
 }
 
 

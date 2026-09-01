@@ -117,6 +117,7 @@ def validate_file_access(file_path: str) -> str:
     内部委托给 assert_no_traversal。返回解析后的绝对路径供调用方使用。
 
     抛出:
-        HTTPException: 400 路径为空/含穿越成分; 403 系统敏感目录; 404 文件不存在
+        HTTPException: 400 路径为空/含 `..` 穿越成分/解析失败; 404 文件不存在
+        （本函数不做根目录限定，不会抛 403；403 仅由 assert_path_within_root 抛出）
     """
     return assert_no_traversal(file_path, must_exist=True)

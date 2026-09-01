@@ -1,12 +1,13 @@
 """Chat mini-agent 专用工具模块
 
-5 个工具构成"查-改-验"核心闭环：
+6 个工具构成"查-改-验"核心闭环：
 - ReadProjectTool:    读取项目概览(查)
 - ReadTableTool:      读取表数据样本(查)
 - ApplyActionsTool:   执行配置修改(改)
 - ValidateTableTool:  执行数据校验(验)
 - ReadCanvasTool:     读取画布上实际显示的节点快照(查)
     区别于 read_project 读项目配置文件——解决"配置里有但画布上没有"的同步鸿沟
+- AskUserTool:        向用户追加提问(交互)
 
 这些工具与 generation 路径的工具集完全独立：
 - 面向"增量改现有项目"场景，而非"从零生成完整配置"

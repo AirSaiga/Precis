@@ -8,7 +8,7 @@
 架构设计:
 - 继承 Reporter 抽象基类，实现 configure() 和 report() 方法
 - 目录管理: configure() 自动创建不存在的日志目录
-- 时间戳命名: 使用 datetime.now().strftime("%Y%m%d_%H%M%S") 生成唯一文件名
+- 时间戳命名: 使用 datetime.now().strftime("%Y%m%d_%H%M%S_%f") 毫秒级时间戳生成唯一文件名，避免同秒覆盖
 - UTF-8 编码: 确保中文字符正确存储
 - 格式化输出: indent=2 使 JSON 文件便于人工阅读
 
@@ -161,11 +161,17 @@ class LocalFileReporter(Reporter):
             return
 
         # 生成时间戳，用于构建唯一的文件名
-        # 格式：YYYYMMDD_HHMMSS，例如 20240215_143052
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        # 格式：YYYYMMDD_HHMMSS_mmm，例如 20240215_143052_123。
+        # 毫秒粒度避免同一秒内的多次报告互相覆盖（同秒覆盖丢报告）；
+        # 极端情况下（同一毫秒内多次写入）追加序号兜底，保证文件名唯一。
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:-3]
 
-        # 构建日志文件名
+        # 构建日志文件名；已存在时追加序号去重
         log_filename = f"error_report_{timestamp}.json"
+        sequence = 1
+        while os.path.exists(os.path.join(self.log_dir, log_filename)):
+            sequence += 1
+            log_filename = f"error_report_{timestamp}_{sequence}.json"
 
         # 拼接完整的文件路径
         log_filepath = os.path.join(self.log_dir, log_filename)

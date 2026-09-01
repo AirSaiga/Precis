@@ -28,6 +28,7 @@ import logging
 import os
 import tempfile
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -109,7 +110,8 @@ def find_config_file(project_path: str, filename: str | None) -> str | None:
     # 禁止绝对路径和父目录引用
     if os.path.isabs(filename):
         return None
-    if ".." in filename or filename.startswith("~"):
+    # 父目录引用按路径段检查（子串检查会误伤 "my..data.yaml" 这类合法文件名）
+    if any(seg == ".." for seg in Path(filename).parts) or filename.startswith("~"):
         return None
 
     # 首先尝试直接路径
@@ -352,7 +354,7 @@ def list_config_files(project_path: str) -> list[ConfigFileInfo]:
                 stat = os.stat(config_path)
                 config_files.append(ConfigFileInfo(name=f, size=stat.st_size, path=config_path))
             except Exception:
-                logging.error("获取文件信息失败", exc_info=True)
+                logger.error("获取文件信息失败", exc_info=True)
 
     # 递归子目录
     subdirs = ["schemas", "constraints", "patterns", "regex"]

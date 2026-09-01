@@ -3,7 +3,7 @@
 
 功能概述:
 - 提供 Schema 文件路径查找、冲突检测和合并等辅助函数
-- 支持多层查找策略：manifest 引用、文件名匹配、内容 ID 计算
+- 支持查找策略：manifest 引用、schemas/ 目录文件名匹配
 - 用于 Schema CRUD API 的底层支撑
 
 架构设计:
@@ -33,11 +33,9 @@ def _get_schema_path(manifest: ProjectManifestV2, table_id: str, config_path: st
     获取 schema 文件路径。
 
     查找策略：
-    1. 从 manifest.schemas 中查找引用（优先）
-    2. 验证引用路径是否实际存在（处理大小写不一致问题）
-    3. 扫描 schemas/ 目录，按 filename = table_id 查找（兼容 ID 作文件名）
-    4. 扫描 schemas/ 目录，按 filename = table_name 查找（兼容 name 作文件名）
-    5. 扫描 schemas/ 目录，按计算出的 schema ID 查找
+    1. 从 manifest.schemas 中查找引用，并验证引用路径实际存在
+    2. 扫描 schemas/ 目录，按文件名（去除 .schema.yaml 后缀）= table_id 查找
+       （兼容直接以节点 ID 作为文件名的项目）
     """
     ref = next((s for s in manifest.schemas if s.id == table_id), None)
     if ref:
@@ -51,12 +49,6 @@ def _get_schema_path(manifest: ProjectManifestV2, table_id: str, config_path: st
             if filename.lower().endswith(".schema.yaml"):
                 tid = filename[:-12]
                 if tid == table_id:
-                    return os.path.join(schemas_dir, filename)
-
-        for filename in os.listdir(schemas_dir):
-            if filename.lower().endswith(".schema.yaml"):
-                tname = filename[:-12]
-                if tname == table_id:
                     return os.path.join(schemas_dir, filename)
     return None
 

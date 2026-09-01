@@ -82,11 +82,6 @@ class TestJSONPathExtractor:
         assert e._navigate_step("string", "a") is None
         assert e._navigate_step(123, "a") is None
 
-    def test_is_recursive_path(self):
-        e = JSONPathExtractor()
-        assert e._is_recursive_path("..key") is True
-        assert e._is_recursive_path("key") is False
-
     def test_extract_recursive_deep(self):
         e = JSONPathExtractor()
         data = {"level1": {"level2": {"target": 42}}}

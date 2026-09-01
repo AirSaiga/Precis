@@ -257,3 +257,26 @@ class TestCompositeValidator:
         assert result.is_valid is False
         assert result.error_count == 1
         assert result.error_rows[0]["cell_value"] == "deleted"
+
+    def test_regex_sub_constraint_mapped(self, validator):
+        """Regex 子约束类型应映射到 ValidationType.REGEX，而非被报为未知类型。
+
+        此前 type_map 缺 regex 条目，regex 子约束会被当作"不支持的子约束类型"
+        上报配置错误并跳过校验。
+        """
+        df = pd.DataFrame({"email": ["a@example.com", "not-an-email"]})
+        result = validator.validate(
+            df,
+            "email",
+            logic="all",
+            sub_constraints=[
+                {
+                    "type": "Regex",
+                    "enabled": True,
+                    "params": {"regex_pattern": r"^[\w.+-]+@[\w-]+\.[\w.]+$"},
+                },
+            ],
+        )
+        assert result.is_valid is False, "regex 子约束应实际执行校验（1 行不匹配）"
+        assert result.error_count == 1
+        assert result.error_rows[0]["cell_value"] == "not-an-email"

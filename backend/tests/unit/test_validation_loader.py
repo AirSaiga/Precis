@@ -4,19 +4,12 @@
 测试范围:
 - load_file_data: Excel/CSV/JSON/JSONL 加载、文件不存在、不支持类型
 - load_file_data: 带配置加载、编码/分隔符设置
-- run_validation: 校验执行入口
-- validate_with_settings: 带配置校验
 """
 
 import pandas as pd
 import pytest
 
-from app.shared.services.validation.loader import (
-    load_file_data,
-    run_validation,
-    validate_with_settings,
-)
-from app.shared.services.validation.types import ValidationResult
+from app.shared.services.validation.loader import load_file_data
 
 
 class TestLoadFileDataFileNotFound:
@@ -167,78 +160,3 @@ class TestLoadFileDataWithSettings:
         csv_file.write_text("1,alice\n2,bob\n", encoding="utf-8")
         df = load_file_data(str(csv_file), header_row=-1)
         assert len(df) == 2
-
-
-class TestRunValidation:
-    def test_regex_validation(self, tmp_path):
-        csv_file = tmp_path / "test.csv"
-        csv_file.write_text("email\ntest@example.com\nbad\n", encoding="utf-8")
-        result = run_validation(
-            validation_type="regex",
-            source_file_path=str(csv_file),
-            target_column_name="email",
-            regex_pattern=r"^[\w.+-]+@[\w-]+\.[\w.]+$",
-        )
-        assert isinstance(result, ValidationResult)
-        assert result.is_valid is False
-        assert result.error_count == 1
-
-    def test_not_null_validation(self, tmp_path):
-        csv_file = tmp_path / "test.csv"
-        csv_file.write_text("name\nalice\n\nbob\n", encoding="utf-8")
-        result = run_validation(
-            validation_type="not_null",
-            source_file_path=str(csv_file),
-            target_column_name="name",
-        )
-        assert isinstance(result, ValidationResult)
-        # Empty line may be skipped by CSV parser, or become NaN/None
-        assert result.error_count >= 0
-
-    def test_custom_header(self, tmp_path):
-        csv_file = tmp_path / "test.csv"
-        csv_file.write_text("1,alice\n2,bob\n", encoding="utf-8")
-        result = run_validation(
-            validation_type="not_null",
-            source_file_path=str(csv_file),
-            target_column_name="name",
-            use_custom_header=True,
-            header_columns=["id", "name"],
-        )
-        assert isinstance(result, ValidationResult)
-        assert result.is_valid is True
-
-
-class TestValidateWithSettings:
-    def test_valid_regex(self):
-        df = pd.DataFrame({"email": ["a@b.com", "c@d.com"]})
-        result = validate_with_settings("regex", df, "email", regex_pattern=r"^[\w.+-]+@[\w-]+\.[\w.]+$")
-        assert result.is_valid is True
-
-    def test_unknown_type_returns_error(self):
-        df = pd.DataFrame({"col": [1]})
-        result = validate_with_settings("nonexistent_type", df, "col")
-        assert result.is_valid is False
-        assert "不支持的校验类型" in result.error_rows[0]["error_message"]
-
-    def test_with_settings_script_security(self):
-        df = pd.DataFrame({"val": [1, 2]})
-
-        class MockSS:
-            allow_eval = True
-            sandbox_mode = False
-
-        class MockSettings:
-            script_security = MockSS()
-
-        result = validate_with_settings("not_null", df, "val", settings=MockSettings())
-        assert isinstance(result, ValidationResult)
-
-    def test_settings_without_script_security(self):
-        df = pd.DataFrame({"val": [1, 2]})
-
-        class MockSettings:
-            script_security = None
-
-        result = validate_with_settings("not_null", df, "val", settings=MockSettings())
-        assert isinstance(result, ValidationResult)

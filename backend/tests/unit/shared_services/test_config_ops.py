@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from app.cli.shared_services.config_ops import (
     check_yaml_syntax,
+    find_config_file,
     get_by_dotpath,
     parse_config_value,
     set_by_dotpath,
@@ -44,3 +45,20 @@ def test_check_yaml_syntax_detects_error():
 def test_check_yaml_syntax_valid():
     result = check_yaml_syntax("a: 1\nb: 2", "ok.yaml")
     assert result.valid is True
+
+
+def test_find_config_file_allows_double_dot_inside_filename(tmp_path):
+    """回归：`..` 检查按路径段而非子串，"my..data.yaml" 不应被误判为穿越。"""
+    (tmp_path / "my..data.yaml").write_text("a: 1\n", encoding="utf-8")
+    result = find_config_file(str(tmp_path), "my..data.yaml")
+    assert result is not None
+    assert result.endswith("my..data.yaml")
+
+
+def test_find_config_file_still_rejects_parent_dir_traversal(tmp_path):
+    """真正的父目录穿越（路径段 ".."）仍被拒绝。"""
+    sub = tmp_path / "sub"
+    sub.mkdir()
+    (sub / "secret.yaml").write_text("x: 1\n", encoding="utf-8")
+    assert find_config_file(str(tmp_path), "../secret.yaml") is None
+    assert find_config_file(str(tmp_path), "a/../../b.yaml") is None

@@ -4,7 +4,6 @@
 
 功能概述:
 - 提供 ai chat 子命令进入交互式 AI 对话模式
-- 支持流式输出开关（--stream / --no-stream）
 - 管理对话历史记录，支持清空、查看统计
 - 过滤孤立确认词（如 "ok"、"好的"），避免误触发 AI 调用
 - 支持内置指令：help、clear、history、exit、quit、qq
@@ -66,7 +65,7 @@ class AIChatCommand(Command):
 
     @property
     def usage(self) -> str:
-        return "ai chat [--stream | --no-stream] [--no-agent-mode]"
+        return "ai chat [--no-agent-mode]"
 
     def execute(self, args: list[str], context: ProjectContext) -> CommandResult:
         """执行 AI 交互式对话命令。
@@ -74,7 +73,7 @@ class AIChatCommand(Command):
         检查项目和 AI 配置，解析命令行参数，然后进入交互式输入循环。
 
         Args:
-            args: 命令参数列表，可能包含 --stream 或 --no-stream
+            args: 命令参数列表，可能包含 --no-agent-mode
             context: 命令上下文，必须包含已打开的项目
 
         Returns:
@@ -88,16 +87,11 @@ class AIChatCommand(Command):
         if not provider:
             return CommandResult.error("没有可用的 LLM Provider 配置\n请先运行 'setup' 命令配置 API Key")
 
-        # 解析命令行参数
-        use_streaming = False  # 默认禁用流式输出，显示 loading spinner
+        # 解析命令行参数（--stream/--no-stream 已随 execute_ai_chat 的死参数一并移除）
         agent_mode = True  # 默认启用 Agent 深度模式
         filtered_args = []
         for arg in args:
-            if arg == "--stream":
-                use_streaming = True
-            elif arg == "--no-stream":
-                use_streaming = False
-            elif arg == "--no-agent-mode":
+            if arg == "--no-agent-mode":
                 agent_mode = False
             else:
                 filtered_args.append(arg)
@@ -119,7 +113,6 @@ class AIChatCommand(Command):
         print(Formatter.info(f"Provider: {provider.name}"))
         print(Formatter.info(f"Model: {provider.model}"))
         print(Formatter.info(f"Agent 模式: {'开启' if agent_mode else '关闭'}"))
-        print(Formatter.info(f"流式输出: {'开启' if use_streaming else '关闭'}"))
         print(Formatter.info(f"上下文限制: {self._context_window:,} tokens"))
         print(Formatter.info("\n提示: 输入 'exit' 或 'quit' 退出对话，'help' 查看帮助，'clear' 清空历史"))
         print(Formatter.header(""))
@@ -198,7 +191,6 @@ class AIChatCommand(Command):
                     context,
                     interactive=True,
                     history=chat_history,
-                    use_streaming=use_streaming,
                     agent_mode=agent_mode,
                 )
 

@@ -25,8 +25,10 @@ HISTORY_FILENAME = "validation_history.json"
 MAX_HISTORY_ENTRIES = 200
 
 # 回归 C7: 进程级写锁。ValidationHistoryStore 每请求新建实例(load 全量→改→全量覆写),
-# 并发请求会产生 lost-update。用模块级锁串行化同进程内的 add_run/delete_run 写操作,
-# 避免互相覆盖(跨进程仍依赖文件锁,但本地单进程场景已足够)。
+# 并发请求会产生 lost-update。用模块级锁串行化同进程内的 add_run/delete_run 写操作;
+# 但锁只保证互斥不保证新鲜——add_run/delete_run 还须在锁内重新 _load 磁盘最新内容
+# 再合并保存,否则先写实例的记录会被后写实例的旧内存快照覆写(跨进程仍依赖文件锁,
+# 但本地单进程场景已足够)。
 _history_write_lock = threading.Lock()
 
 
@@ -104,11 +106,15 @@ class ValidationHistoryStore:
     def add_run(self, record: ValidationRunRecord) -> str:
         """添加一次校验记录，返回记录 ID。
 
-        回归 C7: 加进程级写锁,串行化同进程内并发请求的 load→insert→save,
-        避免互相覆盖(lost-update)。
+        回归 C7: 加进程级写锁,串行化同进程内并发请求的 load→insert→save。
+        回归 lost-update: 锁只保证互斥,不保证新鲜——每请求新建实例时各实例的
+        _runs 都是构造时的快照,先写实例落盘的记录会被后写实例的旧快照覆写。
+        因此在锁内先重新 _load 磁盘最新内容再合并插入,两个实例交错 add 后
+        双方记录都在。
         """
         entry = asdict(record)
         with _history_write_lock:
+            self._load()  # 锁内重读,合并其他实例已落盘的记录
             self._runs.insert(0, entry)
             if len(self._runs) > MAX_HISTORY_ENTRIES:
                 self._runs = self._runs[:MAX_HISTORY_ENTRIES]
@@ -129,8 +135,9 @@ class ValidationHistoryStore:
         return None
 
     def delete_run(self, run_id: str) -> bool:
-        """删除单次记录(回归 C7: 加写锁避免并发覆盖)。"""
+        """删除单次记录(回归 C7: 加写锁避免并发覆盖;锁内重读避免基于旧快照删除)。"""
         with _history_write_lock:
+            self._load()  # 锁内重读,基于磁盘最新内容删除
             original_len = len(self._runs)
             self._runs = [r for r in self._runs if r.get("id") != run_id]
             if len(self._runs) < original_len:

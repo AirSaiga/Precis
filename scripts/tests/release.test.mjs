@@ -16,6 +16,7 @@ import {
   writeCargoLockVersion,
   latestVersionTag,
   releaseCommitFiles,
+  rollbackGuidance,
 } from '../release.mjs';
 
 // ---------------------------------------------------------------------------
@@ -214,4 +215,16 @@ test('latestVersionTag 取 semver 最大者并忽略非 semver tag', () => {
   assert.equal(latestVersionTag(['v0.1.0', 'v0.2.0-alpha.1', 'v0.1.9', 'tui-base-v1']), 'v0.2.0-alpha.1');
   assert.equal(latestVersionTag(['tui-base-v1']), null);
   assert.equal(latestVersionTag([]), null);
+});
+
+// ---------------------------------------------------------------------------
+// 回滚指引（回归：单引号串 "${tag}" 不插值）
+// ---------------------------------------------------------------------------
+
+test('rollbackGuidance 输出含真实 tag 而非 ${tag} 占位符', () => {
+  const text = rollbackGuidance('v0.1.2');
+  assert.ok(text.includes('v0.1.2'), '回滚指引必须包含真实 tag');
+  assert.ok(text.includes('git tag -d v0.1.2'), 'tag -d 命令含真实 tag');
+  assert.ok(text.includes('git push origin :refs/tags/v0.1.2'), '远端删 tag 命令含真实 tag');
+  assert.ok(!text.includes('${tag}'), '不得残留未插值的 ${tag} 占位符');
 });

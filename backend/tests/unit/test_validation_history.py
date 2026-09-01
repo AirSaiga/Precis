@@ -161,3 +161,52 @@ class TestValidationHistoryStore:
 
         result = store.get_run("run_no_warn")
         assert result["warnings"] == []
+
+
+class TestConcurrentInstances:
+    """lost-update 回归：每请求新建实例时，交错写入不得互相覆盖。"""
+
+    def test_interleaved_adds_from_two_instances_both_persisted(self, tmp_path):
+        """两实例交错 add 后重读磁盘，两条记录都必须在（锁内重读合并）。"""
+        store_a = ValidationHistoryStore(str(tmp_path))
+        store_b = ValidationHistoryStore(str(tmp_path))
+
+        store_a.add_run(_make_record(run_id="run_from_a"))
+        store_b.add_run(_make_record(run_id="run_from_b"))
+
+        final = ValidationHistoryStore(str(tmp_path))
+        ids = [item["id"] for item in final.get_runs(limit=50)["items"]]
+        assert "run_from_a" in ids
+        assert "run_from_b" in ids
+
+    def test_delete_from_second_instance_keeps_first_instance_records(self, tmp_path):
+        """实例 B 删除记录基于磁盘最新内容，不回滚实例 A 之后写入的记录。"""
+        store_a = ValidationHistoryStore(str(tmp_path))
+        store_a.add_run(_make_record(run_id="run_keep"))
+
+        store_b = ValidationHistoryStore(str(tmp_path))
+        store_b.add_run(_make_record(run_id="run_drop"))
+
+        # 实例 A（旧快照）删除自己的记录
+        assert store_a.delete_run("run_keep") is True
+
+        final = ValidationHistoryStore(str(tmp_path))
+        ids = [item["id"] for item in final.get_runs(limit=50)["items"]]
+        assert ids == ["run_drop"]
+
+    def test_threaded_adds_from_many_instances_all_persisted(self, tmp_path):
+        """多线程多实例并发 add：全部记录都落盘，无 lost-update。"""
+        import threading
+
+        stores = [ValidationHistoryStore(str(tmp_path)) for _ in range(5)]
+        threads = []
+        for i, store in enumerate(stores):
+            t = threading.Thread(target=store.add_run, args=(_make_record(run_id=f"run_t{i}"),))
+            threads.append(t)
+            t.start()
+        for t in threads:
+            t.join()
+
+        final = ValidationHistoryStore(str(tmp_path))
+        ids = {item["id"] for item in final.get_runs(limit=MAX_HISTORY_ENTRIES)["items"]}
+        assert ids == {f"run_t{i}" for i in range(5)}

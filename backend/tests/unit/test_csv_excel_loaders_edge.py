@@ -144,3 +144,93 @@ class TestExcelLoaderEdgeCases:
         assert result.equals(df_in)
         # 必须留有诊断日志
         assert any("合并单元格前向填充失败" in r.message for r in caplog.records)
+
+
+class TestExcelEngineKwargsForwarding:
+    """B7 回归：engine_kwargs 仅对 openpyxl 转发 data_only=True，xlrd（.xls）不传。
+
+    此前 load/load_multi_sheet/preview 硬编码 engine_kwargs={"data_only": True}，
+    pandas 会原样转发给 xlrd.open_workbook（无此形参）→ TypeError，.xls 文件必炸。
+    xlrd 2.x+ 未安装无法构造真实 .xls，故以 pandas.read_excel 边界捕获断言转发行为。
+    """
+
+    @staticmethod
+    def _capture_read_excel(captured: dict, return_value):
+        def fake_read_excel(path, **kwargs):
+            captured.update(kwargs)
+            return return_value
+
+        return fake_read_excel
+
+    def test_load_multi_sheet_xlrd_not_passed_engine_kwargs(self, tmp_path):
+        """xlrd 引擎的 load_multi_sheet 不转发 data_only（xlrd.open_workbook 无此参数）。"""
+        xls_file = tmp_path / "test.xls"
+        xls_file.write_bytes(b"\xd0\xcf\x11\xe0dummy-ole-header")  # 占位字节，读取被 mock 拦截
+
+        spec = _make_excel_spec(str(xls_file), engine="xlrd")
+        loader = ExcelLoader(spec)
+
+        captured: dict = {}
+        with patch(
+            "pandas.read_excel",
+            side_effect=self._capture_read_excel(captured, {"Sheet1": pd.DataFrame({"a": [1, 2]})}),
+        ):
+            results = loader.load_multi_sheet({"s1": {"sheet_name": "Sheet1", "header_row": 0}})
+
+        assert "engine_kwargs" not in captured, "xlrd 分支不得转发 engine_kwargs"
+        assert "s1" in results
+
+    def test_load_multi_sheet_openpyxl_passes_data_only(self, tmp_path):
+        """openpyxl 引擎的 load_multi_sheet 仍转发 data_only=True（读取公式结果语义保持）。"""
+        xlsx_file = tmp_path / "test.xlsx"
+        pd.DataFrame({"a": [1, 2]}).to_excel(xlsx_file, index=False)
+
+        spec = _make_excel_spec(str(xlsx_file), engine="openpyxl")
+        loader = ExcelLoader(spec)
+
+        captured: dict = {}
+        real_read_excel = pd.read_excel
+
+        def capture_then_real(path, **kwargs):
+            captured.update(kwargs)
+            return real_read_excel(path, **kwargs)
+
+        with patch("pandas.read_excel", side_effect=capture_then_real):
+            results = loader.load_multi_sheet({"s1": {"sheet_name": "Sheet1", "header_row": 0}})
+
+        assert captured.get("engine_kwargs") == {"data_only": True}
+        assert "s1" in results
+
+    def test_load_xlrd_not_passed_engine_kwargs(self, tmp_path):
+        """xlrd 引擎的单 sheet load() 同样不转发 engine_kwargs。"""
+        xls_file = tmp_path / "test.xls"
+        xls_file.write_bytes(b"\xd0\xcf\x11\xe0dummy-ole-header")
+
+        spec = _make_excel_spec(str(xls_file), engine="xlrd")
+        loader = ExcelLoader(spec)
+
+        captured: dict = {}
+        with patch(
+            "pandas.read_excel",
+            side_effect=self._capture_read_excel(captured, pd.DataFrame({"a": [1, 2]})),
+        ):
+            loader.load()
+
+        assert "engine_kwargs" not in captured
+
+    def test_preview_xlrd_not_passed_engine_kwargs(self, tmp_path):
+        """xlrd 引擎的 preview() 同样不转发 engine_kwargs。"""
+        xls_file = tmp_path / "test.xls"
+        xls_file.write_bytes(b"\xd0\xcf\x11\xe0dummy-ole-header")
+
+        spec = _make_excel_spec(str(xls_file), engine="xlrd")
+        loader = ExcelLoader(spec)
+
+        captured: dict = {}
+        with patch(
+            "pandas.read_excel",
+            side_effect=self._capture_read_excel(captured, pd.DataFrame({"a": [1, 2]})),
+        ):
+            loader.preview(nrows=1)
+
+        assert "engine_kwargs" not in captured

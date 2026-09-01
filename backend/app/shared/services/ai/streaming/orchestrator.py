@@ -88,7 +88,7 @@ class StreamingOrchestrator:
         # 终止事件 + apply_pending 强制 fsync（保证关键状态持久化，delta 等高频事件不 fsync）
         from .types import TERMINAL_EVENTS
 
-        force_fsync = event in TERMINAL_EVENTS or event == "apply_pending"
+        force_fsync = event in TERMINAL_EVENTS or event == EVENT_APPLY_PENDING
         eid = self.journal.append(event, data, force_fsync=force_fsync)
         if self.event_queue is not None:
             try:

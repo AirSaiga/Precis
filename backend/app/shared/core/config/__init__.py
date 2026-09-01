@@ -24,9 +24,6 @@ class ConfigPaths:
     # 用户级配置目录（用户主目录下）
     USER_CONFIG_DIR = Path.home() / ".precis"
 
-    # 系统级配置目录（仅 Unix）
-    SYSTEM_CONFIG_DIR = Path("/etc/precis")
-
     @classmethod
     def get_project_config_dir(cls, project_root: str) -> Path:
         """

@@ -192,12 +192,6 @@ class AIMigrateCommand(Command):
         for p in file_paths:
             print(f"  - {os.path.relpath(p, project_path)}")
 
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
         def progress_callback(stage: str, progress: float, extra: dict[str, Any] | None = None) -> None:
             """终端进度回调。"""
             msg = extra.get("message") if extra else None
@@ -216,8 +210,10 @@ class AIMigrateCommand(Command):
             keep_existing=True,
         )
 
+        # CLI 是同步环境：asyncio.run 创建一次性事件循环并在结束时确保关闭
+        # （不再 get_running_loop/new_event_loop 泄漏循环）
         try:
-            result = loop.run_until_complete(
+            result = asyncio.run(
                 service.migrate_from_script(
                     script_content=script_content,
                     language=language,

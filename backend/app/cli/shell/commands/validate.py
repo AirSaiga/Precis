@@ -45,6 +45,17 @@ from app.cli.shell.formatter import Formatter, Spinner
 _console = Console()
 
 
+# 选项表（单一事实源）：standalone 解析与 Shell 模式选项剥离共用
+_STANDALONE_OPTIONS: dict[str, str] = {
+    "--manifest": "manifest",
+    "-m": "manifest",
+    "--data-directory": "data_directory",
+    "-d": "data_directory",
+    "--table": "table",
+    "-t": "table",
+}
+
+
 def _parse_standalone_args(args: list[str]) -> dict:
     """解析 standalone 模式的命名参数。
 
@@ -61,18 +72,40 @@ def _parse_standalone_args(args: list[str]) -> dict:
     i = 0
     while i < len(args):
         arg = args[i]
-        if arg in ("--manifest", "-m") and i + 1 < len(args):
-            result["manifest"] = args[i + 1]
-            i += 2
-        elif arg in ("--data-directory", "-d") and i + 1 < len(args):
-            result["data_directory"] = args[i + 1]
-            i += 2
-        elif arg in ("--table", "-t") and i + 1 < len(args):
-            result["table"] = args[i + 1]
+        key = _STANDALONE_OPTIONS.get(arg)
+        if key and i + 1 < len(args):
+            result[key] = args[i + 1]
             i += 2
         else:
             i += 1
     return result
+
+
+def _split_positional_args(args: list[str]) -> list[str]:
+    """剥离 args 中的选项及选项值，返回剩余位置参数。
+
+    Shell 模式下用户可能混用选项（如 `validate --table users`），
+    直接取 args[0] 当表名会把 "--table" 当成表名。此函数按选项表
+    跳过每个选项及其值；尾部悬挂选项（缺值）仅跳过自身。
+
+    Args:
+        args: 命令参数列表
+
+    Returns:
+        剩余的位置参数列表
+    """
+    positional: list[str] = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg in _STANDALONE_OPTIONS and i + 1 < len(args):
+            i += 2  # 跳过选项及其值
+        elif arg in _STANDALONE_OPTIONS:
+            i += 1  # 尾部悬挂选项（缺值），仅跳过自身
+        else:
+            positional.append(arg)
+            i += 1
+    return positional
 
 
 class ValidateCommand(Command):
@@ -138,8 +171,11 @@ class ValidateCommand(Command):
         if project_path is None:
             return CommandResult.error("未打开项目，请先使用 'open <path>' 命令打开项目")
 
-        # 获取可选的表名过滤参数（不指定则校验所有表）
-        table_name = args[0] if args else None
+        # 表名过滤来源优先级：--table/-t 选项 > 首个位置参数 > None（校验全部）
+        # 位置参数须先剥离选项及选项值，否则 `validate --table users` 会把 "--table" 当表名
+        parsed_shell = _parse_standalone_args(args)
+        positional = _split_positional_args(args)
+        table_name = parsed_shell["table"] or (positional[0] if positional else None)
 
         # 构建清单文件和数据目录路径
         manifest_path = os.path.join(project_path, "project.precis.yaml")

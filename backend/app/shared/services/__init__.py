@@ -19,8 +19,6 @@ from .validation import (
     ValidationResult,
     ValidationType,
     load_file_data,
-    run_validation,
-    validate_with_settings,
 )
 from .validation.engine import validate_full_dataset
 from .validation.executor import (
@@ -34,8 +32,6 @@ __all__ = [
     "ValidationResult",
     "UnifiedValidationService",
     "load_file_data",
-    "run_validation",
-    "validate_with_settings",
     "BaseValidator",
     "ConstraintAdapter",
     "PreCheck",

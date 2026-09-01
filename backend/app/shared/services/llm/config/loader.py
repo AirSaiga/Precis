@@ -26,6 +26,7 @@ from typing import Any
 import yaml
 
 from app.shared.core.config import ConfigPaths
+from app.shared.core.io.yaml import write_yaml_atomic
 
 from .crypto import decrypt_api_key, encrypt_api_key, is_encrypted
 from .models import AIConfig, AIProvider
@@ -175,6 +176,8 @@ class ConfigLoader:
         @methoddesc 将配置保存到用户级 YAML 文件
 
         始终写入 ~/.precis/ai_providers.yaml。
+        使用原子写入（临时文件 + os.replace）：此文件含 API Key 等敏感配置，
+        裸 open("w") 在写入中途崩溃/断电会产生半截文件，导致用户配置丢失。
         """
         user_path = self.config_path
         user_path.parent.mkdir(parents=True, exist_ok=True)
@@ -182,8 +185,7 @@ class ConfigLoader:
         data = config.model_dump(exclude_none=True)
         data = self._encrypt_api_keys(data)
 
-        with open(user_path, "w", encoding="utf-8") as f:
-            yaml.dump(data, f, default_flow_style=False, allow_unicode=True, sort_keys=False)
+        write_yaml_atomic(user_path, data)
 
         self.invalidate_cache()
 

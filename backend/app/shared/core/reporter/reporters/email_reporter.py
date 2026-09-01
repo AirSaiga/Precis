@@ -37,6 +37,7 @@
     [EmailReporter] ✓ 成功发送错误报告邮件至 admin@example.com。
 """
 
+import html
 import json
 import smtplib
 from email.header import Header
@@ -136,13 +137,21 @@ class EmailReporter(Reporter):
         # 尝试连接和登录以验证配置的正确性
         # 使用 with 语句确保连接被正确关闭，即使发生异常
         try:
-            # 建立 SMTP 连接，设置 10 秒超时防止阻塞
-            with smtplib.SMTP(str(smtp_server), int(smtp_port), timeout=10) as smtp:
-                # 升级到 TLS 加密连接，这是现代 SMTP 服务的安全要求
-                # TLS 适用于端口 587，是比 SSL 更常用的选择
-                smtp.starttls()
-                # 使用提供的凭证登录
-                smtp.login(str(sender_email), str(sender_password))
+            # 与 report() 保持一致的双模式连接：
+            # - 端口 465 使用 SMTP_SSL（隐式 SSL，STARTTLS 握手会失败/超时）
+            # - 其余端口使用普通 SMTP + STARTTLS 升级加密
+            if int(smtp_port) == 465:
+                with smtplib.SMTP_SSL(str(smtp_server), int(smtp_port), timeout=10) as smtp:
+                    # 使用提供的凭证登录
+                    smtp.login(str(sender_email), str(sender_password))
+            else:
+                # 建立 SMTP 连接，设置 10 秒超时防止阻塞
+                with smtplib.SMTP(str(smtp_server), int(smtp_port), timeout=10) as smtp:
+                    # 升级到 TLS 加密连接，这是现代 SMTP 服务的安全要求
+                    # TLS 适用于端口 587，是比 SSL 更常用的选择
+                    smtp.starttls()
+                    # 使用提供的凭证登录
+                    smtp.login(str(sender_email), str(sender_password))
 
             # 配置验证成功，打印成功信息（不包含敏感密码）
             print(f"[{self.name}] ✓ 邮件服务配置验证成功，发件人: {sender_email}")
@@ -187,10 +196,12 @@ class EmailReporter(Reporter):
 
         # 构建 HTML 邮件正文，使用 JSON 格式化错误列表
         # 使用 pre 标签保持 JSON 的格式和缩进
+        # html.escape 防止错误数据中的 <script>/标签注入邮件 HTML（XSS）
+        errors_json = html.escape(json.dumps(errors, indent=2, ensure_ascii=False))
         html_body = f"""
         <html><body>
             <h2>检测到以下数据配置错误：</h2>
-            <pre style=\"background-color: #f0f0f0; padding: 10px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word;\">{json.dumps(errors, indent=2, ensure_ascii=False)}</pre>
+            <pre style=\"background-color: #f0f0f0; padding: 10px; border-radius: 5px; white-space: pre-wrap; word-wrap: break-word;\">{errors_json}</pre>
             <p>请尽快检查并修复。</p>
         </body></html>
         """
@@ -236,6 +247,10 @@ class EmailReporter(Reporter):
 
         finally:
             # 确保 SMTP 连接被正确关闭，释放资源
-            # 使用 try-finally 确保即使发生异常也会关闭连接
+            # quit() 自身的异常（连接已断等 secondary exception）不得吞掉
+            # try/except 块中捕获的原始业务异常
             if smtp:
-                smtp.quit()
+                try:
+                    smtp.quit()
+                except Exception:  # noqa: BLE001  关闭失败的次要异常仅记录
+                    print(f"[{self.name}] !! 警告: 关闭 SMTP 连接失败（忽略）。")

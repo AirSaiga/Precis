@@ -7,7 +7,7 @@
 
 架构设计:
 - 使用纯字典列表表示消息，兼容 OpenAI messages 格式
-- token 估算采用简单字符分类法（中文按 1.5 token/字，英文按 0.25 token/char）
+- token 估算委托给 utils.estimate_tokens 统一实现（中文字 1:1、英文单词/数字串/标点各计 1，另加固定开销）
 """
 
 from __future__ import annotations

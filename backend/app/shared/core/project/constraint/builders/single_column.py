@@ -9,20 +9,8 @@ Charset 此前无独立分支（走通用路径导致残缺实例），此处补
 
 from __future__ import annotations
 
-from typing import Any
-
 from .base import BuilderInput, BuilderResult, resolve_single_column
 from .registry import register_builder
-
-
-def _merge_params(inp: BuilderInput, extra: dict[str, Any] | None = None) -> dict[str, Any]:
-    """合并基础 kwargs 与 params 适配结果。"""
-    kwargs, error = resolve_single_column(inp)
-    if error:
-        return {}  # 错误由调用方处理，此处简化
-    if extra:
-        kwargs.update(extra)
-    return kwargs
 
 
 @register_builder("NotNull")

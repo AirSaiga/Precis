@@ -187,13 +187,6 @@ class AIGenerateCommand(Command):
         for p in file_paths:
             print(f"  - {os.path.relpath(p, project_path)}")
 
-        # 异步执行生成
-        try:
-            loop = asyncio.get_running_loop()
-        except RuntimeError:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-
         def progress_callback(stage: str, progress: float, extra: dict[str, Any] | None = None) -> None:
             """终端进度回调。"""
             msg = extra.get("message") if extra else None
@@ -212,32 +205,31 @@ class AIGenerateCommand(Command):
             keep_existing=True,
         )
 
+        # CLI 是同步环境：按模式构造一次协程，asyncio.run 创建一次性事件循环
+        # 并在结束时确保关闭（不再 get_running_loop/new_event_loop 泄漏循环）
+        if agent_mode:
+            coro = service.generate_with_agent(
+                file_paths=file_paths,
+                project_name=project_name,
+                project_id=project_id,
+                config_path=project_path,
+                profiling_options=profiling_opts,
+                generation_options=gen_opts,
+                max_iterations=max_iterations,
+                progress_callback=progress_callback,
+            )
+        else:
+            coro = service.generate(
+                file_paths=file_paths,
+                project_name=project_name,
+                project_id=project_id,
+                config_path=project_path,
+                profiling_options=profiling_opts,
+                generation_options=gen_opts,
+                progress_callback=lambda stage, progress: progress_callback(stage, progress, None),
+            )
         try:
-            if agent_mode:
-                result = loop.run_until_complete(
-                    service.generate_with_agent(
-                        file_paths=file_paths,
-                        project_name=project_name,
-                        project_id=project_id,
-                        config_path=project_path,
-                        profiling_options=profiling_opts,
-                        generation_options=gen_opts,
-                        max_iterations=max_iterations,
-                        progress_callback=progress_callback,
-                    )
-                )
-            else:
-                result = loop.run_until_complete(
-                    service.generate(
-                        file_paths=file_paths,
-                        project_name=project_name,
-                        project_id=project_id,
-                        config_path=project_path,
-                        profiling_options=profiling_opts,
-                        generation_options=gen_opts,
-                        progress_callback=lambda stage, progress: progress_callback(stage, progress, None),
-                    )
-                )
+            result = asyncio.run(coro)
         except Exception as e:
             logger.error(f"配置生成失败: {e}", exc_info=True)
             return CommandResult.error(f"配置生成失败: {e}")

@@ -25,7 +25,6 @@
         context=project_context,
         interactive=True,
         history=[],
-        use_streaming=False,
     )
 
 输出示例:

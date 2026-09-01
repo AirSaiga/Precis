@@ -14,6 +14,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import TypeVar
@@ -32,6 +33,8 @@ from app.shared.core.project.schema.reader import load_schema
 from app.shared.core.project.template.expander import expand_template
 from app.shared.core.project.template.reader import load_template
 from app.shared.core.project.transform.reader import load_transform
+
+logger = logging.getLogger(__name__)
 
 T = TypeVar("T")
 
@@ -87,7 +90,7 @@ def _load_referenced_files(
                     **loading_error_messages.file_not_found_error(file_type, ref.id, str(file_path)),
                 )
             )
-            print(f"[WARN] {warning_msg}")
+            logger.warning("[WARN] %s", warning_msg)
             continue
 
         try:
@@ -101,7 +104,7 @@ def _load_referenced_files(
                     **loading_error_messages.parse_error(file_type, ref.id, str(file_path), e),
                 )
             )
-            print(f"[WARN] {file_type} 加载失败: {ref.id}, {e}")
+            logger.warning("[WARN] %s 加载失败: %s, %s", file_type, ref.id, e)
 
     return result
 
@@ -237,27 +240,28 @@ def load_project(
             # B05 修复：模板展开后 ID 冲突时记录警告（而非静默覆盖），
             # 但保留覆盖行为以兼容历史项目（部分项目依赖模板实例间 ID 复用）。
             # 记录为 warning 而非 blocker，避免阻断正常加载流程。
-            def _record_id_conflict(kind: str, conflicted_id: str, owner: dict) -> None:
+            def _record_id_conflict(kind: str, conflicted_id: str) -> None:
                 warnings.append(
-                    f"模板实例 '{instance.id}' 展开产生 ID 冲突：{kind} '{conflicted_id}' 已被其他模板实例占用，"
-                    f"当前实例的内容将覆盖（来源：{owner.get('id', '?')}）。"
+                    f"模板实例 '{instance.id}' 展开产生 ID 冲突：{kind} '{conflicted_id}' 已存在"
+                    f"（可能来自项目的普通配置文件，也可能是此前展开的其他模板实例产物），"
+                    f"当前实例的内容将覆盖已有定义。"
                 )
 
             for tf in t_list:
                 if tf.id in transform_files:
-                    _record_id_conflict("transform", tf.id, {"id": instance.id})
+                    _record_id_conflict("transform", tf.id)
                 transform_files[tf.id] = tf
             for cf in c_list:
                 if cf.id in constraint_files:
-                    _record_id_conflict("constraint", cf.id, {"id": instance.id})
+                    _record_id_conflict("constraint", cf.id)
                 constraint_files[cf.id] = cf
             for rf in r_list:
                 if rf.id in regex_files:
-                    _record_id_conflict("regex", rf.id, {"id": instance.id})
+                    _record_id_conflict("regex", rf.id)
                 regex_files[rf.id] = rf
             for mf in m_list:
                 if mf.id in manual_data_files:
-                    _record_id_conflict("manual_data", mf.id, {"id": instance.id})
+                    _record_id_conflict("manual_data", mf.id)
                 manual_data_files[mf.id] = mf
         except Exception as e:
             loading_errors.append(

@@ -161,8 +161,6 @@ def save_constraint(constraint: ConstraintFile, constraint_path: str | Path) -> 
         )
         save_constraint(constraint, "/project/constraints/unique_user_email.constraint.yaml")
     """
-    # 步骤1：标准化路径格式，兼容字符串和 Path 对象输入
-    Path(constraint_path)
-    # 步骤2：将 ConstraintFile 对象转换为字典，exclude_none=True 排除空值字段
-    # 步骤3：调用底层 YAML 写入函数将数据持久化到文件
+    # 步骤1：将 ConstraintFile 对象转换为字典，exclude_none=True 排除空值字段
+    # 步骤2：调用底层 YAML 写入函数将数据持久化到文件（write_yaml_atomic 内部处理字符串/Path 路径）
     write_yaml_atomic(Path(constraint_path), constraint.model_dump(exclude_none=True))

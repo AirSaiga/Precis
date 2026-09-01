@@ -42,13 +42,16 @@ import hashlib
 import hmac
 import ipaddress
 import json
+import logging
 import time
 import urllib.request
 from datetime import datetime
 from typing import Any
 from urllib.parse import urlparse
 
-from .base import TEMPLATE_HEADROOM_BYTES, Reporter, truncate_to_byte_limit
+from .base import TEMPLATE_HEADROOM_BYTES, Reporter, sanitize_url_for_log, truncate_to_byte_limit
+
+logger = logging.getLogger(__name__)
 
 _ALLOWED_URL_SCHEMES = {"https", "http"}
 _BLOCKED_NETWORKS = [
@@ -390,11 +393,6 @@ class FeishuReporter(Reporter):
         # 构建请求头：包含 API 密钥认证
         headers = {"Content-Type": "application/json", "Authorization": f"Bearer {self.config['api_key']}"}
 
-        # 生成简要摘要信息
-        # 从卡片内容中提取错误数量
-        error_lines = card_content["elements"][0]["text"]["content"].splitlines()
-        _summary_count = len(error_lines) - 2 if len(error_lines) > 2 else 0
-
         # 构建请求负载：将卡片内容序列化为 JSON 字符串
         # 服务端负责解析和发送飞书消息
         payload = {"message": json.dumps(card_content)}
@@ -445,4 +443,10 @@ class FeishuReporter(Reporter):
                     # 提取错误信息（不同 API 字段名不同）
                     print(f"[{self.name}] !! 错误: 发送消息失败: {result.get('msg', result_str)}")
         except Exception as e:
-            print(f"[{self.name}] !! 错误: 发送请求到 '{url}' 失败: {e}")
+            # webhook_url 的 token 在 query 中，日志只打 host+path，避免密钥落日志
+            logger.warning(
+                "[%s] !! 错误: 发送请求到 '%s' 失败: %s",
+                self.name,
+                sanitize_url_for_log(url),
+                e,
+            )

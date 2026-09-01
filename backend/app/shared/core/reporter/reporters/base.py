@@ -31,6 +31,7 @@
 
 from abc import ABC, abstractmethod
 from typing import Any
+from urllib.parse import urlparse
 
 # 截断后追加的省略标记（各报告器共用，保证提示语义一致）
 TRUNCATION_SUFFIX = "\n... (内容过长，已截断)"
@@ -38,6 +39,28 @@ TRUNCATION_SUFFIX = "\n... (内容过长，已截断)"
 # 各报告器的消息模板在 error_details 之外还含标题/时间戳/代码块围栏等固定文本，
 # 截断上限需为其预留字节余量，保证整条消息编码后不超过平台限额
 TEMPLATE_HEADROOM_BYTES = 256
+
+
+def sanitize_url_for_log(url: str) -> str:
+    """脱敏 URL 用于日志输出：只保留 scheme://host/path，丢弃 query/fragment。
+
+    Webhook/Token 类 URL 的凭证（token、corpsecret 等）几乎都在 query 中，
+    异常日志打印完整 URL 会把密钥写进日志文件。此函数只保留主机与路径。
+
+    Args:
+        url: 原始 URL（可能含敏感 query）
+
+    Returns:
+        形如 "https://open.feishu.cn/open-apis/bot/v2/hook/xxx" 的脱敏 URL；
+        解析失败时返回 "<invalid-url>"（不抛异常，日志路径不允许二次失败）。
+    """
+    try:
+        parsed = urlparse(url)
+        if parsed.scheme and parsed.netloc:
+            return f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+        return "<invalid-url>"
+    except Exception:  # noqa: BLE001  日志脱敏兜底，任何解析异常都降级为占位符
+        return "<invalid-url>"
 
 
 def truncate_to_byte_limit(text: str, max_bytes: int, suffix: str = TRUNCATION_SUFFIX) -> str:

@@ -136,7 +136,7 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
                 sheet_name=sheet_names,
                 header=None,
                 engine=self.spec.engine,
-                engine_kwargs={"data_only": True},
+                **self._engine_kwargs(),
             )
 
             results: dict[str, pd.DataFrame] = {}
@@ -185,6 +185,18 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
         except Exception as e:
             raise DataLoadError(f"Excel 多 sheet 加载失败: {e}", self.spec, e)
 
+    def _engine_kwargs(self) -> dict[str, Any]:
+        """@methoddesc 构造 pandas.read_excel 的 engine_kwargs。
+
+        data_only=True 让 openpyxl 读取公式计算结果而非公式本身。
+        仅 openpyxl 引擎支持该参数——xlrd（.xls）的 open_workbook 没有
+        data_only 形参，pandas 原样转发会 TypeError，导致 .xls 必炸。
+        因此 xlrd 分支不传任何 engine_kwargs。
+        """
+        if self.spec.engine == "openpyxl":
+            return {"engine_kwargs": {"data_only": True}}
+        return {}
+
     def _build_read_kwargs(self) -> dict[str, Any]:
         """
         @methoddesc 构造 pandas.read_excel 的参数字典
@@ -200,7 +212,7 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
             "header": self.spec.header_row if self.spec.header_enabled else None,
             "engine": self.spec.engine,
             "dtype": None if self.spec.dtype_inference else str,
-            "engine_kwargs": {"data_only": True},
+            **self._engine_kwargs(),
         }
 
         if self.spec.sheet:
@@ -356,7 +368,7 @@ class ExcelLoader(DataSourceLoader[ExcelSourceSpec]):
                 "nrows": nrows,
                 "header": self.spec.header_row if self.spec.header_enabled else None,
                 "engine": self.spec.engine,
-                "engine_kwargs": {"data_only": True},
+                **self._engine_kwargs(),
             }
 
             if self.spec.sheet:

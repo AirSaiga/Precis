@@ -111,26 +111,6 @@ def get_loader_for_source_type(source_type: str) -> type[DataSourceLoader]:
     return loader_class
 
 
-def register_loader_for_type(source_type: str, loader_class: type[DataSourceLoader]) -> None:
-    """
-    @methoddesc 注册数据源类型到加载器的映射。
-
-    与 loaders.registry.register_loader_class 功能相同，
-    但操作的是 __init__ 模块中的 LOADER_REGISTRY。
-
-    Args:
-        source_type: 数据源类型标识（如 "json", "csv"）
-        loader_class: 要注册的加载器类
-
-    Returns:
-        None
-
-    示例:
-        >>> register_loader_for_type("parquet", ParquetLoader)
-    """
-    LOADER_REGISTRY[source_type] = loader_class
-
-
 def get_supported_types() -> list:
     """
     @methoddesc 获取所有支持的数据源类型
@@ -154,34 +134,6 @@ def can_load_type(source_type: str) -> bool:
     return source_type in LOADER_REGISTRY
 
 
-def validate_source_spec(spec: Any) -> bool:
-    """
-    @methoddesc 验证数据源配置是否有效
-
-    Args:
-        spec: 数据源配置对象
-
-    Returns:
-        配置是否有效
-
-    Raises:
-        ValueError: 配置无效时抛出
-    """
-    if not hasattr(spec, "type"):
-        raise ValueError("spec 必须包含 'type' 属性")
-
-    if not can_load_type(spec.type):
-        raise ValueError(f"不支持的数据源类型: {spec.type}")
-
-    if hasattr(spec, "path") and spec.path:
-        from pathlib import Path
-
-        if not Path(spec.path).exists():
-            raise ValueError(f"数据源文件不存在: {spec.path}")
-
-    return True
-
-
 def load_source_data_safe(spec: Any) -> tuple[pd.DataFrame, list]:
     """
     @methoddesc 安全的数据源加载入口
@@ -202,37 +154,6 @@ def load_source_data_safe(spec: Any) -> tuple[pd.DataFrame, list]:
         return df, []
     except Exception as e:
         return pd.DataFrame(), [str(e)]
-
-
-def load_multiple_sources(specs: list) -> dict[str, pd.DataFrame]:
-    """
-    @methoddesc 批量加载多个数据源
-
-    Args:
-        specs: 数据源配置对象列表
-
-    Returns:
-        数据源名称到 DataFrame 的映射
-
-    示例:
-        >>> specs = [
-        ...     JSONSourceSpec(path="data/users.json"),
-        ...     CSVSourceSpec(path="data/orders.csv"),
-        ... ]
-        >>> datasets = load_multiple_sources(specs)
-    """
-    result = {}
-    for i, spec in enumerate(specs):
-        try:
-            df = load_source_data(spec)
-            name = getattr(spec, "name", None) or f"source_{i}"
-            result[name] = df
-        except Exception as e:
-            spec_name = getattr(spec, "name", None) or f"source_{i}"
-            spec_type = getattr(spec, "type", "unknown")
-            logger.warning(f"加载数据源失败，已跳过: name={spec_name}, type={spec_type}, 错误: {e}")
-            continue
-    return result
 
 
 # 延迟导入具体加载器，避免循环依赖
@@ -266,12 +187,9 @@ __all__ = [
     # 统一加载接口
     "load_source_data",
     "load_source_data_safe",
-    "load_multiple_sources",
     "get_loader_for_source_type",
-    "register_loader_for_type",
     "get_supported_types",
     "can_load_type",
-    "validate_source_spec",
     # 具体加载器（延迟加载）
     "ExcelLoader",
     "CSVLoader",

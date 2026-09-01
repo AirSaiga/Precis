@@ -26,6 +26,7 @@ import json
 import logging
 import os
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ def _save_history(history: list[dict]) -> None:
             json.dump(history, f, ensure_ascii=False, indent=2)
     except (PermissionError, OSError):
         # 保存失败时记录错误日志，但不阻断主流程
-        logging.error("保存项目历史记录失败", exc_info=True)
+        logger.error("保存项目历史记录失败", exc_info=True)
 
 
 def add_to_history(project_path: str) -> None:
@@ -91,8 +92,9 @@ def add_to_history(project_path: str) -> None:
     history = load_history()
     # 去重：移除已存在的相同路径
     history = [h for h in history if h.get("path") != project_path]
-    # 插入到列表头部（最新的项目）
-    history.insert(0, {"path": project_path, "last_opened": None})
+    # 插入到列表头部（最新的项目），并记录真实打开时间（UTC ISO 格式）。
+    # 历史展示顺序即插入序（最新在前），last_opened 仅供人读/审计，不参与排序。
+    history.insert(0, {"path": project_path, "last_opened": datetime.now(UTC).isoformat()})
     # 容量控制：只保留最近的 MAX_HISTORY 个项目
     if len(history) > MAX_HISTORY:
         history = history[:MAX_HISTORY]
@@ -140,7 +142,7 @@ def load_manifest_config(manifest_path: str) -> dict | None:
         return manifest.model_dump(exclude_none=True)
     except Exception as e:
         # 记录日志但不抛出，避免加载失败阻断项目切换
-        logging.warning("加载项目清单失败: %s", e, exc_info=True)
+        logger.warning("加载项目清单失败: %s", e, exc_info=True)
         return None
 
 

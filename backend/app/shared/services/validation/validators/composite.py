@@ -110,6 +110,7 @@ class CompositeValidator(BaseValidator):
             "allowedvalues": ValidationType.ALLOWED_VALUES,
             "allowed_values": ValidationType.ALLOWED_VALUES,
             "charset": ValidationType.CHARSET,
+            "regex": ValidationType.REGEX,
             "scripted": ValidationType.SCRIPTED,
             "foreignkey": ValidationType.FOREIGN_KEY,
             "foreign_key": ValidationType.FOREIGN_KEY,

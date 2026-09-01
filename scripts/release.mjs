@@ -334,6 +334,16 @@ function cmdSync(version) {
   console.log(`\n[release] sync 完成（未做任何 git 操作）`);
 }
 
+/**
+ * 回滚指引文案（导出供测试断言真实 tag 插值）。
+ *
+ * 历史缺陷：曾用单引号字符串包裹 "${tag}"，占位符不插值，用户照着执行
+ * `git tag -d ${tag}` 会失败。必须使用模板串并保留此回归测试。
+ */
+export function rollbackGuidance(tag) {
+  return `回滚指引（发布后发现问题时）: git tag -d ${tag} && git push origin :refs/tags/${tag}，并在 GitHub 删除对应 Release`;
+}
+
 function cmdRelease({ spec, prereleaseSuffix, dryRun, noPush }) {
   const version = resolveNextVersion(spec, prereleaseSuffix);
   const tag = `v${version}`;
@@ -394,7 +404,7 @@ function cmdRelease({ spec, prereleaseSuffix, dryRun, noPush }) {
     console.log('\n[release] 已推送，CD 将自动构建并发布 GitHub Release:');
     console.log(`  https://github.com/AirSaiga/Precis/actions`);
     console.log(`  https://github.com/AirSaiga/Precis/releases/tag/${tag}`);
-    console.log('\n回滚指引（发布后发现问题时）: git tag -d ${tag} && git push origin :refs/tags/${tag}，并在 GitHub 删除对应 Release');
+    console.log(`\n回滚指引（发布后发现问题时）: git tag -d ${tag} && git push origin :refs/tags/${tag}，并在 GitHub 删除对应 Release`);
   }
 }
 

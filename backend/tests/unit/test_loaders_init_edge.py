@@ -1,8 +1,7 @@
 """
 @fileoverview loaders/__init__.py 边缘分支单元测试
 
-覆盖 load_source_data、__getattr__ 延迟导入、
-load_multiple_sources 成功与 source_i 回退分支。
+覆盖 load_source_data、__getattr__ 延迟导入、load_source_data_safe 成功分支。
 """
 
 from unittest.mock import patch
@@ -10,7 +9,6 @@ from unittest.mock import patch
 import pytest
 
 from app.shared.core.data_source.loaders import (
-    load_multiple_sources,
     load_source_data,
     load_source_data_safe,
 )
@@ -27,25 +25,6 @@ class TestLoadSourceData:
 
         with pytest.raises(TypeError, match="不支持"):
             load_source_data(Spec())
-
-
-class TestLoadMultipleSourcesEdgeCases:
-    def test_success_no_name_fallback(self):
-        import pandas as pd
-
-        spec = type("Spec", (), {"type": "json"})()
-        with patch("app.shared.core.data_source.loaders.load_source_data", return_value=pd.DataFrame({"a": [1]})):
-            result = load_multiple_sources([spec])
-        assert "source_0" in result
-        assert len(result["source_0"]) == 1
-
-    def test_success_with_name(self):
-        import pandas as pd
-
-        spec = type("Spec", (), {"type": "json", "name": "my_data"})()
-        with patch("app.shared.core.data_source.loaders.load_source_data", return_value=pd.DataFrame({"a": [1]})):
-            result = load_multiple_sources([spec])
-        assert "my_data" in result
 
 
 class TestLoadSourceDataSafeSuccess:

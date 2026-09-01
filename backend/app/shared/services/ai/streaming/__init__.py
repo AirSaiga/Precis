@@ -8,10 +8,14 @@ from .event_journal import EventJournal
 from .orchestrator import StreamingOrchestrator
 from .sse_response import format_sse_event, sse_event_stream
 from .types import (
+    EVENT_APPLY_CONFIRMED,
+    EVENT_APPLY_PENDING,
+    EVENT_APPLY_REJECTED,
     EVENT_CANCELLED,
     EVENT_COMPLETED,
     EVENT_DELTA,
     EVENT_ERROR,
+    EVENT_FRONTEND_INSTRUCTION,
     EVENT_PROGRESS,
     EVENT_STARTED,
     EVENT_TOOL_CALL,
@@ -33,6 +37,10 @@ __all__ = [
     "EVENT_DELTA",
     "EVENT_TOOL_CALL",
     "EVENT_TOOL_RESULT",
+    "EVENT_FRONTEND_INSTRUCTION",
+    "EVENT_APPLY_PENDING",
+    "EVENT_APPLY_CONFIRMED",
+    "EVENT_APPLY_REJECTED",
     "EVENT_COMPLETED",
     "EVENT_ERROR",
     "EVENT_CANCELLED",

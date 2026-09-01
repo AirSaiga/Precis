@@ -251,15 +251,3 @@ class JSONPathExtractor:
 
         search(data)
         return results
-
-    def _is_recursive_path(self, path: str) -> bool:
-        """
-        @methoddesc 判断是否为递归路径
-
-        Args:
-            path: 路径字符串
-
-        Returns:
-            是否为递归路径（以 .. 开头）
-        """
-        return path.startswith("..")

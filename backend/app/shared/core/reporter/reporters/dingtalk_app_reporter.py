@@ -39,13 +39,16 @@
 """
 
 import json
+import logging
 import time
 import urllib.parse
 import urllib.request
 from datetime import datetime
 from typing import Any
 
-from .base import TEMPLATE_HEADROOM_BYTES, Reporter, truncate_to_byte_limit
+from .base import TEMPLATE_HEADROOM_BYTES, Reporter, sanitize_url_for_log, truncate_to_byte_limit
+
+logger = logging.getLogger(__name__)
 
 
 class DingTalkAppReporter(Reporter):
@@ -160,7 +163,13 @@ class DingTalkAppReporter(Reporter):
                     print(f"[{self.name}] !! 错误: 获取 Access Token 失败: {data.get('errmsg')}")
                     return None
         except Exception as e:
-            print(f"[{self.name}] !! 错误: 请求 Access Token 失败: {e}")
+            # gettoken 的 full_url query 含 appsecret，日志只打无 query 的基础 URL
+            logger.warning(
+                "[%s] !! 错误: 请求 Access Token 失败 (%s): %s",
+                self.name,
+                sanitize_url_for_log(url),
+                e,
+            )
             return None
 
     def report(self, errors: list[dict]):
@@ -247,4 +256,4 @@ class DingTalkAppReporter(Reporter):
                 else:
                     print(f"[{self.name}] !! 错误: 发送消息失败: {result.get('errmsg')}")
         except Exception as e:
-            print(f"[{self.name}] !! 错误: 发送请求失败: {e}")
+            logger.warning("[%s] !! 错误: 发送请求失败: %s", self.name, e)

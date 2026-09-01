@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 class FilePreviewRequest(BaseModel):
     """文件预览请求（基于上传内容模式）"""
 
-    file_path: str = Field(..., description="文件原始名称（仅用于展示，不参与 IO）")
+    file_path: str = Field(..., description="文件路径（经 validate_file_access 校验后由后端读取，参与文件 IO）")
     max_rows: int = Field(default=65535, description="最大返回行数")
     max_cols: int = Field(default=65535, description="最大返回列数")
 
