@@ -85,7 +85,9 @@ Write-Host "[OK] Backend source copied" -ForegroundColor Green
 
 # --- 5. Zip it up ---
 Write-Host "`n[5/5] Packaging zip..." -ForegroundColor Yellow
-$Version = "0.1.0"
+# 版本号单一事实源：从根 package.json 读取（与 npm run release 六处同步对齐）
+$RootPkg = Get-Content (Join-Path $RepoRoot "package.json") -Raw | ConvertFrom-Json
+$Version = $RootPkg.version
 $ZipName = "precis-tui-win-$Version.zip"
 $ZipPath = Join-Path $Staging $ZipName
 if (Test-Path $ZipPath) { Remove-Item -Force $ZipPath }

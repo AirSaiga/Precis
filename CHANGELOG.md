@@ -12,9 +12,27 @@
 
 Currently an actively developed prototype. Interfaces, config formats, and CLI parameters may change without notice.
 
+### 2026-09
+
+- 全库代码审计后集中修复 **70+ 项确认缺陷**（主源码 1,191 文件 100% 覆盖审计，全部 P0 与关键 P1 经运行时复现实证后修复；新增约 150 个单元测试）。要点：
+  - **崩溃/冻结级**：脚本安全设置面板双向 watcher 死循环（生产版改开关即冻结，值相等守卫修复）；AI 生成表级约束 IndexError；CLI `config init pattern` 模板正则与 `str.format` 冲突必崩（改 replace 填充，产物并升级为合法 V2 清单）；子画布克隆响应式代理抛 DataCloneError
+  - **校验正确性**：项目加载丢弃 schema 声明的 CSV 编码/分隔符（预览与校验解析不一致，大文件分块同病）；Excel 合并单元格填充漏算跳过行数/选错工作表；超大整数（>2^53）静默截断改为报错；transform `contains` 按字面量匹配且非法正则不再崩溃；日期/条件约束配置拼错由"静默通过"改为报配置错误；正则 flags 长格式误开忽略大小写；跨盘符路径报 500；告警通知按字节截断（中文超长不再被平台拒收）
+  - **配置完整性**：全量保存清空 manifest 模板引用；数据源配置误写项目父目录致同目录多项目互覆；画布视图/工作区文件原子写；正则节点大小写语义保存后翻转；默认名 Schema 全量保存互覆文件（路径去重）；Regex 违规条目补 `error_type`
+  - **AI 链路**：删除约束遇内联标记反向写回（真删）；AI 建正则目录漂移对齐 `regex/`；空脚本约束不再兜底恒真表达式；Windows 残留文件锁可接管；JSON 提取感知字符串字面量；Agent 末轮文本收敛不再误判失败；流式事件回放去重；Ollama 流式不受总时长限制；整体防僵死超时放宽
+  - **前端**：AI 生成/迁移流式请求补项目头（功能恢复）；数字输入框按 Backspace 误删选中节点；快捷键自定义捕获失效；八处 `addNodes+spread` 反模式清零；删 Schema 级联删约束恢复生效；缩放快捷键接通真实画布；撤销后旧值回写；两处监听器泄漏；拼音选词回车误发消息；拖拽导入路径改用 `webUtils.getPathForFile`（Electron 32+ 移除 `File.path`）
+  - **安全**：打包模式以一次性 API token（`X-Precis-Auth`）取代放行 `Origin: null`——沙箱 iframe 网页无法再跨域读本机 API；外部链接仅 http/https 交给系统；配置保存校验路径（授权根信任源防毒化）；`app://` 协议改用 `pathToFileURL` 杜绝双重编码穿越；目录扫描限深；更新源 https 校验且渲染层不可再覆写更新配置
+  - **TUI/CLI**：URL 查询参数标准百分号编码（含 `&`/`#` 路径可用）；聊天历史去重；激活 Provider 失败回滚；版本号全部改从单一事实源读取（启动画面/欢迎屏/四个打包脚本）；`config set` 保注释 + 原子写 + 穿越防护；校验接口文档对齐"永远 200、看 body"契约
+  - **仓库卫生**：`challenges/` 内部材料移出版本控制（本地保留）；e2e 补 README
+
+  Batch fix of **70+ confirmed defects** after a full-repo audit (1,191 source files, 100% coverage; every P0 and key P1 reproduced at runtime before fixing; ~150 new unit tests). Highlights: settings-panel watcher infinite loop freezing production builds; preview-vs-validation parsing divergence for CSV options; Excel merged-cell offset skips; silent >2^53 integer truncation; manifest templates wiped on save; data-source config written to the project's parent directory; AI delete-constraint upsert regression; stale Windows file locks; token-based `Origin: null` replacement; `app://` double-decoding traversal; drag-drop paths via `webUtils.getPathForFile`; TUI percent-encoding and chat-history dedup; version strings sourced from the single source of truth.
+
+- 全库代码审计（规范化/标准化/逻辑漏洞/开源标准四维度，主源码 1,191 文件 100% 逐文件覆盖）：发现 2 项 P0、63 项 P1、约 150 项 P2；关键发现全部经最小复现脚本实证。审计报告与"疑似设计如此"项的逐项处置记录见 `docs/audit/`（本地）
+
+  Full-repo code audit across standards compliance, logic defects and open-source readiness (1,191 source files, 100% per-file coverage): 2 P0s, 63 P1s and ~150 P2s found; all key findings reproduced empirically before fixing. Audit report and per-item disposition of "suspected-by-design" findings live under `docs/audit/` (local)
+
 ### 2026-08
 
-- 修复发布提交遗漏三份 `package-lock.json`——`npm version` 同步版本时连带更新各目录 lockfile 的版本字段，但发布提交清单只含六处 manifest，v0.1.1 发布后工作树因此残留未提交改动，下一次发布被"干净树"前置校验确定性阻塞（已复现）；提交清单抽为 `releaseCommitFiles()`（六处 manifest + 三份 lockfile + CHANGELOG）并补交 v0.1.1 遗漏的版本字段。`npm ci` 对该漂移容忍（沙箱 + v0.1.1 CD 构建全绿实证），影响是发布阻塞而非安装断裂
+- 修复发布提交遗漏三份 `package-lock.json`——`npm version` 同步版本时连带更新各目录 lockfile 的版本字段，但发布提交清单只含六处 manifest，v0.1.1 发布后工作树因此残留未提交改动，下一次发布被"干净树"前置校验确定性阻塞（已复现）；提交清单抽为 `releaseCommitFiles()`（六处 manifest + 三份 lockfile + CHANGELOG）并补交 v0.1.1 遗漏的版本字段。`npm ci` 对该漂移容忍（沙箱 + v0.1.1 CD 构建全绿实证），影响是发布阻塞而非安装断裂`npm ci` 对该漂移容忍（沙箱 + v0.1.1 CD 构建全绿实证），影响是发布阻塞而非安装断裂
 
   Fixed the release commit omitting the three `package-lock.json` files — `npm version` rewrites each directory's lockfile version fields as a side effect, but the commit list only covered the six manifests, so after the v0.1.1 release the working tree kept uncommitted changes that deterministically blocked the next release at the clean-tree precheck (reproduced); the list is now `releaseCommitFiles()` (six manifests + three lockfiles + CHANGELOG) and the missing v0.1.1 lockfile bumps are committed. `npm ci` tolerates this drift (verified in a sandbox and by the fully green v0.1.1 CD builds), so the impact was release blocking, not broken installs
 

@@ -29,7 +29,8 @@ if ! command -v node &> /dev/null; then
     exit 1
 fi
 
-VERSION="0.1.0"
+# 版本号单一事实源：从根 package.json 读取（与 npm run release 六处同步对齐）
+VERSION=$(node -p "require('./package.json').version")
 ELECTRON_SCRIPTS="${REPO_ROOT}/electron/scripts"
 
 # --- 1. 编译 Rust 二进制（release） ---
