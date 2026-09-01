@@ -6,7 +6,6 @@
 // 导出所有组件
 export { default as RegexDesignModal } from './components/RegexDesignModal.vue'
 export { default as RegexNode } from './components/RegexNode.vue'
-export { default as RegexNodeInspector } from './components/RegexNodeInspector.vue'
 export { default as RuleConfigPanel } from './components/RuleConfigPanel.vue'
 export { default as RuleList } from './components/RuleList.vue'
 export { default as InteractiveBuilder } from './components/InteractiveBuilder.vue'

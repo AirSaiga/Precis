@@ -190,9 +190,6 @@
         <InspectorPanel :collapsed="layout.rightCollapsed.value" />
       </div>
 
-      <!-- AI 侧边栏容器（暂时隐藏，使用侧边栏 AI 助手面板替代） -->
-      <!-- <AIChatDrawer class="ai-chat-panel" /> -->
-
       <!-- 全局 Overlay 挂载点 -->
       <AppOverlayHost />
 
@@ -265,7 +262,6 @@
   import ModeToggle from '@/components/layout/ModeToggle.vue'
   import NodeCanvas from '@/components/canvas/NodeCanvas.vue'
   import DragGhost from '@/components/canvas/DragGhost.vue'
-  // import AIChatDrawer from '@/components/common/AIChatDrawer.vue'
   import AppStatusBar from '@/components/layout/AppStatusBar.vue'
   import AppOverlayHost from '@/components/layout/AppOverlayHost.vue'
   import CrashFeedbackModal from '@/components/shared/CrashFeedbackModal.vue'
@@ -403,7 +399,7 @@
   // --- 全局自定义事件 ---
 
   /**
-   * 资源库视图切换事件（由 AssetLibraryNav 通过 window.dispatchEvent 触发）
+   * 资源库视图切换事件（由 AssetLibraryNav 等通过 eventBus.emit('viewchange') 触发）
    *
    * 切换 'project' / 'data' 视图，并自动展开侧边栏（如果已折叠）
    */

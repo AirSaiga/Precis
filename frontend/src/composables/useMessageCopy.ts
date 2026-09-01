@@ -3,13 +3,13 @@
  * @description 消息复制组合式函数
  *
  * 封装"复制消息内容 + 按钮图标反馈 + toast 提示"的完整交互，
- * 供 AIChatPanel / AIChatDrawer 等带"复制单条消息"按钮的组件复用。
+ * 供 AIChatPanel 等带"复制单条消息"按钮的组件复用。
  *
  * 与 useClipboard 的分工：
  * - useClipboard 只负责把文本写入剪贴板（纯 I/O，无 UI 反馈）
  * - useMessageCopy 在其基础上叠加 copiedId 图标切换 + 成功/失败 toast
  *
- * 设计动机：原先 AIChatPanel.vue 与 AIChatDrawer.vue 各自重复实现了
+ * 设计动机：AIChatPanel.vue 原先独立实现了
  * clipboard API + execCommand 降级 + copiedId 反馈，且复制失败时误用
  * toastSuccess 显示失败文案。这里统一收敛并修正该 bug。
  *

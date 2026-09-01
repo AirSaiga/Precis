@@ -268,7 +268,6 @@ export function useDataSourceImport() {
 
     await addSourcesToWorkspace(fileList)
     toastSuccess(t('messages.common.importSuccess'))
-    eventBus.emit('data-source-changed')
   }
 
   /**
@@ -295,7 +294,6 @@ export function useDataSourceImport() {
 
     await addSourcesToWorkspace(fileList)
     toastSuccess(t('messages.common.importSuccess'))
-    eventBus.emit('data-source-changed')
   }
 
   /**
@@ -342,7 +340,12 @@ export function useDataSourceImport() {
         fileName: resolved.name,
       })
 
-      // 延迟触发关联节点的校验
+      // TODO(时序 hack)：这里的 500ms 延迟是在等 sourcePreview 节点完成异步重载。
+      // 'data-source-refreshed' 的监听方（usePreviewData.handleDataSourceRefreshed）
+      // 是 async 且 await reloadFromLocalFile()，事件总线无法感知其完成；
+      // workspaceStore 的 addDataSource/updateDataSource 虽返回 Promise 且已 await，
+      // 但它们不涵盖节点侧重载。改为事件驱动需在 usePreviewData 新增"刷新完成"事件，
+      // 待后续重构时补齐，勿在无完成信号前直接缩短或移除该延迟。
       setTimeout(() => {
         const edges = graphStore.edges
         const connectedSchemaNodes = edges

@@ -42,10 +42,6 @@ export function createGraphStoreState() {
 
   const selectedNodeIds = ref<string[]>([])
 
-  const selectionBox = ref<{ x: number; y: number; width: number; height: number } | null>(null)
-
-  const isSelecting = ref(false)
-
   const copiedNodes = ref<CustomNode[]>([])
 
   const pasteOffset = { x: 20, y: 20 }
@@ -183,8 +179,6 @@ export function createGraphStoreState() {
     assets,
     selectedNodeId,
     selectedNodeIds,
-    selectionBox,
-    isSelecting,
     copiedNodes,
     pasteOffset,
     designModalVisible,

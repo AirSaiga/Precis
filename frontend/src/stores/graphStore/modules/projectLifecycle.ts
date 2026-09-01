@@ -80,7 +80,6 @@ export function createProjectLifecycleModule(params: {
   assets: Ref<TableAsset[]>
   selectedNodeId: Ref<string | null>
   selectedNodeIds: Ref<string[]>
-  selectionBox: Ref<{ x: number; y: number; width: number; height: number } | null>
   projectName: Ref<string>
   isProjectLoaded: Ref<boolean>
   projectConfigStats: Ref<ProjectConfigStats>
@@ -108,7 +107,6 @@ export function createProjectLifecycleModule(params: {
     assets,
     selectedNodeId,
     selectedNodeIds,
-    selectionBox,
     projectName,
     isProjectLoaded,
     projectConfigStats,
@@ -133,7 +131,6 @@ export function createProjectLifecycleModule(params: {
     edges.value = []
     selectedNodeId.value = null
     selectedNodeIds.value = []
-    selectionBox.value = null
     clearHistory?.()
 
     projectName.value = name
@@ -170,7 +167,6 @@ export function createProjectLifecycleModule(params: {
     assets.value = []
     selectedNodeId.value = null
     selectedNodeIds.value = []
-    selectionBox.value = null
     clearHistory?.()
     projectName.value = ''
     isProjectLoaded.value = false
@@ -207,7 +203,6 @@ export function createProjectLifecycleModule(params: {
     assets.value = []
     selectedNodeId.value = null
     selectedNodeIds.value = []
-    selectionBox.value = null
     // 工作区 Tab 切换（setActiveTab/createNewTab）经此入口重置画布：
     // 旧撤销栈指向切换前的 Tab 内容，保留会导致跨 Tab Ctrl+Z 污染
     clearHistory?.()

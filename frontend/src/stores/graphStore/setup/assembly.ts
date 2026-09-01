@@ -60,8 +60,6 @@ export function createGraphStoreAssembly(
     assets,
     selectedNodeId,
     selectedNodeIds,
-    selectionBox,
-    isSelecting,
     copiedNodes,
     pasteOffset,
     designModalVisible,
@@ -211,7 +209,6 @@ export function createGraphStoreAssembly(
     assets,
     selectedNodeId,
     selectedNodeIds,
-    selectionBox,
     projectName,
     isProjectLoaded,
     projectConfigStats,
@@ -277,16 +274,11 @@ export function createGraphStoreAssembly(
   })
   const { deleteNode, moveSelectedNode, moveSelectedNodes } = nodeOps
 
-  const {
-    selectAllNodes,
-    addToSelection,
-    removeFromSelection,
-    clearSelection,
-    setSelection,
-    setSelectionFromBox,
-    setSelectionBox,
-    setSelecting,
-  } = createSelectionModule({ nodes, selectedNodeId, selectedNodeIds, selectionBox, isSelecting })
+  const { selectAllNodes, clearSelection, setSelection } = createSelectionModule({
+    nodes,
+    selectedNodeId,
+    selectedNodeIds,
+  })
 
   const { deleteNodes } = nodeOps
 
@@ -378,8 +370,6 @@ export function createGraphStoreAssembly(
     selectedNodes: computed.selectedNodes,
     hasMultipleSelection: computed.hasMultipleSelection,
     selectedNodeIds,
-    selectionBox,
-    isSelecting,
     isProjectLoaded,
     projectName,
     projectConfigStats,
@@ -436,15 +426,9 @@ export function createGraphStoreAssembly(
     selectAllNodes,
     cutSelectedNodes,
 
-    addToSelection,
-    removeFromSelection,
     clearSelection,
     setSelection,
-    setSelectionFromBox,
     deleteNodes,
-
-    setSelectionBox,
-    setSelecting,
 
     undoStack,
     redoStack,

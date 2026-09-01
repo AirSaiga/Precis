@@ -164,18 +164,6 @@ export function generateId(prefix: string = 'id'): string {
 }
 
 /**
- * 深度克隆对象
- *
- * 使用 structuredClone 实现深拷贝（注意：不处理函数、循环引用等）。
- *
- * @param obj - 要克隆的对象
- * @returns 克隆后的新对象
- */
-export function deepClone<T>(obj: T): T {
-  return structuredClone(obj)
-}
-
-/**
  * 递归剥离 Vue reactive / readonly proxy。
  *
  * `toRaw` 只能解包最外层代理，嵌套对象仍可能是 proxy；本函数逐层递归解包，

@@ -1,4 +1,3 @@
-// src/services/api.ts
 /**
  * @fileoverview API 客户端配置模块
  *
@@ -308,39 +307,8 @@ apiClient.interceptors.response.use(
 export default apiClient
 
 /**
- * AI Chat 接口
- *
- * 提供与后端 /ai/chat 端点通信的类型定义和发送函数。
+ * Agent 模式执行元数据（aiChatStore 消息轨迹使用）
  */
-
-/** AI 聊天请求体 */
-export interface AiChatRequest {
-  /** 用户输入的消息内容 */
-  message: string
-  /** 上下文信息（包含选中节点状态与画布快照） */
-  context: {
-    hasContext: boolean
-    selectedNodes: Array<{
-      id: string
-      type: string
-      data: Record<string, unknown>
-      label?: string
-    }>
-    /** 画布全部业务节点快照（供 read_canvas 工具查询画布真实状态） */
-    canvasNodes?: Array<{
-      id: string
-      type: string
-      data: Record<string, unknown>
-      label?: string
-    }>
-  }
-  /** 历史消息记录（可选） */
-  history?: ChatHistoryMessage[]
-  /** 是否启用 Agent 深度模式 */
-  agent_mode?: boolean
-}
-
-/** Agent 模式执行元数据（仅 agent_mode=true 时后端填充） */
 export interface AgentMeta {
   /** 实际迭代轮数 */
   iterations: number
@@ -357,57 +325,12 @@ export interface AgentMeta {
   }>
 }
 
-/** AI 聊天响应体 */
-export interface AiChatResponse {
-  /** 响应状态 */
-  status: string
-  /** AI 回复文本 */
-  reply: string
-  /** 后端建议的操作列表 */
-  actions: unknown[]
-  /** 前端渲染指令列表 */
-  frontend_instructions: unknown[]
-  /** Agent 模式执行元数据（非 agent 模式为 null） */
-  agent_meta?: AgentMeta | null
-  /** 错误信息（如有） */
-  error?: string
-}
-
-/** 聊天历史消息项 */
+/**
+ * 聊天历史消息项（供 aiChatStore 构建历史上下文使用）
+ */
 export interface ChatHistoryMessage {
   /** 消息角色 */
   role: 'user' | 'assistant'
   /** 消息内容 */
   content: string
-}
-
-/**
- * 发送 AI 聊天消息
- *
- * @param message - 用户输入的消息
- * @param context - 当前上下文（含选中节点）
- * @param history - 历史消息记录（可选）
- * @returns AI 响应结果
- */
-export const sendAiChatMessage = async (
-  message: string,
-  context: {
-    hasContext: boolean
-    selectedNodes: Array<{
-      id: string
-      type: string
-      data: Record<string, unknown>
-    }>
-  },
-  history?: ChatHistoryMessage[],
-  agentMode: boolean = true
-): Promise<AiChatResponse> => {
-  const request: AiChatRequest = {
-    message,
-    context,
-    history: history || [],
-    agent_mode: agentMode,
-  }
-  const response = await apiClient.post<AiChatResponse>('/ai/chat', request)
-  return response.data
 }

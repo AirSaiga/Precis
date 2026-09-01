@@ -2,7 +2,7 @@
  * @file main.ts
  * @description Precis 前端应用入口
  *
- * 初始化 Vue 3 应用，挂载 Pinia、Router、i18n 等核心插件。
+ * 初始化 Vue 3 应用，挂载 Pinia、i18n 等核心插件。
  * 在 Electron 环境下动态获取后端端口并更新 API 地址。
  */
 
@@ -17,7 +17,6 @@ import { createApp } from 'vue'
 import { createPinia } from 'pinia'
 
 import App from './App.vue'
-import router from './router'
 import i18n from './i18n'
 import { initApiBaseUrl } from './core/services/httpClient'
 import { setApiToken } from './core/services/apiToken'
@@ -32,7 +31,7 @@ import { logger } from './core/utils/logger'
  * 初始化流程:
  * 1. 初始化 API 基础地址（Electron 环境下动态获取端口）
  * 2. 创建 Vue 应用实例
- * 3. 挂载插件（Pinia、Router、i18n）
+ * 3. 挂载插件（Pinia、i18n）
  * 4. 挂载应用到 DOM
  */
 async function initApp() {
@@ -55,7 +54,6 @@ async function initApp() {
   const pinia = createPinia()
 
   app.use(pinia)
-  app.use(router)
   app.use(i18n) // 集成 i18n 到应用
 
   // 注册全局错误处理器(必须在 pinia 挂载后、mount 前,以便 feedbackStore 可用)

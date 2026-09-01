@@ -22,6 +22,7 @@
  */
 
 import { logger } from '@/core/utils/logger'
+import { useI18n } from 'vue-i18n'
 import { toastSuccess, toastError, toastInfo } from '@/core/toast'
 import { nextTick, ref } from 'vue'
 import type { Connection, OnConnectStartParams } from '@vue-flow/core'
@@ -51,6 +52,7 @@ import type { ConnectionContext } from './connectionHandlers/types'
 
 export function useConnections() {
   const store = useGraphStore()
+  const { t } = useI18n()
 
   const dragStartData = ref<OnConnectStartParams | null>(null)
 
@@ -143,7 +145,7 @@ export function useConnections() {
       isConstraintNodeType(targetNode.type)
     ) {
       if (!isValidConstraintTargetHandle(targetNode.id, targetNode.type, targetHandle)) {
-        showToastMessage('约束连接目标端口不匹配，请连接到正确的输入端口', 'error')
+        showToastMessage(t('canvas.connection.targetPortMismatch'), 'error')
         return
       }
     }
@@ -223,7 +225,7 @@ export function useConnections() {
       await nextTick()
       store.discardRedundantTopSnapshot()
       const errorMsg = e instanceof Error ? e.message : String(e)
-      showToastMessage(`连接创建失败，已自动回滚: ${errorMsg}`, 'error')
+      showToastMessage(t('canvas.connection.createFailedRolledBack', { error: errorMsg }), 'error')
       logger.error('[handleConnectionCompleted] 连接处理失败:', e)
     }
   }

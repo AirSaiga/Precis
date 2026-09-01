@@ -54,6 +54,19 @@ function buildManifestErrorMessage(e: unknown): string {
 }
 
 /**
+ * 抛出带原始错误信息的清单操作异常。
+ *
+ * 选型说明：前端 tsconfig lib 为 ES2020（@vue/tsconfig），不含 ES2022 的
+ * `ErrorOptions`/`error.cause` 类型，因此不走 `new Error(msg, { cause: e })`，
+ * 改为将原始错误摘要以 `(cause: ...)` 形式附加到 message 末尾，
+ * 保留原始错误的分类能力（如 Axios 的状态码消息），避免 catch 后信息丢失。
+ */
+function throwManifestError(e: unknown): never {
+  const causeText = e instanceof Error ? e.message : String(e)
+  throw new Error(`${buildManifestErrorMessage(e)} (cause: ${causeText})`)
+}
+
+/**
  * 获取 V2 项目清单（manifest）
  */
 export async function getV2Manifest(configPath?: string): Promise<ProjectManifestV2> {
@@ -80,7 +93,7 @@ export async function putV2Manifest(
       ...(replace ? { params: { replace: true } } : {}),
     })
   } catch (e: unknown) {
-    throw new Error(buildManifestErrorMessage(e))
+    throwManifestError(e)
   }
 }
 
@@ -91,7 +104,7 @@ export async function updateV2ManifestSchemaRef(
   try {
     await apiClient.put('/project/manifest/schema', schemaRef, withConfigPathHeader(configPath))
   } catch (e: unknown) {
-    throw new Error(buildManifestErrorMessage(e))
+    throwManifestError(e)
   }
 }
 
@@ -106,7 +119,7 @@ export async function updateV2ManifestConstraintRef(
       withConfigPathHeader(configPath)
     )
   } catch (e: unknown) {
-    throw new Error(buildManifestErrorMessage(e))
+    throwManifestError(e)
   }
 }
 
@@ -117,7 +130,7 @@ export async function updateV2ManifestRegexRef(
   try {
     await apiClient.put('/project/manifest/regex', regexRef, withConfigPathHeader(configPath))
   } catch (e: unknown) {
-    throw new Error(buildManifestErrorMessage(e))
+    throwManifestError(e)
   }
 }
 
@@ -132,6 +145,6 @@ export async function updateV2ManifestTransformRef(
       withConfigPathHeader(configPath)
     )
   } catch (e: unknown) {
-    throw new Error(buildManifestErrorMessage(e))
+    throwManifestError(e)
   }
 }

@@ -45,7 +45,6 @@ import {
   type Node as VueFlowNode,
   type OnConnectStartParams,
 } from '@vue-flow/core'
-import { useI18n } from 'vue-i18n'
 import { useSchemaNodeDrag } from '@/composables/nodes/schema/useSchemaNodeDrag'
 import { useConnections } from '@/composables/nodes/useConnections'
 import { useConnectionValidator } from '@/composables/validation/useConnectionValidator'
@@ -73,7 +72,6 @@ interface ConnectEndData {
  */
 interface ConnectionHandlerResult {
   handled: boolean
-  message?: string
 }
 
 /**
@@ -140,7 +138,6 @@ export interface UseConnectionDispatcherReturn {
 export function useConnectionDispatcher(): UseConnectionDispatcherReturn {
   // VueFlow 实例
   const { findNode } = useVueFlow()
-  const { t } = useI18n()
 
   // 连接开始时的数据
   const connectStartData = shallowRef<ConnectStartData | null>(null)
@@ -149,7 +146,7 @@ export function useConnectionDispatcher(): UseConnectionDispatcherReturn {
   const connectEndData = shallowRef<ConnectEndData | null>(null)
 
   // Schema 节点拖拽处理器
-  const { handleColumnHandleDragEnd, handleAddColumnHandleDragEnd } = useSchemaNodeDrag()
+  const { handleAddColumnHandleDragEnd } = useSchemaNodeDrag()
 
   // 核心连接处理器
   const { handleConnectionCompleted } = useConnections()
@@ -183,29 +180,12 @@ export function useConnectionDispatcher(): UseConnectionDispatcherReturn {
     sourceNode: VueFlowNode,
     sourceHandleId: string
   ): ((event: MouseEvent | TouchEvent) => ConnectionHandlerResult) | null => {
-    // Schema 节点 - 列句柄拖拽
-    if (
-      sourceNode.type === 'schema' &&
-      sourceHandleId &&
-      sourceHandleId.startsWith('source-right-')
-    ) {
-      return (event: MouseEvent | TouchEvent) => {
-        const handled = handleColumnHandleDragEnd(sourceNode, sourceHandleId, event)
-        return {
-          handled,
-          message: handled ? '已处理列句柄拖拽' : '列句柄拖拽处理失败',
-        }
-      }
-    }
-
     // Schema 节点 - 添加列句柄拖拽
+    // （列输出句柄 source-right-* 拖拽到空白处无处理器，走"未找到对应处理器"兜底）
     if (sourceNode.type === 'schema' && sourceHandleId === 'add-column-handle') {
       return (event: MouseEvent | TouchEvent) => {
         const handled = handleAddColumnHandleDragEnd(sourceNode.id, event)
-        return {
-          handled,
-          message: handled ? '已处理添加列拖拽' : '添加列拖拽处理失败',
-        }
+        return { handled }
       }
     }
 
@@ -244,10 +224,7 @@ export function useConnectionDispatcher(): UseConnectionDispatcherReturn {
       logger.warn(
         `[ConnectionDispatcher] 连接失败: 找不到节点 source=${params.source}, target=${params.target}`
       )
-      return {
-        handled: false,
-        message: t('common.unknownError'),
-      }
+      return { handled: false }
     }
 
     const validationResult = validateConnection(
@@ -259,20 +236,14 @@ export function useConnectionDispatcher(): UseConnectionDispatcherReturn {
 
     if (!validationResult.isValid) {
       logger.warn(`[ConnectionDispatcher] 连接验证失败: ${validationResult.message}`)
-      return {
-        handled: false,
-        message: validationResult.message,
-      }
+      return { handled: false }
     }
 
     await handleConnectionCompleted(params)
 
     logger.debug(`[ConnectionDispatcher] 连接完成: ${params.source} → ${params.target}`)
 
-    return {
-      handled: true,
-      message: t('connectionValidation.connectionSuccess'),
-    }
+    return { handled: true }
   }
 
   /**
@@ -283,7 +254,7 @@ export function useConnectionDispatcher(): UseConnectionDispatcherReturn {
   const onConnectEnd = (event?: MouseEvent | TouchEvent): ConnectionHandlerResult => {
     // 检查连接开始数据是否存在
     if (!connectStartData.value || !event) {
-      return { handled: false, message: '无连接数据' }
+      return { handled: false }
     }
 
     const { nodeId: sourceNodeId, handleId: sourceHandleId } = connectStartData.value
@@ -292,13 +263,13 @@ export function useConnectionDispatcher(): UseConnectionDispatcherReturn {
     // 检查源节点是否存在
     if (!sourceNode) {
       clearConnectionState()
-      return { handled: false, message: '源节点不存在' }
+      return { handled: false }
     }
 
     // 如果释放在句柄或节点上，由其他处理器处理
     if (isReleasedOnHandleOrNode(event)) {
       clearConnectionState()
-      return { handled: false, message: '释放在节点上' }
+      return { handled: false }
     }
 
     // 查找对应的处理器
@@ -312,7 +283,7 @@ export function useConnectionDispatcher(): UseConnectionDispatcherReturn {
 
     // 没有找到对应的处理器
     clearConnectionState()
-    return { handled: false, message: '未找到对应处理器' }
+    return { handled: false }
   }
 
   /**

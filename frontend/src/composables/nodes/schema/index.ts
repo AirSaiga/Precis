@@ -7,7 +7,6 @@
 
 import { useSchemaData } from './useSchemaData'
 import { useSchemaSourceManager } from './useSchemaSourceManager'
-import { useColumnGeneration } from './useColumnGeneration'
 import { useSchemaValidation } from './useSchemaValidation'
 import { useSchemaEditing } from './useSchemaEditing'
 import { useSchemaSaving } from './useSchemaSaving'
@@ -54,10 +53,6 @@ export function useSchemaNode(
     emit as (event: string, ...args: unknown[]) => void
   )
 
-  // 列生成
-  // 提供表头数据解析、列定义生成、类型推断等功能
-  const generation = useColumnGeneration(props)
-
   // Schema验证
   // 提供列验证、约束检查等功能
   const validation = useSchemaValidation(props, emit as (event: string, ...args: unknown[]) => void)
@@ -89,9 +84,6 @@ export function useSchemaNode(
     // Schema数据源连接管理
     ...sourceManager,
 
-    // 列生成
-    ...generation,
-
     // Schema验证
     ...validation,
 
@@ -113,7 +105,6 @@ export function useSchemaNode(
 // 这样可以在不引入整个 useSchemaNode 的情况下使用单个功能
 export * from './useSchemaData'
 export * from './useSchemaSourceManager'
-export * from './useColumnGeneration'
 export * from './useSchemaValidation'
 export * from './useSchemaEditing'
 export * from './useSchemaSaving'
