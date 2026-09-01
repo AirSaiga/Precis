@@ -14,6 +14,7 @@
  */
 
 import { reactive } from 'vue'
+import i18n from '@/i18n'
 
 /** 单个工具步骤（折叠卡中的一行） */
 export interface ToolStep {
@@ -412,7 +413,7 @@ export function useStreamingMessage() {
       case 'error': {
         message.isStreaming = false
         message.status = 'error'
-        message.errorMessage = data.message ?? '未知错误'
+        message.errorMessage = data.message ?? i18n.global.t('common.unknownError')
         break
       }
       // started/progress 等事件不直接改变消息状态，可选记录

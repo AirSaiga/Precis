@@ -3,26 +3,8 @@
  * @description 国际化语言包子模块（由 index.ts 拆分生成）
  */
 
-const welcome = {
-  title: '欢迎使用 DataValidator',
-  subtitle: '数据验证和约束管理平台',
-  description:
-    '这是一个基于Vue 3和TypeScript的现代化数据验证工具，帮助您定义、管理和执行数据约束规则。',
-  features: ['可视化数据架构设计', '灵活的约束规则定义', '实时数据验证', '详细的验证报告'],
-  getStarted: '开始使用',
-  learnMore: '了解更多',
-}
-
 const messages = {
   success: {
-    saved: '保存成功',
-    deleted: '删除成功',
-    copied: '复制成功',
-    projectLoaded: '项目加载成功',
-    configSaved: '配置保存成功',
-    validationStarted: '验证已开始',
-    validationCompleted: '验证完成',
-    fileUploaded: '文件上传成功',
     expressionSaved: '表达式规则已保存！',
   },
   error: {
@@ -34,6 +16,9 @@ const messages = {
     validationFailed: '验证失败',
     networkError: '网络错误',
     unknownError: '未知错误',
+    dsPathMustBeAbsolute: '数据源路径必须是绝对路径',
+    dsPathResolveFailed: '路径解析失败：项目根目录未设置',
+    noSchemaNodeOnCanvas: '画布上未找到Schema节点',
     projectNotFound:
       '目录缺少 project.precis.yaml 项目清单文件，请新建项目或选择有效项目目录\n{path}',
   },
@@ -93,6 +78,7 @@ const messages = {
     reloadEmptyPath: '重载数据失败：文件路径为空',
     reloadInvalidPath: '重载数据失败，请检查文件路径是否正确',
     reloadErrorWithPath: '重载数据时发生错误，请检查文件路径是否正确',
+    reloadFailedWithReason: '重载数据失败: {reason}',
   },
   canvas: {
     newTable: '新表格',
@@ -176,6 +162,5 @@ const startupLoading = {
   continueWithoutBackend: '后端启动较慢，已进入应用（可稍后重试）。',
 }
 
-export { welcome }
 export { messages }
 export { startupLoading }

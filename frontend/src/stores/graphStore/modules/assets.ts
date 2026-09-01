@@ -17,6 +17,7 @@
 
 import type { Ref } from 'vue'
 import { v4 as uuidv4 } from 'uuid'
+import i18n from '@/i18n'
 import type {
   CustomNode,
   CustomNodeData,
@@ -55,13 +56,13 @@ export function createAssetsModule(params: {
     // 过滤出所有类型为 schema 的节点
     const schemaNodes = nodes.value.filter((n) => n.type === 'schema')
     if (schemaNodes.length === 0) {
-      throw new Error('画布上未找到Schema节点')
+      throw new Error(i18n.global.t('messages.error.noSchemaNodeOnCanvas'))
     }
 
     // 目前仅支持保存第一个 Schema 节点
     const schemaNode = schemaNodes[0]
     if (!schemaNode) {
-      throw new Error('画布上未找到Schema节点')
+      throw new Error(i18n.global.t('messages.error.noSchemaNodeOnCanvas'))
     }
     const schemaData = schemaNode.data as SchemaNodeData
 

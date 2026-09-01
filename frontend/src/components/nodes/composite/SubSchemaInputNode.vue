@@ -1,6 +1,11 @@
 <template>
   <div class="sub-schema-input-node">
-    <NodeShell :node-id="id" :title="data.configName || 'Input'" badge="IN" badge-color="#0e639c">
+    <NodeShell
+      :node-id="id"
+      :title="data.configName || t('customNodes.subSchemaInputNode.defaultTitle')"
+      badge="IN"
+      badge-color="#0e639c"
+    >
       <template #handles>
         <Handle type="source" :position="Position.Right" id="source-right" />
       </template>
@@ -10,6 +15,7 @@
 
 <script setup lang="ts">
   import { Handle, Position } from '@vue-flow/core'
+  import { useI18n } from 'vue-i18n'
   import NodeShell from '@/components/ui/NodeShell.vue'
 
   interface Props {
@@ -18,6 +24,8 @@
   }
 
   defineProps<Props>()
+
+  const { t } = useI18n()
 </script>
 
 <style scoped>

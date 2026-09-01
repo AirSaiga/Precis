@@ -11,7 +11,8 @@ describe('validationTaskStore', () => {
     const store = useValidationTaskStore()
     expect(store.visible).toBe(false)
     expect(store.target.type).toBe('full_project')
-    expect(store.target.display_name).toBe('全项目')
+    // display_name 不再内联中文，渲染层按 locale 走 t() 兜底
+    expect(store.target.display_name).toBeUndefined()
   })
 
   it('open sets target and makes visible', () => {
@@ -29,7 +30,8 @@ describe('validationTaskStore', () => {
     store.openFullProject()
     expect(store.visible).toBe(true)
     expect(store.target.type).toBe('full_project')
-    expect(store.target.display_name).toBe('全项目')
+    // display_name 不再内联中文，渲染层按 locale 走 t() 兜底
+    expect(store.target.display_name).toBeUndefined()
   })
 
   it('openSingleTable sets single table target', () => {

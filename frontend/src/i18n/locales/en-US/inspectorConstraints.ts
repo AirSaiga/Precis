@@ -418,15 +418,4 @@ const inspectorConstraints = {
   },
 } as const
 
-// 运行时副作用，阻止 Vite 在编译时内联旧版本
-function _ensureRuntimeLoad() {
-  if (typeof window !== 'undefined') {
-    ;(
-      window as unknown as Window & { __inspectorConstraintsVersion?: string }
-    ).__inspectorConstraintsVersion = 'en-US-2026-05-18'
-  }
-  return inspectorConstraints
-}
-_ensureRuntimeLoad()
-
 export default inspectorConstraints

@@ -134,6 +134,7 @@ const shortcuts = {
     searchPlaceholder: '搜索快捷键...',
     noResults: '未找到相关快捷键',
     resetConfirm: '确定要重置所有快捷键为默认值吗？',
+    captureHint: '按下快捷键…（Esc 取消）',
   },
 
   // 快捷键列表标题

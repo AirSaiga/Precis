@@ -73,7 +73,11 @@
               </div>
             </div>
             <div class="history-actions">
-              <button class="action-btn delete" @click.stop="handleDelete(run.id)" title="删除">
+              <button
+                class="action-btn delete"
+                @click.stop="handleDelete(run.id)"
+                :title="t('common.delete')"
+              >
                 <svg
                   width="14"
                   height="14"

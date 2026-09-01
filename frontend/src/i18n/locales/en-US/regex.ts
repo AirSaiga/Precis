@@ -3,21 +3,6 @@
  * @description 国际化语言包子模块（由 index.ts 拆分生成）
  */
 
-const regexCreationModal = {
-  title: 'Create Regular Expression',
-  name: 'Regex Name',
-  pattern: 'Regex Pattern',
-  description: 'Description',
-  testString: 'Test String',
-  testResult: 'Test Result',
-  isValid: 'Valid',
-  isInvalid: 'Invalid',
-  save: 'Save',
-  cancel: 'Cancel',
-  ruleNameRequired: 'Please enter rule name',
-  regexRequired: 'Please enter regex pattern',
-}
-
 const regexDesignModal = {
   title: 'Regex Design',
   selectOrAddRule: 'Select or add a rule',
@@ -130,7 +115,6 @@ const regexValidation = {
   errorsCount: 'Regex: {count} errors',
 }
 
-export { regexCreationModal }
 export { regexDesignModal }
 export { regexExtractDesignModal }
 export { expression }

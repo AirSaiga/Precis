@@ -159,6 +159,10 @@ const customNodes = {
     jsonPathPlaceholder: 'e.g., $.data.items',
     recordPathPlaceholder: 'e.g., items',
     jsonPathError: 'JSONPath must start with "$"',
+    noJsonPath: 'Nested object format requires a JSONPath to extract the data array',
+    httpError: 'HTTP error {status}: {detail}',
+    readFailed: 'Failed to read JSON file',
+    loadFailed: 'Load failed',
     noData: 'No data preview',
     displayingInfo: 'Displaying {rows} rows • Total {total} rows',
     resizeHandle: 'Drag to adjust display rows',
@@ -406,6 +410,9 @@ const customNodes = {
     title: 'Transform',
     inputHandle: 'Input Connection',
     outputHandle: 'Output Connection',
+    outputRowCount: '{count} rows',
+    outputMoreRows: '+{count} more rows',
+    connectColumnTitle: 'Connect column: {name}',
     helpTooltip:
       'Data transform node: split, extract, calculate, format, lookup, strip, case-convert, or replace',
     typeLabel: 'Type',
@@ -439,6 +446,9 @@ const customNodes = {
       modulo: 'Modulo',
       mapValue: 'Map Value',
     },
+  },
+  subSchemaInputNode: {
+    defaultTitle: 'Input',
   },
   regexSet: {
     title: 'Regular Expression Set',
@@ -626,6 +636,7 @@ const customNodes = {
       editInInspectorToConfig: 'Configure date logic in property inspector',
     },
     conditionalConstraintNode: {
+      refColumnSummary: '{op} on column {column}',
       title: 'Conditional Constraint',
       inputIfHandle: 'Connect IF column (input)',
       inputThenHandle: 'Connect THEN column (input)',
@@ -868,14 +879,6 @@ const customNodes = {
   },
 }
 
-const icons = {
-  community: 'Community',
-  documentation: 'Documentation',
-  ecosystem: 'Ecosystem',
-  support: 'Support',
-  tooling: 'Tooling',
-}
-
 const sourcePreview = {
   title: 'Data Source Preview',
   loading: 'Loading data source...',
@@ -887,5 +890,4 @@ const sourcePreview = {
 }
 
 export { customNodes }
-export { icons }
 export { sourcePreview }

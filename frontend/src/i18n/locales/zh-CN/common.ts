@@ -295,6 +295,8 @@ const common = {
     open: '打开校验任务面板',
     title: '全量校验',
     openSettings: '打开设置',
+    tablesLoaded: '表 {count}',
+    stageLabel: '阶段',
     task: {
       subtitle: '以任务方式完成准备、执行和结果查看，未来可统一承载全量 / 单表 / 单文件校验。',
       prepareHint: '先确认校验对象、工程上下文与运行前检查，再决定是否直接执行。',
@@ -612,6 +614,15 @@ const common = {
     saveAndLoad: '保存后切换',
     discardAndLoad: '丢弃并切换',
     cancel: '取消',
+  },
+  errorSummary: {
+    nullCount: '{count} 个空值错误',
+    duplicateCount: '{count} 个重复值错误',
+    jsonPathCount: '{count} 个JSONPath错误',
+    pathCount: '{count} 个路径错误',
+    typeCount: '{count} 个类型错误',
+    total: '{count} 个错误',
+    totalSuffix: '... 共 {count} 个错误',
   },
 }
 

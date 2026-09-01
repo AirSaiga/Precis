@@ -27,10 +27,14 @@
   import ValidationErrorGroup from '@/components/validation/ValidationErrorGroup.vue'
   import ValidationReportPreview from './ValidationReportPreview.vue'
 
-  const props = defineProps<{ modelValue: boolean }>()
+  interface Props {
+    modelValue: boolean
+  }
+
+  const props = defineProps<Props>()
   const emit = defineEmits<{ (e: 'update:modelValue', value: boolean): void }>()
 
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const graphStore = useGraphStore()
   const { exportReport: exportValidationReport } = useValidationReportExport()
   const { navigateErrorToCanvas } = useValidationErrorNavigator()
@@ -291,7 +295,11 @@
               <ValidationProgressBar
                 :progress="progress"
                 :current-table="
-                  processedStats.tablesLoaded > 0 ? `表 ${processedStats.tablesLoaded}` : undefined
+                  processedStats.tablesLoaded > 0
+                    ? t('common.fullValidation.tablesLoaded', {
+                        count: processedStats.tablesLoaded,
+                      })
+                    : undefined
                 "
                 :errors-found="processedStats.errorsFound"
               />
@@ -480,7 +488,7 @@
                   <ValidationErrorGroup
                     v-for="(errors, groupName) in errorFilter.groupedErrors.value"
                     :key="groupName"
-                    :group-name="groupName"
+                    :group-name="String(groupName)"
                     :errors="errors"
                     @navigate="handleNavigateError"
                   />
@@ -615,7 +623,7 @@
     v-model="showPreview"
     :data="result"
     :project-name="graphStore.projectName"
-    :timestamp="new Date().toLocaleString('zh-CN')"
+    :timestamp="new Date().toLocaleString(locale)"
   />
 </template>
 

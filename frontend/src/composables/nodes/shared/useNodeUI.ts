@@ -40,6 +40,7 @@
 
 import { ref, computed, watch, nextTick } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
+import { useI18n } from 'vue-i18n'
 import { useWorkspaceStore } from '@/stores/workspaceStore'
 import type { DataSourceTreeItem } from '@/components/nodes/core/SchemaNode/components/SchemaNodeDataSourceDropdown.vue'
 export interface NodeUIOptions<TColumn extends { id: string; columnName: string }, TDataType> {
@@ -67,6 +68,7 @@ export function useNodeUI<TColumn extends { id: string; columnName: string }, TD
   options: NodeUIOptions<TColumn, TDataType>
 ) {
   const { updateNodeInternals } = useVueFlow()
+  const { t } = useI18n()
 
   /** 是否有列滚动出可视区域 */
   const hasScrolledOutColumns = ref(false)
@@ -279,8 +281,10 @@ export function useNodeUI<TColumn extends { id: string; columnName: string }, TD
     const duplicateErrors = errors.filter((e) => e.includes('重复'))
 
     const parts: string[] = []
-    if (nullErrors.length > 0) parts.push(`${nullErrors.length} 个空值错误`)
-    if (duplicateErrors.length > 0) parts.push(`${duplicateErrors.length} 个重复值错误`)
+    if (nullErrors.length > 0)
+      parts.push(t('common.errorSummary.nullCount', { count: nullErrors.length }))
+    if (duplicateErrors.length > 0)
+      parts.push(t('common.errorSummary.duplicateCount', { count: duplicateErrors.length }))
 
     let summary: string
     let fullMessage: string
@@ -288,13 +292,13 @@ export function useNodeUI<TColumn extends { id: string; columnName: string }, TD
     if (parts.length > 0) {
       summary = parts.join(' + ')
     } else {
-      summary = `${total} 个错误`
+      summary = t('common.errorSummary.total', { count: total })
     }
 
     if (total <= MAX_ERROR_DISPLAY) {
       fullMessage = errors.join('\n')
     } else {
-      fullMessage = `${displayErrors.join('\n')}\n... 共 ${total} 个错误`
+      fullMessage = `${displayErrors.join('\n')}\n${t('common.errorSummary.totalSuffix', { count: total })}`
     }
 
     return { summary, fullMessage }

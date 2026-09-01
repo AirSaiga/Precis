@@ -19,13 +19,14 @@
  *     "dynamicPrefixes": ["inspection.severity.", "constraints.constraintTypes."],
  *     "baselineMissing": [...],   // 已知存量缺失 key（治理前快照），不阻断 CI
  *     "baselineOnlyZh": [...],
- *     "baselineOnlyEn": [...]
+ *     "baselineOnlyEn": [...],
+ *     "unusedBaseline": [...]     // 已知存量未用 key（治理前快照），不阻断 CI
  *   }
  *   - dynamicPrefixes: 代码用 t(`prefix.${var}`) 动态拼接的命名空间前缀，
  *     其下叶子 key 不计入"未用"误报；同时 prefix 本身视为合法引用。
  *   - baseline*: 治理前的存量快照。守卫对"超出 baseline 的新增违规"判定失败，
  *     便于在不被存量阻塞的前提下防止回潮。修复存量后从 baseline 移除即可收紧。
- *   - 用 --update-baseline 运行可把当前 missing/onlyZh/onlyEn 写回 baseline。
+ *   - 用 --update-baseline 运行可把当前 missing/onlyZh/onlyEn/unused 写回 baseline。
  */
 
 import { readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs'
@@ -46,7 +47,7 @@ function loadConfig() {
   try {
     return JSON.parse(readFileSync(configPath, 'utf8'))
   } catch {
-    return { dynamicPrefixes: [], baselineMissing: [], baselineOnlyZh: [], baselineOnlyEn: [] }
+    return { dynamicPrefixes: [], baselineMissing: [], baselineOnlyZh: [], baselineOnlyEn: [], unusedBaseline: [] }
   }
 }
 const config = loadConfig()
@@ -54,6 +55,7 @@ const dynamicPrefixes = config.dynamicPrefixes ?? []
 const baselineMissing = new Set(config.baselineMissing ?? [])
 const baselineOnlyZh = new Set(config.baselineOnlyZh ?? [])
 const baselineOnlyEn = new Set(config.baselineOnlyEn ?? [])
+const baselineUnused = new Set(config.unusedBaseline ?? [])
 
 // ─── 文件遍历 ─────────────────────────────────────────────────────────────────
 function walk(directoryPath, extensions) {
@@ -156,19 +158,52 @@ function isCoveredByDynamicPrefix(key) {
   return dynamicPrefixes.some((p) => key.startsWith(p))
 }
 
+// 未用判定需要的引用证据比"缺失判定"更宽：除 t() 调用点的静态/动态引用外，
+// 还要覆盖 key 以裸字符串形态出现的场景——LocalizedMessage 携带的 key、配置数据里的
+// titleKey/labelKey、`const key = \`ns.section.${x}\`` 后再 t(key) 等。做法：
+// 把全部源码按非 [A-Za-z0-9_.] 字符切 token，完整点路径 token 视为精确引用，
+// 以 '.' 结尾的 token（模板字面量/字符串拼接的前缀段）视为动态前缀引用。
+// 该口径保守（注释里的同名串也算引用），宁可漏报不可误杀。
+function computeUnused(localeKeys, exactTokens, prefixRefs) {
+  return [...localeKeys]
+    .filter(
+      (k) =>
+        !exactTokens.has(k) &&
+        !prefixRefs.some((p) => k.startsWith(p)) &&
+        !isCoveredByDynamicPrefix(k)
+    )
+    .sort()
+}
+
 // ─── 主流程 ────────────────────────────────────────────────────────────────────
 const sourceFiles = walk(srcRoot, ['.ts', '.vue']).filter(
   (f) => !f.includes(path.join('i18n', 'locales')) && !f.includes(path.join('i18n', 'utils'))
 )
 
 const usedKeys = new Set()
+const usedPrefixRefs = []
+const exactTokens = new Set() // 全源码 token（未用判定的宽口径证据）
 for (const f of sourceFiles) {
   const content = readFileSync(f, 'utf8')
-  for (const k of extractUsedKeys(content)) usedKeys.add(k)
+  for (const k of extractUsedKeys(content)) {
+    if (k.endsWith('.')) usedPrefixRefs.push(k)
+    else usedKeys.add(k)
+  }
+  for (const token of content.split(/[^A-Za-z0-9_.]/)) {
+    if (!token) continue
+    if (token.endsWith('.')) usedPrefixRefs.push(token)
+    else exactTokens.add(token)
+  }
 }
 
 const zhKeys = await buildLocaleKeys(path.join(localesRoot, 'zh-CN'))
 const enKeys = await buildLocaleKeys(path.join(localesRoot, 'en-US'))
+
+// 未用：locale 树定义了但代码零引用（宽口径 token 证据 + 动态前缀覆盖均未命中）
+const unusedZh = computeUnused(zhKeys, exactTokens, usedPrefixRefs)
+const unusedEn = computeUnused(enKeys, exactTokens, usedPrefixRefs)
+// 双侧对称是既有守卫保证的，未用基线按"任一侧未用"取并集记录
+const unused = [...new Set([...unusedZh, ...unusedEn])].sort()
 
 // 缺失：代码引用但两侧都没有
 const missing = [...usedKeys]
@@ -188,10 +223,13 @@ if (updateBaseline) {
     baselineMissing: missing,
     baselineOnlyZh: onlyZh,
     baselineOnlyEn: onlyEn,
+    unusedBaseline: unused,
   }
   writeFileSync(configPath, `${JSON.stringify(updated, null, 2)}\n`, 'utf8')
   console.log('✅ baseline 已更新并写入 i18n-audit-exceptions.json')
-  console.log(`   missing: ${missing.length}，onlyZh: ${onlyZh.length}，onlyEn: ${onlyEn.length}`)
+  console.log(
+    `   missing: ${missing.length}，onlyZh: ${onlyZh.length}，onlyEn: ${onlyEn.length}，unused: ${unused.length}`
+  )
   process.exit(0)
 }
 
@@ -200,6 +238,7 @@ if (updateBaseline) {
 const newMissing = missing.filter((k) => !baselineMissing.has(k))
 const newOnlyZh = onlyZh.filter((k) => !baselineOnlyZh.has(k))
 const newOnlyEn = onlyEn.filter((k) => !baselineOnlyEn.has(k))
+const newUnused = unused.filter((k) => !baselineUnused.has(k))
 
 let failed = false
 
@@ -221,6 +260,15 @@ if (onlyEn.length > 0) {
   for (const k of onlyEn) console.error(`   ${baselineOnlyEn.has(k) ? '[baseline]' : '[new]'}     ${k}`)
 }
 
+if (unused.length > 0) {
+  if (newUnused.length > 0) failed = true
+  console.error(`\n⚠️  未用 key（locale 定义但代码零引用，${unused.length} 个）：`)
+  for (const k of unused) {
+    const side = unusedZh.includes(k) && unusedEn.includes(k) ? 'zh/en' : unusedZh.includes(k) ? 'zh   ' : 'en   '
+    console.error(`   ${baselineUnused.has(k) ? '[baseline]' : '[new]'}     [${side}] ${k}`)
+  }
+}
+
 if (failed) {
   console.error('\ni18n key 完整性审查失败：检测到超出 baseline 的新增违规。')
   console.error('修复这些 key，或如属合理存量请运行 `npm run audit:i18n -- --update-baseline` 刷新快照。')
@@ -232,6 +280,6 @@ console.log(
   `引用 key: ${usedKeys.size}，zh-CN 叶子: ${zhKeys.size}，en-US 叶子: ${enKeys.size}`
 )
 console.log(
-  `存量 baseline: missing ${missing.length}/${baselineMissing.size}，onlyZh ${onlyZh.length}/${baselineOnlyZh.size}，onlyEn ${onlyEn.length}/${baselineOnlyEn.size}`
+  `存量 baseline: missing ${missing.length}/${baselineMissing.size}，onlyZh ${onlyZh.length}/${baselineOnlyZh.size}，onlyEn ${onlyEn.length}/${baselineOnlyEn.size}，unused ${unused.length}/${baselineUnused.size}`
 )
 

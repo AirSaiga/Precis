@@ -145,7 +145,7 @@
       v-if="selectedPath.length > 0"
       class="back-button"
       @click="navigateUp()"
-      title="返回上级"
+      :title="t('validation.json.backToParent')"
     >
       <svg viewBox="0 0 24 24" width="14" height="14">
         <path
@@ -157,7 +157,7 @@
           stroke-linejoin="round"
         />
       </svg>
-      返回上级
+      {{ t('validation.json.backToParent') }}
     </button>
   </div>
 </template>
@@ -169,10 +169,12 @@
 
   const { t } = useI18n()
 
-  const props = defineProps<{
+  interface Props {
     data: unknown
     typeInference?: Record<string, string>
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   // 当前选中的路径（如 [0, 'warehouse_data', 'inventory', 2]）
   const selectedPath = ref<(string | number)[]>([])

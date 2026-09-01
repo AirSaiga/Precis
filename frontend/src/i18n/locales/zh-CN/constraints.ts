@@ -8,13 +8,6 @@ const constraintRuleTypeMenu = {
   attribute: '属性约束',
   relation: '关系约束',
   logic: '逻辑约束',
-  notNull: '非空约束',
-  unique: '唯一约束',
-  foreignKey: '外键约束',
-  allowedValues: '允许值约束',
-  scripted: '脚本约束',
-  conditional: '条件约束',
-  composite: '复合约束',
 }
 
 // 约束类型名称/描述的统一单一事实源：
@@ -86,13 +79,6 @@ const config = {
     addTableTooltip: '添加新表',
     noTablesFound: '没有找到任何表。',
     clickToAdd: "点击 '+' 添加一个。",
-  },
-  schemaDetailPanel: {
-    configTitle: '配置: {{ tableName }}',
-    saveTable: '保存此表',
-    basicInfo: '基础信息',
-    scriptChecks: '业务逻辑检查 (Script Checks)',
-    sourceFilename: '源文件名',
   },
   columnEditor: {
     title: '列编辑器',
@@ -213,34 +199,6 @@ const connectionValidation = {
   connectionSuccess: '连接成功',
 }
 
-const connectionRules = {
-  title: '连接规则配置',
-  save: '保存',
-  reset: '重置',
-  addRule: '添加规则',
-  addFirstRule: '添加第一条规则',
-  rulesCount: '共 {count} 条规则',
-  empty: '暂无连接规则',
-  newRule: '新规则',
-  ruleId: '规则 ID',
-  ruleName: '规则名称',
-  sourceEndpoint: '源端点',
-  targetEndpoint: '目标端点',
-  nodeTypes: '节点类型',
-  handles: 'Handle',
-  optional: '可选',
-  handlesPlaceholder: '留空表示不限制，多个用逗号分隔',
-  ruleConfig: '规则配置',
-  allowMultiple: '允许多个连接',
-  validationMode: '验证模式',
-  saved: '规则已保存',
-  saveFailed: '保存失败',
-  resetConfirm: '确定要重置为默认规则吗？当前自定义规则将被覆盖。',
-  resetSuccess: '规则已重置为默认值',
-  resetFailed: '重置失败',
-  deleteConfirm: '确定要删除这条规则吗？',
-}
-
 const connectionModes = {
   strict: '严格模式',
   loose: '宽松模式',
@@ -250,5 +208,4 @@ export { constraintRuleTypeMenu }
 export { constraintTypes }
 export { config }
 export { connectionValidation }
-export { connectionRules }
 export { connectionModes }

@@ -5,7 +5,6 @@
 
 import inspectorConstraints from './inspectorConstraints'
 
-// [2026-05-18] 强制 Vite 重新编译以加载 inspectorConstraints 的最新 key
 const inspector = (() => {
   const base = {
     title: '检查器面板',

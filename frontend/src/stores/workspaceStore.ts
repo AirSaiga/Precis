@@ -119,7 +119,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         'projectRoot:',
         projectRoot
       )
-      throw new Error('数据源路径必须是绝对路径')
+      throw new Error(i18n.global.t('messages.error.dsPathMustBeAbsolute'))
     }
     if (resolvedLocalPath && !isAbsolutePath(resolvedLocalPath)) {
       logger.error(
@@ -129,7 +129,7 @@ export const useWorkspaceStore = defineStore('workspace', () => {
         'projectRoot:',
         projectRoot
       )
-      throw new Error('数据源路径必须是绝对路径')
+      throw new Error(i18n.global.t('messages.error.dsPathMustBeAbsolute'))
     }
 
     // 存储层只保存标准化后的路径
@@ -434,7 +434,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
                 ds.fileId
               )
               ds.status = 'missing'
-              ds.error = '路径解析失败：项目根目录未设置'
+              // 持久化字段存 i18n key（非渲染文本），UI 展示时经 t() 解析
+              ds.error = 'messages.error.dsPathResolveFailed'
               needsSave = true
             }
           }
@@ -450,7 +451,8 @@ export const useWorkspaceStore = defineStore('workspace', () => {
                 ds.localPath
               )
               ds.status = 'missing'
-              ds.error = '路径解析失败：项目根目录未设置'
+              // 持久化字段存 i18n key（非渲染文本），UI 展示时经 t() 解析
+              ds.error = 'messages.error.dsPathResolveFailed'
               needsSave = true
             }
           }

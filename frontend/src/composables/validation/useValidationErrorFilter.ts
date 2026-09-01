@@ -5,6 +5,7 @@
  * 按表/阶段/类型/无分组的能力。
  */
 import { computed, ref, toValue, type MaybeRef } from 'vue'
+import i18n from '@/i18n'
 import type { FullValidationErrorItem } from '@/api/projectValidationApi'
 
 export type ErrorStageFilter = 'all' | 'loading' | 'format' | 'constraint'
@@ -12,6 +13,8 @@ export type ErrorGroupBy = 'table' | 'stage' | 'type' | 'none'
 
 /** @returns stageFilter / groupBy / searchQuery 响应式状态及过滤/分组计算属性 */
 export function useValidationErrorFilter<T extends FullValidationErrorItem>(errors: MaybeRef<T[]>) {
+  // 服务层无 setup 上下文，经全局 composer 取 t（对 locale 切换响应）
+  const t = i18n.global.t
   const stageFilter = ref<ErrorStageFilter>('all')
   const groupBy = ref<ErrorGroupBy>('table')
   const searchQuery = ref('')
@@ -43,7 +46,7 @@ export function useValidationErrorFilter<T extends FullValidationErrorItem>(erro
   const groupedErrors = computed(() => {
     const items = filteredErrors.value
     if (groupBy.value === 'none') {
-      return { 全部错误: items }
+      return { [t('validation.errorGroups.allErrors')]: items }
     }
 
     const groups: Record<string, T[]> = {}
@@ -52,16 +55,19 @@ export function useValidationErrorFilter<T extends FullValidationErrorItem>(erro
       let key: string
       switch (groupBy.value) {
         case 'table':
-          key = item.table || item.source_file?.split(/[\\/]/).pop() || '未知表'
+          key =
+            item.table ||
+            item.source_file?.split(/[\\/]/).pop() ||
+            t('validation.errorGroups.unknownTable')
           break
         case 'stage':
           key = item.stage
           break
         case 'type':
-          key = item.check_type || item.error_type || '未知类型'
+          key = item.check_type || item.error_type || t('validation.errorGroups.unknownType')
           break
         default:
-          key = '全部错误'
+          key = t('validation.errorGroups.allErrors')
       }
 
       if (!groups[key]) {

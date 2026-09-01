@@ -130,6 +130,9 @@ const customNodes = {
     title: '转换节点',
     inputHandle: '输入连接',
     outputHandle: '输出连接',
+    outputRowCount: '{count} 行',
+    outputMoreRows: '+{count} 更多行',
+    connectColumnTitle: '连接列：{name}',
     helpTooltip:
       '数据转换节点：切割字符串、正则提取、数学计算、日期格式化、字典映射、去除空白、大小写转换或文本替换',
     typeLabel: '类型',
@@ -163,6 +166,9 @@ const customNodes = {
       modulo: '取模',
       mapValue: '查表映射',
     },
+  },
+  subSchemaInputNode: {
+    defaultTitle: '输入',
   },
   regexSet: {
     title: '正则表达式集',
@@ -389,6 +395,7 @@ const customNodes = {
       editInInspectorToConfig: '请在属性检查器中配置日期逻辑',
     },
     conditionalConstraintNode: {
+      refColumnSummary: '{op} {column} 列',
       title: '条件约束',
       inputIfHandle: '连接 IF 列（输入）',
       inputThenHandle: '连接 THEN 列（输入）',
@@ -661,6 +668,10 @@ const customNodes = {
     jsonPathPlaceholder: '例如: $.data.items',
     recordPathPlaceholder: '例如: items',
     jsonPathError: 'JSONPath 必须以 "$" 开头',
+    noJsonPath: '嵌套对象格式需要配置 JSONPath 以提取数据数组',
+    httpError: 'HTTP 错误 {status}: {detail}',
+    readFailed: '读取JSON文件失败',
+    loadFailed: '加载失败',
     noData: '暂无数据预览',
     displayingInfo: '显示 {rows} 行 • 共 {total} 行',
     resizeHandle: '拖拽调整显示行数',
@@ -863,14 +874,6 @@ const customNodes = {
   },
 }
 
-const icons = {
-  community: '社区',
-  documentation: '文档',
-  ecosystem: '生态系统',
-  support: '支持',
-  tooling: '工具',
-}
-
 const sourcePreview = {
   title: '数据源预览',
   loading: '加载数据源...',
@@ -882,5 +885,4 @@ const sourcePreview = {
 }
 
 export { customNodes }
-export { icons }
 export { sourcePreview }

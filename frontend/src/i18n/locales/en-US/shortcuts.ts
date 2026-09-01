@@ -135,6 +135,7 @@ const shortcuts = {
     searchPlaceholder: 'Search shortcuts...',
     noResults: 'No shortcuts found',
     resetConfirm: 'Are you sure you want to reset all shortcuts to default?',
+    captureHint: 'Press keys… (Esc to cancel)',
   },
 
   // Table headers

@@ -30,6 +30,7 @@ const validation = {
   },
   // JSON 数据树/源预览
   json: {
+    backToParent: '返回上级',
     searchFieldPlaceholder: '搜索字段...',
     typeMismatchSummary: '{count} 个字段类型与 Schema 定义不匹配',
     viewDetails: '查看',
@@ -99,6 +100,11 @@ const validation = {
     idDuplicate: '列 ID "{id}" 重复',
     jsonPathDuplicate: 'JSONPath "{path}" 重复',
     nestedPathDuplicate: '嵌套路径 "{path}" 重复',
+  },
+  errorGroups: {
+    allErrors: '全部错误',
+    unknownTable: '未知表',
+    unknownType: '未知类型',
   },
 }
 

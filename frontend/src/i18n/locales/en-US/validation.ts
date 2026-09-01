@@ -31,6 +31,7 @@ const validation = {
   },
   // JSON data tree / source preview
   json: {
+    backToParent: 'Back to parent',
     searchFieldPlaceholder: 'Search fields...',
     typeMismatchSummary: '{count} field type(s) do not match the Schema definition',
     viewDetails: 'View',
@@ -105,6 +106,11 @@ const validation = {
     idDuplicate: 'Column ID "{id}" is duplicated',
     jsonPathDuplicate: 'JSONPath "{path}" is duplicated',
     nestedPathDuplicate: 'Nested path "{path}" is duplicated',
+  },
+  errorGroups: {
+    allErrors: 'All errors',
+    unknownTable: 'Unknown table',
+    unknownType: 'Unknown type',
   },
 }
 

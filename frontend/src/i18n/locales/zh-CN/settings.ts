@@ -401,9 +401,6 @@ const settings = {
   shortcuts: {
     description: '查看与熟悉工作区快捷键，提高建模与配置效率。',
   },
-  connectionRules: {
-    description: '管理节点连接规则与画布建模约束。',
-  },
 }
 
 export { settings }

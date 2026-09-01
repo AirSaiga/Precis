@@ -418,9 +418,6 @@ const settings = {
   shortcuts: {
     description: 'Review workspace shortcuts to improve modeling and configuration efficiency.',
   },
-  connectionRules: {
-    description: 'Manage node connection rules and graph modeling constraints.',
-  },
 }
 
 export { settings }

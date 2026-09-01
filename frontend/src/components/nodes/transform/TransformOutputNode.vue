@@ -22,7 +22,7 @@
       color="sky"
       size="md"
       sideOffset="2px"
-      title="Transform output"
+      :title="t('customNodes.transformNode.outputHandle')"
       class="input-handle"
     />
 
@@ -33,7 +33,9 @@
       </div>
       <div class="header-content">
         <div class="node-name">{{ data.columnName }}</div>
-        <div class="node-meta">{{ data.rows.length }} rows</div>
+        <div class="node-meta">
+          {{ t('customNodes.transformNode.outputRowCount', { count: data.rows.length }) }}
+        </div>
       </div>
     </div>
 
@@ -50,7 +52,7 @@
               color="sky"
               size="md"
               sideOffset="2px"
-              :title="`Connect column: ${data.columnName}`"
+              :title="t('customNodes.transformNode.connectColumnTitle', { name: data.columnName })"
               class="column-handle"
             />
           </div>
@@ -64,7 +66,11 @@
         </div>
       </div>
       <div v-if="data.rows.length > maxDisplayRows" class="data-footer">
-        +{{ data.rows.length - maxDisplayRows }} more rows
+        {{
+          t('customNodes.transformNode.outputMoreRows', {
+            count: data.rows.length - maxDisplayRows,
+          })
+        }}
       </div>
     </div>
 
@@ -75,7 +81,7 @@
       :position="Position.Bottom"
       color="success"
       size="sm"
-      title="Transform output"
+      :title="t('customNodes.transformNode.outputHandle')"
       class="table-output-handle"
     />
   </div>
@@ -85,14 +91,19 @@
   import { Position } from '@vue-flow/core'
   import { ref, computed } from 'vue'
   import type { TransformOutputNodeData } from '@/types/nodes'
+  import { useI18n } from 'vue-i18n'
   import NodeHandle from '@/components/ui/NodeHandle.vue'
   import AppIcon from '@/components/icons/AppIcon.vue'
 
-  const props = defineProps<{
+  interface Props {
     id: string
     data: TransformOutputNodeData
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
+
+  const { t } = useI18n()
 
   const nodeWidth = ref(180)
   const maxDisplayRows = 5

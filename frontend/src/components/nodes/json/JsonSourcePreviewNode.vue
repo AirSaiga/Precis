@@ -238,11 +238,13 @@
 
   const { t } = useI18n()
 
-  const props = defineProps<{
+  interface Props {
     id: string
     data: JsonSourcePreviewNodeData
     selected?: boolean
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     dataChanged: [data: JsonSourcePreviewNodeData]
@@ -381,7 +383,7 @@
 
     // object 格式必须提供 JSONPath
     if (localData.value.format === 'object' && !localData.value.jsonPath) {
-      loadError.value = '嵌套对象格式需要配置 JSONPath 以提取数据数组'
+      loadError.value = t('customNodes.jsonSourcePreviewNode.noJsonPath')
       return
     }
 
@@ -425,11 +427,16 @@
             : ((data as Record<string, unknown> | undefined)?.error as string | undefined) ||
               ((data as Record<string, unknown> | undefined)?.message as string | undefined) ||
               (error instanceof Error ? error.message : undefined) ||
-              '未知错误'
-        throw new Error(`HTTP错误 ${status ?? ''}: ${errorText}`.trim())
+              t('common.unknownError')
+        throw new Error(
+          t('customNodes.jsonSourcePreviewNode.httpError', {
+            status: status ?? '',
+            detail: errorText,
+          }).trim()
+        )
       }
       if (!result.success) {
-        throw new Error(result.error || '读取JSON文件失败')
+        throw new Error(result.error || t('customNodes.jsonSourcePreviewNode.readFailed'))
       }
 
       // 更新节点数据 - JSON 使用 raw_data
@@ -458,7 +465,8 @@
         data: localData.value as unknown as Record<string, unknown>,
       })
     } catch (error: unknown) {
-      const errorMessage = error instanceof Error ? error.message : '加载失败'
+      const errorMessage =
+        error instanceof Error ? error.message : t('customNodes.jsonSourcePreviewNode.loadFailed')
       loadError.value = errorMessage
       logger.error('[JsonSourcePreview] 数据加载失败:', error)
     } finally {

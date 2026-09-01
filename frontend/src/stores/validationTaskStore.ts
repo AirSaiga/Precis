@@ -19,9 +19,9 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { ValidationTaskTarget } from '@/api/projectValidationApi'
 
+// display_name 留空：渲染层（useValidationTaskRunner.currentTargetLabel）按 locale 走 t() 兜底
 const defaultTarget: ValidationTaskTarget = {
   type: 'full_project',
-  display_name: '全项目',
 }
 
 export const useValidationTaskStore = defineStore('validationTask', () => {
@@ -57,7 +57,6 @@ export const useValidationTaskStore = defineStore('validationTask', () => {
   function openFullProject(): void {
     open({
       type: 'full_project',
-      display_name: '全项目',
     })
   }
 

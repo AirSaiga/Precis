@@ -371,8 +371,8 @@ export function useResourceContextMenu() {
         // 显式提示而非静默 no-op
         case 'regex_node':
           error(
-            t('assetLibraryExtended.projectView.resourceContext.renameFailedTitle'),
-            '正则节点暂不支持重命名'
+            t('assetLibraryExtended.projectView.resourceContext.regexRenameUnsupported'),
+            t('assetLibraryExtended.projectView.resourceContext.renameFailedTitle')
           )
           return
       }

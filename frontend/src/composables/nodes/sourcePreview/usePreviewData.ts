@@ -431,7 +431,11 @@ export function usePreviewData(
         })
       } else {
         logger.error('本地路径方式重载失败:', responseData.error)
-        toastError(`重载数据失败: ${responseData.error || '未知错误'}`)
+        toastError(
+          t('messages.previewData.reloadFailedWithReason', {
+            reason: responseData.error || t('common.unknownError'),
+          })
+        )
       }
     } catch (error) {
       logger.error('本地路径方式重载错误:', error)

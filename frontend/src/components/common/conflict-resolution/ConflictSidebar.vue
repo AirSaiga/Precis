@@ -246,7 +246,7 @@
   const getResolutionLabel = (res: string | undefined) => {
     if (res === 'original') return t('aiConfigGenerator.conflict.labels.original')
     if (res === 'generated') return t('aiConfigGenerator.conflict.labels.generated')
-    if (res === 'mixed') return '部分应用'
+    if (res === 'mixed') return t('aiConfigGenerator.conflict.labels.mixed')
     return '-'
   }
 </script>

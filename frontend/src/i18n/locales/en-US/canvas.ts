@@ -21,6 +21,8 @@ const canvas = {
   },
   // [Added] NodeCanvas related
   nodeCanvas: {
+    headerChangedRegenerate:
+      'Header row changed. Regenerate column definitions based on the new header "{header}"?',
     title: 'Data Validation System',
     // 空画布引导：画布无业务节点（仅项目根或全空）时在视口中下部显示
     emptyCanvasHint: 'Drag a node from the resource tree or toolbox to start modeling',
@@ -33,7 +35,7 @@ const canvas = {
     projectName: 'Project Name:',
     projectNamePlaceholder: 'e.g., MyValidationProject',
     folderPath: 'Folder Path:',
-    folderPathPlaceholder: 'e.g., /Users/AirSaiga/Projects',
+    folderPathPlaceholder: 'e.g., ~/Projects/precis-data',
     create: 'Create',
     confirm: 'Confirm',
     cancel: 'Cancel',
@@ -132,6 +134,11 @@ const canvas = {
       },
     },
   },
+  connection: {
+    targetPortMismatch:
+      'Constraint connection target port mismatch, please connect to a valid input port',
+    createFailedRolledBack: 'Connection failed, changes were rolled back: {error}',
+  },
   // Sub-Canvas (SubCanvasModal)
   subCanvas: {
     save: 'Save',
@@ -141,28 +148,12 @@ const canvas = {
 }
 
 const nodeTypeMenu = {
-  title: 'Node Type',
-  columnDefinition: 'Column Definition Node',
-  tableDefinition: 'Table Definition Node',
-  schemaNode: 'Schema Node',
-  constraintRuleNode: 'Constraint Rule Node',
-  // P3 术语微调：工具箱分组标题从开发者视角的"Core Components"改为用户视角的"Node Library"
+  // P3 术语微调：工具箱分组标题从开发者视角的"核心组件"改为用户视角的"节点库"
   coreComponents: 'Node Library',
   projectRoot: 'Project Root',
 }
 
 const statusBar = {
-  ready: 'Ready',
-  loading: 'Loading...',
-  saving: 'Saving...',
-  error: 'Error',
-  connected: 'Connected',
-  disconnected: 'Disconnected',
-  schema: 'Schema',
-  constraint: 'Constraint',
-  regex: 'Regex',
-  transforms: 'Transforms',
-  noProject: 'No project open',
   // 校验全绿时刻：状态栏成功计数（AppStatusBar 监听 full-validation-all-pass 显示）
   allPass: 'All passed · {count} checks',
 }

@@ -331,6 +331,7 @@ const aiConfigGenerator = {
       confirm: '确认应用',
     },
     summary: '总计保留 {original} 项，使用生成 {generated} 项',
+    summaryMixed: '(+{count} 部分应用)',
     changesCount: '{count} 处变更',
     stats: {
       useGenerated: '使用生成',

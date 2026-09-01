@@ -166,7 +166,7 @@
     hover: [dataSourceId: string | null]
   }>()
 
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
 
   /**
    * 获取数据源文件大小
@@ -194,7 +194,7 @@
    */
   const formatDate = (dateString: string): string => {
     const date = new Date(dateString)
-    return date.toLocaleDateString('zh-CN', {
+    return date.toLocaleDateString(locale.value, {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',

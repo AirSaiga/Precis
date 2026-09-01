@@ -20,6 +20,7 @@ const canvas = {
   },
   // [新增] NodeCanvas相关
   nodeCanvas: {
+    headerChangedRegenerate: '检测到表头已变更，是否基于新表头 "{header}" 重新生成列定义？',
     title: '校验工程系统',
     // 空画布引导：画布无业务节点（仅项目根或全空）时在视口中下部显示
     emptyCanvasHint: '从左侧资源树或工具箱拖入节点开始建模',
@@ -32,7 +33,7 @@ const canvas = {
     projectName: '项目名称:',
     projectNamePlaceholder: '例如: MyValidationProject',
     folderPath: '文件夹路径:',
-    folderPathPlaceholder: '例如: /Users/AirSaiga/Projects',
+    folderPathPlaceholder: '例如: ~/Projects/precis-data',
     create: '新建',
     confirm: '确定',
     cancel: '取消',
@@ -126,6 +127,10 @@ const canvas = {
       },
     },
   },
+  connection: {
+    targetPortMismatch: '约束连接目标端口不匹配，请连接到正确的输入端口',
+    createFailedRolledBack: '连接创建失败，已自动回滚: {error}',
+  },
   // 子画布（SubCanvasModal）
   subCanvas: {
     save: '保存',
@@ -135,28 +140,12 @@ const canvas = {
 }
 
 const nodeTypeMenu = {
-  title: '节点类型',
-  columnDefinition: '列定义节点',
-  tableDefinition: '表定义节点',
-  schemaNode: '架构节点',
-  constraintRuleNode: '约束规则节点',
   // P3 术语微调：工具箱分组标题从开发者视角的"核心组件"改为用户视角的"节点库"
   coreComponents: '节点库',
   projectRoot: '项目根节点',
 }
 
 const statusBar = {
-  ready: '就绪',
-  loading: '加载中...',
-  saving: '保存中...',
-  error: '错误',
-  connected: '已连接',
-  disconnected: '已断开连接',
-  schema: 'Schema',
-  constraint: '约束',
-  regex: '正则',
-  transforms: '转换节点',
-  noProject: '未打开项目',
   // 校验全绿时刻：状态栏成功计数（AppStatusBar 监听 full-validation-all-pass 显示）
   allPass: '全部通过 · {count} 项',
 }

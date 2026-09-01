@@ -336,6 +336,7 @@ const aiConfigGenerator = {
       confirm: 'Confirm',
     },
     summary: 'Total: keep {original} original, use {generated} generated',
+    summaryMixed: '(+{count} partially applied)',
     changesCount: '{count} changes',
     stats: {
       useGenerated: 'Use Generated',

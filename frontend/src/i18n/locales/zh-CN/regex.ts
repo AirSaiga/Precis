@@ -3,21 +3,6 @@
  * @description 国际化语言包子模块（由 index.ts 拆分生成）
  */
 
-const regexCreationModal = {
-  title: '创建正则表达式',
-  name: '正则表达式名称',
-  pattern: '正则表达式模式',
-  description: '描述',
-  testString: '测试字符串',
-  testResult: '测试结果',
-  isValid: '有效',
-  isInvalid: '无效',
-  save: '保存',
-  cancel: '取消',
-  ruleNameRequired: '请输入规则名称',
-  regexRequired: '请输入正则表达式',
-}
-
 const regexDesignModal = {
   title: '正则表达式设计',
   selectOrAddRule: '选择或添加一个规则',
@@ -129,7 +114,6 @@ const regexValidation = {
   errorsCount: '正则校验：{count} 个错误',
 }
 
-export { regexCreationModal }
 export { regexDesignModal }
 export { regexExtractDesignModal }
 export { expression }

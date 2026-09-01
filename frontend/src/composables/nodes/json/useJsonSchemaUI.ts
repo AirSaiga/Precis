@@ -27,6 +27,7 @@
 
 import { ref, computed, nextTick, onMounted, onBeforeUnmount } from 'vue'
 import { useVueFlow } from '@vue-flow/core'
+import { useI18n } from 'vue-i18n'
 import type { JsonSchemaNodeData, JsonSchemaColumn, JsonDataType } from '@/types/nodes'
 import { useNodeUI } from '@/composables/nodes/shared/useNodeUI'
 /**
@@ -41,6 +42,7 @@ export function useJsonSchemaUI(props: {
   selected?: boolean
 }) {
   const { updateNodeInternals } = useVueFlow()
+  const { t } = useI18n()
 
   /**
    * 展开的列ID集合（用于树形结构）
@@ -149,9 +151,12 @@ export function useJsonSchemaUI(props: {
     const pathErrors = errors.filter((e) => e.includes('path') || e.includes('路径'))
 
     const parts: string[] = []
-    if (nullErrors.length > 0) parts.push(`${nullErrors.length} 个空值错误`)
-    if (typeErrors.length > 0) parts.push(`${typeErrors.length} 个类型错误`)
-    if (pathErrors.length > 0) parts.push(`${pathErrors.length} 个路径错误`)
+    if (nullErrors.length > 0)
+      parts.push(t('common.errorSummary.nullCount', { count: nullErrors.length }))
+    if (typeErrors.length > 0)
+      parts.push(t('common.errorSummary.typeCount', { count: typeErrors.length }))
+    if (pathErrors.length > 0)
+      parts.push(t('common.errorSummary.pathCount', { count: pathErrors.length }))
 
     let summary: string
     let fullMessage: string
@@ -159,13 +164,13 @@ export function useJsonSchemaUI(props: {
     if (parts.length > 0) {
       summary = parts.join(' + ')
     } else {
-      summary = `${total} 个错误`
+      summary = t('common.errorSummary.total', { count: total })
     }
 
     if (total <= MAX_ERROR_DISPLAY) {
       fullMessage = errors.join('\n')
     } else {
-      fullMessage = `${displayErrors.join('\n')}\n... 共 ${total} 个错误`
+      fullMessage = `${displayErrors.join('\n')}\n${t('common.errorSummary.totalSuffix', { count: total })}`
     }
 
     return { summary, fullMessage }

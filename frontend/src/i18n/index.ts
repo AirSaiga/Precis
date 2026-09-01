@@ -50,5 +50,4 @@ export const i18n = createI18n({
 // 仅供单测使用:暴露纯函数 getInitialLocale 以便直接验证 localStorage 恢复逻辑
 export const __getInitialLocaleForTest = getInitialLocale
 
-// [2026-05-18] force rebuild
 export default i18n

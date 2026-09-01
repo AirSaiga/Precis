@@ -74,6 +74,7 @@ const assetLibraryExtended = {
       renameTitle: 'Rename Resource',
       renameLabel: 'Name',
       renameFailedTitle: 'Rename Failed',
+      regexRenameUnsupported: 'Regex nodes do not support renaming yet',
       deleteFailedTitle: 'Delete Failed',
       deleteConfirm: 'Delete "{name}"? This action cannot be undone.',
       addToManifestFailedTitle: 'Failed to Add to Manifest',

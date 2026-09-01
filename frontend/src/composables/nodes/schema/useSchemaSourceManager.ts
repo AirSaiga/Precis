@@ -15,7 +15,6 @@ import { syncSchemaResources } from '@/services/schemaResourceSync'
 import { triggerValidationForNode } from '@/services/constraints/orchestration/globalValidation'
 import type { SchemaNodeData, SourcePreviewNodeData } from '@/types/graph'
 import type { CustomNode, SchemaColumn } from '@/types/nodes'
-import type { AnyRecord } from '@/types/utility'
 
 export function useSchemaSourceManager(
   props: { id: string; data: SchemaNodeData },
@@ -59,7 +58,7 @@ export function useSchemaSourceManager(
       columns,
     }
 
-    store.updateNodeData(schemaNode.id, updatedSchemaData as unknown as Partial<SchemaNodeData>)
+    store.updateNodeData(schemaNode.id, updatedSchemaData)
     logger.debug(`✅ 智能列生成完成！共 ${columns.length} 列`)
   }
 
@@ -83,7 +82,7 @@ export function useSchemaSourceManager(
     if (sourceFile && sourceFilePath) {
       const shouldRegenerate = await showConfirm({
         title: t('common.confirmDialog.title'),
-        message: `检测到表头已变更，是否基于新表头 "${headerData.join(', ')}" 重新生成列定义？`,
+        message: t('canvas.nodeCanvas.headerChangedRegenerate', { header: headerData.join(', ') }),
         confirmText: t('common.confirm'),
         cancelText: t('common.cancel'),
         type: 'warning',
@@ -98,14 +97,14 @@ export function useSchemaSourceManager(
   /**
    * 从工作表变更更新 Schema 节点
    */
-  const updateSchemaNodeFromSheetChange = (schemaNodeId: string, sheetData: AnyRecord) => {
+  const updateSchemaNodeFromSheetChange = (schemaNodeId: string, sheetData: unknown) => {
     const schemaNode = store.nodes.find((n) => n.id === schemaNodeId)
     if (!schemaNode) {
       logger.warn(`Schema 节点 ${schemaNodeId} 不存在`)
       return
     }
 
-    const sourceData = sheetData as unknown as SourcePreviewNodeData
+    const sourceData = sheetData as SourcePreviewNodeData
 
     if (!sourceData.data || sourceData.data.length === 0) {
       logger.warn('工作表数据为空')
@@ -133,7 +132,7 @@ export function useSchemaSourceManager(
       sheetName: sourceData.currentSheet,
     }
 
-    store.updateNodeData(schemaNodeId, updatedSchemaData as unknown as Partial<SchemaNodeData>)
+    store.updateNodeData(schemaNodeId, updatedSchemaData)
     logger.debug(`✅ Schema "${smartTableName}" 已更新`)
 
     // 3. 智能列生成判断逻辑
@@ -194,8 +193,8 @@ export function useSchemaSourceManager(
         schemaNodeId,
         Array.from(store.nodes),
         Array.from(store.edges),
-        (nodeId: string, data: AnyRecord) => {
-          store.updateNodeData(nodeId, data as unknown as Partial<SchemaNodeData>)
+        (nodeId, data) => {
+          store.updateNodeData(nodeId, data)
         }
       )
     }
@@ -207,9 +206,8 @@ export function useSchemaSourceManager(
 
   const generic = useNodeSourceManager<SchemaNodeData>(props, emit, {
     sourceNodeType: 'sourcePreview',
-    schemaNodePrefix: 'schema-',
     extractMetadata: (_sourceNodeId, sourceData) => {
-      const previewData = sourceData as unknown as SourcePreviewNodeData
+      const previewData = sourceData as SourcePreviewNodeData
       const displayFileName = previewData.sourceName || previewData.fileName || 'Unknown'
       const smartTableName =
         previewData.currentSheet ||
@@ -252,15 +250,6 @@ export function useSchemaSourceManager(
       if (!headerRow) return undefined
       return headerRow.map((h: unknown) => String(h).trim())
     },
-    disconnectFields: [
-      'sourceFile',
-      'sourceFilePath',
-      'sourceType',
-      'headerRow',
-      'sheetName',
-      'sourceMode',
-      'localPath',
-    ],
     onSourceDataChanged: (data) => updateSchemaNodeFromSheetChange(props.id, data),
     nodeLabel: 'Schema',
     onSourceConnected: () => syncSchemaResources(props.id, { graphStore: store, projectStore }),

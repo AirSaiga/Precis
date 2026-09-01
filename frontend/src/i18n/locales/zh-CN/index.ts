@@ -8,20 +8,18 @@ import shortcuts from './shortcuts'
 import inspection from './inspection'
 import feedback from './feedback'
 
-import { app, navigation, dashboard, assetLibrary } from './core'
+import { navigation, assetLibrary } from './core'
 import { canvas, nodeTypeMenu, statusBar } from './canvas'
 import { inspector, fallbackInspector } from './inspector'
-import { customNodes, icons, sourcePreview } from './nodes'
+import { customNodes, sourcePreview } from './nodes'
 import {
   constraintRuleTypeMenu,
   constraintTypes,
   config,
   connectionValidation,
-  connectionRules,
   connectionModes,
 } from './constraints'
 import {
-  regexCreationModal,
   regexDesignModal,
   regexExtractDesignModal,
   expression,
@@ -29,7 +27,7 @@ import {
   regexValidation,
 } from './regex'
 import { assetLibraryExtended } from './assetLibrary'
-import { welcome, messages, startupLoading } from './messages'
+import { messages, startupLoading } from './messages'
 import { settings } from './settings'
 import { aiChat, aiConfigGenerator } from './ai'
 import { template } from './template'
@@ -38,11 +36,8 @@ import { factories } from './factories'
 import { validationHistory } from './validationHistory'
 import { validation } from './validation'
 
-// force rebuild: 2026-05-18
 const zhCN = {
-  app,
   navigation,
-  dashboard,
   assetLibrary,
   canvas,
   nodeTypeMenu,
@@ -50,22 +45,18 @@ const zhCN = {
   inspector,
   fallbackInspector,
   customNodes,
-  icons,
   sourcePreview,
   constraintRuleTypeMenu,
   constraintTypes,
   config,
   connectionValidation,
-  connectionRules,
   connectionModes,
-  regexCreationModal,
   regexDesignModal,
   regexExtractDesignModal,
   expression,
   expressions,
   regexValidation,
   assetLibraryExtended,
-  welcome,
   messages,
   startupLoading,
   settings,

@@ -70,6 +70,7 @@ const assetLibraryExtended = {
       renameTitle: '重命名资源',
       renameLabel: '名称',
       renameFailedTitle: '重命名失败',
+      regexRenameUnsupported: '正则节点暂不支持重命名',
       deleteFailedTitle: '删除失败',
       deleteConfirm: '确定要删除"{name}"吗？该操作不可撤销。',
       addToManifestFailedTitle: '加入清单失败',

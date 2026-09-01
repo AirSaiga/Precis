@@ -3,32 +3,9 @@
  * @description 国际化语言包子模块（由 index.ts 拆分生成）
  */
 
-const welcome = {
-  title: 'Welcome to DataValidator',
-  subtitle: 'Data Validation and Constraint Management Platform',
-  description:
-    'This is a modern data validation tool based on Vue 3 and TypeScript, helping you define, manage and execute data constraint rules.',
-  features: [
-    'Visual data schema design',
-    'Flexible constraint rule definition',
-    'Real-time data validation',
-    'Detailed validation reports',
-  ],
-  getStarted: 'Get Started',
-  learnMore: 'Learn More',
-}
-
 const messages = {
   success: {
-    projectLoaded: 'Project loaded successfully',
-    configSaved: 'Configuration saved successfully',
-    validationStarted: 'Validation started',
-    validationCompleted: 'Validation completed',
-    fileUploaded: 'File uploaded successfully',
     expressionSaved: 'Expression rules saved!',
-    saved: 'Saved successfully',
-    deleted: 'Deleted successfully',
-    copied: 'Copied successfully',
   },
   error: {
     loadResourceFailed: 'Failed to load resources',
@@ -39,6 +16,9 @@ const messages = {
     validationFailed: 'Validation failed',
     networkError: 'Network error',
     unknownError: 'Unknown error',
+    dsPathMustBeAbsolute: 'Data source path must be an absolute path',
+    dsPathResolveFailed: 'Path resolution failed: project root is not set',
+    noSchemaNodeOnCanvas: 'No Schema node found on the canvas',
     projectNotFound:
       'Directory is missing project.precis.yaml manifest. Please create a new project or select a valid project directory.\n{path}',
   },
@@ -100,6 +80,7 @@ const messages = {
     reloadInvalidPath: 'Failed to reload data, please check if the file path is correct',
     reloadErrorWithPath:
       'Error occurred while reloading data, please check if the file path is correct',
+    reloadFailedWithReason: 'Failed to reload data: {reason}',
   },
   canvas: {
     newTable: 'New Table',
@@ -184,6 +165,5 @@ const startupLoading = {
   continueWithoutBackend: 'Backend is starting slowly. Entered app (you can retry later).',
 }
 
-export { welcome }
 export { messages }
 export { startupLoading }

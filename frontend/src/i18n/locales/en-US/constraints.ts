@@ -8,13 +8,6 @@ const constraintRuleTypeMenu = {
   attribute: 'Attribute',
   relation: 'Relation',
   logic: 'Logic',
-  notNull: 'Not Null Constraint',
-  unique: 'Unique Constraint',
-  foreignKey: 'Foreign Key Constraint',
-  allowedValues: 'Allowed Values Constraint',
-  scripted: 'Script Constraint',
-  conditional: 'Conditional Constraint',
-  composite: 'Composite Constraint',
 }
 
 // Single source of truth for constraint type name/description:
@@ -85,13 +78,6 @@ const config = {
     addTableTooltip: 'Add new table',
     noTablesFound: 'No tables found.',
     clickToAdd: "Click '+' to add one.",
-  },
-  schemaDetailPanel: {
-    configTitle: 'Configuration: {{ tableName }}',
-    saveTable: 'Save This Table',
-    basicInfo: 'Basic Information',
-    scriptChecks: 'Business Logic Checks (Script Checks)',
-    sourceFilename: 'Source Filename',
   },
   columnEditor: {
     title: 'Column Editor',
@@ -212,35 +198,6 @@ const connectionValidation = {
   connectionSuccess: 'Connection successful',
 }
 
-const connectionRules = {
-  title: 'Connection Rules Configuration',
-  save: 'Save',
-  reset: 'Reset',
-  addRule: 'Add Rule',
-  addFirstRule: 'Add First Rule',
-  rulesCount: '{count} rules',
-  empty: 'No connection rules',
-  newRule: 'New Rule',
-  ruleId: 'Rule ID',
-  ruleName: 'Rule Name',
-  sourceEndpoint: 'Source Endpoint',
-  targetEndpoint: 'Target Endpoint',
-  nodeTypes: 'Node Types',
-  handles: 'Handles',
-  optional: 'optional',
-  handlesPlaceholder: 'Leave empty for no limit, comma-separated for multiple',
-  ruleConfig: 'Rule Configuration',
-  allowMultiple: 'Allow Multiple Connections',
-  validationMode: 'Validation Mode',
-  saved: 'Rules saved successfully',
-  saveFailed: 'Failed to save rules',
-  resetConfirm:
-    'Are you sure you want to reset to default rules? Custom rules will be overwritten.',
-  resetSuccess: 'Rules reset to defaults',
-  resetFailed: 'Reset failed',
-  deleteConfirm: 'Are you sure you want to delete this rule?',
-}
-
 const connectionModes = {
   strict: 'Strict Mode',
   loose: 'Loose Mode',
@@ -250,5 +207,4 @@ export { constraintRuleTypeMenu }
 export { constraintTypes }
 export { config }
 export { connectionValidation }
-export { connectionRules }
 export { connectionModes }

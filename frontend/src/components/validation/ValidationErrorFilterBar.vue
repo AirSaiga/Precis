@@ -2,11 +2,13 @@
   import { computed, ref, onMounted, onUnmounted } from 'vue'
   import { useI18n } from 'vue-i18n'
 
-  const props = defineProps<{
+  interface Props {
     stageFilter: 'all' | 'loading' | 'format' | 'constraint'
     groupBy: 'table' | 'stage' | 'type' | 'none'
     searchQuery: string
-  }>()
+  }
+
+  const props = defineProps<Props>()
 
   const emit = defineEmits<{
     (e: 'update:stageFilter', value: 'all' | 'loading' | 'format' | 'constraint'): void
@@ -104,7 +106,7 @@
       </div>
 
       <div class="fv-stage-filter">
-        <span class="fv-filter-label">阶段</span>
+        <span class="fv-filter-label">{{ t('common.fullValidation.stageLabel') }}</span>
         <div class="fv-stage-chips">
           <button
             v-for="opt in stageOptions"

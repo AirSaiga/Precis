@@ -297,6 +297,8 @@ const common = {
     open: 'Open Validation Task Panel',
     title: 'Full Validation',
     openSettings: 'Open Settings',
+    tablesLoaded: 'Table {count}',
+    stageLabel: 'Stage',
     task: {
       subtitle:
         'Complete preparation, execution, and result review in one task panel. Future table/file validation will reuse the same model.',
@@ -626,6 +628,15 @@ const common = {
     saveAndLoad: 'Save & Switch',
     discardAndLoad: 'Discard & Switch',
     cancel: 'Cancel',
+  },
+  errorSummary: {
+    nullCount: '{count} empty-value errors',
+    duplicateCount: '{count} duplicate-value errors',
+    jsonPathCount: '{count} JSONPath errors',
+    pathCount: '{count} path errors',
+    typeCount: '{count} type errors',
+    total: '{count} errors',
+    totalSuffix: '... {count} errors in total',
   },
 }
 
